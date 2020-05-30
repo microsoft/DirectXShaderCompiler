@@ -11,6 +11,7 @@
 #include "dxc/DXIL/DxilMetadataHelper.h"
 #include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/DXIL/DxilCBuffer.h"
+#include "dxc/DXIL/DxilCounters.h"
 #include "dxc/DXIL/DxilResource.h"
 #include "dxc/DXIL/DxilSampler.h"
 #include "dxc/DXIL/DxilSignatureElement.h"
@@ -66,6 +67,9 @@ const char DxilMDHelper::kDxilSourceContentsMDName[]                  = "dx.sour
 const char DxilMDHelper::kDxilSourceDefinesMDName[]                   = "dx.source.defines";
 const char DxilMDHelper::kDxilSourceMainFileNameMDName[]              = "dx.source.mainFileName";
 const char DxilMDHelper::kDxilSourceArgsMDName[]                      = "dx.source.args";
+
+// This is reflection-only metadata
+const char DxilMDHelper::kDxilCountersMDName[]                        = "dx.counters";
 
 static std::array<const char *, 7> DxilMDNames = { {
   DxilMDHelper::kDxilVersionMDName,
@@ -2058,6 +2062,72 @@ void DxilMDHelper::LoadDxilASState(const MDOperand &MDO, unsigned *NumThreads, u
   NumThreads[2] = ConstMDToUint32(pNode->getOperand(2));
   payloadSizeInBytes = ConstMDToUint32(pTupleMD->getOperand(kDxilASStatePayloadSizeInBytes));
 }
+
+void DxilMDHelper::AddCounterIfNonZero(uint32_t value, StringRef name, vector<Metadata*> &MDVals) {
+  if (value) {
+    MDVals.emplace_back(MDString::get(m_Ctx, name));
+    MDVals.emplace_back(Uint32ToConstMD(value));
+  }
+}
+
+void DxilMDHelper::EmitDxilCounters(const DxilCounters &counters) {
+  NamedMDNode *pDxilCountersMD = m_pModule->getNamedMetadata(kDxilCountersMDName);
+  if (pDxilCountersMD)
+    m_pModule->eraseNamedMetadata(pDxilCountersMD);
+
+  vector<Metadata*> MDVals;
+  // <py::lines('OPCODE-COUNTERS')>['AddCounterIfNonZero(counters.%s, "%s", MDVals);' % (c,c) for c in hctdb_instrhelp.get_counters()]</py>
+  // OPCODE-COUNTERS:BEGIN
+  AddCounterIfNonZero(counters.array_local_bytes, "array_local_bytes", MDVals);
+  AddCounterIfNonZero(counters.array_local_ldst, "array_local_ldst", MDVals);
+  AddCounterIfNonZero(counters.array_static_bytes, "array_static_bytes", MDVals);
+  AddCounterIfNonZero(counters.array_static_ldst, "array_static_ldst", MDVals);
+  AddCounterIfNonZero(counters.array_tgsm_bytes, "array_tgsm_bytes", MDVals);
+  AddCounterIfNonZero(counters.array_tgsm_ldst, "array_tgsm_ldst", MDVals);
+  AddCounterIfNonZero(counters.atomic, "atomic", MDVals);
+  AddCounterIfNonZero(counters.barrier, "barrier", MDVals);
+  AddCounterIfNonZero(counters.branches, "branches", MDVals);
+  AddCounterIfNonZero(counters.fence, "fence", MDVals);
+  AddCounterIfNonZero(counters.floats, "floats", MDVals);
+  AddCounterIfNonZero(counters.gs_cut, "gs_cut", MDVals);
+  AddCounterIfNonZero(counters.gs_emit, "gs_emit", MDVals);
+  AddCounterIfNonZero(counters.insts, "insts", MDVals);
+  AddCounterIfNonZero(counters.ints, "ints", MDVals);
+  AddCounterIfNonZero(counters.sig_ld, "sig_ld", MDVals);
+  AddCounterIfNonZero(counters.sig_st, "sig_st", MDVals);
+  AddCounterIfNonZero(counters.tex_bias, "tex_bias", MDVals);
+  AddCounterIfNonZero(counters.tex_cmp, "tex_cmp", MDVals);
+  AddCounterIfNonZero(counters.tex_grad, "tex_grad", MDVals);
+  AddCounterIfNonZero(counters.tex_load, "tex_load", MDVals);
+  AddCounterIfNonZero(counters.tex_norm, "tex_norm", MDVals);
+  AddCounterIfNonZero(counters.tex_store, "tex_store", MDVals);
+  AddCounterIfNonZero(counters.uints, "uints", MDVals);
+  // OPCODE-COUNTERS:END
+
+  if (MDVals.size()) {
+    pDxilCountersMD = m_pModule->getOrInsertNamedMetadata(kDxilCountersMDName);
+    pDxilCountersMD->addOperand(MDNode::get(m_Ctx, MDVals));
+  }
+}
+
+void DxilMDHelper::LoadCounterMD(const MDOperand &MDName, const MDOperand &MDValue, DxilCounters &counters) const {
+  StringRef name = StringMDToStringRef(MDName);
+  uint32_t value = ConstMDToUint32(MDValue);
+  uint32_t *counter = LookupByName(name, counters);
+  if (counter)
+    *counter = value;
+}
+
+void DxilMDHelper::LoadDxilCounters(DxilCounters &counters) const {
+  ZeroMemory(&counters, sizeof(counters));
+  if (NamedMDNode *pDxilCountersMD = m_pModule->getNamedMetadata(kDxilCountersMDName)) {
+    MDNode *pMDCounters = pDxilCountersMD->getOperand(0);
+    for (unsigned i = 0; i < pMDCounters->getNumOperands(); i += 2) {
+      LoadCounterMD(pMDCounters->getOperand(i), pMDCounters->getOperand(i+1), counters);
+    }
+  }
+}
+
 
 //
 // DxilExtraPropertyHelper methods.

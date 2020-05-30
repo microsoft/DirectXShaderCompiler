@@ -18,6 +18,7 @@
 #include "dxc/DXIL/DxilEntryProps.h"
 #include "dxc/DXIL/DxilSubobject.h"
 #include "dxc/DXIL/DxilInstructions.h"
+#include "dxc/DXIL/DxilCounters.h"
 
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
@@ -1304,6 +1305,7 @@ void DxilModule::ClearDxilMetadata(Module &M) {
       name == DxilMDHelper::kDxilTypeSystemMDName ||
       name == DxilMDHelper::kDxilViewIdStateMDName ||
       name == DxilMDHelper::kDxilSubobjectsMDName ||
+      name == DxilMDHelper::kDxilCountersMDName ||
       name.startswith(DxilMDHelper::kDxilTypeSystemHelperVariablePrefix)) {
       nodes.push_back(&b);
     }
@@ -1559,6 +1561,16 @@ void DxilModule::ReEmitDxilResources() {
   ClearDxilMetadata(*m_pModule);
   EmitDxilMetadata();
 }
+
+void DxilModule::EmitDxilCounters() {
+  DxilCounters counters = {};
+  hlsl::CountInstructions(*m_pModule, counters);
+  m_pMDHelper->EmitDxilCounters(counters);
+}
+void DxilModule::LoadDxilCounters(DxilCounters &counters) const {
+  m_pMDHelper->LoadDxilCounters(counters);
+}
+
 
 template <typename TResource>
 static bool

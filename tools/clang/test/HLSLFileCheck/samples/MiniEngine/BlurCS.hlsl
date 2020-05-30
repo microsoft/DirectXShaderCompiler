@@ -1,4 +1,5 @@
 // RUN: %dxc -E main -T cs_6_0 %s | FileCheck %s
+// RUN: %dxc -E main -T cs_6_0 %s | %D3DReflect %s | FileCheck -check-prefix=REFL %s
 
 // CHECK: groupId
 // CHECK: threadIdInGroup
@@ -137,3 +138,17 @@ void main( uint3 Gid : SV_GroupID, uint3 GTid : SV_GroupThreadID, uint3 DTid : S
 	//
 	BlurVertically(DTid.xy, (GTid.y << 3) + GTid.x);
 }
+
+// Note: TGSM is counted as part of temp array for now.
+// REFL: TempArrayCount: 1536
+// REFL: DynamicFlowControlCount: 0
+// REFL: ArrayInstructionCount: 54
+// REFL: TextureLoadInstructions: 4
+// REFL: TextureCompInstructions: 0
+// REFL: TextureBiasInstructions: 0
+// REFL: TextureGradientInstructions: 0
+// REFL: CutInstructionCount: 0
+// REFL: EmitInstructionCount: 0
+// REFL: cBarrierInstructions: 2
+// REFL: cInterlockedInstructions: 0
+// REFL: cTextureStoreInstructions: 1

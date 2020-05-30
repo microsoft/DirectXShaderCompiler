@@ -55,6 +55,7 @@ class RootSignatureHandle;
 struct DxilFunctionProps;
 class DxilSubobjects;
 class DxilSubobject;
+struct DxilCounters;
 
 // Additional debug information for SROA'ed array variables,
 // where adjacent elements in DXIL might not have been adjacent
@@ -88,6 +89,10 @@ public:
   // Intermediate codegen/optimizer options, not valid in final DXIL module.
   static const char kDxilIntermediateOptionsMDName[];
   static const unsigned kDxilIntermediateOptionsFlags = 0;  // Unique element ID.
+
+  // DxilCounters
+  static const char kDxilCountersMDName[];
+  // !{!"<counter>", i32 <count>, !"<counter>", i32 <count>, ...}
 
   // Entry points.
   static const char kDxilEntryPointsMDName[];
@@ -431,6 +436,10 @@ public:
   // Extra metadata present
   bool HasExtraMetadata() { return m_bExtraMetadata; }
 
+  // Instruction Counters
+  void EmitDxilCounters(const DxilCounters &counters);
+  void LoadDxilCounters(DxilCounters &counters) const;
+
   // Shader specific.
 private:
   llvm::MDTuple *EmitDxilGSState(DXIL::InputPrimitive Primitive, unsigned MaxVertexCount, 
@@ -473,6 +482,9 @@ private:
 
   llvm::MDTuple *EmitDxilASState(const unsigned *NumThreads, unsigned payloadSizeInBytes);
   void LoadDxilASState(const llvm::MDOperand &MDO, unsigned *NumThreads, unsigned &payloadSizeInBytes);
+
+  void AddCounterIfNonZero(uint32_t value, llvm::StringRef name, std::vector<llvm::Metadata*> &MDVals);
+  void LoadCounterMD(const llvm::MDOperand &MDName, const llvm::MDOperand &MDValue, DxilCounters &counters) const;
 public:
   // Utility functions.
   static bool IsKnownNamedMetaData(const llvm::NamedMDNode &Node);

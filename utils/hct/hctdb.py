@@ -23,6 +23,20 @@ all_stages = (
     'amplification',
     )
 
+# These counters aren't collected directly from instructions,
+# so they need to be added manually so they can be accessed
+# with custom code in DxilCounters.cpp.
+extra_counters = [
+    'insts',
+    'branches',
+    'array_tgsm_bytes',
+    'array_static_bytes',
+    'array_local_bytes',
+    'array_tgsm_ldst',
+    'array_static_ldst',
+    'array_local_ldst',
+    ]
+
 class db_dxil_enum_value(object):
     "A representation for a value in an enumeration type"
     def __init__(self, name, value, doc):
@@ -77,6 +91,7 @@ class db_dxil_inst(object):
         self.is_dxil_op = self.dxil_op != "" # whether this is a DXIL operation
         self.is_reserved = self.dxil_class == "Reserved"
         self.shader_model_translated = () # minimum shader model required with translation by linker
+        self.props = {}                 # extra properties
 
     def __str__(self):
         return self.name
@@ -159,6 +174,9 @@ class db_dxil(object):
         self.name_idx = {}      # DXIL instructions by name
         self.enum_idx = {}      # enumerations by name
         self.dxil_version_info = {}
+        # list of counters for instructions and dxil ops,
+        # starting with extra ones specified here
+        self.counters = extra_counters
 
         self.populate_llvm_instructions()
         self.call_instr = self.get_instr_by_llvm_name("CallInst")
@@ -173,6 +191,7 @@ class db_dxil(object):
         self.build_valrules()
         self.build_semantics()
         self.build_indices()
+        self.populate_counters()
 
     def __str__(self):
         return '\n'.join(str(i) for i in self.instr)
@@ -451,50 +470,50 @@ class db_dxil(object):
         self.add_llvm_instr("TERM", 6, "Resume", "ResumeInst", "resumes the propagation of an exception", "", [])
         self.add_llvm_instr("TERM", 7, "Unreachable", "UnreachableInst", "is unreachable", "", [])
 
-        self.add_llvm_instr("BINARY",  8, "Add"  , "BinaryOperator", "returns the sum of its two operands", oload_int_arith, oload_binary_params)
-        self.add_llvm_instr("BINARY",  9, "FAdd" , "BinaryOperator", "returns the sum of its two operands", oload_float_arith, oload_binary_params)
-        self.add_llvm_instr("BINARY", 10, "Sub"  , "BinaryOperator", "returns the difference of its two operands", oload_int_arith, oload_binary_params)
-        self.add_llvm_instr("BINARY", 11, "FSub" , "BinaryOperator", "returns the difference of its two operands", oload_float_arith, oload_binary_params)
-        self.add_llvm_instr("BINARY", 12, "Mul"  , "BinaryOperator", "returns the product of its two operands", oload_int_arith, oload_binary_params)
-        self.add_llvm_instr("BINARY", 13, "FMul" , "BinaryOperator", "returns the product of its two operands", oload_float_arith, oload_binary_params)
-        self.add_llvm_instr("BINARY", 14, "UDiv" , "BinaryOperator", "returns the quotient of its two unsigned operands", oload_int_arith, oload_binary_params)
-        self.add_llvm_instr("BINARY", 15, "SDiv" , "BinaryOperator", "returns the quotient of its two signed operands", oload_int_arith, oload_binary_params)
-        self.add_llvm_instr("BINARY", 16, "FDiv" , "BinaryOperator", "returns the quotient of its two operands", oload_float_arith, oload_binary_params)
-        self.add_llvm_instr("BINARY", 17, "URem" , "BinaryOperator", "returns the remainder from the unsigned division of its two operands", oload_int_arith, oload_binary_params)
-        self.add_llvm_instr("BINARY", 18, "SRem" , "BinaryOperator", "returns the remainder from the signed division of its two operands", oload_int_arith, oload_binary_params)
-        self.add_llvm_instr("BINARY", 19, "FRem" , "BinaryOperator", "returns the remainder from the division of its two operands", oload_float_arith, oload_binary_params)
+        self.add_llvm_instr("BINARY",  8, "Add"  , "BinaryOperator", "returns the sum of its two operands", oload_int_arith, oload_binary_params, counters=('ints',))
+        self.add_llvm_instr("BINARY",  9, "FAdd" , "BinaryOperator", "returns the sum of its two operands", oload_float_arith, oload_binary_params, counters=('floats',))
+        self.add_llvm_instr("BINARY", 10, "Sub"  , "BinaryOperator", "returns the difference of its two operands", oload_int_arith, oload_binary_params, counters=('ints',))
+        self.add_llvm_instr("BINARY", 11, "FSub" , "BinaryOperator", "returns the difference of its two operands", oload_float_arith, oload_binary_params, counters=('floats',))
+        self.add_llvm_instr("BINARY", 12, "Mul"  , "BinaryOperator", "returns the product of its two operands", oload_int_arith, oload_binary_params, counters=('ints',))
+        self.add_llvm_instr("BINARY", 13, "FMul" , "BinaryOperator", "returns the product of its two operands", oload_float_arith, oload_binary_params, counters=('floats',))
+        self.add_llvm_instr("BINARY", 14, "UDiv" , "BinaryOperator", "returns the quotient of its two unsigned operands", oload_int_arith, oload_binary_params, counters=('uints',))
+        self.add_llvm_instr("BINARY", 15, "SDiv" , "BinaryOperator", "returns the quotient of its two signed operands", oload_int_arith, oload_binary_params, counters=('ints',))
+        self.add_llvm_instr("BINARY", 16, "FDiv" , "BinaryOperator", "returns the quotient of its two operands", oload_float_arith, oload_binary_params, counters=('floats',))
+        self.add_llvm_instr("BINARY", 17, "URem" , "BinaryOperator", "returns the remainder from the unsigned division of its two operands", oload_int_arith, oload_binary_params, counters=('uints',))
+        self.add_llvm_instr("BINARY", 18, "SRem" , "BinaryOperator", "returns the remainder from the signed division of its two operands", oload_int_arith, oload_binary_params, counters=('ints',))
+        self.add_llvm_instr("BINARY", 19, "FRem" , "BinaryOperator", "returns the remainder from the division of its two operands", oload_float_arith, oload_binary_params, counters=('floats',))
 
-        self.add_llvm_instr("BINARY", 20, "Shl", "BinaryOperator", "shifts left (logical)", oload_int_arith, oload_binary_params)
-        self.add_llvm_instr("BINARY", 21, "LShr", "BinaryOperator", "shifts right (logical), with zero bit fill", oload_int_arith, oload_binary_params)
-        self.add_llvm_instr("BINARY", 22, "AShr", "BinaryOperator", "shifts right (arithmetic), with 'a' operand sign bit fill", oload_int_arith, oload_binary_params)
-        self.add_llvm_instr("BINARY", 23, "And", "BinaryOperator", "returns a  bitwise logical and of its two operands", oload_int_arith_b, oload_binary_params)
-        self.add_llvm_instr("BINARY", 24, "Or", "BinaryOperator", "returns a bitwise logical or of its two operands", oload_int_arith_b, oload_binary_params)
-        self.add_llvm_instr("BINARY", 25, "Xor", "BinaryOperator", "returns a bitwise logical xor of its two operands", oload_int_arith_b, oload_binary_params)
+        self.add_llvm_instr("BINARY", 20, "Shl", "BinaryOperator", "shifts left (logical)", oload_int_arith, oload_binary_params, counters=('uints',))
+        self.add_llvm_instr("BINARY", 21, "LShr", "BinaryOperator", "shifts right (logical), with zero bit fill", oload_int_arith, oload_binary_params, counters=('uints',))
+        self.add_llvm_instr("BINARY", 22, "AShr", "BinaryOperator", "shifts right (arithmetic), with 'a' operand sign bit fill", oload_int_arith, oload_binary_params, counters=('ints',))
+        self.add_llvm_instr("BINARY", 23, "And", "BinaryOperator", "returns a  bitwise logical and of its two operands", oload_int_arith_b, oload_binary_params, counters=('uints',))
+        self.add_llvm_instr("BINARY", 24, "Or", "BinaryOperator", "returns a bitwise logical or of its two operands", oload_int_arith_b, oload_binary_params, counters=('uints',))
+        self.add_llvm_instr("BINARY", 25, "Xor", "BinaryOperator", "returns a bitwise logical xor of its two operands", oload_int_arith_b, oload_binary_params, counters=('uints',))
 
         self.add_llvm_instr("MEMORY", 26, "Alloca", "AllocaInst", "allocates memory on the stack frame of the currently executing function", "", [])
         self.add_llvm_instr("MEMORY", 27, "Load", "LoadInst", "reads from memory", "", [])
         self.add_llvm_instr("MEMORY", 28, "Store", "StoreInst", "writes to memory", "", [])
         self.add_llvm_instr("MEMORY", 29, "GetElementPtr", "GetElementPtrInst", "gets the address of a subelement of an aggregate value", "", [])
-        self.add_llvm_instr("MEMORY", 30, "Fence", "FenceInst", "introduces happens-before edges between operations", "", [])
-        self.add_llvm_instr("MEMORY", 31, "AtomicCmpXchg", "AtomicCmpXchgInst" , "atomically modifies memory", "", [])
-        self.add_llvm_instr("MEMORY", 32, "AtomicRMW", "AtomicRMWInst", "atomically modifies memory", "", [])
+        self.add_llvm_instr("MEMORY", 30, "Fence", "FenceInst", "introduces happens-before edges between operations", "", [], counters=('fence',))
+        self.add_llvm_instr("MEMORY", 31, "AtomicCmpXchg", "AtomicCmpXchgInst" , "atomically modifies memory", "", [], counters=('atomic',))
+        self.add_llvm_instr("MEMORY", 32, "AtomicRMW", "AtomicRMWInst", "atomically modifies memory", "", [], counters=('atomic',))
 
-        self.add_llvm_instr("CAST", 33, "Trunc", "TruncInst", "truncates an integer", oload_int_arith_b, oload_cast_params)
-        self.add_llvm_instr("CAST", 34, "ZExt", "ZExtInst", "zero extends an integer", oload_int_arith_b, oload_cast_params)
-        self.add_llvm_instr("CAST", 35, "SExt", "SExtInst", "sign extends an integer", oload_int_arith_b, oload_cast_params)
-        self.add_llvm_instr("CAST", 36, "FPToUI", "FPToUIInst", "converts a floating point to UInt", oload_all_arith, oload_cast_params)
-        self.add_llvm_instr("CAST", 37, "FPToSI", "FPToSIInst", "converts a floating point to SInt", oload_all_arith, oload_cast_params)
-        self.add_llvm_instr("CAST", 38, "UIToFP", "UIToFPInst", "converts a UInt to floating point", oload_all_arith, oload_cast_params)
-        self.add_llvm_instr("CAST", 39, "SIToFP" , "SIToFPInst", "converts a SInt to floating point", oload_all_arith, oload_cast_params)
-        self.add_llvm_instr("CAST", 40, "FPTrunc", "FPTruncInst", "truncates a floating point", oload_float_arith, oload_cast_params)
-        self.add_llvm_instr("CAST", 41, "FPExt", "FPExtInst", "extends a floating point", oload_float_arith, oload_cast_params)
+        self.add_llvm_instr("CAST", 33, "Trunc", "TruncInst", "truncates an integer", oload_int_arith_b, oload_cast_params, counters=('ints',))
+        self.add_llvm_instr("CAST", 34, "ZExt", "ZExtInst", "zero extends an integer", oload_int_arith_b, oload_cast_params, counters=('uints',))
+        self.add_llvm_instr("CAST", 35, "SExt", "SExtInst", "sign extends an integer", oload_int_arith_b, oload_cast_params, counters=('ints',))
+        self.add_llvm_instr("CAST", 36, "FPToUI", "FPToUIInst", "converts a floating point to UInt", oload_all_arith, oload_cast_params, counters=('floats',))
+        self.add_llvm_instr("CAST", 37, "FPToSI", "FPToSIInst", "converts a floating point to SInt", oload_all_arith, oload_cast_params, counters=('floats',))
+        self.add_llvm_instr("CAST", 38, "UIToFP", "UIToFPInst", "converts a UInt to floating point", oload_all_arith, oload_cast_params, counters=('floats',))
+        self.add_llvm_instr("CAST", 39, "SIToFP" , "SIToFPInst", "converts a SInt to floating point", oload_all_arith, oload_cast_params, counters=('floats',))
+        self.add_llvm_instr("CAST", 40, "FPTrunc", "FPTruncInst", "truncates a floating point", oload_float_arith, oload_cast_params, counters=('floats',))
+        self.add_llvm_instr("CAST", 41, "FPExt", "FPExtInst", "extends a floating point", oload_float_arith, oload_cast_params, counters=('floats',))
         self.add_llvm_instr("CAST", 42, "PtrToInt", "PtrToIntInst", "converts a pointer to integer", "i", oload_cast_params)
         self.add_llvm_instr("CAST", 43, "IntToPtr", "IntToPtrInst", "converts an integer to Pointer", "i", oload_cast_params)
         self.add_llvm_instr("CAST", 44, "BitCast", "BitCastInst", "performs a bit-preserving type cast", oload_all_arith, oload_cast_params)
         self.add_llvm_instr("CAST", 45, "AddrSpaceCast", "AddrSpaceCastInst", "casts a value addrspace", "", oload_cast_params)
 
-        self.add_llvm_instr("OTHER", 46, "ICmp", "ICmpInst", "compares integers", oload_int_arith_b, oload_binary_params)
-        self.add_llvm_instr("OTHER", 47, "FCmp", "FCmpInst", "compares floating points", oload_float_arith, oload_binary_params)
+        self.add_llvm_instr("OTHER", 46, "ICmp", "ICmpInst", "compares integers", oload_int_arith_b, oload_binary_params, counters=('ints',))
+        self.add_llvm_instr("OTHER", 47, "FCmp", "FCmpInst", "compares floating points", oload_float_arith, oload_binary_params, counters=('floats',))
         self.add_llvm_instr("OTHER", 48, "PHI", "PHINode", "is a PHI node instruction", "", [])
         self.add_llvm_instr("OTHER", 49, "Call", "CallInst", "calls a function", "", [])
         self.add_llvm_instr("OTHER", 50, "Select", "SelectInst", "selects an instruction", "", [])
@@ -539,48 +558,68 @@ class db_dxil(object):
             db_dxil_param(2, "u32", "inputSigId", "input signature element ID"),
             db_dxil_param(3, "u32", "rowIndex", "row index relative to element"),
             db_dxil_param(4, "u8", "colIndex", "column index relative to element"),
-            db_dxil_param(5, "i32", "gsVertexAxis", "gsVertexAxis")])
+            db_dxil_param(5, "i32", "gsVertexAxis", "gsVertexAxis")],
+            counters=('sig_ld',))
         next_op_idx += 1
         self.add_dxil_op("StoreOutput", next_op_idx, "StoreOutput", "stores the value to shader output", "hfwi", "", [ # note, cannot store bit even though load supports it
             retvoid_param,
             db_dxil_param(2, "u32", "outputSigId", "output signature element ID"),
             db_dxil_param(3, "u32", "rowIndex", "row index relative to element"),
             db_dxil_param(4, "u8", "colIndex", "column index relative to element"),
-            db_dxil_param(5, "$o", "value", "value to store")])
+            db_dxil_param(5, "$o", "value", "value to store")],
+            counters=('sig_st',))
         next_op_idx += 1
+
+        def UFI(name, **mappings):
+            name = name.upper()
+            for k,v in mappings.items():
+                if name.startswith(k):
+                    return v
+            if name.upper().startswith('F'):
+                return 'floats'
+            elif name.upper().startswith('U'):
+                return 'uints'
+            else:
+                return 'ints'
 
         # Unary float operations are regular.
         for i in "FAbs,Saturate".split(","):
             self.add_dxil_op(i, next_op_idx, "Unary", "returns the " + i, "hfd", "rn", [
                 db_dxil_param(0, "$o", "", "operation result"),
-                db_dxil_param(2, "$o", "value", "input value")])
+                db_dxil_param(2, "$o", "value", "input value")],
+                counters=('floats',))
             next_op_idx += 1
         for i in "IsNaN,IsInf,IsFinite,IsNormal".split(","):
             self.add_dxil_op(i, next_op_idx, "IsSpecialFloat", "returns the " + i, "hf", "rn", [
                 db_dxil_param(0, "i1", "", "operation result"),
-                db_dxil_param(2, "$o", "value", "input value")])
+                db_dxil_param(2, "$o", "value", "input value")],
+                counters=('floats',))
             next_op_idx += 1
         for i in "Cos,Sin,Tan,Acos,Asin,Atan,Hcos,Hsin,Htan,Exp,Frc,Log,Sqrt,Rsqrt,Round_ne,Round_ni,Round_pi,Round_z".split(","):
             self.add_dxil_op(i, next_op_idx, "Unary", "returns the " + i, "hf", "rn", [
                 db_dxil_param(0, "$o", "", "operation result"),
-                db_dxil_param(2, "$o", "value", "input value")])
+                db_dxil_param(2, "$o", "value", "input value")],
+                counters=('floats',))
             next_op_idx += 1
 
         # Unary int operations are regular.
         for i in "Bfrev".split(","):
             self.add_dxil_op(i, next_op_idx, "Unary", "returns the reverse bit pattern of the input value", "wil", "rn", [
                 db_dxil_param(0, "$o", "", "operation result"),
-                db_dxil_param(2, "$o", "value", "input value")])
+                db_dxil_param(2, "$o", "value", "input value")],
+                counters=('uints',))
             next_op_idx += 1
         for i in "Countbits,FirstbitLo".split(","):
             self.add_dxil_op(i, next_op_idx, "UnaryBits", "returns the " + i, "wil", "rn", [
                 db_dxil_param(0, "i32", "", "operation result"),
-                db_dxil_param(2, "$o", "value", "input value")])
+                db_dxil_param(2, "$o", "value", "input value")],
+                counters=('uints',))
             next_op_idx += 1
         for i in "FirstbitHi,FirstbitSHi".split(","):
             self.add_dxil_op(i, next_op_idx, "UnaryBits", "returns src != 0? (BitWidth-1 - " + i + ") : -1", "wil", "rn", [
                 db_dxil_param(0, "i32", "", "operation result"),
-                db_dxil_param(2, "$o", "value", "input value")])
+                db_dxil_param(2, "$o", "value", "input value")],
+                counters=('uints',))
             next_op_idx += 1
 
         # Binary float operations
@@ -588,7 +627,8 @@ class db_dxil(object):
             self.add_dxil_op(i, next_op_idx, "Binary", "returns the " + i + " of the input values", "hfd", "rn", [
                 db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "$o", "a", "input value"),
-                db_dxil_param(3, "$o", "b", "input value")])
+                db_dxil_param(3, "$o", "b", "input value")],
+                counters=('floats',))
             next_op_idx += 1
 
         # Binary int operations
@@ -596,7 +636,8 @@ class db_dxil(object):
             self.add_dxil_op(i, next_op_idx, "Binary", "returns the " + i + " of the input values", "wil", "rn", [
                 db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "$o", "a", "input value"),
-                db_dxil_param(3, "$o", "b", "input value")])
+                db_dxil_param(3, "$o", "b", "input value")],
+                counters=(UFI(i),))
             next_op_idx += 1
 
         # Binary int operations with two outputs
@@ -604,7 +645,8 @@ class db_dxil(object):
             self.add_dxil_op(i, next_op_idx, "BinaryWithTwoOuts", "returns the " + i + " of the input values", "i", "rn", [
                 db_dxil_param(0, "twoi32", "", "operation result"),
                 db_dxil_param(2, "$o", "a", "input value"),
-                db_dxil_param(3, "$o", "b", "input value")])
+                db_dxil_param(3, "$o", "b", "input value")],
+                counters=(UFI(i),))
             next_op_idx += 1
 
         # Binary int operations with carry
@@ -612,7 +654,8 @@ class db_dxil(object):
             self.add_dxil_op(i, next_op_idx, "BinaryWithCarryOrBorrow", "returns the " + i + " of the input values", "i", "rn", [
                 db_dxil_param(0, "i32c", "", "operation result with carry/borrow value"),
                 db_dxil_param(2, "$o", "a", "input value"),
-                db_dxil_param(3, "$o", "b", "input value")])
+                db_dxil_param(3, "$o", "b", "input value")],
+                counters=('uints',))
             next_op_idx += 1
 
         # Tertiary float.
@@ -626,7 +669,8 @@ class db_dxil(object):
             db_dxil_param(0, "$o", "", "the double-precision fused multiply-addition of parameters a * b + c, accurate to 0.5 units of least precision (ULP)"),
             db_dxil_param(2, "$o", "a", "first value for FMA, the first factor"),
             db_dxil_param(3, "$o", "b", "second value for FMA, the second factor"),
-            db_dxil_param(4, "$o", "c", "third value for FMA, the addend")])
+            db_dxil_param(4, "$o", "c", "third value for FMA, the addend")],
+            counters=('floats',))
         next_op_idx += 1
 
         # Tertiary int.
@@ -635,14 +679,16 @@ class db_dxil(object):
                 db_dxil_param(0, "$o", "", "the operation result"),
                 db_dxil_param(2, "$o", "a", "first value for FMA, the first factor"),
                 db_dxil_param(3, "$o", "b", "second value for FMA, the second factor"),
-                db_dxil_param(4, "$o", "c", "third value for FMA, the addend")])
+                db_dxil_param(4, "$o", "c", "third value for FMA, the addend")],
+                counters=(UFI(i),))
             next_op_idx += 1
         for i in "Msad,Ibfe,Ubfe".split(","):
             self.add_dxil_op(i, next_op_idx, "Tertiary", "performs an integral " + i, "il", "rn", [
                 db_dxil_param(0, "$o", "", "the operation result"),
                 db_dxil_param(2, "$o", "a", "first value for FMA, the first factor"),
                 db_dxil_param(3, "$o", "b", "second value for FMA, the second factor"),
-                db_dxil_param(4, "$o", "c", "third value for FMA, the addend")])
+                db_dxil_param(4, "$o", "c", "third value for FMA, the addend")],
+                counters=(UFI(i, M='uints'),))
             next_op_idx += 1
 
         # Quaternary
@@ -651,7 +697,8 @@ class db_dxil(object):
             db_dxil_param(2, "$o", "width", "the bitfield width to take from the value"),
             db_dxil_param(3, "$o", "offset", "the bitfield offset to replace in the value"),
             db_dxil_param(4, "$o", "value", "the number the bits are taken from"),
-            db_dxil_param(5, "$o", "replacedValue", "the number with bits to be replaced")])
+            db_dxil_param(5, "$o", "replacedValue", "the number with bits to be replaced")],
+            counters=('uints',))
         next_op_idx += 1
 
         # Dot
@@ -660,7 +707,8 @@ class db_dxil(object):
             db_dxil_param(2, "$o", "ax", "the first component of the first vector"),
             db_dxil_param(3, "$o", "ay", "the second component of the first vector"),
             db_dxil_param(4, "$o", "bx", "the first component of the second vector"),
-            db_dxil_param(5, "$o", "by", "the second component of the second vector")])
+            db_dxil_param(5, "$o", "by", "the second component of the second vector")],
+            counters=('floats',))
         next_op_idx += 1
         self.add_dxil_op("Dot3", next_op_idx, "Dot3", "three-dimensional vector dot-product", "hf", "rn", [
             db_dxil_param(0, "$o", "", "the operation result"),
@@ -669,7 +717,8 @@ class db_dxil(object):
             db_dxil_param(4, "$o", "az", "the third component of the first vector"),
             db_dxil_param(5, "$o", "bx", "the first component of the second vector"),
             db_dxil_param(6, "$o", "by", "the second component of the second vector"),
-            db_dxil_param(7, "$o", "bz", "the third component of the second vector")])
+            db_dxil_param(7, "$o", "bz", "the third component of the second vector")],
+            counters=('floats',))
         next_op_idx += 1
         self.add_dxil_op("Dot4", next_op_idx, "Dot4", "four-dimensional vector dot-product", "hf", "rn", [
             db_dxil_param(0, "$o", "", "the operation result"),
@@ -680,7 +729,8 @@ class db_dxil(object):
             db_dxil_param(6, "$o", "bx", "the first component of the second vector"),
             db_dxil_param(7, "$o", "by", "the second component of the second vector"),
             db_dxil_param(8, "$o", "bz", "the third component of the second vector"),
-            db_dxil_param(9, "$o", "bw", "the fourth component of the second vector")])
+            db_dxil_param(9, "$o", "bw", "the fourth component of the second vector")],
+            counters=('floats',))
         next_op_idx += 1
 
         # Resources.
@@ -713,7 +763,8 @@ class db_dxil(object):
             db_dxil_param(8, "i32", "offset0", "optional offset, applicable to Texture1D, Texture1DArray, and as part of offset1"),
             db_dxil_param(9, "i32", "offset1", "optional offset, applicable to Texture2D, Texture2DArray, and as part of offset2"),
             db_dxil_param(10, "i32", "offset2", "optional offset, applicable to Texture3D"),
-            db_dxil_param(11, "f", "clamp", "clamp value")])
+            db_dxil_param(11, "f", "clamp", "clamp value")],
+            counters=('tex_norm',))
         next_op_idx += 1
         self.add_dxil_op("SampleBias", next_op_idx, "SampleBias", "samples a texture after applying the input bias to the mipmap level", "hf", "ro", [
             db_dxil_param(0, "$r", "", "the sampled value"),
@@ -727,7 +778,8 @@ class db_dxil(object):
             db_dxil_param(9, "i32", "offset1", "optional offset, applicable to Texture2D, Texture2DArray, and as part of offset2"),
             db_dxil_param(10, "i32", "offset2", "optional offset, applicable to Texture3D"),
             db_dxil_param(11, "f", "bias", "bias value"),
-            db_dxil_param(12, "f", "clamp", "clamp value")])
+            db_dxil_param(12, "f", "clamp", "clamp value")],
+            counters=('tex_bias',))
         next_op_idx += 1
         self.add_dxil_op("SampleLevel", next_op_idx, "SampleLevel", "samples a texture using a mipmap-level offset", "hf", "ro", [
             db_dxil_param(0, "$r", "", "the sampled value"),
@@ -740,7 +792,8 @@ class db_dxil(object):
             db_dxil_param(8, "i32", "offset0", "optional offset, applicable to Texture1D, Texture1DArray, and as part of offset1"),
             db_dxil_param(9, "i32", "offset1", "optional offset, applicable to Texture2D, Texture2DArray, and as part of offset2"),
             db_dxil_param(10, "i32", "offset2", "optional offset, applicable to Texture3D"),
-            db_dxil_param(11, "f", "LOD", "level of detail, biggest map if less than or equal to zero; fraction used to interpolate across levels")])
+            db_dxil_param(11, "f", "LOD", "level of detail, biggest map if less than or equal to zero; fraction used to interpolate across levels")],
+            counters=('tex_norm',))
         next_op_idx += 1
         self.add_dxil_op("SampleGrad", next_op_idx, "SampleGrad", "samples a texture using a gradient to influence the way the sample location is calculated", "hf", "ro", [
             db_dxil_param(0, "$r", "", "the sampled value"),
@@ -759,7 +812,8 @@ class db_dxil(object):
             db_dxil_param(14, "f", "ddy0", "rate of change of the texture coordinate in the y direction"),
             db_dxil_param(15, "f", "ddy1", "rate of change of the texture coordinate in the y direction"),
             db_dxil_param(16, "f", "ddy2", "rate of change of the texture coordinate in the y direction"),
-            db_dxil_param(17, "f", "clamp", "clamp value")])
+            db_dxil_param(17, "f", "clamp", "clamp value")],
+            counters=('tex_grad',))
         next_op_idx += 1
         self.add_dxil_op("SampleCmp", next_op_idx, "SampleCmp", "samples a texture and compares a single component against the specified comparison value", "hf", "ro", [
             db_dxil_param(0, "$r", "", "the value for the constant buffer variable"),
@@ -773,7 +827,8 @@ class db_dxil(object):
             db_dxil_param(9, "i32", "offset1", "optional offset, applicable to Texture2D, Texture2DArray, and as part of offset2"),
             db_dxil_param(10, "i32", "offset2", "optional offset, applicable to Texture3D"),
             db_dxil_param(11, "f", "compareValue", "the value to compare with"),
-            db_dxil_param(12, "f", "clamp", "clamp value")])
+            db_dxil_param(12, "f", "clamp", "clamp value")],
+            counters=('tex_cmp',))
         next_op_idx += 1
         self.add_dxil_op("SampleCmpLevelZero", next_op_idx, "SampleCmpLevelZero", "samples a texture and compares a single component against the specified comparison value", "hf", "ro", [
             db_dxil_param(0, "$r", "", "the value for the constant buffer variable"),
@@ -786,7 +841,8 @@ class db_dxil(object):
             db_dxil_param(8, "i32", "offset0", "optional offset, applicable to Texture1D, Texture1DArray, and as part of offset1"),
             db_dxil_param(9, "i32", "offset1", "optional offset, applicable to Texture2D, Texture2DArray, and as part of offset2"),
             db_dxil_param(10, "i32", "offset2", "optional offset, applicable to Texture3D"),
-            db_dxil_param(11, "f", "compareValue", "the value to compare with")])
+            db_dxil_param(11, "f", "compareValue", "the value to compare with")],
+            counters=('tex_cmp',))
         next_op_idx += 1
         self.add_dxil_op("TextureLoad", next_op_idx, "TextureLoad", "reads texel data without any filtering or sampling", "hfwi", "ro", [
             db_dxil_param(0, "$r", "", "the loaded value"),
@@ -797,7 +853,8 @@ class db_dxil(object):
             db_dxil_param(6, "i32", "coord2", "coordinate"),
             db_dxil_param(7, "i32", "offset0", "optional offset"),
             db_dxil_param(8, "i32", "offset1", "optional offset"),
-            db_dxil_param(9, "i32", "offset2", "optional offset")])
+            db_dxil_param(9, "i32", "offset2", "optional offset")],
+            counters=('tex_load',))
         next_op_idx += 1
         self.add_dxil_op("TextureStore", next_op_idx, "TextureStore", "reads texel data without any filtering or sampling", "hfwi", "", [
             db_dxil_param(0, "v", "", ""),
@@ -809,13 +866,15 @@ class db_dxil(object):
             db_dxil_param(7, "$o", "value1", "value"),
             db_dxil_param(8, "$o", "value2", "value"),
             db_dxil_param(9, "$o", "value3", "value"),
-            db_dxil_param(10,"i8", "mask", "written value mask")])
+            db_dxil_param(10,"i8", "mask", "written value mask")],
+            counters=('tex_store',))
         next_op_idx += 1
         self.add_dxil_op("BufferLoad", next_op_idx, "BufferLoad", "reads from a TypedBuffer", "hfwi", "ro", [
             db_dxil_param(0, "$r", "", "the loaded value"),
             db_dxil_param(2, "res", "srv", "handle of TypedBuffer SRV to sample"),
             db_dxil_param(3, "i32", "index", "element index"),
-            db_dxil_param(4, "i32", "wot", "coordinate")])
+            db_dxil_param(4, "i32", "wot", "coordinate")],
+            counters=('tex_load',))
         next_op_idx += 1
         self.add_dxil_op("BufferStore", next_op_idx, "BufferStore", "writes to a RWTypedBuffer", "hfwi", "", [
             db_dxil_param(0, "v", "", ""),
@@ -826,12 +885,14 @@ class db_dxil(object):
             db_dxil_param(6, "$o", "value1", "value"),
             db_dxil_param(7, "$o", "value2", "value"),
             db_dxil_param(8, "$o", "value3", "value"),
-            db_dxil_param(9, "i8", "mask", "written value mask")])
+            db_dxil_param(9, "i8", "mask", "written value mask")],
+            counters=('tex_store',))
         next_op_idx += 1
         self.add_dxil_op("BufferUpdateCounter", next_op_idx, "BufferUpdateCounter", "atomically increments/decrements the hidden 32-bit counter stored with a Count or Append UAV", "v", "", [
             db_dxil_param(0, "i32", "", "the new value in the buffer"),
             db_dxil_param(2, "res", "uav", "handle to a structured buffer UAV with the count or append flag"),
-            db_dxil_param(3, "i8", "inc", "1 to increase, 0 to decrease")])
+            db_dxil_param(3, "i8", "inc", "1 to increase, 0 to decrease")],
+            counters=('atomic',))
         next_op_idx += 1
         self.add_dxil_op("CheckAccessFullyMapped", next_op_idx, "CheckAccessFullyMapped", "determines whether all values from a Sample, Gather, or Load operation accessed mapped tiles in a tiled resource", "i", "ro", [
             db_dxil_param(0, "i1", "", "nonzero if all values accessed mapped tiles in a tiled resource"),
@@ -852,7 +913,8 @@ class db_dxil(object):
             db_dxil_param(7, "f", "coord3", "coordinate, defined only for TextureCubeArray"),
             db_dxil_param(8, "i32", "offset0", "optional offset, applicable to Texture1D, Texture1DArray, and as part of offset1"),
             db_dxil_param(9, "i32", "offset1", "optional offset, applicable to Texture2D, Texture2DArray, and as part of offset2"),
-            db_dxil_param(10, "i32", "channel", "channel to sample")])
+            db_dxil_param(10, "i32", "channel", "channel to sample")],
+            counters=('tex_norm',))
         next_op_idx += 1
         self.add_dxil_op("TextureGatherCmp", next_op_idx, "TextureGatherCmp", "same as TextureGather, except this instrution performs comparison on texels, similar to SampleCmp", "hfwi", "ro", [
             db_dxil_param(0, "$r", "", "gathered texels"),
@@ -865,7 +927,8 @@ class db_dxil(object):
             db_dxil_param(8, "i32", "offset0", "optional offset, applicable to Texture1D, Texture1DArray, and as part of offset1"),
             db_dxil_param(9, "i32", "offset1", "optional offset, applicable to Texture2D, Texture2DArray, and as part of offset2"),
             db_dxil_param(10, "i32", "channel", "channel to sample"),
-            db_dxil_param(11, "f", "compareVale", "value to compare with")])
+            db_dxil_param(11, "f", "compareVale", "value to compare with")],
+            counters=('tex_cmp',))
         next_op_idx += 1
 
         self.add_dxil_op("Texture2DMSGetSamplePosition", next_op_idx, "Texture2DMSGetSamplePosition", "gets the position of the specified sample", "v", "ro", [
@@ -889,7 +952,8 @@ class db_dxil(object):
             db_dxil_param(4, "i32", "offset0", "offset in elements"),
             db_dxil_param(5, "i32", "offset1", "offset"),
             db_dxil_param(6, "i32", "offset2", "offset"),
-            db_dxil_param(7, "i32", "newValue", "new value")])
+            db_dxil_param(7, "i32", "newValue", "new value")],
+            counters=('atomic',))
         next_op_idx += 1
         self.add_dxil_op("AtomicCompareExchange", next_op_idx, "AtomicCompareExchange", "atomic compare and exchange to memory", "i", "", [
             db_dxil_param(0, "i32", "", "the original value in the location updated"),
@@ -898,13 +962,15 @@ class db_dxil(object):
             db_dxil_param(4, "i32", "offset1", "offset"),
             db_dxil_param(5, "i32", "offset2", "offset"),
             db_dxil_param(6, "i32", "compareValue", "value to compare for exchange"),
-            db_dxil_param(7, "i32", "newValue", "new value")])
+            db_dxil_param(7, "i32", "newValue", "new value")],
+            counters=('atomic',))
         next_op_idx += 1
 
         # Synchronization.
         self.add_dxil_op("Barrier", next_op_idx, "Barrier", "inserts a memory barrier in the shader", "v", "nd", [
             retvoid_param,
-            db_dxil_param(2, "i32", "barrierMode", "a mask of DXIL::BarrierMode values", is_const=True)])
+            db_dxil_param(2, "i32", "barrierMode", "a mask of DXIL::BarrierMode values", is_const=True)],
+            counters=('barrier',))
         next_op_idx += 1
 
         # Pixel shader
@@ -988,15 +1054,18 @@ class db_dxil(object):
         # Geometry shader
         self.add_dxil_op("EmitStream", next_op_idx, "EmitStream", "emits a vertex to a given stream", "v", "", [
             retvoid_param,
-            db_dxil_param(2, "i8", "streamId", "target stream ID for operation")])
+            db_dxil_param(2, "i8", "streamId", "target stream ID for operation")],
+            counters=('gs_emit',))
         next_op_idx += 1
         self.add_dxil_op("CutStream", next_op_idx, "CutStream", "completes the current primitive topology at the specified stream", "v", "", [
             retvoid_param,
-            db_dxil_param(2, "i8", "streamId", "target stream ID for operation")])
+            db_dxil_param(2, "i8", "streamId", "target stream ID for operation")],
+            counters=('gs_cut',))
         next_op_idx += 1
         self.add_dxil_op("EmitThenCutStream", next_op_idx, "EmitThenCutStream", "equivalent to an EmitStream followed by a CutStream", "v", "", [
             retvoid_param,
-            db_dxil_param(2, "i8", "streamId", "target stream ID for operation")])
+            db_dxil_param(2, "i8", "streamId", "target stream ID for operation")],
+            counters=('gs_emit','gs_cut'))
         next_op_idx += 1
         self.add_dxil_op("GSInstanceID", next_op_idx, "GSInstanceID", "GSInstanceID", "i", "rn", [
             db_dxil_param(0, "i32", "", "result")])
@@ -1019,13 +1088,15 @@ class db_dxil(object):
             db_dxil_param(2, "i32", "inputSigId", "input signature element ID"),
             db_dxil_param(3, "i32", "row", "row, relative to the element"),
             db_dxil_param(4, "i8", "col", "column, relative to the element"),
-            db_dxil_param(5, "i32", "index", "vertex/point index")])
+            db_dxil_param(5, "i32", "index", "vertex/point index")],
+            counters=('sig_ld',))
         next_op_idx += 1
         self.add_dxil_op("LoadPatchConstant", next_op_idx, "LoadPatchConstant", "LoadPatchConstant", "hfwi", "rn", [
             db_dxil_param(0, "$o", "", "result"),
             db_dxil_param(2, "i32", "inputSigId", "input signature element ID"),
             db_dxil_param(3, "i32", "row", "row, relative to the element"),
-            db_dxil_param(4, "i8", "col", "column, relative to the element")])
+            db_dxil_param(4, "i8", "col", "column, relative to the element")],
+            counters=('sig_ld',))
         next_op_idx += 1
 
         # Domain shader.
@@ -1040,7 +1111,8 @@ class db_dxil(object):
             db_dxil_param(2, "i32", "outputSigID", "output signature element ID"),
             db_dxil_param(3, "i32", "row", "row, relative to the element"),
             db_dxil_param(4, "i8", "col", "column, relative to the element"),
-            db_dxil_param(5, "$o", "value", "value to store")])
+            db_dxil_param(5, "$o", "value", "value to store")],
+            counters=('sig_st',))
         next_op_idx += 1
         self.add_dxil_op("OutputControlPointID", next_op_idx, "OutputControlPointID", "OutputControlPointID", "i", "rn", [
             db_dxil_param(0, "i32", "", "result")])
@@ -1219,7 +1291,8 @@ class db_dxil(object):
             db_dxil_param(3, "i32", "index", "element index for StructuredBuffer, or byte offset for ByteAddressBuffer"),
             db_dxil_param(4, "i32", "elementOffset", "offset into element for StructuredBuffer, or undef for ByteAddressBuffer"),
             db_dxil_param(5, "i8", "mask", "loading value mask", is_const=True),
-            db_dxil_param(6, "i32", "alignment", "relative load access alignment", is_const=True)])
+            db_dxil_param(6, "i32", "alignment", "relative load access alignment", is_const=True)],
+            counters=('tex_load',))
         next_op_idx += 1
 
         self.add_dxil_op("RawBufferStore", next_op_idx, "RawBufferStore", "writes to a RWByteAddressBuffer or RWStructuredBuffer", "hfwidl", "", [
@@ -1232,7 +1305,8 @@ class db_dxil(object):
             db_dxil_param(7, "$o", "value2", "value"),
             db_dxil_param(8, "$o", "value3", "value"),
             db_dxil_param(9, "i8", "mask", "mask of contiguous components stored starting at first component (valid: 1, 3, 7, 15)", is_const=True),
-            db_dxil_param(10, "i32", "alignment", "relative store access alignment", is_const=True)])
+            db_dxil_param(10, "i32", "alignment", "relative store access alignment", is_const=True)],
+            counters=('tex_store',))
         next_op_idx += 1
 
         # End of DXIL 1.2 opcodes.
@@ -1365,21 +1439,24 @@ class db_dxil(object):
             db_dxil_param(3, "h", "ax", "the first component of the first vector"),
             db_dxil_param(4, "h", "ay", "the second component of the first vector"),
             db_dxil_param(5, "h", "bx", "the first component of the second vector"),
-            db_dxil_param(6, "h", "by", "the second component of the second vector")])
+            db_dxil_param(6, "h", "by", "the second component of the second vector")],
+            counters=('floats',))
         next_op_idx += 1
 
         self.add_dxil_op("Dot4AddI8Packed", next_op_idx, "Dot4AddPacked", "signed dot product of 4 x i8 vectors packed into i32, with accumulate to i32", "i", "rn", [
             db_dxil_param(0, "i32", "", "accumulated result"),
             db_dxil_param(2, "i32", "acc", "input accumulator"),
             db_dxil_param(3, "i32", "a", "first packed 4 x i8 for dot product"),
-            db_dxil_param(4, "i32", "b", "second packed 4 x i8 for dot product")])
+            db_dxil_param(4, "i32", "b", "second packed 4 x i8 for dot product")],
+            counters=('ints',))
         next_op_idx += 1
 
         self.add_dxil_op("Dot4AddU8Packed", next_op_idx, "Dot4AddPacked", "unsigned dot product of 4 x u8 vectors packed into i32, with accumulate to i32", "i", "rn", [
             db_dxil_param(0, "i32", "", "accumulated result"),
             db_dxil_param(2, "i32", "acc", "input accumulator"),
             db_dxil_param(3, "i32", "a", "first packed 4 x u8 for dot product"),
-            db_dxil_param(4, "i32", "b", "second packed 4 x u8 for dot product")])
+            db_dxil_param(4, "i32", "b", "second packed 4 x u8 for dot product")],
+            counters=('uints',))
         next_op_idx += 1
 
         # End of DXIL 1.4 opcodes.
@@ -1439,7 +1516,8 @@ class db_dxil(object):
             db_dxil_param(3, "u32", "rowIndex", "row index relative to element"),
             db_dxil_param(4, "u8", "colIndex", "column index relative to element"),
             db_dxil_param(5, "$o", "value", "value to store"),
-            db_dxil_param(6, "u32", "vertexIndex", "vertex index")])
+            db_dxil_param(6, "u32", "vertexIndex", "vertex index")],
+            counters=('sig_st',))
         next_op_idx += 1
         self.add_dxil_op("StorePrimitiveOutput", next_op_idx, "StorePrimitiveOutput", "stores the value to mesh shader primitive output", "hfwi", "", [
             retvoid_param,
@@ -1447,7 +1525,8 @@ class db_dxil(object):
             db_dxil_param(3, "u32", "rowIndex", "row index relative to element"),
             db_dxil_param(4, "u8", "colIndex", "column index relative to element"),
             db_dxil_param(5, "$o", "value", "value to store"),
-            db_dxil_param(6, "u32", "primitiveIndex", "primitive index")])
+            db_dxil_param(6, "u32", "primitiveIndex", "primitive index")],
+            counters=('sig_st',))
         next_op_idx += 1
 
         # Amplification Shader
@@ -1469,7 +1548,8 @@ class db_dxil(object):
             db_dxil_param(6, "f", "c1", "coordinate c1"),
             db_dxil_param(7, "f", "c2", "coordinate c2"),
             db_dxil_param(8, "f", "c3", "coordinate c3"),
-            db_dxil_param(9, "f", "clamp", "clamp")])
+            db_dxil_param(9, "f", "clamp", "clamp")],
+            counters=('tex_store',))
         next_op_idx += 1
         self.add_dxil_op("WriteSamplerFeedbackBias", next_op_idx, "WriteSamplerFeedbackBias", "updates a feedback texture for a sampling operation with a bias on the mipmap level", "v", "", [
             db_dxil_param(0, "v", "", ""),
@@ -1481,7 +1561,8 @@ class db_dxil(object):
             db_dxil_param(7, "f", "c2", "coordinate c2"),
             db_dxil_param(8, "f", "c3", "coordinate c3"),
             db_dxil_param(9, "f", "bias", "bias in [-16.f,15.99f]"),
-            db_dxil_param(10, "f", "clamp", "clamp")])
+            db_dxil_param(10, "f", "clamp", "clamp")],
+            counters=('tex_store',))
         next_op_idx += 1
         self.add_dxil_op("WriteSamplerFeedbackLevel", next_op_idx, "WriteSamplerFeedbackLevel", "updates a feedback texture for a sampling operation with a mipmap-level offset", "v", "", [
             db_dxil_param(0, "v", "", ""),
@@ -1492,7 +1573,8 @@ class db_dxil(object):
             db_dxil_param(6, "f", "c1", "coordinate c1"),
             db_dxil_param(7, "f", "c2", "coordinate c2"),
             db_dxil_param(8, "f", "c3", "coordinate c3"),
-            db_dxil_param(9, "f", "lod", "LOD")])
+            db_dxil_param(9, "f", "lod", "LOD")],
+            counters=('tex_store',))
         next_op_idx += 1
         self.add_dxil_op("WriteSamplerFeedbackGrad", next_op_idx, "WriteSamplerFeedbackGrad", "updates a feedback texture for a sampling operation with explicit gradients", "v", "", [
             db_dxil_param(0, "v", "", ""),
@@ -1509,7 +1591,8 @@ class db_dxil(object):
             db_dxil_param(12, "f", "ddy0", "rate of change of coordinate c0 in the y direction"),
             db_dxil_param(13, "f", "ddy1", "rate of change of coordinate c1 in the y direction"),
             db_dxil_param(14, "f", "ddy2", "rate of change of coordinate c2 in the y direction"),
-            db_dxil_param(15, "f", "clamp", "clamp")])
+            db_dxil_param(15, "f", "clamp", "clamp")],
+            counters=('tex_store',))
         next_op_idx += 1
 
         # RayQuery
@@ -2565,27 +2648,43 @@ class db_dxil(object):
             valrule_enum.values.append(vrval)
         self.enums.append(valrule_enum)
 
+    def populate_counters(self):
+        self.llvm_op_counters = set()
+        self.dxil_op_counters = set()
+        for i in self.instr:
+            counters = getattr(i, 'props', {}).get('counters', ())
+            if i.dxil_opid:
+                self.dxil_op_counters.update(counters)
+            else:
+                self.llvm_op_counters.update(counters)
+        counter_set = set(self.counters)
+        counter_set.update(self.llvm_op_counters)
+        counter_set.update(self.dxil_op_counters)
+        self.counters = list(sorted(counter_set))
+
     def add_valrule(self, name, desc):
         self.val_rules.append(db_dxil_valrule(name, len(self.val_rules), err_msg=desc, doc=desc))
 
     def add_valrule_msg(self, name, desc, err_msg):
         self.val_rules.append(db_dxil_valrule(name, len(self.val_rules), err_msg=err_msg, doc=desc))
 
-    def add_llvm_instr(self, kind, llvm_id, name, llvm_name, doc, oload_types, op_params):
+    def add_llvm_instr(self, kind, llvm_id, name, llvm_name, doc, oload_types, op_params, **props):
         i = db_dxil_inst(name, llvm_id=llvm_id, llvm_name=llvm_name, doc=doc, ops=op_params, oload_types=oload_types)
         if kind == "TERM": i.is_bb_terminator=True
         if kind == "BINARY": i.is_binary=True
         if kind == "MEMORY": i.is_memory=True
         if kind == "CAST": i.is_cast=True
+        i.props = props
         self.instr.append(i)
 
-    def add_dxil_op(self, name, code_id, code_class, doc, oload_types, fn_attr, op_params):
+    def add_dxil_op(self, name, code_id, code_class, doc, oload_types, fn_attr, op_params, **props):
         # The return value is parameter 0, insert the opcode as 1.
         op_params.insert(1, self.opcode_param)
         i = db_dxil_inst(name,
                          llvm_id=self.call_instr.llvm_id, llvm_name=self.call_instr.llvm_name,
                          dxil_op=name, dxil_opid=code_id, doc=doc, ops=op_params, dxil_class=code_class,
                          oload_types=oload_types, fn_attr=fn_attr)
+        i.props = props
         self.instr.append(i)
     def add_dxil_op_reserved(self, name, code_id):
         # The return value is parameter 0, insert the opcode as 1.
@@ -3003,6 +3102,7 @@ class db_hlsl(object):
         add_attr_arg("RootSignature", "f", "RootSignature doc", [{"name":"SignatureName", "type":"string"}])
         add_attr_arg("Unroll", "l", "Unroll the loop until it stops executing or a max count", [{"name":"Count", "type":"int"}])
         self.attributes = attributes
+
 
 if __name__ == "__main__":
     db = db_dxil()
