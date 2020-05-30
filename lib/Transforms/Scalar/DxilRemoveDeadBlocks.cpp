@@ -68,15 +68,17 @@ static bool EraseDeadBlocks(Function &F, DxilValueCache *DVC) {
 
           Add(Succ);
 
-          // Rewrite conditional branch as unconditional branch
-          {
+          // Rewrite conditional branch as unconditional branch if
+          // we don't have structural information that needs it to
+          // be alive.
+          if (!Br->getMetadata(hlsl::DXIL::kDxBreakMDName)) {
             BranchInst *NewBr = BranchInst::Create(Succ, BB);
             hlsl::DxilMDHelper::CopyMetadata(*NewBr, *Br);
             RemoveIncomingValueFrom(NotSucc, BB);
-            Changed = true;
 
             Br->eraseFromParent();
             Br = nullptr;
+            Changed = true;
           }
         }
         else {

@@ -662,6 +662,14 @@ private:
         }
       }
       BreakFunc->eraseFromParent();
+
+      for (Function &F : M) {
+        for (BasicBlock &BB : F) {
+          if (BranchInst *BI = dyn_cast<BranchInst>(BB.getTerminator())) {
+            BI->setMetadata(DXIL::kDxBreakMDName, nullptr);
+          }
+        }
+      }
     }
   }
 };
