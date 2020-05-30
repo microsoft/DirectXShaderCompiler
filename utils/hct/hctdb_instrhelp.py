@@ -811,6 +811,21 @@ def get_instrs_pred(varname, pred, attr_name="dxil_opid"):
     result += "\n"
     return result
 
+def counter_pred(name, dxil_op=True):
+    def pred(i):
+        return (dxil_op == i.is_dxil_op) and getattr(i, 'props') and 'counters' in i.props and name in i.props['counters']
+    return pred
+
+def get_counters():
+    db = get_db_dxil()
+    return db.counters
+def get_llvm_op_counters():
+    db = get_db_dxil()
+    return [c for c in db.counters if c in db.llvm_op_counters]
+def get_dxil_op_counters():
+    db = get_db_dxil()
+    return [c for c in db.counters if c in db.dxil_op_counters]
+
 def get_instrs_rst():
     "Create an rst table of allowed LLVM instructions."
     db = get_db_dxil()
@@ -1423,6 +1438,9 @@ if __name__ == "__main__":
             'include/dxc/HlslIntrinsicOp.h',
             'tools/clang/tools/dxcompiler/dxcdisassembler.cpp',
             'include/dxc/DXIL/DxilSigPoint.inl',
+            'include/dxc/DXIL/DxilCounters.h',
+            'lib/DXIL/DxilCounters.cpp',
+            'lib/DXIL/DxilMetadataHelper.cpp',
             ]
         for relative_file_path in files:
             RunCodeTagUpdate(pj(hlsl_src_dir, relative_file_path))

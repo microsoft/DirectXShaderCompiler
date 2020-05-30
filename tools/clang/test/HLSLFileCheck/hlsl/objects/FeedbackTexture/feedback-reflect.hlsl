@@ -33,13 +33,12 @@ float main() : SV_Target
 // CHECK: ID3D12ShaderReflection:
 // CHECK-NEXT:   D3D12_SHADER_BUFFER_DESC:
 // CHECK-NEXT:     Shader Version: Pixel 6.5
-// CHECK-NEXT:     Creator: <nullptr>
-// CHECK-NEXT:     Flags: 0
+// CHECK:     Flags: 0
 // CHECK-NEXT:     ConstantBuffers: 0
 // CHECK-NEXT:     BoundResources: 7
 // CHECK-NEXT:     InputParameters: 0
 // CHECK-NEXT:     OutputParameters: 1
-// CHECK-NEXT:   Bound Resources:
+// CHECK:   Bound Resources:
 // CHECK-NEXT:     D3D12_SHADER_BUFFER_DESC: Name: samp
 // CHECK-NEXT:       Type: D3D_SIT_SAMPLER
 // CHECK-NEXT:       uID: 0

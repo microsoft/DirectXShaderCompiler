@@ -29,6 +29,7 @@
 #include "dxc/DXIL/DxilPDB.h"
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/HLSL/HLMatrixType.h"
+#include "dxc/DXIL/DxilCounters.h"
 
 #include <unordered_set>
 #include "llvm/ADT/SetVector.h"
@@ -138,12 +139,15 @@ private:
   std::vector<D3D12_SIGNATURE_PARAMETER_DESC>     m_OutputSignature;
   std::vector<D3D12_SIGNATURE_PARAMETER_DESC>     m_PatchConstantSignature;
   std::vector<std::unique_ptr<char[]>>            m_UpperCaseNames;
+  D3D12_SHADER_DESC m_Desc = {};
+
   void SetCBufferUsage();
   void CreateReflectionObjectsForSignature(
       const DxilSignature &Sig,
       std::vector<D3D12_SIGNATURE_PARAMETER_DESC> &Descs);
   LPCSTR CreateUpperCase(LPCSTR pValue);
   void MarkUsedSignatureElements();
+  void InitDesc();
 public:
   PublicAPI m_PublicAPI;
   void SetPublicAPI(PublicAPI value) { m_PublicAPI = value; }
@@ -273,6 +277,13 @@ HRESULT CreateDxilLibraryReflection(const DxilPartHeader *pModulePart, const Dxi
 _Use_decl_annotations_
 HRESULT DxilContainerReflection::Load(IDxcBlob *pContainer) {
 
+  if (pContainer == nullptr) {
+    m_container.Release();
+    m_pHeader = nullptr;
+    m_headerLen = 0;
+    return S_OK;
+  }
+
   CComPtr<IDxcBlob> pPDBContainer;
   {
     DxcThreadMalloc DxcMalloc(m_pMalloc);
@@ -281,13 +292,6 @@ HRESULT DxilContainerReflection::Load(IDxcBlob *pContainer) {
     if (SUCCEEDED(hlsl::pdb::LoadDataFromStream(m_pMalloc, pStream, &pPDBContainer))) {
       pContainer = pPDBContainer;
     }
-  }
-
-  if (pContainer == nullptr) {
-    m_container.Release();
-    m_pHeader = nullptr;
-    m_headerLen = 0;
-    return S_OK;
   }
 
   uint32_t bufLen = pContainer->GetBufferSize();
@@ -2085,6 +2089,9 @@ HRESULT DxilShaderReflection::Load(const DxilPartHeader *pModulePart,
     CreateReflectionObjectsForSignature(m_pDxilModule->GetPatchConstOrPrimSignature(), m_PatchConstantSignature);
     if (!m_bUsageInMetadata)
       MarkUsedSignatureElements();
+
+    InitDesc();
+
     return S_OK;
   }
   CATCH_CPP_RETURN_HRESULT();
@@ -2092,65 +2099,8 @@ HRESULT DxilShaderReflection::Load(const DxilPartHeader *pModulePart,
 
 _Use_decl_annotations_
 HRESULT DxilShaderReflection::GetDesc(D3D12_SHADER_DESC *pDesc) {
-  IFR(ZeroMemoryToOut(pDesc));
-  const DxilModule &M = *m_pDxilModule;
-  const ShaderModel *pSM = M.GetShaderModel();
-
-  pDesc->Version = EncodeVersion(pSM->GetKind(), pSM->GetMajor(), pSM->GetMinor());
-
-  // Unset:  LPCSTR                  Creator;                     // Creator string
-  // Unset:  UINT                    Flags;                       // Shader compilation/parse flags
-
-  pDesc->ConstantBuffers = m_CBs.size();
-  pDesc->BoundResources = m_Resources.size();
-  pDesc->InputParameters = m_InputSignature.size();
-  pDesc->OutputParameters = m_OutputSignature.size();
-  pDesc->PatchConstantParameters = m_PatchConstantSignature.size();
-
-  // Unset:  UINT                    InstructionCount;            // Number of emitted instructions
-  // Unset:  UINT                    TempRegisterCount;           // Number of temporary registers used 
-  // Unset:  UINT                    TempArrayCount;              // Number of temporary arrays used
-  // Unset:  UINT                    DefCount;                    // Number of constant defines 
-  // Unset:  UINT                    DclCount;                    // Number of declarations (input + output)
-  // Unset:  UINT                    TextureNormalInstructions;   // Number of non-categorized texture instructions
-  // Unset:  UINT                    TextureLoadInstructions;     // Number of texture load instructions
-  // Unset:  UINT                    TextureCompInstructions;     // Number of texture comparison instructions
-  // Unset:  UINT                    TextureBiasInstructions;     // Number of texture bias instructions
-  // Unset:  UINT                    TextureGradientInstructions; // Number of texture gradient instructions
-  // Unset:  UINT                    FloatInstructionCount;       // Number of floating point arithmetic instructions used
-  // Unset:  UINT                    IntInstructionCount;         // Number of signed integer arithmetic instructions used
-  // Unset:  UINT                    UintInstructionCount;        // Number of unsigned integer arithmetic instructions used
-  // Unset:  UINT                    StaticFlowControlCount;      // Number of static flow control instructions used
-  // Unset:  UINT                    DynamicFlowControlCount;     // Number of dynamic flow control instructions used
-  // Unset:  UINT                    MacroInstructionCount;       // Number of macro instructions used
-  // Unset:  UINT                    ArrayInstructionCount;       // Number of array instructions used
-  // Unset:  UINT                    CutInstructionCount;         // Number of cut instructions used
-  // Unset:  UINT                    EmitInstructionCount;        // Number of emit instructions used
-
-  pDesc->GSOutputTopology = (D3D_PRIMITIVE_TOPOLOGY)M.GetStreamPrimitiveTopology();
-  pDesc->GSMaxOutputVertexCount = M.GetMaxVertexCount();
-
-  if (pSM->IsHS())
-    pDesc->InputPrimitive = (D3D_PRIMITIVE)(D3D_PRIMITIVE_1_CONTROL_POINT_PATCH + M.GetInputControlPointCount() - 1);
-  else
-    pDesc->InputPrimitive = (D3D_PRIMITIVE)M.GetInputPrimitive();
-
-  pDesc->cGSInstanceCount = M.GetGSInstanceCount();
-
-  if (pSM->IsHS())
-    pDesc->cControlPoints = M.GetOutputControlPointCount();
-  else if (pSM->IsDS())
-    pDesc->cControlPoints = M.GetInputControlPointCount();
-
-  pDesc->HSOutputPrimitive = (D3D_TESSELLATOR_OUTPUT_PRIMITIVE)M.GetTessellatorOutputPrimitive();
-  pDesc->HSPartitioning = (D3D_TESSELLATOR_PARTITIONING)M.GetTessellatorPartitioning();
-  pDesc->TessellatorDomain = (D3D_TESSELLATOR_DOMAIN)M.GetTessellatorDomain();
-
-  // instruction counts
-  // Unset:  UINT cBarrierInstructions;                           // Number of barrier instructions in a compute shader
-  // Unset:  UINT cInterlockedInstructions;                       // Number of interlocked instructions
-  // Unset:  UINT cTextureStoreInstructions;                      // Number of texture writes
-
+  if (nullptr == pDesc) return E_POINTER;
+  memcpy(pDesc, &m_Desc, sizeof(D3D12_SHADER_DESC));
   return S_OK;
 }
 
@@ -2238,6 +2188,107 @@ void DxilShaderReflection::MarkUsedSignatureElements() {
     if (markedElementCount == elementCount)
       return;
   }
+}
+
+void DxilShaderReflection::InitDesc() {
+  D3D12_SHADER_DESC *pDesc = &m_Desc;
+
+  const DxilModule &M = *m_pDxilModule;
+  const ShaderModel *pSM = M.GetShaderModel();
+
+  pDesc->Version = EncodeVersion(pSM->GetKind(), pSM->GetMajor(), pSM->GetMinor());
+
+  Module *pModule = M.GetModule();
+  if (NamedMDNode *pIdentMD = pModule->getNamedMetadata("llvm.ident")) {
+    if (pIdentMD->getNumOperands()) {
+      if (MDNode *pMDList = pIdentMD->getOperand(0)) {
+        if (pMDList->getNumOperands()) {
+          if (MDString *pMDString = dyn_cast_or_null<MDString>(pMDList->getOperand(0))) {
+            pDesc->Creator = pMDString->getString().data();
+          }
+        }
+      }
+    }
+  }
+
+  // Unset:  UINT                    Flags;                       // Shader compilation/parse flags
+
+  pDesc->ConstantBuffers = m_CBs.size();
+  pDesc->BoundResources = m_Resources.size();
+  pDesc->InputParameters = m_InputSignature.size();
+  pDesc->OutputParameters = m_OutputSignature.size();
+  pDesc->PatchConstantParameters = m_PatchConstantSignature.size();
+
+  pDesc->GSOutputTopology = (D3D_PRIMITIVE_TOPOLOGY)M.GetStreamPrimitiveTopology();
+  pDesc->GSMaxOutputVertexCount = M.GetMaxVertexCount();
+
+  if (pSM->IsHS())
+    pDesc->InputPrimitive = (D3D_PRIMITIVE)(D3D_PRIMITIVE_1_CONTROL_POINT_PATCH + M.GetInputControlPointCount() - 1);
+  else
+    pDesc->InputPrimitive = (D3D_PRIMITIVE)M.GetInputPrimitive();
+
+  pDesc->cGSInstanceCount = M.GetGSInstanceCount();
+
+  if (pSM->IsHS())
+    pDesc->cControlPoints = M.GetOutputControlPointCount();
+  else if (pSM->IsDS())
+    pDesc->cControlPoints = M.GetInputControlPointCount();
+
+  pDesc->HSOutputPrimitive = (D3D_TESSELLATOR_OUTPUT_PRIMITIVE)M.GetTessellatorOutputPrimitive();
+  pDesc->HSPartitioning = (D3D_TESSELLATOR_PARTITIONING)M.GetTessellatorPartitioning();
+  pDesc->TessellatorDomain = (D3D_TESSELLATOR_DOMAIN)M.GetTessellatorDomain();
+
+  // Instruction counts only roughly track some fxc counters
+  DxilCounters counters = {};
+  m_pDxilModule->LoadDxilCounters(counters);
+
+  // UINT InstructionCount;               // Num llvm instructions in all functions
+  // UINT TempArrayCount;                 // Number of bytes used in arrays (alloca + static global)
+  // UINT DynamicFlowControlCount;        // Number of branches with more than one successor for now
+  // UINT ArrayInstructionCount;          // number of load/store on arrays for now
+  pDesc->InstructionCount = counters.insts;
+  pDesc->TempArrayCount = counters.AllArrayBytes();
+  pDesc->DynamicFlowControlCount = counters.branches;
+  pDesc->ArrayInstructionCount = counters.AllArrayAccesses();
+
+  // UINT FloatInstructionCount;          // Number of floating point arithmetic instructions used
+  // UINT IntInstructionCount;            // Number of signed integer arithmetic instructions used
+  // UINT UintInstructionCount;           // Number of unsigned integer arithmetic instructions used
+  pDesc->FloatInstructionCount = counters.floats;
+  pDesc->IntInstructionCount = counters.ints;
+  pDesc->UintInstructionCount = counters.uints;
+
+  // UINT TextureNormalInstructions;      // Number of non-categorized texture instructions
+  // UINT TextureLoadInstructions;        // Number of texture load instructions
+  // UINT TextureCompInstructions;        // Number of texture comparison instructions
+  // UINT TextureBiasInstructions;        // Number of texture bias instructions
+  // UINT TextureGradientInstructions;    // Number of texture gradient instructions
+  pDesc->TextureNormalInstructions = counters.tex_norm;
+  pDesc->TextureLoadInstructions = counters.tex_load;
+  pDesc->TextureCompInstructions = counters.tex_cmp;
+  pDesc->TextureBiasInstructions = counters.tex_bias;
+  pDesc->TextureGradientInstructions = counters.tex_grad;
+
+  // UINT CutInstructionCount;            // Number of cut instructions used
+  // UINT EmitInstructionCount;           // Number of emit instructions used
+  pDesc->CutInstructionCount = counters.gs_cut;
+  pDesc->EmitInstructionCount = counters.gs_emit;
+
+  // UINT cBarrierInstructions;           // Number of barrier instructions in a compute shader
+  // UINT cInterlockedInstructions;       // Number of interlocked instructions
+  // UINT cTextureStoreInstructions;      // Number of texture writes
+  pDesc->cBarrierInstructions = counters.barrier;
+  pDesc->cInterlockedInstructions = counters.atomic;
+  pDesc->cTextureStoreInstructions = counters.tex_store;
+
+  // Unset:  UINT TempRegisterCount;      // Don't know how to map this for SSA (not going to do reg allocation here)
+  // Unset:  UINT DefCount;               // Not sure what to map this to
+  // Unset:  UINT DclCount;               // Number of declarations (input + output)
+  // TODO: map to used input + output signature rows?
+  // Unset:  UINT StaticFlowControlCount; // Number of static flow control instructions used
+  // This used to map to flow control using special int/bool constant registers in DX9.
+  // Unset:  UINT MacroInstructionCount;  // Number of macro instructions used
+  // Macro instructions are a <= DX9 concept.
 }
 
 _Use_decl_annotations_
