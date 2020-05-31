@@ -894,10 +894,12 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     opts.RWOpt.KeepUserMacro = Args.hasFlag(OPT_rw_keep_user_macro, OPT_INVALID, false);
     opts.RWOpt.ExtractEntryUniforms = Args.hasFlag(OPT_rw_extract_entry_uniforms, OPT_INVALID, false);
     opts.RWOpt.RemoveUnusedGlobals = Args.hasFlag(OPT_rw_remove_unused_globals, OPT_INVALID, false);
+    opts.RWOpt.RemoveUnusedFunctions = Args.hasFlag(OPT_rw_remove_unused_functions, OPT_INVALID, false);
 
     if (opts.EntryPoint.empty() &&
-        (opts.RWOpt.RemoveUnusedGlobals || opts.RWOpt.ExtractEntryUniforms)) {
-      errors << "-rw-remove-unused-globals and -rw-extract-entry-uniforms requires entry point (-E) to be specified.";
+        (opts.RWOpt.RemoveUnusedGlobals || opts.RWOpt.ExtractEntryUniforms ||
+         opts.RWOpt.RemoveUnusedFunctions)) {
+      errors << "-remove-unused-globals, -remove-unused-functions and -extract-entry-uniforms requires entry point (-E) to be specified.";
       return 1;
     }
   }

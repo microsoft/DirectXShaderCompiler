@@ -94,6 +94,7 @@ struct RewriterOpts {
   bool KeepUserMacro = false;               // OPT_rw_keep_user_macro
   bool ExtractEntryUniforms = false;        // OPT_rw_extract_entry_uniforms
   bool RemoveUnusedGlobals = false;         // OPT_rw_remove_unused_globals
+  bool RemoveUnusedFunctions = false;         // OPT_rw_remove_unused_functions
 };
 
 /// Use this class to capture all options.
