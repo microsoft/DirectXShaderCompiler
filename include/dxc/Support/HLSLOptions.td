@@ -451,6 +451,7 @@ def rw_extract_entry_uniforms : Flag<["-", "/"], "extract-entry-uniforms">, Grou
   HelpText<"Move uniform parameters from entry point to global scope">;
 def rw_remove_unused_globals : Flag<["-", "/"], "remove-unused-globals">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
   HelpText<"Remove unused static globals and functions">;
-
+def rw_remove_unused_functions : Flag<["-", "/"], "remove-unused-functions">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
+  HelpText<"Remove unused functions and types">;
 // Also removed: compress, decompress, /Gch (child effect), /Gpp (partial precision)
 // /Op - no support for preshaders.
