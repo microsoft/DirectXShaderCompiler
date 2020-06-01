@@ -1070,7 +1070,7 @@ TEST_F(ValidationTest, LocalResCopy) {
       L"..\\DXILValidation\\resCopy.hlsl", "cs_6_0", {"ret void"},
       {"%H = alloca %dx.types.ResRet.i32\n"
        "ret void"},
-      {"Dxil struct types should only used by ExtractValue"});
+      {"Dxil struct types should only be used by ExtractValue"});
 }
 
 TEST_F(ValidationTest, WhenIncorrectModelThenFail) {
@@ -1271,7 +1271,7 @@ TEST_F(ValidationTest, StructBufGlobalCoherentAndCounter) {
       L"..\\DXILValidation\\struct_buf1.hlsl", "ps_6_0",
       "!\"buf2\", i32 0, i32 0, i32 1, i32 12, i1 false, i1 false",
       "!\"buf2\", i32 0, i32 0, i32 1, i32 12, i1 true, i1 true",
-      "globallycoherent cannot be used with append/consume buffers'buf2'");
+      "globallycoherent cannot be used with append/consume buffers: 'buf2'");
 }
 
 TEST_F(ValidationTest, StructBufStrideAlign) {
@@ -1589,7 +1589,7 @@ TEST_F(ValidationTest, I8Type) {
                           "%([0-9]+) = alloca \\[4 x i32\\]",
                           "%\\1 = alloca [4 x i32]\n"
                           "  %m8 = alloca i8",
-                          "I8 can only used as immediate value for intrinsic",
+                          "I8 can only be used as immediate value for intrinsic",
     /*bRegex*/true);
 }
 

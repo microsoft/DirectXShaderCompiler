@@ -1,6 +1,6 @@
 // RUN: %dxc -E main -T as_6_5 %s | FileCheck %s
 
-// CHECK: payload size is greater than 16384
+// CHECK: payload size 16400 is greater than maximum size of 16384 bytes
 
 #define NUM_THREADS 32
 

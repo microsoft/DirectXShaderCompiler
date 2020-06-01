@@ -1,6 +1,6 @@
 // RUN: %dxc -E main -T ms_6_5 %s | FileCheck %s
 
-// CHECK: payload size is greater than 16384
+// CHECK: payload size 16404 is greater than maximum size of 16384 bytes
 
 #define MAX_VERT 32
 #define MAX_PRIM 16

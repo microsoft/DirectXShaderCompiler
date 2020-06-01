@@ -66,30 +66,30 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
   /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_valrule_text()</py>*/
   // VALRULE-TEXT:BEGIN
   switch(value) {
-    case hlsl::ValidationRule::BitcodeValid: return "Module bitcode is invalid";
+    case hlsl::ValidationRule::BitcodeValid: return "Module bitcode is invalid.";
     case hlsl::ValidationRule::ContainerPartMatches: return "Container part '%0' does not match expected for module.";
     case hlsl::ValidationRule::ContainerPartRepeated: return "More than one container part '%0'.";
     case hlsl::ValidationRule::ContainerPartMissing: return "Missing part '%0' required by module.";
     case hlsl::ValidationRule::ContainerPartInvalid: return "Unknown part '%0' found in DXIL container.";
     case hlsl::ValidationRule::ContainerRootSignatureIncompatible: return "Root Signature in DXIL container is not compatible with shader.";
-    case hlsl::ValidationRule::MetaRequired: return "TODO - Required metadata missing";
-    case hlsl::ValidationRule::MetaKnown: return "Named metadata '%0' is unknown";
-    case hlsl::ValidationRule::MetaUsed: return "All metadata must be used by dxil";
-    case hlsl::ValidationRule::MetaTarget: return "Unknown target triple '%0'";
-    case hlsl::ValidationRule::MetaWellFormed: return "TODO - Metadata must be well-formed in operand count and types";
-    case hlsl::ValidationRule::MetaSemanticLen: return "Semantic length must be at least 1 and at most 64";
-    case hlsl::ValidationRule::MetaInterpModeValid: return "Invalid interpolation mode for '%0'";
-    case hlsl::ValidationRule::MetaSemaKindValid: return "Semantic kind for '%0' is invalid";
-    case hlsl::ValidationRule::MetaNoSemanticOverlap: return "Semantic '%0' overlap at %1";
-    case hlsl::ValidationRule::MetaSemaKindMatchesName: return "Semantic name %0 does not match System Value kind %1";
+    case hlsl::ValidationRule::MetaRequired: return "TODO - Required metadata missing.";
+    case hlsl::ValidationRule::MetaKnown: return "Named metadata '%0' is unknown.";
+    case hlsl::ValidationRule::MetaUsed: return "All metadata must be used by dxil.";
+    case hlsl::ValidationRule::MetaTarget: return "Unknown target triple '%0'.";
+    case hlsl::ValidationRule::MetaWellFormed: return "TODO - Metadata must be well-formed in operand count and types.";
+    case hlsl::ValidationRule::MetaSemanticLen: return "Semantic length must be at least 1 and at most 64.";
+    case hlsl::ValidationRule::MetaInterpModeValid: return "Invalid interpolation mode for '%0'.";
+    case hlsl::ValidationRule::MetaSemaKindValid: return "Semantic kind for '%0' is invalid.";
+    case hlsl::ValidationRule::MetaNoSemanticOverlap: return "Semantic '%0' overlap at %1.";
+    case hlsl::ValidationRule::MetaSemaKindMatchesName: return "Semantic name %0 does not match System Value kind %1.";
     case hlsl::ValidationRule::MetaDuplicateSysValue: return "System value %0 appears more than once in the same signature.";
-    case hlsl::ValidationRule::MetaSemanticIndexMax: return "%0 semantic index exceeds maximum (%1)";
-    case hlsl::ValidationRule::MetaSystemValueRows: return "rows for system value semantic %0 must be 1";
-    case hlsl::ValidationRule::MetaSemanticShouldBeAllocated: return "%0 Semantic '%1' should have a valid packing location";
-    case hlsl::ValidationRule::MetaSemanticShouldNotBeAllocated: return "%0 Semantic '%1' should have a packing location of -1";
-    case hlsl::ValidationRule::MetaValueRange: return "Metadata value must be within range";
-    case hlsl::ValidationRule::MetaFlagsUsage: return "Flags must match usage";
-    case hlsl::ValidationRule::MetaDenseResIDs: return "Resource identifiers must be zero-based and dense";
+    case hlsl::ValidationRule::MetaSemanticIndexMax: return "%0 semantic index exceeds maximum (%1).";
+    case hlsl::ValidationRule::MetaSystemValueRows: return "rows for system value semantic %0 must be 1.";
+    case hlsl::ValidationRule::MetaSemanticShouldBeAllocated: return "%0 Semantic '%1' should have a valid packing location.";
+    case hlsl::ValidationRule::MetaSemanticShouldNotBeAllocated: return "%0 Semantic '%1' should have a packing location of -1.";
+    case hlsl::ValidationRule::MetaValueRange: return "Metadata value must be within range.";
+    case hlsl::ValidationRule::MetaFlagsUsage: return "Flags must match usage.";
+    case hlsl::ValidationRule::MetaDenseResIDs: return "Resource identifiers must be zero-based and dense.";
     case hlsl::ValidationRule::MetaSignatureOverlap: return "signature element %0 at location (%1,%2) size (%3,%4) overlaps another signature element.";
     case hlsl::ValidationRule::MetaSignatureOutOfRange: return "signature element %0 at location (%1,%2) size (%3,%4) is out of range.";
     case hlsl::ValidationRule::MetaSignatureIndexConflict: return "signature element %0 at location (%1,%2) size (%3,%4) has an indexing conflict with another signature element packed into the same row.";
@@ -97,98 +97,98 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::MetaSignatureDataWidth: return "signature element %0 at location (%1, %2) size (%3, %4) has data width that differs from another element packed into the same row.";
     case hlsl::ValidationRule::MetaIntegerInterpMode: return "signature element %0 specifies invalid interpolation mode for integer component type.";
     case hlsl::ValidationRule::MetaInterpModeInOneRow: return "signature element %0 at location (%1,%2) size (%3,%4) has interpolation mode that differs from another element packed into the same row.";
-    case hlsl::ValidationRule::MetaSemanticCompType: return "%0 must be %1";
+    case hlsl::ValidationRule::MetaSemanticCompType: return "%0 must be %1.";
     case hlsl::ValidationRule::MetaClipCullMaxRows: return "ClipDistance and CullDistance occupy more than the maximum of 2 rows combined.";
     case hlsl::ValidationRule::MetaClipCullMaxComponents: return "ClipDistance and CullDistance use more than the maximum of 8 components combined.";
-    case hlsl::ValidationRule::MetaSignatureCompType: return "signature %0 specifies unrecognized or invalid component type";
+    case hlsl::ValidationRule::MetaSignatureCompType: return "signature %0 specifies unrecognized or invalid component type.";
     case hlsl::ValidationRule::MetaTessellatorPartition: return "Invalid Tessellator Partitioning specified. Must be integer, pow2, fractional_odd or fractional_even.";
     case hlsl::ValidationRule::MetaTessellatorOutputPrimitive: return "Invalid Tessellator Output Primitive specified. Must be point, line, triangleCW or triangleCCW.";
-    case hlsl::ValidationRule::MetaMaxTessFactor: return "Hull Shader MaxTessFactor must be [%0..%1].  %2 specified";
-    case hlsl::ValidationRule::MetaValidSamplerMode: return "Invalid sampler mode on sampler ";
-    case hlsl::ValidationRule::MetaGlcNotOnAppendConsume: return "globallycoherent cannot be used with append/consume buffers";
-    case hlsl::ValidationRule::MetaStructBufAlignment: return "structured buffer element size must be a multiple of %0 bytes (actual size %1 bytes)";
-    case hlsl::ValidationRule::MetaStructBufAlignmentOutOfBound: return "structured buffer elements cannot be larger than %0 bytes (actual size %1 bytes)";
-    case hlsl::ValidationRule::MetaEntryFunction: return "entrypoint not found";
-    case hlsl::ValidationRule::MetaInvalidControlFlowHint: return "Invalid control flow hint";
-    case hlsl::ValidationRule::MetaBranchFlatten: return "Can't use branch and flatten attributes together";
-    case hlsl::ValidationRule::MetaForceCaseOnSwitch: return "Attribute forcecase only works for switch";
-    case hlsl::ValidationRule::MetaControlFlowHintNotOnControlFlow: return "Control flow hint only works on control flow inst";
-    case hlsl::ValidationRule::MetaTextureType: return "elements of typed buffers and textures must fit in four 32-bit quantities";
-    case hlsl::ValidationRule::MetaBarycentricsInterpolation: return "SV_Barycentrics cannot be used with 'nointerpolation' type";
+    case hlsl::ValidationRule::MetaMaxTessFactor: return "Hull Shader MaxTessFactor must be [%0..%1].  %2 specified.";
+    case hlsl::ValidationRule::MetaValidSamplerMode: return "Invalid sampler mode on sampler .";
+    case hlsl::ValidationRule::MetaGlcNotOnAppendConsume: return "globallycoherent cannot be used with append/consume buffers: '%0'.";
+    case hlsl::ValidationRule::MetaStructBufAlignment: return "structured buffer element size must be a multiple of %0 bytes (actual size %1 bytes).";
+    case hlsl::ValidationRule::MetaStructBufAlignmentOutOfBound: return "structured buffer elements cannot be larger than %0 bytes (actual size %1 bytes).";
+    case hlsl::ValidationRule::MetaEntryFunction: return "entrypoint not found.";
+    case hlsl::ValidationRule::MetaInvalidControlFlowHint: return "Invalid control flow hint.";
+    case hlsl::ValidationRule::MetaBranchFlatten: return "Can't use branch and flatten attributes together.";
+    case hlsl::ValidationRule::MetaForceCaseOnSwitch: return "Attribute forcecase only works for switch.";
+    case hlsl::ValidationRule::MetaControlFlowHintNotOnControlFlow: return "Control flow hint only works on control flow inst.";
+    case hlsl::ValidationRule::MetaTextureType: return "elements of typed buffers and textures must fit in four 32-bit quantities.";
+    case hlsl::ValidationRule::MetaBarycentricsInterpolation: return "SV_Barycentrics cannot be used with 'nointerpolation' type.";
     case hlsl::ValidationRule::MetaBarycentricsFloat3: return "only 'float3' type is allowed for SV_Barycentrics.";
     case hlsl::ValidationRule::MetaBarycentricsTwoPerspectives: return "There can only be up to two input attributes of SV_Barycentrics with different perspective interpolation mode.";
-    case hlsl::ValidationRule::MetaNoEntryPropsForEntry: return "EntryPoints must have entry properties.";
-    case hlsl::ValidationRule::InstrOload: return "DXIL intrinsic overload must be valid";
-    case hlsl::ValidationRule::InstrCallOload: return "Call to DXIL intrinsic '%0' does not match an allowed overload signature";
-    case hlsl::ValidationRule::InstrPtrBitCast: return "Pointer type bitcast must be have same size";
-    case hlsl::ValidationRule::InstrMinPrecisonBitCast: return "Bitcast on minprecison types is not allowed";
-    case hlsl::ValidationRule::InstrStructBitCast: return "Bitcast on struct types is not allowed";
-    case hlsl::ValidationRule::InstrStatus: return "Resource status should only used by CheckAccessFullyMapped";
-    case hlsl::ValidationRule::InstrCheckAccessFullyMapped: return "CheckAccessFullyMapped should only used on resource status";
-    case hlsl::ValidationRule::InstrOpConst: return "%0 of %1 must be an immediate constant";
-    case hlsl::ValidationRule::InstrAllowed: return "Instructions must be of an allowed type";
-    case hlsl::ValidationRule::InstrOpCodeReserved: return "Instructions must not reference reserved opcodes";
-    case hlsl::ValidationRule::InstrOperandRange: return "expect %0 between %1, got %2";
-    case hlsl::ValidationRule::InstrNoReadingUninitialized: return "Instructions should not read uninitialized value";
-    case hlsl::ValidationRule::InstrNoGenericPtrAddrSpaceCast: return "Address space cast between pointer types must have one part to be generic address space";
-    case hlsl::ValidationRule::InstrInBoundsAccess: return "Access to out-of-bounds memory is disallowed";
-    case hlsl::ValidationRule::InstrOpConstRange: return "Constant values must be in-range for operation";
-    case hlsl::ValidationRule::InstrImmBiasForSampleB: return "bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate";
-    case hlsl::ValidationRule::InstrNoIndefiniteLog: return "No indefinite logarithm";
-    case hlsl::ValidationRule::InstrNoIndefiniteAsin: return "No indefinite arcsine";
-    case hlsl::ValidationRule::InstrNoIndefiniteAcos: return "No indefinite arccosine";
-    case hlsl::ValidationRule::InstrNoIDivByZero: return "No signed integer division by zero";
-    case hlsl::ValidationRule::InstrNoUDivByZero: return "No unsigned integer division by zero";
-    case hlsl::ValidationRule::InstrNoIndefiniteDsxy: return "No indefinite derivative calculation";
-    case hlsl::ValidationRule::InstrMinPrecisionNotPrecise: return "Instructions marked precise may not refer to minprecision values";
+    case hlsl::ValidationRule::MetaNoEntryPropsForEntry: return "Entry point %0 must have entry properties.";
+    case hlsl::ValidationRule::InstrOload: return "DXIL intrinsic overload must be valid.";
+    case hlsl::ValidationRule::InstrCallOload: return "Call to DXIL intrinsic '%0' does not match an allowed overload signature.";
+    case hlsl::ValidationRule::InstrPtrBitCast: return "Pointer type bitcast must be have same size.";
+    case hlsl::ValidationRule::InstrMinPrecisonBitCast: return "Bitcast on minprecison types is not allowed.";
+    case hlsl::ValidationRule::InstrStructBitCast: return "Bitcast on struct types is not allowed.";
+    case hlsl::ValidationRule::InstrStatus: return "Resource status should only be used by CheckAccessFullyMapped.";
+    case hlsl::ValidationRule::InstrCheckAccessFullyMapped: return "CheckAccessFullyMapped should only be used on resource status.";
+    case hlsl::ValidationRule::InstrOpConst: return "%0 of %1 must be an immediate constant.";
+    case hlsl::ValidationRule::InstrAllowed: return "Instructions must be of an allowed type.";
+    case hlsl::ValidationRule::InstrOpCodeReserved: return "Instructions must not reference reserved opcodes.";
+    case hlsl::ValidationRule::InstrOperandRange: return "expect %0 between %1, got %2.";
+    case hlsl::ValidationRule::InstrNoReadingUninitialized: return "Instructions should not read uninitialized value.";
+    case hlsl::ValidationRule::InstrNoGenericPtrAddrSpaceCast: return "Address space cast between pointer types must have one part to be generic address space.";
+    case hlsl::ValidationRule::InstrInBoundsAccess: return "Access to out-of-bounds memory is disallowed.";
+    case hlsl::ValidationRule::InstrOpConstRange: return "Constant values must be in-range for operation.";
+    case hlsl::ValidationRule::InstrImmBiasForSampleB: return "bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate.";
+    case hlsl::ValidationRule::InstrNoIndefiniteLog: return "No indefinite logarithm.";
+    case hlsl::ValidationRule::InstrNoIndefiniteAsin: return "No indefinite arcsine.";
+    case hlsl::ValidationRule::InstrNoIndefiniteAcos: return "No indefinite arccosine.";
+    case hlsl::ValidationRule::InstrNoIDivByZero: return "No signed integer division by zero.";
+    case hlsl::ValidationRule::InstrNoUDivByZero: return "No unsigned integer division by zero.";
+    case hlsl::ValidationRule::InstrNoIndefiniteDsxy: return "No indefinite derivative calculation.";
+    case hlsl::ValidationRule::InstrMinPrecisionNotPrecise: return "Instructions marked precise may not refer to minprecision values.";
     case hlsl::ValidationRule::InstrOnlyOneAllocConsume: return "RWStructuredBuffers may increment or decrement their counters, but not both.";
-    case hlsl::ValidationRule::InstrTextureOffset: return "offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7";
-    case hlsl::ValidationRule::InstrCannotPullPosition: return "%0 does not support pull-model evaluation of position";
-    case hlsl::ValidationRule::InstrEvalInterpolationMode: return "Interpolation mode on %0 used with eval_* instruction must be linear, linear_centroid, linear_noperspective, linear_noperspective_centroid, linear_sample or linear_noperspective_sample";
-    case hlsl::ValidationRule::InstrResourceCoordinateMiss: return "coord uninitialized";
-    case hlsl::ValidationRule::InstrResourceCoordinateTooMany: return "out of bound coord must be undef";
-    case hlsl::ValidationRule::InstrResourceOffsetMiss: return "offset uninitialized";
-    case hlsl::ValidationRule::InstrResourceOffsetTooMany: return "out of bound offset must be undef";
-    case hlsl::ValidationRule::InstrUndefResultForGetDimension: return "GetDimensions used undef dimension %0 on %1";
-    case hlsl::ValidationRule::InstrSamplerModeForLOD: return "lod instruction requires sampler declared in default mode";
-    case hlsl::ValidationRule::InstrSamplerModeForSample: return "sample/_l/_d/_cl_s/gather instruction requires sampler declared in default mode";
-    case hlsl::ValidationRule::InstrSamplerModeForSampleC: return "sample_c_*/gather_c instructions require sampler declared in comparison mode";
+    case hlsl::ValidationRule::InstrTextureOffset: return "offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7.";
+    case hlsl::ValidationRule::InstrCannotPullPosition: return "%0 does not support pull-model evaluation of position.";
+    case hlsl::ValidationRule::InstrEvalInterpolationMode: return "Interpolation mode on %0 used with eval_* instruction must be linear, linear_centroid, linear_noperspective, linear_noperspective_centroid, linear_sample or linear_noperspective_sample.";
+    case hlsl::ValidationRule::InstrResourceCoordinateMiss: return "coord uninitialized.";
+    case hlsl::ValidationRule::InstrResourceCoordinateTooMany: return "out of bound coord must be undef.";
+    case hlsl::ValidationRule::InstrResourceOffsetMiss: return "offset uninitialized.";
+    case hlsl::ValidationRule::InstrResourceOffsetTooMany: return "out of bound offset must be undef.";
+    case hlsl::ValidationRule::InstrUndefResultForGetDimension: return "GetDimensions used undef dimension %0 on %1.";
+    case hlsl::ValidationRule::InstrSamplerModeForLOD: return "lod instruction requires sampler declared in default mode.";
+    case hlsl::ValidationRule::InstrSamplerModeForSample: return "sample/_l/_d/_cl_s/gather instruction requires sampler declared in default mode.";
+    case hlsl::ValidationRule::InstrSamplerModeForSampleC: return "sample_c_*/gather_c instructions require sampler declared in comparison mode.";
     case hlsl::ValidationRule::InstrSampleCompType: return "sample_* instructions require resource to be declared to return UNORM, SNORM or FLOAT.";
     case hlsl::ValidationRule::InstrBarrierModeUselessUGroup: return "sync can't specify both _ugroup and _uglobal. If both are needed, just specify _uglobal.";
-    case hlsl::ValidationRule::InstrBarrierModeNoMemory: return "sync must include some form of memory barrier - _u (UAV) and/or _g (Thread Group Shared Memory).  Only _t (thread group sync) is optional. ";
-    case hlsl::ValidationRule::InstrBarrierModeForNonCS: return "sync in a non-Compute/Amplification/Mesh Shader must only sync UAV (sync_uglobal)";
-    case hlsl::ValidationRule::InstrWriteMaskForTypedUAVStore: return "store on typed uav must write to all four components of the UAV";
-    case hlsl::ValidationRule::InstrResourceKindForCalcLOD: return "lod requires resource declared as texture1D/2D/3D/Cube/CubeArray/1DArray/2DArray";
-    case hlsl::ValidationRule::InstrResourceKindForSample: return "sample/_l/_d requires resource declared as texture1D/2D/3D/Cube/1DArray/2DArray/CubeArray";
-    case hlsl::ValidationRule::InstrResourceKindForSampleC: return "samplec requires resource declared as texture1D/2D/Cube/1DArray/2DArray/CubeArray";
-    case hlsl::ValidationRule::InstrResourceKindForGather: return "gather requires resource declared as texture/2D/Cube/2DArray/CubeArray";
-    case hlsl::ValidationRule::InstrWriteMaskMatchValueForUAVStore: return "uav store write mask must match store value mask, write mask is %0 and store value mask is %1";
-    case hlsl::ValidationRule::InstrResourceKindForBufferLoadStore: return "buffer load/store only works on Raw/Typed/StructuredBuffer";
-    case hlsl::ValidationRule::InstrResourceKindForTextureStore: return "texture store only works on Texture1D/1DArray/2D/2DArray/3D";
-    case hlsl::ValidationRule::InstrResourceKindForGetDim: return "Invalid resource kind on GetDimensions";
-    case hlsl::ValidationRule::InstrResourceKindForTextureLoad: return "texture load only works on Texture1D/1DArray/2D/2DArray/3D/MS2D/MS2DArray";
+    case hlsl::ValidationRule::InstrBarrierModeNoMemory: return "sync must include some form of memory barrier - _u (UAV) and/or _g (Thread Group Shared Memory).  Only _t (thread group sync) is optional.";
+    case hlsl::ValidationRule::InstrBarrierModeForNonCS: return "sync in a non-Compute/Amplification/Mesh Shader must only sync UAV (sync_uglobal).";
+    case hlsl::ValidationRule::InstrWriteMaskForTypedUAVStore: return "store on typed uav must write to all four components of the UAV.";
+    case hlsl::ValidationRule::InstrResourceKindForCalcLOD: return "lod requires resource declared as texture1D/2D/3D/Cube/CubeArray/1DArray/2DArray.";
+    case hlsl::ValidationRule::InstrResourceKindForSample: return "sample/_l/_d requires resource declared as texture1D/2D/3D/Cube/1DArray/2DArray/CubeArray.";
+    case hlsl::ValidationRule::InstrResourceKindForSampleC: return "samplec requires resource declared as texture1D/2D/Cube/1DArray/2DArray/CubeArray.";
+    case hlsl::ValidationRule::InstrResourceKindForGather: return "gather requires resource declared as texture/2D/Cube/2DArray/CubeArray.";
+    case hlsl::ValidationRule::InstrWriteMaskMatchValueForUAVStore: return "uav store write mask must match store value mask, write mask is %0 and store value mask is %1.";
+    case hlsl::ValidationRule::InstrResourceKindForBufferLoadStore: return "buffer load/store only works on Raw/Typed/StructuredBuffer.";
+    case hlsl::ValidationRule::InstrResourceKindForTextureStore: return "texture store only works on Texture1D/1DArray/2D/2DArray/3D.";
+    case hlsl::ValidationRule::InstrResourceKindForGetDim: return "Invalid resource kind on GetDimensions.";
+    case hlsl::ValidationRule::InstrResourceKindForTextureLoad: return "texture load only works on Texture1D/1DArray/2D/2DArray/3D/MS2D/MS2DArray.";
     case hlsl::ValidationRule::InstrResourceClassForSamplerGather: return "sample, lod and gather should be on srv resource.";
     case hlsl::ValidationRule::InstrResourceClassForUAVStore: return "store should be on uav resource.";
-    case hlsl::ValidationRule::InstrResourceClassForLoad: return "load can only run on UAV/SRV resource";
-    case hlsl::ValidationRule::InstrResourceMapToSingleEntry: return "Fail to map resource to resource table";
-    case hlsl::ValidationRule::InstrResourceUser: return "Resource should only used by Load/GEP/Call";
-    case hlsl::ValidationRule::InstrResourceKindForTraceRay: return "TraceRay should only use RTAccelerationStructure";
-    case hlsl::ValidationRule::InstrOffsetOnUAVLoad: return "uav load don't support offset";
-    case hlsl::ValidationRule::InstrMipOnUAVLoad: return "uav load don't support mipLevel/sampleIndex";
-    case hlsl::ValidationRule::InstrSampleIndexForLoad2DMS: return "load on Texture2DMS/2DMSArray require sampleIndex";
-    case hlsl::ValidationRule::InstrCoordinateCountForRawTypedBuf: return "raw/typed buffer don't need 2 coordinates";
-    case hlsl::ValidationRule::InstrCoordinateCountForStructBuf: return "structured buffer require 2 coordinates";
-    case hlsl::ValidationRule::InstrMipLevelForGetDimension: return "Use mip level on buffer when GetDimensions";
-    case hlsl::ValidationRule::InstrDxilStructUser: return "Dxil struct types should only used by ExtractValue";
-    case hlsl::ValidationRule::InstrDxilStructUserOutOfBound: return "Index out of bound when extract value from dxil struct types";
-    case hlsl::ValidationRule::InstrHandleNotFromCreateHandle: return "Resource handle should returned by createHandle";
-    case hlsl::ValidationRule::InstrBufferUpdateCounterOnUAV: return "BufferUpdateCounter valid only on UAV";
-    case hlsl::ValidationRule::InstrBufferUpdateCounterOnResHasCounter: return "BufferUpdateCounter valid only when HasCounter is true";
-    case hlsl::ValidationRule::InstrCBufferOutOfBound: return "Cbuffer access out of bound";
-    case hlsl::ValidationRule::InstrCBufferClassForCBufferHandle: return "Expect Cbuffer for CBufferLoad handle";
+    case hlsl::ValidationRule::InstrResourceClassForLoad: return "load can only run on UAV/SRV resource.";
+    case hlsl::ValidationRule::InstrResourceMapToSingleEntry: return "Fail to map resource to resource table.";
+    case hlsl::ValidationRule::InstrResourceUser: return "Resource should only be used by Load/GEP/Call.";
+    case hlsl::ValidationRule::InstrResourceKindForTraceRay: return "TraceRay should only use RTAccelerationStructure.";
+    case hlsl::ValidationRule::InstrOffsetOnUAVLoad: return "uav load don't support offset.";
+    case hlsl::ValidationRule::InstrMipOnUAVLoad: return "uav load don't support mipLevel/sampleIndex.";
+    case hlsl::ValidationRule::InstrSampleIndexForLoad2DMS: return "load on Texture2DMS/2DMSArray require sampleIndex.";
+    case hlsl::ValidationRule::InstrCoordinateCountForRawTypedBuf: return "raw/typed buffer don't need 2 coordinates.";
+    case hlsl::ValidationRule::InstrCoordinateCountForStructBuf: return "structured buffer require 2 coordinates.";
+    case hlsl::ValidationRule::InstrMipLevelForGetDimension: return "Use mip level on buffer when GetDimensions.";
+    case hlsl::ValidationRule::InstrDxilStructUser: return "Dxil struct types should only be used by ExtractValue.";
+    case hlsl::ValidationRule::InstrDxilStructUserOutOfBound: return "Index out of bound when extract value from dxil struct types.";
+    case hlsl::ValidationRule::InstrHandleNotFromCreateHandle: return "Resource handle should returned by createHandle.";
+    case hlsl::ValidationRule::InstrBufferUpdateCounterOnUAV: return "BufferUpdateCounter valid only on UAV.";
+    case hlsl::ValidationRule::InstrBufferUpdateCounterOnResHasCounter: return "BufferUpdateCounter valid only when HasCounter is true.";
+    case hlsl::ValidationRule::InstrCBufferOutOfBound: return "Cbuffer access out of bound.";
+    case hlsl::ValidationRule::InstrCBufferClassForCBufferHandle: return "Expect Cbuffer for CBufferLoad handle.";
     case hlsl::ValidationRule::InstrFailToResloveTGSMPointer: return "TGSM pointers must originate from an unambiguous TGSM global variable.";
-    case hlsl::ValidationRule::InstrExtractValue: return "ExtractValue should only be used on dxil struct types and cmpxchg";
-    case hlsl::ValidationRule::InstrTGSMRaceCond: return "Race condition writing to shared memory detected, consider making this write conditional";
+    case hlsl::ValidationRule::InstrExtractValue: return "ExtractValue should only be used on dxil struct types and cmpxchg.";
+    case hlsl::ValidationRule::InstrTGSMRaceCond: return "Race condition writing to shared memory detected, consider making this write conditional.";
     case hlsl::ValidationRule::InstrAttributeAtVertexNoInterpolation: return "Attribute %0 must have nointerpolation mode in order to use GetAttributeAtVertex function.";
     case hlsl::ValidationRule::InstrCreateHandleImmRangeID: return "Local resource must map to global resource.";
     case hlsl::ValidationRule::InstrSignatureOperationNotInEntry: return "Dxil operation for input output signature must be in entryPoints.";
@@ -198,102 +198,102 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::InstrMultipleGetMeshPayload: return "GetMeshPayload cannot be called multiple times.";
     case hlsl::ValidationRule::InstrNotOnceDispatchMesh: return "DispatchMesh must be called exactly once in an Amplification shader.";
     case hlsl::ValidationRule::InstrNonDominatingDispatchMesh: return "Non-Dominating DispatchMesh call.";
-    case hlsl::ValidationRule::TypesNoVector: return "Vector type '%0' is not allowed";
-    case hlsl::ValidationRule::TypesDefined: return "Type '%0' is not defined on DXIL primitives";
-    case hlsl::ValidationRule::TypesIntWidth: return "Int type '%0' has an invalid width";
-    case hlsl::ValidationRule::TypesNoMultiDim: return "Only one dimension allowed for array type";
-    case hlsl::ValidationRule::TypesNoPtrToPtr: return "Pointers to pointers, or pointers in structures are not allowed";
-    case hlsl::ValidationRule::TypesI8: return "I8 can only used as immediate value for intrinsic";
-    case hlsl::ValidationRule::SmName: return "Unknown shader model '%0'";
-    case hlsl::ValidationRule::SmDxilVersion: return "Shader model requires Dxil Version %0,%1";
-    case hlsl::ValidationRule::SmOpcode: return "Opcode %0 not valid in shader model %1";
-    case hlsl::ValidationRule::SmOperand: return "Operand must be defined in target shader model";
-    case hlsl::ValidationRule::SmSemantic: return "Semantic '%0' is invalid as %1 %2";
-    case hlsl::ValidationRule::SmNoInterpMode: return "Interpolation mode for '%0' is set but should be undefined";
-    case hlsl::ValidationRule::SmConstantInterpMode: return "Interpolation mode for '%0' should be constant";
+    case hlsl::ValidationRule::TypesNoVector: return "Vector type '%0' is not allowed.";
+    case hlsl::ValidationRule::TypesDefined: return "Type '%0' is not defined on DXIL primitives.";
+    case hlsl::ValidationRule::TypesIntWidth: return "Int type '%0' has an invalid width.";
+    case hlsl::ValidationRule::TypesNoMultiDim: return "Only one dimension allowed for array type.";
+    case hlsl::ValidationRule::TypesNoPtrToPtr: return "Pointers to pointers, or pointers in structures are not allowed.";
+    case hlsl::ValidationRule::TypesI8: return "I8 can only be used as immediate value for intrinsic.";
+    case hlsl::ValidationRule::SmName: return "Unknown shader model '%0'.";
+    case hlsl::ValidationRule::SmDxilVersion: return "Shader model requires Dxil Version %0,%1.";
+    case hlsl::ValidationRule::SmOpcode: return "Opcode %0 not valid in shader model %1.";
+    case hlsl::ValidationRule::SmOperand: return "Operand must be defined in target shader model.";
+    case hlsl::ValidationRule::SmSemantic: return "Semantic '%0' is invalid as %1 %2.";
+    case hlsl::ValidationRule::SmNoInterpMode: return "Interpolation mode for '%0' is set but should be undefined.";
+    case hlsl::ValidationRule::SmConstantInterpMode: return "Interpolation mode for '%0' should be constant.";
     case hlsl::ValidationRule::SmNoPSOutputIdx: return "Pixel shader output registers are not indexable.";
-    case hlsl::ValidationRule::SmPSConsistentInterp: return "Interpolation mode for PS input position must be linear_noperspective_centroid or linear_noperspective_sample when outputting oDepthGE or oDepthLE and not running at sample frequency (which is forced by inputting SV_SampleIndex or declaring an input linear_sample or linear_noperspective_sample)";
-    case hlsl::ValidationRule::SmThreadGroupChannelRange: return "Declared Thread Group %0 size %1 outside valid range [%2..%3]";
-    case hlsl::ValidationRule::SmMaxTheadGroup: return "Declared Thread Group Count %0 (X*Y*Z) is beyond the valid maximum of %1";
-    case hlsl::ValidationRule::SmMaxTGSMSize: return "Total Thread Group Shared Memory storage is %0, exceeded %1";
-    case hlsl::ValidationRule::SmROVOnlyInPS: return "RasterizerOrdered objects are only allowed in 5.0+ pixel shaders";
-    case hlsl::ValidationRule::SmTessFactorForDomain: return "Required TessFactor for domain not found declared anywhere in Patch Constant data";
+    case hlsl::ValidationRule::SmPSConsistentInterp: return "Interpolation mode for PS input position must be linear_noperspective_centroid or linear_noperspective_sample when outputting oDepthGE or oDepthLE and not running at sample frequency (which is forced by inputting SV_SampleIndex or declaring an input linear_sample or linear_noperspective_sample).";
+    case hlsl::ValidationRule::SmThreadGroupChannelRange: return "Declared Thread Group %0 size %1 outside valid range [%2..%3].";
+    case hlsl::ValidationRule::SmMaxTheadGroup: return "Declared Thread Group Count %0 (X*Y*Z) is beyond the valid maximum of %1.";
+    case hlsl::ValidationRule::SmMaxTGSMSize: return "Total Thread Group Shared Memory storage is %0, exceeded %1.";
+    case hlsl::ValidationRule::SmROVOnlyInPS: return "RasterizerOrdered objects are only allowed in 5.0+ pixel shaders.";
+    case hlsl::ValidationRule::SmTessFactorForDomain: return "Required TessFactor for domain not found declared anywhere in Patch Constant data.";
     case hlsl::ValidationRule::SmTessFactorSizeMatchDomain: return "TessFactor rows, columns (%0, %1) invalid for domain %2.  Expected %3 rows and 1 column.";
     case hlsl::ValidationRule::SmInsideTessFactorSizeMatchDomain: return "InsideTessFactor rows, columns (%0, %1) invalid for domain %2.  Expected %3 rows and 1 column.";
     case hlsl::ValidationRule::SmDomainLocationIdxOOB: return "DomainLocation component index out of bounds for the domain.";
     case hlsl::ValidationRule::SmHullPassThruControlPointCountMatch: return "For pass thru hull shader, input control point count must match output control point count";
-    case hlsl::ValidationRule::SmOutputControlPointsTotalScalars: return "Total number of scalars across all HS output control points must not exceed ";
+    case hlsl::ValidationRule::SmOutputControlPointsTotalScalars: return "Total number of scalars across all HS output control points must not exceed .";
     case hlsl::ValidationRule::SmIsoLineOutputPrimitiveMismatch: return "Hull Shader declared with IsoLine Domain must specify output primitive point or line. Triangle_cw or triangle_ccw output are not compatible with the IsoLine Domain.";
-    case hlsl::ValidationRule::SmTriOutputPrimitiveMismatch: return "Hull Shader declared with Tri Domain must specify output primitive point, triangle_cw or triangle_ccw. Line output is not compatible with the Tri domain";
-    case hlsl::ValidationRule::SmValidDomain: return "Invalid Tessellator Domain specified. Must be isoline, tri or quad";
-    case hlsl::ValidationRule::SmPatchConstantOnlyForHSDS: return "patch constant signature only valid in HS and DS";
-    case hlsl::ValidationRule::SmStreamIndexRange: return "Stream index (%0) must between 0 and %1";
-    case hlsl::ValidationRule::SmPSOutputSemantic: return "Pixel Shader allows output semantics to be SV_Target, SV_Depth, SV_DepthGreaterEqual, SV_DepthLessEqual, SV_Coverage or SV_StencilRef, %0 found";
-    case hlsl::ValidationRule::SmPSMultipleDepthSemantic: return "Pixel Shader only allows one type of depth semantic to be declared";
-    case hlsl::ValidationRule::SmPSTargetIndexMatchesRow: return "SV_Target semantic index must match packed row location";
-    case hlsl::ValidationRule::SmPSTargetCol0: return "SV_Target packed location must start at column 0";
+    case hlsl::ValidationRule::SmTriOutputPrimitiveMismatch: return "Hull Shader declared with Tri Domain must specify output primitive point, triangle_cw or triangle_ccw. Line output is not compatible with the Tri domain.";
+    case hlsl::ValidationRule::SmValidDomain: return "Invalid Tessellator Domain specified. Must be isoline, tri or quad.";
+    case hlsl::ValidationRule::SmPatchConstantOnlyForHSDS: return "patch constant signature only valid in HS and DS.";
+    case hlsl::ValidationRule::SmStreamIndexRange: return "Stream index (%0) must between 0 and %1.";
+    case hlsl::ValidationRule::SmPSOutputSemantic: return "Pixel Shader allows output semantics to be SV_Target, SV_Depth, SV_DepthGreaterEqual, SV_DepthLessEqual, SV_Coverage or SV_StencilRef, %0 found.";
+    case hlsl::ValidationRule::SmPSMultipleDepthSemantic: return "Pixel Shader only allows one type of depth semantic to be declared.";
+    case hlsl::ValidationRule::SmPSTargetIndexMatchesRow: return "SV_Target semantic index must match packed row location.";
+    case hlsl::ValidationRule::SmPSTargetCol0: return "SV_Target packed location must start at column 0.";
     case hlsl::ValidationRule::SmPSCoverageAndInnerCoverage: return "InnerCoverage and Coverage are mutually exclusive.";
-    case hlsl::ValidationRule::SmGSOutputVertexCountRange: return "GS output vertex count must be [0..%0].  %1 specified";
-    case hlsl::ValidationRule::SmGSInstanceCountRange: return "GS instance count must be [1..%0].  %1 specified";
-    case hlsl::ValidationRule::SmDSInputControlPointCountRange: return "DS input control point count must be [0..%0].  %1 specified";
-    case hlsl::ValidationRule::SmHSInputControlPointCountRange: return "HS input control point count must be [0..%0].  %1 specified";
-    case hlsl::ValidationRule::SmZeroHSInputControlPointWithInput: return "When HS input control point count is 0, no input signature should exist";
-    case hlsl::ValidationRule::SmOutputControlPointCountRange: return "output control point count must be [0..%0].  %1 specified";
-    case hlsl::ValidationRule::SmGSValidInputPrimitive: return "GS input primitive unrecognized";
-    case hlsl::ValidationRule::SmGSValidOutputPrimitiveTopology: return "GS output primitive topology unrecognized";
+    case hlsl::ValidationRule::SmGSOutputVertexCountRange: return "GS output vertex count must be [0..%0].  %1 specified.";
+    case hlsl::ValidationRule::SmGSInstanceCountRange: return "GS instance count must be [1..%0].  %1 specified.";
+    case hlsl::ValidationRule::SmDSInputControlPointCountRange: return "DS input control point count must be [0..%0].  %1 specified.";
+    case hlsl::ValidationRule::SmHSInputControlPointCountRange: return "HS input control point count must be [0..%0].  %1 specified.";
+    case hlsl::ValidationRule::SmZeroHSInputControlPointWithInput: return "When HS input control point count is 0, no input signature should exist.";
+    case hlsl::ValidationRule::SmOutputControlPointCountRange: return "output control point count must be [0..%0].  %1 specified.";
+    case hlsl::ValidationRule::SmGSValidInputPrimitive: return "GS input primitive unrecognized.";
+    case hlsl::ValidationRule::SmGSValidOutputPrimitiveTopology: return "GS output primitive topology unrecognized.";
     case hlsl::ValidationRule::SmAppendAndConsumeOnSameUAV: return "BufferUpdateCounter inc and dec on a given UAV (%d) cannot both be in the same shader for shader model less than 5.1.";
-    case hlsl::ValidationRule::SmInvalidTextureKindOnUAV: return "Texture2DMS[Array] or TextureCube[Array] resources are not supported with UAVs";
-    case hlsl::ValidationRule::SmInvalidResourceKind: return "Invalid resources kind";
-    case hlsl::ValidationRule::SmInvalidResourceCompType: return "Invalid resource return type";
-    case hlsl::ValidationRule::SmInvalidSamplerFeedbackType: return "Invalid sampler feedback type";
-    case hlsl::ValidationRule::SmSampleCountOnlyOn2DMS: return "Only Texture2DMS/2DMSArray could has sample count";
-    case hlsl::ValidationRule::SmCounterOnlyOnStructBuf: return "BufferUpdateCounter valid only on structured buffers";
-    case hlsl::ValidationRule::SmGSTotalOutputVertexDataRange: return "Declared output vertex count (%0) multiplied by the total number of declared scalar components of output data (%1) equals %2.  This value cannot be greater than %3";
-    case hlsl::ValidationRule::SmMultiStreamMustBePoint: return "Multiple GS output streams are used but '%0' is not pointlist";
-    case hlsl::ValidationRule::SmCompletePosition: return "Not all elements of SV_Position were written";
-    case hlsl::ValidationRule::SmUndefinedOutput: return "Not all elements of output %0 were written";
+    case hlsl::ValidationRule::SmInvalidTextureKindOnUAV: return "Texture2DMS[Array] or TextureCube[Array] resources are not supported with UAVs.";
+    case hlsl::ValidationRule::SmInvalidResourceKind: return "Invalid resources kind.";
+    case hlsl::ValidationRule::SmInvalidResourceCompType: return "Invalid resource return type.";
+    case hlsl::ValidationRule::SmInvalidSamplerFeedbackType: return "Invalid sampler feedback type.";
+    case hlsl::ValidationRule::SmSampleCountOnlyOn2DMS: return "Only Texture2DMS/2DMSArray could has sample count.";
+    case hlsl::ValidationRule::SmCounterOnlyOnStructBuf: return "BufferUpdateCounter valid only on structured buffers.";
+    case hlsl::ValidationRule::SmGSTotalOutputVertexDataRange: return "Declared output vertex count (%0) multiplied by the total number of declared scalar components of output data (%1) equals %2.  This value cannot be greater than %3.";
+    case hlsl::ValidationRule::SmMultiStreamMustBePoint: return "Multiple GS output streams are used but '%0' is not pointlist.";
+    case hlsl::ValidationRule::SmCompletePosition: return "Not all elements of SV_Position were written.";
+    case hlsl::ValidationRule::SmUndefinedOutput: return "Not all elements of output %0 were written.";
     case hlsl::ValidationRule::SmCSNoSignatures: return "Compute shaders must not have shader signatures.";
-    case hlsl::ValidationRule::SmCBufferTemplateTypeMustBeStruct: return "D3D12 constant/texture buffer template element can only be a struct";
-    case hlsl::ValidationRule::SmResourceRangeOverlap: return "Resource %0 with base %1 size %2 overlap with other resource with base %3 size %4 in space %5";
-    case hlsl::ValidationRule::SmCBufferOffsetOverlap: return "CBuffer %0 has offset overlaps at %1";
-    case hlsl::ValidationRule::SmCBufferElementOverflow: return "CBuffer %0 size insufficient for element at offset %1";
-    case hlsl::ValidationRule::SmCBufferArrayOffsetAlignment: return "CBuffer %0 has unaligned array offset at %1";
-    case hlsl::ValidationRule::SmOpcodeInInvalidFunction: return "opcode '%0' should only be used in '%1'";
-    case hlsl::ValidationRule::SmViewIDNeedsSlot: return "Pixel shader input signature lacks available space for ViewID";
-    case hlsl::ValidationRule::Sm64bitRawBufferLoadStore: return "i64/f64 rawBufferLoad/Store overloads are allowed after SM 6.3";
-    case hlsl::ValidationRule::SmRayShaderSignatures: return "Ray tracing shader '%0' should not have any shader signatures";
-    case hlsl::ValidationRule::SmRayShaderPayloadSize: return "For shader '%0', %1 size is smaller than argument's allocation size";
-    case hlsl::ValidationRule::SmMeshShaderMaxVertexCount: return "MS max vertex output count must be [0..%0].  %1 specified";
-    case hlsl::ValidationRule::SmMeshShaderMaxPrimitiveCount: return "MS max primitive output count must be [0..%0].  %1 specified";
-    case hlsl::ValidationRule::SmMeshShaderPayloadSize: return "For shader '%0', payload size is greater than %1";
-    case hlsl::ValidationRule::SmMeshShaderPayloadSizeDeclared: return "For shader '%0', payload size %1 is greater than declared size of %2 bytes";
-    case hlsl::ValidationRule::SmMeshShaderOutputSize: return "For shader '%0', vertex plus primitive output size is greater than %1";
-    case hlsl::ValidationRule::SmMeshShaderInOutSize: return "For shader '%0', payload plus output size is greater than %1";
-    case hlsl::ValidationRule::SmMeshVSigRowCount: return "For shader '%0', vertex output signatures are taking up more than %1 rows";
-    case hlsl::ValidationRule::SmMeshPSigRowCount: return "For shader '%0', primitive output signatures are taking up more than %1 rows";
-    case hlsl::ValidationRule::SmMeshTotalSigRowCount: return "For shader '%0', vertex and primitive output signatures are taking up more than %1 rows";
-    case hlsl::ValidationRule::SmMaxMSSMSize: return "Total Thread Group Shared Memory storage is %0, exceeded %1";
-    case hlsl::ValidationRule::SmAmplificationShaderPayloadSize: return "For shader '%0', payload size is greater than %1";
-    case hlsl::ValidationRule::SmAmplificationShaderPayloadSizeDeclared: return "For shader '%0', payload size %1 is greater than declared size of %2 bytes";
-    case hlsl::ValidationRule::FlowReducible: return "Execution flow must be reducible";
-    case hlsl::ValidationRule::FlowNoRecusion: return "Recursion is not permitted";
-    case hlsl::ValidationRule::FlowDeadLoop: return "Loop must have break";
-    case hlsl::ValidationRule::FlowFunctionCall: return "Function %0 with parameter is not permitted, it should be inlined";
-    case hlsl::ValidationRule::DeclDxilNsReserved: return "Declaration '%0' uses a reserved prefix";
-    case hlsl::ValidationRule::DeclDxilFnExtern: return "External function '%0' is not a DXIL function";
-    case hlsl::ValidationRule::DeclUsedInternal: return "Internal declaration '%0' is unused";
-    case hlsl::ValidationRule::DeclNotUsedExternal: return "External declaration '%0' is unused";
-    case hlsl::ValidationRule::DeclUsedExternalFunction: return "External function '%0' is unused";
-    case hlsl::ValidationRule::DeclFnIsCalled: return "Function '%0' is used for something other than calling";
-    case hlsl::ValidationRule::DeclFnFlattenParam: return "Type '%0' is a struct type but is used as a parameter in function '%1'";
-    case hlsl::ValidationRule::DeclFnAttribute: return "Function '%0' contains invalid attribute '%1' with value '%2'";
-    case hlsl::ValidationRule::DeclResourceInFnSig: return "Function '%0' uses resource in function signature";
-    case hlsl::ValidationRule::DeclPayloadStruct: return "Argument '%0' must be a struct type for payload in shader function '%1'";
-    case hlsl::ValidationRule::DeclAttrStruct: return "Argument '%0' must be a struct type for attributes in shader function '%1'";
-    case hlsl::ValidationRule::DeclParamStruct: return "Argument '%0' must be a struct type for callable shader function '%1'";
-    case hlsl::ValidationRule::DeclExtraArgs: return "Extra argument '%0' not allowed for shader function '%1'";
-    case hlsl::ValidationRule::DeclShaderReturnVoid: return "Shader function '%0' must have void return type";
-    case hlsl::ValidationRule::DeclShaderMissingArg: return "%0 shader '%1' missing required %2 parameter";
+    case hlsl::ValidationRule::SmCBufferTemplateTypeMustBeStruct: return "D3D12 constant/texture buffer template element can only be a struct.";
+    case hlsl::ValidationRule::SmResourceRangeOverlap: return "Resource %0 with base %1 size %2 overlap with other resource with base %3 size %4 in space %5.";
+    case hlsl::ValidationRule::SmCBufferOffsetOverlap: return "CBuffer %0 has offset overlaps at %1.";
+    case hlsl::ValidationRule::SmCBufferElementOverflow: return "CBuffer %0 size insufficient for element at offset %1.";
+    case hlsl::ValidationRule::SmCBufferArrayOffsetAlignment: return "CBuffer %0 has unaligned array offset at %1.";
+    case hlsl::ValidationRule::SmOpcodeInInvalidFunction: return "opcode '%0' should only be used in '%1'.";
+    case hlsl::ValidationRule::SmViewIDNeedsSlot: return "Pixel shader input signature lacks available space for ViewID.";
+    case hlsl::ValidationRule::Sm64bitRawBufferLoadStore: return "i64/f64 rawBufferLoad/Store overloads are allowed after SM 6.3.";
+    case hlsl::ValidationRule::SmRayShaderSignatures: return "Ray tracing shader '%0' should not have any shader signatures.";
+    case hlsl::ValidationRule::SmRayShaderPayloadSize: return "For shader '%0', %1 size is smaller than argument's allocation size.";
+    case hlsl::ValidationRule::SmMeshShaderMaxVertexCount: return "MS max vertex output count must be [0..%0].  %1 specified.";
+    case hlsl::ValidationRule::SmMeshShaderMaxPrimitiveCount: return "MS max primitive output count must be [0..%0].  %1 specified.";
+    case hlsl::ValidationRule::SmMeshShaderPayloadSize: return "For mesh shader with entry '%0', payload size %1 is greater than maximum size of %2 bytes.";
+    case hlsl::ValidationRule::SmMeshShaderPayloadSizeDeclared: return "For mesh shader with entry '%0', payload size %1 is greater than declared size of %2 bytes.";
+    case hlsl::ValidationRule::SmMeshShaderOutputSize: return "For shader '%0', vertex plus primitive output size is greater than %1.";
+    case hlsl::ValidationRule::SmMeshShaderInOutSize: return "For shader '%0', payload plus output size is greater than %1.";
+    case hlsl::ValidationRule::SmMeshVSigRowCount: return "For shader '%0', vertex output signatures are taking up more than %1 rows.";
+    case hlsl::ValidationRule::SmMeshPSigRowCount: return "For shader '%0', primitive output signatures are taking up more than %1 rows.";
+    case hlsl::ValidationRule::SmMeshTotalSigRowCount: return "For shader '%0', vertex and primitive output signatures are taking up more than %1 rows.";
+    case hlsl::ValidationRule::SmMaxMSSMSize: return "Total Thread Group Shared Memory storage is %0, exceeded %1.";
+    case hlsl::ValidationRule::SmAmplificationShaderPayloadSize: return "For amplification shader with entry '%0', payload size %1 is greater than maximum size of %2 bytes.";
+    case hlsl::ValidationRule::SmAmplificationShaderPayloadSizeDeclared: return "For amplification shader with entry '%0', payload size %1 is greater than declared size of %2 bytes.";
+    case hlsl::ValidationRule::FlowReducible: return "Execution flow must be reducible.";
+    case hlsl::ValidationRule::FlowNoRecusion: return "Recursion is not permitted.";
+    case hlsl::ValidationRule::FlowDeadLoop: return "Loop must have break.";
+    case hlsl::ValidationRule::FlowFunctionCall: return "Function %0 with parameter is not permitted, it should be inlined.";
+    case hlsl::ValidationRule::DeclDxilNsReserved: return "Declaration '%0' uses a reserved prefix.";
+    case hlsl::ValidationRule::DeclDxilFnExtern: return "External function '%0' is not a DXIL function.";
+    case hlsl::ValidationRule::DeclUsedInternal: return "Internal declaration '%0' is unused.";
+    case hlsl::ValidationRule::DeclNotUsedExternal: return "External declaration '%0' is unused.";
+    case hlsl::ValidationRule::DeclUsedExternalFunction: return "External function '%0' is unused.";
+    case hlsl::ValidationRule::DeclFnIsCalled: return "Function '%0' is used for something other than calling.";
+    case hlsl::ValidationRule::DeclFnFlattenParam: return "Type '%0' is a struct type but is used as a parameter in function '%1'.";
+    case hlsl::ValidationRule::DeclFnAttribute: return "Function '%0' contains invalid attribute '%1' with value '%2'.";
+    case hlsl::ValidationRule::DeclResourceInFnSig: return "Function '%0' uses resource in function signature.";
+    case hlsl::ValidationRule::DeclPayloadStruct: return "Argument '%0' must be a struct type for payload in shader function '%1'.";
+    case hlsl::ValidationRule::DeclAttrStruct: return "Argument '%0' must be a struct type for attributes in shader function '%1'.";
+    case hlsl::ValidationRule::DeclParamStruct: return "Argument '%0' must be a struct type for callable shader function '%1'.";
+    case hlsl::ValidationRule::DeclExtraArgs: return "Extra argument '%0' not allowed for shader function '%1'.";
+    case hlsl::ValidationRule::DeclShaderReturnVoid: return "Shader function '%0' must have void return type.";
+    case hlsl::ValidationRule::DeclShaderMissingArg: return "%0 shader '%1' missing required %2 parameter.";
   }
   // VALRULE-TEXT:END
   llvm_unreachable("invalid value");
@@ -2907,17 +2907,18 @@ static void ValidateMsIntrinsics(Function *F,
 
     DxilFunctionProps &prop = ValCtx.DxilMod.GetDxilFunctionProps(F);
 
-    if (payloadSize > DXIL::kMaxMSASPayloadBytes ||
-        prop.ShaderProps.MS.payloadSizeInBytes > DXIL::kMaxMSASPayloadBytes) {
-      ValCtx.EmitFormatError(ValidationRule::SmMeshShaderPayloadSize,
-        { F->getName(), std::to_string(DXIL::kMaxMSASPayloadBytes) });
-    }
-
     if (prop.ShaderProps.MS.payloadSizeInBytes < payloadSize) {
       ValCtx.EmitFormatError(ValidationRule::SmMeshShaderPayloadSizeDeclared,
         { F->getName(), std::to_string(payloadSize),
           std::to_string(prop.ShaderProps.MS.payloadSizeInBytes) });
     }
+
+    if (prop.ShaderProps.MS.payloadSizeInBytes > DXIL::kMaxMSASPayloadBytes) {
+      ValCtx.EmitFormatError(ValidationRule::SmMeshShaderPayloadSize,
+        { F->getName(), std::to_string(prop.ShaderProps.MS.payloadSizeInBytes),
+          std::to_string(DXIL::kMaxMSASPayloadBytes) });
+    }
+
   }
 }
 
@@ -2936,17 +2937,17 @@ static void ValidateAsIntrinsics(Function *F, ValidationContext &ValCtx, CallIns
 
       DxilFunctionProps &prop = ValCtx.DxilMod.GetDxilFunctionProps(F);
 
-      if (payloadSize > DXIL::kMaxMSASPayloadBytes ||
-          prop.ShaderProps.AS.payloadSizeInBytes > DXIL::kMaxMSASPayloadBytes) {
-        ValCtx.EmitFormatError(
-            ValidationRule::SmAmplificationShaderPayloadSize,
-            {F->getName(), std::to_string(DXIL::kMaxMSASPayloadBytes)});
-      }
-
       if (prop.ShaderProps.AS.payloadSizeInBytes < payloadSize) {
         ValCtx.EmitFormatError(ValidationRule::SmAmplificationShaderPayloadSizeDeclared,
           { F->getName(), std::to_string(payloadSize),
             std::to_string(prop.ShaderProps.AS.payloadSizeInBytes) });
+      }
+
+      if (prop.ShaderProps.AS.payloadSizeInBytes > DXIL::kMaxMSASPayloadBytes) {
+        ValCtx.EmitFormatError(
+            ValidationRule::SmAmplificationShaderPayloadSize,
+            {F->getName(), std::to_string(prop.ShaderProps.AS.payloadSizeInBytes),
+             std::to_string(DXIL::kMaxMSASPayloadBytes) });
       }
     }
 
@@ -4168,8 +4169,9 @@ static void ValidateResources(ValidationContext &ValCtx) {
                                ValidationRule::SmCounterOnlyOnStructBuf);
     }
     if (uav->HasCounter() && uav->IsGloballyCoherent())
-      ValCtx.EmitResourceError(uav.get(),
-                               ValidationRule::MetaGlcNotOnAppendConsume);
+      ValCtx.EmitResourceFormatError(uav.get(),
+                                     ValidationRule::MetaGlcNotOnAppendConsume,
+                                     {uav.get()->GetGlobalName()});
 
     ValidateResource(*uav, ValCtx);
     ValidateResourceOverlap(*uav, uavAllocator, ValCtx);
