@@ -241,7 +241,7 @@ DIGlobalVariable *FindGlobalVariableDebugInfo(GlobalVariable *GV,
 }
 
 static void EmitWarningOrErrorOnInstruction(Instruction *I, Twine Msg,
-                                            bool bWarning);
+                                            DiagnosticSeverity severity);
 
 // If we don't have debug location and this is select/phi,
 // try recursing users to find instruction with debug info.
@@ -249,18 +249,18 @@ static void EmitWarningOrErrorOnInstruction(Instruction *I, Twine Msg,
 // too much work if no debug location found.
 static bool EmitWarningOrErrorOnInstructionFollowPhiSelect(Instruction *I,
                                                            Twine Msg,
-                                                           bool bWarning,
+                                                           DiagnosticSeverity severity,
                                                            unsigned depth = 0) {
   if (depth > 4)
     return false;
   if (I->getDebugLoc().get()) {
-    EmitWarningOrErrorOnInstruction(I, Msg, bWarning);
+    EmitWarningOrErrorOnInstruction(I, Msg, severity);
     return true;
   }
   if (isa<PHINode>(I) || isa<SelectInst>(I)) {
     for (auto U : I->users())
       if (Instruction *UI = dyn_cast<Instruction>(U))
-        if (EmitWarningOrErrorOnInstructionFollowPhiSelect(UI, Msg, bWarning,
+        if (EmitWarningOrErrorOnInstructionFollowPhiSelect(UI, Msg, severity,
                                                            depth + 1))
           return true;
   }
@@ -268,85 +268,99 @@ static bool EmitWarningOrErrorOnInstructionFollowPhiSelect(Instruction *I,
 }
 
 static void EmitWarningOrErrorOnInstruction(Instruction *I, Twine Msg,
-                                            bool bWarning) {
+                                            DiagnosticSeverity severity) {
   const DebugLoc &DL = I->getDebugLoc();
-  DiagnosticSeverity severity = DiagnosticSeverity::DS_Error;
-
   if (!DL.get() && (isa<PHINode>(I) || isa<SelectInst>(I))) {
-    if (EmitWarningOrErrorOnInstructionFollowPhiSelect(I, Msg, bWarning))
+    if (EmitWarningOrErrorOnInstructionFollowPhiSelect(I, Msg, severity))
       return;
   }
 
-  if (bWarning)
-    severity = DiagnosticSeverity::DS_Warning;
-
-  I->getContext().diagnose(DiagnosticInfoDxil(DL.get(), Msg, severity));
+  I->getContext().diagnose(DiagnosticInfoDxil(I->getParent()->getParent(),
+                                              DL.get(), Msg, severity));
 }
 
 void EmitErrorOnInstruction(Instruction *I, Twine Msg) {
-  EmitWarningOrErrorOnInstruction(I, Msg, /*bWarning*/false);
+  EmitWarningOrErrorOnInstruction(I, Msg, DiagnosticSeverity::DS_Error);
 }
 
 void EmitWarningOnInstruction(Instruction *I, Twine Msg) {
-  EmitWarningOrErrorOnInstruction(I, Msg, /*bWarning*/true);
+  EmitWarningOrErrorOnInstruction(I, Msg, DiagnosticSeverity::DS_Warning);
 }
 
 static void EmitWarningOrErrorOnFunction(Function *F, Twine Msg,
-                                         bool bWarning) {
+                                         DiagnosticSeverity severity) {
   DISubprogram *DISP = getDISubprogram(F);
-  DiagnosticSeverity severity = DiagnosticSeverity::DS_Error;
-  if (bWarning)
-    severity = DiagnosticSeverity::DS_Warning;
-
   DILocation *DLoc = nullptr;
   if (DISP) {
     DLoc = DILocation::get(F->getContext(), DISP->getLine(), 0,
                            DISP, nullptr /*InlinedAt*/);
   }
-  F->getContext().diagnose(DiagnosticInfoDxil(DLoc, Msg, severity));
-
+  F->getContext().diagnose(DiagnosticInfoDxil(F, DLoc, Msg, severity));
 }
 
 void EmitErrorOnFunction(Function *F, Twine Msg) {
-  EmitWarningOrErrorOnFunction(F, Msg, /*bWarning*/false);
+  EmitWarningOrErrorOnFunction(F, Msg, DiagnosticSeverity::DS_Error);
 }
 
 void EmitWarningOnFunction(Function *F, Twine Msg) {
-  EmitWarningOrErrorOnFunction(F, Msg, /*bWarning*/true);
+  EmitWarningOrErrorOnFunction(F, Msg, DiagnosticSeverity::DS_Warning);
 }
 
 static void EmitWarningOrErrorOnGlobalVariable(GlobalVariable *GV,
-                                               Twine Msg, bool bWarning) {
+                                               Twine Msg, DiagnosticSeverity severity) {
   DIVariable *DIV = nullptr;
-  DiagnosticSeverity severity = DiagnosticSeverity::DS_Error;
   if (!GV) return;
 
-  if (bWarning)
-    severity = DiagnosticSeverity::DS_Warning;
-
-  DIV = FindGlobalVariableDebugInfo(GV, GV->getParent()->GetDxilModule().GetOrCreateDebugInfoFinder());
-
+  Module &M = *GV->getParent();
   DILocation *DLoc = nullptr;
-  if (DIV) {
-    DLoc = DILocation::get(GV->getContext(), DIV->getLine(), 0,
-                           DIV->getScope(), nullptr /*InlinedAt*/);
+
+  if (getDebugMetadataVersionFromModule(M) != 0) {
+    DebugInfoFinder FinderObj;
+    DebugInfoFinder &Finder = FinderObj;
+    // Debug modules have no dxil modules. Use it if you got it.
+    if (M.HasDxilModule())
+      Finder = M.GetDxilModule().GetOrCreateDebugInfoFinder();
+    else
+      Finder.processModule(M);
+    DIV = FindGlobalVariableDebugInfo(GV, Finder);
+    if (DIV)
+      DLoc = DILocation::get(GV->getContext(), DIV->getLine(), 0,
+                             DIV->getScope(), nullptr /*InlinedAt*/);
   }
 
-  GV->getContext().diagnose(DiagnosticInfoDxil(DLoc, Msg, severity));
+  GV->getContext().diagnose(DiagnosticInfoDxil(nullptr /*Function*/, DLoc, Msg, severity));
 }
 
 void EmitErrorOnGlobalVariable(GlobalVariable *GV, Twine Msg) {
-  EmitWarningOrErrorOnGlobalVariable(GV, Msg, /*bWarning*/false);
+  EmitWarningOrErrorOnGlobalVariable(GV, Msg, DiagnosticSeverity::DS_Error);
 }
 
 void EmitWarningOnGlobalVariable(GlobalVariable *GV, Twine Msg) {
-  EmitWarningOrErrorOnGlobalVariable(GV, Msg, /*bWarning*/true);
+  EmitWarningOrErrorOnGlobalVariable(GV, Msg, DiagnosticSeverity::DS_Warning);
 }
 
 const char *kResourceMapErrorMsg =
     "local resource not guaranteed to map to unique global resource.";
 void EmitResMappingError(Instruction *Res) {
   EmitErrorOnInstruction(Res, kResourceMapErrorMsg);
+}
+
+// Mostly just a locationless diagnostic output
+static void EmitWarningOrErrorOnContext(LLVMContext &Ctx, Twine Msg, DiagnosticSeverity severity) {
+  Ctx.diagnose(DiagnosticInfoDxil(nullptr /*Func*/, nullptr /*DLoc*/,
+                                  Msg, severity));
+}
+
+void EmitErrorOnContext(LLVMContext &Ctx, Twine Msg) {
+  EmitWarningOrErrorOnContext(Ctx, Msg, DiagnosticSeverity::DS_Error);
+}
+
+void EmitWarningOnContext(LLVMContext &Ctx, Twine Msg) {
+  EmitWarningOrErrorOnContext(Ctx, Msg, DiagnosticSeverity::DS_Warning);
+}
+
+void EmitNoteOnContext(LLVMContext &Ctx, Twine Msg) {
+  EmitWarningOrErrorOnContext(Ctx, Msg, DiagnosticSeverity::DS_Note);
 }
 
 void CollectSelect(llvm::Instruction *Inst,

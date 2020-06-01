@@ -20,6 +20,7 @@
 #include "clang/CodeGen/ModuleBuilder.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/FrontendDiagnostic.h"
+#include "clang/Frontend/TextDiagnosticPrinter.h" // HLSL Change
 #include "clang/Lex/Preprocessor.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Bitcode/ReaderWriter.h"
@@ -556,8 +557,12 @@ BackendConsumer::DxilDiagHandler(const llvm::DiagnosticInfoDxil &D) {
   FullSourceLoc Loc(DILoc, SourceMgr);
 
   // If no location information is available, prompt for debug flag
-  if (Loc.isInvalid())
+  // and add function name to give some information
+  if (Loc.isInvalid()) {
     Message += " Use /Zi for source location.";
+    if (auto *DiagClient = dynamic_cast<TextDiagnosticPrinter*>(Diags.getClient()))
+      DiagClient->setPrefix("Function: " + D.getFunction()->getName().str());
+  }
   Diags.Report(Loc, DiagID).AddString(Message);
 
   return true;
