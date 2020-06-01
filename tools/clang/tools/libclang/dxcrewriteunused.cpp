@@ -109,7 +109,7 @@ public:
           m_pendingFunctions.push_back(fnDeclWithbody);
         }
       }
-      if (fnDeclWithbody != fnDecl) {
+      if (fnDeclWithbody && fnDeclWithbody != fnDecl) {
         // In case fnDecl is only a decl, setDecl to fnDeclWithbody.
         // fnDecl will be removed.
         ref->setDecl(fnDeclWithbody);
