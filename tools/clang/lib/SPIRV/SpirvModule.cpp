@@ -13,226 +13,11 @@
 
 namespace clang {
 namespace spirv {
-namespace {
-
-// This function adds the given debug instruction |info| to the given map |map|.
-// The |map| maintains mapping between a lexical scope and the vector of
-// instructions inside that scope.
-//
-// If the given |info| does not have a parent lexical scope, the given |alt| is
-// used as its parent scope (e.g. for cases where the parent scope is the
-// compilation unit).
-template <class T>
-void addDebugInfoToMap(
-    llvm::DenseMap<SpirvDebugInstruction *, std::vector<T *>> &map, T *info,
-    SpirvDebugInstruction *alt) {
-  auto *parent = info->getParentScope();
-  if (!parent)
-    parent = alt;
-
-  auto it = map.find(parent);
-  if (it != map.end()) {
-    it->second.push_back(info);
-    return;
-  }
-
-  std::vector<T *> vec;
-  vec.push_back(info);
-  map[parent] = vec;
-}
-
-} // end namespace
 
 SpirvModule::SpirvModule()
     : capabilities({}), extensions({}), extInstSets({}), memoryModel(nullptr),
       entryPoints({}), executionModes({}), moduleProcesses({}), decorations({}),
-      constants({}), variables({}), functions({}), debugNone(nullptr),
-      debugOp({}), debugExpr({}), debugSources({}), debugCompUnits({}),
-      debugTypes({}), debugVariables({}), debugLexicalScopes({}),
-      debugInfo({}) {}
-
-bool SpirvModule::invokeVisitorDebugLexicalScope(Visitor *visitor,
-                                                 SpirvDebugInstruction *scope,
-                                                 bool reverseOrder) {
-  if (reverseOrder) {
-    {
-      auto it = debugLexicalScopes.find(scope);
-      if (it != debugLexicalScopes.end()) {
-        auto &children = it->second;
-        for (auto iter = children.rbegin(); iter != children.rend(); ++iter) {
-          auto *debugInstruction = *iter;
-          if (!invokeVisitorDebugLexicalScope(visitor, debugInstruction,
-                                              reverseOrder))
-            return false;
-          if (!debugInstruction->invokeVisitor(visitor))
-            return false;
-        }
-      }
-    }
-
-    {
-      auto it = debugTypes.find(scope);
-      if (it != debugTypes.end()) {
-        auto &typeVec = it->second;
-        for (auto iter = typeVec.rbegin(); iter != typeVec.rend(); ++iter) {
-          auto *type = *iter;
-          if (isa<SpirvDebugTypeComposite>(type)) {
-            if (!invokeVisitorDebugLexicalScope(visitor, type, reverseOrder))
-              return false;
-          }
-        }
-      }
-    }
-
-    {
-      auto it = debugVariables.find(scope);
-      if (it != debugVariables.end()) {
-        auto &varVec = it->second;
-        for (auto iter = varVec.rbegin(); iter != varVec.rend(); ++iter) {
-          auto *var = *iter;
-          if (!var->invokeVisitor(visitor))
-            return false;
-        }
-      }
-    }
-
-    {
-      auto it = debugTypes.find(scope);
-      if (it != debugTypes.end()) {
-        auto &typeVec = it->second;
-        for (auto iter = typeVec.rbegin(); iter != typeVec.rend(); ++iter) {
-          auto *type = *iter;
-          if (!type->invokeVisitor(visitor))
-            return false;
-        }
-      }
-    }
-  }
-  // Traverse the regular order of a SPIR-V debug info for lexical scope.
-  else {
-    {
-      auto it = debugTypes.find(scope);
-      if (it != debugTypes.end()) {
-        auto &typeVec = it->second;
-        for (auto *type : typeVec) {
-          if (!type->invokeVisitor(visitor))
-            return false;
-        }
-      }
-    }
-
-    {
-      auto it = debugVariables.find(scope);
-      if (it != debugVariables.end()) {
-        auto &varVec = it->second;
-        for (auto *var : varVec) {
-          if (!var->invokeVisitor(visitor))
-            return false;
-        }
-      }
-    }
-
-    {
-      auto it = debugTypes.find(scope);
-      if (it != debugTypes.end()) {
-        auto &typeVec = it->second;
-        for (auto *type : typeVec) {
-          if (isa<SpirvDebugTypeComposite>(type)) {
-            if (!invokeVisitorDebugLexicalScope(visitor, type, reverseOrder))
-              return false;
-          }
-        }
-      }
-    }
-
-    {
-      auto it = debugLexicalScopes.find(scope);
-      if (it != debugLexicalScopes.end()) {
-        auto &children = it->second;
-        for (auto *child : children) {
-          if (!child->invokeVisitor(visitor))
-            return false;
-          if (!invokeVisitorDebugLexicalScope(visitor, child, reverseOrder))
-            return false;
-        }
-      }
-    }
-  }
-
-  return true;
-}
-
-bool SpirvModule::invokeVisitorDebugInfo(Visitor *visitor, bool reverseOrder) {
-  if (reverseOrder) {
-    for (auto iter = debugInfo.rbegin(); iter != debugInfo.rend(); ++iter) {
-      auto *debugInstruction = *iter;
-      if (!debugInstruction->invokeVisitor(visitor))
-        return false;
-    }
-
-    for (auto iter = debugCompUnits.rbegin(); iter != debugCompUnits.rend();
-         ++iter) {
-      auto *debugInstruction = *iter;
-      if (!invokeVisitorDebugLexicalScope(visitor, debugInstruction,
-                                          reverseOrder))
-        return false;
-      if (!debugInstruction->invokeVisitor(visitor))
-        return false;
-    }
-
-    for (auto iter = debugSources.rbegin(); iter != debugSources.rend();
-         ++iter) {
-      auto *debugInstruction = *iter;
-      if (!debugInstruction->invokeVisitor(visitor))
-        return false;
-    }
-
-    for (auto iter = debugExpr.rbegin(); iter != debugExpr.rend(); ++iter) {
-      auto *debugInstruction = *iter;
-      if (!debugInstruction->invokeVisitor(visitor))
-        return false;
-    }
-
-    for (auto iter = debugOp.rbegin(); iter != debugOp.rend(); ++iter) {
-      auto *debugInstruction = *iter;
-      if (!debugInstruction->invokeVisitor(visitor))
-        return false;
-    }
-
-    if (debugNone)
-      debugNone->invokeVisitor(visitor);
-  }
-  // Traverse the regular order of a SPIR-V debug info.
-  else {
-    if (debugNone)
-      debugNone->invokeVisitor(visitor);
-
-    for (auto *opInfo : debugOp)
-      if (!opInfo->invokeVisitor(visitor))
-        return false;
-
-    for (auto *exprInfo : debugExpr)
-      if (!exprInfo->invokeVisitor(visitor))
-        return false;
-
-    for (auto *srcInfo : debugSources)
-      if (!srcInfo->invokeVisitor(visitor))
-        return false;
-
-    for (auto *cuInfo : debugCompUnits) {
-      if (!cuInfo->invokeVisitor(visitor))
-        return false;
-      if (!invokeVisitorDebugLexicalScope(visitor, cuInfo, reverseOrder))
-        return false;
-    }
-
-    for (auto *debugInstruction : debugInfo)
-      if (!debugInstruction->invokeVisitor(visitor))
-        return false;
-  }
-
-  return true;
-}
+      constants({}), variables({}), functions({}), debugInstructions({}) {}
 
 bool SpirvModule::invokeVisitor(Visitor *visitor, bool reverseOrder) {
   // Note: It is debatable whether reverse order of visiting the module should
@@ -255,8 +40,12 @@ bool SpirvModule::invokeVisitor(Visitor *visitor, bool reverseOrder) {
         return false;
     }
 
-    if (!invokeVisitorDebugInfo(visitor, reverseOrder))
-      return false;
+    for (auto iter = debugInstructions.rbegin();
+         iter != debugInstructions.rend(); ++iter) {
+      auto *debugInstruction = *iter;
+      if (!debugInstruction->invokeVisitor(visitor))
+        return false;
+    }
 
     for (auto iter = variables.rbegin(); iter != variables.rend(); ++iter) {
       auto *var = *iter;
@@ -376,8 +165,9 @@ bool SpirvModule::invokeVisitor(Visitor *visitor, bool reverseOrder) {
       if (!var->invokeVisitor(visitor))
         return false;
 
-    if (!invokeVisitorDebugInfo(visitor, reverseOrder))
-      return false;
+    for (auto *debugInstruction : debugInstructions)
+      if (!debugInstruction->invokeVisitor(visitor))
+        return false;
 
     for (auto fn : functions)
       if (!fn->invokeVisitor(visitor, reverseOrder))
@@ -459,58 +249,9 @@ void SpirvModule::addSource(SpirvSource *src) {
   sources.push_back(src);
 }
 
-void SpirvModule::addDebugInfo(SpirvDebugOperation *info) {
-  assert(info);
-  debugOp.push_back(info);
-}
-
-void SpirvModule::addDebugInfo(SpirvDebugExpression *info) {
-  assert(info);
-  debugExpr.push_back(info);
-}
-
-void SpirvModule::addDebugInfo(SpirvDebugSource *info) {
-  assert(info);
-  debugSources.push_back(info);
-}
-
-void SpirvModule::addDebugInfo(SpirvDebugCompilationUnit *info) {
-  assert(info);
-  debugCompUnits.push_back(info);
-}
-
-void SpirvModule::addDebugInfo(SpirvDebugType *type) {
-  assert(type);
-  addDebugInfoToMap<SpirvDebugType>(debugTypes, type, debugCompUnits[0]);
-}
-
-void SpirvModule::addDebugInfo(SpirvDebugGlobalVariable *info) {
-  assert(info);
-  addDebugInfoToMap<SpirvDebugInstruction>(debugVariables, info,
-                                           debugCompUnits[0]);
-}
-
-void SpirvModule::addDebugInfo(SpirvDebugFunction *info) {
-  assert(info);
-  addDebugInfoToMap<SpirvDebugInstruction>(debugLexicalScopes, info,
-                                           debugCompUnits[0]);
-}
-
-void SpirvModule::addDebugInfo(SpirvDebugLocalVariable *info) {
-  assert(info);
-  addDebugInfoToMap<SpirvDebugInstruction>(debugVariables, info,
-                                           debugCompUnits[0]);
-}
-
-void SpirvModule::addDebugInfo(SpirvDebugLexicalBlock *info) {
-  assert(info);
-  addDebugInfoToMap<SpirvDebugInstruction>(debugLexicalScopes, info,
-                                           debugCompUnits[0]);
-}
-
 void SpirvModule::addDebugInfo(SpirvDebugInstruction *info) {
   assert(info);
-  debugInfo.push_back(info);
+  debugInstructions.push_back(info);
 }
 
 void SpirvModule::addModuleProcessed(SpirvModuleProcessed *p) {

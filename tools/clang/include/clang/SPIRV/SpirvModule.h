@@ -127,49 +127,17 @@ public:
   // Adds the debug source to the module.
   void addSource(SpirvSource *);
 
-  // Adds the given DebugInfoNone, DebugOperation, and DebugExpression
-  // instruction to debugNone, debugOp, and debugExpr, respectively.
-  void addDebugInfo(SpirvDebugInfoNone *none) { debugNone = none; }
-  void addDebugInfo(SpirvDebugOperation *);
-  void addDebugInfo(SpirvDebugExpression *);
-
-  // Adds the given DebugSource and DebugCompilationUnit instruction to
-  // debugSources and debugCompUnits, respectively.
-  void addDebugInfo(SpirvDebugSource *);
-  void addDebugInfo(SpirvDebugCompilationUnit *);
-
-  // Adds the given DebugTypeXXX instruction to debugTypes. Since each type is
-  // defined in a parent lexical scope, we must keep type under parent.
-  void addDebugInfo(SpirvDebugType *type);
-
-  // Adds the given DebugGlobalVariable instruction to debugVariables.
-  void addDebugInfo(SpirvDebugGlobalVariable *);
-
-  // Adds the given DebugFunction instruction to debugLexicalScopes.
-  void addDebugInfo(SpirvDebugFunction *);
-
-  // Adds the given DebugLocalVariable instruction to debugVariables.
-  void addDebugInfo(SpirvDebugLocalVariable *);
-
-  // Adds the given DebugLexicalBlock instruction to debugLexicalScopes.
-  void addDebugInfo(SpirvDebugLexicalBlock *);
-
-  // Adds the given debug info instruction to debugInfo.
+  // Adds the given debug info instruction to debugInstructions.
   void addDebugInfo(SpirvDebugInstruction *);
+
+  llvm::SmallVector<SpirvDebugInstruction *, 32> &getDebugInfo() {
+    return debugInstructions;
+  }
 
   // Adds the given OpModuleProcessed to the module.
   void addModuleProcessed(SpirvModuleProcessed *);
 
   llvm::ArrayRef<SpirvVariable *> getVariables() const { return variables; }
-
-private:
-  // Handle visitors for debug info instructions.
-  bool invokeVisitorDebugInfo(Visitor *, bool reverseOrder = false);
-
-  // Handle visitors for lexical scope debug info instructions.
-  bool invokeVisitorDebugLexicalScope(Visitor *visitor,
-                                      SpirvDebugInstruction *scope,
-                                      bool reverseOrder = false);
 
 private:
   // Use a set for storing capabilities. This will ensure there are no duplicate
@@ -207,58 +175,8 @@ private:
   std::vector<SpirvVariable *> variables;
   std::vector<SpirvFunction *> functions;
 
-  // We should emit debug info instructions in the order of
-  // 1. DebugOperation
-  // 2. DebugExpression
-  // 3. For each DebugSource
-  // 4. DebugCompilationUnit
-  // 5. DebugTypeXXX
-  // 6. DebugGlobalVariable
-  // 7. For each DebugFunction
-  //    7.1. DebugTypeXXX defined in this function
-  //    7.2. DebugGlobalVariable or DebugLocalVariable defined in
-  //         this function
-  //    7.3. For each DebugLexicalBlock defined in this function
-  //         7.3.1. DebugTypeXXX defined in block
-  //         7.3.2. DebugLocalVariable defined in block
-  // 8. DebugTypeMember and DebugTypeInheritance
-  //
-  // If we do not follow this order, generated SPIR-V code would
-  // be invalid because of forward references.
-  //
-  // TODO: Maintaining this layout in code emission stage is inefficient
-  // and complicated. A refactoring idea is to make debug instructions
-  // placeholders and just finalize the order correctly at the end.
-
-  // Keep DebugOperation and DebugExpression.
-  SpirvDebugInfoNone *debugNone;
-  std::vector<SpirvDebugOperation *> debugOp;
-  std::vector<SpirvDebugExpression *> debugExpr;
-
-  // Keep DebugSource and DebugCompilationUnit.
-  std::vector<SpirvDebugSource *> debugSources;
-  std::vector<SpirvDebugCompilationUnit *> debugCompUnits;
-
-  // Keep DebugTypeXXX. Each debug type has a lexical scope parent
-  // where it is defined. This is a map between a lexical scope
-  // parent and types defined in it.
-  llvm::DenseMap<SpirvDebugInstruction *, std::vector<SpirvDebugType *>>
-      debugTypes;
-
-  // Keep DebugGlobalVariable and DebugLocalVariable.
-  llvm::DenseMap<SpirvDebugInstruction *, std::vector<SpirvDebugInstruction *>>
-      debugVariables;
-
-  // Keep DebugFunction and DebugLexicalBlock. Each scope has a
-  // lexical scope parent where it is defined. This is a map
-  // between a lexical scope parent and scopes defined in it.
-  llvm::DenseMap<SpirvDebugInstruction *, std::vector<SpirvDebugInstruction *>>
-      debugLexicalScopes;
-
-  // All other debug info instructions that are not sensitive about the layout.
-  // Note that DebugScope, DebugNoScope, DebugDeclare must be included in
-  // functions.
-  std::vector<SpirvDebugInstruction *> debugInfo;
+  // Keep all OpenCL.DebugInfo.100 instructions.
+  llvm::SmallVector<SpirvDebugInstruction *, 32> debugInstructions;
 };
 
 } // end namespace spirv

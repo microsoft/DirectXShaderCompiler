@@ -16,6 +16,7 @@ add_clang_library(clangSPIRV
   InitListHandler.cpp
   LiteralTypeVisitor.cpp
   LowerTypeVisitor.cpp
+  SortDebugInfoVisitor.cpp
   PreciseVisitor.cpp
   RawBufferMethods.cpp
   RelaxedPrecisionVisitor.cpp
@@ -40,3 +41,4 @@ add_clang_library(clangSPIRV
 
 target_include_directories(clangSPIRV PUBLIC ${SPIRV_HEADER_INCLUDE_DIR})
 target_include_directories(clangSPIRV PRIVATE ${SPIRV_TOOLS_INCLUDE_DIR})
+add_dependencies(clangSPIRV TablegenHLSLOptions)

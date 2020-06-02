@@ -1,18 +1,18 @@
 // Run: %dxc -T ps_6_2 -E main -fspv-debug=rich -enable-16bit-types
 
 // CHECK:         [[set:%\d+]] = OpExtInstImport "OpenCL.DebugInfo.100"
-// CHECK:    [[varNameC:%\d+]] = OpString "c"
 // CHECK: [[varNameCond:%\d+]] = OpString "cond"
-
-// CHECK:      [[source:%\d+]] = OpExtInst %void [[set]] DebugSource
-// CHECK: [[compileUnit:%\d+]] = OpExtInst %void [[set]] DebugCompilationUnit 1 4 [[source]] HLSL
+// CHECK:    [[varNameC:%\d+]] = OpString "c"
 
 // CHECK: [[floatType:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic {{%\d+}} %uint_32 Float
 // CHECK: [[float4Type:%\d+]] = OpExtInst %void [[set]] DebugTypeVector [[floatType]] 4
+// CHECK:      [[source:%\d+]] = OpExtInst %void [[set]] DebugSource
+// CHECK: [[compileUnit:%\d+]] = OpExtInst %void [[set]] DebugCompilationUnit 1 4 [[source]] HLSL
+
 // CHECK:  [[boolType:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic {{%\d+}} %uint_32 Boolean
 
-// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugGlobalVariable [[varNameC]] [[float4Type]] [[source]] 17 15 [[compileUnit]] [[varNameC]] %c FlagIsDefinition
 // CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugGlobalVariable [[varNameCond]] [[boolType]] [[source]] 18 13 [[compileUnit]] [[varNameCond]] %cond FlagIsDefinition
+// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugGlobalVariable [[varNameC]] [[float4Type]] [[source]] 17 15 [[compileUnit]] [[varNameC]] %c FlagIsDefinition
 
 static float4 c;
 static bool cond;

@@ -16,6 +16,7 @@
 #include "PreciseVisitor.h"
 #include "RelaxedPrecisionVisitor.h"
 #include "RemoveBufferBlockVisitor.h"
+#include "SortDebugInfoVisitor.h"
 #include "clang/SPIRV/AstTypeProbe.h"
 
 namespace clang {
@@ -1160,6 +1161,7 @@ std::vector<uint32_t> SpirvBuilder::takeModule() {
   RelaxedPrecisionVisitor relaxedPrecisionVisitor(context, spirvOptions);
   PreciseVisitor preciseVisitor(context, spirvOptions);
   RemoveBufferBlockVisitor removeBufferBlockVisitor(context, spirvOptions);
+  SortDebugInfoVisitor sortDebugInfoVisitor(context, spirvOptions);
   EmitVisitor emitVisitor(astContext, context, spirvOptions);
 
   mod->invokeVisitor(&literalTypeVisitor, true);
@@ -1183,6 +1185,10 @@ std::vector<uint32_t> SpirvBuilder::takeModule() {
   // Remove BufferBlock decoration if necessary (this decoration is deprecated
   // after SPIR-V 1.3).
   mod->invokeVisitor(&removeBufferBlockVisitor);
+
+  // Sort OpenCL.DebugInfo.100 instructions
+  if (spirvOptions.debugInfoRich)
+    mod->invokeVisitor(&sortDebugInfoVisitor);
 
   // Emit SPIR-V
   mod->invokeVisitor(&emitVisitor);

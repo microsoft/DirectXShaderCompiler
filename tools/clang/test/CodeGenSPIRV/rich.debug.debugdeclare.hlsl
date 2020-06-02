@@ -3,13 +3,11 @@
 // TODO: FlagIsPublic is shown as FlagIsProtected|FlagIsPrivate.
 
 // CHECK: [[set:%\d+]] = OpExtInstImport "OpenCL.DebugInfo.100"
+// CHECK: [[y:%\d+]] = OpExtInst %void [[set]] DebugLocalVariable {{%\d+}} {{%\d+}} {{%\d+}} 23 23 {{%\d+}} FlagIsLocal 2
+// CHECK: [[x:%\d+]] = OpExtInst %void [[set]] DebugLocalVariable {{%\d+}} {{%\d+}} {{%\d+}} 23 14 {{%\d+}} FlagIsLocal 1
+// CHECK: [[condition:%\d+]] = OpExtInst %void [[set]] DebugLocalVariable {{%\d+}} {{%\d+}} {{%\d+}} 30 8 {{%\d+}} FlagIsLocal
 // CHECK: [[expr:%\d+]] = OpExtInst %void [[set]] DebugExpression
-
-// CHECK: [[color:%\d+]] = OpExtInst %void [[set]] DebugLocalVariable {{%\d+}} {{%\d+}} {{%\d+}} 30 20 {{%\d+}} FlagIsLocal 1
-// CHECK: [[condition:%\d+]] = OpExtInst %void [[set]] DebugLocalVariable {{%\d+}} {{%\d+}} {{%\d+}} 32 8 {{%\d+}} FlagIsLocal
-
-// CHECK: [[x:%\d+]] = OpExtInst %void [[set]] DebugLocalVariable {{%\d+}} {{%\d+}} {{%\d+}} 25 14 {{%\d+}} FlagIsLocal 1
-// CHECK: [[y:%\d+]] = OpExtInst %void [[set]] DebugLocalVariable {{%\d+}} {{%\d+}} {{%\d+}} 25 23 {{%\d+}} FlagIsLocal 2
+// CHECK: [[color:%\d+]] = OpExtInst %void [[set]] DebugLocalVariable {{%\d+}} {{%\d+}} {{%\d+}} 28 20 {{%\d+}} FlagIsLocal 1
 
 // CHECK:        %color = OpFunctionParameter
 // CHECK-NEXT: {{%\d+}} = OpExtInst %void [[set]] DebugDeclare [[color]] %color [[expr]]

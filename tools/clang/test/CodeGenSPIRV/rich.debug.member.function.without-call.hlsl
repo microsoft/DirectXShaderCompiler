@@ -21,19 +21,19 @@ struct foo {
 
 // CHECK: [[set:%\d+]] = OpExtInstImport "OpenCL.DebugInfo.100"
 // CHECK: [[foo:%\d+]] = OpString "foo"
-// CHECK: [[func1:%\d+]] = OpString "foo.func1"
-// CHECK: [[a_name:%\d+]] = OpString "a"
-// CHECK: [[func0:%\d+]] = OpString "foo.func0"
-// CHECK: [[b_name:%\d+]] = OpString "b"
 // CHECK: [[c_name:%\d+]] = OpString "c"
+// CHECK: [[b_name:%\d+]] = OpString "b"
+// CHECK: [[a_name:%\d+]] = OpString "a"
+// CHECK: [[func1:%\d+]] = OpString "foo.func1"
+// CHECK: [[func0:%\d+]] = OpString "foo.func0"
 
-// CHECK: [[none:%\d+]] = OpExtInst %void [[set]] DebugInfoNone
 // CHECK: [[parent:%\d+]] = OpExtInst %void [[set]] DebugTypeComposite [[foo]] Structure {{%\d+}} 3 1 {{%\d+}} {{%\d+}} %uint_192 FlagIsProtected|FlagIsPrivate [[a:%\d+]] [[f0:%\d+]] [[b:%\d+]] [[f1:%\d+]] [[c:%\d+]]
+// CHECK: [[c]] = OpExtInst %void [[set]] DebugTypeMember [[c_name]]
+// CHECK: [[b]] = OpExtInst %void [[set]] DebugTypeMember [[b_name]]
+// CHECK: [[a]] = OpExtInst %void [[set]] DebugTypeMember [[a_name]]
+// CHECK: [[none:%\d+]] = OpExtInst %void [[set]] DebugInfoNone
 // CHECK: [[f1]] = OpExtInst %void [[set]] DebugFunction [[func1]] {{%\d+}} {{%\d+}} 12 3 [[parent]] {{%\d+}} FlagIsProtected|FlagIsPrivate 12 [[none]]
 // CHECK: [[f0]] = OpExtInst %void [[set]] DebugFunction [[func0]] {{%\d+}} {{%\d+}} 6 3 [[parent]] {{%\d+}} FlagIsProtected|FlagIsPrivate 6 %foo_func0
-// CHECK: [[a]] = OpExtInst %void [[set]] DebugTypeMember [[a_name]]
-// CHECK: [[b]] = OpExtInst %void [[set]] DebugTypeMember [[b_name]]
-// CHECK: [[c]] = OpExtInst %void [[set]] DebugTypeMember [[c_name]]
 
 float4 main(float4 color : COLOR) : SV_TARGET {
   foo a;

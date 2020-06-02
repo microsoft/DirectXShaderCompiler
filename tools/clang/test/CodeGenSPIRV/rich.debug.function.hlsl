@@ -3,23 +3,23 @@
 // TODO: FlagIsPublic is shown as FlagIsProtected|FlagIsPrivate.
 
 // CHECK:             [[set:%\d+]] = OpExtInstImport "OpenCL.DebugInfo.100"
-// CHECK:        [[mainName:%\d+]] = OpString "src.main"
 // CHECK:         [[fooName:%\d+]] = OpString "foo"
+// CHECK:        [[mainName:%\d+]] = OpString "src.main"
+
+// CHECK:    [[int:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic {{%\d+}} %uint_32 Signed
+// CHECK:  [[float:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic {{%\d+}} %uint_32 Float
+
+// CHECK: [[fooFnType:%\d+]] = OpExtInst %void [[set]] DebugTypeFunction FlagIsProtected|FlagIsPrivate %void [[int]] [[float]]
 // CHECK:          [[source:%\d+]] = OpExtInst %void [[set]] DebugSource
 // CHECK: [[compilationUnit:%\d+]] = OpExtInst %void [[set]] DebugCompilationUnit
 
-
-// CHECK:  [[float:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic {{%\d+}} %uint_32 Float
-// CHECK: [[float4:%\d+]] = OpExtInst %void [[set]] DebugTypeVector [[float]] 4
-// CHECK: [[mainFnType:%\d+]] = OpExtInst %void [[set]] DebugTypeFunction FlagIsProtected|FlagIsPrivate [[float4]] [[float4]]
-// CHECK:   [[bool:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic {{%\d+}} %uint_32 Boolean
-// CHECK:    [[int:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic {{%\d+}} %uint_32 Signed
-// CHECK: [[fooFnType:%\d+]] = OpExtInst %void [[set]] DebugTypeFunction FlagIsProtected|FlagIsPrivate %void [[int]] [[float]]
-
 // Check DebugFunction instructions
 //
-// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugFunction [[mainName]] [[mainFnType]] [[source]] 29 1 [[compilationUnit]] [[mainName]] FlagIsProtected|FlagIsPrivate 30 %src_main
 // CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugFunction [[fooName]] [[fooFnType]] [[source]] 24 1 [[compilationUnit]] [[fooName]] FlagIsProtected|FlagIsPrivate 25 %foo
+
+// CHECK: [[float4:%\d+]] = OpExtInst %void [[set]] DebugTypeVector [[float]] 4
+// CHECK: [[mainFnType:%\d+]] = OpExtInst %void [[set]] DebugTypeFunction FlagIsProtected|FlagIsPrivate [[float4]] [[float4]]
+// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugFunction [[mainName]] [[mainFnType]] [[source]] 29 1 [[compilationUnit]] [[mainName]] FlagIsProtected|FlagIsPrivate 30 %src_main
 
 void foo(int x, float y)
 {

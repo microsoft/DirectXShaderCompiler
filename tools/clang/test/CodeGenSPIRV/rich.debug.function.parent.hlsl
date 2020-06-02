@@ -2,14 +2,14 @@
 
 // CHECK:      [[set:%\d+]] = OpExtInstImport "OpenCL.DebugInfo.100"
 
-// CHECK: rich.debug.function.parent.hlsl
-// CHECK: spirv.debug.opline.include-file-2.hlsl
 // CHECK: spirv.debug.opline.include-file-3.hlsl
-// CHECK: spirv.debug.opline.include-file-1.hlsl
-
-// CHECK: [[f2:%\d+]] = OpString "function2"
 // CHECK: [[f3:%\d+]] = OpString "function3"
+// CHECK: spirv.debug.opline.include-file-2.hlsl
+// CHECK: [[f2:%\d+]] = OpString "function2"
+// CHECK: spirv.debug.opline.include-file-1.hlsl
 // CHECK: [[f1:%\d+]] = OpString "function1"
+// CHECK: rich.debug.function.parent.hlsl
+
 
 #include "spirv.debug.opline.include-file-1.hlsl"
 
@@ -29,17 +29,19 @@ int callFunction3() {
   CALL_FUNCTION_3;
 }
 
-// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugSource
-// CHECK: [[s2:%\d+]] = OpExtInst %void [[set]] DebugSource
 // CHECK: [[s3:%\d+]] = OpExtInst %void [[set]] DebugSource
-// CHECK: [[s1:%\d+]] = OpExtInst %void [[set]] DebugSource
-
-// CHECK: [[c2:%\d+]] = OpExtInst %void [[set]] DebugCompilationUnit 1 4 [[s2]] HLSL
-// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugFunction [[f2]] {{%\d+}} [[s2]] 2 1 [[c2]]
 // CHECK: [[c3:%\d+]] = OpExtInst %void [[set]] DebugCompilationUnit 1 4 [[s3]] HLSL
 // CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugFunction [[f3]] {{%\d+}} [[s3]] 3 1 [[c3]]
+
+// CHECK: [[s2:%\d+]] = OpExtInst %void [[set]] DebugSource
+// CHECK: [[c2:%\d+]] = OpExtInst %void [[set]] DebugCompilationUnit 1 4 [[s2]] HLSL
+// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugFunction [[f2]] {{%\d+}} [[s2]] 2 1 [[c2]]
+
+// CHECK: [[s1:%\d+]] = OpExtInst %void [[set]] DebugSource
 // CHECK: [[c1:%\d+]] = OpExtInst %void [[set]] DebugCompilationUnit 1 4 [[s1]] HLSL
 // CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugFunction [[f1]] {{%\d+}} [[s1]] 1 1 [[c1]]
+
+// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugSource
 
 void main() {
   callFunction1();
