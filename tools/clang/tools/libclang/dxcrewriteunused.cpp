@@ -81,12 +81,57 @@ static FunctionDecl *getFunctionWithBody(FunctionDecl *F) {
   return nullptr;
 }
 
+static void SaveTypeDecl(TagDecl *tagDecl,
+                          SmallPtrSetImpl<TypeDecl *> &visitedTypes) {
+  if (visitedTypes.count(tagDecl))
+    return;
+  visitedTypes.insert(tagDecl);
+  if (CXXRecordDecl *recordDecl = dyn_cast<CXXRecordDecl>(tagDecl)) {
+    // If template, save template args
+    if (const ClassTemplateSpecializationDecl *templateSpecializationDecl =
+            dyn_cast<ClassTemplateSpecializationDecl>(recordDecl)) {
+      const clang::TemplateArgumentList &args =
+          templateSpecializationDecl->getTemplateInstantiationArgs();
+      for (unsigned i = 0; i < args.size(); ++i) {
+        const clang::TemplateArgument &arg = args[i];
+        switch (arg.getKind()) {
+        case clang::TemplateArgument::ArgKind::Type:
+          if (TagDecl *tagDecl = arg.getAsType()->getAsTagDecl()) {
+            SaveTypeDecl(tagDecl, visitedTypes);
+          };
+          break;
+        default:
+          break;
+        }
+      }
+    }
+    // Add field types.
+    for (FieldDecl *fieldDecl : recordDecl->fields()) {
+      if (TagDecl *tagDecl = fieldDecl->getType()->getAsTagDecl()) {
+        SaveTypeDecl(tagDecl, visitedTypes);
+      }
+    }
+    // Add base types.
+    if (recordDecl->getNumBases()) {
+      for (auto &I : recordDecl->bases()) {
+        CXXRecordDecl *BaseDecl =
+            cast<CXXRecordDecl>(I.getType()->castAs<RecordType>()->getDecl());
+        SaveTypeDecl(BaseDecl, visitedTypes);
+      }
+    }
+  }
+}
+
 class VarReferenceVisitor : public RecursiveASTVisitor<VarReferenceVisitor> {
 private:
   SmallPtrSetImpl<VarDecl*>& m_unusedGlobals;
   SmallPtrSetImpl<FunctionDecl*>& m_visitedFunctions;
   SmallVectorImpl<FunctionDecl*>& m_pendingFunctions;
   SmallPtrSetImpl<TypeDecl *> &m_visitedTypes;
+
+  void AddRecordType(TagDecl *tagDecl) {
+    SaveTypeDecl(tagDecl, m_visitedTypes);
+  }
 
 public:
   VarReferenceVisitor(
@@ -111,16 +156,33 @@ public:
       }
       if (fnDeclWithbody && fnDeclWithbody != fnDecl) {
         // In case fnDecl is only a decl, setDecl to fnDeclWithbody.
-        // fnDecl will be removed.
         ref->setDecl(fnDeclWithbody);
+        // Keep the fnDecl for now, since it might be predecl.
+        m_visitedFunctions.insert(fnDecl);
       }
     }
     else if (VarDecl* varDecl = dyn_cast_or_null<VarDecl>(valueDecl)) {
       m_unusedGlobals.erase(varDecl);
       if (TagDecl *tagDecl = varDecl->getType()->getAsTagDecl()) {
-        m_visitedTypes.insert(tagDecl);
+        AddRecordType(tagDecl);
       }
-      varDecl->getType();
+      if (Expr *initExp = varDecl->getInit()) {
+        if (InitListExpr *initList =
+                dyn_cast<InitListExpr>(initExp)) {
+          TraverseInitListExpr(initList);
+        } else if (ImplicitCastExpr *initCast = dyn_cast<ImplicitCastExpr>(initExp)) {
+          TraverseImplicitCastExpr(initCast);
+        } else if (DeclRefExpr *initRef = dyn_cast<DeclRefExpr>(initExp)) {
+          TraverseDeclRefExpr(initRef);
+        }
+      }
+    }
+    return true;
+  }
+  bool VisitMemberExpr(MemberExpr *expr) {
+    // Save nested struct type.
+    if (TagDecl *tagDecl = expr->getType()->getAsTagDecl()) {
+      m_visitedTypes.insert(tagDecl);
     }
     return true;
   }
@@ -132,7 +194,30 @@ public:
       }
     }
     if (CXXRecordDecl *recordDecl = expr->getRecordDecl()) {
-      m_visitedTypes.insert(recordDecl);
+      AddRecordType(recordDecl);
+    }
+    return true;
+  }
+  bool VisitHLSLBufferDecl(HLSLBufferDecl *bufDecl) {
+    if (!bufDecl->isCBuffer())
+      return false;
+    for (Decl *decl : bufDecl->decls()) {
+      if (VarDecl *constDecl = dyn_cast<VarDecl>(decl)) {
+        if (TagDecl *tagDecl = constDecl->getType()->getAsTagDecl()) {
+          AddRecordType(tagDecl);
+        }
+      } else if (isa<EmptyDecl>(decl)) {
+        // Nothing to do for this declaration.
+      } else if (CXXRecordDecl *recordDecl = dyn_cast<CXXRecordDecl>(decl)) {
+        m_visitedTypes.insert(recordDecl);
+      } else if (isa<FunctionDecl>(decl)) {
+        // A function within an cbuffer is effectively a top-level function,
+        // as it only refers to globally scoped declarations.
+        // Nothing to do for this declaration.
+      } else {
+        HLSLBufferDecl *inner = cast<HLSLBufferDecl>(decl);
+        VisitHLSLBufferDecl(inner);
+      }
     }
     return true;
   }
@@ -493,7 +578,8 @@ static HRESULT DoRewriteUnused( TranslationUnitDecl *tu,
   DenseMap<RecordDecl*, unsigned> anonymousRecordRefCounts;
   SmallPtrSet<FunctionDecl*, 128> unusedFunctions;
   SmallPtrSet<TypeDecl*, 32> unusedTypes;
-  SmallVector<VarDecl*, 32> nonStaticGlobals;
+  SmallVector<VarDecl *, 32> nonStaticGlobals;
+  SmallVector<HLSLBufferDecl *, 16> cbufferDecls;
   for (Decl *tuDecl : tu->decls()) {
     if (tuDecl->isImplicit()) continue;
 
@@ -518,6 +604,13 @@ static HRESULT DoRewriteUnused( TranslationUnitDecl *tu,
       continue;
     }
 
+    if (HLSLBufferDecl *CB = dyn_cast<HLSLBufferDecl>(tuDecl)) {
+      if (!CB->isCBuffer())
+        continue;
+      cbufferDecls.emplace_back(CB);
+      continue;
+    }
+
     FunctionDecl* fnDecl = dyn_cast_or_null<FunctionDecl>(tuDecl);
     if (fnDecl != nullptr) {
       FunctionDecl *fnDeclWithbody = getFunctionWithBody(fnDecl);
@@ -529,6 +622,11 @@ static HRESULT DoRewriteUnused( TranslationUnitDecl *tu,
 
     if (TagDecl *tagDecl = dyn_cast<TagDecl>(tuDecl)) {
       unusedTypes.insert(tagDecl);
+      if (CXXRecordDecl *recordDecl = dyn_cast<CXXRecordDecl>(tagDecl)) {
+        for (CXXMethodDecl *methodDecl : recordDecl->methods()) {
+          unusedFunctions.insert(methodDecl);
+        }
+      }
     }
   }
 
@@ -561,6 +659,10 @@ static HRESULT DoRewriteUnused( TranslationUnitDecl *tu,
     visitedFunctions.insert(pendingDecl);
     visitor.TraverseDecl(pendingDecl);
   }
+  // Traverse cbuffers to save types for cbuffer constant.
+  for (auto *CBDecl : cbufferDecls) {
+    visitor.TraverseDecl(CBDecl);
+  }
 
   // Don't bother doing work if there are no globals to remove.
   if (unusedGlobals.empty() && unusedFunctions.empty() && unusedTypes.empty()) {
@@ -575,15 +677,15 @@ static HRESULT DoRewriteUnused( TranslationUnitDecl *tu,
   }
   w << "//found " << unusedFunctions.size() << " functions to remove\n";
 
+  for (VarDecl *varDecl : nonStaticGlobals) {
+    if (TagDecl *tagDecl = varDecl->getType()->getAsTagDecl()) {
+      SaveTypeDecl(tagDecl, visitedTypes);
+    }
+  }
   for (TypeDecl *typeDecl : visitedTypes) {
     unusedTypes.erase(typeDecl);
   }
 
-  for (VarDecl *varDecl : nonStaticGlobals) {
-    if (TagDecl *tagDecl = varDecl->getType()->getAsTagDecl()) {
-      unusedTypes.erase(tagDecl);
-    }
-  }
   w << "//found " << unusedTypes.size() << " types to remove\n";
 
 
@@ -618,7 +720,11 @@ static HRESULT DoRewriteUnused( TranslationUnitDecl *tu,
   for (FunctionDecl *unusedFn : unusedFunctions) {
     // remove name of function to workaround assert when update lookup table.
     unusedFn->setDeclName(DeclarationName());
-    tu->removeDecl(unusedFn);
+    if (CXXMethodDecl *methodDecl = dyn_cast<CXXMethodDecl>(unusedFn)) {
+      methodDecl->getParent()->removeDecl(unusedFn);
+    } else {
+      tu->removeDecl(unusedFn);
+    }
   }
 
   for (TypeDecl *unusedTy : unusedTypes) {
