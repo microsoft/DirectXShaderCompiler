@@ -80,27 +80,12 @@ public:
   SpirvFunctionParameter *addFnParam(QualType ptrType, bool isPrecise,
                                      SourceLocation, llvm::StringRef name = "");
 
-  /// \brief Creates and registers a function parameter of the given pointer
-  /// type in the current function and returns its pointer.
-  ///
-  /// The function parameter will have a SpirvType without a QualType.
-  SpirvFunctionParameter *addFnParam(const SpirvType *spvType, bool isPrecise,
-                                     SourceLocation, llvm::StringRef name = "");
-
   /// \brief Creates a local variable of the given type in the current
   /// function and returns it.
   ///
   /// The corresponding pointer type of the given type will be constructed in
   /// this method for the variable itself.
   SpirvVariable *addFnVar(QualType valueType, SourceLocation,
-                          llvm::StringRef name = "", bool isPrecise = false,
-                          SpirvInstruction *init = nullptr);
-
-  /// \brief Creates a local variable of the given type in the current
-  /// function and returns it.
-  ///
-  /// The local variable will have a SpirvType without a QualType.
-  SpirvVariable *addFnVar(const SpirvType *spvType, SourceLocation,
                           llvm::StringRef name = "", bool isPrecise = false,
                           SpirvInstruction *init = nullptr);
 

@@ -1124,6 +1124,11 @@ bool isStringType(QualType type) {
   return hlsl::IsStringType(type) || hlsl::IsStringLiteralType(type);
 }
 
+bool isBindlessOpaqueArray(QualType type) {
+  return !type.isNull() && isOpaqueArrayType(type) &&
+         !type->isConstantArrayType();
+}
+
 QualType getComponentVectorType(const ASTContext &astContext,
                                 QualType matrixType) {
   assert(isMxNMatrix(matrixType));

@@ -580,8 +580,7 @@ SpirvInstruction *DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl,
       // If it is a local variable or function parameter with a bindless
       // array of an opaque type, we have to load it because we pass a
       // pointer of a global variable that has the bindless opaque array.
-      if (ptrTy != nullptr && isOpaqueArrayType(decl->getType()) &&
-          !decl->getType()->isConstantArrayType()) {
+      if (ptrTy != nullptr && isBindlessOpaqueArray(decl->getType())) {
         auto *load = spvBuilder.createLoad(ptrTy, info->instr, loc);
         load->setRValue(false);
         return load;
@@ -606,19 +605,8 @@ SpirvFunctionParameter *
 DeclResultIdMapper::createFnParam(const ParmVarDecl *param) {
   const auto type = getTypeOrFnRetType(param);
   const auto loc = param->getLocation();
-  SpirvFunctionParameter *fnParamInstr = nullptr;
-  if (isOpaqueArrayType(param->getType()) &&
-      !param->getType()->isConstantArrayType()) {
-    // If it is a bindless array of an opaque type, we have to use
-    // a pointer to a pointer of the runtime array.
-    fnParamInstr = spvBuilder.addFnParam(
-        spvContext.getPointerType(type, spv::StorageClass::UniformConstant),
-        param->hasAttr<HLSLPreciseAttr>(), loc, param->getName());
-  } else {
-    fnParamInstr = spvBuilder.addFnParam(
-        type, param->hasAttr<HLSLPreciseAttr>(), loc, param->getName());
-  }
-
+  SpirvFunctionParameter *fnParamInstr = spvBuilder.addFnParam(
+      type, param->hasAttr<HLSLPreciseAttr>(), loc, param->getName());
   bool isAlias = false;
   (void)getTypeAndCreateCounterForPotentialAliasVar(param, &isAlias);
   fnParamInstr->setContainsAliasComponent(isAlias);

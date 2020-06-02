@@ -2168,19 +2168,8 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
       // do not need to mark the "param.var.*" variables as precise.
       const bool isPrecise = false;
 
-      SpirvVariable *tempVar = nullptr;
-      if (isOpaqueArrayType(param->getType()) &&
-          !param->getType()->isConstantArrayType()) {
-        // If it is a bindless array of an opaque type, we have to use
-        // a pointer to a pointer of the runtime array.
-        tempVar = spvBuilder.addFnVar(
-            spvContext.getPointerType(varType,
-                                      spv::StorageClass::UniformConstant),
-            arg->getLocStart(), varName, isPrecise);
-      } else {
-        tempVar = spvBuilder.addFnVar(varType, arg->getLocStart(), varName,
-                                      isPrecise);
-      }
+      auto *tempVar =
+          spvBuilder.addFnVar(varType, arg->getLocStart(), varName, isPrecise);
 
       vars.push_back(tempVar);
       isTempVar.push_back(true);
