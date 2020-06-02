@@ -333,6 +333,7 @@ inline uint32_t getNumBaseClasses(QualType type) {
     return cxxDecl->getNumBases();
   return 0;
 }
+
 } // anonymous namespace
 
 std::string StageVar::getSemanticStr() const {
@@ -669,38 +670,13 @@ DeclResultIdMapper::createFileVar(const VarDecl *var,
 }
 
 SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
-  auto storageClass = spv::StorageClass::UniformConstant;
-  auto rule = SpirvLayoutRule::Void;
-  bool isACRWSBuffer = false; // Whether is {Append|Consume|RW}StructuredBuffer
+  const auto type = var->getType();
+  const bool isGroupShared = var->hasAttr<HLSLGroupSharedAttr>();
+  const bool isACRWSBuffer = isRWAppendConsumeSBuffer(type);
+  const auto storageClass = getStorageClassForExternVar(type, isGroupShared);
+  const auto rule = getLayoutRuleForExternVar(type);
 
-  if (var->getAttr<HLSLGroupSharedAttr>()) {
-    // For CS groupshared variables
-    storageClass = spv::StorageClass::Workgroup;
-  } else if (isResourceType(var)) {
-    // See through the possible outer arrays
-    QualType resourceType = var->getType();
-    while (resourceType->isArrayType()) {
-      resourceType = resourceType->getAsArrayTypeUnsafe()->getElementType();
-    }
-
-    const llvm::StringRef typeName =
-        resourceType->getAs<RecordType>()->getDecl()->getName();
-
-    // These types are all translated into OpTypeStruct with BufferBlock
-    // decoration. They should follow standard storage buffer layout,
-    // which GLSL std430 rules statisfies.
-    if (typeName == "StructuredBuffer" || typeName == "ByteAddressBuffer" ||
-        typeName == "RWByteAddressBuffer") {
-      storageClass = spv::StorageClass::Uniform;
-      rule = spirvOptions.sBufferLayoutRule;
-    } else if (typeName == "RWStructuredBuffer" ||
-               typeName == "AppendStructuredBuffer" ||
-               typeName == "ConsumeStructuredBuffer") {
-      storageClass = spv::StorageClass::Uniform;
-      rule = spirvOptions.sBufferLayoutRule;
-      isACRWSBuffer = true;
-    }
-  } else {
+  if (!isGroupShared && !isResourceType(var)) {
     // This is a stand-alone externally-visiable non-resource-type variable.
     // They should be grouped into the $Globals cbuffer. We create that cbuffer
     // and record all variables inside it upon seeing the first such variable.
@@ -711,7 +687,6 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
     return varInstr ? cast<SpirvVariable>(varInstr) : nullptr;
   }
 
-  const auto type = var->getType();
   const auto loc = var->getLocation();
   SpirvVariable *varInstr = spvBuilder.addModuleVar(
       type, storageClass, var->hasAttr<HLSLPreciseAttr>(), var->getName(),
@@ -3323,6 +3298,25 @@ void DeclResultIdMapper::createRayTracingNVImplicitVar(const VarDecl *varDecl) {
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, val->getInt());
   constVal->setRValue(true);
   astDecls[varDecl].instr = constVal;
+}
+
+spv::StorageClass
+DeclResultIdMapper::getStorageClassForExternVar(QualType type,
+                                                bool hasGroupsharedAttr) {
+  // For CS groupshared variables
+  if(hasGroupsharedAttr)
+    return spv::StorageClass::Workgroup;
+
+  if(isAKindOfStructuredOrByteBuffer(type))
+    return spv::StorageClass::Uniform;
+
+  return spv::StorageClass::UniformConstant;
+}
+
+SpirvLayoutRule DeclResultIdMapper::getLayoutRuleForExternVar(QualType type) {
+  if(isAKindOfStructuredOrByteBuffer(type))
+    return spirvOptions.sBufferLayoutRule;
+  return SpirvLayoutRule::Void;
 }
 
 } // end namespace spirv
