@@ -4883,7 +4883,8 @@ static void ValidateEntrySignatures(ValidationContext &ValCtx,
         if (!PSExec.PositionInterpolationMode->IsUndefined() &&
             !PSExec.PositionInterpolationMode->IsLinearNoperspectiveCentroid() &&
             !PSExec.PositionInterpolationMode->IsLinearNoperspectiveSample()) {
-          ValCtx.EmitSignatureError(PosInterpSE, ValidationRule::SmPSConsistentInterp);
+          ValCtx.EmitFnFormatError(&F, ValidationRule::SmPSConsistentInterp,
+                                   {PosInterpSE->GetName()});
         }
       }
     }
