@@ -2381,7 +2381,7 @@ public:
   SpirvDebugTypeMember(llvm::StringRef name, const SpirvType *type,
                        SpirvDebugSource *source, uint32_t line, uint32_t column,
                        SpirvDebugInstruction *parent, uint32_t flags,
-                       uint32_t offset, const APValue *value = nullptr);
+                       uint32_t offsetInBits, const APValue *value = nullptr);
 
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_DebugTypeMember;
@@ -2401,7 +2401,7 @@ public:
   SpirvDebugSource *getSource() const { return source; }
   uint32_t getLine() const { return line; }
   uint32_t getColumn() const { return column; }
-  uint32_t getOffset() const { return offset; }
+  uint32_t getOffsetInBits() const { return offset; }
   uint32_t getDebugFlags() const { return debugFlags; }
   uint32_t getSizeInBits() const override { return size; }
   const APValue *getValue() const { return value; }

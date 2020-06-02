@@ -169,7 +169,7 @@ public:
   getDebugTypeMember(llvm::StringRef name, const SpirvType *type,
                      SpirvDebugSource *source, uint32_t line, uint32_t column,
                      SpirvDebugInstruction *parent, uint32_t flags,
-                     uint32_t offset = UINT32_MAX,
+                     uint32_t offsetInBits = UINT32_MAX,
                      const APValue *value = nullptr);
 
   SpirvDebugInstruction *

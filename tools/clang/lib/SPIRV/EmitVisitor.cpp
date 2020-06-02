@@ -1413,7 +1413,7 @@ bool EmitVisitor::visit(SpirvDebugTypeComposite *inst) {
 bool EmitVisitor::visit(SpirvDebugTypeMember *inst) {
   uint32_t typeNameId = getOrCreateOpStringId(inst->getDebugName());
   const auto offset = typeHandler.getOrCreateConstantInt(
-      llvm::APInt(32, inst->getOffset()), context.getUIntType(32),
+      llvm::APInt(32, inst->getOffsetInBits()), context.getUIntType(32),
       /* isSpecConst */ false);
   const auto size = typeHandler.getOrCreateConstantInt(
       llvm::APInt(32, inst->getSizeInBits()), context.getUIntType(32),

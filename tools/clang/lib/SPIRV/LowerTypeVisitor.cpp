@@ -1067,9 +1067,9 @@ SpirvDebugTypeComposite *LowerTypeVisitor::lowerDebugTypeComposite(
       }
     }
 
-    uint32_t offset = UINT32_MAX;
+    uint32_t offsetInBits = UINT32_MAX;
     if (fields[fieldIdx].offset.hasValue())
-      offset = *fields[fieldIdx].offset;
+      offsetInBits = *fields[fieldIdx].offset * 8;
 
     RichDebugInfo *fieldDebugInfo = debugInfo;
     file = sm.getPresumedLoc(fieldLoc).getFilename();
@@ -1082,7 +1082,7 @@ SpirvDebugTypeComposite *LowerTypeVisitor::lowerDebugTypeComposite(
         dyn_cast<SpirvDebugInstruction>(spvContext.getDebugTypeMember(
             dyn_cast<FieldDecl>(memberDecl)->getName(), fields[fieldIdx].type,
             fieldDebugInfo->source, fieldLine, fieldColumn, dbgTyComposite,
-            memberDecl->isModulePrivate() ? 2u : 3u, offset, value));
+            memberDecl->isModulePrivate() ? 2u : 3u, offsetInBits, value));
     assert(debugInstr && "We expect SpirvDebugInstruction for DebugTypeMember");
     debugInstr->setAstResultType(astContext.VoidTy);
     debugInstr->setResultType(spvContext.getVoidType());

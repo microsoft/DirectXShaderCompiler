@@ -63,9 +63,9 @@ DebugTypeVisitor::lowerCbufferDebugType(const StructType *type,
 
   auto &members = dbgTyComposite->getMembers();
   for (auto &field : type->getFields()) {
-    uint32_t offset = UINT32_MAX;
+    uint32_t offsetInBits = UINT32_MAX;
     if (field.offset.hasValue())
-      offset = *field.offset;
+      offsetInBits = *field.offset * 8;
 
     // TODO: Replace 2u and 3u with valid flags when debug info extension is
     // placed in SPIRV-Header.
@@ -73,7 +73,7 @@ DebugTypeVisitor::lowerCbufferDebugType(const StructType *type,
         dyn_cast<SpirvDebugInstruction>(spvContext.getDebugTypeMember(
             field.name, field.type, debugInfo->source, line, column,
             dbgTyComposite,
-            /* flags */ 3u, offset, /* value */ nullptr));
+            /* flags */ 3u, offsetInBits, /* value */ nullptr));
     assert(debugInstr);
     setDefaultDebugInfo(debugInstr);
     members.push_back(debugInstr);
@@ -145,12 +145,12 @@ bool DebugTypeVisitor::lowerDebugTypeMember(SpirvDebugTypeMember *debugMember,
   debugMember->setType(memberTy);
 
   uint32_t memberSizeInBits = memberTy->getSizeInBits();
-  uint32_t memberOffset = debugMember->getOffset();
-  if (memberOffset == UINT32_MAX)
-    memberOffset = *offsetInBits;
-  debugMember->updateOffsetAndSize(memberOffset, memberSizeInBits);
+  uint32_t memberOffsetInBits = debugMember->getOffsetInBits();
+  if (memberOffsetInBits == UINT32_MAX)
+    memberOffsetInBits = *offsetInBits;
+  debugMember->updateOffsetAndSize(memberOffsetInBits, memberSizeInBits);
 
-  *offsetInBits = memberOffset + memberSizeInBits;
+  *offsetInBits = memberOffsetInBits + memberSizeInBits;
   if (*sizeInBits < *offsetInBits)
     *sizeInBits = *offsetInBits;
 
