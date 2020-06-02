@@ -360,6 +360,8 @@ void PassManagerBuilder::populateModulePassManager(
       MPM.add(createDxilConvergentClearPass());
       MPM.add(createMultiDimArrayToOneDimArrayPass());
       MPM.add(createDxilRemoveDeadBlocksPass());
+      MPM.add(createDeadCodeEliminationPass());
+      MPM.add(createGlobalDCEPass());
       MPM.add(createDxilLowerCreateHandleForLibPass());
       MPM.add(createDxilTranslateRawBuffer());
       MPM.add(createDxilLegalizeSampleOffsetPass());
