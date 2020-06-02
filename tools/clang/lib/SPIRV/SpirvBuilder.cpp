@@ -54,11 +54,11 @@ SpirvFunctionParameter *SpirvBuilder::addFnParam(QualType ptrType,
                                                  llvm::StringRef name) {
   assert(function && "found detached parameter");
   SpirvFunctionParameter *param = nullptr;
-  if (isBindlessOpaqueArray(type)) {
+  if (isBindlessOpaqueArray(ptrType)) {
     // If it is a bindless array of an opaque type, we have to use
     // a pointer to a pointer of the runtime array.
     param = new (context) SpirvFunctionParameter(
-        spvContext.getPointerType(ptrType, spv::StorageClass::UniformConstant),
+        context.getPointerType(ptrType, spv::StorageClass::UniformConstant),
         isPrecise, loc);
   } else {
     param = new (context) SpirvFunctionParameter(ptrType, isPrecise, loc);
@@ -74,11 +74,11 @@ SpirvVariable *SpirvBuilder::addFnVar(QualType valueType, SourceLocation loc,
                                       SpirvInstruction *init) {
   assert(function && "found detached local variable");
   SpirvVariable *var = nullptr;
-  if (isBindlessOpaqueArray(param->getType())) {
+  if (isBindlessOpaqueArray(valueType)) {
     // If it is a bindless array of an opaque type, we have to use
     // a pointer to a pointer of the runtime array.
     var = new (context)
-        SpirvVariable(spvContext.getPointerType(
+        SpirvVariable(context.getPointerType(
                           valueType, spv::StorageClass::UniformConstant),
                       loc, spv::StorageClass::Function, isPrecise, init);
   } else {
