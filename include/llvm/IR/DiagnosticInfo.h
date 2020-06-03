@@ -481,6 +481,9 @@ void emitLoopInterleaveWarning(LLVMContext &Ctx, const Function &Fn,
 /// where location information is stored in metadata
 class DiagnosticInfoDxil : public DiagnosticInfo {
 private:
+  // Function
+  const Function *Func;
+
   // Location information
   const DILocation *DLoc;
 
@@ -490,10 +493,11 @@ private:
 public:
   /// This class does not copy \p MsgStr, therefore the reference must be valid
   /// for the whole life time of the Diagnostic.
-  DiagnosticInfoDxil(const DILocation *Loc, const Twine &MsgStr,
+  DiagnosticInfoDxil(const Function *F, const DILocation *Loc, const Twine &MsgStr,
                      DiagnosticSeverity Severity = DS_Error)
-    : DiagnosticInfo(DK_DXIL, Severity), DLoc(Loc), MsgStr(MsgStr) {}
+    : DiagnosticInfo(DK_DXIL, Severity), Func(F), DLoc(Loc), MsgStr(MsgStr) {}
 
+  const Function *getFunction() const { return Func; }
   const DILocation *getLocation() const { return DLoc; }
   const Twine &getMsgStr() const { return MsgStr; }
 

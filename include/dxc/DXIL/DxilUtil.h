@@ -82,6 +82,9 @@ namespace dxilutil {
   void EmitWarningOnFunction(llvm::Function *F, llvm::Twine Msg);
   void EmitErrorOnGlobalVariable(llvm::GlobalVariable *GV, llvm::Twine Msg);
   void EmitWarningOnGlobalVariable(llvm::GlobalVariable *GV, llvm::Twine Msg);
+  void EmitErrorOnContext(llvm::LLVMContext &Ctx, llvm::Twine Msg);
+  void EmitWarningOnContext(llvm::LLVMContext &Ctx, llvm::Twine Msg);
+  void EmitNoteOnContext(llvm::LLVMContext &Ctx, llvm::Twine Msg);
 
   void EmitResMappingError(llvm::Instruction *Res);
   // Simple demangle just support case "\01?name@" pattern.
