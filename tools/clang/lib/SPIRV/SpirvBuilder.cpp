@@ -29,7 +29,6 @@ SpirvBuilder::SpirvBuilder(ASTContext &ac, SpirvContext &ctx,
 }
 
 SpirvFunction *SpirvBuilder::beginFunction(QualType returnType,
-                                           llvm::ArrayRef<QualType> paramTypes,
                                            SourceLocation loc,
                                            llvm::StringRef funcName,
                                            bool isPrecise,
@@ -38,13 +37,12 @@ SpirvFunction *SpirvBuilder::beginFunction(QualType returnType,
   if (func) {
     function = func;
     function->setAstReturnType(returnType);
-    function->setAstParamTypes(paramTypes);
     function->setSourceLocation(loc);
     function->setFunctionName(funcName);
     function->setPrecise(isPrecise);
   } else {
-    function = new (context)
-        SpirvFunction(returnType, paramTypes, loc, funcName, isPrecise);
+    function =
+        new (context) SpirvFunction(returnType, loc, funcName, isPrecise);
   }
 
   return function;
@@ -55,7 +53,16 @@ SpirvFunctionParameter *SpirvBuilder::addFnParam(QualType ptrType,
                                                  SourceLocation loc,
                                                  llvm::StringRef name) {
   assert(function && "found detached parameter");
-  auto *param = new (context) SpirvFunctionParameter(ptrType, isPrecise, loc);
+  SpirvFunctionParameter *param = nullptr;
+  if (isBindlessOpaqueArray(ptrType)) {
+    // If it is a bindless array of an opaque type, we have to use
+    // a pointer to a pointer of the runtime array.
+    param = new (context) SpirvFunctionParameter(
+        context.getPointerType(ptrType, spv::StorageClass::UniformConstant),
+        isPrecise, loc);
+  } else {
+    param = new (context) SpirvFunctionParameter(ptrType, isPrecise, loc);
+  }
   param->setStorageClass(spv::StorageClass::Function);
   param->setDebugName(name);
   function->addParameter(param);
@@ -66,8 +73,18 @@ SpirvVariable *SpirvBuilder::addFnVar(QualType valueType, SourceLocation loc,
                                       llvm::StringRef name, bool isPrecise,
                                       SpirvInstruction *init) {
   assert(function && "found detached local variable");
-  auto *var = new (context) SpirvVariable(
-      valueType, loc, spv::StorageClass::Function, isPrecise, init);
+  SpirvVariable *var = nullptr;
+  if (isBindlessOpaqueArray(valueType)) {
+    // If it is a bindless array of an opaque type, we have to use
+    // a pointer to a pointer of the runtime array.
+    var = new (context)
+        SpirvVariable(context.getPointerType(
+                          valueType, spv::StorageClass::UniformConstant),
+                      loc, spv::StorageClass::Function, isPrecise, init);
+  } else {
+    var = new (context) SpirvVariable(
+        valueType, loc, spv::StorageClass::Function, isPrecise, init);
+  }
   var->setDebugName(name);
   function->addVariable(var);
   return var;

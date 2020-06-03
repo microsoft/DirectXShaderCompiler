@@ -454,6 +454,10 @@ public:
   SpirvVariable(QualType resultType, SourceLocation loc, spv::StorageClass sc,
                 bool isPrecise, SpirvInstruction *initializerId = 0);
 
+  SpirvVariable(const SpirvType *spvType, SourceLocation loc,
+                spv::StorageClass sc, bool isPrecise,
+                SpirvInstruction *initializerId = 0);
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_Variable;
@@ -480,6 +484,9 @@ private:
 class SpirvFunctionParameter : public SpirvInstruction {
 public:
   SpirvFunctionParameter(QualType resultType, bool isPrecise,
+                         SourceLocation loc);
+
+  SpirvFunctionParameter(const SpirvType *spvType, bool isPrecise,
                          SourceLocation loc);
 
   // For LLVM-style RTTI

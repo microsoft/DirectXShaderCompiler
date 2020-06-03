@@ -574,6 +574,19 @@ SpirvInstruction *DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl,
           {spvBuilder.getConstantInt(
               astContext.IntTy, llvm::APInt(32, info->indexInCTBuffer, true))},
           loc);
+    } else if (auto *type = info->instr->getResultType()) {
+      const auto *ptrTy = dyn_cast<HybridPointerType>(type);
+
+      // If it is a local variable or function parameter with a bindless
+      // array of an opaque type, we have to load it because we pass a
+      // pointer of a global variable that has the bindless opaque array.
+      if (ptrTy != nullptr && isBindlessOpaqueArray(decl->getType())) {
+        auto *load = spvBuilder.createLoad(ptrTy, info->instr, loc);
+        load->setRValue(false);
+        return load;
+      } else {
+        return *info;
+      }
     } else {
       return *info;
     }
@@ -594,7 +607,6 @@ DeclResultIdMapper::createFnParam(const ParmVarDecl *param) {
   const auto loc = param->getLocation();
   SpirvFunctionParameter *fnParamInstr = spvBuilder.addFnParam(
       type, param->hasAttr<HLSLPreciseAttr>(), loc, param->getName());
-
   bool isAlias = false;
   (void)getTypeAndCreateCounterForPotentialAliasVar(param, &isAlias);
   fnParamInstr->setContainsAliasComponent(isAlias);
@@ -1040,9 +1052,8 @@ SpirvFunction *DeclResultIdMapper::getOrRegisterFn(const FunctionDecl *fn) {
   // definition is seen, the parameter types will be set properly and take into
   // account whether the function is a member function of a class/struct (in
   // which case a 'this' parameter is added at the beginnig).
-  SpirvFunction *spirvFunction = new (spvContext)
-      SpirvFunction(fn->getReturnType(), /* param QualTypes */ {},
-                    fn->getLocation(), fn->getName(), isPrecise);
+  SpirvFunction *spirvFunction = new (spvContext) SpirvFunction(
+      fn->getReturnType(), fn->getLocation(), fn->getName(), isPrecise);
 
   // No need to dereference to get the pointer. Function returns that are
   // stand-alone aliases are already pointers to values. All other cases should

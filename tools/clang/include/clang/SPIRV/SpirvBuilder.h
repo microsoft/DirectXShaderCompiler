@@ -71,7 +71,6 @@ public:
   ///
   /// At any time, there can only exist at most one function under building.
   SpirvFunction *beginFunction(QualType returnType,
-                               llvm::ArrayRef<QualType> paramTypes,
                                SourceLocation, llvm::StringRef name = "",
                                bool isPrecise = false,
                                SpirvFunction *func = nullptr);
