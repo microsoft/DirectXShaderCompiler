@@ -1,6 +1,7 @@
 // RUN: %dxc -E real_lit_to_flt_warning -T vs_6_0 %s | FileCheck %s
 // RUN: %dxc -E real_lit_to_half_warning -T vs_6_0 %s | FileCheck %s
 // RUN: %dxc -E int_lit_to_half_warning -T vs_6_0 %s | FileCheck %s
+// RUN: %dxc -E real_lit_to_int_warning -T vs_6_0 %s | FileCheck %s
 // CHECK: warning: overflow in the expression
 
 // Verify that when a constant is cast to a different type leading to overflow
@@ -16,4 +17,8 @@ min16float real_lit_to_half_warning() {
 
 min16float int_lit_to_half_warning() {
   return 65520;
+}
+
+int real_lit_to_int_warning() {  
+  return 3.4e20;
 }
