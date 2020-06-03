@@ -37,7 +37,7 @@
 #include <comdef.h>
 #include <thread>
 #include <unordered_map>
-#include <iostream>
+#include <ios>
 
 #include "llvm/Support//MSFileSystem.h"
 #include "llvm/Support/CommandLine.h"
