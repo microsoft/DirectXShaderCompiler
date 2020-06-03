@@ -1558,8 +1558,13 @@ static bool HandleFloatToIntCast(EvalInfo &Info, const Expr *E,
   Result = APSInt(DestWidth, !DestSigned);
   bool ignored;
   if (Value.convertToInteger(Result, llvm::APFloat::rmTowardZero, &ignored)
-      & APFloat::opInvalidOp)
+    & APFloat::opInvalidOp) {
     HandleOverflow(Info, E, Value, DestType);
+    // HLSL changes begin
+    if (Info.getLangOpts().HLSL)
+      Info.Ctx.getDiagnostics().Report(E->getExprLoc(), diag::warn_hlsl_constexpr_overflow);
+    // HLSL changes end
+  }
   return true;
 }
 
@@ -1570,8 +1575,13 @@ static bool HandleFloatToFloatCast(EvalInfo &Info, const Expr *E,
   bool ignored;
   if (Result.convert(Info.Ctx.getFloatTypeSemantics(DestType),
                      APFloat::rmNearestTiesToEven, &ignored)
-      & APFloat::opOverflow)
+      & APFloat::opOverflow) {
     HandleOverflow(Info, E, Value, DestType);
+    // HLSL changes begin
+    if (Info.getLangOpts().HLSL)
+      Info.Ctx.getDiagnostics().Report(E->getExprLoc(), diag::warn_hlsl_constexpr_overflow);
+    // HLSL changes end
+  }
   return true;
 }
 
@@ -1592,9 +1602,14 @@ static bool HandleIntToFloatCast(EvalInfo &Info, const Expr *E,
                                  QualType DestType, APFloat &Result) {
   Result = APFloat(Info.Ctx.getFloatTypeSemantics(DestType), 1);
   if (Result.convertFromAPInt(Value, Value.isSigned(),
-                              APFloat::rmNearestTiesToEven)
-      & APFloat::opOverflow)
+    APFloat::rmNearestTiesToEven)
+    & APFloat::opOverflow) {
     HandleOverflow(Info, E, Value, DestType);
+    // HLSL changes begin
+    if (Info.getLangOpts().HLSL)
+      Info.Ctx.getDiagnostics().Report(E->getExprLoc(), diag::warn_hlsl_constexpr_overflow);
+    // HLSL changes end
+  }
   return true;
 }
 
