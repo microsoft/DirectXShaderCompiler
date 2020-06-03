@@ -276,6 +276,9 @@ bool isOrContainsNonFpColMajorMatrix(const ASTContext &,
 /// \bried Returns true if the given type is a String or StringLiteral type.
 bool isStringType(QualType);
 
+/// \bried Returns true if the given type is a bindless array of an opaque type.
+bool isBindlessOpaqueArray(QualType type);
+
 /// \brief Generates the corresponding SPIR-V vector type for the given Clang
 /// frontend matrix type's vector component and returns the <result-id>.
 ///

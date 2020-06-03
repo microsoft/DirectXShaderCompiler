@@ -1032,39 +1032,23 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
   const QualType retType =
       declIdMapper.getTypeAndCreateCounterForPotentialAliasVar(decl);
 
-  // Construct the function signature.
-  llvm::SmallVector<QualType, 4> paramTypes;
-
-  bool isNonStaticMemberFn = false;
-  if (const auto *memberFn = dyn_cast<CXXMethodDecl>(decl)) {
-    isNonStaticMemberFn = !memberFn->isStatic();
-
-    if (isNonStaticMemberFn) {
-      // For non-static member function, the first parameter should be the
-      // object on which we are invoking this method.
-      const QualType valueType =
-          memberFn->getThisType(astContext)->getPointeeType();
-      paramTypes.push_back(valueType);
-    }
-  }
-
-  for (const auto *param : decl->params()) {
-    const QualType valueType =
-        declIdMapper.getTypeAndCreateCounterForPotentialAliasVar(param);
-    paramTypes.push_back(valueType);
-  }
-
-  spvBuilder.beginFunction(retType, paramTypes, decl->getLocStart(), funcName,
+  spvBuilder.beginFunction(retType, decl->getLocStart(), funcName,
                            decl->hasAttr<HLSLPreciseAttr>(), func);
 
-  if (isNonStaticMemberFn) {
-    // Remember the parameter for the 'this' object so later we can handle
-    // CXXThisExpr correctly.
-    curThis = spvBuilder.addFnParam(paramTypes[0], /*isPrecise*/ false,
-                                    decl->getLocStart(), "param.this");
-    if (isOrContainsAKindOfStructuredOrByteBuffer(paramTypes[0])) {
-      curThis->setContainsAliasComponent(true);
-      needsLegalization = true;
+  if (const auto *memberFn = dyn_cast<CXXMethodDecl>(decl)) {
+    if (!memberFn->isStatic()) {
+      // For non-static member function, the first parameter should be the
+      // object on which we are invoking this method.
+      QualType valueType = memberFn->getThisType(astContext)->getPointeeType();
+
+      // Remember the parameter for the 'this' object so later we can handle
+      // CXXThisExpr correctly.
+      curThis = spvBuilder.addFnParam(valueType, /*isPrecise*/ false,
+                                      decl->getLocStart(), "param.this");
+      if (isOrContainsAKindOfStructuredOrByteBuffer(valueType)) {
+        curThis->setContainsAliasComponent(true);
+        needsLegalization = true;
+      }
     }
   }
 
@@ -5228,8 +5212,13 @@ void SpirvEmitter::storeValue(SpirvInstruction *lhsPtr,
     // wholesale handling here, they will be in the final transformed code.
     // Drivers don't like that.
     // TODO: consider moving this hack into SPIRV-Tools as a transformation.
-    assert(lhsValType->isConstantArrayType());
     assert(!rhsVal->isRValue());
+
+    if (!lhsValType->isConstantArrayType()) {
+      spvBuilder.createStore(lhsPtr, rhsVal, loc);
+      needsLegalization = true;
+      return;
+    }
 
     const auto *arrayType = astContext.getAsConstantArrayType(lhsValType);
     const auto elemType = arrayType->getElementType();
@@ -10738,9 +10727,8 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   // The wrapper entry function surely does not have pre-assigned <result-id>
   // for it like other functions that got added to the work queue following
   // function calls. And the wrapper is the entry function.
-  entryFunction =
-      spvBuilder.beginFunction(astContext.VoidTy, /* param QualTypes */ {},
-                               decl->getLocStart(), decl->getName());
+  entryFunction = spvBuilder.beginFunction(
+      astContext.VoidTy, decl->getLocStart(), decl->getName());
   // Note this should happen before using declIdMapper for other tasks.
   declIdMapper.setEntryFunction(entryFunction);
 

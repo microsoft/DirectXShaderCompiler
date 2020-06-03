@@ -561,6 +561,12 @@ TEST_F(FileTest, FunctionParamUnsizedArray) {
   // Unsized ararys as function params are not supported.
   runFileTest("fn.param.unsized-array.hlsl", Expect::Failure);
 }
+TEST_F(FileTest, FunctionParamUnsizedOpaqueArray) {
+  runFileTest("fn.param.unsized-opaque-array.hlsl", Expect::Success, false);
+}
+TEST_F(FileTest, FunctionParamUnsizedOpaqueArrayO3) {
+  runFileTest("fn.param.unsized-opaque-array-o3.hlsl");
+}
 TEST_F(FileTest, FunctionInOutParamTypeMismatch) {
   // The type for the inout parameter doesn't match the argument type.
   runFileTest("fn.param.inout.type-mismatch.hlsl");
