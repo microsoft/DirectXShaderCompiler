@@ -1791,7 +1791,7 @@ static bool ValidateStorageMasks(Instruction *I, DXIL::OpCode opcode, ConstantIn
     ValCtx.EmitInstrError(I, ValidationRule::InstrWriteMaskMatchValueForUAVStore);
     dxilutil::EmitNoteOnContext(I->getContext(),
                                 Twine("UAV store write mask is ") + Twine(uMask) +
-                                Twine("and store value mask is ") + Twine(stValMask));
+                                Twine(" and store value mask is ") + Twine(stValMask));
   }
   return true;
 }
