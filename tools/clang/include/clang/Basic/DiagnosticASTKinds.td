@@ -265,7 +265,6 @@ def err_odr_non_type_parameter_type_inconsistent : Error<
 def err_unsupported_ast_node: Error<"cannot import unsupported AST node %0">;
 
 // HLSL changes begin
-def warn_hlsl_constexpr_overflow : Warning<
-  "overflow in the expression">;
+def warn_hlsl_constexpr_overflow : Warning<"overflow in the expression">;
 // HLSL changes end
 }
