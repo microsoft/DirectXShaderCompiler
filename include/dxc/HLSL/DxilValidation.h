@@ -137,7 +137,7 @@ enum class ValidationRule : unsigned {
   InstrTextureOffset, // offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7.
   InstrUndefResultForGetDimension, // GetDimensions used undef dimension %0 on %1.
   InstrWriteMaskForTypedUAVStore, // store on typed uav must write to all four components of the UAV.
-  InstrWriteMaskMatchValueForUAVStore, // uav store write mask must match store value mask, write mask is %0 and store value mask is %1.
+  InstrWriteMaskMatchValueForUAVStore, // Assignment of undefined values to UAV.
 
   // Metadata
   MetaBarycentricsFloat3, // only 'float3' type is allowed for SV_Barycentrics.
