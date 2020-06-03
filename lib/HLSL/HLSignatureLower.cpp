@@ -1201,7 +1201,7 @@ void HLSignatureLower::GenerateDxilCSInputs() {
     if (semanticStr.empty()) {
       dxilutil::EmitErrorOnFunction(Entry, "Semantic must be defined for all "
                                     "parameters of an entry function or patch "
-                                    "constant function");
+                                    "constant function.");
       return;
     }
 

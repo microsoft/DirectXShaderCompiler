@@ -137,11 +137,12 @@ public:
 
 char DxilLoopUnroll::ID;
 
-static void FailLoopUnroll(bool WarnOnly, LLVMContext &Ctx, DebugLoc DL, const Twine &Message) {
+static void FailLoopUnroll(bool WarnOnly, Function *F, DebugLoc DL, const Twine &Message) {
+  LLVMContext &Ctx = F->getContext();
   DiagnosticSeverity severity = DiagnosticSeverity::DS_Error;
   if (WarnOnly)
     severity = DiagnosticSeverity::DS_Warning;
-  Ctx.diagnose(DiagnosticInfoDxil(DL.get(), Message, severity));
+  Ctx.diagnose(DiagnosticInfoDxil(F, DL.get(), Message, severity));
 }
 
 struct LoopIteration {
@@ -637,7 +638,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   unsigned ExplicitUnrollCount = 0;
   if (HasExplicitLoopCount) {
     if (ExplicitUnrollCountSigned < 1) {
-      FailLoopUnroll(false, F->getContext(), LoopLoc, "Could not unroll loop. Invalid unroll count.");
+      FailLoopUnroll(false, F, LoopLoc, "Could not unroll loop. Invalid unroll count.");
       return false;
     }
     ExplicitUnrollCount = (unsigned)ExplicitUnrollCountSigned;
@@ -1006,7 +1007,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     // Now that we potentially turned some GEP indices into constants,
     // try to clean up their allocas.
     if (!BreakUpArrayAllocas(FxcCompatMode /* allow oob index */, ProblemAllocas.begin(), ProblemAllocas.end(), DT, AC, DVC)) {
-      FailLoopUnroll(false, F->getContext(), LoopLoc, "Could not unroll loop due to out of bound array access.");
+      FailLoopUnroll(false, F, LoopLoc, "Could not unroll loop due to out of bound array access.");
     }
 
     return true;
@@ -1018,10 +1019,10 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
         "Could not unroll loop. Loop bound could not be deduced at compile time. "
         "Use [unroll(n)] to give an explicit count.";
     if (FxcCompatMode) {
-      FailLoopUnroll(true /*warn only*/, F->getContext(), LoopLoc, Msg);
+      FailLoopUnroll(true /*warn only*/, F, LoopLoc, Msg);
     }
     else {
-      FailLoopUnroll(false /*warn only*/, F->getContext(), LoopLoc,
+      FailLoopUnroll(false /*warn only*/, F, LoopLoc,
         Twine(Msg) + Twine(" Use '-HV 2016' to treat this as warning."));
     }
 
