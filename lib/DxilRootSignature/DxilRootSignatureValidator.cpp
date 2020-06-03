@@ -26,7 +26,7 @@
 #include <utility>
 #include <vector>
 #include <set>
-#include <iostream>
+#include <ios>
 
 #include "DxilRootSignatureHelper.h"
 
