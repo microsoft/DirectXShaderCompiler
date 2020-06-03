@@ -1037,22 +1037,30 @@ ValidateSignatureAccess(Instruction *I, DxilSignature &sig, Value *sigID,
   return &SE;
 }
 
-static DXIL::SamplerKind GetSamplerKind(Value *samplerHandle,
-                                        ValidationContext &ValCtx) {
-  if (!isa<CallInst>(samplerHandle)) {
-    if (Instruction *I = dyn_cast<Instruction>(samplerHandle))
+static DxilResourceProperties GetResourceFromHandle(Value *Handle,
+                                                    ValidationContext &ValCtx) {
+  if (!isa<CallInst>(Handle)) {
+    if (Instruction *I = dyn_cast<Instruction>(Handle))
       ValCtx.EmitInstrError(I, ValidationRule::InstrHandleNotFromCreateHandle);
     else
       ValCtx.EmitError(ValidationRule::InstrHandleNotFromCreateHandle);
-    return DXIL::SamplerKind::Invalid;
+    DxilResourceProperties RP;
+    RP.Class = DXIL::ResourceClass::Invalid;
+    return RP;
   }
 
-  DxilResourceProperties RP = ValCtx.GetResourceFromVal(samplerHandle);
+  DxilResourceProperties RP = ValCtx.GetResourceFromVal(Handle);
   if (RP.Class == DXIL::ResourceClass::Invalid) {
-      ValCtx.EmitInstrError(cast<CallInst>(samplerHandle),
-          ValidationRule::InstrHandleNotFromCreateHandle);
-      return DXIL::SamplerKind::Invalid;
+    ValCtx.EmitInstrError(cast<CallInst>(Handle),
+                          ValidationRule::InstrHandleNotFromCreateHandle);
   }
+
+  return RP;
+}
+
+static DXIL::SamplerKind GetSamplerKind(Value *samplerHandle,
+                                        ValidationContext &ValCtx) {
+  DxilResourceProperties RP = GetResourceFromHandle(samplerHandle, ValCtx);
 
   if (RP.Class != DXIL::ResourceClass::Sampler) {
     // must be sampler.
@@ -1070,22 +1078,9 @@ static DXIL::ResourceKind GetResourceKindAndCompTy(Value *handle, DXIL::Componen
     ValidationContext &ValCtx) {
   CompTy = DXIL::ComponentType::Invalid;
   ResClass = DXIL::ResourceClass::Invalid;
-  if (!isa<CallInst>(handle)) {
-    if (Instruction *I = dyn_cast<Instruction>(handle))
-      ValCtx.EmitInstrError(I, ValidationRule::InstrHandleNotFromCreateHandle);
-    else
-      ValCtx.EmitError(ValidationRule::InstrHandleNotFromCreateHandle);
-    return DXIL::ResourceKind::Invalid;
-  }
   // TODO: validate ROV is used only in PS.
 
-  DxilResourceProperties RP = ValCtx.GetResourceFromVal(handle);
-  if (RP.Class == DXIL::ResourceClass::Invalid) {
-    ValCtx.EmitInstrError(cast<CallInst>(handle),
-                          ValidationRule::InstrHandleNotFromCreateHandle);
-    return DXIL::ResourceKind::Invalid;
-  }
-
+  DxilResourceProperties RP = GetResourceFromHandle(handle, ValCtx);
   ResClass = RP.Class;
 
   switch (ResClass) {
@@ -1400,20 +1395,7 @@ static unsigned StoreValueToMask(ArrayRef<Value *> vals) {
 }
 
 static int GetCBufSize(Value *cbHandle, ValidationContext &ValCtx) {
-  if (!isa<CallInst>(cbHandle)) {
-    if (Instruction *I = dyn_cast<Instruction>(cbHandle))
-      ValCtx.EmitInstrError(I, ValidationRule::InstrHandleNotFromCreateHandle);
-    else
-      ValCtx.EmitError(ValidationRule::InstrHandleNotFromCreateHandle);
-    return -1;
-  }
-
-  DxilResourceProperties RP = ValCtx.GetResourceFromVal(cbHandle);
-  if (RP.Class == DXIL::ResourceClass::Invalid) {
-    ValCtx.EmitInstrError(cast<CallInst>(cbHandle),
-                          ValidationRule::InstrHandleNotFromCreateHandle);
-    return -1;
-  }
+  DxilResourceProperties RP = GetResourceFromHandle(cbHandle, ValCtx);
 
   if (RP.Class != DXIL::ResourceClass::CBuffer) {
     ValCtx.EmitInstrError(cast<CallInst>(cbHandle),
@@ -3745,23 +3727,27 @@ static void ValidateGlobalVariables(ValidationContext &ValCtx) {
     }
   }
 
+  ValidationRule Rule = ValidationRule::SmMaxTGSMSize;
+  unsigned MaxSize = DXIL::kMaxTGSMSize;
+
   if (M.GetShaderModel()->IsMS()) {
-    if (TGSMSize > DXIL::kMaxMSSMSize) {
-      Module::global_iterator GI = M.GetModule()->global_end();
-      GI--;
-      GlobalVariable &GV = *GI;
-      ValCtx.EmitGlobalVariableFormatError(&GV, ValidationRule::SmMaxMSSMSize,
-                                           { std::to_string(TGSMSize),
-                                             std::to_string(DXIL::kMaxMSSMSize) });
-    }
-  } else if (TGSMSize > DXIL::kMaxTGSMSize) {
-    Module::global_iterator GI = M.GetModule()->global_end();
-    GI--;
-    GlobalVariable &GV = *GI;
-    ValCtx.EmitGlobalVariableFormatError(&GV, ValidationRule::SmMaxTGSMSize,
-                           { std::to_string(TGSMSize),
-                             std::to_string(DXIL::kMaxTGSMSize) });
+    Rule = ValidationRule::SmMaxMSSMSize;
+    MaxSize = DXIL::kMaxMSSMSize;
   }
+  if (TGSMSize > MaxSize) {
+    Module::global_iterator GI = M.GetModule()->global_end();
+    GlobalVariable *GV = &*GI;
+    do {
+      GI--;
+      GV = &*GI;
+      if (GV->getType()->getAddressSpace() == hlsl::DXIL::kTGSMAddrSpace)
+        break;
+    } while (GI != M.GetModule()->global_begin());
+    ValCtx.EmitGlobalVariableFormatError(GV, Rule,
+                                         { std::to_string(TGSMSize),
+                                           std::to_string(MaxSize) });
+  }
+
   if (!fixAddrTGSMList.empty()) {
     ValidateTGSMRaceCondition(fixAddrTGSMList, ValCtx);
   }
@@ -3845,7 +3831,7 @@ static void ValidateBitcode(ValidationContext &ValCtx) {
   raw_string_ostream diagStream(diagStr);
   if (llvm::verifyModule(ValCtx.M, &diagStream)) {
     ValCtx.EmitError(ValidationRule::BitcodeValid);
-    dxilutil::EmitErrorOnContext(ValCtx.M.getContext(), diagStr);
+    dxilutil::EmitErrorOnContext(ValCtx.M.getContext(), diagStream.str());
   }
 }
 
@@ -4215,9 +4201,9 @@ static void ValidateShaderFlags(ValidationContext &ValCtx) {
   }
   ValCtx.EmitError(ValidationRule::MetaFlagsUsage);
 
-  std::string Note = "Flags declared=" + declaredFlagsRaw;
-  Note += ", actual=" + calcFlagsRaw;
-  dxilutil::EmitNoteOnContext(ValCtx.M.getContext(), Note);
+  dxilutil::EmitNoteOnContext(ValCtx.M.getContext(),
+                              Twine("Flags declared=") + Twine(declaredFlagsRaw) +
+                              Twine(", actual=") + Twine(calcFlagsRaw));
 }
 
 static void ValidateSignatureElement(DxilSignatureElement &SE,
