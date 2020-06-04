@@ -1546,6 +1546,11 @@ static void HandleOverflow(EvalInfo &Info, const Expr *E,
                            const T &SrcValue, QualType DestType) {
   Info.CCEDiag(E, diag::note_constexpr_overflow)
     << SrcValue << DestType;
+  // HLSL changes begin
+  if (Info.getLangOpts().HLSL)
+    Info.Ctx.getDiagnostics().Report(E->getExprLoc(),
+      diag::warn_hlsl_constexpr_overflow) << DestType;
+  // HLSL changes end
 }
 
 static bool HandleFloatToIntCast(EvalInfo &Info, const Expr *E,
