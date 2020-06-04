@@ -2,7 +2,7 @@
 // RUN: %dxc -E real_lit_to_half_nowarning -T vs_6_0 %s | FileCheck %s
 // RUN: %dxc -E int_lit_to_half_nowarning -T vs_6_0 %s | FileCheck %s
 // RUN: %dxc -E real_lit_to_int_nowarning -T vs_6_0 %s | FileCheck %s
-// CHECK-NOT: warning: overflow in the expression
+// CHECK-NOT: warning: overflow in expression when converting to
 
 // Verify that when a constant is cast to a different type falls with in the
 // the valid range of destination type, then no overflow warning is reported.
