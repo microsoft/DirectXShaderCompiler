@@ -1215,5 +1215,43 @@ QualType getHLSLMatrixType(ASTContext &astContext, Sema &S,
       TemplateName(templateDecl), templateArgumentList, canonType);
 }
 
+bool isResourceOnlyStructure(QualType type) {
+  // Remove arrayness if needed.
+  while (type->isArrayType())
+    type = type->getAsArrayTypeUnsafe()->getElementType();
+
+  if (const auto *structType = type->getAs<RecordType>()) {
+    for (const auto *field : structType->getDecl()->fields()) {
+      // isResourceType does remove arrayness for the field if needed.
+      if (!isResourceType(field) &&
+          !isResourceOnlyStructure(field->getType())) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  return false;
+}
+
+bool isStructureContainingResources(QualType type) {
+  // Remove arrayness if needed.
+  while (type->isArrayType())
+    type = type->getAsArrayTypeUnsafe()->getElementType();
+
+  if (const auto *structType = type->getAs<RecordType>()) {
+    for (const auto *field : structType->getDecl()->fields()) {
+      auto fieldType = field->getType();
+      // Remove arrayness if needed.
+      while (fieldType->isArrayType())
+        fieldType = fieldType->getAsArrayTypeUnsafe()->getElementType();
+      if (isResourceType(field) || isStructureContainingResources(fieldType)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 } // namespace spirv
 } // namespace clang

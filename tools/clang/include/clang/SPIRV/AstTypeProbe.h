@@ -291,6 +291,13 @@ QualType getComponentVectorType(const ASTContext &, QualType matrixType);
 QualType getHLSLMatrixType(ASTContext &, Sema &, ClassTemplateDecl *,
                            QualType elemType, int rows, int columns);
 
+/// \brief Returns true iff the given type is a struct or array of structs and
+/// we would ONLY get resources by flattening them.
+bool isResourceOnlyStructure(QualType type);
+
+/// TODO
+bool isStructureContainingResources(QualType type);
+
 } // namespace spirv
 } // namespace clang
 

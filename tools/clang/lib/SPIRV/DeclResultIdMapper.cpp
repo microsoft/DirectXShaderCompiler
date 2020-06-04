@@ -47,6 +47,51 @@ hlsl::ConstantPacking *getPackOffset(const clang::NamedDecl *decl) {
   return nullptr;
 }
 
+/// TODO: brief
+uint32_t getNumBindingsUsedByResourceType(QualType type) {
+  // TODO: Remove arraySize from ResourceVar
+  // TODO: Move Workgroup checks to shouldSkipIn...
+
+  // For custom-generated types that have SpirvType but no QualType.
+  if (type.isNull())
+    return 1;
+
+  // For every array dimension, the number of bindings needed should be
+  // multiplied by the array size. For example: an array of two Textures should
+  // use 2 binding slots.
+  uint32_t arrayFactor = 1;
+  while (auto constArrayType = dyn_cast<ConstantArrayType>(type)) {
+    arrayFactor *=
+        static_cast<uint32_t>(constArrayType->getSize().getZExtValue());
+    type = constArrayType->getElementType();
+  }
+
+  // Once we remove the arrayness, we expect the given type to be either a
+  // resource OR a structure that only contains resources.
+  assert(hlsl::IsHLSLResourceType(type) || isResourceOnlyStructure(type));
+
+  // In the case of a resource, each resource takes 1 binding slot, so in total
+  // it consumes: 1 * arrayFactor.
+  if (hlsl::IsHLSLResourceType(type))
+    return arrayFactor;
+
+  // In the case of a struct of resources, we need to sum up the number of
+  // bindings for the struct members. So in total it consumes:
+  //  sum(bindings of struct members) * arrayFactor.
+  if (isResourceOnlyStructure(type)) {
+    uint32_t sumOfMemberBindings = 0;
+    const auto *structDecl = type->getAs<RecordType>()->getDecl();
+    assert(structDecl);
+    for (const auto *field : structDecl->fields())
+      sumOfMemberBindings += getNumBindingsUsedByResourceType(field->getType());
+
+    return sumOfMemberBindings * arrayFactor;
+  }
+
+  llvm_unreachable(
+      "getNumBindingsUsedByResourceType was called with unknown resource type");
+}
+
 QualType getUintTypeWithSourceComponents(const ASTContext &astContext,
                                          QualType sourceType) {
   if (isScalarType(sourceType)) {
@@ -191,7 +236,8 @@ bool shouldSkipInStructLayout(const Decl *decl) {
 
     // Other resource types
     if (const auto *valueDecl = dyn_cast<ValueDecl>(decl))
-      if (isResourceType(valueDecl))
+      if (isResourceType(valueDecl) ||
+          isResourceOnlyStructure((valueDecl->getType())))
         return true;
   }
 
@@ -332,6 +378,29 @@ inline uint32_t getNumBaseClasses(QualType type) {
   if (const auto *cxxDecl = type->getAsCXXRecordDecl())
     return cxxDecl->getNumBases();
   return 0;
+}
+
+/// Returns the appropriate storage class for an extern variable of the given
+/// type.
+spv::StorageClass getStorageClassForExternVar(QualType type,
+                                              bool hasGroupsharedAttr) {
+  // For CS groupshared variables
+  if (hasGroupsharedAttr)
+    return spv::StorageClass::Workgroup;
+
+  if (isAKindOfStructuredOrByteBuffer(type))
+    return spv::StorageClass::Uniform;
+
+  return spv::StorageClass::UniformConstant;
+}
+
+/// Returns the appropriate layout rule for an extern variable of the given
+/// type.
+SpirvLayoutRule getLayoutRuleForExternVar(QualType type,
+                                          const SpirvCodeGenOptions &opts) {
+  if (isAKindOfStructuredOrByteBuffer(type))
+    return opts.sBufferLayoutRule;
+  return SpirvLayoutRule::Void;
 }
 
 } // anonymous namespace
@@ -674,9 +743,10 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
   const bool isGroupShared = var->hasAttr<HLSLGroupSharedAttr>();
   const bool isACRWSBuffer = isRWAppendConsumeSBuffer(type);
   const auto storageClass = getStorageClassForExternVar(type, isGroupShared);
-  const auto rule = getLayoutRuleForExternVar(type);
+  const auto rule = getLayoutRuleForExternVar(type, spirvOptions);
 
-  if (!isGroupShared && !isResourceType(var)) {
+  if (!isGroupShared && !isResourceType(var) &&
+      !isResourceOnlyStructure(type)) {
     // This is a stand-alone externally-visiable non-resource-type variable.
     // They should be grouped into the $Globals cbuffer. We create that cbuffer
     // and record all variables inside it upon seeing the first such variable.
@@ -756,8 +826,7 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
   const bool forShaderRecordNV =
       usageKind == ContextUsageKind::ShaderRecordBufferNV;
 
-  const llvm::SmallVector<const Decl *, 4> &declGroup =
-      collectDeclsInDeclContext(decl);
+  const auto &declGroup = collectDeclsInDeclContext(decl);
 
   // Collect the type and name for each field
   llvm::SmallVector<HybridStructType::FieldInfo, 4> fields;
@@ -1618,7 +1687,8 @@ bool DeclResultIdMapper::decorateResourceBindings() {
     // element. We can match this behavior via a command line option.
     uint32_t numBindingsToUse = 1;
     if (spirvOptions.flattenResourceArrays)
-      numBindingsToUse = var.getArraySize();
+      numBindingsToUse = getNumBindingsUsedByResourceType(
+          var.getSpirvInstr()->getAstResultType());
 
     for (uint32_t i = 0; i < numBindingsToUse; ++i) {
       bool success = bindingSet.useBinding(bindingNo + i, setNo);
@@ -1699,7 +1769,8 @@ bool DeclResultIdMapper::decorateResourceBindings() {
     // element. We can match this behavior via a command line option.
     uint32_t numBindingsToUse = 1;
     if (spirvOptions.flattenResourceArrays)
-      numBindingsToUse = var.getArraySize();
+      numBindingsToUse = getNumBindingsUsedByResourceType(
+          var.getSpirvInstr()->getAstResultType());
 
     if (var.isCounter()) {
       if (!var.getCounterBinding()) {
@@ -3298,25 +3369,6 @@ void DeclResultIdMapper::createRayTracingNVImplicitVar(const VarDecl *varDecl) {
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, val->getInt());
   constVal->setRValue(true);
   astDecls[varDecl].instr = constVal;
-}
-
-spv::StorageClass
-DeclResultIdMapper::getStorageClassForExternVar(QualType type,
-                                                bool hasGroupsharedAttr) {
-  // For CS groupshared variables
-  if(hasGroupsharedAttr)
-    return spv::StorageClass::Workgroup;
-
-  if(isAKindOfStructuredOrByteBuffer(type))
-    return spv::StorageClass::Uniform;
-
-  return spv::StorageClass::UniformConstant;
-}
-
-SpirvLayoutRule DeclResultIdMapper::getLayoutRuleForExternVar(QualType type) {
-  if(isAKindOfStructuredOrByteBuffer(type))
-    return spirvOptions.sBufferLayoutRule;
-  return SpirvLayoutRule::Void;
 }
 
 } // end namespace spirv

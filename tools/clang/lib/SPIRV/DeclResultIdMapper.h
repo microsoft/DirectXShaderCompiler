@@ -685,16 +685,6 @@ private:
                               const DeclaratorDecl *decl,
                               llvm::SmallVector<uint32_t, 4> *indices);
 
-  /// Returns the appropriate storage class for an extern variable of the given
-  /// type.
-  spv::StorageClass getStorageClassForExternVar(QualType type,
-                                                bool hasGroupsharedAttr);
-
-  /// Returns the appropriate layout rule for an extern variable of the given
-  /// type.
-  SpirvLayoutRule getLayoutRuleForExternVar(QualType type);
-
-
   /// Decorates varInstr of the given asType with proper interpolation modes
   /// considering the attributes on the given decl.
   void decorateInterpolationMode(const NamedDecl *decl, QualType asType,
