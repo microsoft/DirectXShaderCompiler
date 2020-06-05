@@ -5492,7 +5492,8 @@ SpirvInstruction *SpirvEmitter::processBinaryOp(
     val->setRValue();
 
     // Propagate RelaxedPrecision
-    if (lhsVal->isRelaxedPrecision() || rhsVal->isRelaxedPrecision())
+    if ((lhsVal && lhsVal->isRelaxedPrecision()) ||
+        (rhsVal && rhsVal->isRelaxedPrecision()))
       val->setRelaxedPrecision();
 
     return val;

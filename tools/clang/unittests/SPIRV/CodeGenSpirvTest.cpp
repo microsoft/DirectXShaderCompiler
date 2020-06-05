@@ -1178,6 +1178,9 @@ TEST_F(FileTest, IntrinsicsGetRenderTargetSamplePosition) {
 TEST_F(FileTest, IntrinsicsNonUniformResourceIndex) {
   runFileTest("intrinsics.non-uniform-resource-index.hlsl");
 }
+TEST_F(FileTest, IntrinsicsMultiPrefix) {
+  runFileTest("intrinsics.multiprefix.hlsl", Expect::Failure);
+}
 
 // For attributes
 TEST_F(FileTest, AttributeEarlyDepthStencil) {
