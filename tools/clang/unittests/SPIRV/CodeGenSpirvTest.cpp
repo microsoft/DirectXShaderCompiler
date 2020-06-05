@@ -2317,6 +2317,10 @@ TEST_F(FileTest, RichDebugInfoTypeArray) {
   runFileTest("rich.debug.type.array.hlsl", Expect::Success,
               /*runValidation*/ runValidationForRichDebugInfo);
 }
+TEST_F(FileTest, RichDebugInfoTypeArrayFromSameType) {
+  runFileTest("rich.debug.type.array-from-same-type.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
 TEST_F(FileTest, RichDebugInfoTypeFunction) {
   runFileTest("rich.debug.type.function.hlsl", Expect::Success,
               /*runValidation*/ runValidationForRichDebugInfo);

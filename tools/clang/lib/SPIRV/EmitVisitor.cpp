@@ -1343,6 +1343,8 @@ bool EmitVisitor::visit(SpirvDebugTypeArray *inst) {
   curInst.push_back(inst->getDebugOpcode());
   curInst.push_back(
       getOrAssignResultId<SpirvInstruction>(inst->getElementType()));
+
+  // This is a reverse order of dimensions, thereby emitting in a reverse order.
   for (auto it = inst->getElementCount().rbegin();
        it != inst->getElementCount().rend(); ++it) {
     const auto countId = typeHandler.getOrCreateConstantInt(
@@ -1350,6 +1352,7 @@ bool EmitVisitor::visit(SpirvDebugTypeArray *inst) {
         /* isSpecConst */ false);
     curInst.push_back(countId);
   }
+
   finalizeInstruction(&richDebugInfo);
   return true;
 }

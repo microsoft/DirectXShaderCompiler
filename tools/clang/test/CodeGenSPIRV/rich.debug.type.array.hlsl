@@ -12,10 +12,10 @@
 // CHECK:   [[bool:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic [[boolName]] %uint_32 Boolean
 // CHECK:   [[int:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic [[intName]] %uint_32 Signed
 // CHECK:  [[uint:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic [[uintName]] %uint_32 Unsigned
+// CHECK: [[float:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic [[floatName]] %uint_32 Float
 // CHECK:        {{%\d+}} = OpExtInst %void [[set]] DebugTypeArray [[S]] %uint_8
 // CHECK: [[boolv4:%\d+]] = OpExtInst %void [[set]] DebugTypeVector [[bool]] 4
 // CHECK:        {{%\d+}} = OpExtInst %void [[set]] DebugTypeArray [[boolv4]] %uint_7
-// CHECK: [[float:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic [[floatName]] %uint_32 Float
 // CHECK:       {{%\d+}} = OpExtInst %void [[set]] DebugTypeArray [[float]] %uint_8 %uint_4
 // CHECK:       {{%\d+}} = OpExtInst %void [[set]] DebugTypeArray [[int]] %uint_8
 // CHECK:       {{%\d+}} = OpExtInst %void [[set]] DebugTypeArray [[uint]] %uint_4
