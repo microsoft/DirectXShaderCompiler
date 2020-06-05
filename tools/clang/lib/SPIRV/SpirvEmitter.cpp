@@ -1111,6 +1111,7 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
     spvContext.pushDebugLexicalScope(info, debugFunction);
   }
 
+  bool isNonStaticMemberFn = false;
   if (const auto *memberFn = dyn_cast<CXXMethodDecl>(decl)) {
     if (!memberFn->isStatic()) {
       // For non-static member function, the first parameter should be the
@@ -1125,20 +1126,23 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
         curThis->setContainsAliasComponent(true);
         needsLegalization = true;
       }
-    }
-    if (spirvOptions.debugInfoRich) {
-      // Add DebugLocalVariable information
-      const auto &sm = astContext.getSourceManager();
-      const uint32_t line = sm.getPresumedLineNumber(loc);
-      const uint32_t column = sm.getPresumedColumnNumber(loc);
-      if (!info)
-        info = getOrCreateRichDebugInfo(loc);
-      // TODO: replace this with FlagArtificial|FlagObjectPointer.
-      uint32_t flags = (1 << 5) | (1 << 8);
-      auto *debugLocalVar = spvBuilder.createDebugLocalVariable(
-          paramTypes[0], "this", info->source, line, column,
-          info->scopeStack.back(), flags, 1);
-      spvBuilder.createDebugDeclare(debugLocalVar, curThis);
+
+      if (spirvOptions.debugInfoRich) {
+        // Add DebugLocalVariable information
+        const auto &sm = astContext.getSourceManager();
+        const uint32_t line = sm.getPresumedLineNumber(loc);
+        const uint32_t column = sm.getPresumedColumnNumber(loc);
+        if (!info)
+          info = getOrCreateRichDebugInfo(loc);
+        // TODO: replace this with FlagArtificial|FlagObjectPointer.
+        uint32_t flags = (1 << 5) | (1 << 8);
+        auto *debugLocalVar = spvBuilder.createDebugLocalVariable(
+            valueType, "this", info->source, line, column,
+            info->scopeStack.back(), flags, 1);
+        spvBuilder.createDebugDeclare(debugLocalVar, curThis);
+      }
+
+      isNonStaticMemberFn = true;
     }
   }
 

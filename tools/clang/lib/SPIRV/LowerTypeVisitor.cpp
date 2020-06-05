@@ -575,7 +575,7 @@ LowerTypeVisitor::lowerResourceType(QualType type, SpirvLayoutRule rule,
   }
 
   if (name == "RayQuery")
-    return spvContext.getRayQueryProvisionalTypeKHR();
+    return std::make_pair(spvContext.getRayQueryProvisionalTypeKHR(), nullptr);
 
   if (name == "StructuredBuffer" || name == "RWStructuredBuffer" ||
       name == "AppendStructuredBuffer" || name == "ConsumeStructuredBuffer") {

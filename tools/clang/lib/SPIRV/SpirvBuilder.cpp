@@ -945,10 +945,6 @@ SpirvExtInstImport *SpirvBuilder::getExtInstSet(llvm::StringRef extName) {
   return set;
 }
 
-SpirvExtInstImport *SpirvBuilder::getGLSLExtInstSet() {
-  return getExtInstSet("GLSL.std.450");
-}
-
 SpirvExtInstImport *SpirvBuilder::getOpenCLDebugInfoExtInstSet() {
   return getExtInstSet("OpenCL.DebugInfo.100");
 }

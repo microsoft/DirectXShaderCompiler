@@ -1051,7 +1051,7 @@ bool EmitVisitor::visit(SpirvCopyObject *inst) {
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getPointer()));
-  finalizeInstruction();
+  finalizeInstruction(&mainBinary);
   emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
                               inst->getDebugName());
   return true;
@@ -1575,7 +1575,7 @@ bool EmitVisitor::visit(SpirvRayQueryOpKHR *inst) {
   }
   for (const auto operand : inst->getOperands())
     curInst.push_back(getOrAssignResultId<SpirvInstruction>(operand));
-  finalizeInstruction();
+  finalizeInstruction(&mainBinary);
   emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
                               inst->getDebugName());
   return true;

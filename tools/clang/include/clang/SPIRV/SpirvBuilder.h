@@ -509,11 +509,6 @@ public:
   void addModuleProcessed(llvm::StringRef process);
 
   /// \brief If not added already, adds an OpExtInstImport (import of extended
-  /// instruction set) of the GLSL instruction set. Returns the imported GLSL
-  /// instruction set.
-  SpirvExtInstImport *getGLSLExtInstSet();
-
-  /// \brief If not added already, adds an OpExtInstImport (import of extended
   /// instruction set) of the OpenCL.DebugInfo.100 instruction set. Returns the
   /// imported instruction set.
   SpirvExtInstImport *getOpenCLDebugInfoExtInstSet();
