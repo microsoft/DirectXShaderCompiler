@@ -33,6 +33,7 @@ RWStructuredBuffer<bool2> rw_v2bool;
 ConsumeStructuredBuffer<float2x2> consume_float2x2;
 AppendStructuredBuffer<float4> append_v4float;
 
+[numthreads(1,1,1)]
 void main() {
 // CHECK:       [[p_0:%\d+]] = OpAccessChain %_ptr_Uniform_uint %append_bool %uint_0 {{%\d+}}
 

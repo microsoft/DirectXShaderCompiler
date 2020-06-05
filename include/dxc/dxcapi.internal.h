@@ -117,6 +117,7 @@ struct HLSL_INTRINSIC {
   UINT Op;                              // Intrinsic Op ID
   BOOL bReadOnly;                       // Only read memory
   BOOL bReadNone;                       // Not read memory
+  BOOL bIsWave;                         // Is a wave-sensitive op
   INT  iOverloadParamIndex;             // Parameter decide the overload type, -1 means ret type
   UINT uNumArgs;                        // Count of arguments in pArgs.
   const HLSL_INTRINSIC_ARGUMENT* pArgs; // Pointer to first argument.

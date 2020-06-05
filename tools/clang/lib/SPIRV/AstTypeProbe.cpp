@@ -683,7 +683,7 @@ bool isSameType(const ASTContext &astContext, QualType type1, QualType type2) {
         // consider them different.
         if (fieldTypes1.size() != fieldTypes2.size())
           return false;
-        for (auto i = 0; i < fieldTypes1.size(); ++i)
+        for (size_t i = 0; i < fieldTypes1.size(); ++i)
           if (!isSameType(astContext, fieldTypes1[i], fieldTypes2[i]))
             return false;
         return true;
@@ -908,6 +908,9 @@ bool isOpaqueType(QualType type) {
 
     if (name == "RaytracingAccelerationStructure")
       return true;
+
+    if (name == "RayQuery")
+      return true;
   }
   return false;
 }
@@ -1097,7 +1100,8 @@ bool isOrContainsNonFpColMajorMatrix(const ASTContext &astContext,
     if (isMxNMatrix(arrayType->getElementType(), &elemType) &&
         !elemType->isFloatingType())
       return isColMajorDecl(decl);
-    if (const auto *structType = arrayType->getElementType()->getAs<RecordType>()) {
+    if (const auto *structType =
+            arrayType->getElementType()->getAs<RecordType>()) {
       return isOrContainsNonFpColMajorMatrix(astContext, spirvOptions,
                                              arrayType->getElementType(),
                                              structType->getDecl());
@@ -1114,6 +1118,15 @@ bool isOrContainsNonFpColMajorMatrix(const ASTContext &astContext,
   }
 
   return false;
+}
+
+bool isStringType(QualType type) {
+  return hlsl::IsStringType(type) || hlsl::IsStringLiteralType(type);
+}
+
+bool isBindlessOpaqueArray(QualType type) {
+  return !type.isNull() && isOpaqueArrayType(type) &&
+         !type->isConstantArrayType();
 }
 
 QualType getComponentVectorType(const ASTContext &astContext,

@@ -18,6 +18,7 @@ namespace llvm {
 class Module;
 class DominatorTree;
 class Constant;
+class ConstantInt;
 
 struct DxilValueCache : public ImmutablePass {
   static char ID;
@@ -60,8 +61,8 @@ private:
   Value *ProcessValue(Value *V, DominatorTree *DT);
 
   Value *ProcessAndSimplify_PHI(Instruction *I, DominatorTree *DT);
-  Value *ProcessAndSimpilfy_Br(Instruction *I, DominatorTree *DT);
-  Value *ProcessAndSimpilfy_Load(Instruction *LI, DominatorTree *DT);
+  Value *ProcessAndSimplify_Br(Instruction *I, DominatorTree *DT);
+  Value *ProcessAndSimplify_Load(Instruction *LI, DominatorTree *DT);
   Value *SimplifyAndCacheResult(Instruction *I, DominatorTree *DT);
 
 public:
@@ -73,6 +74,7 @@ public:
   void dump() const;
   Value *GetValue(Value *V, DominatorTree *DT=nullptr);
   Constant *GetConstValue(Value *V, DominatorTree *DT = nullptr);
+  ConstantInt *GetConstInt(Value *V, DominatorTree *DT = nullptr);
   void ResetUnknowns() { ValueMap.ResetUnknowns(); }
   bool IsAlwaysReachable(BasicBlock *BB, DominatorTree *DT=nullptr);
   bool IsUnreachable(BasicBlock *BB, DominatorTree *DT=nullptr);

@@ -7,7 +7,6 @@ os:
   - osx
 
 # Use Ubuntu 14.04 LTS (Trusty) as the Linux testing environment.
-sudo: required
 dist: trusty
 
 env:
@@ -76,3 +75,6 @@ script:
   - ./bin/dxc -T ps_6_0 -Fo passthru-ps.spv ../tools/clang/test/CodeGenSPIRV/passthru-ps.hlsl2spv -spirv
   - ./bin/clang-spirv-tests --spirv-test-root ../tools/clang/test/CodeGenSPIRV/
   - ./bin/clang-hlsl-tests --HlslDataDir $PWD/../tools/clang/test/HLSL/
+
+# TODO: Bundle Linux/macOS build artifacts and upload them to a cloud storage
+# so users can download and use quickly.

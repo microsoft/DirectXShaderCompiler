@@ -222,6 +222,8 @@ def external_fn : Separate<["-", "/"], "external-fn">, Group<hlslcore_Group>, Fl
   HelpText<"External function name to load for compiler support">;
 def fcgl : Flag<["-", "/"], "fcgl">, Group<hlslcore_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Generate high-level code only">;
+def preserve_intermediate_values : Flag<["-", "/"], "preserve-intermediate-values">, Group<hlslcore_Group>, Flags<[CoreOption, HelpHidden]>,
+  HelpText<"Preserve intermediate values to help shader debugging">;
 def flegacy_macro_expansion : Flag<["-", "/"], "flegacy-macro-expansion">, Group<hlslcomp_Group>, Flags<[CoreOption, RewriteOption, DriverOption]>,
     HelpText<"Expand the operands before performing token-pasting operation (fxc behavior)">;
 def flegacy_resource_reservation : Flag<["-", "/"], "flegacy-resource-reservation">, Group<hlslcomp_Group>, Flags<[CoreOption, DriverOption]>,
@@ -255,6 +257,8 @@ def export_shaders_only : Flag<["-", "/"], "export-shaders-only">, Group<hlslcom
   HelpText<"Only export shaders when compiling a library">;
 def default_linkage : Separate<["-", "/"], "default-linkage">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"Set default linkage for non-shader functions when compiling or linking to a library target (internal, external)">;
+def precise_output : Separate<["-", "/"], "precise-output">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
+    HelpText<"Mark output semantic as precise">;
 def encoding : Separate<["-", "/"], "encoding">, Group<hlslcomp_Group>, Flags<[CoreOption, RewriteOption, DriverOption]>,
   HelpText<"Set default encoding for text outputs (utf8|utf16) default=utf8">;
 def validator_version : Separate<["-", "/"], "validator-version">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
@@ -447,6 +451,7 @@ def rw_extract_entry_uniforms : Flag<["-", "/"], "extract-entry-uniforms">, Grou
   HelpText<"Move uniform parameters from entry point to global scope">;
 def rw_remove_unused_globals : Flag<["-", "/"], "remove-unused-globals">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
   HelpText<"Remove unused static globals and functions">;
-
+def rw_remove_unused_functions : Flag<["-", "/"], "remove-unused-functions">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
+  HelpText<"Remove unused functions and types">;
 // Also removed: compress, decompress, /Gch (child effect), /Gpp (partial precision)
 // /Op - no support for preshaders.

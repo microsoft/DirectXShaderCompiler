@@ -81,6 +81,12 @@ bool SpirvModule::invokeVisitor(Visitor *visitor, bool reverseOrder) {
           return false;
       }
 
+    for (auto iter = constStrings.rbegin(); iter != constStrings.rend();
+         ++iter) {
+      if (!(*iter)->invokeVisitor(visitor))
+        return false;
+    }
+
     for (auto iter = executionModes.rbegin(); iter != executionModes.rend();
          ++iter) {
       auto *execMode = *iter;
@@ -142,6 +148,10 @@ bool SpirvModule::invokeVisitor(Visitor *visitor, bool reverseOrder) {
 
     for (auto execMode : executionModes)
       if (!execMode->invokeVisitor(visitor))
+        return false;
+
+    for (auto *str : constStrings)
+      if (!str->invokeVisitor(visitor))
         return false;
 
     if (!sources.empty())
@@ -242,6 +252,11 @@ void SpirvModule::addDecoration(SpirvDecoration *decor) {
 void SpirvModule::addConstant(SpirvConstant *constant) {
   assert(constant);
   constants.push_back(constant);
+}
+
+void SpirvModule::addString(SpirvString *str) {
+  assert(str);
+  constStrings.push_back(str);
 }
 
 void SpirvModule::addSource(SpirvSource *src) {

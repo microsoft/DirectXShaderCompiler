@@ -102,7 +102,8 @@ struct AllocaInfo {
   bool OnlyUsedInOneBlock;
 
   Value *AllocaPointerVal;
-  DbgDeclareInst *DbgDeclare;
+  //DbgDeclareInst *DbgDeclare; // HLSL Change
+  SmallVector<DbgDeclareInst *, 4> DbgDeclareInsts; // HLSL Change
 
   void clear() {
     DefiningBlocks.clear();
@@ -111,7 +112,8 @@ struct AllocaInfo {
     OnlyBlock = nullptr;
     OnlyUsedInOneBlock = true;
     AllocaPointerVal = nullptr;
-    DbgDeclare = nullptr;
+    // DbgDeclare = nullptr; // HLSL Change
+    DbgDeclareInsts.clear(); // HLSL Change
   }
 
   /// Scan the uses of the specified alloca, filling in the AllocaInfo used
@@ -146,7 +148,8 @@ struct AllocaInfo {
       }
     }
 
-    DbgDeclare = FindAllocaDbgDeclare(AI);
+    // DbgDeclare = FindAllocaDbgDeclare(AI); // HLSL Change
+    FindAllocaDbgDeclare(AI, DbgDeclareInsts); // HLSL Change
   }
 };
 
@@ -255,7 +258,8 @@ struct PromoteMem2Reg {
   /// For each alloca, we keep track of the dbg.declare intrinsic that
   /// describes it, if any, so that we can convert it to a dbg.value
   /// intrinsic if the alloca gets promoted.
-  SmallVector<DbgDeclareInst *, 8> AllocaDbgDeclares;
+  // SmallVector<DbgDeclareInst *, 8> AllocaDbgDeclares; // HLSL Change
+  SmallVector<SmallVector<DbgDeclareInst *, 4>, 8> AllocaDbgDeclares; // HLSL Change
 
   /// The set of basic blocks the renamer has already visited.
   ///
@@ -401,7 +405,8 @@ static bool rewriteSingleStoreAlloca(AllocaInst *AI, AllocaInfo &Info,
 
   // Record debuginfo for the store and remove the declaration's
   // debuginfo.
-  if (DbgDeclareInst *DDI = Info.DbgDeclare) {
+  // if (DbgDeclareInst *DDI = Info.DbgDeclare) { // HLSL Change
+  for (DbgDeclareInst *DDI : Info.DbgDeclareInsts) {
     DIBuilder DIB(*AI->getParent()->getParent()->getParent(),
                   /*AllowUnresolved*/ false);
     ConvertDebugDeclareToDebugValue(DDI, Info.OnlyStore, DIB);
@@ -495,7 +500,8 @@ static bool promoteSingleBlockAlloca(AllocaInst *AI, const AllocaInfo &Info,
   while (!AI->use_empty()) {
     StoreInst *SI = cast<StoreInst>(AI->user_back());
     // Record debuginfo for the store before removing it.
-    if (DbgDeclareInst *DDI = Info.DbgDeclare) {
+    // if (DbgDeclareInst *DDI = Info.DbgDeclare) { // HLSL Change
+    for (DbgDeclareInst *DDI : Info.DbgDeclareInsts) { // HLSL Change
       DIBuilder DIB(*AI->getParent()->getParent()->getParent(),
                     /*AllowUnresolved*/ false);
       ConvertDebugDeclareToDebugValue(DDI, SI, DIB);
@@ -510,7 +516,8 @@ static bool promoteSingleBlockAlloca(AllocaInst *AI, const AllocaInfo &Info,
   LBI.deleteValue(AI);
 
   // The alloca's debuginfo can be removed as well.
-  if (DbgDeclareInst *DDI = Info.DbgDeclare) {
+  // if (DbgDeclareInst *DDI = Info.DbgDeclare) { // HLSL Change
+  for (DbgDeclareInst *DDI : Info.DbgDeclareInsts) { // HLSL Change
     DDI->eraseFromParent();
     LBI.deleteValue(DDI);
   }
@@ -589,8 +596,9 @@ void PromoteMem2Reg::run() {
       PointerAllocaValues[AllocaNum] = Info.AllocaPointerVal;
 
     // Remember the dbg.declare intrinsic describing this alloca, if any.
-    if (Info.DbgDeclare)
-      AllocaDbgDeclares[AllocaNum] = Info.DbgDeclare;
+    // if (Info.DbgDeclare)
+    if (Info.DbgDeclareInsts.size())
+      AllocaDbgDeclares[AllocaNum] = Info.DbgDeclareInsts;
 
     // Keep the reverse mapping of the 'Allocas' array for the rename pass.
     AllocaLookup[Allocas[AllocaNum]] = AllocaNum;
@@ -779,16 +787,16 @@ void PromoteMem2Reg::run() {
        I != E; ++I) {
     PHINode *PN = I->second;
     unsigned AllocaNum = I->first.second;
-    DbgDeclareInst *DDI = AllocaDbgDeclares[AllocaNum];
-    if (!DDI) continue;
-
-    DIBuilder DIB(*PN->getModule());
-    DIB.insertDbgValueIntrinsic(PN, 0, DDI->getVariable(), DDI->getExpression(), DDI->getDebugLoc(), PN->getParent()->getFirstNonPHI());
+    ArrayRef<DbgDeclareInst *> DDIs = AllocaDbgDeclares[AllocaNum];
+    for (DbgDeclareInst *DDI : DDIs) {
+      DIBuilder DIB(*PN->getModule());
+      DIB.insertDbgValueIntrinsic(PN, 0, DDI->getVariable(), DDI->getExpression(), DDI->getDebugLoc(), PN->getParent()->getFirstNonPHI());
+    }
   }
 
   // Remove alloca's dbg.declare instrinsics from the function.
   for (unsigned i = 0, e = AllocaDbgDeclares.size(); i != e; ++i)
-    if (DbgDeclareInst *DDI = AllocaDbgDeclares[i])
+    for (DbgDeclareInst *DDI : AllocaDbgDeclares[i])
       DDI->eraseFromParent();
 // HLSL Change - End
 
@@ -984,7 +992,8 @@ NextIteration:
       // what value were we writing?
       IncomingVals[ai->second] = SI->getOperand(0);
       // Record debuginfo for the store before removing it.
-      if (DbgDeclareInst *DDI = AllocaDbgDeclares[ai->second])
+      // if (DbgDeclareInst *DDI = AllocaDbgDeclares[ai->second]) // HLSL Change
+      for (DbgDeclareInst *DDI : AllocaDbgDeclares[ai->second]) // HLSL Change
         ConvertDebugDeclareToDebugValue(DDI, SI, DIB);
       BB->getInstList().erase(SI);
     }

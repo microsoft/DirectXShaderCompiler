@@ -27,6 +27,7 @@
 #include "clang/Lex/HLSLMacroExpander.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringSwitch.h"
+#include "llvm/ADT/StringSet.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/IR/Constants.h"
@@ -208,6 +209,7 @@ private:
                                           bool bDefaultRowMajor);
 
   std::unordered_map<Constant*, DxilFieldAnnotation> m_ConstVarAnnotationMap;
+  StringSet<> m_PreciseOutputSet;
 
 public:
   CGMSHLSLRuntime(CodeGenModule &CGM);
@@ -342,6 +344,11 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
   const bool skipInit = true;
   m_pHLModule = &TheModule.GetOrCreateHLModule(skipInit);
 
+  // Precise Output.
+  for (auto &preciseOutput : CGM.getCodeGenOpts().HLSLPreciseOutputs) {
+    m_PreciseOutputSet.insert(StringRef(preciseOutput).lower());
+  }
+
   // Set Option.
   HLOptions opts;
   opts.bIEEEStrict = CGM.getCodeGenOpts().UnsafeFPMath;
@@ -464,6 +471,8 @@ CGMSHLSLRuntime::SetSemantic(const NamedDecl *decl,
     if (it->getKind() == hlsl::UnusualAnnotation::UA_SemanticDecl) {
       const hlsl::SemanticDecl *sd = cast<hlsl::SemanticDecl>(it);
       paramInfo.SetSemanticString(sd->SemanticName);
+      if (m_PreciseOutputSet.count(StringRef(sd->SemanticName).lower()))
+        paramInfo.SetPrecise();
       return it->Loc;
     }
   }
@@ -965,8 +974,12 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
 
     fieldAnnotation.SetCBufferOffset(CBufferOffset);
     fieldAnnotation.SetFieldName(fieldDecl->getName());
-    if (!fieldSemName.empty())
+    if (!fieldSemName.empty()) {
       fieldAnnotation.SetSemanticString(fieldSemName);
+
+      if (m_PreciseOutputSet.count(StringRef(fieldSemName).lower()))
+        fieldAnnotation.SetPrecise();
+    }
   }
 
   annotation->SetCBufferSize(offset);
@@ -1143,6 +1156,10 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     StringRef lower;
     if (hlsl::GetIntrinsicLowering(FD, lower))
       hlsl::SetHLLowerStrategy(F, lower);
+
+
+    if (FD->hasAttr<HLSLWaveSensitiveAttr>())
+      hlsl::SetHLWaveSensitive(F);
 
     // Don't need to add FunctionQual for intrinsic function.
     return;
@@ -1565,6 +1582,11 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       // Construct annoation for this pointer.
       ConstructFieldAttributedAnnotation(paramAnnotation, ThisTy,
                                          bDefaultRowMajor);
+      if (MethodDecl->isConst()) {
+        paramAnnotation.SetParamInputQual(DxilParamInputQual::In);
+      } else {
+        paramAnnotation.SetParamInputQual(DxilParamInputQual::Inout);
+      }
     }
   }
 
@@ -5380,7 +5402,6 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     bool isAggregateType = !isObject &&
       (ParamTy->isArrayType() || ParamTy->isRecordType()) &&
       !hlsl::IsHLSLVecMatType(ParamTy);
-    bool bInOut = Param->isModifierIn() && Param->isModifierOut();
 
     bool EmitRValueAgg = false;
     bool RValOnRef = false;
@@ -5458,14 +5479,34 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
       argLV = CGF.EmitLValue(Arg);
       if (argLV.isSimple())
         argAddr = argLV.getAddress();
-      // Skip copy-in copy-out for local variables.
-      if (bInOut && argAddr && isa<AllocaInst>(argAddr)) {
-        llvm::Type *ToTy = CGF.ConvertType(ParamTy.getNonReferenceType());
-        if (argAddr->getType()->getPointerElementType() == ToTy &&
-            // Check clang Type for case like int cast to unsigned.
-            ParamTy.getNonReferenceType().getCanonicalType().getTypePtr() ==
-                Arg->getType().getCanonicalType().getTypePtr())
-          continue;
+      // TODO: enable avoid copy for lib profile.
+      if (!m_bIsLib) {
+        // When there's argument need to lower like buffer/cbuffer load, need to
+        // copy to let the lower not happen on argument when calle is noinline
+        // or extern functions. Will do it in HLLegalizeParameter after known
+        // which functions are extern but before inline.
+        bool bConstGlobal = false;
+        Value *Ptr = argAddr;
+        while (GEPOperator *GEP = dyn_cast_or_null<GEPOperator>(Ptr)) {
+          Ptr = GEP->getPointerOperand();
+        }
+        if (GlobalVariable *GV = dyn_cast_or_null<GlobalVariable>(Ptr)) {
+          bConstGlobal = m_ConstVarAnnotationMap.count(GV) | GV->isConstant();
+        }
+        // Skip copy-in copy-out when safe.
+        // The unsafe case will be global variable alias with parameter.
+        // Then global variable is updated in the function, the parameter will
+        // be updated silently. For non global variable or constant global
+        // variable, it should be safe.
+        if (argAddr &&
+            (isa<AllocaInst>(Ptr) || isa<Argument>(Ptr) || bConstGlobal)) {
+          llvm::Type *ToTy = CGF.ConvertType(ParamTy.getNonReferenceType());
+          if (argAddr->getType()->getPointerElementType() == ToTy &&
+              // Check clang Type for case like int cast to unsigned.
+              ParamTy.getNonReferenceType().getCanonicalType().getTypePtr() ==
+                  Arg->getType().getCanonicalType().getTypePtr())
+            continue;
+        }
       }
       argType = argLV.getType();  // TBD: Can this be different than Arg->getType()?
       argAlignment = argLV.getAlignment();

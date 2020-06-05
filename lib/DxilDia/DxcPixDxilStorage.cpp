@@ -18,6 +18,7 @@
 #include "DxcPixBase.h"
 #include "DxcPixLiveVariables.h"
 #include "DxcPixTypes.h"
+#include "DxilDiaSession.h"
 
 static HRESULT UnAliasType(
     IDxcPixType *MaybeAlias,
@@ -121,7 +122,7 @@ STDMETHODIMP dxil_debug_info::DxcPixDxilArrayStorage::Index(
   }
 
   DWORD IndexedTypeSizeInBits;
-  IFR(m_pType->GetSizeInBits(&IndexedTypeSizeInBits));
+  IFR(IndexedType->GetSizeInBits(&IndexedTypeSizeInBits));
 
   const unsigned NewOffsetInBits =
       m_OffsetFromStorageStartInBits + Index * IndexedTypeSizeInBits;

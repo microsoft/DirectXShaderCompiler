@@ -108,9 +108,7 @@ public:
 
   void MarkHasCounter(Value *handle, Type *i8Ty) {
     CallInst *CIHandle = cast<CallInst>(handle);
-    hlsl::HLOpcodeGroup group =
-        hlsl::GetHLOpcodeGroup(CIHandle->getCalledFunction());
-    DXASSERT(group == HLOpcodeGroup::HLAnnotateHandle, "else invalid handle");
+    DXASSERT(hlsl::GetHLOpcodeGroup(CIHandle->getCalledFunction()) == HLOpcodeGroup::HLAnnotateHandle, "else invalid handle");
     // Mark has counter for the input handle.
     Value *counterHandle =
         CIHandle->getArgOperand(HLOperandIndex::kAnnotateHandleHandleOpIdx);
@@ -2321,6 +2319,15 @@ Value *TranslatePow(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   return TranslatePowImpl(hlslOP,Builder,x,y,isFXCCompatMode);
 }
 
+Value *TranslatePrintf(CallInst *CI, IntrinsicOp IOP, DXIL::OpCode opcode,
+                       HLOperationLowerHelper &helper,
+                       HLObjectOperationLowerHelper *pObjHelper,
+                       bool &Translated) {
+  Translated = false;
+  CI->getContext().emitError(CI, "use of undeclared identifier 'printf'");
+  return nullptr;
+}
+
 Value *TranslateFaceforward(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
                             HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
@@ -3568,7 +3575,12 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
   Type *i64Ty = Builder.getInt64Ty();
   Type *doubleTy = Builder.getDoubleTy();
   Type *EltTy = Ty->getScalarType();
-  Constant *Alignment = OP->GetI32Const(OP->GetAllocSizeForType(EltTy));
+  // If RawBuffer load of 64-bit value, don't set alignment to 8,
+  // since buffer alignment isn't known to be anything over 4.
+  unsigned alignValue = OP->GetAllocSizeForType(EltTy);
+  if (RK == HLResource::Kind::RawBuffer && alignValue > 4)
+    alignValue = 4;
+  Constant *Alignment = OP->GetI32Const(alignValue);
   unsigned numComponents = 1;
   if (Ty->isVectorTy()) {
     numComponents = Ty->getVectorNumElements();
@@ -3797,7 +3809,12 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
     val = Builder.CreateZExt(val, Ty);
   }
 
-  Constant *Alignment = OP->GetI32Const(OP->GetAllocSizeForType(EltTy));
+  // If RawBuffer store of 64-bit value, don't set alignment to 8,
+  // since buffer alignment isn't known to be anything over 4.
+  unsigned alignValue = OP->GetAllocSizeForType(EltTy);
+  if (RK == HLResource::Kind::RawBuffer && alignValue > 4)
+    alignValue = 4;
+  Constant *Alignment = OP->GetI32Const(alignValue);
   bool is64 = EltTy == i64Ty || EltTy == doubleTy;
   if (is64 && isTyped) {
     EltTy = i32Ty;
@@ -5272,6 +5289,7 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_mul, TranslateMul, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_normalize, TranslateNormalize, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_pow, TranslatePow, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::IOP_printf, TranslatePrintf, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_radians, TranslateRadians, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_rcp, TranslateRCP, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_reflect, TranslateReflect, DXIL::OpCode::NumOpCodes},

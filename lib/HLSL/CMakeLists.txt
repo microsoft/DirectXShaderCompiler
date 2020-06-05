@@ -18,6 +18,7 @@ add_llvm_library(LLVMHLSL
   DxilLegalizeEvalOperations.cpp
   DxilLegalizeSampleOffsetPass.cpp
   DxilLinker.cpp
+  DxilLoopDeletion.cpp
   DxilPrecisePropagatePass.cpp
   DxilPreparePasses.cpp
   DxilPromoteResourcePasses.cpp
@@ -35,6 +36,7 @@ add_llvm_library(LLVMHLSL
   DxcOptimizer.cpp
   HLDeadFunctionElimination.cpp
   HLExpandStoreIntrinsics.cpp
+  HLLegalizeParameter.cpp
   HLLowerUDT.cpp
   HLMatrixBitcastLowerPass.cpp
   HLMatrixLowerPass.cpp
@@ -48,6 +50,7 @@ add_llvm_library(LLVMHLSL
   HLPreprocess.cpp
   HLResource.cpp
   HLSignatureLower.cpp
+  HLUtil.cpp
   PauseResumePasses.cpp
   WaveSensitivityAnalysis.cpp
 

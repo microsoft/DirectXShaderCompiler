@@ -18,6 +18,8 @@
 
 #include "DxcPixLiveVariables.h"
 #include "DxcPixDxilDebugInfo.h"
+#include "DxcPixBase.h"
+#include "dxc/DxilPixPasses/DxilPixVirtualRegisters.h"
 
 STDMETHODIMP dxil_debug_info::DxcPixDxilDebugInfo::GetLiveVariablesAt(
   _In_ DWORD InstructionOffset,
@@ -112,4 +114,96 @@ llvm::Instruction* dxil_debug_info::DxcPixDxilDebugInfo::FindInstruction(
   }
 
   return const_cast<llvm::Instruction *>(it->second);
+}
+
+STDMETHODIMP
+dxil_debug_info::DxcPixDxilDebugInfo::InstructionOffsetsFromSourceLocation(
+    _In_ const wchar_t *FileName, _In_ DWORD SourceLine,
+    _In_ DWORD SourceColumn,
+    _COM_Outptr_ IDxcPixDxilInstructionOffsets **ppOffsets) 
+{
+  return dxil_debug_info::NewDxcPixDxilDebugInfoObjectOrThrow<
+      dxil_debug_info::DxcPixDxilInstructionOffsets>(
+      ppOffsets, m_pMalloc, m_pSession, FileName, SourceLine, SourceColumn);
+}
+
+static bool CompareFilenames(const wchar_t * l, const char * r)
+{
+  while (*l && *r) {
+    bool theSame = false;
+    if (*l == L'/' && *r == '\\') {
+      theSame = true;
+    }
+    if (*l == L'\\' && *r == '/') {
+      theSame = true;
+    }
+    if (!theSame) {
+      if (::tolower(*l) != ::tolower(*r)) {
+        return false;
+      }
+    }
+    l++;
+    r++;
+  }
+  if (*l || *r) {
+    return false;
+  }
+  return true;
+}
+
+dxil_debug_info::DxcPixDxilInstructionOffsets::DxcPixDxilInstructionOffsets(
+  IMalloc *pMalloc,
+  dxil_dia::Session *pSession,
+  const wchar_t *FileName,
+  DWORD SourceLine,
+  DWORD SourceColumn) 
+{
+  assert(SourceColumn == 0);
+  (void)SourceColumn;
+
+  auto files = pSession->Contents()->operands();
+  for (const auto& file : files)
+  {
+    auto candidateFilename = llvm::dyn_cast<llvm::MDString>(file->getOperand(0))
+        ->getString();
+
+    if (CompareFilenames(FileName, candidateFilename.str().c_str()))
+    {
+
+      auto Fn = pSession->DxilModuleRef().GetEntryFunction();
+      auto &Blocks = Fn->getBasicBlockList();
+      for (auto& CurrentBlock : Blocks) {
+        auto& Is = CurrentBlock.getInstList();
+        for (auto& Inst : Is) {
+          auto & debugLoc = Inst.getDebugLoc();
+          if (debugLoc)
+          {
+            unsigned line = debugLoc.getLine();
+            if (line == SourceLine)
+            {
+              std::uint32_t InstructionNumber;
+              if (pix_dxil::PixDxilInstNum::FromInst(&Inst, &InstructionNumber))
+              {
+                m_offsets.push_back(InstructionNumber);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+DWORD dxil_debug_info::DxcPixDxilInstructionOffsets::GetCount()
+{
+  return static_cast<DWORD>(m_offsets.size());
+}
+
+DWORD dxil_debug_info::DxcPixDxilInstructionOffsets::GetOffsetByIndex(DWORD Index) 
+{
+  if (Index < static_cast<DWORD>(m_offsets.size()))
+  {
+    return m_offsets[Index];
+  }
+  return static_cast<DWORD>(-1);
 }

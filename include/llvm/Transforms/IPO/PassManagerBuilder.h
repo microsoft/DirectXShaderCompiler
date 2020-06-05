@@ -127,6 +127,7 @@ public:
   bool MergeFunctions;
   bool PrepareForLTO;
   bool HLSLHighLevel = false; // HLSL Change
+  bool HLSLAllowPreserveValues = false; // HLSL Change
   hlsl::HLSLExtensionsCodegenHelper *HLSLExtensionsCodeGen = nullptr; // HLSL Change
   bool HLSLResMayAlias = false; // HLSL Change
   unsigned ScanLimit = 0; // HLSL Change

@@ -39,6 +39,7 @@
 #define Def_ViewID DECLARE(uint viewID : SV_ViewID) USE(uint, viewID)
 #define Def_Barycentrics DECLARE(float3 BaryWeights : SV_Barycentrics) USE(float, BaryWeights.x) USE(float, BaryWeights.y) USE(float, BaryWeights.z)
 #define Def_ShadingRate DECLARE(uint rate : SV_ShadingRate) USE(uint, rate)
+#define Def_CullPrimitive DECLARE(bool cullprim : SV_CullPrimitive) USE(bool, cullprim)
 
 #define Domain_Quad 0
 #define Domain_Tri 1

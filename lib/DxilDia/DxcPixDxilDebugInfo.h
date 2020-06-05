@@ -19,6 +19,7 @@
 #include "dxc/Support/microcom.h"
 
 #include <memory>
+#include <vector>
 
 namespace dxil_dia
 {
@@ -76,11 +77,45 @@ public:
       _In_ DWORD InstructionOffset,
       _Outptr_ DWORD *StackDepth) override;
 
+
+  STDMETHODIMP InstructionOffsetsFromSourceLocation(
+      _In_ const wchar_t *FileName, 
+      _In_ DWORD SourceLine,
+      _In_ DWORD SourceColumn, 
+      _COM_Outptr_ IDxcPixDxilInstructionOffsets **ppOffsets) override;
+
   llvm::Module *GetModuleRef();
 
   IMalloc *GetMallocNoRef()
   {
     return m_pMalloc;
   }
+};
+
+class DxcPixDxilInstructionOffsets : public IDxcPixDxilInstructionOffsets
+{
+private:
+  DXC_MICROCOM_TM_REF_FIELDS()
+  CComPtr<dxil_dia::Session> m_pSession;
+
+  DxcPixDxilInstructionOffsets(
+    IMalloc* pMalloc,
+    dxil_dia::Session *pSession,
+    const wchar_t *FileName,
+    DWORD SourceLine,
+    DWORD SourceColumn);
+
+  std::vector<DWORD> m_offsets;
+
+public:
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
+  DXC_MICROCOM_TM_ALLOC(DxcPixDxilInstructionOffsets)
+
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+    return DoBasicQueryInterface<IDxcPixDxilInstructionOffsets>(this, iid, ppvObject);
+  }
+
+  virtual STDMETHODIMP_(DWORD) GetCount() override;
+  virtual STDMETHODIMP_(DWORD) GetOffsetByIndex(_In_ DWORD Index) override;
 };
 }  // namespace dxil_debug_info

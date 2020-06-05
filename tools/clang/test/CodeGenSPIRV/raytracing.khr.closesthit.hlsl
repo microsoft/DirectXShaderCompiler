@@ -1,4 +1,4 @@
-// Run: %dxc -T lib_6_3
+// Run: %dxc -T lib_6_3 -fspv-target-env=vulkan1.2
 // CHECK:  OpCapability RayTracingProvisionalKHR
 // CHECK:  OpExtension "SPV_KHR_ray_tracing"
 // CHECK:  OpDecorate [[a:%\d+]] BuiltIn LaunchIdNV

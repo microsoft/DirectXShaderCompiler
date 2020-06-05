@@ -17,7 +17,7 @@ if "%HLSL_SRC_DIR%"=="" (
   )
 )
 
-if "%1"=="/buildoutdir" (
+if "%1"=="-buildoutdir" (
   echo Build output directory set to %2
   set HLSL_BLD_DIR=%2
   shift /1
@@ -165,6 +165,24 @@ if "%1"=="-no-dxilconv" (
   shift /1
 )
 
+if "%1"=="-dxc-cmake-extra-args" (
+  set CMAKE_OPTS=%CMAKE_OPTS% %~2
+  shift /1
+  shift /1
+)
+
+if "%1"=="-dxc-cmake-begins-include" (
+  set CMAKE_OPTS=%CMAKE_OPTS% -DDXC_CMAKE_BEGINS_INCLUDE=%2
+  shift /1
+  shift /1
+)
+
+if "%1"=="-dxc-cmake-ends-include" (
+  set CMAKE_OPTS=%CMAKE_OPTS% -DDXC_CMAKE_ENDS_INCLUDE=%2
+  shift /1
+  shift /1
+)
+
 rem If only VS 2017 is available, pick that by default.
 if "%BUILD_VS_VER%"=="2015" (
   reg query HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\DevDiv\vs\Servicing\14.0\devenv /v Install /reg:32 1>nul 2>nul
@@ -190,6 +208,12 @@ rem End SPIRV change
 
 set BUILD_ARM_CROSSCOMPILING=0
 
+if /i "%BUILD_ARCH%"=="Win32" (
+  if "%BUILD_VS_VER%"=="2019" (
+    set VS2019ARCH=-AWin32
+  )
+)
+
 if /i "%BUILD_ARCH%"=="x64" (
   set BUILD_GENERATOR=%BUILD_GENERATOR% %BUILD_ARCH:x64=Win64%
   if "%BUILD_VS_VER%"=="2019" (
@@ -201,11 +225,17 @@ if /i "%BUILD_ARCH%"=="x64" (
 if /i "%BUILD_ARCH%"=="arm" (
   set BUILD_GENERATOR_PLATFORM=ARM
   set BUILD_ARM_CROSSCOMPILING=1
+  if "%BUILD_VS_VER%"=="2019" (
+    set VS2019ARCH=-AARM
+  )
 )
 
 if /i "%BUILD_ARCH%"=="arm64" (
   set BUILD_GENERATOR_PLATFORM=ARM64
   set BUILD_ARM_CROSSCOMPILING=1
+  if "%BUILD_VS_VER%"=="2019" (
+    set VS2019ARCH=-AARM64
+  )
 )
 
 if "%1"=="-ninja" (
@@ -213,7 +243,7 @@ if "%1"=="-ninja" (
   shift /1
 )
 
-set CMAKE_OPTS=-DHLSL_OPTIONAL_PROJS_IN_DEFAULT:BOOL=%ALL_DEFS%
+set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_OPTIONAL_PROJS_IN_DEFAULT:BOOL=%ALL_DEFS%
 set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_ENABLE_ANALYZE:BOOL=%ANALYZE%
 set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_OFFICIAL_BUILD:BOOL=%OFFICIAL%
 set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_ENABLE_FIXED_VER:BOOL=%FIXED_VER%
@@ -341,6 +371,7 @@ rem %1 - the conf name
 rem %2 - the platform name
 rem %3 - the build directory
 rem %4 - the generator name
+rem %5 - the vs2019 architecture name
 if not exist %3 (
   mkdir %3
   if errorlevel 1 (
@@ -357,13 +388,8 @@ if "%DO_SETUP%"=="1" (
     cmake -DCMAKE_BUILD_TYPE:STRING=%1 %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
   ) else (
     rem -DCMAKE_BUILD_TYPE:STRING=%1 is not necessary for multi-config generators like VS
-    if "%BUILD_VS_VER%"=="2019" (
-      echo Running cmake %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% > %3\cmake-log.txt
-      cmake %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
-    ) else (
-      echo Running cmake %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% > %3\cmake-log.txt
-      cmake %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
-    )
+    echo Running cmake %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% > %3\cmake-log.txt
+    cmake %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
   )
   if errorlevel 1 (
     echo Failed to configure cmake projects.

@@ -26,7 +26,7 @@ sampler myVar_1 : register(ps, s0[1]);
 sampler myVar_11 : register(ps, s0[2]);
 sampler myVar_16 : register(ps, s0[15]);
 sampler myVar_n1p5 : register(ps, s0);
-sampler myVar_s1 : register(ps, s0[1]);
+sampler myVar_s1 : register(ps, s0[1], space1);
 cbuffer MyBuffer {
   const float4 Element1 : packoffset(c0);
   const float1 Element2 : packoffset(c1);

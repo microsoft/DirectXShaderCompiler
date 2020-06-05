@@ -327,10 +327,14 @@ void PassManagerBuilder::populateModulePassManager(
       MPM.add(createHLEnsureMetadataPass()); // HLSL Change - rehydrate metadata from high-level codegen
     }
 
+    MPM.add(createDxilRewriteOutputArgDebugInfoPass()); // Fix output argument types.
+
     if (!HLSLHighLevel)
-      MPM.add(createDxilInsertPreservesPass()); // HLSL Change - insert preserve instructions
+      MPM.add(createDxilInsertPreservesPass(HLSLAllowPreserveValues)); // HLSL Change - insert preserve instructions
 
     if (Inliner) {
+      MPM.add(createHLLegalizeParameter()); // HLSL Change - legalize parameters
+                                            // before inline.
       MPM.add(Inliner);
       Inliner = nullptr;
     }
@@ -356,6 +360,8 @@ void PassManagerBuilder::populateModulePassManager(
       MPM.add(createDxilConvergentClearPass());
       MPM.add(createMultiDimArrayToOneDimArrayPass());
       MPM.add(createDxilRemoveDeadBlocksPass());
+      MPM.add(createDeadCodeEliminationPass());
+      MPM.add(createGlobalDCEPass());
       MPM.add(createDxilLowerCreateHandleForLibPass());
       MPM.add(createDxilTranslateRawBuffer());
       MPM.add(createDxilLegalizeSampleOffsetPass());
@@ -375,6 +381,10 @@ void PassManagerBuilder::populateModulePassManager(
   }
 
   // HLSL Change Begins
+
+  MPM.add(createDxilRewriteOutputArgDebugInfoPass()); // Fix output argument types.
+
+  MPM.add(createHLLegalizeParameter()); // legalize parameters before inline.
   MPM.add(createAlwaysInlinerPass(/*InsertLifeTime*/false));
   if (Inliner) {
     delete Inliner;
@@ -587,6 +597,7 @@ void PassManagerBuilder::populateModulePassManager(
 
   addExtensionsToPM(EP_Peephole, MPM);
   MPM.add(createCFGSimplificationPass());
+  MPM.add(createDxilLoopDeletionPass()); // HLSL Change - try to delete loop again.
   MPM.add(createInstructionCombiningPass());
 
   if (!DisableUnrollLoops) {
@@ -645,9 +656,10 @@ void PassManagerBuilder::populateModulePassManager(
                                               // DxilModule.
     MPM.add(createMultiDimArrayToOneDimArrayPass());
     MPM.add(createDxilRemoveDeadBlocksPass());
+    MPM.add(createDeadCodeEliminationPass());
+    MPM.add(createGlobalDCEPass());
     MPM.add(createDxilLowerCreateHandleForLibPass());
     MPM.add(createDxilTranslateRawBuffer());
-    MPM.add(createDeadCodeEliminationPass());
     // Always try to legalize sample offsets as loop unrolling
     // is not guaranteed for higher opt levels.
     MPM.add(createDxilLegalizeSampleOffsetPass());

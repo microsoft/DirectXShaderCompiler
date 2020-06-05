@@ -72,6 +72,7 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvImageQuery)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvImageSparseTexelsResident)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvImageTexelPointer)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvLoad)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvCopyObject)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSampledImage)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSelect)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSpecConstantBinaryOp)
@@ -102,6 +103,7 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugTypeComposite)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugTypeMember)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugTypeTemplate)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugTypeTemplateParameter)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvRayQueryOpKHR)
 
 #undef DEFINE_INVOKE_VISITOR_FOR_CLASS
 
@@ -273,11 +275,31 @@ SpirvVariable::SpirvVariable(QualType resultType, SourceLocation loc,
   setPrecise(precise);
 }
 
+SpirvVariable::SpirvVariable(const SpirvType *spvType, SourceLocation loc,
+                             spv::StorageClass sc, bool precise,
+                             SpirvInstruction *initializerInst)
+    : SpirvInstruction(IK_Variable, spv::Op::OpVariable, QualType(), loc),
+      initializer(initializerInst), descriptorSet(-1), binding(-1),
+      hlslUserType("") {
+  setResultType(spvType);
+  setStorageClass(sc);
+  setPrecise(precise);
+}
+
 SpirvFunctionParameter::SpirvFunctionParameter(QualType resultType,
                                                bool isPrecise,
                                                SourceLocation loc)
     : SpirvInstruction(IK_FunctionParameter, spv::Op::OpFunctionParameter,
                        resultType, loc) {
+  setPrecise(isPrecise);
+}
+
+SpirvFunctionParameter::SpirvFunctionParameter(const SpirvType *spvType,
+                                               bool isPrecise,
+                                               SourceLocation loc)
+    : SpirvInstruction(IK_FunctionParameter, spv::Op::OpFunctionParameter,
+                       QualType(), loc) {
+  setResultType(spvType);
   setPrecise(isPrecise);
 }
 
@@ -536,7 +558,7 @@ SpirvEndPrimitive::SpirvEndPrimitive(SourceLocation loc)
                        loc) {}
 
 SpirvExtInst::SpirvExtInst(QualType resultType, SourceLocation loc,
-                           SpirvExtInstImport *set, GLSLstd450 inst,
+                           SpirvExtInstImport *set, uint32_t inst,
                            llvm::ArrayRef<SpirvInstruction *> operandsVec)
     : SpirvInstruction(IK_ExtInst, spv::Op::OpExtInst, resultType, loc),
       instructionSet(set), instruction(inst),
@@ -710,6 +732,11 @@ SpirvLoad::SpirvLoad(QualType resultType, SourceLocation loc,
                      llvm::Optional<spv::MemoryAccessMask> mask)
     : SpirvInstruction(IK_Load, spv::Op::OpLoad, resultType, loc),
       pointer(pointerInst), memoryAccess(mask) {}
+
+SpirvCopyObject::SpirvCopyObject(QualType resultType, SourceLocation loc,
+                                 SpirvInstruction *pointerInst)
+    : SpirvInstruction(IK_CopyObject, spv::Op::OpCopyObject, resultType, loc),
+      pointer(pointerInst) {}
 
 SpirvSampledImage::SpirvSampledImage(QualType resultType, SourceLocation loc,
                                      SpirvInstruction *imageInst,
@@ -942,6 +969,13 @@ SpirvDebugTypeTemplateParameter::SpirvDebugTypeTemplateParameter(
       line(line_), column(column_) {
   debugName = name;
 }
+
+SpirvRayQueryOpKHR::SpirvRayQueryOpKHR(
+    QualType resultType, spv::Op opcode,
+    llvm::ArrayRef<SpirvInstruction *> vecOperands, bool flags,
+    SourceLocation loc)
+    : SpirvInstruction(IK_RayQueryOpKHR, opcode, resultType, loc),
+      operands(vecOperands.begin(), vecOperands.end()), cullFlags(flags) {}
 
 } // namespace spirv
 } // namespace clang

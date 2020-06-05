@@ -24,6 +24,7 @@ set TEST_COMPAT_SUITE=0
 set MANUAL_FILE_CHECK_PATH=
 set TEST_MANUAL_FILE_CHECK=0
 set SINGLE_FILE_CHECK_NAME=0
+set CUSTOM_BIN_SET=
 
 rem Begin SPIRV change
 set TEST_SPIRV=0
@@ -149,6 +150,12 @@ if "%1"=="-clean" (
 ) else if "%1"=="-verbose" (
   set LOG_FILTER=
   set PARALLEL_OPTION=
+) else if "%1"=="-dxilconv-loc" (
+  set DXILCONV_LOC=%~2
+  shift /1
+) else if "%1"=="-custom-bin-set" (
+  set CUSTOM_BIN_SET=%~2
+ shift /1
 ) else if "%1"=="--" (
   shift /1
   goto :done_opt
@@ -193,10 +200,12 @@ if "%GENERATOR_NINJA%"=="1" (
   set TEST_DIR=%HLSL_BLD_DIR%\%BUILD_CONFIG%\test
 )
 
-echo %BIN_DIR%\dxilconv.dll
-if not exist %BIN_DIR%\dxilconv.dll (
-  echo Skipping dxilconv tests, dxilconv.dll not found.
-  set TEST_DXILCONV=0
+if "%TEST_DXILCONV%"=="1" (
+  if "%DXILCONV_LOC%"=="" ( set DXILCONV_LOC=%BIN_DIR%\dxilconv.dll )
+  if not exist "%DXILCONV_LOC%" (
+    echo Skipping dxilconv tests, dxilconv.dll not found.
+    set TEST_DXILCONV=0
+  )
 )
 
 if "%TEST_CLEAN%"=="1" (
@@ -210,14 +219,22 @@ if "%TEST_CLEAN%"=="1" (
   )
 )
 
-if not exist %TEST_DIR%\. (mkdir %TEST_DIR%)
+if not exist %TEST_DIR% (mkdir %TEST_DIR%)
 
 echo Copying binaries to test to %TEST_DIR%:
-call %HCT_DIR%\hctcopy.cmd %BIN_DIR% %TEST_DIR% dxa.exe dxc.exe dxexp.exe dxopt.exe dxr.exe dxv.exe clang-hlsl-tests.dll dxcompiler.dll d3dcompiler_dxc_bridge.dll dxl.exe dxc_batch.exe dxlib_sample.dll
-if errorlevel 1 exit /b 1
-
-if "%TEST_DXILCONV%"=="1" (
-  call %HCT_DIR%\hctcopy.cmd %BIN_DIR% %TEST_DIR% dxbc2dxil.exe dxilconv.dll dxilconv-tests.dll opt.exe
+if "%CUSTOM_BIN_SET%"=="" (
+  call %HCT_DIR%\hctcopy.cmd %BIN_DIR% %TEST_DIR% dxa.exe dxc.exe dxexp.exe dxopt.exe dxr.exe dxv.exe clang-hlsl-tests.dll dxcompiler.dll d3dcompiler_dxc_bridge.dll dxl.exe dxc_batch.exe dxlib_sample.dll
+  if errorlevel 1 exit /b 1
+  if "%TEST_DXILCONV%"=="1" (
+    call %HCT_DIR%\hctcopy.cmd %BIN_DIR% %TEST_DIR% dxbc2dxil.exe dxilconv-tests.dll opt.exe
+    call %HCT_DIR%\hctcopy.cmd %DXILCONV_LOC% %TEST_DIR% dxilconv.dll
+  )
+) else (
+  call %HCT_DIR%\hctcopy.cmd %BIN_DIR% %TEST_DIR% %CUSTOM_BIN_SET%
+  if errorlevel 1 exit /b 1
+  if "%TEST_DXILCONV%"=="1" (
+    call %HCT_DIR%\hctcopy.cmd %DXILCONV_LOC% %TEST_DIR% dxilconv.dll
+  )
 )
 if errorlevel 1 exit /b 1
 
@@ -353,6 +370,8 @@ echo   -ninja - artifacts were built using the Ninja generator
 echo   -rel   - tests release rather than debug
 echo   -adapter "adapter name" - overrides Adapter for execution tests
 echo   -verbose - for TAEF: turns off /parallel and removes logging filter
+echo   -custom-bin-set "file [file]..." - custom set of binaries to copy into test directory
+echo   -dxilconv-loc "dxilconv.dll location" - fetch dxilconv.dll from custom location
 echo.
 echo current BUILD_ARCH=%BUILD_ARCH%.  Override with:
 echo   -x86 targets an x86 build (aka. Win32)
@@ -397,6 +416,7 @@ rem %4 - third argument to te
 
 echo te /labMode /miniDumpOnCrash %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
 call te /labMode /miniDumpOnCrash %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
+
 if errorlevel 1 (
   call :showtesample %*
   exit /b 1

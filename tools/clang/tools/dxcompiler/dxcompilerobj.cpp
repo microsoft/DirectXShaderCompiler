@@ -1104,6 +1104,7 @@ public:
       compiler.getCodeGenOpts().UnrollLoops = true;
 
     compiler.getCodeGenOpts().HLSLHighLevel = Opts.CodeGenHighLevel;
+    compiler.getCodeGenOpts().HLSLAllowPreserveValues = Opts.AllowPreserveValues;
     compiler.getCodeGenOpts().HLSLResMayAlias = Opts.ResMayAlias;
     compiler.getCodeGenOpts().ScanLimit = Opts.ScanLimit;
     compiler.getCodeGenOpts().HLSLAllResourcesBound = Opts.AllResourcesBound;
@@ -1113,6 +1114,7 @@ public:
     compiler.getCodeGenOpts().HLSLNotUseLegacyCBufLoad = Opts.NotUseLegacyCBufLoad;
     compiler.getCodeGenOpts().HLSLLegacyResourceReservation = Opts.LegacyResourceReservation;
     compiler.getCodeGenOpts().HLSLDefines = defines;
+    compiler.getCodeGenOpts().HLSLPreciseOutputs = Opts.PreciseOutputs;
     compiler.getCodeGenOpts().MainFileName = pMainFile;
 
     // Translate signature packing options

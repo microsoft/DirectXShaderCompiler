@@ -13,6 +13,7 @@
 #include "EmitVisitor.h"
 #include "LiteralTypeVisitor.h"
 #include "LowerTypeVisitor.h"
+#include "NonUniformVisitor.h"
 #include "PreciseVisitor.h"
 #include "RelaxedPrecisionVisitor.h"
 #include "RemoveBufferBlockVisitor.h"
@@ -25,12 +26,12 @@ namespace spirv {
 SpirvBuilder::SpirvBuilder(ASTContext &ac, SpirvContext &ctx,
                            const SpirvCodeGenOptions &opt)
     : astContext(ac), context(ctx), mod(nullptr), function(nullptr),
-      spirvOptions(opt), debugNone(nullptr), nullDebugExpr(nullptr) {
+      spirvOptions(opt), debugNone(nullptr), nullDebugExpr(nullptr),
+      builtinVars(), stringLiterals() {
   mod = new (context) SpirvModule;
 }
 
 SpirvFunction *SpirvBuilder::beginFunction(QualType returnType,
-                                           llvm::ArrayRef<QualType> paramTypes,
                                            SourceLocation loc,
                                            llvm::StringRef funcName,
                                            bool isPrecise,
@@ -39,13 +40,12 @@ SpirvFunction *SpirvBuilder::beginFunction(QualType returnType,
   if (func) {
     function = func;
     function->setAstReturnType(returnType);
-    function->setAstParamTypes(paramTypes);
     function->setSourceLocation(loc);
     function->setFunctionName(funcName);
     function->setPrecise(isPrecise);
   } else {
-    function = new (context)
-        SpirvFunction(returnType, paramTypes, loc, funcName, isPrecise);
+    function =
+        new (context) SpirvFunction(returnType, loc, funcName, isPrecise);
   }
 
   return function;
@@ -56,7 +56,16 @@ SpirvFunctionParameter *SpirvBuilder::addFnParam(QualType ptrType,
                                                  SourceLocation loc,
                                                  llvm::StringRef name) {
   assert(function && "found detached parameter");
-  auto *param = new (context) SpirvFunctionParameter(ptrType, isPrecise, loc);
+  SpirvFunctionParameter *param = nullptr;
+  if (isBindlessOpaqueArray(ptrType)) {
+    // If it is a bindless array of an opaque type, we have to use
+    // a pointer to a pointer of the runtime array.
+    param = new (context) SpirvFunctionParameter(
+        context.getPointerType(ptrType, spv::StorageClass::UniformConstant),
+        isPrecise, loc);
+  } else {
+    param = new (context) SpirvFunctionParameter(ptrType, isPrecise, loc);
+  }
   param->setStorageClass(spv::StorageClass::Function);
   param->setDebugName(name);
   function->addParameter(param);
@@ -67,8 +76,18 @@ SpirvVariable *SpirvBuilder::addFnVar(QualType valueType, SourceLocation loc,
                                       llvm::StringRef name, bool isPrecise,
                                       SpirvInstruction *init) {
   assert(function && "found detached local variable");
-  auto *var = new (context) SpirvVariable(
-      valueType, loc, spv::StorageClass::Function, isPrecise, init);
+  SpirvVariable *var = nullptr;
+  if (isBindlessOpaqueArray(valueType)) {
+    // If it is a bindless array of an opaque type, we have to use
+    // a pointer to a pointer of the runtime array.
+    var = new (context)
+        SpirvVariable(context.getPointerType(
+                          valueType, spv::StorageClass::UniformConstant),
+                      loc, spv::StorageClass::Function, isPrecise, init);
+  } else {
+    var = new (context) SpirvVariable(
+        valueType, loc, spv::StorageClass::Function, isPrecise, init);
+  }
   var->setDebugName(name);
   function->addVariable(var);
   return var;
@@ -167,7 +186,6 @@ SpirvLoad *SpirvBuilder::createLoad(QualType resultType,
   auto *instruction = new (context) SpirvLoad(resultType, loc, pointer);
   instruction->setStorageClass(pointer->getStorageClass());
   instruction->setLayoutRule(pointer->getLayoutRule());
-  instruction->setNonUniform(pointer->isNonUniform());
   instruction->setRValue(true);
 
   if (pointer->containsAliasComponent() &&
@@ -180,6 +198,19 @@ SpirvLoad *SpirvBuilder::createLoad(QualType resultType,
     instruction->setContainsAliasComponent(false);
   }
 
+  insertPoint->addInstruction(instruction);
+  return instruction;
+}
+
+SpirvCopyObject *SpirvBuilder::createCopyObject(QualType resultType,
+                                                SpirvInstruction *pointer,
+                                                SourceLocation loc) {
+  assert(insertPoint && "null insert point");
+  auto *instruction = new (context) SpirvCopyObject(resultType, loc, pointer);
+  instruction->setStorageClass(pointer->getStorageClass());
+  instruction->setLayoutRule(pointer->getLayoutRule());
+  // The result of OpCopyObject is always an rvalue.
+  instruction->setRValue(true);
   insertPoint->addInstruction(instruction);
   return instruction;
 }
@@ -203,7 +234,6 @@ SpirvLoad *SpirvBuilder::createLoad(const SpirvType *resultType,
   }
 
   instruction->setLayoutRule(pointer->getLayoutRule());
-  instruction->setNonUniform(pointer->isNonUniform());
   instruction->setRValue(true);
   insertPoint->addInstruction(instruction);
   return instruction;
@@ -249,10 +279,6 @@ SpirvBuilder::createAccessChain(QualType resultType, SpirvInstruction *base,
       new (context) SpirvAccessChain(resultType, loc, base, indexes);
   instruction->setStorageClass(base->getStorageClass());
   instruction->setLayoutRule(base->getLayoutRule());
-  bool isNonUniform = base->isNonUniform();
-  for (auto *index : indexes)
-    isNonUniform = isNonUniform || index->isNonUniform();
-  instruction->setNonUniform(isNonUniform);
   instruction->setContainsAliasComponent(base->containsAliasComponent());
 
   // If doing an access chain into a structured or byte address buffer, make
@@ -270,7 +296,6 @@ SpirvUnaryOp *SpirvBuilder::createUnaryOp(spv::Op op, QualType resultType,
                                           SourceLocation loc) {
   assert(insertPoint && "null insert point");
   auto *instruction = new (context) SpirvUnaryOp(op, resultType, loc, operand);
-  instruction->setNonUniform(operand->isNonUniform());
   insertPoint->addInstruction(instruction);
   return instruction;
 }
@@ -282,7 +307,6 @@ SpirvBinaryOp *SpirvBuilder::createBinaryOp(spv::Op op, QualType resultType,
   assert(insertPoint && "null insert point");
   auto *instruction =
       new (context) SpirvBinaryOp(op, resultType, loc, lhs, rhs);
-  instruction->setNonUniform(lhs->isNonUniform() || rhs->isNonUniform());
   insertPoint->addInstruction(instruction);
   return instruction;
 }
@@ -361,7 +385,6 @@ SpirvSampledImage *SpirvBuilder::createSampledImage(QualType imageType,
   assert(insertPoint && "null insert point");
   auto *sampledImage =
       new (context) SpirvSampledImage(imageType, loc, image, sampler);
-  sampledImage->setNonUniform(image->isNonUniform() || sampler->isNonUniform());
   insertPoint->addInstruction(sampledImage);
   return sampledImage;
 }
@@ -372,7 +395,6 @@ SpirvImageTexelPointer *SpirvBuilder::createImageTexelPointer(
   assert(insertPoint && "null insert point");
   auto *instruction = new (context)
       SpirvImageTexelPointer(resultType, loc, image, coordinate, sample);
-  instruction->setNonUniform(image->isNonUniform());
   insertPoint->addInstruction(instruction);
   return instruction;
 }
@@ -688,23 +710,36 @@ void SpirvBuilder::createReturnValue(SpirvInstruction *value,
   insertPoint->addInstruction(new (context) SpirvReturn(loc, value));
 }
 
-SpirvInstruction *SpirvBuilder::createExtInst(
-    QualType resultType, SpirvExtInstImport *set, GLSLstd450 inst,
-    llvm::ArrayRef<SpirvInstruction *> operands, SourceLocation loc) {
+SpirvInstruction *
+SpirvBuilder::createGLSLExtInst(QualType resultType, GLSLstd450 inst,
+                                llvm::ArrayRef<SpirvInstruction *> operands,
+                                SourceLocation loc) {
   assert(insertPoint && "null insert point");
-  auto *extInst =
-      new (context) SpirvExtInst(resultType, loc, set, inst, operands);
+  auto *extInst = new (context) SpirvExtInst(
+      resultType, loc, getExtInstSet("GLSL.std.450"), inst, operands);
   insertPoint->addInstruction(extInst);
   return extInst;
 }
 
-SpirvInstruction *SpirvBuilder::createExtInst(
-    const SpirvType *resultType, SpirvExtInstImport *set, GLSLstd450 inst,
+SpirvInstruction *
+SpirvBuilder::createGLSLExtInst(const SpirvType *resultType, GLSLstd450 inst,
+                                llvm::ArrayRef<SpirvInstruction *> operands,
+                                SourceLocation loc) {
+  assert(insertPoint && "null insert point");
+  auto *extInst = new (context) SpirvExtInst(
+      /*QualType*/ {}, loc, getExtInstSet("GLSL.std.450"), inst, operands);
+  extInst->setResultType(resultType);
+  insertPoint->addInstruction(extInst);
+  return extInst;
+}
+
+SpirvInstruction *SpirvBuilder::createNonSemanticDebugPrintfExtInst(
+    QualType resultType, NonSemanticDebugPrintfInstructions instId,
     llvm::ArrayRef<SpirvInstruction *> operands, SourceLocation loc) {
   assert(insertPoint && "null insert point");
-  auto *extInst =
-      new (context) SpirvExtInst(/*QualType*/ {}, loc, set, inst, operands);
-  extInst->setResultType(resultType);
+  auto *extInst = new (context)
+      SpirvExtInst(resultType, loc, getExtInstSet("NonSemantic.DebugPrintf"),
+                   instId, operands);
   insertPoint->addInstruction(extInst);
   return extInst;
 }
@@ -881,6 +916,17 @@ SpirvDebugFunction *SpirvBuilder::createDebugFunction(
   auto *inst = new (context) SpirvDebugFunction(
       name, src, line, column, parentScope, linkageName, flags, scopeLine, fn);
   mod->addDebugInfo(inst);
+  return inst;
+}
+
+SpirvInstruction *
+SpirvBuilder::createRayQueryOpsKHR(spv::Op opcode, QualType resultType,
+                                   ArrayRef<SpirvInstruction *> operands,
+                                   bool cullFlags, SourceLocation loc) {
+  assert(insertPoint && "null insert point");
+  auto *inst = new (context)
+      SpirvRayQueryOpKHR(resultType, opcode, operands, cullFlags, loc);
+  insertPoint->addInstruction(inst);
   return inst;
 }
 
@@ -1150,6 +1196,20 @@ SpirvConstant *SpirvBuilder::getConstantNull(QualType type) {
   return nullConst;
 }
 
+SpirvString *SpirvBuilder::getString(llvm::StringRef str) {
+  // Reuse an existing instruction if possible.
+  auto iter = stringLiterals.find(str.str());
+  if (iter != stringLiterals.end())
+    return iter->second;
+
+  // Create a SpirvString instruction
+  auto *instr = new (context) SpirvString(/* SourceLocation */ {}, str);
+  instr->setRValue();
+  stringLiterals[str.str()] = instr;
+  mod->addString(instr);
+  return instr;
+}
+
 std::vector<uint32_t> SpirvBuilder::takeModule() {
   // Run necessary visitor passes first
   LiteralTypeVisitor literalTypeVisitor(astContext, context, spirvOptions);
@@ -1160,11 +1220,15 @@ std::vector<uint32_t> SpirvBuilder::takeModule() {
   CapabilityVisitor capabilityVisitor(astContext, context, spirvOptions, *this);
   RelaxedPrecisionVisitor relaxedPrecisionVisitor(context, spirvOptions);
   PreciseVisitor preciseVisitor(context, spirvOptions);
+  NonUniformVisitor nonUniformVisitor(context, spirvOptions);
   RemoveBufferBlockVisitor removeBufferBlockVisitor(context, spirvOptions);
   SortDebugInfoVisitor sortDebugInfoVisitor(context, spirvOptions);
   EmitVisitor emitVisitor(astContext, context, spirvOptions);
 
   mod->invokeVisitor(&literalTypeVisitor, true);
+
+  // Propagate NonUniform decorations
+  mod->invokeVisitor(&nonUniformVisitor);
 
   // Lower types
   mod->invokeVisitor(&lowerTypeVisitor);

@@ -293,6 +293,7 @@ public:
   TEST_METHOD(AmplificationGreaterThanMaxXYZ)
 
   TEST_METHOD(ValidateRootSigContainer)
+  TEST_METHOD(ValidatePrintfNotAllowed)
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
@@ -1069,7 +1070,7 @@ TEST_F(ValidationTest, LocalResCopy) {
       L"..\\DXILValidation\\resCopy.hlsl", "cs_6_0", {"ret void"},
       {"%H = alloca %dx.types.ResRet.i32\n"
        "ret void"},
-      {"Dxil struct types should only used by ExtractValue"});
+      {"Dxil struct types should only be used by ExtractValue"});
 }
 
 TEST_F(ValidationTest, WhenIncorrectModelThenFail) {
@@ -1270,7 +1271,7 @@ TEST_F(ValidationTest, StructBufGlobalCoherentAndCounter) {
       L"..\\DXILValidation\\struct_buf1.hlsl", "ps_6_0",
       "!\"buf2\", i32 0, i32 0, i32 1, i32 12, i1 false, i1 false",
       "!\"buf2\", i32 0, i32 0, i32 1, i32 12, i1 true, i1 true",
-      "globallycoherent cannot be used with append/consume buffers'buf2'");
+      "globallycoherent cannot be used with append/consume buffers: 'buf2'");
 }
 
 TEST_F(ValidationTest, StructBufStrideAlign) {
@@ -1588,7 +1589,7 @@ TEST_F(ValidationTest, I8Type) {
                           "%([0-9]+) = alloca \\[4 x i32\\]",
                           "%\\1 = alloca [4 x i32]\n"
                           "  %m8 = alloca i8",
-                          "I8 can only used as immediate value for intrinsic",
+                          "I8 can only be used as immediate value for intrinsic",
     /*bRegex*/true);
 }
 
@@ -2046,8 +2047,8 @@ void main( \
       "!\\9 = !{i32 4, !\"SV_CullDistance\", i8 9, i8 7, !\\10, i8 2, i32 1, i8 1, i32 1, i8 0, \\11}\n",
       "!1012 =" },
 
-    "signature element SV_ClipDistance at location \\(2,0\\) size \\(1,2\\) violates component ordering rule \\(arb < sv < sgv\\).\n"
-    "signature element SV_CullDistance at location \\(1,0\\) size \\(1,1\\) violates component ordering rule \\(arb < sv < sgv\\).",
+      {"signature element SV_ClipDistance at location \\(2,0\\) size \\(1,2\\) violates component ordering rule \\(arb < sv < sgv\\).",
+       "signature element SV_CullDistance at location \\(1,0\\) size \\(1,1\\) violates component ordering rule \\(arb < sv < sgv\\)."},
     /*bRegex*/true);
 }
 
@@ -2072,8 +2073,8 @@ float4 main( \
     "!\\2 = !{i32 2, !\"SV_PrimitiveID\", i8 5, i8 10, !\\3, i8 1, i32 1, i8 1, i32 1, i8 0, null}\n"
     "!\\4 = !{i32 3, !\"SV_IsFrontFace\", i8 \\5, i8 13, !\\6, i8 1, i32 1, i8 1, i32 1, i8 1, null}\n",
 
-    "signature element SV_PrimitiveID at location \\(1,0\\) size \\(1,1\\) violates component ordering rule \\(arb < sv < sgv\\).\n"
-    "signature element SV_IsFrontFace at location \\(1,1\\) size \\(1,1\\) violates component ordering rule \\(arb < sv < sgv\\).",
+    {"signature element SV_PrimitiveID at location \\(1,0\\) size \\(1,1\\) violates component ordering rule \\(arb < sv < sgv\\).",
+     "signature element SV_IsFrontFace at location \\(1,1\\) size \\(1,1\\) violates component ordering rule \\(arb < sv < sgv\\)."},
     /*bRegex*/true);
 }
 
@@ -2103,8 +2104,8 @@ float4 main( \
       "!\\7 = !{i32 4, !\"ViewPortArrayIndex\", i8 5, i8 0, !\\8, i8 1, i32 1, i8 1, i32 1, i8 3, null}\n",
       "!1012 ="},
 
-    "signature element SV_PrimitiveID at location \\(1,0\\) size \\(1,1\\) violates component ordering rule \\(arb < sv < sgv\\).\n"
-    "signature element ViewPortArrayIndex at location \\(1,3\\) size \\(1,1\\) violates component ordering rule \\(arb < sv < sgv\\).",
+    {"signature element SV_PrimitiveID at location \\(1,0\\) size \\(1,1\\) violates component ordering rule \\(arb < sv < sgv\\).",
+     "signature element ViewPortArrayIndex at location \\(1,3\\) size \\(1,1\\) violates component ordering rule \\(arb < sv < sgv\\)."},
     /*bRegex*/true);
 }
 
@@ -3800,3 +3801,8 @@ TEST_F(ValidationTest, ValidateRootSigContainer) {
   CheckValidationMsgs(pObject, {}, false,
     DxcValidatorFlags_RootSignatureOnly | DxcValidatorFlags_InPlaceEdit);
 }
+
+TEST_F(ValidationTest, ValidatePrintfNotAllowed) {
+  TestCheck(L"..\\CodeGenHLSL\\printf.hlsl");
+}
+

@@ -23,6 +23,7 @@
 #include "DxcPixDxilStorage.h"
 #include "DxcPixLiveVariables.h"
 #include "DxcPixTypes.h"
+#include "DxilDiaSession.h"
 
 #include <set>
 #include <vector>

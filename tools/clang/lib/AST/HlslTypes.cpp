@@ -258,7 +258,8 @@ QualType GetStructuralForm(QualType type) {
     type = RefType ? RefType->getPointeeType() : AttrType->getEquivalentType();
   }
 
-  return type->getCanonicalTypeUnqualified();
+  // Despite its name, getCanonicalTypeUnqualified will preserve const for array elements or something
+  return QualType(type->getCanonicalTypeUnqualified()->getTypePtr(), 0);
 }
 
 uint32_t GetElementCount(clang::QualType type) {

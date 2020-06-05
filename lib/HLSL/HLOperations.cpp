@@ -26,6 +26,9 @@ const char * const HLPrefix = HLPrefixStr;
 static const char HLLowerStrategyStr[] = "dx.hlls";
 static const char * const HLLowerStrategy = HLLowerStrategyStr;
 
+static const char HLWaveSensitiveStr[] = "dx.wave-sensitive";
+static const char * const HLWaveSensitive = HLWaveSensitiveStr;
+
 static StringRef HLOpcodeGroupNames[]{
     "notHLDXIL",   // NotHL,
     "<ext>",       // HLExtIntrinsic - should always refer through extension
@@ -289,6 +292,17 @@ void SetHLLowerStrategy(Function *F, StringRef S) {
   F->addFnAttr(HLLowerStrategy, S);
 }
 
+// Set function attribute indicating wave-sensitivity
+void SetHLWaveSensitive(Function *F) {
+  F->addFnAttr(HLWaveSensitive, "y");
+}
+
+// Return if this Function is dependent on other wave members indicated by attribute
+bool IsHLWaveSensitive(Function *F) {
+  AttributeSet attrSet = F->getAttributes();
+  return attrSet.hasAttribute(AttributeSet::FunctionIndex, HLWaveSensitive);
+}
+
 std::string GetHLFullName(HLOpcodeGroup op, unsigned opcode) {
   assert(op != HLOpcodeGroup::HLExtIntrinsic && "else table name should be used");
   std::string opName = GetHLOpcodeGroupFullName(op).str() + ".";
@@ -452,53 +466,29 @@ static void SetHLFunctionAttribute(Function *F, HLOpcodeGroup group,
 }
 
 
-// Determine if this Call Instruction refers to an HLOpcode that is dependent on other wave members
-bool IsCallWaveSensitive(CallInst *CI) {
-  hlsl::IntrinsicOp opcode = static_cast<hlsl::IntrinsicOp>(hlsl::GetHLOpcode(CI));
-  switch(opcode) {
-  case IntrinsicOp::IOP_WaveActiveAllEqual:
-  case IntrinsicOp::IOP_WaveActiveAllTrue:
-  case IntrinsicOp::IOP_WaveActiveAnyTrue:
-  case IntrinsicOp::IOP_WaveActiveBallot:
-  case IntrinsicOp::IOP_WaveActiveBitAnd:
-  case IntrinsicOp::IOP_WaveActiveBitOr:
-  case IntrinsicOp::IOP_WaveActiveBitXor:
-  case IntrinsicOp::IOP_WaveActiveCountBits:
-  case IntrinsicOp::IOP_WaveActiveMax:
-  case IntrinsicOp::IOP_WaveActiveMin:
-  case IntrinsicOp::IOP_WaveActiveProduct:
-  case IntrinsicOp::IOP_WaveActiveSum:
-  case IntrinsicOp::IOP_WaveIsFirstLane:
-  case IntrinsicOp::IOP_WaveMatch:
-  case IntrinsicOp::IOP_WaveMultiPrefixBitAnd:
-  case IntrinsicOp::IOP_WaveMultiPrefixBitOr:
-  case IntrinsicOp::IOP_WaveMultiPrefixBitXor:
-  case IntrinsicOp::IOP_WaveMultiPrefixCountBits:
-  case IntrinsicOp::IOP_WaveMultiPrefixProduct:
-  case IntrinsicOp::IOP_WaveMultiPrefixSum:
-  case IntrinsicOp::IOP_WavePrefixCountBits:
-  case IntrinsicOp::IOP_WavePrefixProduct:
-  case IntrinsicOp::IOP_WavePrefixSum:
-  case IntrinsicOp::IOP_WaveReadLaneAt:
-  case IntrinsicOp::IOP_WaveReadLaneFirst:
-  case IntrinsicOp::IOP_QuadReadAcrossDiagonal:
-  case IntrinsicOp::IOP_QuadReadAcrossX:
-  case IntrinsicOp::IOP_QuadReadAcrossY:
-  case IntrinsicOp::IOP_QuadReadLaneAt:
-    return true;
-  }
-  return false;
-}
-
-
 Function *GetOrCreateHLFunction(Module &M, FunctionType *funcTy,
                                 HLOpcodeGroup group, unsigned opcode) {
-  return GetOrCreateHLFunction(M, funcTy, group, nullptr, nullptr, opcode);
+  AttributeSet attribs;
+  return GetOrCreateHLFunction(M, funcTy, group, nullptr, nullptr, opcode, attribs);
 }
 
 Function *GetOrCreateHLFunction(Module &M, FunctionType *funcTy,
-                                HLOpcodeGroup group, llvm::StringRef *groupName,
-                                llvm::StringRef *fnName, unsigned opcode) {
+                                HLOpcodeGroup group, StringRef *groupName,
+                                StringRef *fnName, unsigned opcode) {
+  AttributeSet attribs;
+  return GetOrCreateHLFunction(M, funcTy, group, groupName, fnName, opcode, attribs);
+}
+
+Function *GetOrCreateHLFunction(Module &M, FunctionType *funcTy,
+                                HLOpcodeGroup group, unsigned opcode,
+                                const AttributeSet &attribs) {
+  return GetOrCreateHLFunction(M, funcTy, group, nullptr, nullptr, opcode, attribs);
+}
+
+Function *GetOrCreateHLFunction(Module &M, FunctionType *funcTy,
+                                HLOpcodeGroup group, StringRef *groupName,
+                                StringRef *fnName, unsigned opcode,
+                                const AttributeSet &attribs) {
   std::string mangledName;
   raw_string_ostream mangledNameStr(mangledName);
   if (group == HLOpcodeGroup::HLExtIntrinsic) {
@@ -510,6 +500,9 @@ Function *GetOrCreateHLFunction(Module &M, FunctionType *funcTy,
   }
   else {
     mangledNameStr << GetHLFullName(group, opcode);
+    // Need to add wave sensitivity to name to prevent clashes with non-wave intrinsic
+    if(attribs.hasAttribute(AttributeSet::FunctionIndex, HLWaveSensitive))
+        mangledNameStr << "wave";
     mangledNameStr << '.';
     funcTy->print(mangledNameStr);
   }
@@ -522,6 +515,14 @@ Function *GetOrCreateHLFunction(Module &M, FunctionType *funcTy,
   }
 
   SetHLFunctionAttribute(F, group, opcode);
+
+  // Copy attributes
+  if (attribs.hasAttribute(AttributeSet::FunctionIndex, Attribute::ReadNone))
+    F->addFnAttr(Attribute::ReadNone);
+  if (attribs.hasAttribute(AttributeSet::FunctionIndex, Attribute::ReadOnly))
+    F->addFnAttr(Attribute::ReadOnly);
+  if (attribs.hasAttribute(AttributeSet::FunctionIndex, HLWaveSensitive))
+    F->addFnAttr(HLWaveSensitive, "y");
 
   return F;
 }
@@ -544,6 +545,25 @@ Function *GetOrCreateHLFunctionWithBody(Module &M, FunctionType *funcTy,
   F->setLinkage(llvm::GlobalValue::LinkageTypes::InternalLinkage);
 
   return F;
+}
+
+Value *callHLFunction(Module &Module, HLOpcodeGroup OpcodeGroup, unsigned Opcode,
+      Type *RetTy, ArrayRef<Value*> Args, IRBuilder<> &Builder) {
+  AttributeSet attribs;
+  return callHLFunction(Module, OpcodeGroup, Opcode, RetTy, Args, attribs, Builder);
+}
+
+Value *callHLFunction(Module &Module, HLOpcodeGroup OpcodeGroup, unsigned Opcode,
+      Type *RetTy, ArrayRef<Value*> Args, const AttributeSet &attribs, IRBuilder<> &Builder) {
+  SmallVector<Type*, 4> ArgTys;
+  ArgTys.reserve(Args.size());
+  for (Value *Arg : Args)
+    ArgTys.emplace_back(Arg->getType());
+
+  FunctionType *FuncTy = FunctionType::get(RetTy, ArgTys, /* isVarArg */ false);
+  Function *Func = GetOrCreateHLFunction(Module, FuncTy, OpcodeGroup, Opcode, attribs);
+
+  return Builder.CreateCall(Func, Args);
 }
 
 } // namespace hlsl

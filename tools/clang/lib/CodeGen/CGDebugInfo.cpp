@@ -312,7 +312,7 @@ void CGDebugInfo::CreateCompileUnit() {
   // because that's what the SourceManager says)
 
   // Get absolute path name.
-  SourceManager &SM = CGM.getContext().getSourceManager();
+  // SourceManager &SM = CGM.getContext().getSourceManager(); // HLSL Change - unused
   std::string MainFileName = CGM.getCodeGenOpts().MainFileName;
   if (MainFileName.empty())
     MainFileName = "<stdin>";
@@ -321,17 +321,18 @@ void CGDebugInfo::CreateCompileUnit() {
   // the file name itself with no path information. This file name may have had
   // a relative path, so we look into the actual file entry for the main
   // file to determine the real absolute path for the file.
-  if (!llvm::sys::path::is_absolute(MainFileName)) { // HLSL Change: we put the full path in -main-file-name
-    std::string MainFileDir;
-    if (const FileEntry *MainFile = SM.getFileEntryForID(SM.getMainFileID())) {
-      MainFileDir = MainFile->getDir()->getName();
-      if (MainFileDir != ".") {
-        llvm::SmallString<1024> MainFileDirSS(MainFileDir);
-        llvm::sys::path::append(MainFileDirSS, MainFileName);
-        MainFileName = MainFileDirSS.str();
-      }
+
+#if 0  // HLSL change. The directory is already part of the name, this would duplicate it
+  std::string MainFileDir;
+  if (const FileEntry *MainFile = SM.getFileEntryForID(SM.getMainFileID())) {
+    MainFileDir = MainFile->getDir()->getName();
+    if (MainFileDir != ".") {
+      llvm::SmallString<1024> MainFileDirSS(MainFileDir);
+      llvm::sys::path::append(MainFileDirSS, MainFileName);
+      MainFileName = MainFileDirSS.str();
     }
-  } // HLSL Change
+  }
+#endif  // HLSL change. The full path is already here
 
   // Save filename string.
   StringRef Filename = internString(MainFileName);

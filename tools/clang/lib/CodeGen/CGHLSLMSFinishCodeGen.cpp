@@ -18,6 +18,7 @@
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Analysis/DxilValueCache.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
@@ -190,7 +191,7 @@ Function *CreateOpFunction(llvm::Module &M, Function *F,
                            llvm::FunctionType *funcTy, HLOpcodeGroup group,
                            unsigned opcode) {
   Function *opFunc = nullptr;
-
+  AttributeSet attribs = F->getAttributes().getFnAttributes();
   llvm::Type *opcodeTy = llvm::Type::getInt32Ty(M.getContext());
   if (group == HLOpcodeGroup::HLIntrinsic) {
     IntrinsicOp intriOp = static_cast<IntrinsicOp>(opcode);
@@ -201,7 +202,7 @@ Function *CreateOpFunction(llvm::Module &M, Function *F,
       llvm::Type *handleTy = funcTy->getParamType(HLOperandIndex::kHandleOpIdx);
       // Don't generate body for OutputStream::Append.
       if (bAppend && HLModule::IsStreamOutputPtrType(handleTy)) {
-        opFunc = GetOrCreateHLFunction(M, funcTy, group, opcode);
+        opFunc = GetOrCreateHLFunction(M, funcTy, group, opcode, attribs);
         break;
       }
 
@@ -214,7 +215,7 @@ Function *CreateOpFunction(llvm::Module &M, Function *F,
           bAppend ? (unsigned)IntrinsicOp::MOP_IncrementCounter
                   : (unsigned)IntrinsicOp::MOP_DecrementCounter;
       Function *incCounterFunc =
-          GetOrCreateHLFunction(M, IncCounterFuncTy, group, counterOpcode);
+          GetOrCreateHLFunction(M, IncCounterFuncTy, group, counterOpcode, attribs);
 
       llvm::Type *idxTy = counterTy;
       llvm::Type *valTy =
@@ -244,7 +245,7 @@ Function *CreateOpFunction(llvm::Module &M, Function *F,
 
       Function *subscriptFunc =
           GetOrCreateHLFunction(M, SubscriptFuncTy, HLOpcodeGroup::HLSubscript,
-                                (unsigned)HLSubscriptOpcode::DefaultSubscript);
+                                (unsigned)HLSubscriptOpcode::DefaultSubscript, attribs);
 
       BasicBlock *BB =
           BasicBlock::Create(opFunc->getContext(), "Entry", opFunc);
@@ -303,8 +304,8 @@ Function *CreateOpFunction(llvm::Module &M, Function *F,
           llvm::FunctionType::get(valTy, {opcodeTy, valTy}, false);
       unsigned sinOp = static_cast<unsigned>(IntrinsicOp::IOP_sin);
       unsigned cosOp = static_cast<unsigned>(IntrinsicOp::IOP_cos);
-      Function *sinFunc = GetOrCreateHLFunction(M, sinFuncTy, group, sinOp);
-      Function *cosFunc = GetOrCreateHLFunction(M, sinFuncTy, group, cosOp);
+      Function *sinFunc = GetOrCreateHLFunction(M, sinFuncTy, group, sinOp, attribs);
+      Function *cosFunc = GetOrCreateHLFunction(M, sinFuncTy, group, cosOp, attribs);
 
       BasicBlock *BB =
           BasicBlock::Create(opFunc->getContext(), "Entry", opFunc);
@@ -327,23 +328,18 @@ Function *CreateOpFunction(llvm::Module &M, Function *F,
       Builder.CreateRetVoid();
     } break;
     default:
-      opFunc = GetOrCreateHLFunction(M, funcTy, group, opcode);
+      opFunc = GetOrCreateHLFunction(M, funcTy, group, opcode, attribs);
       break;
     }
   } else if (group == HLOpcodeGroup::HLExtIntrinsic) {
     llvm::StringRef fnName = F->getName();
     llvm::StringRef groupName = GetHLOpcodeGroupNameByAttr(F);
     opFunc =
-        GetOrCreateHLFunction(M, funcTy, group, &groupName, &fnName, opcode);
+      GetOrCreateHLFunction(M, funcTy, group, &groupName, &fnName, opcode, attribs);
   } else {
-    opFunc = GetOrCreateHLFunction(M, funcTy, group, opcode);
+    opFunc = GetOrCreateHLFunction(M, funcTy, group, opcode, attribs);
   }
 
-  // Add attribute
-  if (F->hasFnAttribute(Attribute::ReadNone))
-    opFunc->addFnAttr(Attribute::ReadNone);
-  if (F->hasFnAttribute(Attribute::ReadOnly))
-    opFunc->addFnAttr(Attribute::ReadOnly);
   return opFunc;
 }
 
@@ -516,7 +512,7 @@ void AddOpcodeParamForIntrinsic(
   }
 
   llvm::FunctionType *funcTy =
-      llvm::FunctionType::get(RetTy, paramTyList, false);
+      llvm::FunctionType::get(RetTy, paramTyList, oldFuncTy->isVarArg());
 
   Function *opFunc = CreateOpFunction(M, F, funcTy, group, opcode);
   StringRef lower = hlsl::GetHLLowerStrategy(F);
@@ -1601,19 +1597,62 @@ unsigned RoundToAlign(unsigned num, unsigned mod) {
   return num;
 }
 
+// Retrieve the last scalar or vector element type.
+// This has to be recursive for the nasty empty struct case.
+// returns true if found, false if we must backtrack.
+bool RetrieveLastElementType(Type *Ty, Type *&EltTy) {
+  if (Ty->isStructTy()) {
+    if (Ty->getStructNumElements() == 0)
+      return false;
+    for (unsigned i = Ty->getStructNumElements(); i > 0; --i) {
+      if (RetrieveLastElementType(Ty->getStructElementType(i - 1), EltTy))
+        return true;
+    }
+  } else if (Ty->isArrayTy()) {
+    if (RetrieveLastElementType(Ty->getArrayElementType(), EltTy))
+      return true;
+  } else if ((Ty->isVectorTy() || Ty->isSingleValueType())) {
+    EltTy = Ty->getScalarType();
+    return true;
+  }
+  return false;
+}
+
 // Here the size is CB size.
 // Offset still needs to be aligned based on type since this
 // is the legacy cbuffer global path.
 unsigned AlignCBufferOffset(unsigned offset, unsigned size, llvm::Type *Ty,
-                            bool bRowMajor) {
+                            bool bRowMajor,
+                            bool bMinPrecMode, bool &bCurRowIsMinPrec) {
   DXASSERT(!(offset & 1), "otherwise we have an invalid offset.");
   bool bNeedNewRow = Ty->isArrayTy();
-  if (!bNeedNewRow && Ty->isStructTy()) {
-    if (HLMatrixType mat = HLMatrixType::dyn_cast(Ty)) {
-      bNeedNewRow |= !bRowMajor && mat.getNumColumns() > 1;
-      bNeedNewRow |= bRowMajor && mat.getNumRows() > 1;
+  // In min-precision mode, a new row is needed when
+  // going into or out of min-precision component type.
+  if (!bNeedNewRow) {
+    bool bMinPrec = false;
+    if (Ty->isStructTy()) {
+      if (HLMatrixType mat = HLMatrixType::dyn_cast(Ty)) {
+        bNeedNewRow |= !bRowMajor && mat.getNumColumns() > 1;
+        bNeedNewRow |= bRowMajor && mat.getNumRows() > 1;
+        bMinPrec = bMinPrecMode && mat.getElementType(false)->getScalarSizeInBits() < 32;
+      } else {
+        bNeedNewRow = true;
+        if (bMinPrecMode) {
+          // Need to get min-prec of last element of structure,
+          // in case we pack something else into the end.
+          Type *EltTy = nullptr;
+          if (RetrieveLastElementType(Ty, EltTy))
+            bCurRowIsMinPrec = EltTy->getScalarSizeInBits() < 32;
+        }
+      }
     } else {
-      bNeedNewRow = true;
+      DXASSERT_NOMSG(Ty->isVectorTy() || Ty->isSingleValueType());
+      // vector or scalar
+      bMinPrec = bMinPrecMode && Ty->getScalarSizeInBits() < 32;
+    }
+    if (bMinPrecMode) {
+      bNeedNewRow |= bCurRowIsMinPrec != bMinPrec;
+      bCurRowIsMinPrec = bMinPrec;
     }
   }
   unsigned scalarSizeInBytes = Ty->getScalarSizeInBits() / 8;
@@ -1625,7 +1664,8 @@ unsigned AlignCBufferOffset(unsigned offset, unsigned size, llvm::Type *Ty,
 unsigned
 AllocateDxilConstantBuffer(HLCBuffer &CB,
                            std::unordered_map<Constant *, DxilFieldAnnotation>
-                               &constVarAnnotationMap) {
+                               &constVarAnnotationMap,
+                           bool bMinPrecMode) {
   unsigned offset = 0;
 
   // Scan user allocated constants first.
@@ -1640,6 +1680,7 @@ AllocateDxilConstantBuffer(HLCBuffer &CB,
   }
 
   // Alloc after user allocated constants.
+  bool bCurRowIsMinPrec = false;
   for (const std::unique_ptr<DxilResourceBase> &C : CB.GetConstants()) {
     if (C->GetLowerBound() != UINT_MAX)
       continue;
@@ -1652,7 +1693,7 @@ AllocateDxilConstantBuffer(HLCBuffer &CB,
                                MatrixOrientation::RowMajor
                          : false;
     // Align offset.
-    offset = AlignCBufferOffset(offset, size, Ty, bRowMajor);
+    offset = AlignCBufferOffset(offset, size, Ty, bRowMajor, bMinPrecMode, bCurRowIsMinPrec);
     if (C->GetLowerBound() == UINT_MAX) {
       C->SetLowerBound(offset);
     }
@@ -1667,7 +1708,8 @@ void AllocateDxilConstantBuffers(
                        &constVarAnnotationMap) {
   for (unsigned i = 0; i < HLM.GetCBuffers().size(); i++) {
     HLCBuffer &CB = *static_cast<HLCBuffer *>(&(HLM.GetCBuffer(i)));
-    unsigned size = AllocateDxilConstantBuffer(CB, constVarAnnotationMap);
+    unsigned size = AllocateDxilConstantBuffer(CB, constVarAnnotationMap,
+      HLM.GetHLOptions().bUseMinPrecision);
     CB.SetSize(size);
   }
 }
@@ -2575,18 +2617,46 @@ void FinishIntrinsics(
   AddOpcodeParamForIntrinsics(HLM, intrinsicMap, valToResPropertiesMap);
 }
 
-void AddDxBreak(Module &M, SmallVector<llvm::BranchInst*, 16> DxBreaks) {
+// Add the dx.break temporary intrinsic and create Call Instructions
+// to it for each branch that requires the artificial conditional.
+void AddDxBreak(Module &M, const SmallVector<llvm::BranchInst*, 16> &DxBreaks) {
   if (DxBreaks.empty())
+    return;
+
+  // Collect functions that make use of any wave operations
+  // Only they will need the dx.break condition added
+  SmallPtrSet<Function *, 16> WaveUsers;
+  for (Function &F : M.functions()) {
+    HLOpcodeGroup opgroup = hlsl::GetHLOpcodeGroup(&F);
+    if (F.isDeclaration() && IsHLWaveSensitive(&F) &&
+        (opgroup == HLOpcodeGroup::HLIntrinsic || opgroup == HLOpcodeGroup::HLExtIntrinsic)) {
+      for (User *U : F.users()) {
+        CallInst *CI = cast<CallInst>(U);
+        WaveUsers.insert(CI->getParent()->getParent());
+      }
+    }
+  }
+
+  // If there are no wave users, not even the function declaration is needed
+  if (WaveUsers.empty())
     return;
 
   // Create the dx.break function
   FunctionType *FT = llvm::FunctionType::get(llvm::Type::getInt1Ty(M.getContext()), false);
-  Function *func = cast<llvm::Function>(M.getOrInsertFunction(kDxBreakFuncName, FT));
+  Function *func = cast<llvm::Function>(M.getOrInsertFunction(DXIL::kDxBreakFuncName, FT));
   func->addFnAttr(Attribute::AttrKind::NoUnwind);
 
+  // For all break branches recorded previously, if the function they are in makes
+  // any use of a wave op, it may need to be artificially conditional. Make it so now.
+  // The CleanupDxBreak pass will remove those that aren't needed when more is known.
   for(llvm::BranchInst *BI : DxBreaks) {
-    CallInst *Call = CallInst::Create(FT, func, ArrayRef<Value *>(), "", BI);
-    BI->setCondition(Call);
+    if (WaveUsers.count(BI->getParent()->getParent())) {
+      CallInst *Call = CallInst::Create(FT, func, ArrayRef<Value *>(), "", BI);
+      BI->setCondition(Call);
+      if (!BI->getMetadata(DXIL::kDxBreakMDName)) {
+        BI->setMetadata(DXIL::kDxBreakMDName, llvm::MDNode::get(BI->getContext(), {}));
+      }
+    }
   }
 }
 

@@ -112,7 +112,7 @@ public:
   void addExtInstSet(SpirvExtInstImport *);
 
   // Returns the extended instruction set with the given name if already added
-  // to the module. Returns nullptr otherwise.
+  // Returns nullptr otherwise.
   SpirvExtInstImport *getExtInstSet(llvm::StringRef name);
 
   // Adds a variable to the module.
@@ -123,6 +123,9 @@ public:
 
   // Adds a constant to the module.
   void addConstant(SpirvConstant *);
+
+  // Adds given string to the module which will be emitted via OpString.
+  void addString(SpirvString *);
 
   // Adds the debug source to the module.
   void addSource(SpirvSource *);
@@ -160,6 +163,7 @@ private:
   SpirvMemoryModel *memoryModel;
   llvm::SmallVector<SpirvEntryPoint *, 1> entryPoints;
   llvm::SmallVector<SpirvExecutionMode *, 4> executionModes;
+  llvm::SmallVector<SpirvString *, 4> constStrings;
   std::vector<SpirvSource *> sources;
   std::vector<SpirvModuleProcessed *> moduleProcesses;
 

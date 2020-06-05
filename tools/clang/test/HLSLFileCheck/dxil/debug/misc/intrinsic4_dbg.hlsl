@@ -12,13 +12,8 @@
 // CHECK: i1 false
 // CHECK: texture2DMSGetSamplePosition
 // CHECK: getDimensions
-// CHECK: llvm.dbg.value(metadata i32 %
-// CHECK: llvm.dbg.value(metadata i32 %
 // CHECK: getDimensions
-// CHECK: llvm.dbg.value(metadata i32 %
-// CHECK: llvm.dbg.value(metadata i32 %
 // CHECK: getDimensions
-// CHECK: llvm.dbg.value(metadata i32 %
 // CHECK: getDimensions
 
 // Exclude quoted source file (see readme)

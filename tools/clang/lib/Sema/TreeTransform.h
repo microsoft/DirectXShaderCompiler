@@ -2006,9 +2006,7 @@ public:
     ExprResult result;
     DeclarationName Name(&Accessor);
 
-    hlsl::LookupMatrixMemberExprForHLSL(&getSema(), *Base, Name, IsArrowFalse, OpLoc, AccessorLoc, &result);
-
-    return result;
+    return hlsl::LookupMatrixMemberExprForHLSL(&getSema(), *Base, Name, IsArrowFalse, OpLoc, AccessorLoc);
   }
 
   /// \brief Build a new extended vector element access expression.
@@ -2024,9 +2022,8 @@ public:
     ExprResult result;
     DeclarationName Name(&Accessor);
 
-    hlsl::LookupVectorMemberExprForHLSL(&getSema(), *Base, Name, IsArrowFalse, OpLoc, AccessorLoc, &result);
+    return hlsl::LookupVectorMemberExprForHLSL(&getSema(), *Base, Name, IsArrowFalse, OpLoc, AccessorLoc);
 
-    return result;
   }
 
   // HLSL Changes End

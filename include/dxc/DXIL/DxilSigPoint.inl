@@ -85,7 +85,7 @@ const SigPoint SigPoint::ms_SigPoints[kNumSigPointRecords] = {
   ROW(ViewID,                 NotInSig _61, NA,       NotInSig _61, NotInSig _61, NA,       NA,       NA,         NotInSig _61, NA,       NA,       NA,       NotInSig _61, NA,       NotInSig _61,  NA,            NA,       NotInSig, NA,       NA,        NA) \
   ROW(Barycentrics,           NA,           NA,       NA,           NA,           NA,       NA,       NA,         NA,           NA,       NA,       NA,       NA,           NA,       NotPacked _61, NA,            NA,       NA,       NA,       NA,        NA) \
   ROW(ShadingRate,            NA,           SV _64,   NA,           NA,           SV _64,   SV _64,   NA,         NA,           SV _64,   SV _64,   SV _64,   NA,           SV _64,   SV _64,        NA,            NA,       NA,       NA,       SV,        NA) \
-  ROW(CullPrimitive,          NA,           NA,       NA,           NA,           NA,       NA,       NA,         NA,           NA,       NA,       NA,       NA,           NA,       NA,            NA,            NA,       NA,       NA,       NotPacked, NA)
+  ROW(CullPrimitive,          NA,           NA,       NA,           NA,           NA,       NA,       NA,         NA,           NA,       NA,       NA,       NA,           NA,       NotInSig,      NA,            NA,       NA,       NA,       NotPacked, NA)
 // INTERPRETATION-TABLE:END
 
 const VersionedSemanticInterpretation SigPoint::ms_SemanticInterpretationTable[(unsigned)DXIL::SemanticKind::Invalid][(unsigned)SigPoint::Kind::Invalid] = {

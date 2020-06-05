@@ -16,6 +16,7 @@ int foo(int x, int y, int z, int w[10], int v) {
   return x | y | z | w[0] | v;
 }
 
+[numthreads(1,1,1)]
 void main() {
 // CHECK: %E = OpVariable %_ptr_Function_int Function
   int E;

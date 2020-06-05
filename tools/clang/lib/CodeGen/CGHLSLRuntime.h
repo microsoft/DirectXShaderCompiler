@@ -12,11 +12,10 @@
 #pragma once
 
 #include <functional>
-#include <llvm/ADT/DenseMap.h> // HLSL Change
+#include <llvm/ADT/SmallVector.h> // HLSL Change
 
 namespace llvm {
 class Function;
-template <typename T, unsigned N> class SmallVector;
 class Value;
 class Constant;
 class TerminatorInst;

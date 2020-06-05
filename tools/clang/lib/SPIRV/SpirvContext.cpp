@@ -24,6 +24,7 @@ SpirvContext::SpirvContext()
   boolType = new (this) BoolType;
   samplerType = new (this) SamplerType;
   accelerationStructureTypeNV = new (this) AccelerationStructureTypeNV;
+  rayQueryProvisionalTypeKHR = new (this) RayQueryProvisionalTypeKHR;
 }
 
 inline uint32_t log2ForBitwidth(uint32_t bitwidth) {

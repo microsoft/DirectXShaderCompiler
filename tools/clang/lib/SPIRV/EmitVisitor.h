@@ -250,6 +250,7 @@ public:
   bool visit(SpirvImageSparseTexelsResident *);
   bool visit(SpirvImageTexelPointer *);
   bool visit(SpirvLoad *);
+  bool visit(SpirvCopyObject *);
   bool visit(SpirvSampledImage *);
   bool visit(SpirvSelect *);
   bool visit(SpirvSpecConstantBinaryOp *);
@@ -279,6 +280,7 @@ public:
   bool visit(SpirvDebugTypeMember *);
   bool visit(SpirvDebugTypeTemplate *);
   bool visit(SpirvDebugTypeTemplateParameter *);
+  bool visit(SpirvRayQueryOpKHR *);
 
   // Returns the assembled binary built up in this visitor.
   std::vector<uint32_t> takeBinary();

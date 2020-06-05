@@ -265,6 +265,10 @@ public:
     return accelerationStructureTypeNV;
   }
 
+  const RayQueryProvisionalTypeKHR *getRayQueryProvisionalTypeKHR() const {
+    return rayQueryProvisionalTypeKHR;
+  }
+
   /// --- Hybrid type getter functions ---
   ///
   /// Concrete SpirvType objects represent a SPIR-V type completely. Hybrid
@@ -281,6 +285,9 @@ public:
       StructInterfaceType interfaceType = StructInterfaceType::InternalStorage);
 
   const HybridPointerType *getPointerType(QualType pointee, spv::StorageClass);
+
+  /// Generates (or reuses an existing) OpString for the given string literal.
+  SpirvString *getSpirvString(llvm::StringRef str);
 
   /// Functions to get/set current entry point ShaderModelKind.
   ShaderModelKind getCurrentShaderModelKind() { return curShaderModelKind; }
@@ -375,6 +382,7 @@ private:
   llvm::DenseMap<const SpirvType *, SCToPtrTyMap> pointerTypes;
   llvm::DenseSet<FunctionType *, FunctionTypeMapInfo> functionTypes;
   const AccelerationStructureTypeNV *accelerationStructureTypeNV;
+  const RayQueryProvisionalTypeKHR *rayQueryProvisionalTypeKHR;
 
   // Current ShaderModelKind for entry point.
   ShaderModelKind curShaderModelKind;

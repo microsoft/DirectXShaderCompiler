@@ -1,15 +1,11 @@
 // RUN: %dxc -E main -T ps_6_0 -Zi -Od %s | FileCheck %s
 
-// CHECK: void @llvm.dbg.value(metadata i32 %
-// CHECK: void @llvm.dbg.value(metadata i32 %
-// CHECK: void @llvm.dbg.value(metadata i32 %
-// CHECK: void @llvm.dbg.value(metadata i32 %{{.*}}, i64 0, metadata ![[var_md:[0-9]+]], metadata ![[expr_md:[0-9]+]]
 
-// Exclude quoted source file (see readme)
-// CHECK-LABEL: {{!"[^"]*\\0A[^"]*"}}
+// CHECK-DAG: call void @llvm.dbg.value(metadata i32 %{{.+}}, i64 0, metadata !{{[0-9]+}}, metadata !{{[0-9]+}}), !dbg !{{[0-9]+}} ; var:"uv" !DIExpression(DW_OP_bit_piece, 0, 32)
+// CHECK-DAG: call void @llvm.dbg.value(metadata i32 %{{.+}}, i64 0, metadata !{{[0-9]+}}, metadata !{{[0-9]+}}), !dbg !{{[0-9]+}} ; var:"uv" !DIExpression(DW_OP_bit_piece, 32, 32)
 
-// CHECK-DAG: ![[var_md]] = !DILocalVariable(tag: DW_TAG_auto_variable, name: "my_uv"
-// CHECK-DAG: ![[expr_md]] = !DIExpression(DW_OP_bit_piece,
+// CHECK-DAG: call void @llvm.dbg.value(metadata i32 %{{.+}}, i64 0, metadata !{{[0-9]+}}, metadata !{{[0-9]+}}), !dbg !{{[0-9]+}} ; var:"my_uv" !DIExpression(DW_OP_bit_piece, 0, 32)
+// CHECK-DAG: call void @llvm.dbg.value(metadata i32 %{{.+}}, i64 0, metadata !{{[0-9]+}}, metadata !{{[0-9]+}}), !dbg !{{[0-9]+}} ; var:"my_uv" !DIExpression(DW_OP_bit_piece, 32, 32)
 
 [RootSignature("")]
 float2 main(uint2 uv : TEXCOORD) : SV_Target {

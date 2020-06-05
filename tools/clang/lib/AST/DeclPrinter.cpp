@@ -1469,6 +1469,9 @@ void DeclPrinter::VisitHLSLUnusualAnnotation(const hlsl::UnusualAnnotation *UA) 
       if (ra->RegisterOffset) {
         Out << "[" << ra->RegisterOffset << "]";
       }
+      if (ra->RegisterSpace.hasValue() != 0) {
+        Out << ", space" << ra->RegisterSpace.getValue();
+      }
       Out << ")";
     }
     break;

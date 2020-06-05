@@ -18,6 +18,7 @@ StructuredBuffer<S> foo() {
   return gSBuffer;
 }
 
+[numthreads(1,1,1)]
 void main() {
   gRWSBuffer[i] = foo()[i];
 }

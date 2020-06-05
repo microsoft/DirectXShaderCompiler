@@ -94,6 +94,7 @@ struct RewriterOpts {
   bool KeepUserMacro = false;               // OPT_rw_keep_user_macro
   bool ExtractEntryUniforms = false;        // OPT_rw_extract_entry_uniforms
   bool RemoveUnusedGlobals = false;         // OPT_rw_remove_unused_globals
+  bool RemoveUnusedFunctions = false;         // OPT_rw_remove_unused_functions
 };
 
 /// Use this class to capture all options.
@@ -125,6 +126,7 @@ public:
   llvm::StringRef RootSignatureDefine; // OPT_rootsig_define
   llvm::StringRef FloatDenormalMode; // OPT_denorm
   std::vector<std::string> Exports; // OPT_exports
+  std::vector<std::string> PreciseOutputs; // OPT_precise_output
   llvm::StringRef DefaultLinkage; // OPT_default_linkage
   unsigned DefaultTextCodePage = DXC_CP_UTF8; // OPT_encoding
 
@@ -132,6 +134,7 @@ public:
   bool AstDump = false; // OPT_ast_dump
   bool ColorCodeAssembly = false; // OPT_Cc
   bool CodeGenHighLevel = false; // OPT_fcgl
+  bool AllowPreserveValues = false; // OPT_preserve_intermediate_values
   bool DebugInfo = false; // OPT__SLASH_Zi
   bool DebugNameForBinary = false; // OPT_Zsb
   bool DebugNameForSource = false; // OPT_Zss

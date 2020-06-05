@@ -15,8 +15,24 @@
 #include "clang/SPIRV/SpirvInstruction.h"
 #include "clang/SPIRV/SpirvModule.h"
 
+#include "spirv/unified1/NonSemanticDebugPrintf.h"
+
 namespace clang {
 namespace spirv {
+
+// Provides StringMapInfo for std::string so we can create a DenseMap with key
+// of type std::string.
+struct StringMapInfo {
+  static inline std::string getEmptyKey() { return ""; }
+  static inline std::string getTombstoneKey() { return ""; }
+  static unsigned getHashValue(const std::string Val) {
+    return llvm::hash_combine(Val);
+  }
+  static bool isEqual(const std::string LHS, const std::string RHS) {
+    // Either both are null, or both should have the same underlying type.
+    return LHS == RHS;
+  }
+};
 
 /// The SPIR-V in-memory representation builder class.
 ///
@@ -55,7 +71,6 @@ public:
   ///
   /// At any time, there can only exist at most one function under building.
   SpirvFunction *beginFunction(QualType returnType,
-                               llvm::ArrayRef<QualType> paramTypes,
                                SourceLocation, llvm::StringRef name = "",
                                bool isPrecise = false,
                                SpirvFunction *func = nullptr);
@@ -148,6 +163,10 @@ public:
                         SourceLocation loc);
   SpirvLoad *createLoad(const SpirvType *resultType, SpirvInstruction *pointer,
                         SourceLocation loc);
+
+  /// \brief Creates an OpCopyObject instruction from the given pointer.
+  SpirvCopyObject *createCopyObject(QualType resultType,
+                                    SpirvInstruction *pointer, SourceLocation);
 
   /// \brief Creates a store instruction storing the given value into the given
   /// address.
@@ -361,17 +380,23 @@ public:
   /// \brief Creates a return value instruction.
   void createReturnValue(SpirvInstruction *value, SourceLocation);
 
-  /// \brief Creates an OpExtInst instruction with the given instruction set,
-  /// instruction number, and operands. Returns the resulting instruction
-  /// pointer.
-  SpirvInstruction *createExtInst(QualType resultType, SpirvExtInstImport *set,
-                                  GLSLstd450 instId,
-                                  llvm::ArrayRef<SpirvInstruction *> operands,
-                                  SourceLocation);
-  SpirvInstruction *createExtInst(const SpirvType *resultType,
-                                  SpirvExtInstImport *set, GLSLstd450 instId,
-                                  llvm::ArrayRef<SpirvInstruction *> operands,
-                                  SourceLocation);
+  /// \brief Creates an OpExtInst instruction for the GLSL extended instruction
+  /// set, with the given instruction number, and operands. Returns the
+  /// resulting instruction pointer.
+  SpirvInstruction *
+  createGLSLExtInst(QualType resultType, GLSLstd450 instId,
+                    llvm::ArrayRef<SpirvInstruction *> operands,
+                    SourceLocation);
+  SpirvInstruction *
+  createGLSLExtInst(const SpirvType *resultType, GLSLstd450 instId,
+                    llvm::ArrayRef<SpirvInstruction *> operands,
+                    SourceLocation);
+
+  /// \brief Creates an OpExtInst instruction for the NonSemantic.DebugPrintf
+  /// extension set. Returns the resulting instruction pointer.
+  SpirvInstruction *createNonSemanticDebugPrintfExtInst(
+      QualType resultType, NonSemanticDebugPrintfInstructions instId,
+      llvm::ArrayRef<SpirvInstruction *> operands, SourceLocation);
 
   /// \brief Creates an OpMemoryBarrier or OpControlBarrier instruction with the
   /// given flags. If execution scope (exec) is provided, an OpControlBarrier
@@ -453,6 +478,12 @@ public:
                                           llvm::StringRef linkageName,
                                           uint32_t flags, uint32_t scopeLine,
                                           SpirvFunction *fn);
+
+  /// \brief Create SPIR-V instructions for KHR RayQuery ops
+  SpirvInstruction *
+  createRayQueryOpsKHR(spv::Op opcode, QualType resultType,
+                       llvm::ArrayRef<SpirvInstruction *> operands,
+                       bool cullFlags, SourceLocation loc);
 
   // === SPIR-V Module Structure ===
   inline void setMemoryModel(spv::AddressingModel, spv::MemoryModel);
@@ -587,6 +618,8 @@ public:
                        bool specConst = false);
   SpirvConstant *getConstantNull(QualType);
 
+  SpirvString *getString(llvm::StringRef str);
+
 public:
   std::vector<uint32_t> takeModule();
 
@@ -649,6 +682,10 @@ private:
 
   /// DebugExpression that does not reference any DebugOperation
   SpirvDebugExpression *nullDebugExpr;
+
+  // To avoid generating multiple OpStrings for the same string literal
+  // the SpirvBuilder will generate and reuse them.
+  llvm::DenseMap<std::string, SpirvString *, StringMapInfo> stringLiterals;
 };
 
 void SpirvBuilder::requireCapability(spv::Capability cap, SourceLocation loc) {

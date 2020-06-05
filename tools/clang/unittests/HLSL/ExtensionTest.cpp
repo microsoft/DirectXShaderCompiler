@@ -117,6 +117,12 @@ static const HLSL_INTRINSIC_ARGUMENT TestMySamplerOp[] = {
   { "addr", AR_QUAL_IN, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_UINT, 1, 2},
 };
 
+// $result = wave_proc(any_vector<any_cardinality> value)
+static const HLSL_INTRINSIC_ARGUMENT WaveProcArgs[] = {
+  { "wave_proc", AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, 1, IA_C },
+  { "value", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, 1, IA_C }
+};
+
 struct Intrinsic {
   LPCWSTR hlslName;
   const char *dxilName;
@@ -130,31 +136,32 @@ template <class T, std::size_t N>
 UINT countof(T(&)[N]) { return static_cast<UINT>(N); }
 
 Intrinsic Intrinsics[] = {
-  {L"test_fn",      DEFAULT_NAME,      "r", {  1, false, true, -1, countof(TestFnArgs), TestFnArgs }},
-  {L"test_proc",    DEFAULT_NAME,      "r", {  2, false, false,-1, countof(TestProcArgs), TestProcArgs }},
-  {L"test_poly",    "test_poly.$o",    "r", {  3, false, true, -1, countof(TestFnCustomArgs), TestFnCustomArgs }},
-  {L"test_int",     "test_int",        "r", {  4, false, true, -1, countof(TestFnIntArgs), TestFnIntArgs}},
-  {L"test_nolower", "test_nolower.$o", "n", {  5, false, true, -1, countof(TestFnNoLowerArgs), TestFnNoLowerArgs}},
-  {L"test_pack_0",  "test_pack_0.$o",  "p", {  6, false, false,-1, countof(TestFnPack0), TestFnPack0}},
-  {L"test_pack_1",  "test_pack_1.$o",  "p", {  7, false, true, -1, countof(TestFnPack1), TestFnPack1}},
-  {L"test_pack_2",  "test_pack_2.$o",  "p", {  8, false, true, -1, countof(TestFnPack2), TestFnPack2}},
-  {L"test_pack_3",  "test_pack_3.$o",  "p", {  9, false, true, -1, countof(TestFnPack3), TestFnPack3}},
-  {L"test_pack_4",  "test_pack_4.$o",  "p", { 10, false, false,-1, countof(TestFnPack4), TestFnPack4}},
-  {L"test_rand",    "test_rand",       "r", { 11, false, false,-1, countof(TestRand), TestRand}},
-  {L"test_isinf",   "test_isinf",      "d", { 13, true,  true, -1, countof(TestIsInf), TestIsInf}},
-  {L"test_ibfe",    "test_ibfe",       "d", { 14, true,  true, -1, countof(TestIBFE), TestIBFE}},
+  {L"test_fn",      DEFAULT_NAME,      "r", {  1, false, true, false, -1, countof(TestFnArgs), TestFnArgs }},
+  {L"test_proc",    DEFAULT_NAME,      "r", {  2, false, false, false,-1, countof(TestProcArgs), TestProcArgs }},
+  {L"test_poly",    "test_poly.$o",    "r", {  3, false, true, false, -1, countof(TestFnCustomArgs), TestFnCustomArgs }},
+  {L"test_int",     "test_int",        "r", {  4, false, true, false, -1, countof(TestFnIntArgs), TestFnIntArgs}},
+  {L"test_nolower", "test_nolower.$o", "n", {  5, false, true, false, -1, countof(TestFnNoLowerArgs), TestFnNoLowerArgs}},
+  {L"test_pack_0",  "test_pack_0.$o",  "p", {  6, false, false, false,-1, countof(TestFnPack0), TestFnPack0}},
+  {L"test_pack_1",  "test_pack_1.$o",  "p", {  7, false, true, false, -1, countof(TestFnPack1), TestFnPack1}},
+  {L"test_pack_2",  "test_pack_2.$o",  "p", {  8, false, true, false, -1, countof(TestFnPack2), TestFnPack2}},
+  {L"test_pack_3",  "test_pack_3.$o",  "p", {  9, false, true, false, -1, countof(TestFnPack3), TestFnPack3}},
+  {L"test_pack_4",  "test_pack_4.$o",  "p", { 10, false, false, false,-1, countof(TestFnPack4), TestFnPack4}},
+  {L"test_rand",    "test_rand",       "r", { 11, false, false, false,-1, countof(TestRand), TestRand}},
+  {L"test_isinf",   "test_isinf",      "d", { 13, true,  true, false, -1, countof(TestIsInf), TestIsInf}},
+  {L"test_ibfe",    "test_ibfe",       "d", { 14, true,  true, false, -1, countof(TestIBFE), TestIBFE}},
   // Make this intrinsic have the same opcode as an hlsl intrinsic with an unsigned
   // counterpart for testing purposes.
-  {L"test_unsigned","test_unsigned",   "n", { static_cast<unsigned>(hlsl::IntrinsicOp::IOP_min), false, true, -1, countof(TestUnsigned), TestUnsigned}},
+  {L"test_unsigned","test_unsigned",   "n", { static_cast<unsigned>(hlsl::IntrinsicOp::IOP_min), false, true, false, -1, countof(TestUnsigned), TestUnsigned}},
+  {L"wave_proc",    DEFAULT_NAME,      "r", { 16, false, true, true, -1, countof(WaveProcArgs), WaveProcArgs }},
 };
 
 Intrinsic BufferIntrinsics[] = {
-  {L"MyBufferOp",   "MyBufferOp",      "m", { 12, false, true, -1, countof(TestMyBufferOp), TestMyBufferOp}},
+  {L"MyBufferOp",   "MyBufferOp",      "m", { 12, false, true, false, -1, countof(TestMyBufferOp), TestMyBufferOp}},
 };
 
 // Test adding a method to an object that normally has no methods (SamplerState will do).
 Intrinsic SamplerIntrinsics[] = {
-  {L"MySamplerOp",   "MySamplerOp",    "m", { 15, false, true, -1, countof(TestMySamplerOp), TestMySamplerOp}},
+  {L"MySamplerOp",   "MySamplerOp",    "m", { 15, false, true, false, -1, countof(TestMySamplerOp), TestMySamplerOp}},
 };
 
 class IntrinsicTable {
@@ -454,6 +461,7 @@ public:
   TEST_METHOD(DxilLoweringVector2)
   TEST_METHOD(DxilLoweringScalar)
   TEST_METHOD(SamplerExtensionIntrinsic)
+  TEST_METHOD(WaveIntrinsic)
 };
 
 TEST_F(ExtensionTest, DefineWhenRegisteredThenPreserved) {
@@ -878,5 +886,45 @@ TEST_F(ExtensionTest, SamplerExtensionIntrinsic) {
     "call %dx.types.ResRet.f32 @MySamplerOp\\(i32 15, %dx.types.Handle %.*, i32 1, i32 2\\)"
   };
   CheckMsgs(disassembly.c_str(), disassembly.length(), expected, 1, true);
+}
+
+TEST_F(ExtensionTest, WaveIntrinsic) {
+  // Test wave-sensitive intrinsic in breaked loop
+  Compiler c(m_dllSupport);
+  c.RegisterIntrinsicTable(new TestIntrinsicTable());
+  c.Compile(
+    "StructuredBuffer<int> buf[]: register(t2);"
+    "float2 main(float2 a : A, int b : B) : SV_Target {"
+    "  int res = 0;"
+    "  float2 u = {0,0};"
+    "  for (;;) {"
+    "    u += wave_proc(a);"
+    "    if (a.x == u.x) {"
+    "      res += buf[b][(int)u.y];"
+    "      break;"
+    "    }"
+    "  }"
+    "  return res;"
+    "}",
+    { L"/Vd" }, {}
+  );
+  std::string disassembly = c.Disassemble();
+
+  // Check that the wave op causes the break block to be retained
+  VERIFY_IS_TRUE(
+    disassembly.npos !=
+    disassembly.find("@dx.break.cond = internal constant [1 x i32] zeroinitializer"));
+  VERIFY_IS_TRUE(
+    disassembly.npos !=
+    disassembly.find("%1 = load i32, i32* getelementptr inbounds ([1 x i32], [1 x i32]* @dx.break.cond"));
+  VERIFY_IS_TRUE(
+    disassembly.npos !=
+    disassembly.find("%2 = icmp eq i32 %1, 0"));
+  VERIFY_IS_TRUE(
+    disassembly.npos !=
+    disassembly.find("call float @\"test.\\01?wave_proc@hlsl@@YA?AV?$vector@M$01@@V2@@Z.r\"(i32 16, float"));
+  VERIFY_IS_TRUE(
+    disassembly.npos !=
+    disassembly.find("br i1 %2"));
 }
 

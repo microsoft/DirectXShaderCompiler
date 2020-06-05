@@ -177,6 +177,8 @@ public:
   std::string HLSLProfile;
   /// Whether to target high-level DXIL.
   bool HLSLHighLevel = false;
+  /// Whether we allow preserve intermediate values
+  bool HLSLAllowPreserveValues = false;
   /// Whether use row major as default matrix major.
   bool HLSLDefaultRowMajor = false;
   /// Whether use legacy cbuffer load.
@@ -195,6 +197,8 @@ public:
   unsigned HLSLValidatorMinorVer = 0;
   /// Define macros passed in from command line
   std::vector<std::string> HLSLDefines;
+  /// Precise output passed in from command line
+  std::vector<std::string> HLSLPreciseOutputs;
   /// Arguments passed in from command line
   std::vector<std::string> HLSLArguments;
   /// Helper for generating llvm bitcode for hlsl extensions.
