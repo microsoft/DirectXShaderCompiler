@@ -11,7 +11,6 @@
 
 #pragma once
 
-//#include "llvm/ADT/STLExtras.h"
 #include "dxc/dxcapi.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
