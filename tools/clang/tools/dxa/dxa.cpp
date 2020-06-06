@@ -77,9 +77,18 @@ void DxaContext::Assemble() {
     IFT(pAssembler->AssembleToContainer(pSource, &pAssembleResult));
   }
 
+  CComPtr<IDxcBlobEncoding> pErrors;
+  CComPtr<IDxcBlobUtf8> pErrorsUtf8;
+  pAssembleResult->GetErrorBuffer(&pErrors);
+  if (pErrors && pErrors->GetBufferSize() > 1) {
+    IFT(pErrors->QueryInterface(IID_PPV_ARGS(&pErrorsUtf8)));
+    printf("Errors or warnings:\n%s", pErrorsUtf8->GetStringPointer());
+  }
+
   HRESULT status;
   IFT(pAssembleResult->GetStatus(&status));
   if (SUCCEEDED(status)) {
+    printf("Assembly succeeded.\n");
     CComPtr<IDxcBlob> pContainer;
     IFT(pAssembleResult->GetResult(&pContainer));
     if (pContainer.p != nullptr) {
@@ -96,7 +105,10 @@ void DxaContext::Assemble() {
       }
 
       WriteBlobToFile(pContainer, StringRefUtf16(OutputFilename), DXC_CP_UTF8); // TODO: Support DefaultTextCodePage
+      printf("Output written to \"%s\"\n", OutputFilename.c_str());
     }
+  } else {
+    printf("Assembly failed.\n");
   }
 }
 
