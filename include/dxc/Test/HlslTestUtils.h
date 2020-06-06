@@ -28,6 +28,7 @@ using namespace std;
 
 #ifndef HLSLDATAFILEPARAM
 #define HLSLDATAFILEPARAM L"HlslDataDir"
+#define FILECHECKDUMPDIRPARAM L"FileCheckDumpDir"
 #endif
 
 // If TAEF verify macros are available, use them to alias other legacy
@@ -158,10 +159,16 @@ inline void LogErrorFmt(_In_z_ _Printf_format_string_ const wchar_t *fmt, ...) {
     WEX::Logging::Log::Error(buf.data());
 }
 
-inline std::wstring GetPathToHlslDataFile(const wchar_t* relative) {
+inline std::wstring GetPathToHlslDataFile(const wchar_t* relative, LPCWSTR paramName = HLSLDATAFILEPARAM) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   WEX::Common::String HlslDataDirValue;
-  ASSERT_HRESULT_SUCCEEDED(WEX::TestExecution::RuntimeParameters::TryGetValue(HLSLDATAFILEPARAM, HlslDataDirValue));
+  if (std::wstring(paramName).compare(HLSLDATAFILEPARAM) != 0) {
+    // Not fatal, for instance, FILECHECKDUMPDIRPARAM will dump files before running FileCheck, so they can be compared run to run
+    if (FAILED(WEX::TestExecution::RuntimeParameters::TryGetValue(paramName, HlslDataDirValue)))
+      return std::wstring();
+  } else {
+    ASSERT_HRESULT_SUCCEEDED(WEX::TestExecution::RuntimeParameters::TryGetValue(HLSLDATAFILEPARAM, HlslDataDirValue));
+  }
 
   wchar_t envPath[MAX_PATH];
   wchar_t expanded[MAX_PATH];

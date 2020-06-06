@@ -155,7 +155,10 @@ if "%1"=="-clean" (
   shift /1
 ) else if "%1"=="-custom-bin-set" (
   set CUSTOM_BIN_SET=%~2
- shift /1
+  shift /1
+) else if "%1"=="-file-check-dump" (
+  set ADDITIONAL_OPTS=%ADDITIONAL_OPTS% /p:"FileCheckDumpDir=%~2\HLSL"
+  shift /1
 ) else if "%1"=="--" (
   shift /1
   goto :done_opt

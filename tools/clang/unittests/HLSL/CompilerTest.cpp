@@ -384,8 +384,9 @@ public:
     VERIFY_IS_GREATER_THAN(numTestsRun, (unsigned)0, L"No test files found in batch directory.");
   }
 
-  void CodeGenTestCheckFullPath(LPCWSTR fullPath) {
-    FileRunTestResult t = FileRunTestResult::RunFromFileCommands(fullPath);
+  void CodeGenTestCheckFullPath(LPCWSTR fullPath, LPCWSTR dumpPath = nullptr) {
+    FileRunTestResult t = FileRunTestResult::RunFromFileCommands(fullPath,
+      /*pPluginToolsPaths*/nullptr, dumpPath);
     if (t.RunResult != 0) {
       CA2W commentWide(t.ErrorMessage.c_str(), CP_UTF8);
       WEX::Logging::Log::Comment(commentWide);
@@ -393,13 +394,18 @@ public:
     }
   }
 
-  void CodeGenTestCheck(LPCWSTR name, bool implicitDir = true) {
+  void CodeGenTestCheck(LPCWSTR name, bool implicitDir = true, LPCWSTR dumpPath = nullptr) {
     std::wstring path = name;
+    std::wstring dumpStr;
     if (implicitDir) {
       path.insert(0, L"..\\CodeGenHLSL\\");
       path = hlsl_test::GetPathToHlslDataFile(path.c_str());
+      if (!dumpPath) {
+        dumpStr = hlsl_test::GetPathToHlslDataFile(path.c_str(), FILECHECKDUMPDIRPARAM);
+        dumpPath = dumpStr.empty() ? nullptr : dumpStr.c_str();
+      }
     }
-    CodeGenTestCheckFullPath(path.c_str());
+    CodeGenTestCheckFullPath(path.c_str(), dumpPath);
   }
 
   void CodeGenTestCheckBatchDir(std::wstring suitePath, bool implicitDir = true) {
@@ -414,8 +420,10 @@ public:
     ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
     IFTLLVM(pts.error_code());
 
+    std::wstring dumpPath;
     CW2A pUtf8Filename(suitePath.c_str());
     if (!llvm::sys::path::is_absolute(pUtf8Filename.m_psz)) {
+      dumpPath = hlsl_test::GetPathToHlslDataFile(suitePath.c_str(), FILECHECKDUMPDIRPARAM);
       suitePath = hlsl_test::GetPathToHlslDataFile(suitePath.c_str());
     }
 
@@ -435,9 +443,14 @@ public:
         continue;
       StringRef filename = Dir->path();
       CA2W wRelPath(filename.data());
+      std::wstring dumpStr;
+      if (!dumpPath.empty() && suitePath.compare(0, suitePath.size(), wRelPath.m_psz, suitePath.size()) == 0) {
+        dumpStr = dumpPath + (wRelPath.m_psz + suitePath.size());
+      }
 
       WEX::Logging::Log::StartGroup(wRelPath);
-      CodeGenTestCheck(wRelPath, /*implicitDir*/ false);
+      CodeGenTestCheck(wRelPath, /*implicitDir*/ false,
+        dumpStr.empty() ? nullptr : dumpStr.c_str());
       WEX::Logging::Log::EndGroup(wRelPath);
 
       numTestsRun++;
