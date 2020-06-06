@@ -24,6 +24,7 @@
 #include "dxcetw.h"
 #endif
 #include "dxillib.h"
+#include "dxc/DxilContainer/DxcContainerBuilder.h"
 #include <memory>
 
 // Initialize the UUID for the interfaces.
@@ -78,6 +79,24 @@ HRESULT CreateDxcContainerReflection(_In_ REFIID riid, _Out_ LPVOID *ppv) {
   catch (const std::bad_alloc&) {
     return E_OUTOFMEMORY;
   }
+}
+
+HRESULT CreateDxcContainerBuilder(_In_ REFIID riid, _Out_ LPVOID *ppv) {
+  // Call dxil.dll's containerbuilder 
+  *ppv = nullptr;
+  const char *warning;
+  HRESULT hr = DxilLibCreateInstance(CLSID_DxcContainerBuilder, (IDxcContainerBuilder**)ppv);
+  if (FAILED(hr)) {
+    warning = "Unable to create container builder from dxil.dll. Resulting container will not be signed.\n";
+  }
+  else {
+    return hr;
+  }
+
+  CComPtr<DxcContainerBuilder> Result = DxcContainerBuilder::Alloc(DxcGetThreadMallocNoRef());
+  IFROOM(Result.p);
+  Result->Init(warning);
+  return Result->QueryInterface(riid, ppv);
 }
 
 static HRESULT ThreadMallocDxcCreateInstance(

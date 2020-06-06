@@ -4,6 +4,7 @@ add_llvm_library(LLVMDxilContainer
   DxilContainer.cpp
   DxilContainerAssembler.cpp
   DxilContainerReader.cpp
+  DxcContainerBuilder.cpp
   DxilRuntimeReflection.cpp
 
   ADDITIONAL_HEADER_DIRS
