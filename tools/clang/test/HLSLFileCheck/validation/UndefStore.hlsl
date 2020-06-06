@@ -1,9 +1,8 @@
 // RUN: %dxc -Zi -E main -T cs_6_0 %s | FileCheck %s -check-prefix=CHECK -check-prefix=CHK_DB
 // RUN: %dxc -E main -T cs_6_0 %s | FileCheck %s -check-prefix=CHECK -check-prefix=CHK_NODB
 
-// CHK_DB: 19:17: error: Assignment of undefined values to UAV.
+// CHK_DB: 18:17: error: Assignment of undefined values to UAV.
 // CHK_NODB: Function: main: error: Assignment of undefined values to UAV. Use /Zi for source location.
-// CHECK: note: UAV store write mask is 15 and store value mask is 0
 
 RWBuffer<uint> output;
 

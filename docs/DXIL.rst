@@ -3064,9 +3064,10 @@ INSTR.STATUS                              Resource status should only be used by
 INSTR.STRUCTBITCAST                       Bitcast on struct types is not allowed.
 INSTR.TEXTUREOFFSET                       offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7.
 INSTR.TGSMRACECOND                        Race condition writing to shared memory detected, consider making this write conditional.
+INSTR.UNDEFINEDVALUEFORUAVSTORE           Assignment of undefined values to UAV.
 INSTR.UNDEFRESULTFORGETDIMENSION          GetDimensions used undef dimension %0 on %1.
 INSTR.WRITEMASKFORTYPEDUAVSTORE           store on typed uav must write to all four components of the UAV.
-INSTR.WRITEMASKMATCHVALUEFORUAVSTORE      Assignment of undefined values to UAV.
+INSTR.WRITEMASKMATCHVALUEFORUAVSTORE      uav store write mask must match store value mask, write mask is %0 and store value mask is %1.
 META.BARYCENTRICSFLOAT3                   only 'float3' type is allowed for SV_Barycentrics.
 META.BARYCENTRICSINTERPOLATION            SV_Barycentrics cannot be used with 'nointerpolation' type.
 META.BARYCENTRICSTWOPERSPECTIVES          There can only be up to two input attributes of SV_Barycentrics with different perspective interpolation mode.

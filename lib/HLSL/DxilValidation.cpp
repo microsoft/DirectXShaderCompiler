@@ -162,7 +162,8 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::InstrResourceKindForSample: return "sample/_l/_d requires resource declared as texture1D/2D/3D/Cube/1DArray/2DArray/CubeArray.";
     case hlsl::ValidationRule::InstrResourceKindForSampleC: return "samplec requires resource declared as texture1D/2D/Cube/1DArray/2DArray/CubeArray.";
     case hlsl::ValidationRule::InstrResourceKindForGather: return "gather requires resource declared as texture/2D/Cube/2DArray/CubeArray.";
-    case hlsl::ValidationRule::InstrWriteMaskMatchValueForUAVStore: return "Assignment of undefined values to UAV.";
+    case hlsl::ValidationRule::InstrWriteMaskMatchValueForUAVStore: return "uav store write mask must match store value mask, write mask is %0 and store value mask is %1.";
+    case hlsl::ValidationRule::InstrUndefinedValueForUAVStore: return "Assignment of undefined values to UAV.";
     case hlsl::ValidationRule::InstrResourceKindForBufferLoadStore: return "buffer load/store only works on Raw/Typed/StructuredBuffer.";
     case hlsl::ValidationRule::InstrResourceKindForTextureStore: return "texture store only works on Texture1D/1DArray/2D/2DArray/3D.";
     case hlsl::ValidationRule::InstrResourceKindForGetDim: return "Invalid resource kind on GetDimensions.";
@@ -1773,6 +1774,8 @@ static void ValidateImmOperandForMathDxilOp(CallInst *CI, DXIL::OpCode opcode,
   }
 }
 
+// Validate the type-defined mask compared to the store value mask which indicates which parts were defined
+// returns true if caller should continue validation
 static bool ValidateStorageMasks(Instruction *I, DXIL::OpCode opcode, ConstantInt *mask,
                                  unsigned stValMask, bool isTyped, ValidationContext &ValCtx) {
   if (!mask) {
@@ -1787,12 +1790,14 @@ static bool ValidateStorageMasks(Instruction *I, DXIL::OpCode opcode, ConstantIn
     ValCtx.EmitInstrError(I, ValidationRule::InstrWriteMaskForTypedUAVStore);
   }
 
-  if (stValMask != uMask) {
-    ValCtx.EmitInstrError(I, ValidationRule::InstrWriteMaskMatchValueForUAVStore);
-    dxilutil::EmitNoteOnContext(I->getContext(),
-                                Twine("UAV store write mask is ") + Twine(uMask) +
-                                Twine(" and store value mask is ") + Twine(stValMask));
-  }
+  // If a bit is set in the uMask (expected values) that isn't set in stValMask (user provided values)
+  // then the user failed to define some of the output values.
+  if (uMask & ~stValMask)
+    ValCtx.EmitInstrError(I, ValidationRule::InstrUndefinedValueForUAVStore);
+  else if (uMask != stValMask)
+    ValCtx.EmitInstrFormatError(I, ValidationRule::InstrWriteMaskMatchValueForUAVStore,
+                                {std::to_string(uMask), std::to_string(stValMask)});
+
   return true;
 }
 
@@ -2039,9 +2044,10 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
         StoreValueToMask({bufSt.get_value0(), bufSt.get_value1(),
                           bufSt.get_value2(), bufSt.get_value3()});
 
-    ValidateStorageMasks(CI, opcode, mask, stValMask,
+    if (!ValidateStorageMasks(CI, opcode, mask, stValMask,
                          resKind == DXIL::ResourceKind::TypedBuffer || resKind == DXIL::ResourceKind::TBuffer,
-                         ValCtx);
+                             ValCtx))
+      return;
     Value *offset = bufSt.get_coord1();
 
     switch (resKind) {
@@ -2088,7 +2094,8 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
         StoreValueToMask({texSt.get_value0(), texSt.get_value1(),
                           texSt.get_value2(), texSt.get_value3()});
 
-    ValidateStorageMasks(CI, opcode, mask, stValMask, true /*isTyped*/, ValCtx);
+    if (!ValidateStorageMasks(CI, opcode, mask, stValMask, true /*isTyped*/, ValCtx))
+      return;
 
     switch (resKind) {
     case DXIL::ResourceKind::Texture1D:
@@ -2279,7 +2286,8 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
         StoreValueToMask({bufSt.get_value0(), bufSt.get_value1(),
                           bufSt.get_value2(), bufSt.get_value3()});
 
-    ValidateStorageMasks(CI, opcode, mask, stValMask, false /*isTyped*/, ValCtx);
+    if (!ValidateStorageMasks(CI, opcode, mask, stValMask, false /*isTyped*/, ValCtx))
+      return;
 
     Value *offset = bufSt.get_elementOffset();
     Value *align = bufSt.get_alignment();
