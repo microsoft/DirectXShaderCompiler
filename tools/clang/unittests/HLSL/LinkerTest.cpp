@@ -62,6 +62,7 @@ public:
   TEST_METHOD(RunLinkToLibWithNoExports);
   TEST_METHOD(RunLinkWithPotentialIntrinsicNameCollisions);
   TEST_METHOD(RunLinkWithValidatorVersion);
+  TEST_METHOD(RunLinkWithTempReg);
 
 
   dxc::DxcDllSupport m_dllSupport;
@@ -83,17 +84,33 @@ public:
     VERIFY_SUCCEEDED(
         pLibrary->CreateBlobFromFile(fullPath.c_str(), nullptr, &pSource));
 
+    CComPtr<IDxcIncludeHandler> pIncludeHandler;
+    VERIFY_SUCCEEDED(pLibrary->CreateIncludeHandler(&pIncludeHandler));
+
     CComPtr<IDxcCompiler> pCompiler;
     CComPtr<IDxcOperationResult> pResult;
     CComPtr<IDxcBlob> pProgram;
 
     VERIFY_SUCCEEDED(
         m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
-    VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"", pShaderTarget,
+    VERIFY_SUCCEEDED(pCompiler->Compile(pSource, fullPath.c_str(), L"", pShaderTarget,
                                         const_cast<LPCWSTR*>(pArguments.data()), pArguments.size(),
                                         nullptr, 0,
-                                        nullptr, &pResult));
-    VERIFY_SUCCEEDED(pResult->GetResult(pResultBlob));
+                                        pIncludeHandler, &pResult));
+    CheckOperationSucceeded(pResult, pResultBlob);
+  }
+
+  void AssembleLib(LPCWSTR filename, IDxcBlob **pResultBlob) {
+    std::wstring fullPath = hlsl_test::GetPathToHlslDataFile(filename);
+    CComPtr<IDxcLibrary> pLibrary;
+    VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
+    CComPtr<IDxcBlobEncoding> pSource;
+    VERIFY_SUCCEEDED(pLibrary->CreateBlobFromFile(fullPath.c_str(), nullptr, &pSource));
+    CComPtr<IDxcAssembler> pAssembler;
+    VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
+    CComPtr<IDxcOperationResult> pResult;
+    VERIFY_SUCCEEDED(pAssembler->AssembleToContainer(pSource, &pResult));
+    CheckOperationSucceeded(pResult, pResultBlob);
   }
 
   void RegisterDxcModule(LPCWSTR pLibName, IDxcBlob *pBlob,
@@ -661,4 +678,34 @@ TEST_F(LinkerTest, RunLinkWithValidatorVersion) {
   Link(L"", L"lib_6_3", pLinker, {libName, libName2},
        {"!dx.valver = !{(![0-9]+)}.*\n\\1 = !{i32 1, i32 3}"},
        {}, {L"-validator-version", L"1.3"}, /*regex*/ true);
+}
+
+TEST_F(LinkerTest, RunLinkWithTempReg) {
+  // TempRegLoad/TempRegStore not normally usable from HLSL.
+  // This assembly library exposes these through overloaded wrapper functions
+  // void sreg(uint index, <type> value) to store register, overloaded for uint, int, and float
+  // uint ureg(uint index) to load register as uint
+  // int ireg(int index) to load register as int
+  // float freg(uint index) to load register as float
+
+  // This test verifies this scenario works, by assembling this library,
+  // compiling a library with an entry point that uses sreg/ureg,
+  // then linking these to a final standard vs_6_0 DXIL shader.
+
+  CComPtr<IDxcBlob> pTempRegLib;
+  AssembleLib(L"..\\HLSLFileCheck\\dxil\\linker\\TempReg.ll", &pTempRegLib);
+  CComPtr<IDxcBlob> pEntryLib;
+  CompileLib(L"..\\HLSLFileCheck\\dxil\\linker\\use-TempReg.hlsl", &pEntryLib, {}, L"lib_6_3");
+  CComPtr<IDxcLinker> pLinker;
+  CreateLinker(&pLinker);
+  LPCWSTR libName = L"entry";
+  RegisterDxcModule(libName, pEntryLib, pLinker);
+
+  LPCWSTR libResName = L"TempReg";
+  RegisterDxcModule(libResName, pTempRegLib, pLinker);
+
+  Link(L"main", L"vs_6_0", pLinker, {libResName, libName}, {
+    "call void @dx.op.tempRegStore.i32",
+    "call i32 @dx.op.tempRegLoad.i32"
+    } ,{});
 }
