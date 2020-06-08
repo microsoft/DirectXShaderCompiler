@@ -2306,7 +2306,7 @@ TEST_F(FileTest, CompatibilityWithVk1p1) {
 // TODO: change |runValidation| parameter back to 'true' once the following bug
 // has been fixed in SPIRV-Tools:
 // https://github.com/KhronosGroup/SPIRV-Tools/issues/3086
-const bool runValidationForRichDebugInfo = false;
+const bool runValidationForRichDebugInfo = true;
 
 TEST_F(FileTest, RichDebugInfoDebugSource) {
   runFileTest("rich.debug.debugsource.hlsl", Expect::Success,
@@ -2374,7 +2374,7 @@ TEST_F(FileTest, RichDebugInfoTypeCompositeBeforeFunction) {
 }
 TEST_F(FileTest, RichDebugInfoTypeStructuredBuffer) {
   runFileTest("rich.debug.structured-buffer.hlsl", Expect::Success,
-              /*runValidation*/ runValidationForRichDebugInfo);
+              /*runValidation*/ false);
 }
 TEST_F(FileTest, RichDebugInfoLocalVariable) {
   runFileTest("rich.debug.local-variable.hlsl", Expect::Success,
@@ -2426,6 +2426,10 @@ TEST_F(FileTest, RichDebugInfoTypeSampler) {
 }
 TEST_F(FileTest, RichDebugInfoCbuffer) {
   runFileTest("rich.debug.cbuffer.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
+TEST_F(FileTest, RichDebugSortTypeTemplate) {
+  runFileTest("rich.debug.sort.type.template.hlsl", Expect::Success,
               /*runValidation*/ runValidationForRichDebugInfo);
 }
 

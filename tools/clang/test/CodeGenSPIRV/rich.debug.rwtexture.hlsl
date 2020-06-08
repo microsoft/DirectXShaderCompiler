@@ -5,20 +5,20 @@
 //CHECK: [[name_3d:%\d+]] = OpString "@type.3d.image"
 //CHECK: [[name_1d:%\d+]] = OpString "@type.1d.image"
 
-//CHECK: [[tem_p6:%\d+]] = OpExtInst %void [[ext:%\d+]] DebugTypeTemplateParameter
-//CHECK: [[2daf:%\d+]] = OpExtInst %void [[ext]] DebugTypeComposite [[name_2d_arr]] Class [[src:%\d+]] 0 0 [[cu:%\d+]] {{%\d+}} [[info_none:%\d+]]
+//CHECK: [[2daf:%\d+]] = OpExtInst %void [[ext:%\d+]] DebugTypeComposite [[name_2d_arr]] Class [[src:%\d+]] 0 0 [[cu:%\d+]] {{%\d+}} [[info_none:%\d+]]
+//CHECK: [[tem_p6:%\d+]] = OpExtInst %void [[ext]] DebugTypeTemplateParameter
 //CHECK: OpExtInst %void [[ext]] DebugTypeTemplate [[2daf]] [[tem_p6]]
 
-//CHECK: [[tem_p3:%\d+]] = OpExtInst %void [[ext]] DebugTypeTemplateParameter
 //CHECK: [[1dai:%\d+]] = OpExtInst %void [[ext]] DebugTypeComposite [[name_1d_arr]] Class [[src]] 0 0 [[cu]] {{%\d+}} [[info_none]]
+//CHECK: [[tem_p3:%\d+]] = OpExtInst %void [[ext]] DebugTypeTemplateParameter
 //CHECK: OpExtInst %void [[ext]] DebugTypeTemplate [[1dai]] [[tem_p3]]
 
-//CHECK: [[tem_p2:%\d+]] = OpExtInst %void [[ext]] DebugTypeTemplateParameter
 //CHECK: [[3df:%\d+]] = OpExtInst %void [[ext]] DebugTypeComposite [[name_3d]] Class [[src]] 0 0 [[cu]] {{%\d+}} [[info_none]]
+//CHECK: [[tem_p2:%\d+]] = OpExtInst %void [[ext]] DebugTypeTemplateParameter
 //CHECK: OpExtInst %void [[ext]] DebugTypeTemplate [[3df]] [[tem_p2]]
 
-//CHECK: [[tem_p0:%\d+]] = OpExtInst %void [[ext]] DebugTypeTemplateParameter
 //CHECK: [[1di:%\d+]] = OpExtInst %void [[ext]] DebugTypeComposite [[name_1d]] Class [[src]] 0 0 [[cu]] {{%\d+}} [[info_none]]
+//CHECK: [[tem_p0:%\d+]] = OpExtInst %void [[ext]] DebugTypeTemplateParameter
 //CHECK: OpExtInst %void [[ext]] DebugTypeTemplate [[1di]] [[tem_p0]]
 
 //CHECK: OpExtInst %void [[ext]] DebugGlobalVariable {{%\d+}} [[2daf]] [[src]] {{\d+}} {{\d+}} [[cu]] {{%\d+}} %t8

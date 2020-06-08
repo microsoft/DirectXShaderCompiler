@@ -97,6 +97,14 @@ void SortDebugInfoVisitor::whileEachOperandOfDebugInstruction(
   case SpirvInstruction::IK_DebugTypeComposite: {
     SpirvDebugTypeComposite *inst = dyn_cast<SpirvDebugTypeComposite>(di);
     assert(inst != nullptr);
+    // Note that DebugTypeComposite always has forward references to
+    // members. Therefore, the edge direction in DAG must be from
+    // DebugTypeMember to DebugTypeComposite. DO NOT visit members here.
+
+    // In terms of DebugTypeTemplate used for a HLSL resource, it has
+    // to reference DebugTypeComposite but DebugTypeComposite does not
+    // reference DebugTypeTemplate. DO NOT visit DebugTypeTemplate here.
+
     if (!visitor(inst->getSource()))
       break;
     if (!visitor(inst->getDebugInfoNone()))
@@ -113,15 +121,11 @@ void SortDebugInfoVisitor::whileEachOperandOfDebugInstruction(
   case SpirvInstruction::IK_DebugTypeTemplate: {
     SpirvDebugTypeTemplate *inst = dyn_cast<SpirvDebugTypeTemplate>(di);
     assert(inst != nullptr);
-    bool success = true;
-    for (auto *param : inst->getParams()) {
-      if (!visitor(param)) {
-        success = false;
-        break;
-      }
-    }
-    if (success && !visitor(inst->getTarget()))
+    if (!visitor(inst->getTarget()))
       break;
+    for (auto *param : inst->getParams())
+      if (!visitor(param))
+        break;
   } break;
   case SpirvInstruction::IK_DebugTypeTemplateParameter: {
     SpirvDebugTypeTemplateParameter *inst =
@@ -129,6 +133,12 @@ void SortDebugInfoVisitor::whileEachOperandOfDebugInstruction(
     assert(inst != nullptr);
     if (!visitor(inst->getActualType()))
       break;
+    // Value operand of DebugTypeTemplateParameter must be DebugInfoNone
+    // when it is used for a type not used for a integer value.
+    if (auto *value = dyn_cast<SpirvDebugInstruction>(inst->getValue())) {
+      if (!visitor(value))
+        break;
+    }
     if (!visitor(inst->getSource()))
       break;
   } break;
