@@ -375,6 +375,7 @@ echo   -adapter "adapter name" - overrides Adapter for execution tests
 echo   -verbose - for TAEF: turns off /parallel and removes logging filter
 echo   -custom-bin-set "file [file]..." - custom set of binaries to copy into test directory
 echo   -dxilconv-loc "dxilconv.dll location" - fetch dxilconv.dll from custom location
+echo   -file-check-dump "dump-path" - dump file-check inputs to files under dump-path
 echo.
 echo current BUILD_ARCH=%BUILD_ARCH%.  Override with:
 echo   -x86 targets an x86 build (aka. Win32)
