@@ -1871,6 +1871,7 @@ FunctionDecl *AddHLSLIntrinsicFunction(
         ParmVarDecl::Create(context, functionDecl, NoLoc, NoLoc, &parameterId,
                             functionArgQualTypes[i], nullptr,
                             StorageClass::SC_None, nullptr, paramMods[i - 1]);
+    paramDecl->setLegalTypes(pIntrinsic->pArgs[i].uLegalComponentTypes);
     functionDecl->addDecl(paramDecl);
     paramDecls.push_back(paramDecl);
   }
@@ -5374,6 +5375,24 @@ HLSLExternalSource::IsValidateObjectElement(const HLSL_INTRINSIC *pIntrinsic,
   }
 }
 
+// Returns true if Type is allowed by the types represented by LegalTypesIdx
+bool ValidateParamTypeCast(ExternalSemaSource *source, QualType Ty, uint8_t LegalTypesIdx) {
+  // Verify TypeInfoEltKind can be cast to something legal for this param
+  HLSLExternalSource *hlSource = cast<HLSLExternalSource>(source);
+  ArBasicKind kind = hlSource->GetTypeElementKind(Ty);
+  if (AR_BASIC_UNKNOWN != kind) {
+    for (const ArBasicKind *pCT = g_LegalIntrinsicCompTypes[LegalTypesIdx];
+         AR_BASIC_UNKNOWN != *pCT; pCT++) {
+      if (kind == *pCT)
+        return true;
+      else if (*pCT == AR_BASIC_NOCAST)
+        return false;
+    }
+  }
+  // Cast not explicitly disallowed, so return true
+  return true;
+}
+
 _Use_decl_annotations_
 bool HLSLExternalSource::MatchArguments(
   const HLSL_INTRINSIC* pIntrinsic,
@@ -5525,6 +5544,9 @@ bool HLSLExternalSource::MatchArguments(
     DXASSERT(
       pIntrinsicArg->uComponentTypeId < MaxIntrinsicArgs,
       "otherwise intrinsic table was modified and MaxIntrinsicArgs was not updated (or uComponentTypeId is out of bounds)");
+
+    if (!ValidateParamTypeCast(this, pType, pIntrinsicArg->uLegalComponentTypes))
+      return false;
 
     // Merge ComponentTypes
     if (AR_BASIC_UNKNOWN == ComponentType[pIntrinsicArg->uComponentTypeId]) {

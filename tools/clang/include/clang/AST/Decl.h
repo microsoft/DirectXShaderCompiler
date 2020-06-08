@@ -810,8 +810,13 @@ protected:
     /// declared.
     unsigned ScopeDepthOrObjCQuals : 7;
 
+    // HLSL Change start
     /// Whether the parameter is copied out.
     unsigned IsModifierOut : 1;
+
+    // Index into allowable parameter conversions
+    unsigned LegalTypesIdx : 6;
+    // HLSL Change end
 
     /// The number of parameters preceding this parameter in the
     /// function parameter scope in which it was declared.
@@ -1455,6 +1460,9 @@ public:
   void setModifierIn(bool value) { ParmVarDeclBits.IsKNRPromoted = !value; }
   bool isModifierOut() const { return ParmVarDeclBits.IsModifierOut; }
   void setModifierOut(bool value) { ParmVarDeclBits.IsModifierOut = value; }
+
+  unsigned getLegalTypes() const { return ParmVarDeclBits.LegalTypesIdx; }
+  void setLegalTypes(unsigned idx) { ParmVarDeclBits.LegalTypesIdx = idx; }
   /// Synthesize a ParameterModifier value for this parameter.
   hlsl::ParameterModifier getParamModifiers() const {
     if (isModifierIn() && !isModifierOut())

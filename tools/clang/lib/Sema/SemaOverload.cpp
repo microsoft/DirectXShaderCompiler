@@ -5838,8 +5838,21 @@ Sema::AddOverloadCandidate(FunctionDecl *Function,
       // parameter of F.
       // HLSL Change Starts
       if (getLangOpts().HLSL) {
+        ParmVarDecl *Param = Function->getParamDecl(ArgIdx);
+        // extract allowable type info from param
+        unsigned legalTypes = Param->getLegalTypes();
+        QualType argType = Args[ArgIdx]->getType();
+        if (!ValidateParamTypeCast(ExternalSource, argType, legalTypes)) {
+          Candidate.Viable = false;
+          Candidate.FailureKind = ovl_fail_bad_conversion;
+          QualType ParamType = Proto->getParamType(ArgIdx);
+          Candidate.Conversions[ArgIdx].setBad(
+          BadConversionSequence::no_conversion, ParamType, argType);
+          return;
+        }
+
         InitCallParamConversions(
-            *this, Proto, Function->getParamDecl(ArgIdx), ArgIdx, Args[ArgIdx],
+            *this, Proto, Param, ArgIdx, Args[ArgIdx],
             SuppressUserConversions, true, AllowExplicit,
             Candidate.Conversions[ArgIdx], Candidate.OutConversions[ArgIdx]);
       } else {

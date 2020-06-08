@@ -256,6 +256,9 @@ clang::QualType CheckVectorConditional(
 
 }
 
+// Returns true if Type is allowed by the types represented by LegalTypesIdx
+bool ValidateParamTypeCast(clang::ExternalSemaSource *source, clang::QualType Ty, uint8_t LegalTypesIdx);
+
 bool IsTypeNumeric(_In_ clang::Sema* self, _In_ clang::QualType &type);
 bool IsExprAccessingOutIndicesArray(clang::Expr* BaseExpr);
 
