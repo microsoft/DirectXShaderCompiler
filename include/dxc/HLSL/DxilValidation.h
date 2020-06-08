@@ -136,6 +136,7 @@ enum class ValidationRule : unsigned {
   InstrTGSMRaceCond, // Race condition writing to shared memory detected, consider making this write conditional.
   InstrTextureOffset, // offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7.
   InstrUndefResultForGetDimension, // GetDimensions used undef dimension %0 on %1.
+  InstrUndefinedValueForUAVStore, // Assignment of undefined values to UAV.
   InstrWriteMaskForTypedUAVStore, // store on typed uav must write to all four components of the UAV.
   InstrWriteMaskMatchValueForUAVStore, // uav store write mask must match store value mask, write mask is %0 and store value mask is %1.
 
