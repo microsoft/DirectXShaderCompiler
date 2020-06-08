@@ -2477,6 +2477,7 @@ class db_dxil(object):
         self.add_valrule("Instr.ResourceKindForSampleC", "samplec requires resource declared as texture1D/2D/Cube/1DArray/2DArray/CubeArray.")
         self.add_valrule("Instr.ResourceKindForGather", "gather requires resource declared as texture/2D/Cube/2DArray/CubeArray.")
         self.add_valrule("Instr.WriteMaskMatchValueForUAVStore", "uav store write mask must match store value mask, write mask is %0 and store value mask is %1.")
+        self.add_valrule("Instr.UndefinedValueForUAVStore", "Assignment of undefined values to UAV.")
         self.add_valrule("Instr.ResourceKindForBufferLoadStore", "buffer load/store only works on Raw/Typed/StructuredBuffer.")
         self.add_valrule("Instr.ResourceKindForTextureStore", "texture store only works on Texture1D/1DArray/2D/2DArray/3D.")
         self.add_valrule("Instr.ResourceKindForGetDim", "Invalid resource kind on GetDimensions.")

@@ -163,6 +163,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::InstrResourceKindForSampleC: return "samplec requires resource declared as texture1D/2D/Cube/1DArray/2DArray/CubeArray.";
     case hlsl::ValidationRule::InstrResourceKindForGather: return "gather requires resource declared as texture/2D/Cube/2DArray/CubeArray.";
     case hlsl::ValidationRule::InstrWriteMaskMatchValueForUAVStore: return "uav store write mask must match store value mask, write mask is %0 and store value mask is %1.";
+    case hlsl::ValidationRule::InstrUndefinedValueForUAVStore: return "Assignment of undefined values to UAV.";
     case hlsl::ValidationRule::InstrResourceKindForBufferLoadStore: return "buffer load/store only works on Raw/Typed/StructuredBuffer.";
     case hlsl::ValidationRule::InstrResourceKindForTextureStore: return "texture store only works on Texture1D/1DArray/2D/2DArray/3D.";
     case hlsl::ValidationRule::InstrResourceKindForGetDim: return "Invalid resource kind on GetDimensions.";
@@ -1773,6 +1774,33 @@ static void ValidateImmOperandForMathDxilOp(CallInst *CI, DXIL::OpCode opcode,
   }
 }
 
+// Validate the type-defined mask compared to the store value mask which indicates which parts were defined
+// returns true if caller should continue validation
+static bool ValidateStorageMasks(Instruction *I, DXIL::OpCode opcode, ConstantInt *mask,
+                                 unsigned stValMask, bool isTyped, ValidationContext &ValCtx) {
+  if (!mask) {
+    // Mask for buffer store should be immediate.
+    ValCtx.EmitInstrFormatError(I, ValidationRule::InstrOpConst,
+                                {"Mask", hlsl::OP::GetOpCodeName(opcode)});
+    return false;
+  }
+
+  unsigned uMask = mask->getLimitedValue();
+  if (isTyped && uMask != 0xf) {
+    ValCtx.EmitInstrError(I, ValidationRule::InstrWriteMaskForTypedUAVStore);
+  }
+
+  // If a bit is set in the uMask (expected values) that isn't set in stValMask (user provided values)
+  // then the user failed to define some of the output values.
+  if (uMask & ~stValMask)
+    ValCtx.EmitInstrError(I, ValidationRule::InstrUndefinedValueForUAVStore);
+  else if (uMask != stValMask)
+    ValCtx.EmitInstrFormatError(I, ValidationRule::InstrWriteMaskMatchValueForUAVStore,
+                                {std::to_string(uMask), std::to_string(stValMask)});
+
+  return true;
+}
+
 static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
                                    ValidationContext &ValCtx) {
   switch (opcode) {
@@ -2012,23 +2040,14 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
     }
 
     ConstantInt *mask = dyn_cast<ConstantInt>(bufSt.get_mask());
-    if (!mask) {
-      // Mask for buffer store should be immediate.
-      ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrOpConst,
-                                  {"Mask", "BufferStore"});
-      return;
-    }
-    unsigned uMask = mask->getLimitedValue();
     unsigned stValMask =
         StoreValueToMask({bufSt.get_value0(), bufSt.get_value1(),
                           bufSt.get_value2(), bufSt.get_value3()});
 
-    if (stValMask != uMask) {
-      ValCtx.EmitInstrFormatError(
-          CI, ValidationRule::InstrWriteMaskMatchValueForUAVStore,
-          {std::to_string(uMask), std::to_string(stValMask)});
-    }
-
+    if (!ValidateStorageMasks(CI, opcode, mask, stValMask,
+                         resKind == DXIL::ResourceKind::TypedBuffer || resKind == DXIL::ResourceKind::TBuffer,
+                             ValCtx))
+      return;
     Value *offset = bufSt.get_coord1();
 
     switch (resKind) {
@@ -2043,11 +2062,6 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
       if (!isa<UndefValue>(offset)) {
         ValCtx.EmitInstrError(
             CI, ValidationRule::InstrCoordinateCountForRawTypedBuf);
-      }
-
-      if (uMask != 0xf) {
-        ValCtx.EmitInstrError(CI,
-                              ValidationRule::InstrWriteMaskForTypedUAVStore);
       }
       break;
     case DXIL::ResourceKind::StructuredBuffer:
@@ -2076,26 +2090,12 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
     }
 
     ConstantInt *mask = dyn_cast<ConstantInt>(texSt.get_mask());
-    if (!mask) {
-      // Mask for buffer store should be immediate.
-      ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrOpConst,
-                                  {"Mask", "TextureStore"});
-      return;
-    }
-    unsigned uMask = mask->getLimitedValue();
-    if (uMask != 0xf) {
-      ValCtx.EmitInstrError(CI, ValidationRule::InstrWriteMaskForTypedUAVStore);
-    }
-
     unsigned stValMask =
         StoreValueToMask({texSt.get_value0(), texSt.get_value1(),
                           texSt.get_value2(), texSt.get_value3()});
 
-    if (stValMask != uMask) {
-      ValCtx.EmitInstrFormatError(
-          CI, ValidationRule::InstrWriteMaskMatchValueForUAVStore,
-          {std::to_string(uMask), std::to_string(stValMask)});
-    }
+    if (!ValidateStorageMasks(CI, opcode, mask, stValMask, true /*isTyped*/, ValCtx))
+      return;
 
     switch (resKind) {
     case DXIL::ResourceKind::Texture1D:
@@ -2282,22 +2282,12 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
     }
 
     ConstantInt *mask = dyn_cast<ConstantInt>(bufSt.get_mask());
-    if (!mask) {
-      // Mask for buffer store should be immediate.
-      ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrOpConst,
-                                  {"Mask", "BufferStore"});
-      return;
-    }
-    unsigned uMask = mask->getLimitedValue();
     unsigned stValMask =
         StoreValueToMask({bufSt.get_value0(), bufSt.get_value1(),
                           bufSt.get_value2(), bufSt.get_value3()});
 
-    if (stValMask != uMask) {
-      ValCtx.EmitInstrFormatError(
-          CI, ValidationRule::InstrWriteMaskMatchValueForUAVStore,
-          {std::to_string(uMask), std::to_string(stValMask)});
-    }
+    if (!ValidateStorageMasks(CI, opcode, mask, stValMask, false /*isTyped*/, ValCtx))
+      return;
 
     Value *offset = bufSt.get_elementOffset();
     Value *align = bufSt.get_alignment();
