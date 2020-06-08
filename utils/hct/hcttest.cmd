@@ -155,7 +155,10 @@ if "%1"=="-clean" (
   shift /1
 ) else if "%1"=="-custom-bin-set" (
   set CUSTOM_BIN_SET=%~2
- shift /1
+  shift /1
+) else if "%1"=="-file-check-dump" (
+  set ADDITIONAL_OPTS=%ADDITIONAL_OPTS% /p:"FileCheckDumpDir=%~2\HLSL"
+  shift /1
 ) else if "%1"=="--" (
   shift /1
   goto :done_opt
@@ -372,6 +375,7 @@ echo   -adapter "adapter name" - overrides Adapter for execution tests
 echo   -verbose - for TAEF: turns off /parallel and removes logging filter
 echo   -custom-bin-set "file [file]..." - custom set of binaries to copy into test directory
 echo   -dxilconv-loc "dxilconv.dll location" - fetch dxilconv.dll from custom location
+echo   -file-check-dump "dump-path" - dump file-check inputs to files under dump-path
 echo.
 echo current BUILD_ARCH=%BUILD_ARCH%.  Override with:
 echo   -x86 targets an x86 build (aka. Win32)
