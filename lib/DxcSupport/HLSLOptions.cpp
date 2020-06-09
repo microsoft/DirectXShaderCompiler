@@ -17,6 +17,7 @@
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/HLSLOptions.h"
+#include "dxc/Support/HLSLOptimizationOptions.h"
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/DXIL/DxilShaderModel.h"
@@ -491,6 +492,17 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   llvm::StringRef limit = Args.getLastArgValue(OPT_memdep_block_scan_limit);
   if (!limit.empty())
     opts.ScanLimit = std::stoul(std::string(limit));
+
+  opts.DisabledOptimizations = 0;
+  std::vector<std::string> DisabledOptimizations = Args.getAllArgValues(OPT_opt_disable);
+  for (std::string opt : DisabledOptimizations) {
+    llvm::StringRef gvn("gvn");
+    if (gvn.equals_lower(opt))
+      opts.DisabledOptimizations |= hlsl::OptToggleGvn;
+    else
+      errors << "Unsupported optimization '" << opt
+             << "' disabled.";
+  }
 
   if (!opts.ForceRootSigVer.empty() && opts.ForceRootSigVer != "rootsig_1_0" &&
       opts.ForceRootSigVer != "rootsig_1_1") {

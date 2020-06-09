@@ -220,6 +220,8 @@ public:
   bool HLSLResMayAlias = false;
   /// Lookback scan limit for memory dependencies
   unsigned ScanLimit = 0;
+  /// Disabled optimization passes
+  unsigned long DisabledOptimizations;
   // HLSL Change Ends
 
   // SPIRV Change Starts

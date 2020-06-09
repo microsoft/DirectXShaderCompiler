@@ -29,6 +29,7 @@
 #include "dxc/HLSL/DxilGenerationPass.h" // HLSL Change
 #include "dxc/HLSL/HLMatrixLowerPass.h" // HLSL Change
 #include "dxc/HLSL/ComputeViewIdState.h" // HLSL Change
+#include "dxc/Support/HLSLOptimizationOptions.h" // HLSL Change
 #include "llvm/Analysis/DxilValueCache.h" // HLSL Change
 
 using namespace llvm;
@@ -132,6 +133,7 @@ PassManagerBuilder::PassManagerBuilder() {
     VerifyOutput = false;
     MergeFunctions = false;
     PrepareForLTO = false;
+    DisabledOptimizations = 0;
 }
 
 PassManagerBuilder::~PassManagerBuilder() {
@@ -466,9 +468,13 @@ void PassManagerBuilder::populateModulePassManager(
   if (OptLevel > 1) {
     if (EnableMLSM)
       MPM.add(createMergedLoadStoreMotionPass()); // Merge ld/st in diamonds
-    MPM.add(createGVNPass(DisableGVNLoadPRE));  // Remove redundancies
-    if (!HLSLResMayAlias)
-      MPM.add(createDxilSimpleGVNHoistPass()); // HLSL Change - GVN hoist for code size.
+    // HLSL Change Begins
+    if (!(DisabledOptimizations & hlsl::OptToggleGvn)) {
+      MPM.add(createGVNPass(DisableGVNLoadPRE));  // Remove redundancies
+      if (!HLSLResMayAlias)
+        MPM.add(createDxilSimpleGVNHoistPass());
+    }
+    // HLSL Change Ends
   }
   // HLSL Change Begins.
   // HLSL don't allow memcpy and memset.
@@ -737,7 +743,8 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // PM.add(createLICMPass());                 // Hoist loop invariants.
   if (EnableMLSM)
     PM.add(createMergedLoadStoreMotionPass()); // Merge ld/st in diamonds.
-  PM.add(createGVNPass(DisableGVNLoadPRE)); // Remove redundancies.
+  if (!(DisabledOptimizations & hlsl::OptToggleGvn)) // HLSL Change
+    PM.add(createGVNPass(DisableGVNLoadPRE)); // Remove redundancies.
   PM.add(createMemCpyOptPass());            // Remove dead memcpys.
 
   // Nuke dead stores.
