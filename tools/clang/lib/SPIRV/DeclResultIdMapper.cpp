@@ -1378,7 +1378,7 @@ public:
       // enough to accommodate |n|.
       uint32_t nextBinding = *iter;
       uint32_t startBinding = curBinding;
-      if (startBinding < (bindingShift - 1))
+      if ((bindingShift > 0) && (startBinding < (bindingShift - 1)))
         startBinding = bindingShift - 1;
       if (startBinding < nextBinding) {
         uint32_t endBinding = (nextBinding - startBinding - 1);
@@ -3471,28 +3471,30 @@ QualType DeclResultIdMapper::getTypeAndCreateCounterForPotentialAliasVar(
 bool DeclResultIdMapper::getImplicitRegisterType(const ResourceVar &var,
                                                  char &registerTypeOut) const {
   if (var.getSpirvInstr()) {
-    const QualType type = var.getSpirvInstr()->getAstResultType();
-    llvm::StringRef hlslUserType = var.getSpirvInstr()->getHlslUserType();
-    // b - for constant buffer views (CBV)
-    if (hlslUserType == "cbuffer" || hlslUserType == "ConstantBuffer") {
-      registerTypeOut = 'b';
-      return true;
-    }
-    // t - for shader resource views (SRV)
-    else if (isTexture(type) || isStructuredBuffer(type) ||
-        isByteAddressBuffer(type) || isBuffer(type)) {
-      registerTypeOut = 't';
-      return true;
-    }
-    // s - for samplers
-    else if (isSampler(type)) {
-      registerTypeOut = 's';
-      return true;
-    }
-    // u - for unordered access views (UAV)
-    else if (isRWByteAddressBuffer(type) || isRWAppendConsumeSBuffer(type) || isRWBuffer(type) || isRWTexture(type)) {
-      registerTypeOut = 'u';
-      return true;
+    if (var.getSpirvInstr()->hasAstResultType()) {
+      const QualType type = var.getSpirvInstr()->getAstResultType();
+      // t - for shader resource views (SRV)
+      if (isTexture(type) || isStructuredBuffer(type) || isByteAddressBuffer(type) || isBuffer(type)) {
+        registerTypeOut = 't';
+        return true;
+      }
+      // s - for samplers
+      else if (isSampler(type)) {
+        registerTypeOut = 's';
+        return true;
+      }
+      // u - for unordered access views (UAV)
+      else if (isRWByteAddressBuffer(type) || isRWAppendConsumeSBuffer(type) || isRWBuffer(type) || isRWTexture(type)) {
+        registerTypeOut = 'u';
+        return true;
+      }
+    } else {
+      llvm::StringRef hlslUserType = var.getSpirvInstr()->getHlslUserType();
+      // b - for constant buffer views (CBV)
+      if (var.isGlobalsBuffer() || hlslUserType == "cbuffer" || hlslUserType == "ConstantBuffer") {
+        registerTypeOut = 'b';
+        return true;
+      }
     }
   }
 
