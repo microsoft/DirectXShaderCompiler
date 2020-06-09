@@ -66,7 +66,9 @@
 #include <algorithm>
 #include <unordered_map>
 
+#ifdef _WIN32
 #pragma comment(lib, "version.lib")
+#endif
 
 // SPIRV Change Starts
 #ifdef ENABLE_SPIRV_CODEGEN
