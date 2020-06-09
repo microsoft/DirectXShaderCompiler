@@ -691,6 +691,12 @@ private:
   /// Returns true if the given SPIR-V stage variable has Input storage class.
   inline bool isInputStorageClass(const StageVar &v);
 
+  /// Determines the register type for a resource that does not have an
+  /// explicit register() declaration.  Returns true if it is able to 
+  /// determine the register type and will set registerTypeOut to 
+  /// 'u', 's', 'b', or 't'.
+  bool getImplicitRegisterType(const ResourceVar &var, char &registerTypeOut) const;
+
 private:
   SpirvBuilder &spvBuilder;
   SpirvEmitter &theEmitter;
