@@ -409,7 +409,7 @@ echo.
 echo Delete test directory and do not copy binaries or run tests:
 echo   hcttest clean
 echo.
-call :showtesample clang-hlsl-tests.dll /p:"DxilConvDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSL"
+call :showtesample clang-hlsl-tests.dll /p:"HlslDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSL"
 
 goto :eof
 
