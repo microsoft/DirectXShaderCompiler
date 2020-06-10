@@ -20,6 +20,7 @@
 #include <string>
 #include <vector>
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h" // HLSL change
+#include "dxc/Support/HLSLOptimizationOptions.h" // HLSL Change
 #include "dxc/Support/SPIRVOptions.h" // SPIR-V Change
 
 namespace clang {
@@ -221,7 +222,7 @@ public:
   /// Lookback scan limit for memory dependencies
   unsigned ScanLimit = 0;
   /// Disabled optimization passes
-  unsigned long DisabledOptimizations;
+  hlsl::OptimizationOptions HLSLOptimizationOptions;
   // HLSL Change Ends
 
   // SPIRV Change Starts

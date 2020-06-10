@@ -1107,7 +1107,7 @@ public:
     compiler.getCodeGenOpts().HLSLAllowPreserveValues = Opts.AllowPreserveValues;
     compiler.getCodeGenOpts().HLSLResMayAlias = Opts.ResMayAlias;
     compiler.getCodeGenOpts().ScanLimit = Opts.ScanLimit;
-    compiler.getCodeGenOpts().DisabledOptimizations = Opts.DisabledOptimizations;
+    compiler.getCodeGenOpts().HLSLOptimizationOptions = Opts.OptimizationOptions;
     compiler.getCodeGenOpts().HLSLAllResourcesBound = Opts.AllResourcesBound;
     compiler.getCodeGenOpts().HLSLDefaultRowMajor = Opts.DefaultRowMajor;
     compiler.getCodeGenOpts().HLSLPreferControlFlow = Opts.PreferFlowControl;

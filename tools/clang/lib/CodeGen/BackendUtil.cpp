@@ -327,7 +327,7 @@ void EmitAssemblyHelper::CreatePasses() {
   PMBuilder.HLSLExtensionsCodeGen = CodeGenOpts.HLSLExtensionsCodegen.get(); // HLSL Change
   PMBuilder.HLSLResMayAlias = CodeGenOpts.HLSLResMayAlias; // HLSL Change
   PMBuilder.ScanLimit = CodeGenOpts.ScanLimit; // HLSL Change
-  PMBuilder.DisabledOptimizations = CodeGenOpts.DisabledOptimizations; // HLSL Change
+  PMBuilder.HLSLOptimizationOptions = CodeGenOpts.HLSLOptimizationOptions; // HLSL Change
 
   PMBuilder.DisableUnitAtATime = !CodeGenOpts.UnitAtATime;
   PMBuilder.DisableUnrollLoops = !CodeGenOpts.UnrollLoops;
