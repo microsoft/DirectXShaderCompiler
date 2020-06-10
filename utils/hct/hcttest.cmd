@@ -203,10 +203,12 @@ if "%GENERATOR_NINJA%"=="1" (
   set TEST_DIR=%HLSL_BLD_DIR%\%BUILD_CONFIG%\test
 )
 
+if "%DXILCONV_LOC%"=="" ( 
+  set DXILCONV_LOC=%BIN_DIR%
+)
 if "%TEST_DXILCONV%"=="1" (
-  if "%DXILCONV_LOC%"=="" ( set DXILCONV_LOC=%BIN_DIR%\dxilconv.dll )
-  if not exist "%DXILCONV_LOC%" (
-    echo Skipping dxilconv tests, dxilconv.dll not found.
+  if not exist "%DXILCONV_LOC%\dxilconv.dll" (
+    echo Skipping dxilconv tests, dxilconv.dll not found at %DXILCONV_LOC%.
     set TEST_DXILCONV=0
   )
 )
@@ -315,7 +317,7 @@ if exist "%HCT_EXTRAS%\hcttest-extras.cmd" (
 )
 
 if "%TEST_DXILCONV%"=="1" (
-  call :runte dxilconv-tests.dll /p:"DxilConvDataDir=%HLSL_SRC_DIR%\projects\dxilconv\test" %TEST_DXILCONV_FILTER%
+  call :runte dxilconv-tests.dll /p:"HlslDataDir=%HLSL_SRC_DIR%\projects\dxilconv\test" %TEST_DXILCONV_FILTER%
   set RES_DXILCONV=!ERRORLEVEL!
 )
 
@@ -407,7 +409,7 @@ echo.
 echo Delete test directory and do not copy binaries or run tests:
 echo   hcttest clean
 echo.
-call :showtesample clang-hlsl-tests.dll /p:"DxilConvDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSL"
+call :showtesample clang-hlsl-tests.dll /p:"HlslDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSL"
 
 goto :eof
 
