@@ -498,9 +498,6 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     llvm::StringRef gvn("gvn");
     if (gvn.equals_lower(opt))
       opts.OptimizationOptions.DisableGVN = true;
-    else
-      errors << "Unsupported optimization '" << opt
-             << "' disabled.";
   }
 
   if (!opts.ForceRootSigVer.empty() && opts.ForceRootSigVer != "rootsig_1_0" &&
