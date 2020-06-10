@@ -295,8 +295,18 @@ QualType getHLSLMatrixType(ASTContext &, Sema &, ClassTemplateDecl *,
 /// we would ONLY get resources by flattening them.
 bool isResourceOnlyStructure(QualType type);
 
-/// TODO
+/// Returns true if the given type is a structure that contains resources or
+/// contains sub-structures that contain resources.
 bool isStructureContainingResources(QualType type);
+
+/// Returns true if the given type is a structure that contains non-resource
+/// variables or contains sub-structures that contain non-resource variables.
+bool isStructureContainingNonResources(QualType type);
+
+/// Returns true if the given type is a structure for which flattening all of
+/// its members recursively results in a mix of resource variables and
+/// non-resource variables.
+bool isStructureContainingMixOfResourcesAndNonResources(QualType type);
 
 } // namespace spirv
 } // namespace clang

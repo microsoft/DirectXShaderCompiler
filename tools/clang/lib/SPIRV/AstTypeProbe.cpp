@@ -1245,12 +1245,37 @@ bool isStructureContainingResources(QualType type) {
       // Remove arrayness if needed.
       while (fieldType->isArrayType())
         fieldType = fieldType->getAsArrayTypeUnsafe()->getElementType();
-      if (isResourceType(field) || isStructureContainingResources(fieldType)) {
+      if (isStructureContainingResources(fieldType) || isResourceType(field)) {
         return true;
       }
     }
   }
   return false;
+}
+
+bool isStructureContainingNonResources(QualType type) {
+  // Remove arrayness if needed.
+  while (type->isArrayType())
+    type = type->getAsArrayTypeUnsafe()->getElementType();
+
+  if (const auto *structType = type->getAs<RecordType>()) {
+    for (const auto *field : structType->getDecl()->fields()) {
+      auto fieldType = field->getType();
+      // Remove arrayness if needed.
+      while (fieldType->isArrayType())
+        fieldType = fieldType->getAsArrayTypeUnsafe()->getElementType();
+      if (isStructureContainingNonResources(fieldType) ||
+          !isResourceType(field)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+bool isStructureContainingMixOfResourcesAndNonResources(QualType type) {
+  return isStructureContainingResources(type) &&
+         isStructureContainingNonResources(type);
 }
 
 } // namespace spirv

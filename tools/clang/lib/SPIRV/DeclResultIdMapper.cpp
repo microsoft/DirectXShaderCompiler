@@ -744,9 +744,23 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
   const bool isACRWSBuffer = isRWAppendConsumeSBuffer(type);
   const auto storageClass = getStorageClassForExternVar(type, isGroupShared);
   const auto rule = getLayoutRuleForExternVar(type, spirvOptions);
+  const auto loc = var->getLocation();
 
   if (!isGroupShared && !isResourceType(var) &&
       !isResourceOnlyStructure(type)) {
+
+    // We currently cannot support global structures that contain both resources
+    // and non-resources. That would require significant work in manipulating
+    // structure field decls, manipulating QualTypes, as well as inserting
+    // non-resources into the Globals cbuffer which changes offset decorations
+    // for it.
+    if (isStructureContainingMixOfResourcesAndNonResources(type)) {
+      emitError("global structures containing both resources and non-resources "
+                "are unsupported",
+                loc);
+      return nullptr;
+    }
+
     // This is a stand-alone externally-visiable non-resource-type variable.
     // They should be grouped into the $Globals cbuffer. We create that cbuffer
     // and record all variables inside it upon seeing the first such variable.
@@ -757,7 +771,6 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
     return varInstr ? cast<SpirvVariable>(varInstr) : nullptr;
   }
 
-  const auto loc = var->getLocation();
   SpirvVariable *varInstr = spvBuilder.addModuleVar(
       type, storageClass, var->hasAttr<HLSLPreciseAttr>(), var->getName(),
       llvm::None, loc);

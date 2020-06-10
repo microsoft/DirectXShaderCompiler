@@ -1798,6 +1798,16 @@ TEST_F(FileTest, BindingStructureOfResources4) {
               /*runValidation*/ false);
 }
 
+TEST_F(FileTest, BindingStructureOfResourcesAndNonResourcesError1) {
+  runFileTest("vk.binding.global-struct-of-resource-mix.error.1.hlsl",
+              Expect::Failure, /*runValidation*/ false);
+}
+
+TEST_F(FileTest, BindingStructureOfResourcesAndNonResourcesError2) {
+  runFileTest("vk.binding.global-struct-of-resource-mix.error.2.hlsl",
+              Expect::Failure);
+}
+
 TEST_F(FileTest, VulkanPushConstant) { runFileTest("vk.push-constant.hlsl"); }
 TEST_F(FileTest, VulkanPushConstantOffset) {
   // Checks the behavior of [[vk::offset]] with [[vk::push_constant]]
