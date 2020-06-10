@@ -47,10 +47,10 @@ hlsl::ConstantPacking *getPackOffset(const clang::NamedDecl *decl) {
   return nullptr;
 }
 
-/// TODO: brief
+/// Returns the number of binding numbers that are used up by the given type.
+/// An array of N resources consumes N binding numbers.
+/// A structure that contains M resources consumes M binding numbers.
 uint32_t getNumBindingsUsedByResourceType(QualType type) {
-  // TODO: Move Workgroup checks to shouldSkipIn...
-
   // For custom-generated types that have SpirvType but no QualType.
   if (type.isNull())
     return 1;
@@ -231,6 +231,10 @@ bool shouldSkipInStructLayout(const Decl *decl) {
 
     // cbuffer/tbuffer
     if (isa<HLSLBufferDecl>(decl))
+      return true;
+
+    // 'groupshared' variables should not be placed in $Globals cbuffer.
+    if (decl->hasAttr<HLSLGroupSharedAttr>())
       return true;
 
     // Other resource types
@@ -843,10 +847,6 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
   // Collect the type and name for each field
   llvm::SmallVector<HybridStructType::FieldInfo, 4> fields;
   for (const auto *subDecl : declGroup) {
-    // 'groupshared' variables should not be placed in $Globals cbuffer.
-    if (forGlobals && subDecl->hasAttr<HLSLGroupSharedAttr>())
-      continue;
-
     // The field can only be FieldDecl (for normal structs) or VarDecl (for
     // HLSLBufferDecls).
     assert(isa<VarDecl>(subDecl) || isa<FieldDecl>(subDecl));
@@ -1068,9 +1068,6 @@ void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
 
   uint32_t index = 0;
   for (const auto *decl : collectDeclsInDeclContext(context)) {
-    // 'groupshared' variables should not be placed in $Globals cbuffer.
-    if (decl->hasAttr<HLSLGroupSharedAttr>())
-      continue;
     if (const auto *varDecl = dyn_cast<VarDecl>(decl)) {
       if (!spirvOptions.noWarnIgnoredFeatures) {
         if (const auto *init = varDecl->getInit())
