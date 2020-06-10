@@ -49,7 +49,6 @@ hlsl::ConstantPacking *getPackOffset(const clang::NamedDecl *decl) {
 
 /// TODO: brief
 uint32_t getNumBindingsUsedByResourceType(QualType type) {
-  // TODO: Remove arraySize from ResourceVar
   // TODO: Move Workgroup checks to shouldSkipIn...
 
   // For custom-generated types that have SpirvType but no QualType.
