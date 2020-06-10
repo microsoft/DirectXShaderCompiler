@@ -26,10 +26,8 @@
 
 using namespace std;
 
-#ifndef HLSLDATAFILEPARAM
 #define HLSLDATAFILEPARAM L"HlslDataDir"
 #define FILECHECKDUMPDIRPARAM L"FileCheckDumpDir"
-#endif
 
 // If TAEF verify macros are available, use them to alias other legacy
 // comparison macros that don't have a direct translation.
