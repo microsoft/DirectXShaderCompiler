@@ -132,7 +132,6 @@ PassManagerBuilder::PassManagerBuilder() {
     VerifyOutput = false;
     MergeFunctions = false;
     PrepareForLTO = false;
-    HLSLOptimizationOptions = {0};
 }
 
 PassManagerBuilder::~PassManagerBuilder() {

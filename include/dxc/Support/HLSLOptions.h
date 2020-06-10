@@ -188,7 +188,7 @@ public:
   bool ResMayAlias = false; // OPT_res_may_alias
   unsigned long ValVerMajor = UINT_MAX, ValVerMinor = UINT_MAX; // OPT_validator_version
   unsigned ScanLimit = 0; // OPT_memdep_block_scan_limit
-  hlsl::OptimizationOptions OptimizationOptions; // OPT_opt_disable
+  hlsl::OptimizationOptions DxcOptimizationOptions; // OPT_opt_disable
 
   // Rewriter Options
   RewriterOpts RWOpt;
