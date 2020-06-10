@@ -23,6 +23,7 @@ class GlobalVariable;
 class Type;
 class BasicBlock;
 class BranchInst;
+class SwitchInst;
 template <typename T> class ArrayRef;
 }
 
@@ -127,7 +128,23 @@ public:
   
   virtual void AddControlFlowHint(CodeGenFunction &CGF, const Stmt &S, llvm::TerminatorInst *TI, llvm::ArrayRef<const Attr *> Attrs) = 0;
 
-  virtual void FinishAutoVar(CodeGenFunction &CGF, const VarDecl &D, llvm::Value *V) = 0;
+  virtual void FinishAutoVar(CodeGenFunction &CGF, const VarDecl &D,
+                             llvm::Value *V) = 0;
+  virtual void MarkThenStmt(CodeGenFunction &CGF,
+                            llvm::BasicBlock *endIfBB) = 0;
+  virtual void MarkElseStmt(CodeGenFunction &CGF,
+                            llvm::BasicBlock *endIfBB) = 0;
+  virtual void MarkSwitchStmt(CodeGenFunction &CGF,
+                              llvm::SwitchInst *switchInst,
+                              llvm::BasicBlock *endSwitch) = 0;
+  virtual void MarkReturnStmt(CodeGenFunction &CGF,
+                              llvm::BasicBlock *bbWithRet) = 0;
+  virtual void MarkForStmt(CodeGenFunction &CGF,
+                           llvm::BasicBlock *loopExit) = 0;
+  virtual void MarkDoStmt(CodeGenFunction &CGF, llvm::BasicBlock *loopExit) = 0;
+  virtual void MarkWhileStmt(CodeGenFunction &CGF,
+                             llvm::BasicBlock *loopExit) = 0;
+  virtual void MarkScopeEnd(CodeGenFunction &CGF) = 0;
 };
 
 /// Create an instance of a HLSL runtime class.

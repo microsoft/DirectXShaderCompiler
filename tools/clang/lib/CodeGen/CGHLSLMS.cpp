@@ -211,6 +211,8 @@ private:
   std::unordered_map<Constant*, DxilFieldAnnotation> m_ConstVarAnnotationMap;
   StringSet<> m_PreciseOutputSet;
 
+  DenseMap<Function*, ScopeInfo> m_ScopeMap;
+
 public:
   CGMSHLSLRuntime(CodeGenModule &CGM);
 
@@ -283,7 +285,15 @@ public:
   void MarkRetTemp(CodeGenFunction &CGF, llvm::Value *V,
                   clang::QualType QaulTy) override;
   void FinishAutoVar(CodeGenFunction &CGF, const VarDecl &D, llvm::Value *V) override;
-
+  void MarkThenStmt(CodeGenFunction &CGF, BasicBlock *endIfBB) override;
+  void MarkElseStmt(CodeGenFunction &CGF, BasicBlock *endIfBB) override;
+  void MarkSwitchStmt(CodeGenFunction &CGF, SwitchInst *switchInst,
+                      BasicBlock *endSwitch) override;
+  void MarkReturnStmt(CodeGenFunction &CGF, BasicBlock *bbWithRet) override;
+  void MarkForStmt(CodeGenFunction &CGF, BasicBlock *loopExit) override;
+  void MarkDoStmt(CodeGenFunction &CGF, BasicBlock *loopExit) override;
+  void MarkWhileStmt(CodeGenFunction &CGF, BasicBlock *loopExit) override;
+  void MarkScopeEnd(CodeGenFunction &CGF) override;
   /// Get or add constant to the program
   HLCBuffer &GetOrCreateCBuffer(HLSLBufferDecl *D);
 };
@@ -2156,6 +2166,8 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   for (const auto &Attr : FD->specific_attrs<HLSLExperimentalAttr>()) {
     F->addFnAttr(Twine("exp-", Attr->getName()).str(), Attr->getValue());
   }
+
+  m_ScopeMap[F] = ScopeInfo(F);
 }
 
 void CGMSHLSLRuntime::RemapObsoleteSemantic(DxilParameterAnnotation &paramInfo, bool isPatchConstantFunction) {
@@ -3279,10 +3291,12 @@ HLCBuffer &CGMSHLSLRuntime::GetOrCreateCBuffer(HLSLBufferDecl *D) {
 void CGMSHLSLRuntime::FinishCodeGen() {
   HLModule &HLM = *m_pHLModule;
   llvm::Module &M = TheModule;
-
   // Do this before CloneShaderEntry and TranslateRayQueryConstructor to avoid
   // update valToResPropertiesMap for cloned inst.
   FinishIntrinsics(HLM, m_IntrinsicMap, valToResPropertiesMap);
+
+  if (CGM.getCodeGenOpts().HLSLStructurizeReturns)
+    StructurizeMultiRet(M, m_ScopeMap);
 
   FinishEntries(HLM, Entry, CGM, entryFunctionMap, HSEntryPatchConstantFuncAttr,
                 patchConstantFunctionMap, patchConstantFunctionPropsMap);
@@ -5653,6 +5667,67 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionCopyBack(
     } else
       tmpArgAddr->replaceAllUsesWith(argLV.getAddress());
   }
+}
+
+void CGMSHLSLRuntime::MarkThenStmt(CodeGenFunction &CGF, BasicBlock *endIfBB) {
+  auto it = m_ScopeMap.find(CGF.CurFn);
+  if (it == m_ScopeMap.end())
+    return;
+  ScopeInfo &Scope = it->second;
+  Scope.AddThen(endIfBB);
+}
+void CGMSHLSLRuntime::MarkElseStmt(CodeGenFunction &CGF, BasicBlock *endIfBB) {
+  auto it = m_ScopeMap.find(CGF.CurFn);
+  if (it == m_ScopeMap.end())
+    return;
+  ScopeInfo &Scope = it->second;
+  Scope.AddElse(endIfBB);
+};
+void CGMSHLSLRuntime::MarkSwitchStmt(CodeGenFunction &CGF,
+                                     SwitchInst *switchInst,
+                                     BasicBlock *endSwitch) {
+  auto it = m_ScopeMap.find(CGF.CurFn);
+  if (it == m_ScopeMap.end())
+    return;
+  ScopeInfo &Scope = it->second;
+  Scope.AddSwitch(endSwitch);
+};
+void CGMSHLSLRuntime::MarkReturnStmt(CodeGenFunction &CGF,
+                                     BasicBlock *bbWithRet) {
+  auto it = m_ScopeMap.find(CGF.CurFn);
+  if (it == m_ScopeMap.end())
+    return;
+  ScopeInfo &Scope = it->second;
+  Scope.AddRet(bbWithRet);
+};
+void CGMSHLSLRuntime::MarkForStmt(CodeGenFunction &CGF, BasicBlock *loopExit) {
+  auto it = m_ScopeMap.find(CGF.CurFn);
+  if (it == m_ScopeMap.end())
+    return;
+  ScopeInfo &Scope = it->second;
+  Scope.AddLoop(loopExit);
+};
+void CGMSHLSLRuntime::MarkDoStmt(CodeGenFunction &CGF, BasicBlock *loopExit) {
+  auto it = m_ScopeMap.find(CGF.CurFn);
+  if (it == m_ScopeMap.end())
+    return;
+  ScopeInfo &Scope = it->second;
+  Scope.AddLoop(loopExit);
+};
+void CGMSHLSLRuntime::MarkWhileStmt(CodeGenFunction &CGF,
+                                    BasicBlock *loopExit) {
+  auto it = m_ScopeMap.find(CGF.CurFn);
+  if (it == m_ScopeMap.end())
+    return;
+  ScopeInfo &Scope = it->second;
+  Scope.AddLoop(loopExit);
+};
+void CGMSHLSLRuntime::MarkScopeEnd(CodeGenFunction &CGF) {
+  auto it = m_ScopeMap.find(CGF.CurFn);
+  if (it == m_ScopeMap.end())
+    return;
+  ScopeInfo &Scope = it->second;
+  Scope.EndScope();
 }
 
 CGHLSLRuntime *CodeGen::CreateMSHLSLRuntime(CodeGenModule &CGM) {
