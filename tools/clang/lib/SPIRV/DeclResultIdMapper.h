@@ -705,6 +705,7 @@ private:
   SpirvContext &spvContext;
   DiagnosticsEngine &diags;
   SpirvFunction *entryFunction;
+  FeatureManager featureManager;   ///< SPIR-V version/extension manager.
 
   /// Mapping of all Clang AST decls to their instruction pointers.
   llvm::DenseMap<const ValueDecl *, DeclSpirvInfo> astDecls;
@@ -822,7 +823,8 @@ DeclResultIdMapper::DeclResultIdMapper(ASTContext &context,
       astContext(context), spvContext(spirvContext),
       diags(context.getDiagnostics()), entryFunction(nullptr),
       needsLegalization(false),
-      glPerVertex(context, spirvContext, spirvBuilder) {}
+      glPerVertex(context, spirvContext, spirvBuilder),
+      featureManager(features) {}
 
 bool DeclResultIdMapper::decorateStageIOLocations() {
   if (spvContext.isRay() || spvContext.isAS()) {

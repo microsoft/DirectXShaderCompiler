@@ -48,6 +48,7 @@ enum class Extension {
   GOOGLE_user_type,
   NV_ray_tracing,
   NV_mesh_shader,
+  NV_fragment_shader_barycentric,
   KHR_ray_query,
   Unknown,
 };
