@@ -2693,8 +2693,9 @@ void ScopeInfo::AddSwitch(BasicBlock *endSwitch) {
   AddScope(Scope::ScopeKind::SwitchScope, endSwitch);
 }
 
-void ScopeInfo::AddLoop(BasicBlock *endLoop) {
+void ScopeInfo::AddLoop(BasicBlock *loopContinue, BasicBlock *endLoop) {
   AddScope(Scope::ScopeKind::LoopScope, endLoop);
+  scopes.back().loopContinueBB = loopContinue;
 }
 
 void ScopeInfo::AddRet(BasicBlock *bbWithRet) {
@@ -2754,7 +2755,9 @@ BasicBlock *createBlockBefore(BasicBlock *BB) {
 //   }
 //   return vRet;
 // }
-void StructurizeMultiRetFunction(Function *F, ScopeInfo &ScopeInfo) {
+void StructurizeMultiRetFunction(
+    Function *F, ScopeInfo &ScopeInfo, bool bWaveEnabledStage,
+    SmallVector<BranchInst *, 16> &DxBreaks) {
   // Get bbWithRets.
   auto &rets = ScopeInfo.GetRetScopes();
   if (rets.size() < 2)
@@ -2770,7 +2773,6 @@ void StructurizeMultiRetFunction(Function *F, ScopeInfo &ScopeInfo) {
   B.CreateStore(ConstantInt::get(boolTy, 0), bIsReturned);
   Constant *cTrue = ConstantInt::get(boolTy, 1);
 
-  // iterate ret in reverse order to avoid update scope.
   for (unsigned scopeIndex : rets) {
     Scope &retScope = ScopeInfo.GetScope(scopeIndex);
     Scope &curScope = ScopeInfo.GetScope(retScope.parentScopeIndex);
@@ -2829,7 +2831,14 @@ void StructurizeMultiRetFunction(Function *F, ScopeInfo &ScopeInfo) {
         B.CreateCondBr(isRetured, BreakBB, BB);
 
         B.SetInsertPoint(BreakBB);
-        B.CreateBr(EndBB);
+        if (bWaveEnabledStage &&
+            parentScope.kind == Scope::ScopeKind::LoopScope) {
+          BranchInst *BI =
+              B.CreateCondBr(cTrue, EndBB, parentScope.loopContinueBB);
+          DxBreaks.emplace_back(BI);
+        } else {
+          B.CreateBr(EndBB);
+        }
       } break;
       }
 
@@ -2844,13 +2853,15 @@ void StructurizeMultiRetFunction(Function *F, ScopeInfo &ScopeInfo) {
 } // namespace
 
 namespace CGHLSLMSHelper {
-void StructurizeMultiRet(Module &M, DenseMap<Function *, ScopeInfo> &ScopeMap) {
+void StructurizeMultiRet(Module &M, DenseMap<Function *, ScopeInfo> &ScopeMap,
+                         bool bWaveEnabledStage,
+                         SmallVector<BranchInst *, 16> &DxBreaks) {
   for (Function &F : M) {
     if (F.isDeclaration())
       continue;
     auto it = ScopeMap.find(&F);
     DXASSERT(it != ScopeMap.end(), "cannot find scope info");
-    StructurizeMultiRetFunction(&F, it->second);
+    StructurizeMultiRetFunction(&F, it->second, bWaveEnabledStage, DxBreaks);
   }
 }
 } // namespace CGHLSLMSHelper

@@ -755,12 +755,14 @@ void CodeGenFunction::EmitWhileStmt(const WhileStmt &S,
   // Create an exit block for when the condition fails, which will
   // also become the break target.
   JumpDest LoopExit = getJumpDestInCurrentScope("while.end");
-  // HLSL Change Begin.
-  CGM.getHLSLRuntime().MarkWhileStmt(*this, LoopExit.getBlock());
-  // HLSL Change End.
 
   // Store the blocks to use for break and continue.
   BreakContinueStack.push_back(BreakContinue(LoopExit, LoopHeader));
+
+  // HLSL Change Begin.
+  CGM.getHLSLRuntime().MarkLoopStmt(*this, LoopHeader.getBlock(),
+                                     LoopExit.getBlock());
+  // HLSL Change End.
 
   // C++ [stmt.while]p2:
   //   When the condition of a while statement is a declaration, the
@@ -847,7 +849,8 @@ void CodeGenFunction::EmitDoStmt(const DoStmt &S,
   // Store the blocks to use for break and continue.
   BreakContinueStack.push_back(BreakContinue(LoopExit, LoopCond));
   // HLSL Change Begin.
-  CGM.getHLSLRuntime().MarkDoStmt(*this, LoopExit.getBlock());
+  CGM.getHLSLRuntime().MarkLoopStmt(*this, LoopCond.getBlock(),
+                                  LoopExit.getBlock());
   // HLSL Change End.
 
   // Emit the body of the loop.
@@ -914,9 +917,6 @@ void CodeGenFunction::EmitForStmt(const ForStmt &S,
   // Evaluate the first part before the loop.
   if (S.getInit())
     EmitStmt(S.getInit());
-  // HLSL Change Begin.
-  CGM.getHLSLRuntime().MarkForStmt(*this, LoopExit.getBlock());
-  // HLSL Change End.
   // Start the loop with a block that tests the condition.
   // If there's an increment, the continue scope will be overwritten
   // later.
@@ -936,6 +936,9 @@ void CodeGenFunction::EmitForStmt(const ForStmt &S,
   // Store the blocks to use for break and continue.
   BreakContinueStack.push_back(BreakContinue(LoopExit, Continue));
 
+  // HLSL Change Begin.
+  CGM.getHLSLRuntime().MarkLoopStmt(*this, Continue.getBlock(), LoopExit.getBlock());
+  // HLSL Change End.
   // Create a cleanup scope for the condition variable cleanups.
   LexicalScope ConditionScope(*this, S.getSourceRange());
 

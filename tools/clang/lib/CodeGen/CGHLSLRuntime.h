@@ -139,10 +139,8 @@ public:
                               llvm::BasicBlock *endSwitch) = 0;
   virtual void MarkReturnStmt(CodeGenFunction &CGF,
                               llvm::BasicBlock *bbWithRet) = 0;
-  virtual void MarkForStmt(CodeGenFunction &CGF,
-                           llvm::BasicBlock *loopExit) = 0;
-  virtual void MarkDoStmt(CodeGenFunction &CGF, llvm::BasicBlock *loopExit) = 0;
-  virtual void MarkWhileStmt(CodeGenFunction &CGF,
+  virtual void MarkLoopStmt(CodeGenFunction &CGF,
+                             llvm::BasicBlock *loopContinue,
                              llvm::BasicBlock *loopExit) = 0;
   virtual void MarkScopeEnd(CodeGenFunction &CGF) = 0;
 };

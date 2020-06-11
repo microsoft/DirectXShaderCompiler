@@ -87,6 +87,8 @@ struct Scope {
  };
  ScopeKind kind;
  llvm::BasicBlock *EndScopeBB;
+ // Save loopContinueBB to create dxBreak.
+ llvm::BasicBlock *loopContinueBB;
  unsigned parentScopeIndex;
 };
 
@@ -97,7 +99,7 @@ public:
   void AddThen(llvm::BasicBlock *endIfBB);
   void AddElse(llvm::BasicBlock *endIfBB);
   void AddSwitch(llvm::BasicBlock *endSwitchBB);
-  void AddLoop(llvm::BasicBlock *endLoopBB);
+  void AddLoop(llvm::BasicBlock *loopContinue, llvm::BasicBlock *endLoopBB);
   void AddRet(llvm::BasicBlock *bbWithRet);
   void EndScope();
   Scope &GetScope(unsigned i);
@@ -165,7 +167,9 @@ void UpdateLinkage(
     llvm::StringMap<PatchConstantInfo> &patchConstantFunctionMap);
 
 void StructurizeMultiRet(llvm::Module &M,
-                      llvm::DenseMap<llvm::Function *, ScopeInfo> &ScopeMap);
+                         llvm::DenseMap<llvm::Function *, ScopeInfo> &ScopeMap,
+                         bool bWaveEnabledStage,
+                         llvm::SmallVector<llvm::BranchInst *, 16> &DxBreaks);
 
 llvm::Value *TryEvalIntrinsic(llvm::CallInst *CI, hlsl::IntrinsicOp intriOp);
 void SimpleTransformForHLDXIR(llvm::Module *pM);

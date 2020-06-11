@@ -212,7 +212,7 @@ private:
   StringSet<> m_PreciseOutputSet;
 
   DenseMap<Function*, ScopeInfo> m_ScopeMap;
-
+  ScopeInfo *GetScopeInfo(Function *F);
 public:
   CGMSHLSLRuntime(CodeGenModule &CGM);
 
@@ -290,9 +290,8 @@ public:
   void MarkSwitchStmt(CodeGenFunction &CGF, SwitchInst *switchInst,
                       BasicBlock *endSwitch) override;
   void MarkReturnStmt(CodeGenFunction &CGF, BasicBlock *bbWithRet) override;
-  void MarkForStmt(CodeGenFunction &CGF, BasicBlock *loopExit) override;
-  void MarkDoStmt(CodeGenFunction &CGF, BasicBlock *loopExit) override;
-  void MarkWhileStmt(CodeGenFunction &CGF, BasicBlock *loopExit) override;
+  void MarkLoopStmt(CodeGenFunction &CGF, BasicBlock *loopContinue,
+                     BasicBlock *loopExit) override;
   void MarkScopeEnd(CodeGenFunction &CGF) override;
   /// Get or add constant to the program
   HLCBuffer &GetOrCreateCBuffer(HLSLBufferDecl *D);
@@ -3294,9 +3293,11 @@ void CGMSHLSLRuntime::FinishCodeGen() {
   // Do this before CloneShaderEntry and TranslateRayQueryConstructor to avoid
   // update valToResPropertiesMap for cloned inst.
   FinishIntrinsics(HLM, m_IntrinsicMap, valToResPropertiesMap);
-
+  bool bWaveEnabledStage = m_pHLModule->GetShaderModel()->IsPS() ||
+                           m_pHLModule->GetShaderModel()->IsCS() ||
+                           m_pHLModule->GetShaderModel()->IsLib();
   if (CGM.getCodeGenOpts().HLSLStructurizeReturns)
-    StructurizeMultiRet(M, m_ScopeMap);
+    StructurizeMultiRet(M, m_ScopeMap, bWaveEnabledStage, m_DxBreaks);
 
   FinishEntries(HLM, Entry, CGM, entryFunctionMap, HSEntryPatchConstantFuncAttr,
                 patchConstantFunctionMap, patchConstantFunctionPropsMap);
@@ -5669,65 +5670,47 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionCopyBack(
   }
 }
 
-void CGMSHLSLRuntime::MarkThenStmt(CodeGenFunction &CGF, BasicBlock *endIfBB) {
-  auto it = m_ScopeMap.find(CGF.CurFn);
+ScopeInfo *CGMSHLSLRuntime::GetScopeInfo(Function *F) {
+  auto it = m_ScopeMap.find(F);
   if (it == m_ScopeMap.end())
-    return;
-  ScopeInfo &Scope = it->second;
-  Scope.AddThen(endIfBB);
+    return nullptr;
+  return &it->second;
 }
+
+void CGMSHLSLRuntime::MarkThenStmt(CodeGenFunction &CGF, BasicBlock *endIfBB) {
+  if (ScopeInfo *Scope = GetScopeInfo(CGF.CurFn))
+    Scope->AddThen(endIfBB);
+}
+
 void CGMSHLSLRuntime::MarkElseStmt(CodeGenFunction &CGF, BasicBlock *endIfBB) {
-  auto it = m_ScopeMap.find(CGF.CurFn);
-  if (it == m_ScopeMap.end())
-    return;
-  ScopeInfo &Scope = it->second;
-  Scope.AddElse(endIfBB);
-};
+  if (ScopeInfo *Scope = GetScopeInfo(CGF.CurFn))
+    Scope->AddElse(endIfBB);
+}
+
 void CGMSHLSLRuntime::MarkSwitchStmt(CodeGenFunction &CGF,
                                      SwitchInst *switchInst,
                                      BasicBlock *endSwitch) {
-  auto it = m_ScopeMap.find(CGF.CurFn);
-  if (it == m_ScopeMap.end())
-    return;
-  ScopeInfo &Scope = it->second;
-  Scope.AddSwitch(endSwitch);
-};
+
+  if (ScopeInfo *Scope = GetScopeInfo(CGF.CurFn))
+    Scope->AddSwitch(endSwitch);
+}
+
 void CGMSHLSLRuntime::MarkReturnStmt(CodeGenFunction &CGF,
                                      BasicBlock *bbWithRet) {
-  auto it = m_ScopeMap.find(CGF.CurFn);
-  if (it == m_ScopeMap.end())
-    return;
-  ScopeInfo &Scope = it->second;
-  Scope.AddRet(bbWithRet);
-};
-void CGMSHLSLRuntime::MarkForStmt(CodeGenFunction &CGF, BasicBlock *loopExit) {
-  auto it = m_ScopeMap.find(CGF.CurFn);
-  if (it == m_ScopeMap.end())
-    return;
-  ScopeInfo &Scope = it->second;
-  Scope.AddLoop(loopExit);
-};
-void CGMSHLSLRuntime::MarkDoStmt(CodeGenFunction &CGF, BasicBlock *loopExit) {
-  auto it = m_ScopeMap.find(CGF.CurFn);
-  if (it == m_ScopeMap.end())
-    return;
-  ScopeInfo &Scope = it->second;
-  Scope.AddLoop(loopExit);
-};
-void CGMSHLSLRuntime::MarkWhileStmt(CodeGenFunction &CGF,
-                                    BasicBlock *loopExit) {
-  auto it = m_ScopeMap.find(CGF.CurFn);
-  if (it == m_ScopeMap.end())
-    return;
-  ScopeInfo &Scope = it->second;
-  Scope.AddLoop(loopExit);
-};
+  if (ScopeInfo *Scope = GetScopeInfo(CGF.CurFn))
+    Scope->AddRet(bbWithRet);
+}
+
+void CGMSHLSLRuntime::MarkLoopStmt(CodeGenFunction &CGF,
+                                   BasicBlock *loopContinue,
+                                   BasicBlock *loopExit) {
+  if (ScopeInfo *Scope = GetScopeInfo(CGF.CurFn))
+    Scope->AddLoop(loopContinue, loopExit);
+}
+
 void CGMSHLSLRuntime::MarkScopeEnd(CodeGenFunction &CGF) {
-  auto it = m_ScopeMap.find(CGF.CurFn);
-  if (it == m_ScopeMap.end())
-    return;
-  ScopeInfo &Scope = it->second;
-  Scope.EndScope();
+  if (ScopeInfo *Scope = GetScopeInfo(CGF.CurFn))
+    Scope->EndScope();
 }
 
 CGHLSLRuntime *CodeGen::CreateMSHLSLRuntime(CodeGenModule &CGM) {
