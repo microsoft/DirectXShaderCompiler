@@ -492,6 +492,14 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   if (!limit.empty())
     opts.ScanLimit = std::stoul(std::string(limit));
 
+  opts.DxcOptimizationOptions = {0};
+  std::vector<std::string> DisabledOptimizations = Args.getAllArgValues(OPT_opt_disable);
+  for (std::string opt : DisabledOptimizations) {
+    llvm::StringRef gvn("gvn");
+    if (gvn.equals_lower(opt))
+      opts.DxcOptimizationOptions.DisableGVN = true;
+  }
+
   if (!opts.ForceRootSigVer.empty() && opts.ForceRootSigVer != "rootsig_1_0" &&
       opts.ForceRootSigVer != "rootsig_1_1") {
     errors << "Unsupported value '" << opts.ForceRootSigVer

@@ -466,9 +466,13 @@ void PassManagerBuilder::populateModulePassManager(
   if (OptLevel > 1) {
     if (EnableMLSM)
       MPM.add(createMergedLoadStoreMotionPass()); // Merge ld/st in diamonds
-    MPM.add(createGVNPass(DisableGVNLoadPRE));  // Remove redundancies
-    if (!HLSLResMayAlias)
-      MPM.add(createDxilSimpleGVNHoistPass()); // HLSL Change - GVN hoist for code size.
+    // HLSL Change Begins
+    if (!(HLSLOptimizationOptions.DisableGVN)) {
+      MPM.add(createGVNPass(DisableGVNLoadPRE));  // Remove redundancies
+      if (!HLSLResMayAlias)
+        MPM.add(createDxilSimpleGVNHoistPass());
+    }
+    // HLSL Change Ends
   }
   // HLSL Change Begins.
   // HLSL don't allow memcpy and memset.
@@ -737,7 +741,8 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // PM.add(createLICMPass());                 // Hoist loop invariants.
   if (EnableMLSM)
     PM.add(createMergedLoadStoreMotionPass()); // Merge ld/st in diamonds.
-  PM.add(createGVNPass(DisableGVNLoadPRE)); // Remove redundancies.
+  if (!(HLSLOptimizationOptions.DisableGVN)) // HLSL Change
+    PM.add(createGVNPass(DisableGVNLoadPRE)); // Remove redundancies.
   PM.add(createMemCpyOptPass());            // Remove dead memcpys.
 
   // Nuke dead stores.
