@@ -230,6 +230,8 @@ def flegacy_macro_expansion : Flag<["-", "/"], "flegacy-macro-expansion">, Group
     HelpText<"Expand the operands before performing token-pasting operation (fxc behavior)">;
 def flegacy_resource_reservation : Flag<["-", "/"], "flegacy-resource-reservation">, Group<hlslcomp_Group>, Flags<[CoreOption, DriverOption]>,
     HelpText<"Reserve unused explicit register assignments for compatibility with shader model 5.0 and below">;
+def structurize_returns : Flag<["-", "/"], "structurize-returns">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
+  HelpText<"structurize return control flow for functions with multiple returns.">;
 def no_legacy_cbuf_layout : Flag<["-", "/"], "no-legacy-cbuf-layout">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"Do not use legacy cbuffer load">;
 def not_use_legacy_cbuf_load_ : Flag<["-", "/"], "not_use_legacy_cbuf_load">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
