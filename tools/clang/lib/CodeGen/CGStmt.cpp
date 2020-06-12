@@ -600,7 +600,7 @@ void CodeGenFunction::EmitIfStmt(const IfStmt &S,
   llvm::TerminatorInst *TI =
       cast<llvm::TerminatorInst>(*ThenBlock->user_begin());
   CGM.getHLSLRuntime().AddControlFlowHint(*this, S, TI, Attrs);
-  CGM.getHLSLRuntime().MarkThenStmt(*this, ContBlock);
+  CGM.getHLSLRuntime().MarkIfStmt(*this, ContBlock);
   // HLSL Change Ends
 
   // Emit the 'then' code.
@@ -612,15 +612,8 @@ void CodeGenFunction::EmitIfStmt(const IfStmt &S,
   }
   EmitBranch(ContBlock);
 
-  // HLSL Change Begin.
-  CGM.getHLSLRuntime().MarkScopeEnd(*this);
-  // HLSL Change End.
-
   // Emit the 'else' code if present.
   if (const Stmt *Else = S.getElse()) {
-    // HLSL Change Begin.
-    CGM.getHLSLRuntime().MarkElseStmt(*this, ContBlock);
-    // HLSL Change End.
     {
       // There is no need to emit line number for an unconditional branch.
       auto NL = ApplyDebugLocation::CreateEmpty(*this);
@@ -636,10 +629,10 @@ void CodeGenFunction::EmitIfStmt(const IfStmt &S,
       EmitBranch(ContBlock);
     }
 
-    // HLSL Change Begin.
-    CGM.getHLSLRuntime().MarkScopeEnd(*this);
-    // HLSL Change End.
   }
+  // HLSL Change Begin.
+  CGM.getHLSLRuntime().MarkScopeEnd(*this);
+  // HLSL Change End.
   // Emit the continuation block for code after the if.
   EmitBlock(ContBlock, true);
 }
@@ -827,6 +820,10 @@ void CodeGenFunction::EmitWhileStmt(const WhileStmt &S,
 
   LoopStack.pop();
 
+  // HLSL Change Begin.
+  CGM.getHLSLRuntime().MarkScopeEnd(*this);
+  // HLSL Change End.
+
   // Emit the exit block.
   EmitBlock(LoopExit.getBlock(), true);
 
@@ -834,9 +831,6 @@ void CodeGenFunction::EmitWhileStmt(const WhileStmt &S,
   // a branch, try to erase it.
   if (!EmitBoolCondBranch)
     SimplifyForwardingBlocks(LoopHeader.getBlock());
-  // HLSL Change Begin.
-  CGM.getHLSLRuntime().MarkScopeEnd(*this);
-  // HLSL Change End.
 }
 
 void CodeGenFunction::EmitDoStmt(const DoStmt &S,
@@ -896,6 +890,10 @@ void CodeGenFunction::EmitDoStmt(const DoStmt &S,
 
   LoopStack.pop();
 
+  // HLSL Change Begin.
+  CGM.getHLSLRuntime().MarkScopeEnd(*this);
+  // HLSL Change End.
+
   // Emit the exit block.
   EmitBlock(LoopExit.getBlock());
 
@@ -903,9 +901,6 @@ void CodeGenFunction::EmitDoStmt(const DoStmt &S,
   // emitting a branch, try to erase it.
   if (!EmitBoolCondBranch)
     SimplifyForwardingBlocks(LoopCond.getBlock());
-  // HLSL Change Begin.
-  CGM.getHLSLRuntime().MarkScopeEnd(*this);
-  // HLSL Change End.
 }
 
 void CodeGenFunction::EmitForStmt(const ForStmt &S,
@@ -1004,11 +999,12 @@ void CodeGenFunction::EmitForStmt(const ForStmt &S,
 
   LoopStack.pop();
 
-  // Emit the fall-through block.
-  EmitBlock(LoopExit.getBlock(), true);
   // HLSL Change Begin.
   CGM.getHLSLRuntime().MarkScopeEnd(*this);
   // HLSL Change End.
+
+  // Emit the fall-through block.
+  EmitBlock(LoopExit.getBlock(), true);
 }
 
 void
@@ -1728,6 +1724,10 @@ void CodeGenFunction::EmitSwitchStmt(const SwitchStmt &S,
 
   ConditionScope.ForceCleanup();
 
+  // HLSL Change Begin.
+  CGM.getHLSLRuntime().MarkScopeEnd(*this);
+  // HLSL Change End.
+
   // Emit continuation.
   EmitBlock(SwitchExit.getBlock(), true);
   incrementProfileCounter(&S);
@@ -1744,9 +1744,6 @@ void CodeGenFunction::EmitSwitchStmt(const SwitchStmt &S,
   SwitchInsn = SavedSwitchInsn;
   SwitchWeights = SavedSwitchWeights;
   CaseRangeBlock = SavedCRBlock;
-  // HLSL Change Begin.
-  CGM.getHLSLRuntime().MarkScopeEnd(*this);
-  // HLSL Change End.
 }
 
 static std::string

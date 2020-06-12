@@ -2668,6 +2668,10 @@ ScopeInfo::ScopeInfo(Function *F) {
   Scope FuncScope;
   FuncScope.kind = Scope::ScopeKind::FunctionScope;
   FuncScope.EndScopeBB = nullptr;
+  FuncScope.bWholeScopeReturned = false;
+  // Make it 0 to avoid check when get parent.
+  // All loop on scopes should check kind != FunctionScope.
+  FuncScope.parentScopeIndex = 0;
   scopes.emplace_back(FuncScope);
   scopeStack.emplace_back(0);
 }
@@ -2675,18 +2679,15 @@ ScopeInfo::ScopeInfo(Function *F) {
 void ScopeInfo::AddScope(Scope::ScopeKind k, BasicBlock *endScopeBB) {
   Scope Scope;
   Scope.kind = k;
+  Scope.bWholeScopeReturned = false;
   Scope.EndScopeBB = endScopeBB;
   Scope.parentScopeIndex = scopeStack.back();
   scopeStack.emplace_back(scopes.size());
   scopes.emplace_back(Scope);
 }
 
-void ScopeInfo::AddThen(BasicBlock *endIfBB) {
-  AddScope(Scope::ScopeKind::ThenScope, endIfBB);
-}
-
-void ScopeInfo::AddElse(BasicBlock *endIfBB) {
-  AddScope(Scope::ScopeKind::ElseScope, endIfBB);
+void ScopeInfo::AddIf(BasicBlock *endIfBB) {
+  AddScope(Scope::ScopeKind::IfScope, endIfBB);
 }
 
 void ScopeInfo::AddSwitch(BasicBlock *endSwitch) {
@@ -2703,15 +2704,37 @@ void ScopeInfo::AddRet(BasicBlock *bbWithRet) {
   RetScope.kind = Scope::ScopeKind::ReturnScope;
   RetScope.EndScopeBB = bbWithRet;
   RetScope.parentScopeIndex = scopeStack.back();
+  // return finish current scope.
+  RetScope.bWholeScopeReturned = true;
   // save retScope to rets.
   rets.emplace_back(scopes.size());
   scopes.emplace_back(RetScope);
   // Don't need to put retScope to stack since it cannot nested other scopes.
 }
 
-void ScopeInfo::EndScope() { scopeStack.pop_back(); }
+void ScopeInfo::EndScope(bool bScopeFinishedWithRet) {
+  unsigned idx = scopeStack.pop_back_val();
+  Scope &Scope = GetScope(idx);
+  // If whole stmt is finished and end scope bb has not used(nothing branch to
+  // it). Then the whole scope is returned.
+  Scope.bWholeScopeReturned =
+      bScopeFinishedWithRet && Scope.EndScopeBB->user_empty();
+}
 
 Scope &ScopeInfo::GetScope(unsigned i) { return scopes[i]; }
+
+void ScopeInfo::LegalizeWholeReturnedScope() {
+  // legalize scopes which whole scope returned.
+  // When whole scope is returned, the endScopeBB will be deleted in codeGen.
+  // Here update it to parent scope's endScope.
+  // Since the scopes are in order, so it will automatic update to the final
+  // target. A->B->C will just get A->C.
+  for (auto &S : scopes) {
+    if (S.bWholeScopeReturned && S.kind != Scope::ScopeKind::ReturnScope) {
+      S.EndScopeBB = scopes[S.parentScopeIndex].EndScopeBB;
+    }
+  }
+}
 
 } // namespace CGHLSLMSHelper
 
@@ -2723,6 +2746,10 @@ BasicBlock *createBlockBefore(BasicBlock *BB) {
       BasicBlock::Create(BB->getContext(), "", BB->getParent(), InsertBefore);
   return New;
 }
+
+void SturcturizeRet() {
+}
+
 // For functions has multiple returns like
 // float foo(float a, float b, float c) {
 //   float r = c;
@@ -2773,81 +2800,88 @@ void StructurizeMultiRetFunction(
   B.CreateStore(ConstantInt::get(boolTy, 0), bIsReturned);
   Constant *cTrue = ConstantInt::get(boolTy, 1);
 
+  Scope &RetScope = ScopeInfo.GetScope(rets[0]);
+  BasicBlock *exitBB = RetScope.EndScopeBB->getTerminator()->getSuccessor(0);
+  FunctionScope.EndScopeBB = exitBB;
+
+  ScopeInfo.LegalizeWholeReturnedScope();
+
   for (unsigned scopeIndex : rets) {
-    Scope &retScope = ScopeInfo.GetScope(scopeIndex);
-    Scope &curScope = ScopeInfo.GetScope(retScope.parentScopeIndex);
+    Scope *pCurScope = &ScopeInfo.GetScope(scopeIndex);
+    Scope *pParentScope = &ScopeInfo.GetScope(pCurScope->parentScopeIndex);
     // skip ret not in nested control flow.
-    if (curScope.kind == Scope::ScopeKind::FunctionScope)
+    if (pParentScope->kind == Scope::ScopeKind::FunctionScope)
       continue;
 
-    BasicBlock *retBB = retScope.EndScopeBB;
-    Instruction *RetInst = retBB->getTerminator();
-    IRBuilder<> B(retBB->begin());
-    // bIsReturned = true;
-    B.CreateStore(cTrue, bIsReturned);
-
-    BranchInst *Br = cast<BranchInst>(RetInst);
-    if (!FunctionScope.EndScopeBB) {
-      FunctionScope.EndScopeBB = Br->getSuccessor(0);
-    }
-    // First level just branch to parentScope.
-    BasicBlock *endScopeBB = curScope.EndScopeBB;
-    Br->setSuccessor(0, endScopeBB);
-
-    // Guard parent scopes with bReturned until finish function scope.
-    Scope &parentScope = ScopeInfo.GetScope(curScope.parentScopeIndex);
-    while (true) {
-      BasicBlock *BB = curScope.EndScopeBB;
-      BasicBlock *EndBB = parentScope.EndScopeBB;
-      switch (parentScope.kind) {
-      case Scope::ScopeKind::FunctionScope:
-      case Scope::ScopeKind::ThenScope:
-      case Scope::ScopeKind::ElseScope: {
-        // inside if.
-        // if (!bReturned) {
-        //   rest of if or else.
-        // }
-        BasicBlock *CmpBB =
-            BasicBlock::Create(BB->getContext(), "bReturned.cmp.false", F, BB);
-        // Make BB preds go to cmpBB.
-        BB->replaceAllUsesWith(CmpBB);
-        IRBuilder<> B(CmpBB);
-        Value *isRetured = B.CreateLoad(bIsReturned, "bReturned.load");
-        Value *notRetunred = B.CreateNot(isRetured, "bReturned.not");
-        B.CreateCondBr(notRetunred, BB, EndBB);
-      } break;
-      default: {
-        // inside switch/loop
-        // if (bReturned) {
-        //   br endOfScope.
-        // }
-        BasicBlock *CmpBB =
-            BasicBlock::Create(BB->getContext(), "bReturned.cmp.true", F, BB);
-        BasicBlock *BreakBB =
-            BasicBlock::Create(BB->getContext(), "bReturned.break", F, BB);
-        BB->replaceAllUsesWith(CmpBB);
-        IRBuilder<> B(CmpBB);
-        Value *isRetured = B.CreateLoad(bIsReturned, "bReturned.load");
-        B.CreateCondBr(isRetured, BreakBB, BB);
-
-        B.SetInsertPoint(BreakBB);
-        if (bWaveEnabledStage &&
-            parentScope.kind == Scope::ScopeKind::LoopScope) {
-          BranchInst *BI =
-              B.CreateCondBr(cTrue, EndBB, parentScope.loopContinueBB);
-          DxBreaks.emplace_back(BI);
-        } else {
-          B.CreateBr(EndBB);
+    do {
+      BasicBlock *BB = pCurScope->EndScopeBB;
+      BasicBlock *EndBB = pParentScope->EndScopeBB;
+      // When whole scope returned, just branch to endScope of parent.
+      if (pCurScope->bWholeScopeReturned) {
+        // For ret, just branch to endScope of parent.
+        if (pCurScope->kind == Scope::ScopeKind::ReturnScope) {
+          BasicBlock *retBB = pCurScope->EndScopeBB;
+          TerminatorInst *retBr = retBB->getTerminator();
+          IRBuilder<> B(retBr);
+          B.CreateStore(cTrue, bIsReturned);
+          retBr->setSuccessor(0, EndBB);
         }
-      } break;
+        // For other scope, do nothing. Since whole scope is returned.
+        // Just flow naturally to parent scope.
+      } else {
+        // When only part scope returned.
+        // Use bIsReturned to guard to part which not returned.
+        switch (pParentScope->kind) {
+        case Scope::ScopeKind::ReturnScope:
+          DXASSERT(0, "return scope must get whole scope returned.");
+          break;
+        case Scope::ScopeKind::FunctionScope:
+        case Scope::ScopeKind::IfScope: {
+          // inside if.
+          // if (!bReturned) {
+          //   rest of if or else.
+          // }
+          BasicBlock *CmpBB = BasicBlock::Create(BB->getContext(),
+                                                 "bReturned.cmp.false", F, BB);
+          // Make BB preds go to cmpBB.
+          BB->replaceAllUsesWith(CmpBB);
+          IRBuilder<> B(CmpBB);
+          Value *isRetured = B.CreateLoad(bIsReturned, "bReturned.load");
+          Value *notRetunred = B.CreateNot(isRetured, "bReturned.not");
+          B.CreateCondBr(notRetunred, BB, EndBB);
+        } break;
+        default: {
+          // inside switch/loop
+          // if (bReturned) {
+          //   br endOfScope.
+          // }
+          BasicBlock *CmpBB =
+              BasicBlock::Create(BB->getContext(), "bReturned.cmp.true", F, BB);
+          BasicBlock *BreakBB =
+              BasicBlock::Create(BB->getContext(), "bReturned.break", F, BB);
+          BB->replaceAllUsesWith(CmpBB);
+          IRBuilder<> B(CmpBB);
+          Value *isRetured = B.CreateLoad(bIsReturned, "bReturned.load");
+          B.CreateCondBr(isRetured, BreakBB, BB);
+
+          B.SetInsertPoint(BreakBB);
+          if (bWaveEnabledStage &&
+              pParentScope->kind == Scope::ScopeKind::LoopScope) {
+            BranchInst *BI =
+                B.CreateCondBr(cTrue, EndBB, pParentScope->loopContinueBB);
+            DxBreaks.emplace_back(BI);
+          } else {
+            B.CreateBr(EndBB);
+          }
+        } break;
+        }
       }
 
-      curScope = ScopeInfo.GetScope(curScope.parentScopeIndex);
-      // break after done with function scope.
-      if (curScope.kind == Scope::ScopeKind::FunctionScope)
-        break;
-      parentScope = ScopeInfo.GetScope(parentScope.parentScopeIndex);
-    }
+      pParentScope = &ScopeInfo.GetScope(pParentScope->parentScopeIndex);
+      pCurScope = &ScopeInfo.GetScope(pCurScope->parentScopeIndex);
+      // done when reach function scope.
+    } while (pCurScope->kind != Scope::ScopeKind::FunctionScope);
+
   }
 }
 } // namespace
@@ -2860,7 +2894,8 @@ void StructurizeMultiRet(Module &M, DenseMap<Function *, ScopeInfo> &ScopeMap,
     if (F.isDeclaration())
       continue;
     auto it = ScopeMap.find(&F);
-    DXASSERT(it != ScopeMap.end(), "cannot find scope info");
+    if (it == ScopeMap.end())
+      continue;
     StructurizeMultiRetFunction(&F, it->second, bWaveEnabledStage, DxBreaks);
   }
 }
