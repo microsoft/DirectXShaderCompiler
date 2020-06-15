@@ -2805,7 +2805,8 @@ void InitRetValue(BasicBlock *exitBB) {
     Type *Ty = RetVAlloc->getAllocatedType();
     Value *Init = Constant::getNullValue(Ty);
     if (Ty->isAggregateType()) {
-      // TODO:
+      // TODO: support aggreagate type and out parameters.
+      // Skip it here will cause undef on phi which the incoming path should never hit.
     } else {
       B.CreateStore(Init, RetVAlloc);
     }
