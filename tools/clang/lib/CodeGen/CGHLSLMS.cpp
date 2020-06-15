@@ -285,8 +285,7 @@ public:
   void MarkRetTemp(CodeGenFunction &CGF, llvm::Value *V,
                   clang::QualType QaulTy) override;
   void FinishAutoVar(CodeGenFunction &CGF, const VarDecl &D, llvm::Value *V) override;
-  void MarkThenStmt(CodeGenFunction &CGF, BasicBlock *endIfBB) override;
-  void MarkElseStmt(CodeGenFunction &CGF, BasicBlock *endIfBB) override;
+  void MarkIfStmt(CodeGenFunction &CGF, BasicBlock *endIfBB) override;
   void MarkSwitchStmt(CodeGenFunction &CGF, SwitchInst *switchInst,
                       BasicBlock *endSwitch) override;
   void MarkReturnStmt(CodeGenFunction &CGF, BasicBlock *bbWithRet) override;
@@ -5677,20 +5676,15 @@ ScopeInfo *CGMSHLSLRuntime::GetScopeInfo(Function *F) {
   return &it->second;
 }
 
-void CGMSHLSLRuntime::MarkThenStmt(CodeGenFunction &CGF, BasicBlock *endIfBB) {
+void CGMSHLSLRuntime::MarkIfStmt(CodeGenFunction &CGF, BasicBlock *endIfBB) {
   if (ScopeInfo *Scope = GetScopeInfo(CGF.CurFn))
-    Scope->AddThen(endIfBB);
+    Scope->AddIf(endIfBB);
 }
 
-void CGMSHLSLRuntime::MarkElseStmt(CodeGenFunction &CGF, BasicBlock *endIfBB) {
-  if (ScopeInfo *Scope = GetScopeInfo(CGF.CurFn))
-    Scope->AddElse(endIfBB);
-}
 
 void CGMSHLSLRuntime::MarkSwitchStmt(CodeGenFunction &CGF,
                                      SwitchInst *switchInst,
                                      BasicBlock *endSwitch) {
-
   if (ScopeInfo *Scope = GetScopeInfo(CGF.CurFn))
     Scope->AddSwitch(endSwitch);
 }
@@ -5709,8 +5703,11 @@ void CGMSHLSLRuntime::MarkLoopStmt(CodeGenFunction &CGF,
 }
 
 void CGMSHLSLRuntime::MarkScopeEnd(CodeGenFunction &CGF) {
-  if (ScopeInfo *Scope = GetScopeInfo(CGF.CurFn))
-    Scope->EndScope();
+  if (ScopeInfo *Scope = GetScopeInfo(CGF.CurFn)) {
+    llvm::BasicBlock *CurBB = CGF.Builder.GetInsertBlock();
+    bool bScopeFinishedWithRet = !CurBB || CurBB->getTerminator();
+    Scope->EndScope(bScopeFinishedWithRet);
+  }
 }
 
 CGHLSLRuntime *CodeGen::CreateMSHLSLRuntime(CodeGenModule &CGM) {

@@ -6,6 +6,8 @@ float main(float4 a:A) : SV_Target {
 // Init bReturned.
 // CHECK:%[[bReturned:.*]] = alloca i1
 // CHECK:store i1 false, i1* %[[bReturned]]
+// Init retVal to 0.
+// CHECK:store float 0.000000e+00
 
   float c = 0;
 
@@ -20,7 +22,7 @@ float main(float4 a:A) : SV_Target {
 // guard rest of scope with !bReturned
 // CHECK: [[label_bRet_cmp_false:.*]] ; preds =
 // CHECK:%[[RET:.*]] = load i1, i1* %[[bReturned]]
-// CHECK:%[[NRET:.*]] = xor i1 %[[RET]], true
+// CHECK:%[[NRET:.*]] = icmp ne i1 %[[RET]], false
 // CHECK:br i1 %[[NRET]],
 
 // CHECK: [[label3:.*]]  ; preds =
@@ -35,7 +37,7 @@ float main(float4 a:A) : SV_Target {
       return -5;
 // CHECK: [[label_bRet_cmp_false2:.*]] ; preds =
 // CHECK:%[[RET2:.*]] = load i1, i1* %[[bReturned]]
-// CHECK:%[[NRET2:.*]] = xor i1 %[[RET2]], true
+// CHECK:%[[NRET2:.*]] = icmp ne i1 %[[RET2]], false
 // CHECK:br i1 %[[NRET2]],
 
 // CHECK: [[label4:.*]] ; preds =
@@ -43,13 +45,9 @@ float main(float4 a:A) : SV_Target {
 // guard after endif.
 // CHECK: [[label_bRet_cmp_false3:.*]] ; preds =
 // CHECK:%[[RET3:.*]] = load i1, i1* %[[bReturned]]
-// CHECK:%[[NRET3:.*]] = xor i1 %[[RET3]], true
+// CHECK:%[[NRET3:.*]] = icmp ne i1 %[[RET3]], false
 // CHECK:br i1 %[[NRET3]],
-// guard after endif for else.
-// CHECK: [[label_bRet_cmp_false4:.*]] ; preds =
-// CHECK:%[[RET4:.*]] = load i1, i1* %[[bReturned]]
-// CHECK:%[[NRET4:.*]] = xor i1 %[[RET4]], true
-// CHECK:br i1 %[[NRET4]],
+
   }
 // CHECK: [[endif:.*]] ; preds =
 
@@ -63,14 +61,10 @@ float main(float4 a:A) : SV_Target {
     if (c > 10)
 // set bIsReturn to true
 // CHECK:store i1 true, i1* %[[bReturned]]
+// dxBreak.
+// CHECK:br i1 true,
       return -2;
 
-// CHECK: [[label_bRet_cmp_true:.*]] ; preds =
-// CHECK:%[[RET5:.*]] = load i1, i1* %[[bReturned]]
-// CHECK:br i1 %[[RET5]],
-// CHECK: [[label_bRet_break:.*]] ; preds =
-// dxBreak
-// CHECK:br i1 true,
 // CHECK: [[endif_in_loop:.*]] ; preds =
 
 // CHECK: [[for_inc:.*]] ; preds =
@@ -78,7 +72,7 @@ float main(float4 a:A) : SV_Target {
 // Guard after loop.
 // CHECK: [[label_bRet_cmp_false5:.*]] ; preds =
 // CHECK:%[[RET6:.*]] = load i1, i1* %[[bReturned]]
-// CHECK:%[[NRET6:.*]] = xor i1 %[[RET6]], true
+// CHECK:%[[NRET6:.*]] = icmp ne i1 %[[RET6]], false
 // CHECK:br i1 %[[NRET6]],
 
   }
@@ -103,13 +97,8 @@ float main(float4 a:A) : SV_Target {
          if (c < 10)
 // set bIsReturn to true
 // CHECK:store i1 true, i1* %[[bReturned]]
+// return just change to branch out of switch.
          return -3;
-// CHECK: [[label_bRet_cmp_true2:.*]] ; preds =
-// CHECK:%[[RET7:.*]] = load i1, i1* %[[bReturned]]
-// CHECK:br i1 %[[RET7]],
-// CHECK: [[label_bRet_break2:.*]] ; preds =
-// normal break
-// CHECK:br label
 
 // CHECK: [[endif_in_switch:.*]] ; preds =
        c += sin(a.x);
@@ -118,7 +107,7 @@ float main(float4 a:A) : SV_Target {
 // guard code after switch.
 // CHECK: [[label_bRet_cmp_false6:.*]] ; preds =
 // CHECK:%[[RET8:.*]] = load i1, i1* %[[bReturned]]
-// CHECK:%[[NRET8:.*]] = xor i1 %[[RET8]], true
+// CHECK:%[[NRET8:.*]] = icmp ne i1 %[[RET8]], false
 // CHECK:br i1 %[[NRET8]]
 
 // CHECK: [[end_switch:.*]]; preds =
