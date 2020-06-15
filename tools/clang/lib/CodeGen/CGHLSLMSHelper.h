@@ -78,8 +78,7 @@ private:
 // Scope to help transform multiple returns.
 struct Scope {
  enum class ScopeKind {
-   ThenScope,
-   ElseScope,
+   IfScope,
    SwitchScope,
    LoopScope,
    ReturnScope,
@@ -89,6 +88,19 @@ struct Scope {
  llvm::BasicBlock *EndScopeBB;
  // Save loopContinueBB to create dxBreak.
  llvm::BasicBlock *loopContinueBB;
+ // For case like
+ // if () {
+ //   ...
+ //   return;
+ // } else {
+ //   ...
+ //   return;
+ // }
+ //
+ // both path is returned.
+ // When whole scope is returned, go to parent scope directly.
+ // Anything after it is unreachable.
+ bool bWholeScopeReturned;
  unsigned parentScopeIndex;
 };
 
@@ -96,17 +108,22 @@ class ScopeInfo {
 public:
   ScopeInfo(){}
   ScopeInfo(llvm::Function *F);
-  void AddThen(llvm::BasicBlock *endIfBB);
-  void AddElse(llvm::BasicBlock *endIfBB);
+  void AddIf(llvm::BasicBlock *endIfBB);
   void AddSwitch(llvm::BasicBlock *endSwitchBB);
   void AddLoop(llvm::BasicBlock *loopContinue, llvm::BasicBlock *endLoopBB);
   void AddRet(llvm::BasicBlock *bbWithRet);
-  void EndScope();
+  void EndScope(bool bScopeFinishedWithRet);
   Scope &GetScope(unsigned i);
   const llvm::SmallVector<unsigned, 2> &GetRetScopes() { return rets; }
+  void LegalizeWholeReturnedScope();
+  llvm::SmallVector<Scope, 16> &GetScopes() { return scopes; }
+  bool CanSkipStructurize();
+
 private:
   void AddScope(Scope::ScopeKind k, llvm::BasicBlock *endScopeBB);
   llvm::SmallVector<unsigned, 2> rets;
+  unsigned maxRetLevel;
+  bool bAllReturnsInIf;
   llvm::SmallVector<unsigned, 8> scopeStack;
   // save all scopes.
   llvm::SmallVector<Scope, 16> scopes;
