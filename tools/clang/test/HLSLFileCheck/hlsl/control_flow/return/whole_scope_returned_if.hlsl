@@ -5,6 +5,9 @@ float main(float4 a:A) : SV_Target {
 // CHECK:%[[bReturned:.*]] = alloca i1
 // CHECK:store i1 false, i1* %[[bReturned]]
 
+// Init retVal to 0.
+// CHECK:store float 0.000000e+00
+
 // CHECK: [[label:.*]] ; preds =
   if (a.w < 0) {
 // CHECK: [[label2:.*]] ; preds =
@@ -23,13 +26,8 @@ float main(float4 a:A) : SV_Target {
 // guard rest of scope with !bReturned
 // CHECK: [[label_bRet_cmp_false:.*]] ; preds =
 // CHECK:%[[RET:.*]] = load i1, i1* %[[bReturned]]
-// CHECK:%[[NRET:.*]] = xor i1 %[[RET]], true
+// CHECK:%[[NRET:.*]] = icmp ne i1 %[[RET]], false
 // CHECK:br i1 %[[NRET]],
-
-// CHECK: [[label_bRet_cmp_false2:.*]] ; preds =
-// CHECK:%[[RET2:.*]] = load i1, i1* %[[bReturned]]
-// CHECK:%[[NRET2:.*]] = xor i1 %[[RET2]], true
-// CHECK:br i1 %[[NRET2]],
 
 // CHECK: [[label3:.*]]  ; preds =
   return cos(a.x+a.y);

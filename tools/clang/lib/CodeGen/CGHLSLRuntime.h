@@ -130,8 +130,7 @@ public:
 
   virtual void FinishAutoVar(CodeGenFunction &CGF, const VarDecl &D,
                              llvm::Value *V) = 0;
-  virtual void MarkIfStmt(CodeGenFunction &CGF,
-                            llvm::BasicBlock *endIfBB) = 0;
+  virtual void MarkIfStmt(CodeGenFunction &CGF, llvm::BasicBlock *endIfBB) = 0;
   virtual void MarkSwitchStmt(CodeGenFunction &CGF,
                               llvm::SwitchInst *switchInst,
                               llvm::BasicBlock *endSwitch) = 0;

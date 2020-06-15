@@ -1,28 +1,32 @@
 // RUN: %dxc -E main -fcgl -structurize-returns -T ps_6_0 %s | FileCheck %s
 
 int i;
-
+// CHECK:define float @main
 float main(float4 a:A) : SV_Target {
 // Init bReturned.
 // CHECK:%[[bReturned:.*]] = alloca i1
-// CHECK:store i1 false, i1* %[[bReturned]]
+// CHECK-NEXT:store i1 false, i1* %[[bReturned]]
+// Init retVal to 0.
+// CHECK:store float 0.000000e+00
   float r = a.w;
 
-// CHECK: [[label:.*]] ; preds =
+// CHECK: [[if_then:.*]] ; preds =
   if (a.z > 0) {
 // CHECK: [[for_cond:.*]] ; preds =
     for (int j=0;j<i;j++) {
 // CHECK: [[for_body:.*]] ; preds =
 // set bReturned to true.
 // CHECK:store i1 true, i1* %[[bReturned]]
+// dxBreak
+// CHECK:br i1 true
        return log(i);
 
-// CHECK: [[for_inc:.*]] ; No predecessors!
+// CHECK: [[for_inc:.*]] ; preds =
     }
 // guard rest of scope with !bReturned
-// CHECK: [[label_bRet_cmp_false:.*]] ; preds =
+// CHECK: [[bRet_cmp_false:.*]] ; preds =
 // CHECK:%[[RET:.*]] = load i1, i1* %[[bReturned]]
-// CHECK:%[[NRET:.*]] = xor i1 %[[RET]], true
+// CHECK:%[[NRET:.*]] = icmp ne i1 %[[RET]], false
 // CHECK:br i1 %[[NRET]],
 
 // CHECK: [[for_end:.*]]  ; preds =

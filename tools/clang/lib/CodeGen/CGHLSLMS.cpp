@@ -5685,7 +5685,6 @@ void CGMSHLSLRuntime::MarkIfStmt(CodeGenFunction &CGF, BasicBlock *endIfBB) {
 void CGMSHLSLRuntime::MarkSwitchStmt(CodeGenFunction &CGF,
                                      SwitchInst *switchInst,
                                      BasicBlock *endSwitch) {
-
   if (ScopeInfo *Scope = GetScopeInfo(CGF.CurFn))
     Scope->AddSwitch(endSwitch);
 }

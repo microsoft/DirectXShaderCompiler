@@ -88,7 +88,6 @@ struct Scope {
  llvm::BasicBlock *EndScopeBB;
  // Save loopContinueBB to create dxBreak.
  llvm::BasicBlock *loopContinueBB;
-
  // For case like
  // if () {
  //   ...
@@ -118,10 +117,13 @@ public:
   const llvm::SmallVector<unsigned, 2> &GetRetScopes() { return rets; }
   void LegalizeWholeReturnedScope();
   llvm::SmallVector<Scope, 16> &GetScopes() { return scopes; }
+  bool CanSkipStructurize();
 
 private:
   void AddScope(Scope::ScopeKind k, llvm::BasicBlock *endScopeBB);
   llvm::SmallVector<unsigned, 2> rets;
+  unsigned maxRetLevel;
+  bool bAllReturnsInIf;
   llvm::SmallVector<unsigned, 8> scopeStack;
   // save all scopes.
   llvm::SmallVector<Scope, 16> scopes;
