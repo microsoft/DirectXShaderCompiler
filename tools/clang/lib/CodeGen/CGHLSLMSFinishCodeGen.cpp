@@ -2789,6 +2789,14 @@ void updateEndScope(
   EndBBToScopeIndexMap[newEndScope] = scopeList;
 }
 
+// Init ret value with undef to make sure it will not live thru loop inside
+// callers.
+// Because structurize return, the flow is controled by bIsReturned. The
+// semantic is the same as multiple return, but without konwledge of
+// bIsReturend, some path for structrized flow will have ret value not
+// initialized.
+// When function is called inside loop, ret value will live across the loop
+// after inline.
 void InitRetValue(BasicBlock *exitBB) {
   Value *RetValPtr = nullptr;
   if (ReturnInst *RI = dyn_cast<ReturnInst>(exitBB->getTerminator())) {
@@ -2803,7 +2811,7 @@ void InitRetValue(BasicBlock *exitBB) {
   if (AllocaInst *RetVAlloc = dyn_cast<AllocaInst>(RetValPtr)) {
     IRBuilder<> B(RetVAlloc->getNextNode());
     Type *Ty = RetVAlloc->getAllocatedType();
-    Value *Init = Constant::getNullValue(Ty);
+    Value *Init = UndefValue::get(Ty);
     if (Ty->isAggregateType()) {
       // TODO: support aggreagate type and out parameters.
       // Skip it here will cause undef on phi which the incoming path should never hit.
