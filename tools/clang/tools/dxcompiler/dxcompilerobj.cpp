@@ -67,7 +67,7 @@ using namespace clang;
 using namespace hlsl;
 using std::string;
 
-DEFINE_CROSS_PLATFORM_UUIDOF(IDxcLangExtensions)
+DEFINE_CROSS_PLATFORM_UUIDOF(IDxcLangExtensions2)
 
 // This declaration is used for the locally-linked validator.
 HRESULT CreateDxcValidator(_In_ REFIID riid, _Out_ LPVOID *ppv);
@@ -392,7 +392,7 @@ static void CreateDefineStrings(
 }
 
 class DxcCompiler : public IDxcCompiler3,
-                    public IDxcLangExtensions,
+                    public IDxcLangExtensions2,
                     public IDxcContainerEvent,
 #ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
                     public IDxcVersionInfo2
@@ -428,6 +428,7 @@ public:
     HRESULT hr = DoBasicQueryInterface<
       IDxcCompiler3,
       IDxcLangExtensions,
+      IDxcLangExtensions2,
       IDxcContainerEvent,
       IDxcVersionInfo
 #ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
@@ -809,7 +810,7 @@ public:
 
           dxcutil::AssembleInputs inputs(
                 action.takeModule(), pOutputBlob, m_pMalloc, SerializeFlags,
-                pOutputStream, opts.IsDebugInfoEnabled(),
+                pOutputStream, &m_langExtensionsHelper,opts.IsDebugInfoEnabled(),
                 opts.GetPDBName(), &compiler.getDiagnostics(),
                 &ShaderHashContent, pReflectionStream, pRootSigStream);
           if (needsValidation) {
@@ -997,6 +998,9 @@ public:
     // Setup a compiler instance.
     std::shared_ptr<TargetOptions> targetOptions(new TargetOptions);
     targetOptions->Triple = "dxil-ms-dx";
+    if (helper) {
+      targetOptions->Triple = helper->GetTargetTriple();
+    }
     targetOptions->DescriptionString = Opts.Enable16BitTypes
       ? hlsl::DXIL::kNewLayoutString
       : hlsl::DXIL::kLegacyLayoutString;

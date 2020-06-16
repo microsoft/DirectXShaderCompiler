@@ -197,7 +197,7 @@ HRESULT DxcValidator::RunValidation(
   PrintDiagnosticContext DiagContext(DiagPrinter);
   DiagRestore DR(pModule->getContext(), &DiagContext);
 
-  IFR(hlsl::ValidateDxilModule(pModule, pDebugModule));
+  IFR(hlsl::ValidateDxilModule(pModule, pDebugModule, nullptr));
   if (!(Flags & DxcValidatorFlags_ModuleOnly)) {
     IFR(ValidateDxilContainerParts(pModule, pDebugModule,
                       IsDxilContainerLike(pShader->GetBufferPointer(), pShader->GetBufferSize()),

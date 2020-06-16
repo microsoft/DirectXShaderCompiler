@@ -25,6 +25,7 @@ class DiagnosticInfo;
 }
 
 namespace hlsl {
+class DxcLangExtensionsCommonHelper;
 
 /* <py::lines('VALRULE-ENUM')>hctdb_instrhelp.get_valrule_enum()</py>*/
 // VALRULE-ENUM:BEGIN
@@ -280,7 +281,8 @@ enum class ValidationRule : unsigned {
 const char *GetValidationRuleText(ValidationRule value);
 void GetValidationVersion(_Out_ unsigned *pMajor, _Out_ unsigned *pMinor);
 HRESULT ValidateDxilModule(_In_ llvm::Module *pModule,
-                           _In_opt_ llvm::Module *pDebugModule);
+                           _In_opt_ llvm::Module *pDebugModule,
+                           _In_opt_ DxcLangExtensionsCommonHelper *helper);
 
 // DXIL Container Verification Functions (return false on failure)
 

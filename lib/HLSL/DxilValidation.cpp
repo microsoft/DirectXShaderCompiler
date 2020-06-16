@@ -27,6 +27,7 @@
 #include "llvm/Analysis/ReducibilityAnalysis.h"
 #include "dxc/DXIL/DxilEntryProps.h"
 #include "dxc/DXIL/DxilResourceProperties.h"
+#include "dxc/Support/DxcLangExtensionsCommonHelper.h"
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/Analysis/CallGraph.h"
@@ -385,6 +386,7 @@ struct ValidationContext {
   Module &M;
   Module *pDebugModule;
   DxilModule &DxilMod;
+  DxcLangExtensionsCommonHelper *pExtHelper;
   const DataLayout &DL;
   DebugLoc LastDebugLocEmit;
   ValidationRule LastRuleEmit;
@@ -405,8 +407,10 @@ struct ValidationContext {
   ModuleSlotTracker slotTracker;
 
   ValidationContext(Module &llvmModule, Module *DebugModule,
-                    DxilModule &dxilModule)
+                    DxilModule &dxilModule,
+                    DxcLangExtensionsCommonHelper *helper)
       : M(llvmModule), pDebugModule(DebugModule), DxilMod(dxilModule),
+        pExtHelper(helper),
         DL(llvmModule.getDataLayout()),
         LastRuleEmit((ValidationRule)-1),
         kDxilControlFlowHintMDKind(llvmModule.getContext().getMDKindID(
@@ -3828,7 +3832,10 @@ static void ValidateBitcode(ValidationContext &ValCtx) {
 static void ValidateMetadata(ValidationContext &ValCtx) {
   Module *pModule = &ValCtx.M;
   const std::string &target = pModule->getTargetTriple();
-  if (target != "dxil-ms-dx") {
+  std::string requiredTarget = "dxil-ms-dx";
+  if (ValCtx.pExtHelper)
+    requiredTarget = ValCtx.pExtHelper->GetTargetTriple();
+  if (target != requiredTarget) {
     ValCtx.EmitFormatError(ValidationRule::MetaTarget, {target});
   }
 
@@ -5579,8 +5586,10 @@ void GetValidationVersion(_Out_ unsigned *pMajor, _Out_ unsigned *pMinor) {
   // VALRULE-TEXT:END
 }
 
-_Use_decl_annotations_ HRESULT
-ValidateDxilModule(llvm::Module *pModule, llvm::Module *pDebugModule) {
+_Use_decl_annotations_ HRESULT ValidateDxilModule(
+    llvm::Module *pModule,
+    llvm::Module *pDebugModule,
+    DxcLangExtensionsCommonHelper *helper) {
   DxilModule *pDxilModule = DxilModule::TryGetDxilModule(pModule);
   if (!pDxilModule) {
     return DXC_E_IR_VERIFICATION_FAILED;
@@ -5590,7 +5599,7 @@ ValidateDxilModule(llvm::Module *pModule, llvm::Module *pDebugModule) {
     return DXC_E_IR_VERIFICATION_FAILED;
   }
 
-  ValidationContext ValCtx(*pModule, pDebugModule, *pDxilModule);
+  ValidationContext ValCtx(*pModule, pDebugModule, *pDxilModule, helper);
 
   ValidateBitcode(ValCtx);
 
@@ -5695,7 +5704,7 @@ bool VerifySignatureMatches(llvm::Module *pModule,
                             DXIL::SignatureKind SigKind,
                             const void *pSigData,
                             uint32_t SigSize) {
-  ValidationContext ValCtx(*pModule, nullptr, pModule->GetOrCreateDxilModule());
+  ValidationContext ValCtx(*pModule, nullptr, pModule->GetOrCreateDxilModule(), nullptr);
   VerifySignatureMatches(ValCtx, SigKind, pSigData, SigSize);
   return !ValCtx.Failed;
 }
@@ -5718,7 +5727,7 @@ _Use_decl_annotations_
 bool VerifyPSVMatches(llvm::Module *pModule,
                       const void *pPSVData,
                       uint32_t PSVSize) {
-  ValidationContext ValCtx(*pModule, nullptr, pModule->GetOrCreateDxilModule());
+  ValidationContext ValCtx(*pModule, nullptr, pModule->GetOrCreateDxilModule(), nullptr);
   VerifyPSVMatches(ValCtx, pPSVData, PSVSize);
   return !ValCtx.Failed;
 }
@@ -5765,7 +5774,7 @@ _Use_decl_annotations_
 bool VerifyRDATMatches(llvm::Module *pModule,
                        const void *pRDATData,
                        uint32_t RDATSize) {
-  ValidationContext ValCtx(*pModule, nullptr, pModule->GetOrCreateDxilModule());
+  ValidationContext ValCtx(*pModule, nullptr, pModule->GetOrCreateDxilModule(), nullptr);
   VerifyRDATMatches(ValCtx, pRDATData, RDATSize);
   return !ValCtx.Failed;
 }
@@ -5774,7 +5783,7 @@ _Use_decl_annotations_
 bool VerifyFeatureInfoMatches(llvm::Module *pModule,
                               const void *pFeatureInfoData,
                               uint32_t FeatureInfoSize) {
-  ValidationContext ValCtx(*pModule, nullptr, pModule->GetOrCreateDxilModule());
+  ValidationContext ValCtx(*pModule, nullptr, pModule->GetOrCreateDxilModule(), nullptr);
   VerifyFeatureInfoMatches(ValCtx, pFeatureInfoData, FeatureInfoSize);
   return !ValCtx.Failed;
 }
@@ -5795,7 +5804,7 @@ HRESULT ValidateDxilContainerParts(llvm::Module *pModule,
     return DXC_E_IR_VERIFICATION_FAILED;
   }
 
-  ValidationContext ValCtx(*pModule, pDebugModule, *pDxilModule);
+  ValidationContext ValCtx(*pModule, pDebugModule, *pDxilModule, nullptr);
 
   DXIL::ShaderKind ShaderKind = pDxilModule->GetShaderModel()->GetKind();
   bool bTessOrMesh = ShaderKind == DXIL::ShaderKind::Hull ||
@@ -6025,7 +6034,7 @@ HRESULT ValidateDxilBitcode(
                                      /*bLazyLoad*/ false)))
     return hr;
 
-  if (FAILED(hr = ValidateDxilModule(pModule.get(), nullptr)))
+  if (FAILED(hr = ValidateDxilModule(pModule.get(), nullptr, nullptr)))
     return hr;
 
   DxilModule &dxilModule = pModule->GetDxilModule();
@@ -6142,7 +6151,7 @@ HRESULT ValidateDxilContainer(const void *pContainer,
       Ctx, DbgCtx, DiagStream));
 
   // Validate DXIL Module
-  IFR(ValidateDxilModule(pModule.get(), pDebugModule.get()));
+  IFR(ValidateDxilModule(pModule.get(), pDebugModule.get(), nullptr));
 
   if (DiagContext.HasErrors() || DiagContext.HasWarnings()) {
     return DXC_E_IR_VERIFICATION_FAILED;
