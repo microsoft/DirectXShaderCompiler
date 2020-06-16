@@ -7,7 +7,7 @@ float main(float4 a:A) : SV_Target {
 // CHECK:%[[bReturned:.*]] = alloca i1
 // CHECK-NEXT:store i1 false, i1* %[[bReturned]]
 // Init retVal to 0.
-// CHECK:store float 0.000000e+00
+// CHECK:store float undef
   float r = a.w;
 
 // CHECK: [[if_then:.*]] ; preds =
