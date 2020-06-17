@@ -670,8 +670,8 @@ namespace MainNs
             "lib_6_2",
             "lib_6_3",
             "lib_6_4",
-            "lib_6_6",
-            "lib_6_5"});
+            "lib_6_5",
+            "lib_6_6"});
             this.cbProfile.Location = new System.Drawing.Point(4, 45);
             this.cbProfile.Margin = new System.Windows.Forms.Padding(2);
             this.cbProfile.Name = "cbProfile";
