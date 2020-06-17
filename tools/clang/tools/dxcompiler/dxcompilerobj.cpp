@@ -67,6 +67,7 @@ using namespace clang;
 using namespace hlsl;
 using std::string;
 
+DEFINE_CROSS_PLATFORM_UUIDOF(IDxcLangExtensions)
 DEFINE_CROSS_PLATFORM_UUIDOF(IDxcLangExtensions2)
 
 // This declaration is used for the locally-linked validator.
