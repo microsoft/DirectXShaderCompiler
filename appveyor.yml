@@ -1,18 +1,37 @@
 version: 1.0.{build}
 
-image: Visual Studio 2017
+image:
+  - Visual Studio 2017
+  - Ubuntu
+
 platform: x64
 configuration: Release
 
-clone_folder: c:\projects\DirectXShaderCompiler
-
 environment:
+  APPVEYOR_YML_DISABLE_PS_LINUX: true
   HLSL_SRC_DIR: c:\projects\DirectXShaderCompiler
   HLSL_BLD_DIR: c:\projects\DirectXShaderCompiler\build
-  ARTIFACTS_ZIP_NAME: dxc-artifacts.zip
+  ARTIFACTS_DIR_NAME: dxc-artifacts
+  ARTIFACTS_ZIP_NAME_WINDOWS: $(ARTIFACTS_DIR_NAME).zip
+  ARTIFACTS_ZIP_NAME_LINUX:   $(ARTIFACTS_DIR_NAME).tar.gz
+
+clone_folder: c:\projects\DirectXShaderCompiler
+
+artifacts:
+- path: build\$(configuration)\$(ARTIFACTS_ZIP_NAME_WINDOWS)
+
+# The clone folder and artifacts path is different for the Ubuntu image.
+for:
+-
+  matrix:
+    only:
+      - image: Ubuntu
+  clone_folder: /home/appveyor/projects/DirectXShaderCompiler
+  artifacts:
+  - path: build/$(ARTIFACTS_ZIP_NAME_LINUX)
 
 install:
-- cmd: git submodule update --init
+- git submodule update --init
 - cmd: set PATH=C:\ninja;C:\Python36;%PATH%
 
 before_build:
@@ -20,22 +39,37 @@ before_build:
 
 build_script:
 - cmd: call utils\hct\hctbuild -%PLATFORM% -%CONFIGURATION% -spirvtest
+- sh: mkdir build && cd build
+- sh: cmake .. -GNinja $(cat ../utils/cmake-predefined-config-params) -DSPIRV_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+- sh: ninja
 
 test_script:
 - ps:  utils\appveyor\appveyor_test.ps1
 - cmd: call utils\hct\hcttest -rel spirv_only
+- sh: ./bin/dxc --help
+- sh: ./bin/dxc -T ps_6_0 ../tools/clang/test/CodeGenSPIRV/passthru-ps.hlsl2spv
+- sh: ./bin/dxc -T ps_6_0 -Fo passthru-ps.dxil ../tools/clang/test/CodeGenSPIRV/passthru-ps.hlsl2spv
+- sh: ./bin/dxc -T ps_6_0 -Fo passthru-ps.spv ../tools/clang/test/CodeGenSPIRV/passthru-ps.hlsl2spv -spirv
+- sh: ./bin/clang-spirv-tests --spirv-test-root ../tools/clang/test/CodeGenSPIRV/
+- sh: ./bin/clang-hlsl-tests --HlslDataDir $PWD/../tools/clang/test/HLSL/
 
 after_test:
+# Collect artifacts for Windows
 - cmd: cd build\%CONFIGURATION%
 - cmd: echo %APPVEYOR_REPO_COMMIT% > GIT-COMMIT.txt
 - cmd: xcopy "%HLSL_SRC_DIR%\include\dxc" include\dxc /s /i /y
-- cmd: 7z a %ARTIFACTS_ZIP_NAME% include lib\d*.lib bin\d*.exe bin\d*.dll bin\d*.pdb bin\HLSLHost.exe GIT-COMMIT.txt
-
-artifacts:
-- path: build\$(configuration)\$(ARTIFACTS_ZIP_NAME)
+- cmd: 7z a %ARTIFACTS_ZIP_NAME_WINDOWS% include lib\d*.lib bin\d*.exe bin\d*.dll bin\d*.pdb bin\HLSLHost.exe GIT-COMMIT.txt
+# Collect artifacts for Linux
+- sh: mkdir "${ARTIFACTS_DIR_NAME}" && cd "${ARTIFACTS_DIR_NAME}" && mkdir bin && mkdir lib && mkdir include && cd ..
+- sh: cp lib/libdxcompiler.so* "${ARTIFACTS_DIR_NAME}"/lib/
+- sh: cp bin/dxc "${ARTIFACTS_DIR_NAME}"/bin/
+- sh: cp -r ../include/dxc "${ARTIFACTS_DIR_NAME}"/include
+- sh: echo "${APPVEYOR_REPO_COMMIT}" > "${ARTIFACTS_DIR_NAME}"/GIT-COMMIT.txt
+- sh: tar -czvf "${ARTIFACTS_ZIP_NAME_LINUX}" "${ARTIFACTS_DIR_NAME}"
 
 notifications:
 - provider: GitHubPullRequest
   on_build_success: true
   on_build_failure: true
   on_build_status_changed: true
+
