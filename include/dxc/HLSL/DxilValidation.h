@@ -25,7 +25,6 @@ class DiagnosticInfo;
 }
 
 namespace hlsl {
-class DxcLangExtensionsCommonHelper;
 
 /* <py::lines('VALRULE-ENUM')>hctdb_instrhelp.get_valrule_enum()</py>*/
 // VALRULE-ENUM:BEGIN

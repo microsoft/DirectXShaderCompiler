@@ -32,7 +32,6 @@ namespace hlsl {
 enum class SerializeDxilFlags : uint32_t;
 struct DxilShaderHash;
 class AbstractMemoryStream;
-
 namespace options {
 class MainArgs;
 class DxcOpts;

@@ -28,7 +28,6 @@
 #include "dxc/Support/dxcapi.impl.h"
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/DXIL/DxilModule.h"
-#include "dxc/dxcapi.internal.h"
 
 #include "llvm/Support/Path.h"
 

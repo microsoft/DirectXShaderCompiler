@@ -17,14 +17,12 @@
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/HLSL/DxilValidation.h"
 
-
 #include "dxc/Support/Global.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MSFileSystem.h"
 #include "dxc/Support/microcom.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/dxcapi.impl.h"
-#include "dxc/dxcapi.internal.h"
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
 
 #ifdef _WIN32
