@@ -811,7 +811,7 @@ public:
 
           dxcutil::AssembleInputs inputs(
                 action.takeModule(), pOutputBlob, m_pMalloc, SerializeFlags,
-                pOutputStream, &m_langExtensionsHelper,opts.IsDebugInfoEnabled(),
+                pOutputStream, opts.IsDebugInfoEnabled(),
                 opts.GetPDBName(), &compiler.getDiagnostics(),
                 &ShaderHashContent, pReflectionStream, pRootSigStream);
           if (needsValidation) {

@@ -26,7 +26,6 @@
 #include "dxc/Support/dxcapi.impl.h"
 #include "dxc/dxcapi.internal.h"
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
-#include "dxc/Support/DxcLangExtensionsCommonHelper.h"
 
 #ifdef _WIN32
 #include "dxcetw.h"
@@ -57,7 +56,6 @@ struct DiagRestore {
 };
 
 class DxcValidator : public IDxcValidator,
-                     public IDxcLangExtensions2,
 #ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
                      public IDxcVersionInfo2
 #else
@@ -66,7 +64,6 @@ class DxcValidator : public IDxcValidator,
 {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
-  DxcLangExtensionsCommonHelper m_langExtensionsHelper;
 
   HRESULT RunValidation(
     _In_ IDxcBlob *pShader,                       // Shader to validate.
@@ -83,10 +80,8 @@ public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   DXC_MICROCOM_TM_CTOR(DxcValidator)
 
-  DXC_LANGEXTENSIONS_HELPER_IMPL(m_langExtensionsHelper)
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
-    return DoBasicQueryInterface<IDxcValidator, IDxcLangExtensions2,
-                                 IDxcVersionInfo>(this, iid, ppvObject);
+    return DoBasicQueryInterface<IDxcValidator, IDxcVersionInfo>(this, iid, ppvObject);
   }
 
   // For internal use only.
@@ -240,7 +235,7 @@ HRESULT DxcValidator::RunValidation(
   PrintDiagnosticContext DiagContext(DiagPrinter);
   DiagRestore DR(pModule->getContext(), &DiagContext);
 
-  IFR(hlsl::ValidateDxilModule(pModule, pDebugModule, &m_langExtensionsHelper));
+  IFR(hlsl::ValidateDxilModule(pModule, pDebugModule));
   if (!(Flags & DxcValidatorFlags_ModuleOnly)) {
     IFR(ValidateDxilContainerParts(pModule, pDebugModule,
                       IsDxilContainerLike(pShader->GetBufferPointer(), pShader->GetBufferSize()),

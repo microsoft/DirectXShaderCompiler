@@ -614,7 +614,7 @@ TEST_F(ExtensionTest, TargetTriple) {
   c.Compile("float4 main() : SV_Target {\n"
             "  return 0;\n"
             "}\n",
-            {}, {});
+            {L"/Vd"}, {});
 
   std::string disassembly = c.Disassemble();
   // Check the triple is updated.

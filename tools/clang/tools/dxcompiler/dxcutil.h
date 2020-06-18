@@ -32,7 +32,6 @@ namespace hlsl {
 enum class SerializeDxilFlags : uint32_t;
 struct DxilShaderHash;
 class AbstractMemoryStream;
-class DxcLangExtensionsCommonHelper;
 
 namespace options {
 class MainArgs;
@@ -47,7 +46,6 @@ struct AssembleInputs {
                  IMalloc *pMalloc,
                  hlsl::SerializeDxilFlags SerializeFlags,
                  CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode,
-                 hlsl::DxcLangExtensionsCommonHelper *helper = nullptr,
                  bool bDebugInfo = false,
                  llvm::StringRef DebugName = llvm::StringRef(),
                  clang::DiagnosticsEngine *pDiag = nullptr,
@@ -59,7 +57,6 @@ struct AssembleInputs {
   IMalloc *pMalloc;
   hlsl::SerializeDxilFlags SerializeFlags;
   CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode;
-  hlsl::DxcLangExtensionsCommonHelper *pExtHelper;
   bool bDebugInfo;
   llvm::StringRef DebugName = llvm::StringRef();
   clang::DiagnosticsEngine *pDiag;

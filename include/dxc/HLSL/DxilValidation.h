@@ -281,8 +281,7 @@ enum class ValidationRule : unsigned {
 const char *GetValidationRuleText(ValidationRule value);
 void GetValidationVersion(_Out_ unsigned *pMajor, _Out_ unsigned *pMinor);
 HRESULT ValidateDxilModule(_In_ llvm::Module *pModule,
-                           _In_opt_ llvm::Module *pDebugModule,
-                           _In_opt_ DxcLangExtensionsCommonHelper *helper);
+                           _In_opt_ llvm::Module *pDebugModule);
 
 // DXIL Container Verification Functions (return false on failure)
 

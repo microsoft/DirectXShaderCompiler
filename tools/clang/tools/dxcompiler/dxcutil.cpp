@@ -29,7 +29,6 @@
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/dxcapi.internal.h"
-#include "dxc/Support/DxcLangExtensionsCommonHelper.h"
 
 #include "llvm/Support/Path.h"
 
@@ -72,7 +71,6 @@ AssembleInputs::AssembleInputs(std::unique_ptr<llvm::Module> &&pM,
                 IMalloc *pMalloc,
                 hlsl::SerializeDxilFlags SerializeFlags,
                 CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode,
-                DxcLangExtensionsCommonHelper *helper,
                 bool bDebugInfo,
                 llvm::StringRef DebugName,
                 clang::DiagnosticsEngine *pDiag,
@@ -84,7 +82,6 @@ AssembleInputs::AssembleInputs(std::unique_ptr<llvm::Module> &&pM,
     pMalloc(pMalloc),
     SerializeFlags(SerializeFlags),
     pModuleBitcode(pModuleBitcode),
-    pExtHelper(helper),
     bDebugInfo(bDebugInfo),
     DebugName(DebugName),
     pDiag(pDiag),
@@ -194,14 +191,6 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
   }
 
   AssembleToContainer(inputs);
-
-  if (inputs.pExtHelper) {
-    CComPtr<IDxcLangExtensions2> pLangExtensions;
-    pValidator.QueryInterface(&pLangExtensions);
-    if (pLangExtensions)
-      IFT(pLangExtensions->SetTargetTriple(
-          inputs.pExtHelper->GetTargetTriple().c_str()));
-  }
 
   CComPtr<IDxcOperationResult> pValResult;
   // Important: in-place edit is required so the blob is reused and thus
