@@ -39,6 +39,7 @@ public:
   TEST_CLASS_SETUP(InitSupport);
 
   TEST_METHOD(RunLinkResource);
+  TEST_METHOD(RunLinkResourceWithBinding);
   TEST_METHOD(RunLinkAllProfiles);
   TEST_METHOD(RunLinkFailNoDefine);
   TEST_METHOD(RunLinkFailReDefine);
@@ -178,6 +179,26 @@ TEST_F(LinkerTest, RunLinkResource) {
   RegisterDxcModule(libResName, pResLib, pLinker);
 
   Link(L"entry", L"cs_6_0", pLinker, {libResName, libName}, {} ,{});
+}
+
+TEST_F(LinkerTest, RunLinkResourceWithBinding) {
+  // These two libraries both have a ConstantBuffer resource named g_buf.
+  // These are explicitly bound to different slots, and the types don't match.
+  // This would have broken in linking before a change to rename bound resources
+  // to prevent an attempt to merge them because they have the same name.
+  CComPtr<IDxcBlob> pLib1;
+  CompileLib(L"..\\CodeGenHLSL\\lib_res_bound1.hlsl", &pLib1);
+  CComPtr<IDxcBlob> pLib2;
+  CompileLib(L"..\\CodeGenHLSL\\lib_res_bound2.hlsl", &pLib2);
+  CComPtr<IDxcLinker> pLinker;
+  CreateLinker(&pLinker);
+  LPCWSTR lib1Name = L"lib1";
+  RegisterDxcModule(lib1Name, pLib1, pLinker);
+
+  LPCWSTR lib2Name = L"lib2";
+  RegisterDxcModule(lib2Name, pLib2, pLinker);
+
+  Link(L"main", L"cs_6_0", pLinker, {lib1Name, lib2Name}, {} ,{});
 }
 
 TEST_F(LinkerTest, RunLinkAllProfiles) {

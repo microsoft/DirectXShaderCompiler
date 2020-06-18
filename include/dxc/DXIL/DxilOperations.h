@@ -164,7 +164,7 @@ private:
   static const char *GetOverloadTypeName(unsigned TypeSlot);
   static llvm::StringRef GetTypeName(llvm::Type *Ty, std::string &str);
   static llvm::StringRef ConstructOverloadName(llvm::Type *Ty, DXIL::OpCode opCode,
-    std::string &funcNameStorage);
+                                               std::string &funcNameStorage);
 };
 
 } // namespace hlsl

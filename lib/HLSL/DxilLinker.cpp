@@ -1350,7 +1350,6 @@ DxilLinkerImpl::Link(StringRef entry, StringRef profile, dxilutil::ExportMap &ex
     pLib->CollectUsedInitFunctions(addedFunctionSet, workList);
   }
 
-  // Fix intrinsic overloads.
   for (auto &pLib : libSet) {
     pLib->FixIntrinsicOverloads();
   }
