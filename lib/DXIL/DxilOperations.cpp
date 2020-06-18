@@ -464,6 +464,17 @@ llvm::StringRef OP::GetTypeName(Type *Ty, std::string &str) {
   }
 }
 
+llvm::StringRef OP::ConstructOverloadName(Type *Ty, DXIL::OpCode opCode,
+                                          std::string &funcNameStorage) {
+  if (Ty == Type::getVoidTy(Ty->getContext())) {
+    funcNameStorage = (Twine(OP::m_NamePrefix) + Twine(GetOpCodeClassName(opCode))).str();
+  } else {
+    funcNameStorage = (Twine(OP::m_NamePrefix) + Twine(GetOpCodeClassName(opCode)) +
+                       "." + GetTypeName(Ty, funcNameStorage)).str();
+  }
+  return funcNameStorage;
+}
+
 const char *OP::GetOpCodeName(OpCode opCode) {
   DXASSERT(0 <= (unsigned)opCode && opCode < OpCode::NumOpCodes, "otherwise caller passed OOB index");
   return m_OpCodeProps[(unsigned)opCode].pOpCodeName;
@@ -915,6 +926,30 @@ void OP::RefreshCache() {
   }
 }
 
+void OP::FixOverloadNames() {
+  // When merging code from multiple sources, such as with linking,
+  // type names that collide, but don't have the same type will be
+  // automically renamed with .0+ name disambiguation.  However,
+  // DXIL intrinsic overloads will not be renamed to disambiguate them,
+  // since they exist in separate modules at the time.
+  // This leads to name collisions between different types when linking.
+  // Do this after loading into a shared context, and before copying
+  // code into a common module, to prevent this problem.
+  for (Function &F : m_pModule->functions()) {
+    if (F.isDeclaration() && OP::IsDxilOpFunc(&F) && !F.user_empty()) {
+      CallInst *CI = cast<CallInst>(*F.user_begin());
+      DXIL::OpCode opCode = OP::GetDxilOpFuncCallInst(CI);
+      llvm::Type *Ty = OP::GetOverloadType(opCode, &F);
+      if (isa<StructType>(Ty)) {
+        std::string funcName;
+        if (OP::ConstructOverloadName(Ty, opCode, funcName).compare(F.getName()) != 0) {
+          F.setName(funcName);
+        }
+      }
+    }
+  }
+}
+
 void OP::UpdateCache(OpCodeClass opClass, Type * Ty, llvm::Function *F) {
   m_OpCodeClassCache[(unsigned)opClass].pOverloads[Ty] = F;
   m_FunctionToOpClass[F] = opClass;
@@ -955,12 +990,9 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   Type *obj = pOverloadType;
   Type *resProperty = GetResourcePropertiesType();
 
-  std::string funcName = (Twine(OP::m_NamePrefix) + Twine(GetOpCodeClassName(opCode))).str();
-  // Add ret type to the name.
-  if (pOverloadType != pV) {
-    std::string typeName;
-    funcName = Twine(funcName).concat(".").concat(GetTypeName(pOverloadType, typeName)).str();
-  } 
+  std::string funcName;
+  ConstructOverloadName(pOverloadType, opCode, funcName);
+
   // Try to find exist function with the same name in the module.
   if (Function *existF = m_pModule->getFunction(funcName)) {
     F = existF;

@@ -114,6 +114,8 @@ public:
   void RemoveResourcesWithUnusedSymbols();
   void RemoveFunction(llvm::Function *F);
 
+  void RenameResourceGlobalsWithBinding(bool bKeepName = true);
+
   // Signatures.
   DxilSignature &GetInputSignature();
   const DxilSignature &GetInputSignature() const;

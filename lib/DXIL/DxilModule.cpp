@@ -1042,6 +1042,29 @@ void DxilModule::RemoveResourcesWithUnusedSymbols() {
   RemoveResourcesWithUnusedSymbolsHelper(m_Samplers);
 }
 
+namespace {
+template <typename TResource>
+static void RenameGlobalsWithBinding(std::vector<std::unique_ptr<TResource>> &vec, llvm::StringRef prefix, bool bKeepName) {
+  for (auto &res : vec) {
+    if (res->IsAllocated()) {
+      if (GlobalVariable *GV = dyn_cast<GlobalVariable>(res->GetGlobalSymbol())) {
+        if (bKeepName)
+          GV->setName(Twine(GV->getName()) + "." + Twine(prefix) + Twine(res->GetLowerBound()) + "." + Twine(res->GetSpaceID()));
+        else
+          GV->setName(Twine(prefix) + Twine(res->GetLowerBound()) + "." + Twine(res->GetSpaceID()));
+      }
+    }
+  }
+}
+}
+
+void DxilModule::RenameResourceGlobalsWithBinding(bool bKeepName) {
+  RenameGlobalsWithBinding(m_SRVs, "t", bKeepName);
+  RenameGlobalsWithBinding(m_UAVs, "u", bKeepName);
+  RenameGlobalsWithBinding(m_CBuffers, "b", bKeepName);
+  RenameGlobalsWithBinding(m_Samplers, "s", bKeepName);
+}
+
 DxilSignature &DxilModule::GetInputSignature() {
   DXASSERT(m_DxilEntryPropsMap.size() == 1 && !m_pSM->IsLib(),
            "only works for non-lib profile");
