@@ -184,6 +184,13 @@ public:
   DECLARE_CROSS_PLATFORM_UUIDOF(IDxcLangExtensions)
 };
 
+struct __declspec(uuid("2490C368-89EE-4491-A4B2-C6547B6C9381"))
+IDxcLangExtensions2 : public IDxcLangExtensions {
+public:
+  virtual HRESULT STDMETHODCALLTYPE SetTargetTriple(LPCSTR name) = 0;
+  DECLARE_CROSS_PLATFORM_UUIDOF(IDxcLangExtensions2)
+};
+
 struct __declspec(uuid("454b764f-3549-475b-958c-a7a6fcd05fbc"))
 IDxcSystemAccess : public IUnknown
 {

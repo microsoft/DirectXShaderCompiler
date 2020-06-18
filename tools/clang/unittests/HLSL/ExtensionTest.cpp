@@ -393,6 +393,10 @@ public:
   void SetSemanticDefineMetaDataName(const char *name) {
     VERIFY_SUCCEEDED(pLangExtensions->SetSemanticDefineMetaDataName("test.defs"));
   }
+  void SetTargetTriple(const char *name) {
+    VERIFY_SUCCEEDED(
+        pLangExtensions->SetTargetTriple(name));
+  }
   void RegisterIntrinsicTable(IDxcIntrinsicTable *table) {
     pTestIntrinsicTable = table;
     VERIFY_SUCCEEDED(pLangExtensions->RegisterIntrinsicTable(pTestIntrinsicTable));
@@ -421,7 +425,7 @@ public:
 
   dxc::DxcDllSupport &m_dllSupport;
   CComPtr<IDxcCompiler> pCompiler;
-  CComPtr<IDxcLangExtensions> pLangExtensions;
+  CComPtr<IDxcLangExtensions2> pLangExtensions;
   CComPtr<IDxcBlobEncoding> pCodeBlob;
   CComPtr<IDxcOperationResult> pCompileResult;
   CComPtr<IDxcSemanticDefineValidator> pTestSemanticDefineValidator;
@@ -449,6 +453,7 @@ public:
   TEST_METHOD(DefineValidationWarning)
   TEST_METHOD(DefineNoValidatorOk)
   TEST_METHOD(DefineFromMacro)
+  TEST_METHOD(TargetTriple)
   TEST_METHOD(IntrinsicWhenAvailableThenUsed)
   TEST_METHOD(CustomIntrinsicName)
   TEST_METHOD(NoLowering)
@@ -603,6 +608,18 @@ TEST_F(ExtensionTest, DefineFromMacro) {
     disassembly.find("!{!\"FOO\", !\"1\"}"));
 }
 
+TEST_F(ExtensionTest, TargetTriple) {
+  Compiler c(m_dllSupport);
+  c.SetTargetTriple("dxil-ms-win32");
+  c.Compile("float4 main() : SV_Target {\n"
+            "  return 0;\n"
+            "}\n",
+            {L"/Vd"}, {});
+
+  std::string disassembly = c.Disassemble();
+  // Check the triple is updated.
+  VERIFY_IS_TRUE(disassembly.npos != disassembly.find("dxil-ms-win32"));
+}
 
 TEST_F(ExtensionTest, IntrinsicWhenAvailableThenUsed) {
   Compiler c(m_dllSupport);

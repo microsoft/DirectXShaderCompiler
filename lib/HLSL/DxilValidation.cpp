@@ -5579,8 +5579,9 @@ void GetValidationVersion(_Out_ unsigned *pMajor, _Out_ unsigned *pMinor) {
   // VALRULE-TEXT:END
 }
 
-_Use_decl_annotations_ HRESULT
-ValidateDxilModule(llvm::Module *pModule, llvm::Module *pDebugModule) {
+_Use_decl_annotations_ HRESULT ValidateDxilModule(
+    llvm::Module *pModule,
+    llvm::Module *pDebugModule) {
   DxilModule *pDxilModule = DxilModule::TryGetDxilModule(pModule);
   if (!pDxilModule) {
     return DXC_E_IR_VERIFICATION_FAILED;

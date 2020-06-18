@@ -922,7 +922,7 @@ HRESULT DoSimpleReWrite(_In_ DxcLangExtensionsHelper *pHelper,
   return S_OK;
 }
 
-class DxcRewriter : public IDxcRewriter2, public IDxcLangExtensions {
+class DxcRewriter : public IDxcRewriter2, public IDxcLangExtensions2 {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
   DxcLangExtensionsHelper m_langExtensionsHelper;
@@ -931,8 +931,11 @@ public:
   DXC_MICROCOM_TM_CTOR(DxcRewriter)
   DXC_LANGEXTENSIONS_HELPER_IMPL(m_langExtensionsHelper)
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
-    return DoBasicQueryInterface<IDxcRewriter2, IDxcRewriter, IDxcLangExtensions>(this, iid, ppvObject);
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
+                                           void **ppvObject) override {
+    return DoBasicQueryInterface<IDxcRewriter2, IDxcRewriter,
+                                 IDxcLangExtensions, IDxcLangExtensions2>(
+        this, iid, ppvObject);
   }
 
   HRESULT STDMETHODCALLTYPE RemoveUnusedGlobals(_In_ IDxcBlobEncoding *pSource,
