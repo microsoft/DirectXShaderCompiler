@@ -39,6 +39,7 @@ public:
   TEST_CLASS_SETUP(InitSupport);
 
   TEST_METHOD(RunLinkResource);
+  TEST_METHOD(RunLinkResourceWithBinding);
   TEST_METHOD(RunLinkAllProfiles);
   TEST_METHOD(RunLinkFailNoDefine);
   TEST_METHOD(RunLinkFailReDefine);
@@ -180,6 +181,61 @@ TEST_F(LinkerTest, RunLinkResource) {
   Link(L"entry", L"cs_6_0", pLinker, {libResName, libName}, {} ,{});
 }
 
+TEST_F(LinkerTest, RunLinkResourceWithBinding) {
+  // These two libraries both have a ConstantBuffer resource named g_buf.
+  // These are explicitly bound to different slots, and the types don't match.
+  // This test runs a pass to rename resources to prevent merging of resource globals.
+  // Then tests linking these, which requires dxil op overload renaming
+  // because of a typename collision between the two libraries.
+  CComPtr<IDxcBlob> pLib1;
+  CompileLib(L"..\\CodeGenHLSL\\lib_res_bound1.hlsl", &pLib1);
+  CComPtr<IDxcBlob> pLib2;
+  CompileLib(L"..\\CodeGenHLSL\\lib_res_bound2.hlsl", &pLib2);
+
+  LPCWSTR optOptions[] = {
+    L"-dxil-rename-resources,prefix=lib1",
+    L"-dxil-rename-resources,prefix=lib2",
+  };
+
+  CComPtr<IDxcOptimizer> pOptimizer;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
+
+  CComPtr<IDxcContainerReflection> pContainerReflection;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pContainerReflection));
+  UINT32 partIdx = 0;
+  VERIFY_SUCCEEDED(pContainerReflection->Load(pLib1));
+  VERIFY_SUCCEEDED(pContainerReflection->FindFirstPartKind(DXC_PART_DXIL, &partIdx));
+  CComPtr<IDxcBlob> pLib1Module;
+  VERIFY_SUCCEEDED(pContainerReflection->GetPartContent(partIdx, &pLib1Module));
+
+  CComPtr<IDxcBlob> pLib1ModuleRenamed;
+  VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(pLib1Module, &optOptions[0], 1, &pLib1ModuleRenamed, nullptr));
+  pLib1Module.Release();
+  pLib1.Release();
+  AssembleToContainer(m_dllSupport, pLib1ModuleRenamed, &pLib1);
+
+  VERIFY_SUCCEEDED(pContainerReflection->Load(pLib2));
+  VERIFY_SUCCEEDED(pContainerReflection->FindFirstPartKind(DXC_PART_DXIL, &partIdx));
+  CComPtr<IDxcBlob> pLib2Module;
+  VERIFY_SUCCEEDED(pContainerReflection->GetPartContent(partIdx, &pLib2Module));
+
+  CComPtr<IDxcBlob> pLib2ModuleRenamed;
+  VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(pLib2Module, &optOptions[1], 1, &pLib2ModuleRenamed, nullptr));
+  pLib2Module.Release();
+  pLib2.Release();
+  AssembleToContainer(m_dllSupport, pLib2ModuleRenamed, &pLib2);
+
+  CComPtr<IDxcLinker> pLinker;
+  CreateLinker(&pLinker);
+  LPCWSTR lib1Name = L"lib1";
+  RegisterDxcModule(lib1Name, pLib1, pLinker);
+
+  LPCWSTR lib2Name = L"lib2";
+  RegisterDxcModule(lib2Name, pLib2, pLinker);
+
+  Link(L"main", L"cs_6_0", pLinker, {lib1Name, lib2Name}, {} ,{});
+}
+
 TEST_F(LinkerTest, RunLinkAllProfiles) {
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
@@ -257,7 +313,6 @@ TEST_F(LinkerTest, RunLinkFailReDefineGlobal) {
 
   CComPtr<IDxcBlob> pLib1;
   CompileLib(L"..\\CodeGenHLSL\\lib_global4.hlsl", &pLib1);
-
 
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);

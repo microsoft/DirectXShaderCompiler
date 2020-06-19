@@ -2106,6 +2106,11 @@ class db_dxil(object):
         add_pass('dxil-delete-loop', 'DxilLoopDeletion', 'Dxil Loop Deletion', [])
         add_pass('dxil-value-cache', 'DxilValueCache', 'Dxil Value Cache',[])
         add_pass('hlsl-cleanup-dxbreak', 'CleanupDxBreak', 'HLSL Remove unnecessary dx.break conditions', [])
+        add_pass('dxil-rename-resources', 'DxilRenameResources', 'Rename resources to prevent merge by name during linking', [
+                {'n':'prefix', 'i':'Prefix', 't':'string', 'd':'Prefix to add to resource names'},
+                {'n':'from-binding', 'i':'FromBinding', 't':'bool', 'c':1, 'd':'Append binding to name when bound'},
+                {'n':'keep-name', 'i':'KeepName', 't':'bool', 'c':1, 'd':'Keep name when appending binding'},
+            ])
 
         category_lib="llvm"
         add_pass('ipsccp', 'IPSCCP', 'Interprocedural Sparse Conditional Constant Propagation', [])
