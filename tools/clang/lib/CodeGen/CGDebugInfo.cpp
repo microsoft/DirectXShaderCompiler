@@ -121,7 +121,7 @@ void CGDebugInfo::setLocation(SourceLocation Loc) {
 
   SourceManager &SM = CGM.getContext().getSourceManager();
   auto *Scope = cast<llvm::DIScope>(LexicalBlockStack.back());
-  PresumedLoc PCLoc = SM.getPresumedLoc(CurLoc);
+  PresumedLoc PCLoc = SM.getPresumedLoc(CurLoc, /*UseLineDirectives*/ false); // HLSL Change
 
   if (PCLoc.isInvalid() || Scope->getFilename() == PCLoc.getFilename())
     return;
@@ -243,7 +243,7 @@ llvm::DIFile *CGDebugInfo::getOrCreateFile(SourceLocation Loc) {
     return DBuilder.createFile(TheCU->getFilename(), TheCU->getDirectory());
 
   SourceManager &SM = CGM.getContext().getSourceManager();
-  PresumedLoc PLoc = SM.getPresumedLoc(Loc);
+  PresumedLoc PLoc = SM.getPresumedLoc(Loc, /*UseLineDirectives*/ false); // HLSL Change
 
   if (PLoc.isInvalid() || StringRef(PLoc.getFilename()).empty())
     // If the location is not valid then use main input file.
@@ -274,7 +274,7 @@ unsigned CGDebugInfo::getLineNumber(SourceLocation Loc) {
   if (Loc.isInvalid() && CurLoc.isInvalid())
     return 0;
   SourceManager &SM = CGM.getContext().getSourceManager();
-  PresumedLoc PLoc = SM.getPresumedLoc(Loc.isValid() ? Loc : CurLoc);
+  PresumedLoc PLoc = SM.getPresumedLoc(Loc.isValid() ? Loc : CurLoc, /*UseLineDirectives*/ false); // HLSL Change
   return PLoc.isValid() ? PLoc.getLine() : 0;
 }
 
@@ -287,7 +287,7 @@ unsigned CGDebugInfo::getColumnNumber(SourceLocation Loc, bool Force) {
   if (Loc.isInvalid() && CurLoc.isInvalid())
     return 0;
   SourceManager &SM = CGM.getContext().getSourceManager();
-  PresumedLoc PLoc = SM.getPresumedLoc(Loc.isValid() ? Loc : CurLoc);
+  PresumedLoc PLoc = SM.getPresumedLoc(Loc.isValid() ? Loc : CurLoc, /*UseLineDirectives*/ false); // HLSL Change
   return PLoc.isValid() ? PLoc.getColumn() : 0;
 }
 
