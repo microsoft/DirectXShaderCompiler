@@ -1,54 +1,23 @@
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+// LiveValueAnalysis.h                                                       //
+// Copyright (C) 2020 NVIDIA Corporation.  All rights reserved.              //
+// This file is distributed under the University of Illinois Open Source     //
+// License. See LICENSE.TXT for details.                                     //
+//                                                                           //
+// Live Value Analysis pass for HLSL.                                        //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
 
-
-#ifndef LLVM_ANALYSIS_LIVEVALUEANALYSIS_H
-#define LLVM_ANALYSIS_LIVEVALUEANALYSIS_H
-
-#include "llvm/IR/DebugInfoMetadata.h"
-#include "llvm/IR/DebugInfo.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/raw_ostream.h"
-
-#include <set>
-#include <map>
-#include <sstream>
-#include <iomanip>
-
+#pragma once
 
 namespace llvm {
-
-  class Function;
   class ModulePass;
+  class PassRegistry;
+  class StringRef;
 
-  class LiveValueAnalysis : public ModulePass {
-
-  public:
-
-  private:
-
-    llvm::Module* m_module = nullptr;
-    std::set<CallInst *> m_callSites;
-    std::map<CallInst *, std::vector<Instruction *>> m_spillsPerTraceCall;
-    std::string m_rootPath;
-    std::string m_outputFile;
-
-  public:
-    LiveValueAnalysis(StringRef LiveValueAnalysisOutputFile = "");
-    ~LiveValueAnalysis() override;
-    static char ID;
-
-    bool runOnModule(Module &) override;
-
-    void analyzeCFG();
-    bool canRemat( Instruction* inst );
-    std::string formatSourceLocation( const std::string &RootPath, const std::string &Location, int lineNumber );
-    void formatOutput( raw_string_ostream &PrettyStr, raw_string_ostream &VSStr );
-    template<class T, class C> std::vector<T> sortInstructions( C &c );
-    std::string translateValueToName( DbgValueInst *DVI, Instruction *I );
-    bool usesUavResource( CallInst *call );
-  
-  };
-
-} // End llvm namespace
-
-#endif
+  /// \brief Create and return a pass that reports live values around TraceRay call sites.
+  /// Note that this pass is designed for use with the legacy pass manager.
+  ModulePass *createLiveValueAnalysisPass(StringRef LiveValueAnalysisOutputFile);
+  void initializeLiveValueAnalysisPass(llvm::PassRegistry&);
+}

@@ -23,7 +23,6 @@ namespace llvm {
   class Pass;
   class PassInfo;
   class LibCallInfo;
-  class StringRef;
 
   //===--------------------------------------------------------------------===//
   //

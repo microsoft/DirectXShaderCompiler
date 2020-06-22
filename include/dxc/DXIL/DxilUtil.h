@@ -128,6 +128,7 @@ namespace dxilutil {
   bool IsHLSLObjectType(llvm::Type *Ty);
   bool IsHLSLRayQueryType(llvm::Type *Ty);
   bool IsHLSLResourceDescType(llvm::Type *Ty);
+  bool IsLoadIntrinsic(llvm::CallInst *CI);
   bool IsResourceSingleComponent(llvm::Type *Ty);
   bool IsSplat(llvm::ConstantDataVector *cdv);
 

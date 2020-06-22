@@ -600,6 +600,21 @@ static bool ConsumePrefix(StringRef &Str, StringRef Prefix) {
   return true;
 }
 
+bool IsLoadIntrinsic(CallInst *CI) {
+  StringRef name = CI->getCalledFunction()->getName();
+
+  if (name.startswith("dx.op."))
+  {
+    if (name == "dx.op.bufferLoad" ||
+      name == "dx.op.textureLoad" ||
+      name == "dx.op.rawBufferLoad") {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
 bool IsResourceSingleComponent(Type *Ty) {
   if (llvm::ArrayType *arrType = llvm::dyn_cast<llvm::ArrayType>(Ty)) {
     if (arrType->getArrayNumElements() > 1) {
