@@ -23,6 +23,20 @@ all_stages = (
     'amplification',
     )
 
+# These counters aren't collected directly from instructions,
+# so they need to be added manually so they can be accessed
+# with custom code in DxilCounters.cpp.
+extra_counters = [
+    'insts',
+    'branches',
+    'array_tgsm_bytes',
+    'array_static_bytes',
+    'array_local_bytes',
+    'array_tgsm_ldst',
+    'array_static_ldst',
+    'array_local_ldst',
+    ]
+
 class db_dxil_enum_value(object):
     "A representation for a value in an enumeration type"
     def __init__(self, name, value, doc):
@@ -77,6 +91,7 @@ class db_dxil_inst(object):
         self.is_dxil_op = self.dxil_op != "" # whether this is a DXIL operation
         self.is_reserved = self.dxil_class == "Reserved"
         self.shader_model_translated = () # minimum shader model required with translation by linker
+        self.props = {}                 # extra properties
 
     def __str__(self):
         return self.name
@@ -159,6 +174,9 @@ class db_dxil(object):
         self.name_idx = {}      # DXIL instructions by name
         self.enum_idx = {}      # enumerations by name
         self.dxil_version_info = {}
+        # list of counters for instructions and dxil ops,
+        # starting with extra ones specified here
+        self.counters = extra_counters
 
         self.populate_llvm_instructions()
         self.call_instr = self.get_instr_by_llvm_name("CallInst")
@@ -173,6 +191,7 @@ class db_dxil(object):
         self.build_valrules()
         self.build_semantics()
         self.build_indices()
+        self.populate_counters()
 
     def __str__(self):
         return '\n'.join(str(i) for i in self.instr)
@@ -451,50 +470,50 @@ class db_dxil(object):
         self.add_llvm_instr("TERM", 6, "Resume", "ResumeInst", "resumes the propagation of an exception", "", [])
         self.add_llvm_instr("TERM", 7, "Unreachable", "UnreachableInst", "is unreachable", "", [])
 
-        self.add_llvm_instr("BINARY",  8, "Add"  , "BinaryOperator", "returns the sum of its two operands", oload_int_arith, oload_binary_params)
-        self.add_llvm_instr("BINARY",  9, "FAdd" , "BinaryOperator", "returns the sum of its two operands", oload_float_arith, oload_binary_params)
-        self.add_llvm_instr("BINARY", 10, "Sub"  , "BinaryOperator", "returns the difference of its two operands", oload_int_arith, oload_binary_params)
-        self.add_llvm_instr("BINARY", 11, "FSub" , "BinaryOperator", "returns the difference of its two operands", oload_float_arith, oload_binary_params)
-        self.add_llvm_instr("BINARY", 12, "Mul"  , "BinaryOperator", "returns the product of its two operands", oload_int_arith, oload_binary_params)
-        self.add_llvm_instr("BINARY", 13, "FMul" , "BinaryOperator", "returns the product of its two operands", oload_float_arith, oload_binary_params)
-        self.add_llvm_instr("BINARY", 14, "UDiv" , "BinaryOperator", "returns the quotient of its two unsigned operands", oload_int_arith, oload_binary_params)
-        self.add_llvm_instr("BINARY", 15, "SDiv" , "BinaryOperator", "returns the quotient of its two signed operands", oload_int_arith, oload_binary_params)
-        self.add_llvm_instr("BINARY", 16, "FDiv" , "BinaryOperator", "returns the quotient of its two operands", oload_float_arith, oload_binary_params)
-        self.add_llvm_instr("BINARY", 17, "URem" , "BinaryOperator", "returns the remainder from the unsigned division of its two operands", oload_int_arith, oload_binary_params)
-        self.add_llvm_instr("BINARY", 18, "SRem" , "BinaryOperator", "returns the remainder from the signed division of its two operands", oload_int_arith, oload_binary_params)
-        self.add_llvm_instr("BINARY", 19, "FRem" , "BinaryOperator", "returns the remainder from the division of its two operands", oload_float_arith, oload_binary_params)
+        self.add_llvm_instr("BINARY",  8, "Add"  , "BinaryOperator", "returns the sum of its two operands", oload_int_arith, oload_binary_params, counters=('ints',))
+        self.add_llvm_instr("BINARY",  9, "FAdd" , "BinaryOperator", "returns the sum of its two operands", oload_float_arith, oload_binary_params, counters=('floats',))
+        self.add_llvm_instr("BINARY", 10, "Sub"  , "BinaryOperator", "returns the difference of its two operands", oload_int_arith, oload_binary_params, counters=('ints',))
+        self.add_llvm_instr("BINARY", 11, "FSub" , "BinaryOperator", "returns the difference of its two operands", oload_float_arith, oload_binary_params, counters=('floats',))
+        self.add_llvm_instr("BINARY", 12, "Mul"  , "BinaryOperator", "returns the product of its two operands", oload_int_arith, oload_binary_params, counters=('ints',))
+        self.add_llvm_instr("BINARY", 13, "FMul" , "BinaryOperator", "returns the product of its two operands", oload_float_arith, oload_binary_params, counters=('floats',))
+        self.add_llvm_instr("BINARY", 14, "UDiv" , "BinaryOperator", "returns the quotient of its two unsigned operands", oload_int_arith, oload_binary_params, counters=('uints',))
+        self.add_llvm_instr("BINARY", 15, "SDiv" , "BinaryOperator", "returns the quotient of its two signed operands", oload_int_arith, oload_binary_params, counters=('ints',))
+        self.add_llvm_instr("BINARY", 16, "FDiv" , "BinaryOperator", "returns the quotient of its two operands", oload_float_arith, oload_binary_params, counters=('floats',))
+        self.add_llvm_instr("BINARY", 17, "URem" , "BinaryOperator", "returns the remainder from the unsigned division of its two operands", oload_int_arith, oload_binary_params, counters=('uints',))
+        self.add_llvm_instr("BINARY", 18, "SRem" , "BinaryOperator", "returns the remainder from the signed division of its two operands", oload_int_arith, oload_binary_params, counters=('ints',))
+        self.add_llvm_instr("BINARY", 19, "FRem" , "BinaryOperator", "returns the remainder from the division of its two operands", oload_float_arith, oload_binary_params, counters=('floats',))
 
-        self.add_llvm_instr("BINARY", 20, "Shl", "BinaryOperator", "shifts left (logical)", oload_int_arith, oload_binary_params)
-        self.add_llvm_instr("BINARY", 21, "LShr", "BinaryOperator", "shifts right (logical), with zero bit fill", oload_int_arith, oload_binary_params)
-        self.add_llvm_instr("BINARY", 22, "AShr", "BinaryOperator", "shifts right (arithmetic), with 'a' operand sign bit fill", oload_int_arith, oload_binary_params)
-        self.add_llvm_instr("BINARY", 23, "And", "BinaryOperator", "returns a  bitwise logical and of its two operands", oload_int_arith_b, oload_binary_params)
-        self.add_llvm_instr("BINARY", 24, "Or", "BinaryOperator", "returns a bitwise logical or of its two operands", oload_int_arith_b, oload_binary_params)
-        self.add_llvm_instr("BINARY", 25, "Xor", "BinaryOperator", "returns a bitwise logical xor of its two operands", oload_int_arith_b, oload_binary_params)
+        self.add_llvm_instr("BINARY", 20, "Shl", "BinaryOperator", "shifts left (logical)", oload_int_arith, oload_binary_params, counters=('uints',))
+        self.add_llvm_instr("BINARY", 21, "LShr", "BinaryOperator", "shifts right (logical), with zero bit fill", oload_int_arith, oload_binary_params, counters=('uints',))
+        self.add_llvm_instr("BINARY", 22, "AShr", "BinaryOperator", "shifts right (arithmetic), with 'a' operand sign bit fill", oload_int_arith, oload_binary_params, counters=('ints',))
+        self.add_llvm_instr("BINARY", 23, "And", "BinaryOperator", "returns a  bitwise logical and of its two operands", oload_int_arith_b, oload_binary_params, counters=('uints',))
+        self.add_llvm_instr("BINARY", 24, "Or", "BinaryOperator", "returns a bitwise logical or of its two operands", oload_int_arith_b, oload_binary_params, counters=('uints',))
+        self.add_llvm_instr("BINARY", 25, "Xor", "BinaryOperator", "returns a bitwise logical xor of its two operands", oload_int_arith_b, oload_binary_params, counters=('uints',))
 
         self.add_llvm_instr("MEMORY", 26, "Alloca", "AllocaInst", "allocates memory on the stack frame of the currently executing function", "", [])
         self.add_llvm_instr("MEMORY", 27, "Load", "LoadInst", "reads from memory", "", [])
         self.add_llvm_instr("MEMORY", 28, "Store", "StoreInst", "writes to memory", "", [])
         self.add_llvm_instr("MEMORY", 29, "GetElementPtr", "GetElementPtrInst", "gets the address of a subelement of an aggregate value", "", [])
-        self.add_llvm_instr("MEMORY", 30, "Fence", "FenceInst", "introduces happens-before edges between operations", "", [])
-        self.add_llvm_instr("MEMORY", 31, "AtomicCmpXchg", "AtomicCmpXchgInst" , "atomically modifies memory", "", [])
-        self.add_llvm_instr("MEMORY", 32, "AtomicRMW", "AtomicRMWInst", "atomically modifies memory", "", [])
+        self.add_llvm_instr("MEMORY", 30, "Fence", "FenceInst", "introduces happens-before edges between operations", "", [], counters=('fence',))
+        self.add_llvm_instr("MEMORY", 31, "AtomicCmpXchg", "AtomicCmpXchgInst" , "atomically modifies memory", "", [], counters=('atomic',))
+        self.add_llvm_instr("MEMORY", 32, "AtomicRMW", "AtomicRMWInst", "atomically modifies memory", "", [], counters=('atomic',))
 
-        self.add_llvm_instr("CAST", 33, "Trunc", "TruncInst", "truncates an integer", oload_int_arith_b, oload_cast_params)
-        self.add_llvm_instr("CAST", 34, "ZExt", "ZExtInst", "zero extends an integer", oload_int_arith_b, oload_cast_params)
-        self.add_llvm_instr("CAST", 35, "SExt", "SExtInst", "sign extends an integer", oload_int_arith_b, oload_cast_params)
-        self.add_llvm_instr("CAST", 36, "FPToUI", "FPToUIInst", "converts a floating point to UInt", oload_all_arith, oload_cast_params)
-        self.add_llvm_instr("CAST", 37, "FPToSI", "FPToSIInst", "converts a floating point to SInt", oload_all_arith, oload_cast_params)
-        self.add_llvm_instr("CAST", 38, "UIToFP", "UIToFPInst", "converts a UInt to floating point", oload_all_arith, oload_cast_params)
-        self.add_llvm_instr("CAST", 39, "SIToFP" , "SIToFPInst", "converts a SInt to floating point", oload_all_arith, oload_cast_params)
-        self.add_llvm_instr("CAST", 40, "FPTrunc", "FPTruncInst", "truncates a floating point", oload_float_arith, oload_cast_params)
-        self.add_llvm_instr("CAST", 41, "FPExt", "FPExtInst", "extends a floating point", oload_float_arith, oload_cast_params)
+        self.add_llvm_instr("CAST", 33, "Trunc", "TruncInst", "truncates an integer", oload_int_arith_b, oload_cast_params, counters=('ints',))
+        self.add_llvm_instr("CAST", 34, "ZExt", "ZExtInst", "zero extends an integer", oload_int_arith_b, oload_cast_params, counters=('uints',))
+        self.add_llvm_instr("CAST", 35, "SExt", "SExtInst", "sign extends an integer", oload_int_arith_b, oload_cast_params, counters=('ints',))
+        self.add_llvm_instr("CAST", 36, "FPToUI", "FPToUIInst", "converts a floating point to UInt", oload_all_arith, oload_cast_params, counters=('floats',))
+        self.add_llvm_instr("CAST", 37, "FPToSI", "FPToSIInst", "converts a floating point to SInt", oload_all_arith, oload_cast_params, counters=('floats',))
+        self.add_llvm_instr("CAST", 38, "UIToFP", "UIToFPInst", "converts a UInt to floating point", oload_all_arith, oload_cast_params, counters=('floats',))
+        self.add_llvm_instr("CAST", 39, "SIToFP" , "SIToFPInst", "converts a SInt to floating point", oload_all_arith, oload_cast_params, counters=('floats',))
+        self.add_llvm_instr("CAST", 40, "FPTrunc", "FPTruncInst", "truncates a floating point", oload_float_arith, oload_cast_params, counters=('floats',))
+        self.add_llvm_instr("CAST", 41, "FPExt", "FPExtInst", "extends a floating point", oload_float_arith, oload_cast_params, counters=('floats',))
         self.add_llvm_instr("CAST", 42, "PtrToInt", "PtrToIntInst", "converts a pointer to integer", "i", oload_cast_params)
         self.add_llvm_instr("CAST", 43, "IntToPtr", "IntToPtrInst", "converts an integer to Pointer", "i", oload_cast_params)
         self.add_llvm_instr("CAST", 44, "BitCast", "BitCastInst", "performs a bit-preserving type cast", oload_all_arith, oload_cast_params)
         self.add_llvm_instr("CAST", 45, "AddrSpaceCast", "AddrSpaceCastInst", "casts a value addrspace", "", oload_cast_params)
 
-        self.add_llvm_instr("OTHER", 46, "ICmp", "ICmpInst", "compares integers", oload_int_arith_b, oload_binary_params)
-        self.add_llvm_instr("OTHER", 47, "FCmp", "FCmpInst", "compares floating points", oload_float_arith, oload_binary_params)
+        self.add_llvm_instr("OTHER", 46, "ICmp", "ICmpInst", "compares integers", oload_int_arith_b, oload_binary_params, counters=('ints',))
+        self.add_llvm_instr("OTHER", 47, "FCmp", "FCmpInst", "compares floating points", oload_float_arith, oload_binary_params, counters=('floats',))
         self.add_llvm_instr("OTHER", 48, "PHI", "PHINode", "is a PHI node instruction", "", [])
         self.add_llvm_instr("OTHER", 49, "Call", "CallInst", "calls a function", "", [])
         self.add_llvm_instr("OTHER", 50, "Select", "SelectInst", "selects an instruction", "", [])
@@ -539,48 +558,68 @@ class db_dxil(object):
             db_dxil_param(2, "u32", "inputSigId", "input signature element ID"),
             db_dxil_param(3, "u32", "rowIndex", "row index relative to element"),
             db_dxil_param(4, "u8", "colIndex", "column index relative to element"),
-            db_dxil_param(5, "i32", "gsVertexAxis", "gsVertexAxis")])
+            db_dxil_param(5, "i32", "gsVertexAxis", "gsVertexAxis")],
+            counters=('sig_ld',))
         next_op_idx += 1
         self.add_dxil_op("StoreOutput", next_op_idx, "StoreOutput", "stores the value to shader output", "hfwi", "", [ # note, cannot store bit even though load supports it
             retvoid_param,
             db_dxil_param(2, "u32", "outputSigId", "output signature element ID"),
             db_dxil_param(3, "u32", "rowIndex", "row index relative to element"),
             db_dxil_param(4, "u8", "colIndex", "column index relative to element"),
-            db_dxil_param(5, "$o", "value", "value to store")])
+            db_dxil_param(5, "$o", "value", "value to store")],
+            counters=('sig_st',))
         next_op_idx += 1
+
+        def UFI(name, **mappings):
+            name = name.upper()
+            for k,v in mappings.items():
+                if name.startswith(k):
+                    return v
+            if name.upper().startswith('F'):
+                return 'floats'
+            elif name.upper().startswith('U'):
+                return 'uints'
+            else:
+                return 'ints'
 
         # Unary float operations are regular.
         for i in "FAbs,Saturate".split(","):
             self.add_dxil_op(i, next_op_idx, "Unary", "returns the " + i, "hfd", "rn", [
                 db_dxil_param(0, "$o", "", "operation result"),
-                db_dxil_param(2, "$o", "value", "input value")])
+                db_dxil_param(2, "$o", "value", "input value")],
+                counters=('floats',))
             next_op_idx += 1
         for i in "IsNaN,IsInf,IsFinite,IsNormal".split(","):
             self.add_dxil_op(i, next_op_idx, "IsSpecialFloat", "returns the " + i, "hf", "rn", [
                 db_dxil_param(0, "i1", "", "operation result"),
-                db_dxil_param(2, "$o", "value", "input value")])
+                db_dxil_param(2, "$o", "value", "input value")],
+                counters=('floats',))
             next_op_idx += 1
         for i in "Cos,Sin,Tan,Acos,Asin,Atan,Hcos,Hsin,Htan,Exp,Frc,Log,Sqrt,Rsqrt,Round_ne,Round_ni,Round_pi,Round_z".split(","):
             self.add_dxil_op(i, next_op_idx, "Unary", "returns the " + i, "hf", "rn", [
                 db_dxil_param(0, "$o", "", "operation result"),
-                db_dxil_param(2, "$o", "value", "input value")])
+                db_dxil_param(2, "$o", "value", "input value")],
+                counters=('floats',))
             next_op_idx += 1
 
         # Unary int operations are regular.
         for i in "Bfrev".split(","):
             self.add_dxil_op(i, next_op_idx, "Unary", "returns the reverse bit pattern of the input value", "wil", "rn", [
                 db_dxil_param(0, "$o", "", "operation result"),
-                db_dxil_param(2, "$o", "value", "input value")])
+                db_dxil_param(2, "$o", "value", "input value")],
+                counters=('uints',))
             next_op_idx += 1
         for i in "Countbits,FirstbitLo".split(","):
             self.add_dxil_op(i, next_op_idx, "UnaryBits", "returns the " + i, "wil", "rn", [
                 db_dxil_param(0, "i32", "", "operation result"),
-                db_dxil_param(2, "$o", "value", "input value")])
+                db_dxil_param(2, "$o", "value", "input value")],
+                counters=('uints',))
             next_op_idx += 1
         for i in "FirstbitHi,FirstbitSHi".split(","):
             self.add_dxil_op(i, next_op_idx, "UnaryBits", "returns src != 0? (BitWidth-1 - " + i + ") : -1", "wil", "rn", [
                 db_dxil_param(0, "i32", "", "operation result"),
-                db_dxil_param(2, "$o", "value", "input value")])
+                db_dxil_param(2, "$o", "value", "input value")],
+                counters=('uints',))
             next_op_idx += 1
 
         # Binary float operations
@@ -588,7 +627,8 @@ class db_dxil(object):
             self.add_dxil_op(i, next_op_idx, "Binary", "returns the " + i + " of the input values", "hfd", "rn", [
                 db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "$o", "a", "input value"),
-                db_dxil_param(3, "$o", "b", "input value")])
+                db_dxil_param(3, "$o", "b", "input value")],
+                counters=('floats',))
             next_op_idx += 1
 
         # Binary int operations
@@ -596,7 +636,8 @@ class db_dxil(object):
             self.add_dxil_op(i, next_op_idx, "Binary", "returns the " + i + " of the input values", "wil", "rn", [
                 db_dxil_param(0, "$o", "", "operation result"),
                 db_dxil_param(2, "$o", "a", "input value"),
-                db_dxil_param(3, "$o", "b", "input value")])
+                db_dxil_param(3, "$o", "b", "input value")],
+                counters=(UFI(i),))
             next_op_idx += 1
 
         # Binary int operations with two outputs
@@ -604,7 +645,8 @@ class db_dxil(object):
             self.add_dxil_op(i, next_op_idx, "BinaryWithTwoOuts", "returns the " + i + " of the input values", "i", "rn", [
                 db_dxil_param(0, "twoi32", "", "operation result"),
                 db_dxil_param(2, "$o", "a", "input value"),
-                db_dxil_param(3, "$o", "b", "input value")])
+                db_dxil_param(3, "$o", "b", "input value")],
+                counters=(UFI(i),))
             next_op_idx += 1
 
         # Binary int operations with carry
@@ -612,7 +654,8 @@ class db_dxil(object):
             self.add_dxil_op(i, next_op_idx, "BinaryWithCarryOrBorrow", "returns the " + i + " of the input values", "i", "rn", [
                 db_dxil_param(0, "i32c", "", "operation result with carry/borrow value"),
                 db_dxil_param(2, "$o", "a", "input value"),
-                db_dxil_param(3, "$o", "b", "input value")])
+                db_dxil_param(3, "$o", "b", "input value")],
+                counters=('uints',))
             next_op_idx += 1
 
         # Tertiary float.
@@ -626,7 +669,8 @@ class db_dxil(object):
             db_dxil_param(0, "$o", "", "the double-precision fused multiply-addition of parameters a * b + c, accurate to 0.5 units of least precision (ULP)"),
             db_dxil_param(2, "$o", "a", "first value for FMA, the first factor"),
             db_dxil_param(3, "$o", "b", "second value for FMA, the second factor"),
-            db_dxil_param(4, "$o", "c", "third value for FMA, the addend")])
+            db_dxil_param(4, "$o", "c", "third value for FMA, the addend")],
+            counters=('floats',))
         next_op_idx += 1
 
         # Tertiary int.
@@ -635,14 +679,16 @@ class db_dxil(object):
                 db_dxil_param(0, "$o", "", "the operation result"),
                 db_dxil_param(2, "$o", "a", "first value for FMA, the first factor"),
                 db_dxil_param(3, "$o", "b", "second value for FMA, the second factor"),
-                db_dxil_param(4, "$o", "c", "third value for FMA, the addend")])
+                db_dxil_param(4, "$o", "c", "third value for FMA, the addend")],
+                counters=(UFI(i),))
             next_op_idx += 1
         for i in "Msad,Ibfe,Ubfe".split(","):
             self.add_dxil_op(i, next_op_idx, "Tertiary", "performs an integral " + i, "il", "rn", [
                 db_dxil_param(0, "$o", "", "the operation result"),
                 db_dxil_param(2, "$o", "a", "first value for FMA, the first factor"),
                 db_dxil_param(3, "$o", "b", "second value for FMA, the second factor"),
-                db_dxil_param(4, "$o", "c", "third value for FMA, the addend")])
+                db_dxil_param(4, "$o", "c", "third value for FMA, the addend")],
+                counters=(UFI(i, M='uints'),))
             next_op_idx += 1
 
         # Quaternary
@@ -651,7 +697,8 @@ class db_dxil(object):
             db_dxil_param(2, "$o", "width", "the bitfield width to take from the value"),
             db_dxil_param(3, "$o", "offset", "the bitfield offset to replace in the value"),
             db_dxil_param(4, "$o", "value", "the number the bits are taken from"),
-            db_dxil_param(5, "$o", "replacedValue", "the number with bits to be replaced")])
+            db_dxil_param(5, "$o", "replacedValue", "the number with bits to be replaced")],
+            counters=('uints',))
         next_op_idx += 1
 
         # Dot
@@ -660,7 +707,8 @@ class db_dxil(object):
             db_dxil_param(2, "$o", "ax", "the first component of the first vector"),
             db_dxil_param(3, "$o", "ay", "the second component of the first vector"),
             db_dxil_param(4, "$o", "bx", "the first component of the second vector"),
-            db_dxil_param(5, "$o", "by", "the second component of the second vector")])
+            db_dxil_param(5, "$o", "by", "the second component of the second vector")],
+            counters=('floats',))
         next_op_idx += 1
         self.add_dxil_op("Dot3", next_op_idx, "Dot3", "three-dimensional vector dot-product", "hf", "rn", [
             db_dxil_param(0, "$o", "", "the operation result"),
@@ -669,7 +717,8 @@ class db_dxil(object):
             db_dxil_param(4, "$o", "az", "the third component of the first vector"),
             db_dxil_param(5, "$o", "bx", "the first component of the second vector"),
             db_dxil_param(6, "$o", "by", "the second component of the second vector"),
-            db_dxil_param(7, "$o", "bz", "the third component of the second vector")])
+            db_dxil_param(7, "$o", "bz", "the third component of the second vector")],
+            counters=('floats',))
         next_op_idx += 1
         self.add_dxil_op("Dot4", next_op_idx, "Dot4", "four-dimensional vector dot-product", "hf", "rn", [
             db_dxil_param(0, "$o", "", "the operation result"),
@@ -680,7 +729,8 @@ class db_dxil(object):
             db_dxil_param(6, "$o", "bx", "the first component of the second vector"),
             db_dxil_param(7, "$o", "by", "the second component of the second vector"),
             db_dxil_param(8, "$o", "bz", "the third component of the second vector"),
-            db_dxil_param(9, "$o", "bw", "the fourth component of the second vector")])
+            db_dxil_param(9, "$o", "bw", "the fourth component of the second vector")],
+            counters=('floats',))
         next_op_idx += 1
 
         # Resources.
@@ -713,7 +763,8 @@ class db_dxil(object):
             db_dxil_param(8, "i32", "offset0", "optional offset, applicable to Texture1D, Texture1DArray, and as part of offset1"),
             db_dxil_param(9, "i32", "offset1", "optional offset, applicable to Texture2D, Texture2DArray, and as part of offset2"),
             db_dxil_param(10, "i32", "offset2", "optional offset, applicable to Texture3D"),
-            db_dxil_param(11, "f", "clamp", "clamp value")])
+            db_dxil_param(11, "f", "clamp", "clamp value")],
+            counters=('tex_norm',))
         next_op_idx += 1
         self.add_dxil_op("SampleBias", next_op_idx, "SampleBias", "samples a texture after applying the input bias to the mipmap level", "hf", "ro", [
             db_dxil_param(0, "$r", "", "the sampled value"),
@@ -727,7 +778,8 @@ class db_dxil(object):
             db_dxil_param(9, "i32", "offset1", "optional offset, applicable to Texture2D, Texture2DArray, and as part of offset2"),
             db_dxil_param(10, "i32", "offset2", "optional offset, applicable to Texture3D"),
             db_dxil_param(11, "f", "bias", "bias value"),
-            db_dxil_param(12, "f", "clamp", "clamp value")])
+            db_dxil_param(12, "f", "clamp", "clamp value")],
+            counters=('tex_bias',))
         next_op_idx += 1
         self.add_dxil_op("SampleLevel", next_op_idx, "SampleLevel", "samples a texture using a mipmap-level offset", "hf", "ro", [
             db_dxil_param(0, "$r", "", "the sampled value"),
@@ -740,7 +792,8 @@ class db_dxil(object):
             db_dxil_param(8, "i32", "offset0", "optional offset, applicable to Texture1D, Texture1DArray, and as part of offset1"),
             db_dxil_param(9, "i32", "offset1", "optional offset, applicable to Texture2D, Texture2DArray, and as part of offset2"),
             db_dxil_param(10, "i32", "offset2", "optional offset, applicable to Texture3D"),
-            db_dxil_param(11, "f", "LOD", "level of detail, biggest map if less than or equal to zero; fraction used to interpolate across levels")])
+            db_dxil_param(11, "f", "LOD", "level of detail, biggest map if less than or equal to zero; fraction used to interpolate across levels")],
+            counters=('tex_norm',))
         next_op_idx += 1
         self.add_dxil_op("SampleGrad", next_op_idx, "SampleGrad", "samples a texture using a gradient to influence the way the sample location is calculated", "hf", "ro", [
             db_dxil_param(0, "$r", "", "the sampled value"),
@@ -759,7 +812,8 @@ class db_dxil(object):
             db_dxil_param(14, "f", "ddy0", "rate of change of the texture coordinate in the y direction"),
             db_dxil_param(15, "f", "ddy1", "rate of change of the texture coordinate in the y direction"),
             db_dxil_param(16, "f", "ddy2", "rate of change of the texture coordinate in the y direction"),
-            db_dxil_param(17, "f", "clamp", "clamp value")])
+            db_dxil_param(17, "f", "clamp", "clamp value")],
+            counters=('tex_grad',))
         next_op_idx += 1
         self.add_dxil_op("SampleCmp", next_op_idx, "SampleCmp", "samples a texture and compares a single component against the specified comparison value", "hf", "ro", [
             db_dxil_param(0, "$r", "", "the value for the constant buffer variable"),
@@ -773,7 +827,8 @@ class db_dxil(object):
             db_dxil_param(9, "i32", "offset1", "optional offset, applicable to Texture2D, Texture2DArray, and as part of offset2"),
             db_dxil_param(10, "i32", "offset2", "optional offset, applicable to Texture3D"),
             db_dxil_param(11, "f", "compareValue", "the value to compare with"),
-            db_dxil_param(12, "f", "clamp", "clamp value")])
+            db_dxil_param(12, "f", "clamp", "clamp value")],
+            counters=('tex_cmp',))
         next_op_idx += 1
         self.add_dxil_op("SampleCmpLevelZero", next_op_idx, "SampleCmpLevelZero", "samples a texture and compares a single component against the specified comparison value", "hf", "ro", [
             db_dxil_param(0, "$r", "", "the value for the constant buffer variable"),
@@ -786,7 +841,8 @@ class db_dxil(object):
             db_dxil_param(8, "i32", "offset0", "optional offset, applicable to Texture1D, Texture1DArray, and as part of offset1"),
             db_dxil_param(9, "i32", "offset1", "optional offset, applicable to Texture2D, Texture2DArray, and as part of offset2"),
             db_dxil_param(10, "i32", "offset2", "optional offset, applicable to Texture3D"),
-            db_dxil_param(11, "f", "compareValue", "the value to compare with")])
+            db_dxil_param(11, "f", "compareValue", "the value to compare with")],
+            counters=('tex_cmp',))
         next_op_idx += 1
         self.add_dxil_op("TextureLoad", next_op_idx, "TextureLoad", "reads texel data without any filtering or sampling", "hfwi", "ro", [
             db_dxil_param(0, "$r", "", "the loaded value"),
@@ -797,7 +853,8 @@ class db_dxil(object):
             db_dxil_param(6, "i32", "coord2", "coordinate"),
             db_dxil_param(7, "i32", "offset0", "optional offset"),
             db_dxil_param(8, "i32", "offset1", "optional offset"),
-            db_dxil_param(9, "i32", "offset2", "optional offset")])
+            db_dxil_param(9, "i32", "offset2", "optional offset")],
+            counters=('tex_load',))
         next_op_idx += 1
         self.add_dxil_op("TextureStore", next_op_idx, "TextureStore", "reads texel data without any filtering or sampling", "hfwi", "", [
             db_dxil_param(0, "v", "", ""),
@@ -809,13 +866,15 @@ class db_dxil(object):
             db_dxil_param(7, "$o", "value1", "value"),
             db_dxil_param(8, "$o", "value2", "value"),
             db_dxil_param(9, "$o", "value3", "value"),
-            db_dxil_param(10,"i8", "mask", "written value mask")])
+            db_dxil_param(10,"i8", "mask", "written value mask")],
+            counters=('tex_store',))
         next_op_idx += 1
         self.add_dxil_op("BufferLoad", next_op_idx, "BufferLoad", "reads from a TypedBuffer", "hfwi", "ro", [
             db_dxil_param(0, "$r", "", "the loaded value"),
             db_dxil_param(2, "res", "srv", "handle of TypedBuffer SRV to sample"),
             db_dxil_param(3, "i32", "index", "element index"),
-            db_dxil_param(4, "i32", "wot", "coordinate")])
+            db_dxil_param(4, "i32", "wot", "coordinate")],
+            counters=('tex_load',))
         next_op_idx += 1
         self.add_dxil_op("BufferStore", next_op_idx, "BufferStore", "writes to a RWTypedBuffer", "hfwi", "", [
             db_dxil_param(0, "v", "", ""),
@@ -826,12 +885,14 @@ class db_dxil(object):
             db_dxil_param(6, "$o", "value1", "value"),
             db_dxil_param(7, "$o", "value2", "value"),
             db_dxil_param(8, "$o", "value3", "value"),
-            db_dxil_param(9, "i8", "mask", "written value mask")])
+            db_dxil_param(9, "i8", "mask", "written value mask")],
+            counters=('tex_store',))
         next_op_idx += 1
         self.add_dxil_op("BufferUpdateCounter", next_op_idx, "BufferUpdateCounter", "atomically increments/decrements the hidden 32-bit counter stored with a Count or Append UAV", "v", "", [
             db_dxil_param(0, "i32", "", "the new value in the buffer"),
             db_dxil_param(2, "res", "uav", "handle to a structured buffer UAV with the count or append flag"),
-            db_dxil_param(3, "i8", "inc", "1 to increase, 0 to decrease")])
+            db_dxil_param(3, "i8", "inc", "1 to increase, 0 to decrease")],
+            counters=('atomic',))
         next_op_idx += 1
         self.add_dxil_op("CheckAccessFullyMapped", next_op_idx, "CheckAccessFullyMapped", "determines whether all values from a Sample, Gather, or Load operation accessed mapped tiles in a tiled resource", "i", "ro", [
             db_dxil_param(0, "i1", "", "nonzero if all values accessed mapped tiles in a tiled resource"),
@@ -852,7 +913,8 @@ class db_dxil(object):
             db_dxil_param(7, "f", "coord3", "coordinate, defined only for TextureCubeArray"),
             db_dxil_param(8, "i32", "offset0", "optional offset, applicable to Texture1D, Texture1DArray, and as part of offset1"),
             db_dxil_param(9, "i32", "offset1", "optional offset, applicable to Texture2D, Texture2DArray, and as part of offset2"),
-            db_dxil_param(10, "i32", "channel", "channel to sample")])
+            db_dxil_param(10, "i32", "channel", "channel to sample")],
+            counters=('tex_norm',))
         next_op_idx += 1
         self.add_dxil_op("TextureGatherCmp", next_op_idx, "TextureGatherCmp", "same as TextureGather, except this instrution performs comparison on texels, similar to SampleCmp", "hfwi", "ro", [
             db_dxil_param(0, "$r", "", "gathered texels"),
@@ -865,7 +927,8 @@ class db_dxil(object):
             db_dxil_param(8, "i32", "offset0", "optional offset, applicable to Texture1D, Texture1DArray, and as part of offset1"),
             db_dxil_param(9, "i32", "offset1", "optional offset, applicable to Texture2D, Texture2DArray, and as part of offset2"),
             db_dxil_param(10, "i32", "channel", "channel to sample"),
-            db_dxil_param(11, "f", "compareVale", "value to compare with")])
+            db_dxil_param(11, "f", "compareVale", "value to compare with")],
+            counters=('tex_cmp',))
         next_op_idx += 1
 
         self.add_dxil_op("Texture2DMSGetSamplePosition", next_op_idx, "Texture2DMSGetSamplePosition", "gets the position of the specified sample", "v", "ro", [
@@ -889,7 +952,8 @@ class db_dxil(object):
             db_dxil_param(4, "i32", "offset0", "offset in elements"),
             db_dxil_param(5, "i32", "offset1", "offset"),
             db_dxil_param(6, "i32", "offset2", "offset"),
-            db_dxil_param(7, "i32", "newValue", "new value")])
+            db_dxil_param(7, "i32", "newValue", "new value")],
+            counters=('atomic',))
         next_op_idx += 1
         self.add_dxil_op("AtomicCompareExchange", next_op_idx, "AtomicCompareExchange", "atomic compare and exchange to memory", "i", "", [
             db_dxil_param(0, "i32", "", "the original value in the location updated"),
@@ -898,13 +962,15 @@ class db_dxil(object):
             db_dxil_param(4, "i32", "offset1", "offset"),
             db_dxil_param(5, "i32", "offset2", "offset"),
             db_dxil_param(6, "i32", "compareValue", "value to compare for exchange"),
-            db_dxil_param(7, "i32", "newValue", "new value")])
+            db_dxil_param(7, "i32", "newValue", "new value")],
+            counters=('atomic',))
         next_op_idx += 1
 
         # Synchronization.
         self.add_dxil_op("Barrier", next_op_idx, "Barrier", "inserts a memory barrier in the shader", "v", "nd", [
             retvoid_param,
-            db_dxil_param(2, "i32", "barrierMode", "a mask of DXIL::BarrierMode values", is_const=True)])
+            db_dxil_param(2, "i32", "barrierMode", "a mask of DXIL::BarrierMode values", is_const=True)],
+            counters=('barrier',))
         next_op_idx += 1
 
         # Pixel shader
@@ -988,15 +1054,18 @@ class db_dxil(object):
         # Geometry shader
         self.add_dxil_op("EmitStream", next_op_idx, "EmitStream", "emits a vertex to a given stream", "v", "", [
             retvoid_param,
-            db_dxil_param(2, "i8", "streamId", "target stream ID for operation")])
+            db_dxil_param(2, "i8", "streamId", "target stream ID for operation")],
+            counters=('gs_emit',))
         next_op_idx += 1
         self.add_dxil_op("CutStream", next_op_idx, "CutStream", "completes the current primitive topology at the specified stream", "v", "", [
             retvoid_param,
-            db_dxil_param(2, "i8", "streamId", "target stream ID for operation")])
+            db_dxil_param(2, "i8", "streamId", "target stream ID for operation")],
+            counters=('gs_cut',))
         next_op_idx += 1
         self.add_dxil_op("EmitThenCutStream", next_op_idx, "EmitThenCutStream", "equivalent to an EmitStream followed by a CutStream", "v", "", [
             retvoid_param,
-            db_dxil_param(2, "i8", "streamId", "target stream ID for operation")])
+            db_dxil_param(2, "i8", "streamId", "target stream ID for operation")],
+            counters=('gs_emit','gs_cut'))
         next_op_idx += 1
         self.add_dxil_op("GSInstanceID", next_op_idx, "GSInstanceID", "GSInstanceID", "i", "rn", [
             db_dxil_param(0, "i32", "", "result")])
@@ -1019,13 +1088,15 @@ class db_dxil(object):
             db_dxil_param(2, "i32", "inputSigId", "input signature element ID"),
             db_dxil_param(3, "i32", "row", "row, relative to the element"),
             db_dxil_param(4, "i8", "col", "column, relative to the element"),
-            db_dxil_param(5, "i32", "index", "vertex/point index")])
+            db_dxil_param(5, "i32", "index", "vertex/point index")],
+            counters=('sig_ld',))
         next_op_idx += 1
         self.add_dxil_op("LoadPatchConstant", next_op_idx, "LoadPatchConstant", "LoadPatchConstant", "hfwi", "rn", [
             db_dxil_param(0, "$o", "", "result"),
             db_dxil_param(2, "i32", "inputSigId", "input signature element ID"),
             db_dxil_param(3, "i32", "row", "row, relative to the element"),
-            db_dxil_param(4, "i8", "col", "column, relative to the element")])
+            db_dxil_param(4, "i8", "col", "column, relative to the element")],
+            counters=('sig_ld',))
         next_op_idx += 1
 
         # Domain shader.
@@ -1040,7 +1111,8 @@ class db_dxil(object):
             db_dxil_param(2, "i32", "outputSigID", "output signature element ID"),
             db_dxil_param(3, "i32", "row", "row, relative to the element"),
             db_dxil_param(4, "i8", "col", "column, relative to the element"),
-            db_dxil_param(5, "$o", "value", "value to store")])
+            db_dxil_param(5, "$o", "value", "value to store")],
+            counters=('sig_st',))
         next_op_idx += 1
         self.add_dxil_op("OutputControlPointID", next_op_idx, "OutputControlPointID", "OutputControlPointID", "i", "rn", [
             db_dxil_param(0, "i32", "", "result")])
@@ -1219,7 +1291,8 @@ class db_dxil(object):
             db_dxil_param(3, "i32", "index", "element index for StructuredBuffer, or byte offset for ByteAddressBuffer"),
             db_dxil_param(4, "i32", "elementOffset", "offset into element for StructuredBuffer, or undef for ByteAddressBuffer"),
             db_dxil_param(5, "i8", "mask", "loading value mask", is_const=True),
-            db_dxil_param(6, "i32", "alignment", "relative load access alignment", is_const=True)])
+            db_dxil_param(6, "i32", "alignment", "relative load access alignment", is_const=True)],
+            counters=('tex_load',))
         next_op_idx += 1
 
         self.add_dxil_op("RawBufferStore", next_op_idx, "RawBufferStore", "writes to a RWByteAddressBuffer or RWStructuredBuffer", "hfwidl", "", [
@@ -1232,7 +1305,8 @@ class db_dxil(object):
             db_dxil_param(7, "$o", "value2", "value"),
             db_dxil_param(8, "$o", "value3", "value"),
             db_dxil_param(9, "i8", "mask", "mask of contiguous components stored starting at first component (valid: 1, 3, 7, 15)", is_const=True),
-            db_dxil_param(10, "i32", "alignment", "relative store access alignment", is_const=True)])
+            db_dxil_param(10, "i32", "alignment", "relative store access alignment", is_const=True)],
+            counters=('tex_store',))
         next_op_idx += 1
 
         # End of DXIL 1.2 opcodes.
@@ -1365,21 +1439,24 @@ class db_dxil(object):
             db_dxil_param(3, "h", "ax", "the first component of the first vector"),
             db_dxil_param(4, "h", "ay", "the second component of the first vector"),
             db_dxil_param(5, "h", "bx", "the first component of the second vector"),
-            db_dxil_param(6, "h", "by", "the second component of the second vector")])
+            db_dxil_param(6, "h", "by", "the second component of the second vector")],
+            counters=('floats',))
         next_op_idx += 1
 
         self.add_dxil_op("Dot4AddI8Packed", next_op_idx, "Dot4AddPacked", "signed dot product of 4 x i8 vectors packed into i32, with accumulate to i32", "i", "rn", [
             db_dxil_param(0, "i32", "", "accumulated result"),
             db_dxil_param(2, "i32", "acc", "input accumulator"),
             db_dxil_param(3, "i32", "a", "first packed 4 x i8 for dot product"),
-            db_dxil_param(4, "i32", "b", "second packed 4 x i8 for dot product")])
+            db_dxil_param(4, "i32", "b", "second packed 4 x i8 for dot product")],
+            counters=('ints',))
         next_op_idx += 1
 
         self.add_dxil_op("Dot4AddU8Packed", next_op_idx, "Dot4AddPacked", "unsigned dot product of 4 x u8 vectors packed into i32, with accumulate to i32", "i", "rn", [
             db_dxil_param(0, "i32", "", "accumulated result"),
             db_dxil_param(2, "i32", "acc", "input accumulator"),
             db_dxil_param(3, "i32", "a", "first packed 4 x u8 for dot product"),
-            db_dxil_param(4, "i32", "b", "second packed 4 x u8 for dot product")])
+            db_dxil_param(4, "i32", "b", "second packed 4 x u8 for dot product")],
+            counters=('uints',))
         next_op_idx += 1
 
         # End of DXIL 1.4 opcodes.
@@ -1439,7 +1516,8 @@ class db_dxil(object):
             db_dxil_param(3, "u32", "rowIndex", "row index relative to element"),
             db_dxil_param(4, "u8", "colIndex", "column index relative to element"),
             db_dxil_param(5, "$o", "value", "value to store"),
-            db_dxil_param(6, "u32", "vertexIndex", "vertex index")])
+            db_dxil_param(6, "u32", "vertexIndex", "vertex index")],
+            counters=('sig_st',))
         next_op_idx += 1
         self.add_dxil_op("StorePrimitiveOutput", next_op_idx, "StorePrimitiveOutput", "stores the value to mesh shader primitive output", "hfwi", "", [
             retvoid_param,
@@ -1447,7 +1525,8 @@ class db_dxil(object):
             db_dxil_param(3, "u32", "rowIndex", "row index relative to element"),
             db_dxil_param(4, "u8", "colIndex", "column index relative to element"),
             db_dxil_param(5, "$o", "value", "value to store"),
-            db_dxil_param(6, "u32", "primitiveIndex", "primitive index")])
+            db_dxil_param(6, "u32", "primitiveIndex", "primitive index")],
+            counters=('sig_st',))
         next_op_idx += 1
 
         # Amplification Shader
@@ -1469,7 +1548,8 @@ class db_dxil(object):
             db_dxil_param(6, "f", "c1", "coordinate c1"),
             db_dxil_param(7, "f", "c2", "coordinate c2"),
             db_dxil_param(8, "f", "c3", "coordinate c3"),
-            db_dxil_param(9, "f", "clamp", "clamp")])
+            db_dxil_param(9, "f", "clamp", "clamp")],
+            counters=('tex_store',))
         next_op_idx += 1
         self.add_dxil_op("WriteSamplerFeedbackBias", next_op_idx, "WriteSamplerFeedbackBias", "updates a feedback texture for a sampling operation with a bias on the mipmap level", "v", "", [
             db_dxil_param(0, "v", "", ""),
@@ -1481,7 +1561,8 @@ class db_dxil(object):
             db_dxil_param(7, "f", "c2", "coordinate c2"),
             db_dxil_param(8, "f", "c3", "coordinate c3"),
             db_dxil_param(9, "f", "bias", "bias in [-16.f,15.99f]"),
-            db_dxil_param(10, "f", "clamp", "clamp")])
+            db_dxil_param(10, "f", "clamp", "clamp")],
+            counters=('tex_store',))
         next_op_idx += 1
         self.add_dxil_op("WriteSamplerFeedbackLevel", next_op_idx, "WriteSamplerFeedbackLevel", "updates a feedback texture for a sampling operation with a mipmap-level offset", "v", "", [
             db_dxil_param(0, "v", "", ""),
@@ -1492,7 +1573,8 @@ class db_dxil(object):
             db_dxil_param(6, "f", "c1", "coordinate c1"),
             db_dxil_param(7, "f", "c2", "coordinate c2"),
             db_dxil_param(8, "f", "c3", "coordinate c3"),
-            db_dxil_param(9, "f", "lod", "LOD")])
+            db_dxil_param(9, "f", "lod", "LOD")],
+            counters=('tex_store',))
         next_op_idx += 1
         self.add_dxil_op("WriteSamplerFeedbackGrad", next_op_idx, "WriteSamplerFeedbackGrad", "updates a feedback texture for a sampling operation with explicit gradients", "v", "", [
             db_dxil_param(0, "v", "", ""),
@@ -1509,7 +1591,8 @@ class db_dxil(object):
             db_dxil_param(12, "f", "ddy0", "rate of change of coordinate c0 in the y direction"),
             db_dxil_param(13, "f", "ddy1", "rate of change of coordinate c1 in the y direction"),
             db_dxil_param(14, "f", "ddy2", "rate of change of coordinate c2 in the y direction"),
-            db_dxil_param(15, "f", "clamp", "clamp")])
+            db_dxil_param(15, "f", "clamp", "clamp")],
+            counters=('tex_store',))
         next_op_idx += 1
 
         # RayQuery
@@ -2016,11 +2099,20 @@ class db_dxil(object):
         add_pass('dxil-fix-array-init', 'DxilFixConstArrayInitializer', 'Dxil Fix Array Initializer', [])
         add_pass('hlsl-validate-wave-sensitivity', 'DxilValidateWaveSensitivity', 'HLSL DXIL wave sensitiveity validation', [])
         add_pass('dxil-elim-vector', 'DxilEliminateVector', 'Dxil Eliminate Vectors', [])
+        add_pass('dxil-rewrite-output-arg-debug-info', 'DxilRewriteOutputArgDebugInfo', 'Dxil Rewrite Output Arg Debug Info', [])
         add_pass('dxil-finalize-preserves', 'DxilFinalizePreserves', 'Dxil Finalize Preserves', [])
-        add_pass('dxil-insert-preserves', 'DxilInsertPreserves', 'Dxil Insert Noops', [])
-        add_pass('dxil-preserve-to-select', 'DxilPreserveToSelect', 'Dxil Insert Noops', [])
+        add_pass('dxil-insert-preserves', 'DxilInsertPreserves', 'Dxil Insert Noops', [
+                {'n':'AllowPreserves', 't':'bool', 'c':1},
+            ])
+        add_pass('dxil-preserves-to-select', 'DxilPreserveToSelect', 'Dxil Preserves To Select', [])
+        add_pass('dxil-delete-loop', 'DxilLoopDeletion', 'Dxil Loop Deletion', [])
         add_pass('dxil-value-cache', 'DxilValueCache', 'Dxil Value Cache',[])
         add_pass('hlsl-cleanup-dxbreak', 'CleanupDxBreak', 'HLSL Remove unnecessary dx.break conditions', [])
+        add_pass('dxil-rename-resources', 'DxilRenameResources', 'Rename resources to prevent merge by name during linking', [
+                {'n':'prefix', 'i':'Prefix', 't':'string', 'd':'Prefix to add to resource names'},
+                {'n':'from-binding', 'i':'FromBinding', 't':'bool', 'c':1, 'd':'Append binding to name when bound'},
+                {'n':'keep-name', 'i':'KeepName', 't':'bool', 'c':1, 'd':'Keep name when appending binding'},
+            ])
 
         category_lib="llvm"
         add_pass('ipsccp', 'IPSCCP', 'Interprocedural Sparse Conditional Constant Propagation', [])
@@ -2269,7 +2361,7 @@ class db_dxil(object):
             ViewID,NotInSig _61,NA,NotInSig _61,NotInSig _61,NA,NA,NA,NotInSig _61,NA,NA,NA,NotInSig _61,NA,NotInSig _61,NA,NA,NotInSig,NA,NA,NA
             Barycentrics,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotPacked _61,NA,NA,NA,NA,NA,NA
             ShadingRate,NA,SV _64,NA,NA,SV _64,SV _64,NA,NA,SV _64,SV _64,SV _64,NA,SV _64,SV _64,NA,NA,NA,NA,SV,NA
-            CullPrimitive,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotPacked,NA
+            CullPrimitive,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotInSig,NA,NA,NA,NA,NotPacked,NA
         """
         table = [list(map(str.strip, line.split(','))) for line in SemanticInterpretationCSV.splitlines() if line.strip()]
         for row in table[1:]: assert(len(row) == len(table[0])) # Ensure table is rectangular
@@ -2280,7 +2372,7 @@ class db_dxil(object):
         self.interpretation_table = table
 
     def build_valrules(self):
-        self.add_valrule_msg("Bitcode.Valid", "TODO - Module must be bitcode-valid", "Module bitcode is invalid")
+        self.add_valrule_msg("Bitcode.Valid", "TODO - Module must be bitcode-valid", "Module bitcode is invalid.")
 
         self.add_valrule_msg("Container.PartMatches", "DXIL Container Parts must match Module", "Container part '%0' does not match expected for module.")
         self.add_valrule_msg("Container.PartRepeated", "DXIL Container must have only one of each part type", "More than one container part '%0'.")
@@ -2288,24 +2380,24 @@ class db_dxil(object):
         self.add_valrule_msg("Container.PartInvalid", "DXIL Container must not contain unknown parts", "Unknown part '%0' found in DXIL container.")
         self.add_valrule_msg("Container.RootSignatureIncompatible", "Root Signature in DXIL Container must be compatible with shader", "Root Signature in DXIL container is not compatible with shader.")
 
-        self.add_valrule("Meta.Required", "TODO - Required metadata missing")
-        self.add_valrule_msg("Meta.Known", "Named metadata should be known", "Named metadata '%0' is unknown")
-        self.add_valrule("Meta.Used", "All metadata must be used by dxil")
-        self.add_valrule_msg("Meta.Target", "Target triple must be 'dxil-ms-dx'", "Unknown target triple '%0'")
-        self.add_valrule("Meta.WellFormed", "TODO - Metadata must be well-formed in operand count and types")
-        self.add_valrule("Meta.SemanticLen", "Semantic length must be at least 1 and at most 64")
-        self.add_valrule_msg("Meta.InterpModeValid", "Interpolation mode must be valid", "Invalid interpolation mode for '%0'")
-        self.add_valrule_msg("Meta.SemaKindValid", "Semantic kind must be valid", "Semantic kind for '%0' is invalid")
-        self.add_valrule_msg("Meta.NoSemanticOverlap", "Semantics must not overlap", "Semantic '%0' overlap at %1")
-        self.add_valrule_msg("Meta.SemaKindMatchesName", "Semantic name must match system value, when defined.", "Semantic name %0 does not match System Value kind %1")
+        self.add_valrule("Meta.Required", "TODO - Required metadata missing.")
+        self.add_valrule_msg("Meta.Known", "Named metadata should be known", "Named metadata '%0' is unknown.")
+        self.add_valrule("Meta.Used", "All metadata must be used by dxil.")
+        self.add_valrule_msg("Meta.Target", "Target triple must be 'dxil-ms-dx'", "Unknown target triple '%0'.")
+        self.add_valrule("Meta.WellFormed", "TODO - Metadata must be well-formed in operand count and types.")
+        self.add_valrule("Meta.SemanticLen", "Semantic length must be at least 1 and at most 64.")
+        self.add_valrule_msg("Meta.InterpModeValid", "Interpolation mode must be valid", "Invalid interpolation mode for '%0'.")
+        self.add_valrule_msg("Meta.SemaKindValid", "Semantic kind must be valid", "Semantic kind for '%0' is invalid.")
+        self.add_valrule_msg("Meta.NoSemanticOverlap", "Semantics must not overlap", "Semantic '%0' overlap at %1.")
+        self.add_valrule_msg("Meta.SemaKindMatchesName", "Semantic name must match system value, when defined.", "Semantic name %0 does not match System Value kind %1.")
         self.add_valrule_msg("Meta.DuplicateSysValue", "System value may only appear once in signature", "System value %0 appears more than once in the same signature.")
-        self.add_valrule_msg("Meta.SemanticIndexMax", "System value semantics have a maximum valid semantic index", "%0 semantic index exceeds maximum (%1)")
-        self.add_valrule_msg("Meta.SystemValueRows", "System value may only have 1 row", "rows for system value semantic %0 must be 1")
-        self.add_valrule_msg("Meta.SemanticShouldBeAllocated", "Semantic should have a valid packing location", "%0 Semantic '%1' should have a valid packing location")
-        self.add_valrule_msg("Meta.SemanticShouldNotBeAllocated", "Semantic should have a packing location of -1", "%0 Semantic '%1' should have a packing location of -1")
-        self.add_valrule("Meta.ValueRange", "Metadata value must be within range")
-        self.add_valrule("Meta.FlagsUsage", "Flags must match usage")
-        self.add_valrule("Meta.DenseResIDs", "Resource identifiers must be zero-based and dense")
+        self.add_valrule_msg("Meta.SemanticIndexMax", "System value semantics have a maximum valid semantic index", "%0 semantic index exceeds maximum (%1).")
+        self.add_valrule_msg("Meta.SystemValueRows", "System value may only have 1 row", "rows for system value semantic %0 must be 1.")
+        self.add_valrule_msg("Meta.SemanticShouldBeAllocated", "Semantic should have a valid packing location", "%0 Semantic '%1' should have a valid packing location.")
+        self.add_valrule_msg("Meta.SemanticShouldNotBeAllocated", "Semantic should have a packing location of -1", "%0 Semantic '%1' should have a packing location of -1.")
+        self.add_valrule("Meta.ValueRange", "Metadata value must be within range.")
+        self.add_valrule("Meta.FlagsUsage", "Flags must match usage.")
+        self.add_valrule("Meta.DenseResIDs", "Resource identifiers must be zero-based and dense.")
         self.add_valrule_msg("Meta.SignatureOverlap", "Signature elements may not overlap in packing location.", "signature element %0 at location (%1,%2) size (%3,%4) overlaps another signature element.")
         self.add_valrule_msg("Meta.SignatureOutOfRange", "Signature elements must fit within maximum signature size", "signature element %0 at location (%1,%2) size (%3,%4) is out of range.")
         self.add_valrule_msg("Meta.SignatureIndexConflict", "Only elements with compatible indexing rules may be packed together", "signature element %0 at location (%1,%2) size (%3,%4) has an indexing conflict with another signature element packed into the same row.")
@@ -2313,111 +2405,112 @@ class db_dxil(object):
         self.add_valrule_msg("Meta.SignatureDataWidth", "Data width must be identical for all elements packed into the same row.", "signature element %0 at location (%1, %2) size (%3, %4) has data width that differs from another element packed into the same row.")
         self.add_valrule_msg("Meta.IntegerInterpMode", "Interpolation mode on integer must be Constant", "signature element %0 specifies invalid interpolation mode for integer component type.")
         self.add_valrule_msg("Meta.InterpModeInOneRow", "Interpolation mode must be identical for all elements packed into the same row.", "signature element %0 at location (%1,%2) size (%3,%4) has interpolation mode that differs from another element packed into the same row.")
-        self.add_valrule("Meta.SemanticCompType", "%0 must be %1")
+        self.add_valrule("Meta.SemanticCompType", "%0 must be %1.")
         self.add_valrule_msg("Meta.ClipCullMaxRows", "Combined elements of SV_ClipDistance and SV_CullDistance must fit in two rows.", "ClipDistance and CullDistance occupy more than the maximum of 2 rows combined.")
         self.add_valrule_msg("Meta.ClipCullMaxComponents", "Combined elements of SV_ClipDistance and SV_CullDistance must fit in 8 components", "ClipDistance and CullDistance use more than the maximum of 8 components combined.")
-        self.add_valrule("Meta.SignatureCompType", "signature %0 specifies unrecognized or invalid component type")
+        self.add_valrule("Meta.SignatureCompType", "signature %0 specifies unrecognized or invalid component type.")
         self.add_valrule("Meta.TessellatorPartition", "Invalid Tessellator Partitioning specified. Must be integer, pow2, fractional_odd or fractional_even.")
         self.add_valrule("Meta.TessellatorOutputPrimitive", "Invalid Tessellator Output Primitive specified. Must be point, line, triangleCW or triangleCCW.")
-        self.add_valrule("Meta.MaxTessFactor", "Hull Shader MaxTessFactor must be [%0..%1].  %2 specified")
-        self.add_valrule("Meta.ValidSamplerMode", "Invalid sampler mode on sampler ")
-        self.add_valrule("Meta.GlcNotOnAppendConsume", "globallycoherent cannot be used with append/consume buffers")
-        self.add_valrule_msg("Meta.StructBufAlignment", "StructuredBuffer stride not aligned","structured buffer element size must be a multiple of %0 bytes (actual size %1 bytes)")
-        self.add_valrule_msg("Meta.StructBufAlignmentOutOfBound", "StructuredBuffer stride out of bounds","structured buffer elements cannot be larger than %0 bytes (actual size %1 bytes)")
-        self.add_valrule("Meta.EntryFunction", "entrypoint not found")
-        self.add_valrule("Meta.InvalidControlFlowHint", "Invalid control flow hint")
-        self.add_valrule("Meta.BranchFlatten", "Can't use branch and flatten attributes together")
-        self.add_valrule("Meta.ForceCaseOnSwitch", "Attribute forcecase only works for switch")
-        self.add_valrule("Meta.ControlFlowHintNotOnControlFlow", "Control flow hint only works on control flow inst")
-        self.add_valrule("Meta.TextureType", "elements of typed buffers and textures must fit in four 32-bit quantities")
-        self.add_valrule("Meta.BarycentricsInterpolation", "SV_Barycentrics cannot be used with 'nointerpolation' type")
+        self.add_valrule("Meta.MaxTessFactor", "Hull Shader MaxTessFactor must be [%0..%1].  %2 specified.")
+        self.add_valrule("Meta.ValidSamplerMode", "Invalid sampler mode on sampler .")
+        self.add_valrule("Meta.GlcNotOnAppendConsume", "globallycoherent cannot be used with append/consume buffers: '%0'.")
+        self.add_valrule_msg("Meta.StructBufAlignment", "StructuredBuffer stride not aligned","structured buffer element size must be a multiple of %0 bytes (actual size %1 bytes).")
+        self.add_valrule_msg("Meta.StructBufAlignmentOutOfBound", "StructuredBuffer stride out of bounds","structured buffer elements cannot be larger than %0 bytes (actual size %1 bytes).")
+        self.add_valrule("Meta.EntryFunction", "entrypoint not found.")
+        self.add_valrule("Meta.InvalidControlFlowHint", "Invalid control flow hint.")
+        self.add_valrule("Meta.BranchFlatten", "Can't use branch and flatten attributes together.")
+        self.add_valrule("Meta.ForceCaseOnSwitch", "Attribute forcecase only works for switch.")
+        self.add_valrule("Meta.ControlFlowHintNotOnControlFlow", "Control flow hint only works on control flow inst.")
+        self.add_valrule("Meta.TextureType", "elements of typed buffers and textures must fit in four 32-bit quantities.")
+        self.add_valrule("Meta.BarycentricsInterpolation", "SV_Barycentrics cannot be used with 'nointerpolation' type.")
         self.add_valrule("Meta.BarycentricsFloat3", "only 'float3' type is allowed for SV_Barycentrics.")
         self.add_valrule("Meta.BarycentricsTwoPerspectives", "There can only be up to two input attributes of SV_Barycentrics with different perspective interpolation mode.")
-        self.add_valrule("Meta.NoEntryPropsForEntry", "EntryPoints must have entry properties.")
+        self.add_valrule("Meta.NoEntryPropsForEntry", "Entry point %0 must have entry properties.")
 
-        self.add_valrule("Instr.Oload", "DXIL intrinsic overload must be valid")
-        self.add_valrule_msg("Instr.CallOload", "Call to DXIL intrinsic must match overload signature", "Call to DXIL intrinsic '%0' does not match an allowed overload signature")
-        self.add_valrule("Instr.PtrBitCast", "Pointer type bitcast must be have same size")
-        self.add_valrule("Instr.MinPrecisonBitCast", "Bitcast on minprecison types is not allowed")
-        self.add_valrule("Instr.StructBitCast", "Bitcast on struct types is not allowed")
-        self.add_valrule("Instr.Status", "Resource status should only used by CheckAccessFullyMapped")
-        self.add_valrule("Instr.CheckAccessFullyMapped", "CheckAccessFullyMapped should only used on resource status")
-        self.add_valrule_msg("Instr.OpConst", "DXIL intrinsic requires an immediate constant operand", "%0 of %1 must be an immediate constant")
-        self.add_valrule("Instr.Allowed", "Instructions must be of an allowed type")
-        self.add_valrule("Instr.OpCodeReserved", "Instructions must not reference reserved opcodes")
-        self.add_valrule_msg("Instr.OperandRange", "DXIL intrinsic operand must be within defined range", "expect %0 between %1, got %2")
-        self.add_valrule("Instr.NoReadingUninitialized", "Instructions should not read uninitialized value")
-        self.add_valrule("Instr.NoGenericPtrAddrSpaceCast", "Address space cast between pointer types must have one part to be generic address space")
-        self.add_valrule("Instr.InBoundsAccess", "Access to out-of-bounds memory is disallowed")
-        self.add_valrule("Instr.OpConstRange", "Constant values must be in-range for operation")
-        self.add_valrule("Instr.ImmBiasForSampleB", "bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate")
+        self.add_valrule("Instr.Oload", "DXIL intrinsic overload must be valid.")
+        self.add_valrule_msg("Instr.CallOload", "Call to DXIL intrinsic must match overload signature", "Call to DXIL intrinsic '%0' does not match an allowed overload signature.")
+        self.add_valrule("Instr.PtrBitCast", "Pointer type bitcast must be have same size.")
+        self.add_valrule("Instr.MinPrecisonBitCast", "Bitcast on minprecison types is not allowed.")
+        self.add_valrule("Instr.StructBitCast", "Bitcast on struct types is not allowed.")
+        self.add_valrule("Instr.Status", "Resource status should only be used by CheckAccessFullyMapped.")
+        self.add_valrule("Instr.CheckAccessFullyMapped", "CheckAccessFullyMapped should only be used on resource status.")
+        self.add_valrule_msg("Instr.OpConst", "DXIL intrinsic requires an immediate constant operand", "%0 of %1 must be an immediate constant.")
+        self.add_valrule("Instr.Allowed", "Instructions must be of an allowed type.")
+        self.add_valrule("Instr.OpCodeReserved", "Instructions must not reference reserved opcodes.")
+        self.add_valrule_msg("Instr.OperandRange", "DXIL intrinsic operand must be within defined range", "expect %0 between %1, got %2.")
+        self.add_valrule("Instr.NoReadingUninitialized", "Instructions should not read uninitialized value.")
+        self.add_valrule("Instr.NoGenericPtrAddrSpaceCast", "Address space cast between pointer types must have one part to be generic address space.")
+        self.add_valrule("Instr.InBoundsAccess", "Access to out-of-bounds memory is disallowed.")
+        self.add_valrule("Instr.OpConstRange", "Constant values must be in-range for operation.")
+        self.add_valrule("Instr.ImmBiasForSampleB", "bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate.")
         # If streams have not been declared, you must use cut instead of cut_stream in GS - is there an equivalent rule here?
 
         # Need to clean up all error messages and actually implement.
         # Midlevel
-        self.add_valrule("Instr.NoIndefiniteLog", "No indefinite logarithm")
-        self.add_valrule("Instr.NoIndefiniteAsin", "No indefinite arcsine")
-        self.add_valrule("Instr.NoIndefiniteAcos", "No indefinite arccosine")
-        self.add_valrule("Instr.NoIDivByZero", "No signed integer division by zero")
-        self.add_valrule("Instr.NoUDivByZero", "No unsigned integer division by zero")
-        self.add_valrule("Instr.NoIndefiniteDsxy", "No indefinite derivative calculation")
-        self.add_valrule("Instr.MinPrecisionNotPrecise", "Instructions marked precise may not refer to minprecision values")
+        self.add_valrule("Instr.NoIndefiniteLog", "No indefinite logarithm.")
+        self.add_valrule("Instr.NoIndefiniteAsin", "No indefinite arcsine.")
+        self.add_valrule("Instr.NoIndefiniteAcos", "No indefinite arccosine.")
+        self.add_valrule("Instr.NoIDivByZero", "No signed integer division by zero.")
+        self.add_valrule("Instr.NoUDivByZero", "No unsigned integer division by zero.")
+        self.add_valrule("Instr.NoIndefiniteDsxy", "No indefinite derivative calculation.")
+        self.add_valrule("Instr.MinPrecisionNotPrecise", "Instructions marked precise may not refer to minprecision values.")
 
         # Backend
         self.add_valrule("Instr.OnlyOneAllocConsume", "RWStructuredBuffers may increment or decrement their counters, but not both.")
 
         # CCompiler
-        self.add_valrule("Instr.TextureOffset", "offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7")
+        self.add_valrule("Instr.TextureOffset", "offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7.")
         # D3D12
-        self.add_valrule_msg("Instr.CannotPullPosition", "pull-model evaluation of position disallowed", "%0 does not support pull-model evaluation of position")
+        self.add_valrule_msg("Instr.CannotPullPosition", "pull-model evaluation of position disallowed", "%0 does not support pull-model evaluation of position.")
         #self.add_valrule("Instr.ERR_GUARANTEED_RACE_CONDITION_UAV", "TODO - race condition writing to shared resource detected, consider making this write conditional.") warning on fxc.
         #self.add_valrule("Instr.ERR_GUARANTEED_RACE_CONDITION_GSM", "TODO - race condition writing to shared memory detected, consider making this write conditional.") warning on fxc.
         #self.add_valrule("Instr.ERR_INFINITE_LOOP", "TODO - ERR_INFINITE_LOOP") fxc will report error if it can prove the loop is infinite.
-        self.add_valrule("Instr.EvalInterpolationMode", "Interpolation mode on %0 used with eval_* instruction must be linear, linear_centroid, linear_noperspective, linear_noperspective_centroid, linear_sample or linear_noperspective_sample")
-        self.add_valrule("Instr.ResourceCoordinateMiss", "coord uninitialized")
-        self.add_valrule("Instr.ResourceCoordinateTooMany", "out of bound coord must be undef")
-        self.add_valrule("Instr.ResourceOffsetMiss", "offset uninitialized")
-        self.add_valrule("Instr.ResourceOffsetTooMany", "out of bound offset must be undef")
-        self.add_valrule("Instr.UndefResultForGetDimension", "GetDimensions used undef dimension %0 on %1")
-        self.add_valrule("Instr.SamplerModeForLOD", "lod instruction requires sampler declared in default mode")
-        self.add_valrule("Instr.SamplerModeForSample", "sample/_l/_d/_cl_s/gather instruction requires sampler declared in default mode")
-        self.add_valrule("Instr.SamplerModeForSampleC", "sample_c_*/gather_c instructions require sampler declared in comparison mode")
+        self.add_valrule("Instr.EvalInterpolationMode", "Interpolation mode on %0 used with eval_* instruction must be linear, linear_centroid, linear_noperspective, linear_noperspective_centroid, linear_sample or linear_noperspective_sample.")
+        self.add_valrule("Instr.ResourceCoordinateMiss", "coord uninitialized.")
+        self.add_valrule("Instr.ResourceCoordinateTooMany", "out of bound coord must be undef.")
+        self.add_valrule("Instr.ResourceOffsetMiss", "offset uninitialized.")
+        self.add_valrule("Instr.ResourceOffsetTooMany", "out of bound offset must be undef.")
+        self.add_valrule("Instr.UndefResultForGetDimension", "GetDimensions used undef dimension %0 on %1.")
+        self.add_valrule("Instr.SamplerModeForLOD", "lod instruction requires sampler declared in default mode.")
+        self.add_valrule("Instr.SamplerModeForSample", "sample/_l/_d/_cl_s/gather instruction requires sampler declared in default mode.")
+        self.add_valrule("Instr.SamplerModeForSampleC", "sample_c_*/gather_c instructions require sampler declared in comparison mode.")
         self.add_valrule("Instr.SampleCompType", "sample_* instructions require resource to be declared to return UNORM, SNORM or FLOAT.")
         self.add_valrule("Instr.BarrierModeUselessUGroup", "sync can't specify both _ugroup and _uglobal. If both are needed, just specify _uglobal.")
-        self.add_valrule("Instr.BarrierModeNoMemory", "sync must include some form of memory barrier - _u (UAV) and/or _g (Thread Group Shared Memory).  Only _t (thread group sync) is optional. ")
-        self.add_valrule("Instr.BarrierModeForNonCS", "sync in a non-Compute/Amplification/Mesh Shader must only sync UAV (sync_uglobal)")
-        self.add_valrule("Instr.WriteMaskForTypedUAVStore", "store on typed uav must write to all four components of the UAV")
-        self.add_valrule("Instr.ResourceKindForCalcLOD","lod requires resource declared as texture1D/2D/3D/Cube/CubeArray/1DArray/2DArray")
-        self.add_valrule("Instr.ResourceKindForSample", "sample/_l/_d requires resource declared as texture1D/2D/3D/Cube/1DArray/2DArray/CubeArray")
-        self.add_valrule("Instr.ResourceKindForSampleC", "samplec requires resource declared as texture1D/2D/Cube/1DArray/2DArray/CubeArray")
-        self.add_valrule("Instr.ResourceKindForGather", "gather requires resource declared as texture/2D/Cube/2DArray/CubeArray")
-        self.add_valrule("Instr.WriteMaskMatchValueForUAVStore", "uav store write mask must match store value mask, write mask is %0 and store value mask is %1")
-        self.add_valrule("Instr.ResourceKindForBufferLoadStore", "buffer load/store only works on Raw/Typed/StructuredBuffer")
-        self.add_valrule("Instr.ResourceKindForTextureStore", "texture store only works on Texture1D/1DArray/2D/2DArray/3D")
-        self.add_valrule("Instr.ResourceKindForGetDim", "Invalid resource kind on GetDimensions")
-        self.add_valrule("Instr.ResourceKindForTextureLoad", "texture load only works on Texture1D/1DArray/2D/2DArray/3D/MS2D/MS2DArray")
+        self.add_valrule("Instr.BarrierModeNoMemory", "sync must include some form of memory barrier - _u (UAV) and/or _g (Thread Group Shared Memory).  Only _t (thread group sync) is optional.")
+        self.add_valrule("Instr.BarrierModeForNonCS", "sync in a non-Compute/Amplification/Mesh Shader must only sync UAV (sync_uglobal).")
+        self.add_valrule("Instr.WriteMaskForTypedUAVStore", "store on typed uav must write to all four components of the UAV.")
+        self.add_valrule("Instr.ResourceKindForCalcLOD","lod requires resource declared as texture1D/2D/3D/Cube/CubeArray/1DArray/2DArray.")
+        self.add_valrule("Instr.ResourceKindForSample", "sample/_l/_d requires resource declared as texture1D/2D/3D/Cube/1DArray/2DArray/CubeArray.")
+        self.add_valrule("Instr.ResourceKindForSampleC", "samplec requires resource declared as texture1D/2D/Cube/1DArray/2DArray/CubeArray.")
+        self.add_valrule("Instr.ResourceKindForGather", "gather requires resource declared as texture/2D/Cube/2DArray/CubeArray.")
+        self.add_valrule("Instr.WriteMaskMatchValueForUAVStore", "uav store write mask must match store value mask, write mask is %0 and store value mask is %1.")
+        self.add_valrule("Instr.UndefinedValueForUAVStore", "Assignment of undefined values to UAV.")
+        self.add_valrule("Instr.ResourceKindForBufferLoadStore", "buffer load/store only works on Raw/Typed/StructuredBuffer.")
+        self.add_valrule("Instr.ResourceKindForTextureStore", "texture store only works on Texture1D/1DArray/2D/2DArray/3D.")
+        self.add_valrule("Instr.ResourceKindForGetDim", "Invalid resource kind on GetDimensions.")
+        self.add_valrule("Instr.ResourceKindForTextureLoad", "texture load only works on Texture1D/1DArray/2D/2DArray/3D/MS2D/MS2DArray.")
         self.add_valrule("Instr.ResourceClassForSamplerGather", "sample, lod and gather should be on srv resource.")
         self.add_valrule("Instr.ResourceClassForUAVStore", "store should be on uav resource.")
-        self.add_valrule("Instr.ResourceClassForLoad", "load can only run on UAV/SRV resource")
-        self.add_valrule("Instr.ResourceMapToSingleEntry", "Fail to map resource to resource table")
-        self.add_valrule("Instr.ResourceUser", "Resource should only used by Load/GEP/Call")
-        self.add_valrule("Instr.ResourceKindForTraceRay", "TraceRay should only use RTAccelerationStructure")
-        self.add_valrule("Instr.OffsetOnUAVLoad", "uav load don't support offset")
-        self.add_valrule("Instr.MipOnUAVLoad", "uav load don't support mipLevel/sampleIndex")
-        self.add_valrule("Instr.SampleIndexForLoad2DMS", "load on Texture2DMS/2DMSArray require sampleIndex")
-        self.add_valrule("Instr.CoordinateCountForRawTypedBuf", "raw/typed buffer don't need 2 coordinates")
-        self.add_valrule("Instr.CoordinateCountForStructBuf", "structured buffer require 2 coordinates")
-        self.add_valrule("Instr.MipLevelForGetDimension", "Use mip level on buffer when GetDimensions")
-        self.add_valrule("Instr.DxilStructUser", "Dxil struct types should only used by ExtractValue")
-        self.add_valrule("Instr.DxilStructUserOutOfBound", "Index out of bound when extract value from dxil struct types")
-        self.add_valrule("Instr.HandleNotFromCreateHandle", "Resource handle should returned by createHandle")
-        self.add_valrule("Instr.BufferUpdateCounterOnUAV", "BufferUpdateCounter valid only on UAV")
-        self.add_valrule("Instr.BufferUpdateCounterOnResHasCounter", "BufferUpdateCounter valid only when HasCounter is true")
-        self.add_valrule("Instr.CBufferOutOfBound", "Cbuffer access out of bound")
-        self.add_valrule("Instr.CBufferClassForCBufferHandle", "Expect Cbuffer for CBufferLoad handle")
+        self.add_valrule("Instr.ResourceClassForLoad", "load can only run on UAV/SRV resource.")
+        self.add_valrule("Instr.ResourceMapToSingleEntry", "Fail to map resource to resource table.")
+        self.add_valrule("Instr.ResourceUser", "Resource should only be used by Load/GEP/Call.")
+        self.add_valrule("Instr.ResourceKindForTraceRay", "TraceRay should only use RTAccelerationStructure.")
+        self.add_valrule("Instr.OffsetOnUAVLoad", "uav load don't support offset.")
+        self.add_valrule("Instr.MipOnUAVLoad", "uav load don't support mipLevel/sampleIndex.")
+        self.add_valrule("Instr.SampleIndexForLoad2DMS", "load on Texture2DMS/2DMSArray require sampleIndex.")
+        self.add_valrule("Instr.CoordinateCountForRawTypedBuf", "raw/typed buffer don't need 2 coordinates.")
+        self.add_valrule("Instr.CoordinateCountForStructBuf", "structured buffer require 2 coordinates.")
+        self.add_valrule("Instr.MipLevelForGetDimension", "Use mip level on buffer when GetDimensions.")
+        self.add_valrule("Instr.DxilStructUser", "Dxil struct types should only be used by ExtractValue.")
+        self.add_valrule("Instr.DxilStructUserOutOfBound", "Index out of bound when extract value from dxil struct types.")
+        self.add_valrule("Instr.HandleNotFromCreateHandle", "Resource handle should returned by createHandle.")
+        self.add_valrule("Instr.BufferUpdateCounterOnUAV", "BufferUpdateCounter valid only on UAV.")
+        self.add_valrule("Instr.BufferUpdateCounterOnResHasCounter", "BufferUpdateCounter valid only when HasCounter is true.")
+        self.add_valrule("Instr.CBufferOutOfBound", "Cbuffer access out of bound.")
+        self.add_valrule("Instr.CBufferClassForCBufferHandle", "Expect Cbuffer for CBufferLoad handle.")
         self.add_valrule("Instr.FailToResloveTGSMPointer", "TGSM pointers must originate from an unambiguous TGSM global variable.")
-        self.add_valrule("Instr.ExtractValue", "ExtractValue should only be used on dxil struct types and cmpxchg")
-        self.add_valrule("Instr.TGSMRaceCond", "Race condition writing to shared memory detected, consider making this write conditional")
+        self.add_valrule("Instr.ExtractValue", "ExtractValue should only be used on dxil struct types and cmpxchg.")
+        self.add_valrule("Instr.TGSMRaceCond", "Race condition writing to shared memory detected, consider making this write conditional.")
         self.add_valrule("Instr.AttributeAtVertexNoInterpolation", "Attribute %0 must have nointerpolation mode in order to use GetAttributeAtVertex function.")
         self.add_valrule("Instr.CreateHandleImmRangeID", "Local resource must map to global resource.")
         self.add_valrule("Instr.SignatureOperationNotInEntry", "Dxil operation for input output signature must be in entryPoints.")
@@ -2435,84 +2528,84 @@ class db_dxil(object):
         # - multiple rules regarding interfaces, which isn't a supported feature for DXIL
         # - rules for DX9-style intrinsics, which aren't supported for DXIL
        
-        self.add_valrule_msg("Types.NoVector", "Vector types must not be present", "Vector type '%0' is not allowed")
-        self.add_valrule_msg("Types.Defined", "Type must be defined based on DXIL primitives", "Type '%0' is not defined on DXIL primitives")
-        self.add_valrule_msg("Types.IntWidth", "Int type must be of valid width", "Int type '%0' has an invalid width")
-        self.add_valrule("Types.NoMultiDim", "Only one dimension allowed for array type")
-        self.add_valrule("Types.NoPtrToPtr", "Pointers to pointers, or pointers in structures are not allowed")
-        self.add_valrule("Types.I8", "I8 can only used as immediate value for intrinsic")
+        self.add_valrule_msg("Types.NoVector", "Vector types must not be present", "Vector type '%0' is not allowed.")
+        self.add_valrule_msg("Types.Defined", "Type must be defined based on DXIL primitives", "Type '%0' is not defined on DXIL primitives.")
+        self.add_valrule_msg("Types.IntWidth", "Int type must be of valid width", "Int type '%0' has an invalid width.")
+        self.add_valrule("Types.NoMultiDim", "Only one dimension allowed for array type.")
+        self.add_valrule("Types.NoPtrToPtr", "Pointers to pointers, or pointers in structures are not allowed.")
+        self.add_valrule("Types.I8", "I8 can only be used as immediate value for intrinsic.")
 
-        self.add_valrule_msg("Sm.Name", "Target shader model name must be known", "Unknown shader model '%0'")
-        self.add_valrule_msg("Sm.DxilVersion", "Target shader model requires specific Dxil Version", "Shader model requires Dxil Version %0,%1")
-        self.add_valrule_msg("Sm.Opcode", "Opcode must be defined in target shader model", "Opcode %0 not valid in shader model %1")
-        self.add_valrule("Sm.Operand", "Operand must be defined in target shader model")
-        self.add_valrule_msg("Sm.Semantic", "Semantic must be defined in target shader model", "Semantic '%0' is invalid as %1 %2")
-        self.add_valrule_msg("Sm.NoInterpMode", "Interpolation mode must be undefined for VS input/PS output/patch constant.", "Interpolation mode for '%0' is set but should be undefined")
-        self.add_valrule_msg("Sm.ConstantInterpMode", "Interpolation mode must be constant for MS primitive output.", "Interpolation mode for '%0' should be constant")
+        self.add_valrule_msg("Sm.Name", "Target shader model name must be known", "Unknown shader model '%0'.")
+        self.add_valrule_msg("Sm.DxilVersion", "Target shader model requires specific Dxil Version", "Shader model requires Dxil Version %0,%1.")
+        self.add_valrule_msg("Sm.Opcode", "Opcode must be defined in target shader model", "Opcode %0 not valid in shader model %1.")
+        self.add_valrule("Sm.Operand", "Operand must be defined in target shader model.")
+        self.add_valrule_msg("Sm.Semantic", "Semantic must be defined in target shader model", "Semantic '%0' is invalid as %1 %2.")
+        self.add_valrule_msg("Sm.NoInterpMode", "Interpolation mode must be undefined for VS input/PS output/patch constant.", "Interpolation mode for '%0' is set but should be undefined.")
+        self.add_valrule_msg("Sm.ConstantInterpMode", "Interpolation mode must be constant for MS primitive output.", "Interpolation mode for '%0' should be constant.")
         self.add_valrule("Sm.NoPSOutputIdx", "Pixel shader output registers are not indexable.")# TODO restrict to PS
-        self.add_valrule("Sm.PSConsistentInterp", "Interpolation mode for PS input position must be linear_noperspective_centroid or linear_noperspective_sample when outputting oDepthGE or oDepthLE and not running at sample frequency (which is forced by inputting SV_SampleIndex or declaring an input linear_sample or linear_noperspective_sample)")
-        self.add_valrule("Sm.ThreadGroupChannelRange", "Declared Thread Group %0 size %1 outside valid range [%2..%3]")
-        self.add_valrule("Sm.MaxTheadGroup", "Declared Thread Group Count %0 (X*Y*Z) is beyond the valid maximum of %1")
-        self.add_valrule("Sm.MaxTGSMSize", "Total Thread Group Shared Memory storage is %0, exceeded %1")
-        self.add_valrule("Sm.ROVOnlyInPS", "RasterizerOrdered objects are only allowed in 5.0+ pixel shaders")
-        self.add_valrule("Sm.TessFactorForDomain", "Required TessFactor for domain not found declared anywhere in Patch Constant data")
+        self.add_valrule("Sm.PSConsistentInterp", "Interpolation mode for PS input position must be linear_noperspective_centroid or linear_noperspective_sample when outputting oDepthGE or oDepthLE and not running at sample frequency (which is forced by inputting SV_SampleIndex or declaring an input linear_sample or linear_noperspective_sample).")
+        self.add_valrule("Sm.ThreadGroupChannelRange", "Declared Thread Group %0 size %1 outside valid range [%2..%3].")
+        self.add_valrule("Sm.MaxTheadGroup", "Declared Thread Group Count %0 (X*Y*Z) is beyond the valid maximum of %1.")
+        self.add_valrule("Sm.MaxTGSMSize", "Total Thread Group Shared Memory storage is %0, exceeded %1.")
+        self.add_valrule("Sm.ROVOnlyInPS", "RasterizerOrdered objects are only allowed in 5.0+ pixel shaders.")
+        self.add_valrule("Sm.TessFactorForDomain", "Required TessFactor for domain not found declared anywhere in Patch Constant data.")
         self.add_valrule("Sm.TessFactorSizeMatchDomain", "TessFactor rows, columns (%0, %1) invalid for domain %2.  Expected %3 rows and 1 column.")
         self.add_valrule("Sm.InsideTessFactorSizeMatchDomain", "InsideTessFactor rows, columns (%0, %1) invalid for domain %2.  Expected %3 rows and 1 column.")
         self.add_valrule("Sm.DomainLocationIdxOOB", "DomainLocation component index out of bounds for the domain.")
         self.add_valrule("Sm.HullPassThruControlPointCountMatch", "For pass thru hull shader, input control point count must match output control point count");
-        self.add_valrule("Sm.OutputControlPointsTotalScalars", "Total number of scalars across all HS output control points must not exceed ")
+        self.add_valrule("Sm.OutputControlPointsTotalScalars", "Total number of scalars across all HS output control points must not exceed .")
         self.add_valrule("Sm.IsoLineOutputPrimitiveMismatch", "Hull Shader declared with IsoLine Domain must specify output primitive point or line. Triangle_cw or triangle_ccw output are not compatible with the IsoLine Domain.")
-        self.add_valrule("Sm.TriOutputPrimitiveMismatch", "Hull Shader declared with Tri Domain must specify output primitive point, triangle_cw or triangle_ccw. Line output is not compatible with the Tri domain")
-        self.add_valrule("Sm.ValidDomain", "Invalid Tessellator Domain specified. Must be isoline, tri or quad")
-        self.add_valrule("Sm.PatchConstantOnlyForHSDS", "patch constant signature only valid in HS and DS")
-        self.add_valrule("Sm.StreamIndexRange", "Stream index (%0) must between 0 and %1")
-        self.add_valrule("Sm.PSOutputSemantic", "Pixel Shader allows output semantics to be SV_Target, SV_Depth, SV_DepthGreaterEqual, SV_DepthLessEqual, SV_Coverage or SV_StencilRef, %0 found")
-        self.add_valrule("Sm.PSMultipleDepthSemantic", "Pixel Shader only allows one type of depth semantic to be declared")
-        self.add_valrule("Sm.PSTargetIndexMatchesRow", "SV_Target semantic index must match packed row location")
-        self.add_valrule("Sm.PSTargetCol0", "SV_Target packed location must start at column 0")
+        self.add_valrule("Sm.TriOutputPrimitiveMismatch", "Hull Shader declared with Tri Domain must specify output primitive point, triangle_cw or triangle_ccw. Line output is not compatible with the Tri domain.")
+        self.add_valrule("Sm.ValidDomain", "Invalid Tessellator Domain specified. Must be isoline, tri or quad.")
+        self.add_valrule("Sm.PatchConstantOnlyForHSDS", "patch constant signature only valid in HS and DS.")
+        self.add_valrule("Sm.StreamIndexRange", "Stream index (%0) must between 0 and %1.")
+        self.add_valrule("Sm.PSOutputSemantic", "Pixel Shader allows output semantics to be SV_Target, SV_Depth, SV_DepthGreaterEqual, SV_DepthLessEqual, SV_Coverage or SV_StencilRef, %0 found.")
+        self.add_valrule("Sm.PSMultipleDepthSemantic", "Pixel Shader only allows one type of depth semantic to be declared.")
+        self.add_valrule("Sm.PSTargetIndexMatchesRow", "SV_Target semantic index must match packed row location.")
+        self.add_valrule("Sm.PSTargetCol0", "SV_Target packed location must start at column 0.")
         self.add_valrule("Sm.PSCoverageAndInnerCoverage", "InnerCoverage and Coverage are mutually exclusive.")
-        self.add_valrule("Sm.GSOutputVertexCountRange", "GS output vertex count must be [0..%0].  %1 specified")
-        self.add_valrule("Sm.GSInstanceCountRange", "GS instance count must be [1..%0].  %1 specified")
-        self.add_valrule("Sm.DSInputControlPointCountRange", "DS input control point count must be [0..%0].  %1 specified")
-        self.add_valrule("Sm.HSInputControlPointCountRange", "HS input control point count must be [0..%0].  %1 specified")
-        self.add_valrule("Sm.ZeroHSInputControlPointWithInput", "When HS input control point count is 0, no input signature should exist")
-        self.add_valrule("Sm.OutputControlPointCountRange", "output control point count must be [0..%0].  %1 specified")
-        self.add_valrule("Sm.GSValidInputPrimitive", "GS input primitive unrecognized")
-        self.add_valrule("Sm.GSValidOutputPrimitiveTopology", "GS output primitive topology unrecognized")
+        self.add_valrule("Sm.GSOutputVertexCountRange", "GS output vertex count must be [0..%0].  %1 specified.")
+        self.add_valrule("Sm.GSInstanceCountRange", "GS instance count must be [1..%0].  %1 specified.")
+        self.add_valrule("Sm.DSInputControlPointCountRange", "DS input control point count must be [0..%0].  %1 specified.")
+        self.add_valrule("Sm.HSInputControlPointCountRange", "HS input control point count must be [0..%0].  %1 specified.")
+        self.add_valrule("Sm.ZeroHSInputControlPointWithInput", "When HS input control point count is 0, no input signature should exist.")
+        self.add_valrule("Sm.OutputControlPointCountRange", "output control point count must be [0..%0].  %1 specified.")
+        self.add_valrule("Sm.GSValidInputPrimitive", "GS input primitive unrecognized.")
+        self.add_valrule("Sm.GSValidOutputPrimitiveTopology", "GS output primitive topology unrecognized.")
         self.add_valrule("Sm.AppendAndConsumeOnSameUAV", "BufferUpdateCounter inc and dec on a given UAV (%d) cannot both be in the same shader for shader model less than 5.1.")
-        self.add_valrule("Sm.InvalidTextureKindOnUAV", "Texture2DMS[Array] or TextureCube[Array] resources are not supported with UAVs")
-        self.add_valrule("Sm.InvalidResourceKind", "Invalid resources kind")
-        self.add_valrule("Sm.InvalidResourceCompType","Invalid resource return type")
-        self.add_valrule("Sm.InvalidSamplerFeedbackType","Invalid sampler feedback type")
-        self.add_valrule("Sm.SampleCountOnlyOn2DMS","Only Texture2DMS/2DMSArray could has sample count")
-        self.add_valrule("Sm.CounterOnlyOnStructBuf", "BufferUpdateCounter valid only on structured buffers")
-        self.add_valrule("Sm.GSTotalOutputVertexDataRange", "Declared output vertex count (%0) multiplied by the total number of declared scalar components of output data (%1) equals %2.  This value cannot be greater than %3")
-        self.add_valrule_msg("Sm.MultiStreamMustBePoint", "When multiple GS output streams are used they must be pointlists", "Multiple GS output streams are used but '%0' is not pointlist")
-        self.add_valrule("Sm.CompletePosition", "Not all elements of SV_Position were written")
-        self.add_valrule("Sm.UndefinedOutput", "Not all elements of output %0 were written")
+        self.add_valrule("Sm.InvalidTextureKindOnUAV", "Texture2DMS[Array] or TextureCube[Array] resources are not supported with UAVs.")
+        self.add_valrule("Sm.InvalidResourceKind", "Invalid resources kind.")
+        self.add_valrule("Sm.InvalidResourceCompType","Invalid resource return type.")
+        self.add_valrule("Sm.InvalidSamplerFeedbackType","Invalid sampler feedback type.")
+        self.add_valrule("Sm.SampleCountOnlyOn2DMS","Only Texture2DMS/2DMSArray could has sample count.")
+        self.add_valrule("Sm.CounterOnlyOnStructBuf", "BufferUpdateCounter valid only on structured buffers.")
+        self.add_valrule("Sm.GSTotalOutputVertexDataRange", "Declared output vertex count (%0) multiplied by the total number of declared scalar components of output data (%1) equals %2.  This value cannot be greater than %3.")
+        self.add_valrule_msg("Sm.MultiStreamMustBePoint", "When multiple GS output streams are used they must be pointlists", "Multiple GS output streams are used but '%0' is not pointlist.")
+        self.add_valrule("Sm.CompletePosition", "Not all elements of SV_Position were written.")
+        self.add_valrule("Sm.UndefinedOutput", "Not all elements of output %0 were written.")
         self.add_valrule("Sm.CSNoSignatures", "Compute shaders must not have shader signatures.")
-        self.add_valrule("Sm.CBufferTemplateTypeMustBeStruct", "D3D12 constant/texture buffer template element can only be a struct")
-        self.add_valrule_msg("Sm.ResourceRangeOverlap", "Resource ranges must not overlap", "Resource %0 with base %1 size %2 overlap with other resource with base %3 size %4 in space %5")
-        self.add_valrule_msg("Sm.CBufferOffsetOverlap", "CBuffer offsets must not overlap", "CBuffer %0 has offset overlaps at %1")
-        self.add_valrule_msg("Sm.CBufferElementOverflow", "CBuffer elements must not overflow", "CBuffer %0 size insufficient for element at offset %1")
-        self.add_valrule_msg("Sm.CBufferArrayOffsetAlignment", "CBuffer array offset must be aligned to 16-bytes", "CBuffer %0 has unaligned array offset at %1")
-        self.add_valrule_msg("Sm.OpcodeInInvalidFunction", "Invalid DXIL opcode usage like StorePatchConstant in patch constant function", "opcode '%0' should only be used in '%1'")
-        self.add_valrule_msg("Sm.ViewIDNeedsSlot", "ViewID requires compatible space in pixel shader input signature", "Pixel shader input signature lacks available space for ViewID")
-        self.add_valrule("Sm.64bitRawBufferLoadStore", "i64/f64 rawBufferLoad/Store overloads are allowed after SM 6.3")
-        self.add_valrule("Sm.RayShaderSignatures", "Ray tracing shader '%0' should not have any shader signatures")
-        self.add_valrule("Sm.RayShaderPayloadSize", "For shader '%0', %1 size is smaller than argument's allocation size")
-        self.add_valrule("Sm.MeshShaderMaxVertexCount", "MS max vertex output count must be [0..%0].  %1 specified")
-        self.add_valrule("Sm.MeshShaderMaxPrimitiveCount", "MS max primitive output count must be [0..%0].  %1 specified")
-        self.add_valrule("Sm.MeshShaderPayloadSize", "For shader '%0', payload size is greater than %1")
-        self.add_valrule("Sm.MeshShaderPayloadSizeDeclared", "For shader '%0', payload size %1 is greater than declared size of %2 bytes")
-        self.add_valrule("Sm.MeshShaderOutputSize", "For shader '%0', vertex plus primitive output size is greater than %1")
-        self.add_valrule("Sm.MeshShaderInOutSize", "For shader '%0', payload plus output size is greater than %1")
-        self.add_valrule("Sm.MeshVSigRowCount", "For shader '%0', vertex output signatures are taking up more than %1 rows")
-        self.add_valrule("Sm.MeshPSigRowCount", "For shader '%0', primitive output signatures are taking up more than %1 rows")
-        self.add_valrule("Sm.MeshTotalSigRowCount", "For shader '%0', vertex and primitive output signatures are taking up more than %1 rows")
-        self.add_valrule("Sm.MaxMSSMSize", "Total Thread Group Shared Memory storage is %0, exceeded %1")
-        self.add_valrule("Sm.AmplificationShaderPayloadSize", "For shader '%0', payload size is greater than %1")
-        self.add_valrule("Sm.AmplificationShaderPayloadSizeDeclared", "For shader '%0', payload size %1 is greater than declared size of %2 bytes")
+        self.add_valrule("Sm.CBufferTemplateTypeMustBeStruct", "D3D12 constant/texture buffer template element can only be a struct.")
+        self.add_valrule_msg("Sm.ResourceRangeOverlap", "Resource ranges must not overlap", "Resource %0 with base %1 size %2 overlap with other resource with base %3 size %4 in space %5.")
+        self.add_valrule_msg("Sm.CBufferOffsetOverlap", "CBuffer offsets must not overlap", "CBuffer %0 has offset overlaps at %1.")
+        self.add_valrule_msg("Sm.CBufferElementOverflow", "CBuffer elements must not overflow", "CBuffer %0 size insufficient for element at offset %1.")
+        self.add_valrule_msg("Sm.CBufferArrayOffsetAlignment", "CBuffer array offset must be aligned to 16-bytes", "CBuffer %0 has unaligned array offset at %1.")
+        self.add_valrule_msg("Sm.OpcodeInInvalidFunction", "Invalid DXIL opcode usage like StorePatchConstant in patch constant function", "opcode '%0' should only be used in '%1'.")
+        self.add_valrule_msg("Sm.ViewIDNeedsSlot", "ViewID requires compatible space in pixel shader input signature", "Pixel shader input signature lacks available space for ViewID.")
+        self.add_valrule("Sm.64bitRawBufferLoadStore", "i64/f64 rawBufferLoad/Store overloads are allowed after SM 6.3.")
+        self.add_valrule("Sm.RayShaderSignatures", "Ray tracing shader '%0' should not have any shader signatures.")
+        self.add_valrule("Sm.RayShaderPayloadSize", "For shader '%0', %1 size is smaller than argument's allocation size.")
+        self.add_valrule("Sm.MeshShaderMaxVertexCount", "MS max vertex output count must be [0..%0].  %1 specified.")
+        self.add_valrule("Sm.MeshShaderMaxPrimitiveCount", "MS max primitive output count must be [0..%0].  %1 specified.")
+        self.add_valrule("Sm.MeshShaderPayloadSize", "For mesh shader with entry '%0', payload size %1 is greater than maximum size of %2 bytes.")
+        self.add_valrule("Sm.MeshShaderPayloadSizeDeclared", "For mesh shader with entry '%0', payload size %1 is greater than declared size of %2 bytes.")
+        self.add_valrule("Sm.MeshShaderOutputSize", "For shader '%0', vertex plus primitive output size is greater than %1.")
+        self.add_valrule("Sm.MeshShaderInOutSize", "For shader '%0', payload plus output size is greater than %1.")
+        self.add_valrule("Sm.MeshVSigRowCount", "For shader '%0', vertex output signatures are taking up more than %1 rows.")
+        self.add_valrule("Sm.MeshPSigRowCount", "For shader '%0', primitive output signatures are taking up more than %1 rows.")
+        self.add_valrule("Sm.MeshTotalSigRowCount", "For shader '%0', vertex and primitive output signatures are taking up more than %1 rows.")
+        self.add_valrule("Sm.MaxMSSMSize", "Total Thread Group Shared Memory storage is %0, exceeded %1.")
+        self.add_valrule("Sm.AmplificationShaderPayloadSize", "For amplification shader with entry '%0', payload size %1 is greater than maximum size of %2 bytes.")
+        self.add_valrule("Sm.AmplificationShaderPayloadSizeDeclared", "For amplification shader with entry '%0', payload size %1 is greater than declared size of %2 bytes.")
 
         # fxc relaxed check of gradient check.
         #self.add_valrule("Uni.NoUniInDiv", "TODO - No instruction requiring uniform execution can be present in divergent block")
@@ -2520,26 +2613,26 @@ class db_dxil(object):
         #self.add_valrule("Uni.ThreadSync", "TODO - Thread sync operation must be in non-varying flow control due to a potential race condition, adding a sync after reading any values controlling shader execution at this point")
         #self.add_valrule("Uni.NoWaveSensitiveGradient", "Gradient operations are not affected by wave-sensitive data or control flow.")
         
-        self.add_valrule("Flow.Reducible", "Execution flow must be reducible")
-        self.add_valrule("Flow.NoRecusion", "Recursion is not permitted")
-        self.add_valrule("Flow.DeadLoop", "Loop must have break")
-        self.add_valrule_msg("Flow.FunctionCall", "Function with parameter is not permitted", "Function %0 with parameter is not permitted, it should be inlined")
+        self.add_valrule("Flow.Reducible", "Execution flow must be reducible.")
+        self.add_valrule("Flow.NoRecusion", "Recursion is not permitted.")
+        self.add_valrule("Flow.DeadLoop", "Loop must have break.")
+        self.add_valrule_msg("Flow.FunctionCall", "Function with parameter is not permitted", "Function %0 with parameter is not permitted, it should be inlined.")
 
-        self.add_valrule_msg("Decl.DxilNsReserved", "The DXIL reserved prefixes must only be used by built-in functions and types", "Declaration '%0' uses a reserved prefix")
-        self.add_valrule_msg("Decl.DxilFnExtern", "External function must be a DXIL function", "External function '%0' is not a DXIL function")
-        self.add_valrule_msg("Decl.UsedInternal", "Internal declaration must be used", "Internal declaration '%0' is unused")
-        self.add_valrule_msg("Decl.NotUsedExternal", "External declaration should not be used", "External declaration '%0' is unused")
-        self.add_valrule_msg("Decl.UsedExternalFunction", "External function must be used", "External function '%0' is unused")
-        self.add_valrule_msg("Decl.FnIsCalled", "Functions can only be used by call instructions", "Function '%0' is used for something other than calling")
-        self.add_valrule_msg("Decl.FnFlattenParam", "Function parameters must not use struct types", "Type '%0' is a struct type but is used as a parameter in function '%1'")
-        self.add_valrule_msg("Decl.FnAttribute", "Functions should only contain known function attributes", "Function '%0' contains invalid attribute '%1' with value '%2'")
-        self.add_valrule_msg("Decl.ResourceInFnSig", "Resources not allowed in function signatures", "Function '%0' uses resource in function signature")
-        self.add_valrule_msg("Decl.PayloadStruct", "Payload parameter must be struct type", "Argument '%0' must be a struct type for payload in shader function '%1'")
-        self.add_valrule_msg("Decl.AttrStruct", "Attributes parameter must be struct type", "Argument '%0' must be a struct type for attributes in shader function '%1'")
-        self.add_valrule_msg("Decl.ParamStruct", "Callable function parameter must be struct type", "Argument '%0' must be a struct type for callable shader function '%1'")
-        self.add_valrule_msg("Decl.ExtraArgs", "Extra arguments not allowed for shader functions", "Extra argument '%0' not allowed for shader function '%1'")
-        self.add_valrule_msg("Decl.ShaderReturnVoid", "Shader functions must return void", "Shader function '%0' must have void return type")
-        self.add_valrule_msg("Decl.ShaderMissingArg", "payload/params/attributes parameter is required for certain shader types", "%0 shader '%1' missing required %2 parameter")
+        self.add_valrule_msg("Decl.DxilNsReserved", "The DXIL reserved prefixes must only be used by built-in functions and types", "Declaration '%0' uses a reserved prefix.")
+        self.add_valrule_msg("Decl.DxilFnExtern", "External function must be a DXIL function", "External function '%0' is not a DXIL function.")
+        self.add_valrule_msg("Decl.UsedInternal", "Internal declaration must be used", "Internal declaration '%0' is unused.")
+        self.add_valrule_msg("Decl.NotUsedExternal", "External declaration should not be used", "External declaration '%0' is unused.")
+        self.add_valrule_msg("Decl.UsedExternalFunction", "External function must be used", "External function '%0' is unused.")
+        self.add_valrule_msg("Decl.FnIsCalled", "Functions can only be used by call instructions", "Function '%0' is used for something other than calling.")
+        self.add_valrule_msg("Decl.FnFlattenParam", "Function parameters must not use struct types", "Type '%0' is a struct type but is used as a parameter in function '%1'.")
+        self.add_valrule_msg("Decl.FnAttribute", "Functions should only contain known function attributes", "Function '%0' contains invalid attribute '%1' with value '%2'.")
+        self.add_valrule_msg("Decl.ResourceInFnSig", "Resources not allowed in function signatures", "Function '%0' uses resource in function signature.")
+        self.add_valrule_msg("Decl.PayloadStruct", "Payload parameter must be struct type", "Argument '%0' must be a struct type for payload in shader function '%1'.")
+        self.add_valrule_msg("Decl.AttrStruct", "Attributes parameter must be struct type", "Argument '%0' must be a struct type for attributes in shader function '%1'.")
+        self.add_valrule_msg("Decl.ParamStruct", "Callable function parameter must be struct type", "Argument '%0' must be a struct type for callable shader function '%1'.")
+        self.add_valrule_msg("Decl.ExtraArgs", "Extra arguments not allowed for shader functions", "Extra argument '%0' not allowed for shader function '%1'.")
+        self.add_valrule_msg("Decl.ShaderReturnVoid", "Shader functions must return void", "Shader function '%0' must have void return type.")
+        self.add_valrule_msg("Decl.ShaderMissingArg", "payload/params/attributes parameter is required for certain shader types", "%0 shader '%1' missing required %2 parameter.")
 
         # Assign sensible category names and build up an enumeration description
         cat_names = {
@@ -2563,27 +2656,43 @@ class db_dxil(object):
             valrule_enum.values.append(vrval)
         self.enums.append(valrule_enum)
 
+    def populate_counters(self):
+        self.llvm_op_counters = set()
+        self.dxil_op_counters = set()
+        for i in self.instr:
+            counters = getattr(i, 'props', {}).get('counters', ())
+            if i.dxil_opid:
+                self.dxil_op_counters.update(counters)
+            else:
+                self.llvm_op_counters.update(counters)
+        counter_set = set(self.counters)
+        counter_set.update(self.llvm_op_counters)
+        counter_set.update(self.dxil_op_counters)
+        self.counters = list(sorted(counter_set))
+
     def add_valrule(self, name, desc):
         self.val_rules.append(db_dxil_valrule(name, len(self.val_rules), err_msg=desc, doc=desc))
 
     def add_valrule_msg(self, name, desc, err_msg):
         self.val_rules.append(db_dxil_valrule(name, len(self.val_rules), err_msg=err_msg, doc=desc))
 
-    def add_llvm_instr(self, kind, llvm_id, name, llvm_name, doc, oload_types, op_params):
+    def add_llvm_instr(self, kind, llvm_id, name, llvm_name, doc, oload_types, op_params, **props):
         i = db_dxil_inst(name, llvm_id=llvm_id, llvm_name=llvm_name, doc=doc, ops=op_params, oload_types=oload_types)
         if kind == "TERM": i.is_bb_terminator=True
         if kind == "BINARY": i.is_binary=True
         if kind == "MEMORY": i.is_memory=True
         if kind == "CAST": i.is_cast=True
+        i.props = props
         self.instr.append(i)
 
-    def add_dxil_op(self, name, code_id, code_class, doc, oload_types, fn_attr, op_params):
+    def add_dxil_op(self, name, code_id, code_class, doc, oload_types, fn_attr, op_params, **props):
         # The return value is parameter 0, insert the opcode as 1.
         op_params.insert(1, self.opcode_param)
         i = db_dxil_inst(name,
                          llvm_id=self.call_instr.llvm_id, llvm_name=self.call_instr.llvm_name,
                          dxil_op=name, dxil_opid=code_id, doc=doc, ops=op_params, dxil_class=code_class,
                          oload_types=oload_types, fn_attr=fn_attr)
+        i.props = props
         self.instr.append(i)
     def add_dxil_op_reserved(self, name, code_id):
         # The return value is parameter 0, insert the opcode as 1.
@@ -2623,7 +2732,7 @@ class db_hlsl_attribute(object):
 
 class db_hlsl_intrinsic(object):
     "An HLSL intrinsic declaration"
-    def __init__(self, name, idx, opname, params, ns, ns_idx, doc, ro, rn, unsigned_op, overload_idx, hidden):
+    def __init__(self, name, idx, opname, params, ns, ns_idx, doc, ro, rn, wv, unsigned_op, overload_idx, hidden):
         self.name = name                                # Function name
         self.idx = idx                                  # Unique number within namespace
         self.opname = opname                            # D3D-style name
@@ -2635,6 +2744,7 @@ class db_hlsl_intrinsic(object):
         self.enum_name = "%s_%s" % (id_prefix, name)    # enum name
         self.readonly = ro                              # Only read memory
         self.readnone = rn                              # Not read memory
+        self.wave = wv                                  # Is wave-sensitive
         self.unsigned_op = unsigned_op                  # Unsigned opcode if exist
         if unsigned_op != "":
             self.unsigned_op = "%s_%s" % (id_prefix, unsigned_op)
@@ -2875,6 +2985,7 @@ class db_hlsl(object):
             attrs = attr.split(',')
             readonly = False          # Only read memory
             readnone = False          # Not read memory
+            is_wave = False;          # Is wave-sensitive
             unsigned_op = ""          # Unsigned opcode if exist
             overload_param_index = -1 # Parameter determines the overload type, -1 means ret type.
             hidden = False
@@ -2886,6 +2997,9 @@ class db_hlsl(object):
                     continue
                 if (a == "rn"):
                     readnone = True
+                    continue
+                if (a == "wv"):
+                    is_wave = True
                     continue
                 if (a == "hidden"):
                     hidden = True
@@ -2906,7 +3020,7 @@ class db_hlsl(object):
                     continue
                 assert False, "invalid attr %s" % (a)
 
-            return readonly, readnone, unsigned_op, overload_param_index, hidden
+            return readonly, readnone, is_wave, unsigned_op, overload_param_index, hidden
 
         current_namespace = None
         for line in intrinsic_defs:
@@ -2939,7 +3053,7 @@ class db_hlsl(object):
                         op = operand_match.group(1)
                 if not op:
                     op = name
-                readonly, readnone, unsigned_op, overload_param_index, hidden = process_attr(attr)
+                readonly, readnone, is_wave, unsigned_op, overload_param_index, hidden = process_attr(attr)
                 # Add an entry for this intrinsic.
                 if bracket_cleanup_re.search(opts):
                     opts = bracket_cleanup_re.sub(r"<\1@\2>", opts)
@@ -2963,7 +3077,7 @@ class db_hlsl(object):
                 # TODO: verify a single level of indirection
                 self.intrinsics.append(db_hlsl_intrinsic(
                     name, num_entries, op, args, current_namespace, ns_idx, "pending doc for " + name,
-                    readonly, readnone, unsigned_op, overload_param_index, hidden))
+                    readonly, readnone, is_wave, unsigned_op, overload_param_index, hidden))
                 num_entries += 1
                 continue
             assert False, "cannot parse line %s" % (line)
@@ -2996,6 +3110,7 @@ class db_hlsl(object):
         add_attr_arg("RootSignature", "f", "RootSignature doc", [{"name":"SignatureName", "type":"string"}])
         add_attr_arg("Unroll", "l", "Unroll the loop until it stops executing or a max count", [{"name":"Count", "type":"int"}])
         self.attributes = attributes
+
 
 if __name__ == "__main__":
     db = db_dxil()

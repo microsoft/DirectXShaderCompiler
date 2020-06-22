@@ -28,10 +28,13 @@
 #include <winerror.h>
 #endif
 
-// Keep this in sync with the same-named value in the debugger application's
+// Keep these in sync with the same-named value in the debugger application's
 // WinPixShaderUtils.h
+
 constexpr uint64_t DebugBufferDumpingGroundSize = 64 * 1024;
-constexpr uint64_t MaxSizePerRecord = 64;
+// The actual max size per record is much smaller than this, but it never
+// hurts to be generous.
+constexpr size_t CounterOffsetBeyondUsefulData = DebugBufferDumpingGroundSize / 2;
 
 // Keep these in sync with the same-named values in PIX's MeshShaderOutput.cpp
 constexpr uint32_t triangleIndexIndicator = 1;
@@ -177,7 +180,7 @@ Value *DxilPIXMeshShaderOutputInstrumentation::reserveDebugEntrySpace(
   
   // Check that the caller didn't ask for so much memory that it will 
   // overwrite the offset counter:
-  assert(m_RemainingReservedSpaceInBytes < MaxSizePerRecord);
+  assert(m_RemainingReservedSpaceInBytes < CounterOffsetBeyondUsefulData);
 
   m_RemainingReservedSpaceInBytes = SpaceInBytes;
 
@@ -189,7 +192,7 @@ Value *DxilPIXMeshShaderOutputInstrumentation::reserveDebugEntrySpace(
   Constant *AtomicAdd =
       BC.HlslOP->GetU32Const((unsigned)DXIL::AtomicBinOpCode::Add);
   Constant *OffsetArg =
-      BC.HlslOP->GetU32Const(UAVDumpingGroundOffset() + MaxSizePerRecord);
+      BC.HlslOP->GetU32Const(UAVDumpingGroundOffset() + CounterOffsetBeyondUsefulData);
   UndefValue *UndefArg = UndefValue::get(Type::getInt32Ty(BC.Ctx));
 
   Constant *Increment = BC.HlslOP->GetU32Const(SpaceInBytes);

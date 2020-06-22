@@ -87,6 +87,7 @@ public:
   TEST_METHOD(RunNoStatic);
   TEST_METHOD(RunKeepUserMacro);
   TEST_METHOD(RunExtractUniforms);
+  TEST_METHOD(RunGlobalsUsedInMethod);
   TEST_METHOD(RunRewriterFails)
 
   dxc::DxcDllSupport m_dllSupport;
@@ -564,6 +565,32 @@ TEST_F(RewriterTest, RunNoStatic) {
   std::string strResult = BlobToUtf8(result);
   // No static.
   VERIFY_IS_TRUE(strResult.find("static") == std::string::npos);
+}
+
+TEST_F(RewriterTest, RunGlobalsUsedInMethod) {
+  CComPtr<IDxcRewriter> pRewriter;
+  CComPtr<IDxcRewriter2> pRewriter2;
+  VERIFY_SUCCEEDED(CreateRewriter(&pRewriter));
+  VERIFY_SUCCEEDED(pRewriter->QueryInterface(&pRewriter2));
+  CComPtr<IDxcOperationResult> pRewriteResult;
+
+  // Get the source text from a file
+  FileWithBlob source(
+      m_dllSupport,
+      GetPathToHlslDataFile(L"rewriter\\not_remove_globals_used_in_methods.hlsl").c_str());
+
+  LPCWSTR compileOptions[] = {L"-E", L"main", L" -remove-unused-globals"};
+
+  // Run rewrite on the source code to move uniform params to globals
+  VERIFY_SUCCEEDED(pRewriter2->RewriteWithOptions(
+      source.BlobEncoding, L"rewrite-uniforms.hlsl", compileOptions,
+      _countof(compileOptions), nullptr, 0, nullptr, &pRewriteResult));
+
+  CComPtr<IDxcBlob> result;
+  VERIFY_SUCCEEDED(pRewriteResult->GetResult(&result));
+  std::string strResult = BlobToUtf8(result);
+  // No static.
+  VERIFY_IS_TRUE(strResult.find("RWBuffer<uint> u;") != std::string::npos);
 }
 
 TEST_F(RewriterTest, RunForceExtern) {  CComPtr<IDxcRewriter> pRewriter;

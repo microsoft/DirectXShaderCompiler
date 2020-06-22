@@ -1440,6 +1440,7 @@ namespace DXIL {
 
   static const char *kDxBreakFuncName = "dx.break";
   static const char *kDxBreakCondName = "dx.break.cond";
+  static const char *kDxBreakMDName = "dx.break.br";
 
 } // namespace DXIL
 

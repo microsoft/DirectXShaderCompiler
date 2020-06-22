@@ -34,6 +34,7 @@
 #include "dxc/Support/dxcapi.impl.h"
 #include "dxc/DxilContainer/DxilPipelineStateValidation.h"
 #include "dxc/DxilContainer/DxilRuntimeReflection.h"
+#include "dxc/DXIL/DxilCounters.h"
 #include <algorithm>
 #include <functional>
 
@@ -1698,6 +1699,7 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
     // 0,0 = Not meant to be validated, support latest
     pModule->SetValidatorVersion(0, 0);
     pModule->ReEmitDxilResources();
+    pModule->EmitDxilCounters();
 
     reflectionModule.reset(llvm::CloneModule(pModule->GetModule()));
 

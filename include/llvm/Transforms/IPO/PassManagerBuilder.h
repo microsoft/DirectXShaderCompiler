@@ -17,6 +17,7 @@
 
 #include "llvm/ADT/StringRef.h" // HLSL Change
 #include <vector>
+#include "dxc/Support/HLSLOptimizationOptions.h" // HLSL Change
 
 namespace hlsl {
   class HLSLExtensionsCodegenHelper;
@@ -128,11 +129,13 @@ public:
   bool MergeFunctions;
   bool PrepareForLTO;
   bool HLSLHighLevel = false; // HLSL Change
+  bool HLSLAllowPreserveValues = false; // HLSL Change
   hlsl::HLSLExtensionsCodegenHelper *HLSLExtensionsCodeGen = nullptr; // HLSL Change
   bool HLSLResMayAlias = false; // HLSL Change
   bool HLSLLiveValueAnalysisDump = false; // HLSL Change
   StringRef HLSLLiveValueAnalysisOutputFile; // HLSL Change
   unsigned ScanLimit = 0; // HLSL Change
+  hlsl::OptimizationOptions HLSLOptimizationOptions = {0}; // HLSL Change
 
 private:
   /// ExtensionList - This is list of all of the extensions that are registered.

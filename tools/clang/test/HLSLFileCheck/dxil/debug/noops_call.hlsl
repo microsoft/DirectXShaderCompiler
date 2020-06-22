@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_6_0 %s -Od | FileCheck %s
+// RUN: %dxc -preserve-intermediate-values -E main -T ps_6_0 %s -Od | FileCheck %s
 
 typedef float4 MyCoolFloat4; 
 static float4 myStaticGlobalVar = float4(1.0, 1.0, 1.0, 1.0);

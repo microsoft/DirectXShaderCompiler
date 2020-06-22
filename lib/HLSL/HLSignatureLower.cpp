@@ -141,6 +141,10 @@ void replaceInputOutputWithIntrinsic(DXIL::SemanticKind semKind, Value *GV,
   case Semantic::Kind::GroupIndex:
     opcode = OP::OpCode::FlattenedThreadIdInGroup;
     break;
+  case Semantic::Kind::CullPrimitive: {
+    GV->replaceAllUsesWith(ConstantInt::get(Ty, (uint64_t)0));
+    return;
+  } break;
   default:
     DXASSERT(0, "invalid semantic");
     return;
@@ -317,7 +321,7 @@ void HLSignatureLower::ProcessArgument(Function *func,
            SemanticUseMap.count((unsigned)DXIL::SemanticKind::Coverage) > 0)) {
         dxilutil::EmitErrorOnFunction(func,
             "Pixel shader inputs SV_Coverage and SV_InnerCoverage are mutually "
-            "exclusive");
+            "exclusive.");
         return;
       }
     }
@@ -1124,7 +1128,7 @@ void HLSignatureLower::GenerateDxilInputsOutputs(DXIL::SignatureKind SK) {
       OSS << "(type for " << SE->GetName() << ")";
       OSS << " cannot be used as shader inputs or outputs.";
       OSS.flush();
-      HLM.GetCtx().emitError(O);
+      dxilutil::EmitErrorOnFunction(Entry, O);
       continue;
     }
     Function *dxilFunc = hlslOP->GetOpFunc(opcode, Ty);
@@ -1197,7 +1201,7 @@ void HLSignatureLower::GenerateDxilCSInputs() {
     if (semanticStr.empty()) {
       dxilutil::EmitErrorOnFunction(Entry, "Semantic must be defined for all "
                                     "parameters of an entry function or patch "
-                                    "constant function");
+                                    "constant function.");
       return;
     }
 

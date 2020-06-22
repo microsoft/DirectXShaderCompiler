@@ -20,6 +20,7 @@
 #include <string>
 #include <vector>
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h" // HLSL change
+#include "dxc/Support/HLSLOptimizationOptions.h" // HLSL Change
 #include "dxc/Support/SPIRVOptions.h" // SPIR-V Change
 
 namespace clang {
@@ -177,6 +178,8 @@ public:
   std::string HLSLProfile;
   /// Whether to target high-level DXIL.
   bool HLSLHighLevel = false;
+  /// Whether we allow preserve intermediate values
+  bool HLSLAllowPreserveValues = false;
   /// Whether to run the Live Value Analysis for DXR pass and output source linking navigation to debug console.
   bool HLSLLiveValueAnalysisDump = false;
   /// Output file to receive the Live Value Analysis report.
@@ -215,6 +218,8 @@ public:
   std::vector<std::string> HLSLLibraryExports;
   /// ExportShadersOnly limits library export functions to shaders
   bool ExportShadersOnly = false;
+  /// Structurize control flow for function has multiple returns.
+  bool HLSLStructurizeReturns = false;
   /// DefaultLinkage Internal, External, or Default.  If Default, default
   /// function linkage is determined by library target.
   hlsl::DXIL::DefaultLinkage DefaultLinkage = hlsl::DXIL::DefaultLinkage::Default;
@@ -222,6 +227,8 @@ public:
   bool HLSLResMayAlias = false;
   /// Lookback scan limit for memory dependencies
   unsigned ScanLimit = 0;
+  /// Disabled optimization passes
+  hlsl::OptimizationOptions HLSLOptimizationOptions = {0};
   // HLSL Change Ends
 
   // SPIRV Change Starts

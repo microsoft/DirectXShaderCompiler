@@ -183,6 +183,7 @@ import hctdb_instrhelp
   IOP_mul,
   IOP_normalize,
   IOP_pow,
+  IOP_printf,
   IOP_radians,
   IOP_rcp,
   IOP_reflect,

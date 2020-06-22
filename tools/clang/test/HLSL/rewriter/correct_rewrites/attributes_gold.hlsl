@@ -62,7 +62,7 @@ int uav() {
 struct HSFoo {
   float3 pos : POSITION;
 };
-Texture2D<float4> tex1[10] : register(t20);
+Texture2D<float4> tex1[10] : register(t20, space10);
 [domain("quad")]
 [partitioning("integer")]
 [outputtopology("triangle_cw")]

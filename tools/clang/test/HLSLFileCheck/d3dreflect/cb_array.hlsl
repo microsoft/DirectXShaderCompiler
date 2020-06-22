@@ -23,7 +23,7 @@ float main(int i : A) : SV_TARGET
 // CHECK:         ID3D12ShaderReflectionVariable:
 // CHECK:           D3D12_SHADER_VARIABLE_DESC: Name: A
 // CHECK:             Size: 84
-// CHECK:             uFlags: 0x2
+// CHECK:             uFlags: (D3D_SVF_USED)
 // CHECK:           ID3D12ShaderReflectionType:
 // CHECK:             D3D12_SHADER_TYPE_DESC: Name: float
 // CHECK:               Class: D3D_SVC_SCALAR

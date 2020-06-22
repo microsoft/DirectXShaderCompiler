@@ -22,11 +22,8 @@ FeatureManager::FeatureManager(DiagnosticsEngine &de,
 
   if (opts.allowedExtensions.empty()) {
     // If no explicit extension control from command line, use the default mode:
-    // allowing all extensions.
-    // Special case : KHR_ray_tracing and NV_ray_tracing are mutually exclusive
-    // so enable only KHR extension by default
+    // allowing all extensions that are enabled by default.
     allowAllKnownExtensions();
-    allowedExtensions.reset(static_cast<unsigned>(Extension::NV_ray_tracing));
   } else {
     for (auto ext : opts.allowedExtensions)
       allowExtension(ext);
@@ -70,7 +67,13 @@ bool FeatureManager::allowExtension(llvm::StringRef name) {
   return true;
 }
 
-void FeatureManager::allowAllKnownExtensions() { allowedExtensions.set(); }
+void FeatureManager::allowAllKnownExtensions() {
+  allowedExtensions.set();
+  const auto numExtensions = static_cast<uint32_t>(Extension::Unknown);
+  for (uint32_t ext = 0; ext < numExtensions; ++ext)
+    if (!enabledByDefault(static_cast<Extension>(ext)))
+      allowedExtensions.reset(ext);
+}
 
 bool FeatureManager::requestExtension(Extension ext, llvm::StringRef target,
                                       SourceLocation srcLoc) {
@@ -104,6 +107,7 @@ Extension FeatureManager::getExtensionSymbol(llvm::StringRef name) {
       .Case("SPV_KHR_16bit_storage", Extension::KHR_16bit_storage)
       .Case("SPV_KHR_device_group", Extension::KHR_device_group)
       .Case("SPV_KHR_multiview", Extension::KHR_multiview)
+      .Case("SPV_KHR_non_semantic_info", Extension::KHR_non_semantic_info)
       .Case("SPV_KHR_shader_draw_parameters",
             Extension::KHR_shader_draw_parameters)
       .Case("SPV_KHR_ray_tracing", Extension::KHR_ray_tracing)
@@ -128,6 +132,7 @@ Extension FeatureManager::getExtensionSymbol(llvm::StringRef name) {
       .Case("SPV_KHR_post_depth_coverage", Extension::KHR_post_depth_coverage)
       .Case("SPV_NV_ray_tracing", Extension::NV_ray_tracing)
       .Case("SPV_NV_mesh_shader", Extension::NV_mesh_shader)
+      .Case("SPV_KHR_ray_query", Extension::KHR_ray_query)
       .Default(Extension::Unknown);
 }
 
@@ -141,6 +146,8 @@ const char *FeatureManager::getExtensionName(Extension symbol) {
     return "SPV_KHR_device_group";
   case Extension::KHR_multiview:
     return "SPV_KHR_multiview";
+  case Extension::KHR_non_semantic_info:
+    return "SPV_KHR_non_semantic_info";
   case Extension::KHR_shader_draw_parameters:
     return "SPV_KHR_shader_draw_parameters";
   case Extension::KHR_post_depth_coverage:
@@ -171,6 +178,8 @@ const char *FeatureManager::getExtensionName(Extension symbol) {
     return "SPV_NV_ray_tracing";
   case Extension::NV_mesh_shader:
     return "SPV_NV_mesh_shader";
+  case Extension::KHR_ray_query:
+    return "SPV_KHR_ray_query";
   default:
     break;
   }
@@ -224,13 +233,28 @@ bool FeatureManager::isExtensionRequiredForTargetEnv(Extension ext) {
   return required;
 }
 
-bool FeatureManager::isExtensionEnabled(llvm::StringRef name) {
+bool FeatureManager::isExtensionEnabled(Extension ext) {
   bool allowed = false;
-  Extension ext = getExtensionSymbol(name);
   if (ext != Extension::Unknown &&
       allowedExtensions.test(static_cast<unsigned>(ext)))
     allowed = true;
   return allowed;
+}
+
+bool FeatureManager::enabledByDefault(Extension ext) {
+  switch (ext) {
+    // KHR_ray_tracing and NV_ray_tracing are mutually exclusive so enable only
+    // KHR extension by default
+  case Extension::NV_ray_tracing:
+    return false;
+    // Enabling EXT_demote_to_helper_invocation changes the code generation
+    // behavior for the 'discard' statement. Therefore we will only enable it if
+    // the user explicitly asks for it.
+  case Extension::EXT_demote_to_helper_invocation:
+    return false;
+  default:
+    return true;
+  }
 }
 
 } // end namespace spirv

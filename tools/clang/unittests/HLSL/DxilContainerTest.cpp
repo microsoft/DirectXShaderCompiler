@@ -156,9 +156,9 @@ public:
       VERIFY_ARE_EQUAL(pBaseDesc->Type, D3D_SIT_TEXTURE);
     } else
       VERIFY_ARE_EQUAL(pTestDesc->Type, pBaseDesc->Type);
-    // D3D_SIF_USERPACKED is never set in dxil.
+    // D3D_SIF_USERPACKED is not set consistently in fxc (new-style ConstantBuffer).
     UINT unusedFlag = D3D_SIF_USERPACKED;
-    VERIFY_ARE_EQUAL(pTestDesc->uFlags, pBaseDesc->uFlags & ~unusedFlag);
+    VERIFY_ARE_EQUAL(pTestDesc->uFlags & ~unusedFlag, pBaseDesc->uFlags & ~unusedFlag);
     // VERIFY_ARE_EQUAL(pTestDesc->uID, pBaseDesc->uID); // Like register, this can vary.
   }
 
@@ -197,7 +197,13 @@ public:
 
     VERIFY_ARE_EQUAL(testDesc.Offset,   baseDesc.Offset);
 
-    VERIFY_ARE_EQUAL(0, strcmp(testDesc.Name, baseDesc.Name));
+    // DXIL Reflection doesn't expose half type name,
+    // and that shouldn't matter because this is only
+    // in the case where half maps to float.
+    std::string baseName(baseDesc.Name);
+    if (baseName.compare(0, 4, "half", 4) == 0)
+      baseName = baseName.replace(0, 4, "float", 5);
+    VERIFY_ARE_EQUAL_STR(testDesc.Name, baseName.c_str());
 
     for (UINT i = 0; i < baseDesc.Members; ++i) {
       ID3D12ShaderReflectionType* testMemberType = pTest->GetMemberTypeByIndex(i);
@@ -341,7 +347,8 @@ public:
 #endif // _WIN32 - Reflection unsupported
 
 #ifdef _WIN32  // - Reflection unsupported
-  HRESULT CompileFromFile(LPCWSTR path, bool useDXBC, IDxcBlob **ppBlob) {
+  HRESULT CompileFromFile(LPCWSTR path, bool useDXBC,
+                          UINT fxcFlags, IDxcBlob **ppBlob) {
     std::vector<FileRunCommandPart> parts;
     ParseCommandPartsFromFile(path, parts);
     VERIFY_IS_TRUE(parts.size() > 0);
@@ -360,14 +367,19 @@ public:
     if (useDXBC) {
       // Consider supporting defines and flags if/when needed.
       std::string TargetProfile(opts.TargetProfile.str());
-      TargetProfile[3] = '5'; TargetProfile[5] = '1';
+      TargetProfile[3] = '5';
+      // Some shaders may need flags, and /Gec is incompatible with SM 5.1
+      TargetProfile[5] = (fxcFlags & D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY) ? '0' : '1';
       CComPtr<ID3DBlob> pDxbcBlob;
       CComPtr<ID3DBlob> pDxbcErrors;
-      UINT unboundDescTab = (1 << 20);
-      IFR(D3DCompileFromFile(path, nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE,
+      HRESULT hr = D3DCompileFromFile(path, nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE,
         opts.EntryPoint.str().c_str(),
         TargetProfile.c_str(),
-        unboundDescTab, 0, &pDxbcBlob, &pDxbcErrors));
+        fxcFlags,
+        0, &pDxbcBlob, &pDxbcErrors);
+      LPCSTR errors = pDxbcErrors ? (const char *)pDxbcErrors->GetBufferPointer() : "";
+      (void)errors;
+      IFR(hr);
       IFR(pDxbcBlob.QueryInterface(ppBlob));
     }
     else {
@@ -537,7 +549,8 @@ public:
     return result;
   }
 
-  void ReflectionTest(LPCWSTR name, bool ignoreIfDXBCFails) {
+  void ReflectionTest(LPCWSTR name, bool ignoreIfDXBCFails,
+      UINT fxcFlags = D3DCOMPILE_ENABLE_UNBOUNDED_DESCRIPTOR_TABLES) {
     WEX::Logging::Log::Comment(WEX::Common::String().Format(L"Reflection comparison for %s", name));
 
     // Skip if unsupported.
@@ -553,13 +566,13 @@ public:
 
     CComPtr<IDxcBlob> pProgram;
     CComPtr<IDxcBlob> pProgramDXBC;
-    HRESULT hrDXBC = CompileFromFile(name, true, &pProgramDXBC);
+    HRESULT hrDXBC = CompileFromFile(name, true, fxcFlags, &pProgramDXBC);
     if (FAILED(hrDXBC)) {
       WEX::Logging::Log::Comment(L"Failed to compile DXBC blob.");
       if (ignoreIfDXBCFails) return;
       VERIFY_FAIL();
     }
-    if (FAILED(CompileFromFile(name, false, &pProgram))) {
+    if (FAILED(CompileFromFile(name, false, 0, &pProgram))) {
       WEX::Logging::Log::Comment(L"Failed to compile DXIL blob.");
       VERIFY_FAIL();
     }
@@ -1781,6 +1794,9 @@ TEST_F(DxilContainerTest, ReflectionMatchesDXBC_CheckIn) {
   ReflectionTest(hlsl_test::GetPathToHlslDataFile(L"..\\CodeGenHLSL\\container\\SimpleBezier11DS.hlsl").c_str(), false);
   ReflectionTest(hlsl_test::GetPathToHlslDataFile(L"..\\CodeGenHLSL\\container\\SubD11_SmoothPS.hlsl").c_str(), false);
   ReflectionTest(hlsl_test::GetPathToHlslDataFile(L"..\\HLSLFileCheck\\d3dreflect\\structured_buffer_layout.hlsl").c_str(), false);
+  ReflectionTest(hlsl_test::GetPathToHlslDataFile(L"..\\HLSLFileCheck\\d3dreflect\\cb_sizes.hlsl").c_str(), false);
+  ReflectionTest(hlsl_test::GetPathToHlslDataFile(L"..\\HLSLFileCheck\\d3dreflect\\tbuffer.hlsl").c_str(), false,
+    D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY);
 }
 
 TEST_F(DxilContainerTest, ReflectionMatchesDXBC_Full) {
@@ -1802,20 +1818,32 @@ TEST_F(DxilContainerTest, ReflectionMatchesDXBC_Full) {
     L"ScreenQuadVS.hlsl",
     L"SimpleBezier11HS.hlsl"
   };
+  // These tests should always be skipped
+  LPCWSTR SkipPaths[] = {
+    L".hlsli",
+    L"TessellatorCS40_defines.h",
+    L"SubD11_SubDToBezierHS",
+    L"ParticleTileCullingCS_fail_unroll.hlsl"
+  };
   for (auto &p: recursive_directory_iterator(path(codeGenPath))) {
     if (is_regular_file(p)) {
       LPCWSTR fullPath = p.path().c_str();
-      if (wcsstr(fullPath, L".hlsli") != nullptr) continue;
-      if (wcsstr(fullPath, L"TessellatorCS40_defines.h") != nullptr) continue;
+      auto Matches = [&](LPCWSTR candidate) {
+        LPCWSTR match = wcsstr(fullPath, candidate);
+        return nullptr != match;
+      };
+
       // Skip failed tests.
-      if (wcsstr(fullPath, L"SubD11_SubDToBezierHS") != nullptr) continue;
+      LPCWSTR *SkipEnd = SkipPaths + _countof(SkipPaths);
+      if (SkipEnd != std::find_if(SkipPaths, SkipEnd, Matches))
+        continue;
+
       if (!TestAll) {
         bool shouldTest = false;
         LPCWSTR *PreApprovedEnd = PreApprovedPaths + _countof(PreApprovedPaths);
-        shouldTest = PreApprovedEnd == std::find_if(PreApprovedPaths, PreApprovedEnd,
-          [&](LPCWSTR candidate) { return nullptr != wcsstr(fullPath, candidate); });
+        shouldTest = PreApprovedEnd != std::find_if(PreApprovedPaths, PreApprovedEnd, Matches);
         if (!shouldTest) {
-          break;
+          continue;
         }
       }
       auto start = std::chrono::system_clock::now();

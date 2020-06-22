@@ -195,6 +195,12 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
     for (auto field : structType->getFields())
       addCapabilityForType(field.type, loc, sc);
   }
+  //
+  else if (const auto *rayQueryType =
+               dyn_cast<RayQueryProvisionalTypeKHR>(type)) {
+    addCapability(spv::Capability::RayQueryProvisionalKHR);
+    addExtension(Extension::KHR_ray_query, "SPV_KHR_ray_query", {});
+  }
 }
 
 bool CapabilityVisitor::visit(SpirvDecoration *decor) {
@@ -475,6 +481,16 @@ bool CapabilityVisitor::visitInstruction(SpirvInstruction *instr) {
     }
     break;
   }
+  case spv::Op::OpRayQueryInitializeKHR: {
+    auto rayQueryInst = dyn_cast<SpirvRayQueryOpKHR>(instr);
+    if (rayQueryInst->hasCullFlags()) {
+      addCapability(
+          spv::Capability::RayTraversalPrimitiveCullingProvisionalKHR);
+    }
+
+    break;
+  }
+
   default:
     break;
   }
@@ -503,10 +519,12 @@ bool CapabilityVisitor::visit(SpirvEntryPoint *entryPoint) {
   case spv::ExecutionModel::AnyHitNV:
   case spv::ExecutionModel::MissNV:
   case spv::ExecutionModel::CallableNV:
-    if (featureManager.isExtensionEnabled("SPV_NV_ray_tracing")) {
+    if (featureManager.isExtensionEnabled(Extension::NV_ray_tracing)) {
       addCapability(spv::Capability::RayTracingNV);
       addExtension(Extension::NV_ray_tracing, "SPV_NV_ray_tracing", {});
     } else {
+      // KHR_ray_tracing extension requires SPIR-V 1.4/Vulkan 1.2
+      featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_2, "Raytracing", {});
       addCapability(spv::Capability::RayTracingProvisionalKHR);
       addExtension(Extension::KHR_ray_tracing, "SPV_KHR_ray_tracing", {});
     }
@@ -530,6 +548,13 @@ bool CapabilityVisitor::visit(SpirvExecutionMode *execMode) {
     addExtension(Extension::KHR_post_depth_coverage,
                  "[[vk::post_depth_coverage]]", execMode->getSourceLocation());
   }
+  return true;
+}
+
+bool CapabilityVisitor::visit(SpirvExtInstImport *instr) {
+  if (instr->getExtendedInstSetName() == "NonSemantic.DebugPrintf")
+    addExtension(Extension::KHR_non_semantic_info, "DebugPrintf",
+                 /*SourceLocation*/ {});
   return true;
 }
 

@@ -156,6 +156,8 @@ def fno_honor_infinities : Flag<["-"], "fno-honor-infinities">, Group<hlsloptz_G
 def flimited_precision_EQ : Joined<["-"], "flimited-precision=">, Group<hlsloptz_Group>;
 def memdep_block_scan_limit : Separate<["-", "/"], "memdep-block-scan-limit">, Group<hlsloptz_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
   HelpText<"The number of instructions to scan in a block in memory dependency analysis.">;
+def opt_disable : Separate<["-", "/"], "opt-disable">, Group<hlsloptz_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
+  HelpText<"Disable this optimization.">;
 
 /*
 def fno_caret_diagnostics : Flag<["-"], "fno-caret-diagnostics">, Group<hlslcomp_Group>,
@@ -224,10 +226,14 @@ def external_fn : Separate<["-", "/"], "external-fn">, Group<hlslcore_Group>, Fl
   HelpText<"External function name to load for compiler support">;
 def fcgl : Flag<["-", "/"], "fcgl">, Group<hlslcore_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Generate high-level code only">;
+def preserve_intermediate_values : Flag<["-", "/"], "preserve-intermediate-values">, Group<hlslcore_Group>, Flags<[CoreOption, HelpHidden]>,
+  HelpText<"Preserve intermediate values to help shader debugging">;
 def flegacy_macro_expansion : Flag<["-", "/"], "flegacy-macro-expansion">, Group<hlslcomp_Group>, Flags<[CoreOption, RewriteOption, DriverOption]>,
     HelpText<"Expand the operands before performing token-pasting operation (fxc behavior)">;
 def flegacy_resource_reservation : Flag<["-", "/"], "flegacy-resource-reservation">, Group<hlslcomp_Group>, Flags<[CoreOption, DriverOption]>,
     HelpText<"Reserve unused explicit register assignments for compatibility with shader model 5.0 and below">;
+def structurize_returns : Flag<["-", "/"], "structurize-returns">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
+  HelpText<"structurize return control flow for functions with multiple returns.">;
 def no_legacy_cbuf_layout : Flag<["-", "/"], "no-legacy-cbuf-layout">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"Do not use legacy cbuffer load">;
 def not_use_legacy_cbuf_load_ : Flag<["-", "/"], "not_use_legacy_cbuf_load">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
@@ -452,6 +458,7 @@ def rw_extract_entry_uniforms : Flag<["-", "/"], "extract-entry-uniforms">, Grou
   HelpText<"Move uniform parameters from entry point to global scope">;
 def rw_remove_unused_globals : Flag<["-", "/"], "remove-unused-globals">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
   HelpText<"Remove unused static globals and functions">;
-
+def rw_remove_unused_functions : Flag<["-", "/"], "remove-unused-functions">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
+  HelpText<"Remove unused functions and types">;
 // Also removed: compress, decompress, /Gch (child effect), /Gpp (partial precision)
 // /Op - no support for preshaders.

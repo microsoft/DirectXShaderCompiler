@@ -1,4 +1,5 @@
 // RUN: %dxc -E main -T hs_6_0 %s | FileCheck %s
+// RUN: %dxc -E main -T hs_6_0 %s | %D3DReflect %s | FileCheck -check-prefix=REFL %s
 
 // CHECK: float 3.000000e+00}
 
@@ -68,3 +69,18 @@ HSFoo main( InputPatch<HSFoo_Input, 32> p,
     output.d = p[i].qq + r;
     return output;
 }
+
+// REFL: TempArrayCount: 16
+// REFL: DynamicFlowControlCount: 1
+// REFL: ArrayInstructionCount: 5
+// REFL: TextureNormalInstructions: 0
+// REFL: TextureLoadInstructions: 0
+// REFL: TextureCompInstructions: 0
+// REFL: TextureBiasInstructions: 0
+// REFL: TextureGradientInstructions: 0
+// REFL: UintInstructionCount: 0
+// REFL: CutInstructionCount: 0
+// REFL: EmitInstructionCount: 0
+// REFL: cBarrierInstructions: 0
+// REFL: cInterlockedInstructions: 0
+// REFL: cTextureStoreInstructions: 0

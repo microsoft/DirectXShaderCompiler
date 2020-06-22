@@ -944,7 +944,7 @@ static unsigned IsPtrUsedByLoweredFn(
 
     } else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(user)) {
       unsigned opcode = CE->getOpcode();
-      if (opcode == Instruction::AddrSpaceCast || Instruction::GetElementPtr)
+      if (opcode == Instruction::AddrSpaceCast || opcode == Instruction::GetElementPtr)
         if (IsPtrUsedByLoweredFn(user, CollectedUses))
           bFound = true;
     }
@@ -967,7 +967,8 @@ static CallInst *RewriteIntrinsicCallForCastedArg(CallInst *CI, unsigned argIdx)
   newArgs[argIdx] = newArg;
 
   FunctionType *newFuncTy = FunctionType::get(CI->getType(), newArgTypes, false);
-  Function *newF = GetOrCreateHLFunction(*F->getParent(), newFuncTy, group, opcode);
+  Function *newF = GetOrCreateHLFunction(*F->getParent(), newFuncTy, group, opcode,
+                                         F->getAttributes().getFnAttributes());
 
   IRBuilder<> Builder(CI);
   return Builder.CreateCall(newF, newArgs);
@@ -2221,7 +2222,7 @@ void SROA_Helper::RewriteForGEP(GEPOperator *GEP, IRBuilder<> &Builder) {
         NewGEPs.emplace_back(NewGEP);
       }
       const bool bAllowReplace = isa<AllocaInst>(OldVal);
-      if (!SROA_Helper::LowerMemcpy(GEP, /*annoation*/ nullptr, typeSys, DL, DT, bAllowReplace)) {
+      if (!SROA_Helper::LowerMemcpy(GEP, /*annotation*/ nullptr, typeSys, DL, DT, bAllowReplace)) {
         SROA_Helper helper(GEP, NewGEPs, DeadInsts, typeSys, DL, DT);
         helper.RewriteForScalarRepl(GEP, Builder);
         for (Value *NewGEP : NewGEPs) {
@@ -2779,7 +2780,8 @@ static CallInst *CreateFlattenedHLIntrinsicCall(
   FunctionType *flatFuncTy =
       FunctionType::get(CI->getType(), flatParamTys, false);
   Function *flatF =
-      GetOrCreateHLFunction(*F->getParent(), flatFuncTy, group, opcode);
+    GetOrCreateHLFunction(*F->getParent(), flatFuncTy, group, opcode,
+                          F->getAttributes().getFnAttributes());
 
   return Builder.CreateCall(flatF, flatArgs);
 }
@@ -3625,13 +3627,15 @@ static bool ReplaceUseOfZeroInitBeforeDef(Instruction *I, GlobalVariable *GV) {
   }
 }
 
+// Use `DT` to trace all users and make sure `I`'s BB dominates them all
 static bool DominateAllUsersDom(Instruction *I, Value *V, DominatorTree *DT) {
   BasicBlock *BB = I->getParent();
+  Function *F = I->getParent()->getParent();
   for (auto U = V->user_begin(); U != V->user_end(); ) {
     Instruction *UI = dyn_cast<Instruction>(*(U++));
-    if (!UI)
+    // If not an instruction or from a differnt function, nothing to check, move along.
+    if (!UI || UI->getParent()->getParent() != F)
       continue;
-    assert (UI->getParent()->getParent() == I->getParent()->getParent());
 
     if (!DT->dominates(BB, UI->getParent()))
       return false;
@@ -3652,7 +3656,13 @@ static bool DominateAllUsers(Instruction *I, Value *V, DominatorTree *DT) {
   if (&F->getEntryBlock() == I->getParent())
     return true;
 
-  return DominateAllUsersDom(I, V, DT);
+  if (!DT) {
+    DominatorTree TempDT;
+    TempDT.recalculate(*F);
+    return DominateAllUsersDom(I, V, &TempDT);
+  } else {
+    return DominateAllUsersDom(I, V, DT);
+  }
 }
 
 bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
@@ -4178,8 +4188,8 @@ void SROA_Parameter_HLSL::flattenGlobal(GlobalVariable *GV) {
     GlobalVariable *EltGV = cast<GlobalVariable>(WorkList.front());
     WorkList.pop_front();
     const bool bAllowReplace = true;
-    // Globals don't need DomTree here because they take another path
-    if (SROA_Helper::LowerMemcpy(EltGV, /*annoation*/ nullptr, dxilTypeSys, DL,
+    // SROA_Parameter_HLSL has no access to a domtree, if one is needed, it'll be generated
+    if (SROA_Helper::LowerMemcpy(EltGV, /*annotation*/ nullptr, dxilTypeSys, DL,
                                  nullptr /*DT */, bAllowReplace)) {
       continue;
     }
@@ -4204,7 +4214,7 @@ void SROA_Parameter_HLSL::flattenGlobal(GlobalVariable *GV) {
       }
       EltGV = NewEltGV;
     } else {
-      // Globals don't need DomTree
+      // SROA_Parameter_HLSL has no access to a domtree, if one is needed, it'll be generated
       SROAed = SROA_Helper::DoScalarReplacement(
           EltGV, Elts, Builder, bFlatVector,
           // TODO: set precise.
@@ -5713,6 +5723,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
         funcAnnotation->GetRetTypeAnnotation();
     Module &M = *m_pHLModule->GetModule();
     Type *voidTy = Type::getVoidTy(m_pHLModule->GetCtx());
+#if 0 // We don't really want this to show up in debug info.
     // Create DbgDecl for the ret value.
     if (DISubprogram *funcDI = getDISubprogram(F)) {
         DITypeRef RetDITyRef = funcDI->getType()->getTypeArray()[0];
@@ -5726,6 +5737,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
         DILocation *DL = DILocation::get(F->getContext(), funcDI->getLine(), 0, funcDI);
         DIB.insertDeclare(retValAddr, RetVar, Expr, DL, Builder.GetInsertPoint());
     }
+#endif
     for (BasicBlock &BB : F->getBasicBlockList()) {
       if (ReturnInst *RI = dyn_cast<ReturnInst>(BB.getTerminator())) {
         // Create store for return.

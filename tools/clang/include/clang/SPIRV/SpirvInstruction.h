@@ -82,17 +82,20 @@ public:
     // Normal instruction kinds
     // In alphabetical order
 
-    IK_AccessChain,        // OpAccessChain
-    IK_Atomic,             // OpAtomic*
-    IK_Barrier,            // Op*Barrier
-    IK_BinaryOp,           // Binary operations
-    IK_BitFieldExtract,    // OpBitFieldExtract
-    IK_BitFieldInsert,     // OpBitFieldInsert
-    IK_CompositeConstruct, // OpCompositeConstruct
-    IK_CompositeExtract,   // OpCompositeExtract
-    IK_CompositeInsert,    // OpCompositeInsert
-    IK_ExtInst,            // OpExtInst
-    IK_FunctionCall,       // OpFunctionCall
+    IK_AccessChain,                 // OpAccessChain
+    IK_ArrayLength,                 // OpArrayLength
+    IK_Atomic,                      // OpAtomic*
+    IK_Barrier,                     // Op*Barrier
+    IK_BinaryOp,                    // Binary operations
+    IK_BitFieldExtract,             // OpBitFieldExtract
+    IK_BitFieldInsert,              // OpBitFieldInsert
+    IK_CompositeConstruct,          // OpCompositeConstruct
+    IK_CompositeExtract,            // OpCompositeExtract
+    IK_CompositeInsert,             // OpCompositeInsert
+    IK_CopyObject,                  // OpCopyObject
+    IK_DemoteToHelperInvocationEXT, // OpDemoteToHelperInvocationEXT
+    IK_ExtInst,                     // OpExtInst
+    IK_FunctionCall,                // OpFunctionCall
 
     IK_EndPrimitive, // OpEndPrimitive
     IK_EmitVertex,   // OpEmitVertex
@@ -108,6 +111,8 @@ public:
     IK_ImageSparseTexelsResident, // OpImageSparseTexelsResident
     IK_ImageTexelPointer,         // OpImageTexelPointer
     IK_Load,                      // OpLoad
+    IK_RayQueryOpKHR,             // KHR rayquery ops
+    IK_RayTracingOpNV,            // NV raytracing ops
     IK_SampledImage,              // OpSampledImage
     IK_Select,                    // OpSelect
     IK_SpecConstantBinaryOp,      // SpecConstant binary operations
@@ -115,10 +120,6 @@ public:
     IK_Store,                     // OpStore
     IK_UnaryOp,                   // Unary operations
     IK_VectorShuffle,             // OpVectorShuffle
-    IK_ArrayLength,               // OpArrayLength
-    IK_RayTracingOpNV,            // NV raytracing ops
-
-    IK_DemoteToHelperInvocationEXT, // OpDemoteToHelperInvocationEXT
   };
 
   virtual ~SpirvInstruction() = default;
@@ -255,8 +256,7 @@ private:
 /// \brief ExtInstImport instruction
 class SpirvExtInstImport : public SpirvInstruction {
 public:
-  SpirvExtInstImport(SourceLocation loc,
-                     llvm::StringRef extensionName = "GLSL.std.450");
+  SpirvExtInstImport(SourceLocation loc, llvm::StringRef extensionName);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -454,6 +454,10 @@ public:
   SpirvVariable(QualType resultType, SourceLocation loc, spv::StorageClass sc,
                 bool isPrecise, SpirvInstruction *initializerId = 0);
 
+  SpirvVariable(const SpirvType *spvType, SourceLocation loc,
+                spv::StorageClass sc, bool isPrecise,
+                SpirvInstruction *initializerId = 0);
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_Variable;
@@ -480,6 +484,9 @@ private:
 class SpirvFunctionParameter : public SpirvInstruction {
 public:
   SpirvFunctionParameter(QualType resultType, bool isPrecise,
+                         SourceLocation loc);
+
+  SpirvFunctionParameter(const SpirvType *spvType, bool isPrecise,
                          SourceLocation loc);
 
   // For LLVM-style RTTI
@@ -1182,7 +1189,7 @@ public:
 class SpirvExtInst : public SpirvInstruction {
 public:
   SpirvExtInst(QualType resultType, SourceLocation loc, SpirvExtInstImport *set,
-               GLSLstd450 inst, llvm::ArrayRef<SpirvInstruction *> operandsVec);
+               uint32_t inst, llvm::ArrayRef<SpirvInstruction *> operandsVec);
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1192,12 +1199,12 @@ public:
   bool invokeVisitor(Visitor *v) override;
 
   SpirvExtInstImport *getInstructionSet() const { return instructionSet; }
-  GLSLstd450 getInstruction() const { return instruction; }
+  uint32_t getInstruction() const { return instruction; }
   llvm::ArrayRef<SpirvInstruction *> getOperands() const { return operands; }
 
 private:
   SpirvExtInstImport *instructionSet;
-  GLSLstd450 instruction;
+  uint32_t instruction;
   llvm::SmallVector<SpirvInstruction *, 4> operands;
 };
 
@@ -1509,6 +1516,25 @@ private:
   llvm::Optional<spv::MemoryAccessMask> memoryAccess;
 };
 
+/// \brief OpCopyObject instruction
+class SpirvCopyObject : public SpirvInstruction {
+public:
+  SpirvCopyObject(QualType resultType, SourceLocation loc,
+                  SpirvInstruction *pointer);
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_CopyObject;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  SpirvInstruction *getPointer() const { return pointer; }
+
+private:
+  SpirvInstruction *pointer;
+};
+
 /// \brief OpSampledImage instruction
 /// Result Type must be the OpTypeSampledImage type whose Image Type operand is
 /// the type of Image. We store the QualType for the underlying image as result
@@ -1750,6 +1776,27 @@ public:
 
 private:
   llvm::SmallVector<SpirvInstruction *, 4> operands;
+};
+class SpirvRayQueryOpKHR : public SpirvInstruction {
+public:
+  SpirvRayQueryOpKHR(QualType resultType, spv::Op opcode,
+                     llvm::ArrayRef<SpirvInstruction *> vecOperands, bool flags,
+                     SourceLocation loc);
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_RayQueryOpKHR;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  llvm::ArrayRef<SpirvInstruction *> getOperands() const { return operands; }
+
+  bool hasCullFlags() const { return cullFlags; }
+
+private:
+  llvm::SmallVector<SpirvInstruction *, 4> operands;
+  bool cullFlags;
 };
 
 /// \brief OpDemoteToHelperInvocationEXT instruction.

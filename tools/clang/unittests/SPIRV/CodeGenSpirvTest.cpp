@@ -55,6 +55,15 @@ TEST_F(FileTest, StructTypes) { runFileTest("type.struct.hlsl"); }
 TEST_F(FileTest, StructTypeUniqueness) {
   runFileTest("type.struct.uniqueness.hlsl");
 }
+TEST_F(FileTest, StringTypes) {
+  runFileTest("type.string.hlsl");
+}
+TEST_F(FileTest, StringTypesUninitializedError) {
+  runFileTest("type.string.uninitialized.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, StringTypesImmutableError) {
+  runFileTest("type.string.immutable.hlsl", Expect::Failure);
+}
 TEST_F(FileTest, ClassTypes) { runFileTest("type.class.hlsl"); }
 TEST_F(FileTest, ArrayTypes) { runFileTest("type.array.hlsl"); }
 TEST_F(FileTest, RuntimeArrayTypes) { runFileTest("type.runtime-array.hlsl"); }
@@ -502,6 +511,7 @@ TEST_F(FileTest, BreakStmtMixed) { runFileTest("cf.break.mixed.hlsl"); }
 
 // For discard statement
 TEST_F(FileTest, Discard) { runFileTest("cf.discard.hlsl"); }
+TEST_F(FileTest, DiscardToDemote) { runFileTest("cf.discard.to-demote.hlsl"); }
 TEST_F(FileTest, DiscardCS) {
   // Using discard is only allowed in pixel shaders.
   runFileTest("cf.discard.cs.hlsl", Expect::Failure);
@@ -550,6 +560,12 @@ TEST_F(FileTest, FunctionInOutParamNoNeedToCopy) {
 TEST_F(FileTest, FunctionParamUnsizedArray) {
   // Unsized ararys as function params are not supported.
   runFileTest("fn.param.unsized-array.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, FunctionParamUnsizedOpaqueArray) {
+  runFileTest("fn.param.unsized-opaque-array.hlsl", Expect::Success, false);
+}
+TEST_F(FileTest, FunctionParamUnsizedOpaqueArrayO3) {
+  runFileTest("fn.param.unsized-opaque-array-o3.hlsl");
 }
 TEST_F(FileTest, FunctionInOutParamTypeMismatch) {
   // The type for the inout parameter doesn't match the argument type.
@@ -1029,6 +1045,7 @@ TEST_F(FileTest, IntrinsicsFirstBitHigh) {
 TEST_F(FileTest, IntrinsicsFirstBitLow) {
   runFileTest("intrinsics.firstbitlow.hlsl");
 }
+TEST_F(FileTest, IntrinsicsPrintf) { runFileTest("intrinsics.printf.hlsl"); }
 TEST_F(FileTest, IntrinsicsFloor) { runFileTest("intrinsics.floor.hlsl"); }
 TEST_F(FileTest, IntrinsicsFma) { runFileTest("intrinsics.fma.hlsl"); }
 TEST_F(FileTest, IntrinsicsFmod) { runFileTest("intrinsics.fmod.hlsl"); }
@@ -1160,6 +1177,9 @@ TEST_F(FileTest, IntrinsicsGetRenderTargetSamplePosition) {
 }
 TEST_F(FileTest, IntrinsicsNonUniformResourceIndex) {
   runFileTest("intrinsics.non-uniform-resource-index.hlsl");
+}
+TEST_F(FileTest, IntrinsicsMultiPrefix) {
+  runFileTest("intrinsics.multiprefix.hlsl", Expect::Failure);
 }
 
 // For attributes
@@ -2102,6 +2122,7 @@ TEST_F(FileTest, RayTracingNVLibrary) {
 
 // === Raytracing KHR examples ===
 TEST_F(FileTest, RayTracingKHRClosestHit) {
+  useVulkan1p2();
   runFileTest("raytracing.khr.closesthit.hlsl");
 }
 

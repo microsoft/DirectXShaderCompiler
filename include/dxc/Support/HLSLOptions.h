@@ -18,6 +18,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Option/ArgList.h"
 #include "dxc/dxcapi.h"
+#include "dxc/Support/HLSLOptimizationOptions.h"
 #include "dxc/Support/SPIRVOptions.h"
 
 namespace llvm {
@@ -94,6 +95,7 @@ struct RewriterOpts {
   bool KeepUserMacro = false;               // OPT_rw_keep_user_macro
   bool ExtractEntryUniforms = false;        // OPT_rw_extract_entry_uniforms
   bool RemoveUnusedGlobals = false;         // OPT_rw_remove_unused_globals
+  bool RemoveUnusedFunctions = false;         // OPT_rw_remove_unused_functions
 };
 
 /// Use this class to capture all options.
@@ -134,6 +136,7 @@ public:
   bool AstDump = false; // OPT_ast_dump
   bool ColorCodeAssembly = false; // OPT_Cc
   bool CodeGenHighLevel = false; // OPT_fcgl
+  bool AllowPreserveValues = false; // OPT_preserve_intermediate_values
   bool DebugInfo = false; // OPT__SLASH_Zi
   bool DebugNameForBinary = false; // OPT_Zsb
   bool DebugNameForSource = false; // OPT_Zss
@@ -163,6 +166,7 @@ public:
   bool UseHexLiterals = false; // OPT_Lx
   bool UseInstructionByteOffsets = false; // OPT_No
   bool UseInstructionNumbers = false; // OPT_Ni
+  bool StructurizeReturns = false;      // OPT_structurize_returns
   bool NotUseLegacyCBufLoad = false;  // OPT_no_legacy_cbuf_layout
   bool PackPrefixStable = false;  // OPT_pack_prefix_stable
   bool PackOptimized = false;  // OPT_pack_optimized
@@ -187,6 +191,7 @@ public:
   bool ResMayAlias = false; // OPT_res_may_alias
   unsigned long ValVerMajor = UINT_MAX, ValVerMinor = UINT_MAX; // OPT_validator_version
   unsigned ScanLimit = 0; // OPT_memdep_block_scan_limit
+  hlsl::OptimizationOptions DxcOptimizationOptions; // OPT_opt_disable
 
   // Rewriter Options
   RewriterOpts RWOpt;

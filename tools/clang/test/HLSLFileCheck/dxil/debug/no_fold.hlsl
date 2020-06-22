@@ -18,7 +18,7 @@ float4 main() : SV_Target {
   // CHECK: fdiv
 
   Texture2D tex = tex0; 
-  // CHECK: br i1
+  // CHECK: br
   if (w >= 0) {
     tex = tex1;
     // CHECK: br

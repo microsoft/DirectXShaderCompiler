@@ -15,12 +15,9 @@
 namespace clang {
 namespace spirv {
 
-SpirvFunction::SpirvFunction(QualType returnType,
-                             llvm::ArrayRef<QualType> paramTypes,
-                             SourceLocation loc, llvm::StringRef name,
-                             bool isPrecise)
-    : functionId(0), astReturnType(returnType),
-      astParamTypes(paramTypes.begin(), paramTypes.end()), returnType(nullptr),
+SpirvFunction::SpirvFunction(QualType returnType, SourceLocation loc,
+                             llvm::StringRef name, bool isPrecise)
+    : functionId(0), astReturnType(returnType), returnType(nullptr),
       fnType(nullptr), relaxedPrecision(false), precise(isPrecise),
       containsAlias(false), rvalue(false), functionLoc(loc),
       functionName(name) {}

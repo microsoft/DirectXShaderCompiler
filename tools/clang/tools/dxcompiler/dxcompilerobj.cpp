@@ -68,6 +68,7 @@ using namespace hlsl;
 using std::string;
 
 DEFINE_CROSS_PLATFORM_UUIDOF(IDxcLangExtensions)
+DEFINE_CROSS_PLATFORM_UUIDOF(IDxcLangExtensions2)
 
 // This declaration is used for the locally-linked validator.
 HRESULT CreateDxcValidator(_In_ REFIID riid, _Out_ LPVOID *ppv);
@@ -392,7 +393,7 @@ static void CreateDefineStrings(
 }
 
 class DxcCompiler : public IDxcCompiler3,
-                    public IDxcLangExtensions,
+                    public IDxcLangExtensions2,
                     public IDxcContainerEvent,
 #ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
                     public IDxcVersionInfo2
@@ -428,6 +429,7 @@ public:
     HRESULT hr = DoBasicQueryInterface<
       IDxcCompiler3,
       IDxcLangExtensions,
+      IDxcLangExtensions2,
       IDxcContainerEvent,
       IDxcVersionInfo
 #ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
@@ -997,6 +999,9 @@ public:
     // Setup a compiler instance.
     std::shared_ptr<TargetOptions> targetOptions(new TargetOptions);
     targetOptions->Triple = "dxil-ms-dx";
+    if (helper) {
+      targetOptions->Triple = helper->GetTargetTriple();
+    }
     targetOptions->DescriptionString = Opts.Enable16BitTypes
       ? hlsl::DXIL::kNewLayoutString
       : hlsl::DXIL::kLegacyLayoutString;
@@ -1096,6 +1101,7 @@ public:
       compiler.getCodeGenOpts().HLSLFloat32DenormMode = DXIL::Float32DenormMode::Preserve;
     }
 
+    compiler.getCodeGenOpts().HLSLStructurizeReturns = Opts.StructurizeReturns;
     if (Opts.DisableOptimizations)
       compiler.getCodeGenOpts().DisableLLVMOpts = true;
 
@@ -1106,8 +1112,10 @@ public:
     compiler.getCodeGenOpts().HLSLLiveValueAnalysisDump = Opts.LVADump;
     compiler.getCodeGenOpts().HLSLLiveValueAnalysisOutputFile = Opts.OutputLiveValueFile;
     compiler.getCodeGenOpts().HLSLHighLevel = Opts.CodeGenHighLevel;
+    compiler.getCodeGenOpts().HLSLAllowPreserveValues = Opts.AllowPreserveValues;
     compiler.getCodeGenOpts().HLSLResMayAlias = Opts.ResMayAlias;
     compiler.getCodeGenOpts().ScanLimit = Opts.ScanLimit;
+    compiler.getCodeGenOpts().HLSLOptimizationOptions = Opts.DxcOptimizationOptions;
     compiler.getCodeGenOpts().HLSLAllResourcesBound = Opts.AllResourcesBound;
     compiler.getCodeGenOpts().HLSLDefaultRowMajor = Opts.DefaultRowMajor;
     compiler.getCodeGenOpts().HLSLPreferControlFlow = Opts.PreferFlowControl;

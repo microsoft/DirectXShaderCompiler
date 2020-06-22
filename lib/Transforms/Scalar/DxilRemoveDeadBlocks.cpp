@@ -24,9 +24,22 @@
 
 using namespace llvm;
 
+static void RemoveIncomingValueFrom(BasicBlock *SuccBB, BasicBlock *BB) {
+  for (auto inst_it = SuccBB->begin(); inst_it != SuccBB->end();) {
+    Instruction *I = &*(inst_it++);
+    if (PHINode *PN = dyn_cast<PHINode>(I))
+      PN->removeIncomingValue(BB, true);
+    else
+      break;
+  }
+}
+
+
 static bool EraseDeadBlocks(Function &F, DxilValueCache *DVC) {
   std::unordered_set<BasicBlock *> Seen;
   std::vector<BasicBlock *> WorkList;
+
+  bool Changed = false;
 
   auto Add = [&WorkList, &Seen](BasicBlock *BB) {
     if (!Seen.count(BB)) {
@@ -48,17 +61,27 @@ static bool EraseDeadBlocks(Function &F, DxilValueCache *DVC) {
         Add(Succ);
       }
       else {
-        bool IsConstant = false;
-        if (Value *V = DVC->GetValue(Br->getCondition())) {
-          if (ConstantInt *C = dyn_cast<ConstantInt>(V)) {
-            bool IsTrue = C->getLimitedValue() != 0;
-            BasicBlock *Succ = IsTrue ?
-              Br->getSuccessor(0) : Br->getSuccessor(1);
-            Add(Succ);
-            IsConstant = true;
+        if (ConstantInt *C = DVC->GetConstInt(Br->getCondition())) {
+          bool IsTrue = C->getLimitedValue() != 0;
+          BasicBlock *Succ = Br->getSuccessor(IsTrue ? 0 : 1);
+          BasicBlock *NotSucc = Br->getSuccessor(!IsTrue ? 0 : 1);
+
+          Add(Succ);
+
+          // Rewrite conditional branch as unconditional branch if
+          // we don't have structural information that needs it to
+          // be alive.
+          if (!Br->getMetadata(hlsl::DXIL::kDxBreakMDName)) {
+            BranchInst *NewBr = BranchInst::Create(Succ, BB);
+            hlsl::DxilMDHelper::CopyMetadata(*NewBr, *Br);
+            RemoveIncomingValueFrom(NotSucc, BB);
+
+            Br->eraseFromParent();
+            Br = nullptr;
+            Changed = true;
           }
         }
-        if (!IsConstant) {
+        else {
           Add(Br->getSuccessor(0));
           Add(Br->getSuccessor(1));
         }
@@ -72,7 +95,7 @@ static bool EraseDeadBlocks(Function &F, DxilValueCache *DVC) {
   }
 
   if (Seen.size() == F.size())
-    return false;
+    return Changed;
 
   std::vector<BasicBlock *> DeadBlocks;
 
@@ -87,7 +110,7 @@ static bool EraseDeadBlocks(Function &F, DxilValueCache *DVC) {
     // Make predecessors branch somewhere else and fix the phi nodes
     for (auto pred_it = pred_begin(BB); pred_it != pred_end(BB);) {
       BasicBlock *PredBB = *(pred_it++);
-      if (!Seen.count(PredBB))
+      if (!Seen.count(PredBB)) // Don't bother fixing it if it's gonna get deleted anyway
         continue;
       TerminatorInst *TI = PredBB->getTerminator();
       if (!TI) continue;
@@ -105,14 +128,8 @@ static bool EraseDeadBlocks(Function &F, DxilValueCache *DVC) {
     // Fix phi nodes in successors
     for (auto succ_it = succ_begin(BB); succ_it != succ_end(BB); succ_it++) {
       BasicBlock *SuccBB = *succ_it;
-      if (!Seen.count(SuccBB)) continue;
-      for (auto inst_it = SuccBB->begin(); inst_it != SuccBB->end();) {
-        Instruction *I = &*(inst_it++);
-        if (PHINode *PN = dyn_cast<PHINode>(I))
-          PN->removeIncomingValue(BB, true);
-        else
-          break;
-      }
+      if (!Seen.count(SuccBB)) continue; // Don't bother fixing it if it's gonna get deleted anyway
+      RemoveIncomingValueFrom(SuccBB, BB);
     }
 
     // Erase all instructions in block

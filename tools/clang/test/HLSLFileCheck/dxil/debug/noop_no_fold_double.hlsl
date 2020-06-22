@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_6_0 %s -Od | FileCheck %s
+// RUN: %dxc -preserve-intermediate-values -E main -T ps_6_0 %s -Od | FileCheck %s
 
 // Test that non-const arithmetic are not optimized away
 
@@ -30,7 +30,7 @@ float4 main() : SV_Target {
   // CHECK: load i32, i32*
   // CHECK-SAME: @dx.nothing
 
-  // CHECK: br i1
+  // CHECK: br
   if (w >= 0) {
     tex = tex1;
     // CHECK: load i32, i32*

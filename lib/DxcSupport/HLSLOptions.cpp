@@ -476,6 +476,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.AstDump = Args.hasFlag(OPT_ast_dump, OPT_INVALID, false);
   opts.LVADump = Args.hasFlag(OPT_lva_dump, OPT_INVALID, false);
   opts.CodeGenHighLevel = Args.hasFlag(OPT_fcgl, OPT_INVALID, false);
+  opts.AllowPreserveValues = Args.hasFlag(OPT_preserve_intermediate_values, OPT_INVALID, false);
   opts.DebugInfo = Args.hasFlag(OPT__SLASH_Zi, OPT_INVALID, false);
   opts.DebugNameForBinary = Args.hasFlag(OPT_Zsb, OPT_INVALID, false);
   opts.DebugNameForSource = Args.hasFlag(OPT_Zss, OPT_INVALID, false);
@@ -492,6 +493,14 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   llvm::StringRef limit = Args.getLastArgValue(OPT_memdep_block_scan_limit);
   if (!limit.empty())
     opts.ScanLimit = std::stoul(std::string(limit));
+
+  opts.DxcOptimizationOptions = {0};
+  std::vector<std::string> DisabledOptimizations = Args.getAllArgValues(OPT_opt_disable);
+  for (std::string opt : DisabledOptimizations) {
+    llvm::StringRef gvn("gvn");
+    if (gvn.equals_lower(opt))
+      opts.DxcOptimizationOptions.DisableGVN = true;
+  }
 
   if (!opts.ForceRootSigVer.empty() && opts.ForceRootSigVer != "rootsig_1_0" &&
       opts.ForceRootSigVer != "rootsig_1_1") {
@@ -589,6 +598,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.DefaultRowMajor = Args.hasFlag(OPT_Zpr, OPT_INVALID, false);
   opts.DefaultColMajor = Args.hasFlag(OPT_Zpc, OPT_INVALID, false);
   opts.DumpBin = Args.hasFlag(OPT_dumpbin, OPT_INVALID, false);
+  opts.StructurizeReturns = Args.hasFlag(OPT_structurize_returns, OPT_INVALID, false);
   opts.NotUseLegacyCBufLoad = Args.hasFlag(OPT_no_legacy_cbuf_layout, OPT_INVALID, false);
   opts.NotUseLegacyCBufLoad = Args.hasFlag(OPT_not_use_legacy_cbuf_load_, OPT_INVALID, opts.NotUseLegacyCBufLoad);
   opts.PackPrefixStable = Args.hasFlag(OPT_pack_prefix_stable, OPT_INVALID, false);
@@ -897,10 +907,12 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     opts.RWOpt.KeepUserMacro = Args.hasFlag(OPT_rw_keep_user_macro, OPT_INVALID, false);
     opts.RWOpt.ExtractEntryUniforms = Args.hasFlag(OPT_rw_extract_entry_uniforms, OPT_INVALID, false);
     opts.RWOpt.RemoveUnusedGlobals = Args.hasFlag(OPT_rw_remove_unused_globals, OPT_INVALID, false);
+    opts.RWOpt.RemoveUnusedFunctions = Args.hasFlag(OPT_rw_remove_unused_functions, OPT_INVALID, false);
 
     if (opts.EntryPoint.empty() &&
-        (opts.RWOpt.RemoveUnusedGlobals || opts.RWOpt.ExtractEntryUniforms)) {
-      errors << "-rw-remove-unused-globals and -rw-extract-entry-uniforms requires entry point (-E) to be specified.";
+        (opts.RWOpt.RemoveUnusedGlobals || opts.RWOpt.ExtractEntryUniforms ||
+         opts.RWOpt.RemoveUnusedFunctions)) {
+      errors << "-remove-unused-globals, -remove-unused-functions and -extract-entry-uniforms requires entry point (-E) to be specified.";
       return 1;
     }
   }

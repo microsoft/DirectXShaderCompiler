@@ -166,6 +166,7 @@ void analyzePointer(const Value *V, PointerStatus &PS, DxilTypeSystem &typeSys,
               break;
             case DxilParamInputQual::Out:
               PS.MarkAsStored();
+              break;
             case DxilParamInputQual::In:
               PS.MarkAsLoaded();
               break;

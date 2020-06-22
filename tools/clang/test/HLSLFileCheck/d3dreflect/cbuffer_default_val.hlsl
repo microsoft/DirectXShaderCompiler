@@ -24,7 +24,7 @@ float main() : SV_TARGET
 // CHECK:         ID3D12ShaderReflectionVariable:
 // CHECK:           D3D12_SHADER_VARIABLE_DESC: Name: t
 // CHECK:             Size: 4
-// CHECK:             uFlags: 0x2
+// CHECK:             uFlags: (D3D_SVF_USED)
 // CHECK:             DefaultValue: <nullptr>
 // CHECK:           ID3D12ShaderReflectionType:
 // CHECK:             D3D12_SHADER_TYPE_DESC: Name: float

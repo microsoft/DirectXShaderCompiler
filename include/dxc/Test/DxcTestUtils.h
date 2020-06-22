@@ -97,7 +97,7 @@ public:
   FileRunCommandPart(const FileRunCommandPart&) = default;
   FileRunCommandPart(FileRunCommandPart&&) = default;
   
-  FileRunCommandResult Run(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior, PluginToolsPaths *pPluginToolsPaths = nullptr );
+  FileRunCommandResult Run(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior, PluginToolsPaths *pPluginToolsPaths = nullptr, LPCWSTR dumpName = nullptr);
   FileRunCommandResult RunHashTests(dxc::DxcDllSupport &DllSupport);
   
   FileRunCommandResult ReadOptsForDxc(hlsl::options::MainArgs &argStrings, hlsl::options::DxcOpts &Opts, unsigned flagsToInclude = 0);
@@ -107,7 +107,7 @@ public:
   LPCWSTR CommandFileName;  // File name replacement for %s
 
 private:
-  FileRunCommandResult RunFileChecker(const FileRunCommandResult *Prior);
+  FileRunCommandResult RunFileChecker(const FileRunCommandResult *Prior, LPCWSTR dumpName = nullptr);
   FileRunCommandResult RunDxc(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior);
   FileRunCommandResult RunDxv(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior);
   FileRunCommandResult RunOpt(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior);
@@ -137,8 +137,13 @@ public:
   std::string ErrorMessage;
   int RunResult;
   static FileRunTestResult RunHashTestFromFileCommands(LPCWSTR fileName);
-  static FileRunTestResult RunFromFileCommands(LPCWSTR fileName, PluginToolsPaths *pPluginToolsPaths = nullptr);
-  static FileRunTestResult RunFromFileCommands(LPCWSTR fileName, dxc::DxcDllSupport &dllSupport, PluginToolsPaths *pPluginToolsPaths = nullptr);
+  static FileRunTestResult RunFromFileCommands(LPCWSTR fileName,
+                                               PluginToolsPaths *pPluginToolsPaths = nullptr,
+                                               LPCWSTR dumpName = nullptr);
+  static FileRunTestResult RunFromFileCommands(LPCWSTR fileName,
+                                               dxc::DxcDllSupport &dllSupport,
+                                               PluginToolsPaths *pPluginToolsPaths = nullptr,
+                                               LPCWSTR dumpName = nullptr);
 };
 
 void AssembleToContainer(dxc::DxcDllSupport &dllSupport, IDxcBlob *pModule, IDxcBlob **pContainer);

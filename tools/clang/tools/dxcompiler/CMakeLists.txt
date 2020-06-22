@@ -52,7 +52,6 @@ set(SOURCES
   DXCompiler.def
   dxcfilesystem.cpp
   dxillib.cpp
-  dxcontainerbuilder.cpp
   dxcutil.cpp
   dxcdisassembler.cpp
   dxclinker.cpp
@@ -65,7 +64,6 @@ set(SOURCES
   dxcompilerobj.cpp
   DXCompiler.cpp
   dxcfilesystem.cpp
-  dxcontainerbuilder.cpp
   dxcutil.cpp
   dxcdisassembler.cpp
   dxillib.cpp

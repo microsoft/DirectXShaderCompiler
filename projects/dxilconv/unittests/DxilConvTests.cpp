@@ -27,10 +27,7 @@
 #include <atlfile.h>
 
 #include "dxc/test/HLSLTestData.h"
-
-#define HLSLDATAFILEPARAM L"DxilConvDataDir"
 #include "dxc/test/HlslTestUtils.h"
-
 #include "dxc/test/DxcTestUtils.h"
 
 #include "llvm/Support/raw_os_ostream.h"
@@ -226,7 +223,7 @@ private:
 
 bool DxilConvTest::InitSupport() {
   if (!m_dllSupport.IsEnabled()) {
-    VERIFY_SUCCEEDED(m_dllSupport.Initialize());
+    VERIFY_SUCCEEDED(m_dllSupport.InitializeForDll(L"dxilconv.dll", "DxcCreateInstance"));
   }
 
   if (!FindFxc()) {
