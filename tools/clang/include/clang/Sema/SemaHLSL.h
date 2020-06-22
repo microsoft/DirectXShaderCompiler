@@ -123,32 +123,38 @@ bool IsConversionToLessOrEqualElements(
   const clang::QualType& targetType,
   bool explicitConversion);
 
-bool LookupMatrixMemberExprForHLSL(
+clang::ExprResult LookupMatrixMemberExprForHLSL(
   clang::Sema* self,
   clang::Expr& BaseExpr,
   clang::DeclarationName MemberName,
   bool IsArrow,
   clang::SourceLocation OpLoc,
-  clang::SourceLocation MemberLoc,
-  _Inout_ clang::ExprResult* result);
+  clang::SourceLocation MemberLoc);
 
-bool LookupVectorMemberExprForHLSL(
+clang::ExprResult LookupVectorMemberExprForHLSL(
   clang::Sema* self,
   clang::Expr& BaseExpr,
   clang::DeclarationName MemberName,
   bool IsArrow,
   clang::SourceLocation OpLoc,
-  clang::SourceLocation MemberLoc,
-  _Inout_ clang::ExprResult* result);
+  clang::SourceLocation MemberLoc);
 
-bool LookupArrayMemberExprForHLSL(
+clang::ExprResult LookupArrayMemberExprForHLSL(
+  clang::Sema* self,
+  clang::Expr& BaseExpr,
+  clang::DeclarationName MemberName,
+  bool IsArrow,
+  clang::SourceLocation OpLoc,
+  clang::SourceLocation MemberLoc);
+
+bool LookupRecordMemberExprForHLSL(
   clang::Sema* self,
   clang::Expr& BaseExpr,
   clang::DeclarationName MemberName,
   bool IsArrow,
   clang::SourceLocation OpLoc,
   clang::SourceLocation MemberLoc,
-  _Inout_ clang::ExprResult* result);
+  clang::ExprResult &result);
 
 clang::ExprResult MaybeConvertScalarToVector(
   _In_ clang::Sema* Self,
@@ -251,6 +257,7 @@ clang::QualType CheckVectorConditional(
 }
 
 bool IsTypeNumeric(_In_ clang::Sema* self, _In_ clang::QualType &type);
+bool IsExprAccessingOutIndicesArray(clang::Expr* BaseExpr);
 
 // This function reads the given declaration TSS and returns the corresponding parsedType with the
 // corresponding type. Replaces the given parsed type with the new type

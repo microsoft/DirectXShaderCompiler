@@ -154,6 +154,18 @@ namespace MainNs
             dataObj.SetText(text);
             Clipboard.SetDataObject(dataObj, true);
         }
+
+        private void btnSaveAll_Click(object sender, EventArgs e)
+        {
+            saveFileDialog1.ShowDialog();
+            string fileName = saveFileDialog1.FileName;
+            for (int i = 0; i < sections.Length; i++)
+            {
+                TextSection Section = sections[i];
+                string fullName = string.Format("{0}_{1}_{2}.ll", fileName, i, Section.Title);
+                System.IO.File.WriteAllLines(fullName, Section.Lines);
+            }
+        }
     }
 
     public class TextSection

@@ -5237,7 +5237,7 @@ typedef struct {
   /**
    * \brief The imported module or NULL if the AST file is a PCH.
    */
-  CXModule module;
+  CXModule mod;
   /**
    * \brief Location where the file is imported. Applicable only for modules.
    */

@@ -27,10 +27,7 @@
 #include <atlfile.h>
 
 #include "dxc/test/HLSLTestData.h"
-
-#define HLSLDATAFILEPARAM L"DxilConvDataDir"
 #include "dxc/test/HlslTestUtils.h"
-
 #include "dxc/test/DxcTestUtils.h"
 
 #include "llvm/Support/raw_os_ostream.h"
@@ -63,6 +60,7 @@ public:
   TEST_METHOD(BatchDxilCleanup);
   TEST_METHOD(BatchNormalizeDxil);
   TEST_METHOD(BatchScopeNestIterator);
+  TEST_METHOD(RegressionTests);
 
   BEGIN_TEST_METHOD(ManualFileCheckTest)
     TEST_METHOD_PROPERTY(L"Ignore", L"true")
@@ -225,7 +223,7 @@ private:
 
 bool DxilConvTest::InitSupport() {
   if (!m_dllSupport.IsEnabled()) {
-    VERIFY_SUCCEEDED(m_dllSupport.Initialize());
+    VERIFY_SUCCEEDED(m_dllSupport.InitializeForDll(L"dxilconv.dll", "DxcCreateInstance"));
   }
 
   if (!FindFxc()) {
@@ -299,4 +297,8 @@ TEST_F(DxilConvTest, BatchNormalizeDxil) {
 
 TEST_F(DxilConvTest, BatchScopeNestIterator) {  
   DxilConvTestCheckBatchDir(L"scope_nest_iterator", ".ll");
+}
+
+TEST_F(DxilConvTest, RegressionTests) {
+  DxilConvTestCheckBatchDir(L"regression_tests", ".hlsl");
 }

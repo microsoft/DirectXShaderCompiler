@@ -43,6 +43,11 @@
 #include "dxc/Support/dxcfilesystem.h"
 #include "dxc/Support/HLSLOptions.h"
 
+// From dxcutil.h
+namespace dxcutil {
+bool IsAbsoluteOrCurDirRelative(const llvm::Twine &T);
+} // namespace dxcutil
+
 #define CP_UTF16 1200
 
 using namespace llvm;
@@ -62,31 +67,157 @@ public:
     m_sema = nullptr;
   }
 };
+static FunctionDecl *getFunctionWithBody(FunctionDecl *F) {
+  if (!F)
+    return nullptr;
+  if (F->doesThisDeclarationHaveABody())
+    return F;
+  F = F->getFirstDecl();
+  for (auto &&Candidate : F->redecls()) {
+    if (Candidate->doesThisDeclarationHaveABody()) {
+      return Candidate;
+    }
+  }
+  return nullptr;
+}
+
+static void SaveTypeDecl(TagDecl *tagDecl,
+                          SmallPtrSetImpl<TypeDecl *> &visitedTypes) {
+  if (visitedTypes.count(tagDecl))
+    return;
+  visitedTypes.insert(tagDecl);
+  if (CXXRecordDecl *recordDecl = dyn_cast<CXXRecordDecl>(tagDecl)) {
+    // If template, save template args
+    if (const ClassTemplateSpecializationDecl *templateSpecializationDecl =
+            dyn_cast<ClassTemplateSpecializationDecl>(recordDecl)) {
+      const clang::TemplateArgumentList &args =
+          templateSpecializationDecl->getTemplateInstantiationArgs();
+      for (unsigned i = 0; i < args.size(); ++i) {
+        const clang::TemplateArgument &arg = args[i];
+        switch (arg.getKind()) {
+        case clang::TemplateArgument::ArgKind::Type:
+          if (TagDecl *tagDecl = arg.getAsType()->getAsTagDecl()) {
+            SaveTypeDecl(tagDecl, visitedTypes);
+          };
+          break;
+        default:
+          break;
+        }
+      }
+    }
+    // Add field types.
+    for (FieldDecl *fieldDecl : recordDecl->fields()) {
+      if (TagDecl *tagDecl = fieldDecl->getType()->getAsTagDecl()) {
+        SaveTypeDecl(tagDecl, visitedTypes);
+      }
+    }
+    // Add base types.
+    if (recordDecl->getNumBases()) {
+      for (auto &I : recordDecl->bases()) {
+        CXXRecordDecl *BaseDecl =
+            cast<CXXRecordDecl>(I.getType()->castAs<RecordType>()->getDecl());
+        SaveTypeDecl(BaseDecl, visitedTypes);
+      }
+    }
+  }
+}
 
 class VarReferenceVisitor : public RecursiveASTVisitor<VarReferenceVisitor> {
 private:
   SmallPtrSetImpl<VarDecl*>& m_unusedGlobals;
   SmallPtrSetImpl<FunctionDecl*>& m_visitedFunctions;
   SmallVectorImpl<FunctionDecl*>& m_pendingFunctions;
+  SmallPtrSetImpl<TypeDecl *> &m_visitedTypes;
+
+  void AddRecordType(TagDecl *tagDecl) {
+    SaveTypeDecl(tagDecl, m_visitedTypes);
+  }
+
 public:
   VarReferenceVisitor(
     SmallPtrSetImpl<VarDecl*>& unusedGlobals,
     SmallPtrSetImpl<FunctionDecl*>& visitedFunctions,
-    SmallVectorImpl<FunctionDecl*>& pendingFunctions) :
+    SmallVectorImpl<FunctionDecl*>& pendingFunctions,
+    SmallPtrSetImpl<TypeDecl *> &types)  :
     m_unusedGlobals(unusedGlobals),
     m_visitedFunctions(visitedFunctions),
-    m_pendingFunctions(pendingFunctions) {
+    m_pendingFunctions(pendingFunctions),
+    m_visitedTypes(types) {
   }
 
   bool VisitDeclRefExpr(DeclRefExpr* ref) {
     ValueDecl* valueDecl = ref->getDecl();
     if (FunctionDecl* fnDecl = dyn_cast_or_null<FunctionDecl>(valueDecl)) {
-      if (!m_visitedFunctions.count(fnDecl)) {
-        m_pendingFunctions.push_back(fnDecl);
+      FunctionDecl *fnDeclWithbody = getFunctionWithBody(fnDecl);
+      if (fnDeclWithbody) {
+        if (!m_visitedFunctions.count(fnDeclWithbody)) {
+          m_pendingFunctions.push_back(fnDeclWithbody);
+        }
+      }
+      if (fnDeclWithbody && fnDeclWithbody != fnDecl) {
+        // In case fnDecl is only a decl, setDecl to fnDeclWithbody.
+        ref->setDecl(fnDeclWithbody);
+        // Keep the fnDecl for now, since it might be predecl.
+        m_visitedFunctions.insert(fnDecl);
       }
     }
     else if (VarDecl* varDecl = dyn_cast_or_null<VarDecl>(valueDecl)) {
       m_unusedGlobals.erase(varDecl);
+      if (TagDecl *tagDecl = varDecl->getType()->getAsTagDecl()) {
+        AddRecordType(tagDecl);
+      }
+      if (Expr *initExp = varDecl->getInit()) {
+        if (InitListExpr *initList =
+                dyn_cast<InitListExpr>(initExp)) {
+          TraverseInitListExpr(initList);
+        } else if (ImplicitCastExpr *initCast = dyn_cast<ImplicitCastExpr>(initExp)) {
+          TraverseImplicitCastExpr(initCast);
+        } else if (DeclRefExpr *initRef = dyn_cast<DeclRefExpr>(initExp)) {
+          TraverseDeclRefExpr(initRef);
+        }
+      }
+    }
+    return true;
+  }
+  bool VisitMemberExpr(MemberExpr *expr) {
+    // Save nested struct type.
+    if (TagDecl *tagDecl = expr->getType()->getAsTagDecl()) {
+      m_visitedTypes.insert(tagDecl);
+    }
+    return true;
+  }
+  bool VisitCXXMemberCallExpr(CXXMemberCallExpr *expr) {
+    if (FunctionDecl *fnDecl =
+            dyn_cast_or_null<FunctionDecl>(expr->getCalleeDecl())) {
+      if (!m_visitedFunctions.count(fnDecl)) {
+        m_pendingFunctions.push_back(fnDecl);
+      }
+    }
+    if (CXXRecordDecl *recordDecl = expr->getRecordDecl()) {
+      AddRecordType(recordDecl);
+    }
+    return true;
+  }
+  bool VisitHLSLBufferDecl(HLSLBufferDecl *bufDecl) {
+    if (!bufDecl->isCBuffer())
+      return false;
+    for (Decl *decl : bufDecl->decls()) {
+      if (VarDecl *constDecl = dyn_cast<VarDecl>(decl)) {
+        if (TagDecl *tagDecl = constDecl->getType()->getAsTagDecl()) {
+          AddRecordType(tagDecl);
+        }
+      } else if (isa<EmptyDecl>(decl)) {
+        // Nothing to do for this declaration.
+      } else if (CXXRecordDecl *recordDecl = dyn_cast<CXXRecordDecl>(decl)) {
+        m_visitedTypes.insert(recordDecl);
+      } else if (isa<FunctionDecl>(decl)) {
+        // A function within an cbuffer is effectively a top-level function,
+        // as it only refers to globally scoped declarations.
+        // Nothing to do for this declaration.
+      } else {
+        HLSLBufferDecl *inner = cast<HLSLBufferDecl>(decl);
+        VisitHLSLBufferDecl(inner);
+      }
     }
     return true;
   }
@@ -107,7 +238,8 @@ void SetupCompilerForRewrite(CompilerInstance &compiler,
                              _In_ TextDiagnosticPrinter *diagPrinter,
                              _In_opt_ ASTUnit::RemappedFile *rewrite,
                              _In_ hlsl::options::DxcOpts &opts,
-                             _In_opt_ LPCSTR pDefines) {
+                             _In_opt_ LPCSTR pDefines,
+                             _In_opt_ dxcutil::DxcArgsFileSystem *msfPtr) {
   // Setup a compiler instance.
   std::shared_ptr<TargetOptions> targetOptions(new TargetOptions);
   targetOptions->Triple = llvm::sys::getDefaultTargetTriple();
@@ -127,6 +259,8 @@ void SetupCompilerForRewrite(CompilerInstance &compiler,
   compiler.getLangOpts().UseMinPrecision = !opts.Enable16BitTypes;
   compiler.getLangOpts().EnableDX9CompatMode = opts.EnableDX9CompatMode;
   compiler.getLangOpts().EnableFXCCompatMode = opts.EnableFXCCompatMode;
+  compiler.getDiagnostics().setIgnoreAllWarnings(!opts.OutputWarnings);
+  compiler.getCodeGenOpts().MainFileName = pMainFile;
 
   PreprocessorOptions &PPOpts = compiler.getPreprocessorOpts();
   if (rewrite != nullptr) {
@@ -135,6 +269,29 @@ void SetupCompilerForRewrite(CompilerInstance &compiler,
     }
 
     PPOpts.RemappedFilesKeepOriginalName = true;
+  }
+
+  PPOpts.ExpandTokPastingArg = opts.LegacyMacroExpansion;
+
+  // Pick additional arguments.
+  clang::HeaderSearchOptions &HSOpts = compiler.getHeaderSearchOpts();
+  HSOpts.UseBuiltinIncludes = 0;
+  // Consider: should we force-include '.' if the source file is relative?
+  for (const llvm::opt::Arg *A : opts.Args.filtered(options::OPT_I)) {
+    const bool IsFrameworkFalse = false;
+    const bool IgnoreSysRoot = true;
+    if (dxcutil::IsAbsoluteOrCurDirRelative(A->getValue())) {
+      HSOpts.AddPath(A->getValue(), frontend::Angled, IsFrameworkFalse, IgnoreSysRoot);
+    }
+    else {
+      std::string s("./");
+      s += A->getValue();
+      HSOpts.AddPath(s, frontend::Angled, IsFrameworkFalse, IgnoreSysRoot);
+    }
+  }
+
+  if (msfPtr) {
+    msfPtr->SetupForCompilerInstance(compiler);
   }
 
   compiler.createPreprocessor(TU_Complete);
@@ -329,17 +486,16 @@ void WriteUserMacroDefines(CompilerInstance &compiler, raw_string_ostream &o) {
 }
 
 static
-HRESULT ReadOptsAndValidate(LPCWSTR *pArguments, _In_ UINT32 argCount,
+HRESULT ReadOptsAndValidate(hlsl::options::MainArgs &mainArgs,
                             hlsl::options::DxcOpts &opts,
                             _COM_Outptr_ IDxcOperationResult **ppResult) {
-  hlsl::options::MainArgs mainArgs(argCount, pArguments, 0);
   const llvm::opt::OptTable *table = ::options::getHlslOptTable();
 
   CComPtr<AbstractMemoryStream> pOutputStream;
   IFT(CreateMemoryStream(GetGlobalHeapMalloc(), &pOutputStream));
   raw_stream_ostream outStream(pOutputStream);
 
-  if (0 != hlsl::options::ReadDxcOpts(table, hlsl::options::CompilerFlags,
+  if (0 != hlsl::options::ReadDxcOpts(table, hlsl::options::HlslFlags::RewriteOption,
                                       mainArgs, opts, outStream)) {
     CComPtr<IDxcBlob> pErrorBlob;
     IFT(pOutputStream->QueryInterface(&pErrorBlob));
@@ -350,50 +506,94 @@ HRESULT ReadOptsAndValidate(LPCWSTR *pArguments, _In_ UINT32 argCount,
       }, ppResult));
     return S_OK;
   }
-  DXASSERT(opts.HLSLVersion > 2015,
-           "else ReadDxcOpts didn't fail for non-isense");
   return S_OK;
 }
 
+static
+bool HasUniformParams(FunctionDecl *FD) {
+  for (auto PD : FD->params()) {
+    if (PD->hasAttr<HLSLUniformAttr>())
+      return true;
+  }
+  return false;
+}
 
 static
-HRESULT DoRewriteUnused(_In_ DxcLangExtensionsHelper *pHelper,
-                     _In_ LPCSTR pFileName,
-                     _In_ ASTUnit::RemappedFile *pRemap,
-                     _In_ LPCSTR pEntryPoint,
-                     _In_ LPCSTR pDefines,
-                     std::string &warnings,
-                     std::string &result) {
+void WriteUniformParamsAsGlobals(FunctionDecl *FD,
+                                 raw_ostream &o,
+                                 PrintingPolicy &p) {
+  // Extract resources first, to avoid placing in cbuffer _Params
+  for (auto PD : FD->params()) {
+    if (PD->hasAttr<HLSLUniformAttr>() &&
+        hlsl::IsHLSLResourceType(PD->getType())) {
+      PD->print(o, p);
+      o << ";\n";
+    }
+  }
+  // Extract any non-resource uniforms into cbuffer _Params
+  bool startedParams = false;
+  for (auto PD : FD->params()) {
+    if (PD->hasAttr<HLSLUniformAttr>() &&
+        !hlsl::IsHLSLResourceType(PD->getType())) {
+      if (!startedParams) {
+        o << "cbuffer _Params {\n";
+        startedParams = true;
+      }
+      PD->print(o, p);
+      o << ";\n";
+    }
+  }
+  if (startedParams) {
+    o << "}\n";
+  }
+}
 
-  raw_string_ostream o(result);
-  raw_string_ostream w(warnings);
+static
+void PrintTranslationUnitWithTranslatedUniformParams(
+    TranslationUnitDecl *tu,
+    FunctionDecl *entryFnDecl,
+    raw_ostream &o,
+    PrintingPolicy &p) {
+  // Print without the entry function
+  entryFnDecl->setImplicit(true); // Prevent printing of this decl
+  tu->print(o, p);
+  entryFnDecl->setImplicit(false);
 
-  // Setup a compiler instance.
-  CompilerInstance compiler;
-  std::unique_ptr<TextDiagnosticPrinter> diagPrinter =
-      llvm::make_unique<TextDiagnosticPrinter>(w, &compiler.getDiagnosticOpts());  
+  WriteUniformParamsAsGlobals(entryFnDecl, o, p);
 
-  hlsl::options::DxcOpts opts;
-  opts.HLSLVersion = 2015;
+  PrintingPolicy SubPolicy(p);
+  SubPolicy.HLSLSuppressUniformParameters = true;
+  entryFnDecl->print(o, SubPolicy);
+}
 
-  SetupCompilerForRewrite(compiler, pHelper, pFileName, diagPrinter.get(), pRemap, opts, pDefines);
-
-  // Parse the source file.
-  compiler.getDiagnosticClient().BeginSourceFile(compiler.getLangOpts(), &compiler.getPreprocessor());
-  ParseAST(compiler.getSema(), false, false);
-
-  ASTContext& C = compiler.getASTContext();
-  TranslationUnitDecl *tu = C.getTranslationUnitDecl();
+static HRESULT DoRewriteUnused( TranslationUnitDecl *tu,
+                                LPCSTR pEntryPoint,
+                                bool bRemoveGlobals,
+                                bool bRemoveFunctions,
+                                raw_ostream &w) {
+  ASTContext& C = tu->getASTContext();
 
   // Gather all global variables that are not in cbuffers and all functions.
   SmallPtrSet<VarDecl*, 128> unusedGlobals;
   DenseMap<RecordDecl*, unsigned> anonymousRecordRefCounts;
   SmallPtrSet<FunctionDecl*, 128> unusedFunctions;
+  SmallPtrSet<TypeDecl*, 32> unusedTypes;
+  SmallVector<VarDecl *, 32> nonStaticGlobals;
+  SmallVector<HLSLBufferDecl *, 16> cbufferDecls;
   for (Decl *tuDecl : tu->decls()) {
     if (tuDecl->isImplicit()) continue;
 
     VarDecl* varDecl = dyn_cast_or_null<VarDecl>(tuDecl);
-    if (varDecl != nullptr && varDecl->getFormalLinkage() == clang::Linkage::InternalLinkage) {
+    if (varDecl != nullptr) {
+      if (!bRemoveGlobals) {
+        // Only remove static global when not remove global.
+        if (!(varDecl->getStorageClass() == SC_Static ||
+            varDecl->isInAnonymousNamespace())) {
+          nonStaticGlobals.emplace_back(varDecl);
+          continue;
+        }
+      }
+
       unusedGlobals.insert(varDecl);
       if (const RecordType *recordType = varDecl->getType()->getAs<RecordType>()) {
         RecordDecl *recordDecl = recordType->getDecl();
@@ -404,10 +604,28 @@ HRESULT DoRewriteUnused(_In_ DxcLangExtensionsHelper *pHelper,
       continue;
     }
 
+    if (HLSLBufferDecl *CB = dyn_cast<HLSLBufferDecl>(tuDecl)) {
+      if (!CB->isCBuffer())
+        continue;
+      cbufferDecls.emplace_back(CB);
+      continue;
+    }
+
     FunctionDecl* fnDecl = dyn_cast_or_null<FunctionDecl>(tuDecl);
     if (fnDecl != nullptr) {
-      if (fnDecl->doesThisDeclarationHaveABody()) {
+      FunctionDecl *fnDeclWithbody = getFunctionWithBody(fnDecl);
+      // Add fnDecl without body which has a define somewhere.
+      if (fnDecl->doesThisDeclarationHaveABody() || fnDeclWithbody) {
         unusedFunctions.insert(fnDecl);
+      }
+    }
+
+    if (TagDecl *tagDecl = dyn_cast<TagDecl>(tuDecl)) {
+      unusedTypes.insert(tagDecl);
+      if (CXXRecordDecl *recordDecl = dyn_cast<CXXRecordDecl>(tagDecl)) {
+        for (CXXMethodDecl *methodDecl : recordDecl->methods()) {
+          unusedFunctions.insert(methodDecl);
+        }
       }
     }
   }
@@ -418,82 +636,161 @@ HRESULT DoRewriteUnused(_In_ DxcLangExtensionsHelper *pHelper,
   DeclContext::lookup_result l = tu->lookup(DeclarationName(&C.Idents.get(StringRef(pEntryPoint))));
   if (l.empty()) {
     w << "//entry point not found\n";
+    return E_FAIL;
   }
-  else {
-    w << "//entry point found\n";
-    NamedDecl *entryDecl = l.front();
-    FunctionDecl *entryFnDecl = dyn_cast_or_null<FunctionDecl>(entryDecl);
-    if (entryFnDecl == nullptr) {
-      o << "//entry point found but is not a function declaration\n";
-    }
-    else {
-      // Traverse reachable functions and variables.
-      SmallPtrSet<FunctionDecl*, 128> visitedFunctions;
-      SmallVector<FunctionDecl*, 32> pendingFunctions;
-      VarReferenceVisitor visitor(unusedGlobals, visitedFunctions, pendingFunctions);
-      pendingFunctions.push_back(entryFnDecl);
-      while (!pendingFunctions.empty() && !unusedGlobals.empty()) {
-        FunctionDecl* pendingDecl = pendingFunctions.pop_back_val();
-        visitedFunctions.insert(pendingDecl);
-        visitor.TraverseDecl(pendingDecl);
-      }
 
-      // Don't bother doing work if there are no globals to remove.
-      if (unusedGlobals.empty()) {
-        w << "//no unused globals found - no work to be done\n";
-        StringRef contents = C.getSourceManager().getBufferData(C.getSourceManager().getMainFileID());
-        o << contents;
-      }
-      else {
-        w << "//found " << unusedGlobals.size() << " globals to remove\n";
+  w << "//entry point found\n";
+  NamedDecl *entryDecl = l.front();
+  FunctionDecl *entryFnDecl = dyn_cast_or_null<FunctionDecl>(entryDecl);
+  if (entryFnDecl == nullptr) {
+    w << "//entry point found but is not a function declaration\n";
+    return E_FAIL;
+  }
 
-        // Don't remove visited functions.
-        for (FunctionDecl *visitedFn : visitedFunctions) {
-          unusedFunctions.erase(visitedFn);
-        }
-        w << "//found " << unusedFunctions.size() << " functions to remove\n";
+  // Traverse reachable functions and variables.
+  SmallPtrSet<FunctionDecl*, 128> visitedFunctions;
+  SmallVector<FunctionDecl*, 32> pendingFunctions;
+  SmallPtrSet<TypeDecl*, 32> visitedTypes;
+  VarReferenceVisitor visitor(unusedGlobals, visitedFunctions, pendingFunctions,
+                              visitedTypes);
+  pendingFunctions.push_back(entryFnDecl);
+  while (!pendingFunctions.empty()) {
+    FunctionDecl* pendingDecl = pendingFunctions.pop_back_val();
+    visitedFunctions.insert(pendingDecl);
+    visitor.TraverseDecl(pendingDecl);
+  }
+  // Traverse cbuffers to save types for cbuffer constant.
+  for (auto *CBDecl : cbufferDecls) {
+    visitor.TraverseDecl(CBDecl);
+  }
 
-        // Remove all unused variables and functions.
-        for (VarDecl *unusedGlobal : unusedGlobals) {
-          if (const RecordType *recordTy = unusedGlobal->getType()->getAs<RecordType>()) {
-            RecordDecl *recordDecl = recordTy->getDecl();
-            if (recordDecl && recordDecl->getName().empty()) {
-              // Anonymous structs can only be referenced by the variable they declare.
-              // If we've removed all declared variables of such a struct, remove it too,
-              // because anonymous structs without variable declarations in global scope are illegal.
-              auto recordRefCountIter = anonymousRecordRefCounts.find(recordDecl);
-              DXASSERT_NOMSG(recordRefCountIter != anonymousRecordRefCounts.end() && recordRefCountIter->second > 0);
-              recordRefCountIter->second--;
-              if (recordRefCountIter->second == 0) {
-                tu->removeDecl(recordDecl);
-                anonymousRecordRefCounts.erase(recordRefCountIter);
-              }
-            }
-          }
+  // Don't bother doing work if there are no globals to remove.
+  if (unusedGlobals.empty() && unusedFunctions.empty() && unusedTypes.empty()) {
+    return S_FALSE;
+  }
 
-          tu->removeDecl(unusedGlobal);
-        }
+  w << "//found " << unusedGlobals.size() << " globals to remove\n";
 
-        for (FunctionDecl *unusedFn : unusedFunctions) {
-          tu->removeDecl(unusedFn);
-        }
+  // Don't remove visited functions.
+  for (FunctionDecl *visitedFn : visitedFunctions) {
+    unusedFunctions.erase(visitedFn);
+  }
+  w << "//found " << unusedFunctions.size() << " functions to remove\n";
 
-        o << "// Rewrite unused globals result:\n";
-        PrintingPolicy p = PrintingPolicy(C.getPrintingPolicy());
-        p.Indentation = 1;
-        tu->print(o, p);
-
-        WriteSemanticDefines(compiler, pHelper, o);
-      }
+  for (VarDecl *varDecl : nonStaticGlobals) {
+    if (TagDecl *tagDecl = varDecl->getType()->getAsTagDecl()) {
+      SaveTypeDecl(tagDecl, visitedTypes);
     }
   }
+  for (TypeDecl *typeDecl : visitedTypes) {
+    unusedTypes.erase(typeDecl);
+  }
+
+  w << "//found " << unusedTypes.size() << " types to remove\n";
+
+
+  // Remove all unused variables and functions.
+  for (VarDecl *unusedGlobal : unusedGlobals) {
+    if (const RecordType *recordTy = unusedGlobal->getType()->getAs<RecordType>()) {
+      RecordDecl *recordDecl = recordTy->getDecl();
+      if (recordDecl && recordDecl->getName().empty()) {
+        // Anonymous structs can only be referenced by the variable they declare.
+        // If we've removed all declared variables of such a struct, remove it too,
+        // because anonymous structs without variable declarations in global scope are illegal.
+        auto recordRefCountIter = anonymousRecordRefCounts.find(recordDecl);
+        DXASSERT_NOMSG(recordRefCountIter != anonymousRecordRefCounts.end() && recordRefCountIter->second > 0);
+        recordRefCountIter->second--;
+        if (recordRefCountIter->second == 0) {
+          tu->removeDecl(recordDecl);
+          anonymousRecordRefCounts.erase(recordRefCountIter);
+        }
+      }
+    }
+    if (HLSLBufferDecl *CBV = dyn_cast<HLSLBufferDecl>(unusedGlobal->getLexicalDeclContext())) {
+      if (CBV->isConstantBufferView()) {
+        // For constant buffer view, we create a variable for the constant.
+        // The variable use tu as the DeclContext to access as global variable, CBV as LexicalDeclContext so it is still part of CBV.
+        // setLexicalDeclContext to tu to avoid assert when remove.
+        unusedGlobal->setLexicalDeclContext(tu);
+      }
+    }
+    tu->removeDecl(unusedGlobal);
+  }
+
+  for (FunctionDecl *unusedFn : unusedFunctions) {
+    // remove name of function to workaround assert when update lookup table.
+    unusedFn->setDeclName(DeclarationName());
+    if (CXXMethodDecl *methodDecl = dyn_cast<CXXMethodDecl>(unusedFn)) {
+      methodDecl->getParent()->removeDecl(unusedFn);
+    } else {
+      tu->removeDecl(unusedFn);
+    }
+  }
+
+  for (TypeDecl *unusedTy : unusedTypes) {
+    tu->removeDecl(unusedTy);
+  }
+  // Flush and return results.
+  w.flush();
+  return S_OK;
+}
+
+static
+HRESULT DoRewriteUnused(_In_ DxcLangExtensionsHelper *pHelper,
+                     _In_ LPCSTR pFileName,
+                     _In_ ASTUnit::RemappedFile *pRemap,
+                     _In_ LPCSTR pEntryPoint,
+                     _In_ LPCSTR pDefines,
+                     bool bRemoveGlobals,
+                     bool bRemoveFunctions,
+                     std::string &warnings,
+                     std::string &result,
+                     _In_opt_ dxcutil::DxcArgsFileSystem *msfPtr) {
+
+  raw_string_ostream o(result);
+  raw_string_ostream w(warnings);
+
+  // Setup a compiler instance.
+  CompilerInstance compiler;
+  std::unique_ptr<TextDiagnosticPrinter> diagPrinter =
+      llvm::make_unique<TextDiagnosticPrinter>(w, &compiler.getDiagnosticOpts());
+
+  hlsl::options::DxcOpts opts;
+  opts.HLSLVersion = 2015;
+
+  SetupCompilerForRewrite(compiler, pHelper, pFileName, diagPrinter.get(), pRemap, opts, pDefines, msfPtr);
+
+  // Parse the source file.
+  compiler.getDiagnosticClient().BeginSourceFile(compiler.getLangOpts(), &compiler.getPreprocessor());
+  ParseAST(compiler.getSema(), false, false);
+
+  ASTContext& C = compiler.getASTContext();
+  TranslationUnitDecl *tu = C.getTranslationUnitDecl();
+
+  if (compiler.getDiagnosticClient().getNumErrors() > 0)
+    return E_FAIL;
+
+  HRESULT hr =
+      DoRewriteUnused(tu, pEntryPoint, bRemoveGlobals, bRemoveFunctions, w);
+  if (FAILED(hr))
+    return hr;
+
+  if (hr == S_FALSE) {
+    w << "//no unused globals found - no work to be done\n";
+    StringRef contents = C.getSourceManager().getBufferData(C.getSourceManager().getMainFileID());
+    o << contents;
+  } else {
+    PrintingPolicy p = PrintingPolicy(C.getPrintingPolicy());
+    p.Indentation = 1;
+    tu->print(o, p);
+  }
+
+  WriteSemanticDefines(compiler, pHelper, o);
 
   // Flush and return results.
   o.flush();
   w.flush();
 
-  if (compiler.getDiagnosticClient().getNumErrors() > 0)
-    return E_FAIL;
   return S_OK;
 }
 
@@ -544,12 +841,13 @@ HRESULT DoSimpleReWrite(_In_ DxcLangExtensionsHelper *pHelper,
                _In_ LPCSTR pDefines,
                _In_ UINT32 rewriteOption,
                std::string &warnings,
-               std::string &result) {
+               std::string &result,
+               _In_opt_ dxcutil::DxcArgsFileSystem *msfPtr) {
 
-  bool bSkipFunctionBody = rewriteOption & RewriterOptionMask::SkipFunctionBody;
-  bool bSkipStatic = rewriteOption & RewriterOptionMask::SkipStatic;
-  bool bGlobalExternByDefault = rewriteOption & RewriterOptionMask::GlobalExternByDefault;
-  bool bKeepUserMacro = rewriteOption & RewriterOptionMask::KeepUserMacro;
+  opts.RWOpt.SkipFunctionBody |= rewriteOption & RewriterOptionMask::SkipFunctionBody;
+  opts.RWOpt.SkipStatic |= rewriteOption & RewriterOptionMask::SkipStatic;
+  opts.RWOpt.GlobalExternByDefault |= rewriteOption & RewriterOptionMask::GlobalExternByDefault;
+  opts.RWOpt.KeepUserMacro |= rewriteOption & RewriterOptionMask::KeepUserMacro;
 
   raw_string_ostream o(result);
   raw_string_ostream w(warnings);
@@ -558,32 +856,61 @@ HRESULT DoSimpleReWrite(_In_ DxcLangExtensionsHelper *pHelper,
   CompilerInstance compiler;
   std::unique_ptr<TextDiagnosticPrinter> diagPrinter =
       llvm::make_unique<TextDiagnosticPrinter>(w, &compiler.getDiagnosticOpts());    
-  SetupCompilerForRewrite(compiler, pHelper, pFileName, diagPrinter.get(), pRemap, opts, pDefines);
+  SetupCompilerForRewrite(compiler, pHelper, pFileName, diagPrinter.get(), pRemap, opts, pDefines, msfPtr);
 
   // Parse the source file.
   compiler.getDiagnosticClient().BeginSourceFile(compiler.getLangOpts(), &compiler.getPreprocessor());
 
-  ParseAST(compiler.getSema(), false, bSkipFunctionBody);
+  ParseAST(compiler.getSema(), false, opts.RWOpt.SkipFunctionBody);
 
   ASTContext& C = compiler.getASTContext();
   TranslationUnitDecl *tu = C.getTranslationUnitDecl();
 
-  if (bSkipStatic && bSkipFunctionBody) {
+  if (opts.RWOpt.SkipStatic && opts.RWOpt.SkipFunctionBody) {
     // Remove static functions and globals.
     RemoveStaticDecls(*tu);
   }
 
-  if (bGlobalExternByDefault) {
+  if (opts.RWOpt.GlobalExternByDefault) {
     GlobalVariableAsExternByDefault(*tu);
   }
 
-  o << "// Rewrite unchanged result:\n";
+  if (opts.EntryPoint.empty())
+    opts.EntryPoint = "main";
+
+  if (opts.RWOpt.RemoveUnusedGlobals || opts.RWOpt.RemoveUnusedFunctions) {
+    HRESULT hr = DoRewriteUnused(tu, opts.EntryPoint.data(),
+                                 opts.RWOpt.RemoveUnusedGlobals,
+                                     opts.RWOpt.RemoveUnusedFunctions, w);
+    if (FAILED(hr))
+      return hr;
+  } else {
+    o << "// Rewrite unchanged result:\n";
+  }
+
+  FunctionDecl *entryFnDecl = nullptr;
+  if (opts.RWOpt.ExtractEntryUniforms) {
+    DeclContext::lookup_result l = tu->lookup(DeclarationName(&C.Idents.get(opts.EntryPoint)));
+    if (l.empty()) {
+      w << "//entry point not found\n";
+      return E_FAIL;
+    }
+    entryFnDecl = dyn_cast_or_null<FunctionDecl>(l.front());
+    if (!HasUniformParams(entryFnDecl))
+      entryFnDecl = nullptr;
+  }
+
   PrintingPolicy p = PrintingPolicy(C.getPrintingPolicy());
   p.Indentation = 1;
-  tu->print(o, p);
+
+  if (entryFnDecl) {
+    PrintTranslationUnitWithTranslatedUniformParams(tu, entryFnDecl, o, p);
+  } else {
+    tu->print(o, p);
+  }
 
   WriteSemanticDefines(compiler, pHelper, o);
-  if (bKeepUserMacro)
+  if (opts.RWOpt.KeepUserMacro)
     WriteUserMacroDefines(compiler, o);
 
   // Flush and return results.
@@ -595,7 +922,7 @@ HRESULT DoSimpleReWrite(_In_ DxcLangExtensionsHelper *pHelper,
   return S_OK;
 }
 
-class DxcRewriter : public IDxcRewriter2, public IDxcLangExtensions {
+class DxcRewriter : public IDxcRewriter2, public IDxcLangExtensions2 {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
   DxcLangExtensionsHelper m_langExtensionsHelper;
@@ -604,8 +931,11 @@ public:
   DXC_MICROCOM_TM_CTOR(DxcRewriter)
   DXC_LANGEXTENSIONS_HELPER_IMPL(m_langExtensionsHelper)
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
-    return DoBasicQueryInterface<IDxcRewriter2, IDxcRewriter, IDxcLangExtensions>(this, iid, ppvObject);
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
+                                           void **ppvObject) override {
+    return DoBasicQueryInterface<IDxcRewriter2, IDxcRewriter,
+                                 IDxcLangExtensions, IDxcLangExtensions2>(
+        this, iid, ppvObject);
   }
 
   HRESULT STDMETHODCALLTYPE RemoveUnusedGlobals(_In_ IDxcBlobEncoding *pSource,
@@ -646,7 +976,7 @@ public:
       LPCWSTR pOutputName = nullptr;  // TODO: Fill this in
       HRESULT status = DoRewriteUnused(
           &m_langExtensionsHelper, fakeName, pRemap.get(), utf8EntryPoint,
-          defineCount > 0 ? definesStr.c_str() : nullptr, errors, rewrite);
+          defineCount > 0 ? definesStr.c_str() : nullptr, true/*removeGlobals*/, false/*removeFunctions*/,errors, rewrite, nullptr);
       return DxcResult::Create(status, DXC_OUT_HLSL, {
           DxcOutputObject::StringOutput(DXC_OUT_HLSL, CP_UTF8,  // TODO: Support DefaultTextCodePage
             rewrite.c_str(), pOutputName),
@@ -695,7 +1025,7 @@ public:
       HRESULT status =
           DoSimpleReWrite(&m_langExtensionsHelper, fakeName, pRemap.get(), opts,
                           defineCount > 0 ? definesStr.c_str() : nullptr,
-                          RewriterOptionMask::Default, errors, rewrite);
+                          RewriterOptionMask::Default, errors, rewrite, nullptr);
       return DxcResult::Create(status, DXC_OUT_HLSL, {
           DxcOutputObject::StringOutput(DXC_OUT_HLSL, opts.DefaultTextCodePage,
             rewrite.c_str(), DxcOutNoName),
@@ -748,7 +1078,7 @@ public:
       HRESULT status =
           DoSimpleReWrite(&m_langExtensionsHelper, fName, pRemap.get(), opts,
                           defineCount > 0 ? definesStr.c_str() : nullptr,
-                          rewriteOption, errors, rewrite);
+                          rewriteOption, errors, rewrite, msfPtr);
       return DxcResult::Create(status, DXC_OUT_HLSL, {
           DxcOutputObject::StringOutput(DXC_OUT_HLSL, opts.DefaultTextCodePage,
             rewrite.c_str(), DxcOutNoName),
@@ -802,8 +1132,9 @@ public:
 
       std::string definesStr = DefinesToString(pDefines, defineCount);
 
+      hlsl::options::MainArgs mainArgs(argCount, pArguments, 0);
       hlsl::options::DxcOpts opts;
-      IFR(ReadOptsAndValidate(pArguments, argCount, opts, ppResult));
+      IFR(ReadOptsAndValidate(mainArgs, opts, ppResult));
       HRESULT hr;
       if (*ppResult && SUCCEEDED((*ppResult)->GetStatus(&hr)) && FAILED(hr)) {
         // Looks odd, but this call succeeded enough to allocate a result
@@ -815,7 +1146,7 @@ public:
       HRESULT status =
           DoSimpleReWrite(&m_langExtensionsHelper, fName, pRemap.get(), opts,
                           defineCount > 0 ? definesStr.c_str() : nullptr,
-                          Default, errors, rewrite);
+                          Default, errors, rewrite, msfPtr);
       return DxcResult::Create(status, DXC_OUT_HLSL, {
           DxcOutputObject::StringOutput(DXC_OUT_HLSL, opts.DefaultTextCodePage,
             rewrite.c_str(), DxcOutNoName),

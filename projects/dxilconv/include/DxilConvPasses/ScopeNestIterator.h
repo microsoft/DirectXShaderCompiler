@@ -833,11 +833,11 @@ private: // ScopeNestIterator Implementation
                 // Make sure we are not ending a scope end because that will cause
                 // us to move from the stack again. Indicates some problem with the
                 // state transition.
+                // Allow SwitchEnd for empty case
                 BranchKind Kind = annotation.Get();
                 DXASSERT_LOCALVAR_NOMSG(Kind, Kind != BranchKind::IfEnd &&
                        Kind != BranchKind::LoopBackEdge &&
-                       Kind != BranchKind::LoopExit &&
-                       Kind != BranchKind::SwitchEnd);
+                       Kind != BranchKind::LoopExit);                       
             }
             MoveToBlock(B);
         }

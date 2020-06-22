@@ -195,6 +195,12 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
     for (auto field : structType->getFields())
       addCapabilityForType(field.type, loc, sc);
   }
+  //
+  else if (const auto *rayQueryType =
+               dyn_cast<RayQueryProvisionalTypeKHR>(type)) {
+    addCapability(spv::Capability::RayQueryProvisionalKHR);
+    addExtension(Extension::KHR_ray_query, "SPV_KHR_ray_query", {});
+  }
 }
 
 bool CapabilityVisitor::visit(SpirvDecoration *decor) {
@@ -475,6 +481,16 @@ bool CapabilityVisitor::visitInstruction(SpirvInstruction *instr) {
     }
     break;
   }
+  case spv::Op::OpRayQueryInitializeKHR: {
+    auto rayQueryInst = dyn_cast<SpirvRayQueryOpKHR>(instr);
+    if (rayQueryInst->hasCullFlags()) {
+      addCapability(
+          spv::Capability::RayTraversalPrimitiveCullingProvisionalKHR);
+    }
+
+    break;
+  }
+
   default:
     break;
   }
@@ -503,8 +519,15 @@ bool CapabilityVisitor::visit(SpirvEntryPoint *entryPoint) {
   case spv::ExecutionModel::AnyHitNV:
   case spv::ExecutionModel::MissNV:
   case spv::ExecutionModel::CallableNV:
-    addCapability(spv::Capability::RayTracingNV);
-    addExtension(Extension::NV_ray_tracing, "SPV_NV_ray_tracing", {});
+    if (featureManager.isExtensionEnabled(Extension::NV_ray_tracing)) {
+      addCapability(spv::Capability::RayTracingNV);
+      addExtension(Extension::NV_ray_tracing, "SPV_NV_ray_tracing", {});
+    } else {
+      // KHR_ray_tracing extension requires SPIR-V 1.4/Vulkan 1.2
+      featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_2, "Raytracing", {});
+      addCapability(spv::Capability::RayTracingProvisionalKHR);
+      addExtension(Extension::KHR_ray_tracing, "SPV_KHR_ray_tracing", {});
+    }
     break;
   case spv::ExecutionModel::MeshNV:
   case spv::ExecutionModel::TaskNV:
@@ -528,6 +551,13 @@ bool CapabilityVisitor::visit(SpirvExecutionMode *execMode) {
   return true;
 }
 
+bool CapabilityVisitor::visit(SpirvExtInstImport *instr) {
+  if (instr->getExtendedInstSetName() == "NonSemantic.DebugPrintf")
+    addExtension(Extension::KHR_non_semantic_info, "DebugPrintf",
+                 /*SourceLocation*/ {});
+  return true;
+}
+
 bool CapabilityVisitor::visit(SpirvExtInst *instr) {
   // OpExtInst using the GLSL extended instruction allows only 32-bit types by
   // default for interpolation instructions. The AMD_gpu_shader_half_float
@@ -546,6 +576,14 @@ bool CapabilityVisitor::visit(SpirvExtInst *instr) {
     }
 
   return visitInstruction(instr);
+}
+
+bool CapabilityVisitor::visit(SpirvDemoteToHelperInvocationEXT *inst) {
+  addCapability(spv::Capability::DemoteToHelperInvocationEXT,
+                inst->getSourceLocation());
+  addExtension(Extension::EXT_demote_to_helper_invocation, "discard",
+               inst->getSourceLocation());
+  return true;
 }
 
 } // end namespace spirv

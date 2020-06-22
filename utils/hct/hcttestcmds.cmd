@@ -7,7 +7,7 @@ if "%1"=="" (
 
 echo Testing command line programs at %1 ...
 
-setlocal
+setlocal enableextensions enabledelayedexpansion
 
 set script_dir=%~dp0
 set testfiles=%script_dir%cmdtestfiles
@@ -259,6 +259,7 @@ if %Failed% neq 0 goto :failed
 
 set testname=Set private data
 echo private data > private.txt
+call :check_file private.txt
 call :run dxc.exe smoke.cso /dumpbin /setprivate private.txt /Fo private.cso
 call :check_file private.cso
 if %Failed% neq 0 goto :failed
@@ -340,14 +341,15 @@ call :check_file smoke.rebuilt-container2.cso del
 if %Failed% neq 0 goto :failed
 
 set testname=Smoke test for dxopt command line
-call :run dxc /Odump /T ps_6_0 "%testfiles%\smoke.hlsl" -Fo passes.txt
+call :run-nolog dxc /Odump /T ps_6_0 "%testfiles%\smoke.hlsl" > passes.txt
 call :check_file passes.txt find emit
 if %Failed% neq 0 goto :failed
 echo -print-module >> passes.txt
-call :run dxc /T ps_6_0 "%testfiles%\smoke.hlsl" /fcgl -Fc smoke.hl.txt
-call :check_file smoke.hl.txt
+call :run dxc /T ps_6_0 "%testfiles%\smoke.hlsl" /fcgl -Fc smoke.hl.ll
+call :check_file smoke.hl.ll
 if %Failed% neq 0 goto :failed
-call :run-nolog dxopt -pf passes.txt -o=smoke.opt.ll smoke.hl.txt > smoke.opt.prn.txt
+call :run-nolog dxopt -pf passes.txt -o=smoke.opt.bc smoke.hl.ll > smoke.opt.prn.txt
+call :check_file smoke.opt.bc del
 call :check_file smoke.opt.prn.txt find MODULE-PRINT del
 if %Failed% neq 0 goto :failed
 
@@ -418,10 +420,11 @@ call :cleanup
 exit /b 0
 
 :cleanup
-for %%f in (%clanup_files%) do (
+for %%f in (%cleanup_files%) do (
   del %%f 1>nul 2>nul
 )
 popd
+endlocal
 exit /b 0
 
 rem ============================================
@@ -459,7 +462,7 @@ shift /1
 
 :check_file_loop
 if "%1"=="" (
-  set clanup_files=!cleanup_files! !check_file_pattern!
+  set cleanup_files=!cleanup_files! !check_file_pattern!
   exit /b !Failed!
 ) else if "%1"=="del" (
   if !Failed! equ 0 (
@@ -535,8 +538,9 @@ if %errorlevel% neq 0 (
   echo Command Returned: %errorlevel%
   echo See %OutputLog%
   call :set_failed %errorlevel%
+  exit /b %errorlevel%
 )
-exit /b 1
+exit /b 0
 
 rem ============================================
 rem Run but without redirecting to log

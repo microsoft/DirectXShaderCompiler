@@ -213,7 +213,7 @@ public:
     if (!SM->IsLib()) {
       Function *EntryFn = m_pHLModule->GetEntryFunction();
       if (!m_pHLModule->HasDxilFunctionProps(EntryFn)) {
-        M.getContext().emitError("Entry function don't have property.");
+        dxilutil::EmitErrorOnFunction(EntryFn, "Entry function don't have property.");
         return false;
       }
       DxilFunctionProps &props = m_pHLModule->GetDxilFunctionProps(EntryFn);
@@ -265,7 +265,7 @@ public:
           if (F.user_empty()) {
             F.eraseFromParent();
           } else {
-            M.getContext().emitError("Fail to lower createHandle.");
+            dxilutil::EmitErrorOnFunction(&F, "Fail to lower createHandle.");
           }
         }
       }
@@ -521,7 +521,7 @@ void DxilGenerationPass::GenerateDxilCBufferHandles() {
     DILocation *DL = nullptr;
     if (m_HasDbgInfo) {
       DebugInfoFinder &Finder = m_pHLModule->GetOrCreateDebugInfoFinder();
-      DIV = HLModule::FindGlobalVariableDebugInfo(GV, Finder);
+      DIV = dxilutil::FindGlobalVariableDebugInfo(GV, Finder);
       if (DIV)
         // TODO: how to get col?
         DL = DILocation::get(Ctx, DIV->getLine(), 1,
@@ -651,9 +651,24 @@ static void TranslatePreciseAttributeOnFunction(Function &F, Module &M) {
 
 void DxilGenerationPass::TranslatePreciseAttribute() {  
   bool bIEEEStrict = m_pHLModule->GetHLOptions().bIEEEStrict;
-  // If IEEE strict, everying is precise, don't need to mark it.
-  if (bIEEEStrict)
+  if (bIEEEStrict) {
+    // mark precise on dxil operations.
+    Module &M = *m_pHLModule->GetModule();
+    for (Function &F : M) {
+      if (!hlsl::OP::IsDxilOpFunc(&F))
+        continue;
+      if (!F.getReturnType()->isFPOrFPVectorTy())
+        continue;
+      for (User *U : F.users()) {
+        Instruction *I = dyn_cast<Instruction>(U);
+        if (!I)
+          continue;
+        IRBuilder<> B(I);
+        HLModule::MarkPreciseAttributeOnValWithFunctionCall(I, B, M);
+      }
+    }
     return;
+  }
 
   Module &M = *m_pHLModule->GetModule();
   // TODO: If not inline every function, for function has call site with precise

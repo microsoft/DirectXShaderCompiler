@@ -4,7 +4,7 @@
 
 // CHECK: %[[bufret:.*]] = call %dx.types.CBufRet.f16.8 @dx.op.cbufferLoadLegacy.f16
 // CHECK: %[[h:.*]] = extractvalue %dx.types.CBufRet.f16.8 %[[bufret]], 0
-// CHECK: call void @llvm.dbg.value(metadata half %[[h]], i64 0, metadata ![[divar:.*]], metadata ![[diexpr:.*]])
+// CHECK: call void @llvm.dbg.value(metadata half %[[h]], i64 0, metadata ![[divar:.*]], metadata ![[diexpr:.*]]), !dbg
 
 // CHECK: !DIBasicType(name: "half", size: 16, align: 16, encoding: DW_ATE_float)
 

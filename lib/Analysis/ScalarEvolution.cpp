@@ -5619,11 +5619,24 @@ const SCEV *ScalarEvolution::ComputeExitCountExhaustively(const Loop *L,
   // HLSL Change begin
   SmallVector<std::pair<Instruction *, Constant *>, 4> KnownInvariantOps;
   if (Instruction *CondI = dyn_cast<Instruction>(Cond)) {
-    for (Use &U : CondI->operands()) {
-      if (Instruction *OpI = dyn_cast<Instruction>(U.get())) {
-        if (Value *V = getAnalysis<DxilValueCache>().GetValue(OpI)) {
-          if (Constant *C = dyn_cast<Constant>(V))
-            KnownInvariantOps.push_back({ OpI, C });
+    SmallVector<Instruction *, 4> Worklist;
+    DxilValueCache *DVC = &getAnalysis<DxilValueCache>();
+
+    Worklist.push_back(CondI);
+    while (Worklist.size()) {
+      Instruction *I = Worklist.pop_back_val();
+
+      if (Constant *C = DVC->GetConstValue(I)) {
+        KnownInvariantOps.push_back({ I, C });
+      }
+      else if (CurrentIterVals.count(I)) {
+        continue;
+      }
+      else if (L->contains(I)) {
+        for (Use &U : I->operands()) {
+          if (Instruction *OpI = dyn_cast<Instruction>(U.get())) {
+            Worklist.push_back(OpI);
+          }
         }
       }
     }

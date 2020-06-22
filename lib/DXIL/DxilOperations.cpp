@@ -464,6 +464,17 @@ llvm::StringRef OP::GetTypeName(Type *Ty, std::string &str) {
   }
 }
 
+llvm::StringRef OP::ConstructOverloadName(Type *Ty, DXIL::OpCode opCode,
+                                          std::string &funcNameStorage) {
+  if (Ty == Type::getVoidTy(Ty->getContext())) {
+    funcNameStorage = (Twine(OP::m_NamePrefix) + Twine(GetOpCodeClassName(opCode))).str();
+  } else {
+    funcNameStorage = (Twine(OP::m_NamePrefix) + Twine(GetOpCodeClassName(opCode)) +
+                       "." + GetTypeName(Ty, funcNameStorage)).str();
+  }
+  return funcNameStorage;
+}
+
 const char *OP::GetOpCodeName(OpCode opCode) {
   DXASSERT(0 <= (unsigned)opCode && opCode < OpCode::NumOpCodes, "otherwise caller passed OOB index");
   return m_OpCodeProps[(unsigned)opCode].pOpCodeName;
@@ -586,10 +597,10 @@ bool OP::IsDxilOpGradient(OpCode C) {
   unsigned op = (unsigned)C;
   /* <py::lines('OPCODE-GRADIENT')>hctdb_instrhelp.get_instrs_pred("op", "is_gradient")</py>*/
   // OPCODE-GRADIENT:BEGIN
-  // Instructions: Sample=60, SampleBias=61, SampleCmp=64, TextureGather=73,
-  // TextureGatherCmp=74, CalculateLOD=81, DerivCoarseX=83, DerivCoarseY=84,
-  // DerivFineX=85, DerivFineY=86
-  return (60 <= op && op <= 61) || op == 64 || (73 <= op && op <= 74) || op == 81 || (83 <= op && op <= 86);
+  // Instructions: Sample=60, SampleBias=61, SampleCmp=64, CalculateLOD=81,
+  // DerivCoarseX=83, DerivCoarseY=84, DerivFineX=85, DerivFineY=86,
+  // WriteSamplerFeedback=174, WriteSamplerFeedbackBias=175
+  return (60 <= op && op <= 61) || op == 64 || op == 81 || (83 <= op && op <= 86) || (174 <= op && op <= 175);
   // OPCODE-GRADIENT:END
 }
 
@@ -656,7 +667,7 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // WaveReadLaneFirst=118, WaveActiveOp=119, WaveActiveBit=120,
   // WavePrefixOp=121, WaveAllBitCount=135, WavePrefixBitCount=136
   if ((110 <= op && op <= 121) || (135 <= op && op <= 136)) {
-    mask = SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Pixel) | SFLAG(Vertex) | SFLAG(Hull) | SFLAG(Domain) | SFLAG(Geometry);
+    mask = SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Pixel) | SFLAG(Vertex) | SFLAG(Hull) | SFLAG(Domain) | SFLAG(Geometry) | SFLAG(RayGeneration) | SFLAG(Intersection) | SFLAG(AnyHit) | SFLAG(ClosestHit) | SFLAG(Miss) | SFLAG(Callable);
     return;
   }
   // Instructions: Sample=60, SampleBias=61, SampleCmp=64, CalculateLOD=81,
@@ -792,7 +803,7 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // WaveMultiPrefixBitCount=167
   if ((165 <= op && op <= 167)) {
     major = 6;  minor = 5;
-    mask = SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Pixel) | SFLAG(Vertex) | SFLAG(Hull) | SFLAG(Domain) | SFLAG(Geometry);
+    mask = SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Pixel) | SFLAG(Vertex) | SFLAG(Hull) | SFLAG(Domain) | SFLAG(Geometry) | SFLAG(RayGeneration) | SFLAG(Intersection) | SFLAG(AnyHit) | SFLAG(ClosestHit) | SFLAG(Miss) | SFLAG(Callable);
     return;
   }
   // Instructions: GeometryIndex=213
@@ -915,6 +926,30 @@ void OP::RefreshCache() {
   }
 }
 
+void OP::FixOverloadNames() {
+  // When merging code from multiple sources, such as with linking,
+  // type names that collide, but don't have the same type will be
+  // automically renamed with .0+ name disambiguation.  However,
+  // DXIL intrinsic overloads will not be renamed to disambiguate them,
+  // since they exist in separate modules at the time.
+  // This leads to name collisions between different types when linking.
+  // Do this after loading into a shared context, and before copying
+  // code into a common module, to prevent this problem.
+  for (Function &F : m_pModule->functions()) {
+    if (F.isDeclaration() && OP::IsDxilOpFunc(&F) && !F.user_empty()) {
+      CallInst *CI = cast<CallInst>(*F.user_begin());
+      DXIL::OpCode opCode = OP::GetDxilOpFuncCallInst(CI);
+      llvm::Type *Ty = OP::GetOverloadType(opCode, &F);
+      if (isa<StructType>(Ty)) {
+        std::string funcName;
+        if (OP::ConstructOverloadName(Ty, opCode, funcName).compare(F.getName()) != 0) {
+          F.setName(funcName);
+        }
+      }
+    }
+  }
+}
+
 void OP::UpdateCache(OpCodeClass opClass, Type * Ty, llvm::Function *F) {
   m_OpCodeClassCache[(unsigned)opClass].pOverloads[Ty] = F;
   m_FunctionToOpClass[F] = opClass;
@@ -955,12 +990,9 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   Type *obj = pOverloadType;
   Type *resProperty = GetResourcePropertiesType();
 
-  std::string funcName = (Twine(OP::m_NamePrefix) + Twine(GetOpCodeClassName(opCode))).str();
-  // Add ret type to the name.
-  if (pOverloadType != pV) {
-    std::string typeName;
-    funcName = Twine(funcName).concat(".").concat(GetTypeName(pOverloadType, typeName)).str();
-  } 
+  std::string funcName;
+  ConstructOverloadName(pOverloadType, opCode, funcName);
+
   // Try to find exist function with the same name in the module.
   if (Function *existF = m_pModule->getFunction(funcName)) {
     F = existF;
@@ -1341,7 +1373,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   return F;
 }
 
-const SmallDenseMap<llvm::Type *, llvm::Function *, 8> &
+const SmallMapVector<llvm::Type *, llvm::Function *, 8> &
 OP::GetOpFuncList(OpCode opCode) const {
   DXASSERT(0 <= (unsigned)opCode && opCode < OpCode::NumOpCodes,
            "otherwise caller passed OOB OpCode");

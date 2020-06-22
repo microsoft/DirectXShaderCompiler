@@ -18,6 +18,8 @@
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/DXIL/DxilFunctionProps.h"
 #include "dxc/DXIL/DxilInstructions.h"
+#include "dxc/DXIL/DxilConstants.h"
+#include "dxc/HlslIntrinsicOp.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
@@ -31,6 +33,8 @@
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Analysis/AssumptionCache.h"
+#include "llvm/Analysis/DxilValueCache.h"
+#include "llvm/Analysis/LoopInfo.h"
 #include <memory>
 #include <unordered_set>
 
@@ -404,6 +408,9 @@ public:
       }
       RemoveStoreUndefOutput(M, hlslOP);
 
+      // Turn dx.break() conditional into global
+      LowerDxBreak(M);
+
       RemoveUnusedStaticGlobal(M);
 
       // Remove unnecessary address space casts.
@@ -584,6 +591,11 @@ private:
 
   void AddFunctionAnnotationForInitializers(Module &M, DxilModule &DM) {
     if (GlobalVariable *GV = M.getGlobalVariable("llvm.global_ctors")) {
+      if (isa<ConstantAggregateZero>(GV->getInitializer())) {
+        DXASSERT_NOMSG(GV->user_empty());
+        GV->eraseFromParent();
+        return;
+      }
       ConstantArray *init = cast<ConstantArray>(GV->getInitializer());
       for (auto V : init->operand_values()) {
         if (isa<ConstantAggregateZero>(V))
@@ -615,6 +627,49 @@ private:
     }
     if (AllocFn->user_empty()) {
       AllocFn->eraseFromParent();
+    }
+  }
+
+  // Convert all uses of dx.break() into per-function load/cmp of dx.break.cond global constant
+  void LowerDxBreak(Module &M) {
+    if (Function *BreakFunc = M.getFunction(DXIL::kDxBreakFuncName)) {
+      if (!BreakFunc->use_empty()) {
+        llvm::Type *i32Ty = llvm::Type::getInt32Ty(M.getContext());
+        Type *i32ArrayTy = ArrayType::get(i32Ty, 1);
+        unsigned int Values[1] = { 0 };
+        Constant *InitialValue = ConstantDataArray::get(M.getContext(), Values);
+        Constant *GV = new GlobalVariable(M, i32ArrayTy, true,
+                                          GlobalValue::InternalLinkage,
+                                          InitialValue, DXIL::kDxBreakCondName);
+
+        Constant *Indices[] = { ConstantInt::get(i32Ty, 0), ConstantInt::get(i32Ty, 0) };
+        Constant *Gep = ConstantExpr::getGetElementPtr(nullptr, GV, Indices);
+        SmallDenseMap<llvm::Function*, llvm::ICmpInst*, 16> DxBreakCmpMap;
+        // Replace all uses of dx.break with references to the constant global
+        for (auto I = BreakFunc->user_begin(), E = BreakFunc->user_end(); I != E;) {
+          User *U = *I++;
+          CallInst *CI = cast<CallInst>(U);
+          Function *F = CI->getParent()->getParent();
+          ICmpInst *Cmp = DxBreakCmpMap.lookup(F);
+          if (!Cmp) {
+            Instruction *IP = dxilutil::FirstNonAllocaInsertionPt(F);
+            LoadInst *LI = new LoadInst(Gep, nullptr, false, IP);
+            Cmp = new ICmpInst(IP, ICmpInst::ICMP_EQ, LI, llvm::ConstantInt::get(i32Ty,0));
+            DxBreakCmpMap[F] = Cmp;
+          }
+          CI->replaceAllUsesWith(Cmp);
+          CI->eraseFromParent();
+        }
+      }
+      BreakFunc->eraseFromParent();
+    }
+
+    for (Function &F : M) {
+      for (BasicBlock &BB : F) {
+        if (BranchInst *BI = dyn_cast<BranchInst>(BB.getTerminator())) {
+          BI->setMetadata(DXIL::kDxBreakMDName, nullptr);
+        }
+      }
     }
   }
 };
@@ -1023,3 +1078,137 @@ ModulePass *llvm::createDxilValidateWaveSensitivityPass() {
 }
 
 INITIALIZE_PASS(DxilValidateWaveSensitivity, "hlsl-validate-wave-sensitivity", "HLSL DXIL wave sensitiveity validation", false, false)
+
+
+namespace {
+
+// Cull blocks from BreakBBs that containing instructions that are sensitive to the wave-sensitive Inst
+// Sensitivity entails being an eventual user of the Inst and also belonging to a block with
+// a break conditional on dx.break that breaks out of a loop that contains WaveCI
+// LInfo is needed to determine loop contents. VisitedPhis is needed to prevent infinit looping.
+static void CullSensitiveBlocks(LoopInfo *LInfo, BasicBlock *WaveBB, BasicBlock *LastBB, Instruction *Inst,
+                                SmallPtrSet<Instruction *, 16> &VisitedPhis,
+                                SmallDenseMap<BasicBlock *, Instruction *, 16> &BreakBBs) {
+  BasicBlock *BB = Inst->getParent();
+  Loop *BreakLoop = LInfo->getLoopFor(BB);
+  // If this instruction isn't in a loop, there is no need to track its sensitivity further
+  if (!BreakLoop || BreakBBs.empty())
+    return;
+
+  // To prevent infinite looping, only visit each PHI once
+  // If we've seen this PHI before, don't reprocess it
+  if (isa<PHINode>(Inst) && !VisitedPhis.insert(Inst).second)
+    return;
+
+  // If this BB wasn't already just processed, handle it now
+  if (LastBB != BB) {
+    // Determine if the instruction's block has an artificially-conditional break
+    // and breaks out of a loop that contains the waveCI
+    BranchInst *BI = dyn_cast<BranchInst>(BB->getTerminator());
+    if (BI && BI->isConditional() && BreakLoop->contains(WaveBB))
+      BreakBBs.erase(BB);
+  }
+
+  // Recurse on the users
+  for (User *U : Inst->users()) {
+    Instruction *I = cast<Instruction>(U);
+    CullSensitiveBlocks(LInfo, WaveBB, BB, I, VisitedPhis, BreakBBs);
+  }
+}
+
+// Collect blocks that end in a dx.break dependent branch by tracing the descendants of BreakFunc
+// that are found in ThisFunc and store the block and call instruction in BreakBBs
+static void CollectBreakBlocks(Function *BreakFunc, Function *ThisFunc,
+                               SmallDenseMap<BasicBlock *, Instruction *, 16> &BreakBBs) {
+  for (User *U : BreakFunc->users()) {
+    SmallVector<User *, 16> WorkList;
+    Instruction *CI = cast<Instruction>(U);
+    // If this user doesn't pertain to the current function, skip it.
+    if (CI->getParent()->getParent() != ThisFunc)
+      continue;
+    WorkList.append(CI->user_begin(), CI->user_end());
+    while (!WorkList.empty()) {
+      Instruction *I = dyn_cast<Instruction>(WorkList.pop_back_val());
+      // When we find a Branch that depends on dx.break, save it and stop
+      // This should almost always be the first user of the Call Inst
+      // If not, iterate on the users
+      if (BranchInst *BI = dyn_cast<BranchInst>(I))
+        BreakBBs[BI->getParent()] = CI;
+      else
+        WorkList.append(I->user_begin(), I->user_end());
+    }
+  }
+}
+
+
+// A pass to remove conditions from breaks that do not contain instructions that
+// depend on wave operations that are in the loop that the break leaves.
+class CleanupDxBreak : public FunctionPass {
+public:
+  static char ID; // Pass identification, replacement for typeid
+  explicit CleanupDxBreak() : FunctionPass(ID) {}
+  const char *getPassName() const override { return "HLSL Remove unnecessary dx.break conditions"; }
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<LoopInfoWrapperPass>();
+  }
+
+  LoopInfo *LInfo;
+
+  bool runOnFunction(Function &F) override {
+    if (F.isDeclaration())
+      return false;
+    Module *M = F.getEntryBlock().getModule();
+
+    Function *BreakFunc = M->getFunction(DXIL::kDxBreakFuncName);
+    if (!BreakFunc)
+      return false;
+
+    LInfo = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+    // Collect the blocks that depend on dx.break and the instructions that call dx.break()
+    SmallDenseMap<BasicBlock *, Instruction *, 16> BreakBBs;
+    CollectBreakBlocks(BreakFunc, &F, BreakBBs);
+
+    if (BreakBBs.empty())
+      return false;
+
+    // For each wave operation, remove all the dx.break blocks that are sensitive to it
+    for (Function &IF : M->functions()) {
+      HLOpcodeGroup opgroup = hlsl::GetHLOpcodeGroup(&IF);
+      // Only consider wave-sensitive intrinsics or extintrinsics
+      if (IF.isDeclaration() && IsHLWaveSensitive(&IF) && !BreakBBs.empty() &&
+          (opgroup == HLOpcodeGroup::HLIntrinsic || opgroup == HLOpcodeGroup::HLExtIntrinsic)) {
+        // For each user of the function, trace all its users to remove the blocks
+        for (User *U : IF.users()) {
+          CallInst *CI = cast<CallInst>(U);
+          if (CI->getParent()->getParent() == &F) {
+            SmallPtrSet<Instruction *, 16> VisitedPhis;
+            CullSensitiveBlocks(LInfo, CI->getParent(), nullptr, CI, VisitedPhis, BreakBBs);
+          }
+        }
+      }
+    }
+
+    bool Changed = false;
+    // Revert artificially conditional breaks in non-wave-sensitive blocks that remain in BreakBBs
+    Constant *C = ConstantInt::get(Type::getInt1Ty(M->getContext()), 1);
+    for (auto &BB : BreakBBs) {
+      // Replace the call instruction with a constant boolen
+      BB.second->replaceAllUsesWith(C);
+      BB.second->eraseFromParent();
+      Changed = true;
+    }
+    return Changed;
+  }
+};
+
+}
+
+char CleanupDxBreak::ID = 0;
+
+INITIALIZE_PASS_BEGIN(CleanupDxBreak, "hlsl-cleanup-dxbreak", "HLSL Remove unnecessary dx.break conditions", false, false)
+INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+INITIALIZE_PASS_END(CleanupDxBreak, "hlsl-cleanup-dxbreak", "HLSL Remove unnecessary dx.break conditions", false, false)
+
+FunctionPass *llvm::createCleanupDxBreakPass() {
+  return new CleanupDxBreak();
+}

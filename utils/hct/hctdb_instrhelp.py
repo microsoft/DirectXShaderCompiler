@@ -363,7 +363,7 @@ class db_oload_gen:
         f = lambda i,c : "true" if i.oload_types.find(c) >= 0 else "false"
         lower_exceptions = { "CBufferLoad" : "cbufferLoad", "CBufferLoadLegacy" : "cbufferLoadLegacy", "GSInstanceID" : "gsInstanceID" }
         lower_fn = lambda t: lower_exceptions[t] if t in lower_exceptions else t[:1].lower() + t[1:]
-        attr_dict = { "": "None", "ro": "ReadOnly", "rn": "ReadNone", "nd": "NoDuplicate", "nr": "NoReturn" }
+        attr_dict = { "": "None", "ro": "ReadOnly", "rn": "ReadNone", "nd": "NoDuplicate", "nr": "NoReturn", "wv" : "None" }
         attr_fn = lambda i : "Attribute::" + attr_dict[i.fn_attr] + ","
         for i in self.instrs:
             if last_category != i.category:
@@ -398,6 +398,8 @@ class db_oload_gen:
             "splitdouble": "A(pSDT);",
             "twoi32": "A(p2I32);",
             "twof32": "A(p2F32);",
+            "twof16": "A(p2F16);",
+            "twoi16": "A(p2I16);",
             "threei32": "A(p3I32);",
             "threef32": "A(p3F32);",
             "fouri32": "A(p4I32);",
@@ -691,7 +693,7 @@ def get_hlsl_intrinsics():
                 result += "#ifdef ENABLE_SPIRV_CODEGEN\n\n"
             # SPIRV Change Ends
             arg_idx = 0
-        ns_table += "    {(UINT)%s::%s_%s, %s, %s, %d, %d, g_%s_Args%s},\n" % (opcode_namespace, id_prefix, i.name, str(i.readonly).lower(), str(i.readnone).lower(), i.overload_param_index,len(i.params), last_ns, arg_idx)
+        ns_table += "    {(UINT)%s::%s_%s, %s, %s, %s, %d, %d, g_%s_Args%s},\n" % (opcode_namespace, id_prefix, i.name, str(i.readonly).lower(), str(i.readnone).lower(), str(i.wave).lower(), i.overload_param_index,len(i.params), last_ns, arg_idx)
         result += "static const HLSL_INTRINSIC_ARGUMENT g_%s_Args%s[] =\n{\n" % (last_ns, arg_idx)
         for p in i.params:
             name = p.name
@@ -808,6 +810,21 @@ def get_instrs_pred(varname, pred, attr_name="dxil_opid"):
     result += "return %s;" % build_range_code(varname, [getattr(i, attr_name) for i in llvm_instrs])
     result += "\n"
     return result
+
+def counter_pred(name, dxil_op=True):
+    def pred(i):
+        return (dxil_op == i.is_dxil_op) and getattr(i, 'props') and 'counters' in i.props and name in i.props['counters']
+    return pred
+
+def get_counters():
+    db = get_db_dxil()
+    return db.counters
+def get_llvm_op_counters():
+    db = get_db_dxil()
+    return [c for c in db.counters if c in db.llvm_op_counters]
+def get_dxil_op_counters():
+    db = get_db_dxil()
+    return [c for c in db.counters if c in db.dxil_op_counters]
 
 def get_instrs_rst():
     "Create an rst table of allowed LLVM instructions."
@@ -1421,6 +1438,9 @@ if __name__ == "__main__":
             'include/dxc/HlslIntrinsicOp.h',
             'tools/clang/tools/dxcompiler/dxcdisassembler.cpp',
             'include/dxc/DXIL/DxilSigPoint.inl',
+            'include/dxc/DXIL/DxilCounters.h',
+            'lib/DXIL/DxilCounters.cpp',
+            'lib/DXIL/DxilMetadataHelper.cpp',
             ]
         for relative_file_path in files:
             RunCodeTagUpdate(pj(hlsl_src_dir, relative_file_path))

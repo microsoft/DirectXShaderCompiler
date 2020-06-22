@@ -32,7 +32,7 @@ float4 function2(float4 x : POSITION) : SV_Position { return x + cbval1 + cbval3
 // CHECK:           ID3D12ShaderReflectionVariable:
 // CHECK:             D3D12_SHADER_VARIABLE_DESC: Name: cbval2
 // CHECK:               Size: 16
-// CHECK:               uFlags: 0x2
+// CHECK:               uFlags: (D3D_SVF_USED)
 // CHECK:             ID3D12ShaderReflectionType:
 // CHECK:               D3D12_SHADER_TYPE_DESC: Name: int4
 // CHECK:                 Class: D3D_SVC_VECTOR
@@ -44,7 +44,7 @@ float4 function2(float4 x : POSITION) : SV_Position { return x + cbval1 + cbval3
 // CHECK:             D3D12_SHADER_VARIABLE_DESC: Name: cbval3
 // CHECK:               Size: 16
 // CHECK:               StartOffset: 16
-// CHECK:               uFlags: 0x2
+// CHECK:               uFlags: (D3D_SVF_USED)
 // CHECK:             ID3D12ShaderReflectionType:
 // CHECK:               D3D12_SHADER_TYPE_DESC: Name: int4
 // CHECK:                 Class: D3D_SVC_VECTOR
@@ -66,7 +66,7 @@ float4 function2(float4 x : POSITION) : SV_Position { return x + cbval1 + cbval3
 // CHECK:         BindPoint: 5
 // CHECK:         ReturnType: D3D_RETURN_TYPE_SINT
 // CHECK:         Dimension: D3D_SRV_DIMENSION_TEXTURE1D
-// CHECK:         uFlags: 0xc
+// CHECK:         uFlags: (D3D_SIF_TEXTURE_COMPONENT_0 | D3D_SIF_TEXTURE_COMPONENT_1)
 // CHECK:   ID3D12FunctionReflection:
 // CHECK:     D3D12_FUNCTION_DESC: Name: \01?function1@@YAMM$min12i@@Z
 // CHECK:       Shader Version: Library 6.3
@@ -82,7 +82,7 @@ float4 function2(float4 x : POSITION) : SV_Position { return x + cbval1 + cbval3
 // CHECK:           ID3D12ShaderReflectionVariable:
 // CHECK:             D3D12_SHADER_VARIABLE_DESC: Name: cbval1
 // CHECK:               Size: 4
-// CHECK:               uFlags: 0x2
+// CHECK:               uFlags: (D3D_SVF_USED)
 // CHECK:             ID3D12ShaderReflectionType:
 // CHECK:               D3D12_SHADER_TYPE_DESC: Name: float
 // CHECK:                 Class: D3D_SVC_SCALAR
@@ -107,7 +107,7 @@ float4 function2(float4 x : POSITION) : SV_Position { return x + cbval1 + cbval3
 // CHECK:         BindPoint: 0
 // CHECK:         ReturnType: D3D_RETURN_TYPE_FLOAT
 // CHECK:         Dimension: D3D_SRV_DIMENSION_TEXTURE1D
-// CHECK:         uFlags: 0xc
+// CHECK:         uFlags: (D3D_SIF_TEXTURE_COMPONENT_0 | D3D_SIF_TEXTURE_COMPONENT_1)
 // CHECK:       D3D12_SHADER_BUFFER_DESC: Name: b_buf
 // CHECK:         Type: D3D_SIT_UAV_RWBYTEADDRESS
 // CHECK:         uID: 1
@@ -128,7 +128,7 @@ float4 function2(float4 x : POSITION) : SV_Position { return x + cbval1 + cbval3
 // CHECK:           ID3D12ShaderReflectionVariable:
 // CHECK:             D3D12_SHADER_VARIABLE_DESC: Name: cbval1
 // CHECK:               Size: 4
-// CHECK:               uFlags: 0x2
+// CHECK:               uFlags: (D3D_SVF_USED)
 // CHECK:             ID3D12ShaderReflectionType:
 // CHECK:               D3D12_SHADER_TYPE_DESC: Name: float
 // CHECK:                 Class: D3D_SVC_SCALAR
@@ -146,7 +146,7 @@ float4 function2(float4 x : POSITION) : SV_Position { return x + cbval1 + cbval3
 // CHECK:           ID3D12ShaderReflectionVariable:
 // CHECK:             D3D12_SHADER_VARIABLE_DESC: Name: cbval2
 // CHECK:               Size: 16
-// CHECK:               uFlags: 0x2
+// CHECK:               uFlags: (D3D_SVF_USED)
 // CHECK:             ID3D12ShaderReflectionType:
 // CHECK:               D3D12_SHADER_TYPE_DESC: Name: int4
 // CHECK:                 Class: D3D_SVC_VECTOR
@@ -158,7 +158,7 @@ float4 function2(float4 x : POSITION) : SV_Position { return x + cbval1 + cbval3
 // CHECK:             D3D12_SHADER_VARIABLE_DESC: Name: cbval3
 // CHECK:               Size: 16
 // CHECK:               StartOffset: 16
-// CHECK:               uFlags: 0x2
+// CHECK:               uFlags: (D3D_SVF_USED)
 // CHECK:             ID3D12ShaderReflectionType:
 // CHECK:               D3D12_SHADER_TYPE_DESC: Name: int4
 // CHECK:                 Class: D3D_SVC_VECTOR

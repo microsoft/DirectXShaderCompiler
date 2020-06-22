@@ -110,13 +110,13 @@ static DxilModule* ExtractDxil(LLVMContext& context, IDxcBlob* pContainer)
 }
 
 
-static void saveModuleToAsmFile(const llvm::Module* module, const std::string& filename)
+static void saveModuleToAsmFile(const llvm::Module* mod, const std::string& filename)
 {
   std::error_code EC;
   raw_fd_ostream out(filename, EC, sys::fs::F_Text);
   if (!out.has_error())
   {
-    module->print(out, nullptr);
+    mod->print(out, nullptr);
     out.close();
   }
   if (out.has_error())

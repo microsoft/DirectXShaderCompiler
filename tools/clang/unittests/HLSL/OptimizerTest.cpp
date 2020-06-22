@@ -130,7 +130,9 @@ void OptimizerTest::OptimizerWhenSliceNThenOK(int optLevel) {
     "  if (b) user = g_Tex.Sample(g_Sampler, pos.xy);\r\n"
     "  return user * pos;\r\n"
     "}";
-  OptimizerWhenSliceNThenOK(optLevel, SampleProgram, L"ps_6_0");
+  OptimizerWhenSliceNThenOK(optLevel, SampleProgram, L"ps_6_0",
+    // Add -validator-version 1.4 to ensure it's not changed by DxcAssembler.
+    {L"-validator-version", L"1.4"});
 }
 static bool IsPassMarkerFunction(LPCWSTR pName) {
   return 0 == _wcsicmp(pName, L"-opt-fn-passes");

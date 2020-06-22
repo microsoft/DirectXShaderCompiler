@@ -403,6 +403,9 @@ private:
   /// Processes the 'mul' intrinsic function.
   SpirvInstruction *processIntrinsicMul(const CallExpr *);
 
+  /// Processes the 'printf' intrinsic function.
+  SpirvInstruction *processIntrinsicPrintf(const CallExpr *);
+
   /// Transposes a non-floating point matrix and returns the result-id of the
   /// transpose.
   SpirvInstruction *processNonFpMatrixTranspose(QualType matType,
@@ -549,6 +552,13 @@ private:
 
   /// Process mesh shader intrinsics.
   void processMeshOutputCounts(const CallExpr *callExpr);
+
+  /// Process ray query traceinline intrinsics.
+  SpirvInstruction *processTraceRayInline(const CXXMemberCallExpr *expr);
+
+  /// Process ray query intrinsics
+  SpirvInstruction *processRayQueryIntrinsics(const CXXMemberCallExpr *expr,
+                                              hlsl::IntrinsicOp opcode);
 
 private:
   /// Returns the <result-id> for constant value 0 of the given type.

@@ -3074,7 +3074,6 @@ void CodeGenFunction::EmitCallArg(CallArgList &args, const Expr *E,
     return;
   }
   // HLSL Change Ends.
-
   args.add(EmitAnyExprToTemp(E), type);
 }
 
@@ -3270,9 +3269,6 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
     SRetPtr = ReturnValue.getValue();
     if (!SRetPtr) {
       SRetPtr = CreateMemTemp(RetTy);
-      // HLSL Change begin.
-      CGM.getHLSLRuntime().MarkRetTemp(*this, SRetPtr, RetTy);
-      // HLSL Change end.
       if (HaveInsertPoint() && ReturnValue.isUnused()) {
         uint64_t size =
             CGM.getDataLayout().getTypeAllocSize(ConvertTypeForMem(RetTy));
@@ -3280,6 +3276,9 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
           UnusedReturnSize = size;
       }
     }
+    // HLSL Change begin.
+    CGM.getHLSLRuntime().MarkRetTemp(*this, SRetPtr, RetTy);
+    // HLSL Change end.
     if (IRFunctionArgs.hasSRetArg()) {
       IRCallArgs[IRFunctionArgs.getSRetArgNo()] = SRetPtr;
     } else {

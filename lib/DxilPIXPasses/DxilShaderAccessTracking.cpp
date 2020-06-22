@@ -553,10 +553,22 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
           readWrite = ShaderAccessFlags::Counter;
           break;
         case DXIL::OpCode::TraceRay:
-        case DXIL::OpCode::RayQuery_TraceRayInline:
           // Read of AccelerationStructure; doesn't match function attribute
           // readWrite = ShaderAccessFlags::Read;  // TODO: Support
-          // TraceRay[Inline]
+          continue;
+        case DXIL::OpCode::RayQuery_TraceRayInline: {
+          // Read of AccelerationStructure; doesn't match function attribute
+          auto res = GetResourceFromHandle(Call->getArgOperand(2), DM);
+          if (EmitResourceAccess(
+            res, 
+            Call, 
+            HlslOP, 
+            Ctx,
+            ShaderAccessFlags::Read)) 
+          {
+            Modified = true;
+          }
+        }
           continue;
         default:
           break;

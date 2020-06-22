@@ -16,7 +16,7 @@ void main() {
   buf.Store(104, (int)42);
   // CHECK: call void @dx.op.rawBufferStore.i16(i32 140, {{.*}}, i32 108, i32 undef, i16 42, i16 undef, i16 undef, i16 undef, i8 1, i32 2)
   buf.Store(108, (int16_t)42);
-  // CHECK: call void @dx.op.rawBufferStore.i32(i32 140, {{.*}}, i32 112, i32 undef, i32 42, i32 0, i32 undef, i32 undef, i8 3, i32 8)
+  // CHECK: call void @dx.op.rawBufferStore.i32(i32 140, {{.*}}, i32 112, i32 undef, i32 42, i32 0, i32 undef, i32 undef, i8 3, i32 4)
   buf.Store(112, (int64_t)42);
 
   // CHECK: call void @dx.op.rawBufferStore.i32(i32 140, {{.*}}, i32 200, i32 undef, i32 42, i32 42, i32 undef, i32 undef, i8 3, i32 4)

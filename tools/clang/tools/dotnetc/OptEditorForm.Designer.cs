@@ -38,7 +38,9 @@
             this.RightButton = new System.Windows.Forms.RadioButton();
             this.ApplyChangesButton = new System.Windows.Forms.Button();
             this.CopyContainerButton = new System.Windows.Forms.Button();
+            this.btnSaveAll = new System.Windows.Forms.Button();
             this.LogBox = new System.Windows.Forms.RichTextBox();
+            this.saveFileDialog1 = new System.Windows.Forms.SaveFileDialog();
             ((System.ComponentModel.ISupportInitialize)(this.TopContainer)).BeginInit();
             this.TopContainer.Panel1.SuspendLayout();
             this.TopContainer.Panel2.SuspendLayout();
@@ -54,7 +56,6 @@
             // 
             this.TopContainer.Dock = System.Windows.Forms.DockStyle.Fill;
             this.TopContainer.Location = new System.Drawing.Point(0, 0);
-            this.TopContainer.Margin = new System.Windows.Forms.Padding(6);
             this.TopContainer.Name = "TopContainer";
             // 
             // TopContainer.Panel1
@@ -64,20 +65,17 @@
             // TopContainer.Panel2
             // 
             this.TopContainer.Panel2.Controls.Add(this.WorkContainer);
-            this.TopContainer.Size = new System.Drawing.Size(1394, 902);
-            this.TopContainer.SplitterDistance = 464;
-            this.TopContainer.SplitterWidth = 8;
+            this.TopContainer.Size = new System.Drawing.Size(1497, 901);
+            this.TopContainer.SplitterDistance = 498;
             this.TopContainer.TabIndex = 0;
             // 
             // PassesListBox
             // 
             this.PassesListBox.Dock = System.Windows.Forms.DockStyle.Fill;
             this.PassesListBox.FormattingEnabled = true;
-            this.PassesListBox.ItemHeight = 25;
             this.PassesListBox.Location = new System.Drawing.Point(0, 0);
-            this.PassesListBox.Margin = new System.Windows.Forms.Padding(6);
             this.PassesListBox.Name = "PassesListBox";
-            this.PassesListBox.Size = new System.Drawing.Size(464, 902);
+            this.PassesListBox.Size = new System.Drawing.Size(498, 901);
             this.PassesListBox.TabIndex = 0;
             this.PassesListBox.SelectedIndexChanged += new System.EventHandler(this.PassesListBox_SelectedIndexChanged);
             // 
@@ -86,7 +84,6 @@
             this.WorkContainer.Dock = System.Windows.Forms.DockStyle.Fill;
             this.WorkContainer.FixedPanel = System.Windows.Forms.FixedPanel.Panel2;
             this.WorkContainer.Location = new System.Drawing.Point(0, 0);
-            this.WorkContainer.Margin = new System.Windows.Forms.Padding(6);
             this.WorkContainer.Name = "WorkContainer";
             this.WorkContainer.Orientation = System.Windows.Forms.Orientation.Horizontal;
             // 
@@ -98,18 +95,16 @@
             // WorkContainer.Panel2
             // 
             this.WorkContainer.Panel2.Controls.Add(this.LogBox);
-            this.WorkContainer.Size = new System.Drawing.Size(922, 902);
-            this.WorkContainer.SplitterDistance = 825;
-            this.WorkContainer.SplitterWidth = 8;
+            this.WorkContainer.Size = new System.Drawing.Size(995, 901);
+            this.WorkContainer.SplitterDistance = 824;
             this.WorkContainer.TabIndex = 0;
             // 
             // CodeBox
             // 
             this.CodeBox.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.CodeBox.Location = new System.Drawing.Point(0, 56);
-            this.CodeBox.Margin = new System.Windows.Forms.Padding(6);
+            this.CodeBox.Location = new System.Drawing.Point(0, 32);
             this.CodeBox.Name = "CodeBox";
-            this.CodeBox.Size = new System.Drawing.Size(922, 769);
+            this.CodeBox.Size = new System.Drawing.Size(995, 792);
             this.CodeBox.TabIndex = 1;
             this.CodeBox.Text = "";
             this.CodeBox.SelectionChanged += new System.EventHandler(this.CodeBox_SelectionChanged);
@@ -124,20 +119,19 @@
             this.flowLayoutPanel1.Controls.Add(this.RightButton);
             this.flowLayoutPanel1.Controls.Add(this.ApplyChangesButton);
             this.flowLayoutPanel1.Controls.Add(this.CopyContainerButton);
+            this.flowLayoutPanel1.Controls.Add(this.btnSaveAll);
             this.flowLayoutPanel1.Dock = System.Windows.Forms.DockStyle.Top;
             this.flowLayoutPanel1.Location = new System.Drawing.Point(0, 0);
-            this.flowLayoutPanel1.Margin = new System.Windows.Forms.Padding(6);
             this.flowLayoutPanel1.Name = "flowLayoutPanel1";
-            this.flowLayoutPanel1.Size = new System.Drawing.Size(922, 56);
+            this.flowLayoutPanel1.Size = new System.Drawing.Size(995, 32);
             this.flowLayoutPanel1.TabIndex = 0;
             // 
             // LeftButton
             // 
             this.LeftButton.AutoSize = true;
-            this.LeftButton.Location = new System.Drawing.Point(6, 6);
-            this.LeftButton.Margin = new System.Windows.Forms.Padding(6);
+            this.LeftButton.Location = new System.Drawing.Point(3, 3);
             this.LeftButton.Name = "LeftButton";
-            this.LeftButton.Size = new System.Drawing.Size(79, 29);
+            this.LeftButton.Size = new System.Drawing.Size(56, 26);
             this.LeftButton.TabIndex = 0;
             this.LeftButton.Text = "Left";
             this.LeftButton.UseVisualStyleBackColor = true;
@@ -147,10 +141,9 @@
             // 
             this.DiffButton.AutoSize = true;
             this.DiffButton.Checked = true;
-            this.DiffButton.Location = new System.Drawing.Point(97, 6);
-            this.DiffButton.Margin = new System.Windows.Forms.Padding(6);
+            this.DiffButton.Location = new System.Drawing.Point(65, 3);
             this.DiffButton.Name = "DiffButton";
-            this.DiffButton.Size = new System.Drawing.Size(75, 29);
+            this.DiffButton.Size = new System.Drawing.Size(54, 26);
             this.DiffButton.TabIndex = 1;
             this.DiffButton.TabStop = true;
             this.DiffButton.Text = "Diff";
@@ -160,10 +153,9 @@
             // RightButton
             // 
             this.RightButton.AutoSize = true;
-            this.RightButton.Location = new System.Drawing.Point(184, 6);
-            this.RightButton.Margin = new System.Windows.Forms.Padding(6);
+            this.RightButton.Location = new System.Drawing.Point(125, 3);
             this.RightButton.Name = "RightButton";
-            this.RightButton.Size = new System.Drawing.Size(93, 29);
+            this.RightButton.Size = new System.Drawing.Size(63, 26);
             this.RightButton.TabIndex = 2;
             this.RightButton.Text = "Right";
             this.RightButton.UseVisualStyleBackColor = true;
@@ -172,10 +164,9 @@
             // ApplyChangesButton
             // 
             this.ApplyChangesButton.Enabled = false;
-            this.ApplyChangesButton.Location = new System.Drawing.Point(289, 6);
-            this.ApplyChangesButton.Margin = new System.Windows.Forms.Padding(6);
+            this.ApplyChangesButton.Location = new System.Drawing.Point(194, 3);
             this.ApplyChangesButton.Name = "ApplyChangesButton";
-            this.ApplyChangesButton.Size = new System.Drawing.Size(196, 44);
+            this.ApplyChangesButton.Size = new System.Drawing.Size(98, 23);
             this.ApplyChangesButton.TabIndex = 3;
             this.ApplyChangesButton.Text = "Apply Changes";
             this.ApplyChangesButton.UseVisualStyleBackColor = true;
@@ -183,32 +174,39 @@
             // 
             // CopyContainerButton
             // 
-            this.CopyContainerButton.Location = new System.Drawing.Point(497, 6);
-            this.CopyContainerButton.Margin = new System.Windows.Forms.Padding(6);
+            this.CopyContainerButton.Location = new System.Drawing.Point(298, 3);
             this.CopyContainerButton.Name = "CopyContainerButton";
-            this.CopyContainerButton.Size = new System.Drawing.Size(196, 44);
+            this.CopyContainerButton.Size = new System.Drawing.Size(98, 23);
             this.CopyContainerButton.TabIndex = 4;
             this.CopyContainerButton.Text = "Copy Container";
             this.CopyContainerButton.UseVisualStyleBackColor = true;
             this.CopyContainerButton.Click += new System.EventHandler(this.CopyContainerButton_Click);
             // 
+            // btnSaveAll
+            // 
+            this.btnSaveAll.Location = new System.Drawing.Point(402, 3);
+            this.btnSaveAll.Name = "btnSaveAll";
+            this.btnSaveAll.Size = new System.Drawing.Size(107, 26);
+            this.btnSaveAll.TabIndex = 5;
+            this.btnSaveAll.Text = "SaveAllPasses";
+            this.btnSaveAll.UseVisualStyleBackColor = true;
+            this.btnSaveAll.Click += new System.EventHandler(this.btnSaveAll_Click);
+            // 
             // LogBox
             // 
             this.LogBox.Dock = System.Windows.Forms.DockStyle.Fill;
             this.LogBox.Location = new System.Drawing.Point(0, 0);
-            this.LogBox.Margin = new System.Windows.Forms.Padding(6);
             this.LogBox.Name = "LogBox";
-            this.LogBox.Size = new System.Drawing.Size(922, 69);
+            this.LogBox.Size = new System.Drawing.Size(995, 73);
             this.LogBox.TabIndex = 0;
             this.LogBox.Text = "";
             // 
             // OptEditorForm
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(12F, 25F);
+            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(1394, 902);
+            this.ClientSize = new System.Drawing.Size(1497, 901);
             this.Controls.Add(this.TopContainer);
-            this.Margin = new System.Windows.Forms.Padding(6);
             this.Name = "OptEditorForm";
             this.Text = "Optimizer Editor";
             this.Load += new System.EventHandler(this.OptEditorForm_Load);
@@ -240,5 +238,7 @@
         private System.Windows.Forms.RichTextBox CodeBox;
         private System.Windows.Forms.RichTextBox LogBox;
         private System.Windows.Forms.Button CopyContainerButton;
+        private System.Windows.Forms.Button btnSaveAll;
+        private System.Windows.Forms.SaveFileDialog saveFileDialog1;
     }
 }

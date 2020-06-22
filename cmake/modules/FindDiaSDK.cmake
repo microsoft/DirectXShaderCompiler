@@ -52,7 +52,7 @@ set(DIASDK_INCLUDE_DIRS ${DIASDK_INCLUDE_DIR})
 include(FindPackageHandleStandardArgs)
 # handle the QUIETLY and REQUIRED arguments and set DIASDK_FOUND to TRUE
 # if all listed variables are TRUE
-find_package_handle_standard_args(DIASDK  DEFAULT_MSG
+find_package_handle_standard_args(DiaSDK  DEFAULT_MSG
                                   DIASDK_LIBRARIES DIASDK_INCLUDE_DIR)
 
 mark_as_advanced(DIASDK_INCLUDE_DIRS DIASDK_LIBRARIES)

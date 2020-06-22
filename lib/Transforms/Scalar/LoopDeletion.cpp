@@ -170,9 +170,11 @@ bool LoopDeletion::runOnLoop(Loop *L, LPPassManager &LPM) {
   // Don't remove loops for which we can't solve the trip count.
   // They could be infinite, in which case we'd be changing program behavior.
   ScalarEvolution &SE = getAnalysis<ScalarEvolution>();
-  const SCEV *S = SE.getMaxBackedgeTakenCount(L);
-  if (isa<SCEVCouldNotCompute>(S))
-    return Changed;
+  // HLSL Change begin - remove loops even cannot solve the trip count.
+  //const SCEV *S = SE.getMaxBackedgeTakenCount(L);
+  ////if (isa<SCEVCouldNotCompute>(S))
+  //  return Changed;
+  // HLSL Change end.
 
   // Now that we know the removal is safe, remove the loop by changing the
   // branch from the preheader to go to the single exit block.

@@ -780,4 +780,5 @@ def FutureCompat : DiagGroup<"future-compat">;
 
 // HLSL Change Starts - HLSL diagnostic groups
 def HLSLEffectsSyntax : DiagGroup<"effects-syntax">;
+def HLSLForRedefinition : DiagGroup<"for-redefinition">;
 // HLSL Change Ends

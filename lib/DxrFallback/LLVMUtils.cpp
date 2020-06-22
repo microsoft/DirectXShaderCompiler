@@ -44,31 +44,31 @@ Instruction* getInstructionAfter(Instruction* inst)
 std::unique_ptr<Module> loadModuleFromAsmFile(LLVMContext& context, const std::string& filename)
 {
   SMDiagnostic err;
-  std::unique_ptr<Module> module = parseIRFile(filename, err, context);
-  if (!module)
+  std::unique_ptr<Module> mod = parseIRFile(filename, err, context);
+  if (!mod)
   {
     err.print(filename.c_str(), errs());
     exit(1);
   }
 
-  return module;
+  return mod;
 }
 
 std::unique_ptr<Module> loadModuleFromAsmString(LLVMContext& context, const std::string& str)
 {
   SMDiagnostic  err;
   MemoryBufferRef memBuffer(str, "id");
-  std::unique_ptr<Module> module = parseIR(memBuffer, err, context);
-  return module;
+  std::unique_ptr<Module> mod = parseIR(memBuffer, err, context);
+  return mod;
 }
 
-void saveModuleToAsmFile(const llvm::Module* module, const std::string& filename)
+void saveModuleToAsmFile(const llvm::Module* mod, const std::string& filename)
 {
   std::error_code EC;
   raw_fd_ostream out(filename, EC, sys::fs::F_Text);
   if (!out.has_error())
   {
-    module->print(out, 0);
+    mod->print(out, 0);
     out.close();
   }
   if (out.has_error())
@@ -98,7 +98,7 @@ void dumpCFG(const Function* F, const std::string& suffix)
   }
 }
 
-Function* getOrCreateFunction(const std::string& name, Module* module, FunctionType* funcType, std::map<FunctionType*, Function*>& typeToFuncMap)
+Function* getOrCreateFunction(const std::string& name, Module* mod, FunctionType* funcType, std::map<FunctionType*, Function*>& typeToFuncMap)
 {
   auto it = typeToFuncMap.find(funcType);
   if (it != typeToFuncMap.end())
@@ -106,7 +106,7 @@ Function* getOrCreateFunction(const std::string& name, Module* module, FunctionT
 
   // Give name a numerical suffix to make it unique 
   std::string uniqueName = name + std::to_string(typeToFuncMap.size());
-  Function* F = dyn_cast<Function>(module->getOrInsertFunction(uniqueName, funcType));
+  Function* F = dyn_cast<Function>(mod->getOrInsertFunction(uniqueName, funcType));
   typeToFuncMap[funcType] = F;
   return F;
 }

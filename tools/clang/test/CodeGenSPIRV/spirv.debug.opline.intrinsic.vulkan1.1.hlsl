@@ -3,7 +3,7 @@
 // CHECK:      [[file:%\d+]] = OpString
 // CHECK-SAME: spirv.debug.opline.intrinsic.vulkan1.1.hlsl
 
-void main() {
+[numthreads(1,1,1)]void main() {
 // CHECK:      OpLine [[file]] 11 11
 // CHECK:      OpLoad %uint %SubgroupSize
 // CHECK-NEXT: OpLine [[file]] 11 32

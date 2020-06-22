@@ -1,4 +1,5 @@
 // RUN: %dxc -E main -T gs_6_0 %s | FileCheck %s
+// RUN: %dxc -E main -T gs_6_0 %s | %D3DReflect %s | FileCheck -check-prefix=REFL %s
 
 // CHECK:; Output signature:
 // CHECK:;
@@ -68,3 +69,21 @@ void main(point float4 array[1] : COORD, inout PointStream<MyStruct> OutputStrea
   OutputStream2.Append(a);
   OutputStream2.RestartStrip();
 }
+
+// REFL: InstructionCount: 84
+// REFL: TempArrayCount: 0
+// REFL: DynamicFlowControlCount: 1
+// REFL: ArrayInstructionCount: 0
+// REFL: TextureNormalInstructions: 0
+// REFL: TextureLoadInstructions: 0
+// REFL: TextureCompInstructions: 0
+// REFL: TextureBiasInstructions: 0
+// REFL: TextureGradientInstructions: 0
+// REFL: FloatInstructionCount: 11
+// REFL: IntInstructionCount: 1
+// REFL: UintInstructionCount: 0
+// REFL: CutInstructionCount: 4
+// REFL: EmitInstructionCount: 4
+// REFL: cBarrierInstructions: 0
+// REFL: cInterlockedInstructions: 0
+// REFL: cTextureStoreInstructions: 0

@@ -1719,8 +1719,12 @@ namespace MainNs
 
         private void SelectedPassesBox_DoubleClick(object sender, EventArgs e)
         {
-            if (this.SelectedPassesBox.SelectedIndex != -1)
-                this.SelectedPassesBox.Items.RemoveAt(this.SelectedPassesBox.SelectedIndex);
+                for (int x = SelectedPassesBox.SelectedIndices.Count - 1; x >= 0; x--)
+                {
+                    int idx = SelectedPassesBox.SelectedIndices[x];
+                    SelectedPassesBox.Items.RemoveAt(idx);
+                }
+
         }
 
         private void AddPrintModuleButton_Click(object sender, EventArgs e)
@@ -1734,18 +1738,10 @@ namespace MainNs
             ListBox lb = (ListBox)sender;
             if (e.KeyCode == Keys.Delete)
             {
-                int selectedIndex = lb.SelectedIndex;
-                if (selectedIndex != -1)
+                for (int x = SelectedPassesBox.SelectedIndices.Count - 1; x >= 0; x--)
                 {
-                    lb.Items.RemoveAt(selectedIndex);
-                    if (selectedIndex < lb.Items.Count)
-                    {
-                        lb.SelectedIndex = selectedIndex;
-                    }
-                    else if (lb.Items.Count > 0)
-                    {
-                        lb.SelectedIndex = selectedIndex - 1;
-                    }
+                    int idx = SelectedPassesBox.SelectedIndices[x];
+                    SelectedPassesBox.Items.RemoveAt(idx);
                 }
                 e.Handled = true;
                 return;

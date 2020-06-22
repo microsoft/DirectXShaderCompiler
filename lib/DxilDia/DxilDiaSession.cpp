@@ -33,16 +33,18 @@
 
 void dxil_dia::Session::Init(
     std::shared_ptr<llvm::LLVMContext> context,
-    std::shared_ptr<llvm::Module> module,
+    std::shared_ptr<llvm::Module> mod,
     std::shared_ptr<llvm::DebugInfoFinder> finder) {
   m_pEnumTables = nullptr;
-  m_module = module;
+  m_module = mod;
   m_context = context;
   m_finder = finder;
-  m_dxilModule = llvm::make_unique<hlsl::DxilModule>(module.get());
+  m_dxilModule = llvm::make_unique<hlsl::DxilModule>(mod.get());
 
   llvm::legacy::PassManager PM;
+  llvm::initializeDxilDbgValueToDbgDeclarePass(*llvm::PassRegistry::getPassRegistry());
   llvm::initializeDxilAnnotateWithVirtualRegisterPass(*llvm::PassRegistry::getPassRegistry());
+  PM.add(llvm::createDxilDbgValueToDbgDeclarePass());
   PM.add(llvm::createDxilAnnotateWithVirtualRegisterPass());
   PM.run(*m_module);
 

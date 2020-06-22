@@ -128,6 +128,8 @@ public:
   void CollectUsedInitFunctions(SetVector<StringRef> &addedFunctionSet,
                                 SmallVector<StringRef, 4> &workList);
 
+  void FixIntrinsicOverloads();
+
 private:
   std::unique_ptr<llvm::Module> m_pModule;
   DxilModule &m_DM;
@@ -188,7 +190,7 @@ DxilFunctionLinkInfo::DxilFunctionLinkInfo(Function *F) : func(F) {
 DxilLib::DxilLib(std::unique_ptr<llvm::Module> pModule)
     : m_pModule(std::move(pModule)), m_DM(m_pModule->GetOrCreateDxilModule()) {
   Module &M = *m_pModule;
-  const std::string &MID = M.getModuleIdentifier();
+  const std::string MID = (Twine(M.getModuleIdentifier()) + ".").str();
 
   // Collect function defines.
   for (Function &F : M.functions()) {
@@ -209,6 +211,14 @@ DxilLib::DxilLib(std::unique_ptr<llvm::Module> pModule)
       GV.setName(MID + GV.getName());
     }
   }
+}
+
+void DxilLib::FixIntrinsicOverloads() {
+  // Fix DXIL overload name collisions that may be caused by name
+  // collisions between dxil ops with different overload types,
+  // when those types may have had the same name in the original
+  // modules.
+  m_DM.GetOP()->FixOverloadNames();
 }
 
 void DxilLib::LazyLoadFunction(Function *F) {
@@ -354,14 +364,24 @@ private:
   bool AddResource(DxilResourceBase *res, llvm::GlobalVariable *GV);
   void AddResourceToDM(DxilModule &DM);
   llvm::MapVector<DxilFunctionLinkInfo *, DxilLib *> m_functionDefs;
-  llvm::StringMap<llvm::Function *> m_functionDecls;
-  // New created functions.
-  llvm::StringMap<llvm::Function *> m_newFunctions;
-  // New created globals.
-  llvm::StringMap<llvm::GlobalVariable *> m_newGlobals;
-  // Map for resource.
-  llvm::StringMap<std::pair<DxilResourceBase *, llvm::GlobalVariable *>>
-      m_resourceMap;
+
+  // Function decls, in order added.
+  llvm::MapVector<llvm::StringRef,
+                  std::pair<llvm::SmallPtrSet<llvm::FunctionType *, 2>,
+                            llvm::SmallVector<llvm::Function *, 2>>>
+    m_functionDecls;
+
+  // New created functions, in order added.
+  llvm::MapVector<llvm::StringRef, llvm::Function *> m_newFunctions;
+
+  // New created globals, in order added.
+  llvm::MapVector<llvm::StringRef, llvm::GlobalVariable *> m_newGlobals;
+
+  // Map for resource, ordered by name.
+  std::map<llvm::StringRef,
+           std::pair<DxilResourceBase *, llvm::GlobalVariable *>>
+    m_resourceMap;
+
   LLVMContext &m_ctx;
   dxilutil::ExportMap &m_exportMap;
   unsigned m_valMajor, m_valMinor;
@@ -464,8 +484,9 @@ bool DxilLinkJob::AddResource(DxilResourceBase *res, llvm::GlobalVariable *GV) {
     bool bMatch = IsMatchedType(Ty0, Ty);
     if (!bMatch) {
       // Report error.
-      m_ctx.emitError(Twine(kRedefineResource) + res->GetResClassName() + " for " +
-                      res->GetGlobalName());
+      dxilutil::EmitErrorOnGlobalVariable(dyn_cast<GlobalVariable>(res->GetGlobalSymbol()),
+                                          Twine(kRedefineResource) + res->GetResClassName() + " for " +
+                                          res->GetGlobalName());
       return false;
     }
   } else {
@@ -574,11 +595,15 @@ void DxilLinkJob::LinkNamedMDNodes(Module *pM, ValueToValueMapTy &vmap) {
 
 void DxilLinkJob::AddFunctionDecls(Module *pM) {
   for (auto &it : m_functionDecls) {
-    Function *F = it.second;
-    Function *NewF = Function::Create(F->getFunctionType(), F->getLinkage(),
-                                      F->getName(), pM);
-    NewF->setAttributes(F->getAttributes());
-    m_newFunctions[NewF->getName()] = NewF;
+    for (auto F : it.second.second) {
+      Function *NewF = pM->getFunction(F->getName());
+      if (!NewF || F->getFunctionType() != NewF->getFunctionType()) {
+        NewF = Function::Create(F->getFunctionType(), F->getLinkage(),
+                                          F->getName(), pM);
+        NewF->setAttributes(F->getAttributes());
+      }
+      m_newFunctions[F->getName()] = NewF;
+    }
   }
 }
 
@@ -608,7 +633,7 @@ bool DxilLinkJob::AddGlobals(DxilModule &DM, ValueToValueMapTy &vmap) {
           }
 
           // Redefine of global.
-          m_ctx.emitError(Twine(kRedefineGlobal) + GV->getName());
+          dxilutil::EmitErrorOnGlobalVariable(GV, Twine(kRedefineGlobal) + GV->getName());
           bSuccess = false;
         }
         continue;
@@ -696,7 +721,7 @@ DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
   DxilModule &entryDM = entryLinkPair.second->GetDxilModule();
   if (!entryDM.HasDxilFunctionProps(entryFunc)) {
     // Cannot get function props.
-    m_ctx.emitError(Twine(kNoEntryProps) + entryFunc->getName());
+    dxilutil::EmitErrorOnFunction(entryFunc, Twine(kNoEntryProps) + entryFunc->getName());
     return nullptr;
   }
 
@@ -704,9 +729,9 @@ DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
 
   if (pSM->GetKind() != props.shaderKind) {
     // Shader kind mismatch.
-    m_ctx.emitError(Twine(kShaderKindMismatch) +
-                    ShaderModel::GetKindName(pSM->GetKind()) + " and " +
-                    ShaderModel::GetKindName(props.shaderKind));
+    dxilutil::EmitErrorOnFunction(entryFunc, Twine(kShaderKindMismatch) +
+                                  ShaderModel::GetKindName(pSM->GetKind()) + " and " +
+                                  ShaderModel::GetKindName(props.shaderKind));
     return nullptr;
   }
 
@@ -933,7 +958,12 @@ void DxilLinkJob::AddFunction(
 }
 
 void DxilLinkJob::AddFunction(llvm::Function *F) {
-  m_functionDecls[F->getName()] = F;
+  // Rarely, DXIL op overloads could collide, due to different types with same name.
+  // Later, we will rename these functions, but for now, we need to prevent clobbering
+  // an existing entry.
+  auto &entry = m_functionDecls[F->getName()];
+  if (entry.first.insert(F->getFunctionType()).second)
+    entry.second.push_back(F);
 }
 
 // Clone of StripDeadDebugInfo::runOnModule.
@@ -1120,7 +1150,8 @@ bool DxilLinkerImpl::AttachLib(DxilLib *lib) {
     StringRef name = it->getKey();
     if (m_functionNameMap.count(name)) {
       // Redefine of function.
-      m_ctx.emitError(Twine(kRedefineFunction) + name);
+      const DxilFunctionLinkInfo *DFLI = it->getValue().get();
+      dxilutil::EmitErrorOnFunction(DFLI->func, Twine(kRedefineFunction) + name);
       bSuccess = false;
       continue;
     }
@@ -1313,6 +1344,11 @@ DxilLinkerImpl::Link(StringRef entry, StringRef profile, dxilutil::ExportMap &ex
   for (auto &pLib : libSet) {
     pLib->CollectUsedInitFunctions(addedFunctionSet, workList);
   }
+
+  for (auto &pLib : libSet) {
+    pLib->FixIntrinsicOverloads();
+  }
+
   // Add init functions if used.
   // All init function already loaded in BuildGlobalUsage,
   // so set bLazyLoadDone to true here.

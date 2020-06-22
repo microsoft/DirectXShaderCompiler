@@ -24,6 +24,7 @@ void foo(StructuredBuffer<S> pSBuffer) {
   gRWSBuffer[i] = pSBuffer[i];
 }
 
+[numthreads(1,1,1)]
 void main() {
   foo(gSBuffer);
 }
