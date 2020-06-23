@@ -291,22 +291,30 @@ QualType getComponentVectorType(const ASTContext &, QualType matrixType);
 QualType getHLSLMatrixType(ASTContext &, Sema &, ClassTemplateDecl *,
                            QualType elemType, int rows, int columns);
 
-/// \brief Returns true iff the given type is a struct or array of structs and
-/// we would ONLY get resources by flattening them.
+/// Returns true if the given type is a structure or array of structures for
+/// which flattening all of its members recursively results in resources ONLY.
 bool isResourceOnlyStructure(QualType type);
 
-/// Returns true if the given type is a structure that contains resources or
-/// contains sub-structures that contain resources.
+/// Returns true if the given type is a structure or array of structures for
+/// which flattening all of its members recursively results in at least one
+/// resoure variable.
 bool isStructureContainingResources(QualType type);
 
-/// Returns true if the given type is a structure that contains non-resource
-/// variables or contains sub-structures that contain non-resource variables.
+/// Returns true if the given type is a structure or array of structures for
+/// which flattening all of its members recursively results in at least one
+/// non-resoure variable.
 bool isStructureContainingNonResources(QualType type);
 
-/// Returns true if the given type is a structure for which flattening all of
-/// its members recursively results in a mix of resource variables and
-/// non-resource variables.
+/// Returns true if the given type is a structure or array of structures for
+/// which flattening all of its members recursively results in a mix of resource
+/// variables and non-resource variables.
 bool isStructureContainingMixOfResourcesAndNonResources(QualType type);
+
+/// Returns true if the given type is a structure or array of structures for
+/// which flattening all of its members recursively results in at least one kind
+/// of buffer: cbuffer, tbuffer, (RW)ByteAddressBuffer, or
+/// (RW|Append|Consume)StructuredBuffer.
+bool isStructureContainingAnyKindOfBuffer(QualType type);
 
 } // namespace spirv
 } // namespace clang

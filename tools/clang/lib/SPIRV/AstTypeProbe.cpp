@@ -1278,5 +1278,26 @@ bool isStructureContainingMixOfResourcesAndNonResources(QualType type) {
          isStructureContainingNonResources(type);
 }
 
+bool isStructureContainingAnyKindOfBuffer(QualType type) {
+  // Remove arrayness if needed.
+  while (type->isArrayType())
+    type = type->getAsArrayTypeUnsafe()->getElementType();
+
+  if (const auto *structType = type->getAs<RecordType>()) {
+    for (const auto *field : structType->getDecl()->fields()) {
+      auto fieldType = field->getType();
+      // Remove arrayness if needed.
+      while (fieldType->isArrayType())
+        fieldType = fieldType->getAsArrayTypeUnsafe()->getElementType();
+      if (isAKindOfStructuredOrByteBuffer(fieldType) ||
+          isConstantTextureBuffer(field) ||
+          isStructureContainingAnyKindOfBuffer(fieldType)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 } // namespace spirv
 } // namespace clang

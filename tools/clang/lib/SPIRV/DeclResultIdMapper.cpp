@@ -48,8 +48,10 @@ hlsl::ConstantPacking *getPackOffset(const clang::NamedDecl *decl) {
 }
 
 /// Returns the number of binding numbers that are used up by the given type.
-/// An array of N resources consumes N binding numbers.
-/// A structure that contains M resources consumes M binding numbers.
+/// An array of size N consumes N*M binding numbers where M is the number of
+/// binding numbers used by each array element.
+/// The number of binding numbers used by a structure is the sum of binding
+/// numbers used by its members.
 uint32_t getNumBindingsUsedByResourceType(QualType type) {
   // For custom-generated types that have SpirvType but no QualType.
   if (type.isNull())
@@ -759,7 +761,7 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
     // for it.
     if (isStructureContainingMixOfResourcesAndNonResources(type)) {
       emitError("global structures containing both resources and non-resources "
-                "are unsupported",
+                "are not supported",
                 loc);
       return nullptr;
     }
@@ -772,6 +774,31 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
 
     auto *varInstr = astDecls[var].instr;
     return varInstr ? cast<SpirvVariable>(varInstr) : nullptr;
+  }
+
+  if (isResourceOnlyStructure(type)) {
+    // We currently do not support global structures that contain buffers.
+    // Supporting global structures that contain buffers has two complications:
+    //
+    // 1- Buffers have the Uniform storage class, whereas Textures/Samplers have
+    // UniformConstant storage class. As a result, if a struct contains both
+    // textures and buffers, it is not clear what storage class should be used
+    // for the struct. Also legalization cannot deduce the proper storage class
+    // for struct members based on the structure's storage class.
+    //
+    // 2- Any kind of structured buffer has associated counters. The current DXC
+    // code is not written in a way to place associated counters inside a
+    // structure. Changing this behavior is non-trivial. There's also
+    // significant work to be done both in DXC (to properly generate binding
+    // numbers for the resource and its associated counters at correct offsets)
+    // and in spirv-opt (to flatten such strcutures and modify the binding
+    // numbers accordingly).
+    if (isStructureContainingAnyKindOfBuffer(type)) {
+      emitError("global structures containing buffers are not supported", loc);
+      return nullptr;
+    }
+
+    needsFlatteningCompositeResources = true;
   }
 
   SpirvVariable *varInstr = spvBuilder.addModuleVar(
@@ -1695,7 +1722,7 @@ bool DeclResultIdMapper::decorateResourceBindings() {
     // resources (e.g. array of textures), DX uses one binding number per array
     // element. We can match this behavior via a command line option.
     uint32_t numBindingsToUse = 1;
-    if (spirvOptions.flattenResourceArrays)
+    if (spirvOptions.flattenResourceArrays || needsFlatteningCompositeResources)
       numBindingsToUse = getNumBindingsUsedByResourceType(
           var.getSpirvInstr()->getAstResultType());
 
@@ -1777,7 +1804,7 @@ bool DeclResultIdMapper::decorateResourceBindings() {
     // resources (e.g. array of textures), DX uses one binding number per array
     // element. We can match this behavior via a command line option.
     uint32_t numBindingsToUse = 1;
-    if (spirvOptions.flattenResourceArrays)
+    if (spirvOptions.flattenResourceArrays || needsFlatteningCompositeResources)
       numBindingsToUse = getNumBindingsUsedByResourceType(
           var.getSpirvInstr()->getAstResultType());
 
