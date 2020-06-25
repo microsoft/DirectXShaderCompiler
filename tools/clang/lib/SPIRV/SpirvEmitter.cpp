@@ -1167,9 +1167,9 @@ bool SpirvEmitter::validateVKAttributes(const NamedDecl *decl) {
     const auto loc = srbAttr->getLocation();
     const HLSLBufferDecl *bufDecl = nullptr;
     bool isValidType = false;
-    if (bufDecl = dyn_cast<HLSLBufferDecl>(decl))
+    if ((bufDecl = dyn_cast<HLSLBufferDecl>(decl)))
       isValidType = bufDecl->isCBuffer();
-    else if (bufDecl = dyn_cast<HLSLBufferDecl>(decl->getDeclContext()))
+    else if ((bufDecl = dyn_cast<HLSLBufferDecl>(decl->getDeclContext())))
       isValidType = bufDecl->isCBuffer();
 
     if (!isValidType) {
@@ -6165,7 +6165,7 @@ SpirvInstruction *SpirvEmitter::tryToAssignToMSOutAttrsOrIndices(
     varDecl = cast<DeclaratorDecl>(memberExpr->getMemberDecl());
   } else {
     if (const auto *arg = dyn_cast<DeclRefExpr>(base)) {
-      if (varDecl = dyn_cast<DeclaratorDecl>(arg->getDecl())) {
+      if ((varDecl = dyn_cast<DeclaratorDecl>(arg->getDecl()))) {
         if (varDecl->hasAttr<HLSLIndicesAttr>()) {
           isMSOutIndices = true;
         } else if (varDecl->hasAttr<HLSLVerticesAttr>() ||
@@ -11407,7 +11407,7 @@ SpirvEmitter::processTraceRayInline(const CXXMemberCallExpr *expr) {
   const auto accelStructure = doExpr(args[0]);
   SpirvInstruction *rayFlags = nullptr;
 
-  if (rayFlags = tryToEvaluateAsConst(args[1])) {
+  if ((rayFlags = tryToEvaluateAsConst(args[1]))) {
     rayFlags->setRValue();
   } else {
     rayFlags = doExpr(args[1]);

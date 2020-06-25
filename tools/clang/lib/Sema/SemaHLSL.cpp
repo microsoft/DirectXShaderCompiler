@@ -2791,7 +2791,7 @@ namespace hlsl {
       if (funcDecl) {
         if (m_sourceIt == m_callNodes.end()) {
           auto result = m_callNodes.insert(
-            std::pair<FunctionDecl*, CallNode>(m_source, CallNode{ m_source }));
+              std::make_pair(m_source, CallNode{m_source, {}}));
           DXASSERT(result.second == true,
             "else setSourceFn didn't assign m_sourceIt");
           m_sourceIt = result.first;
@@ -5447,7 +5447,7 @@ bool HLSLExternalSource::MatchArguments(
     }
 
     if (pIntrinsicArg->uLegalComponentTypes == LICOMPTYPE_USER_DEFINED_TYPE) {
-      DXASSERT(objectElement.isNull(), "");
+      DXASSERT_NOMSG(objectElement.isNull());
       QualType Ty = pCallArg->getType();
       // Must be user define type for LICOMPTYPE_USER_DEFINED_TYPE arg.
       if (TypeInfoShapeKind != AR_TOBJ_COMPOUND) {

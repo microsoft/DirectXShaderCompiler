@@ -76,6 +76,10 @@ const char* kFP32DenormKindString          = "fp32-denorm-mode";
 const char* kFP32DenormValueAnyString      = "any";
 const char* kFP32DenormValuePreserveString = "preserve";
 const char* kFP32DenormValueFtzString      = "ftz";
+
+const char *kDxBreakFuncName = "dx.break";
+const char *kDxBreakCondName = "dx.break.cond";
+const char *kDxBreakMDName = "dx.break.br";
 }
 
 // Avoid dependency on DxilModule from llvm::Module using this:

@@ -450,9 +450,9 @@ TEST_F(DxilModuleTest, CSGetNumThreads) {
   );
 
   DxilModule &DM = c.GetDxilModule();
-  VERIFY_ARE_EQUAL(8, DM.GetNumThreads(0));
-  VERIFY_ARE_EQUAL(4, DM.GetNumThreads(1));
-  VERIFY_ARE_EQUAL(2, DM.GetNumThreads(2));
+  VERIFY_ARE_EQUAL(8u, DM.GetNumThreads(0));
+  VERIFY_ARE_EQUAL(4u, DM.GetNumThreads(1));
+  VERIFY_ARE_EQUAL(2u, DM.GetNumThreads(2));
 }
 
 TEST_F(DxilModuleTest, MSGetNumThreads) {
@@ -472,9 +472,9 @@ TEST_F(DxilModuleTest, MSGetNumThreads) {
   );
 
   DxilModule &DM = c.GetDxilModule();
-  VERIFY_ARE_EQUAL(8, DM.GetNumThreads(0));
-  VERIFY_ARE_EQUAL(4, DM.GetNumThreads(1));
-  VERIFY_ARE_EQUAL(2, DM.GetNumThreads(2));
+  VERIFY_ARE_EQUAL(8u, DM.GetNumThreads(0));
+  VERIFY_ARE_EQUAL(4u, DM.GetNumThreads(1));
+  VERIFY_ARE_EQUAL(2u, DM.GetNumThreads(2));
 }
 
 TEST_F(DxilModuleTest, ASGetNumThreads) {
@@ -492,9 +492,9 @@ TEST_F(DxilModuleTest, ASGetNumThreads) {
   );
 
   DxilModule &DM = c.GetDxilModule();
-  VERIFY_ARE_EQUAL(8, DM.GetNumThreads(0));
-  VERIFY_ARE_EQUAL(4, DM.GetNumThreads(1));
-  VERIFY_ARE_EQUAL(2, DM.GetNumThreads(2));
+  VERIFY_ARE_EQUAL(8u, DM.GetNumThreads(0));
+  VERIFY_ARE_EQUAL(4u, DM.GetNumThreads(1));
+  VERIFY_ARE_EQUAL(2u, DM.GetNumThreads(2));
 }
 
 void DxilModuleTest::VerifyValidatorVersionFails(
