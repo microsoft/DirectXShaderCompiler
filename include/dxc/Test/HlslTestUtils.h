@@ -19,6 +19,7 @@
 #include <dxgiformat.h>
 #include "WexTestClass.h"
 #else
+#include "dxc/Support/Global.h" // DXASSERT_LOCALVAR
 #include "WEXAdapter.h"
 #endif
 #include "dxc/Support/Unicode.h"
@@ -126,8 +127,8 @@ vFormatToWString(_In_z_ _Printf_format_string_ const wchar_t *fmt, va_list argpt
 #else
   wchar_t fmtOut[1000];
   int len = vswprintf(fmtOut, 1000, fmt, argptr);
-  assert(len >= 0 && "Too long formatted string in vFormatToWstring");
-  (void)len;
+  DXASSERT_LOCALVAR(len, len >= 0,
+                    "Too long formatted string in vFormatToWstring");
   result = fmtOut;
 #endif
   return result;

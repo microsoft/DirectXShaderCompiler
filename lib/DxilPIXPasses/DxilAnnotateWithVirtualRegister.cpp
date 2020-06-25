@@ -279,9 +279,10 @@ bool DxilAnnotateWithVirtualRegister::IsAllocaRegisterWrite(
     uint32_t GEPOperandIndex = 1;
     auto *pBaseArrayIndex =
         llvm::dyn_cast<llvm::ConstantInt>(pGEP->getOperand(GEPOperandIndex++));
-    DXASSERT(pBaseArrayIndex != nullptr, "null base array index pointer");
-    DXASSERT(pBaseArrayIndex->getLimitedValue() == 0, "unexpected >0 array index");
-    (void)pBaseArrayIndex;
+    DXASSERT_LOCALVAR(pBaseArrayIndex, pBaseArrayIndex != nullptr,
+                      "null base array index pointer");
+    DXASSERT_LOCALVAR(pBaseArrayIndex, pBaseArrayIndex->getLimitedValue() == 0,
+                      "unexpected >0 array index");
 
     // From here on, the indices always come in groups: first, the type 
     // referenced in the current struct. If that type is an (n-dimensional)

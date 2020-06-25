@@ -224,7 +224,7 @@ public:
   /// Lookback scan limit for memory dependencies
   unsigned ScanLimit = 0;
   /// Disabled optimization passes
-  hlsl::OptimizationOptions HLSLOptimizationOptions = {0};
+  hlsl::OptimizationOptions HLSLOptimizationOptions = {};
   // HLSL Change Ends
 
   // SPIRV Change Starts

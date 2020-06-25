@@ -516,9 +516,8 @@ public:
 
         DIExpression *Expr = Declare->getExpression();
         if (Expr->getNumElements() == 1 && Expr->getElement(0) == dwarf::DW_OP_deref) {
-          while (Ty &&
-            Ty->getTag() == dwarf::DW_TAG_reference_type ||
-            Ty->getTag() == dwarf::DW_TAG_restrict_type)
+          while (Ty && (Ty->getTag() == dwarf::DW_TAG_reference_type ||
+                        Ty->getTag() == dwarf::DW_TAG_restrict_type))
           {
             Ty = cast<DIDerivedType>(Ty)->getBaseType().resolve(EmptyMap);
           }

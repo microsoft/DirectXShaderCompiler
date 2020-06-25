@@ -690,7 +690,7 @@ MDNode *CGMSHLSLRuntime::GetOrAddResTypeMD(QualType resTy, bool bCreate) {
 
 namespace {
 MatrixOrientation GetMatrixMajor(QualType Ty, bool bDefaultRowMajor) {
-  DXASSERT(hlsl::IsHLSLMatType(Ty), " ");
+  DXASSERT_NOMSG(hlsl::IsHLSLMatType(Ty));
   bool bIsRowMajor = bDefaultRowMajor;
   HasHLSLMatOrientation(Ty, &bIsRowMajor);
   return bIsRowMajor ? MatrixOrientation::RowMajor

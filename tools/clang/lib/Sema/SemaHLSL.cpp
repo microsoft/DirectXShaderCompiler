@@ -5447,7 +5447,7 @@ bool HLSLExternalSource::MatchArguments(
     }
 
     if (pIntrinsicArg->uLegalComponentTypes == LICOMPTYPE_USER_DEFINED_TYPE) {
-      DXASSERT(objectElement.isNull(), " ");
+      DXASSERT_NOMSG(objectElement.isNull());
       QualType Ty = pCallArg->getType();
       // Must be user define type for LICOMPTYPE_USER_DEFINED_TYPE arg.
       if (TypeInfoShapeKind != AR_TOBJ_COMPOUND) {
