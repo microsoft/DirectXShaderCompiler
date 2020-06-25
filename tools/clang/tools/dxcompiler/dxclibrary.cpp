@@ -502,8 +502,9 @@ public:
     CATCH_CPP_RETURN_HRESULT();
   }
 
-  virtual HRESULT STDMETHODCALLTYPE GetPDBContents(
-    _In_ IDxcBlob *pPDBBlob, _COM_Outptr_ IDxcBlob **ppHash, _COM_Outptr_ IDxcBlob **ppContainer)
+  virtual HRESULT STDMETHODCALLTYPE
+  GetPDBContents(_In_ IDxcBlob *pPDBBlob, _COM_Outptr_ IDxcBlob **ppHash,
+                 _COM_Outptr_ IDxcBlob **ppContainer) override
   {
     DxcThreadMalloc TM(m_pMalloc);
 

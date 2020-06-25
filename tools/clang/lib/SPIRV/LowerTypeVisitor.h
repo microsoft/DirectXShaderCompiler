@@ -28,16 +28,18 @@ public:
         alignmentCalc(astCtx, opts) {}
 
   // Visiting different SPIR-V constructs.
-  bool visit(SpirvModule *, Phase) { return true; }
-  bool visit(SpirvFunction *, Phase);
-  bool visit(SpirvBasicBlock *, Phase) { return true; }
+  bool visit(SpirvModule *, Phase) override { return true; }
+  bool visit(SpirvFunction *, Phase) override;
+  bool visit(SpirvBasicBlock *, Phase) override { return true; }
+
+  using Visitor::visit;
 
   /// The "sink" visit function for all instructions.
   ///
   /// By default, all other visit instructions redirect to this visit function.
   /// So that you want override this visit function to handle all instructions,
   /// regardless of their polymorphism.
-  bool visitInstruction(SpirvInstruction *instr);
+  bool visitInstruction(SpirvInstruction *instr) override;
 
 private:
   /// Emits error to the diagnostic engine associated with this visitor.

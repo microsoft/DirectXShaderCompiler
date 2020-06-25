@@ -225,7 +225,7 @@ static Value *GetOrCreatePreserveCond(Function *F) {
   }
 
   for (User *U : GV->users()) {
-    GEPOperator *Gep = Gep = cast<GEPOperator>(U);
+    GEPOperator *Gep = cast<GEPOperator>(U);
     for (User *GepU : Gep->users()) {
       LoadInst *LI = cast<LoadInst>(GepU);
       if (LI->getParent()->getParent() == F) {
@@ -516,9 +516,8 @@ public:
 
         DIExpression *Expr = Declare->getExpression();
         if (Expr->getNumElements() == 1 && Expr->getElement(0) == dwarf::DW_OP_deref) {
-          while (Ty &&
-            Ty->getTag() == dwarf::DW_TAG_reference_type ||
-            Ty->getTag() == dwarf::DW_TAG_restrict_type)
+          while (Ty && (Ty->getTag() == dwarf::DW_TAG_reference_type ||
+                        Ty->getTag() == dwarf::DW_TAG_restrict_type))
           {
             Ty = cast<DIDerivedType>(Ty)->getBaseType().resolve(EmptyMap);
           }

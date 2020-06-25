@@ -690,7 +690,7 @@ MDNode *CGMSHLSLRuntime::GetOrAddResTypeMD(QualType resTy, bool bCreate) {
 
 namespace {
 MatrixOrientation GetMatrixMajor(QualType Ty, bool bDefaultRowMajor) {
-  DXASSERT(hlsl::IsHLSLMatType(Ty), "");
+  DXASSERT_NOMSG(hlsl::IsHLSLMatType(Ty));
   bool bIsRowMajor = bDefaultRowMajor;
   HasHLSLMatOrientation(Ty, &bIsRowMajor);
   return bIsRowMajor ? MatrixOrientation::RowMajor
@@ -2717,7 +2717,7 @@ std::vector<StringRef> CGMSHLSLRuntime::ParseSubobjectExportsAssociations(String
     parsedExports.emplace_back(StringRef(pLast, pData - pLast));
   }
   
-  return std::move(parsedExports);
+  return parsedExports;
 }
 
 

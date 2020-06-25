@@ -423,7 +423,7 @@ DxilResourceBase &GetResourceFromID(DxilModule &DM, DXIL::ResourceClass resClass
         break;
     default:
         ThrowFailure();
-        return *(DxilResourceBase*)nullptr;
+        llvm_unreachable("invalid resource class");
     }
 }
 
