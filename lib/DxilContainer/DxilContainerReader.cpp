@@ -9,8 +9,6 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#pragma once
-
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinAdapter.h"
 #include "dxc/DxilContainer/DxilContainer.h"

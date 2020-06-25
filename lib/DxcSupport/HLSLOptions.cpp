@@ -303,7 +303,7 @@ static bool handleVkShiftArgs(const InputArgList &args, OptSpecifier id,
     return false;
   }
   return true;
-};
+}
 #endif
 // SPIRV Change Ends
 
@@ -492,7 +492,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   if (!limit.empty())
     opts.ScanLimit = std::stoul(std::string(limit));
 
-  opts.DxcOptimizationOptions = {0};
+  opts.DxcOptimizationOptions = {};
   std::vector<std::string> DisabledOptimizations = Args.getAllArgValues(OPT_opt_disable);
   for (std::string opt : DisabledOptimizations) {
     llvm::StringRef gvn("gvn");

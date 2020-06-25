@@ -25,26 +25,30 @@ struct DxilResourceProperties {
   DXIL::ResourceKind  Kind;
   static constexpr unsigned kSampleCountUndefined = 0x7;
 
+  struct DxilTyped {
+    DXIL::ComponentType CompType : 5; // TypedBuffer/Image.
+    uint32_t SingleComponent : 1;     // Return type is single component.
+    // 2^SampleCountPow2 for Sample count of Texture2DMS.
+    uint32_t SampleCountPow2 : 3;
+    uint32_t Reserved : 23;
+  };
+
   union {
-    struct {
-      DXIL::ComponentType CompType : 5; // TypedBuffer/Image.
-      uint32_t SingleComponent : 1;     // Return type is single component.
-      // 2^SampleCountPow2 for Sample count of Texture2DMS.
-      uint32_t SampleCountPow2 : 3;
-      uint32_t Reserved : 23;
-    } Typed;
+    DxilTyped Typed;
     uint32_t ElementStride; // in bytes for StructurizedBuffer.
     DXIL::SamplerFeedbackType SamplerFeedbackType; // FeedbackTexture2D.
     uint32_t SizeInBytes; // Cbuffer instance size in bytes.
     uint32_t RawDword0;
   };
 
+  struct DxilUAV {
+    uint32_t bROV : 1;              // UAV
+    uint32_t bGloballyCoherent : 1; // UAV
+    uint32_t Reserved : 30;
+  };
+
   union {
-    struct {
-      uint32_t bROV : 1;              // UAV
-      uint32_t bGloballyCoherent : 1; // UAV
-      uint32_t Reserved : 30;
-    } UAV;
+    DxilUAV UAV;
     uint32_t RawDword1;
   };
 
@@ -72,6 +76,6 @@ loadFromAnnotateHandle(DxilInst_AnnotateHandle &annotateHandle, llvm::Type *Ty,
                        const ShaderModel &);
 DxilResourceProperties loadFromResourceBase(DxilResourceBase *);
 
-}; // namespace resource_helper
+} // namespace resource_helper
 
 } // namespace hlsl

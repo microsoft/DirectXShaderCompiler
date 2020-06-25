@@ -19,6 +19,7 @@
 #include <dxgiformat.h>
 #include "WexTestClass.h"
 #else
+#include "dxc/Support/Global.h" // DXASSERT_LOCALVAR
 #include "WEXAdapter.h"
 #endif
 #include "dxc/Support/Unicode.h"
@@ -79,28 +80,28 @@ using namespace std;
 
 static constexpr char whitespaceChars[] = " \t\r\n";
 
-static std::string strltrim(const std::string &value) {
+inline std::string strltrim(const std::string &value) {
   size_t first = value.find_first_not_of(whitespaceChars);
   return first == string::npos ? value : value.substr(first);
 }
 
-static std::string strrtrim(const std::string &value) {
+inline std::string strrtrim(const std::string &value) {
   size_t last = value.find_last_not_of(whitespaceChars);
   return last == string::npos ? value : value.substr(0, last + 1);
 }
 
-static std::string strtrim(const std::string &value) {
+inline std::string strtrim(const std::string &value) {
   return strltrim(strrtrim(value));
 }
 
-static bool strstartswith(const std::string& value, const char* pattern) {
+inline bool strstartswith(const std::string& value, const char* pattern) {
   for (size_t i = 0; ; ++i) {
     if (pattern[i] == '\0') return true;
     if (i == value.size() || value[i] != pattern[i]) return false;
   }
 }
 
-static std::vector<std::string> strtok(const std::string &value, const char *delimiters = whitespaceChars) {
+inline std::vector<std::string> strtok(const std::string &value, const char *delimiters = whitespaceChars) {
   size_t searchOffset = 0;
   std::vector<std::string> tokens;
   while (searchOffset != value.size()) {
@@ -126,7 +127,8 @@ vFormatToWString(_In_z_ _Printf_format_string_ const wchar_t *fmt, va_list argpt
 #else
   wchar_t fmtOut[1000];
   int len = vswprintf(fmtOut, 1000, fmt, argptr);
-  assert(len >= 0 && "Too long formatted string in vFormatToWstring");
+  DXASSERT_LOCALVAR(len, len >= 0,
+                    "Too long formatted string in vFormatToWstring");
   result = fmtOut;
 #endif
   return result;

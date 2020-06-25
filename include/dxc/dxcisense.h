@@ -785,7 +785,7 @@ IDxcTranslationUnit : public IUnknown
     _Out_ BSTR* errorMessage) = 0;
   virtual HRESULT STDMETHODCALLTYPE GetInclusionList(_Out_ unsigned* pResultCount, _Outptr_result_buffer_(*pResultCount) IDxcInclusion*** pResult) = 0;
   virtual HRESULT STDMETHODCALLTYPE CodeCompleteAt(
-      _In_ char *fileName, unsigned line, unsigned column,
+      _In_ const char *fileName, unsigned line, unsigned column,
       _In_ IDxcUnsavedFile** pUnsavedFiles, unsigned numUnsavedFiles,
       _In_ DxcCodeCompleteFlags options,
       _Outptr_result_nullonfailure_ IDxcCodeCompleteResults **pResult) = 0;

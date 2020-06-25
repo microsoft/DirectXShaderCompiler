@@ -1845,7 +1845,7 @@ HRESULT DxcTranslationUnit::GetInclusionList(unsigned *pResultCount,
 
 _Use_decl_annotations_
 HRESULT DxcTranslationUnit::CodeCompleteAt(
-	char *fileName, unsigned line, unsigned column,
+	const char *fileName, unsigned line, unsigned column,
 	IDxcUnsavedFile **pUnsavedFiles, unsigned numUnsavedFiles,
 	DxcCodeCompleteFlags options, IDxcCodeCompleteResults **pResult)
 {
