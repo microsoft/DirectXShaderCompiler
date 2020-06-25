@@ -42,6 +42,7 @@
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/WinFunctions.h"
 #include "dxc.h"
+#include <algorithm>
 #include <vector>
 #include <string>
 
@@ -555,7 +556,9 @@ public:
     _COM_Outptr_result_maybenull_ IDxcBlob **ppIncludeSource
   ) override {
     try {
-      *ppIncludeSource = includeFiles.at(std::wstring(pFilename));
+      std::wstring FilenameStr(pFilename);
+      std::replace(FilenameStr.begin(), FilenameStr.end(), '/', '\\');
+      *ppIncludeSource = includeFiles.at(FilenameStr);
       (*ppIncludeSource)->AddRef();
     }
     CATCH_CPP_RETURN_HRESULT()
