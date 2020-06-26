@@ -53,9 +53,9 @@ void main() {
   m2x2f = ddx(m2x2f);
 
 // CHECK:                       OpLine [[file]] 60 11
-// CHECK-NEXT: [[fmod0:%\d+]] = OpFMod %v2float {{%\d+}} {{%\d+}}
+// CHECK-NEXT: [[fmod0:%\d+]] = OpFRem %v2float {{%\d+}} {{%\d+}}
 // CHECK:                       OpLine [[file]] 60 11
-// CHECK-NEXT: [[fmod1:%\d+]] = OpFMod %v2float {{%\d+}} {{%\d+}}
+// CHECK-NEXT: [[fmod1:%\d+]] = OpFRem %v2float {{%\d+}} {{%\d+}}
 // CHECK-NEXT:       {{%\d+}} = OpCompositeConstruct %mat2v2float [[fmod0]] [[fmod1]]
   m2x2f = fmod(m2x2f, float2x2(v4i));
 
