@@ -42,7 +42,6 @@
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/WinFunctions.h"
 #include "dxc.h"
-#include <algorithm>
 #include <vector>
 #include <string>
 
@@ -60,6 +59,7 @@
 #include "llvm/Option/ArgList.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/Path.h"
 #ifdef _WIN32
 #include <dia2.h>
 #include <comdef.h>
@@ -556,9 +556,12 @@ public:
     _COM_Outptr_result_maybenull_ IDxcBlob **ppIncludeSource
   ) override {
     try {
-      std::wstring FilenameStr(pFilename);
-      std::replace(FilenameStr.begin(), FilenameStr.end(), '/', '\\');
-      *ppIncludeSource = includeFiles.at(FilenameStr);
+      // Convert pFilename into native form for indexing as is done when the MD is created
+      std::string FilenameStr8 = Unicode::UTF16ToUTF8StringOrThrow(pFilename);
+      llvm::SmallString<128> NormalizedPath;
+      llvm::sys::path::native(FilenameStr8, NormalizedPath);
+      std::wstring FilenameStr16 = Unicode::UTF8ToUTF16StringOrThrow(NormalizedPath.c_str());
+      *ppIncludeSource = includeFiles.at(FilenameStr16);
       (*ppIncludeSource)->AddRef();
     }
     CATCH_CPP_RETURN_HRESULT()
