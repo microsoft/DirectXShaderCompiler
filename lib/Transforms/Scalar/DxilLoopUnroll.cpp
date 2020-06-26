@@ -83,6 +83,7 @@
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/HLSL/HLModule.h"
 #include "llvm/Analysis/DxilValueCache.h"
+#include "llvm/Analysis/ValueTracking.h"
 
 using namespace llvm;
 using namespace hlsl;
@@ -522,8 +523,16 @@ static bool BreakUpArrayAllocas(bool AllowOOBIndex, IteratorT ItBegin, IteratorT
 
     GEPs.clear(); // Re-use array
     for (User *U : AI->users()) {
-      // Try to set all GEP operands to constant
-      if (GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
+      // Ignore lifetime intrinsics
+      if (BitCastInst *BCI = dyn_cast<BitCastInst>(U)) {
+        DXASSERT(onlyUsedByLifetimeMarkers(BCI),
+                 "expected bitcast to only be used by lifetime intrinsics");
+      } else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(U)) {
+        // A GEPOperator can also be a ConstantExpr, thus we check this case first.
+        DXASSERT(onlyUsedByLifetimeMarkers(CE),
+                 "expected bitcast to only be used by lifetime intrinsics");
+      } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
+        // Try to set all GEP operands to constant
         if (!GEP->hasAllConstantIndices() && isa<GetElementPtrInst>(GEP)) {
           for (unsigned i = 0; i < GEP->getNumIndices(); i++) {
             Value *IndexOp = GEP->getOperand(i + 1);

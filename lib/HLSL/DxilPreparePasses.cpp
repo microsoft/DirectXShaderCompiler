@@ -363,7 +363,7 @@ public:
     }
   }
 
-  void patchDxil_1_6(Module &M, hlsl::OP *hlslOP) {
+  void patchDxil_1_6(Module &M, hlsl::OP *hlslOP, unsigned ValMajor, unsigned ValMinor) {
     for (auto it : hlslOP->GetOpFuncList(DXIL::OpCode::AnnotateHandle)) {
       Function *F = it.second;
       if (!F)
@@ -376,6 +376,80 @@ public:
         CI->eraseFromParent();
       }
     }
+
+    // Replace llvm.lifetime.start/.end intrinsics with undef stores.
+    // This works around losing scoping information in earlier shader models
+    // that do not support the intrinsics natively.
+
+    // Get the declarations. This may introduce them if there were none before.
+    Value *StartDecl = Intrinsic::getDeclaration(&M, Intrinsic::lifetime_start);
+    Value *EndDecl   = Intrinsic::getDeclaration(&M, Intrinsic::lifetime_end);
+
+    // Collect all calls to both intrinsics.
+    std::vector<CallInst*> intrinsicCalls;
+    for (Use &U : StartDecl->uses()) {
+      // All users must be call instructions.
+      CallInst *CI = dyn_cast<CallInst>(U.getUser());
+      DXASSERT(CI, "Expected user of lifetime.start intrinsic to be a CallInst");
+      intrinsicCalls.push_back(CI);
+    }
+    for (Use &U : EndDecl->uses()) {
+      // All users must be call instructions.
+      CallInst *CI = dyn_cast<CallInst>(U.getUser());
+      DXASSERT(CI, "Expected user of lifetime.end intrinsic to be a CallInst");
+      intrinsicCalls.push_back(CI);
+    }
+
+    // Replace each intrinsic with an undef store.
+    for (CallInst *CI : intrinsicCalls) {
+      // Find the corresponding pointer (can be alloca, global value, an
+      // argument, ...).
+      Value *voidPtr = CI->getArgOperand(1);
+      DXASSERT(voidPtr->getType()->isPointerTy() &&
+               voidPtr->getType()->getPointerElementType()->isIntegerTy(8),
+               "Expected operand of lifetime intrinsic to be of type i8*" );
+
+      Value *ptr = nullptr;
+      if (BitCastInst *BC = dyn_cast<BitCastInst>(voidPtr)) {
+        ptr = BC->getOperand(0);
+      } else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(voidPtr)) {
+        DXASSERT(CE->getOpcode() == Instruction::BitCast,
+                 "expected operand of lifetime intrinsic to be a bitcast");
+        ptr = CE->getOperand(0);
+      } else {
+        DXASSERT(false, "Expected operand of lifetime intrinsic to be a bitcast");
+      }
+
+      // Determine the type to use when storing undef.
+      DXASSERT(ptr->getType()->isPointerTy(),
+               "Expected type of operand of lifetime intrinsic bitcast operand to be a pointer");
+      Type *T = ptr->getType()->getPointerElementType();
+
+      // Store undef at the location of the start/end intrinsic.
+      // If we are targeting validator version < 6.6 we cannot store undef since
+      // it causes a validation error. As a workaround we store 0, which
+      // achieves mostly the same as storing undef but can cause overhead in
+      // some situations.
+      if (ValMajor < 1 || (ValMajor == 1 && ValMinor < 6))
+        IRBuilder<>(CI).CreateStore(Constant::getNullValue(T), ptr);
+      else
+        IRBuilder<>(CI).CreateStore(UndefValue::get(T), ptr);
+
+      // Erase the intrinsic call and, if it has no uses anymore, the bitcast as well.
+      DXASSERT_NOMSG(CI->use_empty());
+      CI->eraseFromParent();
+
+      // Erase the bitcast inst if it is not a ConstantExpr.
+      if (BitCastInst *BC = dyn_cast<BitCastInst>(voidPtr))
+        if (BC->use_empty())
+          BC->eraseFromParent();
+    }
+
+    // Erase the intrinsic declarations.
+    DXASSERT_NOMSG(StartDecl->use_empty());
+    DXASSERT_NOMSG(EndDecl->use_empty());
+    cast<Function>(StartDecl)->eraseFromParent();
+    cast<Function>(EndDecl)->eraseFromParent();
   }
 
   bool runOnModule(Module &M) override {
@@ -404,7 +478,7 @@ public:
       // Remove store undef output.
       hlsl::OP *hlslOP = M.GetDxilModule().GetOP();
       if (DxilMinor < 6) {
-        patchDxil_1_6(M, hlslOP);
+        patchDxil_1_6(M, hlslOP, ValMajor, ValMinor);
       }
       RemoveStoreUndefOutput(M, hlslOP);
 

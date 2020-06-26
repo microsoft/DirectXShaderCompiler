@@ -381,7 +381,7 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createDxilRewriteOutputArgDebugInfoPass()); // Fix output argument types.
 
   MPM.add(createHLLegalizeParameter()); // legalize parameters before inline.
-  MPM.add(createAlwaysInlinerPass(/*InsertLifeTime*/false));
+  MPM.add(createAlwaysInlinerPass(/*InsertLifeTime*/true));
   if (Inliner) {
     delete Inliner;
     Inliner = nullptr;

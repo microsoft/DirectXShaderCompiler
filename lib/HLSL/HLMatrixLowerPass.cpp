@@ -291,6 +291,14 @@ void HLMatrixLowerPass::getMatrixAllocasAndOtherInsts(Function &Func,
       // typically a global variable or alloca.
       if (isa<GetElementPtrInst>(&Inst)) continue;
 
+      // Don't lower bitcast and lifetime intrinsics here. We'll handle them as we
+      // lower the alloca.
+      if (isa<BitCastInst>(&Inst)) continue;
+
+      IntrinsicInst *Intrin = dyn_cast<IntrinsicInst>(&Inst);
+      if (Intrin && Intrin->getIntrinsicID() == Intrinsic::lifetime_start) continue;
+      if (Intrin && Intrin->getIntrinsicID() == Intrinsic::lifetime_end) continue;
+
       if (AllocaInst *Alloca = dyn_cast<AllocaInst>(&Inst)) {
         if (HLMatrixType::isMatrixOrPtrOrArrayPtr(Alloca->getType())) {
           MatAllocas.emplace_back(Alloca);
@@ -535,6 +543,24 @@ void HLMatrixLowerPass::replaceAllVariableUses(
       Use.set(UndefValue::get(Use->getType()));
       addToDeadInsts(CI);
       continue;
+    }
+
+    if (BitCastInst *BCI = dyn_cast<BitCastInst>(Use.getUser())) {
+      // Replace bitcasts to i8* for lifetime intrinsics.
+      if (BCI->getType()->isPointerTy() && BCI->getType()->getPointerElementType()->isIntegerTy(8))
+      {
+        DXASSERT(BCI->getNumUses() == 1, "expected only a single use");
+        llvm::Use &UseUse = *BCI->use_begin();
+        IntrinsicInst *Intrin = dyn_cast<IntrinsicInst>(UseUse.getUser());
+        DXASSERT(Intrin && (Intrin->getIntrinsicID() == Intrinsic::lifetime_start || Intrin->getIntrinsicID() == Intrinsic::lifetime_end), "use must be lifetime.start/end");
+        IRBuilder<> Builder(BCI);
+        // Replace the use in the intrinsic.
+        UseUse.set(Builder.CreateBitCast(LoweredPtr, BCI->getType()));
+        // Remove the current use to end iteration.
+        Use.set(UndefValue::get(Use->getType()));
+        addToDeadInsts(BCI);
+        continue;
+      }
     }
 
     // Recreate the same GEP sequence, if any, on the lowered pointer

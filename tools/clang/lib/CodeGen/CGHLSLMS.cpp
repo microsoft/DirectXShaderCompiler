@@ -243,7 +243,7 @@ public:
                                      ArrayRef<Value *> paramList) override;
 
   void EmitHLSLDiscard(CodeGenFunction &CGF) override;
-  void EmitHLSLCondBreak(CodeGenFunction &CGF, llvm::Function *F, llvm::BasicBlock *DestBB, llvm::BasicBlock *AltBB) override;
+  BranchInst *EmitHLSLCondBreak(CodeGenFunction &CGF, llvm::Function *F, llvm::BasicBlock *DestBB, llvm::BasicBlock *AltBB) override;
 
   Value *EmitHLSLMatrixSubscript(CodeGenFunction &CGF, llvm::Type *RetType,
                                  Value *Ptr, Value *Idx, QualType Ty) override;
@@ -4368,12 +4368,11 @@ void CGMSHLSLRuntime::EmitHLSLDiscard(CodeGenFunction &CGF) {
 // This allows the block containing what would have been an unconditional break to be included in the loop
 // If the block uses values that are wave-sensitive, it needs to stay in the loop to prevent optimizations
 // that might produce incorrect results by ignoring the volatile aspect of wave operation results.
-void CGMSHLSLRuntime::EmitHLSLCondBreak(CodeGenFunction &CGF, Function *F, BasicBlock *DestBB, BasicBlock *AltBB) {
+BranchInst *CGMSHLSLRuntime::EmitHLSLCondBreak(CodeGenFunction &CGF, Function *F, BasicBlock *DestBB, BasicBlock *AltBB) {
   // If not a wave-enabled stage, we can keep everything unconditional as before
   if (!m_pHLModule->GetShaderModel()->IsPS() && !m_pHLModule->GetShaderModel()->IsCS() &&
       !m_pHLModule->GetShaderModel()->IsLib()) {
-    CGF.Builder.CreateBr(DestBB);
-    return;
+    return CGF.Builder.CreateBr(DestBB);
   }
 
   // Create a branch that is temporarily conditional on a constant
@@ -4381,6 +4380,7 @@ void CGMSHLSLRuntime::EmitHLSLCondBreak(CodeGenFunction &CGF, Function *F, Basic
   llvm::Type *boolTy = llvm::Type::getInt1Ty(Context);
   BranchInst *BI = CGF.Builder.CreateCondBr(llvm::ConstantInt::get(boolTy,1), DestBB, AltBB);
   m_DxBreaks.emplace_back(BI);
+  return BI;
 }
 
 static llvm::Type *MergeIntType(llvm::IntegerType *T0, llvm::IntegerType *T1) {

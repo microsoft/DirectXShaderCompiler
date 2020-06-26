@@ -306,9 +306,11 @@ private:
 
 } // end of anonymous namespace
 
-static void removeLifetimeIntrinsicUsers(AllocaInst *AI) {
+static BasicBlock *determineLifetimeStartBBAndRemoveLifetimeIntrinsicUsers(AllocaInst *AI) {
   // Knowing that this alloca is promotable, we know that it's safe to kill all
   // instructions except for load and store.
+  bool determineLifetimeStartLoc = true;
+  BasicBlock *LifetimeStartBB = nullptr;
 
   for (auto UI = AI->user_begin(), UE = AI->user_end(); UI != UE;) {
     Instruction *I = cast<Instruction>(*UI);
@@ -318,16 +320,26 @@ static void removeLifetimeIntrinsicUsers(AllocaInst *AI) {
 
     if (!I->getType()->isVoidTy()) {
       // The only users of this bitcast/GEP instruction are lifetime intrinsics.
-      // Follow the use/def chain to erase them now instead of leaving it for
-      // dead code elimination later.
       for (auto UUI = I->user_begin(), UUE = I->user_end(); UUI != UUE;) {
-        Instruction *Inst = cast<Instruction>(*UUI);
+        IntrinsicInst *Inst = dyn_cast<IntrinsicInst>(*UUI);
+        assert(Inst);
         ++UUI;
+        if (determineLifetimeStartLoc && Inst->getIntrinsicID() == Intrinsic::lifetime_start) {
+          if (LifetimeStartBB && LifetimeStartBB != Inst->getParent()) {
+            // We can't handle alloca with multiple lifetime.start intrinsics.
+            // Clear the block and stop looking for a new one.
+            LifetimeStartBB = nullptr;
+            determineLifetimeStartLoc = false;
+          }
+          LifetimeStartBB = Inst->getParent();
+        }
         Inst->eraseFromParent();
       }
     }
     I->eraseFromParent();
   }
+
+  return LifetimeStartBB;
 }
 
 /// \brief Rewrite as many loads as possible given a single store.
@@ -544,7 +556,7 @@ void PromoteMem2Reg::run() {
     assert(AI->getParent()->getParent() == &F &&
            "All allocas should be in the same function, which is same as DF!");
 
-    removeLifetimeIntrinsicUsers(AI);
+    BasicBlock *LifetimeStartBB = determineLifetimeStartBBAndRemoveLifetimeIntrinsicUsers(AI);
 
     if (AI->use_empty()) {
       // If there are no uses of the alloca, just delete it now.
@@ -561,6 +573,26 @@ void PromoteMem2Reg::run() {
     // Calculate the set of read and write-locations for each alloca.  This is
     // analogous to finding the 'uses' and 'definitions' of each variable.
     Info.AnalyzeAlloca(AI);
+
+    // For allocas that have at least one store, make sure the block that holds
+    // the lifetime.start call is treated as a 'definition'.
+    // Ignore allocas that are only used in one block, even if the lifetime
+    // start marker is in a different one.
+    if (LifetimeStartBB && !Info.DefiningBlocks.empty() && !Info.OnlyUsedInOneBlock) {
+      bool AnyStoreInStartBB = false;
+      for (BasicBlock *BB : Info.DefiningBlocks) {
+        if (BB == LifetimeStartBB) {
+          AnyStoreInStartBB = true;
+          break;
+        }
+      }
+
+      if (!AnyStoreInStartBB) {
+        // No store in start BB. Add the lifetime marker as defining block to
+        // avoid undef.
+        Info.DefiningBlocks.insert(Info.DefiningBlocks.begin(), LifetimeStartBB);
+      }
+    }
 
     // If there is only a single store to this value, replace any loads of
     // it that are directly dominated by the definition with the value stored.

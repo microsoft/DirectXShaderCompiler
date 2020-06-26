@@ -30,6 +30,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/DebugInfo.h"
+#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Pass.h"
@@ -1066,6 +1067,10 @@ public:
     } else if (Constant *C = dyn_cast<Constant>(V)) {
       // skip @llvm.used entry
       return;
+    } else if (BitCastInst *BCI = dyn_cast<BitCastInst>(V)) {
+      DXASSERT(onlyUsedByLifetimeMarkers(BCI),
+               "expected bitcast to only be used by lifetime intrinsics");
+      return;
     } else if (bAlloca) {
       m_Errors.ReportError(ResourceUseErrors::AllocaUserDisallowed, V);
     } else {
@@ -1960,11 +1965,7 @@ void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
       DXASSERT(handleMapOnFunction.count(userF), "must exist");
       Value *handle = handleMapOnFunction[userF];
       ReplaceResourceUserWithHandle(ldInst, handle);
-    } else {
-      DXASSERT(dyn_cast<GEPOperator>(user) != nullptr,
-               "else AddOpcodeParamForIntrinsic in CodeGen did not patch uses "
-               "to only have ld/st refer to temp object");
-      GEPOperator *GEP = cast<GEPOperator>(user);
+    } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(user)) {
       Value *idx = nullptr;
       if (GEP->getNumIndices() == 2) {
         // one dim array of resource
@@ -2031,6 +2032,28 @@ void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
       if (Instruction *I = dyn_cast<Instruction>(GEP)) {
         I->eraseFromParent();
       }
+    } else if (BitCastInst *BCI = dyn_cast<BitCastInst>(user)) {
+      DXASSERT(onlyUsedByLifetimeMarkers(BCI),
+               "expected bitcast to only be used by lifetime intrinsics");
+      for (auto BCIU = BCI->user_begin(), BCIE = BCI->user_end(); BCIU != BCIE;) {
+        IntrinsicInst *II = cast<IntrinsicInst>(*(BCIU++));
+        II->eraseFromParent();
+      }
+      BCI->eraseFromParent();
+    } else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(user)) {
+      // A GEPOperator can also be a ConstantExpr, so it must be checked before
+      // this code.
+      DXASSERT(CE->getOpcode() == Instruction::BitCast, "expected bitcast");
+      DXASSERT(onlyUsedByLifetimeMarkers(CE),
+               "expected ConstantExpr to only be used by lifetime intrinsics");
+      for (auto CEU = CE->user_begin(), CEE = CE->user_end(); CEU != CEE;) {
+        IntrinsicInst *II = cast<IntrinsicInst>(*(CEU++));
+        II->eraseFromParent();
+      }
+    } else {
+      DXASSERT(false,
+               "AddOpcodeParamForIntrinsic in CodeGen did not patch uses "
+               "to only have ld/st refer to temp object");
     }
   }
   // Erase unused handle.

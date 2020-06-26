@@ -20,6 +20,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Metadata.h"
@@ -28,6 +29,7 @@
 #include "llvm/IR/DIBuilder.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
+#include "llvm/Analysis/ValueTracking.h"
 
 using namespace llvm;
 using std::string;
@@ -1220,6 +1222,10 @@ void HLModule::MarkPreciseAttributeOnPtrWithFunctionCall(llvm::Value *Ptr,
           MarkPreciseAttributeOnValWithFunctionCall(CI, Builder, M);
         }
       }
+    } else if (BitCastInst *BCI = dyn_cast<BitCastInst>(U)) {
+      // Do not mark bitcasts. We only expect them here due to lifetime intrinsics.
+      DXASSERT(onlyUsedByLifetimeMarkers(BCI),
+               "expected bitcast to only be used by lifetime intrinsics");
     } else {
       // Must be GEP here.
       GetElementPtrInst *GEP = cast<GetElementPtrInst>(U);

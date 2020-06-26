@@ -19,7 +19,9 @@
 // CHECK: fadd
 // CHECK: select i1
 // CHECK: cbufferLoadLegacy
-// CHECK: ret void
+// CHECK: add nuw nsw
+// CHECK: icmp
+// CHECK: br i1
 struct OuterStruct
 {
   float fval;
@@ -34,9 +36,9 @@ cbuffer cbuf : register(b1)
 float main(int doit : A) : SV_Target
 {
   float res = 0.0;
+  OuterStruct oStruct;
   // Need a loop so the dest user can come before the memcpy
   for (int i = 0; i < doit; i++) {
-    OuterStruct oStruct;
     // This should be expressable as a select unless a bunch of mem stuff gets crammed in
     if(i%2 == 0) {
       res += oStruct.fval2;

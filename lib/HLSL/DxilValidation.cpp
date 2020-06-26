@@ -36,6 +36,7 @@
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
@@ -3294,6 +3295,9 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
           if (ShuffleVectorInst *Shuf = dyn_cast<ShuffleVectorInst>(&I)) {
             legalUndef = op == I.getOperand(1);
           }
+          if (StoreInst *Store = dyn_cast<StoreInst>(&I)) {
+            legalUndef = op == I.getOperand(0);
+          }
 
           if (!legalUndef)
             ValCtx.EmitInstrError(&I,
@@ -3308,6 +3312,10 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
         }
         if (IntegerType *IT = dyn_cast<IntegerType>(op->getType())) {
           if (IT->getBitWidth() == 8) {
+            // Allow i8* cast for llvm.lifetime.* intrinsics.
+            IntrinsicInst* Intrin = dyn_cast<IntrinsicInst>(&I);
+            if (Intrin && Intrin->getIntrinsicID() == Intrinsic::lifetime_start) continue;
+            if (Intrin && Intrin->getIntrinsicID() == Intrinsic::lifetime_end) continue;
             ValCtx.EmitInstrError(&I, ValidationRule::TypesI8);
           }
         }
@@ -3319,7 +3327,8 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
       while (isa<ArrayType>(Ty))
         Ty = Ty->getArrayElementType();
       if (IntegerType *IT = dyn_cast<IntegerType>(Ty)) {
-        if (IT->getBitWidth() == 8) {
+        // Allow i8* cast for llvm.lifetime.* intrinsics.
+        if (IT->getBitWidth() == 8 && !isa<BitCastInst>(I)) {
           ValCtx.EmitInstrError(&I, ValidationRule::TypesI8);
         }
       }
@@ -3420,6 +3429,7 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
         BitCastInst *Cast = cast<BitCastInst>(&I);
         Type *FromTy = Cast->getOperand(0)->getType();
         Type *ToTy = Cast->getType();
+        if (ToTy == Type::getInt8PtrTy(ToTy->getContext())) continue; // Allow i8* cast for llvm.lifetime.* intrinsics.
         if (isa<PointerType>(FromTy)) {
           FromTy = FromTy->getPointerElementType();
           ToTy = ToTy->getPointerElementType();

@@ -104,6 +104,11 @@ void analyzePointer(const Value *V, PointerStatus &PS, DxilTypeSystem &typeSys,
       PS.MarkAsLoaded();
     } else if (const CallInst *CI = dyn_cast<CallInst>(U)) {
       Function *F = CI->getCalledFunction();
+      if (const IntrinsicInst *II = dyn_cast<IntrinsicInst>(CI)) {
+        if (II->getIntrinsicID() == Intrinsic::lifetime_start ||
+            II->getIntrinsicID() == Intrinsic::lifetime_end)
+          continue;
+      }
       DxilFunctionAnnotation *annotation = typeSys.GetFunctionAnnotation(F);
       if (!annotation) {
         HLOpcodeGroup group = hlsl::GetHLOpcodeGroupByName(F);

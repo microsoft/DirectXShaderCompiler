@@ -367,6 +367,8 @@ void DynamicIndexingVectorToArray::ReplaceVectorWithArray(Value *Vec, Value *A) 
         EltSt->setAlignment(align);
       }
       stInst->eraseFromParent();
+    } else if (BitCastInst *castInst = dyn_cast<BitCastInst>(User)) {
+      castInst->setOperand(0, A);
     } else {
       // Vector parameter should be lowered.
       // No function call should use vector.

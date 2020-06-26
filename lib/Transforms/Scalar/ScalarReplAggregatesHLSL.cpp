@@ -2427,7 +2427,38 @@ void SROA_Helper::RewriteBitCast(BitCastInst *BCI) {
   SrcTy = SrcTy->getPointerElementType();
 
   if (!DstTy->isStructTy()) {
-    assert(0 && "Type mismatch.");
+    // This is an llvm.lifetime.* intrinsic. Replace bitcast by a bitcast for each element.
+    SmallVector<IntrinsicInst*, 16> ToReplace;
+
+    for (User *User : BCI->users()) {
+      assert(isa<IntrinsicInst>(User));
+      IntrinsicInst *Intrin = cast<IntrinsicInst>(User);
+      assert(Intrin->getIntrinsicID() == Intrinsic::lifetime_start ||
+             Intrin->getIntrinsicID() == Intrinsic::lifetime_end);
+      ToReplace.push_back(Intrin);
+    }
+
+    const DataLayout &DL = BCI->getModule()->getDataLayout();
+    for (IntrinsicInst *Intrin : ToReplace) {
+      IRBuilder<> Builder(Intrin);
+
+      for (Value *Elt : NewElts) {
+        assert(Elt->getType()->isPointerTy());
+        Type     *ElPtrTy = Elt->getType();
+        Type     *ElTy    = ElPtrTy->getPointerElementType();
+        Value    *SizeV   = Builder.getInt64( DL.getTypeAllocSize(ElTy) );
+        Value    *Ptr     = Builder.CreateBitCast(Elt, Builder.getInt8PtrTy());
+        Value    *Args[]  = {SizeV, Ptr};
+        CallInst *C       = Builder.CreateCall(Intrin->getCalledFunction(), Args);
+        C->setDoesNotThrow();
+      }
+
+      assert(Intrin->use_empty());
+      Intrin->eraseFromParent();
+    }
+
+    assert(BCI->use_empty());
+    BCI->eraseFromParent();
     return;
   }
 
@@ -3182,6 +3213,25 @@ static void CopyElementsOfStructsWithIdenticalLayout(
   }
 }
 
+static void removeLifetimeUsers(Value *V) {
+  std::set<Value*> users(V->users().begin(), V->users().end());
+  for (Value *U : users) {
+    if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(U)) {
+      if (II->getIntrinsicID() == Intrinsic::lifetime_start ||
+          II->getIntrinsicID() == Intrinsic::lifetime_end) {
+        II->eraseFromParent();
+      }
+    } else if (isa<BitCastInst>(U) ||
+               isa<AddrSpaceCastInst>(U) ||
+               isa<GetElementPtrInst>(U)) {
+      // Recurse into bitcast, addrspacecast, GEP.
+      removeLifetimeUsers(U);
+      if (U->use_empty())
+        cast<Instruction>(U)->eraseFromParent();
+    }
+  }
+}
+
 static bool DominateAllUsers(Instruction *I, Value *V, DominatorTree *DT);
 
 
@@ -3201,6 +3251,12 @@ static bool ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
   if (Instruction *SrcI = dyn_cast<Instruction>(Src))
     if (!DominateAllUsers(SrcI, V, DT))
       return false;
+
+  // Unless we encounter an issue, we always replace V by Src below.
+  // Conservatively remove all lifetime users of V. Otherwise, Src would inherit
+  // them from V and suddenly have a different lifetime than it had before.
+  removeLifetimeUsers(V);
+
   Type *TyV = V->getType()->getPointerElementType();
   Type *TySrc = Src->getType()->getPointerElementType();
   if (Constant *C = dyn_cast<Constant>(V)) {
