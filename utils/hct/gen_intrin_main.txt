@@ -328,6 +328,9 @@ uint [[hidden]] AllocateRayQuery(in uint flags);
 
 resource [[rn]] CreateResourceFromHeap(in uint index);
 
+$type1 [[rn]] intel_media__block__read__ushort8_scalar(in float<4> foo);
+void [[]] laxman_foo();
+
 } namespace
 
 namespace StreamMethods {

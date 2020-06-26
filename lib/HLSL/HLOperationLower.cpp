@@ -5072,6 +5072,66 @@ Value *TranslateDot4AddPacked(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   return Builder.CreateCall(dxilFunc, { opArg, accArg, src0, src1 });
 }
 
+Value *TranslateIntelMediaBlockRead(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+                              HLOperationLowerHelper &helper,
+                              HLObjectOperationLowerHelper *pObjHelper,
+                              bool &Translated) {
+  Translated = false;
+  CI->getContext().emitError(CI, "Laxman - Need function definition for Intel_block_read_intrinsic");
+  return nullptr;
+   /*dxilutil::EmitErrorOnInstruction(CI, "Laxman - Unsupported intrinsic.");
+  DXASSERT(0,
+      "Laxman -This needs implemntation");
+  hlsl::OP *hlslOP = &helper.hlslOP;
+  Value *src0 = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc0Idx);
+  DXASSERT(
+      !src0->getType()->isVectorTy() && src0->getType()->isFloatingPointTy(),
+      "otherwise, unexpected vector support in high level intrinsic tempalte");
+  //Value *src1 = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc1Idx);
+  //DXASSERT(src0->getType() == src1->getType(), "otherwise, mismatched argument types");
+  Value *accArg = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc2Idx);
+  Type *accTy = accArg->getType();
+  //DXASSERT(!accTy->isVectorTy() && accTy->isIntegerTy(32),
+  //  "otherwise, unexpected vector support in high level intrinsic tempalte");
+  
+  IRBuilder<> Builder(CI);
+
+  Function *dxilFunc = hlslOP->GetOpFunc(opcode, accTy);
+  Constant *opArg = hlslOP->GetU32Const((unsigned)opcode);
+  return Builder.CreateCall(dxilFunc, { opArg, accArg, src0});
+  */
+}
+
+Value *TranslateLaxmanFoo(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+                              HLOperationLowerHelper &helper,
+                              HLObjectOperationLowerHelper *pObjHelper,
+                              bool &Translated) {
+  Translated = false;
+  CI->getContext().emitError(CI, "Laxman - use of undeclared identifier 'printf'");
+  return nullptr;
+  /*dxilutil::EmitErrorOnInstruction(CI, "Laxman - Unsupported intrinsic.");
+  DXASSERT(0,
+      "Laxman -This needs implemntation");
+  hlsl::OP *hlslOP = &helper.hlslOP;
+  Value *src0 = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc0Idx);
+  DXASSERT(
+      !src0->getType()->isVectorTy() && src0->getType()->isFloatingPointTy(),
+      "otherwise, unexpected vector support in high level intrinsic tempalte");
+  //Value *src1 = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc1Idx);
+  //DXASSERT(src0->getType() == src1->getType(), "otherwise, mismatched argument types");
+  Value *accArg = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc2Idx);
+  Type *accTy = accArg->getType();
+  //DXASSERT(!accTy->isVectorTy() && accTy->isIntegerTy(32),
+  //  "otherwise, unexpected vector support in high level intrinsic tempalte");
+  
+  IRBuilder<> Builder(CI);
+
+  Function *dxilFunc = hlslOP->GetOpFunc(opcode, accTy);
+  Constant *opArg = hlslOP->GetU32Const((unsigned)opcode);
+  return Builder.CreateCall(dxilFunc, { opArg, accArg, src0});
+  */
+}
+
 } // namespace
 
 // Resource Handle.
@@ -5271,9 +5331,11 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_frac, TrivialUnaryOperation, DXIL::OpCode::Frc},
     {IntrinsicOp::IOP_frexp, TranslateFrexp, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_fwidth, TranslateFWidth, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::IOP_intel_media__block__read__ushort8_scalar, TranslateIntelMediaBlockRead, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_isfinite, TrivialIsSpecialFloat, DXIL::OpCode::IsFinite},
     {IntrinsicOp::IOP_isinf, TrivialIsSpecialFloat, DXIL::OpCode::IsInf},
     {IntrinsicOp::IOP_isnan, TrivialIsSpecialFloat, DXIL::OpCode::IsNaN},
+    {IntrinsicOp::IOP_laxman_foo, TranslateLaxmanFoo, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_ldexp, TranslateLdExp, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_length, TranslateLength, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_lerp, TranslateLerp, DXIL::OpCode::NumOpCodes},
