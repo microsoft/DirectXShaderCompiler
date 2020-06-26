@@ -2055,7 +2055,7 @@ The following intrinsic HLSL functions have direct SPIR-V opcodes for them:
 ``ddy_coarse``                       ``OpDPdyCoarse``
 ``ddx_fine``                         ``OpDPdxFine``
 ``ddy_fine``                         ``OpDPdyFine``
-``fmod``                             ``OpFMod``
+``fmod``                             ``OpFRem``
 ``fwidth``                           ``OpFwidth``
 ``GroupMemoryBarrier``               ``OpMemoryBarrier``
 ``GroupMemoryBarrierWithGroupSync``  ``OpControlBarrier``
