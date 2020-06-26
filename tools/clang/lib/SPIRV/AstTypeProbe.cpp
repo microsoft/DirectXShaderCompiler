@@ -1241,11 +1241,10 @@ bool isStructureContainingResources(QualType type) {
 
   if (const auto *structType = type->getAs<RecordType>()) {
     for (const auto *field : structType->getDecl()->fields()) {
-      auto fieldType = field->getType();
-      // Remove arrayness if needed.
-      while (fieldType->isArrayType())
-        fieldType = fieldType->getAsArrayTypeUnsafe()->getElementType();
-      if (isStructureContainingResources(fieldType) || isResourceType(field)) {
+      // isStructureContainingResources and isResourceType functions both remove
+      // arrayness for the field if needed.
+      if (isStructureContainingResources(field->getType()) ||
+          isResourceType(field)) {
         return true;
       }
     }
@@ -1260,11 +1259,9 @@ bool isStructureContainingNonResources(QualType type) {
 
   if (const auto *structType = type->getAs<RecordType>()) {
     for (const auto *field : structType->getDecl()->fields()) {
-      auto fieldType = field->getType();
-      // Remove arrayness if needed.
-      while (fieldType->isArrayType())
-        fieldType = fieldType->getAsArrayTypeUnsafe()->getElementType();
-      if (isStructureContainingNonResources(fieldType) ||
+      // isStructureContainingNonResources and isResourceType functions both
+      // remove arrayness for the field if needed.
+      if (isStructureContainingNonResources(field->getType()) ||
           !isResourceType(field)) {
         return true;
       }
