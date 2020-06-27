@@ -166,6 +166,44 @@ namespace MainNs
                 System.IO.File.WriteAllLines(fullName, Section.Lines);
             }
         }
+
+        private void btnViewCFGOnly_Click(object sender, EventArgs e)
+        {
+            if (PassesListBox.SelectedIndex == -1)
+            {
+                MessageBox.Show("Select a pass first");
+                return;
+            }
+            TextSection section = (TextSection)PassesListBox.SelectedItem;
+
+            var source = EditorForm.CreateBlobForText(this.Library, section.Text);
+            source = this.Library.GetBlobAstUf8(source);
+
+            string[] options = new string [1];
+            options[0] = "-view-cfg-only";
+            EditorForm.OptimizeResult opt = EditorForm.RunOptimize(this.Library, options, source);
+            if (!opt.Succeeded)
+            {
+                MessageBox.Show("Failed to optimize: " + opt.ResultText);
+                return;
+            }
+
+            Form form = new Form();
+            RichTextBox rtb = new RichTextBox();
+            EditorForm.LogContextMenuHelper helper = new EditorForm.LogContextMenuHelper(rtb);
+            rtb.Dock = DockStyle.Fill;
+            rtb.Font = this.CodeBox.Font;
+            rtb.ContextMenu = new ContextMenu(
+                new MenuItem[]
+                {
+                    new MenuItem("Show Graph", helper.ShowGraphClick)
+                });
+
+            rtb.Text = opt.ResultText;
+            form.Controls.Add(rtb);
+            form.StartPosition = FormStartPosition.CenterParent;
+            form.Show(this);
+        }
     }
 
     public class TextSection
