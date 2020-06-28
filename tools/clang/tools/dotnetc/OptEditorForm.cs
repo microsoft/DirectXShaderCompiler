@@ -188,21 +188,8 @@ namespace MainNs
                 return;
             }
 
-            Form form = new Form();
-            RichTextBox rtb = new RichTextBox();
-            EditorForm.LogContextMenuHelper helper = new EditorForm.LogContextMenuHelper(rtb);
-            rtb.Dock = DockStyle.Fill;
-            rtb.Font = this.CodeBox.Font;
-            rtb.ContextMenu = new ContextMenu(
-                new MenuItem[]
-                {
-                    new MenuItem("Show Graph", helper.ShowGraphClick)
-                });
-
-            rtb.Text = opt.ResultText;
-            form.Controls.Add(rtb);
-            form.StartPosition = FormStartPosition.CenterParent;
-            form.Show(this);
+            string dotText = opt.ResultText.Substring(opt.ResultText.IndexOf("digraph"));
+            EditorForm.LogContextMenuHelper.ShowDot(dotText);
         }
     }
 
