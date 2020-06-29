@@ -736,3 +736,10 @@ bool Test_Unroll() {
   [noinline] while (g_bool) return g_bool;    /* expected-error {{'noinline' attribute cannot be applied to a statement}} fxc-pass {{}} */
   return true;
 }
+
+// Test unknown attribute warning
+bool Test_Unknown() {
+  [unknown] bool b1 = false;                  /* expected-warning {{unknown attribute 'unknown' ignored}} fxc-pass {{}} */
+  [unknown(1)] bool b2 = false;               /* expected-warning {{unknown attribute 'unknown' ignored}} fxc-pass {{}} */
+  [unknown(1)] while (g_bool) return g_bool;  /* expected-warning {{unknown attribute 'unknown' ignored}} fxc-pass {{}} */
+}
