@@ -1909,7 +1909,9 @@ bool DeclResultIdMapper::createStageVars(
       evalType = astContext.BoolTy;
       break;
     case hlsl::Semantic::Kind::Barycentrics:
-      evalType = astContext.getExtVectorType(astContext.FloatTy, 2);
+      if (!featureManager.isExtensionEnabled(Extension::NV_fragment_shader_barycentric)) {
+        evalType = astContext.getExtVectorType(astContext.FloatTy, 2);
+      }
       break;
     case hlsl::Semantic::Kind::DispatchThreadID:
     case hlsl::Semantic::Kind::GroupThreadID:
@@ -2066,20 +2068,22 @@ bool DeclResultIdMapper::createStageVars(
       // underlying stage input variable is a float2 (only provides the first
       // two components). Calculate the third element.
       else if (semanticKind == hlsl::Semantic::Kind::Barycentrics) {
-        const auto x = spvBuilder.createCompositeExtract(
-            astContext.FloatTy, *value, {0}, thisSemantic.loc);
-        const auto y = spvBuilder.createCompositeExtract(
-            astContext.FloatTy, *value, {1}, thisSemantic.loc);
-        const auto xy = spvBuilder.createBinaryOp(
-            spv::Op::OpFAdd, astContext.FloatTy, x, y, thisSemantic.loc);
-        const auto z = spvBuilder.createBinaryOp(
-            spv::Op::OpFSub, astContext.FloatTy,
-            spvBuilder.getConstantFloat(astContext.FloatTy,
-                                        llvm::APFloat(1.0f)),
-            xy, thisSemantic.loc);
-        *value = spvBuilder.createCompositeConstruct(
-            astContext.getExtVectorType(astContext.FloatTy, 3), {x, y, z},
-            thisSemantic.loc);
+        if (!featureManager.isExtensionEnabled(Extension::NV_fragment_shader_barycentric)) {
+          const auto x = spvBuilder.createCompositeExtract(
+              astContext.FloatTy, *value, {0}, thisSemantic.loc);
+          const auto y = spvBuilder.createCompositeExtract(
+              astContext.FloatTy, *value, {1}, thisSemantic.loc);
+          const auto xy = spvBuilder.createBinaryOp(
+              spv::Op::OpFAdd, astContext.FloatTy, x, y, thisSemantic.loc);
+          const auto z = spvBuilder.createBinaryOp(
+              spv::Op::OpFSub, astContext.FloatTy,
+              spvBuilder.getConstantFloat(astContext.FloatTy,
+                                          llvm::APFloat(1.0f)),
+              xy, thisSemantic.loc);
+          *value = spvBuilder.createCompositeConstruct(
+              astContext.getExtVectorType(astContext.FloatTy, 3), {x, y, z},
+              thisSemantic.loc);
+        }
       }
       // Special handling of SV_DispatchThreadID and SV_GroupThreadID, which may
       // be a uint or uint2, but the underlying stage input variable is a uint3.
@@ -2927,24 +2931,31 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
 
     // Selecting the correct builtin according to interpolation mode
     auto bi = BuiltIn::Max;
-    if (decl->hasAttr<HLSLNoPerspectiveAttr>()) {
-      if (decl->hasAttr<HLSLCentroidAttr>()) {
-        bi = BuiltIn::BaryCoordNoPerspCentroidAMD;
-      } else if (decl->hasAttr<HLSLSampleAttr>()) {
-        bi = BuiltIn::BaryCoordNoPerspSampleAMD;
+    if (featureManager.isExtensionEnabled(Extension::NV_fragment_shader_barycentric)) {
+      if (decl->hasAttr<HLSLNoPerspectiveAttr>()) {
+        bi = BuiltIn::BaryCoordNoPerspNV;
       } else {
-        bi = BuiltIn::BaryCoordNoPerspAMD;
+        bi = BuiltIn::BaryCoordNV;
       }
     } else {
-      if (decl->hasAttr<HLSLCentroidAttr>()) {
-        bi = BuiltIn::BaryCoordSmoothCentroidAMD;
-      } else if (decl->hasAttr<HLSLSampleAttr>()) {
-        bi = BuiltIn::BaryCoordSmoothSampleAMD;
+      if (decl->hasAttr<HLSLNoPerspectiveAttr>()) {
+        if (decl->hasAttr<HLSLCentroidAttr>()) {
+          bi = BuiltIn::BaryCoordNoPerspCentroidAMD;
+        } else if (decl->hasAttr<HLSLSampleAttr>()) {
+          bi = BuiltIn::BaryCoordNoPerspSampleAMD;
+        } else {
+          bi = BuiltIn::BaryCoordNoPerspAMD;
+        }
       } else {
-        bi = BuiltIn::BaryCoordSmoothAMD;
+        if (decl->hasAttr<HLSLCentroidAttr>()) {
+          bi = BuiltIn::BaryCoordSmoothCentroidAMD;
+        } else if (decl->hasAttr<HLSLSampleAttr>()) {
+          bi = BuiltIn::BaryCoordSmoothSampleAMD;
+        } else {
+          bi = BuiltIn::BaryCoordSmoothAMD;
+        }
       }
     }
-
     return spvBuilder.addStageBuiltinVar(type, sc, bi, isPrecise, srcLoc);
   }
   // According to DXIL spec, the RenderTargetArrayIndex SV can only be used by
