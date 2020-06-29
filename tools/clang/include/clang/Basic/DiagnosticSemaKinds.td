@@ -382,9 +382,11 @@ def err_thread_unsupported : Error<
 
 def warn_maybe_falloff_nonvoid_function : Warning<
   "control may reach end of non-void function">,
+  DefaultError,   // HLSL Change: DefaultError
   InGroup<ReturnType>;
 def warn_falloff_nonvoid_function : Warning<
   "control reaches end of non-void function">,
+  DefaultError,   // HLSL Change: DefaultError
   InGroup<ReturnType>;
 def err_maybe_falloff_nonvoid_block : Error<
   "control may reach end of non-void block">;
@@ -5710,9 +5712,11 @@ let CategoryName = "Lambda Issue" in {
     "lambda declared 'noreturn' should not return">;
   def warn_maybe_falloff_nonvoid_lambda : Warning<
     "control may reach end of non-void lambda">,
+    DefaultError,   // HLSL Change: DefaultError
     InGroup<ReturnType>;
   def warn_falloff_nonvoid_lambda : Warning<
     "control reaches end of non-void lambda">,
+    DefaultError,   // HLSL Change: DefaultError
     InGroup<ReturnType>;
   def err_access_lambda_capture : Error<
     // The ERRORs represent other special members that aren't constructors, in
