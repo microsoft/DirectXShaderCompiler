@@ -39,6 +39,7 @@
             this.ApplyChangesButton = new System.Windows.Forms.Button();
             this.CopyContainerButton = new System.Windows.Forms.Button();
             this.btnSaveAll = new System.Windows.Forms.Button();
+            this.btnViewCFGOnly = new System.Windows.Forms.Button();
             this.LogBox = new System.Windows.Forms.RichTextBox();
             this.saveFileDialog1 = new System.Windows.Forms.SaveFileDialog();
             ((System.ComponentModel.ISupportInitialize)(this.TopContainer)).BeginInit();
@@ -120,6 +121,7 @@
             this.flowLayoutPanel1.Controls.Add(this.ApplyChangesButton);
             this.flowLayoutPanel1.Controls.Add(this.CopyContainerButton);
             this.flowLayoutPanel1.Controls.Add(this.btnSaveAll);
+            this.flowLayoutPanel1.Controls.Add(this.btnViewCFGOnly);
             this.flowLayoutPanel1.Dock = System.Windows.Forms.DockStyle.Top;
             this.flowLayoutPanel1.Location = new System.Drawing.Point(0, 0);
             this.flowLayoutPanel1.Name = "flowLayoutPanel1";
@@ -192,6 +194,16 @@
             this.btnSaveAll.UseVisualStyleBackColor = true;
             this.btnSaveAll.Click += new System.EventHandler(this.btnSaveAll_Click);
             // 
+            // btnViewCFGOnly
+            // 
+            this.btnViewCFGOnly.Location = new System.Drawing.Point(515, 3);
+            this.btnViewCFGOnly.Name = "btnViewCFGOnly";
+            this.btnViewCFGOnly.Size = new System.Drawing.Size(105, 26);
+            this.btnViewCFGOnly.TabIndex = 6;
+            this.btnViewCFGOnly.Text = "ViewCFGOnly";
+            this.btnViewCFGOnly.UseVisualStyleBackColor = true;
+            this.btnViewCFGOnly.Click += new System.EventHandler(this.btnViewCFGOnly_Click);
+            // 
             // LogBox
             // 
             this.LogBox.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -240,5 +252,6 @@
         private System.Windows.Forms.Button CopyContainerButton;
         private System.Windows.Forms.Button btnSaveAll;
         private System.Windows.Forms.SaveFileDialog saveFileDialog1;
+        private System.Windows.Forms.Button btnViewCFGOnly;
     }
 }
