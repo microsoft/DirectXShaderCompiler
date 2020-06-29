@@ -2188,7 +2188,9 @@ TEST_F(FileTest, VulkanShadingRateError) {
 
 // === MeshShading NV examples ===
 TEST_F(FileTest, MeshShadingNVMeshTriangle) {
-  runFileTest("meshshading.nv.triangle.mesh.hlsl");
+  // TODO: Re-enable spirv-val once issue#3006 is fixed.
+  runFileTest("meshshading.nv.triangle.mesh.hlsl", Expect::Success,
+              /* runValidation */ false);
 }
 TEST_F(FileTest, MeshShadingNVMeshLine) {
   runFileTest("meshshading.nv.line.mesh.hlsl");
@@ -2197,7 +2199,9 @@ TEST_F(FileTest, MeshShadingNVMeshPoint) {
   runFileTest("meshshading.nv.point.mesh.hlsl");
 }
 TEST_F(FileTest, MeshShadingNVMeshBuffer) {
-  runFileTest("meshshading.nv.buffer.mesh.hlsl");
+  // TODO: Re-enable spirv-val once issue#3006 is fixed.
+  runFileTest("meshshading.nv.buffer.mesh.hlsl", Expect::Success,
+              /* runValidation */ false);
 }
 TEST_F(FileTest, MeshShadingNVMeshError1) {
   runFileTest("meshshading.nv.error1.mesh.hlsl", Expect::Failure);
@@ -2242,11 +2246,15 @@ TEST_F(FileTest, MeshShadingNVMeshError14) {
   runFileTest("meshshading.nv.error14.mesh.hlsl", Expect::Failure);
 }
 TEST_F(FileTest, MeshShadingNVAmplification) {
-  runFileTest("meshshading.nv.amplification.hlsl");
+  // TODO: Re-enable spirv-val once issue#3006 is fixed.
+  runFileTest("meshshading.nv.amplification.hlsl", Expect::Success,
+              /* runValidation */ false);
 }
 TEST_F(FileTest, MeshShadingNVAmplificationFunCall) {
   useVulkan1p1();
-  runFileTest("meshshading.nv.fncall.amplification.hlsl");
+  // TODO: Re-enable spirv-val once issue#3006 is fixed.
+  runFileTest("meshshading.nv.fncall.amplification.hlsl", Expect::Success,
+              /* runValidation */ false);
 }
 TEST_F(FileTest, MeshShadingNVAmplificationError1) {
   runFileTest("meshshading.nv.error1.amplification.hlsl", Expect::Failure);
@@ -2278,7 +2286,10 @@ TEST_F(FileTest, Vk1p2BlockDecoration) {
 // Vulkan1.2 also enables Vulkan1.1.
 TEST_F(FileTest, CompatibilityWithVk1p1) {
   useVulkan1p2();
-  runFileTest("meshshading.nv.fncall.amplification.vulkan1.2.hlsl");
+  // TODO: Re-enable spirv-val once issue#3006 is fixed.
+  runFileTest("meshshading.nv.fncall.amplification.vulkan1.2.hlsl",
+              Expect::Success,
+              /* runValidation */ false);
   runFileTest("sm6.quad-read-across-diagonal.vulkan1.2.hlsl");
   runFileTest("sm6.quad-read-across-x.vulkan1.2.hlsl");
   runFileTest("sm6.quad-read-across-y.vulkan1.2.hlsl");
