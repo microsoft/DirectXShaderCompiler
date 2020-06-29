@@ -6,7 +6,7 @@
 
 
 // CHECK: OpDecorate [[a:%\d+]] BuiltIn BaseVertex
-// CHECK: OpDecorate [[b:%\d+]] BuiltIn BaseInstance
+// CHECK: OpDecorate [[b:%\w+]] BuiltIn BaseInstance
 // CHECK: OpDecorate [[c:%\d+]] BuiltIn DrawIndex
 
 float main(
