@@ -190,10 +190,6 @@ SpirvInstruction *RawBufferHandler::processTemplatedLoadFromBuffer(
     const QualType targetType, uint32_t &bitOffset) {
   const auto loc = buffer->getSourceLocation();
   SpirvInstruction *result = nullptr;
-  auto *constUint0 =
-      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
-  auto *constUint1 =
-      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 1));
 
   // TODO: If 8-bit types are to be supported in the future, we should also
   // add code to support bitOffset 8 and 24.
@@ -639,10 +635,6 @@ void RawBufferHandler::processTemplatedStoreToBuffer(SpirvInstruction *value,
                                                      uint32_t &bitOffset) {
   assert(bitOffset == 0 || bitOffset == 16);
   const auto loc = buffer->getSourceLocation();
-  auto *constUint0 =
-      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
-  auto *constUint1 =
-      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 1));
 
   // Scalar types
   if (isScalarType(valueType)) {

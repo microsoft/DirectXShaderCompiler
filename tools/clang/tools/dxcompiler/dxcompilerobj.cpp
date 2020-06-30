@@ -83,26 +83,6 @@ HRESULT RunInternalValidator(_In_ IDxcValidator *pValidator,
                              _In_ IDxcBlob *pShader, UINT32 Flags,
                              _In_ IDxcOperationResult **ppResult);
 
-static void CreateOperationResultFromOutputs(
-    IDxcBlob *pResultBlob, dxcutil::DxcArgsFileSystem *msfPtr,
-    const std::string &warnings, clang::DiagnosticsEngine &diags,
-    _COM_Outptr_ IDxcOperationResult **ppResult) {
-  CComPtr<IStream> pErrorStream;
-  msfPtr->GetStdOutpuHandleStream(&pErrorStream);
-  dxcutil::CreateOperationResultFromOutputs(pResultBlob, pErrorStream, warnings,
-                                            diags.hasErrorOccurred(), ppResult);
-}
-
-static void CreateOperationResultFromOutputs(
-    AbstractMemoryStream *pOutputStream, dxcutil::DxcArgsFileSystem *msfPtr,
-    const std::string &warnings, clang::DiagnosticsEngine &diags,
-    _COM_Outptr_ IDxcOperationResult **ppResult) {
-  CComPtr<IDxcBlob> pResultBlob;
-  IFT(pOutputStream->QueryInterface(&pResultBlob));
-  CreateOperationResultFromOutputs(pResultBlob, msfPtr, warnings, diags,
-                                   ppResult);
-}
-
 static bool ShouldPartBeIncludedInPDB(UINT32 FourCC) {
   switch (FourCC) {
   case hlsl::DFCC_ShaderDebugName:

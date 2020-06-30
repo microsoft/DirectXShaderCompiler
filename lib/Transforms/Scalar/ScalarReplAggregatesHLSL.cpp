@@ -70,8 +70,6 @@ using namespace hlsl;
 #define DEBUG_TYPE "scalarreplhlsl"
 
 STATISTIC(NumReplaced, "Number of allocas broken up");
-STATISTIC(NumPromoted, "Number of allocas promoted");
-STATISTIC(NumAdjusted, "Number of scalar allocas adjusted to allow promotion");
 
 namespace {
 
@@ -131,8 +129,8 @@ private:
 };
 
 struct SROA_HLSL : public FunctionPass {
-  SROA_HLSL(bool Promote, int T, bool hasDT, char &ID, int ST, int AT, int SLT)
-      : FunctionPass(ID), HasDomTree(hasDT), RunPromotion(Promote) {
+  SROA_HLSL(int T, char &ID, int ST, int AT, int SLT)
+      : FunctionPass(ID) {
 
     if (AT == -1)
       ArrayElementThreshold = 8;
@@ -151,8 +149,6 @@ struct SROA_HLSL : public FunctionPass {
   bool markPrecise(Function &F);
 
 private:
-  bool HasDomTree;
-  bool RunPromotion;
 
   /// DeadInsts - Keep track of instructions we have made dead, so that
   /// we can remove them after we are done working.
@@ -237,8 +233,8 @@ struct SROA_DT_HLSL : public SROA_HLSL {
   static char ID;
 
 public:
-  SROA_DT_HLSL(bool Promote = false, int T = -1, int ST = -1, int AT = -1, int SLT = -1)
-      : SROA_HLSL(Promote, T, true, ID, ST, AT, SLT) {
+  SROA_DT_HLSL(int T = -1, int ST = -1, int AT = -1, int SLT = -1)
+      : SROA_HLSL(T, ID, ST, AT, SLT) {
     initializeSROA_DTPass(*PassRegistry::getPassRegistry());
   }
 
@@ -256,8 +252,8 @@ struct SROA_SSAUp_HLSL : public SROA_HLSL {
   static char ID;
 
 public:
-  SROA_SSAUp_HLSL(bool Promote = false, int T = -1, int ST = -1, int AT = -1, int SLT = -1)
-      : SROA_HLSL(Promote, T, false, ID, ST, AT, SLT) {
+  SROA_SSAUp_HLSL(int T = -1, int ST = -1, int AT = -1, int SLT = -1)
+      : SROA_HLSL(T, ID, ST, AT, SLT) {
     initializeSROA_SSAUpPass(*PassRegistry::getPassRegistry());
   }
 
@@ -308,10 +304,8 @@ INITIALIZE_PASS_END(SROA_SSAUp_HLSL, "scalarreplhlsl-ssa",
                     false)
 
 // Public interface to the ScalarReplAggregates pass
-FunctionPass *llvm::createScalarReplAggregatesHLSLPass(bool UseDomTree, bool Promote) {
-  if (UseDomTree)
-    return new SROA_DT_HLSL(Promote);
-  return new SROA_SSAUp_HLSL(Promote);
+FunctionPass *llvm::createScalarReplAggregatesHLSLPass() {
+  return new SROA_DT_HLSL();
 }
 
 //===----------------------------------------------------------------------===//
@@ -422,295 +416,6 @@ public:
 };
 } // end anon namespace
 
-/// isSafeSelectToSpeculate - Select instructions that use an alloca and are
-/// subsequently loaded can be rewritten to load both input pointers and then
-/// select between the result, allowing the load of the alloca to be promoted.
-/// From this:
-///   %P2 = select i1 %cond, i32* %Alloca, i32* %Other
-///   %V = load i32* %P2
-/// to:
-///   %V1 = load i32* %Alloca      -> will be mem2reg'd
-///   %V2 = load i32* %Other
-///   %V = select i1 %cond, i32 %V1, i32 %V2
-///
-/// We can do this to a select if its only uses are loads and if the operand to
-/// the select can be loaded unconditionally.
-static bool isSafeSelectToSpeculate(SelectInst *SI) {
-  const DataLayout &DL = SI->getModule()->getDataLayout();
-  bool TDerefable = isDereferenceablePointer(SI->getTrueValue(), DL);
-  bool FDerefable = isDereferenceablePointer(SI->getFalseValue(), DL);
-
-  for (User *U : SI->users()) {
-    LoadInst *LI = dyn_cast<LoadInst>(U);
-    if (!LI || !LI->isSimple())
-      return false;
-
-    // Both operands to the select need to be dereferencable, either absolutely
-    // (e.g. allocas) or at this point because we can see other accesses to it.
-    if (!TDerefable &&
-        !isSafeToLoadUnconditionally(SI->getTrueValue(), LI,
-                                     LI->getAlignment()))
-      return false;
-    if (!FDerefable &&
-        !isSafeToLoadUnconditionally(SI->getFalseValue(), LI,
-                                     LI->getAlignment()))
-      return false;
-  }
-
-  return true;
-}
-
-/// isSafePHIToSpeculate - PHI instructions that use an alloca and are
-/// subsequently loaded can be rewritten to load both input pointers in the pred
-/// blocks and then PHI the results, allowing the load of the alloca to be
-/// promoted.
-/// From this:
-///   %P2 = phi [i32* %Alloca, i32* %Other]
-///   %V = load i32* %P2
-/// to:
-///   %V1 = load i32* %Alloca      -> will be mem2reg'd
-///   ...
-///   %V2 = load i32* %Other
-///   ...
-///   %V = phi [i32 %V1, i32 %V2]
-///
-/// We can do this to a select if its only uses are loads and if the operand to
-/// the select can be loaded unconditionally.
-static bool isSafePHIToSpeculate(PHINode *PN) {
-  // For now, we can only do this promotion if the load is in the same block as
-  // the PHI, and if there are no stores between the phi and load.
-  // TODO: Allow recursive phi users.
-  // TODO: Allow stores.
-  BasicBlock *BB = PN->getParent();
-  unsigned MaxAlign = 0;
-  for (User *U : PN->users()) {
-    LoadInst *LI = dyn_cast<LoadInst>(U);
-    if (!LI || !LI->isSimple())
-      return false;
-
-    // For now we only allow loads in the same block as the PHI.  This is a
-    // common case that happens when instcombine merges two loads through a PHI.
-    if (LI->getParent() != BB)
-      return false;
-
-    // Ensure that there are no instructions between the PHI and the load that
-    // could store.
-    for (BasicBlock::iterator BBI = PN; &*BBI != LI; ++BBI)
-      if (BBI->mayWriteToMemory())
-        return false;
-
-    MaxAlign = std::max(MaxAlign, LI->getAlignment());
-  }
-
-  const DataLayout &DL = PN->getModule()->getDataLayout();
-
-  // Okay, we know that we have one or more loads in the same block as the PHI.
-  // We can transform this if it is safe to push the loads into the predecessor
-  // blocks.  The only thing to watch out for is that we can't put a possibly
-  // trapping load in the predecessor if it is a critical edge.
-  for (unsigned i = 0, e = PN->getNumIncomingValues(); i != e; ++i) {
-    BasicBlock *Pred = PN->getIncomingBlock(i);
-    Value *InVal = PN->getIncomingValue(i);
-
-    // If the terminator of the predecessor has side-effects (an invoke),
-    // there is no safe place to put a load in the predecessor.
-    if (Pred->getTerminator()->mayHaveSideEffects())
-      return false;
-
-    // If the value is produced by the terminator of the predecessor
-    // (an invoke), there is no valid place to put a load in the predecessor.
-    if (Pred->getTerminator() == InVal)
-      return false;
-
-    // If the predecessor has a single successor, then the edge isn't critical.
-    if (Pred->getTerminator()->getNumSuccessors() == 1)
-      continue;
-
-    // If this pointer is always safe to load, or if we can prove that there is
-    // already a load in the block, then we can move the load to the pred block.
-    if (isDereferenceablePointer(InVal, DL) ||
-        isSafeToLoadUnconditionally(InVal, Pred->getTerminator(), MaxAlign))
-      continue;
-
-    return false;
-  }
-
-  return true;
-}
-
-/// tryToMakeAllocaBePromotable - This returns true if the alloca only has
-/// direct (non-volatile) loads and stores to it.  If the alloca is close but
-/// not quite there, this will transform the code to allow promotion.  As such,
-/// it is a non-pure predicate.
-static bool tryToMakeAllocaBePromotable(AllocaInst *AI, const DataLayout &DL) {
-  SetVector<Instruction *, SmallVector<Instruction *, 4>,
-            SmallPtrSet<Instruction *, 4>>
-      InstsToRewrite;
-  for (User *U : AI->users()) {
-    if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
-      if (!LI->isSimple())
-        return false;
-      continue;
-    }
-
-    if (StoreInst *SI = dyn_cast<StoreInst>(U)) {
-      if (SI->getOperand(0) == AI || !SI->isSimple())
-        return false; // Don't allow a store OF the AI, only INTO the AI.
-      continue;
-    }
-
-    if (SelectInst *SI = dyn_cast<SelectInst>(U)) {
-      // If the condition being selected on is a constant, fold the select, yes
-      // this does (rarely) happen early on.
-      if (ConstantInt *CI = dyn_cast<ConstantInt>(SI->getCondition())) {
-        Value *Result = SI->getOperand(1 + CI->isZero());
-        SI->replaceAllUsesWith(Result);
-        SI->eraseFromParent();
-
-        // This is very rare and we just scrambled the use list of AI, start
-        // over completely.
-        return tryToMakeAllocaBePromotable(AI, DL);
-      }
-
-      // If it is safe to turn "load (select c, AI, ptr)" into a select of two
-      // loads, then we can transform this by rewriting the select.
-      if (!isSafeSelectToSpeculate(SI))
-        return false;
-
-      InstsToRewrite.insert(SI);
-      continue;
-    }
-
-    if (PHINode *PN = dyn_cast<PHINode>(U)) {
-      if (PN->use_empty()) { // Dead PHIs can be stripped.
-        InstsToRewrite.insert(PN);
-        continue;
-      }
-
-      // If it is safe to turn "load (phi [AI, ptr, ...])" into a PHI of loads
-      // in the pred blocks, then we can transform this by rewriting the PHI.
-      if (!isSafePHIToSpeculate(PN))
-        return false;
-
-      InstsToRewrite.insert(PN);
-      continue;
-    }
-
-    if (BitCastInst *BCI = dyn_cast<BitCastInst>(U)) {
-      if (onlyUsedByLifetimeMarkers(BCI)) {
-        InstsToRewrite.insert(BCI);
-        continue;
-      }
-    }
-
-    return false;
-  }
-
-  // If there are no instructions to rewrite, then all uses are load/stores and
-  // we're done!
-  if (InstsToRewrite.empty())
-    return true;
-
-  // If we have instructions that need to be rewritten for this to be promotable
-  // take care of it now.
-  for (unsigned i = 0, e = InstsToRewrite.size(); i != e; ++i) {
-    if (BitCastInst *BCI = dyn_cast<BitCastInst>(InstsToRewrite[i])) {
-      // This could only be a bitcast used by nothing but lifetime intrinsics.
-      for (BitCastInst::user_iterator I = BCI->user_begin(),
-                                      E = BCI->user_end();
-           I != E;)
-        cast<Instruction>(*I++)->eraseFromParent();
-      BCI->eraseFromParent();
-      continue;
-    }
-
-    if (SelectInst *SI = dyn_cast<SelectInst>(InstsToRewrite[i])) {
-      // Selects in InstsToRewrite only have load uses.  Rewrite each as two
-      // loads with a new select.
-      while (!SI->use_empty()) {
-        LoadInst *LI = cast<LoadInst>(SI->user_back());
-
-        IRBuilder<> Builder(LI);
-        LoadInst *TrueLoad =
-            Builder.CreateLoad(SI->getTrueValue(), LI->getName() + ".t");
-        LoadInst *FalseLoad =
-            Builder.CreateLoad(SI->getFalseValue(), LI->getName() + ".f");
-
-        // Transfer alignment and AA info if present.
-        TrueLoad->setAlignment(LI->getAlignment());
-        FalseLoad->setAlignment(LI->getAlignment());
-
-        AAMDNodes Tags;
-        LI->getAAMetadata(Tags);
-        if (Tags) {
-          TrueLoad->setAAMetadata(Tags);
-          FalseLoad->setAAMetadata(Tags);
-        }
-
-        Value *V =
-            Builder.CreateSelect(SI->getCondition(), TrueLoad, FalseLoad);
-        V->takeName(LI);
-        LI->replaceAllUsesWith(V);
-        LI->eraseFromParent();
-      }
-
-      // Now that all the loads are gone, the select is gone too.
-      SI->eraseFromParent();
-      continue;
-    }
-
-    // Otherwise, we have a PHI node which allows us to push the loads into the
-    // predecessors.
-    PHINode *PN = cast<PHINode>(InstsToRewrite[i]);
-    if (PN->use_empty()) {
-      PN->eraseFromParent();
-      continue;
-    }
-
-    Type *LoadTy = cast<PointerType>(PN->getType())->getElementType();
-    PHINode *NewPN = PHINode::Create(LoadTy, PN->getNumIncomingValues(),
-                                     PN->getName() + ".ld", PN);
-
-    // Get the AA tags and alignment to use from one of the loads.  It doesn't
-    // matter which one we get and if any differ, it doesn't matter.
-    LoadInst *SomeLoad = cast<LoadInst>(PN->user_back());
-
-    AAMDNodes AATags;
-    SomeLoad->getAAMetadata(AATags);
-    unsigned Align = SomeLoad->getAlignment();
-
-    // Rewrite all loads of the PN to use the new PHI.
-    while (!PN->use_empty()) {
-      LoadInst *LI = cast<LoadInst>(PN->user_back());
-      LI->replaceAllUsesWith(NewPN);
-      LI->eraseFromParent();
-    }
-
-    // Inject loads into all of the pred blocks.  Keep track of which blocks we
-    // insert them into in case we have multiple edges from the same block.
-    DenseMap<BasicBlock *, LoadInst *> InsertedLoads;
-
-    for (unsigned i = 0, e = PN->getNumIncomingValues(); i != e; ++i) {
-      BasicBlock *Pred = PN->getIncomingBlock(i);
-      LoadInst *&Load = InsertedLoads[Pred];
-      if (!Load) {
-        Load = new LoadInst(PN->getIncomingValue(i),
-                            PN->getName() + "." + Pred->getName(),
-                            Pred->getTerminator());
-        Load->setAlignment(Align);
-        if (AATags)
-          Load->setAAMetadata(AATags);
-      }
-
-      NewPN->addIncoming(Load, Pred);
-    }
-
-    PN->eraseFromParent();
-  }
-
-  ++NumAdjusted;
-  return true;
-}
 
 /// ShouldAttemptScalarRepl - Decide if an alloca is a good candidate for
 /// SROA.  It must be a struct or array type with a small number of elements.

@@ -124,17 +124,6 @@ static Constant *GetConstGep(Constant *Ptr, unsigned Idx0, unsigned Idx1) {
   return ConstantExpr::getGetElementPtr(nullptr, Ptr, Indices);
 }
 
-static bool ShouldPreserve(Value *V) {
-  if (isa<Constant>(V)) return true;
-  if (isa<Argument>(V)) return true;
-  if (isa<LoadInst>(V)) return true;
-  if (ExtractElementInst *GEP = dyn_cast<ExtractElementInst>(V)) {
-    return ShouldPreserve(GEP->getVectorOperand());
-  }
-  if (isa<CallInst>(V)) return true;
-  return false;
-}
-
 struct Store_Info {
   Instruction *StoreOrMC = nullptr;
   Value *Source = nullptr; // Alloca, GV, or Argument

@@ -1041,7 +1041,7 @@ bool CGDebugInfo::TryCollectHLSLRecordElements(const RecordType *Ty,
     unsigned VecSize = hlsl::GetHLSLVecSize(QualTy);
     unsigned ElemSizeInBits = CGM.getContext().getTypeSize(ElemQualTy);
     for (unsigned ElemIdx = 0; ElemIdx < VecSize; ++ElemIdx) {
-      StringRef FieldName = StringRef("xyzw" + ElemIdx, 1);
+      StringRef FieldName = StringRef(&"xyzw"[ElemIdx], 1);
       unsigned OffsetInBits = ElemSizeInBits * ElemIdx;
       llvm::DIType *FieldType = createFieldType(FieldName, ElemQualTy, 0,
         SourceLocation(), AccessSpecifier::AS_public, OffsetInBits,
