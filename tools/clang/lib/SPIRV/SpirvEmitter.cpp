@@ -1477,8 +1477,7 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
       auto *debugLocalVar = spvBuilder.createDebugLocalVariable(
           decl->getType(), decl->getName(), info->source, line, column,
           info->scopeStack.back(), flags);
-      if (decl->getInit() != nullptr)
-        spvBuilder.createDebugDeclare(debugLocalVar, var);
+      spvBuilder.createDebugDeclare(debugLocalVar, var);
     }
 
     // Variables that are not externally visible and of opaque types should
