@@ -143,84 +143,6 @@ bool isReferencingNonAliasStructuredOrByteBuffer(const Expr *expr) {
   return false;
 }
 
-bool spirvToolsLegalize(spv_target_env env, std::vector<uint32_t> *mod,
-                        std::string *messages) {
-  spvtools::Optimizer optimizer(env);
-
-  optimizer.SetMessageConsumer(
-      [messages](spv_message_level_t /*level*/, const char * /*source*/,
-                 const spv_position_t & /*position*/,
-                 const char *message) { *messages += message; });
-
-  spvtools::OptimizerOptions options;
-  options.set_run_validator(false);
-
-  optimizer.RegisterLegalizationPasses();
-
-  optimizer.RegisterPass(spvtools::CreateReplaceInvalidOpcodePass());
-
-  optimizer.RegisterPass(spvtools::CreateCompactIdsPass());
-
-  return optimizer.Run(mod->data(), mod->size(), mod, options);
-}
-
-bool spirvToolsOptimize(spv_target_env env, std::vector<uint32_t> *mod,
-                        clang::spirv::SpirvCodeGenOptions &spirvOptions,
-                        std::string *messages) {
-  spvtools::Optimizer optimizer(env);
-
-  optimizer.SetMessageConsumer(
-      [messages](spv_message_level_t /*level*/, const char * /*source*/,
-                 const spv_position_t & /*position*/,
-                 const char *message) { *messages += message; });
-
-  spvtools::OptimizerOptions options;
-  options.set_run_validator(false);
-
-  if (spirvOptions.optConfig.empty()) {
-    optimizer.RegisterPerformancePasses();
-    if (spirvOptions.flattenResourceArrays)
-      optimizer.RegisterPass(spvtools::CreateDescriptorScalarReplacementPass());
-    optimizer.RegisterPass(spvtools::CreateCompactIdsPass());
-  } else {
-    // Command line options use llvm::SmallVector and llvm::StringRef, whereas
-    // SPIR-V optimizer uses std::vector and std::string.
-    std::vector<std::string> stdFlags;
-    for (const auto &f : spirvOptions.optConfig)
-      stdFlags.push_back(f.str());
-    if (!optimizer.RegisterPassesFromFlags(stdFlags))
-      return false;
-  }
-
-  return optimizer.Run(mod->data(), mod->size(), mod, options);
-}
-
-bool spirvToolsValidate(spv_target_env env, const SpirvCodeGenOptions &opts,
-                        bool beforeHlslLegalization, std::vector<uint32_t> *mod,
-                        std::string *messages) {
-  spvtools::SpirvTools tools(env);
-
-  tools.SetMessageConsumer(
-      [messages](spv_message_level_t /*level*/, const char * /*source*/,
-                 const spv_position_t & /*position*/,
-                 const char *message) { *messages += message; });
-
-  spvtools::ValidatorOptions options;
-  options.SetBeforeHlslLegalization(beforeHlslLegalization);
-  // GL: strict block layout rules
-  // VK: relaxed block layout rules
-  // DX: Skip block layout rules
-  if (opts.useScalarLayout || opts.useDxLayout) {
-    options.SetScalarBlockLayout(true);
-  } else if (opts.useGlLayout) {
-    // spirv-val by default checks this.
-  } else {
-    options.SetRelaxBlockLayout(true);
-  }
-
-  return tools.Validate(mod->data(), mod->size(), options);
-}
-
 /// Translates atomic HLSL opcodes into the equivalent SPIR-V opcode.
 spv::Op translateAtomicHlslOpcodeToSpirvOpcode(hlsl::IntrinsicOp opcode) {
   using namespace hlsl;
@@ -653,14 +575,17 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   std::vector<uint32_t> m = spvBuilder.takeModule();
 
   if (!spirvOptions.codeGenHighLevel) {
-    // In order to flatten resource arrays, we must also unroll loops. Therefore
-    // we should run legalization before optimization.
-    needsLegalization = needsLegalization || spirvOptions.flattenResourceArrays;
+    // In order to flatten composite resources, we must also unroll loops.
+    // Therefore we should run legalization before optimization.
+    needsLegalization = needsLegalization ||
+                        declIdMapper.requiresLegalization() ||
+                        spirvOptions.flattenResourceArrays ||
+                        declIdMapper.requiresFlatteningCompositeResources();
 
     // Run legalization passes
-    if (needsLegalization || declIdMapper.requiresLegalization()) {
+    if (needsLegalization) {
       std::string messages;
-      if (!spirvToolsLegalize(targetEnv, &m, &messages)) {
+      if (!spirvToolsLegalize(&m, &messages)) {
         emitFatalError("failed to legalize SPIR-V: %0", {}) << messages;
         emitNote("please file a bug report on "
                  "https://github.com/Microsoft/DirectXShaderCompiler/issues "
@@ -675,7 +600,7 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     // Run optimization passes
     if (theCompilerInstance.getCodeGenOpts().OptimizationLevel > 0) {
       std::string messages;
-      if (!spirvToolsOptimize(targetEnv, &m, spirvOptions, &messages)) {
+      if (!spirvToolsOptimize(&m, &messages)) {
         emitFatalError("failed to optimize SPIR-V: %0", {}) << messages;
         emitNote("please file a bug report on "
                  "https://github.com/Microsoft/DirectXShaderCompiler/issues "
@@ -689,10 +614,7 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   // Validate the generated SPIR-V code
   if (!spirvOptions.disableValidation) {
     std::string messages;
-    if (!spirvToolsValidate(targetEnv, spirvOptions,
-                            needsLegalization ||
-                                declIdMapper.requiresLegalization(),
-                            &m, &messages)) {
+    if (!spirvToolsValidate(&m, &messages)) {
       emitFatalError("generated SPIR-V is invalid: %0", {}) << messages;
       emitNote("please file a bug report on "
                "https://github.com/Microsoft/DirectXShaderCompiler/issues "
@@ -11675,6 +11597,89 @@ SpirvEmitter::processRayQueryIntrinsics(const CXXMemberCallExpr *expr,
 
   retVal->setRValue();
   return retVal;
+}
+
+bool SpirvEmitter::spirvToolsValidate(std::vector<uint32_t> *mod,
+                                      std::string *messages) {
+  spvtools::SpirvTools tools(featureManager.getTargetEnv());
+
+  tools.SetMessageConsumer(
+      [messages](spv_message_level_t /*level*/, const char * /*source*/,
+                 const spv_position_t & /*position*/,
+                 const char *message) { *messages += message; });
+
+  spvtools::ValidatorOptions options;
+  options.SetBeforeHlslLegalization(needsLegalization ||
+                                    declIdMapper.requiresLegalization());
+  // GL: strict block layout rules
+  // VK: relaxed block layout rules
+  // DX: Skip block layout rules
+  if (spirvOptions.useScalarLayout || spirvOptions.useDxLayout) {
+    options.SetScalarBlockLayout(true);
+  } else if (spirvOptions.useGlLayout) {
+    // spirv-val by default checks this.
+  } else {
+    options.SetRelaxBlockLayout(true);
+  }
+
+  return tools.Validate(mod->data(), mod->size(), options);
+}
+
+bool SpirvEmitter::spirvToolsOptimize(std::vector<uint32_t> *mod,
+                                      std::string *messages) {
+  spvtools::Optimizer optimizer(featureManager.getTargetEnv());
+
+  optimizer.SetMessageConsumer(
+      [messages](spv_message_level_t /*level*/, const char * /*source*/,
+                 const spv_position_t & /*position*/,
+                 const char *message) { *messages += message; });
+
+  spvtools::OptimizerOptions options;
+  options.set_run_validator(false);
+
+  if (spirvOptions.optConfig.empty()) {
+    // Add performance passes.
+    optimizer.RegisterPerformancePasses();
+
+    // Add flattening of resources if needed.
+    if (spirvOptions.flattenResourceArrays ||
+        declIdMapper.requiresFlatteningCompositeResources()) {
+      optimizer.RegisterPass(spvtools::CreateDescriptorScalarReplacementPass());
+      // ADCE should be run after desc_sroa in order to remove potentially
+      // illegal types such as structures containing opaque types.
+      optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass());
+    }
+
+    // Add compact ID pass.
+    optimizer.RegisterPass(spvtools::CreateCompactIdsPass());
+  } else {
+    // Command line options use llvm::SmallVector and llvm::StringRef, whereas
+    // SPIR-V optimizer uses std::vector and std::string.
+    std::vector<std::string> stdFlags;
+    for (const auto &f : spirvOptions.optConfig)
+      stdFlags.push_back(f.str());
+    if (!optimizer.RegisterPassesFromFlags(stdFlags))
+      return false;
+  }
+
+  return optimizer.Run(mod->data(), mod->size(), mod, options);
+}
+
+bool SpirvEmitter::spirvToolsLegalize(std::vector<uint32_t> *mod,
+                                      std::string *messages) {
+  spvtools::Optimizer optimizer(featureManager.getTargetEnv());
+  optimizer.SetMessageConsumer(
+      [messages](spv_message_level_t /*level*/, const char * /*source*/,
+                 const spv_position_t & /*position*/,
+                 const char *message) { *messages += message; });
+
+  spvtools::OptimizerOptions options;
+  options.set_run_validator(false);
+  optimizer.RegisterLegalizationPasses();
+  optimizer.RegisterPass(spvtools::CreateReplaceInvalidOpcodePass());
+  optimizer.RegisterPass(spvtools::CreateCompactIdsPass());
+
+  return optimizer.Run(mod->data(), mod->size(), mod, options);
 }
 
 } // end namespace spirv
