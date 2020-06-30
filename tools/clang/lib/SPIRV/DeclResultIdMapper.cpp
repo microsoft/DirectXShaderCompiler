@@ -47,6 +47,52 @@ hlsl::ConstantPacking *getPackOffset(const clang::NamedDecl *decl) {
   return nullptr;
 }
 
+/// Returns the number of binding numbers that are used up by the given type.
+/// An array of size N consumes N*M binding numbers where M is the number of
+/// binding numbers used by each array element.
+/// The number of binding numbers used by a structure is the sum of binding
+/// numbers used by its members.
+uint32_t getNumBindingsUsedByResourceType(QualType type) {
+  // For custom-generated types that have SpirvType but no QualType.
+  if (type.isNull())
+    return 1;
+
+  // For every array dimension, the number of bindings needed should be
+  // multiplied by the array size. For example: an array of two Textures should
+  // use 2 binding slots.
+  uint32_t arrayFactor = 1;
+  while (auto constArrayType = dyn_cast<ConstantArrayType>(type)) {
+    arrayFactor *=
+        static_cast<uint32_t>(constArrayType->getSize().getZExtValue());
+    type = constArrayType->getElementType();
+  }
+
+  // Once we remove the arrayness, we expect the given type to be either a
+  // resource OR a structure that only contains resources.
+  assert(hlsl::IsHLSLResourceType(type) || isResourceOnlyStructure(type));
+
+  // In the case of a resource, each resource takes 1 binding slot, so in total
+  // it consumes: 1 * arrayFactor.
+  if (hlsl::IsHLSLResourceType(type))
+    return arrayFactor;
+
+  // In the case of a struct of resources, we need to sum up the number of
+  // bindings for the struct members. So in total it consumes:
+  //  sum(bindings of struct members) * arrayFactor.
+  if (isResourceOnlyStructure(type)) {
+    uint32_t sumOfMemberBindings = 0;
+    const auto *structDecl = type->getAs<RecordType>()->getDecl();
+    assert(structDecl);
+    for (const auto *field : structDecl->fields())
+      sumOfMemberBindings += getNumBindingsUsedByResourceType(field->getType());
+
+    return sumOfMemberBindings * arrayFactor;
+  }
+
+  llvm_unreachable(
+      "getNumBindingsUsedByResourceType was called with unknown resource type");
+}
+
 QualType getUintTypeWithSourceComponents(const ASTContext &astContext,
                                          QualType sourceType) {
   if (isScalarType(sourceType)) {
@@ -189,9 +235,14 @@ bool shouldSkipInStructLayout(const Decl *decl) {
     if (isa<HLSLBufferDecl>(decl))
       return true;
 
+    // 'groupshared' variables should not be placed in $Globals cbuffer.
+    if (decl->hasAttr<HLSLGroupSharedAttr>())
+      return true;
+
     // Other resource types
     if (const auto *valueDecl = dyn_cast<ValueDecl>(decl))
-      if (isResourceType(valueDecl))
+      if (isResourceType(valueDecl) ||
+          isResourceOnlyStructure((valueDecl->getType())))
         return true;
   }
 
@@ -333,6 +384,30 @@ inline uint32_t getNumBaseClasses(QualType type) {
     return cxxDecl->getNumBases();
   return 0;
 }
+
+/// Returns the appropriate storage class for an extern variable of the given
+/// type.
+spv::StorageClass getStorageClassForExternVar(QualType type,
+                                              bool hasGroupsharedAttr) {
+  // For CS groupshared variables
+  if (hasGroupsharedAttr)
+    return spv::StorageClass::Workgroup;
+
+  if (isAKindOfStructuredOrByteBuffer(type))
+    return spv::StorageClass::Uniform;
+
+  return spv::StorageClass::UniformConstant;
+}
+
+/// Returns the appropriate layout rule for an extern variable of the given
+/// type.
+SpirvLayoutRule getLayoutRuleForExternVar(QualType type,
+                                          const SpirvCodeGenOptions &opts) {
+  if (isAKindOfStructuredOrByteBuffer(type))
+    return opts.sBufferLayoutRule;
+  return SpirvLayoutRule::Void;
+}
+
 } // anonymous namespace
 
 std::string StageVar::getSemanticStr() const {
@@ -669,38 +744,28 @@ DeclResultIdMapper::createFileVar(const VarDecl *var,
 }
 
 SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
-  auto storageClass = spv::StorageClass::UniformConstant;
-  auto rule = SpirvLayoutRule::Void;
-  bool isACRWSBuffer = false; // Whether is {Append|Consume|RW}StructuredBuffer
+  const auto type = var->getType();
+  const bool isGroupShared = var->hasAttr<HLSLGroupSharedAttr>();
+  const bool isACRWSBuffer = isRWAppendConsumeSBuffer(type);
+  const auto storageClass = getStorageClassForExternVar(type, isGroupShared);
+  const auto rule = getLayoutRuleForExternVar(type, spirvOptions);
+  const auto loc = var->getLocation();
 
-  if (var->getAttr<HLSLGroupSharedAttr>()) {
-    // For CS groupshared variables
-    storageClass = spv::StorageClass::Workgroup;
-  } else if (isResourceType(var)) {
-    // See through the possible outer arrays
-    QualType resourceType = var->getType();
-    while (resourceType->isArrayType()) {
-      resourceType = resourceType->getAsArrayTypeUnsafe()->getElementType();
+  if (!isGroupShared && !isResourceType(var) &&
+      !isResourceOnlyStructure(type)) {
+
+    // We currently cannot support global structures that contain both resources
+    // and non-resources. That would require significant work in manipulating
+    // structure field decls, manipulating QualTypes, as well as inserting
+    // non-resources into the Globals cbuffer which changes offset decorations
+    // for it.
+    if (isStructureContainingMixOfResourcesAndNonResources(type)) {
+      emitError("global structures containing both resources and non-resources "
+                "are not supported",
+                loc);
+      return nullptr;
     }
 
-    const llvm::StringRef typeName =
-        resourceType->getAs<RecordType>()->getDecl()->getName();
-
-    // These types are all translated into OpTypeStruct with BufferBlock
-    // decoration. They should follow standard storage buffer layout,
-    // which GLSL std430 rules statisfies.
-    if (typeName == "StructuredBuffer" || typeName == "ByteAddressBuffer" ||
-        typeName == "RWByteAddressBuffer") {
-      storageClass = spv::StorageClass::Uniform;
-      rule = spirvOptions.sBufferLayoutRule;
-    } else if (typeName == "RWStructuredBuffer" ||
-               typeName == "AppendStructuredBuffer" ||
-               typeName == "ConsumeStructuredBuffer") {
-      storageClass = spv::StorageClass::Uniform;
-      rule = spirvOptions.sBufferLayoutRule;
-      isACRWSBuffer = true;
-    }
-  } else {
     // This is a stand-alone externally-visiable non-resource-type variable.
     // They should be grouped into the $Globals cbuffer. We create that cbuffer
     // and record all variables inside it upon seeing the first such variable.
@@ -711,8 +776,31 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
     return varInstr ? cast<SpirvVariable>(varInstr) : nullptr;
   }
 
-  const auto type = var->getType();
-  const auto loc = var->getLocation();
+  if (isResourceOnlyStructure(type)) {
+    // We currently do not support global structures that contain buffers.
+    // Supporting global structures that contain buffers has two complications:
+    //
+    // 1- Buffers have the Uniform storage class, whereas Textures/Samplers have
+    // UniformConstant storage class. As a result, if a struct contains both
+    // textures and buffers, it is not clear what storage class should be used
+    // for the struct. Also legalization cannot deduce the proper storage class
+    // for struct members based on the structure's storage class.
+    //
+    // 2- Any kind of structured buffer has associated counters. The current DXC
+    // code is not written in a way to place associated counters inside a
+    // structure. Changing this behavior is non-trivial. There's also
+    // significant work to be done both in DXC (to properly generate binding
+    // numbers for the resource and its associated counters at correct offsets)
+    // and in spirv-opt (to flatten such strcutures and modify the binding
+    // numbers accordingly).
+    if (isStructureContainingAnyKindOfBuffer(type)) {
+      emitError("global structures containing buffers are not supported", loc);
+      return nullptr;
+    }
+
+    needsFlatteningCompositeResources = true;
+  }
+
   SpirvVariable *varInstr = spvBuilder.addModuleVar(
       type, storageClass, var->hasAttr<HLSLPreciseAttr>(), var->getName(),
       llvm::None, loc);
@@ -781,16 +869,11 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
   const bool forShaderRecordNV =
       usageKind == ContextUsageKind::ShaderRecordBufferNV;
 
-  const llvm::SmallVector<const Decl *, 4> &declGroup =
-      collectDeclsInDeclContext(decl);
+  const auto &declGroup = collectDeclsInDeclContext(decl);
 
   // Collect the type and name for each field
   llvm::SmallVector<HybridStructType::FieldInfo, 4> fields;
   for (const auto *subDecl : declGroup) {
-    // 'groupshared' variables should not be placed in $Globals cbuffer.
-    if (forGlobals && subDecl->hasAttr<HLSLGroupSharedAttr>())
-      continue;
-
     // The field can only be FieldDecl (for normal structs) or VarDecl (for
     // HLSLBufferDecls).
     assert(isa<VarDecl>(subDecl) || isa<FieldDecl>(subDecl));
@@ -1012,9 +1095,6 @@ void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
 
   uint32_t index = 0;
   for (const auto *decl : collectDeclsInDeclContext(context)) {
-    // 'groupshared' variables should not be placed in $Globals cbuffer.
-    if (decl->hasAttr<HLSLGroupSharedAttr>())
-      continue;
     if (const auto *varDecl = dyn_cast<VarDecl>(decl)) {
       if (!spirvOptions.noWarnIgnoredFeatures) {
         if (const auto *init = varDecl->getInit())
@@ -1642,8 +1722,9 @@ bool DeclResultIdMapper::decorateResourceBindings() {
     // resources (e.g. array of textures), DX uses one binding number per array
     // element. We can match this behavior via a command line option.
     uint32_t numBindingsToUse = 1;
-    if (spirvOptions.flattenResourceArrays)
-      numBindingsToUse = var.getArraySize();
+    if (spirvOptions.flattenResourceArrays || needsFlatteningCompositeResources)
+      numBindingsToUse = getNumBindingsUsedByResourceType(
+          var.getSpirvInstr()->getAstResultType());
 
     for (uint32_t i = 0; i < numBindingsToUse; ++i) {
       bool success = bindingSet.useBinding(bindingNo + i, setNo);
@@ -1723,8 +1804,9 @@ bool DeclResultIdMapper::decorateResourceBindings() {
     // resources (e.g. array of textures), DX uses one binding number per array
     // element. We can match this behavior via a command line option.
     uint32_t numBindingsToUse = 1;
-    if (spirvOptions.flattenResourceArrays)
-      numBindingsToUse = var.getArraySize();
+    if (spirvOptions.flattenResourceArrays || needsFlatteningCompositeResources)
+      numBindingsToUse = getNumBindingsUsedByResourceType(
+          var.getSpirvInstr()->getAstResultType());
 
     if (var.isCounter()) {
       if (!var.getCounterBinding()) {

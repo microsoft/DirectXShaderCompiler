@@ -1770,6 +1770,56 @@ TEST_F(FileTest, VulkanStructuredBufferCounter) {
   runFileTest("vk.binding.counter.hlsl");
 }
 
+TEST_F(FileTest, BindingStructureOfResources1) {
+  // In Vulkan, OpTypeStruct must not contain an opaque type.
+  // Therefore this test fails validation before legalization is performed.
+  runFileTest("vk.binding.global-struct-of-resources.1.hlsl", Expect::Success,
+              /*runValidation*/ false);
+}
+
+TEST_F(FileTest, BindingStructureOfResources2) {
+  // In Vulkan, OpTypeStruct must not contain an opaque type.
+  // Therefore this test fails validation before legalization is performed.
+  runFileTest("vk.binding.global-struct-of-resources.2.hlsl", Expect::Success,
+              /*runValidation*/ false);
+}
+
+TEST_F(FileTest, BindingStructureOfResources3) {
+  // In Vulkan, OpTypeStruct must not contain an opaque type.
+  // Therefore this test fails validation before legalization is performed.
+  runFileTest("vk.binding.global-struct-of-resources.3.hlsl", Expect::Success,
+              /*runValidation*/ false);
+}
+
+TEST_F(FileTest, BindingStructureOfResources4) {
+  // In Vulkan, OpTypeStruct must not contain an opaque type.
+  // Therefore this test fails validation before legalization is performed.
+  runFileTest("vk.binding.global-struct-of-resources.4.hlsl", Expect::Success,
+              /*runValidation*/ false);
+}
+
+TEST_F(FileTest, BindingStructureOfResourcesOptimized) {
+  // After optimization is performed, this binary should pass validation.
+  runFileTest("vk.binding.global-struct-of-resources.optimized.hlsl",
+              Expect::Success, /*runValidation*/ true);
+}
+
+TEST_F(FileTest, BindingStructureOfResourcesAndNonResourcesError1) {
+  runFileTest("vk.binding.global-struct-of-resource-mix.error.1.hlsl",
+              Expect::Failure, /*runValidation*/ false);
+}
+
+TEST_F(FileTest, BindingStructureOfResourcesAndNonResourcesError2) {
+  runFileTest("vk.binding.global-struct-of-resource-mix.error.2.hlsl",
+              Expect::Failure);
+}
+
+TEST_F(FileTest, BindingStructureOfResourcesContainsBufferError) {
+  runFileTest(
+      "vk.binding.global-struct-of-resources.contains-buffer-error.hlsl",
+      Expect::Failure);
+}
+
 TEST_F(FileTest, VulkanPushConstant) { runFileTest("vk.push-constant.hlsl"); }
 TEST_F(FileTest, VulkanPushConstantOffset) {
   // Checks the behavior of [[vk::offset]] with [[vk::push_constant]]
