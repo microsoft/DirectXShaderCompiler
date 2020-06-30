@@ -2356,6 +2356,26 @@ bool DxilMDHelper::IsKnownNamedMetaData(const llvm::NamedMDNode &Node) {
   return false;
 }
 
+bool DxilMDHelper::IsKnownMetadataID(LLVMContext &Ctx, unsigned ID)
+{
+    SmallVector<unsigned, 2> IDs;
+    GetKnownMetadataIDs(Ctx, &IDs);
+    return std::find(IDs.begin(), IDs.end(), ID) != IDs.end();
+}
+
+void DxilMDHelper::GetKnownMetadataIDs(LLVMContext &Ctx, SmallVectorImpl<unsigned> *pIDs)
+{
+    auto AddIdIfExists = [&Ctx, &pIDs](StringRef Name) {
+        unsigned ID = 0;
+        if (Ctx.findMDKindID(hlsl::DxilMDHelper::kDxilPreciseAttributeMDName, &ID))
+        {
+            pIDs->push_back(ID);
+        }
+    };
+
+    AddIdIfExists(hlsl::DxilMDHelper::kDxilPreciseAttributeMDName);
+    AddIdIfExists(hlsl::DxilMDHelper::kDxilNonUniformAttributeMDName);
+}
 void DxilMDHelper::combineDxilMetadata(llvm::Instruction *K,
                                        const llvm::Instruction *J) {
   if (IsMarkedNonUniform(J))
