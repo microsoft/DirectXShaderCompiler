@@ -2979,7 +2979,7 @@ void CodeGenFunction::EmitCallArg(CallArgList &args, const Expr *E,
           // RWBuffer<uint> buf;
           // InterlockedAdd(buf[0].r, 1);
           llvm::Value *V = LV.getAddress();
-          Ptr = Builder.CreateGEP(V, { Builder.getInt32(0) });
+          Ptr = Builder.CreateGEP(V, Builder.getInt32(0));
         } else {
           llvm::Value *V = LV.getExtVectorAddr();
           llvm::Constant *Elts = LV.getExtVectorElts();

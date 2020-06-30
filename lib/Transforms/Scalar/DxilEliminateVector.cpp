@@ -95,21 +95,6 @@ bool CollectVectorElements(Value *V, SmallVector<Value *, 4> &Elements) {
   return false;
 }
 
-static bool HasDebugValue(Value *V) {
-  Instruction *I = dyn_cast<Instruction>(V);
-  if (!I) return false;
-
-  MetadataAsValue *DebugI = GetAsMetadata(I);
-  if (!DebugI) return false;
-
-  for (User *U : DebugI->users()) {
-    if (isa<DbgValueInst>(U))
-      return true;
-  }
-
-  return false;
-}
-
 bool DxilEliminateVector::TryRewriteDebugInfoForVector(InsertElementInst *IE) {
 
   // If this is not ever used as meta-data, there's no debug

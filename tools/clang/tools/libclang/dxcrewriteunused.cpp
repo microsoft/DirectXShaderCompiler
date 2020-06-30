@@ -223,14 +223,6 @@ public:
   }
 };
 
-static void raw_string_ostream_to_CoString(raw_string_ostream &o, _Outptr_result_z_ LPSTR *pResult) {
-  std::string& s = o.str(); // .str() will flush automatically
-  *pResult = (LPSTR)CoTaskMemAlloc(s.size() + 1);
-  if (*pResult == nullptr) 
-    throw std::bad_alloc();
-  strncpy(*pResult, s.c_str(), s.size() + 1);
-}
-
 static
 void SetupCompilerForRewrite(CompilerInstance &compiler,
                              _In_ DxcLangExtensionsHelper *helper,

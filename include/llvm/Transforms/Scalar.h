@@ -116,8 +116,8 @@ void initializeHLExpandStoreIntrinsicsPass(PassRegistry&);
 // ScalarReplAggregatesHLSL - Break up alloca's of aggregates into multiple allocas
 // for hlsl. Array will not change, all structures will be broken up.
 //
-FunctionPass *createScalarReplAggregatesHLSLPass(bool UseDomTree = true,
-                                                 bool Promote = false);
+FunctionPass *createScalarReplAggregatesHLSLPass();
+
 void initializeSROA_DT_HLSLPass(PassRegistry&);
 //===----------------------------------------------------------------------===//
 //
