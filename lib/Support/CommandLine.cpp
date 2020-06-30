@@ -152,6 +152,7 @@ public:
 
   void removeOption(Option *O) {
     SmallVector<const char *, 16> OptionNames;
+    int unused;
     O->getExtraOptionNames(OptionNames);
     if (O->ArgStr[0])
       OptionNames.push_back(O->ArgStr);
