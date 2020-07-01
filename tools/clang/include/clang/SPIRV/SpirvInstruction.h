@@ -120,6 +120,8 @@ public:
     IK_Store,                     // OpStore
     IK_UnaryOp,                   // Unary operations
     IK_VectorShuffle,             // OpVectorShuffle
+
+    IK_ReadClock,                 // OpReadClock
   };
 
   virtual ~SpirvInstruction() = default;
@@ -1817,6 +1819,23 @@ public:
 
   bool invokeVisitor(Visitor *v) override;
 };
+
+class SpirvReadClockOp : public SpirvInstruction {
+public:
+    SpirvReadClockOp(QualType resultType, spv::Scope scope,SourceLocation);
+
+    // For LLVM-style RTTI
+    static bool classof(const SpirvInstruction *inst) {
+        return inst->getKind() == IK_ReadClock;
+    }
+
+    bool invokeVisitor(Visitor *v) override;
+    spv::Scope getExecutionScope() const { return execScope; }
+
+private:
+    spv::Scope execScope;
+};
+
 
 #undef DECLARE_INVOKE_VISITOR_FOR_CLASS
 

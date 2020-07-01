@@ -2137,6 +2137,20 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
 
   const QualType retType =
       declIdMapper.getTypeAndCreateCounterForPotentialAliasVar(callee);
+
+  if (auto name = callee->getAttr<VKIntrinsicAttr>()) {
+      SpirvInstruction *instr;
+      const auto spvIntrinsic = llvm::StringSwitch<spv::Op>(name->getIntrinsic())
+          .Case("shader_clock", spv::Op::OpReadClockKHR)
+          .Default(spv::Op::Max);
+      switch (spvIntrinsic) {
+      case spv::Op::OpReadClockKHR :
+          instr = spvBuilder.createReadClockOp(retType, spv::Scope::Device,
+              callExpr->getCallee()->getExprLoc());
+          break;
+      }
+      return instr;
+  }
   // Get or forward declare the function <result-id>
   SpirvFunction *func = declIdMapper.getOrRegisterFn(callee);
 

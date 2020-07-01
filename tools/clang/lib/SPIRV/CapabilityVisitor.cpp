@@ -490,7 +490,11 @@ bool CapabilityVisitor::visitInstruction(SpirvInstruction *instr) {
 
     break;
   }
-
+  case spv::Op::OpReadClockKHR: {
+     addCapability(spv::Capability::ShaderClockKHR);
+     addExtension(Extension::KHR_shader_clock, "SPV_KHR_shader_clock", loc);
+     break;
+  }
   default:
     break;
   }

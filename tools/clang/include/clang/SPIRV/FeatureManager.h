@@ -49,6 +49,7 @@ enum class Extension {
   NV_ray_tracing,
   NV_mesh_shader,
   KHR_ray_query,
+  KHR_shader_clock,
   Unknown,
 };
 

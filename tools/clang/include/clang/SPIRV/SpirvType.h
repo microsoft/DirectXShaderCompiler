@@ -449,7 +449,7 @@ public:
     const hlsl::RegisterAssignment *registerC;
     // Whether this field is marked as 'precise'.
     bool isPrecise;
-  };
+  }; 
 
   HybridStructType(
       llvm::ArrayRef<FieldInfo> fields, llvm::StringRef name, bool isReadOnly,

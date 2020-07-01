@@ -139,7 +139,7 @@ protected:
                        bool IsLateParsed, bool DuplicatesAllowed)
       : InheritableAttr(AK, R, SpellingListIndex, IsLateParsed,
                         DuplicatesAllowed) {}
-
+   
 public:
   // Implement isa/cast/dyncast/etc.
   static bool classof(const Attr *A) {

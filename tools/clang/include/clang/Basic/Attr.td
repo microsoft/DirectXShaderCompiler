@@ -937,6 +937,15 @@ def VKBinding : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def VKIntrinsic : InheritableAttr {
+  let Spellings = [CXX11<"vk", "intrinsic">];
+  let Subjects = SubjectList<[Function, ParmVar, Field], ErrorDiag>;
+  let Args = [StringArgument<"Intrinsic">];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+
 // StructuredBuffer types that can have associated counters
 def CounterStructuredBuffer : SubsetSubject<
     Var,

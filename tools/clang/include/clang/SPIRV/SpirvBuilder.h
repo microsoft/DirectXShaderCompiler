@@ -446,6 +446,10 @@ public:
                        llvm::ArrayRef<SpirvInstruction *> operands,
                        bool cullFlags, SourceLocation loc);
 
+  /// \brief Create SPIR-V instructions for shader clock
+  SpirvReadClockOp * createReadClockOp(QualType resultType, spv::Scope scope, 
+                                       SourceLocation loc);
+
   // === SPIR-V Module Structure ===
   inline void setMemoryModel(spv::AddressingModel, spv::MemoryModel);
 

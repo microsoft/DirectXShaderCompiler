@@ -84,6 +84,7 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvArrayLength)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvRayTracingOpNV)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDemoteToHelperInvocationEXT)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvRayQueryOpKHR)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvReadClockOp)
 
 #undef DEFINE_INVOKE_VISITOR_FOR_CLASS
 
@@ -799,5 +800,8 @@ SpirvRayQueryOpKHR::SpirvRayQueryOpKHR(
     SourceLocation loc)
     : SpirvInstruction(IK_RayQueryOpKHR, opcode, resultType, loc),
       operands(vecOperands.begin(), vecOperands.end()), cullFlags(flags) {}
+
+SpirvReadClockOp::SpirvReadClockOp(QualType resultType, spv::Scope scope, SourceLocation loc)
+    : SpirvInstruction(IK_ReadClock, spv::Op::OpReadClockKHR, resultType, loc), execScope(scope) {}
 } // namespace spirv
 } // namespace clang

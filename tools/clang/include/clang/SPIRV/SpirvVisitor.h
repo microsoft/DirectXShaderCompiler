@@ -116,6 +116,7 @@ public:
   DEFINE_VISIT_METHOD(SpirvRayTracingOpNV)
   DEFINE_VISIT_METHOD(SpirvDemoteToHelperInvocationEXT)
   DEFINE_VISIT_METHOD(SpirvRayQueryOpKHR)
+  DEFINE_VISIT_METHOD(SpirvReadClockOp)
 #undef DEFINE_VISIT_METHOD
 
 protected:

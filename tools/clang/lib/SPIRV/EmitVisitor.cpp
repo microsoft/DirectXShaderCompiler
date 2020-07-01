@@ -1151,6 +1151,19 @@ bool EmitVisitor::visit(SpirvRayQueryOpKHR *inst) {
   return true;
 }
 
+
+bool EmitVisitor::visit(SpirvReadClockOp *inst) {
+    initInstruction(inst);
+    curInst.push_back(inst->getResultTypeId());
+    curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+    curInst.push_back(typeHandler.getOrCreateConstantInt(
+        llvm::APInt(32, static_cast<uint32_t>(inst->getExecutionScope())),
+        context.getUIntType(32), /* isSpecConst */ false));
+    finalizeInstruction();
+    emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
+        inst->getDebugName());
+    return true;
+}
 // EmitTypeHandler ------
 
 void EmitTypeHandler::initTypeInstruction(spv::Op op) {
