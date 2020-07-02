@@ -193,8 +193,8 @@ namespace MainNs
             {
                 string dot = dotText.Substring(dotText.LastIndexOf(dotStart));
                 dot = dot.Substring(0, dot.LastIndexOf("}") + 1);
-                dot = dot.Replace("", "");
-                dot = dot.Replace("?", "");
+                dot = dot.Replace("\u0001??", "");
+                dot = dot.Replace("\u0001?", "");
                 EditorForm.LogContextMenuHelper.ShowDot(dot);
                 dotText = dotText.Substring(0, dotText.LastIndexOf(dotStart));
             }
