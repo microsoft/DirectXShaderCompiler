@@ -22,6 +22,7 @@ public:
   using Kind = DXIL::InterpolationMode;
 
   InterpolationMode();
+  InterpolationMode(const InterpolationMode &Mode) = default;
   InterpolationMode(Kind Kind);
   InterpolationMode(unsigned long long Kind);
   InterpolationMode(bool bNoInterpolation, bool bLinear, bool bNoperspective, bool bCentroid, bool bSample);

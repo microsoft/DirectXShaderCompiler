@@ -135,11 +135,6 @@ public:
     return Bits != RHS.Bits;
   }
 
-  const PackedVector &operator=(const PackedVector &RHS) {
-    Bits = RHS.Bits;
-    return *this;
-  }
-
   PackedVector &operator|=(const PackedVector &RHS) {
     Bits |= RHS.Bits;
     return *this;
