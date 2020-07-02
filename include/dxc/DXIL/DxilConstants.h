@@ -699,9 +699,12 @@ namespace DXIL {
     NumOpCodes_Dxil_1_3 = 162,
     NumOpCodes_Dxil_1_4 = 165,
     NumOpCodes_Dxil_1_5 = 216,
-    NumOpCodes_Dxil_1_6 = 218,
+    NumOpCodes_Dxil_1_6 = 219,
+
+	// Intrinsic
+	IntelMediaBlockRead= 218,
   
-    NumOpCodes = 218 // exclusive last value of enumeration
+    NumOpCodes = 219 // exclusive last value of enumeration
   };
   // OPCODE-ENUM:END
 
@@ -945,16 +948,19 @@ namespace DXIL {
     WavePrefixOp,
     WaveReadLaneAt,
     WaveReadLaneFirst,
-  
+
+    // Intrinsic
+    Intrinsic,
+
     NumOpClasses_Dxil_1_0 = 93,
     NumOpClasses_Dxil_1_1 = 95,
     NumOpClasses_Dxil_1_2 = 97,
     NumOpClasses_Dxil_1_3 = 118,
     NumOpClasses_Dxil_1_4 = 120,
     NumOpClasses_Dxil_1_5 = 143,
-    NumOpClasses_Dxil_1_6 = 145,
+    NumOpClasses_Dxil_1_6 = 146,
   
-    NumOpClasses = 145 // exclusive last value of enumeration
+    NumOpClasses = 146 // exclusive last value of enumeration
   };
   // OPCODECLASS-ENUM:END
 

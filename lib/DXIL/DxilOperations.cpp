@@ -235,6 +235,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   {  OC::WaveActiveBit,           "WaveActiveBit",            OCC::WaveActiveBit,            "waveActiveBit",             { false, false, false, false, false,  true,  true,  true,  true, false, false}, Attribute::None,     },
   {  OC::WavePrefixOp,            "WavePrefixOp",             OCC::WavePrefixOp,             "wavePrefixOp",              { false,  true,  true,  true, false,  true,  true,  true,  true, false, false}, Attribute::None,     },
 
+
   // Quad Wave Ops                                                                                                           void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
   {  OC::QuadReadLaneAt,          "QuadReadLaneAt",           OCC::QuadReadLaneAt,           "quadReadLaneAt",            { false,  true,  true,  true,  true,  true,  true,  true,  true, false, false}, Attribute::None,     },
   {  OC::QuadOp,                  "QuadOp",                   OCC::QuadOp,                   "quadOp",                    { false,  true,  true,  true, false,  true,  true,  true,  true, false, false}, Attribute::None,     },
@@ -388,6 +389,8 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   // Get handle from heap                                                                                                    void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
   {  OC::CreateHandleFromHeap,    "CreateHandleFromHeap",     OCC::CreateHandleFromHeap,     "createHandleFromHeap",      {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
   {  OC::AnnotateHandle,          "AnnotateHandle",           OCC::AnnotateHandle,           "annotateHandle",            {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  // Intrinsic                                                                                                              void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::IntelMediaBlockRead,     "IntelMediaBlockRead",      OCC::Intrinsic,                "Intrinsic",                 { false,  false, true, false, false,  false, false, false, false, false, false}, Attribute::None,     },
 };
 // OPCODE-OLOADS:END
 
@@ -418,6 +421,7 @@ unsigned OP::GetTypeSlot(Type *pType) {
   switch (T) {
   case Type::VoidTyID:    return 0;
   case Type::HalfTyID:    return 1;
+  case Type::VectorTyID:
   case Type::FloatTyID:   return 2;
   case Type::DoubleTyID:  return 3;
   case Type::IntegerTyID: {
@@ -1352,6 +1356,9 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     // Get handle from heap
   case OpCode::CreateHandleFromHeap:   A(pRes);     A(pI32); A(pI32); A(pI1);  break;
   case OpCode::AnnotateHandle:         A(pRes);     A(pI32); A(pRes); A(pI8);  A(pI8);  A(resProperty);break;
+
+    //Intrinsic
+  case OpCode::IntelMediaBlockRead:    A(pETy);   A(pI32); A(pETy);   break;
   // OPCODE-OLOAD-FUNCS:END
   default: DXASSERT(false, "otherwise unhandled case"); break;
   }
