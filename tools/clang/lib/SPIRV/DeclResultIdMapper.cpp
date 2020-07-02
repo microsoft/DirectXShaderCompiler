@@ -2045,6 +2045,63 @@ bool DeclResultIdMapper::createStageVars(
     // function/parameter/variable. All are DeclaratorDecls.
     stageVarInstructions[cast<DeclaratorDecl>(decl)] = varInstr;
 
+    // Special case: The DX12 SV_InstanceID always counts from 0, even if the
+    // StartInstanceLocation parameter is non-zero. gl_InstanceIndex, however,
+    // starts from firstInstance. Thus it doesn't emulate actual DX12 shader
+    // behavior. To make it equivalent, SPIR-V codegen should emit:
+    // SV_InstanceID = gl_InstanceIndex - gl_BaseInstance
+    // Unfortunately, this means that there is no 1-to-1 mapping of the HLSL
+    // semantic to the SPIR-V builtin. As a result, we have to manually create
+    // a second stage variable for this specific case.
+    //
+    // According to the Vulkan spec on builtin variables:
+    // www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#interfaces-builtin-variables
+    //
+    // InstanceIndex:
+    //   Decorating a variable in a vertex shader with the InstanceIndex
+    //   built-in decoration will make that variable contain the index of the
+    //   instance that is being processed by the current vertex shader
+    //   invocation. InstanceIndex begins at the firstInstance.
+    // BaseInstance
+    //   Decorating a variable with the BaseInstance built-in will make that
+    //   variable contain the integer value corresponding to the first instance
+    //   that was passed to the command that invoked the current vertex shader
+    //   invocation. BaseInstance is the firstInstance parameter to a direct
+    //   drawing command or the firstInstance member of a structure consumed by
+    //   an indirect drawing command.
+    if (asInput && semanticKind == hlsl::Semantic::Kind::InstanceID &&
+        sigPointKind == hlsl::SigPoint::Kind::VSIn) {
+      // The above call to createSpirvStageVar creates the gl_InstanceIndex.
+      // We should now manually create the gl_BaseInstance variable and do the
+      // subtraction.
+      auto *instanceIndexVar = varInstr;
+      auto *baseInstanceVar = spvBuilder.addStageBuiltinVar(
+          type, spv::StorageClass::Input, spv::BuiltIn::BaseInstance,
+          decl->hasAttr<HLSLPreciseAttr>(), semanticToUse->loc);
+      StageVar stageVar2(sigPoint, *semanticToUse, builtinAttr, evalType,
+                         getLocationCount(astContext, type));
+      stageVar2.setSpirvInstr(baseInstanceVar);
+      stageVar2.setLocationAttr(decl->getAttr<VKLocationAttr>());
+      stageVar2.setIndexAttr(decl->getAttr<VKIndexAttr>());
+      stageVar2.setIsSpirvBuiltin();
+      stageVars.push_back(stageVar2);
+
+      // SPIR-V code fore 'SV_InstanceID = gl_InstanceIndex - gl_BaseInstance'
+      auto *instanceIdVar =
+          spvBuilder.addFnVar(type, semanticToUse->loc, "SV_InstanceID");
+      auto *instanceIndexValue =
+          spvBuilder.createLoad(type, instanceIndexVar, semanticToUse->loc);
+      auto *baseInstanceValue =
+          spvBuilder.createLoad(type, baseInstanceVar, semanticToUse->loc);
+      auto *instanceIdValue =
+          spvBuilder.createBinaryOp(spv::Op::OpISub, type, instanceIndexValue,
+                                    baseInstanceValue, semanticToUse->loc);
+      spvBuilder.createStore(instanceIdVar, instanceIdValue,
+                             semanticToUse->loc);
+      stageVarInstructions[cast<DeclaratorDecl>(decl)] = instanceIdVar;
+      varInstr = instanceIdVar;
+    }
+
     // Mark that we have used one index for this semantic
     ++semanticToUse->index;
 
