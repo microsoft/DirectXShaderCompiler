@@ -128,306 +128,6 @@ private:
   void RewriteCallArg(CallInst *CI, unsigned ArgIdx, bool bIn, bool bOut);
 };
 
-struct SROA_HLSL : public FunctionPass {
-  SROA_HLSL(int T, char &ID, int ST, int AT, int SLT)
-      : FunctionPass(ID) {
-
-    if (AT == -1)
-      ArrayElementThreshold = 8;
-    else
-      ArrayElementThreshold = AT;
-    if (SLT == -1)
-      // Do not limit the scalar integer load size if no threshold is given.
-      ScalarLoadThreshold = -1;
-    else
-      ScalarLoadThreshold = SLT;
-  }
-
-  bool runOnFunction(Function &F) override;
-
-  bool performScalarRepl(Function &F, DxilTypeSystem &typeSys);
-  bool markPrecise(Function &F);
-
-private:
-
-  /// DeadInsts - Keep track of instructions we have made dead, so that
-  /// we can remove them after we are done working.
-  SmallVector<Value *, 32> DeadInsts;
-
-  /// AllocaInfo - When analyzing uses of an alloca instruction, this captures
-  /// information about the uses.  All these fields are initialized to false
-  /// and set to true when something is learned.
-  struct AllocaInfo {
-    /// The alloca to promote.
-    AllocaInst *AI;
-
-    /// CheckedPHIs - This is a set of verified PHI nodes, to prevent infinite
-    /// looping and avoid redundant work.
-    SmallPtrSet<PHINode *, 8> CheckedPHIs;
-
-    /// isUnsafe - This is set to true if the alloca cannot be SROA'd.
-    bool isUnsafe : 1;
-
-    /// isMemCpySrc - This is true if this aggregate is memcpy'd from.
-    bool isMemCpySrc : 1;
-
-    /// isMemCpyDst - This is true if this aggregate is memcpy'd into.
-    bool isMemCpyDst : 1;
-
-    /// hasSubelementAccess - This is true if a subelement of the alloca is
-    /// ever accessed, or false if the alloca is only accessed with mem
-    /// intrinsics or load/store that only access the entire alloca at once.
-    bool hasSubelementAccess : 1;
-
-    /// hasALoadOrStore - This is true if there are any loads or stores to it.
-    /// The alloca may just be accessed with memcpy, for example, which would
-    /// not set this.
-    bool hasALoadOrStore : 1;
-
-    /// hasArrayIndexing - This is true if there are any dynamic array
-    /// indexing to it.
-    bool hasArrayIndexing : 1;
-
-    /// hasVectorIndexing - This is true if there are any dynamic vector
-    /// indexing to it.
-    bool hasVectorIndexing : 1;
-
-    explicit AllocaInfo(AllocaInst *ai)
-        : AI(ai), isUnsafe(false), isMemCpySrc(false), isMemCpyDst(false),
-          hasSubelementAccess(false), hasALoadOrStore(false),
-          hasArrayIndexing(false), hasVectorIndexing(false) {}
-  };
-
-  /// ArrayElementThreshold - The maximum number of elements an array can
-  /// have to be considered for SROA.
-  unsigned ArrayElementThreshold;
-
-  /// ScalarLoadThreshold - The maximum size in bits of scalars to load when
-  /// converting to scalar
-  unsigned ScalarLoadThreshold;
-
-  void MarkUnsafe(AllocaInfo &I, Instruction *User) {
-    I.isUnsafe = true;
-    DEBUG(dbgs() << "  Transformation preventing inst: " << *User << '\n');
-  }
-
-  bool isSafeAllocaToScalarRepl(AllocaInst *AI);
-
-  void isSafeForScalarRepl(Instruction *I, uint64_t Offset, AllocaInfo &Info);
-  void isSafePHISelectUseForScalarRepl(Instruction *User, uint64_t Offset,
-                                       AllocaInfo &Info);
-  void isSafeGEP(GetElementPtrInst *GEPI, uint64_t &Offset, AllocaInfo &Info);
-  void isSafeMemAccess(uint64_t Offset, uint64_t MemSize, Type *MemOpType,
-                       bool isStore, AllocaInfo &Info, Instruction *TheAccess,
-                       bool AllowWholeAccess);
-  bool TypeHasComponent(Type *T, uint64_t Offset, uint64_t Size,
-                        const DataLayout &DL);
-
-  void DeleteDeadInstructions();
-
-  bool ShouldAttemptScalarRepl(AllocaInst *AI);
-};
-
-// SROA_DT_HLSL - SROA that uses DominatorTree.
-struct SROA_DT_HLSL : public SROA_HLSL {
-  static char ID;
-
-public:
-  SROA_DT_HLSL(int T = -1, int ST = -1, int AT = -1, int SLT = -1)
-      : SROA_HLSL(T, ID, ST, AT, SLT) {
-    initializeSROA_DTPass(*PassRegistry::getPassRegistry());
-  }
-
-  // getAnalysisUsage - This pass does not require any passes, but we know it
-  // will not alter the CFG, so say so.
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<AssumptionCacheTracker>();
-    AU.addRequired<DominatorTreeWrapperPass>();
-    AU.setPreservesCFG();
-  }
-};
-
-// SROA_SSAUp - SROA that uses SSAUpdater.
-struct SROA_SSAUp_HLSL : public SROA_HLSL {
-  static char ID;
-
-public:
-  SROA_SSAUp_HLSL(int T = -1, int ST = -1, int AT = -1, int SLT = -1)
-      : SROA_HLSL(T, ID, ST, AT, SLT) {
-    initializeSROA_SSAUpPass(*PassRegistry::getPassRegistry());
-  }
-
-  // getAnalysisUsage - This pass does not require any passes, but we know it
-  // will not alter the CFG, so say so.
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<AssumptionCacheTracker>();
-    AU.setPreservesCFG();
-  }
-};
-
-// Simple struct to split memcpy into ld/st
-struct MemcpySplitter {
-  llvm::LLVMContext &m_context;
-  DxilTypeSystem &m_typeSys;
-public:
-  MemcpySplitter(llvm::LLVMContext &context, DxilTypeSystem &typeSys)
-      : m_context(context), m_typeSys(typeSys) {}
-  void Split(llvm::Function &F);
-
-  static void PatchMemCpyWithZeroIdxGEP(Module &M);
-  static void PatchMemCpyWithZeroIdxGEP(MemCpyInst *MI, const DataLayout &DL);
-  static void SplitMemCpy(MemCpyInst *MI, const DataLayout &DL,
-                          DxilFieldAnnotation *fieldAnnotation,
-                          DxilTypeSystem &typeSys,
-                          const bool bEltMemCpy = true);
-};
-
-}
-
-char SROA_DT_HLSL::ID = 0;
-char SROA_SSAUp_HLSL::ID = 0;
-
-INITIALIZE_PASS_BEGIN(SROA_DT_HLSL, "scalarreplhlsl",
-                      "Scalar Replacement of Aggregates HLSL (DT)", false,
-                      false)
-INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_END(SROA_DT_HLSL, "scalarreplhlsl",
-                    "Scalar Replacement of Aggregates HLSL (DT)", false, false)
-
-INITIALIZE_PASS_BEGIN(SROA_SSAUp_HLSL, "scalarreplhlsl-ssa",
-                      "Scalar Replacement of Aggregates HLSL (SSAUp)", false,
-                      false)
-INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
-INITIALIZE_PASS_END(SROA_SSAUp_HLSL, "scalarreplhlsl-ssa",
-                    "Scalar Replacement of Aggregates HLSL (SSAUp)", false,
-                    false)
-
-// Public interface to the ScalarReplAggregates pass
-FunctionPass *llvm::createScalarReplAggregatesHLSLPass() {
-  return new SROA_DT_HLSL();
-}
-
-//===----------------------------------------------------------------------===//
-// SRoA Driver
-//===----------------------------------------------------------------------===//
-
-bool SROA_HLSL::runOnFunction(Function &F) {
-  Module *M = F.getParent();
-  HLModule &HLM = M->GetOrCreateHLModule();
-  DxilTypeSystem &typeSys = HLM.GetTypeSystem();
-
-  // Establish debug metadata layout name in the context in advance so the name
-  // is serialized in both debug and non-debug compilations.
-  (void)M->getContext().getMDKindID(DxilMDHelper::kDxilVariableDebugLayoutMDName);
-
-  bool Changed = performScalarRepl(F, typeSys);
-  // change rest memcpy into ld/st.
-  MemcpySplitter splitter(F.getContext(), typeSys);
-  splitter.Split(F);
-
-  Changed |= markPrecise(F);
-
-  return Changed;
-}
-
-namespace {
-class AllocaPromoter : public LoadAndStorePromoter {
-  AllocaInst *AI;
-  DIBuilder *DIB;
-  SmallVector<DbgDeclareInst *, 4> DDIs;
-  SmallVector<DbgValueInst *, 4> DVIs;
-
-public:
-  AllocaPromoter(ArrayRef<Instruction *> Insts, SSAUpdater &S, DIBuilder *DB)
-      : LoadAndStorePromoter(Insts, S), AI(nullptr), DIB(DB) {}
-
-  void run(AllocaInst *AI, const SmallVectorImpl<Instruction *> &Insts) {
-    // Remember which alloca we're promoting (for isInstInList).
-    this->AI = AI;
-    if (auto *L = LocalAsMetadata::getIfExists(AI)) {
-      if (auto *DINode = MetadataAsValue::getIfExists(AI->getContext(), L)) {
-        for (User *U : DINode->users())
-          if (DbgDeclareInst *DDI = dyn_cast<DbgDeclareInst>(U))
-            DDIs.push_back(DDI);
-          else if (DbgValueInst *DVI = dyn_cast<DbgValueInst>(U))
-            DVIs.push_back(DVI);
-      }
-    }
-
-    LoadAndStorePromoter::run(Insts);
-    AI->eraseFromParent();
-    for (SmallVectorImpl<DbgDeclareInst *>::iterator I = DDIs.begin(),
-                                                     E = DDIs.end();
-         I != E; ++I) {
-      DbgDeclareInst *DDI = *I;
-      DDI->eraseFromParent();
-    }
-    for (SmallVectorImpl<DbgValueInst *>::iterator I = DVIs.begin(),
-                                                   E = DVIs.end();
-         I != E; ++I) {
-      DbgValueInst *DVI = *I;
-      DVI->eraseFromParent();
-    }
-  }
-
-  bool
-  isInstInList(Instruction *I,
-               const SmallVectorImpl<Instruction *> &Insts) const override {
-    if (LoadInst *LI = dyn_cast<LoadInst>(I))
-      return LI->getOperand(0) == AI;
-    return cast<StoreInst>(I)->getPointerOperand() == AI;
-  }
-
-  void updateDebugInfo(Instruction *Inst) const override {
-    for (SmallVectorImpl<DbgDeclareInst *>::const_iterator I = DDIs.begin(),
-                                                           E = DDIs.end();
-         I != E; ++I) {
-      DbgDeclareInst *DDI = *I;
-      if (StoreInst *SI = dyn_cast<StoreInst>(Inst))
-        ConvertDebugDeclareToDebugValue(DDI, SI, *DIB);
-      else if (LoadInst *LI = dyn_cast<LoadInst>(Inst))
-        ConvertDebugDeclareToDebugValue(DDI, LI, *DIB);
-    }
-    for (SmallVectorImpl<DbgValueInst *>::const_iterator I = DVIs.begin(),
-                                                         E = DVIs.end();
-         I != E; ++I) {
-      DbgValueInst *DVI = *I;
-      Value *Arg = nullptr;
-      if (StoreInst *SI = dyn_cast<StoreInst>(Inst)) {
-        // If an argument is zero extended then use argument directly. The ZExt
-        // may be zapped by an optimization pass in future.
-        if (ZExtInst *ZExt = dyn_cast<ZExtInst>(SI->getOperand(0)))
-          Arg = dyn_cast<Argument>(ZExt->getOperand(0));
-        if (SExtInst *SExt = dyn_cast<SExtInst>(SI->getOperand(0)))
-          Arg = dyn_cast<Argument>(SExt->getOperand(0));
-        if (!Arg)
-          Arg = SI->getOperand(0);
-      } else if (LoadInst *LI = dyn_cast<LoadInst>(Inst)) {
-        Arg = LI->getOperand(0);
-      } else {
-        continue;
-      }
-      DIB->insertDbgValueIntrinsic(Arg, 0, DVI->getVariable(),
-                                   DVI->getExpression(), DVI->getDebugLoc(),
-                                   Inst);
-    }
-  }
-};
-} // end anon namespace
-
-
-/// ShouldAttemptScalarRepl - Decide if an alloca is a good candidate for
-/// SROA.  It must be a struct or array type with a small number of elements.
-bool SROA_HLSL::ShouldAttemptScalarRepl(AllocaInst *AI) {
-  Type *T = AI->getAllocatedType();
-  // promote every struct.
-  if (dyn_cast<StructType>(T))
-    return true;
-  // promote every array.
-  if (dyn_cast<ArrayType>(T))
-    return true;
-  return false;
 }
 
 static unsigned getNestedLevelInStruct(const Type *ty) {
@@ -748,408 +448,6 @@ static Value *TranslatePtrIfUsedByLoweredFn(
   return NewPtr;
 }
 
-
-// performScalarRepl - This algorithm is a simple worklist driven algorithm,
-// which runs on all of the alloca instructions in the entry block, removing
-// them if they are only used by getelementptr instructions.
-//
-bool SROA_HLSL::performScalarRepl(Function &F, DxilTypeSystem &typeSys) {
-  std::vector<AllocaInst *> AllocaList;
-  const DataLayout &DL = F.getParent()->getDataLayout();
-  // Make sure big alloca split first.
-  // This will simplify memcpy check between part of big alloca and small
-  // alloca. Big alloca will be split to smaller piece first, when process the
-  // alloca, it will be alloca flattened from big alloca instead of a GEP of big
-  // alloca.
-  auto size_cmp = [&DL](const AllocaInst *a0, const AllocaInst *a1) -> bool {
-    Type* a0ty = a0->getAllocatedType();
-    Type* a1ty = a1->getAllocatedType();
-    bool isUnitSzStruct0 = a0ty->isStructTy() && a0ty->getStructNumElements() == 1;
-    bool isUnitSzStruct1 = a1ty->isStructTy() && a1ty->getStructNumElements() == 1;
-    auto sz0 = DL.getTypeAllocSize(a0ty);
-    auto sz1 = DL.getTypeAllocSize(a1ty);
-    if (sz0 == sz1 && (isUnitSzStruct0 || isUnitSzStruct1))
-      return getNestedLevelInStruct(a0ty) < getNestedLevelInStruct(a1ty);
-    return sz0 < sz1;
-  };
-  std::priority_queue<AllocaInst *, std::vector<AllocaInst *>,
-                      std::function<bool(AllocaInst *, AllocaInst *)>>
-      WorkList(size_cmp);
-  // Scan the entry basic block, adding allocas to the worklist.
-  BasicBlock &BB = F.getEntryBlock();
-  for (BasicBlock::iterator I = BB.begin(), E = BB.end(); I != E; ++I)
-    if (AllocaInst *A = dyn_cast<AllocaInst>(I)) {
-      if (!A->user_empty()) {
-        WorkList.push(A);
-        // merge GEP use for the allocs
-        HLModule::MergeGepUse(A);
-      }
-    }
-
-  DIBuilder DIB(*F.getParent(), /*AllowUnresolved*/ false);
-
-  // Process the worklist
-  bool Changed = false;
-  while (!WorkList.empty()) {
-    AllocaInst *AI = WorkList.top();
-    WorkList.pop();
-
-    // Handle dead allocas trivially.  These can be formed by SROA'ing arrays
-    // with unused elements.
-    if (AI->use_empty()) {
-      AI->eraseFromParent();
-      Changed = true;
-      continue;
-    }
-    const bool bAllowReplace = true;
-    DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-    if (SROA_Helper::LowerMemcpy(AI, /*annotation*/ nullptr, typeSys, DL,
-                                 DT, bAllowReplace)) {
-      Changed = true;
-      continue;
-    }
-
-    // If this alloca is impossible for us to promote, reject it early.
-    if (AI->isArrayAllocation() || !AI->getAllocatedType()->isSized())
-      continue;
-
-    // Check to see if we can perform the core SROA transformation.  We cannot
-    // transform the allocation instruction if it is an array allocation
-    // (allocations OF arrays are ok though), and an allocation of a scalar
-    // value cannot be decomposed at all.
-    uint64_t AllocaSize = DL.getTypeAllocSize(AI->getAllocatedType());
-
-    // Do not promote [0 x %struct].
-    if (AllocaSize == 0)
-      continue;
-
-    Type *Ty = AI->getAllocatedType();
-    // Skip empty struct type.
-    if (SROA_Helper::IsEmptyStructType(Ty, typeSys)) {
-      SROA_Helper::MarkEmptyStructUsers(AI, DeadInsts);
-      DeleteDeadInstructions();
-      continue;
-    }
-
-    if (Value *NewV = TranslatePtrIfUsedByLoweredFn(AI, typeSys)) {
-      if (NewV != AI) {
-        DXASSERT(AI->getNumUses() == 0, "must have zero users.");
-        AI->eraseFromParent();
-        Changed = true;
-      }
-      continue;
-    }
-
-    // If the alloca looks like a good candidate for scalar replacement, and
-    // if
-    // all its users can be transformed, then split up the aggregate into its
-    // separate elements.
-    if (ShouldAttemptScalarRepl(AI) && isSafeAllocaToScalarRepl(AI)) {
-      std::vector<Value *> Elts;
-      IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(AI));
-      bool hasPrecise = HLModule::HasPreciseAttributeWithMetadata(AI);
-
-      Type *BrokenUpTy = nullptr;
-      uint64_t NumInstances = 1;
-      DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-      bool SROAed = SROA_Helper::DoScalarReplacement(
-        AI, Elts, BrokenUpTy, NumInstances, Builder,
-        /*bFlatVector*/ true, hasPrecise, typeSys, DL, DeadInsts, DT);
-
-      if (SROAed) {
-        Type *Ty = AI->getAllocatedType();
-        // Skip empty struct parameters.
-        if (StructType *ST = dyn_cast<StructType>(Ty)) {
-          if (!HLMatrixType::isa(Ty)) {
-            DxilStructAnnotation *SA = typeSys.GetStructAnnotation(ST);
-            if (SA && SA->IsEmptyStruct()) {
-              for (User *U : AI->users()) {
-                if (StoreInst *SI = dyn_cast<StoreInst>(U))
-                  DeadInsts.emplace_back(SI);
-              }
-              DeleteDeadInstructions();
-              AI->replaceAllUsesWith(UndefValue::get(AI->getType()));
-              AI->eraseFromParent();
-              continue;
-            }
-          }
-        }
-
-        addDebugInfoForElements(AI, BrokenUpTy, NumInstances, Elts, DL, &DIB);
-
-        // Push Elts into workList.
-        for (unsigned EltIdx = 0; EltIdx < Elts.size(); ++EltIdx) {
-          AllocaInst *EltAlloca = cast<AllocaInst>(Elts[EltIdx]);
-          WorkList.push(EltAlloca);
-        }
-
-        // Now erase any instructions that were made dead while rewriting the
-        // alloca.
-        DeleteDeadInstructions();
-        ++NumReplaced;
-        DXASSERT(AI->getNumUses() == 0, "must have zero users.");
-        AI->eraseFromParent();
-        Changed = true;
-        continue;
-      }
-    }
-  }
-
-  return Changed;
-}
-
-// markPrecise - To save the precise attribute on alloca inst which might be removed by promote,
-// mark precise attribute with function call on alloca inst stores.
-bool SROA_HLSL::markPrecise(Function &F) {
-  bool Changed = false;
-  BasicBlock &BB = F.getEntryBlock();
-  for (BasicBlock::iterator I = BB.begin(), E = BB.end(); I != E; ++I)
-    if (AllocaInst *A = dyn_cast<AllocaInst>(I)) {
-      // TODO: Only do this on basic types.
-      if (HLModule::HasPreciseAttributeWithMetadata(A)) {
-        HLModule::MarkPreciseAttributeOnPtrWithFunctionCall(A,
-                                                            *(F.getParent()));
-        Changed = true;
-      }
-    }
-  return Changed;
-}
-
-/// DeleteDeadInstructions - Erase instructions on the DeadInstrs list,
-/// recursively including all their operands that become trivially dead.
-void SROA_HLSL::DeleteDeadInstructions() {
-  while (!DeadInsts.empty()) {
-    Instruction *I = cast<Instruction>(DeadInsts.pop_back_val());
-
-    for (User::op_iterator OI = I->op_begin(), E = I->op_end(); OI != E; ++OI)
-      if (Instruction *U = dyn_cast<Instruction>(*OI)) {
-        // Zero out the operand and see if it becomes trivially dead.
-        // (But, don't add allocas to the dead instruction list -- they are
-        // already on the worklist and will be deleted separately.)
-        *OI = nullptr;
-        if (isInstructionTriviallyDead(U) && !isa<AllocaInst>(U))
-          DeadInsts.push_back(U);
-      }
-
-    I->eraseFromParent();
-  }
-}
-
-/// isSafeForScalarRepl - Check if instruction I is a safe use with regard to
-/// performing scalar replacement of alloca AI.  The results are flagged in
-/// the Info parameter.  Offset indicates the position within AI that is
-/// referenced by this instruction.
-void SROA_HLSL::isSafeForScalarRepl(Instruction *I, uint64_t Offset,
-                                    AllocaInfo &Info) {
-  if (I->getType()->isPointerTy()) {
-    // Don't check object pointers.
-    if (dxilutil::IsHLSLObjectType(I->getType()->getPointerElementType()))
-      return;
-  }
-  const DataLayout &DL = I->getModule()->getDataLayout();
-  for (Use &U : I->uses()) {
-    Instruction *User = cast<Instruction>(U.getUser());
-
-    if (BitCastInst *BC = dyn_cast<BitCastInst>(User)) {
-      isSafeForScalarRepl(BC, Offset, Info);
-    } else if (GetElementPtrInst *GEPI = dyn_cast<GetElementPtrInst>(User)) {
-      uint64_t GEPOffset = Offset;
-      isSafeGEP(GEPI, GEPOffset, Info);
-      if (!Info.isUnsafe)
-        isSafeForScalarRepl(GEPI, GEPOffset, Info);
-    } else if (MemIntrinsic *MI = dyn_cast<MemIntrinsic>(User)) {
-      ConstantInt *Length = dyn_cast<ConstantInt>(MI->getLength());
-      if (!Length || Length->isNegative())
-        return MarkUnsafe(Info, User);
-
-      isSafeMemAccess(Offset, Length->getZExtValue(), nullptr,
-                      U.getOperandNo() == 0, Info, MI,
-                      true /*AllowWholeAccess*/);
-    } else if (LoadInst *LI = dyn_cast<LoadInst>(User)) {
-      if (!LI->isSimple())
-        return MarkUnsafe(Info, User);
-      Type *LIType = LI->getType();
-      isSafeMemAccess(Offset, DL.getTypeAllocSize(LIType), LIType, false, Info,
-                      LI, true /*AllowWholeAccess*/);
-      Info.hasALoadOrStore = true;
-
-    } else if (StoreInst *SI = dyn_cast<StoreInst>(User)) {
-      // Store is ok if storing INTO the pointer, not storing the pointer
-      if (!SI->isSimple() || SI->getOperand(0) == I)
-        return MarkUnsafe(Info, User);
-
-      Type *SIType = SI->getOperand(0)->getType();
-      isSafeMemAccess(Offset, DL.getTypeAllocSize(SIType), SIType, true, Info,
-                      SI, true /*AllowWholeAccess*/);
-      Info.hasALoadOrStore = true;
-    } else if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(User)) {
-      if (II->getIntrinsicID() != Intrinsic::lifetime_start &&
-          II->getIntrinsicID() != Intrinsic::lifetime_end)
-        return MarkUnsafe(Info, User);
-    } else if (isa<PHINode>(User) || isa<SelectInst>(User)) {
-      isSafePHISelectUseForScalarRepl(User, Offset, Info);
-    } else if (CallInst *CI = dyn_cast<CallInst>(User)) {
-      HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
-      // Most HL functions are safe for scalar repl.
-      if (HLOpcodeGroup::NotHL == group)
-        return MarkUnsafe(Info, User);
-      else if (HLOpcodeGroup::HLIntrinsic == group) {
-        // TODO: should we check HL parameter type for UDT overload instead of basing on IOP?
-        IntrinsicOp opcode = static_cast<IntrinsicOp>(GetHLOpcode(CI));
-        if (IntrinsicOp::IOP_TraceRay == opcode ||
-            IntrinsicOp::IOP_ReportHit == opcode ||
-            IntrinsicOp::IOP_CallShader == opcode) {
-          return MarkUnsafe(Info, User);
-        }
-      }
-    } else {
-      return MarkUnsafe(Info, User);
-    }
-    if (Info.isUnsafe)
-      return;
-  }
-}
-
-/// isSafePHIUseForScalarRepl - If we see a PHI node or select using a pointer
-/// derived from the alloca, we can often still split the alloca into elements.
-/// This is useful if we have a large alloca where one element is phi'd
-/// together somewhere: we can SRoA and promote all the other elements even if
-/// we end up not being able to promote this one.
-///
-/// All we require is that the uses of the PHI do not index into other parts of
-/// the alloca.  The most important use case for this is single load and stores
-/// that are PHI'd together, which can happen due to code sinking.
-void SROA_HLSL::isSafePHISelectUseForScalarRepl(Instruction *I, uint64_t Offset,
-                                                AllocaInfo &Info) {
-  // If we've already checked this PHI, don't do it again.
-  if (PHINode *PN = dyn_cast<PHINode>(I))
-    if (!Info.CheckedPHIs.insert(PN).second)
-      return;
-
-  const DataLayout &DL = I->getModule()->getDataLayout();
-  for (User *U : I->users()) {
-    Instruction *UI = cast<Instruction>(U);
-
-    if (BitCastInst *BC = dyn_cast<BitCastInst>(UI)) {
-      isSafePHISelectUseForScalarRepl(BC, Offset, Info);
-    } else if (GetElementPtrInst *GEPI = dyn_cast<GetElementPtrInst>(UI)) {
-      // Only allow "bitcast" GEPs for simplicity.  We could generalize this,
-      // but would have to prove that we're staying inside of an element being
-      // promoted.
-      if (!GEPI->hasAllZeroIndices())
-        return MarkUnsafe(Info, UI);
-      isSafePHISelectUseForScalarRepl(GEPI, Offset, Info);
-    } else if (LoadInst *LI = dyn_cast<LoadInst>(UI)) {
-      if (!LI->isSimple())
-        return MarkUnsafe(Info, UI);
-      Type *LIType = LI->getType();
-      isSafeMemAccess(Offset, DL.getTypeAllocSize(LIType), LIType, false, Info,
-                      LI, false /*AllowWholeAccess*/);
-      Info.hasALoadOrStore = true;
-
-    } else if (StoreInst *SI = dyn_cast<StoreInst>(UI)) {
-      // Store is ok if storing INTO the pointer, not storing the pointer
-      if (!SI->isSimple() || SI->getOperand(0) == I)
-        return MarkUnsafe(Info, UI);
-
-      Type *SIType = SI->getOperand(0)->getType();
-      isSafeMemAccess(Offset, DL.getTypeAllocSize(SIType), SIType, true, Info,
-                      SI, false /*AllowWholeAccess*/);
-      Info.hasALoadOrStore = true;
-    } else if (isa<PHINode>(UI) || isa<SelectInst>(UI)) {
-      isSafePHISelectUseForScalarRepl(UI, Offset, Info);
-    } else {
-      return MarkUnsafe(Info, UI);
-    }
-    if (Info.isUnsafe)
-      return;
-  }
-}
-
-/// isSafeGEP - Check if a GEP instruction can be handled for scalar
-/// replacement.  It is safe when all the indices are constant, in-bounds
-/// references, and when the resulting offset corresponds to an element within
-/// the alloca type.  The results are flagged in the Info parameter.  Upon
-/// return, Offset is adjusted as specified by the GEP indices.
-void SROA_HLSL::isSafeGEP(GetElementPtrInst *GEPI, uint64_t &Offset,
-                          AllocaInfo &Info) {
-  gep_type_iterator GEPIt = gep_type_begin(GEPI), E = gep_type_end(GEPI);
-  if (GEPIt == E)
-    return;
-  bool NonConstant = false;
-  unsigned NonConstantIdxSize = 0;
-
-  // Compute the offset due to this GEP and check if the alloca has a
-  // component element at that offset.
-  SmallVector<Value *, 8> Indices(GEPI->op_begin() + 1, GEPI->op_end());
-  auto indicesIt = Indices.begin();
-
-  // Walk through the GEP type indices, checking the types that this indexes
-  // into.
-  uint32_t arraySize = 0;
-  bool isArrayIndexing = false;
-
-  for (;GEPIt != E; ++GEPIt) {
-    Type *Ty = *GEPIt;
-    if (Ty->isStructTy() && !HLMatrixType::isa(Ty)) {
-      // Don't go inside struct when mark hasArrayIndexing and hasVectorIndexing.
-      // The following level won't affect scalar repl on the struct.
-      break;
-    }
-    if (GEPIt->isArrayTy()) {
-      arraySize = GEPIt->getArrayNumElements();
-      isArrayIndexing = true;
-    }
-    if (GEPIt->isVectorTy()) {
-      arraySize = GEPIt->getVectorNumElements();
-      isArrayIndexing = false;
-    }
-    // Allow dynamic indexing
-    ConstantInt *IdxVal = dyn_cast<ConstantInt>(GEPIt.getOperand());
-    if (!IdxVal) {
-      // for dynamic index, use array size - 1 to check the offset
-      *indicesIt = Constant::getIntegerValue(
-          Type::getInt32Ty(GEPI->getContext()), APInt(32, arraySize - 1));
-      if (isArrayIndexing)
-        Info.hasArrayIndexing = true;
-      else
-        Info.hasVectorIndexing = true;
-      NonConstant = true;
-    }
-    indicesIt++;
-  }
-  // Continue iterate only for the NonConstant.
-  for (;GEPIt != E; ++GEPIt) {
-    Type *Ty = *GEPIt;
-    if (Ty->isArrayTy()) {
-      arraySize = GEPIt->getArrayNumElements();
-    }
-    if (Ty->isVectorTy()) {
-      arraySize = GEPIt->getVectorNumElements();
-    }
-    // Allow dynamic indexing
-    ConstantInt *IdxVal = dyn_cast<ConstantInt>(GEPIt.getOperand());
-    if (!IdxVal) {
-      // for dynamic index, use array size - 1 to check the offset
-      *indicesIt = Constant::getIntegerValue(
-          Type::getInt32Ty(GEPI->getContext()), APInt(32, arraySize - 1));
-      NonConstant = true;
-    }
-    indicesIt++;
-  }
-  // If this GEP is non-constant then the last operand must have been a
-  // dynamic index into a vector.  Pop this now as it has no impact on the
-  // constant part of the offset.
-  if (NonConstant)
-    Indices.pop_back();
-
-  const DataLayout &DL = GEPI->getModule()->getDataLayout();
-  Offset += DL.getIndexedOffset(GEPI->getPointerOperandType(), Indices);
-  if (!TypeHasComponent(Info.AI->getAllocatedType(), Offset, NonConstantIdxSize,
-                        DL))
-    MarkUnsafe(Info, GEPI);
-}
-
 /// isHomogeneousAggregate - Check if type T is a struct or array containing
 /// elements of the same type (which is always true for arrays).  If so,
 /// return true with NumElts and EltTy set to the number of elements and the
@@ -1188,54 +486,6 @@ static bool isCompatibleAggregate(Type *T1, Type *T2) {
   return false;
 }
 
-/// isSafeMemAccess - Check if a load/store/memcpy operates on the entire AI
-/// alloca or has an offset and size that corresponds to a component element
-/// within it.  The offset checked here may have been formed from a GEP with a
-/// pointer bitcasted to a different type.
-///
-/// If AllowWholeAccess is true, then this allows uses of the entire alloca as a
-/// unit.  If false, it only allows accesses known to be in a single element.
-void SROA_HLSL::isSafeMemAccess(uint64_t Offset, uint64_t MemSize,
-                                Type *MemOpType, bool isStore, AllocaInfo &Info,
-                                Instruction *TheAccess, bool AllowWholeAccess) {
-  // What hlsl cares is Info.hasVectorIndexing.
-  // Do nothing here.
-}
-
-/// TypeHasComponent - Return true if T has a component type with the
-/// specified offset and size.  If Size is zero, do not check the size.
-bool SROA_HLSL::TypeHasComponent(Type *T, uint64_t Offset, uint64_t Size,
-                                 const DataLayout &DL) {
-  Type *EltTy;
-  uint64_t EltSize;
-  if (StructType *ST = dyn_cast<StructType>(T)) {
-    const StructLayout *Layout = DL.getStructLayout(ST);
-    unsigned EltIdx = Layout->getElementContainingOffset(Offset);
-    EltTy = ST->getContainedType(EltIdx);
-    EltSize = DL.getTypeAllocSize(EltTy);
-    Offset -= Layout->getElementOffset(EltIdx);
-  } else if (ArrayType *AT = dyn_cast<ArrayType>(T)) {
-    EltTy = AT->getElementType();
-    EltSize = DL.getTypeAllocSize(EltTy);
-    if (Offset >= AT->getNumElements() * EltSize)
-      return false;
-    Offset %= EltSize;
-  } else if (VectorType *VT = dyn_cast<VectorType>(T)) {
-    EltTy = VT->getElementType();
-    EltSize = DL.getTypeAllocSize(EltTy);
-    if (Offset >= VT->getNumElements() * EltSize)
-      return false;
-    Offset %= EltSize;
-  } else {
-    return false;
-  }
-  if (Offset == 0 && (Size == 0 || EltSize == Size))
-    return true;
-  // Check if the component spans multiple elements.
-  if (Offset + Size > EltSize)
-    return false;
-  return TypeHasComponent(EltTy, Offset, Size, DL);
-}
 
 /// LoadVectorArray - Load vector array like [2 x <4 x float>] from
 ///  arrays like 4 [2 x float] or struct array like
@@ -1362,42 +612,30 @@ static bool HasPadding(Type *Ty, const DataLayout &DL) {
   return false;
 }
 
-/// isSafeStructAllocaToScalarRepl - Check to see if the specified allocation of
-/// an aggregate can be broken down into elements.  Return 0 if not, 3 if safe,
-/// or 1 if safe after canonicalization has been performed.
-bool SROA_HLSL::isSafeAllocaToScalarRepl(AllocaInst *AI) {
-  // Loop over the use list of the alloca.  We can only transform it if all of
-  // the users are safe to transform.
-  AllocaInfo Info(AI);
+namespace {
 
-  isSafeForScalarRepl(AI, 0, Info);
-  if (Info.isUnsafe) {
-    DEBUG(dbgs() << "Cannot transform: " << *AI << '\n');
-    return false;
-  }
+// Simple struct to split memcpy into ld/st
+struct MemcpySplitter {
+  llvm::LLVMContext &m_context;
+  DxilTypeSystem &m_typeSys;
 
-  // vector indexing need translate vector into array
-  if (Info.hasVectorIndexing)
-    return false;
+public:
+  MemcpySplitter(llvm::LLVMContext &context, DxilTypeSystem &typeSys)
+      : m_context(context), m_typeSys(typeSys) {}
+  void Split(llvm::Function &F);
 
-  const DataLayout &DL = AI->getModule()->getDataLayout();
-
-  // Okay, we know all the users are promotable.  If the aggregate is a memcpy
-  // source and destination, we have to be careful.  In particular, the memcpy
-  // could be moving around elements that live in structure padding of the LLVM
-  // types, but may actually be used.  In these cases, we refuse to promote the
-  // struct.
-  if (Info.isMemCpySrc && Info.isMemCpyDst &&
-      HasPadding(AI->getAllocatedType(), DL))
-    return false;
-
-  return true;
-}
+  static void PatchMemCpyWithZeroIdxGEP(Module &M);
+  static void PatchMemCpyWithZeroIdxGEP(MemCpyInst *MI, const DataLayout &DL);
+  static void SplitMemCpy(MemCpyInst *MI, const DataLayout &DL,
+                          DxilFieldAnnotation *fieldAnnotation,
+                          DxilTypeSystem &typeSys,
+                          const bool bEltMemCpy = true);
+};
 
 // Copy data from srcPtr to destPtr.
-static void SimplePtrCopy(Value *DestPtr, Value *SrcPtr,
-                          llvm::SmallVector<llvm::Value *, 16> &idxList,
-                          IRBuilder<> &Builder) {
+void SimplePtrCopy(Value *DestPtr, Value *SrcPtr,
+                   llvm::SmallVector<llvm::Value *, 16> &idxList,
+                   IRBuilder<> &Builder) {
   if (idxList.size() > 1) {
     DestPtr = Builder.CreateInBoundsGEP(DestPtr, idxList);
     SrcPtr = Builder.CreateInBoundsGEP(SrcPtr, idxList);
@@ -1407,9 +645,9 @@ static void SimplePtrCopy(Value *DestPtr, Value *SrcPtr,
 }
 
 // Copy srcVal to destPtr.
-static void SimpleValCopy(Value *DestPtr, Value *SrcVal,
-                       llvm::SmallVector<llvm::Value *, 16> &idxList,
-                       IRBuilder<> &Builder) {
+void SimpleValCopy(Value *DestPtr, Value *SrcVal,
+                   llvm::SmallVector<llvm::Value *, 16> &idxList,
+                   IRBuilder<> &Builder) {
   Value *DestGEP = Builder.CreateInBoundsGEP(DestPtr, idxList);
   Value *Val = SrcVal;
   // Skip beginning pointer type.
@@ -1424,17 +662,17 @@ static void SimpleValCopy(Value *DestPtr, Value *SrcVal,
   Builder.CreateStore(Val, DestGEP);
 }
 
-static void SimpleCopy(Value *Dest, Value *Src,
-                       llvm::SmallVector<llvm::Value *, 16> &idxList,
-                       IRBuilder<> &Builder) {
+void SimpleCopy(Value *Dest, Value *Src,
+                llvm::SmallVector<llvm::Value *, 16> &idxList,
+                IRBuilder<> &Builder) {
   if (Src->getType()->isPointerTy())
     SimplePtrCopy(Dest, Src, idxList, Builder);
   else
     SimpleValCopy(Dest, Src, idxList, Builder);
 }
 
-static Value *CreateMergedGEP(Value *Ptr, SmallVector<Value *, 16> &idxList,
-                              IRBuilder<> &Builder) {
+Value *CreateMergedGEP(Value *Ptr, SmallVector<Value *, 16> &idxList,
+                       IRBuilder<> &Builder) {
   if (GEPOperator *GEPPtr = dyn_cast<GEPOperator>(Ptr)) {
     SmallVector<Value *, 2> IdxList(GEPPtr->idx_begin(), GEPPtr->idx_end());
     // skip idxLIst.begin() because it is included in GEPPtr idx.
@@ -1445,16 +683,16 @@ static Value *CreateMergedGEP(Value *Ptr, SmallVector<Value *, 16> &idxList,
   }
 }
 
-static void EltMemCpy(Type *Ty, Value *Dest, Value *Src,
-                      SmallVector<Value *, 16> &idxList, IRBuilder<> &Builder,
-                      const DataLayout &DL) {
+void EltMemCpy(Type *Ty, Value *Dest, Value *Src,
+               SmallVector<Value *, 16> &idxList, IRBuilder<> &Builder,
+               const DataLayout &DL) {
   Value *DestGEP = CreateMergedGEP(Dest, idxList, Builder);
   Value *SrcGEP = CreateMergedGEP(Src, idxList, Builder);
   unsigned size = DL.getTypeAllocSize(Ty);
   Builder.CreateMemCpy(DestGEP, SrcGEP, size, /* Align */ 1);
 }
 
-static bool IsMemCpyTy(Type *Ty, DxilTypeSystem &typeSys) {
+bool IsMemCpyTy(Type *Ty, DxilTypeSystem &typeSys) {
   if (!Ty->isAggregateType())
     return false;
   if (HLMatrixType::isa(Ty))
@@ -1476,10 +714,11 @@ static bool IsMemCpyTy(Type *Ty, DxilTypeSystem &typeSys) {
 }
 
 // Split copy into ld/st.
-static void SplitCpy(Type *Ty, Value *Dest, Value *Src,
-                     SmallVector<Value *, 16> &idxList, IRBuilder<> &Builder,
-                     const DataLayout &DL, DxilTypeSystem &typeSys,
-                     const DxilFieldAnnotation *fieldAnnotation, const bool bEltMemCpy = true) {
+void SplitCpy(Type *Ty, Value *Dest, Value *Src,
+              SmallVector<Value *, 16> &idxList, IRBuilder<> &Builder,
+              const DataLayout &DL, DxilTypeSystem &typeSys,
+              const DxilFieldAnnotation *fieldAnnotation,
+              const bool bEltMemCpy = true) {
   if (PointerType *PT = dyn_cast<PointerType>(Ty)) {
     Constant *idx = Constant::getIntegerValue(
         IntegerType::get(Ty->getContext(), 32), APInt(32, 0));
@@ -1503,28 +742,29 @@ static void SplitCpy(Type *Ty, Value *Dest, Value *Src,
 
     Value *DestMatPtr;
     Value *SrcMatPtr;
-    if (idxList.size() == 1 && idxList[0] == ConstantInt::get(
-      IntegerType::get(Ty->getContext(), 32), APInt(32, 0))) {
+    if (idxList.size() == 1 &&
+        idxList[0] == ConstantInt::get(IntegerType::get(Ty->getContext(), 32),
+                                       APInt(32, 0))) {
       // Avoid creating GEP(0)
       DestMatPtr = Dest;
       SrcMatPtr = Src;
-    }
-    else {
+    } else {
       DestMatPtr = Builder.CreateInBoundsGEP(Dest, idxList);
       SrcMatPtr = Builder.CreateInBoundsGEP(Src, idxList);
     }
 
-    HLMatLoadStoreOpcode loadOp = bRowMajor
-      ? HLMatLoadStoreOpcode::RowMatLoad : HLMatLoadStoreOpcode::ColMatLoad;
+    HLMatLoadStoreOpcode loadOp = bRowMajor ? HLMatLoadStoreOpcode::RowMatLoad
+                                            : HLMatLoadStoreOpcode::ColMatLoad;
     HLMatLoadStoreOpcode storeOp = bRowMajor
-      ? HLMatLoadStoreOpcode::RowMatStore : HLMatLoadStoreOpcode::ColMatStore;
+                                       ? HLMatLoadStoreOpcode::RowMatStore
+                                       : HLMatLoadStoreOpcode::ColMatStore;
 
     Value *Load = HLModule::EmitHLOperationCall(
-      Builder, HLOpcodeGroup::HLMatLoadStore, static_cast<unsigned>(loadOp),
-      Ty, { SrcMatPtr }, *M);
-    HLModule::EmitHLOperationCall(
-      Builder, HLOpcodeGroup::HLMatLoadStore, static_cast<unsigned>(storeOp),
-      Ty, { DestMatPtr, Load }, *M);
+        Builder, HLOpcodeGroup::HLMatLoadStore, static_cast<unsigned>(loadOp),
+        Ty, {SrcMatPtr}, *M);
+    HLModule::EmitHLOperationCall(Builder, HLOpcodeGroup::HLMatLoadStore,
+                                  static_cast<unsigned>(storeOp), Ty,
+                                  {DestMatPtr, Load}, *M);
   } else if (StructType *ST = dyn_cast<StructType>(Ty)) {
     if (dxilutil::IsHLSLObjectType(ST)) {
       // Avoid split HLSL object.
@@ -1543,7 +783,8 @@ static void SplitCpy(Type *Ty, Value *Dest, Value *Src,
       if (bEltMemCpy && IsMemCpyTy(ET, typeSys)) {
         EltMemCpy(ET, Dest, Src, idxList, Builder, DL);
       } else {
-        DxilFieldAnnotation *EltAnnotation = STA ? &STA->GetFieldAnnotation(i) : nullptr;
+        DxilFieldAnnotation *EltAnnotation =
+            STA ? &STA->GetFieldAnnotation(i) : nullptr;
         SplitCpy(ET, Dest, Src, idxList, Builder, DL, typeSys, EltAnnotation,
                  bEltMemCpy);
       }
@@ -1573,48 +814,53 @@ static void SplitCpy(Type *Ty, Value *Dest, Value *Src,
 }
 
 // Given a pointer to a value, produces a list of pointers to
-// all scalar elements of that value and their field annotations, at any nesting level.
-static void SplitPtr(Value *Ptr, // The root value pointer
-  SmallVectorImpl<Value *> &IdxList, // GEP indices stack during recursion
-  Type *Ty, // Type at the current GEP indirection level
-  const DxilFieldAnnotation &Annotation, // Annotation at the current GEP indirection level
-  SmallVectorImpl<Value *> &EltPtrList, // Accumulates pointers to each element found
-  SmallVectorImpl<const DxilFieldAnnotation*> &EltAnnotationList, // Accumulates field annotations for each element found
-  DxilTypeSystem &TypeSys,
-  IRBuilder<> &Builder) {
+// all scalar elements of that value and their field annotations, at any nesting
+// level.
+void SplitPtr(
+    Value *Ptr,                        // The root value pointer
+    SmallVectorImpl<Value *> &IdxList, // GEP indices stack during recursion
+    Type *Ty, // Type at the current GEP indirection level
+    const DxilFieldAnnotation
+        &Annotation, // Annotation at the current GEP indirection level
+    SmallVectorImpl<Value *>
+        &EltPtrList, // Accumulates pointers to each element found
+    SmallVectorImpl<const DxilFieldAnnotation *>
+        &EltAnnotationList, // Accumulates field annotations for each element
+                            // found
+    DxilTypeSystem &TypeSys, IRBuilder<> &Builder) {
 
   if (PointerType *PT = dyn_cast<PointerType>(Ty)) {
     Constant *idx = Constant::getIntegerValue(
         IntegerType::get(Ty->getContext(), 32), APInt(32, 0));
     IdxList.emplace_back(idx);
 
-    SplitPtr(Ptr, IdxList, PT->getElementType(), Annotation,
-      EltPtrList, EltAnnotationList, TypeSys, Builder);
+    SplitPtr(Ptr, IdxList, PT->getElementType(), Annotation, EltPtrList,
+             EltAnnotationList, TypeSys, Builder);
 
     IdxList.pop_back();
     return;
   }
-  
+
   if (StructType *ST = dyn_cast<StructType>(Ty)) {
     if (!HLMatrixType::isa(Ty) && !dxilutil::IsHLSLObjectType(ST)) {
-      const DxilStructAnnotation* SA = TypeSys.GetStructAnnotation(ST);
+      const DxilStructAnnotation *SA = TypeSys.GetStructAnnotation(ST);
 
       for (uint32_t i = 0; i < ST->getNumElements(); i++) {
         llvm::Type *EltTy = ST->getElementType(i);
 
         Constant *idx = llvm::Constant::getIntegerValue(
-          IntegerType::get(Ty->getContext(), 32), APInt(32, i));
+            IntegerType::get(Ty->getContext(), 32), APInt(32, i));
         IdxList.emplace_back(idx);
 
-        SplitPtr(Ptr, IdxList, EltTy, SA->GetFieldAnnotation(i),
-          EltPtrList, EltAnnotationList, TypeSys, Builder);
+        SplitPtr(Ptr, IdxList, EltTy, SA->GetFieldAnnotation(i), EltPtrList,
+                 EltAnnotationList, TypeSys, Builder);
 
         IdxList.pop_back();
       }
       return;
     }
   }
-  
+
   if (ArrayType *AT = dyn_cast<ArrayType>(Ty)) {
     if (AT->getArrayNumElements() == 0) {
       // Skip cases like [0 x %struct], nothing to copy
@@ -1645,7 +891,8 @@ static void SplitPtr(Value *Ptr, // The root value pointer
 }
 
 // Support case when bitcast (gep ptr, 0,0) is transformed into bitcast ptr.
-static unsigned MatchSizeByCheckElementType(Type *Ty, const DataLayout &DL, unsigned size, unsigned level) {
+unsigned MatchSizeByCheckElementType(Type *Ty, const DataLayout &DL,
+                                     unsigned size, unsigned level) {
   unsigned ptrSize = DL.getTypeAllocSize(Ty);
   // Size match, return current level.
   if (ptrSize == size) {
@@ -1656,7 +903,8 @@ static unsigned MatchSizeByCheckElementType(Type *Ty, const DataLayout &DL, unsi
     // This will leave memcpy to deeper level when flatten.
     if (StructType *ST = dyn_cast<StructType>(Ty)) {
       if (ST->getNumElements() == 1) {
-        return MatchSizeByCheckElementType(ST->getElementType(0), DL, size, level+1);
+        return MatchSizeByCheckElementType(ST->getElementType(0), DL, size,
+                                           level + 1);
       }
     }
     // Don't do this for array.
@@ -1669,16 +917,18 @@ static unsigned MatchSizeByCheckElementType(Type *Ty, const DataLayout &DL, unsi
   // ptrSize > size.
   // Try to use element type to make size match.
   if (StructType *ST = dyn_cast<StructType>(Ty)) {
-    return MatchSizeByCheckElementType(ST->getElementType(0), DL, size, level+1);
+    return MatchSizeByCheckElementType(ST->getElementType(0), DL, size,
+                                       level + 1);
   } else if (ArrayType *AT = dyn_cast<ArrayType>(Ty)) {
-    return MatchSizeByCheckElementType(AT->getElementType(), DL, size, level+1);
+    return MatchSizeByCheckElementType(AT->getElementType(), DL, size,
+                                       level + 1);
   } else {
     return 0;
   }
 }
 
-static void PatchZeroIdxGEP(Value *Ptr, Value *RawPtr, MemCpyInst *MI,
-                            unsigned level, IRBuilder<> &Builder) {
+void PatchZeroIdxGEP(Value *Ptr, Value *RawPtr, MemCpyInst *MI, unsigned level,
+                     IRBuilder<> &Builder) {
   Value *zeroIdx = Builder.getInt32(0);
   Value *GEP = nullptr;
   if (GEPOperator *GEPPtr = dyn_cast<GEPOperator>(Ptr)) {
@@ -1726,10 +976,10 @@ void MemcpySplitter::PatchMemCpyWithZeroIdxGEP(MemCpyInst *MI,
     PatchZeroIdxGEP(Dest, MI->getRawDest(), MI, level, Builder);
   } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(Dest)) {
     if (GEP->getNumIndices() == 1) {
-       Value *idx = *GEP->idx_begin();
-       if (idx == zero) {
-         GEP->replaceAllUsesWith(GEP->getPointerOperand());
-       }
+      Value *idx = *GEP->idx_begin();
+      if (idx == zero) {
+        GEP->replaceAllUsesWith(GEP->getPointerOperand());
+      }
     }
   }
   if (unsigned level = MatchSizeByCheckElementType(SrcTy, DL, size, 0)) {
@@ -1760,7 +1010,7 @@ void MemcpySplitter::PatchMemCpyWithZeroIdxGEP(Module &M) {
   }
 }
 
-static void DeleteMemcpy(MemCpyInst *MI) {
+void DeleteMemcpy(MemCpyInst *MI) {
   Value *Op0 = MI->getOperand(0);
   Value *Op1 = MI->getOperand(1);
   // delete memcpy
@@ -1776,8 +1026,8 @@ static void DeleteMemcpy(MemCpyInst *MI) {
 }
 
 // If user is function call, return param annotation to get matrix major.
-static DxilFieldAnnotation *FindAnnotationFromMatUser(Value *Mat,
-  DxilTypeSystem &typeSys) {
+DxilFieldAnnotation *FindAnnotationFromMatUser(Value *Mat,
+                                               DxilTypeSystem &typeSys) {
   for (User *U : Mat->users()) {
     if (CallInst *CI = dyn_cast<CallInst>(U)) {
       Function *F = CI->getCalledFunction();
@@ -1795,7 +1045,8 @@ static DxilFieldAnnotation *FindAnnotationFromMatUser(Value *Mat,
 
 void MemcpySplitter::SplitMemCpy(MemCpyInst *MI, const DataLayout &DL,
                                  DxilFieldAnnotation *fieldAnnotation,
-                                 DxilTypeSystem &typeSys, const bool bEltMemCpy) {
+                                 DxilTypeSystem &typeSys,
+                                 const bool bEltMemCpy) {
   Value *Dest = MI->getRawDest();
   Value *Src = MI->getRawSource();
   // Only remove one level bitcast generated from inline.
@@ -1855,7 +1106,833 @@ void MemcpySplitter::Split(llvm::Function &F) {
                   /*bEltMemCpy*/ false);
     }
   }
- }
+}
+
+} // namespace
+
+namespace {
+
+/// DeleteDeadInstructions - Erase instructions on the DeadInstrs list,
+/// recursively including all their operands that become trivially dead.
+void DeleteDeadInstructions(SmallVector<Value *, 32> &DeadInsts) {
+  while (!DeadInsts.empty()) {
+    Instruction *I = cast<Instruction>(DeadInsts.pop_back_val());
+
+    for (User::op_iterator OI = I->op_begin(), E = I->op_end(); OI != E; ++OI)
+      if (Instruction *U = dyn_cast<Instruction>(*OI)) {
+        // Zero out the operand and see if it becomes trivially dead.
+        // (But, don't add allocas to the dead instruction list -- they are
+        // already on the worklist and will be deleted separately.)
+        *OI = nullptr;
+        if (isInstructionTriviallyDead(U) && !isa<AllocaInst>(U))
+          DeadInsts.push_back(U);
+      }
+
+    I->eraseFromParent();
+  }
+}
+
+// markPrecise - To save the precise attribute on alloca inst which might be
+// removed by promote, mark precise attribute with function call on alloca inst
+// stores.
+bool markPrecise(Function &F) {
+  bool Changed = false;
+  BasicBlock &BB = F.getEntryBlock();
+  for (BasicBlock::iterator I = BB.begin(), E = BB.end(); I != E; ++I)
+    if (AllocaInst *A = dyn_cast<AllocaInst>(I)) {
+      // TODO: Only do this on basic types.
+      if (HLModule::HasPreciseAttributeWithMetadata(A)) {
+        HLModule::MarkPreciseAttributeOnPtrWithFunctionCall(A,
+                                                            *(F.getParent()));
+        Changed = true;
+      }
+    }
+  return Changed;
+}
+
+bool Cleanup(Function &F, DxilTypeSystem &typeSys) {
+  // change rest memcpy into ld/st.
+  MemcpySplitter splitter(F.getContext(), typeSys);
+  splitter.Split(F);
+  return markPrecise(F);
+}
+} // namespace
+
+namespace {
+
+/// ShouldAttemptScalarRepl - Decide if an alloca is a good candidate for
+/// SROA.  It must be a struct or array type with a small number of elements.
+bool ShouldAttemptScalarRepl(AllocaInst *AI) {
+  Type *T = AI->getAllocatedType();
+  // promote every struct.
+  if (dyn_cast<StructType>(T))
+    return true;
+  // promote every array.
+  if (dyn_cast<ArrayType>(T))
+    return true;
+  return false;
+}
+
+/// AllocaInfo - When analyzing uses of an alloca instruction, this captures
+/// information about the uses.  All these fields are initialized to false
+/// and set to true when something is learned.
+struct AllocaInfo {
+  /// The alloca to promote.
+  AllocaInst *AI;
+
+  /// CheckedPHIs - This is a set of verified PHI nodes, to prevent infinite
+  /// looping and avoid redundant work.
+  SmallPtrSet<PHINode *, 8> CheckedPHIs;
+
+  /// isUnsafe - This is set to true if the alloca cannot be SROA'd.
+  bool isUnsafe : 1;
+
+  /// isMemCpySrc - This is true if this aggregate is memcpy'd from.
+  bool isMemCpySrc : 1;
+
+  /// isMemCpyDst - This is true if this aggregate is memcpy'd into.
+  bool isMemCpyDst : 1;
+
+  /// hasSubelementAccess - This is true if a subelement of the alloca is
+  /// ever accessed, or false if the alloca is only accessed with mem
+  /// intrinsics or load/store that only access the entire alloca at once.
+  bool hasSubelementAccess : 1;
+
+  /// hasALoadOrStore - This is true if there are any loads or stores to it.
+  /// The alloca may just be accessed with memcpy, for example, which would
+  /// not set this.
+  bool hasALoadOrStore : 1;
+
+  /// hasArrayIndexing - This is true if there are any dynamic array
+  /// indexing to it.
+  bool hasArrayIndexing : 1;
+
+  /// hasVectorIndexing - This is true if there are any dynamic vector
+  /// indexing to it.
+  bool hasVectorIndexing : 1;
+
+  explicit AllocaInfo(AllocaInst *ai)
+      : AI(ai), isUnsafe(false), isMemCpySrc(false), isMemCpyDst(false),
+        hasSubelementAccess(false), hasALoadOrStore(false),
+        hasArrayIndexing(false), hasVectorIndexing(false) {}
+};
+
+/// TypeHasComponent - Return true if T has a component type with the
+/// specified offset and size.  If Size is zero, do not check the size.
+bool TypeHasComponent(Type *T, uint64_t Offset, uint64_t Size,
+                      const DataLayout &DL) {
+  Type *EltTy;
+  uint64_t EltSize;
+  if (StructType *ST = dyn_cast<StructType>(T)) {
+    const StructLayout *Layout = DL.getStructLayout(ST);
+    unsigned EltIdx = Layout->getElementContainingOffset(Offset);
+    EltTy = ST->getContainedType(EltIdx);
+    EltSize = DL.getTypeAllocSize(EltTy);
+    Offset -= Layout->getElementOffset(EltIdx);
+  } else if (ArrayType *AT = dyn_cast<ArrayType>(T)) {
+    EltTy = AT->getElementType();
+    EltSize = DL.getTypeAllocSize(EltTy);
+    if (Offset >= AT->getNumElements() * EltSize)
+      return false;
+    Offset %= EltSize;
+  } else if (VectorType *VT = dyn_cast<VectorType>(T)) {
+    EltTy = VT->getElementType();
+    EltSize = DL.getTypeAllocSize(EltTy);
+    if (Offset >= VT->getNumElements() * EltSize)
+      return false;
+    Offset %= EltSize;
+  } else {
+    return false;
+  }
+  if (Offset == 0 && (Size == 0 || EltSize == Size))
+    return true;
+  // Check if the component spans multiple elements.
+  if (Offset + Size > EltSize)
+    return false;
+  return TypeHasComponent(EltTy, Offset, Size, DL);
+}
+
+void MarkUnsafe(AllocaInfo &I, Instruction *User) {
+  I.isUnsafe = true;
+  DEBUG(dbgs() << "  Transformation preventing inst: " << *User << '\n');
+}
+
+/// isSafeGEP - Check if a GEP instruction can be handled for scalar
+/// replacement.  It is safe when all the indices are constant, in-bounds
+/// references, and when the resulting offset corresponds to an element within
+/// the alloca type.  The results are flagged in the Info parameter.  Upon
+/// return, Offset is adjusted as specified by the GEP indices.
+void isSafeGEP(GetElementPtrInst *GEPI, uint64_t &Offset, AllocaInfo &Info) {
+  gep_type_iterator GEPIt = gep_type_begin(GEPI), E = gep_type_end(GEPI);
+  if (GEPIt == E)
+    return;
+  bool NonConstant = false;
+  unsigned NonConstantIdxSize = 0;
+
+  // Compute the offset due to this GEP and check if the alloca has a
+  // component element at that offset.
+  SmallVector<Value *, 8> Indices(GEPI->op_begin() + 1, GEPI->op_end());
+  auto indicesIt = Indices.begin();
+
+  // Walk through the GEP type indices, checking the types that this indexes
+  // into.
+  uint32_t arraySize = 0;
+  bool isArrayIndexing = false;
+
+  for (; GEPIt != E; ++GEPIt) {
+    Type *Ty = *GEPIt;
+    if (Ty->isStructTy() && !HLMatrixType::isa(Ty)) {
+      // Don't go inside struct when mark hasArrayIndexing and
+      // hasVectorIndexing. The following level won't affect scalar repl on the
+      // struct.
+      break;
+    }
+    if (GEPIt->isArrayTy()) {
+      arraySize = GEPIt->getArrayNumElements();
+      isArrayIndexing = true;
+    }
+    if (GEPIt->isVectorTy()) {
+      arraySize = GEPIt->getVectorNumElements();
+      isArrayIndexing = false;
+    }
+    // Allow dynamic indexing
+    ConstantInt *IdxVal = dyn_cast<ConstantInt>(GEPIt.getOperand());
+    if (!IdxVal) {
+      // for dynamic index, use array size - 1 to check the offset
+      *indicesIt = Constant::getIntegerValue(
+          Type::getInt32Ty(GEPI->getContext()), APInt(32, arraySize - 1));
+      if (isArrayIndexing)
+        Info.hasArrayIndexing = true;
+      else
+        Info.hasVectorIndexing = true;
+      NonConstant = true;
+    }
+    indicesIt++;
+  }
+  // Continue iterate only for the NonConstant.
+  for (; GEPIt != E; ++GEPIt) {
+    Type *Ty = *GEPIt;
+    if (Ty->isArrayTy()) {
+      arraySize = GEPIt->getArrayNumElements();
+    }
+    if (Ty->isVectorTy()) {
+      arraySize = GEPIt->getVectorNumElements();
+    }
+    // Allow dynamic indexing
+    ConstantInt *IdxVal = dyn_cast<ConstantInt>(GEPIt.getOperand());
+    if (!IdxVal) {
+      // for dynamic index, use array size - 1 to check the offset
+      *indicesIt = Constant::getIntegerValue(
+          Type::getInt32Ty(GEPI->getContext()), APInt(32, arraySize - 1));
+      NonConstant = true;
+    }
+    indicesIt++;
+  }
+  // If this GEP is non-constant then the last operand must have been a
+  // dynamic index into a vector.  Pop this now as it has no impact on the
+  // constant part of the offset.
+  if (NonConstant)
+    Indices.pop_back();
+
+  const DataLayout &DL = GEPI->getModule()->getDataLayout();
+  Offset += DL.getIndexedOffset(GEPI->getPointerOperandType(), Indices);
+  if (!TypeHasComponent(Info.AI->getAllocatedType(), Offset, NonConstantIdxSize,
+                        DL))
+    MarkUnsafe(Info, GEPI);
+}
+
+/// isSafeMemAccess - Check if a load/store/memcpy operates on the entire AI
+/// alloca or has an offset and size that corresponds to a component element
+/// within it.  The offset checked here may have been formed from a GEP with a
+/// pointer bitcasted to a different type.
+///
+/// If AllowWholeAccess is true, then this allows uses of the entire alloca as a
+/// unit.  If false, it only allows accesses known to be in a single element.
+void isSafeMemAccess(uint64_t Offset, uint64_t MemSize, Type *MemOpType,
+                     bool isStore, AllocaInfo &Info, Instruction *TheAccess,
+                     bool AllowWholeAccess) {
+  // What hlsl cares is Info.hasVectorIndexing.
+  // Do nothing here.
+}
+
+/// isSafePHIUseForScalarRepl - If we see a PHI node or select using a pointer
+/// derived from the alloca, we can often still split the alloca into elements.
+/// This is useful if we have a large alloca where one element is phi'd
+/// together somewhere: we can SRoA and promote all the other elements even if
+/// we end up not being able to promote this one.
+///
+/// All we require is that the uses of the PHI do not index into other parts of
+/// the alloca.  The most important use case for this is single load and stores
+/// that are PHI'd together, which can happen due to code sinking.
+void isSafePHISelectUseForScalarRepl(Instruction *I, uint64_t Offset,
+                                     AllocaInfo &Info) {
+  // If we've already checked this PHI, don't do it again.
+  if (PHINode *PN = dyn_cast<PHINode>(I))
+    if (!Info.CheckedPHIs.insert(PN).second)
+      return;
+
+  const DataLayout &DL = I->getModule()->getDataLayout();
+  for (User *U : I->users()) {
+    Instruction *UI = cast<Instruction>(U);
+
+    if (BitCastInst *BC = dyn_cast<BitCastInst>(UI)) {
+      isSafePHISelectUseForScalarRepl(BC, Offset, Info);
+    } else if (GetElementPtrInst *GEPI = dyn_cast<GetElementPtrInst>(UI)) {
+      // Only allow "bitcast" GEPs for simplicity.  We could generalize this,
+      // but would have to prove that we're staying inside of an element being
+      // promoted.
+      if (!GEPI->hasAllZeroIndices())
+        return MarkUnsafe(Info, UI);
+      isSafePHISelectUseForScalarRepl(GEPI, Offset, Info);
+    } else if (LoadInst *LI = dyn_cast<LoadInst>(UI)) {
+      if (!LI->isSimple())
+        return MarkUnsafe(Info, UI);
+      Type *LIType = LI->getType();
+      isSafeMemAccess(Offset, DL.getTypeAllocSize(LIType), LIType, false, Info,
+                      LI, false /*AllowWholeAccess*/);
+      Info.hasALoadOrStore = true;
+
+    } else if (StoreInst *SI = dyn_cast<StoreInst>(UI)) {
+      // Store is ok if storing INTO the pointer, not storing the pointer
+      if (!SI->isSimple() || SI->getOperand(0) == I)
+        return MarkUnsafe(Info, UI);
+
+      Type *SIType = SI->getOperand(0)->getType();
+      isSafeMemAccess(Offset, DL.getTypeAllocSize(SIType), SIType, true, Info,
+                      SI, false /*AllowWholeAccess*/);
+      Info.hasALoadOrStore = true;
+    } else if (isa<PHINode>(UI) || isa<SelectInst>(UI)) {
+      isSafePHISelectUseForScalarRepl(UI, Offset, Info);
+    } else {
+      return MarkUnsafe(Info, UI);
+    }
+    if (Info.isUnsafe)
+      return;
+  }
+}
+
+/// isSafeForScalarRepl - Check if instruction I is a safe use with regard to
+/// performing scalar replacement of alloca AI.  The results are flagged in
+/// the Info parameter.  Offset indicates the position within AI that is
+/// referenced by this instruction.
+void isSafeForScalarRepl(Instruction *I, uint64_t Offset, AllocaInfo &Info) {
+  if (I->getType()->isPointerTy()) {
+    // Don't check object pointers.
+    if (dxilutil::IsHLSLObjectType(I->getType()->getPointerElementType()))
+      return;
+  }
+  const DataLayout &DL = I->getModule()->getDataLayout();
+  for (Use &U : I->uses()) {
+    Instruction *User = cast<Instruction>(U.getUser());
+
+    if (BitCastInst *BC = dyn_cast<BitCastInst>(User)) {
+      isSafeForScalarRepl(BC, Offset, Info);
+    } else if (GetElementPtrInst *GEPI = dyn_cast<GetElementPtrInst>(User)) {
+      uint64_t GEPOffset = Offset;
+      isSafeGEP(GEPI, GEPOffset, Info);
+      if (!Info.isUnsafe)
+        isSafeForScalarRepl(GEPI, GEPOffset, Info);
+    } else if (MemIntrinsic *MI = dyn_cast<MemIntrinsic>(User)) {
+      ConstantInt *Length = dyn_cast<ConstantInt>(MI->getLength());
+      if (!Length || Length->isNegative())
+        return MarkUnsafe(Info, User);
+
+      isSafeMemAccess(Offset, Length->getZExtValue(), nullptr,
+                      U.getOperandNo() == 0, Info, MI,
+                      true /*AllowWholeAccess*/);
+    } else if (LoadInst *LI = dyn_cast<LoadInst>(User)) {
+      if (!LI->isSimple())
+        return MarkUnsafe(Info, User);
+      Type *LIType = LI->getType();
+      isSafeMemAccess(Offset, DL.getTypeAllocSize(LIType), LIType, false, Info,
+                      LI, true /*AllowWholeAccess*/);
+      Info.hasALoadOrStore = true;
+
+    } else if (StoreInst *SI = dyn_cast<StoreInst>(User)) {
+      // Store is ok if storing INTO the pointer, not storing the pointer
+      if (!SI->isSimple() || SI->getOperand(0) == I)
+        return MarkUnsafe(Info, User);
+
+      Type *SIType = SI->getOperand(0)->getType();
+      isSafeMemAccess(Offset, DL.getTypeAllocSize(SIType), SIType, true, Info,
+                      SI, true /*AllowWholeAccess*/);
+      Info.hasALoadOrStore = true;
+    } else if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(User)) {
+      if (II->getIntrinsicID() != Intrinsic::lifetime_start &&
+          II->getIntrinsicID() != Intrinsic::lifetime_end)
+        return MarkUnsafe(Info, User);
+    } else if (isa<PHINode>(User) || isa<SelectInst>(User)) {
+      isSafePHISelectUseForScalarRepl(User, Offset, Info);
+    } else if (CallInst *CI = dyn_cast<CallInst>(User)) {
+      HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
+      // Most HL functions are safe for scalar repl.
+      if (HLOpcodeGroup::NotHL == group)
+        return MarkUnsafe(Info, User);
+      else if (HLOpcodeGroup::HLIntrinsic == group) {
+        // TODO: should we check HL parameter type for UDT overload instead of
+        // basing on IOP?
+        IntrinsicOp opcode = static_cast<IntrinsicOp>(GetHLOpcode(CI));
+        if (IntrinsicOp::IOP_TraceRay == opcode ||
+            IntrinsicOp::IOP_ReportHit == opcode ||
+            IntrinsicOp::IOP_CallShader == opcode) {
+          return MarkUnsafe(Info, User);
+        }
+      }
+    } else {
+      return MarkUnsafe(Info, User);
+    }
+    if (Info.isUnsafe)
+      return;
+  }
+}
+
+/// HasPadding - Return true if the specified type has any structure or
+/// alignment padding in between the elements that would be split apart
+/// by SROA; return false otherwise.
+static bool HasPadding(Type *Ty, const DataLayout &DL) {
+  if (ArrayType *ATy = dyn_cast<ArrayType>(Ty)) {
+    Ty = ATy->getElementType();
+    return DL.getTypeSizeInBits(Ty) != DL.getTypeAllocSizeInBits(Ty);
+  }
+
+  // SROA currently handles only Arrays and Structs.
+  StructType *STy = cast<StructType>(Ty);
+  const StructLayout *SL = DL.getStructLayout(STy);
+  unsigned PrevFieldBitOffset = 0;
+  for (unsigned i = 0, e = STy->getNumElements(); i != e; ++i) {
+    unsigned FieldBitOffset = SL->getElementOffsetInBits(i);
+
+    // Check to see if there is any padding between this element and the
+    // previous one.
+    if (i) {
+      unsigned PrevFieldEnd =
+          PrevFieldBitOffset + DL.getTypeSizeInBits(STy->getElementType(i - 1));
+      if (PrevFieldEnd < FieldBitOffset)
+        return true;
+    }
+    PrevFieldBitOffset = FieldBitOffset;
+  }
+  // Check for tail padding.
+  if (unsigned EltCount = STy->getNumElements()) {
+    unsigned PrevFieldEnd =
+        PrevFieldBitOffset +
+        DL.getTypeSizeInBits(STy->getElementType(EltCount - 1));
+    if (PrevFieldEnd < SL->getSizeInBits())
+      return true;
+  }
+  return false;
+}
+
+/// isSafeStructAllocaToScalarRepl - Check to see if the specified allocation of
+/// an aggregate can be broken down into elements.  Return 0 if not, 3 if safe,
+/// or 1 if safe after canonicalization has been performed.
+bool isSafeAllocaToScalarRepl(AllocaInst *AI) {
+  // Loop over the use list of the alloca.  We can only transform it if all of
+  // the users are safe to transform.
+  AllocaInfo Info(AI);
+
+  isSafeForScalarRepl(AI, 0, Info);
+  if (Info.isUnsafe) {
+    DEBUG(dbgs() << "Cannot transform: " << *AI << '\n');
+    return false;
+  }
+
+  // vector indexing need translate vector into array
+  if (Info.hasVectorIndexing)
+    return false;
+
+  const DataLayout &DL = AI->getModule()->getDataLayout();
+
+  // Okay, we know all the users are promotable.  If the aggregate is a memcpy
+  // source and destination, we have to be careful.  In particular, the memcpy
+  // could be moving around elements that live in structure padding of the LLVM
+  // types, but may actually be used.  In these cases, we refuse to promote the
+  // struct.
+  if (Info.isMemCpySrc && Info.isMemCpyDst &&
+      HasPadding(AI->getAllocatedType(), DL))
+    return false;
+
+  return true;
+}
+} // namespace
+
+namespace {
+
+struct GVDbgOffset {
+  GlobalVariable *base;
+  unsigned debugOffset;
+};
+
+bool hasDynamicVectorIndexing(Value *V) {
+  for (User *U : V->users()) {
+    if (!U->getType()->isPointerTy())
+      continue;
+
+    if (dyn_cast<GEPOperator>(U)) {
+
+      gep_type_iterator GEPIt = gep_type_begin(U), E = gep_type_end(U);
+
+      for (; GEPIt != E; ++GEPIt) {
+        if (isa<VectorType>(*GEPIt)) {
+          Value *VecIdx = GEPIt.getOperand();
+          if (!isa<ConstantInt>(VecIdx))
+            return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+} // namespace
+
+namespace {
+
+void RemoveUnusedInternalGlobalVariable(Module &M) {
+  std::vector<GlobalVariable *> staticGVs;
+  for (GlobalVariable &GV : M.globals()) {
+    if (dxilutil::IsStaticGlobal(&GV) || dxilutil::IsSharedMemoryGlobal(&GV)) {
+      staticGVs.emplace_back(&GV);
+    }
+  }
+
+  for (GlobalVariable *GV : staticGVs) {
+    bool onlyStoreUse = true;
+    for (User *user : GV->users()) {
+      if (isa<StoreInst>(user))
+        continue;
+      if (isa<ConstantExpr>(user) && user->user_empty())
+        continue;
+
+      // Check matrix store.
+      if (HLMatrixType::isa(GV->getType()->getPointerElementType())) {
+        if (CallInst *CI = dyn_cast<CallInst>(user)) {
+          if (GetHLOpcodeGroupByName(CI->getCalledFunction()) ==
+              HLOpcodeGroup::HLMatLoadStore) {
+            HLMatLoadStoreOpcode opcode =
+                static_cast<HLMatLoadStoreOpcode>(GetHLOpcode(CI));
+            if (opcode == HLMatLoadStoreOpcode::ColMatStore ||
+                opcode == HLMatLoadStoreOpcode::RowMatStore)
+              continue;
+          }
+        }
+      }
+
+      onlyStoreUse = false;
+      break;
+    }
+    if (onlyStoreUse) {
+      for (auto UserIt = GV->user_begin(); UserIt != GV->user_end();) {
+        Value *User = *(UserIt++);
+        if (Instruction *I = dyn_cast<Instruction>(User)) {
+          I->eraseFromParent();
+        } else {
+          ConstantExpr *CE = cast<ConstantExpr>(User);
+          CE->dropAllReferences();
+        }
+      }
+      GV->eraseFromParent();
+    }
+  }
+}
+
+bool isGroupShareOrConstStaticArray(GlobalVariable *GV) {
+  // Disable scalarization of groupshared/const_static vector arrays
+  if (!(GV->getType()->getAddressSpace() == DXIL::kTGSMAddrSpace ||
+       (GV->isConstant() && GV->hasInitializer() &&
+        GV->getLinkage() == GlobalValue::LinkageTypes::InternalLinkage)))
+    return false;
+  Type *Ty = GV->getType()->getPointerElementType();
+  return Ty->isArrayTy();
+}
+
+bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
+  Module &M = *HLM.GetModule();
+  DxilTypeSystem &typeSys = HLM.GetTypeSystem();
+
+  const DataLayout &DL = M.getDataLayout();
+  // Make sure big alloca split first.
+  // This will simplify memcpy check between part of big alloca and small
+  // alloca. Big alloca will be split to smaller piece first, when process the
+  // alloca, it will be alloca flattened from big alloca instead of a GEP of
+  // big alloca.
+  auto size_cmp = [&DL](const Value *a0, const Value *a1) -> bool {
+    Type *a0ty = a0->getType()->getPointerElementType();
+    Type *a1ty = a1->getType()->getPointerElementType();
+    bool isUnitSzStruct0 =
+        a0ty->isStructTy() && a0ty->getStructNumElements() == 1;
+    bool isUnitSzStruct1 =
+        a1ty->isStructTy() && a1ty->getStructNumElements() == 1;
+    auto sz0 = DL.getTypeAllocSize(a0ty);
+    auto sz1 = DL.getTypeAllocSize(a1ty);
+    if (sz0 == sz1 && (isUnitSzStruct0 || isUnitSzStruct1))
+      return getNestedLevelInStruct(a0ty) < getNestedLevelInStruct(a1ty);
+    return sz0 < sz1;
+  };
+
+  std::priority_queue<Value *, std::vector<Value *>,
+                      std::function<bool(Value *, Value *)>>
+      WorkList(size_cmp);
+
+  // Flatten internal global.
+  llvm::SetVector<GlobalVariable *> staticGVs;
+
+  DenseMap<GlobalVariable *, GVDbgOffset> GVDbgOffsetMap;
+  for (GlobalVariable &GV : M.globals()) {
+    if (dxilutil::IsStaticGlobal(&GV) || dxilutil::IsSharedMemoryGlobal(&GV)) {
+      staticGVs.insert(&GV);
+      GVDbgOffset &dbgOffset = GVDbgOffsetMap[&GV];
+      dbgOffset.base = &GV;
+      dbgOffset.debugOffset = 0;
+    } else {
+      // merge GEP use for global.
+      HLModule::MergeGepUse(&GV);
+    }
+  }
+  // Add static GVs to work list.
+  for (GlobalVariable *GV : staticGVs)
+    WorkList.push(GV);
+
+  DenseMap<Function *, DominatorTree> domTreeMap;
+  for (Function &F : M) {
+    if (F.isDeclaration())
+      continue;
+    // Collect domTree.
+    domTreeMap[&F].recalculate(F);
+
+    // Scan the entry basic block, adding allocas to the worklist.
+    BasicBlock &BB = F.getEntryBlock();
+    for (BasicBlock::iterator I = BB.begin(), E = BB.end(); I != E; ++I)
+      if (AllocaInst *A = dyn_cast<AllocaInst>(I)) {
+        if (!A->user_empty()) {
+          WorkList.push(A);
+          // merge GEP use for the allocs
+          HLModule::MergeGepUse(A);
+        }
+      }
+  }
+
+  // Establish debug metadata layout name in the context in advance so the name
+  // is serialized in both debug and non-debug compilations.
+  (void)M.getContext().getMDKindID(
+      DxilMDHelper::kDxilVariableDebugLayoutMDName);
+  DIBuilder DIB(M, /*AllowUnresolved*/ false);
+
+  /// DeadInsts - Keep track of instructions we have made dead, so that
+  /// we can remove them after we are done working.
+  SmallVector<Value *, 32> DeadInsts;
+
+  // Only used to create ConstantExpr.
+  IRBuilder<> Builder(M.getContext());
+  std::unordered_map<Value *, StringRef> EltNameMap;
+
+  bool Changed = false;
+  while (!WorkList.empty()) {
+    Value *V = WorkList.top();
+    WorkList.pop();
+
+    if (AllocaInst *AI = dyn_cast<AllocaInst>(V)) {
+      // Handle dead allocas trivially.  These can be formed by SROA'ing arrays
+      // with unused elements.
+      if (AI->use_empty()) {
+        AI->eraseFromParent();
+        Changed = true;
+        continue;
+      }
+      Function *F = AI->getParent()->getParent();
+      const bool bAllowReplace = true;
+      DominatorTree &DT = domTreeMap[F];
+      if (SROA_Helper::LowerMemcpy(AI, /*annotation*/ nullptr, typeSys, DL, &DT,
+                                   bAllowReplace)) {
+        Changed = true;
+        continue;
+      }
+
+      // If this alloca is impossible for us to promote, reject it early.
+      if (AI->isArrayAllocation() || !AI->getAllocatedType()->isSized())
+        continue;
+
+      // Check to see if we can perform the core SROA transformation.  We cannot
+      // transform the allocation instruction if it is an array allocation
+      // (allocations OF arrays are ok though), and an allocation of a scalar
+      // value cannot be decomposed at all.
+      uint64_t AllocaSize = DL.getTypeAllocSize(AI->getAllocatedType());
+
+      // Do not promote [0 x %struct].
+      if (AllocaSize == 0)
+        continue;
+
+      Type *Ty = AI->getAllocatedType();
+      // Skip empty struct type.
+      if (SROA_Helper::IsEmptyStructType(Ty, typeSys)) {
+        SROA_Helper::MarkEmptyStructUsers(AI, DeadInsts);
+        DeleteDeadInstructions(DeadInsts);
+        continue;
+      }
+
+      if (Value *NewV = TranslatePtrIfUsedByLoweredFn(AI, typeSys)) {
+        if (NewV != AI) {
+          DXASSERT(AI->getNumUses() == 0, "must have zero users.");
+          AI->eraseFromParent();
+          Changed = true;
+        }
+        continue;
+      }
+
+      // If the alloca looks like a good candidate for scalar replacement, and
+      // if
+      // all its users can be transformed, then split up the aggregate into its
+      // separate elements.
+      if (ShouldAttemptScalarRepl(AI) && isSafeAllocaToScalarRepl(AI)) {
+        std::vector<Value *> Elts;
+        IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(AI));
+        bool hasPrecise = HLModule::HasPreciseAttributeWithMetadata(AI);
+
+        Type *BrokenUpTy = nullptr;
+        uint64_t NumInstances = 1;
+        bool SROAed = SROA_Helper::DoScalarReplacement(
+            AI, Elts, BrokenUpTy, NumInstances, Builder,
+            /*bFlatVector*/ true, hasPrecise, typeSys, DL, DeadInsts, &DT);
+
+        if (SROAed) {
+          Type *Ty = AI->getAllocatedType();
+          // Skip empty struct parameters.
+          if (StructType *ST = dyn_cast<StructType>(Ty)) {
+            if (!HLMatrixType::isa(Ty)) {
+              DxilStructAnnotation *SA = typeSys.GetStructAnnotation(ST);
+              if (SA && SA->IsEmptyStruct()) {
+                for (User *U : AI->users()) {
+                  if (StoreInst *SI = dyn_cast<StoreInst>(U))
+                    DeadInsts.emplace_back(SI);
+                }
+                DeleteDeadInstructions(DeadInsts);
+                AI->replaceAllUsesWith(UndefValue::get(AI->getType()));
+                AI->eraseFromParent();
+                continue;
+              }
+            }
+          }
+
+          addDebugInfoForElements(AI, BrokenUpTy, NumInstances, Elts, DL, &DIB);
+
+          // Push Elts into workList.
+          for (unsigned EltIdx = 0; EltIdx < Elts.size(); ++EltIdx) {
+            AllocaInst *EltAlloca = cast<AllocaInst>(Elts[EltIdx]);
+            WorkList.push(EltAlloca);
+          }
+
+          // Now erase any instructions that were made dead while rewriting the
+          // alloca.
+          DeleteDeadInstructions(DeadInsts);
+          ++NumReplaced;
+          DXASSERT(AI->getNumUses() == 0, "must have zero users.");
+          AI->eraseFromParent();
+          Changed = true;
+          continue;
+        }
+      }
+    } else {
+      GlobalVariable *GV = cast<GlobalVariable>(V);
+      if (staticGVs.count(GV)) {
+        Type *Ty = GV->getType()->getPointerElementType();
+        // Skip basic types.
+        if (!Ty->isAggregateType() && !Ty->isVectorTy())
+          continue;
+        // merge GEP use for global.
+        HLModule::MergeGepUse(GV);
+      }
+
+      const bool bAllowReplace = true;
+      // SROA_Parameter_HLSL has no access to a domtree, if one is needed, it'll
+      // be generated
+      if (SROA_Helper::LowerMemcpy(GV, /*annotation*/ nullptr, typeSys, DL,
+                                   nullptr /*DT */, bAllowReplace)) {
+        continue;
+      }
+
+      // Flat Global vector if no dynamic vector indexing.
+      bool bFlatVector = !hasDynamicVectorIndexing(GV);
+
+      if (bFlatVector) {
+        GVDbgOffset &dbgOffset = GVDbgOffsetMap[GV];
+        GlobalVariable *baseGV = dbgOffset.base;
+        // Disable scalarization of groupshared/const_static vector arrays
+        if (isGroupShareOrConstStaticArray(baseGV))
+          bFlatVector = false;
+      }
+
+      std::vector<Value *> Elts;
+      bool SROAed = false;
+      if (GlobalVariable *NewEltGV = dyn_cast_or_null<GlobalVariable>(
+              TranslatePtrIfUsedByLoweredFn(GV, typeSys))) {
+        // Remove GV which is split from static GVs.
+        if (staticGVs.count(GV) == 0) {
+          GV->removeDeadConstantUsers();
+          GV->eraseFromParent();
+        }
+        GVDbgOffset dbgOffset = GVDbgOffsetMap[GV];
+        GVDbgOffsetMap[NewEltGV] = dbgOffset;
+        GV = NewEltGV;
+      } else {
+        // SROA_Parameter_HLSL has no access to a domtree, if one is needed,
+        // it'll be generated
+        SROAed = SROA_Helper::DoScalarReplacement(
+            GV, Elts, Builder, bFlatVector,
+            // TODO: set precise.
+            /*hasPrecise*/ false, typeSys, DL, DeadInsts, /*DT*/ nullptr);
+      }
+
+      if (SROAed) {
+        GVDbgOffset &dbgOffset = GVDbgOffsetMap[GV];
+        unsigned offset = 0;
+        // Push Elts into workList.
+        for (auto iter = Elts.begin(); iter != Elts.end(); iter++) {
+          WorkList.push(*iter);
+          GlobalVariable *EltGV = cast<GlobalVariable>(*iter);
+          if (bHasDbgInfo) {
+            StringRef EltName = (*iter)->getName().ltrim(dbgOffset.base->getName());
+            EltNameMap[EltGV] = EltName;
+          }
+          GVDbgOffset &EltDbgOffset = GVDbgOffsetMap[EltGV];
+          EltDbgOffset.base = dbgOffset.base;
+          EltDbgOffset.debugOffset = dbgOffset.debugOffset + offset;
+          unsigned size =
+              DL.getTypeAllocSizeInBits(EltGV->getType()->getElementType());
+          offset += size;
+        }
+        GV->removeDeadConstantUsers();
+        // Now erase any instructions that were made dead while rewriting the
+        // alloca.
+        DeleteDeadInstructions(DeadInsts);
+        ++NumReplaced;
+      } else {
+        // Add debug info for flattened globals.
+        if (bHasDbgInfo && staticGVs.count(GV) == 0) {
+          GVDbgOffset &dbgOffset = GVDbgOffsetMap[GV];
+          DebugInfoFinder &Finder = HLM.GetOrCreateDebugInfoFinder();
+          Type *Ty = GV->getType()->getElementType();
+          unsigned size = DL.getTypeAllocSizeInBits(Ty);
+          unsigned align = DL.getPrefTypeAlignment(Ty);
+          HLModule::CreateElementGlobalVariableDebugInfo(
+              dbgOffset.base, Finder, GV, size, align, dbgOffset.debugOffset,
+              EltNameMap[GV]);
+        }
+      }
+    }
+  }
+
+  // Remove unused internal global.
+  RemoveUnusedInternalGlobalVariable(M);
+  // Cleanup memcpy for allocas and mark precise.
+  for (Function &F : M) {
+    if (F.isDeclaration())
+      continue;
+    Cleanup(F, typeSys);
+  }
+
+  return true;
+}
+} // namespace
 
 //===----------------------------------------------------------------------===//
 // SRoA Helper
@@ -3653,70 +3730,8 @@ public:
       F->eraseFromParent();
     }
 
-    // Flatten internal global.
-    std::vector<GlobalVariable *> staticGVs;
-    for (GlobalVariable &GV : M.globals()) {
-      if (dxilutil::IsStaticGlobal(&GV) ||
-          dxilutil::IsSharedMemoryGlobal(&GV)) {
-        staticGVs.emplace_back(&GV);
-      } else {
-        // merge GEP use for global.
-        HLModule::MergeGepUse(&GV);
-      }
-    }
-
-    for (GlobalVariable *GV : staticGVs)
-      flattenGlobal(GV);
-
-    // Remove unused internal global.
-    staticGVs.clear();
-    for (GlobalVariable &GV : M.globals()) {
-      if (dxilutil::IsStaticGlobal(&GV) ||
-          dxilutil::IsSharedMemoryGlobal(&GV)) {
-        staticGVs.emplace_back(&GV);
-      }
-    }
-
-    for (GlobalVariable *GV : staticGVs) {
-      bool onlyStoreUse = true;
-      for (User *user : GV->users()) {
-        if (isa<StoreInst>(user))
-          continue;
-        if (isa<ConstantExpr>(user) && user->user_empty())
-          continue;
-
-        // Check matrix store.
-        if (HLMatrixType::isa(
-                GV->getType()->getPointerElementType())) {
-          if (CallInst *CI = dyn_cast<CallInst>(user)) {
-            if (GetHLOpcodeGroupByName(CI->getCalledFunction()) ==
-                HLOpcodeGroup::HLMatLoadStore) {
-              HLMatLoadStoreOpcode opcode =
-                  static_cast<HLMatLoadStoreOpcode>(GetHLOpcode(CI));
-              if (opcode == HLMatLoadStoreOpcode::ColMatStore ||
-                  opcode == HLMatLoadStoreOpcode::RowMatStore)
-                continue;
-            }
-          }
-        }
-
-        onlyStoreUse = false;
-        break;
-      }
-      if (onlyStoreUse) {
-        for (auto UserIt = GV->user_begin(); UserIt != GV->user_end();) {
-          Value *User = *(UserIt++);
-          if (Instruction *I = dyn_cast<Instruction>(User)) {
-            I->eraseFromParent();
-          }
-          else {
-            ConstantExpr *CE = cast<ConstantExpr>(User);
-            CE->dropAllReferences();
-          }
-        }
-        GV->eraseFromParent();
-      }
-    }
+    // SROA globals and allocas.
+    SROAGlobalAndAllocas(*m_pHLModule, m_HasDbgInfo);
 
     return true;
   }
@@ -3749,8 +3764,7 @@ private:
   void allocateSemanticIndex(
     std::vector<DxilParameterAnnotation> &FlatAnnotationList,
     unsigned startArgIndex, llvm::StringMap<Type *> &semanticTypeMap);
-  bool hasDynamicVectorIndexing(Value *V);
-  void flattenGlobal(GlobalVariable *GV);
+
   //static std::vector<Value*> GetConstValueIdxList(IRBuilder<>& builder, std::vector<unsigned> idxlist);
   /// DeadInsts - Keep track of instructions we have made dead, so that
   /// we can remove them after we are done working.
@@ -3844,123 +3858,6 @@ void SROA_Parameter_HLSL::DeleteDeadInstructions() {
       }
 
     I->eraseFromParent();
-  }
-}
-
-bool SROA_Parameter_HLSL::hasDynamicVectorIndexing(Value *V) {
-  for (User *U : V->users()) {
-    if (!U->getType()->isPointerTy())
-      continue;
-
-    if (dyn_cast<GEPOperator>(U)) {
-
-      gep_type_iterator GEPIt = gep_type_begin(U), E = gep_type_end(U);
-
-      for (; GEPIt != E; ++GEPIt) {
-        if (isa<VectorType>(*GEPIt)) {
-          Value *VecIdx = GEPIt.getOperand();
-          if (!isa<ConstantInt>(VecIdx))
-            return true;
-        }
-      }
-    }
-  }
-  return false;
-}
-
-void SROA_Parameter_HLSL::flattenGlobal(GlobalVariable *GV) {
-
-  Type *Ty = GV->getType()->getPointerElementType();
-  // Skip basic types.
-  if (!Ty->isAggregateType() && !Ty->isVectorTy())
-    return;
-
-  std::deque<Value *> WorkList;
-  WorkList.push_back(GV);
-  // merge GEP use for global.
-  HLModule::MergeGepUse(GV);
-  
-  DxilTypeSystem &dxilTypeSys = m_pHLModule->GetTypeSystem();
-  // Only used to create ConstantExpr.
-  IRBuilder<> Builder(m_pHLModule->GetCtx());
-  std::vector<Instruction*> deadAllocas;
-
-  const DataLayout &DL = GV->getParent()->getDataLayout();
-  unsigned debugOffset = 0;
-  std::unordered_map<Value*, StringRef> EltNameMap;
-  // Process the worklist
-  while (!WorkList.empty()) {
-    GlobalVariable *EltGV = cast<GlobalVariable>(WorkList.front());
-    WorkList.pop_front();
-    const bool bAllowReplace = true;
-    // SROA_Parameter_HLSL has no access to a domtree, if one is needed, it'll be generated
-    if (SROA_Helper::LowerMemcpy(EltGV, /*annotation*/ nullptr, dxilTypeSys, DL,
-                                 nullptr /*DT */, bAllowReplace)) {
-      continue;
-    }
-
-    // Flat Global vector if no dynamic vector indexing.
-    bool bFlatVector = !hasDynamicVectorIndexing(EltGV);
-
-    // Disable scalarization of groupshared/const_static vector arrays
-    if ((GV->getType()->getAddressSpace() == DXIL::kTGSMAddrSpace ||
-         (GV->isConstant() && GV->hasInitializer() &&
-          GV->getLinkage() == GlobalValue::LinkageTypes::InternalLinkage)) &&
-        Ty->isArrayTy())
-      bFlatVector = false;
-
-    std::vector<Value *> Elts;
-    bool SROAed = false;
-    if (GlobalVariable *NewEltGV = dyn_cast_or_null<GlobalVariable>(
-        TranslatePtrIfUsedByLoweredFn(EltGV, dxilTypeSys))) {
-      if (GV != EltGV) {
-        EltGV->removeDeadConstantUsers();
-        EltGV->eraseFromParent();
-      }
-      EltGV = NewEltGV;
-    } else {
-      // SROA_Parameter_HLSL has no access to a domtree, if one is needed, it'll be generated
-      SROAed = SROA_Helper::DoScalarReplacement(
-          EltGV, Elts, Builder, bFlatVector,
-          // TODO: set precise.
-          /*hasPrecise*/ false, dxilTypeSys, DL, DeadInsts, /*DT*/ nullptr);
-    }
-
-    if (SROAed) {
-      // Push Elts into workList.
-      // Use rbegin to make sure the order not change.
-      for (auto iter = Elts.rbegin(); iter != Elts.rend(); iter++) {
-        WorkList.push_front(*iter);
-        if (m_HasDbgInfo) {
-          StringRef EltName = (*iter)->getName().ltrim(GV->getName());
-          EltNameMap[*iter] = EltName;
-        }
-      }
-      EltGV->removeDeadConstantUsers();
-      // Now erase any instructions that were made dead while rewriting the
-      // alloca.
-      DeleteDeadInstructions();
-      ++NumReplaced;
-    } else {
-      // Add debug info for flattened globals.
-      if (m_HasDbgInfo && GV != EltGV) {
-        DebugInfoFinder &Finder = m_pHLModule->GetOrCreateDebugInfoFinder();
-        Type *Ty = EltGV->getType()->getElementType();
-        unsigned size = DL.getTypeAllocSizeInBits(Ty);
-        unsigned align = DL.getPrefTypeAlignment(Ty);
-        HLModule::CreateElementGlobalVariableDebugInfo(
-            GV, Finder, EltGV, size, align, debugOffset,
-            EltNameMap[EltGV]);
-        debugOffset += size;
-      }
-    }
-  }
-
-  DeleteDeadInstructions();
-
-  if (GV->user_empty()) {
-    GV->removeDeadConstantUsers();
-    GV->eraseFromParent();
   }
 }
 
