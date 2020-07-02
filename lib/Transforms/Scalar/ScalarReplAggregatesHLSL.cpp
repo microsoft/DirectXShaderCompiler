@@ -575,43 +575,6 @@ static void StoreVectorOrStructArray(ArrayType *AT, Value *val,
   }
 }
 
-/// HasPadding - Return true if the specified type has any structure or
-/// alignment padding in between the elements that would be split apart
-/// by SROA; return false otherwise.
-static bool HasPadding(Type *Ty, const DataLayout &DL) {
-  if (ArrayType *ATy = dyn_cast<ArrayType>(Ty)) {
-    Ty = ATy->getElementType();
-    return DL.getTypeSizeInBits(Ty) != DL.getTypeAllocSizeInBits(Ty);
-  }
-
-  // SROA currently handles only Arrays and Structs.
-  StructType *STy = cast<StructType>(Ty);
-  const StructLayout *SL = DL.getStructLayout(STy);
-  unsigned PrevFieldBitOffset = 0;
-  for (unsigned i = 0, e = STy->getNumElements(); i != e; ++i) {
-    unsigned FieldBitOffset = SL->getElementOffsetInBits(i);
-
-    // Check to see if there is any padding between this element and the
-    // previous one.
-    if (i) {
-      unsigned PrevFieldEnd =
-          PrevFieldBitOffset + DL.getTypeSizeInBits(STy->getElementType(i - 1));
-      if (PrevFieldEnd < FieldBitOffset)
-        return true;
-    }
-    PrevFieldBitOffset = FieldBitOffset;
-  }
-  // Check for tail padding.
-  if (unsigned EltCount = STy->getNumElements()) {
-    unsigned PrevFieldEnd =
-        PrevFieldBitOffset +
-        DL.getTypeSizeInBits(STy->getElementType(EltCount - 1));
-    if (PrevFieldEnd < SL->getSizeInBits())
-      return true;
-  }
-  return false;
-}
-
 namespace {
 
 // Simple struct to split memcpy into ld/st
