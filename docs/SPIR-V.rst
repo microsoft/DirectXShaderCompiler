@@ -1516,6 +1516,54 @@ assigned to the next available binding number, starting from 0, in descriptor
 set #0 (If ``-auto-binding-space N`` command line option is used, then
 descriptor set #N will be used instead of descriptor set #0).
 
+If there is no register specification AND ``-fvk-auto-shift-bindings`` is specified,
+then the register type will be automatically identified based on the resource
+type (according to the following table), and the appropriate shift will
+automatically be applied according to ``-fvk-*shift N M``.
+
+.. code:: spirv
+
+  t - for shader resource views (SRV)
+      TEXTURE1D
+      TEXTURE1DARRAY
+      TEXTURE2D
+      TEXTURE2DARRAY
+      TEXTURE3D
+      TEXTURECUBE
+      TEXTURECUBEARRAY
+      TEXTURE2DMS
+      TEXTURE2DMSARRAY
+      STRUCTUREDBUFFER
+      BYTEADDRESSBUFFER
+      BUFFER
+      TBUFFER
+
+  s - for samplers
+      SAMPLER
+      SAMPLER1D
+      SAMPLER2D
+      SAMPLER3D
+      SAMPLERCUBE
+      SAMPLERSTATE
+      SAMPLERCOMPARISONSTATE
+
+  u - for unordered access views (UAV)
+      RWBYTEADDRESSBUFFER
+      RWSTRUCTUREDBUFFER
+      APPENDSTRUCTUREDBUFFER
+      CONSUMESTRUCTUREDBUFFER
+      RWBUFFER
+      RWTEXTURE1D
+      RWTEXTURE1DARRAY
+      RWTEXTURE2D
+      RWTEXTURE2DARRAY
+      RWTEXTURE3D
+
+  b - for constant buffer views (CBV)
+      CBUFFER
+      CONSTANTBUFFER
+
+
 Summary
 ~~~~~~~
 
@@ -1523,9 +1571,15 @@ In summary, the compiler essentially assigns binding numbers in three passes.
 
 - Firstly it handles all declarations with explicit ``[[vk::binding(X[, Y])]]``
   annotation.
+
 - Then the compiler processes all remaining declarations with
   ``:register(xX, spaceY)`` annotation, by applying the shift passed in using
   command-line option ``-fvk-{b|s|t|u}-shift N M``, if provided.
+
+  - If ``:register`` assignment is missing and ``-fvk-auto-shift-bindings`` is
+    specified, the register type will be automatically detected based on the
+    resource type, and the ``-fvk-{b|s|t|u}-shift N M`` will be applied.
+
 - Finally, the compiler assigns next available binding numbers to the rest in
   the declaration order.
 
@@ -3550,6 +3604,9 @@ codegen for Vulkan:
 - ``-fvk-t-shift N M``, similar to ``-fvk-b-shift``, but for t-type registers.
 - ``-fvk-s-shift N M``, similar to ``-fvk-b-shift``, but for s-type registers.
 - ``-fvk-u-shift N M``, similar to ``-fvk-b-shift``, but for u-type registers.
+- ``-fvk-auto-shift-bindings``: Automatically detects the register type for
+  resources that are missing the ``:register`` assignment, so the above shifts
+  can be applied to them if needed.
 - ``-fvk-bind-register xX Y N M`` (short alias: ``-vkbr``): Binds the resouce
   at ``register(xX, spaceY)`` to descriptor set ``M`` and binding ``N``. This
   option cannot be used together with other binding assignment options.
