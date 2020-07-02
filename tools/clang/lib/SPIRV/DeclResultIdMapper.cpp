@@ -1971,6 +1971,22 @@ bool DeclResultIdMapper::createStageVars(
     // Unfortunately, this means that there is no 1-to-1 mapping of the HLSL
     // semantic to the SPIR-V builtin. As a result, we have to manually create
     // a second stage variable for this specific case.
+    //
+    // According to the Vulkan spec on builtin variables:
+    // www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#interfaces-builtin-variables
+    //
+    // InstanceIndex:
+    //   Decorating a variable in a vertex shader with the InstanceIndex
+    //   built-in decoration will make that variable contain the index of the
+    //   instance that is being processed by the current vertex shader
+    //   invocation. InstanceIndex begins at the firstInstance.
+    // BaseInstance
+    //   Decorating a variable with the BaseInstance built-in will make that
+    //   variable contain the integer value corresponding to the first instance
+    //   that was passed to the command that invoked the current vertex shader
+    //   invocation. BaseInstance is the firstInstance parameter to a direct
+    //   drawing command or the firstInstance member of a structure consumed by
+    //   an indirect drawing command.
     if (asInput && semanticKind == hlsl::Semantic::Kind::InstanceID &&
         sigPointKind == hlsl::SigPoint::Kind::VSIn) {
       // The above call to createSpirvStageVar creates the gl_InstanceIndex.
@@ -1988,7 +2004,7 @@ bool DeclResultIdMapper::createStageVars(
       stageVar2.setIsSpirvBuiltin();
       stageVars.push_back(stageVar2);
 
-      // Do the math.
+      // SPIR-V code fore 'SV_InstanceID = gl_InstanceIndex - gl_BaseInstance'
       auto *instanceIdVar =
           spvBuilder.addFnVar(type, semanticToUse->loc, "SV_InstanceID");
       auto *instanceIndexValue =
