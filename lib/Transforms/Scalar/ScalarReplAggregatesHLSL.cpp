@@ -1411,6 +1411,10 @@ void isSafePHISelectUseForScalarRepl(Instruction *I, uint64_t Offset,
   }
 }
 
+/// isSafeForScalarRepl - Check if instruction I is a safe use with regard to
+/// performing scalar replacement of alloca AI.  The results are flagged in
+/// the Info parameter.  Offset indicates the position within AI that is
+/// referenced by this instruction.
 void isSafeForScalarRepl(Instruction *I, uint64_t Offset, AllocaInfo &Info) {
   if (I->getType()->isPointerTy()) {
     // Don't check object pointers.
@@ -1632,7 +1636,7 @@ void RemoveUnusedInternalGlobalVariable(Module &M) {
   }
 }
 
-bool isGourpShareOrConstStaticArray(GlobalVariable *GV) {
+bool isGroupShareOrConstStaticArray(GlobalVariable *GV) {
   // Disable scalarization of groupshared/const_static vector arrays
   if (!(GV->getType()->getAddressSpace() == DXIL::kTGSMAddrSpace ||
        (GV->isConstant() && GV->hasInitializer() &&
@@ -1853,7 +1857,7 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
         GVDbgOffset &dbgOffset = GVDbgOffsetMap[GV];
         GlobalVariable *baseGV = dbgOffset.base;
         // Disable scalarization of groupshared/const_static vector arrays
-        if (isGourpShareOrConstStaticArray(baseGV))
+        if (isGroupShareOrConstStaticArray(baseGV))
           bFlatVector = false;
       }
 
