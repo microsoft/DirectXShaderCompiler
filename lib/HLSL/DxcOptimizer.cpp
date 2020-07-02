@@ -172,10 +172,8 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeSCCPPass(Registry);
     initializeSROAPass(Registry);
     initializeSROA_DTPass(Registry);
-    initializeSROA_DT_HLSLPass(Registry);
     initializeSROA_Parameter_HLSLPass(Registry);
     initializeSROA_SSAUpPass(Registry);
-    initializeSROA_SSAUp_HLSLPass(Registry);
     initializeSampleProfileLoaderPass(Registry);
     initializeScalarizerPass(Registry);
     initializeScopedNoAliasAAPass(Registry);
