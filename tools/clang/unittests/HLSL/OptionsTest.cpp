@@ -78,6 +78,8 @@ public:
   TEST_METHOD(CopyOptionsWhenSingleThenOK)
   //TEST_METHOD(CopyOptionsWhenMultipleThenOK)
 
+  TEST_METHOD(ReadOptionsJoinedWithSpacesThenOK)
+
   std::unique_ptr<DxcOpts> ReadOptsTest(const MainArgs &mainArgs,
                                         unsigned flagsToInclude,
                                         bool shouldFail = false,
@@ -305,4 +307,45 @@ TEST_F(OptionsTest, CopyOptionsWhenSingleThenOK) {
   VERIFY_ARE_NOT_EQUAL(outArgs.end(), std::find(outArgs.begin(), outArgs.end(), std::wstring(L"/E")));
   VERIFY_ARE_NOT_EQUAL(outArgs.end(), std::find(outArgs.begin(), outArgs.end(), std::wstring(L"main")));
   VERIFY_ARE_EQUAL    (outArgs.end(), std::find(outArgs.begin(), outArgs.end(), std::wstring(L"hlsl.hlsl")));
+}
+
+TEST_F(OptionsTest, ReadOptionsJoinedWithSpacesThenOK) {
+  {
+    // Ensure parsing arguments in joined form with embedded spaces
+    // between the option and the argument works, for these argument types:
+    // - JoinedOrSeparateClass (-E, -T)
+    // - SeparateClass (-external, -external-fn)
+    const wchar_t *Args[] = {
+      L"exe.exe",   L"-E main",    L"/T  ps_6_0",
+      L"hlsl.hlsl", L"-external foo.dll", L"-external-fn  CreateObj"};
+    MainArgsArr ArgsArr(Args);
+    std::unique_ptr<DxcOpts> o = ReadOptsTest(ArgsArr, DxcFlags);
+    VERIFY_ARE_EQUAL_STR("main", o->EntryPoint.data());
+    VERIFY_ARE_EQUAL_STR("ps_6_0", o->TargetProfile.data());
+    VERIFY_ARE_EQUAL_STR("CreateObj", o->ExternalFn.data());
+    VERIFY_ARE_EQUAL_STR("foo.dll", o->ExternalLib.data());
+  }
+
+  {
+    // Ignore trailing spaces in option name for JoinedOrSeparateClass
+    // Otherwise error messages are not easy for user to interpret
+    const wchar_t *Args[] = {
+      L"exe.exe",   L"-E ", L"main",    L"/T  ", L"ps_6_0",
+      L"hlsl.hlsl"};
+    MainArgsArr ArgsArr(Args);
+    std::unique_ptr<DxcOpts> o = ReadOptsTest(ArgsArr, DxcFlags);
+    VERIFY_ARE_EQUAL_STR("main", o->EntryPoint.data());
+    VERIFY_ARE_EQUAL_STR("ps_6_0", o->TargetProfile.data());
+  }
+  {
+    // Ignore trailing spaces in option name for SeparateClass
+    // Otherwise error messages are not easy for user to interpret
+    const wchar_t *Args[] = {
+      L"exe.exe",   L"-E", L"main",    L"/T", L"ps_6_0",
+      L"hlsl.hlsl", L"-external ", L"foo.dll", L"-external-fn  ", L"CreateObj"};
+    MainArgsArr ArgsArr(Args);
+    std::unique_ptr<DxcOpts> o = ReadOptsTest(ArgsArr, DxcFlags);
+    VERIFY_ARE_EQUAL_STR("CreateObj", o->ExternalFn.data());
+    VERIFY_ARE_EQUAL_STR("foo.dll", o->ExternalLib.data());
+  }
 }
