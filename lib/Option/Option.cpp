@@ -110,6 +110,17 @@ Arg *Option::accept(const ArgList &Args,
                                   Twine(UnaliasedOption.getName()));
   }
 
+  // HLSL Change Start: Count spaces immediately after option name.
+  // This is to handle the case where the argument was provided as
+  // "-opt value" instead of two arguments: "-opt", "value"
+  unsigned JoinedSpaces = 0;
+  {
+    const char *Val = Args.getArgString(Index) + ArgSize;
+    while (*Val++ == ' ')
+      ++JoinedSpaces;
+  }
+  // HLSL Change End
+
   switch (getKind()) {
   case FlagClass: {
     if (ArgSize != strlen(Args.getArgString(Index)))
@@ -168,7 +179,14 @@ Arg *Option::accept(const ArgList &Args,
     // Matches iff this is an exact match.
     // FIXME: Avoid strlen.
     if (ArgSize != strlen(Args.getArgString(Index)))
+    { // HLSL Change Begin: Except if value separated by spaces here
+      if (JoinedSpaces) {
+        const char *Value = Args.getArgString(Index) + ArgSize + JoinedSpaces;
+        return new Arg(*this, Spelling, Index++, Value);
+      }
+      // HLSL Change End
       return nullptr;
+    }
 
     Index += 2;
     if (Index > Args.getNumInputArgStrings() ||
@@ -197,7 +215,8 @@ Arg *Option::accept(const ArgList &Args,
     // If this is not an exact match, it is a joined arg.
     // FIXME: Avoid strlen.
     if (ArgSize != strlen(Args.getArgString(Index))) {
-      const char *Value = Args.getArgString(Index) + ArgSize;
+      const char *Value = Args.getArgString(Index) + ArgSize
+        + JoinedSpaces; // HLSL Change: Skip spaces in joined case
       return new Arg(*this, Spelling, Index++, Value);
     }
 
