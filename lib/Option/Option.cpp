@@ -182,10 +182,11 @@ Arg *Option::accept(const ArgList &Args,
     { // HLSL Change Begin: Except if value separated by spaces here
       if (JoinedSpaces) {
         const char *Value = Args.getArgString(Index) + ArgSize + JoinedSpaces;
-        return new Arg(*this, Spelling, Index++, Value);
-      }
+        if (*Value != '\0')
+          return new Arg(*this, Spelling, Index++, Value);
+      } else
       // HLSL Change End
-      return nullptr;
+        return nullptr;
     }
 
     Index += 2;
@@ -217,7 +218,9 @@ Arg *Option::accept(const ArgList &Args,
     if (ArgSize != strlen(Args.getArgString(Index))) {
       const char *Value = Args.getArgString(Index) + ArgSize
         + JoinedSpaces; // HLSL Change: Skip spaces in joined case
-      return new Arg(*this, Spelling, Index++, Value);
+      // HLSL Change: don't interpret trailing spaces as empty value:
+      if (*Value != '\0')
+        return new Arg(*this, Spelling, Index++, Value);
     }
 
     // Otherwise it must be separate.
