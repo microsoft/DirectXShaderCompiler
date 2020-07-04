@@ -781,4 +781,9 @@ def FutureCompat : DiagGroup<"future-compat">;
 // HLSL Change Starts - HLSL diagnostic groups
 def HLSLEffectsSyntax : DiagGroup<"effects-syntax">;
 def HLSLForRedefinition : DiagGroup<"for-redefinition">;
+def HLSLAttributeStatement : DiagGroup<"attribute-statement">;
+def HLSLAttributeType : DiagGroup<"attribute-type">;
+def HLSLSpecifierOverride : DiagGroup<"specifier-override">;
+def HLSLPackOffsetOverride : DiagGroup<"packoffset-override">;
+def HLSLCommaInInit : DiagGroup<"comma-in-init">;
 // HLSL Change Ends
