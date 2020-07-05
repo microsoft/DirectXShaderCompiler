@@ -904,7 +904,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     opts.RWOpt.ExtractEntryUniforms = Args.hasFlag(OPT_rw_extract_entry_uniforms, OPT_INVALID, false);
     opts.RWOpt.RemoveUnusedGlobals = Args.hasFlag(OPT_rw_remove_unused_globals, OPT_INVALID, false);
     opts.RWOpt.RemoveUnusedFunctions = Args.hasFlag(OPT_rw_remove_unused_functions, OPT_INVALID, false);
-
+    opts.RWOpt.WithLineDirective = Args.hasFlag(OPT_rw_line_directive, OPT_INVALID, false);
     if (opts.EntryPoint.empty() &&
         (opts.RWOpt.RemoveUnusedGlobals || opts.RWOpt.ExtractEntryUniforms ||
          opts.RWOpt.RemoveUnusedFunctions)) {
