@@ -1193,7 +1193,7 @@ HRESULT ReWriteWithLineDirective(
       o << out;
       compiler.setSourceManager(nullptr);
     } catch (Exception &exp) {
-      exp.msg;
+      w << exp.msg;
     } catch (...) {
     }
   }
