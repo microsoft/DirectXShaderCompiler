@@ -1867,6 +1867,10 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
         // Now erase any instructions that were made dead while rewriting the
         // alloca.
         DeleteDeadInstructions(DeadInsts);
+        // Remove GV from GVDbgOffsetMap when not static GV.
+        if (staticGVs.count(GV) == 0) {
+          GVDbgOffsetMap.erase(GV);
+        }
         ++NumReplaced;
       } else {
         // Add debug info for flattened globals.
