@@ -1085,9 +1085,9 @@ namespace {
 // Cull blocks from BreakBBs that containing instructions that are sensitive to the wave-sensitive Inst
 // Sensitivity entails being an eventual user of the Inst and also belonging to a block with
 // a break conditional on dx.break that breaks out of a loop that contains WaveCI
-// LInfo is needed to determine loop contents. VisitedPhis is needed to prevent infinit looping.
+// LInfo is needed to determine loop contents. Visited is needed to prevent infinite looping.
 static void CullSensitiveBlocks(LoopInfo *LInfo, BasicBlock *WaveBB, BasicBlock *LastBB, Instruction *Inst,
-                                SmallPtrSet<Instruction *, 16> &VisitedPhis,
+                                std::unordered_set<Instruction *> &Visited,
                                 SmallDenseMap<BasicBlock *, Instruction *, 16> &BreakBBs) {
   BasicBlock *BB = Inst->getParent();
   Loop *BreakLoop = LInfo->getLoopFor(BB);
@@ -1095,9 +1095,8 @@ static void CullSensitiveBlocks(LoopInfo *LInfo, BasicBlock *WaveBB, BasicBlock 
   if (!BreakLoop || BreakBBs.empty())
     return;
 
-  // To prevent infinite looping, only visit each PHI once
-  // If we've seen this PHI before, don't reprocess it
-  if (isa<PHINode>(Inst) && !VisitedPhis.insert(Inst).second)
+  // To prevent infinite looping, only visit each instruction once
+  if (!Visited.insert(Inst).second)
     return;
 
   // If this BB wasn't already just processed, handle it now
@@ -1112,7 +1111,7 @@ static void CullSensitiveBlocks(LoopInfo *LInfo, BasicBlock *WaveBB, BasicBlock 
   // Recurse on the users
   for (User *U : Inst->users()) {
     Instruction *I = cast<Instruction>(U);
-    CullSensitiveBlocks(LInfo, WaveBB, BB, I, VisitedPhis, BreakBBs);
+    CullSensitiveBlocks(LInfo, WaveBB, BB, I, Visited, BreakBBs);
   }
 }
 
@@ -1181,8 +1180,8 @@ public:
         for (User *U : IF.users()) {
           CallInst *CI = cast<CallInst>(U);
           if (CI->getParent()->getParent() == &F) {
-            SmallPtrSet<Instruction *, 16> VisitedPhis;
-            CullSensitiveBlocks(LInfo, CI->getParent(), nullptr, CI, VisitedPhis, BreakBBs);
+            std::unordered_set<Instruction *> Visited;
+            CullSensitiveBlocks(LInfo, CI->getParent(), nullptr, CI, Visited, BreakBBs);
           }
         }
       }
