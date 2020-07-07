@@ -1835,6 +1835,8 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
 
         if (GV != NewEltGV) {
           GVDbgOffsetMap[NewEltGV] = dbgOffset;
+          // Remove GV from GVDbgOffsetMap.
+          GVDbgOffsetMap.erase(GV);
           if (GV != dbgOffset.base) {
             // Remove GV when it is replaced by NewEltGV and is not a base GV.
             GV->removeDeadConstantUsers();
