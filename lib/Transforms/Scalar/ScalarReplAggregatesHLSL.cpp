@@ -1828,14 +1828,22 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
       bool SROAed = false;
       if (GlobalVariable *NewEltGV = dyn_cast_or_null<GlobalVariable>(
               TranslatePtrIfUsedByLoweredFn(GV, typeSys))) {
-        // Remove GV which is split from static GVs.
-        if (staticGVs.count(GV) == 0) {
-          GV->removeDeadConstantUsers();
-          GV->eraseFromParent();
-        }
         GVDbgOffset dbgOffset = GVDbgOffsetMap[GV];
-        GVDbgOffsetMap[NewEltGV] = dbgOffset;
-        GV = NewEltGV;
+        // Don't need to update when skip SROA on base GV.
+        if (NewEltGV == dbgOffset.base)
+          continue;
+
+        if (GV != NewEltGV) {
+          GVDbgOffsetMap[NewEltGV] = dbgOffset;
+          // Remove GV from GVDbgOffsetMap.
+          GVDbgOffsetMap.erase(GV);
+          if (GV != dbgOffset.base) {
+            // Remove GV when it is replaced by NewEltGV and is not a base GV.
+            GV->removeDeadConstantUsers();
+            GV->eraseFromParent();
+          }
+          GV = NewEltGV;
+        }
       } else {
         // SROA_Parameter_HLSL has no access to a domtree, if one is needed,
         // it'll be generated
@@ -1846,7 +1854,7 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
       }
 
       if (SROAed) {
-        GVDbgOffset &dbgOffset = GVDbgOffsetMap[GV];
+        GVDbgOffset dbgOffset = GVDbgOffsetMap[GV];
         unsigned offset = 0;
         // Push Elts into workList.
         for (auto iter = Elts.begin(); iter != Elts.end(); iter++) {
@@ -1881,6 +1889,8 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
               EltNameMap[GV]);
         }
       }
+      // Remove GV from GVDbgOffsetMap.
+      GVDbgOffsetMap.erase(GV);
     }
   }
 
