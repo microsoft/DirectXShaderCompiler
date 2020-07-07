@@ -1829,13 +1829,19 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
       if (GlobalVariable *NewEltGV = dyn_cast_or_null<GlobalVariable>(
               TranslatePtrIfUsedByLoweredFn(GV, typeSys))) {
         GVDbgOffset dbgOffset = GVDbgOffsetMap[GV];
-        GVDbgOffsetMap[NewEltGV] = dbgOffset;
-        // Remove GV which is split from static GVs.
-        if (staticGVs.count(GV) == 0) {
-          GV->removeDeadConstantUsers();
-          GV->eraseFromParent();
+        // Don't need to update when skip SROA on base GV.
+        if (NewEltGV == dbgOffset.base)
+          continue;
+
+        if (GV != NewEltGV) {
+          GVDbgOffsetMap[NewEltGV] = dbgOffset;
+          if (GV != dbgOffset.base) {
+            // Remove GV when it is replaced by NewEltGV and is not a base GV.
+            GV->removeDeadConstantUsers();
+            GV->eraseFromParent();
+          }
+          GV = NewEltGV;
         }
-        GV = NewEltGV;
       } else {
         // SROA_Parameter_HLSL has no access to a domtree, if one is needed,
         // it'll be generated
@@ -1867,10 +1873,6 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
         // Now erase any instructions that were made dead while rewriting the
         // alloca.
         DeleteDeadInstructions(DeadInsts);
-        // Remove GV from GVDbgOffsetMap when not static GV.
-        if (staticGVs.count(GV) == 0) {
-          GVDbgOffsetMap.erase(GV);
-        }
         ++NumReplaced;
       } else {
         // Add debug info for flattened globals.
@@ -1885,6 +1887,8 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
               EltNameMap[GV]);
         }
       }
+      // Remove GV from GVDbgOffsetMap.
+      GVDbgOffsetMap.erase(GV);
     }
   }
 
