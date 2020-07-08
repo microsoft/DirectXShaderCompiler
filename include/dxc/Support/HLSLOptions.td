@@ -457,5 +457,7 @@ def rw_remove_unused_globals : Flag<["-", "/"], "remove-unused-globals">, Group<
   HelpText<"Remove unused static globals and functions">;
 def rw_remove_unused_functions : Flag<["-", "/"], "remove-unused-functions">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
   HelpText<"Remove unused functions and types">;
+def rw_line_directive : Flag<["-", "/"], "line-directive">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
+  HelpText<"Add line directive">;
 // Also removed: compress, decompress, /Gch (child effect), /Gpp (partial precision)
 // /Op - no support for preshaders.

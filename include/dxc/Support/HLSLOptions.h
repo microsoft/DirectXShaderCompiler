@@ -96,6 +96,7 @@ struct RewriterOpts {
   bool ExtractEntryUniforms = false;        // OPT_rw_extract_entry_uniforms
   bool RemoveUnusedGlobals = false;         // OPT_rw_remove_unused_globals
   bool RemoveUnusedFunctions = false;         // OPT_rw_remove_unused_functions
+  bool WithLineDirective = false;       // OPT_rw_line_directive
 };
 
 /// Use this class to capture all options.

@@ -1,7 +1,7 @@
 // RUN: %dxr -E main -remove-unused-globals %s | FileCheck %s
 
-// CHECK:foo
-// CHECK-NOT:foo
+// CHECK:float foo
+// CHECK-NOT:float2 foo
 // CHECK:float main
 // CHECK:foo(1.2)
 
