@@ -65,7 +65,7 @@ struct RewriteHelper {
 struct ASTHelper {
   CompilerInstance compiler;
   TranslationUnitDecl *tu;
-  ParsedSemanticDefineList macros;
+  ParsedSemanticDefineList semanticMacros;
   ParsedSemanticDefineList userMacros;
   bool bHasErrors;
 };
@@ -571,7 +571,7 @@ HRESULT GenerateAST(DxcLangExtensionsHelper *pExtHelper, LPCSTR pFileName,
   }
   astHelper.bHasErrors = false;
 
-  astHelper.macros =
+  astHelper.semanticMacros =
       CollectSemanticDefinesParsedByCompiler(compiler, pExtHelper);
 
   if (opts.RWOpt.KeepUserMacro)
@@ -887,7 +887,7 @@ DoRewriteUnused(_In_ DxcLangExtensionsHelper *pHelper, _In_ LPCSTR pFileName,
     tu->print(o, p);
   }
 
-  WriteMacroDefines(astHelper.macros, o);
+  WriteMacroDefines(astHelper.semanticMacros, o);
 
   // Flush and return results.
   o.flush();
@@ -999,7 +999,7 @@ HRESULT DoSimpleReWrite(_In_ DxcLangExtensionsHelper *pHelper,
     tu->print(o, p);
   }
 
-  WriteMacroDefines(astHelper.macros, o);
+  WriteMacroDefines(astHelper.semanticMacros, o);
   if (opts.RWOpt.KeepUserMacro)
     WriteMacroDefines(astHelper.userMacros, o);
 
@@ -1143,7 +1143,17 @@ HRESULT DoReWriteWithLineDirective(
       RewriteVisitor visitor(rewriter, tu, rwHelper);
       visitor.TraverseDecl(tu);
     }
-    // TODO: support ExtractEntryUniforms, GlobalExternByDefault, SkipStatic, SkipFunctionBody.
+    // TODO: support ExtractEntryUniforms, GlobalExternByDefault, SkipStatic,
+    // SkipFunctionBody.
+    if (opts.RWOpt.ExtractEntryUniforms || opts.RWOpt.GlobalExternByDefault ||
+        opts.RWOpt.SkipStatic || opts.RWOpt.SkipFunctionBody) {
+      w << "-extract-entry-uniforms, -global-extern-by-default,-skip-static, "
+           "-skip-fn-body are not supported yet when -line-directive is "
+           "enabled";
+      w.flush();
+      return E_FAIL;
+    }
+
     if (astHelper.bHasErrors) {
       o.flush();
       w.flush();
@@ -1151,7 +1161,7 @@ HRESULT DoReWriteWithLineDirective(
     }
 
   }
-  // Preprocess rewrited files.
+  // Preprocess rewritten files.
   {
     CComPtr<AbstractMemoryStream> pOutputStream;
     IFT(CreateMemoryStream(pMalloc, &pOutputStream));
@@ -1209,7 +1219,7 @@ HRESULT DoReWriteWithLineDirective(
     }
   }
 
-  WriteMacroDefines(astHelper.macros, o);
+  WriteMacroDefines(astHelper.semanticMacros, o);
   if (opts.RWOpt.KeepUserMacro)
     WriteMacroDefines(astHelper.userMacros, o);
 
