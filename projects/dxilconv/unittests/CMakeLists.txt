@@ -15,6 +15,7 @@ target_link_libraries(dxilconv-tests PRIVATE
   LLVMSupport
   LLVMOption
   ${TAEF_LIBRARIES}
+  shlwapi
 )
 
 include_directories(${TAEF_INCLUDE_DIRS})
