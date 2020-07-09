@@ -1270,7 +1270,7 @@ class db_dxil(object):
         # End of DXIL 1.0 opcodes.
         self.set_op_count_for_version(1, 0, next_op_idx)
 
-        self.add_dxil_op("AttributeAtVertex", next_op_idx, "AttributeAtVertex", "returns the values of the attributes at the vertex.", "hf", "rn", [
+        self.add_dxil_op("AttributeAtVertex", next_op_idx, "AttributeAtVertex", "returns the values of the attributes at the vertex.", "hfiw", "rn", [
             db_dxil_param(0, "$o", "", "result"),
             db_dxil_param(2, "i32", "inputSigId", "input signature element ID"),
             db_dxil_param(3, "i32", "inputRowIndex", "row index of an input attribute"),
