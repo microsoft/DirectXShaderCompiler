@@ -19,6 +19,198 @@ int loop_before_return() {
   return 0;
 }
 
+int loop_before_if(int a) {
+  [loop] // expected-warning {{attribute 'loop' can only be applied to 'for', 'while' and 'do' loop statements}}
+  if (a > 0) return -a;
+  return a;
+}
+
+int loop_before_switch(int a) {
+  [loop] // expected-warning {{attribute 'loop' can only be applied to 'for', 'while' and 'do' loop statements}}
+  switch (a) {
+    case 0:
+      return 1;
+      break;
+  }
+  return 0;
+}
+
+int fastopt_before_if(int a) {
+  [fastopt] // expected-warning {{attribute 'fastopt' can only be applied to 'for', 'while' and 'do' loop statements}}
+  if (a > 0) return -a;
+  return a;
+}
+
+int fastopt_before_switch(int a) {
+  [fastopt] // expected-warning {{attribute 'fastopt' can only be applied to 'for', 'while' and 'do' loop statements}}
+  switch (a) {
+    case 0:
+      return 1;
+      break;
+  }
+  return 0;
+}
+
+int unroll_before_if(int a) {
+  [unroll] // expected-warning {{attribute 'unroll' can only be applied to 'for', 'while' and 'do' loop statements}}
+  if (a > 0) return -a;
+  return a;
+}
+
+int unroll_before_switch(int a) {
+  [unroll] // expected-warning {{attribute 'unroll' can only be applied to 'for', 'while' and 'do' loop statements}}
+  switch (a) {
+    case 0:
+      return 1;
+      break;
+  }
+  return 0;
+}
+
+int allow_uav_condition_before_if(int a) {
+  [allow_uav_condition] // expected-warning {{attribute 'allow_uav_condition' can only be applied to 'for', 'while' and 'do' loop statements}}
+  if (a > 0) return -a;
+  return a;
+}
+
+int allow_uav_condition_before_switch(int a) {
+  [allow_uav_condition] // expected-warning {{attribute 'allow_uav_condition' can only be applied to 'for', 'while' and 'do' loop statements}}
+  switch (a) {
+    case 0:
+      return 1;
+      break;
+  }
+  return 0;
+}
+
+int branch_before_for() {
+  int result = 0;
+  [branch] // expected-warning {{attribute 'branch' can only be applied to 'if' and 'switch' statements}}
+  for (int i = 0; i < 10; i++) result++;
+  return result;
+}
+
+int branch_before_while() {
+  int result = 0;
+  int i = 0;
+  [branch] // expected-warning {{attribute 'branch' can only be applied to 'if' and 'switch' statements}}
+  while(i < 10) {
+    result++;
+    i++;
+  }
+  return result;
+}
+
+int branch_before_do() {
+  int result = 0;
+  int i = 0;
+  [branch] // expected-warning {{attribute 'branch' can only be applied to 'if' and 'switch' statements}}
+  do {
+    result++;
+    i++;
+  } while(i < 10);
+  return result;
+}
+
+int flatten_before_for() {
+  int result = 0;
+  [flatten] // expected-warning {{attribute 'flatten' can only be applied to 'if' and 'switch' statements}}
+  for (int i = 0; i < 10; i++) result++;
+  return result;
+}
+
+int flatten_before_while() {
+  int result = 0;
+  int i = 0;
+  [flatten] // expected-warning {{attribute 'flatten' can only be applied to 'if' and 'switch' statements}}
+  while(i < 10) {
+    result++;
+    i++;
+  }
+  return result;
+}
+
+int flatten_before_do() {
+  int result = 0;
+  int i = 0;
+  [flatten] // expected-warning {{attribute 'flatten' can only be applied to 'if' and 'switch' statements}}
+  do {
+    result++;
+    i++;
+  } while(i < 10);
+  return result;
+}
+
+int forcecase_before_for() {
+  int result = 0;
+  [forcecase] // expected-warning {{attribute 'forcecase' can only be applied to 'switch' statements}}
+  for (int i = 0; i < 10; i++) result++;
+  return result;
+}
+
+int forcecase_before_while() {
+  int result = 0;
+  int i = 0;
+  [forcecase] // expected-warning {{attribute 'forcecase' can only be applied to 'switch' statements}}
+  while(i < 10) {
+    result++;
+    i++;
+  }
+  return result;
+}
+
+int forcecase_before_do() {
+  int result = 0;
+  int i = 0;
+  [forcecase] // expected-warning {{attribute 'forcecase' can only be applied to 'switch' statements}}
+  do {
+    result++;
+    i++;
+  } while(i < 10);
+  return result;
+}
+
+int forcecase_before_if(int a) {
+  [forcecase] // expected-warning {{attribute 'forcecase' can only be applied to 'switch' statements}}
+  if (a > 0) return -a;
+  return a;
+}
+
+int call_before_for() {
+  int result = 0;
+  [call] // expected-warning {{attribute 'call' can only be applied to 'switch' statements}}
+  for (int i = 0; i < 10; i++) result++;
+  return result;
+}
+
+int call_before_while() {
+  int result = 0;
+  int i = 0;
+  [call] // expected-warning {{attribute 'call' can only be applied to 'switch' statements}}
+  while(i < 10) {
+    result++;
+    i++;
+  }
+  return result;
+}
+
+int call_before_do() {
+  int result = 0;
+  int i = 0;
+  [call] // expected-warning {{attribute 'call' can only be applied to 'switch' statements}}
+  do {
+    result++;
+    i++;
+  } while(i < 10);
+  return result;
+}
+
+int call_before_if(int a) {
+  [call] // expected-warning {{attribute 'call' can only be applied to 'switch' statements}}
+  if (a > 0) return -a;
+  return a;
+}
+
 int short_unroll() {
   int result = 2;
 

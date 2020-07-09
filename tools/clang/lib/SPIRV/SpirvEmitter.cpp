@@ -1736,11 +1736,7 @@ void SpirvEmitter::doIfStmt(const IfStmt *ifStmt,
       selectionControl = spv::SelectionControlMask::Flatten;
       break;
     default:
-      if (!spirvOptions.noWarnIgnoredFeatures) {
-        emitWarning("unknown if statement attribute '%0' ignored",
-                    attribute->getLocation())
-            << attribute->getSpelling();
-      }
+      // warning emitted in hlsl::ProcessStmtAttributeForHLSL
       break;
     }
   }
