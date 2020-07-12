@@ -125,7 +125,7 @@ void UpdateLinkage(
     llvm::StringMap<EntryFunctionInfo> &entryFunctionMap,
     llvm::StringMap<PatchConstantInfo> &patchConstantFunctionMap);
 
-llvm::Value *TryEvalIntrinsic(llvm::CallInst *CI, hlsl::IntrinsicOp intriOp);
+llvm::Value *TryEvalIntrinsic(llvm::CallInst *CI, hlsl::IntrinsicOp intriOp, unsigned hlslVersion);
 void SimpleTransformForHLDXIR(llvm::Module *pM);
 void ExtensionCodeGen(hlsl::HLModule &HLM, clang::CodeGen::CodeGenModule &CGM);
 } // namespace CGHLSLMSHelper
