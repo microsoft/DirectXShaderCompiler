@@ -158,6 +158,10 @@ def memdep_block_scan_limit : Separate<["-", "/"], "memdep-block-scan-limit">, G
   HelpText<"The number of instructions to scan in a block in memory dependency analysis.">;
 def opt_disable : Separate<["-", "/"], "opt-disable">, Group<hlsloptz_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
   HelpText<"Disable this optimization.">;
+def opt_enable : Separate<["-", "/"], "opt-enable">, Group<hlsloptz_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
+  HelpText<"Enable this optimization.">;
+def opt_select : MultiArg<["-", "/"], "opt-select", 2>, MetaVarName<"<opt> <variant>">, Group<hlsloptz_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
+  HelpText<"Select this optimization variant.">;
 
 /*
 def fno_caret_diagnostics : Flag<["-"], "fno-caret-diagnostics">, Group<hlslcomp_Group>,
