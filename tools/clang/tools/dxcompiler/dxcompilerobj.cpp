@@ -274,10 +274,61 @@ private:
   void WriteSemanticDefines(llvm::Module *M, const ParsedSemanticDefineList &defines) {
     // Create all metadata nodes for each define. Each node is a (name, value) pair.
     std::vector<MDNode *> mdNodes;
+    const std::string enableStr("_ENABLE_");
+    const std::string disableStr("_DISABLE_");
+    const std::string selectStr("_SELECT_");
+
+    auto &optToggles = m_CI.getCodeGenOpts().HLSLOptimizationToggles;
+    auto &optSelects = m_CI.getCodeGenOpts().HLSLOptimizationSelects;
+
+    const llvm::SmallVector<std::string, 2> &semDefPrefixes = 
+                             m_langExtensionsHelper.GetSemanticDefines();
+    DXASSERT(semDefPrefixes.size(), "No valid semantic define prefixes found");
+
+    // Take the first semantic define prefix (minus *) for  use in the codeGenOpts metadata
+    std::string prefixStr = semDefPrefixes[0].substr(0, semDefPrefixes[0].length()-1);
+
+    // Add codeGenOpts to mdNodes
+    MDString *empty = MDString::get(M->getContext(), "");
+    for (auto toggle = optToggles.begin(); toggle != optToggles.end(); toggle++) {
+      MDString *name = nullptr;
+      if (toggle->second)
+        name = MDString::get(M->getContext(), prefixStr + enableStr + toggle->first);
+      else
+        name = MDString::get(M->getContext(), prefixStr + disableStr + toggle->first);
+      mdNodes.push_back(MDNode::get(M->getContext(), { name, empty }));
+    }
+
+    for (auto select = optSelects.begin(); select != optSelects.end(); select++) {
+      MDString *name = MDString::get(M->getContext(), prefixStr + selectStr + select->first);
+      MDString *value = MDString::get(M->getContext(), select->second);
+      mdNodes.push_back(MDNode::get(M->getContext(), { name, value }));
+    }
+
+    // Add semantic defines to mdNodes and also to codeGenOpts
     for (const ParsedSemanticDefine &define : defines) {
       MDString *name  = MDString::get(M->getContext(), define.Name);
       MDString *value = MDString::get(M->getContext(), define.Value);
       mdNodes.push_back(MDNode::get(M->getContext(), { name, value }));
+
+      // Find index for end of matching semantic define prefix
+      size_t prefixPos = 0;
+      for (auto prefix : semDefPrefixes) {
+        if (Unicode::IsStarMatchUTF8(prefix.c_str(), prefix.size(),
+                                     define.Name.data(), define.Name.size())) {
+          prefixPos = prefix.length() - 1;
+          break;
+        }
+      }
+      DXASSERT(prefixPos, "Semantic Define without required prefix found");
+
+      // Add semantic defines to option flag equivalents
+      if (!define.Name.compare(prefixPos, enableStr.length(), enableStr))
+        optToggles[define.Name.substr(prefixPos + enableStr.length())] = true;
+      else if (!define.Name.compare(prefixPos, disableStr.length(), disableStr))
+        optToggles[define.Name.substr(prefixPos + disableStr.length())] = false;
+      else if (!define.Name.compare(prefixPos, selectStr.length(), selectStr))
+        optSelects[define.Name.substr(prefixPos + selectStr.length())] = define.Value;
     }
 
     // Add root node with pointers to all define metadata nodes.
