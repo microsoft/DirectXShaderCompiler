@@ -1770,6 +1770,12 @@ TEST_F(FileTest, VulkanStructuredBufferCounter) {
   runFileTest("vk.binding.counter.hlsl");
 }
 
+TEST_F(FileTest, AutoShiftBindings) {
+  // Checks the correctness for the "-fvk-auto-shift-bindings" command line
+  // option.
+  runFileTest("vk.binding.cl.auto-shift-bindings.hlsl");
+}
+
 TEST_F(FileTest, BindingStructureOfResources1) {
   // In Vulkan, OpTypeStruct must not contain an opaque type.
   // Therefore this test fails validation before legalization is performed.

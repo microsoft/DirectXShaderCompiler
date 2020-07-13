@@ -162,6 +162,10 @@ bool isRowMajorMatrix(const SpirvCodeGenOptions &, QualType type);
 /// \brief Returns true if the given type is a (RW)StructuredBuffer type.
 bool isStructuredBuffer(QualType type);
 
+/// \brief Returns true if the given type is a non-writable StructuredBuffer
+/// type.
+bool isNonWritableStructuredBuffer(QualType type);
+
 /// \brief Returns true if the given type is an AppendStructuredBuffer type.
 bool isAppendStructuredBuffer(QualType type);
 
