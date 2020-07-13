@@ -1541,7 +1541,7 @@ Value *TryEvalIntrinsic(CallInst *CI, IntrinsicOp intriOp, unsigned hlslVersion)
     } else {
       auto roundingMode = fegetround();
       fesetround(FE_TONEAREST);
-      Value *result = EvalUnaryIntrinsic(CI, nearbyint, nearbyint);
+      Value *result = EvalUnaryIntrinsic(CI, nearbyintf, nearbyint);
       fesetround(roundingMode);
       return result;
     }
