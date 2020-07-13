@@ -1345,11 +1345,13 @@ public:
     return inserted;
   }
 
-  /// Uses the next avaiable binding number in |set|. If more than one binding
+  /// Uses the next available binding number in |set|. If more than one binding
   /// number is to be occupied, it finds the next available chunk that can fit
   /// |numBindingsToUse| in the |set|.
-  uint32_t useNextBinding(uint32_t set, uint32_t numBindingsToUse = 1) {
-    uint32_t bindingNoStart = getNextBindingChunk(set, numBindingsToUse);
+  uint32_t useNextBinding(uint32_t set, uint32_t numBindingsToUse = 1,
+                          uint32_t bindingShift = 0) {
+    uint32_t bindingNoStart =
+        getNextBindingChunk(set, numBindingsToUse, bindingShift);
     auto &binding = usedBindings[set];
     for (uint32_t i = 0; i < numBindingsToUse; ++i)
       binding.insert(bindingNoStart + i);
@@ -1357,19 +1359,20 @@ public:
   }
 
   /// Returns the first available binding number in the |set| for which |n|
-  /// consecutive binding numbers are unused.
-  uint32_t getNextBindingChunk(uint32_t set, uint32_t n) {
+  /// consecutive binding numbers are unused starting at |bindingShift|.
+  uint32_t getNextBindingChunk(uint32_t set, uint32_t n,
+                               uint32_t bindingShift) {
     auto &existingBindings = usedBindings[set];
 
     // There were no bindings in this set. Can start at binding zero.
     if (existingBindings.empty())
-      return 0;
+      return bindingShift;
 
     // Check whether the chunk of |n| binding numbers can be fitted at the
     // very beginning of the list (start at binding 0 in the current set).
     uint32_t curBinding = *existingBindings.begin();
-    if (curBinding >= n)
-      return 0;
+    if (curBinding >= (n + bindingShift))
+      return bindingShift;
 
     auto iter = std::next(existingBindings.begin());
     while (iter != existingBindings.end()) {
@@ -1377,7 +1380,10 @@ public:
       // gap between current binding number and next binding number is large
       // enough to accommodate |n|.
       uint32_t nextBinding = *iter;
-      if (n <= nextBinding - curBinding - 1)
+      if ((bindingShift > 0) && (curBinding < (bindingShift - 1)))
+        curBinding = bindingShift - 1;
+
+      if (curBinding < nextBinding && n <= nextBinding - curBinding - 1)
         return curBinding + 1;
 
       curBinding = nextBinding;
@@ -1388,7 +1394,7 @@ public:
 
     // |curBinding| was the last binding that was used in this set. The next
     // chunk of |n| bindings can start at |curBinding|+1.
-    return curBinding + 1;
+    return std::max(curBinding + 1, bindingShift);
   }
 
 private:
@@ -1808,7 +1814,31 @@ bool DeclResultIdMapper::decorateResourceBindings() {
       numBindingsToUse = getNumBindingsUsedByResourceType(
           var.getSpirvInstr()->getAstResultType());
 
+    BindingShiftMapper *bindingShiftMapper = nullptr;
+    if (spirvOptions.autoShiftBindings) {
+      char registerType = '\0';
+      if (getImplicitRegisterType(var, &registerType)) {
+        switch (registerType) {
+        case 'b':
+          bindingShiftMapper = &bShiftMapper;
+          break;
+        case 't':
+          bindingShiftMapper = &tShiftMapper;
+          break;
+        case 's':
+          bindingShiftMapper = &sShiftMapper;
+          break;
+        case 'u':
+          bindingShiftMapper = &uShiftMapper;
+          break;
+        default:
+          llvm_unreachable("unknown register type found");
+        }
+      }
+    }
+
     if (var.isCounter()) {
+
       if (!var.getCounterBinding()) {
         // Process mX * c2
         uint32_t set = defaultSpace;
@@ -1817,17 +1847,23 @@ bool DeclResultIdMapper::decorateResourceBindings() {
         else if (const auto *reg = var.getRegister())
           set = reg->RegisterSpace.getValueOr(defaultSpace);
 
+        uint32_t bindingShift = 0;
+        if (bindingShiftMapper)
+          bindingShift = bindingShiftMapper->getShiftForSet(set);
         spvBuilder.decorateDSetBinding(
             var.getSpirvInstr(), set,
-            bindingSet.useNextBinding(set, numBindingsToUse));
+            bindingSet.useNextBinding(set, numBindingsToUse, bindingShift));
       }
     } else if (!var.getBinding()) {
       const auto *reg = var.getRegister();
       if (reg && reg->isSpaceOnly()) {
         const uint32_t set = reg->RegisterSpace.getValueOr(defaultSpace);
+        uint32_t bindingShift = 0;
+        if (bindingShiftMapper)
+          bindingShift = bindingShiftMapper->getShiftForSet(set);
         spvBuilder.decorateDSetBinding(
             var.getSpirvInstr(), set,
-            bindingSet.useNextBinding(set, numBindingsToUse));
+            bindingSet.useNextBinding(set, numBindingsToUse, bindingShift));
       } else if (!reg) {
         // Process m3 (no 'vk::binding' and no ':register' assignment)
 
@@ -1835,14 +1871,21 @@ bool DeclResultIdMapper::decorateResourceBindings() {
         // doesn't have either 'vk::binding' or ':register', but the user may
         // ask for a specific binding for it via command line options.
         if (bindGlobals && var.isGlobalsBuffer()) {
+          uint32_t bindingShift = 0;
+          if (bindingShiftMapper)
+            bindingShift = bindingShiftMapper->getShiftForSet(globalsSetNo);
           spvBuilder.decorateDSetBinding(var.getSpirvInstr(), globalsSetNo,
-                                         globalsBindNo);
+                                         globalsBindNo + bindingShift);
         }
         // The normal case
         else {
+          uint32_t bindingShift = 0;
+          if (bindingShiftMapper)
+            bindingShift = bindingShiftMapper->getShiftForSet(defaultSpace);
           spvBuilder.decorateDSetBinding(
               var.getSpirvInstr(), defaultSpace,
-              bindingSet.useNextBinding(defaultSpace, numBindingsToUse));
+              bindingSet.useNextBinding(defaultSpace, numBindingsToUse,
+                                        bindingShift));
         }
       }
     }
@@ -3424,6 +3467,53 @@ QualType DeclResultIdMapper::getTypeAndCreateCounterForPotentialAliasVar(
   }
 
   return type;
+}
+
+bool DeclResultIdMapper::getImplicitRegisterType(const ResourceVar &var,
+                                                 char *registerTypeOut) const {
+  assert(registerTypeOut);
+
+  if (var.getSpirvInstr()) {
+    if (var.getSpirvInstr()->hasAstResultType()) {
+      QualType type = var.getSpirvInstr()->getAstResultType();
+      // Strip outer arrayness first
+      while (type->isArrayType())
+        type = type->getAsArrayTypeUnsafe()->getElementType();
+
+      // t - for shader resource views (SRV)
+      if (isTexture(type) || isNonWritableStructuredBuffer(type) ||
+          isByteAddressBuffer(type) || isBuffer(type)) {
+        *registerTypeOut = 't';
+        return true;
+      }
+      // s - for samplers
+      else if (isSampler(type)) {
+        *registerTypeOut = 's';
+        return true;
+      }
+      // u - for unordered access views (UAV)
+      else if (isRWByteAddressBuffer(type) || isRWAppendConsumeSBuffer(type) ||
+               isRWBuffer(type) || isRWTexture(type)) {
+        *registerTypeOut = 'u';
+        return true;
+      }
+    } else {
+      llvm::StringRef hlslUserType = var.getSpirvInstr()->getHlslUserType();
+      // b - for constant buffer views (CBV)
+      if (var.isGlobalsBuffer() || hlslUserType == "cbuffer" ||
+          hlslUserType == "ConstantBuffer") {
+        *registerTypeOut = 'b';
+        return true;
+      }
+      if (hlslUserType == "tbuffer") {
+        *registerTypeOut = 't';
+        return true;
+      }
+    }
+  }
+
+  *registerTypeOut = '\0';
+  return false;
 }
 
 SpirvVariable *

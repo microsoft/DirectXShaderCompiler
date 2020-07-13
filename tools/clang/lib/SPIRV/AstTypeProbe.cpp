@@ -750,6 +750,14 @@ bool isStructuredBuffer(QualType type) {
   return name == "StructuredBuffer" || name == "RWStructuredBuffer";
 }
 
+bool isNonWritableStructuredBuffer(QualType type) {
+  const auto *recordType = type->getAs<RecordType>();
+  if (!recordType)
+    return false;
+  const auto name = recordType->getDecl()->getName();
+  return name == "StructuredBuffer";
+}
+
 bool isByteAddressBuffer(QualType type) {
   if (const auto *rt = type->getAs<RecordType>()) {
     return rt->getDecl()->getName() == "ByteAddressBuffer";

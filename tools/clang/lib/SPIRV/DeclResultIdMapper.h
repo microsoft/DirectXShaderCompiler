@@ -691,6 +691,53 @@ private:
   /// Returns true if the given SPIR-V stage variable has Input storage class.
   inline bool isInputStorageClass(const StageVar &v);
 
+  /// Determines the register type for a resource that does not have an
+  /// explicit register() declaration.  Returns true if it is able to
+  /// determine the register type and will set |*registerTypeOut| to
+  /// 'u', 's', 'b', or 't'. Assumes |registerTypeOut| to be non-nullptr.
+  ///
+  /// Uses the following mapping of HLSL types to register spaces:
+  /// t - for shader resource views (SRV)
+  ///    TEXTURE1D
+  ///    TEXTURE1DARRAY
+  ///    TEXTURE2D
+  ///    TEXTURE2DARRAY
+  ///    TEXTURE3D
+  ///    TEXTURECUBE
+  ///    TEXTURECUBEARRAY
+  ///    TEXTURE2DMS
+  ///    TEXTURE2DMSARRAY
+  ///    STRUCTUREDBUFFER
+  ///    BYTEADDRESSBUFFER
+  ///    BUFFER
+  ///    TBUFFER
+  ///
+  /// s - for samplers
+  ///    SAMPLER
+  ///    SAMPLER1D
+  ///    SAMPLER2D
+  ///    SAMPLER3D
+  ///    SAMPLERCUBE
+  ///    SAMPLERSTATE
+  ///    SAMPLERCOMPARISONSTATE
+  ///
+  /// u - for unordered access views (UAV)
+  ///    RWBYTEADDRESSBUFFER
+  ///    RWSTRUCTUREDBUFFER
+  ///    APPENDSTRUCTUREDBUFFER
+  ///    CONSUMESTRUCTUREDBUFFER
+  ///    RWBUFFER
+  ///    RWTEXTURE1D
+  ///    RWTEXTURE1DARRAY
+  ///    RWTEXTURE2D
+  ///    RWTEXTURE2DARRAY
+  ///    RWTEXTURE3D
+  ///
+  /// b - for constant buffer views (CBV)
+  ///    CBUFFER
+  ///    CONSTANTBUFFER
+  bool getImplicitRegisterType(const ResourceVar &var, char *registerTypeOut) const;
+
 private:
   SpirvBuilder &spvBuilder;
   SpirvEmitter &theEmitter;
