@@ -4117,6 +4117,16 @@ Sema::ActOnArraySubscriptExpr(Scope *S, Expr *base, SourceLocation lbLoc,
     idx = result.get();
   }
 
+  // HLSL Change Starts - Check for subscript access of out indices
+  // Disallow component access for out indices for DXIL path. We still allow
+  // this in SPIR-V path.
+  if (getLangOpts().HLSL && !getLangOpts().SPIRV &&
+      base->getType()->isRecordType() && IsExprAccessingOutIndicesArray(base)) {
+    Diag(lbLoc, diag::err_hlsl_out_indices_array_incorrect_access);
+    return ExprError();
+  }
+  // HLSL Change Ends
+
   // Build an unanalyzed expression if either operand is type-dependent.
   if (getLangOpts().CPlusPlus &&
       (base->isTypeDependent() || idx->isTypeDependent())) {

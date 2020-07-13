@@ -68,6 +68,7 @@
 #include "llvm/Transforms/Utils/SSAUpdater.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
+#include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
@@ -136,19 +137,12 @@ public:
 
 char DxilLoopUnroll::ID;
 
-static void FailLoopUnroll(bool WarnOnly, LLVMContext &Ctx, DebugLoc DL, const Twine &Message) {
-  if (WarnOnly) {
-    if (DL)
-      Ctx.emitWarning(hlsl::dxilutil::FormatMessageAtLocation(DL, Message));
-    else
-      Ctx.emitWarning(hlsl::dxilutil::FormatMessageWithoutLocation(Message));
-  }
-  else {
-    if (DL)
-      Ctx.emitError(hlsl::dxilutil::FormatMessageAtLocation(DL, Message));
-    else
-      Ctx.emitError(hlsl::dxilutil::FormatMessageWithoutLocation(Message));
-  }
+static void FailLoopUnroll(bool WarnOnly, Function *F, DebugLoc DL, const Twine &Message) {
+  LLVMContext &Ctx = F->getContext();
+  DiagnosticSeverity severity = DiagnosticSeverity::DS_Error;
+  if (WarnOnly)
+    severity = DiagnosticSeverity::DS_Warning;
+  Ctx.diagnose(DiagnosticInfoDxil(F, DL.get(), Message, severity));
 }
 
 struct LoopIteration {
@@ -169,39 +163,6 @@ static bool GetConstantI1(Value *V, bool *Val=nullptr) {
     }
   }
   return false;
-}
-
-// Copied from llvm::SimplifyInstructionsInBlock
-static bool SimplifyInstructionsInBlock_NoDelete(BasicBlock *BB,
-                                       const TargetLibraryInfo *TLI) {
-  bool MadeChange = false;
-
-#ifndef NDEBUG
-  // In debug builds, ensure that the terminator of the block is never replaced
-  // or deleted by these simplifications. The idea of simplification is that it
-  // cannot introduce new instructions, and there is no way to replace the
-  // terminator of a block without introducing a new instruction.
-  AssertingVH<Instruction> TerminatorVH(--BB->end());
-#endif
-
-  for (BasicBlock::iterator BI = BB->begin(), E = --BB->end(); BI != E; ) {
-    assert(!BI->isTerminator());
-    Instruction *Inst = BI++;
-
-    WeakVH BIHandle(BI);
-    if (recursivelySimplifyInstruction(Inst, TLI)) {
-      MadeChange = true;
-      if (BIHandle != BI)
-        BI = BB->begin();
-      continue;
-    }
-#if 0 // HLSL Change
-    MadeChange |= RecursivelyDeleteTriviallyDeadInstructions(Inst, TLI);
-#endif // HLSL Change
-    if (BIHandle != BI)
-      BI = BB->begin();
-  }
-  return MadeChange;
 }
 
 static bool IsMarkedFullUnroll(Loop *L) {
@@ -401,7 +362,7 @@ static bool blockDominatesAnExit(BasicBlock *BB,
     if (DT.dominates(DomNode, DT.getNode(Exit)))
       return true;
   return false;
-};
+}
 
 // Copied from LCSSA.cpp
 //
@@ -643,49 +604,6 @@ static bool BreakUpArrayAllocas(bool AllowOOBIndex, IteratorT ItBegin, IteratorT
   return Success;
 }
 
-static bool ContainsFloatingPointType(Type *Ty) {
-  if (Ty->isFloatingPointTy()) {
-    return true;
-  }
-  else if (Ty->isArrayTy()) {
-    return ContainsFloatingPointType(Ty->getArrayElementType());
-  }
-  else if (Ty->isVectorTy()) {
-    return ContainsFloatingPointType(Ty->getVectorElementType());
-  }
-  else if (Ty->isStructTy()) {
-    for (unsigned i = 0, NumStructElms = Ty->getStructNumElements(); i < NumStructElms; i++) {
-      if (ContainsFloatingPointType(Ty->getStructElementType(i)))
-        return true;
-    }
-  }
-  return false;
-}
-
-static bool Mem2Reg(Function &F, DominatorTree &DT, AssumptionCache &AC) {
-  BasicBlock &BB = F.getEntryBlock();  // Get the entry node for the function
-  bool Changed  = false;
-  std::vector<AllocaInst*> Allocas;
-  while (1) {
-    Allocas.clear();
-
-    // Find allocas that are safe to promote, by looking at all instructions in
-    // the entry node
-    for (BasicBlock::iterator I = BB.begin(), E = --BB.end(); I != E; ++I)
-      if (AllocaInst *AI = dyn_cast<AllocaInst>(I))       // Is it an alloca?
-        if (isAllocaPromotable(AI) &&
-          (!HLModule::HasPreciseAttributeWithMetadata(AI) || !ContainsFloatingPointType(AI->getAllocatedType())))
-          Allocas.push_back(AI);
-
-    if (Allocas.empty()) break;
-
-    PromoteMemToReg(Allocas, DT, nullptr, &AC);
-    Changed = true;
-  }
-
-  return Changed;
-}
-
 static void RecursivelyRemoveLoopFromQueue(LPPassManager &LPM, Loop *L) {
   // Copy the sub loops into a separate list because
   // the original list may change.
@@ -720,7 +638,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   unsigned ExplicitUnrollCount = 0;
   if (HasExplicitLoopCount) {
     if (ExplicitUnrollCountSigned < 1) {
-      FailLoopUnroll(false, F->getContext(), LoopLoc, "Could not unroll loop. Invalid unroll count.");
+      FailLoopUnroll(false, F, LoopLoc, "Could not unroll loop. Invalid unroll count.");
       return false;
     }
     ExplicitUnrollCount = (unsigned)ExplicitUnrollCountSigned;
@@ -972,11 +890,6 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       }
     }
 
-    // Simplify instructions in the cloned blocks to create
-    // constant exit conditions.
-    for (BasicBlock *ClonedBB : CurIteration.Body)
-      SimplifyInstructionsInBlock_NoDelete(ClonedBB, NULL);
-
     // Check exit condition to see if we fully unrolled the loop
     if (BranchInst *BI = dyn_cast<BranchInst>(CurIteration.Latch->getTerminator())) {
       bool Cond = false;
@@ -1094,7 +1007,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     // Now that we potentially turned some GEP indices into constants,
     // try to clean up their allocas.
     if (!BreakUpArrayAllocas(FxcCompatMode /* allow oob index */, ProblemAllocas.begin(), ProblemAllocas.end(), DT, AC, DVC)) {
-      FailLoopUnroll(false, F->getContext(), LoopLoc, "Could not unroll loop due to out of bound array access.");
+      FailLoopUnroll(false, F, LoopLoc, "Could not unroll loop due to out of bound array access.");
     }
 
     return true;
@@ -1106,10 +1019,10 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
         "Could not unroll loop. Loop bound could not be deduced at compile time. "
         "Use [unroll(n)] to give an explicit count.";
     if (FxcCompatMode) {
-      FailLoopUnroll(true /*warn only*/, F->getContext(), LoopLoc, Msg);
+      FailLoopUnroll(true /*warn only*/, F, LoopLoc, Msg);
     }
     else {
-      FailLoopUnroll(false /*warn only*/, F->getContext(), LoopLoc,
+      FailLoopUnroll(false /*warn only*/, F, LoopLoc,
         Twine(Msg) + Twine(" Use '-HV 2016' to treat this as warning."));
     }
 
@@ -1136,138 +1049,9 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
 }
 
-// Special Mem2Reg pass
-//
-// In order to figure out loop bounds to unroll, we must first run mem2reg pass
-// on the function, but we don't want to run mem2reg on functions that don't
-// have to be unrolled when /Od is given. This pass considers all these
-// conditions and runs mem2reg on functions only when needed.
-//
-class DxilConditionalMem2Reg : public FunctionPass {
-public:
-  static char ID;
-
-  // Function overrides that resolve options when used for DxOpt
-  void applyOptions(PassOptions O) override {
-    GetPassOptionBool(O, "NoOpt", &NoOpt, false);
-  }
-  void dumpConfig(raw_ostream &OS) override {
-    FunctionPass::dumpConfig(OS);
-    OS << ",NoOpt=" << NoOpt;
-  }
-
-  bool NoOpt = false;
-  explicit DxilConditionalMem2Reg(bool NoOpt=false) : FunctionPass(ID), NoOpt(NoOpt)
-  {
-    initializeDxilConditionalMem2RegPass(*PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addRequired<AssumptionCacheTracker>();
-    AU.setPreservesCFG();
-  }
-
-  // Recursively find loops that are marked with [unroll]
-  static bool HasLoopsMarkedUnrollRecursive(Loop *L) {
-    int Count = 0;
-    if (IsMarkedFullUnroll(L) || IsMarkedUnrollCount(L, &Count)) {
-      return true;
-    }
-    for (Loop *ChildLoop : *L) {
-      if (HasLoopsMarkedUnrollRecursive(ChildLoop))
-        return true;
-    }
-    return false;
-  }
-
-  // Collect and remove all instructions that use AI, but
-  // give up if there are anything other than store, bitcast,
-  // memcpy, or GEP.
-  static bool TryRemoveUnusedAlloca(AllocaInst *AI) {
-    std::vector<Instruction *> WorkList;
-
-    WorkList.push_back(AI);
-
-    for (unsigned i = 0; i < WorkList.size(); i++) {
-      Instruction *I = WorkList[i];
-
-      for (User *U : I->users()) {
-        Instruction *UI = cast<Instruction>(U);
-
-        unsigned Opcode = UI->getOpcode();
-        if (Opcode == Instruction::BitCast ||
-          Opcode == Instruction::GetElementPtr ||
-          Opcode == Instruction::Store)
-        {
-          WorkList.push_back(UI);
-        }
-        else if (MemCpyInst *MC = dyn_cast<MemCpyInst>(UI)) {
-          if (MC->getSource() == I) { // MC reads from our alloca
-            return false;
-          }
-          WorkList.push_back(UI);
-        }
-        else { // Load? PHINode? Assume read.
-          return false;
-        }
-      }
-    }
-
-    // Remove all instructions
-    for (auto It = WorkList.rbegin(), E = WorkList.rend(); It != E; It++) {
-      Instruction *I = *It;
-      I->eraseFromParent();
-    }
-
-    return true;
-  }
-
-  static bool RemoveAllUnusedAllocas(Function &F) {
-    std::vector<AllocaInst *> Allocas;
-    BasicBlock &EntryBB = *F.begin();
-    for (auto It = EntryBB.begin(), E = EntryBB.end(); It != E;) {
-      Instruction &I = *(It++);
-      if (AllocaInst *AI = dyn_cast<AllocaInst>(&I)) {
-        Allocas.push_back(AI);
-      }
-    }
-
-    bool Changed = false;
-    for (AllocaInst *AI : Allocas) {
-      Changed |= TryRemoveUnusedAlloca(AI);
-    }
-
-    return Changed;
-  }
-
-  bool runOnFunction(Function &F) override {
-
-
-    DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-    AssumptionCache *AC = &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
-
-    bool Changed = false;
-    
-    Changed |= RemoveAllUnusedAllocas(F);
-    Changed |= Mem2Reg(F, *DT, *AC);
-
-    return Changed;
-  }
-};
-char DxilConditionalMem2Reg::ID;
-
-Pass *llvm::createDxilConditionalMem2RegPass(bool NoOpt) {
-  return new DxilConditionalMem2Reg(NoOpt);
-}
 Pass *llvm::createDxilLoopUnrollPass(unsigned MaxIterationAttempt) {
   return new DxilLoopUnroll(MaxIterationAttempt);
 }
-
-INITIALIZE_PASS_BEGIN(DxilConditionalMem2Reg, "dxil-cond-mem2reg", "Dxil Conditional Mem2Reg", false, false)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
-INITIALIZE_PASS_END(DxilConditionalMem2Reg, "dxil-cond-mem2reg", "Dxil Conditional Mem2Reg", false, false)
 
 INITIALIZE_PASS_BEGIN(DxilLoopUnroll, "dxil-loop-unroll", "Dxil Unroll loops", false, false)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)

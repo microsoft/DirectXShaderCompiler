@@ -224,6 +224,9 @@ void DxbcConverter::ConvertImpl(_In_reads_bytes_(DxbcSize) LPCVOID pDxbc,
     ConvertSignature(*m_pPatchConstantSignature, m_pPR->GetPatchConstOrPrimSignature());
   }
 
+  // 3.5. Callback before conversion
+  PreConvertHook(pByteCode);
+
   // 4. Transform DXBC to DXIL.
   Parser.SetShader(pByteCode);
   ConvertInstructions(Parser);
@@ -234,6 +237,9 @@ void DxbcConverter::ConvertImpl(_In_reads_bytes_(DxbcSize) LPCVOID pDxbc,
 
   // 6. Cleanup/Optimize DXIL.
   Optimize();
+
+  // 7. Callback after conversion
+  PostConvertHook(pByteCode);
 
   // Serialize DXIL.
   SmallVector<char, 4*1024> DxilBuffer;
@@ -385,6 +391,9 @@ void DxbcConverter::ConvertInDriverImpl(_In_reads_bytes_(8) const UINT32 *pByteC
     ConvertSignature(*m_pPatchConstantSignature, m_pPR->GetPatchConstOrPrimSignature());
   }
 
+  // 3.5. Callback before conversion
+  PreConvertHook(pByteCode);
+
   // 4. Transform DXBC to DXIL.
   Parser.SetShader(pByteCode);
   ConvertInstructions(Parser);
@@ -394,6 +403,9 @@ void DxbcConverter::ConvertInDriverImpl(_In_reads_bytes_(8) const UINT32 *pByteC
 
   // 6. Cleanup/Optimize DXIL.
   Optimize();
+
+  // 7. Callback after conversion
+  PostConvertHook(pByteCode);
 
   // Serialize DXIL.
   SmallVector<char, 8*1024> DxilBuffer;
@@ -3653,6 +3665,8 @@ void DxbcConverter::ConvertInstructions(D3D10ShaderBinary::CShaderCodeParser &Pa
       // Resource.
       OperandValue InRes;
       LoadOperand(InRes, Inst, uOpUAV, CMask::MakeXMask(), CompType::getInvalid());
+      // SetHasCounter.
+      SetHasCounter(Inst, uOpUAV);
 
       // Create BufferUpdateCounter call.
       Value *Args[3];
@@ -4507,6 +4521,14 @@ void DxbcConverter::LogConvertResult(bool InDriver, _In_ const LARGE_INTEGER *pQ
   _In_opt_z_ LPCWSTR pExtraOptions, _In_reads_bytes_(ConvertedSize) LPCVOID pConverted, _In_opt_ UINT32 ConvertedSize,
   HRESULT hr) {
   // intentionaly empty - override to report conversion results
+}
+
+HRESULT DxbcConverter::PreConvertHook(const CShaderToken *pByteCode) {
+  return S_OK;
+}
+
+HRESULT DxbcConverter::PostConvertHook(const CShaderToken *pByteCode) {
+  return S_OK;
 }
 
 void DxbcConverter::HandleUnknownInstruction(D3D10ShaderBinary::CInstruction &Inst) {
@@ -5707,6 +5729,18 @@ Value *DxbcConverter::LoadConstFloat(float& fVal) {
   }
 }
 
+void DxbcConverter::SetHasCounter(D3D10ShaderBinary::CInstruction &Inst, const unsigned uOpUAV) {
+  D3D10ShaderBinary::COperandBase &O = Inst.m_Operands[uOpUAV];
+  DXASSERT_DXBC(O.m_Type == D3D11_SB_OPERAND_TYPE_UNORDERED_ACCESS_VIEW);
+
+  // Retrieve UAV range ID and record.
+  DXASSERT_DXBC(O.m_IndexType[0] == D3D10_SB_OPERAND_INDEX_IMMEDIATE32);
+  unsigned RangeID = O.m_Index[0].m_RegIndex;
+  unsigned RecIdx = m_UAVRangeMap[RangeID];
+  DxilResource &R = m_pPR->GetUAV(RecIdx);
+  R.SetHasCounter(true);
+}
+
 void DxbcConverter::LoadOperand(OperandValue &SrcVal,
                                 D3D10ShaderBinary::CInstruction &Inst,
                                 const unsigned OpIdx,
@@ -6365,6 +6399,7 @@ void DxbcConverter::LoadOperand(OperandValue &SrcVal,
   case D3D11_SB_OPERAND_TYPE_INPUT_JOIN_INSTANCE_ID: {
     Scope &HullScope = m_ScopeStack.FindParentHullLoop();
     Value *pValue = m_pBuilder->CreateLoad(HullScope.pInductionVar);
+    pValue = ApplyOperandModifiers(pValue, O);
 
     for (OperandValueHelper OVH(SrcVal, Mask, O); !OVH.IsDone(); OVH.Advance()) {
       OVH.SetValue(pValue);

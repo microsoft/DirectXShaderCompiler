@@ -528,6 +528,8 @@ protected:
 
 
   // Callbacks added to support conversion of custom intrinsics.
+  virtual HRESULT PreConvertHook(const CShaderToken *pByteCode);
+  virtual HRESULT PostConvertHook(const CShaderToken *pByteCode);
   virtual void HandleUnknownInstruction(D3D10ShaderBinary::CInstruction &Inst);
   virtual unsigned GetResourceSlot(D3D10ShaderBinary::CInstruction &Inst);
 
@@ -605,6 +607,7 @@ protected:
   void CheckDxbcString(const char *pStr, const void *pMaxPtrInclusive);
 
   Value *LoadConstFloat(float& fVal);
+  void SetHasCounter(D3D10ShaderBinary::CInstruction &Inst, const unsigned uOpUAV);
   void LoadOperand(OperandValue &SrcVal, D3D10ShaderBinary::CInstruction &Inst, const unsigned OpIdx, const CMask &Mask, const CompType &ValueType);
   const DxilResource& LoadSRVOperand(OperandValue &SrcVal, D3D10ShaderBinary::CInstruction &Inst, const unsigned OpIdx, const CMask &Mask, const CompType &ValueType);
   const DxilResource& GetSRVFromOperand(D3D10ShaderBinary::CInstruction &Inst, const unsigned OpIdx);

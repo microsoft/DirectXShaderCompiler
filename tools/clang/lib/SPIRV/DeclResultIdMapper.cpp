@@ -47,6 +47,52 @@ hlsl::ConstantPacking *getPackOffset(const clang::NamedDecl *decl) {
   return nullptr;
 }
 
+/// Returns the number of binding numbers that are used up by the given type.
+/// An array of size N consumes N*M binding numbers where M is the number of
+/// binding numbers used by each array element.
+/// The number of binding numbers used by a structure is the sum of binding
+/// numbers used by its members.
+uint32_t getNumBindingsUsedByResourceType(QualType type) {
+  // For custom-generated types that have SpirvType but no QualType.
+  if (type.isNull())
+    return 1;
+
+  // For every array dimension, the number of bindings needed should be
+  // multiplied by the array size. For example: an array of two Textures should
+  // use 2 binding slots.
+  uint32_t arrayFactor = 1;
+  while (auto constArrayType = dyn_cast<ConstantArrayType>(type)) {
+    arrayFactor *=
+        static_cast<uint32_t>(constArrayType->getSize().getZExtValue());
+    type = constArrayType->getElementType();
+  }
+
+  // Once we remove the arrayness, we expect the given type to be either a
+  // resource OR a structure that only contains resources.
+  assert(hlsl::IsHLSLResourceType(type) || isResourceOnlyStructure(type));
+
+  // In the case of a resource, each resource takes 1 binding slot, so in total
+  // it consumes: 1 * arrayFactor.
+  if (hlsl::IsHLSLResourceType(type))
+    return arrayFactor;
+
+  // In the case of a struct of resources, we need to sum up the number of
+  // bindings for the struct members. So in total it consumes:
+  //  sum(bindings of struct members) * arrayFactor.
+  if (isResourceOnlyStructure(type)) {
+    uint32_t sumOfMemberBindings = 0;
+    const auto *structDecl = type->getAs<RecordType>()->getDecl();
+    assert(structDecl);
+    for (const auto *field : structDecl->fields())
+      sumOfMemberBindings += getNumBindingsUsedByResourceType(field->getType());
+
+    return sumOfMemberBindings * arrayFactor;
+  }
+
+  llvm_unreachable(
+      "getNumBindingsUsedByResourceType was called with unknown resource type");
+}
+
 QualType getUintTypeWithSourceComponents(const ASTContext &astContext,
                                          QualType sourceType) {
   if (isScalarType(sourceType)) {
@@ -189,9 +235,14 @@ bool shouldSkipInStructLayout(const Decl *decl) {
     if (isa<HLSLBufferDecl>(decl))
       return true;
 
+    // 'groupshared' variables should not be placed in $Globals cbuffer.
+    if (decl->hasAttr<HLSLGroupSharedAttr>())
+      return true;
+
     // Other resource types
     if (const auto *valueDecl = dyn_cast<ValueDecl>(decl))
-      if (isResourceType(valueDecl))
+      if (isResourceType(valueDecl) ||
+          isResourceOnlyStructure((valueDecl->getType())))
         return true;
   }
 
@@ -333,6 +384,30 @@ inline uint32_t getNumBaseClasses(QualType type) {
     return cxxDecl->getNumBases();
   return 0;
 }
+
+/// Returns the appropriate storage class for an extern variable of the given
+/// type.
+spv::StorageClass getStorageClassForExternVar(QualType type,
+                                              bool hasGroupsharedAttr) {
+  // For CS groupshared variables
+  if (hasGroupsharedAttr)
+    return spv::StorageClass::Workgroup;
+
+  if (isAKindOfStructuredOrByteBuffer(type))
+    return spv::StorageClass::Uniform;
+
+  return spv::StorageClass::UniformConstant;
+}
+
+/// Returns the appropriate layout rule for an extern variable of the given
+/// type.
+SpirvLayoutRule getLayoutRuleForExternVar(QualType type,
+                                          const SpirvCodeGenOptions &opts) {
+  if (isAKindOfStructuredOrByteBuffer(type))
+    return opts.sBufferLayoutRule;
+  return SpirvLayoutRule::Void;
+}
+
 } // anonymous namespace
 
 std::string StageVar::getSemanticStr() const {
@@ -574,6 +649,19 @@ SpirvInstruction *DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl,
           {spvBuilder.getConstantInt(
               astContext.IntTy, llvm::APInt(32, info->indexInCTBuffer, true))},
           loc);
+    } else if (auto *type = info->instr->getResultType()) {
+      const auto *ptrTy = dyn_cast<HybridPointerType>(type);
+
+      // If it is a local variable or function parameter with a bindless
+      // array of an opaque type, we have to load it because we pass a
+      // pointer of a global variable that has the bindless opaque array.
+      if (ptrTy != nullptr && isBindlessOpaqueArray(decl->getType())) {
+        auto *load = spvBuilder.createLoad(ptrTy, info->instr, loc);
+        load->setRValue(false);
+        return load;
+      } else {
+        return *info;
+      }
     } else {
       return *info;
     }
@@ -594,7 +682,6 @@ DeclResultIdMapper::createFnParam(const ParmVarDecl *param) {
   const auto loc = param->getLocation();
   SpirvFunctionParameter *fnParamInstr = spvBuilder.addFnParam(
       type, param->hasAttr<HLSLPreciseAttr>(), loc, param->getName());
-
   bool isAlias = false;
   (void)getTypeAndCreateCounterForPotentialAliasVar(param, &isAlias);
   fnParamInstr->setContainsAliasComponent(isAlias);
@@ -657,38 +744,28 @@ DeclResultIdMapper::createFileVar(const VarDecl *var,
 }
 
 SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
-  auto storageClass = spv::StorageClass::UniformConstant;
-  auto rule = SpirvLayoutRule::Void;
-  bool isACRWSBuffer = false; // Whether is {Append|Consume|RW}StructuredBuffer
+  const auto type = var->getType();
+  const bool isGroupShared = var->hasAttr<HLSLGroupSharedAttr>();
+  const bool isACRWSBuffer = isRWAppendConsumeSBuffer(type);
+  const auto storageClass = getStorageClassForExternVar(type, isGroupShared);
+  const auto rule = getLayoutRuleForExternVar(type, spirvOptions);
+  const auto loc = var->getLocation();
 
-  if (var->getAttr<HLSLGroupSharedAttr>()) {
-    // For CS groupshared variables
-    storageClass = spv::StorageClass::Workgroup;
-  } else if (isResourceType(var)) {
-    // See through the possible outer arrays
-    QualType resourceType = var->getType();
-    while (resourceType->isArrayType()) {
-      resourceType = resourceType->getAsArrayTypeUnsafe()->getElementType();
+  if (!isGroupShared && !isResourceType(var) &&
+      !isResourceOnlyStructure(type)) {
+
+    // We currently cannot support global structures that contain both resources
+    // and non-resources. That would require significant work in manipulating
+    // structure field decls, manipulating QualTypes, as well as inserting
+    // non-resources into the Globals cbuffer which changes offset decorations
+    // for it.
+    if (isStructureContainingMixOfResourcesAndNonResources(type)) {
+      emitError("global structures containing both resources and non-resources "
+                "are not supported",
+                loc);
+      return nullptr;
     }
 
-    const llvm::StringRef typeName =
-        resourceType->getAs<RecordType>()->getDecl()->getName();
-
-    // These types are all translated into OpTypeStruct with BufferBlock
-    // decoration. They should follow standard storage buffer layout,
-    // which GLSL std430 rules statisfies.
-    if (typeName == "StructuredBuffer" || typeName == "ByteAddressBuffer" ||
-        typeName == "RWByteAddressBuffer") {
-      storageClass = spv::StorageClass::Uniform;
-      rule = spirvOptions.sBufferLayoutRule;
-    } else if (typeName == "RWStructuredBuffer" ||
-               typeName == "AppendStructuredBuffer" ||
-               typeName == "ConsumeStructuredBuffer") {
-      storageClass = spv::StorageClass::Uniform;
-      rule = spirvOptions.sBufferLayoutRule;
-      isACRWSBuffer = true;
-    }
-  } else {
     // This is a stand-alone externally-visiable non-resource-type variable.
     // They should be grouped into the $Globals cbuffer. We create that cbuffer
     // and record all variables inside it upon seeing the first such variable.
@@ -699,8 +776,31 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
     return varInstr ? cast<SpirvVariable>(varInstr) : nullptr;
   }
 
-  const auto type = var->getType();
-  const auto loc = var->getLocation();
+  if (isResourceOnlyStructure(type)) {
+    // We currently do not support global structures that contain buffers.
+    // Supporting global structures that contain buffers has two complications:
+    //
+    // 1- Buffers have the Uniform storage class, whereas Textures/Samplers have
+    // UniformConstant storage class. As a result, if a struct contains both
+    // textures and buffers, it is not clear what storage class should be used
+    // for the struct. Also legalization cannot deduce the proper storage class
+    // for struct members based on the structure's storage class.
+    //
+    // 2- Any kind of structured buffer has associated counters. The current DXC
+    // code is not written in a way to place associated counters inside a
+    // structure. Changing this behavior is non-trivial. There's also
+    // significant work to be done both in DXC (to properly generate binding
+    // numbers for the resource and its associated counters at correct offsets)
+    // and in spirv-opt (to flatten such strcutures and modify the binding
+    // numbers accordingly).
+    if (isStructureContainingAnyKindOfBuffer(type)) {
+      emitError("global structures containing buffers are not supported", loc);
+      return nullptr;
+    }
+
+    needsFlatteningCompositeResources = true;
+  }
+
   SpirvVariable *varInstr = spvBuilder.addModuleVar(
       type, storageClass, var->hasAttr<HLSLPreciseAttr>(), var->getName(),
       llvm::None, loc);
@@ -732,6 +832,26 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
   return varInstr;
 }
 
+SpirvInstruction *
+DeclResultIdMapper::createOrUpdateStringVar(const VarDecl *var) {
+  assert(hlsl::IsStringType(var->getType()) ||
+         hlsl::IsStringLiteralType(var->getType()));
+
+  // If the string variable is not initialized to a string literal, we cannot
+  // generate an OpString for it.
+  if (!var->hasInit()) {
+    emitError("Found uninitialized string variable.", var->getLocation());
+    return nullptr;
+  }
+
+  const StringLiteral *stringLiteral =
+      dyn_cast<StringLiteral>(var->getInit()->IgnoreParenCasts());
+  SpirvString *init = spvBuilder.getString(stringLiteral->getString());
+  DeclSpirvInfo info(init);
+  astDecls[var] = info;
+  return init;
+}
+
 SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
     const DeclContext *decl, int arraySize, const ContextUsageKind usageKind,
     llvm::StringRef typeName, llvm::StringRef varName) {
@@ -749,16 +869,11 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
   const bool forShaderRecordNV =
       usageKind == ContextUsageKind::ShaderRecordBufferNV;
 
-  const llvm::SmallVector<const Decl *, 4> &declGroup =
-      collectDeclsInDeclContext(decl);
+  const auto &declGroup = collectDeclsInDeclContext(decl);
 
   // Collect the type and name for each field
   llvm::SmallVector<HybridStructType::FieldInfo, 4> fields;
   for (const auto *subDecl : declGroup) {
-    // 'groupshared' variables should not be placed in $Globals cbuffer.
-    if (forGlobals && subDecl->hasAttr<HLSLGroupSharedAttr>())
-      continue;
-
     // The field can only be FieldDecl (for normal structs) or VarDecl (for
     // HLSLBufferDecls).
     assert(isa<VarDecl>(subDecl) || isa<FieldDecl>(subDecl));
@@ -980,9 +1095,6 @@ void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
 
   uint32_t index = 0;
   for (const auto *decl : collectDeclsInDeclContext(context)) {
-    // 'groupshared' variables should not be placed in $Globals cbuffer.
-    if (decl->hasAttr<HLSLGroupSharedAttr>())
-      continue;
     if (const auto *varDecl = dyn_cast<VarDecl>(decl)) {
       if (!spirvOptions.noWarnIgnoredFeatures) {
         if (const auto *init = varDecl->getInit())
@@ -1020,9 +1132,8 @@ SpirvFunction *DeclResultIdMapper::getOrRegisterFn(const FunctionDecl *fn) {
   // definition is seen, the parameter types will be set properly and take into
   // account whether the function is a member function of a class/struct (in
   // which case a 'this' parameter is added at the beginnig).
-  SpirvFunction *spirvFunction = new (spvContext)
-      SpirvFunction(fn->getReturnType(), /* param QualTypes */ {},
-                    fn->getLocation(), fn->getName(), isPrecise);
+  SpirvFunction *spirvFunction = new (spvContext) SpirvFunction(
+      fn->getReturnType(), fn->getLocation(), fn->getName(), isPrecise);
 
   // No need to dereference to get the pointer. Function returns that are
   // stand-alone aliases are already pointers to values. All other cases should
@@ -1234,11 +1345,13 @@ public:
     return inserted;
   }
 
-  /// Uses the next avaiable binding number in |set|. If more than one binding
+  /// Uses the next available binding number in |set|. If more than one binding
   /// number is to be occupied, it finds the next available chunk that can fit
   /// |numBindingsToUse| in the |set|.
-  uint32_t useNextBinding(uint32_t set, uint32_t numBindingsToUse = 1) {
-    uint32_t bindingNoStart = getNextBindingChunk(set, numBindingsToUse);
+  uint32_t useNextBinding(uint32_t set, uint32_t numBindingsToUse = 1,
+                          uint32_t bindingShift = 0) {
+    uint32_t bindingNoStart =
+        getNextBindingChunk(set, numBindingsToUse, bindingShift);
     auto &binding = usedBindings[set];
     for (uint32_t i = 0; i < numBindingsToUse; ++i)
       binding.insert(bindingNoStart + i);
@@ -1246,19 +1359,20 @@ public:
   }
 
   /// Returns the first available binding number in the |set| for which |n|
-  /// consecutive binding numbers are unused.
-  uint32_t getNextBindingChunk(uint32_t set, uint32_t n) {
+  /// consecutive binding numbers are unused starting at |bindingShift|.
+  uint32_t getNextBindingChunk(uint32_t set, uint32_t n,
+                               uint32_t bindingShift) {
     auto &existingBindings = usedBindings[set];
 
     // There were no bindings in this set. Can start at binding zero.
     if (existingBindings.empty())
-      return 0;
+      return bindingShift;
 
     // Check whether the chunk of |n| binding numbers can be fitted at the
     // very beginning of the list (start at binding 0 in the current set).
     uint32_t curBinding = *existingBindings.begin();
-    if (curBinding >= n)
-      return 0;
+    if (curBinding >= (n + bindingShift))
+      return bindingShift;
 
     auto iter = std::next(existingBindings.begin());
     while (iter != existingBindings.end()) {
@@ -1266,7 +1380,10 @@ public:
       // gap between current binding number and next binding number is large
       // enough to accommodate |n|.
       uint32_t nextBinding = *iter;
-      if (n <= nextBinding - curBinding - 1)
+      if ((bindingShift > 0) && (curBinding < (bindingShift - 1)))
+        curBinding = bindingShift - 1;
+
+      if (curBinding < nextBinding && n <= nextBinding - curBinding - 1)
         return curBinding + 1;
 
       curBinding = nextBinding;
@@ -1277,7 +1394,7 @@ public:
 
     // |curBinding| was the last binding that was used in this set. The next
     // chunk of |n| bindings can start at |curBinding|+1.
-    return curBinding + 1;
+    return std::max(curBinding + 1, bindingShift);
   }
 
 private:
@@ -1611,8 +1728,9 @@ bool DeclResultIdMapper::decorateResourceBindings() {
     // resources (e.g. array of textures), DX uses one binding number per array
     // element. We can match this behavior via a command line option.
     uint32_t numBindingsToUse = 1;
-    if (spirvOptions.flattenResourceArrays)
-      numBindingsToUse = var.getArraySize();
+    if (spirvOptions.flattenResourceArrays || needsFlatteningCompositeResources)
+      numBindingsToUse = getNumBindingsUsedByResourceType(
+          var.getSpirvInstr()->getAstResultType());
 
     for (uint32_t i = 0; i < numBindingsToUse; ++i) {
       bool success = bindingSet.useBinding(bindingNo + i, setNo);
@@ -1692,10 +1810,35 @@ bool DeclResultIdMapper::decorateResourceBindings() {
     // resources (e.g. array of textures), DX uses one binding number per array
     // element. We can match this behavior via a command line option.
     uint32_t numBindingsToUse = 1;
-    if (spirvOptions.flattenResourceArrays)
-      numBindingsToUse = var.getArraySize();
+    if (spirvOptions.flattenResourceArrays || needsFlatteningCompositeResources)
+      numBindingsToUse = getNumBindingsUsedByResourceType(
+          var.getSpirvInstr()->getAstResultType());
+
+    BindingShiftMapper *bindingShiftMapper = nullptr;
+    if (spirvOptions.autoShiftBindings) {
+      char registerType = '\0';
+      if (getImplicitRegisterType(var, &registerType)) {
+        switch (registerType) {
+        case 'b':
+          bindingShiftMapper = &bShiftMapper;
+          break;
+        case 't':
+          bindingShiftMapper = &tShiftMapper;
+          break;
+        case 's':
+          bindingShiftMapper = &sShiftMapper;
+          break;
+        case 'u':
+          bindingShiftMapper = &uShiftMapper;
+          break;
+        default:
+          llvm_unreachable("unknown register type found");
+        }
+      }
+    }
 
     if (var.isCounter()) {
+
       if (!var.getCounterBinding()) {
         // Process mX * c2
         uint32_t set = defaultSpace;
@@ -1704,17 +1847,23 @@ bool DeclResultIdMapper::decorateResourceBindings() {
         else if (const auto *reg = var.getRegister())
           set = reg->RegisterSpace.getValueOr(defaultSpace);
 
+        uint32_t bindingShift = 0;
+        if (bindingShiftMapper)
+          bindingShift = bindingShiftMapper->getShiftForSet(set);
         spvBuilder.decorateDSetBinding(
             var.getSpirvInstr(), set,
-            bindingSet.useNextBinding(set, numBindingsToUse));
+            bindingSet.useNextBinding(set, numBindingsToUse, bindingShift));
       }
     } else if (!var.getBinding()) {
       const auto *reg = var.getRegister();
       if (reg && reg->isSpaceOnly()) {
         const uint32_t set = reg->RegisterSpace.getValueOr(defaultSpace);
+        uint32_t bindingShift = 0;
+        if (bindingShiftMapper)
+          bindingShift = bindingShiftMapper->getShiftForSet(set);
         spvBuilder.decorateDSetBinding(
             var.getSpirvInstr(), set,
-            bindingSet.useNextBinding(set, numBindingsToUse));
+            bindingSet.useNextBinding(set, numBindingsToUse, bindingShift));
       } else if (!reg) {
         // Process m3 (no 'vk::binding' and no ':register' assignment)
 
@@ -1722,14 +1871,21 @@ bool DeclResultIdMapper::decorateResourceBindings() {
         // doesn't have either 'vk::binding' or ':register', but the user may
         // ask for a specific binding for it via command line options.
         if (bindGlobals && var.isGlobalsBuffer()) {
+          uint32_t bindingShift = 0;
+          if (bindingShiftMapper)
+            bindingShift = bindingShiftMapper->getShiftForSet(globalsSetNo);
           spvBuilder.decorateDSetBinding(var.getSpirvInstr(), globalsSetNo,
-                                         globalsBindNo);
+                                         globalsBindNo + bindingShift);
         }
         // The normal case
         else {
+          uint32_t bindingShift = 0;
+          if (bindingShiftMapper)
+            bindingShift = bindingShiftMapper->getShiftForSet(defaultSpace);
           spvBuilder.decorateDSetBinding(
               var.getSpirvInstr(), defaultSpace,
-              bindingSet.useNextBinding(defaultSpace, numBindingsToUse));
+              bindingSet.useNextBinding(defaultSpace, numBindingsToUse,
+                                        bindingShift));
         }
       }
     }
@@ -1931,6 +2087,63 @@ bool DeclResultIdMapper::createStageVars(
     // We have semantics attached to this decl, which means it must be a
     // function/parameter/variable. All are DeclaratorDecls.
     stageVarInstructions[cast<DeclaratorDecl>(decl)] = varInstr;
+
+    // Special case: The DX12 SV_InstanceID always counts from 0, even if the
+    // StartInstanceLocation parameter is non-zero. gl_InstanceIndex, however,
+    // starts from firstInstance. Thus it doesn't emulate actual DX12 shader
+    // behavior. To make it equivalent, SPIR-V codegen should emit:
+    // SV_InstanceID = gl_InstanceIndex - gl_BaseInstance
+    // Unfortunately, this means that there is no 1-to-1 mapping of the HLSL
+    // semantic to the SPIR-V builtin. As a result, we have to manually create
+    // a second stage variable for this specific case.
+    //
+    // According to the Vulkan spec on builtin variables:
+    // www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#interfaces-builtin-variables
+    //
+    // InstanceIndex:
+    //   Decorating a variable in a vertex shader with the InstanceIndex
+    //   built-in decoration will make that variable contain the index of the
+    //   instance that is being processed by the current vertex shader
+    //   invocation. InstanceIndex begins at the firstInstance.
+    // BaseInstance
+    //   Decorating a variable with the BaseInstance built-in will make that
+    //   variable contain the integer value corresponding to the first instance
+    //   that was passed to the command that invoked the current vertex shader
+    //   invocation. BaseInstance is the firstInstance parameter to a direct
+    //   drawing command or the firstInstance member of a structure consumed by
+    //   an indirect drawing command.
+    if (asInput && semanticKind == hlsl::Semantic::Kind::InstanceID &&
+        sigPointKind == hlsl::SigPoint::Kind::VSIn) {
+      // The above call to createSpirvStageVar creates the gl_InstanceIndex.
+      // We should now manually create the gl_BaseInstance variable and do the
+      // subtraction.
+      auto *instanceIndexVar = varInstr;
+      auto *baseInstanceVar = spvBuilder.addStageBuiltinVar(
+          type, spv::StorageClass::Input, spv::BuiltIn::BaseInstance,
+          decl->hasAttr<HLSLPreciseAttr>(), semanticToUse->loc);
+      StageVar stageVar2(sigPoint, *semanticToUse, builtinAttr, evalType,
+                         getLocationCount(astContext, type));
+      stageVar2.setSpirvInstr(baseInstanceVar);
+      stageVar2.setLocationAttr(decl->getAttr<VKLocationAttr>());
+      stageVar2.setIndexAttr(decl->getAttr<VKIndexAttr>());
+      stageVar2.setIsSpirvBuiltin();
+      stageVars.push_back(stageVar2);
+
+      // SPIR-V code fore 'SV_InstanceID = gl_InstanceIndex - gl_BaseInstance'
+      auto *instanceIdVar =
+          spvBuilder.addFnVar(type, semanticToUse->loc, "SV_InstanceID");
+      auto *instanceIndexValue =
+          spvBuilder.createLoad(type, instanceIndexVar, semanticToUse->loc);
+      auto *baseInstanceValue =
+          spvBuilder.createLoad(type, baseInstanceVar, semanticToUse->loc);
+      auto *instanceIdValue =
+          spvBuilder.createBinaryOp(spv::Op::OpISub, type, instanceIndexValue,
+                                    baseInstanceValue, semanticToUse->loc);
+      spvBuilder.createStore(instanceIdVar, instanceIdValue,
+                             semanticToUse->loc);
+      stageVarInstructions[cast<DeclaratorDecl>(decl)] = instanceIdVar;
+      varInstr = instanceIdVar;
+    }
 
     // Mark that we have used one index for this semantic
     ++semanticToUse->index;
@@ -2585,6 +2798,7 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
   case spv::BuiltIn::HitKindNV:
   case spv::BuiltIn::IncomingRayFlagsNV:
   case spv::BuiltIn::InstanceCustomIndexNV:
+  case spv::BuiltIn::RayGeometryIndexKHR:
   case spv::BuiltIn::PrimitiveId:
   case spv::BuiltIn::InstanceId:
   case spv::BuiltIn::WorldRayDirectionNV:
@@ -3253,6 +3467,53 @@ QualType DeclResultIdMapper::getTypeAndCreateCounterForPotentialAliasVar(
   }
 
   return type;
+}
+
+bool DeclResultIdMapper::getImplicitRegisterType(const ResourceVar &var,
+                                                 char *registerTypeOut) const {
+  assert(registerTypeOut);
+
+  if (var.getSpirvInstr()) {
+    if (var.getSpirvInstr()->hasAstResultType()) {
+      QualType type = var.getSpirvInstr()->getAstResultType();
+      // Strip outer arrayness first
+      while (type->isArrayType())
+        type = type->getAsArrayTypeUnsafe()->getElementType();
+
+      // t - for shader resource views (SRV)
+      if (isTexture(type) || isNonWritableStructuredBuffer(type) ||
+          isByteAddressBuffer(type) || isBuffer(type)) {
+        *registerTypeOut = 't';
+        return true;
+      }
+      // s - for samplers
+      else if (isSampler(type)) {
+        *registerTypeOut = 's';
+        return true;
+      }
+      // u - for unordered access views (UAV)
+      else if (isRWByteAddressBuffer(type) || isRWAppendConsumeSBuffer(type) ||
+               isRWBuffer(type) || isRWTexture(type)) {
+        *registerTypeOut = 'u';
+        return true;
+      }
+    } else {
+      llvm::StringRef hlslUserType = var.getSpirvInstr()->getHlslUserType();
+      // b - for constant buffer views (CBV)
+      if (var.isGlobalsBuffer() || hlslUserType == "cbuffer" ||
+          hlslUserType == "ConstantBuffer") {
+        *registerTypeOut = 'b';
+        return true;
+      }
+      if (hlslUserType == "tbuffer") {
+        *registerTypeOut = 't';
+        return true;
+      }
+    }
+  }
+
+  *registerTypeOut = '\0';
+  return false;
 }
 
 SpirvVariable *

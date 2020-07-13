@@ -966,6 +966,10 @@ public:
   static MDNode *getMostGenericFPMath(MDNode *A, MDNode *B);
   static MDNode *getMostGenericRange(MDNode *A, MDNode *B);
   static MDNode *getMostGenericAliasScope(MDNode *A, MDNode *B);
+
+  /// \brief Methods to print body of node, ie. without the '<addr> = ' prefix
+  void printAsBody(raw_ostream &OS, const Module *M = nullptr) const; // HLSL Change
+  void printAsBody(raw_ostream &OS, ModuleSlotTracker &MST, const Module *M = nullptr) const; // HLSL Change
 };
 
 /// \brief Tuple of metadata.

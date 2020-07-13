@@ -753,8 +753,7 @@ public:
       return nullptr;
     case CK_HLSLVectorSplat: {
       unsigned vecSize = hlsl::GetHLSLVecSize(E->getType());
-      std::vector<llvm::Constant*> Elts(vecSize, C);
-      return llvm::ConstantVector::get(Elts);
+      return llvm::ConstantVector::getSplat(vecSize, C);
     }
     case CK_HLSLMatrixSplat: {
       llvm::StructType *ST =
@@ -762,12 +761,55 @@ public:
       unsigned row,col;
       hlsl::GetHLSLMatRowColCount(E->getType(), row, col);
 
-      std::vector<llvm::Constant *> Cols(col, C);
-      llvm::Constant *Row = llvm::ConstantVector::get(Cols);
+      llvm::Constant *Row = llvm::ConstantVector::getSplat(col, C);
       std::vector<llvm::Constant *> Rows(row, Row);
       llvm::Constant *Mat = llvm::ConstantArray::get(
           cast<llvm::ArrayType>(ST->getElementType(0)), Rows);
       return llvm::ConstantStruct::get(ST, Mat);
+    }
+    case CK_HLSLVectorTruncationCast: {
+      unsigned vecSize = hlsl::GetHLSLVecSize(E->getType());
+      SmallVector<llvm::Constant*, 4> Elts(vecSize);
+      if (llvm::ConstantDataVector *CDV = dyn_cast<llvm::ConstantDataVector>(C)) {
+        for (unsigned i = 0; i < vecSize; i++)
+          Elts[i] = CDV->getElementAsConstant(i);
+      } else {
+        llvm::ConstantVector *CV = dyn_cast<llvm::ConstantVector>(C);
+        for (unsigned i = 0; i < vecSize; i++)
+          Elts[i] = CV->getOperand(i);
+      }
+      return llvm::ConstantVector::get(Elts);
+    }
+    case CK_HLSLVectorToScalarCast: {
+      if (llvm::ConstantDataVector *CDV = cast<llvm::ConstantDataVector>(C))
+        return CDV->getElementAsConstant(0);
+      llvm::ConstantVector *CV = cast<llvm::ConstantVector>(C);
+      return CV->getOperand(0);
+    }
+    case CK_HLSLMatrixTruncationCast: {
+      llvm::StructType *ST =
+          cast<llvm::StructType>(CGM.getTypes().ConvertType(E->getType()));
+      unsigned rowCt,colCt;
+      hlsl::GetHLSLMatRowColCount(E->getType(), rowCt, colCt);
+      if (llvm::ConstantStruct *CS = dyn_cast<llvm::ConstantStruct>(C)) {
+        llvm::ConstantArray *CA = dyn_cast<llvm::ConstantArray>(CS->getOperand(0));
+        SmallVector<llvm::Constant *, 4> Rows(rowCt);
+        for (unsigned i = 0; i < rowCt; i++) {
+          SmallVector<llvm::Constant*, 4> Elts(colCt);
+          if (llvm::ConstantDataVector *CDV = dyn_cast<llvm::ConstantDataVector>(CA->getOperand(i))) {
+            for (unsigned j = 0; j < colCt; j++)
+              Elts[j] = CDV->getElementAsConstant(j);
+          } else {
+            llvm::ConstantVector *CV = cast<llvm::ConstantVector>(CA->getOperand(i));
+            for (unsigned j = 0; j < colCt; j++)
+              Elts[j] = CV->getOperand(j);
+          }
+          Rows[i] = llvm::ConstantVector::get(Elts);
+        }
+        llvm::Constant *Mat = llvm::ConstantArray::get(
+            cast<llvm::ArrayType>(ST->getElementType(0)), Rows);
+        return llvm::ConstantStruct::get(ST, Mat);
+      }
     }
     // HLSL Change Ends.
     }

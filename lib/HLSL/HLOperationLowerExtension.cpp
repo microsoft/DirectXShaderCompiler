@@ -317,9 +317,9 @@ private:
     if (m_CI->getType()->isVoidTy())
       return m_ReplicatedCalls.back();
 
-      Value *retVal = llvm::UndefValue::get(m_CI->getType());
-      for (unsigned i = 0; i < m_ReplicatedCalls.size(); ++i)
-        retVal = m_Builder.CreateInsertElement(retVal, m_ReplicatedCalls[i], i);
+    Value *retVal = llvm::UndefValue::get(m_CI->getType());
+    for (unsigned i = 0; i < m_ReplicatedCalls.size(); ++i)
+      retVal = m_Builder.CreateInsertElement(retVal, m_ReplicatedCalls[i], i);
 
     return retVal;
   }

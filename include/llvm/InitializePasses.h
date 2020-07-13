@@ -266,6 +266,11 @@ void initializeDxilFinalizeNoopsPass(PassRegistry&);
 void initializeDxilEliminateVectorPass(PassRegistry&);
 void initializeDxilConditionalMem2RegPass(PassRegistry&);
 void initializeDxilFixConstArrayInitializerPass(PassRegistry&);
+void initializeDxilInsertPreservesPass(PassRegistry&);
+void initializeDxilFinalizePreservesPass(PassRegistry&);
+void initializeDxilPreserveToSelectPass(PassRegistry&);
+void initializeDxilRemoveDeadBlocksPass(PassRegistry&);
+void initializeDxilRewriteOutputArgDebugInfoPass(PassRegistry&);
 // HLSL Change Ends
 void initializeScalarEvolutionAliasAnalysisPass(PassRegistry&);
 void initializeScalarEvolutionPass(PassRegistry&);

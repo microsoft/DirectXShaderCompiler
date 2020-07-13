@@ -160,12 +160,6 @@ if errorlevel 1 (
 )
 echo Path adjusted to include TAEF te.exe.
 
-if "%BUILD_ARCH%"=="ARM" (
-  echo.
-  echo WARNING: ARM build is not supported. Your build may fail. Use ARM64 instead.
-)
-goto :eof
-
 :ifexistaddpath 
 rem If the argument exists, add to PATH and return 0, else 1. Useful to avoid parens in values without setlocal changes.
 if exist %1 set PATH=%PATH%;%~1

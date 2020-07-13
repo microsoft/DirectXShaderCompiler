@@ -769,7 +769,7 @@ void Parser::ParseGNUAttributeArgs(IdentifierInfo *AttrName,
     //case AttributeList::AT_HLSLPayload:
       goto GenericAttributeParse;
     default:
-      Diag(AttrNameLoc, diag::err_hlsl_unsupported_construct) << AttrName;
+      Diag(AttrNameLoc, diag::warn_unknown_attribute_ignored) << AttrName;
       ConsumeParen();
       BalancedDelimiterTracker tracker(*this, tok::l_paren);
       tracker.skipToEnd();

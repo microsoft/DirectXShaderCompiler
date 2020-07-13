@@ -60,6 +60,11 @@ MetadataAsValue *GetAsMetadata(Instruction *I) {
   return nullptr;
 }
 
+static bool IsZeroInitializer(Value *V) {
+  Constant *C = dyn_cast<Constant>(V);
+  return C && C->isZeroValue();
+}
+
 static
 bool CollectVectorElements(Value *V, SmallVector<Value *, 4> &Elements) {
   if (InsertElementInst *IE = dyn_cast<InsertElementInst>(V)) {
@@ -68,7 +73,7 @@ bool CollectVectorElements(Value *V, SmallVector<Value *, 4> &Elements) {
     Value *Element = IE->getOperand(1);
     Value *Index = IE->getOperand(2);
 
-    if (!isa<UndefValue>(Vec)) {
+    if (!isa<UndefValue>(Vec) && !IsZeroInitializer(Vec)) {
       if (!CollectVectorElements(Vec, Elements))
         return false;
     }
@@ -85,21 +90,6 @@ bool CollectVectorElements(Value *V, SmallVector<Value *, 4> &Elements) {
     }
 
     return true;
-  }
-
-  return false;
-}
-
-static bool HasDebugValue(Value *V) {
-  Instruction *I = dyn_cast<Instruction>(V);
-  if (!I) return false;
-
-  MetadataAsValue *DebugI = GetAsMetadata(I);
-  if (!DebugI) return false;
-
-  for (User *U : DebugI->users()) {
-    if (isa<DbgValueInst>(U))
-      return true;
   }
 
   return false;
@@ -142,9 +132,6 @@ bool DxilEliminateVector::TryRewriteDebugInfoForVector(InsertElementInst *IE) {
 
     for (unsigned i = 0; i < Elements.size(); i++) {
       if (!Elements[i])
-        continue;
-
-      if (HasDebugValue(Elements[i]))
         continue;
 
       unsigned ElementSize = DL.getTypeAllocSizeInBits(Elements[i]->getType());

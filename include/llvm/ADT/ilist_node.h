@@ -59,7 +59,7 @@ public:
     NodeTy *Prev = this->getPrev();
 
     // Check for sentinel.
-    if (!Prev->getNext())
+    if (Prev && !Prev->getNext()) // HLSL Change: Prev may be nullptr
       return nullptr;
 
     return Prev;
@@ -70,7 +70,7 @@ public:
     const NodeTy *Prev = this->getPrev();
 
     // Check for sentinel.
-    if (!Prev->getNext())
+    if (Prev && !Prev->getNext()) // HLSL Change: Prev may be nullptr
       return nullptr;
 
     return Prev;
@@ -81,7 +81,7 @@ public:
     NodeTy *Next = getNext();
 
     // Check for sentinel.
-    if (!Next->getNext())
+    if (Next && !Next->getNext()) // HLSL Change: Next may be nullptr
       return nullptr;
 
     return Next;
@@ -92,7 +92,7 @@ public:
     const NodeTy *Next = getNext();
 
     // Check for sentinel.
-    if (!Next->getNext())
+    if (Next && !Next->getNext()) // HLSL Change: Next may be nullptr
       return nullptr;
 
     return Next;

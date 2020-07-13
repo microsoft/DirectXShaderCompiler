@@ -3352,6 +3352,19 @@ void Metadata::print(raw_ostream &OS, ModuleSlotTracker &MST,
   printMetadataImpl(OS, *this, MST, M, /* OnlyAsOperand */ false);
 }
 
+// HLSL Change Begin
+void MDNode::printAsBody(raw_ostream &OS, const Module *M) const {
+  ModuleSlotTracker MST(M, true);
+  printAsBody(OS, MST, M);
+}
+void MDNode::printAsBody(raw_ostream &OS, ModuleSlotTracker &MST, const Module *M) const {
+  TypePrinting TypePrinter;
+  if (M)
+    TypePrinter.incorporateTypes(*M);
+  WriteMDNodeBodyInternal(OS, this, &TypePrinter, MST.getMachine(), M);
+}
+// HLSL Change end
+
 // Value::dump - allow easy printing of Values from the debugger.
 LLVM_DUMP_METHOD
 void Value::dump() const { print(dbgs()); dbgs() << '\n'; }

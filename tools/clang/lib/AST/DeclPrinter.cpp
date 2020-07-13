@@ -510,6 +510,10 @@ void DeclPrinter::VisitFunctionDecl(FunctionDecl *D) {
       llvm::raw_string_ostream POut(Proto);
       DeclPrinter ParamPrinter(POut, SubPolicy, Indentation);
       for (unsigned i = 0, e = D->getNumParams(); i != e; ++i) {
+        if (Policy.HLSLSuppressUniformParameters &&
+            Policy.LangOpts.HLSL &&
+            D->getParamDecl(i)->hasAttr<HLSLUniformAttr>())  // HLSL Change
+          continue;
         if (i) POut << ", ";
         ParamPrinter.VisitParmVarDecl(D->getParamDecl(i));
       }
@@ -1464,6 +1468,9 @@ void DeclPrinter::VisitHLSLUnusualAnnotation(const hlsl::UnusualAnnotation *UA) 
     
       if (ra->RegisterOffset) {
         Out << "[" << ra->RegisterOffset << "]";
+      }
+      if (ra->RegisterSpace.hasValue() != 0) {
+        Out << ", space" << ra->RegisterSpace.getValue();
       }
       Out << ")";
     }

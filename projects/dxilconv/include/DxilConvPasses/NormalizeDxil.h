@@ -17,10 +17,23 @@ namespace llvm {
   class Function;
   class PassRegistry;
   class FunctionPass;
+  class Function;
+  class DominatorTree;
 
 
   llvm::FunctionPass *createNormalizeDxilPass();
   void initializeNormalizeDxilPassPass(llvm::PassRegistry&);
+
+  class NormalizeDxil {
+  public:
+    NormalizeDxil(Function &F, DominatorTree &DT) : m_function(F), m_dominatorTree(DT) {}
+
+    virtual bool Run();
+
+  protected:
+    Function &m_function;
+    DominatorTree &m_dominatorTree;
+  };
 
   // The legacy pass manager's analysis pass to normalize dxil ir.
   class NormalizeDxilPass : public FunctionPass {

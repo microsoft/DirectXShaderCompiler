@@ -152,7 +152,8 @@ namespace llvm {
       assert(is<PT1>() && "Val is not the first pointer");
       assert(get<PT1>() == Val.getPointer() &&
          "Can't get the address because PointerLikeTypeTraits changes the ptr");
-      return (PT1 *)Val.getAddrOfPointer();
+      return const_cast<PT1 *>(
+          reinterpret_cast<const PT1 *>(Val.getAddrOfPointer()));
     }
 
     /// \brief Assignment from nullptr which just clears the union.

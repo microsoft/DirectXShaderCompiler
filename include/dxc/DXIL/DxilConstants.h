@@ -1438,6 +1438,10 @@ namespace DXIL {
   extern const char* kFP32DenormValuePreserveString;
   extern const char* kFP32DenormValueFtzString;
 
+  extern const char *kDxBreakFuncName;
+  extern const char *kDxBreakCondName;
+  extern const char *kDxBreakMDName;
+
 } // namespace DXIL
 
 } // namespace hlsl

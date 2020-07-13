@@ -1082,6 +1082,18 @@ DbgDeclareInst *llvm::FindAllocaDbgDeclare(Value *V) {
   return nullptr;
 }
 
+// HLSL Change - Begin
+/// FindAllocaDbgDeclare - Finds the llvm.dbg.declare intrinsic corresponding to
+/// an alloca, if any.
+void llvm::FindAllocaDbgDeclare(Value *V, SmallVectorImpl<DbgDeclareInst *> &Declares) {
+  if (auto *L = LocalAsMetadata::getIfExists(V))
+    if (auto *MDV = MetadataAsValue::getIfExists(V->getContext(), L))
+      for (User *U : MDV->users())
+        if (DbgDeclareInst *DDI = dyn_cast<DbgDeclareInst>(U))
+          Declares.push_back(DDI);
+}
+// HLSL Change - End
+
 bool llvm::replaceDbgDeclareForAlloca(AllocaInst *AI, Value *NewAllocaAddress,
                                       DIBuilder &Builder, bool Deref) {
   DbgDeclareInst *DDI = FindAllocaDbgDeclare(AI);
@@ -1288,7 +1300,14 @@ bool llvm::removeUnreachableBlocks(Function &F) {
   return true;
 }
 
-void llvm::combineMetadata(Instruction *K, const Instruction *J, ArrayRef<unsigned> KnownIDs) {
+void llvm::combineMetadata(Instruction *K, const Instruction *J, ArrayRef<unsigned> OrigKnownIDs) {
+  // HLSL Change Begin - Add known dxil metadata to preserved set.
+  SmallVector<unsigned, 2> DxilMetadataIDs;
+  hlsl::DxilMDHelper::GetKnownMetadataIDs(K->getContext(), &DxilMetadataIDs);
+  SmallVector<unsigned, 8> KnownIDs(std::begin(OrigKnownIDs), std::end(OrigKnownIDs));
+  std::copy(DxilMetadataIDs.begin(), DxilMetadataIDs.end(), std::back_inserter(KnownIDs));
+  // HLSL Change End.
+
   SmallVector<std::pair<unsigned, MDNode *>, 4> Metadata;
   K->dropUnknownMetadata(KnownIDs);
   K->getAllMetadataOtherThanDebugLoc(Metadata);
@@ -1299,7 +1318,9 @@ void llvm::combineMetadata(Instruction *K, const Instruction *J, ArrayRef<unsign
 
     switch (Kind) {
       default:
-        K->setMetadata(Kind, nullptr); // Remove unknown metadata
+        // HLSL Change - Do not remove dxil metadata. It is combined below with `combineDxilMetadata`.
+        if (std::find(DxilMetadataIDs.begin(), DxilMetadataIDs.end(), Kind) == DxilMetadataIDs.end())
+            K->setMetadata(Kind, nullptr); // Remove unknown metadata
         break;
       case LLVMContext::MD_dbg:
         llvm_unreachable("getAllMetadataOtherThanDebugLoc returned a MD_dbg");

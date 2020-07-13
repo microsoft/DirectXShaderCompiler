@@ -1305,7 +1305,7 @@ public:
 private:
   friend class PHIOrSelectSpeculator;
   friend class AllocaSliceRewriter;
-
+  bool runOnFunctionImp(Function &F);
   bool presplitLoadsAndStores(AllocaInst &AI, AllocaSlices &AS);
   AllocaInst *rewritePartition(AllocaInst &AI, AllocaSlices &AS,
                                AllocaSlices::Partition &P);
@@ -4613,8 +4613,8 @@ bool SROA::promoteAllocas(Function &F) {
   PromotableAllocas.clear();
   return true;
 }
-
-bool SROA::runOnFunction(Function &F) {
+// HLSL Change - run SROA more than once if updated.
+bool SROA::runOnFunctionImp(Function &F) {
   if (skipOptnoneFunction(F))
     return false;
 
@@ -4664,6 +4664,19 @@ bool SROA::runOnFunction(Function &F) {
 
   return Changed;
 }
+// HLSL Change Begin.
+// In some case, alloca fail to optimized early will be ready to optimize after
+// other alloca is optimized.
+bool SROA::runOnFunction(Function &F) {
+  unsigned count = 0;
+  const unsigned kMaxCount = 3;
+  while ((count++) < kMaxCount) {
+    if (!runOnFunctionImp(F))
+      break;
+  }
+  return count > 1;
+}
+// HLSL Change End.
 
 void SROA::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<AssumptionCacheTracker>();

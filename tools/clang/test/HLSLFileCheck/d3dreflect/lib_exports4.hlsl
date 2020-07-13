@@ -35,7 +35,7 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:         ReturnType: D3D_RETURN_TYPE_FLOAT
 // CHECK:         Dimension: D3D_SRV_DIMENSION_TEXTURE2D
 // CHECK:         NumSamples (or stride): 4294967295
-// CHECK:         uFlags: 0xc
+// CHECK:         uFlags: (D3D_SIF_TEXTURE_COMPONENT_0 | D3D_SIF_TEXTURE_COMPONENT_1)
 // CHECK:   ID3D12FunctionReflection:
 // CHECK:     D3D12_FUNCTION_DESC: Name: \01?VSMain@@YA?AV?$vector@M$03@@H@Z
 // CHECK:       Shader Version: Library 6.3
@@ -75,7 +75,7 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:         ReturnType: D3D_RETURN_TYPE_FLOAT
 // CHECK:         Dimension: D3D_SRV_DIMENSION_TEXTURE2D
 // CHECK:         NumSamples (or stride): 4294967295
-// CHECK:         uFlags: 0xc
+// CHECK:         uFlags: (D3D_SIF_TEXTURE_COMPONENT_0 | D3D_SIF_TEXTURE_COMPONENT_1)
 // CHECK:   ID3D12FunctionReflection:
 // CHECK:     D3D12_FUNCTION_DESC: Name: VSMain
 // CHECK:       Shader Version: Pixel 6.3

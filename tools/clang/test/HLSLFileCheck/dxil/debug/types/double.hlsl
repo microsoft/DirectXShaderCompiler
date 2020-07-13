@@ -4,7 +4,7 @@
 
 // CHECK: %[[bufret:.*]] = call %dx.types.CBufRet.f64 @dx.op.cbufferLoadLegacy.f64
 // CHECK: %[[d:.*]] = extractvalue %dx.types.CBufRet.f64 %[[bufret]], 0
-// CHECK: call void @llvm.dbg.value(metadata double %[[d]], i64 0, metadata ![[divar:.*]], metadata ![[diexpr:.*]])
+// CHECK: call void @llvm.dbg.value(metadata double %[[d]], i64 0, metadata ![[divar:.*]], metadata ![[diexpr:.*]]), !dbg
 
 // CHECK: !DIBasicType(name: "double", size: 64, align: 64, encoding: DW_ATE_float)
 

@@ -20,6 +20,7 @@
 #include <string>
 #include <vector>
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h" // HLSL change
+#include "dxc/Support/HLSLOptimizationOptions.h" // HLSL Change
 #include "dxc/Support/SPIRVOptions.h" // SPIR-V Change
 
 namespace clang {
@@ -177,6 +178,8 @@ public:
   std::string HLSLProfile;
   /// Whether to target high-level DXIL.
   bool HLSLHighLevel = false;
+  /// Whether we allow preserve intermediate values
+  bool HLSLAllowPreserveValues = false;
   /// Whether use row major as default matrix major.
   bool HLSLDefaultRowMajor = false;
   /// Whether use legacy cbuffer load.
@@ -195,6 +198,8 @@ public:
   unsigned HLSLValidatorMinorVer = 0;
   /// Define macros passed in from command line
   std::vector<std::string> HLSLDefines;
+  /// Precise output passed in from command line
+  std::vector<std::string> HLSLPreciseOutputs;
   /// Arguments passed in from command line
   std::vector<std::string> HLSLArguments;
   /// Helper for generating llvm bitcode for hlsl extensions.
@@ -209,11 +214,17 @@ public:
   std::vector<std::string> HLSLLibraryExports;
   /// ExportShadersOnly limits library export functions to shaders
   bool ExportShadersOnly = false;
+  /// Structurize control flow for function has multiple returns.
+  bool HLSLStructurizeReturns = false;
   /// DefaultLinkage Internal, External, or Default.  If Default, default
   /// function linkage is determined by library target.
   hlsl::DXIL::DefaultLinkage DefaultLinkage = hlsl::DXIL::DefaultLinkage::Default;
   /// Assume UAVs/SRVs may alias.
   bool HLSLResMayAlias = false;
+  /// Lookback scan limit for memory dependencies
+  unsigned ScanLimit = 0;
+  /// Disabled optimization passes
+  hlsl::OptimizationOptions HLSLOptimizationOptions = {};
   // HLSL Change Ends
 
   // SPIRV Change Starts

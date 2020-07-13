@@ -68,6 +68,7 @@ using namespace hlsl;
 using std::string;
 
 DEFINE_CROSS_PLATFORM_UUIDOF(IDxcLangExtensions)
+DEFINE_CROSS_PLATFORM_UUIDOF(IDxcLangExtensions2)
 
 // This declaration is used for the locally-linked validator.
 HRESULT CreateDxcValidator(_In_ REFIID riid, _Out_ LPVOID *ppv);
@@ -81,26 +82,6 @@ HRESULT RunInternalValidator(_In_ IDxcValidator *pValidator,
                              _In_ llvm::Module *pDebugModule,
                              _In_ IDxcBlob *pShader, UINT32 Flags,
                              _In_ IDxcOperationResult **ppResult);
-
-static void CreateOperationResultFromOutputs(
-    IDxcBlob *pResultBlob, dxcutil::DxcArgsFileSystem *msfPtr,
-    const std::string &warnings, clang::DiagnosticsEngine &diags,
-    _COM_Outptr_ IDxcOperationResult **ppResult) {
-  CComPtr<IStream> pErrorStream;
-  msfPtr->GetStdOutpuHandleStream(&pErrorStream);
-  dxcutil::CreateOperationResultFromOutputs(pResultBlob, pErrorStream, warnings,
-                                            diags.hasErrorOccurred(), ppResult);
-}
-
-static void CreateOperationResultFromOutputs(
-    AbstractMemoryStream *pOutputStream, dxcutil::DxcArgsFileSystem *msfPtr,
-    const std::string &warnings, clang::DiagnosticsEngine &diags,
-    _COM_Outptr_ IDxcOperationResult **ppResult) {
-  CComPtr<IDxcBlob> pResultBlob;
-  IFT(pOutputStream->QueryInterface(&pResultBlob));
-  CreateOperationResultFromOutputs(pResultBlob, msfPtr, warnings, diags,
-                                   ppResult);
-}
 
 static bool ShouldPartBeIncludedInPDB(UINT32 FourCC) {
   switch (FourCC) {
@@ -392,7 +373,7 @@ static void CreateDefineStrings(
 }
 
 class DxcCompiler : public IDxcCompiler3,
-                    public IDxcLangExtensions,
+                    public IDxcLangExtensions2,
                     public IDxcContainerEvent,
 #ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
                     public IDxcVersionInfo2
@@ -428,6 +409,7 @@ public:
     HRESULT hr = DoBasicQueryInterface<
       IDxcCompiler3,
       IDxcLangExtensions,
+      IDxcLangExtensions2,
       IDxcContainerEvent,
       IDxcVersionInfo
 #ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
@@ -616,6 +598,7 @@ public:
       // validator can be used as a fallback.
       bool produceFullContainer = false;
       bool needsValidation = false;
+      bool validateRootSigContainer = false;
 
       if (isPreprocessing) {
         // These settings are back-compatible with fxc.
@@ -675,6 +658,12 @@ public:
           dxcutil::GetValidatorVersion(&compiler.getCodeGenOpts().HLSLValidatorMajorVer,
                                       &compiler.getCodeGenOpts().HLSLValidatorMinorVer);
         }
+
+        // Root signature-only container validation is only supported on 1.5 and above.
+        validateRootSigContainer = DXIL::CompareVersions(
+          compiler.getCodeGenOpts().HLSLValidatorMajorVer,
+          compiler.getCodeGenOpts().HLSLValidatorMinorVer,
+          1, 5) >= 0;
       }
 
       if (opts.AstDump) {
@@ -716,7 +705,7 @@ public:
 
           pOutputBlob.Release();
           IFT(pContainerStream.QueryInterface(&pOutputBlob));
-          if (!opts.DisableValidation) {
+          if (validateRootSigContainer && !opts.DisableValidation) {
             CComPtr<IDxcBlobEncoding> pValErrors;
             // Validation failure communicated through diagnostic error
             dxcutil::ValidateRootSignatureInContainer(
@@ -787,11 +776,9 @@ public:
         if (!opts.StripReflection) {
           SerializeFlags |= SerializeDxilFlags::IncludeReflectionPart;
         }
-        // StripRootSignature disabled on Xbox for now since
-        // API wrappers rely on embedded root signature instead of separate output.
-        //if (opts.StripRootSignature) {
-        //  SerializeFlags |= SerializeDxilFlags::StripRootSignature;
-        //}
+        if (opts.StripRootSignature) {
+          SerializeFlags |= SerializeDxilFlags::StripRootSignature;
+        }
 
         // Don't do work to put in a container if an error has occurred
         // Do not create a container when there is only a a high-level representation in the module.
@@ -800,6 +787,7 @@ public:
           CComPtr<AbstractMemoryStream> pReflectionStream;
           CComPtr<AbstractMemoryStream> pRootSigStream;
           IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pReflectionStream));
+          IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pRootSigStream));
 
           dxcutil::AssembleInputs inputs(
                 action.takeModule(), pOutputBlob, m_pMalloc, SerializeFlags,
@@ -810,16 +798,6 @@ public:
             valHR = dxcutil::ValidateAndAssembleToContainer(inputs);
           } else {
             dxcutil::AssembleToContainer(inputs);
-          }
-          if (pReflectionStream && pReflectionStream->GetPtrSize()) {
-            CComPtr<IDxcBlob> pReflection;
-            IFT(pReflectionStream->QueryInterface(&pReflection));
-            IFT(pResult->SetOutputObject(DXC_OUT_REFLECTION, pReflection));
-          }
-          if (pRootSigStream && pRootSigStream->GetPtrSize()) {
-            CComPtr<IDxcBlob> pRootSignature;
-            IFT(pRootSigStream->QueryInterface(&pRootSignature));
-            IFT(pResult->SetOutputObject(DXC_OUT_ROOT_SIGNATURE, pRootSignature));
           }
 
           // Callback after valid DXIL is produced
@@ -843,13 +821,27 @@ public:
                 }
               }
             }
-          }
 
-          // Always make hash blob for output
-          CComPtr<IDxcBlob> pHashBlob;
-          IFT(hlsl::DxcCreateBlobOnHeapCopy(&ShaderHashContent, (UINT32)sizeof(ShaderHashContent), &pHashBlob));
-          IFT(pResult->SetOutputObject(DXC_OUT_SHADER_HASH, pHashBlob));
-        }
+            if (pReflectionStream && pReflectionStream->GetPtrSize()) {
+              CComPtr<IDxcBlob> pReflection;
+              IFT(pReflectionStream->QueryInterface(&pReflection));
+              IFT(pResult->SetOutputObject(DXC_OUT_REFLECTION, pReflection));
+            }
+            if (pRootSigStream && pRootSigStream->GetPtrSize()) {
+              CComPtr<IDxcBlob> pRootSignature;
+              IFT(pRootSigStream->QueryInterface(&pRootSignature));
+              if (validateRootSigContainer && needsValidation) {
+                CComPtr<IDxcBlobEncoding> pValErrors;
+                // Validation failure communicated through diagnostic error
+                dxcutil::ValidateRootSignatureInContainer(pRootSignature, &compiler.getDiagnostics());
+              }
+              IFT(pResult->SetOutputObject(DXC_OUT_ROOT_SIGNATURE, pRootSignature));
+            }
+            CComPtr<IDxcBlob> pHashBlob;
+            IFT(hlsl::DxcCreateBlobOnHeapCopy(&ShaderHashContent, (UINT32)sizeof(ShaderHashContent), &pHashBlob));
+            IFT(pResult->SetOutputObject(DXC_OUT_SHADER_HASH, pHashBlob));
+          } // SUCCEEDED(valHR)
+        } // compileOK && !opts.CodeGenHighLevel
       }
 
       // Add std err to warnings.
@@ -866,24 +858,22 @@ public:
 
       bool hasErrorOccurred = compiler.getDiagnostics().hasErrorOccurred();
 
-// SPIRV change starts
+      bool writePDB = opts.IsDebugInfoEnabled() && produceFullContainer;
+
+      // SPIRV change starts
 #if defined(ENABLE_SPIRV_CODEGEN)
-      bool writePDB = !opts.GenSPIRV;
-#else
-      bool writePDB = true;
+      writePDB &= !opts.GenSPIRV;
 #endif
-// SPIRV change ends
-      if (!hasErrorOccurred) {
-        if (writePDB && opts.IsDebugInfoEnabled() && !opts.CodeGenHighLevel &&
-            !opts.OptDump) {
-          CComPtr<IDxcBlob> pDebugBlob;
-          IFT(pOutputStream.QueryInterface(&pDebugBlob));
-          CComPtr<IDxcBlob> pStrippedContainer;
-          IFT(CreateContainerForPDB(m_pMalloc, pOutputBlob, pDebugBlob, &pStrippedContainer));
-          pDebugBlob.Release();
-          IFT(hlsl::pdb::WriteDxilPDB(m_pMalloc, pStrippedContainer, ShaderHashContent.Digest, &pDebugBlob));
-          IFT(pResult->SetOutputObject(DXC_OUT_PDB, pDebugBlob));
-        }
+      // SPIRV change ends
+
+      if (!hasErrorOccurred && writePDB) {
+        CComPtr<IDxcBlob> pDebugBlob;
+        IFT(pOutputStream.QueryInterface(&pDebugBlob));
+        CComPtr<IDxcBlob> pStrippedContainer;
+        IFT(CreateContainerForPDB(m_pMalloc, pOutputBlob, pDebugBlob, &pStrippedContainer));
+        pDebugBlob.Release();
+        IFT(hlsl::pdb::WriteDxilPDB(m_pMalloc, pStrippedContainer, ShaderHashContent.Digest, &pDebugBlob));
+        IFT(pResult->SetOutputObject(DXC_OUT_PDB, pDebugBlob));
       }
 
       IFT(primaryOutput.SetObject(pOutputBlob, opts.DefaultTextCodePage));
@@ -989,6 +979,9 @@ public:
     // Setup a compiler instance.
     std::shared_ptr<TargetOptions> targetOptions(new TargetOptions);
     targetOptions->Triple = "dxil-ms-dx";
+    if (helper) {
+      targetOptions->Triple = helper->GetTargetTriple();
+    }
     targetOptions->DescriptionString = Opts.Enable16BitTypes
       ? hlsl::DXIL::kNewLayoutString
       : hlsl::DXIL::kLegacyLayoutString;
@@ -1088,6 +1081,7 @@ public:
       compiler.getCodeGenOpts().HLSLFloat32DenormMode = DXIL::Float32DenormMode::Preserve;
     }
 
+    compiler.getCodeGenOpts().HLSLStructurizeReturns = Opts.StructurizeReturns;
     if (Opts.DisableOptimizations)
       compiler.getCodeGenOpts().DisableLLVMOpts = true;
 
@@ -1096,7 +1090,10 @@ public:
       compiler.getCodeGenOpts().UnrollLoops = true;
 
     compiler.getCodeGenOpts().HLSLHighLevel = Opts.CodeGenHighLevel;
+    compiler.getCodeGenOpts().HLSLAllowPreserveValues = Opts.AllowPreserveValues;
     compiler.getCodeGenOpts().HLSLResMayAlias = Opts.ResMayAlias;
+    compiler.getCodeGenOpts().ScanLimit = Opts.ScanLimit;
+    compiler.getCodeGenOpts().HLSLOptimizationOptions = Opts.DxcOptimizationOptions;
     compiler.getCodeGenOpts().HLSLAllResourcesBound = Opts.AllResourcesBound;
     compiler.getCodeGenOpts().HLSLDefaultRowMajor = Opts.DefaultRowMajor;
     compiler.getCodeGenOpts().HLSLPreferControlFlow = Opts.PreferFlowControl;
@@ -1104,6 +1101,7 @@ public:
     compiler.getCodeGenOpts().HLSLNotUseLegacyCBufLoad = Opts.NotUseLegacyCBufLoad;
     compiler.getCodeGenOpts().HLSLLegacyResourceReservation = Opts.LegacyResourceReservation;
     compiler.getCodeGenOpts().HLSLDefines = defines;
+    compiler.getCodeGenOpts().HLSLPreciseOutputs = Opts.PreciseOutputs;
     compiler.getCodeGenOpts().MainFileName = pMainFile;
 
     // Translate signature packing options

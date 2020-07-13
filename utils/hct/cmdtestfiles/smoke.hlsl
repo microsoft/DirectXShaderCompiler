@@ -1,4 +1,9 @@
+// Verify that we can successfully process an include
+#include "include/inc1.hlsli"
+
 int g;
+static int g_unused;
+
 #ifndef semantic
 #define semantic SV_Target
 #endif
@@ -13,5 +18,5 @@ float4 main() : semantic
   int x = 3;
   x;
   #endif
-  return g;
+  return f1(g);
 }

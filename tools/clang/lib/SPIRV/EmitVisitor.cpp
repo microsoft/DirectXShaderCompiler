@@ -80,6 +80,22 @@ bool isOpLineLegalForOp(spv::Op op) {
   }
 }
 
+// Returns SPIR-V version that will be used in SPIR-V header section.
+uint32_t getHeaderVersion(llvm::StringRef env) {
+  if (env == "vulkan1.1")
+    return 0x00010300u;
+  if (env == "vulkan1.2")
+    return 0x00010500u;
+  return 0x00010000u;
+}
+
+// Returns true if the BufferBlock decoration is deprecated for the target
+// Vulkan environment.
+bool isBufferBlockDecorationDeprecated(
+    const clang::spirv::SpirvCodeGenOptions &opts) {
+  return opts.targetEnv.compare("vulkan1.2") >= 0;
+}
+
 constexpr uint32_t kGeneratorNumber = 14;
 constexpr uint32_t kToolVersion = 0;
 
@@ -274,8 +290,7 @@ void EmitVisitor::finalizeInstruction() {
 
 std::vector<uint32_t> EmitVisitor::takeBinary() {
   std::vector<uint32_t> result;
-  Header header(takeNextId(),
-                spvOptions.targetEnv == "vulkan1.1" ? 0x00010300u : 0x00010000);
+  Header header(takeNextId(), getHeaderVersion(spvOptions.targetEnv));
   auto headerBinary = header.takeBinary();
   result.insert(result.end(), headerBinary.begin(), headerBinary.end());
   result.insert(result.end(), preambleBinary.begin(), preambleBinary.end());
@@ -990,6 +1005,17 @@ bool EmitVisitor::visit(SpirvLoad *inst) {
   return true;
 }
 
+bool EmitVisitor::visit(SpirvCopyObject *inst) {
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getPointer()));
+  finalizeInstruction();
+  emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
+  return true;
+}
+
 bool EmitVisitor::visit(SpirvSampledImage *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
@@ -1092,6 +1118,26 @@ bool EmitVisitor::visit(SpirvArrayLength *inst) {
 }
 
 bool EmitVisitor::visit(SpirvRayTracingOpNV *inst) {
+  initInstruction(inst);
+  if (inst->hasResultType()) {
+    curInst.push_back(inst->getResultTypeId());
+    curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  }
+  for (const auto operand : inst->getOperands())
+    curInst.push_back(getOrAssignResultId<SpirvInstruction>(operand));
+  finalizeInstruction();
+  emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
+  return true;
+}
+
+bool EmitVisitor::visit(SpirvDemoteToHelperInvocationEXT *inst) {
+  initInstruction(inst);
+  finalizeInstruction();
+  return true;
+}
+
+bool EmitVisitor::visit(SpirvRayQueryOpKHR *inst) {
   initInstruction(inst);
   if (inst->hasResultType()) {
     curInst.push_back(inst->getResultTypeId());
@@ -1579,7 +1625,11 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
     // Emit Block or BufferBlock decorations if necessary.
     auto interfaceType = structType->getInterfaceType();
     if (interfaceType == StructInterfaceType::StorageBuffer)
-      emitDecoration(id, spv::Decoration::BufferBlock, {});
+      emitDecoration(id,
+                     isBufferBlockDecorationDeprecated(spvOptions)
+                         ? spv::Decoration::Block
+                         : spv::Decoration::BufferBlock,
+                     {});
     else if (interfaceType == StructInterfaceType::UniformBuffer)
       emitDecoration(id, spv::Decoration::Block, {});
 
@@ -1615,6 +1665,13 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
   // Acceleration Structure NV type
   else if (const auto *accType = dyn_cast<AccelerationStructureTypeNV>(type)) {
     initTypeInstruction(spv::Op::OpTypeAccelerationStructureNV);
+    curTypeInst.push_back(id);
+    finalizeTypeInstruction();
+  }
+  // RayQueryProvisionalType KHR type
+  else if (const auto *rayQueryType =
+               dyn_cast<RayQueryProvisionalTypeKHR>(type)) {
+    initTypeInstruction(spv::Op::OpTypeRayQueryProvisionalKHR);
     curTypeInst.push_back(id);
     finalizeTypeInstruction();
   }

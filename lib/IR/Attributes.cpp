@@ -703,7 +703,7 @@ AttributeSet AttributeSet::get(LLVMContext &C, unsigned Index,
   }
 
   // Add target-dependent (string) attributes.
-  for (const AttrBuilder::td_type &TDA : B.td_attrs())
+  for (const auto &TDA : B.td_attrs())
     Attrs.push_back(
         std::make_pair(Index, Attribute::get(C, TDA.first, TDA.second)));
 
@@ -1263,7 +1263,7 @@ AttrBuilder &AttrBuilder::merge(const AttrBuilder &B) {
 
   Attrs |= B.Attrs;
 
-  for (auto I : B.td_attrs())
+  for (const auto &I : B.td_attrs())
     TargetDepAttrs[I.first] = I.second;
 
   return *this;
@@ -1285,7 +1285,7 @@ AttrBuilder &AttrBuilder::remove(const AttrBuilder &B) {
 
   Attrs &= ~B.Attrs;
 
-  for (auto I : B.td_attrs())
+  for (const auto &I : B.td_attrs())
     TargetDepAttrs.erase(I.first);
 
   return *this;
@@ -1297,7 +1297,7 @@ bool AttrBuilder::overlaps(const AttrBuilder &B) const {
     return true;
 
   // Then check if any target dependent ones do.
-  for (auto I : td_attrs())
+  for (const auto &I : td_attrs())
     if (B.contains(I.first))
       return true;
 

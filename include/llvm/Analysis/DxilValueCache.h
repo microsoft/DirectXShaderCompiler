@@ -1,4 +1,4 @@
-//===--------- DxilValueCache.cpp - Dxil Constant Value Cache ------------===//
+//===--------- DxilValueCache.h - Dxil Constant Value Cache --------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -6,6 +6,9 @@
 // License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
+
+#ifndef LLVM_ANALYSIS_DXILVALUECACHE_H
+#define LLVM_ANALYSIS_DXILVALUECACHE_H
 
 #include "llvm/Pass.h"
 #include "llvm/IR/ValueMap.h"
@@ -15,6 +18,7 @@ namespace llvm {
 class Module;
 class DominatorTree;
 class Constant;
+class ConstantInt;
 
 struct DxilValueCache : public ImmutablePass {
   static char ID;
@@ -57,19 +61,20 @@ private:
   Value *ProcessValue(Value *V, DominatorTree *DT);
 
   Value *ProcessAndSimplify_PHI(Instruction *I, DominatorTree *DT);
-  Value *ProcessAndSimpilfy_Br(Instruction *I, DominatorTree *DT);
-  Value *ProcessAndSimpilfy_Load(Instruction *LI, DominatorTree *DT);
+  Value *ProcessAndSimplify_Br(Instruction *I, DominatorTree *DT);
+  Value *ProcessAndSimplify_Load(Instruction *LI, DominatorTree *DT);
   Value *SimplifyAndCacheResult(Instruction *I, DominatorTree *DT);
 
 public:
 
   const char *getPassName() const override;
   DxilValueCache();
-  void getAnalysisUsage(AnalysisUsage &) const;
+  void getAnalysisUsage(AnalysisUsage &) const override;
 
   void dump() const;
   Value *GetValue(Value *V, DominatorTree *DT=nullptr);
   Constant *GetConstValue(Value *V, DominatorTree *DT = nullptr);
+  ConstantInt *GetConstInt(Value *V, DominatorTree *DT = nullptr);
   void ResetUnknowns() { ValueMap.ResetUnknowns(); }
   bool IsAlwaysReachable(BasicBlock *BB, DominatorTree *DT=nullptr);
   bool IsUnreachable(BasicBlock *BB, DominatorTree *DT=nullptr);
@@ -80,4 +85,4 @@ Pass *createDxilValueCachePass();
 
 }
 
-
+#endif

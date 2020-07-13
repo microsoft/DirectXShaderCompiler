@@ -683,7 +683,7 @@ bool isSameType(const ASTContext &astContext, QualType type1, QualType type2) {
         // consider them different.
         if (fieldTypes1.size() != fieldTypes2.size())
           return false;
-        for (auto i = 0; i < fieldTypes1.size(); ++i)
+        for (size_t i = 0; i < fieldTypes1.size(); ++i)
           if (!isSameType(astContext, fieldTypes1[i], fieldTypes2[i]))
             return false;
         return true;
@@ -748,6 +748,14 @@ bool isStructuredBuffer(QualType type) {
     return false;
   const auto name = recordType->getDecl()->getName();
   return name == "StructuredBuffer" || name == "RWStructuredBuffer";
+}
+
+bool isNonWritableStructuredBuffer(QualType type) {
+  const auto *recordType = type->getAs<RecordType>();
+  if (!recordType)
+    return false;
+  const auto name = recordType->getDecl()->getName();
+  return name == "StructuredBuffer";
 }
 
 bool isByteAddressBuffer(QualType type) {
@@ -907,6 +915,9 @@ bool isOpaqueType(QualType type) {
       return true;
 
     if (name == "RaytracingAccelerationStructure")
+      return true;
+
+    if (name == "RayQuery")
       return true;
   }
   return false;
@@ -1097,7 +1108,8 @@ bool isOrContainsNonFpColMajorMatrix(const ASTContext &astContext,
     if (isMxNMatrix(arrayType->getElementType(), &elemType) &&
         !elemType->isFloatingType())
       return isColMajorDecl(decl);
-    if (const auto *structType = arrayType->getElementType()->getAs<RecordType>()) {
+    if (const auto *structType =
+            arrayType->getElementType()->getAs<RecordType>()) {
       return isOrContainsNonFpColMajorMatrix(astContext, spirvOptions,
                                              arrayType->getElementType(),
                                              structType->getDecl());
@@ -1114,6 +1126,15 @@ bool isOrContainsNonFpColMajorMatrix(const ASTContext &astContext,
   }
 
   return false;
+}
+
+bool isStringType(QualType type) {
+  return hlsl::IsStringType(type) || hlsl::IsStringLiteralType(type);
+}
+
+bool isBindlessOpaqueArray(QualType type) {
+  return !type.isNull() && isOpaqueArrayType(type) &&
+         !type->isConstantArrayType();
 }
 
 QualType getComponentVectorType(const ASTContext &astContext,
@@ -1200,6 +1221,87 @@ QualType getHLSLMatrixType(ASTContext &astContext, Sema &S,
 
   return astContext.getTemplateSpecializationType(
       TemplateName(templateDecl), templateArgumentList, canonType);
+}
+
+bool isResourceOnlyStructure(QualType type) {
+  // Remove arrayness if needed.
+  while (type->isArrayType())
+    type = type->getAsArrayTypeUnsafe()->getElementType();
+
+  if (const auto *structType = type->getAs<RecordType>()) {
+    for (const auto *field : structType->getDecl()->fields()) {
+      // isResourceType does remove arrayness for the field if needed.
+      if (!isResourceType(field) &&
+          !isResourceOnlyStructure(field->getType())) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  return false;
+}
+
+bool isStructureContainingResources(QualType type) {
+  // Remove arrayness if needed.
+  while (type->isArrayType())
+    type = type->getAsArrayTypeUnsafe()->getElementType();
+
+  if (const auto *structType = type->getAs<RecordType>()) {
+    for (const auto *field : structType->getDecl()->fields()) {
+      // isStructureContainingResources and isResourceType functions both remove
+      // arrayness for the field if needed.
+      if (isStructureContainingResources(field->getType()) ||
+          isResourceType(field)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+bool isStructureContainingNonResources(QualType type) {
+  // Remove arrayness if needed.
+  while (type->isArrayType())
+    type = type->getAsArrayTypeUnsafe()->getElementType();
+
+  if (const auto *structType = type->getAs<RecordType>()) {
+    for (const auto *field : structType->getDecl()->fields()) {
+      // isStructureContainingNonResources and isResourceType functions both
+      // remove arrayness for the field if needed.
+      if (isStructureContainingNonResources(field->getType()) ||
+          !isResourceType(field)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+bool isStructureContainingMixOfResourcesAndNonResources(QualType type) {
+  return isStructureContainingResources(type) &&
+         isStructureContainingNonResources(type);
+}
+
+bool isStructureContainingAnyKindOfBuffer(QualType type) {
+  // Remove arrayness if needed.
+  while (type->isArrayType())
+    type = type->getAsArrayTypeUnsafe()->getElementType();
+
+  if (const auto *structType = type->getAs<RecordType>()) {
+    for (const auto *field : structType->getDecl()->fields()) {
+      auto fieldType = field->getType();
+      // Remove arrayness if needed.
+      while (fieldType->isArrayType())
+        fieldType = fieldType->getAsArrayTypeUnsafe()->getElementType();
+      if (isAKindOfStructuredOrByteBuffer(fieldType) ||
+          isConstantTextureBuffer(field) ||
+          isStructureContainingAnyKindOfBuffer(fieldType)) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 } // namespace spirv

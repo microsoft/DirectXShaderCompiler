@@ -26,6 +26,8 @@ class DebugLoc;
 class Constant;
 class GlobalVariable;
 class CallInst;
+class Instruction;
+template <typename T, unsigned N> class SmallVector;
 }
 
 namespace hlsl {
@@ -73,6 +75,60 @@ private:
       constants; // constants inside const buffer
 };
 
+// Scope to help transform multiple returns.
+struct Scope {
+ enum class ScopeKind {
+   IfScope,
+   SwitchScope,
+   LoopScope,
+   ReturnScope,
+   FunctionScope,
+ };
+ ScopeKind kind;
+ llvm::BasicBlock *EndScopeBB;
+ // Save loopContinueBB to create dxBreak.
+ llvm::BasicBlock *loopContinueBB;
+ // For case like
+ // if () {
+ //   ...
+ //   return;
+ // } else {
+ //   ...
+ //   return;
+ // }
+ //
+ // both path is returned.
+ // When whole scope is returned, go to parent scope directly.
+ // Anything after it is unreachable.
+ bool bWholeScopeReturned;
+ unsigned parentScopeIndex;
+};
+
+class ScopeInfo {
+public:
+  ScopeInfo(){}
+  ScopeInfo(llvm::Function *F);
+  void AddIf(llvm::BasicBlock *endIfBB);
+  void AddSwitch(llvm::BasicBlock *endSwitchBB);
+  void AddLoop(llvm::BasicBlock *loopContinue, llvm::BasicBlock *endLoopBB);
+  void AddRet(llvm::BasicBlock *bbWithRet);
+  void EndScope(bool bScopeFinishedWithRet);
+  Scope &GetScope(unsigned i);
+  const llvm::SmallVector<unsigned, 2> &GetRetScopes() { return rets; }
+  void LegalizeWholeReturnedScope();
+  llvm::SmallVector<Scope, 16> &GetScopes() { return scopes; }
+  bool CanSkipStructurize();
+
+private:
+  void AddScope(Scope::ScopeKind k, llvm::BasicBlock *endScopeBB);
+  llvm::SmallVector<unsigned, 2> rets;
+  unsigned maxRetLevel;
+  bool bAllReturnsInIf;
+  llvm::SmallVector<unsigned, 8> scopeStack;
+  // save all scopes.
+  llvm::SmallVector<Scope, 16> scopes;
+};
+
 // Align cbuffer offset in legacy mode (16 bytes per row).
 unsigned AlignBufferOffsetInLegacy(unsigned offset, unsigned size,
                                    unsigned scalarSizeInBytes,
@@ -93,6 +149,8 @@ void FinishIntrinsics(
     hlsl::HLModule &HLM, std::vector<std::pair<llvm::Function *, unsigned>> &intrinsicMap,
     llvm::DenseMap<llvm::Value *, hlsl::DxilResourceProperties>
         &valToResPropertiesMap);
+
+void AddDxBreak(llvm::Module &M, const llvm::SmallVector<llvm::BranchInst*, 16> &DxBreaks);
 
 void ReplaceConstStaticGlobals(
     std::unordered_map<llvm::GlobalVariable *, std::vector<llvm::Constant *>>
@@ -124,6 +182,11 @@ void UpdateLinkage(
     hlsl::dxilutil::ExportMap &exportMap,
     llvm::StringMap<EntryFunctionInfo> &entryFunctionMap,
     llvm::StringMap<PatchConstantInfo> &patchConstantFunctionMap);
+
+void StructurizeMultiRet(llvm::Module &M,
+                         llvm::DenseMap<llvm::Function *, ScopeInfo> &ScopeMap,
+                         bool bWaveEnabledStage,
+                         llvm::SmallVector<llvm::BranchInst *, 16> &DxBreaks);
 
 llvm::Value *TryEvalIntrinsic(llvm::CallInst *CI, hlsl::IntrinsicOp intriOp, unsigned hlslVersion);
 void SimpleTransformForHLDXIR(llvm::Module *pM);

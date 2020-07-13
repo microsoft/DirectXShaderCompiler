@@ -188,7 +188,7 @@ public:
       _Outptr_result_nullonfailure_ IDxcTranslationUnit** pTranslationUnit) override;
 };
 
-class DxcIntelliSense : public IDxcIntelliSense, public IDxcLangExtensions {
+class DxcIntelliSense : public IDxcIntelliSense, public IDxcLangExtensions2 {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
   hlsl::DxcLangExtensionsHelper m_langHelper;
@@ -198,7 +198,8 @@ public:
   DXC_LANGEXTENSIONS_HELPER_IMPL(m_langHelper);
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
-    return DoBasicQueryInterface<IDxcIntelliSense, IDxcLangExtensions>(
+    return DoBasicQueryInterface<IDxcIntelliSense, IDxcLangExtensions,
+                                 IDxcLangExtensions2>(
         this, iid, ppvObject);
   }
 
@@ -343,7 +344,7 @@ public:
       _Out_ BSTR* errorMessage) override;
     HRESULT STDMETHODCALLTYPE GetInclusionList(_Out_ unsigned* pResultCount, _Outptr_result_buffer_(*pResultCount) IDxcInclusion*** pResult) override;
     HRESULT STDMETHODCALLTYPE CodeCompleteAt(
-      _In_ char *fileName, unsigned line, unsigned column,
+      _In_ const char *fileName, unsigned line, unsigned column,
       _In_ IDxcUnsavedFile** pUnsavedFiles, unsigned numUnsavedFiles,
       _In_ DxcCodeCompleteFlags options,
       _Outptr_result_nullonfailure_ IDxcCodeCompleteResults **pResult)

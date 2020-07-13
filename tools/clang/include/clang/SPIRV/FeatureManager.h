@@ -17,9 +17,9 @@
 
 #include "spirv-tools/libspirv.h"
 
+#include "dxc/Support/SPIRVOptions.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/SourceLocation.h"
-#include "dxc/Support/SPIRVOptions.h"
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/ADT/StringRef.h"
 
@@ -31,9 +31,12 @@ enum class Extension {
   KHR = 0,
   KHR_16bit_storage,
   KHR_device_group,
+  KHR_non_semantic_info,
   KHR_multiview,
   KHR_shader_draw_parameters,
   KHR_post_depth_coverage,
+  KHR_ray_tracing,
+  EXT_demote_to_helper_invocation,
   EXT_descriptor_indexing,
   EXT_fragment_fully_covered,
   EXT_fragment_invocation_density,
@@ -45,6 +48,7 @@ enum class Extension {
   GOOGLE_user_type,
   NV_ray_tracing,
   NV_mesh_shader,
+  KHR_ray_query,
   Unknown,
 };
 
@@ -55,19 +59,23 @@ public:
 
   /// Allows the given extension to be used in CodeGen.
   bool allowExtension(llvm::StringRef);
+
   /// Allows all extensions to be used in CodeGen.
   void allowAllKnownExtensions();
+
   /// Rqeusts the given extension for translating the given target feature at
   /// the given source location. Emits an error if the given extension is not
   /// permitted to use.
   bool requestExtension(Extension, llvm::StringRef target, SourceLocation);
 
   /// Translates extension name to symbol.
-  static Extension getExtensionSymbol(llvm::StringRef name);
+  Extension getExtensionSymbol(llvm::StringRef name);
+
   /// Translates extension symbol to name.
-  static const char *getExtensionName(Extension symbol);
+  const char *getExtensionName(Extension symbol);
+
   /// Returns true if the given extension is a KHR extension.
-  static bool isKHRExtension(llvm::StringRef name);
+  bool isKHRExtension(llvm::StringRef name);
 
   /// Returns the names of all known extensions as a string.
   std::string getKnownExtensions(const char *delimiter, const char *prefix = "",
@@ -87,7 +95,13 @@ public:
   /// environment.
   bool isExtensionRequiredForTargetEnv(Extension);
 
+  /// Returns true if the given extension is set in allowedExtensions
+  bool isExtensionEnabled(Extension);
+
 private:
+  /// Returns whether codegen should allow usage of this extension by default.
+  bool enabledByDefault(Extension);
+
   /// \brief Wrapper method to create an error message and report it
   /// in the diagnostic engine associated with this object.
   template <unsigned N>

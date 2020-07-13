@@ -5,6 +5,7 @@
 set( LLVM_LINK_COMPONENTS
   ${LLVM_TARGETS_TO_BUILD}
   dxcsupport
+  Option     # option library
   Support    # For Atomic increment/decrement
   )
 
@@ -14,13 +15,16 @@ add_clang_executable(dxr
   )
 
 target_link_libraries(dxr
+  dxclib
   dxcompiler
   )
 
 set_target_properties(dxr PROPERTIES VERSION ${CLANG_EXECUTABLE_VERSION})
 # set_target_properties(dxr PROPERTIES ENABLE_EXPORTS 1)
 
-add_dependencies(dxr dxcompiler)
+include_directories(${LLVM_SOURCE_DIR}/tools/clang/tools)
+
+add_dependencies(dxr dxclib dxcompiler)
 
 if(UNIX)
   set(CLANGXX_LINK_OR_COPY create_symlink)

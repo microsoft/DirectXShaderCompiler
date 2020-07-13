@@ -421,9 +421,10 @@ llvm::AllocaInst *VariableRegisters::GetRegisterForAlignedOffset(
   return it->second;
 }
 
-// DITypePeelConstAndTypedef peels const and typedef types off of Ty,
+#ifndef NDEBUG
+// DITypePeelTypeAlias peels const, typedef, and other alias types off of Ty,
 // returning the unalised type.
-static llvm::DIType *DITypePeelConstAndTypedef(
+static llvm::DIType *DITypePeelTypeAlias(
     llvm::DIType* Ty
 )
 {
@@ -432,15 +433,19 @@ static llvm::DIType *DITypePeelConstAndTypedef(
     const llvm::DITypeIdentifierMap EmptyMap;
     switch (DerivedTy->getTag())
     {
+    case llvm::dwarf::DW_TAG_restrict_type:
+    case llvm::dwarf::DW_TAG_reference_type:
     case llvm::dwarf::DW_TAG_const_type:
     case llvm::dwarf::DW_TAG_typedef:
-      return DITypePeelConstAndTypedef(
+      return DITypePeelTypeAlias(
           DerivedTy->getBaseType().resolve(EmptyMap));
     }
   }
 
   return Ty;
 }
+#endif // NDEBUG
+
 
 VariableRegisters::VariableRegisters(
     llvm::DIVariable *Variable,
@@ -455,7 +460,7 @@ VariableRegisters::VariableRegisters(
 
   PopulateAllocaMap(Ty);
   assert(m_Offsets.GetCurrentPackedOffset() ==
-         DITypePeelConstAndTypedef(Ty)->getSizeInBits());
+         DITypePeelTypeAlias(Ty)->getSizeInBits());
 }
 
 void VariableRegisters::PopulateAllocaMap(
@@ -471,6 +476,8 @@ void VariableRegisters::PopulateAllocaMap(
       assert(!"Unhandled DIDerivedType");
       m_Offsets.AlignToAndAddUnhandledType(DerivedTy);
       return;
+    case llvm::dwarf::DW_TAG_restrict_type:
+    case llvm::dwarf::DW_TAG_reference_type:
     case llvm::dwarf::DW_TAG_const_type:
     case llvm::dwarf::DW_TAG_typedef:
       PopulateAllocaMap(
@@ -557,13 +564,12 @@ void VariableRegisters::PopulateAllocaMap_BasicType(
       return;
   }
 
-  auto* Loc = GetVariableLocation();
   const OffsetInBits AlignedOffset = m_Offsets.Add(Ty);
 
   llvm::Type *AllocaTy = llvm::ArrayType::get(AllocaElementTy, 1);
   llvm::AllocaInst *&Alloca = m_AlignedOffsetToAlloca[AlignedOffset];
   Alloca = m_B.CreateAlloca(AllocaTy, m_B.getInt32(0));
-  Alloca->setDebugLoc(Loc);
+  Alloca->setDebugLoc(llvm::DebugLoc());
 
   auto *Storage = GetMetadataAsValue(llvm::ValueAsMetadata::get(Alloca));
   auto *Variable = GetMetadataAsValue(m_Variable);
@@ -571,7 +577,7 @@ void VariableRegisters::PopulateAllocaMap_BasicType(
   auto *DbgDeclare = m_B.CreateCall(
       m_DbgDeclareFn,
       {Storage, Variable, Expression});
-  DbgDeclare->setDebugLoc(Loc);
+  DbgDeclare->setDebugLoc(GetVariableLocation());
 }
 
 static unsigned NumArrayElements(
@@ -649,11 +655,13 @@ static bool SortMembers(
     case llvm::dwarf::DW_TAG_member: {
       if (auto *Member = llvm::dyn_cast<llvm::DIDerivedType>(Element))
       {
-        auto it = SortedMembers->emplace(std::make_pair(Member->getOffsetInBits(), Member));
-        (void)it;
-        assert(it.second &&
-               "Invalid DIStructType"
-               " - members with the same offset -- are unions possible?");
+        if (Member->getSizeInBits()) {
+          auto it = SortedMembers->emplace(std::make_pair(Member->getOffsetInBits(), Member));
+          (void)it;
+          assert(it.second &&
+                 "Invalid DIStructType"
+                 " - members with the same offset -- are unions possible?");
+        }
         break;
       }
       // FALLTHROUGH

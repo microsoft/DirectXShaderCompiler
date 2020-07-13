@@ -124,7 +124,8 @@ HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
     try {
       DxilModule &program = M->GetOrCreateDxilModule();
 
-      {
+      // Only set validator version metadata if none present.
+      if (nullptr == M->getNamedMetadata(DxilMDHelper::kDxilValidatorVersionMDName)) {
         UINT32 majorVer, minorVer;
         dxcutil::GetValidatorVersion(&majorVer, &minorVer);
         if (program.UpgradeValidatorVersion(majorVer, minorVer)) {

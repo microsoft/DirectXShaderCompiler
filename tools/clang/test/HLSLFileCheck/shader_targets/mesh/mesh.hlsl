@@ -1,4 +1,5 @@
 // RUN: %dxc -E main -T ms_6_5 %s | FileCheck %s
+// RUN: %dxc -E main -T ms_6_5 %s | %D3DReflect %s | FileCheck -check-prefix=REFL %s
 
 // CHECK: dx.op.getMeshPayload.struct.MeshPayload(i32 170)
 // CHECK: dx.op.setMeshOutputCounts(i32 168, i32 32, i32 16)
@@ -79,3 +80,20 @@ void main(
     }
     verts[tig] = ov;
 }
+
+// REFL: TempArrayCount: 64
+// REFL: DynamicFlowControlCount: 1
+// REFL: ArrayInstructionCount: 2
+// REFL: TextureNormalInstructions: 0
+// REFL: TextureLoadInstructions: 0
+// REFL: TextureCompInstructions: 0
+// REFL: TextureBiasInstructions: 0
+// REFL: TextureGradientInstructions: 0
+// REFL: FloatInstructionCount: 0
+// REFL: IntInstructionCount: 5
+// REFL: UintInstructionCount: 3
+// REFL: CutInstructionCount: 0
+// REFL: EmitInstructionCount: 0
+// REFL: cBarrierInstructions: 0
+// REFL: cInterlockedInstructions: 0
+// REFL: cTextureStoreInstructions: 0

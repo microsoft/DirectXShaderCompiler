@@ -1516,6 +1516,54 @@ assigned to the next available binding number, starting from 0, in descriptor
 set #0 (If ``-auto-binding-space N`` command line option is used, then
 descriptor set #N will be used instead of descriptor set #0).
 
+If there is no register specification AND ``-fvk-auto-shift-bindings`` is specified,
+then the register type will be automatically identified based on the resource
+type (according to the following table), and the appropriate shift will
+automatically be applied according to ``-fvk-*shift N M``.
+
+.. code:: spirv
+
+  t - for shader resource views (SRV)
+      TEXTURE1D
+      TEXTURE1DARRAY
+      TEXTURE2D
+      TEXTURE2DARRAY
+      TEXTURE3D
+      TEXTURECUBE
+      TEXTURECUBEARRAY
+      TEXTURE2DMS
+      TEXTURE2DMSARRAY
+      STRUCTUREDBUFFER
+      BYTEADDRESSBUFFER
+      BUFFER
+      TBUFFER
+
+  s - for samplers
+      SAMPLER
+      SAMPLER1D
+      SAMPLER2D
+      SAMPLER3D
+      SAMPLERCUBE
+      SAMPLERSTATE
+      SAMPLERCOMPARISONSTATE
+
+  u - for unordered access views (UAV)
+      RWBYTEADDRESSBUFFER
+      RWSTRUCTUREDBUFFER
+      APPENDSTRUCTUREDBUFFER
+      CONSUMESTRUCTUREDBUFFER
+      RWBUFFER
+      RWTEXTURE1D
+      RWTEXTURE1DARRAY
+      RWTEXTURE2D
+      RWTEXTURE2DARRAY
+      RWTEXTURE3D
+
+  b - for constant buffer views (CBV)
+      CBUFFER
+      CONSTANTBUFFER
+
+
 Summary
 ~~~~~~~
 
@@ -1523,9 +1571,15 @@ In summary, the compiler essentially assigns binding numbers in three passes.
 
 - Firstly it handles all declarations with explicit ``[[vk::binding(X[, Y])]]``
   annotation.
+
 - Then the compiler processes all remaining declarations with
   ``:register(xX, spaceY)`` annotation, by applying the shift passed in using
   command-line option ``-fvk-{b|s|t|u}-shift N M``, if provided.
+
+  - If ``:register`` assignment is missing and ``-fvk-auto-shift-bindings`` is
+    specified, the register type will be automatically detected based on the
+    resource type, and the ``-fvk-{b|s|t|u}-shift N M`` will be applied.
+
 - Finally, the compiler assigns next available binding numbers to the rest in
   the declaration order.
 
@@ -2055,7 +2109,7 @@ The following intrinsic HLSL functions have direct SPIR-V opcodes for them:
 ``ddy_coarse``                       ``OpDPdyCoarse``
 ``ddx_fine``                         ``OpDPdxFine``
 ``ddy_fine``                         ``OpDPdyFine``
-``fmod``                             ``OpFMod``
+``fmod``                             ``OpFRem``
 ``fwidth``                           ``OpFwidth``
 ``GroupMemoryBarrier``               ``OpMemoryBarrier``
 ``GroupMemoryBarrierWithGroupSync``  ``OpControlBarrier``
@@ -2959,6 +3013,9 @@ Flow chart for various stages in a raytracing pipeline is as follows:
 
 | *Note : DXC does not add special shader profiles for raytracing under -T option.*
 | *All raytracing shaders must be compiled as library using lib_6_3/lib_6_4 profile option.*
+| *Note : DXC now targets SPV_KHR_ray_tracing extension by default.*
+| *This extension is provisional and subject to change*.
+| *To compile for NV extension use -fspv-extension=SPV_NV_ray_tracing.*
 
 Ray Generation Stage
 ~~~~~~~~~~~~~~~~~~~~
@@ -3083,7 +3140,7 @@ Miss Stage
 Callable Stage
 ~~~~~~~~~~~~~~
 
-| Callables are generic function calls which can be invoked from either raygeneration, closest-hit, 
+| Callables are generic function calls which can be invoked from either raygeneration, closest-hit,
 | miss or callable shader stages.
 | Entry functions of this stage are annotated with **[shader("callable")]** in HLSL source.
 | Such entry functions must return void and accept exactly one argument. First argument must be an inout
@@ -3170,7 +3227,7 @@ Mesh Interface Variables
 +-----------------+-------------------------------------------------------------------------+
 |  HLSL modifier  | SPIR-V definition                                                       |
 +=================+=========================================================================+
-| ``indices``     | Maps to SPIR-V intrinsic ``PrimitiveIndicesNV``                         |  
+| ``indices``     | Maps to SPIR-V intrinsic ``PrimitiveIndicesNV``                         |
 |                 |                                                                         |
 |                 | Defines SPIR-V Execution Mode ``OutputPrimitivesNV <array-size>``       |
 +-----------------+-------------------------------------------------------------------------+
@@ -3187,9 +3244,11 @@ Mesh Interface Variables
 Raytracing in Vulkan and SPIRV
 ==============================
 
-| SPIR-V codegen is currently supported for NVIDIA platforms via SPV_NV_ray_tracing extension
+| SPIR-V codegen is currently supported for NVIDIA platforms via SPV_NV_ray_tracing extension or
+| on other platforms via provisional cross vendor SPV_KHR_ray_tracing extension.
 | SPIR-V specification for reference:
 | https://github.com/KhronosGroup/SPIRV-Registry/blob/master/extensions/NV/SPV_NV_ray_tracing.asciidoc
+| https://github.com/KhronosGroup/SPIRV-Registry/blob/master/extensions/KHR/SPV_KHR_ray_tracing.asciidoc
 
 | Vulkan ray tracing samples:
 | https://developer.nvidia.com/rtx/raytracing/vkray
@@ -3204,47 +3263,48 @@ Intrinsics
 
 | Following table provides mapping for system value intrinsics along with supported shader stages.
 
-============================    ============================ ====== ============ =========== ======= ======== ========
-        HLSL                               SPIR-V                             HLSL Shader Stage
-----------------------------    ---------------------------- ---------------------------------------------------------
-  System Value Intrinsic               Builtin               Raygen Intersection Closest Hit Any Hit   Miss   Callable
-============================    ============================ ====== ============ =========== ======= ======== ========
-``DispatchRaysIndex()``         ``LaunchIdNV``                 ✓         ✓            ✓        ✓      ✓        ✓
-``DispatchRaysDimensions()``    ``LaunchSizeNV``               ✓         ✓            ✓        ✓      ✓        ✓
-``WorldRayOrigin()``            ``WorldRayOriginNV``                     ✓            ✓        ✓      ✓
-``WorldRayDirection()``         ``WorldRayDirectionNV``                  ✓            ✓        ✓      ✓
-``RayTMin()``                   ``RayTminNV``                            ✓            ✓        ✓      ✓
-``RayTCurrent()``               ``HitTNV``                               ✓            ✓        ✓      ✓
-``RayFlags()``                  ``IncomingRayFlagsNV``                   ✓            ✓        ✓      ✓
-``InstanceIndex()``             ``InstanceId``                           ✓            ✓        ✓
-``InstanceID()``                ``InstanceCustomIndexNV``                ✓            ✓        ✓
-``PrimitiveIndex()``            ``PrimitiveId``                          ✓            ✓        ✓
-``ObjectRayOrigin()``           ``ObjectRayOriginNV``                    ✓            ✓        ✓
-``ObjectRayDirection()``        ``ObjectRayDirectionNV``                 ✓            ✓        ✓
-``ObjectToWorld3x4()``          ``ObjectToWorldNV``                      ✓            ✓        ✓
-``ObjectToWorld4x3()``          ``ObjectToWorldNV``                      ✓            ✓        ✓
-``WorldToObject3x4()``          ``WorldToObjectNV``                      ✓            ✓        ✓
-``WorldToObject4x3()``          ``WorldToObjectNV``                      ✓            ✓        ✓
-``HitKind()``                   ``HitKindNV``                            ✓            ✓        ✓
-============================    ============================ ====== ============ =========== ======= ======== ========
+============================    ===============================    ====== ============ =========== ======= ======== ========
+        HLSL                               SPIR-V                               HLSL Shader Stage
+----------------------------    -------------------------------    ---------------------------------------------------------
+  System Value Intrinsic               Builtin                     Raygen Intersection Closest Hit Any Hit   Miss   Callable
+============================    ===============================    ====== ============ =========== ======= ======== ========
+``DispatchRaysIndex()``         ``LaunchId{NV/KHR}``               ✓       ✓             ✓          ✓       ✓       ✓
+``DispatchRaysDimensions()``    ``LaunchSize{NV/KHR}``             ✓       ✓             ✓          ✓       ✓       ✓
+``WorldRayOrigin()``            ``WorldRayOrigin{NV/KHR}``                 ✓             ✓          ✓       ✓
+``WorldRayDirection()``         ``WorldRayDirection{NV/KHR}``              ✓             ✓          ✓       ✓
+``RayTMin()``                   ``RayTmin{NV/KHR}``                        ✓             ✓          ✓       ✓
+``RayTCurrent()``               ``HitT{NV/KHR}``                           ✓             ✓          ✓       ✓
+``RayFlags()``                  ``IncomingRayFlags{NV/KHR}``               ✓             ✓          ✓       ✓
+``InstanceIndex()``             ``InstanceId``                             ✓             ✓          ✓
+``GeometryIndex()``             ``RayGeometryIndexKHR``                    ✓             ✓          ✓
+``InstanceID()``                ``InstanceCustomIndex{NV/KHR}``            ✓             ✓          ✓
+``PrimitiveIndex()``            ``PrimitiveId``                            ✓             ✓          ✓
+``ObjectRayOrigin()``           ``ObjectRayOrigin{NV/KHR}``                ✓             ✓          ✓
+``ObjectRayDirection()``        ``ObjectRayDirection{NV/KHR}``             ✓             ✓          ✓
+``ObjectToWorld3x4()``          ``ObjectToWorld{NV/KHR}``                  ✓             ✓          ✓
+``ObjectToWorld4x3()``          ``ObjectToWorld{NV/KHR}``                  ✓             ✓          ✓
+``WorldToObject3x4()``          ``WorldToObject{NV/KHR}``                  ✓             ✓          ✓
+``WorldToObject4x3()``          ``WorldToObject{NV/KHR}``                  ✓             ✓          ✓
+``HitKind()``                   ``HitKind{NV/KHR}``                        ✓             ✓          ✓
+============================    ===============================    ====== ============ =========== ======= ======== ========
 
 | *There is no separate builtin for transposed matrices ObjectToWorld3x4 and WorldToObject3x4 in SPIR-V hence we internally transpose during translation*
-
+| *GeometryIndex() is only supported under SPV_KHR_ray_tracing extension.*
 
 | Following table provides mapping for other intrinsics along with supported shader stages.
 
 
-===========================     ============================ ====== ============ =========== ======= ===== ========
-        HLSL                               SPIR-V                             HLSL Shader Stage
----------------------------     ---------------------------- ------------------------------------------------------
-   Intrinsic                              Opcode             Raygen Intersection Closest Hit Any Hit  Miss Callable
-===========================     ============================ ====== ============ =========== ======= ===== ========
-``TraceRay``                    ``OpTraceNV``                  ✓                     ✓                ✓
-``ReportHit``                   ``OpReportIntersectionNV``     ✓         ✓
-``IgnoreHit``                   ``OpIgnoreIntersectionNV``     ✓                                ✓
-``AcceptHitAndEndSearch``       ``OpTerminateRayNV``           ✓                                ✓
-``CallShader``                  ``OpExecuteCallable``          ✓                     ✓                ✓      ✓
-===========================     ============================ ====== ============ =========== ======= ===== ========
+===========================     =================================     ====== ============ =========== ======= ===== ========
+        HLSL                               SPIR-V                                 HLSL Shader Stage
+---------------------------     ---------------------------------     ------------------------------------------------------
+   Intrinsic                              Opcode                      Raygen Intersection Closest Hit Any Hit  Miss Callable
+===========================     =================================     ====== ============ =========== ======= ===== ========
+``TraceRay``                    ``OpTrace{NV/KHR}``                     ✓                    ✓                    ✓
+``ReportHit``                   ``OpReportIntersection{NV/KHR}``        ✓         ✓
+``IgnoreHit``                   ``OpIgnoreIntersection{NV/KHR}``        ✓                             ✓
+``AcceptHitAndEndSearch``       ``OpTerminateRay{NV/KHR}``              ✓                             ✓
+``CallShader``                  ``OpExecuteCallable{NV/KHR}``           ✓                    ✓             ✓     ✓
+===========================     =================================     ====== ============ =========== ======= ===== ========
 
 
 Resource Types
@@ -3253,11 +3313,11 @@ Resource Types
 | Following table provides mapping for new resource types supported in all raytracing shaders.
 
 
-===================================     =================================
-        HLSL Type                               SPIR-V Opcode
------------------------------------     ---------------------------------
-``RaytracingAccelerationStructure``     ``OpTypeAccelerationStructureNV``
-===================================     =================================
+===================================     =======================================
+        HLSL Type                                   SPIR-V Opcode
+-----------------------------------     ---------------------------------------
+``RaytracingAccelerationStructure``     ``OpTypeAccelerationStructure{NV/KHR}``
+===================================     =======================================
 
 Interface Variables
 ~~~~~~~~~~~~~~~~~~~
@@ -3266,16 +3326,190 @@ Interface Variables
 | Following table gives high level overview of the mapping.
 
 
-===========================     ===========================================================
-   SPIR-V Storage Class                Created For
----------------------------     -----------------------------------------------------------
-``RayPayloadNV``                Last argument to TraceRay
-``IncomingRayPayloadNV``        First argument of entry for AnyHit/ClosestHit & Miss stage
-``HitAttributeNV``              Last argument to ReportHit
-``CallableDataNV``              Last argument to CallShader
-``IncomingCallableDataNV``      First argument of entry for Callable stage
-===========================     ===========================================================
+=================================       ===========================================================
+   SPIR-V Storage Class                        Created For
+---------------------------------       -----------------------------------------------------------
+``RayPayload{NV/KHR}``                  Last argument to TraceRay
+``IncomingRayPayload{NV/KHR}``          First argument of entry for AnyHit/ClosestHit & Miss stage
+``HitAttribute{NV/KHR}``                Last argument to ReportHit
+``CallableData{NV/KHR}``                Last argument to CallShader
+``IncomingCallableData{NV/KHR}``        First argument of entry for Callable stage
+=================================       ===========================================================
 
+RayQuery
+--------
+
+Ray Query is subfeature of the DirectX ray tracing and belongs to the DirectX ray tracing spec 1.1 (DXR 1.1).
+DirectX add RayQuery object type and its member TraceRayInline() to do the TraceRay() that doesn't
+use any seperate ray-tracing shader stages.
+Shaders can instantiate RayQuery objects as local variables, the RayQuery object acts as a state
+machine for ray query. The shader interacts with the RayQuery object's methods to advance the
+query through an acceleration structure and query traversal information
+
+Refer to following pages for details:
+https://microsoft.github.io/DirectX-Specs/d3d/Raytracing.html
+
+A flow chart for a simple ray query process
+
+::
+
+          +------------------------------+
+          |   RayQuery<RAY_FLAG_NONE> q  |
+          +------------------------------+
+                         |
+                         V
+          +------------------------------+
+          |      q.TraceRayInline()      |
+          +------------------------------+
+                  |               — — — — — — — — — — — — —
+                  |              |                         |
+                  |              |              +------------------------+
+                  |              |              | Your intersection code |
+                  |              |              +------------------------+
+                  |              |                         ^
+                  V              V                         |
+          +------------------------------+      +---------------------+
+          |  q.Proceed() // AS traversal |      |  q.CandidateType()  |
+          +------------------------------+      +---------------------+
+               |                   |                       ^
+           No  |                   | Yes                   |
+               |                   |_ _ _ _ _ _ _ _ _ _ _ _|
+               V
+         +------------------------------+
+         |     q.CommittedStatus()      |
+         +------------------------------+
+                       |
+                       V
+        +----------------------------------+
+        | Your Intersection/shader code    |
+        +----------------------------------+
+
+
+Example:
+
+.. code:: hlsl
+
+  void main() {
+    RayQuery<RAY_FLAG_CULL_NON_OPAQUE | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH> q;
+    q.TraceRayInline(myAccelerationStructure, 0 , 0xff, myRay);
+  
+    // Proceed() is AccelerationStructure traversal loop take places
+    while(q.Proceed()) {
+      switch(q.CandidateType()) {
+        // retrieve intersection information/Do the shadering
+      }
+    }
+  
+    // AccelerationStructure traversal end
+    // Get the Committed status
+    switch(q.CommittedStatus()) {
+      // retrieve intersection information/ Do the shadering
+    }
+  }
+
+Ray Query in SPIRV
+~~~~~~~~~~~~~~~~~~
+RayQuery SPIR-V codegen is currently supported via SPV_KHR_ray_query extension
+SPIR-V specification for reference:
+https://github.com/KhronosGroup/SPIRV-Registry/blob/master/extensions/KHR/SPV_KHR_ray_query.asciidoc
+
+Object Type
+~~~~~~~~~~~
+RayQuery<RAY_FLAGS>
+
+RayQuery represents the state of an inline ray tracing call into an acceleration structure.
+
+
+============ ================================
+ HLSL Type            SPIR-V Opcode
+------------ --------------------------------
+``RayQuery`` ``OpTypeRayQueryProvisionalKHR``
+============ ================================
+
+RayQuery Mapping to SPIR-V
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
++---------------------------------------------------+-------------------------------------------------------------------------+
+|      HLSL  RayQuery member Intrinsic              |             SPIR-V Opcode                                               |
++===================================================+=========================================================================+
+|``.Abort``                                         | ``OpRayQueryTerminateKHR``                                              |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CandidateType``                                 | ``OpRayQueryGetIntersectionTypeKHR``                                    |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CandidateProceduralPrimitiveNonOpaque``         | ``OpRayQueryGetIntersectionCandidateAABBOpaqueKHR``                     |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CandidateInstanceIndex``                        | ``OpRayQueryGetIntersectionInstanceIdKHR``                              |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CandidateInstanceID``                           | ``OpRayQueryGetIntersectionInstanceCustomIndexKHR``                     |
++---------------------------------------------------+-------------------------------------------------------------------------+
+| ``.CandidateInstanceContributionToHitGroupIndex`` | ``OpRayQueryGetIntersectionInstanceShaderBindingTableRecordOffsetKHR``  |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CandidateGeometryIndex``                        | ``OpRayQueryGetIntersectionGeometryIndexKHR``                           |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CandidatePrimitiveIndex``                       | ``OpRayQueryGetIntersectionPrimitiveIndexKHR``                          |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CandidateObjectRayOrigin``                      | ``OpRayQueryGetIntersectionObjectRayOriginKHR``                         |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CandidateObjectRayDirection``                   | ``OpRayQueryGetIntersectionObjectRayDirectionKHR``                      |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CandidateObjectToWorld3x4``                     | ``OpRayQueryGetIntersectionObjectToWorldKHR``                           |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CandidateObjectToWorld4x3``                     | ``OpRayQueryGetIntersectionObjectToWorldKHR``                           |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CandidateWorldToObject3x4``                     | ``OpRayQueryGetIntersectionWorldToObjectKHR``                           |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CandidateWorldToObject4x3``                     | ``OpRayQueryGetIntersectionWorldToObjectKHR``                           |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CandidateTriangleBarycentrics``                 | ``OpRayQueryGetIntersectionBarycentricsKHR``                            |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CandidateTriangleFrontFace``                    | ``OpRayQueryGetIntersectionFrontFaceKHR``                               |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CommittedStatus``                               | ``OpRayQueryGetIntersectionTypeKHR``                                    |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CommittedInstanceIndex``                        | ``OpRayQueryGetIntersectionInstanceIdKHR``                              |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CommittedInstanceID``                           | ``OpRayQueryGetIntersectionInstanceCustomIndexKHR``                     |
++---------------------------------------------------+-------------------------------------------------------------------------+
+| ``.CommittedInstanceContributionToHitGroupIndex`` |  ``OpRayQueryGetIntersectionInstanceShaderBindingTableRecordOffsetKHR`` |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CommittedGeometryIndex``                        | ``OpRayQueryGetIntersectionGeometryIndexKHR``                           |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CommittedPrimitiveIndex``                       | ``OpRayQueryGetIntersectionPrimitiveIndexKHR``                          |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CommittedRayT``                                 | ``OpRayQueryGetIntersectionTKHR``                                       |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CommittedObjectRayOrigin``                      | ``OpRayQueryGetIntersectionObjectRayOriginKHR``                         |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CommittedObjectRayDirection``                   | ``OpRayQueryGetIntersectionObjectRayDirectionKHR``                      |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CommittedObjectToWorld3x4``                     | ``OpRayQueryGetIntersectionObjectToWorldKHR``                           |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CommittedObjectToWorld4x3``                     | ``OpRayQueryGetIntersectionObjectToWorldKHR``                           |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CommittedWorldToObject3x4``                     | ``OpRayQueryGetIntersectionWorldToObjectKHR``                           |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CommittedWorldToObject4x3``                     | ``OpRayQueryGetIntersectionWorldToObjectKHR``                           |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CommittedTriangleBarycentrics``                 | ``OpRayQueryGetIntersectionBarycentricsKHR``                            |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CommittedTriangleFrontFace``                    | ``OpRayQueryGetIntersectionFrontFaceKHR``                               |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CommitNonOpaqueTriangleHit``                    | ``OpRayQueryConfirmIntersectionKHR``                                    |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.CommitProceduralPrimitiveHit``                  | ``OpRayQueryGenerateIntersectionKHR``                                   |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.Proceed``                                       | ``OpRayQueryProceedKHR``                                                |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.RayFlags``                                      | ``OpRayQueryGetRayFlagsKHR``                                            |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.RayTMin``                                       | ``OpRayQueryGetRayTMinKHR``                                             |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.TraceRayInline``                                | ``OpRayQueryInitializeKHR``                                             |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.WorldRayDirection``                             | ``OpRayQueryGetWorldRayDirectionKHR``                                   |
++---------------------------------------------------+-------------------------------------------------------------------------+
+|``.WorldRayOrigin`                                 | ``OpRayQueryGetWorldRayOriginKHR``                                      |
++---------------------------------------------------+-------------------------------------------------------------------------+
 
 Shader Model 6.0 Wave Intrinsics
 ================================
@@ -3370,6 +3604,9 @@ codegen for Vulkan:
 - ``-fvk-t-shift N M``, similar to ``-fvk-b-shift``, but for t-type registers.
 - ``-fvk-s-shift N M``, similar to ``-fvk-b-shift``, but for s-type registers.
 - ``-fvk-u-shift N M``, similar to ``-fvk-b-shift``, but for u-type registers.
+- ``-fvk-auto-shift-bindings``: Automatically detects the register type for
+  resources that are missing the ``:register`` assignment, so the above shifts
+  can be applied to them if needed.
 - ``-fvk-bind-register xX Y N M`` (short alias: ``-vkbr``): Binds the resouce
   at ``register(xX, spaceY)`` to descriptor set ``M`` and binding ``N``. This
   option cannot be used together with other binding assignment options.

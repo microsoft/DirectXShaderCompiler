@@ -31,9 +31,11 @@ HRESULT SetupRegistryPassForPIX() {
     // INIT-PASSES:BEGIN
     initializeDxilAddPixelHitInstrumentationPass(Registry);
     initializeDxilAnnotateWithVirtualRegisterPass(Registry);
+    initializeDxilDbgValueToDbgDeclarePass(Registry);
     initializeDxilDebugInstrumentationPass(Registry);
     initializeDxilForceEarlyZPass(Registry);
     initializeDxilOutputColorBecomesConstantPass(Registry);
+    initializeDxilPIXMeshShaderOutputInstrumentationPass(Registry);
     initializeDxilReduceMSAAToSingleSamplePass(Registry);
     initializeDxilRemoveDiscardsPass(Registry);
     initializeDxilShaderAccessTrackingPass(Registry);

@@ -382,9 +382,11 @@ def err_thread_unsupported : Error<
 
 def warn_maybe_falloff_nonvoid_function : Warning<
   "control may reach end of non-void function">,
+  DefaultError,   // HLSL Change: DefaultError
   InGroup<ReturnType>;
 def warn_falloff_nonvoid_function : Warning<
   "control reaches end of non-void function">,
+  DefaultError,   // HLSL Change: DefaultError
   InGroup<ReturnType>;
 def err_maybe_falloff_nonvoid_block : Error<
   "control may reach end of non-void block">;
@@ -5710,9 +5712,11 @@ let CategoryName = "Lambda Issue" in {
     "lambda declared 'noreturn' should not return">;
   def warn_maybe_falloff_nonvoid_lambda : Warning<
     "control may reach end of non-void lambda">,
+    DefaultError,   // HLSL Change: DefaultError
     InGroup<ReturnType>;
   def warn_falloff_nonvoid_lambda : Warning<
     "control reaches end of non-void lambda">,
+    DefaultError,   // HLSL Change: DefaultError
     InGroup<ReturnType>;
   def err_access_lambda_capture : Error<
     // The ERRORs represent other special members that aren't constructors, in
@@ -7600,11 +7604,13 @@ def err_hlsl_conditional_result_comptype_mismatch : Error<
   "conditional operator result component types mismatch.">;
 def note_field_type_usage : Note<"usage of %0 found in field %1 of type %2">;
 def warn_hlsl_attribute_expects_uint_literal : Warning<
-  "attribute %0 must have a uint literal argument">;
+  "attribute %0 must have a uint literal argument">,
+  InGroup<HLSLAttributeType>;
 def err_hlsl_attribute_expects_float_literal : Error<
   "attribute %0 must have a float literal argument">;
 def warn_hlsl_comma_in_init : Warning<
-  "comma expression used where a constructor list may have been intended">;
+  "comma expression used where a constructor list may have been intended">,
+  InGroup<HLSLCommaInInit>;
 def warn_hlsl_incorrect_bind_semantic: Warning< // Is an error in fxc in some cases, but is sometimes ignored
   "invalid register specification, expected %0 binding">;
 def err_hlsl_incorrect_bind_semantic: Error< // Is an error in fxc in some cases, but is sometimes ignored
@@ -7632,19 +7638,26 @@ def err_hlsl_invalid_resource_type_on_intrinsic : Error<
     "cannot %0 from resource containing %1">;
 def err_hlsl_usage_not_on_parameter : Error<
     "HLSL usage %0 is only valid on a parameter">;
-def warn_hlsl_for_redefinition : Warning<"redefinition of %0 shadows declaration in the outer scope; most recent declaration will be used">;
+def warn_hlsl_for_redefinition : Warning<"redefinition of %0 shadows declaration in the outer scope; most recent declaration will be used">,
+  InGroup<HLSLForRedefinition>;
 def warn_hlsl_for_redefinition_different_type : Warning<
-  "redefinition of %0 with a different type%diff{: $ vs $|}1,2 shadows declaration in the outer scope; most recent declaration will be used">;
+  "redefinition of %0 with a different type%diff{: $ vs $|}1,2 shadows declaration in the outer scope; most recent declaration will be used">,
+  InGroup<HLSLForRedefinition>;
 def warn_hlsl_specifier_overridden : Warning<
-  "%0 will be overridden by %1">;
+  "%0 will be overridden by %1">,
+  InGroup<HLSLSpecifierOverride>;
 def warn_hlsl_packoffset_overridden : Warning<
-  "packoffset is overridden by another packoffset annotation">;
+  "packoffset is overridden by another packoffset annotation">,
+  InGroup<HLSLPackOffsetOverride>;
 def warn_hlsl_unsupported_statement_for_if_switch_attribute : Warning<
-  "attribute %0 can only be applied to 'if' and 'switch' statements">;
+  "attribute %0 can only be applied to 'if' and 'switch' statements">,
+  InGroup<HLSLAttributeStatement>;
 def warn_hlsl_unsupported_statement_for_switch_attribute : Warning<
-  "attribute %0 can only be applied to 'switch' statements">;
+  "attribute %0 can only be applied to 'switch' statements">,
+  InGroup<HLSLAttributeStatement>;
 def warn_hlsl_unsupported_statement_for_loop_attribute : Warning<
-  "attribute %0 can only be applied to 'for', 'while' and 'do' loop statements">;
+  "attribute %0 can only be applied to 'for', 'while' and 'do' loop statements">,
+  InGroup<HLSLAttributeStatement>;
 def err_hlsl_matrix_layout_wrong_type : Error<
   "%0 can only be used with a matrix type">;
 def warn_hlsl_effect_object : Warning <

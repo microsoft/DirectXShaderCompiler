@@ -75,6 +75,12 @@ bool SpirvModule::invokeVisitor(Visitor *visitor, bool reverseOrder) {
           return false;
       }
 
+    for (auto iter = constStrings.rbegin(); iter != constStrings.rend();
+         ++iter) {
+      if (!(*iter)->invokeVisitor(visitor))
+        return false;
+    }
+
     for (auto iter = executionModes.rbegin(); iter != executionModes.rend();
          ++iter) {
       auto *execMode = *iter;
@@ -136,6 +142,10 @@ bool SpirvModule::invokeVisitor(Visitor *visitor, bool reverseOrder) {
 
     for (auto execMode : executionModes)
       if (!execMode->invokeVisitor(visitor))
+        return false;
+
+    for (auto *str : constStrings)
+      if (!str->invokeVisitor(visitor))
         return false;
 
     if (!debugSources.empty())
@@ -205,14 +215,13 @@ void SpirvModule::addExtInstSet(SpirvExtInstImport *set) {
   extInstSets.push_back(set);
 }
 
-SpirvExtInstImport *SpirvModule::getGLSLExtInstSet() {
+SpirvExtInstImport *SpirvModule::getExtInstSet(llvm::StringRef name) {
   // We expect very few (usually 1) extended instruction sets to exist in the
   // module, so this is not expensive.
-  auto found =
-      std::find_if(extInstSets.begin(), extInstSets.end(),
-                   [](const SpirvExtInstImport *set) {
-                     return set->getExtendedInstSetName() == "GLSL.std.450";
-                   });
+  auto found = std::find_if(extInstSets.begin(), extInstSets.end(),
+                            [name](const SpirvExtInstImport *set) {
+                              return set->getExtendedInstSetName() == name;
+                            });
 
   if (found != extInstSets.end())
     return *found;
@@ -233,6 +242,11 @@ void SpirvModule::addDecoration(SpirvDecoration *decor) {
 void SpirvModule::addConstant(SpirvConstant *constant) {
   assert(constant);
   constants.push_back(constant);
+}
+
+void SpirvModule::addString(SpirvString *str) {
+  assert(str);
+  constStrings.push_back(str);
 }
 
 void SpirvModule::addDebugSource(SpirvSource *src) {

@@ -18,6 +18,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Option/ArgList.h"
 #include "dxc/dxcapi.h"
+#include "dxc/Support/HLSLOptimizationOptions.h"
 #include "dxc/Support/SPIRVOptions.h"
 
 namespace llvm {
@@ -41,6 +42,7 @@ enum HlslFlags {
   NoArgumentUnused = (1 << 14),
   CoreOption = (1 << 15),
   ISenseOption = (1 << 16),
+  RewriteOption = (1 << 17),
 };
 
 enum ID {
@@ -64,7 +66,7 @@ static const unsigned CompilerFlags = HlslFlags::CoreOption;
 /// Flags for dxc.exe command-line tool.
 static const unsigned DxcFlags = HlslFlags::CoreOption | HlslFlags::DriverOption;
 /// Flags for dxr.exe command-line tool.
-static const unsigned DxrFlags = HlslFlags::CoreOption | HlslFlags::DriverOption;
+static const unsigned DxrFlags = HlslFlags::RewriteOption | HlslFlags::DriverOption;
 /// Flags for IDxcIntelliSense APIs.
 static const unsigned ISenseFlags = HlslFlags::CoreOption | HlslFlags::ISenseOption;
 
@@ -83,6 +85,18 @@ public:
   UINT32 ComputeNumberOfWCharsNeededForDefines();
   const DxcDefine *data() const { return DefineVector.data(); }
   unsigned size() const { return DefineVector.size(); }
+};
+
+struct RewriterOpts {
+  bool Unchanged = false;                   // OPT_rw_unchanged
+  bool SkipFunctionBody = false;            // OPT_rw_skip_function_body
+  bool SkipStatic = false;                  // OPT_rw_skip_static
+  bool GlobalExternByDefault = false;       // OPT_rw_global_extern_by_default
+  bool KeepUserMacro = false;               // OPT_rw_keep_user_macro
+  bool ExtractEntryUniforms = false;        // OPT_rw_extract_entry_uniforms
+  bool RemoveUnusedGlobals = false;         // OPT_rw_remove_unused_globals
+  bool RemoveUnusedFunctions = false;         // OPT_rw_remove_unused_functions
+  bool WithLineDirective = false;       // OPT_rw_line_directive
 };
 
 /// Use this class to capture all options.
@@ -114,6 +128,7 @@ public:
   llvm::StringRef RootSignatureDefine; // OPT_rootsig_define
   llvm::StringRef FloatDenormalMode; // OPT_denorm
   std::vector<std::string> Exports; // OPT_exports
+  std::vector<std::string> PreciseOutputs; // OPT_precise_output
   llvm::StringRef DefaultLinkage; // OPT_default_linkage
   unsigned DefaultTextCodePage = DXC_CP_UTF8; // OPT_encoding
 
@@ -121,6 +136,7 @@ public:
   bool AstDump = false; // OPT_ast_dump
   bool ColorCodeAssembly = false; // OPT_Cc
   bool CodeGenHighLevel = false; // OPT_fcgl
+  bool AllowPreserveValues = false; // OPT_preserve_intermediate_values
   bool DebugInfo = false; // OPT__SLASH_Zi
   bool DebugNameForBinary = false; // OPT_Zsb
   bool DebugNameForSource = false; // OPT_Zss
@@ -149,6 +165,7 @@ public:
   bool UseHexLiterals = false; // OPT_Lx
   bool UseInstructionByteOffsets = false; // OPT_No
   bool UseInstructionNumbers = false; // OPT_Ni
+  bool StructurizeReturns = false;      // OPT_structurize_returns
   bool NotUseLegacyCBufLoad = false;  // OPT_no_legacy_cbuf_layout
   bool PackPrefixStable = false;  // OPT_pack_prefix_stable
   bool PackOptimized = false;  // OPT_pack_optimized
@@ -172,6 +189,11 @@ public:
   bool ExportShadersOnly = false; // OPT_export_shaders_only
   bool ResMayAlias = false; // OPT_res_may_alias
   unsigned long ValVerMajor = UINT_MAX, ValVerMinor = UINT_MAX; // OPT_validator_version
+  unsigned ScanLimit = 0; // OPT_memdep_block_scan_limit
+  hlsl::OptimizationOptions DxcOptimizationOptions; // OPT_opt_disable
+
+  // Rewriter Options
+  RewriterOpts RWOpt;
 
   std::vector<std::string> Warnings;
 

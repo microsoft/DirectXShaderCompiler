@@ -1,6 +1,19 @@
-// RUN: %dxc -E main -T ps_6_0 -Od %s | FileCheck %s
+// RUN: %dxc -Zi -E main -Od -T ps_6_0 %s | FileCheck %s -check-prefix=CHK_DB
+// RUN: %dxc -E main -Od -T ps_6_0 %s | FileCheck %s -check-prefix=CHK_NODB
 
-// CHECK: Offsets for Sample* must be immediated value
+// CHK_DB: 27:39: error: Offsets for Sample* must be immediated value
+// CHK_DB: 27:43: error: Offsets for Sample* must be immediated value
+// CHK_DB: 27:10: error: Offsets for Sample* must be immediated value
+// CHK_DB: 27:10: error: Offsets for Sample* must be immediated value
+
+// CHK_NODB: error: Offsets for Sample* must be immediated value.
+// CHK_NODB-SAME Use /Zi for source location.
+// CHK_NODB: error: Offsets for Sample* must be immediated value.
+// CHK_NODB-SAME Use /Zi for source location.
+// CHK_NODB: error: Offsets for Sample* must be immediated value.
+// CHK_NODB-SAME Use /Zi for source location.
+// CHK_NODB: error: Offsets for Sample* must be immediated value.
+// CHK_NODB-SAME Use /Zi for source location.
 
 SamplerState samp1 : register(s5);
 Texture2D<float4> text1 : register(t3);

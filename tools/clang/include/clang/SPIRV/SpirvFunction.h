@@ -24,9 +24,8 @@ class SpirvVisitor;
 /// The class representing a SPIR-V function in memory.
 class SpirvFunction {
 public:
-  SpirvFunction(QualType astReturnType, llvm::ArrayRef<QualType> astParamTypes,
-                SourceLocation, llvm::StringRef name = "",
-                bool precise = false);
+  SpirvFunction(QualType astReturnType, SourceLocation,
+                llvm::StringRef name = "", bool precise = false);
   ~SpirvFunction() = default;
 
   // Forbid copy construction and assignment
@@ -53,12 +52,10 @@ public:
   // Gets the function AST return type
   QualType getAstReturnType() const { return astReturnType; }
 
-  // Sets the vector of parameter QualTypes.
-  void setAstParamTypes(llvm::ArrayRef<QualType> paramTypes) {
-    astParamTypes.append(paramTypes.begin(), paramTypes.end());
+  // Gets the vector of parameters.
+  llvm::SmallVector<SpirvFunctionParameter *, 8> getParameters() const {
+    return parameters;
   }
-  // Gets the vector of parameter QualTypes.
-  llvm::ArrayRef<QualType> getAstParamTypes() const { return astParamTypes; }
 
   // Sets the SPIR-V type of the function
   void setFunctionType(SpirvType *type) { fnType = type; }
@@ -99,7 +96,6 @@ private:
   uint32_t functionId; ///< This function's <result-id>
 
   QualType astReturnType;                       ///< The return type
-  llvm::SmallVector<QualType, 4> astParamTypes; ///< The paratemer types in AST
   SpirvType *returnType;                        ///< The lowered return type
   SpirvType *fnType;                            ///< The SPIR-V function type
 

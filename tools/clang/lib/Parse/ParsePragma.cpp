@@ -2199,7 +2199,6 @@ void PragmaPackMatrixHandler::HandlePragma(Preprocessor &PP,
                                            PragmaIntroducerKind Introducer,
                                            Token &Tok) {
   assert(PP.getLangOpts().HLSL && "only supported in HLSL");
-  Token PragmaName = Tok;
   PP.Lex(Tok);
   if (!Tok.is(tok::l_paren)) {
     PP.Diag(Tok, diag::err_expected) << tok::l_brace;

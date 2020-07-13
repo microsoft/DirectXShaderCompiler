@@ -25,6 +25,7 @@ groupshared int C;
 // CHECK: %D = OpVariable %_ptr_Workgroup_S Workgroup
 groupshared S D;
 
+[numthreads(1,1,1)]
 void main() {
 // CHECK: %E = OpVariable %_ptr_Function_int Function
   int E;

@@ -323,8 +323,11 @@ void EmitAssemblyHelper::CreatePasses() {
   PMBuilder.SLPVectorize = CodeGenOpts.VectorizeSLP;
   PMBuilder.LoopVectorize = CodeGenOpts.VectorizeLoop;
   PMBuilder.HLSLHighLevel = CodeGenOpts.HLSLHighLevel; // HLSL Change
+  PMBuilder.HLSLAllowPreserveValues = CodeGenOpts.HLSLAllowPreserveValues; // HLSL Change
   PMBuilder.HLSLExtensionsCodeGen = CodeGenOpts.HLSLExtensionsCodegen.get(); // HLSL Change
   PMBuilder.HLSLResMayAlias = CodeGenOpts.HLSLResMayAlias; // HLSL Change
+  PMBuilder.ScanLimit = CodeGenOpts.ScanLimit; // HLSL Change
+  PMBuilder.HLSLOptimizationOptions = CodeGenOpts.HLSLOptimizationOptions; // HLSL Change
 
   PMBuilder.DisableUnitAtATime = !CodeGenOpts.UnitAtATime;
   PMBuilder.DisableUnrollLoops = !CodeGenOpts.UnrollLoops;

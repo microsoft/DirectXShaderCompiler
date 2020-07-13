@@ -1678,6 +1678,14 @@ const char* g_DeprecatedEffectObjectNames[] =
   "RenderTargetView", // 16
 };
 
+static bool IsVariadicIntrinsicFunction(const HLSL_INTRINSIC *fn) {
+  return fn->pArgs[fn->uNumArgs - 1].uTemplateId == INTRIN_TEMPLATE_VARARGS;
+}
+
+static bool IsVariadicArgument(const HLSL_INTRINSIC_ARGUMENT &arg) {
+  return arg.uTemplateId == INTRIN_TEMPLATE_VARARGS;
+}
+
 static hlsl::ParameterModifier
 ParamModsFromIntrinsicArg(const HLSL_INTRINSIC_ARGUMENT *pArg) {
   if (pArg->qwUsage == AR_QUAL_IN_OUT) {
@@ -1693,8 +1701,21 @@ ParamModsFromIntrinsicArg(const HLSL_INTRINSIC_ARGUMENT *pArg) {
 static void InitParamMods(const HLSL_INTRINSIC *pIntrinsic,
                           SmallVectorImpl<hlsl::ParameterModifier> &paramMods) {
   // The first argument is the return value, which isn't included.
-  for (UINT i = 1; i < pIntrinsic->uNumArgs; ++i) {
+  UINT i = 1, size = paramMods.size();
+  for (; i < pIntrinsic->uNumArgs; ++i) {
+    // Once we reach varargs we can break out of this loop.
+    if (IsVariadicArgument(pIntrinsic->pArgs[i]))
+      break;
     paramMods.push_back(ParamModsFromIntrinsicArg(&pIntrinsic->pArgs[i]));
+  }
+
+  // For variadic functions, any argument not explicitly specified will be
+  // considered an input argument.
+  if (IsVariadicIntrinsicFunction(pIntrinsic)) {
+    for (; i < size; ++i) {
+      paramMods.push_back(
+          hlsl::ParameterModifier(hlsl::ParameterModifier::Kind::In));
+    }
   }
 }
 
@@ -1761,6 +1782,8 @@ static void AddHLSLIntrinsicAttr(FunctionDecl *FD, ASTContext &context,
     FD->addAttr(ConstAttr::CreateImplicit(context));
   if (pIntrinsic->bReadOnly)
     FD->addAttr(PureAttr::CreateImplicit(context));
+  if (pIntrinsic->bIsWave)
+    FD->addAttr(HLSLWaveSensitiveAttr::CreateImplicit(context));
 }
 
 static
@@ -1768,13 +1791,24 @@ FunctionDecl *AddHLSLIntrinsicFunction(
     ASTContext &context, _In_ NamespaceDecl *NS,
     LPCSTR tableName, LPCSTR lowering,
     _In_ const HLSL_INTRINSIC *pIntrinsic,
-    _In_count_(functionArgTypeCount) QualType *functionArgQualTypes,
-    _In_range_(0, g_MaxIntrinsicParamCount - 1) size_t functionArgTypeCount) {
-  DXASSERT(functionArgTypeCount - 1 <= g_MaxIntrinsicParamCount,
-           "otherwise g_MaxIntrinsicParamCount should be larger");
+    std::vector<QualType> *functionArgQualTypesVector)
+{
   DeclContext *currentDeclContext = context.getTranslationUnitDecl();
+  std::vector<QualType> &functionArgQualTypes = *functionArgQualTypesVector;
+  const size_t functionArgTypeCount = functionArgQualTypes.size();
+
+  const bool isVariadic = IsVariadicIntrinsicFunction(pIntrinsic);
+  DXASSERT(isVariadic || functionArgTypeCount - 1 <= g_MaxIntrinsicParamCount,
+           "otherwise g_MaxIntrinsicParamCount should be larger");
 
   SmallVector<hlsl::ParameterModifier, g_MaxIntrinsicParamCount> paramMods;
+
+  if (isVariadic) {
+    // For variadic functions, the number of arguments is larger than the
+    // function declaration signature.
+    paramMods.resize(functionArgTypeCount);
+  }
+
   InitParamMods(pIntrinsic, paramMods);
 
   // Change dest address into reference type for atomic.
@@ -1803,11 +1837,15 @@ FunctionDecl *AddHLSLIntrinsicFunction(
   IdentifierInfo &functionId = context.Idents.get(
       StringRef(pIntrinsic->pArgs[0].pName), tok::TokenKind::identifier);
   DeclarationName functionName(&functionId);
-  QualType functionType = context.getFunctionType(
-      functionArgQualTypes[0],
-      ArrayRef<QualType>(functionArgQualTypes + 1,
-                         functionArgQualTypes + functionArgTypeCount),
-      clang::FunctionProtoType::ExtProtoInfo(), paramMods);
+  auto protoInfo = clang::FunctionProtoType::ExtProtoInfo();
+  protoInfo.Variadic = isVariadic;
+  // functionArgQualTypes first element is the function return type, and
+  // function argument types start at index 1.
+  const QualType fnReturnType = functionArgQualTypes[0];
+  std::vector<QualType> fnArgTypes(functionArgQualTypes.begin() + 1,
+                                   functionArgQualTypes.end());
+  QualType functionType =
+      context.getFunctionType(fnReturnType, fnArgTypes, protoInfo, paramMods);
   FunctionDecl *functionDecl = FunctionDecl::Create(
       context, currentDeclContext, NoLoc,
       DeclarationNameInfo(functionName, NoLoc), functionType, nullptr,
@@ -1820,20 +1858,24 @@ FunctionDecl *AddHLSLIntrinsicFunction(
   // Add intrinsic attribute
   AddHLSLIntrinsicAttr(functionDecl, context, tableName, lowering, pIntrinsic);
 
-  ParmVarDecl *paramDecls[g_MaxIntrinsicParamCount];
+  llvm::SmallVector<ParmVarDecl *, 4> paramDecls;
   for (size_t i = 1; i < functionArgTypeCount; i++) {
-    IdentifierInfo &parameterId = context.Idents.get(
-        StringRef(pIntrinsic->pArgs[i].pName), tok::TokenKind::identifier);
+    // For variadic functions all non-explicit arguments will have the same
+    // name: "..."
+    std::string name = i < pIntrinsic->uNumArgs - 1
+                           ? pIntrinsic->pArgs[i].pName
+                           : pIntrinsic->pArgs[pIntrinsic->uNumArgs - 1].pName;
+    IdentifierInfo &parameterId =
+        context.Idents.get(name, tok::TokenKind::identifier);
     ParmVarDecl *paramDecl =
         ParmVarDecl::Create(context, functionDecl, NoLoc, NoLoc, &parameterId,
                             functionArgQualTypes[i], nullptr,
                             StorageClass::SC_None, nullptr, paramMods[i - 1]);
     functionDecl->addDecl(paramDecl);
-    paramDecls[i - 1] = paramDecl;
+    paramDecls.push_back(paramDecl);
   }
 
-  functionDecl->setParams(
-      ArrayRef<ParmVarDecl *>(paramDecls, functionArgTypeCount - 1));
+  functionDecl->setParams(paramDecls);
   functionDecl->setImplicit(true);
 
   return functionDecl;
@@ -1889,8 +1931,17 @@ public:
 
     // At this point, it's the exact same intrinsic name.
     // Compare the arguments for ordering then.
-    DXASSERT(m_argLength == other.m_argLength, "intrinsics aren't overloaded on argument count, so we should never create a key with different #s");
-    for (size_t i = 0; i < m_argLength; i++) {
+
+    DXASSERT(IsVariadicIntrinsicFunction(m_intrinsicSource) ||
+                 m_args.size() == other.m_args.size(),
+             "only variadic intrinsics can be overloaded on argument count");
+
+    // For variadic functions with different number of args, order by number of
+    // arguments.
+    if (m_args.size() != other.m_args.size())
+      return m_args.size() - other.m_args.size();
+
+    for (size_t i = 0; i < m_args.size(); i++) {
       int argComparison = compareArgs(m_args[i], other.m_args[i]);
       if (argComparison != 0) return argComparison;
     }
@@ -1900,10 +1951,9 @@ public:
   }
 
 public:
-  UsedIntrinsic(const HLSL_INTRINSIC* intrinsicSource, _In_count_(argCount) QualType* args, size_t argCount)
-    : m_argLength(argCount), m_intrinsicSource(intrinsicSource), m_functionDecl(nullptr)
+  UsedIntrinsic(const HLSL_INTRINSIC* intrinsicSource, llvm::ArrayRef<QualType> args)
+    : m_args(args.begin(), args.end()), m_intrinsicSource(intrinsicSource), m_functionDecl(nullptr)
   {
-    std::copy(args, args + argCount, m_args);
   }
 
   void setFunctionDecl(FunctionDecl* value) const
@@ -1925,8 +1975,7 @@ public:
   }
 
 private:
-  QualType m_args[g_MaxIntrinsicParamCount+1];
-  size_t m_argLength;
+  std::vector<QualType> m_args;
   const HLSL_INTRINSIC* m_intrinsicSource;
   mutable FunctionDecl* m_functionDecl;
 };
@@ -2742,7 +2791,7 @@ namespace hlsl {
       if (funcDecl) {
         if (m_sourceIt == m_callNodes.end()) {
           auto result = m_callNodes.insert(
-            std::pair<FunctionDecl*, CallNode>(m_source, CallNode{ m_source }));
+              std::make_pair(m_source, CallNode{m_source, {}}));
           DXASSERT(result.second == true,
             "else setSourceFn didn't assign m_sourceIt");
           m_sourceIt = result.first;
@@ -3983,6 +4032,10 @@ public:
     case AR_BASIC_ENUM_CLASS:     return m_context->IntTy;
 
     case AR_OBJECT_STRING:        return m_hlslStringType;
+    case AR_OBJECT_STRING_LITERAL:
+      // m_hlslStringType is defined as 'char *'.
+      // for STRING_LITERAL we should use 'const char *'.
+      return m_context->getPointerType(m_context->CharTy.withConst());
     
     case AR_OBJECT_LEGACY_EFFECT:   // used for all legacy effect object types
 
@@ -4138,8 +4191,7 @@ public:
     _In_ QualType objectElement,
     _In_ QualType functionTemplateTypeArg,
     _In_ ArrayRef<Expr *> Args, 
-    _Out_writes_(g_MaxIntrinsicParamCount + 1) QualType(&argTypes)[g_MaxIntrinsicParamCount + 1],
-    _Out_range_(0, g_MaxIntrinsicParamCount + 1) size_t* argCount);
+    _Out_ std::vector<QualType> *);
 
   /// <summary>Validate object element on intrinsic to catch case like integer on Sample.</summary>
   /// <param name="pIntrinsic">Intrinsic function to validate.</param>
@@ -4167,8 +4219,10 @@ public:
     for (unsigned int i = 0; i < tableSize; i++) {
       const HLSL_INTRINSIC* pIntrinsic = &table[i];
 
+      const bool isVariadicFn = IsVariadicIntrinsicFunction(pIntrinsic);
+
       // Do some quick checks to verify size and name.
-      if (pIntrinsic->uNumArgs != 1 + argumentCount) {
+      if (!isVariadicFn && pIntrinsic->uNumArgs != 1 + argumentCount) {
         continue;
       }
       if (!nameIdentifier.equals(StringRef(pIntrinsic->pArgs[0].pName))) {
@@ -4220,9 +4274,8 @@ public:
       DXASSERT(
         pIntrinsic->uNumArgs <= g_MaxIntrinsicParamCount + 1,
         "otherwise g_MaxIntrinsicParamCount needs to be updated for wider signatures");
-      QualType functionArgTypes[g_MaxIntrinsicParamCount + 1];
-      size_t functionArgTypeCount = 0;
-      if (!MatchArguments(pIntrinsic, QualType(), QualType(), Args, functionArgTypes, &functionArgTypeCount))
+      std::vector<QualType> functionArgTypes;
+      if (!MatchArguments(pIntrinsic, QualType(), QualType(), Args, &functionArgTypes))
       {
         ++cursor;
         continue;
@@ -4230,13 +4283,13 @@ public:
 
       // Get or create the overload we're interested in.
       FunctionDecl* intrinsicFuncDecl = nullptr;
-      std::pair<UsedIntrinsicStore::iterator, bool> insertResult = m_usedIntrinsics.insert(UsedIntrinsic(
-        pIntrinsic, functionArgTypes, functionArgTypeCount));
+      std::pair<UsedIntrinsicStore::iterator, bool> insertResult =
+          m_usedIntrinsics.insert(UsedIntrinsic(pIntrinsic, functionArgTypes));
       bool insertedNewValue = insertResult.second;
       if (insertedNewValue)
       {
         DXASSERT(tableName, "otherwise IDxcIntrinsicTable::GetTableName() failed");
-        intrinsicFuncDecl = AddHLSLIntrinsicFunction(*m_context, m_hlslNSDecl, tableName, lowering, pIntrinsic, functionArgTypes, functionArgTypeCount);
+        intrinsicFuncDecl = AddHLSLIntrinsicFunction(*m_context, m_hlslNSDecl, tableName, lowering, pIntrinsic, &functionArgTypes);
         insertResult.first->setFunctionDecl(intrinsicFuncDecl);
       }
       else
@@ -4603,15 +4656,13 @@ public:
   /// <param name="IsArrow">Whether access is through arrow (a->b) rather than period (a.b).</param>
   /// <param name="OpLoc">Location of access operand.</param>
   /// <param name="MemberLoc">Location of member.</param>
-  /// <param name="result">Result of lookup operation.</param>
-  /// <returns>true if the base type is a matrix and the lookup has been handled.</returns>
-  bool LookupMatrixMemberExprForHLSL(
+  /// <returns>Result of lookup operation.</returns>
+  ExprResult LookupMatrixMemberExprForHLSL(
     Expr& BaseExpr,
     DeclarationName MemberName,
     bool IsArrow,
     SourceLocation OpLoc,
-    SourceLocation MemberLoc,
-    ExprResult* result);
+    SourceLocation MemberLoc);
 
   /// <summary>Performs a member lookup on the specified BaseExpr if it's a vector.</summary>
   /// <param name="BaseExpr">Base expression for member access.</param>
@@ -4619,15 +4670,13 @@ public:
   /// <param name="IsArrow">Whether access is through arrow (a->b) rather than period (a.b).</param>
   /// <param name="OpLoc">Location of access operand.</param>
   /// <param name="MemberLoc">Location of member.</param>
-  /// <param name="result">Result of lookup operation.</param>
-  /// <returns>true if the base type is a vector and the lookup has been handled.</returns>
-  bool LookupVectorMemberExprForHLSL(
+  /// <returns>Result of lookup operation.</returns>
+  ExprResult LookupVectorMemberExprForHLSL(
     Expr& BaseExpr,
     DeclarationName MemberName,
     bool IsArrow,
     SourceLocation OpLoc,
-    SourceLocation MemberLoc,
-    ExprResult* result);
+    SourceLocation MemberLoc);
 
   /// <summary>Performs a member lookup on the specified BaseExpr if it's an array.</summary>
   /// <param name="BaseExpr">Base expression for member access.</param>
@@ -4635,15 +4684,13 @@ public:
   /// <param name="IsArrow">Whether access is through arrow (a->b) rather than period (a.b).</param>
   /// <param name="OpLoc">Location of access operand.</param>
   /// <param name="MemberLoc">Location of member.</param>
-  /// <param name="result">Result of lookup operation.</param>
-  /// <returns>true if the base type is an array and the lookup has been handled.</returns>
-  bool LookupArrayMemberExprForHLSL(
+  /// <returns>Result of lookup operation.</returns>
+  ExprResult LookupArrayMemberExprForHLSL(
     Expr& BaseExpr,
     DeclarationName MemberName,
     bool IsArrow,
     SourceLocation OpLoc,
-    SourceLocation MemberLoc,
-    ExprResult* result);
+    SourceLocation MemberLoc);
 
   /// <summary>If E is a scalar, converts it to a 1-element vector.</summary>
   /// <param name="E">Expression to convert.</param>
@@ -5333,20 +5380,22 @@ bool HLSLExternalSource::MatchArguments(
   QualType objectElement,
   QualType functionTemplateTypeArg,
   ArrayRef<Expr *> Args,
-  QualType(&argTypes)[g_MaxIntrinsicParamCount + 1],
-  size_t* argCount)
+  std::vector<QualType> *argTypesVector)
 {
   DXASSERT_NOMSG(pIntrinsic != nullptr);
-  DXASSERT_NOMSG(argCount != nullptr);
+  DXASSERT_NOMSG(argTypesVector != nullptr);
+  std::vector<QualType> &argTypes = *argTypesVector;
+  argTypes.clear();
+  argTypes.resize(1 + Args.size()); // +1 for return type
+  const bool isVariadic = IsVariadicIntrinsicFunction(pIntrinsic);
 
   static const UINT UnusedSize = 0xFF;
   static const BYTE MaxIntrinsicArgs = g_MaxIntrinsicParamCount + 1;
 #define CAB(_) { if (!(_)) return false; }
-  *argCount = 0;
 
   ArTypeObjectKind Template[MaxIntrinsicArgs];  // Template type for each argument, AR_TOBJ_UNKNOWN if unspecified.
   ArBasicKind ComponentType[MaxIntrinsicArgs];  // Component type for each argument, AR_BASIC_UNKNOWN if unspecified.
-  UINT uSpecialSize[IA_SPECIAL_SLOTS];                // row/col matching types, UNUSED_INDEX32 if unspecified.
+  UINT uSpecialSize[IA_SPECIAL_SLOTS];          // row/col matching types, UNUSED_INDEX32 if unspecified.
 
   // Reset infos
   std::fill(Template, Template + _countof(Template), AR_TOBJ_UNKNOWN);
@@ -5363,14 +5412,20 @@ bool HLSLExternalSource::MatchArguments(
   for (; iterArg != end; ++iterArg) {
     Expr* pCallArg = *iterArg;
 
-    // No vararg support.
+    // If vararg is reached, we can break out of this loop.
+    if(pIntrinsic->pArgs[iArg].uTemplateId == INTRIN_TEMPLATE_VARARGS)
+      break;
+
+    // Check bounds for non-variadic functions.
     if (iArg >= _countof(Template) || iArg > pIntrinsic->uNumArgs) {
       return false;
     }
 
     const HLSL_INTRINSIC_ARGUMENT *pIntrinsicArg;
     pIntrinsicArg = &pIntrinsic->pArgs[iArg];
-    DXASSERT(pIntrinsicArg->uTemplateId != INTRIN_TEMPLATE_VARARGS, "no vararg support");
+    DXASSERT(isVariadic ||
+                 pIntrinsicArg->uTemplateId != INTRIN_TEMPLATE_VARARGS,
+             "found vararg for non-variadic function");
 
     QualType pType = pCallArg->getType();
     ArTypeObjectKind TypeInfoShapeKind = GetTypeObjectKind(pType);
@@ -5392,7 +5447,7 @@ bool HLSLExternalSource::MatchArguments(
     }
 
     if (pIntrinsicArg->uLegalComponentTypes == LICOMPTYPE_USER_DEFINED_TYPE) {
-      DXASSERT(objectElement.isNull(), "");
+      DXASSERT_NOMSG(objectElement.isNull());
       QualType Ty = pCallArg->getType();
       // Must be user define type for LICOMPTYPE_USER_DEFINED_TYPE arg.
       if (TypeInfoShapeKind != AR_TOBJ_COMPOUND) {
@@ -5438,6 +5493,7 @@ bool HLSLExternalSource::MatchArguments(
       break;
     case AR_TOBJ_BASIC:
     case AR_TOBJ_OBJECT:
+    case AR_TOBJ_STRING:
       break;
     default:
       return false; // no struct, arrays or void
@@ -5527,7 +5583,8 @@ bool HLSLExternalSource::MatchArguments(
     iArg++;
   }
 
-  DXASSERT(iterArg == end, "otherwise the argument list wasn't fully processed");
+  DXASSERT(isVariadic || iterArg == end,
+           "otherwise the argument list wasn't fully processed");
 
   // Default template and component type for return value
   if (pIntrinsic->pArgs[0].qwUsage
@@ -5561,6 +5618,10 @@ bool HLSLExternalSource::MatchArguments(
   for (size_t i = 0; i < Args.size() + 1; i++) {
     const HLSL_INTRINSIC_ARGUMENT *pArgument = &pIntrinsic->pArgs[i];
 
+    // If vararg is reached, we can break out of this loop.
+    if(pIntrinsic->pArgs[i].uTemplateId == INTRIN_TEMPLATE_VARARGS)
+      break;
+
     // Check template.
     if (pArgument->uTemplateId == INTRIN_TEMPLATE_FROM_TYPE
       || pArgument->uTemplateId == INTRIN_TEMPLATE_FROM_FUNCTION) {
@@ -5573,6 +5634,9 @@ bool HLSLExternalSource::MatchArguments(
     const ArTypeObjectKind *pTT = g_LegalIntrinsicTemplates[pArgument->uLegalTemplates];
     if (AR_TOBJ_UNKNOWN != Template[i]) {
       if ((AR_TOBJ_SCALAR == Template[i]) && (AR_TOBJ_VECTOR == *pTT || AR_TOBJ_MATRIX == *pTT)) {
+        Template[i] = *pTT;
+      }
+      else if(AR_TOBJ_STRING == Template[i] && *pTT == AR_TOBJ_OBJECT) {
         Template[i] = *pTT;
       }
       else {
@@ -5633,6 +5697,10 @@ bool HLSLExternalSource::MatchArguments(
   // Populate argTypes.
   for (size_t i = 0; i <= Args.size(); i++) {
     const HLSL_INTRINSIC_ARGUMENT *pArgument = &pIntrinsic->pArgs[i];
+
+    // If vararg is reached, we can break out of this loop.
+    if (pArgument->uTemplateId == INTRIN_TEMPLATE_VARARGS)
+      break;
 
     if (!pArgument->qwUsage)
       continue;
@@ -5796,10 +5864,17 @@ bool HLSLExternalSource::MatchArguments(
     //}
   }
 
-  *argCount = iArg;
-  DXASSERT(
-    *argCount == pIntrinsic->uNumArgs,
-    "In the absence of varargs, a successful match would indicate we have as many arguments and types as the intrinsic template");
+  // For variadic functions, we need to add the additional arguments here.
+  if(isVariadic) {
+    for (; iArg <= Args.size(); ++iArg) {
+      argTypes[iArg] = Args[iArg - 1]->getType().getNonReferenceType();
+    }
+  } else {
+    DXASSERT(iArg == pIntrinsic->uNumArgs,
+             "In the absence of varargs, a successful match would indicate we "
+             "have as many arguments and types as the intrinsic template");
+  }
+
   return true;
 #undef CAB
 }
@@ -7260,26 +7335,16 @@ MatrixMemberAccessError TryParseMatrixMemberAccess(_In_z_ const char* memberText
   return MatrixMemberAccessError_None;
 }
 
-bool HLSLExternalSource::LookupMatrixMemberExprForHLSL(
+ExprResult HLSLExternalSource::LookupMatrixMemberExprForHLSL(
   Expr& BaseExpr,
   DeclarationName MemberName,
   bool IsArrow,
   SourceLocation OpLoc,
-  SourceLocation MemberLoc,
-  ExprResult* result)
+  SourceLocation MemberLoc)
 {
-  DXASSERT_NOMSG(result != nullptr);
-
   QualType BaseType = BaseExpr.getType();
   DXASSERT(!BaseType.isNull(), "otherwise caller should have stopped analysis much earlier");
-
-  // Assume failure.
-  *result = ExprError();
-
-  if (GetTypeObjectKind(BaseType) != AR_TOBJ_MATRIX)
-  {
-    return false;
-  }
+  DXASSERT(GetTypeObjectKind(BaseType) == AR_TOBJ_MATRIX, "Should only be called on known matrix types");
 
   QualType elementType;
   UINT rowCount, colCount;
@@ -7341,7 +7406,7 @@ bool HLSLExternalSource::LookupMatrixMemberExprForHLSL(
     // processing.
     if (!positions.IsValid)
     {
-      return true;
+      return ExprError();
     }
   }
 
@@ -7361,9 +7426,8 @@ bool HLSLExternalSource::LookupMatrixMemberExprForHLSL(
     positions.ContainsDuplicateElements() ? VK_RValue :
       (IsArrow ? VK_LValue : BaseExpr.getValueKind());
   ExtMatrixElementExpr* matrixExpr = new (m_context)ExtMatrixElementExpr(resultType, VK, &BaseExpr, *member, MemberLoc, positions);
-  *result = matrixExpr;
 
-  return true;
+  return matrixExpr;
 }
 
 enum VectorMemberAccessError {
@@ -7463,7 +7527,7 @@ VectorMemberAccessError TryParseVectorMemberAccess(_In_z_ const char* memberText
   return VectorMemberAccessError_None;
 }
 
-static bool IsExprAccessingOutIndicesArray(Expr* BaseExpr) {
+bool IsExprAccessingOutIndicesArray(Expr* BaseExpr) {
   switch(BaseExpr->getStmtClass()) {
   case Stmt::ArraySubscriptExprClass: {
     ArraySubscriptExpr* ase = cast<ArraySubscriptExpr>(BaseExpr);
@@ -7486,24 +7550,15 @@ static bool IsExprAccessingOutIndicesArray(Expr* BaseExpr) {
   }
 }
 
-bool HLSLExternalSource::LookupVectorMemberExprForHLSL(
+ExprResult HLSLExternalSource::LookupVectorMemberExprForHLSL(
     Expr& BaseExpr,
     DeclarationName MemberName,
     bool IsArrow,
     SourceLocation OpLoc,
-    SourceLocation MemberLoc,
-    ExprResult* result) {
-  DXASSERT_NOMSG(result != nullptr);
-
+    SourceLocation MemberLoc) {
   QualType BaseType = BaseExpr.getType();
   DXASSERT(!BaseType.isNull(), "otherwise caller should have stopped analysis much earlier");
-
-  // Assume failure.
-  *result = ExprError();
-
-  if (GetTypeObjectKind(BaseType) != AR_TOBJ_VECTOR) {
-    return false;
-  }
+  DXASSERT(GetTypeObjectKind(BaseType) == AR_TOBJ_VECTOR, "Should only be called on known vector types");
 
   QualType elementType;
   UINT colCount = GetHLSLVecSize(BaseType);
@@ -7553,7 +7608,7 @@ bool HLSLExternalSource::LookupVectorMemberExprForHLSL(
     // generate the member access expression with the correct arity and continue
     // processing.
     if (!positions.IsValid) {
-      return true;
+      return ExprError();
     }
   }
 
@@ -7561,10 +7616,10 @@ bool HLSLExternalSource::LookupVectorMemberExprForHLSL(
 
   // Disallow component access for out indices for DXIL path. We still allow
   // this in SPIR-V path.
-  if (!getSema()->getLangOpts().SPIRV &&
+  if (!m_sema->getLangOpts().SPIRV &&
       IsExprAccessingOutIndicesArray(&BaseExpr) && positions.Count < colCount) {
     m_sema->Diag(MemberLoc, diag::err_hlsl_out_indices_array_incorrect_access);
-    return false;
+    return ExprError();
   }
 
   // Consume elements
@@ -7581,30 +7636,20 @@ bool HLSLExternalSource::LookupVectorMemberExprForHLSL(
     positions.ContainsDuplicateElements() ? VK_RValue :
       (IsArrow ? VK_LValue : BaseExpr.getValueKind());
   HLSLVectorElementExpr* vectorExpr = new (m_context)HLSLVectorElementExpr(resultType, VK, &BaseExpr, *member, MemberLoc, positions);
-  *result = vectorExpr;
 
-  return true;
+  return vectorExpr;
 }
 
-bool HLSLExternalSource::LookupArrayMemberExprForHLSL(
+ExprResult HLSLExternalSource::LookupArrayMemberExprForHLSL(
   Expr& BaseExpr,
   DeclarationName MemberName,
   bool IsArrow,
   SourceLocation OpLoc,
-  SourceLocation MemberLoc,
-  ExprResult* result) {
-
-  DXASSERT_NOMSG(result != nullptr);
+  SourceLocation MemberLoc) {
 
   QualType BaseType = BaseExpr.getType();
   DXASSERT(!BaseType.isNull(), "otherwise caller should have stopped analysis much earlier");
-
-  // Assume failure.
-  *result = ExprError();
-
-  if (GetTypeObjectKind(BaseType) != AR_TOBJ_ARRAY) {
-    return false;
-  }
+  DXASSERT(GetTypeObjectKind(BaseType) == AR_TOBJ_ARRAY, "Should only be called on known array types");
 
   IdentifierInfo *member = MemberName.getAsIdentifierInfo();
   const char *memberText = member->getNameStart();
@@ -7616,7 +7661,7 @@ bool HLSLExternalSource::LookupArrayMemberExprForHLSL(
       unsigned hlslVer = getSema()->getLangOpts().HLSLVersion;
       if (hlslVer > 2016) {
         m_sema->Diag(MemberLoc, diag::err_hlsl_unsupported_for_version_lower) << "Length" << "2016";
-        return false;
+        return ExprError();
       }
       if (hlslVer == 2016) {
         m_sema->Diag(MemberLoc, diag::warn_deprecated) << "Length";
@@ -7625,11 +7670,13 @@ bool HLSLExternalSource::LookupArrayMemberExprForHLSL(
       UnaryExprOrTypeTraitExpr *arrayLenExpr = new (m_context) UnaryExprOrTypeTraitExpr(
         UETT_ArrayLength, &BaseExpr, m_context->getSizeType(), MemberLoc, BaseExpr.getSourceRange().getEnd());
 
-      *result = arrayLenExpr;
-      return true;
+      return arrayLenExpr;
     }
   }
-  return false;
+  m_sema->Diag(MemberLoc, diag::err_typecheck_member_reference_struct_union)
+    << BaseType << BaseExpr.getSourceRange() << MemberLoc;
+
+  return ExprError();
 }
   
 
@@ -9214,15 +9261,14 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
     "or the parser let a user-defined template object through");
 
   // Look for an intrinsic for which we can match arguments.
-  size_t argCount;
-  QualType argTypes[g_MaxIntrinsicParamCount + 1];
+  std::vector<QualType> argTypes;
   StringRef nameIdentifier = FunctionTemplate->getName();
   IntrinsicDefIter cursor = FindIntrinsicByNameAndArgCount(intrinsics, intrinsicCount, objectName, nameIdentifier, Args.size());
   IntrinsicDefIter end = IntrinsicDefIter::CreateEnd(intrinsics, intrinsicCount, IntrinsicTableDefIter::CreateEnd(m_intrinsicTables));
 
   while (cursor != end)
   {
-    if (!MatchArguments(*cursor, objectElement, functionTemplateTypeArg, Args, argTypes, &argCount))
+    if (!MatchArguments(*cursor, objectElement, functionTemplateTypeArg, Args, &argTypes))
     {
       ++cursor;
       continue;
@@ -9276,7 +9322,7 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
             32, /*signed*/ false);
       }
     }
-    Specialization = AddHLSLIntrinsicMethod(cursor.GetTableName(), cursor.GetLoweringStrategy(), *cursor, FunctionTemplate, Args, argTypes, argCount);
+    Specialization = AddHLSLIntrinsicMethod(cursor.GetTableName(), cursor.GetLoweringStrategy(), *cursor, FunctionTemplate, Args, argTypes.data(), argTypes.size());
     DXASSERT_NOMSG(Specialization->getPrimaryTemplate()->getCanonicalDecl() ==
       FunctionTemplate->getCanonicalDecl());
 
@@ -10083,43 +10129,66 @@ bool hlsl::IsConversionToLessOrEqualElements(
     ->IsConversionToLessOrEqualElements(sourceExpr, targetType, explicitConversion);
 }
 
-bool hlsl::LookupMatrixMemberExprForHLSL(
+ExprResult hlsl::LookupMatrixMemberExprForHLSL(
   Sema* self,
   Expr& BaseExpr,
   DeclarationName MemberName,
   bool IsArrow,
   SourceLocation OpLoc,
-  SourceLocation MemberLoc,
-  ExprResult* result)
+  SourceLocation MemberLoc)
 {
   return HLSLExternalSource::FromSema(self)
-    ->LookupMatrixMemberExprForHLSL(BaseExpr, MemberName, IsArrow, OpLoc, MemberLoc, result);
+    ->LookupMatrixMemberExprForHLSL(BaseExpr, MemberName, IsArrow, OpLoc, MemberLoc);
 }
 
-bool hlsl::LookupVectorMemberExprForHLSL(
+ExprResult hlsl::LookupVectorMemberExprForHLSL(
   Sema* self,
   Expr& BaseExpr,
   DeclarationName MemberName,
   bool IsArrow,
   SourceLocation OpLoc,
-  SourceLocation MemberLoc,
-  ExprResult* result)
+  SourceLocation MemberLoc)
 {
   return HLSLExternalSource::FromSema(self)
-    ->LookupVectorMemberExprForHLSL(BaseExpr, MemberName, IsArrow, OpLoc, MemberLoc, result);
+    ->LookupVectorMemberExprForHLSL(BaseExpr, MemberName, IsArrow, OpLoc, MemberLoc);
 }
 
-bool hlsl::LookupArrayMemberExprForHLSL(
+ExprResult hlsl::LookupArrayMemberExprForHLSL(
+  Sema* self,
+  Expr& BaseExpr,
+  DeclarationName MemberName,
+  bool IsArrow,
+  SourceLocation OpLoc,
+  SourceLocation MemberLoc)
+{
+  return HLSLExternalSource::FromSema(self)
+    ->LookupArrayMemberExprForHLSL(BaseExpr, MemberName, IsArrow, OpLoc, MemberLoc);
+}
+
+bool hlsl::LookupRecordMemberExprForHLSL(
   Sema* self,
   Expr& BaseExpr,
   DeclarationName MemberName,
   bool IsArrow,
   SourceLocation OpLoc,
   SourceLocation MemberLoc,
-  ExprResult* result)
+  ExprResult &result)
 {
-  return HLSLExternalSource::FromSema(self)
-    ->LookupArrayMemberExprForHLSL(BaseExpr, MemberName, IsArrow, OpLoc, MemberLoc, result);
+  HLSLExternalSource *source = HLSLExternalSource::FromSema(self);
+  switch (source->GetTypeObjectKind(BaseExpr.getType())) {
+  case AR_TOBJ_MATRIX:
+    result = source->LookupMatrixMemberExprForHLSL(BaseExpr, MemberName, IsArrow, OpLoc, MemberLoc);
+    return true;
+  case AR_TOBJ_VECTOR:
+    result = source->LookupVectorMemberExprForHLSL(BaseExpr, MemberName, IsArrow, OpLoc, MemberLoc);
+    return true;
+  case AR_TOBJ_ARRAY:
+    result = source->LookupArrayMemberExprForHLSL(BaseExpr, MemberName, IsArrow, OpLoc, MemberLoc);
+    return true;
+  default:
+    return false;
+  }
+  return false;
 }
 
 clang::ExprResult hlsl::MaybeConvertScalarToVector(
@@ -11217,6 +11286,9 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     break;
   case AttributeList::AT_HLSLExport:
     declAttr = ::new (S.Context) HLSLExportAttr(A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_HLSLWaveSensitive:
+    declAttr = ::new (S.Context) HLSLWaveSensitiveAttr(A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
   default:
     Handled = false;
@@ -12405,7 +12477,7 @@ void hlsl::CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out, con
     Attr * noconst = const_cast<Attr*>(A);
     HLSLRootSignatureAttr *ACast = static_cast<HLSLRootSignatureAttr*>(noconst);
     Indent(Indentation, Out);
-    Out << "[RootSignature(" << ACast->getSignatureName() << ")]\n";
+    Out << "[RootSignature(\"" << ACast->getSignatureName() << "\")]\n";
     break;
   }
 
@@ -12655,6 +12727,7 @@ bool hlsl::IsHLSLAttr(clang::attr::Kind AttrKind) {
   case clang::attr::HLSLPayload:
   case clang::attr::NoInline:
   case clang::attr::HLSLExport:
+  case clang::attr::HLSLWaveSensitive:
   case clang::attr::VKBinding:
   case clang::attr::VKBuiltIn:
   case clang::attr::VKConstantId:

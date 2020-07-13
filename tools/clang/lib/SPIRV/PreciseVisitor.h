@@ -20,25 +20,27 @@ public:
   PreciseVisitor(SpirvContext &spvCtx, const SpirvCodeGenOptions &opts)
       : Visitor(opts, spvCtx) {}
 
-  bool visit(SpirvFunction *, Phase);
+  bool visit(SpirvFunction *, Phase) override;
 
-  bool visit(SpirvVariable *);
-  bool visit(SpirvReturn *);
-  bool visit(SpirvSelect *);
-  bool visit(SpirvVectorShuffle *);
-  bool visit(SpirvBitFieldExtract *);
-  bool visit(SpirvBitFieldInsert *);
-  bool visit(SpirvAtomic *);
-  bool visit(SpirvCompositeConstruct *);
-  bool visit(SpirvCompositeExtract *);
-  bool visit(SpirvCompositeInsert *);
-  bool visit(SpirvLoad *);
-  bool visit(SpirvStore *);
-  bool visit(SpirvBinaryOp *);
-  bool visit(SpirvUnaryOp *);
-  bool visit(SpirvNonUniformBinaryOp *);
-  bool visit(SpirvNonUniformUnaryOp *);
-  bool visit(SpirvExtInst *);
+  bool visit(SpirvVariable *) override;
+  bool visit(SpirvReturn *) override;
+  bool visit(SpirvSelect *) override;
+  bool visit(SpirvVectorShuffle *) override;
+  bool visit(SpirvBitFieldExtract *) override;
+  bool visit(SpirvBitFieldInsert *) override;
+  bool visit(SpirvAtomic *) override;
+  bool visit(SpirvCompositeConstruct *) override;
+  bool visit(SpirvCompositeExtract *) override;
+  bool visit(SpirvCompositeInsert *) override;
+  bool visit(SpirvLoad *) override;
+  bool visit(SpirvStore *) override;
+  bool visit(SpirvBinaryOp *) override;
+  bool visit(SpirvUnaryOp *) override;
+  bool visit(SpirvNonUniformBinaryOp *) override;
+  bool visit(SpirvNonUniformUnaryOp *) override;
+  bool visit(SpirvExtInst *) override;
+
+  using Visitor::visit;
 
   // TODO: Support propagation of 'precise' through OpSpecConstantOp and image
   // operations if necessary. Related instruction classes are:

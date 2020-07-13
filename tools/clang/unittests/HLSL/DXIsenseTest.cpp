@@ -153,7 +153,7 @@ TEST_F(DXIntellisenseTest, CursorWhenCBufferRefThenFound) {
   unsigned line;
 
   CompilationResult c(CompilationResult::CreateForProgram(program, strlen(program)));
-  VERIFY_ARE_EQUAL(true, c.ParseSucceeded());
+  VERIFY_IS_TRUE(c.ParseSucceeded());
   ExpectCursorAt(c.TU, 4, 1, DxcCursor_DeclRefExpr, &varRefCursor);
   VERIFY_SUCCEEDED(c.TU->GetFile(CompilationResult::getDefaultFileName(), &file));
   VERIFY_SUCCEEDED(varRefCursor->FindReferencesInFile(file, 0, 4, refs.size_ref(), refs.data_ref()));
@@ -176,7 +176,7 @@ TEST_F(DXIntellisenseTest, CursorWhenPresumedLocationDifferentFromSpellingLocati
   unsigned presumedLine, presumedCol;
   
   CompilationResult c(CompilationResult::CreateForProgram(program, strlen(program)));
-  VERIFY_ARE_EQUAL(true, c.ParseSucceeded());
+  VERIFY_IS_TRUE(c.ParseSucceeded());
   ExpectCursorAt(c.TU, 2, 1, DxcCursor_StructDecl, &varCursor);
   VERIFY_SUCCEEDED(varCursor->GetLocation(&loc));
 
@@ -202,7 +202,7 @@ TEST_F(DXIntellisenseTest, CursorWhenPresumedLocationSameAsSpellingLocation) {
   unsigned presumedLine, presumedCol;
   
   CompilationResult c(CompilationResult::CreateForProgram(program, strlen(program)));
-  VERIFY_ARE_EQUAL(true, c.ParseSucceeded());
+  VERIFY_IS_TRUE(c.ParseSucceeded());
   ExpectCursorAt(c.TU, 1, 1, DxcCursor_StructDecl, &varCursor);
   VERIFY_SUCCEEDED(varCursor->GetLocation(&loc));
   
@@ -274,7 +274,7 @@ TEST_F(DXIntellisenseTest, InclusionWhenValidThenAvailable) {
 TEST_F(DXIntellisenseTest, TUWhenGetFileMissingThenFail) {
   const char program[] = "int i;";
   CompilationResult result = CompilationResult::CreateForProgram(program, strlen(program), nullptr);
-  VERIFY_ARE_EQUAL(true, result.ParseSucceeded());
+  VERIFY_IS_TRUE(result.ParseSucceeded());
   CComPtr<IDxcFile> file;
   VERIFY_FAILED(result.TU->GetFile("unknonwn.txt", &file));
 }
@@ -282,7 +282,7 @@ TEST_F(DXIntellisenseTest, TUWhenGetFileMissingThenFail) {
 TEST_F(DXIntellisenseTest, TUWhenGetFilePresentThenOK) {
   const char program[] = "int i;";
   CompilationResult result = CompilationResult::CreateForProgram(program, strlen(program), nullptr);
-  VERIFY_ARE_EQUAL(true, result.ParseSucceeded());
+  VERIFY_IS_TRUE(result.ParseSucceeded());
   CComPtr<IDxcFile> file;
   VERIFY_SUCCEEDED(result.TU->GetFile(CompilationResult::getDefaultFileName(), &file));
   VERIFY_IS_NOT_NULL(file.p);
@@ -299,17 +299,17 @@ TEST_F(DXIntellisenseTest, TUWhenEmptyStructThenErrorIfISense) {
   CompilationResult result15WithDef(
     CompilationResult::CreateForProgramAndArgs(programWithDef, _countof(programWithDef),
       args2015, _countof(args2015), nullptr));
-  VERIFY_ARE_EQUAL(true, result15WithDef.ParseSucceeded());
+  VERIFY_IS_TRUE(result15WithDef.ParseSucceeded());
 
   CompilationResult result15(
     CompilationResult::CreateForProgramAndArgs(program, _countof(program),
       args2015, _countof(args2015), nullptr));
-  VERIFY_ARE_EQUAL(false, result15.ParseSucceeded());
+  VERIFY_IS_FALSE(result15.ParseSucceeded());
 
   CompilationResult result16(
     CompilationResult::CreateForProgramAndArgs(program, _countof(program),
       args2016, _countof(args2016), nullptr));
-  VERIFY_ARE_EQUAL(true, result16.ParseSucceeded());
+  VERIFY_IS_TRUE(result16.ParseSucceeded());
 }
 
 TEST_F(DXIntellisenseTest, TUWhenRegionInactiveMissingThenCountIsZero) {
@@ -837,7 +837,7 @@ TEST_F(DXIntellisenseTest, TypeWhenICEThenEval)
     "float main() : SV_Target\r\n"
     "{ return c[0]; }";
   CompilationResult result(CompilationResult::CreateForProgram(program, _countof(program)));
-  VERIFY_ARE_EQUAL(true, result.ParseSucceeded());
+  VERIFY_IS_TRUE(result.ParseSucceeded());
   CComPtr<IDxcCursor> cCursor;
   ExpectCursorAt(result.TU, 1, 7, DxcCursor_VarDecl, &cCursor);
   CComPtr<IDxcType> typeCursor;
@@ -853,8 +853,8 @@ TEST_F(DXIntellisenseTest, CompletionWhenResultsAvailable)
 	"struct MyStruct {};"
 	"MyStr";
   CompilationResult result(CompilationResult::CreateForProgram(program, _countof(program)));
-  VERIFY_ARE_EQUAL(false, result.ParseSucceeded());
-  char* fileName = "filename.hlsl";
+  VERIFY_IS_FALSE(result.ParseSucceeded());
+  const char* fileName = "filename.hlsl";
   CComPtr<IDxcUnsavedFile> unsavedFile;
   VERIFY_SUCCEEDED(TrivialDxcUnsavedFile::Create(fileName, program, &unsavedFile));
   CComPtr<IDxcCodeCompleteResults> codeCompleteResults;
@@ -871,7 +871,7 @@ TEST_F(DXIntellisenseTest, CompletionWhenResultsAvailable)
   VERIFY_SUCCEEDED(completionResult->GetCompletionString(&completionString));
   unsigned numCompletionChunks;
   VERIFY_SUCCEEDED(completionString->GetNumCompletionChunks(&numCompletionChunks));
-  VERIFY_ARE_EQUAL(1, numCompletionChunks);
+  VERIFY_ARE_EQUAL(1u, numCompletionChunks);
   DxcCompletionChunkKind completionChunkKind;
   VERIFY_SUCCEEDED(completionString->GetCompletionChunkKind(0, &completionChunkKind));
   VERIFY_ARE_EQUAL(DxcCompletionChunk_TypedText, completionChunkKind);

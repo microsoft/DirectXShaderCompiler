@@ -46,7 +46,9 @@ function(llvm_update_compile_flags name)
       # This is just the default exception handling on Linux
     endif (MSVC)
   endif (LLVM_ENABLE_EH)
-  add_definitions(/D_ITERATOR_DEBUG_LEVEL=0)
+  if (NOT HLSL_ENABLE_DEBUG_ITERATORS)
+    add_definitions(/D_ITERATOR_DEBUG_LEVEL=0)
+  endif (NOT HLSL_ENABLE_DEBUG_ITERATORS)
   # HLSL Changes End
 
   # Assume that;

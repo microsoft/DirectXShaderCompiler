@@ -17,7 +17,7 @@ if "%HLSL_SRC_DIR%"=="" (
   )
 )
 
-if "%1"=="/buildoutdir" (
+if "%1"=="-buildoutdir" (
   echo Build output directory set to %2
   set HLSL_BLD_DIR=%2
   shift /1
@@ -56,6 +56,7 @@ set FIXED_LOC=
 set VENDOR=
 set SPIRV=OFF
 set SPV_TEST=OFF
+set DXILCONV=ON
 
 if "%1"=="-s" (
   set DO_BUILD=0
@@ -159,6 +160,29 @@ if "%1"=="-no-parallel" (
   shift /1
 )
 
+if "%1"=="-no-dxilconv" (
+  set DXILCONV=OFF
+  shift /1
+)
+
+if "%1"=="-dxc-cmake-extra-args" (
+  set CMAKE_OPTS=%CMAKE_OPTS% %~2
+  shift /1
+  shift /1
+)
+
+if "%1"=="-dxc-cmake-begins-include" (
+  set CMAKE_OPTS=%CMAKE_OPTS% -DDXC_CMAKE_BEGINS_INCLUDE=%2
+  shift /1
+  shift /1
+)
+
+if "%1"=="-dxc-cmake-ends-include" (
+  set CMAKE_OPTS=%CMAKE_OPTS% -DDXC_CMAKE_ENDS_INCLUDE=%2
+  shift /1
+  shift /1
+)
+
 rem If only VS 2017 is available, pick that by default.
 if "%BUILD_VS_VER%"=="2015" (
   reg query HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\DevDiv\vs\Servicing\14.0\devenv /v Install /reg:32 1>nul 2>nul
@@ -184,6 +208,12 @@ rem End SPIRV change
 
 set BUILD_ARM_CROSSCOMPILING=0
 
+if /i "%BUILD_ARCH%"=="Win32" (
+  if "%BUILD_VS_VER%"=="2019" (
+    set VS2019ARCH=-AWin32
+  )
+)
+
 if /i "%BUILD_ARCH%"=="x64" (
   set BUILD_GENERATOR=%BUILD_GENERATOR% %BUILD_ARCH:x64=Win64%
   if "%BUILD_VS_VER%"=="2019" (
@@ -195,11 +225,17 @@ if /i "%BUILD_ARCH%"=="x64" (
 if /i "%BUILD_ARCH%"=="arm" (
   set BUILD_GENERATOR_PLATFORM=ARM
   set BUILD_ARM_CROSSCOMPILING=1
+  if "%BUILD_VS_VER%"=="2019" (
+    set VS2019ARCH=-AARM
+  )
 )
 
 if /i "%BUILD_ARCH%"=="arm64" (
   set BUILD_GENERATOR_PLATFORM=ARM64
   set BUILD_ARM_CROSSCOMPILING=1
+  if "%BUILD_VS_VER%"=="2019" (
+    set VS2019ARCH=-AARM64
+  )
 )
 
 if "%1"=="-ninja" (
@@ -207,11 +243,12 @@ if "%1"=="-ninja" (
   shift /1
 )
 
-set CMAKE_OPTS=-DHLSL_OPTIONAL_PROJS_IN_DEFAULT:BOOL=%ALL_DEFS%
+set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_OPTIONAL_PROJS_IN_DEFAULT:BOOL=%ALL_DEFS%
 set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_ENABLE_ANALYZE:BOOL=%ANALYZE%
 set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_OFFICIAL_BUILD:BOOL=%OFFICIAL%
 set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_ENABLE_FIXED_VER:BOOL=%FIXED_VER%
 set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_ENABLE_FIXED_VER:BOOL=%FIXED_VER% -DHLSL_FIXED_VERSION_LOCATION:STRING=%FIXED_LOC%
+set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_BUILD_DXILCONV:BOOL=%DXILCONV%
 set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_VENDOR:STRING=%VENDOR%
 set CMAKE_OPTS=%CMAKE_OPTS% -DENABLE_SPIRV_CODEGEN:BOOL=%SPIRV%
 set CMAKE_OPTS=%CMAKE_OPTS% -DSPIRV_BUILD_TESTS:BOOL=%SPV_TEST%
@@ -289,7 +326,7 @@ exit /b 0
 echo Builds HLSL solutions and the product and test binaries for the current
 echo flavor and architecture.
 echo.
-echo hctbuild [-s or -b] [-alldef] [-analyze] [-official] [-fv] [-fvloc <path>] [-rel] [-arm or -arm64 or -x86 or -x64] [-Release] [-Debug] [-vs2015] [-ninja] [-tblgen path] [-dont-speak] [-parallel]
+echo hctbuild [-s or -b] [-alldef] [-analyze] [-official] [-fv] [-fvloc <path>] [-rel] [-arm or -arm64 or -x86 or -x64] [-Release] [-Debug] [-vs2015] [-ninja] [-tblgen path] [-dont-speak] [-no-parallel] [-no-dxilconv]
 echo.
 echo   -s   creates the projects only, without building
 echo   -b   builds the existing project
@@ -302,6 +339,7 @@ echo   -fvloc <path>  directory with the version.inc file
 echo   -rel           builds release rather than debug
 echo   -dont-speak    disables audible build confirmation
 echo   -no-parallel   disables parallel build
+echo   -no-dxilconv   disables build of DXBC to DXIL converter and tools
 echo.
 echo current BUILD_ARCH=%BUILD_ARCH%.  Override with:
 echo   -x86 targets an x86 build (aka. Win32)
@@ -333,6 +371,7 @@ rem %1 - the conf name
 rem %2 - the platform name
 rem %3 - the build directory
 rem %4 - the generator name
+rem %5 - the vs2019 architecture name
 if not exist %3 (
   mkdir %3
   if errorlevel 1 (
@@ -349,13 +388,8 @@ if "%DO_SETUP%"=="1" (
     cmake -DCMAKE_BUILD_TYPE:STRING=%1 %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
   ) else (
     rem -DCMAKE_BUILD_TYPE:STRING=%1 is not necessary for multi-config generators like VS
-    if "%BUILD_VS_VER%"=="2019" (
-      echo Running cmake %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% > %3\cmake-log.txt
-      cmake %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
-    ) else (
-      echo Running cmake %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% > %3\cmake-log.txt
-      cmake %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
-    )
+    echo Running cmake %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% > %3\cmake-log.txt
+    cmake %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
   )
   if errorlevel 1 (
     echo Failed to configure cmake projects.

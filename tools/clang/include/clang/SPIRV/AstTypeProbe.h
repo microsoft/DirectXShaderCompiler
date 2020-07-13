@@ -162,6 +162,10 @@ bool isRowMajorMatrix(const SpirvCodeGenOptions &, QualType type);
 /// \brief Returns true if the given type is a (RW)StructuredBuffer type.
 bool isStructuredBuffer(QualType type);
 
+/// \brief Returns true if the given type is a non-writable StructuredBuffer
+/// type.
+bool isNonWritableStructuredBuffer(QualType type);
+
 /// \brief Returns true if the given type is an AppendStructuredBuffer type.
 bool isAppendStructuredBuffer(QualType type);
 
@@ -273,6 +277,12 @@ bool isOrContainsNonFpColMajorMatrix(const ASTContext &,
                                      const SpirvCodeGenOptions &, QualType type,
                                      const Decl *decl);
 
+/// \bried Returns true if the given type is a String or StringLiteral type.
+bool isStringType(QualType);
+
+/// \bried Returns true if the given type is a bindless array of an opaque type.
+bool isBindlessOpaqueArray(QualType type);
+
 /// \brief Generates the corresponding SPIR-V vector type for the given Clang
 /// frontend matrix type's vector component and returns the <result-id>.
 ///
@@ -284,6 +294,31 @@ QualType getComponentVectorType(const ASTContext &, QualType matrixType);
 /// and rows/columns.
 QualType getHLSLMatrixType(ASTContext &, Sema &, ClassTemplateDecl *,
                            QualType elemType, int rows, int columns);
+
+/// Returns true if the given type is a structure or array of structures for
+/// which flattening all of its members recursively results in resources ONLY.
+bool isResourceOnlyStructure(QualType type);
+
+/// Returns true if the given type is a structure or array of structures for
+/// which flattening all of its members recursively results in at least one
+/// resoure variable.
+bool isStructureContainingResources(QualType type);
+
+/// Returns true if the given type is a structure or array of structures for
+/// which flattening all of its members recursively results in at least one
+/// non-resoure variable.
+bool isStructureContainingNonResources(QualType type);
+
+/// Returns true if the given type is a structure or array of structures for
+/// which flattening all of its members recursively results in a mix of resource
+/// variables and non-resource variables.
+bool isStructureContainingMixOfResourcesAndNonResources(QualType type);
+
+/// Returns true if the given type is a structure or array of structures for
+/// which flattening all of its members recursively results in at least one kind
+/// of buffer: cbuffer, tbuffer, (RW)ByteAddressBuffer, or
+/// (RW|Append|Consume)StructuredBuffer.
+bool isStructureContainingAnyKindOfBuffer(QualType type);
 
 } // namespace spirv
 } // namespace clang
