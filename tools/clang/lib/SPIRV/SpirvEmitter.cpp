@@ -7769,7 +7769,7 @@ SpirvInstruction *SpirvEmitter::processWaveBroadcast(const CallExpr *callExpr) {
   const QualType retType = callExpr->getCallReturnType(astContext);
   if (numArgs == 2)
     return spvBuilder.createGroupNonUniformBinaryOp(
-        spv::Op::OpGroupNonUniformBroadcast, retType, spv::Scope::Subgroup,
+        spv::Op::OpGroupNonUniformShuffle, retType, spv::Scope::Subgroup,
         value, doExpr(callExpr->getArg(1)), srcLoc);
   else
     return spvBuilder.createGroupNonUniformUnaryOp(
