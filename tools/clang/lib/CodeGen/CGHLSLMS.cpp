@@ -3102,6 +3102,12 @@ void CGMSHLSLRuntime::AddConstant(VarDecl *constDecl, HLCBuffer &CB) {
     return;
   }
   llvm::Constant *constVal = CGM.GetAddrOfGlobalVar(constDecl);
+  // Add debug info for constVal.
+  if (CGDebugInfo *DI = CGM.getModuleDebugInfo())
+    if (CGM.getCodeGenOpts().getDebugInfo() >= CodeGenOptions::LimitedDebugInfo) {
+      DI->EmitGlobalVariable(cast<GlobalVariable>(constVal), constDecl);
+    }
+
   auto &regBindings = constantRegBindingMap[constVal];
   // Save resource properties for cbuffer variables.
   DxilResourceProperties RP = BuildResourceProperty(constDecl->getType());
