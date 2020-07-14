@@ -1864,6 +1864,8 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
             StringRef OriginEltName = EltGV->getName();
             StringRef OriginName = dbgOffset.base->getName();
             StringRef EltName = OriginEltName.substr(OriginName.size());
+            StringRef EltParentName = OriginEltName.substr(0, OriginName.size());
+            DXASSERT_LOCALVAR(EltParentName, EltParentName == OriginName, "parent name mismatch");
             EltNameMap[EltGV] = EltName;
           }
           GVDbgOffset &EltDbgOffset = GVDbgOffsetMap[EltGV];
