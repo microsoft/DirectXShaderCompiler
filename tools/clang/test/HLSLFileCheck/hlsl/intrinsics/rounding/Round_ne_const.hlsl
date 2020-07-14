@@ -23,13 +23,12 @@
 // RUN: %dxc -T vs_6_0 -E dr -DVAL=1.6 -HV 2016  %s | %FileCheck -check-prefix=DBL_RND_11 %s
 // RUN: %dxc -T vs_6_0 -E dr -DVAL=1.3 -HV 2016  %s | %FileCheck -check-prefix=DBL_RND_12 %s
 
-// Both FXC and DXC would apply nearest even rounding mode on variables, but on compile-time constants
-// it would apply away from zero for midway values. This would cause differences in results in cases such
-// as round(x) (where x is 0.5) and round(0.5) where the former would evaluate to 1 and latter would
-// evaluate to 0.
+// round intrinsic could exhibit different behaviour for constant and runtime evaluations.
+// E.g., for round(0.5): constant evaluation results in 1 (away from zero rounding), 
+// while runtime evaluation results in 0 (nearest even rounding).
 // 
-// For compatibility with FXC,  DXC still preserve above behavior for language version 2016 or below.
-// However for newer language version, DXC would always use nearest even for round() intrinsic in all
+// For back compat, DXC still preserves the above behavior for language versions 2016 or below.
+// However, for newer language versions, DXC now always use nearest even for round() intrinsic in all
 // cases.
 
 
