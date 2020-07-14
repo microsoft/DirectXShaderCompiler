@@ -3381,7 +3381,7 @@ RValue CGMSHLSLRuntime::EmitHLSLBuiltinCallExpr(CodeGenFunction &CGF,
           StringRef intrinsicGroup;
           hlsl::GetIntrinsicOp(FD, intrinsicOpcode, intrinsicGroup);
           IntrinsicOp opcode = static_cast<IntrinsicOp>(intrinsicOpcode);
-          if (Value *Result = TryEvalIntrinsic(CI, opcode)) {
+          if (Value *Result = TryEvalIntrinsic(CI, opcode, CGM.getLangOpts().HLSLVersion)) {
             RV = RValue::get(Result);
           }
         }

@@ -43,6 +43,7 @@
 
 #include <vector>
 #include <memory>
+#include <fenv.h>
 
 #include "CGHLSLMSHelper.h"
 
@@ -1400,7 +1401,7 @@ void SimpleTransformForHLDXIRInst(Instruction *I, SmallInstSet &deadInsts) {
 
 namespace CGHLSLMSHelper {
 
-Value *TryEvalIntrinsic(CallInst *CI, IntrinsicOp intriOp) {
+Value *TryEvalIntrinsic(CallInst *CI, IntrinsicOp intriOp, unsigned hlslVersion) {
   switch (intriOp) {
   case IntrinsicOp::IOP_tan: {
     return EvalUnaryIntrinsic(CI, tanf, tan);
@@ -1527,7 +1528,22 @@ Value *TryEvalIntrinsic(CallInst *CI, IntrinsicOp intriOp) {
     return EvalUnaryIntrinsic(CI, floorf, floor);
   } break;
   case IntrinsicOp::IOP_round: {
-    return EvalUnaryIntrinsic(CI, roundf, round);
+    // round intrinsic could exhibit different behaviour for constant and runtime evaluations.
+    // E.g., for round(0.5): constant evaluation results in 1 (away from zero rounding), 
+    // while runtime evaluation results in 0 (nearest even rounding).
+    // 
+    // For back compat, DXC still preserves the above behavior for language versions 2016 or below.
+    // However, for newer language versions, DXC now always use nearest even for round() intrinsic in all
+    // cases.
+    if (hlslVersion <= 2016) {
+      return EvalUnaryIntrinsic(CI, roundf, round);
+    } else {
+      auto roundingMode = fegetround();
+      fesetround(FE_TONEAREST);
+      Value *result = EvalUnaryIntrinsic(CI, nearbyintf, nearbyint);
+      fesetround(roundingMode);
+      return result;
+    }
   } break;
   case IntrinsicOp::IOP_trunc: {
     return EvalUnaryIntrinsic(CI, truncf, trunc);
