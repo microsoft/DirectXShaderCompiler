@@ -29,6 +29,7 @@
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Analysis/ValueTracking.h"
 #include <unordered_set>
 #include <vector>
 
@@ -549,13 +550,11 @@ void HLMatrixLowerPass::replaceAllVariableUses(
       // Replace bitcasts to i8* for lifetime intrinsics.
       if (BCI->getType()->isPointerTy() && BCI->getType()->getPointerElementType()->isIntegerTy(8))
       {
-        DXASSERT(BCI->getNumUses() == 1, "expected only a single use");
-        llvm::Use &UseUse = *BCI->use_begin();
-        IntrinsicInst *Intrin = dyn_cast<IntrinsicInst>(UseUse.getUser());
-        DXASSERT(Intrin && (Intrin->getIntrinsicID() == Intrinsic::lifetime_start || Intrin->getIntrinsicID() == Intrinsic::lifetime_end), "use must be lifetime.start/end");
-        IRBuilder<> Builder(BCI);
-        // Replace the use in the intrinsic.
-        UseUse.set(Builder.CreateBitCast(LoweredPtr, BCI->getType()));
+        DXASSERT(onlyUsedByLifetimeMarkers(BCI),
+                 "bitcast to i8* must only be used by lifetime intrinsics");
+        Value *NewBCI = IRBuilder<>(BCI).CreateBitCast(LoweredPtr, BCI->getType());
+        // Replace all uses of the use.
+        BCI->replaceAllUsesWith(NewBCI);
         // Remove the current use to end iteration.
         Use.set(UndefValue::get(Use->getType()));
         addToDeadInsts(BCI);

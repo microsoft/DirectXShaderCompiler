@@ -48,6 +48,7 @@
 #include "llvm/Bitcode/ReaderWriter.h"
 #include <unordered_set>
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "dxc/HLSL/DxilSpanAllocator.h"
@@ -3192,6 +3193,8 @@ static bool IsLLVMInstructionAllowedForLib(Instruction &I, ValidationContext &Va
 static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
   bool SupportsMinPrecision =
       ValCtx.DxilMod.GetGlobalFlags() & DXIL::kEnableMinPrecision;
+  bool SupportsLifetimeIntrinsics =
+      ValCtx.DxilMod.GetShaderModel()->IsSM66Plus();
   SmallVector<CallInst *, 16> gradientOps;
   SmallVector<CallInst *, 16> barriers;
   CallInst *setMeshOutputCounts = nullptr;
@@ -3310,15 +3313,6 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
             }
           }
         }
-        if (IntegerType *IT = dyn_cast<IntegerType>(op->getType())) {
-          if (IT->getBitWidth() == 8) {
-            // Allow i8* cast for llvm.lifetime.* intrinsics.
-            IntrinsicInst* Intrin = dyn_cast<IntrinsicInst>(&I);
-            if (Intrin && Intrin->getIntrinsicID() == Intrinsic::lifetime_start) continue;
-            if (Intrin && Intrin->getIntrinsicID() == Intrinsic::lifetime_end) continue;
-            ValCtx.EmitInstrError(&I, ValidationRule::TypesI8);
-          }
-        }
       }
 
       Type *Ty = I.getType();
@@ -3327,9 +3321,11 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
       while (isa<ArrayType>(Ty))
         Ty = Ty->getArrayElementType();
       if (IntegerType *IT = dyn_cast<IntegerType>(Ty)) {
-        // Allow i8* cast for llvm.lifetime.* intrinsics.
-        if (IT->getBitWidth() == 8 && !isa<BitCastInst>(I)) {
-          ValCtx.EmitInstrError(&I, ValidationRule::TypesI8);
+        if (IT->getBitWidth() == 8) {
+          // Allow i8* cast for llvm.lifetime.* intrinsics.
+          if (!SupportsLifetimeIntrinsics || !isa<BitCastInst>(I) || !onlyUsedByLifetimeMarkers(&I)) {
+            ValCtx.EmitInstrError(&I, ValidationRule::TypesI8);
+          }
         }
       }
 
@@ -3429,7 +3425,10 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
         BitCastInst *Cast = cast<BitCastInst>(&I);
         Type *FromTy = Cast->getOperand(0)->getType();
         Type *ToTy = Cast->getType();
-        if (ToTy == Type::getInt8PtrTy(ToTy->getContext())) continue; // Allow i8* cast for llvm.lifetime.* intrinsics.
+        // Allow i8* cast for llvm.lifetime.* intrinsics.
+        if (SupportsLifetimeIntrinsics &&
+            ToTy == Type::getInt8PtrTy(ToTy->getContext()))
+            continue;
         if (isa<PointerType>(FromTy)) {
           FromTy = FromTy->getPointerElementType();
           ToTy = ToTy->getPointerElementType();

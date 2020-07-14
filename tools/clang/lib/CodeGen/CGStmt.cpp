@@ -1207,8 +1207,8 @@ void CodeGenFunction::EmitBreakStmt(const BreakStmt &S) {
       lastContinueBlock != BreakContinueStack.end()[-2].ContinueBlock.getBlock())) {
     // We execute this if
     // - we are in an unnested loop, or
-    // - we are in a nested loop but the continue block of the enclosing loop is different from the current continue block.
-    // TODO: Is the second conditional even possible in a language without goto or "continue N"?
+    // - we are in a nested control construct but the continue block of the enclosing loop is different from the current continue block.
+    // The second condition can happen for switch statements inside loops, which share the same continue block.
     llvm::BasicBlock *lastBreakBlock = BreakContinueStack.back().BreakBlock.getBlock();
     llvm::BranchInst *waveBr = CGM.getHLSLRuntime().EmitHLSLCondBreak(*this, CurFn, lastBreakBlock, lastContinueBlock);
 

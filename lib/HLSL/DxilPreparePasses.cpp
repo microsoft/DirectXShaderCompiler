@@ -413,6 +413,7 @@ public:
       if (BitCastInst *BC = dyn_cast<BitCastInst>(voidPtr)) {
         ptr = BC->getOperand(0);
       } else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(voidPtr)) {
+        // This can happen if a local variable/array is promoted to a constant global.
         DXASSERT(CE->getOpcode() == Instruction::BitCast,
                  "expected operand of lifetime intrinsic to be a bitcast");
         ptr = CE->getOperand(0);

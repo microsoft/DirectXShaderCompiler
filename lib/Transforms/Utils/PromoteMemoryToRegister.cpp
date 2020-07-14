@@ -574,10 +574,22 @@ void PromoteMem2Reg::run() {
     // analogous to finding the 'uses' and 'definitions' of each variable.
     Info.AnalyzeAlloca(AI);
 
+    // Determine whether this alloca only has one store *before* potentially
+    // adding a lifetime.start block as another definition. This allows to
+    // rewrite such an alloca efficiently if possible but still benefit from
+    // correct lifetime information should the single store not dominate all
+    // loads.
+    const bool IsSingleStoreAlloca = Info.DefiningBlocks.size() == 1;
+
     // For allocas that have at least one store, make sure the block that holds
-    // the lifetime.start call is treated as a 'definition'.
+    // the lifetime.start call is treated as a "definition". This is important
+    // in cases where lifetime is restricted to a loop and not all loads are
+    // dominated by stores. When walking up the CFG during ComputeLiveInBlocks,
+    // this new "definition" prevents the value from being considered live in
+    // in the loop header, which in turn prevents the value to be live across
+    // the entire loop through a phi with undef as input from the preheader.
     // Ignore allocas that are only used in one block, even if the lifetime
-    // start marker is in a different one.
+    // start marker is in a different one, since those cases are trivial.
     if (LifetimeStartBB && !Info.DefiningBlocks.empty() && !Info.OnlyUsedInOneBlock) {
       bool AnyStoreInStartBB = false;
       for (BasicBlock *BB : Info.DefiningBlocks) {
@@ -588,15 +600,14 @@ void PromoteMem2Reg::run() {
       }
 
       if (!AnyStoreInStartBB) {
-        // No store in start BB. Add the lifetime marker as defining block to
-        // avoid undef.
+        // No store in start BB. Add the lifetime marker as defining block.
         Info.DefiningBlocks.insert(Info.DefiningBlocks.begin(), LifetimeStartBB);
       }
     }
 
     // If there is only a single store to this value, replace any loads of
     // it that are directly dominated by the definition with the value stored.
-    if (Info.DefiningBlocks.size() == 1) {
+    if (IsSingleStoreAlloca) {
       if (rewriteSingleStoreAlloca(AI, Info, LBI, DT, AST)) {
         // The alloca has been processed, move on.
         RemoveFromAllocasList(AllocaNum);
