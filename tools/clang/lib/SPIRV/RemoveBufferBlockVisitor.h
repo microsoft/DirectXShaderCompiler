@@ -33,6 +33,11 @@ public:
   /// So that you want override this visit function to handle all instructions,
   /// regardless of their polymorphism.
   bool visitInstruction(SpirvInstruction *instr) override;
+
+private:
+  /// Returns true if |type| is a SPIR-V type whose interface type is
+  /// StorageBuffer.
+  bool hasStorageBufferInterfaceType(const SpirvType *type);
 };
 
 } // end namespace spirv
