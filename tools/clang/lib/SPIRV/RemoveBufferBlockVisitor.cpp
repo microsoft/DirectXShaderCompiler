@@ -33,7 +33,7 @@ bool RemoveBufferBlockVisitor::visit(SpirvModule *mod, Phase phase) {
   return true;
 }
 
-bool RemoveBufferBlockVisitor::HasStorageBufferInterfaceType(
+bool RemoveBufferBlockVisitor::hasStorageBufferInterfaceType(
     const SpirvType *type) {
   while (type != nullptr) {
     if (const auto *structType = dyn_cast<StructType>(type)) {
@@ -77,14 +77,11 @@ bool RemoveBufferBlockVisitor::visitInstruction(SpirvInstruction *inst) {
   // For all instructions, if the result type is a pointer pointing to a struct
   // with StorageBuffer interface, the storage class must be updated.
   if (auto *ptrResultType = dyn_cast<SpirvPointerType>(inst->getResultType())) {
-    if (HasStorageBufferInterfaceType(ptrResultType->getPointeeType())) {
-      // Update the instruction's storage class if necessary
-      if (ptrResultType->getStorageClass() !=
-          spv::StorageClass::StorageBuffer) {
-        inst->setStorageClass(spv::StorageClass::StorageBuffer);
-        inst->setResultType(context.getPointerType(
-            ptrResultType->getPointeeType(), spv::StorageClass::StorageBuffer));
-      }
+    if (hasStorageBufferInterfaceType(ptrResultType->getPointeeType()) &&
+        ptrResultType->getStorageClass() != spv::StorageClass::StorageBuffer) {
+      inst->setStorageClass(spv::StorageClass::StorageBuffer);
+      inst->setResultType(context.getPointerType(
+          ptrResultType->getPointeeType(), spv::StorageClass::StorageBuffer));
     }
   }
 

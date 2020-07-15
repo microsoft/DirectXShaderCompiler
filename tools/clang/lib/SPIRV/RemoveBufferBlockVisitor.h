@@ -37,7 +37,7 @@ public:
 private:
   /// Returns true if |type| is a SPIR-V type whose interface type is
   /// StorageBuffer.
-  bool HasStorageBufferInterfaceType(const SpirvType *type);
+  bool hasStorageBufferInterfaceType(const SpirvType *type);
 };
 
 } // end namespace spirv
