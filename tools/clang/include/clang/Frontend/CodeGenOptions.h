@@ -22,7 +22,6 @@
 #include <map>
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h" // HLSL change
 #include "dxc/Support/SPIRVOptions.h" // SPIR-V Change
-#include "llvm/ADT/DenseMap.h" // HLSL change
 
 namespace clang {
 

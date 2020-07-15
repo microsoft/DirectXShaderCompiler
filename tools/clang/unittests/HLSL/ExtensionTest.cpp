@@ -453,7 +453,7 @@ public:
   TEST_METHOD(DefineValidationWarning)
   TEST_METHOD(DefineNoValidatorOk)
   TEST_METHOD(DefineFromMacro)
-  TEST_METHOD(DefineContradictionFail);
+  TEST_METHOD(DefineContradictionFail)
   TEST_METHOD(DefineFromOption)
   TEST_METHOD(OptionFromDefine)
   TEST_METHOD(TargetTriple)
@@ -685,18 +685,16 @@ TEST_F(ExtensionTest, DefineFromOption) {
 TEST_F(ExtensionTest, OptionFromDefine) {
 
   Compiler c(m_dllSupport);
-
-  CComPtr<IDxcLibrary> library;
-  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &library));
-  const std::wstring path = hlsl_test::GetPathToHlslDataFile(L"..\\HLSLFileCheck\\passes\\hl\\gvn\\disablegvn.hlsl");
-  CComPtr<IDxcBlobEncoding> pSource;
-  VERIFY_SUCCEEDED(library->CreateBlobFromFile(path.c_str(), nullptr, &pSource));
-
   c.RegisterSemanticDefine(L"FOO*");
-  c.Compile((char*)pSource->GetBufferPointer(),
+  c.Compile(
+    "float4 main(float a : A) : SV_Target {\n"
+    "  float res = sin(a);\n"
+    "  return res + sin(a);\n"
+    "}\n",
     { L"/Vd", L"-DFOO_DISABLE_GVN" },
     {}
   );
+
   std::string disassembly = c.Disassemble();
   // Verify that GVN is disabled by the presence
   // of the second sin(), which GVN would have removed

@@ -504,7 +504,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   }
 
   std::vector<std::string> optSelects = Args.getAllArgValues(OPT_opt_select);
-  for (int i = 0; i + 1 < optSelects.size(); i+=2) {
+  for (unsigned i = 0; i + 1 < optSelects.size(); i+=2) {
     llvm::StringRef optimization = optSelects[i];
     llvm::StringRef selection = optSelects[i+1];
     if (opts.DxcOptimizationSelects.count(optimization.upper()) &&
