@@ -2336,6 +2336,10 @@ TEST_F(FileTest, Vk1p2BlockDecoration) {
   useVulkan1p2();
   runFileTest("vk.1p2.block-decoration.hlsl");
 }
+TEST_F(FileTest, Vk1p2RemoveBufferBlockRuntimeArray) {
+  useVulkan1p2();
+  runFileTest("vk.1p2.remove.bufferblock.runtimearray.hlsl");
+}
 
 // Test shaders that require Vulkan1.1 support with
 // -fspv-target-env=vulkan1.2 option to make sure that enabling
