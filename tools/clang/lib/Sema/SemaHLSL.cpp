@@ -9720,6 +9720,69 @@ void hlsl::DiagnosePackingOffset(
   }
 }
 
+static bool IsIntegerTypeCSInputSemantic(const hlsl::SemanticDecl *sd) {
+  return
+    sd->SemanticName.equals("SV_DispatchThreadID") ||
+    sd->SemanticName.equals("SV_GroupIndex") ||
+    sd->SemanticName.equals("SV_GroupID") ||
+    sd->SemanticName.equals("SV_GroupThreadID");
+}
+
+static bool IsComputeShader(clang::Sema *self) {
+  StringRef shaderType(self->getLangOpts().HLSLProfile);
+  return shaderType.startswith_lower("cs_");
+}
+
+static bool
+HasValidCSInputSemanticType(clang::Sema *self, QualType &ty,
+                            const hlsl::SemanticDecl *semanticDecl) {
+  if (!IsIntegerTypeCSInputSemantic(semanticDecl))
+    return true;
+
+  QualType qty = ty.getCanonicalType();
+
+  const clang::Type *qtyPtr = qty.getTypePtrOrNull();
+  if (qtyPtr && qtyPtr->isScalarType() &&
+    qtyPtr->getScalarTypeKind() != Type::ScalarTypeKind::STK_Integral) {
+    return false;
+  }
+
+  if (hlsl::IsHLSLMatType(qty)) {
+    QualType matElemTy = GetHLSLMatElementType(qty);
+    const Type *matElemTyPtr = matElemTy.getTypePtrOrNull();
+    if (matElemTyPtr && matElemTyPtr->isScalarType() &&
+      matElemTyPtr->getScalarTypeKind() != Type::ScalarTypeKind::STK_Integral)
+      return false;
+  }
+
+  if (hlsl::IsHLSLVecType(qty)) {
+    QualType vecElemTy = GetHLSLVecElementType(qty);
+    const Type *vecElemtyPtr = vecElemTy.getTypePtrOrNull();
+    if (vecElemtyPtr && vecElemtyPtr->isScalarType() &&
+      vecElemtyPtr->getScalarTypeKind() != Type::ScalarTypeKind::STK_Integral)
+      return false;
+  }
+
+  return true;
+}
+
+void hlsl::DiagnoseSemanticType(clang::Sema *self, clang::QualType &type,
+                                hlsl::SemanticDecl *semanticDecl,
+                                bool isTypeDef, bool isLocalVar,
+                                const char *declarationType) {
+
+  if (isTypeDef || isLocalVar) {
+    self->Diag(semanticDecl->Loc, diag::err_hlsl_varmodifierna)
+        << "semantic" << declarationType;
+  }
+
+  if (IsComputeShader(self) &&
+      !HasValidCSInputSemanticType(self, type, semanticDecl)) {
+    self->Diag(semanticDecl->Loc, diag::err_hlsl_typecheck_semantic)
+        << semanticDecl->SemanticName << "integer";
+  }
+}
+
 void hlsl::DiagnoseRegisterType(
   clang::Sema* self,
   clang::SourceLocation loc,
@@ -12185,10 +12248,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
     }
     case hlsl::UnusualAnnotation::UA_SemanticDecl: {
       hlsl::SemanticDecl *semanticDecl = cast<hlsl::SemanticDecl>(*unusualIter);
-      if (isTypedef || isLocalVar) {
-        Diag(semanticDecl->Loc, diag::err_hlsl_varmodifierna)
-            << "semantic" << declarationType;
-      }
+      hlsl::DiagnoseSemanticType(this, qt, semanticDecl, isTypedef, isLocalVar, declarationType);
       break;
     }
     }
@@ -12200,6 +12260,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
 
   return result;
 }
+
 
 // Diagnose HLSL types on lookup
 bool Sema::DiagnoseHLSLLookup(const LookupResult &R) {

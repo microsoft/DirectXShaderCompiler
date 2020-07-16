@@ -80,6 +80,14 @@ void DiagnoseRegisterType(
   clang::QualType type,
   char registerType);
 
+void DiagnoseSemanticType(
+  clang::Sema* self,
+  clang::QualType &type,
+  hlsl::SemanticDecl *semanticDecl,
+  bool isTypeDef,
+  bool isLocalVar,
+  const char* declarationType);
+
 void DiagnoseTranslationUnit(clang::Sema* self);
 
 void DiagnoseUnusualAnnotationsForHLSL(

@@ -7517,6 +7517,8 @@ def err_hlsl_sizeof_nonnumeric : Error<
   "invalid application of 'sizeof' to non-numeric type %0">;
 def err_hlsl_typecheck_duplicate_matrix_components_not_mlvalue : Error< // Patterned after err_typecheck_duplicate_matrix_components_not_mlvalue
   "matrix is not assignable (contains duplicate components)">;
+def err_hlsl_typecheck_semantic : Error<
+  "invalid type used for '%0' input semantics, must be of '%1' type">;
 def err_hlsl_typecheck_subscript_value : Error< // Patterned after err_typecheck_subscript_value
   "subscripted value is not an array, matrix, or vector">;
 def err_hlsl_typeintemplateargument : Error<
