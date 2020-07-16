@@ -314,8 +314,7 @@ private:
       // Find index for end of matching semantic define prefix
       size_t prefixPos = 0;
       for (auto prefix : semDefPrefixes) {
-        if (Unicode::IsStarMatchUTF8(prefix.c_str(), prefix.size(),
-                                     define.Name.data(), define.Name.size())) {
+        if (IsMacroMatch(define.Name, prefix)) {
           prefixPos = prefix.length() - 1;
           break;
         }
