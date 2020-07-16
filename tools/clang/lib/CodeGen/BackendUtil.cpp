@@ -330,8 +330,8 @@ void EmitAssemblyHelper::CreatePasses() {
   PMBuilder.HLSLResMayAlias = CodeGenOpts.HLSLResMayAlias;
   PMBuilder.ScanLimit = CodeGenOpts.ScanLimit;
 
-  PMBuilder.EnableGVN = !CodeGenOpts.HLSLOptimizationToggles.count("GVN") ||
-                        CodeGenOpts.HLSLOptimizationToggles.find("GVN")->second;
+  PMBuilder.EnableGVN = !CodeGenOpts.HLSLOptimizationToggles.count("gvn") ||
+                        CodeGenOpts.HLSLOptimizationToggles.find("gvn")->second;
   // HLSL Change - end
 
   PMBuilder.DisableUnitAtATime = !CodeGenOpts.UnitAtATime;

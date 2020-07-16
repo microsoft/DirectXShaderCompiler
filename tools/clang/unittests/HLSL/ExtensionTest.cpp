@@ -630,7 +630,7 @@ TEST_F(ExtensionTest, DefineContradictionFail) {
   // Check that the error message is for the option contradiction
   VERIFY_IS_TRUE(
     errors.npos !=
-    errors.find("Contradictory use of -opt-disable and -opt-enable with WHATEVER"));
+    errors.find("Contradictory use of -opt-disable and -opt-enable with \"whatever\""));
 
   Compiler c2(m_dllSupport);
   c2.RegisterSemanticDefine(L"FOO*");
@@ -649,7 +649,7 @@ TEST_F(ExtensionTest, DefineContradictionFail) {
   // Check that the error message is for the option contradiction
   VERIFY_IS_TRUE(
     errors.npos !=
-    errors.find("Contradictory -opt-selects for YOOK"));
+    errors.find("Contradictory -opt-selects for \"yook\""));
 }
 
 // Test setting of semantic define metadata from command line options
@@ -678,7 +678,7 @@ TEST_F(ExtensionTest, DefineFromOption) {
   // -opt-select The_Affirmative
   VERIFY_IS_TRUE(
     disassembly.npos !=
-    disassembly.find("!{!\"FOO_SELECT_THE\", !\"AFFIRMATIVE\"}"));
+    disassembly.find("!{!\"FOO_SELECT_THE\", !\"Affirmative\"}"));
 }
 
 // Test setting of codegen options from semantic defines

@@ -283,24 +283,24 @@ private:
 
     const llvm::SmallVector<std::string, 2> &semDefPrefixes = 
                              m_langExtensionsHelper.GetSemanticDefines();
-    DXASSERT(semDefPrefixes.size(), "No valid semantic define prefixes found");
-
+    std::string prefixStr;
     // Take the first semantic define prefix (minus *) for  use in the codeGenOpts metadata
-    std::string prefixStr = semDefPrefixes[0].substr(0, semDefPrefixes[0].length()-1);
+    if (semDefPrefixes.size())
+      prefixStr = semDefPrefixes[0].substr(0, semDefPrefixes[0].length()-1);
 
     // Add codeGenOpts to mdNodes
     MDString *empty = MDString::get(M->getContext(), "");
     for (auto toggle = optToggles.begin(); toggle != optToggles.end(); toggle++) {
       MDString *name = nullptr;
       if (toggle->second)
-        name = MDString::get(M->getContext(), prefixStr + enableStr + toggle->first);
+        name = MDString::get(M->getContext(), prefixStr + enableStr + StringRef(toggle->first).upper());
       else
-        name = MDString::get(M->getContext(), prefixStr + disableStr + toggle->first);
+        name = MDString::get(M->getContext(), prefixStr + disableStr + StringRef(toggle->first).upper());
       mdNodes.push_back(MDNode::get(M->getContext(), { name, empty }));
     }
 
     for (auto select = optSelects.begin(); select != optSelects.end(); select++) {
-      MDString *name = MDString::get(M->getContext(), prefixStr + selectStr + select->first);
+      MDString *name = MDString::get(M->getContext(), prefixStr + selectStr + StringRef(select->first).upper());
       MDString *value = MDString::get(M->getContext(), select->second);
       mdNodes.push_back(MDNode::get(M->getContext(), { name, value }));
     }
@@ -324,11 +324,11 @@ private:
 
       // Add semantic defines to option flag equivalents
       if (!define.Name.compare(prefixPos, enableStr.length(), enableStr))
-        optToggles[define.Name.substr(prefixPos + enableStr.length())] = true;
+        optToggles[StringRef(define.Name.substr(prefixPos + enableStr.length())).lower()] = true;
       else if (!define.Name.compare(prefixPos, disableStr.length(), disableStr))
-        optToggles[define.Name.substr(prefixPos + disableStr.length())] = false;
+        optToggles[StringRef(define.Name.substr(prefixPos + disableStr.length())).lower()] = false;
       else if (!define.Name.compare(prefixPos, selectStr.length(), selectStr))
-        optSelects[define.Name.substr(prefixPos + selectStr.length())] = define.Value;
+        optSelects[StringRef(define.Name.substr(prefixPos + selectStr.length())).lower()] = define.Value;
     }
 
     // Add root node with pointers to all define metadata nodes.
