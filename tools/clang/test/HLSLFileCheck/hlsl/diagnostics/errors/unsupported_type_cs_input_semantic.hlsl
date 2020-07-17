@@ -23,10 +23,10 @@
 // Verify error gets reported for non-integer types on CS input semantics on integeral types
 
 // CHK_NO_ERR: define void @main
-// CHK_TID_TY_ERR: error: invalid type used for 'SV_DispatchThreadID' input semantics, must be of 'integer' type
-// CHK_GI_TY_ERR: error: invalid type used for 'SV_GroupIndex' input semantics, must be of 'integer' type
-// CHK_GID_TY_ERR: error: invalid type used for 'SV_GroupID' input semantics, must be of 'integer' type
-// CHK_GTID_TY_ERR: error: invalid type used for 'SV_GroupThreadID' input semantics, must be of 'integer' type
+// CHK_TID_TY_ERR: error: invalid type used for 'SV_DispatchThreadID' input semantics
+// CHK_GI_TY_ERR: error: invalid type used for 'SV_GroupIndex' input semantics
+// CHK_GID_TY_ERR: error: invalid type used for 'SV_GroupID' input semantics
+// CHK_GTID_TY_ERR: error: invalid type used for 'SV_GroupThreadID' input semantics
 
 
 [numthreads(1, 1, 1)]
