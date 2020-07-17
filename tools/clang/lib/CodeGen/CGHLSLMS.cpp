@@ -520,9 +520,9 @@ static bool IsAllowedSizeClass(Semantic::SizeClass sizeClass,
     case Semantic::Kind::CullDistance:
       return true;
     case Semantic::Kind::TessFactor:
-      return (semIndex >= 0 && semIndex <= 3);
+      return (semIndex <= 3);
     case Semantic::Kind::InsideTessFactor:
-      return (semIndex >= 0 && semIndex <= 1);
+      return (semIndex <= 1);
     default:
       return false;
     }
