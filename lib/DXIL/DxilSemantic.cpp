@@ -24,9 +24,13 @@ namespace hlsl {
 // Semantic class methods.
 //
 Semantic::Semantic(Kind Kind,
-                   const char *pszName)
+                   const char *pszName,
+                   CompClass compClass,
+                   SizeClass sizeClass)
 : m_Kind(Kind)
 , m_pszName(pszName)
+, m_CompClass(compClass)
+, m_SizeClass(sizeClass)
 {
 }
 
@@ -115,39 +119,39 @@ bool Semantic::IsInvalid() const {
 
 typedef Semantic SP;
 const Semantic Semantic::ms_SemanticTable[kNumSemanticRecords] = {
-  // Kind                         Name
-  SP(Kind::Arbitrary,             nullptr),
-  SP(Kind::VertexID,              "SV_VertexID"),
-  SP(Kind::InstanceID,            "SV_InstanceID"),
-  SP(Kind::Position,              "SV_Position"),
-  SP(Kind::RenderTargetArrayIndex,"SV_RenderTargetArrayIndex"),
-  SP(Kind::ViewPortArrayIndex,    "SV_ViewportArrayIndex"),
-  SP(Kind::ClipDistance,          "SV_ClipDistance"),
-  SP(Kind::CullDistance,          "SV_CullDistance"),
-  SP(Kind::OutputControlPointID,  "SV_OutputControlPointID"),
-  SP(Kind::DomainLocation,        "SV_DomainLocation"),
-  SP(Kind::PrimitiveID,           "SV_PrimitiveID"),
-  SP(Kind::GSInstanceID,          "SV_GSInstanceID"),
-  SP(Kind::SampleIndex,           "SV_SampleIndex"),
-  SP(Kind::IsFrontFace,           "SV_IsFrontFace"),
-  SP(Kind::Coverage,              "SV_Coverage"),
-  SP(Kind::InnerCoverage,         "SV_InnerCoverage"),
-  SP(Kind::Target,                "SV_Target"),
-  SP(Kind::Depth,                 "SV_Depth"),
-  SP(Kind::DepthLessEqual,        "SV_DepthLessEqual"),
-  SP(Kind::DepthGreaterEqual,     "SV_DepthGreaterEqual"),
-  SP(Kind::StencilRef,            "SV_StencilRef"),
-  SP(Kind::DispatchThreadID,      "SV_DispatchThreadID"),
-  SP(Kind::GroupID,               "SV_GroupID"),
-  SP(Kind::GroupIndex,            "SV_GroupIndex"),
-  SP(Kind::GroupThreadID,         "SV_GroupThreadID"),
-  SP(Kind::TessFactor,            "SV_TessFactor"),
-  SP(Kind::InsideTessFactor,      "SV_InsideTessFactor"),
-  SP(Kind::ViewID,                "SV_ViewID"),
-  SP(Kind::Barycentrics,          "SV_Barycentrics"),
-  SP(Kind::ShadingRate,           "SV_ShadingRate"),
-  SP(Kind::CullPrimitive,         "SV_CullPrimitive"),
-  SP(Kind::Invalid,               nullptr),
+  // Kind                         Name                        Component         Size
+  SP(Kind::Arbitrary,             nullptr,                    CompClass::Any,   SizeClass::Other),
+  SP(Kind::VertexID,              "SV_VertexID",              CompClass::Uint,  SizeClass::Scalar),
+  SP(Kind::InstanceID,            "SV_InstanceID",            CompClass::Uint,  SizeClass::Scalar),
+  SP(Kind::Position,              "SV_Position",              CompClass::Float, SizeClass::Vec4),
+  SP(Kind::RenderTargetArrayIndex,"SV_RenderTargetArrayIndex",CompClass::Uint,  SizeClass::Scalar),
+  SP(Kind::ViewPortArrayIndex,    "SV_ViewportArrayIndex",    CompClass::Uint,  SizeClass::Scalar),
+  SP(Kind::ClipDistance,          "SV_ClipDistance",          CompClass::Float, SizeClass::Other),
+  SP(Kind::CullDistance,          "SV_CullDistance",          CompClass::Float, SizeClass::Other),
+  SP(Kind::OutputControlPointID,  "SV_OutputControlPointID",  CompClass::Uint,  SizeClass::Scalar),
+  SP(Kind::DomainLocation,        "SV_DomainLocation",        CompClass::Float, SizeClass::MaxVec3),
+  SP(Kind::PrimitiveID,           "SV_PrimitiveID",           CompClass::Uint,  SizeClass::Scalar),
+  SP(Kind::GSInstanceID,          "SV_GSInstanceID",          CompClass::Uint,  SizeClass::Scalar),
+  SP(Kind::SampleIndex,           "SV_SampleIndex",           CompClass::Uint,  SizeClass::Scalar),
+  SP(Kind::IsFrontFace,           "SV_IsFrontFace",           CompClass::Bool,  SizeClass::Scalar),
+  SP(Kind::Coverage,              "SV_Coverage",              CompClass::Uint,  SizeClass::Scalar),
+  SP(Kind::InnerCoverage,         "SV_InnerCoverage",         CompClass::Uint,  SizeClass::Scalar),
+  SP(Kind::Target,                "SV_Target",                CompClass::Any,   SizeClass::MaxVec4),
+  SP(Kind::Depth,                 "SV_Depth",                 CompClass::Float, SizeClass::Scalar),
+  SP(Kind::DepthLessEqual,        "SV_DepthLessEqual",        CompClass::Float, SizeClass::Scalar),
+  SP(Kind::DepthGreaterEqual,     "SV_DepthGreaterEqual",     CompClass::Float, SizeClass::Scalar),
+  SP(Kind::StencilRef,            "SV_StencilRef",            CompClass::Uint,  SizeClass::Scalar),
+  SP(Kind::DispatchThreadID,      "SV_DispatchThreadID",      CompClass::Uint,  SizeClass::MaxVec3),
+  SP(Kind::GroupID,               "SV_GroupID",               CompClass::Uint,  SizeClass::MaxVec3),
+  SP(Kind::GroupIndex,            "SV_GroupIndex",            CompClass::Uint,  SizeClass::Scalar),
+  SP(Kind::GroupThreadID,         "SV_GroupThreadID",         CompClass::Uint,  SizeClass::MaxVec3),
+  SP(Kind::TessFactor,            "SV_TessFactor",            CompClass::Float, SizeClass::Other),
+  SP(Kind::InsideTessFactor,      "SV_InsideTessFactor",      CompClass::Float, SizeClass::Other),
+  SP(Kind::ViewID,                "SV_ViewID",                CompClass::Uint,  SizeClass::Scalar),
+  SP(Kind::Barycentrics,          "SV_Barycentrics",          CompClass::Float, SizeClass::MaxVec3),
+  SP(Kind::ShadingRate,           "SV_ShadingRate",           CompClass::Uint,  SizeClass::Scalar),
+  SP(Kind::CullPrimitive,         "SV_CullPrimitive",         CompClass::Bool,  SizeClass::Scalar),
+  SP(Kind::Invalid,               nullptr,                    CompClass::Any,   SizeClass::Other),
 };
 
 } // namespace hlsl

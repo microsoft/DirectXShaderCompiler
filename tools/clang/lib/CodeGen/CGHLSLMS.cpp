@@ -178,11 +178,20 @@ private:
 
   void CheckParameterAnnotation(SourceLocation SLoc,
                                 const DxilParameterAnnotation &paramInfo,
+                                QualType &paramTy,
                                 bool isPatchConstantFunction);
   void CheckParameterAnnotation(SourceLocation SLoc,
                                 DxilParamInputQual paramQual,
+                                QualType &paramTy,
                                 llvm::StringRef semFullName,
                                 bool isPatchConstantFunction);
+  void DiagnoseSemanticType(SourceLocation SLoc,
+                            const Semantic *pSemantic, QualType &paramTy, unsigned semIndex);
+  bool IsAllowedSemanticType(const Semantic *pSemantic, QualType &paramTy,
+    unsigned semIndex);
+
+  Semantic::CompClass GetCompClass(QualType &type);
+  Semantic::SizeClass GetSizeClass(QualType &type);
 
   void RemapObsoleteSemantic(DxilParameterAnnotation &paramInfo,
                              bool isPatchConstantFunction);
@@ -434,25 +443,167 @@ void CGMSHLSLRuntime::AddHLSLIntrinsicOpcodeToFunction(Function *F,
   m_IntrinsicMap.emplace_back(F,opcode);
 }
 
+static clang::Type::ScalarTypeKind GetScalarElementType(QualType qTy) {
+  if (IsHLSLMatType(qTy))
+    return GetScalarElementType(GetHLSLMatElementType(qTy));
+
+  if (IsHLSLVecType(qTy))
+    return GetScalarElementType(GetHLSLVecElementType(qTy));
+
+  if (qTy->isArrayType())
+    return GetScalarElementType(GetArrayElementType(qTy));
+
+  assert(qTy->isScalarType());
+  return qTy->getScalarTypeKind();
+}
+
+static unsigned GetCompSize(QualType qty) {
+  if (qty->isArrayType())
+    return GetCompSize(GetArrayElementType(qty));
+  if (qty->isScalarType())
+    return 1;
+  assert(IsHLSLVecType(qty));
+  return GetHLSLVecSize(qty);
+}
+
+Semantic::CompClass CGMSHLSLRuntime::GetCompClass(QualType &type) {
+  QualType qTy = type.getCanonicalType().getNonReferenceType();
+  if (!qTy->isScalarType() &&
+      !IsHLSLVecType(qTy) &&
+      !qTy->isArrayType()) {
+    return Semantic::CompClass::Any;
+  }
+
+  clang::Type::ScalarTypeKind scalarKind = GetScalarElementType(qTy);
+  switch (scalarKind) {
+  case clang::Type::ScalarTypeKind::STK_Bool:
+    return Semantic::CompClass::Bool;
+  case clang::Type::ScalarTypeKind::STK_Integral:
+    return Semantic::CompClass::Uint;
+  case clang::Type::ScalarTypeKind::STK_Floating:
+    return Semantic::CompClass::Float;
+  default:
+    return Semantic::CompClass::Any;
+  }
+}
+
+Semantic::SizeClass CGMSHLSLRuntime::GetSizeClass(QualType &type) {
+  QualType qTy = type.getCanonicalType().getNonReferenceType();
+  if (!qTy->isScalarType() &&
+    !IsHLSLVecType(qTy) && 
+    !qTy->isArrayType()) {
+    return Semantic::SizeClass::Other;
+  }
+
+  unsigned size = GetCompSize(qTy);
+  switch (size) {
+  case 1:
+    return Semantic::SizeClass::Scalar;
+  case 2:
+    return Semantic::SizeClass::Vec2;
+  case 3:
+    return Semantic::SizeClass::Vec3;
+  case 4:
+    return Semantic::SizeClass::Vec4;
+  default:
+    return Semantic::SizeClass::Other;
+  }
+}
+
+static bool IsAllowedSizeClass(Semantic::SizeClass sizeClass,
+                               const Semantic *pSemantic,
+                               unsigned semIndex) {
+  Semantic::SizeClass expSizeClass = pSemantic->GetSizeClass();
+  if (expSizeClass == Semantic::SizeClass::Other) {
+    switch (pSemantic->GetKind()) {
+    case Semantic::Kind::ClipDistance:
+    case Semantic::Kind::CullDistance:
+      return true;
+    case Semantic::Kind::TessFactor:
+      return (semIndex >= 0 && semIndex <= 3);
+    case Semantic::Kind::InsideTessFactor:
+      return (semIndex >= 0 && semIndex <= 1);
+    default:
+      return false;
+    }
+  }
+
+  switch (sizeClass) {
+  case Semantic::SizeClass::Scalar:
+    return true;
+  case Semantic::SizeClass::Vec2:
+    return  (expSizeClass == Semantic::SizeClass::Vec2 ||
+      expSizeClass == Semantic::SizeClass::MaxVec2 ||
+      expSizeClass == Semantic::SizeClass::MaxVec3 ||
+      expSizeClass == Semantic::SizeClass::MaxVec4);
+  case Semantic::SizeClass::Vec3:
+    return  (expSizeClass == Semantic::SizeClass::Vec3 ||
+      expSizeClass == Semantic::SizeClass::MaxVec3 ||
+      expSizeClass == Semantic::SizeClass::MaxVec4);
+  case Semantic::SizeClass::Vec4:
+    return  (expSizeClass == Semantic::SizeClass::Vec4 ||
+      expSizeClass == Semantic::SizeClass::MaxVec4);
+  default:
+    return false;
+  }
+}
+
+static bool IsAllowedCompClass(Semantic::CompClass compClass,
+  const Semantic *pSemantic) {
+  Semantic::CompClass expCompClass = pSemantic->GetCompClass();
+  if (expCompClass == Semantic::CompClass::Any)
+    return true;
+  return (expCompClass == compClass);
+}
+
+bool CGMSHLSLRuntime::IsAllowedSemanticType(const Semantic *pSemantic,
+  QualType &paramTy,
+  unsigned semIndex) {
+  QualType qTy = paramTy.getCanonicalType().getNonReferenceType();
+  if (qTy->isStructureType()) {
+    const RecordType *rTy = cast<RecordType>(qTy);
+    bool isAllowed = true;
+    for (FieldDecl *fieldDecl : rTy->getDecl()->fields()) {
+      QualType fieldTy = fieldDecl->getType().getCanonicalType().getNonReferenceType();
+      isAllowed = isAllowed && IsAllowedSemanticType(pSemantic, fieldTy, semIndex);
+    }
+    return isAllowed;
+  }
+  return IsAllowedCompClass(GetCompClass(qTy), pSemantic) &&
+    IsAllowedSizeClass(GetSizeClass(qTy), pSemantic, semIndex);
+}
+
+void CGMSHLSLRuntime::DiagnoseSemanticType(SourceLocation SLoc,
+                                           const Semantic *pSemantic,
+                                           QualType &paramTy,
+                                           unsigned semIndex) {
+  if (!IsAllowedSemanticType(pSemantic, paramTy, semIndex)) {
+    DiagnosticsEngine &Diags = CGM.getDiags();
+    unsigned DiagID = Diags.getCustomDiagID(
+      DiagnosticsEngine::Error, "invalid type used for '%0' input semantics");
+    Diags.Report(SLoc, DiagID) << pSemantic->GetName();
+  }
+}
+
 void CGMSHLSLRuntime::CheckParameterAnnotation(
-    SourceLocation SLoc, const DxilParameterAnnotation &paramInfo,
-    bool isPatchConstantFunction) {
+  SourceLocation SLoc, const DxilParameterAnnotation &paramInfo,
+  QualType &paramTy, bool isPatchConstantFunction) {
   if (!paramInfo.HasSemanticString()) {
     return;
   }
   llvm::StringRef semFullName = paramInfo.GetSemanticStringRef();
   DxilParamInputQual paramQual = paramInfo.GetParamInputQual();
   if (paramQual == DxilParamInputQual::Inout) {
-    CheckParameterAnnotation(SLoc, DxilParamInputQual::In, semFullName, isPatchConstantFunction);
-    CheckParameterAnnotation(SLoc, DxilParamInputQual::Out, semFullName, isPatchConstantFunction);
+    CheckParameterAnnotation(SLoc, DxilParamInputQual::In, paramTy, semFullName, isPatchConstantFunction);
+    CheckParameterAnnotation(SLoc, DxilParamInputQual::Out, paramTy, semFullName, isPatchConstantFunction);
     return;
   }
-  CheckParameterAnnotation(SLoc, paramQual, semFullName, isPatchConstantFunction);
+  CheckParameterAnnotation(SLoc, paramQual, paramTy, semFullName, isPatchConstantFunction);
 }
 
 void CGMSHLSLRuntime::CheckParameterAnnotation(
-    SourceLocation SLoc, DxilParamInputQual paramQual, llvm::StringRef semFullName,
-    bool isPatchConstantFunction) {
+    SourceLocation SLoc, DxilParamInputQual paramQual, QualType &paramTy,
+    llvm::StringRef semFullName, bool isPatchConstantFunction) {
   const ShaderModel *SM = m_pHLModule->GetShaderModel();
 
   DXIL::SigPointKind sigPoint = SigPointFromInputQual(
@@ -467,9 +618,12 @@ void CGMSHLSLRuntime::CheckParameterAnnotation(
   if (pSemantic->IsInvalid()) {
     DiagnosticsEngine &Diags = CGM.getDiags();
     unsigned DiagID =
-      Diags.getCustomDiagID(DiagnosticsEngine::Error, "invalid semantic '%0' for %1 %2.%3");
+    Diags.getCustomDiagID(DiagnosticsEngine::Error, "invalid semantic '%0' for %1 %2.%3");
     Diags.Report(SLoc, DiagID) << semName << SM->GetKindName() << SM->GetMajor() << SM->GetMinor();
   }
+
+  if (pSemantic->GetName())
+    DiagnoseSemanticType(SLoc, pSemantic, paramTy, semIndex);
 }
 
 SourceLocation
@@ -1624,7 +1778,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       RemapObsoleteSemantic(retTyAnnotation, /*isPatchConstantFunction*/ false);
     }
     CheckParameterAnnotation(retTySemanticLoc, retTyAnnotation,
-                             /*isPatchConstantFunction*/ false);
+                             retTy, /*isPatchConstantFunction*/ false);
   }
   if (isRay && !retTy->isVoidType()) {
     Diags.Report(FD->getLocation(), Diags.getCustomDiagID(
@@ -2070,7 +2224,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
         RemapObsoleteSemantic(paramAnnotation, /*isPatchConstantFunction*/ false);
       }
       CheckParameterAnnotation(paramSemanticLoc, paramAnnotation,
-                               /*isPatchConstantFunction*/ false);
+                               fieldTy, /*isPatchConstantFunction*/ false);
     }
   }
 

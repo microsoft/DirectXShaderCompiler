@@ -396,6 +396,7 @@ void GetRowsAndColsForAny(clang::QualType type, uint32_t &rowCount,
                           uint32_t &colCount);
 uint32_t GetElementCount(clang::QualType type);
 uint32_t GetArraySize(clang::QualType type);
+clang::QualType GetArrayElementType(clang::QualType type);
 uint32_t GetHLSLVecSize(clang::QualType type);
 void GetRowsAndCols(clang::QualType type, uint32_t &rowCount,
                     uint32_t &colCount);

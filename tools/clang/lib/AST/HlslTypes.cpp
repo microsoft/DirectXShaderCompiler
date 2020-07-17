@@ -88,6 +88,7 @@ bool IsHLSLVecType(clang::QualType type) {
       }
     }
   }
+
   return false;
 }
 
@@ -127,6 +128,7 @@ bool IsHLSLNumericUserDefinedType(clang::QualType type) {
   }
   return false;
 }
+
 
 // Aggregate types are arrays and user-defined structs
 bool IsHLSLAggregateType(clang::QualType type) {
@@ -266,6 +268,14 @@ uint32_t GetElementCount(clang::QualType type) {
   uint32_t rowCount, colCount;
   GetRowsAndColsForAny(type, rowCount, colCount);
   return rowCount * colCount;
+}
+
+/// <summary>Returns the element type in the specified array
+/// type.</summary>
+QualType GetArrayElementType(clang::QualType type) {
+  QualType qTy = type.getCanonicalType().getNonReferenceType();
+  assert(qTy->isArrayType() && "otherwise caller shouldn't be invoking this");
+  return qTy->getAsArrayTypeUnsafe()->getElementType();
 }
 
 /// <summary>Returns the number of elements in the specified array
