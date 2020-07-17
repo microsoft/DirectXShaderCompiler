@@ -274,7 +274,7 @@ uint32_t GetElementCount(clang::QualType type) {
 /// type.</summary>
 QualType GetArrayElementType(clang::QualType type) {
   QualType qTy = type.getCanonicalType().getNonReferenceType();
-  assert(qTy->isArrayType() && "otherwise caller shouldn't be invoking this");
+  DXASSERT(qTy->isArrayType() && "otherwise caller shouldn't be invoking this");
   return qTy->getAsArrayTypeUnsafe()->getElementType();
 }
 
