@@ -453,16 +453,18 @@ static clang::Type::ScalarTypeKind GetScalarElementType(QualType qTy) {
   if (qTy->isArrayType())
     return GetScalarElementType(GetArrayElementType(qTy));
 
-  DXASSERT(qTy->isScalarType());
+  DXASSERT_NOMSG(qTy->isScalarType());
   return qTy->getScalarTypeKind();
 }
 
 static unsigned GetCompSize(QualType qty) {
-  if (qty->isArrayType())
-    return GetCompSize(GetArrayElementType(qty));
   if (qty->isScalarType())
     return 1;
-  DXASSERT(IsHLSLVecType(qty));
+  if (qty->isArrayType())
+    return GetCompSize(GetArrayElementType(qty));
+  if (IsHLSLMatType(qty))
+    return GetCompSize(GetHLSLMatElementType(qty));
+  DXASSERT_NOMSG(IsHLSLVecType(qty));
   return GetHLSLVecSize(qty);
 }
 
