@@ -281,29 +281,8 @@ private:
     auto &optToggles = m_CI.getCodeGenOpts().HLSLOptimizationToggles;
     auto &optSelects = m_CI.getCodeGenOpts().HLSLOptimizationSelects;
 
-    const llvm::SmallVector<std::string, 2> &semDefPrefixes = 
+    const llvm::SmallVector<std::string, 2> &semDefPrefixes =
                              m_langExtensionsHelper.GetSemanticDefines();
-    std::string prefixStr;
-    // Take the first semantic define prefix (minus *) for  use in the codeGenOpts metadata
-    if (semDefPrefixes.size())
-      prefixStr = semDefPrefixes[0].substr(0, semDefPrefixes[0].length()-1);
-
-    // Add codeGenOpts to mdNodes
-    MDString *empty = MDString::get(M->getContext(), "");
-    for (auto toggle = optToggles.begin(); toggle != optToggles.end(); toggle++) {
-      MDString *name = nullptr;
-      if (toggle->second)
-        name = MDString::get(M->getContext(), prefixStr + enableStr + StringRef(toggle->first).upper());
-      else
-        name = MDString::get(M->getContext(), prefixStr + disableStr + StringRef(toggle->first).upper());
-      mdNodes.push_back(MDNode::get(M->getContext(), { name, empty }));
-    }
-
-    for (auto select = optSelects.begin(); select != optSelects.end(); select++) {
-      MDString *name = MDString::get(M->getContext(), prefixStr + selectStr + StringRef(select->first).upper());
-      MDString *value = MDString::get(M->getContext(), select->second);
-      mdNodes.push_back(MDNode::get(M->getContext(), { name, value }));
-    }
 
     // Add semantic defines to mdNodes and also to codeGenOpts
     for (const ParsedSemanticDefine &define : defines) {
@@ -319,7 +298,6 @@ private:
           break;
         }
       }
-      DXASSERT(prefixPos, "Semantic Define without required prefix found");
 
       // Add semantic defines to option flag equivalents
       if (!define.Name.compare(prefixPos, enableStr.length(), enableStr))

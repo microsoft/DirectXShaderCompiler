@@ -454,7 +454,6 @@ public:
   TEST_METHOD(DefineNoValidatorOk)
   TEST_METHOD(DefineFromMacro)
   TEST_METHOD(DefineContradictionFail)
-  TEST_METHOD(DefineFromOption)
   TEST_METHOD(OptionFromDefine)
   TEST_METHOD(TargetTriple)
   TEST_METHOD(IntrinsicWhenAvailableThenUsed)
@@ -650,35 +649,6 @@ TEST_F(ExtensionTest, DefineContradictionFail) {
   VERIFY_IS_TRUE(
     errors.npos !=
     errors.find("Contradictory -opt-selects for \"yook\""));
-}
-
-// Test setting of semantic define metadata from command line options
-TEST_F(ExtensionTest, DefineFromOption) {
-  Compiler c(m_dllSupport);
-  c.RegisterSemanticDefine(L"FOO*");
-  c.Compile(
-    "#define FOO 1\n"
-    "float4 main() : SV_Target {\n"
-    "  return 0;\n"
-    "}\n",
-    { L"/Vd", L"-opt-disable", L"thenegative",
-      L"-opt-enable", L"THEPOSITIVE",
-      L"-opt-select", L"The", L"Affirmative"},
-    {}
-  );
-  std::string disassembly = c.Disassemble();
-  // -opt-enable THEPOSITIVE
-  VERIFY_IS_TRUE(
-    disassembly.npos !=
-    disassembly.find("!{!\"FOO_ENABLE_THEPOSITIVE\", !\"\"}"));
-  // -opt-disable thenegative
-  VERIFY_IS_TRUE(
-    disassembly.npos !=
-    disassembly.find("!{!\"FOO_DISABLE_THENEGATIVE\", !\"\"}"));
-  // -opt-select The_Affirmative
-  VERIFY_IS_TRUE(
-    disassembly.npos !=
-    disassembly.find("!{!\"FOO_SELECT_THE\", !\"Affirmative\"}"));
 }
 
 // Test setting of codegen options from semantic defines
