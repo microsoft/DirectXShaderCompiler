@@ -124,17 +124,6 @@ static Constant *GetConstGep(Constant *Ptr, unsigned Idx0, unsigned Idx1) {
   return ConstantExpr::getGetElementPtr(nullptr, Ptr, Indices);
 }
 
-static bool ShouldPreserve(Value *V) {
-  if (isa<Constant>(V)) return true;
-  if (isa<Argument>(V)) return true;
-  if (isa<LoadInst>(V)) return true;
-  if (ExtractElementInst *GEP = dyn_cast<ExtractElementInst>(V)) {
-    return ShouldPreserve(GEP->getVectorOperand());
-  }
-  if (isa<CallInst>(V)) return true;
-  return false;
-}
-
 struct Store_Info {
   Instruction *StoreOrMC = nullptr;
   Value *Source = nullptr; // Alloca, GV, or Argument
@@ -225,7 +214,7 @@ static Value *GetOrCreatePreserveCond(Function *F) {
   }
 
   for (User *U : GV->users()) {
-    GEPOperator *Gep = Gep = cast<GEPOperator>(U);
+    GEPOperator *Gep = cast<GEPOperator>(U);
     for (User *GepU : Gep->users()) {
       LoadInst *LI = cast<LoadInst>(GepU);
       if (LI->getParent()->getParent() == F) {
@@ -516,9 +505,8 @@ public:
 
         DIExpression *Expr = Declare->getExpression();
         if (Expr->getNumElements() == 1 && Expr->getElement(0) == dwarf::DW_OP_deref) {
-          while (Ty &&
-            Ty->getTag() == dwarf::DW_TAG_reference_type ||
-            Ty->getTag() == dwarf::DW_TAG_restrict_type)
+          while (Ty && (Ty->getTag() == dwarf::DW_TAG_reference_type ||
+                        Ty->getTag() == dwarf::DW_TAG_restrict_type))
           {
             Ty = cast<DIDerivedType>(Ty)->getBaseType().resolve(EmptyMap);
           }

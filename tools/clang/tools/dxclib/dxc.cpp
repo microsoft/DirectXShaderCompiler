@@ -59,6 +59,7 @@
 #include "llvm/Option/ArgList.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/Path.h"
 #ifdef _WIN32
 #include <dia2.h>
 #include <comdef.h>
@@ -66,7 +67,9 @@
 #include <algorithm>
 #include <unordered_map>
 
+#ifdef _WIN32
 #pragma comment(lib, "version.lib")
+#endif
 
 // SPIRV Change Starts
 #ifdef ENABLE_SPIRV_CODEGEN
@@ -553,7 +556,12 @@ public:
     _COM_Outptr_result_maybenull_ IDxcBlob **ppIncludeSource
   ) override {
     try {
-      *ppIncludeSource = includeFiles.at(std::wstring(pFilename));
+      // Convert pFilename into native form for indexing as is done when the MD is created
+      std::string FilenameStr8 = Unicode::UTF16ToUTF8StringOrThrow(pFilename);
+      llvm::SmallString<128> NormalizedPath;
+      llvm::sys::path::native(FilenameStr8, NormalizedPath);
+      std::wstring FilenameStr16 = Unicode::UTF8ToUTF16StringOrThrow(NormalizedPath.c_str());
+      *ppIncludeSource = includeFiles.at(FilenameStr16);
       (*ppIncludeSource)->AddRef();
     }
     CATCH_CPP_RETURN_HRESULT()
@@ -886,12 +894,6 @@ void DxcContext::Preprocess() {
     IFT(pPreprocessResult->GetResult(&pProgram));
     WriteBlobToFile(pProgram, m_Opts.Preprocess, m_Opts.DefaultTextCodePage);
   }
-}
-
-static void WriteString(HANDLE hFile, _In_z_ LPCSTR value, LPCWSTR pFileName) {
-  DWORD written;
-  if (FALSE == WriteFile(hFile, value, strlen(value) * sizeof(value[0]), &written, nullptr))
-    IFT_Data(HRESULT_FROM_WIN32(GetLastError()), pFileName);
 }
 
 void DxcContext::WriteHeader(IDxcBlobEncoding *pDisassembly, IDxcBlob *pCode,

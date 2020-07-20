@@ -90,6 +90,7 @@ target_link_libraries(clang-hlsl-tests PRIVATE
   ${TAEF_LIBRARIES}
   ${DIASDK_LIBRARIES}
   ${D3D12_LIBRARIES}
+  shlwapi
   )
 else(WIN32)
 target_link_libraries(clang-hlsl-tests

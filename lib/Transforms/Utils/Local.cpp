@@ -1300,7 +1300,14 @@ bool llvm::removeUnreachableBlocks(Function &F) {
   return true;
 }
 
-void llvm::combineMetadata(Instruction *K, const Instruction *J, ArrayRef<unsigned> KnownIDs) {
+void llvm::combineMetadata(Instruction *K, const Instruction *J, ArrayRef<unsigned> OrigKnownIDs) {
+  // HLSL Change Begin - Add known dxil metadata to preserved set.
+  SmallVector<unsigned, 2> DxilMetadataIDs;
+  hlsl::DxilMDHelper::GetKnownMetadataIDs(K->getContext(), &DxilMetadataIDs);
+  SmallVector<unsigned, 8> KnownIDs(std::begin(OrigKnownIDs), std::end(OrigKnownIDs));
+  std::copy(DxilMetadataIDs.begin(), DxilMetadataIDs.end(), std::back_inserter(KnownIDs));
+  // HLSL Change End.
+
   SmallVector<std::pair<unsigned, MDNode *>, 4> Metadata;
   K->dropUnknownMetadata(KnownIDs);
   K->getAllMetadataOtherThanDebugLoc(Metadata);
@@ -1311,7 +1318,9 @@ void llvm::combineMetadata(Instruction *K, const Instruction *J, ArrayRef<unsign
 
     switch (Kind) {
       default:
-        K->setMetadata(Kind, nullptr); // Remove unknown metadata
+        // HLSL Change - Do not remove dxil metadata. It is combined below with `combineDxilMetadata`.
+        if (std::find(DxilMetadataIDs.begin(), DxilMetadataIDs.end(), Kind) == DxilMetadataIDs.end())
+            K->setMetadata(Kind, nullptr); // Remove unknown metadata
         break;
       case LLVMContext::MD_dbg:
         llvm_unreachable("getAllMetadataOtherThanDebugLoc returned a MD_dbg");

@@ -421,6 +421,7 @@ llvm::AllocaInst *VariableRegisters::GetRegisterForAlignedOffset(
   return it->second;
 }
 
+#ifndef NDEBUG
 // DITypePeelTypeAlias peels const, typedef, and other alias types off of Ty,
 // returning the unalised type.
 static llvm::DIType *DITypePeelTypeAlias(
@@ -443,6 +444,8 @@ static llvm::DIType *DITypePeelTypeAlias(
 
   return Ty;
 }
+#endif // NDEBUG
+
 
 VariableRegisters::VariableRegisters(
     llvm::DIVariable *Variable,

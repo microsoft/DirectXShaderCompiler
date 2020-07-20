@@ -285,8 +285,6 @@ Value *DxilValueCache::SimplifyAndCacheResult(Instruction *I, DominatorTree *DT)
   return Simplified;
 }
 
-STATISTIC(StaleValuesEncountered, "Stale Values Encountered");
-
 bool DxilValueCache::WeakValueMap::Seen(Value *V) {
   auto FindIt = Map.find(V);
   if (FindIt == Map.end())

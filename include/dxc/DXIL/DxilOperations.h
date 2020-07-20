@@ -42,6 +42,7 @@ public:
   OP(llvm::LLVMContext &Ctx, llvm::Module *pModule);
 
   void RefreshCache();
+  void FixOverloadNames();
 
   llvm::Function *GetOpFunc(OpCode OpCode, llvm::Type *pOverloadType);
   const llvm::SmallMapVector<llvm::Type *, llvm::Function *, 8> &GetOpFuncList(OpCode OpCode) const;
@@ -162,6 +163,8 @@ private:
   static unsigned GetTypeSlot(llvm::Type *pType);
   static const char *GetOverloadTypeName(unsigned TypeSlot);
   static llvm::StringRef GetTypeName(llvm::Type *Ty, std::string &str);
+  static llvm::StringRef ConstructOverloadName(llvm::Type *Ty, DXIL::OpCode opCode,
+                                               std::string &funcNameStorage);
 };
 
 } // namespace hlsl

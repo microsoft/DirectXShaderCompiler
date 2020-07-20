@@ -27,10 +27,7 @@
 #include <atlfile.h>
 
 #include "dxc/test/HLSLTestData.h"
-
-#define HLSLDATAFILEPARAM L"DxilConvDataDir"
 #include "dxc/test/HlslTestUtils.h"
-
 #include "dxc/test/DxcTestUtils.h"
 
 #include "llvm/Support/raw_os_ostream.h"

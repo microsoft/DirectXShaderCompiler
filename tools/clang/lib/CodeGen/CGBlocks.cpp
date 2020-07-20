@@ -240,7 +240,7 @@ namespace {
     else
       RightValue = right.Alignment;
     
-      return LeftValue > RightValue;
+    return LeftValue > RightValue;
   }
 }
 

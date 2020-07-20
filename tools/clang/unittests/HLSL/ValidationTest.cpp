@@ -71,6 +71,7 @@ public:
   TEST_METHOD(SignatureStreamIDForNonGS)
   TEST_METHOD(TypedUAVStoreFullMask0)
   TEST_METHOD(TypedUAVStoreFullMask1)
+  TEST_METHOD(UAVStoreMaskMatch)
   TEST_METHOD(Recursive)
   TEST_METHOD(Recursive2)
   TEST_METHOD(Recursive3)
@@ -1155,6 +1156,14 @@ TEST_F(ValidationTest, TypedUAVStoreFullMask1) {
       "float 3.000000e+00, i8 15)",
       "float 3.000000e+00, i8 undef)",
       "Mask of BufferStore must be an immediate constant");
+}
+
+TEST_F(ValidationTest, UAVStoreMaskMatch) {
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\uav_store.hlsl", "ps_6_0",
+      "i32 2, i8 15)",
+      "i32 2, i8 7)",
+      "uav store write mask must match store value mask, write mask is 7 and store value mask is 15.");
 }
 
 TEST_F(ValidationTest, Recursive) {

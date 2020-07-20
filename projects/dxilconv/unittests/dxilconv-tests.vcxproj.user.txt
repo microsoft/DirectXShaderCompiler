@@ -3,7 +3,7 @@
   <PropertyGroup>
     <LocalDebuggerCommand>${DOS_TAEF_BIN_DIR}\$(PlatformTarget)\Te.exe</LocalDebuggerCommand>
     <LocalDebuggerCommand Condition="'$(PlatformTarget)' == 'x64' And Exists('${DOS_TAEF_BIN_DIR}\amd64\Te.exe')">${DOS_TAEF_BIN_DIR}\amd64\Te.exe</LocalDebuggerCommand>
-    <LocalDebuggerCommandArguments>$(TargetPath) /inproc /p:"DxilConvDataDir=${DOS_STYLE_SOURCE_DIR}\..\test" /name:*</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>$(TargetPath) /inproc /p:"HlslDataDir=${DOS_STYLE_SOURCE_DIR}\..\test" /name:*</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
 </Project>

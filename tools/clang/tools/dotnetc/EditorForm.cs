@@ -1719,8 +1719,12 @@ namespace MainNs
 
         private void SelectedPassesBox_DoubleClick(object sender, EventArgs e)
         {
-            if (this.SelectedPassesBox.SelectedIndex != -1)
-                this.SelectedPassesBox.Items.RemoveAt(this.SelectedPassesBox.SelectedIndex);
+                for (int x = SelectedPassesBox.SelectedIndices.Count - 1; x >= 0; x--)
+                {
+                    int idx = SelectedPassesBox.SelectedIndices[x];
+                    SelectedPassesBox.Items.RemoveAt(idx);
+                }
+
         }
 
         private void AddPrintModuleButton_Click(object sender, EventArgs e)
@@ -1734,18 +1738,10 @@ namespace MainNs
             ListBox lb = (ListBox)sender;
             if (e.KeyCode == Keys.Delete)
             {
-                int selectedIndex = lb.SelectedIndex;
-                if (selectedIndex != -1)
+                for (int x = SelectedPassesBox.SelectedIndices.Count - 1; x >= 0; x--)
                 {
-                    lb.Items.RemoveAt(selectedIndex);
-                    if (selectedIndex < lb.Items.Count)
-                    {
-                        lb.SelectedIndex = selectedIndex;
-                    }
-                    else if (lb.Items.Count > 0)
-                    {
-                        lb.SelectedIndex = selectedIndex - 1;
-                    }
+                    int idx = SelectedPassesBox.SelectedIndices[x];
+                    SelectedPassesBox.Items.RemoveAt(idx);
                 }
                 e.Handled = true;
                 return;
@@ -1789,46 +1785,51 @@ namespace MainNs
                     // See file history for a version that inserted the image in-line with graph.
                     // The svg/web browser approach provides zooming and more interactivity.
                     string graphText = s.Text.Substring(s.SelectionStart, closing - s.SelectionStart);
-                    string path = System.IO.Path.GetTempFileName();
-                    string outPath = path + ".svg";
-                    try
+                    ShowDot(graphText);
+                }
+            }
+
+            static public void ShowDot(string graphText)
+            {
+                string path = System.IO.Path.GetTempFileName();
+                string outPath = path + ".svg";
+                try
+                {
+                    System.IO.File.WriteAllText(path, graphText);
+
+                    string svgData = RunDot(path, DotOutFormat.Svg, null);
+                    Form browserForm = new Form();
+
+                    TrackBar zoomControl = new TrackBar();
+                    zoomControl.Minimum = 10;
+                    zoomControl.Maximum = 400;
+                    zoomControl.Value = 100;
+                    zoomControl.Dock = DockStyle.Top;
+                    zoomControl.Text = "zoom";
+
+                    WebBrowser browser = new WebBrowser();
+                    browser.Dock = DockStyle.Fill;
+                    browser.DocumentText = svgData;
+                    browserForm.Controls.Add(browser);
+                    browserForm.Controls.Add(zoomControl);
+                    zoomControl.ValueChanged += (_, __) =>
                     {
-                        System.IO.File.WriteAllText(path, graphText);
-
-                        string svgData = RunDot(path, DotOutFormat.Svg, null);
-                        Form browserForm = new Form();
-
-                        TrackBar zoomControl = new TrackBar();
-                        zoomControl.Minimum = 10;
-                        zoomControl.Maximum = 400;
-                        zoomControl.Value = 100;
-                        zoomControl.Dock = DockStyle.Top;
-                        zoomControl.Text = "zoom";
-
-                        WebBrowser browser = new WebBrowser();
-                        browser.Dock = DockStyle.Fill;
-                        browser.DocumentText = svgData;
-                        browserForm.Controls.Add(browser);
-                        browserForm.Controls.Add(zoomControl);
-                        zoomControl.ValueChanged += (_, __) =>
+                        if (browser.Document != null && browser.Document.DomDocument != null)
                         {
-                            if (browser.Document != null && browser.Document.DomDocument != null)
-                            {
-                                dynamic o = browser.Document.DomDocument;
-                                o.documentElement.style.zoom = String.Format("{0}%", zoomControl.Value);
-                            }
-                        };
-                        browserForm.Text = "graph";
-                        browserForm.Show();
-                    }
-                    catch (DotProgram.CannotFindDotException cfde)
-                    {
-                        MessageBox.Show(cfde.Message, "Unable to find dot.exe", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    }
-                    finally
-                    {
-                        DeleteIfExists(path);
-                    }
+                            dynamic o = browser.Document.DomDocument;
+                            o.documentElement.style.zoom = String.Format("{0}%", zoomControl.Value);
+                        }
+                    };
+                    browserForm.Text = "graph";
+                    browserForm.Show();
+                }
+                catch (DotProgram.CannotFindDotException cfde)
+                {
+                    MessageBox.Show(cfde.Message, "Unable to find dot.exe", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+                finally
+                {
+                    DeleteIfExists(path);
                 }
             }
 
@@ -1838,7 +1839,7 @@ namespace MainNs
                     System.IO.File.Delete(path);
             }
 
-            internal string RunDot(string inputFile, DotOutFormat format, string outFile)
+            internal static string RunDot(string inputFile, DotOutFormat format, string outFile)
             {
                 DotProgram program = new DotProgram();
                 program.InFilePath = inputFile;

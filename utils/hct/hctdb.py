@@ -1270,7 +1270,7 @@ class db_dxil(object):
         # End of DXIL 1.0 opcodes.
         self.set_op_count_for_version(1, 0, next_op_idx)
 
-        self.add_dxil_op("AttributeAtVertex", next_op_idx, "AttributeAtVertex", "returns the values of the attributes at the vertex.", "hf", "rn", [
+        self.add_dxil_op("AttributeAtVertex", next_op_idx, "AttributeAtVertex", "returns the values of the attributes at the vertex.", "hfiw", "rn", [
             db_dxil_param(0, "$o", "", "result"),
             db_dxil_param(2, "i32", "inputSigId", "input signature element ID"),
             db_dxil_param(3, "i32", "inputRowIndex", "row index of an input attribute"),
@@ -2050,8 +2050,6 @@ class db_dxil(object):
         add_pass("hl-expand-store-intrinsics", "HLExpandStoreIntrinsics", "Expand HLSL store intrinsics", [])
         add_pass("hl-legalize-parameter", "HLLegalizeParameter", "Legalize parameter", [])
         add_pass('scalarrepl-param-hlsl', 'SROA_Parameter_HLSL', 'Scalar Replacement of Aggregates HLSL (parameters)', [])
-        add_pass('scalarreplhlsl', 'SROA_DT_HLSL', 'Scalar Replacement of Aggregates HLSL (DT)', [])
-        add_pass('scalarreplhlsl-ssa', 'SROA_SSAUp_HLSL', 'Scalar Replacement of Aggregates HLSL (SSAUp)', [])
         add_pass('static-global-to-alloca', 'LowerStaticGlobalIntoAlloca', 'Lower static global into Alloca', [])
         add_pass('hlmatrixlower', 'HLMatrixLowerPass', 'HLSL High-Level Matrix Lower', [])
         add_pass('matrixbitcastlower', 'MatrixBitcastLowerPass', 'Matrix Bitcast lower', [])
@@ -2106,6 +2104,11 @@ class db_dxil(object):
         add_pass('dxil-delete-loop', 'DxilLoopDeletion', 'Dxil Loop Deletion', [])
         add_pass('dxil-value-cache', 'DxilValueCache', 'Dxil Value Cache',[])
         add_pass('hlsl-cleanup-dxbreak', 'CleanupDxBreak', 'HLSL Remove unnecessary dx.break conditions', [])
+        add_pass('dxil-rename-resources', 'DxilRenameResources', 'Rename resources to prevent merge by name during linking', [
+                {'n':'prefix', 'i':'Prefix', 't':'string', 'd':'Prefix to add to resource names'},
+                {'n':'from-binding', 'i':'FromBinding', 't':'bool', 'c':1, 'd':'Append binding to name when bound'},
+                {'n':'keep-name', 'i':'KeepName', 't':'bool', 'c':1, 'd':'Keep name when appending binding'},
+            ])
 
         category_lib="llvm"
         add_pass('ipsccp', 'IPSCCP', 'Interprocedural Sparse Conditional Constant Propagation', [])
@@ -2477,6 +2480,7 @@ class db_dxil(object):
         self.add_valrule("Instr.ResourceKindForSampleC", "samplec requires resource declared as texture1D/2D/Cube/1DArray/2DArray/CubeArray.")
         self.add_valrule("Instr.ResourceKindForGather", "gather requires resource declared as texture/2D/Cube/2DArray/CubeArray.")
         self.add_valrule("Instr.WriteMaskMatchValueForUAVStore", "uav store write mask must match store value mask, write mask is %0 and store value mask is %1.")
+        self.add_valrule("Instr.UndefinedValueForUAVStore", "Assignment of undefined values to UAV.")
         self.add_valrule("Instr.ResourceKindForBufferLoadStore", "buffer load/store only works on Raw/Typed/StructuredBuffer.")
         self.add_valrule("Instr.ResourceKindForTextureStore", "texture store only works on Texture1D/1DArray/2D/2DArray/3D.")
         self.add_valrule("Instr.ResourceKindForGetDim", "Invalid resource kind on GetDimensions.")

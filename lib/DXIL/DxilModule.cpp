@@ -76,6 +76,10 @@ const char* kFP32DenormKindString          = "fp32-denorm-mode";
 const char* kFP32DenormValueAnyString      = "any";
 const char* kFP32DenormValuePreserveString = "preserve";
 const char* kFP32DenormValueFtzString      = "ftz";
+
+const char *kDxBreakFuncName = "dx.break";
+const char *kDxBreakCondName = "dx.break.cond";
+const char *kDxBreakMDName = "dx.break.br";
 }
 
 // Avoid dependency on DxilModule from llvm::Module using this:
@@ -1040,6 +1044,62 @@ void DxilModule::RemoveResourcesWithUnusedSymbols() {
   RemoveResourcesWithUnusedSymbolsHelper(m_UAVs);
   RemoveResourcesWithUnusedSymbolsHelper(m_CBuffers);
   RemoveResourcesWithUnusedSymbolsHelper(m_Samplers);
+}
+
+namespace {
+template <typename TResource>
+static bool RenameResources(std::vector<std::unique_ptr<TResource>> &vec, const std::string &prefix) {
+  bool bChanged = false;
+  for (auto &res : vec) {
+    res->SetGlobalName(prefix + res->GetGlobalName());
+    if (GlobalVariable *GV = dyn_cast<GlobalVariable>(res->GetGlobalSymbol())) {
+      GV->setName(prefix + GV->getName());
+    }
+    bChanged = true;
+  }
+  return bChanged;
+}
+}
+
+bool DxilModule::RenameResourcesWithPrefix(const std::string &prefix) {
+  bool bChanged = false;
+  bChanged |= RenameResources(m_SRVs, prefix);
+  bChanged |= RenameResources(m_UAVs, prefix);
+  bChanged |= RenameResources(m_CBuffers, prefix);
+  bChanged |= RenameResources(m_Samplers, prefix);
+  return bChanged;
+}
+
+namespace {
+template <typename TResource>
+static bool RenameGlobalsWithBinding(std::vector<std::unique_ptr<TResource>> &vec, llvm::StringRef prefix, bool bKeepName) {
+  bool bChanged = false;
+  for (auto &res : vec) {
+    if (res->IsAllocated()) {
+      std::string newName;
+      if (bKeepName)
+        newName = (Twine(res->GetGlobalName()) + "." + Twine(prefix) + Twine(res->GetLowerBound()) + "." + Twine(res->GetSpaceID())).str();
+      else
+        newName = (Twine(prefix) + Twine(res->GetLowerBound()) + "." + Twine(res->GetSpaceID())).str();
+
+      res->SetGlobalName(newName);
+      if (GlobalVariable *GV = dyn_cast<GlobalVariable>(res->GetGlobalSymbol())) {
+        GV->setName(newName);
+      }
+      bChanged = true;
+    }
+  }
+  return bChanged;
+}
+}
+
+bool DxilModule::RenameResourceGlobalsWithBinding(bool bKeepName) {
+  bool bChanged = false;
+  bChanged |= RenameGlobalsWithBinding(m_SRVs, "t", bKeepName);
+  bChanged |= RenameGlobalsWithBinding(m_UAVs, "u", bKeepName);
+  bChanged |= RenameGlobalsWithBinding(m_CBuffers, "b", bKeepName);
+  bChanged |= RenameGlobalsWithBinding(m_Samplers, "s", bKeepName);
+  return bChanged;
 }
 
 DxilSignature &DxilModule::GetInputSignature() {

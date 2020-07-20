@@ -88,7 +88,6 @@ private:
   const char *m_pszName;
   unsigned m_NumInputRegs;
   unsigned m_NumOutputRegs;
-  bool     m_bUAVs;
   bool     m_bTypedUavs;
   unsigned m_NumUAVRegs;
 

@@ -99,7 +99,6 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD Reason, LPVOID reserved) {
   if (Reason == DLL_PROCESS_ATTACH) {
     EventRegisterMicrosoft_Windows_DXCompiler_API();
     DxcEtw_DXCompilerInitialization_Start();
-    DisableThreadLibraryCalls(hinstDLL);
     HRESULT hr = InitMaybeFail();
     DxcEtw_DXCompilerInitialization_Stop(hr);
     result = SUCCEEDED(hr) ? TRUE : FALSE;

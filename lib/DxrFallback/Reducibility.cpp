@@ -344,7 +344,7 @@ int makeReducible(Function* F)
         if (nodes[i]->in.size() <= 1)
           continue;
 
-        if (idxMin == ~0 || nodes[i]->numInstructions < nodes[idxMin]->numInstructions)
+        if (idxMin == ~0u || nodes[i]->numInstructions < nodes[idxMin]->numInstructions)
           idxMin = i;
       }
       nodes.push_back(split(nodes[idxMin], bbToNode, numSplits == 0));

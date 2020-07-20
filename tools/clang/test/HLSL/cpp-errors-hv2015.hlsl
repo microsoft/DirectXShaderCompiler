@@ -208,7 +208,7 @@ int is_supported() {
   return 0;
 }
 
-[availability(*, unavailable, renamed="somethingelse")] void fn_unavailable(); // expected-error {{'availability' is unsupported in HLSL}}
+[availability(*, unavailable, renamed="somethingelse")] void fn_unavailable(); // expected-warning {{unknown attribute 'availability' ignored}}
 __declspec(align(16)) struct SAligned { int i; }; // expected-error {{'__declspec' is a reserved keyword in HLSL}}
 void __fastcall fn_fastcall(); // expected-error {{'__fastcall' is a reserved keyword in HLSL}}
 

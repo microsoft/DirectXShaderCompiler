@@ -116,19 +116,7 @@ public:
               const VKCounterBindingAttr *cb, bool counter = false,
               bool globalsBuffer = false)
       : variable(var), srcLoc(loc), reg(r), binding(b), counterBinding(cb),
-        isCounterVar(counter), isGlobalsCBuffer(globalsBuffer), arraySize(1) {
-    if (decl) {
-      if (const ValueDecl *valueDecl = dyn_cast<ValueDecl>(decl)) {
-        const QualType type = valueDecl->getType();
-        if (!type.isNull() && type->isConstantArrayType()) {
-          if (auto constArrayType = dyn_cast<ConstantArrayType>(type)) {
-            arraySize =
-                static_cast<uint32_t>(constArrayType->getSize().getZExtValue());
-          }
-        }
-      }
-    }
-  }
+        isCounterVar(counter), isGlobalsCBuffer(globalsBuffer) {}
 
   SpirvVariable *getSpirvInstr() const { return variable; }
   SourceLocation getSourceLocation() const { return srcLoc; }
@@ -139,7 +127,6 @@ public:
   const VKCounterBindingAttr *getCounterBinding() const {
     return counterBinding;
   }
-  uint32_t getArraySize() const { return arraySize; }
 
 private:
   SpirvVariable *variable;                    ///< The variable
@@ -149,7 +136,6 @@ private:
   const VKCounterBindingAttr *counterBinding; ///< Vulkan counter binding
   bool isCounterVar;                          ///< Couter variable or not
   bool isGlobalsCBuffer;                      ///< $Globals cbuffer or not
-  uint32_t arraySize;                         ///< Size if resource is an array
 };
 
 /// A (instruction-pointer, is-alias-or-not) pair for counter variables
@@ -527,8 +513,16 @@ public:
   /// module under construction.
   bool decorateResourceBindings();
 
+  /// \brief Returns whether the SPIR-V module requires SPIR-V legalization
+  /// passes run to make it legal.
   bool requiresLegalization() const { return needsLegalization; }
- 
+
+  /// \brief Returns whether the SPIR-V module requires an optimization pass to
+  /// flatten array/structure of resources.
+  bool requiresFlatteningCompositeResources() const {
+    return needsFlatteningCompositeResources;
+  }
+
   /// \brief Returns the given decl's HLSL semantic information.
   static SemanticInfo getStageVarSemantic(const NamedDecl *decl);
 
@@ -707,6 +701,53 @@ private:
                                  const SourceLocation &loc,
                                  const StringRef &name);
 
+  /// Determines the register type for a resource that does not have an
+  /// explicit register() declaration.  Returns true if it is able to
+  /// determine the register type and will set |*registerTypeOut| to
+  /// 'u', 's', 'b', or 't'. Assumes |registerTypeOut| to be non-nullptr.
+  ///
+  /// Uses the following mapping of HLSL types to register spaces:
+  /// t - for shader resource views (SRV)
+  ///    TEXTURE1D
+  ///    TEXTURE1DARRAY
+  ///    TEXTURE2D
+  ///    TEXTURE2DARRAY
+  ///    TEXTURE3D
+  ///    TEXTURECUBE
+  ///    TEXTURECUBEARRAY
+  ///    TEXTURE2DMS
+  ///    TEXTURE2DMSARRAY
+  ///    STRUCTUREDBUFFER
+  ///    BYTEADDRESSBUFFER
+  ///    BUFFER
+  ///    TBUFFER
+  ///
+  /// s - for samplers
+  ///    SAMPLER
+  ///    SAMPLER1D
+  ///    SAMPLER2D
+  ///    SAMPLER3D
+  ///    SAMPLERCUBE
+  ///    SAMPLERSTATE
+  ///    SAMPLERCOMPARISONSTATE
+  ///
+  /// u - for unordered access views (UAV)
+  ///    RWBYTEADDRESSBUFFER
+  ///    RWSTRUCTUREDBUFFER
+  ///    APPENDSTRUCTUREDBUFFER
+  ///    CONSUMESTRUCTUREDBUFFER
+  ///    RWBUFFER
+  ///    RWTEXTURE1D
+  ///    RWTEXTURE1DARRAY
+  ///    RWTEXTURE2D
+  ///    RWTEXTURE2DARRAY
+  ///    RWTEXTURE3D
+  ///
+  /// b - for constant buffer views (CBV)
+  ///    CBUFFER
+  ///    CONSTANTBUFFER
+  bool getImplicitRegisterType(const ResourceVar &var, char *registerTypeOut) const;
+
 private:
   SpirvBuilder &spvBuilder;
   SpirvEmitter &theEmitter;
@@ -801,6 +842,13 @@ private:
   /// Note: legalization specific code
   bool needsLegalization;
 
+  /// Whether the translated SPIR-V binary needs flattening of composite
+  /// resources.
+  ///
+  /// If the source HLSL contains global structure of resources, we need to run
+  /// an additional SPIR-V optimization pass to flatten such structures.
+  bool needsFlatteningCompositeResources;
+
 public:
   /// The gl_PerVertex structs for both input and output
   GlPerVertex glPerVertex;
@@ -831,7 +879,7 @@ DeclResultIdMapper::DeclResultIdMapper(ASTContext &context,
     : spvBuilder(spirvBuilder), theEmitter(emitter), spirvOptions(options),
       astContext(context), spvContext(spirvContext),
       diags(context.getDiagnostics()), entryFunction(nullptr),
-      needsLegalization(false),
+      needsLegalization(false), needsFlatteningCompositeResources(false),
       glPerVertex(context, spirvContext, spirvBuilder) {}
 
 bool DeclResultIdMapper::decorateStageIOLocations() {

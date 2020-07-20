@@ -31,6 +31,9 @@
 
 #include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Support/MD5.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Path.h"
+#include "llvm/Support/raw_ostream.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/dxctools.h"
@@ -58,7 +61,8 @@ FileRunCommandResult FileRunCommandPart::RunHashTests(dxc::DxcDllSupport &DllSup
 }
 
 FileRunCommandResult FileRunCommandPart::Run(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior, 
-                                             PluginToolsPaths *pPluginToolsPaths /*=nullptr*/) {
+                                             PluginToolsPaths *pPluginToolsPaths /*=nullptr*/,
+                                             LPCWSTR dumpName /*=nullptr*/) {
   bool isFileCheck =
     0 == _stricmp(Command.c_str(), "FileCheck") ||
     0 == _stricmp(Command.c_str(), "%FileCheck");
@@ -74,7 +78,7 @@ FileRunCommandResult FileRunCommandPart::Run(dxc::DxcDllSupport &DllSupport, con
 
   // We would add support for 'not' and 'llc' here.
   if (isFileCheck) {
-    return RunFileChecker(Prior);
+    return RunFileChecker(Prior, dumpName);
   }
   else if (isXFail) {
     return RunXFail(Prior);
@@ -116,7 +120,7 @@ FileRunCommandResult FileRunCommandPart::Run(dxc::DxcDllSupport &DllSupport, con
   return result;
 }
 
-FileRunCommandResult FileRunCommandPart::RunFileChecker(const FileRunCommandResult *Prior) {
+FileRunCommandResult FileRunCommandPart::RunFileChecker(const FileRunCommandResult *Prior, LPCWSTR dumpName /*=nullptr*/) {
   if (!Prior) return FileRunCommandResult::Error("Prior command required to generate stdin");
 
   FileCheckForTest t;
@@ -140,6 +144,18 @@ FileRunCommandResult FileRunCommandPart::RunFileChecker(const FileRunCommandResu
     else return FileRunCommandResult::Error("Invalid argument");
   }
   if (!hasInputFilename) return FileRunCommandResult::Error("Missing input filename");
+
+  if (dumpName) {
+    // Dump t.InputForStdin to file for comparison purposes
+    CW2A dumpNameUtf8(dumpName, CP_UTF8);
+    llvm::StringRef dumpPath(dumpNameUtf8.m_psz);
+    llvm::sys::fs::create_directories(llvm::sys::path::parent_path(dumpPath), /*IgnoreExisting*/true);
+    std::error_code ec;
+    llvm::raw_fd_ostream os(dumpPath, ec, llvm::sys::fs::OpenFlags::F_Text);
+    if (!ec) {
+      os << t.InputForStdin;
+    }
+  }
 
   FileRunCommandResult result {};
   // Run
@@ -914,6 +930,7 @@ FileRunCommandResult FileRunCommandPart::RunFromPath(const std::string &toolPath
 class FileRunTestResultImpl : public FileRunTestResult {
   dxc::DxcDllSupport &m_support;
   PluginToolsPaths *m_pPluginToolsPaths;
+  LPCWSTR m_dumpName = nullptr;
 
   void RunHashTestFromCommands(LPCSTR commands, LPCWSTR fileName) {
     std::vector<FileRunCommandPart> parts;
@@ -934,7 +951,7 @@ class FileRunTestResultImpl : public FileRunTestResult {
     }
   }
 
-  void RunFileCheckFromCommands(LPCSTR commands, LPCWSTR fileName) {
+  void RunFileCheckFromCommands(LPCSTR commands, LPCWSTR fileName, LPCWSTR dumpName = nullptr) {
     std::vector<FileRunCommandPart> parts;
     ParseCommandParts(commands, fileName, parts);
 
@@ -947,7 +964,7 @@ class FileRunTestResultImpl : public FileRunTestResult {
     FileRunCommandResult result;
     FileRunCommandResult* previousResult = nullptr;
     for (FileRunCommandPart & part : parts) {
-      result = part.Run(m_support, previousResult, m_pPluginToolsPaths);
+      result = part.Run(m_support, previousResult, m_pPluginToolsPaths, dumpName);
       previousResult = &result;
       if (result.AbortPipeline) break;
     }
@@ -957,17 +974,28 @@ class FileRunTestResultImpl : public FileRunTestResult {
   }
 
 public:
-  FileRunTestResultImpl(dxc::DxcDllSupport &support, PluginToolsPaths *pPluginToolsPaths = nullptr)
-    : m_support(support), m_pPluginToolsPaths(pPluginToolsPaths) {}
+  FileRunTestResultImpl(dxc::DxcDllSupport &support, PluginToolsPaths *pPluginToolsPaths = nullptr,
+                        LPCWSTR dumpName = nullptr)
+    : m_support(support), m_pPluginToolsPaths(pPluginToolsPaths), m_dumpName(dumpName) {}
   void RunFileCheckFromFileCommands(LPCWSTR fileName) {
     // Assume UTF-8 files.
     auto cmds = GetRunLines(fileName);
     // Iterate over all RUN lines
+    unsigned runIdx = 0;
     for (auto &cmd : cmds) {
-      RunFileCheckFromCommands(cmd.c_str(), fileName);
+      std::wstring dumpStr;
+      std::wstringstream os;
+      LPCWSTR dumpName = nullptr;
+      if (m_dumpName) {
+        os << m_dumpName << L"." << runIdx << L".txt";
+        dumpStr = os.str();
+        dumpName = dumpStr.c_str();
+      }
+      RunFileCheckFromCommands(cmd.c_str(), fileName, dumpName);
       // If any of the RUN cmd fails then skip executing remaining cmds
       // and report the error
       if (this->RunResult != 0) break;
+      runIdx += 1;
     }
   }
 
@@ -987,17 +1015,19 @@ FileRunTestResult FileRunTestResult::RunHashTestFromFileCommands(LPCWSTR fileNam
 }
 
 FileRunTestResult FileRunTestResult::RunFromFileCommands(LPCWSTR fileName, 
-                                                         PluginToolsPaths *pPluginToolsPaths /*=nullptr*/) {
+                                                         PluginToolsPaths *pPluginToolsPaths /*=nullptr*/,
+                                                         LPCWSTR dumpName /*=nullptr*/) {
   dxc::DxcDllSupport dllSupport;
   IFT(dllSupport.Initialize());
-  FileRunTestResultImpl result(dllSupport, pPluginToolsPaths);
+  FileRunTestResultImpl result(dllSupport, pPluginToolsPaths, dumpName);
   result.RunFileCheckFromFileCommands(fileName);
   return result;
 }
 
 FileRunTestResult FileRunTestResult::RunFromFileCommands(LPCWSTR fileName, dxc::DxcDllSupport &dllSupport,
-                                      PluginToolsPaths *pPluginToolsPaths /*=nullptr*/) {
-  FileRunTestResultImpl result(dllSupport, pPluginToolsPaths);
+                                                         PluginToolsPaths *pPluginToolsPaths /*=nullptr*/,
+                                                         LPCWSTR dumpName /*=nullptr*/) {
+  FileRunTestResultImpl result(dllSupport, pPluginToolsPaths, dumpName);
   result.RunFileCheckFromFileCommands(fileName);
   return result;
 }

@@ -1085,9 +1085,9 @@ namespace {
 // Cull blocks from BreakBBs that containing instructions that are sensitive to the wave-sensitive Inst
 // Sensitivity entails being an eventual user of the Inst and also belonging to a block with
 // a break conditional on dx.break that breaks out of a loop that contains WaveCI
-// LInfo is needed to determine loop contents. VisitedPhis is needed to prevent infinit looping.
-static void CullSensitiveBlocks(LoopInfo *LInfo, BasicBlock *WaveBB, BasicBlock *LastBB, Instruction *Inst,
-                                SmallPtrSet<Instruction *, 16> &VisitedPhis,
+// LInfo is needed to determine loop contents. Visited is needed to prevent infinite looping.
+static void CullSensitiveBlocks(LoopInfo *LInfo, Loop *WaveLoop, BasicBlock *LastBB, Instruction *Inst,
+                                std::unordered_set<Instruction *> &Visited,
                                 SmallDenseMap<BasicBlock *, Instruction *, 16> &BreakBBs) {
   BasicBlock *BB = Inst->getParent();
   Loop *BreakLoop = LInfo->getLoopFor(BB);
@@ -1095,9 +1095,8 @@ static void CullSensitiveBlocks(LoopInfo *LInfo, BasicBlock *WaveBB, BasicBlock 
   if (!BreakLoop || BreakBBs.empty())
     return;
 
-  // To prevent infinite looping, only visit each PHI once
-  // If we've seen this PHI before, don't reprocess it
-  if (isa<PHINode>(Inst) && !VisitedPhis.insert(Inst).second)
+  // To prevent infinite looping, only visit each instruction once
+  if (!Visited.insert(Inst).second)
     return;
 
   // If this BB wasn't already just processed, handle it now
@@ -1105,14 +1104,14 @@ static void CullSensitiveBlocks(LoopInfo *LInfo, BasicBlock *WaveBB, BasicBlock 
     // Determine if the instruction's block has an artificially-conditional break
     // and breaks out of a loop that contains the waveCI
     BranchInst *BI = dyn_cast<BranchInst>(BB->getTerminator());
-    if (BI && BI->isConditional() && BreakLoop->contains(WaveBB))
+    if (BI && BI->isConditional() && BreakLoop->contains(WaveLoop))
       BreakBBs.erase(BB);
   }
 
   // Recurse on the users
   for (User *U : Inst->users()) {
     Instruction *I = cast<Instruction>(U);
-    CullSensitiveBlocks(LInfo, WaveBB, BB, I, VisitedPhis, BreakBBs);
+    CullSensitiveBlocks(LInfo, WaveLoop, BB, I, Visited, BreakBBs);
   }
 }
 
@@ -1171,7 +1170,11 @@ public:
     if (BreakBBs.empty())
       return false;
 
-    // For each wave operation, remove all the dx.break blocks that are sensitive to it
+
+
+    // Collect all wave calls in this function and group by loop
+    SmallDenseMap<Loop *, SmallVector<CallInst *, 8>, 16> WaveCalls;
+
     for (Function &IF : M->functions()) {
       HLOpcodeGroup opgroup = hlsl::GetHLOpcodeGroup(&IF);
       // Only consider wave-sensitive intrinsics or extintrinsics
@@ -1181,10 +1184,21 @@ public:
         for (User *U : IF.users()) {
           CallInst *CI = cast<CallInst>(U);
           if (CI->getParent()->getParent() == &F) {
-            SmallPtrSet<Instruction *, 16> VisitedPhis;
-            CullSensitiveBlocks(LInfo, CI->getParent(), nullptr, CI, VisitedPhis, BreakBBs);
+            Loop *WaveLoop = LInfo->getLoopFor(CI->getParent());
+            WaveCalls[WaveLoop].emplace_back(CI);
           }
         }
+      }
+    }
+
+    // For each wave operation, remove all the dx.break blocks that are sensitive to it
+    for (DenseMap<Loop*, SmallVector<CallInst *, 8>>::iterator I =
+           WaveCalls.begin(), E = WaveCalls.end();
+         I != E; ++I) {
+      Loop *loop = I->first;
+      std::unordered_set<Instruction *> Visited;
+      for (CallInst *CI : I->second) {
+        CullSensitiveBlocks(LInfo, loop, nullptr, CI, Visited, BreakBBs);
       }
     }
 
