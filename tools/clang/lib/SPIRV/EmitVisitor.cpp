@@ -310,7 +310,6 @@ void EmitVisitor::initInstruction(spv::Op op, const SourceLocation &loc) {
 
 void EmitVisitor::finalizeInstruction(std::vector<uint32_t> *section) {
   assert(section);
-  const auto op = static_cast<spv::Op>(curInst[0]);
   curInst[0] |= static_cast<uint32_t>(curInst.size()) << 16;
   section->insert(section->end(), curInst.begin(), curInst.end());
 }

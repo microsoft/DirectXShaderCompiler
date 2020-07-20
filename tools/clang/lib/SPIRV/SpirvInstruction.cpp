@@ -942,7 +942,8 @@ SpirvDebugTypeMember::SpirvDebugTypeMember(
     uint32_t flags_, uint32_t offsetInBits_, const APValue *value_)
     : SpirvDebugType(IK_DebugTypeMember, /*opcode*/ 11u), type(nullptr),
       source(source_), line(line_), column(column_), parent(parent_),
-      debugFlags(flags_), value(value_), spvType(type_), offset(offsetInBits_) {
+      offset(offsetInBits_), size(0), debugFlags(flags_), value(value_),
+      spvType(type_) {
   debugName = name;
 }
 
@@ -965,8 +966,8 @@ SpirvDebugTypeTemplateParameter::SpirvDebugTypeTemplateParameter(
     llvm::StringRef name, const SpirvType *type, SpirvInstruction *value_,
     SpirvDebugSource *source_, uint32_t line_, uint32_t column_)
     : SpirvDebugType(IK_DebugTypeTemplateParameter, /*opcode*/ 15u),
-      spvType(type), actualType(nullptr), value(value_), source(source_),
-      line(line_), column(column_) {
+      actualType(nullptr), value(value_), source(source_), line(line_),
+      column(column_), spvType(type) {
   debugName = name;
 }
 

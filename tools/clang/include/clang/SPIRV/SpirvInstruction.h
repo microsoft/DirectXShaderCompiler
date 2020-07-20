@@ -2123,6 +2123,8 @@ public:
 
   bool invokeVisitor(Visitor *v) override;
 
+  uint32_t getOperationOpcode() { return operationOpcode; }
+
 private:
   uint32_t operationOpcode;
   llvm::SmallVector<int32_t, 2> operands;
