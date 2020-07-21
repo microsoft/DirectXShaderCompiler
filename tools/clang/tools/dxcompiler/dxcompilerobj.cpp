@@ -274,10 +274,38 @@ private:
   void WriteSemanticDefines(llvm::Module *M, const ParsedSemanticDefineList &defines) {
     // Create all metadata nodes for each define. Each node is a (name, value) pair.
     std::vector<MDNode *> mdNodes;
+    const std::string enableStr("_ENABLE_");
+    const std::string disableStr("_DISABLE_");
+    const std::string selectStr("_SELECT_");
+
+    auto &optToggles = m_CI.getCodeGenOpts().HLSLOptimizationToggles;
+    auto &optSelects = m_CI.getCodeGenOpts().HLSLOptimizationSelects;
+
+    const llvm::SmallVector<std::string, 2> &semDefPrefixes =
+                             m_langExtensionsHelper.GetSemanticDefines();
+
+    // Add semantic defines to mdNodes and also to codeGenOpts
     for (const ParsedSemanticDefine &define : defines) {
       MDString *name  = MDString::get(M->getContext(), define.Name);
       MDString *value = MDString::get(M->getContext(), define.Value);
       mdNodes.push_back(MDNode::get(M->getContext(), { name, value }));
+
+      // Find index for end of matching semantic define prefix
+      size_t prefixPos = 0;
+      for (auto prefix : semDefPrefixes) {
+        if (IsMacroMatch(define.Name, prefix)) {
+          prefixPos = prefix.length() - 1;
+          break;
+        }
+      }
+
+      // Add semantic defines to option flag equivalents
+      if (!define.Name.compare(prefixPos, enableStr.length(), enableStr))
+        optToggles[StringRef(define.Name.substr(prefixPos + enableStr.length())).lower()] = true;
+      else if (!define.Name.compare(prefixPos, disableStr.length(), disableStr))
+        optToggles[StringRef(define.Name.substr(prefixPos + disableStr.length())).lower()] = false;
+      else if (!define.Name.compare(prefixPos, selectStr.length(), selectStr))
+        optSelects[StringRef(define.Name.substr(prefixPos + selectStr.length())).lower()] = define.Value;
     }
 
     // Add root node with pointers to all define metadata nodes.
@@ -1093,7 +1121,8 @@ public:
     compiler.getCodeGenOpts().HLSLAllowPreserveValues = Opts.AllowPreserveValues;
     compiler.getCodeGenOpts().HLSLResMayAlias = Opts.ResMayAlias;
     compiler.getCodeGenOpts().ScanLimit = Opts.ScanLimit;
-    compiler.getCodeGenOpts().HLSLOptimizationOptions = Opts.DxcOptimizationOptions;
+    compiler.getCodeGenOpts().HLSLOptimizationToggles = Opts.DxcOptimizationToggles;
+    compiler.getCodeGenOpts().HLSLOptimizationSelects = Opts.DxcOptimizationSelects;
     compiler.getCodeGenOpts().HLSLAllResourcesBound = Opts.AllResourcesBound;
     compiler.getCodeGenOpts().HLSLDefaultRowMajor = Opts.DefaultRowMajor;
     compiler.getCodeGenOpts().HLSLPreferControlFlow = Opts.PreferFlowControl;

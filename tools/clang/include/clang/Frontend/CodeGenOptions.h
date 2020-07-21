@@ -19,8 +19,8 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <map>
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h" // HLSL change
-#include "dxc/Support/HLSLOptimizationOptions.h" // HLSL Change
 #include "dxc/Support/SPIRVOptions.h" // SPIR-V Change
 
 namespace clang {
@@ -223,8 +223,9 @@ public:
   bool HLSLResMayAlias = false;
   /// Lookback scan limit for memory dependencies
   unsigned ScanLimit = 0;
-  /// Disabled optimization passes
-  hlsl::OptimizationOptions HLSLOptimizationOptions = {};
+  // Optimization pass enables, disables and selects
+  std::map<std::string, bool> HLSLOptimizationToggles;
+  std::map<std::string, std::string> HLSLOptimizationSelects;
   // HLSL Change Ends
 
   // SPIRV Change Starts

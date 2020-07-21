@@ -492,12 +492,28 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   if (!limit.empty())
     opts.ScanLimit = std::stoul(std::string(limit));
 
-  opts.DxcOptimizationOptions = {};
-  std::vector<std::string> DisabledOptimizations = Args.getAllArgValues(OPT_opt_disable);
-  for (std::string opt : DisabledOptimizations) {
-    llvm::StringRef gvn("gvn");
-    if (gvn.equals_lower(opt))
-      opts.DxcOptimizationOptions.DisableGVN = true;
+  for (std::string opt : Args.getAllArgValues(OPT_opt_disable))
+    opts.DxcOptimizationToggles[llvm::StringRef(opt).lower()] = false;
+
+  for (std::string opt : Args.getAllArgValues(OPT_opt_enable)) {
+    if (!opts.DxcOptimizationToggles.insert ( {llvm::StringRef(opt).lower(), true} ).second) {
+      errors << "Contradictory use of -opt-disable and -opt-enable with \""
+             << llvm::StringRef(opt).lower() << "\"";
+      return 1;
+    }
+  }
+
+  std::vector<std::string> optSelects = Args.getAllArgValues(OPT_opt_select);
+  for (unsigned i = 0; i + 1 < optSelects.size(); i+=2) {
+    std::string optimization = llvm::StringRef(optSelects[i]).lower();
+    std::string selection = optSelects[i+1];
+    if (opts.DxcOptimizationSelects.count(optimization) &&
+        selection.compare(opts.DxcOptimizationSelects[optimization])) {
+      errors << "Contradictory -opt-selects for \""
+             << optimization << "\"";
+      return 1;
+    }
+    opts.DxcOptimizationSelects[optimization] = selection;
   }
 
   if (!opts.ForceRootSigVer.empty() && opts.ForceRootSigVer != "rootsig_1_0" &&
