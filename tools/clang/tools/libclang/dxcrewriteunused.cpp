@@ -316,11 +316,6 @@ CollectUserMacrosParsedByCompiler(CompilerInstance &compiler) {
   return parsedDefines;
 }
 
-bool IsMacroMatch(StringRef name, const std::string &mask) {
-  return Unicode::IsStarMatchUTF8(mask.c_str(), mask.size(), name.data(),
-                                  name.size());
-}
-
 void WriteMacroDefines(ParsedSemanticDefineList &macros,
                        raw_string_ostream &o) {
   if (!macros.empty()) {

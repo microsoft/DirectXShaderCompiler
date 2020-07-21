@@ -18,8 +18,8 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Option/ArgList.h"
 #include "dxc/dxcapi.h"
-#include "dxc/Support/HLSLOptimizationOptions.h"
 #include "dxc/Support/SPIRVOptions.h"
+#include <map>
 
 namespace llvm {
 namespace opt {
@@ -190,7 +190,10 @@ public:
   bool ResMayAlias = false; // OPT_res_may_alias
   unsigned long ValVerMajor = UINT_MAX, ValVerMinor = UINT_MAX; // OPT_validator_version
   unsigned ScanLimit = 0; // OPT_memdep_block_scan_limit
-  hlsl::OptimizationOptions DxcOptimizationOptions; // OPT_opt_disable
+
+  // Optimization pass enables, disables and selects
+  std::map<std::string, bool> DxcOptimizationToggles; // OPT_opt_enable & OPT_opt_disable
+  std::map<std::string, std::string> DxcOptimizationSelects; // OPT_opt_select
 
   // Rewriter Options
   RewriterOpts RWOpt;

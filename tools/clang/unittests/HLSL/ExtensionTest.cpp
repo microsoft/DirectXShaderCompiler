@@ -453,6 +453,8 @@ public:
   TEST_METHOD(DefineValidationWarning)
   TEST_METHOD(DefineNoValidatorOk)
   TEST_METHOD(DefineFromMacro)
+  TEST_METHOD(DefineContradictionFail)
+  TEST_METHOD(OptionFromDefine)
   TEST_METHOD(TargetTriple)
   TEST_METHOD(IntrinsicWhenAvailableThenUsed)
   TEST_METHOD(CustomIntrinsicName)
@@ -607,6 +609,71 @@ TEST_F(ExtensionTest, DefineFromMacro) {
     disassembly.npos !=
     disassembly.find("!{!\"FOO\", !\"1\"}"));
 }
+
+// Test failure of contradictory optimization toggles
+TEST_F(ExtensionTest, DefineContradictionFail) {
+  Compiler c(m_dllSupport);
+  c.RegisterSemanticDefine(L"FOO*");
+  IDxcOperationResult *pCompileResult = c.Compile(
+    "#define FOO 1\n"
+    "float4 main() : SV_Target {\n"
+    "  return 0;\n"
+    "}\n",
+    { L"/Vd", L"-opt-disable", L"whatever",
+      L"-opt-enable", L"whatever" },
+    {}
+  );
+
+  CheckOperationFailed(pCompileResult);
+  std::string errors = GetCompileErrors(pCompileResult);
+  // Check that the error message is for the option contradiction
+  VERIFY_IS_TRUE(
+    errors.npos !=
+    errors.find("Contradictory use of -opt-disable and -opt-enable with \"whatever\""));
+
+  Compiler c2(m_dllSupport);
+  c2.RegisterSemanticDefine(L"FOO*");
+  pCompileResult = c2.Compile(
+    "#define FOO 1\n"
+    "float4 main() : SV_Target {\n"
+    "  return 0;\n"
+    "}\n",
+    { L"/Vd", L"-opt-select", L"yook", L"butterUP",
+      L"-opt-select", L"yook", L"butterdown" },
+    {}
+  );
+
+  CheckOperationFailed(pCompileResult);
+  errors = GetCompileErrors(pCompileResult);
+  // Check that the error message is for the option contradiction
+  VERIFY_IS_TRUE(
+    errors.npos !=
+    errors.find("Contradictory -opt-selects for \"yook\""));
+}
+
+// Test setting of codegen options from semantic defines
+TEST_F(ExtensionTest, OptionFromDefine) {
+
+  Compiler c(m_dllSupport);
+  c.RegisterSemanticDefine(L"FOO*");
+  c.Compile(
+    "float4 main(float a : A) : SV_Target {\n"
+    "  float res = sin(a);\n"
+    "  return res + sin(a);\n"
+    "}\n",
+    { L"/Vd", L"-DFOO_DISABLE_GVN" },
+    {}
+  );
+
+  std::string disassembly = c.Disassemble();
+  // Verify that GVN is disabled by the presence
+  // of the second sin(), which GVN would have removed
+  llvm::Regex regex("call float @dx.op.unary.f32.*\n.*call float @dx.op.unary.f32");
+  std::string regexErrors;
+  VERIFY_IS_TRUE(regex.isValid(regexErrors));
+  VERIFY_IS_TRUE(regex.match(disassembly));
+}
+
 
 TEST_F(ExtensionTest, TargetTriple) {
   Compiler c(m_dllSupport);
