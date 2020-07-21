@@ -6,11 +6,10 @@
 //CHECK: icmp
 //CHECK: br i1
 //CHECK: call void @llvm.lifetime.start
-//CHECK: br label %for.body
-//CHECK: for.cond.cleanup:
+//CHECK: br label
 //CHECK: load i32
 //CHECK: call void @llvm.lifetime.end
-//CHECK: br label %if.end
+//CHECK: br label
 //CHECK: phi i32
 //CHECK: load i32
 //CHECK: store i32
@@ -38,17 +37,13 @@ int array_in_if(int n, int c)
 
 //CHECK: define i32 @"\01?conditional_struct_init_in_loop@@YAHHH@Z"(i32 %n, i32 %c1)
 //CHECK: br i1
-//CHECK: for.cond.cleanup:
 //CHECK: phi i32
 //CHECK: ret i32
-//CHECK: for.body:
 //CHECK: phi i32
 //CHECK-NOT: phi i32
 //CHECK: dx.op.rawBufferStore
 //CHECK: br i1
-//CHECK: if.then:
 //CHECK: dx.op.rawBufferLoad
-//CHECK: if.end:
 //CHECK: phi i32
 struct MyStruct {
   int x;
@@ -88,7 +83,6 @@ int conditional_struct_init_in_loop(int n, int c1)
 }
 
 //CHECK: define i32 @"\01?conditional_out_assign@@YAHHH@Z"(i32 %n, i32 %c1)
-//CHECK: for.body:
 //CHECK: phi i32
 //CHECK-NOT: phi i32
 void consume(int i, in MyStruct data)
@@ -140,7 +134,6 @@ int global_constant(int n)
 }
 
 //CHECK: define i32 @"\01?global_constant2@@YAHH@Z"(i32 %n)
-//CHECK: for.body:
 //CHECK: phi i32
 //CHECK: phi i32
 //CHECK: call void @llvm.lifetime.start
