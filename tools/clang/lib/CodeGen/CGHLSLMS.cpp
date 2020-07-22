@@ -5555,6 +5555,9 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(F));
     tmpArgAddr = AllocaBuilder.CreateAlloca(CGF.ConvertTypeForMem(ParamTy));
 
+    const uint64_t AllocaSize = CGM.getDataLayout().getTypeAllocSize(CGF.ConvertTypeForMem(ParamTy));
+    CGF.EmitLifetimeStart(AllocaSize, tmpArgAddr);
+
     // add it to local decl map
     TmpArgMap(tmpArg, tmpArgAddr);
 
@@ -5664,6 +5667,8 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionCopyBack(
                               idxList, ParamTy, ArgTy,
                               argLV.getAddress()->getType());
       }
+      const uint64_t AllocaSize = CGM.getDataLayout().getTypeAllocSize(CGF.ConvertTypeForMem(ParamTy));
+      CGF.EmitLifetimeEnd(CGF.Builder.getInt64(AllocaSize), tmpArgAddr);
     } else
       tmpArgAddr->replaceAllUsesWith(argLV.getAddress());
   }

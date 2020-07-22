@@ -601,6 +601,7 @@ static bool BreakUpArrayAllocas(bool AllowOOBIndex, IteratorT ItBegin, IteratorT
         NewPointer = ScalarAlloca;
       }
 
+      // TODO: Inherit lifetimes start/end locations from AI if available.
       GEP->replaceAllUsesWith(NewPointer);
     } 
 

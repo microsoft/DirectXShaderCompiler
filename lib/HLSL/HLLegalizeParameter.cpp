@@ -59,17 +59,34 @@ AllocaInst *createAllocaForPatch(Function &F, Type *Ty) {
 void copyIn(AllocaInst *temp, Value *arg, CallInst *CI, unsigned size) {
   if (size == 0)
     return;
-  // copy arg to temp befor CI.
+
   IRBuilder<> Builder(CI);
+
+  // Start lifetime of the temporary alloca.
+  Value *SizeV = Builder.getInt64(size);
+  Value *Addr = Builder.CreateBitCast(temp, Builder.getInt8PtrTy());
+  Function *StartFn = Intrinsic::getDeclaration(CI->getModule(), Intrinsic::lifetime_start);
+  CallInst *C = Builder.CreateCall(StartFn, {SizeV, Addr});
+  C->setDoesNotThrow();
+
+  // Copy arg to temp before CI.
   Builder.CreateMemCpy(temp, arg, size, 1);
 }
 
 void copyOut(AllocaInst *temp, Value *arg, CallInst *CI, unsigned size) {
   if (size == 0)
     return;
-  // copy temp to arg after CI.
+
+  // Copy temp to arg after CI.
   IRBuilder<> Builder(CI->getNextNode());
   Builder.CreateMemCpy(arg, temp, size, 1);
+
+  // End lifetime of the temporary alloca.
+  Value *SizeV = Builder.getInt64(size);
+  Value *Addr = Builder.CreateBitCast(temp, Builder.getInt8PtrTy());
+  Function *EndFn = Intrinsic::getDeclaration(CI->getModule(), Intrinsic::lifetime_end);
+  CallInst *C = Builder.CreateCall(EndFn, {SizeV, Addr});
+  C->setDoesNotThrow();
 }
 
 bool isPointerNeedToLower(Value *V, Type *HandleTy) {
@@ -282,6 +299,7 @@ bool HLLegalizeParameter::runOnModule(Module &M) {
 
 void HLLegalizeParameter::patchWriteOnInParam(Function &F, Argument &Arg,
                                               const DataLayout &DL) {
+  // TODO: Adding lifetime intrinsics isn't easy here, have to analyze uses.
   Type *Ty = Arg.getType()->getPointerElementType();
   AllocaInst *temp = createAllocaForPatch(F, Ty);
   Arg.replaceAllUsesWith(temp);
@@ -293,6 +311,7 @@ void HLLegalizeParameter::patchWriteOnInParam(Function &F, Argument &Arg,
 
 void HLLegalizeParameter::patchReadOnOutParam(Function &F, Argument &Arg,
                                               const DataLayout &DL) {
+  // TODO: Adding lifetime intrinsics isn't easy here, have to analyze uses.
   Type *Ty = Arg.getType()->getPointerElementType();
   AllocaInst *temp = createAllocaForPatch(F, Ty);
   Arg.replaceAllUsesWith(temp);

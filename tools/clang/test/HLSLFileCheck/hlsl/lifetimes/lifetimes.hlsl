@@ -1,23 +1,23 @@
 // RUN: %dxc -T lib_6_6 %s  | FileCheck %s
 
 
-//CHECK: define i32 @"\01?array_in_if@@YAHHH@Z"
-//CHECK: alloca
-//CHECK: icmp
-//CHECK: br i1
-//CHECK: call void @llvm.lifetime.start
-//CHECK: br label
-//CHECK: load i32
-//CHECK: call void @llvm.lifetime.end
-//CHECK: br label
-//CHECK: phi i32
-//CHECK: load i32
-//CHECK: store i32
-//CHECK: br i1
-//CHECK: phi i32
-//CHECK: ret i32
+// CHECK: define i32 @"\01?if_scoped_array@@YAHHH@Z"
+// CHECK: alloca
+// CHECK: icmp
+// CHECK: br i1
+// CHECK: call void @llvm.lifetime.start
+// CHECK: br label
+// CHECK: load i32
+// CHECK: call void @llvm.lifetime.end
+// CHECK: br label
+// CHECK: phi i32
+// CHECK: load i32
+// CHECK: store i32
+// CHECK: br i1
+// CHECK: phi i32
+// CHECK: ret i32
 export
-int array_in_if(int n, int c)
+int if_scoped_array(int n, int c)
 {
   int res = c;
 
@@ -25,7 +25,7 @@ int array_in_if(int n, int c)
     int arr[200];
 
     // Fake some dynamic initialization so the array can't be optimzed away.
-    for (int i=0; i<n; ++i) {
+    for (int i = 0; i < n; ++i) {
         arr[i] = arr[c - i];
     }
 
@@ -35,36 +35,77 @@ int array_in_if(int n, int c)
   return res;
 }
 
-//CHECK: define i32 @"\01?conditional_struct_init_in_loop@@YAHHH@Z"(i32 %n, i32 %c1)
-//CHECK: br i1
-//CHECK: phi i32
-//CHECK: ret i32
-//CHECK: phi i32
-//CHECK-NOT: phi i32
-//CHECK: dx.op.rawBufferStore
-//CHECK: br i1
-//CHECK: dx.op.rawBufferLoad
-//CHECK: phi i32
+// CHECK: define void @"\01?loop_scoped_escaping_struct@@YAXH@Z"(i32 %n)
+// CHECK: %[[alloca:.*]] = alloca %struct.MyStruct
+// CHECK: ret
+// CHECK: phi i32
+// CHECK: call void @llvm.lifetime.start
+// CHECK-NEXT: call void @"\01?func@@YAXUMyStruct@@@Z"(%struct.MyStruct* nonnull %[[alloca]])
+// CHECK-NEXT: call void @llvm.lifetime.end
+// CHECK: br i1
 struct MyStruct {
-  int x;
+  float x;
 };
 
-RWStructuredBuffer<MyStruct> g_rwbuf : register(u0);
-
-void expensiveComputation(int i, int x)
-{
-  // We'd prefer this to not be inlined to better illustrate things but that's
-  // not possible without more effort.
-  g_rwbuf[i].x = x;
-}
+void func(in MyStruct data);
 
 export
-int conditional_struct_init_in_loop(int n, int c1)
+void loop_scoped_escaping_struct(int n)
+{
+  for (int i = 0; i < n; ++i) {
+    MyStruct data;
+    func(data);
+  }
+}
+
+// CHECK: define i32 @"\01?loop_scoped_escaping_struct_write@@YAHH@Z"(i32 %n)
+// CHECK: %[[alloca:.*]] = alloca %struct.MyStruct
+// CHECK: br i1
+// CHECK: phi i32
+// CHECK: ret
+// CHECK: phi i32
+// CHECK: phi i32
+// CHECK: call void @llvm.lifetime.start
+// CHECK: call void @"\01?func2@@YAXUMyStruct@@@Z"(%struct.MyStruct* nonnull %[[alloca]])
+// CHECK: load
+// CHECK: call void @llvm.lifetime.end
+// CHECK: br i1
+void func2(inout MyStruct data);
+
+export
+int loop_scoped_escaping_struct_write(int n)
+{
+  int res = 0;
+  for (int i = 0; i < n; ++i) {
+    MyStruct data;
+    func2(data);
+    res += data.x;
+  }
+  return res;
+}
+
+// Make sure there is only one loop phi node, which is the induction var.
+// CHECK: define i32 @"\01?loop_scoped_struct_conditional_init@@YAHHH@Z"(i32 %n, i32 %c1)
+// CHECK-NOT: alloca
+// CHECK: ret i32
+// CHECK-NOT: phi float
+// CHECK: phi i32
+// CHECK-NOT: phi float
+// CHECK: call void @"\01?expensiveComputation
+// CHECK: br i1
+// CHECK: dx.op.rawBufferLoad
+// CHECK: phi float
+RWStructuredBuffer<MyStruct> g_rwbuf : register(u0);
+
+void expensiveComputation();
+
+export
+int loop_scoped_struct_conditional_init(int n, int c1)
 {
   int res = n;
 
-  for(int i=0; i<n; ++i) {
-    expensiveComputation(i, i*c1); // s mut not be considered live here.
+  for (int i = 0; i < n; ++i) {
+    expensiveComputation(); // s mut not be considered live here.
 
     MyStruct s;
 
@@ -82,13 +123,15 @@ int conditional_struct_init_in_loop(int n, int c1)
   return res; // Result is n if loop wasn't executed, n-1 if it was.
 }
 
-//CHECK: define i32 @"\01?conditional_out_assign@@YAHHH@Z"(i32 %n, i32 %c1)
-//CHECK: phi i32
-//CHECK-NOT: phi i32
+// Both the consume and produce calls must be inlined, otherwise the alloca
+// can't be promoted.
+// CHECK: define i32 @"\01?loop_scoped_struct_conditional_assign_from_func_output@@YAHHH@Z"(i32 %n, i32 %c1)
+// CHECK-NOT: alloca
+// CHECK: phi i32
+// CHECK-NOT: phi i32
 void consume(int i, in MyStruct data)
 {
-  // We'd prefer this to not be inlined to better illustrate things but that's
-  // not possible without more effort.
+  // This must be inlined, otherwise the alloca can't be promoted.
   g_rwbuf[i] = data;
 }
 
@@ -104,23 +147,23 @@ bool produce(in int c, out MyStruct data)
 }
 
 export
-int conditional_out_assign(int n, int c1)
+int loop_scoped_struct_conditional_assign_from_func_output(int n, int c1)
 {
   for (int i=0; i<n; ++i) {
     MyStruct data;
     bool valid = produce(c1, data); // <-- Without lifetimes, inlining this generates a loop phi using prior iteration's value.
     if (valid)
       consume(i, data);
-    expensiveComputation(i, i*n); // <-- Said phi is alive here, inflating register pressure.
+    expensiveComputation(); // <-- Said phi is alive here, inflating register pressure.
   }
   return n;
 }
 
-//CHECK: define i32 @"\01?global_constant@@YAHH@Z"(i32 %n)
-//CHECK: call void @llvm.lifetime.start
-//CHECK: load i32
-//CHECK: call void @llvm.lifetime.end
-//CHECK: ret i32
+// CHECK: define i32 @"\01?global_constant@@YAHH@Z"(i32 %n)
+// CHECK: call void @llvm.lifetime.start
+// CHECK: load i32
+// CHECK: call void @llvm.lifetime.end
+// CHECK: ret i32
 int compute(int i)
 {
   int arr[] = {0, 1, 2, 3, 4, 5, -1, 13};
@@ -133,12 +176,12 @@ int global_constant(int n)
   return compute(n);
 }
 
-//CHECK: define i32 @"\01?global_constant2@@YAHH@Z"(i32 %n)
-//CHECK: phi i32
-//CHECK: phi i32
-//CHECK: call void @llvm.lifetime.start
-//CHECK: load i32
-//CHECK: call void @llvm.lifetime.end
+// CHECK: define i32 @"\01?global_constant2@@YAHH@Z"(i32 %n)
+// CHECK: phi i32
+// CHECK: phi i32
+// CHECK: call void @llvm.lifetime.start
+// CHECK: load i32
+// CHECK: call void @llvm.lifetime.end
 // Constant array should be hoisted to a constant global with
 // lifetime only inside the loop.
 export

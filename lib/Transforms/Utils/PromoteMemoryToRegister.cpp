@@ -586,7 +586,7 @@ void PromoteMem2Reg::run() {
     // in cases where lifetime is restricted to a loop and not all loads are
     // dominated by stores. When walking up the CFG during ComputeLiveInBlocks,
     // this new "definition" prevents the value from being considered live in
-    // in the loop header, which in turn prevents the value to be live across
+    // the loop header, which in turn prevents the value from being live across
     // the entire loop through a phi with undef as input from the preheader.
     // Ignore allocas that are only used in one block, even if the lifetime
     // start marker is in a different one, since those cases are trivial.
