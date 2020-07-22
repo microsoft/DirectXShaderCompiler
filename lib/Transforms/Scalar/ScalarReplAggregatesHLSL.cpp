@@ -2474,6 +2474,7 @@ void SROA_Helper::RewriteBitCast(BitCastInst *BCI) {
     idxList[i] = zeroIdx;
 
   IRBuilder<> Builder(BCI);
+  Builder.AllowFolding = false; // We need an Instruction, so make sure we don't get a constant
   Instruction *GEP = cast<Instruction>(Builder.CreateInBoundsGEP(Val, idxList));
   BCI->replaceAllUsesWith(GEP);
   BCI->eraseFromParent();
