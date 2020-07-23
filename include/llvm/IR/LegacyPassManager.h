@@ -35,6 +35,8 @@ class FunctionPassManagerImpl;
 /// it is.
 class PassManagerBase {
 public:
+  bool HLSLPrintAfterAll = false; // HLSL Change
+
   virtual ~PassManagerBase();
 
   /// Add a pass to the queue of passes to run.  This passes ownership of

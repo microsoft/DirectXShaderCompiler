@@ -195,6 +195,8 @@ public:
   std::map<std::string, bool> DxcOptimizationToggles; // OPT_opt_enable & OPT_opt_disable
   std::map<std::string, std::string> DxcOptimizationSelects; // OPT_opt_select
 
+  bool PrintAfterAll; // OPT_print_after_all
+
   // Rewriter Options
   RewriterOpts RWOpt;
 
