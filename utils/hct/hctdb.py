@@ -2777,6 +2777,7 @@ class db_hlsl(object):
         self.base_types = {
             "bool": "LICOMPTYPE_BOOL",
             "int": "LICOMPTYPE_INT",
+            "int32_only": "LICOMPTYPE_INT32_ONLY",
             "int16_t": "LICOMPTYPE_INT16",
             "uint": "LICOMPTYPE_UINT",
             "uint16_t": "LICOMPTYPE_UINT16",
