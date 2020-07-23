@@ -2,6 +2,7 @@
 
 if "%1"=="/?" goto :showhelp
 if "%1"=="-?" goto :showhelp
+if "%1"=="-h" goto :showhelp
 if "%1"=="-help" goto :showhelp
 if "%1"=="--help" goto :showhelp
 
