@@ -1,6 +1,8 @@
 // RUN: %dxc -T lib_6_6 %s  | FileCheck %s
 
-
+//
+// Non-SSA arrays should have lifetimes within the correct scope.
+//
 // CHECK: define i32 @"\01?if_scoped_array@@YAHHH@Z"
 // CHECK: alloca
 // CHECK: icmp
@@ -35,20 +37,39 @@ int if_scoped_array(int n, int c)
   return res;
 }
 
-// CHECK: define void @"\01?loop_scoped_escaping_struct@@YAXH@Z"(i32 %n)
+//
+// Function parameters should have lifetimes.
+//
+// CHECK: define float @"\01?escaping_struct@@YAMUMyStruct@@@Z"(%struct.MyStruct* nocapture readonly %data)
 // CHECK: %[[alloca:.*]] = alloca %struct.MyStruct
-// CHECK: ret
-// CHECK: phi i32
-// CHECK: call void @llvm.lifetime.start
-// CHECK-NEXT: call void @"\01?func@@YAXUMyStruct@@@Z"(%struct.MyStruct* nonnull %[[alloca]])
+// CHECK-NOT:memcpy
+// CHECK-NEXT: bitcast
+// CHECK-NEXT: call void @llvm.lifetime.start
+// CHECK: call float @"\01?func@@YAMUMyStruct@@@Z"(%struct.MyStruct* nonnull %[[alloca]])
 // CHECK-NEXT: call void @llvm.lifetime.end
-// CHECK: br i1
 struct MyStruct {
   float x;
 };
 
-void func(in MyStruct data);
+float func(MyStruct data);
 
+export
+float escaping_struct(MyStruct data) {
+  return func(data);
+}
+
+//
+// Escaping structs should have lifetimes within the correct scope.
+//
+// CHECK: define void @"\01?loop_scoped_escaping_struct@@YAXH@Z"(i32 %n)
+// CHECK: %[[alloca:.*]] = alloca %struct.MyStruct
+// CHECK: ret
+// CHECK: phi i32
+// CHECK-NEXT: bitcast
+// CHECK-NEXT: call void @llvm.lifetime.start
+// CHECK-NEXT: call float @"\01?func@@YAMUMyStruct@@@Z"(%struct.MyStruct* nonnull %[[alloca]])
+// CHECK-NEXT: call void @llvm.lifetime.end
+// CHECK: br i1
 export
 void loop_scoped_escaping_struct(int n)
 {
@@ -58,17 +79,26 @@ void loop_scoped_escaping_struct(int n)
   }
 }
 
+//
+// Loop-scoped structs that are passed as inout should have lifetimes
+// within the correct scope and should not produce values live across multiple
+// loop iterations (=no loop phi nodes).
+//
 // CHECK: define i32 @"\01?loop_scoped_escaping_struct_write@@YAHH@Z"(i32 %n)
 // CHECK: %[[alloca:.*]] = alloca %struct.MyStruct
 // CHECK: br i1
 // CHECK: phi i32
-// CHECK: ret
+// CHECK-NEXT: ret
 // CHECK: phi i32
-// CHECK: phi i32
-// CHECK: call void @llvm.lifetime.start
-// CHECK: call void @"\01?func2@@YAXUMyStruct@@@Z"(%struct.MyStruct* nonnull %[[alloca]])
-// CHECK: load
-// CHECK: call void @llvm.lifetime.end
+// CHECK-NEXT: phi i32
+// CHECK-NOT: phi float
+// CHECK-NEXT: bitcast
+// CHECK-NEXT: call void @llvm.lifetime.start
+// CHECK-NOT: store
+// CHECK-NEXT: call void @"\01?func2@@YAXUMyStruct@@@Z"(%struct.MyStruct* nonnull %[[alloca]])
+// CHECK-NEXT: getelementptr
+// CHECK-NEXT: load
+// CHECK-NEXT: call void @llvm.lifetime.end
 // CHECK: br i1
 void func2(inout MyStruct data);
 
@@ -84,15 +114,21 @@ int loop_scoped_escaping_struct_write(int n)
   return res;
 }
 
+//
+// Loop-scoped structs that can be promoted to registers should not produce
+// values considered live across multiple loop iterations (= no loop phi nodes).
+//
 // Make sure there is only one loop phi node, which is the induction var.
 // CHECK: define i32 @"\01?loop_scoped_struct_conditional_init@@YAHHH@Z"(i32 %n, i32 %c1)
 // CHECK-NOT: alloca
-// CHECK: ret i32
+// CHECK: phi i32
+// CHECK-NEXT: ret i32
 // CHECK-NOT: phi float
 // CHECK: phi i32
 // CHECK-NOT: phi float
-// CHECK: call void @"\01?expensiveComputation
-// CHECK: br i1
+// CHECK-NEXT: call void @"\01?expensiveComputation
+// CHECK-NEXT: icmp
+// CHECK-NEXT: br i1
 // CHECK: dx.op.rawBufferLoad
 // CHECK: phi float
 RWStructuredBuffer<MyStruct> g_rwbuf : register(u0);
@@ -123,12 +159,18 @@ int loop_scoped_struct_conditional_init(int n, int c1)
   return res; // Result is n if loop wasn't executed, n-1 if it was.
 }
 
+//
+// Another real-world use-case for loop-scoped structs that can be promoted
+// to registers. Again, this should not produce values that are live across
+// multiple loop iterations (= no loop phi nodes).
 // Both the consume and produce calls must be inlined, otherwise the alloca
 // can't be promoted.
+//
 // CHECK: define i32 @"\01?loop_scoped_struct_conditional_assign_from_func_output@@YAHHH@Z"(i32 %n, i32 %c1)
 // CHECK-NOT: alloca
 // CHECK: phi i32
 // CHECK-NOT: phi i32
+// CHECK-NOT: phi float
 void consume(int i, in MyStruct data)
 {
   // This must be inlined, otherwise the alloca can't be promoted.
@@ -159,6 +201,10 @@ int loop_scoped_struct_conditional_assign_from_func_output(int n, int c1)
   return n;
 }
 
+//
+// Global constants should have lifetimes.
+// The constant array should be hoisted to a constant global.
+//
 // CHECK: define i32 @"\01?global_constant@@YAHH@Z"(i32 %n)
 // CHECK: call void @llvm.lifetime.start
 // CHECK: load i32
@@ -176,14 +222,17 @@ int global_constant(int n)
   return compute(n);
 }
 
+//
+// Global constants should have lifetimes within the correct scope.
+// The constant array should be hoisted to a constant global with lifetime
+// only inside the loop.
+//
 // CHECK: define i32 @"\01?global_constant2@@YAHH@Z"(i32 %n)
 // CHECK: phi i32
 // CHECK: phi i32
 // CHECK: call void @llvm.lifetime.start
 // CHECK: load i32
 // CHECK: call void @llvm.lifetime.end
-// Constant array should be hoisted to a constant global with
-// lifetime only inside the loop.
 export
 int global_constant2(int n)
 {

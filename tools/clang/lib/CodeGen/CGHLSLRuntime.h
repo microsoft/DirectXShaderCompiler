@@ -76,9 +76,11 @@ public:
       CodeGenFunction &CGF, const FunctionDecl *FD, const CallExpr *E,
       llvm::SmallVector<LValue, 8> &castArgList,
       llvm::SmallVector<const Stmt *, 8> &argList,
+      llvm::SmallVector<LValue, 8> &lifetimeCleanupList,
       const std::function<void(const VarDecl *, llvm::Value *)> &TmpArgMap) = 0;
   virtual void EmitHLSLOutParamConversionCopyBack(
-      CodeGenFunction &CGF, llvm::SmallVector<LValue, 8> &castArgList) = 0;
+      CodeGenFunction &CGF, llvm::SmallVector<LValue, 8> &castArgList,
+      llvm::SmallVector<LValue, 8> &lifetimeCleanupList) = 0;
   virtual void MarkRetTemp(CodeGenFunction &CGF, llvm::Value *V,
                           clang::QualType QaulTy) = 0;
   virtual llvm::Value *EmitHLSLMatrixOperationCall(CodeGenFunction &CGF, const clang::Expr *E, llvm::Type *RetType,

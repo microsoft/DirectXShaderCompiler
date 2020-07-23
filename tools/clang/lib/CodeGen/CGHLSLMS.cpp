@@ -233,10 +233,12 @@ public:
       CodeGenFunction &CGF, const FunctionDecl *FD, const CallExpr *E,
       llvm::SmallVector<LValue, 8> &castArgList,
       llvm::SmallVector<const Stmt *, 8> &argList,
+      llvm::SmallVector<LValue, 8> &lifetimeCleanupList,
       const std::function<void(const VarDecl *, llvm::Value *)> &TmpArgMap)
       override;
   void EmitHLSLOutParamConversionCopyBack(
-      CodeGenFunction &CGF, llvm::SmallVector<LValue, 8> &castArgList) override;
+      CodeGenFunction &CGF, llvm::SmallVector<LValue, 8> &castArgList,
+      llvm::SmallVector<LValue, 8> &lifetimeCleanupList) override;
 
   Value *EmitHLSLMatrixOperationCall(CodeGenFunction &CGF, const clang::Expr *E,
                                      llvm::Type *RetType,
@@ -5405,6 +5407,7 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     CodeGenFunction &CGF, const FunctionDecl *FD, const CallExpr *E,
     llvm::SmallVector<LValue, 8> &castArgList,
     llvm::SmallVector<const Stmt *, 8> &argList,
+    llvm::SmallVector<LValue, 8> &lifetimeCleanupList,
     const std::function<void(const VarDecl *, llvm::Value *)> &TmpArgMap) {
   // Special case: skip first argument of CXXOperatorCall (it is "this").
   unsigned ArgsToSkip = isa<CXXOperatorCallExpr>(E) ? 1 : 0;
@@ -5570,6 +5573,9 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
       castArgList.emplace_back(argLV);
     }
 
+    // save to generate lifetime end after call
+    lifetimeCleanupList.emplace_back(tmpLV);
+
     // cast before the call
     if (Param->isModifierIn() &&
         // Don't copy object
@@ -5607,7 +5613,8 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
 }
 
 void CGMSHLSLRuntime::EmitHLSLOutParamConversionCopyBack(
-    CodeGenFunction &CGF, llvm::SmallVector<LValue, 8> &castArgList) {
+    CodeGenFunction &CGF, llvm::SmallVector<LValue, 8> &castArgList,
+    llvm::SmallVector<LValue, 8> &lifetimeCleanupList) {
   for (uint32_t i = 0; i < castArgList.size(); i += 2) {
     // cast after the call
     LValue tmpLV = castArgList[i];
@@ -5667,10 +5674,15 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionCopyBack(
                               idxList, ParamTy, ArgTy,
                               argLV.getAddress()->getType());
       }
-      const uint64_t AllocaSize = CGM.getDataLayout().getTypeAllocSize(CGF.ConvertTypeForMem(ParamTy));
-      CGF.EmitLifetimeEnd(CGF.Builder.getInt64(AllocaSize), tmpArgAddr);
     } else
       tmpArgAddr->replaceAllUsesWith(argLV.getAddress());
+  }
+
+  for (LValue &tmpLV : lifetimeCleanupList) {
+    QualType ParamTy = tmpLV.getType().getNonReferenceType();
+    Value *tmpArgAddr = tmpLV.getAddress();
+    const uint64_t AllocaSize = CGM.getDataLayout().getTypeAllocSize(CGF.ConvertTypeForMem(ParamTy));
+    CGF.EmitLifetimeEnd(CGF.Builder.getInt64(AllocaSize), tmpArgAddr);
   }
 }
 
