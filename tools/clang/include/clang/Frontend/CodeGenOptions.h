@@ -226,6 +226,8 @@ public:
   // Optimization pass enables, disables and selects
   std::map<std::string, bool> HLSLOptimizationToggles;
   std::map<std::string, std::string> HLSLOptimizationSelects;
+  /// Debug option to print IR after every pass
+  bool HLSLPrintAfterAll = false;
   // HLSL Change Ends
 
   // SPIRV Change Starts

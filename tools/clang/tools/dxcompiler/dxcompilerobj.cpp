@@ -1132,6 +1132,7 @@ public:
     compiler.getCodeGenOpts().HLSLDefines = defines;
     compiler.getCodeGenOpts().HLSLPreciseOutputs = Opts.PreciseOutputs;
     compiler.getCodeGenOpts().MainFileName = pMainFile;
+    compiler.getCodeGenOpts().HLSLPrintAfterAll = Opts.PrintAfterAll;
 
     // Translate signature packing options
     if (Opts.PackPrefixStable)
