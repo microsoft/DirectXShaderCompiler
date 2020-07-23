@@ -636,7 +636,14 @@ DeclResultIdMapper::getDeclSpirvInfo(const ValueDecl *decl) const {
 
 SpirvInstruction *DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl,
                                                       SourceLocation loc) {
-  if (const auto *info = getDeclSpirvInfo(decl)) {
+  const auto *info = getDeclSpirvInfo(decl);
+  const VarDecl *varDecl = dyn_cast<VarDecl>(decl);
+  if (info == nullptr && varDecl) {
+    createRayTracingNVImplicitVar(varDecl);
+    info = &astDecls[varDecl];
+  }
+
+  if (info) {
     if (info->indexInCTBuffer >= 0) {
       // If this is a VarDecl inside a HLSLBufferDecl, we need to do an extra
       // OpAccessChain to get the pointer to the variable since we created
