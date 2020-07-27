@@ -22,6 +22,7 @@
 #include "dxc/DXIL/DxilMetadataHelper.h"
 #include "dxc/Support/Global.h"
 
+#include <algorithm>
 #include <string>
 #include <sstream>
 #include <fstream>
@@ -36,10 +37,44 @@ namespace llvm {
 
   private:
 
+    struct LiveValueInst {
+      // Name of the live value associated to the instruction.
+      std::string   Name;
+      Instruction  *Inst;
+    };
+
+    struct CallSiteCompare {
+      inline bool operator() (const CallInst *lhs, const CallInst *rhs) const {
+        std::string lhsStr;
+        std::string rhsStr;
+        if (const llvm::DebugLoc &debugInfo = lhs->getDebugLoc()) {
+          lhsStr = formatSourceLocation(debugInfo->getFilename(), debugInfo->getLine());
+        }
+        if (const llvm::DebugLoc &debugInfo = rhs->getDebugLoc()) {
+          rhsStr = formatSourceLocation(debugInfo->getFilename(), debugInfo->getLine());
+        }
+        // Case insensitive compare.
+        const auto result = std::mismatch(lhsStr.cbegin(), lhsStr.cend(), rhsStr.cbegin(), rhsStr.cend(), [](const unsigned char lhsStr, const unsigned char rhsStr) {return tolower(lhsStr) == tolower(rhsStr); });
+        return result.second != rhsStr.cend() && (result.first == lhsStr.cend() || tolower(*result.first) < tolower(*result.second));
+      }
+    };
+
+    struct LiveValueCompare {
+      inline bool operator() (LiveValueInst &lhs, LiveValueInst &rhs) {
+        // Case insensitive compare.
+        const auto result = std::mismatch(lhs.Name.cbegin(), lhs.Name.cend(), rhs.Name.cbegin(), rhs.Name.cend(), [](const unsigned char lhs, const unsigned char rhs) {return tolower(lhs) == tolower(rhs); });
+        return result.second != rhs.Name.cend() && (result.first == lhs.Name.cend() || tolower(*result.first) < tolower(*result.second));
+      }
+    };
+
     Module* m_module = nullptr;
-    SetVector<CallInst *> m_callSites;
+    // Set of trace ray call sites.
+    std::set<CallInst *, CallSiteCompare> m_callSites;
+    // Potential live values per trace call.
     MapVector<CallInst *, std::vector<Instruction *>> m_spillsPerTraceCall;
-    std::string m_rootPath;
+    // Sorted list of live values per trace call, with name information.
+    MapVector<CallInst *, std::vector<LiveValueInst>> m_liveValuesPerTraceCall;
+    static std::string m_rootPath;
     std::string m_outputFile;
 
   public:
@@ -50,20 +85,23 @@ namespace llvm {
     bool runOnModule(Module &) override;
 
     void analyzeCFG();
-    void analyzeLiveValues(CallInst *CI, SetVector<Instruction *> &LiveValues, SetVector<std::pair<Instruction *, Instruction *>> &PredCfgEdges);
-    void analyzeLiveValueOptimizations(CallInst *CI, SetVector<Instruction *> &LiveValues, SetVector<std::pair<Instruction *, Instruction *>> &PredCfgEdges);
-    bool canRemat(Instruction* inst);
+    void analyzeLiveValues(CallInst *TraceCall, SetVector<Instruction *> &LiveValues, SetVector<std::pair<Instruction *, Instruction *>> &PredCfgEdges);
+    void analyzeLiveValueOptimizations(CallInst *TraceCall, SetVector<Instruction *> &LiveValues, SetVector<std::pair<Instruction *, Instruction *>> &PredCfgEdges);
+    bool canRemat(Instruction *Inst, CallInst *TraceCall);
     void determinePhisSpillSet(std::vector<PHINode *> &Phis, SetVector<Instruction *> &RematSet, SetVector<Instruction *> &SpillSet);
-    void determineRematSpillSet(SetVector<Instruction *> &RematSet,
+    void determineRematSpillSet(CallInst *TraceCall,
+      SetVector<Instruction *> &RematSet,
       SetVector<Instruction *> &SpillSet,
       SetVector<Instruction *> &LiveValues,
       SetVector<std::pair<Instruction *, Instruction *>> &PredCfgEdges);
     void determineValueName(DIType *diType, int64_t &BitOffset, std::string &Name);
-    std::string formatSourceLocation(const std::string &Location, int LineNumber);
+    static std::string formatSourceLocation(const std::string &Location, int LineNumber);
     void formatOutput(raw_string_ostream &PrettyStr, raw_string_ostream &VSStr);
     void getFormatLengths(SetVector<DILocation *> &UseLocations, uint32_t &MaxFuncLength, uint32_t &MaxPathLength);
     void getUseDefinitions(CallInst *CI, SetVector<Instruction *> &LiveValues, SetVector<Value *> &ConditionsKnownFalse, SetVector<Value *> &ConditionsKnownTrue);
     void getUseLocationsForInstruction(Instruction *I, CallInst *CI, SetVector<DILocation *> &UseLocations);
+    void outputSourceLocationsPretty(SetVector<DILocation *> &UseLocations, uint32_t maxPathLength, uint32_t maxFuncLength, raw_string_ostream &PrettyStr);
+    void outputSourceLocationsVS(SetVector<DILocation *> &UseLocations, uint32_t maxPathLength, uint32_t maxFuncLength, raw_string_ostream &VSStr);
     void processBranch(TerminatorInst *TI,
       SetVector<Value *> &ConditionsKnownFalse,
       SetVector<Value *> &ConditionsKnownTrue,
@@ -71,13 +109,15 @@ namespace llvm {
       SetVector<Instruction *> &DefsSeen,
       std::vector<std::tuple<BasicBlock *, Instruction *, SetVector<Instruction *>>> &Worklist);
     std::string translateValueToName(DbgValueInst *DVI, Instruction *I);
-    bool usesUavResource(CallInst *call);
+    bool isLoadRematerializable(CallInst *call);
 
   };
 
 } // End llvm namespace
 
 const char *kTraceRayOpName = "dx.op.traceRay";
+const char inlinePrefix[] = "  -->inlined at ";
+std::string LiveValueAnalysis::m_rootPath = "";
 
 ModulePass *llvm::createLiveValueAnalysisPass(StringRef LiveValueAnalysisOutputFile) {
   return new LiveValueAnalysis(LiveValueAnalysisOutputFile);
@@ -180,30 +220,52 @@ bool LiveValueAnalysis::runOnModule(Module &M) {
   return false;
 }
 
-bool LiveValueAnalysis::usesUavResource(CallInst* Call) {
+bool LiveValueAnalysis::isLoadRematerializable(CallInst *Call) {
+  // A load intrinsic should be rematerializable if it comes from a CBV or SRV.
   CallInst* createHandle = dyn_cast<CallInst>(Call->getArgOperand(1));
   DXASSERT(createHandle, "Expected a valid CallInst.");
   DXASSERT(createHandle->getCalledFunction()->getName().startswith("dx.op.createHandle"), "Expected dx.op.createHandle opcode.");
   ConstantInt* resourceClass = dyn_cast<ConstantInt>(createHandle->getArgOperand(HLOperandIndex::kCreateHandleResourceOpIdx));
-  if ((nullptr != resourceClass) && (resourceClass->getZExtValue() == (uint64_t)DXIL::ResourceClass::UAV))
+
+  if ((nullptr != resourceClass) && (resourceClass->getZExtValue() == (uint64_t)DXIL::ResourceClass::CBuffer
+    || resourceClass->getZExtValue() == (uint64_t)DXIL::ResourceClass::SRV)) {
     return true;
+  }
+  else {
+    // CreateHandle loading a global variable will be constant and suitable for remat.
+    Value *Res = createHandle->getArgOperand(HLOperandIndex::kCreateHandleResourceOpIdx);
+    if (LoadInst *LdRes = dyn_cast<LoadInst>(Res)) {
+      if (GlobalVariable *GV = dyn_cast<GlobalVariable>(LdRes->getOperand(0)))
+        return true;
+    }   
+  }
 
   return false;
 }
 
 // Rematerialization logic should imply basic to moderate optimizations wrt live values.
-bool LiveValueAnalysis::canRemat(Instruction* I) {
+bool LiveValueAnalysis::canRemat(Instruction *I, CallInst *TraceCall) {
+  
   if (isa<GetElementPtrInst>(I))
     return true;
   else if (isa<AllocaInst>(I))
     return true;
-  else if (isa<LoadInst>(I))
-    return true;
 
-  if (CallInst* call = dyn_cast<CallInst>(I)) {
-    if (dxilutil::IsLoadIntrinsic(call) && !usesUavResource(call))
+  if (CallInst *call = dyn_cast<CallInst>(I)) {
+    if (dxilutil::IsLoadIntrinsic(call) && isLoadRematerializable(call))
       return true;
-    else if (call->getCalledFunction()->getName().startswith("dx.op.createHandleForLib"))
+  }
+
+  // Inspect the instruction in more detail to see if it is possible to rematerialize.
+  if (dxilutil::IsRematerializable(I)) {
+    return true;
+  }
+
+  // Inspect load instructions to see if they are used by subsequent load operations that could all be rematerialized.
+  if (Instruction::Load == I->getOpcode())
+  {
+    // Global variables will be invariably constant and suitable for remat.
+    if (GlobalVariable *GV = dyn_cast<GlobalVariable>(I->getOperand(0)))
       return true;
   }
 
@@ -215,7 +277,7 @@ std::string LiveValueAnalysis::formatSourceLocation(const std::string& Location,
 {
   std::string fullPath = "";
 
-  // Only add the root path if one does not already exist for Location.
+  // Only add the root path if one does not already exist for Location; assuming ':' exists in the path.
   if (Location.find(':') == std::string::npos)
     fullPath = m_rootPath;
 
@@ -257,6 +319,7 @@ void LiveValueAnalysis::getFormatLengths(SetVector<DILocation *> &UseLocations, 
 void LiveValueAnalysis::getUseLocationsForInstruction(Instruction *I, CallInst *CI, SetVector<DILocation *> &UseLocations)
 {
   std::vector<PHINode *> Phis;
+  // Track the phis we visit so that we do not duplicate them.
   SetVector<PHINode *> VisitedPhis;
 
   for (;;) {
@@ -276,53 +339,10 @@ void LiveValueAnalysis::getUseLocationsForInstruction(Instruction *I, CallInst *
 
           if (!bFound) {
             UseLocations.insert(Loc);
-
-            // Traverse each control flow edge separately and
-            // gather up seen defs along the way. By keeping
-            // track of the from-block, we can select the
-            // right incoming value at PHIs.
-            {
-              Instruction *inst = CI->getNextNode();
-
-              SetVector<Instruction *> defsSeen;
-              defsSeen.insert(inst);
-
-              BasicBlock *fromBlock = nullptr;
-              SetVector<std::pair<Instruction *, Instruction *>> visitedEdges;
-              SetVector<Value *> conditionsKnownTrue;
-              SetVector<Value *> conditionsKnownFalse;
-              std::vector<std::tuple<BasicBlock *, Instruction *, SetVector<Instruction *>>> worklist;
-
-              for (;;) {
-
-                if (isa<DbgValueInst>(inst)) {
-                  inst = inst->getNextNode();
-                  continue;
-                }
-
-                if (inst == Inst) {
-                  // Found the use location.
-                  break;
-                }
-
-                if (TerminatorInst *terminator = dyn_cast<TerminatorInst>(inst)) {
-                  processBranch(terminator, conditionsKnownFalse, conditionsKnownTrue, visitedEdges, defsSeen, worklist);
-
-                  if (worklist.empty())
-                    break;
-
-                  fromBlock = std::get<0>(worklist.back());
-                  inst = std::get<1>(worklist.back());
-                  defsSeen = std::move(std::get<2>(worklist.back()));
-                  worklist.pop_back();
-                  continue;
-                }
-                inst = inst->getNextNode();
-              }
-            }
           }
         }
         else {
+          // Check for a phi node that will need to be checked for use locations.
           if (isa<PHINode>(U)) {
             PHINode *NewPhi = dyn_cast<PHINode>(U);
             if (VisitedPhis.insert(NewPhi)) {
@@ -333,6 +353,7 @@ void LiveValueAnalysis::getUseLocationsForInstruction(Instruction *I, CallInst *
       }
     }
 
+    // Process any phis in the use list.
     if (Phis.empty()) {
       break;
     }
@@ -394,8 +415,10 @@ void LiveValueAnalysis::getUseDefinitions(CallInst *CI, SetVector<Instruction *>
   Instruction *inst = CI->getNextNode();
 
   BasicBlock *fromBlock = nullptr;
+  // Definitions seen.
   SetVector<Instruction *> defsSeen;
   SetVector<std::pair<Instruction *, Instruction *>> visitedEdges;
+  // Worklist of each block, entrypoint, and definitions that block has seen.
   std::vector<std::tuple<BasicBlock *, Instruction *, SetVector<Instruction *>>> worklist;
 
   defsSeen.insert(CI);
@@ -403,6 +426,8 @@ void LiveValueAnalysis::getUseDefinitions(CallInst *CI, SetVector<Instruction *>
   for (;;) {
     if (PHINode *phi = dyn_cast<PHINode>(inst)) {
       for (unsigned i = 0; i < phi->getNumIncomingValues(); ++i) {
+
+        // Skip this phi value if it does not match the block we came from.
         if (phi->getIncomingBlock(i) != fromBlock)
           continue;
 
@@ -445,27 +470,29 @@ void LiveValueAnalysis::getUseDefinitions(CallInst *CI, SetVector<Instruction *>
     }
 
     if (TerminatorInst *terminator = dyn_cast<TerminatorInst>(inst)) {
-
+      // Add the branch to this worklist.
       processBranch(terminator, ConditionsKnownFalse, ConditionsKnownTrue, visitedEdges, defsSeen, worklist);
 
       if (worklist.empty())
         break;
 
+      // Process the next block in the worklist.
       fromBlock = std::get<0>(worklist.back());
       inst = std::get<1>(worklist.back());
       defsSeen = std::move(std::get<2>(worklist.back()));
       worklist.pop_back();
       continue;
     }
+    // Process the next instruction.
     inst = inst->getNextNode();
   }
 
 }
 
-void LiveValueAnalysis::analyzeLiveValues(CallInst *CI, SetVector<Instruction *> &LiveValues, SetVector<std::pair<Instruction *, Instruction *>> &PredCfgEdges) {
+void LiveValueAnalysis::analyzeLiveValues(CallInst *TraceCall, SetVector<Instruction *> &LiveValues, SetVector<std::pair<Instruction *, Instruction *>> &PredCfgEdges) {
 
   // Determine CFG edges that can lead to this call site.
-  BasicBlock *BB = CI->getParent();
+  BasicBlock *BB = TraceCall->getParent();
   SmallVector<BasicBlock*, 16> worklist;
   worklist.push_back(BB);
 
@@ -493,35 +520,37 @@ void LiveValueAnalysis::analyzeLiveValues(CallInst *CI, SetVector<Instruction *>
 
       // TODO: Extend this to switch statements?
 
+      // Skip if there is no branch to consider.
       if (!branch || !branch->isConditional())
         continue;
 
+      // We always expect two successors to process.
       DXASSERT(branch->getNumSuccessors() == 2, "Expected two successors.");
 
       Instruction *IfTrue = branch->getSuccessor(0)->begin();
       Instruction *IfFalse = branch->getSuccessor(1)->begin();
 
-      std::pair<Instruction *, Instruction *> takenEdge = std::make_pair(edge.first, IfTrue);
-      std::pair<Instruction *, Instruction *> notTakenEdge = std::make_pair(edge.first, IfFalse);
+      std::pair<Instruction *, Instruction *> trueEdge = std::make_pair(edge.first, IfTrue);
+      std::pair<Instruction *, Instruction *> falseEdge = std::make_pair(edge.first, IfFalse);
 
-      int count = PredCfgEdges.count(takenEdge) + PredCfgEdges.count(notTakenEdge);
+      int count = PredCfgEdges.count(trueEdge) + PredCfgEdges.count(falseEdge);
 
       if (!count)
         continue;
 
       if (count == 2) {
         if (conditionsKnownTrue.count(branch->getCondition())) {
-          PredCfgEdges.remove(notTakenEdge);
+          PredCfgEdges.remove(falseEdge);
           change = true;
         }
         if (conditionsKnownFalse.count(branch->getCondition())) {
-          PredCfgEdges.remove(takenEdge);
+          PredCfgEdges.remove(trueEdge);
           change = true;
         }
         continue;
       }
 
-      if (PredCfgEdges.count(takenEdge)) {
+      if (PredCfgEdges.count(trueEdge)) {
         if (conditionsKnownTrue.insert(branch->getCondition())) {
           change = true;
         }
@@ -563,10 +592,12 @@ void LiveValueAnalysis::analyzeLiveValues(CallInst *CI, SetVector<Instruction *>
 
       DXASSERT(numIncoming, "Expected greater than 0 incoming values.");
 
+      // If there is only one incoming phi condition we know it must be taken.
       if (numIncoming == 1) {
         if (conditionsKnownFalse.count(incomingValue) == conditionsKnownFalse.count(phi) &&
           conditionsKnownTrue.count(incomingValue) == conditionsKnownTrue.count(phi))
           continue;
+
 
         change = true;
 
@@ -588,11 +619,11 @@ void LiveValueAnalysis::analyzeLiveValues(CallInst *CI, SetVector<Instruction *>
       break;
   }
 
-  getUseDefinitions(CI, LiveValues, conditionsKnownFalse, conditionsKnownTrue);
+  getUseDefinitions(TraceCall, LiveValues, conditionsKnownFalse, conditionsKnownTrue);
 
 }
 
-void LiveValueAnalysis::determineRematSpillSet(SetVector<Instruction *> &RematSet, SetVector<Instruction *> &SpillSet, SetVector<Instruction *> &LiveValues, SetVector<std::pair<Instruction *, Instruction *>> &PredCfgEdges) {
+void LiveValueAnalysis::determineRematSpillSet(CallInst *TraceCall, SetVector<Instruction *> &RematSet, SetVector<Instruction *> &SpillSet, SetVector<Instruction *> &LiveValues, SetVector<std::pair<Instruction *, Instruction *>> &PredCfgEdges) {
 
   std::vector<Instruction *> worklist;
   SetVector<Instruction *> visited;
@@ -606,7 +637,7 @@ void LiveValueAnalysis::determineRematSpillSet(SetVector<Instruction *> &RematSe
     Instruction *inst = worklist.back();
     worklist.pop_back();
 
-    if (!canRemat(inst)) {
+    if (!canRemat(inst, TraceCall)) {
       SpillSet.insert(inst);
       continue;
     }
@@ -726,12 +757,12 @@ void LiveValueAnalysis::determinePhisSpillSet(std::vector<PHINode *> &Phis, SetV
   }
 }
 
-void LiveValueAnalysis::analyzeLiveValueOptimizations(CallInst *CI, SetVector<Instruction *> &LiveValues, SetVector<std::pair<Instruction *, Instruction *>> &PredCfgEdges) {
+void LiveValueAnalysis::analyzeLiveValueOptimizations(CallInst *TraceCall, SetVector<Instruction *> &LiveValues, SetVector<std::pair<Instruction *, Instruction *>> &PredCfgEdges) {
 
   // Determine initial sets of remat/spill.
   SetVector<Instruction *> rematSet;
   SetVector<Instruction *> spillSet;
-  determineRematSpillSet(rematSet, spillSet, LiveValues, PredCfgEdges);
+  determineRematSpillSet(TraceCall, rematSet, spillSet, LiveValues, PredCfgEdges);
 
   // Move looped PHIs without intervening spill to spill set.
   std::vector<PHINode *> phis;
@@ -823,7 +854,7 @@ void LiveValueAnalysis::analyzeLiveValueOptimizations(CallInst *CI, SetVector<In
   }
 
   // Store the spills.
-  m_spillsPerTraceCall[CI].insert(m_spillsPerTraceCall[CI].end(), nonRematLiveValues.begin(), nonRematLiveValues.end());
+  m_spillsPerTraceCall[TraceCall].insert(m_spillsPerTraceCall[TraceCall].end(), nonRematLiveValues.begin(), nonRematLiveValues.end());
 }
 
 void LiveValueAnalysis::analyzeCFG() {
@@ -963,10 +994,9 @@ std::string LiveValueAnalysis::translateValueToName(DbgValueInst *DVI, Instructi
   std::string OrigName = I->getName();
   std::string ElementName = "";
   int64_t offset = 0;
-  int extractElement = 0;
+  
   if (isa<ExtractValueInst>(I)) {
-    extractElement = dyn_cast<ExtractValueInst>(I)->getIndices()[0];
-    I = dyn_cast<Instruction>(I->getOperand(0));
+    I = dyn_cast<Instruction>(dyn_cast<ExtractValueInst>(I)->getAggregateOperand());
   }
 
   DIExpression *Expr = dyn_cast_or_null<DIExpression>(DVI->getRawExpression());
@@ -983,19 +1013,19 @@ std::string LiveValueAnalysis::translateValueToName(DbgValueInst *DVI, Instructi
   if (ElementName.length() > 0)
     NameStr << "." << ElementName;
 
+  // Determine the type of this variable.
   DIType *VarType = dyn_cast_or_null<DIDerivedType>(VarTypeMD);
-  bool isStruct = false;
   if (isa<DIDerivedType>(VarTypeMD)) {
-    VarType = dyn_cast_or_null<DIType>(
-      dyn_cast<DIDerivedType>(VarType)->getRawBaseType());
+    // Get the raw type of a derived type.
+    VarType = dyn_cast_or_null<DIType>(dyn_cast<DIDerivedType>(VarType)->getRawBaseType());
     DXASSERT(VarType, "Expected a valid DIType.");
+    // Recurse through references to find the type.
     while (llvm::dwarf::DW_TAG_reference_type == VarType->getTag()) {
       VarType = dyn_cast_or_null<DIType>(dyn_cast<DIDerivedType>(VarType)->getRawBaseType());
     }
   }
   else if (isa<DICompositeType>(VarTypeMD)) {
     VarType = dyn_cast<DICompositeType>(VarTypeMD);
-    isStruct = llvm::dwarf::DW_TAG_structure_type == VarType->getTag();
   }
   else if (isa<DIBasicType>(VarTypeMD))
     VarType = dyn_cast<DIBasicType>(VarTypeMD);
@@ -1005,6 +1035,57 @@ std::string LiveValueAnalysis::translateValueToName(DbgValueInst *DVI, Instructi
   NameStr << " (" << VarType->getName().str() << "): " << formatSourceLocation(Loc->getFilename().str(), Loc->getLine()) << "\n";
 
   return NameStr.str();
+}
+
+void LiveValueAnalysis::outputSourceLocationsPretty(SetVector<DILocation *> &UseLocations, uint32_t maxPathLength, uint32_t maxFuncLength, raw_string_ostream &PrettyStr)
+{
+  std::ostringstream LocationStr;
+  std::string FileName;
+  std::string FuncName;
+
+  // Output PrettyPrint version
+  for (auto Loc : UseLocations) {
+    FileName = formatSourceLocation(Loc->getFilename().str(), Loc->getLine());
+    FuncName = "(" + Loc->getScope()->getSubprogram()->getName().str() + ")";
+    LocationStr << std::setfill('.') << std::setw(maxPathLength) << std::left << FileName
+      << std::setw(maxFuncLength) << std::right << FuncName << "\n";
+    if (DILocation *InLoc = Loc->getInlinedAt()) {
+      FileName = inlinePrefix + formatSourceLocation(InLoc->getFilename().str(), InLoc->getLine());
+      FuncName = "(" + InLoc->getScope()->getSubprogram()->getName().str() + ")";
+      LocationStr << std::setfill('.') << std::setw(maxPathLength) << std::left << FileName << std::setw(maxFuncLength) << std::right << FuncName << "\n";
+      while (DILocation *NestedInLoc = InLoc->getInlinedAt()) {
+        FileName = inlinePrefix + formatSourceLocation(NestedInLoc->getFilename().str(), NestedInLoc->getLine());
+        FuncName = "(" + NestedInLoc->getScope()->getSubprogram()->getName().str() + ")";
+        LocationStr << std::setfill('.') << std::setw(maxPathLength) << std::left << FileName << std::setw(maxFuncLength) << std::right << FuncName << "\n";
+        InLoc = NestedInLoc;
+      }
+    }
+  }
+  PrettyStr << LocationStr.str();
+}
+
+void LiveValueAnalysis::outputSourceLocationsVS(SetVector<DILocation *> &UseLocations, uint32_t maxPathLength, uint32_t maxFuncLength, raw_string_ostream &VSStr)
+{
+  std::ostringstream LocationStr;
+  std::string FileName;
+  std::string FuncName;
+
+  // Output VS source linking version
+  for (auto Loc : UseLocations) {
+    FileName = formatSourceLocation(Loc->getFilename().str(), Loc->getLine());
+    LocationStr << FileName << ": (" + Loc->getScope()->getSubprogram()->getName().str() + ")\n";
+    if (DILocation *InLoc = Loc->getInlinedAt()) {
+      LocationStr << "inlined at:\n";
+      FileName = formatSourceLocation(InLoc->getFilename().str(), InLoc->getLine());
+      LocationStr << ">" + FileName << ": (" + InLoc->getScope()->getSubprogram()->getName().str() + ")\n";
+      while (DILocation *NestedInLoc = InLoc->getInlinedAt()) {
+        FileName = formatSourceLocation(NestedInLoc->getFilename().str(), NestedInLoc->getLine());
+        LocationStr << ">" + FileName << ": (" + InLoc->getScope()->getSubprogram()->getName().str() + ")\n";
+        InLoc = NestedInLoc;
+      }
+    }
+  }
+  VSStr << LocationStr.str();
 }
 
 void LiveValueAnalysis::formatOutput(raw_string_ostream &PrettyStr, raw_string_ostream &VSStr) {
@@ -1021,10 +1102,77 @@ void LiveValueAnalysis::formatOutput(raw_string_ostream &PrettyStr, raw_string_o
 
   for (CallInst *callSite : m_callSites) {
     if (const llvm::DebugLoc &debugInfo = callSite->getDebugLoc()) {
+      // Prepare a map of the live value instructions and their associated value names.
+      for (Instruction *I : (m_spillsPerTraceCall[callSite])) {
+        if (isa<ExtractValueInst>(I)) {
+          I = dyn_cast<Instruction>(dyn_cast<ExtractValueInst>(I)->getAggregateOperand());
+        }
+
+        // Add to the live values list even if it's not used by metadata so that we can track more accurately. Only filter out artifical values.
+        LiveValueInst LVI = { "", I };
+
+        if (I->isUsedByMetadata()) {
+          if (auto *L = LocalAsMetadata::getIfExists(I)) {
+            if (auto *MDV = MetadataAsValue::getIfExists(I->getContext(), L)) {
+              for (User *U : MDV->users()) {
+                if (DbgValueInst *DVI = dyn_cast<DbgValueInst>(U)) {
+                  // Add the value's name since we have found the metadata.
+                  LVI.Name = translateValueToName(DVI, I);
+                  // Filter out the artifical variables (should be benign?)
+                  if (!DVI->getVariable()->isArtificial())
+                  {
+                    m_liveValuesPerTraceCall[callSite].push_back(LVI);
+                  }
+                  // Found the debug info for the live value, now exit the loop.
+                  break;
+                }
+              }
+            }
+          }
+        }
+        else
+        {
+          bool foundMetadata = false;
+          // If this instruction has no metadata check its users.
+          for (User *U : I->users()) {
+            if (Instruction *UserI = dyn_cast<Instruction>(U)) {
+              if (UserI->isUsedByMetadata()) {
+                if (auto *L = LocalAsMetadata::getIfExists(UserI)) {
+                  if (auto *MDV = MetadataAsValue::getIfExists(UserI->getContext(), L)) {
+                    for (User *MU : MDV->users()) {
+                      if (DbgValueInst *DVI = dyn_cast<DbgValueInst>(MU)) {
+                        // Add the value's name since we have found the metadata.
+                        LVI.Name = translateValueToName(DVI, UserI);
+                        // Filter out the artifical variables (should be benign?)
+                        if (!DVI->getVariable()->isArtificial())
+                        {
+                          foundMetadata = true;
+                          LVI.Inst = UserI;
+                          m_liveValuesPerTraceCall[callSite].push_back(LVI);
+                          // We just want the first non-artificial user with metadata since this
+                          // should be closest to the original live value so we can break now.
+                          break;
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+          if (!foundMetadata) {
+            // If not used by metadata we still want to track this potential live value, even if we cannot determine its name.
+            m_liveValuesPerTraceCall[callSite].push_back(LVI);
+          }
+        }
+      }
       std::string filePath = debugInfo->getFilename();
       int line = debugInfo->getLine();
       fullPath = formatSourceLocation(filePath, line);
-      TmpStr << fullPath << " incurs " << m_spillsPerTraceCall[callSite].size() << " 32-bit registers\n";
+      TmpStr << fullPath << " incurs " << m_liveValuesPerTraceCall[callSite].size() << " 32-bit registers\n";
+
+      // Sort the order of live values per call site by name.
+      std::sort(m_liveValuesPerTraceCall[callSite].begin(), m_liveValuesPerTraceCall[callSite].end(), LiveValueCompare());
     }
   }
   TmpStr << "\n";
@@ -1054,24 +1202,22 @@ void LiveValueAnalysis::formatOutput(raw_string_ostream &PrettyStr, raw_string_o
     // Only count the values for which metadata exists.
     // TODO: Report count of values for those which are not used metadata?
     // this can lead to missing live values in some cases.
-    std::vector<Instruction*> DetectedInstr;
-    for (Instruction *I : m_spillsPerTraceCall[callSite]) {
-      if (isa<ExtractValueInst>(I)) {
-        I = dyn_cast<Instruction>(dyn_cast<ExtractValueInst>(I)->getAggregateOperand());
-      }
+    std::vector<Instruction*> DetectedInstr; // Detected instructions, but with no user metadata.
+    for (LiveValueInst &LVI : m_liveValuesPerTraceCall[callSite]) {
+      Instruction *I = LVI.Inst;
       if (I->isUsedByMetadata()) {
+        // Live value that has valid metadata.
         regs++;
       }
       else {
         DetectedInstr.push_back(I);
       }
     }
-
-    size_t detected = m_spillsPerTraceCall[callSite].size();
-    if (detected != regs)
+    
+    if (DetectedInstr.size())
     {
       TmpStr << "** DEBUG ************\n";
-      TmpStr << "Detected " << (int)detected << " live values but only " << (int)regs << " are used by metadata\n";
+      TmpStr << "Detected " << (int)DetectedInstr.size() + (int)regs << " live values but only " << (int)regs << " are used by metadata\n";
       for (auto I : DetectedInstr) {
         I->print(TmpStr);
         TmpStr << "\n";
@@ -1085,41 +1231,19 @@ void LiveValueAnalysis::formatOutput(raw_string_ostream &PrettyStr, raw_string_o
 
     // Create a summary of the Live Values for this TraceRay call.
     TmpStr << "\n== LIVE VALUES SUMMARY ==\n";
-    for (Instruction *I : (m_spillsPerTraceCall[callSite])) {
-
-      if (isa<ExtractValueInst>(I)) {
-        I = dyn_cast<Instruction>(dyn_cast<ExtractValueInst>(I)->getAggregateOperand());
-      }
-
-      if (I->isUsedByMetadata()) {
-        if (auto *L = LocalAsMetadata::getIfExists(I)) {
-          if (auto *MDV = MetadataAsValue::getIfExists(I->getContext(), L)) {
-            for (User *U : MDV->users()) {
-              if (DbgValueInst *DVI = dyn_cast<DbgValueInst>(U)) {
-
-                TmpStr << translateValueToName(DVI, I);
-                // Found the debug info for the live value, now exit the loop.
-                break;
-              }
-            }
-          }
-        }
-      }
+    for (LiveValueInst &LVI : m_liveValuesPerTraceCall[callSite]) {
+      TmpStr << LVI.Name;
     }
 
     // Create the Details title.
     TmpStr << "\n== DETAILS ==\n";
-    // Copy to PrettyStr VSStr as the output diverges on the Use Locations formatting.
+    // Copy to both output streams.
     VSStr << TmpStr.str();
     PrettyStr << TmpStr.str();
 
-    for (Instruction *I : (m_spillsPerTraceCall[callSite])) {
-
+    for (LiveValueInst &LVI : (m_liveValuesPerTraceCall[callSite])) {
+      Instruction *I = LVI.Inst;
       TmpStr.str().clear();
-
-      if (isa<ExtractValueInst>(I)) {
-        I = dyn_cast<Instruction>(dyn_cast<ExtractValueInst>(I)->getAggregateOperand());
-      }
 
       // Find the metadata for the instruction, value, use locations, etc.
       if (I->isUsedByMetadata()) {
@@ -1127,9 +1251,12 @@ void LiveValueAnalysis::formatOutput(raw_string_ostream &PrettyStr, raw_string_o
           if (auto *MDV = MetadataAsValue::getIfExists(I->getContext(), L)) {
             for (User *U : MDV->users()) {
               if (DbgValueInst *DVI = dyn_cast<DbgValueInst>(U)) {
+                
+                if (DVI->getVariable()->isArtificial())
+                  break;
 
                 // Determine the name of this value.
-                TmpStr << translateValueToName(DVI, I);
+                TmpStr << LVI.Name;
 
                 // Get use locations.
                 SetVector<DILocation *> UseLocations;
@@ -1147,56 +1274,17 @@ void LiveValueAnalysis::formatOutput(raw_string_ostream &PrettyStr, raw_string_o
                 getFormatLengths(UseLocations, maxFuncLength, maxPathLength);
 
                 // Pad with spaces for inline text, brackets, etc. in the prettyprint output formatting.
-                const char inlinePrefix[] = "  -->inlined at ";
                 maxFuncLength += 4;
                 maxPathLength += sizeof(inlinePrefix);
                 // Output use locations
-                std::ostringstream LocationStr;
-                std::string FileName;
-                std::string FuncName;
-
-                // Output PrettyPrint version
-                for (auto Loc : UseLocations) {
-                  FileName = formatSourceLocation(Loc->getFilename().str(), Loc->getLine());
-                  FuncName = "(" + Loc->getScope()->getSubprogram()->getName().str() + ")";
-                  LocationStr << std::setfill('.') << std::setw(maxPathLength) << std::left << FileName
-                    << std::setw(maxFuncLength) << std::right << FuncName << "\n";
-                  if (DILocation *InLoc = Loc->getInlinedAt()) {
-                    FileName = inlinePrefix + formatSourceLocation(InLoc->getFilename().str(), InLoc->getLine());
-                    FuncName = "(" + InLoc->getScope()->getSubprogram()->getName().str() + ")";
-                    LocationStr << std::setfill('.') << std::setw(maxPathLength) << std::left << FileName << std::setw(maxFuncLength) << std::right << FuncName << "\n";
-                    while (DILocation *NestedInLoc = InLoc->getInlinedAt()) {
-                      FileName = inlinePrefix + formatSourceLocation(NestedInLoc->getFilename().str(), NestedInLoc->getLine());
-                      FuncName = "(" + NestedInLoc->getScope()->getSubprogram()->getName().str() + ")";
-                      LocationStr << std::setfill('.') << std::setw(maxPathLength) << std::left << FileName << std::setw(maxFuncLength) << std::right << FuncName << "\n";
-                      InLoc = NestedInLoc;
-                    }
-                  }
-                }
-                PrettyStr << LocationStr.str();
-                LocationStr.str("");
-                // Output VS source linking version
-                for (auto Loc : UseLocations) {
-                  FileName = formatSourceLocation(Loc->getFilename().str(), Loc->getLine());
-                  LocationStr << FileName << ": (" + Loc->getScope()->getSubprogram()->getName().str() + ")\n";
-                  if (DILocation *InLoc = Loc->getInlinedAt()) {
-                    LocationStr << "inlined at:\n";
-                    FileName = formatSourceLocation(InLoc->getFilename().str(), InLoc->getLine());
-                    LocationStr << ">" + FileName << ": (" + InLoc->getScope()->getSubprogram()->getName().str() + ")\n";
-                    while (DILocation *NestedInLoc = InLoc->getInlinedAt()) {
-                      FileName = formatSourceLocation(NestedInLoc->getFilename().str(), NestedInLoc->getLine());
-                      LocationStr << ">" + FileName << ": (" + InLoc->getScope()->getSubprogram()->getName().str() + ")\n";
-                      InLoc = NestedInLoc;
-                    }
-                  }
-                }
-                VSStr << LocationStr.str();
+                outputSourceLocationsPretty(UseLocations, maxPathLength, maxFuncLength, PrettyStr);
+                outputSourceLocationsVS(UseLocations, maxPathLength, maxFuncLength, VSStr);
               }
               // Found the debug info for the live value, now exit the loop because any subsquent users only reveal duplicate information.
+              PrettyStr << "\n";
+              VSStr << "\n";
               break;
             }
-            PrettyStr << "\n";
-            VSStr << "\n";
           }
         }
       }

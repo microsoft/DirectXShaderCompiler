@@ -15,6 +15,7 @@
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/Support/Global.h"
+#include "dxc/HLSL/HLOperations.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/Bitcode/ReaderWriter.h"
@@ -580,13 +581,122 @@ bool IsLoadIntrinsic(CallInst *CI) {
 
   if (name.startswith("dx.op."))
   {
-    if (name == "dx.op.bufferLoad" ||
-      name == "dx.op.textureLoad" ||
-      name == "dx.op.rawBufferLoad") {
+    if (name.startswith("dx.op.bufferLoad") ||
+      name.startswith("dx.op.cbufferLoadLegacy") ||
+      name.startswith("dx.op.rawBufferLoad") ||
+      name.startswith("dx.op.sampleLevel") ||
+      name.startswith("dx.op.textureLoad")) {
       return true;
     }
   }
   
+  return false;
+}
+
+bool IsRematerializable(Instruction *I) {
+
+  const unsigned int opc = I->getOpcode();
+  switch (opc)
+  {
+  case Instruction::Add:
+  case Instruction::FAdd:
+  case Instruction::Sub:
+  case Instruction::FSub:
+  case Instruction::Mul:
+  case Instruction::FMul:
+  case Instruction::ICmp:
+  case Instruction::FCmp:
+  case Instruction::UDiv:
+  case Instruction::SDiv:
+  case Instruction::URem:
+  case Instruction::SRem:
+  case Instruction::FDiv:
+  case Instruction::FRem:
+  case Instruction::Shl:
+  case Instruction::LShr:
+  case Instruction::AShr:
+  case Instruction::And:
+  case Instruction::Or:
+  case Instruction::Xor:
+  case Instruction::ShuffleVector:
+  case Instruction::Select:
+
+  case Instruction::ExtractValue:
+  case Instruction::ExtractElement:
+  case Instruction::InsertValue:
+  case Instruction::InsertElement:
+  
+  // Cast operators
+  case Instruction::ZExt:
+  case Instruction::SExt:
+  case Instruction::FPToUI:
+  case Instruction::FPToSI:
+  case Instruction::FPExt:
+  case Instruction::PtrToInt:
+  case Instruction::IntToPtr:
+  case Instruction::SIToFP:
+  case Instruction::UIToFP:
+  case Instruction::Trunc:
+  case Instruction::FPTrunc:
+  case Instruction::BitCast:
+  case Instruction::AddrSpaceCast:
+    return true;
+
+  case Instruction::Call:
+  {
+    const CallInst *CI = cast<CallInst>(I);
+    const Function *F = CI->getCalledFunction();
+    if (!F)
+      return false;
+
+    switch (GetHLOpcodeGroupByName(F)) {
+    //case HLOpcodeGroup::HLIntrinsic:
+    case HLOpcodeGroup::HLCast:
+    //case HLOpcodeGroup::HLInit:
+    case HLOpcodeGroup::HLBinOp:
+    case HLOpcodeGroup::HLUnOp:
+    //case HLOpcodeGroup::HLSubscript:
+    //case HLOpcodeGroup::HLSelect:
+      return true;
+    }
+
+    if (OP::IsDxilOpFunc(F)) {
+      DXIL::OpCode DxilOp = OP::GetDxilOpFuncCallInst(CI);
+      switch (DxilOp) {
+      case OP::OpCode::DispatchRaysDimensions:
+      case OP::OpCode::DispatchRaysIndex:
+      case OP::OpCode::WorldRayDirection:
+      case OP::OpCode::WorldRayOrigin:
+        return true;
+      default:
+        break;
+      }
+    }
+
+    if (F->getName().startswith("dx.op.")) {
+      OP::OpCodeClass opClass;
+      F->getParent()->GetDxilModule().GetOP()->GetOpCodeClass(F, opClass);
+      switch (opClass) {
+      case OP::OpCodeClass::Dot2:
+      case OP::OpCodeClass::Dot3:
+      case OP::OpCodeClass::Dot4:
+      case OP::OpCodeClass::Unary:
+      case OP::OpCodeClass::Binary:
+      case OP::OpCodeClass::Tertiary:
+      case OP::OpCodeClass::CBufferLoad:
+      case OP::OpCodeClass::CBufferLoadLegacy:
+      case OP::OpCodeClass::CreateHandleForLib:
+      case OP::OpCodeClass::RawBufferLoad:
+        return true;
+      default:
+        break;
+      }
+    }
+  }
+
+  default:
+    break;
+  }
   return false;
 }
 
