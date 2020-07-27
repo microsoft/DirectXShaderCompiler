@@ -450,6 +450,10 @@ bool CapabilityVisitor::visitInstruction(SpirvInstruction *instr) {
   case spv::Op::OpGroupNonUniformBroadcastFirst:
     addCapability(spv::Capability::GroupNonUniformBallot);
     break;
+  case spv::Op::OpGroupNonUniformShuffle:
+  case spv::Op::OpGroupNonUniformShuffleXor:
+    addCapability(spv::Capability::GroupNonUniformShuffle);
+    break;
   case spv::Op::OpGroupNonUniformIAdd:
   case spv::Op::OpGroupNonUniformFAdd:
   case spv::Op::OpGroupNonUniformIMul:

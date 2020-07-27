@@ -7768,8 +7768,11 @@ SpirvInstruction *SpirvEmitter::processWaveBroadcast(const CallExpr *callExpr) {
   auto *value = doExpr(callExpr->getArg(0));
   const QualType retType = callExpr->getCallReturnType(astContext);
   if (numArgs == 2)
+    // WaveReadLaneAt is in fact not a broadcast operation (even though its name
+    // might incorrectly suggest so). The proper mapping to SPIR-V for
+    // it is OpGroupNonUniformShuffle, *not* OpGroupNonUniformBroadcast.
     return spvBuilder.createGroupNonUniformBinaryOp(
-        spv::Op::OpGroupNonUniformBroadcast, retType, spv::Scope::Subgroup,
+        spv::Op::OpGroupNonUniformShuffle, retType, spv::Scope::Subgroup,
         value, doExpr(callExpr->getArg(1)), srcLoc);
   else
     return spvBuilder.createGroupNonUniformUnaryOp(

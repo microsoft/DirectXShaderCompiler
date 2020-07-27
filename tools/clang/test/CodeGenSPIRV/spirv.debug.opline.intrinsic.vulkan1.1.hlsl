@@ -49,7 +49,7 @@
   WavePrefixCountBits(i == 1);
 
 // CHECK:      OpLine [[file]] 53 3
-// CHECK-NEXT: OpGroupNonUniformBroadcast %int %uint_3
+// CHECK-NEXT: OpGroupNonUniformShuffle %int %uint_3
   WaveReadLaneAt(i, 15);
 
 // CHECK:      OpLine [[file]] 57 3
