@@ -4306,9 +4306,14 @@ public:
       CandidateSet.isNewCandidate(intrinsicFuncDecl); // used to insert into set
       if (argsMatch)
         return true;
-      candidate.FailureKind = ovl_fail_bad_conversion;
-      QualType ParamType = functionArgTypes[badArg];
-      candidate.Conversions[badArg-1].setBad(BadConversionSequence::no_conversion, Args[badArg-1], ParamType);
+      if (badArg) {
+        candidate.FailureKind = ovl_fail_bad_conversion;
+        QualType ParamType = functionArgTypes[badArg];
+        candidate.Conversions[badArg-1].setBad(BadConversionSequence::no_conversion, Args[badArg-1], ParamType);
+      } else {
+        // A less informative error. Needed when the failure relates to the return type
+        candidate.FailureKind = ovl_fail_bad_final_conversion;
+      }
     }
 
     return false;
@@ -5616,7 +5621,7 @@ bool HLSLExternalSource::MatchArguments(
   if (pIntrinsic->pArgs[0].qwUsage
     && pIntrinsic->pArgs[0].uTemplateId != INTRIN_TEMPLATE_FROM_TYPE
     && pIntrinsic->pArgs[0].uTemplateId != INTRIN_TEMPLATE_FROM_FUNCTION) {
-    CAB(pIntrinsic->pArgs[0].uTemplateId < MaxIntrinsicArgs, 1);
+    CAB(pIntrinsic->pArgs[0].uTemplateId < MaxIntrinsicArgs, 0);
     if (AR_TOBJ_UNKNOWN == Template[pIntrinsic->pArgs[0].uTemplateId]) {
       Template[pIntrinsic->pArgs[0].uTemplateId] =
         g_LegalIntrinsicTemplates[pIntrinsic->pArgs[0].uLegalTemplates][0];
@@ -5840,13 +5845,13 @@ bool HLSLExternalSource::MatchArguments(
       // can use more specials, etc.
       if (pArgument->uComponentTypeId == INTRIN_COMPTYPE_FROM_TYPE_ELT0) {
         if (objectElement.isNull()) {
-          badArg = i;
+          badArg = std::min(badArg, i);
           return false;
         }
         pEltType = GetTypeElementKind(objectElement);
         if (!IsValidBasicKind(pEltType)) {
           // This can happen with Texture2D<Struct> or other invalid declarations
-          badArg = i;
+          badArg = std::min(badArg, i);
           return false;
         }
       }
