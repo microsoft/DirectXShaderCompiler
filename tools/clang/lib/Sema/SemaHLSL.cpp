@@ -39,6 +39,7 @@
 #include "dxc/HLSL/HLOperations.h"
 #include "dxc/DXIL/DxilShaderModel.h"
 #include <array>
+#include <algorithm>
 #include <float.h>
 
 enum ArBasicKind {
@@ -1005,11 +1006,11 @@ static const ArBasicKind g_DoubleOnlyCT[] =
 
 static const ArBasicKind g_NumericCT[] =
 {
-  AR_BASIC_LITERAL_FLOAT,
   AR_BASIC_FLOAT32,
   AR_BASIC_FLOAT32_PARTIAL_PRECISION,
   AR_BASIC_FLOAT16,
   AR_BASIC_FLOAT64,
+  AR_BASIC_LITERAL_FLOAT,
   AR_BASIC_MIN10FLOAT,
   AR_BASIC_MIN16FLOAT,
   AR_BASIC_LITERAL_INT,
@@ -1027,9 +1028,9 @@ static const ArBasicKind g_NumericCT[] =
 
 static const ArBasicKind g_Numeric32CT[] =
 {
-  AR_BASIC_LITERAL_FLOAT,
   AR_BASIC_FLOAT32,
   AR_BASIC_FLOAT32_PARTIAL_PRECISION,
+  AR_BASIC_LITERAL_FLOAT,
   AR_BASIC_LITERAL_INT,
   AR_BASIC_INT32,
   AR_BASIC_UINT32,
@@ -1038,9 +1039,9 @@ static const ArBasicKind g_Numeric32CT[] =
 
 static const ArBasicKind g_Numeric32OnlyCT[] =
 {
-  AR_BASIC_LITERAL_FLOAT,
   AR_BASIC_FLOAT32,
   AR_BASIC_FLOAT32_PARTIAL_PRECISION,
+  AR_BASIC_LITERAL_FLOAT,
   AR_BASIC_LITERAL_INT,
   AR_BASIC_INT32,
   AR_BASIC_UINT32,
@@ -1050,16 +1051,16 @@ static const ArBasicKind g_Numeric32OnlyCT[] =
 
 static const ArBasicKind g_AnyCT[] =
 {
-  AR_BASIC_LITERAL_FLOAT,
   AR_BASIC_FLOAT32,
   AR_BASIC_FLOAT32_PARTIAL_PRECISION,
   AR_BASIC_FLOAT16,
   AR_BASIC_FLOAT64,
+  AR_BASIC_LITERAL_FLOAT,
   AR_BASIC_MIN10FLOAT,
   AR_BASIC_MIN16FLOAT,
-  AR_BASIC_LITERAL_INT,
   AR_BASIC_INT16,
   AR_BASIC_UINT16,
+  AR_BASIC_LITERAL_INT,
   AR_BASIC_INT32,
   AR_BASIC_UINT32,
   AR_BASIC_MIN12INT,
@@ -4184,14 +4185,15 @@ public:
   /// <param name="objectElement">Type element on the class intrinsic belongs to; possibly null (eg, 'float' in 'Texture2D<float>').</param>
   /// <param name="Args">Invocation arguments to match.</param>
   /// <param name="argTypes">After exectuion, type of arguments.</param>
-  /// <param name="argCount">After execution, number of arguments in argTypes.</param>
+  /// <param name="badArgIdx">The first argument to mismatch if any</param>
   /// <remarks>On success, argTypes includes the clang Types to use for the signature, with the first being the return type.</remarks>
   bool MatchArguments(
     const _In_ HLSL_INTRINSIC *pIntrinsic,
     _In_ QualType objectElement,
     _In_ QualType functionTemplateTypeArg,
     _In_ ArrayRef<Expr *> Args, 
-    _Out_ std::vector<QualType> *);
+    _Out_ std::vector<QualType> *,
+    _Out_ size_t &badArgIdx);
 
   /// <summary>Validate object element on intrinsic to catch case like integer on Sample.</summary>
   /// <param name="pIntrinsic">Intrinsic function to validate.</param>
@@ -4264,7 +4266,7 @@ public:
       g_Intrinsics, _countof(g_Intrinsics), StringRef(), nameIdentifier, Args.size());
     IntrinsicDefIter end = IntrinsicDefIter::CreateEnd(
       g_Intrinsics, _countof(g_Intrinsics), IntrinsicTableDefIter::CreateEnd(m_intrinsicTables));
-    while (cursor != end)
+    for (;cursor != end; ++cursor)
     {
       // If this is the intrinsic we're interested in, build up a representation
       // of the types we need.
@@ -4274,12 +4276,12 @@ public:
       DXASSERT(
         pIntrinsic->uNumArgs <= g_MaxIntrinsicParamCount + 1,
         "otherwise g_MaxIntrinsicParamCount needs to be updated for wider signatures");
+
       std::vector<QualType> functionArgTypes;
-      if (!MatchArguments(pIntrinsic, QualType(), QualType(), Args, &functionArgTypes))
-      {
-        ++cursor;
-        continue;
-      }
+      size_t badArgIdx;
+      bool argsMatch = MatchArguments(pIntrinsic, QualType(), QualType(), Args, &functionArgTypes, badArgIdx);
+      if (!functionArgTypes.size())
+        return false;
 
       // Get or create the overload we're interested in.
       FunctionDecl* intrinsicFuncDecl = nullptr;
@@ -4297,12 +4299,21 @@ public:
         intrinsicFuncDecl = (*insertResult.first).getFunctionDecl();
       }
 
-      OverloadCandidate& candidate = CandidateSet.addCandidate();
+      OverloadCandidate& candidate = CandidateSet.addCandidate(Args.size());
       candidate.Function = intrinsicFuncDecl;
       candidate.FoundDecl.setDecl(intrinsicFuncDecl);
-      candidate.Viable = true;
-
-      return true;
+      candidate.Viable = argsMatch;
+      CandidateSet.isNewCandidate(intrinsicFuncDecl); // used to insert into set
+      if (argsMatch)
+        return true;
+      if (badArgIdx) {
+        candidate.FailureKind = ovl_fail_bad_conversion;
+        QualType ParamType = functionArgTypes[badArgIdx];
+        candidate.Conversions[badArgIdx-1].setBad(BadConversionSequence::no_conversion, Args[badArgIdx-1], ParamType);
+      } else {
+        // A less informative error. Needed when the failure relates to the return type
+        candidate.FailureKind = ovl_fail_bad_final_conversion;
+      }
     }
 
     return false;
@@ -5380,22 +5391,23 @@ bool HLSLExternalSource::MatchArguments(
   QualType objectElement,
   QualType functionTemplateTypeArg,
   ArrayRef<Expr *> Args,
-  std::vector<QualType> *argTypesVector)
+  std::vector<QualType> *argTypesVector,
+  size_t &badArgIdx)
 {
   DXASSERT_NOMSG(pIntrinsic != nullptr);
   DXASSERT_NOMSG(argTypesVector != nullptr);
   std::vector<QualType> &argTypes = *argTypesVector;
   argTypes.clear();
-  argTypes.resize(1 + Args.size()); // +1 for return type
   const bool isVariadic = IsVariadicIntrinsicFunction(pIntrinsic);
 
   static const UINT UnusedSize = 0xFF;
   static const BYTE MaxIntrinsicArgs = g_MaxIntrinsicParamCount + 1;
-#define CAB(_) { if (!(_)) return false; }
+#define CAB(cond,arg) { if (!(cond)) { badArgIdx = (arg); return false; } }
 
   ArTypeObjectKind Template[MaxIntrinsicArgs];  // Template type for each argument, AR_TOBJ_UNKNOWN if unspecified.
   ArBasicKind ComponentType[MaxIntrinsicArgs];  // Component type for each argument, AR_BASIC_UNKNOWN if unspecified.
   UINT uSpecialSize[IA_SPECIAL_SLOTS];          // row/col matching types, UNUSED_INDEX32 if unspecified.
+  badArgIdx = MaxIntrinsicArgs;
 
   // Reset infos
   std::fill(Template, Template + _countof(Template), AR_TOBJ_UNKNOWN);
@@ -5408,7 +5420,7 @@ bool HLSLExternalSource::MatchArguments(
   // Populate the template for each argument.
   ArrayRef<Expr*>::iterator iterArg = Args.begin();
   ArrayRef<Expr*>::iterator end = Args.end();
-  unsigned int iArg = 1;
+  size_t iArg = 1;
   for (; iterArg != end; ++iterArg) {
     Expr* pCallArg = *iterArg;
 
@@ -5417,7 +5429,9 @@ bool HLSLExternalSource::MatchArguments(
       break;
 
     // Check bounds for non-variadic functions.
-    if (iArg >= _countof(Template) || iArg > pIntrinsic->uNumArgs) {
+    if (iArg >= MaxIntrinsicArgs || iArg > pIntrinsic->uNumArgs) {
+      // Currently never reached
+      badArgIdx = iArg;
       return false;
     }
 
@@ -5443,6 +5457,7 @@ bool HLSLExternalSource::MatchArguments(
       }
       m_sema->Diag(pCallArg->getExprLoc(),
                    diag::err_hlsl_ray_desc_required);
+      badArgIdx = iArg;
       return false;
     }
 
@@ -5453,6 +5468,7 @@ bool HLSLExternalSource::MatchArguments(
       if (TypeInfoShapeKind != AR_TOBJ_COMPOUND) {
         m_sema->Diag(pCallArg->getExprLoc(),
                      diag::err_hlsl_no_struct_user_defined_type);
+        badArgIdx = iArg;
         return false;
       }
       objectElement = Ty;
@@ -5496,7 +5512,7 @@ bool HLSLExternalSource::MatchArguments(
     case AR_TOBJ_STRING:
       break;
     default:
-      return false; // no struct, arrays or void
+      badArgIdx = std::min(badArgIdx, iArg); // no struct, arrays or void
     }
 
     DXASSERT(
@@ -5507,24 +5523,39 @@ bool HLSLExternalSource::MatchArguments(
     if ((AR_TOBJ_UNKNOWN == Template[pIntrinsicArg->uTemplateId]) ||
         ((AR_TOBJ_SCALAR == Template[pIntrinsicArg->uTemplateId]) &&
          (AR_TOBJ_VECTOR == TypeInfoShapeKind || AR_TOBJ_MATRIX == TypeInfoShapeKind))) {
+      // Unrestricted or truncation of tuples to scalars are allowed
       Template[pIntrinsicArg->uTemplateId] = TypeInfoShapeKind;
     }
     else if (AR_TOBJ_SCALAR == TypeInfoShapeKind) {
       if (AR_TOBJ_SCALAR != Template[pIntrinsicArg->uTemplateId] &&
           AR_TOBJ_VECTOR != Template[pIntrinsicArg->uTemplateId] &&
           AR_TOBJ_MATRIX != Template[pIntrinsicArg->uTemplateId]) {
-        return false;
+        // Scalars to tuples can be splatted, scalar to anything else is not allowed
+        badArgIdx = std::min(badArgIdx, iArg);
       }
     }
     else {
       if (TypeInfoShapeKind != Template[pIntrinsicArg->uTemplateId]) {
-        return false;
+        // Outside of simple splats and truncations, templates must match
+        badArgIdx = std::min(badArgIdx, iArg);
       }
     }
 
     DXASSERT(
       pIntrinsicArg->uComponentTypeId < MaxIntrinsicArgs,
       "otherwise intrinsic table was modified and MaxIntrinsicArgs was not updated (or uComponentTypeId is out of bounds)");
+
+    // Verify TypeInfoEltKind can be cast to something legal for this param
+    if (AR_BASIC_UNKNOWN != TypeInfoEltKind) {
+      for (const ArBasicKind *pCT = g_LegalIntrinsicCompTypes[pIntrinsicArg->uLegalComponentTypes];
+           AR_BASIC_UNKNOWN != *pCT; pCT++) {
+        if (TypeInfoEltKind == *pCT)
+          break;
+        else if (*pCT == AR_BASIC_NOCAST) {
+          badArgIdx = std::min(badArgIdx, iArg);
+        }
+      }
+    }
 
     // Merge ComponentTypes
     if (AR_BASIC_UNKNOWN == ComponentType[pIntrinsicArg->uComponentTypeId]) {
@@ -5535,7 +5566,7 @@ bool HLSLExternalSource::MatchArguments(
             ComponentType[pIntrinsicArg->uComponentTypeId],
             TypeInfoEltKind,
             &ComponentType[pIntrinsicArg->uComponentTypeId])) {
-        return false;
+        badArgIdx = std::min(badArgIdx, iArg);
       }
     }
 
@@ -5543,14 +5574,14 @@ bool HLSLExternalSource::MatchArguments(
     if (AR_TOBJ_SCALAR != TypeInfoShapeKind) {
       if (pIntrinsicArg->uRows >= IA_SPECIAL_BASE) {
         UINT uSpecialId = pIntrinsicArg->uRows - IA_SPECIAL_BASE;
-        CAB(uSpecialId < IA_SPECIAL_SLOTS);
+        CAB(uSpecialId < IA_SPECIAL_SLOTS, iArg);
         if (uSpecialSize[uSpecialId] > TypeInfoRows) {
           uSpecialSize[uSpecialId] = TypeInfoRows;
         }
       }
       else {
         if (TypeInfoRows < pIntrinsicArg->uRows) {
-          return false;
+          badArgIdx = std::min(badArgIdx, iArg);
         }
       }
     }
@@ -5559,7 +5590,7 @@ bool HLSLExternalSource::MatchArguments(
     if (AR_TOBJ_SCALAR != TypeInfoShapeKind) {
       if (pIntrinsicArg->uCols >= IA_SPECIAL_BASE) {
         UINT uSpecialId = pIntrinsicArg->uCols - IA_SPECIAL_BASE;
-        CAB(uSpecialId < IA_SPECIAL_SLOTS);
+        CAB(uSpecialId < IA_SPECIAL_SLOTS, iArg);
 
         if (uSpecialSize[uSpecialId] > TypeInfoCols) {
           uSpecialSize[uSpecialId] = TypeInfoCols;
@@ -5567,7 +5598,7 @@ bool HLSLExternalSource::MatchArguments(
       }
       else {
         if (TypeInfoCols < pIntrinsicArg->uCols) {
-          return false;
+          badArgIdx = std::min(badArgIdx, iArg);
         }
       }
     }
@@ -5576,7 +5607,7 @@ bool HLSLExternalSource::MatchArguments(
     if (pIntrinsicArg->qwUsage & AR_QUAL_OUT) {
       if (pCallArg->getType().isConstQualified()) {
         // Can't use a const type in an out or inout parameter.
-        return false;
+        badArgIdx = std::min(badArgIdx, iArg);
       }
     }
 
@@ -5590,7 +5621,7 @@ bool HLSLExternalSource::MatchArguments(
   if (pIntrinsic->pArgs[0].qwUsage
     && pIntrinsic->pArgs[0].uTemplateId != INTRIN_TEMPLATE_FROM_TYPE
     && pIntrinsic->pArgs[0].uTemplateId != INTRIN_TEMPLATE_FROM_FUNCTION) {
-    CAB(pIntrinsic->pArgs[0].uTemplateId < MaxIntrinsicArgs);
+    CAB(pIntrinsic->pArgs[0].uTemplateId < MaxIntrinsicArgs, 0);
     if (AR_TOBJ_UNKNOWN == Template[pIntrinsic->pArgs[0].uTemplateId]) {
       Template[pIntrinsic->pArgs[0].uTemplateId] =
         g_LegalIntrinsicTemplates[pIntrinsic->pArgs[0].uLegalTemplates][0];
@@ -5647,9 +5678,11 @@ bool HLSLExternalSource::MatchArguments(
         }
       }
 
-      if (AR_TOBJ_UNKNOWN == *pTT)
-        return false;
+      if (AR_TOBJ_UNKNOWN == *pTT) {
+        Template[i] = g_LegalIntrinsicTemplates[pArgument->uLegalTemplates][0];
+        badArgIdx = std::min(badArgIdx, i);
       }
+    }
     else if (pTT) {
       Template[i] = *pTT;
     }
@@ -5664,14 +5697,17 @@ bool HLSLExternalSource::MatchArguments(
       }
 
       // has to be a strict match
-      if (*pCT == AR_BASIC_NOCAST)
-        return false;
+      if (*pCT == AR_BASIC_NOCAST) {
+        badArgIdx = std::min(badArgIdx, i);
+        // the match has failed, but the types are useful for errors. Present the cannonical overload for error
+        ComponentType[i] = g_LegalIntrinsicCompTypes[pArgument->uLegalComponentTypes][0];
+      }
 
       // If it is an object, see if it can be cast to the first thing in the 
       // list, otherwise move on to next intrinsic.
       if (AR_TOBJ_OBJECT == Template[i] && AR_BASIC_UNKNOWN == *pCT) {
         if (!CombineObjectTypes(g_LegalIntrinsicCompTypes[pArgument->uLegalComponentTypes][0], ComponentType[i], nullptr)) {
-          return false;
+          badArgIdx = std::min(badArgIdx, i);
         }
       }
 
@@ -5683,6 +5719,8 @@ bool HLSLExternalSource::MatchArguments(
       ComponentType[i] = *pCT;
     }
   }
+
+  argTypes.resize(1 + Args.size()); // +1 for return type
 
   // Default to a void return type.
   argTypes[0] = m_context->VoidTy;
@@ -5720,7 +5758,7 @@ bool HLSLExternalSource::MatchArguments(
         // now it only supports scalars
         if (pArgument->uRows >= IA_SPECIAL_BASE) {
           UINT uSpecialId = pArgument->uRows - IA_SPECIAL_BASE;
-          CAB(uSpecialId < IA_SPECIAL_SLOTS);
+          CAB(uSpecialId < IA_SPECIAL_SLOTS, i);
 
           uRows = uSpecialSize[uSpecialId];
         }
@@ -5730,7 +5768,7 @@ bool HLSLExternalSource::MatchArguments(
 
         if (pArgument->uCols >= IA_SPECIAL_BASE) {
           UINT uSpecialId = pArgument->uCols - IA_SPECIAL_BASE;
-          CAB(uSpecialId < IA_SPECIAL_SLOTS);
+          CAB(uSpecialId < IA_SPECIAL_SLOTS, i);
 
           uCols = uSpecialSize[uSpecialId];
         }
@@ -5743,7 +5781,7 @@ bool HLSLExternalSource::MatchArguments(
         if ((1 == uCols) && (1 == uRows)) {
           pNewType = objectElement;
           if (pNewType.isNull()) {
-            return false;
+            badArgIdx = std::min(badArgIdx, i);
           }
         }
         else {
@@ -5753,13 +5791,13 @@ bool HLSLExternalSource::MatchArguments(
           // given type
 
           // VH(E_NOTIMPL);
-          return false;
+          badArgIdx = std::min(badArgIdx, i);
         }
       }
       else {
         DXASSERT_NOMSG(!pArgument->uRows && !pArgument->uCols);
         if (objectElement.isNull()) {
-          return false;
+          badArgIdx = std::min(badArgIdx, i);
         }
         pNewType = objectElement;
       }
@@ -5790,7 +5828,7 @@ bool HLSLExternalSource::MatchArguments(
     }
     else if (pArgument->uLegalComponentTypes == LICOMPTYPE_USER_DEFINED_TYPE) {
       if (objectElement.isNull()) {
-        return false;
+        badArgIdx = std::min(badArgIdx, i);
       }
       pNewType = objectElement;
     }
@@ -5807,11 +5845,13 @@ bool HLSLExternalSource::MatchArguments(
       // can use more specials, etc.
       if (pArgument->uComponentTypeId == INTRIN_COMPTYPE_FROM_TYPE_ELT0) {
         if (objectElement.isNull()) {
+          badArgIdx = std::min(badArgIdx, i);
           return false;
         }
         pEltType = GetTypeElementKind(objectElement);
         if (!IsValidBasicKind(pEltType)) {
           // This can happen with Texture2D<Struct> or other invalid declarations
+          badArgIdx = std::min(badArgIdx, i);
           return false;
         }
       }
@@ -5825,7 +5865,7 @@ bool HLSLExternalSource::MatchArguments(
       // Rows
       if (pArgument->uRows >= IA_SPECIAL_BASE) {
         UINT uSpecialId = pArgument->uRows - IA_SPECIAL_BASE;
-        CAB(uSpecialId < IA_SPECIAL_SLOTS);
+        CAB(uSpecialId < IA_SPECIAL_SLOTS, i);
         uRows = uSpecialSize[uSpecialId];
       }
       else {
@@ -5835,7 +5875,7 @@ bool HLSLExternalSource::MatchArguments(
       // Cols
       if (pArgument->uCols >= IA_SPECIAL_BASE) {
         UINT uSpecialId = pArgument->uCols - IA_SPECIAL_BASE;
-        CAB(uSpecialId < IA_SPECIAL_SLOTS);
+        CAB(uSpecialId < IA_SPECIAL_SLOTS, i);
         uCols = uSpecialSize[uSpecialId];
       }
       else {
@@ -5843,7 +5883,7 @@ bool HLSLExternalSource::MatchArguments(
       }
 
       // Verify that the final results are in bounds.
-      CAB(uCols > 0 && uCols <= MaxVectorSize && uRows > 0 && uRows <= MaxVectorSize);
+      CAB(uCols > 0 && uCols <= MaxVectorSize && uRows > 0 && uRows <= MaxVectorSize, i);
 
       // Const
       UINT64 qwQual = pArgument->qwUsage & (AR_QUAL_ROWMAJOR | AR_QUAL_COLMAJOR);
@@ -5875,7 +5915,7 @@ bool HLSLExternalSource::MatchArguments(
              "have as many arguments and types as the intrinsic template");
   }
 
-  return true;
+  return badArgIdx == MaxIntrinsicArgs;
 #undef CAB
 }
 
@@ -9268,7 +9308,8 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
 
   while (cursor != end)
   {
-    if (!MatchArguments(*cursor, objectElement, functionTemplateTypeArg, Args, &argTypes))
+    size_t badArgIdx;
+    if (!MatchArguments(*cursor, objectElement, functionTemplateTypeArg, Args, &argTypes, badArgIdx))
     {
       ++cursor;
       continue;
