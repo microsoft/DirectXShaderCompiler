@@ -1198,6 +1198,15 @@ static const ArBasicKind g_Numeric16OnlyCT[] =
   AR_BASIC_UNKNOWN
 };
 
+static const ArBasicKind g_Int32OnlyCT[] =
+{
+  AR_BASIC_INT32,
+  AR_BASIC_UINT32,
+  AR_BASIC_LITERAL_INT,
+  AR_BASIC_NOCAST,
+  AR_BASIC_UNKNOWN
+};
+
 // Basic kinds, indexed by a LEGAL_INTRINSIC_COMPTYPES value.
 const ArBasicKind* g_LegalIntrinsicCompTypes[] =
 {
@@ -1237,6 +1246,7 @@ const ArBasicKind* g_LegalIntrinsicCompTypes[] =
   g_Texture2DCT,        // LICOMPTYPE_TEXTURE2D
   g_Texture2DArrayCT,   // LICOMPTYPE_TEXTURE2DARRAY
   g_ResourceCT,         // LICOMPTYPE_RESOURCE
+  g_Int32OnlyCT,        // LICOMPTYPE_INT32_ONLY
 };
 static_assert(ARRAYSIZE(g_LegalIntrinsicCompTypes) == LICOMPTYPE_COUNT,
   "Intrinsic comp type table must be updated when new enumerants are added.");
