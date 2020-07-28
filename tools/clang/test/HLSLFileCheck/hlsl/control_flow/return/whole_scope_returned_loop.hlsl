@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -fcgl -structurize-returns -T ps_6_0 %s | FileCheck %s
+// RUN: %dxc -E main -fcgl -opt-enable structurize-returns -T ps_6_0 %s | FileCheck %s
 
 int i;
 // CHECK:define float @main

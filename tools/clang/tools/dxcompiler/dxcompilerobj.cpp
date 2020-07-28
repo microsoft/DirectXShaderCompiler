@@ -1109,7 +1109,6 @@ public:
       compiler.getCodeGenOpts().HLSLFloat32DenormMode = DXIL::Float32DenormMode::Preserve;
     }
 
-    compiler.getCodeGenOpts().HLSLStructurizeReturns = Opts.StructurizeReturns;
     if (Opts.DisableOptimizations)
       compiler.getCodeGenOpts().DisableLLVMOpts = true;
 

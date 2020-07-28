@@ -214,8 +214,6 @@ public:
   std::vector<std::string> HLSLLibraryExports;
   /// ExportShadersOnly limits library export functions to shaders
   bool ExportShadersOnly = false;
-  /// Structurize control flow for function has multiple returns.
-  bool HLSLStructurizeReturns = false;
   /// DefaultLinkage Internal, External, or Default.  If Default, default
   /// function linkage is determined by library target.
   hlsl::DXIL::DefaultLinkage DefaultLinkage = hlsl::DXIL::DefaultLinkage::Default;
