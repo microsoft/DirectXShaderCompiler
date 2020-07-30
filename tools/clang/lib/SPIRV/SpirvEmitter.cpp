@@ -632,8 +632,8 @@ void SpirvEmitter::doDecl(const Decl *decl) {
   if (isa<EmptyDecl>(decl) || isa<TypedefDecl>(decl))
     return;
 
+  // Implicit decls are lazily created when needed.
   if (decl->isImplicit()) {
-    doImplicitDecl(decl);
     return;
   }
 
@@ -1140,19 +1140,6 @@ void SpirvEmitter::doHLSLBufferDecl(const HLSLBufferDecl *bufferDecl) {
     (void)declIdMapper.createShaderRecordBufferNV(bufferDecl);
   } else {
     (void)declIdMapper.createCTBuffer(bufferDecl);
-  }
-}
-
-void SpirvEmitter::doImplicitDecl(const Decl *decl) {
-  // We only handle specific implicit declaration for raytracing
-  // which are RayFlag/HitKind constant unsigned integers
-  // Ignore others
-  if (spvContext.isLib() || spvContext.isRay()) {
-    const VarDecl *implDecl = dyn_cast<VarDecl>(decl);
-    if (implDecl && (implDecl->getName().startswith(StringRef("RAY_FLAG")) ||
-                     implDecl->getName().startswith(StringRef("HIT_KIND")))) {
-      (void)declIdMapper.createRayTracingNVImplicitVar(implDecl);
-    }
   }
 }
 
@@ -11291,8 +11278,8 @@ void SpirvEmitter::addFunctionToWorkQueue(hlsl::DXIL::ShaderKind shaderKind,
 
 SpirvInstruction *
 SpirvEmitter::processTraceRayInline(const CXXMemberCallExpr *expr) {
-  emitWarning("SPV_KHR_ray_query is currently a provisional extension and might"
-              "change in ways that are not backwards compatible",
+  emitWarning("SPV_KHR_ray_query is currently a provisional extension and "
+              "might change in ways that are not backwards compatible",
               expr->getExprLoc());
   const auto object = expr->getImplicitObjectArgument();
   uint32_t templateFlags = hlsl::GetHLSLResourceTemplateUInt(object->getType());
@@ -11374,8 +11361,8 @@ SpirvEmitter::processTraceRayInline(const CXXMemberCallExpr *expr) {
 SpirvInstruction *
 SpirvEmitter::processRayQueryIntrinsics(const CXXMemberCallExpr *expr,
                                         hlsl::IntrinsicOp opcode) {
-  emitWarning("SPV_KHR_ray_query is currently a provisional extension and might"
-              "change in ways that are not backwards compatible",
+  emitWarning("SPV_KHR_ray_query is currently a provisional extension and "
+              "might change in ways that are not backwards compatible",
               expr->getExprLoc());
   const auto object = expr->getImplicitObjectArgument();
   SpirvInstruction *rayqueryObj = loadIfAliasVarRef(object);

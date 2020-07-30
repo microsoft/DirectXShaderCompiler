@@ -636,7 +636,17 @@ DeclResultIdMapper::getDeclSpirvInfo(const ValueDecl *decl) const {
 
 SpirvInstruction *DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl,
                                                       SourceLocation loc) {
-  if (const auto *info = getDeclSpirvInfo(decl)) {
+  const DeclSpirvInfo *info = getDeclSpirvInfo(decl);
+
+  // If DeclSpirvInfo is not found for this decl, it might be because it is an
+  // implicit VarDecl. All implicit VarDecls are lazily created in order to
+  // avoid creating large number of unused variables/constants/enums.
+  if (!info) {
+    tryToCreateImplicitConstVar(decl);
+    info = getDeclSpirvInfo(decl);
+  }
+
+  if (info) {
     if (info->indexInCTBuffer >= 0) {
       // If this is a VarDecl inside a HLSLBufferDecl, we need to do an extra
       // OpAccessChain to get the pointer to the variable since we created
@@ -3545,9 +3555,15 @@ DeclResultIdMapper::createRayTracingNVStageVar(spv::StorageClass sc,
   return retVal;
 }
 
-void DeclResultIdMapper::createRayTracingNVImplicitVar(const VarDecl *varDecl) {
+void DeclResultIdMapper::tryToCreateImplicitConstVar(const ValueDecl *decl) {
+  const VarDecl *varDecl = dyn_cast<VarDecl>(decl);
+  if (!varDecl || !varDecl->isImplicit())
+    return;
+
   APValue *val = varDecl->evaluateValue();
-  assert(val);
+  if(!val)
+    return;
+
   SpirvInstruction *constVal =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, val->getInt());
   constVal->setRValue(true);

@@ -394,11 +394,15 @@ public:
   /// \brief Sets the entry function.
   void setEntryFunction(SpirvFunction *fn) { entryFunction = fn; }
 
-  /// Raytracing specific functions
-  /// \brief Handle specific implicit declarations present only in raytracing
-  /// stages.
-  void createRayTracingNVImplicitVar(const VarDecl *varDecl);
+  /// \brief If the given decl is an implicit VarDecl that evaluates to a
+  /// constant, it evaluates the constant and registers the resulting SPIR-V
+  /// instruction in the astDecls map. Otherwise returns without doing anything.
+  ///
+  /// Note: There are many cases where the front-end might create such implicit
+  /// VarDecls (such as some ray tracing enums).
+  void tryToCreateImplicitConstVar(const ValueDecl *);
 
+  /// Raytracing specific functions
   /// \brief Creates a ShaderRecordBufferNV block from the given decl.
   SpirvVariable *createShaderRecordBufferNV(const VarDecl *decl);
   SpirvVariable *createShaderRecordBufferNV(const HLSLBufferDecl *decl);
