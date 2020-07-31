@@ -102,7 +102,7 @@ inline DxcOutputType DxcGetOutputType(DXC_OUT_KIND kind) {
 }
 
 // Update when new results are allowed
-static const unsigned kNumDxcOutputTypes = DXC_OUT_ROOT_SIGNATURE;
+static const unsigned kNumDxcOutputTypes = DXC_OUT_EXTRA_OUTPUTS;
 static const SIZE_T kAutoSize = (SIZE_T)-1;
 static const LPCWSTR DxcOutNoName = nullptr;
 
@@ -258,6 +258,15 @@ struct DxcOutputObject {
                                     _In_opt_ IDxcBlob *pBlob) {
     return DataOutput(kind, codePage, pBlob, DxcOutNoName);
   }
+  static DxcOutputObject DataOutput(_In_ DXC_OUT_KIND kind,
+                                    _In_ UINT32 codePage,
+                                    _In_opt_ IUnknown *pBlob) {
+    DxcOutputObject output;
+    output.kind = kind;
+    IFT(output.SetObject(pBlob, codePage));
+    IFT(output.SetName(DxcOutNoName));
+    return output;
+  }
 
   template<typename DataTy>
   static DxcOutputObject ErrorOutput(UINT32 codePage, DataTy pText, SIZE_T size) {
@@ -273,6 +282,57 @@ struct DxcOutputObject {
   }
   static DxcOutputObject ObjectOutput(LPCVOID pData, SIZE_T size) {
     return DataOutput(DXC_OUT_OBJECT, pData, size, DxcOutNoName);
+  }
+};
+
+class DxcExtraOutputs : public IDxcExtraOutputs {
+  DXC_MICROCOM_TM_REF_FIELDS()
+
+  struct OutputEntry {
+    CComPtr<IDxcBlobUtf16> pName;
+    CComPtr<IDxcBlob> pBlob;
+  };
+
+  std::vector<OutputEntry> m_Entries;
+
+public:
+
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
+  DXC_MICROCOM_TM_CTOR(DxcExtraOutputs)
+
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
+    return DoBasicQueryInterface<IDxcExtraOutputs>(this, iid, ppvObject);
+  }
+
+  /////////////////////
+  // IDxcExtraOutputs
+  /////////////////////
+
+  UINT32 STDMETHODCALLTYPE GetOutputCount() override {
+    return (UINT32)m_Entries.size();
+  }
+
+  HRESULT STDMETHODCALLTYPE GetOutput(_In_ UINT32 uIndex, _COM_Outptr_ IDxcBlobUtf16 **ppOutputName, _COM_Outptr_ IDxcBlob **ppOutBlob) override {
+    if (!ppOutputName || !ppOutBlob)
+      return E_POINTER;
+
+    *ppOutputName = nullptr;
+    *ppOutBlob = nullptr;
+
+    if (uIndex >= m_Entries.size())
+      return E_INVALIDARG;
+
+    IFR(m_Entries[uIndex].pBlob.CopyTo(ppOutBlob));
+    IFR(m_Entries[uIndex].pName.CopyTo(ppOutputName));
+
+    return S_OK;
+  }
+
+  /////////////////////
+  // Internal Interface
+  /////////////////////
+  void AddOutput(IDxcBlobUtf16 *pName, IDxcBlob *pBlob) {
+    m_Entries.push_back(OutputEntry{ pName, pBlob });
   }
 };
 
