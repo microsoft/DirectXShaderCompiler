@@ -363,6 +363,7 @@ public:
 
     m_uCount = outputs.size();
     if (m_uCount > 0) {
+      m_Objects = new DxcExtraOutputObject[m_uCount];
       for (UINT32 i = 0; i < outputs.size(); i++)
         m_Objects[i] = outputs[i];
     }
