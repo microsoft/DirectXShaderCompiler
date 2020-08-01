@@ -63,6 +63,10 @@ public:
   // Write semantic defines as metadata in the module.
   virtual SemanticDefineErrorList WriteSemanticDefines(llvm::Module *M) = 0;
 
+  // Query the named option enable
+  // Needed because semantic defines may have set it since options were copied
+  virtual bool IsOptionEnabled(std::string option) = 0;
+
   // Get the name to use for the dxil intrinsic function.
   virtual std::string GetIntrinsicName(unsigned opcode) = 0;
 
