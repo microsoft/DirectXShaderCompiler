@@ -204,37 +204,59 @@ static void WriteDxcOutputToFile(DXC_OUT_KIND kind, IDxcResult *pResult, UINT32 
   }
 }
 
+static bool StringBlobEqualUtf16(IDxcBlobUtf16 *pBlob, const WCHAR *pStr) {
+  size_t uSize = wcslen(pStr);
+  if (pBlob && pBlob->GetStringLength() == uSize) {
+    return 0 == memcmp(pBlob->GetBufferPointer(), pStr, pBlob->GetBufferSize());
+  }
+  return false;
+}
+
 static void WriteDxcExtraOuputs(IDxcResult *pResult) {
   DXC_OUT_KIND kind = DXC_OUT_EXTRA_OUTPUTS;
-  if (pResult->HasOutput(kind)) {
-    CComPtr<IDxcExtraOutputs> pOutputs;
-    CComPtr<IDxcBlobUtf16> pName;
-    IFT(pResult->GetOutput(kind, IID_PPV_ARGS(&pOutputs), &pName));
+  if (!pResult->HasOutput(kind)) {
+    return;
+  }
 
-    UINT32 uOutputCount = pOutputs->GetOutputCount();
-    for (UINT32 i = 0; i < uOutputCount; i++) {
-      CComPtr<IDxcBlobUtf16> pFileName;
-      CComPtr<IDxcBlob> pBlob;
-      IFT(pOutputs->GetOutput(i, &pFileName, &pBlob));
+  CComPtr<IDxcExtraOutputs> pOutputs;
+  CComPtr<IDxcBlobUtf16> pName;
+  IFT(pResult->GetOutput(kind, IID_PPV_ARGS(&pOutputs), &pName));
 
-      UINT32 uCodePage = CP_ACP;
-      CComPtr<IDxcBlobEncoding> pBlobEncoding;
-      if (SUCCEEDED(pBlob.QueryInterface(&pBlobEncoding))) {
-        BOOL bKnown = FALSE;
-        UINT32 uKnownCodePage = CP_ACP;
-        IFT(pBlobEncoding->GetEncoding(&bKnown, &uKnownCodePage));
-        if (bKnown) {
-          uCodePage = uKnownCodePage;
+  UINT32 uOutputCount = pOutputs->GetOutputCount();
+  for (UINT32 i = 0; i < uOutputCount; i++) {
+    CComPtr<IDxcBlobUtf16> pFileName;
+    CComPtr<IDxcBlobUtf16> pType;
+    CComPtr<IDxcBlob> pBlob;
+    IFT(pOutputs->GetOutput(i, IID_PPV_ARGS(&pBlob), &pType, &pFileName));
+
+    // Not a blob
+    if (!pBlob)
+      continue;
+
+    UINT32 uCodePage = CP_ACP;
+    CComPtr<IDxcBlobEncoding> pBlobEncoding;
+    if (SUCCEEDED(pBlob.QueryInterface(&pBlobEncoding))) {
+      BOOL bKnown = FALSE;
+      UINT32 uKnownCodePage = CP_ACP;
+      IFT(pBlobEncoding->GetEncoding(&bKnown, &uKnownCodePage));
+      if (bKnown) {
+        uCodePage = uKnownCodePage;
+      }
+    }
+
+    if (pFileName && pFileName->GetStringLength() > 0) {
+      if (StringBlobEqualUtf16(pFileName, DXC_EXTRA_OUTPUT_NAME_STDOUT)) {
+        if (uCodePage != CP_ACP) {
+          WriteBlobToConsole(pBlob, STD_OUTPUT_HANDLE);
         }
       }
-
-      if (pFileName && pFileName->GetStringLength() > 0) {
-        if (pFileName->GetStringLength() == 1 && pFileName->GetStringPointer()[0] == L'-') {
-          WriteBlobToConsole(pBlob);
+      else if (StringBlobEqualUtf16(pFileName, DXC_EXTRA_OUTPUT_NAME_STDERR)) {
+        if (uCodePage != CP_ACP) {
+          WriteBlobToConsole(pBlob, STD_ERROR_HANDLE);
         }
-        else {
-          WriteBlobToFile(pBlob, pFileName->GetStringPointer(), uCodePage);
-        }
+      }
+      else {
+        WriteBlobToFile(pBlob, pFileName->GetStringPointer(), uCodePage);
       }
     }
   }

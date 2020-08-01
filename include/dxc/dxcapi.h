@@ -480,11 +480,18 @@ IDxcResult : public IDxcOperationResult {
   DECLARE_CROSS_PLATFORM_UUIDOF(IDxcResult)
 };
 
+// Special names for extra output that should get written to specific streams
+#define DXC_EXTRA_OUTPUT_NAME_STDOUT L"*stdout*"
+#define DXC_EXTRA_OUTPUT_NAME_STDERR L"*stderr*"
+
 struct __declspec(uuid("319b37a2-a5c2-494a-a5de-4801b2faf989"))
 IDxcExtraOutputs : public IUnknown {
 
   virtual UINT32 STDMETHODCALLTYPE GetOutputCount() = 0;
-  virtual HRESULT STDMETHODCALLTYPE GetOutput(_In_ UINT32 uIndex, _COM_Outptr_ IDxcBlobUtf16 **ppOutputName, _COM_Outptr_ IDxcBlob **ppOutBlob) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetOutput(_In_ UINT32 uIndex,
+    _In_ REFIID iid, _COM_Outptr_opt_result_maybenull_ void **ppvObject,
+    _COM_Outptr_ IDxcBlobUtf16 **ppOutputType,
+    _COM_Outptr_ IDxcBlobUtf16 **ppOutputName) = 0;
 
   DECLARE_CROSS_PLATFORM_UUIDOF(IDxcExtraOutputs)
 };

@@ -285,20 +285,26 @@ struct DxcOutputObject {
   }
 };
 
+struct DxcExtraOutputObject {
+  CComPtr<IDxcBlobUtf16> pType; // Custom name to identify the object
+  CComPtr<IDxcBlobUtf16> pName; // The file path for the output
+  CComPtr<IUnknown> pObject;    // The object itself
+};
+
 class DxcExtraOutputs : public IDxcExtraOutputs {
   DXC_MICROCOM_TM_REF_FIELDS()
 
-  struct OutputEntry {
-    CComPtr<IDxcBlobUtf16> pName;
-    CComPtr<IDxcBlob> pBlob;
-  };
-
-  std::vector<OutputEntry> m_Entries;
+  DxcExtraOutputObject *m_Objects = nullptr;
+  UINT32 m_uCount = 0;
 
 public:
 
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   DXC_MICROCOM_TM_CTOR(DxcExtraOutputs)
+
+  ~DxcExtraOutputs() {
+    Clear();
+  }
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
     return DoBasicQueryInterface<IDxcExtraOutputs>(this, iid, ppvObject);
@@ -309,21 +315,34 @@ public:
   /////////////////////
 
   UINT32 STDMETHODCALLTYPE GetOutputCount() override {
-    return (UINT32)m_Entries.size();
+    return m_uCount;
   }
 
-  HRESULT STDMETHODCALLTYPE GetOutput(_In_ UINT32 uIndex, _COM_Outptr_ IDxcBlobUtf16 **ppOutputName, _COM_Outptr_ IDxcBlob **ppOutBlob) override {
-    if (!ppOutputName || !ppOutBlob)
+  HRESULT STDMETHODCALLTYPE GetOutput(_In_ UINT32 uIndex,
+    _In_ REFIID iid, _COM_Outptr_opt_result_maybenull_ void **ppvObject,
+    _COM_Outptr_ IDxcBlobUtf16 **ppOutputType,
+    _COM_Outptr_ IDxcBlobUtf16 **ppOutputName) override
+  {
+    if (!ppOutputName || !ppOutputType)
       return E_POINTER;
 
-    *ppOutputName = nullptr;
-    *ppOutBlob = nullptr;
-
-    if (uIndex >= m_Entries.size())
+    if (uIndex >= m_uCount)
       return E_INVALIDARG;
 
-    IFR(m_Entries[uIndex].pBlob.CopyTo(ppOutBlob));
-    IFR(m_Entries[uIndex].pName.CopyTo(ppOutputName));
+    *ppOutputName = nullptr;
+    *ppOutputType = nullptr;
+
+    DxcExtraOutputObject *pObject = &m_Objects[uIndex];
+
+    IFR(pObject->pType.CopyTo(ppOutputType));
+    IFR(pObject->pName.CopyTo(ppOutputName));
+
+    if (ppvObject) {
+      *ppvObject = nullptr;
+      if (pObject->pObject) {
+        IFR(pObject->pObject->QueryInterface(iid, ppvObject));
+      }
+    }
 
     return S_OK;
   }
@@ -331,8 +350,22 @@ public:
   /////////////////////
   // Internal Interface
   /////////////////////
-  void AddOutput(IDxcBlobUtf16 *pName, IDxcBlob *pBlob) {
-    m_Entries.push_back(OutputEntry{ pName, pBlob });
+  void Clear() {
+    m_uCount = 0;
+    if (m_Objects) {
+      delete[] m_Objects;
+      m_Objects = nullptr;
+    }
+  }
+
+  void SetOutputs(const llvm::ArrayRef<DxcExtraOutputObject> outputs) {
+    Clear();
+
+    m_uCount = outputs.size();
+    if (m_uCount > 0) {
+      for (UINT32 i = 0; i < outputs.size(); i++)
+        m_Objects[i] = outputs[i];
+    }
   }
 };
 
