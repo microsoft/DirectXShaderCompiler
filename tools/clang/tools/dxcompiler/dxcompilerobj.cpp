@@ -300,12 +300,20 @@ private:
       }
 
       // Add semantic defines to option flag equivalents
-      if (!define.Name.compare(prefixPos, enableStr.length(), enableStr))
-        optToggles[StringRef(define.Name.substr(prefixPos + enableStr.length())).lower()] = true;
-      else if (!define.Name.compare(prefixPos, disableStr.length(), disableStr))
-        optToggles[StringRef(define.Name.substr(prefixPos + disableStr.length())).lower()] = false;
-      else if (!define.Name.compare(prefixPos, selectStr.length(), selectStr))
-        optSelects[StringRef(define.Name.substr(prefixPos + selectStr.length())).lower()] = define.Value;
+      // Convert define-style '_' into option-style '-' and lowercase everything
+      if (!define.Name.compare(prefixPos, enableStr.length(), enableStr)) {
+        std::string optName = define.Name.substr(prefixPos + enableStr.length());
+        std::replace(optName.begin(), optName.end(), '_', '-');
+        optToggles[StringRef(optName).lower()] = true;
+      } else if (!define.Name.compare(prefixPos, disableStr.length(), disableStr)) {
+        std::string optName = define.Name.substr(prefixPos + disableStr.length());
+        std::replace(optName.begin(), optName.end(), '_', '-');
+        optToggles[StringRef(optName).lower()] = false;
+      } else if (!define.Name.compare(prefixPos, selectStr.length(), selectStr)) {
+        std::string optName = define.Name.substr(prefixPos + selectStr.length());
+        std::replace(optName.begin(), optName.end(), '_', '-');
+        optSelects[StringRef(optName).lower()] = define.Value;
+      }
     }
 
     // Add root node with pointers to all define metadata nodes.
@@ -349,6 +357,11 @@ public:
     GetValidatedSemanticDefines(defines, validated, errors);
     WriteSemanticDefines(M, validated);
     return errors;
+  }
+
+  virtual bool IsOptionEnabled(std::string option) override {
+    return m_CI.getCodeGenOpts().HLSLOptimizationToggles.count(option) &&
+      m_CI.getCodeGenOpts().HLSLOptimizationToggles.find(option)->second;
   }
 
   virtual std::string GetIntrinsicName(UINT opcode) override {

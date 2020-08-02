@@ -184,6 +184,7 @@ void UpdateLinkage(
     llvm::StringMap<PatchConstantInfo> &patchConstantFunctionMap);
 
 void StructurizeMultiRet(llvm::Module &M,
+                         clang::CodeGen::CodeGenModule &CGM,
                          llvm::DenseMap<llvm::Function *, ScopeInfo> &ScopeMap,
                          bool bWaveEnabledStage,
                          llvm::SmallVector<llvm::BranchInst *, 16> &DxBreaks);
