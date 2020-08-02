@@ -454,7 +454,8 @@ public:
   TEST_METHOD(DefineNoValidatorOk)
   TEST_METHOD(DefineFromMacro)
   TEST_METHOD(DefineContradictionFail)
-  TEST_METHOD(OptionFromDefine)
+  TEST_METHOD(OptionFromDefineGVN)
+  TEST_METHOD(OptionFromDefineStructurizeReturns)
   TEST_METHOD(TargetTriple)
   TEST_METHOD(IntrinsicWhenAvailableThenUsed)
   TEST_METHOD(CustomIntrinsicName)
@@ -652,7 +653,7 @@ TEST_F(ExtensionTest, DefineContradictionFail) {
 }
 
 // Test setting of codegen options from semantic defines
-TEST_F(ExtensionTest, OptionFromDefine) {
+TEST_F(ExtensionTest, OptionFromDefineGVN) {
 
   Compiler c(m_dllSupport);
   c.RegisterSemanticDefine(L"FOO*");
@@ -669,6 +670,36 @@ TEST_F(ExtensionTest, OptionFromDefine) {
   // Verify that GVN is disabled by the presence
   // of the second sin(), which GVN would have removed
   llvm::Regex regex("call float @dx.op.unary.f32.*\n.*call float @dx.op.unary.f32");
+  std::string regexErrors;
+  VERIFY_IS_TRUE(regex.isValid(regexErrors));
+  VERIFY_IS_TRUE(regex.match(disassembly));
+}
+
+// Test setting of codegen options from semantic defines
+TEST_F(ExtensionTest, OptionFromDefineStructurizeReturns) {
+
+  Compiler c(m_dllSupport);
+  c.RegisterSemanticDefine(L"FOO*");
+  c.Compile(
+    "int i;\n"
+    "float main(float4 a:A) : SV_Target {\n"
+    "float c = 0;\n"
+    "if (i < 0) {\n"
+    "  if (a.w > 2)\n"
+    "    return -1;\n"
+    "  c += a.z;\n"
+    "}\n"
+    "return c;\n"
+    "}\n",
+    { L"/Vd", L"-fcgl", L"-DFOO_ENABLE_STRUCTURIZE_RETURNS" },
+    {}
+  );
+
+  std::string disassembly = c.Disassemble();
+  // Verify that structurize returns is enabled by the presence
+  // of the associated annotation. Just a simple test to
+  // verify that it's on. No need to go into detail here
+  llvm::Regex regex("bReturned.* = alloca i1");
   std::string regexErrors;
   VERIFY_IS_TRUE(regex.isValid(regexErrors));
   VERIFY_IS_TRUE(regex.match(disassembly));

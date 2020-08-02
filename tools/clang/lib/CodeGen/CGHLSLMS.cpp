@@ -3307,9 +3307,7 @@ void CGMSHLSLRuntime::FinishCodeGen() {
     ExtensionCodeGen(HLM, CGM);
   }
 
-  if (CGM.getCodeGenOpts().HLSLOptimizationToggles.count("structurize-returns") &&
-      CGM.getCodeGenOpts().HLSLOptimizationToggles.find("structurize-returns")->second)
-    StructurizeMultiRet(M, m_ScopeMap, bWaveEnabledStage, m_DxBreaks);
+  StructurizeMultiRet(M, CGM, m_ScopeMap, bWaveEnabledStage, m_DxBreaks);
 
   FinishEntries(HLM, Entry, CGM, entryFunctionMap, HSEntryPatchConstantFuncAttr,
                 patchConstantFunctionMap, patchConstantFunctionPropsMap);
