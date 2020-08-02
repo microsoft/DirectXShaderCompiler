@@ -320,22 +320,23 @@ public:
 
   HRESULT STDMETHODCALLTYPE GetOutput(_In_ UINT32 uIndex,
     _In_ REFIID iid, _COM_Outptr_opt_result_maybenull_ void **ppvObject,
-    _COM_Outptr_ IDxcBlobUtf16 **ppOutputType,
-    _COM_Outptr_ IDxcBlobUtf16 **ppOutputName) override
+    _COM_Outptr_opt_result_maybenull_ IDxcBlobUtf16 **ppOutputType,
+    _COM_Outptr_opt_result_maybenull_ IDxcBlobUtf16 **ppOutputName) override
   {
-    if (!ppOutputName || !ppOutputType)
-      return E_POINTER;
-
     if (uIndex >= m_uCount)
       return E_INVALIDARG;
 
-    *ppOutputName = nullptr;
-    *ppOutputType = nullptr;
-
     DxcExtraOutputObject *pObject = &m_Objects[uIndex];
 
-    IFR(pObject->pType.CopyTo(ppOutputType));
-    IFR(pObject->pName.CopyTo(ppOutputName));
+    if (ppOutputType) {
+      *ppOutputType = nullptr;
+      IFR(pObject->pType.CopyTo(ppOutputType));
+    }
+
+    if (ppOutputName) {
+      *ppOutputName = nullptr;
+      IFR(pObject->pName.CopyTo(ppOutputName));
+    }
 
     if (ppvObject) {
       *ppvObject = nullptr;

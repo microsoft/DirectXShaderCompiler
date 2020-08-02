@@ -490,8 +490,8 @@ IDxcExtraOutputs : public IUnknown {
   virtual UINT32 STDMETHODCALLTYPE GetOutputCount() = 0;
   virtual HRESULT STDMETHODCALLTYPE GetOutput(_In_ UINT32 uIndex,
     _In_ REFIID iid, _COM_Outptr_opt_result_maybenull_ void **ppvObject,
-    _COM_Outptr_ IDxcBlobUtf16 **ppOutputType,
-    _COM_Outptr_ IDxcBlobUtf16 **ppOutputName) = 0;
+    _COM_Outptr_opt_result_maybenull_ IDxcBlobUtf16 **ppOutputType,
+    _COM_Outptr_opt_result_maybenull_ IDxcBlobUtf16 **ppOutputName) = 0;
 
   DECLARE_CROSS_PLATFORM_UUIDOF(IDxcExtraOutputs)
 };
