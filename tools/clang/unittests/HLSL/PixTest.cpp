@@ -1985,8 +1985,9 @@ void main()
   VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes.size());
   VERIFY_ARE_EQUAL(4, Testables.OffsetAndSizes[0].countOfMembers);
   VERIFY_ARE_EQUAL(0, Testables.OffsetAndSizes[0].offset);
-  // 16+16 to place "thirtytwo" at its natural alignment:
-  VERIFY_ARE_EQUAL(32+16+16+64+32, Testables.OffsetAndSizes[0].size);
+  // 8 bytes align for uint64_t:
+  VERIFY_ARE_EQUAL(32 + 16 + 16 /*alignment for next field*/ + 32 + 32/*alignment for max align*/ + 64,
+                   Testables.OffsetAndSizes[0].size);
 
   VERIFY_ARE_EQUAL(4, Testables.AllocaWrites.size());
   ValidateAllocaWrite(Testables.AllocaWrites, 0, "b1");
@@ -2334,7 +2335,7 @@ void main()
   VERIFY_ARE_EQUAL(0, Testables.OffsetAndSizes[0].offset);
   constexpr uint32_t BigStructBitSize = 64 * 2;
   constexpr uint32_t EmbeddedStructBitSize = 32 * 5;
-  VERIFY_ARE_EQUAL(3 * 32 + EmbeddedStructBitSize + 64 + 16 +16/*alignment for next field*/ + BigStructBitSize*2 + 32, Testables.OffsetAndSizes[0].size);
+  VERIFY_ARE_EQUAL(3 * 32 + EmbeddedStructBitSize + 64 + 16 +16/*alignment for next field*/ + BigStructBitSize*2 + 32 + 32/*align to max align*/, Testables.OffsetAndSizes[0].size);
 }
 
 
