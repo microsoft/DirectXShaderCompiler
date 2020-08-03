@@ -23,7 +23,16 @@
 #endif
 #endif
 
-#ifndef _WIN32
+#ifdef _WIN32
+
+#ifndef CROSS_PLATFORM_UUIDOF
+// Warning: This macro exists in WinAdapter.h as well
+#define CROSS_PLATFORM_UUIDOF(interface, spec)                                 \
+  struct __declspec(uuid(spec)) interface;
+#endif
+
+#else
+
 #include <dlfcn.h>
 #include "dxc/Support/WinAdapter.h"
 #endif
@@ -128,12 +137,6 @@ typedef struct DxcShaderHash {
 #define DXC_ARG_ALL_RESOURCES_BOUND L"-all_resources_bound"
 #define DXC_ARG_DEBUG_NAME_FOR_SOURCE L"-Zss"
 #define DXC_ARG_DEBUG_NAME_FOR_BINARY L"-Zsb"
-
-// TODO: This is an unfortunately necessary copy from WinAdapter.h
-#ifndef CROSS_PLATFORM_UUIDOF
-#define CROSS_PLATFORM_UUIDOF(interface, spec)                                 \
-  struct __declspec(uuid(spec)) interface;
-#endif
 
 // IDxcBlob is an alias of ID3D10Blob and ID3DBlob
 CROSS_PLATFORM_UUIDOF(IDxcBlob, "8BA5FB08-5195-40e2-AC58-0D989C3A0102")

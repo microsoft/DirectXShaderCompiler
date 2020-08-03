@@ -50,15 +50,9 @@
 #define _countof(a) (sizeof(a) / sizeof(*(a)))
 
 // If it is GCC, there is no UUID support and we must emulate it.
-#ifdef __APPLE__
-#define __EMULATE_UUID 1
-#else // __APPLE__
-#ifdef __GNUC__
 #ifndef __clang__
 #define __EMULATE_UUID 1
-#endif // __GNUC__
 #endif // __clang__
-#endif // __APPLE__
 
 #ifdef __EMULATE_UUID
 #define __declspec(x)
@@ -622,8 +616,11 @@ template <typename interface> inline GUID __emulated_uuidof();
 
 #else // __EMULATE_UUID
 
+#ifndef CROSS_PLATFORM_UUIDOF
+// Warning: This macro exists in dxcapi.h as well
 #define CROSS_PLATFORM_UUIDOF(interface, spec)                                 \
   struct __declspec(uuid(spec)) interface;
+#endif
 
 template <typename T> inline void **IID_PPV_ARGS_Helper(T **pp) {
   return reinterpret_cast<void **>(pp);
