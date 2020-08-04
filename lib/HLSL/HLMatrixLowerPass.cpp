@@ -406,7 +406,7 @@ Value *HLMatrixLowerPass::tryGetLoweredPtrOperand(Value *Ptr, IRBuilder<> &Build
     RootPtr = GEP->getPointerOperand();
 
   Argument *Arg = dyn_cast<Argument>(RootPtr);
-  bool IsNonShaderArg = Arg != nullptr && !m_pHLModule->IsGraphicsShader(Arg->getParent());
+  bool IsNonShaderArg = Arg != nullptr && !m_pHLModule->IsGraphicsShader(m_pHLModule->GetEntryFunction());
   if (IsNonShaderArg || isa<AllocaInst>(RootPtr)) {
     // Bitcast the matrix pointer to its lowered equivalent.
     // The HLMatrixBitcast pass will take care of this later.
@@ -1474,7 +1474,30 @@ void HLMatrixLowerPass::lowerHLMatSubscript(CallInst *Call, Value *MatPtr, Small
 
   IRBuilder<> CallBuilder(Call);
   Value *LoweredPtr = tryGetLoweredPtrOperand(MatPtr, CallBuilder);
-  if (LoweredPtr == nullptr) return;
+  Value *LoweredMatrix = nullptr;
+  if (LoweredPtr == nullptr) {
+    Value *RootPtr = MatPtr;
+    while (GEPOperator *GEP = dyn_cast<GEPOperator>(RootPtr))
+      RootPtr = GEP->getPointerOperand();
+
+    if (!isa<Argument>(RootPtr))
+      return;
+
+    // For a shader input, load the matrix into a lowered ptr
+    // The load will be handled by LowerSignature
+    HLMatLoadStoreOpcode Opcode = (HLSubscriptOpcode)GetHLOpcode(Call) == HLSubscriptOpcode::RowMatSubscript ?
+                                   HLMatLoadStoreOpcode::RowMatLoad : HLMatLoadStoreOpcode::ColMatLoad;
+    HLMatrixType MatTy = HLMatrixType::cast(MatPtr->getType()->getPointerElementType());
+    LoweredMatrix = callHLFunction(
+      *m_pModule, HLOpcodeGroup::HLMatLoadStore, static_cast<unsigned>(Opcode),
+      MatTy.getLoweredVectorTypeForReg(), { CallBuilder.getInt32((uint32_t)Opcode), MatPtr },
+      Call->getCalledFunction()->getAttributes().getFnAttributes(), CallBuilder);
+    HLMatrixSubscriptUseReplacer UseReplacer(Call, LoweredPtr, LoweredMatrix,
+                                             ElemIndices, false /*AllowLoweredPtrGEPs*/, m_deadInsts);
+    DXASSERT(Call->use_empty(), "Expected all matrix subscript uses to have been replaced.");
+    addToDeadInsts(Call);
+    return;
+  }
 
   // For global variables, we can GEP directly into the lowered vector pointer.
   // This is necessary to support group shared memory atomics and the likes.
@@ -1484,7 +1507,8 @@ void HLMatrixLowerPass::lowerHLMatSubscript(CallInst *Call, Value *MatPtr, Small
   bool AllowLoweredPtrGEPs = isa<GlobalVariable>(RootPtr);
   
   // Just constructing this does all the work
-  HLMatrixSubscriptUseReplacer UseReplacer(Call, LoweredPtr, ElemIndices, AllowLoweredPtrGEPs, m_deadInsts);
+  HLMatrixSubscriptUseReplacer UseReplacer(Call, LoweredPtr, nullptr /*TempLoweredMatrix*/,
+                                           ElemIndices, AllowLoweredPtrGEPs, m_deadInsts);
 
   DXASSERT(Call->use_empty(), "Expected all matrix subscript uses to have been replaced.");
   addToDeadInsts(Call);
