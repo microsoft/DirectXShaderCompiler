@@ -1475,11 +1475,11 @@ void HLMatrixLowerPass::lowerHLMatSubscript(CallInst *Call, Value *MatPtr, Small
   IRBuilder<> CallBuilder(Call);
   Value *LoweredPtr = tryGetLoweredPtrOperand(MatPtr, CallBuilder);
   Value *LoweredMatrix = nullptr;
-  if (LoweredPtr == nullptr) {
-    Value *RootPtr = MatPtr;
-    while (GEPOperator *GEP = dyn_cast<GEPOperator>(RootPtr))
-      RootPtr = GEP->getPointerOperand();
+  Value *RootPtr = LoweredPtr? LoweredPtr: MatPtr;
+  while (GEPOperator *GEP = dyn_cast<GEPOperator>(RootPtr))
+    RootPtr = GEP->getPointerOperand();
 
+  if (LoweredPtr == nullptr) {
     if (!isa<Argument>(RootPtr))
       return;
 
@@ -1492,22 +1492,13 @@ void HLMatrixLowerPass::lowerHLMatSubscript(CallInst *Call, Value *MatPtr, Small
       *m_pModule, HLOpcodeGroup::HLMatLoadStore, static_cast<unsigned>(Opcode),
       MatTy.getLoweredVectorTypeForReg(), { CallBuilder.getInt32((uint32_t)Opcode), MatPtr },
       Call->getCalledFunction()->getAttributes().getFnAttributes(), CallBuilder);
-    HLMatrixSubscriptUseReplacer UseReplacer(Call, LoweredPtr, LoweredMatrix,
-                                             ElemIndices, false /*AllowLoweredPtrGEPs*/, m_deadInsts);
-    DXASSERT(Call->use_empty(), "Expected all matrix subscript uses to have been replaced.");
-    addToDeadInsts(Call);
-    return;
   }
-
   // For global variables, we can GEP directly into the lowered vector pointer.
   // This is necessary to support group shared memory atomics and the likes.
-  Value *RootPtr = LoweredPtr;
-  while (GEPOperator *GEP = dyn_cast<GEPOperator>(RootPtr))
-    RootPtr = GEP->getPointerOperand();
   bool AllowLoweredPtrGEPs = isa<GlobalVariable>(RootPtr);
   
   // Just constructing this does all the work
-  HLMatrixSubscriptUseReplacer UseReplacer(Call, LoweredPtr, nullptr /*TempLoweredMatrix*/,
+  HLMatrixSubscriptUseReplacer UseReplacer(Call, LoweredPtr, LoweredMatrix,
                                            ElemIndices, AllowLoweredPtrGEPs, m_deadInsts);
 
   DXASSERT(Call->use_empty(), "Expected all matrix subscript uses to have been replaced.");
