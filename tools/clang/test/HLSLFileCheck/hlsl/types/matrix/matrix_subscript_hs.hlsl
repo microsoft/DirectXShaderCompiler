@@ -1,7 +1,7 @@
 // RUN: %dxc -DMIDX=1 -DVIDX=2 -T hs_6_0 %s | FileCheck %s
-// RN: %dxc -DMIDX=i -DVIDX=2 -T hs_6_0 %s | FileCheck %s
-// RN: %dxc -DMIDX=1 -DVIDX=j -T hs_6_0 %s | FileCheck %s
-// RN: %dxc -DMIDX=i -DVIDX=j -T hs_6_0 %s | FileCheck %s
+// RUN: %dxc -DMIDX=i -DVIDX=2 -T hs_6_0 %s | FileCheck %s
+// RUN: %dxc -DMIDX=1 -DVIDX=j -T hs_6_0 %s | FileCheck %s
+// RUN: %dxc -DMIDX=i -DVIDX=j -T hs_6_0 %s | FileCheck %s
 
 // Specific test for subscript operation on matrix array inputs in patch functions
 
@@ -15,10 +15,10 @@ struct Output {
   float inside : SV_InsideTessFactor;
 };
 
+// Instruction order here is a bit inconsistent.
+// So we can't test for all the outputs
 // CHECK: call float @dx.op.loadInput.f32
-// CHECK: call void @dx.op.storePatchConstant.f32
 // CHECK: call float @dx.op.loadInput.f32
-// CHECK: call void @dx.op.storePatchConstant.f32
 // CHECK: call float @dx.op.loadInput.f32
 // CHECK: call void @dx.op.storePatchConstant.f32
 // CHECK: call void @dx.op.storePatchConstant.f32
