@@ -176,37 +176,8 @@ void Parser::ParseHLSLAttributeSpecifier(ParsedAttributes &attrs,
 
   // Parse attribute arguments
   if (Tok.is(tok::l_paren)) {
-    if (AttrName == &this->Actions.getASTContext().Idents.get("clipplanes")) {
-      ArgsVector ArgExprs;
-      ConsumeParen();
-      for (;;) {
-        ExprResult ArgExpr(ParseAssignmentExpression());
-        if (ArgExpr.isInvalid()) {
-          SkipUntil(tok::r_paren, StopAtSemi);
-          return;
-        }
-
-        ArgExprs.push_back(ArgExpr.get());
-
-        // Consume a comma and process the next argument.
-        if (!Tok.is(tok::comma)) {
-          break;
-        }
-
-        ConsumeToken();
-      }
-
-      SourceLocation EndLoc = Tok.getLocation();
-      if (ExpectAndConsume(tok::r_paren, diag::err_expected))
-        SkipUntil(tok::r_paren);
-
-      attrs.addNew(AttrName, SourceRange(AttrLoc, EndLoc), nullptr,
-                   SourceLocation(), ArgExprs.data(), ArgExprs.size(),
-                   AttributeList::AS_CXX11);
-    } else {
-      ParseGNUAttributeArgs(AttrName, AttrLoc, attrs, endLoc, nullptr,
-                            SourceLocation(), AttributeList::AS_CXX11, nullptr);
-    }
+    ParseGNUAttributeArgs(AttrName, AttrLoc, attrs, endLoc, nullptr,
+                          SourceLocation(), AttributeList::AS_CXX11, nullptr);
   } else {
     attrs.addNew(AttrName, AttrLoc, nullptr, SourceLocation(), 0, 0,
                  AttributeList::AS_CXX11);
