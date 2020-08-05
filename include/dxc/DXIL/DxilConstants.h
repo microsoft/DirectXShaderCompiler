@@ -109,6 +109,8 @@ namespace DXIL {
   const unsigned kMaxMSPSigRows = 32;
   const unsigned kMaxMSTotalSigRows = 32;
   const unsigned kMaxMSSMSize = 1024 * 28;
+  const unsigned kMinWaveSize = 4;
+  const unsigned kMaxWaveSize = 128;
 
   const float kMaxMipLodBias = 15.99f;
   const float kMinMipLodBias = -16.0f;
@@ -364,6 +366,11 @@ namespace DXIL {
   inline bool IsFeedbackTexture(DXIL::ResourceKind ResourceKind) {
     return ResourceKind == DXIL::ResourceKind::FeedbackTexture2D ||
            ResourceKind == DXIL::ResourceKind::FeedbackTexture2DArray;
+  }
+
+  inline bool IsValidWaveSizeValue(unsigned size) {
+    // must be power of 2 between 4 and 128
+    return size >= kMinWaveSize && size <= kMaxWaveSize && (size & (size - 1)) == 0;
   }
 
   // TODO: change opcodes.

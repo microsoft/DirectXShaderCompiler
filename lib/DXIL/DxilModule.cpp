@@ -400,6 +400,24 @@ unsigned DxilModule::GetNumThreads(unsigned idx) const {
   return numThreads[idx];
 }
 
+void DxilModule::SetWaveSize(unsigned size) {
+  DXASSERT(m_DxilEntryPropsMap.size() == 1 && m_pSM->IsCS(),
+    "only works for CS profile");
+  DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT_NOMSG(m_pSM->GetKind() == props.shaderKind);
+  props.waveSize = size;
+}
+
+unsigned DxilModule::GetWaveSize() const {
+  DXASSERT(m_DxilEntryPropsMap.size() == 1 && m_pSM->IsCS(),
+    "only works for CS profiles");
+  if (!m_pSM->IsCS())
+    return 0;
+  const DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT_NOMSG(m_pSM->GetKind() == props.shaderKind);
+  return props.waveSize;
+}
+
 DXIL::InputPrimitive DxilModule::GetInputPrimitive() const {
   if (!m_pSM->IsGS())
     return DXIL::InputPrimitive::Undefined;

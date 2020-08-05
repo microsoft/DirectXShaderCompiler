@@ -901,6 +901,12 @@ def HLSLWaveSensitive : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def HLSLWaveSize : InheritableAttr {
+  let Spellings = [CXX11<"", "wavesize", 2017>];
+  let Args = [IntArgument<"Size">];
+  let Documentation = [Undocumented];
+}
+
 // HLSL Change Ends
 
 // SPIRV Change Starts

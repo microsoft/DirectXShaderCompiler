@@ -254,6 +254,7 @@ public:
   static const unsigned kDxilShaderKindTag      = 8;
   static const unsigned kDxilMSStateTag         = 9;
   static const unsigned kDxilASStateTag         = 10;
+  static const unsigned kDxilWaveSizeTag        = 11;
 
   // GSState.
   static const unsigned kDxilGSStateNumFields               = 5;

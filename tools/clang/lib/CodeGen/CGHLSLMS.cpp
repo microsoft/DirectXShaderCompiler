@@ -1463,10 +1463,10 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       funcProps->ShaderProps.MS.outputTopology = topology;
     }
     else if (isEntry && !SM->IsHS() && !SM->IsMS()) {
-      unsigned DiagID =
-          Diags.getCustomDiagID(DiagnosticsEngine::Warning,
-                                "attribute outputtopology only valid for HS and MS.");
-      Diags.Report(Attr->getLocation(), DiagID);
+    unsigned DiagID =
+      Diags.getCustomDiagID(DiagnosticsEngine::Warning,
+        "attribute outputtopology only valid for HS and MS.");
+    Diags.Report(Attr->getLocation(), DiagID);
     }
   }
 
@@ -1476,15 +1476,15 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   }
 
   if (const HLSLMaxTessFactorAttr *Attr =
-          FD->getAttr<HLSLMaxTessFactorAttr>()) {
+    FD->getAttr<HLSLMaxTessFactorAttr>()) {
     if (isHS) {
       // TODO: change getFactor to return float.
       llvm::APInt intV(32, Attr->getFactor());
       funcProps->ShaderProps.HS.maxTessFactor = intV.bitsToFloat();
     } else if (isEntry && !SM->IsHS()) {
       unsigned DiagID =
-          Diags.getCustomDiagID(DiagnosticsEngine::Error,
-                                "attribute maxtessfactor only valid for HS.");
+        Diags.getCustomDiagID(DiagnosticsEngine::Error,
+          "attribute maxtessfactor only valid for HS.");
       Diags.Report(Attr->getLocation(), DiagID);
       return;
     }
@@ -1494,8 +1494,8 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   if (const HLSLDomainAttr *Attr = FD->getAttr<HLSLDomainAttr>()) {
     if (isEntry && !SM->IsHS() && !SM->IsDS()) {
       unsigned DiagID =
-          Diags.getCustomDiagID(DiagnosticsEngine::Error,
-                                "attribute domain only valid for HS or DS.");
+        Diags.getCustomDiagID(DiagnosticsEngine::Error,
+          "attribute domain only valid for HS or DS.");
       Diags.Report(Attr->getLocation(), DiagID);
       return;
     }
@@ -1515,7 +1515,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   if (const HLSLClipPlanesAttr *Attr = FD->getAttr<HLSLClipPlanesAttr>()) {
     if (isEntry && !SM->IsVS()) {
       unsigned DiagID = Diags.getCustomDiagID(
-          DiagnosticsEngine::Error, "attribute clipplane only valid for VS.");
+        DiagnosticsEngine::Error, "attribute clipplane only valid for VS.");
       Diags.Report(Attr->getLocation(), DiagID);
       return;
     }
@@ -1528,11 +1528,11 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
 
   // Pixel shader.
   if (const HLSLEarlyDepthStencilAttr *Attr =
-          FD->getAttr<HLSLEarlyDepthStencilAttr>()) {
+    FD->getAttr<HLSLEarlyDepthStencilAttr>()) {
     if (isEntry && !SM->IsPS()) {
       unsigned DiagID = Diags.getCustomDiagID(
-          DiagnosticsEngine::Error,
-          "attribute earlydepthstencil only valid for PS.");
+        DiagnosticsEngine::Error,
+        "attribute earlydepthstencil only valid for PS.");
       Diags.Report(Attr->getLocation(), DiagID);
       return;
     }
@@ -1540,6 +1540,39 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     isPS = true;
     funcProps->ShaderProps.PS.EarlyDepthStencil = true;
     funcProps->shaderKind = DXIL::ShaderKind::Pixel;
+  }
+
+  if (const HLSLWaveSizeAttr *Attr = FD->getAttr<HLSLWaveSizeAttr>()) {
+    if (!m_pHLModule->GetShaderModel()->IsSM66Plus()) {
+      unsigned DiagID = Diags.getCustomDiagID(
+        DiagnosticsEngine::Error,
+        "attribute WaveSize only valid for shader model 6.6 and higher.");
+      Diags.Report(Attr->getLocation(), DiagID);
+      return;
+    }
+    if (!isCS) {
+      unsigned DiagID = Diags.getCustomDiagID(
+        DiagnosticsEngine::Error,
+        "attribute WaveSize only valid for CS.");
+      Diags.Report(Attr->getLocation(), DiagID);
+      return;
+    }
+    if (!isEntry) {
+      unsigned DiagID = Diags.getCustomDiagID(
+        DiagnosticsEngine::Error,
+        "attribute WaveSize only valid on entry point function.");
+      Diags.Report(Attr->getLocation(), DiagID);
+      return;
+    }
+    // validate that it is a power of 2 between 4 and 128
+    unsigned waveSize = Attr->getSize();
+    if (!DXIL::IsValidWaveSizeValue(waveSize)) {
+      unsigned DiagID = Diags.getCustomDiagID(
+        DiagnosticsEngine::Error,
+        "WaveSize value must be between %0 and %1 and a power of 2.");
+      Diags.Report(Attr->getLocation(), DiagID) << DXIL::kMinWaveSize << DXIL::kMaxWaveSize;
+    }
+    funcProps->waveSize = Attr->getSize();
   }
 
   const unsigned profileAttributes = isCS + isHS + isDS + isGS + isVS + isPS + isRay + isMS + isAS;

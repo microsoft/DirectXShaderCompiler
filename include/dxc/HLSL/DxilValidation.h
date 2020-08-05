@@ -265,6 +265,8 @@ enum class ValidationRule : unsigned {
   SmUndefinedOutput, // Not all elements of output %0 were written.
   SmValidDomain, // Invalid Tessellator Domain specified. Must be isoline, tri or quad.
   SmViewIDNeedsSlot, // ViewID requires compatible space in pixel shader input signature
+  SmWaveSizeNeedsDxil16Plus, // WaveSize is valid only for DXIL version 1.6 and higher.
+  SmWaveSizeValue, // Declared WaveSize %0 outside valid range [%1..%2], or not a power of 2.
   SmZeroHSInputControlPointWithInput, // When HS input control point count is 0, no input signature should exist.
 
   // Type system
