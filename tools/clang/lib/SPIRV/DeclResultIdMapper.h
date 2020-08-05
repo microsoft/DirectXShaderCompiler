@@ -402,8 +402,8 @@ public:
   /// VarDecls (such as some ray tracing enums).
   void tryToCreateImplicitConstVar(const ValueDecl *);
 
-  /// \brief Creates a variable for hull shader output patch with WorkGroup
-  /// storage class.
+  /// \brief Creates a variable for hull shader output patch with Workgroup
+  /// storage class, and registers the SPIR-V variable for the given decl.
   SpirvInstruction *createHullMainOutputPatch(const ParmVarDecl *param,
                                               const QualType retType,
                                               uint32_t numOutputControlPoints,
