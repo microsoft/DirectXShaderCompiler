@@ -215,6 +215,52 @@ static CallInst *FindCallToCreateHandle(Value *handleType) {
   return CI;
 }
 
+DxilResourceProperties GetResourcePropertyFromHandleCall(const hlsl::DxilModule *M, CallInst *handleCall) {
+
+  DxilResourceProperties RP = {DXIL::ResourceClass::Invalid, DXIL::ResourceKind::Invalid};
+
+  ConstantInt *HandleOpCodeConst = cast<ConstantInt>(
+      handleCall->getArgOperand(DXIL::OperandIndex::kOpcodeIdx));
+  DXIL::OpCode handleOp = static_cast<DXIL::OpCode>(HandleOpCodeConst->getLimitedValue());
+  if (handleOp == DXIL::OpCode::CreateHandle) {
+    if (ConstantInt *resClassArg =
+      dyn_cast<ConstantInt>(handleCall->getArgOperand(
+        DXIL::OperandIndex::kCreateHandleResClassOpIdx))) {
+      DXIL::ResourceClass resClass = static_cast<DXIL::ResourceClass>(
+        resClassArg->getLimitedValue());
+      ConstantInt *rangeID = GetArbitraryConstantRangeID(handleCall);
+      if (rangeID) {
+        DxilResource resource;
+        if (resClass == DXIL::ResourceClass::UAV)
+          resource = M->GetUAV(rangeID->getLimitedValue());
+        else if (resClass == DXIL::ResourceClass::SRV)
+          resource = M->GetSRV(rangeID->getLimitedValue());
+        RP = resource_helper::loadFromResourceBase(&resource);
+      }
+    }
+  }
+  else if (handleOp == DXIL::OpCode::CreateHandleForLib) {
+    // If library handle, find DxilResource by checking the name
+    if (LoadInst *LI = dyn_cast<LoadInst>(handleCall->getArgOperand(
+            DXIL::OperandIndex::kCreateHandleForLibResOpIdx))) {
+      Value *resType = LI->getOperand(0);
+      for (auto &&res : M->GetUAVs()) {
+        if (res->GetGlobalSymbol() == resType) {
+          RP = resource_helper::loadFromResourceBase(res.get());
+        }
+      }
+    }
+  } else if (handleOp == DXIL::OpCode::AnnotateHandle) {
+    DxilInst_AnnotateHandle annotateHandle(cast<Instruction>(handleCall));
+    Type *ResPropTy = M->GetOP()->GetResourcePropertiesType();
+
+    RP = resource_helper::loadFromAnnotateHandle(annotateHandle, ResPropTy, *M->GetShaderModel());
+  }
+
+  return RP;
+}
+
+
 ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
                                            const hlsl::DxilModule *M) {
   ShaderFlags flag;
@@ -315,46 +361,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
           CallInst *handleCall = FindCallToCreateHandle(resHandle);
           // Check if this is a library handle or general create handle
           if (handleCall) {
-            DxilResourceProperties RP = {DXIL::ResourceClass::Invalid, DXIL::ResourceKind::Invalid};
-
-            ConstantInt *HandleOpCodeConst = cast<ConstantInt>(
-                handleCall->getArgOperand(DXIL::OperandIndex::kOpcodeIdx));
-            DXIL::OpCode handleOp = static_cast<DXIL::OpCode>(HandleOpCodeConst->getLimitedValue());
-            if (handleOp == DXIL::OpCode::CreateHandle) {
-              if (ConstantInt *resClassArg =
-                dyn_cast<ConstantInt>(handleCall->getArgOperand(
-                  DXIL::OperandIndex::kCreateHandleResClassOpIdx))) {
-                DXIL::ResourceClass resClass = static_cast<DXIL::ResourceClass>(
-                  resClassArg->getLimitedValue());
-                ConstantInt *rangeID = GetArbitraryConstantRangeID(handleCall);
-                if (rangeID) {
-                  DxilResource resource;
-                  if (resClass == DXIL::ResourceClass::UAV)
-                    resource = M->GetUAV(rangeID->getLimitedValue());
-                  else if (resClass == DXIL::ResourceClass::SRV)
-                    resource = M->GetSRV(rangeID->getLimitedValue());
-                  RP = resource_helper::loadFromResourceBase(&resource);
-                }
-              }
-            }
-            else if (handleOp == DXIL::OpCode::CreateHandleForLib) {
-              // If library handle, find DxilResource by checking the name
-              if (LoadInst *LI = dyn_cast<LoadInst>(handleCall->getArgOperand(
-                      DXIL::OperandIndex::kCreateHandleForLibResOpIdx))) {
-                Value *resType = LI->getOperand(0);
-                for (auto &&res : M->GetUAVs()) {
-                  if (res->GetGlobalSymbol() == resType) {
-                    RP = resource_helper::loadFromResourceBase(res.get());
-                  }
-                }
-              }
-            } else if (handleOp == DXIL::OpCode::AnnotateHandle) {
-              DxilInst_AnnotateHandle annotateHandle(cast<Instruction>(handleCall));
-              Type *ResPropTy = M->GetOP()->GetResourcePropertiesType();
-
-              RP = resource_helper::loadFromAnnotateHandle(annotateHandle, ResPropTy, *M->GetShaderModel());
-            }
-
+            DxilResourceProperties RP = GetResourcePropertyFromHandleCall(M, handleCall);
             if (RP.Class == DXIL::ResourceClass::UAV) {
               // Validator 1.0 assumes that all uav load is multi component load.
               if (hasMulticomponentUAVLoadsBackCompat) {
