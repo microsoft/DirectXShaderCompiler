@@ -2,6 +2,10 @@
 // RUN: %dxc -DMIDX=i -DVIDX=2 -T hs_6_0 %s | FileCheck %s
 // RUN: %dxc -DMIDX=1 -DVIDX=j -T hs_6_0 %s | FileCheck %s
 // RUN: %dxc -DMIDX=i -DVIDX=j -T hs_6_0 %s | FileCheck %s
+// RUN: %dxc -DMIDX=1 -DVIDX=2 -T lib_6_3 %s | FileCheck %s
+// RUN: %dxc -DMIDX=i -DVIDX=2 -T lib_6_3 %s | FileCheck %s
+// RUN: %dxc -DMIDX=1 -DVIDX=j -T lib_6_3 %s | FileCheck %s
+// RUN: %dxc -DMIDX=i -DVIDX=j -T lib_6_3 %s | FileCheck %s
 
 // Specific test for subscript operation on matrix array inputs in patch functions
 
@@ -49,6 +53,7 @@ Output Patch(InputPatch<MatStruct, 3> inputs)
 [outputtopology("triangle_cw")]
 [patchconstantfunc("Patch")]
 [outputcontrolpoints(3)]
+[shader("hull")]
 float4 main(InputPatch<MatStruct, 3> inputs) : SV_Position
 {
   int i = inputs[0].uv.x;

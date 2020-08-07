@@ -2,6 +2,10 @@
 // RUN: %dxc -DMIDX=i -DVIDX=2 -T ds_6_0 %s | FileCheck %s
 // RUN: %dxc -DMIDX=1 -DVIDX=j -T ds_6_0 %s | FileCheck %s
 // RUN: %dxc -DMIDX=i -DVIDX=j -T ds_6_0 %s | FileCheck %s
+// RUN: %dxc -DMIDX=1 -DVIDX=2 -T lib_6_3 %s | FileCheck %s
+// RUN: %dxc -DMIDX=i -DVIDX=2 -T lib_6_3 %s | FileCheck %s
+// RUN: %dxc -DMIDX=1 -DVIDX=j -T lib_6_3 %s | FileCheck %s
+// RUN: %dxc -DMIDX=i -DVIDX=j -T lib_6_3 %s | FileCheck %s
 
 // Specific test for subscript operation on OutputPatch matrix data
 
@@ -15,6 +19,7 @@ float4 GetRow(const OutputPatch<MatStruct, 3> tri, int i, int j)
 }
 
 [domain("tri")]
+[shader("domain")]
 float4 main(int i : I, int j : J, const OutputPatch<MatStruct, 3> tri) : SV_Position {
 
   float4 ret = 0;

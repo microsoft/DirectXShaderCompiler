@@ -2,6 +2,10 @@
 // RUN: %dxc -DMIDX=i -DVIDX=2 -T ps_6_0 %s | FileCheck %s
 // RUN: %dxc -DMIDX=1 -DVIDX=j -T ps_6_0 %s | FileCheck %s
 // RUN: %dxc -DMIDX=i -DVIDX=j -T ps_6_0 %s | FileCheck %s
+// RUN: %dxc -DMIDX=1 -DVIDX=2 -T lib_6_3 %s | FileCheck %s
+// RUN: %dxc -DMIDX=i -DVIDX=2 -T lib_6_3 %s | FileCheck %s
+// RUN: %dxc -DMIDX=1 -DVIDX=j -T lib_6_3 %s | FileCheck %s
+// RUN: %dxc -DMIDX=i -DVIDX=j -T lib_6_3 %s | FileCheck %s
 
 // Test for general subscript operations on matrix arrays.
 // Specifically focused on shader inputs which failed to lower previously
@@ -22,6 +26,7 @@ struct MtxArray {
   float3x3 mtx[2];
 };
 
+[shader("pixel")]
 float3 main(const int i : I, const int j : J, const float3x3 m[2]: M, JustMtx jm[2] : JM, MtxArray ma : A) : SV_Target
 {
   float3 ret = 0.0;

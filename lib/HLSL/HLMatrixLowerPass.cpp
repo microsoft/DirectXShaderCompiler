@@ -406,7 +406,7 @@ Value *HLMatrixLowerPass::tryGetLoweredPtrOperand(Value *Ptr, IRBuilder<> &Build
     RootPtr = GEP->getPointerOperand();
 
   Argument *Arg = dyn_cast<Argument>(RootPtr);
-  bool IsNonShaderArg = Arg != nullptr && !m_pHLModule->IsGraphicsShader(m_pHLModule->GetEntryFunction());
+  bool IsNonShaderArg = Arg != nullptr && !m_pHLModule->IsEntryThatUsesSignatures(Arg->getParent());
   if (IsNonShaderArg || isa<AllocaInst>(RootPtr)) {
     // Bitcast the matrix pointer to its lowered equivalent.
     // The HLMatrixBitcast pass will take care of this later.
