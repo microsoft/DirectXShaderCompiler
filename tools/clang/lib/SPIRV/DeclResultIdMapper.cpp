@@ -3570,5 +3570,19 @@ void DeclResultIdMapper::tryToCreateImplicitConstVar(const ValueDecl *decl) {
   astDecls[varDecl].instr = constVal;
 }
 
+SpirvInstruction *DeclResultIdMapper::createHullMainOutputPatch(
+    const ParmVarDecl *param, const QualType retType,
+    uint32_t numOutputControlPoints, SourceLocation loc) {
+  const QualType hullMainRetType = astContext.getConstantArrayType(
+      retType, llvm::APInt(32, numOutputControlPoints),
+      clang::ArrayType::Normal, 0);
+  SpirvInstruction *hullMainOutputPatch = spvBuilder.addModuleVar(
+      hullMainRetType, spv::StorageClass::Workgroup, false,
+      "temp.var.hullMainRetVal", llvm::None, loc);
+  assert(astDecls[param].instr == nullptr);
+  astDecls[param].instr = hullMainOutputPatch;
+  return hullMainOutputPatch;
+}
+
 } // end namespace spirv
 } // end namespace clang
