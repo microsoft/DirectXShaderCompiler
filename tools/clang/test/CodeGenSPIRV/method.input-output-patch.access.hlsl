@@ -42,12 +42,12 @@ HS_CONSTANT_DATA_OUTPUT PCF(OutputPatch<BEZIER_CONTROL_POINT, MAX_POINTS> op) {
 
   uint x = 5;
 
-// CHECK:      [[op_1_loc:%\d+]] = OpAccessChain %_ptr_Function_v3float %op %uint_1 %int_0
+// CHECK:      [[op_1_loc:%\d+]] = OpAccessChain %_ptr_Workgroup_v3float %temp_var_hullMainRetVal %uint_1 %int_0
 // CHECK-NEXT:          {{%\d+}} = OpLoad %v3float [[op_1_loc]]
   float3 out1pos = op[1].vPosition;
 
 // CHECK:             [[x:%\d+]] = OpLoad %uint %x
-// CHECK-NEXT: [[op_x_loc:%\d+]] = OpAccessChain %_ptr_Function_uint %op [[x]] %int_1
+// CHECK-NEXT: [[op_x_loc:%\d+]] = OpAccessChain %_ptr_Workgroup_uint %temp_var_hullMainRetVal [[x]] %int_1
 // CHECK-NEXT:          {{%\d+}} = OpLoad %uint [[op_x_loc]]
   uint out5id = op[x].pointID;
 
