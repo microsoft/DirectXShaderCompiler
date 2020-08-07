@@ -315,6 +315,8 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
           CallInst *handleCall = FindCallToCreateHandle(resHandle);
           // Check if this is a library handle or general create handle
           if (handleCall) {
+            DxilResourceProperties RP = {DXIL::ResourceClass::Invalid, DXIL::ResourceKind::Invalid};
+
             ConstantInt *HandleOpCodeConst = cast<ConstantInt>(
                 handleCall->getArgOperand(DXIL::OperandIndex::kOpcodeIdx));
             DXIL::OpCode handleOp = static_cast<DXIL::OpCode>(HandleOpCodeConst->getLimitedValue());
@@ -324,62 +326,43 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
                   DXIL::OperandIndex::kCreateHandleResClassOpIdx))) {
                 DXIL::ResourceClass resClass = static_cast<DXIL::ResourceClass>(
                   resClassArg->getLimitedValue());
-                if (resClass == DXIL::ResourceClass::UAV) {
-                  // Validator 1.0 assumes that all uav load is multi component load.
-                  if (hasMulticomponentUAVLoadsBackCompat) {
-                    hasMulticomponentUAVLoads = true;
-                    continue;
-                  }
-                  else {
-                    ConstantInt *rangeID = GetArbitraryConstantRangeID(handleCall);
-                    if (rangeID) {
-                      DxilResource resource = M->GetUAV(rangeID->getLimitedValue());
-                      if ((resource.IsTypedBuffer() ||
-                        resource.IsAnyTexture()) &&
-                        !dxilutil::IsResourceSingleComponent(resource.GetRetType())) {
-                        hasMulticomponentUAVLoads = true;
-                      }
-                    }
-                  }
+                ConstantInt *rangeID = GetArbitraryConstantRangeID(handleCall);
+                if (rangeID) {
+                  DxilResource resource;
+                  if (resClass == DXIL::ResourceClass::UAV)
+                    resource = M->GetUAV(rangeID->getLimitedValue());
+                  else if (resClass == DXIL::ResourceClass::SRV)
+                    resource = M->GetSRV(rangeID->getLimitedValue());
+                  RP = resource_helper::loadFromResourceBase(&resource);
                 }
-              }
-              else {
-                DXASSERT(false, "Resource class must be constant.");
               }
             }
             else if (handleOp == DXIL::OpCode::CreateHandleForLib) {
               // If library handle, find DxilResource by checking the name
               if (LoadInst *LI = dyn_cast<LoadInst>(handleCall->getArgOperand(
-                      DXIL::OperandIndex::
-                          kCreateHandleForLibResOpIdx))) {
+                      DXIL::OperandIndex::kCreateHandleForLibResOpIdx))) {
                 Value *resType = LI->getOperand(0);
                 for (auto &&res : M->GetUAVs()) {
                   if (res->GetGlobalSymbol() == resType) {
-                    if ((res->IsTypedBuffer() || res->IsAnyTexture()) &&
-                        !dxilutil::IsResourceSingleComponent(res->GetRetType())) {
-                      hasMulticomponentUAVLoads = true;
-                    }
+                    RP = resource_helper::loadFromResourceBase(res.get());
                   }
                 }
               }
             } else if (handleOp == DXIL::OpCode::AnnotateHandle) {
-              DxilInst_AnnotateHandle annotateHandle(handleCall);
+              DxilInst_AnnotateHandle annotateHandle(cast<Instruction>(handleCall));
               Type *ResPropTy = M->GetOP()->GetResourcePropertiesType();
 
-              DxilResourceProperties RP =
-                  resource_helper::loadFromAnnotateHandle(
-                      annotateHandle, ResPropTy, *M->GetShaderModel());
-              if (RP.Class == DXIL::ResourceClass::UAV) {
-                // Validator 1.0 assumes that all uav load is multi component
-                // load.
-                if (hasMulticomponentUAVLoadsBackCompat) {
+              RP = resource_helper::loadFromAnnotateHandle(annotateHandle, ResPropTy, *M->GetShaderModel());
+            }
+
+            if (RP.Class == DXIL::ResourceClass::UAV) {
+              // Validator 1.0 assumes that all uav load is multi component load.
+              if (hasMulticomponentUAVLoadsBackCompat) {
+                hasMulticomponentUAVLoads = true;
+                continue;
+              } else {
+                if (DXIL::IsTyped(RP.Kind) && !RP.Typed.SingleComponent)
                   hasMulticomponentUAVLoads = true;
-                  continue;
-                } else {
-                  if (DXIL::IsTyped(RP.Kind) &&
-                      !RP.Typed.SingleComponent)
-                    hasMulticomponentUAVLoads = true;
-                }
               }
             }
           }
