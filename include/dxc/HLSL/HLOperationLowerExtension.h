@@ -27,6 +27,12 @@ namespace llvm {
 namespace hlsl {
   class OP;
 
+  struct HLResourceLookup 
+  {
+      // Lookup resource kind based on handle. Return true on success.
+      virtual bool GetResourceKindName(llvm::Value *HLHandle, const char **ppName) = 0;
+  };
+
   // Lowers HLSL extensions from HL operation to DXIL operation.
   class ExtensionLowering {
   public:
@@ -41,8 +47,8 @@ namespace hlsl {
     };
 
     // Create the lowering using the given strategy and custom codegen helper.
-    ExtensionLowering(llvm::StringRef strategy, HLSLExtensionsCodegenHelper *helper, OP& hlslOp);
-    ExtensionLowering(Strategy strategy, HLSLExtensionsCodegenHelper *helper, OP& hlslOp);
+    ExtensionLowering(llvm::StringRef strategy, HLSLExtensionsCodegenHelper *helper, OP& hlslOp, HLResourceLookup &resourceHelper);
+    ExtensionLowering(Strategy strategy, HLSLExtensionsCodegenHelper *helper, OP& hlslOp, HLResourceLookup &resourceHelper);
 
     // Translate the HL op call to a DXIL op call.
     // Returns a new value if translation was successful.
@@ -69,6 +75,8 @@ namespace hlsl {
     Strategy m_strategy;
     HLSLExtensionsCodegenHelper *m_helper;
     OP &m_hlslOp;
+    HLResourceLookup &m_hlResourceLookup;
+    std::string m_extraStrategyInfo;
 
     llvm::Value *Unknown(llvm::CallInst *CI);
     llvm::Value *NoTranslation(llvm::CallInst *CI);
@@ -76,5 +84,6 @@ namespace hlsl {
     llvm::Value *Pack(llvm::CallInst *CI);
     llvm::Value *Resource(llvm::CallInst *CI);
     llvm::Value *Dxil(llvm::CallInst *CI);
+    llvm::Value *CustomResource(llvm::CallInst *CI);
   };
 }
