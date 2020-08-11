@@ -217,7 +217,9 @@ static CallInst *FindCallToCreateHandle(Value *handleType) {
 
 DxilResourceProperties GetResourcePropertyFromHandleCall(const hlsl::DxilModule *M, CallInst *handleCall) {
 
-  DxilResourceProperties RP = {DXIL::ResourceClass::Invalid, DXIL::ResourceKind::Invalid};
+  DxilResourceProperties RP = {};
+  RP.Class = DXIL::ResourceClass::Invalid;
+  RP.Kind = DXIL::ResourceKind::Invalid;
 
   ConstantInt *HandleOpCodeConst = cast<ConstantInt>(
       handleCall->getArgOperand(DXIL::OperandIndex::kOpcodeIdx));
