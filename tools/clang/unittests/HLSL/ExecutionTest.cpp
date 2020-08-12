@@ -465,7 +465,16 @@ public:
     TEST_METHOD_PROPERTY(L"Priority", L"2") // This test is disabled because of a bug in WARP; TODO: enable once the bug is fixed
   END_TEST_METHOD()
 
-  // This is defined in d3d.h for Windows 10 Anniversary Edition SDK, but we only
+  dxc::DxcDllSupport m_support;
+  VersionSupportInfo m_ver;
+  bool m_ExperimentalModeEnabled = false;
+
+  const float ClearColor[4] = { 0.0f, 0.2f, 0.4f, 1.0f };
+
+// Do not remove the following line - it is used by TranslateExecutionTest.py
+// MARKER: ExecutionTest/DxilConf Shared Implementation Start
+
+ // This is defined in d3d.h for Windows 10 Anniversary Edition SDK, but we only
   // require the Windows 10 SDK.
   typedef enum D3D_SHADER_MODEL {
     D3D_SHADER_MODEL_5_1 = 0x51,
@@ -487,18 +496,13 @@ public:
   static const D3D_SHADER_MODEL HIGHEST_SHADER_MODEL = D3D_SHADER_MODEL_6_3;
 #elif WDK_NTDDI_VERSION == NTDDI_WIN10_19H1
   static const D3D_SHADER_MODEL HIGHEST_SHADER_MODEL = D3D_SHADER_MODEL_6_4;
+#elif WDK_NTDDI_VERSION == NTDDI_WIN10_VB
+  static const D3D_SHADER_MODEL HIGHEST_SHADER_MODEL = D3D_SHADER_MODEL_6_5;
+#elif WDK_NTDDI_VERSION == NTDDI_WIN10_MN
+  static const D3D_SHADER_MODEL HIGHEST_SHADER_MODEL = D3D_SHADER_MODEL_6_5;
 #else
   static const D3D_SHADER_MODEL HIGHEST_SHADER_MODEL = D3D_SHADER_MODEL_6_5;
 #endif
-
-  dxc::DxcDllSupport m_support;
-  VersionSupportInfo m_ver;
-  bool m_ExperimentalModeEnabled = false;
-
-  const float ClearColor[4] = { 0.0f, 0.2f, 0.4f, 1.0f };
-
-// Do not remove the following line - it is used by TranslateExecutionTest.py
-// MARKER: ExecutionTest/DxilConf Shared Implementation Start
 
   bool UseDxbc() {
 #ifdef _HLK_CONF
