@@ -2214,10 +2214,9 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
     }
   } break;
   case DXIL::OpCode::RawBufferLoad: {
-    hlsl::OP *hlslOP = ValCtx.DxilMod.GetOP();
     if (!ValCtx.DxilMod.GetShaderModel()->IsSM63Plus()) {
-      Type *Ty = hlslOP->GetOverloadType(DXIL::OpCode::RawBufferLoad,
-                                         CI->getCalledFunction());
+      Type *Ty = OP::GetOverloadType(DXIL::OpCode::RawBufferLoad,
+                                 CI->getCalledFunction());
       if (ValCtx.DL.getTypeAllocSizeInBits(Ty) > 32) {
         ValCtx.EmitInstrError(CI, ValidationRule::Sm64bitRawBufferLoadStore);
       }
@@ -2263,10 +2262,9 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
     }
   } break;
   case DXIL::OpCode::RawBufferStore: {
-    hlsl::OP *hlslOP = ValCtx.DxilMod.GetOP();
     if (!ValCtx.DxilMod.GetShaderModel()->IsSM63Plus()) {
-      Type *Ty = hlslOP->GetOverloadType(DXIL::OpCode::RawBufferStore,
-                                         CI->getCalledFunction());
+      Type *Ty = OP::GetOverloadType(DXIL::OpCode::RawBufferStore,
+                                 CI->getCalledFunction());
       if (ValCtx.DL.getTypeAllocSizeInBits(Ty) > 32) {
         ValCtx.EmitInstrError(CI, ValidationRule::Sm64bitRawBufferLoadStore);
       }
@@ -2560,7 +2558,7 @@ static void ValidateExternalFunction(Function *F, ValidationContext &ValCtx) {
       dxilFunc = hlslOP->GetOpFunc(dxilOpcode, voidTy);
     }
     else {
-      Type *Ty = hlslOP->GetOverloadType(dxilOpcode, CI->getCalledFunction());
+      Type *Ty = OP::GetOverloadType(dxilOpcode, CI->getCalledFunction());
       try {
         if (!hlslOP->IsOverloadLegal(dxilOpcode, Ty)) {
           ValCtx.EmitInstrError(CI, ValidationRule::InstrOload);

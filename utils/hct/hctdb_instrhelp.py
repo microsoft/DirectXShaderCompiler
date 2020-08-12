@@ -497,17 +497,17 @@ class db_oload_gen:
             assert len(instr.oload_types)==1, "overload no elt_ty %s" % (instr.name)
             ty = instr.oload_types[0]
             type_code_texts = {
-            "d": "Type::getDoubleTy(m_Ctx)",
-            "f": "Type::getFloatTy(m_Ctx)",
+            "d": "Type::getDoubleTy(Ctx)",
+            "f": "Type::getFloatTy(Ctx)",
             "h": "Type::getHalfTy",
-            "1": "IntegerType::get(m_Ctx, 1)",
-			"8": "IntegerType::get(m_Ctx, 8)",
-            "w": "IntegerType::get(m_Ctx, 16)",
-            "i": "IntegerType::get(m_Ctx, 32)",
-            "l": "IntegerType::get(m_Ctx, 64)",
-            "v": "Type::getVoidTy(m_Ctx)",
-            "u": "Type::getInt32PtrTy(m_Ctx)",
-            "o": "Type::getInt32PtrTy(m_Ctx)",
+            "1": "IntegerType::get(Ctx, 1)",
+            "8": "IntegerType::get(Ctx, 8)",
+            "w": "IntegerType::get(Ctx, 16)",
+            "i": "IntegerType::get(Ctx, 32)",
+            "l": "IntegerType::get(Ctx, 64)",
+            "v": "Type::getVoidTy(Ctx)",
+            "u": "Type::getInt32PtrTy(Ctx)",
+            "o": "Type::getInt32PtrTy(Ctx)",
             }
             assert ty in type_code_texts, "llvm type %s is unknown" % (ty)
             ty_code = type_code_texts[ty]
