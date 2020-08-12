@@ -622,7 +622,7 @@ Value *ExtensionLowering::Dxil(CallInst *CI) {
     return nullptr;
 
   // Find the dxil function based on the overload type.
-  Type *overloadTy = m_hlslOp.GetOverloadType(dxilOpcode, CI->getCalledFunction());
+  Type *overloadTy = OP::GetOverloadType(dxilOpcode, CI->getCalledFunction());
   Function *F = m_hlslOp.GetOpFunc(dxilOpcode, overloadTy->getScalarType());
 
   // Update the opcode in the original call so we can just copy it below.
