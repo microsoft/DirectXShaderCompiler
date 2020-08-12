@@ -21,10 +21,26 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_os_ostream.h"
+#include "llvm/Support/YAMLParser.h"
+#include "llvm/Support/SourceMgr.h"
+#include "llvm/ADT/SmallString.h"
 
 using namespace llvm;
 using namespace hlsl;
 
+LLVM_ATTRIBUTE_NORETURN static void ThrowExtensionError(StringRef Details)
+{
+    std::string Msg = (Twine("Error in dxc extension api: ") + Details).str();
+    throw hlsl::Exception(DXC_E_EXTENSION_ERROR, Msg);
+}
+
+// The lowering strategy format is a string that matches the following regex:
+//
+//      [a-z](:(?P<ExtraStrategyInfo>.+))?$
+//
+// The first character indicates the strategy with an optional : followed by
+// additional lowering information specific to that strategy.
+//
 ExtensionLowering::Strategy ExtensionLowering::GetStrategy(StringRef strategy) {
   if (strategy.size() < 1)
     return Strategy::Unknown;
@@ -52,13 +68,21 @@ llvm::StringRef ExtensionLowering::GetStrategyName(Strategy strategy) {
   return "?";
 }
 
-ExtensionLowering::ExtensionLowering(Strategy strategy, HLSLExtensionsCodegenHelper *helper, OP& hlslOp)
-  : m_strategy(strategy), m_helper(helper), m_hlslOp(hlslOp)
+static std::string ParseExtraStrategyInfo(StringRef strategy)
+{
+    std::pair<StringRef, StringRef> SplitInfo = strategy.split(":");
+    return SplitInfo.second;
+}
+
+ExtensionLowering::ExtensionLowering(Strategy strategy, HLSLExtensionsCodegenHelper *helper, OP& hlslOp,  HLResourceLookup &hlResourceLookup)
+  : m_strategy(strategy), m_helper(helper), m_hlslOp(hlslOp), m_hlResourceLookup(hlResourceLookup)
   {}
 
-ExtensionLowering::ExtensionLowering(StringRef strategy, HLSLExtensionsCodegenHelper *helper, OP& hlslOp)
-  : ExtensionLowering(GetStrategy(strategy), helper, hlslOp)
-  {}
+ExtensionLowering::ExtensionLowering(StringRef strategy, HLSLExtensionsCodegenHelper *helper, OP& hlslOp, HLResourceLookup &hlResourceLookup)
+  : ExtensionLowering(GetStrategy(strategy), helper, hlslOp, hlResourceLookup)
+  {
+    m_extraStrategyInfo = ParseExtraStrategyInfo(strategy);
+  }
 
 llvm::Value *ExtensionLowering::Translate(llvm::CallInst *CI) {
   switch (m_strategy) {
@@ -110,7 +134,9 @@ public:
     return translator.GetLoweredFunction(CI);
   }
 
-private:
+  virtual ~FunctionTranslator() {}
+
+protected:
   FunctionTypeTranslator &m_typeTranslator;
   ExtensionLowering &m_lower;
 
@@ -136,7 +162,7 @@ private:
     return cast<Function>(CI->getModule()->getOrInsertFunction(name, FTy, attributes));
   }
 
-  FunctionType *GetFunctionType(CallInst *CI, Type *RetTy) {
+  virtual FunctionType *GetFunctionType(CallInst *CI, Type *RetTy) {
     // Create a new function type with the translated argument.
     SmallVector<Type *, 10> ParamTypes;
     ParamTypes.reserve(CI->getNumArgOperands());
@@ -476,23 +502,23 @@ Value *ExtensionLowering::Pack(CallInst *CI) {
 //  %v.2 = insertelement %v.1, %y, 1
 class ResourceMethodCall {
 public:
-  ResourceMethodCall(CallInst *CI, Function &explodedFunction)
+  ResourceMethodCall(CallInst *CI)
     : m_CI(CI)
-    , m_explodedFunction(explodedFunction)
     , m_builder(CI)
   { }
 
-  Value *Generate() {
+  virtual ~ResourceMethodCall() {}
+
+  virtual Value *Generate(Function *explodedFunction) {
     SmallVector<Value *, 16> args;
     ExplodeArgs(args);
-    Value *result = CreateCall(args);
+    Value *result = CreateCall(explodedFunction, args);
     result = ConvertResult(result);
     return result;
   }
   
-private:
+protected:
   CallInst *m_CI;
-  Function &m_explodedFunction;
   IRBuilder<> m_builder;
 
   void ExplodeArgs(SmallVectorImpl<Value*> &args) {
@@ -511,8 +537,8 @@ private:
     }
   }
 
-  Value *CreateCall(const SmallVectorImpl<Value*> &args) {
-    return m_builder.CreateCall(&m_explodedFunction, args);
+  Value *CreateCall(Function *explodedFunction, ArrayRef<Value*> args) {
+    return m_builder.CreateCall(explodedFunction, args);
   }
 
   Value *ConvertResult(Value *result) {
@@ -601,14 +627,440 @@ private:
 };
 
 Value *ExtensionLowering::Resource(CallInst *CI) {
+  // Extra strategy info overrides the default lowering for resource methods.
+  if (!m_extraStrategyInfo.empty())
+  {
+    return CustomResource(CI);
+  }
+
   ResourceFunctionTypeTranslator resourceTypeTranslator(m_hlslOp);
   Function *resourceFunction = FunctionTranslator::GetLoweredFunction(resourceTypeTranslator, CI, *this);
   if (!resourceFunction)
     return NoTranslation(CI);
 
-  ResourceMethodCall explode(CI, *resourceFunction);
-  Value *result = explode.Generate();
+  ResourceMethodCall explode(CI);
+  Value *result = explode.Generate(resourceFunction);
   return result;
+}
+
+// This class handles the core logic for custom lowering of resource
+// method intrinsics. The goal is to allow resource extension intrinsics
+// to be handled the same way as the core hlsl resource intrinsics.
+//
+// Specifically, we want to support:
+//
+//  1. Multiple hlsl overloads map to a single dxil intrinsic
+//  2. The hlsl overloads can take different parameters for a given resource type
+//  3. The hlsl overloads are not consistent across different resource types 
+//
+// To achieve these goals we need a more complex mechanism for describing how
+// to translate the high-level arguments to arguments for a dxil function.
+// The custom lowering info describes this lowering using the following format.
+//
+// [Custom Lowering Info Format]
+// A json string encoding a map where each key is either a specific resource type or
+// the keyword "default" to be used for any other resource. The value is a
+// a custom-format string encoding how high-level arguments are mapped to
+// dxil intrinsic arguments.
+//
+// [Argument Translation Format]
+// A comma separated string where the number of fields is exactly equal to the number
+// of parameters in the target dxil intrinsic. Each field describes how to generate
+// the argument for that dxil intrinsic parameter. It has the following format where
+// the hl_arg_index is mandatory, but the other two parts are optional.
+//
+//      <hl_arg_index>.<vector_index>:<optional_type_info>
+//
+// The format is precisely described by the following regular expression:
+//
+//      (?P<hl_arg_index>[-0-9]+)(.(?P<vector_index>[-0-9]+))?(:(?P<optional_type_info>\?i32|\?i16|\?i8|\?float|\?half))?$
+//
+// Example
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Say we want to define the MyTextureOp extension with the following overloads:
+//
+// Texture1D
+//  MyTextureOp(uint addr, uint offset)
+//  MyTextureOp(uint addr, uint offset, uint val)
+//
+// Texture2D
+//  MyTextureOp(uint2 addr, uint2 val)
+//  
+// And a dxil intrinsic defined as follows
+//  @MyTextureOp(i32 opcode,  %dx.types.Handle handle, i32 addr0, i32 addr1, i32 offset, i32 val0, i32 val1)
+//
+// Then we would define the lowering info json as follows
+//
+//  {
+//      "default"   : "0, 1, 2.0, 2.1,  3     , 4.0:?i32, 4.1:?i32"
+//      "Texture2D" : "0, 1, 2.0, 2.1, -1:?i32, 3.0     , 3.1\"
+//  }
+//
+//
+//  This would produce the following lowerings (assuming the MyTextureOp opcode is 17)
+//
+//  hlsl: Texture1D.MyTextureOp(a, b)
+//  hl:   @MyTextureOp(17, handle, a, b)
+//  dxil: @MyTextureOp(17, handle, a, undef, b, undef, undef)
+//
+//  hlsl: Texture1D.MyTextureOp(a, b, c)
+//  hl:   @MyTextureOp(17, handle, a, b, c)
+//  dxil: @MyTextureOp(17, handle, a, undef, b, c, undef)
+//
+//  hlsl: Texture2D.MyTextureOp(a, c)
+//  hl:   @MyTextureOp(17, handle, a, c)
+//  dxil: @MyTextureOp(17, handle, a.x, a.y, undef, c.x, c.y)
+//
+// 
+class CustomResourceLowering
+{
+public:
+    CustomResourceLowering(StringRef LoweringInfo, CallInst *CI, HLResourceLookup &ResourceLookup)
+    {
+        // Parse lowering info json format.
+        std::map<ResourceKindName, std::vector<DxilArgInfo>> LoweringInfoMap =
+            ParseLoweringInfo(LoweringInfo, CI->getContext());
+
+        // Lookup resource kind based on handle (first arg after hl opcode)
+        enum {RESOURCE_HANDLE_ARG=1};
+        const char *pName = nullptr;
+        if (!ResourceLookup.GetResourceKindName(CI->getArgOperand(RESOURCE_HANDLE_ARG), &pName))
+        {
+            ThrowExtensionError("Failed to find resource from handle");
+        }
+        std::string Name(pName);
+
+        // Select lowering info to use based on resource kind.
+        const char *DefaultInfoName = "default";
+        std::vector<DxilArgInfo> *pArgInfo = nullptr;
+        if (LoweringInfoMap.count(Name))
+        {
+            pArgInfo = &LoweringInfoMap.at(Name);
+        }
+        else if (LoweringInfoMap.count(DefaultInfoName))
+        {
+            pArgInfo = &LoweringInfoMap.at(DefaultInfoName);
+        }
+        else
+        {
+            ThrowExtensionError("Unable to find lowering info for resource");
+        }
+        GenerateLoweredArgs(CI, *pArgInfo);
+    }
+
+    const std::vector<Value *> &GetLoweredArgs() const
+    {
+        return m_LoweredArgs;
+    }
+
+private:
+    struct OptionalTypeSpec
+    {
+        const char* TypeName;
+        Type *LLVMType;
+    };
+
+    // These are the supported optional types for generating dxil parameters
+    // that have no matching argument in the high-level intrinsic overload.
+    // See [Argument Translation Format] for details.
+    void InitOptionalTypes(LLVMContext &Ctx)
+    {
+        // Table of supported optional types.
+        // Keep in sync with m_OptionalTypes small vector size to avoid
+        // dynamic allocation.
+        OptionalTypeSpec OptionalTypes[] = {
+            {"?i32",   Type::getInt32Ty(Ctx)},
+            {"?float", Type::getFloatTy(Ctx)},
+            {"?half",  Type::getHalfTy(Ctx)},
+            {"?i8",    Type::getInt8Ty(Ctx)},
+            {"?i16",   Type::getInt16Ty(Ctx)},
+        };
+        DXASSERT(m_OptionalTypes.empty(), "Init should only be called once");
+        m_OptionalTypes.clear();
+        m_OptionalTypes.reserve(_countof(OptionalTypes));
+
+        for (const OptionalTypeSpec &T : OptionalTypes)
+        {
+            m_OptionalTypes.push_back(T);
+        }
+    }
+
+    Type *ParseOptionalType(StringRef OptionalTypeInfo)
+    {
+        if (OptionalTypeInfo.empty())
+        {
+            return nullptr;
+        }
+
+        for (OptionalTypeSpec &O : m_OptionalTypes)
+        {
+            if (OptionalTypeInfo == O.TypeName)
+            {
+                return O.LLVMType;
+            }
+        }
+            
+        ThrowExtensionError("Failed to parse optional type");
+    }
+    
+    // Mapping from high level function arg to dxil function arg.
+    //
+    // The `HighLevelArgIndex` is the index of the function argument to
+    // which this dxil argument maps.
+    //
+    // If `HasVectorIndex` is true then the `VectorIndex` contains the
+    // index of the element in the vector pointed to by HighLevelArgIndex.
+    //
+    // The `OptionalType` is used to specify types for arguments that are not
+    // present in all overloads of the high level function. This lets us
+    // map multiple high level functions to a single dxil extension intrinsic.
+    //
+    struct DxilArgInfo
+    {
+        unsigned HighLevelArgIndex = 0;
+        unsigned VectorIndex = 0;
+        bool HasVectorIndex = false;
+        Type *OptionalType = nullptr;
+    };
+    typedef std::string ResourceKindName;
+
+    // Convert the lowering info to a machine-friendly format.
+    // Note that we use the YAML parser to parse the JSON since JSON
+    // is a subset of YAML (and this llvm has no JSON parser).
+    //
+    // See [Custom Lowering Info Format] for details.
+    std::map<ResourceKindName, std::vector<DxilArgInfo>> ParseLoweringInfo(StringRef LoweringInfo, LLVMContext &Ctx)
+    {
+        InitOptionalTypes(Ctx);
+        std::map<ResourceKindName, std::vector<DxilArgInfo>> LoweringInfoMap;
+
+        SourceMgr SM;
+        yaml::Stream YAMLStream(LoweringInfo, SM);
+
+        // Make sure we have a valid json input.
+        llvm::yaml::document_iterator I = YAMLStream.begin();
+        if (I == YAMLStream.end()) {
+            ThrowExtensionError("Found empty resource lowering JSON.");
+        }
+        llvm::yaml::Node *Root = I->getRoot();
+        if (!Root) {
+            ThrowExtensionError("Error parsing resource lowering JSON.");
+        }
+
+        // Parse the top level map object.
+        llvm::yaml::MappingNode *Object = dyn_cast<llvm::yaml::MappingNode>(Root);
+        if (!Object) {
+            ThrowExtensionError("Expected map in top level of resource lowering JSON.");
+        }
+
+        // Parse all key/value pairs from the map.
+        for (llvm::yaml::MappingNode::iterator KVI = Object->begin(),
+            KVE = Object->end();
+            KVI != KVE; ++KVI) 
+        {
+            // Parse key.
+            llvm::yaml::ScalarNode *KeyString =
+                dyn_cast_or_null<llvm::yaml::ScalarNode>((*KVI).getKey());
+            if (!KeyString) {
+                ThrowExtensionError("Expected string as key in resource lowering info JSON map.");
+            }
+            SmallString<32> KeyStorage;
+            StringRef Key = KeyString->getValue(KeyStorage);
+
+            // Parse value.
+            llvm::yaml::ScalarNode *ValueString =
+                dyn_cast_or_null<llvm::yaml::ScalarNode>((*KVI).getValue());
+            if (!ValueString) {
+                ThrowExtensionError("Expected string as value in resource lowering info JSON map.");
+            }
+            SmallString<128> ValueStorage;
+            StringRef Value = ValueString->getValue(ValueStorage);
+
+            // Parse dxil arg info from value.
+            LoweringInfoMap[Key] = ParseDxilArgInfo(Value, Ctx);
+        }
+
+        return LoweringInfoMap;
+    }
+
+
+    // Parse the dxail argument translation info.
+    // See [Argument Translation Format] for details.
+    std::vector<DxilArgInfo> ParseDxilArgInfo(StringRef ArgSpec, LLVMContext &Ctx)
+    {
+        std::vector<DxilArgInfo> Args;
+
+        SmallVector<StringRef, 14> Splits;
+        ArgSpec.split(Splits, ",");
+
+        for (const StringRef Split : Splits)
+        {
+            StringRef Field = Split.trim();
+            StringRef HighLevelArgInfo;
+            StringRef OptionalTypeInfo;
+            std::tie(HighLevelArgInfo, OptionalTypeInfo) = Field.split(":");
+
+            Type *OptionalType = ParseOptionalType(OptionalTypeInfo);
+
+            StringRef HighLevelArgIndex;
+            StringRef VectorIndex;
+            std::tie(HighLevelArgIndex, VectorIndex) = HighLevelArgInfo.split(".");
+
+            // Parse the arg and vector index.
+            // Parse the values as signed integers, but store them as unsigned values to
+            // allows using -1 as a shorthand for the max value.
+            DxilArgInfo ArgInfo;
+            ArgInfo.HighLevelArgIndex = static_cast<unsigned>(std::stoi(HighLevelArgIndex));
+            if (!VectorIndex.empty())
+            {
+                ArgInfo.HasVectorIndex = true;
+                ArgInfo.VectorIndex = static_cast<unsigned>(std::stoi(VectorIndex));
+            }
+            ArgInfo.OptionalType = OptionalType;
+
+            Args.push_back(ArgInfo);
+        }
+
+        return Args;
+    }
+
+    // Create the dxil args based on custom lowering info.
+    void GenerateLoweredArgs(CallInst *CI, const std::vector<DxilArgInfo> &ArgInfoRecords)
+    {
+        IRBuilder<> builder(CI);
+        for (const DxilArgInfo &ArgInfo : ArgInfoRecords)
+        {
+            // Check to see if we have the corresponding high-level arg in the overload for this call.
+            if (ArgInfo.HighLevelArgIndex < CI->getNumArgOperands())
+            {
+                Value *Arg = CI->getArgOperand(ArgInfo.HighLevelArgIndex);
+                if (ArgInfo.HasVectorIndex)
+                {
+                    // We expect a vector type here, but we handle one special case if not.
+                    if (Arg->getType()->isVectorTy())
+                    {
+                        // We allow multiple high-level overloads to map to a single dxil extension function.
+                        // If the vector index is invalid for this specific overload then use an undef
+                        // value as a replacement.
+                        if (ArgInfo.VectorIndex < Arg->getType()->getVectorNumElements())
+                        {
+                            Arg = builder.CreateExtractElement(Arg, ArgInfo.VectorIndex);
+                        }
+                        else
+                        {
+                            Arg = UndefValue::get(Arg->getType()->getVectorElementType());
+                        }
+                    }
+                    else
+                    {
+                        // If it is a non-vector type then we replace non-zero vector index with
+                        // undef. This is to handle hlsl intrinsic overloading rules that allow
+                        // scalars in place of single-element vectors. We assume here that a non-vector
+                        // means that a single element vector was already scalarized.
+                        // 
+                        if (ArgInfo.VectorIndex > 0)
+                        {
+                            Arg = UndefValue::get(Arg->getType());
+                        }
+                    }
+                }
+
+                m_LoweredArgs.push_back(Arg);
+            }
+            else if (ArgInfo.OptionalType)
+            {
+                // If there was no matching high-level arg then we look for the optional
+                // arg type specified by the lowering info.
+                m_LoweredArgs.push_back(UndefValue::get(ArgInfo.OptionalType));
+            }
+            else
+            { 
+                // No way to know how to generate the correc type for this dxil arg.
+                ThrowExtensionError("Unable to map high-level arg to dxil arg");
+            }
+        }
+    }
+    
+    std::vector<Value *> m_LoweredArgs;
+    SmallVector<OptionalTypeSpec, 5> m_OptionalTypes;
+};
+
+// Boilerplate to reuse exising logic as much as possible.
+// We just want to overload GetFunctionType here.
+class CustomResourceFunctionTranslator : public FunctionTranslator {
+public:
+  static Function *GetLoweredFunction(
+        const CustomResourceLowering &CustomLowering,
+        ResourceFunctionTypeTranslator &typeTranslator,
+        CallInst *CI,
+        ExtensionLowering &lower
+    )
+  {
+      CustomResourceFunctionTranslator T(CustomLowering, typeTranslator, lower);
+      return T.FunctionTranslator::GetLoweredFunction(CI);
+  }
+
+private:
+    CustomResourceFunctionTranslator(
+        const CustomResourceLowering &CustomLowering,
+        ResourceFunctionTypeTranslator &typeTranslator,
+        ExtensionLowering &lower
+    )
+        : FunctionTranslator(typeTranslator, lower)
+        , m_CustomLowering(CustomLowering)
+    {
+    }
+
+    virtual FunctionType *GetFunctionType(CallInst *CI, Type *RetTy) override {
+        SmallVector<Type *, 16> ParamTypes;
+        for (Value *V : m_CustomLowering.GetLoweredArgs())
+        {
+            ParamTypes.push_back(V->getType());
+        }
+        const bool IsVarArg = false;
+        return FunctionType::get(RetTy, ParamTypes, IsVarArg);
+    }
+
+private:
+    const CustomResourceLowering &m_CustomLowering;
+};
+
+// Boilerplate to reuse exising logic as much as possible.
+// We just want to overload Generate here.
+class CustomResourceMethodCall : public ResourceMethodCall
+{
+public:
+    CustomResourceMethodCall(CallInst *CI, const CustomResourceLowering &CustomLowering)
+        : ResourceMethodCall(CI)
+        , m_CustomLowering(CustomLowering)
+    {}
+
+    virtual Value *Generate(Function *loweredFunction) override {
+        Value *result = CreateCall(loweredFunction, m_CustomLowering.GetLoweredArgs());
+        result = ConvertResult(result);
+        return result;
+    }
+
+private:
+    const CustomResourceLowering &m_CustomLowering;
+};
+
+// Support custom lowering logic for resource functions.
+Value *ExtensionLowering::CustomResource(CallInst *CI) {
+    CustomResourceLowering CustomLowering(m_extraStrategyInfo, CI, m_hlResourceLookup);
+    ResourceFunctionTypeTranslator ResourceTypeTranslator(m_hlslOp);
+    Function *ResourceFunction = CustomResourceFunctionTranslator::GetLoweredFunction(
+        CustomLowering,
+        ResourceTypeTranslator,
+        CI,
+        *this
+    );
+    if (!ResourceFunction)
+        return NoTranslation(CI);
+
+    CustomResourceMethodCall custom(CI, CustomLowering);
+    Value *Result = custom.Generate(ResourceFunction);
+    return Result;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
