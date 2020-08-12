@@ -31,6 +31,7 @@ namespace hlsl {
   {
       // Lookup resource kind based on handle. Return true on success.
       virtual bool GetResourceKindName(llvm::Value *HLHandle, const char **ppName) = 0;
+      virtual ~HLResourceLookup() {}
   };
 
   // Lowers HLSL extensions from HL operation to DXIL operation.

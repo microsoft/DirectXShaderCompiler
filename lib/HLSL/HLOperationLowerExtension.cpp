@@ -134,6 +134,8 @@ public:
     return translator.GetLoweredFunction(CI);
   }
 
+  virtual ~FunctionTranslator() {}
+
 protected:
   FunctionTypeTranslator &m_typeTranslator;
   ExtensionLowering &m_lower;
@@ -504,6 +506,8 @@ public:
     : m_CI(CI)
     , m_builder(CI)
   { }
+
+  virtual ~ResourceMethodCall() {}
 
   virtual Value *Generate(Function *explodedFunction) {
     SmallVector<Value *, 16> args;
