@@ -1062,6 +1062,7 @@ namespace DXIL {
     const unsigned kTextureSampleClampOpIdx = 10;
 
     // AtomicBinOp.
+    const unsigned kAtomicBinOpHandleOpIdx = 1;
     const unsigned kAtomicBinOpCoord0OpIdx = 3;
     const unsigned kAtomicBinOpCoord1OpIdx = 4;
     const unsigned kAtomicBinOpCoord2OpIdx = 5;
@@ -1371,8 +1372,10 @@ namespace DXIL {
   const uint64_t ShaderFeatureInfo_ShadingRate = 0x80000;
   const uint64_t ShaderFeatureInfo_Raytracing_Tier_1_1 = 0x100000;
   const uint64_t ShaderFeatureInfo_SamplerFeedback = 0x200000;
+  const uint64_t ShaderFeatureInfo_AtomicInt64OnTypedResource = 0x400000;
+  const uint64_t ShaderFeatureInfo_AtomicInt64OnGroupShared = 0x800000;
 
-  const unsigned ShaderFeatureInfoCount = 22;
+  const unsigned ShaderFeatureInfoCount = 24;
 
   // DxilSubobjectType must match D3D12_STATE_SUBOBJECT_TYPE, with
   // certain values reserved, since they cannot be used from Dxil.
