@@ -1,0 +1,83 @@
+// RUN: %dxc -T ps_6_6 %s | FileCheck %s -check-prefix=CHECK
+
+// RUN: %dxc -T ps_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
+
+// Verify that the second and third args determine the overload and the others can be what they will
+// When either of these is not int64, fallback to the old overload with its casts
+
+RWByteAddressBuffer res;
+
+void main( uint a : A, uint b: B, uint c :C) : SV_Target
+{
+  uint uv = b - c;
+  uint uv2 = b + c;
+  int iv = b / c;
+  int iv2 = b * c;
+  uint64_t bb = b;
+  uint64_t cc = c;
+  uint64_t luv = bb * cc;
+  uint64_t luv2 = bb / cc;
+  int64_t liv = bb + cc;
+  int64_t liv2 = bb - cc;
+  uint ix = 0;
+
+  // CHECK: call i32 @dx.op.atomicCompareExchange.i32
+  // CHECK: call i32 @dx.op.atomicCompareExchange.i32
+  // CHECK: call i32 @dx.op.atomicCompareExchange.i32
+  // CHECK: call i32 @dx.op.atomicCompareExchange.i32
+  // CHECK: call i32 @dx.op.atomicCompareExchange.i32
+  // CHECK: call i32 @dx.op.atomicCompareExchange.i32
+  res.InterlockedCompareStore( ix++, iv, iv2 );
+  res.InterlockedCompareStore( ix++, iv, uv2 );
+  res.InterlockedCompareStore( ix++, uv, iv2 );
+  res.InterlockedCompareStore( ix++, uv, uv2 );
+  res.InterlockedCompareStore( ix++, uv, iv2 );
+  res.InterlockedCompareStore( ix++, iv, uv2 );
+
+  // CHECK: call i64 @dx.op.atomicCompareExchange.i64
+  // CHECK: call i64 @dx.op.atomicCompareExchange.i64
+  // CHECK: call i64 @dx.op.atomicCompareExchange.i64
+  // CHECK: call i64 @dx.op.atomicCompareExchange.i64
+  // CHECK: call i64 @dx.op.atomicCompareExchange.i64
+  // CHECK: call i64 @dx.op.atomicCompareExchange.i64
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  res.InterlockedCompareStore( ix++, liv, liv2 );
+  res.InterlockedCompareStore( ix++, liv, luv2 );
+  res.InterlockedCompareStore( ix++, luv, liv2 );
+  res.InterlockedCompareStore( ix++, luv, luv2 );
+  res.InterlockedCompareStore( ix++, luv, liv2 );
+  res.InterlockedCompareStore( ix++, liv, luv2 );
+
+  // CHECK: call i64 @dx.op.atomicCompareExchange.i64
+  // CHECK: call i32 @dx.op.atomicCompareExchange.i32
+  // CHECK: call i32 @dx.op.atomicCompareExchange.i32
+  // CHECK: call i64 @dx.op.atomicCompareExchange.i64
+  // CHECK: call i32 @dx.op.atomicCompareExchange.i32
+  // CHECK: call i32 @dx.op.atomicCompareExchange.i32
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  res.InterlockedCompareStore( ix++, luv, luv2 );
+  res.InterlockedCompareStore( ix++, luv, uv2 );
+  res.InterlockedCompareStore( ix++, uv, luv2 );
+  res.InterlockedCompareStore( ix++, liv, liv2 );
+  res.InterlockedCompareStore( ix++, liv, iv2 );
+  res.InterlockedCompareStore( ix++, iv, liv2 );
+
+  // CHECK: call i32 @dx.op.atomicCompareExchange.i32
+  // CHECK: call i32 @dx.op.atomicCompareExchange.i32
+  // CHECK: call i32 @dx.op.atomicCompareExchange.i32
+  // CHECK: call i32 @dx.op.atomicCompareExchange.i32
+  // CHECK: call i32 @dx.op.atomicCompareExchange.i32
+  // CHECK: call i32 @dx.op.atomicCompareExchange.i32
+  res.InterlockedCompareStore( ix++, uv, uv2 );
+  res.InterlockedCompareStore( ix++, uv, luv2 );
+  res.InterlockedCompareStore( ix++, luv, uv2 );
+  res.InterlockedCompareStore( ix++, iv, iv2 );
+  res.InterlockedCompareStore( ix++, iv, liv2 );
+  res.InterlockedCompareStore( ix++, liv, iv2 );
+}

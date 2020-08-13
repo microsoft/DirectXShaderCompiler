@@ -47,7 +47,6 @@ public:
   llvm::Function *GetOpFunc(OpCode OpCode, llvm::Type *pOverloadType);
   const llvm::SmallMapVector<llvm::Type *, llvm::Function *, 8> &GetOpFuncList(OpCode OpCode) const;
   void RemoveFunction(llvm::Function *F);
-  llvm::Type *GetOverloadType(OpCode OpCode, llvm::Function *F);
   llvm::LLVMContext &GetCtx() { return m_Ctx; }
   llvm::Type *GetHandleType() const;
   llvm::Type *GetResourcePropertiesType() const;
@@ -87,6 +86,7 @@ public:
   llvm::Constant *GetFloatConst(float v);
   llvm::Constant *GetDoubleConst(double v);
 
+  static llvm::Type *GetOverloadType(OpCode OpCode, llvm::Function *F);
   static OpCode GetDxilOpFuncCallInst(const llvm::Instruction *I);
   static const char *GetOpCodeName(OpCode OpCode);
   static const char *GetAtomicOpName(DXIL::AtomicBinOpCode OpCode);

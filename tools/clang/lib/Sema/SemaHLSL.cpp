@@ -1000,6 +1000,7 @@ static const ArBasicKind g_DoubleCT[] =
 static const ArBasicKind g_DoubleOnlyCT[] =
 {
   AR_BASIC_FLOAT64,
+  AR_BASIC_LITERAL_FLOAT,
   AR_BASIC_NOCAST,
   AR_BASIC_UNKNOWN
 };
@@ -1207,6 +1208,23 @@ static const ArBasicKind g_Int32OnlyCT[] =
   AR_BASIC_UNKNOWN
 };
 
+// No literal because rawbuffer atomics should resolve to i32 for literals
+static const ArBasicKind g_Int64OnlyCT[] =
+{
+  AR_BASIC_UINT64,
+  AR_BASIC_INT64,
+  AR_BASIC_NOCAST,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_AnyInt64CT[] =
+{
+  AR_BASIC_INT64,
+  AR_BASIC_UINT64,
+  AR_BASIC_LITERAL_INT,
+  AR_BASIC_UNKNOWN
+};
+
 // Basic kinds, indexed by a LEGAL_INTRINSIC_COMPTYPES value.
 const ArBasicKind* g_LegalIntrinsicCompTypes[] =
 {
@@ -1247,6 +1265,8 @@ const ArBasicKind* g_LegalIntrinsicCompTypes[] =
   g_Texture2DArrayCT,   // LICOMPTYPE_TEXTURE2DARRAY
   g_ResourceCT,         // LICOMPTYPE_RESOURCE
   g_Int32OnlyCT,        // LICOMPTYPE_INT32_ONLY
+  g_Int64OnlyCT,        // LICOMPTYPE_INT64_ONLY
+  g_AnyInt64CT,         // LICOMPTYPE_ANY_INT64
 };
 static_assert(ARRAYSIZE(g_LegalIntrinsicCompTypes) == LICOMPTYPE_COUNT,
   "Intrinsic comp type table must be updated when new enumerants are added.");
@@ -5493,6 +5513,21 @@ bool HLSLExternalSource::MatchArguments(
       continue;
     }
 
+    // Verify TypeInfoEltKind can be cast to something legal for this param
+    if (AR_BASIC_UNKNOWN != TypeInfoEltKind) {
+      for (const ArBasicKind *pCT = g_LegalIntrinsicCompTypes[pIntrinsicArg->uLegalComponentTypes];
+           AR_BASIC_UNKNOWN != *pCT; pCT++) {
+        if (TypeInfoEltKind == *pCT)
+          break;
+        else if ((TypeInfoEltKind == AR_BASIC_LITERAL_INT && *pCT == AR_BASIC_LITERAL_FLOAT) ||
+                 (TypeInfoEltKind == AR_BASIC_LITERAL_FLOAT && *pCT == AR_BASIC_LITERAL_INT))
+          break;
+        else if (*pCT == AR_BASIC_NOCAST) {
+          badArgIdx = std::min(badArgIdx, iArg);
+        }
+      }
+    }
+
     if (TypeInfoEltKind == AR_BASIC_LITERAL_INT ||
         TypeInfoEltKind == AR_BASIC_LITERAL_FLOAT) {
       bool affectRetType =
@@ -5554,18 +5589,6 @@ bool HLSLExternalSource::MatchArguments(
     DXASSERT(
       pIntrinsicArg->uComponentTypeId < MaxIntrinsicArgs,
       "otherwise intrinsic table was modified and MaxIntrinsicArgs was not updated (or uComponentTypeId is out of bounds)");
-
-    // Verify TypeInfoEltKind can be cast to something legal for this param
-    if (AR_BASIC_UNKNOWN != TypeInfoEltKind) {
-      for (const ArBasicKind *pCT = g_LegalIntrinsicCompTypes[pIntrinsicArg->uLegalComponentTypes];
-           AR_BASIC_UNKNOWN != *pCT; pCT++) {
-        if (TypeInfoEltKind == *pCT)
-          break;
-        else if (*pCT == AR_BASIC_NOCAST) {
-          badArgIdx = std::min(badArgIdx, iArg);
-        }
-      }
-    }
 
     // Merge ComponentTypes
     if (AR_BASIC_UNKNOWN == ComponentType[pIntrinsicArg->uComponentTypeId]) {

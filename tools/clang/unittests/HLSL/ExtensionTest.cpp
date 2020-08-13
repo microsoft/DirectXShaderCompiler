@@ -123,6 +123,28 @@ static const HLSL_INTRINSIC_ARGUMENT WaveProcArgs[] = {
   { "value", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, 1, IA_C }
 };
 
+// uint = Texutre1D.MyTextureOp(uint addr, uint offset)
+static const HLSL_INTRINSIC_ARGUMENT TestMyTexture1DOp_0[] = {
+  { "MyTextureOp", AR_QUAL_OUT, 0, LITEMPLATE_SCALAR, 0, LICOMPTYPE_UINT, 1, 1 },
+  { "addr", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_UINT, 1, 1},
+  { "offset", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_UINT, 1, 1},
+};
+
+// uint = Texutre1D.MyTextureOp(uint addr, uint offset, uint val)
+static const HLSL_INTRINSIC_ARGUMENT TestMyTexture1DOp_1[] = {
+  { "MyTextureOp", AR_QUAL_OUT, 0, LITEMPLATE_SCALAR, 0, LICOMPTYPE_UINT, 1, 1 },
+  { "addr", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_UINT, 1, 1},
+  { "offset", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_UINT, 1, 1},
+  { "val", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_UINT, 1, 1},
+};
+
+// uint2 = Texture2D.MyTextureOp(uint2 addr, uint2 val)
+static const HLSL_INTRINSIC_ARGUMENT TestMyTexture2DOp[] = {
+  { "MyTextureOp", AR_QUAL_OUT, 0, LITEMPLATE_VECTOR, 0, LICOMPTYPE_UINT, 1, 1 },
+  { "addr", AR_QUAL_IN, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_UINT, 1, 2},
+  { "val", AR_QUAL_IN, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_UINT, 1, 2},
+};
+
 struct Intrinsic {
   LPCWSTR hlslName;
   const char *dxilName;
@@ -163,6 +185,39 @@ Intrinsic BufferIntrinsics[] = {
 Intrinsic SamplerIntrinsics[] = {
   {L"MySamplerOp",   "MySamplerOp",    "m", { 15, false, true, false, -1, countof(TestMySamplerOp), TestMySamplerOp}},
 };
+
+// Define a lowering string to target a common dxil extension operation defined like this:
+//
+// @MyTextureOp(i32 opcode, %dx.types.Handle, i32 addr0, i32 addr1, i32 offset, i32 val0, i32 val1);
+//
+//  This would produce the following lowerings (assuming the MyTextureOp opcode is 17)
+//
+//  hlsl: Texture1D.MyTextureOp(a, b)
+//  hl:   @MyTextureOp(17, handle, a, b)
+//  dxil: @MyTextureOp(17, handle, a, undef, b, undef, undef)
+//
+//  hlsl: Texture1D.MyTextureOp(a, b, c)
+//  hl:   @MyTextureOp(17, handle, a, b, c)
+//  dxil: @MyTextureOp(17, handle, a, undef, b, c, undef)
+//
+//  hlsl: Texture2D.MyTextureOp(a, c)
+//  hl:   @MyTextureOp(17, handle, a, c)
+//  dxil: @MyTextureOp(17, handle, a.x, a.y, undef, c.x, c.y)
+//
+static const char *MyTextureOp_LoweringInfo = 
+    "m:{"
+        "\"default\"   : \"0,1,2.0,2.1,3,4.0:?i32,4.1:?i32\","
+        "\"Texture2D\" : \"0,1,2.0,2.1,-1:?i32,3.0,3.1\""
+    "}";
+Intrinsic Texture1DIntrinsics[] = {
+  {L"MyTextureOp",   "MyTextureOp", MyTextureOp_LoweringInfo, { 17, false, true, false, -1, countof(TestMyTexture1DOp_0), TestMyTexture1DOp_0}},
+  {L"MyTextureOp",   "MyTextureOp", MyTextureOp_LoweringInfo, { 17, false, true, false, -1, countof(TestMyTexture1DOp_1), TestMyTexture1DOp_1}},
+};
+
+Intrinsic Texture2DIntrinsics[] = {
+  {L"MyTextureOp",   "MyTextureOp", MyTextureOp_LoweringInfo, { 17, false, true, false, -1, countof(TestMyTexture2DOp), TestMyTexture2DOp}},
+};
+
 
 class IntrinsicTable {
 public:
@@ -233,6 +288,8 @@ public:
     m_tables.push_back(IntrinsicTable(L"",       std::begin(Intrinsics), std::end(Intrinsics)));
     m_tables.push_back(IntrinsicTable(L"Buffer", std::begin(BufferIntrinsics), std::end(BufferIntrinsics)));
     m_tables.push_back(IntrinsicTable(L"SamplerState", std::begin(SamplerIntrinsics), std::end(SamplerIntrinsics)));
+    m_tables.push_back(IntrinsicTable(L"Texture1D", std::begin(Texture1DIntrinsics), std::end(Texture1DIntrinsics)));
+    m_tables.push_back(IntrinsicTable(L"Texture2D", std::begin(Texture2DIntrinsics), std::end(Texture2DIntrinsics)));
   }
   DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject) override {
@@ -470,6 +527,9 @@ public:
   TEST_METHOD(DxilLoweringScalar)
   TEST_METHOD(SamplerExtensionIntrinsic)
   TEST_METHOD(WaveIntrinsic)
+  TEST_METHOD(ResourceExtensionIntrinsicCustomLowering1)
+  TEST_METHOD(ResourceExtensionIntrinsicCustomLowering2)
+  TEST_METHOD(ResourceExtensionIntrinsicCustomLowering3)
 };
 
 TEST_F(ExtensionTest, DefineWhenRegisteredThenPreserved) {
@@ -1043,3 +1103,82 @@ TEST_F(ExtensionTest, WaveIntrinsic) {
     disassembly.find("br i1 %2"));
 }
 
+TEST_F(ExtensionTest, ResourceExtensionIntrinsicCustomLowering1) {
+  // Test adding methods to objects that don't have any methods normally,
+  // and therefore have null default intrinsic table.
+  Compiler c(m_dllSupport);
+  c.RegisterIntrinsicTable(new TestIntrinsicTable());
+  auto result = c.Compile(
+    "Texture1D tex1;"
+    "float2 main() : SV_Target {\n"
+    "  return tex1.MyTextureOp(1,2,3);\n"
+    "}\n",
+    { L"/Vd" }, {}
+  );
+  CheckOperationResultMsgs(result, {}, true, false);
+  std::string disassembly = c.Disassemble();
+
+  // Things to check
+  // @MyTextureOp(i32 opcode, %dx.types.Handle, i32 addr0, i32 addr1, i32 offset, i32 val0, i32 val1);
+  //
+  // hlsl: Texture1D.MyTextureOp(a, b, c)
+  // dxil: @MyTextureOp(17, handle, a, undef, b, c, undef)
+  //
+  LPCSTR expected[] = {
+    "call %dx.types.ResRet.i32 @MyTextureOp\\(i32 17, %dx.types.Handle %.*, i32 1, i32 undef, i32 2, i32 3, i32 undef\\)",
+  };
+  CheckMsgs(disassembly.c_str(), disassembly.length(), expected, 1, true);
+}
+
+TEST_F(ExtensionTest, ResourceExtensionIntrinsicCustomLowering2) {
+  // Test adding methods to objects that don't have any methods normally,
+  // and therefore have null default intrinsic table.
+  Compiler c(m_dllSupport);
+  c.RegisterIntrinsicTable(new TestIntrinsicTable());
+  auto result = c.Compile(
+    "Texture2D tex2;"
+    "float2 main() : SV_Target {\n"
+    "  return tex2.MyTextureOp(uint2(4,5), uint2(6,7));\n"
+    "}\n",
+    { L"/Vd" }, {}
+  );
+  CheckOperationResultMsgs(result, {}, true, false);
+  std::string disassembly = c.Disassemble();
+
+  // Things to check
+  // @MyTextureOp(i32 opcode, %dx.types.Handle, i32 addr0, i32 addr1, i32 offset, i32 val0, i32 val1);
+  //
+  // hlsl: Texture2D.MyTextureOp(a, c)
+  // dxil: @MyTextureOp(17, handle, a.x, a.y, undef, c.x, c.y)
+  LPCSTR expected[] = {
+    "call %dx.types.ResRet.i32 @MyTextureOp\\(i32 17, %dx.types.Handle %.*, i32 4, i32 5, i32 undef, i32 6, i32 7\\)",
+  };
+  CheckMsgs(disassembly.c_str(), disassembly.length(), expected, 1, true);
+}
+
+TEST_F(ExtensionTest, ResourceExtensionIntrinsicCustomLowering3) {
+  // Test adding methods to objects that don't have any methods normally,
+  // and therefore have null default intrinsic table.
+  Compiler c(m_dllSupport);
+  c.RegisterIntrinsicTable(new TestIntrinsicTable());
+  auto result = c.Compile(
+    "Texture1D tex1;"
+    "float2 main() : SV_Target {\n"
+    "  return tex1.MyTextureOp(1,2);\n"
+    "}\n",
+    { L"/Vd" }, {}
+  );
+  CheckOperationResultMsgs(result, {}, true, false);
+  std::string disassembly = c.Disassemble();
+
+  // Things to check
+  // @MyTextureOp(i32 opcode, %dx.types.Handle, i32 addr0, i32 addr1, i32 offset, i32 val0, i32 val1);
+  //
+  // hlsl: Texture1D.MyTextureOp(a, b)
+  // dxil: @MyTextureOp(17, handle, a, undef, b, undef, undef)
+  //
+  LPCSTR expected[] = {
+    "call %dx.types.ResRet.i32 @MyTextureOp\\(i32 17, %dx.types.Handle %.*, i32 1, i32 undef, i32 2, i32 undef, i32 undef\\)",
+  };
+  CheckMsgs(disassembly.c_str(), disassembly.length(), expected, 1, true);
+}

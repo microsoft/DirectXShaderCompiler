@@ -170,8 +170,8 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   {  OC::RenderTargetGetSampleCount, "RenderTargetGetSampleCount", OCC::RenderTargetGetSampleCount, "renderTargetGetSampleCount", {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
 
   // Synchronization                                                                                                         void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
-  {  OC::AtomicBinOp,             "AtomicBinOp",              OCC::AtomicBinOp,              "atomicBinOp",               { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::None,     },
-  {  OC::AtomicCompareExchange,   "AtomicCompareExchange",    OCC::AtomicCompareExchange,    "atomicCompareExchange",     { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::None,     },
+  {  OC::AtomicBinOp,             "AtomicBinOp",              OCC::AtomicBinOp,              "atomicBinOp",               { false, false, false, false, false, false, false,  true,  true, false, false}, Attribute::None,     },
+  {  OC::AtomicCompareExchange,   "AtomicCompareExchange",    OCC::AtomicCompareExchange,    "atomicCompareExchange",     { false, false, false, false, false, false, false,  true,  true, false, false}, Attribute::None,     },
   {  OC::Barrier,                 "Barrier",                  OCC::Barrier,                  "barrier",                   {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::NoDuplicate, },
 
   // Pixel shader                                                                                                            void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
@@ -860,6 +860,15 @@ void OP::GetMinShaderModelAndMask(const llvm::CallInst *CI, bool bWithTranslatio
     }
     return;
   }
+
+  // 64-bit integer atomic ops require 6.6
+  else if (opcode == DXIL::OpCode::AtomicBinOp || opcode == DXIL::OpCode::AtomicCompareExchange) {
+    Type *pOverloadType = GetOverloadType(opcode, CI->getCalledFunction());
+    if (pOverloadType->isIntegerTy(64)) {
+      major = 6;
+      minor = 6;
+    }
+  }
 }
 #undef SFLAG
 
@@ -1134,8 +1143,8 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::RenderTargetGetSampleCount:A(pI32);     A(pI32); break;
 
     // Synchronization
-  case OpCode::AtomicBinOp:            A(pI32);     A(pI32); A(pRes); A(pI32); A(pI32); A(pI32); A(pI32); A(pI32); break;
-  case OpCode::AtomicCompareExchange:  A(pI32);     A(pI32); A(pRes); A(pI32); A(pI32); A(pI32); A(pI32); A(pI32); break;
+  case OpCode::AtomicBinOp:            A(pETy);     A(pI32); A(pRes); A(pI32); A(pI32); A(pI32); A(pI32); A(pETy); break;
+  case OpCode::AtomicCompareExchange:  A(pETy);     A(pI32); A(pRes); A(pI32); A(pI32); A(pI32); A(pETy); A(pETy); break;
   case OpCode::Barrier:                A(pV);       A(pI32); A(pI32); break;
 
     // Pixel shader
@@ -1430,6 +1439,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   DXASSERT(F, "not work on nullptr");
   Type *Ty = F->getReturnType();
   FunctionType *FT = F->getFunctionType();
+  LLVMContext &Ctx = F->getContext();
 /* <py::lines('OPCODE-OLOAD-TYPES')>hctdb_instrhelp.get_funcs_oload_type()</py>*/
   switch (opCode) {            // return     OpCode
   // OPCODE-OLOAD-TYPES:BEGIN
@@ -1521,10 +1531,8 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::RayQuery_CommitProceduralPrimitiveHit:
   case OpCode::CreateHandleFromHeap:
   case OpCode::AnnotateHandle:
-    return Type::getVoidTy(m_Ctx);
+    return Type::getVoidTy(Ctx);
   case OpCode::CheckAccessFullyMapped:
-  case OpCode::AtomicBinOp:
-  case OpCode::AtomicCompareExchange:
   case OpCode::SampleIndex:
   case OpCode::Coverage:
   case OpCode::InnerCoverage:
@@ -1559,7 +1567,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::GeometryIndex:
   case OpCode::RayQuery_CandidateInstanceContributionToHitGroupIndex:
   case OpCode::RayQuery_CommittedInstanceContributionToHitGroupIndex:
-    return IntegerType::get(m_Ctx, 32);
+    return IntegerType::get(Ctx, 32);
   case OpCode::CalculateLOD:
   case OpCode::DomainLocation:
   case OpCode::WorldRayOrigin:
@@ -1585,15 +1593,15 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::RayQuery_CandidateObjectRayDirection:
   case OpCode::RayQuery_CommittedObjectRayOrigin:
   case OpCode::RayQuery_CommittedObjectRayDirection:
-    return Type::getFloatTy(m_Ctx);
+    return Type::getFloatTy(Ctx);
   case OpCode::MakeDouble:
   case OpCode::SplitDouble:
-    return Type::getDoubleTy(m_Ctx);
+    return Type::getDoubleTy(Ctx);
   case OpCode::RayQuery_Proceed:
   case OpCode::RayQuery_CandidateProceduralPrimitiveNonOpaque:
   case OpCode::RayQuery_CandidateTriangleFrontFace:
   case OpCode::RayQuery_CommittedTriangleFrontFace:
-    return IntegerType::get(m_Ctx, 1);
+    return IntegerType::get(Ctx, 1);
   case OpCode::CBufferLoadLegacy:
   case OpCode::Sample:
   case OpCode::SampleBias:

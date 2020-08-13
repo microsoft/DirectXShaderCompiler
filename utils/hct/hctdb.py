@@ -945,24 +945,24 @@ class db_dxil(object):
         next_op_idx += 1
 
         # Atomics. Note that on TGSM, atomics are performed with LLVM instructions.
-        self.add_dxil_op("AtomicBinOp", next_op_idx, "AtomicBinOp", "performs an atomic operation on two operands", "i", "", [
-            db_dxil_param(0, "i32", "", "the original value in the location updated"),
+        self.add_dxil_op("AtomicBinOp", next_op_idx, "AtomicBinOp", "performs an atomic operation on two operands", "li", "", [
+            db_dxil_param(0, "$o", "", "the original value in the location updated"),
             db_dxil_param(2, "res", "handle", "typed int or uint UAV handle"),
             db_dxil_param(3, "i32", "atomicOp", "atomic operation as per DXIL::AtomicBinOpCode"),
             db_dxil_param(4, "i32", "offset0", "offset in elements"),
             db_dxil_param(5, "i32", "offset1", "offset"),
             db_dxil_param(6, "i32", "offset2", "offset"),
-            db_dxil_param(7, "i32", "newValue", "new value")],
+            db_dxil_param(7, "$o", "newValue", "new value")],
             counters=('atomic',))
         next_op_idx += 1
-        self.add_dxil_op("AtomicCompareExchange", next_op_idx, "AtomicCompareExchange", "atomic compare and exchange to memory", "i", "", [
-            db_dxil_param(0, "i32", "", "the original value in the location updated"),
+        self.add_dxil_op("AtomicCompareExchange", next_op_idx, "AtomicCompareExchange", "atomic compare and exchange to memory", "li", "", [
+            db_dxil_param(0, "$o", "", "the original value in the location updated"),
             db_dxil_param(2, "res", "handle", "typed int or uint UAV handle"),
             db_dxil_param(3, "i32", "offset0", "offset in elements"),
             db_dxil_param(4, "i32", "offset1", "offset"),
             db_dxil_param(5, "i32", "offset2", "offset"),
-            db_dxil_param(6, "i32", "compareValue", "value to compare for exchange"),
-            db_dxil_param(7, "i32", "newValue", "new value")],
+            db_dxil_param(6, "$o", "compareValue", "value to compare for exchange"),
+            db_dxil_param(7, "$o", "newValue", "new value")],
             counters=('atomic',))
         next_op_idx += 1
 
@@ -2780,12 +2780,14 @@ class db_hlsl(object):
             "bool": "LICOMPTYPE_BOOL",
             "int": "LICOMPTYPE_INT",
             "int32_only": "LICOMPTYPE_INT32_ONLY",
+            "int64_only": "LICOMPTYPE_INT64_ONLY",
             "int16_t": "LICOMPTYPE_INT16",
             "uint": "LICOMPTYPE_UINT",
             "uint16_t": "LICOMPTYPE_UINT16",
             "u64": "LICOMPTYPE_UINT64",
             "any_int": "LICOMPTYPE_ANY_INT",
             "any_int32": "LICOMPTYPE_ANY_INT32",
+            "any_int64": "LICOMPTYPE_ANY_INT64",
             "uint_only": "LICOMPTYPE_UINT_ONLY",
             "float16_t": "LICOMPTYPE_FLOAT16",
             "float": "LICOMPTYPE_FLOAT",

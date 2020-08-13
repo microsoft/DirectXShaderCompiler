@@ -2216,10 +2216,9 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
     }
   } break;
   case DXIL::OpCode::RawBufferLoad: {
-    hlsl::OP *hlslOP = ValCtx.DxilMod.GetOP();
     if (!ValCtx.DxilMod.GetShaderModel()->IsSM63Plus()) {
-      Type *Ty = hlslOP->GetOverloadType(DXIL::OpCode::RawBufferLoad,
-                                         CI->getCalledFunction());
+      Type *Ty = OP::GetOverloadType(DXIL::OpCode::RawBufferLoad,
+                                 CI->getCalledFunction());
       if (ValCtx.DL.getTypeAllocSizeInBits(Ty) > 32) {
         ValCtx.EmitInstrError(CI, ValidationRule::Sm64bitRawBufferLoadStore);
       }
@@ -2265,10 +2264,9 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
     }
   } break;
   case DXIL::OpCode::RawBufferStore: {
-    hlsl::OP *hlslOP = ValCtx.DxilMod.GetOP();
     if (!ValCtx.DxilMod.GetShaderModel()->IsSM63Plus()) {
-      Type *Ty = hlslOP->GetOverloadType(DXIL::OpCode::RawBufferStore,
-                                         CI->getCalledFunction());
+      Type *Ty = OP::GetOverloadType(DXIL::OpCode::RawBufferStore,
+                                 CI->getCalledFunction());
       if (ValCtx.DL.getTypeAllocSizeInBits(Ty) > 32) {
         ValCtx.EmitInstrError(CI, ValidationRule::Sm64bitRawBufferLoadStore);
       }
@@ -2498,6 +2496,15 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
                                   {"CreateHandleForLib", "Library"});
     }
     break;
+  case DXIL::OpCode::AtomicBinOp:
+  case DXIL::OpCode::AtomicCompareExchange: {
+    Type *pOverloadType = OP::GetOverloadType(opcode, CI->getCalledFunction());
+    if ((pOverloadType->isIntegerTy(64)) &&
+        (pSM->GetMajor() < 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() < 6))) {
+      ValCtx.EmitInstrFormatError(CI, ValidationRule::SmOpcodeInInvalidFunction,
+                                  {"64-bit atomic operations", "Shader Model 6.6+"});
+    }
+  } break;
   default:
     // TODO: make sure every opcode is checked.
     // Skip opcodes don't need special check.
@@ -2562,7 +2569,7 @@ static void ValidateExternalFunction(Function *F, ValidationContext &ValCtx) {
       dxilFunc = hlslOP->GetOpFunc(dxilOpcode, voidTy);
     }
     else {
-      Type *Ty = hlslOP->GetOverloadType(dxilOpcode, CI->getCalledFunction());
+      Type *Ty = OP::GetOverloadType(dxilOpcode, CI->getCalledFunction());
       try {
         if (!hlslOP->IsOverloadLegal(dxilOpcode, Ty)) {
           ValCtx.EmitInstrError(CI, ValidationRule::InstrOload);
@@ -3451,6 +3458,17 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
           ValCtx.EmitInstrError(Cast, ValidationRule::InstrMinPrecisonBitCast);
         }
       } break;
+      case Instruction::AtomicCmpXchg:
+      case Instruction::AtomicRMW: {
+        Type *T = cast<PointerType>(I.getOperand(AtomicRMWInst::getPointerOperandIndex())->getType())->getElementType();
+        const ShaderModel &SM = *ValCtx.DxilMod.GetShaderModel();
+        if ((T->isIntegerTy(64)) &&
+            (SM.GetMajor() < 6 || (SM.GetMajor() == 6 && SM.GetMinor() < 6))) {
+          ValCtx.EmitInstrFormatError(&I, ValidationRule::SmOpcodeInInvalidFunction,
+                                      {"64-bit atomic operations", "Shader Model 6.6+"});
+        }
+      } break;
+
       }
 
       if (PointerType *PT = dyn_cast<PointerType>(I.getType())) {
