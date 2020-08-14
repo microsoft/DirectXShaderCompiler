@@ -11682,14 +11682,14 @@ SpirvEmitter::doUnaryExprOrTypeTraitExpr(const UnaryExprOrTypeTraitExpr *expr) {
   // TODO: We support only `sizeof()`. Support other kinds.
   if (expr->getKind() != clang::UnaryExprOrTypeTrait::UETT_SizeOf) {
     emitError("expression class '%0' unimplemented", expr->getExprLoc())
-        << expr->getStmtClassName() << expr->getSourceRange();
+        << expr->getStmtClassName();
     return nullptr;
   }
 
   AlignmentSizeCalculator alignmentCalc(astContext, spirvOptions);
   uint32_t size = 0, stride = 0;
   std::tie(std::ignore, size) = alignmentCalc.getAlignmentAndSize(
-      expr->getArgumentType(), spirvOptions.sBufferLayoutRule,
+      expr->getArgumentType(), SpirvLayoutRule::Void,
       /*isRowMajor*/ llvm::None, &stride);
   auto *sizeConst = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
                                               llvm::APInt(32, size));
