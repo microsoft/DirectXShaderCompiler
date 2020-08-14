@@ -760,6 +760,8 @@ SpirvInstruction *SpirvEmitter::doExpr(const Expr *expr) {
     result = curThis;
   } else if (isa<CXXConstructExpr>(expr)) {
     result = curThis;
+  } else if (const auto *unaryExpr = dyn_cast<UnaryExprOrTypeTraitExpr>(expr)) {
+    result = doUnaryExprOrTypeTraitExpr(unaryExpr);
   } else {
     emitError("expression class '%0' unimplemented", expr->getExprLoc())
         << expr->getStmtClassName() << expr->getSourceRange();
@@ -11673,6 +11675,26 @@ bool SpirvEmitter::spirvToolsLegalize(std::vector<uint32_t> *mod,
   optimizer.RegisterPass(spvtools::CreateCompactIdsPass());
 
   return optimizer.Run(mod->data(), mod->size(), mod, options);
+}
+
+SpirvInstruction *
+SpirvEmitter::doUnaryExprOrTypeTraitExpr(const UnaryExprOrTypeTraitExpr *expr) {
+  // TODO: We support only `sizeof()`. Support other kinds.
+  if (expr->getKind() != clang::UnaryExprOrTypeTrait::UETT_SizeOf) {
+    emitError("expression class '%0' unimplemented", expr->getExprLoc())
+        << expr->getStmtClassName();
+    return nullptr;
+  }
+
+  AlignmentSizeCalculator alignmentCalc(astContext, spirvOptions);
+  uint32_t size = 0, stride = 0;
+  std::tie(std::ignore, size) = alignmentCalc.getAlignmentAndSize(
+      expr->getArgumentType(), SpirvLayoutRule::Void,
+      /*isRowMajor*/ llvm::None, &stride);
+  auto *sizeConst = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                              llvm::APInt(32, size));
+  sizeConst->setRValue();
+  return sizeConst;
 }
 
 } // end namespace spirv
