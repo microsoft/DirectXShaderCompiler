@@ -19,6 +19,7 @@ namespace clang {
 namespace spirv {
 
 class SpirvBuilder;
+class LowerTypeVisitor;
 
 /// The class responsible to translate SPIR-V types into DebugType*
 /// types as defined in the OpenCL.DebugInfo.100 spec.
@@ -26,9 +27,11 @@ class SpirvBuilder;
 class DebugTypeVisitor : public Visitor {
 public:
   DebugTypeVisitor(ASTContext &astCtx, SpirvContext &spvCtx,
-                   const SpirvCodeGenOptions &opts, SpirvBuilder &builder)
+                   const SpirvCodeGenOptions &opts, SpirvBuilder &builder,
+                   LowerTypeVisitor &lowerTypeVisitor)
       : Visitor(opts, spvCtx), astContext(astCtx), spvContext(spvCtx),
-        spvBuilder(builder) {}
+        spvBuilder(builder), spvTypeVisitor(lowerTypeVisitor),
+        currentDebugInstructionLayoutRule(SpirvLayoutRule::Void) {}
 
   // Visiting different SPIR-V constructs.
   bool visit(SpirvModule *module, Phase);
@@ -57,27 +60,29 @@ private:
   ///
   /// The lowering is recursive. All the debug types that the target type
   /// depends on will also be created.
-  SpirvDebugInstruction *lowerToDebugType(const SpirvType *);
+  SpirvDebugType *lowerToDebugType(const SpirvType *);
 
   /// Lowers DebugTypeComposite.
-  SpirvDebugInstruction *lowerToDebugTypeComposite(const SpirvType *);
+  SpirvDebugType *lowerToDebugTypeComposite(const SpirvType *);
 
-  /// Lowers DebugTypeComposite for cbuffer.
-  SpirvDebugTypeComposite *lowerCbufferDebugType(const StructType *type,
-                                                 const SourceLocation &loc);
+  /// Creates DebugTypeComposite for a struct type.
+  SpirvDebugTypeComposite *createDebugTypeComposite(const SpirvType *type,
+                                                    const SourceLocation &loc,
+                                                    uint32_t tag);
 
-  /// Lowers DebugTypeTemplate for HLSL resource type. Returns false if
-  /// there is an error.
-  bool lowerDebugTypeTemplate(SpirvDebugTypeComposite *instr);
+  /// Adds DebugTypeMembers for member variables to DebugTypeComposite.
+  void addDebugTypeForMemberVariables(
+      SpirvDebugTypeComposite *debugTypeComposite, const StructType *type,
+      llvm::function_ref<SourceLocation()> location, unsigned numBases);
 
-  /// Lowers DebugTypeFunction for member function of a composite type.
-  /// Returns false if there is an error.
-  bool lowerDebugTypeFunctionForMemberFunction(SpirvDebugInstruction *instr);
+  /// Lowers DebugTypeMembers of DebugTypeComposite.
+  void lowerDebugTypeMembers(SpirvDebugTypeComposite *debugTypeComposite,
+                             const StructType *type, const DeclContext *decl);
 
-  /// Lowers debug type for DebugTypeMember of a composite type. Returns
-  /// false if there is an error.
-  bool lowerDebugTypeMember(SpirvDebugTypeMember *debugMember,
-                            uint32_t *sizeInBits, uint32_t *offsetInBits);
+  /// Lowers DebugTypeTemplate for composite type.
+  SpirvDebugTypeTemplate *
+  lowerDebugTypeTemplate(const ClassTemplateSpecializationDecl *templateDecl,
+                         SpirvDebugTypeComposite *debugTypeComposite);
 
   /// Set the result type of debug instructions to OpTypeVoid.
   /// According to the OpenCL.DebugInfo.100 spec, all debug instructions are
@@ -87,9 +92,12 @@ private:
   SpirvDebugInfoNone *getDebugInfoNone();
 
 private:
-  ASTContext &astContext;   /// AST context
-  SpirvContext &spvContext; /// SPIR-V context
-  SpirvBuilder &spvBuilder; ///< SPIR-V builder
+  ASTContext &astContext;           /// AST context
+  SpirvContext &spvContext;         /// SPIR-V context
+  SpirvBuilder &spvBuilder;         ///< SPIR-V builder
+  LowerTypeVisitor &spvTypeVisitor; /// QualType to SPIR-V type visitor
+
+  SpirvLayoutRule currentDebugInstructionLayoutRule; /// SPIR-V layout rule
 };
 
 } // end namespace spirv

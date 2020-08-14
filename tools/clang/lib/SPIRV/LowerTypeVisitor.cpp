@@ -74,15 +74,30 @@ bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
     instr->setResultType(spirvType);
   }
 
-  // Debug instructions have a debug type in addition to the result type.
-  // Their result type is always 'void'. But their debug type can be anything.
+  // Lower QualType of DebugLocalVariable or DebugGlobalVariable to SpirvType.
+  // Since debug local/global variable must have a debug type, SpirvEmitter sets
+  // its QualType. Here we lower it to SpirvType and DebugTypeVisitor will lower
+  // the SpirvType to debug type.
   if (auto *debugInstruction = dyn_cast<SpirvDebugInstruction>(instr)) {
     const QualType debugQualType = debugInstruction->getDebugQualType();
     if (!debugQualType.isNull()) {
+      assert(isa<SpirvDebugLocalVariable>(debugInstruction) ||
+             isa<SpirvDebugGlobalVariable>(debugInstruction));
       const SpirvType *spirvType =
           lowerType(debugQualType, instr->getLayoutRule(),
                     /*isRowMajor*/ llvm::None, instr->getSourceLocation());
       debugInstruction->setDebugSpirvType(spirvType);
+    } else if (const auto *debugSpirvType =
+                   debugInstruction->getDebugSpirvType()) {
+      // When it does not have a QualType, SpirvEmitter or DeclResultIdMapper
+      // generates a hybrid type. In that case, we keep the hybrid type for the
+      // DebugGlobalVariable, not QualType. We have to lower the hybrid type and
+      // update the SpirvType for the DebugGlobalVariable.
+      assert(isa<SpirvDebugGlobalVariable>(debugInstruction) &&
+             isa<HybridType>(debugSpirvType));
+      const SpirvType *loweredSpirvType = lowerType(
+          debugSpirvType, instr->getLayoutRule(), instr->getSourceLocation());
+      debugInstruction->setDebugSpirvType(loweredSpirvType);
     }
   }
 
@@ -174,9 +189,12 @@ const SpirvType *LowerTypeVisitor::lowerType(const SpirvType *type,
     // lower all fields of the struct.
     auto loweredFields =
         populateLayoutInformation(hybridStruct->getFields(), rule);
-    return spvContext.getStructType(
+    const StructType *structType = spvContext.getStructType(
         loweredFields, hybridStruct->getStructName(),
         hybridStruct->isReadOnly(), hybridStruct->getInterfaceType());
+    if (const auto *decl = spvContext.getStructDeclForSpirvType(type))
+      spvContext.registerStructDeclForSpirvType(structType, decl);
+    return structType;
   }
   // Void, bool, int, float cannot be further lowered.
   // Matrices cannot contain hybrid types. Only matrices of scalars are valid.
@@ -373,49 +391,9 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
     // (ClassTemplateSpecializationDecl is a subclass of CXXRecordDecl, which
     // is then a subclass of RecordDecl.) So we need to check them before
     // checking the general struct type.
-    auto spvTypeAndUnderlyingType = lowerResourceType(type, rule, srcLoc);
-    if (spvTypeAndUnderlyingType.first) {
-      if (debugExtInstSet && !visitedRecordDecl.count(decl)) {
-        llvm::SmallVector<StructType::FieldInfo, 4> fields;
-        auto *dbgType = lowerDebugTypeComposite(
-            structType, spvTypeAndUnderlyingType.first, fields, true);
-        visitedRecordDecl.insert(decl);
-
-        // If an underlying type exists, we want to create a template type
-        // information for this composite type e.g., StructuredBuffer<S>.
-        // Note that we pass a pointer to SpirvType for the underlying type
-        // which must be lowered by DebugTypeVisitor.
-        if (spvTypeAndUnderlyingType.second) {
-          const llvm::StringRef name = decl->getName();
-          QualType elemType;
-          if (name == "InputPatch") {
-            elemType = hlsl::GetHLSLInputPatchElementType(type);
-          } else if (name == "OutputPatch") {
-            elemType = hlsl::GetHLSLOutputPatchElementType(type);
-          } else {
-            elemType = hlsl::GetHLSLResourceResultType(type);
-          }
-
-          const SourceLocation &loc = decl->getLocStart();
-          const auto &sm = astContext.getSourceManager();
-          uint32_t line = sm.getPresumedLineNumber(loc);
-          uint32_t column = sm.getPresumedColumnNumber(loc);
-
-          RichDebugInfo *debugInfo = &spvContext.getDebugInfo().begin()->second;
-          const char *file = sm.getPresumedLoc(loc).getFilename();
-          if (file)
-            debugInfo = &spvContext.getDebugInfo()[file];
-
-          spvContext.getDebugTypeTemplate(spvTypeAndUnderlyingType.first,
-                                          dbgType);
-          spvContext.getDebugTypeTemplateParameter(
-              spvTypeAndUnderlyingType.first,
-              std::string(name.data()) + ".TemplateParam",
-              spvTypeAndUnderlyingType.second, nullptr, debugInfo->source, line,
-              column);
-        }
-      }
-      return spvTypeAndUnderlyingType.first;
+    if (const auto *spvType = lowerResourceType(type, rule, srcLoc)) {
+      spvContext.registerStructDeclForSpirvType(spvType, decl);
+      return spvType;
     }
 
     // Collect all fields' information.
@@ -441,14 +419,10 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
 
     auto loweredFields = populateLayoutInformation(fields, rule);
 
-    const auto *spvType =
-        spvContext.getStructType(loweredFields, decl->getName(), false,
-                                 StructInterfaceType::InternalStorage);
-    if (debugExtInstSet && !visitedRecordDecl.count(decl)) {
-      lowerDebugTypeComposite(structType, spvType, loweredFields, false);
-      visitedRecordDecl.insert(decl);
-    }
-    return spvType;
+    const auto *spvStructType =
+        spvContext.getStructType(loweredFields, decl->getName());
+    spvContext.registerStructDeclForSpirvType(spvStructType, decl);
+    return spvStructType;
   }
 
   // Array type
@@ -503,9 +477,9 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
   return 0;
 }
 
-std::pair<const SpirvType *, const SpirvType *>
-LowerTypeVisitor::lowerResourceType(QualType type, SpirvLayoutRule rule,
-                                    SourceLocation srcLoc) {
+const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
+                                                     SpirvLayoutRule rule,
+                                                     SourceLocation srcLoc) {
   // Resource types are either represented like C struct or C++ class in the
   // AST. Samplers are represented like C struct, so isStructureType() will
   // return true for it; textures are represented like C++ class, so
@@ -534,14 +508,11 @@ LowerTypeVisitor::lowerResourceType(QualType type, SpirvLayoutRule rule,
         (dim = spv::Dim::Cube, isArray = true, name == "TextureCubeArray")) {
       const bool isMS = (name == "Texture2DMS" || name == "Texture2DMSArray");
       const auto sampledType = hlsl::GetHLSLResourceResultType(type);
-      const SpirvType *underlyingType =
+      return spvContext.getImageType(
           lowerType(getElementType(astContext, sampledType), rule,
-                    /*isRowMajor*/ llvm::None, srcLoc);
-      return std::make_pair(
-          spvContext.getImageType(
-              underlyingType, dim, ImageType::WithDepth::Unknown, isArray, isMS,
-              ImageType::WithSampler::Yes, spv::ImageFormat::Unknown),
-          underlyingType);
+                    /*isRowMajor*/ llvm::None, srcLoc),
+          dim, ImageType::WithDepth::Unknown, isArray, isMS,
+          ImageType::WithSampler::Yes, spv::ImageFormat::Unknown);
     }
 
     // There is no RWTexture3DArray
@@ -553,29 +524,26 @@ LowerTypeVisitor::lowerResourceType(QualType type, SpirvLayoutRule rule,
       const auto sampledType = hlsl::GetHLSLResourceResultType(type);
       const auto format =
           translateSampledTypeToImageFormat(sampledType, srcLoc);
-      const SpirvType *underlyingType =
+      return spvContext.getImageType(
           lowerType(getElementType(astContext, sampledType), rule,
-                    /*isRowMajor*/ llvm::None, srcLoc);
-      return std::make_pair(spvContext.getImageType(
-                                underlyingType, dim,
-                                ImageType::WithDepth::Unknown, isArray,
-                                /*isMultiSampled=*/false,
-                                /*sampled=*/ImageType::WithSampler::No, format),
-                            underlyingType);
+                    /*isRowMajor*/ llvm::None, srcLoc),
+          dim, ImageType::WithDepth::Unknown, isArray,
+          /*isMultiSampled=*/false, /*sampled=*/ImageType::WithSampler::No,
+          format);
     }
   }
 
   // Sampler types
   if (name == "SamplerState" || name == "SamplerComparisonState") {
-    return std::make_pair(spvContext.getSamplerType(), nullptr);
+    return spvContext.getSamplerType();
   }
 
   if (name == "RaytracingAccelerationStructure") {
-    return std::make_pair(spvContext.getAccelerationStructureTypeNV(), nullptr);
+    return spvContext.getAccelerationStructureTypeNV();
   }
 
   if (name == "RayQuery")
-    return std::make_pair(spvContext.getRayQueryProvisionalTypeKHR(), nullptr);
+    return spvContext.getRayQueryProvisionalTypeKHR();
 
   if (name == "StructuredBuffer" || name == "RWStructuredBuffer" ||
       name == "AppendStructuredBuffer" || name == "ConsumeStructuredBuffer") {
@@ -631,12 +599,10 @@ LowerTypeVisitor::lowerResourceType(QualType type, SpirvLayoutRule rule,
 
     if (asAlias) {
       // All structured buffers are in the Uniform storage class.
-      return std::make_pair(
-          spvContext.getPointerType(valType, spv::StorageClass::Uniform),
-          structType);
+      return spvContext.getPointerType(valType, spv::StorageClass::Uniform);
     }
 
-    return std::make_pair(valType, structType);
+    return valType;
   }
 
   // ByteAddressBuffer types.
@@ -645,22 +611,18 @@ LowerTypeVisitor::lowerResourceType(QualType type, SpirvLayoutRule rule,
         spvContext.getByteAddressBufferType(/*isRW*/ false);
     if (rule == SpirvLayoutRule::Void) {
       // All byte address buffers are in the Uniform storage class.
-      return std::make_pair(
-          spvContext.getPointerType(bufferType, spv::StorageClass::Uniform),
-          nullptr);
+      return spvContext.getPointerType(bufferType, spv::StorageClass::Uniform);
     }
-    return std::make_pair(bufferType, nullptr);
+    return bufferType;
   }
   // RWByteAddressBuffer types.
   if (name == "RWByteAddressBuffer") {
     const auto *bufferType = spvContext.getByteAddressBufferType(/*isRW*/ true);
     if (rule == SpirvLayoutRule::Void) {
       // All byte address buffers are in the Uniform storage class.
-      return std::make_pair(
-          spvContext.getPointerType(bufferType, spv::StorageClass::Uniform),
-          nullptr);
+      return spvContext.getPointerType(bufferType, spv::StorageClass::Uniform);
     }
-    return std::make_pair(bufferType, nullptr);
+    return bufferType;
   }
 
   // Buffer and RWBuffer types
@@ -674,67 +636,54 @@ LowerTypeVisitor::lowerResourceType(QualType type, SpirvLayoutRule rule,
       // supported for now.
       emitError("cannot instantiate RWBuffer with struct type %0", srcLoc)
           << sampledType;
-      return std::make_pair(nullptr, nullptr);
+      return 0;
     }
     const auto format = translateSampledTypeToImageFormat(sampledType, srcLoc);
-    const SpirvType *underlyingType =
+    return spvContext.getImageType(
         lowerType(getElementType(astContext, sampledType), rule,
-                  /*isRowMajor*/ llvm::None, srcLoc);
-    return std::make_pair(
-        spvContext.getImageType(
-            underlyingType, spv::Dim::Buffer, ImageType::WithDepth::Unknown,
-            /*isArrayed=*/false, /*isMultiSampled=*/false,
-            /*sampled*/ name == "Buffer" ? ImageType::WithSampler::Yes
-                                         : ImageType::WithSampler::No,
-            format),
-        underlyingType);
+                  /*isRowMajor*/ llvm::None, srcLoc),
+        spv::Dim::Buffer, ImageType::WithDepth::Unknown,
+        /*isArrayed=*/false, /*isMultiSampled=*/false,
+        /*sampled*/ name == "Buffer" ? ImageType::WithSampler::Yes
+                                     : ImageType::WithSampler::No,
+        format);
   }
 
   // InputPatch
   if (name == "InputPatch") {
     const auto elemType = hlsl::GetHLSLInputPatchElementType(type);
     const auto elemCount = hlsl::GetHLSLInputPatchCount(type);
-    const SpirvType *underlyingType =
-        lowerType(elemType, rule, /*isRowMajor*/ llvm::None, srcLoc);
-    return std::make_pair(spvContext.getArrayType(underlyingType, elemCount,
-                                                  /*ArrayStride*/ llvm::None),
-                          underlyingType);
+    return spvContext.getArrayType(
+        lowerType(elemType, rule, /*isRowMajor*/ llvm::None, srcLoc), elemCount,
+        /*ArrayStride*/ llvm::None);
   }
   // OutputPatch
   if (name == "OutputPatch") {
     const auto elemType = hlsl::GetHLSLOutputPatchElementType(type);
     const auto elemCount = hlsl::GetHLSLOutputPatchCount(type);
-    const SpirvType *underlyingType =
-        lowerType(elemType, rule, /*isRowMajor*/ llvm::None, srcLoc);
-    return std::make_pair(spvContext.getArrayType(underlyingType, elemCount,
-                                                  /*ArrayStride*/ llvm::None),
-                          underlyingType);
+    return spvContext.getArrayType(
+        lowerType(elemType, rule, /*isRowMajor*/ llvm::None, srcLoc), elemCount,
+        /*ArrayStride*/ llvm::None);
   }
   // Output stream objects (TriangleStream, LineStream, and PointStream)
   if (name == "TriangleStream" || name == "LineStream" ||
       name == "PointStream") {
-    const SpirvType *underlyingType =
-        lowerType(hlsl::GetHLSLResourceResultType(type), rule,
-                  /*isRowMajor*/ llvm::None, srcLoc);
-    return std::make_pair(underlyingType, underlyingType);
+    return lowerType(hlsl::GetHLSLResourceResultType(type), rule,
+                     /*isRowMajor*/ llvm::None, srcLoc);
   }
 
   if (name == "SubpassInput" || name == "SubpassInputMS") {
     const auto sampledType = hlsl::GetHLSLResourceResultType(type);
-    const SpirvType *underlyingType =
+    return spvContext.getImageType(
         lowerType(getElementType(astContext, sampledType), rule,
-                  /*isRowMajor*/ llvm::None, srcLoc);
-    return std::make_pair(
-        spvContext.getImageType(underlyingType, spv::Dim::SubpassData,
-                                ImageType::WithDepth::Unknown,
-                                /*isArrayed=*/false,
-                                /*isMultipleSampled=*/name == "SubpassInputMS",
-                                ImageType::WithSampler::No,
-                                spv::ImageFormat::Unknown),
-        underlyingType);
+                  /*isRowMajor*/ llvm::None, srcLoc),
+        spv::Dim::SubpassData, ImageType::WithDepth::Unknown,
+        /*isArrayed=*/false,
+        /*isMultipleSampled=*/name == "SubpassInputMS",
+        ImageType::WithSampler::No, spv::ImageFormat::Unknown);
   }
 
-  return std::make_pair(nullptr, nullptr);
+  return nullptr;
 }
 
 spv::ImageFormat
@@ -890,6 +839,7 @@ LowerTypeVisitor::populateLayoutInformation(
 
     // Each structure-type member must have an Offset Decoration.
     loweredField.offset = offset;
+    loweredField.sizeInBytes = memberSize;
     offset += memberSize;
 
     // Each structure-type member that is a matrix or array-of-matrices must be
@@ -923,174 +873,6 @@ LowerTypeVisitor::populateLayoutInformation(
     result.push_back(loweredFields[fieldToIndexMap[&field]]);
 
   return result;
-}
-
-SpirvDebugFunction *
-LowerTypeVisitor::generateFunctionInfo(const CXXMethodDecl *decl,
-                                       SpirvDebugInstruction *parent) {
-  // Lower the function return type.
-  const SpirvType *spirvReturnType =
-      lowerType(decl->getReturnType(), SpirvLayoutRule::Void,
-                /*isRowMajor*/ llvm::None,
-                /*SourceLocation*/ {});
-  // Lower the function parameter types.
-  llvm::SmallVector<const SpirvType *, 4> spirvParamTypes;
-  unsigned numParams = decl->getNumParams();
-  for (unsigned i = 0; i < numParams; ++i) {
-    const auto *spirvParamType = lowerType(
-        decl->getParamDecl(i)->getOriginalType(), SpirvLayoutRule::Void,
-        /*isRowMajor*/ llvm::None, SourceLocation());
-    spirvParamTypes.push_back(
-        spvContext.getPointerType(spirvParamType, spv::StorageClass::Function));
-  }
-  auto *fnType = spvContext.getFunctionType(spirvReturnType, spirvParamTypes);
-
-  std::string classOrStructName = "";
-  if (const auto *st = dyn_cast<CXXRecordDecl>(decl->getDeclContext()))
-    classOrStructName = st->getName().str() + ".";
-
-  std::string funcName = classOrStructName + decl->getName().str();
-
-  const auto &sm = astContext.getSourceManager();
-  auto loc = decl->getLocStart();
-  const uint32_t line = sm.getPresumedLineNumber(loc);
-  const uint32_t column = sm.getPresumedColumnNumber(loc);
-
-  RichDebugInfo *debugInfo = &spvContext.getDebugInfo().begin()->second;
-  const char *file = sm.getPresumedLoc(loc).getFilename();
-  if (file)
-    debugInfo = &spvContext.getDebugInfo()[file];
-
-  // using FlagIsPublic for now.
-  uint32_t flags = 3u;
-  auto scopeLine = sm.getPresumedLineNumber(decl->getBody()->getLocStart());
-  SpirvDebugFunction *fn = new (spvContext)
-      SpirvDebugFunction(funcName, debugInfo->source, line, column, parent,
-                         funcName, flags, scopeLine, nullptr);
-  fn->setFunctionType(fnType);
-  return fn;
-}
-
-SpirvDebugTypeComposite *LowerTypeVisitor::lowerDebugTypeComposite(
-    const RecordType *structType, const SpirvType *type,
-    llvm::SmallVector<StructType::FieldInfo, 4> &fields, bool isResourceType) {
-  const auto *decl = structType->getDecl();
-  const SourceLocation &loc = decl->getLocStart();
-  const auto &sm = astContext.getSourceManager();
-  uint32_t line = sm.getPresumedLineNumber(loc);
-  uint32_t column = sm.getPresumedColumnNumber(loc);
-  StringRef linkageName = type->getName();
-
-  // TODO: Update linkageName using astContext.createMangleContext().
-  //
-  // Currently, the following code fails because it is not a
-  // FunctionDecl nor VarDecl. I guess we should mangle a RecordDecl
-  // as well.
-  //
-  // std::string s;
-  // llvm::raw_string_ostream stream(s);
-  // mangleCtx->mangleName(decl, stream);
-
-  uint32_t tag = 1;
-  if (decl->isStruct())
-    tag = 1;
-  else if (decl->isClass())
-    tag = 0;
-  else if (decl->isUnion())
-    tag = 2;
-  else
-    assert(!"DebugTypeComposite must be a struct, class, or union.");
-
-  bool isPrivate = decl->isModulePrivate();
-
-  std::string name = type->getName();
-  if (isResourceType)
-    name = "@" + name;
-
-  // TODO: Update parent, size, and flags information correctly.
-  RichDebugInfo *debugInfo = &spvContext.getDebugInfo().begin()->second;
-  const char *file = sm.getPresumedLoc(loc).getFilename();
-  if (file)
-    debugInfo = &spvContext.getDebugInfo()[file];
-  auto *dbgTyComposite =
-      dyn_cast<SpirvDebugTypeComposite>(spvContext.getDebugTypeComposite(
-          type, name, debugInfo->source, line, column,
-          /* parent */ debugInfo->compilationUnit, linkageName,
-          /* size */ 0,
-          /* flags */ isPrivate ? 2u : 3u, tag));
-
-  // If we already visited this composite type and its members,
-  // we should skip it.
-  auto &members = dbgTyComposite->getMembers();
-  if (!members.empty())
-    return dbgTyComposite;
-
-  dbgTyComposite->setAstResultType(astContext.VoidTy);
-  dbgTyComposite->setResultType(spvContext.getVoidType());
-  dbgTyComposite->setInstructionSet(debugExtInstSet);
-
-  if (isResourceType) {
-    dbgTyComposite->setDebugInfoNone(spvBuilder.getOrCreateDebugInfoNone());
-    return dbgTyComposite;
-  }
-
-  uint32_t fieldIdx = 0;
-  for (auto &memberDecl : decl->decls()) {
-    if (const auto *cxxMethodDecl = dyn_cast<CXXMethodDecl>(memberDecl)) {
-      auto *fn = spvContext.findFunctionInfo(cxxMethodDecl);
-      if (fn) {
-        fn->setParent(dbgTyComposite);
-        members.push_back(fn);
-      } else {
-        members.push_back(generateFunctionInfo(cxxMethodDecl, dbgTyComposite));
-      }
-      continue;
-    }
-
-    // Skip "this" object.
-    if (isa<CXXRecordDecl>(memberDecl)) {
-      continue;
-    }
-
-    assert(isa<FieldDecl>(memberDecl) &&
-           "Decl of member must be CXXMethodDecl, CXXRecordDecl, or FieldDecl");
-
-    const SourceLocation &fieldLoc = memberDecl->getLocStart();
-    const uint32_t fieldLine = sm.getPresumedLineNumber(fieldLoc);
-    const uint32_t fieldColumn = sm.getPresumedColumnNumber(fieldLoc);
-
-    const APValue *value = nullptr;
-    if (const auto *varDecl = dyn_cast<VarDecl>(memberDecl)) {
-      if (const auto *val = varDecl->evaluateValue()) {
-        value = val;
-      }
-    }
-
-    uint32_t offsetInBits = UINT32_MAX;
-    if (fields[fieldIdx].offset.hasValue())
-      offsetInBits = *fields[fieldIdx].offset * 8;
-
-    RichDebugInfo *fieldDebugInfo = debugInfo;
-    file = sm.getPresumedLoc(fieldLoc).getFilename();
-    if (file)
-      fieldDebugInfo = &spvContext.getDebugInfo()[file];
-
-    // TODO: Replace 2u and 3u with valid flags when debug info extension is
-    // placed in SPIRV-Header.
-    auto *debugInstr =
-        dyn_cast<SpirvDebugInstruction>(spvContext.getDebugTypeMember(
-            dyn_cast<FieldDecl>(memberDecl)->getName(), fields[fieldIdx].type,
-            fieldDebugInfo->source, fieldLine, fieldColumn, dbgTyComposite,
-            memberDecl->isModulePrivate() ? 2u : 3u, offsetInBits, value));
-    assert(debugInstr && "We expect SpirvDebugInstruction for DebugTypeMember");
-    debugInstr->setAstResultType(astContext.VoidTy);
-    debugInstr->setResultType(spvContext.getVoidType());
-    debugInstr->setInstructionSet(debugExtInstSet);
-    members.push_back(debugInstr);
-
-    ++fieldIdx;
-  }
-  return dbgTyComposite;
 }
 
 } // namespace spirv

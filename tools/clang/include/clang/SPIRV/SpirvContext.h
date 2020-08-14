@@ -23,6 +23,8 @@
 namespace clang {
 namespace spirv {
 
+class SpirvModule;
+
 struct RichDebugInfo {
   RichDebugInfo(SpirvDebugSource *src, SpirvDebugCompilationUnit *cu)
       : source(src), compilationUnit(cu) {
@@ -160,55 +162,56 @@ public:
   // === DebugTypes ===
 
   // TODO: Replace uint32_t with an enum for encoding.
-  SpirvDebugInstruction *getDebugTypeBasic(const SpirvType *spirvType,
-                                           llvm::StringRef name,
-                                           SpirvConstant *size,
-                                           uint32_t encoding);
+  SpirvDebugType *getDebugTypeBasic(const SpirvType *spirvType,
+                                    llvm::StringRef name, SpirvConstant *size,
+                                    uint32_t encoding);
 
-  SpirvDebugInstruction *
-  getDebugTypeMember(llvm::StringRef name, const SpirvType *type,
-                     SpirvDebugSource *source, uint32_t line, uint32_t column,
-                     SpirvDebugInstruction *parent, uint32_t flags,
-                     uint32_t offsetInBits = UINT32_MAX,
-                     const APValue *value = nullptr);
+  SpirvDebugType *getDebugTypeMember(llvm::StringRef name, SpirvDebugType *type,
+                                     SpirvDebugSource *source, uint32_t line,
+                                     uint32_t column,
+                                     SpirvDebugInstruction *parent,
+                                     uint32_t flags, uint32_t offsetInBits,
+                                     uint32_t sizeInBits, const APValue *value);
 
-  SpirvDebugInstruction *
-  getDebugTypeComposite(const SpirvType *spirvType, llvm::StringRef name,
-                        SpirvDebugSource *source, uint32_t line,
-                        uint32_t column, SpirvDebugInstruction *parent,
-                        llvm::StringRef linkageName, uint32_t size,
-                        uint32_t flags, uint32_t tag);
+  SpirvDebugTypeComposite *getDebugTypeComposite(const SpirvType *spirvType,
+                                                 llvm::StringRef name,
+                                                 SpirvDebugSource *source,
+                                                 uint32_t line, uint32_t column,
+                                                 SpirvDebugInstruction *parent,
+                                                 llvm::StringRef linkageName,
+                                                 uint32_t flags, uint32_t tag);
 
-  SpirvDebugInstruction *getDebugType(const SpirvType *spirvType);
+  SpirvDebugType *getDebugType(const SpirvType *spirvType);
 
-  SpirvDebugInstruction *getDebugTypeArray(const SpirvType *spirvType,
-                                           SpirvDebugInstruction *elemType,
-                                           llvm::ArrayRef<uint32_t> elemCount);
+  SpirvDebugType *getDebugTypeArray(const SpirvType *spirvType,
+                                    SpirvDebugInstruction *elemType,
+                                    llvm::ArrayRef<uint32_t> elemCount);
 
-  SpirvDebugInstruction *getDebugTypeVector(const SpirvType *spirvType,
-                                            SpirvDebugInstruction *elemType,
-                                            uint32_t elemCount);
+  SpirvDebugType *getDebugTypeVector(const SpirvType *spirvType,
+                                     SpirvDebugInstruction *elemType,
+                                     uint32_t elemCount);
 
-  SpirvDebugInstruction *
-  getDebugTypeFunction(const SpirvType *spirvType, uint32_t flags,
-                       SpirvDebugType *ret,
-                       llvm::ArrayRef<SpirvDebugType *> params);
+  SpirvDebugType *getDebugTypeFunction(const SpirvType *spirvType,
+                                       uint32_t flags, SpirvDebugType *ret,
+                                       llvm::ArrayRef<SpirvDebugType *> params);
 
-  SpirvDebugInstruction *getDebugTypeTemplate(const SpirvType *spirvType,
-                                              SpirvDebugInstruction *target);
+  SpirvDebugTypeTemplate *createDebugTypeTemplate(
+      const ClassTemplateSpecializationDecl *templateType,
+      SpirvDebugInstruction *target,
+      const llvm::SmallVector<SpirvDebugTypeTemplateParameter *, 2> &params);
 
-  SpirvDebugInstruction *getDebugTypeTemplateParameter(
-      const SpirvType *parentType, llvm::StringRef name, const SpirvType *type,
-      SpirvInstruction *value, SpirvDebugSource *source, uint32_t line,
-      uint32_t column);
+  SpirvDebugTypeTemplate *
+  getDebugTypeTemplate(const ClassTemplateSpecializationDecl *templateType);
 
-  llvm::MapVector<const SpirvType *, SpirvDebugType *> &getDebugTypes() {
-    return debugTypes;
-  }
+  SpirvDebugTypeTemplateParameter *createDebugTypeTemplateParameter(
+      const TemplateArgument *templateArg, llvm::StringRef name,
+      SpirvDebugType *type, SpirvInstruction *value, SpirvDebugSource *source,
+      uint32_t line, uint32_t column);
 
-  llvm::SmallVector<SpirvDebugInstruction *, 16> &getTailDebugTypes() {
-    return tailDebugTypes;
-  }
+  SpirvDebugTypeTemplateParameter *
+  getDebugTypeTemplateParameter(const TemplateArgument *templateArg);
+
+  void addDebugTypesToModule(SpirvModule *module);
 
   // === Types ===
 
@@ -339,6 +342,27 @@ public:
     return currentLexicalScope;
   }
 
+  /// Function to add/get the mapping from a SPIR-V type to its Decl for
+  /// a struct type.
+  void registerStructDeclForSpirvType(const SpirvType *spvTy,
+                                      const DeclContext *decl) {
+    assert(spvTy != nullptr && decl != nullptr);
+    spvStructTypeToDecl[spvTy] = decl;
+  }
+  const DeclContext *getStructDeclForSpirvType(const SpirvType *spvTy) {
+    return spvStructTypeToDecl[spvTy];
+  }
+
+  /// Function to add/get the mapping from a FunctionDecl to its DebugFunction.
+  void registerDebugFunctionForDecl(const FunctionDecl *decl,
+                                    SpirvDebugFunction *fn) {
+    assert(decl != nullptr && fn != nullptr);
+    declToDebugFunction[decl] = fn;
+  }
+  SpirvDebugFunction *getDebugFunctionForDecl(const FunctionDecl *decl) {
+    return declToDebugFunction[decl];
+  }
+
 private:
   /// \brief The allocator used to create SPIR-V entity objects.
   ///
@@ -403,18 +427,21 @@ private:
   // type if the type is used for several variables.
   llvm::MapVector<const SpirvType *, SpirvDebugType *> debugTypes;
 
-  // Keep DebugTypeMember, DebugTypeInheritance, DebugTypeTemplate,
-  // and DebugTypeTemplateParameter.
-  // Since they do not have corresponding SpirvType, we cannot keep them
-  // in debugTypes. No component references them other than themselves,
-  // there by being able to safely emit them at the end of other debug
-  // extension instructions.
-  //
-  // TODO: remove tailDebugTypes. Instead, we can keep
-  //       - DebugTypeMember and DebugTypeInheritance in DebugTypeComposite.
-  //       - keep DebugTypeTemplate in DebugTypeComposite and DebugFunction.
-  //       - keep DebugTypeTemplateParameter in DebugTypeTemplate.
-  llvm::SmallVector<SpirvDebugInstruction *, 16> tailDebugTypes;
+  // Mapping from template decl to DebugTypeTemplate.
+  llvm::DenseMap<const ClassTemplateSpecializationDecl *,
+                 SpirvDebugTypeTemplate *>
+      typeTemplates;
+
+  // Mapping from template parameter decl to DebugTypeTemplateParameter.
+  llvm::DenseMap<const TemplateArgument *, SpirvDebugTypeTemplateParameter *>
+      typeTemplateParams;
+
+  // Mapping from SPIR-V type to Decl for a struct type.
+  llvm::DenseMap<const SpirvType *, const DeclContext *> spvStructTypeToDecl;
+
+  // Mapping from FunctionDecl to SPIR-V debug function.
+  llvm::DenseMap<const FunctionDecl *, SpirvDebugFunction *>
+      declToDebugFunction;
 
   // Mapping from CXXMethodDecl (member method of struct or class) to its
   // function info.

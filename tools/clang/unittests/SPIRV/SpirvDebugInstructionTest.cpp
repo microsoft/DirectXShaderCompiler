@@ -42,7 +42,7 @@ TEST_F(SpirvDebugInstructionTest, DynamicTypeCheckDebugInfoNone) {
 }
 
 TEST_F(SpirvDebugInstructionTest, DynamicTypeCheckDebugTypeTemplateParameter) {
-  SpirvInstruction *i = getSpirvContext().getDebugTypeTemplateParameter(
+  SpirvInstruction *i = getSpirvContext().createDebugTypeTemplateParameter(
       nullptr, "vtable check", nullptr, nullptr, nullptr, 0, 0);
   EXPECT_TRUE(llvm::isa<SpirvDebugTypeTemplateParameter>(i));
   EXPECT_TRUE(llvm::isa<SpirvDebugInstruction>(i));

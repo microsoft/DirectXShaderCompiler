@@ -2427,7 +2427,15 @@ TEST_F(FileTest, RichDebugInfoTypeMemberFunction) {
   runFileTest("rich.debug.type.member.function.hlsl", Expect::Success,
               /*runValidation*/ runValidationForRichDebugInfo);
 }
-TEST_F(FileTest, RichDebugInfoMemberFunctionWithoutCall) {
+TEST_F(FileTest, RichDebugInfoTypeCompositeBeforeFunction) {
+  runFileTest("rich.debug.type.composite.before.function.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
+TEST_F(FileTest, RichDebugInfoMemberFunctionParam) {
+  runFileTest("rich.debug.member.function.param.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
+TEST_F(FileTest, DISABLED_RichDebugInfoMemberFunctionWithoutCall) {
   runFileTest("rich.debug.member.function.without-call.hlsl", Expect::Success,
               /*runValidation*/ runValidationForRichDebugInfo);
 }
@@ -2437,10 +2445,6 @@ TEST_F(FileTest, RichDebugInfoTypeComposite) {
 }
 TEST_F(FileTest, RichDebugInfoTypeCompositeEmpty) {
   runFileTest("rich.debug.type.composite.empty.hlsl", Expect::Success,
-              /*runValidation*/ runValidationForRichDebugInfo);
-}
-TEST_F(FileTest, RichDebugInfoTypeCompositeBeforeFunction) {
-  runFileTest("rich.debug.type.composite.before.function.hlsl", Expect::Success,
               /*runValidation*/ runValidationForRichDebugInfo);
 }
 TEST_F(FileTest, RichDebugInfoTypeStructuredBuffer) {
@@ -2465,10 +2469,6 @@ TEST_F(FileTest, RichDebugInfoFunctionParent) {
 }
 TEST_F(FileTest, RichDebugInfoFunctionParam) {
   runFileTest("rich.debug.function.param.hlsl", Expect::Success,
-              /*runValidation*/ runValidationForRichDebugInfo);
-}
-TEST_F(FileTest, RichDebugInfoMemberFunctionParam) {
-  runFileTest("rich.debug.member.function.param.hlsl", Expect::Success,
               /*runValidation*/ runValidationForRichDebugInfo);
 }
 TEST_F(FileTest, RichDebugInfoDebugSourceMultiple) {

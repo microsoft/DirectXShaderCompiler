@@ -1018,8 +1018,8 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
     // The line number in the source program at which the function scope begins.
     auto scopeLine = sm.getPresumedLineNumber(decl->getBody()->getLocStart());
     SpirvDebugFunction *debugFunction = spvBuilder.createDebugFunction(
-        funcName, source, line, column, parentScope, funcName, flags, scopeLine,
-        func);
+        decl, funcName, source, line, column, parentScope, funcName, flags,
+        scopeLine, func);
     func->setDebugScope(new (astContext) SpirvDebugScope(debugFunction));
 
     // We want to keep member function info of a structure, but a StructType

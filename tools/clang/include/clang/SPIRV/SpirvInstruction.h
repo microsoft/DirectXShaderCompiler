@@ -2242,7 +2242,7 @@ class SpirvDebugType : public SpirvDebugInstruction {
 public:
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() >= IK_DebugTypeBasic &&
-           inst->getKind() <= IK_DebugTypeMember;
+           inst->getKind() <= IK_DebugTypeTemplateParameter;
   }
 
   virtual uint32_t getSizeInBits() const { return 0u; }
@@ -2363,7 +2363,7 @@ private:
 /// Represents debug information for a template type parameter.
 class SpirvDebugTypeTemplateParameter : public SpirvDebugType {
 public:
-  SpirvDebugTypeTemplateParameter(llvm::StringRef name, const SpirvType *type,
+  SpirvDebugTypeTemplateParameter(llvm::StringRef name, SpirvDebugType *type,
                                   SpirvInstruction *value,
                                   SpirvDebugSource *source, uint32_t line,
                                   uint32_t column);
@@ -2375,14 +2375,11 @@ public:
   bool invokeVisitor(Visitor *v) override;
 
   SpirvDebugType *getActualType() const { return actualType; }
-  void setActualType(SpirvDebugType *ty) { actualType = ty; }
   void setValue(SpirvInstruction *c) { value = c; }
   SpirvInstruction *getValue() const { return value; }
   SpirvDebugSource *getSource() const { return source; }
   uint32_t getLine() const { return line; }
   uint32_t getColumn() const { return column; }
-
-  const SpirvType *getSpirvType() const { return spvType; }
 
 private:
   SpirvDebugType *actualType; //< Type for type param
@@ -2390,14 +2387,14 @@ private:
   SpirvDebugSource *source;   //< DebugSource containing this type
   uint32_t line;              //< Line number
   uint32_t column;            //< Column number
-
-  const SpirvType *spvType;
 };
 
 /// Represents debug information for a template type.
 class SpirvDebugTypeTemplate : public SpirvDebugType {
 public:
-  SpirvDebugTypeTemplate(SpirvDebugInstruction *target);
+  SpirvDebugTypeTemplate(
+      SpirvDebugInstruction *target,
+      const llvm::SmallVector<SpirvDebugTypeTemplateParameter *, 2> &params);
 
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_DebugTypeTemplate;
@@ -2405,7 +2402,7 @@ public:
 
   bool invokeVisitor(Visitor *v) override;
 
-  llvm::SmallVector<SpirvDebugTypeTemplateParameter *, 2> &getParams() {
+  llvm::SmallVector<SpirvDebugTypeTemplateParameter *, 2> getParams() {
     return params;
   }
   SpirvDebugInstruction *getTarget() const { return target; }
@@ -2428,59 +2425,41 @@ private:
 /// type.
 class SpirvDebugTypeMember : public SpirvDebugType {
 public:
-  SpirvDebugTypeMember(llvm::StringRef name, const SpirvType *type,
-                       SpirvDebugSource *source, uint32_t line, uint32_t column,
-                       SpirvDebugInstruction *parent, uint32_t flags,
-                       uint32_t offsetInBits, const APValue *value = nullptr);
+  SpirvDebugTypeMember(llvm::StringRef name, SpirvDebugType *type,
+                       SpirvDebugSource *source, uint32_t line_,
+                       uint32_t column_, SpirvDebugInstruction *parent,
+                       uint32_t flags, uint32_t offsetInBits,
+                       uint32_t sizeInBits, const APValue *value = nullptr);
 
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_DebugTypeMember;
-  }
-
-  void updateOffsetAndSize(uint32_t offset_, uint32_t size_) {
-    offset = offset_;
-    size = size_;
   }
 
   bool invokeVisitor(Visitor *v) override;
 
   SpirvDebugInstruction *getParentScope() const override { return parent; }
 
-  void setType(SpirvDebugType *type_) { type = type_; }
-  SpirvDebugType *getType() const { return type; }
   SpirvDebugSource *getSource() const { return source; }
   uint32_t getLine() const { return line; }
   uint32_t getColumn() const { return column; }
-  uint32_t getOffsetInBits() const { return offset; }
+  uint32_t getOffsetInBits() const { return offsetInBits; }
   uint32_t getDebugFlags() const { return debugFlags; }
-  uint32_t getSizeInBits() const override { return size; }
+  uint32_t getSizeInBits() const override { return sizeInBits; }
   const APValue *getValue() const { return value; }
 
-  const SpirvType *getSpirvType() const { return spvType; }
-
 private:
-  SpirvDebugType *type;     //< The type of the current member
-  SpirvDebugSource *source; //< DebugSource containing this type
+  SpirvDebugSource *source; //< DebugSource
   uint32_t line;            //< Line number
   uint32_t column;          //< Column number
 
   SpirvDebugInstruction *parent; //< The parent DebugTypeComposite
 
-  uint32_t offset; //< Offset (in bits) of this member in the struct
-  uint32_t size;   //< Size (in bits) of this member in the struct
+  uint32_t offsetInBits; //< Offset (in bits) of this member in the struct
+  uint32_t sizeInBits;   //< Size (in bits) of this member in the struct
   // TODO: Replace uint32_t with enum in the SPIRV-Headers once it is
   // available.
   uint32_t debugFlags;
   const APValue *value; //< Value (if static member)
-
-  // We will lower DebugTypeMember in two steps: LowerTypeVisitor and
-  // DebugTypeVisitor, which is different from other debug types that are
-  // lowered only by DebugTypeVisitor. It is because DebugTypeMember requires
-  // more information that needs the declaration info. Therefore, we keep
-  // SpirvType instead of SpirvDebugType when it is first lowered by
-  // LowerTypeVisitor and SpirvType will be lowered to SpirvDebugType by
-  // DebugTypeVisitor.
-  const SpirvType *spvType;
 };
 
 class SpirvDebugTypeComposite : public SpirvDebugType {
@@ -2488,8 +2467,8 @@ public:
   SpirvDebugTypeComposite(llvm::StringRef name, SpirvDebugSource *source,
                           uint32_t line, uint32_t column,
                           SpirvDebugInstruction *parent,
-                          llvm::StringRef linkageName, uint32_t size,
-                          uint32_t flags, uint32_t tag);
+                          llvm::StringRef linkageName, uint32_t flags,
+                          uint32_t tag);
 
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_DebugTypeComposite;
@@ -2497,9 +2476,15 @@ public:
 
   bool invokeVisitor(Visitor *v) override;
 
-  llvm::SmallVector<SpirvDebugInstruction *, 4> &getMembers() {
-    return members;
+  llvm::SmallVector<SpirvDebugInstruction *, 4> getMembers() { return members; }
+  void appendMember(SpirvDebugInstruction *member) {
+    members.push_back(member);
   }
+  void
+  setMembers(const llvm::SmallVector<SpirvDebugInstruction *, 4> &memberTypes) {
+    members = memberTypes;
+  }
+
   SpirvDebugInstruction *getParentScope() const override { return parent; }
   uint32_t getTag() const { return tag; }
   SpirvDebugSource *getSource() const { return source; }
@@ -2511,13 +2496,14 @@ public:
   void setSizeInBits(uint32_t size_) { size = size_; }
   uint32_t getSizeInBits() const override { return size; }
 
-  void setTypeTemplate(SpirvDebugTypeTemplate *t) { typeTemplate = t; }
-  SpirvDebugTypeTemplate *getTypeTemplate() const { return typeTemplate; }
-
-  void setFullyLowered() { fullyLowered = true; }
-  bool getFullyLowered() const { return fullyLowered; }
-
-  void setDebugInfoNone(SpirvDebugInfoNone *none) { debugNone = none; }
+  void markAsOpaqueType(SpirvDebugInfoNone *none) {
+    // If it was already marked as a opaque type, just return. For example,
+    // `debugName` can be "@@Texture2D" if we call this method twice.
+    if (debugNone == none && !debugName.empty() && debugName[0] == '@')
+      return;
+    debugName = std::string("@") + debugName;
+    debugNone = none;
+  }
   SpirvDebugInfoNone *getDebugInfoNone() const { return debugNone; }
 
 private:
@@ -2545,20 +2531,6 @@ private:
   // DebugTypeInheritance. Since DebugFunction may be a member, we cannot use a
   // vector of SpirvDebugType.
   llvm::SmallVector<SpirvDebugInstruction *, 4> members;
-
-  // Optional pointer to keep the template type information of a HLSL
-  // resource type. A HLSL resource needs both DebugTypeComposite and
-  // DebugTypeTemplate. Typically, we keep all debug type information
-  // in SpirvContext::debugTypes including DebugTypeComposite, but we
-  // cannot keep DebugTypeTemplate for a HLSL resource in it because of
-  // the limitation of single value for the map. Instead, we keep it
-  // here.
-  SpirvDebugTypeTemplate *typeTemplate;
-
-  // It is first lowered by LowerTypeVisitor and then lowered by
-  // DebugTypeVisitor. We set fullyLowered true after it is lowered
-  // by DebugTypeVisitor.
-  bool fullyLowered;
 
   // When it is DebugTypeComposite for HLSL resource type i.e., opaque
   // type, we must put DebugInfoNone for Size operand.

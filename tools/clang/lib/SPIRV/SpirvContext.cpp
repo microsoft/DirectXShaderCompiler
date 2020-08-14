@@ -11,6 +11,7 @@
 #include <tuple>
 
 #include "clang/SPIRV/SpirvContext.h"
+#include "clang/SPIRV/SpirvModule.h"
 
 namespace clang {
 namespace spirv {
@@ -268,10 +269,10 @@ const StructType *SpirvContext::getACSBufferCounterType() {
   return type;
 }
 
-SpirvDebugInstruction *
-SpirvContext::getDebugTypeBasic(const SpirvType *spirvType,
-                                llvm::StringRef name, SpirvConstant *size,
-                                uint32_t encoding) {
+SpirvDebugType *SpirvContext::getDebugTypeBasic(const SpirvType *spirvType,
+                                                llvm::StringRef name,
+                                                SpirvConstant *size,
+                                                uint32_t encoding) {
   // Reuse existing debug type if possible.
   if (debugTypes.find(spirvType) != debugTypes.end())
     return debugTypes[spirvType];
@@ -281,46 +282,47 @@ SpirvContext::getDebugTypeBasic(const SpirvType *spirvType,
   return debugType;
 }
 
-SpirvDebugInstruction *SpirvContext::getDebugTypeMember(
-    llvm::StringRef name, const SpirvType *type, SpirvDebugSource *source,
-    uint32_t line, uint32_t column, SpirvDebugInstruction *parent,
-    uint32_t flags, uint32_t offsetInBits, const APValue *value) {
+SpirvDebugType *
+SpirvContext::getDebugTypeMember(llvm::StringRef name, SpirvDebugType *type,
+                                 SpirvDebugSource *source, uint32_t line,
+                                 uint32_t column, SpirvDebugInstruction *parent,
+                                 uint32_t flags, uint32_t offsetInBits,
+                                 uint32_t sizeInBits, const APValue *value) {
   // NOTE: Do not search it in debugTypes because it would have the same
   // spirvType but has different parent i.e., type composite.
 
-  SpirvDebugTypeMember *debugType = new (this) SpirvDebugTypeMember(
-      name, type, source, line, column, parent, flags, offsetInBits, value);
-
-  // NOTE: Do not save it in debugTypes because it would have the same
-  // spirvType but it has different parent i.e., type composite. Instead,
-  // we want to keep it in tailDebugTypes.
-  tailDebugTypes.push_back(debugType);
+  SpirvDebugTypeMember *debugType =
+      new (this) SpirvDebugTypeMember(name, type, source, line, column, parent,
+                                      flags, offsetInBits, sizeInBits, value);
   return debugType;
 }
 
-SpirvDebugInstruction *SpirvContext::getDebugTypeComposite(
+SpirvDebugTypeComposite *SpirvContext::getDebugTypeComposite(
     const SpirvType *spirvType, llvm::StringRef name, SpirvDebugSource *source,
     uint32_t line, uint32_t column, SpirvDebugInstruction *parent,
-    llvm::StringRef linkageName, uint32_t size, uint32_t flags, uint32_t tag) {
+    llvm::StringRef linkageName, uint32_t flags, uint32_t tag) {
   // Reuse existing debug type if possible.
-  if (debugTypes.find(spirvType) != debugTypes.end())
-    return debugTypes[spirvType];
+  auto it = debugTypes.find(spirvType);
+  if (it != debugTypes.end()) {
+    assert(it->second != nullptr && isa<SpirvDebugTypeComposite>(it->second));
+    return dyn_cast<SpirvDebugTypeComposite>(it->second);
+  }
 
   auto *debugType = new (this) SpirvDebugTypeComposite(
-      name, source, line, column, parent, linkageName, size, flags, tag);
+      name, source, line, column, parent, linkageName, flags, tag);
   debugType->setDebugSpirvType(spirvType);
   debugTypes[spirvType] = debugType;
   return debugType;
 }
 
-SpirvDebugInstruction *SpirvContext::getDebugType(const SpirvType *spirvType) {
+SpirvDebugType *SpirvContext::getDebugType(const SpirvType *spirvType) {
   auto it = debugTypes.find(spirvType);
   if (it != debugTypes.end())
     return it->second;
   return nullptr;
 }
 
-SpirvDebugInstruction *
+SpirvDebugType *
 SpirvContext::getDebugTypeArray(const SpirvType *spirvType,
                                 SpirvDebugInstruction *elemType,
                                 llvm::ArrayRef<uint32_t> elemCount) {
@@ -335,7 +337,7 @@ SpirvContext::getDebugTypeArray(const SpirvType *spirvType,
   return debugType;
 }
 
-SpirvDebugInstruction *
+SpirvDebugType *
 SpirvContext::getDebugTypeVector(const SpirvType *spirvType,
                                  SpirvDebugInstruction *elemType,
                                  uint32_t elemCount) {
@@ -350,7 +352,7 @@ SpirvContext::getDebugTypeVector(const SpirvType *spirvType,
   return debugType;
 }
 
-SpirvDebugInstruction *
+SpirvDebugType *
 SpirvContext::getDebugTypeFunction(const SpirvType *spirvType, uint32_t flags,
                                    SpirvDebugType *ret,
                                    llvm::ArrayRef<SpirvDebugType *> params) {
@@ -363,70 +365,45 @@ SpirvContext::getDebugTypeFunction(const SpirvType *spirvType, uint32_t flags,
   return debugType;
 }
 
-SpirvDebugInstruction *
-SpirvContext::getDebugTypeTemplate(const SpirvType *spirvType,
-                                   SpirvDebugInstruction *target) {
-  // Reuse existing debug type if possible.
-  auto it = debugTypes.find(spirvType);
-  SpirvDebugTypeComposite *compositeInfo = nullptr;
-  if (it != debugTypes.end()) {
-    compositeInfo = dyn_cast<SpirvDebugTypeComposite>(it->second);
-    if (compositeInfo) {
-      // This is the case that we use DebugTypeTemplate to describe a
-      // template-based HLSL resource type.
-      if (compositeInfo->getTypeTemplate())
-        return compositeInfo->getTypeTemplate();
-    } else {
-      return it->second;
-    }
-  }
-
-  auto *debugType = new (this) SpirvDebugTypeTemplate(target);
-  if (compositeInfo) {
-    // This is the case that we use DebugTypeTemplate to describe a
-    // template-based HLSL resource type. We want to keep DebugTypeTemplate in
-    // its DebugTypeComposite. The main reason is that a HLSL resource type
-    // generates only a single SpirvType but we need both DebugTypeTemplate and
-    // DebugTypeComposite for it. Since we can search only one of them using
-    // debugTypes (DebugTypeTemplate or DebugTypeComposite), we have to keep one
-    // of them out of debugTypes and this is one of the most convenient way.
-    compositeInfo->setTypeTemplate(debugType);
-  } else {
-    debugTypes[spirvType] = debugType;
-  }
-  return debugType;
+SpirvDebugTypeTemplate *SpirvContext::createDebugTypeTemplate(
+    const ClassTemplateSpecializationDecl *templateType,
+    SpirvDebugInstruction *target,
+    const llvm::SmallVector<SpirvDebugTypeTemplateParameter *, 2> &params) {
+  auto *tempTy = getDebugTypeTemplate(templateType);
+  if (tempTy != nullptr)
+    return tempTy;
+  tempTy = new (this) SpirvDebugTypeTemplate(target, params);
+  typeTemplates[templateType] = tempTy;
+  return tempTy;
 }
 
-SpirvDebugInstruction *SpirvContext::getDebugTypeTemplateParameter(
-    const SpirvType *parentType, llvm::StringRef name, const SpirvType *type,
-    SpirvInstruction *value, SpirvDebugSource *source, uint32_t line,
-    uint32_t column) {
-  // Reuse existing debug type if possible.
-  auto it = debugTypes.find(parentType);
-  SpirvDebugTypeTemplate *tempType = nullptr;
-  if (it != debugTypes.end()) {
-    if (auto *compositeInfo = dyn_cast<SpirvDebugTypeComposite>(it->second)) {
-      // This is the case that we use DebugTypeTemplate to describe a
-      // template-based HLSL resource type.
-      if (compositeInfo->getTypeTemplate())
-        tempType = compositeInfo->getTypeTemplate();
-    } else {
-      tempType = dyn_cast<SpirvDebugTypeTemplate>(it->second);
-    }
+SpirvDebugTypeTemplate *SpirvContext::getDebugTypeTemplate(
+    const ClassTemplateSpecializationDecl *templateType) {
+  auto it = typeTemplates.find(templateType);
+  if (it != typeTemplates.end())
+    return it->second;
+  return nullptr;
+}
 
-    if (tempType) {
-      for (auto *param : tempType->getParams()) {
-        if (param->getSpirvType() == type)
-          return param;
-      }
-    }
-  }
-
-  auto *debugType = new (this)
+SpirvDebugTypeTemplateParameter *SpirvContext::createDebugTypeTemplateParameter(
+    const TemplateArgument *templateArg, llvm::StringRef name,
+    SpirvDebugType *type, SpirvInstruction *value, SpirvDebugSource *source,
+    uint32_t line, uint32_t column) {
+  auto *param = getDebugTypeTemplateParameter(templateArg);
+  if (param != nullptr)
+    return param;
+  param = new (this)
       SpirvDebugTypeTemplateParameter(name, type, value, source, line, column);
-  if (tempType)
-    tempType->getParams().push_back(debugType);
-  return debugType;
+  typeTemplateParams[templateArg] = param;
+  return param;
+}
+
+SpirvDebugTypeTemplateParameter *SpirvContext::getDebugTypeTemplateParameter(
+    const TemplateArgument *templateArg) {
+  auto it = typeTemplateParams.find(templateArg);
+  if (it != typeTemplateParams.end())
+    return it->second;
+  return nullptr;
 }
 
 void SpirvContext::pushDebugLexicalScope(RichDebugInfo *info,
@@ -438,6 +415,24 @@ void SpirvContext::pushDebugLexicalScope(RichDebugInfo *info,
          "Given scope is not a lexical scope");
   currentLexicalScope = scope;
   info->scopeStack.push_back(scope);
+}
+
+void SpirvContext::addDebugTypesToModule(SpirvModule *module) {
+  for (const auto &typePair : debugTypes) {
+    module->addDebugInfo(typePair.second);
+
+    if (auto *composite = dyn_cast<SpirvDebugTypeComposite>(typePair.second)) {
+      for (auto *member : composite->getMembers()) {
+        module->addDebugInfo(member);
+      }
+    }
+  }
+  for (const auto &typePair : typeTemplates) {
+    module->addDebugInfo(typePair.second);
+  }
+  for (const auto &typePair : typeTemplateParams) {
+    module->addDebugInfo(typePair.second);
+  }
 }
 
 } // end namespace spirv

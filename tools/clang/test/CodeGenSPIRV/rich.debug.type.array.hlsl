@@ -1,15 +1,15 @@
 // Run: %dxc -T ps_6_0 -E main -fspv-debug=rich
 
 // CHECK:       [[set:%\d+]] = OpExtInstImport "OpenCL.DebugInfo.100"
-// CHECK:     [[SName:%\d+]] = OpString "S"
 // CHECK:  [[boolName:%\d+]] = OpString "bool"
+// CHECK:     [[SName:%\d+]] = OpString "S"
 // CHECK:   [[intName:%\d+]] = OpString "int"
 // CHECK:  [[uintName:%\d+]] = OpString "uint"
 // CHECK: [[floatName:%\d+]] = OpString "float"
 // CHECK:           %uint_32 = OpConstant %uint 32
 
-// CHECK: [[S:%\d+]] = OpExtInst %void [[set]] DebugTypeComposite [[SName]]
 // CHECK:   [[bool:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic [[boolName]] %uint_32 Boolean
+// CHECK: [[S:%\d+]] = OpExtInst %void [[set]] DebugTypeComposite [[SName]]
 // CHECK:   [[int:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic [[intName]] %uint_32 Signed
 // CHECK:  [[uint:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic [[uintName]] %uint_32 Unsigned
 // CHECK: [[float:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic [[floatName]] %uint_32 Float

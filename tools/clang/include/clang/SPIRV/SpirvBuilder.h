@@ -471,13 +471,12 @@ public:
       SpirvDebugLocalVariable *dbgVar, SpirvInstruction *var,
       llvm::Optional<SpirvDebugExpression *> dbgExpr = llvm::None);
 
-  SpirvDebugFunction *createDebugFunction(llvm::StringRef name,
-                                          SpirvDebugSource *src,
-                                          uint32_t fnLine, uint32_t fnColumn,
-                                          SpirvDebugInstruction *parentScope,
-                                          llvm::StringRef linkageName,
-                                          uint32_t flags, uint32_t scopeLine,
-                                          SpirvFunction *fn);
+  SpirvDebugFunction *
+  createDebugFunction(const FunctionDecl *decl, llvm::StringRef name,
+                      SpirvDebugSource *src, uint32_t fnLine, uint32_t fnColumn,
+                      SpirvDebugInstruction *parentScope,
+                      llvm::StringRef linkageName, uint32_t flags,
+                      uint32_t scopeLine, SpirvFunction *fn);
 
   /// \brief Create SPIR-V instructions for KHR RayQuery ops
   SpirvInstruction *

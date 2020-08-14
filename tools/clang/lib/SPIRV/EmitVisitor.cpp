@@ -1438,7 +1438,8 @@ bool EmitVisitor::visit(SpirvDebugTypeMember *inst) {
       getOrAssignResultId<SpirvInstruction>(inst->getInstructionSet()));
   curInst.push_back(inst->getDebugOpcode());
   curInst.push_back(typeNameId);
-  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getType()));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getDebugType()));
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getSource()));
   curInst.push_back(inst->getLine());
   curInst.push_back(inst->getColumn());

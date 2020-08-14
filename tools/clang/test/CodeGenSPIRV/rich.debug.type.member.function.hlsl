@@ -41,11 +41,10 @@ struct foo : base {
 // CHECK: [[set:%\d+]] = OpExtInstImport "OpenCL.DebugInfo.100"
 
 // CHECK: [[fooName:%\d+]] = OpString "foo"
-// CHECK: [[foo:%\d+]] = OpExtInst %void %1 DebugTypeComposite [[fooName]] Structure {{%\d+}} 22 1 {{%\d+}} [[fooName]] %uint_352 FlagIsProtected|FlagIsPrivate
-// CHECK: [[float:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic {{%\d+}} %uint_32 Float
-
-// CHECK: [[int:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic {{%\d+}} %uint_32 Signed
 // CHECK: [[bool:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic {{%\d+}} %uint_32 Boolean
+// CHECK: [[foo:%\d+]] = OpExtInst %void %1 DebugTypeComposite [[fooName]] Structure {{%\d+}} 22 8 {{%\d+}} [[fooName]] %uint_0 FlagIsProtected|FlagIsPrivate
+// CHECK: [[float:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic {{%\d+}} %uint_32 Float
+// CHECK: [[int:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic {{%\d+}} %uint_32 Signed
 
 // CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugTypeFunction FlagIsProtected|FlagIsPrivate [[int]] [[foo]] [[int]] [[float]] [[bool]]
 // CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugTypeFunction FlagIsProtected|FlagIsPrivate %void [[foo]] [[float]]

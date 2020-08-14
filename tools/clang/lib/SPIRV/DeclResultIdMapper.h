@@ -696,10 +696,12 @@ private:
   /// Returns true if the given SPIR-V stage variable has Input storage class.
   inline bool isInputStorageClass(const StageVar &v);
 
-  /// If rich debug info gen is enabled, emit DebugGlobalVariable.
-  void createDebugGlobalVariable(SpirvVariable *var, const QualType &type,
-                                 const SourceLocation &loc,
-                                 const StringRef &name);
+  /// Creates DebugGlobalVariable and returns it if rich debug information
+  /// generation is enabled. Otherwise, returns nullptr.
+  SpirvDebugGlobalVariable *createDebugGlobalVariable(SpirvVariable *var,
+                                                      const QualType &type,
+                                                      const SourceLocation &loc,
+                                                      const StringRef &name);
 
   /// Determines the register type for a resource that does not have an
   /// explicit register() declaration.  Returns true if it is able to

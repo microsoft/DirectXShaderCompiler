@@ -740,10 +740,9 @@ DeclResultIdMapper::createFnVar(const VarDecl *var,
   return varInstr;
 }
 
-void DeclResultIdMapper::createDebugGlobalVariable(SpirvVariable *var,
-                                                   const QualType &type,
-                                                   const SourceLocation &loc,
-                                                   const StringRef &name) {
+SpirvDebugGlobalVariable *DeclResultIdMapper::createDebugGlobalVariable(
+    SpirvVariable *var, const QualType &type, const SourceLocation &loc,
+    const StringRef &name) {
   if (spirvOptions.debugInfoRich) {
     // Add DebugGlobalVariable information
     const auto &sm = astContext.getSourceManager();
@@ -753,10 +752,14 @@ void DeclResultIdMapper::createDebugGlobalVariable(SpirvVariable *var,
     // TODO: replace this with FlagIsDefinition enum.
     uint32_t flags = 1 << 3;
     // TODO: update linkageName correctly.
-    spvBuilder.createDebugGlobalVariable(type, name, info->source, line, column,
-                                         info->scopeStack.back(),
-                                         /* linkageName */ name, var, flags);
+    auto *dbgGlobalVar = spvBuilder.createDebugGlobalVariable(
+        type, name, info->source, line, column, info->scopeStack.back(),
+        /* linkageName */ name, var, flags);
+    dbgGlobalVar->setDebugSpirvType(var->getResultType());
+    dbgGlobalVar->setLayoutRule(var->getLayoutRule());
+    return dbgGlobalVar;
   }
+  return nullptr;
 }
 
 SpirvVariable *
@@ -1009,11 +1012,12 @@ SpirvVariable *DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
       bufferVar, decl, decl->getLocation(), getResourceBinding(decl),
       decl->getAttr<VKBindingAttr>(), decl->getAttr<VKCounterBindingAttr>());
 
-  if (spirvOptions.debugInfoRich) {
-    createDebugGlobalVariable(bufferVar, QualType(), decl->getLocation(),
-                              decl->getName());
+  auto *dbgGlobalVar = createDebugGlobalVariable(
+      bufferVar, QualType(), decl->getLocation(), decl->getName());
+  if (dbgGlobalVar != nullptr) {
+    // C/TBuffer needs HLSLBufferDecl for debug type lowering.
+    spvContext.registerStructDeclForSpirvType(bufferVar->getResultType(), decl);
   }
-
   return bufferVar;
 }
 

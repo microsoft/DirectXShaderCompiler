@@ -30,8 +30,8 @@ struct foo {
 // CHECK: [[func0:%\d+]] = OpString "foo.func0"
 // CHECK: [[arg:%\d+]] = OpString "arg"
 
-// CHECK: [[foo:%\d+]] = OpExtInst %void [[set]] DebugTypeComposite [[fooName]] Structure {{%\d+}} 3 1
 // CHECK: [[bool:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic {{%\d+}} %uint_32 Boolean
+// CHECK: [[foo:%\d+]] = OpExtInst %void [[set]] DebugTypeComposite [[fooName]] Structure {{%\d+}} 3 8
 
 // CHECK: [[float:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic {{%\d+}} %uint_32 Float
 // CHECK: [[int:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic {{%\d+}} %uint_32 Signed
