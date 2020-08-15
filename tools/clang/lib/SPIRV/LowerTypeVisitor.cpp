@@ -253,6 +253,7 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
         case BuiltinType::Int:
           return spvContext.getSIntType(32);
         case BuiltinType::UInt:
+        case BuiltinType::ULong:
           return spvContext.getUIntType(32);
 
           // void and bool
