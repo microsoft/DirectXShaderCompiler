@@ -293,6 +293,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   bool hasMulticomponentUAVLoads = false;
   bool hasViewportOrRTArrayIndex = false;
   bool hasShadingRate = false;
+  bool hasBarycentrics = false;
   bool hasSamplerFeedback = false;
   bool hasRaytracingTier1_1 = false;
   bool hasAtomicInt64OnTypedResource = false;
@@ -467,6 +468,9 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
       case Semantic::Kind::ShadingRate:
         hasShadingRate = true;
         break;
+      case Semantic::Kind::Barycentrics:
+        hasBarycentrics = true;
+        break;
       default:
         break;
       }
@@ -531,6 +535,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   flag.SetViewID(hasViewID);
   flag.SetViewportAndRTArrayIndex(hasViewportOrRTArrayIndex);
   flag.SetShadingRate(hasShadingRate);
+  flag.SetBarycentrics(hasBarycentrics);
   flag.SetSamplerFeedback(hasSamplerFeedback);
   flag.SetRaytracingTier1_1(hasRaytracingTier1_1);
   flag.SetAtomicInt64OnTypedResource(hasAtomicInt64OnTypedResource);
