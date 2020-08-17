@@ -32,6 +32,9 @@ class SpirvVariable;
 class SpirvString;
 class Visitor;
 
+#define DEFINE_RELEASE_MEMORY_FOR_CLASS(cls)                                   \
+  void releaseMemory() override { this->~cls(); }
+
 /// \brief The base class for representing SPIR-V instructions.
 class SpirvInstruction {
 public:
@@ -121,6 +124,11 @@ public:
     IK_UnaryOp,                   // Unary operations
     IK_VectorShuffle,             // OpVectorShuffle
   };
+
+  // All instruction classes should include a releaseMemory method.
+  // This is needed in order to avoid leaking memory for classes that include
+  // members that are not trivially destructible.
+  virtual void releaseMemory() = 0;
 
   virtual ~SpirvInstruction() = default;
 
@@ -218,6 +226,8 @@ class SpirvCapability : public SpirvInstruction {
 public:
   SpirvCapability(SourceLocation loc, spv::Capability cap);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvCapability)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_Capability;
@@ -237,6 +247,8 @@ private:
 class SpirvExtension : public SpirvInstruction {
 public:
   SpirvExtension(SourceLocation loc, llvm::StringRef extensionName);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvExtension)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -258,6 +270,8 @@ class SpirvExtInstImport : public SpirvInstruction {
 public:
   SpirvExtInstImport(SourceLocation loc, llvm::StringRef extensionName);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvExtInstImport)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_ExtInstImport;
@@ -275,6 +289,8 @@ private:
 class SpirvMemoryModel : public SpirvInstruction {
 public:
   SpirvMemoryModel(spv::AddressingModel addrModel, spv::MemoryModel memModel);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvMemoryModel)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -297,6 +313,8 @@ public:
   SpirvEntryPoint(SourceLocation loc, spv::ExecutionModel executionModel,
                   SpirvFunction *entryPoint, llvm::StringRef nameStr,
                   llvm::ArrayRef<SpirvVariable *> iface);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvEntryPoint)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -324,6 +342,8 @@ public:
                      spv::ExecutionMode, llvm::ArrayRef<uint32_t> params,
                      bool usesIdParams);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvExecutionMode)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_ExecutionMode;
@@ -346,6 +366,8 @@ class SpirvString : public SpirvInstruction {
 public:
   SpirvString(SourceLocation loc, llvm::StringRef stringLiteral);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvString)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_String;
@@ -364,6 +386,8 @@ class SpirvSource : public SpirvInstruction {
 public:
   SpirvSource(SourceLocation loc, spv::SourceLanguage language, uint32_t ver,
               SpirvString *file, llvm::StringRef src);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvSource)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -389,6 +413,8 @@ private:
 class SpirvModuleProcessed : public SpirvInstruction {
 public:
   SpirvModuleProcessed(SourceLocation loc, llvm::StringRef processStr);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvModuleProcessed)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -417,6 +443,8 @@ public:
   SpirvDecoration(SourceLocation loc, SpirvInstruction *target,
                   spv::Decoration decor,
                   llvm::ArrayRef<SpirvInstruction *> params);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvDecoration)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -458,6 +486,8 @@ public:
                 spv::StorageClass sc, bool isPrecise,
                 SpirvInstruction *initializerId = 0);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvVariable)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_Variable;
@@ -488,6 +518,8 @@ public:
 
   SpirvFunctionParameter(const SpirvType *spvType, bool isPrecise,
                          SourceLocation loc);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvFunctionParameter)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -521,6 +553,8 @@ public:
   SpirvLoopMerge(SourceLocation loc, SpirvBasicBlock *mergeBlock,
                  SpirvBasicBlock *contTarget, spv::LoopControlMask mask);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvLoopMerge)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_LoopMerge;
@@ -540,6 +574,8 @@ class SpirvSelectionMerge : public SpirvMerge {
 public:
   SpirvSelectionMerge(SourceLocation loc, SpirvBasicBlock *mergeBlock,
                       spv::SelectionControlMask mask);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvSelectionMerge)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -596,6 +632,8 @@ class SpirvBranch : public SpirvBranching {
 public:
   SpirvBranch(SourceLocation loc, SpirvBasicBlock *target);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvBranch)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_Branch;
@@ -621,6 +659,8 @@ public:
   SpirvBranchConditional(SourceLocation loc, SpirvInstruction *cond,
                          SpirvBasicBlock *trueLabel,
                          SpirvBasicBlock *falseLabel);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvBranchConditional)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -648,6 +688,8 @@ class SpirvKill : public SpirvTerminator {
 public:
   SpirvKill(SourceLocation loc);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvKill)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_Kill;
@@ -660,6 +702,8 @@ public:
 class SpirvReturn : public SpirvTerminator {
 public:
   SpirvReturn(SourceLocation loc, SpirvInstruction *retVal = 0);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvReturn)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -682,6 +726,8 @@ public:
       SourceLocation loc, SpirvInstruction *selector,
       SpirvBasicBlock *defaultLabel,
       llvm::ArrayRef<std::pair<uint32_t, SpirvBasicBlock *>> &targetsVec);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvSwitch)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -711,6 +757,8 @@ class SpirvUnreachable : public SpirvTerminator {
 public:
   SpirvUnreachable(SourceLocation loc);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvUnreachable)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_Unreachable;
@@ -728,6 +776,8 @@ public:
   SpirvAccessChain(QualType resultType, SourceLocation loc,
                    SpirvInstruction *base,
                    llvm::ArrayRef<SpirvInstruction *> indexVec);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvAccessChain)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -776,6 +826,8 @@ public:
               spv::MemorySemanticsMask semanticsUnequal,
               SpirvInstruction *value, SpirvInstruction *comparator);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvAtomic)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_Atomic;
@@ -812,6 +864,8 @@ public:
   SpirvBarrier(SourceLocation loc, spv::Scope memoryScope,
                spv::MemorySemanticsMask memorySemantics,
                llvm::Optional<spv::Scope> executionScope = llvm::None);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvBarrier)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -900,6 +954,8 @@ public:
   SpirvBinaryOp(spv::Op opcode, QualType resultType, SourceLocation loc,
                 SpirvInstruction *op1, SpirvInstruction *op2);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvBinaryOp)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_BinaryOp;
@@ -951,6 +1007,8 @@ public:
                        SpirvInstruction *base, SpirvInstruction *offset,
                        SpirvInstruction *count, bool isSigned);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvBitFieldExtract)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_BitFieldExtract;
@@ -968,6 +1026,8 @@ public:
   SpirvBitFieldInsert(QualType resultType, SourceLocation loc,
                       SpirvInstruction *base, SpirvInstruction *insert,
                       SpirvInstruction *offset, SpirvInstruction *count);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvBitFieldInsert)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1001,6 +1061,8 @@ class SpirvConstantBoolean : public SpirvConstant {
 public:
   SpirvConstantBoolean(QualType type, bool value, bool isSpecConst = false);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvConstantBoolean)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_ConstantBoolean;
@@ -1022,6 +1084,8 @@ public:
   SpirvConstantInteger(QualType type, llvm::APInt value,
                        bool isSpecConst = false);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvConstantInteger)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_ConstantInteger;
@@ -1041,6 +1105,8 @@ class SpirvConstantFloat : public SpirvConstant {
 public:
   SpirvConstantFloat(QualType type, llvm::APFloat value,
                      bool isSpecConst = false);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvConstantFloat)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1063,6 +1129,8 @@ public:
                          llvm::ArrayRef<SpirvConstant *> constituents,
                          bool isSpecConst = false);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvConstantComposite)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_ConstantComposite;
@@ -1082,6 +1150,8 @@ class SpirvConstantNull : public SpirvConstant {
 public:
   SpirvConstantNull(QualType type);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvConstantNull)
+
   bool invokeVisitor(Visitor *v) override;
 
   // For LLVM-style RTTI
@@ -1097,6 +1167,8 @@ class SpirvCompositeConstruct : public SpirvInstruction {
 public:
   SpirvCompositeConstruct(QualType resultType, SourceLocation loc,
                           llvm::ArrayRef<SpirvInstruction *> constituentsVec);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvCompositeConstruct)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1120,6 +1192,8 @@ public:
                         SpirvInstruction *composite,
                         llvm::ArrayRef<uint32_t> indices);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvCompositeExtract)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_CompositeExtract;
@@ -1141,6 +1215,8 @@ public:
   SpirvCompositeInsert(QualType resultType, SourceLocation loc,
                        SpirvInstruction *composite, SpirvInstruction *object,
                        llvm::ArrayRef<uint32_t> indices);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvCompositeInsert)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1164,6 +1240,8 @@ class SpirvEmitVertex : public SpirvInstruction {
 public:
   SpirvEmitVertex(SourceLocation loc);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvEmitVertex)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_EmitVertex;
@@ -1176,6 +1254,8 @@ public:
 class SpirvEndPrimitive : public SpirvInstruction {
 public:
   SpirvEndPrimitive(SourceLocation loc);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvEndPrimitive)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1190,6 +1270,8 @@ class SpirvExtInst : public SpirvInstruction {
 public:
   SpirvExtInst(QualType resultType, SourceLocation loc, SpirvExtInstImport *set,
                uint32_t inst, llvm::ArrayRef<SpirvInstruction *> operandsVec);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvExtInst)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1214,6 +1296,8 @@ public:
   SpirvFunctionCall(QualType resultType, SourceLocation loc,
                     SpirvFunction *function,
                     llvm::ArrayRef<SpirvInstruction *> argsVec);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvFunctionCall)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1256,6 +1340,8 @@ public:
                           SourceLocation loc, spv::Scope scope,
                           SpirvInstruction *arg1, SpirvInstruction *arg2);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvNonUniformBinaryOp)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_GroupNonUniformBinaryOp;
@@ -1278,6 +1364,8 @@ public:
   SpirvNonUniformElect(QualType resultType, SourceLocation loc,
                        spv::Scope scope);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvNonUniformElect)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_GroupNonUniformElect;
@@ -1293,6 +1381,8 @@ public:
                          SourceLocation loc, spv::Scope scope,
                          llvm::Optional<spv::GroupOperation> group,
                          SpirvInstruction *arg);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvNonUniformUnaryOp)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1352,6 +1442,8 @@ public:
                SpirvInstruction *minLod = nullptr,
                SpirvInstruction *component = nullptr,
                SpirvInstruction *texelToWrite = nullptr);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvImageOp)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1427,6 +1519,8 @@ public:
                   SpirvInstruction *img, SpirvInstruction *lod = nullptr,
                   SpirvInstruction *coord = nullptr);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvImageQuery)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_ImageQuery;
@@ -1452,6 +1546,8 @@ public:
   SpirvImageSparseTexelsResident(QualType resultType, SourceLocation loc,
                                  SpirvInstruction *resCode);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvImageSparseTexelsResident)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_ImageSparseTexelsResident;
@@ -1475,6 +1571,8 @@ public:
                          SpirvInstruction *image, SpirvInstruction *coordinate,
                          SpirvInstruction *sample);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvImageTexelPointer)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_ImageTexelPointer;
@@ -1497,6 +1595,8 @@ class SpirvLoad : public SpirvInstruction {
 public:
   SpirvLoad(QualType resultType, SourceLocation loc, SpirvInstruction *pointer,
             llvm::Optional<spv::MemoryAccessMask> mask = llvm::None);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvLoad)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1522,6 +1622,8 @@ public:
   SpirvCopyObject(QualType resultType, SourceLocation loc,
                   SpirvInstruction *pointer);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvCopyObject)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_CopyObject;
@@ -1544,6 +1646,8 @@ public:
   SpirvSampledImage(QualType resultType, SourceLocation loc,
                     SpirvInstruction *image, SpirvInstruction *sampler);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvSampledImage)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_SampledImage;
@@ -1564,6 +1668,8 @@ class SpirvSelect : public SpirvInstruction {
 public:
   SpirvSelect(QualType resultType, SourceLocation loc, SpirvInstruction *cond,
               SpirvInstruction *trueId, SpirvInstruction *falseId);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvSelect)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1589,6 +1695,8 @@ public:
                             SourceLocation loc, SpirvInstruction *operand1,
                             SpirvInstruction *operand2);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvSpecConstantBinaryOp)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_SpecConstantBinaryOp;
@@ -1612,6 +1720,8 @@ public:
   SpirvSpecConstantUnaryOp(spv::Op specConstantOp, QualType resultType,
                            SourceLocation loc, SpirvInstruction *operand);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvSpecConstantUnaryOp)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_SpecConstantUnaryOp;
@@ -1633,6 +1743,8 @@ public:
   SpirvStore(SourceLocation loc, SpirvInstruction *pointer,
              SpirvInstruction *object,
              llvm::Optional<spv::MemoryAccessMask> mask = llvm::None);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvStore)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1697,6 +1809,8 @@ public:
   SpirvUnaryOp(spv::Op opcode, QualType resultType, SourceLocation loc,
                SpirvInstruction *op);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvUnaryOp)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_UnaryOp;
@@ -1717,6 +1831,8 @@ public:
   SpirvVectorShuffle(QualType resultType, SourceLocation loc,
                      SpirvInstruction *vec1, SpirvInstruction *vec2,
                      llvm::ArrayRef<uint32_t> componentsVec);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvVectorShuffle)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1739,6 +1855,8 @@ class SpirvArrayLength : public SpirvInstruction {
 public:
   SpirvArrayLength(QualType resultType, SourceLocation loc,
                    SpirvInstruction *structure, uint32_t arrayMember);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvArrayLength)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1765,6 +1883,8 @@ public:
                       llvm::ArrayRef<SpirvInstruction *> vecOperands,
                       SourceLocation loc);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvRayTracingOpNV)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_RayTracingOpNV;
@@ -1777,11 +1897,14 @@ public:
 private:
   llvm::SmallVector<SpirvInstruction *, 4> operands;
 };
+
 class SpirvRayQueryOpKHR : public SpirvInstruction {
 public:
   SpirvRayQueryOpKHR(QualType resultType, spv::Op opcode,
                      llvm::ArrayRef<SpirvInstruction *> vecOperands, bool flags,
                      SourceLocation loc);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvRayQueryOpKHR)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1809,6 +1932,8 @@ private:
 class SpirvDemoteToHelperInvocationEXT : public SpirvInstruction {
 public:
   SpirvDemoteToHelperInvocationEXT(SourceLocation);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvDemoteToHelperInvocationEXT)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {

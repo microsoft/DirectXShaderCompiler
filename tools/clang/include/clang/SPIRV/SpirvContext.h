@@ -121,7 +121,7 @@ class SpirvContext {
 public:
   using ShaderModelKind = hlsl::ShaderModel::Kind;
   SpirvContext();
-  ~SpirvContext() = default;
+  ~SpirvContext();
 
   // Forbid copy construction and assignment
   SpirvContext(const SpirvContext &) = delete;
@@ -259,7 +259,11 @@ private:
   std::array<const IntegerType *, 7> uintTypes;
   std::array<const FloatType *, 7> floatTypes;
 
+  // The VectorType at index i has the length of i. For example, vector of
+  // size 4 would be at index 4. Valid SPIR-V vector sizes are 2,3,4.
+  // Therefore, index 0 and 1 of this array are unused (nullptr).
   using VectorTypeArray = std::array<const VectorType *, 5>;
+
   using MatrixTypeVector = std::vector<const MatrixType *>;
   using SCToPtrTyMap =
       llvm::DenseMap<spv::StorageClass, const SpirvPointerType *,
@@ -273,11 +277,14 @@ private:
   llvm::DenseSet<const ImageType *, ImageTypeMapInfo> imageTypes;
   const SamplerType *samplerType;
   llvm::DenseMap<const ImageType *, const SampledImageType *> sampledImageTypes;
+  llvm::SmallVector<const HybridSampledImageType *, 4> hybridSampledImageTypes;
   llvm::DenseSet<const ArrayType *, ArrayTypeMapInfo> arrayTypes;
   llvm::DenseSet<const RuntimeArrayType *, RuntimeArrayTypeMapInfo>
       runtimeArrayTypes;
   llvm::SmallVector<const StructType *, 8> structTypes;
+  llvm::SmallVector<const HybridStructType *, 8> hybridStructTypes;
   llvm::DenseMap<const SpirvType *, SCToPtrTyMap> pointerTypes;
+  llvm::SmallVector<const HybridPointerType *, 8> hybridPointerTypes;
   llvm::DenseSet<FunctionType *, FunctionTypeMapInfo> functionTypes;
   const AccelerationStructureTypeNV *accelerationStructureTypeNV;
   const RayQueryProvisionalTypeKHR *rayQueryProvisionalTypeKHR;

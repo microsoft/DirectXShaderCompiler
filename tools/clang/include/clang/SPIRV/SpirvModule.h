@@ -76,7 +76,7 @@ struct CapabilityComparisonInfo {
 class SpirvModule {
 public:
   SpirvModule();
-  ~SpirvModule() = default;
+  ~SpirvModule();
 
   // Forbid copy construction and assignment
   SpirvModule(const SpirvModule &) = delete;
@@ -93,7 +93,9 @@ public:
   void addFunction(SpirvFunction *);
 
   // Add a capability to the list of module capabilities.
-  void addCapability(SpirvCapability *cap);
+  // Returns true if the capability was added.
+  // Returns false otherwise (e.g. if the capability already existed).
+  bool addCapability(SpirvCapability *cap);
 
   // Set the memory model of the module.
   void setMemoryModel(SpirvMemoryModel *model);
@@ -104,8 +106,9 @@ public:
   // Adds an execution mode to the module.
   void addExecutionMode(SpirvExecutionMode *);
 
-  // Adds an extension to the module.
-  void addExtension(SpirvExtension *);
+  // Adds an extension to the module. Returns true if the extension was added.
+  // Returns false otherwise (e.g. if the extension already existed).
+  bool addExtension(SpirvExtension *);
 
   // Adds an extended instruction set to the module.
   void addExtInstSet(SpirvExtInstImport *);

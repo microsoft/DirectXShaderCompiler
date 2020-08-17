@@ -22,6 +22,15 @@ SpirvFunction::SpirvFunction(QualType returnType, SourceLocation loc,
       containsAlias(false), rvalue(false), functionLoc(loc),
       functionName(name) {}
 
+SpirvFunction::~SpirvFunction() {
+  for (auto *param : parameters)
+    param->releaseMemory();
+  for (auto *var : variables)
+    var->releaseMemory();
+  for (auto *bb : basicBlocks)
+    bb->~SpirvBasicBlock();
+}
+
 bool SpirvFunction::invokeVisitor(Visitor *visitor, bool reverseOrder) {
   if (!visitor->visit(this, Visitor::Phase::Init))
     return false;

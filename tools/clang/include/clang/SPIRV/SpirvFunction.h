@@ -26,7 +26,8 @@ class SpirvFunction {
 public:
   SpirvFunction(QualType astReturnType, SourceLocation,
                 llvm::StringRef name = "", bool precise = false);
-  ~SpirvFunction() = default;
+
+  ~SpirvFunction();
 
   // Forbid copy construction and assignment
   SpirvFunction(const SpirvFunction &) = delete;
@@ -93,14 +94,12 @@ public:
   bool isRValue() { return rvalue; }
 
 private:
-  uint32_t functionId; ///< This function's <result-id>
-
-  QualType astReturnType;                       ///< The return type
-  SpirvType *returnType;                        ///< The lowered return type
-  SpirvType *fnType;                            ///< The SPIR-V function type
-
-  bool relaxedPrecision; ///< Whether the return type is at relaxed precision
-  bool precise;          ///< Whether the return value is 'precise'
+  uint32_t functionId;    ///< This function's <result-id>
+  QualType astReturnType; ///< The return type
+  SpirvType *returnType;  ///< The lowered return type
+  SpirvType *fnType;      ///< The SPIR-V function type
+  bool relaxedPrecision;  ///< Whether the return type is at relaxed precision
+  bool precise;           ///< Whether the return value is 'precise'
 
   /// Legalization-specific code
   ///

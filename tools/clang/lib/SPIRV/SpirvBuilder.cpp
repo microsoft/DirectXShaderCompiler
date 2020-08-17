@@ -23,9 +23,17 @@ namespace spirv {
 
 SpirvBuilder::SpirvBuilder(ASTContext &ac, SpirvContext &ctx,
                            const SpirvCodeGenOptions &opt)
-    : astContext(ac), context(ctx), mod(nullptr), function(nullptr),
-      spirvOptions(opt), builtinVars(), stringLiterals() {
-  mod = new (context) SpirvModule;
+    : astContext(ac), context(ctx), mod(llvm::make_unique<SpirvModule>()),
+      function(nullptr), spirvOptions(opt), builtinVars(), stringLiterals() {}
+
+SpirvBuilder::~SpirvBuilder() {
+  // If an error occurs before the ownership of the function and basic block
+  // under construction is moved to the SpirvModule, SpirvBuilder should
+  // clean up after itself.
+  if (function)
+    function->~SpirvFunction();
+  for (auto *bb : basicBlocks)
+    bb->~SpirvBasicBlock();
 }
 
 SpirvFunction *SpirvBuilder::beginFunction(QualType returnType,
@@ -77,10 +85,9 @@ SpirvVariable *SpirvBuilder::addFnVar(QualType valueType, SourceLocation loc,
   if (isBindlessOpaqueArray(valueType)) {
     // If it is a bindless array of an opaque type, we have to use
     // a pointer to a pointer of the runtime array.
-    var = new (context)
-        SpirvVariable(context.getPointerType(
-                          valueType, spv::StorageClass::UniformConstant),
-                      loc, spv::StorageClass::Function, isPrecise, init);
+    var = new (context) SpirvVariable(
+        context.getPointerType(valueType, spv::StorageClass::UniformConstant),
+        loc, spv::StorageClass::Function, isPrecise, init);
   } else {
     var = new (context) SpirvVariable(
         valueType, loc, spv::StorageClass::Function, isPrecise, init);
