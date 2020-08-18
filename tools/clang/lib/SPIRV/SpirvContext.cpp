@@ -14,7 +14,6 @@
 
 namespace clang {
 namespace spirv {
-
 SpirvContext::SpirvContext()
     : allocator(), voidType(nullptr), boolType(nullptr), sintTypes({}),
       uintTypes({}), floatTypes({}), samplerType(nullptr),
