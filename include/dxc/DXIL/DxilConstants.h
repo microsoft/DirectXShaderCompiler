@@ -415,6 +415,13 @@ namespace DXIL {
     ThreadId = 93, // reads the thread ID
     ThreadIdInGroup = 95, // reads the thread ID within the group (SV_GroupThreadID)
   
+    // Derivatives
+    CalculateLOD = 81, // calculates the level of detail
+    DerivCoarseX = 83, // computes the rate of change per stamp in x direction.
+    DerivCoarseY = 84, // computes the rate of change per stamp in y direction.
+    DerivFineX = 85, // computes the rate of change per pixel in x direction.
+    DerivFineY = 86, // computes the rate of change per pixel in y direction.
+  
     // Domain and hull shader
     LoadOutputControlPoint = 103, // LoadOutputControlPoint
     LoadPatchConstant = 104, // LoadPatchConstant
@@ -522,12 +529,7 @@ namespace DXIL {
   
     // Pixel shader
     AttributeAtVertex = 137, // returns the values of the attributes at the vertex.
-    CalculateLOD = 81, // calculates the level of detail
     Coverage = 91, // returns the coverage mask input in a pixel shader
-    DerivCoarseX = 83, // computes the rate of change per stamp in x direction.
-    DerivCoarseY = 84, // computes the rate of change per stamp in y direction.
-    DerivFineX = 85, // computes the rate of change per pixel in x direction.
-    DerivFineY = 86, // computes the rate of change per pixel in y direction.
     Discard = 82, // discard the current pixel
     EvalCentroid = 89, // evaluates an input attribute at pixel center
     EvalSampleIndex = 88, // evaluates an input attribute at a sample location
@@ -739,6 +741,10 @@ namespace DXIL {
     ThreadId,
     ThreadIdInGroup,
   
+    // Derivatives
+    CalculateLOD,
+    Unary,
+  
     // Domain and hull shader
     LoadOutputControlPoint,
     LoadPatchConstant,
@@ -820,7 +826,6 @@ namespace DXIL {
   
     // Pixel shader
     AttributeAtVertex,
-    CalculateLOD,
     Coverage,
     Discard,
     EvalCentroid,
@@ -828,7 +833,6 @@ namespace DXIL {
     EvalSnapped,
     InnerCoverage,
     SampleIndex,
-    Unary,
   
     // Quad Wave Ops
     QuadOp,
@@ -1374,8 +1378,9 @@ namespace DXIL {
   const uint64_t ShaderFeatureInfo_SamplerFeedback = 0x200000;
   const uint64_t ShaderFeatureInfo_AtomicInt64OnTypedResource = 0x400000;
   const uint64_t ShaderFeatureInfo_AtomicInt64OnGroupShared = 0x800000;
+  const uint64_t ShaderFeatureInfo_DerivativesInMeshAndAmpShaders = 0x1000000;
 
-  const unsigned ShaderFeatureInfoCount = 24;
+  const unsigned ShaderFeatureInfoCount = 25;
 
   // DxilSubobjectType must match D3D12_STATE_SUBOBJECT_TYPE, with
   // certain values reserved, since they cannot be used from Dxil.

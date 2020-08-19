@@ -864,7 +864,7 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   // Instructions: Sample=60, SampleBias=61, SampleCmp=64, CalculateLOD=81,
   // DerivCoarseX=83, DerivCoarseY=84, DerivFineX=85, DerivFineY=86
   if ((60 <= op && op <= 61) || op == 64 || op == 81 || (83 <= op && op <= 86))
-    return (SK == DXIL::ShaderKind::Library || SK == DXIL::ShaderKind::Pixel);
+    return (SK == DXIL::ShaderKind::Library || SK == DXIL::ShaderKind::Pixel || SK == DXIL::ShaderKind::Compute || SK == DXIL::ShaderKind::Amplification || SK == DXIL::ShaderKind::Mesh);
   // Instructions: RenderTargetGetSamplePosition=76,
   // RenderTargetGetSampleCount=77, Discard=82, EvalSnapped=87,
   // EvalSampleIndex=88, EvalCentroid=89, SampleIndex=90, Coverage=91,
@@ -1266,6 +1266,16 @@ static void ValidateResourceOffset(CallInst *CI, DXIL::ResourceKind resKind,
     }
   }
 }
+
+// Validate derivative and derivative dependent ops in CS/MS/AS
+static void ValidateDerivativeOp(CallInst *CI, ValidationContext &ValCtx) {
+
+  const ShaderModel *pSM = ValCtx.DxilMod.GetShaderModel();
+  if (pSM && (pSM->IsMS() || pSM->IsAS() || pSM->IsCS()) && !pSM->IsSM66Plus())
+    ValCtx.EmitInstrFormatError(CI, ValidationRule::SmOpcodeInInvalidFunction,
+                                {"Derivatives in CS/MS/AS", "Shader Model 6.6+"});
+}
+
 
 static void ValidateSampleInst(CallInst *CI, Value *srvHandle, Value *samplerHandle,
                                ArrayRef<Value *> coords,
@@ -1768,6 +1778,7 @@ static void ValidateImmOperandForMathDxilOp(CallInst *CI, DXIL::OpCode opcode,
         ValCtx.EmitInstrError(CI, ValidationRule::InstrNoIndefiniteDsxy);
       }
     }
+    ValidateDerivativeOp(CI, ValCtx);
   } break;
   default:
     break;
@@ -1929,6 +1940,7 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
       break;
     }
 
+    ValidateDerivativeOp(CI, ValCtx);
   } break;
   case DXIL::OpCode::TextureGather: {
     DxilInst_TextureGather gather(CI);
@@ -1954,6 +1966,7 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
          sample.get_coord3()},
         {sample.get_offset0(), sample.get_offset1(), sample.get_offset2()},
         /*IsSampleC*/ false, ValCtx);
+    ValidateDerivativeOp(CI, ValCtx);
   } break;
   case DXIL::OpCode::SampleCmp: {
     DxilInst_SampleCmp sample(CI);
@@ -1963,6 +1976,7 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
          sample.get_coord3()},
         {sample.get_offset0(), sample.get_offset1(), sample.get_offset2()},
         /*IsSampleC*/ true, ValCtx);
+    ValidateDerivativeOp(CI, ValCtx);
   } break;
   case DXIL::OpCode::SampleCmpLevelZero: {
     // sampler must be comparison mode.
@@ -1994,6 +2008,7 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
          sample.get_coord3()},
         {sample.get_offset0(), sample.get_offset1(), sample.get_offset2()},
         /*IsSampleC*/ false, ValCtx);
+    ValidateDerivativeOp(CI, ValCtx);
   } break;
   case DXIL::OpCode::SampleGrad: {
     DxilInst_SampleGrad sample(CI);
@@ -2497,11 +2512,9 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
   case DXIL::OpCode::AtomicBinOp:
   case DXIL::OpCode::AtomicCompareExchange: {
     Type *pOverloadType = OP::GetOverloadType(opcode, CI->getCalledFunction());
-    if ((pOverloadType->isIntegerTy(64)) &&
-        (pSM->GetMajor() < 6 || (pSM->GetMajor() == 6 && pSM->GetMinor() < 6))) {
+    if ((pOverloadType->isIntegerTy(64)) && !pSM->IsSM66Plus())
       ValCtx.EmitInstrFormatError(CI, ValidationRule::SmOpcodeInInvalidFunction,
                                   {"64-bit atomic operations", "Shader Model 6.6+"});
-    }
   } break;
   default:
     // TODO: make sure every opcode is checked.
@@ -3459,12 +3472,10 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
       case Instruction::AtomicCmpXchg:
       case Instruction::AtomicRMW: {
         Type *T = cast<PointerType>(I.getOperand(AtomicRMWInst::getPointerOperandIndex())->getType())->getElementType();
-        const ShaderModel &SM = *ValCtx.DxilMod.GetShaderModel();
-        if ((T->isIntegerTy(64)) &&
-            (SM.GetMajor() < 6 || (SM.GetMajor() == 6 && SM.GetMinor() < 6))) {
+        const ShaderModel *pSM = ValCtx.DxilMod.GetShaderModel();
+        if ((T->isIntegerTy(64)) && !pSM->IsSM66Plus())
           ValCtx.EmitInstrFormatError(&I, ValidationRule::SmOpcodeInInvalidFunction,
                                       {"64-bit atomic operations", "Shader Model 6.6+"});
-        }
       } break;
 
       }

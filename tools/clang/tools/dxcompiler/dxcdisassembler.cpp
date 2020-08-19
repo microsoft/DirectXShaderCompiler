@@ -340,7 +340,8 @@ PCSTR g_pFeatureInfoNames[] = {
     "Raytracing tier 1.1 features",
     "Sampler feedback",
     "64-bit Atomics on Typed Resources",
-    "64-bit Atomics on Group Shared"
+    "64-bit Atomics on Group Shared",
+    "Derivatives in mesh and amplification shaders"
 };
 static_assert(_countof(g_pFeatureInfoNames) == ShaderFeatureInfoCount, "g_pFeatureInfoNames needs to be updated");
 

@@ -120,6 +120,9 @@ namespace hlsl {
     void SetAtomicInt64OnGroupShared(bool flag) { m_bAtomicInt64OnGroupShared = flag; }
     bool GetAtomicInt64OnGroupShared() const { return m_bAtomicInt64OnGroupShared; }
 
+    void SetDerivativesInMeshAndAmpShaders(bool flag) { m_bDerivativesInMeshAndAmpShaders = flag; }
+    bool GetDerivativesInMeshAndAmpShaders() { return m_bDerivativesInMeshAndAmpShaders; }
+
   private:
     unsigned m_bDisableOptimizations :1;   // D3D11_1_SB_GLOBAL_FLAG_SKIP_OPTIMIZATION
     unsigned m_bDisableMathRefactoring :1; //~D3D10_SB_GLOBAL_FLAG_REFACTORING_ALLOWED
@@ -161,7 +164,9 @@ namespace hlsl {
     unsigned m_bAtomicInt64OnTypedResource : 1; // SHADER_FEATURE_ATOMIC_INT64_ON_TYPED_RESOURCE
     unsigned m_bAtomicInt64OnGroupShared : 1;//SHADER_FEATURE_ATOMIC_INT64_ON_GROUP_SHARED
 
-    unsigned m_align0 : 3;        // align to 32 bit.
+    unsigned m_bDerivativesInMeshAndAmpShaders : 1; //SHADER_FEATURE_DERIVATIVES_IN_MESH_AND_AMPLIFICATION_SHADERS
+
+    unsigned m_align0 : 2;        // align to 32 bit.
     uint32_t m_align1;            // align to 64 bit.
   };
 

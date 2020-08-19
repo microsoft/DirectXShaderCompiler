@@ -54,6 +54,7 @@ ShaderFlags::ShaderFlags():
 , m_bSamplerFeedback(false)
 , m_bAtomicInt64OnTypedResource(false)
 , m_bAtomicInt64OnGroupShared(false)
+, m_bDerivativesInMeshAndAmpShaders(false)
 , m_align0(0)
 , m_align1(0)
 {
@@ -108,6 +109,7 @@ uint64_t ShaderFlags::GetFeatureInfo() const {
   Flags |= m_bSamplerFeedback ? hlsl::DXIL::ShaderFeatureInfo_SamplerFeedback : 0;
   Flags |= m_bAtomicInt64OnTypedResource ? hlsl::DXIL::ShaderFeatureInfo_AtomicInt64OnTypedResource : 0;
   Flags |= m_bAtomicInt64OnGroupShared ? hlsl::DXIL::ShaderFeatureInfo_AtomicInt64OnGroupShared : 0;
+  Flags |= m_bDerivativesInMeshAndAmpShaders ? hlsl::DXIL::ShaderFeatureInfo_DerivativesInMeshAndAmpShaders : 0;
 
   return Flags;
 }
@@ -162,6 +164,9 @@ uint64_t ShaderFlags::GetShaderFlagsRawForCollection() {
   Flags.SetShadingRate(true);
   Flags.SetRaytracingTier1_1(true);
   Flags.SetSamplerFeedback(true);
+  Flags.SetAtomicInt64OnTypedResource(true);
+  Flags.SetAtomicInt64OnGroupShared(true);
+  Flags.SetDerivativesInMeshAndAmpShaders(true);
   return Flags.GetShaderFlagsRaw();
 }
 
@@ -294,6 +299,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   bool hasRaytracingTier1_1 = false;
   bool hasAtomicInt64OnTypedResource = false;
   bool hasAtomicInt64OnGroupShared = false;
+  bool hasDerivativesInMeshAndAmpShaders = false;
 
   // Try to maintain compatibility with a v1.0 validator if that's what we have.
   uint32_t valMajor, valMinor;
@@ -413,6 +419,18 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
                 hasAtomicInt64OnTypedResource = true;
           }
           break;
+        case DXIL::OpCode::DerivFineX:
+        case DXIL::OpCode::DerivFineY:
+        case DXIL::OpCode::DerivCoarseX:
+        case DXIL::OpCode::DerivCoarseY:
+        case DXIL::OpCode::CalculateLOD:
+        case DXIL::OpCode::Sample:
+        case DXIL::OpCode::SampleBias:
+        case DXIL::OpCode::SampleCmp: {
+          const ShaderModel *pSM = M->GetShaderModel();
+          if (pSM->IsAS() || pSM->IsMS())
+            hasDerivativesInMeshAndAmpShaders = true;
+        } break;
         default:
           // Normal opcodes.
           break;
@@ -518,6 +536,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   flag.SetRaytracingTier1_1(hasRaytracingTier1_1);
   flag.SetAtomicInt64OnTypedResource(hasAtomicInt64OnTypedResource);
   flag.SetAtomicInt64OnGroupShared(hasAtomicInt64OnGroupShared);
+  flag.SetDerivativesInMeshAndAmpShaders(hasDerivativesInMeshAndAmpShaders);
 
   return flag;
 }
