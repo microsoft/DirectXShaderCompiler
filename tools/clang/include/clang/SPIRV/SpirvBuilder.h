@@ -50,7 +50,7 @@ class SpirvBuilder {
 
 public:
   SpirvBuilder(ASTContext &ac, SpirvContext &c, const SpirvCodeGenOptions &);
-  ~SpirvBuilder();
+  ~SpirvBuilder() = default;
 
   // Forbid copy construction and assignment
   SpirvBuilder(const SpirvBuilder &) = delete;
@@ -64,6 +64,11 @@ public:
   SpirvModule *getModule() { return mod.get(); }
 
   // === Function and Basic Block ===
+
+  /// \brief Creates a SpirvFunction object with the given information and adds
+  /// it to list of all discovered functions in the SpirvModule.
+  SpirvFunction *createSpirvFunction(QualType returnType, SourceLocation,
+                                     llvm::StringRef name, bool isPrecise);
 
   /// \brief Begins building a SPIR-V function by allocating a SpirvFunction
   /// object. Returns the pointer for the function on success. Returns nullptr
@@ -608,13 +613,6 @@ private:
   std::unique_ptr<SpirvModule> mod; ///< The current module being built
   SpirvFunction *function;          ///< The current function being built
   SpirvBasicBlock *insertPoint;     ///< The current basic block being built
-
-  /// \brief List of basic blocks being built.
-  ///
-  /// We need a vector here to remember the order of insertion. Order matters
-  /// here since, for example, we'll know for sure the first basic block is
-  /// the entry block.
-  std::vector<SpirvBasicBlock *> basicBlocks;
 
   const SpirvCodeGenOptions &spirvOptions; ///< Command line options.
 
