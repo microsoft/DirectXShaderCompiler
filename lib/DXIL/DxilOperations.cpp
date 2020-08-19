@@ -174,13 +174,19 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   {  OC::AtomicCompareExchange,   "AtomicCompareExchange",    OCC::AtomicCompareExchange,    "atomicCompareExchange",     { false, false, false, false, false, false, false,  true,  true, false, false}, Attribute::None,     },
   {  OC::Barrier,                 "Barrier",                  OCC::Barrier,                  "barrier",                   {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::NoDuplicate, },
 
-  // Pixel shader                                                                                                            void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  // Derivatives                                                                                                             void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
   {  OC::CalculateLOD,            "CalculateLOD",             OCC::CalculateLOD,             "calculateLOD",              { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+
+  // Pixel shader                                                                                                            void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
   {  OC::Discard,                 "Discard",                  OCC::Discard,                  "discard",                   {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+
+  // Derivatives                                                                                                             void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
   {  OC::DerivCoarseX,            "DerivCoarseX",             OCC::Unary,                    "unary",                     { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
   {  OC::DerivCoarseY,            "DerivCoarseY",             OCC::Unary,                    "unary",                     { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
   {  OC::DerivFineX,              "DerivFineX",               OCC::Unary,                    "unary",                     { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
   {  OC::DerivFineY,              "DerivFineY",               OCC::Unary,                    "unary",                     { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+
+  // Pixel shader                                                                                                            void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
   {  OC::EvalSnapped,             "EvalSnapped",              OCC::EvalSnapped,              "evalSnapped",               { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
   {  OC::EvalSampleIndex,         "EvalSampleIndex",          OCC::EvalSampleIndex,          "evalSampleIndex",           { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
   {  OC::EvalCentroid,            "EvalCentroid",             OCC::EvalCentroid,             "evalCentroid",              { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
@@ -673,7 +679,7 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // Instructions: Sample=60, SampleBias=61, SampleCmp=64, CalculateLOD=81,
   // DerivCoarseX=83, DerivCoarseY=84, DerivFineX=85, DerivFineY=86
   if ((60 <= op && op <= 61) || op == 64 || op == 81 || (83 <= op && op <= 86)) {
-    mask = SFLAG(Library) | SFLAG(Pixel);
+    mask = SFLAG(Library) | SFLAG(Pixel) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh);
     return;
   }
   // Instructions: RenderTargetGetSamplePosition=76,
@@ -1147,13 +1153,19 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::AtomicCompareExchange:  A(pETy);     A(pI32); A(pRes); A(pI32); A(pI32); A(pI32); A(pETy); A(pETy); break;
   case OpCode::Barrier:                A(pV);       A(pI32); A(pI32); break;
 
-    // Pixel shader
+    // Derivatives
   case OpCode::CalculateLOD:           A(pF32);     A(pI32); A(pRes); A(pRes); A(pF32); A(pF32); A(pF32); A(pI1);  break;
+
+    // Pixel shader
   case OpCode::Discard:                A(pV);       A(pI32); A(pI1);  break;
+
+    // Derivatives
   case OpCode::DerivCoarseX:           A(pETy);     A(pI32); A(pETy); break;
   case OpCode::DerivCoarseY:           A(pETy);     A(pI32); A(pETy); break;
   case OpCode::DerivFineX:             A(pETy);     A(pI32); A(pETy); break;
   case OpCode::DerivFineY:             A(pETy);     A(pI32); A(pETy); break;
+
+    // Pixel shader
   case OpCode::EvalSnapped:            A(pETy);     A(pI32); A(pI32); A(pI32); A(pI8);  A(pI32); A(pI32); break;
   case OpCode::EvalSampleIndex:        A(pETy);     A(pI32); A(pI32); A(pI32); A(pI8);  A(pI32); break;
   case OpCode::EvalCentroid:           A(pETy);     A(pI32); A(pI32); A(pI32); A(pI8);  break;
