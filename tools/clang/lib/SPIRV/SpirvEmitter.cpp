@@ -3216,6 +3216,8 @@ SpirvInstruction *SpirvEmitter::processBufferTextureLoad(
     return nullptr;
   }
 
+  // If residencyCode is nullptr, we are dealing with a Load method with 2
+  // arguments which does not return the operation status.
   if (residencyCode && residencyCode->isRValue()) {
     emitError(
         "an lvalue argument should be used for returning the operation status",
