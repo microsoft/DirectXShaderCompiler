@@ -23,9 +23,16 @@ namespace spirv {
 
 SpirvBuilder::SpirvBuilder(ASTContext &ac, SpirvContext &ctx,
                            const SpirvCodeGenOptions &opt)
-    : astContext(ac), context(ctx), mod(nullptr), function(nullptr),
-      spirvOptions(opt), builtinVars(), stringLiterals() {
-  mod = new (context) SpirvModule;
+    : astContext(ac), context(ctx), mod(llvm::make_unique<SpirvModule>()),
+      function(nullptr), spirvOptions(opt), builtinVars(), stringLiterals() {}
+
+SpirvFunction *SpirvBuilder::createSpirvFunction(QualType returnType,
+                                                 SourceLocation loc,
+                                                 llvm::StringRef name,
+                                                 bool isPrecise) {
+  auto *fn = new (context) SpirvFunction(returnType, loc, name, isPrecise);
+  mod->addFunction(fn);
+  return fn;
 }
 
 SpirvFunction *SpirvBuilder::beginFunction(QualType returnType,
@@ -41,8 +48,7 @@ SpirvFunction *SpirvBuilder::beginFunction(QualType returnType,
     function->setFunctionName(funcName);
     function->setPrecise(isPrecise);
   } else {
-    function =
-        new (context) SpirvFunction(returnType, loc, funcName, isPrecise);
+    function = createSpirvFunction(returnType, loc, funcName, isPrecise);
   }
 
   return function;
@@ -77,10 +83,9 @@ SpirvVariable *SpirvBuilder::addFnVar(QualType valueType, SourceLocation loc,
   if (isBindlessOpaqueArray(valueType)) {
     // If it is a bindless array of an opaque type, we have to use
     // a pointer to a pointer of the runtime array.
-    var = new (context)
-        SpirvVariable(context.getPointerType(
-                          valueType, spv::StorageClass::UniformConstant),
-                      loc, spv::StorageClass::Function, isPrecise, init);
+    var = new (context) SpirvVariable(
+        context.getPointerType(valueType, spv::StorageClass::UniformConstant),
+        loc, spv::StorageClass::Function, isPrecise, init);
   } else {
     var = new (context) SpirvVariable(
         valueType, loc, spv::StorageClass::Function, isPrecise, init);
@@ -92,16 +97,7 @@ SpirvVariable *SpirvBuilder::addFnVar(QualType valueType, SourceLocation loc,
 
 void SpirvBuilder::endFunction() {
   assert(function && "no active function");
-
-  // Move all basic blocks into the current function.
-  // TODO: we should adjust the order the basic blocks according to
-  // SPIR-V validation rules.
-  for (auto *bb : basicBlocks) {
-    function->addBasicBlock(bb);
-  }
-  basicBlocks.clear();
-
-  mod->addFunction(function);
+  mod->addFunctionToListOfSortedModuleFunctions(function);
   function = nullptr;
   insertPoint = nullptr;
 }
@@ -109,7 +105,7 @@ void SpirvBuilder::endFunction() {
 SpirvBasicBlock *SpirvBuilder::createBasicBlock(llvm::StringRef name) {
   assert(function && "found detached basic block");
   auto *bb = new (context) SpirvBasicBlock(name);
-  basicBlocks.push_back(bb);
+  function->addBasicBlock(bb);
   return bb;
 }
 

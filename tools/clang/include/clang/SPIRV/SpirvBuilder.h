@@ -61,17 +61,22 @@ public:
   SpirvBuilder &operator=(SpirvBuilder &&) = delete;
 
   /// Returns the SPIR-V module being built.
-  SpirvModule *getModule() { return mod; }
+  SpirvModule *getModule() { return mod.get(); }
 
   // === Function and Basic Block ===
+
+  /// \brief Creates a SpirvFunction object with the given information and adds
+  /// it to list of all discovered functions in the SpirvModule.
+  SpirvFunction *createSpirvFunction(QualType returnType, SourceLocation,
+                                     llvm::StringRef name, bool isPrecise);
 
   /// \brief Begins building a SPIR-V function by allocating a SpirvFunction
   /// object. Returns the pointer for the function on success. Returns nullptr
   /// on failure.
   ///
   /// At any time, there can only exist at most one function under building.
-  SpirvFunction *beginFunction(QualType returnType,
-                               SourceLocation, llvm::StringRef name = "",
+  SpirvFunction *beginFunction(QualType returnType, SourceLocation,
+                               llvm::StringRef name = "",
                                bool isPrecise = false,
                                SpirvFunction *func = nullptr);
 
@@ -605,16 +610,9 @@ private:
   ASTContext &astContext;
   SpirvContext &context; ///< From which we allocate various SPIR-V object
 
-  SpirvModule *mod;             ///< The current module being built
-  SpirvFunction *function;      ///< The current function being built
-  SpirvBasicBlock *insertPoint; ///< The current basic block being built
-
-  /// \brief List of basic blocks being built.
-  ///
-  /// We need a vector here to remember the order of insertion. Order matters
-  /// here since, for example, we'll know for sure the first basic block is
-  /// the entry block.
-  std::vector<SpirvBasicBlock *> basicBlocks;
+  std::unique_ptr<SpirvModule> mod; ///< The current module being built
+  SpirvFunction *function;          ///< The current function being built
+  SpirvBasicBlock *insertPoint;     ///< The current basic block being built
 
   const SpirvCodeGenOptions &spirvOptions; ///< Command line options.
 
@@ -635,11 +633,15 @@ private:
 };
 
 void SpirvBuilder::requireCapability(spv::Capability cap, SourceLocation loc) {
-  mod->addCapability(new (context) SpirvCapability(loc, cap));
+  auto *capability = new (context) SpirvCapability(loc, cap);
+  if (!mod->addCapability(capability))
+    capability->releaseMemory();
 }
 
 void SpirvBuilder::requireExtension(llvm::StringRef ext, SourceLocation loc) {
-  mod->addExtension(new (context) SpirvExtension(loc, ext));
+  auto *extension = new (context) SpirvExtension(loc, ext);
+  if (!mod->addExtension(extension))
+    extension->releaseMemory();
 }
 
 void SpirvBuilder::setMemoryModel(spv::AddressingModel addrModel,
@@ -661,9 +663,7 @@ SpirvBuilder::setDebugSource(uint32_t major, uint32_t minor,
   uint32_t version = 100 * major + 10 * minor;
   SpirvSource *mainSource = nullptr;
   for (const auto &name : fileNames) {
-    SpirvString *fileString =
-        name.empty() ? nullptr
-                     : new (context) SpirvString(/*SourceLocation*/ {}, name);
+    SpirvString *fileString = name.empty() ? nullptr : getString(name);
     SpirvSource *debugSource = new (context)
         SpirvSource(/*SourceLocation*/ {}, spv::SourceLanguage::HLSL, version,
                     fileString, content);
