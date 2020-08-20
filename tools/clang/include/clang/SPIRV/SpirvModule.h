@@ -76,7 +76,7 @@ struct CapabilityComparisonInfo {
 class SpirvModule {
 public:
   SpirvModule();
-  ~SpirvModule() = default;
+  ~SpirvModule();
 
   // Forbid copy construction and assignment
   SpirvModule(const SpirvModule &) = delete;
@@ -90,10 +90,16 @@ public:
   bool invokeVisitor(Visitor *, bool reverseOrder = false);
 
   // Add a function to the list of module functions.
+  void addFunctionToListOfSortedModuleFunctions(SpirvFunction *);
+
+  // Adds the given function to the vector of all discovered functions. Calling
+  // this function will not result in emitting the function.
   void addFunction(SpirvFunction *);
 
   // Add a capability to the list of module capabilities.
-  void addCapability(SpirvCapability *cap);
+  // Returns true if the capability was added.
+  // Returns false otherwise (e.g. if the capability already existed).
+  bool addCapability(SpirvCapability *cap);
 
   // Set the memory model of the module.
   void setMemoryModel(SpirvMemoryModel *model);
@@ -104,8 +110,9 @@ public:
   // Adds an execution mode to the module.
   void addExecutionMode(SpirvExecutionMode *);
 
-  // Adds an extension to the module.
-  void addExtension(SpirvExtension *);
+  // Adds an extension to the module. Returns true if the extension was added.
+  // Returns false otherwise (e.g. if the extension already existed).
+  bool addExtension(SpirvExtension *);
 
   // Adds an extended instruction set to the module.
   void addExtInstSet(SpirvExtInstImport *);
@@ -169,7 +176,13 @@ private:
 
   std::vector<SpirvConstant *> constants;
   std::vector<SpirvVariable *> variables;
+  // A vector of functions in the module in the order that they should be
+  // emitted. The order starts with the entry-point function followed by a
+  // depth-first discovery of functions reachable from the entry-point function.
   std::vector<SpirvFunction *> functions;
+  // A vector of all functions that have been visited in the AST tree. This
+  // vector is not in any particular order, and may contain unused functions.
+  llvm::SetVector<SpirvFunction *> allFunctions;
 };
 
 } // end namespace spirv

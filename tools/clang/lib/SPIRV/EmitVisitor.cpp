@@ -161,9 +161,8 @@ void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc) {
     auto it = debugFileIdMap.find(fileName);
     if (it == debugFileIdMap.end()) {
       // Emit the OpString for this new fileName.
-      SpirvString *inst =
-          new (context) SpirvString(/*SourceLocation*/ {}, fileName);
-      visit(inst);
+      SpirvString inst(/*SourceLocation*/ {}, fileName);
+      visit(&inst);
       it = debugFileIdMap.find(fileName);
     }
     fileId = it->second;
@@ -435,13 +434,9 @@ bool EmitVisitor::visit(SpirvString *inst) {
 }
 
 bool EmitVisitor::visit(SpirvSource *inst) {
-  // Emit the OpString for the file name.
-  if (inst->hasFile()) {
-    visit(inst->getFile());
-
-    if (spvOptions.debugInfoLine && !debugMainFileId)
-      debugMainFileId = debugFileIdMap[inst->getFile()->getString()];
-  }
+  // Set the debugMainFileId.
+  if (inst->hasFile() && spvOptions.debugInfoLine && !debugMainFileId)
+    debugMainFileId = debugFileIdMap[inst->getFile()->getString()];
 
   // Chop up the source into multiple segments if it is too long.
   llvm::Optional<llvm::StringRef> firstSnippet = llvm::None;

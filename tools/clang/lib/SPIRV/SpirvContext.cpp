@@ -27,6 +27,66 @@ SpirvContext::SpirvContext()
   rayQueryProvisionalTypeKHR = new (this) RayQueryProvisionalTypeKHR;
 }
 
+SpirvContext::~SpirvContext() {
+  voidType->~VoidType();
+  boolType->~BoolType();
+  samplerType->~SamplerType();
+  accelerationStructureTypeNV->~AccelerationStructureTypeNV();
+  rayQueryProvisionalTypeKHR->~RayQueryProvisionalTypeKHR();
+
+  for (auto *sintType : sintTypes)
+    if (sintType) // sintTypes may contain nullptr
+      sintType->~IntegerType();
+
+  for (auto *uintType : uintTypes)
+    if (uintType) // uintTypes may contain nullptr
+      uintType->~IntegerType();
+
+  for (auto *floatType : floatTypes)
+    if (floatType) // floatTypes may contain nullptr
+      floatType->~FloatType();
+
+  for (auto &pair : vecTypes)
+    for (auto *vecType : pair.second)
+      if (vecType) // vecTypes may contain nullptr
+        vecType->~VectorType();
+
+  for (auto &pair : matTypes)
+    for (auto *matType : pair.second)
+      matType->~MatrixType();
+
+  for (auto *arrType : arrayTypes)
+    arrType->~ArrayType();
+
+  for (auto *raType : runtimeArrayTypes)
+    raType->~RuntimeArrayType();
+
+  for (auto *fnType : functionTypes)
+    fnType->~FunctionType();
+
+  for (auto *structType : structTypes)
+    structType->~StructType();
+
+  for (auto *hybridStructType : hybridStructTypes)
+    hybridStructType->~HybridStructType();
+
+  for (auto pair : sampledImageTypes)
+    pair.second->~SampledImageType();
+
+  for (auto *hybridSampledImageType : hybridSampledImageTypes)
+    hybridSampledImageType->~HybridSampledImageType();
+
+  for (auto *imgType : imageTypes)
+    imgType->~ImageType();
+
+  for (auto &pair : pointerTypes)
+    for (auto &scPtrTypePair : pair.second)
+      scPtrTypePair.second->~SpirvPointerType();
+
+  for (auto *hybridPtrType : hybridPointerTypes)
+    hybridPtrType->~HybridPointerType();
+}
+
 inline uint32_t log2ForBitwidth(uint32_t bitwidth) {
   assert(bitwidth >= 16 && bitwidth <= 64 && llvm::isPowerOf2_32(bitwidth));
 
@@ -148,7 +208,10 @@ SpirvContext::getSampledImageType(const ImageType *image) {
 
 const HybridSampledImageType *
 SpirvContext::getSampledImageType(QualType image) {
-  return new (this) HybridSampledImageType(image);
+  const HybridSampledImageType *result =
+      new (this) HybridSampledImageType(image);
+  hybridSampledImageTypes.push_back(result);
+  return result;
 }
 
 const ArrayType *
@@ -207,7 +270,10 @@ SpirvContext::getStructType(llvm::ArrayRef<StructType::FieldInfo> fields,
 const HybridStructType *SpirvContext::getHybridStructType(
     llvm::ArrayRef<HybridStructType::FieldInfo> fields, llvm::StringRef name,
     bool isReadOnly, StructInterfaceType interfaceType) {
-  return new (this) HybridStructType(fields, name, isReadOnly, interfaceType);
+  const HybridStructType *result =
+      new (this) HybridStructType(fields, name, isReadOnly, interfaceType);
+  hybridStructTypes.push_back(result);
+  return result;
 }
 
 const SpirvPointerType *SpirvContext::getPointerType(const SpirvType *pointee,
@@ -227,7 +293,9 @@ const SpirvPointerType *SpirvContext::getPointerType(const SpirvType *pointee,
 
 const HybridPointerType *SpirvContext::getPointerType(QualType pointee,
                                                       spv::StorageClass sc) {
-  return new (this) HybridPointerType(pointee, sc);
+  const HybridPointerType *result = new (this) HybridPointerType(pointee, sc);
+  hybridPointerTypes.push_back(result);
+  return result;
 }
 
 FunctionType *
