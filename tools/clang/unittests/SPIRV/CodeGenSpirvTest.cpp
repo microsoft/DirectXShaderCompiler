@@ -980,6 +980,13 @@ TEST_F(FileTest, BufferGetDimensions) {
 
 // For RWTexture methods
 TEST_F(FileTest, RWTextureLoad) { runFileTest("method.rwtexture.load.hlsl"); }
+
+TEST_F(FileTest, RWTextureLoadInvalidResidencyCode) {
+
+  runFileTest("method.rwtexture.load.invalid-residency-arg.hlsl",
+              Expect::Failure);
+}
+
 TEST_F(FileTest, RWTextureGetDimensions) {
   runFileTest("method.rwtexture.get-dimensions.hlsl");
 }

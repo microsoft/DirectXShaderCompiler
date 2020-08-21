@@ -3225,6 +3225,15 @@ SpirvInstruction *SpirvEmitter::processBufferTextureLoad(
     return nullptr;
   }
 
+  // If residencyCode is nullptr, we are dealing with a Load method with 2
+  // arguments which does not return the operation status.
+  if (residencyCode && residencyCode->isRValue()) {
+    emitError(
+        "an lvalue argument should be used for returning the operation status",
+        loc);
+    return nullptr;
+  }
+
   // OpImageFetch and OpImageRead can only fetch a vector of 4 elements.
   const QualType texelType = astContext.getExtVectorType(elemType, 4u);
   auto *texel = spvBuilder.createImageFetchOrRead(

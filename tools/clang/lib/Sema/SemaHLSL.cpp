@@ -9350,7 +9350,6 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
 
     // Currently only intrinsic we allow for explicit template arguments are
     // for Load/Store for ByteAddressBuffer/RWByteAddressBuffer
-    // TODO: handle template arguments for future intrinsics in a more natural way
 
     // Check Explicit template arguments
     UINT intrinsicOp = (*cursor)->Op;
@@ -9374,7 +9373,6 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
               && !functionTemplateTypeArg.isNull()
               && hlsl::IsHLSLNumericOrAggregateOfNumericType(functionTemplateTypeArg)) {
             isLegalTemplate = true;
-            argTypes[0] = functionTemplateTypeArg;
           }
         }
       }
