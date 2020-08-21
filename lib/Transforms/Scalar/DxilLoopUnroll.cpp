@@ -661,13 +661,6 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   if (!L->isSafeToClone())
     return false;
 
-  bool FxcCompatMode = this->OnlyWarnOnFail;
-  /*
-  if (F->getParent()->HasHLModule()) {
-    HLModule &HM = F->getParent()->GetHLModule();
-    FxcCompatMode = HM.GetHLOptions().bFXCCompatMode;
-  }*/
-
   unsigned TripCount = 0;
 
   BasicBlock *ExitingBlock = L->getLoopLatch();
@@ -1021,7 +1014,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
     // Now that we potentially turned some GEP indices into constants,
     // try to clean up their allocas.
-    if (!BreakUpArrayAllocas(FxcCompatMode /* allow oob index */, ProblemAllocas.begin(), ProblemAllocas.end(), DT, AC, DVC)) {
+    if (!BreakUpArrayAllocas(OnlyWarnOnFail /* allow oob index */, ProblemAllocas.begin(), ProblemAllocas.end(), DT, AC, DVC)) {
       FailLoopUnroll(false, F, LoopLoc, "Could not unroll loop due to out of bound array access.");
     }
 
@@ -1033,7 +1026,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     const char *Msg =
         "Could not unroll loop. Loop bound could not be deduced at compile time. "
         "Use [unroll(n)] to give an explicit count.";
-    if (FxcCompatMode) {
+    if (OnlyWarnOnFail) {
       FailLoopUnroll(true /*warn only*/, F, LoopLoc, Msg);
     }
     else {
