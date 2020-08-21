@@ -19,6 +19,35 @@ SpirvModule::SpirvModule()
       entryPoints({}), executionModes({}), moduleProcesses({}), decorations({}),
       constants({}), variables({}), functions({}) {}
 
+SpirvModule::~SpirvModule() {
+  for (auto *cap : capabilities)
+    cap->releaseMemory();
+  for (auto *ext : extensions)
+    ext->releaseMemory();
+  for (auto *set : extInstSets)
+    set->releaseMemory();
+  if (memoryModel)
+    memoryModel->releaseMemory();
+  for (auto *entry : entryPoints)
+    entry->releaseMemory();
+  for (auto *exec : executionModes)
+    exec->releaseMemory();
+  for (auto *str : constStrings)
+    str->releaseMemory();
+  for (auto *d : debugSources)
+    d->releaseMemory();
+  for (auto *mp : moduleProcesses)
+    mp->releaseMemory();
+  for (auto *decoration : decorations)
+    decoration->releaseMemory();
+  for (auto *constant : constants)
+    constant->releaseMemory();
+  for (auto *var : variables)
+    var->releaseMemory();
+  for (auto *f : allFunctions)
+    f->~SpirvFunction();
+}
+
 bool SpirvModule::invokeVisitor(Visitor *visitor, bool reverseOrder) {
   // Note: It is debatable whether reverse order of visiting the module should
   // reverse everything in this method. For the time being, we just reverse the
@@ -180,14 +209,19 @@ bool SpirvModule::invokeVisitor(Visitor *visitor, bool reverseOrder) {
   return true;
 }
 
-void SpirvModule::addFunction(SpirvFunction *fn) {
+void SpirvModule::addFunctionToListOfSortedModuleFunctions(SpirvFunction *fn) {
   assert(fn && "cannot add null function to the module");
   functions.push_back(fn);
 }
 
-void SpirvModule::addCapability(SpirvCapability *cap) {
+void SpirvModule::addFunction(SpirvFunction *fn) {
+  assert(fn && "cannot add null function to the module");
+  allFunctions.insert(fn);
+}
+
+bool SpirvModule::addCapability(SpirvCapability *cap) {
   assert(cap && "cannot add null capability to the module");
-  capabilities.insert(cap);
+  return capabilities.insert(cap);
 }
 
 void SpirvModule::setMemoryModel(SpirvMemoryModel *model) {
@@ -205,9 +239,9 @@ void SpirvModule::addExecutionMode(SpirvExecutionMode *em) {
   executionModes.push_back(em);
 }
 
-void SpirvModule::addExtension(SpirvExtension *ext) {
+bool SpirvModule::addExtension(SpirvExtension *ext) {
   assert(ext && "cannot add null extension");
-  extensions.insert(ext);
+  return extensions.insert(ext);
 }
 
 void SpirvModule::addExtInstSet(SpirvExtInstImport *set) {
