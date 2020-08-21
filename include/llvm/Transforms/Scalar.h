@@ -129,7 +129,7 @@ void initializeDxilFixConstArrayInitializerPass(PassRegistry&);
 Pass *createDxilConditionalMem2RegPass(bool NoOpt);
 void initializeDxilConditionalMem2RegPass(PassRegistry&);
 
-Pass *createDxilLoopUnrollPass(unsigned MaxIterationAttempt);
+Pass *createDxilLoopUnrollPass(unsigned MaxIterationAttempt, bool OnlyWarnOnFail);
 void initializeDxilLoopUnrollPass(PassRegistry&);
 
 Pass *createDxilEraseDeadRegionPass();

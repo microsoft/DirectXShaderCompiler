@@ -114,11 +114,13 @@ public:
   static char ID;
 
   std::unordered_set<Function *> CleanedUpAlloca;
-  const unsigned MaxIterationAttempt;
+  unsigned MaxIterationAttempt = 0;
+  bool OnlyWarnOnFail = false;
 
-  DxilLoopUnroll(unsigned MaxIterationAttempt = 1024) :
+  DxilLoopUnroll(unsigned MaxIterationAttempt = 1024, bool OnlyWarnOnFail=false) :
     LoopPass(ID),
-    MaxIterationAttempt(MaxIterationAttempt)
+    MaxIterationAttempt(MaxIterationAttempt),
+    OnlyWarnOnFail(OnlyWarnOnFail)
   {
     initializeDxilLoopUnrollPass(*PassRegistry::getPassRegistry());
   }
@@ -133,6 +135,18 @@ public:
     AU.addRequired<DxilValueCache>();
     AU.addRequiredID(LoopSimplifyID);
   }
+
+  // Function overrides that resolve options when used for DxOpt
+  void applyOptions(PassOptions O) override {
+    GetPassOptionUnsigned(O, "MaxIterationAttempt", &MaxIterationAttempt, false);
+    GetPassOptionBool(O, "OnlyWarnOnFail", &OnlyWarnOnFail, false);
+  }
+  void dumpConfig(raw_ostream &OS) override {
+    LoopPass::dumpConfig(OS);
+    OS << ",MaxIterationAttempt=" << MaxIterationAttempt;
+    OS << ",OnlyWarnOnFail=" << OnlyWarnOnFail;
+  }
+
 };
 
 char DxilLoopUnroll::ID;
@@ -647,11 +661,12 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   if (!L->isSafeToClone())
     return false;
 
-  bool FxcCompatMode = false;
+  bool FxcCompatMode = this->OnlyWarnOnFail;
+  /*
   if (F->getParent()->HasHLModule()) {
     HLModule &HM = F->getParent()->GetHLModule();
     FxcCompatMode = HM.GetHLOptions().bFXCCompatMode;
-  }
+  }*/
 
   unsigned TripCount = 0;
 
@@ -1049,8 +1064,8 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
 }
 
-Pass *llvm::createDxilLoopUnrollPass(unsigned MaxIterationAttempt) {
-  return new DxilLoopUnroll(MaxIterationAttempt);
+Pass *llvm::createDxilLoopUnrollPass(unsigned MaxIterationAttempt, bool OnlyWarnOnFail) {
+  return new DxilLoopUnroll(MaxIterationAttempt, OnlyWarnOnFail);
 }
 
 INITIALIZE_PASS_BEGIN(DxilLoopUnroll, "dxil-loop-unroll", "Dxil Unroll loops", false, false)

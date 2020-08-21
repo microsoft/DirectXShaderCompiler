@@ -1875,8 +1875,10 @@ void DxilLowerCreateHandleForLib::UpdateResourceSymbols() {
 namespace {
 
 void ReplaceResourceUserWithHandle(
-    LoadInst *Res, Value *handle) {
-  for (auto resUser = Res->user_begin(); resUser != Res->user_end();) {
+    DxilResource &res,
+    LoadInst *load, Value *handle)
+{
+  for (auto resUser = load->user_begin(); resUser != load->user_end();) {
     Value *V = *(resUser++);
     CallInst *CI = dyn_cast<CallInst>(V);
     DxilInst_CreateHandleForLib createHandle(CI);
@@ -1884,7 +1886,33 @@ void ReplaceResourceUserWithHandle(
     CI->replaceAllUsesWith(handle);
     CI->eraseFromParent();
   }
-  Res->eraseFromParent();
+
+  if (res.GetClass() == DXIL::ResourceClass::UAV) {
+    // Before this pass, the global resources might not have been mapped with all the uses.
+    // Now we're 100% sure who uses what resources (otherwise the compilation would have failed),
+    // so we do a round on marking UAV's as having counter.
+    static auto IsDxilOp = [](Value *V, hlsl::OP::OpCode Op) -> bool {
+      Instruction *I = dyn_cast<Instruction>(V);
+      if (!I)
+        return false;
+      return hlsl::OP::IsDxilOpFuncCallInst(I, Op);
+    };
+
+    // Search all users for update counter
+    for (User *U : handle->users()) {
+      if (IsDxilOp(U, hlsl::OP::OpCode::BufferUpdateCounter)) {
+        res.SetHasCounter(true);
+      }
+      else if (IsDxilOp(U, hlsl::OP::OpCode::AnnotateHandle)) {
+        for (User *UU : U->users()) {
+          if (IsDxilOp(UU, hlsl::OP::OpCode::BufferUpdateCounter))
+            res.SetHasCounter(true);
+        }
+      }
+    }
+  }
+
+  load->eraseFromParent();
 }
 
 } // namespace
@@ -1959,7 +1987,7 @@ void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
       Function *userF = ldInst->getParent()->getParent();
       DXASSERT(handleMapOnFunction.count(userF), "must exist");
       Value *handle = handleMapOnFunction[userF];
-      ReplaceResourceUserWithHandle(ldInst, handle);
+      ReplaceResourceUserWithHandle(static_cast<DxilResource &>(res), ldInst, handle);
     } else {
       DXASSERT(dyn_cast<GEPOperator>(user) != nullptr,
                "else AddOpcodeParamForIntrinsic in CodeGen did not patch uses "
@@ -2017,14 +2045,14 @@ void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
         // Must be load inst.
         LoadInst *ldInst = cast<LoadInst>(*(GEPU++));
         if (handle) {
-          ReplaceResourceUserWithHandle(ldInst, handle);
+          ReplaceResourceUserWithHandle(static_cast<DxilResource &>(res), ldInst, handle);
         } else {
           IRBuilder<> Builder = IRBuilder<>(ldInst);
           createHandleArgs[DXIL::OperandIndex::kCreateHandleResIndexOpIdx] =
               Builder.CreateAdd(idx, resLowerBound);
           Value *localHandle =
               Builder.CreateCall(createHandle, createHandleArgs, handleName);
-          ReplaceResourceUserWithHandle(ldInst, localHandle);
+          ReplaceResourceUserWithHandle(static_cast<DxilResource &>(res), ldInst, localHandle);
         }
       }
 

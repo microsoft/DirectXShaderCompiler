@@ -328,6 +328,7 @@ void EmitAssemblyHelper::CreatePasses() {
   // HLSL Change - begin
   PMBuilder.HLSLHighLevel = CodeGenOpts.HLSLHighLevel;
   PMBuilder.HLSLAllowPreserveValues = CodeGenOpts.HLSLAllowPreserveValues;
+  PMBuilder.HLSLOnlyWarnOnUnrollFail = CodeGenOpts.HLSLOnlyWarnOnUnrollFail;
   PMBuilder.HLSLExtensionsCodeGen = CodeGenOpts.HLSLExtensionsCodegen.get();
   PMBuilder.HLSLResMayAlias = CodeGenOpts.HLSLResMayAlias;
   PMBuilder.ScanLimit = CodeGenOpts.ScanLimit;
