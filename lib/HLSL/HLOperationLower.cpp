@@ -550,6 +550,9 @@ Value *TranslateNonUniformResourceIndex(CallInst *CI, IntrinsicOp IOP, OP::OpCod
             DxilMDHelper::MarkNonUniform(I);
         }
       }
+    } else if (CallInst *CI = dyn_cast<CallInst>(U)) {
+      if (hlsl::GetHLOpcodeGroup(CI->getCalledFunction()) == hlsl::HLOpcodeGroup::HLCreateHandle)
+        DxilMDHelper::MarkNonUniform(CI);
     }
   }
   return nullptr;
