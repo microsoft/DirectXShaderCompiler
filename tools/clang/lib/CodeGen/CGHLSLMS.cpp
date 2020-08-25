@@ -25,6 +25,7 @@
 #include "clang/AST/HlslTypes.h"
 #include "clang/Frontend/CodeGenOptions.h"
 #include "clang/Lex/HLSLMacroExpander.h"
+#include "clang/Sema/SemaDiagnostic.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/ADT/StringSet.h"
@@ -5668,6 +5669,10 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     if (Param->isModifierOut()) {
       castArgList.emplace_back(tmpLV);
       castArgList.emplace_back(argLV);
+      if (isVector && !hlsl::IsHLSLVecType(argType)) {
+        DiagnosticsEngine &Diags = CGM.getDiags();
+        Diags.Report(Param->getLocation(), diag::warn_hlsl_implicit_vector_truncation);
+      }
     }
 
     // cast before the call
@@ -5691,9 +5696,14 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
           EmitHLSLMatrixStore(CGF, castVal, tmpArgAddr, ParamTy);
         }
         else {
-          Value *castVal = ConvertScalarOrVector(CGF, outVal, argType, ParamTy);
-          castVal = CGF.EmitToMemory(castVal, ParamTy);
-          CGF.Builder.CreateStore(castVal, tmpArgAddr);
+          if (outVal->getType()->isVectorTy()) {
+            Value *castVal = ConvertScalarOrVector(CGF, outVal, argType, ParamTy);
+            castVal = CGF.EmitToMemory(castVal, ParamTy);
+            CGF.Builder.CreateStore(castVal, tmpArgAddr);
+          } else {
+            // This allows for splatting, unlike the above.
+            SimpleFlatValCopy(CGF, outVal, argType, tmpArgAddr, ParamTy);
+          }
         }
       } else {
         DXASSERT(argAddr, "should be RV or simple LV");
@@ -5739,9 +5749,7 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionCopyBack(
           // Don't need cast.
         } else if (ToTy->getScalarType() == FromTy->getScalarType()) {
           if (ToTy->getScalarType() == ToTy) {
-            DXASSERT(FromTy->isVectorTy() &&
-                         FromTy->getVectorNumElements() == 1,
-                     "must be vector of 1 element");
+            DXASSERT(FromTy->isVectorTy(), "must be vector");
             castVal = CGF.Builder.CreateExtractElement(outVal, (uint64_t)0);
           } else {
             DXASSERT(!FromTy->isVectorTy(), "must be scalar type");
