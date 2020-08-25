@@ -581,6 +581,7 @@ Compute shader has the following tag-value properties.
 Tag	                  Value                    Description
 ===================== ======================== =============================================
 kDxilNumThreadsTag(4) MD list: (i32, i32, i32) Number of threads (X,Y,Z) for compute shader.
+kDxilWaveSizeTag      MD list: (i32)           Wave size the shader is compatible with (optional).
 ===================== ======================== =============================================
 
 Shader Parameters and Signatures
@@ -3184,6 +3185,8 @@ SM.TRIOUTPUTPRIMITIVEMISMATCH             Hull Shader declared with Tri Domain m
 SM.UNDEFINEDOUTPUT                        Not all elements of output %0 were written.
 SM.VALIDDOMAIN                            Invalid Tessellator Domain specified. Must be isoline, tri or quad.
 SM.VIEWIDNEEDSSLOT                        ViewID requires compatible space in pixel shader input signature
+SM.WAVESIZENEEDSDXIL16PLUS                WaveSize is valid only for DXIL version 1.6 and higher.
+SM.WAVESIZEVALUE                          Declared WaveSize %0 outside valid range [%1..%2], or not a power of 2.
 SM.ZEROHSINPUTCONTROLPOINTWITHINPUT       When HS input control point count is 0, no input signature should exist.
 TYPES.DEFINED                             Type must be defined based on DXIL primitives
 TYPES.I8                                  I8 can only be used as immediate value for intrinsic.

@@ -217,6 +217,8 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::SmThreadGroupChannelRange: return "Declared Thread Group %0 size %1 outside valid range [%2..%3].";
     case hlsl::ValidationRule::SmMaxTheadGroup: return "Declared Thread Group Count %0 (X*Y*Z) is beyond the valid maximum of %1.";
     case hlsl::ValidationRule::SmMaxTGSMSize: return "Total Thread Group Shared Memory storage is %0, exceeded %1.";
+    case hlsl::ValidationRule::SmWaveSizeValue: return "Declared WaveSize %0 outside valid range [%1..%2], or not a power of 2.";
+    case hlsl::ValidationRule::SmWaveSizeNeedsDxil16Plus: return "WaveSize is valid only for DXIL version 1.6 and higher.";
     case hlsl::ValidationRule::SmROVOnlyInPS: return "RasterizerOrdered objects are only allowed in 5.0+ pixel shaders.";
     case hlsl::ValidationRule::SmTessFactorForDomain: return "Required TessFactor for domain not found declared anywhere in Patch Constant data.";
     case hlsl::ValidationRule::SmTessFactorSizeMatchDomain: return "TessFactor rows, columns (%0, %1) invalid for domain %2.  Expected %3 rows and 1 column.";
@@ -5134,6 +5136,19 @@ static void ValidateEntryProps(ValidationContext &ValCtx,
                                Function *F) {
   const DxilFunctionProps &props = entryProps.props;
   DXIL::ShaderKind ShaderType = props.shaderKind;
+
+  // validate wave size (currently allowed only on CS but might be supported on other shader types in the future)
+  if (props.waveSize != 0) {
+    if (DXIL::CompareVersions(ValCtx.m_DxilMajor, ValCtx.m_DxilMinor, 1, 6) < 0) {
+      ValCtx.EmitFnFormatError(F, ValidationRule::SmWaveSizeNeedsDxil16Plus, {});
+    }
+    if (!DXIL::IsValidWaveSizeValue(props.waveSize)) {
+      ValCtx.EmitFnFormatError(F, ValidationRule::SmWaveSizeValue,
+        {std::to_string(props.waveSize),
+         std::to_string(DXIL::kMinWaveSize),
+         std::to_string(DXIL::kMaxWaveSize) });
+    }
+  }
 
   if (ShaderType == DXIL::ShaderKind::Compute) {
     const auto &CS = props.ShaderProps.CS;

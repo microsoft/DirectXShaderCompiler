@@ -880,7 +880,18 @@
     </Shader>
   </ShaderOp>
 
-  <!--
+    <ShaderOp Name="WaveSizeTest" CS="CS">
+        <RootSignature>RootFlags(0), UAV(u0)</RootSignature>
+        <Resource Name="UAVBuffer0" Dimension="BUFFER" Width="512" InitialResourceState="COPY_DEST" Init="ByName" Flags="ALLOW_UNORDERED_ACCESS" TransitionTo="UNORDERED_ACCESS" ReadBack="true" Format="R32_TYPELESS" />
+        <RootValues>
+            <RootValue Index="0" ResName="UAVBuffer0" />
+        </RootValues>
+        <Shader Name="CS" Target="cs_6_6">
+            <![CDATA[// Shader source code will be set at runtime]]>
+        </Shader>
+    </ShaderOp>>
+
+    <!--
   TODO: Dynamically index into tables
   -->
 </ShaderOpSet>

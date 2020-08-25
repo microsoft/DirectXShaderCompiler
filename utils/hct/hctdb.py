@@ -2543,6 +2543,8 @@ class db_dxil(object):
         self.add_valrule("Sm.ThreadGroupChannelRange", "Declared Thread Group %0 size %1 outside valid range [%2..%3].")
         self.add_valrule("Sm.MaxTheadGroup", "Declared Thread Group Count %0 (X*Y*Z) is beyond the valid maximum of %1.")
         self.add_valrule("Sm.MaxTGSMSize", "Total Thread Group Shared Memory storage is %0, exceeded %1.")
+        self.add_valrule("Sm.WaveSizeValue", "Declared WaveSize %0 outside valid range [%1..%2], or not a power of 2.")
+        self.add_valrule("Sm.WaveSizeNeedsDxil16Plus", "WaveSize is valid only for DXIL version 1.6 and higher.")
         self.add_valrule("Sm.ROVOnlyInPS", "RasterizerOrdered objects are only allowed in 5.0+ pixel shaders.")
         self.add_valrule("Sm.TessFactorForDomain", "Required TessFactor for domain not found declared anywhere in Patch Constant data.")
         self.add_valrule("Sm.TessFactorSizeMatchDomain", "TessFactor rows, columns (%0, %1) invalid for domain %2.  Expected %3 rows and 1 column.")

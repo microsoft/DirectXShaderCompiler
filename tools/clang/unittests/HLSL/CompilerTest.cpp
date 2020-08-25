@@ -179,6 +179,7 @@ public:
   TEST_METHOD(CodeGenRootSigProfile)
   TEST_METHOD(CodeGenRootSigProfile2)
   TEST_METHOD(CodeGenRootSigProfile5)
+  TEST_METHOD(CodeGenWaveSize)
   TEST_METHOD(PreprocessWhenValidThenOK)
   TEST_METHOD(LibGVStore)
   TEST_METHOD(PreprocessWhenExpandTokenPastingOperandThenAccept)
@@ -1946,6 +1947,10 @@ TEST_F(CompilerTest, CodeGenRootSigProfile2) {
 TEST_F(CompilerTest, CodeGenRootSigProfile5) {
   if (m_ver.SkipDxilVersion(1, 5)) return;
   CodeGenTest(L"rootSigProfile5.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenWaveSize) {
+  CodeGenTestCheck(L"attributes_wavesize.hlsl");
 }
 
 TEST_F(CompilerTest, LibGVStore) {

@@ -1728,6 +1728,10 @@ void PrintPipelineStateValidationRuntimeInfo(const char *pBuffer,
     break;
   }
 
+  if (pInfo->MinimumExpectedWaveLaneCount == pInfo->MaximumExpectedWaveLaneCount) {
+    OS << comment << " WaveSize=" << pInfo->MinimumExpectedWaveLaneCount << "\n";
+  }
+
   OS << comment << "\n";
 }
 }

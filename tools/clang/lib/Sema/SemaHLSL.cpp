@@ -11362,6 +11362,10 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
   case AttributeList::AT_HLSLWaveSensitive:
     declAttr = ::new (S.Context) HLSLWaveSensitiveAttr(A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
+  case AttributeList::AT_HLSLWaveSize:
+    declAttr = ::new (S.Context) HLSLWaveSizeAttr(A.getRange(), S.Context,
+      ValidateAttributeIntArg(S, A), A.getAttributeSpellingListIndex());
+    break;
   default:
     Handled = false;
     break;  // SPIRV Change: was return;
@@ -12674,6 +12678,15 @@ void hlsl::CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out, con
     break;
   }
   
+  case clang::attr::HLSLWaveSize:
+  {
+    Attr * noconst = const_cast<Attr*>(A);
+    HLSLWaveSizeAttr *ACast = static_cast<HLSLWaveSizeAttr*>(noconst);
+    Indent(Indentation, Out);
+    Out << "[wavesize(" << ACast->getSize() << ")]\n";
+    break;
+  }
+
   // Variable modifiers
   case clang::attr::HLSLGroupShared:
     Out << "groupshared ";
@@ -12800,6 +12813,7 @@ bool hlsl::IsHLSLAttr(clang::attr::Kind AttrKind) {
   case clang::attr::NoInline:
   case clang::attr::HLSLExport:
   case clang::attr::HLSLWaveSensitive:
+  case clang::attr::HLSLWaveSize:
   case clang::attr::VKBinding:
   case clang::attr::VKBuiltIn:
   case clang::attr::VKConstantId:
