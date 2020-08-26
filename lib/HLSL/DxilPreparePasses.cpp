@@ -377,7 +377,8 @@ public:
       }
     }
 
-    // Replace llvm.lifetime.start/.end intrinsics with undef stores.
+    // Replace llvm.lifetime.start/.end intrinsics with undef stores unless
+    // the pointer is a global that has an initializer.
     // This works around losing scoping information in earlier shader models
     // that do not support the intrinsics natively.
 
@@ -390,7 +391,8 @@ public:
     for (Use &U : StartDecl->uses()) {
       // All users must be call instructions.
       CallInst *CI = dyn_cast<CallInst>(U.getUser());
-      DXASSERT(CI, "Expected user of lifetime.start intrinsic to be a CallInst");
+      DXASSERT(CI,
+               "Expected user of lifetime.start intrinsic to be a CallInst");
       intrinsicCalls.push_back(CI);
     }
     for (Use &U : EndDecl->uses()) {
@@ -402,7 +404,7 @@ public:
 
     // Replace each intrinsic with an undef store.
     for (CallInst *CI : intrinsicCalls) {
-      // Find the corresponding pointer (can be alloca, global value, an
+      // Find the corresponding pointer (bitcast from alloca, global value, an
       // argument, ...).
       Value *voidPtr = CI->getArgOperand(1);
       DXASSERT(voidPtr->getType()->isPointerTy() &&
@@ -410,33 +412,46 @@ public:
                "Expected operand of lifetime intrinsic to be of type i8*" );
 
       Value *ptr = nullptr;
-      if (BitCastInst *BC = dyn_cast<BitCastInst>(voidPtr)) {
-        ptr = BC->getOperand(0);
-      } else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(voidPtr)) {
-        // This can happen if a local variable/array is promoted to a constant global.
+      if (ConstantExpr *CE = dyn_cast<ConstantExpr>(voidPtr)) {
+        // This can happen if a local variable/array is promoted to a constant
+        // global. In this case we must not introduce a store, since that would
+        // overwrite the constant values in the initializer. Thus, we simply
+        // remove the intrinsic.
         DXASSERT(CE->getOpcode() == Instruction::BitCast,
                  "expected operand of lifetime intrinsic to be a bitcast");
-        ptr = CE->getOperand(0);
       } else {
-        DXASSERT(false, "Expected operand of lifetime intrinsic to be a bitcast");
+        // Otherwise, it must be a normal bitcast.
+        DXASSERT(isa<BitCastInst>(voidPtr),
+                 "Expected operand of lifetime intrinsic to be a bitcast");
+        BitCastInst *BC = cast<BitCastInst>(voidPtr);
+        ptr = BC->getOperand(0);
+
+        // If the original pointer is a global with initializer, do not replace
+        // the intrinsic with a store.
+        if (GlobalVariable *GV = dyn_cast<GlobalVariable>(ptr))
+          if (GV->hasInitializer() || GV->isExternallyInitialized())
+            ptr = nullptr;
       }
 
-      // Determine the type to use when storing undef.
-      DXASSERT(ptr->getType()->isPointerTy(),
-               "Expected type of operand of lifetime intrinsic bitcast operand to be a pointer");
-      Type *T = ptr->getType()->getPointerElementType();
+      if (ptr) {
+        // Determine the type to use when storing undef.
+        DXASSERT(ptr->getType()->isPointerTy(),
+                 "Expected type of operand of lifetime intrinsic bitcast operand to be a pointer");
+        Type *T = ptr->getType()->getPointerElementType();
 
-      // Store undef at the location of the start/end intrinsic.
-      // If we are targeting validator version < 6.6 we cannot store undef since
-      // it causes a validation error. As a workaround we store 0, which
-      // achieves mostly the same as storing undef but can cause overhead in
-      // some situations.
-      if (ValMajor < 1 || (ValMajor == 1 && ValMinor < 6))
-        IRBuilder<>(CI).CreateStore(Constant::getNullValue(T), ptr);
-      else
-        IRBuilder<>(CI).CreateStore(UndefValue::get(T), ptr);
+        // Store undef at the location of the start/end intrinsic.
+        // If we are targeting validator version < 6.6 we cannot store undef
+        // since it causes a validation error. As a workaround we store 0, which
+        // achieves mostly the same as storing undef but can cause overhead in
+        // some situations.
+        if (ValMajor < 1 || (ValMajor == 1 && ValMinor < 6))
+          IRBuilder<>(CI).CreateStore(Constant::getNullValue(T), ptr);
+        else
+          IRBuilder<>(CI).CreateStore(UndefValue::get(T), ptr);
+      }
 
-      // Erase the intrinsic call and, if it has no uses anymore, the bitcast as well.
+      // Erase the intrinsic call and, if it has no uses anymore, the bitcast as
+      // well.
       DXASSERT_NOMSG(CI->use_empty());
       CI->eraseFromParent();
 
