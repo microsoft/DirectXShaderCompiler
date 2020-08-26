@@ -19,8 +19,8 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <map>
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h" // HLSL change
-#include "dxc/Support/HLSLOptimizationOptions.h" // HLSL Change
 #include "dxc/Support/SPIRVOptions.h" // SPIR-V Change
 
 namespace clang {
@@ -214,8 +214,6 @@ public:
   std::vector<std::string> HLSLLibraryExports;
   /// ExportShadersOnly limits library export functions to shaders
   bool ExportShadersOnly = false;
-  /// Structurize control flow for function has multiple returns.
-  bool HLSLStructurizeReturns = false;
   /// DefaultLinkage Internal, External, or Default.  If Default, default
   /// function linkage is determined by library target.
   hlsl::DXIL::DefaultLinkage DefaultLinkage = hlsl::DXIL::DefaultLinkage::Default;
@@ -223,8 +221,11 @@ public:
   bool HLSLResMayAlias = false;
   /// Lookback scan limit for memory dependencies
   unsigned ScanLimit = 0;
-  /// Disabled optimization passes
-  hlsl::OptimizationOptions HLSLOptimizationOptions = {};
+  // Optimization pass enables, disables and selects
+  std::map<std::string, bool> HLSLOptimizationToggles;
+  std::map<std::string, std::string> HLSLOptimizationSelects;
+  /// Debug option to print IR after every pass
+  bool HLSLPrintAfterAll = false;
   // HLSL Change Ends
 
   // SPIRV Change Starts

@@ -243,6 +243,9 @@ TEST_F(FileTest, UnaryOpLogicalNot) {
   runFileTest("unary-op.logical-not.hlsl");
 }
 
+// For sizeof()
+TEST_F(FileTest, UnaryOpSizeof) { runFileTest("unary-op.sizeof.hlsl"); }
+
 // For assignments
 TEST_F(FileTest, BinaryOpAssign) { runFileTest("binary-op.assign.hlsl"); }
 TEST_F(FileTest, BinaryOpAssignImage) {
@@ -977,6 +980,13 @@ TEST_F(FileTest, BufferGetDimensions) {
 
 // For RWTexture methods
 TEST_F(FileTest, RWTextureLoad) { runFileTest("method.rwtexture.load.hlsl"); }
+
+TEST_F(FileTest, RWTextureLoadInvalidResidencyCode) {
+
+  runFileTest("method.rwtexture.load.invalid-residency-arg.hlsl",
+              Expect::Failure);
+}
+
 TEST_F(FileTest, RWTextureGetDimensions) {
   runFileTest("method.rwtexture.get-dimensions.hlsl");
 }
@@ -1770,6 +1780,12 @@ TEST_F(FileTest, VulkanStructuredBufferCounter) {
   runFileTest("vk.binding.counter.hlsl");
 }
 
+TEST_F(FileTest, AutoShiftBindings) {
+  // Checks the correctness for the "-fvk-auto-shift-bindings" command line
+  // option.
+  runFileTest("vk.binding.cl.auto-shift-bindings.hlsl");
+}
+
 TEST_F(FileTest, BindingStructureOfResources1) {
   // In Vulkan, OpTypeStruct must not contain an opaque type.
   // Therefore this test fails validation before legalization is performed.
@@ -2329,6 +2345,10 @@ TEST_F(FileTest, Vk1p2EntryPoint) {
 TEST_F(FileTest, Vk1p2BlockDecoration) {
   useVulkan1p2();
   runFileTest("vk.1p2.block-decoration.hlsl");
+}
+TEST_F(FileTest, Vk1p2RemoveBufferBlockRuntimeArray) {
+  useVulkan1p2();
+  runFileTest("vk.1p2.remove.bufferblock.runtimearray.hlsl");
 }
 
 // Test shaders that require Vulkan1.1 support with

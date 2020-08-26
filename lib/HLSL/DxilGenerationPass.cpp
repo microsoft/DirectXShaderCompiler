@@ -565,6 +565,9 @@ void DxilGenerationPass::GenerateDxilCBufferHandles() {
         }
         // Add GEP for cbv array use.
         Value *GEP = Builder.CreateGEP(GV, {zeroIdx, CBIndex});
+        if (DxilMDHelper::IsMarkedNonUniform(CI)) {
+          DxilMDHelper::MarkNonUniform(cast<Instruction>(GEP));
+        }
         Value *V = Builder.CreateLoad(GEP);
         CallInst *handle = Builder.CreateCall(createHandle, {opArg, V}, handleName);
         CI->replaceAllUsesWith(handle);

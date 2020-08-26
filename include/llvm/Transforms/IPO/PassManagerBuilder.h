@@ -16,7 +16,6 @@
 #define LLVM_TRANSFORMS_IPO_PASSMANAGERBUILDER_H
 
 #include <vector>
-#include "dxc/Support/HLSLOptimizationOptions.h" // HLSL Change
 
 namespace hlsl {
   class HLSLExtensionsCodegenHelper;
@@ -132,7 +131,7 @@ public:
   hlsl::HLSLExtensionsCodegenHelper *HLSLExtensionsCodeGen = nullptr; // HLSL Change
   bool HLSLResMayAlias = false; // HLSL Change
   unsigned ScanLimit = 0; // HLSL Change
-  hlsl::OptimizationOptions HLSLOptimizationOptions = {}; // HLSL Change
+  bool EnableGVN = true; // HLSL Change
 
 private:
   /// ExtensionList - This is list of all of the extensions that are registered.

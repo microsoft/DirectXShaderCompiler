@@ -14,6 +14,6 @@ void main()
   InterlockedXor(MySBuffer[2], 5);
 }
 
-// CHECK:     :12:18: error: can only perform atomic operations on scalar integer values
-// CHECK:     :13:27: error: can only perform atomic operations on scalar integer values
-// CHECK-NOT:         error: can only perform atomic operations on scalar integer values
+// CHECK:     :12:3: error: no matching function for call to 'InterlockedAdd'
+// CHECK:     :13:3: error: no matching function for call to 'InterlockedCompareStore'
+// CHECK-NOT:        error: no matching function for call to

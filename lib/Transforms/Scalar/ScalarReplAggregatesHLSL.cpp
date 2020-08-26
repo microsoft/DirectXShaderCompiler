@@ -1861,7 +1861,11 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
           WorkList.push(*iter);
           GlobalVariable *EltGV = cast<GlobalVariable>(*iter);
           if (bHasDbgInfo) {
-            StringRef EltName = (*iter)->getName().ltrim(dbgOffset.base->getName());
+            StringRef OriginEltName = EltGV->getName();
+            StringRef OriginName = dbgOffset.base->getName();
+            StringRef EltName = OriginEltName.substr(OriginName.size());
+            StringRef EltParentName = OriginEltName.substr(0, OriginName.size());
+            DXASSERT_LOCALVAR(EltParentName, EltParentName == OriginName, "parent name mismatch");
             EltNameMap[EltGV] = EltName;
           }
           GVDbgOffset &EltDbgOffset = GVDbgOffsetMap[EltGV];
@@ -2501,6 +2505,7 @@ void SROA_Helper::RewriteBitCast(BitCastInst *BCI) {
     idxList[i] = zeroIdx;
 
   IRBuilder<> Builder(BCI);
+  Builder.AllowFolding = false; // We need an Instruction, so make sure we don't get a constant
   Instruction *GEP = cast<Instruction>(Builder.CreateInBoundsGEP(Val, idxList));
   BCI->replaceAllUsesWith(GEP);
   BCI->eraseFromParent();

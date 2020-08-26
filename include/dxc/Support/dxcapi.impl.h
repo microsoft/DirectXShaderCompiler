@@ -102,7 +102,7 @@ inline DxcOutputType DxcGetOutputType(DXC_OUT_KIND kind) {
 }
 
 // Update when new results are allowed
-static const unsigned kNumDxcOutputTypes = DXC_OUT_ROOT_SIGNATURE;
+static const unsigned kNumDxcOutputTypes = DXC_OUT_EXTRA_OUTPUTS;
 static const SIZE_T kAutoSize = (SIZE_T)-1;
 static const LPCWSTR DxcOutNoName = nullptr;
 
@@ -258,6 +258,15 @@ struct DxcOutputObject {
                                     _In_opt_ IDxcBlob *pBlob) {
     return DataOutput(kind, codePage, pBlob, DxcOutNoName);
   }
+  static DxcOutputObject DataOutput(_In_ DXC_OUT_KIND kind,
+                                    _In_ UINT32 codePage,
+                                    _In_opt_ IUnknown *pBlob) {
+    DxcOutputObject output;
+    output.kind = kind;
+    IFT(output.SetObject(pBlob, codePage));
+    IFT(output.SetName(DxcOutNoName));
+    return output;
+  }
 
   template<typename DataTy>
   static DxcOutputObject ErrorOutput(UINT32 codePage, DataTy pText, SIZE_T size) {
@@ -273,6 +282,92 @@ struct DxcOutputObject {
   }
   static DxcOutputObject ObjectOutput(LPCVOID pData, SIZE_T size) {
     return DataOutput(DXC_OUT_OBJECT, pData, size, DxcOutNoName);
+  }
+};
+
+struct DxcExtraOutputObject {
+  CComPtr<IDxcBlobUtf16> pType; // Custom name to identify the object
+  CComPtr<IDxcBlobUtf16> pName; // The file path for the output
+  CComPtr<IUnknown> pObject;    // The object itself
+};
+
+class DxcExtraOutputs : public IDxcExtraOutputs {
+  DXC_MICROCOM_TM_REF_FIELDS()
+
+  DxcExtraOutputObject *m_Objects = nullptr;
+  UINT32 m_uCount = 0;
+
+public:
+
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
+  DXC_MICROCOM_TM_CTOR(DxcExtraOutputs)
+
+  ~DxcExtraOutputs() {
+    Clear();
+  }
+
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
+    return DoBasicQueryInterface<IDxcExtraOutputs>(this, iid, ppvObject);
+  }
+
+  /////////////////////
+  // IDxcExtraOutputs
+  /////////////////////
+
+  UINT32 STDMETHODCALLTYPE GetOutputCount() override {
+    return m_uCount;
+  }
+
+  HRESULT STDMETHODCALLTYPE GetOutput(_In_ UINT32 uIndex,
+    _In_ REFIID iid, _COM_Outptr_opt_result_maybenull_ void **ppvObject,
+    _COM_Outptr_opt_result_maybenull_ IDxcBlobUtf16 **ppOutputType,
+    _COM_Outptr_opt_result_maybenull_ IDxcBlobUtf16 **ppOutputName) override
+  {
+    if (uIndex >= m_uCount)
+      return E_INVALIDARG;
+
+    DxcExtraOutputObject *pObject = &m_Objects[uIndex];
+
+    if (ppOutputType) {
+      *ppOutputType = nullptr;
+      IFR(pObject->pType.CopyTo(ppOutputType));
+    }
+
+    if (ppOutputName) {
+      *ppOutputName = nullptr;
+      IFR(pObject->pName.CopyTo(ppOutputName));
+    }
+
+    if (ppvObject) {
+      *ppvObject = nullptr;
+      if (pObject->pObject) {
+        IFR(pObject->pObject->QueryInterface(iid, ppvObject));
+      }
+    }
+
+    return S_OK;
+  }
+
+  /////////////////////
+  // Internal Interface
+  /////////////////////
+  void Clear() {
+    m_uCount = 0;
+    if (m_Objects) {
+      delete[] m_Objects;
+      m_Objects = nullptr;
+    }
+  }
+
+  void SetOutputs(const llvm::ArrayRef<DxcExtraOutputObject> outputs) {
+    Clear();
+
+    m_uCount = outputs.size();
+    if (m_uCount > 0) {
+      m_Objects = new DxcExtraOutputObject[m_uCount];
+      for (UINT32 i = 0; i < outputs.size(); i++)
+        m_Objects[i] = outputs[i];
+    }
   }
 };
 

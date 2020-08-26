@@ -30,7 +30,7 @@ namespace hlsl {
 class HLMatrixSubscriptUseReplacer {
 public:
   // The constructor does everything
-  HLMatrixSubscriptUseReplacer(llvm::CallInst* Call, llvm::Value *LoweredPtr,
+  HLMatrixSubscriptUseReplacer(llvm::CallInst* Call, llvm::Value *LoweredPtr, llvm::Value *TempLoweredMatrix,
     llvm::SmallVectorImpl<llvm::Value*> &ElemIndices, bool AllowLoweredPtrGEPs,
     std::vector<llvm::Instruction*> &DeadInsts);
 
@@ -51,6 +51,7 @@ private:
   bool AllowLoweredPtrGEPs = false;
   bool HasScalarResult = false;
   bool HasDynamicElemIndex = false;
+  llvm::Type *LoweredTy = nullptr;
 
   // The entire lowered matrix as loaded from LoweredPtr,
   // nullptr if we copied it to a temporary array.

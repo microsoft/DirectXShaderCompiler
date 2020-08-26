@@ -50,6 +50,7 @@ if "%1"=="" (goto :done_opt)
 
 if "%1"=="/?" goto :showhelp
 if "%1"=="-?" goto :showhelp
+if "%1"=="-h" goto :showhelp
 if "%1"=="-help" goto :showhelp
 if "%1"=="--help" goto :showhelp
 
@@ -136,6 +137,8 @@ if "%1"=="-clean" (
 ) else if "%1"=="-ninja" (
   set GENERATOR_NINJA=1
 ) else if "%1"=="-rel" (
+  set BUILD_CONFIG=Release
+) else if "%1"=="-Release" (
   set BUILD_CONFIG=Release
 ) else if "%1"=="-x86" (
   rem Allow BUILD_ARCH override.  This may be used by HCT_EXTRAS scripts.

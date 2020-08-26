@@ -274,10 +274,46 @@ private:
   void WriteSemanticDefines(llvm::Module *M, const ParsedSemanticDefineList &defines) {
     // Create all metadata nodes for each define. Each node is a (name, value) pair.
     std::vector<MDNode *> mdNodes;
+    const std::string enableStr("_ENABLE_");
+    const std::string disableStr("_DISABLE_");
+    const std::string selectStr("_SELECT_");
+
+    auto &optToggles = m_CI.getCodeGenOpts().HLSLOptimizationToggles;
+    auto &optSelects = m_CI.getCodeGenOpts().HLSLOptimizationSelects;
+
+    const llvm::SmallVector<std::string, 2> &semDefPrefixes =
+                             m_langExtensionsHelper.GetSemanticDefines();
+
+    // Add semantic defines to mdNodes and also to codeGenOpts
     for (const ParsedSemanticDefine &define : defines) {
       MDString *name  = MDString::get(M->getContext(), define.Name);
       MDString *value = MDString::get(M->getContext(), define.Value);
       mdNodes.push_back(MDNode::get(M->getContext(), { name, value }));
+
+      // Find index for end of matching semantic define prefix
+      size_t prefixPos = 0;
+      for (auto prefix : semDefPrefixes) {
+        if (IsMacroMatch(define.Name, prefix)) {
+          prefixPos = prefix.length() - 1;
+          break;
+        }
+      }
+
+      // Add semantic defines to option flag equivalents
+      // Convert define-style '_' into option-style '-' and lowercase everything
+      if (!define.Name.compare(prefixPos, enableStr.length(), enableStr)) {
+        std::string optName = define.Name.substr(prefixPos + enableStr.length());
+        std::replace(optName.begin(), optName.end(), '_', '-');
+        optToggles[StringRef(optName).lower()] = true;
+      } else if (!define.Name.compare(prefixPos, disableStr.length(), disableStr)) {
+        std::string optName = define.Name.substr(prefixPos + disableStr.length());
+        std::replace(optName.begin(), optName.end(), '_', '-');
+        optToggles[StringRef(optName).lower()] = false;
+      } else if (!define.Name.compare(prefixPos, selectStr.length(), selectStr)) {
+        std::string optName = define.Name.substr(prefixPos + selectStr.length());
+        std::replace(optName.begin(), optName.end(), '_', '-');
+        optSelects[StringRef(optName).lower()] = define.Value;
+      }
     }
 
     // Add root node with pointers to all define metadata nodes.
@@ -321,6 +357,11 @@ public:
     GetValidatedSemanticDefines(defines, validated, errors);
     WriteSemanticDefines(M, validated);
     return errors;
+  }
+
+  virtual bool IsOptionEnabled(std::string option) override {
+    return m_CI.getCodeGenOpts().HLSLOptimizationToggles.count(option) &&
+      m_CI.getCodeGenOpts().HLSLOptimizationToggles.find(option)->second;
   }
 
   virtual std::string GetIntrinsicName(UINT opcode) override {
@@ -1081,7 +1122,6 @@ public:
       compiler.getCodeGenOpts().HLSLFloat32DenormMode = DXIL::Float32DenormMode::Preserve;
     }
 
-    compiler.getCodeGenOpts().HLSLStructurizeReturns = Opts.StructurizeReturns;
     if (Opts.DisableOptimizations)
       compiler.getCodeGenOpts().DisableLLVMOpts = true;
 
@@ -1093,7 +1133,8 @@ public:
     compiler.getCodeGenOpts().HLSLAllowPreserveValues = Opts.AllowPreserveValues;
     compiler.getCodeGenOpts().HLSLResMayAlias = Opts.ResMayAlias;
     compiler.getCodeGenOpts().ScanLimit = Opts.ScanLimit;
-    compiler.getCodeGenOpts().HLSLOptimizationOptions = Opts.DxcOptimizationOptions;
+    compiler.getCodeGenOpts().HLSLOptimizationToggles = Opts.DxcOptimizationToggles;
+    compiler.getCodeGenOpts().HLSLOptimizationSelects = Opts.DxcOptimizationSelects;
     compiler.getCodeGenOpts().HLSLAllResourcesBound = Opts.AllResourcesBound;
     compiler.getCodeGenOpts().HLSLDefaultRowMajor = Opts.DefaultRowMajor;
     compiler.getCodeGenOpts().HLSLPreferControlFlow = Opts.PreferFlowControl;
@@ -1103,6 +1144,7 @@ public:
     compiler.getCodeGenOpts().HLSLDefines = defines;
     compiler.getCodeGenOpts().HLSLPreciseOutputs = Opts.PreciseOutputs;
     compiler.getCodeGenOpts().MainFileName = pMainFile;
+    compiler.getCodeGenOpts().HLSLPrintAfterAll = Opts.PrintAfterAll;
 
     // Translate signature packing options
     if (Opts.PackPrefixStable)

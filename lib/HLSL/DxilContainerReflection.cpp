@@ -107,11 +107,13 @@ public:
   std::vector<std::unique_ptr<CShaderReflectionConstantBuffer>>    m_CBs;
   std::vector<D3D12_SHADER_INPUT_BIND_DESC>       m_Resources;
   std::vector<std::unique_ptr<CShaderReflectionType>> m_Types;
-  std::map<std::string, UINT> m_CBsByName;
+
+  // Key strings owned by CShaderReflectionConstantBuffer objects
+  std::map<StringRef, UINT> m_CBsByName;
   // Due to the possibility of overlapping names between CB and other resources,
   // m_StructuredBufferCBsByName is the index into m_CBs corresponding to
   // StructuredBuffer resources, separately from CB resources.
-  std::map<std::string, UINT> m_StructuredBufferCBsByName;
+  std::map<StringRef, UINT> m_StructuredBufferCBsByName;
 
   void CreateReflectionObjects();
   void CreateReflectionObjectForResource(DxilResourceBase *R);
@@ -287,7 +289,7 @@ HRESULT DxilContainerReflection::Load(IDxcBlob *pContainer) {
   }
 
   CComPtr<IDxcBlob> pPDBContainer;
-  {
+  try {
     DxcThreadMalloc DxcMalloc(m_pMalloc);
     CComPtr<IStream> pStream;
     IFR(hlsl::CreateReadOnlyBlobStream(pContainer, &pStream));
@@ -295,6 +297,7 @@ HRESULT DxilContainerReflection::Load(IDxcBlob *pContainer) {
       pContainer = pPDBContainer;
     }
   }
+  CATCH_CPP_RETURN_HRESULT();
 
   uint32_t bufLen = pContainer->GetBufferSize();
   const DxilContainerHeader *pHeader =
@@ -1216,7 +1219,8 @@ void CShaderReflectionConstantBuffer::Initialize(
   std::vector<std::unique_ptr<CShaderReflectionType>>& allTypes,
   bool bUsageInMetadata) {
   ZeroMemory(&m_Desc, sizeof(m_Desc));
-  m_Desc.Name = CB.GetGlobalName().c_str();
+  m_ReflectionName = CB.GetGlobalName();
+  m_Desc.Name = m_ReflectionName.c_str();
   m_Desc.Size = CB.GetSize();
   m_Desc.Size = (m_Desc.Size + 0x0f) & ~(0x0f); // Round up to 16 bytes for reflection.
   m_Desc.Type = D3D_CT_CBUFFER;

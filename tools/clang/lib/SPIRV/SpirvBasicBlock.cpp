@@ -17,6 +17,11 @@ SpirvBasicBlock::SpirvBasicBlock(llvm::StringRef name)
     : labelId(0), labelName(name), mergeTarget(nullptr),
       continueTarget(nullptr) {}
 
+SpirvBasicBlock::~SpirvBasicBlock() {
+  for (auto instructionNode : instructions)
+    instructionNode.instruction->releaseMemory();
+}
+
 bool SpirvBasicBlock::hasTerminator() const {
   return !instructions.empty() &&
          isa<SpirvTerminator>(instructions.back().instruction);

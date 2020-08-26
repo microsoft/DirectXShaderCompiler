@@ -56,11 +56,11 @@ bool hasSemantic(const DeclaratorDecl *decl,
   return false;
 }
 
-bool patchConstFuncTakesHullOutputPatch(FunctionDecl *pcf) {
+const ParmVarDecl *patchConstFuncTakesHullOutputPatch(FunctionDecl *pcf) {
   for (const auto *param : pcf->parameters())
     if (hlsl::IsHLSLOutputPatchType(param->getType()))
-      return true;
-  return false;
+      return param;
+  return nullptr;
 }
 
 inline bool isSpirvMatrixOp(spv::Op opcode) {
@@ -632,8 +632,8 @@ void SpirvEmitter::doDecl(const Decl *decl) {
   if (isa<EmptyDecl>(decl) || isa<TypedefDecl>(decl))
     return;
 
+  // Implicit decls are lazily created when needed.
   if (decl->isImplicit()) {
-    doImplicitDecl(decl);
     return;
   }
 
@@ -760,6 +760,8 @@ SpirvInstruction *SpirvEmitter::doExpr(const Expr *expr) {
     result = curThis;
   } else if (isa<CXXConstructExpr>(expr)) {
     result = curThis;
+  } else if (const auto *unaryExpr = dyn_cast<UnaryExprOrTypeTraitExpr>(expr)) {
+    result = doUnaryExprOrTypeTraitExpr(unaryExpr);
   } else {
     emitError("expression class '%0' unimplemented", expr->getExprLoc())
         << expr->getStmtClassName() << expr->getSourceRange();
@@ -977,6 +979,13 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
   // Create all parameters.
   for (uint32_t i = 0; i < decl->getNumParams(); ++i) {
     const ParmVarDecl *paramDecl = decl->getParamDecl(i);
+    if (spvContext.isHS() && decl == patchConstFunc &&
+        hlsl::IsHLSLOutputPatchType(paramDecl->getType())) {
+      // Since the output patch used in hull shaders is translated to
+      // a variable with Workgroup storage class, there is no need
+      // to pass the variable as function parameter in SPIR-V.
+      continue;
+    }
     (void)declIdMapper.createFnParam(paramDecl);
   }
 
@@ -1140,19 +1149,6 @@ void SpirvEmitter::doHLSLBufferDecl(const HLSLBufferDecl *bufferDecl) {
     (void)declIdMapper.createShaderRecordBufferNV(bufferDecl);
   } else {
     (void)declIdMapper.createCTBuffer(bufferDecl);
-  }
-}
-
-void SpirvEmitter::doImplicitDecl(const Decl *decl) {
-  // We only handle specific implicit declaration for raytracing
-  // which are RayFlag/HitKind constant unsigned integers
-  // Ignore others
-  if (spvContext.isLib() || spvContext.isRay()) {
-    const VarDecl *implDecl = dyn_cast<VarDecl>(decl);
-    if (implDecl && (implDecl->getName().startswith(StringRef("RAY_FLAG")) ||
-                     implDecl->getName().startswith(StringRef("HIT_KIND")))) {
-      (void)declIdMapper.createRayTracingNVImplicitVar(implDecl);
-    }
   }
 }
 
@@ -3226,6 +3222,15 @@ SpirvInstruction *SpirvEmitter::processBufferTextureLoad(
 
   if (!elemType->isFloatingType() && !elemType->isIntegerType()) {
     emitError("loading %0 value unsupported", object->getExprLoc()) << type;
+    return nullptr;
+  }
+
+  // If residencyCode is nullptr, we are dealing with a Load method with 2
+  // arguments which does not return the operation status.
+  if (residencyCode && residencyCode->isRValue()) {
+    emitError(
+        "an lvalue argument should be used for returning the operation status",
+        loc);
     return nullptr;
   }
 
@@ -7768,8 +7773,11 @@ SpirvInstruction *SpirvEmitter::processWaveBroadcast(const CallExpr *callExpr) {
   auto *value = doExpr(callExpr->getArg(0));
   const QualType retType = callExpr->getCallReturnType(astContext);
   if (numArgs == 2)
+    // WaveReadLaneAt is in fact not a broadcast operation (even though its name
+    // might incorrectly suggest so). The proper mapping to SPIR-V for
+    // it is OpGroupNonUniformShuffle, *not* OpGroupNonUniformBroadcast.
     return spvBuilder.createGroupNonUniformBinaryOp(
-        spv::Op::OpGroupNonUniformBroadcast, retType, spv::Scope::Subgroup,
+        spv::Op::OpGroupNonUniformShuffle, retType, spv::Scope::Subgroup,
         value, doExpr(callExpr->getArg(1)), srcLoc);
   else
     return spvBuilder.createGroupNonUniformUnaryOp(
@@ -10899,12 +10907,9 @@ bool SpirvEmitter::processHSEntryPointOutputAndPCF(
   // If the patch constant function (PCF) takes the result of the Hull main
   // entry point, create a temporary function-scope variable and write the
   // results to it, so it can be passed to the PCF.
-  if (patchConstFuncTakesHullOutputPatch(patchConstFunc)) {
-    const QualType hullMainRetType = astContext.getConstantArrayType(
-        retType, llvm::APInt(32, numOutputControlPoints),
-        clang::ArrayType::Normal, 0);
-    hullMainOutputPatch =
-        spvBuilder.addFnVar(hullMainRetType, locEnd, "temp.var.hullMainRetVal");
+  if (const auto *param = patchConstFuncTakesHullOutputPatch(patchConstFunc)) {
+    hullMainOutputPatch = declIdMapper.createHullMainOutputPatch(
+        param, retType, numOutputControlPoints, locEnd);
     auto *tempLocation = spvBuilder.createAccessChain(
         retType, hullMainOutputPatch, {outputControlPointId}, locEnd);
     spvBuilder.createStore(tempLocation, retVal, locEnd);
@@ -10966,7 +10971,10 @@ bool SpirvEmitter::processHSEntryPointOutputAndPCF(
     if (hlsl::IsHLSLInputPatchType(param->getType())) {
       pcfParams.push_back(hullMainInputPatch);
     } else if (hlsl::IsHLSLOutputPatchType(param->getType())) {
-      pcfParams.push_back(hullMainOutputPatch);
+      // Since the output patch used in hull shaders is translated to
+      // a variable with Workgroup storage class, there is no need
+      // to pass the variable as function parameter in SPIR-V.
+      continue;
     } else if (hasSemantic(param, hlsl::DXIL::SemanticKind::PrimitiveID)) {
       if (!primitiveId) {
         primitiveId = createParmVarAndInitFromStageInputVar(param);
@@ -11288,8 +11296,8 @@ void SpirvEmitter::addFunctionToWorkQueue(hlsl::DXIL::ShaderKind shaderKind,
 
 SpirvInstruction *
 SpirvEmitter::processTraceRayInline(const CXXMemberCallExpr *expr) {
-  emitWarning("SPV_KHR_ray_query is currently a provisional extension and might"
-              "change in ways that are not backwards compatible",
+  emitWarning("SPV_KHR_ray_query is currently a provisional extension and "
+              "might change in ways that are not backwards compatible",
               expr->getExprLoc());
   const auto object = expr->getImplicitObjectArgument();
   uint32_t templateFlags = hlsl::GetHLSLResourceTemplateUInt(object->getType());
@@ -11371,8 +11379,8 @@ SpirvEmitter::processTraceRayInline(const CXXMemberCallExpr *expr) {
 SpirvInstruction *
 SpirvEmitter::processRayQueryIntrinsics(const CXXMemberCallExpr *expr,
                                         hlsl::IntrinsicOp opcode) {
-  emitWarning("SPV_KHR_ray_query is currently a provisional extension and might"
-              "change in ways that are not backwards compatible",
+  emitWarning("SPV_KHR_ray_query is currently a provisional extension and "
+              "might change in ways that are not backwards compatible",
               expr->getExprLoc());
   const auto object = expr->getImplicitObjectArgument();
   SpirvInstruction *rayqueryObj = loadIfAliasVarRef(object);
@@ -11676,6 +11684,26 @@ bool SpirvEmitter::spirvToolsLegalize(std::vector<uint32_t> *mod,
   optimizer.RegisterPass(spvtools::CreateCompactIdsPass());
 
   return optimizer.Run(mod->data(), mod->size(), mod, options);
+}
+
+SpirvInstruction *
+SpirvEmitter::doUnaryExprOrTypeTraitExpr(const UnaryExprOrTypeTraitExpr *expr) {
+  // TODO: We support only `sizeof()`. Support other kinds.
+  if (expr->getKind() != clang::UnaryExprOrTypeTrait::UETT_SizeOf) {
+    emitError("expression class '%0' unimplemented", expr->getExprLoc())
+        << expr->getStmtClassName();
+    return nullptr;
+  }
+
+  AlignmentSizeCalculator alignmentCalc(astContext, spirvOptions);
+  uint32_t size = 0, stride = 0;
+  std::tie(std::ignore, size) = alignmentCalc.getAlignmentAndSize(
+      expr->getArgumentType(), SpirvLayoutRule::Void,
+      /*isRowMajor*/ llvm::None, &stride);
+  auto *sizeConst = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                              llvm::APInt(32, size));
+  sizeConst->setRValue();
+  return sizeConst;
 }
 
 } // end namespace spirv

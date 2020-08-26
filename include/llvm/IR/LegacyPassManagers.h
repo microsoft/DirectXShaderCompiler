@@ -179,6 +179,8 @@ private:
   virtual PassManagerType getTopLevelPassManagerType() = 0;
 
 public:
+  bool HLSLPrintAfterAll = false; // HLSL Change
+
   /// Schedule pass P for execution. Make sure that passes required by
   /// P are run before P is run. Update analysis info maintained by
   /// the manager. Remove dead passes. This is a recursive function.

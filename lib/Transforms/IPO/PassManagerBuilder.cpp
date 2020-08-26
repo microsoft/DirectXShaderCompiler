@@ -463,7 +463,7 @@ void PassManagerBuilder::populateModulePassManager(
     if (EnableMLSM)
       MPM.add(createMergedLoadStoreMotionPass()); // Merge ld/st in diamonds
     // HLSL Change Begins
-    if (!(HLSLOptimizationOptions.DisableGVN)) {
+    if (EnableGVN) {
       MPM.add(createGVNPass(DisableGVNLoadPRE));  // Remove redundancies
       if (!HLSLResMayAlias)
         MPM.add(createDxilSimpleGVNHoistPass());
@@ -737,7 +737,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // PM.add(createLICMPass());                 // Hoist loop invariants.
   if (EnableMLSM)
     PM.add(createMergedLoadStoreMotionPass()); // Merge ld/st in diamonds.
-  if (!(HLSLOptimizationOptions.DisableGVN)) // HLSL Change
+  if (EnableGVN) // HLSL Change
     PM.add(createGVNPass(DisableGVNLoadPRE)); // Remove redundancies.
   PM.add(createMemCpyOptPass());            // Remove dead memcpys.
 
