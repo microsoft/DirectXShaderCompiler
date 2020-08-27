@@ -6908,7 +6908,6 @@ T unpack(uint32_t packedVal)
     return ret;
 }
 
-#define PACKUNPACK_PLACEHOLDER
 TEST_F(ExecutionTest, PackUnpackTest) {
     WEX::TestExecution::SetVerifyOutput verifySettings(
         WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
@@ -6929,8 +6928,8 @@ TEST_F(ExecutionTest, PackUnpackTest) {
     string target = "cs_6_6";
 
     if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6)) {
-    return;
-  }
+        return;
+    }
 #endif
 
     int tableSize = sizeof(PackUnpackOpParameters) / sizeof(TableParameter);
