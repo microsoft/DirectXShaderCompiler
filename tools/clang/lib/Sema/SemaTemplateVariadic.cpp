@@ -747,6 +747,8 @@ bool Sema::containsUnexpandedParameterPacks(Declarator &D) {
   case TST_min16uint:
   case TST_min10float:
   case TST_min12int:
+  case TST_int8_4packed:
+  case TST_uint8_4packed:
   // HLSL Change End
     break;
   }

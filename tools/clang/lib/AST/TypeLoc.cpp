@@ -329,6 +329,8 @@ TypeSpecifierType BuiltinTypeLoc::getWrittenTypeSpec() const {
   case BuiltinType::Min12Int:
   case BuiltinType::LitFloat:
   case BuiltinType::LitInt:
+  case BuiltinType::Int8_4Packed:
+  case BuiltinType::UInt8_4Packed:
   // HLSL Change Ends
     llvm_unreachable("Builtin type needs extra local data!");
     // Fall through, if the impossible happens.

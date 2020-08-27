@@ -122,6 +122,7 @@ namespace DXIL {
     I1, I16, U16, I32, U32, I64, U64,
     F16, F32, F64,
     SNormF16, UNormF16, SNormF32, UNormF32, SNormF64, UNormF64,
+    PackedS8x32, PackedU8x32,
     LastEntry };
 
   // Must match D3D_INTERPOLATION_MODE
@@ -534,6 +535,9 @@ namespace DXIL {
     // Other
     CycleCounterLegacy = 109, // CycleCounterLegacy
   
+    // Packing intrinsics
+    Pack4x8 = 219, // packs vector of 4 signed or unsigned values into a packed datatype, drops or clamps unused bits
+  
     // Pixel shader
     AttributeAtVertex = 137, // returns the values of the attributes at the vertex.
     Coverage = 91, // returns the coverage mask input in a pixel shader
@@ -683,6 +687,9 @@ namespace DXIL {
     // Unary uint
     FirstbitHi = 33, // Returns the location of the first set bit starting from the highest order bit and working downward.
   
+    // Unpacking intrinsics
+    Unpack4x8 = 218, // unpacks 4 8-bit signed or unsigned values into int32 or int16 vector
+  
     // Wave
     WaveActiveAllEqual = 115, // returns 1 if all the lanes have the same value
     WaveActiveBallot = 116, // returns a struct with a bit set for each lane where the condition is true
@@ -708,9 +715,9 @@ namespace DXIL {
     NumOpCodes_Dxil_1_3 = 162,
     NumOpCodes_Dxil_1_4 = 165,
     NumOpCodes_Dxil_1_5 = 216,
-    NumOpCodes_Dxil_1_6 = 218,
+    NumOpCodes_Dxil_1_6 = 220,
   
-    NumOpCodes = 218 // exclusive last value of enumeration
+    NumOpCodes = 220 // exclusive last value of enumeration
   };
   // OPCODE-ENUM:END
 
@@ -831,6 +838,9 @@ namespace DXIL {
     // Other
     CycleCounterLegacy,
   
+    // Packing intrinsics
+    Pack4x8,
+  
     // Pixel shader
     AttributeAtVertex,
     Coverage,
@@ -939,6 +949,9 @@ namespace DXIL {
     // Unary int
     UnaryBits,
   
+    // Unpacking intrinsics
+    Unpack4x8,
+  
     // Wave
     WaveActiveAllEqual,
     WaveActiveBallot,
@@ -963,9 +976,9 @@ namespace DXIL {
     NumOpClasses_Dxil_1_3 = 118,
     NumOpClasses_Dxil_1_4 = 120,
     NumOpClasses_Dxil_1_5 = 143,
-    NumOpClasses_Dxil_1_6 = 145,
+    NumOpClasses_Dxil_1_6 = 147,
   
-    NumOpClasses = 145 // exclusive last value of enumeration
+    NumOpClasses = 147 // exclusive last value of enumeration
   };
   // OPCODECLASS-ENUM:END
 
@@ -1335,6 +1348,18 @@ namespace DXIL {
     CullNonOpaque = 0x80,
     SkipTriangles = 0x100,
     SkipProceduralPrimitives = 0x200,
+  };
+
+  // Packing/unpacking intrinsics
+  enum class UnpackMode : uint8_t {
+    Unsigned = 0,   // not sign extended
+    Signed = 1,     // sign extended
+  };
+
+  enum class PackMode : uint8_t {
+    Trunc = 0,      // Pack low bits, drop the rest
+    UClamp = 1,     // Unsigned clamp - [0, 255] for 8-bits
+    SClamp = 2,     // Signed clamp - [-128, 127] for 8-bits
   };
 
   // Corresponds to HIT_KIND_* in HLSL

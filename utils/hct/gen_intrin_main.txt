@@ -334,6 +334,18 @@ $type3 [[rn]] dot4add_u8packed(in uint a, in $type1 b, in uint b);
 $type3 [[rn]] dot4add_i8packed(in uint a, in $type1 b, in int b);
 $type3 [[rn]] dot2add(in float16_t<2> a, in $type1 b, in float b);
 
+// Unpacking intrinsics
+int16_t<4> [[rn]] unpack_s8s16(in p32i8 pk);
+uint16_t<4> [[rn]] unpack_u8u16(in p32u8 pk);
+int<4> [[rn]] unpack_s8s32(in p32i8 pk);
+uint<4> [[rn]] unpack_u8u32(in p32u8 pk);
+
+// Packing intrinsics
+p32i8 [[rn]] pack_s8(in any_int16or32<4> v);
+p32u8 [[rn]] pack_u8(in any_int16or32<4> v);
+p32i8 [[rn]] pack_clamp_s8(in sint16or32_only<4> v);
+p32u8 [[rn]] pack_clamp_u8(in sint16or32_only<4> v);
+
 // Mesh shader intrinsics:
 void [[]] SetMeshOutputCounts(in uint numVertices, in uint numPrimitives);
 

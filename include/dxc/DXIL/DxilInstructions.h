@@ -7055,5 +7055,70 @@ struct DxilInst_AnnotateHandle {
   llvm::Value *get_props() const { return Instr->getOperand(4); }
   void set_props(llvm::Value *val) { Instr->setOperand(4, val); }
 };
+
+/// This instruction unpacks 4 8-bit signed or unsigned values into int32 or int16 vector
+struct DxilInst_Unpack4x8 {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_Unpack4x8(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::Unpack4x8);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_unpackMode = 1,
+    arg_pk = 2,
+  };
+  // Accessors
+  llvm::Value *get_unpackMode() const { return Instr->getOperand(1); }
+  void set_unpackMode(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_pk() const { return Instr->getOperand(2); }
+  void set_pk(llvm::Value *val) { Instr->setOperand(2, val); }
+};
+
+/// This instruction packs vector of 4 signed or unsigned values into a packed datatype, drops or clamps unused bits
+struct DxilInst_Pack4x8 {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_Pack4x8(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::Pack4x8);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (6 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_packMode = 1,
+    arg_x = 2,
+    arg_y = 3,
+    arg_z = 4,
+    arg_w = 5,
+  };
+  // Accessors
+  llvm::Value *get_packMode() const { return Instr->getOperand(1); }
+  void set_packMode(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_x() const { return Instr->getOperand(2); }
+  void set_x(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_y() const { return Instr->getOperand(3); }
+  void set_y(llvm::Value *val) { Instr->setOperand(3, val); }
+  llvm::Value *get_z() const { return Instr->getOperand(4); }
+  void set_z(llvm::Value *val) { Instr->setOperand(4, val); }
+  llvm::Value *get_w() const { return Instr->getOperand(5); }
+  void set_w(llvm::Value *val) { Instr->setOperand(5, val); }
+};
 // INSTR-HELPER:END
 } // namespace hlsl

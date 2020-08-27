@@ -566,6 +566,10 @@ static CompType::Kind BuiltinTyToCompTy(const BuiltinType *BTy, bool bSNorm,
   CompType::Kind kind = CompType::Kind::Invalid;
 
   switch (BTy->getKind()) {
+  // HLSL Changes begin
+  case BuiltinType::Int8_4Packed:
+  case BuiltinType::UInt8_4Packed:
+  // HLSL Changes end
   case BuiltinType::UInt:
     kind = CompType::Kind::U32;
     break;
@@ -2403,6 +2407,10 @@ hlsl::CompType CGMSHLSLRuntime::GetCompType(const BuiltinType *BT) {
   case BuiltinType::Short:
     ElementType = hlsl::CompType::getI16();
     break;
+    // HLSL Changes begin
+  case BuiltinType::Int8_4Packed:
+  case BuiltinType::UInt8_4Packed:
+    // HLSL Changes end
   case BuiltinType::UInt:
     ElementType = hlsl::CompType::getU32();
     break;

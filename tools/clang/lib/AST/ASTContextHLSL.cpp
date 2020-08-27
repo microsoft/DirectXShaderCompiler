@@ -69,7 +69,9 @@ const char* HLSLScalarTypeNames[] = {
   "uint64_t",
   "float16_t",
   "float32_t",
-  "float64_t"
+  "float64_t",
+  "int8_t4_packed",
+  "uint8_t4_packed"
 };
 
 static_assert(HLSLScalarTypeCount == _countof(HLSLScalarTypeNames), "otherwise scalar constants are not aligned");
@@ -169,6 +171,20 @@ static HLSLScalarType FindScalarTypeByName(const char *typeName, const size_t ty
             break;
           return HLSLScalarType_float_min16;
         }
+      }
+      break;
+    case 14: // int8_t4_packed
+      if (typeName[0] == 'i' && typeName[1] == 'n') {
+        if (strncmp(typeName, "int8_t4_packed", 14))
+          break;
+        return HLSLScalarType_int8_4packed;
+      }
+      break;
+    case 15: // uint8_t4_packed
+      if (typeName[0] == 'u' && typeName[1] == 'i') {
+        if (strncmp(typeName, "uint8_t4_packed", 15))
+          break;
+        return HLSLScalarType_uint8_4packed;
       }
       break;
     default:

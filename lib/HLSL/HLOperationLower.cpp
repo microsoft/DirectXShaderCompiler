@@ -42,6 +42,7 @@ struct HLOperationLowerHelper {
   Type *voidTy;
   Type *f32Ty;
   Type *i32Ty;
+  Type *i16Ty;
   llvm::Type *i1Ty;
   Type *i8Ty;
   DxilTypeSystem &dxilTypeSys;
@@ -60,6 +61,7 @@ HLOperationLowerHelper::HLOperationLowerHelper(HLModule &HLM)
   voidTy = Type::getVoidTy(Ctx);
   f32Ty = Type::getFloatTy(Ctx);
   i32Ty = Type::getInt32Ty(Ctx);
+  i16Ty = Type::getInt16Ty(Ctx);
   i1Ty = Type::getInt1Ty(Ctx);
   i8Ty = Type::getInt8Ty(Ctx);
   Function *EntryFunc = HLM.GetEntryFunction();
@@ -5082,18 +5084,114 @@ Value *TranslateDot4AddPacked(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   Value *src0 = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc0Idx);
   DXASSERT(
       !src0->getType()->isVectorTy() && src0->getType()->isIntegerTy(32),
-      "otherwise, unexpected vector support in high level intrinsic tempalte");
+      "otherwise, unexpected vector support in high level intrinsic template");
   Value *src1 = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc1Idx);
   DXASSERT(src0->getType() == src1->getType(), "otherwise, mismatched argument types");
   Value *accArg = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc2Idx);
   Type *accTy = accArg->getType();
   DXASSERT(!accTy->isVectorTy() && accTy->isIntegerTy(32),
-    "otherwise, unexpected vector support in high level intrinsic tempalte");
+    "otherwise, unexpected vector support in high level intrinsic template");
   IRBuilder<> Builder(CI);
 
   Function *dxilFunc = hlslOP->GetOpFunc(opcode, accTy);
   Constant *opArg = hlslOP->GetU32Const((unsigned)opcode);
   return Builder.CreateCall(dxilFunc, { opArg, accArg, src0, src1 });
+}
+
+Value *TranslatePack(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+                     HLOperationLowerHelper &helper, 
+                     HLObjectOperationLowerHelper *pObjHelper,
+                     bool &Translated) {
+  hlsl::OP *hlslOP = &helper.hlslOP;
+
+  Value *val = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
+  Type *valTy = val->getType();
+  Type *eltTy = valTy->getScalarType();
+
+  const unsigned vecSize = 4;
+
+
+  DXASSERT(valTy->isVectorTy() && valTy->getVectorNumElements() == vecSize && eltTy->isIntegerTy() && 
+    (eltTy->getIntegerBitWidth() == 32 || eltTy->getIntegerBitWidth() == 16),
+    "otherwise, unexpected input dimension or component type");
+
+  DXIL::PackMode packMode;
+  switch (IOP) {
+    case hlsl::IntrinsicOp::IOP_pack_clamp_s8: 
+      packMode = DXIL::PackMode::SClamp;
+      break;
+    case hlsl::IntrinsicOp::IOP_pack_clamp_u8:
+      packMode = DXIL::PackMode::UClamp;
+      break;
+    case hlsl::IntrinsicOp::IOP_pack_s8:
+    case hlsl::IntrinsicOp::IOP_pack_u8:
+      packMode = DXIL::PackMode::Trunc;
+      break;
+    default:
+      DXASSERT(false, "unexpected opcode");
+      break;
+  }
+
+  IRBuilder<> Builder(CI);
+  Function *dxilFunc = hlslOP->GetOpFunc(opcode, eltTy);
+  Constant *opArg = hlslOP->GetU32Const((unsigned)opcode);
+  Constant *packModeArg = hlslOP->GetU8Const((unsigned)packMode);
+
+  Value *elt0 = Builder.CreateExtractElement(val, (uint64_t)0);
+  Value *elt1 = Builder.CreateExtractElement(val, (uint64_t)1);
+  Value *elt2 = Builder.CreateExtractElement(val, (uint64_t)2);
+  Value *elt3 = Builder.CreateExtractElement(val, (uint64_t)3);
+  return Builder.CreateCall(dxilFunc, { opArg, packModeArg, elt0, elt1, elt2, elt3 });
+}
+
+Value *TranslateUnpack(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+                     HLOperationLowerHelper &helper, 
+                     HLObjectOperationLowerHelper *pObjHelper,
+                     bool &Translated) {
+  hlsl::OP *hlslOP = &helper.hlslOP;
+
+  Value *packedVal = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
+  DXASSERT(!packedVal->getType()->isVectorTy() && packedVal->getType()->isIntegerTy(32),
+    "otherwise, unexpected vector support in high level intrinsic template");
+
+  Type *overloadType = nullptr;
+  DXIL::UnpackMode unpackMode;
+  switch (IOP) {
+    case hlsl::IntrinsicOp::IOP_unpack_s8s32:
+      unpackMode = DXIL::UnpackMode::Signed;
+      overloadType = helper.i32Ty;
+      break;
+    case hlsl::IntrinsicOp::IOP_unpack_u8u32:
+      unpackMode = DXIL::UnpackMode::Unsigned;
+      overloadType = helper.i32Ty;
+      break;
+    case hlsl::IntrinsicOp::IOP_unpack_s8s16:
+      unpackMode = DXIL::UnpackMode::Signed;
+      overloadType = helper.i16Ty;
+      break;
+    case hlsl::IntrinsicOp::IOP_unpack_u8u16:
+      unpackMode = DXIL::UnpackMode::Unsigned;
+      overloadType = helper.i16Ty;
+      break;
+    default:
+      DXASSERT(false, "unexpected opcode");
+      break;
+  }
+  
+  IRBuilder<> Builder(CI);
+  Function *dxilFunc = hlslOP->GetOpFunc(opcode, overloadType);
+  Constant *opArg = hlslOP->GetU32Const((unsigned)opcode);
+  Constant *unpackModeArg = hlslOP->GetU8Const((unsigned)unpackMode);
+  Value *Res = Builder.CreateCall(dxilFunc, { opArg, unpackModeArg , packedVal });
+
+  // Convert the final aggregate into a vector to make the types match
+  const unsigned vecSize = 4;
+  Value *ResVec = UndefValue::get(CI->getType());
+  for (unsigned i = 0; i < vecSize; ++i) {
+    Value *Elt = Builder.CreateExtractValue(Res, i);
+    ResVec = Builder.CreateInsertElement(ResVec, Elt, i);
+  }
+  return ResVec;
 }
 
 } // namespace
@@ -5312,6 +5410,10 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_msad4, TranslateMSad4, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_mul, TranslateMul, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_normalize, TranslateNormalize, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::IOP_pack_clamp_s8, TranslatePack, DXIL::OpCode::Pack4x8 },
+    {IntrinsicOp::IOP_pack_clamp_u8, TranslatePack, DXIL::OpCode::Pack4x8 },
+    {IntrinsicOp::IOP_pack_s8, TranslatePack, DXIL::OpCode::Pack4x8 },
+    {IntrinsicOp::IOP_pack_u8, TranslatePack, DXIL::OpCode::Pack4x8 },
     {IntrinsicOp::IOP_pow, TranslatePow, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_printf, TranslatePrintf, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_radians, TranslateRadians, DXIL::OpCode::NumOpCodes},
@@ -5354,7 +5456,10 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_texCUBEproj, EmptyLower, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_transpose, EmptyLower, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_trunc, TrivialUnaryOperation, DXIL::OpCode::Round_z},
-
+    {IntrinsicOp::IOP_unpack_s8s16, TranslateUnpack, DXIL::OpCode::Unpack4x8},
+    {IntrinsicOp::IOP_unpack_s8s32, TranslateUnpack, DXIL::OpCode::Unpack4x8},
+    {IntrinsicOp::IOP_unpack_u8u16, TranslateUnpack, DXIL::OpCode::Unpack4x8},
+    {IntrinsicOp::IOP_unpack_u8u32, TranslateUnpack, DXIL::OpCode::Unpack4x8},
     {IntrinsicOp::MOP_Append, StreamOutputLower, DXIL::OpCode::EmitStream},
     {IntrinsicOp::MOP_RestartStrip, StreamOutputLower, DXIL::OpCode::CutStream},
     {IntrinsicOp::MOP_CalculateLevelOfDetail, TranslateCalculateLOD, DXIL::OpCode::NumOpCodes},

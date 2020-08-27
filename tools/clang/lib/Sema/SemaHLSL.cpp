@@ -64,6 +64,8 @@ enum ArBasicKind {
   AR_BASIC_MIN12INT,
   AR_BASIC_MIN16INT,
   AR_BASIC_MIN16UINT,
+  AR_BASIC_INT8_4PACKED,
+  AR_BASIC_UINT8_4PACKED,
   AR_BASIC_ENUM,
 
   AR_BASIC_COUNT,
@@ -361,6 +363,8 @@ const UINT g_uBasicKindProps[] =
   BPROP_PRIMITIVE | BPROP_NUMERIC | BPROP_INTEGER | BPROP_BITS12 | BPROP_MIN_PRECISION,   // AR_BASIC_MIN12INT
   BPROP_PRIMITIVE | BPROP_NUMERIC | BPROP_INTEGER | BPROP_BITS16 | BPROP_MIN_PRECISION,   // AR_BASIC_MIN16INT
   BPROP_PRIMITIVE | BPROP_NUMERIC | BPROP_INTEGER | BPROP_UNSIGNED | BPROP_BITS16 | BPROP_MIN_PRECISION,  // AR_BASIC_MIN16UINT
+  BPROP_PRIMITIVE | BPROP_NUMERIC | BPROP_INTEGER | BPROP_UNSIGNED | BPROP_BITS32,// AR_BASIC_INT8_4PACKED
+  BPROP_PRIMITIVE | BPROP_NUMERIC | BPROP_INTEGER | BPROP_UNSIGNED | BPROP_BITS32,// AR_BASIC_UINT8_4PACKED
 
   BPROP_ENUM | BPROP_NUMERIC | BPROP_INTEGER, // AR_BASIC_ENUM
   BPROP_OTHER,  // AR_BASIC_COUNT
@@ -1225,6 +1229,40 @@ static const ArBasicKind g_AnyInt64CT[] =
   AR_BASIC_UNKNOWN
 };
 
+static const ArBasicKind g_Int8_4PackedCT[] = 
+{
+  AR_BASIC_INT8_4PACKED,
+  AR_BASIC_UINT32,
+  AR_BASIC_LITERAL_INT,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_UInt8_4PackedCT[] =
+{
+  AR_BASIC_UINT8_4PACKED,
+  AR_BASIC_UINT32,
+  AR_BASIC_LITERAL_INT,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_AnyInt16Or32CT[] = {
+  AR_BASIC_INT32,
+  AR_BASIC_UINT32,
+  AR_BASIC_INT16,
+  AR_BASIC_UINT16,
+  AR_BASIC_LITERAL_INT,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_SInt16Or32OnlyCT[] =
+{
+  AR_BASIC_INT32,
+  AR_BASIC_INT16,
+  AR_BASIC_LITERAL_INT,
+  AR_BASIC_NOCAST,
+  AR_BASIC_UNKNOWN
+};
+
 // Basic kinds, indexed by a LEGAL_INTRINSIC_COMPTYPES value.
 const ArBasicKind* g_LegalIntrinsicCompTypes[] =
 {
@@ -1267,6 +1305,10 @@ const ArBasicKind* g_LegalIntrinsicCompTypes[] =
   g_Int32OnlyCT,        // LICOMPTYPE_INT32_ONLY
   g_Int64OnlyCT,        // LICOMPTYPE_INT64_ONLY
   g_AnyInt64CT,         // LICOMPTYPE_ANY_INT64
+  g_Int8_4PackedCT,     // LICOMPTYPE_INT8_4PACKED
+  g_UInt8_4PackedCT,    // LICOMPTYPE_UINT8_4PACKED
+  g_AnyInt16Or32CT,     // LICOMPTYPE_ANY_INT16_OR_32
+  g_SInt16Or32OnlyCT,   // LICOMPTYPE_SINT16_OR_32_ONLY
 };
 static_assert(ARRAYSIZE(g_LegalIntrinsicCompTypes) == LICOMPTYPE_COUNT,
   "Intrinsic comp type table must be updated when new enumerants are added.");
@@ -1554,6 +1596,7 @@ const char* g_ArBasicTypeNames[] =
   "int", "uint", "long", "ulong",
   "min10float", "min16float",
   "min12int", "min16int", "min16uint",
+  "int8_t4_packed", "uint8_t4_packed",
   "enum",
 
   "<count>",
@@ -3944,6 +3987,8 @@ public:
       case BuiltinType::Min10Float: return AR_BASIC_MIN10FLOAT;
       case BuiltinType::LitFloat: return AR_BASIC_LITERAL_FLOAT;
       case BuiltinType::LitInt: return AR_BASIC_LITERAL_INT;
+      case BuiltinType::Int8_4Packed: return AR_BASIC_INT8_4PACKED;
+      case BuiltinType::UInt8_4Packed: return AR_BASIC_UINT8_4PACKED;
       default:
         // Only builtin types that have basickind equivalents.
         break;
@@ -4024,6 +4069,8 @@ public:
     case AR_BASIC_MIN12INT:       return HLSLScalarType_int_min12;
     case AR_BASIC_MIN16INT:       return HLSLScalarType_int_min16;
     case AR_BASIC_MIN16UINT:      return HLSLScalarType_uint_min16;
+    case AR_BASIC_INT8_4PACKED:   return HLSLScalarType_int8_4packed;
+    case AR_BASIC_UINT8_4PACKED:  return HLSLScalarType_uint8_4packed;
 
     case AR_BASIC_INT64:          return HLSLScalarType_int64;
     case AR_BASIC_UINT64:         return HLSLScalarType_uint64;
@@ -4059,6 +4106,8 @@ public:
     case AR_BASIC_MIN12INT:       return m_scalarTypes[HLSLScalarType_int_min12];
     case AR_BASIC_MIN16INT:       return m_scalarTypes[HLSLScalarType_int_min16];
     case AR_BASIC_MIN16UINT:      return m_scalarTypes[HLSLScalarType_uint_min16];
+    case AR_BASIC_INT8_4PACKED:   return m_scalarTypes[HLSLScalarType_int8_4packed];
+    case AR_BASIC_UINT8_4PACKED:  return m_scalarTypes[HLSLScalarType_uint8_4packed];
     case AR_BASIC_ENUM:           return m_context->IntTy;
     case AR_BASIC_ENUM_CLASS:     return m_context->IntTy;
 
@@ -5114,6 +5163,8 @@ void HLSLExternalSource::AddBaseTypes()
   m_baseTypes[HLSLScalarType_int_min12] = m_context->Min12IntTy;
   m_baseTypes[HLSLScalarType_int_min16] = m_context->Min16IntTy;
   m_baseTypes[HLSLScalarType_uint_min16] = m_context->Min16UIntTy;
+  m_baseTypes[HLSLScalarType_int8_4packed] = m_context->Int8_4PackedTy;
+  m_baseTypes[HLSLScalarType_uint8_4packed] = m_context->UInt8_4PackedTy;
   m_baseTypes[HLSLScalarType_float_lit] = m_context->LitFloatTy;
   m_baseTypes[HLSLScalarType_int_lit] = m_context->LitIntTy;
   m_baseTypes[HLSLScalarType_int16] = m_context->ShortTy;

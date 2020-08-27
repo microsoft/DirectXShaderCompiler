@@ -394,6 +394,12 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   // Get handle from heap                                                                                                    void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
   {  OC::CreateHandleFromHeap,    "CreateHandleFromHeap",     OCC::CreateHandleFromHeap,     "createHandleFromHeap",      {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
   {  OC::AnnotateHandle,          "AnnotateHandle",           OCC::AnnotateHandle,           "annotateHandle",            {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+
+  // Unpacking intrinsics                                                                                                    void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::Unpack4x8,               "Unpack4x8",                OCC::Unpack4x8,                "unpack4x8",                 { false, false, false, false, false, false,  true,  true, false, false, false}, Attribute::ReadNone, },
+
+  // Packing intrinsics                                                                                                      void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::Pack4x8,                 "Pack4x8",                  OCC::Pack4x8,                  "pack4x8",                   { false, false, false, false, false, false,  true,  true, false, false, false}, Attribute::ReadNone, },
 };
 // OPCODE-OLOADS:END
 
@@ -831,8 +837,9 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     mask = SFLAG(Mesh);
     return;
   }
-  // Instructions: CreateHandleFromHeap=216, AnnotateHandle=217
-  if ((216 <= op && op <= 217)) {
+  // Instructions: CreateHandleFromHeap=216, AnnotateHandle=217, Unpack4x8=218,
+  // Pack4x8=219
+  if ((216 <= op && op <= 219)) {
     major = 6;  minor = 6;
     return;
   }
@@ -922,8 +929,12 @@ OP::OP(LLVMContext &Ctx, Module *pModule)
   Type *SplitDoubleTypes[2] = { Type::getInt32Ty(m_Ctx), Type::getInt32Ty(m_Ctx) }; // Lo, Hi.
   m_pSplitDoubleType = GetOrCreateStructType(m_Ctx, SplitDoubleTypes, "dx.types.splitdouble", pModule);
 
-  Type *Int4Types[4] = { Type::getInt32Ty(m_Ctx), Type::getInt32Ty(m_Ctx), Type::getInt32Ty(m_Ctx), Type::getInt32Ty(m_Ctx) }; // HiHi, HiLo, LoHi, LoLo
-  m_pInt4Type = GetOrCreateStructType(m_Ctx, Int4Types, "dx.types.fouri32", pModule);
+  Type *FourI32Types[4] = { Type::getInt32Ty(m_Ctx), Type::getInt32Ty(m_Ctx), Type::getInt32Ty(m_Ctx), Type::getInt32Ty(m_Ctx) }; // HiHi, HiLo, LoHi, LoLo
+  m_pFourI32Type = GetOrCreateStructType(m_Ctx, FourI32Types, "dx.types.fouri32", pModule);
+
+  Type *FourI16Types[4] = { Type::getInt16Ty(m_Ctx), Type::getInt16Ty(m_Ctx), Type::getInt16Ty(m_Ctx), Type::getInt16Ty(m_Ctx) }; // HiHi, HiLo, LoHi, LoLo
+  m_pFourI16Type = GetOrCreateStructType(m_Ctx, FourI16Types, "dx.types.fouri16", pModule);
+  
   // Try to find existing intrinsic function.
   RefreshCache();
 }
@@ -1000,7 +1011,8 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   Type *p2I32 = GetBinaryWithTwoOutputsType();
   Type *pF64 = Type::getDoubleTy(m_Ctx);
   Type *pSDT = GetSplitDoubleType();  // Split double type.
-  Type *pI4S = GetInt4Type(); // 4 i32s in a struct.
+  Type *p4I32 = GetFourI32Type(); // 4 i32s in a struct.
+  
   Type *udt = pOverloadType;
   Type *obj = pOverloadType;
   Type *resProperty = GetResourcePropertiesType();
@@ -1018,6 +1030,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
 #define A(_x) ArgTypes.emplace_back(_x)
 #define RRT(_y) A(GetResRetType(_y))
 #define CBRT(_y) A(GetCBufferRetType(_y))
+#define VEC4(_y) A(GetVectorType(4,_y))
 
 /* <py::lines('OPCODE-OLOAD-FUNCS')>hctdb_instrhelp.get_oloads_funcs()</py>*/
   switch (opCode) {            // return     opCode
@@ -1213,7 +1226,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::WaveAnyTrue:            A(pI1);      A(pI32); A(pI1);  break;
   case OpCode::WaveAllTrue:            A(pI1);      A(pI32); A(pI1);  break;
   case OpCode::WaveActiveAllEqual:     A(pI1);      A(pI32); A(pETy); break;
-  case OpCode::WaveActiveBallot:       A(pI4S);     A(pI32); A(pI1);  break;
+  case OpCode::WaveActiveBallot:       A(p4I32);    A(pI32); A(pI1);  break;
   case OpCode::WaveReadLaneAt:         A(pETy);     A(pI32); A(pETy); A(pI32); break;
   case OpCode::WaveReadLaneFirst:      A(pETy);     A(pI32); A(pETy); break;
   case OpCode::WaveActiveOp:           A(pETy);     A(pI32); A(pETy); A(pI8);  A(pI8);  break;
@@ -1306,7 +1319,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::Dot4AddU8Packed:        A(pI32);     A(pI32); A(pI32); A(pI32); A(pI32); break;
 
     // Wave
-  case OpCode::WaveMatch:              A(pI4S);     A(pI32); A(pETy); break;
+  case OpCode::WaveMatch:              A(p4I32);    A(pI32); A(pETy); break;
   case OpCode::WaveMultiPrefixOp:      A(pETy);     A(pI32); A(pETy); A(pI32); A(pI32); A(pI32); A(pI32); A(pI8);  A(pI8);  break;
   case OpCode::WaveMultiPrefixBitCount:A(pI32);     A(pI32); A(pI1);  A(pI32); A(pI32); A(pI32); A(pI32); break;
 
@@ -1373,6 +1386,12 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     // Get handle from heap
   case OpCode::CreateHandleFromHeap:   A(pRes);     A(pI32); A(pI32); A(pI1);  break;
   case OpCode::AnnotateHandle:         A(pRes);     A(pI32); A(pRes); A(pI8);  A(pI8);  A(resProperty);break;
+
+    // Unpacking intrinsics
+  case OpCode::Unpack4x8:              VEC4(pETy);  A(pI32); A(pI8);  A(pI32); break;
+
+    // Packing intrinsics
+  case OpCode::Pack4x8:                A(pI32);     A(pI32); A(pI8);  A(pETy); A(pETy); A(pETy); A(pETy); break;
   // OPCODE-OLOAD-FUNCS:END
   default: DXASSERT(false, "otherwise unhandled case"); break;
   }
@@ -1457,6 +1476,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   // OPCODE-OLOAD-TYPES:BEGIN
   case OpCode::TempRegStore:
   case OpCode::CallShader:
+  case OpCode::Pack4x8:
     DXASSERT_NOMSG(FT->getNumParams() > 2);
     return FT->getParamType(2);
   case OpCode::MinPrecXRegStore:
@@ -1626,6 +1646,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::TextureGather:
   case OpCode::TextureGatherCmp:
   case OpCode::RawBufferLoad:
+  case OpCode::Unpack4x8:
   {
     StructType *ST = cast<StructType>(Ty);
     return ST->getElementType(0);
@@ -1665,8 +1686,12 @@ Type *OP::GetSplitDoubleType() const {
   return m_pSplitDoubleType;
 }
 
-Type *OP::GetInt4Type() const {
-  return m_pInt4Type;
+Type *OP::GetFourI32Type() const {
+  return m_pFourI32Type;
+}
+
+Type *OP::GetFourI16Type() const {
+  return m_pFourI16Type;
 }
 
 bool OP::IsResRetType(llvm::Type *Ty) {
@@ -1718,6 +1743,18 @@ Type *OP::GetCBufferRetType(Type *pOverloadType) {
   return m_pCBufferRetType[TypeSlot];
 }
 
+Type *OP::GetVectorType(unsigned numElements, Type *pOverloadType) {
+  if (numElements == 4) {
+    if (pOverloadType == Type::getInt32Ty(pOverloadType->getContext())) {
+      return m_pFourI32Type;
+    }
+    else if (pOverloadType == Type::getInt16Ty(pOverloadType->getContext())) {
+      return m_pFourI16Type;
+    }
+  }
+  DXASSERT(false, "unexpected overload type");
+  return nullptr;
+}
 
 //------------------------------------------------------------------------------
 //

@@ -443,6 +443,12 @@ class db_dxil(object):
                  "RayQuery_CandidateWorldToObject3x4,RayQuery_CommittedObjectToWorld3x4,RayQuery_CommittedWorldToObject3x4,RayQuery_CandidateInstanceContributionToHitGroupIndex,RayQuery_CommittedInstanceContributionToHitGroupIndex").split(","):
             self.name_idx[i].category = "Inline Ray Query"
             self.name_idx[i].shader_model = 6,5
+        for i in "Unpack4x8".split(","):
+            self.name_idx[i].category = "Unpacking intrinsics"
+            self.name_idx[i].shader_model = 6,6
+        for i in "Pack4x8".split(","):
+            self.name_idx[i].category = "Packing intrinsics"
+            self.name_idx[i].shader_model = 6,6
 
     def populate_llvm_instructions(self):
         # Add instructions that map to LLVM instructions.
@@ -1148,7 +1154,7 @@ class db_dxil(object):
             db_dxil_param(2, "$o", "value", "value to compare")])
         next_op_idx += 1
         self.add_dxil_op("WaveActiveBallot", next_op_idx, "WaveActiveBallot", "returns a struct with a bit set for each lane where the condition is true", "v", "", [
-            db_dxil_param(0, "$u4", "", "operation result"),
+            db_dxil_param(0, "fouri32", "", "operation result"),
             db_dxil_param(2, "i1", "cond", "condition to ballot on")])
         next_op_idx += 1
         self.add_dxil_op("WaveReadLaneAt", next_op_idx, "WaveReadLaneAt", "returns the value from the specified lane", "hfd18wil", "", [
@@ -1464,7 +1470,7 @@ class db_dxil(object):
         assert next_op_idx == 165, "next operation index is %d rather than 165 and thus opcodes are broken" % next_op_idx
 
         self.add_dxil_op("WaveMatch", next_op_idx, "WaveMatch", "returns the bitmask of active lanes that have the same value", "hfd8wil", "", [
-            db_dxil_param(0, "$u4", "", "operation result"),
+            db_dxil_param(0, "fouri32", "", "operation result"),
             db_dxil_param(2, "$o", "value", "input value")])
         next_op_idx += 1
 
@@ -1831,9 +1837,24 @@ class db_dxil(object):
             db_dxil_param(5, "resproperty", "props", "details like component type, strutrure stride...")])
         next_op_idx += 1
 
+        self.add_dxil_op("Unpack4x8", next_op_idx, "Unpack4x8", "unpacks 4 8-bit signed or unsigned values into int32 or int16 vector", "iw", "rn", [
+            db_dxil_param(0, "$vec4", "", "result"),
+            db_dxil_param(2, "i8", "unpackMode", "signed/unsigned"),
+            db_dxil_param(3, "i32", "pk", "packed 4 x i8")])
+        next_op_idx += 1
+
+        self.add_dxil_op("Pack4x8", next_op_idx, "Pack4x8", "packs vector of 4 signed or unsigned values into a packed datatype, drops or clamps unused bits", "iw", "rn", [
+            db_dxil_param(0, "i32", "", "result packed 4 x i8"),
+            db_dxil_param(2, "i8", "packMode", "trunc/unsigned clamp/signed clamp"),
+            db_dxil_param(3, "$o", "x", "the first component of the vector"),
+            db_dxil_param(4, "$o", "y", "the second component of the vector"),
+            db_dxil_param(5, "$o", "z", "the third component of the vector"),
+            db_dxil_param(6, "$o", "w", "the fourth component of the vector")])
+        next_op_idx += 1
+
         # End of DXIL 1.6 opcodes.
         self.set_op_count_for_version(1, 6, next_op_idx)
-        assert next_op_idx == 218, "218 is expected next operation index but encountered %d and thus opcodes are broken" % next_op_idx
+        assert next_op_idx == 220, "220 is expected next operation index but encountered %d and thus opcodes are broken" % next_op_idx
 
         # Set interesting properties.
         self.build_indices()
@@ -2789,6 +2810,8 @@ class db_hlsl(object):
             "any_int32": "LICOMPTYPE_ANY_INT32",
             "any_int64": "LICOMPTYPE_ANY_INT64",
             "uint_only": "LICOMPTYPE_UINT_ONLY",
+            "int8_t4_packed": "LICOMPTYPE_INT8_4PACKED",
+            "uint8_t4_packed": "LICOMPTYPE_UINT8_4PACKED",
             "float16_t": "LICOMPTYPE_FLOAT16",
             "float": "LICOMPTYPE_FLOAT",
             "fldbl": "LICOMPTYPE_FLOAT_DOUBLE",
@@ -2815,7 +2838,12 @@ class db_hlsl(object):
             "string": "LICOMPTYPE_STRING",
             "Texture2D": "LICOMPTYPE_TEXTURE2D",
             "Texture2DArray": "LICOMPTYPE_TEXTURE2DARRAY",
-            "wave": "LICOMPTYPE_WAVE"}
+            "wave": "LICOMPTYPE_WAVE",
+            "p32i8" : "LICOMPTYPE_INT8_4PACKED",
+            "p32u8" : "LICOMPTYPE_UINT8_4PACKED",
+            "any_int16or32": "LICOMPTYPE_ANY_INT16_OR_32",
+            "sint16or32_only": "LICOMPTYPE_SINT16_OR_32_ONLY",
+            }
         self.trans_rowcol = {
             "r": "IA_R",
             "c": "IA_C",

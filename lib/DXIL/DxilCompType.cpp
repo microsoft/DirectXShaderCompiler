@@ -59,6 +59,8 @@ uint8_t CompType::GetSizeInBits() const {
   case Kind::I32:
   case Kind::U32:
   case Kind::F32:
+  case Kind::PackedS8x32:
+  case Kind::PackedU8x32:
     return 32;
   case Kind::I64:
   case Kind::U64:

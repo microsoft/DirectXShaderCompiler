@@ -970,8 +970,9 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   if ((168 <= op && op <= 172))
     return (major > 6 || (major == 6 && minor >= 5))
         && (SK == DXIL::ShaderKind::Mesh);
-  // Instructions: CreateHandleFromHeap=216, AnnotateHandle=217
-  if ((216 <= op && op <= 217))
+  // Instructions: CreateHandleFromHeap=216, AnnotateHandle=217, Unpack4x8=218,
+  // Pack4x8=219
+  if ((216 <= op && op <= 219))
     return (major > 6 || (major == 6 && minor >= 6));
   return true;
   // VALOPCODESM-TEXT:END
@@ -2662,7 +2663,9 @@ static bool IsDxilBuiltinStructType(StructType *ST, hlsl::OP *hlslOP) {
     return true;
   if (ST == hlslOP->GetBinaryWithTwoOutputsType())
     return true;
-  if (ST == hlslOP->GetInt4Type())
+  if (ST == hlslOP->GetFourI32Type())
+    return true;
+  if (ST == hlslOP->GetFourI16Type())
     return true;
   if (ST == hlslOP->GetDimensionsType())
     return true;

@@ -404,10 +404,12 @@ class db_oload_gen:
             "threef32": "A(p3F32);",
             "fouri32": "A(p4I32);",
             "fourf32": "A(p4F32);",
+            "fouri16": "A(p4I16);",
             "u32": "A(pI32);",
             "u64": "A(pI64);",
             "u8": "A(pI8);",
             "v": "A(pV);",
+            "$vec4" : "VEC4(pETy);",
             "w": "A(pWav);",
             "SamplePos": "A(pPos);",
             "udt": "A(udt);",
@@ -439,7 +441,7 @@ class db_oload_gen:
         cb_ret_ty = "$cb"
         udt_ty = "udt"
         obj_ty = "obj"
-
+        vec_ty = "$vec"
         last_category = None
 
         index_dict = collections.OrderedDict()
@@ -458,6 +460,10 @@ class db_oload_gen:
 
             if ret_ty == cb_ret_ty:
                 struct_list.append(instr.name)
+                continue
+
+            if ret_ty.startswith(vec_ty):
+                struct_list.append(instr.name);
                 continue
 
             in_param_ty = False

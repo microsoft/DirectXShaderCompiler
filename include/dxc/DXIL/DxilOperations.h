@@ -55,10 +55,12 @@ public:
   llvm::Type *GetBinaryWithCarryType() const;
   llvm::Type *GetBinaryWithTwoOutputsType() const;
   llvm::Type *GetSplitDoubleType() const;
-  llvm::Type *GetInt4Type() const;
+  llvm::Type *GetFourI32Type() const;
+  llvm::Type *GetFourI16Type() const;
 
   llvm::Type *GetResRetType(llvm::Type *pOverloadType);
   llvm::Type *GetCBufferRetType(llvm::Type *pOverloadType);
+  llvm::Type *GetVectorType(unsigned numElements, llvm::Type *pOverloadType);
   bool IsResRetType(llvm::Type *Ty);
 
   // Try to get the opcode class for a function.
@@ -127,7 +129,8 @@ private:
   llvm::Type *m_pBinaryWithCarryType;
   llvm::Type *m_pBinaryWithTwoOutputsType;
   llvm::Type *m_pSplitDoubleType;
-  llvm::Type *m_pInt4Type;
+  llvm::Type *m_pFourI32Type;
+  llvm::Type *m_pFourI16Type;
 
   DXIL::LowPrecisionMode m_LowPrecisionMode;
 
