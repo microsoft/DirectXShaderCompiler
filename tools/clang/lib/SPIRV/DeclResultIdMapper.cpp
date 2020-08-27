@@ -2041,6 +2041,10 @@ bool DeclResultIdMapper::createStageVars(
                                                  clang::ArrayType::Normal, 0);
       break;
     case hlsl::Semantic::Kind::InnerCoverage:
+      if (!type->isSpecificBuiltinType(BuiltinType::UInt)) {
+        emitError("SV_InnerCoverage must be of uint type.", loc);
+        return false;
+      }
       evalType = astContext.BoolTy;
       break;
     case hlsl::Semantic::Kind::Barycentrics:
