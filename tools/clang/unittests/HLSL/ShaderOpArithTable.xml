@@ -7277,8 +7277,6 @@
     </Table>
         <Table Id="PackUnpackOpTable">
         <ParameterTypes>
-            <ParameterType Name="ShaderOp.Target">String</ParameterType>
-            <ParameterType Name="ShaderOp.Arguments">String</ParameterType>
             <ParameterType Name="ShaderOp.Text">String</ParameterType>
             <ParameterType Name="Validation.Type">String</ParameterType>
             <ParameterType Name="Validation.Tolerance">uint</ParameterType>
@@ -7317,7 +7315,10 @@
                    int4 outputClampedInt16;
                 };
 
-                uint pack_u8(uint4 unpackedVal)
+                #ifdef PACKUNPACK_PLACEHOLDER
+                    #define CALL(x) p##x
+
+                uint ppack_u8(uint4 unpackedVal)
                 {
                     uint dst = 0;
                     for (uint i = 0; i &lt; 4; ++i)
@@ -7328,7 +7329,7 @@
                     return dst;
                 }
 
-                uint pack_s8(int4 unpackedVal)
+                uint ppack_s8(int4 unpackedVal)
                 {
                     uint dst = 0;
                     for (uint i = 0; i &lt; 4; ++i)
@@ -7339,7 +7340,7 @@
                     return dst;
                 }
 
-                uint pack_clamp_u8(int4 unpackedVal)
+                uint ppack_clamp_u8(int4 unpackedVal)
                 {
                     uint clamp_min = 0;
                     uint clamp_max = 255;
@@ -7353,7 +7354,7 @@
                     return dst;
                 }
 
-                uint pack_clamp_s8(int4 unpackedVal)
+                uint ppack_clamp_s8(int4 unpackedVal)
                 {
                     int clamp_min = -128;
                     int clamp_max = 127;
@@ -7367,49 +7368,52 @@
                     return dst;
                 }
 
-                int4 unpack_s8s16(uint packedVal)
+                int4 punpack_s8s16(uint packedVal)
                 {
                     int4 ret;
-                    ret[0] = packedVal &amp; 0x000000FF;
-                    ret[1] = packedVal &amp; 0x0000FF00;
-                    ret[2] = packedVal &amp; 0x00FF0000;
-                    ret[3] = packedVal &amp; 0xFF000000;
+                    ret[0] = (packedVal &amp; 0x000000FF) &gt;&gt; 0;
+                    ret[1] = (packedVal &amp; 0x0000FF00) &gt;&gt; 8;
+                    ret[2] = (packedVal &amp; 0x00FF0000) &gt;&gt; 16;
+                    ret[3] = (packedVal &amp; 0xFF000000) &gt;&gt; 24;
                 
                     return ret;
                 }
                   
-                uint4 unpack_u8u16(uint packedVal)
+                uint4 punpack_u8u16(uint packedVal)
                 {
                     uint4 ret;
-                    ret[0] = packedVal &amp; 0x000000FF;
-                    ret[1] = packedVal &amp; 0x0000FF00;
-                    ret[2] = packedVal &amp; 0x00FF0000;
-                    ret[3] = packedVal &amp; 0xFF000000;
+                    ret[0] = (packedVal &amp; 0x000000FF) &gt;&gt; 0;
+                    ret[1] = (packedVal &amp; 0x0000FF00) &gt;&gt; 8;
+                    ret[2] = (packedVal &amp; 0x00FF0000) &gt;&gt; 16;
+                    ret[3] = (packedVal &amp; 0xFF000000) &gt;&gt; 24;
                 
                     return ret;
                 }
                   
-                int4 unpack_s8s32(uint packedVal)
+                int4 punpack_s8s32(uint packedVal)
                 {
                     int4 ret;
-                    ret[0] = packedVal &amp; 0x000000FF;
-                    ret[1] = packedVal &amp; 0x0000FF00;
-                    ret[2] = packedVal &amp; 0x00FF0000;
-                    ret[3] = packedVal &amp; 0xFF000000;
+                    ret[0] = (packedVal &amp; 0x000000FF) &gt;&gt; 0;
+                    ret[1] = (packedVal &amp; 0x0000FF00) &gt;&gt; 8;
+                    ret[2] = (packedVal &amp; 0x00FF0000) &gt;&gt; 16;
+                    ret[3] = (packedVal &amp; 0xFF000000) &gt;&gt; 24;
                 
                     return ret;
                 }
                   
-                uint4 unpack_u8u32(uint packedVal)
+                uint4 punpack_u8u32(uint packedVal)
                 {
                     uint4 ret;
-                    ret[0] = packedVal &amp; 0x000000FF;
-                    ret[1] = packedVal &amp; 0x0000FF00;
-                    ret[2] = packedVal &amp; 0x00FF0000;
-                    ret[3] = packedVal &amp; 0xFF000000;
+                    ret[0] = (packedVal &amp; 0x000000FF) &gt;&gt; 0;
+                    ret[1] = (packedVal &amp; 0x0000FF00) &gt;&gt; 8;
+                    ret[2] = (packedVal &amp; 0x00FF0000) &gt;&gt; 16;
+                    ret[3] = (packedVal &amp; 0xFF000000) &gt;&gt; 24;
                 
                     return ret;
                 }
+                #else
+                    #define CALL(x) x
+                #endif
 
                 RWStructuredBuffer&lt;SPackUnpackOpIn&gt; g_bufIn : register(u0);
                 RWStructuredBuffer&lt;SPackUnpackOpOutPacked&gt; g_bufOutPacked : register(u1);
@@ -7425,29 +7429,28 @@
                     int4 inputInt16 = inputInt32;
 
                     // First pack without clamp
-                    g_bufOutPacked[GI].packedUint32 = pack_u8(inputUint32);
-                    g_bufOutPacked[GI].packedInt32  = pack_s8(inputInt32);
-                    g_bufOutPacked[GI].packedUint16 = pack_u8(inputUint16);
-                    g_bufOutPacked[GI].packedInt16  = pack_s8(inputUint16);
+                    g_bufOutPacked[GI].packedUint32 = CALL(pack_u8(inputUint32));
+                    g_bufOutPacked[GI].packedInt32  = CALL(pack_s8(inputInt32));
+                    g_bufOutPacked[GI].packedUint16 = CALL(pack_u8(inputUint16));
+                    g_bufOutPacked[GI].packedInt16  = CALL(pack_s8(inputUint16));
 
-                    //// Then pack with clamp
-                    //g_bufOutPacked[GI].packedClampedUint32 = pack_clamp_u8(inputInt32);
-                    //g_bufOutPacked[GI].packedClampedInt32  = pack_clamp_s8(inputInt32);
-                    //g_bufOutPacked[GI].packedClampedUint16 = pack_clamp_u8(inputInt16);
-                    //g_bufOutPacked[GI].packedClampedInt16  = pack_clamp_s8(inputInt16);
+                    // Then pack with clamp
+                    g_bufOutPacked[GI].packedClampedUint32 = CALL(pack_clamp_u8(inputInt32));
+                    g_bufOutPacked[GI].packedClampedInt32  = CALL(pack_clamp_s8(inputInt32));
+                    g_bufOutPacked[GI].packedClampedUint16 = CALL(pack_clamp_u8(inputInt16));
+                    g_bufOutPacked[GI].packedClampedInt16  = CALL(pack_clamp_s8(inputInt16));
 
-                  //// Then unpack
-                    //g_bufOutPackedUnpacked[GI].outputUint32 = unpack_u8u32(g_bufOutPacked[GI].packedUint32);
-                    //g_bufOutPackedUnpacked[GI].outputInt32  = unpack_s8s32(g_bufOutPacked[GI].packedInt32);
-                    //g_bufOutPackedUnpacked[GI].outputUint16 = unpack_u8u16(g_bufOutPacked[GI].packedUint16);
-                    //g_bufOutPackedUnpacked[GI].outputInt16  = unpack_s8s16(g_bufOutPacked[GI].packedInt16);
-                    //g_bufOutPackedUnpacked[GI].outputClampedUint32 = unpack_u8u32(g_bufOutPacked[GI].packedClampedUint32);
-                    //g_bufOutPackedUnpacked[GI].outputClampedInt32  = unpack_s8s32(g_bufOutPacked[GI].packedClampedInt32);
-                    //g_bufOutPackedUnpacked[GI].outputClampedUint16 = unpack_u8u16(g_bufOutPacked[GI].packedClampedUint16);
-                    //g_bufOutPackedUnpacked[GI].outputClampedInt16  = unpack_s8s16(g_bufOutPacked[GI].packedClampedInt16);
+                    // Then unpack
+                    g_bufOutPackedUnpacked[GI].outputUint32 = CALL(unpack_u8u32(g_bufOutPacked[GI].packedUint32));
+                    g_bufOutPackedUnpacked[GI].outputInt32  = CALL(unpack_s8s32(g_bufOutPacked[GI].packedInt32));
+                    g_bufOutPackedUnpacked[GI].outputUint16 = CALL(unpack_u8u16(g_bufOutPacked[GI].packedUint16));
+                    g_bufOutPackedUnpacked[GI].outputInt16  = CALL(unpack_s8s16(g_bufOutPacked[GI].packedInt16));
+                    g_bufOutPackedUnpacked[GI].outputClampedUint32 = CALL(unpack_u8u32(g_bufOutPacked[GI].packedClampedUint32));
+                    g_bufOutPackedUnpacked[GI].outputClampedInt32  = CALL(unpack_s8s32(g_bufOutPacked[GI].packedClampedInt32));
+                    g_bufOutPackedUnpacked[GI].outputClampedUint16 = CALL(unpack_u8u16(g_bufOutPacked[GI].packedClampedUint16));
+                    g_bufOutPackedUnpacked[GI].outputClampedInt16  = CALL(unpack_s8s16(g_bufOutPacked[GI].packedClampedInt16));
                 };
             </Parameter>
-            <Parameter Name="ShaderOp.Target">cs_6_0</Parameter>
             <Parameter Name="Validation.Input">
                 <Value>0</Value>
                 <Value>1</Value>
