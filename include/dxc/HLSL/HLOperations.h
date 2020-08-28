@@ -193,6 +193,9 @@ const unsigned kInterlockedDestOpIndex = 1;
 const unsigned kInterlockedValueOpIndex = 2;
 const unsigned kInterlockedOriginalValueOpIndex = 3;
 
+// Interlocked method
+const unsigned kInterlockedMethodValueOpIndex = 3;
+
 // InterlockedCompareExchange.
 const unsigned kInterlockedCmpDestOpIndex = 1;
 const unsigned kInterlockedCmpCompareValueOpIndex = 2;

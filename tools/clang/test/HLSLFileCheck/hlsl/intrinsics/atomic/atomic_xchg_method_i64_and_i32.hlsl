@@ -33,35 +33,45 @@ void main( uint a : A, uint b: B, uint c :C) : SV_Target
   res.InterlockedExchange( ix++, uv, iv2 );
   res.InterlockedExchange( ix++, iv, uv2 );
 
-  // CHECK: call i64 @dx.op.atomicBinOp.i64
-  // CHECK: call i64 @dx.op.atomicBinOp.i64
-  // CHECK: call i64 @dx.op.atomicBinOp.i64
-  // CHECK: call i64 @dx.op.atomicBinOp.i64
-  // CHECK: call i64 @dx.op.atomicBinOp.i64
-  // CHECK: call i64 @dx.op.atomicBinOp.i64
-  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
-  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
-  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
-  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
-  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
-  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
-  res.InterlockedExchange( ix++, liv, liv2 );
-  res.InterlockedExchange( ix++, liv, luv2 );
-  res.InterlockedExchange( ix++, luv, liv2 );
-  res.InterlockedExchange( ix++, luv, luv2 );
-  res.InterlockedExchange( ix++, luv, liv2 );
-  res.InterlockedExchange( ix++, liv, luv2 );
+  // Test some literals with 32-bit overloads
+  // CHECK: call i32 @dx.op.atomicBinOp.i32
+  // CHECK: call i32 @dx.op.atomicBinOp.i32
+  res.InterlockedExchange( ix++, 1.0, iv2 );
+  res.InterlockedExchange( ix++, 2.0, uv2 );
 
   // CHECK: call i64 @dx.op.atomicBinOp.i64
   // CHECK: call i64 @dx.op.atomicBinOp.i64
-  // CHECK: call i32 @dx.op.atomicBinOp.i32
   // CHECK: call i64 @dx.op.atomicBinOp.i64
   // CHECK: call i64 @dx.op.atomicBinOp.i64
+  // CHECK: call i64 @dx.op.atomicBinOp.i64
+  // CHECK: call i64 @dx.op.atomicBinOp.i64
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  res.InterlockedExchange64( ix++, liv, liv2 );
+  res.InterlockedExchange64( ix++, liv, luv2 );
+  res.InterlockedExchange64( ix++, luv, liv2 );
+  res.InterlockedExchange64( ix++, luv, luv2 );
+  res.InterlockedExchange64( ix++, luv, liv2 );
+  res.InterlockedExchange64( ix++, liv, luv2 );
+
+  // Test some literals with 64-bit overloads
+  // CHECK: call i64 @dx.op.atomicBinOp.i64
+  // CHECK: call i64 @dx.op.atomicBinOp.i64
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  res.InterlockedExchange64( ix++, 1.0, liv2 );
+  res.InterlockedExchange64( ix++, 2.0, luv2 );
+
   // CHECK: call i32 @dx.op.atomicBinOp.i32
-  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
-  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
-  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
-  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  // CHECK: call i32 @dx.op.atomicBinOp.i32
+  // CHECK: call i32 @dx.op.atomicBinOp.i32
+  // CHECK: call i32 @dx.op.atomicBinOp.i32
+  // CHECK: call i32 @dx.op.atomicBinOp.i32
+  // CHECK: call i32 @dx.op.atomicBinOp.i32
   res.InterlockedExchange( ix++, luv, luv2 );
   res.InterlockedExchange( ix++, luv, uv2 );
   res.InterlockedExchange( ix++, uv, luv2 );
@@ -71,16 +81,52 @@ void main( uint a : A, uint b: B, uint c :C) : SV_Target
 
   // CHECK: call i32 @dx.op.atomicBinOp.i32
   // CHECK: call i32 @dx.op.atomicBinOp.i32
-  // CHECK: call i64 @dx.op.atomicBinOp.i64
   // CHECK: call i32 @dx.op.atomicBinOp.i32
   // CHECK: call i32 @dx.op.atomicBinOp.i32
-  // CHECK: call i64 @dx.op.atomicBinOp.i64
-  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
-  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  // CHECK: call i32 @dx.op.atomicBinOp.i32
+  // CHECK: call i32 @dx.op.atomicBinOp.i32
   res.InterlockedExchange( ix++, uv, uv2 );
   res.InterlockedExchange( ix++, uv, luv2 );
   res.InterlockedExchange( ix++, luv, uv2 );
   res.InterlockedExchange( ix++, iv, iv2 );
   res.InterlockedExchange( ix++, iv, liv2 );
   res.InterlockedExchange( ix++, liv, iv2 );
+
+  // CHECK: call i64 @dx.op.atomicBinOp.i64
+  // CHECK: call i64 @dx.op.atomicBinOp.i64
+  // CHECK: call i64 @dx.op.atomicBinOp.i64
+  // CHECK: call i64 @dx.op.atomicBinOp.i64
+  // CHECK: call i64 @dx.op.atomicBinOp.i64
+  // CHECK: call i64 @dx.op.atomicBinOp.i64
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  res.InterlockedExchange64( ix++, luv, luv2 );
+  res.InterlockedExchange64( ix++, luv, uv2 );
+  res.InterlockedExchange64( ix++, uv, luv2 );
+  res.InterlockedExchange64( ix++, liv, liv2 );
+  res.InterlockedExchange64( ix++, liv, iv2 );
+  res.InterlockedExchange64( ix++, iv, liv2 );
+
+  // CHECK: call i64 @dx.op.atomicBinOp.i64
+  // CHECK: call i64 @dx.op.atomicBinOp.i64
+  // CHECK: call i64 @dx.op.atomicBinOp.i64
+  // CHECK: call i64 @dx.op.atomicBinOp.i64
+  // CHECK: call i64 @dx.op.atomicBinOp.i64
+  // CHECK: call i64 @dx.op.atomicBinOp.i64
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  res.InterlockedExchange64( ix++, uv, uv2 );
+  res.InterlockedExchange64( ix++, uv, luv2 );
+  res.InterlockedExchange64( ix++, luv, uv2 );
+  res.InterlockedExchange64( ix++, iv, iv2 );
+  res.InterlockedExchange64( ix++, iv, liv2 );
+  res.InterlockedExchange64( ix++, liv, iv2 );
 }

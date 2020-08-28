@@ -43,6 +43,7 @@ void main( uint a : A, uint b: B, uint c :C) : SV_Target
   int64_t liv = bb + cc;
   int64_t liv2 = bb - cc;
 
+  // test some basic examples
   // GSCHECK: cmpxchg i32
   // GSCHECK: cmpxchg i32
   // GSCHECK: cmpxchg i64
@@ -58,6 +59,7 @@ void main( uint a : A, uint b: B, uint c :C) : SV_Target
   InterlockedCompareStore( resU64[a], luv, luv2);
   InterlockedCompareStore( resI64[a], liv, liv2);
 
+  // test some signed and unsigned variables
   // GSCHECK: cmpxchg i32
   // GSCHECK: cmpxchg i32
   // GSCHECK: cmpxchg i32
@@ -77,6 +79,27 @@ void main( uint a : A, uint b: B, uint c :C) : SV_Target
   InterlockedCompareStore( resI[a], uv, iv2 );
   InterlockedCompareStore( resI[a], iv, uv2 );
 
+  // test some literals with 32-bit resources
+  // GSCHECK: cmpxchg i32
+  // GSCHECK: cmpxchg i32
+  // GSCHECK: cmpxchg i32
+  // GSCHECK: cmpxchg i32
+  // GSCHECK: cmpxchg i32
+  // GSCHECK: cmpxchg i32
+  // CHECK: call i32 @dx.op.atomicCompareExchange.i32
+  // CHECK: call i32 @dx.op.atomicCompareExchange.i32
+  // CHECK: call i32 @dx.op.atomicCompareExchange.i32
+  // CHECK: call i32 @dx.op.atomicCompareExchange.i32
+  // CHECK: call i32 @dx.op.atomicCompareExchange.i32
+  // CHECK: call i32 @dx.op.atomicCompareExchange.i32
+  InterlockedCompareStore( resU[a], 1.0, 2.0 );
+  InterlockedCompareStore( resU[a], iv, 2.0 );
+  InterlockedCompareStore( resU[a], 1.0, iv2 );
+  InterlockedCompareStore( resI[a], 1.0, 2.0 );
+  InterlockedCompareStore( resI[a], 1.0, iv2 );
+  InterlockedCompareStore( resI[a], iv, 2.0 );
+
+  // test some basic 64-bit variables
   // GSCHECK: cmpxchg i64
   // GSCHECK: cmpxchg i64
   // GSCHECK: cmpxchg i64
@@ -102,6 +125,27 @@ void main( uint a : A, uint b: B, uint c :C) : SV_Target
   InterlockedCompareStore( resI64[a], luv, liv2 );
   InterlockedCompareStore( resI64[a], liv, luv2 );
 
+  // test some literals with 64-bit resources
+  // GSCHECK: cmpxchg i64
+  // GSCHECK: cmpxchg i64
+  // GSCHECK: cmpxchg i64
+  // GSCHECK: cmpxchg i64
+  // GSCHECK: cmpxchg i64
+  // GSCHECK: cmpxchg i64
+  // CHECK: call i64 @dx.op.atomicCompareExchange.i64
+  // CHECK: call i64 @dx.op.atomicCompareExchange.i64
+  // CHECK: call i64 @dx.op.atomicCompareExchange.i64
+  // CHECK: call i64 @dx.op.atomicCompareExchange.i64
+  // CHECK: call i64 @dx.op.atomicCompareExchange.i64
+  // CHECK: call i64 @dx.op.atomicCompareExchange.i64
+  InterlockedCompareStore( resU64[a], 1.0, 2.0 );
+  InterlockedCompareStore( resU64[a], iv, 2.0 );
+  InterlockedCompareStore( resU64[a], 1.0, iv2 );
+  InterlockedCompareStore( resI64[a], 1.0, 2.0 );
+  InterlockedCompareStore( resI64[a], 1.0, iv2 );
+  InterlockedCompareStore( resI64[a], iv, 2.0 );
+
+  // test some mixed 32 and 64-bit variables with 32-bit resources
   // GSCHECK: cmpxchg i32
   // GSCHECK: cmpxchg i32
   // GSCHECK: cmpxchg i32
@@ -121,6 +165,7 @@ void main( uint a : A, uint b: B, uint c :C) : SV_Target
   InterlockedCompareStore( resI[a], liv, iv2 );
   InterlockedCompareStore( resI[a], iv, liv2 );
 
+  // test some mixed 32 and 64-bit variables with 64-bit resources
   // GSCHECK: cmpxchg i64
   // GSCHECK: cmpxchg i64
   // GSCHECK: cmpxchg i64

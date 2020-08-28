@@ -2814,6 +2814,7 @@ class db_hlsl(object):
             "uint8_t4_packed": "LICOMPTYPE_UINT8_4PACKED",
             "float16_t": "LICOMPTYPE_FLOAT16",
             "float": "LICOMPTYPE_FLOAT",
+            "float32_only": "LICOMPTYPE_FLOAT32_ONLY",
             "fldbl": "LICOMPTYPE_FLOAT_DOUBLE",
             "any_float": "LICOMPTYPE_ANY_FLOAT",
             "float_like": "LICOMPTYPE_FLOAT_LIKE",

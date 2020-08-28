@@ -3981,9 +3981,9 @@ Value *TranslateResourceStore(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
 namespace {
 // Atomic intrinsics.
 struct AtomicHelper {
-  AtomicHelper(CallInst *CI, OP::OpCode op, Value *h);
+  AtomicHelper(CallInst *CI, OP::OpCode op, Value *h, Type *opType=nullptr);
   AtomicHelper(CallInst *CI, OP::OpCode op, Value *h, Value *bufIdx,
-               Value *baseOffset);
+               Value *baseOffset, Type *opType=nullptr);
   OP::OpCode opcode;
   Value *handle;
   Value *addr;
@@ -3991,11 +3991,13 @@ struct AtomicHelper {
   Value *value;
   Value *originalValue;
   Value *compareValue;
+  Type *operationType;
 };
 
 // For MOP version of Interlocked*.
-AtomicHelper::AtomicHelper(CallInst *CI, OP::OpCode op, Value *h)
-    : opcode(op), handle(h), offset(nullptr), originalValue(nullptr) {
+AtomicHelper::AtomicHelper(CallInst *CI, OP::OpCode op, Value *h, Type *opType)
+    : opcode(op), handle(h), offset(nullptr), originalValue(nullptr),
+      operationType(opType) {
   addr = CI->getArgOperand(HLOperandIndex::kObjectInterlockedDestOpIndex);
   if (op == OP::OpCode::AtomicCompareExchange) {
     compareValue = CI->getArgOperand(
@@ -4013,12 +4015,15 @@ AtomicHelper::AtomicHelper(CallInst *CI, OP::OpCode op, Value *h)
       originalValue = CI->getArgOperand(
           HLOperandIndex::kObjectInterlockedOriginalValueOpIndex);
   }
+  if (nullptr == operationType)
+    operationType = value->getType();
 }
 // For IOP version of Interlocked*.
 AtomicHelper::AtomicHelper(CallInst *CI, OP::OpCode op, Value *h, Value *bufIdx,
-                           Value *baseOffset)
+                           Value *baseOffset, Type *opType)
     : opcode(op), handle(h), addr(bufIdx),
-      offset(baseOffset), originalValue(nullptr) {
+      offset(baseOffset), originalValue(nullptr),
+      operationType(opType) {
   if (op == OP::OpCode::AtomicCompareExchange) {
     compareValue =
         CI->getArgOperand(HLOperandIndex::kInterlockedCmpCompareValueOpIndex);
@@ -4034,6 +4039,8 @@ AtomicHelper::AtomicHelper(CallInst *CI, OP::OpCode op, Value *h, Value *bufIdx,
       originalValue =
           CI->getArgOperand(HLOperandIndex::kInterlockedOriginalValueOpIndex);
   }
+  if (nullptr == operationType)
+    operationType = value->getType();
 }
 
 void TranslateAtomicBinaryOperation(AtomicHelper &helper,
@@ -4042,13 +4049,18 @@ void TranslateAtomicBinaryOperation(AtomicHelper &helper,
   Value *handle = helper.handle;
   Value *addr = helper.addr;
   Value *val = helper.value;
-  Type *Ty = val->getType();
+  Type *Ty = helper.operationType;
+  Type *valTy = val->getType();
 
   Value *undefI = UndefValue::get(Type::getInt32Ty(Ty->getContext()));
 
   Function *dxilAtomic = hlslOP->GetOpFunc(helper.opcode, Ty->getScalarType());
   Value *opArg = hlslOP->GetU32Const(static_cast<unsigned>(helper.opcode));
   Value *atomicOpArg = hlslOP->GetU32Const(static_cast<unsigned>(atomicOp));
+
+  if (Ty != valTy)
+    val = Builder.CreateBitCast(val, Ty);
+
   Value *args[] = {opArg,  handle, atomicOpArg,
                    undefI, undefI, undefI, // coordinates
                    val};
@@ -4072,6 +4084,8 @@ void TranslateAtomicBinaryOperation(AtomicHelper &helper,
   Value *origVal =
       Builder.CreateCall(dxilAtomic, args, hlslOP->GetAtomicOpName(atomicOp));
   if (helper.originalValue) {
+    if (Ty != valTy)
+      origVal = Builder.CreateBitCast(origVal, valTy);
     Builder.CreateStore(origVal, helper.originalValue);
   }
 }
@@ -4085,27 +4099,37 @@ Value *TranslateMopAtomicBinaryOperation(CallInst *CI, IntrinsicOp IOP,
   IRBuilder<> Builder(CI);
 
   switch (IOP) {
-  case IntrinsicOp::MOP_InterlockedAdd: {
+  case IntrinsicOp::MOP_InterlockedAdd:
+  case IntrinsicOp::MOP_InterlockedAdd64: {
     AtomicHelper helper(CI, DXIL::OpCode::AtomicBinOp, handle);
     TranslateAtomicBinaryOperation(helper, DXIL::AtomicBinOpCode::Add, Builder,
                                    hlslOP);
   } break;
-  case IntrinsicOp::MOP_InterlockedAnd: {
+  case IntrinsicOp::MOP_InterlockedAnd:
+  case IntrinsicOp::MOP_InterlockedAnd64: {
     AtomicHelper helper(CI, DXIL::OpCode::AtomicBinOp, handle);
     TranslateAtomicBinaryOperation(helper, DXIL::AtomicBinOpCode::And, Builder,
                                    hlslOP);
   } break;
-  case IntrinsicOp::MOP_InterlockedExchange: {
+  case IntrinsicOp::MOP_InterlockedExchange:
+  case IntrinsicOp::MOP_InterlockedExchange64: {
     AtomicHelper helper(CI, DXIL::OpCode::AtomicBinOp, handle);
     TranslateAtomicBinaryOperation(helper, DXIL::AtomicBinOpCode::Exchange,
                                    Builder, hlslOP);
   } break;
-  case IntrinsicOp::MOP_InterlockedMax: {
+  case IntrinsicOp::MOP_InterlockedExchangeFloat: {
+    AtomicHelper helper(CI, DXIL::OpCode::AtomicBinOp, handle, Type::getInt32Ty(CI->getContext()));
+    TranslateAtomicBinaryOperation(helper, DXIL::AtomicBinOpCode::Exchange,
+                                   Builder, hlslOP);
+  } break;
+  case IntrinsicOp::MOP_InterlockedMax:
+  case IntrinsicOp::MOP_InterlockedMax64: {
     AtomicHelper helper(CI, DXIL::OpCode::AtomicBinOp, handle);
     TranslateAtomicBinaryOperation(helper, DXIL::AtomicBinOpCode::IMax, Builder,
                                    hlslOP);
   } break;
-  case IntrinsicOp::MOP_InterlockedMin: {
+  case IntrinsicOp::MOP_InterlockedMin:
+  case IntrinsicOp::MOP_InterlockedMin64: {
     AtomicHelper helper(CI, DXIL::OpCode::AtomicBinOp, handle);
     TranslateAtomicBinaryOperation(helper, DXIL::AtomicBinOpCode::IMin, Builder,
                                    hlslOP);
@@ -4120,14 +4144,16 @@ Value *TranslateMopAtomicBinaryOperation(CallInst *CI, IntrinsicOp IOP,
     TranslateAtomicBinaryOperation(helper, DXIL::AtomicBinOpCode::UMin, Builder,
                                    hlslOP);
   } break;
-  case IntrinsicOp::MOP_InterlockedOr: {
+  case IntrinsicOp::MOP_InterlockedOr:
+  case IntrinsicOp::MOP_InterlockedOr64: {
     AtomicHelper helper(CI, DXIL::OpCode::AtomicBinOp, handle);
     TranslateAtomicBinaryOperation(helper, DXIL::AtomicBinOpCode::Or, Builder,
                                    hlslOP);
   } break;
-  case IntrinsicOp::MOP_InterlockedXor: {
-  default:
-    DXASSERT(IOP == IntrinsicOp::MOP_InterlockedXor,
+  case IntrinsicOp::MOP_InterlockedXor:
+  case IntrinsicOp::MOP_InterlockedXor64:
+  default: {
+    DXASSERT(IOP == IntrinsicOp::MOP_InterlockedXor || IOP == IntrinsicOp::MOP_InterlockedXor64,
              "invalid MOP atomic intrinsic");
     AtomicHelper helper(CI, DXIL::OpCode::AtomicBinOp, handle);
     TranslateAtomicBinaryOperation(helper, DXIL::AtomicBinOpCode::Xor, Builder,
@@ -4144,12 +4170,20 @@ void TranslateAtomicCmpXChg(AtomicHelper &helper, IRBuilder<> &Builder,
   Value *val = helper.value;
   Value *cmpVal = helper.compareValue;
 
-  Type *Ty = val->getType();
+  Type *Ty = helper.operationType;
+  Type *valTy = val->getType();
 
   Value *undefI = UndefValue::get(Type::getInt32Ty(Ty->getContext()));
 
   Function *dxilAtomic = hlslOP->GetOpFunc(helper.opcode, Ty->getScalarType());
   Value *opArg = hlslOP->GetU32Const(static_cast<unsigned>(helper.opcode));
+
+  if (Ty != valTy) {
+    val = Builder.CreateBitCast(val, Ty);
+    if (cmpVal)
+      cmpVal = Builder.CreateBitCast(cmpVal, Ty);
+  }
+
   Value *args[] = {opArg,  handle, undefI, undefI, undefI, // coordinates
                    cmpVal, val};
 
@@ -4171,6 +4205,8 @@ void TranslateAtomicCmpXChg(AtomicHelper &helper, IRBuilder<> &Builder,
 
   Value *origVal = Builder.CreateCall(dxilAtomic, args);
   if (helper.originalValue) {
+    if (Ty != valTy)
+      origVal = Builder.CreateBitCast(origVal, valTy);
     Builder.CreateStore(origVal, helper.originalValue);
   }
 }
@@ -4182,13 +4218,22 @@ Value *TranslateMopAtomicCmpXChg(CallInst *CI, IntrinsicOp IOP,
 
   Value *handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
   IRBuilder<> Builder(CI);
-  AtomicHelper atomicHelper(CI, OP::OpCode::AtomicCompareExchange, handle);
+  Type *opType = nullptr;
+  if (IOP == IntrinsicOp::MOP_InterlockedCompareStoreFloatBitwise ||
+      IOP == IntrinsicOp::MOP_InterlockedCompareExchangeFloatBitwise)
+    opType = Type::getInt32Ty(CI->getContext());
+  AtomicHelper atomicHelper(CI, OP::OpCode::AtomicCompareExchange, handle, opType);
   TranslateAtomicCmpXChg(atomicHelper, Builder, hlslOP);
   return nullptr;
 }
 
 void TranslateSharedMemAtomicBinOp(CallInst *CI, IntrinsicOp IOP, Value *addr) {
   AtomicRMWInst::BinOp Op;
+  IRBuilder<> Builder(CI);
+  Value *val = CI->getArgOperand(HLOperandIndex::kInterlockedValueOpIndex);
+  PointerType *ptrType = dyn_cast<PointerType>(
+               CI->getArgOperand(HLOperandIndex::kInterlockedDestOpIndex)->getType());
+  bool needCast = ptrType && ptrType->getElementType()->isFloatTy();
   switch (IOP) {
   case IntrinsicOp::IOP_InterlockedAdd:
     Op = AtomicRMWInst::BinOp::Add;
@@ -4197,6 +4242,10 @@ void TranslateSharedMemAtomicBinOp(CallInst *CI, IntrinsicOp IOP, Value *addr) {
     Op = AtomicRMWInst::BinOp::And;
     break;
   case IntrinsicOp::IOP_InterlockedExchange:
+    if (needCast) {
+      val = Builder.CreateBitCast(val, Type::getInt32Ty(CI->getContext()));
+      addr = Builder.CreateBitCast(addr, Type::getInt32PtrTy(CI->getContext(), DXIL::kTGSMAddrSpace));
+    }
     Op = AtomicRMWInst::BinOp::Xchg;
     break;
   case IntrinsicOp::IOP_InterlockedMax:
@@ -4221,16 +4270,16 @@ void TranslateSharedMemAtomicBinOp(CallInst *CI, IntrinsicOp IOP, Value *addr) {
     break;
   }
 
-  Value *val = CI->getArgOperand(HLOperandIndex::kInterlockedValueOpIndex);
-
-  IRBuilder<> Builder(CI);
   Value *Result = Builder.CreateAtomicRMW(
       Op, addr, val, AtomicOrdering::SequentiallyConsistent);
   if (CI->getNumArgOperands() >
-      HLOperandIndex::kInterlockedOriginalValueOpIndex)
+      HLOperandIndex::kInterlockedOriginalValueOpIndex) {
+    if (needCast)
+      Result = Builder.CreateBitCast(Result, Type::getFloatTy(CI->getContext()));
     Builder.CreateStore(
         Result,
         CI->getArgOperand(HLOperandIndex::kInterlockedOriginalValueOpIndex));
+  }
 }
 
 static Value* SkipAddrSpaceCast(Value* Ptr) {
@@ -4267,6 +4316,17 @@ void TranslateSharedMemAtomicCmpXChg(CallInst *CI, Value *addr) {
   Value *cmpVal =
       CI->getArgOperand(HLOperandIndex::kInterlockedCmpCompareValueOpIndex);
   IRBuilder<> Builder(CI);
+
+  PointerType *ptrType = dyn_cast<PointerType>(
+               CI->getArgOperand(HLOperandIndex::kInterlockedDestOpIndex)->getType());
+  bool needCast = false;
+  if (ptrType && ptrType->getElementType()->isFloatTy()) {
+    needCast = true;
+    val = Builder.CreateBitCast(val, Type::getInt32Ty(CI->getContext()));
+    cmpVal = Builder.CreateBitCast(cmpVal, Type::getInt32Ty(CI->getContext()));
+    addr = Builder.CreateBitCast(addr, Type::getInt32PtrTy(CI->getContext(), DXIL::kTGSMAddrSpace));
+  }
+
   Value *Result = Builder.CreateAtomicCmpXchg(
       addr, cmpVal, val, AtomicOrdering::SequentiallyConsistent,
       AtomicOrdering::SequentiallyConsistent);
@@ -4274,6 +4334,8 @@ void TranslateSharedMemAtomicCmpXChg(CallInst *CI, Value *addr) {
   if (CI->getNumArgOperands() >
       HLOperandIndex::kInterlockedCmpOriginalValueOpIndex) {
     Value *originVal = Builder.CreateExtractValue(Result, 0);
+    if (needCast)
+      originVal = Builder.CreateBitCast(originVal, Type::getFloatTy(CI->getContext()));
     Builder.CreateStore(
         originVal,
         CI->getArgOperand(HLOperandIndex::kInterlockedCmpOriginalValueOpIndex));
@@ -5279,7 +5341,9 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_InterlockedAdd, TranslateIopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_InterlockedAnd, TranslateIopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_InterlockedCompareExchange, TranslateIopAtomicCmpXChg, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::IOP_InterlockedCompareExchangeFloatBitwise, TranslateIopAtomicCmpXChg, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_InterlockedCompareStore, TranslateIopAtomicCmpXChg, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::IOP_InterlockedCompareStoreFloatBitwise, TranslateIopAtomicCmpXChg, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_InterlockedExchange, TranslateIopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_InterlockedMax, TranslateIopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_InterlockedMin, TranslateIopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes},
@@ -5487,14 +5551,26 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::MOP_Load3, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_Load4, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_InterlockedAdd, TranslateMopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_InterlockedAdd64, TranslateMopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_InterlockedAnd, TranslateMopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_InterlockedAnd64, TranslateMopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_InterlockedCompareExchange, TranslateMopAtomicCmpXChg, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_InterlockedCompareExchange64, TranslateMopAtomicCmpXChg, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_InterlockedCompareExchangeFloatBitwise, TranslateMopAtomicCmpXChg, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_InterlockedCompareStore, TranslateMopAtomicCmpXChg, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_InterlockedCompareStore64, TranslateMopAtomicCmpXChg, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_InterlockedCompareStoreFloatBitwise, TranslateMopAtomicCmpXChg, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_InterlockedExchange, TranslateMopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_InterlockedExchange64, TranslateMopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_InterlockedExchangeFloat, TranslateMopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_InterlockedMax, TranslateMopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_InterlockedMax64, TranslateMopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_InterlockedMin, TranslateMopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_InterlockedMin64, TranslateMopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_InterlockedOr, TranslateMopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_InterlockedOr64, TranslateMopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_InterlockedXor, TranslateMopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_InterlockedXor64, TranslateMopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_Store, TranslateResourceStore, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_Store2, TranslateResourceStore, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_Store3, TranslateResourceStore, DXIL::OpCode::NumOpCodes},
@@ -7040,8 +7116,13 @@ void TranslateStructBufSubscriptUser(
                                        Builder, OP);
       } break;
       case IntrinsicOp::IOP_InterlockedExchange: {
+        Type *opType = nullptr;
+        PointerType *ptrType = dyn_cast<PointerType>(
+                      userCall->getArgOperand(HLOperandIndex::kInterlockedDestOpIndex)->getType());
+        if (ptrType && ptrType->getElementType()->isFloatTy())
+          opType = Type::getInt32Ty(userCall->getContext());
         AtomicHelper helper(userCall, DXIL::OpCode::AtomicBinOp, handle, bufIdx,
-                            baseOffset);
+                            baseOffset, opType);
         TranslateAtomicBinaryOperation(helper, DXIL::AtomicBinOpCode::Exchange,
                                        Builder, OP);
       } break;
@@ -7085,6 +7166,13 @@ void TranslateStructBufSubscriptUser(
       case IntrinsicOp::IOP_InterlockedCompareExchange: {
         AtomicHelper helper(userCall, DXIL::OpCode::AtomicCompareExchange,
                             handle, bufIdx, baseOffset);
+        TranslateAtomicCmpXChg(helper, Builder, OP);
+      } break;
+      case IntrinsicOp::IOP_InterlockedCompareStoreFloatBitwise:
+      case IntrinsicOp::IOP_InterlockedCompareExchangeFloatBitwise: {
+        Type *i32Ty = Type::getInt32Ty(userCall->getContext());
+        AtomicHelper helper(userCall, DXIL::OpCode::AtomicCompareExchange,
+                            handle, bufIdx, baseOffset, i32Ty);
         TranslateAtomicCmpXChg(helper, Builder, OP);
       } break;
       default:
@@ -7400,7 +7488,9 @@ void TranslateDefaultSubscript(CallInst *CI, HLOperationLowerHelper &helper,  HL
         case IntrinsicOp::IOP_InterlockedOr:
         case IntrinsicOp::IOP_InterlockedXor:
         case IntrinsicOp::IOP_InterlockedCompareStore:
-        case IntrinsicOp::IOP_InterlockedCompareExchange: {
+        case IntrinsicOp::IOP_InterlockedCompareExchange:
+        case IntrinsicOp::IOP_InterlockedCompareStoreFloatBitwise:
+        case IntrinsicOp::IOP_InterlockedCompareExchangeFloatBitwise: {
           // Invalid operations.
           Translated = false;
           dxilutil::EmitErrorOnInstruction(
@@ -7437,9 +7527,11 @@ void TranslateDefaultSubscript(CallInst *CI, HLOperationLowerHelper &helper,  HL
           case IntrinsicOp::IOP_InterlockedOr:
           case IntrinsicOp::IOP_InterlockedXor:
           case IntrinsicOp::IOP_InterlockedCompareStore:
-          case IntrinsicOp::IOP_InterlockedCompareExchange: {
+          case IntrinsicOp::IOP_InterlockedCompareExchange:
+          case IntrinsicOp::IOP_InterlockedCompareStoreFloatBitwise:
+          case IntrinsicOp::IOP_InterlockedCompareExchangeFloatBitwise: {
             dxilutil::EmitErrorOnInstruction(
-                userCall, "Atomic operation targets must be groupshared on UAV.");
+                userCall, "Atomic operation targets must be groupshared or UAV.");
             return;
           } break;
           default:
@@ -7465,8 +7557,13 @@ void TranslateDefaultSubscript(CallInst *CI, HLOperationLowerHelper &helper,  HL
         } break;
         case IntrinsicOp::IOP_InterlockedExchange: {
           ResLoadHelper helper(CI, RK, RC, handle, IntrinsicOp::IOP_InterlockedExchange);
+          Type *opType = nullptr;
+          PointerType *ptrType = dyn_cast<PointerType>(
+                       userCall->getArgOperand(HLOperandIndex::kInterlockedDestOpIndex)->getType());
+          if (ptrType && ptrType->getElementType()->isFloatTy())
+            opType = Type::getInt32Ty(userCall->getContext());
           AtomicHelper atomHelper(userCall, DXIL::OpCode::AtomicBinOp, handle,
-                                  helper.addr, /*offset*/ nullptr);
+                                  helper.addr, /*offset*/ nullptr, opType);
           TranslateAtomicBinaryOperation(
               atomHelper, DXIL::AtomicBinOpCode::Exchange, Builder, hlslOP);
         } break;
@@ -7517,6 +7614,14 @@ void TranslateDefaultSubscript(CallInst *CI, HLOperationLowerHelper &helper,  HL
           ResLoadHelper helper(CI, RK, RC, handle, IntrinsicOp::IOP_InterlockedCompareExchange);
           AtomicHelper atomHelper(userCall, DXIL::OpCode::AtomicCompareExchange,
                                   handle, helper.addr, /*offset*/ nullptr);
+          TranslateAtomicCmpXChg(atomHelper, Builder, hlslOP);
+        } break;
+        case IntrinsicOp::IOP_InterlockedCompareStoreFloatBitwise:
+        case IntrinsicOp::IOP_InterlockedCompareExchangeFloatBitwise: {
+          Type *i32Ty = Type::getInt32Ty(userCall->getContext());
+          ResLoadHelper helper(CI, RK, RC, handle, IntrinsicOp::IOP_InterlockedCompareExchange);
+          AtomicHelper atomHelper(userCall, DXIL::OpCode::AtomicCompareExchange,
+                                  handle, helper.addr, /*offset*/ nullptr, i32Ty);
           TranslateAtomicCmpXChg(atomHelper, Builder, hlslOP);
         } break;
         default:

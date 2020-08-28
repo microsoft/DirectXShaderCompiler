@@ -47,6 +47,7 @@ void main( uint a : A, uint b: B, uint c :C) : SV_Target
   int64_t liv2 = bb - cc;
   int64_t oliv = 0;
 
+  // Test basic examples
   // GSCHECK: cmpxchg i32
   // GSCHECK: cmpxchg i32
   // GSCHECK: cmpxchg i64
@@ -62,6 +63,7 @@ void main( uint a : A, uint b: B, uint c :C) : SV_Target
   InterlockedCompareExchange( resU64[a], luv, luv2, ouv );
   InterlockedCompareExchange( resI64[a], liv, liv2, oiv );
 
+  // Test signed and unsigned
   // GSCHECK: cmpxchg i32
   // GSCHECK: cmpxchg i32
   // GSCHECK: cmpxchg i32
@@ -81,6 +83,27 @@ void main( uint a : A, uint b: B, uint c :C) : SV_Target
   InterlockedCompareExchange( resI[a], uv, iv2, oiv );
   InterlockedCompareExchange( resI[a], iv, uv2, ouv );
 
+  // Test literals with 32 bit resources
+  // GSCHECK: cmpxchg i32
+  // GSCHECK: cmpxchg i32
+  // GSCHECK: cmpxchg i32
+  // GSCHECK: cmpxchg i32
+  // GSCHECK: cmpxchg i32
+  // GSCHECK: cmpxchg i32
+  // CHECK: call i32 @dx.op.atomicCompareExchange.i32
+  // CHECK: call i32 @dx.op.atomicCompareExchange.i32
+  // CHECK: call i32 @dx.op.atomicCompareExchange.i32
+  // CHECK: call i32 @dx.op.atomicCompareExchange.i32
+  // CHECK: call i32 @dx.op.atomicCompareExchange.i32
+  // CHECK: call i32 @dx.op.atomicCompareExchange.i32
+  InterlockedCompareExchange( resU[a], 1.0, 2.0, oiv );
+  InterlockedCompareExchange( resU[a], iv, 2.0, ouv );
+  InterlockedCompareExchange( resU[a], 1.0, iv2, oiv );
+  InterlockedCompareExchange( resI[a], 1.0, 2.0, ouv );
+  InterlockedCompareExchange( resI[a], 1.0, iv2, oiv );
+  InterlockedCompareExchange( resI[a], iv, 2.0, ouv );
+
+  // Test basic 64-bit variables
   // GSCHECK: cmpxchg i64
   // GSCHECK: cmpxchg i64
   // GSCHECK: cmpxchg i64
@@ -106,6 +129,33 @@ void main( uint a : A, uint b: B, uint c :C) : SV_Target
   InterlockedCompareExchange( resI64[a], luv, liv2, oliv );
   InterlockedCompareExchange( resI64[a], liv, luv2, oluv );
 
+  // Test some literals with 64-bit resources
+  // GSCHECK: cmpxchg i64
+  // GSCHECK: cmpxchg i64
+  // GSCHECK: cmpxchg i64
+  // GSCHECK: cmpxchg i64
+  // GSCHECK: cmpxchg i64
+  // GSCHECK: cmpxchg i64
+  // CHECK: call i64 @dx.op.atomicCompareExchange.i64
+  // CHECK: call i64 @dx.op.atomicCompareExchange.i64
+  // CHECK: call i64 @dx.op.atomicCompareExchange.i64
+  // CHECK: call i64 @dx.op.atomicCompareExchange.i64
+  // CHECK: call i64 @dx.op.atomicCompareExchange.i64
+  // CHECK: call i64 @dx.op.atomicCompareExchange.i64
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  InterlockedCompareExchange( resU64[a], 1.0, 2.0, oliv );
+  InterlockedCompareExchange( resU64[a], liv, 2.0, oluv );
+  InterlockedCompareExchange( resU64[a], 1.0, liv2, oliv );
+  InterlockedCompareExchange( resI64[a], 1.0, 2.0, oluv );
+  InterlockedCompareExchange( resI64[a], 1.0, liv2, oliv );
+  InterlockedCompareExchange( resI64[a], liv, 2.0, oluv );
+
+  // test some mixed 32 and 64-bit variables with 32-bit resources
   // GSCHECK: cmpxchg i32
   // GSCHECK: cmpxchg i32
   // GSCHECK: cmpxchg i32
@@ -131,6 +181,7 @@ void main( uint a : A, uint b: B, uint c :C) : SV_Target
   InterlockedCompareExchange( resI[a], iv, liv2, oiv );
   InterlockedCompareExchange( resI[a], iv, iv2, oliv );
 
+  // Test some mixed 32 and 64-bit variables with 64-bit resources
   // GSCHECK: cmpxchg i64
   // GSCHECK: cmpxchg i64
   // GSCHECK: cmpxchg i64

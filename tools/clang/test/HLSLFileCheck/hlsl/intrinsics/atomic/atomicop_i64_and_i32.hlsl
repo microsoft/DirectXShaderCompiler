@@ -110,4 +110,19 @@ void main( uint a : A, uint b: B, uint c :C) : SV_Target
   INTRIN( resI[a], liv );
   INTRIN( resU64[a], uv );
   INTRIN( resI64[a], iv );
+
+  // GSCHECK: atomicrmw {{[a-z]*}} i32
+  // GSCHECK: atomicrmw {{[a-z]*}} i32
+  // GSCHECK: atomicrmw {{[a-z]*}} i64
+  // GSCHECK: atomicrmw {{[a-z]*}} i64
+  // CHECK: call i32 @dx.op.atomicBinOp.i32
+  // CHECK: call i32 @dx.op.atomicBinOp.i32
+  // CHECK: call i64 @dx.op.atomicBinOp.i64
+  // CHECK: call i64 @dx.op.atomicBinOp.i64
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  INTRIN( resU[a], 1.0 );
+  INTRIN( resI[a], 2.0 );
+  INTRIN( resU64[a], 3.0 );
+  INTRIN( resI64[a], 4.0 );
 }

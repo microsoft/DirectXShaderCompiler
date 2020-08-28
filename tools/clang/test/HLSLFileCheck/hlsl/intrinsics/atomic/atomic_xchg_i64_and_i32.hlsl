@@ -43,6 +43,7 @@ void main( uint a : A, uint b: B, uint c :C) : SV_Target
   int64_t liv = bb + cc;
   int64_t liv2 = bb - cc;
 
+  // Test basic examples
   // GSCHECK: atomicrmw xchg i32
   // GSCHECK: atomicrmw xchg i32
   // GSCHECK: atomicrmw xchg i64
@@ -58,6 +59,7 @@ void main( uint a : A, uint b: B, uint c :C) : SV_Target
   InterlockedExchange( resU64[a], luv, luv2);
   InterlockedExchange( resI64[a], liv, liv2);
 
+  // Test signed and unsigned
   // GSCHECK: atomicrmw xchg i32
   // GSCHECK: atomicrmw xchg i32
   // GSCHECK: atomicrmw xchg i32
@@ -77,6 +79,21 @@ void main( uint a : A, uint b: B, uint c :C) : SV_Target
   InterlockedExchange( resI[a], uv, iv2 );
   InterlockedExchange( resI[a], iv, uv2 );
 
+  // Test literals with 32 bit resources
+  // GSCHECK: atomicrmw xchg i32
+  // GSCHECK: atomicrmw xchg i32
+  // GSCHECK: atomicrmw xchg i32
+  // GSCHECK: atomicrmw xchg i32
+  // CHECK: call i32 @dx.op.atomicBinOp.i32
+  // CHECK: call i32 @dx.op.atomicBinOp.i32
+  // CHECK: call i32 @dx.op.atomicBinOp.i32
+  // CHECK: call i32 @dx.op.atomicBinOp.i32
+  InterlockedExchange( resU[a], 1.0, iv2 );
+  InterlockedExchange( resU[a], 2.0, uv2 );
+  InterlockedExchange( resI[a], 2.0, iv2 );
+  InterlockedExchange( resI[a], 1.0, uv2 );
+
+  // Test basic 64-bit variables
   // GSCHECK: atomicrmw xchg i64
   // GSCHECK: atomicrmw xchg i64
   // GSCHECK: atomicrmw xchg i64
@@ -102,6 +119,25 @@ void main( uint a : A, uint b: B, uint c :C) : SV_Target
   InterlockedExchange( resI64[a], luv, liv2 );
   InterlockedExchange( resI64[a], liv, luv2 );
 
+  // Test some literals with 64-bit resources
+  // GSCHECK: atomicrmw xchg i64
+  // GSCHECK: atomicrmw xchg i64
+  // GSCHECK: atomicrmw xchg i64
+  // GSCHECK: atomicrmw xchg i64
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  // ERRCHECK: error: opcode '64-bit atomic operations' should only be used in 'Shader Model 6.6+'
+  // CHECK: call i64 @dx.op.atomicBinOp.i64
+  // CHECK: call i64 @dx.op.atomicBinOp.i64
+  // CHECK: call i64 @dx.op.atomicBinOp.i64
+  // CHECK: call i64 @dx.op.atomicBinOp.i64
+  InterlockedExchange( resU64[a], 1.0, liv2 );
+  InterlockedExchange( resU64[a], 2.0, luv2 );
+  InterlockedExchange( resI64[a], 2.5, luv2 );
+  InterlockedExchange( resI64[a], 1.5, liv2 );
+
+  // test some mixed 32 and 64-bit variables with 32-bit resources
   // GSCHECK: atomicrmw xchg i32
   // GSCHECK: atomicrmw xchg i32
   // GSCHECK: atomicrmw xchg i32
@@ -121,6 +157,7 @@ void main( uint a : A, uint b: B, uint c :C) : SV_Target
   InterlockedExchange( resI[a], liv, iv2 );
   InterlockedExchange( resI[a], iv, liv2 );
 
+  // Test some mixed 32 and 64-bit variables with 64-bit resources
   // GSCHECK: atomicrmw xchg i64
   // GSCHECK: atomicrmw xchg i64
   // GSCHECK: atomicrmw xchg i64

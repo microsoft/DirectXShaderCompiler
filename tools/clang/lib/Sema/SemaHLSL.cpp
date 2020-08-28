@@ -1212,11 +1212,19 @@ static const ArBasicKind g_Int32OnlyCT[] =
   AR_BASIC_UNKNOWN
 };
 
-// No literal because rawbuffer atomics should resolve to i32 for literals
+static const ArBasicKind g_Float32OnlyCT[] =
+{
+  AR_BASIC_FLOAT32,
+  AR_BASIC_LITERAL_FLOAT,
+  AR_BASIC_NOCAST,
+  AR_BASIC_UNKNOWN
+};
+
 static const ArBasicKind g_Int64OnlyCT[] =
 {
   AR_BASIC_UINT64,
   AR_BASIC_INT64,
+  AR_BASIC_LITERAL_INT,
   AR_BASIC_NOCAST,
   AR_BASIC_UNKNOWN
 };
@@ -1305,6 +1313,7 @@ const ArBasicKind* g_LegalIntrinsicCompTypes[] =
   g_Int32OnlyCT,        // LICOMPTYPE_INT32_ONLY
   g_Int64OnlyCT,        // LICOMPTYPE_INT64_ONLY
   g_AnyInt64CT,         // LICOMPTYPE_ANY_INT64
+  g_Float32OnlyCT,      // LICOMPTYPE_FLOAT32_ONLY
   g_Int8_4PackedCT,     // LICOMPTYPE_INT8_4PACKED
   g_UInt8_4PackedCT,    // LICOMPTYPE_UINT8_4PACKED
   g_AnyInt16Or32CT,     // LICOMPTYPE_ANY_INT16_OR_32
@@ -1799,6 +1808,8 @@ static bool IsAtomicOperation(IntrinsicOp op) {
   case IntrinsicOp::IOP_InterlockedAnd:
   case IntrinsicOp::IOP_InterlockedCompareExchange:
   case IntrinsicOp::IOP_InterlockedCompareStore:
+  case IntrinsicOp::IOP_InterlockedCompareExchangeFloatBitwise:
+  case IntrinsicOp::IOP_InterlockedCompareStoreFloatBitwise:
   case IntrinsicOp::IOP_InterlockedExchange:
   case IntrinsicOp::IOP_InterlockedMax:
   case IntrinsicOp::IOP_InterlockedMin:
@@ -1813,6 +1824,18 @@ static bool IsAtomicOperation(IntrinsicOp op) {
   case IntrinsicOp::MOP_InterlockedMin:
   case IntrinsicOp::MOP_InterlockedOr:
   case IntrinsicOp::MOP_InterlockedXor:
+  case IntrinsicOp::MOP_InterlockedAdd64:
+  case IntrinsicOp::MOP_InterlockedAnd64:
+  case IntrinsicOp::MOP_InterlockedCompareExchange64:
+  case IntrinsicOp::MOP_InterlockedCompareStore64:
+  case IntrinsicOp::MOP_InterlockedExchange64:
+  case IntrinsicOp::MOP_InterlockedMax64:
+  case IntrinsicOp::MOP_InterlockedMin64:
+  case IntrinsicOp::MOP_InterlockedOr64:
+  case IntrinsicOp::MOP_InterlockedXor64:
+  case IntrinsicOp::MOP_InterlockedExchangeFloat:
+  case IntrinsicOp::MOP_InterlockedCompareExchangeFloatBitwise:
+  case IntrinsicOp::MOP_InterlockedCompareStoreFloatBitwise:
     return true;
   default:
     return false;
