@@ -206,6 +206,7 @@ static ArrayRef<LPCSTR> GetPassArgNames(LPCSTR passName) {
   static const LPCSTR DxilDebugInstrumentationArgs[] = { "UAVSize", "parameter0", "parameter1", "parameter2" };
   static const LPCSTR DxilGenerationPassArgs[] = { "NotOptimized" };
   static const LPCSTR DxilInsertPreservesArgs[] = { "AllowPreserves" };
+  static const LPCSTR DxilLoopUnrollArgs[] = { "MaxIterationAttempt", "OnlyWarnOnFail" };
   static const LPCSTR DxilOutputColorBecomesConstantArgs[] = { "mod-mode", "constant-red", "constant-green", "constant-blue", "constant-alpha" };
   static const LPCSTR DxilPIXMeshShaderOutputInstrumentationArgs[] = { "UAVSize" };
   static const LPCSTR DxilRenameResourcesArgs[] = { "prefix", "from-binding", "keep-name" };
@@ -243,6 +244,7 @@ static ArrayRef<LPCSTR> GetPassArgNames(LPCSTR passName) {
   if (strcmp(passName, "hlsl-dxil-debug-instrumentation") == 0) return ArrayRef<LPCSTR>(DxilDebugInstrumentationArgs, _countof(DxilDebugInstrumentationArgs));
   if (strcmp(passName, "dxilgen") == 0) return ArrayRef<LPCSTR>(DxilGenerationPassArgs, _countof(DxilGenerationPassArgs));
   if (strcmp(passName, "dxil-insert-preserves") == 0) return ArrayRef<LPCSTR>(DxilInsertPreservesArgs, _countof(DxilInsertPreservesArgs));
+  if (strcmp(passName, "dxil-loop-unroll") == 0) return ArrayRef<LPCSTR>(DxilLoopUnrollArgs, _countof(DxilLoopUnrollArgs));
   if (strcmp(passName, "hlsl-dxil-constantColor") == 0) return ArrayRef<LPCSTR>(DxilOutputColorBecomesConstantArgs, _countof(DxilOutputColorBecomesConstantArgs));
   if (strcmp(passName, "hlsl-dxil-pix-meshshader-output-instrumentation") == 0) return ArrayRef<LPCSTR>(DxilPIXMeshShaderOutputInstrumentationArgs, _countof(DxilPIXMeshShaderOutputInstrumentationArgs));
   if (strcmp(passName, "dxil-rename-resources") == 0) return ArrayRef<LPCSTR>(DxilRenameResourcesArgs, _countof(DxilRenameResourcesArgs));
@@ -287,6 +289,7 @@ static ArrayRef<LPCSTR> GetPassArgDescriptions(LPCSTR passName) {
   static const LPCSTR DxilDebugInstrumentationArgs[] = { "None", "None", "None", "None" };
   static const LPCSTR DxilGenerationPassArgs[] = { "None" };
   static const LPCSTR DxilInsertPreservesArgs[] = { "None" };
+  static const LPCSTR DxilLoopUnrollArgs[] = { "Maximum number of iterations to attempt when iteratively unrolling.", "Whether to just warn when unrolling fails." };
   static const LPCSTR DxilOutputColorBecomesConstantArgs[] = { "None", "None", "None", "None", "None" };
   static const LPCSTR DxilPIXMeshShaderOutputInstrumentationArgs[] = { "None" };
   static const LPCSTR DxilRenameResourcesArgs[] = { "Prefix to add to resource names", "Append binding to name when bound", "Keep name when appending binding" };
@@ -324,6 +327,7 @@ static ArrayRef<LPCSTR> GetPassArgDescriptions(LPCSTR passName) {
   if (strcmp(passName, "hlsl-dxil-debug-instrumentation") == 0) return ArrayRef<LPCSTR>(DxilDebugInstrumentationArgs, _countof(DxilDebugInstrumentationArgs));
   if (strcmp(passName, "dxilgen") == 0) return ArrayRef<LPCSTR>(DxilGenerationPassArgs, _countof(DxilGenerationPassArgs));
   if (strcmp(passName, "dxil-insert-preserves") == 0) return ArrayRef<LPCSTR>(DxilInsertPreservesArgs, _countof(DxilInsertPreservesArgs));
+  if (strcmp(passName, "dxil-loop-unroll") == 0) return ArrayRef<LPCSTR>(DxilLoopUnrollArgs, _countof(DxilLoopUnrollArgs));
   if (strcmp(passName, "hlsl-dxil-constantColor") == 0) return ArrayRef<LPCSTR>(DxilOutputColorBecomesConstantArgs, _countof(DxilOutputColorBecomesConstantArgs));
   if (strcmp(passName, "hlsl-dxil-pix-meshshader-output-instrumentation") == 0) return ArrayRef<LPCSTR>(DxilPIXMeshShaderOutputInstrumentationArgs, _countof(DxilPIXMeshShaderOutputInstrumentationArgs));
   if (strcmp(passName, "dxil-rename-resources") == 0) return ArrayRef<LPCSTR>(DxilRenameResourcesArgs, _countof(DxilRenameResourcesArgs));
@@ -369,8 +373,10 @@ static bool IsPassOptionName(StringRef S) {
     ||  S.equals("InlineThreshold")
     ||  S.equals("InsertLifetime")
     ||  S.equals("MaxHeaderSize")
+    ||  S.equals("MaxIterationAttempt")
     ||  S.equals("NoOpt")
     ||  S.equals("NotOptimized")
+    ||  S.equals("OnlyWarnOnFail")
     ||  S.equals("Os")
     ||  S.equals("ReplaceAllVectors")
     ||  S.equals("RequiresDomTree")

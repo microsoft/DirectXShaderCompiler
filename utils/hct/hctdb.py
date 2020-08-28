@@ -2138,7 +2138,10 @@ class db_dxil(object):
         # C:\nobackup\work\HLSLonLLVM\lib\Transforms\IPO\PassManagerBuilder.cpp:353
         add_pass('indvars', 'IndVarSimplify', "Induction Variable Simplification", [])
         add_pass('loop-idiom', 'LoopIdiomRecognize', "Recognize loop idioms", [])
-        add_pass('dxil-loop-unroll', 'DxilLoopUnroll', 'DxilLoopUnroll', [])
+        add_pass('dxil-loop-unroll', 'DxilLoopUnroll', 'DxilLoopUnroll', [
+            {'n':'MaxIterationAttempt', 't':'unsigned', 'c':1, 'd':'Maximum number of iterations to attempt when iteratively unrolling.'},
+            {'n':'OnlyWarnOnFail', 't':'bool', 'c':1, 'd':'Whether to just warn when unrolling fails.'},
+        ])
         add_pass('dxil-erase-dead-region', 'DxilEraseDeadRegion', 'DxilEraseDeadRegion', [])
         add_pass('dxil-remove-dead-blocks', 'DxilRemoveDeadBlocks', 'DxilRemoveDeadBlocks', [])
         add_pass('loop-deletion', 'LoopDeletion', "Delete dead loops", [])

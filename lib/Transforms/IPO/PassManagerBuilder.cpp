@@ -207,7 +207,7 @@ void PassManagerBuilder::populateFunctionPassManager(
 }
 
 // HLSL Change Starts
-static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, hlsl::HLSLExtensionsCodegenHelper *ExtHelper, legacy::PassManagerBase &MPM) {
+static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, bool OnlyWarnOnUnrollFail, hlsl::HLSLExtensionsCodegenHelper *ExtHelper, legacy::PassManagerBase &MPM) {
 
   // Don't do any lowering if we're targeting high-level.
   if (HLSLHighLevel) {
@@ -268,19 +268,6 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, hlsl::HLSLExten
   if (!NoOpt)
     MPM.add(createCFGSimplificationPass());
 
-  // Passes to handle [unroll]
-  // Needs to happen after SROA since loop count may depend on
-  // struct members.
-  // Needs to happen before resources are lowered and before HL
-  // module is gone.
-  MPM.add(createDxilLoopUnrollPass(1024));
-
-  // Default unroll pass. This is purely for optimizing loops without
-  // attributes.
-  if (OptLevel > 2) {
-    MPM.add(createLoopUnrollPass());
-  }
-
   MPM.add(createDxilPromoteLocalResources());
   MPM.add(createDxilPromoteStaticResources());
   // Verify no undef resource again after promotion
@@ -297,14 +284,27 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, hlsl::HLSLExten
   // scalarize vector to scalar
   MPM.add(createScalarizerPass(!NoOpt /* AllowFolding */));
 
+  // Remove vector instructions
+  MPM.add(createDxilEliminateVectorPass());
+
+  // Passes to handle [unroll]
+  // Needs to happen after SROA since loop count may depend on
+  // struct members.
+  // Needs to happen before resources are lowered and before HL
+  // module is gone.
+  MPM.add(createDxilLoopUnrollPass(1024, OnlyWarnOnUnrollFail));
+
+  // Default unroll pass. This is purely for optimizing loops without
+  // attributes.
+  if (OptLevel > 2) {
+    MPM.add(createLoopUnrollPass());
+  }
+
   if (!NoOpt)
     MPM.add(createSimplifyInstPass());
 
   if (!NoOpt)
     MPM.add(createCFGSimplificationPass());
-
-  // Remove vector instructions
-  MPM.add(createDxilEliminateVectorPass());
 
   MPM.add(createDeadCodeEliminationPass());
 
@@ -351,7 +351,7 @@ void PassManagerBuilder::populateModulePassManager(
     addExtensionsToPM(EP_EnabledOnOptLevel0, MPM);
 
     // HLSL Change Begins.
-    addHLSLPasses(HLSLHighLevel, OptLevel, HLSLExtensionsCodeGen, MPM);
+    addHLSLPasses(HLSLHighLevel, OptLevel, this->HLSLOnlyWarnOnUnrollFail, HLSLExtensionsCodeGen, MPM);
     if (!HLSLHighLevel) {
       MPM.add(createDxilConvergentClearPass());
       MPM.add(createMultiDimArrayToOneDimArrayPass());
@@ -386,7 +386,7 @@ void PassManagerBuilder::populateModulePassManager(
     delete Inliner;
     Inliner = nullptr;
   }
-  addHLSLPasses(HLSLHighLevel, OptLevel, HLSLExtensionsCodeGen, MPM); // HLSL Change
+  addHLSLPasses(HLSLHighLevel, OptLevel, this->HLSLOnlyWarnOnUnrollFail, HLSLExtensionsCodeGen, MPM); // HLSL Change
   // HLSL Change Ends
 
   // Add LibraryInfo if we have some.

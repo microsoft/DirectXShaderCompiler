@@ -164,8 +164,10 @@ Value *DxilValueCache::ProcessAndSimplify_Br(Instruction *I, DominatorTree *DT) 
     Value *Cond = TryGetCachedValue(Br->getCondition());
 
     if (IsUnreachable_(BB)) {
-      MarkUnreachable(FalseSucc);
-      MarkUnreachable(TrueSucc);
+      if (FalseSucc->getSinglePredecessor())
+        MarkUnreachable(FalseSucc);
+      if (TrueSucc->getSinglePredecessor())
+        MarkUnreachable(TrueSucc);
     }
     else if (IsConstantTrue(Cond)) {
       if (IsAlwaysReachable_(BB)) {
