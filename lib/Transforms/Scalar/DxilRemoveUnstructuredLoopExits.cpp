@@ -127,8 +127,18 @@ bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop *L, Lo
 
   BasicBlock *exit_block = GetExitBockForExitingBlock(L, exiting_block);
 
+  // If there's more than one predecessors for this exit block, don't risk it.
+  if (!exit_block->getSinglePredecessor())
+    return false;
+
   {
     BasicBlock *latch = L->getLoopLatch();
+    BasicBlock *latch_exit = GetExitBockForExitingBlock(L, latch);
+
+    // If there's no single predecessor of latch exit, don't risk it.
+    if (!latch_exit->getSinglePredecessor())
+      return false;
+
     for (Instruction &I : *exit_block) {
       if (PHINode *phi = dyn_cast<PHINode>(&I)) {
         // If there are values flowing out of the loop into the exit_block,
