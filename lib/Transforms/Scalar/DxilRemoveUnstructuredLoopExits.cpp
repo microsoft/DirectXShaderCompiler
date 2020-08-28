@@ -14,12 +14,26 @@
 //      for(;;) {
 //        if (a) {
 //          if (b) {
-//            exit_code;
+//            exit_code_0;
 //            break;       // Unstructured loop exit
 //          }
+//
 //          code_0;
+//
+//          if (c) {
+//            if (d) {
+//              exit_code_1;
+//              break;
+//            }
+//            code_1;
+//          }
+//
+//          code_2;
+//
+//          ...
 //        }
-//        code_1;
+//
+//        code_3;
 //
 //        if (exit)
 //          break;
@@ -28,27 +42,49 @@
 //
 // This pass transforms the loop into the following form:
 //
-//      bool broke = false;
+//      bool broke_0 = false;
+//      bool broke_1 = false;
 //      for(;;) {
 //        if (a) {
 //          if (b) {
-//            broke = true;
+//            broke_0 = true;
 //          }
-//          if (!broke) {
-//            code_0;
+//
+//          if (!broke_0) {
+//            if (c) {
+//              if (d) {
+//                exit_code_1;
+//                broke_1 = true;
+//              }
+//              if (!broke_1) {
+//                code_1;
+//              }
+//            }
+//
+//            if (!broke_1) {
+//              code_2;
+//            }
+//          }
+//
+//          ...
+//        }
+//
+//        if (!broke_0) {
+//          if (!broke_1) {
+//            code_1;
 //          }
 //        }
 //
-//        if (!broke) {
-//          code_1;
-//        }
-//
-//        if (exit || broke)
+//        if (exit || broke_0 || broke_1)
 //          break;
 //      }
 //
-//      if (broke) {
-//        exit_code;
+//      if (broke_0) {
+//        exit_code_0;
+//      }
+//
+//      if (broke_1) {
+//        exit_code_1;
 //      }
 //
 // Essentially it hoists the exit branch out of the loop.
@@ -113,14 +149,7 @@ static BasicBlock *GetExitBockForExitingBlock(Loop *L, BasicBlock *exiting_block
   return result;
 }
 
-static BasicBlock::iterator FindFirstNonPhi(BasicBlock *bb) {
-  for (BasicBlock::iterator it = bb->begin(), e = bb->end(); it != e; it++)
-    if (!isa<PHINode>(it))
-      return it;
-  return bb->end();
-}
-
-bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop *L, LoopInfo *LI, DominatorTree *DT) {
+static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop *L, LoopInfo *LI, DominatorTree *DT) {
 
   LLVMContext &ctx = L->getHeader()->getContext();
   Type *i1Ty = Type::getInt1Ty(ctx);
@@ -267,7 +296,7 @@ bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop *L, Lo
     BasicBlock *bb = data.first;
     Value *exit_cond = data.second;
 
-    BasicBlock *body = bb->splitBasicBlock(FindFirstNonPhi(bb));
+    BasicBlock *body = bb->splitBasicBlock(bb->getFirstNonPHI());
     body->setName("dx.struct_exit.cond_body");
     BasicBlock *end = body->splitBasicBlock(body->getTerminator());
     end->setName("dx.struct_exit.cond_end");
@@ -316,7 +345,7 @@ bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop *L, Lo
   }
 
   BasicBlock *latch_exit = GetExitBockForExitingBlock(L, latch);
-  BasicBlock *after_latch_exit = latch_exit->splitBasicBlock(FindFirstNonPhi(latch_exit));
+  BasicBlock *after_latch_exit = latch_exit->splitBasicBlock(latch_exit->getFirstNonPHI());
   if (Loop *outer_loop = LI->getLoopFor(latch_exit)) {
     outer_loop->addBasicBlockToLoop(after_latch_exit, *LI);
   }
