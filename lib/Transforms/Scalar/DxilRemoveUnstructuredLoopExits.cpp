@@ -227,7 +227,7 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop
         else {
           for (Instruction &I : *bb) {
             if (I.mayWriteToMemory() && !IsNoop(&I)) {
-              blocks_with_side_effect.push_back({ bb, data.value, false });
+              blocks_with_side_effect.push_back({ bb, data.value });
               break;
             }
           }
@@ -261,7 +261,7 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop
         }
 
         if (!seen.count(succ)) {
-          work_list.push_back({ succ, phi });
+          work_list.push_back({ succ, phi, false });
           seen.insert(succ);
         }
 
