@@ -7,13 +7,18 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <unordered_set>
+
 namespace llvm {
   class Loop;
   class LoopInfo;
   class DominatorTree;
+  class BasicBlock;
 }
 
 namespace hlsl {
-  bool RemoveUnstructuredLoopExits(llvm::Loop *L, llvm::LoopInfo *LI, llvm::DominatorTree *DT);
+
+  // exclude_set is a list of *EXIT BLOCKS* to exclude (NOTE: not *exiting* blocks)
+  bool RemoveUnstructuredLoopExits(llvm::Loop *L, llvm::LoopInfo *LI, llvm::DominatorTree *DT, std::unordered_set<llvm::BasicBlock *> *exclude_set = nullptr);
 }
 

@@ -681,8 +681,6 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(*F);
   LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 
-  hlsl::RemoveUnstructuredLoopExits(L, LI, DT);
-
   Loop *OuterL = L->getParentLoop();
   BasicBlock *Latch = L->getLoopLatch();
   BasicBlock *Header = L->getHeader();
@@ -711,6 +709,19 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   SetVector<AllocaInst *> ProblemAllocas;
   std::unordered_set<BasicBlock *> ProblemBlocks;
   FindProblemBlocks(L->getHeader(), BlocksInLoop, ProblemBlocks, ProblemAllocas);
+
+  if (hlsl::RemoveUnstructuredLoopExits(L, LI, DT, /* exclude */&ProblemBlocks)) {
+    // Recompute the loop if we managed to simplify the exit blocks
+
+    Latch = L->getLoopLatch();
+    ExitBlocks.clear();
+    L->getExitBlocks(ExitBlocks);
+    ExitBlockSet = std::unordered_set<BasicBlock *>(ExitBlocks.begin(), ExitBlocks.end());
+
+    BlocksInLoop.clear();
+    BlocksInLoop.append(L->getBlocks().begin(), L->getBlocks().end());
+    BlocksInLoop.append(ExitBlocks.begin(), ExitBlocks.end());
+  }
 
   // Keep track of the PHI nodes at the header.
   SmallVector<PHINode *, 16> PHIs;

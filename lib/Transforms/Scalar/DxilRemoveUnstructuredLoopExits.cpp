@@ -146,19 +146,19 @@ bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop *L, Lo
   std::unordered_map<BasicBlock *, PHINode *> cached_phis;
 
   // Use a worklist to propagate the exit condition from within the block
-  if (Instruction *exit_cond_inst = dyn_cast<Instruction>(exit_cond)) {
+  {
     Value *false_value = ConstantInt::getFalse(i1Ty);
 
     struct Propagate_Data {
       BasicBlock *bb;
-      Instruction *value;
+      Value *value;
       bool is_exiting_block;
     };
 
     std::unordered_set<BasicBlock *> seen;
     SmallVector<Propagate_Data, 4> work_list;
 
-    work_list.push_back({ exiting_block, exit_cond_inst, true });
+    work_list.push_back({ exiting_block, exit_cond, true });
     seen.insert(exiting_block);
 
     BasicBlock *latch = L->getLoopLatch();
@@ -167,7 +167,6 @@ bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop *L, Lo
       Propagate_Data data = work_list[i];
 
       BasicBlock *bb = data.bb;
-      assert(data.value->getParent() == bb || DT->dominates(data.value, bb));
 
       // Do not include the exiting block itself in this calculation
       if (!data.is_exiting_block) {
@@ -196,32 +195,24 @@ bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop *L, Lo
         if (!L->contains(succ))
           continue;
 
-        Instruction *value_for_succ = nullptr;
-
-        if (DT->dominates(data.value, succ)) {
-          value_for_succ = data.value;
+        PHINode *phi = cached_phis[succ];
+        if (!phi) {
+          phi = PHINode::Create(i1Ty, 2, "dx.struct_exit.exit_cond", &*succ->begin());
+          for (BasicBlock *pred : llvm::predecessors(succ)) {
+            phi->addIncoming(false_value, pred);
+          }
+          cached_phis[data.bb] = phi;
         }
-        else {
-          PHINode *phi = cached_phis[succ];
-          if (!phi) {
-            phi = PHINode::Create(i1Ty, 2, "dx.struct_exit.exit_cond", &*succ->begin());
-            for (BasicBlock *pred : llvm::predecessors(succ)) {
-              phi->addIncoming(false_value, pred);
-            }
-            cached_phis[data.bb] = phi;
-          }
 
-          for (unsigned i = 0; i < phi->getNumIncomingValues(); i++) {
-            if (phi->getIncomingBlock(i) == bb) {
-              phi->setIncomingValue(i, data.value);
-              break;
-            }
+        for (unsigned i = 0; i < phi->getNumIncomingValues(); i++) {
+          if (phi->getIncomingBlock(i) == bb) {
+            phi->setIncomingValue(i, data.value);
+            break;
           }
-          value_for_succ = phi;
         }
 
         if (!seen.count(succ)) {
-          work_list.push_back({ succ, value_for_succ });
+          work_list.push_back({ succ, phi });
           seen.insert(succ);
         }
 
@@ -229,9 +220,6 @@ bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop *L, Lo
 
     } // for each in worklist
   } // if exit condition is an instruction
-  else {
-    exit_cond_dominates_latch = exit_cond;
-  }
 
   if (give_up) {
     for (std::pair<BasicBlock *, PHINode *> pair : cached_phis) {
@@ -344,7 +332,7 @@ bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop *L, Lo
   return true;
 }
 
-bool hlsl::RemoveUnstructuredLoopExits(Loop *L, LoopInfo *LI, DominatorTree *DT) {
+bool hlsl::RemoveUnstructuredLoopExits(llvm::Loop *L, llvm::LoopInfo *LI, llvm::DominatorTree *DT, std::unordered_set<llvm::BasicBlock *> *exclude_set) {
   
   bool changed = false;
 
@@ -366,6 +354,9 @@ bool hlsl::RemoveUnstructuredLoopExits(Loop *L, LoopInfo *LI, DominatorTree *DT)
     // Don't bother if this exit branch already dominates latch (or is the latch)
     for (BasicBlock *exiting_block : exiting_blocks) {
       if (L->getLoopLatch() == exiting_block)
+        continue;
+
+      if (exclude_set && exclude_set->count(GetExitBockForExitingBlock(L, exiting_block)))
         continue;
 
       // As soon as we got a success, break and start a new iteration, since
