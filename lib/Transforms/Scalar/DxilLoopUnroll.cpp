@@ -84,6 +84,8 @@
 #include "dxc/HLSL/HLModule.h"
 #include "llvm/Analysis/DxilValueCache.h"
 
+#include "DxilRemoveUnstructuredLoopExits.h"
+
 using namespace llvm;
 using namespace hlsl;
 
@@ -133,6 +135,7 @@ public:
     AU.addPreserved<DominatorTreeWrapperPass>();
     AU.addRequired<ScalarEvolution>();
     AU.addRequired<DxilValueCache>();
+    AU.addRequiredID(&LCSSAID);
     AU.addRequiredID(LoopSimplifyID);
   }
 
@@ -671,11 +674,14 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     TripCount = SE->getSmallConstantTripCount(L, ExitingBlock);
   }
 
+
   // Analysis passes
   DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   AssumptionCache *AC =
     &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(*F);
   LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+
+  hlsl::RemoveUnstructuredLoopExits(L, LI, DT);
 
   Loop *OuterL = L->getParentLoop();
   BasicBlock *Latch = L->getLoopLatch();
@@ -1069,4 +1075,5 @@ INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
 INITIALIZE_PASS_DEPENDENCY(LoopSimplify)
 INITIALIZE_PASS_DEPENDENCY(DxilValueCache)
 INITIALIZE_PASS_END(DxilLoopUnroll, "dxil-loop-unroll", "Dxil Unroll loops", false, false)
+
 

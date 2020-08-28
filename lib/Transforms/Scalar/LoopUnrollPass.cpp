@@ -31,6 +31,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/UnrollLoop.h"
+#include "DxilRemoveUnstructuredLoopExits.h" // HLSL Change
 #include <climits>
 
 using namespace llvm;
@@ -164,6 +165,7 @@ namespace {
       AU.addRequiredID(LCSSAID);
       AU.addPreservedID(LCSSAID);
       AU.addRequired<ScalarEvolution>();
+      AU.addRequired<DominatorTreeWrapperPass>(); // HLSL Change
       AU.addPreserved<ScalarEvolution>();
       AU.addRequired<TargetTransformInfoWrapperPass>();
       // FIXME: Loop unroll requires LCSSA. And LCSSA requires dom info.
@@ -932,6 +934,8 @@ bool LoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     // of 1 makes sense because loop control can be eliminated.
     return false;
   }
+
+  hlsl::RemoveUnstructuredLoopExits(L, LI, &getAnalysis<DominatorTreeWrapperPass>().getDomTree()); // HLSL Change
 
   // Unroll the loop.
   if (!UnrollLoop(L, Count, TripCount, AllowRuntime, UP.AllowExpensiveTripCount,
