@@ -1672,6 +1672,7 @@ static bool SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *ThenBB,
   return true;
 }
 
+#if 0 // HLSL Change - Fix linux build
 /// \returns True if this block contains a CallInst with the NoDuplicate
 /// attribute.
 static bool HasNoDuplicateCall(const BasicBlock *BB) {
@@ -1684,6 +1685,7 @@ static bool HasNoDuplicateCall(const BasicBlock *BB) {
   }
   return false;
 }
+#endif
 
 /// Return true if we can thread a branch across this block.
 static bool BlockIsSimpleEnoughToThreadThrough(BasicBlock *BB) {
