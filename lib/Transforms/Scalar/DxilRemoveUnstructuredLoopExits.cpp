@@ -86,6 +86,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/ADT/SetVector.h"
+#include "dxc/HLSL/DxilNoops.h"
 
 #include <unordered_map>
 #include <unordered_set>
@@ -93,6 +94,15 @@
 #include "DxilRemoveUnstructuredLoopExits.h"
 
 using namespace llvm;
+
+static bool IsNoop(Instruction *inst) {
+  if (CallInst *ci = dyn_cast<CallInst>(inst)) {
+    if (Function *f = ci->getCalledFunction()) {
+      return f->getName() == hlsl::kNoopName;
+    }
+  }
+  return false;
+}
 
 static BasicBlock *GetExitBockForExitingBlock(Loop *L, BasicBlock *exiting_block) {
   BranchInst *br = dyn_cast<BranchInst>(exiting_block->getTerminator());
@@ -177,7 +187,7 @@ bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop *L, Lo
         // Otherwise just remember the blocks with side effects (including the latch)
         else {
           for (Instruction &I : *bb) {
-            if (I.mayWriteToMemory() || I.mayReadFromMemory()) {
+            if (I.mayWriteToMemory() && !IsNoop(&I)) {
               blocks_with_side_effect.push_back({ bb, data.value });
               break;
             }
@@ -201,7 +211,7 @@ bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop *L, Lo
           for (BasicBlock *pred : llvm::predecessors(succ)) {
             phi->addIncoming(false_value, pred);
           }
-          cached_phis[data.bb] = phi;
+          cached_phis[succ] = phi;
         }
 
         for (unsigned i = 0; i < phi->getNumIncomingValues(); i++) {
