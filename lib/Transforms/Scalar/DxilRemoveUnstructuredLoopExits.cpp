@@ -23,7 +23,7 @@
 //          if (c) {
 //            if (d) {
 //              exit_code_1;
-//              break;
+//              break;    // Unstructured loop exit
 //            }
 //            code_1;
 //          }
@@ -47,14 +47,17 @@
 //      for(;;) {
 //        if (a) {
 //          if (b) {
-//            broke_0 = true;
+//            broke_0 = true;       // Break flag
+//          }
+//
+//          if (!broke_0) {
+//            code_0;
 //          }
 //
 //          if (!broke_0) {
 //            if (c) {
 //              if (d) {
-//                exit_code_1;
-//                broke_1 = true;
+//                broke_1 = true;   // Break flag
 //              }
 //              if (!broke_1) {
 //                code_1;
@@ -71,7 +74,7 @@
 //
 //        if (!broke_0) {
 //          if (!broke_1) {
-//            code_1;
+//            code_3;
 //          }
 //        }
 //
@@ -140,7 +143,7 @@ static bool IsNoop(Instruction *inst) {
   return false;
 }
 
-static BasicBlock *GetExitBockForExitingBlock(Loop *L, BasicBlock *exiting_block) {
+static BasicBlock *GetExitBlockForExitingBlock(Loop *L, BasicBlock *exiting_block) {
   BranchInst *br = dyn_cast<BranchInst>(exiting_block->getTerminator());
   assert(L->contains(exiting_block));
   assert(br->isConditional());
@@ -154,7 +157,7 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop
   LLVMContext &ctx = L->getHeader()->getContext();
   Type *i1Ty = Type::getInt1Ty(ctx);
 
-  BasicBlock *exit_block = GetExitBockForExitingBlock(L, exiting_block);
+  BasicBlock *exit_block = GetExitBlockForExitingBlock(L, exiting_block);
 
   // If there's more than one predecessors for this exit block, don't risk it.
   if (!exit_block->getSinglePredecessor())
@@ -162,7 +165,7 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop
 
   {
     BasicBlock *latch = L->getLoopLatch();
-    BasicBlock *latch_exit = GetExitBockForExitingBlock(L, latch);
+    BasicBlock *latch_exit = GetExitBlockForExitingBlock(L, latch);
 
     // If there's no single predecessor of latch exit, don't risk it.
     if (!latch_exit->getSinglePredecessor())
@@ -344,7 +347,7 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop
     latch_br->setCondition(new_cond);
   }
 
-  BasicBlock *latch_exit = GetExitBockForExitingBlock(L, latch);
+  BasicBlock *latch_exit = GetExitBlockForExitingBlock(L, latch);
   BasicBlock *after_latch_exit = latch_exit->splitBasicBlock(latch_exit->getFirstNonPHI());
   if (Loop *outer_loop = LI->getLoopFor(latch_exit)) {
     outer_loop->addBasicBlockToLoop(after_latch_exit, *LI);
@@ -367,7 +370,7 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop
       if (phi->getIncomingBlock(i) == exiting_block) {
         phi->setIncomingBlock(i, latch_exit);
 
-        PHINode *lcssa_phi = PHINode::Create(phi->getType(), 1, "dx.struct_exit.scssa_phi", latch_exit->begin());
+        PHINode *lcssa_phi = PHINode::Create(phi->getType(), 1, "dx.struct_exit.lcssa_phi", latch_exit->begin());
         lcssa_phi->addIncoming(phi->getIncomingValue(i), latch);
 
         phi->setIncomingValue(i, lcssa_phi);
@@ -405,7 +408,7 @@ bool hlsl::RemoveUnstructuredLoopExits(llvm::Loop *L, llvm::LoopInfo *LI, llvm::
       if (L->getLoopLatch() == exiting_block)
         continue;
 
-      if (exclude_set && exclude_set->count(GetExitBockForExitingBlock(L, exiting_block)))
+      if (exclude_set && exclude_set->count(GetExitBlockForExitingBlock(L, exiting_block)))
         continue;
 
       // As soon as we got a success, break and start a new iteration, since
