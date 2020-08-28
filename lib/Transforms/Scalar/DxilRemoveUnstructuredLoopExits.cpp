@@ -227,7 +227,7 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop
         else {
           for (Instruction &I : *bb) {
             if (I.mayWriteToMemory() && !IsNoop(&I)) {
-              blocks_with_side_effect.push_back({ bb, data.value });
+              blocks_with_side_effect.push_back({ bb, data.value, false });
               break;
             }
           }
