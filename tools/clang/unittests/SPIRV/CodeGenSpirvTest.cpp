@@ -2192,6 +2192,11 @@ TEST_F(FileTest, RayTracingKHRClosestHit) {
   runFileTest("raytracing.khr.closesthit.hlsl");
 }
 
+TEST_F(FileTest, RayTracingAccelerationStructure) {
+  useVulkan1p2();
+  runFileTest("raytracing.acceleration-structure.hlsl");
+}
+
 // For decoration uniqueness
 TEST_F(FileTest, DecorationUnique) { runFileTest("decoration.unique.hlsl"); }
 
