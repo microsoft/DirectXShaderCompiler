@@ -401,8 +401,6 @@ bool hlsl::RemoveUnstructuredLoopExits(llvm::Loop *L, llvm::LoopInfo *LI, llvm::
     L->getExitingBlocks(exiting_blocks);
 
     bool local_changed = false;
-
-    // Don't bother if this exit branch already dominates latch (or is the latch)
     for (BasicBlock *exiting_block : exiting_blocks) {
       if (L->getLoopLatch() == exiting_block)
         continue;
