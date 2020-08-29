@@ -180,6 +180,8 @@ public:
   bool HLSLHighLevel = false;
   /// Whether we allow preserve intermediate values
   bool HLSLAllowPreserveValues = false;
+  /// Whether we fail compilation if loop fails to unroll
+  bool HLSLOnlyWarnOnUnrollFail = false;
   /// Whether use row major as default matrix major.
   bool HLSLDefaultRowMajor = false;
   /// Whether use legacy cbuffer load.

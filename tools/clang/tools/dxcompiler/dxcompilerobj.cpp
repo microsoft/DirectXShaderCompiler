@@ -1131,6 +1131,7 @@ public:
 
     compiler.getCodeGenOpts().HLSLHighLevel = Opts.CodeGenHighLevel;
     compiler.getCodeGenOpts().HLSLAllowPreserveValues = Opts.AllowPreserveValues;
+    compiler.getCodeGenOpts().HLSLOnlyWarnOnUnrollFail = Opts.EnableFXCCompatMode;
     compiler.getCodeGenOpts().HLSLResMayAlias = Opts.ResMayAlias;
     compiler.getCodeGenOpts().ScanLimit = Opts.ScanLimit;
     compiler.getCodeGenOpts().HLSLOptimizationToggles = Opts.DxcOptimizationToggles;
