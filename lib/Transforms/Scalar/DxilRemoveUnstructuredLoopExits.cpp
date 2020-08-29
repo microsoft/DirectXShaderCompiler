@@ -203,14 +203,13 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop
 
     struct Propagate_Data {
       BasicBlock *bb;
-      Value *value;
-      bool is_exiting_block;
+      Value *exit_cond;
     };
 
     std::unordered_set<BasicBlock *> seen;
     SmallVector<Propagate_Data, 4> work_list;
 
-    work_list.push_back({ exiting_block, exit_cond, true });
+    work_list.push_back({ exiting_block, exit_cond, });
     seen.insert(exiting_block);
 
     BasicBlock *latch = L->getLoopLatch();
@@ -221,7 +220,7 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop
       BasicBlock *bb = data.bb;
 
       // Do not include the exiting block itself in this calculation
-      if (!data.is_exiting_block) {
+      if (i != 0) {
         // If this block is part of an inner loop... Give up for now.
         if (LI->getLoopFor(data.bb) != L) {
           give_up = true;
@@ -229,8 +228,8 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop
         // Otherwise just remember the blocks with side effects (including the latch)
         else {
           for (Instruction &I : *bb) {
-            if (I.mayWriteToMemory() && !IsNoop(&I)) {
-              blocks_with_side_effect.push_back({ bb, data.value });
+            if (I.mayReadOrWriteMemory() && !IsNoop(&I)) {
+              blocks_with_side_effect.push_back({ bb, data.exit_cond });
               break;
             }
           }
@@ -238,8 +237,8 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop
       } // If this is not the first iteration
 
       // Don't continue to propagate when we hit the latch
-      if (data.bb == latch /*|| DT->dominates(data.value, latch)*/) {
-        exit_cond_dominates_latch = data.value;
+      if (data.bb == latch) {
+        exit_cond_dominates_latch = data.exit_cond;
         continue;
       }
 
@@ -258,13 +257,13 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop
 
         for (unsigned i = 0; i < phi->getNumIncomingValues(); i++) {
           if (phi->getIncomingBlock(i) == bb) {
-            phi->setIncomingValue(i, data.value);
+            phi->setIncomingValue(i, data.exit_cond);
             break;
           }
         }
 
         if (!seen.count(succ)) {
-          work_list.push_back({ succ, phi, false });
+          work_list.push_back({ succ, phi, });
           seen.insert(succ);
         }
 
