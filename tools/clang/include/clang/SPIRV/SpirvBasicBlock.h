@@ -35,7 +35,7 @@ public:
 class SpirvBasicBlock {
 public:
   SpirvBasicBlock(llvm::StringRef name);
-  ~SpirvBasicBlock() = default;
+  ~SpirvBasicBlock();
 
   // Forbid copy construction and assignment
   SpirvBasicBlock(const SpirvBasicBlock &) = delete;

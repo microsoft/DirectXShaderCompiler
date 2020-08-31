@@ -230,7 +230,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   {  OC::WaveActiveAllEqual,      "WaveActiveAllEqual",       OCC::WaveActiveAllEqual,       "waveActiveAllEqual",        { false,  true,  true,  true,  true,  true,  true,  true,  true, false, false}, Attribute::None,     },
   {  OC::WaveActiveBallot,        "WaveActiveBallot",         OCC::WaveActiveBallot,         "waveActiveBallot",          {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
   {  OC::WaveReadLaneAt,          "WaveReadLaneAt",           OCC::WaveReadLaneAt,           "waveReadLaneAt",            { false,  true,  true,  true,  true,  true,  true,  true,  true, false, false}, Attribute::None,     },
-  {  OC::WaveReadLaneFirst,       "WaveReadLaneFirst",        OCC::WaveReadLaneFirst,        "waveReadLaneFirst",         { false,  true,  true, false,  true,  true,  true,  true,  true, false, false}, Attribute::None,     },
+  {  OC::WaveReadLaneFirst,       "WaveReadLaneFirst",        OCC::WaveReadLaneFirst,        "waveReadLaneFirst",         { false,  true,  true,  true,  true,  true,  true,  true,  true, false, false}, Attribute::None,     },
   {  OC::WaveActiveOp,            "WaveActiveOp",             OCC::WaveActiveOp,             "waveActiveOp",              { false,  true,  true,  true,  true,  true,  true,  true,  true, false, false}, Attribute::None,     },
   {  OC::WaveActiveBit,           "WaveActiveBit",            OCC::WaveActiveBit,            "waveActiveBit",             { false, false, false, false, false,  true,  true,  true,  true, false, false}, Attribute::None,     },
   {  OC::WavePrefixOp,            "WavePrefixOp",             OCC::WavePrefixOp,             "wavePrefixOp",              { false,  true,  true,  true, false,  true,  true,  true,  true, false, false}, Attribute::None,     },
@@ -1430,6 +1430,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   DXASSERT(F, "not work on nullptr");
   Type *Ty = F->getReturnType();
   FunctionType *FT = F->getFunctionType();
+  LLVMContext &Ctx = F->getContext();
 /* <py::lines('OPCODE-OLOAD-TYPES')>hctdb_instrhelp.get_funcs_oload_type()</py>*/
   switch (opCode) {            // return     OpCode
   // OPCODE-OLOAD-TYPES:BEGIN
@@ -1521,7 +1522,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::RayQuery_CommitProceduralPrimitiveHit:
   case OpCode::CreateHandleFromHeap:
   case OpCode::AnnotateHandle:
-    return Type::getVoidTy(m_Ctx);
+    return Type::getVoidTy(Ctx);
   case OpCode::CheckAccessFullyMapped:
   case OpCode::AtomicBinOp:
   case OpCode::AtomicCompareExchange:
@@ -1559,7 +1560,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::GeometryIndex:
   case OpCode::RayQuery_CandidateInstanceContributionToHitGroupIndex:
   case OpCode::RayQuery_CommittedInstanceContributionToHitGroupIndex:
-    return IntegerType::get(m_Ctx, 32);
+    return IntegerType::get(Ctx, 32);
   case OpCode::CalculateLOD:
   case OpCode::DomainLocation:
   case OpCode::WorldRayOrigin:
@@ -1585,15 +1586,15 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::RayQuery_CandidateObjectRayDirection:
   case OpCode::RayQuery_CommittedObjectRayOrigin:
   case OpCode::RayQuery_CommittedObjectRayDirection:
-    return Type::getFloatTy(m_Ctx);
+    return Type::getFloatTy(Ctx);
   case OpCode::MakeDouble:
   case OpCode::SplitDouble:
-    return Type::getDoubleTy(m_Ctx);
+    return Type::getDoubleTy(Ctx);
   case OpCode::RayQuery_Proceed:
   case OpCode::RayQuery_CandidateProceduralPrimitiveNonOpaque:
   case OpCode::RayQuery_CandidateTriangleFrontFace:
   case OpCode::RayQuery_CommittedTriangleFrontFace:
-    return IntegerType::get(m_Ctx, 1);
+    return IntegerType::get(Ctx, 1);
   case OpCode::CBufferLoadLegacy:
   case OpCode::Sample:
   case OpCode::SampleBias:

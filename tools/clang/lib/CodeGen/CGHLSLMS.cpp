@@ -3301,8 +3301,13 @@ void CGMSHLSLRuntime::FinishCodeGen() {
   bool bWaveEnabledStage = m_pHLModule->GetShaderModel()->IsPS() ||
                            m_pHLModule->GetShaderModel()->IsCS() ||
                            m_pHLModule->GetShaderModel()->IsLib();
-  if (CGM.getCodeGenOpts().HLSLStructurizeReturns)
-    StructurizeMultiRet(M, m_ScopeMap, bWaveEnabledStage, m_DxBreaks);
+
+  // Handle lang extensions if provided.
+  if (CGM.getCodeGenOpts().HLSLExtensionsCodegen) {
+    ExtensionCodeGen(HLM, CGM);
+  }
+
+  StructurizeMultiRet(M, CGM, m_ScopeMap, bWaveEnabledStage, m_DxBreaks);
 
   FinishEntries(HLM, Entry, CGM, entryFunctionMap, HSEntryPatchConstantFuncAttr,
                 patchConstantFunctionMap, patchConstantFunctionPropsMap);
@@ -3341,10 +3346,6 @@ void CGMSHLSLRuntime::FinishCodeGen() {
   // Add dx.break function and make appropriate breaks conditional on it.
   AddDxBreak(M, m_DxBreaks);
 
-  // Handle lang extensions if provided.
-  if (CGM.getCodeGenOpts().HLSLExtensionsCodegen) {
-    ExtensionCodeGen(HLM, CGM);
-  }
   // At this point, we have a high-level DXIL module - record this.
   SetPauseResumePasses(*m_pHLModule->GetModule(), "hlsl-hlemit",
                        "hlsl-hlensure");

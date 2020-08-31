@@ -8,6 +8,6 @@ RWBuffer<uint> buffer;
 [numthreads(1,1,1)]
 void main()
 {
-	uint unused;
-	InterlockedOr((float)buffer[0], 1, unused);
+	float unused;
+	InterlockedOr((int)buffer[0], 1, unused);
 }

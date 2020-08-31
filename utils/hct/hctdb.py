@@ -1156,7 +1156,7 @@ class db_dxil(object):
             db_dxil_param(2, "$o", "value", "value to read"),
             db_dxil_param(3, "i32", "lane", "lane index")])
         next_op_idx += 1
-        self.add_dxil_op("WaveReadLaneFirst", next_op_idx, "WaveReadLaneFirst", "returns the value from the first lane", "hf18wil", "", [
+        self.add_dxil_op("WaveReadLaneFirst", next_op_idx, "WaveReadLaneFirst", "returns the value from the first lane", "hfd18wil", "", [
             db_dxil_param(0, "$o", "", "operation result"),
             db_dxil_param(2, "$o", "value", "value to read")])
         next_op_idx += 1
@@ -2138,7 +2138,10 @@ class db_dxil(object):
         # C:\nobackup\work\HLSLonLLVM\lib\Transforms\IPO\PassManagerBuilder.cpp:353
         add_pass('indvars', 'IndVarSimplify', "Induction Variable Simplification", [])
         add_pass('loop-idiom', 'LoopIdiomRecognize', "Recognize loop idioms", [])
-        add_pass('dxil-loop-unroll', 'DxilLoopUnroll', 'DxilLoopUnroll', [])
+        add_pass('dxil-loop-unroll', 'DxilLoopUnroll', 'DxilLoopUnroll', [
+            {'n':'MaxIterationAttempt', 't':'unsigned', 'c':1, 'd':'Maximum number of iterations to attempt when iteratively unrolling.'},
+            {'n':'OnlyWarnOnFail', 't':'bool', 'c':1, 'd':'Whether to just warn when unrolling fails.'},
+        ])
         add_pass('dxil-erase-dead-region', 'DxilEraseDeadRegion', 'DxilEraseDeadRegion', [])
         add_pass('dxil-remove-dead-blocks', 'DxilRemoveDeadBlocks', 'DxilRemoveDeadBlocks', [])
         add_pass('loop-deletion', 'LoopDeletion', "Delete dead loops", [])
@@ -2777,6 +2780,7 @@ class db_hlsl(object):
         self.base_types = {
             "bool": "LICOMPTYPE_BOOL",
             "int": "LICOMPTYPE_INT",
+            "int32_only": "LICOMPTYPE_INT32_ONLY",
             "int16_t": "LICOMPTYPE_INT16",
             "uint": "LICOMPTYPE_UINT",
             "uint16_t": "LICOMPTYPE_UINT16",

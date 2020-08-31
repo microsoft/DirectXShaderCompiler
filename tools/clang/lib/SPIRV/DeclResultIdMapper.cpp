@@ -636,7 +636,17 @@ DeclResultIdMapper::getDeclSpirvInfo(const ValueDecl *decl) const {
 
 SpirvInstruction *DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl,
                                                       SourceLocation loc) {
-  if (const auto *info = getDeclSpirvInfo(decl)) {
+  const DeclSpirvInfo *info = getDeclSpirvInfo(decl);
+
+  // If DeclSpirvInfo is not found for this decl, it might be because it is an
+  // implicit VarDecl. All implicit VarDecls are lazily created in order to
+  // avoid creating large number of unused variables/constants/enums.
+  if (!info) {
+    tryToCreateImplicitConstVar(decl);
+    info = getDeclSpirvInfo(decl);
+  }
+
+  if (info) {
     if (info->indexInCTBuffer >= 0) {
       // If this is a VarDecl inside a HLSLBufferDecl, we need to do an extra
       // OpAccessChain to get the pointer to the variable since we created
@@ -1182,7 +1192,7 @@ SpirvFunction *DeclResultIdMapper::getOrRegisterFn(const FunctionDecl *fn) {
   // definition is seen, the parameter types will be set properly and take into
   // account whether the function is a member function of a class/struct (in
   // which case a 'this' parameter is added at the beginnig).
-  SpirvFunction *spirvFunction = new (spvContext) SpirvFunction(
+  SpirvFunction *spirvFunction = spvBuilder.createSpirvFunction(
       fn->getReturnType(), fn->getLocation(), fn->getName(), isPrecise);
 
   // No need to dereference to get the pointer. Function returns that are
@@ -3595,13 +3605,33 @@ DeclResultIdMapper::createRayTracingNVStageVar(spv::StorageClass sc,
   return retVal;
 }
 
-void DeclResultIdMapper::createRayTracingNVImplicitVar(const VarDecl *varDecl) {
+void DeclResultIdMapper::tryToCreateImplicitConstVar(const ValueDecl *decl) {
+  const VarDecl *varDecl = dyn_cast<VarDecl>(decl);
+  if (!varDecl || !varDecl->isImplicit())
+    return;
+
   APValue *val = varDecl->evaluateValue();
-  assert(val);
+  if(!val)
+    return;
+
   SpirvInstruction *constVal =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, val->getInt());
   constVal->setRValue(true);
   astDecls[varDecl].instr = constVal;
+}
+
+SpirvInstruction *DeclResultIdMapper::createHullMainOutputPatch(
+    const ParmVarDecl *param, const QualType retType,
+    uint32_t numOutputControlPoints, SourceLocation loc) {
+  const QualType hullMainRetType = astContext.getConstantArrayType(
+      retType, llvm::APInt(32, numOutputControlPoints),
+      clang::ArrayType::Normal, 0);
+  SpirvInstruction *hullMainOutputPatch = spvBuilder.addModuleVar(
+      hullMainRetType, spv::StorageClass::Workgroup, false,
+      "temp.var.hullMainRetVal", llvm::None, loc);
+  assert(astDecls[param].instr == nullptr);
+  astDecls[param].instr = hullMainOutputPatch;
+  return hullMainOutputPatch;
 }
 
 } // end namespace spirv

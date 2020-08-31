@@ -456,6 +456,7 @@ bool EmitVisitor::visit(SpirvString *inst) {
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
   encodeString(inst->getString());
   finalizeInstruction(&debugFileBinary);
+  stringLiteralMap[inst->getString()] = inst;
   return true;
 }
 

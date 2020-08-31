@@ -3015,9 +3015,19 @@ void StructurizeMultiRetFunction(Function *F, ScopeInfo &ScopeInfo,
 } // namespace
 
 namespace CGHLSLMSHelper {
-void StructurizeMultiRet(Module &M, DenseMap<Function *, ScopeInfo> &ScopeMap,
+void StructurizeMultiRet(Module &M, clang::CodeGen::CodeGenModule &CGM,
+                         DenseMap<Function *, ScopeInfo> &ScopeMap,
                          bool bWaveEnabledStage,
                          SmallVector<BranchInst *, 16> &DxBreaks) {
+  if (CGM.getCodeGenOpts().HLSLExtensionsCodegen) {
+    if (!CGM.getCodeGenOpts().HLSLExtensionsCodegen->IsOptionEnabled("structurize-returns"))
+      return;
+  } else {
+    if (!CGM.getCodeGenOpts().HLSLOptimizationToggles.count("structurize-returns") ||
+        !CGM.getCodeGenOpts().HLSLOptimizationToggles.find("structurize-returns")->second)
+      return;
+  }
+
   for (Function &F : M) {
     if (F.isDeclaration())
       continue;

@@ -38,7 +38,7 @@ if (${ENABLE_SPIRV_CODEGEN})
   endif()
 
   set(SPIRV_DEP_TARGETS
-    SPIRV-Tools
+    SPIRV-Tools-static
     SPIRV-Tools-opt
   )
 

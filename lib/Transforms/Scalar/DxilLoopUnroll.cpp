@@ -114,11 +114,13 @@ public:
   static char ID;
 
   std::unordered_set<Function *> CleanedUpAlloca;
-  const unsigned MaxIterationAttempt;
+  unsigned MaxIterationAttempt = 0;
+  bool OnlyWarnOnFail = false;
 
-  DxilLoopUnroll(unsigned MaxIterationAttempt = 1024) :
+  DxilLoopUnroll(unsigned MaxIterationAttempt = 1024, bool OnlyWarnOnFail=false) :
     LoopPass(ID),
-    MaxIterationAttempt(MaxIterationAttempt)
+    MaxIterationAttempt(MaxIterationAttempt),
+    OnlyWarnOnFail(OnlyWarnOnFail)
   {
     initializeDxilLoopUnrollPass(*PassRegistry::getPassRegistry());
   }
@@ -133,6 +135,18 @@ public:
     AU.addRequired<DxilValueCache>();
     AU.addRequiredID(LoopSimplifyID);
   }
+
+  // Function overrides that resolve options when used for DxOpt
+  void applyOptions(PassOptions O) override {
+    GetPassOptionUnsigned(O, "MaxIterationAttempt", &MaxIterationAttempt, false);
+    GetPassOptionBool(O, "OnlyWarnOnFail", &OnlyWarnOnFail, false);
+  }
+  void dumpConfig(raw_ostream &OS) override {
+    LoopPass::dumpConfig(OS);
+    OS << ",MaxIterationAttempt=" << MaxIterationAttempt;
+    OS << ",OnlyWarnOnFail=" << OnlyWarnOnFail;
+  }
+
 };
 
 char DxilLoopUnroll::ID;
@@ -647,12 +661,6 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   if (!L->isSafeToClone())
     return false;
 
-  bool FxcCompatMode = false;
-  if (F->getParent()->HasHLModule()) {
-    HLModule &HM = F->getParent()->GetHLModule();
-    FxcCompatMode = HM.GetHLOptions().bFXCCompatMode;
-  }
-
   unsigned TripCount = 0;
 
   BasicBlock *ExitingBlock = L->getLoopLatch();
@@ -1006,7 +1014,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
     // Now that we potentially turned some GEP indices into constants,
     // try to clean up their allocas.
-    if (!BreakUpArrayAllocas(FxcCompatMode /* allow oob index */, ProblemAllocas.begin(), ProblemAllocas.end(), DT, AC, DVC)) {
+    if (!BreakUpArrayAllocas(OnlyWarnOnFail /* allow oob index */, ProblemAllocas.begin(), ProblemAllocas.end(), DT, AC, DVC)) {
       FailLoopUnroll(false, F, LoopLoc, "Could not unroll loop due to out of bound array access.");
     }
 
@@ -1018,7 +1026,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     const char *Msg =
         "Could not unroll loop. Loop bound could not be deduced at compile time. "
         "Use [unroll(n)] to give an explicit count.";
-    if (FxcCompatMode) {
+    if (OnlyWarnOnFail) {
       FailLoopUnroll(true /*warn only*/, F, LoopLoc, Msg);
     }
     else {
@@ -1049,8 +1057,8 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
 }
 
-Pass *llvm::createDxilLoopUnrollPass(unsigned MaxIterationAttempt) {
-  return new DxilLoopUnroll(MaxIterationAttempt);
+Pass *llvm::createDxilLoopUnrollPass(unsigned MaxIterationAttempt, bool OnlyWarnOnFail) {
+  return new DxilLoopUnroll(MaxIterationAttempt, OnlyWarnOnFail);
 }
 
 INITIALIZE_PASS_BEGIN(DxilLoopUnroll, "dxil-loop-unroll", "Dxil Unroll loops", false, false)

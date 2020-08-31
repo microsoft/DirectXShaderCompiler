@@ -492,12 +492,28 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   if (!limit.empty())
     opts.ScanLimit = std::stoul(std::string(limit));
 
-  opts.DxcOptimizationOptions = {};
-  std::vector<std::string> DisabledOptimizations = Args.getAllArgValues(OPT_opt_disable);
-  for (std::string opt : DisabledOptimizations) {
-    llvm::StringRef gvn("gvn");
-    if (gvn.equals_lower(opt))
-      opts.DxcOptimizationOptions.DisableGVN = true;
+  for (std::string opt : Args.getAllArgValues(OPT_opt_disable))
+    opts.DxcOptimizationToggles[llvm::StringRef(opt).lower()] = false;
+
+  for (std::string opt : Args.getAllArgValues(OPT_opt_enable)) {
+    if (!opts.DxcOptimizationToggles.insert ( {llvm::StringRef(opt).lower(), true} ).second) {
+      errors << "Contradictory use of -opt-disable and -opt-enable with \""
+             << llvm::StringRef(opt).lower() << "\"";
+      return 1;
+    }
+  }
+
+  std::vector<std::string> optSelects = Args.getAllArgValues(OPT_opt_select);
+  for (unsigned i = 0; i + 1 < optSelects.size(); i+=2) {
+    std::string optimization = llvm::StringRef(optSelects[i]).lower();
+    std::string selection = optSelects[i+1];
+    if (opts.DxcOptimizationSelects.count(optimization) &&
+        selection.compare(opts.DxcOptimizationSelects[optimization])) {
+      errors << "Contradictory -opt-selects for \""
+             << optimization << "\"";
+      return 1;
+    }
+    opts.DxcOptimizationSelects[optimization] = selection;
   }
 
   if (!opts.ForceRootSigVer.empty() && opts.ForceRootSigVer != "rootsig_1_0" &&
@@ -596,7 +612,6 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.DefaultRowMajor = Args.hasFlag(OPT_Zpr, OPT_INVALID, false);
   opts.DefaultColMajor = Args.hasFlag(OPT_Zpc, OPT_INVALID, false);
   opts.DumpBin = Args.hasFlag(OPT_dumpbin, OPT_INVALID, false);
-  opts.StructurizeReturns = Args.hasFlag(OPT_structurize_returns, OPT_INVALID, false);
   opts.NotUseLegacyCBufLoad = Args.hasFlag(OPT_no_legacy_cbuf_layout, OPT_INVALID, false);
   opts.NotUseLegacyCBufLoad = Args.hasFlag(OPT_not_use_legacy_cbuf_load_, OPT_INVALID, opts.NotUseLegacyCBufLoad);
   opts.PackPrefixStable = Args.hasFlag(OPT_pack_prefix_stable, OPT_INVALID, false);
@@ -623,6 +638,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.LegacyMacroExpansion = Args.hasFlag(OPT_flegacy_macro_expansion, OPT_INVALID, false);
   opts.LegacyResourceReservation = Args.hasFlag(OPT_flegacy_resource_reservation, OPT_INVALID, false);
   opts.ExportShadersOnly = Args.hasFlag(OPT_export_shaders_only, OPT_INVALID, false);
+  opts.PrintAfterAll = Args.hasFlag(OPT_print_after_all, OPT_INVALID, false);
   opts.ResMayAlias = Args.hasFlag(OPT_res_may_alias, OPT_INVALID, false);
   opts.ResMayAlias = Args.hasFlag(OPT_res_may_alias_, OPT_INVALID, opts.ResMayAlias);
 
