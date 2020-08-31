@@ -7286,6 +7286,8 @@
             <Parameter Name="Validation.Type">ulp</Parameter>
             <Parameter Name="Validation.Tolerance">0</Parameter>
             <Parameter Name="ShaderOp.Text">
+                <![CDATA[
+
                 struct SPackUnpackOpIn {
                    uint4 inputUint;
                 };
@@ -7321,9 +7323,9 @@
                 uint ppack_u8(uint4 unpackedVal)
                 {
                     uint dst = 0;
-                    for (uint i = 0; i &lt; 4; ++i)
+                    for (uint i = 0; i < 4; ++i)
                     {
-                        dst |= (unpackedVal[i] &amp; 0xFF) &lt;&lt; (i * 8);
+                        dst |= (unpackedVal[i] & 0xFF) << (i * 8);
                     }
 
                     return dst;
@@ -7332,9 +7334,9 @@
                 uint ppack_s8(int4 unpackedVal)
                 {
                     uint dst = 0;
-                    for (uint i = 0; i &lt; 4; ++i)
+                    for (uint i = 0; i < 4; ++i)
                     {
-                        dst |= (unpackedVal[i] &amp; 0xFF) &lt;&lt; (i * 8);
+                        dst |= (unpackedVal[i] & 0xFF) << (i * 8);
                     }
 
                     return dst;
@@ -7346,9 +7348,9 @@
                     uint clamp_max = 255;
 
                     uint32_t dst = 0;
-                    for (uint i = 0; i &lt; 4; ++i)
+                    for (uint i = 0; i < 4; ++i)
                     {
-                        dst |= clamp(unpackedVal[i], clamp_min, clamp_max) &lt;&lt; (i * 8);
+                        dst |= clamp(unpackedVal[i], clamp_min, clamp_max) << (i * 8);
                     }
 
                     return dst;
@@ -7360,9 +7362,9 @@
                     int clamp_max = 127;
 
                     uint32_t dst = 0;
-                    for (uint i = 0; i &lt; 4; ++i)
+                    for (uint i = 0; i < 4; ++i)
                     {
-                        dst |= clamp(unpackedVal[i], clamp_min, clamp_max) &lt;&lt; (i * 8);
+                        dst |= clamp(unpackedVal[i], clamp_min, clamp_max) << (i * 8);
                     }
 
                     return dst;
@@ -7371,10 +7373,10 @@
                 int4 punpack_s8s16(uint packedVal)
                 {
                     int4 ret;
-                    ret[0] = (packedVal &amp; 0x000000FF) &gt;&gt; 0;
-                    ret[1] = (packedVal &amp; 0x0000FF00) &gt;&gt; 8;
-                    ret[2] = (packedVal &amp; 0x00FF0000) &gt;&gt; 16;
-                    ret[3] = (packedVal &amp; 0xFF000000) &gt;&gt; 24;
+                    ret[0] = (packedVal & 0x000000FF) >> 0;
+                    ret[1] = (packedVal & 0x0000FF00) >> 8;
+                    ret[2] = (packedVal & 0x00FF0000) >> 16;
+                    ret[3] = (packedVal & 0xFF000000) >> 24;
                 
                     return ret;
                 }
@@ -7382,10 +7384,10 @@
                 uint4 punpack_u8u16(uint packedVal)
                 {
                     uint4 ret;
-                    ret[0] = (packedVal &amp; 0x000000FF) &gt;&gt; 0;
-                    ret[1] = (packedVal &amp; 0x0000FF00) &gt;&gt; 8;
-                    ret[2] = (packedVal &amp; 0x00FF0000) &gt;&gt; 16;
-                    ret[3] = (packedVal &amp; 0xFF000000) &gt;&gt; 24;
+                    ret[0] = (packedVal & 0x000000FF) >> 0;
+                    ret[1] = (packedVal & 0x0000FF00) >> 8;
+                    ret[2] = (packedVal & 0x00FF0000) >> 16;
+                    ret[3] = (packedVal & 0xFF000000) >> 24;
                 
                     return ret;
                 }
@@ -7393,10 +7395,10 @@
                 int4 punpack_s8s32(uint packedVal)
                 {
                     int4 ret;
-                    ret[0] = (packedVal &amp; 0x000000FF) &gt;&gt; 0;
-                    ret[1] = (packedVal &amp; 0x0000FF00) &gt;&gt; 8;
-                    ret[2] = (packedVal &amp; 0x00FF0000) &gt;&gt; 16;
-                    ret[3] = (packedVal &amp; 0xFF000000) &gt;&gt; 24;
+                    ret[0] = (packedVal & 0x000000FF) >> 0;
+                    ret[1] = (packedVal & 0x0000FF00) >> 8;
+                    ret[2] = (packedVal & 0x00FF0000) >> 16;
+                    ret[3] = (packedVal & 0xFF000000) >> 24;
                 
                     return ret;
                 }
@@ -7404,10 +7406,10 @@
                 uint4 punpack_u8u32(uint packedVal)
                 {
                     uint4 ret;
-                    ret[0] = (packedVal &amp; 0x000000FF) &gt;&gt; 0;
-                    ret[1] = (packedVal &amp; 0x0000FF00) &gt;&gt; 8;
-                    ret[2] = (packedVal &amp; 0x00FF0000) &gt;&gt; 16;
-                    ret[3] = (packedVal &amp; 0xFF000000) &gt;&gt; 24;
+                    ret[0] = (packedVal & 0x000000FF) >> 0;
+                    ret[1] = (packedVal & 0x0000FF00) >> 8;
+                    ret[2] = (packedVal & 0x00FF0000) >> 16;
+                    ret[3] = (packedVal & 0xFF000000) >> 24;
                 
                     return ret;
                 }
@@ -7415,9 +7417,9 @@
                     #define CALL(x) x
                 #endif
 
-                RWStructuredBuffer&lt;SPackUnpackOpIn&gt; g_bufIn : register(u0);
-                RWStructuredBuffer&lt;SPackUnpackOpOutPacked&gt; g_bufOutPacked : register(u1);
-                RWStructuredBuffer&lt;SPackUnpackOpOutPackedUnpacked&gt; g_bufOutPackedUnpacked : register(u2);
+                RWStructuredBuffer<SPackUnpackOpIn> g_bufIn : register(u0);
+                RWStructuredBuffer<SPackUnpackOpOutPacked> g_bufOutPacked : register(u1);
+                RWStructuredBuffer<SPackUnpackOpOutPackedUnpacked> g_bufOutPackedUnpacked : register(u2);
 
                 [numthreads(6,1,1)]
                 void main(uint GI : SV_GroupIndex) {
@@ -7450,6 +7452,7 @@
                     g_bufOutPackedUnpacked[GI].outputClampedUint16 = CALL(unpack_u8u16(g_bufOutPacked[GI].packedClampedUint16));
                     g_bufOutPackedUnpacked[GI].outputClampedInt16  = CALL(unpack_s8s16(g_bufOutPacked[GI].packedClampedInt16));
                 };
+                ]]>
             </Parameter>
             <Parameter Name="Validation.Input">
                 <Value>0</Value>

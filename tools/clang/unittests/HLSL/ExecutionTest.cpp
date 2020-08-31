@@ -6875,21 +6875,32 @@ uint32_t pack(std::array<T, 4> unpackedVals)
     return dst;
 }
 
-template<typename T>
-uint32_t pack_clamp(std::array<T, 4> unpackedVals)
+template <typename T>
+uint32_t pack_clamp_u8(std::array<T, 4> unpackedVals)
 {
-    T clamp_min = std::numeric_limits<uint8_t>::min();
-    T clamp_max = std::numeric_limits<uint8_t>::max();
-    if (std::is_signed<T>::value)
-    {
-        clamp_min = std::numeric_limits<int8_t>::min();
-        clamp_max = std::numeric_limits<int8_t>::max();
-    }
+    int32_t clamp_min = std::numeric_limits<uint8_t>::min();
+    int32_t clamp_max = std::numeric_limits<uint8_t>::max();
 
     uint32_t dst = 0;
     for (uint32_t i = 0U; i < 4U; ++i)
     {
-        T clamped = std::min(std::max(unpackedVals[i], clamp_min), clamp_max);
+        int32_t clamped = std::min(std::max((int32_t)unpackedVals[i], clamp_min), clamp_max);
+        dst |= ((uint32_t)clamped) << (i * 8);
+    }
+
+    return dst;
+}
+
+template <typename T>
+uint32_t pack_clamp_s8(std::array<T, 4> unpackedVals)
+{
+    int32_t clamp_min = std::numeric_limits<int8_t>::min();
+    int32_t clamp_max = std::numeric_limits<int8_t>::max();
+
+    uint32_t dst = 0;
+    for (uint32_t i = 0U; i < 4U; ++i)
+    {
+        int32_t clamped = std::min(std::max((int32_t)unpackedVals[i], clamp_min), clamp_max);
         dst |= ((uint32_t)clamped) << (i * 8);
     }
 
@@ -6977,10 +6988,10 @@ TEST_F(ExecutionTest, PackUnpackTest) {
                 expectedPacked[i].packedUint16 = pack(inputUint16);
                 expectedPacked[i].packedInt16 = pack(inputInt16);
                 // pack clamped
-                expectedPacked[i].packedClampedUint32 = pack_clamp(inputUint32);
-                expectedPacked[i].packedClampedInt32 = pack_clamp(inputInt32);
-                expectedPacked[i].packedClampedUint16 = pack_clamp(inputUint16);
-                expectedPacked[i].packedClampedInt16 = pack_clamp(inputInt16);
+                expectedPacked[i].packedClampedUint32 = pack_clamp_u8(inputInt32);
+                expectedPacked[i].packedClampedInt32 = pack_clamp_s8(inputInt32);
+                expectedPacked[i].packedClampedUint16 = pack_clamp_u8(inputInt16);
+                expectedPacked[i].packedClampedInt16 = pack_clamp_s8(inputInt16);
 
                 // unpack
                 expectedUnpacked[i].outputUint32 = unpack<XMUINT4>(expectedPacked[i].packedUint32);
