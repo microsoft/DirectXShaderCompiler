@@ -443,7 +443,7 @@ void ShaderOpTest::CreatePipelineState() {
       UINT                          NodeMask;
       D3D12_CACHED_PIPELINE_STATE   CachedPSO;
       D3D12_PIPELINE_STATE_FLAGS    Flags;
-    } MDesc;
+    } MDesc = {};
 
     CComPtr<ID3D10Blob> pAS, pMS, pPS;
     pAS = map_get_or_null(m_Shaders, m_pShaderOp->AS);
