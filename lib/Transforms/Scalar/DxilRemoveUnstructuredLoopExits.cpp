@@ -172,9 +172,10 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop
     BasicBlock *latch = L->getLoopLatch();
     BasicBlock *latch_exit = GetExitBlockForExitingBlock(L, latch);
 
-    // If there's no single predecessor of latch exit, don't risk it.
-    if (!latch_exit->getSinglePredecessor())
+    // If the latch and the exiting block go to the same place, then we probably already fixed this exit.
+    if (exit_block == latch_exit) {
       return false;
+    }
 
     for (Instruction &I : *exit_block) {
       if (PHINode *phi = dyn_cast<PHINode>(&I)) {
@@ -340,15 +341,8 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop
   assert(exit_cond_dominates_latch);
   assert(new_exiting_block);
 
-  // Split the block in two
+  // Split the block where we're now exiting from, and branch to latch exit
   BasicBlock *latch_exit = GetExitBlockForExitingBlock(L, L->getLoopLatch());
-  BasicBlock *exit_location = latch_exit->splitBasicBlock(latch_exit->getFirstNonPHI());
-  BasicBlock *post_exit_location = exit_location->splitBasicBlock(exit_location->begin());
-  if (Loop *outer_loop = LI->getLoopFor(latch_exit)) {
-    outer_loop->addBasicBlockToLoop(exit_location, *LI);
-    outer_loop->addBasicBlockToLoop(post_exit_location, *LI);
-  }
-
   StringRef old_name = new_exiting_block->getName();
   BasicBlock *new_not_exiting_block = new_exiting_block->splitBasicBlock(new_exiting_block->getFirstNonPHI());
   new_exiting_block->setName("dx.struct_exit.new_exiting");
@@ -356,16 +350,51 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop
   L->addBasicBlockToLoop(new_not_exiting_block, *LI);
 
   new_exiting_block->getTerminator()->eraseFromParent();
-  BranchInst::Create(exit_location, new_not_exiting_block, exit_cond_dominates_latch, new_exiting_block);
+  BranchInst::Create(latch_exit, new_not_exiting_block, exit_cond_dominates_latch, new_exiting_block);
 
-  PHINode *exit_cond_lcssa = PHINode::Create(exit_cond_dominates_latch->getType(), 2, "dx.struct_exit.exit_cond_lcssa", exit_location->begin());
-  exit_cond_lcssa->addIncoming(ConstantInt::getFalse(i1Ty), latch_exit);
-  exit_cond_lcssa->addIncoming(exit_cond_dominates_latch, new_exiting_block);
+  // Split the latch exit, since it's going to branch to the real exit block
+  BasicBlock *post_exit_location = latch_exit->splitBasicBlock(latch_exit->getFirstNonPHI());
+  // If latch exit is part of an outer loop, add its split in there too.
+  if (Loop *outer_loop = LI->getLoopFor(latch_exit)) {
+    outer_loop->addBasicBlockToLoop(post_exit_location, *LI);
+  }
+  // If the original exit block is part of an outer loop, then latch exit (which is the
+  // new exit block) must be part of it, since all blocks that branch to within
+  // a loop must be part of that loop structure.
+  else if (Loop *outer_loop = LI->getLoopFor(exit_block)) {
+    outer_loop->addBasicBlockToLoop(latch_exit, *LI);
+  }
 
-  exit_location->getTerminator()->eraseFromParent();
-  BranchInst::Create(exit_block, post_exit_location, exit_cond_lcssa, exit_location);
+  // Since now new exiting block is branching to latch exit, its phis need to be updated.
+  for (Instruction &inst : *latch_exit) {
+    PHINode *phi = dyn_cast<PHINode>(&inst);
+    if (!phi)
+      break;
+    phi->addIncoming(UndefValue::get(phi->getType()), new_exiting_block);
+  }
 
-  // Fix the lcssa phi's in the exit block, and insert new ones in the latch exit to maintain
+  unsigned latch_exit_num_predecessors = 0;
+  for (BasicBlock *pred : llvm::predecessors(latch_exit)) {
+    (void)pred;
+    latch_exit_num_predecessors++;
+  }
+
+  // Make exit condition visible
+  PHINode *exit_cond_lcssa = PHINode::Create(exit_cond_dominates_latch->getType(), latch_exit_num_predecessors, "dx.struct_exit.exit_cond_lcssa", latch_exit->begin());
+  for (BasicBlock *pred : llvm::predecessors(latch_exit)) {
+    if (pred == new_exiting_block) {
+      exit_cond_lcssa->addIncoming(exit_cond_dominates_latch, pred);
+    }
+    else {
+      exit_cond_lcssa->addIncoming(ConstantInt::getFalse(exit_cond_lcssa->getType()), pred);
+    }
+  }
+
+  // Take the exit outside the loop.
+  latch_exit->getTerminator()->eraseFromParent();
+  BranchInst::Create(exit_block, post_exit_location, exit_cond_lcssa, latch_exit);
+
+  // Fix the phi's in the real exit block, and insert phis in the latch exit to maintain
   // lcssa form.
   for (Instruction &inst : *exit_block) {
     PHINode *phi = dyn_cast<PHINode>(&inst);
@@ -374,27 +403,21 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop
 
     for (unsigned i = 0; i < phi->getNumIncomingValues(); i++) {
       if (phi->getIncomingBlock(i) == exiting_block) {
-        phi->setIncomingBlock(i, exit_location);
+        phi->setIncomingBlock(i, latch_exit);
 
-        PHINode *lcssa_phi = PHINode::Create(phi->getType(), 2, "dx.struct_exit.lcssa_phi", exit_location->begin());
-        lcssa_phi->addIncoming(phi->getIncomingValue(i), new_exiting_block);
-        lcssa_phi->addIncoming(UndefValue::get(lcssa_phi->getType()), latch_exit);
+        PHINode *lcssa_phi = PHINode::Create(phi->getType(), latch_exit_num_predecessors, "dx.struct_exit.lcssa_phi", latch_exit->begin());
+        for (BasicBlock *pred : llvm::predecessors(latch_exit)) {
+          if (pred == new_exiting_block) {
+            lcssa_phi->addIncoming(phi->getIncomingValue(i), new_exiting_block);
+          }
+          else {
+            lcssa_phi->addIncoming(UndefValue::get(lcssa_phi->getType()), pred);
+          }
+        }
 
         phi->setIncomingValue(i, lcssa_phi);
       }
     }
-  }
-
-  for (Instruction &inst : *latch_exit) {
-    PHINode *phi = dyn_cast<PHINode>(&inst);
-    if (!phi)
-      break;
-
-    PHINode *new_phi = PHINode::Create(phi->getType(), 2, "", exit_location->begin());
-    phi->replaceAllUsesWith(new_phi);
-
-    new_phi->addIncoming(phi, latch_exit);
-    new_phi->addIncoming(UndefValue::get(phi->getType()), new_exiting_block);
   }
 
   DT->recalculate(*L->getHeader()->getParent());
@@ -410,9 +433,15 @@ bool hlsl::RemoveUnstructuredLoopExits(llvm::Loop *L, llvm::LoopInfo *LI, llvm::
   if (!L->isLCSSAForm(*DT))
     return false;
 
+  // Give up if loop is not rotated somehow
+  if (BasicBlock *latch = L->getLoopLatch()) {
+    if (!cast<BranchInst>(latch->getTerminator())->isConditional())
+      return false;
+  }
   // Give up if there's not a single latch
-  if (!L->getLoopLatch())
+  else {
     return false;
+  }
 
   for (;;) {
     // Recompute exiting block every time, since they could change between
@@ -422,7 +451,8 @@ bool hlsl::RemoveUnstructuredLoopExits(llvm::Loop *L, llvm::LoopInfo *LI, llvm::
 
     bool local_changed = false;
     for (BasicBlock *exiting_block : exiting_blocks) {
-      if (L->getLoopLatch() == exiting_block)
+      auto latch = L->getLoopLatch();
+      if (latch == exiting_block)
         continue;
 
       if (exclude_set && exclude_set->count(GetExitBlockForExitingBlock(L, exiting_block)))
