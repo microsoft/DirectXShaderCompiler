@@ -1,8 +1,7 @@
+// RUN: %dxc -Zi -E main -O3 -T ps_6_0 %s | FileCheck %s
 // RUN: %dxc -Zi -E main -Od -T ps_6_0 %s -DFORCE_UNROLL | FileCheck %s
 // RUN: %dxc -Zi -E main -T ps_6_0 %s -DFORCE_UNROLL | FileCheck %s
 
-// CHECK: %{{.+}} = call float @dx.op.unary.f32(i32 13
-// CHECK: %{{.+}} = call float @dx.op.unary.f32(i32 13
 // CHECK: %{{.+}} = call float @dx.op.unary.f32(i32 13
 // CHECK: %{{.+}} = call float @dx.op.unary.f32(i32 13
 // CHECK: %{{.+}} = call float @dx.op.unary.f32(i32 13
@@ -15,7 +14,6 @@
 #else
 #define UNROLL
 #endif
-#define COUNT 5
 
 Texture2D tex0;
 RWTexture1D<float> uav0;
@@ -27,9 +25,9 @@ const uint idx;
 float main(uint a : A, uint b : B, uint c : C) : SV_Target {
 
   float ret = 0;
-  float array[COUNT] = {1.0, 2.0, 3.0, 4.0, 5.0};
+  float array[] = {1.0, 2.0, 3.0,};
 
-  UNROLL for(uint i = 1; i <= COUNT; i++) {
+  UNROLL for(uint i = 1; i <= 3; i++) {
 
     if ((a * i) & c) {
       ret += sin(i * b); // check for sin

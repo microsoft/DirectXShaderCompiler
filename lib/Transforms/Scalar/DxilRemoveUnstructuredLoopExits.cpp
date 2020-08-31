@@ -44,6 +44,7 @@
 //
 //      bool broke_0 = false;
 //      bool broke_1 = false;
+//
 //      for(;;) {
 //        if (a) {
 //          if (b) {
@@ -73,12 +74,16 @@
 //        }
 //
 //        if (!broke_0) {
-//          if (!broke_1) {
-//            code_3;
-//          }
+//          break;
 //        }
 //
-//        if (exit || broke_0 || broke_1)
+//        if (!broke_1) {
+//          break;
+//        }
+//
+//        code_3;
+//
+//        if (exit)
 //          break;
 //      }
 //
@@ -193,6 +198,7 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop
   Value *exit_cond = exiting_br->getCondition();
 
   Value *exit_cond_dominates_latch = nullptr;
+  BasicBlock *new_exiting_block = nullptr;
   SmallVector<std::pair<BasicBlock *, Value *>, 4> blocks_with_side_effect;
   bool give_up = false;
   std::unordered_map<BasicBlock *, PHINode *> cached_phis;
@@ -219,6 +225,13 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop
 
       BasicBlock *bb = data.bb;
 
+      // Don't continue to propagate when we hit the latch
+      if (bb == latch && DT->dominates(bb, latch)) {
+        exit_cond_dominates_latch = data.exit_cond;
+        new_exiting_block = bb;
+        continue;
+      }
+
       // Do not include the exiting block itself in this calculation
       if (i != 0) {
         // If this block is part of an inner loop... Give up for now.
@@ -235,12 +248,6 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop
           }
         }
       } // If this is not the first iteration
-
-      // Don't continue to propagate when we hit the latch
-      if (data.bb == latch) {
-        exit_cond_dominates_latch = data.exit_cond;
-        continue;
-      }
 
       for (BasicBlock *succ : llvm::successors(bb)) {
         if (!L->contains(succ))
@@ -268,7 +275,6 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop
         }
 
       } // for each succ
-
     } // for each in worklist
   } // if exit condition is an instruction
 
@@ -332,31 +338,32 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop
   } // For each bb with side effect
 
   assert(exit_cond_dominates_latch);
+  assert(new_exiting_block);
 
-  // Compute the latch here, since it might have changed.
-  BasicBlock *latch = L->getLoopLatch();
-  BranchInst *latch_br = cast <BranchInst>(latch->getTerminator());
-  IRBuilder<> builder(latch_br);
-  if (latch_br->getSuccessor(0) == L->getHeader()) {
-    Value *new_cond = builder.CreateAnd(latch_br->getCondition(), builder.CreateNot(exit_cond_dominates_latch));
-    latch_br->setCondition(new_cond);
-  }
-  else {
-    Value *new_cond = builder.CreateOr(latch_br->getCondition(), exit_cond_dominates_latch);
-    latch_br->setCondition(new_cond);
-  }
-
-  BasicBlock *latch_exit = GetExitBlockForExitingBlock(L, latch);
-  BasicBlock *after_latch_exit = latch_exit->splitBasicBlock(latch_exit->getFirstNonPHI());
+  // Split the block in two
+  BasicBlock *latch_exit = GetExitBlockForExitingBlock(L, L->getLoopLatch());
+  BasicBlock *exit_location = latch_exit->splitBasicBlock(latch_exit->getFirstNonPHI());
+  BasicBlock *post_exit_location = exit_location->splitBasicBlock(exit_location->begin());
   if (Loop *outer_loop = LI->getLoopFor(latch_exit)) {
-    outer_loop->addBasicBlockToLoop(after_latch_exit, *LI);
+    outer_loop->addBasicBlockToLoop(exit_location, *LI);
+    outer_loop->addBasicBlockToLoop(post_exit_location, *LI);
   }
 
-  PHINode *exit_cond_lcssa = PHINode::Create(exit_cond_dominates_latch->getType(), 1, "dx.struct_exit.exit_cond_lcssa", latch_exit->begin());
-  exit_cond_lcssa->addIncoming(exit_cond_dominates_latch, latch);
+  StringRef old_name = new_exiting_block->getName();
+  BasicBlock *new_not_exiting_block = new_exiting_block->splitBasicBlock(new_exiting_block->getFirstNonPHI());
+  new_exiting_block->setName("dx.struct_exit.new_exiting");
+  new_not_exiting_block->setName(old_name);
+  L->addBasicBlockToLoop(new_not_exiting_block, *LI);
 
-  latch_exit->getTerminator()->eraseFromParent();
-  BranchInst::Create(exit_block, after_latch_exit, exit_cond_lcssa, latch_exit);
+  new_exiting_block->getTerminator()->eraseFromParent();
+  BranchInst::Create(exit_location, new_not_exiting_block, exit_cond_dominates_latch, new_exiting_block);
+
+  PHINode *exit_cond_lcssa = PHINode::Create(exit_cond_dominates_latch->getType(), 2, "dx.struct_exit.exit_cond_lcssa", exit_location->begin());
+  exit_cond_lcssa->addIncoming(ConstantInt::getFalse(i1Ty), latch_exit);
+  exit_cond_lcssa->addIncoming(exit_cond_dominates_latch, new_exiting_block);
+
+  exit_location->getTerminator()->eraseFromParent();
+  BranchInst::Create(exit_block, post_exit_location, exit_cond_lcssa, exit_location);
 
   // Fix the lcssa phi's in the exit block, and insert new ones in the latch exit to maintain
   // lcssa form.
@@ -367,14 +374,27 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop
 
     for (unsigned i = 0; i < phi->getNumIncomingValues(); i++) {
       if (phi->getIncomingBlock(i) == exiting_block) {
-        phi->setIncomingBlock(i, latch_exit);
+        phi->setIncomingBlock(i, exit_location);
 
-        PHINode *lcssa_phi = PHINode::Create(phi->getType(), 1, "dx.struct_exit.lcssa_phi", latch_exit->begin());
-        lcssa_phi->addIncoming(phi->getIncomingValue(i), latch);
+        PHINode *lcssa_phi = PHINode::Create(phi->getType(), 2, "dx.struct_exit.lcssa_phi", exit_location->begin());
+        lcssa_phi->addIncoming(phi->getIncomingValue(i), new_exiting_block);
+        lcssa_phi->addIncoming(UndefValue::get(lcssa_phi->getType()), latch_exit);
 
         phi->setIncomingValue(i, lcssa_phi);
       }
     }
+  }
+
+  for (Instruction &inst : *latch_exit) {
+    PHINode *phi = dyn_cast<PHINode>(&inst);
+    if (!phi)
+      break;
+
+    PHINode *new_phi = PHINode::Create(phi->getType(), 2, "", exit_location->begin());
+    phi->replaceAllUsesWith(new_phi);
+
+    new_phi->addIncoming(phi, latch_exit);
+    new_phi->addIncoming(UndefValue::get(phi->getType()), new_exiting_block);
   }
 
   DT->recalculate(*L->getHeader()->getParent());
