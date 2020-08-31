@@ -996,11 +996,8 @@ public:
     HRESULT hr = S_FALSE;
     if (UseDebugIfaces()) {
       CComPtr<ID3D12Debug> debugController;
+      hr = D3D12GetDebugInterface(IID_PPV_ARGS(&debugController));
       if (SUCCEEDED(hr)) {
-                hr = D3D12GetDebugInterface(IID_PPV_ARGS(&debugController));
-              CComPtr<ID3D12Debug1> spDebugController1;
-        VERIFY_SUCCEEDED(debugController->QueryInterface(IID_PPV_ARGS(&spDebugController1)));
-        spDebugController1->SetEnableGPUBasedValidation(true);
         debugController->EnableDebugLayer();
         hr = S_OK;
       }
