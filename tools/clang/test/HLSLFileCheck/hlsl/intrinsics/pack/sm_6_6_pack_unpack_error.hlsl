@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_5 -enable-16bit-types  %s | FileCheck %s
+// RUN: %dxilver 1.6 | %dxc -T ps_6_5 -enable-16bit-types  %s | FileCheck %s
 
 // CHECK: Opcode Pack4x8 not valid in shader model ps_6_5
 // CHECK: Opcode Pack4x8 not valid in shader model ps_6_5

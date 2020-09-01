@@ -1,6 +1,6 @@
 // RUN: %dxc -T ps_6_6 %s | FileCheck %s -check-prefix=CHECK
 
-// RUN: %dxc -T ps_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
+// RUN: %dxilver 1.6 | %dxc -T ps_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
 
 // Verify that the second arg determines the overload and the others can be what they will
 

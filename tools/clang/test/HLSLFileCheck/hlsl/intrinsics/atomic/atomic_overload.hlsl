@@ -3,8 +3,8 @@
 // RUN: %dxc -no-warnings -T vs_6_2 -DTYPE=int16_t -enable-16bit-types  %s | %FileCheck %s -check-prefixes=INTFAIL,FLTFAIL
 // RUN: %dxc -no-warnings -T vs_6_2 -DTYPE=uint16_t -enable-16bit-types  %s | %FileCheck %s -check-prefixes=INTFAIL,FLTFAIL
 // RUN: %dxc -no-warnings -T vs_6_0 -DTYPE=bool  %s | %FileCheck %s -check-prefixes=INTFAIL,FLTFAIL
-// RUN: %dxc -no-warnings -T vs_6_5 -DTYPE=int64_t  %s | %FileCheck %s -check-prefix=VALFAIL
-// RUN: %dxc -no-warnings -T vs_6_5 -DTYPE=uint64_t  %s | %FileCheck %s -check-prefix=VALFAIL
+// RUN: %dxilver 1.6 | %dxc -no-warnings -T vs_6_5 -DTYPE=int64_t  %s | %FileCheck %s -check-prefix=VALFAIL
+// RUN: %dxilver 1.6 | %dxc -no-warnings -T vs_6_5 -DTYPE=uint64_t  %s | %FileCheck %s -check-prefix=VALFAIL
 
 
 // RUN: %dxc -no-warnings -T vs_6_0 -DTYPE=float  %s | %FileCheck %s -check-prefixes=INTFAIL,
