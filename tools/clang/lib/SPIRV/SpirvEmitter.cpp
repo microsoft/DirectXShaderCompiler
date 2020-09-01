@@ -4922,12 +4922,26 @@ SpirvInstruction *SpirvEmitter::doUnaryOperator(const UnaryOperator *expr) {
     return subValue;
   case UO_Minus: {
     // SPIR-V have two opcodes for negating values: OpSNegate and OpFNegate.
-    const spv::Op spvOp = isFloatOrVecOfFloatType(subType) ? spv::Op::OpFNegate
-                                                           : spv::Op::OpSNegate;
-    subValue = spvBuilder.createUnaryOp(spvOp, subType, subValue,
+    const spv::Op spvOp = isFloatOrVecMatOfFloatType(subType)
+                              ? spv::Op::OpFNegate
+                              : spv::Op::OpSNegate;
+
+    if (isMxNMatrix(subType)) {
+      // For matrices, we can only negate each vector of it.
+      const auto actOnEachVec = [this, spvOp, expr](uint32_t /*index*/,
+                                                    QualType vecType,
+                                                    SpirvInstruction *lhsVec) {
+        return spvBuilder.createUnaryOp(spvOp, vecType, lhsVec,
                                         expr->getOperatorLoc());
-    subValue->setRValue();
-    return subValue;
+      };
+      return processEachVectorInMatrix(subExpr, subValue, actOnEachVec,
+                                       expr->getLocStart());
+    } else {
+      subValue = spvBuilder.createUnaryOp(spvOp, subType, subValue,
+                                          expr->getOperatorLoc());
+      subValue->setRValue();
+      return subValue;
+    }
   }
   default:
     break;
