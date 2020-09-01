@@ -2660,14 +2660,56 @@ SpirvInstruction *
 SpirvEmitter::doConditionalOperator(const ConditionalOperator *expr) {
   const auto type = expr->getType();
   const SourceLocation loc = expr->getExprLoc();
+  const Expr *cond = expr->getCond();
+  const Expr *falseExpr = expr->getFalseExpr();
+  const Expr *trueExpr = expr->getTrueExpr();
 
   // According to HLSL doc, all sides of the ?: expression are always evaluated.
 
+  // Corner-case: In HLSL, the condition of the ternary operator can be a
+  // matrix of booleans which results in selecting between components of two
+  // matrices. However, a matrix of booleans is not a valid type in SPIR-V.
+  // If the AST has inserted a splat of a scalar/vector to a matrix, we can just
+  // use that scalar/vector as an if-clause condition.
+  if (auto *cast = dyn_cast<ImplicitCastExpr>(cond))
+    if (cast->getCastKind() == CK_HLSLMatrixSplat)
+      cond = cast->getSubExpr();
+
   // If we are selecting between two SampleState objects, none of the three
   // operands has a LValueToRValue implicit cast.
-  auto *condition = loadIfGLValue(expr->getCond());
-  auto *trueBranch = loadIfGLValue(expr->getTrueExpr());
-  auto *falseBranch = loadIfGLValue(expr->getFalseExpr());
+  auto *condition = loadIfGLValue(cond);
+  auto *trueBranch = loadIfGLValue(trueExpr);
+  auto *falseBranch = loadIfGLValue(falseExpr);
+
+  // Corner-case: In HLSL, the condition of the ternary operator can be a
+  // matrix of booleans which results in selecting between components of two
+  // matrices. However, a matrix of booleans is not a valid type in SPIR-V.
+  // Therefore, we need to perform OpSelect for each row of the matrix.
+  {
+    QualType condElemType = {}, elemType = {};
+    uint32_t rowCount = 0, colCount = 0;
+    if (isMxNMatrix(type, &elemType, &rowCount, &colCount) &&
+        isMxNMatrix(cond->getType(), &condElemType) &&
+        condElemType->isBooleanType()) {
+      const auto rowType = astContext.getExtVectorType(elemType, colCount);
+      const auto condRowType =
+          astContext.getExtVectorType(condElemType, colCount);
+      llvm::SmallVector<SpirvInstruction *, 4> rows;
+      for (uint32_t i = 0; i < rowCount; ++i) {
+        auto *condRow =
+            spvBuilder.createCompositeExtract(condRowType, condition, {i}, loc);
+        auto *trueRow =
+            spvBuilder.createCompositeExtract(rowType, trueBranch, {i}, loc);
+        auto *falseRow =
+            spvBuilder.createCompositeExtract(rowType, falseBranch, {i}, loc);
+        rows.push_back(
+            spvBuilder.createSelect(rowType, condRow, trueRow, falseRow, loc));
+      }
+      auto *result = spvBuilder.createCompositeConstruct(type, rows, loc);
+      result->setRValue();
+      return result;
+    }
+  }
 
   // For cases where the return type is a scalar or a vector, we can use
   // OpSelect to choose between the two. OpSelect's return type must be either
