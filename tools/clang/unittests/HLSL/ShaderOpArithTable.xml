@@ -7306,24 +7306,24 @@
                 };
 
                 struct SPackUnpackOpOutPackedUnpacked {
-                   uint4 outputUint32;
-                   int4 outputInt32;
-                   uint4 outputUint16;
-                   int4 outputInt16;
+                   uint32_t4 outputUint32;
+                   int32_t4 outputInt32;
+                   uint16_t4 outputUint16;
+                   int16_t4 outputInt16;
 
-                   uint4 outputClampedUint32;
-                   int4 outputClampedInt32;
-                   uint4 outputClampedUint16;
-                   int4 outputClampedInt16;
+                   uint32_t4 outputClampedUint32;
+                   int32_t4 outputClampedInt32;
+                   uint16_t4 outputClampedUint16;
+                   int16_t4 outputClampedInt16;
                 };
 
                 #ifdef PACKUNPACK_PLACEHOLDER
                     #define CALL(x) p##x
 
-                uint ppack_u8(uint4 unpackedVal)
+                uint32_t ppack_u8(uint32_t4 unpackedVal)
                 {
-                    uint dst = 0;
-                    for (uint i = 0; i < 4; ++i)
+                    uint32_t dst = 0;
+                    for (uint32_t i = 0; i < 4; ++i)
                     {
                         dst |= (unpackedVal[i] & 0xFF) << (i * 8);
                     }
@@ -7331,10 +7331,10 @@
                     return dst;
                 }
 
-                uint ppack_s8(int4 unpackedVal)
+                uint32_t ppack_s8(int32_t4 unpackedVal)
                 {
-                    uint dst = 0;
-                    for (uint i = 0; i < 4; ++i)
+                    uint32_t dst = 0;
+                    for (uint32_t i = 0; i < 4; ++i)
                     {
                         dst |= (unpackedVal[i] & 0xFF) << (i * 8);
                     }
@@ -7342,10 +7342,10 @@
                     return dst;
                 }
 
-                uint ppack_clamp_u8(int4 unpackedVal)
+                uint32_t ppack_clamp_u8(int32_t4 unpackedVal)
                 {
-                    uint clamp_min = 0;
-                    uint clamp_max = 255;
+                    int32_t clamp_min = 0;
+                    int32_t clamp_max = 255;
 
                     uint32_t dst = 0;
                     for (uint i = 0; i < 4; ++i)
@@ -7356,10 +7356,10 @@
                     return dst;
                 }
 
-                uint ppack_clamp_s8(int4 unpackedVal)
+                uint32_t ppack_clamp_s8(int32_t4 unpackedVal)
                 {
-                    int clamp_min = -128;
-                    int clamp_max = 127;
+                    int32_t clamp_min = -128;
+                    int32_t clamp_max = 127;
 
                     uint32_t dst = 0;
                     for (uint i = 0; i < 4; ++i)
@@ -7370,9 +7370,31 @@
                     return dst;
                 }
 
-                int4 punpack_s8s16(uint packedVal)
+                int16_t4 punpack_s8s16(uint32_t packedVal)
                 {
-                    int4 ret;
+                    int16_t4 ret;
+                    ret[0] = (int16_t)((packedVal & 0x000000FF) >> 0);
+                    ret[1] = (int16_t)((packedVal & 0x0000FF00) >> 8);
+                    ret[2] = (int16_t)((packedVal & 0x00FF0000) >> 16);
+                    ret[3] = (int16_t)((packedVal & 0xFF000000) >> 24);
+                
+                    return ret;
+                }
+                  
+                uint16_t4 punpack_u8u16(uint32_t packedVal)
+                {
+                    uint16_t4 ret;
+                    ret[0] = (uint16_t)((packedVal & 0x000000FF) >> 0);
+                    ret[1] = (uint16_t)((packedVal & 0x0000FF00) >> 8);
+                    ret[2] = (uint16_t)((packedVal & 0x00FF0000) >> 16);
+                    ret[3] = (uint16_t)((packedVal & 0xFF000000) >> 24);
+                
+                    return ret;
+                }
+                  
+                int32_t4 punpack_s8s32(uint32_t packedVal)
+                {
+                    int32_t4 ret;
                     ret[0] = (packedVal & 0x000000FF) >> 0;
                     ret[1] = (packedVal & 0x0000FF00) >> 8;
                     ret[2] = (packedVal & 0x00FF0000) >> 16;
@@ -7381,31 +7403,9 @@
                     return ret;
                 }
                   
-                uint4 punpack_u8u16(uint packedVal)
+                uint32_t4 punpack_u8u32(uint32_t packedVal)
                 {
-                    uint4 ret;
-                    ret[0] = (packedVal & 0x000000FF) >> 0;
-                    ret[1] = (packedVal & 0x0000FF00) >> 8;
-                    ret[2] = (packedVal & 0x00FF0000) >> 16;
-                    ret[3] = (packedVal & 0xFF000000) >> 24;
-                
-                    return ret;
-                }
-                  
-                int4 punpack_s8s32(uint packedVal)
-                {
-                    int4 ret;
-                    ret[0] = (packedVal & 0x000000FF) >> 0;
-                    ret[1] = (packedVal & 0x0000FF00) >> 8;
-                    ret[2] = (packedVal & 0x00FF0000) >> 16;
-                    ret[3] = (packedVal & 0xFF000000) >> 24;
-                
-                    return ret;
-                }
-                  
-                uint4 punpack_u8u32(uint packedVal)
-                {
-                    uint4 ret;
+                    uint32_t4 ret;
                     ret[0] = (packedVal & 0x000000FF) >> 0;
                     ret[1] = (packedVal & 0x0000FF00) >> 8;
                     ret[2] = (packedVal & 0x00FF0000) >> 16;
@@ -7425,10 +7425,10 @@
                 void main(uint GI : SV_GroupIndex) {
                     SPackUnpackOpIn input = g_bufIn[GI];
 
-                    uint4 inputUint32 = input.inputUint;
-                    int4 inputInt32 = (int4)inputUint32;
-                    uint4 inputUint16 = inputUint32;
-                    int4 inputInt16 = inputInt32;
+                    uint32_t4 inputUint32 = input.inputUint;
+                    int32_t4 inputInt32 = (int32_t4)inputUint32;
+                    uint16_t4 inputUint16 = inputUint32;
+                    int16_t4 inputInt16 = inputInt32;
 
                     // First pack without clamp
                     g_bufOutPacked[GI].packedUint32 = CALL(pack_u8(inputUint32));

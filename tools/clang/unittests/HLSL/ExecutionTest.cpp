@@ -2839,15 +2839,15 @@ struct SPackUnpackOpOutPacked
 };
 
 struct SPackUnpackOpOutUnpacked {
-    XMUINT4 outputUint32;
-    XMINT4 outputInt32;
-    XMUINT4 outputUint16;
-    XMINT4 outputInt16;
+    std::array<uint32_t, 4> outputUint32;
+    std::array<int32_t,  4> outputInt32;
+    std::array<uint16_t, 4> outputUint16;
+    std::array<int16_t,  4> outputInt16;
 
-    XMUINT4 outputClampedUint32;
-    XMINT4 outputClampedInt32;
-    XMUINT4 outputClampedUint16;
-    XMINT4 outputClampedInt16;
+    std::array<uint32_t, 4> outputClampedUint32;
+    std::array<int32_t,  4> outputClampedInt32;
+    std::array<uint16_t, 4> outputClampedUint16;
+    std::array<int16_t,  4> outputClampedInt16;
 };
 
 
@@ -6905,13 +6905,13 @@ uint32_t pack_clamp_s8(std::array<T, 4> unpackedVals)
 }
 
 template<typename T>
-T unpack(uint32_t packedVal)
+std::array<T, 4> unpack(uint32_t packedVal)
 {   
-    T ret;
-    ret.x = (packedVal & 0x000000FF) >> 0;
-    ret.y = (packedVal & 0x0000FF00) >> 8;
-    ret.z = (packedVal & 0x00FF0000) >> 16;
-    ret.w = (packedVal & 0xFF000000) >> 24;
+    std::array<T, 4> ret;
+    ret[0] = (packedVal & 0x000000FF) >> 0;
+    ret[1] = (packedVal & 0x0000FF00) >> 8;
+    ret[2] = (packedVal & 0x00FF0000) >> 16;
+    ret[3] = (packedVal & 0xFF000000) >> 24;
 
     return ret;
 }
@@ -6925,14 +6925,14 @@ TEST_F(ExecutionTest, PackUnpackTest) {
     CComPtr<ID3D12Device> pDevice;
 
 #ifdef PACKUNPACK_PLACEHOLDER
-    string args = "-DPACKUNPACK_PLACEHOLDER";
-    string target = "cs_6_0";
+    string args = "-enable-16bit-types -DPACKUNPACK_PLACEHOLDER";
+    string target = "cs_6_2";
 
     if (!CreateDevice(&pDevice)) {
         return;
     }
 #else 
-    string args;
+    string args = "-enable-16bit-types";
     string target = "cs_6_6";
 
     if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6)) {
@@ -6991,17 +6991,17 @@ TEST_F(ExecutionTest, PackUnpackTest) {
                 expectedPacked[i].packedClampedInt16 = pack_clamp_s8(inputInt16);
 
                 // unpack
-                expectedUnpacked[i].outputUint32 = unpack<XMUINT4>(expectedPacked[i].packedUint32);
-                expectedUnpacked[i].outputInt32  = unpack<XMINT4 >(expectedPacked[i].packedInt32 );
-                expectedUnpacked[i].outputUint16 = unpack<XMUINT4>(expectedPacked[i].packedUint16);
-                expectedUnpacked[i].outputInt16  = unpack<XMINT4 >(expectedPacked[i].packedInt16 );
-                expectedUnpacked[i].outputClampedUint32 = unpack<XMUINT4>(expectedPacked[i].packedClampedUint32);
-                expectedUnpacked[i].outputClampedInt32  = unpack<XMINT4 >(expectedPacked[i].packedClampedInt32 );
-                expectedUnpacked[i].outputClampedUint16 = unpack<XMUINT4>(expectedPacked[i].packedClampedUint16);
-                expectedUnpacked[i].outputClampedInt16  = unpack<XMINT4 >(expectedPacked[i].packedClampedInt16 );
+                expectedUnpacked[i].outputUint32 = unpack<uint32_t>(expectedPacked[i].packedUint32);
+                expectedUnpacked[i].outputInt32  = unpack<int32_t >(expectedPacked[i].packedInt32 );
+                expectedUnpacked[i].outputUint16 = unpack<uint16_t>(expectedPacked[i].packedUint16);
+                expectedUnpacked[i].outputInt16  = unpack<int16_t >(expectedPacked[i].packedInt16 );
+                expectedUnpacked[i].outputClampedUint32 = unpack<uint32_t>(expectedPacked[i].packedClampedUint32);
+                expectedUnpacked[i].outputClampedInt32  = unpack<int32_t >(expectedPacked[i].packedClampedInt32 );
+                expectedUnpacked[i].outputClampedUint16 = unpack<uint16_t>(expectedPacked[i].packedClampedUint16);
+                expectedUnpacked[i].outputClampedInt16  = unpack<int16_t >(expectedPacked[i].packedClampedInt16 );
             }
         }
-        else //if (0 == _stricmp(Name, "g_bufOutPacked"))
+        else
         {
             std::fill(Data.begin(), Data.end(), 0);
         }
@@ -7031,41 +7031,17 @@ TEST_F(ExecutionTest, PackUnpackTest) {
         VerifyOutputWithExpectedValueUInt(readBackPacked[i].packedUint16, expectedPacked[i].packedUint16, validation_tolerance);
         VerifyOutputWithExpectedValueInt (readBackPacked[i].packedInt16 , expectedPacked[i].packedInt16 , validation_tolerance);
 
-        VerifyOutputWithExpectedValueUInt(readBackUnpacked[i].outputUint32.x, expectedUnpacked[i].outputUint32.x, validation_tolerance);
-        VerifyOutputWithExpectedValueInt (readBackUnpacked[i].outputInt32 .x, expectedUnpacked[i].outputInt32 .x, validation_tolerance);
-        VerifyOutputWithExpectedValueUInt(readBackUnpacked[i].outputUint16.x, expectedUnpacked[i].outputUint16.x, validation_tolerance);
-        VerifyOutputWithExpectedValueInt (readBackUnpacked[i].outputInt16 .x, expectedUnpacked[i].outputInt16 .x, validation_tolerance);
-        VerifyOutputWithExpectedValueUInt(readBackUnpacked[i].outputUint32.x, expectedUnpacked[i].outputUint32.x, validation_tolerance);
-        VerifyOutputWithExpectedValueInt (readBackUnpacked[i].outputInt32 .x, expectedUnpacked[i].outputInt32 .x, validation_tolerance);
-        VerifyOutputWithExpectedValueUInt(readBackUnpacked[i].outputUint16.x, expectedUnpacked[i].outputUint16.x, validation_tolerance);
-        VerifyOutputWithExpectedValueInt (readBackUnpacked[i].outputInt16 .x, expectedUnpacked[i].outputInt16 .x, validation_tolerance);
-
-        VerifyOutputWithExpectedValueUInt(readBackUnpacked[i].outputUint32.y, expectedUnpacked[i].outputUint32.y, validation_tolerance);
-        VerifyOutputWithExpectedValueInt (readBackUnpacked[i].outputInt32 .y, expectedUnpacked[i].outputInt32 .y, validation_tolerance);
-        VerifyOutputWithExpectedValueUInt(readBackUnpacked[i].outputUint16.y, expectedUnpacked[i].outputUint16.y, validation_tolerance);
-        VerifyOutputWithExpectedValueInt (readBackUnpacked[i].outputInt16 .y, expectedUnpacked[i].outputInt16 .y, validation_tolerance);
-        VerifyOutputWithExpectedValueUInt(readBackUnpacked[i].outputUint32.y, expectedUnpacked[i].outputUint32.y, validation_tolerance);
-        VerifyOutputWithExpectedValueInt (readBackUnpacked[i].outputInt32 .y, expectedUnpacked[i].outputInt32 .y, validation_tolerance);
-        VerifyOutputWithExpectedValueUInt(readBackUnpacked[i].outputUint16.y, expectedUnpacked[i].outputUint16.y, validation_tolerance);
-        VerifyOutputWithExpectedValueInt (readBackUnpacked[i].outputInt16 .y, expectedUnpacked[i].outputInt16 .y, validation_tolerance);
-
-        VerifyOutputWithExpectedValueUInt(readBackUnpacked[i].outputUint32.z, expectedUnpacked[i].outputUint32.z, validation_tolerance);
-        VerifyOutputWithExpectedValueInt (readBackUnpacked[i].outputInt32 .z, expectedUnpacked[i].outputInt32 .z, validation_tolerance);
-        VerifyOutputWithExpectedValueUInt(readBackUnpacked[i].outputUint16.z, expectedUnpacked[i].outputUint16.z, validation_tolerance);
-        VerifyOutputWithExpectedValueInt (readBackUnpacked[i].outputInt16 .z, expectedUnpacked[i].outputInt16 .z, validation_tolerance);
-        VerifyOutputWithExpectedValueUInt(readBackUnpacked[i].outputUint32.z, expectedUnpacked[i].outputUint32.z, validation_tolerance);
-        VerifyOutputWithExpectedValueInt (readBackUnpacked[i].outputInt32 .z, expectedUnpacked[i].outputInt32 .z, validation_tolerance);
-        VerifyOutputWithExpectedValueUInt(readBackUnpacked[i].outputUint16.z, expectedUnpacked[i].outputUint16.z, validation_tolerance);
-        VerifyOutputWithExpectedValueInt (readBackUnpacked[i].outputInt16 .z, expectedUnpacked[i].outputInt16 .z, validation_tolerance);
-
-        VerifyOutputWithExpectedValueUInt(readBackUnpacked[i].outputUint32.w, expectedUnpacked[i].outputUint32.w, validation_tolerance);
-        VerifyOutputWithExpectedValueInt (readBackUnpacked[i].outputInt32 .w, expectedUnpacked[i].outputInt32 .w, validation_tolerance);
-        VerifyOutputWithExpectedValueUInt(readBackUnpacked[i].outputUint16.w, expectedUnpacked[i].outputUint16.w, validation_tolerance);
-        VerifyOutputWithExpectedValueInt (readBackUnpacked[i].outputInt16 .w, expectedUnpacked[i].outputInt16 .w, validation_tolerance);
-        VerifyOutputWithExpectedValueUInt(readBackUnpacked[i].outputUint32.w, expectedUnpacked[i].outputUint32.w, validation_tolerance);
-        VerifyOutputWithExpectedValueInt (readBackUnpacked[i].outputInt32 .w, expectedUnpacked[i].outputInt32 .w, validation_tolerance);
-        VerifyOutputWithExpectedValueUInt(readBackUnpacked[i].outputUint16.w, expectedUnpacked[i].outputUint16.w, validation_tolerance);
-        VerifyOutputWithExpectedValueInt (readBackUnpacked[i].outputInt16 .w, expectedUnpacked[i].outputInt16 .w, validation_tolerance);
+        for (uint32_t j = 0; j < 4; ++j)
+        {
+            VerifyOutputWithExpectedValueUInt(readBackUnpacked[i].outputUint32[j], expectedUnpacked[i].outputUint32[j], validation_tolerance);
+            VerifyOutputWithExpectedValueInt (readBackUnpacked[i].outputInt32 [j], expectedUnpacked[i].outputInt32 [j], validation_tolerance);
+            VerifyOutputWithExpectedValueUInt(readBackUnpacked[i].outputUint16[j], expectedUnpacked[i].outputUint16[j], validation_tolerance);
+            VerifyOutputWithExpectedValueInt (readBackUnpacked[i].outputInt16 [j], expectedUnpacked[i].outputInt16 [j], validation_tolerance);
+            VerifyOutputWithExpectedValueUInt(readBackUnpacked[i].outputUint32[j], expectedUnpacked[i].outputUint32[j], validation_tolerance);
+            VerifyOutputWithExpectedValueInt (readBackUnpacked[i].outputInt32 [j], expectedUnpacked[i].outputInt32 [j], validation_tolerance);
+            VerifyOutputWithExpectedValueUInt(readBackUnpacked[i].outputUint16[j], expectedUnpacked[i].outputUint16[j], validation_tolerance);
+            VerifyOutputWithExpectedValueInt (readBackUnpacked[i].outputInt16 [j], expectedUnpacked[i].outputInt16 [j], validation_tolerance);
+        }
     }
 }
 
