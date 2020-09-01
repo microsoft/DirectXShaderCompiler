@@ -101,7 +101,7 @@ namespace {
   class LoopUnroll : public LoopPass {
   public:
     static char ID; // Pass ID, replacement for typeid
-    LoopUnroll(int T = -1, int C = -1, int P = -1, int R = -1) : LoopPass(ID) {
+    LoopUnroll(int T = -1, int C = -1, int P = -1, int R = -1, /*HLSL change*/bool DisableStructurizeLoopExits=false) : LoopPass(ID) {
       CurrentThreshold = (T == -1) ? unsigned(UnrollThreshold) : unsigned(T);
       CurrentPercentDynamicCostSavedThreshold =
           UnrollPercentDynamicCostSavedThreshold;
@@ -121,6 +121,8 @@ namespace {
       UserCount = (C != -1) || (UnrollCount.getNumOccurrences() > 0);
 
       initializeLoopUnrollPass(*PassRegistry::getPassRegistry());
+
+      this->DisableStructurizeLoopExits = DisableStructurizeLoopExits; // HLSL Change
     }
 
     /// A magic value for use with the Threshold parameter to indicate
@@ -142,6 +144,8 @@ namespace {
     unsigned CurrentDynamicCostSavingsDiscount;
     bool CurrentAllowPartial;
     bool CurrentRuntime;
+
+    bool DisableStructurizeLoopExits; // HLSL Change
 
     // Flags for whether the 'current' settings are user-specified.
     bool UserCount;
@@ -264,8 +268,8 @@ INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
 INITIALIZE_PASS_END(LoopUnroll, "loop-unroll", "Unroll loops", false, false)
 
 Pass *llvm::createLoopUnrollPass(int Threshold, int Count, int AllowPartial,
-                                 int Runtime) {
-  return new LoopUnroll(Threshold, Count, AllowPartial, Runtime);
+                                 int Runtime, /* HLSL Change */ bool DisableStructurizeLoopExits) {
+  return new LoopUnroll(Threshold, Count, AllowPartial, Runtime, /* HLSL Change */ DisableStructurizeLoopExits);
 }
 
 Pass *llvm::createSimpleLoopUnrollPass() {
@@ -935,7 +939,8 @@ bool LoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     return false;
   }
 
-  hlsl::RemoveUnstructuredLoopExits(L, LI, &getAnalysis<DominatorTreeWrapperPass>().getDomTree()); // HLSL Change
+  if (!DisableStructurizeLoopExits) // HLSL Change
+    hlsl::RemoveUnstructuredLoopExits(L, LI, &getAnalysis<DominatorTreeWrapperPass>().getDomTree()); // HLSL Change
 
   // Unroll the loop.
   if (!UnrollLoop(L, Count, TripCount, AllowRuntime, UP.AllowExpensiveTripCount,

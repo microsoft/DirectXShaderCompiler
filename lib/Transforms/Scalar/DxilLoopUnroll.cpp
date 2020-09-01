@@ -118,8 +118,9 @@ public:
   std::unordered_set<Function *> CleanedUpAlloca;
   unsigned MaxIterationAttempt = 0;
   bool OnlyWarnOnFail = false;
+  bool DisableStructurizeLoopExits = false;
 
-  DxilLoopUnroll(unsigned MaxIterationAttempt = 1024, bool OnlyWarnOnFail=false) :
+  DxilLoopUnroll(unsigned MaxIterationAttempt = 1024, bool OnlyWarnOnFail=false, bool DisableStructurizeLoopExits=false) :
     LoopPass(ID),
     MaxIterationAttempt(MaxIterationAttempt),
     OnlyWarnOnFail(OnlyWarnOnFail)
@@ -710,7 +711,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   std::unordered_set<BasicBlock *> ProblemBlocks;
   FindProblemBlocks(L->getHeader(), BlocksInLoop, ProblemBlocks, ProblemAllocas);
 
-  if (hlsl::RemoveUnstructuredLoopExits(L, LI, DT, /* exclude */&ProblemBlocks)) {
+  if (!DisableStructurizeLoopExits && hlsl::RemoveUnstructuredLoopExits(L, LI, DT, /* exclude */&ProblemBlocks)) {
     // Recompute the loop if we managed to simplify the exit blocks
 
     Latch = L->getLoopLatch();
@@ -1074,8 +1075,8 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
 }
 
-Pass *llvm::createDxilLoopUnrollPass(unsigned MaxIterationAttempt, bool OnlyWarnOnFail) {
-  return new DxilLoopUnroll(MaxIterationAttempt, OnlyWarnOnFail);
+Pass *llvm::createDxilLoopUnrollPass(unsigned MaxIterationAttempt, bool OnlyWarnOnFail, bool DisableStructurizeLoopExits) {
+  return new DxilLoopUnroll(MaxIterationAttempt, OnlyWarnOnFail, DisableStructurizeLoopExits);
 }
 
 INITIALIZE_PASS_BEGIN(DxilLoopUnroll, "dxil-loop-unroll", "Dxil Unroll loops", false, false)
