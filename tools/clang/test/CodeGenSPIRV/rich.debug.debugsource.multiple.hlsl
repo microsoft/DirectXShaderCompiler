@@ -2,13 +2,13 @@
 
 // CHECK:      [[debugSet:%\d+]] = OpExtInstImport "OpenCL.DebugInfo.100"
 
+// CHECK: rich.debug.debugsource.multiple.hlsl
 // CHECK: spirv.debug.opline.include-file-3.hlsl
 // CHECK: [[file3_code:%\d+]] = OpString "groupshared int b;
 // CHECK: spirv.debug.opline.include-file-2.hlsl
 // CHECK: [[file2_code:%\d+]] = OpString "static int a;
 // CHECK: spirv.debug.opline.include-file-1.hlsl
 // CHECK: [[file1_code:%\d+]] = OpString "int function1() {
-// CHECK: rich.debug.debugsource.multiple.hlsl
 // CHECK: [[main_code:%\d+]] = OpString "// Run: %dxc -T ps_6_0 -E main -fspv-debug=rich-with-source
 
 // CHECK: {{%\d+}} = OpExtInst %void [[debugSet]] DebugSource {{%\d+}} [[file3_code]]

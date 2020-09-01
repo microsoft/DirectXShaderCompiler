@@ -2,13 +2,13 @@
 
 // CHECK:      [[set:%\d+]] = OpExtInstImport "OpenCL.DebugInfo.100"
 
+// CHECK: rich.debug.function.parent.hlsl
 // CHECK: spirv.debug.opline.include-file-3.hlsl
 // CHECK: [[f3:%\d+]] = OpString "function3"
 // CHECK: spirv.debug.opline.include-file-2.hlsl
 // CHECK: [[f2:%\d+]] = OpString "function2"
 // CHECK: spirv.debug.opline.include-file-1.hlsl
 // CHECK: [[f1:%\d+]] = OpString "function1"
-// CHECK: rich.debug.function.parent.hlsl
 
 
 #include "spirv.debug.opline.include-file-1.hlsl"
