@@ -7289,20 +7289,20 @@
                 <![CDATA[
 
                 struct SPackUnpackOpIn {
-                   uint4 inputUint;
+                   uint32_t4 inputUint;
                 };
 
                 struct SPackUnpackOpOutPacked
                 {
-                    uint packedUint32;
-                    uint packedInt32;
-                    uint packedUint16;
-                    uint packedInt16;
+                    uint32_t packedUint32;
+                    uint32_t packedInt32;
+                    uint32_t packedUint16;
+                    uint32_t packedInt16;
 
-                    uint packedClampedUint32;
-                    uint packedClampedInt32;
-                    uint packedClampedUint16;
-                    uint packedClampedInt16;
+                    uint32_t packedClampedUint32;
+                    uint32_t packedClampedInt32;
+                    uint32_t packedClampedUint16;
+                    uint32_t packedClampedInt16;
                 };
 
                 struct SPackUnpackOpOutPackedUnpacked {
@@ -7320,12 +7320,36 @@
                 #ifdef PACKUNPACK_PLACEHOLDER
                     #define CALL(x) p##x
 
+
+                uint32_t ppack_u8(uint16_t4 unpackedVal)
+                {
+                    uint32_t dst = 0;
+                    for (uint32_t i = 0; i < 4; ++i)
+                    {
+                        dst |= ((uint32_t)unpackedVal[i] & 0xFF) << (i * 8);
+                    }
+
+                    return dst;
+                }
+
+                uint32_t ppack_s8(int16_t4 unpackedVal)
+                {
+                    uint32_t dst = 0;
+                    for (uint32_t i = 0; i < 4; ++i)
+                    {
+                        dst |= ((uint32_t)unpackedVal[i] & 0xFF) << (i * 8);
+                    }
+
+                    return dst;
+                }
+
+
                 uint32_t ppack_u8(uint32_t4 unpackedVal)
                 {
                     uint32_t dst = 0;
                     for (uint32_t i = 0; i < 4; ++i)
                     {
-                        dst |= (unpackedVal[i] & 0xFF) << (i * 8);
+                        dst |= ((uint32_t)unpackedVal[i] & 0xFF) << (i * 8);
                     }
 
                     return dst;
@@ -7336,7 +7360,7 @@
                     uint32_t dst = 0;
                     for (uint32_t i = 0; i < 4; ++i)
                     {
-                        dst |= (unpackedVal[i] & 0xFF) << (i * 8);
+                        dst |= ((uint32_t)unpackedVal[i] & 0xFF) << (i * 8);
                     }
 
                     return dst;
@@ -7434,7 +7458,7 @@
                     g_bufOutPacked[GI].packedUint32 = CALL(pack_u8(inputUint32));
                     g_bufOutPacked[GI].packedInt32  = CALL(pack_s8(inputInt32));
                     g_bufOutPacked[GI].packedUint16 = CALL(pack_u8(inputUint16));
-                    g_bufOutPacked[GI].packedInt16  = CALL(pack_s8(inputUint16));
+                    g_bufOutPacked[GI].packedInt16  = CALL(pack_s8(inputInt16));
 
                     // Then pack with clamp
                     g_bufOutPacked[GI].packedClampedUint32 = CALL(pack_clamp_u8(inputInt32));
