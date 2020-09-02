@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <array>
 #include <vector>
 #include <string>
 #include <map>
@@ -464,6 +465,10 @@ public:
   END_TEST_METHOD()
   BEGIN_TEST_METHOD(GraphicsRawBufferLdStHalf)
     TEST_METHOD_PROPERTY(L"Priority", L"2") // This test is disabled because of a bug in WARP; TODO: enable once the bug is fixed
+  END_TEST_METHOD()
+
+  BEGIN_TEST_METHOD(PackUnpackTest)
+    TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#PackUnpackOpTable")
   END_TEST_METHOD()
 
   dxc::DxcDllSupport m_support;
@@ -2819,6 +2824,33 @@ struct SMsad4 {
     XMUINT4 accum;
     XMUINT4 result;
 };
+
+struct SPackUnpackOpOutPacked
+{
+    uint32_t packedUint32;
+    uint32_t packedInt32;
+    uint32_t packedUint16;
+    uint32_t packedInt16;
+
+    uint32_t packedClampedUint32;
+    uint32_t packedClampedInt32;
+    uint32_t packedClampedUint16;
+    uint32_t packedClampedInt16;
+};
+
+struct SPackUnpackOpOutUnpacked {
+    std::array<uint32_t, 4> outputUint32;
+    std::array<int32_t,  4> outputInt32;
+    std::array<uint16_t, 4> outputUint16;
+    std::array<int16_t,  4> outputInt16;
+
+    std::array<uint32_t, 4> outputClampedUint32;
+    std::array<int32_t,  4> outputClampedInt32;
+    std::array<uint16_t, 4> outputClampedUint16;
+    std::array<int16_t,  4> outputClampedInt16;
+};
+
+
 // Parameter representation for taef data-driven tests
 struct TableParameter {
     LPCWSTR m_name;
@@ -3323,6 +3355,13 @@ static TableParameter DenormTertiaryFPOpParameters[] = {
     { L"Validation.Expected2", TableParameter::STRING_TABLE, false },
     { L"Validation.Type", TableParameter::STRING, true },
     { L"Validation.Tolerance", TableParameter::DOUBLE, true },
+};
+
+static TableParameter PackUnpackOpParameters[] = {
+    { L"ShaderOp.Text", TableParameter::STRING, true },
+    { L"Validation.Type", TableParameter::STRING, true },
+    { L"Validation.Tolerance", TableParameter::UINT, true },
+    { L"Validation.Input", TableParameter::UINT32_TABLE, true },
 };
 
 static bool IsHexString(PCWSTR str, uint16_t *value) {
@@ -6819,6 +6858,196 @@ void ExecutionTest::RunGraphicsRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, R
   // verify expected values
   VerifyRawBufferLdStTestResults<Ty>(test->Test, testData);
 }
+
+template<typename T>
+uint32_t pack(std::array<T, 4> unpackedVals)
+{   
+    uint32_t dst = 0;
+    constexpr uint32_t bitMask = 0xFF;
+    for (uint32_t i = 0U; i < 4U; ++i)
+    {
+        dst |= (unpackedVals[i] & bitMask) << (i * 8);
+    }
+
+    return dst;
+}
+
+template <typename T>
+uint32_t pack_clamp_u8(std::array<T, 4> unpackedVals)
+{
+    int32_t clamp_min = std::numeric_limits<uint8_t>::min();
+    int32_t clamp_max = std::numeric_limits<uint8_t>::max();
+
+    uint32_t dst = 0;
+    for (uint32_t i = 0U; i < 4U; ++i)
+    {
+        int32_t clamped = std::min(std::max((int32_t)unpackedVals[i], clamp_min), clamp_max);
+        dst |= ((uint32_t)clamped) << (i * 8);
+    }
+
+    return dst;
+}
+
+template <typename T>
+uint32_t pack_clamp_s8(std::array<T, 4> unpackedVals)
+{
+    int32_t clamp_min = std::numeric_limits<int8_t>::min();
+    int32_t clamp_max = std::numeric_limits<int8_t>::max();
+
+    uint32_t dst = 0;
+    for (uint32_t i = 0U; i < 4U; ++i)
+    {
+        int32_t clamped = std::min(std::max((int32_t)unpackedVals[i], clamp_min), clamp_max);
+        dst |= ((uint32_t)clamped) << (i * 8);
+    }
+
+    return dst;
+}
+
+template<typename T>
+std::array<T, 4> unpack(uint32_t packedVal)
+{   
+    std::array<T, 4> ret;
+    ret[0] = (packedVal & 0x000000FF) >> 0;
+    ret[1] = (packedVal & 0x0000FF00) >> 8;
+    ret[2] = (packedVal & 0x00FF0000) >> 16;
+    ret[3] = (packedVal & 0xFF000000) >> 24;
+
+    return ret;
+}
+
+TEST_F(ExecutionTest, PackUnpackTest) {
+    WEX::TestExecution::SetVerifyOutput verifySettings(
+        WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+    CComPtr<IStream> pStream;
+    ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+    CComPtr<ID3D12Device> pDevice;
+
+#ifdef PACKUNPACK_PLACEHOLDER
+    string args = "-enable-16bit-types -DPACKUNPACK_PLACEHOLDER";
+    string target = "cs_6_2";
+
+    if (!CreateDevice(&pDevice)) {
+        return;
+    }
+#else 
+    string args = "-enable-16bit-types";
+    string target = "cs_6_6";
+
+    if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6)) {
+        return;
+    }
+#endif
+
+    int tableSize = sizeof(PackUnpackOpParameters) / sizeof(TableParameter);
+    TableParameterHandler handler(PackUnpackOpParameters, tableSize);
+
+    CW2A Text(handler.GetTableParamByName(L"ShaderOp.Text")->m_str);
+
+    std::vector<uint32_t> *validation_input = &handler.GetTableParamByName(L"Validation.Input")->m_uint32Table;
+    uint32_t validation_tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_uint;
+
+    size_t count = validation_input->size();
+    std::vector<SPackUnpackOpOutPacked> expectedPacked(count / 4);
+    std::vector<SPackUnpackOpOutUnpacked> expectedUnpacked(count / 4);
+
+    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+        pDevice, m_support, pStream, "PackUnpackOp",
+        // this callback is called when the test
+        // is creating the resource to run the test
+        [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
+
+        if (0 == _stricmp(Name, "g_bufIn"))
+        {
+            size_t size = sizeof(uint32_t) * 4 * count;
+            Data.resize(size);
+            uint32_t *pPrimitives = (uint32_t*)Data.data();
+
+            for (size_t i = 0; i < count / 4; ++i) {
+                uint32_t *p = &pPrimitives[i * 4];
+                uint32_t x = (*validation_input)[i * 4 + 0];
+                uint32_t y = (*validation_input)[i * 4 + 1];
+                uint32_t z = (*validation_input)[i * 4 + 2];
+                uint32_t w = (*validation_input)[i * 4 + 3];
+
+                p[0] = x;
+                p[1] = y;
+                p[2] = z;
+                p[3] = w;
+
+                std::array<uint32_t, 4> inputUint32 = { x, y, z, w };
+                std::array<int32_t, 4> inputInt32 = { (int32_t)x, (int32_t)y, (int32_t)z, (int32_t)w };
+                std::array<uint16_t, 4> inputUint16 = { (uint16_t)x, (uint16_t)y, (uint16_t)z, (uint16_t)w };
+                std::array<int16_t, 4> inputInt16 = { (int16_t)x, (int16_t)y, (int16_t)z, (int16_t)w };
+
+                // Pack unclamped
+                expectedPacked[i].packedUint32 = pack(inputUint32);
+                expectedPacked[i].packedInt32 = pack(inputInt32);
+                expectedPacked[i].packedUint16 = pack(inputUint16);
+                expectedPacked[i].packedInt16 = pack(inputInt16);
+                // pack clamped
+                expectedPacked[i].packedClampedUint32 = pack_clamp_u8(inputInt32);
+                expectedPacked[i].packedClampedInt32 = pack_clamp_s8(inputInt32);
+                expectedPacked[i].packedClampedUint16 = pack_clamp_u8(inputInt16);
+                expectedPacked[i].packedClampedInt16 = pack_clamp_s8(inputInt16);
+
+                // unpack
+                expectedUnpacked[i].outputUint32 = unpack<uint32_t>(expectedPacked[i].packedUint32);
+                expectedUnpacked[i].outputInt32  = unpack<int32_t >(expectedPacked[i].packedInt32 );
+                expectedUnpacked[i].outputUint16 = unpack<uint16_t>(expectedPacked[i].packedUint16);
+                expectedUnpacked[i].outputInt16  = unpack<int16_t >(expectedPacked[i].packedInt16 );
+                expectedUnpacked[i].outputClampedUint32 = unpack<uint32_t>(expectedPacked[i].packedClampedUint32);
+                expectedUnpacked[i].outputClampedInt32  = unpack<int32_t >(expectedPacked[i].packedClampedInt32 );
+                expectedUnpacked[i].outputClampedUint16 = unpack<uint16_t>(expectedPacked[i].packedClampedUint16);
+                expectedUnpacked[i].outputClampedInt16  = unpack<int16_t >(expectedPacked[i].packedClampedInt16 );
+            }
+        }
+        else
+        {
+            std::fill(Data.begin(), Data.end(), 0);
+        }
+
+        // use shader from data table
+        pShaderOp->Shaders.at(0).Target = target.c_str();
+        pShaderOp->Shaders.at(0).Text = Text.m_psz;
+        pShaderOp->Shaders.at(0).Arguments = args.c_str();
+    });
+
+    MappedData packedData;
+    test->Test->GetReadBackData("g_bufOutPacked", &packedData);
+    SPackUnpackOpOutPacked *readBackPacked = (SPackUnpackOpOutPacked *)packedData.data();
+
+    MappedData unpackedData;
+    test->Test->GetReadBackData("g_bufOutPackedUnpacked", &unpackedData);
+    SPackUnpackOpOutUnpacked *readBackUnpacked = (SPackUnpackOpOutUnpacked *)unpackedData.data();
+
+    for (size_t i = 0; i < count / 4; ++i)
+    {
+        VerifyOutputWithExpectedValueUInt(readBackPacked[i].packedUint32, expectedPacked[i].packedUint32, validation_tolerance);
+        VerifyOutputWithExpectedValueInt (readBackPacked[i].packedInt32 , expectedPacked[i].packedInt32 , validation_tolerance);
+        VerifyOutputWithExpectedValueUInt(readBackPacked[i].packedUint16, expectedPacked[i].packedUint16, validation_tolerance);
+        VerifyOutputWithExpectedValueInt (readBackPacked[i].packedInt16 , expectedPacked[i].packedInt16 , validation_tolerance);
+        VerifyOutputWithExpectedValueUInt(readBackPacked[i].packedClampedUint32, expectedPacked[i].packedClampedUint32, validation_tolerance);
+        VerifyOutputWithExpectedValueInt (readBackPacked[i].packedClampedInt32 , expectedPacked[i].packedClampedInt32 , validation_tolerance);
+        VerifyOutputWithExpectedValueUInt(readBackPacked[i].packedClampedUint16, expectedPacked[i].packedClampedUint16, validation_tolerance);
+        VerifyOutputWithExpectedValueInt (readBackPacked[i].packedClampedInt16 , expectedPacked[i].packedClampedInt16 , validation_tolerance);
+
+        for (uint32_t j = 0; j < 4; ++j)
+        {
+            VerifyOutputWithExpectedValueUInt(readBackUnpacked[i].outputUint32[j], expectedUnpacked[i].outputUint32[j], validation_tolerance);
+            VerifyOutputWithExpectedValueInt (readBackUnpacked[i].outputInt32 [j], expectedUnpacked[i].outputInt32 [j], validation_tolerance);
+            VerifyOutputWithExpectedValueUInt(readBackUnpacked[i].outputUint16[j], expectedUnpacked[i].outputUint16[j], validation_tolerance);
+            VerifyOutputWithExpectedValueInt (readBackUnpacked[i].outputInt16 [j], expectedUnpacked[i].outputInt16 [j], validation_tolerance);
+            VerifyOutputWithExpectedValueUInt(readBackUnpacked[i].outputClampedUint32[j], expectedUnpacked[i].outputClampedUint32[j], validation_tolerance);
+            VerifyOutputWithExpectedValueInt (readBackUnpacked[i].outputClampedInt32 [j], expectedUnpacked[i].outputClampedInt32 [j], validation_tolerance);
+            VerifyOutputWithExpectedValueUInt(readBackUnpacked[i].outputClampedUint16[j], expectedUnpacked[i].outputClampedUint16[j], validation_tolerance);
+            VerifyOutputWithExpectedValueInt (readBackUnpacked[i].outputClampedInt16 [j], expectedUnpacked[i].outputClampedInt16 [j], validation_tolerance);
+        }
+    }
+}
+
+
 
 #define MAX_WAVESIZE 128
 
