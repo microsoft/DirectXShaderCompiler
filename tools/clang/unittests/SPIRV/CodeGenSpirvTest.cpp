@@ -2185,6 +2185,10 @@ TEST_F(FileTest, RayTracingNVCallable) {
 TEST_F(FileTest, RayTracingNVLibrary) {
   runFileTest("raytracing.nv.library.hlsl");
 }
+TEST_F(FileTest, RayTracingNVAccelerationStructure) {
+  useVulkan1p2();
+  runFileTest("raytracing.nv.acceleration-structure.hlsl");
+}
 
 // === Raytracing KHR examples ===
 TEST_F(FileTest, RayTracingKHRClosestHit) {
