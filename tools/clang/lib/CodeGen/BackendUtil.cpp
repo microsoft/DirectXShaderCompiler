@@ -336,9 +336,9 @@ void EmitAssemblyHelper::CreatePasses() {
   PMBuilder.EnableGVN = !CodeGenOpts.HLSLOptimizationToggles.count("gvn") ||
                         CodeGenOpts.HLSLOptimizationToggles.find("gvn")->second;
 
-  PMBuilder.DisableStructurizeLoopExitsForUnroll =
+  PMBuilder.StructurizeLoopExitsForUnroll =
                         CodeGenOpts.HLSLOptimizationToggles.count("structurize-loop-exits-for-unroll") &&
-                        !CodeGenOpts.HLSLOptimizationToggles.find("structurize-loop-exits-for-unroll")->second;
+                        CodeGenOpts.HLSLOptimizationToggles.find("structurize-loop-exits-for-unroll")->second;
 
   // HLSL Change - end
 

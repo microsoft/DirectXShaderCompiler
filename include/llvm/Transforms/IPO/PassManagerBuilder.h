@@ -133,7 +133,7 @@ public:
   bool HLSLResMayAlias = false; // HLSL Change
   unsigned ScanLimit = 0; // HLSL Change
   bool EnableGVN = true; // HLSL Change
-  bool DisableStructurizeLoopExitsForUnroll; // HLSL Change
+  bool StructurizeLoopExitsForUnroll; // HLSL Change
 
 private:
   /// ExtensionList - This is list of all of the extensions that are registered.

@@ -207,7 +207,7 @@ void PassManagerBuilder::populateFunctionPassManager(
 }
 
 // HLSL Change Starts
-static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, bool OnlyWarnOnUnrollFail, bool DisableStructurizeLoopExitsForUnroll, hlsl::HLSLExtensionsCodegenHelper *ExtHelper, legacy::PassManagerBase &MPM) {
+static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, bool OnlyWarnOnUnrollFail, bool StructurizeLoopExitsForUnroll, hlsl::HLSLExtensionsCodegenHelper *ExtHelper, legacy::PassManagerBase &MPM) {
 
   // Don't do any lowering if we're targeting high-level.
   if (HLSLHighLevel) {
@@ -292,12 +292,12 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, bool OnlyWarnOn
   // struct members.
   // Needs to happen before resources are lowered and before HL
   // module is gone.
-  MPM.add(createDxilLoopUnrollPass(1024, OnlyWarnOnUnrollFail, DisableStructurizeLoopExitsForUnroll));
+  MPM.add(createDxilLoopUnrollPass(1024, OnlyWarnOnUnrollFail, StructurizeLoopExitsForUnroll));
 
   // Default unroll pass. This is purely for optimizing loops without
   // attributes.
   if (OptLevel > 2) {
-    MPM.add(createLoopUnrollPass(-1, -1, -1, -1, DisableStructurizeLoopExitsForUnroll));
+    MPM.add(createLoopUnrollPass(-1, -1, -1, -1, StructurizeLoopExitsForUnroll));
   }
 
   if (!NoOpt)
@@ -353,7 +353,7 @@ void PassManagerBuilder::populateModulePassManager(
     // HLSL Change Begins.
     addHLSLPasses(HLSLHighLevel, OptLevel,
       this->HLSLOnlyWarnOnUnrollFail,
-      this->DisableStructurizeLoopExitsForUnroll,
+      this->StructurizeLoopExitsForUnroll,
       this->HLSLExtensionsCodeGen,
       MPM);
 
@@ -391,7 +391,7 @@ void PassManagerBuilder::populateModulePassManager(
     delete Inliner;
     Inliner = nullptr;
   }
-  addHLSLPasses(HLSLHighLevel, OptLevel, this->HLSLOnlyWarnOnUnrollFail, this->DisableStructurizeLoopExitsForUnroll, HLSLExtensionsCodeGen, MPM); // HLSL Change
+  addHLSLPasses(HLSLHighLevel, OptLevel, this->HLSLOnlyWarnOnUnrollFail, this->StructurizeLoopExitsForUnroll, HLSLExtensionsCodeGen, MPM); // HLSL Change
   // HLSL Change Ends
 
   // Add LibraryInfo if we have some.
@@ -606,7 +606,7 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createInstructionCombiningPass());
 
   if (!DisableUnrollLoops) {
-    MPM.add(createLoopUnrollPass());    // Unroll small loops
+    MPM.add(createLoopUnrollPass(/* HLSL Change begin */-1, -1, -1, -1, this->StructurizeLoopExitsForUnroll /* HLSL Change end */));    // Unroll small loops
 
     // LoopUnroll may generate some redundency to cleanup.
     MPM.add(createInstructionCombiningPass());

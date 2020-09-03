@@ -1,6 +1,6 @@
-// RUN: %dxc -E main -Zi -O3 -T ps_6_0 %s | FileCheck %s
-// xUN: %dxc -E main -Zi -Od -T ps_6_0 %s -DFORCE_UNROLL | FileCheck %s
-// xUN: %dxc -E main -Zi -T ps_6_0 %s -DFORCE_UNROLL | FileCheck %s
+// RUN: %dxc -E main -Zi -O3 -T ps_6_0 -opt-enable structurize-loop-exits-for-unroll %s | FileCheck %s
+// RUN: %dxc -E main -Zi -Od -T ps_6_0 -opt-enable structurize-loop-exits-for-unroll %s -DFORCE_UNROLL | FileCheck %s
+// RUN: %dxc -E main -Zi -T ps_6_0 %s -opt-enable structurize-loop-exits-for-unroll -DFORCE_UNROLL | FileCheck %s
 
 // CHECK: %{{.+}} = call float @dx.op.unary.f32(i32 13
 
