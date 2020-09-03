@@ -3262,9 +3262,15 @@ SpirvInstruction *SpirvEmitter::processBufferTextureLoad(
     }
   }
 
-  if (!elemType->isFloatingType() && !elemType->isIntegerType()) {
-    emitError("loading %0 value unsupported", object->getExprLoc()) << type;
-    return nullptr;
+  {
+    // Treat a vector of size 1 the same as a scalar.
+    if (hlsl::IsHLSLVecType(elemType) && hlsl::GetHLSLVecSize(elemType) == 1)
+      elemType = hlsl::GetHLSLVecElementType(elemType);
+
+    if (!elemType->isFloatingType() && !elemType->isIntegerType()) {
+      emitError("loading %0 value unsupported", object->getExprLoc()) << type;
+      return nullptr;
+    }
   }
 
   // If residencyCode is nullptr, we are dealing with a Load method with 2
