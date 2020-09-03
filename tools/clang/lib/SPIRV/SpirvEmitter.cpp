@@ -583,7 +583,8 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     needsLegalization = needsLegalization ||
                         declIdMapper.requiresLegalization() ||
                         spirvOptions.flattenResourceArrays ||
-                        declIdMapper.requiresFlatteningCompositeResources();
+                        declIdMapper.requiresFlatteningCompositeResources() ||
+                        spirvOptions.debugInfoRich;
 
     // Run legalization passes
     if (needsLegalization) {
@@ -601,7 +602,8 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     }
 
     // Run optimization passes
-    if (theCompilerInstance.getCodeGenOpts().OptimizationLevel > 0) {
+    if (!spirvOptions.debugInfoRich &&
+        theCompilerInstance.getCodeGenOpts().OptimizationLevel > 0) {
       std::string messages;
       if (!spirvToolsOptimize(&m, &messages)) {
         emitFatalError("failed to optimize SPIR-V: %0", {}) << messages;
