@@ -1,4 +1,6 @@
 // RUN: %dxc -T lib_6_3 %s | FileCheck %s
+// Test failure expected when run with 19041 SDK DXIL.dll
+
 // When a conditional break block follows a conditional while loop entry,
 // There can be some merging of conditionals, particularly when the dx.break
 // adds a conditional of its own. This ensures they are handled appropriately.

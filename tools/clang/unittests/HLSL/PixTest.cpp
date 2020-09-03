@@ -207,6 +207,7 @@ public:
   TEST_METHOD(PixStructAnnotation_BigMess)
 
   dxc::DxcDllSupport m_dllSupport;
+  VersionSupportInfo m_ver;
 
   void CreateBlobPinned(_In_bytecount_(size) LPCVOID data, SIZE_T size,
                         UINT32 codePage, _Outptr_ IDxcBlobEncoding **ppBlob) {
@@ -978,6 +979,7 @@ public:
 bool PixTest::InitSupport() {
   if (!m_dllSupport.IsEnabled()) {
     VERIFY_SUCCEEDED(m_dllSupport.Initialize());
+    m_ver.Initialize(m_dllSupport);
   }
   return true;
 }
@@ -1899,6 +1901,8 @@ void PixTest::ValidateAllocaWrite(std::vector<AllocaWrite> const &allocaWrites,
 
 
 TEST_F(PixTest, PixStructAnnotation_Simple) {
+  if (m_ver.SkipDxilVersion(1, 5)) return;
+
   const char *hlsl = R"(
 struct smallPayload
 {
@@ -1928,6 +1932,8 @@ void main()
 
 
 TEST_F(PixTest, PixStructAnnotation_CopiedStruct) {
+  if (m_ver.SkipDxilVersion(1, 5)) return;
+
   const char *hlsl = R"(
 struct smallPayload
 {
@@ -1958,6 +1964,8 @@ void main()
 }
 
 TEST_F(PixTest, PixStructAnnotation_MixedSizes) {
+  if (m_ver.SkipDxilVersion(1, 5)) return;
+
   const char *hlsl = R"(
 struct smallPayload
 {
@@ -1997,6 +2005,8 @@ void main()
 }
 
 TEST_F(PixTest, PixStructAnnotation_StructWithinStruct) {
+  if (m_ver.SkipDxilVersion(1, 5)) return;
+
   const char *hlsl = R"(
 
 struct Contained
@@ -2039,6 +2049,8 @@ void main()
 }
 
 TEST_F(PixTest, PixStructAnnotation_1DArray) {
+  if (m_ver.SkipDxilVersion(1, 5)) return;
+
     const char* hlsl = R"(
 struct smallPayload
 {
@@ -2064,6 +2076,8 @@ void main()
 }
 
 TEST_F(PixTest, PixStructAnnotation_2DArray) {
+  if (m_ver.SkipDxilVersion(1, 5)) return;
+
   const char *hlsl = R"(
 struct smallPayload
 {
@@ -2093,6 +2107,8 @@ void main()
 }
 
 TEST_F(PixTest, PixStructAnnotation_EmbeddedArray) {
+  if (m_ver.SkipDxilVersion(1, 5)) return;
+
   const char *hlsl = R"(
 
 struct Contained
@@ -2136,6 +2152,8 @@ void main()
 }
 
 TEST_F(PixTest, PixStructAnnotation_FloatN) {
+  if (m_ver.SkipDxilVersion(1, 5)) return;
+
   const char *hlsl = R"(
 struct smallPayload
 {
@@ -2167,6 +2185,8 @@ void main()
 
 
 TEST_F(PixTest, PixStructAnnotation_SequentialFloatN) {
+  if (m_ver.SkipDxilVersion(1, 5)) return;
+
   const char *hlsl = R"(
 struct smallPayload
 {
@@ -2204,6 +2224,8 @@ void main()
 }
 
 TEST_F(PixTest, PixStructAnnotation_EmbeddedFloatN) {
+  if (m_ver.SkipDxilVersion(1, 5)) return;
+
   const char *hlsl = R"(
 
 struct Embedded
@@ -2244,6 +2266,8 @@ void main()
 }
 
 TEST_F(PixTest, PixStructAnnotation_Matrix) {
+  if (m_ver.SkipDxilVersion(1, 5)) return;
+
   const char *hlsl = R"(
 struct smallPayload
 {
@@ -2272,6 +2296,8 @@ void main()
 }
 
 TEST_F(PixTest, PixStructAnnotation_BigMess) {
+  if (m_ver.SkipDxilVersion(1, 5)) return;
+
   const char *hlsl = R"(
 
 struct BigStruct

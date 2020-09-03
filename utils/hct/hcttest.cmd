@@ -162,6 +162,9 @@ if "%1"=="-clean" (
 ) else if "%1"=="-file-check-dump" (
   set ADDITIONAL_OPTS=%ADDITIONAL_OPTS% /p:"FileCheckDumpDir=%~2\HLSL"
   shift /1
+) else if "%1"=="-dxil-loc" (
+  set DXIL_DLL_LOC=%~2
+  shift /1
 ) else if "%1"=="--" (
   shift /1
   goto :done_opt
@@ -245,6 +248,12 @@ if "%CUSTOM_BIN_SET%"=="" (
   )
 )
 if errorlevel 1 exit /b 1
+
+if not "%DXIL_DLL_LOC%"=="" (
+  echo Copying DXIL.dll to %TEST_DIR%:
+  call %HCT_DIR%\hctcopy.cmd %DXIL_DLL_LOC% %TEST_DIR% dxil.dll
+  if errorlevel 1 exit /b 1
+)
 
 rem Begin SPIRV change
 if "%TEST_SPIRV%"=="1" (
@@ -380,6 +389,7 @@ echo   -adapter "adapter name" - overrides Adapter for execution tests
 echo   -verbose - for TAEF: turns off /parallel and removes logging filter
 echo   -custom-bin-set "file [file]..." - custom set of binaries to copy into test directory
 echo   -dxilconv-loc "dxilconv.dll location" - fetch dxilconv.dll from custom location
+echo   -dxil-loc "dxil.dll location" - fetch dxil.dll from provided location
 echo   -file-check-dump "dump-path" - dump file-check inputs to files under dump-path
 echo.
 echo current BUILD_ARCH=%BUILD_ARCH%.  Override with:
@@ -423,8 +433,8 @@ rem %2 - first argument to te
 rem %3 - second argument to te
 rem %4 - third argument to te
 
-echo te /labMode /miniDumpOnCrash %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
-call te /labMode /miniDumpOnCrash %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
+echo te /labMode /miniDumpOnCrash /unicodeOutput:false /outputFolder:%TEST_DIR% %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
+call te /labMode /miniDumpOnCrash /unicodeOutput:false /outputFolder:%TEST_DIR% %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
 
 if errorlevel 1 (
   call :showtesample %*
