@@ -97,23 +97,17 @@
 #include "llvm/Support/raw_os_ostream.h"
 #include "dxc/DXIL/DxilMetadataHelper.h"
 #include "dxc/DXIL/DxilConstants.h"
+#include "dxc/HLSL/DxilNoops.h"
 #include "llvm/Analysis/DxilValueCache.h"
 
 #include <unordered_set>
 
 using namespace llvm;
 
-namespace {
-StringRef kNoopName = "dx.noop";
-StringRef kPreservePrefix = "dx.preserve.";
-StringRef kNothingName = "dx.nothing.a";
-StringRef kPreserveName = "dx.preserve.value.a";
-}
-
 static Function *GetOrCreateNoopF(Module &M) {
   LLVMContext &Ctx = M.getContext();
   FunctionType *FT = FunctionType::get(Type::getVoidTy(Ctx), false);
-  Function *NoopF = cast<Function>(M.getOrInsertFunction(::kNoopName, FT));
+  Function *NoopF = cast<Function>(M.getOrInsertFunction(hlsl::kNoopName, FT));
   NoopF->addFnAttr(Attribute::AttrKind::Convergent);
   return NoopF;
 }
@@ -199,7 +193,7 @@ static Value *GetOrCreatePreserveCond(Function *F) {
   assert(!F->isDeclaration());
 
   Module *M = F->getParent();
-  GlobalVariable *GV = M->getGlobalVariable(kPreserveName, true);
+  GlobalVariable *GV = M->getGlobalVariable(hlsl::kPreserveName, true);
   if (!GV) {
     Type *i32Ty = Type::getInt32Ty(M->getContext());
     Type *i32ArrayTy = ArrayType::get(i32Ty, 1);
@@ -210,7 +204,7 @@ static Value *GetOrCreatePreserveCond(Function *F) {
     GV = new GlobalVariable(*M,
       i32ArrayTy, true,
       llvm::GlobalValue::InternalLinkage,
-      InitialValue, kPreserveName);
+      InitialValue, hlsl::kPreserveName);
   }
 
   for (User *U : GV->users()) {
@@ -237,7 +231,7 @@ static Value *GetOrCreatePreserveCond(Function *F) {
 
 
 static Function *GetOrCreatePreserveF(Module *M, Type *Ty) {
-  std::string str = kPreservePrefix;
+  std::string str = hlsl::kPreservePrefix;
   raw_string_ostream os(str);
   Ty->print(os);
   os.flush();
@@ -445,7 +439,7 @@ public:
       if (!F->isDeclaration())
         continue;
 
-      if (F->getName().startswith(kPreservePrefix)) {
+      if (F->getName().startswith(hlsl::kPreservePrefix)) {
         for (auto uit = F->user_begin(), end = F->user_end(); uit != end;) {
           User *U = *(uit++);
           CallInst *CI = cast<CallInst>(U);
@@ -559,7 +553,7 @@ public:
   Instruction *GetFinalNoopInst(Module &M, Instruction *InsertBefore) {
     Type *i32Ty = Type::getInt32Ty(M.getContext());
     if (!NothingGV) {
-      NothingGV = M.getGlobalVariable(kNothingName);
+      NothingGV = M.getGlobalVariable(hlsl::kNothingName);
       if (!NothingGV) {
         Type *i32ArrayTy = ArrayType::get(i32Ty, 1);
 
@@ -569,7 +563,7 @@ public:
         NothingGV = new GlobalVariable(M,
           i32ArrayTy, true,
           llvm::GlobalValue::InternalLinkage,
-          InitialValue, kNothingName);
+          InitialValue, hlsl::kNothingName);
       }
     }
 
@@ -590,7 +584,7 @@ char DxilFinalizePreserves::ID;
 bool DxilFinalizePreserves::LowerPreserves(Module &M) {
   bool Changed = false;
 
-  GlobalVariable *GV = M.getGlobalVariable(kPreserveName, true);
+  GlobalVariable *GV = M.getGlobalVariable(hlsl::kPreserveName, true);
   if (GV) {
     for (User *U : GV->users()) {
       GEPOperator *Gep = cast<GEPOperator>(U);
@@ -626,7 +620,7 @@ bool DxilFinalizePreserves::LowerNoops(Module &M) {
   for (Function &F : M) {
     if (!F.isDeclaration())
       continue;
-    if (F.getName() == kNoopName) {
+    if (F.getName() == hlsl::kNoopName) {
       NoopF = &F;
     }
   }
