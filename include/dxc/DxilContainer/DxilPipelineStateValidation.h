@@ -14,16 +14,24 @@
 
 #include <stdint.h>
 #include <string.h>
+#include "assert.h"
+
 #ifndef UINT_MAX
 #define UINT_MAX 0xffffffff
 #endif
 // How many dwords are required for mask with one bit per component, 4 components per vector
 inline uint32_t PSVComputeMaskDwordsFromVectors(uint32_t Vectors) { return (Vectors + 7) >> 3; }
-inline uint32_t PSVComputeInputOutputTableSize(uint32_t InputVectors, uint32_t OutputVectors) {
-  return sizeof(uint32_t) * PSVComputeMaskDwordsFromVectors(OutputVectors) * InputVectors * 4;
+inline uint32_t PSVComputeInputOutputTableDwords(uint32_t InputVectors, uint32_t OutputVectors) {
+  return PSVComputeMaskDwordsFromVectors(OutputVectors) * InputVectors * 4;
 }
 #define PSVALIGN(ptr, alignbits) (((ptr) + ((1 << (alignbits))-1)) & ~((1 << (alignbits))-1))
 #define PSVALIGN4(ptr) (((ptr) + 3) & ~3)
+
+#ifdef DBG
+#define PSV_RETB(exp) do { if(!(exp)) { assert(false && #exp); return false; } } while(0)
+#else   // DBG
+#define PSV_RETB(exp) do { if(!(exp)) { return false; } } while(0)
+#endif  // DBG
 
 struct VSInfo {
   char OutputPositionPresent;
@@ -359,6 +367,19 @@ struct PSVInitInfo
   uint8_t SigInputVectors;
   uint8_t SigPatchConstOrPrimVectors;
   uint8_t SigOutputVectors[4] = {0, 0, 0, 0};
+
+  static_assert(MAX_PSV_VERSION == 1, "otherwise this needs updating.");
+  uint32_t RuntimeInfoSize() const {
+    if (PSVVersion < 1)
+      return sizeof(PSVRuntimeInfo0);
+    return sizeof(PSVRuntimeInfo1);
+  }
+  uint32_t ResourceBindInfoSize() const {
+    return sizeof(PSVResourceBindInfo0);
+  }
+  uint32_t SignatureElementSize() const {
+    return sizeof(PSVSignatureElement0);
+  }
 };
 
 class DxilPipelineStateValidation
@@ -403,6 +424,116 @@ public:
   {
   }
 
+  enum class RWMode {
+    Read,
+    CalcSize,
+    Write,
+  };
+
+  class CheckedReaderWriter {
+  private:
+    char *Ptr;
+    uint32_t Size;
+    uint32_t Offset;
+    RWMode Mode;
+
+  public:
+    CheckedReaderWriter(const void *ptr, uint32_t size, RWMode mode)
+      : Ptr(reinterpret_cast<char*>(const_cast<void*>(ptr))),
+        Size(mode == RWMode::CalcSize ? 0 : size), Offset(0), Mode(mode) {}
+
+    uint32_t GetSize() { return Size; }
+    RWMode GetMode() { return Mode; }
+
+    // Return true if size fits in remaing buffer.
+    bool CheckBounds(size_t size) {
+      if (Mode != RWMode::CalcSize) {
+        PSV_RETB(size <= UINT_MAX);
+        PSV_RETB(Offset <= Size);
+        return (uint32_t)size <= Size - Offset;
+      }
+      return true;
+    }
+    // Increment Size by size. Return false on error.
+    bool IncrementPos(size_t size) {
+      PSV_RETB(size <= UINT_MAX);
+      uint32_t uSize = size;
+      if (Mode == RWMode::CalcSize) {
+        PSV_RETB(uSize <= Size + uSize);
+        Size += uSize;
+      }
+      CheckBounds(size);
+      Offset += size;
+      return true;
+    }
+
+    // Cast and return true if it fits.
+    template <typename _T>
+    bool Cast(_T **ppPtr, size_t size) {
+      PSV_RETB(CheckBounds(size));
+      *ppPtr = reinterpret_cast<_T*>(Ptr + Offset);
+      return true;
+    }
+    template <typename _T>
+    bool Cast(_T **ppPtr) {
+      return Cast(ppPtr, sizeof(_T));
+    }
+
+    // Map* methods increment Offset.
+
+    // Assign pointer, increment Offset, and return true if size fits.
+    template<typename _T>
+    bool MapPtr(_T **ppPtr, size_t size = 0) {
+      Cast(ppPtr, size);
+      IncrementPos(size);
+      return true;
+    }
+    // Read value, increment Offset, and return true if value fits.
+    template <typename _T>
+    bool MapValue(_T *pValue, const _T init = {}) {
+      _T *pPtr = nullptr;
+      if (!MapPtr(&pPtr, sizeof(_T))) return false;
+      switch (Mode) {
+      case RWMode::Read: *pValue = *pPtr; break;
+      case RWMode::CalcSize: *pValue = init; break;
+      case RWMode::Write: *pPtr = *pValue = init; break;
+      }
+      return true;
+    }
+    // Assign pointer, increment Offset, and return true if array fits.
+    template <typename _T>
+    bool MapArray(_T **ppPtr, size_t count, size_t eltSize) {
+      if (count > UINT_MAX || eltSize > UINT_MAX || eltSize < sizeof(_T)) return false;
+      return count ? MapPtr(ppPtr, eltSize * count) : true;
+    }
+    template <>
+    bool MapArray<void>(void **ppPtr, size_t count, size_t eltSize) {
+      if (count > UINT_MAX || eltSize > UINT_MAX) return false;
+      return count ? MapPtr(ppPtr, eltSize * count) : true;
+    }
+    // Assign pointer, increment Offset, and return true if array fits.
+    template <typename _T>
+    bool MapArray(_T **ppPtr, size_t count = 1) {
+      return count ? MapArray(ppPtr, count, sizeof(_T)) : true;
+    }
+
+    void Clear() {
+      if (Mode == RWMode::Write) {
+        memset(Ptr, 0, Size);
+      }
+    }
+  };
+
+  // Assigned derived ptr to base if size large enough.
+  template<typename _Base, typename _T>
+  bool AssignDerived(_T** ppDerived, _Base* pBase, uint32_t size) {
+    if ((size_t)size < sizeof(_T))
+      return false;   // size not large enough for type
+    *ppDerived = reinterpret_cast<_T *>(pBase);
+    return true;
+  }
+
+private:
   // Init() from PSV0 blob part that looks like:
   // uint32_t PSVRuntimeInfo_size
   // { PSVRuntimeInfoN structure }
@@ -432,131 +563,136 @@ public:
   //          - PCOutputs affected by ViewID as a bitmask
   //    For (i : each stream index 0-3):
   //      If (SigInputVectors and SigOutputVectors[i] non-zero):
-  //        { PSVComputeInputOutputTableSize(SigInputVectors, SigOutputVectors[i]) }
+  //        { uint32_t * PSVComputeInputOutputTableDwords(SigInputVectors, SigOutputVectors[i]) }
   //          - Outputs affected by inputs as a table of bitmasks
   //    If (HS and SigPatchConstOrPrimVectors and SigInputVectors non-zero):
-  //      { PSVComputeInputOutputTableSize(SigInputVectors, SigPatchConstOrPrimVectors) }
+  //      { uint32_t * PSVComputeInputOutputTableDwords(SigInputVectors, SigPatchConstOrPrimVectors) }
   //        - Patch constant outputs affected by inputs as a table of bitmasks
   //    If (DS and SigOutputVectors[0] and SigPatchConstOrPrimVectors non-zero):
-  //      { PSVComputeInputOutputTableSize(SigPatchConstOrPrimVectors, SigOutputVectors[0]) }
+  //      { uint32_t * PSVComputeInputOutputTableDwords(SigPatchConstOrPrimVectors, SigOutputVectors[0]) }
   //        - Outputs affected by patch constant inputs as a table of bitmasks
   // returns true if no errors occurred.
-  bool InitFromPSV0(const void* pBits, uint32_t size) {
-    if(!(pBits != nullptr)) return false;
-    uint8_t* pCurBits = (uint8_t*)const_cast<void*>(pBits);
-    uint32_t minsize = sizeof(PSVRuntimeInfo0) + sizeof(uint32_t) * 2;
-    if(!(size >= minsize)) return false;
-    m_uPSVRuntimeInfoSize = *((const uint32_t*)pCurBits);
-    if(!(m_uPSVRuntimeInfoSize >= sizeof(PSVRuntimeInfo0))) return false;
-    pCurBits += sizeof(uint32_t);
-    minsize = m_uPSVRuntimeInfoSize + sizeof(uint32_t) * 2;
-    if(!(size >= minsize)) return false;
-    m_pPSVRuntimeInfo0 = const_cast<PSVRuntimeInfo0*>((const PSVRuntimeInfo0*)pCurBits);
-    if(m_uPSVRuntimeInfoSize >= sizeof(PSVRuntimeInfo1))
-      m_pPSVRuntimeInfo1 = const_cast<PSVRuntimeInfo1*>((const PSVRuntimeInfo1*)pCurBits);
-    pCurBits += m_uPSVRuntimeInfoSize;
-    m_uResourceCount = *(const uint32_t*)pCurBits;
-    pCurBits += sizeof(uint32_t);
-    if (m_uResourceCount > 0) {
-      minsize += sizeof(uint32_t);
-      if(!(size >= minsize)) return false;
-      m_uPSVResourceBindInfoSize = *(const uint32_t*)pCurBits;
-      pCurBits += sizeof(uint32_t);
-      minsize += m_uPSVResourceBindInfoSize * m_uResourceCount;
-      if(!(m_uPSVResourceBindInfoSize >= sizeof(PSVResourceBindInfo0))) return false;
-      if(!(size >= minsize)) return false;
-      m_pPSVResourceBindInfo = static_cast<void*>(const_cast<uint8_t*>(pCurBits));
+  bool ReadOrWrite(const void* pBits, uint32_t *pSize, RWMode mode,
+                 const PSVInitInfo &initInfo = PSVInitInfo(MAX_PSV_VERSION)) {
+    PSV_RETB(pSize != nullptr);
+    PSV_RETB(pBits != nullptr || mode == RWMode::CalcSize);
+    PSV_RETB(initInfo.PSVVersion <= MAX_PSV_VERSION);
+
+    CheckedReaderWriter rw(pBits, *pSize, mode);
+    rw.Clear();
+
+    PSV_RETB(rw.MapValue(&m_uPSVRuntimeInfoSize, initInfo.RuntimeInfoSize()));
+    PSV_RETB(rw.MapArray(&m_pPSVRuntimeInfo0, 1, m_uPSVRuntimeInfoSize));
+    AssignDerived(&m_pPSVRuntimeInfo1, m_pPSVRuntimeInfo0, m_uPSVRuntimeInfoSize); // failure ok
+
+    // In RWMode::CalcSize, use temp runtime info to hold needed values from initInfo
+    PSVRuntimeInfo1 tempRuntimeInfo = {};
+    if (mode == RWMode::CalcSize && initInfo.PSVVersion > 0) {
+      m_pPSVRuntimeInfo1 = &tempRuntimeInfo;
     }
-    pCurBits += m_uPSVResourceBindInfoSize * m_uResourceCount;
+
+    PSV_RETB(rw.MapValue(&m_uResourceCount, initInfo.ResourceCount));
+
+    if (m_uResourceCount > 0) {
+      PSV_RETB(rw.MapValue(&m_uPSVResourceBindInfoSize, initInfo.ResourceBindInfoSize()));
+      PSV_RETB(sizeof(PSVResourceBindInfo0) <= m_uPSVResourceBindInfoSize);
+      PSV_RETB(rw.MapArray(&m_pPSVResourceBindInfo, m_uResourceCount, m_uPSVResourceBindInfoSize));
+    }
 
     if (m_pPSVRuntimeInfo1) {
-      minsize += sizeof(uint32_t) * 2;    // m_StringTable.Size and m_SemanticIndexTable.Entries
-      if (!(size >= minsize)) return false;
-      m_StringTable.Size = PSVALIGN4(*(uint32_t*)pCurBits);
-      if (m_StringTable.Size != *(uint32_t*)pCurBits)
-        return false;   // Illegal: Size not aligned
-      minsize += m_StringTable.Size;
-      if (!(size >= minsize)) return false;
-      pCurBits += sizeof(uint32_t);
-      m_StringTable.Table = (const char *)pCurBits;
-      pCurBits += m_StringTable.Size;
+      if (mode != RWMode::Read) {
+        m_pPSVRuntimeInfo1->ShaderStage = (uint8_t)initInfo.ShaderStage;
+        m_pPSVRuntimeInfo1->SigInputElements = initInfo.SigInputElements;
+        m_pPSVRuntimeInfo1->SigOutputElements = initInfo.SigOutputElements;
+        m_pPSVRuntimeInfo1->SigPatchConstOrPrimElements = initInfo.SigPatchConstOrPrimElements;
+        m_pPSVRuntimeInfo1->UsesViewID = initInfo.UsesViewID;
+        for (unsigned i = 0; i < 4; i++) {
+          m_pPSVRuntimeInfo1->SigOutputVectors[i] = initInfo.SigOutputVectors[i];
+        }
+        if (IsHS() || IsDS() || IsMS()) {
+          m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors = initInfo.SigPatchConstOrPrimVectors;
+        }
+        m_pPSVRuntimeInfo1->SigInputVectors = initInfo.SigInputVectors;
+      }
 
-      m_SemanticIndexTable.Entries = *(uint32_t*)pCurBits;
-      minsize += sizeof(uint32_t) * m_SemanticIndexTable.Entries;
-      if (!(size >= minsize)) return false;
-      pCurBits += sizeof(uint32_t);
-      m_SemanticIndexTable.Table = (uint32_t*)pCurBits;
-      pCurBits += sizeof(uint32_t) * m_SemanticIndexTable.Entries;
+      PSV_RETB(rw.MapValue(&m_StringTable.Size, PSVALIGN4(initInfo.StringTable.Size)));
+      PSV_RETB(PSVALIGN4(m_StringTable.Size) == m_StringTable.Size);
+      if (m_StringTable.Size) {
+        PSV_RETB(rw.MapArray(&m_StringTable.Table, m_StringTable.Size));
+        if (mode == RWMode::Write) {
+          memcpy(const_cast<char*>(m_StringTable.Table), initInfo.StringTable.Table, initInfo.StringTable.Size);
+        }
+      }
+
+      PSV_RETB(rw.MapValue(&m_SemanticIndexTable.Entries, initInfo.SemanticIndexTable.Entries));
+      if (m_SemanticIndexTable.Entries) {
+        PSV_RETB(rw.MapArray(&m_SemanticIndexTable.Table, m_SemanticIndexTable.Entries));
+        if (mode == RWMode::Write) {
+          memcpy(const_cast<uint32_t*>(m_SemanticIndexTable.Table), initInfo.SemanticIndexTable.Table, sizeof(uint32_t) * initInfo.SemanticIndexTable.Entries);
+        }
+      }
 
       // Dxil Signature Elements
       if (m_pPSVRuntimeInfo1->SigInputElements || m_pPSVRuntimeInfo1->SigOutputElements || m_pPSVRuntimeInfo1->SigPatchConstOrPrimElements) {
-        minsize += sizeof(uint32_t);
-        if (!(size >= minsize)) return false;
-        m_uPSVSignatureElementSize = *(uint32_t*)pCurBits;
-        if (m_uPSVSignatureElementSize < sizeof(PSVSignatureElement0))
-          return false;   // Illegal: Size smaller than first version
-        pCurBits += sizeof(uint32_t);
-        minsize += m_uPSVSignatureElementSize * (m_pPSVRuntimeInfo1->SigInputElements + m_pPSVRuntimeInfo1->SigOutputElements + m_pPSVRuntimeInfo1->SigPatchConstOrPrimElements);
-        if (!(size >= minsize)) return false;
-      }
-      if (m_pPSVRuntimeInfo1->SigInputElements) {
-        m_pSigInputElements = (PSVSignatureElement0*)pCurBits;
-        pCurBits += m_uPSVSignatureElementSize * m_pPSVRuntimeInfo1->SigInputElements;
-      }
-      if (m_pPSVRuntimeInfo1->SigOutputElements) {
-        m_pSigOutputElements = (PSVSignatureElement0*)pCurBits;
-        pCurBits += m_uPSVSignatureElementSize * m_pPSVRuntimeInfo1->SigOutputElements;
-      }
-      if (m_pPSVRuntimeInfo1->SigPatchConstOrPrimElements) {
-        m_pSigPatchConstOrPrimElements = (PSVSignatureElement0*)pCurBits;
-        pCurBits += m_uPSVSignatureElementSize * m_pPSVRuntimeInfo1->SigPatchConstOrPrimElements;
+        PSV_RETB(rw.MapValue(&m_uPSVSignatureElementSize, initInfo.SignatureElementSize()));
+        PSV_RETB(sizeof(PSVSignatureElement0) <= m_uPSVSignatureElementSize);
+        if (m_pPSVRuntimeInfo1->SigInputElements) {
+          PSV_RETB(rw.MapArray(&m_pSigInputElements, m_pPSVRuntimeInfo1->SigInputElements, m_uPSVSignatureElementSize));
+        }
+        if (m_pPSVRuntimeInfo1->SigOutputElements) {
+          PSV_RETB(rw.MapArray(&m_pSigOutputElements, m_pPSVRuntimeInfo1->SigOutputElements, m_uPSVSignatureElementSize));
+        }
+        if (m_pPSVRuntimeInfo1->SigPatchConstOrPrimElements) {
+          PSV_RETB(rw.MapArray(&m_pSigPatchConstOrPrimElements, m_pPSVRuntimeInfo1->SigPatchConstOrPrimElements, m_uPSVSignatureElementSize));
+        }
       }
 
       // ViewID dependencies
       if (m_pPSVRuntimeInfo1->UsesViewID) {
         for (unsigned i = 0; i < 4; i++) {
           if (m_pPSVRuntimeInfo1->SigOutputVectors[i]) {
-            minsize += sizeof(uint32_t) * PSVComputeMaskDwordsFromVectors(m_pPSVRuntimeInfo1->SigOutputVectors[i]);
-            if (!(size >= minsize)) return false;
-            m_pViewIDOutputMask = (uint32_t*)pCurBits;
-            pCurBits += sizeof(uint32_t) * PSVComputeMaskDwordsFromVectors(m_pPSVRuntimeInfo1->SigOutputVectors[i]);
+            PSV_RETB(rw.MapArray(&m_pViewIDOutputMask,
+              PSVComputeMaskDwordsFromVectors(m_pPSVRuntimeInfo1->SigOutputVectors[i])));
           }
           if (!IsGS())
             break;
         }
         if ((IsHS() || IsMS()) && m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors) {
-          minsize += sizeof(uint32_t) * PSVComputeMaskDwordsFromVectors(m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors);
-          if (!(size >= minsize)) return false;
-          m_pViewIDPCOrPrimOutputMask = (uint32_t*)pCurBits;
-          pCurBits += sizeof(uint32_t) * PSVComputeMaskDwordsFromVectors(m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors);
+          PSV_RETB(rw.MapArray(&m_pViewIDPCOrPrimOutputMask,
+            PSVComputeMaskDwordsFromVectors(m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors)));
         }
       }
 
       // Input to Output dependencies
       for (unsigned i = 0; i < 4; i++) {
         if (!IsMS() && m_pPSVRuntimeInfo1->SigOutputVectors[i] > 0 && m_pPSVRuntimeInfo1->SigInputVectors > 0) {
-          minsize += PSVComputeInputOutputTableSize(m_pPSVRuntimeInfo1->SigInputVectors, m_pPSVRuntimeInfo1->SigOutputVectors[i]);
-          if (!(size >= minsize)) return false;
-          m_pInputToOutputTable = (uint32_t*)pCurBits;
-          pCurBits += PSVComputeInputOutputTableSize(m_pPSVRuntimeInfo1->SigInputVectors, m_pPSVRuntimeInfo1->SigOutputVectors[i]);
+          PSV_RETB(rw.MapArray(&m_pInputToOutputTable,
+            PSVComputeInputOutputTableDwords(m_pPSVRuntimeInfo1->SigInputVectors, m_pPSVRuntimeInfo1->SigOutputVectors[i])));
         }
         if (!IsGS())
           break;
       }
-      if ((IsHS() || IsMS()) && m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors > 0 && m_pPSVRuntimeInfo1->SigInputVectors > 0) {
-        minsize += PSVComputeInputOutputTableSize(m_pPSVRuntimeInfo1->SigInputVectors, m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors);
-        if (!(size >= minsize)) return false;
-        m_pInputToPCOutputTable = (uint32_t*)pCurBits;
-        pCurBits += PSVComputeInputOutputTableSize(m_pPSVRuntimeInfo1->SigInputVectors, m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors);
+      if (IsHS() && m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors > 0 && m_pPSVRuntimeInfo1->SigInputVectors > 0) {
+        PSV_RETB(rw.MapArray(&m_pInputToPCOutputTable,
+          PSVComputeInputOutputTableDwords(m_pPSVRuntimeInfo1->SigInputVectors, m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors)));
       }
       if (IsDS() && m_pPSVRuntimeInfo1->SigOutputVectors[0] > 0 && m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors > 0) {
-        minsize += PSVComputeInputOutputTableSize(m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors, m_pPSVRuntimeInfo1->SigOutputVectors[0]);
-        if (!(size >= minsize)) return false;
-        m_pPCInputToOutputTable = (uint32_t*)pCurBits;
-        pCurBits += PSVComputeInputOutputTableSize(m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors, m_pPSVRuntimeInfo1->SigOutputVectors[0]);
+        PSV_RETB(rw.MapArray(&m_pPCInputToOutputTable,
+          PSVComputeInputOutputTableDwords(m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors, m_pPSVRuntimeInfo1->SigOutputVectors[0])));
       }
     }
+
+    if (mode == RWMode::CalcSize) {
+      *pSize = rw.GetSize();
+      m_pPSVRuntimeInfo1 = nullptr; // clear ptr to tempRuntimeInfo
+    }
     return true;
+  }
+
+
+public:
+  bool InitFromPSV0(const void* pBits, uint32_t size) {
+    return ReadOrWrite(pBits, &size, RWMode::Read);
   }
 
   // Initialize a new buffer
@@ -569,174 +705,8 @@ public:
   }
 
   bool InitNew(const PSVInitInfo &initInfo, void *pBuffer, uint32_t *pSize) {
-    if(!(pSize)) return false;
-    if (initInfo.PSVVersion > MAX_PSV_VERSION) return false;
-
-    // Versioned structure sizes
-    m_uPSVRuntimeInfoSize = sizeof(PSVRuntimeInfo0);
-    m_uPSVResourceBindInfoSize = sizeof(PSVResourceBindInfo0);
-    m_uPSVSignatureElementSize = sizeof(PSVSignatureElement0);
-    if (initInfo.PSVVersion > 0) {
-      m_uPSVRuntimeInfoSize = sizeof(PSVRuntimeInfo1);
-    }
-
-    // PSVVersion 0
-    uint32_t size = m_uPSVRuntimeInfoSize + sizeof(uint32_t) * 2;
-    if (initInfo.ResourceCount) {
-      size += sizeof(uint32_t) + (m_uPSVResourceBindInfoSize * initInfo.ResourceCount);
-    }
-
-    // PSVVersion 1
-    if (initInfo.PSVVersion > 0) {
-      size += sizeof(uint32_t) + PSVALIGN4(initInfo.StringTable.Size);
-      size += sizeof(uint32_t) + sizeof(uint32_t) * initInfo.SemanticIndexTable.Entries;
-      if (initInfo.SigInputElements || initInfo.SigOutputElements || initInfo.SigPatchConstOrPrimElements) {
-        size += sizeof(uint32_t);   // PSVSignatureElement_size
-      }
-      size += m_uPSVSignatureElementSize * initInfo.SigInputElements;
-      size += m_uPSVSignatureElementSize * initInfo.SigOutputElements;
-      size += m_uPSVSignatureElementSize * initInfo.SigPatchConstOrPrimElements;
-
-      if (initInfo.UsesViewID) {
-        for (unsigned i = 0; i < 4; i++) {
-          size += sizeof(uint32_t) * PSVComputeMaskDwordsFromVectors(initInfo.SigOutputVectors[i]);
-          if (initInfo.ShaderStage != PSVShaderKind::Geometry)
-            break;
-        }
-        if (initInfo.ShaderStage == PSVShaderKind::Hull || initInfo.ShaderStage == PSVShaderKind::Mesh)
-          size += sizeof(uint32_t) * PSVComputeMaskDwordsFromVectors(initInfo.SigPatchConstOrPrimVectors);
-      }
-      if (initInfo.SigInputVectors > 0) {
-        for (unsigned i = 0; i < 4; i++) {
-          if (initInfo.SigOutputVectors[i] > 0) {
-            size += PSVComputeInputOutputTableSize(initInfo.SigInputVectors, initInfo.SigOutputVectors[i]);
-            if (initInfo.ShaderStage != PSVShaderKind::Geometry)
-              break;
-          }
-        }
-        if (initInfo.ShaderStage == PSVShaderKind::Hull && initInfo.SigPatchConstOrPrimVectors > 0 && initInfo.SigInputVectors > 0) {
-          size += PSVComputeInputOutputTableSize(initInfo.SigInputVectors, initInfo.SigPatchConstOrPrimVectors);
-        }
-      }
-      if (initInfo.ShaderStage == PSVShaderKind::Domain && initInfo.SigOutputVectors[0] > 0 && initInfo.SigPatchConstOrPrimVectors > 0) {
-        size += PSVComputeInputOutputTableSize(initInfo.SigPatchConstOrPrimVectors, initInfo.SigOutputVectors[0]);
-      }
-    }
-
-    // Validate or return required size
-    if (pBuffer) {
-      if(!(*pSize >= size)) return false;
-    } else {
-      *pSize = size;
-      return true;
-    }
-
-    // PSVVersion 0
-    memset(pBuffer, 0, size);
-    uint8_t* pCurBits = (uint8_t*)pBuffer;
-    *(uint32_t*)pCurBits = m_uPSVRuntimeInfoSize;
-    pCurBits += sizeof(uint32_t);
-    m_pPSVRuntimeInfo0 = (PSVRuntimeInfo0*)pCurBits;
-    if (initInfo.PSVVersion > 0) {
-      m_pPSVRuntimeInfo1 = (PSVRuntimeInfo1*)pCurBits;
-    }
-    pCurBits += m_uPSVRuntimeInfoSize;
-
-    // Set resource info:
-    m_uResourceCount = initInfo.ResourceCount;
-    *(uint32_t*)pCurBits = m_uResourceCount;
-    pCurBits += sizeof(uint32_t);
-    if (m_uResourceCount > 0) {
-      *(uint32_t*)pCurBits = m_uPSVResourceBindInfoSize;
-      pCurBits += sizeof(uint32_t);
-      m_pPSVResourceBindInfo = pCurBits;
-    }
-    pCurBits += m_uPSVResourceBindInfoSize * m_uResourceCount;
-
-    // PSVVersion 1
-    if (initInfo.PSVVersion) {
-      m_pPSVRuntimeInfo1->ShaderStage = (uint8_t)initInfo.ShaderStage;
-      m_pPSVRuntimeInfo1->UsesViewID = initInfo.UsesViewID;
-      m_pPSVRuntimeInfo1->SigInputElements = initInfo.SigInputElements;
-      m_pPSVRuntimeInfo1->SigOutputElements = initInfo.SigOutputElements;
-      m_pPSVRuntimeInfo1->SigPatchConstOrPrimElements = initInfo.SigPatchConstOrPrimElements;
-      m_pPSVRuntimeInfo1->SigInputVectors = initInfo.SigInputVectors;
-      memcpy(m_pPSVRuntimeInfo1->SigOutputVectors, initInfo.SigOutputVectors, 4);
-      if (IsHS() || IsDS() || IsMS()) {
-        m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors = initInfo.SigPatchConstOrPrimVectors;
-      }
-
-      // Note: if original size was unaligned, padding has already been zero initialized
-      m_StringTable.Size = PSVALIGN4(initInfo.StringTable.Size);
-      *(uint32_t*)pCurBits = m_StringTable.Size;
-      pCurBits += sizeof(uint32_t);
-      memcpy(pCurBits, initInfo.StringTable.Table, initInfo.StringTable.Size);
-      m_StringTable.Table = (const char *)pCurBits;
-      pCurBits += m_StringTable.Size;
-
-      m_SemanticIndexTable.Entries = initInfo.SemanticIndexTable.Entries;
-      *(uint32_t*)pCurBits = m_SemanticIndexTable.Entries;
-      pCurBits += sizeof(uint32_t);
-      memcpy(pCurBits, initInfo.SemanticIndexTable.Table, sizeof(uint32_t) * initInfo.SemanticIndexTable.Entries);
-      m_SemanticIndexTable.Table = (const uint32_t*)pCurBits;
-      pCurBits += sizeof(uint32_t) * m_SemanticIndexTable.Entries;
-
-      // Dxil Signature Elements
-      if (m_pPSVRuntimeInfo1->SigInputElements || m_pPSVRuntimeInfo1->SigOutputElements || m_pPSVRuntimeInfo1->SigPatchConstOrPrimElements) {
-        *(uint32_t*)pCurBits = m_uPSVSignatureElementSize;
-        pCurBits += sizeof(uint32_t);
-      }
-      if (m_pPSVRuntimeInfo1->SigInputElements) {
-        m_pSigInputElements = (PSVSignatureElement0*)pCurBits;
-        pCurBits += m_uPSVSignatureElementSize * m_pPSVRuntimeInfo1->SigInputElements;
-      }
-      if (m_pPSVRuntimeInfo1->SigOutputElements) {
-        m_pSigOutputElements = (PSVSignatureElement0*)pCurBits;
-        pCurBits += m_uPSVSignatureElementSize * m_pPSVRuntimeInfo1->SigOutputElements;
-      }
-      if (m_pPSVRuntimeInfo1->SigPatchConstOrPrimElements) {
-        m_pSigPatchConstOrPrimElements = (PSVSignatureElement0*)pCurBits;
-        pCurBits += m_uPSVSignatureElementSize * m_pPSVRuntimeInfo1->SigPatchConstOrPrimElements;
-      }
-
-      // ViewID dependencies
-      if (m_pPSVRuntimeInfo1->UsesViewID) {
-        for (unsigned i = 0; i < 4; i++) {
-          if (m_pPSVRuntimeInfo1->SigOutputVectors[i]) {
-            m_pViewIDOutputMask = (uint32_t*)pCurBits;
-            pCurBits += sizeof(uint32_t) * PSVComputeMaskDwordsFromVectors(m_pPSVRuntimeInfo1->SigOutputVectors[i]);
-          }
-          if (!IsGS())
-            break;
-        }
-        if ((IsHS() || IsMS()) && m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors) {
-          m_pViewIDPCOrPrimOutputMask = (uint32_t*)pCurBits;
-          pCurBits += sizeof(uint32_t) * PSVComputeMaskDwordsFromVectors(m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors);
-        }
-      }
-
-      // Input to Output dependencies
-      if (m_pPSVRuntimeInfo1->SigInputVectors > 0) {
-        for (unsigned i = 0; i < 4; i++) {
-          if (m_pPSVRuntimeInfo1->SigOutputVectors[i] > 0) {
-            m_pInputToOutputTable = (uint32_t*)pCurBits;
-            pCurBits += PSVComputeInputOutputTableSize(m_pPSVRuntimeInfo1->SigInputVectors, m_pPSVRuntimeInfo1->SigOutputVectors[i]);
-          }
-          if (!IsGS())
-            break;
-        }
-        if (IsHS() && m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors > 0 && m_pPSVRuntimeInfo1->SigInputVectors > 0) {
-          m_pInputToPCOutputTable = (uint32_t*)pCurBits;
-          pCurBits += PSVComputeInputOutputTableSize(m_pPSVRuntimeInfo1->SigInputVectors, m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors);
-        }
-      }
-      if (IsDS() && m_pPSVRuntimeInfo1->SigOutputVectors[0] > 0 && m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors > 0) {
-        m_pPCInputToOutputTable = (uint32_t*)pCurBits;
-        pCurBits += PSVComputeInputOutputTableSize(m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors, m_pPSVRuntimeInfo1->SigOutputVectors[0]);
-      }
-    }
-
-    return true;
+    RWMode Mode = nullptr != pBuffer ? RWMode::Write : RWMode::CalcSize;
+    return ReadOrWrite(pBuffer, pSize, Mode, initInfo);
   }
 
   PSVRuntimeInfo0* GetPSVRuntimeInfo0() const {
@@ -884,5 +854,7 @@ namespace hlsl {
   ViewIDValidator* NewViewIDValidator(unsigned viewIDCount, unsigned gsRastStreamIndex);
 
 }
+
+#undef PSV_RETB
 
 #endif  // __DXIL_PIPELINE_STATE_VALIDATION__H__
