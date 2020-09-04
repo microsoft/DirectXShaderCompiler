@@ -31,6 +31,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/UnrollLoop.h"
+#include "DxilRemoveUnstructuredLoopExits.h" // HLSL Change
 #include <climits>
 
 using namespace llvm;
@@ -100,7 +101,7 @@ namespace {
   class LoopUnroll : public LoopPass {
   public:
     static char ID; // Pass ID, replacement for typeid
-    LoopUnroll(int T = -1, int C = -1, int P = -1, int R = -1) : LoopPass(ID) {
+    LoopUnroll(int T = -1, int C = -1, int P = -1, int R = -1, /*HLSL change*/bool StructurizeLoopExits=false) : LoopPass(ID) {
       CurrentThreshold = (T == -1) ? unsigned(UnrollThreshold) : unsigned(T);
       CurrentPercentDynamicCostSavedThreshold =
           UnrollPercentDynamicCostSavedThreshold;
@@ -120,6 +121,8 @@ namespace {
       UserCount = (C != -1) || (UnrollCount.getNumOccurrences() > 0);
 
       initializeLoopUnrollPass(*PassRegistry::getPassRegistry());
+
+      this->StructurizeLoopExits = StructurizeLoopExits; // HLSL Change
     }
 
     /// A magic value for use with the Threshold parameter to indicate
@@ -141,6 +144,8 @@ namespace {
     unsigned CurrentDynamicCostSavingsDiscount;
     bool CurrentAllowPartial;
     bool CurrentRuntime;
+
+    bool StructurizeLoopExits; // HLSL Change
 
     // Flags for whether the 'current' settings are user-specified.
     bool UserCount;
@@ -164,6 +169,7 @@ namespace {
       AU.addRequiredID(LCSSAID);
       AU.addPreservedID(LCSSAID);
       AU.addRequired<ScalarEvolution>();
+      AU.addRequired<DominatorTreeWrapperPass>(); // HLSL Change
       AU.addPreserved<ScalarEvolution>();
       AU.addRequired<TargetTransformInfoWrapperPass>();
       // FIXME: Loop unroll requires LCSSA. And LCSSA requires dom info.
@@ -262,8 +268,8 @@ INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
 INITIALIZE_PASS_END(LoopUnroll, "loop-unroll", "Unroll loops", false, false)
 
 Pass *llvm::createLoopUnrollPass(int Threshold, int Count, int AllowPartial,
-                                 int Runtime) {
-  return new LoopUnroll(Threshold, Count, AllowPartial, Runtime);
+                                 int Runtime, /* HLSL Change */ bool StructurizeLoopExits) {
+  return new LoopUnroll(Threshold, Count, AllowPartial, Runtime, /* HLSL Change */ StructurizeLoopExits);
 }
 
 Pass *llvm::createSimpleLoopUnrollPass() {
@@ -932,6 +938,9 @@ bool LoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     // of 1 makes sense because loop control can be eliminated.
     return false;
   }
+
+  if (StructurizeLoopExits) // HLSL Change
+    hlsl::RemoveUnstructuredLoopExits(L, LI, &getAnalysis<DominatorTreeWrapperPass>().getDomTree()); // HLSL Change
 
   // Unroll the loop.
   if (!UnrollLoop(L, Count, TripCount, AllowRuntime, UP.AllowExpensiveTripCount,
