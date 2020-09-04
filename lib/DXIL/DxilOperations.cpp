@@ -952,7 +952,15 @@ OP::OP(LLVMContext &Ctx, Module *pModule)
 
   Type *FourI16Types[4] = { Type::getInt16Ty(m_Ctx), Type::getInt16Ty(m_Ctx), Type::getInt16Ty(m_Ctx), Type::getInt16Ty(m_Ctx) }; // HiHi, HiLo, LoHi, LoLo
   m_pFourI16Type = GetOrCreateStructType(m_Ctx, FourI16Types, "dx.types.fouri16", pModule);
-  
+
+  // When loading a module into an existing context where types are merged,
+  // type names may change.  When this happens, any intrinsics overloaded on
+  // UDT types will no longer have matching overload names.
+  // This causes RefreshCache() to assert.
+  // This fixes the function names to they match the expected types,
+  // preventing RefreshCache() from failing due to this issue.
+  FixOverloadNames();
+
   // Try to find existing intrinsic function.
   RefreshCache();
 }
