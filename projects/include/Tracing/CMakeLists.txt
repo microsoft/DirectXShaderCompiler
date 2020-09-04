@@ -5,13 +5,13 @@
 # Create the header in a temporary file and only update when necessary,
 # to avoid invalidating targets that depend on it.
 add_custom_command(
-  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/dxc/Tracing/tmpdxcruntimeetw.h
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/tmpdxcruntimeetw.h
   COMMAND mc -r ${CMAKE_CURRENT_BINARY_DIR} -h ${CMAKE_CURRENT_BINARY_DIR} -p DxcRuntimeEtw_ -um -z tmpdxcruntimeetw ${CMAKE_CURRENT_SOURCE_DIR}/DxcRuntime.man
   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/DxcRuntime.man
   COMMENT "Building instrumentation manifest ..."
 )
 add_custom_command(
-  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/dxc/Tracing/DxcRuntimeEtw.h
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/DxcRuntimeEtw.h
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
         ${CMAKE_CURRENT_BINARY_DIR}/tmpdxcruntimeetw.h
         ${CMAKE_CURRENT_BINARY_DIR}/DxcRuntimeEtw.h
@@ -24,7 +24,7 @@ add_custom_command(
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
         ${CMAKE_CURRENT_BINARY_DIR}/tmpdxcruntimeetw_msg00001.bin
         ${CMAKE_CURRENT_BINARY_DIR}/DxcRuntimeEtw_msg00001.bin
-  DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/dxc/Tracing/tmpdxcruntimeetw.h
+  DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/tmpdxcruntimeetw.h
   COMMENT "Updating instrumentation manifest ..."
 )
 
@@ -34,7 +34,7 @@ set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/DxcRuntimeEtwtemp.bin PR
 set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/DxcRuntimeEtw_msg00001.bin PROPERTIES GENERATED 1)
 
 add_custom_target(DxcRuntimeEtw
-  DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/dxc/Tracing/DxcRuntimeEtw.h
+  DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/DxcRuntimeEtw.h
   SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/DxcRuntime.man
 )
 
