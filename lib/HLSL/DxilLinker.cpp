@@ -359,6 +359,7 @@ private:
   void LinkNamedMDNodes(Module *pM, ValueToValueMapTy &vmap);
   void AddFunctionDecls(Module *pM);
   bool AddGlobals(DxilModule &DM, ValueToValueMapTy &vmap);
+  void EmitCtorListForLib(Module *pM);
   void CloneFunctions(ValueToValueMapTy &vmap);
   void AddFunctions(DxilModule &DM, ValueToValueMapTy &vmap);
   bool AddResource(DxilResourceBase *res, llvm::GlobalVariable *GV);
@@ -818,6 +819,49 @@ DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
   return pM;
 }
 
+// Based on CodeGenModule::EmitCtorList.
+void DxilLinkJob::EmitCtorListForLib(Module *pM) {
+  LLVMContext &Ctx = pM->getContext();
+
+  Type *VoidTy = Type::getVoidTy(Ctx);
+  Type *Int32Ty = Type::getInt32Ty(Ctx);
+  Type *VoidPtrTy = Type::getInt8PtrTy(Ctx);
+  // Ctor function type is void()*.
+  llvm::FunctionType *CtorFTy = llvm::FunctionType::get(VoidTy, false);
+  llvm::Type *CtorPFTy = llvm::PointerType::getUnqual(CtorFTy);
+
+  // Get the type of a ctor entry, { i32, void ()*, i8* }.
+  llvm::StructType *CtorStructTy = llvm::StructType::get(
+      Int32Ty, llvm::PointerType::getUnqual(CtorFTy), VoidPtrTy, nullptr);
+
+  // Construct the constructor and destructor arrays.
+  SmallVector<llvm::Constant *, 8> Ctors;
+
+  for (auto &it : m_functionDefs) {
+    DxilFunctionLinkInfo *linkInfo = it.first;
+    DxilLib *pLib = it.second;
+
+    Function *F = linkInfo->func;
+    if (pLib->IsInitFunc(F)) {
+      Function *NewF = m_newFunctions[F->getName()];
+
+      llvm::Constant *S[] = {
+          llvm::ConstantInt::get(Int32Ty, 65535, false),
+          llvm::ConstantExpr::getBitCast(NewF, CtorPFTy),
+          (llvm::Constant::getNullValue(VoidPtrTy))};
+      Ctors.push_back(llvm::ConstantStruct::get(CtorStructTy, S));
+    }
+  }
+
+  if (!Ctors.empty()) {
+    const StringRef GlobalName = "llvm.global_ctors";
+    llvm::ArrayType *AT = llvm::ArrayType::get(CtorStructTy, Ctors.size());
+    new llvm::GlobalVariable(*pM, AT, false,
+                             llvm::GlobalValue::AppendingLinkage,
+                             llvm::ConstantArray::get(AT, Ctors), GlobalName);
+  }
+}
+
 std::unique_ptr<Module>
 DxilLinkJob::LinkToLib(const ShaderModel *pSM) {
   if (m_functionDefs.empty()) {
@@ -882,6 +926,9 @@ DxilLinkJob::LinkToLib(const ShaderModel *pSM) {
 
   // Link metadata like debug info.
   LinkNamedMDNodes(pM.get(), vmap);
+
+  // Build global.ctors.
+  EmitCtorListForLib(pM.get());
 
   RunPreparePass(*pM);
 
