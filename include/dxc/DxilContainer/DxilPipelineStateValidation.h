@@ -454,7 +454,7 @@ public:
       }
       return true;
     }
-    // Increment Size by size. Return false on error.
+    // Increment Offset by size. Return false on error.
     bool IncrementPos(size_t size) {
       PSV_RETB(size <= UINT_MAX);
       uint32_t uSize = size;
@@ -462,7 +462,7 @@ public:
         PSV_RETB(uSize <= Size + uSize);
         Size += uSize;
       }
-      CheckBounds(size);
+      PSV_RETB(CheckBounds(size));
       Offset += size;
       return true;
     }
@@ -484,8 +484,8 @@ public:
     // Assign pointer, increment Offset, and return true if size fits.
     template<typename _T>
     bool MapPtr(_T **ppPtr, size_t size = 0) {
-      Cast(ppPtr, size);
-      IncrementPos(size);
+      PSV_RETB(Cast(ppPtr, size));
+      PSV_RETB(IncrementPos(size));
       return true;
     }
     // Read value, increment Offset, and return true if value fits.
