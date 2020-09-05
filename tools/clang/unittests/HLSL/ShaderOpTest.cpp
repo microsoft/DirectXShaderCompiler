@@ -419,7 +419,7 @@ void ShaderOpTest::CreatePipelineState() {
     CHECK_HR(m_pDevice->CreateComputePipelineState(&CDesc, IID_PPV_ARGS(&m_pPSO)));
   }
   // Wakanda technology, needs vibranium to work
-#if WDK_NTDDI_VERSION >= NTDDI_WIN10_VB
+#if defined(NTDDI_WIN10_VB) && WDK_NTDDI_VERSION >= NTDDI_WIN10_VB
   else if (m_pShaderOp->MS) {
     // A couple types from a future version of d3dx12.h
     typedef CD3DX12_PIPELINE_STATE_STREAM_SUBOBJECT< D3D12_SHADER_BYTECODE, D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_MS>  CD3DX12_PIPELINE_STATE_STREAM_MS;
