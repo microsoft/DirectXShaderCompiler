@@ -64,6 +64,7 @@ public:
   TEST_METHOD(RunLinkWithPotentialIntrinsicNameCollisions);
   TEST_METHOD(RunLinkWithValidatorVersion);
   TEST_METHOD(RunLinkWithTempReg);
+  TEST_METHOD(RunLinkToLibWithGlobalCtor);
 
 
   dxc::DxcDllSupport m_dllSupport;
@@ -763,4 +764,28 @@ TEST_F(LinkerTest, RunLinkWithTempReg) {
     "call void @dx.op.tempRegStore.i32",
     "call i32 @dx.op.tempRegLoad.i32"
     } ,{});
+}
+
+TEST_F(LinkerTest, RunLinkToLibWithGlobalCtor) {
+  CComPtr<IDxcBlob> pLib0;
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_static_cb_init.hlsl", &pLib0, {});
+  CComPtr<IDxcBlob> pLib1;
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_use_static_cb_init.hlsl", &pLib1,
+             {});
+
+  CComPtr<IDxcLinker> pLinker;
+  CreateLinker(&pLinker);
+
+  LPCWSTR libName = L"foo";
+  RegisterDxcModule(libName, pLib0, pLinker);
+
+  LPCWSTR libName2 = L"bar";
+  RegisterDxcModule(libName2, pLib1, pLinker);
+  // Make sure global_ctors created for lib to lib.
+  Link(L"", L"lib_6_3", pLinker, {libName, libName2},
+       {"@llvm.global_ctors = appending global [1 x { i32, void ()*, i8* }] [{ "
+        "i32, void ()*, i8* } { i32 65535, void ()* "
+        "@foo._GLOBAL__sub_I_lib_static_cb_init.hlsl, i8* null }]"},
+       {},
+       {});
 }
