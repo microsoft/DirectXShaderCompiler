@@ -210,8 +210,14 @@ public:
   static const unsigned kDxilFieldAnnotationPreciseTag            = 8;
   static const unsigned kDxilFieldAnnotationCBUsedTag             = 9;
 
+  // DXR Payload Annotations
+  static const unsigned kDxilPayloadAnnotationStructTag           = 0;
+  static const unsigned kDxilPayloadFieldAnnotationFieldNameTag   = 0;
+  static const unsigned kDxilPayloadFieldAnnotationAccessTag      = 1;
+
   // StructAnnotation extended property tags (DXIL 1.5+ only, appended)
   static const unsigned kDxilTemplateArgumentsTag                 = 0;  // Name for name-value list of extended struct properties
+  static const unsigned kDxilExtendedFieldAnnotationsTag          = 1;
   // TemplateArgument tags
   static const unsigned kDxilTemplateArgTypeTag                   = 0;  // Type template argument, followed by undef of type
   static const unsigned kDxilTemplateArgIntegralTag               = 1;  // Integral template argument, followed by i64 value
@@ -241,6 +247,9 @@ public:
   // Validator version.
   static const char kDxilValidatorVersionMDName[];
   // Validator version uses the same constants for fields as kDxilVersion*
+
+  // DXR Payload Annotations metadata.
+  static const char kDxilDxrPayloadAnnotationsMDName[];
 
   // Extended shader property tags.
   static const unsigned kDxilShaderFlagsTag     = 0;
@@ -405,6 +414,14 @@ public:
   void LoadDxilParamAnnotations(const llvm::MDOperand &MDO, DxilFunctionAnnotation &FA);
   llvm::Metadata *EmitDxilTemplateArgAnnotation(const DxilTemplateArgAnnotation &annotation);
   void LoadDxilTemplateArgAnnotation(const llvm::MDOperand &MDO, DxilTemplateArgAnnotation &annotation);
+
+  // DXR Payload Annotations 
+  void EmitDxrPayloadAnnotations(DxilTypeSystem &TypeSystem, std::vector<llvm::GlobalVariable *> &LLVMUsed);
+  llvm::Metadata *EmitDxrPayloadStructAnnotation(const DxilStructAnnotation& SA);
+  llvm::Metadata *EmitDxrPayloadFieldAnnotation(const DxilFieldAnnotation &FA);
+  void LoadDXRPayloadAnnotationNode(const llvm::MDTuple &MDT, DxilTypeSystem &TypeSystem);
+  void LoadDXRPayloadAnnotations(DxilTypeSystem &TypeSystem);
+  void LoadDXRPayloadFiledAnnoation(const llvm::MDNode* MD, DxilStructAnnotation& SA);
 
   // Function props.
   llvm::MDTuple *EmitDxilFunctionProps(const hlsl::DxilFunctionProps *props,

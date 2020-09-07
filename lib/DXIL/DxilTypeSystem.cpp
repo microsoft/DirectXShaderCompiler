@@ -79,7 +79,22 @@ const std::string &DxilFieldAnnotation::GetFieldName() const { return m_FieldNam
 void DxilFieldAnnotation::SetFieldName(const std::string &FieldName) { m_FieldName = FieldName; }
 bool DxilFieldAnnotation::IsCBVarUsed() const { return m_bCBufferVarUsed; }
 void DxilFieldAnnotation::SetCBVarUsed(bool used) { m_bCBufferVarUsed = used; }
-
+const DxilPayloadAnnotation& DxilFieldAnnotation::GetPayloadFieldAnnotation() const { return m_payloadAccessQualifiers; }
+void DxilFieldAnnotation::AddPayloadFieldAnnotation(
+    llvm::StringRef shaderType, PayloadAccessTypes qualifer) {
+  for (auto &shaderAccess : m_payloadAccessQualifiers.AccessPerShader) {
+    // Check if this shader type already has an access qualifer.
+    if (shaderType == shaderAccess.first) {
+      // Check if the access qualifer matches.
+      if (qualifer != shaderAccess.second)
+        // If not, override the access qualifer to InOut
+        shaderAccess.second = PayloadAccessTypes::InOut;
+      return;
+    }
+  }
+  // Create a new entry for the provided shader type.
+  m_payloadAccessQualifiers.AccessPerShader.emplace_back(shaderType, qualifer);
+}
 
 
 //------------------------------------------------------------------------------

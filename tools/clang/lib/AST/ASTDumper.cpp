@@ -994,6 +994,8 @@ void ASTDumper::dumpHLSLUnusualAnnotations(const ArrayRef<hlsl::UnusualAnnotatio
             OS << "RegisterAssignment"; break;
           case hlsl::UnusualAnnotation::UA_SemanticDecl:
             OS << "SemanticDecl"; break;
+          case hlsl::UnusualAnnotation::UA_PayloadAccessQualifier:
+            OS << "PayloadAccessQualifier"; break;
         }
       }
       dumpPointer(It);
@@ -1042,6 +1044,19 @@ void ASTDumper::dumpHLSLUnusualAnnotations(const ArrayRef<hlsl::UnusualAnnotatio
       case hlsl::UnusualAnnotation::UA_SemanticDecl: {
           const hlsl::SemanticDecl* semanticDecl = cast<hlsl::SemanticDecl>(*It);
           OS << " \"" << semanticDecl->SemanticName << "\"";
+          break;
+        }      
+      case hlsl::UnusualAnnotation::UA_PayloadAccessQualifier: {
+          const hlsl::PayloadAccessQualifier *payloadQualaifer =
+              cast<hlsl::PayloadAccessQualifier>(*It);
+          OS << " " << (payloadQualaifer->IsInput ? "in" : "out") << "(";
+          for (unsigned i = 0; i < payloadQualaifer->ShaderStages.size(); ++i) {
+
+            OS << payloadQualaifer->ShaderStages[i];
+            if (i < payloadQualaifer->ShaderStages.size() - 1)
+              OS << ", ";
+          }
+          OS << ")";
           break;
         }
       }

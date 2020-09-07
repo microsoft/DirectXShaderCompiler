@@ -86,6 +86,12 @@ void DiagnoseUnusualAnnotationsForHLSL(
   clang::Sema& S,
   std::vector<hlsl::UnusualAnnotation *>& annotations);
 
+void DiagnosePayloadAccessQualifierAnnotations(
+  clang::Sema &S,
+  clang::SourceLocation Loc,
+  const clang::QualType& T,
+  const std::vector<hlsl::UnusualAnnotation *> &annotations);
+
 /// <summary>Finds the best viable function on this overload set, if it exists.</summary>
 clang::OverloadingResult GetBestViableFunction(
   clang::Sema &S,

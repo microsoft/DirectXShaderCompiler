@@ -939,6 +939,8 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
 
     unsigned CBufferOffset = offset;
 
+    DxilFieldAnnotation &fieldAnnotation = annotation->GetFieldAnnotation(fieldIdx++);
+
     // Try to get info from fieldDecl.
     for (const hlsl::UnusualAnnotation *it :
          fieldDecl->getUnusualAnnotations()) {
@@ -963,6 +965,15 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
         Diags.Report(it->Loc, DiagID);
         return 0;
       } break;
+      case hlsl::UnusualAnnotation::UA_PayloadAccessQualifier: {
+        // Forward payload access qualifiers to fieldAnnotation. 
+        const hlsl::PayloadAccessQualifier* pq = cast<hlsl::PayloadAccessQualifier>(it);
+        for (StringRef shaderType : pq->ShaderStages) {
+          fieldAnnotation.AddPayloadFieldAnnotation(
+              shaderType,
+              pq->IsInput ? PayloadAccessTypes::In : PayloadAccessTypes::Out);
+        }
+      } break;
       default:
         llvm_unreachable("only semantic for input/output");
         break;
@@ -976,7 +987,6 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
     // Update offset.
     offset += size;
     
-    DxilFieldAnnotation &fieldAnnotation = annotation->GetFieldAnnotation(fieldIdx++);
 
     ConstructFieldAttributedAnnotation(fieldAnnotation, fieldTy, bDefaultRowMajor);
     ConstructFieldInterpolation(fieldAnnotation, fieldDecl);
@@ -2626,6 +2636,10 @@ static void InitFromUnusualAnnotations(DxilResourceBase &Resource, NamedDecl &De
     case hlsl::UnusualAnnotation::UA_ConstantPacking:
       // Should be handled by front-end
       llvm_unreachable("packoffset on resource");
+      break;    
+    case hlsl::UnusualAnnotation::UA_PayloadAccessQualifier:
+      // Should be handled by front-end
+      llvm_unreachable("payload qualifier on resource");
       break;
     default:
       llvm_unreachable("unknown UnusualAnnotation on resource");
@@ -3186,6 +3200,9 @@ void CGMSHLSLRuntime::AddConstant(VarDecl *constDecl, HLCBuffer &CB) {
     }
     case hlsl::UnusualAnnotation::UA_SemanticDecl:
       // skip semantic on constant
+      break;    
+    case hlsl::UnusualAnnotation::UA_PayloadAccessQualifier:
+      // skip payload qualifers on constant
       break;
     }
   }
