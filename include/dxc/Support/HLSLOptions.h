@@ -189,7 +189,13 @@ public:
   bool ResMayAlias = false; // OPT_res_may_alias
   unsigned long ValVerMajor = UINT_MAX, ValVerMinor = UINT_MAX; // OPT_validator_version
   unsigned ScanLimit = 0; // OPT_memdep_block_scan_limit
-  hlsl::OptimizationOptions DxcOptimizationOptions; // OPT_opt_disable
+
+  // Optimization pass enables, disables and selects
+  std::map<std::string, bool> DxcOptimizationToggles; // OPT_opt_enable & OPT_opt_disable
+  std::map<std::string, std::string> DxcOptimizationSelects; // OPT_opt_select
+
+  bool PrintAfterAll; // OPT_print_after_all
+  bool AllowPayloadQualifiers = false; // OPT_allow_payload_qualifiers
 
   // Rewriter Options
   RewriterOpts RWOpt;

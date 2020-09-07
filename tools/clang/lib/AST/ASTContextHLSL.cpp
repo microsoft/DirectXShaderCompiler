@@ -1098,6 +1098,9 @@ UnusualAnnotation* hlsl::UnusualAnnotation::CopyToASTContext(ASTContext& Context
     break;
   case UA_ConstantPacking:
     instanceSize = sizeof(hlsl::ConstantPacking);
+    break;  
+  case UA_PayloadAccessQualifier:
+    instanceSize = sizeof(hlsl::PayloadAccessQualifier);
     break;
   default:
     DXASSERT(Kind == UA_SemanticDecl, "Kind == UA_SemanticDecl -- otherwise switch is incomplete");

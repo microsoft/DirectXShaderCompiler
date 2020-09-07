@@ -197,7 +197,8 @@ public:
   enum UnusualAnnotationKind {
     UA_RegisterAssignment,
     UA_ConstantPacking,
-    UA_SemanticDecl
+    UA_SemanticDecl,
+    UA_PayloadAccessQualifier
   };
 private:
   const UnusualAnnotationKind Kind;
@@ -238,6 +239,23 @@ struct RegisterAssignment : public UnusualAnnotation
 
   static bool classof(const UnusualAnnotation *UA) {
     return UA->getKind() == UA_RegisterAssignment;
+  }
+};
+
+// <summary>Use this structure to capture a ': in/out' definiton.</summary>
+struct PayloadAccessQualifier : public UnusualAnnotation {
+  /// <summary>Initializes a new PayloadAccessQualifier in invalid state.</summary>
+  PayloadAccessQualifier() : UnusualAnnotation(UA_PayloadAccessQualifier){};
+
+  bool IsValid = false;
+
+  bool IsInput = false;
+  bool IsOutput = false;
+
+  llvm::SmallVector<llvm::StringRef, 3> ShaderStages;
+
+  static bool classof(const UnusualAnnotation *UA) {
+    return UA->getKind() == UA_PayloadAccessQualifier;
   }
 };
 

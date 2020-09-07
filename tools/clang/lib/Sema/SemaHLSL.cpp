@@ -2848,6 +2848,8 @@ namespace hlsl {
       return CheckRecursion(CallStack, EntryFnDecl);
     }
 
+    const CallNodes &GetCallGraph() { return m_callNodes; }
+
     void dump() const {
       OutputDebugStringW(L"Call Nodes:\r\n");
       for (auto &node : m_callNodes) {
@@ -9890,6 +9892,462 @@ static NameLookup GetSingleFunctionDeclByName(clang::Sema *self, StringRef Name,
   return NameLookup{ pFoundDecl, nullptr };
 }
 
+static Stmt* IgnoreParensAndDecay(Stmt* S);
+
+namespace {
+
+enum class PayloadStructQualifier { In, Out, InOut };
+
+static ParmVarDecl *GetPayloadQualifedParameter(FunctionDecl *Decl) {
+  for (unsigned i = 0; i < Decl->getNumParams(); ++i) {
+    ParmVarDecl *param = Decl->getParamDecl(i);
+    QualType pType = param->getOriginalType();
+    if (!pType->isStructureOrClassType())
+      return nullptr;
+
+    CXXRecordDecl *RD = pType->getAsCXXRecordDecl();
+
+    for (FieldDecl *field : RD->fields()) {
+      for (UnusualAnnotation *annotation : field->getUnusualAnnotations()) {
+        if (isa<hlsl::PayloadAccessQualifier>(annotation)) {
+          return param;
+        }
+      }
+    }
+  }
+  return nullptr;
+}
+
+static bool HasPayloadQualifedParameter(FunctionDecl *Decl) {
+  if (GetPayloadQualifedParameter(Decl))
+    return true;
+  return false;
+}
+
+static PayloadStructQualifier GetAggregatedPayloadQualifer(ParmVarDecl *Decl) {
+  bool hasInput = false;
+  bool hasOutput = false;
+  QualType pType = Decl->getOriginalType();
+  if (!pType->isStructureOrClassType())
+    return PayloadStructQualifier::InOut;
+
+  CXXRecordDecl *RD = pType->getAsCXXRecordDecl();
+
+  for (FieldDecl *field : RD->fields()) {
+    for (UnusualAnnotation *annotation : field->getUnusualAnnotations()) {
+      if (auto *qualifier =
+              dyn_cast<hlsl::PayloadAccessQualifier>(annotation)) {
+        hasInput |= qualifier->IsInput;
+        hasOutput |= qualifier->IsOutput;
+      }
+    }
+  }
+
+  if (hasInput && hasOutput)
+    return PayloadStructQualifier::InOut;
+  else if (hasInput)
+    return PayloadStructQualifier::In;
+  else
+    return PayloadStructQualifier::Out;
+}
+
+static bool DiagnoseCallExprForExternal(Sema& S, FunctionDecl* FD, CallExpr *CE, ParmVarDecl *Payload) {
+  // We check if we are passing the entire payload struct to an extern function.
+  // Here ends what we can check, so we just issue a warning if the aggregated
+  // qualification of the payload does not match the qualifer of the parameter.
+  if (!FD->hasBody()) {
+    DeclRefExpr *DRef = nullptr;
+    ParmVarDecl *PDecl = nullptr;
+    for (unsigned i = 0; i < CE->getNumArgs(); ++i) {
+      Stmt *arg = IgnoreParensAndDecay(CE->getArg(i));
+      if (DeclRefExpr *argRef = dyn_cast<DeclRefExpr>(arg)) {
+        if (argRef->getDecl() == Payload) {
+          DRef = argRef;
+          PDecl = FD->getParamDecl(i);
+          break;
+        }
+      }
+    }
+
+    if (DRef) {
+      bool needsWarning = false;
+      auto qualifer = GetAggregatedPayloadQualifer(Payload);
+
+      if (PDecl->getAttr<HLSLInAttr>()) {
+        if (qualifer == PayloadStructQualifier::Out) {
+          S.Diag(
+              CE->getExprLoc(),
+              diag::
+                  err_qualified_payload_passed_to_incompatible_extern_function)
+              << "out"
+              << "in";
+          return true;
+        }
+
+        needsWarning = qualifer != PayloadStructQualifier::In;
+      } else if (PDecl->getAttr<HLSLOutAttr>()) {
+        if (qualifer == PayloadStructQualifier::In) {
+          S.Diag(
+              CE->getExprLoc(),
+              diag::
+                  err_qualified_payload_passed_to_incompatible_extern_function)
+              << "in"
+              << "out";
+          return true;
+        }
+        needsWarning = qualifer != PayloadStructQualifier::Out;
+      } else
+        needsWarning = true;
+
+      if (needsWarning) {
+        S.Diag(CE->getExprLoc(),
+               diag::warn_qualified_payload_passed_to_extern_function);
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+static bool DiagnosePayloadParameter(Sema &S, ParmVarDecl *Payload,
+                                     FunctionDecl *FD, StringRef stage,
+                                     bool qualifiersAreMandatory) {
+    if (!Payload) {
+        // catched already during codgegen of the function
+        return false;
+    }
+    if (!Payload->getAttr<HLSLInOutAttr>()) {
+        // error: payload must be inout qualified
+        return false;
+    }
+
+    CXXRecordDecl* Decl = Payload->getType()->getAsCXXRecordDecl();
+    if (!Decl) {
+        // error: not a user defined type decl
+        return false;
+    }
+
+    // Only check if all fileds have a payload qualifier if the shader model requires them.
+    if (qualifiersAreMandatory) {
+        bool allFieldsQualifed = true;
+        FieldDecl* unqualifiedField = nullptr;
+        for (FieldDecl* field : Decl->fields()) {
+            bool fieldHasPayloadQualifier = false;
+            for (UnusualAnnotation* annotation : field->getUnusualAnnotations()) {
+                fieldHasPayloadQualifier |= isa<hlsl::PayloadAccessQualifier>(annotation);
+            }
+            if (!fieldHasPayloadQualifier) {
+                S.Diag(field->getLocation(), diag::err_payload_fileds_not_qualified_qualified) << field->getName();
+            }
+            allFieldsQualifed &= fieldHasPayloadQualifier;
+        }
+        if (!allFieldsQualifed) {
+            S.Diag(Decl->getLocation(), diag::err_not_all_payload_fileds_qualified) << Decl->getName();
+            return false;
+        }
+    }
+
+    return true;
+  }
+
+class DXRShaderVisitor : public RecursiveASTVisitor<DXRShaderVisitor> {
+public:
+  DXRShaderVisitor(Sema &S) : S(S), dispatcher(S) {}
+
+  void diagnose(TranslationUnitDecl *TU, bool qualifiersAreMandatory) { 
+      m_qualifiersAreMandatory = qualifiersAreMandatory;
+      TraverseTranslationUnitDecl(TU); 
+  }
+
+  bool VisitFunctionDecl(FunctionDecl *Decl) {
+    auto attr = Decl->getAttr<HLSLShaderAttr>();
+    if (!attr)
+      return true;
+
+    StringRef stage = attr->getStage();
+    if (StringRef("miss,closesthit,anyhit").count(stage)) {
+      ParmVarDecl *Payload = Decl->getParamDecl(0);
+
+      // Diagnose the payload parameter.
+      if (!DiagnosePayloadParameter(S, Payload, Decl, stage, m_qualifiersAreMandatory)){
+        return true;
+      }
+
+      dispatcher.diagnose(Decl, Payload, stage, "");
+
+      // After we checked the shader stage, collect all
+      // called functions and check them against illigal access.
+      hlsl::CallGraphWithRecurseGuard CG;
+      CG.BuildForEntry(Decl);
+
+      const auto &callGraph = CG.GetCallGraph();
+
+      for (const auto &node : callGraph) {
+        FunctionDecl *caller = node.first;
+        const auto &callees = node.second;
+        for (FunctionDecl *callee : callees.CalleeFns) {
+          // Only check the function if it gets the payload as parmeter.
+          if (ParmVarDecl *PayloadParam = GetPayloadQualifedParameter(callee))
+            dispatcher.diagnose(callee, PayloadParam, stage, callee->getName());
+        }
+      }
+    }
+    return true;
+  }
+
+private:
+  class PayloadAccessVisitor
+      : public RecursiveASTVisitor<PayloadAccessVisitor> {
+  public:
+    PayloadAccessVisitor(Sema &S) : S(S) {}
+
+    enum class AccessType { Modifiyable, Readable, Both };
+
+    void diagnose(Stmt *ST, ParmVarDecl *PayloadDecl, StringRef stage,
+                  StringRef functionName, AccessType accessType) {
+      m_shaderStage = stage;
+      m_functionName = functionName;
+      m_accessType = accessType;
+      m_payloadParameterDecl = PayloadDecl;
+      TraverseStmt(ST);
+    }
+
+    bool VisitMemberExpr(MemberExpr *ME) {
+
+      DeclRefExpr *DRef = dyn_cast<DeclRefExpr>(ME->getBase());
+
+      if (!DRef)
+        return true;
+
+      ValueDecl *Decl = DRef->getDecl();
+
+      if (!Decl || !isa<ParmVarDecl>(Decl))
+        return true;
+
+      if (m_payloadParameterDecl != Decl)
+        return true;
+
+      if (m_accessType == AccessType::Modifiyable ||
+          m_accessType == AccessType::Both) {
+        if (!IsExprModifiable(ME)) {
+          if (m_functionName.empty()) {
+            S.Diag(
+                ME->getExprLoc(),
+                diag::
+                    err_hlsl_field_not_modifieable_because_payload_qualified_in)
+                << ME->getMemberDecl()->getName() << m_shaderStage;
+          } else {
+            S.Diag(
+                ME->getExprLoc(),
+                diag::
+                    err_hlsl_field_not_modifieable_in_function_because_payload_qualified_in)
+                << ME->getMemberDecl()->getName() << m_functionName
+                << m_shaderStage;
+          }
+        }
+      }
+      if (m_accessType == AccessType::Readable ||
+          m_accessType == AccessType::Both) {
+        if (!IsExprReadable(ME)) {
+          if (m_functionName.empty()) {
+            S.Diag(
+                ME->getExprLoc(),
+                diag::err_hlsl_field_not_readable_because_payload_qualified_out)
+                << ME->getMemberDecl()->getName() << m_shaderStage;
+          } else {
+            S.Diag(
+                ME->getExprLoc(),
+                diag::
+                    err_hlsl_field_not_readable_in_function_because_payload_qualified_out)
+                << ME->getMemberDecl()->getName() << m_functionName
+                << m_shaderStage;
+          }
+        }
+      }
+      return true;
+    }
+
+  private:
+    bool IsExprReadable(MemberExpr *ME) {
+      // Ignore non-FieldDecls
+      if (!isa<FieldDecl>(ME->getMemberDecl()))
+        return true;
+
+      FieldDecl *D = cast<FieldDecl>(ME->getMemberDecl());
+
+      bool isOuptutOnly = true;
+      bool hasPayloadAccessQualifier = false;
+      for (auto &annotation : D->getUnusualAnnotations()) {
+
+        if (isa<hlsl::PayloadAccessQualifier>(annotation)) {
+          hasPayloadAccessQualifier = true;
+          hlsl::PayloadAccessQualifier *qual =
+              cast<hlsl::PayloadAccessQualifier>(annotation);
+          bool foundMatchingShaderType = false;
+          for (StringRef s : qual->ShaderStages)
+            if (s == m_shaderStage)
+              foundMatchingShaderType = true;
+
+          if (foundMatchingShaderType) {
+            if (qual->IsInput) {
+              isOuptutOnly = false;
+              break;
+            }
+          }
+        }
+      }
+
+      // Unqualified fields are always inout => An RValue is readable.
+      if (!hasPayloadAccessQualifier)
+        return true;
+
+      // The field is qualified as output => the RValue is not readable.
+      if (isOuptutOnly)
+        return false;
+
+      return true;
+    }
+
+    bool IsExprModifiable(MemberExpr *ME) {
+      // Ignore non-FieldDecls
+      if (!isa<FieldDecl>(ME->getMemberDecl()))
+        return true;
+
+      FieldDecl *D = cast<FieldDecl>(ME->getMemberDecl());
+
+      bool isInputOnly = true;
+      bool hasPayloadQualifer = false;
+      for (auto &annotation : D->getUnusualAnnotations()) {
+        if (isa<hlsl::PayloadAccessQualifier>(annotation)) {
+          hasPayloadQualifer = true;
+          hlsl::PayloadAccessQualifier *qual =
+              cast<hlsl::PayloadAccessQualifier>(annotation);
+
+          bool foundMatchingShaderType = false;
+          for (StringRef s : qual->ShaderStages)
+            if (s == m_shaderStage)
+              foundMatchingShaderType = true;
+
+          if (foundMatchingShaderType) {
+            if (qual->IsOutput) {
+              isInputOnly = false;
+              break;
+            }
+          }
+        }
+      }
+
+      // No qualifer means inout by default => the LValue is modifieable.
+      if (!hasPayloadQualifer)
+        return true;
+
+      // The field is input only => the LValue is unmodifiable.
+      if (isInputOnly) {
+        return false;
+      }
+      return true;
+    }
+
+    Sema &S;
+    StringRef m_shaderStage;
+    StringRef m_functionName;
+    AccessType m_accessType;
+    ParmVarDecl *m_payloadParameterDecl;
+  };
+
+  class CheckDispatcher : public RecursiveASTVisitor<CheckDispatcher> {
+  public:
+    using AccessType = PayloadAccessVisitor::AccessType;
+
+    CheckDispatcher(Sema &S) : S(S), accessVisitor(S) {}
+
+    void diagnose(FunctionDecl *decl, ParmVarDecl *PayloadDecl, StringRef stage,
+                  StringRef functionName) {
+      m_shaderStage = stage;
+      m_functionName = functionName;
+      m_payloadParameterDecl = PayloadDecl;
+
+      TraverseFunctionDecl(decl);
+    }
+
+    bool VisitCallExpr(CallExpr *CE) {
+
+      Decl *callee = CE->getCalleeDecl();
+      if (!callee)
+        return true;
+
+      if (!isa<FunctionDecl>(callee))
+        return true;
+
+      FunctionDecl *FD = cast<FunctionDecl>(callee);
+
+      if (DiagnoseCallExprForExternal(S, FD, CE, m_payloadParameterDecl)) {
+        // Found a probleme, stop checking this CE and move on.
+        return true;
+      }
+
+      for (unsigned i = 0; i < CE->getNumArgs(); ++i) {
+        MemberExpr *arg = dyn_cast<MemberExpr>(CE->getArg(i));
+        if (!arg)
+          continue;
+
+        ParmVarDecl *param = FD->getParamDecl(i);
+
+        AccessType accessType = AccessType::Both;
+        if (param->getAttr<HLSLInAttr>())
+          accessType = AccessType::Readable;
+        if (param->getAttr<HLSLOutAttr>())
+          accessType = AccessType::Modifiyable;
+
+        accessVisitor.diagnose(arg, m_payloadParameterDecl, m_shaderStage,
+                               m_functionName, accessType);
+      }
+      return true;
+    }
+
+    bool VisitBinaryOperator(BinaryOperator *op) {
+      // Check the LHS side of the operator:
+      //   check if it is allowed to modifiy the LHS in case we have an LValue
+      //   check if it is allowed to read the LHS in case we have an RVAlue
+      AccessType accessType = op->getLHS()->isLValue() ? AccessType::Modifiyable
+                                                       : AccessType::Readable;
+      accessVisitor.diagnose(op->getLHS(), m_payloadParameterDecl,
+                             m_shaderStage, m_functionName, accessType);
+
+      // The RHS should always carray an ImplicitLValueToRValue cast and thus
+      // be an RValue, check if it is allowed to read the RHS.
+      assert(op->getRHS()->isRValue());
+      accessVisitor.diagnose(op->getRHS(), m_payloadParameterDecl,
+                             m_shaderStage, m_functionName,
+                             AccessType::Readable);
+      return true;
+    }
+
+    bool VisitArraySubscriptExpr(ArraySubscriptExpr *E) {
+      // Use the cannonical form of an ArraySubscript to check against
+      // payload access modifiers.
+      AccessType accessType = E->getBase()->isLValue() ? AccessType::Modifiyable
+                                                       : AccessType::Readable;
+
+      accessVisitor.diagnose(E->getBase(), m_payloadParameterDecl,
+                             m_shaderStage, m_functionName, accessType);
+      return true;
+    }
+
+  private:
+    Sema &S;
+    PayloadAccessVisitor accessVisitor;
+    StringRef m_shaderStage;
+    StringRef m_functionName;
+    ParmVarDecl *m_payloadParameterDecl;
+  };
+
+  Sema& S;
+  CheckDispatcher dispatcher;
+  bool m_qualifiersAreMandatory;
+};
+} // namespace
+
 void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
   DXASSERT_NOMSG(self != nullptr);
 
@@ -9897,6 +10355,33 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
   if (self->getDiagnostics().hasErrorOccurred()) {
     return;
   }
+
+  // Check RT shader if available for their payload use and match payload access 
+  // against availiable payload modifiers. 
+  // We have to do it late because we could have payload access in a called function
+  // and have to check the callgraph if the root shader has the right access
+  // rights to the payload structure. 
+  const auto *shaderModel =
+      hlsl::ShaderModel::GetByName(self->getLangOpts().HLSLProfile.c_str());
+
+  if (shaderModel->IsLib()) {
+    if (shaderModel->GetMajor() > 6 ||
+        (shaderModel->GetMajor() == 6 && shaderModel->GetMinor() >= 5) ||
+        self->getLangOpts().EnablePayloadAccessQualifiers) {
+      ASTContext &ctx = self->getASTContext();
+      TranslationUnitDecl *TU = ctx.getTranslationUnitDecl();
+
+      bool qualaifiersAreMandatory =
+          shaderModel->GetMajor() > 6 ||
+          (shaderModel->GetMajor() == 6 && shaderModel->GetMinor() >= 7);
+
+      DXRShaderVisitor visitor(*self);
+      visitor.diagnose(TU, qualaifiersAreMandatory);
+    }
+  }
+
+  
+
   // Don't check entry function for library.
   if (self->getLangOpts().IsHLSLLibrary) {
     // TODO: validate no recursion start from every function.
@@ -10009,6 +10494,178 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
   }
 }
 
+void hlsl::DiagnosePayloadAccessQualifierAnnotations(
+    Sema &S, SourceLocation Loc, const QualType& T, const std::vector<hlsl::UnusualAnnotation *>& annotations) {
+
+  auto &&iter = annotations.begin();
+  auto &&end = annotations.end();
+
+  hlsl::PayloadAccessQualifier *inQual = nullptr;
+  hlsl::PayloadAccessQualifier *outQual = nullptr;
+
+  for (; iter != end; ++iter) {
+    switch ((*iter)->getKind()) {
+    case hlsl::UnusualAnnotation::UA_PayloadAccessQualifier: {
+      hlsl::PayloadAccessQualifier *qualifier = cast<hlsl::PayloadAccessQualifier>(*iter);
+      if (qualifier->IsInput) {
+        if (!inQual)
+          inQual = qualifier;
+        else {
+          S.Diag(qualifier->Loc,
+                 diag::err_hlsl_payload_access_qualifier_multiple_defined)
+              << "in";
+          return;
+        }
+      } else if (qualifier->IsOutput) {
+        if (!outQual)
+          outQual = qualifier;
+        else {
+          S.Diag(qualifier->Loc,
+                 diag::err_hlsl_payload_access_qualifier_multiple_defined)
+              << "out";
+          return;
+        }
+      }
+
+      break;
+    }
+    default:
+      // Ignore all other annotations here.
+      break;
+    }
+  }
+
+  // Check the qualified type. struct types are not allowed to be qualified 
+  // directly. Only there fields may be qualified with in/out.
+  if (inQual || outQual) {
+    const Type *Ty = T.getTypePtrOrNull();
+    assert(Ty);
+    if (Ty->isStructureOrClassType()) {
+      TagDecl *Decl = Ty->getAsTagDecl();
+      // Ignore implicit types declared in HLSL such as vector/matrix
+      if (Decl && !Decl->isImplicit()) {
+        S.Diag(Loc, diag::err_hlsl_unsupported_payload_access_qualifier_struct);
+        return;
+      }
+    }
+  }
+
+  struct PayloadAccessQualifierInformation{
+    bool anyhit = false;
+    bool closesthit = false;
+    bool miss = false;
+    bool trace = false;
+    bool invalid = false; 
+    StringRef invalidShader;
+  } inQualContains, outQualContains;
+
+  auto collectInformationAboutShaderStages =
+      [&](hlsl::PayloadAccessQualifier *qual,
+          PayloadAccessQualifierInformation &info) {
+        for (StringRef shaderType : qual->ShaderStages) {
+          if (shaderType == "anyhit")
+            info.anyhit = true;
+          else if (shaderType == "closesthit")
+            info.closesthit = true;
+          else if (shaderType == "miss")
+            info.miss = true;
+          else if (shaderType == "trace")
+            info.trace = true;
+          else {
+            info.invalid = true;
+            info.invalidShader = shaderType;
+          }
+        }
+        if (info.invalid) {
+          S.Diag(qual->Loc,
+                 diag::err_hlsl_payload_access_qualifier_unsupported_shader)
+              << info.invalidShader;
+          return false;
+        }
+        return true;
+      };
+
+  if (inQual) {
+    if (!collectInformationAboutShaderStages(inQual, inQualContains))
+      return;
+  }
+  if (outQual) {
+    if (!collectInformationAboutShaderStages(outQual, outQualContains))
+      return;
+  }
+
+  // Validate the in qualifer if present.
+  if (inQual) {
+    if (inQualContains.trace) {
+      // If the qualifer carries the trace keyword, check if a valid shader type
+      // is provided to produce or consume the field.
+      const bool hasValidShaderType = inQualContains.anyhit ||
+                                      inQualContains.closesthit ||
+                                      inQualContains.miss;
+      if (!hasValidShaderType) {
+        S.Diag(
+            inQual->Loc,
+            diag::err_hlsl_payload_access_qualifier_trace_but_no_shader_present)
+            << "in";
+      }
+    } else {
+      if (inQualContains.anyhit) {
+        S.Diag(inQual->Loc,
+               diag::err_hlsl_payload_access_qualifier_trace_not_present)
+            << "in" << "anyhit";
+      }
+      // check if the field is in for closesthit or miss => the field must be out
+      // for anyhit
+      if (inQualContains.closesthit || inQualContains.miss) {
+        if (!outQual || !outQualContains.anyhit) {
+          S.Diag(
+              inQual->Loc,
+              diag::err_hlsl_payload_access_qualifier_producer_has_no_consumer)
+              << "in" << (inQualContains.closesthit ? "closesthit" : "miss")
+              << "out"
+              << "anyhit";
+        }
+      }
+    }
+  }
+
+  // Validate the out qualifer if present.
+  if (outQual) {
+    if (outQualContains.trace) {
+      // If the qualifer carries the trace keyword, check if a valid shader
+      // type is provided to produce or consume the field.
+      const bool hasValidShaderType = outQualContains.anyhit ||
+                                      outQualContains.closesthit ||
+                                      outQualContains.miss;
+      if (!hasValidShaderType) {
+        S.Diag(
+            outQual->Loc,
+            diag::err_hlsl_payload_access_qualifier_trace_but_no_shader_present)
+            << "out";
+      }
+    } else {
+      if (outQualContains.closesthit || outQualContains.miss) {
+        S.Diag(outQual->Loc,
+               diag::err_hlsl_payload_access_qualifier_trace_not_present)
+            << "out" << (outQualContains.closesthit ? "closesthit" : "miss");
+      }
+      // Check if the field is out for anyhit => the field must be in for
+      // closesthit or miss
+      if (outQualContains.anyhit) {
+        if (!inQual || !(inQualContains.closesthit || inQualContains.miss)) {
+          S.Diag(
+              outQual->Loc,
+              diag::err_hlsl_payload_access_qualifier_producer_has_no_consumer)
+              << "out"
+              << "anyhit"
+              << "in"
+              << "closesthit or miss";
+        }
+      }
+    }
+  }
+}
+
 void hlsl::DiagnoseUnusualAnnotationsForHLSL(
   Sema& S,
   std::vector<hlsl::UnusualAnnotation *>& annotations)
@@ -10065,6 +10722,10 @@ void hlsl::DiagnoseUnusualAnnotationsForHLSL(
     case hlsl::UnusualAnnotation::UA_SemanticDecl: {
       // hlsl::SemanticDecl* semanticDecl = cast<hlsl::SemanticDecl>(*iter);
       // No common validation to be performed.
+      break;
+    }
+    case hlsl::UnusualAnnotation::UA_PayloadAccessQualifier: {
+      // Validation happens sperately
       break;
     }
     }
@@ -11485,6 +12146,11 @@ Decl* Sema::ActOnStartHLSLBuffer(
       // Ignore semantic declarations.
       break;
     }
+    case hlsl::UnusualAnnotation::UA_PayloadAccessQualifier: {
+      hlsl::PayloadAccessQualifier* payloadQual = cast<hlsl::PayloadAccessQualifier>(*unusualIter);
+      Diag( payloadQual->Loc, diag::err_hlsl_unsupported_payload_access_qualifier);
+      break;
+    }
     }
   }
 
@@ -12152,6 +12818,9 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
 
   // Validate unusual annotations.
   hlsl::DiagnoseUnusualAnnotationsForHLSL(*this, D.UnusualAnnotations);
+  if (isField)
+    hlsl::DiagnosePayloadAccessQualifierAnnotations(*this, D.getLocStart(), qt,
+                                                    D.UnusualAnnotations);
   auto && unusualIter = D.UnusualAnnotations.begin();
   auto && unusualEnd = D.UnusualAnnotations.end();
   for (; unusualIter != unusualEnd; ++unusualIter) {
@@ -12188,6 +12857,13 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
       if (isTypedef || isLocalVar) {
         Diag(semanticDecl->Loc, diag::err_hlsl_varmodifierna)
             << "semantic" << declarationType;
+      }
+      break;    
+    }
+    case hlsl::UnusualAnnotation::UA_PayloadAccessQualifier: {
+      hlsl::PayloadAccessQualifier *payloadQualifer = cast<hlsl::PayloadAccessQualifier>(*unusualIter);
+      if (!isField) {
+          Diag(payloadQualifer->Loc, diag::err_hlsl_unsupported_payload_access_qualifier);
       }
       break;
     }

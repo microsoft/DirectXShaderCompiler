@@ -541,6 +541,10 @@ bool DxilModule::GetAllResourcesBound() const {
   return m_bAllResourcesBound;
 }
 
+bool DxilModule::GetPayloadQualifersUsed() const {
+  return m_bHasPayloadQualifiers;
+}
+
 void DxilModule::SetLegacyResourceReservation(bool legacyResourceReservation) {
   m_IntermediateFlags &= ~LegacyResourceReservation;
   if (legacyResourceReservation) m_IntermediateFlags |= LegacyResourceReservation;
@@ -1288,6 +1292,23 @@ void DxilModule::ResetEntryPropsMap(DxilEntryPropsMap &&PropMap) {
             inserter(m_DxilEntryPropsMap, m_DxilEntryPropsMap.begin()));
 }
 
+void DxilModule::InferInformationFromTypeSystem() {
+  DXASSERT(m_pTypeSystem, "module does not have a DXILTypeSystem");
+  m_bHasPayloadQualifiers = false;
+
+  // Infer from the type system if payload annoation qualifers are used on any
+  // struct. This information is required to guide reflection stripping.
+  for (auto &item : m_pTypeSystem->GetStructAnnotationMap()) {
+    const DxilStructAnnotation &annotation = *item.second;
+    for (int idx = 0; idx != item.second->GetNumFields(); ++idx) {
+      const DxilFieldAnnotation &fieldAnnotation =
+          annotation.GetFieldAnnotation(idx);
+      if (!fieldAnnotation.GetPayloadFieldAnnotation().AccessPerShader.empty())
+        m_bHasPayloadQualifiers = true;
+    }
+  }
+}
+
 static const StringRef llvmUsedName = "llvm.used";
 
 void DxilModule::EmitLLVMUsed() {
@@ -1404,6 +1425,22 @@ void DxilModule::EmitDxilMetadata() {
        (m_ValMajor > 1 || (m_ValMajor == 1 && m_ValMinor >= 1)))) {
     m_pMDHelper->EmitDxilViewIdState(m_SerializedState);
   }
+
+  // Emit the DXR Payload Annotations only for lib_6_5+ and only for valver >= 1.5
+  // The front-end has checked if the payload access qualifiers are valid for this target
+  // and DXIL version. We double check and also check the validator version. 
+  if (m_pSM->IsLib()) {
+    const bool validatorSupported =
+        DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 5) >= 0;
+    const bool shaderModelSupported =
+        DXIL::CompareVersions(m_pSM->GetMajor(), m_pSM->GetMinor(), 6, 5) >= 0;
+    const bool dxilVersionSupported =
+        DXIL::CompareVersions(m_DxilMajor, m_DxilMinor, 1, 5) >= 0;
+    if (validatorSupported && shaderModelSupported && dxilVersionSupported) {
+      m_pMDHelper->EmitDxrPayloadAnnotations(GetTypeSystem(), m_LLVMUsed);
+    }
+  }
+
   EmitLLVMUsed();
   MDTuple *pEntry = m_pMDHelper->EmitDxilEntryPointTuple(GetEntryFunction(), m_EntryName, pMDSignatures, pMDResources, pMDProperties);
   vector<MDNode *> Entries;
@@ -1665,6 +1702,17 @@ static bool ResourceTypeRequiresTranslation(const StructType * Ty, SmallStructSe
   return bResult;
 }
 
+// Return true if any field in the DxilStructAnnotation is carring 
+// payload access modifiers. 
+static bool StructContainsPayloadQualifiers(DxilStructAnnotation &annotation) {
+  bool structUsesPayloadQualifiers = false;
+  for (int idx = 0; idx != annotation.GetNumFields(); ++idx) {
+    auto &field = annotation.GetFieldAnnotation(idx);
+    structUsesPayloadQualifiers |= !field.GetPayloadFieldAnnotation().AccessPerShader.empty();
+  }
+  return structUsesPayloadQualifiers;
+}
+
 bool DxilModule::StripReflection() {
   bool bChanged = false;
   bool bIsLib = GetShaderModel()->IsLib();
@@ -1685,7 +1733,7 @@ bool DxilModule::StripReflection() {
     }
   }
 
-  if (bIsLib && GetUseMinPrecision())
+  if (bIsLib && (GetUseMinPrecision() || GetPayloadQualifersUsed()))
   {
     // We must preserve struct annotations for resources containing min-precision types,
     // since they have not yet been converted for legacy layout.
@@ -1694,6 +1742,10 @@ bool DxilModule::StripReflection() {
     SmallStructSetVector structsToRemove;
     for (auto &item : m_pTypeSystem->GetStructAnnotationMap()) {
       SmallStructSetVector containedStructs;
+      if (StructContainsPayloadQualifiers(*item.second)) {
+        structsToKeep.insert(item.first);
+        continue;
+      }
       if (!ResourceTypeRequiresTranslation(item.first, containedStructs))
         structsToRemove.insert(item.first);
       else

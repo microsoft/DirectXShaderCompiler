@@ -56,6 +56,7 @@ const char DxilMDHelper::kDxilTempAllocaMDName[]                      = "dx.temp
 const char DxilMDHelper::kDxilNonUniformAttributeMDName[]             = "dx.nonuniform";
 const char DxilMDHelper::kHLDxilResourceAttributeMDName[]             = "dx.hl.resource.attribute";
 const char DxilMDHelper::kDxilValidatorVersionMDName[]                = "dx.valver";
+const char DxilMDHelper::kDxilDxrPayloadAnnotationsMDName[]           = "dx.dxrPayloadAnnotations";
 
 // This named metadata is not valid in final module (should be moved to DxilContainer)
 const char DxilMDHelper::kDxilRootSignatureMDName[]                   = "dx.rootSignature";
@@ -71,7 +72,7 @@ const char DxilMDHelper::kDxilSourceArgsMDName[]                      = "dx.sour
 // This is reflection-only metadata
 const char DxilMDHelper::kDxilCountersMDName[]                        = "dx.counters";
 
-static std::array<const char *, 7> DxilMDNames = { {
+static std::array<const char *, 8> DxilMDNames = { {
   DxilMDHelper::kDxilVersionMDName,
   DxilMDHelper::kDxilShaderModelMDName,
   DxilMDHelper::kDxilEntryPointsMDName,
@@ -79,6 +80,7 @@ static std::array<const char *, 7> DxilMDNames = { {
   DxilMDHelper::kDxilTypeSystemMDName,
   DxilMDHelper::kDxilValidatorVersionMDName,
   DxilMDHelper::kDxilViewIdStateMDName,
+  DxilMDHelper::kDxilDxrPayloadAnnotationsMDName,
 }};
 
 DxilMDHelper::DxilMDHelper(Module *pModule, std::unique_ptr<ExtraPropertyHelper> EPH)
@@ -822,6 +824,140 @@ void DxilMDHelper::LoadDxilTypeSystem(DxilTypeSystem &TypeSystem) {
   }
 }
 
+void DxilMDHelper::EmitDxrPayloadAnnotations(DxilTypeSystem &TypeSystem, vector<GlobalVariable*> &LLVMUsed) {
+  auto &TypeMap = TypeSystem.GetStructAnnotationMap();
+  vector<Metadata *> MDVals;
+  MDVals.emplace_back(Uint32ToConstMD(kDxilPayloadAnnotationStructTag)); // Tag
+  unsigned GVIdx = 0;
+  for (auto it = TypeMap.begin(); it != TypeMap.end(); ++it, GVIdx++) {
+    StructType *pStructType = const_cast<StructType *>(it->first);
+    DxilStructAnnotation *pA = it->second.get();
+    // Don't emit type annotation for empty struct.
+    if (pA->IsEmptyStruct())
+      continue;
+    // Emit struct type field annotations.
+    Metadata *pMD = EmitDxrPayloadStructAnnotation(*pA);
+
+    MDVals.push_back(ValueAsMetadata::get(UndefValue::get(pStructType)));
+    MDVals.push_back(pMD);
+  }
+
+  NamedMDNode *pDxrPayloadAnnotationsMD = m_pModule->getNamedMetadata(kDxilDxrPayloadAnnotationsMDName);
+  if (pDxrPayloadAnnotationsMD != nullptr) {
+    m_pModule->eraseNamedMetadata(pDxrPayloadAnnotationsMD);
+  }
+
+  if (MDVals.size() > 1) {
+    pDxrPayloadAnnotationsMD = m_pModule->getOrInsertNamedMetadata(kDxilDxrPayloadAnnotationsMDName);
+    pDxrPayloadAnnotationsMD->addOperand(MDNode::get(m_Ctx, MDVals));
+  }
+}
+
+Metadata *
+DxilMDHelper::EmitDxrPayloadStructAnnotation(const DxilStructAnnotation &SA) {
+  vector<Metadata *> MDVals;
+  MDVals.reserve(SA.GetNumFields());
+  MDVals.resize(SA.GetNumFields());
+
+  for (unsigned i = 0; i < SA.GetNumFields(); i++) {
+    MDVals[i] = EmitDxrPayloadFieldAnnotation(SA.GetFieldAnnotation(i));
+  }
+
+  return MDNode::get(m_Ctx, MDVals);
+}
+
+void DxilMDHelper::LoadDXRPayloadFiledAnnoation(const MDNode *MD,
+                                                DxilStructAnnotation &SA) {
+  IFTBOOL(MD->getNumOperands() == SA.GetNumFields(),
+          DXC_E_INCORRECT_DXIL_METADATA);
+  for (unsigned i = 0; i < SA.GetNumFields(); ++i) {
+    MDNode *fieldNode = dyn_cast<MDNode>(MD->getOperand(i));
+    IFTBOOL(fieldNode != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+
+    unsigned Tag = ConstMDToInt32(fieldNode->getOperand(0));
+    IFTBOOL(Tag == kDxilPayloadFieldAnnotationFieldNameTag,
+            DXC_E_INCORRECT_DXIL_METADATA);
+
+    if (fieldNode->getNumOperands() > 2) {
+      unsigned AccessTag = ConstMDToInt32(fieldNode->getOperand(2));
+      IFTBOOL(AccessTag == kDxilPayloadFieldAnnotationAccessTag,
+              DXC_E_INCORRECT_DXIL_METADATA);
+      StringRef validStages = "trace,anyhit,closesthit,miss";
+
+      for (unsigned i = 3; i < fieldNode->getNumOperands(); ++i) {
+
+        MDNode *accessNode = dyn_cast<MDNode>(fieldNode->getOperand(i));
+        IFTBOOL(accessNode != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+        IFTBOOL(accessNode->getNumOperands() == 2,
+                DXC_E_INCORRECT_DXIL_METADATA);
+
+        MDString *stage = dyn_cast<MDString>(accessNode->getOperand(0));
+        IFTBOOL(stage != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+        IFTBOOL(validStages.count(stage->getString()),
+                DXC_E_INCORRECT_DXIL_METADATA);
+
+        unsigned accessQualfifer = ConstMDToInt32(accessNode->getOperand(1));
+
+        switch (static_cast<hlsl::PayloadAccessTypes>(accessQualfifer)) {
+        case hlsl::PayloadAccessTypes::In:
+          SA.GetFieldAnnotation(i).AddPayloadFieldAnnotation(
+              stage->getString(), hlsl::PayloadAccessTypes::In);
+          break;
+        case hlsl::PayloadAccessTypes::Out:
+          SA.GetFieldAnnotation(i).AddPayloadFieldAnnotation(
+              stage->getString(), hlsl::PayloadAccessTypes::Out);
+          break;
+        case hlsl::PayloadAccessTypes::InOut:
+          SA.GetFieldAnnotation(i).AddPayloadFieldAnnotation(
+              stage->getString(), hlsl::PayloadAccessTypes::In);
+          SA.GetFieldAnnotation(i).AddPayloadFieldAnnotation(
+              stage->getString(), hlsl::PayloadAccessTypes::Out);
+          break;
+        }
+      }
+    }
+  }
+}
+
+void DxilMDHelper::LoadDXRPayloadAnnotationNode(const llvm::MDTuple &MDT,
+                                                DxilTypeSystem &TypeSystem) {
+  unsigned Tag = ConstMDToUint32(MDT.getOperand(0));
+  IFTBOOL(Tag == kDxilPayloadAnnotationStructTag, DXC_E_INCORRECT_DXIL_METADATA)
+  IFTBOOL((MDT.getNumOperands() & 0x1) == 1, DXC_E_INCORRECT_DXIL_METADATA);
+
+  Constant *pGV = dyn_cast<Constant>(ValueMDToValue(MDT.getOperand(1)));
+  IFTBOOL(pGV != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+  StructType *pGVType = dyn_cast<StructType>(pGV->getType());
+  IFTBOOL(pGVType != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+
+  // Check if this struct is already part of the DXIL Type System
+  DxilStructAnnotation *pSA = TypeSystem.GetStructAnnotation(pGVType);
+  if (!pSA)
+    pSA = TypeSystem.AddStructAnnotation(pGVType);
+
+  LoadDxilStructAnnotation(MDT.getOperand(2), *pSA);
+}
+
+void DxilMDHelper::LoadDXRPayloadAnnotations(DxilTypeSystem &TypeSystem) {
+  NamedMDNode *pDxilPayloadAnnotationsMD =
+      m_pModule->getNamedMetadata(kDxilDxrPayloadAnnotationsMDName);
+  if (pDxilPayloadAnnotationsMD == nullptr)
+    return;
+
+  DXASSERT(
+      DXIL::CompareVersions(m_MinValMajor, m_MinValMinor, 1, 5) >= 0,
+      "otherwise, payload access annotation emitted for dxil version < 1.5");
+
+  IFTBOOL(pDxilPayloadAnnotationsMD->getNumOperands() == 0,
+          DXC_E_INCORRECT_DXIL_METADATA);
+  for (unsigned i = 0; i < pDxilPayloadAnnotationsMD->getNumOperands(); i++) {
+    const MDTuple *pTupleMD =
+        dyn_cast<MDTuple>(pDxilPayloadAnnotationsMD->getOperand(i));
+    IFTBOOL(pTupleMD != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+    LoadDXRPayloadAnnotationNode(*pTupleMD, TypeSystem);
+  }
+}
+
 Metadata *DxilMDHelper::EmitDxilTemplateArgAnnotation(const DxilTemplateArgAnnotation &annotation) {
   SmallVector<Metadata *, 2> MDVals;
   if (annotation.IsType()) {
@@ -1037,6 +1173,7 @@ Metadata *DxilMDHelper::EmitDxilFieldAnnotation(const DxilFieldAnnotation &FA) {
   return MDNode::get(m_Ctx, MDVals);
 }
 
+
 void DxilMDHelper::LoadDxilFieldAnnotation(const MDOperand &MDO, DxilFieldAnnotation &FA) {
   IFTBOOL(MDO.get() != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
   const MDTuple *pTupleMD = dyn_cast<MDTuple>(MDO.get());
@@ -1086,6 +1223,29 @@ void DxilMDHelper::LoadDxilFieldAnnotation(const MDOperand &MDO, DxilFieldAnnota
       break;
     }
   }
+}
+
+Metadata *DxilMDHelper::EmitDxrPayloadFieldAnnotation(const DxilFieldAnnotation &FA) {
+  vector<Metadata *> MDVals;  // Tag-Value list.
+
+  if (FA.HasFieldName()) {
+    MDVals.emplace_back(Uint32ToConstMD(kDxilPayloadFieldAnnotationFieldNameTag));
+    MDVals.emplace_back(MDString::get(m_Ctx, FA.GetFieldName()));
+  }
+
+  if (!FA.GetPayloadFieldAnnotation().AccessPerShader.empty()) {
+    MDVals.emplace_back(Uint32ToConstMD(kDxilPayloadFieldAnnotationAccessTag));
+
+    for (auto &shaderAccess : FA.GetPayloadFieldAnnotation().AccessPerShader) {
+      Metadata *PayloadAccessMD[2];
+      PayloadAccessMD[0] = MDString::get(m_Ctx, shaderAccess.first);
+      unsigned value = static_cast<unsigned>(shaderAccess.second);
+      PayloadAccessMD[1] = Uint32ToConstMD(value);
+      MDVals.emplace_back(MDNode::get(m_Ctx, PayloadAccessMD));
+    }
+  }
+
+  return MDNode::get(m_Ctx, MDVals);
 }
 
 const Function *DxilMDHelper::LoadDxilFunctionProps(const MDTuple *pProps,

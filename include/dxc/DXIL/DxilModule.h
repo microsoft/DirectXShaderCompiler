@@ -197,6 +197,8 @@ public:
   void ResetOP(hlsl::OP *hlslOP);
   void ResetEntryPropsMap(DxilEntryPropsMap &&PropMap);
 
+  void InferInformationFromTypeSystem();
+
   bool StripReflection();
   void StripDebugRelatedCode();
   llvm::DebugInfoFinder &GetOrCreateDebugInfoFinder();
@@ -260,6 +262,7 @@ public:
   bool GetDisableOptimization() const;
   void SetAllResourcesBound(bool resourcesBound);
   bool GetAllResourcesBound() const;
+  bool GetPayloadQualifersUsed() const;
 
   // Intermediate options that do not make it to DXIL
   void SetLegacyResourceReservation(bool legacyResourceReservation);
@@ -370,6 +373,9 @@ private:
   // properties from HLModule that should not make it to the final DXIL
   uint32_t m_IntermediateFlags;
   uint32_t m_AutoBindingSpace;
+
+  // porperties infered from the DXILTypeSystem
+  bool m_bHasPayloadQualifiers;
 
   std::unique_ptr<DxilSubobjects> m_pSubobjects;
 

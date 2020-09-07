@@ -7535,6 +7535,36 @@ def err_hlsl_unsupported_buffer_packoffset : Error<
   "packoffset is only allowed within a constant buffer, not on the constant buffer declaration">;
 def err_hlsl_unsupported_buffer_slot_target_specific : Error<
   "user defined constant buffer slots cannot be target specific">;
+def err_hlsl_unsupported_payload_access_qualifier : Error<
+  "payload access qualifiers are only allowed for member variables of a payload structure">;
+def err_hlsl_unsupported_payload_access_qualifier_struct : Error<
+  "payload access qualifiers are not supported on struct types.">;
+def err_hlsl_payload_access_qualifier_producer_has_no_consumer : Error<
+  "field is marked '%0' for '%1' but is not marked '%2' for %3 or trace">;
+def err_hlsl_payload_access_qualifier_unsupported_shader : Error<
+  "payload access qualifiers are only defined for raytracing shader stages closesthit, miss, anyhit and for special keyword: trace. '%0' is not supported">;
+def err_hlsl_payload_access_qualifier_trace_not_present : Error<
+  "field is qualified '%0' for shader stage '%1' but trace is missing">;
+def err_hlsl_payload_access_qualifier_trace_but_no_shader_present : Error<
+  "field is qualified '%0' for trace but a valid shader stage is missing. Supported shader stages are closesthit, miss or anyhit">;
+def err_hlsl_payload_access_qualifier_multiple_defined : Error<
+  "payload access qualifier '%0' has already been defined">;
+def err_hlsl_field_not_modifieable_because_payload_qualified_in : Error<
+  "field '%0' is not modifiable because it is not qualified 'out' for shader stage '%1'">;
+def err_hlsl_field_not_readable_because_payload_qualified_out : Error<
+  "field '%0' is not readable because it is not qualified 'in' for shader stage '%1'">;
+def err_hlsl_field_not_modifieable_in_function_because_payload_qualified_in : Error<
+  "field '%0' is not modifiable in function '%1'. '%1' is called from shader stage '%2' but '%0' is not qualified 'out' for this stage">;
+def err_hlsl_field_not_readable_in_function_because_payload_qualified_out : Error<
+  "field '%0' is not readable in function '%1'. '%1' is called from shader stage '%2' but '%0' is not qualified 'in' for this stage">;
+def warn_qualified_payload_passed_to_extern_function : Warning<
+  "passing a qualified payload to an extern function can cause undefined behavior if payload qualifiers mismatch">;
+def err_qualified_payload_passed_to_incompatible_extern_function : Error<
+  "passing a pure '%0' payload to an extern function as '%1' parameter">;
+def err_not_all_payload_fileds_qualified : Error<
+  "payload type '%0' requires that all fileds carry payload access qualifies.">;
+def err_payload_fileds_not_qualified_qualified : Error<
+  "payload filed '%0' has no payload access qualifies.">;
 def err_hlsl_unsupported_builtin_op: Error<
   "operator cannot be used with built-in type %0">;
 def err_hlsl_unsupported_char_literal : Error<

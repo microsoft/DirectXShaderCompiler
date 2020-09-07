@@ -42,6 +42,12 @@ struct DxilMatrixAnnotation {
   DxilMatrixAnnotation();
 };
 
+enum class PayloadAccessTypes{ InOut = 0, In = 1, Out = 2 };
+
+struct DxilPayloadAnnotation {
+  llvm::SmallVector<std::pair<std::string, PayloadAccessTypes>, 2> AccessPerShader;
+};
+
 /// Use this class to represent type annotation for structure field.
 class DxilFieldAnnotation {
 public:
@@ -82,6 +88,9 @@ public:
   bool IsCBVarUsed() const;
   void SetCBVarUsed(bool used);
 
+  const DxilPayloadAnnotation& GetPayloadFieldAnnotation() const;
+  void AddPayloadFieldAnnotation(llvm::StringRef shaderType, PayloadAccessTypes qualifier);
+
 private:
   bool m_bPrecise;
   CompType m_CompType;
@@ -92,6 +101,7 @@ private:
   InterpolationMode m_InterpMode;
   std::string m_FieldName;
   bool m_bCBufferVarUsed; // true if this field represents a top level variable in CB structure, and it is used.
+  DxilPayloadAnnotation m_payloadAccessQualifiers;
 };
 
 class DxilTemplateArgAnnotation : DxilFieldAnnotation {
