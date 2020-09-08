@@ -1,4 +1,6 @@
 // RUN: %dxc -T lib_6_3 %s | FileCheck %s
+// Test failure expected when run with 19041 SDK DXIL.dll
+
 StructuredBuffer<int> buf[]: register(t2);
 // CHECK: @dx.break.cond = internal constant
 

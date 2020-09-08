@@ -844,6 +844,8 @@ void OP::GetMinShaderModelAndMask(const llvm::CallInst *CI, bool bWithTranslatio
     // validator 1.4 didn't exclude wave ops in mask
     if (IsDxilOpWave(opcode))
       mask = ((unsigned)1 << (unsigned)DXIL::ShaderKind::Invalid) - 1;
+    // These shader models don't exist before 1.5
+    mask &= ~(SFLAG(Amplification) | SFLAG(Mesh));
     // validator 1.4 didn't have any additional rules applied:
     return;
   }
