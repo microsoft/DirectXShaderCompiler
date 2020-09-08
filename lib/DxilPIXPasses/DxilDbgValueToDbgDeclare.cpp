@@ -647,7 +647,6 @@ static bool SortMembers(
     std::map<OffsetInBits, llvm::DIDerivedType*> *SortedMembers
 )
 {
-  const llvm::DITypeIdentifierMap EmptyMap;
   for (auto *Element : Ty->getElements())
   {
     switch (Element->getTag())
@@ -664,7 +663,30 @@ static bool SortMembers(
         }
         break;
       }
-      // FALLTHROUGH
+      assert(!"member is not a Member");
+      return false;
+    }
+    case llvm::dwarf::DW_TAG_subprogram: {
+      if (auto *SubProgram = llvm::dyn_cast<llvm::DISubprogram>(Element)) {
+          if (auto* SubProgramType = llvm::dyn_cast<llvm::DISubroutineType>(SubProgram->getType())) {
+              //returns null: auto BaseTYpe = SubProgramType->getBaseType();
+              //crash: dTY = llvm::dyn_cast<llvm::DIDerivedType>(BaseTYpe);
+              //crash: auto* TY = llvm::dyn_cast<llvm::DIType>(BaseTYpe);
+              // returns null: auto* TY2 = llvm::dyn_cast<llvm::DIType>(Element);
+              if (SubProgramType->getSizeInBits()) {
+                  uint64_t offsetInBits = SubProgramType->getOffsetInBits();
+                  auto it = SortedMembers->emplace(
+                      std::make_pair(offsetInBits, nullptr/*SubProgramType*/));
+                  (void)it;
+                  assert(it.second &&
+                      "Invalid DISubprogram"
+                      " - members with the same offset -- are unions possible?");
+              }
+              break;
+          }
+      }
+      assert(!"DISubprogram not understood");
+      return false;
     }
     default:
       assert(!"Unhandled field type in DIStructType");
