@@ -4,7 +4,8 @@
 
 // CHECK:             [[set:%\d+]] = OpExtInstImport "OpenCL.DebugInfo.100"
 // CHECK:         [[fooName:%\d+]] = OpString "foo"
-// CHECK:        [[mainName:%\d+]] = OpString "src.main"
+// CHECK:        [[emptyStr:%\d+]] = OpString ""
+// CHECK:        [[mainName:%\d+]] = OpString "main"
 
 // CHECK:    [[int:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic {{%\d+}} %uint_32 Signed
 // CHECK:  [[float:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic {{%\d+}} %uint_32 Float
@@ -15,11 +16,11 @@
 
 // Check DebugFunction instructions
 //
-// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugFunction [[fooName]] [[fooFnType]] [[source]] 24 1 [[compilationUnit]] [[fooName]] FlagIsProtected|FlagIsPrivate 25 %foo
+// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugFunction [[fooName]] [[fooFnType]] [[source]] 25 1 [[compilationUnit]] [[emptyStr]] FlagIsProtected|FlagIsPrivate 26 %foo
 
 // CHECK: [[float4:%\d+]] = OpExtInst %void [[set]] DebugTypeVector [[float]] 4
 // CHECK: [[mainFnType:%\d+]] = OpExtInst %void [[set]] DebugTypeFunction FlagIsProtected|FlagIsPrivate [[float4]] [[float4]]
-// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugFunction [[mainName]] [[mainFnType]] [[source]] 29 1 [[compilationUnit]] [[mainName]] FlagIsProtected|FlagIsPrivate 30 %src_main
+// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugFunction [[mainName]] [[mainFnType]] [[source]] 30 1 [[compilationUnit]] [[emptyStr]] FlagIsProtected|FlagIsPrivate 31 %src_main
 
 void foo(int x, float y)
 {

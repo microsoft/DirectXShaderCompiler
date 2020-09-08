@@ -984,6 +984,7 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
   // This will allow the entry-point name to be something like
   // myNamespace::myEntrypointFunc.
   std::string funcName = getFnName(decl);
+  std::string debugFuncName = funcName;
 
   SpirvFunction *func = declIdMapper.getOrRegisterFn(decl);
 
@@ -1022,7 +1023,7 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
     // The line number in the source program at which the function scope begins.
     auto scopeLine = sm.getPresumedLineNumber(decl->getBody()->getLocStart());
     SpirvDebugFunction *debugFunction = spvBuilder.createDebugFunction(
-        decl, funcName, source, line, column, parentScope, funcName, flags,
+        decl, debugFuncName, source, line, column, parentScope, "", flags,
         scopeLine, func);
     func->setDebugScope(new (astContext) SpirvDebugScope(debugFunction));
 

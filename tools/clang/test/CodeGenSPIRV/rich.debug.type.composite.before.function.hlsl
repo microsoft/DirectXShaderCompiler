@@ -2,7 +2,7 @@
 
 // CHECK: [[set:%\d+]] = OpExtInstImport "OpenCL.DebugInfo.100"
 // CHECK: [[out:%\d+]] = OpString "VS_OUTPUT"
-// CHECK: [[main:%\d+]] = OpString "src.main"
+// CHECK: [[main:%\d+]] = OpString "main"
 
 // CHECK: [[VSOUT:%\d+]] = OpExtInst %void [[set]] DebugTypeComposite [[out]]
 // CHECK: [[ty:%\d+]] = OpExtInst %void [[set]] DebugTypeFunction FlagIsProtected|FlagIsPrivate [[VSOUT]]

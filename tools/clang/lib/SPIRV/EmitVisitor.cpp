@@ -151,8 +151,6 @@ std::vector<uint32_t> EmitVisitor::Header::takeBinary() {
 }
 
 SpirvString *EmitVisitor::getOrCreateOpString(llvm::StringRef str) {
-  if (str.empty())
-    return nullptr;
   auto it = stringLiteralMap.find(str);
   if (it != stringLiteralMap.end()) {
     return it->second;
