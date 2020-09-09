@@ -173,7 +173,7 @@ void FinishCBuffer(
         &AnnotationMap);
 
 void ProcessCtorFunctions(llvm::Module &M, llvm::StringRef globalName,
-                          llvm::Instruction *InsertPt);
+                          llvm::Instruction *InsertPt, bool bRemoveGlobal);
 
 void TranslateRayQueryConstructor(hlsl::HLModule &HLM);
 
