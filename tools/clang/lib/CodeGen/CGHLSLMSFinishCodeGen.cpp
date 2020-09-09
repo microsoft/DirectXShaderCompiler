@@ -2190,7 +2190,7 @@ bool BuildImmInit(Function *Ctor) {
 namespace CGHLSLMSHelper {
 
 void ProcessCtorFunctions(llvm::Module &M, StringRef globalName,
-                          Instruction *InsertPt) {
+                          Instruction *InsertPt, bool bRemoveGlobal) {
   // add global call to entry func
   GlobalVariable *GV = M.getGlobalVariable(globalName);
   if (!GV)
@@ -2228,7 +2228,9 @@ void ProcessCtorFunctions(llvm::Module &M, StringRef globalName,
     }
   }
   // remove the GV
-  GV->eraseFromParent();
+  if (bRemoveGlobal) {
+    GV->eraseFromParent();
+  }
 }
 
 void FinishCBuffer(
