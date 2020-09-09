@@ -2513,8 +2513,12 @@ TEST_F(FileTest, RichDebugInfoCbuffer) {
   runFileTest("rich.debug.cbuffer.hlsl", Expect::Success,
               /*runValidation*/ runValidationForRichDebugInfo);
 }
-TEST_F(FileTest, RichDebugSortTypeTemplate) {
+TEST_F(FileTest, RichDebugInfoSortTypeTemplate) {
   runFileTest("rich.debug.sort.type.template.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
+TEST_F(FileTest, RichDebugInfoSwitchDebugScope) {
+  runFileTest("rich.debug.switch.debugscope.hlsl", Expect::Success,
               /*runValidation*/ runValidationForRichDebugInfo);
 }
 

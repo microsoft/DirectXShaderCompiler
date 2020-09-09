@@ -4,10 +4,10 @@
 // CHECK: [[compUnit:%\d+]] = OpExtInst %void [[set]] DebugCompilationUnit
 // CHECK: [[main:%\d+]] = OpExtInst %void [[set]] DebugFunction
 // CHECK: [[mainFnLexBlock:%\d+]] = OpExtInst %void [[set]] DebugLexicalBlock {{%\d+}} 15 1 [[main]]
-// CHECK: [[whileLoopLexBlock:%\d+]] = OpExtInst %void [[set]] DebugLexicalBlock {{%\d+}} 38 3 [[mainFnLexBlock]]
-// CHECK: [[ifStmtLexBlock:%\d+]] = OpExtInst %void [[set]] DebugLexicalBlock {{%\d+}} 45 20 [[whileLoopLexBlock]]
-// CHECK: [[tempLexBlock:%\d+]] = OpExtInst %void [[set]] DebugLexicalBlock {{%\d+}} 50 7 [[ifStmtLexBlock]]
-// CHECK: [[forLoopLexBlock:%\d+]] = OpExtInst %void [[set]] DebugLexicalBlock {{%\d+}} 23 12 [[mainFnLexBlock]]
+// CHECK: [[whileLoopLexBlock:%\d+]] = OpExtInst %void [[set]] DebugLexicalBlock {{%\d+}} 35 3 [[mainFnLexBlock]]
+// CHECK: [[ifStmtLexBlock:%\d+]] = OpExtInst %void [[set]] DebugLexicalBlock {{%\d+}} 42 20 [[whileLoopLexBlock]]
+// CHECK: [[tempLexBlock:%\d+]] = OpExtInst %void [[set]] DebugLexicalBlock {{%\d+}} 47 7 [[ifStmtLexBlock]]
+// CHECK: [[forLoopLexBlock:%\d+]] = OpExtInst %void [[set]] DebugLexicalBlock {{%\d+}} 20 12 [[mainFnLexBlock]]
 
 float4 main(float4 color : COLOR) : SV_TARGET
 // CHECK:     %src_main = OpFunction
@@ -17,9 +17,6 @@ float4 main(float4 color : COLOR) : SV_TARGET
 // CHECK-NEXT: {{%\d+}} = OpExtInst %void [[set]] DebugScope [[mainFnLexBlock]]
 
   float4 c = 0.xxxx;
-
-// CHECK:    %for_check = OpLabel
-// CHECK-NEXT: {{%\d+}} = OpExtInst %void [[set]] DebugScope [[mainFnLexBlock]]
   for (;;) {
 // CHECK:     %for_body = OpLabel
 // CHECK-NEXT: {{%\d+}} = OpExtInst %void [[set]] DebugScope [[forLoopLexBlock]]

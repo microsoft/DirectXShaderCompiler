@@ -705,6 +705,14 @@ void SpirvEmitter::doStmt(const Stmt *stmt,
       // Add this lexical block to the stack of lexical scopes.
       spvContext.pushDebugLexicalScope(info, debugLexicalBlock);
 
+      // Update or add DebugScope.
+      if (spvBuilder.getInsertPoint()->empty()) {
+        spvBuilder.getInsertPoint()->setDebugScope(
+            new (spvContext) SpirvDebugScope(debugLexicalBlock));
+      } else if (!spvBuilder.isCurrentBasicBlockTerminated()) {
+        spvBuilder.createDebugScope(debugLexicalBlock);
+      }
+
       // Iterate over sub-statements
       for (auto *st : compoundStmt->body())
         doStmt(st);

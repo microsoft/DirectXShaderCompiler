@@ -103,6 +103,10 @@ public:
   /// for the basic block. On failure, returns zero.
   SpirvBasicBlock *createBasicBlock(llvm::StringRef name = "");
 
+  /// \brief Creates a SPIR-V DebugScope (OpenCL.DebugInfo.100 instruction).
+  /// On success, returns the <id> of DebugScope. On failure, returns nullptr.
+  SpirvDebugScope *createDebugScope(SpirvDebugInstruction *scope);
+
   /// \brief Adds the basic block with the given label as a successor to the
   /// current basic block.
   void addSuccessor(SpirvBasicBlock *successorBB);
@@ -125,6 +129,9 @@ public:
 
   /// \brief Sets insertion point to the given basic block.
   inline void setInsertPoint(SpirvBasicBlock *bb) { insertPoint = bb; }
+
+  /// \brief Gets insertion point.
+  inline SpirvBasicBlock *getInsertPoint() { return insertPoint; }
 
   // === Instruction at the current Insertion Point ===
 

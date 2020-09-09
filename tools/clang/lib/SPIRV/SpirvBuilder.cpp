@@ -114,6 +114,13 @@ SpirvBasicBlock *SpirvBuilder::createBasicBlock(llvm::StringRef name) {
   return bb;
 }
 
+SpirvDebugScope *SpirvBuilder::createDebugScope(SpirvDebugInstruction *scope) {
+  assert(insertPoint && "null insert point");
+  auto *dbgScope = new (context) SpirvDebugScope(scope);
+  insertPoint->addInstruction(dbgScope);
+  return dbgScope;
+}
+
 void SpirvBuilder::addSuccessor(SpirvBasicBlock *successorBB) {
   assert(insertPoint && "null insert point");
   insertPoint->addSuccessor(successorBB);
@@ -835,16 +842,6 @@ SpirvBuilder::createDebugLexicalBlock(SpirvDebugSource *source, uint32_t line,
   auto *inst =
       new (context) SpirvDebugLexicalBlock(source, line, column, parent);
   mod->addDebugInfo(inst);
-  if (insertPoint->empty()) {
-    insertPoint->setDebugScope(new (context) SpirvDebugScope(inst));
-  } else {
-    // Note that a SpirvBasicBlock can have multiple lexical blocks. For
-    // example, `void foo() { { { } } { } }` has 4 lexical blocks but
-    // generates only a single `OpLabel`. Since we want to add 4 DebugScope
-    // corresponding to those 4 lexical blocks, we use
-    // insertPoint->addInstruction() instead of setDebugScope() here.
-    insertPoint->addInstruction(new (context) SpirvDebugScope(inst));
-  }
   return inst;
 }
 
