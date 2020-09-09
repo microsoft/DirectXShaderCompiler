@@ -547,6 +547,10 @@ TEST_F(FileTest, FunctionInOutParamVector) {
   setBeforeHLSLLegalization();
   runFileTest("fn.param.inout.vector.hlsl");
 }
+TEST_F(FileTest, FunctionInOutParamResource) {
+  setBeforeHLSLLegalization();
+  runFileTest("fn.param.inout.resource.hlsl");
+}
 TEST_F(FileTest, FunctionInOutParamDiffStorageClass) {
   setBeforeHLSLLegalization();
   runFileTest("fn.param.inout.storage-class.hlsl");

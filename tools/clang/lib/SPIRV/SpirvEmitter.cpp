@@ -2056,8 +2056,13 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
     // If argInfo is nullptr and argInst is a rvalue, we do not have a proper
     // pointer to pass to the function. we need a temporary variable in that
     // case.
+    //
+    // If we have an 'out/inout' resource as function argument, we need to
+    // create a temporary variable for it because the function definition
+    // expects are point-to-pointer argument for resources, which will be
+    // resolved by legalization.
     if ((argInfo || (argInst && !argInst->isRValue())) &&
-        canActAsOutParmVar(param) &&
+        canActAsOutParmVar(param) && !isResourceType(param) &&
         paramTypeMatchesArgType(param->getType(), arg->getType())) {
       // Based on SPIR-V spec, function parameter must be always Function
       // scope. In addition, we must pass memory object declaration argument
@@ -2141,7 +2146,12 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
     // If it calls a non-static member function, the object itself is argument
     // 0, and therefore all other argument positions are shifted by 1.
     const uint32_t index = i + isNonStaticMemberCall;
-    if (isTempVar[index] && canActAsOutParmVar(param)) {
+    // Using a resouce as a function parameter is never passed-by-copy. As a
+    // result, even if the function parameter is marked as 'out' or 'inout',
+    // there is no reason to copy back the results after the function call into
+    // the resource.
+    if (isTempVar[index] && canActAsOutParmVar(param) &&
+        !isResourceType(param)) {
       const auto *arg = callExpr->getArg(i);
       SpirvInstruction *value = spvBuilder.createLoad(
           param->getType(), vars[index], arg->getLocStart());
