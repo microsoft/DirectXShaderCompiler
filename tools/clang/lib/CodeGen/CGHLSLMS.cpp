@@ -3341,6 +3341,20 @@ void CGMSHLSLRuntime::FinishCodeGen() {
         ProcessCtorFunctions(
             M, "llvm.global_ctors",
             patchConstantFn->getEntryBlock().getFirstInsertionPt(), false);
+        IRBuilder<> B(patchConstantFn->getEntryBlock().getFirstInsertionPt());
+        // For static globals which has const initialize value, copy it at
+        // beginning of patch constant function to avoid use value updated by
+        // entry function.
+        for (GlobalVariable &GV : M.globals()) {
+          if (GV.isConstant())
+            continue;
+          if (!GV.hasInitializer())
+            continue;
+          if (GV.getName() == "llvm.global_ctors")
+            continue;
+          Value *V = GV.getInitializer();
+          B.CreateStore(V, &GV);
+        }
       }
     }
     ProcessCtorFunctions(M, "llvm.global_ctors",
