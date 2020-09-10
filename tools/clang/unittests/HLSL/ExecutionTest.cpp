@@ -299,6 +299,11 @@ public:
   TEST_METHOD(PartialDerivTest);
   TEST_METHOD(DerivativesTest);
   TEST_METHOD(ComputeSampleTest);
+  TEST_METHOD(AtomicsTest);
+  TEST_METHOD(Atomics64Test);
+  TEST_METHOD(AtomicsTyped64Test);
+  TEST_METHOD(AtomicsShared64Test);
+  TEST_METHOD(AtomicsFloatTest);
 
   BEGIN_TEST_METHOD(QuadReadTest)
     TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.0
@@ -978,12 +983,44 @@ public:
     return O.Native16BitShaderOpsSupported != FALSE;
   }
     
+  bool DoesDeviceSupportMeshShaders(ID3D12Device *pDevice) {
+    D3D12_FEATURE_DATA_D3D12_OPTIONS7 O7;
+    if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS7, &O7, sizeof(O7))))
+      return false;
+    return O7.MeshShaderTier != D3D12_MESH_SHADER_TIER_NOT_SUPPORTED;
+  }
+
   bool DoesDeviceSupportMeshAmpDerivatives(ID3D12Device *pDevice) {
 #if 0
-    D3D12_FEATURE_DATA_D3D12_OPTIONS8 O;
-    if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS8, &O, sizeof(O))))
+    D3D12_FEATURE_DATA_D3D12_OPTIONS7 O7;
+    D3D12_FEATURE_DATA_D3D12_OPTIONS8 O8;
+    if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS7, &O7, sizeof(O7))) ||
+        FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS8, &O8, sizeof(O8))))
       return false;
-    return O.DerivativesInMeshAndAmplificationShadersSupported != FALSE;
+    return O7.MeshShaderTier != D3D12_MESH_SHADER_TIER_NOT_SUPPORTED &&
+      O8.DerivativesInMeshAndAmplificationShadersSupported != FALSE;
+#else
+    return false;
+#endif
+  }
+
+  bool DoesDeviceSupportTyped64Atomics(ID3D12Device *pDevice) {
+#if 0
+    D3D12_FEATURE_DATA_D3D12_OPTIONS8 O8;
+    if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS8, &O8, sizeof(O8))))
+      return false;
+    return O8.AtomicInt64OnTypedResourceSupported != FALSE;
+#else
+    return false;
+#endif
+  }
+
+  bool DoesDeviceSupportShared64Atomics(ID3D12Device *pDevice) {
+#if 0
+    D3D12_FEATURE_DATA_D3D12_OPTIONS8 O8;
+    if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS8, &O8, sizeof(O8))))
+      return false;
+    return O8.AtomicInt64OnGroupSharedSupported != FALSE;
 #else
     return false;
 #endif
@@ -7419,6 +7456,379 @@ void ExecutionTest::WaveSizeTest() {
   }
 }
 
+void VerifyMem(const BYTE *uResults, uint64_t gold, size_t size) {
+  VERIFY_IS_TRUE(!memcmp(uResults, &gold, size));
+}
+
+// Verify results for a particular set of atomics results
+#define SHIFT(val, bits) (((val)&((1<<(bits))-1)) | ((val) << (bits)))
+void VerifyAtomicResults(const BYTE *uResults, const BYTE *sResults,
+                         const BYTE *pXchg, size_t stride, size_t maxIdx, size_t bitSize) {
+  // Each atomic test performs the test on the value in the lower half
+  // and also duplicated in the upper half of the value. The SHIFT macros account for this.
+  // This is to verify that the upper bits are considered
+  size_t shBits = bitSize/2;
+  size_t byteSize = bitSize/8;
+  // ADD just sums all the indices. Using Gauss's puported algorithm to get the expected sum.
+  size_t addResult = (maxIdx)*(maxIdx-1)/2;
+  if (addResult >= 1ULL << shBits)
+    VerifyMem(uResults + stride*0, addResult, byteSize);
+  else
+    VerifyMem(uResults + stride*0, SHIFT(addResult, shBits), byteSize);
+
+  // To make it interesting, min and max operate on a bitflipped value for the even numbers
+  // and the direct value for the odd numbers.
+  // For unsigned, this means index 0 will give the max with ~0 and 1 will be the min
+  VerifyMem(uResults + stride*1, SHIFT(1, shBits), byteSize); // UMin
+  VerifyMem(uResults + stride*2, ~0, byteSize); // UMax
+
+  // For signed min/max, the index just before the last will be bitflipped
+  // (maxIndex is always even). This is interpretted as -maxIndex and will be the lowest
+  // the maxIndex will be the highest.
+  VerifyMem(sResults + stride*0, SHIFT(-(maxIdx-1), shBits), byteSize); // SMin
+  VerifyMem(sResults + stride*1, SHIFT(maxIdx-1, shBits), byteSize); // SMax
+
+  // AND combines the bitflipped indices OR combines them directly.
+  // So the AND result should have all the bits above those used by indices set
+  // and the OR result should have just those that the indices reach
+  size_t nextPot = 1ULL << (bitSize - 1);
+  for (;nextPot && !((maxIdx-1) & (nextPot)); nextPot >>= 1) {}
+  nextPot <<= 1;
+  VerifyMem(uResults + stride*3, ~SHIFT(nextPot-1, shBits), byteSize); // And
+  VerifyMem(uResults + stride*4, SHIFT(nextPot-1, shBits), byteSize); // Or
+
+  // XOR combines values with one bit set at the index%31 offset.
+  // 31 is used so it doesn't result in 0 for power of two values, which is the initial value
+  // Each "pass" sets or clears the bits depending on what's already there.
+  // This is true even if the "passes" are out of order as they will be
+  // if the number of wraps is odd, the bits are being unset and all above the mod position should be set.
+  // If even, the bits are being set and bits below the mod position should be set.
+  size_t xorResult = (((((maxIdx)/(bitSize-1))&1)*~0) ^ ((1ULL<<((maxIdx)%(bitSize-1))) -1)) & ((1ULL<<(bitSize-1)) - 1);
+  VerifyMem(uResults + stride*5, xorResult, byteSize);
+
+  // Exchange testing puts every four indices in contention with each other.
+  // To verify that the higher bits are considered, the lower bits will be
+  // the lowest index of the four and will all match.
+  // The upper bits will be whichever of the indices gets in first
+  // the check just ignores the lower 2 bits of the upper part.
+  // The lower bits are the lowest index + 2 in order to verify a series of swaps
+  for (size_t i = 0; i < maxIdx/4; i++) {
+    uint32_t idx = i << 2;
+    uint32_t *ptr = (uint32_t*)(pXchg + i*stride);
+    VERIFY_IS_TRUE((*ptr & ~(3<<shBits)) == SHIFT(idx, shBits));
+  }
+}
+
+void VerifyAtomicsTest(std::shared_ptr<ShaderOpTestResult> test, size_t maxIdx,
+                       size_t bitSize, bool hasGroupShared) {
+
+  size_t byteSize = bitSize/4;
+  // struct mirroring that in the shader
+  struct AtomicStuff {
+    float prepad[2][3];
+    UINT uintEl[4];
+    int  sintEl[4];
+    struct useless {
+      uint32_t unused[3];
+    } postpad;
+  };
+
+  // Test Compute Shader
+  MappedData uintData, sintData, xchgData;
+
+  test->Test->GetReadBackData("U0", &uintData);
+  const BYTE *pUint = (BYTE *)uintData.data();
+
+  test->Test->GetReadBackData("U1", &sintData);
+  const BYTE *pSint = (BYTE *)sintData.data();
+
+  test->Test->GetReadBackData("U2", &xchgData);
+  const BYTE *pXchg = (BYTE *)xchgData.data();
+
+  VerifyAtomicResults(pUint, pSint + byteSize, pXchg, byteSize, maxIdx, bitSize);
+
+  test->Test->GetReadBackData("U3", &uintData);
+  const AtomicStuff *pStruct = (AtomicStuff *)uintData.data();
+
+  test->Test->GetReadBackData("U4", &xchgData);
+  const AtomicStuff *pStrXchg = (AtomicStuff *)xchgData.data();
+
+  VerifyAtomicResults((const BYTE*)&(pStruct[0].uintEl[2]), (const BYTE*)&(pStruct[1].sintEl[2]),
+                      (const BYTE*)&(pStrXchg[0].uintEl[2]), sizeof(AtomicStuff), maxIdx, bitSize);
+
+  test->Test->GetReadBackData("U5", &uintData);
+  pUint = (BYTE *)uintData.data();
+
+  test->Test->GetReadBackData("U6", &xchgData);
+  pXchg = (BYTE *)xchgData.data();
+
+  VerifyAtomicResults(pUint, pUint + byteSize*6,
+                      pXchg, byteSize, maxIdx, bitSize);
+
+  test->Test->GetReadBackData("U7", &uintData);
+  pUint = (BYTE *)uintData.data();
+
+  test->Test->GetReadBackData("U8", &sintData);
+  pSint = (BYTE *)sintData.data();
+
+  test->Test->GetReadBackData("U9", &xchgData);
+  pXchg = (BYTE *)xchgData.data();
+
+  VerifyAtomicResults(pUint, pSint + byteSize, pXchg, byteSize, maxIdx, bitSize);
+
+  if (hasGroupShared) {
+    test->Test->GetReadBackData("U10", &uintData);
+    pUint = (BYTE *)uintData.data();
+
+    test->Test->GetReadBackData("U11", &xchgData);
+    pXchg = (BYTE *)xchgData.data();
+
+    VerifyAtomicResults(pUint, pUint + byteSize*6,
+                        pXchg, byteSize, maxIdx, bitSize);
+  }
+}
+
+TEST_F(ExecutionTest, AtomicsTest) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice))
+    return;
+
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+    std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+
+  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("Atomics");
+
+  // Test compute shader
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+  VerifyAtomicsTest(test, 32*32, 32, true /* hasGroupShared */);
+
+  // Test mesh shader if available
+  pShaderOp->CS = nullptr;
+  if (DoesDeviceSupportMeshShaders(pDevice)) {
+    test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+    VerifyAtomicsTest(test, 8*8*8*8 + 64*64, 32, false /* hasGroupShared */);
+  }
+
+  // Test Pixel shader
+  pShaderOp->MS = nullptr;
+  test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+  VerifyAtomicsTest(test, 64*64+6, 32, false /* hasGroupShared */);
+}
+
+TEST_F(ExecutionTest, Atomics64Test) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6))
+    return;
+
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+    std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+
+  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("Atomics");
+
+  // Reassign shader stages to 64-bit versions
+  // Collect 64-bit shaders
+  LPCSTR CS64 = nullptr, VS64 = nullptr, PS64 = nullptr;
+  LPCSTR AS64 = nullptr, MS64 = nullptr;
+  for (st::ShaderOpShader &S : pShaderOp->Shaders) {
+    if (!strcmp(S.Name, "CS64")) CS64 = S.Name;
+    if (!strcmp(S.Name, "VS64")) VS64 = S.Name;
+    if (!strcmp(S.Name, "PS64")) PS64 = S.Name;
+    if (!strcmp(S.Name, "AS64")) AS64 = S.Name;
+    if (!strcmp(S.Name, "MS64")) MS64 = S.Name;
+  }
+  pShaderOp->CS = CS64;
+  pShaderOp->VS = VS64;
+  pShaderOp->PS = PS64;
+  pShaderOp->AS = AS64;
+  pShaderOp->MS = MS64;
+
+  // Test compute shader
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+  VerifyAtomicsTest(test, 32*32, 64, true /* hasGroupShared */);
+
+  // Test mesh shader if available
+  pShaderOp->CS = nullptr;
+  if (DoesDeviceSupportMeshShaders(pDevice)) {
+    test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+    VerifyAtomicsTest(test, 8*8*8*8 + 64*64, 64, false /* hasGroupShared */);
+  }
+
+  // Test Pixel shader
+  pShaderOp->MS = nullptr;
+  test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+  VerifyAtomicsTest(test, 64*64+6, 64, false /* hasGroupShared */);
+}
+
+TEST_F(ExecutionTest, AtomicsTyped64Test) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6))
+    return;
+
+  if (!DoesDeviceSupportInt64(pDevice)) {
+    WEX::Logging::Log::Comment(L"Device does not support int64 operations.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
+  if (!DoesDeviceSupportTyped64Atomics(pDevice)) {
+    WEX::Logging::Log::Comment(L"Device does not support int64 atomic operations on typed resources.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+    std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+
+  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("Atomics");
+
+  // Reassign shader stages to 64-bit versions
+  // Collect 64-bit shaders
+  LPCSTR CS64 = nullptr;
+  for (st::ShaderOpShader &S : pShaderOp->Shaders) {
+    if (!strcmp(S.Name, "CSTY64")) CS64 = S.Name;
+  }
+  pShaderOp->CS = CS64;
+
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+  VerifyAtomicsTest(test, 32*32, 64, true /* hasGroupShared */);
+}
+
+TEST_F(ExecutionTest, AtomicsShared64Test) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6))
+    return;
+
+  if (!DoesDeviceSupportInt64(pDevice)) {
+    WEX::Logging::Log::Comment(L"Device does not support int64 operations.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
+  if (!DoesDeviceSupportTyped64Atomics(pDevice)) {
+    WEX::Logging::Log::Comment(L"Device does not support int64 atomic operations on typed resources.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+    std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+
+  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("Atomics");
+
+  // Reassign shader stages to 64-bit versions
+  // Collect 64-bit shaders
+  LPCSTR CS64 = nullptr;
+  for (st::ShaderOpShader &S : pShaderOp->Shaders) {
+    if (!strcmp(S.Name, "CSSH64")) CS64 = S.Name;
+  }
+  pShaderOp->CS = CS64;
+
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+  VerifyAtomicsTest(test, 32*32, 64, true /* hasGroupShared */);
+}
+
+// Verify results for a particular set of atomics results
+void VerifyAtomicFloatResults(const float *results, size_t maxIdx) {
+  VERIFY_IS_TRUE(results[0] >= 0.120 && results[0] < 0.125);
+  for (size_t i = 1; i < maxIdx/4; i++) {
+    float gold = i*4;
+    VERIFY_IS_TRUE(results[i] >= gold && results[i] < gold + 4);
+  }
+}
+
+void VerifyAtomicsFloatTest(std::shared_ptr<ShaderOpTestResult> test, size_t maxIdx, bool hasGroupShared) {
+
+  // struct mirroring that in the shader
+  struct AtomicStuff {
+    float prepad[2][3];
+    float fltEl[2];
+    struct useless {
+      uint32_t unused[3];
+    } postpad;
+  };
+
+  // Test Compute Shader
+  MappedData Data;
+
+  test->Test->GetReadBackData("U0", &Data);
+  const float *pData = (float *)Data.data();
+  VerifyAtomicFloatResults(pData, maxIdx);
+
+  test->Test->GetReadBackData("U1", &Data);
+  const AtomicStuff *pStructData = (AtomicStuff *)Data.data();
+  VERIFY_IS_TRUE(pStructData[0].fltEl[1] >= 0.120 && pStructData[0].fltEl[1] < 0.125);
+  for (size_t i = 1; i < maxIdx/4; i++) {
+    float gold = i*4;
+    VERIFY_IS_TRUE(pStructData[i].fltEl[1] >= gold && pStructData[i].fltEl[1] < gold + 4);
+  }
+
+  test->Test->GetReadBackData("U2", &Data);
+  pData = (float *)Data.data();
+  VerifyAtomicFloatResults(pData, maxIdx);
+
+  test->Test->GetReadBackData("U3", &Data);
+  pData = (float *)Data.data();
+  VerifyAtomicFloatResults(pData, maxIdx);
+
+  if (hasGroupShared) {
+    test->Test->GetReadBackData("U4", &Data);
+    pData = (float *)Data.data();
+
+    VerifyAtomicFloatResults(pData, maxIdx);
+  }
+}
+
+TEST_F(ExecutionTest, AtomicsFloatTest) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice))
+    return;
+
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+    std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+
+  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("FloatAtomics");
+
+  // Test compute shader
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "FloatAtomics", nullptr, ShaderOpSet);
+  VerifyAtomicsFloatTest(test, 32*32, true /* hasGroupShared */);
+
+  // Test mesh shader if available
+  pShaderOp->CS = nullptr;
+  if (DoesDeviceSupportMeshShaders(pDevice)) {
+    test = RunShaderOpTestAfterParse(pDevice, m_support, "FloatAtomics", nullptr, ShaderOpSet);
+    VerifyAtomicsFloatTest(test, 8*8*8*8 + 64*64, false /* hasGroupShared */);
+  }
+
+  // Test Pixel shader
+  pShaderOp->MS = nullptr;
+  test = RunShaderOpTestAfterParse(pDevice, m_support, "FloatAtomics", nullptr, ShaderOpSet);
+  VerifyAtomicsFloatTest(test, 64*64+6, false /* hasGroupShared */);
+}
 
 #ifndef _HLK_CONF
 static void WriteReadBackDump(st::ShaderOp *pShaderOp, st::ShaderOpTest *pTest,
