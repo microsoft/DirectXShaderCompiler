@@ -49,7 +49,7 @@ Before you build, you will need to have some additional software installed. This
 * [Windows SDK](https://developer.microsoft.com/en-US/windows/downloads/windows-10-sdk) - version 10.0.18362.0 or newer
 * [Windows Driver Kit](https://docs.microsoft.com/en-us/windows-hardware/drivers/download-the-wdk) - same version as the SDK
 
-After cloning the project, you can set up a build environment shortcut by double-clicking the `utils\hct\hctshortcut.js` file. This will create a shortcut on your desktop with a default configuration.
+After cloning the project, you can set up a build environment shortcut by double-clicking the `utils\hct\hctshortcut.js` file. This will create a shortcut on your desktop with a default configuration. If your system doesn't have the requisite association for .js files, this may not work. If so, open a cmd window and invoke: `wscript.exe utils\hct\hctshortcut.js`.
 
 Tests are built using the TAEF framework which is included in the Windows Driver Kit.
 
