@@ -360,11 +360,8 @@ const unsigned kCreateHandleIndexOpIdx = 2; // Only for array of cbuffer.
 
 // AnnotateHandle.
 const unsigned kAnnotateHandleHandleOpIdx = 1;
-const unsigned kAnnotateHandleResourceClassOpIdx = 2;
-const unsigned kAnnotateHandleResourceKindOpIdx = 3;
-const unsigned kAnnotateHandleResourcePropertiesOpIdx = 4;
-const unsigned kAnnotateHandleResourceTypeOpIdx = 5;
-
+const unsigned kAnnotateHandleResourcePropertiesOpIdx = 2;
+const unsigned kAnnotateHandleResourceTypeOpIdx = 3;
 
 // TraceRay.
 const unsigned kTraceRayRayDescOpIdx = 7;

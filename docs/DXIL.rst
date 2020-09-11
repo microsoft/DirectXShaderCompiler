@@ -2314,7 +2314,7 @@ ID  Name                                                  Description
 215 RayQuery_CommittedInstanceContributionToHitGroupIndex returns committed hit InstanceContributionToHitGroupIndex
 216 CreateHandleFromHeap                                  create resource handle from heap
 217 AnnotateHandle                                        annotate handle with resource properties
-218 CreateHandleFromTable                                 create resource handle from table
+218 CreateHandleFromBinding                               create resource handle from binding
 219 Unpack4x8                                             unpacks 4 8-bit signed or unsigned values into int32 or int16 vector
 220 Pack4x8                                               packs vector of 4 signed or unsigned values into a packed datatype, drops or clamps unused bits
 === ===================================================== =======================================================================================================================================================================================================================

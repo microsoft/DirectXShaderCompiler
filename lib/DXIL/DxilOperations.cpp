@@ -396,7 +396,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   {  OC::AnnotateHandle,          "AnnotateHandle",           OCC::AnnotateHandle,           "annotateHandle",            {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
 
   //                                                                                                                         void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
-  {  OC::CreateHandleFromTable,   "CreateHandleFromTable",    OCC::CreateHandleFromTable,    "createHandleFromTable",     {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::CreateHandleFromBinding, "CreateHandleFromBinding",  OCC::CreateHandleFromBinding,  "createHandleFromBinding",   {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
 
   // Unpacking intrinsics                                                                                                    void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
   {  OC::Unpack4x8,               "Unpack4x8",                OCC::Unpack4x8,                "unpack4x8",                 { false, false, false, false, false, false,  true,  true, false, false, false}, Attribute::ReadNone, },
@@ -1420,11 +1420,11 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::RayQuery_CommittedInstanceContributionToHitGroupIndex:A(pI32);     A(pI32); A(pI32); break;
 
     // Get handle from heap
-  case OpCode::CreateHandleFromHeap:   A(pRes);     A(pI32); A(pI8);  A(pI32); A(pI1);  break;
-  case OpCode::AnnotateHandle:         A(pRes);     A(pI32); A(pRes); A(pI8);  A(pI8);  A(resProperty);break;
+  case OpCode::CreateHandleFromHeap:   A(pRes);     A(pI32); A(pI32); A(pI1);  A(pI1);  break;
+  case OpCode::AnnotateHandle:         A(pRes);     A(pI32); A(pRes); A(resProperty);break;
 
     // 
-  case OpCode::CreateHandleFromTable:  A(pRes);     A(pI32); A(resBind);A(pI32); A(pI1);  break;
+  case OpCode::CreateHandleFromBinding:A(pRes);     A(pI32); A(resBind);A(pI32); A(pI1);  break;
 
     // Unpacking intrinsics
   case OpCode::Unpack4x8:              VEC4(pETy);  A(pI32); A(pI8);  A(pI32); break;
@@ -1602,7 +1602,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::RayQuery_CommitProceduralPrimitiveHit:
   case OpCode::CreateHandleFromHeap:
   case OpCode::AnnotateHandle:
-  case OpCode::CreateHandleFromTable:
+  case OpCode::CreateHandleFromBinding:
     return Type::getVoidTy(Ctx);
   case OpCode::CheckAccessFullyMapped:
   case OpCode::SampleIndex:

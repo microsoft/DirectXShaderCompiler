@@ -130,6 +130,7 @@ namespace dxilutil {
   bool IsHLSLRayQueryType(llvm::Type *Ty);
   bool IsHLSLResourceDescType(llvm::Type *Ty);
   bool IsResourceSingleComponent(llvm::Type *Ty);
+  uint8_t GetResourceComponentCount(llvm::Type *Ty);
   bool IsSplat(llvm::ConstantDataVector *cdv);
 
   llvm::Type* StripArrayTypes(llvm::Type *Ty, llvm::SmallVectorImpl<unsigned> *OuterToInnerLengths = nullptr);

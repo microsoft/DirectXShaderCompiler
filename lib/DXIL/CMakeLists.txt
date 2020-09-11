@@ -10,6 +10,7 @@ add_llvm_library(LLVMDXIL
   DxilOperations.cpp
   DxilResource.cpp
   DxilResourceBase.cpp
+  DxilResourceBinding.cpp
   DxilResourceProperties.cpp
   DxilSampler.cpp
   DxilSemantic.cpp

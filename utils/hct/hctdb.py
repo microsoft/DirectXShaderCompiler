@@ -1825,20 +1825,18 @@ class db_dxil(object):
 
         self.add_dxil_op("CreateHandleFromHeap", next_op_idx, "CreateHandleFromHeap", "create resource handle from heap", "v", "rn", [
             db_dxil_param(0, "res", "", "result"),
-            db_dxil_param(2, "i8", "resourceClass", "the class of resource to create (SRV, UAV, CBuffer, Sampler)", is_const=True), # maps to DxilResourceBase::Class
-            db_dxil_param(3, "i32", "index", "heap index"),
+            db_dxil_param(2, "i32", "index", "heap index"),
+            db_dxil_param(3, "i1", "samplerHeap", "If samplerHeap is 1, the heap indexed is the sampler descriptor heap, otherwise it is the CBV_SRV_UAV (resource) descriptor heap", is_const=True),
             db_dxil_param(4, "i1", "nonUniformIndex", "non-uniform resource index", is_const=True)])
         next_op_idx += 1
 
         self.add_dxil_op("AnnotateHandle", next_op_idx, "AnnotateHandle", "annotate handle with resource properties", "v", "rn", [
             db_dxil_param(0, "res", "", "annotated handle"),
             db_dxil_param(2, "res", "res", "input handle"),
-            db_dxil_param(3, "i8", "resourceClass", "the class of resource to create (SRV, UAV, CBuffer, Sampler)", is_const=True), # maps to DxilResourceBase::Class
-            db_dxil_param(4, "i8", "resourceKind", "the kind of resource to create (Texture1D/2D/..., Buffer...)", is_const=True), # maps to DxilResourceBase::Kind
-            db_dxil_param(5, "resproperty", "props", "details like component type, strutrure stride...", is_const=True)])
+            db_dxil_param(3, "resproperty", "props", "details like component type, strutrure stride...", is_const=True)])
         next_op_idx += 1
 
-        self.add_dxil_op("CreateHandleFromTable", next_op_idx, "CreateHandleFromTable", "create resource handle from table", "v", "rn", [
+        self.add_dxil_op("CreateHandleFromBinding", next_op_idx, "CreateHandleFromBinding", "create resource handle from binding", "v", "rn", [
             db_dxil_param(0, "res", "", "result"),
             db_dxil_param(2, "resbind", "bind", "resource binding", is_const=True), #{ rangeLowerBound, rangeUpperBound, spaceID, resourceClass }
             db_dxil_param(3, "i32", "index", "index"),

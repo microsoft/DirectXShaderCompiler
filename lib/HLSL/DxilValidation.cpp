@@ -459,13 +459,13 @@ struct ValidationContext {
   void PropagateResMap(Value *V, DxilResourceBase *Res) {
     auto it = ResPropMap.find(V);
     if (it != ResPropMap.end()) {
-      DxilResourceProperties RP = resource_helper::loadFromResourceBase(Res);
+      DxilResourceProperties RP = resource_helper::loadPropsFromResourceBase(Res);
       DxilResourceProperties itRP = it->second;
       if (itRP != RP) {
         EmitResourceError(Res, ValidationRule::InstrResourceMapToSingleEntry);
       }
     } else {
-      DxilResourceProperties RP = resource_helper::loadFromResourceBase(Res);
+      DxilResourceProperties RP = resource_helper::loadPropsFromResourceBase(Res);
       ResPropMap[V] = RP;
       for (User *U : V->users()) {
         if (GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
@@ -475,7 +475,7 @@ struct ValidationContext {
           DxilInst_CreateHandleForLib hdl(CI);
           if (hdl) {
             DxilResourceProperties RP =
-                resource_helper::loadFromResourceBase(Res);
+                resource_helper::loadPropsFromResourceBase(Res);
             ResPropMap[CI] = RP;
           }
         } else if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
@@ -588,7 +588,7 @@ struct ValidationContext {
             }
           }
           HandleResIndexMap[CI] = rangeId;
-          DxilResourceProperties RP = resource_helper::loadFromResourceBase(Res);
+          DxilResourceProperties RP = resource_helper::loadPropsFromResourceBase(Res);
           ResPropMap[CI] = RP;
         }
       }
@@ -604,21 +604,13 @@ struct ValidationContext {
       for (User *U : F->users()) {
         CallInst *CI = cast<CallInst>(U);
         DxilInst_AnnotateHandle hdl(CI);
-        // Validate Class/RangeID/Index.
-        Value *resClass = hdl.get_resourceClass();
-        if (!isa<ConstantInt>(resClass)) {
-          EmitInstrError(CI, ValidationRule::InstrOpConstRange);
-          continue;
-        }
-
-        Value *resKind = hdl.get_resourceKind();
-        if (!isa<ConstantInt>(resKind)) {
-          EmitInstrError(CI, ValidationRule::InstrOpConstRange);
-          continue;
-        }
-
         DxilResourceProperties RP =
-            resource_helper::loadFromAnnotateHandle(hdl, ResPropTy, SM);
+            resource_helper::loadPropsFromAnnotateHandle(hdl, ResPropTy, SM);
+        if (RP.getResourceKind() == DXIL::ResourceKind::Invalid) {
+          EmitInstrError(CI, ValidationRule::InstrOpConstRange);
+          continue;
+        }
+
         ResPropMap[CI] = RP;
       }
     }
@@ -1049,12 +1041,11 @@ static DxilResourceProperties GetResourceFromHandle(Value *Handle,
     else
       ValCtx.EmitError(ValidationRule::InstrHandleNotFromCreateHandle);
     DxilResourceProperties RP;
-    RP.Class = DXIL::ResourceClass::Invalid;
     return RP;
   }
 
   DxilResourceProperties RP = ValCtx.GetResourceFromVal(Handle);
-  if (RP.Class == DXIL::ResourceClass::Invalid) {
+  if (RP.getResourceClass() == DXIL::ResourceClass::Invalid) {
     ValCtx.EmitInstrError(cast<CallInst>(Handle),
                           ValidationRule::InstrHandleNotFromCreateHandle);
   }
@@ -1066,13 +1057,13 @@ static DXIL::SamplerKind GetSamplerKind(Value *samplerHandle,
                                         ValidationContext &ValCtx) {
   DxilResourceProperties RP = GetResourceFromHandle(samplerHandle, ValCtx);
 
-  if (RP.Class != DXIL::ResourceClass::Sampler) {
+  if (RP.getResourceClass() != DXIL::ResourceClass::Sampler) {
     // must be sampler.
     return DXIL::SamplerKind::Invalid;
   }
-  if (RP.Kind == DXIL::ResourceKind::SamplerComparison)
+  if (RP.getResourceKind() == DXIL::ResourceKind::SamplerComparison)
     return DXIL::SamplerKind::Comparison;
-  else if (RP.Kind == DXIL::ResourceKind::Invalid)
+  else if (RP.getResourceKind() == DXIL::ResourceKind::Invalid)
     return DXIL::SamplerKind::Invalid;
   else
     return DXIL::SamplerKind::Default;
@@ -1085,7 +1076,7 @@ static DXIL::ResourceKind GetResourceKindAndCompTy(Value *handle, DXIL::Componen
   // TODO: validate ROV is used only in PS.
 
   DxilResourceProperties RP = GetResourceFromHandle(handle, ValCtx);
-  ResClass = RP.Class;
+  ResClass = RP.getResourceClass();
 
   switch (ResClass) {
   case DXIL::ResourceClass::SRV:
@@ -1099,12 +1090,12 @@ static DXIL::ResourceKind GetResourceKindAndCompTy(Value *handle, DXIL::Componen
     // Emit invalid res class
     return DXIL::ResourceKind::Invalid;
   }
-  if (!DXIL::IsStructuredBuffer(RP.Kind))
-    CompTy = RP.Typed.CompType;
+  if (!DXIL::IsStructuredBuffer(RP.getResourceKind()))
+    CompTy = static_cast<DXIL::ComponentType>(RP.Typed.CompType);
   else
     CompTy = DXIL::ComponentType::Invalid;
 
-  return RP.Kind;
+  return RP.getResourceKind();
 }
 
 DxilFieldAnnotation *GetFieldAnnotation(Type *Ty,
@@ -1144,7 +1135,6 @@ DxilResourceProperties ValidationContext::GetResourceFromVal(Value *resVal) {
   }
   else {
     DxilResourceProperties RP;
-    RP.Class = DXIL::ResourceClass::Invalid;
     return RP;
   }
 }
@@ -1411,13 +1401,13 @@ static unsigned StoreValueToMask(ArrayRef<Value *> vals) {
 static int GetCBufSize(Value *cbHandle, ValidationContext &ValCtx) {
   DxilResourceProperties RP = GetResourceFromHandle(cbHandle, ValCtx);
 
-  if (RP.Class != DXIL::ResourceClass::CBuffer) {
+  if (RP.getResourceClass() != DXIL::ResourceClass::CBuffer) {
     ValCtx.EmitInstrError(cast<CallInst>(cbHandle),
                           ValidationRule::InstrCBufferClassForCBufferHandle);
     return -1;
   }
 
-  return RP.SizeInBytes;
+  return RP.CBufferSizeInBytes;
 }
 
 static unsigned GetNumVertices(DXIL::InputPrimitive inputPrimitive) {
@@ -2338,11 +2328,11 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
     DxilInst_TraceRay traceRay(CI);
     Value *hdl = traceRay.get_AccelerationStructure();
     DxilResourceProperties RP = ValCtx.GetResourceFromVal(hdl);
-    if (RP.Class == DXIL::ResourceClass::Invalid) {
+    if (RP.getResourceClass() == DXIL::ResourceClass::Invalid) {
       ValCtx.EmitInstrError(CI, ValidationRule::InstrResourceKindForTraceRay);
       return;
     }
-    if (RP.Kind != DXIL::ResourceKind::RTAccelerationStructure) {
+    if (RP.getResourceKind() != DXIL::ResourceKind::RTAccelerationStructure) {
       ValCtx.EmitInstrError(CI, ValidationRule::InstrResourceKindForTraceRay);
     }
   } break;
@@ -2431,16 +2421,16 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     Value *handle = updateCounter.get_uav();
     DxilResourceProperties RP = ValCtx.GetResourceFromVal(handle);
 
-    if (RP.Class != DXIL::ResourceClass::UAV) {
+    if (!RP.isUAV()) {
       ValCtx.EmitInstrError(CI,
                                ValidationRule::InstrBufferUpdateCounterOnUAV);
     }
 
-    if (!DXIL::IsStructuredBuffer(RP.Kind)) {
+    if (!DXIL::IsStructuredBuffer(RP.getResourceKind())) {
       ValCtx.EmitInstrError(CI, ValidationRule::SmCounterOnlyOnStructBuf);
     }
 
-    if (RP.Kind != DXIL::ResourceKind::StructuredBufferWithCounter) {
+    if (RP.getResourceKind() != DXIL::ResourceKind::StructuredBufferWithCounter) {
       ValCtx.EmitInstrError(
           CI, ValidationRule::InstrBufferUpdateCounterOnResHasCounter);
     }

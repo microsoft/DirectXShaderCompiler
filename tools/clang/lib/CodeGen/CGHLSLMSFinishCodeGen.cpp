@@ -9,48 +9,47 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "llvm/IR/Function.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Type.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/InstIterator.h"
-#include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/DxilValueCache.h"
-#include "llvm/Transforms/Utils/ValueMapper.h"
-#include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/IR/CFG.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/GetElementPtrTypeIterator.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/InstIterator.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Type.h"
+#include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Transforms/Utils/ValueMapper.h"
 
 #include "CodeGenModule.h"
-#include "clang/Frontend/CodeGenOptions.h"
 #include "clang/Basic/LangOptions.h"
+#include "clang/Frontend/CodeGenOptions.h"
 #include "clang/Parse/ParseHLSL.h" // root sig would be in Parser if part of lang
 
-#include "dxc/HLSL/HLModule.h"
-#include "dxc/HLSL/HLSLExtensionsCodegenHelper.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilOperations.h"
-#include "dxc/HlslIntrinsicOp.h"
-#include "dxc/DXIL/DxilUtil.h"
-#include "dxc/HLSL/DxilExportMap.h"
 #include "dxc/DXIL/DxilResourceProperties.h"
 #include "dxc/DXIL/DxilTypeSystem.h"
-#include "dxc/DXIL/DxilConstants.h"
+#include "dxc/DXIL/DxilUtil.h"
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
+#include "dxc/HLSL/DxilExportMap.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/HLSL/HLMatrixType.h"
+#include "dxc/HLSL/HLModule.h"
+#include "dxc/HLSL/HLSLExtensionsCodegenHelper.h"
+#include "dxc/HlslIntrinsicOp.h"
 
-#include <vector>
-#include <memory>
 #include <fenv.h>
+#include <memory>
+#include <vector>
 
 #include "CGHLSLMSHelper.h"
 
 using namespace llvm;
 using namespace hlsl;
 using namespace CGHLSLMSHelper;
-
 
 namespace {
 
@@ -74,13 +73,12 @@ Value *CreateAnnotateHandle(HLModule &HLM, Value *Handle,
   return HLM.EmitHLOperationCall(
       Builder, HLOpcodeGroup::HLAnnotateHandle,
       (unsigned)HLOpcodeGroup::HLAnnotateHandle, Handle->getType(),
-      {Handle, Builder.getInt8((uint8_t)RP.Class),
-       Builder.getInt8((uint8_t)RP.Kind), RPConstant, UndefValue::get(ResTy)},
-      *HLM.GetModule());
+      {Handle, RPConstant, UndefValue::get(ResTy)}, *HLM.GetModule());
 }
 
 void LowerGetResourceFromHeap(
-    HLModule &HLM, std::vector<std::pair<Function *, unsigned>> &intrinsicMap) {
+    HLModule &HLM, std::vector<std::pair<Function *, unsigned>> &intrinsicMap,
+    const llvm::DenseMap<llvm::Type *, DxilResourceProperties> &resTyPropsMap) {
   llvm::Module &M = *HLM.GetModule();
   llvm::Type *HandleTy = HLM.GetOP()->GetHandleType();
   unsigned GetResFromHeapOp =
@@ -101,11 +99,12 @@ void LowerGetResourceFromHeap(
       Value *Index = CI->getArgOperand(1);
       IRBuilder<> Builder(CI);
       // Make a handle from GetResFromHeap.
+
       // TODO: get res class.
-      Value *ResClass = Builder.getInt8(0);
-      Value *Handle =
-          HLM.EmitHLOperationCall(Builder, HLOpcodeGroup::HLIntrinsic,
-                                  GetResFromHeapOp, HandleTy, {ResClass, Index}, M);
+      Value *IsSampler = Builder.getInt1(0);
+      Value *Handle = HLM.EmitHLOperationCall(
+          Builder, HLOpcodeGroup::HLIntrinsic, GetResFromHeapOp, HandleTy,
+          {Index, IsSampler}, M);
 
       // Find the handle ptr for res ptr.
       auto it = ResourcePtrToHandlePtrMap.find(ResPtr);
@@ -151,7 +150,6 @@ void LowerGetResourceFromHeap(
     resPtr->eraseFromParent();
   }
 }
-
 
 void ReplaceBoolVectorSubscript(CallInst *CI) {
   Value *Ptr = CI->getArgOperand(0);
@@ -218,8 +216,8 @@ Function *CreateOpFunction(llvm::Module &M, Function *F,
       unsigned counterOpcode =
           bAppend ? (unsigned)IntrinsicOp::MOP_IncrementCounter
                   : (unsigned)IntrinsicOp::MOP_DecrementCounter;
-      Function *incCounterFunc =
-          GetOrCreateHLFunction(M, IncCounterFuncTy, group, counterOpcode, attribs);
+      Function *incCounterFunc = GetOrCreateHLFunction(
+          M, IncCounterFuncTy, group, counterOpcode, attribs);
 
       llvm::Type *idxTy = counterTy;
       llvm::Type *valTy =
@@ -247,9 +245,9 @@ Function *CreateOpFunction(llvm::Module &M, Function *F,
       llvm::FunctionType *SubscriptFuncTy = llvm::FunctionType::get(
           subscriptTy, {opcodeTy, handleTy, idxTy}, false);
 
-      Function *subscriptFunc =
-          GetOrCreateHLFunction(M, SubscriptFuncTy, HLOpcodeGroup::HLSubscript,
-                                (unsigned)HLSubscriptOpcode::DefaultSubscript, attribs);
+      Function *subscriptFunc = GetOrCreateHLFunction(
+          M, SubscriptFuncTy, HLOpcodeGroup::HLSubscript,
+          (unsigned)HLSubscriptOpcode::DefaultSubscript, attribs);
 
       BasicBlock *BB =
           BasicBlock::Create(opFunc->getContext(), "Entry", opFunc);
@@ -308,8 +306,10 @@ Function *CreateOpFunction(llvm::Module &M, Function *F,
           llvm::FunctionType::get(valTy, {opcodeTy, valTy}, false);
       unsigned sinOp = static_cast<unsigned>(IntrinsicOp::IOP_sin);
       unsigned cosOp = static_cast<unsigned>(IntrinsicOp::IOP_cos);
-      Function *sinFunc = GetOrCreateHLFunction(M, sinFuncTy, group, sinOp, attribs);
-      Function *cosFunc = GetOrCreateHLFunction(M, sinFuncTy, group, cosOp, attribs);
+      Function *sinFunc =
+          GetOrCreateHLFunction(M, sinFuncTy, group, sinOp, attribs);
+      Function *cosFunc =
+          GetOrCreateHLFunction(M, sinFuncTy, group, cosOp, attribs);
 
       BasicBlock *BB =
           BasicBlock::Create(opFunc->getContext(), "Entry", opFunc);
@@ -338,8 +338,8 @@ Function *CreateOpFunction(llvm::Module &M, Function *F,
   } else if (group == HLOpcodeGroup::HLExtIntrinsic) {
     llvm::StringRef fnName = F->getName();
     llvm::StringRef groupName = GetHLOpcodeGroupNameByAttr(F);
-    opFunc =
-      GetOrCreateHLFunction(M, funcTy, group, &groupName, &fnName, opcode, attribs);
+    opFunc = GetOrCreateHLFunction(M, funcTy, group, &groupName, &fnName,
+                                   opcode, attribs);
   } else {
     opFunc = GetOrCreateHLFunction(M, funcTy, group, opcode, attribs);
   }
@@ -351,7 +351,6 @@ DxilResourceProperties GetResourcePropsFromIntrinsicObjectArg(
     Value *arg, HLModule &HLM, DxilTypeSystem &typeSys,
     DenseMap<Value *, DxilResourceProperties> &valToResPropertiesMap) {
   DxilResourceProperties RP;
-  RP.Class = DXIL::ResourceClass::Invalid;
 
   auto RPIt = valToResPropertiesMap.find(arg);
   if (RPIt != valToResPropertiesMap.end()) {
@@ -400,12 +399,12 @@ DxilResourceProperties GetResourcePropsFromIntrinsicObjectArg(
             case DXIL::ResourceClass::UAV: {
               DxilResource Res;
               HLM.LoadDxilResourceFromMDNode(resAttrib, Res);
-              RP = resource_helper::loadFromResourceBase(&Res);
+              RP = resource_helper::loadPropsFromResourceBase(&Res);
             } break;
             case DXIL::ResourceClass::Sampler: {
               DxilSampler Sampler;
               HLM.LoadDxilSamplerFromMDNode(resAttrib, Sampler);
-              RP = resource_helper::loadFromResourceBase(&Sampler);
+              RP = resource_helper::loadPropsFromResourceBase(&Sampler);
             } break;
             default:
               DXASSERT(0, "invalid resource attribute in filed annotation");
@@ -417,8 +416,7 @@ DxilResourceProperties GetResourcePropsFromIntrinsicObjectArg(
       }
     }
   }
-  DXASSERT(RP.Class != DXIL::ResourceClass::Invalid,
-           "invalid resource properties");
+  DXASSERT(RP.isValid(), "invalid resource properties");
   return RP;
 }
 
@@ -651,7 +649,7 @@ void AddOpcodeParamForIntrinsics(
   }
 }
 
-}
+} // namespace
 
 namespace {
 
@@ -1002,7 +1000,7 @@ void ReplaceConstStaticGlobals(
     }
   }
 }
-}
+} // namespace CGHLSLMSHelper
 
 namespace {
 
@@ -1403,7 +1401,8 @@ void SimpleTransformForHLDXIRInst(Instruction *I, SmallInstSet &deadInsts) {
 
 namespace CGHLSLMSHelper {
 
-Value *TryEvalIntrinsic(CallInst *CI, IntrinsicOp intriOp, unsigned hlslVersion) {
+Value *TryEvalIntrinsic(CallInst *CI, IntrinsicOp intriOp,
+                        unsigned hlslVersion) {
   switch (intriOp) {
   case IntrinsicOp::IOP_tan: {
     return EvalUnaryIntrinsic(CI, tanf, tan);
@@ -1530,13 +1529,14 @@ Value *TryEvalIntrinsic(CallInst *CI, IntrinsicOp intriOp, unsigned hlslVersion)
     return EvalUnaryIntrinsic(CI, floorf, floor);
   } break;
   case IntrinsicOp::IOP_round: {
-    // round intrinsic could exhibit different behaviour for constant and runtime evaluations.
-    // E.g., for round(0.5): constant evaluation results in 1 (away from zero rounding), 
-    // while runtime evaluation results in 0 (nearest even rounding).
-    // 
-    // For back compat, DXC still preserves the above behavior for language versions 2016 or below.
-    // However, for newer language versions, DXC now always use nearest even for round() intrinsic in all
-    // cases.
+    // round intrinsic could exhibit different behaviour for constant and
+    // runtime evaluations. E.g., for round(0.5): constant evaluation results in
+    // 1 (away from zero rounding), while runtime evaluation results in 0
+    // (nearest even rounding).
+    //
+    // For back compat, DXC still preserves the above behavior for language
+    // versions 2016 or below. However, for newer language versions, DXC now
+    // always use nearest even for round() intrinsic in all cases.
     if (hlslVersion <= 2016) {
       return EvalUnaryIntrinsic(CI, roundf, round);
     } else {
@@ -1641,8 +1641,8 @@ bool RetrieveLastElementType(Type *Ty, Type *&EltTy) {
 // Offset still needs to be aligned based on type since this
 // is the legacy cbuffer global path.
 unsigned AlignCBufferOffset(unsigned offset, unsigned size, llvm::Type *Ty,
-                            bool bRowMajor,
-                            bool bMinPrecMode, bool &bCurRowIsMinPrec) {
+                            bool bRowMajor, bool bMinPrecMode,
+                            bool &bCurRowIsMinPrec) {
   DXASSERT(!(offset & 1), "otherwise we have an invalid offset.");
   bool bNeedNewRow = Ty->isArrayTy();
   // In min-precision mode, a new row is needed when
@@ -1653,7 +1653,8 @@ unsigned AlignCBufferOffset(unsigned offset, unsigned size, llvm::Type *Ty,
       if (HLMatrixType mat = HLMatrixType::dyn_cast(Ty)) {
         bNeedNewRow |= !bRowMajor && mat.getNumColumns() > 1;
         bNeedNewRow |= bRowMajor && mat.getNumRows() > 1;
-        bMinPrec = bMinPrecMode && mat.getElementType(false)->getScalarSizeInBits() < 32;
+        bMinPrec = bMinPrecMode &&
+                   mat.getElementType(false)->getScalarSizeInBits() < 32;
       } else {
         bNeedNewRow = true;
         if (bMinPrecMode) {
@@ -1680,11 +1681,10 @@ unsigned AlignCBufferOffset(unsigned offset, unsigned size, llvm::Type *Ty,
                                    bNeedNewRow);
 }
 
-unsigned
-AllocateDxilConstantBuffer(HLCBuffer &CB,
-                           std::unordered_map<Constant *, DxilFieldAnnotation>
-                               &constVarAnnotationMap,
-                           bool bMinPrecMode) {
+unsigned AllocateDxilConstantBuffer(
+    HLCBuffer &CB,
+    std::unordered_map<Constant *, DxilFieldAnnotation> &constVarAnnotationMap,
+    bool bMinPrecMode) {
   unsigned offset = 0;
 
   // Scan user allocated constants first.
@@ -1712,7 +1712,8 @@ AllocateDxilConstantBuffer(HLCBuffer &CB,
                                MatrixOrientation::RowMajor
                          : false;
     // Align offset.
-    offset = AlignCBufferOffset(offset, size, Ty, bRowMajor, bMinPrecMode, bCurRowIsMinPrec);
+    offset = AlignCBufferOffset(offset, size, Ty, bRowMajor, bMinPrecMode,
+                                bCurRowIsMinPrec);
     if (C->GetLowerBound() == UINT_MAX) {
       C->SetLowerBound(offset);
     }
@@ -1721,14 +1722,13 @@ AllocateDxilConstantBuffer(HLCBuffer &CB,
   return offset;
 }
 
-
 void AllocateDxilConstantBuffers(
     HLModule &HLM, std::unordered_map<Constant *, DxilFieldAnnotation>
                        &constVarAnnotationMap) {
   for (unsigned i = 0; i < HLM.GetCBuffers().size(); i++) {
     HLCBuffer &CB = *static_cast<HLCBuffer *>(&(HLM.GetCBuffer(i)));
-    unsigned size = AllocateDxilConstantBuffer(CB, constVarAnnotationMap,
-      HLM.GetHLOptions().bUseMinPrecision);
+    unsigned size = AllocateDxilConstantBuffer(
+        CB, constVarAnnotationMap, HLM.GetHLOptions().bUseMinPrecision);
     CB.SetSize(size);
   }
 }
@@ -1769,7 +1769,6 @@ void ReplaceUseInFunction(Value *V, Value *NewV, Function *F,
     }
   }
 }
-
 
 void MarkUsedFunctionForConst(Value *V,
                               std::unordered_set<Function *> &usedFunc) {
@@ -1896,7 +1895,7 @@ bool CreateCBufferVariable(HLCBuffer &CB, HLModule &HLM, llvm::Type *HandleTy) {
     IRBuilder<> Builder(F.getEntryBlock().getFirstInsertionPt());
 
     // create HL subscript to make all the use of cbuffer start from it.
-    HandleArgs[HLOperandIndex::kCreateHandleResourceOpIdx-1] = cbGV;
+    HandleArgs[HLOperandIndex::kCreateHandleResourceOpIdx - 1] = cbGV;
     CallInst *Handle = HLM.EmitHLOperationCall(
         Builder, HLOpcodeGroup::HLCreateHandle, 0, HandleTy, HandleArgs, M);
 
@@ -1962,7 +1961,7 @@ bool CreateCBufferVariable(HLCBuffer &CB, HLModule &HLM, llvm::Type *HandleTy) {
             idxList.push_back(GI.getOperand());
           }
 
-          HandleArgs[HLOperandIndex::kCreateHandleIndexOpIdx-1] = arrayIdx;
+          HandleArgs[HLOperandIndex::kCreateHandleIndexOpIdx - 1] = arrayIdx;
           CallInst *Handle =
 
               HLM.EmitHLOperationCall(*instBuilder,
@@ -2025,7 +2024,6 @@ void ConstructCBufferAnnotation(
   }
 }
 
-
 void ConstructCBuffer(
     HLModule &HLM, llvm::Type *CBufferType,
     std::unordered_map<Constant *, DxilFieldAnnotation> &AnnotationMap) {
@@ -2055,7 +2053,7 @@ void ConstructCBuffer(
     CB.GetConstants().clear();
   }
 }
-}
+} // namespace
 
 namespace CGHLSLMSHelper {
 
@@ -2135,7 +2133,7 @@ void TranslateRayQueryConstructor(HLModule &HLM) {
     pConstructorFunc->eraseFromParent();
   }
 }
-}
+} // namespace CGHLSLMSHelper
 
 namespace {
 
@@ -2186,7 +2184,6 @@ bool BuildImmInit(Function *Ctor) {
   return true;
 }
 
-
 } // namespace
 
 namespace CGHLSLMSHelper {
@@ -2235,9 +2232,9 @@ void ProcessCtorFunctions(llvm::Module &M, StringRef globalName,
   }
 }
 
-void FinishCBuffer(
-    HLModule &HLM, llvm::Type *CBufferType,
-    std::unordered_map<Constant *, DxilFieldAnnotation> &constVarAnnotationMap) {
+void FinishCBuffer(HLModule &HLM, llvm::Type *CBufferType,
+                   std::unordered_map<Constant *, DxilFieldAnnotation>
+                       &constVarAnnotationMap) {
   // Allocate constant buffers.
   AllocateDxilConstantBuffers(HLM, constVarAnnotationMap);
   // TODO: create temp variable for constant which has store use.
@@ -2284,7 +2281,6 @@ void AddRegBindingsForResourceInConstantBuffer(
     }
   }
 }
-
 
 // extension codegen.
 void ExtensionCodeGen(HLModule &HLM, clang::CodeGen::CodeGenModule &CGM) {
@@ -2357,8 +2353,8 @@ void ReportDisallowedTypeInExportParam(clang::CodeGen ::CodeGenModule &CGM,
 
 namespace CGHLSLMSHelper {
 void FinishClipPlane(HLModule &HLM, std::vector<Function *> &clipPlaneFuncList,
-                    std::unordered_map<Value *, DebugLoc> &debugInfoMap,
-                    clang::CodeGen::CodeGenModule &CGM) {
+                     std::unordered_map<Value *, DebugLoc> &debugInfoMap,
+                     clang::CodeGen::CodeGenModule &CGM) {
   bool bDebugInfo = CGM.getCodeGenOpts().getDebugInfo() ==
                     clang::CodeGenOptions::FullDebugInfo;
   Module &M = *HLM.GetModule();
@@ -2386,7 +2382,7 @@ void FinishClipPlane(HLModule &HLM, std::vector<Function *> &clipPlaneFuncList,
     }
   }
 }
-} // namespace
+} // namespace CGHLSLMSHelper
 
 namespace {
 void LowerExportFunctions(HLModule &HLM, clang::CodeGen::CodeGenModule &CGM,
@@ -2623,15 +2619,16 @@ void FinishEntries(
     }
   }
 }
-} // namespace
+} // namespace CGHLSLMSHelper
 
 namespace CGHLSLMSHelper {
 void FinishIntrinsics(
     HLModule &HLM, std::vector<std::pair<Function *, unsigned>> &intrinsicMap,
-    DenseMap<Value *, DxilResourceProperties> &valToResPropertiesMap) {
+    DenseMap<Value *, DxilResourceProperties> &valToResPropertiesMap,
+    const llvm::DenseMap<llvm::Type *, DxilResourceProperties> &resTyPropsMap) {
   // Lower getResourceHeap before AddOpcodeParamForIntrinsics to skip automatic
   // lower for getResourceFromHeap.
-  LowerGetResourceFromHeap(HLM, intrinsicMap);
+  LowerGetResourceFromHeap(HLM, intrinsicMap, resTyPropsMap);
   // translate opcode into parameter for intrinsic functions
   // Do this before CloneShaderEntry and TranslateRayQueryConstructor to avoid
   // update valToResPropertiesMap for cloned inst.
@@ -2640,7 +2637,8 @@ void FinishIntrinsics(
 
 // Add the dx.break temporary intrinsic and create Call Instructions
 // to it for each branch that requires the artificial conditional.
-void AddDxBreak(Module &M, const SmallVector<llvm::BranchInst*, 16> &DxBreaks) {
+void AddDxBreak(Module &M,
+                const SmallVector<llvm::BranchInst *, 16> &DxBreaks) {
   if (DxBreaks.empty())
     return;
 
@@ -2650,7 +2648,8 @@ void AddDxBreak(Module &M, const SmallVector<llvm::BranchInst*, 16> &DxBreaks) {
   for (Function &F : M.functions()) {
     HLOpcodeGroup opgroup = hlsl::GetHLOpcodeGroup(&F);
     if (F.isDeclaration() && IsHLWaveSensitive(&F) &&
-        (opgroup == HLOpcodeGroup::HLIntrinsic || opgroup == HLOpcodeGroup::HLExtIntrinsic)) {
+        (opgroup == HLOpcodeGroup::HLIntrinsic ||
+         opgroup == HLOpcodeGroup::HLExtIntrinsic)) {
       for (User *U : F.users()) {
         CallInst *CI = cast<CallInst>(U);
         WaveUsers.insert(CI->getParent()->getParent());
@@ -2663,25 +2662,29 @@ void AddDxBreak(Module &M, const SmallVector<llvm::BranchInst*, 16> &DxBreaks) {
     return;
 
   // Create the dx.break function
-  FunctionType *FT = llvm::FunctionType::get(llvm::Type::getInt1Ty(M.getContext()), false);
-  Function *func = cast<llvm::Function>(M.getOrInsertFunction(DXIL::kDxBreakFuncName, FT));
+  FunctionType *FT =
+      llvm::FunctionType::get(llvm::Type::getInt1Ty(M.getContext()), false);
+  Function *func =
+      cast<llvm::Function>(M.getOrInsertFunction(DXIL::kDxBreakFuncName, FT));
   func->addFnAttr(Attribute::AttrKind::NoUnwind);
 
-  // For all break branches recorded previously, if the function they are in makes
-  // any use of a wave op, it may need to be artificially conditional. Make it so now.
-  // The CleanupDxBreak pass will remove those that aren't needed when more is known.
-  for(llvm::BranchInst *BI : DxBreaks) {
+  // For all break branches recorded previously, if the function they are in
+  // makes any use of a wave op, it may need to be artificially conditional.
+  // Make it so now. The CleanupDxBreak pass will remove those that aren't
+  // needed when more is known.
+  for (llvm::BranchInst *BI : DxBreaks) {
     if (WaveUsers.count(BI->getParent()->getParent())) {
       CallInst *Call = CallInst::Create(FT, func, ArrayRef<Value *>(), "", BI);
       BI->setCondition(Call);
       if (!BI->getMetadata(DXIL::kDxBreakMDName)) {
-        BI->setMetadata(DXIL::kDxBreakMDName, llvm::MDNode::get(BI->getContext(), {}));
+        BI->setMetadata(DXIL::kDxBreakMDName,
+                        llvm::MDNode::get(BI->getContext(), {}));
       }
     }
   }
 }
 
-}
+} // namespace CGHLSLMSHelper
 
 namespace CGHLSLMSHelper {
 
@@ -2834,7 +2837,8 @@ void InitRetValue(BasicBlock *exitBB) {
     Value *Init = UndefValue::get(Ty);
     if (Ty->isAggregateType()) {
       // TODO: support aggreagate type and out parameters.
-      // Skip it here will cause undef on phi which the incoming path should never hit.
+      // Skip it here will cause undef on phi which the incoming path should
+      // never hit.
     } else {
       B.CreateStore(Init, RetVAlloc);
     }
@@ -3024,11 +3028,15 @@ void StructurizeMultiRet(Module &M, clang::CodeGen::CodeGenModule &CGM,
                          bool bWaveEnabledStage,
                          SmallVector<BranchInst *, 16> &DxBreaks) {
   if (CGM.getCodeGenOpts().HLSLExtensionsCodegen) {
-    if (!CGM.getCodeGenOpts().HLSLExtensionsCodegen->IsOptionEnabled("structurize-returns"))
+    if (!CGM.getCodeGenOpts().HLSLExtensionsCodegen->IsOptionEnabled(
+            "structurize-returns"))
       return;
   } else {
-    if (!CGM.getCodeGenOpts().HLSLOptimizationToggles.count("structurize-returns") ||
-        !CGM.getCodeGenOpts().HLSLOptimizationToggles.find("structurize-returns")->second)
+    if (!CGM.getCodeGenOpts().HLSLOptimizationToggles.count(
+            "structurize-returns") ||
+        !CGM.getCodeGenOpts()
+             .HLSLOptimizationToggles.find("structurize-returns")
+             ->second)
       return;
   }
 

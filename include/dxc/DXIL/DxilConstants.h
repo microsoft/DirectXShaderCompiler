@@ -380,7 +380,7 @@ namespace DXIL {
   // Enumeration for operations specified by DXIL
   enum class OpCode : unsigned {
     // 
-    CreateHandleFromTable = 218, // create resource handle from table
+    CreateHandleFromBinding = 218, // create resource handle from binding
   
     // Amplification shader instructions
     DispatchMesh = 173, // Amplification shader intrinsic DispatchMesh
@@ -729,7 +729,7 @@ namespace DXIL {
   // Groups for DXIL operations with equivalent function templates
   enum class OpCodeClass : unsigned {
     // 
-    CreateHandleFromTable,
+    CreateHandleFromBinding,
   
     // Amplification shader instructions
     DispatchMesh,

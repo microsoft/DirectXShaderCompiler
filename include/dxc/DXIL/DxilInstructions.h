@@ -7006,17 +7006,17 @@ struct DxilInst_CreateHandleFromHeap {
   bool requiresUniformInputs() const { return false; }
   // Operand indexes
   enum OperandIdx {
-    arg_resourceClass = 1,
-    arg_index = 2,
+    arg_index = 1,
+    arg_samplerHeap = 2,
     arg_nonUniformIndex = 3,
   };
   // Accessors
-  llvm::Value *get_resourceClass() const { return Instr->getOperand(1); }
-  void set_resourceClass(llvm::Value *val) { Instr->setOperand(1, val); }
-  int8_t get_resourceClass_val() const { return (int8_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(1))->getZExtValue()); }
-  void set_resourceClass_val(int8_t val) { Instr->setOperand(1, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 8), llvm::APInt(8, (uint64_t)val))); }
-  llvm::Value *get_index() const { return Instr->getOperand(2); }
-  void set_index(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_index() const { return Instr->getOperand(1); }
+  void set_index(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_samplerHeap() const { return Instr->getOperand(2); }
+  void set_samplerHeap(llvm::Value *val) { Instr->setOperand(2, val); }
+  bool get_samplerHeap_val() const { return (bool)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(2))->getZExtValue()); }
+  void set_samplerHeap_val(bool val) { Instr->setOperand(2, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 1), llvm::APInt(1, (uint64_t)val))); }
   llvm::Value *get_nonUniformIndex() const { return Instr->getOperand(3); }
   void set_nonUniformIndex(llvm::Value *val) { Instr->setOperand(3, val); }
   bool get_nonUniformIndex_val() const { return (bool)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(3))->getZExtValue()); }
@@ -7034,7 +7034,7 @@ struct DxilInst_AnnotateHandle {
   // Validation support
   bool isAllowed() const { return true; }
   bool isArgumentListValid() const {
-    if (5 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
     return true;
   }
   // Metadata
@@ -7042,32 +7042,22 @@ struct DxilInst_AnnotateHandle {
   // Operand indexes
   enum OperandIdx {
     arg_res = 1,
-    arg_resourceClass = 2,
-    arg_resourceKind = 3,
-    arg_props = 4,
+    arg_props = 2,
   };
   // Accessors
   llvm::Value *get_res() const { return Instr->getOperand(1); }
   void set_res(llvm::Value *val) { Instr->setOperand(1, val); }
-  llvm::Value *get_resourceClass() const { return Instr->getOperand(2); }
-  void set_resourceClass(llvm::Value *val) { Instr->setOperand(2, val); }
-  int8_t get_resourceClass_val() const { return (int8_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(2))->getZExtValue()); }
-  void set_resourceClass_val(int8_t val) { Instr->setOperand(2, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 8), llvm::APInt(8, (uint64_t)val))); }
-  llvm::Value *get_resourceKind() const { return Instr->getOperand(3); }
-  void set_resourceKind(llvm::Value *val) { Instr->setOperand(3, val); }
-  int8_t get_resourceKind_val() const { return (int8_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(3))->getZExtValue()); }
-  void set_resourceKind_val(int8_t val) { Instr->setOperand(3, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 8), llvm::APInt(8, (uint64_t)val))); }
-  llvm::Value *get_props() const { return Instr->getOperand(4); }
-  void set_props(llvm::Value *val) { Instr->setOperand(4, val); }
+  llvm::Value *get_props() const { return Instr->getOperand(2); }
+  void set_props(llvm::Value *val) { Instr->setOperand(2, val); }
 };
 
-/// This instruction create resource handle from table
-struct DxilInst_CreateHandleFromTable {
+/// This instruction create resource handle from binding
+struct DxilInst_CreateHandleFromBinding {
   llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_CreateHandleFromTable(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  DxilInst_CreateHandleFromBinding(llvm::Instruction *pInstr) : Instr(pInstr) {}
   operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::CreateHandleFromTable);
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::CreateHandleFromBinding);
   }
   // Validation support
   bool isAllowed() const { return true; }

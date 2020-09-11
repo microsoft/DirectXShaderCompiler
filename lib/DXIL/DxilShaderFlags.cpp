@@ -226,9 +226,7 @@ static CallInst *FindCallToCreateHandle(Value *handleType) {
 
 DxilResourceProperties GetResourcePropertyFromHandleCall(const hlsl::DxilModule *M, CallInst *handleCall) {
 
-  DxilResourceProperties RP = {};
-  RP.Class = DXIL::ResourceClass::Invalid;
-  RP.Kind = DXIL::ResourceKind::Invalid;
+  DxilResourceProperties RP;
 
   ConstantInt *HandleOpCodeConst = cast<ConstantInt>(
       handleCall->getArgOperand(DXIL::OperandIndex::kOpcodeIdx));
@@ -246,7 +244,7 @@ DxilResourceProperties GetResourcePropertyFromHandleCall(const hlsl::DxilModule 
           resource = M->GetUAV(rangeID->getLimitedValue());
         else if (resClass == DXIL::ResourceClass::SRV)
           resource = M->GetSRV(rangeID->getLimitedValue());
-        RP = resource_helper::loadFromResourceBase(&resource);
+        RP = resource_helper::loadPropsFromResourceBase(&resource);
       }
     }
   }
@@ -257,7 +255,7 @@ DxilResourceProperties GetResourcePropertyFromHandleCall(const hlsl::DxilModule 
       Value *resType = LI->getOperand(0);
       for (auto &&res : M->GetUAVs()) {
         if (res->GetGlobalSymbol() == resType) {
-          RP = resource_helper::loadFromResourceBase(res.get());
+          RP = resource_helper::loadPropsFromResourceBase(res.get());
         }
       }
     }
@@ -265,7 +263,7 @@ DxilResourceProperties GetResourcePropertyFromHandleCall(const hlsl::DxilModule 
     DxilInst_AnnotateHandle annotateHandle(cast<Instruction>(handleCall));
     Type *ResPropTy = M->GetOP()->GetResourcePropertiesType();
 
-    RP = resource_helper::loadFromAnnotateHandle(annotateHandle, ResPropTy, *M->GetShaderModel());
+    RP = resource_helper::loadPropsFromAnnotateHandle(annotateHandle, ResPropTy, *M->GetShaderModel());
   }
 
   return RP;
@@ -384,13 +382,14 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
           // Check if this is a library handle or general create handle
           if (handleCall) {
             DxilResourceProperties RP = GetResourcePropertyFromHandleCall(M, handleCall);
-            if (RP.Class == DXIL::ResourceClass::UAV) {
+            if (RP.isUAV()) {
               // Validator 1.0 assumes that all uav load is multi component load.
               if (hasMulticomponentUAVLoadsBackCompat) {
                 hasMulticomponentUAVLoads = true;
                 continue;
               } else {
-                if (DXIL::IsTyped(RP.Kind) && !RP.Typed.SingleComponent)
+                if (DXIL::IsTyped(RP.getResourceKind()) &&
+                    RP.Typed.CompCount > 1)
                   hasMulticomponentUAVLoads = true;
               }
             }

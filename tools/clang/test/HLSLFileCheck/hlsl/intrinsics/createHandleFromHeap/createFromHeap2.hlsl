@@ -4,9 +4,9 @@
 // CHECK:call %dx.types.Handle @dx.op.createHandleFromHeap(i32 216
 // CHECK:call %dx.types.Handle @dx.op.createHandleFromHeap(i32 216
 // CHECK:call %dx.types.Handle @dx.op.createHandleFromHeap(i32 216
-// CHECK:call %dx.types.Handle @dx.op.annotateHandle(i32 217, %dx.types.Handle %{{.*}}, i8 1, i8 10, %dx.types.ResourceProperties { i32 494, i32 0 }) ; AnnotateHandle(res,resourceClass,resourceKind,props)  resource: RWTypedBuffer<UNormF32>
-// CHECK:call %dx.types.Handle @dx.op.annotateHandle(i32 217, %dx.types.Handle %{{.*}}, i8 1, i8 10, %dx.types.ResourceProperties { i32 493, i32 2 }) ; AnnotateHandle(res,resourceClass,resourceKind,props)  resource: globallycoherent RWTypedBuffer<SNormF32>
-// CHECK:call %dx.types.Handle @dx.op.annotateHandle(i32 217, %dx.types.Handle %{{.*}}, i8 1, i8 10, %dx.types.ResourceProperties { i32 493, i32 2 }) ; AnnotateHandle(res,resourceClass,resourceKind,props)  resource: globallycoherent RWTypedBuffer<SNormF32>
+// CHECK:call %dx.types.Handle @dx.op.annotateHandle(i32 217, %dx.types.Handle %{{.*}}, %dx.types.ResourceProperties { i32 270, i32 4106 })  ; AnnotateHandle(res,props)  resource: RWTypedBuffer<UNormF32>
+// CHECK:call %dx.types.Handle @dx.op.annotateHandle(i32 217, %dx.types.Handle %{{.*}}, %dx.types.ResourceProperties { i32 269, i32 20490 })  ; AnnotateHandle(res,props)  resource: globallycoherent RWTypedBuffer<SNormF32>
+// CHECK:call %dx.types.Handle @dx.op.annotateHandle(i32 217, %dx.types.Handle %{{.*}}, %dx.types.ResourceProperties { i32 269, i32 20490 })  ; AnnotateHandle(res,props)  resource: globallycoherent RWTypedBuffer<SNormF32>
 
 
 struct S {

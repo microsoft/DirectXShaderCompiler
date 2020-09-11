@@ -597,6 +597,28 @@ bool IsResourceSingleComponent(Type *Ty) {
   return true;
 }
 
+uint8_t GetResourceComponentCount(llvm::Type *Ty) {
+  if (llvm::ArrayType *arrType = llvm::dyn_cast<llvm::ArrayType>(Ty)) {
+    return arrType->getArrayNumElements() *
+           GetResourceComponentCount(arrType->getArrayElementType());
+  } else if (llvm::StructType *structType =
+                 llvm::dyn_cast<llvm::StructType>(Ty)) {
+    if (structType->getStructNumElements() > 1) {
+      return false;
+    }
+    uint32_t Count = 0;
+    for (Type *EltTy : structType->elements())  {
+      Count += GetResourceComponentCount(EltTy);
+    }
+    DXASSERT(Count < 256, "Component Count out of bound.");
+    return Count;
+  } else if (llvm::VectorType *vectorType =
+                 llvm::dyn_cast<llvm::VectorType>(Ty)) {
+    return vectorType->getNumElements();
+  }
+  return 1;
+}
+
 bool IsHLSLResourceType(llvm::Type *Ty) {
   if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
     if (!ST->hasName())
