@@ -325,7 +325,10 @@ clang::CXXRecordDecl* DeclareTemplateTypeWithHandle(
 clang::CXXRecordDecl* DeclareUIntTemplatedTypeWithHandle(
   clang::ASTContext& context, llvm::StringRef typeName, llvm::StringRef templateParamName);
 clang::CXXRecordDecl* DeclareRayQueryType(clang::ASTContext& context);
-clang::CXXRecordDecl *DeclareResourceType(clang::ASTContext &context);
+clang::CXXRecordDecl *DeclareResourceType(clang::ASTContext &context,
+                                          bool bSampler);
+clang::VarDecl *DeclareBuiltinGlobal(llvm::StringRef name, clang::QualType Ty,
+                                     clang::ASTContext &context);
 
 /// <summary>Create a function template declaration for the specified method.</summary>
 /// <param name="context">AST context in which to work.</param>

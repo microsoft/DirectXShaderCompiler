@@ -60,7 +60,7 @@ static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args6[] =
 
 static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args7[] =
 {
-    {"CreateResourceFromHeap", AR_QUAL_OUT, 0, LITEMPLATE_SCALAR, 0, LICOMPTYPE_RESOURCE, 1, 1},
+    {"$hidden$CreateResourceFromHeap", AR_QUAL_OUT, 0, LITEMPLATE_SCALAR, 0, LICOMPTYPE_RESOURCE, 1, 1},
     {"index", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_UINT, 1, 1},
 };
 
@@ -1695,7 +1695,7 @@ static const HLSL_INTRINSIC g_Intrinsics[] =
     {(UINT)hlsl::IntrinsicOp::IOP_AllocateRayQuery, false, false, false, -1, 2, g_Intrinsics_Args4},
     {(UINT)hlsl::IntrinsicOp::IOP_CallShader, false, false, false, -1, 3, g_Intrinsics_Args5},
     {(UINT)hlsl::IntrinsicOp::IOP_CheckAccessFullyMapped, false, true, false, -1, 2, g_Intrinsics_Args6},
-    {(UINT)hlsl::IntrinsicOp::IOP_CreateResourceFromHeap, false, true, false, -1, 2, g_Intrinsics_Args7},
+    {(UINT)hlsl::IntrinsicOp::IOP_CreateResourceFromHeap, false, false, false, -1, 2, g_Intrinsics_Args7},
     {(UINT)hlsl::IntrinsicOp::IOP_D3DCOLORtoUBYTE4, false, true, false, -1, 2, g_Intrinsics_Args8},
     {(UINT)hlsl::IntrinsicOp::IOP_DeviceMemoryBarrier, false, false, false, -1, 1, g_Intrinsics_Args9},
     {(UINT)hlsl::IntrinsicOp::IOP_DeviceMemoryBarrierWithGroupSync, false, false, false, -1, 1, g_Intrinsics_Args10},

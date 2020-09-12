@@ -962,9 +962,9 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   if ((168 <= op && op <= 172))
     return (major > 6 || (major == 6 && minor >= 5))
         && (SK == DXIL::ShaderKind::Mesh);
-  // Instructions: CreateHandleFromHeap=216, AnnotateHandle=217, Unpack4x8=219,
-  // Pack4x8=220
-  if ((216 <= op && op <= 217) || (219 <= op && op <= 220))
+  // Instructions: AnnotateHandle=216, CreateHandleFromBinding=217,
+  // CreateHandleFromHeap=218, Unpack4x8=219, Pack4x8=220
+  if ((216 <= op && op <= 220))
     return (major > 6 || (major == 6 && minor >= 6));
   return true;
   // VALOPCODESM-TEXT:END

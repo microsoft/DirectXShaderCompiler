@@ -735,6 +735,9 @@ bool IsHLSLResourceDescType(llvm::Type *Ty) {
     // TODO: don't check names.
     if (name == ("struct..Resource"))
       return true;
+
+    if (name == "struct..Sampler")
+      return true;
   }
   return false;
 }

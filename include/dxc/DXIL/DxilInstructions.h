@@ -6988,41 +6988,6 @@ struct DxilInst_RayQuery_CommittedInstanceContributionToHitGroupIndex {
   void set_rayQueryHandle(llvm::Value *val) { Instr->setOperand(1, val); }
 };
 
-/// This instruction create resource handle from heap
-struct DxilInst_CreateHandleFromHeap {
-  llvm::Instruction *Instr;
-  // Construction and identification
-  DxilInst_CreateHandleFromHeap(llvm::Instruction *pInstr) : Instr(pInstr) {}
-  operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::CreateHandleFromHeap);
-  }
-  // Validation support
-  bool isAllowed() const { return true; }
-  bool isArgumentListValid() const {
-    if (4 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
-    return true;
-  }
-  // Metadata
-  bool requiresUniformInputs() const { return false; }
-  // Operand indexes
-  enum OperandIdx {
-    arg_index = 1,
-    arg_samplerHeap = 2,
-    arg_nonUniformIndex = 3,
-  };
-  // Accessors
-  llvm::Value *get_index() const { return Instr->getOperand(1); }
-  void set_index(llvm::Value *val) { Instr->setOperand(1, val); }
-  llvm::Value *get_samplerHeap() const { return Instr->getOperand(2); }
-  void set_samplerHeap(llvm::Value *val) { Instr->setOperand(2, val); }
-  bool get_samplerHeap_val() const { return (bool)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(2))->getZExtValue()); }
-  void set_samplerHeap_val(bool val) { Instr->setOperand(2, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 1), llvm::APInt(1, (uint64_t)val))); }
-  llvm::Value *get_nonUniformIndex() const { return Instr->getOperand(3); }
-  void set_nonUniformIndex(llvm::Value *val) { Instr->setOperand(3, val); }
-  bool get_nonUniformIndex_val() const { return (bool)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(3))->getZExtValue()); }
-  void set_nonUniformIndex_val(bool val) { Instr->setOperand(3, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 1), llvm::APInt(1, (uint64_t)val))); }
-};
-
 /// This instruction annotate handle with resource properties
 struct DxilInst_AnnotateHandle {
   llvm::Instruction *Instr;
@@ -7078,6 +7043,41 @@ struct DxilInst_CreateHandleFromBinding {
   void set_bind(llvm::Value *val) { Instr->setOperand(1, val); }
   llvm::Value *get_index() const { return Instr->getOperand(2); }
   void set_index(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_nonUniformIndex() const { return Instr->getOperand(3); }
+  void set_nonUniformIndex(llvm::Value *val) { Instr->setOperand(3, val); }
+  bool get_nonUniformIndex_val() const { return (bool)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(3))->getZExtValue()); }
+  void set_nonUniformIndex_val(bool val) { Instr->setOperand(3, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 1), llvm::APInt(1, (uint64_t)val))); }
+};
+
+/// This instruction create resource handle from heap
+struct DxilInst_CreateHandleFromHeap {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_CreateHandleFromHeap(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::CreateHandleFromHeap);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (4 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_index = 1,
+    arg_samplerHeap = 2,
+    arg_nonUniformIndex = 3,
+  };
+  // Accessors
+  llvm::Value *get_index() const { return Instr->getOperand(1); }
+  void set_index(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_samplerHeap() const { return Instr->getOperand(2); }
+  void set_samplerHeap(llvm::Value *val) { Instr->setOperand(2, val); }
+  bool get_samplerHeap_val() const { return (bool)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(2))->getZExtValue()); }
+  void set_samplerHeap_val(bool val) { Instr->setOperand(2, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 1), llvm::APInt(1, (uint64_t)val))); }
   llvm::Value *get_nonUniformIndex() const { return Instr->getOperand(3); }
   void set_nonUniformIndex(llvm::Value *val) { Instr->setOperand(3, val); }
   bool get_nonUniformIndex_val() const { return (bool)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(3))->getZExtValue()); }

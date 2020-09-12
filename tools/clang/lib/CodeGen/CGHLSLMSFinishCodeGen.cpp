@@ -76,6 +76,18 @@ Value *CreateAnnotateHandle(HLModule &HLM, Value *Handle,
       {Handle, RPConstant, UndefValue::get(ResTy)}, *HLM.GetModule());
 }
 
+bool IsHLSLSamplerDescType(llvm::Type *Ty) {
+  if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
+    if (!ST->hasName())
+      return false;
+    StringRef name = ST->getName();
+
+    if (name == "struct..Sampler")
+      return true;
+  }
+  return false;
+}
+
 void LowerGetResourceFromHeap(
     HLModule &HLM, std::vector<std::pair<Function *, unsigned>> &intrinsicMap,
     const llvm::DenseMap<llvm::Type *, DxilResourceProperties> &resTyPropsMap) {
@@ -95,13 +107,14 @@ void LowerGetResourceFromHeap(
       continue;
     for (auto uit = F->user_begin(); uit != F->user_end();) {
       CallInst *CI = cast<CallInst>(*(uit++));
-      Instruction *ResPtr = cast<Instruction>(CI->getArgOperand(0));
-      Value *Index = CI->getArgOperand(1);
+      // Arg 0 is this pointer.
+      unsigned ArgIdx = 1;
+      Instruction *ResPtr = cast<Instruction>(CI->getArgOperand(ArgIdx));
+      Value *Index = CI->getArgOperand(ArgIdx+1);
       IRBuilder<> Builder(CI);
       // Make a handle from GetResFromHeap.
-
-      // TODO: get res class.
-      Value *IsSampler = Builder.getInt1(0);
+      Value *IsSampler = Builder.getInt1(
+          IsHLSLSamplerDescType(ResPtr->getType()->getPointerElementType()));
       Value *Handle = HLM.EmitHLOperationCall(
           Builder, HLOpcodeGroup::HLIntrinsic, GetResFromHeapOp, HandleTy,
           {Index, IsSampler}, M);

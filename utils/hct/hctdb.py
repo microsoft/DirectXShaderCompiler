@@ -408,7 +408,7 @@ class db_dxil(object):
             self.name_idx[i].category = "Library create handle from resource struct (like HL intrinsic)"
             self.name_idx[i].shader_model = 6,3
             self.name_idx[i].shader_model_translated = 6,0
-        for i in "CreateHandleFromHeap,AnnotateHandle".split(","):
+        for i in "AnnotateHandle,CreateHandleFromBinding,CreateHandleFromHeap".split(","):
             self.name_idx[i].category = "Get handle from heap"
             self.name_idx[i].shader_model = 6,6
         for i in "Dot4AddU8Packed,Dot4AddI8Packed,Dot2AddHalf".split(","):
@@ -1823,13 +1823,6 @@ class db_dxil(object):
         self.set_op_count_for_version(1, 5, next_op_idx)
         assert next_op_idx == 216, "216 is expected next operation index but encountered %d and thus opcodes are broken" % next_op_idx
 
-        self.add_dxil_op("CreateHandleFromHeap", next_op_idx, "CreateHandleFromHeap", "create resource handle from heap", "v", "rn", [
-            db_dxil_param(0, "res", "", "result"),
-            db_dxil_param(2, "i32", "index", "heap index"),
-            db_dxil_param(3, "i1", "samplerHeap", "If samplerHeap is 1, the heap indexed is the sampler descriptor heap, otherwise it is the CBV_SRV_UAV (resource) descriptor heap", is_const=True),
-            db_dxil_param(4, "i1", "nonUniformIndex", "non-uniform resource index", is_const=True)])
-        next_op_idx += 1
-
         self.add_dxil_op("AnnotateHandle", next_op_idx, "AnnotateHandle", "annotate handle with resource properties", "v", "rn", [
             db_dxil_param(0, "res", "", "annotated handle"),
             db_dxil_param(2, "res", "res", "input handle"),
@@ -1840,6 +1833,13 @@ class db_dxil(object):
             db_dxil_param(0, "res", "", "result"),
             db_dxil_param(2, "resbind", "bind", "resource binding", is_const=True), #{ rangeLowerBound, rangeUpperBound, spaceID, resourceClass }
             db_dxil_param(3, "i32", "index", "index"),
+            db_dxil_param(4, "i1", "nonUniformIndex", "non-uniform resource index", is_const=True)])
+        next_op_idx += 1
+
+        self.add_dxil_op("CreateHandleFromHeap", next_op_idx, "CreateHandleFromHeap", "create resource handle from heap", "v", "rn", [
+            db_dxil_param(0, "res", "", "result"),
+            db_dxil_param(2, "i32", "index", "heap index"),
+            db_dxil_param(3, "i1", "samplerHeap", "If samplerHeap is 1, the heap indexed is the sampler descriptor heap, otherwise it is the CBV_SRV_UAV (resource) descriptor heap", is_const=True),
             db_dxil_param(4, "i1", "nonUniformIndex", "non-uniform resource index", is_const=True)])
         next_op_idx += 1
 
@@ -1860,7 +1860,7 @@ class db_dxil(object):
 
         # End of DXIL 1.6 opcodes.
         self.set_op_count_for_version(1, 6, next_op_idx)
-        assert next_op_idx == 221, "next operation index is %d rather than 165 and thus opcodes are broken" % next_op_idx
+        assert next_op_idx == 221, "221 is expected next operation index but encountered %d and thus opcodes are broken" % next_op_idx
 
         # Set interesting properties.
         self.build_indices()

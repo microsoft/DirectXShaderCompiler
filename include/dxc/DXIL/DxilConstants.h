@@ -379,9 +379,6 @@ namespace DXIL {
   // OPCODE-ENUM:BEGIN
   // Enumeration for operations specified by DXIL
   enum class OpCode : unsigned {
-    // 
-    CreateHandleFromBinding = 218, // create resource handle from binding
-  
     // Amplification shader instructions
     DispatchMesh = 173, // Amplification shader intrinsic DispatchMesh
   
@@ -464,8 +461,9 @@ namespace DXIL {
     GSInstanceID = 100, // GSInstanceID
   
     // Get handle from heap
-    AnnotateHandle = 217, // annotate handle with resource properties
-    CreateHandleFromHeap = 216, // create resource handle from heap
+    AnnotateHandle = 216, // annotate handle with resource properties
+    CreateHandleFromBinding = 217, // create resource handle from binding
+    CreateHandleFromHeap = 218, // create resource handle from heap
   
     // Graphics shader
     ViewID = 138, // returns the view index
@@ -728,9 +726,6 @@ namespace DXIL {
   // OPCODECLASS-ENUM:BEGIN
   // Groups for DXIL operations with equivalent function templates
   enum class OpCodeClass : unsigned {
-    // 
-    CreateHandleFromBinding,
-  
     // Amplification shader instructions
     DispatchMesh,
   
@@ -796,6 +791,7 @@ namespace DXIL {
   
     // Get handle from heap
     AnnotateHandle,
+    CreateHandleFromBinding,
     CreateHandleFromHeap,
   
     // Graphics shader
