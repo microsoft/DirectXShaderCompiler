@@ -414,7 +414,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
             Value *resHandle = CI->getArgOperand(DXIL::OperandIndex::kAtomicBinOpHandleOpIdx);
             CallInst *handleCall = FindCallToCreateHandle(resHandle);
             DxilResourceProperties RP = GetResourcePropertyFromHandleCall(M, handleCall);
-            if (DXIL::IsTyped(RP.Kind))
+            if (DXIL::IsTyped(RP.getResourceKind()))
                 hasAtomicInt64OnTypedResource = true;
           }
           break;
