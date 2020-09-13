@@ -5904,6 +5904,10 @@ void TranslateCBAddressUser(Instruction *user, Value *handle, Value *baseOffset,
     // Resource inside cbuffer is lowered after GenerateDxilOperations.
     if (dxilutil::IsHLSLObjectType(Ty)) {
       CallInst *CI = cast<CallInst>(handle);
+      // CI should be annotate handle.
+      // Need createHandle here.
+      if (GetHLOpcodeGroup(CI->getCalledFunction()) == HLOpcodeGroup::HLAnnotateHandle)
+        CI = cast<CallInst>(CI->getArgOperand(HLOperandIndex::kAnnotateHandleHandleOpIdx));
       GlobalVariable *CbGV = cast<GlobalVariable>(
           CI->getArgOperand(HLOperandIndex::kCreateHandleResourceOpIdx));
       TranslateResourceInCB(ldInst, pObjHelper, CbGV);
@@ -6392,6 +6396,11 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
     // Resource inside cbuffer is lowered after GenerateDxilOperations.
     if (dxilutil::IsHLSLObjectType(Ty)) {
       CallInst *CI = cast<CallInst>(handle);
+      // CI should be annotate handle.
+      // Need createHandle here.
+      if (GetHLOpcodeGroup(CI->getCalledFunction()) == HLOpcodeGroup::HLAnnotateHandle)
+        CI = cast<CallInst>(CI->getArgOperand(HLOperandIndex::kAnnotateHandleHandleOpIdx));
+
       GlobalVariable *CbGV = cast<GlobalVariable>(
           CI->getArgOperand(HLOperandIndex::kCreateHandleResourceOpIdx));
       TranslateResourceInCB(ldInst, pObjHelper, CbGV);

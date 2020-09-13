@@ -65,7 +65,7 @@ Value *CreateHandleFromResPtr(Value *ResPtr, HLModule &HLM,
   return Handle;
 }
 
-Value *CreateAnnotateHandle(HLModule &HLM, Value *Handle,
+CallInst *CreateAnnotateHandle(HLModule &HLM, Value *Handle,
                             DxilResourceProperties &RP, llvm::Type *ResTy,
                             IRBuilder<> &Builder) {
   Constant *RPConstant = resource_helper::getAsConstant(
@@ -1911,6 +1911,9 @@ bool CreateCBufferVariable(HLCBuffer &CB, HLModule &HLM, llvm::Type *HandleTy) {
     HandleArgs[HLOperandIndex::kCreateHandleResourceOpIdx - 1] = cbGV;
     CallInst *Handle = HLM.EmitHLOperationCall(
         Builder, HLOpcodeGroup::HLCreateHandle, 0, HandleTy, HandleArgs, M);
+    CallInst *OrigHandle = Handle;
+    DxilResourceProperties RP = resource_helper::loadPropsFromResourceBase(&CB);
+    Handle = CreateAnnotateHandle(HLM, Handle, RP, cbGV->getType()->getElementType(), Builder);
 
     args[HLOperandIndex::kSubscriptObjectOpIdx] = Handle;
     Instruction *cbSubscript =
@@ -1998,6 +2001,7 @@ bool CreateCBufferVariable(HLCBuffer &CB, HLModule &HLM, llvm::Type *HandleTy) {
     if (cbSubscript->user_empty()) {
       cbSubscript->eraseFromParent();
       Handle->eraseFromParent();
+      OrigHandle->eraseFromParent();
     } else {
       // merge GEP use for cbSubscript.
       HLModule::MergeGepUse(cbSubscript);
