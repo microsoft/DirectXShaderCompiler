@@ -2330,10 +2330,18 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr) {
     llvm::SmallVector<uint32_t, 4> indexes;
 
     // It is possible that the source matrix is in fact a vector.
-    // For example: Truncate float1x3 --> float1x2.
+    // Example 1: Truncate float1x3 --> float1x2.
+    // Example 2: Truncate float1x3 --> float1x1.
     // The front-end disallows float1x3 --> float2x1.
     {
       uint32_t srcVecSize = 0, dstVecSize = 0;
+      if (isVectorType(srcType, nullptr, &srcVecSize) && isScalarType(toType)) {
+        auto *val = spvBuilder.createCompositeExtract(toType, src, {0},
+                                                      expr->getLocStart());
+        val->setRValue();
+        return val;
+      }
+
       if (isVectorType(srcType, nullptr, &srcVecSize) &&
           isVectorType(toType, nullptr, &dstVecSize)) {
         for (uint32_t i = 0; i < dstVecSize; ++i)
@@ -7177,12 +7185,17 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_transpose: {
     const Expr *mat = callExpr->getArg(0);
     const QualType matType = mat->getType();
-    if (hlsl::GetHLSLMatElementType(matType)->isFloatingType())
-      retVal =
-          processIntrinsicUsingSpirvInst(callExpr, spv::Op::OpTranspose, false);
-    else
-      retVal = processNonFpMatrixTranspose(matType, doExpr(mat), srcLoc);
-
+    if (isVectorType(matType) || isScalarType(matType)) {
+      // A 1xN or Nx1 or 1x1 matrix is a SPIR-V vector/scalar, and its transpose
+      // is the vector/scalar itself.
+      retVal = doExpr(mat);
+    } else {
+      if (hlsl::GetHLSLMatElementType(matType)->isFloatingType())
+        retVal = processIntrinsicUsingSpirvInst(callExpr, spv::Op::OpTranspose,
+                                                false);
+      else
+        retVal = processNonFpMatrixTranspose(matType, doExpr(mat), srcLoc);
+    }
     break;
   }
   // DXR raytracing intrinsics
@@ -8705,8 +8718,30 @@ SpirvInstruction *SpirvEmitter::processIntrinsicMul(const CallExpr *callExpr) {
   }
 
   // mul(vector, vector)
-  if (isVectorType(arg0Type) && isVectorType(arg1Type))
-    return processIntrinsicDot(callExpr);
+  if (isVectorType(arg0Type) && isVectorType(arg1Type)) {
+    // mul( Mat(1xM), Mat(Mx1) ) results in a scalar (same as dot product)
+    if (isScalarType(returnType)) {
+      return processIntrinsicDot(callExpr);
+    }
+
+    // mul( Mat(Mx1), Mat(1xN) ) results in a MxN matrix.
+    QualType elemType = {};
+    uint32_t numRows = 0;
+    if (isMxNMatrix(returnType, &elemType, &numRows)) {
+      llvm::SmallVector<SpirvInstruction *, 4> rows;
+      auto *arg0Id = doExpr(arg0);
+      auto *arg1Id = doExpr(arg1);
+      for (uint32_t i = 0; i < numRows; ++i) {
+        auto *scalar =
+            spvBuilder.createCompositeExtract(elemType, arg0Id, {i}, loc);
+        rows.push_back(spvBuilder.createBinaryOp(
+            spv::Op::OpVectorTimesScalar, arg1Type, arg1Id, scalar, loc));
+      }
+      return spvBuilder.createCompositeConstruct(returnType, rows, loc);
+    }
+
+    llvm_unreachable("bad arguments passed to mul");
+  }
 
   // All the following cases require handling arg0 and arg1 expressions first.
   auto *arg0Id = doExpr(arg0);
@@ -8829,8 +8864,6 @@ SpirvEmitter::processIntrinsicPrintf(const CallExpr *callExpr) {
 }
 
 SpirvInstruction *SpirvEmitter::processIntrinsicDot(const CallExpr *callExpr) {
-  const QualType returnType = callExpr->getType();
-
   // Get the function parameters. Expect 2 vectors as parameters.
   assert(callExpr->getNumArgs() == 2u);
   const Expr *arg0 = callExpr->getArg(0);
@@ -8839,14 +8872,28 @@ SpirvInstruction *SpirvEmitter::processIntrinsicDot(const CallExpr *callExpr) {
   auto *arg1Id = doExpr(arg1);
   QualType arg0Type = arg0->getType();
   QualType arg1Type = arg1->getType();
-  const size_t vec0Size = hlsl::GetHLSLVecSize(arg0Type);
-  const size_t vec1Size = hlsl::GetHLSLVecSize(arg1Type);
-  const QualType vec0ComponentType = hlsl::GetHLSLVecElementType(arg0Type);
-  const QualType vec1ComponentType = hlsl::GetHLSLVecElementType(arg1Type);
+  uint32_t vec0Size = 0, vec1Size = 0;
+  QualType vec0ComponentType = {}, vec1ComponentType = {};
+  QualType returnType = {};
+  const bool arg0isScalarOrVec =
+      isScalarOrVectorType(arg0Type, &vec0ComponentType, &vec0Size);
+  const bool arg1isScalarOrVec =
+      isScalarOrVectorType(arg1Type, &vec1ComponentType, &vec1Size);
+  const bool returnIsScalar = isScalarType(callExpr->getType(), &returnType);
+  // Each argument should either be a vector or a scalar
+  assert(arg0isScalarOrVec && arg1isScalarOrVec);
+  // The result type must be a scalar.
+  assert(returnIsScalar);
+  // The element type of each argument and the return type must be the same.
   assert(returnType == vec1ComponentType);
   assert(vec0ComponentType == vec1ComponentType);
+  // The size of the two arguments must be equal.
   assert(vec0Size == vec1Size);
+  // Acceptable vector sizes are 1,2,3,4.
   assert(vec0Size >= 1 && vec0Size <= 4);
+  (void)arg0isScalarOrVec;
+  (void)arg1isScalarOrVec;
+  (void)returnIsScalar;
   (void)vec0ComponentType;
   (void)vec1ComponentType;
   (void)vec1Size;
