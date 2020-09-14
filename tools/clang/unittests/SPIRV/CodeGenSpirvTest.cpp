@@ -918,6 +918,9 @@ TEST_F(FileTest, TextureSampleCmpLevelZero) {
 TEST_F(FileTest, TextureArraySampleCmpLevelZero) {
   runFileTest("texture.array.sample-cmp-level-zero.hlsl");
 }
+TEST_F(FileTest, TextureSampleInvalidImplicitLod) {
+  runFileTest("texture.sample-invalid-implicit-lod.hlsl", Expect::Failure);
+}
 
 // For structured buffer methods
 TEST_F(FileTest, StructuredBufferLoad) {

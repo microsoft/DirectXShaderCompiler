@@ -4178,7 +4178,8 @@ SpirvInstruction *SpirvEmitter::createImageSample(
 
   // Implicit-lod instructions are only allowed in pixel shader.
   if (!spvContext.isPS() && !isExplicit)
-    needsLegalization = true;
+    emitError("sampling with implicit lod is only allowed in fragment shaders",
+              loc);
 
   auto *retVal = spvBuilder.createImageSample(
       texelType, imageType, image, sampler, coordinate, compareVal, bias, lod,
