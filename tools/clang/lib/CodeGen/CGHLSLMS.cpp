@@ -3333,8 +3333,32 @@ void CGMSHLSLRuntime::FinishCodeGen() {
   bool bIsLib = HLM.GetShaderModel()->IsLib();
   if (!bIsLib) {
     // need this for "llvm.global_dtors"?
+    if (HLM.GetShaderModel()->IsHS()) {
+      if (Function *patchConstantFn = HLM.GetPatchConstantFunction()) {
+        // static globals are independent for entry function and patch constant function.
+        // Update static global in entry function will not affect value in patch constant function.
+        // So just call ctors for patch constant function too.
+        ProcessCtorFunctions(
+            M, "llvm.global_ctors",
+            patchConstantFn->getEntryBlock().getFirstInsertionPt(), false);
+        IRBuilder<> B(patchConstantFn->getEntryBlock().getFirstInsertionPt());
+        // For static globals which has const initialize value, copy it at
+        // beginning of patch constant function to avoid use value updated by
+        // entry function.
+        for (GlobalVariable &GV : M.globals()) {
+          if (GV.isConstant())
+            continue;
+          if (!GV.hasInitializer())
+            continue;
+          if (GV.getName() == "llvm.global_ctors")
+            continue;
+          Value *V = GV.getInitializer();
+          B.CreateStore(V, &GV);
+        }
+      }
+    }
     ProcessCtorFunctions(M, "llvm.global_ctors",
-                         Entry.Func->getEntryBlock().getFirstInsertionPt());
+                         Entry.Func->getEntryBlock().getFirstInsertionPt(), true);
   }
 
   UpdateLinkage(HLM, CGM, m_ExportMap, entryFunctionMap,

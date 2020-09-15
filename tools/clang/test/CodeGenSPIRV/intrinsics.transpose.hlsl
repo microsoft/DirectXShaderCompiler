@@ -61,4 +61,16 @@ void main() {
 // CHECK-NEXT:                 OpStore %rt [[rt]]
   uint4x4 r;
   uint4x4 rt = transpose(r);
+
+// A 1-D matrix is in fact a vector, and its transpose is the vector itself.
+//
+// CHECK:      [[s:%\d+]] = OpLoad %v4float %s
+// CHECK-NEXT:              OpStore %st [[s]]
+  float1x4 s;
+  float4x1 st = transpose(s);
+
+// CHECK:      [[t:%\d+]] = OpLoad %float %t
+// CHECK-NEXT:              OpStore %tt [[t]]
+  float1x1 t;
+  float1x1 tt = transpose(t);
 }

@@ -152,6 +152,17 @@ bool isVectorType(QualType type, QualType *elemType, uint32_t *elemCount) {
   return isVec;
 }
 
+bool isScalarOrVectorType(QualType type, QualType *elemType,
+                          uint32_t *elemCount) {
+  if (isScalarType(type, elemType)) {
+    if (elemCount)
+      *elemCount = 1;
+    return true;
+  }
+
+  return isVectorType(type, elemType, elemCount);
+}
+
 bool isConstantArrayType(const ASTContext &astContext, QualType type) {
   return astContext.getAsConstantArrayType(type) != nullptr;
 }

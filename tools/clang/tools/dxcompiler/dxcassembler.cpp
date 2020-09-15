@@ -17,9 +17,11 @@
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/Support/dxcapi.impl.h"
+#include "dxc/Support/dxcfilesystem.h"
 #include "dxillib.h"
 #include "dxcutil.h"
 
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Bitcode/ReaderWriter.h"
@@ -73,6 +75,11 @@ HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
   HRESULT hr = S_OK;
   DxcThreadMalloc TM(m_pMalloc);
   try {
+    ::llvm::sys::fs::MSFileSystem *msfPtr;
+    IFT(CreateMSFileSystemForDisk(&msfPtr));
+    std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
+    ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
+
     // Setup input buffer.
     // The ir parsing requires the buffer to be null terminated. We deal with
     // both source and bitcode input, so the input buffer may not be null terminated.

@@ -1,4 +1,5 @@
 // RUN: %dxc -T lib_6_3 -auto-binding-space 11 %s | FileCheck %s
+// Test failure expected when run with 19041 SDK DXIL.dll
 
 // CHECK:   %[[_7_:[0-9]+]] = call %dx.types.ResRet.f32 @dx.op.sampleLevel.f32(i32 62,
 // CHECK:   %[[_8_:[0-9]+]] = extractvalue %dx.types.ResRet.f32 %[[_7_]], 0

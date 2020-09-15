@@ -1,4 +1,4 @@
-// RUN: %dxilver 1.1 | %dxc -E main -T ps_6_2 -HV 2018 -enable-16bit-types %s | FileCheck %s
+// RUN: %dxilver 1.6 | %dxc -E main -T ps_6_2 -HV 2018 -enable-16bit-types %s | FileCheck %s
 
 // CHECK: call i32 @dx.op.attributeAtVertex.i32(i32 137, i32 0, i32 0, i8 0, i8 0)
 // CHECK: call i32 @dx.op.attributeAtVertex.i32(i32 137, i32 0, i32 0, i8 1, i8 0)
