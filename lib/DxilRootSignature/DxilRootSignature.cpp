@@ -11,7 +11,6 @@
 
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
-#include "dxc/DxilContainer/DxilPipelineStateValidation.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/WinFunctions.h"
