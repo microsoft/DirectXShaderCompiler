@@ -188,6 +188,13 @@ if "%BUILD_VS_VER%"=="2017" (
   )
 )
 
+if "%BUILD_VS_VER%"=="2019" (
+  if not exist "%ProgramFiles(x86)%\Microsoft Visual Studio\2019" (
+    echo Visual Studio 2019 not available. Use hctbuild -vs2017 to build with Visual Studio 2017.
+    exit /b 1
+  )
+)
+
 rem Begin SPIRV change
 if "%1"=="-spirv" (
   echo SPIR-V codegen is enabled.
