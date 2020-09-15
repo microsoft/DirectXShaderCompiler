@@ -297,6 +297,9 @@ public:
   TEST_METHOD(WaveIntrinsicsInPSTest);
   TEST_METHOD(WaveSizeTest);
   TEST_METHOD(PartialDerivTest);
+  TEST_METHOD(DerivativesTest);
+  TEST_METHOD(QuadReadTest);
+  TEST_METHOD(ComputeSampleTest);
 
   BEGIN_TEST_METHOD(CBufferTestHalf)
     TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.2
@@ -972,6 +975,17 @@ public:
     return O.Native16BitShaderOpsSupported != FALSE;
   }
     
+  bool DoesDeviceSupportMeshAmpDerivatives(ID3D12Device *pDevice) {
+#if 0
+    D3D12_FEATURE_DATA_D3D12_OPTIONS8 O;
+    if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS8, &O, sizeof(O))))
+      return false;
+    return O.DerivativesInMeshAndAmplificationShadersSupported != FALSE;
+#else
+    return false;
+#endif
+  }
+
 #ifndef _HLK_CONF
   void DXBCFromText(LPCSTR pText, LPCWSTR pEntryPoint, LPCWSTR pTargetProfile, ID3DBlob **ppBlob) {
     CW2A pEntryPointA(pEntryPoint, CP_UTF8);
@@ -2432,31 +2446,9 @@ TEST_F(ExecutionTest, BasicTriangleOpTestHalf) {
   BasicTriangleTestSetup("TriangleHalf", L"basic-triangle-half.bmp", D3D_SHADER_MODEL_6_2);
 }
 
-// Rendering two right triangles forming a square and assigning a texture value
-// for each pixel to calculate derivates.
-TEST_F(ExecutionTest, PartialDerivTest) {
-  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
-  CComPtr<IStream> pStream;
-  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
-
-  CComPtr<ID3D12Device> pDevice;
-  if (!CreateDevice(&pDevice))
-      return;
-
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(pDevice, m_support, pStream, "DerivFine", nullptr);
-  MappedData data;
-  D3D12_RESOURCE_DESC &D = test->ShaderOp->GetResourceByName("RTarget")->Desc;
-  UINT width = (UINT)D.Width;
-  UINT height = D.Height;
-  UINT pixelSize = GetByteSizeForFormat(D.Format) / 4;
-
-  test->Test->GetReadBackData("RTarget", &data);
-  const float *pPixels = (float *)data.data();
-
-  UINT centerIndex = (UINT64)width * height / 2 - width / 2;
+void VerifyDerivResults(const float *pPixels, UINT offsetCenter) {
 
   // pixel at the center
-  UINT offsetCenter = centerIndex * pixelSize;
   float CenterDDXFine = pPixels[offsetCenter];
   float CenterDDYFine = pPixels[offsetCenter + 1];
   float CenterDDXCoarse = pPixels[offsetCenter + 2];
@@ -2506,6 +2498,294 @@ TEST_F(ExecutionTest, PartialDerivTest) {
                    CompareFloatULP(CenterDDXCoarse, .125f, ulpTolerance))  &&
                    (CompareFloatULP(CenterDDYCoarse, -255.875f, ulpTolerance) ||
                    CompareFloatULP(CenterDDYCoarse, -511.75f, ulpTolerance)));
+  }
+}
+
+// Rendering two right triangles forming a square and assigning a texture value
+// for each pixel to calculate derivates.
+TEST_F(ExecutionTest, PartialDerivTest) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice))
+      return;
+
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(pDevice, m_support, pStream, "DerivFine", nullptr);
+  MappedData data;
+  D3D12_RESOURCE_DESC &D = test->ShaderOp->GetResourceByName("RTarget")->Desc;
+  UINT width = (UINT)D.Width;
+  UINT height = D.Height;
+  UINT pixelSize = GetByteSizeForFormat(D.Format) / 4;
+
+  test->Test->GetReadBackData("RTarget", &data);
+  const float *pPixels = (float *)data.data();
+
+  UINT centerIndex = (UINT64)width * height / 2 - width / 2;
+  UINT offsetCenter = centerIndex * pixelSize;
+
+  VerifyDerivResults(pPixels, offsetCenter);
+}
+
+TEST_F(ExecutionTest, DerivativesTest) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6))
+    return;
+
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+    std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+
+  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("Derivatives");
+
+  struct Dispatch {
+    int x, y, z;
+    int mx, my, mz;
+  };
+  //std::vector<std::tuple<int, int, int, int, int>> dispatches =
+  std::vector<Dispatch> dispatches =
+  {
+   {32, 32, 1, 8, 8, 1},
+   {64, 4, 1, 64, 2, 1},
+   {1, 4, 64, 1, 4, 32},
+   {64, 1, 1, 64, 1, 1},
+   {1, 64, 1, 1, 64, 1},
+   {1, 1, 64, 1, 1, 64},
+   {16, 16, 3, 4, 4, 3},
+   {32, 3, 8, 8, 3, 2},
+   {3, 1, 64, 3, 1, 32}
+  };
+
+  char compilerOptions[256];
+  for (Dispatch &D : dispatches) {
+    // format compiler args
+    VERIFY_IS_TRUE(sprintf_s(compilerOptions, sizeof(compilerOptions),
+                             "-D DISPATCHX=%d -D DISPATCHY=%d -D DISPATCHZ=%d "
+                             "-D MESHDISPATCHX=%d -D MESHDISPATCHY=%d -D MESHDISPATCHZ=%d",
+                             D.x, D.y, D.z, D.mx, D.my, D.mz));
+
+    for (st::ShaderOpShader &S : pShaderOp->Shaders)
+      S.Arguments = compilerOptions;
+
+    pShaderOp->DispatchX = D.x;
+    pShaderOp->DispatchY = D.y;
+    pShaderOp->DispatchZ = D.z;
+
+    // Test Compute Shader
+    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Derivatives", nullptr, ShaderOpSet);
+    MappedData data;
+
+    test->Test->GetReadBackData("U0", &data);
+    const float *pPixels = (float *)data.data();
+
+    UINT centerIndex = 4* (UINT64)D.x * D.y * D.z / 2;
+    VerifyDerivResults(pPixels, centerIndex);
+
+    if (DoesDeviceSupportMeshAmpDerivatives(pDevice)) {
+      // Disable CS so mesh goes forward
+      pShaderOp->CS = nullptr;
+      test = RunShaderOpTestAfterParse(pDevice, m_support, "Derivatives", nullptr, ShaderOpSet);
+      test->Test->GetReadBackData("U1", &data);
+      pPixels = (float *)data.data();
+      VerifyDerivResults(pPixels, centerIndex);
+
+      test->Test->GetReadBackData("U2", &data);
+      pPixels = (float *)data.data();
+      VerifyDerivResults(pPixels, centerIndex);
+    }
+  }
+
+  // Final test with not divisible by 4 dispatch size just to make sure it runs
+  for (st::ShaderOpShader &S : pShaderOp->Shaders)
+    S.Arguments = "-D DISPATCHX=3 -D DISPATCHY=3 -D DISPATCHZ=3 "
+                  "-D MESHDISPATCHX=3 -D MESHDISPATCHY=3 -D MESHDISPATCHZ=3";
+
+  pShaderOp->DispatchX = 3;
+  pShaderOp->DispatchY = 3;
+  pShaderOp->DispatchZ = 3;
+
+  // Test Compute Shader
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Derivatives", nullptr, ShaderOpSet);
+  pShaderOp->CS = nullptr;
+  test = RunShaderOpTestAfterParse(pDevice, m_support, "Derivatives", nullptr, ShaderOpSet);
+}
+
+// Verify the results for the quad starting with the given index
+void VerifyQuadReadResults(const UINT *pPixels, UINT quadIndex) {
+  for (UINT i = 0; i < 4; i++) {
+    UINT ix = quadIndex + i;
+    VERIFY_IS_TRUE(pPixels[4*ix + 0] == ix); // ReadLaneAt own quad index
+    VERIFY_IS_TRUE(pPixels[4*ix + 1] == (ix^1));// ReadAcrossX
+    VERIFY_IS_TRUE(pPixels[4*ix + 2] == (ix^2));// ReadAcrossY
+    VERIFY_IS_TRUE(pPixels[4*ix + 3] == (ix^3));// ReadAcrossDiagonal
+  }
+}
+
+
+TEST_F(ExecutionTest, QuadReadTest) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice))
+    return;
+
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+    std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+
+  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("QuadRead");
+
+  struct Dispatch {
+    int x, y, z;
+    int mx, my, mz;
+  };
+  //std::vector<std::tuple<int, int, int, int, int>> dispatches =
+  std::vector<Dispatch> dispatches =
+  {
+   {32, 32, 1, 8, 8, 1},
+   {64, 4, 1, 64, 2, 1},
+   {1, 4, 64, 1, 4, 32},
+   {64, 1, 1, 64, 1, 1},
+   {1, 64, 1, 1, 64, 1},
+   {1, 1, 64, 1, 1, 64},
+   {16, 16, 3, 4, 4, 3},
+   {32, 3, 8, 8, 3, 2},
+   {3, 1, 64, 3, 1, 32}
+  };
+
+  for (Dispatch &D : dispatches) {
+    // format compiler args
+    char compilerOptions[256];
+    VERIFY_IS_TRUE(sprintf_s(compilerOptions, sizeof(compilerOptions),
+                             "-D DISPATCHX=%d -D DISPATCHY=%d -D DISPATCHZ=%d "
+                             "-D MESHDISPATCHX=%d -D MESHDISPATCHY=%d -D MESHDISPATCHZ=%d",
+                             D.x, D.y, D.z, D.mx, D.my, D.mz));
+
+    for (st::ShaderOpShader &S : pShaderOp->Shaders)
+      S.Arguments = compilerOptions;
+
+    pShaderOp->DispatchX = D.x;
+    pShaderOp->DispatchY = D.y;
+    pShaderOp->DispatchZ = D.z;
+
+    // Test Compute Shader
+    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "QuadRead", nullptr, ShaderOpSet);
+    MappedData data;
+
+    test->Test->GetReadBackData("U0", &data);
+    const UINT *pPixels = (UINT *)data.data();
+
+    UINT centerIndex = (UINT64)D.x * D.y * D.z / 2;
+    // Test first, second and center quads
+    VerifyQuadReadResults(pPixels, 0);
+    VerifyQuadReadResults(pPixels, 4);
+    VerifyQuadReadResults(pPixels, centerIndex);
+
+    if (DoesDeviceSupportMeshAmpDerivatives(pDevice)) {
+      // Disable CS so mesh goes forward
+      pShaderOp->CS = nullptr;
+      test = RunShaderOpTestAfterParse(pDevice, m_support, "QuadRead", nullptr, ShaderOpSet);
+      test->Test->GetReadBackData("U1", &data);
+      pPixels = (UINT *)data.data();
+      // Test first, second and center quads
+      VerifyQuadReadResults(pPixels, 0);
+      VerifyQuadReadResults(pPixels, 4);
+      VerifyQuadReadResults(pPixels, centerIndex);
+
+      test->Test->GetReadBackData("U2", &data);
+      pPixels = (UINT *)data.data();
+      // Test first, second and center quads
+      VerifyQuadReadResults(pPixels, 0);
+      VerifyQuadReadResults(pPixels, 4);
+      VerifyQuadReadResults(pPixels, centerIndex);
+    }
+  }
+}
+
+void VerifySampleResults(const UINT *pPixels) {
+  UINT lod = 0;
+  // sample coords are such that they alternate between zero and a
+  // value of magnitude dependent on index
+  // Each pixel performs four samples, but only keeps two
+  // These are horizontal using the magnitude of the current pixel,
+  // horizontal using the magnitude of the neighboring pixel
+  // and vertical variants of each. For even rows or columns, the sample value
+  // is zero so the magnitude has no effect on that sample.
+  // The two that are kept are those that use the magnitude of the current pixel.
+  // All samples are performed even if discarded to get proper quad sampling.
+  for (unsigned i = 0; i < 64; i++) {
+    // CalculateLOD and Sample from texture with mip levels containing LOD index should match
+    // NOTE: this doesn't work on pixel shaders. Should work on the more constrained compute
+    VERIFY_IS_TRUE(pPixels[4*i + 0] == pPixels[2*i + 1]);
+    VERIFY_IS_TRUE(pPixels[4*i + 2] == pPixels[2*i + 3]);
+    VERIFY_IS_TRUE(pPixels[4*i + 0] == pPixels[2*i + 3]);
+    // Make sure LOD is every climbing as magnitudes increase
+    VERIFY_IS_TRUE(pPixels[4*i] >= lod);
+    lod = pPixels[2*i];
+  }
+}
+
+TEST_F(ExecutionTest, ComputeSampleTest) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6))
+      return;
+
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+    std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+
+  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("ComputeSample");
+
+  pShaderOp->CS = nullptr;
+  pShaderOp->MS = nullptr;
+
+  D3D12_RESOURCE_DESC &texDesc = pShaderOp->GetResourceByName("T0")->Desc;
+  UINT texWidth = (UINT)texDesc.Width;
+  UINT texHeight = (UINT)texDesc.Height;
+
+  // Initialize texture with the LOD number in each corresponding mip level
+  auto SampleInitFn = [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
+                        VERIFY_IS_TRUE(0 == _stricmp(Name, "T0"));
+                        size_t size = sizeof(float) * texWidth * texHeight * 2;
+                        Data.resize(size);
+                        float *pPrimitives = (float *)Data.data();
+                        float lod = 0.0;
+                        int ix = 0;
+                        while (texHeight > 0 && texWidth > 0) {
+                          if(!texHeight) texHeight = 1;
+                          if(!texWidth) texWidth = 1;
+                          for (size_t j = 0; j < texHeight; ++j) {
+                            for (size_t i = 0; i < texWidth; ++i) {
+                              pPrimitives[ix++] = lod;
+                            }
+                          }
+                          lod += 1.0;
+                          texHeight >>= 1;
+                          texWidth >>= 1;
+                        }
+                      };
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "ComputeSample", SampleInitFn, ShaderOpSet);
+  MappedData data;
+
+  test->Test->GetReadBackData("U0", &data);
+  const UINT *pPixels = (UINT *)data.data();
+
+  VerifySampleResults(pPixels);
+  if (DoesDeviceSupportMeshAmpDerivatives(pDevice)) {
+    // Disable CS so mesh goes forward
+    pShaderOp->CS = nullptr;
+    test = RunShaderOpTestAfterParse(pDevice, m_support, "ComputeSample", SampleInitFn, ShaderOpSet);
   }
 }
 

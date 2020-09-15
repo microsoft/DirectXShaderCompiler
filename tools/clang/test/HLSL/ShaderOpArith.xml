@@ -87,6 +87,404 @@
     ]]>
     </Shader>
   </ShaderOp>
+
+  <ShaderOp Name="Derivatives" PS="PS" VS="VS" CS="CS" AS="AS" MS="MS" TopologyType="TRIANGLE">
+    <RootSignature>
+      RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT),
+      DescriptorTable(SRV(t0,numDescriptors=1), UAV(u0), UAV(u1), UAV(u2)),
+      StaticSampler(s0, addressU = TEXTURE_ADDRESS_WRAP, addressV = TEXTURE_ADDRESS_WRAP, filter = FILTER_MIN_MAG_LINEAR_MIP_POINT)
+    </RootSignature>
+    <Resource Name="VBuffer" Dimension="BUFFER" InitialResourceState="COPY_DEST" Init="FromBytes" Topology="TRIANGLELIST">
+      { { -1.0f, 1.0f, 0.0f }, { 0.0f, 0.0f } },
+      { { 1.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
+      { { -1.0f, -1.0f, 0.0f }, { 0.0f, 1.0f } },
+
+      { { -1.0f, -1.0f, 0.0f }, { 0.0f, 1.0f } },
+      { { 1.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
+      { { 1.0f, -1.0f, 0.0f }, { 1.0f, 1.0f } }
+    </Resource>
+    <Resource Name="T0" Dimension="Texture2D" Width="4" Height="4" InitialResourceState="COPY_DEST" Init="FromBytes" Format="R32_FLOAT">
+      {.125f, .25f, .5f, 1.0f},
+      {2.0f, 4.0f, 16.0f, 32.0f},
+      {32.0f, 64.0f, 128.0f, 256.0f},
+      {256.0f, 512.0f, 1024.0f, 2048.0f}
+    </Resource>
+    <Resource Name="RTarget" Dimension="TEXTURE2D" Width="32" Height="32" Format="R32G32B32A32_FLOAT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" ReadBack="true" />
+    <Resource Name="U0" Dimension="BUFFER" Width="16384"
+              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+              Init="Zero" ReadBack="true" />
+    <Resource Name="U1" Dimension="BUFFER" Width="16384"
+              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+              Init="Zero" ReadBack="true" />
+    <Resource Name="U2" Dimension="BUFFER" Width="16384"
+              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+              Init="Zero" ReadBack="true" />
+
+    <RootValues>
+      <RootValue HeapName="ResHeap" />
+    </RootValues>
+    <DescriptorHeap Name="ResHeap" Type="CBV_SRV_UAV">
+      <Descriptor Name='T0' Kind='SRV' ResName='T0' />
+      <Descriptor Name='U0' Kind='UAV' ResName='U0'
+                  NumElements="1024" StructureByteStride="16" />
+      <Descriptor Name='U1' Kind='UAV' ResName='U1'
+                  NumElements="1024" StructureByteStride="16" />
+      <Descriptor Name='U2' Kind='UAV' ResName='U2'
+                  NumElements="1024" StructureByteStride="16" />
+    </DescriptorHeap>
+    <DescriptorHeap Name="RtvHeap" NumDescriptors="1" Type="RTV">
+      <Descriptor Name="RTarget" Kind="RTV"/>
+    </DescriptorHeap>
+
+    <InputElements>
+      <InputElement SemanticName="POSITION" Format="R32G32B32_FLOAT" AlignedByteOffset="0" />
+      <InputElement SemanticName="TEXCOORD" Format="R32G32_FLOAT" AlignedByteOffset="12" />
+    </InputElements>
+    <RenderTargets>
+      <RenderTarget Name="RTarget"/>
+    </RenderTargets>
+    <Shader Name="CS" Target="cs_6_6" EntryPoint="CSMain" Text="@PS"/>
+    <Shader Name="AS" Target="as_6_6" EntryPoint="ASMain" Text="@PS"/>
+    <Shader Name="MS" Target="ms_6_6" EntryPoint="MSMain" Text="@PS"/>
+    <Shader Name="VS" Target="vs_6_0" EntryPoint="VSMain" Text="@PS"/>
+    <Shader Name="PS" Target="ps_6_0" EntryPoint="PSMain">
+      <![CDATA[
+        struct PSInput {
+          float4 position : SV_POSITION;
+          float2 uv : TEXCOORD;
+        };
+        Texture2D<float> g_tex : register(t0);
+        RWStructuredBuffer<float4> g_bufMain : register(u0);
+        RWStructuredBuffer<float4> g_bufMesh : register(u1);
+        RWStructuredBuffer<float4> g_bufAmp : register(u2);
+
+        float4 DerivTest(int2 uv) {
+          int3 offset = int3(uv%4, 0);
+          float val = g_tex.Load(offset);
+          return float4(ddx_fine(val), ddy_fine(val), ddx_coarse(val), ddy_coarse(val));
+        }
+
+        // Convert single index into uv and test derivatives
+        float4 DerivTest(uint ix) {
+          return DerivTest(int2(((ix&0x4)>>1) + (ix&01), ((ix&0x8)>>2) + ((ix&02)>>1)));
+        }
+
+        PSInput VSMain(float3 position : POSITION, float2 uv : TEXCOORD) {
+          PSInput result;
+          result.position = float4(position, 1.0);
+          result.uv = uv;
+          return result;
+        }
+
+        struct Payload {
+          uint nothing;
+        };
+
+        static float4 g_Verts[6] = {
+          { -1.0f,  1.0f, 0.0f, 1.0f },
+          {  1.0f,  1.0f, 0.0f, 1.0f },
+          { -1.0f, -1.0f, 0.0f, 1.0f },
+
+          { -1.0f, -1.0f, 0.0f, 1.0f },
+          {  1.0f,  1.0f, 0.0f, 1.0f },
+          {  1.0f, -1.0f, 0.0f, 1.0f }};
+
+        static float2 g_UV[6] = {
+          { 0.0f, 0.0f },
+          { 1.0f, 0.0f },
+          { 0.0f, 1.0f },
+
+          { 0.0f, 1.0f },
+          { 1.0f, 0.0f },
+          { 1.0f, 1.0f }};
+
+        [NumThreads(MESHDISPATCHX, MESHDISPATCHY, MESHDISPATCHZ)]
+        void ASMain(uint ix : SV_GroupIndex) {
+          Payload payload;
+          g_bufAmp[ix] = DerivTest(ix);
+          payload.nothing = 0;
+          DispatchMesh(1, 1, 1, payload);
+        }
+
+        [NumThreads(MESHDISPATCHX, MESHDISPATCHY, MESHDISPATCHZ)]
+        [OutputTopology("triangle")]
+        void MSMain(
+          uint ix : SV_GroupIndex,
+          in payload Payload payload,
+          out vertices PSInput verts[6],
+          out indices uint3 tris[2]) {
+            SetMeshOutputCounts(6, 2);
+            verts[ix].position = g_Verts[ix];
+            verts[ix].uv = g_UV[ix];
+            if (ix % 3)
+              tris[ix / 3] = uint3(ix, ix + 1, ix + 2);
+            g_bufMesh[ix] = DerivTest(ix);
+        }
+        float4 PSMain(PSInput input) : SV_TARGET {
+          float4 res = DerivTest(input.uv * 32.0);
+          int ix = input.uv.y * 32 * 32 + input.uv.x * 32;
+          g_bufMain[ix] = res;
+          return res;
+        }
+
+        [NumThreads(DISPATCHX, DISPATCHY, DISPATCHZ)]
+        void CSMain(uint ix : SV_GroupIndex) {
+          g_bufMain[ix] = DerivTest(ix);
+        }
+      ]]>
+    </Shader>
+  </ShaderOp>
+
+  <ShaderOp Name="QuadRead" PS="PS" VS="VS" CS="CS" AS="AS" MS="MS" TopologyType="TRIANGLE">
+    <RootSignature>
+      RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT),
+      DescriptorTable(UAV(u0), UAV(u1), UAV(u2))
+    </RootSignature>
+    <Resource Name="U0" Dimension="BUFFER" Width="16384"
+              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+              Init="Zero" ReadBack="true" />
+    <Resource Name="U1" Dimension="BUFFER" Width="16384"
+              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+              Init="Zero" ReadBack="true" />
+    <Resource Name="U2" Dimension="BUFFER" Width="16384"
+              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+              Init="Zero" ReadBack="true" />
+
+    <RootValues>
+      <RootValue HeapName="ResHeap" />
+    </RootValues>
+    <DescriptorHeap Name="ResHeap" Type="CBV_SRV_UAV">
+      <Descriptor Name='U0' Kind='UAV' ResName='U0'
+                  NumElements="1024" StructureByteStride="16" />
+      <Descriptor Name='U1' Kind='UAV' ResName='U1'
+                  NumElements="1024" StructureByteStride="16" />
+      <Descriptor Name='U2' Kind='UAV' ResName='U2'
+                  NumElements="1024" StructureByteStride="16" />
+    </DescriptorHeap>
+
+    <InputElements>
+      <InputElement SemanticName="POSITION" Format="R32G32B32_FLOAT" AlignedByteOffset="0" />
+      <InputElement SemanticName="TEXCOORD" Format="R32G32_FLOAT" AlignedByteOffset="12" />
+    </InputElements>
+    <Shader Name="CS" Target="cs_6_0" EntryPoint="CSMain" Text="@PS"/>
+    <Shader Name="AS" Target="as_6_6" EntryPoint="ASMain" Text="@PS"/>
+    <Shader Name="MS" Target="ms_6_6" EntryPoint="MSMain" Text="@PS"/>
+    <Shader Name="PS" Target="ps_6_0" EntryPoint="PSMain">
+      <![CDATA[
+        struct PSInput {
+          float4 position : SV_POSITION;
+        };
+        RWStructuredBuffer<int4> g_bufMain : register(u0);
+        RWStructuredBuffer<int4> g_bufMesh : register(u1);
+        RWStructuredBuffer<int4> g_bufAmp : register(u2);
+
+        uint4 QuadReadTest(uint ix) {
+          return int4(QuadReadLaneAt(ix, ix & 0x3), QuadReadAcrossX(ix),
+                      QuadReadAcrossY(ix), QuadReadAcrossDiagonal(ix));
+        }
+
+        struct Payload {
+          uint nothing;
+        };
+
+        [NumThreads(MESHDISPATCHX, MESHDISPATCHY, MESHDISPATCHZ)]
+        void ASMain(uint ix : SV_GroupIndex) {
+          Payload payload;
+          g_bufAmp[ix] = QuadReadTest(ix);
+          payload.nothing = 0;
+          DispatchMesh(1, 1, 1, payload);
+        }
+
+        static float4 g_Verts[6] = {
+          { -1.0f,  1.0f, 0.0f, 1.0f },
+          {  1.0f,  1.0f, 0.0f, 1.0f },
+          { -1.0f, -1.0f, 0.0f, 1.0f },
+
+          { -1.0f, -1.0f, 0.0f, 1.0f },
+          {  1.0f,  1.0f, 0.0f, 1.0f },
+          {  1.0f, -1.0f, 0.0f, 1.0f }};
+
+        [NumThreads(MESHDISPATCHX, MESHDISPATCHY, MESHDISPATCHZ)]
+        [OutputTopology("triangle")]
+        void MSMain(
+          uint ix : SV_GroupIndex,
+          in payload Payload payload,
+          out vertices PSInput verts[6],
+          out indices uint3 tris[2]) {
+            SetMeshOutputCounts(6, 2);
+            verts[ix].position = g_Verts[ix];
+            if (ix % 3)
+              tris[ix / 3] = uint3(ix, ix + 1, ix + 2);
+            g_bufMesh[ix] = QuadReadTest(ix);
+        }
+
+        void PSMain(PSInput input) {
+          return;
+        }
+
+        [NumThreads(DISPATCHX, DISPATCHY, DISPATCHZ)]
+        void CSMain(uint ix : SV_GroupIndex) {
+          g_bufMain[ix] = QuadReadTest(ix);
+        }
+      ]]>
+    </Shader>
+  </ShaderOp>
+
+  <ShaderOp Name="ComputeSample" PS="PS" VS="VS" CS="CS" AS="AS" MS="MS" TopologyType="TRIANGLE">
+    <RootSignature>
+      RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT),
+      DescriptorTable(SRV(t0,numDescriptors=1), UAV(u0), UAV(u1), UAV(u2)),
+      StaticSampler(s0, addressU = TEXTURE_ADDRESS_WRAP, addressV = TEXTURE_ADDRESS_WRAP, filter = FILTER_MIN_MAG_LINEAR_MIP_POINT)
+    </RootSignature>
+    <Resource Name="VBuffer" Dimension="BUFFER" InitialResourceState="COPY_DEST" Init="FromBytes" Topology="TRIANGLELIST">
+      { { -1.0f, 1.0f, 0.0f }, { 0.0f, 0.0f } },
+      { { 1.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
+      { { -1.0f, -1.0f, 0.0f }, { 0.0f, 1.0f } },
+
+      { { -1.0f, -1.0f, 0.0f }, { 0.0f, 1.0f } },
+      { { 1.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
+      { { 1.0f, -1.0f, 0.0f }, { 1.0f, 1.0f } }
+    </Resource>
+    <Resource Name="T0" Dimension="Texture2D" Width="64" Height="64" MipLevels="7" InitialResourceState="COPY_DEST" Init="ByName" Format="R32_FLOAT" />
+    <Resource Name="RTarget" Dimension="TEXTURE2D" Width="8" Height="8" Format="R32G32B32A32_FLOAT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" />
+    <Resource Name="U0" Dimension="BUFFER" Width="1920"
+              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+              Init="Zero" ReadBack="true" />
+    <Resource Name="U1" Dimension="BUFFER" Width="1920"
+              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+              Init="Zero" ReadBack="true" />
+    <Resource Name="U2" Dimension="BUFFER" Width="1920"
+              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+              Init="Zero" ReadBack="true" />
+
+    <RootValues>
+      <RootValue HeapName="ResHeap" />
+    </RootValues>
+    <DescriptorHeap Name="ResHeap" Type="CBV_SRV_UAV">
+      <Descriptor Name='T0' Kind='SRV' ResName='T0' />
+      <Descriptor Name='U0' Kind='UAV' ResName='U0'
+                  NumElements="64" StructureByteStride="16" />
+      <Descriptor Name='U1' Kind='UAV' ResName='U1'
+                  NumElements="64" StructureByteStride="16" />
+      <Descriptor Name='U2' Kind='UAV' ResName='U2'
+                  NumElements="64" StructureByteStride="16" />
+    </DescriptorHeap>
+    <DescriptorHeap Name="RtvHeap" NumDescriptors="1" Type="RTV">
+      <Descriptor Name="RTarget" Kind="RTV"/>
+    </DescriptorHeap>
+
+    <InputElements>
+      <InputElement SemanticName="POSITION" Format="R32G32B32_FLOAT" AlignedByteOffset="0" />
+      <InputElement SemanticName="TEXCOORD" Format="R32G32_FLOAT" AlignedByteOffset="12" />
+    </InputElements>
+    <RenderTargets>
+      <RenderTarget Name="RTarget"/>
+    </RenderTargets>
+    <Shader Name="CS" Target="cs_6_6" EntryPoint="CSMain" Text="@PS"/>
+    <Shader Name="AS" Target="as_6_6" EntryPoint="ASMain" Text="@PS"/>
+    <Shader Name="MS" Target="ms_6_6" EntryPoint="MSMain" Text="@PS"/>
+    <Shader Name="VS" Target="vs_6_0" EntryPoint="VSMain" Text="@PS"/>
+    <Shader Name="PS" Target="ps_6_0" EntryPoint="PSMain">
+      <![CDATA[
+        struct PSInput {
+          float4 position : SV_POSITION;
+          float2 uv : TEXCOORD;
+        };
+
+        Texture2D<float> g_tex : register(t0);
+        RWStructuredBuffer<float4> g_bufMain : register(u0);
+        RWStructuredBuffer<float4> g_bufMesh : register(u1);
+        RWStructuredBuffer<float4> g_bufAmp : register(u2);
+
+        PSInput VSMain(float3 position : POSITION, float2 uv : TEXCOORD) {
+          PSInput result;
+          result.position = float4(position, 1.0);
+          result.uv = uv;
+          return result;
+        }
+
+        SamplerState g_samp : register(s0);
+
+        uint4 DerivTest(uint ix, float left, float right, float top, float bot) {
+          uint iy = ix>>1;
+          return uint4(g_tex.CalculateLevelOfDetail(g_samp, float2(left, 0.5)) * (~ix&1) +
+                       g_tex.CalculateLevelOfDetail(g_samp, float2(right, 0.5)) * (ix&1),
+                       g_tex.Sample(g_samp, float2(left, 0.5)) * (~ix&1) +
+                       g_tex.Sample(g_samp, float2(right, 0.5)) * (ix&1),
+                       g_tex.CalculateLevelOfDetail(g_samp, float2(0.5, top)) * (~iy&1) +
+                       g_tex.CalculateLevelOfDetail(g_samp, float2(0.5, bot)) * (iy&1),
+                       g_tex.Sample(g_samp, float2(0.5, top)) * (~iy&1) +
+                       g_tex.Sample(g_samp, float2(0.5, bot)) * (iy&1));
+        }
+
+        // To avoid conditionals, two samples are performed one for left one for right
+        // They are step functioned on or off depending
+        uint4 DerivTest(uint ix) {
+          uint iy = ix>>1;
+          return DerivTest(ix, ((ix^1)/64.0)*(ix&1), (ix/64.0)*(ix&1),
+                               ((ix^2)/64.0)*(iy&1), (ix/64.0)*(iy&1));
+        }
+
+        static float4 g_Verts[6] = {
+          { -1.0f,  1.0f, 0.0f, 1.0f },
+          {  1.0f,  1.0f, 0.0f, 1.0f },
+          { -1.0f, -1.0f, 0.0f, 1.0f },
+
+          { -1.0f, -1.0f, 0.0f, 1.0f },
+          {  1.0f,  1.0f, 0.0f, 1.0f },
+          {  1.0f, -1.0f, 0.0f, 1.0f }};
+
+        static float2 g_UV[6] = {
+          { 0.0f, 0.0f },
+          { 1.0f, 0.0f },
+          { 0.0f, 1.0f },
+
+          { 0.0f, 1.0f },
+          { 1.0f, 0.0f },
+          { 1.0f, 1.0f }};
+
+        struct Payload {
+          uint nothing;
+        };
+
+        [NumThreads(8, 8, 1)]
+        void ASMain(uint ix : SV_GroupIndex) {
+          Payload payload;
+          g_bufAmp[ix] = DerivTest(ix);
+          payload.nothing = 0;
+          DispatchMesh(1, 1, 1, payload);
+        }
+
+        [NumThreads(8, 8, 1)]
+        [OutputTopology("triangle")]
+        void MSMain(
+          uint ix : SV_GroupIndex,
+          in payload Payload payload,
+          out vertices PSInput verts[6],
+          out indices uint3 tris[2]) {
+            SetMeshOutputCounts(6, 2);
+            verts[ix].position = g_Verts[ix];
+            verts[ix].uv = g_UV[ix];
+            if (ix % 3)
+              tris[ix / 3] = uint3(ix, ix + 1, ix + 2);
+            g_bufMesh[ix] = DerivTest(ix);
+        }
+
+        float4 PSMain(PSInput input) : SV_TARGET {
+          int ix = int(input.uv.y * 8) * 8 + int(input.uv.x * 8);
+          // Contort the linear index into quad order by rotating relevant middle bits
+          ix = (ix&~0xE)|((ix&0x8)>>2)|((ix&0x6)<<1);
+          g_bufMain[ix] = DerivTest(ix);
+          return 1;
+        }
+        [NumThreads(8, 8, 1)]
+        void CSMain(uint ix : SV_GroupIndex) {
+          g_bufMain[ix] = DerivTest(ix);
+        }
+
+      ]]>
+    </Shader>
+  </ShaderOp>
   <ShaderOp Name="OOB" PS="PS" VS="VS">
     <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), CBV(b0), DescriptorTable(SRV(t0,numDescriptors=2))</RootSignature>
     <Resource Name="CB0" Dimension="BUFFER" InitialResourceState="COPY_DEST" Init="FromBytes" TransitionTo="VERTEX_AND_CONSTANT_BUFFER">
@@ -170,7 +568,7 @@
     <Resource Name="U0" Dimension="BUFFER" Width="1280"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="Zero" ReadBack="true" />
-    <Resource Name="RTarget" Dimension="TEXTURE2D" Width="64" Height="64" Format="R8G8B8A8_UNORM" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" ReadBack="true" />
+    <Resource Name="RTarget" Dimension="TEXTURE2D" Width="32" Height="32" Format="R8G8B8A8_UNORM" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" ReadBack="true" />
     <DescriptorHeap Name='RtvHeap' NumDescriptors='1' Type='RTV'>
       <Descriptor Name="RTarget" Kind="RTV"/>
     </DescriptorHeap>
