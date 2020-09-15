@@ -2,8 +2,8 @@
 
 // CHECK: call i32 @dx.op.loadInput.i32(i32 4, i32 1, i32 0, i8 0, i32 undef)
 // CHECK: call i32 @dx.op.loadInput.i32(i32 4, i32 0, i32 0, i8 0, i32 undef)
-// CHECK: call %dx.types.fouri32 @dx.op.unpack4x8.i32(i32 218, i8 1,
-// CHECK: call %dx.types.fouri32 @dx.op.unpack4x8.i32(i32 218, i8 0,
+// CHECK: call %dx.types.fouri32 @dx.op.unpack4x8.i32(i32 219, i8 1,
+// CHECK: call %dx.types.fouri32 @dx.op.unpack4x8.i32(i32 219, i8 0,
 // CHECK: add i32 %{{[0-9]+}}, 5
 
 int foo(uint a) {
