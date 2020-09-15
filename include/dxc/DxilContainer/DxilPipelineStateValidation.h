@@ -14,7 +14,11 @@
 
 #include <stdint.h>
 #include <string.h>
-#include <assert.h>
+
+// Don't include assert.h here.
+// Since this header is included from multiple environments,
+// it is necessary to define assert before this header is included.
+// #include <assert.h>
 
 #ifndef UINT_MAX
 #define UINT_MAX 0xffffffff
