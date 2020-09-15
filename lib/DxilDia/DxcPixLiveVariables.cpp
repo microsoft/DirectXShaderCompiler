@@ -49,6 +49,10 @@ void ValidateDbgDeclare(
         std::max<unsigned>(VarInfo->m_DbgDeclareValidation.size(),
                            BitNum + 1));
     assert(!VarInfo->m_DbgDeclareValidation[BitNum]);
+    if (BitNum == 512)
+    {
+        __debugbreak();
+    }
     VarInfo->m_DbgDeclareValidation[BitNum] = true;
   }
 #endif  // !NDEBUG

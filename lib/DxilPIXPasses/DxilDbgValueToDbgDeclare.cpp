@@ -25,6 +25,8 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
+#include "llvm/support/filesystem.h"
+#include "llvm/support/raw_ostream.h"
 
 #define DEBUG_TYPE "dxil-dbg-value-to-dbg-declare"
 
@@ -325,6 +327,12 @@ bool DxilDbgValueToDbgDeclare::runOnModule(
     llvm::Module &M
 )
 {
+    {
+        std::error_code EC;
+        llvm::raw_fd_ostream os("c:\\temp\\before.txt", EC,
+            llvm::sys::fs::F_Text);
+        M.print(os, nullptr);
+    }
   auto *DbgValueFn =
       llvm::Intrinsic::getDeclaration(&M, llvm::Intrinsic::dbg_value);
 
@@ -340,6 +348,12 @@ bool DxilDbgValueToDbgDeclare::runOnModule(
       DbgValue->eraseFromParent();
     }
   }
+
+  {
+    std::error_code EC;
+    llvm::raw_fd_ostream os2("c:\\temp\\after.txt", EC, llvm::sys::fs::F_Text);
+      M.print(os2, nullptr);
+  }
   return Changed;
 }
 
@@ -351,6 +365,13 @@ void DxilDbgValueToDbgDeclare::handleDbgValue(
   auto* Zero = B.getInt32(0);
 
   llvm::DIVariable *Variable = DbgValue->getVariable();
+
+  // Ignore "this" pointer
+  //if (Variable->getFlag("DIFlagObjectPointer") != 0)
+  //{
+  //    return;
+  //}
+  //
   auto &Register = m_Registers[DbgValue->getVariable()];
   if (Register == nullptr)
   {
@@ -482,6 +503,9 @@ void VariableRegisters::PopulateAllocaMap(
     case llvm::dwarf::DW_TAG_typedef:
       PopulateAllocaMap(
           DerivedTy->getBaseType().resolve(EmptyMap));
+      return;
+    case llvm::dwarf::DW_TAG_subroutine_type:
+        //ignore member functions.
       return;
     }
   }

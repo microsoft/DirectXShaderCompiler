@@ -204,6 +204,7 @@ public:
   TEST_METHOD(PixStructAnnotation_SequentialFloatN)
   TEST_METHOD(PixStructAnnotation_EmbeddedFloatN)
   TEST_METHOD(PixStructAnnotation_Matrix)
+  TEST_METHOD(PixStructAnnotation_MemberFunction)
   TEST_METHOD(PixStructAnnotation_BigMess)
 
   dxc::DxcDllSupport m_dllSupport;
@@ -615,7 +616,7 @@ public:
 
     VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
     CreateBlobFromText(hlsl, &pSource);
-    LPCWSTR args[] = { L"/Zi", L"/Od", L"-enable-16bit-types", L"/Qembed_debug" };
+    LPCWSTR args[] = { L"/Zi", L"/O1", L"-enable-16bit-types", L"/Qembed_debug" };
     VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
       target, args, _countof(args), nullptr, 0, nullptr, &pResult));
 
@@ -2256,6 +2257,48 @@ void main()
 {
   smallPayload p;
   p.mat = float4x4( 1,2,3,4, 5,6,7,8, 9,10,11,12, 13,14,15, 16);
+  DispatchMesh(1, 1, 1, p);
+}
+)";
+
+  auto Testables = TestStructAnnotationCase(hlsl);
+  // Can't test member iterator until dbg.declare instructions are emitted when structs
+  // contain pointers-to-pointers
+  VERIFY_ARE_EQUAL(16, Testables.AllocaWrites.size());
+  for (int i = 0; i < 16; ++i)
+  {
+    ValidateAllocaWrite(Testables.AllocaWrites, i, "");
+  }
+
+}
+
+TEST_F(PixTest, PixStructAnnotation_MemberFunction) {
+  const char *hlsl = R"(
+
+RWStructuredBuffer<float> floatRWUAV: register(u0);
+
+int getSomething(int index)
+{
+    return floatRWUAV[index];
+}
+
+struct smallPayload
+{
+    int i;
+    float f;
+    void Method()
+    {
+        f = getSomething(i);
+    };
+};
+
+
+[numthreads(1, 1, 1)]
+void main()
+{
+  smallPayload p;
+  p.i = 0;
+  p.Method();
   DispatchMesh(1, 1, 1, p);
 }
 )";
