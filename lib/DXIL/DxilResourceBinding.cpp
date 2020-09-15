@@ -94,10 +94,7 @@ DxilResourceBinding loadBindingFromCreateHandleFromBinding(
   return loadBindingFromConstant(*B);
 }
 DxilResourceBinding loadBindingFromResourceBase(DxilResourceBase *Res) {
-  DxilResourceBinding B;
-  B.rangeLowerBound = 0;
-  B.rangeUpperBound = 0;
-  B.spaceID = 0;
+  DxilResourceBinding B = {};
   B.resourceClass = (uint8_t)DXIL::ResourceClass::Invalid;
   if (!Res)
     return B;
