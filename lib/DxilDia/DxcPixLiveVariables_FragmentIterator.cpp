@@ -240,9 +240,6 @@ void CompositeTypeFragmentIterator::DetermineStructMemberSizesAndOffsets(llvm::D
   unsigned MemberSize = SizeIfBaseType(diType);
   if (MemberSize != 0)
   {
-    if (BaseOffset == 512) {
-      __debugbreak();
-    }
     m_fragmentLocations.push_back({ MemberSize, static_cast<unsigned>(BaseOffset) });
   }
   else
