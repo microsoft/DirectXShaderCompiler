@@ -426,7 +426,7 @@ bool DebugTypeVisitor::visitInstruction(SpirvInstruction *instr) {
 
 bool DebugTypeVisitor::visit(SpirvModule *module, Phase phase) {
   if (phase == Phase::Done)
-    spvContext.addDebugTypesToModule(module);
+    spvContext.moveDebugTypesToModule(module);
   return true;
 }
 

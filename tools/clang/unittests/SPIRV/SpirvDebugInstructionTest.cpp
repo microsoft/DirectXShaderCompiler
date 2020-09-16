@@ -18,21 +18,13 @@ namespace {
 
 class SpirvDebugInstructionTest : public SpirvTestBase {
 public:
-  SpirvDebugInstructionTest() : spirvBuilder(nullptr) {}
-  SpirvBuilder *GetSpirvBuilder();
+  SpirvDebugInstructionTest()
+      : spirvBuilder(getAstContext(), getSpirvContext(), {}) {}
+  SpirvBuilder *GetSpirvBuilder() { return &spirvBuilder; }
 
 private:
-  SpirvBuilder *spirvBuilder;
+  SpirvBuilder spirvBuilder;
 };
-
-SpirvBuilder *SpirvDebugInstructionTest::GetSpirvBuilder() {
-  if (spirvBuilder != nullptr)
-    return spirvBuilder;
-  SpirvCodeGenOptions opt;
-  spirvBuilder = new (getSpirvContext())
-      SpirvBuilder(getAstContext(), getSpirvContext(), opt);
-  return spirvBuilder;
-}
 
 TEST_F(SpirvDebugInstructionTest, DynamicTypeCheckDebugInfoNone) {
   SpirvInstruction *i = GetSpirvBuilder()->getOrCreateDebugInfoNone();
@@ -42,8 +34,8 @@ TEST_F(SpirvDebugInstructionTest, DynamicTypeCheckDebugInfoNone) {
 }
 
 TEST_F(SpirvDebugInstructionTest, DynamicTypeCheckDebugTypeTemplateParameter) {
-  SpirvInstruction *i = getSpirvContext().createDebugTypeTemplateParameter(
-      nullptr, "vtable check", nullptr, nullptr, nullptr, 0, 0);
+  SpirvInstruction *i = new (getSpirvContext()) SpirvDebugTypeTemplateParameter(
+      "vtable check", nullptr, nullptr, nullptr, 0, 0);
   EXPECT_TRUE(llvm::isa<SpirvDebugTypeTemplateParameter>(i));
   EXPECT_TRUE(llvm::isa<SpirvDebugInstruction>(i));
   EXPECT_TRUE(llvm::isa<SpirvInstruction>(i));

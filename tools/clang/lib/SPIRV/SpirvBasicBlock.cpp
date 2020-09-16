@@ -20,6 +20,8 @@ SpirvBasicBlock::SpirvBasicBlock(llvm::StringRef name)
 SpirvBasicBlock::~SpirvBasicBlock() {
   for (auto instructionNode : instructions)
     instructionNode.instruction->releaseMemory();
+  if (debugScope)
+    debugScope->releaseMemory();
 }
 
 bool SpirvBasicBlock::hasTerminator() const {

@@ -29,6 +29,10 @@ SpirvFunction::~SpirvFunction() {
     var->releaseMemory();
   for (auto *bb : basicBlocks)
     bb->~SpirvBasicBlock();
+  if (debugScope)
+    debugScope->releaseMemory();
+  for (auto *dd : debugDeclares)
+    dd->releaseMemory();
 }
 
 bool SpirvFunction::invokeVisitor(Visitor *visitor, bool reverseOrder) {

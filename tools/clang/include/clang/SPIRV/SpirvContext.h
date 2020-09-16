@@ -12,12 +12,13 @@
 #include <array>
 
 #include "dxc/DXIL/DxilShaderModel.h"
+#include "clang/AST/DeclTemplate.h"
 #include "clang/Frontend/FrontendAction.h"
 #include "clang/SPIRV/SpirvInstruction.h"
 #include "clang/SPIRV/SpirvType.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseMapInfo.h"
-#include "llvm/ADT/MapVector.h"
+#include "llvm/ADT/StringMap.h"
 #include "llvm/Support/Allocator.h"
 
 namespace clang {
@@ -211,7 +212,10 @@ public:
   SpirvDebugTypeTemplateParameter *
   getDebugTypeTemplateParameter(const TemplateArgument *templateArg);
 
-  void addDebugTypesToModule(SpirvModule *module);
+  // Moves all debug type instructions to module and makes the data structures
+  // that contain the debug type instructions empty. After calling this method,
+  // module will have the ownership of debug type instructions.
+  void moveDebugTypesToModule(SpirvModule *module);
 
   // === Types ===
 
@@ -244,16 +248,6 @@ public:
       llvm::ArrayRef<StructType::FieldInfo> fields, llvm::StringRef name,
       bool isReadOnly = false,
       StructInterfaceType interfaceType = StructInterfaceType::InternalStorage);
-
-  void saveFunctionInfo(const CXXMethodDecl *decl, SpirvDebugFunction *fn) {
-    methodDeclToDebugFunction[decl] = fn;
-  }
-  SpirvDebugFunction *findFunctionInfo(const CXXMethodDecl *decl) {
-    auto it = methodDeclToDebugFunction.find(decl);
-    if (it != methodDeclToDebugFunction.end())
-      return it->second;
-    return nullptr;
-  }
 
   const SpirvPointerType *getPointerType(const SpirvType *pointee,
                                          spv::StorageClass);
@@ -322,9 +316,7 @@ public:
 
   /// Function to get all RichDebugInfo (i.e., the current status of
   /// compilation units).
-  llvm::MapVector<llvm::StringRef, RichDebugInfo> &getDebugInfo() {
-    return debugInfo;
-  }
+  llvm::StringMap<RichDebugInfo> &getDebugInfo() { return debugInfo; }
 
   /// Function to let the lexical scope stack grow when it enters a
   /// new lexical scope.
@@ -426,21 +418,40 @@ private:
   /// each file. RichDebugInfo includes DebugSource,
   /// DebugCompilationUnit and scopeStack which keeps lexical scopes
   /// recursively.
-  llvm::MapVector<llvm::StringRef, RichDebugInfo> debugInfo;
+  llvm::StringMap<RichDebugInfo> debugInfo;
   SpirvDebugInstruction *currentLexicalScope;
+
+  // DebugTypeMapInfo struct is used for DenseMap with key of type SpirvType,
+  // ClassTemplateSpecializationDecl, and TemplateArgument.
+  template <typename T> static std::string getDebugTypeHashValue(const T *Val);
+  template <typename T> struct DebugTypeMapInfo {
+    static inline const T *getEmptyKey() { return nullptr; }
+    static inline const T *getTombstoneKey() { return nullptr; }
+    static unsigned getHashValue(const T *Val) {
+      return llvm::hash_combine(getDebugTypeHashValue<T>(Val));
+    }
+    static bool isEqual(const T *LHS, const T *RHS) {
+      // Either both are null, or both should have the same underlying type.
+      return LHS == RHS;
+    }
+  };
 
   // Mapping from SPIR-V type to debug type instruction.
   // The purpose is not to generate several DebugType* instructions for the same
   // type if the type is used for several variables.
-  llvm::MapVector<const SpirvType *, SpirvDebugType *> debugTypes;
+  llvm::DenseMap<const SpirvType *, SpirvDebugType *,
+                 DebugTypeMapInfo<SpirvType>>
+      debugTypes;
 
   // Mapping from template decl to DebugTypeTemplate.
   llvm::DenseMap<const ClassTemplateSpecializationDecl *,
-                 SpirvDebugTypeTemplate *>
+                 SpirvDebugTypeTemplate *,
+                 DebugTypeMapInfo<ClassTemplateSpecializationDecl>>
       typeTemplates;
 
   // Mapping from template parameter decl to DebugTypeTemplateParameter.
-  llvm::DenseMap<const TemplateArgument *, SpirvDebugTypeTemplateParameter *>
+  llvm::DenseMap<const TemplateArgument *, SpirvDebugTypeTemplateParameter *,
+                 DebugTypeMapInfo<TemplateArgument>>
       typeTemplateParams;
 
   // Mapping from SPIR-V type to Decl for a struct type.
@@ -449,11 +460,6 @@ private:
   // Mapping from FunctionDecl to SPIR-V debug function.
   llvm::DenseMap<const FunctionDecl *, SpirvDebugFunction *>
       declToDebugFunction;
-
-  // Mapping from CXXMethodDecl (member method of struct or class) to its
-  // function info.
-  llvm::DenseMap<const CXXMethodDecl *, SpirvDebugFunction *>
-      methodDeclToDebugFunction;
 };
 
 } // end namespace spirv

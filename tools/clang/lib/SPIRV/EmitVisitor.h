@@ -303,21 +303,14 @@ private:
     return obj->getResultId();
   }
 
-  /// If we already created OpString for str, just return the created one.
-  /// Otherwise, create it, keep it in stringLiteralMap, and return it.
-  SpirvString *getOrCreateOpString(llvm::StringRef str);
-
   /// If we already created OpString for str, just return the id of the created
-  /// one. Otherwise, create it, keep it in stringLiteralMap, and return its id.
+  /// one. Otherwise, create it, keep it in stringIdMap, and return its id.
   uint32_t getOrCreateOpStringId(llvm::StringRef str);
 
   // Emits an OpLine instruction for the given operation into the given binary
   // section.
   void emitDebugLine(spv::Op op, const SourceLocation &loc,
                      std::vector<uint32_t> *section);
-
-  // Create SpirvSource for fileName.
-  SpirvSource *createOpSource(const char *fileName);
 
   // Initiates the creation of a new instruction with the given Opcode.
   void initInstruction(spv::Op, const SourceLocation &);
@@ -383,7 +376,7 @@ private:
   // All other instructions
   std::vector<uint32_t> mainBinary;
   // String literals to SpirvString objects
-  llvm::StringMap<SpirvString *> stringLiteralMap;
+  llvm::StringMap<uint32_t> stringIdMap;
   // Main file information for debugging that will be used by OpLine.
   uint32_t debugMainFileId;
   // One HLSL source line may result in several SPIR-V instructions. In order to

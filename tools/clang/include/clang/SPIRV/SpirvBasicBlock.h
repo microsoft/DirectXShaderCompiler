@@ -72,7 +72,19 @@ public:
 
   /// Get/set DebugScope for this basic block.
   SpirvDebugScope *getDebugScope() const { return debugScope; }
-  void setDebugScope(SpirvDebugScope *scope) { debugScope = scope; }
+  void setDebugScope(SpirvDebugScope *scope) {
+    assert(debugScope == nullptr);
+    debugScope = scope;
+  }
+
+  /// Deletes existing debugScope and sets scope as the new debugScope.
+  void updateDebugScope(SpirvDebugScope *scope) {
+    if (debugScope != nullptr) {
+      debugScope->releaseMemory();
+      debugScope = nullptr;
+    }
+    setDebugScope(scope);
+  }
 
   /// Adds an instruction to the vector of instructions belonging to this basic
   /// block.

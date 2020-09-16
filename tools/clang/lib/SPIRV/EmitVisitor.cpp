@@ -150,28 +150,15 @@ std::vector<uint32_t> EmitVisitor::Header::takeBinary() {
   return words;
 }
 
-SpirvString *EmitVisitor::getOrCreateOpString(llvm::StringRef str) {
-  auto it = stringLiteralMap.find(str);
-  if (it != stringLiteralMap.end()) {
+uint32_t EmitVisitor::getOrCreateOpStringId(llvm::StringRef str) {
+  auto it = stringIdMap.find(str);
+  if (it != stringIdMap.end()) {
     return it->second;
   }
-  SpirvString *inst = new (context) SpirvString(/*SourceLocation*/ {}, str);
-  visit(inst);
-  stringLiteralMap[inst->getString()] = inst;
-  return inst;
-}
-
-uint32_t EmitVisitor::getOrCreateOpStringId(llvm::StringRef str) {
-  auto *opString = getOrCreateOpString(str);
-  if (opString == nullptr)
-    return 0;
-  return getOrAssignResultId<SpirvInstruction>(opString);
-}
-
-SpirvSource *EmitVisitor::createOpSource(const char *fileName) {
-  return new (context)
-      SpirvSource(/*SourceLocation*/ {}, spv::SourceLanguage::HLSL, hlslVersion,
-                  getOrCreateOpString(fileName), "");
+  SpirvString opString(/*SourceLocation*/ {}, str);
+  visit(&opString);
+  uint32_t strId = getOrAssignResultId<SpirvInstruction>(&opString);
+  return strId;
 }
 
 void EmitVisitor::emitDebugNameForInstruction(uint32_t resultId,
@@ -254,7 +241,11 @@ void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc,
   section->insert(section->end(), curInst.begin(), curInst.end());
 
   if (dumpedFiles.count(fileId) == 0) {
-    visit(createOpSource(fileName));
+    SpirvString fileNameInst(/*SourceLocation*/ {}, fileName);
+    visit(&fileNameInst);
+    SpirvSource src(/*SourceLocation*/ {}, spv::SourceLanguage::HLSL,
+                    hlslVersion, &fileNameInst, "");
+    visit(&src);
     dumpedFiles.insert(fileId);
   }
 }
@@ -450,11 +441,15 @@ bool EmitVisitor::visit(SpirvExecutionMode *inst) {
 }
 
 bool EmitVisitor::visit(SpirvString *inst) {
+  auto it = stringIdMap.find(inst->getString());
+  if (it != stringIdMap.end())
+    return true;
+  uint32_t strId = getOrAssignResultId<SpirvInstruction>(inst);
   initInstruction(inst);
-  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(strId);
   encodeString(inst->getString());
   finalizeInstruction(&debugFileBinary);
-  stringLiteralMap[inst->getString()] = inst;
+  stringIdMap[inst->getString()] = strId;
   return true;
 }
 

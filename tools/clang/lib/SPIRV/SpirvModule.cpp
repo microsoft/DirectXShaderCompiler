@@ -44,6 +44,8 @@ SpirvModule::~SpirvModule() {
     constant->releaseMemory();
   for (auto *var : variables)
     var->releaseMemory();
+  for (auto *di : debugInstructions)
+    di->releaseMemory();
   for (auto *f : allFunctions)
     f->~SpirvFunction();
 }

@@ -86,6 +86,15 @@ SpirvContext::~SpirvContext() {
 
   for (auto *hybridPtrType : hybridPointerTypes)
     hybridPtrType->~HybridPointerType();
+
+  for (auto &typePair : debugTypes)
+    typePair.second->releaseMemory();
+
+  for (auto &typePair : typeTemplates)
+    typePair.second->releaseMemory();
+
+  for (auto &typePair : typeTemplateParams)
+    typePair.second->releaseMemory();
 }
 
 inline uint32_t log2ForBitwidth(uint32_t bitwidth) {
@@ -485,7 +494,7 @@ void SpirvContext::pushDebugLexicalScope(RichDebugInfo *info,
   info->scopeStack.push_back(scope);
 }
 
-void SpirvContext::addDebugTypesToModule(SpirvModule *module) {
+void SpirvContext::moveDebugTypesToModule(SpirvModule *module) {
   for (const auto &typePair : debugTypes) {
     module->addDebugInfo(typePair.second);
 
@@ -501,6 +510,31 @@ void SpirvContext::addDebugTypesToModule(SpirvModule *module) {
   for (const auto &typePair : typeTemplateParams) {
     module->addDebugInfo(typePair.second);
   }
+
+  debugTypes.clear();
+  typeTemplates.clear();
+  typeTemplateParams.clear();
+}
+
+template <>
+std::string
+SpirvContext::getDebugTypeHashValue<SpirvType>(const SpirvType *Val) {
+  return Val->getName();
+}
+
+template <>
+std::string
+SpirvContext::getDebugTypeHashValue<ClassTemplateSpecializationDecl>(
+    const ClassTemplateSpecializationDecl *Val) {
+  return Val->getNameAsString();
+}
+
+template <>
+std::string SpirvContext::getDebugTypeHashValue<TemplateArgument>(
+    const TemplateArgument *Val) {
+  return Val->getKind() == TemplateArgument::Type
+             ? Val->getAsType().getAsString()
+             : "";
 }
 
 } // end namespace spirv

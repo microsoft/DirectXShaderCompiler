@@ -456,7 +456,9 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
     spirvOptions.ampPayloadLayoutRule = SpirvLayoutRule::RelaxedGLSLStd430;
   }
 
-  // Set shader module version and source file name.
+  // Set shader module version, source file name, and source file content (if
+  // needed).
+  llvm::StringRef source;
   std::vector<llvm::StringRef> fileNames;
   const auto &inputFiles = ci.getFrontendOpts().Inputs;
   // File name
@@ -465,20 +467,29 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
       fileNames.push_back(inputFile.getFile());
     }
   }
-  mainSourceFile = spvBuilder.setDebugSource(
-      spvContext.getMajorVersion(), spvContext.getMinorVersion(), fileNames);
+  // Source code
+  if (spirvOptions.debugInfoSource) {
+    const auto &sm = ci.getSourceManager();
+    const llvm::MemoryBuffer *mainFile =
+        sm.getBuffer(sm.getMainFileID(), SourceLocation());
+    source = StringRef(mainFile->getBufferStart(), mainFile->getBufferSize());
+  }
+  mainSourceFile = spvBuilder.setDebugSource(spvContext.getMajorVersion(),
+                                             spvContext.getMinorVersion(),
+                                             fileNames, source);
 
   // OpenCL.DebugInfo.100 DebugSource
   if (spirvOptions.debugInfoRich) {
-    auto &debugInfo = spvContext.getDebugInfo();
-    for (uint32_t i = 0; i < fileNames.size(); ++i) {
-      const auto &file = fileNames[i];
-      auto *dbgSrc = spvBuilder.createDebugSource(file);
-      debugInfo[file] =
-          RichDebugInfo(dbgSrc, spvBuilder.createDebugCompilationUnit(dbgSrc));
-    }
-    spvContext.pushDebugLexicalScope(&debugInfo[fileNames[0]],
-                                     debugInfo[fileNames[0]].scopeStack.back());
+    auto *dbgSrc = spvBuilder.createDebugSource(mainSourceFile->getString());
+    auto *richDebugInfo =
+        &spvContext.getDebugInfo()
+             .insert(
+                 {mainSourceFile->getString(),
+                  RichDebugInfo(dbgSrc,
+                                spvBuilder.createDebugCompilationUnit(dbgSrc))})
+             .first->second;
+    spvContext.pushDebugLexicalScope(richDebugInfo,
+                                     richDebugInfo->scopeStack.back());
   }
 
   if (spirvOptions.debugInfoTool &&
@@ -682,9 +693,11 @@ SpirvEmitter::getOrCreateRichDebugInfo(const SourceLocation &loc) {
     return &it->second;
 
   auto *dbgSrc = spvBuilder.createDebugSource(file);
-  debugInfo[file] =
-      RichDebugInfo(dbgSrc, spvBuilder.createDebugCompilationUnit(dbgSrc));
-  return &debugInfo.back().second;
+  return &debugInfo
+              .insert({file, RichDebugInfo(
+                                 dbgSrc, spvBuilder.createDebugCompilationUnit(
+                                             dbgSrc))})
+              .first->second;
 }
 
 void SpirvEmitter::doStmt(const Stmt *stmt,
@@ -707,7 +720,7 @@ void SpirvEmitter::doStmt(const Stmt *stmt,
 
       // Update or add DebugScope.
       if (spvBuilder.getInsertPoint()->empty()) {
-        spvBuilder.getInsertPoint()->setDebugScope(
+        spvBuilder.getInsertPoint()->updateDebugScope(
             new (spvContext) SpirvDebugScope(debugLexicalBlock));
       } else if (!spvBuilder.isCurrentBasicBlockTerminated()) {
         spvBuilder.createDebugScope(debugLexicalBlock);
@@ -1033,15 +1046,7 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
     SpirvDebugFunction *debugFunction = spvBuilder.createDebugFunction(
         decl, debugFuncName, source, line, column, parentScope, "", flags,
         scopeLine, func);
-    func->setDebugScope(new (astContext) SpirvDebugScope(debugFunction));
-
-    // We want to keep member function info of a structure, but a StructType
-    // was not created yet. SpirvContext holds a map between CXXMethodDecl and
-    // its corresponding DebugFunction. When StructType will be created, it
-    // will keep its member function info.
-    if (const auto *methodDecl = dyn_cast<CXXMethodDecl>(decl)) {
-      spvContext.saveFunctionInfo(methodDecl, debugFunction);
-    }
+    func->setDebugScope(new (spvContext) SpirvDebugScope(debugFunction));
 
     spvContext.pushDebugLexicalScope(info, debugFunction);
   }
@@ -1361,9 +1366,6 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
     // We already know the variable is not externally visible here. If it does
     // not have local storage, it should be file scope variable.
     const bool isFileScopeVar = !decl->hasLocalStorage();
-
-    // TODO: if no initializer exists, just emit DebugDeclare for OpVariable.
-    // If initializer exists and use OpStore, emit DebugDeclare for OpStore.
     if (isFileScopeVar)
       var = declIdMapper.createFileVar(decl, llvm::None);
     else

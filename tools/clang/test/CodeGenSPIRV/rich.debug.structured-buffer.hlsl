@@ -20,8 +20,8 @@ RWStructuredBuffer<S> mySBuffer3 : register(u3);
 RWStructuredBuffer<T> mySBuffer4 : register(u4);
 
 // CHECK: [[set:%\d+]] = OpExtInstImport "OpenCL.DebugInfo.100"
-// CHECK: [[T:%\d+]] = OpString "T"
 // CHECK: [[S:%\d+]] = OpString "S"
+// CHECK: [[T:%\d+]] = OpString "T"
 // CHECK: [[RW_S:%\d+]] = OpString "@type.RWStructuredBuffer.S"
 // CHECK: [[param:%\d+]] = OpString "TemplateParam"
 // CHECK: [[inputBuffer:%\d+]] = OpString "inputBuffer"
@@ -29,8 +29,8 @@ RWStructuredBuffer<T> mySBuffer4 : register(u4);
 // CHECK: [[SB_T:%\d+]] = OpString "@type.StructuredBuffer.T"
 // CHECK: [[SB_S:%\d+]] = OpString "@type.StructuredBuffer.S"
 
-// CHECK: [[T_ty:%\d+]] = OpExtInst %void [[set]] DebugTypeComposite [[T]] Structure
 // CHECK: [[S_ty:%\d+]] = OpExtInst %void [[set]] DebugTypeComposite [[S]] Structure
+// CHECK: [[T_ty:%\d+]] = OpExtInst %void [[set]] DebugTypeComposite [[T]] Structure
 
 // CHECK: [[none:%\d+]] = OpExtInst %void [[set]] DebugInfoNone
 // CHECK: [[RW_S_ty:%\d+]] = OpExtInst %void [[set]] DebugTypeComposite [[RW_S]] Class {{%\d+}} 0 0 {{%\d+}} {{%\d+}} [[none]]

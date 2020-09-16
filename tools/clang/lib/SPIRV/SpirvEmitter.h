@@ -31,7 +31,6 @@
 #include "clang/SPIRV/FeatureManager.h"
 #include "clang/SPIRV/SpirvBuilder.h"
 #include "clang/SPIRV/SpirvContext.h"
-#include "clang/SPIRV/SpirvModule.h"
 #include "llvm/ADT/STLExtras.h"
 
 #include "DeclResultIdMapper.h"
