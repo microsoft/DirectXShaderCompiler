@@ -327,12 +327,6 @@ bool DxilDbgValueToDbgDeclare::runOnModule(
     llvm::Module &M
 )
 {
-    {
-        std::error_code EC;
-        llvm::raw_fd_ostream os("c:\\temp\\before.txt", EC,
-            llvm::sys::fs::F_Text);
-        M.print(os, nullptr);
-    }
   auto *DbgValueFn =
       llvm::Intrinsic::getDeclaration(&M, llvm::Intrinsic::dbg_value);
 
@@ -349,11 +343,6 @@ bool DxilDbgValueToDbgDeclare::runOnModule(
     }
   }
 
-  {
-    std::error_code EC;
-    llvm::raw_fd_ostream os2("c:\\temp\\after.txt", EC, llvm::sys::fs::F_Text);
-      M.print(os2, nullptr);
-  }
   return Changed;
 }
 
@@ -366,12 +355,6 @@ void DxilDbgValueToDbgDeclare::handleDbgValue(
 
   llvm::DIVariable *Variable = DbgValue->getVariable();
 
-  // Ignore "this" pointer
-  //if (Variable->getFlag("DIFlagObjectPointer") != 0)
-  //{
-  //    return;
-  //}
-  //
   auto &Register = m_Registers[DbgValue->getVariable()];
   if (Register == nullptr)
   {

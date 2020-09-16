@@ -41,6 +41,7 @@ void ValidateDbgDeclare(
 )
 {
 #ifndef NDEBUG
+    bool good = true;
   for (unsigned i = 0; i < FragmentSizeInBits; ++i)
   {
     const unsigned BitNum = FragmentOffsetInBits + i;
@@ -48,12 +49,15 @@ void ValidateDbgDeclare(
     VarInfo->m_DbgDeclareValidation.resize(
         std::max<unsigned>(VarInfo->m_DbgDeclareValidation.size(),
                            BitNum + 1));
-    assert(!VarInfo->m_DbgDeclareValidation[BitNum]);
-    if (BitNum == 512)
+    if (VarInfo->m_DbgDeclareValidation[BitNum])
     {
-        __debugbreak();
+        good = false;
     }
     VarInfo->m_DbgDeclareValidation[BitNum] = true;
+  }
+  if (!good)
+  {
+      __debugbreak();
   }
 #endif  // !NDEBUG
 }
