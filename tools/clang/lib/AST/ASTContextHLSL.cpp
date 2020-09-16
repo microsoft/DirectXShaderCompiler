@@ -831,6 +831,86 @@ CXXRecordDecl* hlsl::DeclareUIntTemplatedTypeWithHandle(
   return typeDeclBuilder.completeDefinition();
 }
 
+// Decl ConstantBufferView as
+// template<typename T>
+// class _ConstantBuffer : public T {
+// };
+// template<typename T>
+// using  ConstantBuffer = const _ConstantBuffer<T>;
+clang::CXXRecordDecl *
+hlsl::DeclareConstantBufferViewType(clang::ASTContext &context, bool bTBuf) {
+  // Create ConstantBufferView template declaration in translation unit scope.
+  // template<typename T> ConstantBuffer : public T {}
+  DeclContext *DC = context.getTranslationUnitDecl();
+
+  BuiltinTypeDeclBuilder typeDeclBuilder(DC,
+                                         bTBuf ? "!TextureBuffer"
+                                               : "!ConstantBuffer");
+  TemplateTypeParmDecl *elementTemplateParamDecl =
+      typeDeclBuilder.addTypeTemplateParam("T");
+  typeDeclBuilder.startDefinition();
+  CXXRecordDecl *templateRecordDecl = typeDeclBuilder.getRecordDecl();
+  ClassTemplateDecl *classTemplateDecl = typeDeclBuilder.getTemplateDecl();
+
+  QualType elementType = context.getTemplateTypeParmType(
+      /*templateDepth*/ 0, 0, ParameterPackFalse, elementTemplateParamDecl);
+
+  CXXBaseSpecifier *base = new (context)
+      CXXBaseSpecifier(SourceRange(), VirtualFalse, BaseClassFalse, AS_public,
+                       context.getTrivialTypeSourceInfo(
+                           context.getTypeDeclType(elementTemplateParamDecl)),
+                       NoLoc);
+
+  templateRecordDecl->setBases(&base, 1);
+
+  typeDeclBuilder.completeDefinition();
+
+  {
+  //|-TypeAliasTemplateDecl 0x241e864bda0 <line:14:1, line:15:28> col:1 CCast
+  //| |-TemplateTypeParmDecl 0x241e864bc00 <line:14:10, col:19> col:19 referenced typename depth 0 index 0 T
+  //| `-TypeAliasDecl 0x241e864bd40 <line:15:1, col:28> col:8 CCast 'const Cast<T>'
+  //|   `-QualType 0x241e864bca1 'const Cast<T>' const
+  //|     `-TemplateSpecializationType 0x241e864bca0 'Cast<T>' dependent Cast
+  //|       `-TemplateArgument type 'T'
+
+  TemplateTypeParmDecl *T = TemplateTypeParmDecl::Create(
+      context, DC, NoLoc, NoLoc,
+      /* TemplateDepth */ 0, 0,
+      &context.Idents.get("T", tok::TokenKind::identifier),
+      /* Typename */ false, /* ParameterPack */ false);
+
+  const clang::Type *_CBTy = templateRecordDecl->getTypeForDecl();
+
+  TemplateArgument templateArgs[] = {TemplateArgument(elementType)};
+  TemplateName canonName =
+      context.getCanonicalTemplateName(TemplateName(classTemplateDecl));
+  Qualifiers c;
+  c.addConst();
+  QualType constCBType = context.getTemplateSpecializationType(
+      canonName, templateArgs, _countof(templateArgs),
+      context.getQualifiedType(_CBTy, c));
+
+  TypeSourceInfo *TyInfo =
+      context.getTrivialTypeSourceInfo(context.getConstType(constCBType));
+  IdentifierInfo &II =
+      context.Idents.get(bTBuf ? "TextureBuffer" : "ConstantBuffer");
+  TypeAliasDecl *aliasDecl =
+      TypeAliasDecl::Create(context, DC, NoLoc, NoLoc, &II, TyInfo);
+
+  NamedDecl *Params[] = {T};
+
+  DeclarationName DN(&II);
+  TemplateParameterList *TParams =
+      TemplateParameterList::Create(context, NoLoc, NoLoc, Params, 1, NoLoc);
+  TypeAliasTemplateDecl *alias =
+      TypeAliasTemplateDecl::Create(context, DC, NoLoc, DN, TParams, aliasDecl);
+  aliasDecl->setDescribedAliasTemplate(alias);
+  alias->setImplicit(true);
+  DC->addDecl(alias);
+  }
+  return templateRecordDecl;
+}
+
 CXXRecordDecl* hlsl::DeclareRayQueryType(ASTContext& context) {
   // template<uint kind> RayQuery { ... }
   BuiltinTypeDeclBuilder typeDeclBuilder(context.getTranslationUnitDecl(), "RayQuery");

@@ -1264,11 +1264,23 @@ void CShaderReflectionConstantBuffer::Initialize(
     if (CB.GetRangeSize() > 1) {
       DXASSERT(pVarType->m_Desc.Elements == 0, "otherwise, assumption is wrong");
       pVarType->m_Desc.Elements = 1;
+    } else if (CB.GetGlobalSymbol()
+                   ->getType()
+                   ->getPointerElementType()
+                   ->isArrayTy() &&
+               CB.GetRangeSize() == 1) {
+      // Set elements to 1 for size 1 array.
+      pVarType->m_Desc.Elements = 1;
     }
 
     BYTE *pDefaultValue = nullptr;
-
-    VarDesc.Name = fieldAnnotation.GetFieldName().c_str();
+    // For ConstantBufferView set the only VarDesc to CB name.
+    if (ST->getNumContainedTypes() == 1 &&
+        ST->getContainedType(0)->isStructTy() &&
+        CB.GetGlobalName() != "$Globals")
+      VarDesc.Name = CB.GetGlobalName().c_str();
+    else
+      VarDesc.Name = fieldAnnotation.GetFieldName().c_str();
     VarDesc.StartOffset = fieldAnnotation.GetCBufferOffset();
     VarDesc.Size = pVarType->GetCBufferSize();
     Var.Initialize(this, &VarDesc, pVarType, pDefaultValue);

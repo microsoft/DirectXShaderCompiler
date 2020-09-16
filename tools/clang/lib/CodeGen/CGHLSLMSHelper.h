@@ -58,7 +58,7 @@ struct PatchConstantInfo {
 /// Use this class to represent HLSL cbuffer in high-level DXIL.
 class HLCBuffer : public hlsl::DxilCBuffer {
 public:
-  HLCBuffer() = default;
+  HLCBuffer(bool bIsView, bool bIsTBuf) : bIsView(bIsView), bIsTBuf(bIsTBuf) {}
   virtual ~HLCBuffer() = default;
 
   void AddConst(std::unique_ptr<DxilResourceBase> &pItem) {
@@ -70,9 +70,14 @@ public:
     return constants;
   }
 
+  bool isView() { return bIsView; }
+  bool isTBuf() { return bIsTBuf; }
+
 private:
   std::vector<std::unique_ptr<DxilResourceBase>>
       constants; // constants inside const buffer
+  bool bIsView;
+  bool bIsTBuf;
 };
 
 // Scope to help transform multiple returns.

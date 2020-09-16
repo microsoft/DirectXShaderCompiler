@@ -528,7 +528,8 @@ void DxilGenerationPass::GenerateDxilCBufferHandles() {
                              DIV->getScope());
     }
 
-    if (CB.GetRangeSize() == 1) {
+    if (CB.GetRangeSize() == 1 &&
+        !GV->getType()->getElementType()->isArrayTy()) {
       Function *createHandle =
           hlslOP->GetOpFunc(OP::OpCode::CreateHandleForLib,
                             GV->getType()->getElementType());
@@ -549,7 +550,7 @@ void DxilGenerationPass::GenerateDxilCBufferHandles() {
       }
     } else {
       PointerType *Ty = GV->getType();
-      Type *EltTy = Ty->getElementType()->getArrayElementType()->getPointerTo(
+      Type *EltTy = dxilutil::GetArrayEltTy(Ty->getElementType())->getPointerTo(
           Ty->getAddressSpace());
       Function *createHandle = hlslOP->GetOpFunc(
           OP::OpCode::CreateHandleForLib, EltTy->getPointerElementType());

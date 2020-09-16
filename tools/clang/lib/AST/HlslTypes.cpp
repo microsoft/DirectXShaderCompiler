@@ -544,7 +544,9 @@ bool IsHLSLResourceType(clang::QualType type) {
     if (name == "SamplerState" || name == "SamplerComparisonState")
       return true;
 
-    if (name == "ConstantBuffer")
+    if (name == "ConstantBuffer" || name == "TextureBuffer")
+      return true;
+    if (name == "!ConstantBuffer" || name == "!TextureBuffer")
       return true;
 
     if (name == "RaytracingAccelerationStructure")

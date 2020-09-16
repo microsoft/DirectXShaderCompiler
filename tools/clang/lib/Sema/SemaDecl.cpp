@@ -9577,8 +9577,6 @@ void Sema::ActOnUninitializedDecl(Decl *RealDecl,
         // HLSL Change Starts
         // Allow incomplete resource array.
         && !hlsl::IsIncompleteHLSLResourceArrayType(getASTContext(), Type)
-        // Allow incomplete ConstantBufferView array.
-        && !(IsOnHLSLBufferView())
         // HLSL Change Ends
         ) {
       Diag(Var->getLocation(),

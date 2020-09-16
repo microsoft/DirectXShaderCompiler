@@ -1278,6 +1278,9 @@ const ArBasicKind g_ArBasicKindsAsTypes[] =
   //AR_OBJECT_SAMPLERCUBE,
   AR_OBJECT_SAMPLERCOMPARISON,
 
+  AR_OBJECT_CONSTANT_BUFFER,
+  AR_OBJECT_TEXTURE_BUFFER,
+
   AR_OBJECT_POINTSTREAM,
   AR_OBJECT_LINESTREAM,
   AR_OBJECT_TRIANGLESTREAM,
@@ -1365,6 +1368,9 @@ const uint8_t g_ArBasicKindsTemplateCount[] =
   //AR_OBJECT_SAMPLER3D,
   //AR_OBJECT_SAMPLERCUBE,
   0, // AR_OBJECT_SAMPLERCOMPARISON
+
+  1, //AR_OBJECT_CONSTANT_BUFFER,
+  1, //AR_OBJECT_TEXTURE_BUFFER,
 
   1, // AR_OBJECT_POINTSTREAM
   1, // AR_OBJECT_LINESTREAM
@@ -1461,6 +1467,9 @@ const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] =
   //AR_OBJECT_SAMPLER3D,
   //AR_OBJECT_SAMPLERCUBE,
   { 0, MipsFalse, SampleFalse }, // AR_OBJECT_SAMPLERCOMPARISON (SamplerComparison)
+
+  { 0, MipsFalse, SampleFalse }, // AR_OBJECT_CONSTANT_BUFFER
+  { 0, MipsFalse, SampleFalse }, // AR_OBJECT_TEXTURE_BUFFER
 
   { 0, MipsFalse, SampleFalse }, // AR_OBJECT_POINTSTREAM (PointStream)
   { 0, MipsFalse, SampleFalse }, // AR_OBJECT_LINESTREAM (LineStream)
@@ -3390,6 +3399,10 @@ private:
           recordDecl = CreateSubobjectRaytracingPipelineConfig1(*m_context);
           break;
         }
+      } else if (kind == AR_OBJECT_CONSTANT_BUFFER) {
+        recordDecl = DeclareConstantBufferViewType(*m_context, /*bTBuf*/false);
+      } else if (kind == AR_OBJECT_TEXTURE_BUFFER) {
+        recordDecl = DeclareConstantBufferViewType(*m_context, /*bTBuf*/true);
       } else if (kind == AR_OBJECT_RAY_QUERY) {
         recordDecl = DeclareRayQueryType(*m_context);
       } else if (kind == AR_OBJECT_RESOURCE) {
@@ -4563,6 +4576,10 @@ public:
     if (templateName.equals(StringRef("is_same"))) {
       return false;
     }
+    // Allow object type for Constant/TextureBuffer.
+    if (templateName == "!ConstantBuffer" || templateName == "!TextureBuffer" ||
+        templateName == "ConstantBuffer" || templateName == "TextureBuffer")
+      return false;
 
     bool isMatrix = Template->getCanonicalDecl() ==
                     m_matrixTemplateDecl->getCanonicalDecl();
@@ -8408,6 +8425,14 @@ bool HLSLExternalSource::CanConvert(
     return false;
   }
 
+  // Cast cbuffer to normal value.
+  if (SourceInfo.EltKind == AR_OBJECT_CONSTANT_BUFFER &&
+      TargetInfo.ShapeKind == AR_TOBJ_COMPOUND) {
+    source = GetHLSLResourceResultType(source);
+    CollectInfo(source, &SourceInfo);
+    uSSize = SourceInfo.uTotalElts;
+  }
+
   // Structure cast.
   SourceIsAggregate = SourceInfo.ShapeKind == AR_TOBJ_COMPOUND || SourceInfo.ShapeKind == AR_TOBJ_ARRAY;
   TargetIsAggregate = TargetInfo.ShapeKind == AR_TOBJ_COMPOUND || TargetInfo.ShapeKind == AR_TOBJ_ARRAY;
@@ -11556,68 +11581,6 @@ void Sema::ActOnFinishHLSLBuffer(Decl *Dcl, SourceLocation RBrace)
   dyn_cast<HLSLBufferDecl>(Dcl)->setRBraceLoc(RBrace);
   HLSLBuffers.pop_back();
   PopDeclContext();
-}
-
-Decl* Sema::getActiveHLSLBuffer() const
-{
-  return HLSLBuffers.empty() ? nullptr : HLSLBuffers.back();
-}
-
-Decl *Sema::ActOnHLSLBufferView(Scope *bufferScope, SourceLocation KwLoc,
-                            DeclGroupPtrTy &dcl, bool iscbuf) {
-  DXASSERT(nullptr == HLSLBuffers.back(), "otherwise push/pop is incorrect");
-  HLSLBuffers.pop_back();
-  DXASSERT(HLSLBuffers.empty(), "otherwise push/pop is incorrect");
-
-  Decl *decl = dcl.get().getSingleDecl();
-  NamedDecl *namedDecl = cast<NamedDecl>(decl);
-  IdentifierInfo *Ident = namedDecl->getIdentifier();
-
-  // No anonymous namespace for ConstantBuffer, take the location of the decl.
-  SourceLocation Loc = decl->getLocation();
-
-  // Prevent array type in template.  The only way to specify an array in the template type
-  // is to use a typedef, so we will strip non-typedef arrays off, since these are the legal
-  // array dimensions for the CBV/TBV, and if any array type remains, that is illegal.
-  QualType declType = cast<VarDecl>(namedDecl)->getType();
-  while (declType->isArrayType() && declType->getTypeClass() != Type::TypeClass::Typedef) {
-    const ArrayType *arrayType = declType->getAsArrayTypeUnsafe();
-    declType = arrayType->getElementType();
-  }
-  // Check to make that sure only structs are allowed as parameter types for
-  // ConstantBuffer and TextureBuffer.
-  if (!declType->isStructureType()) {
-    Diag(decl->getLocStart(),
-         diag::err_hlsl_typeintemplateargument_requires_struct)
-        << declType;
-    return nullptr;
-  }
-
-  std::vector<hlsl::UnusualAnnotation *> hlslAttrs;
-
-  DeclContext *lexicalParent = getCurLexicalContext();
-  clang::HLSLBufferDecl *result = HLSLBufferDecl::Create(
-      Context, lexicalParent, iscbuf, /*isConstantBufferView*/ true,
-      KwLoc, Ident, Loc, hlslAttrs, Loc);
-
-  // set relation
-  namedDecl->setDeclContext(result);
-  result->addDecl(namedDecl);
-  // move attribute from constant to constant buffer
-  result->setUnusualAnnotations(namedDecl->getUnusualAnnotations());
-  namedDecl->setUnusualAnnotations(hlslAttrs);
-
-  return result;
-}
-
-bool Sema::IsOnHLSLBufferView() {
-  // nullptr will not pushed for cbuffer.
-  return !HLSLBuffers.empty() && getActiveHLSLBuffer() == nullptr;
-}
-void Sema::ActOnStartHLSLBufferView() {
-  // Push nullptr to mark HLSLBufferView.
-  DXASSERT(HLSLBuffers.empty(), "otherwise push/pop is incorrect");
-  HLSLBuffers.emplace_back(nullptr);
 }
 
 HLSLBufferDecl::HLSLBufferDecl(

@@ -17,7 +17,7 @@
 // CHECK: ; cbuffer buf2
 // CHECK: ; {
 // CHECK: ;
-// CHECK: ;   struct buf2
+// CHECK: ;   struct class.!ConstantBuffer<Foo>
 // CHECK: ;   {
 // CHECK: ;
 // CHECK: ;       struct struct.Foo
@@ -26,7 +26,7 @@
 // CHECK: ;           float4 f;                                 ; Offset:    0
 // CHECK: ;           int4 i;                                   ; Offset:   16
 // CHECK: ;
-// CHECK: ;       } buf2;                                       ; Offset:    0
+// CHECK: ;       } Foo;                                       ; Offset:    0
 // CHECK: ;
 // CHECK: ;
 // CHECK: ;   } buf2;                                           ; Offset:    0 Size:    32
@@ -49,7 +49,7 @@
 // CHECK: ; tbuffer tbuf1
 // CHECK: ; {
 // CHECK: ;
-// CHECK: ;   struct tbuf1
+// CHECK: ;   struct class.!TextureBuffer<Foo>
 // CHECK: ;   {
 // CHECK: ;
 // CHECK: ;       struct struct.Foo
@@ -58,7 +58,7 @@
 // CHECK: ;           float4 f;                                 ; Offset:    0
 // CHECK: ;           int4 i;                                   ; Offset:   16
 // CHECK: ;
-// CHECK: ;       } tbuf1;                                      ; Offset:    0
+// CHECK: ;       } Foo;                                      ; Offset:    0
 // CHECK: ;
 // CHECK: ;
 // CHECK: ;   } tbuf1;                                          ; Offset:    0 Size:    32

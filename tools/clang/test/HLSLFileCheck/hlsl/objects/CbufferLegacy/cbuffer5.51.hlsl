@@ -5,7 +5,7 @@
 // CHECK: ; cbuffer buf1
 // CHECK: ; {
 // CHECK: ;
-// CHECK: ;   struct buf1
+// CHECK: ;   struct class.!ConstantBuffer<Foo>
 // CHECK: ;   {
 // CHECK: ;
 // CHECK: ;       struct struct.Foo
@@ -13,7 +13,7 @@
 // CHECK: ;
 // CHECK: ;           float4 g1[16];                            ; Offset:    0
 // CHECK: ;
-// CHECK: ;       } buf1;                                       ; Offset:    0
+// CHECK: ;       } Foo;                                        ; Offset:    0
 // CHECK: ;
 // CHECK: ;
 // CHECK: ;   } buf1;                                           ; Offset:    0 Size:  256
@@ -23,7 +23,7 @@
 // CHECK: ; cbuffer buf2
 // CHECK: ; {
 // CHECK: ;
-// CHECK: ;   struct buf2
+// CHECK: ;   struct class.!ConstantBuffer<Bar>
 // CHECK: ;   {
 // CHECK: ;
 // CHECK: ;       struct struct.Bar
@@ -38,7 +38,7 @@
 // CHECK: ;
 // CHECK: ;           uint3 idx[16];                            ; Offset:  256
 // CHECK: ;
-// CHECK: ;       } buf2;                                       ; Offset:    0
+// CHECK: ;       } Bar;                                        ; Offset:    0
 // CHECK: ;
 // CHECK: ;   } buf2;                                           ; Offset:    0 Size: 508
 // CHECK: ;

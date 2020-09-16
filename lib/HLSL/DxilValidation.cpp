@@ -4083,7 +4083,7 @@ CollectCBufferRanges(DxilStructAnnotation *annotation,
 
 static void ValidateCBuffer(DxilCBuffer &cb, ValidationContext &ValCtx) {
   Type *Ty = cb.GetGlobalSymbol()->getType()->getPointerElementType();
-  if (cb.GetRangeSize() != 1) {
+  if (cb.GetRangeSize() != 1 || Ty->isArrayTy()) {
     Ty = Ty->getArrayElementType();
   }
   if (!isa<StructType>(Ty)) {

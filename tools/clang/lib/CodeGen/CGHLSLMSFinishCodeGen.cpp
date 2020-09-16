@@ -1811,17 +1811,36 @@ bool CreateCBufferVariable(HLCBuffer &CB, HLModule &HLM, llvm::Type *HandleTy) {
   llvm::Module &M = *HLM.GetModule();
 
   bool isCBArray = CB.GetRangeSize() != 1;
+  if (CB.isView() && CB.GetRangeSize() == 1) {
+    Value *GV = CB.GetConstants()[0]->GetGlobalSymbol();
+    llvm::Type *CBEltTy =
+        GV->getType()->getPointerElementType();
+    if (CBEltTy->isArrayTy()) {
+      // For array of 1.
+      isCBArray = true;
+    }
+  }
   llvm::GlobalVariable *cbGV = nullptr;
   llvm::Type *cbTy = nullptr;
 
   unsigned cbIndexDepth = 0;
   if (!isCBArray) {
-    llvm::StructType *CBStructTy =
-        llvm::StructType::create(Elements, CB.GetGlobalName());
-    cbGV = new llvm::GlobalVariable(M, CBStructTy, /*IsConstant*/ true,
-                                    llvm::GlobalValue::ExternalLinkage,
-                                    /*InitVal*/ nullptr, CB.GetGlobalName());
-    cbTy = cbGV->getType();
+    if (CB.isView()) {
+      Value *GV = CB.GetConstants()[0]->GetGlobalSymbol();
+      cbGV = new llvm::GlobalVariable(M, GV->getType()->getPointerElementType(),
+                                      /*IsConstant*/ true,
+                                      llvm::GlobalValue::ExternalLinkage,
+                                      /*InitVal*/ nullptr, CB.GetGlobalName());
+      cbTy = GV->getType();
+    } else {
+      llvm::StructType *CBStructTy =
+          llvm::StructType::create(Elements, CB.GetGlobalName());
+
+      cbGV = new llvm::GlobalVariable(M, CBStructTy, /*IsConstant*/ true,
+                                      llvm::GlobalValue::ExternalLinkage,
+                                      /*InitVal*/ nullptr, CB.GetGlobalName());
+      cbTy = cbGV->getType();
+    }
   } else {
     // For array of ConstantBuffer, create array of struct instead of struct of
     // array.
@@ -1835,18 +1854,16 @@ bool CreateCBufferVariable(HLCBuffer &CB, HLModule &HLM, llvm::Type *HandleTy) {
       CBEltTy = CBEltTy->getArrayElementType();
       cbIndexDepth++;
     }
-
-    // Add one level struct type to match normal case.
-    llvm::StructType *CBStructTy =
-        llvm::StructType::create({CBEltTy}, CB.GetGlobalName());
-
+    // Flatten into one dim array.
     llvm::ArrayType *CBArrayTy =
-        llvm::ArrayType::get(CBStructTy, CB.GetRangeSize());
-    cbGV = new llvm::GlobalVariable(M, CBArrayTy, /*IsConstant*/ true,
+        llvm::ArrayType::get(CBEltTy, CB.GetRangeSize());
+
+    cbGV = new llvm::GlobalVariable(M, CBArrayTy,
+                                    /*IsConstant*/ true,
                                     llvm::GlobalValue::ExternalLinkage,
                                     /*InitVal*/ nullptr, CB.GetGlobalName());
 
-    cbTy = llvm::PointerType::get(CBStructTy,
+    cbTy = llvm::PointerType::get(CBEltTy,
                                   cbGV->getType()->getPointerAddressSpace());
   }
 
@@ -1910,8 +1927,16 @@ bool CreateCBufferVariable(HLCBuffer &CB, HLModule &HLM, llvm::Type *HandleTy) {
 
       Value *idx = indexArray[C->GetID()];
       if (!isCBArray) {
-        Instruction *GEP = cast<Instruction>(
-            Builder.CreateInBoundsGEP(cbSubscript, {zero, idx}));
+        Instruction *GEP = nullptr;
+        // CBV is already in ConstantBuffer class, didn't add extra level of
+        // struct for it.
+        if (CB.isView())
+          GEP =
+              cast<Instruction>(Builder.CreateInBoundsGEP(cbSubscript, {zero}));
+        else
+          GEP = cast<Instruction>(
+              Builder.CreateInBoundsGEP(cbSubscript, {zero, idx}));
+
         // TODO: make sure the debug info is synced to GEP.
         // GEP->setDebugLoc(GV);
         ReplaceUseInFunction(GV, GEP, &F, Builder);
@@ -1944,8 +1969,7 @@ bool CreateCBufferVariable(HLCBuffer &CB, HLModule &HLM, llvm::Type *HandleTy) {
           gep_type_iterator GI = gep_type_begin(*GEPOp),
                             E = gep_type_end(*GEPOp);
           idxList.push_back(GI.getOperand());
-          // change array index with 0 for struct index.
-          idxList.push_back(zero);
+
           GI++;
           Value *arrayIdx = GI.getOperand();
           GI++;
@@ -2002,15 +2026,20 @@ void ConstructCBufferAnnotation(
 
   if (!CBStructTy) {
     // For Array of ConstantBuffer.
-    llvm::ArrayType *CBArrayTy =
-        cast<llvm::ArrayType>(GV->getType()->getPointerElementType());
-    CBStructTy = cast<llvm::StructType>(CBArrayTy->getArrayElementType());
+    Type *EltTy = dxilutil::GetArrayEltTy(GV->getType()->getPointerElementType());
+    CBStructTy = cast<llvm::StructType>(EltTy);
   }
 
   DxilStructAnnotation *CBAnnotation =
-      dxilTypeSys.AddStructAnnotation(CBStructTy);
-  CBAnnotation->SetCBufferSize(CB.GetSize());
+      dxilTypeSys.GetStructAnnotation(CBStructTy);
+  if (!CBAnnotation)
+    CBAnnotation = dxilTypeSys.AddStructAnnotation(CBStructTy);
 
+  CBAnnotation->SetCBufferSize(CB.GetSize());
+  // Don't need to set fieldAnnotation for CB/TBView, since it only have one
+  // field.
+  if (CB.isView())
+    return;
   // Set fieldAnnotation for each constant var.
   for (const std::unique_ptr<DxilResourceBase> &C : CB.GetConstants()) {
     Constant *GV = C->GetGlobalSymbol();

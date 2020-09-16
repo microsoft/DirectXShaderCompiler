@@ -104,9 +104,10 @@ private:
   uint32_t AddUAVSRV(VarDecl *decl, hlsl::DxilResourceBase::Class resClass);
   bool SetUAVSRV(SourceLocation loc, hlsl::DxilResourceBase::Class resClass,
                  DxilResource *hlslRes, QualType QualTy);
+  uint32_t AddConstantBufferView(VarDecl *D);
   uint32_t AddCBuffer(HLSLBufferDecl *D);
   hlsl::DxilResourceBase::Class TypeToClass(clang::QualType Ty);
-
+  bool IsTextureBufferView(clang::QualType Ty);
   void CreateSubobject(DXIL::SubobjectKind kind, const StringRef name, clang::Expr **args,
                        unsigned int argCount, DXIL::HitGroupType hgType = (DXIL::HitGroupType)(-1));
   bool GetAsConstantString(clang::Expr *expr, StringRef *value, bool failWhenEmpty = false);
@@ -401,7 +402,8 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
            "else CGMSHLSLRuntime Constructor needs to be updated");
 
   // add globalCB
-  unique_ptr<HLCBuffer> CB = llvm::make_unique<HLCBuffer>();
+  unique_ptr<HLCBuffer> CB =
+      llvm::make_unique<HLCBuffer>(/*bIsView*/ false, /*bIsTBuf*/ false);
   std::string globalCBName = "$Globals";
   CB->SetGlobalSymbol(nullptr);
   CB->SetGlobalName(globalCBName);
@@ -2445,7 +2447,7 @@ void CGMSHLSLRuntime::addResource(Decl *D) {
       break;
     }
     case DXIL::ResourceClass::CBuffer:
-      DXASSERT(0, "cbuffer should not be here");
+      AddConstantBufferView(VD);
       break;
     }
   }
@@ -2499,11 +2501,11 @@ static DxilResourceBase::Class KeywordToClass(const std::string &keyword) {
   if (keyword == "SamplerComparisonState")
     return DxilResourceBase::Class::Sampler;
 
-  if (keyword == "ConstantBuffer")
+  if (keyword == "!ConstantBuffer")
     return DxilResourceBase::Class::CBuffer;
 
-  if (keyword == "TextureBuffer")
-    return DxilResourceBase::Class::SRV;
+  if (keyword == "!TextureBuffer")
+    return DxilResourceBase::Class::CBuffer;
 
   bool isSRV = keyword == "Buffer";
   isSRV |= keyword == "ByteAddressBuffer";
@@ -2551,6 +2553,10 @@ static DxilResourceBase::Class KeywordToClass(const std::string &keyword) {
   return DxilResourceBase::Class::Invalid;
 }
 
+static bool IsTextureBufferViewName(StringRef keyword) {
+  return keyword == "!TextureBuffer";
+}
+
 // This should probably be refactored to ASTContextHLSL, and follow types
 // rather than do string comparisons.
 DXIL::ResourceClass
@@ -2569,6 +2575,21 @@ hlsl::GetResourceClassForType(const clang::ASTContext &context,
   }
 
   return hlsl::DxilResourceBase::Class::Invalid;
+}
+
+bool CGMSHLSLRuntime::IsTextureBufferView(clang::QualType Ty) {
+Ty = Ty.getCanonicalType();
+  if (const clang::ArrayType *arrayType = CGM.getContext().getAsArrayType(Ty)) {
+    return IsTextureBufferView(arrayType->getElementType());
+  } else if (const RecordType *RT = Ty->getAsStructureType()) {
+    return IsTextureBufferViewName(RT->getDecl()->getName());
+  } else if (const RecordType *RT = Ty->getAs<RecordType>()) {
+    if (const ClassTemplateSpecializationDecl *templateDecl =
+            dyn_cast<ClassTemplateSpecializationDecl>(RT->getDecl())) {
+      return IsTextureBufferViewName(templateDecl->getName());
+    }
+  }
+  return false;
 }
 
 hlsl::DxilResourceBase::Class CGMSHLSLRuntime::TypeToClass(clang::QualType Ty) {
@@ -3092,14 +3113,25 @@ void CGMSHLSLRuntime::AddConstant(VarDecl *constDecl, HLCBuffer &CB) {
     return;
   }
   // Search defined structure for resource objects and fail
-  if (CB.GetRangeSize() > 1 &&
-      IsResourceInType(CGM.getContext(), constDecl->getType())) {
-    DiagnosticsEngine &Diags = CGM.getDiags();
-    unsigned DiagID = Diags.getCustomDiagID(
-        DiagnosticsEngine::Error,
-        "object types not supported in cbuffer/tbuffer view arrays.");
-    Diags.Report(constDecl->getLocation(), DiagID);
-    return;
+  if (CB.GetRangeSize() > 1) {
+    const clang::ArrayType *arrayType = CGM.getContext().getAsArrayType(
+        constDecl->getType().getCanonicalType());
+    DXASSERT(arrayType,"array size mismatch");
+    QualType Ty = arrayType->getElementType();
+    while (Ty->isArrayType()) {
+      const clang::ArrayType *AT = CGM.getContext().getAsArrayType(
+        Ty.getCanonicalType());
+      Ty = AT->getElementType();
+    }
+    if (IsResourceInType(CGM.getContext(), GetHLSLResourceResultType(
+                                               Ty))) {
+      DiagnosticsEngine &Diags = CGM.getDiags();
+      unsigned DiagID = Diags.getCustomDiagID(
+          DiagnosticsEngine::Error,
+          "object types not supported in cbuffer/tbuffer view arrays.");
+      Diags.Report(constDecl->getLocation(), DiagID);
+      return;
+    }
   }
   llvm::Constant *constVal = CGM.GetAddrOfGlobalVar(constDecl);
   // Add debug info for constVal.
@@ -3219,63 +3251,70 @@ void CGMSHLSLRuntime::AddConstant(VarDecl *constDecl, HLCBuffer &CB) {
   m_ConstVarAnnotationMap[constVal] = fieldAnnotation;
 }
 
-uint32_t CGMSHLSLRuntime::AddCBuffer(HLSLBufferDecl *D) {
-  unique_ptr<HLCBuffer> CB = llvm::make_unique<HLCBuffer>();
+unique_ptr<HLCBuffer> CreateHLCBuf(NamedDecl *D, bool bIsView, bool bIsTBuf) {
+  unique_ptr<HLCBuffer> CB = llvm::make_unique<HLCBuffer>(bIsView, bIsTBuf);
 
   // setup the CB
   CB->SetGlobalSymbol(nullptr);
   CB->SetGlobalName(D->getNameAsString());
   CB->SetSpaceID(UINT_MAX);
   CB->SetLowerBound(UINT_MAX);
-  if (!D->isCBuffer()) {
+  if (bIsTBuf)
     CB->SetKind(DXIL::ResourceKind::TBuffer);
-  }
-
-  // the global variable will only used once by the createHandle?
-  // SetHandle(llvm::Value *pHandle);
-
   InitFromUnusualAnnotations(*CB, *D);
 
+  return CB;
+}
+
+uint32_t CGMSHLSLRuntime::AddCBuffer(HLSLBufferDecl *D) {
+  unique_ptr<HLCBuffer> CB = CreateHLCBuf(D, false, !D->isCBuffer());
+
   // Add constant
-  if (D->isConstantBufferView()) {
-    VarDecl *constDecl = cast<VarDecl>(*D->decls_begin());
-    CB->SetRangeSize(1);
-    QualType Ty = constDecl->getType();
-    if (Ty->isArrayType()) {
-      if (!Ty->isIncompleteArrayType()) {
-        unsigned arraySize = 1;
-        while (Ty->isArrayType()) {
-          Ty = Ty->getCanonicalTypeUnqualified();
-          const ConstantArrayType *AT = cast<ConstantArrayType>(Ty);
-          arraySize *= AT->getSize().getLimitedValue();
-          Ty = AT->getElementType();
-        }
-        CB->SetRangeSize(arraySize);
-      } else {
-        CB->SetRangeSize(UINT_MAX);
-      }
-    }
-    AddConstant(constDecl, *CB.get());
-  } else {
-    auto declsEnds = D->decls_end();
-    CB->SetRangeSize(1);
-    for (auto it = D->decls_begin(); it != declsEnds; it++) {
-      if (VarDecl *constDecl = dyn_cast<VarDecl>(*it)) {
-        AddConstant(constDecl, *CB.get());
-      } else if (isa<EmptyDecl>(*it)) {
-        // Nothing to do for this declaration.
-      } else if (isa<CXXRecordDecl>(*it)) {
-        // Nothing to do for this declaration.
-      } else if (isa<FunctionDecl>(*it)) {
-        // A function within an cbuffer is effectively a top-level function,
-        // as it only refers to globally scoped declarations.
-        this->CGM.EmitTopLevelDecl(*it);
-      } else {
-        HLSLBufferDecl *inner = cast<HLSLBufferDecl>(*it);
-        GetOrCreateCBuffer(inner);
-      }
+  auto declsEnds = D->decls_end();
+  CB->SetRangeSize(1);
+  for (auto it = D->decls_begin(); it != declsEnds; it++) {
+    if (VarDecl *constDecl = dyn_cast<VarDecl>(*it)) {
+      AddConstant(constDecl, *CB.get());
+    } else if (isa<EmptyDecl>(*it)) {
+      // Nothing to do for this declaration.
+    } else if (isa<CXXRecordDecl>(*it)) {
+      // Nothing to do for this declaration.
+    } else if (isa<FunctionDecl>(*it)) {
+      // A function within an cbuffer is effectively a top-level function,
+      // as it only refers to globally scoped declarations.
+      this->CGM.EmitTopLevelDecl(*it);
+    } else {
+      HLSLBufferDecl *inner = cast<HLSLBufferDecl>(*it);
+      GetOrCreateCBuffer(inner);
     }
   }
+
+  CB->SetID(m_pHLModule->GetCBuffers().size());
+  return m_pHLModule->AddCBuffer(std::move(CB));
+}
+
+uint32_t CGMSHLSLRuntime::AddConstantBufferView(VarDecl *D) {
+  QualType Ty = D->getType();
+  unique_ptr<HLCBuffer> CB = CreateHLCBuf(D, true, IsTextureBufferView(Ty));
+
+  CB->SetRangeSize(1);
+
+  if (Ty->isArrayType()) {
+    if (!Ty->isIncompleteArrayType()) {
+      unsigned arraySize = 1;
+      while (Ty->isArrayType()) {
+        Ty = Ty->getCanonicalTypeUnqualified();
+        const ConstantArrayType *AT = cast<ConstantArrayType>(Ty);
+        arraySize *= AT->getSize().getLimitedValue();
+        Ty = AT->getElementType();
+      }
+      CB->SetRangeSize(arraySize);
+    } else {
+      CB->SetRangeSize(UINT_MAX);
+    }
+  }
+
+  AddConstant(D, *CB.get());
 
   CB->SetID(m_pHLModule->GetCBuffers().size());
   return m_pHLModule->AddCBuffer(std::move(CB));
@@ -5232,6 +5271,16 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(CodeGenFunction &CGF, 
     unsigned sizeSrc = TheModule.getDataLayout().getTypeAllocSize(SrcPtrTy);
     unsigned sizeDest = TheModule.getDataLayout().getTypeAllocSize(DestPtrTy);
     CGF.Builder.CreateMemCpy(DestPtr, SrcPtr, std::max(sizeSrc, sizeDest), 1);
+    return;
+  } else if (GetResourceClassForType(CGM.getContext(), SrcTy) ==
+                 DXIL::ResourceClass::CBuffer &&
+             SrcPtrTy->isStructTy() &&
+             SrcPtrTy->getStructElementType(0) == DestPtrTy) {
+    // Go deeper one level to avoid ConstantBuffer struct.
+    Value *ZeroIdx = CGF.Builder.getInt32(0);
+    Value *GEP = CGF.Builder.CreateGEP(nullptr, SrcPtr, {ZeroIdx, ZeroIdx});
+    unsigned size = TheModule.getDataLayout().getTypeAllocSize(SrcPtrTy);
+    CGF.Builder.CreateMemCpy(DestPtr, GEP, size, 1);
     return;
   } else if (GlobalVariable *GV = dyn_cast<GlobalVariable>(DestPtr)) {
     if (GV->isInternalLinkage(GV->getLinkage()) &&
