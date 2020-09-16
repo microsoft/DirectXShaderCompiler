@@ -48,7 +48,7 @@ struct DxilResourceProperties {
 
   union {
     BasicProps  Basic;
-    uint32_t RawDword1;
+    uint32_t RawDword0;
   };
   // DWORD
   union {
@@ -56,7 +56,7 @@ struct DxilResourceProperties {
     uint32_t StructStrideInBytes; // in bytes for StructuredBuffer.
     DXIL::SamplerFeedbackType SamplerFeedbackType; // FeedbackTexture2D.
     uint32_t CBufferSizeInBytes; // Cbuffer used size in bytes.
-    uint32_t RawDword0;
+    uint32_t RawDword1;
   };
   DxilResourceProperties();
   DXIL::ResourceClass getResourceClass();

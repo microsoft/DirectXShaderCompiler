@@ -603,14 +603,11 @@ uint8_t GetResourceComponentCount(llvm::Type *Ty) {
            GetResourceComponentCount(arrType->getArrayElementType());
   } else if (llvm::StructType *structType =
                  llvm::dyn_cast<llvm::StructType>(Ty)) {
-    if (structType->getStructNumElements() > 1) {
-      return false;
-    }
     uint32_t Count = 0;
     for (Type *EltTy : structType->elements())  {
       Count += GetResourceComponentCount(EltTy);
     }
-    DXASSERT(Count < 256, "Component Count out of bound.");
+    DXASSERT(Count <= 4, "Component Count out of bound.");
     return Count;
   } else if (llvm::VectorType *vectorType =
                  llvm::dyn_cast<llvm::VectorType>(Ty)) {
