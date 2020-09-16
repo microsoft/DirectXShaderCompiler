@@ -31,14 +31,14 @@ struct foo {
 // CHECK: [[func0:%\d+]] = OpString "foo.func0"
 
 // CHECK: [[bool:%\d+]] = OpExtInst %void %1 DebugTypeBasic [[bool_name]] %uint_32 Boolean
-// CHECK: [[parent:%\d+]] = OpExtInst %void [[set]] DebugTypeComposite [[foo]] Structure {{%\d+}} 3 8 {{%\d+}} {{%\d+}} %uint_0 FlagIsProtected|FlagIsPrivate [[a:%\d+]] [[b:%\d+]] [[c:%\d+]] [[f0:%\d+]] [[f1:%\d+]]
+// CHECK: [[parent:%\d+]] = OpExtInst %void [[set]] DebugTypeComposite [[foo]] Structure {{%\d+}} 3 8 {{%\d+}} {{%\d+}} %uint_192 FlagIsProtected|FlagIsPrivate [[a:%\d+]] [[b:%\d+]] [[c:%\d+]] [[f0:%\d+]] [[f1:%\d+]]
 
-// CHECK: [[c]] = OpExtInst %void [[set]] DebugTypeMember [[c_name]] [[bool]] {{%\d+}} 19 8 [[parent]] %uint_0 %uint_0 FlagIsProtected|FlagIsPrivate
+// CHECK: [[c]] = OpExtInst %void [[set]] DebugTypeMember [[c_name]] [[bool]] {{%\d+}} 19 8 [[parent]] %uint_160 %uint_32 FlagIsProtected|FlagIsPrivate
 // CHECK: [[float:%\d+]] = OpExtInst %void %1 DebugTypeBasic [[float_name]] %uint_32 Float
 // CHECK: [[v4f:%\d+]] = OpExtInst %void %1 DebugTypeVector [[float]] 4
-// CHECK: [[b]] = OpExtInst %void [[set]] DebugTypeMember [[b_name]] [[v4f]] {{%\d+}} 10 10 [[parent]] %uint_0 %uint_0 FlagIsProtected|FlagIsPrivate
+// CHECK: [[b]] = OpExtInst %void [[set]] DebugTypeMember [[b_name]] [[v4f]] {{%\d+}} 10 10 [[parent]] %uint_32 %uint_128 FlagIsProtected|FlagIsPrivate
 // CHECK: [[int:%\d+]] = OpExtInst %void %1 DebugTypeBasic [[int_name]] %uint_32 Signed
-// CHECK: [[a]] = OpExtInst %void [[set]] DebugTypeMember [[a_name]] [[int]] {{%\d+}} 4 7 [[parent]] %uint_0 %uint_0 FlagIsProtected|FlagIsPrivate
+// CHECK: [[a]] = OpExtInst %void [[set]] DebugTypeMember [[a_name]] [[int]] {{%\d+}} 4 7 [[parent]] %uint_0 %uint_32 FlagIsProtected|FlagIsPrivate
 // CHECK: [[f1]] = OpExtInst %void [[set]] DebugFunction [[func1]] {{%\d+}} {{%\d+}} 12 3 [[parent]] {{%\d+}} FlagIsProtected|FlagIsPrivate 12 %foo_func1
 // CHECK: [[f0]] = OpExtInst %void [[set]] DebugFunction [[func0]] {{%\d+}} {{%\d+}} 6 3 [[parent]] {{%\d+}} FlagIsProtected|FlagIsPrivate 6 %foo_func0
 

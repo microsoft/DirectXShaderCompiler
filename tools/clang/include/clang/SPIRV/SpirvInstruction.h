@@ -2658,8 +2658,8 @@ public:
   llvm::StringRef getLinkageName() const { return linkageName; }
   uint32_t getDebugFlags() const { return debugFlags; }
 
-  void setSizeInBits(uint32_t size_) { size = size_; }
-  uint32_t getSizeInBits() const override { return size; }
+  void setSizeInBits(uint32_t size_) { sizeInBits = size_; }
+  uint32_t getSizeInBits() const override { return sizeInBits; }
 
   void markAsOpaqueType(SpirvDebugInfoNone *none) {
     // If it was already marked as a opaque type, just return. For example,
@@ -2682,7 +2682,7 @@ private:
   SpirvDebugInstruction *parent; //< The parent lexical scope
 
   std::string linkageName; //< Linkage name
-  uint32_t size;           //< Size (in bits) of an instance of composite
+  uint32_t sizeInBits;     //< Size (in bits) of an instance of composite
 
   // TODO: Replace uint32_t with enum in the SPIRV-Headers once it is
   // available.

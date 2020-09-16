@@ -63,12 +63,8 @@ SpirvDebugTypeComposite *DebugTypeVisitor::createDebugTypeComposite(
 void DebugTypeVisitor::addDebugTypeForMemberVariables(
     SpirvDebugTypeComposite *debugTypeComposite, const StructType *type,
     llvm::function_ref<SourceLocation()> location, unsigned numBases) {
-  // Will be used to describe size/offset with unknown physical layout.
-  const uint32_t kUnknownBitSize = 0;
-
   llvm::SmallVector<SpirvDebugInstruction *, 4> members;
-  uint32_t compositeSizeInBits = kUnknownBitSize;
-  bool unknownPhysicalLayout = false;
+  uint32_t compositeSizeInBits = 0;
   const auto &sm = astContext.getSourceManager();
   for (auto &field : type->getFields()) {
     // Skip base classes
@@ -78,22 +74,22 @@ void DebugTypeVisitor::addDebugTypeForMemberVariables(
       continue;
     }
 
-    uint32_t offsetInBits = kUnknownBitSize;
-    if (!unknownPhysicalLayout && field.offset.hasValue())
-      offsetInBits = *field.offset * 8;
-    else
-      unknownPhysicalLayout = true;
-
-    uint32_t sizeInBits = kUnknownBitSize;
-    if (!unknownPhysicalLayout && field.sizeInBytes.hasValue())
-      sizeInBits = *field.sizeInBytes * 8;
-    else
-      unknownPhysicalLayout = true;
+    // Lower this member's debug type.
+    auto *memberDebugType = lowerToDebugType(field.type);
 
     // TODO: We are currently in the discussion about how to handle
     // a variable type with unknown physical layout. Add proper flags
     // or operations for variables with the unknown physical layout.
     // For example, we do not have physical layout for a local variable.
+
+    // Get offset (in bits) of this member within the composite.
+    uint32_t offsetInBits = field.offset.hasValue()
+                                ? offsetInBits = *field.offset * 8
+                                : compositeSizeInBits;
+    // Get size (in bits) of this member within the composite.
+    uint32_t sizeInBits = field.sizeInBytes.hasValue()
+                              ? *field.sizeInBytes * 8
+                              : memberDebugType->getSizeInBits();
 
     const SourceLocation loc = location();
     uint32_t line = sm.getPresumedLineNumber(loc);
@@ -102,19 +98,15 @@ void DebugTypeVisitor::addDebugTypeForMemberVariables(
     // TODO: Replace 2u and 3u with valid flags when debug info extension is
     // placed in SPIRV-Header.
     auto *debugInstr = spvContext.getDebugTypeMember(
-        field.name, lowerToDebugType(field.type),
-        debugTypeComposite->getSource(), line, column, debugTypeComposite,
+        field.name, memberDebugType, debugTypeComposite->getSource(), line,
+        column, debugTypeComposite,
         /* flags */ 3u, offsetInBits, sizeInBits, /* value */ nullptr);
     assert(debugInstr);
 
     setDefaultDebugInfo(debugInstr);
     members.push_back(debugInstr);
 
-    if (sizeInBits == kUnknownBitSize) {
-      compositeSizeInBits = kUnknownBitSize;
-    } else {
-      compositeSizeInBits = offsetInBits + sizeInBits;
-    }
+    compositeSizeInBits = offsetInBits + sizeInBits;
   }
   debugTypeComposite->setMembers(members);
   debugTypeComposite->setSizeInBits(compositeSizeInBits);

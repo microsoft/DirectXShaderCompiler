@@ -42,7 +42,7 @@ struct foo : base {
 
 // CHECK: [[fooName:%\d+]] = OpString "foo"
 // CHECK: [[bool:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic {{%\d+}} %uint_32 Boolean
-// CHECK: [[foo:%\d+]] = OpExtInst %void %1 DebugTypeComposite [[fooName]] Structure {{%\d+}} 22 8 {{%\d+}} [[fooName]] %uint_0 FlagIsProtected|FlagIsPrivate
+// CHECK: [[foo:%\d+]] = OpExtInst %void %1 DebugTypeComposite [[fooName]] Structure {{%\d+}} 22 8 {{%\d+}} [[fooName]] %uint_192 FlagIsProtected|FlagIsPrivate
 // CHECK: [[float:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic {{%\d+}} %uint_32 Float
 // CHECK: [[int:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic {{%\d+}} %uint_32 Signed
 
