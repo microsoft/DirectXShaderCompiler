@@ -18,8 +18,6 @@ execute_process(
   OUTPUT_STRIP_TRAILING_WHITESPACE
   )
 
-# C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\DIA SDK\include
-# C:\Program Files (x86)\Microsoft Visual Studio 14.0\DIA SDK\include
 find_path(DIASDK_INCLUDE_DIR    # Set variable DIASDK_INCLUDE_DIR
           dia2.h                # Find a path with dia2.h
           HINTS "${VS_DIA_INC_PATH}"
