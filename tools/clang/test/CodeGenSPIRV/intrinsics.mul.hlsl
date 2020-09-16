@@ -437,4 +437,41 @@ void main() {
 // CHECK-NEXT:    {{%\d+}} = OpCompositeConstruct %_arr_v3int_uint_2 [[t0]] [[t1]]
   int4x3 intMat4x3;
   int2x3 t = mul(intMat2x4, intMat4x3);
+
+
+//
+// 1-D matrices passed to mul
+//
+
+// mul( Mat(1xM) * Mat(MxN) ) --> Mat(1xN) vector
+// mul( Mat(1xM) * Mat(Mx1) ) --> Scalar
+// mul( Mat(Mx1) * Mat(1xN) ) --> Mat(MxN) matrix
+  float1x3 mat1x3;
+  float3x2 mat3x2;
+  float3x1 mat3x1;
+  float1x4 mat1x4;
+
+// CHECK:       [[mat1x3:%\d+]] = OpLoad %v3float %mat1x3
+// CHECK-NEXT:  [[mat3x2:%\d+]] = OpLoad %mat3v2float %mat3x2
+// CHECK-NEXT: [[result1:%\d+]] = OpMatrixTimesVector %v2float [[mat3x2]] [[mat1x3]]
+// CHECK-NEXT:                    OpStore %result1 [[result1]]
+  float1x2   result1 = mul( mat1x3, mat3x2 ); // result is float2 vector
+
+// CHECK:       [[mat1x3:%\d+]] = OpLoad %v3float %mat1x3
+// CHECK-NEXT:  [[mat3x1:%\d+]] = OpLoad %v3float %mat3x1
+// CHECK-NEXT: [[result2:%\d+]] = OpDot %float [[mat1x3]] [[mat3x1]]
+// CHECK-NEXT:                    OpStore %result2 [[result2]]
+  float      result2 = mul( mat1x3, mat3x1 ); // result is scalar
+
+// CHECK:       [[mat3x1:%\d+]] = OpLoad %v3float %mat3x1
+// CHECK-NEXT:  [[mat1x4:%\d+]] = OpLoad %v4float %mat1x4
+// CHECK-NEXT:   [[elem0:%\d+]] = OpCompositeExtract %float [[mat3x1]] 0
+// CHECK-NEXT:    [[row0:%\d+]] = OpVectorTimesScalar %v4float [[mat1x4]] [[elem0]]
+// CHECK-NEXT:   [[elem1:%\d+]] = OpCompositeExtract %float [[mat3x1]] 1
+// CHECK-NEXT:    [[row1:%\d+]] = OpVectorTimesScalar %v4float [[mat1x4]] [[elem1]]
+// CHECK-NEXT:   [[elem2:%\d+]] = OpCompositeExtract %float [[mat3x1]] 2
+// CHECK-NEXT:    [[row2:%\d+]] = OpVectorTimesScalar %v4float [[mat1x4]] [[elem2]]
+// CHECK-NEXT: [[result3:%\d+]] = OpCompositeConstruct %mat3v4float [[row0]] [[row1]] [[row2]]
+// CHECK-NEXT:                    OpStore %result3 [[result3]]
+  float3x4   result3 = mul( mat3x1, mat1x4 ); // result is float3x4 matrix
 }

@@ -38,6 +38,20 @@ bool isScalarType(QualType type, QualType *scalarType = nullptr);
 bool isVectorType(QualType type, QualType *elemType = nullptr,
                   uint32_t *elemCount = nullptr);
 
+/// Returns true if the given type will be translated into a SPIR-V scalar type
+/// or vector type.
+///
+/// This includes:
+/// scalar types
+/// vector types (vec1, vec2, vec3, and vec4)
+/// Mx1 matrices (where M can be 1,2,3,4)
+/// 1xN matrices (where N can be 1,2,3,4)
+///
+/// Writes the element type and count into *elementType and *count respectively
+/// if they are not nullptr.
+bool isScalarOrVectorType(QualType type, QualType *elemType = nullptr,
+                          uint32_t *elemCount = nullptr);
+
 /// Returns true if the given type is an array with constant known size.
 bool isConstantArrayType(const ASTContext &, QualType);
 
