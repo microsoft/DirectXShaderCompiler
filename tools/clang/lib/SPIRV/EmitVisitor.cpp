@@ -140,6 +140,31 @@ EmitVisitor::Header::Header(uint32_t bound_, uint32_t version_)
       generator((kGeneratorNumber << 16) | kToolVersion), bound(bound_),
       reserved(0) {}
 
+EmitVisitor::~EmitVisitor() {
+  for (auto *i : spvInstructions)
+    i->releaseMemory();
+}
+
+template <>
+uint32_t
+EmitVisitor::getOrAssignResultId<SpirvInstruction>(SpirvInstruction *obj) {
+  auto *str = dyn_cast<SpirvString>(obj);
+  if (str != nullptr) {
+    auto it = stringIdMap.find(str->getString());
+    if (it != stringIdMap.end()) {
+      return it->second;
+    }
+  }
+
+  if (!obj->getResultId()) {
+    obj->setResultId(takeNextId());
+  }
+  if (str != nullptr) {
+    stringIdMap[str->getString()] = obj->getResultId();
+  }
+  return obj->getResultId();
+}
+
 std::vector<uint32_t> EmitVisitor::Header::takeBinary() {
   std::vector<uint32_t> words;
   words.push_back(magicNumber);
@@ -155,10 +180,10 @@ uint32_t EmitVisitor::getOrCreateOpStringId(llvm::StringRef str) {
   if (it != stringIdMap.end()) {
     return it->second;
   }
-  SpirvString opString(/*SourceLocation*/ {}, str);
-  visit(&opString);
-  uint32_t strId = getOrAssignResultId<SpirvInstruction>(&opString);
-  return strId;
+  SpirvString *opString = new (context) SpirvString(/*SourceLocation*/ {}, str);
+  visit(opString);
+  spvInstructions.push_back(opString);
+  return getOrAssignResultId<SpirvInstruction>(opString);
 }
 
 void EmitVisitor::emitDebugNameForInstruction(uint32_t resultId,
@@ -241,11 +266,15 @@ void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc,
   section->insert(section->end(), curInst.begin(), curInst.end());
 
   if (dumpedFiles.count(fileId) == 0) {
-    SpirvString fileNameInst(/*SourceLocation*/ {}, fileName);
-    visit(&fileNameInst);
-    SpirvSource src(/*SourceLocation*/ {}, spv::SourceLanguage::HLSL,
-                    hlslVersion, &fileNameInst, "");
-    visit(&src);
+    SpirvString *fileNameInst =
+        new (context) SpirvString(/*SourceLocation*/ {}, fileName);
+    visit(fileNameInst);
+    SpirvSource *src = new (context)
+        SpirvSource(/*SourceLocation*/ {}, spv::SourceLanguage::HLSL,
+                    hlslVersion, fileNameInst, "");
+    visit(src);
+    spvInstructions.push_back(fileNameInst);
+    spvInstructions.push_back(src);
     dumpedFiles.insert(fileId);
   }
 }

@@ -516,26 +516,5 @@ void SpirvContext::moveDebugTypesToModule(SpirvModule *module) {
   typeTemplateParams.clear();
 }
 
-template <>
-std::string
-SpirvContext::getDebugTypeHashValue<SpirvType>(const SpirvType *Val) {
-  return Val->getName();
-}
-
-template <>
-std::string
-SpirvContext::getDebugTypeHashValue<ClassTemplateSpecializationDecl>(
-    const ClassTemplateSpecializationDecl *Val) {
-  return Val->getNameAsString();
-}
-
-template <>
-std::string SpirvContext::getDebugTypeHashValue<TemplateArgument>(
-    const TemplateArgument *Val) {
-  return Val->getKind() == TemplateArgument::Type
-             ? Val->getAsType().getAsString()
-             : "";
-}
-
 } // end namespace spirv
 } // end namespace clang

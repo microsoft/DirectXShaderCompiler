@@ -481,6 +481,9 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
   // OpenCL.DebugInfo.100 DebugSource
   if (spirvOptions.debugInfoRich) {
     auto *dbgSrc = spvBuilder.createDebugSource(mainSourceFile->getString());
+    // spvContext.getDebugInfo().insert() inserts {string key, RichDebugInfo}
+    // pair and returns {{string key, RichDebugInfo}, true /*Success*/}.
+    // spvContext.getDebugInfo().insert().first->second is a RichDebugInfo.
     auto *richDebugInfo =
         &spvContext.getDebugInfo()
              .insert(
@@ -693,6 +696,9 @@ SpirvEmitter::getOrCreateRichDebugInfo(const SourceLocation &loc) {
     return &it->second;
 
   auto *dbgSrc = spvBuilder.createDebugSource(file);
+  // debugInfo.insert() inserts {string key, RichDebugInfo} pair and
+  // returns {{string key, RichDebugInfo}, true /*Success*/}.
+  // debugInfo.insert().first->second is a RichDebugInfo.
   return &debugInfo
               .insert({file, RichDebugInfo(
                                  dbgSrc, spvBuilder.createDebugCompilationUnit(

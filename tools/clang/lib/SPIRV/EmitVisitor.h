@@ -199,6 +199,8 @@ public:
         lastOpWasMergeInst(false), inEntryFunctionWrapper(false),
         hlslVersion(0) {}
 
+  ~EmitVisitor();
+
   // Visit different SPIR-V constructs for emitting.
   bool visit(SpirvModule *, Phase phase) override;
   bool visit(SpirvFunction *, Phase phase) override;
@@ -394,6 +396,9 @@ private:
   // Set of files that we already dumped their source code in OpSource.
   llvm::DenseSet<uint32_t> dumpedFiles;
   uint32_t hlslVersion;
+  // Vector to contain SpirvInstruction objects created by this class. The
+  // destructor of this class will release them.
+  std::vector<SpirvInstruction *> spvInstructions;
 };
 
 } // namespace spirv

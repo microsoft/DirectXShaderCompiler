@@ -18,6 +18,7 @@
 #include "clang/SPIRV/SpirvType.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseMapInfo.h"
+#include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/Support/Allocator.h"
 
@@ -421,37 +422,18 @@ private:
   llvm::StringMap<RichDebugInfo> debugInfo;
   SpirvDebugInstruction *currentLexicalScope;
 
-  // DebugTypeMapInfo struct is used for DenseMap with key of type SpirvType,
-  // ClassTemplateSpecializationDecl, and TemplateArgument.
-  template <typename T> static std::string getDebugTypeHashValue(const T *Val);
-  template <typename T> struct DebugTypeMapInfo {
-    static inline const T *getEmptyKey() { return nullptr; }
-    static inline const T *getTombstoneKey() { return nullptr; }
-    static unsigned getHashValue(const T *Val) {
-      return llvm::hash_combine(getDebugTypeHashValue<T>(Val));
-    }
-    static bool isEqual(const T *LHS, const T *RHS) {
-      // Either both are null, or both should have the same underlying type.
-      return LHS == RHS;
-    }
-  };
-
   // Mapping from SPIR-V type to debug type instruction.
   // The purpose is not to generate several DebugType* instructions for the same
   // type if the type is used for several variables.
-  llvm::DenseMap<const SpirvType *, SpirvDebugType *,
-                 DebugTypeMapInfo<SpirvType>>
-      debugTypes;
+  llvm::MapVector<const SpirvType *, SpirvDebugType *> debugTypes;
 
   // Mapping from template decl to DebugTypeTemplate.
-  llvm::DenseMap<const ClassTemplateSpecializationDecl *,
-                 SpirvDebugTypeTemplate *,
-                 DebugTypeMapInfo<ClassTemplateSpecializationDecl>>
+  llvm::MapVector<const ClassTemplateSpecializationDecl *,
+                  SpirvDebugTypeTemplate *>
       typeTemplates;
 
   // Mapping from template parameter decl to DebugTypeTemplateParameter.
-  llvm::DenseMap<const TemplateArgument *, SpirvDebugTypeTemplateParameter *,
-                 DebugTypeMapInfo<TemplateArgument>>
+  llvm::MapVector<const TemplateArgument *, SpirvDebugTypeTemplateParameter *>
       typeTemplateParams;
 
   // Mapping from SPIR-V type to Decl for a struct type.
