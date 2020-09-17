@@ -156,6 +156,14 @@ STDMETHODIMP dxil_dia::DataSource::openSession(_COM_Outptr_ IDiaSession **ppSess
   *ppSession = nullptr;
   if (m_module.get() == nullptr)
     return E_FAIL;
+
+  ::llvm::sys::fs::MSFileSystem *msfPtr;
+  IFT(CreateMSFileSystemForDisk(&msfPtr));
+  std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
+
+  ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
+  IFTLLVM(pts.error_code());
+
   CComPtr<Session> pSession = Session::Alloc(DxcGetThreadMallocNoRef());
   IFROOM(pSession.p);
   pSession->Init(m_context, m_module, m_finder);
