@@ -370,6 +370,9 @@ Value* HLMatrixLowerPass::getLoweredByValOperand(Value *Val, IRBuilder<> &Builde
       return LoweredVal;
     }
   }
+  // Lower mat 0 to vec 0.
+  if (isa<ConstantAggregateZero>(Val))
+    return ConstantAggregateZero::get(LoweredTy);
 
   // Return a mat-to-vec translation stub
   FunctionType *TranslationStubTy = FunctionType::get(LoweredTy, { Ty }, /* isVarArg */ false);
