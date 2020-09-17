@@ -14,7 +14,11 @@
 
 #include <stdint.h>
 #include <string.h>
-#include "assert.h"
+
+// Don't include assert.h here.
+// Since this header is included from multiple environments,
+// it is necessary to define assert before this header is included.
+// #include <assert.h>
 
 #ifndef UINT_MAX
 #define UINT_MAX 0xffffffff
@@ -602,13 +606,13 @@ DxilPipelineStateValidation::CheckedReaderWriter::CheckBounds(size_t size) {
 inline bool
 DxilPipelineStateValidation::CheckedReaderWriter::IncrementPos(size_t size) {
   PSV_RETB(size <= UINT_MAX);
-  uint32_t uSize = size;
+  uint32_t uSize = (uint32_t)size;
   if (Mode == RWMode::CalcSize) {
     PSV_RETB(uSize <= Size + uSize);
     Size += uSize;
   }
   PSV_RETB(CheckBounds(size));
-  Offset += size;
+  Offset += uSize;
   return true;
 }
 
