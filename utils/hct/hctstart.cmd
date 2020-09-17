@@ -1,4 +1,5 @@
 @echo off
+setlocal enabledelayedexpansion
 
 if "%1"=="/?" goto :showhelp
 if "%1"=="-?" goto :showhelp
@@ -83,11 +84,6 @@ if errorlevel 1 (
   call :findcmake
 )
 
-call :checkcmake
-if errorlevel 1 (
-  echo WARNING: cmake version is not supported. Your build may fail.
-)
-
 where python.exe 1>nul 2>nul
 if errorlevel 1 (
   call :findpython
@@ -103,6 +99,7 @@ if errorlevel 1 (
   call :findgit
 )
 
+endlocal
 pushd %HLSL_SRC_DIR%
 
 goto :eof
@@ -119,20 +116,14 @@ echo.
 goto :eof
 
 :findcmake 
-call :ifexistaddpath "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin"
-if "%ERRORLEVEL%"=="0" (
-  echo Path adjusted to include cmake from Visual Studio 2017 Community
-  exit /b 0
-)
-call :ifexistaddpath "C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin"
-if "%ERRORLEVEL%"=="0" (
-  echo Path adjusted to include cmake from Visual Studio 2017 Professional
-  exit /b 0
-)
-call :ifexistaddpath "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin"
-if "%ERRORLEVEL%"=="0" (
-  echo Path adjusted to include cmake from Visual Studio 2017 Enterprise
-  exit /b 0
+for %%v in (2019 2017) do (
+  for %%e in (Community Professional Enterprise) do (
+    call :ifexistaddpath "%programfiles(x86)%\Microsoft Visual Studio\%%v\%%e\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin"
+    if "!ERRORLEVEL!"=="0" (
+      echo Path adjusted to include cmake from Visual Studio %%v %%e
+      exit /b 0
+    )
+  )
 )
 if errorlevel 1 if exist "%programfiles%\CMake\bin" set path=%path%;%programfiles%\CMake\bin
 if errorlevel 1 if exist "%programfiles(x86)%\CMake\bin" set path=%path%;%programfiles(x86)%\CMake\bin
@@ -167,8 +158,8 @@ if exist %1 exit /b 0
 exit /b 1
 
 :findgit 
-if exist "C:\Program Files (x86)\Git\cmd\git.exe" set path=%path%;C:\Program Files (x86)\Git\cmd
-if exist "C:\Program Files\Git\cmd\git.exe" set path=%path%;C:\Program Files\Git\cmd
+if exist "%programfiles(x86)%\Git\cmd\git.exe" set path=%path%;%programfiles(x86)%\Git\cmd
+if exist "%programfiles%\Git\cmd\git.exe" set path=%path%;%programfiles%\Git\cmd
 if exist "%LOCALAPPDATA%\Programs\Git\cmd\git.exe" set path=%path%;%LOCALAPPDATA%\Programs\Git\cmd
 where git 1>nul 2>nul
 if errorlevel 1 (
@@ -247,19 +238,4 @@ if ""=="%d3d12_sdk_ver%" (
 endlocal
 goto :eof
 
-:checkcmake 
-cmake --version | findstr 3.4.3 1>nul 2>nul
-if "0"=="%ERRORLEVEL%" exit /b 0
-cmake --version | findstr 3.7.2 1>nul 2>nul
-if "0"=="%ERRORLEVEL%" exit /b 0
-cmake --version | findstr 3.9.0-MSVC 1>nul 2>nul
-if "0"=="%ERRORLEVEL%" exit /b 0
-cmake --version | findstr 3.11.2 1>nul 2>nul
-if "0"=="%ERRORLEVEL%" exit /b 0
-cmake --version | findstr /R 3.*MSVC 1>nul 2>nul
-if errorlevel 1 (
-  echo CMake 3.4.3, 3.7.2, 3.9.0 or 3.11.2 are the currently supported versions for VS 2015 and VS 2017 - your installed cmake is not supported.
-  echo See README.md at the root for an explanation of dependencies.
-  exit /b 1
-)
-goto :eof
+endlocal
