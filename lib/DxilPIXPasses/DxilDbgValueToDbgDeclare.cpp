@@ -25,8 +25,6 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
-#include "llvm/support/filesystem.h"
-#include "llvm/support/raw_ostream.h"
 
 #define DEBUG_TYPE "dxil-dbg-value-to-dbg-declare"
 
@@ -342,7 +340,6 @@ bool DxilDbgValueToDbgDeclare::runOnModule(
       DbgValue->eraseFromParent();
     }
   }
-
   return Changed;
 }
 
@@ -354,7 +351,6 @@ void DxilDbgValueToDbgDeclare::handleDbgValue(
   auto* Zero = B.getInt32(0);
 
   llvm::DIVariable *Variable = DbgValue->getVariable();
-
   auto &Register = m_Registers[DbgValue->getVariable()];
   if (Register == nullptr)
   {
@@ -675,22 +671,7 @@ static bool SortMembers(
     }
     case llvm::dwarf::DW_TAG_subprogram: {
       if (auto *SubProgram = llvm::dyn_cast<llvm::DISubprogram>(Element)) {
-          if (auto* SubProgramType = llvm::dyn_cast<llvm::DISubroutineType>(SubProgram->getType())) {
-              //returns null: auto BaseTYpe = SubProgramType->getBaseType();
-              //crash: dTY = llvm::dyn_cast<llvm::DIDerivedType>(BaseTYpe);
-              //crash: auto* TY = llvm::dyn_cast<llvm::DIType>(BaseTYpe);
-              // returns null: auto* TY2 = llvm::dyn_cast<llvm::DIType>(Element);
-              if (SubProgramType->getSizeInBits()) {
-                  uint64_t offsetInBits = SubProgramType->getOffsetInBits();
-                  auto it = SortedMembers->emplace(
-                      std::make_pair(offsetInBits, nullptr/*SubProgramType*/));
-                  (void)it;
-                  assert(it.second &&
-                      "Invalid DISubprogram"
-                      " - members with the same offset -- are unions possible?");
-              }
-              break;
-          }
+        break;
       }
       assert(!"DISubprogram not understood");
       return false;

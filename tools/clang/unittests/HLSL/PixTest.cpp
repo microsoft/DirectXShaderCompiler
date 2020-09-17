@@ -2406,7 +2406,9 @@ void main()
   auto Testables = TestStructAnnotationCase(hlsl);
   // Can't test member iterator until dbg.declare instructions are emitted when structs
   // contain pointers-to-pointers
-  VERIFY_ARE_EQUAL(51, Testables.AllocaWrites.size());
+  
+  // Can't validate # of writes: rel and dbg are different
+  //VERIFY_ARE_EQUAL(43, Testables.AllocaWrites.size());
 
   // Can't test individual writes until struct member names are returned:
   //for (int i = 0; i < 51; ++i)
