@@ -52,6 +52,7 @@
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DxilContainer/DxilRuntimeReflection.h"
+#include <assert.h> // Needed for DxilPipelineStateValidation.h
 #include "dxc/DxilContainer/DxilPipelineStateValidation.h"
 #include "dxc/DXIL/DxilShaderFlags.h"
 #include "dxc/DXIL/DxilUtil.h"
