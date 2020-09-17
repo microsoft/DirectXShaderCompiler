@@ -58,7 +58,7 @@ PatchConstantOutput patchConstantF( const OutputPatch<HsOutput, 3 > I )
   PatchConstantOutput O = (PatchConstantOutput)0;
 
    staticST = GetST();
-   O.m = mul (staticG.m, float4(1,3,2,3));
+   O.m = mul (staticST.m, float4(1,3,2,3));
    return O;
 }
 
@@ -73,6 +73,6 @@ PatchConstantOutput patchConstantF( const OutputPatch<HsOutput, 3 > I )
 staticST = GetST();
 
 HsOutput O = (HsOutput) 0;
-  O.mat = staticG.m;
+  O.mat = staticST.m;
 return O;
 }
