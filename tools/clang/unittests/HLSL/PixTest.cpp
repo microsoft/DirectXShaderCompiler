@@ -204,6 +204,7 @@ public:
   TEST_METHOD(PixStructAnnotation_SequentialFloatN)
   TEST_METHOD(PixStructAnnotation_EmbeddedFloatN)
   TEST_METHOD(PixStructAnnotation_Matrix)
+  TEST_METHOD(PixStructAnnotation_MemberFunction)
   TEST_METHOD(PixStructAnnotation_BigMess)
 
   dxc::DxcDllSupport m_dllSupport;
@@ -1767,61 +1768,65 @@ PixTest::TestableResults PixTest::TestStructAnnotationCase(const char* hlsl)
       {
         llvm::Value* Address = dbgDeclare->getAddress();
         auto* AddressAsAlloca = llvm::dyn_cast<llvm::AllocaInst>(Address);
-        auto* Expression = dbgDeclare->getExpression();
-
-        std::unique_ptr<dxil_debug_info::MemberIterator> iterator = dxil_debug_info::CreateMemberIterator(
-          dbgDeclare,
-          moduleEtc.GetDxilModule().GetModule()->getDataLayout(),
-          AddressAsAlloca,
-          Expression);
-
-        unsigned int startingBit = 0;
-        unsigned int coveredBits = 0;
-        unsigned int memberIndex = 0;
-        while (iterator->Next(&memberIndex))
+        if (AddressAsAlloca != nullptr)
         {
-          if (memberIndex == 0)
-          {
-            startingBit = iterator->OffsetInBits(memberIndex);
-            coveredBits = iterator->SizeInBits(memberIndex);
-          }
-          else
-          {
-            coveredBits = std::max<unsigned int>( coveredBits, iterator->OffsetInBits(memberIndex) + iterator->SizeInBits(memberIndex));
-          }
-        }
+            auto* Expression = dbgDeclare->getExpression();
 
-        // memberIndex is now the count of members in this aggregate type
-        ret.OffsetAndSizes.push_back({ memberIndex, startingBit, coveredBits });
+            std::unique_ptr<dxil_debug_info::MemberIterator> iterator = dxil_debug_info::CreateMemberIterator(
+                dbgDeclare,
+                moduleEtc.GetDxilModule().GetModule()->getDataLayout(),
+                AddressAsAlloca,
+                Expression);
 
-        // Use this independent count of number of struct members to test the 
-        // function that operates on the alloca type:
-        llvm::Type *pAllocaTy = AddressAsAlloca->getType()->getElementType();
-        if (auto *AT = llvm::dyn_cast<llvm::ArrayType>(pAllocaTy))
-        {
-          // This is the case where a struct is passed to a function, and in 
-          // these tests there should be only one struct behind the pointer.
-          VERIFY_ARE_EQUAL(AT->getNumElements(), 1);
-          pAllocaTy = AT->getArrayElementType();
-        }
+            unsigned int startingBit = 0;
+            unsigned int coveredBits = 0;
+            unsigned int memberIndex = 0;
+            unsigned int memberCount = 0;
+            while (iterator->Next(&memberIndex))
+            {
+                memberCount++;
+                if (memberIndex == 0)
+                {
+                    startingBit = iterator->OffsetInBits(memberIndex);
+                    coveredBits = iterator->SizeInBits(memberIndex);
+                }
+                else
+                {
+                    coveredBits = std::max<unsigned int>(coveredBits, iterator->OffsetInBits(memberIndex) + iterator->SizeInBits(memberIndex));
+                }
+            }
 
-        if (auto* ST = llvm::dyn_cast<llvm::StructType>(pAllocaTy))
-        {
-          uint32_t countOfMembers = CountStructMembers(ST);
-          // memberIndex might be greater, because the fragment iterator also includes contained derived types as
-          // fragments, in addition to the members of that contained derived types. CountStructMembers only counts
-          // the leaf-node types.
-          VERIFY_ARE_EQUAL(countOfMembers, memberIndex);
-        }
-        else if (pAllocaTy->isFloatingPointTy() || pAllocaTy->isIntegerTy())
-        {
-          // If there's only one member in the struct in the pass-to-function (by pointer)
-          // case, then the underlying type will have been reduced to the contained type.
-          VERIFY_ARE_EQUAL(1, memberIndex);
-        }
-        else
-        {
-          VERIFY_IS_TRUE(false);
+            ret.OffsetAndSizes.push_back({ memberCount, startingBit, coveredBits });
+
+            // Use this independent count of number of struct members to test the 
+            // function that operates on the alloca type:
+            llvm::Type* pAllocaTy = AddressAsAlloca->getType()->getElementType();
+            if (auto* AT = llvm::dyn_cast<llvm::ArrayType>(pAllocaTy))
+            {
+                // This is the case where a struct is passed to a function, and in 
+                // these tests there should be only one struct behind the pointer.
+                VERIFY_ARE_EQUAL(AT->getNumElements(), 1);
+                pAllocaTy = AT->getArrayElementType();
+            }
+
+            if (auto* ST = llvm::dyn_cast<llvm::StructType>(pAllocaTy))
+            {
+                uint32_t countOfMembers = CountStructMembers(ST);
+                // memberIndex might be greater, because the fragment iterator also includes contained derived types as
+                // fragments, in addition to the members of that contained derived types. CountStructMembers only counts
+                // the leaf-node types.
+                VERIFY_ARE_EQUAL(countOfMembers, memberCount);
+            }
+            else if (pAllocaTy->isFloatingPointTy() || pAllocaTy->isIntegerTy())
+            {
+                // If there's only one member in the struct in the pass-to-function (by pointer)
+                // case, then the underlying type will have been reduced to the contained type.
+                VERIFY_ARE_EQUAL(1, memberCount);
+            }
+            else
+            {
+                VERIFY_IS_TRUE(false);
+            }
         }
       }
     }
@@ -1892,7 +1897,7 @@ PixTest::TestableResults PixTest::TestStructAnnotationCase(const char* hlsl)
 
 void PixTest::ValidateAllocaWrite(std::vector<AllocaWrite> const &allocaWrites,
                                   size_t index, const char *name) {
-  VERIFY_ARE_EQUAL(index, allocaWrites[index].index);
+  VERIFY_ARE_EQUAL(index, allocaWrites[index].regBase + allocaWrites[index].index);
 #if DBG
   // Compilation may add a prefix to the struct member name:
   VERIFY_IS_TRUE(0 == strncmp(name, allocaWrites[index].memberName.c_str(), strlen(name)));
@@ -2293,6 +2298,123 @@ void main()
     ValidateAllocaWrite(Testables.AllocaWrites, i, "");
   }
 
+}
+
+TEST_F(PixTest, PixStructAnnotation_MemberFunction) {
+  const char *hlsl = R"(
+
+RWStructuredBuffer<float> floatRWUAV: register(u0);
+
+struct smallPayload
+{
+    int i;
+};
+
+float2 signNotZero(float2 v)
+{
+ return (v > 0.0f ? float(1).xx : float(-1).xx);
+}
+
+float2 unpackUnorm2(uint packed)
+{
+ return (1.0 / 65535.0) * float2((packed >> 16) & 0xffff, packed & 0xffff);
+}
+
+float3 unpackOctahedralSnorm(float2 e)
+{
+ float3 v = float3(e.xy, 1.0f - abs(e.x) - abs(e.y));
+ if (v.z < 0.0f) v.xy = (1.0f - abs(v.yx)) * signNotZero(v.xy);
+ return normalize(v);
+}
+
+float3 unpackOctahedralUnorm(float2 e)
+{
+ return unpackOctahedralSnorm(e * 2.0f - 1.0f);
+}
+
+float2 unpackHalf2(uint packed)
+{
+ return float2(f16tof32(packed >> 16), f16tof32(packed & 0xffff));
+}
+
+struct Gbuffer
+{
+	float3 worldNormal;
+	float3 objectNormal; //offset:12
+	
+	float linearZ; //24
+	float prevLinearZ; //28
+	
+	
+	float fwidthLinearZ; //32
+	float fwidthObjectNormal; //36
+	
+	
+	uint materialType; //40
+	uint2 materialParams0; //44
+	uint4 materialParams1; //52  <--------- this is the variable that's being covered twice (52*8 = 416 416)
+	
+	uint instanceId;  //68  <------- and there's one dword left over, as expected
+	
+	
+	void load(int2 pixelPos, Texture2DArray<uint4> gbTex)
+	{
+	uint4 data0 = gbTex.Load(int4(pixelPos, 0, 0));
+	uint4 data1 = gbTex.Load(int4(pixelPos, 1, 0));
+	uint4 data2 = gbTex.Load(int4(pixelPos, 2, 0));
+	
+	
+	worldNormal = unpackOctahedralUnorm(unpackUnorm2(data0.x));
+	linearZ = f16tof32((data0.y >> 8) & 0xffff);
+	materialType = (data0.y & 0xff);
+	materialParams0 = data0.zw;
+	
+	
+	materialParams1 = data1.xyzw;
+	
+	
+	instanceId = data2.x;
+	prevLinearZ = asfloat(data2.y);
+	objectNormal = unpackOctahedralUnorm(unpackUnorm2(data2.z));
+	float2 fwidth = unpackHalf2(data2.w);
+	fwidthLinearZ = fwidth.x;
+	fwidthObjectNormal = fwidth.y;
+	}
+};
+
+Gbuffer loadGbuffer(int2 pixelPos, Texture2DArray<uint4> gbTex)
+{
+	Gbuffer output;
+	output.load(pixelPos, gbTex);
+	return output;
+}
+
+Texture2DArray<uint4> g_gbuffer : register(t0, space0);
+
+[numthreads(1, 1, 1)]
+void main()
+{	
+	const Gbuffer gbuffer = loadGbuffer(int2(0,0), g_gbuffer);
+    smallPayload p;
+    p.i = gbuffer.materialParams1.x + gbuffer.materialParams1.y + gbuffer.materialParams1.z + gbuffer.materialParams1.w;
+    DispatchMesh(1, 1, 1, p);
+}
+
+
+)";
+
+  auto Testables = TestStructAnnotationCase(hlsl);
+  // Can't test member iterator until dbg.declare instructions are emitted when structs
+  // contain pointers-to-pointers
+  
+  // Can't validate # of writes: rel and dbg are different
+  //VERIFY_ARE_EQUAL(43, Testables.AllocaWrites.size());
+
+  // Can't test individual writes until struct member names are returned:
+  //for (int i = 0; i < 51; ++i)
+  //{
+  //  ValidateAllocaWrite(Testables.AllocaWrites, i, "");
+  //}
 }
 
 TEST_F(PixTest, PixStructAnnotation_BigMess) {
