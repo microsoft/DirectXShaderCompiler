@@ -187,7 +187,6 @@ if "%BUILD_VS_VER%"=="2017" (
     exit /b 1
   )
 )
-
 if "%BUILD_VS_VER%"=="2019" (
   if not exist "%ProgramFiles(x86)%\Microsoft Visual Studio\2019" (
     echo "Cannot find Visual Studio 2019 at %ProgramFiles(x86)%\Microsoft Visual Studio\2019."
