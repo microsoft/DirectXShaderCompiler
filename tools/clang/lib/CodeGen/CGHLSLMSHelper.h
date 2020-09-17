@@ -146,9 +146,11 @@ void FinishEntries(hlsl::HLModule &HLM, const EntryFunctionInfo &Entry,
                        &patchConstantFunctionPropsMap);
 
 void FinishIntrinsics(
-    hlsl::HLModule &HLM, std::vector<std::pair<llvm::Function *, unsigned>> &intrinsicMap,
+    hlsl::HLModule &HLM,
+    std::vector<std::pair<llvm::Function *, unsigned>> &intrinsicMap,
     llvm::DenseMap<llvm::Value *, hlsl::DxilResourceProperties>
-        &valToResPropertiesMap);
+        &valToResPropertiesMap,
+    const llvm::DenseMap<llvm::Type *, hlsl::DxilResourceProperties> &resTyPropsMap);
 
 void AddDxBreak(llvm::Module &M, const llvm::SmallVector<llvm::BranchInst*, 16> &DxBreaks);
 

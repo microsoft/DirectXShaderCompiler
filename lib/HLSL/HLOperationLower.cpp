@@ -115,12 +115,17 @@ public:
     Value *counterHandle =
         CIHandle->getArgOperand(HLOperandIndex::kAnnotateHandleHandleOpIdx);
     // Change kind into StructurBufferWithCounter.
+    Constant *Props = cast<Constant>(CIHandle->getArgOperand(
+        HLOperandIndex::kAnnotateHandleResourcePropertiesOpIdx));
+    DxilResourceProperties RP = resource_helper::loadPropsFromConstant(*Props);
+    RP.setResourceKind(DXIL::ResourceKind::StructuredBufferWithCounter);
 
     CIHandle->setArgOperand(
-        HLOperandIndex::kAnnotateHandleResourceKindOpIdx,
-        ConstantInt::get(
-            i8Ty,
-            (unsigned)DXIL::ResourceKind::StructuredBufferWithCounter));
+        HLOperandIndex::kAnnotateHandleResourcePropertiesOpIdx,
+        resource_helper::getAsConstant(
+            RP,
+            HLM.GetOP()->GetResourcePropertiesType(),
+            *HLM.GetShaderModel()));
 
     DXIL::ResourceClass RC = GetRC(handle);
     DXASSERT_LOCALVAR(RC, RC == DXIL::ResourceClass::UAV,
@@ -168,20 +173,10 @@ public:
   }
 
   DxilResourceProperties GetResPropsFromAnnotateHandle(CallInst *Anno) {
-    DXIL::ResourceClass RC =
-        (DXIL::ResourceClass)cast<ConstantInt>(
-            Anno->getArgOperand(
-                HLOperandIndex::kAnnotateHandleResourceClassOpIdx))
-            ->getLimitedValue();
-    DXIL::ResourceKind RK =
-        (DXIL::ResourceKind)cast<ConstantInt>(
-            Anno->getArgOperand(
-                HLOperandIndex::kAnnotateHandleResourceKindOpIdx))
-            ->getLimitedValue();
     Constant *Props = cast<Constant>(Anno->getArgOperand(
         HLOperandIndex::kAnnotateHandleResourcePropertiesOpIdx));
-    DxilResourceProperties RP = resource_helper::loadFromConstant(
-        *Props, RC, RK);
+    DxilResourceProperties RP = resource_helper::loadPropsFromConstant(
+        *Props);
     return RP;
   }
 
@@ -198,16 +193,15 @@ private:
       hlsl::HLOpcodeGroup group =
           hlsl::GetHLOpcodeGroupByName(CI->getCalledFunction());
       if (group == HLOpcodeGroup::HLAnnotateHandle) {
-        ConstantInt *RC = cast<ConstantInt>(CI->getArgOperand(
-            HLOperandIndex::kAnnotateHandleResourceClassOpIdx));
-        ConstantInt *RK = cast<ConstantInt>(CI->getArgOperand(
-            HLOperandIndex::kAnnotateHandleResourceKindOpIdx));
+        Constant *Props = cast<Constant>(CI->getArgOperand(
+            HLOperandIndex::kAnnotateHandleResourcePropertiesOpIdx));
+        DxilResourceProperties RP =
+            resource_helper::loadPropsFromConstant(*Props);
         Type *ResTy =
             CI->getArgOperand(HLOperandIndex::kAnnotateHandleResourceTypeOpIdx)
                 ->getType();
 
-        ResAttribute Attrib = {(DXIL::ResourceClass)RC->getLimitedValue(),
-                               (DXIL::ResourceKind)RK->getLimitedValue(),
+        ResAttribute Attrib = {RP.getResourceClass(), RP.getResourceKind(),
                                ResTy};
 
         HandleMetaMap[Handle] = Attrib;
@@ -327,7 +321,7 @@ private:
 
     Type *Ty = CbPtr->getResultElementType();
     // Not support resource array in cbuffer.
-    unsigned ResBinding = HLM.GetBindingForResourceInCB(CbPtr, CbGV, RP.Class);
+    unsigned ResBinding = HLM.GetBindingForResourceInCB(CbPtr, CbGV, RP.getResourceClass());
     return CreateResourceGV(Ty, Name, RP, ResBinding);
   }
 
@@ -5270,7 +5264,8 @@ Value *TranslateGetHandleFromHeap(CallInst *CI, IntrinsicOp IOP,
   IRBuilder<> Builder(CI);
   Value *opArg = ConstantInt::get(helper.i32Ty, (unsigned)opcode);
   return Builder.CreateCall(
-      dxilFunc, {opArg, CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx),
+      dxilFunc, {opArg, CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx),
+                 CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx),
                  // TODO: update nonUniformIndex later.
                  Builder.getInt1(false)});
 }
@@ -5909,6 +5904,10 @@ void TranslateCBAddressUser(Instruction *user, Value *handle, Value *baseOffset,
     // Resource inside cbuffer is lowered after GenerateDxilOperations.
     if (dxilutil::IsHLSLObjectType(Ty)) {
       CallInst *CI = cast<CallInst>(handle);
+      // CI should be annotate handle.
+      // Need createHandle here.
+      if (GetHLOpcodeGroup(CI->getCalledFunction()) == HLOpcodeGroup::HLAnnotateHandle)
+        CI = cast<CallInst>(CI->getArgOperand(HLOperandIndex::kAnnotateHandleHandleOpIdx));
       GlobalVariable *CbGV = cast<GlobalVariable>(
           CI->getArgOperand(HLOperandIndex::kCreateHandleResourceOpIdx));
       TranslateResourceInCB(ldInst, pObjHelper, CbGV);
@@ -6397,6 +6396,11 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
     // Resource inside cbuffer is lowered after GenerateDxilOperations.
     if (dxilutil::IsHLSLObjectType(Ty)) {
       CallInst *CI = cast<CallInst>(handle);
+      // CI should be annotate handle.
+      // Need createHandle here.
+      if (GetHLOpcodeGroup(CI->getCalledFunction()) == HLOpcodeGroup::HLAnnotateHandle)
+        CI = cast<CallInst>(CI->getArgOperand(HLOperandIndex::kAnnotateHandleHandleOpIdx));
+
       GlobalVariable *CbGV = cast<GlobalVariable>(
           CI->getArgOperand(HLOperandIndex::kCreateHandleResourceOpIdx));
       TranslateResourceInCB(ldInst, pObjHelper, CbGV);

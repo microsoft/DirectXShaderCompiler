@@ -208,8 +208,9 @@ enum ArBasicKind {
   // RayQuery
   AR_OBJECT_RAY_QUERY,
 
-  // Resource
-  AR_OBJECT_RESOURCE,
+  // Heap Resource
+  AR_OBJECT_HEAP_RESOURCE,
+  AR_OBJECT_HEAP_SAMPLER,
   AR_BASIC_MAXIMUM_COUNT
 };
 
@@ -495,7 +496,8 @@ const UINT g_uBasicKindProps[] =
   0,      //AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1,
 
   0,      //AR_OBJECT_RAY_QUERY,
-  0,      //AR_OBJECT_RESOURCE,
+  0,      //AR_OBJECT_HEAP_RESOURCE,
+  0,      //AR_OBJECT_HEAP_SAMPLER,
   // AR_BASIC_MAXIMUM_COUNT
 };
 
@@ -1125,8 +1127,10 @@ static const ArBasicKind g_Texture2DArrayCT[] =
   AR_BASIC_UNKNOWN
 };
 
-static const ArBasicKind g_ResourceCT[] = {AR_OBJECT_RESOURCE,
+static const ArBasicKind g_ResourceCT[] = {AR_OBJECT_HEAP_RESOURCE,
                                            AR_BASIC_UNKNOWN};
+
+static const ArBasicKind g_SamplerStateCT[] = {AR_OBJECT_HEAP_SAMPLER, AR_BASIC_UNKNOWN};
 
 static const ArBasicKind g_RayDescCT[] =
 {
@@ -1409,7 +1413,8 @@ const ArBasicKind g_ArBasicKindsAsTypes[] =
   AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1,
 
   AR_OBJECT_RAY_QUERY,
-  AR_OBJECT_RESOURCE,
+  AR_OBJECT_HEAP_RESOURCE,
+  AR_OBJECT_HEAP_SAMPLER,
 };
 
 // Count of template arguments for basic kind of objects that look like templates (one or more type arguments).
@@ -1495,7 +1500,8 @@ const uint8_t g_ArBasicKindsTemplateCount[] =
   0, // AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1,
 
   1, // AR_OBJECT_RAY_QUERY,
-  0, // AR_OBJECT_RESOURCE,
+  0, // AR_OBJECT_HEAP_RESOURCE,
+  0, // AR_OBJECT_HEAP_SAMPLER,
 };
 
 C_ASSERT(_countof(g_ArBasicKindsAsTypes) == _countof(g_ArBasicKindsTemplateCount));
@@ -1591,7 +1597,8 @@ const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] =
   { 0, MipsFalse, SampleFalse },  // AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1,
 
   { 0, MipsFalse, SampleFalse },  // AR_OBJECT_RAY_QUERY,
-  { 0, MipsFalse, SampleFalse },  // AR_OBJECT_RESOURCE,
+  { 0, MipsFalse, SampleFalse },  // AR_OBJECT_HEAP_RESOURCE,
+  { 0, MipsFalse, SampleFalse },  // AR_OBJECT_HEAP_SAMPLER,
 };
 
 C_ASSERT(_countof(g_ArBasicKindsAsTypes) == _countof(g_ArBasicKindsSubscripts));
@@ -1712,7 +1719,8 @@ const char* g_ArBasicTypeNames[] =
   "RaytracingPipelineConfig1",
 
   "RayQuery",
-  "Resource",
+  "HEAP_Resource",
+  "HEAP_Sampler",
 };
 
 C_ASSERT(_countof(g_ArBasicTypeNames) == AR_BASIC_MAXIMUM_COUNT);
@@ -3477,8 +3485,17 @@ private:
         }
       } else if (kind == AR_OBJECT_RAY_QUERY) {
         recordDecl = DeclareRayQueryType(*m_context);
-      } else if (kind == AR_OBJECT_RESOURCE) {
-        recordDecl = DeclareResourceType(*m_context);
+      } else if (kind == AR_OBJECT_HEAP_RESOURCE) {
+        recordDecl = DeclareResourceType(*m_context, /*bSampler*/false);
+        // create Resource ResourceDescriptorHeap;
+        DeclareBuiltinGlobal("ResourceDescriptorHeap",
+                             m_context->getRecordType(recordDecl), *m_context);
+      } else if (kind == AR_OBJECT_HEAP_SAMPLER) {
+        recordDecl = DeclareResourceType(*m_context, /*bSampler*/true);
+        // create Resource SamplerDescriptorHeap;
+        DeclareBuiltinGlobal("SamplerDescriptorHeap",
+                             m_context->getRecordType(recordDecl), *m_context);
+
       }
       else if (kind == AR_OBJECT_FEEDBACKTEXTURE2D) {
         recordDecl = DeclareUIntTemplatedTypeWithHandle(*m_context, "FeedbackTexture2D", "kind");
@@ -4155,7 +4172,8 @@ public:
     case AR_OBJECT_SAMPLER:
     case AR_OBJECT_SAMPLERCOMPARISON:
 
-    case AR_OBJECT_RESOURCE:
+    case AR_OBJECT_HEAP_RESOURCE:
+    case AR_OBJECT_HEAP_SAMPLER:
 
     case AR_OBJECT_BUFFER:
 
@@ -8586,7 +8604,9 @@ bool HLSLExternalSource::CanConvert(
   }
 
   // Cast from Resource to Object types.
-  if (SourceInfo.EltKind == AR_OBJECT_RESOURCE) {
+  if (SourceInfo.EltKind == AR_OBJECT_HEAP_RESOURCE ||
+      SourceInfo.EltKind == AR_OBJECT_HEAP_SAMPLER) {
+    // TODO: skip things like PointStream.
     if (TargetInfo.ShapeKind == AR_TOBJ_OBJECT) {
       Second = ICK_Flat_Conversion;
       goto lSuccess;

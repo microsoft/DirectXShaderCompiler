@@ -25,6 +25,7 @@
 #include "dxc/Support/Global.h"
 #include "dxc/HLSL/HLOperations.h"
 #include "dxc/DXIL/DxilSemantic.h"
+#include "dxc/HlslIntrinsicOp.h"
 
 using namespace clang;
 using namespace hlsl;
@@ -865,16 +866,47 @@ CXXRecordDecl* hlsl::DeclareRayQueryType(ASTContext& context) {
   return typeDeclBuilder.completeDefinition();
 }
 
-CXXRecordDecl* hlsl::DeclareResourceType(ASTContext& context) {
+CXXRecordDecl* hlsl::DeclareResourceType(ASTContext& context, bool bSampler) {
   // struct ResourceDescriptor { uint8 desc; }
+  StringRef Name = bSampler?".Sampler":".Resource";
   BuiltinTypeDeclBuilder typeDeclBuilder(context.getTranslationUnitDecl(),
-                                         ".Resource",
+                                         Name,
                                          TagDecl::TagKind::TTK_Struct);
   typeDeclBuilder.startDefinition();
 
   typeDeclBuilder.addField("h", GetHLSLObjectHandleType(context));
 
-  return typeDeclBuilder.completeDefinition();
+  CXXRecordDecl *recordDecl = typeDeclBuilder.completeDefinition();
+
+  QualType indexType = context.UnsignedIntTy;
+  QualType resultType = context.getRecordType(recordDecl);
+  resultType = context.getConstType(resultType);
+
+  CXXMethodDecl *functionDecl = CreateObjectFunctionDeclarationWithParams(
+        context, recordDecl, resultType, ArrayRef<QualType>(indexType),
+        ArrayRef<StringRef>(StringRef("index")),
+      context.DeclarationNames.getCXXOperatorName(OO_Subscript), true);
+  // Mark function as createResourceFromHeap intrinsic.
+  functionDecl->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "",
+      static_cast<int>(hlsl::IntrinsicOp::IOP_CreateResourceFromHeap)));
+  return recordDecl;
+}
+
+VarDecl *hlsl::DeclareBuiltinGlobal(llvm::StringRef name, clang::QualType Ty,
+                              clang::ASTContext &context) {
+  IdentifierInfo &II = context.Idents.get(name);
+
+  auto *curDeclCtx =context.getTranslationUnitDecl();
+
+  VarDecl *varDecl = VarDecl::Create(context, curDeclCtx,
+                         SourceLocation(), SourceLocation(), &II, Ty,
+                         context.getTrivialTypeSourceInfo(Ty),
+                         StorageClass::SC_Extern);
+  // Mark implicit to avoid print it when rewrite.
+  varDecl->setImplicit();
+  curDeclCtx->addDecl(varDecl);
+  return varDecl;
 }
 
 bool hlsl::IsIntrinsicOp(const clang::FunctionDecl *FD) {

@@ -697,8 +697,8 @@ void HLModule::LoadDxilSamplerFromMDNode(llvm::MDNode *MD, DxilSampler &S) {
 DxilResourceBase *
 HLModule::AddResourceWithGlobalVariableAndProps(llvm::Constant *GV,
                                                  DxilResourceProperties &RP) {
-  DxilResource::Class RC = RP.Class;
-
+  DxilResource::Class RC = RP.getResourceClass();
+  DxilResource::Kind RK = RP.getResourceKind();
   unsigned rangeSize = 1;
   Type *Ty = GV->getType()->getPointerElementType();
   if (ArrayType *AT = dyn_cast<ArrayType>(Ty))
@@ -707,11 +707,11 @@ HLModule::AddResourceWithGlobalVariableAndProps(llvm::Constant *GV,
   switch (RC) {
   case DxilResource::Class::Sampler: {
     std::unique_ptr<DxilSampler> S = llvm::make_unique<DxilSampler>();
-    if (RP.Kind == DXIL::ResourceKind::SamplerComparison)
+    if (RK == DXIL::ResourceKind::SamplerComparison)
       S->SetSamplerKind(DxilSampler::SamplerKind::Comparison);
     else
       S->SetSamplerKind(DxilSampler::SamplerKind::Default);
-    S->SetKind(RP.Kind);
+    S->SetKind(RK);
     S->SetGlobalSymbol(GV);
     S->SetGlobalName(GV->getName());
     S->SetRangeSize(rangeSize);
@@ -720,16 +720,13 @@ HLModule::AddResourceWithGlobalVariableAndProps(llvm::Constant *GV,
   } break;
   case DxilResource::Class::SRV: {
     std::unique_ptr<HLResource> Res = llvm::make_unique<HLResource>();
-    if (DXIL::IsTyped(RP.Kind)) {
+    if (DXIL::IsTyped(RP.getResourceKind())) {
       Res->SetCompType(RP.Typed.CompType);
-      if (RP.Kind == DXIL::ResourceKind::Texture2DMS ||
-          RP.Kind == DXIL::ResourceKind::Texture2DMSArray)
-        Res->SetSampleCount(RP.getSampleCount());
-    } else if (DXIL::IsStructuredBuffer(RP.Kind)) {
-      Res->SetElementStride(RP.ElementStride);
+    } else if (DXIL::IsStructuredBuffer(RK)) {
+      Res->SetElementStride(RP.StructStrideInBytes);
     }
     Res->SetRW(false);
-    Res->SetKind(RP.Kind);
+    Res->SetKind(RK);
     Res->SetGlobalSymbol(GV);
     Res->SetGlobalName(GV->getName());
     Res->SetRangeSize(rangeSize);
@@ -738,19 +735,18 @@ HLModule::AddResourceWithGlobalVariableAndProps(llvm::Constant *GV,
   } break;
   case DxilResource::Class::UAV: {
     std::unique_ptr<HLResource> Res = llvm::make_unique<HLResource>();
-    if (DXIL::IsTyped(RP.Kind)) {
+    if (DXIL::IsTyped(RK)) {
       Res->SetCompType(RP.Typed.CompType);
-      Res->SetSampleCount(RP.getSampleCount());
-    } else if (DXIL::IsStructuredBuffer(RP.Kind)) {
-      Res->SetElementStride(RP.ElementStride);
+    } else if (DXIL::IsStructuredBuffer(RK)) {
+      Res->SetElementStride(RP.StructStrideInBytes);
     }
 
     Res->SetRW(true);
-    Res->SetROV(RP.UAV.bROV);
-    Res->SetGloballyCoherent(RP.UAV.bGloballyCoherent);
-    if (RP.Kind == DXIL::ResourceKind::StructuredBufferWithCounter)
+    Res->SetROV(RP.Basic.IsROV);
+    Res->SetGloballyCoherent(RP.Basic.IsGloballyCoherent);
+    if (RK == DXIL::ResourceKind::StructuredBufferWithCounter)
       Res->SetHasCounter(true);
-    Res->SetKind(RP.Kind);
+    Res->SetKind(RK);
     Res->SetGlobalSymbol(GV);
     Res->SetGlobalName(GV->getName());
     Res->SetRangeSize(rangeSize);
@@ -790,10 +786,10 @@ DXIL::ResourceClass GetRCFromType(StructType *ST, Module &M) {
     if (Ty != ST)
       continue;
     CallInst *CI = cast<CallInst>(F.user_back());
-    return (DXIL::ResourceClass)cast<ConstantInt>(
-               CI->getArgOperand(
-                   HLOperandIndex::kAnnotateHandleResourceClassOpIdx))
-        ->getLimitedValue();
+    Constant *Props = cast<Constant>(CI->getArgOperand(
+        HLOperandIndex::kAnnotateHandleResourcePropertiesOpIdx));
+    DxilResourceProperties RP = resource_helper::loadPropsFromConstant(*Props);
+    return RP.getResourceClass();
   }
   return DXIL::ResourceClass::Invalid;
 }

@@ -392,8 +392,9 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   {  OC::RayQuery_CommittedInstanceContributionToHitGroupIndex, "RayQuery_CommittedInstanceContributionToHitGroupIndex", OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadOnly, },
 
   // Get handle from heap                                                                                                    void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
-  {  OC::CreateHandleFromHeap,    "CreateHandleFromHeap",     OCC::CreateHandleFromHeap,     "createHandleFromHeap",      {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
   {  OC::AnnotateHandle,          "AnnotateHandle",           OCC::AnnotateHandle,           "annotateHandle",            {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::CreateHandleFromBinding, "CreateHandleFromBinding",  OCC::CreateHandleFromBinding,  "createHandleFromBinding",   {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::CreateHandleFromHeap,    "CreateHandleFromHeap",     OCC::CreateHandleFromHeap,     "createHandleFromHeap",      {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
 
   // Unpacking intrinsics                                                                                                    void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
   {  OC::Unpack4x8,               "Unpack4x8",                OCC::Unpack4x8,                "unpack4x8",                 { false, false, false, false, false, false,  true,  true, false, false, false}, Attribute::ReadNone, },
@@ -837,9 +838,9 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     mask = SFLAG(Mesh);
     return;
   }
-  // Instructions: CreateHandleFromHeap=216, AnnotateHandle=217, Unpack4x8=218,
-  // Pack4x8=219
-  if ((216 <= op && op <= 219)) {
+  // Instructions: AnnotateHandle=216, CreateHandleFromBinding=217,
+  // CreateHandleFromHeap=218, Unpack4x8=219, Pack4x8=220
+  if ((216 <= op && op <= 220)) {
     major = 6;  minor = 6;
     return;
   }
@@ -931,6 +932,12 @@ OP::OP(LLVMContext &Ctx, Module *pModule)
   m_pResourcePropertiesType = GetOrCreateStructType(
       m_Ctx, {Type::getInt32Ty(m_Ctx), Type::getInt32Ty(m_Ctx)},
       "dx.types.ResourceProperties", pModule);
+
+  m_pResourceBindingType =
+      GetOrCreateStructType(m_Ctx,
+                            {Type::getInt32Ty(m_Ctx), Type::getInt32Ty(m_Ctx),
+                             Type::getInt32Ty(m_Ctx), Type::getInt8Ty(m_Ctx)},
+                            "dx.types.ResBind", pModule);
 
   Type *DimsType[4] = { Type::getInt32Ty(m_Ctx), Type::getInt32Ty(m_Ctx), Type::getInt32Ty(m_Ctx), Type::getInt32Ty(m_Ctx) };
   m_pDimensionsType = GetOrCreateStructType(m_Ctx, DimsType, "dx.types.Dimensions", pModule);
@@ -1042,6 +1049,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   Type *udt = pOverloadType;
   Type *obj = pOverloadType;
   Type *resProperty = GetResourcePropertiesType();
+  Type *resBind = GetResourceBindingType();
 
   std::string funcName;
   ConstructOverloadName(pOverloadType, opCode, funcName);
@@ -1410,8 +1418,9 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   case OpCode::RayQuery_CommittedInstanceContributionToHitGroupIndex:A(pI32);     A(pI32); A(pI32); break;
 
     // Get handle from heap
-  case OpCode::CreateHandleFromHeap:   A(pRes);     A(pI32); A(pI32); A(pI1);  break;
-  case OpCode::AnnotateHandle:         A(pRes);     A(pI32); A(pRes); A(pI8);  A(pI8);  A(resProperty);break;
+  case OpCode::AnnotateHandle:         A(pRes);     A(pI32); A(pRes); A(resProperty);break;
+  case OpCode::CreateHandleFromBinding:A(pRes);     A(pI32); A(resBind);A(pI32); A(pI1);  break;
+  case OpCode::CreateHandleFromHeap:   A(pRes);     A(pI32); A(pI32); A(pI1);  A(pI1);  break;
 
     // Unpacking intrinsics
   case OpCode::Unpack4x8:              VEC4(pETy);  A(pI32); A(pI8);  A(pI32); break;
@@ -1587,8 +1596,9 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::RayQuery_Abort:
   case OpCode::RayQuery_CommitNonOpaqueTriangleHit:
   case OpCode::RayQuery_CommitProceduralPrimitiveHit:
-  case OpCode::CreateHandleFromHeap:
   case OpCode::AnnotateHandle:
+  case OpCode::CreateHandleFromBinding:
+  case OpCode::CreateHandleFromHeap:
     return Type::getVoidTy(Ctx);
   case OpCode::CheckAccessFullyMapped:
   case OpCode::SampleIndex:
@@ -1688,6 +1698,10 @@ Type *OP::GetHandleType() const {
 
 Type *OP::GetResourcePropertiesType() const {
   return m_pResourcePropertiesType;
+}
+
+Type *OP::GetResourceBindingType() const {
+  return m_pResourceBindingType;
 }
 
 Type *OP::GetDimensionsType() const
