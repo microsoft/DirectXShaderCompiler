@@ -3353,6 +3353,8 @@ void CGMSHLSLRuntime::FinishCodeGen() {
           if (GV.getName() == "llvm.global_ctors")
             continue;
           Value *V = GV.getInitializer();
+          if (isa<UndefValue>(V))
+            continue;
           B.CreateStore(V, &GV);
         }
       }
