@@ -298,8 +298,11 @@ public:
   TEST_METHOD(WaveSizeTest);
   TEST_METHOD(PartialDerivTest);
   TEST_METHOD(DerivativesTest);
-  TEST_METHOD(QuadReadTest);
   TEST_METHOD(ComputeSampleTest);
+
+  BEGIN_TEST_METHOD(QuadReadTest)
+    TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.0
+  END_TEST_METHOD()
 
   BEGIN_TEST_METHOD(CBufferTestHalf)
     TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.2
