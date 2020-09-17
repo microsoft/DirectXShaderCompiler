@@ -696,8 +696,18 @@ void PMTopLevelManager::schedulePass(Pass *P) {
 
   // HLSL Change - begin
   if (PI && !PI->isAnalysis() && this->HLSLPrintAfterAll) {
+    class direct_stderr_stream : public raw_ostream {
+      uint64_t current_pos() const override { return 0; }
+      /// See raw_ostream::write_impl.
+      void write_impl(const char *Ptr, size_t Size) override {
+        fwrite(Ptr, Size, 1, stderr);
+      }
+    };
+
+    static direct_stderr_stream stderr_stream;
+
     Pass *PP = P->createPrinterPass(
-      errs(), std::string("*** IR Dump After ") + P->getPassName() + " (" + PI->getPassArgument() + ") ***");
+      stderr_stream, std::string("*** IR Dump After ") + P->getPassName() + " (" + PI->getPassArgument() + ") ***");
     PP->assignPassManager(activeStack, getTopLevelPassManagerType());
   }
   // HLSL Change - end
