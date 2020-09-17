@@ -1,5 +1,4 @@
 @echo off
-setlocal enabledelayedexpansion
 
 if "%1"=="/?" goto :showhelp
 if "%1"=="-?" goto :showhelp
@@ -99,7 +98,6 @@ if errorlevel 1 (
   call :findgit
 )
 
-endlocal
 pushd %HLSL_SRC_DIR%
 
 goto :eof
@@ -118,9 +116,9 @@ goto :eof
 :findcmake 
 for %%v in (2019 2017) do (
   for %%e in (Community Professional Enterprise) do (
-    call :ifexistaddpath "%programfiles(x86)%\Microsoft Visual Studio\%%v\%%e\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin"
-    if "!ERRORLEVEL!"=="0" (
-      echo Path adjusted to include cmake from Visual Studio %%v %%e
+    if exist "%programfiles(x86)%\Microsoft Visual Studio\%%v\%%e\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin" (
+      set "PATH=%PATH%;%programfiles(x86)%\Microsoft Visual Studio\%%v\%%e\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin"
+      echo Path adjusted to include cmake from Visual Studio %%v %%e.
       exit /b 0
     )
   )
@@ -150,12 +148,6 @@ if errorlevel 1 (
   exit /b 1
 )
 echo Path adjusted to include TAEF te.exe.
-
-:ifexistaddpath 
-rem If the argument exists, add to PATH and return 0, else 1. Useful to avoid parens in values without setlocal changes.
-if exist %1 set PATH=%PATH%;%~1
-if exist %1 exit /b 0
-exit /b 1
 
 :findgit 
 if exist "%programfiles(x86)%\Git\cmd\git.exe" set path=%path%;%programfiles(x86)%\Git\cmd
