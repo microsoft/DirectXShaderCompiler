@@ -8460,6 +8460,7 @@ bool HLSLExternalSource::CanConvert(
   if ((SourceInfo.EltKind == AR_OBJECT_CONSTANT_BUFFER ||
        SourceInfo.EltKind == AR_OBJECT_TEXTURE_BUFFER) &&
       TargetInfo.ShapeKind == AR_TOBJ_COMPOUND) {
+    standard->Second = ICK_Flat_Conversion;
     return hlsl::GetHLSLResourceResultType(source) == target;
   }
 

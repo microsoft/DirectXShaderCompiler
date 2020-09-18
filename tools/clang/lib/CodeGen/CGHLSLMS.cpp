@@ -5129,21 +5129,6 @@ void CGMSHLSLRuntime::EmitHLSLAggregateCopy(
     Value *ldMat = EmitHLSLMatrixLoad(CGF, SrcMatPtr, SrcType);
     EmitHLSLMatrixStore(CGF, ldMat, DestMatPtr, DestType);
   } else if (StructType *ST = dyn_cast<StructType>(Ty)) {
-    if (GetResourceClassForType(CGM.getContext(), SrcType) ==
-        DXIL::ResourceClass::CBuffer) {
-      llvm::Type *ResultTy =
-          CGM.getTypes().ConvertType(hlsl::GetHLSLResourceResultType(SrcType));
-      if (ResultTy == DestPtr->getType()->getPointerElementType()) {
-        // Cast ConstantBuffer to result type then copy.
-        Value *Cast = CGF.Builder.CreateBitCast(
-            SrcPtr, ResultTy->getPointerTo(
-                        DestPtr->getType()->getPointerAddressSpace()));
-        unsigned size = TheModule.getDataLayout().getTypeAllocSize(
-            DestPtr->getType()->getPointerElementType());
-        CGF.Builder.CreateMemCpy(DestPtr, Cast, size, 1);
-        return;
-      }
-    }
     if (dxilutil::IsHLSLObjectType(ST)) {
       // Avoid split HLSL object.
       SimpleCopy(DestPtr, SrcPtr, idxList, CGF.Builder);
@@ -5282,6 +5267,20 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(CodeGenFunction &CGF, 
     // Store to resource ptr.
     CGF.Builder.CreateStore(V, DestPtr);
     return;
+  } else if (GetResourceClassForType(CGM.getContext(), SrcTy) ==
+             DXIL::ResourceClass::CBuffer) {
+    llvm::Type *ResultTy =
+        CGM.getTypes().ConvertType(hlsl::GetHLSLResourceResultType(SrcTy));
+    if (ResultTy == DestPtrTy) {
+      // Cast ConstantBuffer to result type then copy.
+      Value *Cast = CGF.Builder.CreateBitCast(
+          SrcPtr,
+          ResultTy->getPointerTo(DestPtr->getType()->getPointerAddressSpace()));
+      unsigned size = TheModule.getDataLayout().getTypeAllocSize(
+          DestPtrTy);
+      CGF.Builder.CreateMemCpy(DestPtr, Cast, size, 1);
+      return;
+    }
   } else if (dxilutil::IsHLSLObjectType(dxilutil::GetArrayEltTy(SrcPtrTy)) &&
              dxilutil::IsHLSLObjectType(dxilutil::GetArrayEltTy(DestPtrTy))) {
     unsigned sizeSrc = TheModule.getDataLayout().getTypeAllocSize(SrcPtrTy);
