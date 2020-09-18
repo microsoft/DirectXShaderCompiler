@@ -5140,7 +5140,7 @@ void CGMSHLSLRuntime::EmitHLSLAggregateCopy(
               SrcPtr, ResultTy->getPointerTo(
                           DestPtr->getType()->getPointerAddressSpace()));
           unsigned size = TheModule.getDataLayout().getTypeAllocSize(
-              SrcPtr->getType()->getPointerElementType());
+              DestPtr->getType()->getPointerElementType());
           CGF.Builder.CreateMemCpy(DestPtr, Cast, size, 1);
           return;
         }
@@ -5287,16 +5287,6 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(CodeGenFunction &CGF, 
     unsigned sizeSrc = TheModule.getDataLayout().getTypeAllocSize(SrcPtrTy);
     unsigned sizeDest = TheModule.getDataLayout().getTypeAllocSize(DestPtrTy);
     CGF.Builder.CreateMemCpy(DestPtr, SrcPtr, std::max(sizeSrc, sizeDest), 1);
-    return;
-  } else if (GetResourceClassForType(CGM.getContext(), SrcTy) ==
-                 DXIL::ResourceClass::CBuffer &&
-             SrcPtrTy->isStructTy() &&
-             SrcPtrTy->getStructElementType(0) == DestPtrTy) {
-    // Go deeper one level to avoid ConstantBuffer struct.
-    Value *ZeroIdx = CGF.Builder.getInt32(0);
-    Value *GEP = CGF.Builder.CreateGEP(nullptr, SrcPtr, {ZeroIdx, ZeroIdx});
-    unsigned size = TheModule.getDataLayout().getTypeAllocSize(SrcPtrTy);
-    CGF.Builder.CreateMemCpy(DestPtr, GEP, size, 1);
     return;
   } else if (GlobalVariable *GV = dyn_cast<GlobalVariable>(DestPtr)) {
     if (GV->isInternalLinkage(GV->getLinkage()) &&
