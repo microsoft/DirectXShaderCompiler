@@ -4753,10 +4753,11 @@ public:
     SourceLocation OpLoc,
     SourceLocation MemberLoc);
 
-  /// <summary>If E is a scalar, converts it to a 1-element vector.</summary>
+  /// <summary>If E is a scalar, converts it to a 1-element vector. If E is a
+  /// Constant/TextureBuffer<T>, converts it to const T.</summary>
   /// <param name="E">Expression to convert.</param>
   /// <returns>The result of the conversion; or E if the type is not a scalar.</returns>
-  ExprResult MaybeConvertScalarToVector(_In_ clang::Expr* E);
+  ExprResult MaybeConvertMemberAccess(_In_ clang::Expr* E);
 
   clang::Expr *HLSLImpCastToScalar(
     _In_ clang::Sema* self,
@@ -7773,7 +7774,7 @@ ExprResult HLSLExternalSource::LookupArrayMemberExprForHLSL(
 }
   
 
-ExprResult HLSLExternalSource::MaybeConvertScalarToVector(_In_ clang::Expr* E) {
+ExprResult HLSLExternalSource::MaybeConvertMemberAccess(_In_ clang::Expr* E) {
   DXASSERT_NOMSG(E != nullptr);
 
   if (IsHLSLBufferViewType(E->getType())) {
@@ -8456,7 +8457,8 @@ bool HLSLExternalSource::CanConvert(
   }
 
   // Cast cbuffer to its result value.
-  if (SourceInfo.EltKind == AR_OBJECT_CONSTANT_BUFFER &&
+  if ((SourceInfo.EltKind == AR_OBJECT_CONSTANT_BUFFER ||
+       SourceInfo.EltKind == AR_OBJECT_TEXTURE_BUFFER) &&
       TargetInfo.ShapeKind == AR_TOBJ_COMPOUND) {
     return hlsl::GetHLSLResourceResultType(source) == target;
   }
@@ -10297,11 +10299,11 @@ bool hlsl::LookupRecordMemberExprForHLSL(
   return false;
 }
 
-clang::ExprResult hlsl::MaybeConvertScalarToVector(
+clang::ExprResult hlsl::MaybeConvertMemberAccess(
   _In_ clang::Sema* self,
   _In_ clang::Expr* E)
 {
-  return HLSLExternalSource::FromSema(self)->MaybeConvertScalarToVector(E);
+  return HLSLExternalSource::FromSema(self)->MaybeConvertMemberAccess(E);
 }
 
 bool hlsl::TryStaticCastForHLSL(_In_ Sema* self, ExprResult &SrcExpr,
