@@ -312,6 +312,8 @@ enum CastKind {
   CK_HLSLVectorToMatrixCast,
   CK_HLSLMatrixToVectorCast,
   CK_HLSLDerivedToBase,
+  // Convert Constant/TextureBufferView to its result type.
+  CK_HLSLBufferViewToResultCast,
   // HLSL ComponentConversion (HLSLCC) Casts:
   CK_HLSLCC_IntegralCast,
   CK_HLSLCC_IntegralToBoolean,

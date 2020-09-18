@@ -831,6 +831,27 @@ CXXRecordDecl* hlsl::DeclareUIntTemplatedTypeWithHandle(
   return typeDeclBuilder.completeDefinition();
 }
 
+clang::CXXRecordDecl *
+hlsl::DeclareConstantBufferViewType(clang::ASTContext &context, bool bTBuf) {
+  // Create ConstantBufferView template declaration in translation unit scope.
+  // template<typename T> ConstantBuffer : public T {}
+  DeclContext *DC = context.getTranslationUnitDecl();
+
+  BuiltinTypeDeclBuilder typeDeclBuilder(DC, bTBuf ? "TextureBuffer"
+                                                   : "ConstantBuffer");
+  TemplateTypeParmDecl *elementTemplateParamDecl =
+      typeDeclBuilder.addTypeTemplateParam("T");
+  typeDeclBuilder.startDefinition();
+  CXXRecordDecl *templateRecordDecl = typeDeclBuilder.getRecordDecl();
+
+  typeDeclBuilder.addField(
+      "h", context.UnsignedIntTy); // Add an 'h' field to hold the handle.
+
+  typeDeclBuilder.completeDefinition();
+
+  return templateRecordDecl;
+}
+
 CXXRecordDecl* hlsl::DeclareRayQueryType(ASTContext& context) {
   // template<uint kind> RayQuery { ... }
   BuiltinTypeDeclBuilder typeDeclBuilder(context.getTranslationUnitDecl(), "RayQuery");

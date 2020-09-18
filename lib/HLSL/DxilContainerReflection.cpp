@@ -1262,7 +1262,15 @@ void CShaderReflectionConstantBuffer::Initialize(
 
     // Replicate fxc bug, where Elements == 1 for inner struct of CB array, instead of 0.
     if (CB.GetRangeSize() > 1) {
-      DXASSERT(pVarType->m_Desc.Elements == 0, "otherwise, assumption is wrong");
+      DXASSERT(pVarType->m_Desc.Elements == 0,
+               "otherwise, assumption is wrong");
+      pVarType->m_Desc.Elements = 1;
+    } else if (CB.GetGlobalSymbol()
+                   ->getType()
+                   ->getPointerElementType()
+                   ->isArrayTy() &&
+               CB.GetRangeSize() == 1) {
+      // Set elements to 1 for size 1 array.
       pVarType->m_Desc.Elements = 1;
     }
 

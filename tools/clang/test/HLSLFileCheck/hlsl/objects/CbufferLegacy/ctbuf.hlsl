@@ -4,11 +4,11 @@ struct S {
   float4 f;
 };
 
-// CHECK: ConstantBuffer
-// CHECK: <line:9:16, col:19> col:19 myCBuffer 'const S'
+
+// CHECK: <line:9:1, col:19> col:19 myCBuffer 'ConstantBuffer<S>':'ConstantBuffer<S>'
 ConstantBuffer<S> myCBuffer;
-// CHECK: TextureBuffer
-// CHECK: <line:12:15, col:18> col:18 myTBffer 'const S'
+
+// CHECK: <line:12:1, col:18> col:18 myTBffer 'TextureBuffer<S>':'TextureBuffer<S>'
 TextureBuffer<S> myTBffer;
 
 // CHECK: cbuffer
