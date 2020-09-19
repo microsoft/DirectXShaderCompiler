@@ -546,6 +546,9 @@ public:
     FailOnPoisonResources();
 
     bool bChanged = false;
+    if (DM.GetShaderModel()->IsSM66Plus())
+      bChanged = PatchDynamicTBuffers(DM);
+
     unsigned numResources = DM.GetCBuffers().size() + DM.GetUAVs().size() +
                             DM.GetSRVs().size() + DM.GetSamplers().size();
 
@@ -555,7 +558,9 @@ public:
     // Switch tbuffers to SRVs, as they have been treated as cbuffers up to this
     // point.
     if (DM.GetCBuffers().size())
-      bChanged = PatchTBuffers(DM) || bChanged;
+      bChanged |= PatchTBuffers(DM) || bChanged;
+
+
 
     // Gather reserved resource registers while we still have
     // unused resources that might have explicit register assignments.
@@ -630,6 +635,7 @@ private:
   void GenerateDxilResourceHandles();
   void UpdateStructTypeForLegacyLayout();
   // Switch CBuffer for SRV for TBuffers.
+  bool PatchDynamicTBuffers(DxilModule &DM);
   bool PatchTBuffers(DxilModule &DM);
   void PatchTBufferUse(Value *V, DxilModule &DM, DenseSet<Value *> &patchedSet);
   void UpdateCBufferUsage();
@@ -2267,6 +2273,38 @@ void DxilLowerCreateHandleForLib::PatchTBufferUse(
       PatchTBufferUse(U, DM, patchedSet);
     }
   }
+}
+
+bool DxilLowerCreateHandleForLib::PatchDynamicTBuffers(DxilModule &DM) {
+  hlsl::OP *hlslOP = DM.GetOP();
+  Function *AnnotHandleFn = hlslOP->GetOpFunc(DXIL::OpCode::AnnotateHandle,
+                                              Type::getVoidTy(DM.GetCtx()));
+  if (AnnotHandleFn->user_empty()) {
+    AnnotHandleFn->eraseFromParent();
+    return false;
+  }
+  bool bUpdated = false;
+  for (User *U : AnnotHandleFn->users()) {
+    CallInst *CI = cast<CallInst>(U);
+    DxilInst_AnnotateHandle annot(CI);
+    DxilResourceProperties RP = resource_helper::loadPropsFromAnnotateHandle(
+        annot, hlslOP->GetResourcePropertiesType(), *DM.GetShaderModel());
+
+    if (RP.getResourceKind() != DXIL::ResourceKind::TBuffer)
+      continue;
+    // Skip handle from createHandleForLib which take care in PatchTBuffers.
+    if (CallInst *HdlCI = dyn_cast<CallInst>(annot.get_res())) {
+      if (hlslOP->IsDxilOpFuncCallInst(HdlCI)) {
+        if (hlslOP->GetDxilOpFuncCallInst(HdlCI) == DXIL::OpCode::CreateHandleForLib)
+          continue;
+      }
+    }
+
+    DenseSet<Value *> patchedSet;
+    PatchTBufferLoad(CI, DM, patchedSet);
+    bUpdated = true;
+  }
+  return bUpdated;
 }
 
 bool DxilLowerCreateHandleForLib::PatchTBuffers(DxilModule &DM) {

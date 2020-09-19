@@ -76,6 +76,71 @@ CallInst *CreateAnnotateHandle(HLModule &HLM, Value *Handle,
       {Handle, RPConstant, UndefValue::get(ResTy)}, *HLM.GetModule());
 }
 
+// Lower CBV bitcast use to handle use.
+// Leave the load/store.
+void LowerDynamicCBVUseToHandle(
+    HLModule &HLM,
+    DenseMap<Value *, DxilResourceProperties> &valToResPropertiesMap) {
+  Type *HandleTy = HLM.GetOP()->GetHandleType();
+  Module &M = *HLM.GetModule();
+  // Collect BitCast use of CBV.
+  SmallVector<std::pair<BitCastInst *, DxilResourceProperties>, 4> BitCasts;
+  for (auto it : valToResPropertiesMap) {
+    DxilResourceProperties RP = it.second;
+    if (RP.getResourceKind() != DXIL::ResourceKind::CBuffer &&
+        RP.getResourceKind() != DXIL::ResourceKind::TBuffer)
+      continue;
+    Value *V = it.first;
+    // Skip external globals.
+    if (GlobalVariable *GV = dyn_cast<GlobalVariable>(V)) {
+      if (GV->getLinkage() != GlobalValue::LinkageTypes::InternalLinkage)
+        continue;
+    }
+    for (auto UserIt = V->user_begin(); UserIt != V->user_end();) {
+      User *U = *(UserIt++);
+      if (U->user_empty())
+        continue;
+      if (BitCastInst *BCI = dyn_cast<BitCastInst>(U)) {
+        BitCasts.emplace_back(std::make_pair(BCI, RP));
+        continue;
+      }
+      DXASSERT((!isa<BitCastOperator>(U) || U->user_empty()),
+               "all BitCast should be BitCastInst");
+    }
+  }
+
+  for (auto it : BitCasts) {
+    BitCastInst *BCI = it.first;
+    DxilResourceProperties RP = it.second;
+    IRBuilder<> B(BCI);
+    B.AllowFolding = false;
+    Value *ObjV = BCI->getOperand(0);
+    Value *Handle = CreateHandleFromResPtr(ObjV, HLM, HandleTy, B);
+    Type *ResTy = ObjV->getType()->getPointerElementType();
+    Handle = CreateAnnotateHandle(HLM, Handle, RP, ResTy, B);
+    // Create cb subscript.
+    llvm::Type *opcodeTy = B.getInt32Ty();
+    llvm::Type *idxTy = opcodeTy;
+    Constant *zeroIdx = ConstantInt::get(opcodeTy, 0);
+
+    Type *cbTy = BCI->getType();
+    llvm::FunctionType *SubscriptFuncTy =
+        llvm::FunctionType::get(cbTy, {opcodeTy, HandleTy, idxTy}, false);
+
+    Function *subscriptFunc =
+        GetOrCreateHLFunction(M, SubscriptFuncTy, HLOpcodeGroup::HLSubscript,
+                              (unsigned)HLSubscriptOpcode::CBufferSubscript);
+    Constant *opArg = ConstantInt::get(
+        opcodeTy, (unsigned)HLSubscriptOpcode::CBufferSubscript);
+    Value *args[] = {opArg, Handle, zeroIdx};
+
+    Instruction *cbSubscript =
+        cast<Instruction>(B.CreateCall(subscriptFunc, {args}));
+    BCI->replaceAllUsesWith(cbSubscript);
+    BCI->eraseFromParent();
+  }
+}
+
 bool IsHLSLSamplerDescType(llvm::Type *Ty) {
   if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
     if (!ST->hasName())
@@ -83,6 +148,19 @@ bool IsHLSLSamplerDescType(llvm::Type *Ty) {
     StringRef name = ST->getName();
 
     if (name == "struct..Sampler")
+      return true;
+  }
+  return false;
+}
+
+bool IsHLSLBufferViewType(llvm::Type *Ty) {
+  if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
+    if (!ST->hasName())
+      return false;
+    StringRef name = ST->getName();
+
+    if (name.startswith("class.ConstantBuffer") ||
+        name.startswith("class.TextureBuffer"))
       return true;
   }
   return false;
@@ -145,7 +223,9 @@ void LowerGetResourceFromHeap(
       User *U = *(uit++);
       BitCastInst *BCI = cast<BitCastInst>(U);
       DXASSERT(
-          dxilutil::IsHLSLResourceType(BCI->getType()->getPointerElementType()),
+          dxilutil::IsHLSLResourceType(
+              BCI->getType()->getPointerElementType()) ||
+              IsHLSLBufferViewType(BCI->getType()->getPointerElementType()),
           "illegal cast of resource ptr");
       for (auto cuit = BCI->user_begin(); cuit != BCI->user_end();) {
         LoadInst *LI = cast<LoadInst>(*(cuit++));
@@ -2660,6 +2740,8 @@ void FinishIntrinsics(
   // Lower getResourceHeap before AddOpcodeParamForIntrinsics to skip automatic
   // lower for getResourceFromHeap.
   LowerGetResourceFromHeap(HLM, intrinsicMap, resTyPropsMap);
+  // Lower bitcast use of CBV into cbSubscript.
+  LowerDynamicCBVUseToHandle(HLM, valToResPropertiesMap);
   // translate opcode into parameter for intrinsic functions
   // Do this before CloneShaderEntry and TranslateRayQueryConstructor to avoid
   // update valToResPropertiesMap for cloned inst.
