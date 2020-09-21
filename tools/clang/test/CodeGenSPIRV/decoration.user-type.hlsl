@@ -1,5 +1,8 @@
 // Run: %dxc -T ps_6_0 -E main -fspv-reflect
 
+// CHECK: OpExtension "SPV_GOOGLE_hlsl_functionality1"
+// CHECK: OpExtension "SPV_GOOGLE_user_type"
+
 // CHECK: OpDecorateString %a UserTypeGOOGLE "structuredbuffer"
 StructuredBuffer<float> a;
 // CHECK: OpDecorateString %b UserTypeGOOGLE "rwstructuredbuffer"

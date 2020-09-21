@@ -5,6 +5,7 @@ RWTexture2D<uint2> uint2buf;
 RWTexture3D<float3> float3buf;
 RWTexture1DArray<float4> float4buf;
 RWTexture2DArray<int3> int3buf;
+RWTexture2D<float> vec1buf;
 
 // CHECK: OpCapability SparseResidency
 
@@ -42,6 +43,10 @@ void main() {
 // CHECK-NEXT: [[r5:%\d+]] = OpVectorShuffle %v3int [[ret5]] [[ret5]] 0 1 2
 // CHECK-NEXT: OpStore %e [[r5]]
   int3 e   = int3buf.Load(0);
+
+// CHECK:      [[img6:%\d+]] = OpLoad %type_2d_image_0 %vec1buf
+// CHECK-NEXT:      {{%\d+}} = OpImageRead %v4float [[img6]] {{%\d+}} None
+  float f = vec1buf.Load(0);
 
   uint status;
 // CHECK:              [[img1:%\d+]] = OpLoad %type_1d_image %intbuf

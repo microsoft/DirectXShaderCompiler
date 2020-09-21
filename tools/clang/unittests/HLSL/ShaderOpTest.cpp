@@ -418,6 +418,64 @@ void ShaderOpTest::CreatePipelineState() {
     InitByteCode(&CDesc.CS, pCS);
     CHECK_HR(m_pDevice->CreateComputePipelineState(&CDesc, IID_PPV_ARGS(&m_pPSO)));
   }
+  // Wakanda technology, needs vibranium to work
+#if defined(NTDDI_WIN10_VB) && WDK_NTDDI_VERSION >= NTDDI_WIN10_VB
+  else if (m_pShaderOp->MS) {
+    // A couple types from a future version of d3dx12.h
+    typedef CD3DX12_PIPELINE_STATE_STREAM_SUBOBJECT< D3D12_SHADER_BYTECODE, D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_MS>  CD3DX12_PIPELINE_STATE_STREAM_MS;
+    typedef CD3DX12_PIPELINE_STATE_STREAM_SUBOBJECT< D3D12_SHADER_BYTECODE, D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_AS>  CD3DX12_PIPELINE_STATE_STREAM_AS;
+
+    struct D3DX12_MESH_SHADER_PIPELINE_STATE_DESC
+    {
+      ID3D12RootSignature*          pRootSignature;
+      D3D12_SHADER_BYTECODE         AS;
+      D3D12_SHADER_BYTECODE         MS;
+      D3D12_SHADER_BYTECODE         PS;
+      D3D12_BLEND_DESC              BlendState;
+      UINT                          SampleMask;
+      D3D12_RASTERIZER_DESC         RasterizerState;
+      D3D12_DEPTH_STENCIL_DESC      DepthStencilState;
+      D3D12_PRIMITIVE_TOPOLOGY_TYPE PrimitiveTopologyType;
+      UINT                          NumRenderTargets;
+      DXGI_FORMAT                   RTVFormats[ D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT ];
+      DXGI_FORMAT                   DSVFormat;
+      DXGI_SAMPLE_DESC              SampleDesc;
+      UINT                          NodeMask;
+      D3D12_CACHED_PIPELINE_STATE   CachedPSO;
+      D3D12_PIPELINE_STATE_FLAGS    Flags;
+    } MDesc;
+
+    CComPtr<ID3D10Blob> pAS, pMS, pPS;
+    pAS = map_get_or_null(m_Shaders, m_pShaderOp->AS);
+    pMS = map_get_or_null(m_Shaders, m_pShaderOp->MS);
+    pPS = map_get_or_null(m_Shaders, m_pShaderOp->PS);
+
+    ZeroMemory(&MDesc, sizeof(MDesc));
+    MDesc.pRootSignature = m_pRootSignature.p;
+    InitByteCode(&MDesc.AS, pAS);
+    InitByteCode(&MDesc.MS, pMS);
+    InitByteCode(&MDesc.PS, pPS);
+    MDesc.PrimitiveTopologyType = m_pShaderOp->PrimitiveTopologyType;
+    MDesc.NumRenderTargets = (UINT)m_pShaderOp->RenderTargets.size();
+    MDesc.SampleMask = m_pShaderOp->SampleMask;
+    for (size_t i = 0; i < m_pShaderOp->RenderTargets.size(); ++i) {
+      ShaderOpResource *R = m_pShaderOp->GetResourceByName(m_pShaderOp->RenderTargets[i]);
+      MDesc.RTVFormats[i] = R->Desc.Format;
+    }
+    MDesc.SampleDesc.Count = 1; // TODO: read from file, set from shader operation; also apply to count
+    MDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT); // TODO: read from file, set from op
+    MDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT); // TODO: read from file, set from op
+
+    D3D12_PIPELINE_STATE_STREAM_DESC PDesc = {};
+    PDesc.SizeInBytes = sizeof(MDesc);
+    PDesc.pPipelineStateSubobjectStream = &MDesc;
+
+    ID3D12Device2 *pDevice2;
+    CHECK_HR(m_pDevice->QueryInterface(&pDevice2));
+
+    pDevice2->CreatePipelineState(&PDesc, IID_PPV_ARGS(&m_pPSO));
+  }
+#endif
   else {
     CComPtr<ID3D10Blob> pVS, pDS, pHS, pGS, pPS;
     pPS = map_get_or_null(m_Shaders, m_pShaderOp->PS);
@@ -509,6 +567,9 @@ void ShaderOpTest::CreateResources() {
         }
       }
     }
+    if (!R.Desc.MipLevels)
+      R.Desc.MipLevels = 1;
+
 
     CComPtr<ID3D12Resource> pResource;
     CHECK_HR(m_pDevice->CreateCommittedResource(
@@ -527,7 +588,7 @@ void ShaderOpTest::CreateResources() {
 
       // Calculate size required for intermediate buffer
       UINT64 totalBytes;
-      m_pDevice->GetCopyableFootprints(&uploadDesc, 0, 1, 0, nullptr, nullptr, nullptr, &totalBytes);
+      m_pDevice->GetCopyableFootprints(&uploadDesc, 0, R.Desc.MipLevels, 0, nullptr, nullptr, nullptr, &totalBytes);
 
       if (!isBuffer) {
         // Assuming a simple linear layout here.
@@ -552,12 +613,27 @@ void ShaderOpTest::CreateResources() {
         SetObjectName(pIntermediate, uploadObjectName);
       }
 
-      D3D12_SUBRESOURCE_DATA transferData;
-      transferData.pData = values.data();
-      transferData.RowPitch = values.size() / R.Desc.Height;
-      transferData.SlicePitch = values.size();
-      UpdateSubresources<1>(pList, pResource.p, pIntermediate.p, 0, 0, 1,
-                            &transferData);
+      D3D12_SUBRESOURCE_DATA transferData[16];
+      UINT width = R.Desc.Width;
+      UINT height = R.Desc.Height;
+      UINT pixelSize = GetByteSizeForFormat(R.Desc.Format);
+      BYTE *data = values.data();
+
+      VERIFY_IS_TRUE(R.Desc.MipLevels <= 16);
+
+      for (UINT i = 0; i < R.Desc.MipLevels; i++) {
+        if(!height) height = 1;
+        if(!width) width = 1;
+        transferData[i].pData = data;
+        transferData[i].RowPitch = width*pixelSize;
+        transferData[i].SlicePitch = width*height*pixelSize;
+        data += width*height*pixelSize;
+        height >>= 1;
+        width >>= 1;
+      }
+
+      UpdateSubresources<16>(pList, pResource.p, pIntermediate.p, 0, 0, R.Desc.MipLevels,
+                             transferData);
     }
 
     if (R.ReadBack) {
@@ -1865,6 +1941,8 @@ void ShaderOpParser::ParseShaderOp(IXmlReader *pReader, ShaderOp *pShaderOp) {
     return;
   CHECK_HR(ReadAttrStr(pReader, L"Name", &pShaderOp->Name));
   CHECK_HR(ReadAttrStr(pReader, L"CS", &pShaderOp->CS));
+  CHECK_HR(ReadAttrStr(pReader, L"AS", &pShaderOp->AS));
+  CHECK_HR(ReadAttrStr(pReader, L"MS", &pShaderOp->MS));
   CHECK_HR(ReadAttrStr(pReader, L"VS", &pShaderOp->VS));
   CHECK_HR(ReadAttrStr(pReader, L"HS", &pShaderOp->HS));
   CHECK_HR(ReadAttrStr(pReader, L"DS", &pShaderOp->DS));

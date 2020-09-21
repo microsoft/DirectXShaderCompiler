@@ -844,6 +844,8 @@ void OP::GetMinShaderModelAndMask(const llvm::CallInst *CI, bool bWithTranslatio
     // validator 1.4 didn't exclude wave ops in mask
     if (IsDxilOpWave(opcode))
       mask = ((unsigned)1 << (unsigned)DXIL::ShaderKind::Invalid) - 1;
+    // These shader models don't exist before 1.5
+    mask &= ~(SFLAG(Amplification) | SFLAG(Mesh));
     // validator 1.4 didn't have any additional rules applied:
     return;
   }
@@ -909,6 +911,15 @@ OP::OP(LLVMContext &Ctx, Module *pModule)
 
   Type *Int4Types[4] = { Type::getInt32Ty(m_Ctx), Type::getInt32Ty(m_Ctx), Type::getInt32Ty(m_Ctx), Type::getInt32Ty(m_Ctx) }; // HiHi, HiLo, LoHi, LoLo
   m_pInt4Type = GetOrCreateStructType(m_Ctx, Int4Types, "dx.types.fouri32", pModule);
+
+  // When loading a module into an existing context where types are merged,
+  // type names may change.  When this happens, any intrinsics overloaded on
+  // UDT types will no longer have matching overload names.
+  // This causes RefreshCache() to assert.
+  // This fixes the function names to they match the expected types,
+  // preventing RefreshCache() from failing due to this issue.
+  FixOverloadNames();
+
   // Try to find existing intrinsic function.
   RefreshCache();
 }

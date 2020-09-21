@@ -1,4 +1,5 @@
 // RUN: %dxc -T lib_6_3 -auto-binding-space 11 %s | FileCheck %s
+// Test failure expected when run with 19041 SDK DXIL.dll
 
 // CHECK:   %[[RayTCurrent:RayTCurrent|[0-9]+]] = call float @dx.op.rayTCurrent.f32(i32 154)
 // CHECK:   %[[WaveActiveOp:WaveActiveOp|[0-9]+]] = call float @dx.op.waveActiveOp.f32(i32 119, float %[[RayTCurrent]], i8 2, i8 0)

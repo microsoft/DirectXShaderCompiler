@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_5 -DTYPE=double  %s | %FileCheck %s
+// RUN: %dxilver 1.6 | %dxc -T ps_6_5 -DTYPE=double  %s | %FileCheck %s
 // RUN: %dxc -T ps_6_5 -DTYPE=float  %s | %FileCheck %s
 // RUN: %dxc -T ps_6_5 -DTYPE=int  %s | %FileCheck %s
 // RUN: %dxc -T ps_6_5 -DTYPE=uint  %s | %FileCheck %s

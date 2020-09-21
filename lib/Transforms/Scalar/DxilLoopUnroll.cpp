@@ -81,8 +81,11 @@
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
 #include "dxc/DXIL/DxilUtil.h"
+#include "dxc/DXIL/DxilOperations.h"
 #include "dxc/HLSL/HLModule.h"
 #include "llvm/Analysis/DxilValueCache.h"
+
+#include "DxilRemoveUnstructuredLoopExits.h"
 
 using namespace llvm;
 using namespace hlsl;
@@ -116,16 +119,19 @@ public:
   std::unordered_set<Function *> CleanedUpAlloca;
   unsigned MaxIterationAttempt = 0;
   bool OnlyWarnOnFail = false;
+  bool StructurizeLoopExits = false;
 
-  DxilLoopUnroll(unsigned MaxIterationAttempt = 1024, bool OnlyWarnOnFail=false) :
+  DxilLoopUnroll(unsigned MaxIterationAttempt = 1024, bool OnlyWarnOnFail=false, bool StructurizeLoopExits=false) :
     LoopPass(ID),
     MaxIterationAttempt(MaxIterationAttempt),
-    OnlyWarnOnFail(OnlyWarnOnFail)
+    OnlyWarnOnFail(OnlyWarnOnFail),
+    StructurizeLoopExits(StructurizeLoopExits)
   {
     initializeDxilLoopUnrollPass(*PassRegistry::getPassRegistry());
   }
   const char *getPassName() const override { return "Dxil Loop Unroll"; }
   bool runOnLoop(Loop *L, LPPassManager &LPM) override;
+  bool IsLoopSafeToClone(Loop *L);
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<LoopInfoWrapperPass>();
     AU.addRequired<AssumptionCacheTracker>();
@@ -133,6 +139,7 @@ public:
     AU.addPreserved<DominatorTreeWrapperPass>();
     AU.addRequired<ScalarEvolution>();
     AU.addRequired<DxilValueCache>();
+    AU.addRequiredID(&LCSSAID);
     AU.addRequiredID(LoopSimplifyID);
   }
 
@@ -631,6 +638,33 @@ static void RecursivelyRemoveLoopFromQueue(LPPassManager &LPM, Loop *L) {
   LPM.deleteLoopFromQueue(L);
 }
 
+// Mostly copied from Loop::isSafeToClone, but making exception
+// for dx.op.barrier.
+//
+bool DxilLoopUnroll::IsLoopSafeToClone(Loop *L) {
+  // Return false if any loop blocks contain indirectbrs, or there are any calls
+  // to noduplicate functions.
+  for (Loop::block_iterator I = L->block_begin(), E = L->block_end(); I != E; ++I) {
+    if (isa<IndirectBrInst>((*I)->getTerminator()))
+      return false;
+
+    if (const InvokeInst *II = dyn_cast<InvokeInst>((*I)->getTerminator()))
+      if (II->cannotDuplicate())
+        return false;
+
+    for (BasicBlock::iterator BI = (*I)->begin(), BE = (*I)->end(); BI != BE; ++BI) {
+      if (const CallInst *CI = dyn_cast<CallInst>(BI)) {
+        if (CI->cannotDuplicate() &&
+          !hlsl::OP::IsDxilOpFuncCallInst(CI, hlsl::OP::OpCode::Barrier))
+        {
+          return false;
+        }
+      }
+    }
+  }
+  return true;
+}
+
 bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
   DebugLoc LoopLoc = L->getStartLoc(); // Debug location for the start of the loop.
@@ -658,7 +692,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     ExplicitUnrollCount = (unsigned)ExplicitUnrollCountSigned;
   }
 
-  if (!L->isSafeToClone())
+  if (!IsLoopSafeToClone(L))
     return false;
 
   unsigned TripCount = 0;
@@ -670,6 +704,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   if (ExitingBlock) {
     TripCount = SE->getSmallConstantTripCount(L, ExitingBlock);
   }
+
 
   // Analysis passes
   DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
@@ -705,6 +740,19 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   SetVector<AllocaInst *> ProblemAllocas;
   std::unordered_set<BasicBlock *> ProblemBlocks;
   FindProblemBlocks(L->getHeader(), BlocksInLoop, ProblemBlocks, ProblemAllocas);
+
+  if (StructurizeLoopExits && hlsl::RemoveUnstructuredLoopExits(L, LI, DT, /* exclude */&ProblemBlocks)) {
+    // Recompute the loop if we managed to simplify the exit blocks
+
+    Latch = L->getLoopLatch();
+    ExitBlocks.clear();
+    L->getExitBlocks(ExitBlocks);
+    ExitBlockSet = std::unordered_set<BasicBlock *>(ExitBlocks.begin(), ExitBlocks.end());
+
+    BlocksInLoop.clear();
+    BlocksInLoop.append(L->getBlocks().begin(), L->getBlocks().end());
+    BlocksInLoop.append(ExitBlocks.begin(), ExitBlocks.end());
+  }
 
   // Keep track of the PHI nodes at the header.
   SmallVector<PHINode *, 16> PHIs;
@@ -1057,8 +1105,8 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
 }
 
-Pass *llvm::createDxilLoopUnrollPass(unsigned MaxIterationAttempt, bool OnlyWarnOnFail) {
-  return new DxilLoopUnroll(MaxIterationAttempt, OnlyWarnOnFail);
+Pass *llvm::createDxilLoopUnrollPass(unsigned MaxIterationAttempt, bool OnlyWarnOnFail, bool StructurizeLoopExits) {
+  return new DxilLoopUnroll(MaxIterationAttempt, OnlyWarnOnFail, StructurizeLoopExits);
 }
 
 INITIALIZE_PASS_BEGIN(DxilLoopUnroll, "dxil-loop-unroll", "Dxil Unroll loops", false, false)
@@ -1069,4 +1117,5 @@ INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
 INITIALIZE_PASS_DEPENDENCY(LoopSimplify)
 INITIALIZE_PASS_DEPENDENCY(DxilValueCache)
 INITIALIZE_PASS_END(DxilLoopUnroll, "dxil-loop-unroll", "Dxil Unroll loops", false, false)
+
 

@@ -41,8 +41,8 @@ if "%BUILD_ARCH%"=="" (
   set BUILD_ARCH=Win32
 )
 
-set BUILD_GENERATOR=Visual Studio 15 2017
-set BUILD_VS_VER=2017
+set BUILD_GENERATOR=Visual Studio 16 2019
+set BUILD_VS_VER=2019
 set BUILD_CONFIG=Debug
 set DO_SETUP=1
 set DO_BUILD=1
@@ -128,16 +128,11 @@ if "%1"=="-Release" (
   shift /1
 )
 if "%1"=="-vs2017" (
-  shift /1
-)
-if "%1"=="-vs2015" (
-  set BUILD_GENERATOR=Visual Studio 14 2015
-  set BUILD_VS_VER=2015
+  set BUILD_GENERATOR=Visual Studio 15 2017
+  set BUILD_VS_VER=2017
   shift /1
 )
 if "%1"=="-vs2019" (
-  set BUILD_GENERATOR=Visual Studio 16 2019
-  set BUILD_VS_VER=2019
   shift /1
 )
 
@@ -184,13 +179,19 @@ if "%1"=="-dxc-cmake-ends-include" (
   shift /1
 )
 
-rem If only VS 2017 is available, pick that by default.
-if "%BUILD_VS_VER%"=="2015" (
-  reg query HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\DevDiv\vs\Servicing\14.0\devenv /v Install /reg:32 1>nul 2>nul
-  if errorlevel 1 (
-    echo Visual Studio 2015 not available, setting up build for Visual Studio 2017.
-    set BUILD_GENERATOR=Visual Studio 15 2017
-    set BUILD_VS_VER=2017
+rem If only VS 2019 is available, pick that by default.
+if "%BUILD_VS_VER%"=="2017" (
+  if not exist "%ProgramFiles(x86)%\Microsoft Visual Studio\2017" (
+    echo "Cannot find Visual Studio 2017 at %ProgramFiles(x86)%\Microsoft Visual Studio\2017."
+    echo "Use hctbuild without -vs2017 (or with -vs2019) to build with Visual Studio 2019."
+    exit /b 1
+  )
+)
+if "%BUILD_VS_VER%"=="2019" (
+  if not exist "%ProgramFiles(x86)%\Microsoft Visual Studio\2019" (
+    echo "Cannot find Visual Studio 2019 at %ProgramFiles(x86)%\Microsoft Visual Studio\2019."
+    echo "Use hctbuild -vs2017 to build with Visual Studio 2017."
+    exit /b 1
   )
 )
 
@@ -327,7 +328,7 @@ exit /b 0
 echo Builds HLSL solutions and the product and test binaries for the current
 echo flavor and architecture.
 echo.
-echo hctbuild [-s or -b] [-alldef] [-analyze] [-official] [-fv] [-fvloc <path>] [-rel] [-arm or -arm64 or -x86 or -x64] [-Release] [-Debug] [-vs2015] [-ninja] [-tblgen path] [-dont-speak] [-no-parallel] [-no-dxilconv]
+echo hctbuild [-s or -b] [-alldef] [-analyze] [-official] [-fv] [-fvloc <path>] [-rel] [-arm or -arm64 or -x86 or -x64] [-Release] [-Debug] [-vs2017] [-vs2019] [-ninja] [-tblgen path] [-dont-speak] [-no-parallel] [-no-dxilconv]
 echo.
 echo   -s   creates the projects only, without building
 echo   -b   builds the existing project
@@ -341,6 +342,8 @@ echo   -rel           builds release rather than debug
 echo   -dont-speak    disables audible build confirmation
 echo   -no-parallel   disables parallel build
 echo   -no-dxilconv   disables build of DXBC to DXIL converter and tools
+echo   -vs2017        uses Visual Studio 2017 to build
+echo   -vs2019        uses Visual Studio 2019 to build
 echo.
 echo current BUILD_ARCH=%BUILD_ARCH%.  Override with:
 echo   -x86 targets an x86 build (aka. Win32)
@@ -354,7 +357,6 @@ echo.
 echo AppVeyor Support
 echo   -Release builds release
 echo   -Debug builds debug
-echo   -vs2015 uses Visual Studio 2015 to build; ARM64 not supported 
 echo.
 echo ARM build support
 echo   -tblgen sets path to x86 or x64 versions of clang-tblgen and llvm-tblgen tools
@@ -420,17 +422,6 @@ if "%DO_BUILD%" neq "1" (
   exit /b 0
 )
 
-rem Should add support for the non-x86-qualified programfiles.
-echo Building solution files for %2 with %1 configuration.
-if "%BUILD_GENERATOR%" NEQ "Ninja" (
-  if "%BUILD_VS_VER%"=="2015" (
-    if exist "%ProgramFiles(x86)%\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" (
-      call :buildvs_x86dir %1 %2 %3
-      goto :donebuild
-    )
-  )
-)
-
 rem Just defer to cmake for now.
 cmake --build . --config %1 -- %PARALLEL_OPT%
 goto :donebuild
@@ -440,23 +431,6 @@ if errorlevel 1 (
   echo Failed to build projects.
   echo After fixing, run 'cmake --build --config %1 .' in %2
   call :handlefail
-  exit /b 1
-)
-endlocal
-exit /b 0
-
-
-:buildvs_x86dir
-rem Build with the VS tools in the x86 program files directory, maxcpucount makes this goes much faster.
-rem 1 - config
-rem 2 - platform
-rem 3 - build directory
-setlocal
-call "%ProgramFiles(x86)%\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" %BUILD_TOOLS%
-rem Add /ds for a detailed summary at the end.
-echo Logging to %3\msbuild-log.txt
-MSBuild.exe /nologo /property:Configuration=%1 /property:Platform=%2 /maxcpucount:2 %3\LLVM.sln /consoleloggerparameters:Summary;Verbosity=minimal /fileloggerparameters:LogFile=%3\msbuild-log.txt
-if NOT "%ERRORLEVEL%"=="0" (
   exit /b 1
 )
 endlocal
