@@ -74,6 +74,33 @@ bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
     instr->setResultType(spirvType);
   }
 
+  // Lower QualType of DebugLocalVariable or DebugGlobalVariable to SpirvType.
+  // Since debug local/global variable must have a debug type, SpirvEmitter sets
+  // its QualType. Here we lower it to SpirvType and DebugTypeVisitor will lower
+  // the SpirvType to debug type.
+  if (auto *debugInstruction = dyn_cast<SpirvDebugInstruction>(instr)) {
+    const QualType debugQualType = debugInstruction->getDebugQualType();
+    if (!debugQualType.isNull()) {
+      assert(isa<SpirvDebugLocalVariable>(debugInstruction) ||
+             isa<SpirvDebugGlobalVariable>(debugInstruction));
+      const SpirvType *spirvType =
+          lowerType(debugQualType, instr->getLayoutRule(),
+                    /*isRowMajor*/ llvm::None, instr->getSourceLocation());
+      debugInstruction->setDebugSpirvType(spirvType);
+    } else if (const auto *debugSpirvType =
+                   debugInstruction->getDebugSpirvType()) {
+      // When it does not have a QualType, SpirvEmitter or DeclResultIdMapper
+      // generates a hybrid type. In that case, we keep the hybrid type for the
+      // DebugGlobalVariable, not QualType. We have to lower the hybrid type and
+      // update the SpirvType for the DebugGlobalVariable.
+      assert(isa<SpirvDebugGlobalVariable>(debugInstruction) &&
+             isa<HybridType>(debugSpirvType));
+      const SpirvType *loweredSpirvType = lowerType(
+          debugSpirvType, instr->getLayoutRule(), instr->getSourceLocation());
+      debugInstruction->setDebugSpirvType(loweredSpirvType);
+    }
+  }
+
   // Instruction-specific type updates
 
   const auto *resultType = instr->getResultType();
@@ -162,9 +189,12 @@ const SpirvType *LowerTypeVisitor::lowerType(const SpirvType *type,
     // lower all fields of the struct.
     auto loweredFields =
         populateLayoutInformation(hybridStruct->getFields(), rule);
-    return spvContext.getStructType(
+    const StructType *structType = spvContext.getStructType(
         loweredFields, hybridStruct->getStructName(),
         hybridStruct->isReadOnly(), hybridStruct->getInterfaceType());
+    if (const auto *decl = spvContext.getStructDeclForSpirvType(type))
+      spvContext.registerStructDeclForSpirvType(structType, decl);
+    return structType;
   }
   // Void, bool, int, float cannot be further lowered.
   // Matrices cannot contain hybrid types. Only matrices of scalars are valid.
@@ -362,8 +392,10 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
     // (ClassTemplateSpecializationDecl is a subclass of CXXRecordDecl, which
     // is then a subclass of RecordDecl.) So we need to check them before
     // checking the general struct type.
-    if (const auto *spvType = lowerResourceType(type, rule, srcLoc))
+    if (const auto *spvType = lowerResourceType(type, rule, srcLoc)) {
+      spvContext.registerStructDeclForSpirvType(spvType, decl);
       return spvType;
+    }
 
     // Collect all fields' information.
     llvm::SmallVector<HybridStructType::FieldInfo, 8> fields;
@@ -388,7 +420,10 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
 
     auto loweredFields = populateLayoutInformation(fields, rule);
 
-    return spvContext.getStructType(loweredFields, decl->getName());
+    const auto *spvStructType =
+        spvContext.getStructType(loweredFields, decl->getName());
+    spvContext.registerStructDeclForSpirvType(spvStructType, decl);
+    return spvStructType;
   }
 
   // Array type
@@ -805,6 +840,7 @@ LowerTypeVisitor::populateLayoutInformation(
 
     // Each structure-type member must have an Offset Decoration.
     loweredField.offset = offset;
+    loweredField.sizeInBytes = memberSize;
     offset += memberSize;
 
     // Each structure-type member that is a matrix or array-of-matrices must be

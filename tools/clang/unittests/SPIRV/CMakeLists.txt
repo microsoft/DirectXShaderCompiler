@@ -14,6 +14,7 @@ add_clang_unittest(clang-spirv-tests
   SpirvContextTest.cpp
   SpirvTestOptions.cpp
   SpirvTypeTest.cpp
+  SpirvDebugInstructionTest.cpp
   SpirvConstantTest.cpp
   StringTest.cpp
   TestMain.cpp

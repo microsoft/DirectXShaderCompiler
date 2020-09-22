@@ -103,6 +103,10 @@ public:
   /// for the basic block. On failure, returns zero.
   SpirvBasicBlock *createBasicBlock(llvm::StringRef name = "");
 
+  /// \brief Creates a SPIR-V DebugScope (OpenCL.DebugInfo.100 instruction).
+  /// On success, returns the <id> of DebugScope. On failure, returns nullptr.
+  SpirvDebugScope *createDebugScope(SpirvDebugInstruction *scope);
+
   /// \brief Adds the basic block with the given label as a successor to the
   /// current basic block.
   void addSuccessor(SpirvBasicBlock *successorBB);
@@ -125,6 +129,9 @@ public:
 
   /// \brief Sets insertion point to the given basic block.
   inline void setInsertPoint(SpirvBasicBlock *bb) { insertPoint = bb; }
+
+  /// \brief Gets insertion point.
+  inline SpirvBasicBlock *getInsertPoint() { return insertPoint; }
 
   // === Instruction at the current Insertion Point ===
 
@@ -445,6 +452,44 @@ public:
   /// \brief Creates an OpDemoteToHelperInvocationEXT instruction.
   SpirvInstruction *createDemoteToHelperInvocationEXT(SourceLocation);
 
+  // === SPIR-V Rich Debug Info Creation ===
+  SpirvDebugSource *createDebugSource(llvm::StringRef file,
+                                      llvm::StringRef text = "");
+
+  SpirvDebugCompilationUnit *createDebugCompilationUnit(SpirvDebugSource *);
+
+  SpirvDebugLexicalBlock *
+  createDebugLexicalBlock(SpirvDebugSource *, uint32_t line, uint32_t column,
+                          SpirvDebugInstruction *parent);
+
+  SpirvDebugLocalVariable *createDebugLocalVariable(
+      QualType debugType, llvm::StringRef varName, SpirvDebugSource *src,
+      uint32_t line, uint32_t column, SpirvDebugInstruction *parentScope,
+      uint32_t flags, llvm::Optional<uint32_t> argNumber = llvm::None);
+
+  SpirvDebugGlobalVariable *createDebugGlobalVariable(
+      QualType debugType, llvm::StringRef varName, SpirvDebugSource *src,
+      uint32_t line, uint32_t column, SpirvDebugInstruction *parentScope,
+      llvm::StringRef linkageName, SpirvVariable *var, uint32_t flags,
+      llvm::Optional<SpirvInstruction *> staticMemberDebugType = llvm::None);
+
+  // Get a DebugInfoNone if exists. Otherwise, create one and return it.
+  SpirvDebugInfoNone *getOrCreateDebugInfoNone();
+
+  // Get a null DebugExpression if exists. Otherwise, create one and return it.
+  SpirvDebugExpression *getOrCreateNullDebugExpression();
+
+  SpirvDebugDeclare *createDebugDeclare(
+      SpirvDebugLocalVariable *dbgVar, SpirvInstruction *var,
+      llvm::Optional<SpirvDebugExpression *> dbgExpr = llvm::None);
+
+  SpirvDebugFunction *
+  createDebugFunction(const FunctionDecl *decl, llvm::StringRef name,
+                      SpirvDebugSource *src, uint32_t fnLine, uint32_t fnColumn,
+                      SpirvDebugInstruction *parentScope,
+                      llvm::StringRef linkageName, uint32_t flags,
+                      uint32_t scopeLine, SpirvFunction *fn);
+
   /// \brief Create SPIR-V instructions for KHR RayQuery ops
   SpirvInstruction *
   createRayQueryOpsKHR(spv::Op opcode, QualType resultType,
@@ -464,7 +509,7 @@ public:
   /// content. Returns the SpirvString instruction of the file name.
   inline SpirvString *setDebugSource(uint32_t major, uint32_t minor,
                                      const std::vector<llvm::StringRef> &name,
-                                     llvm::StringRef content);
+                                     llvm::StringRef content = "");
 
   /// \brief Adds an execution mode to the module under construction.
   inline void addExecutionMode(SpirvFunction *entryPoint, spv::ExecutionMode em,
@@ -473,6 +518,11 @@ public:
   /// \brief Adds an OpModuleProcessed instruction to the module under
   /// construction.
   void addModuleProcessed(llvm::StringRef process);
+
+  /// \brief If not added already, adds an OpExtInstImport (import of extended
+  /// instruction set) of the OpenCL.DebugInfo.100 instruction set. Returns the
+  /// imported instruction set.
+  SpirvExtInstImport *getOpenCLDebugInfoExtInstSet();
 
   /// \brief Adds a stage input/ouput variable whose value is of the given type.
   ///
@@ -627,6 +677,11 @@ private:
   /// Used as caches for all created builtin variables to avoid duplication.
   llvm::SmallVector<BuiltInVarInfo, 16> builtinVars;
 
+  SpirvDebugInfoNone *debugNone;
+
+  /// DebugExpression that does not reference any DebugOperation
+  SpirvDebugExpression *nullDebugExpr;
+
   // To avoid generating multiple OpStrings for the same string literal
   // the SpirvBuilder will generate and reuse them.
   llvm::DenseMap<std::string, SpirvString *, StringMapInfo> stringLiterals;
@@ -667,7 +722,7 @@ SpirvBuilder::setDebugSource(uint32_t major, uint32_t minor,
     SpirvSource *debugSource = new (context)
         SpirvSource(/*SourceLocation*/ {}, spv::SourceLanguage::HLSL, version,
                     fileString, content);
-    mod->addDebugSource(debugSource);
+    mod->addSource(debugSource);
     if (!mainSource)
       mainSource = debugSource;
   }
@@ -678,7 +733,7 @@ SpirvBuilder::setDebugSource(uint32_t major, uint32_t minor,
     mainSource = new (context)
         SpirvSource(/*SourceLocation*/ {}, spv::SourceLanguage::HLSL, version,
                     nullptr, content);
-    mod->addDebugSource(mainSource);
+    mod->addSource(mainSource);
   }
   return mainSource->getFile();
 }

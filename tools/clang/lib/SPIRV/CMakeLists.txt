@@ -8,6 +8,7 @@ add_clang_library(clangSPIRV
   BlockReadableOrder.cpp
   CapabilityVisitor.cpp
   DeclResultIdMapper.cpp
+  DebugTypeVisitor.cpp
   EmitSpirvAction.cpp
   EmitVisitor.cpp
   FeatureManager.cpp
@@ -15,6 +16,7 @@ add_clang_library(clangSPIRV
   InitListHandler.cpp
   LiteralTypeVisitor.cpp
   LowerTypeVisitor.cpp
+  SortDebugInfoVisitor.cpp
   NonUniformVisitor.cpp
   PreciseVisitor.cpp
   RawBufferMethods.cpp
@@ -40,3 +42,4 @@ add_clang_library(clangSPIRV
 
 target_include_directories(clangSPIRV PUBLIC ${SPIRV_HEADER_INCLUDE_DIR})
 target_include_directories(clangSPIRV PRIVATE ${SPIRV_TOOLS_INCLUDE_DIR})
+add_dependencies(clangSPIRV TablegenHLSLOptions)

@@ -687,9 +687,11 @@ SpirvInstruction *DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl,
 }
 
 SpirvFunctionParameter *
-DeclResultIdMapper::createFnParam(const ParmVarDecl *param) {
+DeclResultIdMapper::createFnParam(const ParmVarDecl *param,
+                                  uint32_t dbgArgNumber) {
   const auto type = getTypeOrFnRetType(param);
   const auto loc = param->getLocation();
+  const auto name = param->getName();
   SpirvFunctionParameter *fnParamInstr = spvBuilder.addFnParam(
       type, param->hasAttr<HLSLPreciseAttr>(), loc, param->getName());
   bool isAlias = false;
@@ -698,6 +700,20 @@ DeclResultIdMapper::createFnParam(const ParmVarDecl *param) {
 
   assert(astDecls[param].instr == nullptr);
   astDecls[param].instr = fnParamInstr;
+
+  if (spirvOptions.debugInfoRich) {
+    // Add DebugLocalVariable information
+    const auto &sm = astContext.getSourceManager();
+    const uint32_t line = sm.getPresumedLineNumber(loc);
+    const uint32_t column = sm.getPresumedColumnNumber(loc);
+    const auto *info = theEmitter.getOrCreateRichDebugInfo(loc);
+    // TODO: replace this with FlagIsLocal enum.
+    uint32_t flags = 1 << 2;
+    auto *debugLocalVar = spvBuilder.createDebugLocalVariable(
+        type, name, info->source, line, column, info->scopeStack.back(), flags,
+        dbgArgNumber);
+    spvBuilder.createDebugDeclare(debugLocalVar, fnParamInstr);
+  }
 
   return fnParamInstr;
 }
@@ -734,14 +750,37 @@ DeclResultIdMapper::createFnVar(const VarDecl *var,
   return varInstr;
 }
 
+SpirvDebugGlobalVariable *DeclResultIdMapper::createDebugGlobalVariable(
+    SpirvVariable *var, const QualType &type, const SourceLocation &loc,
+    const StringRef &name) {
+  if (spirvOptions.debugInfoRich) {
+    // Add DebugGlobalVariable information
+    const auto &sm = astContext.getSourceManager();
+    const uint32_t line = sm.getPresumedLineNumber(loc);
+    const uint32_t column = sm.getPresumedColumnNumber(loc);
+    const auto *info = theEmitter.getOrCreateRichDebugInfo(loc);
+    // TODO: replace this with FlagIsDefinition enum.
+    uint32_t flags = 1 << 3;
+    // TODO: update linkageName correctly.
+    auto *dbgGlobalVar = spvBuilder.createDebugGlobalVariable(
+        type, name, info->source, line, column, info->scopeStack.back(),
+        /* linkageName */ name, var, flags);
+    dbgGlobalVar->setDebugSpirvType(var->getResultType());
+    dbgGlobalVar->setLayoutRule(var->getLayoutRule());
+    return dbgGlobalVar;
+  }
+  return nullptr;
+}
+
 SpirvVariable *
 DeclResultIdMapper::createFileVar(const VarDecl *var,
                                   llvm::Optional<SpirvInstruction *> init) {
   const auto type = getTypeOrFnRetType(var);
   const auto loc = var->getLocation();
-  SpirvVariable *varInstr = spvBuilder.addModuleVar(
-      type, spv::StorageClass::Private, var->hasAttr<HLSLPreciseAttr>(),
-      var->getName(), init, loc);
+  const auto name = var->getName();
+  SpirvVariable *varInstr =
+      spvBuilder.addModuleVar(type, spv::StorageClass::Private,
+                              var->hasAttr<HLSLPreciseAttr>(), name, init, loc);
 
   bool isAlias = false;
   (void)getTypeAndCreateCounterForPotentialAliasVar(var, &isAlias);
@@ -749,6 +788,8 @@ DeclResultIdMapper::createFileVar(const VarDecl *var,
 
   assert(astDecls[var].instr == nullptr);
   astDecls[var].instr = varInstr;
+
+  createDebugGlobalVariable(varInstr, type, loc, name);
 
   return varInstr;
 }
@@ -811,12 +852,15 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
     needsFlatteningCompositeResources = true;
   }
 
+  const auto name = var->getName();
   SpirvVariable *varInstr = spvBuilder.addModuleVar(
-      type, storageClass, var->hasAttr<HLSLPreciseAttr>(), var->getName(),
-      llvm::None, loc);
+      type, storageClass, var->hasAttr<HLSLPreciseAttr>(), name, llvm::None,
+      loc);
   varInstr->setLayoutRule(rule);
   DeclSpirvInfo info(varInstr);
   astDecls[var] = info;
+
+  createDebugGlobalVariable(varInstr, type, loc, name);
 
   // Variables in Workgroup do not need descriptor decorations.
   if (storageClass == spv::StorageClass::Workgroup)
@@ -978,6 +1022,12 @@ SpirvVariable *DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
       bufferVar, decl, decl->getLocation(), getResourceBinding(decl),
       decl->getAttr<VKBindingAttr>(), decl->getAttr<VKCounterBindingAttr>());
 
+  auto *dbgGlobalVar = createDebugGlobalVariable(
+      bufferVar, QualType(), decl->getLocation(), decl->getName());
+  if (dbgGlobalVar != nullptr) {
+    // C/TBuffer needs HLSLBufferDecl for debug type lowering.
+    spvContext.registerStructDeclForSpirvType(bufferVar->getResultType(), decl);
+  }
   return bufferVar;
 }
 

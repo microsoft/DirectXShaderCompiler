@@ -54,6 +54,11 @@ public:
   CompilerInstance &getCompilerInstance() { return theCompilerInstance; }
   SpirvCodeGenOptions &getSpirvOptions() { return spirvOptions; }
 
+  /// \brief If DebugSource and DebugCompilationUnit for loc are already
+  /// created, we just return RichDebugInfo containing it. Otherwise,
+  /// create DebugSource and DebugCompilationUnit for loc and return it.
+  RichDebugInfo *getOrCreateRichDebugInfo(const SourceLocation &loc);
+
   void doDecl(const Decl *decl);
   void doStmt(const Stmt *stmt, llvm::ArrayRef<const Attr *> attrs = {});
   SpirvInstruction *doExpr(const Expr *expr);

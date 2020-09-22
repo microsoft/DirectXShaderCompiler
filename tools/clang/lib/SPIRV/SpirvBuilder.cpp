@@ -9,6 +9,7 @@
 
 #include "clang/SPIRV/SpirvBuilder.h"
 #include "CapabilityVisitor.h"
+#include "DebugTypeVisitor.h"
 #include "EmitVisitor.h"
 #include "LiteralTypeVisitor.h"
 #include "LowerTypeVisitor.h"
@@ -16,6 +17,7 @@
 #include "PreciseVisitor.h"
 #include "RelaxedPrecisionVisitor.h"
 #include "RemoveBufferBlockVisitor.h"
+#include "SortDebugInfoVisitor.h"
 #include "clang/SPIRV/AstTypeProbe.h"
 
 namespace clang {
@@ -24,7 +26,8 @@ namespace spirv {
 SpirvBuilder::SpirvBuilder(ASTContext &ac, SpirvContext &ctx,
                            const SpirvCodeGenOptions &opt)
     : astContext(ac), context(ctx), mod(llvm::make_unique<SpirvModule>()),
-      function(nullptr), spirvOptions(opt), builtinVars(), stringLiterals() {}
+      function(nullptr), spirvOptions(opt), builtinVars(), debugNone(nullptr),
+      nullDebugExpr(nullptr), stringLiterals() {}
 
 SpirvFunction *SpirvBuilder::createSpirvFunction(QualType returnType,
                                                  SourceLocation loc,
@@ -106,7 +109,16 @@ SpirvBasicBlock *SpirvBuilder::createBasicBlock(llvm::StringRef name) {
   assert(function && "found detached basic block");
   auto *bb = new (context) SpirvBasicBlock(name);
   function->addBasicBlock(bb);
+  if (auto *scope = context.getCurrentLexicalScope())
+    bb->setDebugScope(new (context) SpirvDebugScope(scope));
   return bb;
+}
+
+SpirvDebugScope *SpirvBuilder::createDebugScope(SpirvDebugInstruction *scope) {
+  assert(insertPoint && "null insert point");
+  auto *dbgScope = new (context) SpirvDebugScope(scope);
+  insertPoint->addInstruction(dbgScope);
+  return dbgScope;
 }
 
 void SpirvBuilder::addSuccessor(SpirvBasicBlock *successorBB) {
@@ -807,6 +819,101 @@ SpirvBuilder::createDemoteToHelperInvocationEXT(SourceLocation loc) {
   return inst;
 }
 
+SpirvDebugSource *SpirvBuilder::createDebugSource(llvm::StringRef file,
+                                                  llvm::StringRef text) {
+  auto *inst = new (context) SpirvDebugSource(file, text);
+  mod->addDebugInfo(inst);
+  return inst;
+}
+
+SpirvDebugCompilationUnit *
+SpirvBuilder::createDebugCompilationUnit(SpirvDebugSource *source) {
+  auto *inst = new (context) SpirvDebugCompilationUnit(
+      /*version*/ 1, /*DWARF version*/ 4, source);
+  mod->addDebugInfo(inst);
+  return inst;
+}
+
+SpirvDebugLexicalBlock *
+SpirvBuilder::createDebugLexicalBlock(SpirvDebugSource *source, uint32_t line,
+                                      uint32_t column,
+                                      SpirvDebugInstruction *parent) {
+  assert(insertPoint && "null insert point");
+  auto *inst =
+      new (context) SpirvDebugLexicalBlock(source, line, column, parent);
+  mod->addDebugInfo(inst);
+  return inst;
+}
+
+SpirvDebugLocalVariable *SpirvBuilder::createDebugLocalVariable(
+    QualType debugQualType, llvm::StringRef varName, SpirvDebugSource *src,
+    uint32_t line, uint32_t column, SpirvDebugInstruction *parentScope,
+    uint32_t flags, llvm::Optional<uint32_t> argNumber) {
+  auto *inst = new (context) SpirvDebugLocalVariable(
+      debugQualType, varName, src, line, column, parentScope, flags, argNumber);
+  mod->addDebugInfo(inst);
+  return inst;
+}
+
+SpirvDebugGlobalVariable *SpirvBuilder::createDebugGlobalVariable(
+    QualType debugType, llvm::StringRef varName, SpirvDebugSource *src,
+    uint32_t line, uint32_t column, SpirvDebugInstruction *parentScope,
+    llvm::StringRef linkageName, SpirvVariable *var, uint32_t flags,
+    llvm::Optional<SpirvInstruction *> staticMemberDebugType) {
+  auto *inst = new (context) SpirvDebugGlobalVariable(
+      debugType, varName, src, line, column, parentScope, linkageName, var,
+      flags, staticMemberDebugType);
+  mod->addDebugInfo(inst);
+  return inst;
+}
+
+SpirvDebugInfoNone *SpirvBuilder::getOrCreateDebugInfoNone() {
+  if (debugNone)
+    return debugNone;
+
+  debugNone = new (context) SpirvDebugInfoNone();
+  mod->addDebugInfo(debugNone);
+  return debugNone;
+}
+
+SpirvDebugExpression *SpirvBuilder::getOrCreateNullDebugExpression() {
+  if (nullDebugExpr)
+    return nullDebugExpr;
+
+  nullDebugExpr = new (context) SpirvDebugExpression();
+  mod->addDebugInfo(nullDebugExpr);
+  return nullDebugExpr;
+}
+
+SpirvDebugDeclare *SpirvBuilder::createDebugDeclare(
+    SpirvDebugLocalVariable *dbgVar, SpirvInstruction *var,
+    llvm::Optional<SpirvDebugExpression *> dbgExpr) {
+  auto *decl = new (context)
+      SpirvDebugDeclare(dbgVar, var,
+                        dbgExpr.hasValue() ? dbgExpr.getValue()
+                                           : getOrCreateNullDebugExpression());
+  if (isa<SpirvFunctionParameter>(var)) {
+    assert(function && "found detached parameter");
+    function->addParameterDebugDeclare(decl);
+  } else {
+    assert(insertPoint && "null insert point");
+    insertPoint->addInstruction(decl);
+  }
+  return decl;
+}
+
+SpirvDebugFunction *SpirvBuilder::createDebugFunction(
+    const FunctionDecl *decl, llvm::StringRef name, SpirvDebugSource *src,
+    uint32_t line, uint32_t column, SpirvDebugInstruction *parentScope,
+    llvm::StringRef linkageName, uint32_t flags, uint32_t scopeLine,
+    SpirvFunction *fn) {
+  auto *inst = new (context) SpirvDebugFunction(
+      name, src, line, column, parentScope, linkageName, flags, scopeLine, fn);
+  mod->addDebugInfo(inst);
+  context.registerDebugFunctionForDecl(decl, inst);
+  return inst;
+}
+
 SpirvInstruction *
 SpirvBuilder::createRayQueryOpsKHR(spv::Op opcode, QualType resultType,
                                    ArrayRef<SpirvInstruction *> operands,
@@ -831,6 +938,10 @@ SpirvExtInstImport *SpirvBuilder::getExtInstSet(llvm::StringRef extName) {
     mod->addExtInstSet(set);
   }
   return set;
+}
+
+SpirvExtInstImport *SpirvBuilder::getOpenCLDebugInfoExtInstSet() {
+  return getExtInstSet("OpenCL.DebugInfo.100");
 }
 
 SpirvVariable *SpirvBuilder::addStageIOVar(QualType type,
@@ -1108,6 +1219,15 @@ std::vector<uint32_t> SpirvBuilder::takeModule() {
 
   // Lower types
   mod->invokeVisitor(&lowerTypeVisitor);
+
+  // Generate debug types (if needed)
+  if (spirvOptions.debugInfoRich) {
+    DebugTypeVisitor debugTypeVisitor(astContext, context, spirvOptions, *this,
+                                      lowerTypeVisitor);
+    SortDebugInfoVisitor sortDebugInfoVisitor(context, spirvOptions);
+    mod->invokeVisitor(&debugTypeVisitor);
+    mod->invokeVisitor(&sortDebugInfoVisitor);
+  }
 
   // Add necessary capabilities and extensions
   mod->invokeVisitor(&capabilityVisitor);
