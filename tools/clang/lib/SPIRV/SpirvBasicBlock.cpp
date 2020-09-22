@@ -15,11 +15,13 @@ namespace spirv {
 
 SpirvBasicBlock::SpirvBasicBlock(llvm::StringRef name)
     : labelId(0), labelName(name), mergeTarget(nullptr),
-      continueTarget(nullptr) {}
+      continueTarget(nullptr), debugScope(nullptr) {}
 
 SpirvBasicBlock::~SpirvBasicBlock() {
   for (auto instructionNode : instructions)
     instructionNode.instruction->releaseMemory();
+  if (debugScope)
+    debugScope->releaseMemory();
 }
 
 bool SpirvBasicBlock::hasTerminator() const {
@@ -33,6 +35,9 @@ bool SpirvBasicBlock::invokeVisitor(Visitor *visitor,
   if (!visitor->visit(this, Visitor::Phase::Init))
     return false;
 
+  if (debugScope && !visitor->visit(debugScope))
+    return false;
+
   if (reverseOrder) {
     for (auto iter = instructions.rbegin(); iter != instructions.rend();
          ++iter) {
@@ -41,17 +46,21 @@ bool SpirvBasicBlock::invokeVisitor(Visitor *visitor,
     }
     // If a basic block is the first basic block of a function, it should
     // include all the variables of the function.
-    if (!vars.empty())
-      for (auto var = vars.rbegin(); var != vars.rend(); ++var)
+    if (!vars.empty()) {
+      for (auto var = vars.rbegin(); var != vars.rend(); ++var) {
         if (!(*var)->invokeVisitor(visitor))
           return false;
+      }
+    }
   } else {
     // If a basic block is the first basic block of a function, it should
     // include all the variables of the function.
-    if (!vars.empty())
-      for (auto *var : vars)
+    if (!vars.empty()) {
+      for (auto *var : vars) {
         if (!var->invokeVisitor(visitor))
           return false;
+      }
+    }
 
     for (auto iter = instructions.begin(); iter != instructions.end(); ++iter) {
       if (!iter->instruction->invokeVisitor(visitor))

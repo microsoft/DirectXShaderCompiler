@@ -196,7 +196,10 @@ public:
                     &annotationsBinary, &typeConstantBinary,
                     [this]() -> uint32_t { return takeNextId(); }),
         debugMainFileId(0), debugLine(0), debugColumn(0),
-        lastOpWasMergeInst(false) {}
+        lastOpWasMergeInst(false), inEntryFunctionWrapper(false),
+        hlslVersion(0) {}
+
+  ~EmitVisitor();
 
   // Visit different SPIR-V constructs for emitting.
   bool visit(SpirvModule *, Phase phase) override;
@@ -262,6 +265,26 @@ public:
   bool visit(SpirvDemoteToHelperInvocationEXT *) override;
   bool visit(SpirvRayQueryOpKHR *) override;
 
+  bool visit(SpirvDebugInfoNone *) override;
+  bool visit(SpirvDebugSource *) override;
+  bool visit(SpirvDebugCompilationUnit *) override;
+  bool visit(SpirvDebugLexicalBlock *) override;
+  bool visit(SpirvDebugScope *) override;
+  bool visit(SpirvDebugFunctionDeclaration *) override;
+  bool visit(SpirvDebugFunction *) override;
+  bool visit(SpirvDebugLocalVariable *) override;
+  bool visit(SpirvDebugDeclare *) override;
+  bool visit(SpirvDebugGlobalVariable *) override;
+  bool visit(SpirvDebugExpression *) override;
+  bool visit(SpirvDebugTypeBasic *) override;
+  bool visit(SpirvDebugTypeVector *) override;
+  bool visit(SpirvDebugTypeArray *) override;
+  bool visit(SpirvDebugTypeFunction *) override;
+  bool visit(SpirvDebugTypeComposite *) override;
+  bool visit(SpirvDebugTypeMember *) override;
+  bool visit(SpirvDebugTypeTemplate *) override;
+  bool visit(SpirvDebugTypeTemplateParameter *) override;
+
   using Visitor::visit;
 
   // Returns the assembled binary built up in this visitor.
@@ -282,7 +305,14 @@ private:
     return obj->getResultId();
   }
 
-  void emitDebugLine(spv::Op op, const SourceLocation &loc);
+  /// If we already created OpString for str, just return the id of the created
+  /// one. Otherwise, create it, keep it in stringIdMap, and return its id.
+  uint32_t getOrCreateOpStringId(llvm::StringRef str);
+
+  // Emits an OpLine instruction for the given operation into the given binary
+  // section.
+  void emitDebugLine(spv::Op op, const SourceLocation &loc,
+                     std::vector<uint32_t> *section);
 
   // Initiates the creation of a new instruction with the given Opcode.
   void initInstruction(spv::Op, const SourceLocation &);
@@ -293,8 +323,9 @@ private:
   void initInstruction(SpirvInstruction *);
 
   // Finalizes the current instruction by encoding the instruction size into the
-  // first word, and then appends the current instruction to the SPIR-V binary.
-  void finalizeInstruction();
+  // first word, and then appends the current instruction to the given SPIR-V
+  // binary section.
+  void finalizeInstruction(std::vector<uint32_t> *section);
 
   // Encodes the given string into the current instruction that is being built.
   void encodeString(llvm::StringRef value);
@@ -339,10 +370,15 @@ private:
   std::vector<uint32_t> annotationsBinary;
   // All type and constant instructions
   std::vector<uint32_t> typeConstantBinary;
+  // All global variable declarations (all OpVariable instructions whose Storage
+  // Class is not Function)
+  std::vector<uint32_t> globalVarsBinary;
+  // All Rich Debug Info instructions
+  std::vector<uint32_t> richDebugInfo;
   // All other instructions
   std::vector<uint32_t> mainBinary;
-  // File information for debugging that will be used by OpLine.
-  llvm::StringMap<uint32_t> debugFileIdMap;
+  // String literals to SpirvString objects
+  llvm::StringMap<uint32_t> stringIdMap;
   // Main file information for debugging that will be used by OpLine.
   uint32_t debugMainFileId;
   // One HLSL source line may result in several SPIR-V instructions. In order to
@@ -355,6 +391,14 @@ private:
   uint32_t debugColumn;
   // True if the last emitted instruction was OpSelectionMerge or OpLoopMerge.
   bool lastOpWasMergeInst;
+  // True if currently it enters an entry function wrapper.
+  bool inEntryFunctionWrapper;
+  // Set of files that we already dumped their source code in OpSource.
+  llvm::DenseSet<uint32_t> dumpedFiles;
+  uint32_t hlslVersion;
+  // Vector to contain SpirvInstruction objects created by this class. The
+  // destructor of this class will release them.
+  std::vector<SpirvInstruction *> spvInstructions;
 };
 
 } // namespace spirv

@@ -458,7 +458,7 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
 
   // Set shader module version, source file name, and source file content (if
   // needed).
-  llvm::StringRef source = "";
+  llvm::StringRef source;
   std::vector<llvm::StringRef> fileNames;
   const auto &inputFiles = ci.getFrontendOpts().Inputs;
   // File name
@@ -477,6 +477,23 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
   mainSourceFile = spvBuilder.setDebugSource(spvContext.getMajorVersion(),
                                              spvContext.getMinorVersion(),
                                              fileNames, source);
+
+  // OpenCL.DebugInfo.100 DebugSource
+  if (spirvOptions.debugInfoRich) {
+    auto *dbgSrc = spvBuilder.createDebugSource(mainSourceFile->getString());
+    // spvContext.getDebugInfo().insert() inserts {string key, RichDebugInfo}
+    // pair and returns {{string key, RichDebugInfo}, true /*Success*/}.
+    // spvContext.getDebugInfo().insert().first->second is a RichDebugInfo.
+    auto *richDebugInfo =
+        &spvContext.getDebugInfo()
+             .insert(
+                 {mainSourceFile->getString(),
+                  RichDebugInfo(dbgSrc,
+                                spvBuilder.createDebugCompilationUnit(dbgSrc))})
+             .first->second;
+    spvContext.pushDebugLexicalScope(richDebugInfo,
+                                     richDebugInfo->scopeStack.back());
+  }
 
   if (spirvOptions.debugInfoTool &&
       spirvOptions.targetEnv.compare("vulkan1.1") >= 0) {
@@ -580,7 +597,8 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     needsLegalization = needsLegalization ||
                         declIdMapper.requiresLegalization() ||
                         spirvOptions.flattenResourceArrays ||
-                        declIdMapper.requiresFlatteningCompositeResources();
+                        declIdMapper.requiresFlatteningCompositeResources() ||
+                        spirvOptions.debugInfoRich;
 
     // Run legalization passes
     if (needsLegalization) {
@@ -598,7 +616,8 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     }
 
     // Run optimization passes
-    if (theCompilerInstance.getCodeGenOpts().OptimizationLevel > 0) {
+    if (!spirvOptions.debugInfoRich &&
+        theCompilerInstance.getCodeGenOpts().OptimizationLevel > 0) {
       std::string messages;
       if (!spirvToolsOptimize(&m, &messages)) {
         emitFatalError("failed to optimize SPIR-V: %0", {}) << messages;
@@ -667,11 +686,64 @@ void SpirvEmitter::doDecl(const Decl *decl) {
   }
 }
 
+RichDebugInfo *
+SpirvEmitter::getOrCreateRichDebugInfo(const SourceLocation &loc) {
+  const StringRef file =
+      astContext.getSourceManager().getPresumedLoc(loc).getFilename();
+  auto &debugInfo = spvContext.getDebugInfo();
+  auto it = debugInfo.find(file);
+  if (it != debugInfo.end())
+    return &it->second;
+
+  auto *dbgSrc = spvBuilder.createDebugSource(file);
+  // debugInfo.insert() inserts {string key, RichDebugInfo} pair and
+  // returns {{string key, RichDebugInfo}, true /*Success*/}.
+  // debugInfo.insert().first->second is a RichDebugInfo.
+  return &debugInfo
+              .insert({file, RichDebugInfo(
+                                 dbgSrc, spvBuilder.createDebugCompilationUnit(
+                                             dbgSrc))})
+              .first->second;
+}
+
 void SpirvEmitter::doStmt(const Stmt *stmt,
                           llvm::ArrayRef<const Attr *> attrs) {
   if (const auto *compoundStmt = dyn_cast<CompoundStmt>(stmt)) {
-    for (auto *st : compoundStmt->body())
-      doStmt(st);
+    if (spirvOptions.debugInfoRich) {
+      // Any opening of curly braces ('{') starts a CompoundStmt in the AST
+      // tree. It also means we have a new lexical block!
+      const auto loc = stmt->getLocStart();
+      const auto &sm = astContext.getSourceManager();
+      const uint32_t line = sm.getPresumedLineNumber(loc);
+      const uint32_t column = sm.getPresumedColumnNumber(loc);
+      RichDebugInfo *info = getOrCreateRichDebugInfo(loc);
+
+      auto *debugLexicalBlock = spvBuilder.createDebugLexicalBlock(
+          info->source, line, column, info->scopeStack.back());
+
+      // Add this lexical block to the stack of lexical scopes.
+      spvContext.pushDebugLexicalScope(info, debugLexicalBlock);
+
+      // Update or add DebugScope.
+      if (spvBuilder.getInsertPoint()->empty()) {
+        spvBuilder.getInsertPoint()->updateDebugScope(
+            new (spvContext) SpirvDebugScope(debugLexicalBlock));
+      } else if (!spvBuilder.isCurrentBasicBlockTerminated()) {
+        spvBuilder.createDebugScope(debugLexicalBlock);
+      }
+
+      // Iterate over sub-statements
+      for (auto *st : compoundStmt->body())
+        doStmt(st);
+
+      // We are done with processing this compound statement. Remove its lexical
+      // block from the stack of lexical scopes.
+      spvContext.popDebugLexicalScope(info);
+    } else {
+      // Iterate over sub-statements
+      for (auto *st : compoundStmt->body())
+        doStmt(st);
+    }
   } else if (const auto *retStmt = dyn_cast<ReturnStmt>(stmt)) {
     doReturnStmt(retStmt);
   } else if (const auto *declStmt = dyn_cast<DeclStmt>(stmt)) {
@@ -939,6 +1011,7 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
   // This will allow the entry-point name to be something like
   // myNamespace::myEntrypointFunc.
   std::string funcName = getFnName(decl);
+  std::string debugFuncName = funcName;
 
   SpirvFunction *func = declIdMapper.getOrRegisterFn(decl);
 
@@ -959,6 +1032,32 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
   spvBuilder.beginFunction(retType, decl->getLocStart(), funcName,
                            decl->hasAttr<HLSLPreciseAttr>(), func);
 
+  auto loc = decl->getLocStart();
+  RichDebugInfo *info = nullptr;
+  const auto &sm = astContext.getSourceManager();
+  if (spirvOptions.debugInfoRich && decl->hasBody()) {
+    const uint32_t line = sm.getPresumedLineNumber(loc);
+    const uint32_t column = sm.getPresumedColumnNumber(loc);
+    info = getOrCreateRichDebugInfo(loc);
+
+    auto *source = info->source;
+    // Note that info->scopeStack.back() is a lexical scope of the function
+    // caller.
+    auto *parentScope = info->compilationUnit;
+    // TODO: figure out the proper flag based on the function decl.
+    // using FlagIsPublic for now.
+    uint32_t flags = 3u;
+    // The line number in the source program at which the function scope begins.
+    auto scopeLine = sm.getPresumedLineNumber(decl->getBody()->getLocStart());
+    SpirvDebugFunction *debugFunction = spvBuilder.createDebugFunction(
+        decl, debugFuncName, source, line, column, parentScope, "", flags,
+        scopeLine, func);
+    func->setDebugScope(new (spvContext) SpirvDebugScope(debugFunction));
+
+    spvContext.pushDebugLexicalScope(info, debugFunction);
+  }
+
+  bool isNonStaticMemberFn = false;
   if (const auto *memberFn = dyn_cast<CXXMethodDecl>(decl)) {
     if (!memberFn->isStatic()) {
       // For non-static member function, the first parameter should be the
@@ -973,6 +1072,23 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
         curThis->setContainsAliasComponent(true);
         needsLegalization = true;
       }
+
+      if (spirvOptions.debugInfoRich) {
+        // Add DebugLocalVariable information
+        const auto &sm = astContext.getSourceManager();
+        const uint32_t line = sm.getPresumedLineNumber(loc);
+        const uint32_t column = sm.getPresumedColumnNumber(loc);
+        if (!info)
+          info = getOrCreateRichDebugInfo(loc);
+        // TODO: replace this with FlagArtificial|FlagObjectPointer.
+        uint32_t flags = (1 << 5) | (1 << 8);
+        auto *debugLocalVar = spvBuilder.createDebugLocalVariable(
+            valueType, "this", info->source, line, column,
+            info->scopeStack.back(), flags, 1);
+        spvBuilder.createDebugDeclare(debugLocalVar, curThis);
+      }
+
+      isNonStaticMemberFn = true;
     }
   }
 
@@ -986,7 +1102,7 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
       // to pass the variable as function parameter in SPIR-V.
       continue;
     }
-    (void)declIdMapper.createFnParam(paramDecl);
+    (void)declIdMapper.createFnParam(paramDecl, i + 1 + isNonStaticMemberFn);
   }
 
   if (decl->hasBody()) {
@@ -1016,6 +1132,10 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
   }
 
   spvBuilder.endFunction();
+
+  if (spirvOptions.debugInfoRich) {
+    spvContext.popDebugLexicalScope(info);
+  }
 }
 
 bool SpirvEmitter::validateVKAttributes(const NamedDecl *decl) {
@@ -1179,6 +1299,8 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
   if (!validateVKAttributes(decl))
     return;
 
+  const auto loc = decl->getLocation();
+
   // HLSL has the 'string' type which can be used for rare purposes such as
   // printf (SPIR-V's DebugPrintf). SPIR-V does not have a 'char' or 'string'
   // type, and therefore any variable of such type should not be created.
@@ -1195,7 +1317,7 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
                                       decl)) {
     emitError("externally initialized non-floating-point column-major "
               "matrices not supported yet",
-              decl->getLocation());
+              loc);
   }
 
   // Reject arrays of RW/append/consume structured buffers. They have assoicated
@@ -1208,7 +1330,7 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
 
     if (isRWAppendConsumeSBuffer(type)) {
       emitError("arrays of RW/append/consume structured buffers unsupported",
-                decl->getLocation());
+                loc);
       return;
     }
   }
@@ -1250,7 +1372,6 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
     // We already know the variable is not externally visible here. If it does
     // not have local storage, it should be file scope variable.
     const bool isFileScopeVar = !decl->hasLocalStorage();
-
     if (isFileScopeVar)
       var = declIdMapper.createFileVar(decl, llvm::None);
     else
@@ -1273,14 +1394,27 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
     // Function local variables. Just emit OpStore at the current insert point.
     else if (const Expr *init = decl->getInit()) {
       if (auto *constInit = tryToEvaluateAsConst(init)) {
-        spvBuilder.createStore(var, constInit, decl->getLocation());
+        spvBuilder.createStore(var, constInit, loc);
       } else {
-        storeValue(var, loadIfGLValue(init), decl->getType(),
-                   decl->getLocation());
+        storeValue(var, loadIfGLValue(init), decl->getType(), loc);
       }
 
       // Update counter variable associated with local variables
       tryToAssignCounterVar(decl, init);
+    }
+
+    if (!isFileScopeVar && spirvOptions.debugInfoRich) {
+      // Add DebugLocalVariable information
+      const auto &sm = astContext.getSourceManager();
+      const uint32_t line = sm.getPresumedLineNumber(loc);
+      const uint32_t column = sm.getPresumedColumnNumber(loc);
+      const auto *info = getOrCreateRichDebugInfo(loc);
+      // TODO: replace this with FlagIsLocal enum.
+      uint32_t flags = 1 << 2;
+      auto *debugLocalVar = spvBuilder.createDebugLocalVariable(
+          decl->getType(), decl->getName(), info->source, line, column,
+          info->scopeStack.back(), flags);
+      spvBuilder.createDebugDeclare(debugLocalVar, var);
     }
 
     // Variables that are not externally visible and of opaque types should
@@ -10775,6 +10909,10 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   // function calls. And the wrapper is the entry function.
   entryFunction = spvBuilder.beginFunction(
       astContext.VoidTy, decl->getLocStart(), decl->getName());
+
+  // Specify that entryFunction is an entry function wrapper.
+  entryFunction->setEntryFunctionWrapper();
+
   // Note this should happen before using declIdMapper for other tasks.
   declIdMapper.setEntryFunction(entryFunction);
 

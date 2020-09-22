@@ -41,6 +41,13 @@ public:
   /// regardless of their polymorphism.
   bool visitInstruction(SpirvInstruction *instr) override;
 
+  /// Lowers the given AST QualType into the corresponding SPIR-V type.
+  ///
+  /// The lowering is recursive; all the types that the target type depends
+  /// on will be created in SpirvContext.
+  const SpirvType *lowerType(QualType type, SpirvLayoutRule,
+                             llvm::Optional<bool> isRowMajor, SourceLocation);
+
 private:
   /// Emits error to the diagnostic engine associated with this visitor.
   template <unsigned N>
@@ -51,12 +58,6 @@ private:
     return astContext.getDiagnostics().Report(srcLoc, diagId);
   }
 
-  /// Lowers the given AST QualType into the corresponding SPIR-V type.
-  ///
-  /// The lowering is recursive; all the types that the target type depends
-  /// on will be created in SpirvContext.
-  const SpirvType *lowerType(QualType type, SpirvLayoutRule,
-                             llvm::Optional<bool> isRowMajor, SourceLocation);
   /// Lowers the given Hybrid type into a SPIR-V type.
   ///
   /// Uses the above lowerType method to lower the QualType components of hybrid
