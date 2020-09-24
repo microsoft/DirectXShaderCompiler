@@ -1322,20 +1322,7 @@
       { { 1.0f, -1.0f, 0.0f }, { 1.0f, 1.0f } }
     </Resource>
     <Resource Name="RTarget" Dimension="TEXTURE2D" Width="64" Height="64" Format="R32G32B32A32_FLOAT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" />
-    <Resource Name="U0" Dimension="BUFFER" Width="256"
-              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="FromBytes" ReadBack="true" >
-      { 0I, 0I, 99999999I, 99999999I, 0I, 0I, -1I, -1I, 0I, 0I, 0I, 0I, 42I, 42I, 42I, 42I }
-    </Resource>
-    <Resource Name="U1" Dimension="BUFFER" Width="256"
-              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="FromBytes" ReadBack="true">
-      { 0I, 0I, 99999999I, 99999999I, 0I, 0I, -1I, -1I, 0I, 0I, 0I, 0I, 42I, 42I, 42I, 42I }
-    </Resource>
-    <Resource Name="U2" Dimension="BUFFER" Width="8240"
-              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-              Init="Zero" ReadBack="true" />
-    <Resource Name="U3" Dimension="BUFFER" Width="544"
+    <Resource Name="U0" Dimension="BUFFER" Width="544"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="FromBytes" ReadBack="true" >
       {
@@ -1349,9 +1336,22 @@
       0, 0, 0, 0, 0, 0, 0I, 0I, 0I, 0I, 0I, 0I, 0I, 0I, 0, 0, 0,
       }
     </Resource>
-    <Resource Name="U4" Dimension="BUFFER" Width="107120"
+    <Resource Name="U1" Dimension="BUFFER" Width="107120"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="Zero" ReadBack="true" />
+    <Resource Name="U2" Dimension="BUFFER" Width="256"
+              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+              Init="FromBytes" ReadBack="true">
+      { 0I, 0I, 99999999I, 99999999I, 0I, 0I, -1I, -1I, 0I, 0I, 0I, 0I, 42I, 42I, 42I, 42I }
+    </Resource>
+    <Resource Name="U3" Dimension="BUFFER" Width="8240"
+              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+              Init="Zero" ReadBack="true" />
+    <Resource Name="U4" Dimension="BUFFER" Width="256"
+              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+              Init="FromBytes" ReadBack="true" >
+      { 0I, 0I, 99999999I, 99999999I, 0I, 0I, -1I, -1I, 0I, 0I, 0I, 0I, 42I, 42I, 42I, 42I }
+    </Resource>
     <Resource Name="U5" Dimension="BUFFER" Width="256"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="FromBytes" ReadBack="true">
@@ -1384,15 +1384,15 @@
     </RootValues>
     <DescriptorHeap Name="ResHeap" Type="CBV_SRV_UAV">
       <Descriptor Name="U0" Kind="UAV" ResName="U0"
-                  NumElements="16" StructureByteStride="8" />
-      <Descriptor Name="U1" Kind="UAV" ResName="U1"
-                  NumElements="16" StructureByteStride="8" />
-      <Descriptor Name="U2" Kind="UAV" ResName="U2"
-                  NumElements="1030" StructureByteStride="8" />
-      <Descriptor Name="U3" Kind="UAV" ResName="U3"
                   NumElements="8" StructureByteStride="68" />
-      <Descriptor Name="U4" Kind="UAV" ResName="U4"
+      <Descriptor Name="U1" Kind="UAV" ResName="U1"
                   NumElements="1030" StructureByteStride="68" />
+      <Descriptor Name="U2" Kind="UAV" ResName="U2"
+                  NumElements="16" StructureByteStride="8" />
+      <Descriptor Name="U3" Kind="UAV" ResName="U3"
+                  NumElements="1030" StructureByteStride="8" />
+      <Descriptor Name="U4" Kind="UAV" ResName="U4"
+                  NumElements="16" StructureByteStride="8" />
       <Descriptor Name="U5" Kind="UAV" ResName="U5"
                   NumElements="16" StructureByteStride="8" />
       <Descriptor Name="U6" Kind="UAV" ResName="U6"
@@ -1452,15 +1452,15 @@
             uint3 unused;
           } postpad;
         };
-        RWBuffer<uint> g_uintBuf : register(u0);
-        RWBuffer<int> g_sintBuf : register(u1);
-        RWBuffer<int> g_xchgBuf : register(u2);
+        RWStructuredBuffer<AtomicStuff> g_structBuf : register(u0);
+        RWStructuredBuffer<AtomicStuff> g_strXchgBuf : register(u1);
 
-        RWStructuredBuffer<AtomicStuff> g_structBuf : register(u3);
-        RWStructuredBuffer<AtomicStuff> g_strXchgBuf : register(u4);
+        RWByteAddressBuffer g_rawBuf : register(u2);
+        RWByteAddressBuffer g_rawXchgBuf : register(u3);
 
-        RWByteAddressBuffer g_rawBuf : register(u5);
-        RWByteAddressBuffer g_rawXchgBuf : register(u6);
+        RWBuffer<uint> g_uintBuf : register(u4);
+        RWBuffer<int> g_sintBuf : register(u5);
+        RWBuffer<int> g_xchgBuf : register(u6);
 
         RWTexture1D<uint> g_utexBuf : register(u7);
         RWTexture1D<int> g_stexBuf : register(u8);
@@ -1473,15 +1473,15 @@
         groupshared int g_sintShare[6];
         groupshared uint g_xchgShare[2048];
 
-        RWBuffer<uint64_t> g_uint64Buf : register(u0);
-        RWBuffer<int> g_sint64Buf : register(u1);
-        RWBuffer<int64_t> g_xchg64Buf : register(u2);
+        RWStructuredBuffer<Atomic64Stuff> g_struct64Buf : register(u0);
+        RWStructuredBuffer<Atomic64Stuff> g_strXchg64Buf : register(u1);
 
-        RWStructuredBuffer<Atomic64Stuff> g_struct64Buf : register(u3);
-        RWStructuredBuffer<Atomic64Stuff> g_strXchg64Buf : register(u4);
+        RWByteAddressBuffer g_raw64Buf : register(u2);
+        RWByteAddressBuffer g_rawXchg64Buf : register(u3);
 
-        RWByteAddressBuffer g_raw64Buf : register(u5);
-        RWByteAddressBuffer g_rawXchg64Buf : register(u6);
+        RWBuffer<uint64_t> g_uint64Buf : register(u4);
+        RWBuffer<int> g_sint64Buf : register(u5);
+        RWBuffer<int64_t> g_xchg64Buf : register(u6);
 
         RWTexture1D<uint64_t> g_utex64Buf : register(u7);
         RWTexture1D<int64_t> g_stex64Buf : register(u8);
@@ -1787,10 +1787,10 @@
       { { 1.0f, -1.0f, 0.0f }, { 1.0f, 1.0f } }
     </Resource>
     <Resource Name="RTarget" Dimension="TEXTURE2D" Width="64" Height="64" Format="R32G32B32A32_FLOAT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" />
-    <Resource Name="U0" Dimension="BUFFER" Width="8240"
+    <Resource Name="U0" Dimension="BUFFER" Width="107120"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="Zero" ReadBack="true" />
-    <Resource Name="U1" Dimension="BUFFER" Width="107120"
+    <Resource Name="U1" Dimension="BUFFER" Width="8240"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="Zero" ReadBack="true" />
     <Resource Name="U2" Dimension="BUFFER" Width="8240"
@@ -1807,9 +1807,9 @@
     </RootValues>
     <DescriptorHeap Name="ResHeap" Type="CBV_SRV_UAV">
       <Descriptor Name="U0" Kind="UAV" ResName="U0"
-                  NumElements="1030" StructureByteStride="8" />
-      <Descriptor Name="U1" Kind="UAV" ResName="U1"
                   NumElements="1030" StructureByteStride="68" />
+      <Descriptor Name="U1" Kind="UAV" ResName="U1"
+                  NumElements="1030" StructureByteStride="8" />
       <Descriptor Name="U2" Kind="UAV" ResName="U2"
                   NumElements="1030" StructureByteStride="8" />
       <Descriptor Name="U3" Kind="UAV" ResName="U3"
@@ -1846,9 +1846,9 @@
           } postpad;
         };
 
-        RWBuffer<float> g_xchgBuf : register(u0);
-        RWStructuredBuffer<AtomicStuff> g_strXchgBuf : register(u1);
-        RWByteAddressBuffer g_rawXchgBuf : register(u2);
+        RWStructuredBuffer<AtomicStuff> g_strXchgBuf : register(u0);
+        RWByteAddressBuffer g_rawXchgBuf : register(u1);
+        RWBuffer<float> g_xchgBuf : register(u2);
         RWTexture1D<float> g_xtexBuf : register(u3);
         RWBuffer<float> g_shareXchgBuf : register(u4);
 

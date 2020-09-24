@@ -7541,33 +7541,37 @@ void VerifyAtomicsTest(std::shared_ptr<ShaderOpTestResult> test, size_t maxIdx,
   MappedData uintData, sintData, xchgData;
 
   test->Test->GetReadBackData("U0", &uintData);
-  const BYTE *pUint = (BYTE *)uintData.data();
-
-  test->Test->GetReadBackData("U1", &sintData);
-  const BYTE *pSint = (BYTE *)sintData.data();
-
-  test->Test->GetReadBackData("U2", &xchgData);
-  const BYTE *pXchg = (BYTE *)xchgData.data();
-
-  VerifyAtomicResults(pUint, pSint + byteSize, pXchg, byteSize, maxIdx, bitSize);
-
-  test->Test->GetReadBackData("U3", &uintData);
   const AtomicStuff *pStruct = (AtomicStuff *)uintData.data();
 
-  test->Test->GetReadBackData("U4", &xchgData);
+  test->Test->GetReadBackData("U1", &xchgData);
   const AtomicStuff *pStrXchg = (AtomicStuff *)xchgData.data();
 
   VerifyAtomicResults((const BYTE*)&(pStruct[0].uintEl[2]), (const BYTE*)&(pStruct[1].sintEl[2]),
                       (const BYTE*)&(pStrXchg[0].uintEl[2]), sizeof(AtomicStuff), maxIdx, bitSize);
 
-  test->Test->GetReadBackData("U5", &uintData);
+  const BYTE *pUint = nullptr;
+  const BYTE *pSint = nullptr;
+  const BYTE *pXchg = nullptr;
+
+  test->Test->GetReadBackData("U2", &uintData);
   pUint = (BYTE *)uintData.data();
 
-  test->Test->GetReadBackData("U6", &xchgData);
+  test->Test->GetReadBackData("U3", &xchgData);
   pXchg = (BYTE *)xchgData.data();
 
   VerifyAtomicResults(pUint, pUint + byteSize*6,
                       pXchg, byteSize, maxIdx, bitSize);
+
+  test->Test->GetReadBackData("U4", &uintData);
+  pUint = (BYTE *)uintData.data();
+
+  test->Test->GetReadBackData("U5", &sintData);
+  pSint = (BYTE *)sintData.data();
+
+  test->Test->GetReadBackData("U6", &xchgData);
+  pXchg = (BYTE *)xchgData.data();
+
+  VerifyAtomicResults(pUint, pSint + byteSize, pXchg, byteSize, maxIdx, bitSize);
 
   test->Test->GetReadBackData("U7", &uintData);
   pUint = (BYTE *)uintData.data();
@@ -7773,18 +7777,19 @@ void VerifyAtomicsFloatTest(std::shared_ptr<ShaderOpTestResult> test, size_t max
 
   // Test Compute Shader
   MappedData Data;
+  const float *pData = nullptr;
 
   test->Test->GetReadBackData("U0", &Data);
-  const float *pData = (float *)Data.data();
-  VerifyAtomicFloatResults(pData, maxIdx);
-
-  test->Test->GetReadBackData("U1", &Data);
   const AtomicStuff *pStructData = (AtomicStuff *)Data.data();
   VERIFY_IS_TRUE(pStructData[0].fltEl[1] >= 0.120 && pStructData[0].fltEl[1] < 0.125);
   for (size_t i = 1; i < maxIdx/4; i++) {
     float gold = i*4;
     VERIFY_IS_TRUE(pStructData[i].fltEl[1] >= gold && pStructData[i].fltEl[1] < gold + 4);
   }
+
+  test->Test->GetReadBackData("U1", &Data);
+  pData = (float *)Data.data();
+  VerifyAtomicFloatResults(pData, maxIdx);
 
   test->Test->GetReadBackData("U2", &Data);
   pData = (float *)Data.data();
