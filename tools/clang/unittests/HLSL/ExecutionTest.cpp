@@ -984,10 +984,14 @@ public:
   }
     
   bool DoesDeviceSupportMeshShaders(ID3D12Device *pDevice) {
+#if defined(NTDDI_WIN10_VB) && WDK_NTDDI_VERSION >= NTDDI_WIN10_VB
     D3D12_FEATURE_DATA_D3D12_OPTIONS7 O7;
     if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS7, &O7, sizeof(O7))))
       return false;
     return O7.MeshShaderTier != D3D12_MESH_SHADER_TIER_NOT_SUPPORTED;
+#else
+    return false;
+#endif
   }
 
   bool DoesDeviceSupportMeshAmpDerivatives(ID3D12Device *pDevice) {
