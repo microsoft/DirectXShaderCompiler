@@ -144,7 +144,7 @@ class SimplifyCFGOpt {
 public:
   SimplifyCFGOpt(const TargetTransformInfo &TTI, const DataLayout &DL,
                  unsigned BonusInstThreshold, AssumptionCache *AC, /*HLSL Change */bool AllowFoldCondBranchOnPHI)
-      : TTI(TTI), DL(DL), BonusInstThreshold(BonusInstThreshold), AC(AC), /*HLSL Change*/ AllowFoldCondBranchOnPHI(AllowFoldCondBranchOnPHI) {}
+      : TTI(TTI), DL(DL), BonusInstThreshold(BonusInstThreshold), /*HLSL Change*/ AllowFoldCondBranchOnPHI(AllowFoldCondBranchOnPHI), AC(AC) {}
   bool run(BasicBlock *BB);
 };
 }
