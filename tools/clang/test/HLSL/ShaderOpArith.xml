@@ -1404,9 +1404,9 @@
       <Descriptor Name="U9" Kind="UAV" ResName="U9"
                   NumElements="1030" StructureByteStride="8" />
       <Descriptor Name="U10" Kind="UAV" ResName="U10"
-                  NumElements="16" StructureByteStride="8" />
+                  NumElements="16" StructureByteStride="4" />
       <Descriptor Name="U11" Kind="UAV" ResName="U11"
-                  NumElements="1030" StructureByteStride="8" />
+                  NumElements="1030" StructureByteStride="4" />
     </DescriptorHeap>
     <DescriptorHeap Name="RtvHeap" NumDescriptors="1" Type="RTV">
       <Descriptor Name="RTarget" Kind="RTV"/>
@@ -1774,7 +1774,7 @@
   <ShaderOp Name="FloatAtomics" PS="PS" VS="VS" CS="CS" AS="AS" MS="MS" TopologyType="TRIANGLE">
     <RootSignature>
       RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT),
-      DescriptorTable(UAV(u0), UAV(u1), UAV(u2), UAV(u3), UAV(u4), UAV(u5), UAV(u6), UAV(u7), UAV(u8), UAV(u9), UAV(u10), UAV(u11)),
+      DescriptorTable(UAV(u0), UAV(u1), UAV(u2), UAV(u3), UAV(u4)),
       StaticSampler(s0, addressU = TEXTURE_ADDRESS_WRAP, addressV = TEXTURE_ADDRESS_WRAP, filter = FILTER_MIN_MAG_LINEAR_MIP_POINT)
     </RootSignature>
     <Resource Name="VBuffer" Dimension="BUFFER" InitialResourceState="COPY_DEST" Init="FromBytes" Topology="TRIANGLELIST">
@@ -1787,19 +1787,19 @@
       { { 1.0f, -1.0f, 0.0f }, { 1.0f, 1.0f } }
     </Resource>
     <Resource Name="RTarget" Dimension="TEXTURE2D" Width="64" Height="64" Format="R32G32B32A32_FLOAT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" />
-    <Resource Name="U0" Dimension="BUFFER" Width="107120"
+    <Resource Name="U0" Dimension="BUFFER" Width="45320"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="Zero" ReadBack="true" />
-    <Resource Name="U1" Dimension="BUFFER" Width="8240"
+    <Resource Name="U1" Dimension="BUFFER" Width="4120"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="Zero" ReadBack="true" />
-    <Resource Name="U2" Dimension="BUFFER" Width="8240"
+    <Resource Name="U2" Dimension="BUFFER" Width="4210"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="Zero" ReadBack="true" />
-    <Resource Name="U3" Dimension="BUFFER" Width="8240"
+    <Resource Name="U3" Dimension="BUFFER" Width="4210"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="Zero" ReadBack="true" />
-    <Resource Name="U4" Dimension="BUFFER" Width="8240"
+    <Resource Name="U4" Dimension="BUFFER" Width="4120"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="Zero" ReadBack="true" />
     <RootValues>
@@ -1807,15 +1807,15 @@
     </RootValues>
     <DescriptorHeap Name="ResHeap" Type="CBV_SRV_UAV">
       <Descriptor Name="U0" Kind="UAV" ResName="U0"
-                  NumElements="1030" StructureByteStride="68" />
+                  NumElements="1030" StructureByteStride="44" />
       <Descriptor Name="U1" Kind="UAV" ResName="U1"
-                  NumElements="1030" StructureByteStride="8" />
+                  NumElements="1030" StructureByteStride="4" />
       <Descriptor Name="U2" Kind="UAV" ResName="U2"
-                  NumElements="1030" StructureByteStride="8" />
+                  NumElements="1030" StructureByteStride="4" />
       <Descriptor Name="U3" Kind="UAV" ResName="U3"
-                  NumElements="1030" StructureByteStride="8" />
+                  NumElements="1030" StructureByteStride="4" />
       <Descriptor Name="U4" Kind="UAV" ResName="U4"
-                  NumElements="1030" StructureByteStride="8" />
+                  NumElements="1030" StructureByteStride="4" />
     </DescriptorHeap>
     <DescriptorHeap Name="RtvHeap" NumDescriptors="1" Type="RTV">
       <Descriptor Name="RTarget" Kind="RTV"/>
@@ -1894,7 +1894,6 @@
 
           InterlockedCompareExchangeFloatBitwise(g_xtexBuf[0], 0, sqrt(-1), output);
           if (output == 0.0) InterlockedCompareStoreFloatBitwise(g_xtexBuf[0], sqrt(-1), 0.123);
-
         }
 
         void AtomicGroupSharedTest(uint ix) {
