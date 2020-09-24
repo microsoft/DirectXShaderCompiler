@@ -1306,6 +1306,7 @@
     </Shader>
   </ShaderOp>
 
+  <!-- For explanations of the atomics tests, see comments in and around VerifyAtomicResults in Executiontest.cpp -->
   <ShaderOp Name="Atomics" PS="PS" VS="VS" CS="CS" AS="AS" MS="MS" TopologyType="TRIANGLE">
     <RootSignature>
       RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT),

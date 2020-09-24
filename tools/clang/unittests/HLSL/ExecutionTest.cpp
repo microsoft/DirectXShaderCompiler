@@ -7460,6 +7460,28 @@ void ExecutionTest::WaveSizeTest() {
   }
 }
 
+
+// Atomic operation testing
+
+// Atomic tests take a single integer index as input and contort it into some
+// kind of interesting contributor to the operation in question.
+// So each vertex, pixel, thread, or other will have a unique index that produces
+// a contributing value to the calculation which is stored in a small resource
+
+// For arithmetic or bitwise operations, each contributor accumulates to the same
+// location in the resource indexed by the operation type. Addition is in index 0
+// umin/umax are in 1 and 2 and so on.
+
+// For compare and exchange operations, a resource 1/4 the number of contributors is
+// used to grant some competition among lanes, but allow some verification of the result
+// since the 4 competing lanes will all share the same uppermost bits which can be used
+// to determine what values might be in the corresponding location.
+
+// To make sure that the most significant bits are involved in the calculation,
+// particularly in the case of 64-bit values, each contributing value is duplicated
+// to the lower and upper halves of the value. There is an exception to this when
+// addition exceeds the available size and also for compare and exchange explained below.
+
 bool AtomicResultMatches(const BYTE *uResults, uint64_t gold, size_t size) {
   if (memcmp(uResults, &gold, size)) {
     if (size == 4)
@@ -7471,8 +7493,17 @@ bool AtomicResultMatches(const BYTE *uResults, uint64_t gold, size_t size) {
   return true;
 }
 
-// Verify results for a particular set of atomics results
+// Used to duplicate the lower half bits into the upper half bits of an integer
+// To verify that the full value is being considered, many tests duplicate the results into the upper half
 #define SHIFT(val, bits) (((val)&((1<<(bits))-1)) | ((val) << (bits)))
+
+// Verify results for atomic operations. <uResults> and <sResults> are pointers to
+// the readback resource sections containing unsigned and signed integers respectively.
+// <pXchg> is a poiner to the readback resource containing the results of the compare
+// and exchange operations tests. <stride> is the number of bytes between results for
+// all of the results pointers. <maxIdx> is the number of indices that went into the results
+// which is used to determine what the results should be. <bitSize> is the size in bits of
+// the produced results, either 32 or 64.
 void VerifyAtomicResults(const BYTE *uResults, const BYTE *sResults,
                          const BYTE *pXchg, size_t stride, size_t maxIdx, size_t bitSize) {
   // Each atomic test performs the test on the value in the lower half
@@ -7480,32 +7511,55 @@ void VerifyAtomicResults(const BYTE *uResults, const BYTE *sResults,
   // This is to verify that the upper bits are considered
   size_t shBits = bitSize/2;
   size_t byteSize = bitSize/8;
-  // ADD just sums all the indices. Using Gauss's puported algorithm to get the expected sum.
+
+  // Test ADD Operation
+  // ADD just sums all the indices. The result should the sum of the highest and lowest indices
+  // multiplied by half the number of sums.
   size_t addResult = (maxIdx)*(maxIdx-1)/2;
   LogCommentFmt(L"Verifying %d-bit integer atomic add", bitSize);
+  // For 32-bit values, the sum exceeds the 16 bit limit, so we can't duplicate
+  // That's fine, the duplication is really for 64-bit values.
   if (addResult >= 1ULL << shBits)
     VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*0, addResult, byteSize));
   else
     VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*0, SHIFT(addResult, shBits), byteSize));
 
-  // To make it interesting, min and max operate on a bitflipped value for the even numbers
-  // and the direct value for the odd numbers.
-  // For unsigned, this means index 0 will give the max with ~0 and 1 will be the min
+  // Test MIN and MAX Operations
+
+  // The result of a simple min and max of any sequence of indices would be fairly uninteresting
+  // and certain erroneous behavior might mistakenly produce the correct results.
+
+  // To make it interesting, the contributing values will change depending on the evenness of the index.
+  // On an even index, min and max operate on the bitflipped index. For signed compares, this is
+  // interpretted as a negative value and for unsigned, a very high value.
+
+  // For unsigned min/max, index 0 will be bitflipped to ~0, which is interpretted as the maximum
+  // Because zero is manipulated, this leaves 1 as the lowest value.
   LogCommentFmt(L"Verifying %d-bit integer atomic umin", bitSize);
   VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*1, SHIFT(1, shBits), byteSize)); // UMin
   VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*2, ~0, byteSize)); // UMax
 
-  // For signed min/max, the index just before the last will be bitflipped
-  // (maxIndex is always even). This is interpretted as -maxIndex and will be the lowest
-  // the maxIndex will be the highest.
+  // For signed min/max, the index just before the last will be bitflipped (maxIndex is always even).
+  // This is interpretted as -maxIndex and will be the lowest
+  // The maxIndex will be unaltered and interpretted as the highest.
   LogCommentFmt(L"Verifying %d-bit integer atomic smin", bitSize);
   VERIFY_IS_TRUE(AtomicResultMatches(sResults + stride*0, SHIFT(-(maxIdx-1), shBits), byteSize)); // SMin
   LogCommentFmt(L"Verifying %d-bit integer atomic smax", bitSize);
   VERIFY_IS_TRUE(AtomicResultMatches(sResults + stride*1, SHIFT(maxIdx-1, shBits), byteSize)); // SMax
 
-  // AND combines the bitflipped indices OR combines them directly.
-  // So the AND result should have all the bits above those used by indices set
-  // and the OR result should have just those that the indices reach
+  // Test AND and OR operations.
+
+  // For AND operations, all indices are bitflipped and ANDed to the previous result.
+  // This means that the highest bits, which are never set by the contributing indices will be set
+  // for all the indices, so they will be set in the final result.
+
+  // For OR operations, the indices are ORed to the previous result unaltered
+  // This means that any bit that is set in any index will be set in the final OR result.
+
+  // In practice, this means that the cumulative result of the AND and OR operations
+  // are bitflipped versions of each other.
+  // Finding the most significant set bit by the max index or next power of two (pot)
+  // gives us the pivot point for these results
   size_t nextPot = 1ULL << (bitSize - 1);
   for (;nextPot && !((maxIdx-1) & (nextPot)); nextPot >>= 1) {}
   nextPot <<= 1;
@@ -7514,22 +7568,52 @@ void VerifyAtomicResults(const BYTE *uResults, const BYTE *sResults,
   LogCommentFmt(L"Verifying %d-bit integer atomic or", bitSize);
   VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*4, SHIFT(nextPot-1, shBits), byteSize)); // Or
 
-  // XOR combines values with one bit set at the index%31 offset.
-  // 31 is used so it doesn't result in 0 for power of two values, which is the initial value
+  // Test XOR operation
+
+  // For XOR operations, a 1 is shifted by the number of spaces equal to the index and XORed
+  // to the previous result. Because this would rapidely shift off the end of the value,
+  // giving undefined and uninteresting results, the index is moduloed to a value that will
+  // fit within the type size.
+
+  // Because many of the tests use total numbers of lanes that can be evenly divisible by 32 or 64,
+  // these values aren't used for the modulo since the expected result might be zero, 
+  // which could be encountered through erroneous behavior.
+
+  // Instead, one less than the type size in bits is used for the modulo.
+  // Even though we don't know the actual order these operations are performed,
+  // indices that make up a contiguous sequence of 31 or 63 values can be thought of as one of a series of "passes".
   // Each "pass" sets or clears the bits depending on what's already there.
-  // This is true even if the "passes" are out of order as they will be
-  // if the number of wraps is odd, the bits are being unset and all above the mod position should be set.
-  // If even, the bits are being set and bits below the mod position should be set.
-  size_t xorResult = (((((maxIdx)/(bitSize-1))&1)*~0) ^ ((1ULL<<((maxIdx)%(bitSize-1))) -1)) & ((1ULL<<(bitSize-1)) - 1);
+  // if the number of the pass is odd, the bits are being unset and all above the mod position should be set.
+  // If even, the bits are in the process of being set and bits below the mod position should be set.
+  size_t xorResult = ((1ULL<<((maxIdx)%(bitSize-1))) -1);
+
+  if (((maxIdx/(bitSize-1))&1)) {
+    xorResult ^= ~0;
+    // The XOR above may set uninvolved upper bits, messing up the compare. So AND off the uninvolved bits.
+    xorResult &= ((1ULL<<(bitSize-1)) - 1);
+  }
+
   LogCommentFmt(L"Verifying %d-bit integer atomic xor", bitSize);
   VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*5, xorResult, byteSize));
 
-  // Exchange testing puts every four indices in contention with each other.
-  // To verify that the higher bits are considered, the lower bits will be
-  // the lowest index of the four and will all match.
-  // The upper bits will be whichever of the indices gets in first
-  // the check just ignores the lower 2 bits of the upper part.
-  // The lower bits are the lowest index + 2 in order to verify a series of swaps
+  // Test CMP/XCHG Operations
+  // This tests CompareStore, CompareExchange, and Exchange operations.
+
+  // Unlike above, every lane isn't contributing to the same resource location
+  // Instead, every four lanes will compete to update the same resource location.
+  // The first lane to find the contents of their location uninitialized will
+  // update it. To verify that upper bits are considered in the comparison and
+  // in the assignment, the value stored is the lowest index of the four for
+  // the lowest bits. This ensures that part will be the same for each of the four.
+  // The uppermost bits are updated with the index of the lane that got there first.
+  // Subsequent calls to CompareExchange will verify this value matches and alter
+  // the content further. Finally, a simple check of the output value to what
+  // a given lane would expect and a call to exchange will update the value once more
+
+  // To verify this has gone through properly, we ignore the lower 2 bits of the upper part.
+  // They are specific to the lane that got there first and we have no way to know which did.
+  // The end result of the operations should leave the lower half with the value of the first
+  // index in the four that may have contributed.
   LogCommentFmt(L"Verifying %d-bit integer atomic cmp/xchg results", bitSize);
   for (size_t i = 0; i < maxIdx/4; i++) {
     uint32_t idx = i << 2;
