@@ -7460,8 +7460,15 @@ void ExecutionTest::WaveSizeTest() {
   }
 }
 
-void VerifyMem(const BYTE *uResults, uint64_t gold, size_t size) {
-  VERIFY_IS_TRUE(!memcmp(uResults, &gold, size));
+bool AtomicResultMatches(const BYTE *uResults, uint64_t gold, size_t size) {
+  if (memcmp(uResults, &gold, size)) {
+    if (size == 4)
+      LogCommentFmt(L"  value %d is not %d", ((uint32_t*)uResults)[0], (uint32_t)gold);
+    else
+      LogCommentFmt(L"  value %ld is not %ld", ((uint64_t*)uResults)[0], gold);
+    return false;
+  }
+  return true;
 }
 
 // Verify results for a particular set of atomics results
@@ -7475,22 +7482,26 @@ void VerifyAtomicResults(const BYTE *uResults, const BYTE *sResults,
   size_t byteSize = bitSize/8;
   // ADD just sums all the indices. Using Gauss's puported algorithm to get the expected sum.
   size_t addResult = (maxIdx)*(maxIdx-1)/2;
+  LogCommentFmt(L"Verifying %d-bit integer atomic add", bitSize);
   if (addResult >= 1ULL << shBits)
-    VerifyMem(uResults + stride*0, addResult, byteSize);
+    VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*0, addResult, byteSize));
   else
-    VerifyMem(uResults + stride*0, SHIFT(addResult, shBits), byteSize);
+    VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*0, SHIFT(addResult, shBits), byteSize));
 
   // To make it interesting, min and max operate on a bitflipped value for the even numbers
   // and the direct value for the odd numbers.
   // For unsigned, this means index 0 will give the max with ~0 and 1 will be the min
-  VerifyMem(uResults + stride*1, SHIFT(1, shBits), byteSize); // UMin
-  VerifyMem(uResults + stride*2, ~0, byteSize); // UMax
+  LogCommentFmt(L"Verifying %d-bit integer atomic umin", bitSize);
+  VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*1, SHIFT(1, shBits), byteSize)); // UMin
+  VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*2, ~0, byteSize)); // UMax
 
   // For signed min/max, the index just before the last will be bitflipped
   // (maxIndex is always even). This is interpretted as -maxIndex and will be the lowest
   // the maxIndex will be the highest.
-  VerifyMem(sResults + stride*0, SHIFT(-(maxIdx-1), shBits), byteSize); // SMin
-  VerifyMem(sResults + stride*1, SHIFT(maxIdx-1, shBits), byteSize); // SMax
+  LogCommentFmt(L"Verifying %d-bit integer atomic smin", bitSize);
+  VERIFY_IS_TRUE(AtomicResultMatches(sResults + stride*0, SHIFT(-(maxIdx-1), shBits), byteSize)); // SMin
+  LogCommentFmt(L"Verifying %d-bit integer atomic smax", bitSize);
+  VERIFY_IS_TRUE(AtomicResultMatches(sResults + stride*1, SHIFT(maxIdx-1, shBits), byteSize)); // SMax
 
   // AND combines the bitflipped indices OR combines them directly.
   // So the AND result should have all the bits above those used by indices set
@@ -7498,8 +7509,10 @@ void VerifyAtomicResults(const BYTE *uResults, const BYTE *sResults,
   size_t nextPot = 1ULL << (bitSize - 1);
   for (;nextPot && !((maxIdx-1) & (nextPot)); nextPot >>= 1) {}
   nextPot <<= 1;
-  VerifyMem(uResults + stride*3, ~SHIFT(nextPot-1, shBits), byteSize); // And
-  VerifyMem(uResults + stride*4, SHIFT(nextPot-1, shBits), byteSize); // Or
+  LogCommentFmt(L"Verifying %d-bit integer atomic and", bitSize);
+  VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*3, ~SHIFT(nextPot-1, shBits), byteSize)); // And
+  LogCommentFmt(L"Verifying %d-bit integer atomic or", bitSize);
+  VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*4, SHIFT(nextPot-1, shBits), byteSize)); // Or
 
   // XOR combines values with one bit set at the index%31 offset.
   // 31 is used so it doesn't result in 0 for power of two values, which is the initial value
@@ -7508,7 +7521,8 @@ void VerifyAtomicResults(const BYTE *uResults, const BYTE *sResults,
   // if the number of wraps is odd, the bits are being unset and all above the mod position should be set.
   // If even, the bits are being set and bits below the mod position should be set.
   size_t xorResult = (((((maxIdx)/(bitSize-1))&1)*~0) ^ ((1ULL<<((maxIdx)%(bitSize-1))) -1)) & ((1ULL<<(bitSize-1)) - 1);
-  VerifyMem(uResults + stride*5, xorResult, byteSize);
+  LogCommentFmt(L"Verifying %d-bit integer atomic xor", bitSize);
+  VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*5, xorResult, byteSize));
 
   // Exchange testing puts every four indices in contention with each other.
   // To verify that the higher bits are considered, the lower bits will be
@@ -7516,6 +7530,7 @@ void VerifyAtomicResults(const BYTE *uResults, const BYTE *sResults,
   // The upper bits will be whichever of the indices gets in first
   // the check just ignores the lower 2 bits of the upper part.
   // The lower bits are the lowest index + 2 in order to verify a series of swaps
+  LogCommentFmt(L"Verifying %d-bit integer atomic cmp/xchg results", bitSize);
   for (size_t i = 0; i < maxIdx/4; i++) {
     uint32_t idx = i << 2;
     uint32_t *ptr = (uint32_t*)(pXchg + i*stride);
@@ -7546,6 +7561,8 @@ void VerifyAtomicsTest(std::shared_ptr<ShaderOpTestResult> test, size_t maxIdx,
   test->Test->GetReadBackData("U1", &xchgData);
   const AtomicStuff *pStrXchg = (AtomicStuff *)xchgData.data();
 
+  LogCommentFmt(L"Verifying %d-bit integer atomic operations on RWStructuredBuffer resource", bitSize);
+
   VerifyAtomicResults((const BYTE*)&(pStruct[0].uintEl[2]), (const BYTE*)&(pStruct[1].sintEl[2]),
                       (const BYTE*)&(pStrXchg[0].uintEl[2]), sizeof(AtomicStuff), maxIdx, bitSize);
 
@@ -7559,6 +7576,8 @@ void VerifyAtomicsTest(std::shared_ptr<ShaderOpTestResult> test, size_t maxIdx,
   test->Test->GetReadBackData("U3", &xchgData);
   pXchg = (BYTE *)xchgData.data();
 
+  LogCommentFmt(L"Verifying %d-bit integer atomic operations on RWByteAddressBuffer resource", bitSize);
+
   VerifyAtomicResults(pUint, pUint + byteSize*6,
                       pXchg, byteSize, maxIdx, bitSize);
 
@@ -7571,6 +7590,8 @@ void VerifyAtomicsTest(std::shared_ptr<ShaderOpTestResult> test, size_t maxIdx,
   test->Test->GetReadBackData("U6", &xchgData);
   pXchg = (BYTE *)xchgData.data();
 
+  LogCommentFmt(L"Verifying %d-bit integer atomic operations on RWBuffer resource", bitSize);
+
   VerifyAtomicResults(pUint, pSint + byteSize, pXchg, byteSize, maxIdx, bitSize);
 
   test->Test->GetReadBackData("U7", &uintData);
@@ -7582,6 +7603,8 @@ void VerifyAtomicsTest(std::shared_ptr<ShaderOpTestResult> test, size_t maxIdx,
   test->Test->GetReadBackData("U9", &xchgData);
   pXchg = (BYTE *)xchgData.data();
 
+  LogCommentFmt(L"Verifying %d-bit integer atomic operations on RWTexture resource", bitSize);
+
   VerifyAtomicResults(pUint, pSint + byteSize, pXchg, byteSize, maxIdx, bitSize);
 
   if (hasGroupShared) {
@@ -7591,6 +7614,7 @@ void VerifyAtomicsTest(std::shared_ptr<ShaderOpTestResult> test, size_t maxIdx,
     test->Test->GetReadBackData("U11", &xchgData);
     pXchg = (BYTE *)xchgData.data();
 
+    LogCommentFmt(L"Verifying %d-bit integer atomic operations on groupshared variables", bitSize);
     VerifyAtomicResults(pUint, pUint + byteSize*6,
                         pXchg, byteSize, maxIdx, bitSize);
   }
@@ -7612,18 +7636,22 @@ TEST_F(ExecutionTest, AtomicsTest) {
   st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("Atomics");
 
   // Test compute shader
+  LogCommentFmt(L"Verifying 32-bit integer atomic operations in compute shader");
   std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+
   VerifyAtomicsTest(test, 32*32, 32, true /* hasGroupShared */);
 
   // Test mesh shader if available
   pShaderOp->CS = nullptr;
   if (DoesDeviceSupportMeshShaders(pDevice)) {
+    LogCommentFmt(L"Verifying 32-bit integer atomic operations in amp/mesh/pixel shaders");
     test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
     VerifyAtomicsTest(test, 8*8*8*8 + 64*64, 32, false /* hasGroupShared */);
   }
 
   // Test Pixel shader
   pShaderOp->MS = nullptr;
+  LogCommentFmt(L"Verifying 32-bit integer atomic operations in vert/pixel shaders");
   test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
   VerifyAtomicsTest(test, 64*64+6, 32, false /* hasGroupShared */);
 }
@@ -7661,18 +7689,21 @@ TEST_F(ExecutionTest, Atomics64Test) {
   pShaderOp->MS = MS64;
 
   // Test compute shader
+  LogCommentFmt(L"Verifying 64-bit integer atomic operations on raw buffers in compute shader");
   std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
   VerifyAtomicsTest(test, 32*32, 64, true /* hasGroupShared */);
 
   // Test mesh shader if available
   pShaderOp->CS = nullptr;
   if (DoesDeviceSupportMeshShaders(pDevice)) {
+    LogCommentFmt(L"Verifying 64-bit integer atomic operations on raw buffers in amp/mesh/pixel shader");
     test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
     VerifyAtomicsTest(test, 8*8*8*8 + 64*64, 64, false /* hasGroupShared */);
   }
 
   // Test Pixel shader
   pShaderOp->MS = nullptr;
+  LogCommentFmt(L"Verifying 64-bit integer atomic operations on raw buffers in vert/pixel shader");
   test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
   VerifyAtomicsTest(test, 64*64+6, 64, false /* hasGroupShared */);
 }
@@ -7712,6 +7743,7 @@ TEST_F(ExecutionTest, AtomicsTyped64Test) {
   }
   pShaderOp->CS = CS64;
 
+  LogCommentFmt(L"Verifying 64-bit integer atomic operations on typed resources in compute shader");
   std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
   VerifyAtomicsTest(test, 32*32, 64, true /* hasGroupShared */);
 }
@@ -7751,6 +7783,7 @@ TEST_F(ExecutionTest, AtomicsShared64Test) {
   }
   pShaderOp->CS = CS64;
 
+  LogCommentFmt(L"Verifying 64-bit integer atomic operations on groupshared variables in compute shader");
   std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
   VerifyAtomicsTest(test, 32*32, 64, true /* hasGroupShared */);
 }
@@ -7781,6 +7814,7 @@ void VerifyAtomicsFloatTest(std::shared_ptr<ShaderOpTestResult> test, size_t max
 
   test->Test->GetReadBackData("U0", &Data);
   const AtomicStuff *pStructData = (AtomicStuff *)Data.data();
+  LogCommentFmt(L"Verifying float cmp/xchg atomic operations on RWStructuredBuffer resources");
   VERIFY_IS_TRUE(pStructData[0].fltEl[1] >= 0.120 && pStructData[0].fltEl[1] < 0.125);
   for (size_t i = 1; i < maxIdx/4; i++) {
     float gold = i*4;
@@ -7789,20 +7823,24 @@ void VerifyAtomicsFloatTest(std::shared_ptr<ShaderOpTestResult> test, size_t max
 
   test->Test->GetReadBackData("U1", &Data);
   pData = (float *)Data.data();
+  LogCommentFmt(L"Verifying float cmp/xchg atomic operations on RWByteAddressBuffer resources");
   VerifyAtomicFloatResults(pData, maxIdx);
 
   test->Test->GetReadBackData("U2", &Data);
   pData = (float *)Data.data();
+  LogCommentFmt(L"Verifying float cmp/xchg atomic operations on RWBuffer resources");
   VerifyAtomicFloatResults(pData, maxIdx);
 
   test->Test->GetReadBackData("U3", &Data);
   pData = (float *)Data.data();
+  LogCommentFmt(L"Verifying float cmp/xchg atomic operations on RWTexture resources");
   VerifyAtomicFloatResults(pData, maxIdx);
 
   if (hasGroupShared) {
     test->Test->GetReadBackData("U4", &Data);
     pData = (float *)Data.data();
 
+    LogCommentFmt(L"Verifying float cmp/xchg atomic operations on groupshared variables");
     VerifyAtomicFloatResults(pData, maxIdx);
   }
 }
@@ -7823,18 +7861,21 @@ TEST_F(ExecutionTest, AtomicsFloatTest) {
   st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("FloatAtomics");
 
   // Test compute shader
+  LogCommentFmt(L"Verifying float cmp/xchg atomic operations in compute shader");
   std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "FloatAtomics", nullptr, ShaderOpSet);
   VerifyAtomicsFloatTest(test, 32*32, true /* hasGroupShared */);
 
   // Test mesh shader if available
   pShaderOp->CS = nullptr;
   if (DoesDeviceSupportMeshShaders(pDevice)) {
+    LogCommentFmt(L"Verifying float cmp/xchg atomic operations in amp/mesh/pixel shaders");
     test = RunShaderOpTestAfterParse(pDevice, m_support, "FloatAtomics", nullptr, ShaderOpSet);
     VerifyAtomicsFloatTest(test, 8*8*8*8 + 64*64, false /* hasGroupShared */);
   }
 
   // Test Pixel shader
   pShaderOp->MS = nullptr;
+    LogCommentFmt(L"Verifying float cmp/xchg atomic operations in vert/pixel shaders");
   test = RunShaderOpTestAfterParse(pDevice, m_support, "FloatAtomics", nullptr, ShaderOpSet);
   VerifyAtomicsFloatTest(test, 64*64+6, false /* hasGroupShared */);
 }
