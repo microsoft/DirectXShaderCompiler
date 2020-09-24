@@ -86,8 +86,17 @@ bool isMx1Matrix(QualType type, QualType *elemType = nullptr,
 bool isMxNMatrix(QualType type, QualType *elemType = nullptr,
                  uint32_t *rowCount = nullptr, uint32_t *colCount = nullptr);
 
-/// \brief Returns true if the decl is of ConstantBuffer/TextureBuffer type.
-bool isConstantTextureBuffer(const Decl *decl);
+/// \brief Returns true if the given type is a ConstantBuffer or an array of
+/// ConstantBuffers.
+bool isConstantBuffer(QualType);
+
+/// \brief Returns true if the given type is a TextureBuffer or an array of
+/// TextureBuffers.
+bool isTextureBuffer(QualType);
+
+/// \brief Returns true if the given type is a ConstantBuffer or TextureBuffer
+/// or an array of ConstantBuffers/TextureBuffers.
+bool isConstantTextureBuffer(QualType);
 
 /// \brief Returns true if the decl will have a SPIR-V resource type.
 ///
