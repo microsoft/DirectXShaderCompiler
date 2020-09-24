@@ -122,6 +122,7 @@ class SimplifyCFGOpt {
   const TargetTransformInfo &TTI;
   const DataLayout &DL;
   unsigned BonusInstThreshold;
+  bool AllowFoldCondBranchOnPHI = false; // HLSL Change
   AssumptionCache *AC;
   Value *isValueEqualityComparison(TerminatorInst *TI);
   BasicBlock *GetValueEqualityComparisonCases(TerminatorInst *TI,
@@ -138,12 +139,12 @@ class SimplifyCFGOpt {
   bool SimplifySwitch(SwitchInst *SI, IRBuilder<> &Builder);
   bool SimplifyIndirectBr(IndirectBrInst *IBI);
   bool SimplifyUncondBranch(BranchInst *BI, IRBuilder <> &Builder);
-  bool SimplifyCondBranch(BranchInst *BI, IRBuilder <>&Builder);
+  bool SimplifyCondBranch(BranchInst *BI, IRBuilder <>&Builder, bool AllowFoldCondBranchOnPHI); // HLSL Change
 
 public:
   SimplifyCFGOpt(const TargetTransformInfo &TTI, const DataLayout &DL,
-                 unsigned BonusInstThreshold, AssumptionCache *AC)
-      : TTI(TTI), DL(DL), BonusInstThreshold(BonusInstThreshold), AC(AC) {}
+                 unsigned BonusInstThreshold, AssumptionCache *AC, /*HLSL Change */bool AllowFoldCondBranchOnPHI)
+      : TTI(TTI), DL(DL), BonusInstThreshold(BonusInstThreshold), AC(AC), /*HLSL Change*/ AllowFoldCondBranchOnPHI(AllowFoldCondBranchOnPHI) {}
   bool run(BasicBlock *BB);
 };
 }
@@ -4503,7 +4504,7 @@ bool SimplifyCFGOpt::SimplifyUncondBranch(BranchInst *BI, IRBuilder<> &Builder){
 }
 
 
-bool SimplifyCFGOpt::SimplifyCondBranch(BranchInst *BI, IRBuilder<> &Builder) {
+bool SimplifyCFGOpt::SimplifyCondBranch(BranchInst *BI, IRBuilder<> &Builder, bool AllowFoldCondBranchOnPHI) {
   BasicBlock *BB = BI->getParent();
 
   // Conditional branch
@@ -4573,6 +4574,7 @@ bool SimplifyCFGOpt::SimplifyCondBranch(BranchInst *BI, IRBuilder<> &Builder) {
         return SimplifyCFG(BB, TTI, BonusInstThreshold, AC) | true;
   }
 
+  if (AllowFoldCondBranchOnPHI) // HLSL Change - Sometimes this causes unstructured flow
   // If this is a branch on a phi node in the current block, thread control
   // through this block if any PHI node entries are constants.
   if (PHINode *PN = dyn_cast<PHINode>(BI->getCondition()))
@@ -4704,7 +4706,7 @@ bool SimplifyCFGOpt::run(BasicBlock *BB) {
     if (BI->isUnconditional()) {
       if (SimplifyUncondBranch(BI, Builder)) return true;
     } else {
-      if (SimplifyCondBranch(BI, Builder)) return true;
+      if (SimplifyCondBranch(BI, Builder, AllowFoldCondBranchOnPHI)) return true;
     }
   } else if (ReturnInst *RI = dyn_cast<ReturnInst>(BB->getTerminator())) {
     if (SimplifyReturn(RI, Builder)) return true;
@@ -4729,7 +4731,7 @@ bool SimplifyCFGOpt::run(BasicBlock *BB) {
 /// of the CFG.  It returns true if a modification was made.
 ///
 bool llvm::SimplifyCFG(BasicBlock *BB, const TargetTransformInfo &TTI,
-                       unsigned BonusInstThreshold, AssumptionCache *AC) {
+                       unsigned BonusInstThreshold, AssumptionCache *AC, /*HLSL Change*/ bool AllowFoldCondBranchOnPHI) {
   return SimplifyCFGOpt(TTI, BB->getModule()->getDataLayout(),
-                        BonusInstThreshold, AC).run(BB);
+                        BonusInstThreshold, AC, /* HLSL Change */AllowFoldCondBranchOnPHI).run(BB);
 }

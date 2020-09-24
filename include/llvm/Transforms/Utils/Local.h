@@ -137,7 +137,8 @@ bool EliminateDuplicatePHINodes(BasicBlock *BB);
 /// the basic block that was pointed to.
 ///
 bool SimplifyCFG(BasicBlock *BB, const TargetTransformInfo &TTI,
-                 unsigned BonusInstThreshold, AssumptionCache *AC = nullptr);
+                 unsigned BonusInstThreshold, AssumptionCache *AC = nullptr,
+                 bool AllowFoldCondBranchOnPHI = false); // HLSL Change
 
 /// FlatternCFG - This function is used to flatten a CFG.  For
 /// example, it uses parallel-and and parallel-or mode to collapse

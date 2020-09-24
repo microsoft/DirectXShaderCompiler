@@ -129,6 +129,7 @@ public:
   bool HLSLHighLevel = false; // HLSL Change
   bool HLSLAllowPreserveValues = false; // HLSL Change
   bool HLSLOnlyWarnOnUnrollFail = false; // HLSL Change
+  bool HLSLAllowFoldCondBranchOnPHI = false; // HLSL Change
   hlsl::HLSLExtensionsCodegenHelper *HLSLExtensionsCodeGen = nullptr; // HLSL Change
   bool HLSLResMayAlias = false; // HLSL Change
   unsigned ScanLimit = 0; // HLSL Change

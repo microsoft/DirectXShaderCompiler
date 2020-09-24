@@ -337,7 +337,7 @@ FunctionPass *createJumpThreadingPass(int Threshold = -1);
 // simplify terminator instructions, etc...
 //
 FunctionPass *createCFGSimplificationPass(
-    int Threshold = -1, std::function<bool(const Function &)> Ftor = nullptr);
+    int Threshold = -1, std::function<bool(const Function &)> Ftor = nullptr, /* HLSL Change */bool AllowFoldCondBranchOnPHI=false);
 
 //===----------------------------------------------------------------------===//
 //

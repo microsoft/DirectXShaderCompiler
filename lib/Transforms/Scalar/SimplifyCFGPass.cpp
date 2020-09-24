@@ -132,7 +132,8 @@ static bool mergeEmptyReturnBlocks(Function &F) {
 /// iterating until no more changes are made.
 static bool iterativelySimplifyCFG(Function &F, const TargetTransformInfo &TTI,
                                    AssumptionCache *AC,
-                                   unsigned BonusInstThreshold) {
+                                   unsigned BonusInstThreshold,
+                                   bool AllowFoldCondBranchOnPHI) { // HLSL Change
   bool Changed = false;
   bool LocalChange = true;
   while (LocalChange) {
@@ -140,7 +141,7 @@ static bool iterativelySimplifyCFG(Function &F, const TargetTransformInfo &TTI,
 
     // Loop over all of the basic blocks and remove them if they are unneeded.
     for (Function::iterator BBIt = F.begin(); BBIt != F.end(); ) {
-      if (SimplifyCFG(BBIt++, TTI, BonusInstThreshold, AC)) {
+      if (SimplifyCFG(BBIt++, TTI, BonusInstThreshold, AC, /* HLSL Change */ AllowFoldCondBranchOnPHI)) {
         LocalChange = true;
         ++NumSimpl;
       }
@@ -151,10 +152,10 @@ static bool iterativelySimplifyCFG(Function &F, const TargetTransformInfo &TTI,
 }
 
 static bool simplifyFunctionCFG(Function &F, const TargetTransformInfo &TTI,
-                                AssumptionCache *AC, int BonusInstThreshold) {
+                                AssumptionCache *AC, int BonusInstThreshold, /* HLSL Change */ bool AllowFoldCondBranchOnPHI) {
   bool EverChanged = removeUnreachableBlocks(F);
   EverChanged |= mergeEmptyReturnBlocks(F);
-  EverChanged |= iterativelySimplifyCFG(F, TTI, AC, BonusInstThreshold);
+  EverChanged |= iterativelySimplifyCFG(F, TTI, AC, BonusInstThreshold, AllowFoldCondBranchOnPHI); // HLSL Change
 
   // If neither pass changed anything, we're done.
   if (!EverChanged) return false;
@@ -168,7 +169,7 @@ static bool simplifyFunctionCFG(Function &F, const TargetTransformInfo &TTI,
     return true;
 
   do {
-    EverChanged = iterativelySimplifyCFG(F, TTI, AC, BonusInstThreshold);
+    EverChanged = iterativelySimplifyCFG(F, TTI, AC, BonusInstThreshold, AllowFoldCondBranchOnPHI);
     EverChanged |= removeUnreachableBlocks(F);
   } while (EverChanged);
 
@@ -186,7 +187,7 @@ PreservedAnalyses SimplifyCFGPass::run(Function &F,
   auto &TTI = AM->getResult<TargetIRAnalysis>(F);
   auto &AC = AM->getResult<AssumptionAnalysis>(F);
 
-  if (!simplifyFunctionCFG(F, TTI, &AC, BonusInstThreshold))
+  if (!simplifyFunctionCFG(F, TTI, &AC, BonusInstThreshold, true))
     return PreservedAnalyses::none();
 
   return PreservedAnalyses::all();
@@ -197,10 +198,12 @@ struct CFGSimplifyPass : public FunctionPass {
   static char ID; // Pass identification, replacement for typeid
   unsigned BonusInstThreshold;
   std::function<bool(const Function &)> PredicateFtor;
+  bool AllowFoldCondBranchOnPHI = false; // HLSL Change
 
   CFGSimplifyPass(int T = -1,
-                  std::function<bool(const Function &)> Ftor = nullptr)
-      : FunctionPass(ID), PredicateFtor(Ftor) {
+                  std::function<bool(const Function &)> Ftor = nullptr,
+                  bool AllowFoldCondBranchOnPHI = false) // HLSL Change
+      : FunctionPass(ID), PredicateFtor(Ftor), AllowFoldCondBranchOnPHI(AllowFoldCondBranchOnPHI) {
     BonusInstThreshold = (T == -1) ? UserBonusInstThreshold : unsigned(T);
     initializeCFGSimplifyPassPass(*PassRegistry::getPassRegistry());
   }
@@ -215,7 +218,7 @@ struct CFGSimplifyPass : public FunctionPass {
         &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
     const TargetTransformInfo &TTI =
         getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
-    return simplifyFunctionCFG(F, TTI, AC, BonusInstThreshold);
+    return simplifyFunctionCFG(F, TTI, AC, BonusInstThreshold, AllowFoldCondBranchOnPHI);
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
@@ -236,7 +239,7 @@ INITIALIZE_PASS_END(CFGSimplifyPass, "simplifycfg", "Simplify the CFG", false,
 // Public interface to the CFGSimplification pass
 FunctionPass *
 llvm::createCFGSimplificationPass(int Threshold,
-                                  std::function<bool(const Function &)> Ftor) {
-  return new CFGSimplifyPass(Threshold, Ftor);
+                                  std::function<bool(const Function &)> Ftor, /* HLSL Change */ bool AllowFoldCondBranchOnPHI) {
+  return new CFGSimplifyPass(Threshold, Ftor, /* HLSL Change */ AllowFoldCondBranchOnPHI);
 }
 

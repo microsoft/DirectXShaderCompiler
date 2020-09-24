@@ -340,6 +340,10 @@ void EmitAssemblyHelper::CreatePasses() {
                         CodeGenOpts.HLSLOptimizationToggles.count("structurize-loop-exits-for-unroll") &&
                         CodeGenOpts.HLSLOptimizationToggles.find("structurize-loop-exits-for-unroll")->second;
 
+  PMBuilder.HLSLAllowFoldCondBranchOnPHI = // True by default
+                        !CodeGenOpts.HLSLOptimizationToggles.count("fold-cond-branch-on-phi") ||
+                        CodeGenOpts.HLSLOptimizationToggles.find("fold-cond-branch-on-phi")->second;
+
   // HLSL Change - end
 
   PMBuilder.DisableUnitAtATime = !CodeGenOpts.UnitAtATime;

@@ -193,7 +193,7 @@ void PassManagerBuilder::populateFunctionPassManager(
 
   addInitialAliasAnalysisPasses(FPM);
 
-  FPM.add(createCFGSimplificationPass());
+  FPM.add(createCFGSimplificationPass(-1, nullptr, this->HLSLAllowFoldCondBranchOnPHI));
   // HLSL Change - don't run SROA. 
   // HLSL uses special SROA added in addHLSLPasses.
   if (HLSLHighLevel) { // HLSL Change
@@ -207,7 +207,7 @@ void PassManagerBuilder::populateFunctionPassManager(
 }
 
 // HLSL Change Starts
-static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, bool OnlyWarnOnUnrollFail, bool StructurizeLoopExitsForUnroll, hlsl::HLSLExtensionsCodegenHelper *ExtHelper, legacy::PassManagerBase &MPM) {
+static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, bool OnlyWarnOnUnrollFail, bool StructurizeLoopExitsForUnroll, bool AllowFoldCondBranchOnPHI, hlsl::HLSLExtensionsCodegenHelper *ExtHelper, legacy::PassManagerBase &MPM) {
 
   // Don't do any lowering if we're targeting high-level.
   if (HLSLHighLevel) {
@@ -266,7 +266,7 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, bool OnlyWarnOn
     MPM.add(createSimplifyInstPass());
 
   if (!NoOpt)
-    MPM.add(createCFGSimplificationPass());
+    MPM.add(createCFGSimplificationPass(-1, nullptr, AllowFoldCondBranchOnPHI));
 
   MPM.add(createDxilPromoteLocalResources());
   MPM.add(createDxilPromoteStaticResources());
@@ -304,7 +304,7 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, bool OnlyWarnOn
     MPM.add(createSimplifyInstPass());
 
   if (!NoOpt)
-    MPM.add(createCFGSimplificationPass());
+    MPM.add(createCFGSimplificationPass(-1, nullptr, AllowFoldCondBranchOnPHI));
 
   MPM.add(createDeadCodeEliminationPass());
 
@@ -354,6 +354,7 @@ void PassManagerBuilder::populateModulePassManager(
     addHLSLPasses(HLSLHighLevel, OptLevel,
       this->HLSLOnlyWarnOnUnrollFail,
       this->StructurizeLoopExitsForUnroll,
+      this->HLSLAllowFoldCondBranchOnPHI,
       this->HLSLExtensionsCodeGen,
       MPM);
 
@@ -391,7 +392,11 @@ void PassManagerBuilder::populateModulePassManager(
     delete Inliner;
     Inliner = nullptr;
   }
-  addHLSLPasses(HLSLHighLevel, OptLevel, this->HLSLOnlyWarnOnUnrollFail, this->StructurizeLoopExitsForUnroll, HLSLExtensionsCodeGen, MPM); // HLSL Change
+  addHLSLPasses(HLSLHighLevel, OptLevel,
+    this->HLSLOnlyWarnOnUnrollFail,
+    this->StructurizeLoopExitsForUnroll,
+    this->HLSLAllowFoldCondBranchOnPHI,
+    HLSLExtensionsCodeGen, MPM);
   // HLSL Change Ends
 
   // Add LibraryInfo if we have some.
@@ -410,7 +415,7 @@ void PassManagerBuilder::populateModulePassManager(
 
     MPM.add(createInstructionCombiningPass());// Clean up after IPCP & DAE
     addExtensionsToPM(EP_Peephole, MPM);
-    MPM.add(createCFGSimplificationPass());   // Clean up after IPCP & DAE
+    MPM.add(createCFGSimplificationPass(-1, nullptr, this->HLSLAllowFoldCondBranchOnPHI));   // Clean up after IPCP & DAE
   }
 
   // Start of CallGraph SCC passes.
@@ -435,14 +440,14 @@ void PassManagerBuilder::populateModulePassManager(
   // HLSL Change. MPM.add(createEarlyCSEPass());              // Catch trivial redundancies
   // HLSL Change. MPM.add(createJumpThreadingPass());         // Thread jumps.
   MPM.add(createCorrelatedValuePropagationPass()); // Propagate conditionals
-  MPM.add(createCFGSimplificationPass());     // Merge & remove BBs
+  MPM.add(createCFGSimplificationPass(-1, nullptr, this->HLSLAllowFoldCondBranchOnPHI));     // Merge & remove BBs
   MPM.add(createInstructionCombiningPass());  // Combine silly seq's
   addExtensionsToPM(EP_Peephole, MPM);
   // HLSL Change Begins.
   // HLSL does not allow recursize functions.
   //MPM.add(createTailCallEliminationPass()); // Eliminate tail calls
   // HLSL Change Ends.
-  MPM.add(createCFGSimplificationPass());     // Merge & remove BBs
+  MPM.add(createCFGSimplificationPass(-1, nullptr, this->HLSLAllowFoldCondBranchOnPHI));     // Merge & remove BBs
   MPM.add(createReassociatePass());           // Reassociate expressions
   // Rotate Loop - disable header duplication at -Oz
   MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1));
@@ -458,7 +463,7 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createLoopDeletionPass());          // Delete dead loops
   if (EnableLoopInterchange) {
     MPM.add(createLoopInterchangePass()); // Interchange loops
-    MPM.add(createCFGSimplificationPass());
+    MPM.add(createCFGSimplificationPass(-1, nullptr, this->HLSLAllowFoldCondBranchOnPHI));
   }
   if (!DisableUnrollLoops)
     MPM.add(createSimpleLoopUnrollPass());    // Unroll small loops
@@ -527,7 +532,7 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createHoistConstantArrayPass()); // HLSL change
 
   MPM.add(createAggressiveDCEPass());         // Delete dead instructions
-  MPM.add(createCFGSimplificationPass()); // Merge & remove BBs
+  MPM.add(createCFGSimplificationPass(-1, nullptr, this->HLSLAllowFoldCondBranchOnPHI)); // Merge & remove BBs
   MPM.add(createInstructionCombiningPass());  // Clean up after everything.
   addExtensionsToPM(EP_Peephole, MPM);
 
@@ -601,7 +606,7 @@ void PassManagerBuilder::populateModulePassManager(
 #endif // HLSL Change - don't build vectorization passes
 
   addExtensionsToPM(EP_Peephole, MPM);
-  MPM.add(createCFGSimplificationPass());
+  MPM.add(createCFGSimplificationPass(-1, nullptr, this->HLSLAllowFoldCondBranchOnPHI));
   MPM.add(createDxilLoopDeletionPass()); // HLSL Change - try to delete loop again.
   MPM.add(createInstructionCombiningPass());
 
@@ -781,7 +786,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 void PassManagerBuilder::addLateLTOOptimizationPasses(
     legacy::PassManagerBase &PM) {
   // Delete basic blocks, which optimization passes may have killed.
-  PM.add(createCFGSimplificationPass());
+  PM.add(createCFGSimplificationPass(-1, nullptr, this->HLSLAllowFoldCondBranchOnPHI));
 
   // Now that we have optimized the program, discard unreachable functions.
   PM.add(createGlobalDCEPass());
