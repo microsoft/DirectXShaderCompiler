@@ -113,8 +113,10 @@ inline bool isExternalVar(const VarDecl *var) {
 const DeclContext *isConstantTextureBufferDeclRef(const Expr *expr) {
   if (const auto *declRefExpr = dyn_cast<DeclRefExpr>(expr->IgnoreParenCasts()))
     if (const auto *varDecl = dyn_cast<VarDecl>(declRefExpr->getFoundDecl()))
-      if (isConstantTextureBuffer(varDecl))
-        return varDecl->getType()->getAs<RecordType>()->getDecl();
+      if (isConstantTextureBuffer(varDecl->getType()))
+        return hlsl::GetHLSLResourceResultType(varDecl->getType())
+            ->getAs<RecordType>()
+            ->getDecl();
 
   return nullptr;
 }
@@ -281,18 +283,6 @@ inline bool evaluatesToConstZero(const Expr *expr, ASTContext &astContext) {
             (type->isFloatingType() && val.getFloat().isZero()));
   }
   return false;
-}
-
-/// Returns the HLSLBufferDecl if the given VarDecl is inside a cbuffer/tbuffer.
-/// Returns nullptr otherwise, including varDecl is a ConstantBuffer or
-/// TextureBuffer itself.
-inline const HLSLBufferDecl *getCTBufferContext(const VarDecl *varDecl) {
-  if (const auto *bufferDecl =
-          dyn_cast<HLSLBufferDecl>(varDecl->getDeclContext()))
-    // Filter ConstantBuffer/TextureBuffer
-    if (!bufferDecl->isConstantBufferView())
-      return bufferDecl;
-  return nullptr;
 }
 
 /// Returns the real definition of the callee of the given CallExpr.
@@ -657,14 +647,7 @@ void SpirvEmitter::doDecl(const Decl *decl) {
   }
 
   if (const auto *varDecl = dyn_cast<VarDecl>(decl)) {
-    // We can have VarDecls inside cbuffer/tbuffer. For those VarDecls, we need
-    // to emit their cbuffer/tbuffer as a whole and access each individual one
-    // using access chains.
-    if (const auto *bufferDecl = getCTBufferContext(varDecl)) {
-      doHLSLBufferDecl(bufferDecl);
-    } else {
       doVarDecl(varDecl);
-    }
   } else if (const auto *namespaceDecl = dyn_cast<NamespaceDecl>(decl)) {
     for (auto *subDecl : namespaceDecl->decls())
       // Note: We only emit functions as they are discovered through the call
@@ -1222,6 +1205,8 @@ bool SpirvEmitter::validateVKAttributes(const NamedDecl *decl) {
       isValidType = bufDecl->isCBuffer();
     else if ((bufDecl = dyn_cast<HLSLBufferDecl>(decl->getDeclContext())))
       isValidType = bufDecl->isCBuffer();
+    else if(isa<VarDecl>(decl))
+      isValidType = isConstantBuffer(dyn_cast<VarDecl>(decl)->getType());
 
     if (!isValidType) {
       emitError(
@@ -1352,8 +1337,20 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
     return;
   }
 
-  if (isa<HLSLBufferDecl>(decl->getDeclContext())) {
-    // This is a VarDecl of a ConstantBuffer/TextureBuffer type.
+  // We can have VarDecls inside cbuffer/tbuffer. For those VarDecls, we need
+  // to emit their cbuffer/tbuffer as a whole and access each individual one
+  // using access chains.
+  // cbuffers and tbuffers are HLSLBufferDecls
+  // ConstantBuffers and TextureBuffers are not HLSLBufferDecls.
+  if (const auto *bufferDecl =
+          dyn_cast<HLSLBufferDecl>(decl->getDeclContext())) {
+    // This is a VarDecl of cbuffer/tbuffer type.
+    doHLSLBufferDecl(bufferDecl);
+    return;
+  }
+
+  if (isConstantTextureBuffer(decl->getType())) {
+    // This is a VarDecl of ConstantBuffer/TextureBuffer type.
     (void)declIdMapper.createCTBuffer(decl);
     return;
   }
@@ -2671,6 +2668,16 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr) {
 SpirvInstruction *SpirvEmitter::processFlatConversion(
     const QualType type, const QualType initType, SpirvInstruction *initInstr,
     SourceLocation srcLoc) {
+  // When translating ConstantBuffer<T> or TextureBuffer<T> types, we consider
+  // the underlying type (T), and therefore we should bypass the FlatConversion
+  // node when accessing these types:
+  // `-MemberExpr
+  //   `-ImplicitCastExpr 'const T' lvalue <FlatConversion>
+  //     `-ArraySubscriptExpr 'ConstantBuffer<T>':'ConstantBuffer<T>' lvalue
+  if(isConstantTextureBuffer(initType)) {
+    return initInstr;
+  }
+
   // Try to translate the canonical type first
   const auto canonicalType = type.getCanonicalType();
   if (canonicalType != type)
@@ -6755,6 +6762,26 @@ const Expr *SpirvEmitter::collectArrayStructIndices(
           spvBuilder.getConstantInt(astContext.IntTy, llvm::APInt(32, 0)));
       indices->push_back(doExpr(index));
       return object;
+    }
+  }
+
+  {
+    // Indexing into ConstantBuffers and TextureBuffers involves an additional
+    // FlatConversion node which casts the handle to the underlying structure
+    // type. We can look past the FlatConversion to continue to collect indices.
+    // For example: MyConstantBufferArray[0].structMember1
+    // `-MemberExpr .structMember1
+    //   `-ImplicitCastExpr 'const T' lvalue <FlatConversion>
+    //     `-ArraySubscriptExpr 'ConstantBuffer<T>':'ConstantBuffer<T>' lvalue
+    if (auto *castExpr = dyn_cast<ImplicitCastExpr>(expr)) {
+      if (castExpr->getCastKind() == CK_FlatConversion) {
+        const auto *subExpr = castExpr->getSubExpr();
+        const QualType subExprType = subExpr->getType();
+        if (isConstantTextureBuffer(subExprType)) {
+          return collectArrayStructIndices(subExpr, rawIndex, rawIndices,
+                                           indices, isMSOutAttribute);
+        }
+      }
     }
   }
 

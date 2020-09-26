@@ -905,6 +905,32 @@ def HLSLWaveSensitive : InheritableAttr {
 
 // SPIRV Change Starts
 
+// StructuredBuffer types that can have associated counters
+def CounterStructuredBuffer : SubsetSubject<
+    Var,
+    [{S->hasGlobalStorage() && S->getType()->getAs<RecordType>() &&
+      (S->getType()->getAs<RecordType>()->getDecl()->getName() == "RWStructuredBuffer" ||
+       S->getType()->getAs<RecordType>()->getDecl()->getName() == "AppendStructuredBuffer" ||
+       S->getType()->getAs<RecordType>()->getDecl()->getName() == "ConsumeStructuredBuffer")}]>;
+
+// Global variable with "ConstantBuffer" type
+def ConstantBuffer
+    : SubsetSubject<
+          Var, [{S->hasGlobalStorage() && S->getType()->getAs<RecordType>() &&
+                 S->getType()->getAs<RecordType>()->getDecl() &&
+                 S->getType()->getAs<RecordType>()->getDecl()->getName() ==
+                     "ConstantBuffer"}]>;
+
+// Global variable with "ConstantBuffer" or "TextureBuffer" type
+def ConstantTextureBuffer
+    : SubsetSubject<
+          Var, [{S->hasGlobalStorage() && S->getType()->getAs<RecordType>() &&
+                 S->getType()->getAs<RecordType>()->getDecl() &&
+                 (S->getType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "ConstantBuffer" ||
+                  S->getType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "TextureBuffer")}]>;
+
 def VKBuiltIn : InheritableAttr {
   let Spellings = [CXX11<"vk", "builtin">];
   let Subjects = SubjectList<[Function, ParmVar, Field], ErrorDiag>;
@@ -931,19 +957,12 @@ def VKIndex : InheritableAttr {
 
 def VKBinding : InheritableAttr {
   let Spellings = [CXX11<"vk", "binding">];
-  let Subjects = SubjectList<[GlobalVar, HLSLBuffer], ErrorDiag, "ExpectedGlobalVarOrCTBuffer">;
+  let Subjects = SubjectList<[GlobalVar, HLSLBuffer, ConstantTextureBuffer],
+                             ErrorDiag, "ExpectedGlobalVarOrCTBuffer">;
   let Args = [IntArgument<"Binding">, DefaultIntArgument<"Set", 0>];
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];
 }
-
-// StructuredBuffer types that can have associated counters
-def CounterStructuredBuffer : SubsetSubject<
-    Var,
-    [{S->hasGlobalStorage() && S->getType()->getAs<RecordType>() &&
-      (S->getType()->getAs<RecordType>()->getDecl()->getName() == "RWStructuredBuffer" ||
-       S->getType()->getAs<RecordType>()->getDecl()->getName() == "AppendStructuredBuffer" ||
-       S->getType()->getAs<RecordType>()->getDecl()->getName() == "ConsumeStructuredBuffer")}]>;
 
 def VKCounterBinding : InheritableAttr {
   let Spellings = [CXX11<"vk", "counter_binding">];
@@ -1006,7 +1025,8 @@ def VKPostDepthCoverage : InheritableAttr {
 
 def VKShaderRecordNV : InheritableAttr {
   let Spellings = [CXX11<"vk", "shader_record_nv">];
-  let Subjects = SubjectList<[StructGlobalVar, HLSLBuffer], ErrorDiag, "ExpectedCTBuffer">;
+  let Subjects = SubjectList<[StructGlobalVar, HLSLBuffer, ConstantBuffer],
+                             ErrorDiag, "ExpectedCTBuffer">;
   let Args = [];
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];

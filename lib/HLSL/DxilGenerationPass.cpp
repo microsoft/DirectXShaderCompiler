@@ -528,7 +528,8 @@ void DxilGenerationPass::GenerateDxilCBufferHandles() {
                              DIV->getScope());
     }
 
-    if (CB.GetRangeSize() == 1) {
+    if (CB.GetRangeSize() == 1 &&
+        !GV->getType()->getElementType()->isArrayTy()) {
       Function *createHandle =
           hlslOP->GetOpFunc(OP::OpCode::CreateHandleForLib,
                             GV->getType()->getElementType());

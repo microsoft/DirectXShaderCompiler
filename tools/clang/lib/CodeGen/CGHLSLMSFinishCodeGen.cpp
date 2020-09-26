@@ -1742,10 +1742,14 @@ void ReplaceUseInFunction(Value *V, Value *NewV, Function *F,
     if (Instruction *I = dyn_cast<Instruction>(user)) {
       if (I->getParent()->getParent() == F) {
         // replace use with GEP if in F
-        for (unsigned i = 0; i < I->getNumOperands(); i++) {
-          if (I->getOperand(i) == V)
-            I->setOperand(i, NewV);
+        if (BitCastInst *BCI = dyn_cast<BitCastInst>(I)) {
+          if (BCI->getType() == NewV->getType()) {
+            I->replaceAllUsesWith(NewV);
+            I->eraseFromParent();
+            continue;
+          }
         }
+        I->replaceUsesOfWith(V, NewV);
       }
     } else {
       // For constant operator, create local clone which use GEP.
@@ -1798,7 +1802,7 @@ bool CreateCBufferVariable(HLCBuffer &CB, HLModule &HLM, llvm::Type *HandleTy) {
   SmallVector<llvm::Type *, 4> Elements;
   for (const std::unique_ptr<DxilResourceBase> &C : CB.GetConstants()) {
     Value *GV = C->GetGlobalSymbol();
-    if (GV->hasNUsesOrMore(1))
+    if (!GV->use_empty())
       bUsed = true;
     // Global variable must be pointer type.
     llvm::Type *Ty = GV->getType()->getPointerElementType();
@@ -1810,18 +1814,28 @@ bool CreateCBufferVariable(HLCBuffer &CB, HLModule &HLM, llvm::Type *HandleTy) {
 
   llvm::Module &M = *HLM.GetModule();
 
-  bool isCBArray = CB.GetRangeSize() != 1;
+  bool isCBArray = CB.IsArray();
   llvm::GlobalVariable *cbGV = nullptr;
   llvm::Type *cbTy = nullptr;
 
   unsigned cbIndexDepth = 0;
   if (!isCBArray) {
-    llvm::StructType *CBStructTy =
-        llvm::StructType::create(Elements, CB.GetGlobalName());
-    cbGV = new llvm::GlobalVariable(M, CBStructTy, /*IsConstant*/ true,
-                                    llvm::GlobalValue::ExternalLinkage,
-                                    /*InitVal*/ nullptr, CB.GetGlobalName());
-    cbTy = cbGV->getType();
+    if (CB.IsView()) {
+      llvm::StructType *CBStructTy =
+          llvm::StructType::create(CB.GetResultType(), CB.GetGlobalName());
+      cbGV = new llvm::GlobalVariable(M, CBStructTy,
+                                      /*IsConstant*/ true,
+                                      llvm::GlobalValue::ExternalLinkage,
+                                      /*InitVal*/ nullptr, CB.GetGlobalName());
+      cbTy = cbGV->getType();
+    } else {
+      llvm::StructType *CBStructTy =
+          llvm::StructType::create(Elements, CB.GetGlobalName());
+      cbGV = new llvm::GlobalVariable(M, CBStructTy, /*IsConstant*/ true,
+                                      llvm::GlobalValue::ExternalLinkage,
+                                      /*InitVal*/ nullptr, CB.GetGlobalName());
+      cbTy = cbGV->getType();
+    }
   } else {
     // For array of ConstantBuffer, create array of struct instead of struct of
     // array.
@@ -1838,7 +1852,7 @@ bool CreateCBufferVariable(HLCBuffer &CB, HLModule &HLM, llvm::Type *HandleTy) {
 
     // Add one level struct type to match normal case.
     llvm::StructType *CBStructTy =
-        llvm::StructType::create({CBEltTy}, CB.GetGlobalName());
+        llvm::StructType::create({CB.GetResultType()}, CB.GetGlobalName());
 
     llvm::ArrayType *CBArrayTy =
         llvm::ArrayType::get(CBStructTy, CB.GetRangeSize());

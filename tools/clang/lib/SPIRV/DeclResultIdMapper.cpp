@@ -212,17 +212,6 @@ bool shouldSkipInStructLayout(const Decl *decl) {
 
   const auto *declContext = decl->getDeclContext();
 
-  // Special check for ConstantBuffer/TextureBuffer, whose DeclContext is a
-  // HLSLBufferDecl. So that we need to check the HLSLBufferDecl's parent decl
-  // to check whether this is a ConstantBuffer/TextureBuffer defined in the
-  // global namespace.
-  // Note that we should not be seeing ConstantBuffer/TextureBuffer for normal
-  // cbuffer/tbuffer or push constant blocks. So this case should only happen
-  // for $Globals cbuffer.
-  if (isConstantTextureBuffer(decl) &&
-      declContext->getLexicalParent()->isTranslationUnit())
-    return true;
-
   // $Globals' "struct" is the TranslationUnit, so we should ignore resources
   // in the TranslationUnit "struct" and its child namespaces.
   if (declContext->isTranslationUnit() || declContext->isNamespace()) {
@@ -999,6 +988,7 @@ void DeclResultIdMapper::createEnumConstant(const EnumConstantDecl *decl) {
 }
 
 SpirvVariable *DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
+  // This function handles creation of cbuffer or tbuffer.
   const auto usageKind =
       decl->isCBuffer() ? ContextUsageKind::CBuffer : ContextUsageKind::TBuffer;
   const std::string structName = "type." + decl->getName().str();
@@ -1032,44 +1022,67 @@ SpirvVariable *DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
 }
 
 SpirvVariable *DeclResultIdMapper::createCTBuffer(const VarDecl *decl) {
+  // This function handles creation of ConstantBuffer<T> or TextureBuffer<T>.
+  // The way this is represented in the AST is as follows:
+  //
+  // |-VarDecl MyCbuffer 'ConstantBuffer<T>':'ConstantBuffer<T>'
+  // |-CXXRecordDecl referenced struct T definition
+  //   |-CXXRecordDecl implicit struct T
+  //   |-FieldDecl
+  //   |-...
+  //   |-FieldDecl
+
+  const QualType type = decl->getType();
+  assert(isConstantTextureBuffer(type));
   const RecordType *recordType = nullptr;
+  const RecordType *templatedType = nullptr;
   int arraySize = 0;
 
   // In case we have an array of ConstantBuffer/TextureBuffer:
-  if (const auto *arrayType = decl->getType()->getAsArrayTypeUnsafe()) {
-    recordType = arrayType->getElementType()->getAs<RecordType>();
-    if (const auto *caType =
-            astContext.getAsConstantArrayType(decl->getType())) {
+  if (const auto *arrayType = type->getAsArrayTypeUnsafe()) {
+    const QualType elemType = arrayType->getElementType();
+    recordType = elemType->getAs<RecordType>();
+    templatedType =
+        hlsl::GetHLSLResourceResultType(elemType)->getAs<RecordType>();
+    if (const auto *caType = astContext.getAsConstantArrayType(type)) {
       arraySize = static_cast<uint32_t>(caType->getSize().getZExtValue());
     } else {
       arraySize = -1;
     }
   } else {
-    recordType = decl->getType()->getAs<RecordType>();
+    recordType = type->getAs<RecordType>();
+    templatedType = hlsl::GetHLSLResourceResultType(type)->getAs<RecordType>();
   }
   if (!recordType) {
     emitError("constant/texture buffer type %0 unimplemented",
               decl->getLocStart())
-        << decl->getType();
-    return 0;
+        << type;
+    return nullptr;
+  }
+  if (!templatedType) {
+    emitError(
+        "the underlying type for constant/texture buffer must be a struct",
+        decl->getLocStart())
+        << type;
+    return nullptr;
   }
 
-  const auto *context = cast<HLSLBufferDecl>(decl->getDeclContext());
-  const auto usageKind = context->isCBuffer() ? ContextUsageKind::CBuffer
-                                              : ContextUsageKind::TBuffer;
+  const bool isConstBuffer = isConstantBuffer(type);
+  const auto usageKind =
+      isConstBuffer ? ContextUsageKind::CBuffer : ContextUsageKind::TBuffer;
 
-  const char *ctBufferName =
-      context->isCBuffer() ? "ConstantBuffer." : "TextureBuffer.";
-  const std::string structName = "type." + std::string(ctBufferName) +
-                                 recordType->getDecl()->getName().str();
+  const std::string structName = "type." +
+                                 recordType->getDecl()->getName().str() + "." +
+                                 templatedType->getDecl()->getName().str();
 
   SpirvVariable *bufferVar = createStructOrStructArrayVarOfExplicitLayout(
-      recordType->getDecl(), arraySize, usageKind, structName, decl->getName());
+      templatedType->getDecl(), arraySize, usageKind, structName,
+      decl->getName());
 
   // We register the VarDecl here.
   astDecls[decl] = DeclSpirvInfo(bufferVar);
   resourceVars.emplace_back(
-      bufferVar, decl, decl->getLocation(), getResourceBinding(context),
+      bufferVar, decl, decl->getLocation(), getResourceBinding(decl),
       decl->getAttr<VKBindingAttr>(), decl->getAttr<VKCounterBindingAttr>());
 
   return bufferVar;
@@ -1097,7 +1110,8 @@ SpirvVariable *DeclResultIdMapper::createPushConstant(const VarDecl *decl) {
 
 SpirvVariable *
 DeclResultIdMapper::createShaderRecordBufferNV(const VarDecl *decl) {
-  const auto *recordType = decl->getType()->getAs<RecordType>();
+  const auto *recordType =
+      hlsl::GetHLSLResourceResultType(decl->getType())->getAs<RecordType>();
   assert(recordType);
 
   const std::string structName =
@@ -3513,11 +3527,9 @@ QualType DeclResultIdMapper::getTypeAndCreateCounterForPotentialAliasVar(
   // Whether we should generate this decl as an alias variable.
   bool genAlias = false;
 
-  if (const auto *buffer = dyn_cast<HLSLBufferDecl>(decl->getDeclContext())) {
-    // For ConstantBuffer and TextureBuffer
-    if (buffer->isConstantBufferView())
-      genAlias = true;
-  } else if (isOrContainsAKindOfStructuredOrByteBuffer(type)) {
+  // For ConstantBuffers, TextureBuffers, StructuredBuffers, ByteAddressBuffers
+  if (isConstantTextureBuffer(type) ||
+      isOrContainsAKindOfStructuredOrByteBuffer(type)) {
     genAlias = true;
   }
 

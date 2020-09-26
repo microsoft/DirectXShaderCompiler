@@ -544,10 +544,19 @@ bool IsHLSLResourceType(clang::QualType type) {
     if (name == "SamplerState" || name == "SamplerComparisonState")
       return true;
 
-    if (name == "ConstantBuffer")
+    if (name == "ConstantBuffer" || name == "TextureBuffer")
       return true;
 
     if (name == "RaytracingAccelerationStructure")
+      return true;
+  }
+  return false;
+}
+
+bool IsHLSLBufferViewType(clang::QualType type) {
+  if (const RecordType *RT = type->getAs<RecordType>()) {
+    StringRef name = RT->getDecl()->getName();
+    if (name == "ConstantBuffer" || name == "TextureBuffer")
       return true;
   }
   return false;

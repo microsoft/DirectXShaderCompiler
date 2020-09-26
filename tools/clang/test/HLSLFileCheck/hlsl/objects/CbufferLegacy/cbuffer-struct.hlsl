@@ -8,13 +8,13 @@ struct S {
     float4 f;
 };
 
-// CHECK: error: 'const int' cannot be used as a type parameter where a struct is required
+// CHECK: error: 'int' cannot be used as a type parameter where a struct is required
 ConstantBuffer<int>      B1;
-// CHECK: error: 'const float2' cannot be used as a type parameter where a struct is required
+// CHECK: error: 'float2' cannot be used as a type parameter where a struct is required
 TextureBuffer<float2>    B2;
-// CHECK: error: 'const float3x4' cannot be used as a type parameter where a struct is required
+// CHECK: error: 'float3x4' cannot be used as a type parameter where a struct is required
 ConstantBuffer<float3x4> B3;
-// CHECK: error: 'const C' cannot be used as a type parameter where a struct is required
+
 TextureBuffer<C>         B4;
 // CHECK-NOT: const S
 ConstantBuffer<S>        B5;

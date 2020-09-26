@@ -615,9 +615,6 @@ bool IsHLSLResourceType(llvm::Type *Ty) {
     if (name.startswith("ConsumeStructuredBuffer<"))
       return true;
 
-    if (name.startswith("ConstantBuffer<"))
-      return true;
-
     if (name == "RaytracingAccelerationStructure")
       return true;
 

@@ -58,7 +58,8 @@ struct PatchConstantInfo {
 /// Use this class to represent HLSL cbuffer in high-level DXIL.
 class HLCBuffer : public hlsl::DxilCBuffer {
 public:
-  HLCBuffer() = default;
+  HLCBuffer(bool bIsView, bool bIsTBuf)
+      : bIsView(bIsView), bIsTBuf(bIsTBuf), bIsArray(false), ResultTy(nullptr) {}
   virtual ~HLCBuffer() = default;
 
   void AddConst(std::unique_ptr<DxilResourceBase> &pItem) {
@@ -70,11 +71,21 @@ public:
     return constants;
   }
 
+  bool IsView() { return bIsView; }
+  bool IsTBuf() { return bIsTBuf; }
+  bool IsArray() { return bIsArray; }
+  void SetIsArray() { bIsArray = true; }
+  llvm::Type *GetResultType() { return ResultTy; }
+  void SetResultType(llvm::Type *Ty) { ResultTy = Ty; }
+
 private:
   std::vector<std::unique_ptr<DxilResourceBase>>
       constants; // constants inside const buffer
+  bool bIsView;
+  bool bIsTBuf;
+  bool bIsArray;
+  llvm::Type *ResultTy;
 };
-
 // Scope to help transform multiple returns.
 struct Scope {
  enum class ScopeKind {
