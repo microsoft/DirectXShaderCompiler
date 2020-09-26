@@ -833,8 +833,9 @@ CXXRecordDecl* hlsl::DeclareUIntTemplatedTypeWithHandle(
 
 clang::CXXRecordDecl *
 hlsl::DeclareConstantBufferViewType(clang::ASTContext &context, bool bTBuf) {
-  // Create ConstantBufferView template declaration in translation unit scope.
-  // template<typename T> ConstantBuffer : public T {}
+  // Create ConstantBufferView template declaration in translation unit scope
+  // like other resource.
+  // template<typename T> ConstantBuffer { int h; }
   DeclContext *DC = context.getTranslationUnitDecl();
 
   BuiltinTypeDeclBuilder typeDeclBuilder(DC, bTBuf ? "TextureBuffer"
