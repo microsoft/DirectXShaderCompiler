@@ -122,7 +122,7 @@ bool DxilEliminateOutputDynamicIndexing::EliminateDynamicOutput(
   if (dynamicSigSet.empty())
     return false;
 
-  IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(Entry));
+  IRBuilder<> AllocaBuilder(dxilutil::FindInsertionPt(Entry));
 
   Value *opcodeV = AllocaBuilder.getInt32(static_cast<unsigned>(opcode));
   Value *zero = AllocaBuilder.getInt32(0);
