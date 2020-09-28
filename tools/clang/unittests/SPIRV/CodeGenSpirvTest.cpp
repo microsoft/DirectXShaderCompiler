@@ -586,6 +586,8 @@ TEST_F(FileTest, FunctionInCTBuffer) {
   runFileTest("fn.ctbuffer.hlsl");
 }
 
+TEST_F(FileTest, FunctionNoInline) { runFileTest("fn.noinline.hlsl"); }
+
 // For OO features
 TEST_F(FileTest, StructMethodCall) {
   setBeforeHLSLLegalization();

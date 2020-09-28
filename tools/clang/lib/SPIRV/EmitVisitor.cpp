@@ -376,7 +376,8 @@ bool EmitVisitor::visit(SpirvFunction *fn, Phase phase) {
     initInstruction(spv::Op::OpFunction, fn->getSourceLocation());
     curInst.push_back(returnTypeId);
     curInst.push_back(getOrAssignResultId<SpirvFunction>(fn));
-    curInst.push_back(
+    curInst.push_back(fn->isNoInline() ?
+        static_cast<uint32_t>(spv::FunctionControlMask::DontInline) :
         static_cast<uint32_t>(spv::FunctionControlMask::MaskNone));
     curInst.push_back(functionTypeId);
     finalizeInstruction(&mainBinary);
