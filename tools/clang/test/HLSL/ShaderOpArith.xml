@@ -1337,7 +1337,7 @@
       0, 0, 0, 0, 0, 0, 0I, 0I, 0I, 0I, 0I, 0I, 0I, 0I, 0, 0, 0,
       }
     </Resource>
-    <Resource Name="U1" Dimension="BUFFER" Width="107120"
+    <Resource Name="U1" Dimension="BUFFER" Width="8704"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="Zero" ReadBack="true" />
     <Resource Name="U2" Dimension="BUFFER" Width="256"
@@ -1345,7 +1345,7 @@
               Init="FromBytes" ReadBack="true">
       { 0I, 0I, 99999999I, 99999999I, 0I, 0I, -1I, -1I, 0I, 0I, 0I, 0I, 42I, 42I, 42I, 42I }
     </Resource>
-    <Resource Name="U3" Dimension="BUFFER" Width="8240"
+    <Resource Name="U3" Dimension="BUFFER" Width="1024"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="Zero" ReadBack="true" />
     <Resource Name="U4" Dimension="BUFFER" Width="256"
@@ -1358,7 +1358,7 @@
               Init="FromBytes" ReadBack="true">
       { 0I, 0I, 99999999I, 99999999I, 0I, 0I, -1I, -1I, 0I, 0I, 0I, 0I, 42I, 42I, 42I, 42I }
     </Resource>
-    <Resource Name="U6" Dimension="BUFFER" Width="8240"
+    <Resource Name="U6" Dimension="BUFFER" Width="1024"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="Zero" ReadBack="true" />
     <Resource Name="U7" Dimension="BUFFER" Width="256"
@@ -1371,13 +1371,13 @@
               Init="FromBytes" ReadBack="true">
       { 0I, 0I, 99999999I, 99999999I, 0I, 0I, -1I, -1I, 0I, 0I, 0I, 0I, 42I, 42I, 42I, 42I }
     </Resource>
-    <Resource Name="U9" Dimension="BUFFER" Width="8240"
+    <Resource Name="U9" Dimension="BUFFER" Width="1024"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="Zero" ReadBack="true" />
     <Resource Name="U10" Dimension="BUFFER" Width="256"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="Zero" ReadBack="true" />
-    <Resource Name="U11" Dimension="BUFFER" Width="8240"
+    <Resource Name="U11" Dimension="BUFFER" Width="1024"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="Zero" ReadBack="true" />
     <RootValues>
@@ -1387,27 +1387,27 @@
       <Descriptor Name="U0" Kind="UAV" ResName="U0"
                   NumElements="8" StructureByteStride="68" />
       <Descriptor Name="U1" Kind="UAV" ResName="U1"
-                  NumElements="1030" StructureByteStride="68" />
+                  NumElements="128" StructureByteStride="68" />
       <Descriptor Name="U2" Kind="UAV" ResName="U2"
                   NumElements="16" StructureByteStride="8" />
       <Descriptor Name="U3" Kind="UAV" ResName="U3"
-                  NumElements="1030" StructureByteStride="8" />
+                  NumElements="128" StructureByteStride="8" />
       <Descriptor Name="U4" Kind="UAV" ResName="U4"
                   NumElements="16" StructureByteStride="8" />
       <Descriptor Name="U5" Kind="UAV" ResName="U5"
                   NumElements="16" StructureByteStride="8" />
       <Descriptor Name="U6" Kind="UAV" ResName="U6"
-                  NumElements="1030" StructureByteStride="8" />
+                  NumElements="128" StructureByteStride="8" />
       <Descriptor Name="U7" Kind="UAV" ResName="U7"
                   NumElements="16" StructureByteStride="8" />
       <Descriptor Name="U8" Kind="UAV" ResName="U8"
                   NumElements="16" StructureByteStride="8" />
       <Descriptor Name="U9" Kind="UAV" ResName="U9"
-                  NumElements="1030" StructureByteStride="8" />
+                  NumElements="128" StructureByteStride="8" />
       <Descriptor Name="U10" Kind="UAV" ResName="U10"
                   NumElements="16" StructureByteStride="4" />
       <Descriptor Name="U11" Kind="UAV" ResName="U11"
-                  NumElements="1030" StructureByteStride="4" />
+                  NumElements="128" StructureByteStride="4" />
     </DescriptorHeap>
     <DescriptorHeap Name="RtvHeap" NumDescriptors="1" Type="RTV">
       <Descriptor Name="RTarget" Kind="RTV"/>
@@ -1472,7 +1472,7 @@
 
         groupshared uint g_uintShare[12];
         groupshared int g_sintShare[6];
-        groupshared uint g_xchgShare[2048];
+        groupshared uint g_xchgShare[128];
 
         RWStructuredBuffer<Atomic64Stuff> g_struct64Buf : register(u0);
         RWStructuredBuffer<Atomic64Stuff> g_strXchg64Buf : register(u1);
@@ -1493,7 +1493,7 @@
 
         groupshared uint64_t g_uint64Share[6];
         groupshared int64_t g_sint64Share[3];
-        groupshared uint64_t g_xchg64Share[1024];
+        groupshared uint64_t g_xchg64Share[64];
 
         #define VEC_CALL(op, uav, ix, val) op(uav[ix*stride], val);
 
@@ -1525,9 +1525,9 @@
 
         // The first of four to match gets the first and then the winner performs the last two exchanges
         #define XCHG_TEST(call3, call4, uav) \
-          call3(InterlockedCompareStore,    uav, ix >> 2, 0,           xchgVal - 2); \
-          call4(InterlockedCompareExchange, uav, ix >> 2, xchgVal - 2, xchgVal - 1, output); \
-          if (output == xchgVal - 2) { call3(InterlockedExchange, uav, ix >> 2, xchgVal, output);}
+          call3(InterlockedCompareStore,    uav, (ix/3)%64, 0,           xchgVal - 2); \
+          call4(InterlockedCompareExchange, uav, (ix/3)%64, xchgVal - 2, xchgVal - 1, output); \
+          if (output == xchgVal - 2) { call3(InterlockedExchange, uav, (ix/3)%64, xchgVal, output);}
 
         void AtomicTest(uint ix, uint bitSize) {
           uint stride = 2;
@@ -1536,7 +1536,7 @@
           int sminMaxVal = ~value*(~value&1) + value*(value&1);
           uint xorVal = 1 << (ix%(bitSize-1));
           // make higher bits differ while lower bits match
-          uint xchgVal = (ix << (bitSize/2)) | (ix & ~3);
+          uint xchgVal = (ix << (bitSize/2)) | ((ix/3)%64);
           uint output = 0;
 
           OP_TEST(USTRUCT_CALL, SSTRUCT_CALL, g_structBuf, g_structBuf)
@@ -1559,7 +1559,7 @@
           int sminMaxVal = ~value*(~value&1) + value*(value&1);
           uint xorVal = 1 << (ix%(bitSize-1));
           // make higher bits differ while lower bits match
-          uint xchgVal = (ix << (bitSize/2)) | (ix & ~3);
+          uint xchgVal = (ix << (bitSize/2)) | ((ix/3)%64);
           uint output = 0;
 
           OP_TEST(USTRUCT_CALL, SSTRUCT64_CALL, g_struct64Buf, g_struct64Buf)
@@ -1575,9 +1575,9 @@
           URAW_CALL(InterlockedOr64,  g_raw64Buf, 4, value);
           URAW_CALL(InterlockedXor64, g_raw64Buf, 5, xorVal);
 
-          RAW_CALL3(InterlockedCompareStore64,    g_rawXchg64Buf, ix >> 2, 0,           xchgVal - 2);
-          RAW_CALL4(InterlockedCompareExchange64, g_rawXchg64Buf, ix >> 2, xchgVal - 2, xchgVal - 1, output);
-          if (output == xchgVal - 2) { RAW_CALL3(InterlockedExchange64, g_rawXchg64Buf, ix >> 2, xchgVal, output);}
+          RAW_CALL3(InterlockedCompareStore64,    g_rawXchg64Buf, (ix/3)%64, 0,           xchgVal - 2);
+          RAW_CALL4(InterlockedCompareExchange64, g_rawXchg64Buf, (ix/3)%64, xchgVal - 2, xchgVal - 1, output);
+          if (output == xchgVal - 2) { RAW_CALL3(InterlockedExchange64, g_rawXchg64Buf, (ix/3)%64, xchgVal, output);}
         }
 
         void AtomicTyped64Test(uint ix, uint bitSize) {
@@ -1587,7 +1587,7 @@
           int sminMaxVal = ~value*(~value&1) + value*(value&1);
           uint xorVal = 1 << (ix%(bitSize-1));
           // make higher bits differ while lower bits match
-          uint xchgVal = (ix << (bitSize/2)) | (ix & ~3);
+          uint xchgVal = (ix << (bitSize/2)) | ((ix/3)%64);
           uint output = 0;
 
           OP_TEST(VEC_CALL, VEC_CALL, g_uint64Buf, g_sint64Buf)
@@ -1603,7 +1603,7 @@
           uint uminMaxVal = ~value*(~value&1) + value*(value&1);
           int sminMaxVal = ~value*(~value&1) + value*(value&1);
           uint xorVal = 1 << (ix%(bitSize-1));
-          uint xchgVal = (ix << 16) | (ix & ~3);
+          uint xchgVal = (ix << (bitSize/2)) | ((ix/3)%64);
           uint output = 0;
 
           InterlockedCompareStore(g_uintShare[stride], 0, 99999999);
@@ -1620,7 +1620,7 @@
           g_shareBuf[6*stride] = g_sintShare[stride];
           g_shareBuf[7*stride] = g_sintShare[2*stride];
 
-          g_shareXchgBuf[(ix>>2)*stride] = g_xchgShare[(ix>>2)*stride];
+          g_shareXchgBuf[((ix/3)%64)*stride] = g_xchgShare[((ix/3)%64)*stride];
         }
 
         void AtomicGroupShared64Test(uint ix, uint bitSize) {
@@ -1629,7 +1629,7 @@
           uint uminMaxVal = ~value*(~value&1) + value*(value&1);
           int sminMaxVal = ~value*(~value&1) + value*(value&1);
           uint xorVal = 1 << (ix%(bitSize-1));
-          uint xchgVal = (ix << 16) | (ix & ~3);
+          uint xchgVal = (ix << (bitSize/2)) | ((ix/3)%64);
           uint output = 0;
 
           InterlockedCompareStore(g_uint64Share[1], 0, 99999999);
@@ -1646,7 +1646,7 @@
           g_share64Buf[6*stride] = g_sint64Share[1*stride];
           g_share64Buf[7*stride] = g_sint64Share[2*stride];
 
-          g_shareXchg64Buf[(ix>>2)*stride] = g_xchg64Share[(ix>>2)*stride];
+          g_shareXchg64Buf[((ix/3)%64)*stride] = g_xchg64Share[((ix/3)%64)*stride];
 
         }
 
@@ -1788,19 +1788,19 @@
       { { 1.0f, -1.0f, 0.0f }, { 1.0f, 1.0f } }
     </Resource>
     <Resource Name="RTarget" Dimension="TEXTURE2D" Width="64" Height="64" Format="R32G32B32A32_FLOAT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" />
-    <Resource Name="U0" Dimension="BUFFER" Width="45320"
+    <Resource Name="U0" Dimension="BUFFER" Width="2816"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="Zero" ReadBack="true" />
-    <Resource Name="U1" Dimension="BUFFER" Width="4120"
+    <Resource Name="U1" Dimension="BUFFER" Width="256"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="Zero" ReadBack="true" />
-    <Resource Name="U2" Dimension="BUFFER" Width="4210"
+    <Resource Name="U2" Dimension="BUFFER" Width="256"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="Zero" ReadBack="true" />
-    <Resource Name="U3" Dimension="BUFFER" Width="4210"
+    <Resource Name="U3" Dimension="BUFFER" Width="256"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="Zero" ReadBack="true" />
-    <Resource Name="U4" Dimension="BUFFER" Width="4120"
+    <Resource Name="U4" Dimension="BUFFER" Width="256"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="Zero" ReadBack="true" />
     <RootValues>
@@ -1808,15 +1808,15 @@
     </RootValues>
     <DescriptorHeap Name="ResHeap" Type="CBV_SRV_UAV">
       <Descriptor Name="U0" Kind="UAV" ResName="U0"
-                  NumElements="1030" StructureByteStride="44" />
+                  NumElements="64" StructureByteStride="44" />
       <Descriptor Name="U1" Kind="UAV" ResName="U1"
-                  NumElements="1030" StructureByteStride="4" />
+                  NumElements="64" StructureByteStride="4" />
       <Descriptor Name="U2" Kind="UAV" ResName="U2"
-                  NumElements="1030" StructureByteStride="4" />
+                  NumElements="64" StructureByteStride="4" />
       <Descriptor Name="U3" Kind="UAV" ResName="U3"
-                  NumElements="1030" StructureByteStride="4" />
+                  NumElements="64" StructureByteStride="4" />
       <Descriptor Name="U4" Kind="UAV" ResName="U4"
-                  NumElements="1030" StructureByteStride="4" />
+                  NumElements="64" StructureByteStride="4" />
     </DescriptorHeap>
     <DescriptorHeap Name="RtvHeap" NumDescriptors="1" Type="RTV">
       <Descriptor Name="RTarget" Kind="RTV"/>
@@ -1866,12 +1866,12 @@
 
         // The first of four to match gets the first and then the winner performs the last two exchanges
         #define XCHG_TEST(call3, call4, uav) \
-          call3(InterlockedCompareStoreFloatBitwise,    uav, ix >> 2, 0,           xchgVal - 2); \
-          call4(InterlockedCompareExchangeFloatBitwise, uav, ix >> 2, xchgVal - 2, xchgVal - 1, output); \
-          if (output == xchgVal - 2) { call3(InterlockedExchange, uav, ix >> 2, xchgVal, output);}
+          call3(InterlockedCompareStoreFloatBitwise,    uav, (ix/3)%63 + 1, 0,           xchgVal - 2); \
+          call4(InterlockedCompareExchangeFloatBitwise, uav, (ix/3)%63 + 1, xchgVal - 2, xchgVal - 1, output); \
+          if (output == xchgVal - 2) { call3(InterlockedExchange, uav, (ix/3)%63 + 1, xchgVal, output);}
 
         void AtomicTest(uint ix) {
-          float xchgVal = ix & ~3;
+          float xchgVal = ix;
           float output = 0;
 
           XCHG_TEST(VEC_CALL3, VEC_CALL4, g_xchgBuf)
@@ -1879,9 +1879,9 @@
           XCHG_TEST(VEC_CALL3, VEC_CALL4, g_xtexBuf)
 
           // Special case for ByteAddressBuffers
-          RAW_CALL3(InterlockedCompareStoreFloatBitwise,    g_rawXchgBuf, ix >> 2, 0,           xchgVal - 2);
-          RAW_CALL4(InterlockedCompareExchangeFloatBitwise, g_rawXchgBuf, ix >> 2, xchgVal - 2, xchgVal - 1, output);
-          if (output == xchgVal - 2) { RAW_CALL3(InterlockedExchangeFloat, g_rawXchgBuf, ix >> 2, xchgVal, output);}
+          RAW_CALL3(InterlockedCompareStoreFloatBitwise,    g_rawXchgBuf, (ix/3)%63 + 1, 0,           xchgVal - 2);
+          RAW_CALL4(InterlockedCompareExchangeFloatBitwise, g_rawXchgBuf, (ix/3)%63 + 1, xchgVal - 2, xchgVal - 1, output);
+          if (output == xchgVal - 2) { RAW_CALL3(InterlockedExchangeFloat, g_rawXchgBuf, (ix/3)%63 + 1, xchgVal, output);}
 
           // Check NaN corner case
           InterlockedCompareExchangeFloatBitwise(g_xchgBuf[0], 0, sqrt(-1), output);
@@ -1898,7 +1898,7 @@
         }
 
         void AtomicGroupSharedTest(uint ix) {
-          float xchgVal = ix & ~3;
+          float xchgVal = ix;
           float output = 0;
 
           XCHG_TEST(VEC_CALL3, VEC_CALL4, g_xchgShare)
@@ -1908,7 +1908,7 @@
 
           GroupMemoryBarrierWithGroupSync();
 
-          g_shareXchgBuf[ix>>2] = g_xchgShare[ix>>2];
+          g_shareXchgBuf[ix%64] = g_xchgShare[ix%64];
         }
 
         struct Payload {

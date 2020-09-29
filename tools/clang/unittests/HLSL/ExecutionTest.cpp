@@ -7472,15 +7472,23 @@ void ExecutionTest::WaveSizeTest() {
 // location in the resource indexed by the operation type. Addition is in index 0
 // umin/umax are in 1 and 2 and so on.
 
-// For compare and exchange operations, a resource 1/4 the number of contributors is
-// used to grant some competition among lanes, but allow some verification of the result
-// since the 4 competing lanes will all share the same uppermost bits which can be used
-// to determine what values might be in the corresponding location.
-
 // To make sure that the most significant bits are involved in the calculation,
 // particularly in the case of 64-bit values, each contributing value is duplicated
 // to the lower and upper halves of the value. There is an exception to this when
 // addition exceeds the available size and also for compare and exchange explained below.
+
+// For compare and exchange operations, 64 output locations are shared by the various lanes.
+// Each lane attempts to write to a location that is shared with several others.
+// The first one to write to it determines its contents, which will be the lane index <ix>
+// in the upper bits and the output location index in the lower bits.
+// This ensures that the compare operations consider the upper bits in the comparison.
+// The initial compare store is followed by a compare exchange that compares for the
+// value the current lane would have assigned there. Finally, the output of the cmpxchg
+// is used to determine if the current lane should perform the final unconditional exchange.
+// The values are verified by checking the lower bits for the matching location index
+// and ensuring that the upper bits undergoing the same transformation result in the location index.
+// For lane index <ix> the location is calculated and final result assigned as if by this code:
+//    g_outputBuf[(ix/3)%64] = (ix << shBits) | ((ix/3)%64);
 
 bool AtomicResultMatches(const BYTE *uResults, uint64_t gold, size_t size) {
   if (memcmp(uResults, &gold, size)) {
@@ -7496,6 +7504,17 @@ bool AtomicResultMatches(const BYTE *uResults, uint64_t gold, size_t size) {
 // Used to duplicate the lower half bits into the upper half bits of an integer
 // To verify that the full value is being considered, many tests duplicate the results into the upper half
 #define SHIFT(val, bits) (((val)&((1<<(bits))-1)) | ((val) << (bits)))
+
+// Symbolic constants for the results
+#define ADD_IDX 0
+#define UMIN_IDX 1
+#define UMAX_IDX 2
+#define AND_IDX 3
+#define OR_IDX 4
+#define XOR_IDX 5
+
+#define SMIN_IDX 0
+#define SMAX_IDX 1
 
 // Verify results for atomic operations. <uResults> and <sResults> are pointers to
 // the readback resource sections containing unsigned and signed integers respectively.
@@ -7520,9 +7539,9 @@ void VerifyAtomicResults(const BYTE *uResults, const BYTE *sResults,
   // For 32-bit values, the sum exceeds the 16 bit limit, so we can't duplicate
   // That's fine, the duplication is really for 64-bit values.
   if (addResult >= 1ULL << shBits)
-    VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*0, addResult, byteSize));
+    VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*ADD_IDX, addResult, byteSize));
   else
-    VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*0, SHIFT(addResult, shBits), byteSize));
+    VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*ADD_IDX, SHIFT(addResult, shBits), byteSize));
 
   // Test MIN and MAX Operations
 
@@ -7536,16 +7555,16 @@ void VerifyAtomicResults(const BYTE *uResults, const BYTE *sResults,
   // For unsigned min/max, index 0 will be bitflipped to ~0, which is interpretted as the maximum
   // Because zero is manipulated, this leaves 1 as the lowest value.
   LogCommentFmt(L"Verifying %d-bit integer atomic umin", bitSize);
-  VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*1, SHIFT(1, shBits), byteSize)); // UMin
-  VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*2, ~0, byteSize)); // UMax
+  VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*UMIN_IDX, SHIFT(1, shBits), byteSize)); // UMin
+  VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*UMAX_IDX, ~0, byteSize)); // UMax
 
   // For signed min/max, the index just before the last will be bitflipped (maxIndex is always even).
   // This is interpretted as -maxIndex and will be the lowest
   // The maxIndex will be unaltered and interpretted as the highest.
   LogCommentFmt(L"Verifying %d-bit integer atomic smin", bitSize);
-  VERIFY_IS_TRUE(AtomicResultMatches(sResults + stride*0, SHIFT(-(maxIdx-1), shBits), byteSize)); // SMin
+  VERIFY_IS_TRUE(AtomicResultMatches(sResults + stride*SMIN_IDX, SHIFT(-(maxIdx-1), shBits), byteSize)); // SMin
   LogCommentFmt(L"Verifying %d-bit integer atomic smax", bitSize);
-  VERIFY_IS_TRUE(AtomicResultMatches(sResults + stride*1, SHIFT(maxIdx-1, shBits), byteSize)); // SMax
+  VERIFY_IS_TRUE(AtomicResultMatches(sResults + stride*SMAX_IDX, SHIFT(maxIdx-1, shBits), byteSize)); // SMax
 
   // Test AND and OR operations.
 
@@ -7564,9 +7583,9 @@ void VerifyAtomicResults(const BYTE *uResults, const BYTE *sResults,
   for (;nextPot && !((maxIdx-1) & (nextPot)); nextPot >>= 1) {}
   nextPot <<= 1;
   LogCommentFmt(L"Verifying %d-bit integer atomic and", bitSize);
-  VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*3, ~SHIFT(nextPot-1, shBits), byteSize)); // And
+  VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*AND_IDX, ~SHIFT(nextPot-1, shBits), byteSize)); // And
   LogCommentFmt(L"Verifying %d-bit integer atomic or", bitSize);
-  VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*4, SHIFT(nextPot-1, shBits), byteSize)); // Or
+  VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*OR_IDX, SHIFT(nextPot-1, shBits), byteSize)); // Or
 
   // Test XOR operation
 
@@ -7594,31 +7613,34 @@ void VerifyAtomicResults(const BYTE *uResults, const BYTE *sResults,
   }
 
   LogCommentFmt(L"Verifying %d-bit integer atomic xor", bitSize);
-  VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*5, xorResult, byteSize));
+  VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*XOR_IDX, xorResult, byteSize));
 
   // Test CMP/XCHG Operations
   // This tests CompareStore, CompareExchange, and Exchange operations.
 
   // Unlike above, every lane isn't contributing to the same resource location
-  // Instead, every four lanes will compete to update the same resource location.
+  // Instead, every lane competes with a few others to update the same resource location.
   // The first lane to find the contents of their location uninitialized will
   // update it. To verify that upper bits are considered in the comparison and
-  // in the assignment, the value stored is the lowest index of the four for
-  // the lowest bits. This ensures that part will be the same for each of the four.
+  // in the assignment, the value stored in the lowest bits is the location index.
+  // This ensures that part will be the same for each of the competing lanes.
   // The uppermost bits are updated with the index of the lane that got there first.
   // Subsequent calls to CompareExchange will verify this value matches and alter
-  // the content further. Finally, a simple check of the output value to what
-  // a given lane would expect and a call to exchange will update the value once more
+  // the content slightly. Finally, a simple check of the output value to what
+  // the current lane would expect and a call to exchange will update the value once more
 
-  // To verify this has gone through properly, we ignore the lower 2 bits of the upper part.
-  // They are specific to the lane that got there first and we have no way to know which did.
-  // The end result of the operations should leave the lower half with the value of the first
-  // index in the four that may have contributed.
+  // To verify this has gone through properly, the upper portion is converted as 
+  // if to calculate the location index and compared with the location index.
+  // It could be the index of any of several lanes that assign to that location,
+  // but this ensures that it is not any lane outside of that group.
+  // The lower bits are compared to the location index as well.
   LogCommentFmt(L"Verifying %d-bit integer atomic cmp/xchg results", bitSize);
-  for (size_t i = 0; i < maxIdx/4; i++) {
-    uint32_t idx = i << 2;
-    uint32_t *ptr = (uint32_t*)(pXchg + i*stride);
-    VERIFY_IS_TRUE((*ptr & ~(3<<shBits)) == SHIFT(idx, shBits));
+  for (size_t i = 0; i < 64; i++) {
+    uint32_t val = *((uint32_t*)(pXchg + i*stride));
+    // Verify lower bits match location index exactly
+    VERIFY_ARE_EQUAL(i, val & ((1 << shBits) - 1));
+    // Verify that upper bits contain original index that transforms to location index
+    VERIFY_ARE_EQUAL(((val >> shBits)/3)%64, i);
   }
 }
 
@@ -7872,12 +7894,27 @@ TEST_F(ExecutionTest, AtomicsShared64Test) {
   VerifyAtomicsTest(test, 32*32, 64, true /* hasGroupShared */);
 }
 
+
+// Float Atomics
+
+// These operations are almost the same as for the 32-bit and 64-bit integer tests
+// The difference is that there is no need to verify the upper bits.
+// So there is no storing of different parts in upper and lower halves.
+// Additionally, the only operations that are supported on floats
+// are compare and exchange operations. So that's all that is tested here.
+// Just as above, a number of lanes are assigned the same output value.
+// Unlike above, one location is needed for the result of the special NaN test
+// For this reason, the conversion is reduced by one and shifted by one to leave
+// the zero-indexed location available.
+
 // Verify results for a particular set of atomics results
 void VerifyAtomicFloatResults(const float *results, size_t maxIdx) {
+  // The first entry is for NaN to ensure that compares between NaNs succeed
+  // The sentinal value is 0.123, for which this compare is sufficient.
   VERIFY_IS_TRUE(results[0] >= 0.120 && results[0] < 0.125);
-  for (size_t i = 1; i < maxIdx/4; i++) {
-    float gold = i*4;
-    VERIFY_IS_TRUE(results[i] >= gold && results[i] < gold + 4);
+  // Start at 1 because 0 is just for NaN tests
+  for (size_t i = 1; i < 64; i++) {
+    VERIFY_ARE_EQUAL((int(results[i])/3)%63 + 1, i);
   }
 }
 
@@ -7900,9 +7937,8 @@ void VerifyAtomicsFloatTest(std::shared_ptr<ShaderOpTestResult> test, size_t max
   const AtomicStuff *pStructData = (AtomicStuff *)Data.data();
   LogCommentFmt(L"Verifying float cmp/xchg atomic operations on RWStructuredBuffer resources");
   VERIFY_IS_TRUE(pStructData[0].fltEl[1] >= 0.120 && pStructData[0].fltEl[1] < 0.125);
-  for (size_t i = 1; i < maxIdx/4; i++) {
-    float gold = i*4;
-    VERIFY_IS_TRUE(pStructData[i].fltEl[1] >= gold && pStructData[i].fltEl[1] < gold + 4);
+  for (size_t i = 1; i < 64; i++) {
+    VERIFY_ARE_EQUAL((int(pStructData[i].fltEl[1])/3)%63 + 1, i);
   }
 
   test->Test->GetReadBackData("U1", &Data);
