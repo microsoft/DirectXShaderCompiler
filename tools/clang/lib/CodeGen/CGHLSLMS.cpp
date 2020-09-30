@@ -5637,7 +5637,7 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     Function *F = InsertBlock->getParent();
 
     // Make sure the alloca is in entry block to stop inline create stacksave.
-    IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(F));
+    IRBuilder<> AllocaBuilder(dxilutil::FindInsertionPt(F));
     tmpArgAddr = AllocaBuilder.CreateAlloca(CGF.ConvertTypeForMem(ParamTy));
 
     // add it to local decl map

@@ -540,33 +540,18 @@ Value *SelectOnOperation(llvm::Instruction *Inst, unsigned operandIdx) {
   return nullptr;
 }
 
-llvm::Instruction *SkipAllocas(llvm::Instruction *I) {
-  // Step past any allocas:
-  while (I && (isa<AllocaInst>(I) || isa<DbgInfoIntrinsic>(I)))
-    I = I->getNextNode();
-  return I;
-}
-llvm::Instruction *FindAllocaInsertionPt(llvm::BasicBlock* BB) {
+llvm::Instruction *FindInsertionPt(llvm::BasicBlock* BB) {
   return &*BB->getFirstInsertionPt();
 }
-llvm::Instruction *FindAllocaInsertionPt(llvm::Function* F) {
-  return FindAllocaInsertionPt(&F->getEntryBlock());
+llvm::Instruction *FindInsertionPt(llvm::Function* F) {
+  return FindInsertionPt(&F->getEntryBlock());
 }
-llvm::Instruction *FindAllocaInsertionPt(llvm::Instruction* I) {
+llvm::Instruction *FindInsertionPt(llvm::Instruction* I) {
   Function *F = I->getParent()->getParent();
   if (F)
-    return FindAllocaInsertionPt(F);
+    return FindInsertionPt(F);
   else // BB with no parent function
-    return FindAllocaInsertionPt(I->getParent());
-}
-llvm::Instruction *FirstNonAllocaInsertionPt(llvm::Instruction* I) {
-  return SkipAllocas(FindAllocaInsertionPt(I));
-}
-llvm::Instruction *FirstNonAllocaInsertionPt(llvm::BasicBlock* BB) {
-  return SkipAllocas(FindAllocaInsertionPt(BB));
-}
-llvm::Instruction *FirstNonAllocaInsertionPt(llvm::Function* F) {
-  return SkipAllocas(FindAllocaInsertionPt(F));
+    return FindInsertionPt(I->getParent());
 }
 
 static bool ConsumePrefix(StringRef &Str, StringRef Prefix) {

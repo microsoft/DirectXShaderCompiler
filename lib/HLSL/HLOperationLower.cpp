@@ -6532,7 +6532,7 @@ static ResRetValueArray GenerateTypedBufferLoad(
 
 static AllocaInst* SpillValuesToArrayAlloca(ArrayRef<Value*> Values, IRBuilder<>& Builder) {
   DXASSERT_NOMSG(!Values.empty());
-  IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(Builder.GetInsertPoint()));
+  IRBuilder<> AllocaBuilder(dxilutil::FindInsertionPt(Builder.GetInsertPoint()));
   AllocaInst* ArrayAlloca = AllocaBuilder.CreateAlloca(ArrayType::get(Values[0]->getType(), Values.size()));
   for (unsigned i = 0; i < Values.size(); ++i) {
     Value* ArrayElemPtr = Builder.CreateGEP(ArrayAlloca, { Builder.getInt32(0), Builder.getInt32(i) });
@@ -7583,7 +7583,7 @@ static Instruction *BitCastValueOrPtr(Value* V, Instruction *Insert, Type *Ty, b
     return cast<Instruction>(Builder.CreateBitCast(V, Ty, Name));
   } else {
     // If value, we have to alloca, store to bitcast ptr, and load
-    IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(Insert));
+    IRBuilder<> AllocaBuilder(dxilutil::FindInsertionPt(Insert));
     Type *allocaTy = bOrigAllocaTy ? V->getType() : Ty;
     Type *otherTy = bOrigAllocaTy ? Ty : V->getType();
     Instruction *allocaInst = AllocaBuilder.CreateAlloca(allocaTy);

@@ -733,7 +733,7 @@ void CreateWriteEnabledStaticGlobals(llvm::Module *M, llvm::Function *EF) {
   }
 
   IRBuilder<> Builder(
-      dxilutil::FirstNonAllocaInsertionPt(&EF->getEntryBlock()));
+      dxilutil::FindInsertionPt(&EF->getEntryBlock()));
   for (GlobalVariable *GV : worklist) {
     GlobalVariable *NGV = CreateStaticGlobal(M, GV);
     GV->replaceAllUsesWith(NGV);

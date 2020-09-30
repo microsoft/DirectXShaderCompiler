@@ -945,7 +945,7 @@ bool DxilDebugInstrumentation::runOnModule(Module &M) {
   //
 
   Instruction *firstInsertionPt =
-      dxilutil::FirstNonAllocaInsertionPt(DM.GetEntryFunction());
+      dxilutil::FindInsertionPt(DM.GetEntryFunction());
   IRBuilder<> Builder(firstInsertionPt);
 
   BuilderContext BC{M, DM, Ctx, HlslOP, Builder};
