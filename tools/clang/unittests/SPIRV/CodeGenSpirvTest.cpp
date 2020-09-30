@@ -1559,6 +1559,9 @@ TEST_F(FileTest, SpirvLegalizationTextureBuffer) {
 TEST_F(FileTest, SpirvDebugOpSource) {
   runFileTest("spirv.debug.opsource.hlsl");
 }
+TEST_F(FileTest, SpirvDebugOpSourceNonExistingFile) {
+  runFileTest("spirv.debug.source.non.existing.file.hlsl");
+}
 
 TEST_F(FileTest, SpirvDebugOpLine) { runFileTest("spirv.debug.opline.hlsl"); }
 TEST_F(FileTest, SpirvDebugOpLineBranch) {

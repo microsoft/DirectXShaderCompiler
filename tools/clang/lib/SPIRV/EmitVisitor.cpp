@@ -521,14 +521,21 @@ bool EmitVisitor::visit(SpirvSource *inst) {
       }
     }
 
-    // Note: in order to improve performance and avoid multiple copies, we
-    // encode this (potentially large) string directly into the debugFileBinary.
-    const auto &words = string::encodeSPIRVString(firstSnippet.getValue());
-    const auto numWordsInInstr = curInst.size() + words.size();
-    curInst[0] |= static_cast<uint32_t>(numWordsInInstr) << 16;
-    debugFileBinary.insert(debugFileBinary.end(), curInst.begin(),
-                           curInst.end());
-    debugFileBinary.insert(debugFileBinary.end(), words.begin(), words.end());
+    if (firstSnippet.hasValue()) {
+      // Note: in order to improve performance and avoid multiple copies, we
+      // encode this (potentially large) string directly into the
+      // debugFileBinary.
+      const auto &words = string::encodeSPIRVString(firstSnippet.getValue());
+      const auto numWordsInInstr = curInst.size() + words.size();
+      curInst[0] |= static_cast<uint32_t>(numWordsInInstr) << 16;
+      debugFileBinary.insert(debugFileBinary.end(), curInst.begin(),
+                             curInst.end());
+      debugFileBinary.insert(debugFileBinary.end(), words.begin(), words.end());
+    } else {
+      curInst[0] |= static_cast<uint32_t>(curInst.size()) << 16;
+      debugFileBinary.insert(debugFileBinary.end(), curInst.begin(),
+                             curInst.end());
+    }
   } else {
     curInst[0] |= static_cast<uint32_t>(curInst.size()) << 16;
     debugFileBinary.insert(debugFileBinary.end(), curInst.begin(),
