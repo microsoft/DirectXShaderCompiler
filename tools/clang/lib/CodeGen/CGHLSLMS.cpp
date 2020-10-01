@@ -713,7 +713,24 @@ QualType GetArrayEltType(ASTContext &Context, QualType Ty) {
     Ty = ArrayTy->getElementType();
   return Ty;
 }
+bool IsTextureBufferViewName(StringRef keyword) {
+  return keyword == "TextureBuffer";
+}
 
+bool IsTextureBufferView(clang::QualType Ty, clang::ASTContext &context) {
+  Ty = Ty.getCanonicalType();
+  if (const clang::ArrayType *arrayType = context.getAsArrayType(Ty)) {
+    return IsTextureBufferView(arrayType->getElementType(), context);
+  } else if (const RecordType *RT = Ty->getAsStructureType()) {
+    return IsTextureBufferViewName(RT->getDecl()->getName());
+  } else if (const RecordType *RT = Ty->getAs<RecordType>()) {
+    if (const ClassTemplateSpecializationDecl *templateDecl =
+            dyn_cast<ClassTemplateSpecializationDecl>(RT->getDecl())) {
+      return IsTextureBufferViewName(templateDecl->getName());
+    }
+  }
+  return false;
+}
 } // namespace
 
 DxilResourceProperties CGMSHLSLRuntime::BuildResourceProperty(QualType resTy) {
@@ -753,7 +770,20 @@ DxilResourceProperties CGMSHLSLRuntime::BuildResourceProperty(QualType resTy) {
     Sampler.SetSamplerKind(kind);
     RP = resource_helper::loadPropsFromResourceBase(&Sampler);
     resTyPropsMap[Ty] = RP;
-  }
+  } break;
+  case DXIL::ResourceClass::CBuffer: {
+    DxilCBuffer CB;
+    CB.SetGlobalSymbol(UndefValue::get(Ty->getPointerTo()));
+    if (IsTextureBufferView(resTy, CGM.getContext()))
+      CB.SetKind(DXIL::ResourceKind::TBuffer);
+    DxilTypeSystem &typeSys = m_pHLModule->GetTypeSystem();
+    unsigned arrayEltSize = 0;
+    QualType ResultTy = hlsl::GetHLSLResourceResultType(resTy);
+    unsigned Size = AddTypeAnnotation(ResultTy, typeSys, arrayEltSize);
+    CB.SetSize(Size);
+    RP = resource_helper::loadPropsFromResourceBase(&CB);
+    resTyPropsMap[Ty] = RP;
+  } break;
   default:
     break;
   }
@@ -3273,24 +3303,6 @@ unique_ptr<HLCBuffer> CreateHLCBuf(NamedDecl *D, bool bIsView, bool bIsTBuf) {
   return CB;
 }
 
-bool IsTextureBufferViewName(StringRef keyword) {
-  return keyword == "TextureBuffer";
-}
-
-bool IsTextureBufferView(clang::QualType Ty, clang::ASTContext &context) {
-  Ty = Ty.getCanonicalType();
-  if (const clang::ArrayType *arrayType = context.getAsArrayType(Ty)) {
-    return IsTextureBufferView(arrayType->getElementType(), context);
-  } else if (const RecordType *RT = Ty->getAsStructureType()) {
-    return IsTextureBufferViewName(RT->getDecl()->getName());
-  } else if (const RecordType *RT = Ty->getAs<RecordType>()) {
-    if (const ClassTemplateSpecializationDecl *templateDecl =
-            dyn_cast<ClassTemplateSpecializationDecl>(RT->getDecl())) {
-      return IsTextureBufferViewName(templateDecl->getName());
-    }
-  }
-  return false;
-}
 } // namespace
 
 uint32_t CGMSHLSLRuntime::AddCBuffer(HLSLBufferDecl *D) {
@@ -5305,9 +5317,14 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(CodeGenFunction &CGF, 
       return;
     }
   } else if (dxilutil::IsHLSLResourceDescType(SrcPtrTy) &&
-             dxilutil::IsHLSLResourceType(DestPtrTy)) {
-    // Cast resource desc to resource.
+             (dxilutil::IsHLSLResourceType(DestPtrTy) ||
+              GetResourceClassForType(CGM.getContext(), DestTy) ==
+                  DXIL::ResourceClass::CBuffer)) {
+    // Cast resource desc to resource.// Make sure to generate Inst to help lowering.
+    bool originAllowFolding = CGF.Builder.AllowFolding;
+    CGF.Builder.AllowFolding = false;
     Value *CastPtr = CGF.Builder.CreatePointerCast(SrcPtr, DestPtr->getType());
+    CGF.Builder.AllowFolding = originAllowFolding;
     // Load resource.
     Value *V = CGF.Builder.CreateLoad(CastPtr);
     // Store to resource ptr.
