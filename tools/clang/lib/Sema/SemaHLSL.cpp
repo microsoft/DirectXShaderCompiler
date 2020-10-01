@@ -10027,12 +10027,6 @@ static ParmVarDecl *GetPayloadQualifedParameter(FunctionDecl *Decl) {
   return nullptr;
 }
 
-static bool HasPayloadQualifedParameter(FunctionDecl *Decl) {
-  if (GetPayloadQualifedParameter(Decl))
-    return true;
-  return false;
-}
-
 static PayloadStructQualifier GetAggregatedPayloadQualifer(ParmVarDecl *Decl) {
   bool hasInput = false;
   bool hasOutput = false;
