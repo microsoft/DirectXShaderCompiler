@@ -133,8 +133,8 @@ private:
   SpirvInstruction *createInitForStructType(QualType type, SourceLocation);
   SpirvInstruction *createInitForConstantArrayType(QualType type,
                                                    SourceLocation);
-  SpirvInstruction *createInitForSamplerImageType(QualType type,
-                                                  SourceLocation);
+  SpirvInstruction *createInitForBufferOrImageType(QualType type,
+                                                   SourceLocation);
 
 private:
   const ASTContext &astContext;
