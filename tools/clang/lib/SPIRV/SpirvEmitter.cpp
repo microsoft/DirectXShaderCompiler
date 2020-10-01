@@ -5556,7 +5556,7 @@ SpirvInstruction *SpirvEmitter::processBinaryOp(
   } else {
     // Evalute lhs before rhs
     lhsPtr = doExpr(lhs);
-    if (lhsPtr == nullptr)
+    if (!lhsPtr)
       return nullptr;
     lhsVal = loadIfGLValue(lhs, lhsPtr);
     rhsVal = loadIfGLValue(rhs);
