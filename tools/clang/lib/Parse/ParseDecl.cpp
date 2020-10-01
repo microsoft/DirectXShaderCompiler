@@ -368,9 +368,9 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
   unsigned dxilMajor = 0, dxilMinor = 0;
   shaderModel->GetDxilVersion(dxilMajor, dxilMinor);
   bool allowPayloadAccessQualifiers =
-      (dxilMajor > 1 || dxilMajor == 1 && dxilMinor >= 5) &&
+      (dxilMajor > 1 || (dxilMajor == 1 && dxilMinor >= 5)) &&
       (shaderModel->GetMajor() > 6 ||
-       shaderModel->GetMajor() == 6 && shaderModel->GetMinor() >= 5);
+       (shaderModel->GetMajor() == 6 && shaderModel->GetMinor() >= 5));
 
   ASTContext& context = getActions().getASTContext();
 
