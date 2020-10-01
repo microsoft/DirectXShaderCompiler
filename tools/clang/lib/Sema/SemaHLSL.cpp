@@ -10139,7 +10139,7 @@ static bool DiagnosePayloadParameter(Sema &S, ParmVarDecl *Payload,
     // Only check if all fileds have a payload qualifier if the shader model requires them.
     if (qualifiersAreMandatory) {
         bool allFieldsQualifed = true;
-        FieldDecl* unqualifiedField = nullptr;
+
         for (FieldDecl* field : Decl->fields()) {
             bool fieldHasPayloadQualifier = false;
             for (UnusualAnnotation* annotation : field->getUnusualAnnotations()) {
@@ -10192,7 +10192,6 @@ public:
       const auto &callGraph = CG.GetCallGraph();
 
       for (const auto &node : callGraph) {
-        FunctionDecl *caller = node.first;
         const auto &callees = node.second;
         for (FunctionDecl *callee : callees.CalleeFns) {
           // Only check the function if it gets the payload as parmeter.
