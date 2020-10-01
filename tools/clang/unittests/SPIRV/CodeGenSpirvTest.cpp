@@ -1625,10 +1625,6 @@ TEST_F(FileTest, SpirvDebugControlFile) {
   useVulkan1p1();
   runFileTest("spirv.debug.ctrl.file.hlsl");
 }
-TEST_F(FileTest, SpirvDebugControlSource) {
-  useVulkan1p1();
-  runFileTest("spirv.debug.ctrl.source.hlsl");
-}
 TEST_F(FileTest, SpirvDebugControlLine) {
   useVulkan1p1();
   runFileTest("spirv.debug.ctrl.line.hlsl");
@@ -2405,6 +2401,145 @@ TEST_F(FileTest, CompatibilityWithVk1p1) {
   runFileTest("sm6.wave-read-lane-at.vulkan1.2.hlsl");
   runFileTest("sm6.wave-read-lane-first.vulkan1.2.hlsl");
   runFileTest("sm6.wave.builtin.no-dup.vulkan1.2.hlsl");
+}
+
+// Tests for Rich Debug Information
+// TODO: change |runValidation| parameter back to 'true' once the following bug
+// has been fixed in SPIRV-Tools:
+// https://github.com/KhronosGroup/SPIRV-Tools/issues/3086
+const bool runValidationForRichDebugInfo = true;
+
+TEST_F(FileTest, RichDebugInfoDebugSource) {
+  runFileTest("rich.debug.debugsource.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
+TEST_F(FileTest, RichDebugInfoDebugCompilationUnit) {
+  runFileTest("rich.debug.debugcompilationunit.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
+TEST_F(FileTest, RichDebugInfoDebugLexicalBlock) {
+  runFileTest("rich.debug.debuglexicalblock.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
+TEST_F(FileTest, RichDebugInfoTypeBool) {
+  runFileTest("rich.debug.type.bool.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
+TEST_F(FileTest, RichDebugInfoTypeInt) {
+  runFileTest("rich.debug.type.int.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
+TEST_F(FileTest, RichDebugInfoTypeFloat) {
+  runFileTest("rich.debug.type.float.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
+TEST_F(FileTest, RichDebugInfoTypeVector) {
+  runFileTest("rich.debug.type.vector.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
+TEST_F(FileTest, RichDebugInfoTypeMatrix) {
+  runFileTest("rich.debug.type.matrix.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
+TEST_F(FileTest, RichDebugInfoTypeArray) {
+  runFileTest("rich.debug.type.array.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
+TEST_F(FileTest, RichDebugInfoTypeArrayFromSameType) {
+  runFileTest("rich.debug.type.array-from-same-type.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
+TEST_F(FileTest, RichDebugInfoTypeFunction) {
+  runFileTest("rich.debug.type.function.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
+TEST_F(FileTest, RichDebugInfoTypeMemberFunction) {
+  runFileTest("rich.debug.type.member.function.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
+TEST_F(FileTest, RichDebugInfoTypeCompositeBeforeFunction) {
+  runFileTest("rich.debug.type.composite.before.function.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
+TEST_F(FileTest, RichDebugInfoMemberFunctionParam) {
+  runFileTest("rich.debug.member.function.param.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
+TEST_F(FileTest, DISABLED_RichDebugInfoMemberFunctionWithoutCall) {
+  runFileTest("rich.debug.member.function.without-call.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
+TEST_F(FileTest, RichDebugInfoTypeComposite) {
+  runFileTest("rich.debug.type.composite.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
+TEST_F(FileTest, RichDebugInfoTypeCompositeEmpty) {
+  runFileTest("rich.debug.type.composite.empty.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
+TEST_F(FileTest, RichDebugInfoTypeStructuredBuffer) {
+  runFileTest("rich.debug.structured-buffer.hlsl", Expect::Success,
+              /*runValidation*/ false);
+}
+TEST_F(FileTest, RichDebugInfoLocalVariable) {
+  runFileTest("rich.debug.local-variable.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
+TEST_F(FileTest, RichDebugInfoGlobalVariable) {
+  runFileTest("rich.debug.global-variable.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
+TEST_F(FileTest, RichDebugInfoFunction) {
+  runFileTest("rich.debug.function.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
+TEST_F(FileTest, RichDebugInfoFunctionParent) {
+  runFileTest("rich.debug.function.parent.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
+TEST_F(FileTest, RichDebugInfoFunctionParam) {
+  runFileTest("rich.debug.function.param.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
+TEST_F(FileTest, RichDebugInfoDebugSourceMultiple) {
+  runFileTest("rich.debug.debugsource.multiple.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
+TEST_F(FileTest, RichDebugInfoDeclare) {
+  runFileTest("rich.debug.debugdeclare.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
+TEST_F(FileTest, RichDebugInfoDeclareWithoutInit) {
+  runFileTest("rich.debug.debugdeclare.without.init.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
+TEST_F(FileTest, RichDebugInfoScope) {
+  runFileTest("rich.debug.debugscope.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
+TEST_F(FileTest, RichDebugInfoTypeTexture) {
+  runFileTest("rich.debug.texture.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
+TEST_F(FileTest, RichDebugInfoTypeRWTexture) {
+  runFileTest("rich.debug.rwtexture.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
+TEST_F(FileTest, RichDebugInfoTypeSampler) {
+  runFileTest("rich.debug.sampler.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
+TEST_F(FileTest, RichDebugInfoCbuffer) {
+  runFileTest("rich.debug.cbuffer.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
+TEST_F(FileTest, RichDebugInfoSortTypeTemplate) {
+  runFileTest("rich.debug.sort.type.template.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
+}
+TEST_F(FileTest, RichDebugInfoSwitchDebugScope) {
+  runFileTest("rich.debug.switch.debugscope.hlsl", Expect::Success,
+              /*runValidation*/ runValidationForRichDebugInfo);
 }
 
 } // namespace

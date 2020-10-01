@@ -11,7 +11,8 @@ struct VSOUT {
   float4 color : COLOR;
 };
 
-// CHECK:      OpLine [[file]] 15 1
+// TODO: After correctly propagate the line information in spirv-opt,
+//       add checking OpLine instructions.
 VSOUT main(float4 pos   : POSITION,
            float4 color : COLOR)
 {

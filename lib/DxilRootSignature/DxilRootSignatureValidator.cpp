@@ -11,7 +11,6 @@
 
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
-#include "dxc/DxilContainer/DxilPipelineStateValidation.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/WinFunctions.h"
@@ -27,6 +26,9 @@
 #include <vector>
 #include <set>
 #include <ios>
+
+#include <assert.h> // Needed for DxilPipelineStateValidation.h
+#include "dxc/DxilContainer/DxilPipelineStateValidation.h"
 
 #include "DxilRootSignatureHelper.h"
 

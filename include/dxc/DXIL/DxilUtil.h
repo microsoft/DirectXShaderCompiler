@@ -59,14 +59,9 @@ namespace dxilutil {
   bool HasDynamicIndexing(llvm::Value *V);
 
   // Find alloca insertion point, given instruction
-  llvm::Instruction *FindAllocaInsertionPt(llvm::Instruction* I); // Considers entire parent function
-  llvm::Instruction *FindAllocaInsertionPt(llvm::BasicBlock* BB); // Only considers provided block
-  llvm::Instruction *FindAllocaInsertionPt(llvm::Function* F);
-  llvm::Instruction *SkipAllocas(llvm::Instruction *I);
-  // Get first non-alloca insertion point, to avoid inserting non-allocas before alloca
-  llvm::Instruction *FirstNonAllocaInsertionPt(llvm::Instruction* I); // Considers entire parent function
-  llvm::Instruction *FirstNonAllocaInsertionPt(llvm::BasicBlock* BB); // Only considers provided block
-  llvm::Instruction *FirstNonAllocaInsertionPt(llvm::Function* F);
+  llvm::Instruction *FindInsertionPt(llvm::Instruction* I); // Considers entire parent function
+  llvm::Instruction *FindInsertionPt(llvm::BasicBlock* BB); // Only considers provided block
+  llvm::Instruction *FindInsertionPt(llvm::Function* F);
 
   bool IsStaticGlobal(llvm::GlobalVariable *GV);
   bool IsSharedMemoryGlobal(llvm::GlobalVariable *GV);

@@ -32,6 +32,7 @@
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/dxcapi.impl.h"
+#include <assert.h> // Needed for DxilPipelineStateValidation.h
 #include "dxc/DxilContainer/DxilPipelineStateValidation.h"
 #include "dxc/DxilContainer/DxilRuntimeReflection.h"
 #include "dxc/DXIL/DxilCounters.h"

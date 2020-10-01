@@ -18,7 +18,7 @@ The DXR Fallback Compiler addresses several challenges that native DX12 compute 
  * Invocation of another shader in the middle of shader code - *i.e. TraceRay and CallShader*
  * Recursive invocations of shader calls
 
-These challenges are handled by abstractly viewing GPU execution of a DXR pipeline as State Machine traversal, where each shader is transformed into one or more state functions. further technical details are described in the header of [StateFunctionTransform.h](..\\DxrFallback\StateFunctionTransform.h).
+These challenges are handled by abstractly viewing GPU execution of a DXR pipeline as State Machine traversal, where each shader is transformed into one or more state functions. further technical details are described in the header of [StateFunctionTransform.h](../DxrFallback/StateFunctionTransform.h).
 
 ## Building runtime.h
 Download LLVM 3.7: http://releases.llvm.org/3.7.0/LLVM-3.7.0-win64.exe

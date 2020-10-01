@@ -817,6 +817,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
 
   opts.SpirvOptions.debugInfoFile = opts.SpirvOptions.debugInfoSource = false;
   opts.SpirvOptions.debugInfoLine = opts.SpirvOptions.debugInfoTool = false;
+  opts.SpirvOptions.debugInfoRich = false;
   if (Args.hasArg(OPT_fspv_debug_EQ)) {
     opts.DebugInfo = true;
     for (const Arg *A : Args.filtered(OPT_fspv_debug_EQ)) {
@@ -832,6 +833,16 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
         opts.SpirvOptions.debugInfoLine = true;
       } else if (v == "tool") {
         opts.SpirvOptions.debugInfoTool = true;
+      } else if (v == "rich") {
+        opts.SpirvOptions.debugInfoFile = true;
+        opts.SpirvOptions.debugInfoSource = false;
+        opts.SpirvOptions.debugInfoLine = true;
+        opts.SpirvOptions.debugInfoRich = true;
+      } else if (v == "rich-with-source") {
+        opts.SpirvOptions.debugInfoFile = true;
+        opts.SpirvOptions.debugInfoSource = true;
+        opts.SpirvOptions.debugInfoLine = true;
+        opts.SpirvOptions.debugInfoRich = true;
       } else {
         errors << "unknown SPIR-V debug info control parameter: " << v;
         return 1;

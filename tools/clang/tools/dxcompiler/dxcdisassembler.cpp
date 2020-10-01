@@ -28,6 +28,7 @@
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/Format.h"
+#include <assert.h> // Needed for DxilPipelineStateValidation.h
 #include "dxc/DxilContainer/DxilPipelineStateValidation.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DxilContainer/DxilRuntimeReflection.h"

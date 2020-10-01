@@ -17,7 +17,7 @@ namespace spirv {
 SpirvModule::SpirvModule()
     : capabilities({}), extensions({}), extInstSets({}), memoryModel(nullptr),
       entryPoints({}), executionModes({}), moduleProcesses({}), decorations({}),
-      constants({}), variables({}), functions({}) {}
+      constants({}), variables({}), functions({}), debugInstructions({}) {}
 
 SpirvModule::~SpirvModule() {
   for (auto *cap : capabilities)
@@ -34,7 +34,7 @@ SpirvModule::~SpirvModule() {
     exec->releaseMemory();
   for (auto *str : constStrings)
     str->releaseMemory();
-  for (auto *d : debugSources)
+  for (auto *d : sources)
     d->releaseMemory();
   for (auto *mp : moduleProcesses)
     mp->releaseMemory();
@@ -44,6 +44,8 @@ SpirvModule::~SpirvModule() {
     constant->releaseMemory();
   for (auto *var : variables)
     var->releaseMemory();
+  for (auto *di : debugInstructions)
+    di->releaseMemory();
   for (auto *f : allFunctions)
     f->~SpirvFunction();
 }
@@ -66,6 +68,13 @@ bool SpirvModule::invokeVisitor(Visitor *visitor, bool reverseOrder) {
     for (auto iter = functions.rbegin(); iter != functions.rend(); ++iter) {
       auto *fn = *iter;
       if (!fn->invokeVisitor(visitor, reverseOrder))
+        return false;
+    }
+
+    for (auto iter = debugInstructions.rbegin();
+         iter != debugInstructions.rend(); ++iter) {
+      auto *debugInstruction = *iter;
+      if (!debugInstruction->invokeVisitor(visitor))
         return false;
     }
 
@@ -96,9 +105,8 @@ bool SpirvModule::invokeVisitor(Visitor *visitor, bool reverseOrder) {
         return false;
     }
 
-    if (!debugSources.empty())
-      for (auto iter = debugSources.rbegin(); iter != debugSources.rend();
-           ++iter) {
+    if (!sources.empty())
+      for (auto iter = sources.rbegin(); iter != sources.rend(); ++iter) {
         auto *source = *iter;
         if (!source->invokeVisitor(visitor))
           return false;
@@ -177,8 +185,8 @@ bool SpirvModule::invokeVisitor(Visitor *visitor, bool reverseOrder) {
       if (!str->invokeVisitor(visitor))
         return false;
 
-    if (!debugSources.empty())
-      for (auto *source : debugSources)
+    if (!sources.empty())
+      for (auto *source : sources)
         if (!source->invokeVisitor(visitor))
           return false;
 
@@ -196,6 +204,10 @@ bool SpirvModule::invokeVisitor(Visitor *visitor, bool reverseOrder) {
 
     for (auto var : variables)
       if (!var->invokeVisitor(visitor))
+        return false;
+
+    for (auto *debugInstruction : debugInstructions)
+      if (!debugInstruction->invokeVisitor(visitor))
         return false;
 
     for (auto fn : functions)
@@ -283,9 +295,14 @@ void SpirvModule::addString(SpirvString *str) {
   constStrings.push_back(str);
 }
 
-void SpirvModule::addDebugSource(SpirvSource *src) {
+void SpirvModule::addSource(SpirvSource *src) {
   assert(src);
-  debugSources.push_back(src);
+  sources.push_back(src);
+}
+
+void SpirvModule::addDebugInfo(SpirvDebugInstruction *info) {
+  assert(info);
+  debugInstructions.push_back(info);
 }
 
 void SpirvModule::addModuleProcessed(SpirvModuleProcessed *p) {

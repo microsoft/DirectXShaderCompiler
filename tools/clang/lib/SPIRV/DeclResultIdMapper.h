@@ -310,8 +310,13 @@ public:
                               uint32_t payloadMemOffset = 0);
 
   /// \brief Creates a function-scope paramter in the current function and
-  /// returns its instruction.
-  SpirvFunctionParameter *createFnParam(const ParmVarDecl *param);
+  /// returns its instruction. dbgArgNumber is used to specify the argument
+  /// number of param among function parameters, which will be used for the
+  /// debug information. Note that dbgArgNumber for the first function
+  /// parameter must have "1", not "0", which is what Clang generates for
+  /// LLVM debug metadata.
+  SpirvFunctionParameter *createFnParam(const ParmVarDecl *param,
+                                        uint32_t dbgArgNumber = 0);
 
   /// \brief Creates the counter variable associated with the given param.
   /// This is meant to be used for forward-declared functions and this objects
@@ -701,6 +706,13 @@ private:
 
   /// Returns true if the given SPIR-V stage variable has Input storage class.
   inline bool isInputStorageClass(const StageVar &v);
+
+  /// Creates DebugGlobalVariable and returns it if rich debug information
+  /// generation is enabled. Otherwise, returns nullptr.
+  SpirvDebugGlobalVariable *createDebugGlobalVariable(SpirvVariable *var,
+                                                      const QualType &type,
+                                                      const SourceLocation &loc,
+                                                      const StringRef &name);
 
   /// Determines the register type for a resource that does not have an
   /// explicit register() declaration.  Returns true if it is able to

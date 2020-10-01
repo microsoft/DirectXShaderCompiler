@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "clang/SPIRV/SpirvInstruction.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallVector.h"
@@ -134,7 +135,14 @@ public:
   void addString(SpirvString *);
 
   // Adds the debug source to the module.
-  void addDebugSource(SpirvSource *);
+  void addSource(SpirvSource *);
+
+  // Adds the given debug info instruction to debugInstructions.
+  void addDebugInfo(SpirvDebugInstruction *);
+
+  llvm::SmallVector<SpirvDebugInstruction *, 32> &getDebugInfo() {
+    return debugInstructions;
+  }
 
   // Adds the given OpModuleProcessed to the module.
   void addModuleProcessed(SpirvModuleProcessed *);
@@ -163,7 +171,7 @@ private:
   llvm::SmallVector<SpirvEntryPoint *, 1> entryPoints;
   llvm::SmallVector<SpirvExecutionMode *, 4> executionModes;
   llvm::SmallVector<SpirvString *, 4> constStrings;
-  std::vector<SpirvSource *> debugSources;
+  std::vector<SpirvSource *> sources;
   std::vector<SpirvModuleProcessed *> moduleProcesses;
 
   // Use a set for storing decoration. This will ensure that we don't apply the
@@ -183,6 +191,9 @@ private:
   // A vector of all functions that have been visited in the AST tree. This
   // vector is not in any particular order, and may contain unused functions.
   llvm::SetVector<SpirvFunction *> allFunctions;
+
+  // Keep all OpenCL.DebugInfo.100 instructions.
+  llvm::SmallVector<SpirvDebugInstruction *, 32> debugInstructions;
 };
 
 } // end namespace spirv

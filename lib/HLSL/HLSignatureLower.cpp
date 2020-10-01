@@ -593,7 +593,7 @@ Value *replaceLdWithLdInput(Function *loadInput, LoadInst *ldInst,
                             unsigned cols, MutableArrayRef<Value *> args,
                             bool bCast) {
   IRBuilder<> Builder(ldInst);
-  IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(ldInst));
+  IRBuilder<> AllocaBuilder(dxilutil::FindInsertionPt(ldInst));
   Type *Ty = ldInst->getType();
   Type *EltTy = Ty->getScalarType();
   // Change i1 to i32 for load input.
