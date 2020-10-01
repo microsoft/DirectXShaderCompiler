@@ -58,10 +58,13 @@ IMalloc *DxcGetThreadMallocNoRef() throw() {
 }
 
 void DxcClearThreadMalloc() throw() {
-  DXASSERT(g_ThreadMallocTls != nullptr, "else prior to DxcInitThreadMalloc or after DxcCleanupThreadMalloc");
   IMalloc *pMalloc = DxcGetThreadMallocNoRef();
-  g_ThreadMallocTls->erase();
-  pMalloc->Release();
+  if (g_ThreadMallocTls != nullptr) {
+    g_ThreadMallocTls->erase();
+  }
+  if (pMalloc != nullptr) {
+    pMalloc->Release();
+  }
 }
 
 void DxcSetThreadMallocToDefault() throw() {
