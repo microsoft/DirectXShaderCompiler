@@ -1304,7 +1304,7 @@ void DxilModule::InferInformationFromTypeSystem() {
   // struct. This information is required to guide reflection stripping.
   for (auto &item : m_pTypeSystem->GetStructAnnotationMap()) {
     const DxilStructAnnotation &annotation = *item.second;
-    for (int idx = 0; idx != item.second->GetNumFields(); ++idx) {
+    for (unsigned idx = 0; idx != item.second->GetNumFields(); ++idx) {
       const DxilFieldAnnotation &fieldAnnotation =
           annotation.GetFieldAnnotation(idx);
       if (!fieldAnnotation.GetPayloadFieldAnnotation().AccessPerShader.empty())
