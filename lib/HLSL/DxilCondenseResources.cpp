@@ -558,7 +558,7 @@ public:
     // Switch tbuffers to SRVs, as they have been treated as cbuffers up to this
     // point.
     if (DM.GetCBuffers().size())
-      bChanged |= PatchTBuffers(DM) || bChanged;
+      bChanged |= PatchTBuffers(DM);
 
 
 

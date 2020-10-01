@@ -3493,9 +3493,10 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
     // bitcast to target type
     llvm::Type *ResultType = ConvertType(ToType);
     // Make sure generate Inst not Operator to make lowering easy.
+    bool originAllowFolding = Builder.AllowFolding;
     Builder.AllowFolding = false;
     llvm::Value *bitcast = Builder.CreateBitCast(This, ResultType);
-    Builder.AllowFolding = true;
+    Builder.AllowFolding = originAllowFolding;
     return MakeAddrLValue(bitcast, ToType);
   }
   case CK_HLSLDerivedToBase: {

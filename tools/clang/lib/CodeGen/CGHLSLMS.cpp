@@ -5321,9 +5321,10 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(CodeGenFunction &CGF, 
               GetResourceClassForType(CGM.getContext(), DestTy) ==
                   DXIL::ResourceClass::CBuffer)) {
     // Cast resource desc to resource.// Make sure to generate Inst to help lowering.
+    bool originAllowFolding = CGF.Builder.AllowFolding;
     CGF.Builder.AllowFolding = false;
     Value *CastPtr = CGF.Builder.CreatePointerCast(SrcPtr, DestPtr->getType());
-    CGF.Builder.AllowFolding = true;
+    CGF.Builder.AllowFolding = originAllowFolding;
     // Load resource.
     Value *V = CGF.Builder.CreateLoad(CastPtr);
     // Store to resource ptr.
