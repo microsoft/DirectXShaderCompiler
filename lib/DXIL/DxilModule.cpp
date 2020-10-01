@@ -1710,7 +1710,7 @@ static bool ResourceTypeRequiresTranslation(const StructType * Ty, SmallStructSe
 // payload access modifiers. 
 static bool StructContainsPayloadQualifiers(DxilStructAnnotation &annotation) {
   bool structUsesPayloadQualifiers = false;
-  for (int idx = 0; idx != annotation.GetNumFields(); ++idx) {
+  for (unsigned idx = 0; idx != annotation.GetNumFields(); ++idx) {
     auto &field = annotation.GetFieldAnnotation(idx);
     structUsesPayloadQualifiers |= !field.GetPayloadFieldAnnotation().AccessPerShader.empty();
   }
