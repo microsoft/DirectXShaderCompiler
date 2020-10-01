@@ -983,6 +983,11 @@ TEST_F(FileTest, RWByteAddressBufferAtomicMethods) {
   runFileTest("method.rw-byte-address-buffer.atomic.hlsl");
 }
 
+TEST_F(FileTest, InitializeListRWByteAddressBuffer) {
+  runFileTest("initializelist.rwbyteaddressbuffer.hlsl", Expect::Success,
+              /* runValidation */ false);
+}
+
 // For Buffer/RWBuffer methods
 TEST_F(FileTest, BufferLoad) { runFileTest("method.buffer.load.hlsl"); }
 TEST_F(FileTest, BufferGetDimensions) {
