@@ -12,7 +12,7 @@ get_filename_component(VS_DIA_INC_PATH "${VS_PATH}/DIA SDK/include" ABSOLUTE CAC
 # (although the friendly name of that is C++ profiling tools).  The toolset is the most likely target.
 set(PROGRAMFILES_X86 "ProgramFiles(x86)")
 execute_process(
-  COMMAND "$ENV{${PROGRAMFILES_X86}}/Microsoft Visual Studio/Installer/vswhere.exe" -latest -prerelease -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+  COMMAND "$ENV{${PROGRAMFILES_X86}}/Microsoft Visual Studio/Installer/vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
   OUTPUT_VARIABLE VSWHERE_LATEST
   ERROR_QUIET
   OUTPUT_STRIP_TRAILING_WHITESPACE
@@ -25,13 +25,13 @@ find_path(DIASDK_INCLUDE_DIR    # Set variable DIASDK_INCLUDE_DIR
           DOC "path to DIA SDK header files"
           )
 
-if (CMAKE_GENERATOR MATCHES "Visual Studio.*Win64" )
+if (CMAKE_GENERATOR MATCHES "Visual Studio.*Win64" OR CMAKE_GENERATOR_PLATFORM STREQUAL "x64")
   find_library(DIASDK_GUIDS_LIBRARY NAMES diaguids.lib
                HINTS ${DIASDK_INCLUDE_DIR}/../lib/amd64 )
-elseif (CMAKE_GENERATOR MATCHES "Visual Studio.*ARM" )
+elseif (CMAKE_GENERATOR MATCHES "Visual Studio.*ARM" OR CMAKE_GENERATOR_PLATFORM STREQUAL "ARM")
   find_library(DIASDK_GUIDS_LIBRARY NAMES diaguids.lib
                HINTS ${DIASDK_INCLUDE_DIR}/../lib/arm )
-else (CMAKE_GENERATOR MATCHES "Visual Studio.*Win64" )
+else (CMAKE_GENERATOR MATCHES "Visual Studio.*Win64" OR CMAKE_GENERATOR_PLATFORM STREQUAL "ARM64")
   find_library(DIASDK_GUIDS_LIBRARY NAMES diaguids.lib
                HINTS ${DIASDK_INCLUDE_DIR}/../lib )
 endif (CMAKE_GENERATOR MATCHES "Visual Studio.*Win64" )
