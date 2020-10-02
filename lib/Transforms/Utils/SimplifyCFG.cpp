@@ -1672,6 +1672,7 @@ static bool SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *ThenBB,
   return true;
 }
 
+#if 0 // HLSL Change - Unused function
 /// \returns True if this block contains a CallInst with the NoDuplicate
 /// attribute.
 static bool HasNoDuplicateCall(const BasicBlock *BB) {
@@ -1684,6 +1685,7 @@ static bool HasNoDuplicateCall(const BasicBlock *BB) {
   }
   return false;
 }
+#endif
 
 /// Return true if we can thread a branch across this block.
 static bool BlockIsSimpleEnoughToThreadThrough(BasicBlock *BB) {
@@ -1709,6 +1711,7 @@ static bool BlockIsSimpleEnoughToThreadThrough(BasicBlock *BB) {
   return true;
 }
 
+#if 0 // HLSL Change - Unused function
 /// If we have a conditional branch on a PHI node value that is defined in the
 /// same block as the branch and if any PHI entries are constants, thread edges
 /// corresponding to that entry to be branches to their ultimate destination.
@@ -1807,6 +1810,7 @@ static bool FoldCondBranchOnPHI(BranchInst *BI, const DataLayout &DL) {
 
   return false;
 }
+#endif
 
 /// Given a BB that starts with the specified two-entry PHI node,
 /// see if we can eliminate it.
