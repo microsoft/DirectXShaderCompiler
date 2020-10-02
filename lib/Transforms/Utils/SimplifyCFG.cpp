@@ -4573,12 +4573,14 @@ bool SimplifyCFGOpt::SimplifyCondBranch(BranchInst *BI, IRBuilder<> &Builder) {
         return SimplifyCFG(BB, TTI, BonusInstThreshold, AC) | true;
   }
 
+#if 0 // HLSL Change - this transformation creates unstructured flow
   // If this is a branch on a phi node in the current block, thread control
   // through this block if any PHI node entries are constants.
   if (PHINode *PN = dyn_cast<PHINode>(BI->getCondition()))
     if (PN->getParent() == BI->getParent())
       if (FoldCondBranchOnPHI(BI, DL))
         return SimplifyCFG(BB, TTI, BonusInstThreshold, AC) | true;
+#endif // HLSL Change
 
   // Scan predecessor blocks for conditional branches.
   for (pred_iterator PI = pred_begin(BB), E = pred_end(BB); PI != E; ++PI)
