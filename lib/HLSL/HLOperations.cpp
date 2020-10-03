@@ -455,9 +455,23 @@ static void SetHLFunctionAttribute(Function *F, HLOpcodeGroup group,
     F->addFnAttr(Attribute::ReadNone);
     F->addFnAttr(Attribute::NoUnwind);
   } break;
+  case HLOpcodeGroup::HLIntrinsic: {
+    IntrinsicOp intrinsicOp = static_cast<IntrinsicOp>(opcode);
+    switch (intrinsicOp) {
+    default:
+      break;
+    case IntrinsicOp::IOP_DeviceMemoryBarrierWithGroupSync:
+    case IntrinsicOp::IOP_DeviceMemoryBarrier:
+    case IntrinsicOp::IOP_GroupMemoryBarrierWithGroupSync:
+    case IntrinsicOp::IOP_GroupMemoryBarrier:
+    case IntrinsicOp::IOP_AllMemoryBarrierWithGroupSync:
+    case IntrinsicOp::IOP_AllMemoryBarrier:
+      F->addFnAttr(Attribute::NoDuplicate);
+      break;
+    }
+  } break;
   case HLOpcodeGroup::NotHL:
   case HLOpcodeGroup::HLExtIntrinsic:
-  case HLOpcodeGroup::HLIntrinsic:
   case HLOpcodeGroup::HLSelect:
   case HLOpcodeGroup::NumOfHLOps:
     // No default attributes for these opcodes.
