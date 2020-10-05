@@ -1672,6 +1672,7 @@ static bool SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *ThenBB,
   return true;
 }
 
+#if 0 // HLSL Change - Unused function
 /// \returns True if this block contains a CallInst with the NoDuplicate
 /// attribute.
 static bool HasNoDuplicateCall(const BasicBlock *BB) {
@@ -1684,6 +1685,7 @@ static bool HasNoDuplicateCall(const BasicBlock *BB) {
   }
   return false;
 }
+#endif
 
 /// Return true if we can thread a branch across this block.
 static bool BlockIsSimpleEnoughToThreadThrough(BasicBlock *BB) {
@@ -1709,6 +1711,7 @@ static bool BlockIsSimpleEnoughToThreadThrough(BasicBlock *BB) {
   return true;
 }
 
+#if 0 // HLSL Change - Unused function
 /// If we have a conditional branch on a PHI node value that is defined in the
 /// same block as the branch and if any PHI entries are constants, thread edges
 /// corresponding to that entry to be branches to their ultimate destination.
@@ -1807,6 +1810,7 @@ static bool FoldCondBranchOnPHI(BranchInst *BI, const DataLayout &DL) {
 
   return false;
 }
+#endif
 
 /// Given a BB that starts with the specified two-entry PHI node,
 /// see if we can eliminate it.
@@ -4573,12 +4577,14 @@ bool SimplifyCFGOpt::SimplifyCondBranch(BranchInst *BI, IRBuilder<> &Builder) {
         return SimplifyCFG(BB, TTI, BonusInstThreshold, AC) | true;
   }
 
+#if 0 // HLSL Change - this transformation creates unstructured flow
   // If this is a branch on a phi node in the current block, thread control
   // through this block if any PHI node entries are constants.
   if (PHINode *PN = dyn_cast<PHINode>(BI->getCondition()))
     if (PN->getParent() == BI->getParent())
       if (FoldCondBranchOnPHI(BI, DL))
         return SimplifyCFG(BB, TTI, BonusInstThreshold, AC) | true;
+#endif // HLSL Change
 
   // Scan predecessor blocks for conditional branches.
   for (pred_iterator PI = pred_begin(BB), E = pred_end(BB); PI != E; ++PI)
