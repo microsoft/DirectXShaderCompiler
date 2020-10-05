@@ -429,7 +429,7 @@ Value *HLMatrixLowerPass::bitCastValue(Value *SrcVal, Type* DstTy, bool DstTyAll
 
   // We store and load from a temporary alloca, bitcasting either on the store pointer
   // or on the load pointer.
-  IRBuilder<> AllocaBuilder(dxilutil::FindInsertionPt(Builder.GetInsertPoint()));
+  IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(Builder.GetInsertPoint()));
   Value *Alloca = AllocaBuilder.CreateAlloca(DstTyAlloca ? DstTy : SrcTy);
   Value *BitCastedAlloca = Builder.CreateBitCast(Alloca, (DstTyAlloca ? SrcTy : DstTy)->getPointerTo());
   Builder.CreateStore(SrcVal, DstTyAlloca ? BitCastedAlloca : Alloca);
@@ -476,7 +476,7 @@ void HLMatrixLowerPass::replaceAllUsesByLoweredValue(Instruction* MatInst, Value
       Instruction *PrevInst = dyn_cast<Instruction>(VecVal);
       if (PrevInst == nullptr) PrevInst = MatInst;
 
-      IRBuilder<> Builder(PrevInst->getNextNode());
+      IRBuilder<> Builder(dxilutil::SkipAllocas(PrevInst->getNextNode()));
       VecToMatStub = Builder.CreateCall(TranslationStub, { VecVal });
     }
 
@@ -743,7 +743,7 @@ Value *HLMatrixLowerPass::lowerNonHLCall(CallInst *Call) {
   // The callee returns a matrix, and we don't lower signatures in this pass.
   // We perform a sketchy bitcast to the lowered register-representation type,
   // which the later HLMatrixBitcastLower pass knows how to eliminate.
-  IRBuilder<> AllocaBuilder(dxilutil::FindInsertionPt(Call));
+  IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(Call));
   Value *LoweredAlloca = AllocaBuilder.CreateAlloca(RetMatTy.getLoweredVectorTypeForReg());
   
   IRBuilder<> PostCallBuilder(Call->getNextNode());
