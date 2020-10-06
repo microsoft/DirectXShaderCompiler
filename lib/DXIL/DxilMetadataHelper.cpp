@@ -1236,13 +1236,34 @@ Metadata *DxilMDHelper::EmitDxrPayloadFieldAnnotation(const DxilFieldAnnotation 
   if (!FA.GetPayloadFieldAnnotation().AccessPerShader.empty()) {
     MDVals.emplace_back(Uint32ToConstMD(kDxilPayloadFieldAnnotationAccessTag));
 
-    for (auto &shaderAccess : FA.GetPayloadFieldAnnotation().AccessPerShader) {
-      Metadata *PayloadAccessMD[2];
-      PayloadAccessMD[0] = MDString::get(m_Ctx, shaderAccess.first);
-      unsigned value = static_cast<unsigned>(shaderAccess.second);
-      PayloadAccessMD[1] = Uint32ToConstMD(value);
-      MDVals.emplace_back(MDNode::get(m_Ctx, PayloadAccessMD));
+    unsigned bitField = 0;
+
+    for (auto &qualifier : FA.GetPayloadFieldAnnotation().AccessPerShader) {
+      int bitOffset = 0;
+      if (qualifier.first == "trace")
+        bitOffset = 0;
+      else if (qualifier.first == "closesthit")
+        bitOffset = 4;
+      else if (qualifier.first == "miss")
+        bitOffset = 8;
+      else if (qualifier.first == "anyhit")
+        bitOffset = 12;
+      else
+        llvm_unreachable("unexpected shader stage");
+
+      unsigned accessBits = 0x0;
+      if (qualifier.second == hlsl::PayloadAccessTypes::In)
+          accessBits |= 0x1; // set the first bit 
+      if (qualifier.second == hlsl::PayloadAccessTypes::Out)
+          accessBits |= 0x2; // set the second bit
+      if (qualifier.second == hlsl::PayloadAccessTypes::InOut)
+          accessBits |= 0x3; // set both bits
+
+      accessBits <<= bitOffset;
+      bitField |= accessBits;
+
     }
+    MDVals.emplace_back(Uint32ToConstMD(bitField));
   }
 
   return MDNode::get(m_Ctx, MDVals);
