@@ -64,7 +64,7 @@ void SimplifyGlobalSymbol(GlobalVariable *GV) {
     for (auto it : handleMapOnFunction) {
       Function *F = it.first;
       Instruction *I = it.second;
-      IRBuilder<> Builder(dxilutil::FindInsertionPt(F));
+      IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(F));
       Value *headLI = Builder.CreateLoad(GV);
       I->replaceAllUsesWith(headLI);
     }
@@ -533,7 +533,7 @@ void DxilGenerationPass::GenerateDxilCBufferHandles() {
         // Must HLCreateHandle.
         CallInst *CI = cast<CallInst>(*(U++));
         // Put createHandle to entry block.
-        IRBuilder<> Builder(dxilutil::FindInsertionPt(CI));
+        IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(CI));
         Value *V = Builder.CreateLoad(GV);
         CallInst *handle = Builder.CreateCall(createHandle, {opArg, V}, handleName);
         if (m_HasDbgInfo) {
@@ -558,7 +558,7 @@ void DxilGenerationPass::GenerateDxilCBufferHandles() {
         Value *CBIndex = CI->getArgOperand(HLOperandIndex::kCreateHandleIndexOpIdx);
         if (isa<ConstantInt>(CBIndex)) {
           // Put createHandle to entry block for const index.
-          Builder.SetInsertPoint(dxilutil::FindInsertionPt(CI));
+          Builder.SetInsertPoint(dxilutil::FirstNonAllocaInsertionPt(CI));
         }
         // Add GEP for cbv array use.
         Value *GEP = Builder.CreateGEP(GV, {zeroIdx, CBIndex});

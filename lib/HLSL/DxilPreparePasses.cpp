@@ -388,9 +388,6 @@ public:
       unsigned DxilMinor = 0;
       M.GetDxilModule().GetDxilVersion(DxilMajor, DxilMinor);
 
-      // Move all allocas to the top of the entry block
-      ConsolidateAllocas(M);
-
       bool IsLib = DM.GetShaderModel()->IsLib();
       // Skip validation patch for lib.
       if (!IsLib) {
@@ -449,22 +446,6 @@ public:
   }
 
 private:
-  void ConsolidateAllocas(Module &M) {
-    for (Function &F : M) {
-      if (F.isDeclaration())
-        continue;
-      Instruction *insertPt = nullptr;
-      for (llvm::Instruction &I : llvm::inst_range(&F)) {
-        if (!insertPt) {
-          if (!isa<AllocaInst>(I) && !isa<DbgInfoIntrinsic>(I))
-            insertPt = &I;
-        } else if (isa<AllocaInst>(I)) {
-          I.moveBefore(insertPt);
-        }
-      }
-    }
-  }
-
   void RemoveUnusedStaticGlobal(Module &M) {
     // Remove unused internal global.
     std::vector<GlobalVariable *> staticGVs;
@@ -671,7 +652,7 @@ private:
           Function *F = CI->getParent()->getParent();
           ICmpInst *Cmp = DxBreakCmpMap.lookup(F);
           if (!Cmp) {
-            Instruction *IP = dxilutil::FindInsertionPt(F);
+            Instruction *IP = dxilutil::FirstNonAllocaInsertionPt(F);
             LoadInst *LI = new LoadInst(Gep, nullptr, false, IP);
             Cmp = new ICmpInst(IP, ICmpInst::ICMP_EQ, LI, llvm::ConstantInt::get(i32Ty,0));
             DxBreakCmpMap[F] = Cmp;
