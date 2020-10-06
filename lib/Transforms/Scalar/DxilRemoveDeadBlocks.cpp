@@ -88,8 +88,38 @@ static bool EraseDeadBlocks(Function &F, DxilValueCache *DVC) {
       }
     }
     else if (SwitchInst *Switch = dyn_cast<SwitchInst>(BB->getTerminator())) {
-      for (unsigned i = 0; i < Switch->getNumSuccessors(); i++) {
-        Add(Switch->getSuccessor(i));
+      Value *Cond = Switch->getCondition();
+      BasicBlock *Succ = nullptr;
+      if (ConstantInt *ConstCond = DVC->GetConstInt(Cond)) {
+        for (auto it = Switch->case_begin(), end = Switch->case_end(); it != end; it++) {
+          if (it.getCaseValue() == ConstCond) {
+            Succ = it.getCaseSuccessor();
+            break;
+          }
+        }
+      }
+
+      if (Succ) {
+        Add(Succ);
+
+        BranchInst *NewBr = BranchInst::Create(Succ, BB);
+        hlsl::DxilMDHelper::CopyMetadata(*NewBr, *Switch);
+
+        for (unsigned i = 0; i < Switch->getNumSuccessors(); i++) {
+          BasicBlock *NotSucc = Switch->getSuccessor(i);
+          if (NotSucc != Succ) {
+            RemoveIncomingValueFrom(NotSucc, BB);
+          }
+        }
+
+        Switch->eraseFromParent();
+        Switch = nullptr;
+        Changed = true;
+      }
+      else {
+        for (unsigned i = 0; i < Switch->getNumSuccessors(); i++) {
+          Add(Switch->getSuccessor(i));
+        }
       }
     }
   }
@@ -144,6 +174,8 @@ static bool EraseDeadBlocks(Function &F, DxilValueCache *DVC) {
   for (BasicBlock *BB : DeadBlocks) {
     BB->eraseFromParent();
   }
+
+  DVC->ResetUnknowns();
 
   return true;
 }
