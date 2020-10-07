@@ -722,6 +722,9 @@ void SpirvEmitter::doStmt(const Stmt *stmt,
       // We are done with processing this compound statement. Remove its lexical
       // block from the stack of lexical scopes.
       spvContext.popDebugLexicalScope(info);
+      if (!spvBuilder.isCurrentBasicBlockTerminated()) {
+        spvBuilder.createDebugScope(spvContext.getCurrentLexicalScope());
+      }
     } else {
       // Iterate over sub-statements
       for (auto *st : compoundStmt->body())
