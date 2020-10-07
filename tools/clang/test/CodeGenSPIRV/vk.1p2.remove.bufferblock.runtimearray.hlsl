@@ -1,4 +1,4 @@
-// Run: %dxc -T cs_6_6 -E main -fspv-target-env=vulkan1.2
+// Run: %dxc -T cs_6_5 -E main -fspv-target-env=vulkan1.2
 
 struct MeshPart {
   uint indexOffset;
