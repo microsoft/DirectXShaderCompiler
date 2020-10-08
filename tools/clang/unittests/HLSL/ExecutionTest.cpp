@@ -7212,7 +7212,6 @@ std::array<T, 4> unpack_s(uint32_t packedVal)
 }
 
 
-#define PACKUNPACK_PLACEHOLDER
 TEST_F(ExecutionTest, PackUnpackTest) {
     WEX::TestExecution::SetVerifyOutput verifySettings(
         WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
