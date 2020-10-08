@@ -7165,7 +7165,7 @@ uint32_t pack_clamp_u8(std::array<T, 4> unpackedVals)
     for (uint32_t i = 0U; i < 4U; ++i)
     {
         int32_t clamped = std::min(std::max((int32_t)unpackedVals[i], clamp_min), clamp_max);
-        dst |= ((uint32_t)clamped) << (i * 8);
+        dst |= ((uint8_t)clamped) << (i * 8);
     }
 
     return dst;
@@ -7181,24 +7181,38 @@ uint32_t pack_clamp_s8(std::array<T, 4> unpackedVals)
     for (uint32_t i = 0U; i < 4U; ++i)
     {
         int32_t clamped = std::min(std::max((int32_t)unpackedVals[i], clamp_min), clamp_max);
-        dst |= ((uint32_t)clamped) << (i * 8);
+        dst |= ((uint8_t)clamped) << (i * 8);
     }
 
     return dst;
 }
 
 template<typename T>
-std::array<T, 4> unpack(uint32_t packedVal)
+std::array<T, 4> unpack_u(uint32_t packedVal)
 {   
     std::array<T, 4> ret;
-    ret[0] = (packedVal & 0x000000FF) >> 0;
-    ret[1] = (packedVal & 0x0000FF00) >> 8;
-    ret[2] = (packedVal & 0x00FF0000) >> 16;
-    ret[3] = (packedVal & 0xFF000000) >> 24;
+    ret[0] = (uint8_t)((packedVal & 0x000000FF) >> 0 );
+    ret[1] = (uint8_t)((packedVal & 0x0000FF00) >> 8 );
+    ret[2] = (uint8_t)((packedVal & 0x00FF0000) >> 16);
+    ret[3] = (uint8_t)((packedVal & 0xFF000000) >> 24);
 
     return ret;
 }
 
+template<typename T>
+std::array<T, 4> unpack_s(uint32_t packedVal)
+{   
+    std::array<T, 4> ret;
+    ret[0] = (int8_t)((packedVal & 0x000000FF) >> 0 );
+    ret[1] = (int8_t)((packedVal & 0x0000FF00) >> 8 );
+    ret[2] = (int8_t)((packedVal & 0x00FF0000) >> 16);
+    ret[3] = (int8_t)((packedVal & 0xFF000000) >> 24);
+
+    return ret;
+}
+
+
+#define PACKUNPACK_PLACEHOLDER
 TEST_F(ExecutionTest, PackUnpackTest) {
     WEX::TestExecution::SetVerifyOutput verifySettings(
         WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
@@ -7276,14 +7290,14 @@ TEST_F(ExecutionTest, PackUnpackTest) {
                 expectedPacked[i].packedClampedInt16 = pack_clamp_s8(inputInt16);
 
                 // unpack
-                expectedUnpacked[i].outputUint32 = unpack<uint32_t>(expectedPacked[i].packedUint32);
-                expectedUnpacked[i].outputInt32  = unpack<int32_t >(expectedPacked[i].packedInt32 );
-                expectedUnpacked[i].outputUint16 = unpack<uint16_t>(expectedPacked[i].packedUint16);
-                expectedUnpacked[i].outputInt16  = unpack<int16_t >(expectedPacked[i].packedInt16 );
-                expectedUnpacked[i].outputClampedUint32 = unpack<uint32_t>(expectedPacked[i].packedClampedUint32);
-                expectedUnpacked[i].outputClampedInt32  = unpack<int32_t >(expectedPacked[i].packedClampedInt32 );
-                expectedUnpacked[i].outputClampedUint16 = unpack<uint16_t>(expectedPacked[i].packedClampedUint16);
-                expectedUnpacked[i].outputClampedInt16  = unpack<int16_t >(expectedPacked[i].packedClampedInt16 );
+                expectedUnpacked[i].outputUint32 = unpack_u<uint32_t>(expectedPacked[i].packedUint32);
+                expectedUnpacked[i].outputInt32  = unpack_s<int32_t >(expectedPacked[i].packedInt32 );
+                expectedUnpacked[i].outputUint16 = unpack_u<uint16_t>(expectedPacked[i].packedUint16);
+                expectedUnpacked[i].outputInt16  = unpack_s<int16_t >(expectedPacked[i].packedInt16 );
+                expectedUnpacked[i].outputClampedUint32 = unpack_u<uint32_t>(expectedPacked[i].packedClampedUint32);
+                expectedUnpacked[i].outputClampedInt32  = unpack_s<int32_t >(expectedPacked[i].packedClampedInt32 );
+                expectedUnpacked[i].outputClampedUint16 = unpack_u<uint16_t>(expectedPacked[i].packedClampedUint16);
+                expectedUnpacked[i].outputClampedInt16  = unpack_s<int16_t >(expectedPacked[i].packedClampedInt16 );
             }
         }
         else
