@@ -33,10 +33,15 @@ Binary packages containing the output of this project are available from appveyo
 
 As an example of community contribution, this project can also target the [SPIR-V](https://www.khronos.org/registry/spir-v/) intermediate representation. Please see the [doc](docs/SPIR-V.rst) for how HLSL features are mapped to SPIR-V, and the [wiki](https://github.com/microsoft/DirectXShaderCompiler/wiki/SPIR%E2%80%90V-CodeGen) page for how to build, use, and contribute to the SPIR-V CodeGen.
 
+## Downloads
+Instead of building manually, you can download the latest successful build's artifacts (built by Appveyor) for the master branch:
+| Downloads |        |
+|-----------|--------|
+| Windows   | [⬇](https://ci.appveyor.com/api/projects/antiagainst/directxshadercompiler/artifacts/build%2FRelease%2Fdxc-artifacts.zip?job=image%3A%20Visual%20Studio%202017) |
+| Ubuntu    | [⬇](https://ci.appveyor.com/api/projects/antiagainst/directxshadercompiler/artifacts/build%2Fdxc-artifacts.tar.gz?job=image%3A%20Ubuntu) |
+
+
 ## Building Sources
-
-Note: Instead of building manually, you can download the artifacts built by Appveyor for the latest master branch at [here](https://ci.appveyor.com/project/antiagainst/directxshadercompiler/branch/master/artifacts).
-
 Note: If you intend to build from sources on Linux/macOS, follow [these instructions](docs/DxcOnUnix.rst).
 
 Before you build, you will need to have some additional software installed. This is the most straightforward path - see [Building Sources](https://github.com/microsoft/DirectXShaderCompiler/wiki/Building-Sources) on the Wiki for more options, including Visual Studio 2015 and Ninja support.
