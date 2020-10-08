@@ -2077,7 +2077,7 @@ void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
   for (iplist<Function>::iterator F : pM->getFunctionList()) {
     if (!F->isDeclaration()) {
       if (!isResArray) {
-        IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(F));
+        IRBuilder<> Builder(dxilutil::FindAllocaInsertionPt(F));
         if (m_HasDbgInfo) {
           // TODO: set debug info.
           // Builder.SetCurrentDebugLocation(DL);

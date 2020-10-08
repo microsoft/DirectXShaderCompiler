@@ -1748,7 +1748,7 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
       // separate elements.
       if (ShouldAttemptScalarRepl(AI) && isSafeAllocaToScalarRepl(AI)) {
         std::vector<Value *> Elts;
-        IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(AI));
+        IRBuilder<> Builder(dxilutil::FindAllocaInsertionPt(AI));
         bool hasPrecise = HLModule::HasPreciseAttributeWithMetadata(AI);
 
         Type *BrokenUpTy = nullptr;
@@ -3711,6 +3711,23 @@ public:
     // SROA globals and allocas.
     SROAGlobalAndAllocas(*m_pHLModule, m_HasDbgInfo);
 
+    // Move up allocas that might have been pushed down by instruction inserts
+    for (Function &F : M) {
+      if (F.isDeclaration())
+        continue;
+      Instruction *insertPt = nullptr;
+      // SROA only potentially "incorrectly" inserts non-allocas into the entry block.
+      for (llvm::Instruction &I : F.getEntryBlock()) {
+        if (!insertPt) {
+          // Find the first non-alloca to move the allocas above
+          if (!isa<AllocaInst>(I) && !isa<DbgInfoIntrinsic>(I))
+            insertPt = &I;
+        } else if (isa<AllocaInst>(I)) {
+          // Move any alloca to before the first non-alloca
+          I.moveBefore(insertPt);
+        }
+      }
+    }
     return true;
   }
 
@@ -4598,10 +4615,9 @@ void SROA_Parameter_HLSL::flattenArgument(
     const bool bAllowReplace = false;
     SROA_Helper::LowerMemcpy(V, &annotation, dxilTypeSys, DL, nullptr /*DT */, bAllowReplace);
 
-    // Now is safe to create the IRBuilders.
+    // Now is safe to create the IRBuilder.
     // If we create it before LowerMemcpy, the insertion pointer instruction may get deleted
-    IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(EntryBlock));
-    IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(EntryBlock));
+    IRBuilder<> Builder(dxilutil::FindAllocaInsertionPt(EntryBlock));
 
     std::vector<Value *> Elts;
 
@@ -4679,7 +4695,7 @@ void SROA_Parameter_HLSL::flattenArgument(
         unsigned  targetIndex;
         Semantic::DecomposeNameAndIndex(semanticStr, &targetStr, &targetIndex);
         // Replace target parameter with local target.
-        AllocaInst *localTarget = AllocaBuilder.CreateAlloca(Ty);
+        AllocaInst *localTarget = Builder.CreateAlloca(Ty);
         V->replaceAllUsesWith(localTarget);
         unsigned arraySize = 1;
         std::vector<unsigned> arraySizeList;
@@ -4696,7 +4712,7 @@ void SROA_Parameter_HLSL::flattenArgument(
         // Create flattened target.
         DxilFieldAnnotation EltAnnotation = annotation;
         for (unsigned i=0;i<arraySize;i++) {
-          Value *Elt = AllocaBuilder.CreateAlloca(Ty);
+          Value *Elt = Builder.CreateAlloca(Ty);
           EltAnnotation.SetSemanticString(targetStr.str()+std::to_string(targetIndex+i));
 
           // Add semantic type.
@@ -4798,7 +4814,7 @@ void SROA_Parameter_HLSL::flattenArgument(
         // For stream output objects.
         // Create a value as output value.
         Type *outputType = V->getType()->getPointerElementType()->getStructElementType(0);
-        Value *outputVal = AllocaBuilder.CreateAlloca(outputType);
+        Value *outputVal = Builder.CreateAlloca(outputType);
 
         // For each stream.Append(data)
         // transform into
@@ -4924,8 +4940,7 @@ void SROA_Parameter_HLSL::preprocessArgUsedInCall(Function *F) {
   DxilFunctionAnnotation *pFuncAnnot = typeSys.GetFunctionAnnotation(F);
   DXASSERT(pFuncAnnot, "else invalid function");
 
-  IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(F));
-  IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(F));
+  IRBuilder<> Builder(dxilutil::FindAllocaInsertionPt(F));
 
   SmallVector<ReturnInst*, 2> retList;
   for (BasicBlock &bb : F->getBasicBlockList()) {
@@ -4949,7 +4964,7 @@ void SROA_Parameter_HLSL::preprocessArgUsedInCall(Function *F) {
 
     if (bUsedInCall) {
       // Create tmp.
-      Value *TmpArg = AllocaBuilder.CreateAlloca(Ty);
+      Value *TmpArg = Builder.CreateAlloca(Ty);
       // Replace arg with tmp.
       arg.replaceAllUsesWith(TmpArg);
 
@@ -5118,7 +5133,7 @@ static void LegalizeDxilInputOutputs(Function *F,
         // DxilGenerationPass.
         isColMajor = paramAnnotation.GetMatrixAnnotation().Orientation ==
                      MatrixOrientation::ColumnMajor;
-        IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(F));
+        IRBuilder<> Builder(dxilutil::FindAllocaInsertionPt(F));
 
         HLCastOpcode opcode = isColMajor ? HLCastOpcode::ColMatrixToVecCast
                                          : HLCastOpcode::RowMatrixToVecCast;
@@ -5179,10 +5194,9 @@ static void LegalizeDxilInputOutputs(Function *F,
     }
 
     if (bStoreInputToTemp || bLoadOutputFromTemp) {
-      IRBuilder<> AllocaBuilder(EntryBlk.getFirstInsertionPt());
-      IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(&EntryBlk));
+      IRBuilder<> Builder(EntryBlk.getFirstInsertionPt());
 
-      AllocaInst *temp = AllocaBuilder.CreateAlloca(Ty);
+      AllocaInst *temp = Builder.CreateAlloca(Ty);
       // Replace all uses with temp.
       arg.replaceAllUsesWith(temp);
 
@@ -5296,9 +5310,8 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
   std::vector<DxilParameterAnnotation> FlatRetAnnotationList;
   // Split and change to out parameter.
   if (!retType->isVoidTy()) {
-    IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(EntryBlock));
-    IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(EntryBlock));
-    Value *retValAddr = AllocaBuilder.CreateAlloca(retType);
+    IRBuilder<> Builder(dxilutil::FindAllocaInsertionPt(EntryBlock));
+    Value *retValAddr = Builder.CreateAlloca(retType);
     DxilParameterAnnotation &retAnnotation =
         funcAnnotation->GetRetTypeAnnotation();
     Module &M = *m_pHLModule->GetModule();
@@ -5510,8 +5523,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
     LLVMContext &Context = F->getContext();
 
     // Parameter cast come from begining of entry block.
-    IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(flatF));
-    IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(flatF));
+    IRBuilder<> Builder(dxilutil::FindAllocaInsertionPt(flatF));
 
     while (argIter != flatF->arg_end()) {
       Argument *Arg = argIter++;
@@ -5536,7 +5548,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
             StoreInst *SI = cast<StoreInst>(*flatArg->user_begin());
             allocaArg = SI->getPointerOperand();
           } else {
-            allocaArg = AllocaBuilder.CreateAlloca(flatArg->getType());
+            allocaArg = Builder.CreateAlloca(flatArg->getType());
             StoreInst *initArg = Builder.CreateStore(flatArg, allocaArg);
             Value *ldArg = Builder.CreateLoad(allocaArg);
             flatArg->replaceAllUsesWith(ldArg);
@@ -5765,10 +5777,8 @@ bool LowerStaticGlobalIntoAlloca::lowerStaticGlobalIntoAlloca(GlobalVariable *GV
     return false;
 
   Function *F = const_cast<Function*>(PS.AccessingFunction);
-  IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(F));
-  AllocaInst *AI = AllocaBuilder.CreateAlloca(GV->getType()->getElementType());
-
-  IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(F));
+  IRBuilder<> Builder(dxilutil::FindAllocaInsertionPt(F));
+  AllocaInst *AI = Builder.CreateAlloca(GV->getType()->getElementType());
 
   // Store initializer is exist.
   if (GV->hasInitializer() && !isa<UndefValue>(GV->getInitializer())) {
