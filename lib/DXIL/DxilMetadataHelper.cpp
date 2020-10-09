@@ -866,12 +866,15 @@ DxilMDHelper::EmitDxrPayloadStructAnnotation(const DxilStructAnnotation &SA) {
   return MDNode::get(m_Ctx, MDVals);
 }
 
-void DxilMDHelper::LoadDXRPayloadFiledAnnoation(const MDNode *MD,
+void DxilMDHelper::LoadDXRPayloadFiledAnnoation(const MDOperand &MDO,
                                                 DxilStructAnnotation &SA) {
-  IFTBOOL(MD->getNumOperands() == SA.GetNumFields(),
+  IFTBOOL(MDO.get() != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+  const MDTuple *pTupleMD = dyn_cast<MDTuple>(MDO.get());
+  IFTBOOL(pTupleMD != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+  IFTBOOL(pTupleMD->getNumOperands() == SA.GetNumFields(),
           DXC_E_INCORRECT_DXIL_METADATA);
   for (unsigned i = 0; i < SA.GetNumFields(); ++i) {
-    MDNode *fieldNode = dyn_cast<MDNode>(MD->getOperand(i));
+    MDNode *fieldNode = dyn_cast<MDNode>(pTupleMD->getOperand(i));
     IFTBOOL(fieldNode != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
 
     unsigned Tag = ConstMDToInt32(fieldNode->getOperand(0));
@@ -882,38 +885,29 @@ void DxilMDHelper::LoadDXRPayloadFiledAnnoation(const MDNode *MD,
       unsigned AccessTag = ConstMDToInt32(fieldNode->getOperand(2));
       IFTBOOL(AccessTag == kDxilPayloadFieldAnnotationAccessTag,
               DXC_E_INCORRECT_DXIL_METADATA);
-      StringRef validStages = "trace,anyhit,closesthit,miss";
 
-      for (unsigned i = 3; i < fieldNode->getNumOperands(); ++i) {
+      IFTBOOL(fieldNode->getNumOperands() >= 3, DXC_E_INCORRECT_DXIL_METADATA);
 
-        MDNode *accessNode = dyn_cast<MDNode>(fieldNode->getOperand(i));
-        IFTBOOL(accessNode != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
-        IFTBOOL(accessNode->getNumOperands() == 2,
-                DXC_E_INCORRECT_DXIL_METADATA);
+      unsigned fieldBitmask = ConstMDToInt32(fieldNode->getOperand(3));
 
-        MDString *stage = dyn_cast<MDString>(accessNode->getOperand(0));
-        IFTBOOL(stage != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
-        IFTBOOL(validStages.count(stage->getString()),
-                DXC_E_INCORRECT_DXIL_METADATA);
+      const unsigned inOutMask      = 0x00000003u;
+      const unsigned inBit          = 0x00000001u;
+      const unsigned outBit         = 0x00000002u;
 
-        unsigned accessQualfifer = ConstMDToInt32(accessNode->getOperand(1));
+      const StringRef stages[] = { "trace", "closesthit", "miss", "anyhit" };
 
-        switch (static_cast<hlsl::PayloadAccessTypes>(accessQualfifer)) {
-        case hlsl::PayloadAccessTypes::In:
-          SA.GetFieldAnnotation(i).AddPayloadFieldAnnotation(
-              stage->getString(), hlsl::PayloadAccessTypes::In);
-          break;
-        case hlsl::PayloadAccessTypes::Out:
-          SA.GetFieldAnnotation(i).AddPayloadFieldAnnotation(
-              stage->getString(), hlsl::PayloadAccessTypes::Out);
-          break;
-        case hlsl::PayloadAccessTypes::InOut:
-          SA.GetFieldAnnotation(i).AddPayloadFieldAnnotation(
-              stage->getString(), hlsl::PayloadAccessTypes::In);
-          SA.GetFieldAnnotation(i).AddPayloadFieldAnnotation(
-              stage->getString(), hlsl::PayloadAccessTypes::Out);
-          break;
+      for (StringRef stage : stages) {
+        if (fieldBitmask & inOutMask) {
+          const unsigned traceBits = fieldBitmask & inOutMask;
+          if (traceBits & inBit)
+            SA.GetFieldAnnotation(i).AddPayloadFieldAnnotation(
+                stage, hlsl::PayloadAccessTypes::In);
+          if (traceBits & outBit)
+            SA.GetFieldAnnotation(i).AddPayloadFieldAnnotation(
+                stage, hlsl::PayloadAccessTypes::Out);
         }
+        // Every stage has 4 bits reserved, move to next stage.
+        fieldBitmask >>= 4;
       }
     }
   }
@@ -935,7 +929,7 @@ void DxilMDHelper::LoadDXRPayloadAnnotationNode(const llvm::MDTuple &MDT,
   if (!pSA)
     pSA = TypeSystem.AddStructAnnotation(pGVType);
 
-  LoadDxilStructAnnotation(MDT.getOperand(2), *pSA);
+  LoadDXRPayloadFiledAnnoation(MDT.getOperand(2), *pSA);
 }
 
 void DxilMDHelper::LoadDXRPayloadAnnotations(DxilTypeSystem &TypeSystem) {

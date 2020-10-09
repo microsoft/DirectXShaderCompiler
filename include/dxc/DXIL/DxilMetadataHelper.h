@@ -421,7 +421,7 @@ public:
   llvm::Metadata *EmitDxrPayloadFieldAnnotation(const DxilFieldAnnotation &FA);
   void LoadDXRPayloadAnnotationNode(const llvm::MDTuple &MDT, DxilTypeSystem &TypeSystem);
   void LoadDXRPayloadAnnotations(DxilTypeSystem &TypeSystem);
-  void LoadDXRPayloadFiledAnnoation(const llvm::MDNode* MD, DxilStructAnnotation& SA);
+  void LoadDXRPayloadFiledAnnoation(const llvm::MDOperand& MDO, DxilStructAnnotation& SA);
 
   // Function props.
   llvm::MDTuple *EmitDxilFunctionProps(const hlsl::DxilFunctionProps *props,
