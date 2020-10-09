@@ -36,7 +36,6 @@
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/InstIterator.h"
-#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
@@ -206,7 +205,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::TypesIntWidth: return "Int type '%0' has an invalid width.";
     case hlsl::ValidationRule::TypesNoMultiDim: return "Only one dimension allowed for array type.";
     case hlsl::ValidationRule::TypesNoPtrToPtr: return "Pointers to pointers, or pointers in structures are not allowed.";
-    case hlsl::ValidationRule::TypesI8: return "I8 can only be used as immediate value for intrinsic.";
+    case hlsl::ValidationRule::TypesI8: return "I8 can only be used as immediate value for intrinsic or as i8* via bitcast by lifetime intrinsics.";
     case hlsl::ValidationRule::SmName: return "Unknown shader model '%0'.";
     case hlsl::ValidationRule::SmDxilVersion: return "Shader model requires Dxil Version %0,%1.";
     case hlsl::ValidationRule::SmOpcode: return "Opcode %0 not valid in shader model %1.";
@@ -3309,6 +3308,12 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
               ValCtx.EmitInstrError(
                   &I, ValidationRule::InstrNoReadingUninitialized);
             }
+          }
+        }
+        if (IntegerType *IT = dyn_cast<IntegerType>(op->getType())) {
+          if (IT->getBitWidth() == 8) {
+            // We always fail if we see i8 as operand type of a non-lifetime instruction.
+            ValCtx.EmitInstrError(&I, ValidationRule::TypesI8);
           }
         }
       }

@@ -26,6 +26,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/Local.h"
+#include "llvm/Analysis/ValueTracking.h"
 #include <vector>
 
 using namespace llvm;
@@ -368,6 +369,8 @@ void DynamicIndexingVectorToArray::ReplaceVectorWithArray(Value *Vec, Value *A) 
       }
       stInst->eraseFromParent();
     } else if (BitCastInst *castInst = dyn_cast<BitCastInst>(User)) {
+      DXASSERT(onlyUsedByLifetimeMarkers(castInst),
+               "expected bitcast to only be used by lifetime intrinsics");
       castInst->setOperand(0, A);
     } else {
       // Vector parameter should be lowered.

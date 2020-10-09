@@ -6203,6 +6203,11 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
       }
 
       CI->eraseFromParent();
+    } else if (group == HLOpcodeGroup::HLIntrinsic) {
+      // FIXME: This case is hit when using built-in structures in constant
+      //        buffers passed directly to an intrinsic, such as:
+      //        RayDesc from cbuffer passed to TraceRay.
+      DXASSERT(0, "not implemented yet");
     } else if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(user)) {
       if( II->getIntrinsicID() == Intrinsic::lifetime_start ||
           II->getIntrinsicID() == Intrinsic::lifetime_end ) {
@@ -6211,11 +6216,6 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
       } else {
         DXASSERT(0, "not implemented yet");
       }
-    } else if (group == HLOpcodeGroup::HLIntrinsic) {
-      // FIXME: This case is hit when using built-in structures in constant
-      //        buffers passed directly to an intrinsic, such as:
-      //        RayDesc from cbuffer passed to TraceRay.
-      DXASSERT(0, "not implemented yet");
     } else {
       DXASSERT(0, "not implemented yet");
     }

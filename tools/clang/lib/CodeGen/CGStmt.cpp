@@ -1210,11 +1210,11 @@ void CodeGenFunction::EmitBreakStmt(const BreakStmt &S) {
     // - we are in a nested control construct but the continue block of the enclosing loop is different from the current continue block.
     // The second condition can happen for switch statements inside loops, which share the same continue block.
     llvm::BasicBlock *lastBreakBlock = BreakContinueStack.back().BreakBlock.getBlock();
-    llvm::BranchInst *waveBr = CGM.getHLSLRuntime().EmitHLSLCondBreak(*this, CurFn, lastBreakBlock, lastContinueBlock);
+    llvm::BranchInst *condBr = CGM.getHLSLRuntime().EmitHLSLCondBreak(*this, CurFn, lastBreakBlock, lastContinueBlock);
 
     // Insertion of lifetime.start/end intrinsics may require a cleanup, so we
     // pass the branch that we already generated into the handler.
-    EmitBranchThroughCleanup(BreakContinueStack.back().BreakBlock, waveBr);
+    EmitBranchThroughCleanup(BreakContinueStack.back().BreakBlock, condBr);
     Builder.ClearInsertionPoint();
   } else
   // HLSL Change End - incorporate unconditional branch blocks into loops

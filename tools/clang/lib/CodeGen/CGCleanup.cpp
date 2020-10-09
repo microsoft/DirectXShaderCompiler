@@ -942,7 +942,7 @@ bool CodeGenFunction::isObviouslyBranchWithoutCleanups(JumpDest Dest) const {
 /// be known, in which case this will require a fixup.
 ///
 /// As a side-effect, this method clears the insertion point.
-void CodeGenFunction::EmitBranchThroughCleanup(JumpDest Dest, llvm::BranchInst *WaveBr) {
+void CodeGenFunction::EmitBranchThroughCleanup(JumpDest Dest, llvm::BranchInst *PreExistingBr) {
   assert(Dest.getScopeDepth().encloses(EHStack.stable_begin())
          && "stale jump destination");
 
@@ -951,8 +951,7 @@ void CodeGenFunction::EmitBranchThroughCleanup(JumpDest Dest, llvm::BranchInst *
 
   // Create the branch.
   // HLSL Change Begin - use pre-generated branch if exists
-  // If not a wave-enabled stage, we can keep everything unconditional as before
-  llvm::BranchInst *BI = WaveBr ? WaveBr : Builder.CreateBr(Dest.getBlock());
+  llvm::BranchInst *BI = PreExistingBr ? PreExistingBr : Builder.CreateBr(Dest.getBlock());
   // HLSL Change End - use pre-generated branch if exists
 
   // Calculate the innermost active normal cleanup.

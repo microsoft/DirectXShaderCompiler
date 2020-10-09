@@ -2434,11 +2434,11 @@ void SROA_Helper::RewriteBitCast(BitCastInst *BCI) {
     // This is an llvm.lifetime.* intrinsic. Replace bitcast by a bitcast for each element.
     SmallVector<IntrinsicInst*, 16> ToReplace;
 
+    DXASSERT(onlyUsedByLifetimeMarkers(BCI),
+             "expected struct bitcast to only be used by lifetime intrinsics");
+
     for (User *User : BCI->users()) {
-      assert(isa<IntrinsicInst>(User));
       IntrinsicInst *Intrin = cast<IntrinsicInst>(User);
-      assert(Intrin->getIntrinsicID() == Intrinsic::lifetime_start ||
-             Intrin->getIntrinsicID() == Intrinsic::lifetime_end);
       ToReplace.push_back(Intrin);
     }
 

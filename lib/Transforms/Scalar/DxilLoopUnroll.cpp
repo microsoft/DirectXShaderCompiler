@@ -523,15 +523,7 @@ static bool BreakUpArrayAllocas(bool AllowOOBIndex, IteratorT ItBegin, IteratorT
 
     GEPs.clear(); // Re-use array
     for (User *U : AI->users()) {
-      // Ignore lifetime intrinsics
-      if (BitCastInst *BCI = dyn_cast<BitCastInst>(U)) {
-        DXASSERT(onlyUsedByLifetimeMarkers(BCI),
-                 "expected bitcast to only be used by lifetime intrinsics");
-      } else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(U)) {
-        // A GEPOperator can also be a ConstantExpr, thus we check this case first.
-        DXASSERT(onlyUsedByLifetimeMarkers(CE),
-                 "expected bitcast to only be used by lifetime intrinsics");
-      } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
+      if (GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
         // Try to set all GEP operands to constant
         if (!GEP->hasAllConstantIndices() && isa<GetElementPtrInst>(GEP)) {
           for (unsigned i = 0; i < GEP->getNumIndices(); i++) {
@@ -553,11 +545,17 @@ static bool BreakUpArrayAllocas(bool AllowOOBIndex, IteratorT ItBegin, IteratorT
         else {
           GEPs.push_back(GEP);
         }
+
+        continue;
       }
-      else {
-        GEPs.clear();
-        break;
-      }
+
+      // Ignore uses that are only used by lifetime intrinsics.
+      if (onlyUsedByLifetimeMarkers(U))
+        continue;
+
+      // We've found something that prevents us from safely replacing this alloca.
+      GEPs.clear();
+      break;
     }
 
     if (!GEPs.size())

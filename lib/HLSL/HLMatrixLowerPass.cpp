@@ -292,10 +292,7 @@ void HLMatrixLowerPass::getMatrixAllocasAndOtherInsts(Function &Func,
       // typically a global variable or alloca.
       if (isa<GetElementPtrInst>(&Inst)) continue;
 
-      // Don't lower bitcast and lifetime intrinsics here. We'll handle them as we
-      // lower the alloca.
-      if (isa<BitCastInst>(&Inst)) continue;
-
+      // Don't lower lifetime intrinsics here, we'll handle them as we lower the alloca.
       IntrinsicInst *Intrin = dyn_cast<IntrinsicInst>(&Inst);
       if (Intrin && Intrin->getIntrinsicID() == Intrinsic::lifetime_start) continue;
       if (Intrin && Intrin->getIntrinsicID() == Intrinsic::lifetime_end) continue;
