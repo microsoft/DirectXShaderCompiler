@@ -11,8 +11,8 @@ For more information, see the [Wiki](https://github.com/microsoft/DirectXShaderC
 You can download the latest successful build's artifacts (built by Appveyor) for the master branch:
 | Downloads |        |
 |-----------|--------|
-| Windows   | [🔗](https://ci.appveyor.com/project/antiagainst/directxshadercompiler/branch/master) --> ``Image: Visual Studio`` --> ``Artifacts`` |
-| Ubuntu    | [🔗](https://ci.appveyor.com/project/antiagainst/directxshadercompiler/branch/master) --> ``Image: Ubuntu`` --> ``Artifacts`` |
+| Windows   | [⬇](https://ci.appveyor.com/api/projects/antiagainst/directxshadercompiler/artifacts/build%2FRelease%2Fdxc-artifacts.zip?branch=master&pr=false&job=image%3A%20Visual%20Studio%202017) |
+| Ubuntu    | [⬇](https://ci.appveyor.com/api/projects/antiagainst/directxshadercompiler/artifacts/build%2Fdxc-artifacts.tar.gz?branch=master&pr=false&job=image%3A%20Ubuntu) |
 
 ## Features and Goals
 
