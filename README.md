@@ -7,6 +7,13 @@ The DirectX Shader Compiler project includes a compiler and related tools used t
 
 For more information, see the [Wiki](https://github.com/microsoft/DirectXShaderCompiler/wiki).
 
+## Downloads
+You can download the latest successful build's artifacts (built by Appveyor) for the master branch:
+| Downloads |        |
+|-----------|--------|
+| Windows   | [🔗](https://ci.appveyor.com/project/antiagainst/directxshadercompiler/branch/master) --> ``Image: Visual Studio`` --> ``Artifacts`` |
+| Ubuntu    | [🔗](https://ci.appveyor.com/project/antiagainst/directxshadercompiler/branch/master) --> ``Image: Ubuntu`` --> ``Artifacts`` |
+
 ## Features and Goals
 
 The starting point of the project is a fork of the [LLVM](http://llvm.org/) and [Clang](http://clang.llvm.org/) projects, modified to accept HLSL and emit a validated container that can be consumed by GPU drivers.
@@ -32,14 +39,6 @@ Binary packages containing the output of this project are available from appveyo
 ### SPIR-V CodeGen
 
 As an example of community contribution, this project can also target the [SPIR-V](https://www.khronos.org/registry/spir-v/) intermediate representation. Please see the [doc](docs/SPIR-V.rst) for how HLSL features are mapped to SPIR-V, and the [wiki](https://github.com/microsoft/DirectXShaderCompiler/wiki/SPIR%E2%80%90V-CodeGen) page for how to build, use, and contribute to the SPIR-V CodeGen.
-
-## Downloads
-Instead of building manually, you can download the latest successful build's artifacts (built by Appveyor) for the master branch:
-| Downloads |        |
-|-----------|--------|
-| Windows   | [⬇](https://ci.appveyor.com/api/projects/antiagainst/directxshadercompiler/artifacts/build%2FRelease%2Fdxc-artifacts.zip?job=image%3A%20Visual%20Studio%202017) |
-| Ubuntu    | [⬇](https://ci.appveyor.com/api/projects/antiagainst/directxshadercompiler/artifacts/build%2Fdxc-artifacts.tar.gz?job=image%3A%20Ubuntu) |
-
 
 ## Building Sources
 Note: If you intend to build from sources on Linux/macOS, follow [these instructions](docs/DxcOnUnix.rst).
