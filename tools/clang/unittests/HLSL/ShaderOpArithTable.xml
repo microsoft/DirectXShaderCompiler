@@ -7374,7 +7374,7 @@
                     uint32_t dst = 0;
                     for (uint i = 0; i < 4; ++i)
                     {
-                        dst |= clamp(unpackedVal[i], clamp_min, clamp_max) << (i * 8);
+                        dst |= (uint32_t)clamp(unpackedVal[i], clamp_min, clamp_max) << (i * 8);
                     }
 
                     return dst;
@@ -7388,19 +7388,32 @@
                     uint32_t dst = 0;
                     for (uint i = 0; i < 4; ++i)
                     {
-                        dst |= clamp(unpackedVal[i], clamp_min, clamp_max) << (i * 8);
+                        dst |= (uint32_t)(clamp(unpackedVal[i], clamp_min, clamp_max) & 0xFF) << (i * 8);
                     }
 
                     return dst;
                 }
 
+                int32_t signExtend8BitValue(int32_t val)
+                {
+                    // check sign bit
+                    if ((val & 0x80) == 0)
+                    {
+                        return val;
+                    }
+                    else
+                    {
+                        return val | 0xFFFFFF00;
+                    }
+                }
+
                 int16_t4 punpack_s8s16(uint32_t packedVal)
                 {
                     int16_t4 ret;
-                    ret[0] = (int16_t)((packedVal & 0x000000FF) >> 0);
-                    ret[1] = (int16_t)((packedVal & 0x0000FF00) >> 8);
-                    ret[2] = (int16_t)((packedVal & 0x00FF0000) >> 16);
-                    ret[3] = (int16_t)((packedVal & 0xFF000000) >> 24);
+                    ret[0] = (int16_t)signExtend8BitValue((packedVal & 0x000000FF) >> 0);
+                    ret[1] = (int16_t)signExtend8BitValue((packedVal & 0x0000FF00) >> 8);
+                    ret[2] = (int16_t)signExtend8BitValue((packedVal & 0x00FF0000) >> 16);
+                    ret[3] = (int16_t)signExtend8BitValue((packedVal & 0xFF000000) >> 24);
                 
                     return ret;
                 }
@@ -7419,10 +7432,10 @@
                 int32_t4 punpack_s8s32(uint32_t packedVal)
                 {
                     int32_t4 ret;
-                    ret[0] = (packedVal & 0x000000FF) >> 0;
-                    ret[1] = (packedVal & 0x0000FF00) >> 8;
-                    ret[2] = (packedVal & 0x00FF0000) >> 16;
-                    ret[3] = (packedVal & 0xFF000000) >> 24;
+                    ret[0] = signExtend8BitValue((packedVal & 0x000000FF) >> 0);
+                    ret[1] = signExtend8BitValue((packedVal & 0x0000FF00) >> 8);
+                    ret[2] = signExtend8BitValue((packedVal & 0x00FF0000) >> 16);
+                    ret[3] = signExtend8BitValue((packedVal & 0xFF000000) >> 24);
                 
                     return ret;
                 }
