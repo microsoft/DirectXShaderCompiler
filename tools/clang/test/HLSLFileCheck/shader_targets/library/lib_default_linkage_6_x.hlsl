@@ -17,7 +17,7 @@ static float static_fn() { return 1.0; }
 float defaut_fn() { return 3.0; }
 
 struct Payload {
-  float f;
+  float f : in(trace, anyhit) : out(trace, anyhit);
 };
 
 [shader("anyhit")]

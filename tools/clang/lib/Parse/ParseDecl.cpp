@@ -442,8 +442,8 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
           DiagOnylOnce<diag::warn_hlsl_payload_qualifer_dropped>(Diags,
                                                                  mod.Loc);
         }
+        continue;
       }
-      continue;
     }
     if (NextToken().is(tok::kw_register)) {
       hlsl::RegisterAssignment r;
