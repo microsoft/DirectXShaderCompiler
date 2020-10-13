@@ -138,8 +138,10 @@ if "%1"=="-clean" (
   set GENERATOR_NINJA=1
 ) else if "%1"=="-rel" (
   set BUILD_CONFIG=Release
-) else if "%1"=="-Release" (
+) else if /i "%1"=="-Release" (
   set BUILD_CONFIG=Release
+) else if /i "%1"=="-Debug" (
+  set BUILD_CONFIG=Debug
 ) else if "%1"=="-x86" (
   rem Allow BUILD_ARCH override.  This may be used by HCT_EXTRAS scripts.
   set BUILD_ARCH=Win32
