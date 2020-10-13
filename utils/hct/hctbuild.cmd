@@ -119,11 +119,11 @@ if /i "%1"=="-arm64" (
   set BUILD_ARCH=ARM64
   shift /1
 )
-if "%1"=="-Debug" (
+if /i "%1"=="-Debug" (
   set BUILD_CONFIG=Debug
   shift /1
 )
-if "%1"=="-Release" (
+if /i "%1"=="-Release" (
   set BUILD_CONFIG=Release
   shift /1
 )
