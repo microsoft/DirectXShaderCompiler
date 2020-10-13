@@ -291,6 +291,7 @@ public:
   TEST_METHOD(SaturateTest);
   TEST_METHOD(SignTest);
   TEST_METHOD(Int64Test);
+  TEST_METHOD(LifetimeIntrinsicTest)
   TEST_METHOD(WaveIntrinsicsTest);
   TEST_METHOD(WaveIntrinsicsDDITest);
   TEST_METHOD(WaveIntrinsicsInPSTest);
@@ -582,7 +583,7 @@ public:
   template <class Ty>
   const wchar_t* BasicShaderModelTest_GetFormatString();
                                       
-  void CompileFromText(LPCSTR pText, LPCWSTR pEntryPoint, LPCWSTR pTargetProfile, ID3DBlob **ppBlob) {
+  void CompileFromText(LPCSTR pText, LPCWSTR pEntryPoint, LPCWSTR pTargetProfile, ID3DBlob **ppBlob, LPCWSTR *pOptions = nullptr, int numOptions = 0) {
     VERIFY_SUCCEEDED(m_support.Initialize());
     CComPtr<IDxcCompiler> pCompiler;
     CComPtr<IDxcLibrary> pLibrary;
@@ -592,7 +593,7 @@ public:
     VERIFY_SUCCEEDED(m_support.CreateInstance(CLSID_DxcCompiler, &pCompiler));
     VERIFY_SUCCEEDED(m_support.CreateInstance(CLSID_DxcLibrary, &pLibrary));
     VERIFY_SUCCEEDED(pLibrary->CreateBlobWithEncodingFromPinned(pText, (UINT32)strlen(pText), CP_UTF8, &pTextBlob));
-    VERIFY_SUCCEEDED(pCompiler->Compile(pTextBlob, L"hlsl.hlsl", pEntryPoint, pTargetProfile, nullptr, 0, nullptr, 0, nullptr, &pResult));
+    VERIFY_SUCCEEDED(pCompiler->Compile(pTextBlob, L"hlsl.hlsl", pEntryPoint, pTargetProfile, pOptions, numOptions, nullptr, 0, nullptr, &pResult));
     VERIFY_SUCCEEDED(pResult->GetStatus(&resultCode));
     if (FAILED(resultCode)) {
       CComPtr<IDxcBlobEncoding> errors;
@@ -605,25 +606,29 @@ public:
     VERIFY_SUCCEEDED(pResult->GetResult((IDxcBlob **)ppBlob));
   }
 
-  void CreateComputeCommandQueue(ID3D12Device *pDevice, LPCWSTR pName, ID3D12CommandQueue **ppCommandQueue) {
+  void CreateCommandQueue(ID3D12Device *pDevice, LPCWSTR pName, ID3D12CommandQueue **ppCommandQueue, D3D12_COMMAND_LIST_TYPE type) {
     D3D12_COMMAND_QUEUE_DESC queueDesc = {};
     queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
-    queueDesc.Type = D3D12_COMMAND_LIST_TYPE_COMPUTE;
+    queueDesc.Type = type;
     VERIFY_SUCCEEDED(pDevice->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(ppCommandQueue)));
     VERIFY_SUCCEEDED((*ppCommandQueue)->SetName(pName));
   }
 
-  void CreateComputePSO(ID3D12Device *pDevice, ID3D12RootSignature *pRootSignature, LPCSTR pShader, ID3D12PipelineState **ppComputeState) {
+  void CreateComputeCommandQueue(ID3D12Device *pDevice, LPCWSTR pName, ID3D12CommandQueue **ppCommandQueue) {
+    CreateCommandQueue(pDevice, pName, ppCommandQueue, D3D12_COMMAND_LIST_TYPE_COMPUTE);
+  }
+
+  void CreateComputePSO(ID3D12Device *pDevice, ID3D12RootSignature *pRootSignature, LPCSTR pShader, LPCWSTR pTargetProfile, ID3D12PipelineState **ppComputeState, LPCWSTR *pOptions = nullptr, int numOptions = 0) {
     CComPtr<ID3DBlob> pComputeShader;
 
     // Load and compile shaders.
     if (UseDxbc()) {
 #ifndef _HLK_CONF
-      DXBCFromText(pShader, L"main", L"cs_6_0", &pComputeShader);
+      DXBCFromText(pShader, L"main", pTargetProfile, &pComputeShader);
 #endif
     }
     else {
-      CompileFromText(pShader, L"main", L"cs_6_0", &pComputeShader);
+      CompileFromText(pShader, L"main", pTargetProfile, &pComputeShader, pOptions, numOptions);
     }
 
     // Describe and create the compute pipeline state object (PSO).
@@ -635,7 +640,8 @@ public:
   }
 
   bool CreateDevice(_COM_Outptr_ ID3D12Device **ppDevice,
-                    D3D_SHADER_MODEL testModel = D3D_SHADER_MODEL_6_0, bool skipUnsupported = true) {
+                    D3D_SHADER_MODEL testModel = D3D_SHADER_MODEL_6_0, bool skipUnsupported = true,
+                    bool enableRayTracing = false) {
     if (testModel > HIGHEST_SHADER_MODEL) {
       UINT minor = (UINT)testModel & 0x0f;
       LogCommentFmt(L"Installed SDK does not support "
@@ -647,7 +653,7 @@ public:
 
       return false;
     }
-    const D3D_FEATURE_LEVEL FeatureLevelRequired = D3D_FEATURE_LEVEL_11_0;
+    const D3D_FEATURE_LEVEL FeatureLevelRequired = enableRayTracing ? D3D_FEATURE_LEVEL_12_0 : D3D_FEATURE_LEVEL_11_0;
     CComPtr<IDXGIFactory4> factory;
     CComPtr<ID3D12Device> pDevice;
 
@@ -1099,6 +1105,11 @@ public:
   }
 
   void RunRWByteBufferComputeTest(ID3D12Device *pDevice, LPCSTR shader, std::vector<uint32_t> &values);
+  void RunLifetimeIntrinsicTest(ID3D12Device *pDevice, LPCSTR shader, D3D_SHADER_MODEL shaderModel, bool useLibTarget, LPCWSTR *pOptions, int numOptions, std::vector<uint32_t> &values);
+  void RunLifetimeIntrinsicComputeTest(ID3D12Device *pDevice, LPCSTR pShader, CComPtr<ID3D12DescriptorHeap>& pUavHeap, CComPtr<ID3D12RootSignature>& pRootSignature,
+                                       LPCWSTR pTargetProfile, LPCWSTR *pOptions, int numOptions, std::vector<uint32_t> &values);
+  void RunLifetimeIntrinsicLibTest(ID3D12Device5 *pDevice, LPCSTR pShader, CComPtr<ID3D12DescriptorHeap>& pUavHeap, CComPtr<ID3D12RootSignature>& pRootSignature,
+                                   LPCWSTR pTargetProfile, LPCWSTR *pOptions, int numOptions, std::vector<uint32_t> &values);
 
   void SetDescriptorHeap(ID3D12GraphicsCommandList *pCommandList, ID3D12DescriptorHeap *pHeap) {
     ID3D12DescriptorHeap *const pHeaps[1] = { pHeap };
@@ -1218,7 +1229,7 @@ void ExecutionTest::RunRWByteBufferComputeTest(ID3D12Device *pDevice, LPCSTR pSh
 
   // Create pipeline state object.
   CComPtr<ID3D12PipelineState> pComputeState;
-  CreateComputePSO(pDevice, pRootSignature, pShader, &pComputeState);
+  CreateComputePSO(pDevice, pRootSignature, pShader, L"cs_6_0", &pComputeState);
 
   // Create a command allocator and list for compute.
   VERIFY_SUCCEEDED(pDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COMPUTE, IID_PPV_ARGS(&pCommandAllocator)));
@@ -1270,6 +1281,263 @@ void ExecutionTest::RunRWByteBufferComputeTest(ID3D12Device *pDevice, LPCSTR pSh
     memcpy(values.data(), pData, (size_t)valueSizeInBytes);
   }
   WaitForSignal(pCommandQueue, FO);
+}
+
+void ExecutionTest::RunLifetimeIntrinsicComputeTest(ID3D12Device *pDevice, LPCSTR pShader, CComPtr<ID3D12DescriptorHeap>& pUavHeap, CComPtr<ID3D12RootSignature>& pRootSignature,
+                                                    LPCWSTR pTargetProfile, LPCWSTR *pOptions, int numOptions, std::vector<uint32_t> &values) {
+  // Create command queue.
+  CComPtr<ID3D12CommandQueue> pCommandQueue;
+  CreateComputeCommandQueue(pDevice, L"RunLifetimeIntrinsicTest Command Queue", &pCommandQueue);
+
+  FenceObj FO;
+  InitFenceObj(pDevice, &FO);
+
+  // Compile shader "main" and create pipeline state object.
+  CComPtr<ID3D12PipelineState> pComputeState;
+  CreateComputePSO(pDevice, pRootSignature, pShader, pTargetProfile, &pComputeState, pOptions, numOptions);
+
+  // Create a command allocator and list for compute.
+  CComPtr<ID3D12CommandAllocator> pCommandAllocator;
+  CComPtr<ID3D12GraphicsCommandList> pCommandList;
+  VERIFY_SUCCEEDED(pDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COMPUTE, IID_PPV_ARGS(&pCommandAllocator)));
+  VERIFY_SUCCEEDED(pDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COMPUTE, pCommandAllocator, pComputeState, IID_PPV_ARGS(&pCommandList)));
+  pCommandList->SetName(L"ExecutionTest::RunLifetimeIntrinsicTest Command List");
+
+  // Set up UAV resource.
+  const UINT valueSizeInBytes = (UINT)values.size() * sizeof(uint32_t);
+  CComPtr<ID3D12Resource> pUavResource;
+  CComPtr<ID3D12Resource> pReadBuffer;
+  CComPtr<ID3D12Resource> pUploadResource;
+  CreateTestUavs(pDevice, pCommandList, values.data(), valueSizeInBytes, &pUavResource, &pReadBuffer, &pUploadResource);
+  VERIFY_SUCCEEDED(pUavResource->SetName(L"RunLifetimeIntrinsicTest UAV"));
+  VERIFY_SUCCEEDED(pReadBuffer->SetName(L"RunLifetimeIntrinsicTest UAV Read Buffer"));
+  VERIFY_SUCCEEDED(pUploadResource->SetName(L"RunLifetimeIntrinsicTest UAV Upload Buffer"));
+
+  // Close the command list and execute it to perform the GPU setup.
+  pCommandList->Close();
+  ExecuteCommandList(pCommandQueue, pCommandList);
+  WaitForSignal(pCommandQueue, FO);
+  VERIFY_SUCCEEDED(pCommandAllocator->Reset());
+  VERIFY_SUCCEEDED(pCommandList->Reset(pCommandAllocator, pComputeState));
+
+  // Run the compute shader and copy the results back to readable memory.
+  {
+    D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+    uavDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+    uavDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+    uavDesc.Buffer.FirstElement = 0;
+    uavDesc.Buffer.NumElements = (UINT)values.size();
+    uavDesc.Buffer.StructureByteStride = 0;
+    uavDesc.Buffer.CounterOffsetInBytes = 0;
+    uavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_RAW;
+    CD3DX12_CPU_DESCRIPTOR_HANDLE uavHandle(pUavHeap->GetCPUDescriptorHandleForHeapStart());
+    CD3DX12_GPU_DESCRIPTOR_HANDLE uavHandleGpu(pUavHeap->GetGPUDescriptorHandleForHeapStart());
+    pDevice->CreateUnorderedAccessView(pUavResource, nullptr, &uavDesc, uavHandle);
+    SetDescriptorHeap(pCommandList, pUavHeap);
+    pCommandList->SetComputeRootSignature(pRootSignature);
+    pCommandList->SetComputeRootDescriptorTable(0, uavHandleGpu);
+  }
+
+  static const int DispatchGroupX = 1;
+  static const int DispatchGroupY = 1;
+  static const int DispatchGroupZ = 1;
+  pCommandList->Dispatch(DispatchGroupX, DispatchGroupY, DispatchGroupZ);
+  RecordTransitionBarrier(pCommandList, pUavResource, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
+  pCommandList->CopyResource(pReadBuffer, pUavResource);
+  pCommandList->Close();
+  ExecuteCommandList(pCommandQueue, pCommandList);
+  WaitForSignal(pCommandQueue, FO);
+  {
+    MappedData mappedData(pReadBuffer, valueSizeInBytes);
+    uint32_t *pData = (uint32_t *)mappedData.data();
+    memcpy(values.data(), pData, (size_t)valueSizeInBytes);
+  }
+  WaitForSignal(pCommandQueue, FO);
+}
+
+void ExecutionTest::RunLifetimeIntrinsicLibTest(ID3D12Device5 *pDevice, LPCSTR pShader, CComPtr<ID3D12DescriptorHeap>& pUavHeap, CComPtr<ID3D12RootSignature>& pRootSignature,
+                                                LPCWSTR pTargetProfile, LPCWSTR *pOptions, int numOptions, std::vector<uint32_t> &values) {
+  // Create command queue.
+  CComPtr<ID3D12CommandQueue> pCommandQueue;
+  CreateCommandQueue(pDevice, L"RunLifetimeIntrinsicTest Command Queue", &pCommandQueue, D3D12_COMMAND_LIST_TYPE_DIRECT);
+
+  FenceObj FO;
+  InitFenceObj(pDevice, &FO);
+
+  // Compile raygen shader.
+  CComPtr<ID3DBlob> pShaderLib;
+  CompileFromText(pShader, L"RayGen", pTargetProfile, &pShaderLib, pOptions, numOptions);
+
+  // Describe and create the RT pipeline state object (RTPSO).
+  CD3DX12_STATE_OBJECT_DESC stateObjectDesc(D3D12_STATE_OBJECT_TYPE_RAYTRACING_PIPELINE);
+  auto lib = stateObjectDesc.CreateSubobject<CD3DX12_DXIL_LIBRARY_SUBOBJECT>();
+  CD3DX12_SHADER_BYTECODE byteCode(pShaderLib);
+  lib->SetDXILLibrary(&byteCode);
+  lib->DefineExport(L"RayGen");
+
+  const int payloadCount = 4;
+  const int attributeCount = 2;
+  const int maxRecursion = 2;
+  stateObjectDesc.CreateSubobject<CD3DX12_RAYTRACING_SHADER_CONFIG_SUBOBJECT>()->Config(payloadCount * sizeof(float), attributeCount * sizeof(float));
+  stateObjectDesc.CreateSubobject<CD3DX12_RAYTRACING_PIPELINE_CONFIG_SUBOBJECT>()->Config(maxRecursion);
+
+  // Create (local!) root sig subobject and associate with  shader.
+  auto localRootSigSubObj = stateObjectDesc.CreateSubobject<CD3DX12_LOCAL_ROOT_SIGNATURE_SUBOBJECT>();
+  localRootSigSubObj->SetRootSignature(pRootSignature);
+  auto x = stateObjectDesc.CreateSubobject<CD3DX12_SUBOBJECT_TO_EXPORTS_ASSOCIATION_SUBOBJECT>();
+  x->SetSubobjectToAssociate(*localRootSigSubObj);
+  x->AddExport(L"RayGen");
+
+  CComPtr<ID3D12StateObject> pStateObject;
+  VERIFY_SUCCEEDED(pDevice->CreateStateObject(stateObjectDesc, IID_PPV_ARGS(&pStateObject)));
+
+  // Create a command allocator and list.
+  CComPtr<ID3D12CommandAllocator> pCommandAllocator;
+  CComPtr<ID3D12GraphicsCommandList4> pCommandList;
+  VERIFY_SUCCEEDED(pDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&pCommandAllocator)));
+  VERIFY_SUCCEEDED(pDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, pCommandAllocator, nullptr, IID_PPV_ARGS(&pCommandList)));
+  pCommandList->SetPipelineState1(pStateObject);
+  pCommandList->SetName(L"ExecutionTest::RunLifetimeIntrinsicTest Command List");
+
+  // Close the command list and execute it to kick-off compilation in the driver.
+  // NOTE: We don't care about anything else, so we're not setting up any resources and don't actually execute the shader.
+  pCommandList->Close();
+  ExecuteCommandList(pCommandQueue, pCommandList);
+  WaitForSignal(pCommandQueue, FO);
+}
+
+void ExecutionTest::RunLifetimeIntrinsicTest(ID3D12Device *pDevice, LPCSTR pShader, D3D_SHADER_MODEL shaderModel, bool useLibTarget,
+                                             LPCWSTR *pOptions, int numOptions, std::vector<uint32_t> &values) {
+  LPCWSTR pTargetProfile;
+  switch (shaderModel) {
+      default: pTargetProfile = useLibTarget ? L"lib_6_3" : L"cs_6_0"; break; // Default to 6.3 for lib, 6.0 otherwise.
+      case D3D_SHADER_MODEL_6_0: pTargetProfile = useLibTarget ? L"lib_6_0" : L"cs_6_0"; break;
+      case D3D_SHADER_MODEL_6_3: pTargetProfile = useLibTarget ? L"lib_6_3" : L"cs_6_3"; break;
+      case D3D_SHADER_MODEL_6_5: pTargetProfile = useLibTarget ? L"lib_6_5" : L"cs_6_5"; break;
+      case D3D_SHADER_MODEL_6_6: pTargetProfile = useLibTarget ? L"lib_6_6" : L"cs_6_6"; break;
+  }
+
+  // Describe a UAV descriptor heap.
+  D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
+  heapDesc.NumDescriptors = 1;
+  heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+  heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+
+  // Create the UAV descriptor heap.
+  CComPtr<ID3D12DescriptorHeap> pUavHeap;
+  VERIFY_SUCCEEDED(pDevice->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&pUavHeap)));
+
+  // Create root signature.
+  CComPtr<ID3D12RootSignature> pRootSignature;
+  {
+    CD3DX12_DESCRIPTOR_RANGE ranges[1];
+    ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0, 0);
+
+    CD3DX12_ROOT_PARAMETER rootParameters[1];
+    rootParameters[0].InitAsDescriptorTable(1, &ranges[0], D3D12_SHADER_VISIBILITY_ALL);
+
+    CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc;
+    D3D12_ROOT_SIGNATURE_FLAGS rootSigFlag = useLibTarget ? D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE : D3D12_ROOT_SIGNATURE_FLAG_NONE;
+    rootSignatureDesc.Init(_countof(rootParameters), rootParameters, 0, nullptr, rootSigFlag);
+
+    CreateRootSignatureFromDesc(pDevice, &rootSignatureDesc, &pRootSignature);
+  }
+
+  if (useLibTarget)
+    RunLifetimeIntrinsicLibTest(reinterpret_cast<ID3D12Device5*>(pDevice), pShader, pUavHeap, pRootSignature, pTargetProfile, pOptions, numOptions, values);
+  else
+    RunLifetimeIntrinsicComputeTest(pDevice, pShader, pUavHeap, pRootSignature, pTargetProfile, pOptions, numOptions, values);
+}
+
+TEST_F(ExecutionTest, LifetimeIntrinsicTest) {
+  // The only thing we test here is that existence of lifetime intrinsics or
+  // their fallback replacement (store undef or store zeroinitializer) do not
+  // cause any issues in the runtime and driver stack.
+  // The easiest way to force placement of intrinsics is to create an array in
+  // a local scope that is dynamically indexed. It must not be optimized away,
+  // so we do some bogus initialization that prevents this. Since all the code
+  // is guarded by a conditional that is dynamically always false, the actual
+  // effect of the shader is that the same value that was read is written back.
+  static const char* pShader = R"(
+    RWByteAddressBuffer g_bab : register(u0);
+
+    void fn(uint GI) {
+      const uint addr = GI * 4;
+      const int val = g_bab.Load(addr);
+      int res = val;
+      if (val < 0) { // Never true.
+        int arr[200];
+        for (int i = 0; i < 200; ++i) {
+            arr[i] = arr[val - i];
+        }
+        res += arr[val];
+      }
+      g_bab.Store(addr, (uint)res);
+    }
+
+    [numthreads(8,8,1)]
+    void main(uint GI : SV_GroupIndex) {
+      fn(GI);
+    }
+
+    [shader("raygeneration")]
+    void RayGen() {
+      const uint d = DispatchRaysIndex().x;
+      const uint g = g > 64 ? 63 : g;
+      fn(g);
+    }
+  )";
+  static const int NumThreadsX = 8;
+  static const int NumThreadsY = 8;
+  static const int NumThreadsZ = 1;
+  static const int ThreadsPerGroup = NumThreadsX * NumThreadsY * NumThreadsZ;
+  static const int DispatchGroupCount = 1;
+
+  // TODO: There's probably a lot of things in the rest of this test that could be stripped away.
+
+  CComPtr<ID3D12Device5> pDevice;
+  if (!CreateDevice(reinterpret_cast<ID3D12Device**>(&pDevice), D3D_SHADER_MODEL_6_5, true, true)) // TODO: We need 6.6!
+    return;
+
+  std::vector<uint32_t> values;
+  SetupComputeValuePattern(values, ThreadsPerGroup * DispatchGroupCount);
+
+  // Run a number of tests for different configurations that will cause
+  // lifetime intrinsics to be placed directly, be replaced by a zeroinitializer
+  // store, or be replaced by an undef store.
+  LPCWSTR pOptions15[] = {L"/validator-version 1.5"};
+  LPCWSTR pOptions16[] = {L"/validator-version 1.6", L"/Vd"};
+
+  VERIFY_ARE_EQUAL(values[0], (uint32_t)0);
+
+  // Test regular shader with zeroinitializer store.
+  RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_0, false, pOptions15, _countof(pOptions15), values);
+  VERIFY_ARE_EQUAL(values[0], (uint32_t)0);
+
+  // Test library with zeroinitializer store.
+  RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_3, true, pOptions15, _countof(pOptions15), values);
+  VERIFY_ARE_EQUAL(values[0], (uint32_t)0);
+
+  // Testing SM 6.6 and validator version 1.6 requires experimental shaders.
+  // being turned on.
+  if (!m_ExperimentalModeEnabled)
+      return;
+
+  // Test regular shader with undef store.
+  RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_0, false, pOptions16, _countof(pOptions16), values);
+  VERIFY_ARE_EQUAL(values[0], (uint32_t)0);
+
+  // Test library with undef store.
+  RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_3, true, pOptions16, _countof(pOptions16), values);
+  VERIFY_ARE_EQUAL(values[0], (uint32_t)0);
+
+  // Test regular shader with lifetime intrinsics.
+  RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_5, false, pOptions16, _countof(pOptions16), values); // TODO: Test 6.6 here!
+  VERIFY_ARE_EQUAL(values[0], (uint32_t)0);
+
+  // Test library with lifetime intrinsics.
+  RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_5, true, pOptions16, _countof(pOptions16), values); // TODO: Test 6.6 here!
+  VERIFY_ARE_EQUAL(values[0], (uint32_t)0);
 }
 
 TEST_F(ExecutionTest, BasicComputeTest) {
@@ -1700,7 +1968,7 @@ TEST_F(ExecutionTest, WaveIntrinsicsTest) {
 
   // Create pipeline state object.
   CComPtr<ID3D12PipelineState> pComputeState;
-  CreateComputePSO(pDevice, pRootSignature, pShader, &pComputeState);
+  CreateComputePSO(pDevice, pRootSignature, pShader, L"cs_6_0", &pComputeState);
 
   // Create a command allocator and list for compute.
   VERIFY_SUCCEEDED(pDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COMPUTE, IID_PPV_ARGS(&pCommandAllocator)));
