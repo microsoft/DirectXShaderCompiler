@@ -127,6 +127,18 @@ dxil_debug_info::DxcPixDxilDebugInfo::InstructionOffsetsFromSourceLocation(
       ppOffsets, m_pMalloc, m_pSession, FileName, SourceLine, SourceColumn);
 }
 
+STDMETHODIMP
+dxil_debug_info::DxcPixDxilDebugInfo::SourceLocationsFromInstructionOffset(
+    _In_ DWORD InstructionOffset,
+    _COM_Outptr_ IDxcPixDxilSourceLocations **ppSourceLocations) {
+
+  llvm::Instruction *IP = FindInstruction(InstructionOffset);
+
+  return dxil_debug_info::NewDxcPixDxilDebugInfoObjectOrThrow<
+      dxil_debug_info::DxcPixDxilSourceLocations>(
+          ppSourceLocations, m_pMalloc, m_pSession, IP);
+}
+
 static bool CompareFilenames(const wchar_t * l, const char * r)
 {
   while (*l && *r) {
@@ -207,3 +219,67 @@ DWORD dxil_debug_info::DxcPixDxilInstructionOffsets::GetOffsetByIndex(DWORD Inde
   }
   return static_cast<DWORD>(-1);
 }
+
+
+dxil_debug_info::DxcPixDxilSourceLocations::DxcPixDxilSourceLocations(
+    IMalloc* pMalloc,
+    dxil_dia::Session* pSession,
+    llvm::Instruction* IP)
+{
+    const llvm::DITypeIdentifierMap EmptyMap;
+
+    if (const llvm::DebugLoc& DL = IP->getDebugLoc())
+    {
+        auto* S = llvm::dyn_cast<llvm::DIScope>(DL.getScope());
+        while (S != nullptr && !llvm::isa<llvm::DIFile>(S))
+        {
+            S = S->getScope().resolve(EmptyMap);
+        }
+
+        if (S != nullptr)
+        {
+          Location loc;
+          loc.Line = DL->getLine();
+          loc.Column = DL->getColumn();
+          loc.Filename = CA2W(S->getFilename().data());
+          m_locations.emplace_back(std::move(loc));
+        }
+    }
+}
+
+STDMETHODIMP_(DWORD) dxil_debug_info::DxcPixDxilSourceLocations::GetCount()
+{
+    return static_cast<DWORD>(m_locations.size());
+}
+
+STDMETHODIMP dxil_debug_info::DxcPixDxilSourceLocations::GetFileNameByIndex(
+    _In_ DWORD Index, _Outptr_result_z_ BSTR *Name)
+{
+  if (Index >= static_cast<DWORD>(m_locations.size()))
+  {
+    return E_BOUNDS;
+  }
+  *Name = m_locations[Index].Filename.Copy();
+  return S_OK;
+}
+
+STDMETHODIMP_(DWORD) dxil_debug_info::DxcPixDxilSourceLocations::GetColumnByIndex(
+    _In_ DWORD Index) 
+{
+  if (Index >= static_cast<DWORD>(m_locations.size()))
+  {
+    return E_BOUNDS;
+  }
+  return m_locations[Index].Column;
+}
+
+STDMETHODIMP_(DWORD) dxil_debug_info::DxcPixDxilSourceLocations::GetLineNumberByIndex(
+    _In_ DWORD Index) 
+{
+    if (Index >= static_cast<DWORD>(m_locations.size()))
+    {
+        return E_BOUNDS;
+    }
+    return m_locations[Index].Line;
+}
+
