@@ -140,6 +140,8 @@ if "%1"=="-clean" (
   set BUILD_CONFIG=Release
 ) else if "%1"=="-Release" (
   set BUILD_CONFIG=Release
+) else if "%1"=="-Debug" (
+  set BUILD_CONFIG=Debug
 ) else if "%1"=="-x86" (
   rem Allow BUILD_ARCH override.  This may be used by HCT_EXTRAS scripts.
   set BUILD_ARCH=Win32
