@@ -1201,13 +1201,15 @@ SpirvFunction *DeclResultIdMapper::getOrRegisterFn(const FunctionDecl *fn) {
   (void)getTypeAndCreateCounterForPotentialAliasVar(fn, &isAlias);
 
   const bool isPrecise = fn->hasAttr<HLSLPreciseAttr>();
+  const bool isNoInline = fn->hasAttr<NoInlineAttr>();
   // Note: we do not need to worry about function parameter types at this point
   // as this is used when function declarations are seen. When function
   // definition is seen, the parameter types will be set properly and take into
   // account whether the function is a member function of a class/struct (in
   // which case a 'this' parameter is added at the beginnig).
   SpirvFunction *spirvFunction = spvBuilder.createSpirvFunction(
-      fn->getReturnType(), fn->getLocation(), fn->getName(), isPrecise);
+      fn->getReturnType(), fn->getLocation(), fn->getName(), isPrecise,
+      isNoInline);
 
   // No need to dereference to get the pointer. Function returns that are
   // stand-alone aliases are already pointers to values. All other cases should
