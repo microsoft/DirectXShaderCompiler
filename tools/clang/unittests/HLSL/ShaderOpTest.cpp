@@ -25,7 +25,7 @@
 #include "dxc/Support/dxcapi.use.h" // DxcDllSupport
 #include "dxc/DXIL/DxilConstants.h" // ComponentType
 #include "WexTestClass.h"           // TAEF
-#include "dxc/Test/HLSLTestUtils.h"          // LogCommentFmt
+#include "HLSLTestUtils.h"          // LogCommentFmt
 
 #include <stdlib.h>
 #include <DirectXMath.h>
