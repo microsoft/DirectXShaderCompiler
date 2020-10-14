@@ -1247,6 +1247,7 @@ public:
     compiler.getLangOpts().HLSLVersion = (unsigned) Opts.HLSLVersion;
     compiler.getLangOpts().EnableDX9CompatMode = Opts.EnableDX9CompatMode;
     compiler.getLangOpts().EnableFXCCompatMode = Opts.EnableFXCCompatMode;
+    compiler.getLangOpts().EnableTemplates = Opts.EnableTemplates;
 
     compiler.getLangOpts().UseMinPrecision = !Opts.Enable16BitTypes;
 

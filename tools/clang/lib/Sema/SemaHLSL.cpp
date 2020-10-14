@@ -78,7 +78,7 @@ enum ArBasicKind {
   AR_BASIC_NONE,
   AR_BASIC_UNKNOWN,
   AR_BASIC_NOCAST,
-
+  AR_BASIC_DEPENDENT,
   //
   // The following pseudo-entries represent higher-level
   // object types that are treated as units.
@@ -378,6 +378,7 @@ const UINT g_uBasicKindProps[] =
   0,            // AR_BASIC_NONE
   BPROP_OTHER,  // AR_BASIC_UNKNOWN
   BPROP_OTHER,  // AR_BASIC_NOCAST
+  0,            // AR_BASIC_DEPENDENT
 
   //
   // The following pseudo-entries represent higher-level
@@ -589,6 +590,7 @@ enum ArTypeObjectKind {
   AR_TOBJ_INNER_OBJ, // Represents a built-in inner object, such as an 
                      // indexer object used to implement .mips[1].
   AR_TOBJ_STRING,    // Represents a string
+  AR_TOBJ_DEPENDENT, // Dependent type for template.
 };
 
 enum TYPE_CONVERSION_FLAGS
@@ -1627,6 +1629,7 @@ const char* g_ArBasicTypeNames[] =
   "<none>",
   "<unknown>",
   "<nocast>",
+  "<dependent>",
   "<pointer>",
   "enum class",
 
@@ -3908,7 +3911,7 @@ public:
 
   /// <summary>
   /// Determines whether the specify record type is a matrix, another HLSL object, or a user-defined structure.
-  /// </sumary>
+  /// </summary>
   ArTypeObjectKind ClassifyRecordType(const RecordType* type)
   {
     DXASSERT_NOMSG(type != nullptr);
@@ -3921,7 +3924,8 @@ public:
         return AR_TOBJ_MATRIX;
       else if (decl == m_vectorTemplateDecl)
         return AR_TOBJ_VECTOR;
-      DXASSERT(decl->isImplicit(), "otherwise object template decl is not set to implicit");
+      else if (!decl->isImplicit())
+        return AR_TOBJ_COMPOUND;
       return AR_TOBJ_OBJECT;
     }
 
@@ -3988,6 +3992,9 @@ public:
     }
     if (type->isPointerType()) {
       return hlsl::IsPointerStringType(type) ? AR_TOBJ_STRING : AR_TOBJ_POINTER;
+    }
+    if (type->isDependentType()) {
+      return AR_TOBJ_DEPENDENT;
     }
     if (type->isStructureOrClassType()) {
       const RecordType* recordType = type->getAs<RecordType>();
@@ -4122,6 +4129,7 @@ public:
       case BuiltinType::LitInt: return AR_BASIC_LITERAL_INT;
       case BuiltinType::Int8_4Packed: return AR_BASIC_INT8_4PACKED;
       case BuiltinType::UInt8_4Packed: return AR_BASIC_UINT8_4PACKED;
+      case BuiltinType::Dependent: return AR_BASIC_DEPENDENT;
       default:
         // Only builtin types that have basickind equivalents.
         break;
@@ -8078,7 +8086,7 @@ clang::Expr *HLSLExternalSource::HLSLImpCastToScalar(
   if (AR_TOBJ_VECTOR == FromShape)
     CK = CK_HLSLVectorToScalarCast;
   if (CK_Invalid != CK) {
-    return self->ImpCastExprToType(From, 
+    return self->ImpCastExprToType(From,
       NewSimpleAggregateType(AR_TOBJ_BASIC, EltKind, 0, 1, 1), CK, From->getValueKind()).get();
   }
   return From;
@@ -8869,6 +8877,11 @@ bool HLSLExternalSource::ValidateTypeRequirements(
   bool requiresIntegrals,
   bool requiresNumerics)
 {
+  if (objectKind == AR_TOBJ_DEPENDENT)
+    return true;
+  if (elementKind == AR_BASIC_DEPENDENT)
+    return true;
+
   if (requiresIntegrals || requiresNumerics)
   {
     if (!IsObjectKindPrimitiveAggregate(objectKind))
@@ -8967,6 +8980,17 @@ void HLSLExternalSource::CheckBinOpForHLSL(
 
   // If either expression is invalid to begin with, propagate that.
   if (LHS.isInvalid() || RHS.isInvalid()) {
+    return;
+  }
+
+  // If there is a dependent type we will use that as the result type
+  if (LHS.get()->getType()->isDependentType() || RHS.get()->getType()->isDependentType()) {
+    if (LHS.get()->getType()->isDependentType())
+      ResultTy = LHS.get()->getType();
+    else
+      ResultTy = RHS.get()->getType();
+    if (BinaryOperatorKindIsCompoundAssignment(Opc))
+      CompResultTy = ResultTy;
     return;
   }
 
@@ -9147,8 +9171,11 @@ void HLSLExternalSource::CheckBinOpForHLSL(
     StandardConversionSequence standard;
     // Suppress type narrowing or truncation warnings for RHS on bitwise shift, since we only care about the LHS type.
     bool bSuppressWarnings = BinaryOperatorKindIsBitwiseShift(Opc);
-    // Suppress errors on compound assignment, since we will vaildate the cast to the final type later.
+    // Suppress errors on compound assignment, since we will validate the cast to the final type later.
     bool bSuppressErrors = isCompoundAssignment;
+    // Suppress errors if either operand has a dependent type.
+    if (RHS.get()->getType()->isDependentType() || ResultTy->isDependentType())
+      bSuppressErrors = true;
     // If compound assignment, suppress errors until later, but report warning (vector truncation/type narrowing) here.
     if (ValidateCast(SourceLocation(), RHS.get(), ResultTy, ExplicitConversionFalse, bSuppressWarnings, bSuppressErrors, &standard)) {
       if (standard.First != ICK_Identity || !standard.isIdentityConversion())
@@ -9351,6 +9378,15 @@ clang::QualType HLSLExternalSource::CheckVectorConditional(
   QualType condType = GetStructuralForm(Cond.get()->getType());
   QualType leftType = GetStructuralForm(LHS.get()->getType());
   QualType rightType = GetStructuralForm(RHS.get()->getType());
+
+  // If any type is dependent, we will use that as the type to return.
+  if (leftType->isDependentType())
+    return leftType;
+  if (rightType->isDependentType())
+    return rightType;
+  if (condType->isDependentType())
+    return condType;
+
   ArBasicKind condElementKind = GetTypeElementKind(condType);
   ArBasicKind leftElementKind = GetTypeElementKind(leftType);
   ArBasicKind rightElementKind = GetTypeElementKind(rightType);
@@ -9527,8 +9563,10 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
 
   // Get information about the function we have.
   CXXMethodDecl* functionMethod = dyn_cast<CXXMethodDecl>(FunctionTemplate->getTemplatedDecl());
-  DXASSERT(functionMethod != nullptr,
-    "otherwise this is standalone function rather than a method, which isn't supported in the HLSL object model");
+  if (!functionMethod) {
+    // standalone function.
+    return Sema::TemplateDeductionResult::TDK_Invalid;
+  }
   CXXRecordDecl* functionParentRecord = functionMethod->getParent();
   DXASSERT(functionParentRecord != nullptr, "otherwise function is orphaned");
   QualType objectElement = GetFirstElementTypeFromDecl(functionParentRecord);
@@ -9586,6 +9624,11 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
   size_t intrinsicCount = 0;
   const char* objectName = nullptr;
   FindIntrinsicTable(FunctionTemplate->getDeclContext(), &objectName, &intrinsics, &intrinsicCount);
+  // user-defined template object.
+  if (objectName == nullptr && intrinsics == nullptr) {
+    return Sema::TemplateDeductionResult::TDK_Invalid;
+  }
+
   DXASSERT(objectName != nullptr &&
     (intrinsics != nullptr || m_intrinsicTables.size() > 0),
     "otherwise FindIntrinsicTable failed to lookup a valid object, "
