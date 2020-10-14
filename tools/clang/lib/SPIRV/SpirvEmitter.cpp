@@ -1016,7 +1016,8 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
       declIdMapper.getTypeAndCreateCounterForPotentialAliasVar(decl);
 
   spvBuilder.beginFunction(retType, decl->getLocStart(), funcName,
-                           decl->hasAttr<HLSLPreciseAttr>(), func);
+                           decl->hasAttr<HLSLPreciseAttr>(),
+                           decl->hasAttr<NoInlineAttr>(), func);
 
   auto loc = decl->getLocStart();
   RichDebugInfo *info = nullptr;

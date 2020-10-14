@@ -25,7 +25,8 @@ class SpirvVisitor;
 class SpirvFunction {
 public:
   SpirvFunction(QualType astReturnType, SourceLocation,
-                llvm::StringRef name = "", bool precise = false);
+                llvm::StringRef name = "", bool precise = false,
+                bool noInline = false);
 
   ~SpirvFunction();
 
@@ -70,8 +71,12 @@ public:
 
   // Store that the return value is precise.
   void setPrecise(bool p = true) { precise = p; }
+  // Store that the function should not be inlined.
+  void setNoInline(bool n = true) { noInline = n; }
   // Returns whether the return value is precise.
   bool isPrecise() const { return precise; }
+  // Returns whether the function is marked as no inline
+  bool isNoInline() const { return noInline; }
 
   void setSourceLocation(SourceLocation loc) { functionLoc = loc; }
   SourceLocation getSourceLocation() const { return functionLoc; }
@@ -117,6 +122,7 @@ private:
   SpirvType *fnType;      ///< The SPIR-V function type
   bool relaxedPrecision;  ///< Whether the return type is at relaxed precision
   bool precise;           ///< Whether the return value is 'precise'
+  bool noInline;          ///< The function is marked as no inline
 
   /// Legalization-specific code
   ///
