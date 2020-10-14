@@ -84,6 +84,10 @@ public:
       _In_ DWORD SourceColumn, 
       _COM_Outptr_ IDxcPixDxilInstructionOffsets **ppOffsets) override;
 
+  STDMETHODIMP  SourceLocationsFromInstructionOffset(
+      _In_ DWORD InstructionOffset,
+      _COM_Outptr_ IDxcPixDxilSourceLocations** ppSourceLocations) override;
+
   llvm::Module *GetModuleRef();
 
   IMalloc *GetMallocNoRef()
@@ -118,4 +122,38 @@ public:
   virtual STDMETHODIMP_(DWORD) GetCount() override;
   virtual STDMETHODIMP_(DWORD) GetOffsetByIndex(_In_ DWORD Index) override;
 };
+
+class DxcPixDxilSourceLocations : public IDxcPixDxilSourceLocations
+{
+private:
+  DXC_MICROCOM_TM_REF_FIELDS()
+
+  DxcPixDxilSourceLocations(
+    IMalloc* pMalloc,
+    dxil_dia::Session *pSession,
+    llvm::Instruction* IP);
+
+  struct Location
+  {
+      CComBSTR Filename;
+      DWORD Line;
+      DWORD Column;
+  };
+  std::vector<Location> m_locations;
+
+public:
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
+  DXC_MICROCOM_TM_ALLOC(DxcPixDxilSourceLocations)
+
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+    return DoBasicQueryInterface<IDxcPixDxilSourceLocations>(this, iid, ppvObject);
+  }
+
+  virtual STDMETHODIMP_(DWORD) GetCount() override;
+  virtual STDMETHODIMP_(DWORD) GetLineNumberByIndex(_In_ DWORD Index) override;
+  virtual STDMETHODIMP_(DWORD) GetColumnByIndex(_In_ DWORD Index)override;
+  virtual STDMETHODIMP GetFileNameByIndex(_In_ DWORD Index,
+                                          _Outptr_result_z_ BSTR *Name) override;
+};
+
 }  // namespace dxil_debug_info
