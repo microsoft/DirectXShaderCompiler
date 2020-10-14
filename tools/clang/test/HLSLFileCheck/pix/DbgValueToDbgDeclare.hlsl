@@ -1,9 +1,7 @@
-// RUN: %dxc -EFlowControlPS -Tps_6_0 /O3 /Zi %s                                          | %FileCheck %s --check-prefixes=VEC,VEC-BUG 
-// RUN: %dxc -EFlowControlPS -Tps_6_0 /O3 /Zi %s | %opt -S -dxil-dbg-value-to-dbg-declare | %FileCheck %s --check-prefixes=VEC,VEC-CHK
-// RUN: %dxc -ESVPosAt1PS    -Tps_6_0 /Od /Zi %s                                          | %FileCheck %s --check-prefixes=NULL,NULL-BUG
-// RUN: %dxc -ESVPosAt1PS    -Tps_6_0 /Od /Zi %s | %opt -S -dxil-dbg-value-to-dbg-declare | %FileCheck %s --check-prefixes=NULL,NULL-CHK
-// RUN: %dxc -EGeometryPS    -Tps_6_0 /O3 /Zi %s                                          | %FileCheck %s --check-prefixes=RES,RES-BUG
-// RUN: %dxc -EGeometryPS    -Tps_6_0 /O3 /Zi %s | %opt -S -dxil-dbg-value-to-dbg-declare | %FileCheck %s --check-prefixes=RES,RES-CHK
+// RUN: %dxc -EFlowControlPS -Tps_6_0 /O3 /Zi %s                                          | %FileCheck %s -check-prefixes=VEC,VEC-BUG 
+// RUN: %dxc -EFlowControlPS -Tps_6_0 /O3 /Zi %s | %opt -S -dxil-dbg-value-to-dbg-declare | %FileCheck %s -check-prefixes=VEC,VEC-CHK
+// RUN: %dxc -EGeometryPS    -Tps_6_0 /O3 /Zi %s                                          | %FileCheck %s -check-prefixes=RES,RES-BUG
+// RUN: %dxc -EGeometryPS    -Tps_6_0 /O3 /Zi %s | %opt -S -dxil-dbg-value-to-dbg-declare | %FileCheck %s -check-prefixes=RES,RES-CHK
 
 // These tests are designed to exercise the dbg.value to dbg.declare conversion
 // pass' handling of known issues with dxcompiler's emission of debug info.
@@ -101,22 +99,8 @@ float4 FlowControlPS(VS_OUTPUT_ENV input) : SV_Target
 
 /***************************************************
  * Test for dxcompiler bug workaround:             *
- * null value in dbg.value                         *
- ***************************************************/
-// NULL-LABEL: entry:
-// NULL-BUG:       @llvm.dbg.value(metadata ![[NUL_MD:[0-9]+]]
-// NULL-BUG:       ![[NUL_MD]] = {}
-// NULL-CHK-NOT:   call {{.*}} @llvm.dbg.value
-float4 SVPosAt1PS(VS_OUTPUT_PosAt1 input) : SV_Target
-{
-    return float4(input.Pos.x / 512.f, input.Pos.y / 512.f, 1.f, 1.f);
-}
-
-/***************************************************
- * Test for dxcompiler bug workaround:             *
  * dx.types.ResRet.f32 in dbg.value                *
  ***************************************************/
-// RES-LABEL: entry:
 // RES:           %[[S:[0-9]+]] = call %dx.types.ResRet.f32 @dx.op.sample.f32
 // RES-BUG:       @llvm.dbg.value(metadata %dx.types.ResRet.f32
 // RES-CHK-DAG:   %[[X:[0-9]+]] = extractvalue %dx.types.ResRet.f32 %[[S]], 0
