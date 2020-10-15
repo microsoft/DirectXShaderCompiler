@@ -1,5 +1,7 @@
 // RUN: %dxc %s -T ps_6_0 -Od | FileCheck %s
 
+// Regression test for dxil operations not being evaluated.
+
 // CHECK: @main
 
 Texture2D t0 : register(t0);
