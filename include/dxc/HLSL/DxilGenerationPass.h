@@ -125,4 +125,7 @@ void initializeHLLegalizeParameterPass(llvm::PassRegistry &);
 
 bool AreDxilResourcesDense(llvm::Module *M, hlsl::DxilResourceBase **ppNonDense);
 
+ModulePass *createDxilNoOptLegalizePass();
+void initializeDxilNoOptLegalizePass(llvm::PassRegistry&);
+
 }

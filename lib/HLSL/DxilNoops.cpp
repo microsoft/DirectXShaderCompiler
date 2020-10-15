@@ -229,6 +229,28 @@ static Value *GetOrCreatePreserveCond(Function *F) {
   return B.CreateTrunc(Load, B.getInt1Ty());
 }
 
+bool hlsl::IsPreserve(llvm::Instruction *I) {
+  SelectInst *S = dyn_cast<SelectInst>(I);
+  if (!S)
+    return false;
+
+  TruncInst *Trunc = dyn_cast<TruncInst>(S->getCondition());
+  if (!Trunc)
+    return false;
+
+  LoadInst *Load = dyn_cast<LoadInst>(Trunc->getOperand(0));
+  if (!Load)
+    return false;
+
+  GEPOperator *GEP = dyn_cast<GEPOperator>(Load->getPointerOperand());
+  if (!GEP)
+    return false;
+
+  GlobalVariable *GV = dyn_cast<GlobalVariable>(GEP->getPointerOperand());
+
+  return GV && GV->getLinkage() == GlobalVariable::LinkageTypes::InternalLinkage && GV->getName() == kPreserveName;
+}
+
 
 static Function *GetOrCreatePreserveF(Module *M, Type *Ty) {
   std::string str = hlsl::kPreservePrefix;

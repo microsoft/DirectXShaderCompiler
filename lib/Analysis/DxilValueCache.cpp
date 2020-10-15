@@ -13,6 +13,7 @@
 
 #include "llvm/Pass.h"
 #include "dxc/DXIL/DxilConstants.h"
+#include "llvm/Analysis/DxilSimplify.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Constants.h"
@@ -228,9 +229,23 @@ Value *DxilValueCache::SimplifyAndCacheResult(Instruction *I, DominatorTree *DT)
   else if (Instruction::Call == I->getOpcode()) {
     Module *M = I->getModule();
     CallInst *CI = cast<CallInst>(I);
-    if (CI->getCalledFunction()->getName() == hlsl::DXIL::kDxBreakFuncName) {
+    Function *Callee = CI->getCalledFunction();
+    if (Callee->getName() == hlsl::DXIL::kDxBreakFuncName) {
       llvm::Type *i1Ty = llvm::Type::getInt1Ty(M->getContext());
       Simplified = llvm::ConstantInt::get(i1Ty, 1);
+    }
+    else {
+      SmallVector<Value *,16> Args;
+      for (unsigned i = 0; i < CI->getNumArgOperands(); i++) {
+        Args.push_back(TryGetCachedValue(CI->getArgOperand(i)));
+      }
+
+      if (hlsl::CanSimplify(Callee)) {
+        Simplified = hlsl::SimplifyDxilCall(Callee, Args, CI, /* MayInsert */ false);
+      }
+      else {
+        Simplified = llvm::SimplifyCall(Callee, Args, DL, nullptr, DT);
+      }
     }
   }
   // The rest of the checks use LLVM stock simplifications
