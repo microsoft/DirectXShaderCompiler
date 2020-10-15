@@ -465,7 +465,8 @@ static bool LegalizeResourceArrays(Module &M, DxilValueCache *DVC) {
     for (Instruction &I : BB) {
       if (AllocaInst *AI = dyn_cast<AllocaInst>(&I)) {
         Type *ty = AI->getAllocatedType();
-        // Only handle single dimentional array right now.
+        // Only handle single dimentional array. Since this pass runs after MultiDimArrayToOneDimArray,
+        // it should handle all arrays.
         if (ty->isArrayTy() && hlsl::dxilutil::IsHLSLResourceType(ty->getArrayElementType()))
           Allocas.push_back(AI);
       }
@@ -492,10 +493,11 @@ static bool LegalizeResourceArrays(Module &M, DxilValueCache *DVC) {
           break;
         }
 
-        // Out of bounds. Don't do it.
-        // TODO: Maybe emit error here?
+        // Out of bounds. Out of bounds GEP's will trigger and error later.
         if (index < 0 || index >= (int64_t)ty->getArrayNumElements()) {
           SplitAlloca = false;
+          gep->setOperand(2,ConstantInt::get(Type::getInt32Ty(AI->getContext()),(int)index));
+          Changed = true;
         }
         ConstIndices[gep] = index;
       }
