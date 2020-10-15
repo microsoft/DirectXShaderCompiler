@@ -10,9 +10,15 @@
 
 #include "llvm/ADT/StringRef.h"
 
+namespace llvm {
+  class Instruction;
+}
+
 namespace hlsl {
 static const llvm::StringRef kNoopName = "dx.noop";
 static const llvm::StringRef kPreservePrefix = "dx.preserve.";
 static const llvm::StringRef kNothingName = "dx.nothing.a";
 static const llvm::StringRef kPreserveName = "dx.preserve.value.a";
+
+bool IsPreserve(llvm::Instruction *S);
 }

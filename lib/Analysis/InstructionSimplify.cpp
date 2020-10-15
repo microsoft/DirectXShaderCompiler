@@ -4406,7 +4406,7 @@ Value *llvm::SimplifyInstruction(Instruction *I, const DataLayout &DL,
     if (Function *Callee = CS.getCalledFunction()) {
       if (hlsl::CanSimplify(Callee)) {
         SmallVector<Value *, 4> Args(CS.arg_begin(), CS.arg_end());
-        if (Value *DxilResult = hlsl::SimplifyDxilCall(CS.getCalledFunction(), Args, I)) {
+        if (Value *DxilResult = hlsl::SimplifyDxilCall(CS.getCalledFunction(), Args, I, /* MayInsert */ true)) {
           Result = DxilResult;
           break;
         }
