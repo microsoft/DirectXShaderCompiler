@@ -430,6 +430,16 @@ bool SimplifyTrivialPHIs(BasicBlock *BB) {
   return Changed;
 }
 
+llvm::BasicBlock *GetSwitchSuccessorForCond(llvm::SwitchInst *Switch,llvm::ConstantInt *Cond) {
+  for (auto it = Switch->case_begin(), end = Switch->case_end(); it != end; it++) {
+    if (it.getCaseValue() == Cond) {
+      return it.getCaseSuccessor();
+      break;
+    }
+  }
+  return Switch->getDefaultDest();
+}
+
 static DbgValueInst *FindDbgValueInst(Value *Val) {
   if (auto *ValAsMD = LocalAsMetadata::getIfExists(Val)) {
     if (auto *ValMDAsVal = MetadataAsValue::getIfExists(Val->getContext(), ValAsMD)) {
