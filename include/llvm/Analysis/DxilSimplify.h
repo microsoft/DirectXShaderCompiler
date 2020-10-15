@@ -27,14 +27,22 @@ class Value;
 } // namespace llvm
 
 namespace hlsl {
+
 /// \brief Given a function and set of arguments, see if we can fold the
 /// result as dxil operation.
 ///
 /// If this call could not be simplified returns null.
 llvm::Value *SimplifyDxilCall(llvm::Function *F,
                               llvm::ArrayRef<llvm::Value *> Args,
-                              const llvm::Instruction *I,
-                              llvm::Instruction *MutableI); // If you don't want the IR to be modified, this should be given nullptr
+                              const llvm::Instruction *I);
+
+/// \brief Given a function and set of arguments, see if we can fold the
+/// result as dxil operation. Inserts instructions if necessary.
+///
+/// If this call could not be simplified returns null.
+llvm::Value *SimplifyDxilCallMayInsert(llvm::Function *F,
+                              llvm::ArrayRef<llvm::Value *> Args,
+                              llvm::Instruction *I);
 
 /// CanSimplify
 /// Return true on dxil operation function which can be simplified.
