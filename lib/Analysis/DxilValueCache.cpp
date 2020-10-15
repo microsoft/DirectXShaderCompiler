@@ -229,8 +229,10 @@ Value *DxilValueCache::SimplifyAndCacheResult(Instruction *I, DominatorTree *DT)
   else if (Instruction::Call == I->getOpcode()) {
     Module *M = I->getModule();
     CallInst *CI = cast<CallInst>(I);
-    Function *Callee = CI->getCalledFunction();
-    if (Callee->getName() == hlsl::DXIL::kDxBreakFuncName) {
+    Value *Callee = CI->getCalledValue();
+    Function *CalledFunction = dyn_cast<Function>(Callee);
+
+    if (CalledFunction && CalledFunction->getName() == hlsl::DXIL::kDxBreakFuncName) {
       llvm::Type *i1Ty = llvm::Type::getInt1Ty(M->getContext());
       Simplified = llvm::ConstantInt::get(i1Ty, 1);
     }
@@ -240,8 +242,8 @@ Value *DxilValueCache::SimplifyAndCacheResult(Instruction *I, DominatorTree *DT)
         Args.push_back(TryGetCachedValue(CI->getArgOperand(i)));
       }
 
-      if (hlsl::CanSimplify(Callee)) {
-        Simplified = hlsl::SimplifyDxilCall(Callee, Args, CI, /* MayInsert */ false);
+      if (CalledFunction && hlsl::CanSimplify(CalledFunction)) {
+        Simplified = hlsl::SimplifyDxilCall(CalledFunction, Args, CI, /* MayInsert */ false);
       }
       else {
         Simplified = llvm::SimplifyCall(Callee, Args, DL, nullptr, DT);
