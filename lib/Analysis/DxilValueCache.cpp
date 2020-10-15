@@ -241,7 +241,7 @@ Value *DxilValueCache::SimplifyAndCacheResult(Instruction *I, DominatorTree *DT)
       }
 
       if (hlsl::CanSimplify(Callee)) {
-        Simplified = hlsl::SimplifyDxilCall(Callee, Args, CI);
+        Simplified = hlsl::SimplifyDxilCall(Callee, Args, CI, /* MayInsert */ false);
       }
       else {
         Simplified = llvm::SimplifyCall(Callee, Args, DL, nullptr, DT);

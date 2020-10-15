@@ -39,10 +39,44 @@ DXIL::OpCode GetOpcode(Value *opArg) {
   }
   return DXIL::OpCode::NumOpCodes;
 }
+} // namespace
 
-Value *SimplifyDxilCallImpl(llvm::Function *F, ArrayRef<Value *> Args,
-                        const llvm::Instruction *I,
-                        llvm::Instruction *InsertPt)
+namespace hlsl {
+bool CanSimplify(const llvm::Function *F) {
+  // Only simplify dxil functions when we have a valid dxil module.
+  if (!F->getParent()->HasDxilModule()) {
+    assert(!OP::IsDxilOpFunc(F) && "dx.op function with no dxil module?");
+    return false;
+  }
+
+  if (CanConstantFoldCallTo(F))
+    return true;
+
+  // Lookup opcode class in dxil module. Set default value to invalid class.
+  OP::OpCodeClass opClass = OP::OpCodeClass::NumOpClasses;
+  const bool found =
+      F->getParent()->GetDxilModule().GetOP()->GetOpCodeClass(F, opClass);
+
+  // Return true for those dxil operation classes we can simplify.
+  if (found) {
+    switch (opClass) {
+    default:
+      break;
+    case OP::OpCodeClass::Tertiary:
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/// \brief Given a function and set of arguments, see if we can fold the
+/// result as dxil operation.
+///
+/// If this call could not be simplified returns null.
+Value *SimplifyDxilCall(llvm::Function *F, ArrayRef<Value *> Args,
+                        llvm::Instruction *I,
+                        bool MayInsert)
 {
   if (!F->getParent()->HasDxilModule()) {
     assert(!OP::IsDxilOpFunc(F) && "dx.op function with no dxil module?");
@@ -95,17 +129,17 @@ Value *SimplifyDxilCallImpl(llvm::Function *F, ArrayRef<Value *> Args,
     if (op1 == zero)
       return op2;
 
-    if (InsertPt) {
+    if (MayInsert) {
       Constant *one = ConstantFP::get(op0->getType(), 1);
       if (op0 == one) {
-        IRBuilder<> Builder(InsertPt);
+        IRBuilder<> Builder(I);
         llvm::FastMathFlags FMF;
         FMF.setUnsafeAlgebraHLSL();
         Builder.SetFastMathFlags(FMF);
         return Builder.CreateFAdd(op1, op2);
       }
       if (op1 == one) {
-        IRBuilder<> Builder(InsertPt);
+        IRBuilder<> Builder(I);
         llvm::FastMathFlags FMF;
         FMF.setUnsafeAlgebraHLSL();
         Builder.SetFastMathFlags(FMF);
@@ -126,71 +160,20 @@ Value *SimplifyDxilCallImpl(llvm::Function *F, ArrayRef<Value *> Args,
     if (op1 == zero)
       return op2;
 
-    if (InsertPt) {
+    if (MayInsert) {
       Constant *one = ConstantInt::get(op0->getType(), 1);
       if (op0 == one) {
-        IRBuilder<> Builder(InsertPt);
+        IRBuilder<> Builder(I);
         return Builder.CreateAdd(op1, op2);
       }
       if (op1 == one) {
-        IRBuilder<> Builder(InsertPt);
+        IRBuilder<> Builder(I);
         return Builder.CreateAdd(op0, op2);
       }
     }
     return nullptr;
   } break;
   }
-}
-
-} // namespace
-
-namespace hlsl {
-bool CanSimplify(const llvm::Function *F) {
-  // Only simplify dxil functions when we have a valid dxil module.
-  if (!F->getParent()->HasDxilModule()) {
-    assert(!OP::IsDxilOpFunc(F) && "dx.op function with no dxil module?");
-    return false;
-  }
-
-  if (CanConstantFoldCallTo(F))
-    return true;
-
-  // Lookup opcode class in dxil module. Set default value to invalid class.
-  OP::OpCodeClass opClass = OP::OpCodeClass::NumOpClasses;
-  const bool found =
-      F->getParent()->GetDxilModule().GetOP()->GetOpCodeClass(F, opClass);
-
-  // Return true for those dxil operation classes we can simplify.
-  if (found) {
-    switch (opClass) {
-    default:
-      break;
-    case OP::OpCodeClass::Tertiary:
-      return true;
-    }
-  }
-
-  return false;
-}
-/// \brief Given a function and set of arguments, see if we can fold the
-/// result as dxil operation. Inserts instructions if necessary.
-///
-/// If this call could not be simplified returns null.
-llvm::Value *SimplifyDxilCallMayInsert(llvm::Function *F,
-                              llvm::ArrayRef<llvm::Value *> Args,
-                              llvm::Instruction *I)
-{
-  return SimplifyDxilCallImpl(F, Args, I, I);
-}
-
-/// \brief Given a function and set of arguments, see if we can fold the
-/// result as dxil operation.
-///
-/// If this call could not be simplified returns null.
-Value *SimplifyDxilCall(llvm::Function *F, ArrayRef<Value *> Args,
-                        const llvm::Instruction *I)
-{
-  return SimplifyDxilCallImpl(F, Args, I, nullptr);
 }
 
 } // namespace hlsl
