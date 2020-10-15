@@ -299,6 +299,11 @@ public:
   TEST_METHOD(PartialDerivTest);
   TEST_METHOD(DerivativesTest);
   TEST_METHOD(ComputeSampleTest);
+  TEST_METHOD(AtomicsTest);
+  TEST_METHOD(Atomics64Test);
+  TEST_METHOD(AtomicsTyped64Test);
+  TEST_METHOD(AtomicsShared64Test);
+  TEST_METHOD(AtomicsFloatTest);
 
   BEGIN_TEST_METHOD(QuadReadTest)
     TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.0
@@ -978,12 +983,48 @@ public:
     return O.Native16BitShaderOpsSupported != FALSE;
   }
     
+  bool DoesDeviceSupportMeshShaders(ID3D12Device *pDevice) {
+#if defined(NTDDI_WIN10_VB) && WDK_NTDDI_VERSION >= NTDDI_WIN10_VB
+    D3D12_FEATURE_DATA_D3D12_OPTIONS7 O7;
+    if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS7, &O7, sizeof(O7))))
+      return false;
+    return O7.MeshShaderTier != D3D12_MESH_SHADER_TIER_NOT_SUPPORTED;
+#else
+    return false;
+#endif
+  }
+
   bool DoesDeviceSupportMeshAmpDerivatives(ID3D12Device *pDevice) {
 #if 0
-    D3D12_FEATURE_DATA_D3D12_OPTIONS8 O;
-    if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS8, &O, sizeof(O))))
+    D3D12_FEATURE_DATA_D3D12_OPTIONS7 O7;
+    D3D12_FEATURE_DATA_D3D12_OPTIONS8 O8;
+    if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS7, &O7, sizeof(O7))) ||
+        FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS8, &O8, sizeof(O8))))
       return false;
-    return O.DerivativesInMeshAndAmplificationShadersSupported != FALSE;
+    return O7.MeshShaderTier != D3D12_MESH_SHADER_TIER_NOT_SUPPORTED &&
+      O8.DerivativesInMeshAndAmplificationShadersSupported != FALSE;
+#else
+    return false;
+#endif
+  }
+
+  bool DoesDeviceSupportTyped64Atomics(ID3D12Device *pDevice) {
+#if 0
+    D3D12_FEATURE_DATA_D3D12_OPTIONS8 O8;
+    if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS8, &O8, sizeof(O8))))
+      return false;
+    return O8.AtomicInt64OnTypedResourceSupported != FALSE;
+#else
+    return false;
+#endif
+  }
+
+  bool DoesDeviceSupportShared64Atomics(ID3D12Device *pDevice) {
+#if 0
+    D3D12_FEATURE_DATA_D3D12_OPTIONS8 O8;
+    if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS8, &O8, sizeof(O8))))
+      return false;
+    return O8.AtomicInt64OnGroupSharedSupported != FALSE;
 #else
     return false;
 #endif
@@ -7432,6 +7473,545 @@ void ExecutionTest::WaveSizeTest() {
   }
 }
 
+
+// Atomic operation testing
+
+// Atomic tests take a single integer index as input and contort it into some
+// kind of interesting contributor to the operation in question.
+// So each vertex, pixel, thread, or other will have a unique index that produces
+// a contributing value to the calculation which is stored in a small resource
+
+// For arithmetic or bitwise operations, each contributor accumulates to the same
+// location in the resource indexed by the operation type. Addition is in index 0
+// umin/umax are in 1 and 2 and so on.
+
+// To make sure that the most significant bits are involved in the calculation,
+// particularly in the case of 64-bit values, each contributing value is duplicated
+// to the lower and upper halves of the value. There is an exception to this when
+// addition exceeds the available size and also for compare and exchange explained below.
+
+// For compare and exchange operations, 64 output locations are shared by the various lanes.
+// Each lane attempts to write to a location that is shared with several others.
+// The first one to write to it determines its contents, which will be the lane index <ix>
+// in the upper bits and the output location index in the lower bits.
+// This ensures that the compare operations consider the upper bits in the comparison.
+// The initial compare store is followed by a compare exchange that compares for the
+// value the current lane would have assigned there. Finally, the output of the cmpxchg
+// is used to determine if the current lane should perform the final unconditional exchange.
+// The values are verified by checking the lower bits for the matching location index
+// and ensuring that the upper bits undergoing the same transformation result in the location index.
+// For lane index <ix> the location is calculated and final result assigned as if by this code:
+//    g_outputBuf[(ix/3)%64] = (ix << shBits) | ((ix/3)%64);
+
+bool AtomicResultMatches(const BYTE *uResults, uint64_t gold, size_t size) {
+  if (memcmp(uResults, &gold, size)) {
+    if (size == 4)
+      LogCommentFmt(L"  value %d is not %d", ((uint32_t*)uResults)[0], (uint32_t)gold);
+    else
+      LogCommentFmt(L"  value %ld is not %ld", ((uint64_t*)uResults)[0], gold);
+    return false;
+  }
+  return true;
+}
+
+// Used to duplicate the lower half bits into the upper half bits of an integer
+// To verify that the full value is being considered, many tests duplicate the results into the upper half
+#define SHIFT(val, bits) (((val)&((1<<(bits))-1)) | ((val) << (bits)))
+
+// Symbolic constants for the results
+#define ADD_IDX 0
+#define UMIN_IDX 1
+#define UMAX_IDX 2
+#define AND_IDX 3
+#define OR_IDX 4
+#define XOR_IDX 5
+
+#define SMIN_IDX 0
+#define SMAX_IDX 1
+
+// Verify results for atomic operations. <uResults> and <sResults> are pointers to
+// the readback resource sections containing unsigned and signed integers respectively.
+// <pXchg> is a poiner to the readback resource containing the results of the compare
+// and exchange operations tests. <stride> is the number of bytes between results for
+// all of the results pointers. <maxIdx> is the number of indices that went into the results
+// which is used to determine what the results should be. <bitSize> is the size in bits of
+// the produced results, either 32 or 64.
+void VerifyAtomicResults(const BYTE *uResults, const BYTE *sResults,
+                         const BYTE *pXchg, size_t stride, size_t maxIdx, size_t bitSize) {
+  // Each atomic test performs the test on the value in the lower half
+  // and also duplicated in the upper half of the value. The SHIFT macros account for this.
+  // This is to verify that the upper bits are considered
+  size_t shBits = bitSize/2;
+  size_t byteSize = bitSize/8;
+
+  // Test ADD Operation
+  // ADD just sums all the indices. The result should the sum of the highest and lowest indices
+  // multiplied by half the number of sums.
+  size_t addResult = (maxIdx)*(maxIdx-1)/2;
+  LogCommentFmt(L"Verifying %d-bit integer atomic add", bitSize);
+  // For 32-bit values, the sum exceeds the 16 bit limit, so we can't duplicate
+  // That's fine, the duplication is really for 64-bit values.
+  if (addResult >= 1ULL << shBits)
+    VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*ADD_IDX, addResult, byteSize));
+  else
+    VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*ADD_IDX, SHIFT(addResult, shBits), byteSize));
+
+  // Test MIN and MAX Operations
+
+  // The result of a simple min and max of any sequence of indices would be fairly uninteresting
+  // and certain erroneous behavior might mistakenly produce the correct results.
+
+  // To make it interesting, the contributing values will change depending on the evenness of the index.
+  // On an even index, min and max operate on the bitflipped index. For signed compares, this is
+  // interpretted as a negative value and for unsigned, a very high value.
+
+  // For unsigned min/max, index 0 will be bitflipped to ~0, which is interpretted as the maximum
+  // Because zero is manipulated, this leaves 1 as the lowest value.
+  LogCommentFmt(L"Verifying %d-bit integer atomic umin", bitSize);
+  VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*UMIN_IDX, SHIFT(1, shBits), byteSize)); // UMin
+  VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*UMAX_IDX, ~0, byteSize)); // UMax
+
+  // For signed min/max, the index just before the last will be bitflipped (maxIndex is always even).
+  // This is interpretted as -maxIndex and will be the lowest
+  // The maxIndex will be unaltered and interpretted as the highest.
+  LogCommentFmt(L"Verifying %d-bit integer atomic smin", bitSize);
+  VERIFY_IS_TRUE(AtomicResultMatches(sResults + stride*SMIN_IDX, SHIFT(-(maxIdx-1), shBits), byteSize)); // SMin
+  LogCommentFmt(L"Verifying %d-bit integer atomic smax", bitSize);
+  VERIFY_IS_TRUE(AtomicResultMatches(sResults + stride*SMAX_IDX, SHIFT(maxIdx-1, shBits), byteSize)); // SMax
+
+  // Test AND and OR operations.
+
+  // For AND operations, all indices are bitflipped and ANDed to the previous result.
+  // This means that the highest bits, which are never set by the contributing indices will be set
+  // for all the indices, so they will be set in the final result.
+
+  // For OR operations, the indices are ORed to the previous result unaltered
+  // This means that any bit that is set in any index will be set in the final OR result.
+
+  // In practice, this means that the cumulative result of the AND and OR operations
+  // are bitflipped versions of each other.
+  // Finding the most significant set bit by the max index or next power of two (pot)
+  // gives us the pivot point for these results
+  size_t nextPot = 1ULL << (bitSize - 1);
+  for (;nextPot && !((maxIdx-1) & (nextPot)); nextPot >>= 1) {}
+  nextPot <<= 1;
+  LogCommentFmt(L"Verifying %d-bit integer atomic and", bitSize);
+  VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*AND_IDX, ~SHIFT(nextPot-1, shBits), byteSize)); // And
+  LogCommentFmt(L"Verifying %d-bit integer atomic or", bitSize);
+  VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*OR_IDX, SHIFT(nextPot-1, shBits), byteSize)); // Or
+
+  // Test XOR operation
+
+  // For XOR operations, a 1 is shifted by the number of spaces equal to the index and XORed
+  // to the previous result. Because this would rapidely shift off the end of the value,
+  // giving undefined and uninteresting results, the index is moduloed to a value that will
+  // fit within the type size.
+
+  // Because many of the tests use total numbers of lanes that can be evenly divisible by 32 or 64,
+  // these values aren't used for the modulo since the expected result might be zero, 
+  // which could be encountered through erroneous behavior.
+
+  // Instead, one less than the type size in bits is used for the modulo.
+  // Even though we don't know the actual order these operations are performed,
+  // indices that make up a contiguous sequence of 31 or 63 values can be thought of as one of a series of "passes".
+  // Each "pass" sets or clears the bits depending on what's already there.
+  // if the number of the pass is odd, the bits are being unset and all above the mod position should be set.
+  // If even, the bits are in the process of being set and bits below the mod position should be set.
+  size_t xorResult = ((1ULL<<((maxIdx)%(bitSize-1))) -1);
+
+  if (((maxIdx/(bitSize-1))&1)) {
+    xorResult ^= ~0;
+    // The XOR above may set uninvolved upper bits, messing up the compare. So AND off the uninvolved bits.
+    xorResult &= ((1ULL<<(bitSize-1)) - 1);
+  }
+
+  LogCommentFmt(L"Verifying %d-bit integer atomic xor", bitSize);
+  VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*XOR_IDX, xorResult, byteSize));
+
+  // Test CMP/XCHG Operations
+  // This tests CompareStore, CompareExchange, and Exchange operations.
+
+  // Unlike above, every lane isn't contributing to the same resource location
+  // Instead, every lane competes with a few others to update the same resource location.
+  // The first lane to find the contents of their location uninitialized will
+  // update it. To verify that upper bits are considered in the comparison and
+  // in the assignment, the value stored in the lowest bits is the location index.
+  // This ensures that part will be the same for each of the competing lanes.
+  // The uppermost bits are updated with the index of the lane that got there first.
+  // Subsequent calls to CompareExchange will verify this value matches and alter
+  // the content slightly. Finally, a simple check of the output value to what
+  // the current lane would expect and a call to exchange will update the value once more
+
+  // To verify this has gone through properly, the upper portion is converted as 
+  // if to calculate the location index and compared with the location index.
+  // It could be the index of any of several lanes that assign to that location,
+  // but this ensures that it is not any lane outside of that group.
+  // The lower bits are compared to the location index as well.
+  LogCommentFmt(L"Verifying %d-bit integer atomic cmp/xchg results", bitSize);
+  for (size_t i = 0; i < 64; i++) {
+    uint32_t val = *((uint32_t*)(pXchg + i*stride));
+    // Verify lower bits match location index exactly
+    VERIFY_ARE_EQUAL(i, val & ((1 << shBits) - 1));
+    // Verify that upper bits contain original index that transforms to location index
+    VERIFY_ARE_EQUAL(((val >> shBits)/3)%64, i);
+  }
+}
+
+void VerifyAtomicsTest(std::shared_ptr<ShaderOpTestResult> test, size_t maxIdx,
+                       size_t bitSize, bool hasGroupShared) {
+
+  size_t byteSize = bitSize/4;
+  // struct mirroring that in the shader
+  struct AtomicStuff {
+    float prepad[2][3];
+    UINT uintEl[4];
+    int  sintEl[4];
+    struct useless {
+      uint32_t unused[3];
+    } postpad;
+  };
+
+  // Test Compute Shader
+  MappedData uintData, sintData, xchgData;
+
+  test->Test->GetReadBackData("U0", &uintData);
+  const AtomicStuff *pStruct = (AtomicStuff *)uintData.data();
+
+  test->Test->GetReadBackData("U1", &xchgData);
+  const AtomicStuff *pStrXchg = (AtomicStuff *)xchgData.data();
+
+  LogCommentFmt(L"Verifying %d-bit integer atomic operations on RWStructuredBuffer resource", bitSize);
+
+  VerifyAtomicResults((const BYTE*)&(pStruct[0].uintEl[2]), (const BYTE*)&(pStruct[1].sintEl[2]),
+                      (const BYTE*)&(pStrXchg[0].uintEl[2]), sizeof(AtomicStuff), maxIdx, bitSize);
+
+  const BYTE *pUint = nullptr;
+  const BYTE *pSint = nullptr;
+  const BYTE *pXchg = nullptr;
+
+  test->Test->GetReadBackData("U2", &uintData);
+  pUint = (BYTE *)uintData.data();
+
+  test->Test->GetReadBackData("U3", &xchgData);
+  pXchg = (BYTE *)xchgData.data();
+
+  LogCommentFmt(L"Verifying %d-bit integer atomic operations on RWByteAddressBuffer resource", bitSize);
+
+  VerifyAtomicResults(pUint, pUint + byteSize*6,
+                      pXchg, byteSize, maxIdx, bitSize);
+
+  test->Test->GetReadBackData("U4", &uintData);
+  pUint = (BYTE *)uintData.data();
+
+  test->Test->GetReadBackData("U5", &sintData);
+  pSint = (BYTE *)sintData.data();
+
+  test->Test->GetReadBackData("U6", &xchgData);
+  pXchg = (BYTE *)xchgData.data();
+
+  LogCommentFmt(L"Verifying %d-bit integer atomic operations on RWBuffer resource", bitSize);
+
+  VerifyAtomicResults(pUint, pSint + byteSize, pXchg, byteSize, maxIdx, bitSize);
+
+  test->Test->GetReadBackData("U7", &uintData);
+  pUint = (BYTE *)uintData.data();
+
+  test->Test->GetReadBackData("U8", &sintData);
+  pSint = (BYTE *)sintData.data();
+
+  test->Test->GetReadBackData("U9", &xchgData);
+  pXchg = (BYTE *)xchgData.data();
+
+  LogCommentFmt(L"Verifying %d-bit integer atomic operations on RWTexture resource", bitSize);
+
+  VerifyAtomicResults(pUint, pSint + byteSize, pXchg, byteSize, maxIdx, bitSize);
+
+  if (hasGroupShared) {
+    test->Test->GetReadBackData("U10", &uintData);
+    pUint = (BYTE *)uintData.data();
+
+    test->Test->GetReadBackData("U11", &xchgData);
+    pXchg = (BYTE *)xchgData.data();
+
+    LogCommentFmt(L"Verifying %d-bit integer atomic operations on groupshared variables", bitSize);
+    VerifyAtomicResults(pUint, pUint + byteSize*6,
+                        pXchg, byteSize, maxIdx, bitSize);
+  }
+}
+
+TEST_F(ExecutionTest, AtomicsTest) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice))
+    return;
+
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+    std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+
+  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("Atomics");
+
+  // Test compute shader
+  LogCommentFmt(L"Verifying 32-bit integer atomic operations in compute shader");
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+
+  VerifyAtomicsTest(test, 32*32, 32, true /* hasGroupShared */);
+
+  // Test mesh shader if available
+  pShaderOp->CS = nullptr;
+  if (DoesDeviceSupportMeshShaders(pDevice)) {
+    LogCommentFmt(L"Verifying 32-bit integer atomic operations in amp/mesh/pixel shaders");
+    test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+    VerifyAtomicsTest(test, 8*8*8*8 + 64*64, 32, false /* hasGroupShared */);
+  }
+
+  // Test Pixel shader
+  pShaderOp->MS = nullptr;
+  LogCommentFmt(L"Verifying 32-bit integer atomic operations in vert/pixel shaders");
+  test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+  VerifyAtomicsTest(test, 64*64+6, 32, false /* hasGroupShared */);
+}
+
+TEST_F(ExecutionTest, Atomics64Test) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6))
+    return;
+
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+    std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+
+  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("Atomics");
+
+  // Reassign shader stages to 64-bit versions
+  // Collect 64-bit shaders
+  LPCSTR CS64 = nullptr, VS64 = nullptr, PS64 = nullptr;
+  LPCSTR AS64 = nullptr, MS64 = nullptr;
+  for (st::ShaderOpShader &S : pShaderOp->Shaders) {
+    if (!strcmp(S.Name, "CS64")) CS64 = S.Name;
+    if (!strcmp(S.Name, "VS64")) VS64 = S.Name;
+    if (!strcmp(S.Name, "PS64")) PS64 = S.Name;
+    if (!strcmp(S.Name, "AS64")) AS64 = S.Name;
+    if (!strcmp(S.Name, "MS64")) MS64 = S.Name;
+  }
+  pShaderOp->CS = CS64;
+  pShaderOp->VS = VS64;
+  pShaderOp->PS = PS64;
+  pShaderOp->AS = AS64;
+  pShaderOp->MS = MS64;
+
+  // Test compute shader
+  LogCommentFmt(L"Verifying 64-bit integer atomic operations on raw buffers in compute shader");
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+  VerifyAtomicsTest(test, 32*32, 64, true /* hasGroupShared */);
+
+  // Test mesh shader if available
+  pShaderOp->CS = nullptr;
+  if (DoesDeviceSupportMeshShaders(pDevice)) {
+    LogCommentFmt(L"Verifying 64-bit integer atomic operations on raw buffers in amp/mesh/pixel shader");
+    test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+    VerifyAtomicsTest(test, 8*8*8*8 + 64*64, 64, false /* hasGroupShared */);
+  }
+
+  // Test Pixel shader
+  pShaderOp->MS = nullptr;
+  LogCommentFmt(L"Verifying 64-bit integer atomic operations on raw buffers in vert/pixel shader");
+  test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+  VerifyAtomicsTest(test, 64*64+6, 64, false /* hasGroupShared */);
+}
+
+TEST_F(ExecutionTest, AtomicsTyped64Test) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6))
+    return;
+
+  if (!DoesDeviceSupportInt64(pDevice)) {
+    WEX::Logging::Log::Comment(L"Device does not support int64 operations.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
+  if (!DoesDeviceSupportTyped64Atomics(pDevice)) {
+    WEX::Logging::Log::Comment(L"Device does not support int64 atomic operations on typed resources.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+    std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+
+  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("Atomics");
+
+  // Reassign shader stages to 64-bit versions
+  // Collect 64-bit shaders
+  LPCSTR CS64 = nullptr;
+  for (st::ShaderOpShader &S : pShaderOp->Shaders) {
+    if (!strcmp(S.Name, "CSTY64")) CS64 = S.Name;
+  }
+  pShaderOp->CS = CS64;
+
+  LogCommentFmt(L"Verifying 64-bit integer atomic operations on typed resources in compute shader");
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+  VerifyAtomicsTest(test, 32*32, 64, true /* hasGroupShared */);
+}
+
+TEST_F(ExecutionTest, AtomicsShared64Test) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6))
+    return;
+
+  if (!DoesDeviceSupportInt64(pDevice)) {
+    WEX::Logging::Log::Comment(L"Device does not support int64 operations.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
+  if (!DoesDeviceSupportTyped64Atomics(pDevice)) {
+    WEX::Logging::Log::Comment(L"Device does not support int64 atomic operations on typed resources.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+    std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+
+  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("Atomics");
+
+  // Reassign shader stages to 64-bit versions
+  // Collect 64-bit shaders
+  LPCSTR CS64 = nullptr;
+  for (st::ShaderOpShader &S : pShaderOp->Shaders) {
+    if (!strcmp(S.Name, "CSSH64")) CS64 = S.Name;
+  }
+  pShaderOp->CS = CS64;
+
+  LogCommentFmt(L"Verifying 64-bit integer atomic operations on groupshared variables in compute shader");
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+  VerifyAtomicsTest(test, 32*32, 64, true /* hasGroupShared */);
+}
+
+
+// Float Atomics
+
+// These operations are almost the same as for the 32-bit and 64-bit integer tests
+// The difference is that there is no need to verify the upper bits.
+// So there is no storing of different parts in upper and lower halves.
+// Additionally, the only operations that are supported on floats
+// are compare and exchange operations. So that's all that is tested here.
+// Just as above, a number of lanes are assigned the same output value.
+// Unlike above, one location is needed for the result of the special NaN test
+// For this reason, the conversion is reduced by one and shifted by one to leave
+// the zero-indexed location available.
+
+// Verify results for a particular set of atomics results
+void VerifyAtomicFloatResults(const float *results, size_t maxIdx) {
+  // The first entry is for NaN to ensure that compares between NaNs succeed
+  // The sentinal value is 0.123, for which this compare is sufficient.
+  VERIFY_IS_TRUE(results[0] >= 0.120 && results[0] < 0.125);
+  // Start at 1 because 0 is just for NaN tests
+  for (size_t i = 1; i < 64; i++) {
+    VERIFY_ARE_EQUAL((int(results[i])/3)%63 + 1, i);
+  }
+}
+
+void VerifyAtomicsFloatTest(std::shared_ptr<ShaderOpTestResult> test, size_t maxIdx, bool hasGroupShared) {
+
+  // struct mirroring that in the shader
+  struct AtomicStuff {
+    float prepad[2][3];
+    float fltEl[2];
+    struct useless {
+      uint32_t unused[3];
+    } postpad;
+  };
+
+  // Test Compute Shader
+  MappedData Data;
+  const float *pData = nullptr;
+
+  test->Test->GetReadBackData("U0", &Data);
+  const AtomicStuff *pStructData = (AtomicStuff *)Data.data();
+  LogCommentFmt(L"Verifying float cmp/xchg atomic operations on RWStructuredBuffer resources");
+  VERIFY_IS_TRUE(pStructData[0].fltEl[1] >= 0.120 && pStructData[0].fltEl[1] < 0.125);
+  for (size_t i = 1; i < 64; i++) {
+    VERIFY_ARE_EQUAL((int(pStructData[i].fltEl[1])/3)%63 + 1, i);
+  }
+
+  test->Test->GetReadBackData("U1", &Data);
+  pData = (float *)Data.data();
+  LogCommentFmt(L"Verifying float cmp/xchg atomic operations on RWByteAddressBuffer resources");
+  VerifyAtomicFloatResults(pData, maxIdx);
+
+  test->Test->GetReadBackData("U2", &Data);
+  pData = (float *)Data.data();
+  LogCommentFmt(L"Verifying float cmp/xchg atomic operations on RWBuffer resources");
+  VerifyAtomicFloatResults(pData, maxIdx);
+
+  test->Test->GetReadBackData("U3", &Data);
+  pData = (float *)Data.data();
+  LogCommentFmt(L"Verifying float cmp/xchg atomic operations on RWTexture resources");
+  VerifyAtomicFloatResults(pData, maxIdx);
+
+  if (hasGroupShared) {
+    test->Test->GetReadBackData("U4", &Data);
+    pData = (float *)Data.data();
+
+    LogCommentFmt(L"Verifying float cmp/xchg atomic operations on groupshared variables");
+    VerifyAtomicFloatResults(pData, maxIdx);
+  }
+}
+
+TEST_F(ExecutionTest, AtomicsFloatTest) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice))
+    return;
+
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+    std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+
+  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("FloatAtomics");
+
+  // Test compute shader
+  LogCommentFmt(L"Verifying float cmp/xchg atomic operations in compute shader");
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "FloatAtomics", nullptr, ShaderOpSet);
+  VerifyAtomicsFloatTest(test, 32*32, true /* hasGroupShared */);
+
+  // Test mesh shader if available
+  pShaderOp->CS = nullptr;
+  if (DoesDeviceSupportMeshShaders(pDevice)) {
+    LogCommentFmt(L"Verifying float cmp/xchg atomic operations in amp/mesh/pixel shaders");
+    test = RunShaderOpTestAfterParse(pDevice, m_support, "FloatAtomics", nullptr, ShaderOpSet);
+    VerifyAtomicsFloatTest(test, 8*8*8*8 + 64*64, false /* hasGroupShared */);
+  }
+
+  // Test Pixel shader
+  pShaderOp->MS = nullptr;
+    LogCommentFmt(L"Verifying float cmp/xchg atomic operations in vert/pixel shaders");
+  test = RunShaderOpTestAfterParse(pDevice, m_support, "FloatAtomics", nullptr, ShaderOpSet);
+  VerifyAtomicsFloatTest(test, 64*64+6, false /* hasGroupShared */);
+}
 
 #ifndef _HLK_CONF
 static void WriteReadBackDump(st::ShaderOp *pShaderOp, st::ShaderOpTest *pTest,
