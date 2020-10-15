@@ -148,15 +148,6 @@ static bool EraseDeadBlocks(Function &F, DxilValueCache *DVC) {
   return true;
 }
 
-static bool EraseDeadBlocksIterate(Function &F,DxilValueCache *DVC) {
-  bool Changed = false;
-  while (EraseDeadBlocks(F,DVC)) {
-    Changed = true;
-    DVC->ResetUnknowns();
-  }
-  return Changed;
-}
-
 namespace {
 
 struct DxilRemoveDeadBlocks : public FunctionPass {
