@@ -430,7 +430,7 @@ bool SimplifyTrivialPHIs(BasicBlock *BB) {
   return Changed;
 }
 
-llvm::BasicBlock *dxilutil::GetSwitchSuccessorForCond(llvm::SwitchInst *Switch,llvm::ConstantInt *Cond) {
+llvm::BasicBlock *GetSwitchSuccessorForCond(llvm::SwitchInst *Switch,llvm::ConstantInt *Cond) {
   for (auto it = Switch->case_begin(), end = Switch->case_end(); it != end; it++) {
     if (it.getCaseValue() == Cond) {
       return it.getCaseSuccessor();
