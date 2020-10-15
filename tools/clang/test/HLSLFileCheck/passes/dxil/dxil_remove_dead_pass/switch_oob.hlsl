@@ -1,6 +1,6 @@
 // RUN: %dxc /T ps_6_0 /Od %s | FileCheck %s
 
-// CHECK: @main
+// CHECK: Accessing resource array with out-out-bounds index.
 
 Texture2D t0 : register(t0);
 Texture2D t1 : register(t1);
@@ -18,15 +18,15 @@ float foo(uint i) {
       return 2;
     case 2:
       return 3;
-    case 10:
-      return 4;
+    case 3:
+      return 10;
     case 4:
       return 5;
   }
   return 0;
 }
 
-float main(uint3 off : OFF) : SV_Target {
+float4 main(uint3 off : OFF) : SV_Target {
 
   Texture2D textures[] = {
     t0, t1, t2, t3, t4, t5, t6,

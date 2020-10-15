@@ -496,8 +496,8 @@ static bool LegalizeResourceArrays(Module &M, DxilValueCache *DVC) {
         // Out of bounds. Out of bounds GEP's will trigger and error later.
         if (index < 0 || index >= (int64_t)ty->getArrayNumElements()) {
           SplitAlloca = false;
-          gep->setOperand(2,ConstantInt::get(Type::getInt32Ty(AI->getContext()),(int)index));
           Changed = true;
+          dxilutil::EmitErrorOnInstruction(gep, "Accessing resource array with out-out-bounds index.");
         }
         ConstIndices[gep] = index;
       }

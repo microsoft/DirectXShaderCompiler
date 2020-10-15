@@ -19,6 +19,7 @@
 #include "llvm/Analysis/DxilValueCache.h"
 
 #include "dxc/DXIL/DxilMetadataHelper.h"
+#include "dxc/DXIL/DxilUtil.h"
 
 #include <unordered_set>
 
@@ -31,22 +32,6 @@ static void RemoveIncomingValueFrom(BasicBlock *SuccBB, BasicBlock *BB) {
       PN->removeIncomingValue(BB, true);
     else
       break;
-  }
-}
-
-namespace dxilutil {
-
-  BasicBlock *GetSwitchSuccessorForCond(SwitchInst *Switch, ConstantInt *Cond) {
-    if (Switch->getCondition()->getType() != Cond->getType())
-      return nullptr;
-
-    for (auto it = Switch->case_begin(), end = Switch->case_end(); it != end; it++) {
-      if (it.getCaseValue() == Cond) {
-        return it.getCaseSuccessor();
-        break;
-      }
-    }
-    return Switch->getDefaultDest();
   }
 }
 
@@ -106,7 +91,7 @@ static bool EraseDeadBlocks(Function &F, DxilValueCache *DVC) {
       Value *Cond = Switch->getCondition();
       BasicBlock *Succ = nullptr;
       if (ConstantInt *ConstCond = DVC->GetConstInt(Cond)) {
-        Succ = dxilutil::GetSwitchSuccessorForCond(Switch,ConstCond);
+        Succ = hlsl::dxilutil::GetSwitchSuccessorForCond(Switch, ConstCond);
       }
 
       if (Succ) {
