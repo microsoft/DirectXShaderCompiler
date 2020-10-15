@@ -33,7 +33,8 @@ namespace hlsl {
 /// If this call could not be simplified returns null.
 llvm::Value *SimplifyDxilCall(llvm::Function *F,
                               llvm::ArrayRef<llvm::Value *> Args,
-                              llvm::Instruction *I);
+                              const llvm::Instruction *I,
+                              llvm::Instruction *MutableI); // If you don't want the IR to be modified, this should be given nullptr
 
 /// CanSimplify
 /// Return true on dxil operation function which can be simplified.
