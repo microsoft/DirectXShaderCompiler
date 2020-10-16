@@ -54,6 +54,7 @@ add_llvm_library(LLVMHLSL
   HLUtil.cpp
   PauseResumePasses.cpp
   WaveSensitivityAnalysis.cpp
+  DxilNoOptLegalize.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/IR
