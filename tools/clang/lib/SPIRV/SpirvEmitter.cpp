@@ -11984,6 +11984,11 @@ SpirvEmitter::doUnaryExprOrTypeTraitExpr(const UnaryExprOrTypeTraitExpr *expr) {
     return nullptr;
   }
 
+  if (auto *constExpr = tryToEvaluateAsConst(expr)) {
+    constExpr->setRValue();
+    return constExpr;
+  }
+
   AlignmentSizeCalculator alignmentCalc(astContext, spirvOptions);
   uint32_t size = 0, stride = 0;
   std::tie(std::ignore, size) = alignmentCalc.getAlignmentAndSize(
