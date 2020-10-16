@@ -5498,6 +5498,7 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     const Expr *Arg = E->getArg(i+ArgsToSkip);
     QualType ParamTy = Param->getType().getNonReferenceType();
     bool isObject = dxilutil::IsHLSLObjectType(CGF.ConvertTypeForMem(ParamTy));
+    bool isVector = hlsl::IsHLSLVecType(ParamTy);
     bool isArray = ParamTy->isArrayType();
     // Check for array of matrix
     QualType ParamElTy = ParamTy;
@@ -5505,7 +5506,7 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
       ParamElTy = ParamElTy->getAsArrayTypeUnsafe()->getElementType();
     bool isMatrix = hlsl::IsHLSLMatType(ParamElTy);
     bool isAggregateType = !isObject &&
-      (isArray || (ParamTy->isRecordType() && !isMatrix));
+      (isArray || (ParamTy->isRecordType() && !(isMatrix || isVector)));
 
     bool EmitRValueAgg = false;
     bool RValOnRef = false;
@@ -5590,7 +5591,7 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
       // TODO: A high level intrinsic for matrix array copy with orientation
       //       change would be much easier to optimize/eliminate at high level
       //       after inline.
-      if (!mustCopy && (isMatrix)) {
+      if (!mustCopy && isMatrix) {
         mustCopy = !AreMatrixArrayOrientationMatching(
           CGF.getContext(), *m_pHLModule, argType, ParamTy);
       }
