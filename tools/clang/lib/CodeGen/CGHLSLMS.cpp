@@ -5503,7 +5503,7 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     QualType ParamElTy = ParamTy;
     while (ParamElTy->isArrayType())
       ParamElTy = ParamElTy->getAsArrayTypeUnsafe()->getElementType();
-    bool isMatrix = hlsl::IsHLSLVecMatType(ParamElTy);
+    bool isMatrix = hlsl::IsHLSLMatType(ParamElTy);
     bool isAggregateType = !isObject &&
       (isArray || (ParamTy->isRecordType() && !isMatrix));
 
