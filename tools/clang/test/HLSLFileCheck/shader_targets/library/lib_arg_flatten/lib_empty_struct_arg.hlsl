@@ -2,9 +2,13 @@
 
 // Make sure calls with empty struct params are well-behaved
 
-// CHECK: %[[alloca:.*]] = alloca %struct.T
+// CHECK: define float @"\01?test2@@YAMUT@@@Z"(%struct.T* %t)
 // CHECK-NOT:memcpy
-// CHECK-NEXT: call float @"\01?test@@YAMUT@@@Z"(%struct.T* nonnull %[[alloca]])
+// CHECK-NOT:load
+// CHECK-NOT:store
+// CHECK-DAG: call float @"\01?test@@YAMUT@@@Z"(%struct.T*
+// CHECK: ret float
+
 
 struct T {
 };
