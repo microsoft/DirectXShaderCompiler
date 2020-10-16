@@ -5498,9 +5498,15 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     const Expr *Arg = E->getArg(i+ArgsToSkip);
     QualType ParamTy = Param->getType().getNonReferenceType();
     bool isObject = dxilutil::IsHLSLObjectType(CGF.ConvertTypeForMem(ParamTy));
+    bool isVector = hlsl::IsHLSLVecType(ParamTy);
+    bool isArray = ParamTy->isArrayType();
+    // Check for array of matrix
+    QualType ParamElTy = ParamTy;
+    while (ParamElTy->isArrayType())
+      ParamElTy = ParamElTy->getAsArrayTypeUnsafe()->getElementType();
+    bool isMatrix = hlsl::IsHLSLMatType(ParamElTy);
     bool isAggregateType = !isObject &&
-      (ParamTy->isArrayType() || ParamTy->isRecordType()) &&
-      !hlsl::IsHLSLVecMatType(ParamTy);
+      (isArray || (ParamTy->isRecordType() && !(isMatrix || isVector)));
 
     bool EmitRValueAgg = false;
     bool RValOnRef = false;
@@ -5578,8 +5584,19 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
       argLV = CGF.EmitLValue(Arg);
       if (argLV.isSimple())
         argAddr = argLV.getAddress();
-      // TODO: enable avoid copy for lib profile.
-      if (!m_bIsLib) {
+
+      bool mustCopy = false;
+
+      // If matrix orientation changes, we must copy here
+      // TODO: A high level intrinsic for matrix array copy with orientation
+      //       change would be much easier to optimize/eliminate at high level
+      //       after inline.
+      if (!mustCopy && isMatrix) {
+        mustCopy = !AreMatrixArrayOrientationMatching(
+          CGF.getContext(), *m_pHLModule, argType, ParamTy);
+      }
+
+      if (!mustCopy) {
         // When there's argument need to lower like buffer/cbuffer load, need to
         // copy to let the lower not happen on argument when calle is noinline
         // or extern functions. Will do it in HLLegalizeParameter after known
@@ -5607,6 +5624,7 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
             continue;
         }
       }
+
       argType = argLV.getType();  // TBD: Can this be different than Arg->getType()?
       argAlignment = argLV.getAlignment();
     }
