@@ -11992,7 +11992,7 @@ SpirvEmitter::doUnaryExprOrTypeTraitExpr(const UnaryExprOrTypeTraitExpr *expr) {
   AlignmentSizeCalculator alignmentCalc(astContext, spirvOptions);
   uint32_t size = 0, stride = 0;
   std::tie(std::ignore, size) = alignmentCalc.getAlignmentAndSize(
-      expr->getArgumentType(), SpirvLayoutRule::Void,
+      expr->getArgumentType(), SpirvLayoutRule::Scalar,
       /*isRowMajor*/ llvm::None, &stride);
   auto *sizeConst = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
                                               llvm::APInt(32, size));
