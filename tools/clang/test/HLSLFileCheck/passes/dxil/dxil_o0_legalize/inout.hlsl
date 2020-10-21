@@ -1,4 +1,4 @@
-// RUN: %dxc /T %s /Od | FileCheck
+// RUN: %dxc %s -T ps_6_0 -Od | FileCheck %s
 
 // Regression test for some `store float undef` not getting cleaned up in O0.
 
