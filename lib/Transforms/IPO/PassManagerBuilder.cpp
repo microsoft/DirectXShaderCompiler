@@ -361,7 +361,6 @@ void PassManagerBuilder::populateModulePassManager(
       MPM.add(createDxilConvergentClearPass());
       MPM.add(createDxilRemoveDeadBlocksPass());
       MPM.add(createDxilNoOptSimplifyInstructionsPass());
-      MPM.add(createDxilNoOptLegalizePass());
       MPM.add(createGlobalOptimizerPass());
       MPM.add(createMultiDimArrayToOneDimArrayPass());
       MPM.add(createDeadCodeEliminationPass());
