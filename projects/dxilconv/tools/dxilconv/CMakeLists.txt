@@ -9,7 +9,6 @@ add_dxilconv_project_library(dxilconv SHARED
 
 target_link_libraries(dxilconv PRIVATE
   DxbcConverter
-  DxilConvPasses
   LLVMBitWriter
   LLVMDXIL
   LLVMDxilContainer
@@ -18,7 +17,6 @@ target_link_libraries(dxilconv PRIVATE
   LLVMipo
   LLVMMSSupport
   LLVMScalarOpts
-  ShaderBinary
 )
 
 set_target_properties(dxilconv
