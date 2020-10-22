@@ -55,9 +55,7 @@ TEST_F(FileTest, StructTypes) { runFileTest("type.struct.hlsl"); }
 TEST_F(FileTest, StructTypeUniqueness) {
   runFileTest("type.struct.uniqueness.hlsl");
 }
-TEST_F(FileTest, StringTypes) {
-  runFileTest("type.string.hlsl");
-}
+TEST_F(FileTest, StringTypes) { runFileTest("type.string.hlsl"); }
 TEST_F(FileTest, StringTypesUninitializedError) {
   runFileTest("type.string.uninitialized.hlsl", Expect::Failure);
 }
@@ -2266,6 +2264,10 @@ TEST_F(FileTest, DecorationNoContractionStageVars) {
 // For UserTypeGOOGLE decorations
 TEST_F(FileTest, DecorationUserTypeGOOGLE) {
   runFileTest("decoration.user-type.hlsl");
+}
+
+TEST_F(FileTest, DecorationCoherent) {
+  runFileTest("decoration.coherent.hlsl");
 }
 
 // For pragmas
