@@ -322,6 +322,7 @@ clang::CXXRecordDecl* DeclareTemplateTypeWithHandle(
 
 clang::CXXRecordDecl* DeclareUIntTemplatedTypeWithHandle(
   clang::ASTContext& context, llvm::StringRef typeName, llvm::StringRef templateParamName);
+clang::CXXRecordDecl *DeclareConstantBufferViewType(clang::ASTContext& context, bool bTBuf);
 clang::CXXRecordDecl* DeclareRayQueryType(clang::ASTContext& context);
 clang::CXXRecordDecl *DeclareResourceType(clang::ASTContext &context);
 
@@ -371,6 +372,7 @@ bool IsHLSLLineStreamType(clang::QualType type);
 bool IsHLSLTriangleStreamType(clang::QualType type);
 bool IsHLSLStreamOutputType(clang::QualType type);
 bool IsHLSLResourceType(clang::QualType type);
+bool IsHLSLBufferViewType(clang::QualType type);
 bool IsHLSLNumericOrAggregateOfNumericType(clang::QualType type);
 bool IsHLSLNumericUserDefinedType(clang::QualType type);
 bool IsHLSLAggregateType(clang::QualType type);

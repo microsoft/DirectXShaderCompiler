@@ -128,10 +128,12 @@ public:
   bool PrepareForLTO;
   bool HLSLHighLevel = false; // HLSL Change
   bool HLSLAllowPreserveValues = false; // HLSL Change
+  bool HLSLOnlyWarnOnUnrollFail = false; // HLSL Change
   hlsl::HLSLExtensionsCodegenHelper *HLSLExtensionsCodeGen = nullptr; // HLSL Change
   bool HLSLResMayAlias = false; // HLSL Change
   unsigned ScanLimit = 0; // HLSL Change
   bool EnableGVN = true; // HLSL Change
+  bool StructurizeLoopExitsForUnroll; // HLSL Change
 
 private:
   /// ExtensionList - This is list of all of the extensions that are registered.

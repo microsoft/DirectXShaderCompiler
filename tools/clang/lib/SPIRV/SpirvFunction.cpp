@@ -16,11 +16,13 @@ namespace clang {
 namespace spirv {
 
 SpirvFunction::SpirvFunction(QualType returnType, SourceLocation loc,
-                             llvm::StringRef name, bool isPrecise)
+                             llvm::StringRef name, bool isPrecise,
+                             bool isNoInline)
     : functionId(0), astReturnType(returnType), returnType(nullptr),
       fnType(nullptr), relaxedPrecision(false), precise(isPrecise),
-      containsAlias(false), rvalue(false), functionLoc(loc),
-      functionName(name) {}
+      noInline(isNoInline), containsAlias(false), rvalue(false),
+      functionLoc(loc), functionName(name), isWrapperOfEntry(false),
+      debugScope(nullptr) {}
 
 SpirvFunction::~SpirvFunction() {
   for (auto *param : parameters)
@@ -29,14 +31,25 @@ SpirvFunction::~SpirvFunction() {
     var->releaseMemory();
   for (auto *bb : basicBlocks)
     bb->~SpirvBasicBlock();
+  if (debugScope)
+    debugScope->releaseMemory();
+  for (auto *dd : debugDeclares)
+    dd->releaseMemory();
 }
 
 bool SpirvFunction::invokeVisitor(Visitor *visitor, bool reverseOrder) {
   if (!visitor->visit(this, Visitor::Phase::Init))
     return false;
 
-  for (auto *param : parameters)
+  if (debugScope && !visitor->visit(debugScope))
+    return false;
+
+  for (auto *param : parameters) {
     visitor->visit(param);
+  }
+
+  for (auto *i : debugDeclares)
+    visitor->visit(i);
 
   // Collect basic blocks in a human-readable order that satisfies SPIR-V
   // validation rules.

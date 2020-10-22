@@ -25,7 +25,8 @@ class SpirvVisitor;
 class SpirvFunction {
 public:
   SpirvFunction(QualType astReturnType, SourceLocation,
-                llvm::StringRef name = "", bool precise = false);
+                llvm::StringRef name = "", bool precise = false,
+                bool noInline = false);
 
   ~SpirvFunction();
 
@@ -70,8 +71,12 @@ public:
 
   // Store that the return value is precise.
   void setPrecise(bool p = true) { precise = p; }
+  // Store that the function should not be inlined.
+  void setNoInline(bool n = true) { noInline = n; }
   // Returns whether the return value is precise.
   bool isPrecise() const { return precise; }
+  // Returns whether the function is marked as no inline
+  bool isNoInline() const { return noInline; }
 
   void setSourceLocation(SourceLocation loc) { functionLoc = loc; }
   SourceLocation getSourceLocation() const { return functionLoc; }
@@ -80,6 +85,9 @@ public:
   llvm::StringRef getFunctionName() const { return functionName; }
 
   void addParameter(SpirvFunctionParameter *);
+  void addParameterDebugDeclare(SpirvDebugDeclare *inst) {
+    debugDeclares.push_back(inst);
+  }
   void addVariable(SpirvVariable *);
   void addBasicBlock(SpirvBasicBlock *);
 
@@ -93,6 +101,20 @@ public:
   void setRValue() { rvalue = true; }
   bool isRValue() { return rvalue; }
 
+  /// Get/set DebugScope for this function.
+  SpirvDebugScope *getDebugScope() const { return debugScope; }
+  void setDebugScope(SpirvDebugScope *scope) { debugScope = scope; }
+
+  bool isEntryFunctionWrapper() const { return isWrapperOfEntry; }
+  void setEntryFunctionWrapper() { isWrapperOfEntry = true; }
+
+  /// Returns true if this is a member function of a struct or class.
+  bool isMemberFunction() const {
+    if (parameters.empty())
+      return false;
+    return parameters[0]->getDebugName() == "param.this";
+  }
+
 private:
   uint32_t functionId;    ///< This function's <result-id>
   QualType astReturnType; ///< The return type
@@ -100,6 +122,7 @@ private:
   SpirvType *fnType;      ///< The SPIR-V function type
   bool relaxedPrecision;  ///< Whether the return type is at relaxed precision
   bool precise;           ///< Whether the return value is 'precise'
+  bool noInline;          ///< The function is marked as no inline
 
   /// Legalization-specific code
   ///
@@ -125,6 +148,15 @@ private:
 
   /// Basic blocks inside this function.
   std::vector<SpirvBasicBlock *> basicBlocks;
+
+  /// True if it is a wrapper function for an entry point function.
+  bool isWrapperOfEntry;
+
+  /// DebugScope that groups all instructions in this function.
+  SpirvDebugScope *debugScope;
+
+  /// DebugDeclare instructions for parameters to this function.
+  llvm::SmallVector<SpirvDebugDeclare *, 8> debugDeclares;
 };
 
 } // end namespace spirv

@@ -152,6 +152,17 @@ bool isVectorType(QualType type, QualType *elemType, uint32_t *elemCount) {
   return isVec;
 }
 
+bool isScalarOrVectorType(QualType type, QualType *elemType,
+                          uint32_t *elemCount) {
+  if (isScalarType(type, elemType)) {
+    if (elemCount)
+      *elemCount = 1;
+    return true;
+  }
+
+  return isVectorType(type, elemType, elemCount);
+}
+
 bool isConstantArrayType(const ASTContext &astContext, QualType type) {
   return astContext.getAsConstantArrayType(type) != nullptr;
 }
@@ -254,18 +265,33 @@ bool isSubpassInputMS(QualType type) {
   return false;
 }
 
-bool isConstantTextureBuffer(const Decl *decl) {
-  if (const auto *bufferDecl = dyn_cast<HLSLBufferDecl>(decl->getDeclContext()))
-    // Make sure we are not returning true for VarDecls inside cbuffer/tbuffer.
-    return bufferDecl->isConstantBufferView();
-
+bool isConstantBuffer(clang::QualType type) {
+  // Strip outer arrayness first
+  while (type->isArrayType())
+    type = type->getAsArrayTypeUnsafe()->getElementType();
+  if (const RecordType *RT = type->getAs<RecordType>()) {
+    StringRef name = RT->getDecl()->getName();
+    return name == "ConstantBuffer";
+  }
   return false;
 }
 
-bool isResourceType(const ValueDecl *decl) {
-  if (isConstantTextureBuffer(decl))
-    return true;
+bool isTextureBuffer(clang::QualType type) {
+  // Strip outer arrayness first
+  while (type->isArrayType())
+    type = type->getAsArrayTypeUnsafe()->getElementType();
+  if (const RecordType *RT = type->getAs<RecordType>()) {
+    StringRef name = RT->getDecl()->getName();
+    return name == "TextureBuffer";
+  }
+  return false;
+}
 
+bool isConstantTextureBuffer(QualType type) {
+  return isConstantBuffer(type) || isTextureBuffer(type);
+}
+
+bool isResourceType(const ValueDecl *decl) {
   QualType declType = decl->getType();
 
   // Deprive the arrayness to see the element type
@@ -1295,7 +1321,7 @@ bool isStructureContainingAnyKindOfBuffer(QualType type) {
       while (fieldType->isArrayType())
         fieldType = fieldType->getAsArrayTypeUnsafe()->getElementType();
       if (isAKindOfStructuredOrByteBuffer(fieldType) ||
-          isConstantTextureBuffer(field) ||
+          isConstantTextureBuffer(fieldType) ||
           isStructureContainingAnyKindOfBuffer(fieldType)) {
         return true;
       }

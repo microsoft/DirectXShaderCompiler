@@ -6045,8 +6045,8 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
   IRBuilder<> Builder(user);
   if (CallInst *CI = dyn_cast<CallInst>(user)) {
     HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
-    unsigned opcode = GetHLOpcode(CI);
     if (group == HLOpcodeGroup::HLMatLoadStore) {
+      unsigned opcode = GetHLOpcode(CI);
       HLMatLoadStoreOpcode matOp = static_cast<HLMatLoadStoreOpcode>(opcode);
       bool colMajor = matOp == HLMatLoadStoreOpcode::ColMatLoad;
       DXASSERT(matOp == HLMatLoadStoreOpcode::ColMatLoad ||
@@ -6062,6 +6062,7 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
       dxilutil::TryScatterDebugValueToVectorElements(newLd);
       CI->eraseFromParent();
     } else if (group == HLOpcodeGroup::HLSubscript) {
+      unsigned opcode = GetHLOpcode(CI);
       HLSubscriptOpcode subOp = static_cast<HLSubscriptOpcode>(opcode);
       Value *basePtr = CI->getArgOperand(HLOperandIndex::kMatSubscriptMatOpIdx);
       HLMatrixType MatTy = HLMatrixType::cast(basePtr->getType()->getPointerElementType());
@@ -6203,11 +6204,6 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
       }
 
       CI->eraseFromParent();
-    } else if (group == HLOpcodeGroup::HLIntrinsic) {
-      // FIXME: This case is hit when using built-in structures in constant
-      //        buffers passed directly to an intrinsic, such as:
-      //        RayDesc from cbuffer passed to TraceRay.
-      DXASSERT(0, "not implemented yet");
     } else if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(user)) {
       if( II->getIntrinsicID() == Intrinsic::lifetime_start ||
           II->getIntrinsicID() == Intrinsic::lifetime_end ) {

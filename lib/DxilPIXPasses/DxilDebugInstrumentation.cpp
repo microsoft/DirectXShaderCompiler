@@ -833,6 +833,18 @@ void DxilDebugInstrumentation::addStepDebugEntry(BuilderContext &BC,
     return;
   }
 
+  if (Inst->getOpcode() == Instruction::OtherOps::Call) {
+    if (Inst->getNumOperands() > 0) {
+      if (auto *asInt =
+              llvm::cast_or_null<llvm::ConstantInt>(Inst->getOperand(0))) {
+        if (asInt->getZExtValue() == (uint64_t)DXIL::OpCode::AllocateRayQuery) {
+          // Ray query handles should not be stored in the debug trace UAV
+          return;
+        }
+      }
+    }
+  }
+
   if (auto *St = llvm::dyn_cast<llvm::StoreInst>(Inst)) {
     addStoreStepDebugEntry(BC, St);
     return;

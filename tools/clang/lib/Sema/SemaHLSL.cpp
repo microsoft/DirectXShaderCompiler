@@ -1278,6 +1278,9 @@ const ArBasicKind g_ArBasicKindsAsTypes[] =
   //AR_OBJECT_SAMPLERCUBE,
   AR_OBJECT_SAMPLERCOMPARISON,
 
+  AR_OBJECT_CONSTANT_BUFFER,
+  AR_OBJECT_TEXTURE_BUFFER,
+
   AR_OBJECT_POINTSTREAM,
   AR_OBJECT_LINESTREAM,
   AR_OBJECT_TRIANGLESTREAM,
@@ -1365,6 +1368,9 @@ const uint8_t g_ArBasicKindsTemplateCount[] =
   //AR_OBJECT_SAMPLER3D,
   //AR_OBJECT_SAMPLERCUBE,
   0, // AR_OBJECT_SAMPLERCOMPARISON
+
+  1, //AR_OBJECT_CONSTANT_BUFFER,
+  1, //AR_OBJECT_TEXTURE_BUFFER,
 
   1, // AR_OBJECT_POINTSTREAM
   1, // AR_OBJECT_LINESTREAM
@@ -1461,6 +1467,9 @@ const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] =
   //AR_OBJECT_SAMPLER3D,
   //AR_OBJECT_SAMPLERCUBE,
   { 0, MipsFalse, SampleFalse }, // AR_OBJECT_SAMPLERCOMPARISON (SamplerComparison)
+
+  { 0, MipsFalse, SampleFalse }, // AR_OBJECT_CONSTANT_BUFFER
+  { 0, MipsFalse, SampleFalse }, // AR_OBJECT_TEXTURE_BUFFER
 
   { 0, MipsFalse, SampleFalse }, // AR_OBJECT_POINTSTREAM (PointStream)
   { 0, MipsFalse, SampleFalse }, // AR_OBJECT_LINESTREAM (LineStream)
@@ -3390,6 +3399,10 @@ private:
           recordDecl = CreateSubobjectRaytracingPipelineConfig1(*m_context);
           break;
         }
+      } else if (kind == AR_OBJECT_CONSTANT_BUFFER) {
+        recordDecl = DeclareConstantBufferViewType(*m_context, /*bTBuf*/false);
+      } else if (kind == AR_OBJECT_TEXTURE_BUFFER) {
+        recordDecl = DeclareConstantBufferViewType(*m_context, /*bTBuf*/true);
       } else if (kind == AR_OBJECT_RAY_QUERY) {
         recordDecl = DeclareRayQueryType(*m_context);
       } else if (kind == AR_OBJECT_RESOURCE) {
@@ -4563,6 +4576,32 @@ public:
     if (templateName.equals(StringRef("is_same"))) {
       return false;
     }
+    // Allow object type for Constant/TextureBuffer.
+    if (templateName == "ConstantBuffer" || templateName == "TextureBuffer") {
+      if (TemplateArgList.size() == 1) {
+        const TemplateArgumentLoc &argLoc = TemplateArgList[0];
+        const TemplateArgument &arg = argLoc.getArgument();
+        DXASSERT(arg.getKind() == TemplateArgument::ArgKind::Type, "");
+        QualType argType = arg.getAsType();
+        SourceLocation argSrcLoc = argLoc.getLocation();
+        if (IsScalarType(argType) || IsVectorType(m_sema, argType) ||
+            IsMatrixType(m_sema, argType) || argType->isArrayType()) {
+          m_sema->Diag(argSrcLoc,
+                       diag::err_hlsl_typeintemplateargument_requires_struct)
+              << argType;
+          return true;
+        }
+        if (const RecordType* recordType = argType->getAsStructureType()) {
+          if (!recordType->getDecl()->isCompleteDefinition()) {
+            m_sema->Diag(argSrcLoc, diag::err_typecheck_decl_incomplete_type)
+                << argType;
+
+            return true;
+          }
+        }
+      }
+      return false;
+    }
 
     bool isMatrix = Template->getCanonicalDecl() ==
                     m_matrixTemplateDecl->getCanonicalDecl();
@@ -4714,10 +4753,11 @@ public:
     SourceLocation OpLoc,
     SourceLocation MemberLoc);
 
-  /// <summary>If E is a scalar, converts it to a 1-element vector.</summary>
+  /// <summary>If E is a scalar, converts it to a 1-element vector. If E is a
+  /// Constant/TextureBuffer<T>, converts it to const T.</summary>
   /// <param name="E">Expression to convert.</param>
   /// <returns>The result of the conversion; or E if the type is not a scalar.</returns>
-  ExprResult MaybeConvertScalarToVector(_In_ clang::Expr* E);
+  ExprResult MaybeConvertMemberAccess(_In_ clang::Expr* E);
 
   clang::Expr *HLSLImpCastToScalar(
     _In_ clang::Sema* self,
@@ -7734,8 +7774,16 @@ ExprResult HLSLExternalSource::LookupArrayMemberExprForHLSL(
 }
   
 
-ExprResult HLSLExternalSource::MaybeConvertScalarToVector(_In_ clang::Expr* E) {
+ExprResult HLSLExternalSource::MaybeConvertMemberAccess(_In_ clang::Expr* E) {
   DXASSERT_NOMSG(E != nullptr);
+
+  if (IsHLSLBufferViewType(E->getType())) {
+    QualType targetType =
+        m_context->getConstType(hlsl::GetHLSLResourceResultType(E->getType()));
+    return ImplicitCastExpr::Create(*m_context, targetType,
+                                    CastKind::CK_FlatConversion, E, nullptr,
+                                    E->getValueKind());
+  }
   ArBasicKind basic = GetTypeElementKind(E->getType());
   if (!IS_BASIC_PRIMITIVE(basic)) {
     return E;
@@ -8406,6 +8454,14 @@ bool HLSLExternalSource::CanConvert(
   // are we missing cases?
   if ((Flags & TYPE_CONVERSION_BY_REFERENCE) != 0 && uTSize != uSSize) {
     return false;
+  }
+
+  // Cast cbuffer to its result value.
+  if ((SourceInfo.EltKind == AR_OBJECT_CONSTANT_BUFFER ||
+       SourceInfo.EltKind == AR_OBJECT_TEXTURE_BUFFER) &&
+      TargetInfo.ShapeKind == AR_TOBJ_COMPOUND) {
+    standard->Second = ICK_Flat_Conversion;
+    return hlsl::GetHLSLResourceResultType(source) == target;
   }
 
   // Structure cast.
@@ -10244,11 +10300,11 @@ bool hlsl::LookupRecordMemberExprForHLSL(
   return false;
 }
 
-clang::ExprResult hlsl::MaybeConvertScalarToVector(
+clang::ExprResult hlsl::MaybeConvertMemberAccess(
   _In_ clang::Sema* self,
   _In_ clang::Expr* E)
 {
-  return HLSLExternalSource::FromSema(self)->MaybeConvertScalarToVector(E);
+  return HLSLExternalSource::FromSema(self)->MaybeConvertMemberAccess(E);
 }
 
 bool hlsl::TryStaticCastForHLSL(_In_ Sema* self, ExprResult &SrcExpr,

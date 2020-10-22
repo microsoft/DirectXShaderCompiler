@@ -1067,6 +1067,8 @@ TEST_F(ValidationTest, UpdateCounterFail) {
 }
 
 TEST_F(ValidationTest, LocalResCopy) {
+  // error updated, so must exclude previous validator versions.
+  if (m_ver.SkipDxilVersion(1, 6)) return;
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\resCopy.hlsl", "cs_6_0", {"ret void"},
       {"%H = alloca %dx.types.ResRet.i32\n"
@@ -1159,6 +1161,8 @@ TEST_F(ValidationTest, TypedUAVStoreFullMask1) {
 }
 
 TEST_F(ValidationTest, UAVStoreMaskMatch) {
+  // error updated, so must exclude previous validator versions.
+  if (m_ver.SkipDxilVersion(1, 6)) return;
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\uav_store.hlsl", "ps_6_0",
       "i32 2, i8 15)",
@@ -1276,6 +1280,8 @@ TEST_F(ValidationTest, PullModelPosition) {
 }
 
 TEST_F(ValidationTest, StructBufGlobalCoherentAndCounter) {
+    // error updated, so must exclude previous validator versions.
+    if (m_ver.SkipDxilVersion(1, 6)) return;
     RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\struct_buf1.hlsl", "ps_6_0",
       "!\"buf2\", i32 0, i32 0, i32 1, i32 12, i1 false, i1 false",
@@ -1594,6 +1600,8 @@ TEST_F(ValidationTest, NoFunctionParam) {
 }
 
 TEST_F(ValidationTest, I8Type) {
+  // error updated, so must exclude previous validator versions.
+  if (m_ver.SkipDxilVersion(1, 6)) return;
   RewriteAssemblyCheckMsg(L"..\\DXILValidation\\staticGlobals.hlsl", "ps_6_0",
                           "%([0-9]+) = alloca \\[4 x i32\\]",
                           "%\\1 = alloca [4 x i32]\n"
@@ -2025,6 +2033,8 @@ float4 main(float4 col : COLOR, out uint coverage : SV_Coverage) : SV_Target7 { 
 }
 
 TEST_F(ValidationTest, SemComponentOrder) {
+  // error updated, so must exclude previous validator versions.
+  if (m_ver.SkipDxilVersion(1, 6)) return;
   RewriteAssemblyCheckMsg(" \
 void main( \
   float2 f2in : f2in, \
@@ -2062,6 +2072,8 @@ void main( \
 }
 
 TEST_F(ValidationTest, SemComponentOrder2) {
+  // error updated, so must exclude previous validator versions.
+  if (m_ver.SkipDxilVersion(1, 6)) return;
   RewriteAssemblyCheckMsg(" \
 float4 main( \
   float4 col : Color, \
@@ -2088,6 +2100,8 @@ float4 main( \
 }
 
 TEST_F(ValidationTest, SemComponentOrder3) {
+  // error updated, so must exclude previous validator versions.
+  if (m_ver.SkipDxilVersion(1, 6)) return;
   RewriteAssemblyCheckMsg(" \
 float4 main( \
   float4 col : Color, \

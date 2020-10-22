@@ -25,3 +25,5 @@ set_target_properties(dxilconv
   PROPERTIES
   OUTPUT_NAME "dxilconv"
 )
+
+add_dependencies(dxilconv DxcEtw)

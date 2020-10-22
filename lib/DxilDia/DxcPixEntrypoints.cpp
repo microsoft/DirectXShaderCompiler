@@ -728,6 +728,13 @@ struct IDxcPixDxilDebugInfoEntrypoint : public Entrypoint<IDxcPixDxilDebugInfo>
   {
     return InvokeOnReal(&IInterface::InstructionOffsetsFromSourceLocation, CheckNotNull(InParam(FileName)), SourceLine, SourceColumn, CheckNotNull(OutParam(ppOffsets)));
   }
+
+  STDMETHODIMP SourceLocationsFromInstructionOffset(
+      _In_ DWORD InstructionOffset,
+      _COM_Outptr_ IDxcPixDxilSourceLocations** ppSourceLocations) override
+  {
+      return InvokeOnReal(&IInterface::SourceLocationsFromInstructionOffset, InstructionOffset, CheckNotNull(OutParam(ppSourceLocations)));
+  }
 };
 DEFINE_ENTRYPOINT_WRAPPER_TRAIT(IDxcPixDxilDebugInfo);
 
@@ -746,6 +753,31 @@ struct IDxcPixDxilInstructionOffsetsEntrypoint : public Entrypoint<IDxcPixDxilIn
   }
 };
 DEFINE_ENTRYPOINT_WRAPPER_TRAIT(IDxcPixDxilInstructionOffsets);
+
+struct IDxcPixDxilSourceLocationsEntrypoint : public Entrypoint<IDxcPixDxilSourceLocations>
+{
+  DEFINE_ENTRYPOINT_BOILERPLATE(IDxcPixDxilSourceLocationsEntrypoint);
+
+  STDMETHODIMP_(DWORD) GetCount() override
+  {
+      return InvokeOnReal(&IInterface::GetCount);
+  }
+
+  STDMETHODIMP_(DWORD) GetLineNumberByIndex(_In_ DWORD Index) override
+  {
+    return InvokeOnReal(&IInterface::GetLineNumberByIndex, Index);
+  }
+
+  STDMETHODIMP_(DWORD) GetColumnByIndex(_In_ DWORD Index) override
+  {
+    return InvokeOnReal(&IInterface::GetColumnByIndex, Index);
+  }
+  STDMETHODIMP GetFileNameByIndex(_In_ DWORD Index, _Outptr_result_z_ BSTR* Name) override
+  {
+    return InvokeOnReal(&IInterface::GetFileNameByIndex, Index, CheckNotNull(OutParam(Name)));
+  }
+};
+DEFINE_ENTRYPOINT_WRAPPER_TRAIT(IDxcPixDxilSourceLocations);
 
 struct IDxcPixCompilationInfoEntrypoint
     : public Entrypoint<IDxcPixCompilationInfo>

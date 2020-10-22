@@ -17,6 +17,7 @@
 using namespace hlsl;
 using namespace llvm;
 
+#include <assert.h> // Needed for DxilPipelineStateValidation.h
 #include "dxc/DxilContainer/DxilPipelineStateValidation.h"
 #include <functional>
 #include "dxc/HLSL/ViewIDPipelineValidation.inl"
