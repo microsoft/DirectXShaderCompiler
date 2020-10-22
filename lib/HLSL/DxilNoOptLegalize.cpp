@@ -26,14 +26,9 @@ public:
     initializeDxilNoOptLegalizePass(*PassRegistry::getPassRegistry());
   }
 
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<DxilValueCache>();
-  }
-
   bool runOnModule(Module &M) override;
   bool RemoveStoreUndefsFromPtr(Value *V);
   bool RemoveStoreUndefs(Module &M);
-  bool SimplifySelects(Module &M);
 };
 char DxilNoOptLegalize::ID;
 
@@ -80,34 +75,10 @@ bool DxilNoOptLegalize::RemoveStoreUndefs(Module &M) {
   return Changed;
 }
 
-bool DxilNoOptLegalize::SimplifySelects(Module &M) {
-  bool Changed = false;
-  DxilValueCache *DVC = &getAnalysis<DxilValueCache>();
-  for (Function &F : M) {
-    for (BasicBlock &BB : F) {
-      for (auto it = BB.begin(), end = BB.end(); it != end;) {
-        Instruction *I = &*(it++);
-        if (I->getOpcode() == Instruction::Select) {
-
-          if (hlsl::IsPreserve(I))
-            continue;
-
-          if (Value *C = DVC->GetValue(I)) {
-            I->replaceAllUsesWith(C);
-            I->eraseFromParent();
-            Changed = true;
-          }
-        }
-      }
-    }
-  }
-  return Changed;
-}
 
 bool DxilNoOptLegalize::runOnModule(Module &M) {
   bool Changed = false;
   Changed |= RemoveStoreUndefs(M);
-  Changed |= SimplifySelects(M);
   return Changed;
 }
 
@@ -116,3 +87,51 @@ ModulePass *llvm::createDxilNoOptLegalizePass() {
 }
 
 INITIALIZE_PASS(DxilNoOptLegalize, "dxil-o0-legalize", "DXIL No-Opt Legalize", false, false)
+
+
+
+class DxilNoOptSimplifyInstructions : public ModulePass {
+  SmallVector<Value *, 16> Worklist;
+
+public:
+  static char ID;
+  DxilNoOptSimplifyInstructions() : ModulePass(ID) {
+    initializeDxilNoOptSimplifyInstructionsPass(*PassRegistry::getPassRegistry());
+  }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<DxilValueCache>();
+  }
+
+  bool runOnModule(Module &M) override {
+    bool Changed = false;
+    DxilValueCache *DVC = &getAnalysis<DxilValueCache>();
+    for (Function &F : M) {
+      for (BasicBlock &BB : F) {
+        for (auto it = BB.begin(), end = BB.end(); it != end;) {
+          Instruction *I = &*(it++);
+          if (I->getOpcode() == Instruction::Select) {
+
+            if (hlsl::IsPreserve(I))
+              continue;
+
+            if (Value *C = DVC->GetValue(I)) {
+              I->replaceAllUsesWith(C);
+              I->eraseFromParent();
+              Changed = true;
+            }
+          }
+        }
+      }
+    }
+    return Changed;
+  }
+};
+char DxilNoOptSimplifyInstructions::ID;
+
+ModulePass *llvm::createDxilNoOptSimplifyInstructionsPass() {
+  return new DxilNoOptSimplifyInstructions();
+}
+
+INITIALIZE_PASS(DxilNoOptSimplifyInstructions, "dxil-o0-simplify-inst", "DXIL No-Opt Simplify Inst", false, false)
+

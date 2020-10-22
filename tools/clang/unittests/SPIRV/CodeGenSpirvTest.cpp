@@ -420,6 +420,9 @@ TEST_F(FileTest, OpTextureSampleAccess) {
   runFileTest("op.texture.sample-access.hlsl");
 }
 TEST_F(FileTest, OpSizeOf) { runFileTest("op.sizeof.hlsl"); }
+TEST_F(FileTest, OpSizeOfSameForInitAndReturn) {
+  runFileTest("op.sizeof.same.for.init.and.return.hlsl");
+}
 
 // For casting
 TEST_F(FileTest, CastNoOp) { runFileTest("cast.no-op.hlsl"); }
@@ -1866,6 +1869,10 @@ TEST_F(FileTest, VulkanPushConstantAnonymousStruct) {
 }
 TEST_F(FileTest, VulkanMultiplePushConstant) {
   runFileTest("vk.push-constant.multiple.hlsl", Expect::Failure);
+}
+
+TEST_F(FileTest, VulkanPushCOnstantOnConstantBuffer) {
+  runFileTest("vk.push-constant.constantbuffer.hlsl");
 }
 
 TEST_F(FileTest, VulkanSpecConstantInit) {
