@@ -18,7 +18,9 @@ target_link_libraries(dxilconv-tests PRIVATE
   shlwapi
 )
 
-include_directories(${TAEF_INCLUDE_DIRS})
+target_include_directories(dxilconv-tests PRIVATE
+  ${TAEF_INCLUDE_DIRS}
+)
 
 add_dependencies(dxilconv-tests dxilconv HLSLTestLib)
 
@@ -28,4 +30,4 @@ install(TARGETS dxilconv-tests
 # Add a .user file with settings for te.exe.
 file(TO_NATIVE_PATH "${CMAKE_CURRENT_SOURCE_DIR}" DOS_STYLE_SOURCE_DIR)
 file(TO_NATIVE_PATH "${TAEF_BIN_DIR}" DOS_TAEF_BIN_DIR)
-configure_file(dxilconv-tests.vcxproj.user.txt dxilconv-tests.vcxproj.user)
+configure_file(dxilconv-tests.vcxproj.user.in dxilconv-tests.vcxproj.user)
