@@ -38,27 +38,6 @@ int if_scoped_array(int n, int c)
 }
 
 //
-// Function parameters should have lifetimes.
-//
-// CHECK: define float @"\01?escaping_struct@@YAMUMyStruct@@@Z"(%struct.MyStruct* nocapture readonly %data)
-// CHECK: %[[alloca:.*]] = alloca %struct.MyStruct
-// CHECK-NOT:memcpy
-// CHECK-NEXT: bitcast
-// CHECK-NEXT: call void @llvm.lifetime.start
-// CHECK: call float @"\01?func@@YAMUMyStruct@@@Z"(%struct.MyStruct* nonnull %[[alloca]])
-// CHECK-NEXT: call void @llvm.lifetime.end
-struct MyStruct {
-  float x;
-};
-
-float func(MyStruct data);
-
-export
-float escaping_struct(MyStruct data) {
-  return func(data);
-}
-
-//
 // Escaping structs should have lifetimes within the correct scope.
 //
 // CHECK: define void @"\01?loop_scoped_escaping_struct@@YAXH@Z"(i32 %n)
@@ -70,6 +49,12 @@ float escaping_struct(MyStruct data) {
 // CHECK-NEXT: call float @"\01?func@@YAMUMyStruct@@@Z"(%struct.MyStruct* nonnull %[[alloca]])
 // CHECK-NEXT: call void @llvm.lifetime.end
 // CHECK: br i1
+struct MyStruct {
+  float x;
+};
+
+float func(MyStruct data);
+
 export
 void loop_scoped_escaping_struct(int n)
 {
@@ -98,7 +83,7 @@ void loop_scoped_escaping_struct(int n)
 // CHECK-NEXT: call void @"\01?func2@@YAXUMyStruct@@@Z"(%struct.MyStruct* nonnull %[[alloca]])
 // CHECK-NEXT: getelementptr
 // CHECK-NEXT: load
-// CHECK-NEXT: call void @llvm.lifetime.end
+// CHECK: call void @llvm.lifetime.end
 // CHECK: br i1
 void func2(inout MyStruct data);
 

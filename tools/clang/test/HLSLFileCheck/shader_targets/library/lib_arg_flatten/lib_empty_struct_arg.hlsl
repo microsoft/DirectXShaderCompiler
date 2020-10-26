@@ -6,8 +6,6 @@
 // CHECK-NOT:memcpy
 // CHECK-NOT:load
 // CHECK-NOT:store
-// CHECK-NEXT: bitcast
-// CHECK-NEXT: call void @llvm.lifetime.start
 // CHECK-DAG: call float @"\01?test@@YAMUT@@@Z"(%struct.T*
 
 
