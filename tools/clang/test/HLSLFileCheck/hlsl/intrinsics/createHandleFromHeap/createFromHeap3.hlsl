@@ -6,6 +6,7 @@
 //CHECK:call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %{{.*}}, %dx.types.ResourceProperties { i32 14, i32 0 })  ; AnnotateHandle(res,props)  resource: SamplerState
 
 
+[RootSignature("RootFlags(CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED|SAMPLER_HEAP_DIRECTLY_INDEXED)")]
 float4 main(float2 c:C) : SV_Target {
 
   Texture2D t = ResourceDescriptorHeap[0];

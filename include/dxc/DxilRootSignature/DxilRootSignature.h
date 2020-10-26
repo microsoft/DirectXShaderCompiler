@@ -112,7 +112,7 @@ enum class DxilRootSignatureFlags : uint32_t {
   CBVSRVUAVHeapDirectlyIndexed = 0x400,
   SamplerHeapDirectlyIndexed = 0x800,
   AllowLowTierReservedHwCbLimit = 0x80000000,
-  ValidFlags = 0x800003ff
+  ValidFlags = 0x80000fff
 };
 enum class DxilRootParameterType {
   DescriptorTable = 0,

@@ -276,7 +276,8 @@ void RootSignatureTokenizer::ReadNextToken(uint32_t BufferIdx)
               KW(COMPARISON_GREATER) ||
               KW(COMPARISON_NOT_EQUAL) ||
               KW(COMPARISON_GREATER_EQUAL) ||
-              KW(COMPARISON_ALWAYS);
+              KW(COMPARISON_ALWAYS) ||
+              KW(CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED);
         break;
 
     case 'D':
@@ -366,7 +367,7 @@ void RootSignatureTokenizer::ReadNextToken(uint32_t BufferIdx)
               KW(SHADER_VISIBILITY_AMPLIFICATION) || KW(SHADER_VISIBILITY_MESH) ||
               KW(STATIC_BORDER_COLOR_TRANSPARENT_BLACK) ||
               KW(STATIC_BORDER_COLOR_OPAQUE_BLACK) ||
-              KW(STATIC_BORDER_COLOR_OPAQUE_WHITE);
+              KW(STATIC_BORDER_COLOR_OPAQUE_WHITE) || KW(SAMPLER_HEAP_DIRECTLY_INDEXED);
         break;
 
     case 'T':
