@@ -164,9 +164,14 @@
           return float4(ddx_fine(val), ddy_fine(val), ddx_coarse(val), ddy_coarse(val));
         }
 
-        // Convert single index into uv and test derivatives
-        float4 DerivTest(uint ix) {
-          return DerivTest(int2(((ix&0x4)>>1) + (ix&01), ((ix&0x8)>>2) + ((ix&02)>>1)));
+        // Map group index to 4x4 UV texcoord block
+        int2 ConvertGroupIdx(uint groupIdx) {
+          return int2(((groupIdx&0x4)>>1) + (groupIdx&01), ((groupIdx&0x8)>>2) + ((groupIdx&02)>>1));
+        }
+
+        // Convert group index into uv texcoords and return derivatives test result
+        float4 DerivTest(uint groupIdx) {
+          return DerivTest(ConvertGroupIdx(groupIdx));
         }
 
         PSInput VSMain(float3 position : POSITION, float2 uv : TEXCOORD) {
@@ -221,8 +226,13 @@
             g_bufMesh[ix] = DerivTest(ix);
         }
         float4 PSMain(PSInput input) : SV_TARGET {
-          float4 res = DerivTest(input.uv * 32.0);
-          int ix = input.uv.y * 32 * 32 + input.uv.x * 32;
+          // Convert from texcoords into a groupIndex equivalent
+          int width = DISPATCHX;
+          int height = DISPATCHY;
+          int2 uv = int2(input.uv.x*width, input.uv.y*height);
+          uint ix = ((uv.y/4)*(width/4))*16 + (uv.x/4)*16 + (((uv.x & 0x2) << 1) | (uv.x & 0x1) | ((uv.y & 0x2) << 2) | ((uv.y & 0x1) << 1));
+
+          float4 res = DerivTest(ix);
           g_bufMain[ix] = res;
           return res;
         }

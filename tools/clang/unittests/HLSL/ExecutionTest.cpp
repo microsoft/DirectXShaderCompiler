@@ -2587,6 +2587,8 @@ TEST_F(ExecutionTest, DerivativesTest) {
 
   st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("Derivatives");
 
+  LPCSTR CS = pShaderOp->CS;
+
   struct Dispatch {
     int x, y, z;
     int mx, my, mz;
@@ -2607,28 +2609,44 @@ TEST_F(ExecutionTest, DerivativesTest) {
 
   char compilerOptions[256];
   for (Dispatch &D : dispatches) {
+
+    UINT width = D.x;
+    UINT height = D.y;
+    UINT depth = D.z;
+
+    UINT mwidth = D.mx;
+    UINT mheight = D.my;
+    UINT mdepth = D.mz;
+    UINT pixelSize = 4; // always float4
+
     // format compiler args
     VERIFY_IS_TRUE(sprintf_s(compilerOptions, sizeof(compilerOptions),
                              "-D DISPATCHX=%d -D DISPATCHY=%d -D DISPATCHZ=%d "
                              "-D MESHDISPATCHX=%d -D MESHDISPATCHY=%d -D MESHDISPATCHZ=%d",
-                             D.x, D.y, D.z, D.mx, D.my, D.mz));
+                             width, height, depth, mwidth, mheight, mdepth));
 
     for (st::ShaderOpShader &S : pShaderOp->Shaders)
       S.Arguments = compilerOptions;
 
-    pShaderOp->DispatchX = D.x;
-    pShaderOp->DispatchY = D.y;
-    pShaderOp->DispatchZ = D.z;
+    pShaderOp->DispatchX = width;
+    pShaderOp->DispatchY = height;
+    pShaderOp->DispatchZ = depth;
 
     // Test Compute Shader
+    pShaderOp->CS = CS;
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Derivatives", nullptr, ShaderOpSet);
     MappedData data;
 
     test->Test->GetReadBackData("U0", &data);
     const float *pPixels = (float *)data.data();
 
-    UINT centerIndex = 4* (UINT64)D.x * D.y * D.z / 2;
-    VerifyDerivResults(pPixels, centerIndex);
+    // To find roughly the center for compute, divide the pixel count in half,
+    // truncate to next lowest power of 16 (4x4), which is the repeating period
+    // and then add 10 to reach the point the test expects
+    UINT centerIndex = (((UINT64)(width * height * depth)/2) & ~0xF) + 10;
+    UINT offsetCenter = centerIndex * pixelSize;
+    LogCommentFmt(L"Verifying derivatives in compute shader results");
+    VerifyDerivResults(pPixels, offsetCenter);
 
     if (DoesDeviceSupportMeshAmpDerivatives(pDevice)) {
       // Disable CS so mesh goes forward
@@ -2636,11 +2654,15 @@ TEST_F(ExecutionTest, DerivativesTest) {
       test = RunShaderOpTestAfterParse(pDevice, m_support, "Derivatives", nullptr, ShaderOpSet);
       test->Test->GetReadBackData("U1", &data);
       pPixels = (float *)data.data();
-      VerifyDerivResults(pPixels, centerIndex);
+      centerIndex = (((UINT64)(mwidth * mheight * mdepth)/2) & ~0xF) + 10;
+      offsetCenter = centerIndex * pixelSize;
+      LogCommentFmt(L"Verifying derivatives in mesh shader results");
+      VerifyDerivResults(pPixels, offsetCenter);
 
       test->Test->GetReadBackData("U2", &data);
       pPixels = (float *)data.data();
-      VerifyDerivResults(pPixels, centerIndex);
+      LogCommentFmt(L"Verifying derivatives in amplification shader results");
+      VerifyDerivResults(pPixels, offsetCenter);
     }
   }
 
@@ -2654,9 +2676,12 @@ TEST_F(ExecutionTest, DerivativesTest) {
   pShaderOp->DispatchZ = 3;
 
   // Test Compute Shader
+  pShaderOp->CS = CS;
   std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Derivatives", nullptr, ShaderOpSet);
-  pShaderOp->CS = nullptr;
-  test = RunShaderOpTestAfterParse(pDevice, m_support, "Derivatives", nullptr, ShaderOpSet);
+  if (DoesDeviceSupportMeshAmpDerivatives(pDevice)) {
+    pShaderOp->CS = nullptr;
+    test = RunShaderOpTestAfterParse(pDevice, m_support, "Derivatives", nullptr, ShaderOpSet);
+  }
 }
 
 // Verify the results for the quad starting with the given index
@@ -2685,6 +2710,7 @@ TEST_F(ExecutionTest, QuadReadTest) {
   st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
 
   st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("QuadRead");
+  LPCSTR CS = pShaderOp->CS;
 
   struct Dispatch {
     int x, y, z;
@@ -2705,50 +2731,70 @@ TEST_F(ExecutionTest, QuadReadTest) {
   };
 
   for (Dispatch &D : dispatches) {
+
+    UINT width = D.x;
+    UINT height = D.y;
+    UINT depth = D.z;
+
+    UINT mwidth = D.mx;
+    UINT mheight = D.my;
+    UINT mdepth = D.mz;
+    UINT pixelSize = 4; // always int4
     // format compiler args
     char compilerOptions[256];
     VERIFY_IS_TRUE(sprintf_s(compilerOptions, sizeof(compilerOptions),
                              "-D DISPATCHX=%d -D DISPATCHY=%d -D DISPATCHZ=%d "
                              "-D MESHDISPATCHX=%d -D MESHDISPATCHY=%d -D MESHDISPATCHZ=%d",
-                             D.x, D.y, D.z, D.mx, D.my, D.mz));
+                             width, height, depth, mwidth, mheight, mdepth));
 
     for (st::ShaderOpShader &S : pShaderOp->Shaders)
       S.Arguments = compilerOptions;
 
-    pShaderOp->DispatchX = D.x;
-    pShaderOp->DispatchY = D.y;
-    pShaderOp->DispatchZ = D.z;
+    pShaderOp->DispatchX = width;
+    pShaderOp->DispatchY = height;
+    pShaderOp->DispatchZ = depth;
 
     // Test Compute Shader
+    pShaderOp->CS = CS;
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "QuadRead", nullptr, ShaderOpSet);
     MappedData data;
 
     test->Test->GetReadBackData("U0", &data);
     const UINT *pPixels = (UINT *)data.data();
 
-    UINT centerIndex = (UINT64)D.x * D.y * D.z / 2;
+    // To find roughly the center for compute, divide the pixel count in half
+    // and truncate to next lowest power of 4 to start at a quad
+    UINT centerIndex = ((UINT64)(width * height * depth)/2) & ~0x3;
+    UINT offsetCenter = centerIndex * pixelSize;
+
     // Test first, second and center quads
+    LogCommentFmt(L"Verifying QuadRead* in compute shader results");
     VerifyQuadReadResults(pPixels, 0);
     VerifyQuadReadResults(pPixels, 4);
-    VerifyQuadReadResults(pPixels, centerIndex);
+    VerifyQuadReadResults(pPixels, offsetCenter);
 
     if (DoesDeviceSupportMeshAmpDerivatives(pDevice)) {
+      centerIndex = ((UINT64)(mwidth * mheight * mdepth)/2) & ~0x3;
+      offsetCenter = centerIndex * pixelSize;
+
       // Disable CS so mesh goes forward
       pShaderOp->CS = nullptr;
       test = RunShaderOpTestAfterParse(pDevice, m_support, "QuadRead", nullptr, ShaderOpSet);
       test->Test->GetReadBackData("U1", &data);
       pPixels = (UINT *)data.data();
       // Test first, second and center quads
+      LogCommentFmt(L"Verifying QuadRead* in mesh shader results");
       VerifyQuadReadResults(pPixels, 0);
       VerifyQuadReadResults(pPixels, 4);
-      VerifyQuadReadResults(pPixels, centerIndex);
+      VerifyQuadReadResults(pPixels, offsetCenter);
 
       test->Test->GetReadBackData("U2", &data);
       pPixels = (UINT *)data.data();
       // Test first, second and center quads
+      LogCommentFmt(L"Verifying QuadRead* in amplification shader results");
       VerifyQuadReadResults(pPixels, 0);
       VerifyQuadReadResults(pPixels, 4);
-      VerifyQuadReadResults(pPixels, centerIndex);
+      VerifyQuadReadResults(pPixels, offsetCenter);
     }
   }
 }
