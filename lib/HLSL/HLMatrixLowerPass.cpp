@@ -476,7 +476,7 @@ void HLMatrixLowerPass::replaceAllUsesByLoweredValue(Instruction* MatInst, Value
       Instruction *PrevInst = dyn_cast<Instruction>(VecVal);
       if (PrevInst == nullptr) PrevInst = MatInst;
 
-      IRBuilder<> Builder(dxilutil::SkipAllocas(PrevInst->getNextNode()));
+      IRBuilder<> Builder(PrevInst->getNextNode());
       VecToMatStub = Builder.CreateCall(TranslationStub, { VecVal });
     }
 
