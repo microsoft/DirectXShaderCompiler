@@ -194,7 +194,7 @@ struct Propagator {
       BasicBlock *bb = edge.bb;
 
       // Don't continue to propagate when we hit the latch or dominate it.
-      if (bb == latch && DT->dominates(bb, latch)) {
+      if (DT->dominates(bb, latch)) {
         new_exiting_block = bb;
         continue;
       }
@@ -341,7 +341,7 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop
   BasicBlock *latch_exit = GetExitBlockForExitingBlock(L, latch);
 
   // If exiting block already dominates latch, then no need to do anything.
-  if (exiting_block == latch || DT->dominates(exiting_block, latch)) {
+  if (DT->dominates(exiting_block, latch)) {
     return false;
   }
 
