@@ -25,6 +25,9 @@ using namespace llvm;
 using namespace hlsl;
 
 namespace {
+
+typedef std::unordered_set<Value *> ValueSet;
+
 class DxilPrecisePropagatePass : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
@@ -35,7 +38,7 @@ public:
   bool runOnModule(Module &M) override {
     DxilModule &dxilModule = M.GetOrCreateDxilModule();
     DxilTypeSystem &typeSys = dxilModule.GetTypeSystem();
-    std::unordered_set<Instruction*> processedSet;
+    ValueSet processedSet;
     std::vector<Function*> deadList;
     for (Function &F : M.functions()) {
       if (HLModule::HasPreciseAttribute(&F)) {
@@ -51,7 +54,7 @@ public:
 private:
   void PropagatePreciseOnFunctionUser(
       Function &F, DxilTypeSystem &typeSys,
-      std::unordered_set<Instruction *> &processedSet);
+      ValueSet &processedSet);
 };
 
 char DxilPrecisePropagatePass::ID = 0;
@@ -59,65 +62,161 @@ char DxilPrecisePropagatePass::ID = 0;
 }
 
 static void PropagatePreciseAttribute(Instruction *I, DxilTypeSystem &typeSys,
-    std::unordered_set<Instruction *> &processedSet);
+    ValueSet &processedSet);
+static void PropagatePreciseAttributeOnPointer(
+    Value *Ptr, DxilTypeSystem &typeSys, LLVMContext &Context,
+    ValueSet &processedSet);
+static void PropagatePreciseAttributeOnPointerUsers(
+    Value *Ptr, DxilTypeSystem &typeSys, LLVMContext &Context,
+    ValueSet &processedSet);
+static void PropagatePreciseAttributeThroughGEPs(
+    Value *Ptr, DxilTypeSystem &typeSys, LLVMContext &Context,
+    ArrayRef<Value*> idxList, ValueSet &processedGEPs,
+    ValueSet &processedSet);
 
 static void PropagatePreciseAttributeOnOperand(
     Value *V, DxilTypeSystem &typeSys, LLVMContext &Context,
-    std::unordered_set<Instruction *> &processedSet) {
+    ValueSet &processedSet) {
+  // Skip values already marked.
+  if (!processedSet.insert(V).second)
+    return;
+
+  if (V->getType()->isPointerTy()) {
+    PropagatePreciseAttributeOnPointer(V, typeSys, Context, processedSet);
+  }
+
   Instruction *I = dyn_cast<Instruction>(V);
-  // Skip none inst.
   if (!I)
     return;
 
-  FPMathOperator *FPMath = dyn_cast<FPMathOperator>(I);
-  // Skip none FPMath
-  if (!FPMath)
-    return;
-
-  // Skip inst already marked.
-  if (processedSet.count(I) > 0)
-    return;
-  // TODO: skip precise on integer type, sample instruction...
-  processedSet.insert(I);
   // Set precise fast math on those instructions that support it.
   if (DxilModule::PreservesFastMathFlags(I))
     DxilModule::SetPreciseFastMathFlags(I);
 
   // Fast math not work on call, use metadata.
-  if (CallInst *CI = dyn_cast<CallInst>(I))
-    HLModule::MarkPreciseAttributeWithMetadata(CI);
+  if (isa<FPMathOperator>(I) && isa<CallInst>(I))
+    HLModule::MarkPreciseAttributeWithMetadata(cast<CallInst>(I));
   PropagatePreciseAttribute(I, typeSys, processedSet);
+}
+
+static void PropagatePreciseAttributeThroughGEPs(
+    Value *Ptr, DxilTypeSystem &typeSys, LLVMContext &Context,
+    ArrayRef<Value*> idxList, ValueSet &processedGEPs,
+    ValueSet &processedSet) {
+  // recurse to matching GEP users
+  for (User *U : Ptr->users()) {
+    if (GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
+      // skip visited GEPs
+      // These are separate from processedSet because while we don't need to
+      // visit an intermediate GEP multiple times while marking a single value
+      // precise, we are not necessarily marking every value reachable from
+      // the GEP as precise, so we may need to revisit when marking a different
+      // value as precise.
+      if (!processedGEPs.insert(GEP).second)
+        continue;
+
+      // Mismatch if both constant and unequal, otherwise be conservative.
+      bool bMismatch = false;
+      auto idx = GEP->idx_begin();
+      idx++;
+      unsigned i = 0;
+      while (idx != GEP->idx_end()) {
+        if (ConstantInt *C = dyn_cast<ConstantInt>(*idx)) {
+          if (ConstantInt *CRef = dyn_cast<ConstantInt>(idxList[i])) {
+            if (CRef->getLimitedValue() != C->getLimitedValue()) {
+              bMismatch = true;
+              break;
+            }
+          }
+        }
+        idx++;
+        i++;
+      }
+      if (bMismatch)
+        continue;
+
+      if ((unsigned)idxList.size() == i) {
+        // Mark leaf users
+        if (!processedSet.insert(GEP).second)
+          continue;
+        PropagatePreciseAttributeOnPointerUsers(GEP, typeSys, Context, processedSet);
+      } else {
+        // Recurse GEP users
+        PropagatePreciseAttributeThroughGEPs(
+            GEP, typeSys, Context,
+            ArrayRef<Value*>(idxList.data() + i, idxList.end()),
+            processedGEPs, processedSet);
+      }
+    }
+  }
 }
 
 static void PropagatePreciseAttributeOnPointer(
     Value *Ptr, DxilTypeSystem &typeSys, LLVMContext &Context,
-    std::unordered_set<Instruction *> &processedSet) {
+    ValueSet &processedSet) {
+
+  PropagatePreciseAttributeOnPointerUsers(Ptr, typeSys, Context, processedSet);
+
+  if (GEPOperator *GEP = dyn_cast<GEPOperator>(Ptr)) {
+    // Get root Ptr, gather index list, and mark matching stores
+    SmallVector<Value*, 8> idxList;
+    SmallVector<GEPOperator*, 4> GEPs;
+    GEPs.emplace_back(GEP);
+    while (GEP = dyn_cast<GEPOperator>(Ptr = GEP->getPointerOperand()))
+      GEPs.emplace_back(GEP);
+    while (!GEPs.empty()) {
+      GEP = GEPs.back();
+      GEPs.pop_back();
+      auto idx = GEP->idx_begin();
+      idx++;
+      while (idx != GEP->idx_end())
+        idxList.emplace_back(*(idx++));
+    }
+    ValueSet processedGEPs;
+    PropagatePreciseAttributeThroughGEPs(
+        Ptr, typeSys, Context,
+        idxList, processedGEPs, processedSet);
+  }
+}
+
+static void PropagatePreciseAttributeOnPointerUsers(
+    Value *Ptr, DxilTypeSystem &typeSys, LLVMContext &Context,
+    ValueSet &processedSet) {
   // Find all store and propagate on the val operand of store.
   // For CallInst, if Ptr is used as out parameter, mark it.
   for (User *U : Ptr->users()) {
-    Instruction *user = cast<Instruction>(U);
-    if (StoreInst *stInst = dyn_cast<StoreInst>(user)) {
+    if (StoreInst *stInst = dyn_cast<StoreInst>(U)) {
       Value *val = stInst->getValueOperand();
       PropagatePreciseAttributeOnOperand(val, typeSys, Context, processedSet);
-    } else if (CallInst *CI = dyn_cast<CallInst>(user)) {
+    } else if (CallInst *CI = dyn_cast<CallInst>(U)) {
       bool bReadOnly = true;
 
       Function *F = CI->getCalledFunction();
+
+      // skip starting points (dx.attribute.precise calls)
+      if (HLModule::HasPreciseAttribute(F))
+        return;
+
       const DxilFunctionAnnotation *funcAnnotation =
           typeSys.GetFunctionAnnotation(F);
-      for (unsigned i = 0; i < CI->getNumArgOperands(); ++i) {
-        if (Ptr != CI->getArgOperand(i))
-          continue;
 
-        const DxilParameterAnnotation &paramAnnotation =
-            funcAnnotation->GetParameterAnnotation(i);
-        // OutputPatch and OutputStream will be checked after scalar repl.
-        // Here only check out/inout
-        if (paramAnnotation.GetParamInputQual() == DxilParamInputQual::Out ||
-            paramAnnotation.GetParamInputQual() == DxilParamInputQual::Inout) {
-          bReadOnly = false;
-          break;
+      if (funcAnnotation) {
+        for (unsigned i = 0; i < CI->getNumArgOperands(); ++i) {
+          if (Ptr != CI->getArgOperand(i))
+            continue;
+
+          const DxilParameterAnnotation &paramAnnotation =
+              funcAnnotation->GetParameterAnnotation(i);
+          // OutputPatch and OutputStream will be checked after scalar repl.
+          // Here only check out/inout
+          if (paramAnnotation.GetParamInputQual() == DxilParamInputQual::Out ||
+              paramAnnotation.GetParamInputQual() == DxilParamInputQual::Inout) {
+            bReadOnly = false;
+            break;
+          }
         }
+      } else {
+        bReadOnly = false;
       }
 
       if (!bReadOnly)
@@ -128,30 +227,19 @@ static void PropagatePreciseAttributeOnPointer(
 
 static void
 PropagatePreciseAttribute(Instruction *I, DxilTypeSystem &typeSys,
-                          std::unordered_set<Instruction *> &processedSet) {
+                          ValueSet &processedSet) {
   LLVMContext &Context = I->getContext();
-  if (AllocaInst *AI = dyn_cast<AllocaInst>(I)) {
-    PropagatePreciseAttributeOnPointer(AI, typeSys, Context, processedSet);
-  } else if (dyn_cast<CallInst>(I)) {
-    // Propagate every argument.
-    // TODO: only propagate precise argument.
-    for (Value *src : I->operands())
-      PropagatePreciseAttributeOnOperand(src, typeSys, Context, processedSet);
-  } else if (dyn_cast<FPMathOperator>(I)) {
-    // TODO: only propagate precise argument.
-    for (Value *src : I->operands())
-      PropagatePreciseAttributeOnOperand(src, typeSys, Context, processedSet);
-  } else if (LoadInst *ldInst = dyn_cast<LoadInst>(I)) {
-    Value *Ptr = ldInst->getPointerOperand();
-    PropagatePreciseAttributeOnPointer(Ptr, typeSys, Context, processedSet);
-  } else if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(I))
-    PropagatePreciseAttributeOnPointer(GEP, typeSys, Context, processedSet);
-  // TODO: support more case which need
+  for (Value *src : I->operands())
+    PropagatePreciseAttributeOnOperand(src, typeSys, Context, processedSet);
+
+  if (PHINode *Phi = dyn_cast<PHINode>(I)) {
+    // TODO: For phi, we have to mark branch conditions that impact incoming paths.
+  }
 }
 
 void DxilPrecisePropagatePass::PropagatePreciseOnFunctionUser(
     Function &F, DxilTypeSystem &typeSys,
-    std::unordered_set<Instruction *> &processedSet) {
+    ValueSet &processedSet) {
   LLVMContext &Context = F.getContext();
   for (auto U = F.user_begin(), E = F.user_end(); U != E;) {
     CallInst *CI = cast<CallInst>(*(U++));
