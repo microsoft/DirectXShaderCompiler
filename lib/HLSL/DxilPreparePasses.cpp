@@ -28,6 +28,7 @@
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/ADT/BitVector.h"
 #include "llvm/Pass.h"
@@ -439,6 +440,9 @@ public:
         AddFunctionAnnotationForInitializers(M, DM);
       }
 
+      // Fix DIExpression fragments that cover whole variables
+      LegalizeDbgFragments(M);
+
       return true;
     }
 
@@ -478,6 +482,55 @@ private:
         }
         GV->eraseFromParent();
       }
+    }
+  }
+
+  static bool BitPieceCoversEntireVar(DIExpression *expr, DILocalVariable *var, DITypeIdentifierMap &TypeIdentifierMap) {
+    if (expr->isBitPiece()) {
+      DIType *ty = var->getType().resolve(TypeIdentifierMap);
+      return expr->getBitPieceOffset() == 0 && expr->getBitPieceSize() == ty->getSizeInBits();
+    }
+    return false;
+  }
+
+  static void LegalizeDbgFragmentsForDbgIntrinsic(Function *f, DITypeIdentifierMap &TypeIdentifierMap) {
+    Intrinsic::ID intrinsic = f->getIntrinsicID();
+
+    DIBuilder dib(*f->getParent());
+    if (intrinsic == Intrinsic::dbg_value) {
+      for (auto it = f->user_begin(), end = f->user_end(); it != end;) {
+        User *u = *(it++);
+        DbgValueInst *di = cast<DbgValueInst>(u);
+        DIExpression *expr = di->getExpression();
+        DILocalVariable *var = di->getVariable();
+        if (BitPieceCoversEntireVar(expr, var, TypeIdentifierMap)) {
+          dib.insertDbgValueIntrinsic(di->getValue(), 0, var, DIExpression::get(di->getContext(), {}), di->getDebugLoc(), di);
+          di->eraseFromParent();
+        }
+      }
+    }
+    else if (intrinsic == Intrinsic::dbg_declare) {
+      for (auto it = f->user_begin(), end = f->user_end(); it != end;) {
+        User *u = *(it++);
+        DbgDeclareInst *di = cast<DbgDeclareInst>(u);
+        DIExpression *expr = di->getExpression();
+        DILocalVariable *var = di->getVariable();
+        if (BitPieceCoversEntireVar(expr, var, TypeIdentifierMap)) {
+          dib.insertDeclare(di->getAddress(), var, DIExpression::get(di->getContext(), {}), di->getDebugLoc(), di);
+          di->eraseFromParent();
+        }
+      }
+    }
+  }
+
+  static void LegalizeDbgFragments(Module &M) {
+    DITypeIdentifierMap TypeIdentifierMap;
+
+    if (Function *f = M.getFunction(Intrinsic::getName(Intrinsic::dbg_value))) {
+      LegalizeDbgFragmentsForDbgIntrinsic(f, TypeIdentifierMap);
+    }
+    if (Function *f = M.getFunction(Intrinsic::getName(Intrinsic::dbg_declare))) {
+      LegalizeDbgFragmentsForDbgIntrinsic(f, TypeIdentifierMap);
     }
   }
 
