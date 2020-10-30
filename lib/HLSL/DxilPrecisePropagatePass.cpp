@@ -273,8 +273,6 @@ void DxilPrecisePropagatePass::PropagateThroughGEPs(
       // arguments.
       // This also widens the precise propagation to the entire aggregate
       // pointed to by the root ptr or intermediate GEP.
-      if (Processed(CI))
-        continue;
       PropagateOnPointerUsedInCall(Ptr, CI);
     }
   }
