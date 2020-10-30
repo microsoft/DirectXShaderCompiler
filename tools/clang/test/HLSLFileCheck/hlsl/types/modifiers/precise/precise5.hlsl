@@ -15,7 +15,7 @@ struct VSIn
 
 struct VSOut
 {
-    precise float4 Position  : SV_Position;
+    float4 Position  : SV_Position;
 };
 
 static int array[4];
@@ -32,12 +32,17 @@ int array_case(float f) {
     // }
 }
 
+precise float4 MakePrecise(float4 v) {
+    precise float4 pv = v;
+    return pv;
+}
+
 [RootSignature("DescriptorTable(SRV(t0), UAV(u0), CBV(b0)), DescriptorTable(Sampler(s0, numDescriptors=2))")]
 VSOut main(VSIn input)
 {
     VSOut o;
     float2 uv = input.Position.xy * input.Position.zw;
     float4 pos = t0.SampleLevel(s0, uv, 0);
-    o.Position = pos * input.Position + array_case(input.Position.x);
+    o.Position = MakePrecise(pos * input.Position + array_case(input.Position.x));
     return o;
 }
