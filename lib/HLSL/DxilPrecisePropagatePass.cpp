@@ -11,6 +11,7 @@
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/HLSL/HLModule.h"
 #include "dxc/HLSL/HLOperations.h"
+#include "dxc/HLSL/ControlDependence.h"
 #include "llvm/Pass.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instruction.h"
@@ -28,6 +29,14 @@ namespace {
 
 typedef std::unordered_set<Value *> ValueSet;
 
+struct FuncInfo {
+  ControlDependence CtrlDep;
+  std::unique_ptr<llvm::DominatorTreeBase<llvm::BasicBlock>> pPostDom;
+  void Init(Function *F);
+  void Clear();
+};
+typedef std::unordered_map<llvm::Function *, std::unique_ptr<FuncInfo>> FuncInfoMap;
+
 class DxilPrecisePropagatePass : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
@@ -36,13 +45,11 @@ public:
   const char *getPassName() const override { return "DXIL Precise Propagate"; }
 
   bool runOnModule(Module &M) override {
-    DxilModule &dxilModule = M.GetOrCreateDxilModule();
-    DxilTypeSystem &typeSys = dxilModule.GetTypeSystem();
-    ValueSet processedSet;
+    m_pDM = &(M.GetOrCreateDxilModule());
     std::vector<Function*> deadList;
     for (Function &F : M.functions()) {
       if (HLModule::HasPreciseAttribute(&F)) {
-        PropagatePreciseOnFunctionUser(F, typeSys, processedSet);
+        PropagatePreciseOnFunctionUser(F);
         deadList.emplace_back(&F);
       }
     }
@@ -52,61 +59,52 @@ public:
   }
 
 private:
-  void PropagatePreciseOnFunctionUser(
-      Function &F, DxilTypeSystem &typeSys,
-      ValueSet &processedSet);
+  void PropagatePreciseOnFunctionUser(Function &F);
+
+  void Propagate(Instruction *I);
+  void PropagateOnOperand(Value *V);
+  void PropagateOnPointer(Value *Ptr);
+  void PropagateOnPointerUsers(Value *Ptr);
+  void PropagateThroughGEPs(Value *Ptr, ArrayRef<Value *> idxList,
+                            ValueSet &processedGEPs);
+  void PropagateOnPointerUsedInCall(Value *Ptr, CallInst *CI);
+
+  void PropagateCtrlDep(FuncInfo &FI, BasicBlock *BB);
+  void PropagateCtrlDep(BasicBlock *BB);
+  void PropagateCtrlDep(Instruction *I);
+
+  // Add to m_ProcessedSet, return true if already in set.
+  bool Processed(Value *V) {
+    return !m_ProcessedSet.insert(V).second;
+  }
+
+  FuncInfo &GetFuncInfo(Function *F);
+
+  DxilModule *m_pDM;
+  ValueSet m_ProcessedSet;
+  FuncInfoMap m_FuncInfo;
 };
 
 char DxilPrecisePropagatePass::ID = 0;
 
 }
 
-static void PropagatePreciseAttribute(Instruction *I, DxilTypeSystem &typeSys,
-    ValueSet &processedSet);
-static void PropagatePreciseAttributeOnOperand(
-    Value *V, DxilTypeSystem &typeSys, LLVMContext &Context,
-    ValueSet &processedSet);
-static void PropagatePreciseAttributeOnPointer(
-    Value *Ptr, DxilTypeSystem &typeSys, LLVMContext &Context,
-    ValueSet &processedSet);
-static void PropagatePreciseAttributeOnPointerUsers(
-    Value *Ptr, DxilTypeSystem &typeSys, LLVMContext &Context,
-    ValueSet &processedSet);
-static void PropagatePreciseAttributeThroughGEPs(
-    Value *Ptr, DxilTypeSystem &typeSys, LLVMContext &Context,
-    ArrayRef<Value*> idxList, ValueSet &processedGEPs,
-    ValueSet &processedSet);
-static void PropagatePreciseAttributeOnPointerUsedInCall(
-    Value *Ptr, CallInst *CI,
-    DxilTypeSystem &typeSys, LLVMContext &Context,
-    ValueSet &processedSet);
-
-static void
-PropagatePreciseAttribute(Instruction *I, DxilTypeSystem &typeSys,
-                          ValueSet &processedSet) {
-  LLVMContext &Context = I->getContext();
-  if (CallInst *CI = dyn_cast<CallInst>(I)) {
-    for (unsigned i = 0; i < CI->getNumArgOperands(); i++)
-      PropagatePreciseAttributeOnOperand(CI->getArgOperand(i), typeSys, Context, processedSet);
-  } else {
-    for (Value *src : I->operands())
-      PropagatePreciseAttributeOnOperand(src, typeSys, Context, processedSet);
-  }
-
-  if (PHINode *Phi = dyn_cast<PHINode>(I)) {
-    // TODO: For phi, we have to mark branch conditions that impact incoming paths.
+void DxilPrecisePropagatePass::PropagatePreciseOnFunctionUser(Function &F) {
+  for (auto U = F.user_begin(), E = F.user_end(); U != E;) {
+    CallInst *CI = cast<CallInst>(*(U++));
+    Value *V = CI->getArgOperand(0);
+    PropagateOnOperand(V);
+    CI->eraseFromParent();
   }
 }
 
-static void PropagatePreciseAttributeOnOperand(
-    Value *V, DxilTypeSystem &typeSys, LLVMContext &Context,
-    ValueSet &processedSet) {
+void DxilPrecisePropagatePass::PropagateOnOperand(Value *V) {
   // Skip values already marked.
-  if (!processedSet.insert(V).second)
+  if (Processed(V))
     return;
 
   if (V->getType()->isPointerTy()) {
-    PropagatePreciseAttributeOnPointer(V, typeSys, Context, processedSet);
+    PropagateOnPointer(V);
   }
 
   Instruction *I = dyn_cast<Instruction>(V);
@@ -120,13 +118,32 @@ static void PropagatePreciseAttributeOnOperand(
   // Fast math not work on call, use metadata.
   if (isa<FPMathOperator>(I) && isa<CallInst>(I))
     HLModule::MarkPreciseAttributeWithMetadata(cast<CallInst>(I));
-  PropagatePreciseAttribute(I, typeSys, processedSet);
+  Propagate(I);
+}
+
+void DxilPrecisePropagatePass::Propagate(Instruction *I) {
+  if (CallInst *CI = dyn_cast<CallInst>(I)) {
+    for (unsigned i = 0; i < CI->getNumArgOperands(); i++)
+      PropagateOnOperand(CI->getArgOperand(i));
+  } else {
+    for (Value *src : I->operands())
+      PropagateOnOperand(src);
+  }
+
+  if (PHINode *Phi = dyn_cast<PHINode>(I)) {
+    // For phi, we have to mark branch conditions that impact incoming paths.
+    FuncInfo &FI = GetFuncInfo(I->getParent()->getParent());
+    for (auto Pred = Phi->block_begin(), End = Phi->block_end(); Pred != End; Pred++) {
+      PropagateCtrlDep(FI, *Pred);
+    }
+  }
 }
 
 // TODO: This could be a util function
 // TODO: Should this tunnel through addrspace cast?
 //       And how could bitcast be handled?
-static Value *GetRootAndIndicesForGEP(GEPOperator *GEP, SmallVectorImpl<Value*> &idxList) {
+static Value *GetRootAndIndicesForGEP(
+    GEPOperator *GEP, SmallVectorImpl<Value*> &idxList) {
   Value *Ptr = GEP;
   SmallVector<GEPOperator*, 4> GEPs;
   GEPs.emplace_back(GEP);
@@ -143,11 +160,9 @@ static Value *GetRootAndIndicesForGEP(GEPOperator *GEP, SmallVectorImpl<Value*> 
   return Ptr;
 }
 
-static void PropagatePreciseAttributeOnPointer(
-    Value *Ptr, DxilTypeSystem &typeSys, LLVMContext &Context,
-    ValueSet &processedSet) {
+void DxilPrecisePropagatePass::PropagateOnPointer(Value *Ptr) {
 
-  PropagatePreciseAttributeOnPointerUsers(Ptr, typeSys, Context, processedSet);
+  PropagateOnPointerUsers(Ptr);
 
   // GetElementPointer gets special treatment since different GEPs may be used
   // at different points on the same root pointer to load or store data.  We
@@ -173,31 +188,29 @@ static void PropagatePreciseAttributeOnPointer(
     SmallVector<Value*, 8> idxList;
     Ptr = GetRootAndIndicesForGEP(GEP, idxList);
     ValueSet processedGEPs;
-    PropagatePreciseAttributeThroughGEPs(
-        Ptr, typeSys, Context,
-        idxList, processedGEPs, processedSet);
+    PropagateThroughGEPs(Ptr, idxList, processedGEPs);
   }
 }
 
-static void PropagatePreciseAttributeOnPointerUsers(
-    Value *Ptr, DxilTypeSystem &typeSys, LLVMContext &Context,
-    ValueSet &processedSet) {
+void DxilPrecisePropagatePass::PropagateOnPointerUsers(Value *Ptr) {
   // Find all store and propagate on the val operand of store.
   // For CallInst, if Ptr is used as out parameter, mark it.
   for (User *U : Ptr->users()) {
     if (StoreInst *stInst = dyn_cast<StoreInst>(U)) {
       Value *val = stInst->getValueOperand();
-      PropagatePreciseAttributeOnOperand(val, typeSys, Context, processedSet);
+      PropagateOnOperand(val);
+      // For Store, we also propagate to control dependence
+      PropagateCtrlDep(stInst);
     } else if (CallInst *CI = dyn_cast<CallInst>(U)) {
-      PropagatePreciseAttributeOnPointerUsedInCall(Ptr, CI, typeSys, Context, processedSet);
+      // For CallInst, we propagate to control dependence if it's determined
+      // that the call may write to the pointer.
+      PropagateOnPointerUsedInCall(Ptr, CI);
     }
   }
 }
 
-static void PropagatePreciseAttributeThroughGEPs(
-    Value *Ptr, DxilTypeSystem &typeSys, LLVMContext &Context,
-    ArrayRef<Value*> idxList, ValueSet &processedGEPs,
-    ValueSet &processedSet) {
+void DxilPrecisePropagatePass::PropagateThroughGEPs(
+    Value *Ptr, ArrayRef<Value*> idxList, ValueSet &processedGEPs) {
   // recurse to matching GEP users
   for (User *U : Ptr->users()) {
     if (GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
@@ -232,15 +245,14 @@ static void PropagatePreciseAttributeThroughGEPs(
 
       if ((unsigned)idxList.size() == i) {
         // Mark leaf users
-        if (!processedSet.insert(GEP).second)
+        if (Processed(GEP))
           continue;
-        PropagatePreciseAttributeOnPointerUsers(GEP, typeSys, Context, processedSet);
+        PropagateOnPointerUsers(GEP);
       } else {
         // Recurse GEP users
-        PropagatePreciseAttributeThroughGEPs(
-            GEP, typeSys, Context,
-            ArrayRef<Value*>(idxList.data() + i, idxList.end()),
-            processedGEPs, processedSet);
+        PropagateThroughGEPs(
+            GEP, ArrayRef<Value*>(idxList.data() + i, idxList.end()),
+            processedGEPs);
       }
     } else if (CallInst *CI = dyn_cast<CallInst>(U)) {
       // Root pointer or intermediate GEP used in call.
@@ -248,17 +260,15 @@ static void PropagatePreciseAttributeThroughGEPs(
       // arguments.
       // This also widens the precise propagation to the entire aggregate
       // pointed to by the root ptr or intermediate GEP.
-      if (!processedSet.insert(CI).second)
+      if (Processed(CI))
         continue;
-      PropagatePreciseAttributeOnPointerUsedInCall(Ptr, CI, typeSys, Context, processedSet);
+      PropagateOnPointerUsedInCall(Ptr, CI);
     }
   }
 }
 
-static void PropagatePreciseAttributeOnPointerUsedInCall(
-    Value *Ptr, CallInst *CI,
-    DxilTypeSystem &typeSys, LLVMContext &Context,
-    ValueSet &processedSet) {
+void DxilPrecisePropagatePass::PropagateOnPointerUsedInCall(
+    Value *Ptr, CallInst *CI) {
   bool bReadOnly = true;
 
   Function *F = CI->getCalledFunction();
@@ -268,7 +278,7 @@ static void PropagatePreciseAttributeOnPointerUsedInCall(
     return;
 
   const DxilFunctionAnnotation *funcAnnotation =
-      typeSys.GetFunctionAnnotation(F);
+      m_pDM->GetTypeSystem().GetFunctionAnnotation(F);
 
   if (funcAnnotation) {
     for (unsigned i = 0; i < CI->getNumArgOperands(); ++i) {
@@ -289,20 +299,49 @@ static void PropagatePreciseAttributeOnPointerUsedInCall(
     bReadOnly = false;
   }
 
-  if (!bReadOnly)
-    PropagatePreciseAttributeOnOperand(CI, typeSys, Context, processedSet);
+  if (!bReadOnly) {
+    PropagateOnOperand(CI);
+    // propagate to control dependence for this potential write
+    PropagateCtrlDep(CI);
+  }
 }
 
-void DxilPrecisePropagatePass::PropagatePreciseOnFunctionUser(
-    Function &F, DxilTypeSystem &typeSys,
-    ValueSet &processedSet) {
-  LLVMContext &Context = F.getContext();
-  for (auto U = F.user_begin(), E = F.user_end(); U != E;) {
-    CallInst *CI = cast<CallInst>(*(U++));
-    Value *V = CI->getArgOperand(0);
-    PropagatePreciseAttributeOnOperand(V, typeSys, Context, processedSet);
-    CI->eraseFromParent();
+void FuncInfo::Init(Function *F) {
+  if (!pPostDom) {
+    pPostDom = make_unique<DominatorTreeBase<BasicBlock> >(true);
+    pPostDom->recalculate(*F);
+    CtrlDep.Compute(F, *pPostDom);
   }
+}
+void FuncInfo::Clear() {
+  CtrlDep.Clear();
+  pPostDom.reset();
+}
+FuncInfo &DxilPrecisePropagatePass::GetFuncInfo(Function *F) {
+  auto &FI = m_FuncInfo[F];
+  if (!FI) {
+    FI = make_unique<FuncInfo>();
+    FI->Init(F);
+  }
+  return *FI.get();
+}
+
+void DxilPrecisePropagatePass::PropagateCtrlDep(FuncInfo &FI, BasicBlock *BB) {
+  if (Processed(BB))
+    return;
+  const BasicBlockSet &CtrlDepSet = FI.CtrlDep.GetCDBlocks(BB);
+  for (BasicBlock *B : CtrlDepSet) {
+    PropagateOnOperand(B->getTerminator());
+  }
+}
+
+void DxilPrecisePropagatePass::PropagateCtrlDep(BasicBlock *BB) {
+  FuncInfo &FI = GetFuncInfo(BB->getParent());
+  PropagateCtrlDep(FI, BB);
+}
+
+void DxilPrecisePropagatePass::PropagateCtrlDep(Instruction *I) {
+  PropagateCtrlDep(I->getParent());
 }
 
 ModulePass *llvm::createDxilPrecisePropagatePass() {

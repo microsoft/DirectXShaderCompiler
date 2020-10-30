@@ -22,14 +22,14 @@ static int array[4];
 int array_case(float f) {
     // TODO: Propagate precise through conditions that control branches
     // that impact incoming values in phi nodes.
-    // if (f * f > 16.0) {
-    //     return (int) 1.0 / f;
-    // } else {
+    if (f * f > 16.0) {
+        return (int) 1.0 / f;
+    } else {
         for (int i = 0; i < 4; ++i) {
             array[i] = f + (i * i);
         }
         return array[(int)((f < 0.0) ? -f : f+1) % 4];
-    // }
+    }
 }
 
 precise float4 MakePrecise(float4 v) {
