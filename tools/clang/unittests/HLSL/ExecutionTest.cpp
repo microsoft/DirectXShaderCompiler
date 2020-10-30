@@ -304,6 +304,8 @@ public:
   TEST_METHOD(AtomicsTyped64Test);
   TEST_METHOD(AtomicsShared64Test);
   TEST_METHOD(AtomicsFloatTest);
+  TEST_METHOD(SignatureResourcesTest)
+  TEST_METHOD(DynamicResourcesTest)
 
   BEGIN_TEST_METHOD(QuadReadTest)
     TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.0
@@ -548,6 +550,8 @@ public:
     return GetTestParamBool(L"SaveImages");
   }
 
+  void RunResourceTest(ID3D12Device *pDevice, const char *pShader, const wchar_t *sm, bool isDynamic);
+
   template <class T1, class T2>
   void WaveIntrinsicsActivePrefixTest(TableParameter *pParameterList,
                                       size_t numParameter, bool isPrefix);
@@ -630,17 +634,17 @@ public:
     VERIFY_SUCCEEDED((*ppCommandQueue)->SetName(pName));
   }
 
-  void CreateComputePSO(ID3D12Device *pDevice, ID3D12RootSignature *pRootSignature, LPCSTR pShader, ID3D12PipelineState **ppComputeState) {
+  void CreateComputePSO(ID3D12Device *pDevice, ID3D12RootSignature *pRootSignature, LPCSTR pShader, ID3D12PipelineState **ppComputeState, const wchar_t *sm = L"cs_6_0") {
     CComPtr<ID3DBlob> pComputeShader;
 
     // Load and compile shaders.
     if (UseDxbc()) {
 #ifndef _HLK_CONF
-      DXBCFromText(pShader, L"main", L"cs_6_0", &pComputeShader);
+      DXBCFromText(pShader, L"main", sm, &pComputeShader);
 #endif
     }
     else {
-      CompileFromText(pShader, L"main", L"cs_6_0", &pComputeShader);
+      CompileFromText(pShader, L"main", sm, &pComputeShader);
     }
 
     // Describe and create the compute pipeline state object (PSO).
@@ -845,6 +849,19 @@ public:
         IID_PPV_ARGS(pRootSig)));
   }
 
+  void CreateRootSignatureFromRanges(ID3D12Device *pDevice, ID3D12RootSignature **pRootSig,
+                                     CD3DX12_DESCRIPTOR_RANGE *resRanges, UINT resCt,
+                                     CD3DX12_DESCRIPTOR_RANGE *sampRanges = nullptr, UINT sampCt = 0,
+                                     D3D12_ROOT_SIGNATURE_FLAGS flags = D3D12_ROOT_SIGNATURE_FLAG_NONE) {
+    CD3DX12_ROOT_PARAMETER rootParameters[2];
+    rootParameters[0].InitAsDescriptorTable(resCt, resRanges, D3D12_SHADER_VISIBILITY_ALL);
+    rootParameters[1].InitAsDescriptorTable(sampCt, sampRanges, D3D12_SHADER_VISIBILITY_ALL);
+
+    CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc;
+    rootSignatureDesc.Init(_countof(rootParameters), rootParameters, 0, nullptr, flags);
+    CreateRootSignatureFromDesc(pDevice, &rootSignatureDesc, pRootSig);
+  }
+
   void CreateRtvDescriptorHeap(ID3D12Device *pDevice, UINT numDescriptors,
                                ID3D12DescriptorHeap **pRtvHeap, UINT *rtvDescriptorSize) {
     D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {};
@@ -860,29 +877,32 @@ public:
     }
   }
 
-  void CreateTestUavs(ID3D12Device *pDevice,
-                      ID3D12GraphicsCommandList *pCommandList, LPCVOID values,
-                      UINT32 valueSizeInBytes, ID3D12Resource **ppUavResource,
-                      ID3D12Resource **ppReadBuffer,
-                      ID3D12Resource **ppUploadResource) {
-    CComPtr<ID3D12Resource> pUavResource;
+  void CreateTestResources(ID3D12Device *pDevice,
+                           ID3D12GraphicsCommandList *pCommandList, LPCVOID values,
+                           UINT32 valueSizeInBytes, D3D12_RESOURCE_DESC resDesc,
+                           ID3D12Resource **ppResource,
+                           ID3D12Resource **ppUploadResource,
+                           ID3D12Resource **ppReadBuffer = nullptr) {
+    CComPtr<ID3D12Resource> pResource;
     CComPtr<ID3D12Resource> pReadBuffer;
     CComPtr<ID3D12Resource> pUploadResource;
     D3D12_SUBRESOURCE_DATA transferData;
     D3D12_HEAP_PROPERTIES defaultHeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
     D3D12_HEAP_PROPERTIES uploadHeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
-    D3D12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(valueSizeInBytes, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
     D3D12_RESOURCE_DESC uploadBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(valueSizeInBytes);
     CD3DX12_HEAP_PROPERTIES readHeap(D3D12_HEAP_TYPE_READBACK);
     CD3DX12_RESOURCE_DESC readDesc(CD3DX12_RESOURCE_DESC::Buffer(valueSizeInBytes));
 
+    pDevice->GetCopyableFootprints(&resDesc, 0, 1/*mipleveles*/, 0, nullptr, nullptr, nullptr, &uploadBufferDesc.Width);
+    uploadBufferDesc.Height = 1;
+
     VERIFY_SUCCEEDED(pDevice->CreateCommittedResource(
       &defaultHeapProperties,
       D3D12_HEAP_FLAG_NONE,
-      &bufferDesc,
+      &resDesc,
       D3D12_RESOURCE_STATE_COPY_DEST,
       nullptr,
-      IID_PPV_ARGS(&pUavResource)));
+      IID_PPV_ARGS(&pResource)));
 
     VERIFY_SUCCEEDED(pDevice->CreateCommittedResource(
       &uploadHeapProperties,
@@ -892,20 +912,143 @@ public:
       nullptr,
       IID_PPV_ARGS(&pUploadResource)));
 
-    VERIFY_SUCCEEDED(pDevice->CreateCommittedResource(
-      &readHeap, D3D12_HEAP_FLAG_NONE, &readDesc,
-      D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&pReadBuffer)));
+    if (ppReadBuffer)
+      VERIFY_SUCCEEDED(pDevice->CreateCommittedResource(
+        &readHeap, D3D12_HEAP_FLAG_NONE, &readDesc,
+        D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&pReadBuffer)));
 
     transferData.pData = values;
-    transferData.RowPitch = valueSizeInBytes;
-    transferData.SlicePitch = transferData.RowPitch;
+    transferData.RowPitch = valueSizeInBytes/resDesc.Height;
+    transferData.SlicePitch = valueSizeInBytes;
 
-    UpdateSubresources<1>(pCommandList, pUavResource.p, pUploadResource.p, 0, 0, 1, &transferData);
-    RecordTransitionBarrier(pCommandList, pUavResource, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+    UpdateSubresources<1>(pCommandList, pResource.p, pUploadResource.p, 0, 0, 1, &transferData);
+    if (resDesc.Flags & D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS)
+      RecordTransitionBarrier(pCommandList, pResource, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+    else
+      RecordTransitionBarrier(pCommandList, pResource, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COMMON);
 
-    *ppUavResource = pUavResource.Detach();
-    *ppReadBuffer = pReadBuffer.Detach();
+    *ppResource = pResource.Detach();
     *ppUploadResource = pUploadResource.Detach();
+    if (ppReadBuffer)
+      *ppReadBuffer = pReadBuffer.Detach();
+  }
+
+  void CreateTestUavs(ID3D12Device *pDevice,
+                      ID3D12GraphicsCommandList *pCommandList, LPCVOID values,
+                      UINT32 valueSizeInBytes, ID3D12Resource **ppUavResource,
+                      ID3D12Resource **ppUploadResource = nullptr,
+                      ID3D12Resource **ppReadBuffer = nullptr) {
+    D3D12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(valueSizeInBytes, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+    CreateTestResources(pDevice, pCommandList, values, valueSizeInBytes, bufferDesc,
+                        ppUavResource, ppUploadResource, ppReadBuffer);
+
+  }
+
+  void CreateDescHeaps(ID3D12Device *pDevice,
+                       ID3D12GraphicsCommandList *pCommandList,
+                       ID3D12RootSignature *pRootSignature,
+                       const CComPtr<ID3D12Resource> pSRVResources[], int NumSRVs,
+                       const CComPtr<ID3D12Resource> pUAVResources[], int NumUAVs, int NumSamplers,
+                       bool isCompute, ID3D12DescriptorHeap **ppResHeap, ID3D12DescriptorHeap **ppSampHeap) {
+    // Describe and create descriptor heaps.
+    ID3D12DescriptorHeap *pResHeap, *pSampHeap;
+    D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
+    heapDesc.NumDescriptors = NumSRVs + NumUAVs;
+    heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+    heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+    VERIFY_SUCCEEDED(pDevice->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&pResHeap)));
+    UINT descriptorSize = pDevice->GetDescriptorHandleIncrementSize(heapDesc.Type);
+
+    heapDesc.NumDescriptors = NumSamplers;
+    heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
+    VERIFY_SUCCEEDED(pDevice->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&pSampHeap)));
+
+    {
+      ID3D12DescriptorHeap *descHeaps[2] = {pResHeap, pSampHeap};
+      pCommandList->SetDescriptorHeaps(2, descHeaps);
+      if (isCompute)
+        pCommandList->SetComputeRootSignature(pRootSignature);
+      else
+        pCommandList->SetGraphicsRootSignature(pRootSignature);
+
+      for (int i = 0; i < _countof(descHeaps); i++) {
+        CD3DX12_GPU_DESCRIPTOR_HANDLE baseHandleGpu(descHeaps[i]->GetGPUDescriptorHandleForHeapStart());
+        if (isCompute)
+          pCommandList->SetComputeRootDescriptorTable(i, baseHandleGpu);
+        else
+          pCommandList->SetGraphicsRootDescriptorTable(i, baseHandleGpu);
+      }
+    }
+
+    CD3DX12_CPU_DESCRIPTOR_HANDLE baseHandle(pResHeap->GetCPUDescriptorHandleForHeapStart());
+
+    // Create SRVs
+    {
+      D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+      srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
+      srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE1D;
+      srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+      srvDesc.Texture1D.MostDetailedMip = 0;
+      srvDesc.Texture1D.MipLevels = 1;
+      srvDesc.Texture1D.ResourceMinLODClamp = 0;
+      for (int i = 0; i < NumSRVs - 1; i++) {
+        pDevice->CreateShaderResourceView(pSRVResources[i], &srvDesc, baseHandle);
+        baseHandle = baseHandle.Offset(descriptorSize);
+      }
+
+      srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+      srvDesc.Texture2D.MostDetailedMip = 0;
+      srvDesc.Texture2D.MipLevels = 1;
+      srvDesc.Texture2D.PlaneSlice = 0;
+      srvDesc.Texture2D.ResourceMinLODClamp = 0;
+      pDevice->CreateShaderResourceView(pSRVResources[NumSRVs - 1], &srvDesc, baseHandle);
+      baseHandle = baseHandle.Offset(descriptorSize);
+    }
+
+    // Create UAVs
+    {
+      D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+      uavDesc.Format = DXGI_FORMAT_UNKNOWN;
+      uavDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+      uavDesc.Buffer.FirstElement = 0;
+      uavDesc.Buffer.NumElements = 16;
+      uavDesc.Buffer.StructureByteStride = sizeof(float);
+      uavDesc.Buffer.CounterOffsetInBytes = 0;
+      uavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
+      for (int i = 0; i < NumUAVs; i++) {
+        pDevice->CreateUnorderedAccessView(pUAVResources[i], nullptr, &uavDesc, baseHandle);
+        baseHandle = baseHandle.Offset(descriptorSize);
+      }
+    }
+
+    // Create Sampler
+    // NOTE: This is less general-purpose than the above.
+    // If this is to be adapted for other uses as I hope it is, this will have to change.
+    {
+      CD3DX12_CPU_DESCRIPTOR_HANDLE sampHandle(pSampHeap->GetCPUDescriptorHandleForHeapStart());
+      UINT descriptorSize = pDevice->GetDescriptorHandleIncrementSize(heapDesc.Type);
+      D3D12_SAMPLER_DESC sampDesc = {};
+      sampDesc.Filter = D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT;
+      sampDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+      sampDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+      sampDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+      sampDesc.MipLODBias = 0;
+      sampDesc.MaxAnisotropy = 1;
+      sampDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_EQUAL;
+      for (int i = 0; i < 4; i++)
+        sampDesc.BorderColor[i] = 30.0;
+      sampDesc.MinLOD = 0;
+      sampDesc.MaxLOD = 0;
+      pDevice->CreateSampler(&sampDesc, sampHandle);
+      sampHandle = sampHandle.Offset(descriptorSize);
+
+      sampDesc.Filter = D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT;
+      for (int i = 0; i < 4; i++)
+        sampDesc.BorderColor[i] = 31.0;
+      pDevice->CreateSampler(&sampDesc, sampHandle);
+    }
+    *ppResHeap = pResHeap;
+    *ppSampHeap = pSampHeap;
   }
 
   template <typename TVertex, int len>
@@ -1293,7 +1436,7 @@ void ExecutionTest::RunRWByteBufferComputeTest(ID3D12Device *pDevice, LPCSTR pSh
   CComPtr<ID3D12Resource> pUavResource;
   CComPtr<ID3D12Resource> pReadBuffer;
   CComPtr<ID3D12Resource> pUploadResource;
-  CreateTestUavs(pDevice, pCommandList, values.data(), valueSizeInBytes, &pUavResource, &pReadBuffer, &pUploadResource);
+  CreateTestUavs(pDevice, pCommandList, values.data(), valueSizeInBytes, &pUavResource, &pUploadResource, &pReadBuffer);
   VERIFY_SUCCEEDED(pUavResource->SetName(L"RunRWByteBufferComputeText UAV"));
   VERIFY_SUCCEEDED(pReadBuffer->SetName(L"RunRWByteBufferComputeText UAV Read Buffer"));
   VERIFY_SUCCEEDED(pUploadResource->SetName(L"RunRWByteBufferComputeText UAV Upload Buffer"));
@@ -1774,7 +1917,7 @@ TEST_F(ExecutionTest, WaveIntrinsicsTest) {
   CComPtr<ID3D12Resource> pUavResource;
   CComPtr<ID3D12Resource> pReadBuffer;
   CComPtr<ID3D12Resource> pUploadResource;
-  CreateTestUavs(pDevice, pCommandList, values.data(), valueSizeInBytes, &pUavResource, &pReadBuffer, &pUploadResource);
+  CreateTestUavs(pDevice, pCommandList, values.data(), valueSizeInBytes, &pUavResource, &pUploadResource, &pReadBuffer);
 
   // Close the command list and execute it to perform the GPU setup.
   pCommandList->Close();
@@ -2101,14 +2244,14 @@ TEST_F(ExecutionTest, WaveIntrinsicsInPSTest) {
   CComPtr<ID3D12Resource> pUavResource;
   CComPtr<ID3D12Resource> pUavReadBuffer;
   CComPtr<ID3D12Resource> pUploadResource;
-  CreateTestUavs(pDevice, pCommandList, values.data(), valueSizeInBytes, &pUavResource, &pUavReadBuffer, &pUploadResource);
+  CreateTestUavs(pDevice, pCommandList, values.data(), valueSizeInBytes, &pUavResource, &pUploadResource, &pUavReadBuffer);
 
   // Set up the append counter resource.
   CComPtr<ID3D12Resource> pUavCounterResource;
   CComPtr<ID3D12Resource> pReadCounterBuffer;
   CComPtr<ID3D12Resource> pUploadCounterResource;
   BYTE zero[sizeof(UINT)] = { 0 };
-  CreateTestUavs(pDevice, pCommandList, zero, sizeof(zero), &pUavCounterResource, &pReadCounterBuffer, &pUploadCounterResource);
+  CreateTestUavs(pDevice, pCommandList, zero, sizeof(zero), &pUavCounterResource, &pUploadCounterResource, &pReadCounterBuffer);
 
   // Close the command list and execute it to perform the GPU setup.
   pCommandList->Close();
@@ -2593,7 +2736,6 @@ TEST_F(ExecutionTest, DerivativesTest) {
     int x, y, z;
     int mx, my, mz;
   };
-  //std::vector<std::tuple<int, int, int, int, int>> dispatches =
   std::vector<Dispatch> dispatches =
   {
    {32, 32, 1, 8, 8, 1},
@@ -7496,6 +7638,206 @@ TEST_F(ExecutionTest, PackUnpackTest) {
     }
 }
 
+
+// This test expects a <pShader> that retrieves a signal value from each of a few
+// resources that are initialized here. <isDynamic> determines if it uses the
+// 6.6 Dynamic Resources feature.
+// Values are read back from the result UAV and compared to the expected signals
+void ExecutionTest::RunResourceTest(ID3D12Device *pDevice, const char *pShader,
+                                    const wchar_t *sm, bool isDynamic) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
+  const int NumSRVs = 3;
+  const int NumUAVs = 4;
+  const int NumResources = NumSRVs + NumUAVs;
+  const int NumSamplers = 2;
+  const int valueSize = 16;
+
+  static const int DispatchGroupX = 1;
+  static const int DispatchGroupY = 1;
+  static const int DispatchGroupZ = 1;
+
+  CComPtr<ID3D12GraphicsCommandList> pCommandList;
+  CComPtr<ID3D12CommandQueue> pCommandQueue;
+  CComPtr<ID3D12CommandAllocator> pCommandAllocator;
+  FenceObj FO;
+
+  size_t valueSizeInBytes = valueSize * sizeof(float);
+  CreateComputeCommandQueue(pDevice, L"DynamicResourcesTest Command Queue", &pCommandQueue);
+  InitFenceObj(pDevice, &FO);
+
+  // Create root signature.
+  CComPtr<ID3D12RootSignature> pRootSignature;
+  if (!isDynamic) {
+    // Not dynamic, create a range for each resource and from them, the root signature
+    CD3DX12_DESCRIPTOR_RANGE ranges[NumResources];
+    CD3DX12_DESCRIPTOR_RANGE srange[NumSamplers];
+    for (int i = 0; i < NumSRVs; i++)
+      ranges[i].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, i, 0);
+
+    for (int i = NumSRVs; i < NumResources; i++)
+      ranges[i].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, i - NumSRVs, 0);
+
+    for (int i = 0; i < NumSamplers; i++)
+      srange[i].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 1, i, 0);
+
+    CreateRootSignatureFromRanges(pDevice, &pRootSignature, ranges, NumResources, srange, NumSamplers);
+  } else {
+    // Dynamic just requires the flags indicating that the builtin arrays should be accessible
+#if ! D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED
+#define D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED (D3D12_ROOT_SIGNATURE_FLAGS)0x1
+#define D3D12_ROOT_SIGNATURE_FLAG_SAMPLER_HEAP_DIRECTLY_INDEXED (D3D12_ROOT_SIGNATURE_FLAGS)0x1
+#endif
+    CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc;
+    rootSignatureDesc.Init(0, nullptr, 0, nullptr,
+                           D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED |
+                           D3D12_ROOT_SIGNATURE_FLAG_SAMPLER_HEAP_DIRECTLY_INDEXED);
+    CreateRootSignatureFromDesc(pDevice, &rootSignatureDesc, &pRootSignature);
+  }
+
+  // Create pipeline state object.
+  CComPtr<ID3D12PipelineState> pComputeState;
+  CreateComputePSO(pDevice, pRootSignature, pShader, &pComputeState, sm);
+
+  // Create a command allocator and list for compute.
+  VERIFY_SUCCEEDED(pDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COMPUTE, IID_PPV_ARGS(&pCommandAllocator)));
+  VERIFY_SUCCEEDED(pDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COMPUTE, pCommandAllocator, pComputeState, IID_PPV_ARGS(&pCommandList)));
+
+  // Set up SRV resources
+  CComPtr<ID3D12Resource> pSRVResources[NumSRVs];
+  CComPtr<ID3D12Resource> pUAVResources[NumUAVs];
+  CComPtr<ID3D12Resource> pUploadResources[NumResources];
+  {
+    D3D12_RESOURCE_DESC tex1dDesc = CD3DX12_RESOURCE_DESC::Tex1D(DXGI_FORMAT_R32_FLOAT, valueSize);
+    float values[valueSize];
+    for (int i = 0; i < NumSRVs - 1; i++) {
+      for (int j = 0; j < valueSize; j++)
+        values[j] = 10.0 + i;
+      CreateTestResources(pDevice, pCommandList, values, valueSizeInBytes, tex1dDesc,
+                          &pSRVResources[i], &pUploadResources[i]);
+    }
+    D3D12_RESOURCE_DESC tex2dDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R32_FLOAT, 4, 4);
+    for (int j = 0; j < valueSize; j++)
+      values[j] = 10.0 + (NumSRVs - 1);
+    CreateTestResources(pDevice, pCommandList, values, valueSizeInBytes, tex2dDesc,
+                        &pSRVResources[NumSRVs - 1], &pUploadResources[NumSRVs - 1]);
+  }
+
+  // Set up UAV resources
+  CComPtr<ID3D12Resource> pReadBuffer;
+  float values[valueSize];
+  for (int i = 0; i < NumUAVs - 1; i++) {
+    for (int j = 0; j < valueSize; j++)
+      values[j] = 20.0 + i;
+    CreateTestUavs(pDevice, pCommandList, values, valueSizeInBytes,
+                   &pUAVResources[i], &pUploadResources[NumSRVs + i]);
+  }
+  for (int j = 0; j < valueSize; j++)
+    values[j] = 20.0 + (NumUAVs - 1);
+  CreateTestUavs(pDevice, pCommandList, values, valueSizeInBytes,
+                 &pUAVResources[NumUAVs - 1], &pUploadResources[NumResources - 1], &pReadBuffer);
+
+  // Close the command list and execute it to perform the GPU setup.
+  pCommandList->Close();
+  ExecuteCommandList(pCommandQueue, pCommandList);
+  WaitForSignal(pCommandQueue, FO);
+  VERIFY_SUCCEEDED(pCommandAllocator->Reset());
+  VERIFY_SUCCEEDED(pCommandList->Reset(pCommandAllocator, pComputeState));
+
+  CComPtr<ID3D12DescriptorHeap> pResHeap;
+  CComPtr<ID3D12DescriptorHeap> pSampHeap;
+  CreateDescHeaps(pDevice, pCommandList, pRootSignature, pSRVResources, NumSRVs,
+                  pUAVResources, NumUAVs, NumSamplers, true /*isCompute*/, &pResHeap, &pSampHeap);
+
+  // Run the compute shader and copy the results back to readable memory.
+  pCommandList->Dispatch(DispatchGroupX, DispatchGroupY, DispatchGroupZ);
+
+  RecordTransitionBarrier(pCommandList, pUAVResources[NumUAVs - 1], D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
+  pCommandList->CopyResource(pReadBuffer, pUAVResources[NumUAVs - 1]);
+
+  pCommandList->Close();
+  ExecuteCommandList(pCommandQueue, pCommandList);
+  WaitForSignal(pCommandQueue, FO);
+
+  MappedData data(pReadBuffer,  valueSize*sizeof(float));
+  const float *pData = (float*)data.data();
+  LogCommentFmt(L"Verify bound resources are properly selected");
+  VERIFY_ARE_EQUAL(pData[0], 10);
+  VERIFY_ARE_EQUAL(pData[1], 11);
+  VERIFY_ARE_EQUAL(pData[2], 12);
+
+  VERIFY_ARE_EQUAL(pData[3], 20);
+  VERIFY_ARE_EQUAL(pData[4], 21);
+  VERIFY_ARE_EQUAL(pData[5], 22);
+  VERIFY_ARE_EQUAL(pData[6], 30);
+  VERIFY_ARE_EQUAL(pData[7], 1); // samplecmp 1 means it matched 31
+}
+
+TEST_F(ExecutionTest, SignatureResourcesTest) {
+  std::string pShader =
+    "ByteAddressBuffer         g_rawBuf      : register(t0);\n"
+    "StructuredBuffer<float>   g_structBuf   : register(t1);\n"
+    "Texture2D<float>          g_tex         : register(t2);\n"
+    "RWByteAddressBuffer       g_rwRawBuf    : register(u0);\n"
+    "RWStructuredBuffer<float> g_rwStructBuf : register(u1);\n"
+    "RWTexture1D<float>        g_rwTex       : register(u2);\n"
+    "RWBuffer<float>           g_result      : register(u3);\n"
+    "SamplerState              g_samp        : register(s0);\n"
+    "SamplerComparisonState    g_sampCmp     : register(s1);\n"
+    "[NumThreads(1, 1, 1)]\n"
+    "void main(uint ix : SV_GroupIndex) {\n"
+    "  g_result[0] = g_rawBuf.Load<float>(0);\n"
+    "  g_result[1] = g_structBuf.Load(0);\n"
+    "  g_result[2] = g_tex.Load(0);\n"
+    "  g_result[3] = g_rwRawBuf.Load<float>(0);\n"
+    "  g_result[4] = g_rwStructBuf.Load(0);\n"
+    "  g_result[5] = 22;// g_rwTex.Load(0); // BUG: WARP fails on this\n"
+    "  g_result[6] = g_tex.SampleLevel(g_samp, -0.5, 0);\n"
+    "  g_result[7] = g_tex.SampleCmpLevelZero(g_sampCmp, -0.5, 31.0);\n"
+    "}\n";
+  if (!GetTestParamUseWARP(UseWarpByDefault())) {
+    // Undo WARP workaround
+    size_t pos = pShader.find("22;//");
+    pShader.replace(pos, 5, "     ");
+  }
+
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6))
+    return;
+
+  RunResourceTest(pDevice, pShader.c_str(), L"cs_6_6", /*isDynamic*/false);
+}
+
+TEST_F(ExecutionTest, DynamicResourcesTest) {
+  static const char pShader[] =
+    "static ByteAddressBuffer         g_rawBuf      = ResourceDescriptorHeap[0];\n"
+    "static StructuredBuffer<float>   g_structBuf   = ResourceDescriptorHeap[1];\n"
+    "static Texture2D<float>          g_tex         = ResourceDescriptorHeap[2];\n"
+    "static RWByteAddressBuffer       g_rwRawBuf    = ResourceDescriptorHeap[3];\n"
+    "static RWStructuredBuffer<float> g_rwStructBuf = ResourceDescriptorHeap[4];\n"
+    "static RWTexture1D<float>        g_rwTex       = ResourceDescriptorHeap[5];\n"
+    "static RWBuffer<float>           g_result      = ResourceDescriptorHeap[6];\n"
+    "static SamplerState              g_samp        = SamplerDescriptorHeap[0];\n"
+    "static SamplerComparisonState    g_sampCmp     = SamplerDescriptorHeap[1];\n"
+    "[NumThreads(1, 1, 1)]\n"
+    "void main(uint ix : SV_GroupIndex) {\n"
+    "  g_result[0] = g_rawBuf.Load<float>(0);\n"
+    "  g_result[1] = g_structBuf.Load(0);\n"
+    "  g_result[2] = g_tex.Load(0);\n"
+    "  g_result[3] = g_rwRawBuf.Load<float>(0);\n"
+    "  g_result[4] = g_rwStructBuf.Load(0);\n"
+    "  g_result[5] = g_rwTex.Load(0);\n"
+    "  g_result[6] = g_tex.SampleLevel(g_samp, -0.5, 0);\n"
+    "  g_result[7] = g_tex.SampleCmpLevelZero(g_sampCmp, -0.5, 0.0);\n"
+    "}\n";
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6))
+    return;
+
+  RunResourceTest(pDevice, pShader, L"cs_6_6", /*isDynamic*/true);
+}
 
 
 #define MAX_WAVESIZE 128
