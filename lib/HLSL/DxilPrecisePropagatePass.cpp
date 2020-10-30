@@ -62,7 +62,7 @@ private:
   void PropagatePreciseOnFunctionUser(Function &F);
 
   void AddToWorkList(Value *V);
-  void DxilPrecisePropagatePass::ProcessWorkList();
+  void ProcessWorkList();
 
   void Propagate(Instruction *I);
   void PropagateOnPointer(Value *Ptr);
