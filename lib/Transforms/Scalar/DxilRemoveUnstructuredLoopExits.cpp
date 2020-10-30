@@ -362,17 +362,16 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop
       if (PHINode *phi = dyn_cast<PHINode>(&I)) {
         // If there are values flowing out of the loop into the exit_block,
         // add them to the list to be propagated
-        if (Instruction *value = dyn_cast<Instruction>(phi->getIncomingValueForBlock(exiting_block))) {
-          Value *false_value = nullptr;
-          if (value == exit_cond) {
-            false_value = ConstantInt::getFalse(i1Ty);
-            exit_cond_has_phi = true;
-          }
-          else {
-            false_value = UndefValue::get(value->getType());
-          }
-          exit_values.push_back({ value, false_value, phi });
+        Value *value = phi->getIncomingValueForBlock(exiting_block);
+        Value *false_value = nullptr;
+        if (value == exit_cond) {
+          false_value = ConstantInt::getFalse(i1Ty);
+          exit_cond_has_phi = true;
         }
+        else {
+          false_value = UndefValue::get(value->getType());
+        }
+        exit_values.push_back({ value, false_value, phi });
       }
       else {
         break;
