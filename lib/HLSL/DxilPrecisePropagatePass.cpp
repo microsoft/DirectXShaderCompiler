@@ -130,7 +130,7 @@ static Value *GetRootAndIndicesForGEP(GEPOperator *GEP, SmallVectorImpl<Value*> 
   Value *Ptr = GEP;
   SmallVector<GEPOperator*, 4> GEPs;
   GEPs.emplace_back(GEP);
-  while (GEP = dyn_cast<GEPOperator>(Ptr = GEP->getPointerOperand()))
+  while ((GEP = dyn_cast<GEPOperator>(Ptr = GEP->getPointerOperand())))
     GEPs.emplace_back(GEP);
   while (!GEPs.empty()) {
     GEP = GEPs.back();
