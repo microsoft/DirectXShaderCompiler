@@ -61,8 +61,10 @@ public:
 private:
   void PropagatePreciseOnFunctionUser(Function &F);
 
+  void AddToWorkList(Value *V);
+  void DxilPrecisePropagatePass::ProcessWorkList();
+
   void Propagate(Instruction *I);
-  void PropagateOnOperand(Value *V);
   void PropagateOnPointer(Value *Ptr);
   void PropagateOnPointerUsers(Value *Ptr);
   void PropagateThroughGEPs(Value *Ptr, ArrayRef<Value *> idxList,
@@ -81,6 +83,7 @@ private:
   FuncInfo &GetFuncInfo(Function *F);
 
   DxilModule *m_pDM;
+  std::vector<Value*> m_WorkList;
   ValueSet m_ProcessedSet;
   FuncInfoMap m_FuncInfo;
 };
@@ -93,41 +96,51 @@ void DxilPrecisePropagatePass::PropagatePreciseOnFunctionUser(Function &F) {
   for (auto U = F.user_begin(), E = F.user_end(); U != E;) {
     CallInst *CI = cast<CallInst>(*(U++));
     Value *V = CI->getArgOperand(0);
-    PropagateOnOperand(V);
+    AddToWorkList(V);
+    ProcessWorkList();
     CI->eraseFromParent();
   }
 }
 
-void DxilPrecisePropagatePass::PropagateOnOperand(Value *V) {
+void DxilPrecisePropagatePass::AddToWorkList(Value *V) {
   // Skip values already marked.
   if (Processed(V))
     return;
 
-  if (V->getType()->isPointerTy()) {
-    PropagateOnPointer(V);
+  m_WorkList.emplace_back(V);
+}
+
+void DxilPrecisePropagatePass::ProcessWorkList() {
+  while (!m_WorkList.empty()) {
+    Value *V = m_WorkList.back();
+    m_WorkList.pop_back();
+
+    if (V->getType()->isPointerTy()) {
+      PropagateOnPointer(V);
+    }
+
+    Instruction *I = dyn_cast<Instruction>(V);
+    if (!I)
+      continue;
+
+    // Set precise fast math on those instructions that support it.
+    if (DxilModule::PreservesFastMathFlags(I))
+      DxilModule::SetPreciseFastMathFlags(I);
+
+    // Fast math not work on call, use metadata.
+    if (isa<FPMathOperator>(I) && isa<CallInst>(I))
+      HLModule::MarkPreciseAttributeWithMetadata(cast<CallInst>(I));
+    Propagate(I);
   }
-
-  Instruction *I = dyn_cast<Instruction>(V);
-  if (!I)
-    return;
-
-  // Set precise fast math on those instructions that support it.
-  if (DxilModule::PreservesFastMathFlags(I))
-    DxilModule::SetPreciseFastMathFlags(I);
-
-  // Fast math not work on call, use metadata.
-  if (isa<FPMathOperator>(I) && isa<CallInst>(I))
-    HLModule::MarkPreciseAttributeWithMetadata(cast<CallInst>(I));
-  Propagate(I);
 }
 
 void DxilPrecisePropagatePass::Propagate(Instruction *I) {
   if (CallInst *CI = dyn_cast<CallInst>(I)) {
     for (unsigned i = 0; i < CI->getNumArgOperands(); i++)
-      PropagateOnOperand(CI->getArgOperand(i));
+      AddToWorkList(CI->getArgOperand(i));
   } else {
     for (Value *src : I->operands())
-      PropagateOnOperand(src);
+      AddToWorkList(src);
   }
 
   if (PHINode *Phi = dyn_cast<PHINode>(I)) {
@@ -198,7 +211,7 @@ void DxilPrecisePropagatePass::PropagateOnPointerUsers(Value *Ptr) {
   for (User *U : Ptr->users()) {
     if (StoreInst *stInst = dyn_cast<StoreInst>(U)) {
       Value *val = stInst->getValueOperand();
-      PropagateOnOperand(val);
+      AddToWorkList(val);
       // For Store, we also propagate to control dependence
       PropagateCtrlDep(stInst);
     } else if (CallInst *CI = dyn_cast<CallInst>(U)) {
@@ -300,7 +313,7 @@ void DxilPrecisePropagatePass::PropagateOnPointerUsedInCall(
   }
 
   if (!bReadOnly) {
-    PropagateOnOperand(CI);
+    AddToWorkList(CI);
     // propagate to control dependence for this potential write
     PropagateCtrlDep(CI);
   }
@@ -331,7 +344,7 @@ void DxilPrecisePropagatePass::PropagateCtrlDep(FuncInfo &FI, BasicBlock *BB) {
     return;
   const BasicBlockSet &CtrlDepSet = FI.CtrlDep.GetCDBlocks(BB);
   for (BasicBlock *B : CtrlDepSet) {
-    PropagateOnOperand(B->getTerminator());
+    AddToWorkList(B->getTerminator());
   }
 }
 
