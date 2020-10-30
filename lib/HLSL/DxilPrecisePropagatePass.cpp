@@ -130,7 +130,9 @@ void DxilPrecisePropagatePass::ProcessWorkList() {
     // Fast math not work on call, use metadata.
     if (isa<FPMathOperator>(I) && isa<CallInst>(I))
       HLModule::MarkPreciseAttributeWithMetadata(cast<CallInst>(I));
+
     Propagate(I);
+    PropagateCtrlDep(I);
   }
 }
 
@@ -144,10 +146,11 @@ void DxilPrecisePropagatePass::Propagate(Instruction *I) {
   }
 
   if (PHINode *Phi = dyn_cast<PHINode>(I)) {
-    // For phi, we have to mark branch conditions that impact incoming paths.
+    // Use pred for control dependence when constant (for now)
     FuncInfo &FI = GetFuncInfo(I->getParent()->getParent());
-    for (auto Pred = Phi->block_begin(), End = Phi->block_end(); Pred != End; Pred++) {
-      PropagateCtrlDep(FI, *Pred);
+    for (unsigned i = 0; i < Phi->getNumIncomingValues(); i++) {
+      if (isa<Constant>(Phi->getIncomingValue(i)))
+        PropagateCtrlDep(FI, Phi->getIncomingBlock(i));
     }
   }
 }
@@ -212,11 +215,7 @@ void DxilPrecisePropagatePass::PropagateOnPointerUsers(Value *Ptr) {
     if (StoreInst *stInst = dyn_cast<StoreInst>(U)) {
       Value *val = stInst->getValueOperand();
       AddToWorkList(val);
-      // For Store, we also propagate to control dependence
-      PropagateCtrlDep(stInst);
     } else if (CallInst *CI = dyn_cast<CallInst>(U)) {
-      // For CallInst, we propagate to control dependence if it's determined
-      // that the call may write to the pointer.
       PropagateOnPointerUsedInCall(Ptr, CI);
     }
   }
@@ -312,8 +311,6 @@ void DxilPrecisePropagatePass::PropagateOnPointerUsedInCall(
 
   if (!bReadOnly) {
     AddToWorkList(CI);
-    // propagate to control dependence for this potential write
-    PropagateCtrlDep(CI);
   }
 }
 
