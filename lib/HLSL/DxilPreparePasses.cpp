@@ -501,10 +501,15 @@ private:
       for (auto it = f->user_begin(), end = f->user_end(); it != end;) {
         User *u = *(it++);
         DbgValueInst *di = cast<DbgValueInst>(u);
+        Value *value = di->getValue();
+        if (!value) {
+          di->eraseFromParent();
+          continue;
+        }
         DIExpression *expr = di->getExpression();
         DILocalVariable *var = di->getVariable();
         if (BitPieceCoversEntireVar(expr, var, TypeIdentifierMap)) {
-          dib.insertDbgValueIntrinsic(di->getValue(), 0, var, DIExpression::get(di->getContext(), {}), di->getDebugLoc(), di);
+          dib.insertDbgValueIntrinsic(value, 0, var, DIExpression::get(di->getContext(), {}), di->getDebugLoc(), di);
           di->eraseFromParent();
         }
       }
@@ -513,10 +518,15 @@ private:
       for (auto it = f->user_begin(), end = f->user_end(); it != end;) {
         User *u = *(it++);
         DbgDeclareInst *di = cast<DbgDeclareInst>(u);
+        Value *addr = di->getAddress();
+        if (!addr) {
+          di->eraseFromParent();
+          continue;
+        }
         DIExpression *expr = di->getExpression();
         DILocalVariable *var = di->getVariable();
         if (BitPieceCoversEntireVar(expr, var, TypeIdentifierMap)) {
-          dib.insertDeclare(di->getAddress(), var, DIExpression::get(di->getContext(), {}), di->getDebugLoc(), di);
+          dib.insertDeclare(addr, var, DIExpression::get(di->getContext(), {}), di->getDebugLoc(), di);
           di->eraseFromParent();
         }
       }
