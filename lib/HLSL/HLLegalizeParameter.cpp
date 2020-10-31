@@ -81,8 +81,18 @@ bool isPointerNeedToLower(Value *V, Type *HandleTy) {
     V = GEP->getPointerOperand();
   }
   CallInst *CI = dyn_cast<CallInst>(V);
-  if (!CI)
-    return false;
+  if (!CI) {
+    // If array of vector, we need a copy to handle vector to array in LowerTypePasses.
+    Type *Ty = V->getType();
+    if (Ty->isPointerTy())
+      Ty = Ty->getPointerElementType();
+    if (!Ty->isArrayTy())
+      return false;
+    while (Ty->isArrayTy()) {
+      Ty = Ty->getArrayElementType();
+    }
+    return Ty->isVectorTy();
+  }
   HLOpcodeGroup group = GetHLOpcodeGroup(CI->getCalledFunction());
   if (group != HLOpcodeGroup::HLSubscript)
     return false;
