@@ -7829,7 +7829,7 @@ TEST_F(ExecutionTest, DynamicResourcesTest) {
     "  g_result[4] = g_rwStructBuf.Load(0);\n"
     "  g_result[5] = g_rwTex.Load(0);\n"
     "  g_result[6] = g_tex.SampleLevel(g_samp, -0.5, 0);\n"
-    "  g_result[7] = g_tex.SampleCmpLevelZero(g_sampCmp, -0.5, 0.0);\n"
+    "  g_result[7] = g_tex.SampleCmpLevelZero(g_sampCmp, -0.5, 31.0);\n"
     "}\n";
 
   CComPtr<ID3D12Device> pDevice;
