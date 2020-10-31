@@ -57,7 +57,6 @@ float main(uint a : A, uint b : B, uint c : C) : SV_Target {
         }
 
         uav1[i + offset] += a;
-        //array[(idx + i) % 5] += a;
       }
       uav1[i] += a;
     }

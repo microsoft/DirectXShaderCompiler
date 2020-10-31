@@ -504,7 +504,7 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop
     }
 
     // 5. Take the first half of latch_exit and branch it to the exit_block based
-    // on the propagated exit block.
+    // on the propagated exit condition.
     latch_exit->getTerminator()->eraseFromParent();
     BranchInst::Create(exit_block, post_exit_location, exit_cond_lcssa, latch_exit);
   }
