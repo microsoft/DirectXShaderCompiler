@@ -167,6 +167,10 @@ enum class PSVResourceKind
   Sampler,
   TBuffer,
   RTAccelerationStructure,
+  FeedbackTexture2D,
+  FeedbackTexture2DArray,
+  StructuredBufferWithCounter,
+  SamplerComparison,
   NumEntries
 };
 
@@ -189,6 +193,11 @@ struct PSVResourceBindInfo0
   uint32_t Space;
   uint32_t LowerBound;
   uint32_t UpperBound;
+};
+
+struct PSVResourceBindInfo1 : public PSVResourceBindInfo0
+{
+  uint32_t ResKind;     // PSVResourceKind
 };
 
 // Helpers for output dependencies (ViewID and Input-Output tables)
@@ -342,7 +351,7 @@ public:
   uint32_t GetDynamicIndexMask() const { return !m_pElement0 ? 0 : (uint32_t)m_pElement0->DynamicMaskAndStream & 0xF; }
 };
 
-#define MAX_PSV_VERSION 1
+#define MAX_PSV_VERSION 2
 
 struct PSVInitInfo
 {
@@ -362,14 +371,16 @@ struct PSVInitInfo
   uint8_t SigPatchConstOrPrimVectors = 0;
   uint8_t SigOutputVectors[4] = {0, 0, 0, 0};
 
-  static_assert(MAX_PSV_VERSION == 1, "otherwise this needs updating.");
+  static_assert(MAX_PSV_VERSION == 2, "otherwise this needs updating.");
   uint32_t RuntimeInfoSize() const {
     if (PSVVersion < 1)
       return sizeof(PSVRuntimeInfo0);
     return sizeof(PSVRuntimeInfo1);
   }
   uint32_t ResourceBindInfoSize() const {
-    return sizeof(PSVResourceBindInfo0);
+    if (PSVVersion < 2)
+      return sizeof(PSVResourceBindInfo0);
+    return sizeof(PSVResourceBindInfo1);
   }
   uint32_t SignatureElementSize() const {
     return sizeof(PSVSignatureElement0);
@@ -502,6 +513,12 @@ public:
 
   PSVResourceBindInfo0* GetPSVResourceBindInfo0(uint32_t index) const {
     return GetRecord<PSVResourceBindInfo0>(m_pPSVResourceBindInfo,
+                                           m_uPSVResourceBindInfoSize,
+                                           m_uResourceCount, index);
+  }
+
+  PSVResourceBindInfo1* GetPSVResourceBindInfo1(uint32_t index) const {
+    return GetRecord<PSVResourceBindInfo1>(m_pPSVResourceBindInfo,
                                            m_uPSVResourceBindInfoSize,
                                            m_uResourceCount, index);
   }
