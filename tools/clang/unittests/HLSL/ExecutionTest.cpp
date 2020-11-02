@@ -8023,6 +8023,7 @@ void VerifyAtomicResults(const BYTE *uResults, const BYTE *sResults,
   // Because zero is manipulated, this leaves 1 as the lowest value.
   LogCommentFmt(L"Verifying %d-bit integer atomic umin", bitSize);
   VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*UMIN_IDX, SHIFT(1, shBits), byteSize)); // UMin
+  LogCommentFmt(L"Verifying %d-bit integer atomic umax", bitSize);
   VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*UMAX_IDX, ~0, byteSize)); // UMax
 
   // For signed min/max, the index just before the last will be bitflipped (maxIndex is always even).

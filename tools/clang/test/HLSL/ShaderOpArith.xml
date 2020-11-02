@@ -1371,17 +1371,17 @@
     <Resource Name="U6" Dimension="BUFFER" Width="1024"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="Zero" ReadBack="true" />
-    <Resource Name="U7" Dimension="BUFFER" Width="256"
+    <Resource Name="U7" Dimension="TEXTURE1D" Width="16" Format="R32_UINT"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="FromBytes" ReadBack="true" >
       { 0I, 0I, 99999999I, 99999999I, 0I, 0I, -1I, -1I, 0I, 0I, 0I, 0I, 42I, 42I, 42I, 42I }
     </Resource>
-    <Resource Name="U8" Dimension="BUFFER" Width="256"
+    <Resource Name="U8" Dimension="TEXTURE1D" Width="16" Format="R32_SINT"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="FromBytes" ReadBack="true">
       { 0I, 0I, 99999999I, 99999999I, 0I, 0I, -1I, -1I, 0I, 0I, 0I, 0I, 42I, 42I, 42I, 42I }
     </Resource>
-    <Resource Name="U9" Dimension="BUFFER" Width="1024"
+    <Resource Name="U9" Dimension="TEXTURE1D" Width="128" Format="R32_SINT"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="Zero" ReadBack="true" />
     <Resource Name="U10" Dimension="BUFFER" Width="256"
@@ -1408,11 +1408,11 @@
                   NumElements="16" StructureByteStride="8" />
       <Descriptor Name="U6" Kind="UAV" ResName="U6"
                   NumElements="128" StructureByteStride="8" />
-      <Descriptor Name="U7" Kind="UAV" ResName="U7"
+      <Descriptor Name="U7" Kind="UAV" ResName="U7" Dimension="TEXTURE1D"
                   NumElements="16" StructureByteStride="8" />
-      <Descriptor Name="U8" Kind="UAV" ResName="U8"
+      <Descriptor Name="U8" Kind="UAV" ResName="U8" Dimension="TEXTURE1D"
                   NumElements="16" StructureByteStride="8" />
-      <Descriptor Name="U9" Kind="UAV" ResName="U9"
+      <Descriptor Name="U9" Kind="UAV" ResName="U9" Dimension="TEXTURE1D"
                   NumElements="128" StructureByteStride="8" />
       <Descriptor Name="U10" Kind="UAV" ResName="U10"
                   NumElements="16" StructureByteStride="4" />
@@ -1549,15 +1549,19 @@
           uint xchgVal = (ix << (bitSize/2)) | ((ix/3)%64);
           uint output = 0;
 
+          // structured
           OP_TEST(USTRUCT_CALL, SSTRUCT_CALL, g_structBuf, g_structBuf)
           XCHG_TEST(STRUCT_CALL3, STRUCT_CALL4, g_strXchgBuf)
 
+          // raw
           OP_TEST(URAW_CALL, SRAW_CALL, g_rawBuf, g_rawBuf)
           XCHG_TEST(RAW_CALL3, RAW_CALL4, g_rawXchgBuf)
 
+          // typed buffer
           OP_TEST(VEC_CALL, VEC_CALL, g_uintBuf, g_sintBuf)
           XCHG_TEST(VEC_CALL3, VEC_CALL4, g_xchgBuf)
 
+          // texture
           OP_TEST(VEC_CALL, VEC_CALL, g_utexBuf, g_stexBuf)
           XCHG_TEST(VEC_CALL3, VEC_CALL4, g_xtexBuf)
         }
@@ -1616,6 +1620,10 @@
           uint xchgVal = (ix << (bitSize/2)) | ((ix/3)%64);
           uint output = 0;
 
+          g_uintShare[ix%(6*stride)] = 0;
+          g_sintShare[ix%(3*stride)] = 0;
+          GroupMemoryBarrierWithGroupSync();
+
           InterlockedCompareStore(g_uintShare[stride], 0, 99999999);
           InterlockedCompareStore(g_uintShare[3*stride], 0, -1);
           InterlockedCompareStore(g_sintShare[stride], 0, 99999999);
@@ -1634,7 +1642,7 @@
         }
 
         void AtomicGroupShared64Test(uint ix, uint bitSize) {
-          uint stride = 2;
+          uint stride = 1;
           uint value = (ix) | ((ix) << 16);
           uint uminMaxVal = ~value*(~value&1) + value*(value&1);
           int sminMaxVal = ~value*(~value&1) + value*(value&1);
@@ -1642,9 +1650,13 @@
           uint xchgVal = (ix << (bitSize/2)) | ((ix/3)%64);
           uint output = 0;
 
-          InterlockedCompareStore(g_uint64Share[1], 0, 99999999);
-          InterlockedCompareStore(g_uint64Share[3], 0, -1);
-          InterlockedCompareStore(g_sint64Share[1], 0, 99999999);
+          g_uintShare[ix%(6*stride)] = 0;
+          g_sintShare[ix%(3*stride)] = 0;
+          GroupMemoryBarrierWithGroupSync();
+
+          InterlockedCompareStore(g_uint64Share[stride], 0, 99999999);
+          InterlockedCompareStore(g_uint64Share[3*stride], 0, -1);
+          InterlockedCompareStore(g_sint64Share[stride], 0, 99999999);
 
           OP_TEST(VEC_CALL, VEC_CALL, g_uint64Share, g_sint64Share)
           XCHG_TEST(VEC_CALL3, VEC_CALL4, g_xchg64Share)
@@ -1653,7 +1665,7 @@
 
           for (int i = 0; i < 6*stride; i++)
             g_share64Buf[i] = g_uint64Share[i];
-          g_share64Buf[6*stride] = g_sint64Share[1*stride];
+          g_share64Buf[6*stride] = g_sint64Share[stride];
           g_share64Buf[7*stride] = g_sint64Share[2*stride];
 
           g_shareXchg64Buf[((ix/3)%64)*stride] = g_xchg64Share[((ix/3)%64)*stride];
@@ -1807,7 +1819,7 @@
     <Resource Name="U2" Dimension="BUFFER" Width="256"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="Zero" ReadBack="true" />
-    <Resource Name="U3" Dimension="BUFFER" Width="256"
+    <Resource Name="U3" Dimension="TEXTURE1D" Width="64" Format="R32_FLOAT"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="Zero" ReadBack="true" />
     <Resource Name="U4" Dimension="BUFFER" Width="256"
@@ -1823,7 +1835,7 @@
                   NumElements="64" StructureByteStride="4" />
       <Descriptor Name="U2" Kind="UAV" ResName="U2"
                   NumElements="64" StructureByteStride="4" />
-      <Descriptor Name="U3" Kind="UAV" ResName="U3"
+      <Descriptor Name="U3" Kind="UAV" ResName="U3" Dimension="TEXTURE1D"
                   NumElements="64" StructureByteStride="4" />
       <Descriptor Name="U4" Kind="UAV" ResName="U4"
                   NumElements="64" StructureByteStride="4" />
@@ -1910,6 +1922,9 @@
         void AtomicGroupSharedTest(uint ix) {
           float xchgVal = ix;
           float output = 0;
+
+          g_xchgShare[ix%64] = 0;
+          GroupMemoryBarrierWithGroupSync();
 
           XCHG_TEST(VEC_CALL3, VEC_CALL4, g_xchgShare)
 
