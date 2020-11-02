@@ -595,6 +595,7 @@ TEST_F(FileTest, FunctionInCTBuffer) {
 }
 
 TEST_F(FileTest, FunctionNoInline) { runFileTest("fn.noinline.hlsl"); }
+TEST_F(FileTest, FunctionExport) { runFileTest("fn.export.hlsl"); }
 
 // For OO features
 TEST_F(FileTest, StructMethodCall) {

@@ -700,6 +700,14 @@ private:
   /// variables for some cases.
   bool emitEntryFunctionWrapperForRayTracing(const FunctionDecl *entryFunction,
                                              SpirvFunction *entryFuncId);
+
+  /// \brief Emits dummy entry function for hlsl library
+  /// returns spirvFunction
+
+  /// Spirv validation require entry function without input parameters and
+  /// return void. which is not garanteed by the exported functions, so create
+  /// a dummy compute shader function
+  SpirvFunction* emitDummyEntryFunction();
   /// \brief Performs the following operations for the Hull shader:
   /// * Creates an output variable which is an Array containing results for all
   /// control points.

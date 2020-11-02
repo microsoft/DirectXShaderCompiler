@@ -554,6 +554,9 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
           addFunctionToWorkQueue(getShaderModelKind(shaderAttr->getStage()),
                                  funcDecl, /*isEntryFunction*/ true);
           numEntryPoints++;
+        } else if (funcDecl->getAttr<HLSLExportAttr>()) {
+          addFunctionToWorkQueue(spvContext.getCurrentShaderModelKind(),
+                                 funcDecl, /*isEntryFunction*/ false);
         }
       } else {
         if (funcDecl->getName() == entryFunctionName) {
@@ -591,6 +594,15 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   // 'numEntryPoints' entries in the 'workQueue' are the ones with the HLSL
   // 'shader' attribute, and must therefore be entry functions.
   assert(numEntryPoints <= workQueue.size());
+
+    // Create dummy entry point for hlsl library
+  if (spvContext.isLib()) {
+    spvBuilder.addEntryPoint(
+        spv::ExecutionModel::GLCompute, emitDummyEntryFunction(), "dummyEntry",
+        targetEnv == SPV_ENV_VULKAN_1_2
+            ? spvBuilder.getModule()->getVariables()
+            : llvm::ArrayRef<SpirvVariable *>(declIdMapper.collectStageVars()));
+  }
 
   for (uint32_t i = 0; i < numEntryPoints; ++i) {
     // TODO: assign specific StageVars w.r.t. to entry point
@@ -10470,6 +10482,7 @@ SpirvEmitter::getSpirvShaderStage(hlsl::ShaderModel::Kind smk) {
   case hlsl::ShaderModel::Kind::Pixel:
     return spv::ExecutionModel::Fragment;
   case hlsl::ShaderModel::Kind::Compute:
+  case hlsl::ShaderModel::Kind::Library:
     return spv::ExecutionModel::GLCompute;
   case hlsl::ShaderModel::Kind::RayGeneration:
     return spv::ExecutionModel::RayGenerationNV;
@@ -10816,6 +10829,28 @@ bool SpirvEmitter::emitEntryFunctionWrapperForRayTracing(
   spvBuilder.endFunction();
 
   return true;
+}
+
+SpirvFunction *SpirvEmitter::emitDummyEntryFunction() {
+  SpirvFunction *entryFunction =
+      spvBuilder.beginFunction(astContext.VoidTy, SourceLocation(), "dummyEntry");
+  // Create compute shader execution mode
+  spvBuilder.addExecutionMode(entryFunction, spv::ExecutionMode::LocalSize,
+                              {1, 1, 1}, SourceLocation());
+
+  auto libraryShaderKind = spvContext.getCurrentShaderModelKind();
+  // Create compute shader builtin
+  spvContext.setCurrentShaderModelKind(SpirvContext::ShaderModelKind::Compute);
+  declIdMapper.getBuiltinVar(spv::BuiltIn::LocalInvocationIndex, astContext.WIntTy, SourceLocation());
+  spvContext.setCurrentShaderModelKind(libraryShaderKind);
+
+  // Create dummy function body
+  auto *entryLabel = spvBuilder.createBasicBlock();
+  spvBuilder.setInsertPoint(entryLabel);
+  spvBuilder.createReturn(SourceLocation());
+  spvBuilder.endFunction();
+
+  return entryFunction;
 }
 
 bool SpirvEmitter::processMeshOrAmplificationShaderAttributes(

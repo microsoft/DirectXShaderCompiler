@@ -2910,6 +2910,9 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
   case spv::BuiltIn::WorldToObjectNV:
   case spv::BuiltIn::LaunchIdNV:
   case spv::BuiltIn::LaunchSizeNV:
+  case spv::BuiltIn::GlobalInvocationId:
+  case spv::BuiltIn::WorkgroupId:
+  case spv::BuiltIn::LocalInvocationIndex:
     sc = spv::StorageClass::Input;
     break;
   case spv::BuiltIn::PrimitiveCountNV:
