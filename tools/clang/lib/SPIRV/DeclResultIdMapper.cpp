@@ -1090,7 +1090,14 @@ SpirvVariable *DeclResultIdMapper::createCTBuffer(const VarDecl *decl) {
 
 SpirvVariable *DeclResultIdMapper::createPushConstant(const VarDecl *decl) {
   // The front-end errors out if non-struct type push constant is used.
-  const auto *recordType = decl->getType()->getAs<RecordType>();
+  const QualType type = decl->getType();
+  const auto *recordType = type->getAs<RecordType>();
+
+  if (isConstantBuffer(type)) {
+    // Get the templated type for ConstantBuffer.
+    recordType = hlsl::GetHLSLResourceResultType(type)->getAs<RecordType>();
+  }
+
   assert(recordType);
 
   const std::string structName =
