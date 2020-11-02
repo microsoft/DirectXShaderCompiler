@@ -1869,7 +1869,7 @@ TEST_F(FileTest, VulkanMultiplePushConstant) {
   runFileTest("vk.push-constant.multiple.hlsl", Expect::Failure);
 }
 
-TEST_F(FileTest, VulkanPushCOnstantOnConstantBuffer) {
+TEST_F(FileTest, VulkanPushConstantOnConstantBuffer) {
   runFileTest("vk.push-constant.constantbuffer.hlsl");
 }
 
