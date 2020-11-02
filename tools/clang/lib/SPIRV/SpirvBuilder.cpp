@@ -941,6 +941,15 @@ SpirvDebugFunction *SpirvBuilder::createDebugFunction(
   return inst;
 }
 
+SpirvDebugFunctionDefinition *
+SpirvBuilder::createDebugFunctionDef(SpirvDebugFunction *function,
+                                     SpirvFunction *fn) {
+  auto *inst = new (context) SpirvDebugFunctionDefinition(function, fn);
+  assert(insertPoint && "null insert point");
+  insertPoint->addInstruction(inst);
+  return inst;
+}
+
 SpirvInstruction *
 SpirvBuilder::createRayQueryOpsKHR(spv::Op opcode, QualType resultType,
                                    ArrayRef<SpirvInstruction *> operands,
@@ -1186,8 +1195,9 @@ SpirvExtInstImport *SpirvBuilder::getExtInstSet(llvm::StringRef extName) {
   return set;
 }
 
-SpirvExtInstImport *SpirvBuilder::getOpenCLDebugInfoExtInstSet() {
-  return getExtInstSet("OpenCL.DebugInfo.100");
+SpirvExtInstImport *SpirvBuilder::getDebugInfoExtInstSet(bool vulkanDebugInfo) {
+  return getExtInstSet(vulkanDebugInfo ? "NonSemantic.Shader.DebugInfo.100"
+                                       : "OpenCL.DebugInfo.100");
 }
 
 SpirvVariable *SpirvBuilder::addStageIOVar(QualType type,

@@ -29,14 +29,29 @@ bool SpirvBasicBlock::hasTerminator() const {
          isa<SpirvTerminator>(instructions.back().instruction);
 }
 
-bool SpirvBasicBlock::invokeVisitor(Visitor *visitor,
-                                    llvm::ArrayRef<SpirvVariable *> vars,
-                                    bool reverseOrder) {
+bool SpirvBasicBlock::invokeVisitor(
+    Visitor *visitor, llvm::ArrayRef<SpirvVariable *> vars,
+    SpirvDebugScope *functionScope,
+    llvm::ArrayRef<SpirvDebugDeclare *> debugDeclares, bool reverseOrder) {
   if (!visitor->visit(this, Visitor::Phase::Init))
     return false;
 
-  if (debugScope && !visitor->visit(debugScope))
-    return false;
+  const bool debugInfoVulkan = visitor->getCodeGenOptions().debugInfoVulkan;
+
+  // OpenCL.DebugInfo.100 allows instructions outside of basic blocks, so we can
+  // emit the scope early here.
+  if (!debugInfoVulkan) {
+    if (debugScope && !visitor->visit(debugScope))
+      return false;
+
+    // Note - when emitting OpenCL.DebugInfo.100 we do not expect to have a
+    // functionScope to emit, nor any debugDeclares. These should have been
+    // emitted in the parent SpirvFunction - see SpirvFunction::invokeVisitor()
+    assert(functionScope == nullptr &&
+           "Expected no functionScope when emitting OpenCL.DebugInfo.100");
+    assert(debugDeclares.empty() &&
+           "Expected no debugDeclares when emitting OpenCL.DebugInfo.100");
+  }
 
   if (reverseOrder) {
     for (auto iter = instructions.rbegin(); iter != instructions.rend();
@@ -44,6 +59,25 @@ bool SpirvBasicBlock::invokeVisitor(Visitor *visitor,
       if (!iter->instruction->invokeVisitor(visitor))
         return false;
     }
+    // For NonSemantic.Shader.DebugInfo.100 emit the block's scope only if we
+    // didn't have a function scope, or if the
+    // scopes are different. This means we don't emit redundant scope
+    if (debugInfoVulkan) {
+      if (debugScope && (!functionScope ||
+                         functionScope->getScope() != debugScope->getScope())) {
+        if (!visitor->visit(debugScope))
+          return false;
+      }
+    }
+    if (!debugDeclares.empty()) {
+      for (auto decl = debugDeclares.rbegin(); decl != debugDeclares.rend();
+           ++decl) {
+        if (!(*decl)->invokeVisitor(visitor))
+          return false;
+      }
+    }
+    if (functionScope && !visitor->visit(functionScope))
+      return false;
     // If a basic block is the first basic block of a function, it should
     // include all the variables of the function.
     if (!vars.empty()) {
@@ -58,6 +92,24 @@ bool SpirvBasicBlock::invokeVisitor(Visitor *visitor,
     if (!vars.empty()) {
       for (auto *var : vars) {
         if (!var->invokeVisitor(visitor))
+          return false;
+      }
+    }
+    if (functionScope && !visitor->visit(functionScope))
+      return false;
+    if (!debugDeclares.empty()) {
+      for (auto *decl : debugDeclares ) {
+        if (!decl->invokeVisitor(visitor))
+          return false;
+      }
+    }
+    // For NonSemantic.Shader.DebugInfo.100 emit the block's scope only if we
+    // didn't have a function scope, or if the
+    // scopes are different. This means we don't emit redundant scope
+    if (debugInfoVulkan) {
+      if (debugScope && (!functionScope ||
+                         functionScope->getScope() != debugScope->getScope())) {
+        if (!visitor->visit(debugScope))
           return false;
       }
     }

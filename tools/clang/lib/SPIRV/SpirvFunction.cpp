@@ -40,15 +40,32 @@ bool SpirvFunction::invokeVisitor(Visitor *visitor, bool reverseOrder) {
   if (!visitor->visit(this, Visitor::Phase::Init))
     return false;
 
-  if (debugScope && !visitor->visit(debugScope))
-    return false;
+  const bool debugInfoVulkan = visitor->getCodeGenOptions().debugInfoVulkan;
 
-  for (auto *param : parameters) {
-    visitor->visit(param);
+  // When emitting NonSemantic.Shader.DebugInfo.100 the DebugScope and
+  // DebugDeclares must be emitted in the first basic block, otherwise for
+  // OpenCL.DebugInfo.100 we can emit them here.
+  SpirvDebugScope *functionScope = nullptr;
+  llvm::ArrayRef<SpirvDebugDeclare *> functionDebugDeclares;
+  if (debugInfoVulkan) {
+    functionScope = debugScope;
+
+    for (auto *param : parameters) {
+      visitor->visit(param);
+    }
+
+    functionDebugDeclares = debugDeclares;
+  } else {
+    if (debugScope && !visitor->visit(debugScope))
+      return false;
+
+    for (auto *param : parameters) {
+      visitor->visit(param);
+    }
+
+    for (auto *i : debugDeclares)
+      visitor->visit(i);
   }
-
-  for (auto *i : debugDeclares)
-    visitor->visit(i);
 
   // Collect basic blocks in a human-readable order that satisfies SPIR-V
   // validation rules.
@@ -68,13 +85,14 @@ bool SpirvFunction::invokeVisitor(Visitor *visitor, bool reverseOrder) {
     // The first basic block of the function should first visit the function
     // variables.
     if (bb == firstBB) {
-      if (!bb->invokeVisitor(visitor, variables, reverseOrder))
+      if (!bb->invokeVisitor(visitor, variables, functionScope,
+                             functionDebugDeclares, reverseOrder))
         return false;
     }
     // The rest of the basic blocks in the function do not need to visit
     // function variables.
     else {
-      if (!bb->invokeVisitor(visitor, {}, reverseOrder))
+      if (!bb->invokeVisitor(visitor, {}, nullptr, {}, reverseOrder))
         return false;
     }
   }
