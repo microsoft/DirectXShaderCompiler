@@ -28,7 +28,7 @@ VS_OUTPUT main(float4 pos : POSITION,
 //CHECK:      DebugScope [[bb2]]
 //CHECK-NEXT: OpLine [[file:%\d+]] 32
 //CHECK-NEXT: OpStore [[var_a:%\w+]] %float_6
-//CHECK-NEXT: DebugDeclare [[a]] [[var_a]]
+//CHECK:      DebugDeclare [[a]] [[var_a]]
       float a = 6.0;
       x += a + b + c;
     }
