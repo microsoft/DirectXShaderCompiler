@@ -715,7 +715,7 @@ private:
           Function *F = CI->getParent()->getParent();
           ICmpInst *Cmp = DxBreakCmpMap.lookup(F);
           if (!Cmp) {
-            Instruction *IP = dxilutil::FirstNonAllocaInsertionPt(F);
+            Instruction *IP = dxilutil::FindAllocaInsertionPt(F);
             LoadInst *LI = new LoadInst(Gep, nullptr, false, IP);
             Cmp = new ICmpInst(IP, ICmpInst::ICMP_EQ, LI, llvm::ConstantInt::get(i32Ty,0));
             DxBreakCmpMap[F] = Cmp;
