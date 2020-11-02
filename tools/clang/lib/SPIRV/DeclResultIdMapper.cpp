@@ -1207,9 +1207,9 @@ SpirvFunction *DeclResultIdMapper::getOrRegisterFn(const FunctionDecl *fn) {
   // definition is seen, the parameter types will be set properly and take into
   // account whether the function is a member function of a class/struct (in
   // which case a 'this' parameter is added at the beginnig).
-  SpirvFunction *spirvFunction = spvBuilder.createSpirvFunction(
-      fn->getReturnType(), fn->getLocation(), fn->getName(), isPrecise,
-      isNoInline);
+  SpirvFunction *spirvFunction =
+      spvBuilder.createSpirvFunction(fn->getReturnType(), fn->getLocation(),
+                                     fn->getName(), isPrecise, isNoInline);
 
   // No need to dereference to get the pointer. Function returns that are
   // stand-alone aliases are already pointers to values. All other cases should
@@ -1963,6 +1963,19 @@ bool DeclResultIdMapper::decorateResourceBindings() {
               bindingSet.useNextBinding(defaultSpace, numBindingsToUse,
                                         bindingShift));
         }
+      }
+    }
+  }
+
+  return true;
+}
+
+bool DeclResultIdMapper::decorateResourceCoherent() {
+  for (const auto &var : resourceVars) {
+    if (const auto *decl = var.getDeclaration()) {
+      if (decl->getAttr<HLSLGloballyCoherentAttr>()) {
+        spvBuilder.decorateCoherent(var.getSpirvInstr(),
+                                    var.getSourceLocation());
       }
     }
   }
@@ -3629,7 +3642,7 @@ void DeclResultIdMapper::tryToCreateImplicitConstVar(const ValueDecl *decl) {
     return;
 
   APValue *val = varDecl->evaluateValue();
-  if(!val)
+  if (!val)
     return;
 
   SpirvInstruction *constVal =

@@ -578,6 +578,10 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   if (!declIdMapper.decorateResourceBindings())
     return;
 
+  // Add Coherent docrations to resource variables.
+  if (!declIdMapper.decorateResourceCoherent())
+    return;
+
   // Output the constructed module.
   std::vector<uint32_t> m = spvBuilder.takeModule();
 
@@ -645,7 +649,7 @@ void SpirvEmitter::doDecl(const Decl *decl) {
   }
 
   if (const auto *varDecl = dyn_cast<VarDecl>(decl)) {
-      doVarDecl(varDecl);
+    doVarDecl(varDecl);
   } else if (const auto *namespaceDecl = dyn_cast<NamespaceDecl>(decl)) {
     for (auto *subDecl : namespaceDecl->decls())
       // Note: We only emit functions as they are discovered through the call
@@ -1207,7 +1211,7 @@ bool SpirvEmitter::validateVKAttributes(const NamedDecl *decl) {
       isValidType = bufDecl->isCBuffer();
     else if ((bufDecl = dyn_cast<HLSLBufferDecl>(decl->getDeclContext())))
       isValidType = bufDecl->isCBuffer();
-    else if(isa<VarDecl>(decl))
+    else if (isa<VarDecl>(decl))
       isValidType = isConstantBuffer(dyn_cast<VarDecl>(decl)->getType());
 
     if (!isValidType) {
@@ -2676,7 +2680,7 @@ SpirvInstruction *SpirvEmitter::processFlatConversion(
   // `-MemberExpr
   //   `-ImplicitCastExpr 'const T' lvalue <FlatConversion>
   //     `-ArraySubscriptExpr 'ConstantBuffer<T>':'ConstantBuffer<T>' lvalue
-  if(isConstantTextureBuffer(initType)) {
+  if (isConstantTextureBuffer(initType)) {
     return initInstr;
   }
 
@@ -8028,8 +8032,8 @@ SpirvInstruction *SpirvEmitter::processWaveBroadcast(const CallExpr *callExpr) {
     // might incorrectly suggest so). The proper mapping to SPIR-V for
     // it is OpGroupNonUniformShuffle, *not* OpGroupNonUniformBroadcast.
     return spvBuilder.createGroupNonUniformBinaryOp(
-        spv::Op::OpGroupNonUniformShuffle, retType, spv::Scope::Subgroup,
-        value, doExpr(callExpr->getArg(1)), srcLoc);
+        spv::Op::OpGroupNonUniformShuffle, retType, spv::Scope::Subgroup, value,
+        doExpr(callExpr->getArg(1)), srcLoc);
   else
     return spvBuilder.createGroupNonUniformUnaryOp(
         srcLoc, spv::Op::OpGroupNonUniformBroadcastFirst, retType,
