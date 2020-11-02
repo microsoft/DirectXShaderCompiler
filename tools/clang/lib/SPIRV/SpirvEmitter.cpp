@@ -1074,7 +1074,7 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
         auto *debugLocalVar = spvBuilder.createDebugLocalVariable(
             valueType, "this", info->source, line, column,
             info->scopeStack.back(), flags, 1);
-        spvBuilder.createDebugDeclare(debugLocalVar, curThis);
+        spvBuilder.createDebugDeclare(debugLocalVar, curThis, loc);
       }
 
       isNonStaticMemberFn = true;
@@ -1417,7 +1417,7 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
       auto *debugLocalVar = spvBuilder.createDebugLocalVariable(
           decl->getType(), decl->getName(), info->source, line, column,
           info->scopeStack.back(), flags);
-      spvBuilder.createDebugDeclare(debugLocalVar, var);
+      spvBuilder.createDebugDeclare(debugLocalVar, var, loc);
     }
 
     // Variables that are not externally visible and of opaque types should
