@@ -55,18 +55,12 @@ void SimplifyGlobalSymbol(GlobalVariable *GV) {
         Function *F = LI->getParent()->getParent();
         auto it = handleMapOnFunction.find(F);
         if (it == handleMapOnFunction.end()) {
+          LI->moveBefore(dxilutil::FindAllocaInsertionPt(F));
           handleMapOnFunction[F] = LI;
         } else {
           LI->replaceAllUsesWith(it->second);
         }
       }
-    }
-    for (auto it : handleMapOnFunction) {
-      Function *F = it.first;
-      Instruction *I = it.second;
-      IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(F));
-      Value *headLI = Builder.CreateLoad(GV);
-      I->replaceAllUsesWith(headLI);
     }
   }
 }

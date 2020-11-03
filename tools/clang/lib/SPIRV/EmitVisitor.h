@@ -312,7 +312,7 @@ private:
   // Emits an OpLine instruction for the given operation into the given binary
   // section.
   void emitDebugLine(spv::Op op, const SourceLocation &loc,
-                     std::vector<uint32_t> *section);
+                     std::vector<uint32_t> *section, bool isDebugScope = false);
 
   // Initiates the creation of a new instruction with the given Opcode.
   void initInstruction(spv::Op, const SourceLocation &);
