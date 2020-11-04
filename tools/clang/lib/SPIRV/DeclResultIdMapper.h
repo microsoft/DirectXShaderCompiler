@@ -115,10 +115,12 @@ public:
               const hlsl::RegisterAssignment *r, const VKBindingAttr *b,
               const VKCounterBindingAttr *cb, bool counter = false,
               bool globalsBuffer = false)
-      : variable(var), srcLoc(loc), reg(r), binding(b), counterBinding(cb),
-        isCounterVar(counter), isGlobalsCBuffer(globalsBuffer) {}
+      : variable(var), declaration(decl), srcLoc(loc), reg(r), binding(b),
+        counterBinding(cb), isCounterVar(counter),
+        isGlobalsCBuffer(globalsBuffer) {}
 
   SpirvVariable *getSpirvInstr() const { return variable; }
+  const Decl *getDeclaration() const { return declaration; }
   SourceLocation getSourceLocation() const { return srcLoc; }
   const hlsl::RegisterAssignment *getRegister() const { return reg; }
   const VKBindingAttr *getBinding() const { return binding; }
@@ -130,6 +132,7 @@ public:
 
 private:
   SpirvVariable *variable;                    ///< The variable
+  const Decl *declaration;                    ///< The declaration
   SourceLocation srcLoc;                      ///< Source location
   const hlsl::RegisterAssignment *reg;        ///< HLSL register assignment
   const VKBindingAttr *binding;               ///< Vulkan binding assignment
@@ -524,6 +527,10 @@ public:
   /// module under construction.
   bool decorateResourceBindings();
 
+  /// \brief Decorates resource variables with Coherent decoration if they
+  /// are declared as globallycoherent.
+  bool decorateResourceCoherent();
+
   /// \brief Returns whether the SPIR-V module requires SPIR-V legalization
   /// passes run to make it legal.
   bool requiresLegalization() const { return needsLegalization; }
@@ -759,7 +766,8 @@ private:
   /// b - for constant buffer views (CBV)
   ///    CBUFFER
   ///    CONSTANTBUFFER
-  bool getImplicitRegisterType(const ResourceVar &var, char *registerTypeOut) const;
+  bool getImplicitRegisterType(const ResourceVar &var,
+                               char *registerTypeOut) const;
 
 private:
   SpirvBuilder &spvBuilder;

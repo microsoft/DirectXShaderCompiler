@@ -78,8 +78,7 @@ public:
   /// At any time, there can only exist at most one function under building.
   SpirvFunction *beginFunction(QualType returnType, SourceLocation,
                                llvm::StringRef name = "",
-                               bool isPrecise = false,
-                               bool isNoInline = false,
+                               bool isPrecise = false, bool isNoInline = false,
                                SpirvFunction *func = nullptr);
 
   /// \brief Creates and registers a function parameter of the given pointer
@@ -483,6 +482,7 @@ public:
 
   SpirvDebugDeclare *createDebugDeclare(
       SpirvDebugLocalVariable *dbgVar, SpirvInstruction *var,
+      SourceLocation loc = {},
       llvm::Optional<SpirvDebugExpression *> dbgExpr = llvm::None);
 
   SpirvDebugFunction *
@@ -611,6 +611,9 @@ public:
   /// \brief Decorates the given target with PerTaskNV
   void decoratePerTaskNV(SpirvInstruction *target, uint32_t offset,
                          SourceLocation);
+
+  /// \brief Decorates the given target with Coherent
+  void decorateCoherent(SpirvInstruction *target, SourceLocation);
 
   /// --- Constants ---
   /// Each of these methods can acquire a unique constant from the SpirvContext,

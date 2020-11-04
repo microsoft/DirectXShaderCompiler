@@ -701,7 +701,7 @@ DeclResultIdMapper::createFnParam(const ParmVarDecl *param,
     auto *debugLocalVar = spvBuilder.createDebugLocalVariable(
         type, name, info->source, line, column, info->scopeStack.back(), flags,
         dbgArgNumber);
-    spvBuilder.createDebugDeclare(debugLocalVar, fnParamInstr);
+    spvBuilder.createDebugDeclare(debugLocalVar, fnParamInstr, loc);
   }
 
   return fnParamInstr;
@@ -1090,7 +1090,14 @@ SpirvVariable *DeclResultIdMapper::createCTBuffer(const VarDecl *decl) {
 
 SpirvVariable *DeclResultIdMapper::createPushConstant(const VarDecl *decl) {
   // The front-end errors out if non-struct type push constant is used.
-  const auto *recordType = decl->getType()->getAs<RecordType>();
+  const QualType type = decl->getType();
+  const auto *recordType = type->getAs<RecordType>();
+
+  if (isConstantBuffer(type)) {
+    // Get the templated type for ConstantBuffer.
+    recordType = hlsl::GetHLSLResourceResultType(type)->getAs<RecordType>();
+  }
+
   assert(recordType);
 
   const std::string structName =
@@ -1207,9 +1214,9 @@ SpirvFunction *DeclResultIdMapper::getOrRegisterFn(const FunctionDecl *fn) {
   // definition is seen, the parameter types will be set properly and take into
   // account whether the function is a member function of a class/struct (in
   // which case a 'this' parameter is added at the beginnig).
-  SpirvFunction *spirvFunction = spvBuilder.createSpirvFunction(
-      fn->getReturnType(), fn->getLocation(), fn->getName(), isPrecise,
-      isNoInline);
+  SpirvFunction *spirvFunction =
+      spvBuilder.createSpirvFunction(fn->getReturnType(), fn->getLocation(),
+                                     fn->getName(), isPrecise, isNoInline);
 
   // No need to dereference to get the pointer. Function returns that are
   // stand-alone aliases are already pointers to values. All other cases should
@@ -1963,6 +1970,19 @@ bool DeclResultIdMapper::decorateResourceBindings() {
               bindingSet.useNextBinding(defaultSpace, numBindingsToUse,
                                         bindingShift));
         }
+      }
+    }
+  }
+
+  return true;
+}
+
+bool DeclResultIdMapper::decorateResourceCoherent() {
+  for (const auto &var : resourceVars) {
+    if (const auto *decl = var.getDeclaration()) {
+      if (decl->getAttr<HLSLGloballyCoherentAttr>()) {
+        spvBuilder.decorateCoherent(var.getSpirvInstr(),
+                                    var.getSourceLocation());
       }
     }
   }
@@ -3629,7 +3649,7 @@ void DeclResultIdMapper::tryToCreateImplicitConstVar(const ValueDecl *decl) {
     return;
 
   APValue *val = varDecl->evaluateValue();
-  if(!val)
+  if (!val)
     return;
 
   SpirvInstruction *constVal =

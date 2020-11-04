@@ -893,9 +893,12 @@ SpirvDebugExpression::SpirvDebugExpression(
 
 SpirvDebugDeclare::SpirvDebugDeclare(SpirvDebugLocalVariable *debugVar_,
                                      SpirvInstruction *var_,
-                                     SpirvDebugExpression *expr)
+                                     SpirvDebugExpression *expr,
+                                     SourceLocation loc)
     : SpirvDebugInstruction(IK_DebugDeclare, /*opcode*/ 28u),
-      debugVar(debugVar_), var(var_), expression(expr) {}
+      debugVar(debugVar_), var(var_), expression(expr) {
+  srcLoc = loc;
+}
 
 SpirvDebugLexicalBlock::SpirvDebugLexicalBlock(SpirvDebugSource *source_,
                                                uint32_t line_, uint32_t column_,
