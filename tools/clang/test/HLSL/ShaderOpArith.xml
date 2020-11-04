@@ -1515,7 +1515,7 @@
         #define SRAW_CALL(op, uav, ix, val) uav.op(4*(5+ix)*stride, val); // signed at end. raw buffers don't need separate buffers
 
         #define OP_TEST(ucall, scall, uuav, suav) \
-          ucall(InterlockedAdd, uuav, 0, ix); \
+          ucall(InterlockedAdd, uuav, 0, addVal); \
           scall(InterlockedMin, suav, 1, sminMaxVal); \
           scall(InterlockedMax, suav, 2, sminMaxVal); \
           ucall(InterlockedMin, uuav, 1, uminMaxVal); \
@@ -1542,6 +1542,7 @@
         void AtomicTest(uint ix, uint bitSize) {
           uint stride = 2;
           uint value = (ix) | ((ix) << (bitSize/2));
+          uint addVal = ix; // 32 bits isn't enough room to dupliate upper and lower
           uint uminMaxVal = ~value*(~value&1) + value*(value&1);
           int sminMaxVal = ~value*(~value&1) + value*(value&1);
           uint xorVal = 1 << (ix%(bitSize-1));
@@ -1566,21 +1567,22 @@
           XCHG_TEST(VEC_CALL3, VEC_CALL4, g_xtexBuf)
         }
 
-        void AtomicRaw64Test(uint ix, uint bitSize) {
-          uint stride = 1;
-          uint value = (ix) | ((ix) << (bitSize/2));
-          uint uminMaxVal = ~value*(~value&1) + value*(value&1);
-          int sminMaxVal = ~value*(~value&1) + value*(value&1);
-          uint xorVal = 1 << (ix%(bitSize-1));
+        void AtomicRaw64Test(uint64_t ix, uint64_t bitSize) {
+          uint64_t stride = 1;
+          uint64_t value = (ix) | ((ix) << (bitSize/2));
+          uint64_t addVal = value;
+          uint64_t uminMaxVal = ~value*(~value&1) + value*(value&1);
+          int64_t sminMaxVal = ~value*(~value&1) + value*(value&1);
+          uint64_t xorVal = 1ULL << (ix%(bitSize-1));
           // make higher bits differ while lower bits match
-          uint xchgVal = (ix << (bitSize/2)) | ((ix/3)%64);
-          uint output = 0;
+          uint64_t xchgVal = (ix << (bitSize/2)) | ((ix/3)%64);
+          uint64_t output = 0;
 
           OP_TEST(USTRUCT_CALL, SSTRUCT64_CALL, g_struct64Buf, g_struct64Buf)
           XCHG_TEST(STRUCT_CALL3, STRUCT_CALL4, g_strXchg64Buf)
 
           // ByteAddressBuffer for 64-bit values are a special case. inlined here
-          URAW_CALL(InterlockedAdd64, g_raw64Buf, 0, ix);
+          URAW_CALL(InterlockedAdd64, g_raw64Buf, 0, addVal);
           SRAW_CALL(InterlockedMin64, g_raw64Buf, 1, sminMaxVal);
           SRAW_CALL(InterlockedMax64, g_raw64Buf, 2, sminMaxVal);
           URAW_CALL(InterlockedMin64, g_raw64Buf, 1, uminMaxVal);
@@ -1594,15 +1596,16 @@
           if (output == xchgVal - 2) { RAW_CALL3(InterlockedExchange64, g_rawXchg64Buf, (ix/3)%64, xchgVal, output);}
         }
 
-        void AtomicTyped64Test(uint ix, uint bitSize) {
-          uint stride = 1;
-          uint value = (ix) | ((ix) << (bitSize/2));
-          uint uminMaxVal = ~value*(~value&1) + value*(value&1);
+        void AtomicTyped64Test(uint64_t ix, uint64_t bitSize) {
+          uint64_t stride = 1;
+          uint64_t value = (ix) | ((ix) << (bitSize/2));
+          uint64_t addVal = value;
+          uint64_t uminMaxVal = ~value*(~value&1) + value*(value&1);
           int sminMaxVal = ~value*(~value&1) + value*(value&1);
-          uint xorVal = 1 << (ix%(bitSize-1));
+          uint64_t xorVal = 1ULL << (ix%(bitSize-1));
           // make higher bits differ while lower bits match
-          uint xchgVal = (ix << (bitSize/2)) | ((ix/3)%64);
-          uint output = 0;
+          uint64_t xchgVal = (ix << (bitSize/2)) | ((ix/3)%64);
+          uint64_t output = 0;
 
           OP_TEST(VEC_CALL, VEC_CALL, g_uint64Buf, g_sint64Buf)
           XCHG_TEST(VEC_CALL3, VEC_CALL4, g_xchg64Buf)
@@ -1613,7 +1616,8 @@
 
         void AtomicGroupSharedTest(uint ix, uint bitSize) {
           uint stride = 2;
-          uint value = (ix) | ((ix) << 16);
+          uint value = (ix) | ((ix) << (bitSize/2));
+          uint addVal = ix; // 32 bits isn't enough room to dupliate upper and lower
           uint uminMaxVal = ~value*(~value&1) + value*(value&1);
           int sminMaxVal = ~value*(~value&1) + value*(value&1);
           uint xorVal = 1 << (ix%(bitSize-1));
@@ -1641,14 +1645,15 @@
           g_shareXchgBuf[((ix/3)%64)*stride] = g_xchgShare[((ix/3)%64)*stride];
         }
 
-        void AtomicGroupShared64Test(uint ix, uint bitSize) {
-          uint stride = 1;
-          uint value = (ix) | ((ix) << 16);
-          uint uminMaxVal = ~value*(~value&1) + value*(value&1);
+        void AtomicGroupShared64Test(uint64_t ix, uint64_t bitSize) {
+          uint64_t stride = 1;
+          uint64_t value = (ix) | ((ix) << (bitSize/2));
+          uint64_t addVal = value;
+          uint64_t uminMaxVal = ~value*(~value&1) + value*(value&1);
           int sminMaxVal = ~value*(~value&1) + value*(value&1);
-          uint xorVal = 1 << (ix%(bitSize-1));
-          uint xchgVal = (ix << (bitSize/2)) | ((ix/3)%64);
-          uint output = 0;
+          uint64_t xorVal = 1ULL << (ix%(bitSize-1));
+          uint64_t xchgVal = (ix << (bitSize/2)) | ((ix/3)%64);
+          uint64_t output = 0;
 
           g_uintShare[ix%(6*stride)] = 0;
           g_sintShare[ix%(3*stride)] = 0;
