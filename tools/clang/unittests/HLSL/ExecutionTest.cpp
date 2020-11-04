@@ -1508,36 +1508,36 @@ TEST_F(ExecutionTest, LifetimeIntrinsicTest) {
   LPCWSTR pOptions15[] = {L"/validator-version 1.5"};
   LPCWSTR pOptions16[] = {L"/validator-version 1.6", L"/Vd"};
 
-  VERIFY_ARE_EQUAL(values[0], (uint32_t)0);
+  VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
 
   // Test regular shader with zeroinitializer store.
   RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_0, false, pOptions15, _countof(pOptions15), values);
-  VERIFY_ARE_EQUAL(values[0], (uint32_t)0);
+  VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
 
   // Test library with zeroinitializer store.
   RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_3, true, pOptions15, _countof(pOptions15), values);
-  VERIFY_ARE_EQUAL(values[0], (uint32_t)0);
+  VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
 
-  // Testing SM 6.6 and validator version 1.6 requires experimental shaders.
+  // Testing SM 6.6 and validator version 1.6 requires experimental shaders
   // being turned on.
   if (!m_ExperimentalModeEnabled)
       return;
 
   // Test regular shader with undef store.
   RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_0, false, pOptions16, _countof(pOptions16), values);
-  VERIFY_ARE_EQUAL(values[0], (uint32_t)0);
+  VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
 
   // Test library with undef store.
   RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_3, true, pOptions16, _countof(pOptions16), values);
-  VERIFY_ARE_EQUAL(values[0], (uint32_t)0);
+  VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
 
   // Test regular shader with lifetime intrinsics.
   RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_5, false, pOptions16, _countof(pOptions16), values); // TODO: Test 6.6 here!
-  VERIFY_ARE_EQUAL(values[0], (uint32_t)0);
+  VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
 
   // Test library with lifetime intrinsics.
   RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_5, true, pOptions16, _countof(pOptions16), values); // TODO: Test 6.6 here!
-  VERIFY_ARE_EQUAL(values[0], (uint32_t)0);
+  VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
 }
 
 TEST_F(ExecutionTest, BasicComputeTest) {
