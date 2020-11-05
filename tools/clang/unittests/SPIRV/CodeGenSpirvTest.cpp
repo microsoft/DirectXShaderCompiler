@@ -1610,6 +1610,9 @@ TEST_F(FileTest, SpirvDebugOpLineVariables) {
 TEST_F(FileTest, SpirvDebugOpLineInclude) {
   runFileTest("spirv.debug.opline.include.hlsl");
 }
+TEST_F(FileTest, SpirvDebugOpLineEndOfShader) {
+  runFileTest("spirv.debug.opline.end.of.shader.hlsl");
+}
 
 TEST_F(FileTest, SpirvDebugDxcCommitInfo) {
   useVulkan1p1();
