@@ -743,7 +743,6 @@ bool llvm::simplifyLoop(Loop *L, DominatorTree *DT, LoopInfo *LI, Pass *PP,
   return Changed;
 }
 
-char LoopSimplify::ID = 0;
 INITIALIZE_PASS_BEGIN(LoopSimplify, "loop-simplify",
                 "Canonicalize natural loops", false, false)
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
