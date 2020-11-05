@@ -8,15 +8,14 @@
 //===----------------------------------------------------------------------===//
 //
 // This file defines vectorizer utility function findScalarElement.
+// Splitting this function from VectorUtils.cpp into a separate file 
+// makes dxilconv.dll 121kB smaller (x86 release, compiler optimization for size).
 //
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/IR/Value.h"
-
-// NOTE: Splitting this function from VectorUtils.cpp into a separate file 
-// makes dxilconv.dll 121kB smaller (x86 release, compiler optimization for size).
 
 /// \brief Given a vector and an element number, see if the scalar value is
 /// already around as a register, for example if it were inserted then extracted

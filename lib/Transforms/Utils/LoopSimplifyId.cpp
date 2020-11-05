@@ -20,5 +20,5 @@ char LoopSimplify::ID = 0;
 
 // Publicly exposed interface to pass...
 // This is in a separate file instead of LoopSimplify.cpp which brings in many dependencies
-// increasing the size of dxilconv.dll by (...TODO..) kB.
+// unnecessary increasing the size of dxilconv.dll.
 char &llvm::LoopSimplifyID = LoopSimplify::ID;
