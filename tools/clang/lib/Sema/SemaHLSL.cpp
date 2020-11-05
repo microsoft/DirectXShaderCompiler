@@ -9783,7 +9783,8 @@ bool HLSLExternalSource::ValidateCast(
     OpLoc = sourceExpr->getExprLoc();
 
   QualType source = sourceExpr->getType();
-  TYPE_CONVERSION_REMARKS remarks;
+  TYPE_CONVERSION_REMARKS remarks = TYPE_CONVERSION_NONE;
+
   if (!CanConvert(OpLoc, sourceExpr, target, explicitConversion, &remarks, standard))
   {
     const bool IsOutputParameter = false;

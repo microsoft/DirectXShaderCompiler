@@ -1736,6 +1736,10 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
       if (Value *NewV = TranslatePtrIfUsedByLoweredFn(AI, typeSys)) {
         if (NewV != AI) {
           DXASSERT(AI->getNumUses() == 0, "must have zero users.");
+          // Update debug declare.
+          if (DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(AI)) {
+            DDI->setArgOperand(0, MetadataAsValue::get(NewV->getContext(), ValueAsMetadata::get(NewV)));
+          }
           AI->eraseFromParent();
           Changed = true;
         }

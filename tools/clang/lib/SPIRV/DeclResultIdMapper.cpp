@@ -701,7 +701,7 @@ DeclResultIdMapper::createFnParam(const ParmVarDecl *param,
     auto *debugLocalVar = spvBuilder.createDebugLocalVariable(
         type, name, info->source, line, column, info->scopeStack.back(), flags,
         dbgArgNumber);
-    spvBuilder.createDebugDeclare(debugLocalVar, fnParamInstr, loc);
+    spvBuilder.createDebugDeclare(debugLocalVar, fnParamInstr);
   }
 
   return fnParamInstr;
