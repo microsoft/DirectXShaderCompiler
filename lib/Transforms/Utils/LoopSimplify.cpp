@@ -64,6 +64,7 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
+#include "llvm/Transforms/Utils/LoopSimplify.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "loop-simplify"
@@ -742,45 +743,6 @@ bool llvm::simplifyLoop(Loop *L, DominatorTree *DT, LoopInfo *LI, Pass *PP,
   return Changed;
 }
 
-namespace {
-  struct LoopSimplify : public FunctionPass {
-    static char ID; // Pass identification, replacement for typeid
-    LoopSimplify() : FunctionPass(ID) {
-      initializeLoopSimplifyPass(*PassRegistry::getPassRegistry());
-    }
-
-    // AA - If we have an alias analysis object to update, this is it, otherwise
-    // this is null.
-    AliasAnalysis *AA;
-    DominatorTree *DT;
-    LoopInfo *LI;
-    ScalarEvolution *SE;
-    AssumptionCache *AC;
-
-    bool runOnFunction(Function &F) override;
-
-    void getAnalysisUsage(AnalysisUsage &AU) const override {
-      AU.addRequired<AssumptionCacheTracker>();
-
-      // We need loop information to identify the loops...
-      AU.addRequired<DominatorTreeWrapperPass>();
-      AU.addPreserved<DominatorTreeWrapperPass>();
-
-      AU.addRequired<LoopInfoWrapperPass>();
-      AU.addPreserved<LoopInfoWrapperPass>();
-
-      AU.addPreserved<AliasAnalysis>();
-      AU.addPreserved<ScalarEvolution>();
-      AU.addPreserved<DependenceAnalysis>();
-      AU.addPreservedID(BreakCriticalEdgesID);  // No critical edges added.
-    }
-
-    /// verifyAnalysis() - Verify LoopSimplifyForm's guarantees.
-    void verifyAnalysis() const override;
-  };
-}
-
-char LoopSimplify::ID = 0;
 INITIALIZE_PASS_BEGIN(LoopSimplify, "loop-simplify",
                 "Canonicalize natural loops", false, false)
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
@@ -790,8 +752,27 @@ INITIALIZE_PASS_END(LoopSimplify, "loop-simplify",
                 "Canonicalize natural loops", false, false)
 
 // Publicly exposed interface to pass...
-char &llvm::LoopSimplifyID = LoopSimplify::ID;
 Pass *llvm::createLoopSimplifyPass() { return new LoopSimplify(); }
+
+LoopSimplify::LoopSimplify() : FunctionPass(ID) {
+  initializeLoopSimplifyPass(*PassRegistry::getPassRegistry());
+}
+
+void LoopSimplify::getAnalysisUsage(AnalysisUsage& AU) const {
+  AU.addRequired<AssumptionCacheTracker>();
+
+  // We need loop information to identify the loops...
+  AU.addRequired<DominatorTreeWrapperPass>();
+  AU.addPreserved<DominatorTreeWrapperPass>();
+
+  AU.addRequired<LoopInfoWrapperPass>();
+  AU.addPreserved<LoopInfoWrapperPass>();
+
+  AU.addPreserved<AliasAnalysis>();
+  AU.addPreserved<ScalarEvolution>();
+  AU.addPreserved<DependenceAnalysis>();
+  AU.addPreservedID(BreakCriticalEdgesID);  // No critical edges added.
+}
 
 /// runOnFunction - Run down all loops in the CFG (recursively, but we could do
 /// it in any convenient order) inserting preheaders...
