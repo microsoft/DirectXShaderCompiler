@@ -137,3 +137,6 @@ add_llvm_library(LLVMSupport
   )
 
 set_property(TARGET LLVMSupport PROPERTY LLVM_SYSTEM_LIBS "${system_libs}")
+if(WIN32)
+set_property(TARGET LLVMSupport PROPERTY COMPILE_FLAGS /EHsc )
+endif(WIN32)
