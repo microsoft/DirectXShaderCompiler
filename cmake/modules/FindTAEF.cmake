@@ -36,7 +36,7 @@ elseif (CMAKE_GENERATOR MATCHES "Visual Studio.*ARM" OR "${DXC_BUILD_ARCH}" STRE
   find_library(TAEF_WEX_LOGGER_LIBRARY NAMES Wex.Logger.lib
                HINTS ${TAEF_INCLUDE_DIR}/../Library/arm
                HINTS ${TAEF_INCLUDE_DIR}/../lib/arm )
-elseif (CMAKE_GENERATOR MATCHES "Visual Studio.*ARM64" OR "${DXC_BUILD_ARCH}" STREQUAL "ARM64")
+elseif (CMAKE_GENERATOR MATCHES "Visual Studio.*ARM64" OR "${DXC_BUILD_ARCH}" MATCHES "ARM64.*")
   find_library(TAEF_COMMON_LIBRARY NAMES Te.Common.lib
                HINTS ${TAEF_INCLUDE_DIR}/../Library/arm64
                HINTS ${TAEF_INCLUDE_DIR}/../lib/arm64 )
