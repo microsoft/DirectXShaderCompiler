@@ -177,7 +177,7 @@ if "%1"=="-dxc-cmake-ends-include" (
   shift /1
 )
 
-if "%1"=="-dxc-cmake-path" (
+if "%1"=="-dxc-cmake" (
   set CMAKE_PATH=%~2
   shift /1
   shift /1
