@@ -701,9 +701,7 @@ public:
       pBindInfo->LowerBound = R->GetLowerBound();
       pBindInfo->UpperBound = R->GetUpperBound();
       if (pBindInfo1) {
-        pBindInfo1->ResKind = R->IsCompSampler()
-          ? (UINT)PSVResourceKind::SamplerComparison
-          : (UINT)PSVResourceKind::Sampler;
+        pBindInfo1->ResKind = (UINT)R->GetKind();
       }
       uResIndex++;
     }
@@ -732,14 +730,11 @@ public:
       PSVResourceBindInfo0* pBindInfo = m_PSV.GetPSVResourceBindInfo0(uResIndex);
       PSVResourceBindInfo1* pBindInfo1 = m_PSV.GetPSVResourceBindInfo1(uResIndex);
       DXASSERT_NOMSG(pBindInfo);
-      PSVResourceKind kind = (PSVResourceKind)R->GetKind();
       if (R->IsStructuredBuffer()) {
-        if (R->HasCounter()) {
+        if (R->HasCounter())
           pBindInfo->ResType = (UINT)PSVResourceType::UAVStructuredWithCounter;
-          kind = PSVResourceKind::StructuredBufferWithCounter;
-        } else {
+        else
           pBindInfo->ResType = (UINT)PSVResourceType::UAVStructured;
-        }
       } else if (R->IsRawBuffer()) {
         pBindInfo->ResType = (UINT)PSVResourceType::UAVRaw;
       } else {
@@ -749,7 +744,7 @@ public:
       pBindInfo->LowerBound = R->GetLowerBound();
       pBindInfo->UpperBound = R->GetUpperBound();
       if (pBindInfo1) {
-        pBindInfo1->ResKind = (UINT)kind;
+        pBindInfo1->ResKind = (UINT)R->GetKind();
       }
       uResIndex++;
     }
