@@ -371,6 +371,7 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
   opts.bAllResourcesBound = CGM.getCodeGenOpts().HLSLAllResourcesBound;
   opts.PackingStrategy = CGM.getCodeGenOpts().HLSLSignaturePackingStrategy;
   opts.bLegacyResourceReservation = CGM.getCodeGenOpts().HLSLLegacyResourceReservation;
+  opts.bForceZeroStoreLifetimes = CGM.getCodeGenOpts().HLSLForceZeroStoreLifetimes;
 
   opts.bUseMinPrecision = CGM.getLangOpts().UseMinPrecision;
   opts.bDX9CompatMode = CGM.getLangOpts().EnableDX9CompatMode;

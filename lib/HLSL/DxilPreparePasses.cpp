@@ -377,12 +377,14 @@ public:
         CI->eraseFromParent();
       }
     }
+  }
 
-    // Replace llvm.lifetime.start/.end intrinsics with undef stores unless
-    // the pointer is a global that has an initializer.
-    // This works around losing scoping information in earlier shader models
-    // that do not support the intrinsics natively.
-
+  // Replace llvm.lifetime.start/.end intrinsics with undef or zeroinitializer
+  // stores (for earlier validator versions) unless the pointer is a global
+  // that has an initializer.
+  // This works around losing scoping information in earlier shader models
+  // that do not support the intrinsics natively.
+  void patchLifetimeIntrinsics(Module &M, unsigned ValMajor, unsigned ValMinor, bool forceZeroStoreLifetimes) {
     // Get the declarations. This may introduce them if there were none before.
     Value *StartDecl = Intrinsic::getDeclaration(&M, Intrinsic::lifetime_start);
     Value *EndDecl   = Intrinsic::getDeclaration(&M, Intrinsic::lifetime_end);
@@ -445,7 +447,8 @@ public:
         // since it causes a validation error. As a workaround we store 0, which
         // achieves mostly the same as storing undef but can cause overhead in
         // some situations.
-        if (ValMajor < 1 || (ValMajor == 1 && ValMinor < 6))
+        // We also allow to force zeroinitializer through a flag.
+        if (forceZeroStoreLifetimes || ValMajor < 1 || (ValMajor == 1 && ValMinor < 6))
           IRBuilder<>(CI).CreateStore(Constant::getNullValue(T), ptr);
         else
           IRBuilder<>(CI).CreateStore(UndefValue::get(T), ptr);
@@ -474,10 +477,10 @@ public:
       DxilModule &DM = M.GetDxilModule();
       unsigned ValMajor = 0;
       unsigned ValMinor = 0;
-      M.GetDxilModule().GetValidatorVersion(ValMajor, ValMinor);
+      DM.GetValidatorVersion(ValMajor, ValMinor);
       unsigned DxilMajor = 0;
       unsigned DxilMinor = 0;
-      M.GetDxilModule().GetDxilVersion(DxilMajor, DxilMinor);
+      DM.GetDxilVersion(DxilMajor, DxilMinor);
 
       bool IsLib = DM.GetShaderModel()->IsLib();
       // Skip validation patch for lib.
@@ -492,8 +495,14 @@ public:
           MarkUsedSignatureElements(DM.GetPatchConstantFunction(), DM);
       }
 
+      // Replace lifetime intrinsics if requested or necessary.
+      const bool forceZeroStoreLifetimes = DM.GetForceZeroStoreLifetimes();
+      if (forceZeroStoreLifetimes || DxilMinor < 6) {
+        patchLifetimeIntrinsics(M, ValMajor, ValMinor, forceZeroStoreLifetimes);
+      }
+
       // Remove store undef output.
-      hlsl::OP *hlslOP = M.GetDxilModule().GetOP();
+      hlsl::OP *hlslOP = DM.GetOP();
       if (DxilMinor < 6) {
         patchDxil_1_6(M, hlslOP, ValMajor, ValMinor);
       }
