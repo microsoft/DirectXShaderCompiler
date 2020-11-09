@@ -3241,6 +3241,16 @@ static void removeLifetimeUsers(Value *V) {
   }
 }
 
+// Conservatively remove all lifetime users of both source and target.
+// Otherwise, wrong lifetimes could be inherited either way.
+// TODO: We should be merging the lifetimes. For convenience, just remove them
+//       for now to be safe.
+static void updateLifetimeForReplacement(Value *From, Value *To)
+{
+    removeLifetimeUsers(From);
+    removeLifetimeUsers(To);
+}
+
 static bool DominateAllUsers(Instruction *I, Value *V, DominatorTree *DT);
 
 
@@ -3261,14 +3271,10 @@ static bool ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
     if (!DominateAllUsers(SrcI, V, DT))
       return false;
 
-  // Unless we encounter an issue, we always replace V by Src below.
-  // Conservatively remove all lifetime users of V. Otherwise, Src would inherit
-  // them from V and suddenly have a different lifetime than it had before.
-  removeLifetimeUsers(V);
-
   Type *TyV = V->getType()->getPointerElementType();
   Type *TySrc = Src->getType()->getPointerElementType();
   if (Constant *C = dyn_cast<Constant>(V)) {
+    updateLifetimeForReplacement(V, Src);
     if (TyV == TySrc) {
       if (isa<Constant>(Src)) {
         V->replaceAllUsesWith(Src);
@@ -3284,8 +3290,10 @@ static bool ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
     }
   } else {
     if (TyV == TySrc) {
-      if (V != Src)
+      if (V != Src) {
+        updateLifetimeForReplacement(V, Src);
         V->replaceAllUsesWith(Src);
+      }
     } else if (!IsUnboundedArrayMemcpy(TyV, TySrc)) {
       Value* DestVal = MC->getRawDest();
       Value* SrcVal = MC->getRawSource();
@@ -3326,6 +3334,7 @@ static bool ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
             MemcpySplitter::SplitMemCpy(MC, DL, annotation, typeSys);
             return true;
           } else {
+            updateLifetimeForReplacement(V, Src);
             DstPtr->replaceAllUsesWith(SrcPtr);
           }
         } else {
@@ -3334,6 +3343,7 @@ static bool ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
         }
       }
     } else {
+      updateLifetimeForReplacement(V, Src);
       DXASSERT(IsUnboundedArrayMemcpy(TyV, TySrc), "otherwise mismatched types in memcpy are not unbounded array");
       ReplaceUnboundedArrayUses(V, Src);
     }
