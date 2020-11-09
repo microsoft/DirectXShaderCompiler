@@ -14,7 +14,6 @@ target_link_libraries(dxilconv PRIVATE
   LLVMDxilContainer
   LLVMDxilRootSignature
   LLVMHLSL  
-  LLVMipo
   LLVMMSSupport
   LLVMScalarOpts
 )

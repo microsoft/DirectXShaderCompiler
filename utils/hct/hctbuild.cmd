@@ -30,13 +30,6 @@ if "%HLSL_BLD_DIR%"=="" (
   exit /b 1
 )
 
-where cmake.exe 1>nul 2>nul
-if errorlevel 1 (
-  echo Unable to find cmake.exe on the path.
-  echo cmake 3.4 is available from https://cmake.org/files/v3.4/cmake-3.4.0-win32-x86.exe
-  exit /b 1
-)
-
 if "%BUILD_ARCH%"=="" (
   set BUILD_ARCH=Win32
 )
@@ -47,6 +40,7 @@ set BUILD_CONFIG=Debug
 set DO_SETUP=1
 set DO_BUILD=1
 set CMAKE_OPTS=
+set CMAKE_PATH=
 set SPEAK=1
 set PARALLEL_OPT=/m
 set ALL_DEFS=OFF
@@ -119,6 +113,10 @@ if /i "%1"=="-arm64" (
   set BUILD_ARCH=ARM64
   shift /1
 )
+if /i "%1"=="-arm64ec" (
+  set BUILD_ARCH=ARM64EC
+  shift /1
+)
 if /i "%1"=="-Debug" (
   set BUILD_CONFIG=Debug
   shift /1
@@ -179,6 +177,22 @@ if "%1"=="-dxc-cmake-ends-include" (
   shift /1
 )
 
+if "%1"=="-dxc-cmake" (
+  set CMAKE_PATH=%~2
+  shift /1
+  shift /1
+)
+
+if "%CMAKE_PATH%"=="" (
+  where cmake.exe 1>nul 2>nul
+  if errorlevel 1 (
+    echo Unable to find cmake.exe on the path.
+    echo cmake 3.4 is available from https://cmake.org/files/v3.4/cmake-3.4.0-win32-x86.exe
+    exit /b 1
+  )
+  set CMAKE_PATH=cmake
+)
+
 rem Begin SPIRV change
 if "%1"=="-spirv" (
   echo SPIR-V codegen is enabled.
@@ -222,6 +236,17 @@ if /i "%BUILD_ARCH%"=="arm64" (
   if "%BUILD_VS_VER%"=="2019" (
     set VS2019ARCH=-AARM64
   )
+)
+
+if /i "%BUILD_ARCH%"=="arm64ec" (
+  if "%BUILD_VS_VER%" NEQ "2019" (
+    echo "ARM64EC platform is not supported on VS2017."    
+    exit /b 1
+  )
+  set BUILD_GENERATOR_PLATFORM=ARM64EC
+  set BUILD_ARM_CROSSCOMPILING=1
+  set VS2019ARCH=-AARM64EC
+  set CMAKE_OPTS=%CMAKE_OPTS% -DCMAKE_SYSTEM_VERSION=10.0.20207.0 -DMSVC_BUILD_AS_X=1
 )
 
 if "%1"=="-ninja" (
@@ -371,12 +396,12 @@ cd /d %3
 if "%DO_SETUP%"=="1" (
   echo Creating solution files for %2, logging to %3\cmake-log.txt
   if "%BUILD_GENERATOR%"=="Ninja" (
-    echo Running cmake -DCMAKE_BUILD_TYPE:STRING=%1 %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% > %3\cmake-log.txt
-    cmake -DCMAKE_BUILD_TYPE:STRING=%1 %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
+    echo Running %CMAKE_PATH% -DCMAKE_BUILD_TYPE:STRING=%1 %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% > %3\cmake-log.txt
+    %CMAKE_PATH% -DCMAKE_BUILD_TYPE:STRING=%1 %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
   ) else (
     rem -DCMAKE_BUILD_TYPE:STRING=%1 is not necessary for multi-config generators like VS
-    echo Running cmake %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% > %3\cmake-log.txt
-    cmake %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
+    echo Running "%CMAKE_PATH%" %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% > %3\cmake-log.txt
+    "%CMAKE_PATH%" %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
   )
   if errorlevel 1 (
     echo Failed to configure cmake projects.

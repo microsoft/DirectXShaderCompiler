@@ -2294,7 +2294,7 @@ private:
 class SpirvDebugDeclare : public SpirvDebugInstruction {
 public:
   SpirvDebugDeclare(SpirvDebugLocalVariable *, SpirvInstruction *,
-                    SpirvDebugExpression *, SourceLocation loc);
+                    SpirvDebugExpression *);
 
   DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvDebugDeclare)
 
