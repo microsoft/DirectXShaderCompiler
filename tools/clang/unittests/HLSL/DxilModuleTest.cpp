@@ -68,6 +68,8 @@ public:
 
   TEST_METHOD(SetValidatorVersion)
 
+  TEST_METHOD(PayloadQualifier)
+
   void VerifyValidatorVersionFails(
     LPCWSTR shaderModel, const std::vector<LPCWSTR> &arguments,
     const std::vector<LPCSTR> &expectedErrors);
@@ -577,4 +579,52 @@ TEST_F(DxilModuleTest, SetValidatorVersion) {
 
   VerifyValidatorVersionFails(L"lib_6_x", {L"-validator-version", L"1.3"}, {
     "Offline library profile cannot be used with non-zero -validator-version."});
+}
+
+TEST_F(DxilModuleTest, PayloadQualifier) {
+  std::vector<LPCWSTR> arguments = { L"-validator-version", L"1.6", L"-allow-payload-qualifiers" };
+  Compiler c(m_dllSupport);
+
+  LPCSTR shader = "struct Payload\n"
+                  "{\n"
+                  "  double a : in(trace, closesthit, anyhit) : out(trace, miss, closesthit);\n"
+                  "};\n\n"
+                  "[shader(\"miss\")]\n"
+                  "void Miss( inout Payload payload ) {}\n";
+
+  c.Compile(shader, L"lib_6_6", arguments, {});
+
+  unsigned numChecks = 0;
+
+  DxilModule &DM = c.GetDxilModule();
+  const DxilTypeSystem& DTS = DM.GetTypeSystem();
+
+  for (auto &p : DTS.GetStructAnnotationMap()) {
+    const DxilStructAnnotation &stAnnotation = *p.second;
+    for (unsigned i = 0; i < stAnnotation.GetNumFields(); ++i) {
+      const DxilFieldAnnotation &fieldAnnotation =
+          stAnnotation.GetFieldAnnotation(i);
+      const DxilPayloadAnnotation &payloadAnnotation =
+          fieldAnnotation.GetPayloadFieldAnnotation();
+      for (auto &p : payloadAnnotation.AccessPerShader) {
+        if (p.first == "trace" || p.first == "closesthit") {
+          numChecks++;
+          VERIFY_ARE_EQUAL(PayloadAccessTypes::InOut, p.second);
+          continue;
+        }
+        if (p.first == "miss") {
+          numChecks++;
+          VERIFY_ARE_EQUAL(PayloadAccessTypes::Out, p.second);
+          continue;
+        }
+        if (p.first == "anyhit") {
+          numChecks++;
+          VERIFY_ARE_EQUAL(PayloadAccessTypes::In, p.second);
+          continue;
+        }
+      }
+    }
+  }
+
+  VERIFY_ARE_EQUAL(numChecks, 4);
 }

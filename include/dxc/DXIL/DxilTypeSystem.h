@@ -89,6 +89,7 @@ public:
   void SetCBVarUsed(bool used);
 
   const DxilPayloadAnnotation& GetPayloadFieldAnnotation() const;
+  uint32_t GetPayloadFieldAnnotationBitMask() const;
   void AddPayloadFieldAnnotation(llvm::StringRef shaderType, PayloadAccessTypes qualifier);
 
 private:
@@ -212,6 +213,7 @@ public:
   void EraseStructAnnotation(const llvm::StructType *pStructType);
 
   StructAnnotationMap &GetStructAnnotationMap();
+  const StructAnnotationMap &GetStructAnnotationMap() const;
 
   DxilFunctionAnnotation *AddFunctionAnnotation(const llvm::Function *pFunction);
   DxilFunctionAnnotation *GetFunctionAnnotation(const llvm::Function *pFunction);

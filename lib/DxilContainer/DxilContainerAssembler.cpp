@@ -1032,6 +1032,21 @@ public:
   RuntimeDataPartType GetType() const { return RuntimeDataPartType::SubobjectTable; }
 };
 
+class PayloadTypeTable : public RDATTable<RuntimeDataPayloadTypeInfo> {
+public:
+  RuntimeDataPartType GetType() const { return RuntimeDataPartType::PayloadTypeTable; }
+};
+
+class PayloadFieldTable : public RDATTable<RuntimeDataPayloadFieldInfo> {
+public:
+  RuntimeDataPartType GetType() const { return RuntimeDataPartType::PayloadFieldTable; }
+};
+
+class PayloadTypeFieldAssociationTable : public RDATTable<RuntimeDataPayloadTypeFieldAssociationInfo> {
+public:
+  RuntimeDataPartType GetType() const { return RuntimeDataPartType::PayloadTypeFieldAssociationTable; }
+};
+
 using namespace DXIL;
 
 class DxilRDATWriter : public DxilPartWriter {
@@ -1338,6 +1353,77 @@ private:
     }
   }
 
+  void UpdatePayloadInfo(const DxilModule &DM) {
+      const bool hasPayloadAnnotations = DM.GetPayloadQualifersUsed(); 
+      if (!hasPayloadAnnotations)
+          return;
+
+      Module* module = DM.GetModule();
+      assert(module);
+      DataLayout DL(module);
+
+      const DxilTypeSystem& DTS = DM.GetTypeSystem();
+      int TypeID = 0;
+      int FieldID = 0;
+      for (const auto& entry : DTS.GetStructAnnotationMap()) {
+        const StructType* type = entry.first;
+        const auto& annotation = entry.second;
+
+        RuntimeDataPayloadTypeInfo info; 
+        info.ID = TypeID;
+        info.Name = m_pStringBufferPart->Insert(type->getName());
+        m_pPayloadTypeTable->Insert(info);
+
+        for (unsigned i = 0; i < annotation->GetNumFields(); ++i) {
+            Type* fieldType = type->getElementType(i);
+            uint32_t size = 0;
+            bool fieldIsStructType = false;
+
+            if (fieldType->isAggregateType()) {
+              if (fieldType->isStructTy()) {
+                  size = DL.getTypeAllocSize(fieldType);
+                  fieldIsStructType = true;
+              } else {
+                ArrayType *arrayType = cast<ArrayType>(fieldType);
+                fieldType = arrayType->getElementType();
+                size = arrayType->getNumElements();
+                if (fieldType->isStructTy()) {
+                    size *= DL.getTypeAllocSize(fieldType);
+                    fieldIsStructType = true;
+                }
+              }
+            } else if (fieldType->isVectorTy()) {
+              VectorType *vectorType = cast<VectorType>(fieldType);
+              fieldType = vectorType->getElementType();
+              size = vectorType->getNumElements();
+            }
+            
+            RuntimeDataPayloadFieldInfo fieldInfo; 
+
+            const auto& fieldAnnotation = annotation->GetFieldAnnotation(i);
+
+            fieldInfo.ID = FieldID; 
+            fieldInfo.Name = m_pStringBufferPart->Insert(fieldAnnotation.GetFieldName());
+            if (!fieldIsStructType)
+                fieldInfo.Type = static_cast<uint32_t>(fieldAnnotation.GetCompType().GetKind());
+            else 
+                fieldInfo.Type = 0xffffffffu; // indicates a struct type in the payload
+            fieldInfo.Size = size;
+            fieldInfo.PayloadAccessQualifier = fieldAnnotation.GetPayloadFieldAnnotationBitMask();
+
+            m_pPayloadFieldTable->Insert(fieldInfo);
+
+            RuntimeDataPayloadTypeFieldAssociationInfo association; 
+            association.TypeIndex = TypeID; 
+            association.FieldIndex = FieldID; 
+
+            m_pPayloadTypeFieldAssociationTable->Insert(association);
+            FieldID++;
+        }
+        TypeID++;
+      }
+  }
+
   void CreateParts() {
 #define ADD_PART(type) \
     m_Parts.emplace_back(llvm::make_unique<type>()); \
@@ -1348,6 +1434,9 @@ private:
     ADD_PART(IndexArraysPart);
     ADD_PART(RawBytesPart);
     ADD_PART(SubobjectTable);
+    ADD_PART(PayloadTypeTable);
+    ADD_PART(PayloadFieldTable);
+    ADD_PART(PayloadTypeFieldAssociationTable);
 #undef ADD_PART
   }
 
@@ -1357,7 +1446,10 @@ private:
   FunctionTable *m_pFunctionTable;
   ResourceTable *m_pResourceTable;
   SubobjectTable *m_pSubobjectTable;
-
+  PayloadTypeTable *m_pPayloadTypeTable;
+  PayloadFieldTable *m_pPayloadFieldTable;
+  PayloadTypeFieldAssociationTable *m_pPayloadTypeFieldAssociationTable;
+  
 public:
   DxilRDATWriter(const DxilModule &mod, uint32_t InfoVersion = 0)
       : m_RDATBuffer(), m_Parts(), m_FuncToResNameOffset() {
@@ -1368,6 +1460,7 @@ public:
     UpdateResourceInfo(mod);
     UpdateFunctionInfo(mod);
     UpdateSubobjectInfo(mod);
+    UpdatePayloadInfo(mod);
 
     // Delete any empty parts:
     std::vector<std::unique_ptr<RDATPart>>::iterator it = m_Parts.begin();

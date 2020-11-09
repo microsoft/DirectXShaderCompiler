@@ -1277,6 +1277,10 @@ DxilTypeSystem &DxilModule::GetTypeSystem() {
   return *m_pTypeSystem;
 }
 
+const DxilTypeSystem &DxilModule::GetTypeSystem() const {
+  return *m_pTypeSystem;
+}
+
 std::vector<unsigned> &DxilModule::GetSerializedViewIdState() {
   return m_SerializedState;
 }
@@ -1590,6 +1594,7 @@ void DxilModule::LoadDxilMetadata() {
   // Type system is not required for consumption of dxil.
   try {
     m_pMDHelper->LoadDxilTypeSystem(*m_pTypeSystem.get());
+    m_pMDHelper->LoadDXRPayloadAnnotations(*m_pTypeSystem.get());
   } catch (hlsl::Exception &) {
     m_bMetadataErrors = true;
 #ifdef DBG

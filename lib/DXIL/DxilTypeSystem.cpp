@@ -80,6 +80,34 @@ void DxilFieldAnnotation::SetFieldName(const std::string &FieldName) { m_FieldNa
 bool DxilFieldAnnotation::IsCBVarUsed() const { return m_bCBufferVarUsed; }
 void DxilFieldAnnotation::SetCBVarUsed(bool used) { m_bCBufferVarUsed = used; }
 const DxilPayloadAnnotation& DxilFieldAnnotation::GetPayloadFieldAnnotation() const { return m_payloadAccessQualifiers; }
+uint32_t DxilFieldAnnotation::GetPayloadFieldAnnotationBitMask() const {
+  unsigned bitmask = 0;
+  for (auto &qualifier : m_payloadAccessQualifiers.AccessPerShader) {
+    int bitOffset = 0;
+    if (qualifier.first == "trace")
+      bitOffset = 0;
+    else if (qualifier.first == "closesthit")
+      bitOffset = 4;
+    else if (qualifier.first == "miss")
+      bitOffset = 8;
+    else if (qualifier.first == "anyhit")
+      bitOffset = 12;
+    else
+      llvm_unreachable("unexpected shader stage");
+
+    unsigned accessBits = 0x0;
+    if (qualifier.second == hlsl::PayloadAccessTypes::In)
+      accessBits |= 0x1; // set the first bit
+    if (qualifier.second == hlsl::PayloadAccessTypes::Out)
+      accessBits |= 0x2; // set the second bit
+    if (qualifier.second == hlsl::PayloadAccessTypes::InOut)
+      accessBits |= 0x3; // set both bits
+
+    accessBits <<= bitOffset;
+    bitmask |= accessBits;
+  }
+  return bitmask;
+}
 void DxilFieldAnnotation::AddPayloadFieldAnnotation(
     llvm::StringRef shaderType, PayloadAccessTypes qualifer) {
   for (auto &shaderAccess : m_payloadAccessQualifiers.AccessPerShader) {
@@ -258,6 +286,10 @@ void DxilTypeSystem::EraseStructAnnotation(const StructType *pStructType) {
 }
 
 DxilTypeSystem::StructAnnotationMap &DxilTypeSystem::GetStructAnnotationMap() {
+  return m_StructAnnotations;
+}
+
+const DxilTypeSystem::StructAnnotationMap &DxilTypeSystem::GetStructAnnotationMap() const{
   return m_StructAnnotations;
 }
 

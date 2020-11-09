@@ -161,6 +161,7 @@ public:
 
   // DXIL type system.
   DxilTypeSystem &GetTypeSystem();
+  const DxilTypeSystem &GetTypeSystem() const;
 
   /// Emit llvm.used array to make sure that optimizations do not remove unreferenced globals.
   void EmitLLVMUsed();

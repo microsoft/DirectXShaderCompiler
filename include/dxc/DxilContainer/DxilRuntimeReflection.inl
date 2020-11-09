@@ -102,6 +102,9 @@ DxilRuntimeData::DxilRuntimeData(const void *ptr, size_t size)
   m_ResourceTableReader.SetContext(&m_Context);
   m_FunctionTableReader.SetContext(&m_Context);
   m_SubobjectTableReader.SetContext(&m_Context);
+  m_PayloadTypeTableReader.SetContext(&m_Context);
+  m_PayloadFieldTableReader.SetContext(&m_Context);
+  m_PayloadTypeFieldAssociationTableReader.SetContext(&m_Context);
   InitFromRDAT(ptr, size);
 }
 
@@ -157,6 +160,27 @@ bool DxilRuntimeData::InitFromRDAT(const void *pRDAT, size_t size) {
             table.RecordCount, table.RecordStride);
           break;
         }
+        case RuntimeDataPartType::PayloadTypeTable: {
+          RuntimeDataTableHeader table = PR.Read<RuntimeDataTableHeader>();
+          size_t tableSize = table.RecordCount * table.RecordStride;
+          m_PayloadTypeTableReader.SetPayloadTypeInfo(PR.ReadArray<char>(tableSize),
+              table.RecordCount, table.RecordStride);
+          break;
+        }        
+        case RuntimeDataPartType::PayloadFieldTable: {
+          RuntimeDataTableHeader table = PR.Read<RuntimeDataTableHeader>();
+          size_t tableSize = table.RecordCount * table.RecordStride;
+          m_PayloadFieldTableReader.SetPayloadFieldInfo(PR.ReadArray<char>(tableSize),
+              table.RecordCount, table.RecordStride);
+          break;
+        }        
+        case RuntimeDataPartType::PayloadTypeFieldAssociationTable: {
+          RuntimeDataTableHeader table = PR.Read<RuntimeDataTableHeader>();
+          size_t tableSize = table.RecordCount * table.RecordStride;
+          m_PayloadTypeFieldAssociationTableReader.SetPayloadFieldAssociationInfo(PR.ReadArray<char>(tableSize),
+              table.RecordCount, table.RecordStride);
+          break;
+        }
         default:
           continue; // Skip unrecognized parts
         }
@@ -181,6 +205,18 @@ ResourceTableReader *DxilRuntimeData::GetResourceTableReader() {
 
 SubobjectTableReader *DxilRuntimeData::GetSubobjectTableReader() {
   return &m_SubobjectTableReader;
+}
+
+PayloadTypeTableReader *DxilRuntimeData::GetPayloadTypeTableReader() {
+  return &m_PayloadTypeTableReader;
+}
+
+PayloadFieldTableReader *DxilRuntimeData::GetPayloadFieldTableReader() {
+  return &m_PayloadFieldTableReader;
+}
+
+PayloadTypeFieldAssociationTableReader *DxilRuntimeData::GetPayloadTypeFieldAssociationTableReader() {
+  return &m_PayloadTypeFieldAssociationTableReader;
 }
 
 }} // hlsl::RDAT
@@ -208,6 +244,8 @@ private:
   typedef std::vector<DxilResourceDesc *> ResourceRefList;
   typedef std::vector<DxilFunctionDesc> FunctionList;
   typedef std::vector<DxilSubobjectDesc> SubobjectList;
+  typedef std::vector<DxilPayloadTypeDesc> PayloadTypeList;
+  typedef std::vector<std::vector<DxilPayloadFieldDesc>> PayloadFieldList;
 
   DxilRuntimeData m_RuntimeData;
   StringMap m_StringMap;
@@ -215,6 +253,9 @@ private:
   ResourceList m_Resources;
   FunctionList m_Functions;
   SubobjectList m_Subobjects;
+  PayloadTypeList m_Payloads;
+  PayloadFieldList m_PayloadFields;
+
   std::unordered_map<ResourceKey, DxilResourceDesc *> m_ResourceMap;
   std::unordered_map<DxilFunctionDesc *, ResourceRefList> m_FuncToResMap;
   std::unordered_map<DxilFunctionDesc *, WStringList> m_FuncToDependenciesMap;
@@ -235,6 +276,7 @@ private:
   DxilFunctionDesc *AddFunction(const FunctionReader &functionReader);
   DxilSubobjectDesc *AddSubobject(const SubobjectReader &subobjectReader);
 
+  void InitializePayloads();
 public:
   // TODO: Implement pipeline state validation with runtime data
   // TODO: Update BlobContainer.h to recognize 'RDAT' blob
@@ -299,6 +341,8 @@ const DxilLibraryDesc DxilRuntimeReflection_impl::GetLibraryReflection() {
     reflection.NumSubobjects =
         m_RuntimeData.GetSubobjectTableReader()->GetCount();
     reflection.pSubobjects = m_Subobjects.data();
+    reflection.NumPayloads = m_RuntimeData.GetPayloadTypeTableReader()->GetCount();
+    reflection.pPayloads = m_Payloads.data();
   }
   return reflection;
 }
@@ -331,6 +375,9 @@ void DxilRuntimeReflection_impl::InitializeReflection() {
     AddString(subobjectReader.GetName());
     AddSubobject(subobjectReader);
   }
+
+  // Initialize payloads from RDAT.
+  InitializePayloads();
 }
 
 DxilResourceDesc *
@@ -464,8 +511,102 @@ DxilSubobjectDesc *DxilRuntimeReflection_impl::AddSubobject(const SubobjectReade
   return &subobject;
 }
 
+void DxilRuntimeReflection_impl::InitializePayloads() {
+  const PayloadTypeTableReader *payloadTypeTableReader =
+      m_RuntimeData.GetPayloadTypeTableReader();
+  const PayloadFieldTableReader *payloadFieldTableReader =
+      m_RuntimeData.GetPayloadFieldTableReader();
+  const PayloadTypeFieldAssociationTableReader
+      *payloadTypeFieldAssociationTableReader =
+          m_RuntimeData.GetPayloadTypeFieldAssociationTableReader();
+  m_Payloads.reserve(payloadTypeTableReader->GetCount());
+  // Initialize a vector to hold the payload fiels for every payload.
+  m_PayloadFields.resize(payloadTypeTableReader->GetCount());
+
+  std::vector<std::pair<uint32_t, uint32_t>> association;
+  association.reserve(payloadTypeFieldAssociationTableReader->GetCount());
+
+  for (uint32_t i = 0; i < payloadTypeFieldAssociationTableReader->GetCount();
+       ++i) {
+    PayloadTypeFieldAssociationReader assocReader =
+        payloadTypeFieldAssociationTableReader->GetItem(i);
+
+    uint32_t typeId = assocReader.GetTypeId();
+    uint32_t fieldId = assocReader.GetFieldId();
+    association.emplace_back(typeId, fieldId);
+  }
+
+  for (uint32_t i = 0; i < payloadTypeTableReader->GetCount(); ++i) {
+    PayloadTypeReader typeReader = payloadTypeTableReader->GetItem(i);
+    AddString(typeReader.GetName());
+    uint32_t typeId = typeReader.GetTypeId();
+    uint32_t numFields =
+        std::count_if(association.begin(), association.end(),
+                      [=](auto pair) { return pair.first == typeId; });
+    m_PayloadFields[i].reserve(numFields);
+    for (uint32_t j = 0; j < payloadFieldTableReader->GetCount(); ++j) {
+      PayloadFieldReader fieldReader = payloadFieldTableReader->GetItem(j);
+      uint32_t fieldId = fieldReader.GetFieldId();
+      if (std::find_if(association.begin(), association.end(), [=](auto pair) {
+            return pair.first == typeId && pair.second == fieldId;
+          }) != association.end()) {
+        AddString(fieldReader.GetName());
+
+        DxilPayloadFieldDesc desc;
+        desc.FieldName = GetWideString(fieldReader.GetName());
+        desc.Size = fieldReader.GetSize();
+        desc.Type = fieldReader.GetType();
+        desc.PayloadAccessQualifier = fieldReader.GetPayloadAccessQualifier();
+        m_PayloadFields[i].push_back(desc);
+      }
+    }
+
+    DxilPayloadTypeDesc desc;
+    desc.NumFields = numFields;
+    desc.pFields = m_PayloadFields[i].data();
+    desc.TypeName = GetWideString(typeReader.GetName());
+    m_Payloads.push_back(desc);
+  }
+}
+
 } // namespace anon
 
 DxilRuntimeReflection *hlsl::RDAT::CreateDxilRuntimeReflection() {
   return new DxilRuntimeReflection_impl();
+}
+
+bool VerifyDxilPayloadDescMatches(const DxilLibraryDesc &a, const DxilLibraryDesc &b) {
+  // Check if equal named payloads exist, payloads with different names
+  // are considered different types.
+  for (uint32_t i = 0; i != a.NumPayloads; ++i) {
+    DxilPayloadTypeDesc &payloadA = a.pPayloads[i];
+
+    for (uint32_t j = 0; j != b.NumPayloads; ++j) {
+      DxilPayloadTypeDesc &payloadB = b.pPayloads[j];
+      if (lstrcmpW(payloadA.TypeName, payloadB.TypeName) == 0) {
+        // Matching type names, these two payloads need deep verification.
+        // For each payload pair that has equal names, check that fields match
+        // and payload annotations are uniform in both types.
+        if (payloadA.NumFields != payloadB.NumFields)
+          return false;
+
+        for (uint32_t k = 0; k != payloadA.NumFields; ++k) {
+          DxilPayloadFieldDesc &fieldA = payloadA.pFields[k];
+          DxilPayloadFieldDesc &fieldB = payloadB.pFields[k];
+          if (lstrcmpW(fieldA.FieldName, fieldB.FieldName) != 0)
+            return false;
+          else {
+            if (fieldA.Type == fieldB.Type && fieldA.Size == fieldB.Size &&
+                fieldA.PayloadAccessQualifier == fieldB.PayloadAccessQualifier)
+              continue;
+
+            return false;
+          }
+        }
+
+        break;
+      }
+    }
+  }
+  return true;
 }

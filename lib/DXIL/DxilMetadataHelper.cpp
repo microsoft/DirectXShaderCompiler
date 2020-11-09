@@ -942,7 +942,7 @@ void DxilMDHelper::LoadDXRPayloadAnnotations(DxilTypeSystem &TypeSystem) {
       DXIL::CompareVersions(m_MinValMajor, m_MinValMinor, 1, 5) >= 0,
       "otherwise, payload access annotation emitted for dxil version < 1.5");
 
-  IFTBOOL(pDxilPayloadAnnotationsMD->getNumOperands() == 0,
+  IFTBOOL(pDxilPayloadAnnotationsMD->getNumOperands() != 0,
           DXC_E_INCORRECT_DXIL_METADATA);
   for (unsigned i = 0; i < pDxilPayloadAnnotationsMD->getNumOperands(); i++) {
     const MDTuple *pTupleMD =
@@ -1219,45 +1219,21 @@ void DxilMDHelper::LoadDxilFieldAnnotation(const MDOperand &MDO, DxilFieldAnnota
   }
 }
 
-Metadata *DxilMDHelper::EmitDxrPayloadFieldAnnotation(const DxilFieldAnnotation &FA) {
-  vector<Metadata *> MDVals;  // Tag-Value list.
+Metadata *
+DxilMDHelper::EmitDxrPayloadFieldAnnotation(const DxilFieldAnnotation &FA) {
+  vector<Metadata *> MDVals; // Tag-Value list.
 
   if (FA.HasFieldName()) {
-    MDVals.emplace_back(Uint32ToConstMD(kDxilPayloadFieldAnnotationFieldNameTag));
+    MDVals.emplace_back(
+        Uint32ToConstMD(kDxilPayloadFieldAnnotationFieldNameTag));
     MDVals.emplace_back(MDString::get(m_Ctx, FA.GetFieldName()));
   }
 
   if (!FA.GetPayloadFieldAnnotation().AccessPerShader.empty()) {
     MDVals.emplace_back(Uint32ToConstMD(kDxilPayloadFieldAnnotationAccessTag));
 
-    unsigned bitField = 0;
-
-    for (auto &qualifier : FA.GetPayloadFieldAnnotation().AccessPerShader) {
-      int bitOffset = 0;
-      if (qualifier.first == "trace")
-        bitOffset = 0;
-      else if (qualifier.first == "closesthit")
-        bitOffset = 4;
-      else if (qualifier.first == "miss")
-        bitOffset = 8;
-      else if (qualifier.first == "anyhit")
-        bitOffset = 12;
-      else
-        llvm_unreachable("unexpected shader stage");
-
-      unsigned accessBits = 0x0;
-      if (qualifier.second == hlsl::PayloadAccessTypes::In)
-          accessBits |= 0x1; // set the first bit 
-      if (qualifier.second == hlsl::PayloadAccessTypes::Out)
-          accessBits |= 0x2; // set the second bit
-      if (qualifier.second == hlsl::PayloadAccessTypes::InOut)
-          accessBits |= 0x3; // set both bits
-
-      accessBits <<= bitOffset;
-      bitField |= accessBits;
-
-    }
-    MDVals.emplace_back(Uint32ToConstMD(bitField));
+    auto mask = FA.GetPayloadFieldAnnotationBitMask();
+    MDVals.emplace_back(Uint32ToConstMD(mask));
   }
 
   return MDNode::get(m_Ctx, MDVals);
