@@ -233,7 +233,7 @@ static void addDebugInfoForElements(Value *ParentVal,
     // The bit_piece can only represent the leading contiguous bytes.
     // If strides are involved, we'll need additional metadata.
     Type *ElemTy = Elems[ElemIdx]->getType()->getPointerElementType();
-    unsigned ElemBitPieceSize = (unsigned)DatLayout.getTypeAllocSizeInBits(ElemTy);
+    unsigned ElemBitPieceSize = (unsigned)DatLayout.getTypeStoreSizeInBits(ElemTy);
     for (const DxilDIArrayDim& ArrayDim : DIArrayDims)
       ElemBitPieceSize /= ArrayDim.NumElements;
 

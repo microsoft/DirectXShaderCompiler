@@ -1667,12 +1667,12 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
     case BuiltinType::Min10Float:
     case BuiltinType::Min16Float:
       Width = 16;
-      Align = 16;
+      Align = 32;
       break;
     case BuiltinType::Min12Int:
     case BuiltinType::Min16Int:
       Width = 16;
-      Align = 16;
+      Align = 32;
       break;
     // Treat literals as largest size possible here, as it will be used
     // to determine MaxWidth in GetExprRange
