@@ -5670,6 +5670,8 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
       castArgList.emplace_back(tmpLV);
       castArgList.emplace_back(argLV);
       if (isVector && !hlsl::IsHLSLVecType(argType)) {
+        // This assumes only implicit casts because explicit casts can only produce RValues
+        // currently and out parameters are LValues.
         DiagnosticsEngine &Diags = CGM.getDiags();
         Diags.Report(Param->getLocation(), diag::warn_hlsl_implicit_vector_truncation);
       }

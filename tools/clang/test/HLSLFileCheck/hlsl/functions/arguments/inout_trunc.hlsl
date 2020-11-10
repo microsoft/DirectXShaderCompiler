@@ -1,7 +1,7 @@
-// RUN: %dxc -E CrashMain -T ps_6_0 %s | FileCheck %s -check-prefix=CHK_CRASH
+// RUN: %dxc -E NocrashMain -T ps_6_0 %s | FileCheck %s -check-prefix=CHK_NOCRASH
 // RUN: %dxc -E WarnMain -T ps_6_0 %s | FileCheck %s -check-prefix=CHK_WARN
 
-// Test for crashes that resulted when a scalar is provided to an outvar
+// Test that no crashes result when a scalar is provided to an outvar
 // and that the new warning is produced.
 
 // CHK_WARN: warning: implicit truncation of vector type
@@ -11,7 +11,7 @@
 // CHK_WARN: warning: implicit truncation of vector type
 // CHK_WARN: warning: implicit truncation of vector type
 // CHK_WARN-NOT: warning: implicit truncation of vector type
-// CHK_CRASH: CrashMain
+// CHK_NOCRASH: NocrashMain
 
 float val1;
 float val2;
@@ -59,7 +59,7 @@ float2 RunTest(float it, float em)
   return float2(it, em);
 }
 
-float2 CrashMain(float it: A, float em: B) : SV_Target
+float2 NocrashMain(float it: A, float em: B) : SV_Target
 {
   return RunTest(it, em);
 }
