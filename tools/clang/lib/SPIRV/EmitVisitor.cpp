@@ -207,10 +207,11 @@ void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc,
   if (!spvOptions.debugInfoLine)
     return;
 
-  // Technically entry function wrappers do not exist in HLSL. They
-  // are just created by DXC. We do not want to emit line information
-  // for their instructions.
-  if (inEntryFunctionWrapper)
+  // Technically entry function wrappers do not exist in HLSL. They are just
+  // created by DXC. We do not want to emit line information for their
+  // instructions. To prevent spirv-opt from removing all debug info, we emit
+  // at least a single OpLine to specify the end of the shader.
+  if (inEntryFunctionWrapper && op != spv::Op::OpReturn)
     return;
 
   // Based on SPIR-V spec, OpSelectionMerge must immediately precede either an

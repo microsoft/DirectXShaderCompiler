@@ -11152,11 +11152,10 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
     }
   }
 
-  // For wrapper of entry point, it is better not to specify SourceLocation
-  // for return statement, because it is not the location of the actual
-  // return and emitting the location of the end of entry function makes
-  // us confused. It is better to emit debug line just before OpFunctionEnd.
-  spvBuilder.createReturn(/* SourceLocation */ {});
+  // To prevent spirv-opt from removing all debug info, we emit at least
+  // a single OpLine to specify the end of the shader. This SourceLocation
+  // will provide the information.
+  spvBuilder.createReturn(decl->getLocEnd());
   spvBuilder.endFunction();
 
   // For Hull shaders, there is no explicit call to the PCF in the HLSL source.
