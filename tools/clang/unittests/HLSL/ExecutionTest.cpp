@@ -7970,7 +7970,7 @@ bool AtomicResultMatches(const BYTE *uResults, uint64_t gold, size_t size) {
 
 // Used to duplicate the lower half bits into the upper half bits of an integer
 // To verify that the full value is being considered, many tests duplicate the results into the upper half
-#define SHIFT(val, bits) (((val)&((1<<(bits))-1)) | ((val) << (bits)))
+#define SHIFT(val, bits) (((val)&((1ULL<<(bits))-1ULL)) | ((val) << (bits)))
 
 // Symbolic constants for the results
 #define ADD_IDX 0
@@ -8022,7 +8022,7 @@ void VerifyAtomicResults(const BYTE *uResults, const BYTE *sResults,
   // For unsigned min/max, index 0 will be bitflipped to ~0, which is interpretted as the maximum
   // Because zero is manipulated, this leaves 1 as the lowest value.
   LogCommentFmt(L"Verifying %d-bit integer atomic umin", bitSize);
-  VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*UMIN_IDX, SHIFT(1, shBits), byteSize)); // UMin
+  VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*UMIN_IDX, SHIFT(1ULL, shBits), byteSize)); // UMin
   LogCommentFmt(L"Verifying %d-bit integer atomic umax", bitSize);
   VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*UMAX_IDX, ~0, byteSize)); // UMax
 
