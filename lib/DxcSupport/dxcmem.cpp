@@ -58,12 +58,12 @@ IMalloc *DxcGetThreadMallocNoRef() throw() {
 }
 
 void DxcClearThreadMalloc() throw() {
-  IMalloc *pMalloc = DxcGetThreadMallocNoRef();
   if (g_ThreadMallocTls != nullptr) {
+    IMalloc *pMalloc = DxcGetThreadMallocNoRef();
     g_ThreadMallocTls->erase();
-  }
-  if (pMalloc != nullptr) {
-    pMalloc->Release();
+    if (pMalloc != nullptr) {
+      pMalloc->Release();
+    }
   }
 }
 
