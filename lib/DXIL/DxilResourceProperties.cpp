@@ -41,7 +41,6 @@ DXIL::ResourceClass DxilResourceProperties::getResourceClass() {
   case DXIL::ResourceKind::CBuffer:
     return DXIL::ResourceClass::CBuffer;
   case DXIL::ResourceKind::Sampler:
-  case DXIL::ResourceKind::SamplerComparison:
     return DXIL::ResourceClass::Sampler;
   case DXIL::ResourceKind::Invalid:
     return DXIL::ResourceClass::Invalid;
@@ -142,7 +141,6 @@ DxilResourceProperties loadPropsFromResourceBase(DxilResourceBase *Res) {
 
       break;
     case DXIL::ResourceKind::StructuredBuffer:
-    case DXIL::ResourceKind::StructuredBufferWithCounter:
       RP.StructStrideInBytes = Res.GetElementStride();
       break;
     case DXIL::ResourceKind::Texture2DMS:
@@ -174,10 +172,7 @@ DxilResourceProperties loadPropsFromResourceBase(DxilResourceBase *Res) {
     RP.Basic.IsUAV = true;
     RP.Basic.ResourceKind = (uint8_t)Res->GetKind();
     RP.Basic.IsGloballyCoherent = UAV->IsGloballyCoherent();
-    if (UAV->HasCounter()) {
-      RP.Basic.ResourceKind =
-          (uint8_t)DXIL::ResourceKind::StructuredBufferWithCounter;
-    }
+    RP.Basic.SamplerCmpOrHasCounter = UAV->HasCounter();
     RP.Basic.IsROV = UAV->IsROV();
     SetResProperties(*UAV);
   } break;
@@ -185,7 +180,7 @@ DxilResourceProperties loadPropsFromResourceBase(DxilResourceBase *Res) {
     RP.Basic.ResourceKind = (uint8_t)Res->GetKind();
     DxilSampler *Sampler = (DxilSampler*)Res;
     if (Sampler->GetSamplerKind() == DXIL::SamplerKind::Comparison)
-      RP.Basic.ResourceKind = (uint8_t)DXIL::ResourceKind::SamplerComparison;
+      RP.Basic.SamplerCmpOrHasCounter = true;
     else if (Sampler->GetSamplerKind() == DXIL::SamplerKind::Invalid)
       RP.Basic.ResourceKind = (uint8_t)DXIL::ResourceKind::Invalid;
   } break;

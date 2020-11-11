@@ -118,7 +118,7 @@ public:
     Constant *Props = cast<Constant>(CIHandle->getArgOperand(
         HLOperandIndex::kAnnotateHandleResourcePropertiesOpIdx));
     DxilResourceProperties RP = resource_helper::loadPropsFromConstant(*Props);
-    RP.setResourceKind(DXIL::ResourceKind::StructuredBufferWithCounter);
+    RP.Basic.SamplerCmpOrHasCounter = true;
 
     CIHandle->setArgOperand(
         HLOperandIndex::kAnnotateHandleResourcePropertiesOpIdx,
@@ -3424,7 +3424,6 @@ ResLoadHelper::ResLoadHelper(CallInst *CI, DxilResource::Kind RK,
   switch (RK) {
   case DxilResource::Kind::RawBuffer:
   case DxilResource::Kind::StructuredBuffer:
-  case DxilResource::Kind::StructuredBufferWithCounter:
     opcode = OP::OpCode::RawBufferLoad;
     break;
   case DxilResource::Kind::TypedBuffer:
@@ -3800,7 +3799,6 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
   switch (RK) {
   case DxilResource::Kind::RawBuffer:
   case DxilResource::Kind::StructuredBuffer:
-  case DxilResource::Kind::StructuredBufferWithCounter:
     opcode = OP::OpCode::RawBufferStore;
     break;
   case DxilResource::Kind::TypedBuffer:

@@ -121,8 +121,7 @@ bool DxilResource::IsAnyTexture(Kind ResourceKind) {
 }
 
 bool DxilResource::IsStructuredBuffer() const {
-  return GetKind() == Kind::StructuredBuffer ||
-         GetKind() == Kind::StructuredBufferWithCounter;
+  return GetKind() == Kind::StructuredBuffer;
 }
 
 bool DxilResource::IsTypedBuffer() const {
@@ -162,8 +161,6 @@ unsigned DxilResource::GetNumCoords(Kind ResourceKind) {
       0, // RaytracingAccelerationStructure,
       2, // FeedbackTexture2D,
       3, // FeedbackTexture2DArray,
-      2, // StructureBufferWithCounter,
-      0, // SamplerComparation,
   };
   static_assert(_countof(CoordSizeTab) == (unsigned)Kind::NumEntries, "check helper array size");
   DXASSERT(ResourceKind > Kind::Invalid && ResourceKind < Kind::NumEntries, "otherwise the caller passed wrong resource type");
@@ -191,8 +188,6 @@ unsigned DxilResource::GetNumDimensions(Kind ResourceKind) {
       0, // RaytracingAccelerationStructure,
       2, // FeedbackTexture2D,
       2, // FeedbackTexture2DArray,
-      2, // StructureBufferWithCounter,
-      0, // SamplerComparation,
   };
   static_assert(_countof(NumDimTab) == (unsigned)Kind::NumEntries, "check helper array size");
   DXASSERT(ResourceKind > Kind::Invalid && ResourceKind < Kind::NumEntries, "otherwise the caller passed wrong resource type");
@@ -220,8 +215,6 @@ unsigned DxilResource::GetNumDimensionsForCalcLOD(Kind ResourceKind) {
       0, // RaytracingAccelerationStructure,
       2, // FeedbackTexture2D,
       2, // FeedbackTexture2DArray,
-      2, // StructureBufferWithCounter,
-      0, // SamplerComparation,
   };
   static_assert(_countof(NumDimTab) == (unsigned)Kind::NumEntries, "check helper array size");
   DXASSERT(ResourceKind > Kind::Invalid && ResourceKind < Kind::NumEntries, "otherwise the caller passed wrong resource type");
@@ -249,8 +242,6 @@ unsigned DxilResource::GetNumOffsets(Kind ResourceKind) {
       0, // RaytracingAccelerationStructure,
       2, // FeedbackTexture2D,
       2, // FeedbackTexture2DArray,
-      0, // StructureBufferWithCounter,
-      0, // SamplerComparation,
   };
   static_assert(_countof(OffsetSizeTab) == (unsigned)Kind::NumEntries, "check helper array size");
   DXASSERT(ResourceKind > Kind::Invalid && ResourceKind < Kind::NumEntries, "otherwise the caller passed wrong resource type");

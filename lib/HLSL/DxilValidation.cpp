@@ -1061,7 +1061,7 @@ static DXIL::SamplerKind GetSamplerKind(Value *samplerHandle,
     // must be sampler.
     return DXIL::SamplerKind::Invalid;
   }
-  if (RP.getResourceKind() == DXIL::ResourceKind::SamplerComparison)
+  if (RP.Basic.SamplerCmpOrHasCounter)
     return DXIL::SamplerKind::Comparison;
   else if (RP.getResourceKind() == DXIL::ResourceKind::Invalid)
     return DXIL::SamplerKind::Invalid;
@@ -1871,7 +1871,6 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
     case DXIL::ResourceKind::TextureCubeArray:
       break;
     case DXIL::ResourceKind::StructuredBuffer:
-    case DXIL::ResourceKind::StructuredBufferWithCounter:
     case DXIL::ResourceKind::RawBuffer:
     case DXIL::ResourceKind::TypedBuffer:
     case DXIL::ResourceKind::TBuffer: {
@@ -2073,7 +2072,6 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
       }
       break;
     case DXIL::ResourceKind::StructuredBuffer:
-    case DXIL::ResourceKind::StructuredBufferWithCounter:
       if (isa<UndefValue>(offset)) {
         ValCtx.EmitInstrError(CI,
                               ValidationRule::InstrCoordinateCountForStructBuf);
@@ -2142,7 +2140,6 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
       }
       break;
     case DXIL::ResourceKind::StructuredBuffer:
-    case DXIL::ResourceKind::StructuredBufferWithCounter:
       if (isa<UndefValue>(offset)) {
         ValCtx.EmitInstrError(CI,
                               ValidationRule::InstrCoordinateCountForStructBuf);
@@ -2257,7 +2254,6 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
       }
       break;
     case DXIL::ResourceKind::StructuredBuffer:
-    case DXIL::ResourceKind::StructuredBufferWithCounter:
       if (isa<UndefValue>(offset)) {
         ValCtx.EmitInstrError(CI,
                               ValidationRule::InstrCoordinateCountForStructBuf);
@@ -2312,7 +2308,6 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
       }
       break;
     case DXIL::ResourceKind::StructuredBuffer:
-    case DXIL::ResourceKind::StructuredBufferWithCounter:
       if (isa<UndefValue>(offset)) {
         ValCtx.EmitInstrError(CI,
                               ValidationRule::InstrCoordinateCountForStructBuf);
@@ -2430,7 +2425,7 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
       ValCtx.EmitInstrError(CI, ValidationRule::SmCounterOnlyOnStructBuf);
     }
 
-    if (RP.getResourceKind() != DXIL::ResourceKind::StructuredBufferWithCounter) {
+    if (!RP.Basic.SamplerCmpOrHasCounter) {
       ValCtx.EmitInstrError(
           CI, ValidationRule::InstrBufferUpdateCounterOnResHasCounter);
     }
@@ -3938,7 +3933,6 @@ static void ValidateResource(hlsl::DxilResource &res,
   case DXIL::ResourceKind::TypedBuffer:
   case DXIL::ResourceKind::TBuffer:
   case DXIL::ResourceKind::StructuredBuffer:
-  case DXIL::ResourceKind::StructuredBufferWithCounter:
   case DXIL::ResourceKind::Texture1D:
   case DXIL::ResourceKind::Texture1DArray:
   case DXIL::ResourceKind::Texture2D:

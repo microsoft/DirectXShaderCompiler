@@ -374,7 +374,6 @@ void PrintResourceFormat(DxilResourceBase &res, unsigned alignment,
       OS << right_justify("byte", alignment);
       break;
     case DxilResource::Kind::StructuredBuffer:
-    case DxilResource::Kind::StructuredBufferWithCounter:
       OS << right_justify("struct", alignment);
       break;
     default:
@@ -402,7 +401,6 @@ void PrintResourceDim(DxilResourceBase &res, unsigned alignment,
     switch (res.GetKind()) {
     case DxilResource::Kind::RawBuffer:
     case DxilResource::Kind::StructuredBuffer:
-    case DxilResource::Kind::StructuredBufferWithCounter:
       if (res.GetClass() == DxilResourceBase::Class::SRV)
         OS << right_justify("r/o", alignment);
       else {
@@ -1315,8 +1313,6 @@ LPCSTR ResourceKindToString(DXIL::ResourceKind RK) {
   case DXIL::ResourceKind::RTAccelerationStructure: return "RTAccelerationStructure";
   case DXIL::ResourceKind::FeedbackTexture2D: return "FeedbackTexture2D";
   case DXIL::ResourceKind::FeedbackTexture2DArray: return "FeedbackTexture2DArray";
-  case DXIL::ResourceKind::StructuredBufferWithCounter: return "StructuredBufferWithCounter";
-  case DXIL::ResourceKind::SamplerComparison: return "SamplerComparison";
   default:
     return "<invalid ResourceKind>";
   }
@@ -1368,9 +1364,9 @@ void PrintResourceProperties(DxilResourceProperties &RP,
   }
 
   if (RP.getResourceClass() == DXIL::ResourceClass::Sampler) {
-    if (RP.getResourceKind() == DXIL::ResourceKind::Sampler)
+    if (!RP.Basic.SamplerCmpOrHasCounter)
       OS << "SamplerState";
-    else if (RP.getResourceKind() == DXIL::ResourceKind::SamplerComparison)
+    else
       OS << "SamplerComparisonState";
     return;
   }
@@ -1378,6 +1374,7 @@ void PrintResourceProperties(DxilResourceProperties &RP,
   bool bUAV = RP.isUAV();
   LPCSTR RW = bUAV ? (RP.Basic.IsROV ? "ROV" : "RW") : "";
   LPCSTR GC = bUAV && RP.Basic.IsGloballyCoherent ? "globallycoherent " : "";
+  LPCSTR COUNTER = bUAV && RP.Basic.SamplerCmpOrHasCounter ? ", counter" : "";
 
   switch (RP.getResourceKind())
   {
@@ -1407,9 +1404,8 @@ void PrintResourceProperties(DxilResourceProperties &RP,
     break;
 
   case DXIL::ResourceKind::StructuredBuffer:
-  case DXIL::ResourceKind::StructuredBufferWithCounter:
     OS << GC << RW << ResourceKindToString(RP.getResourceKind());
-    OS << "<stride=" << RP.StructStrideInBytes << ">";
+    OS << "<stride=" << RP.StructStrideInBytes << COUNTER << ">";
     break;
 
   case DXIL::ResourceKind::RTAccelerationStructure:

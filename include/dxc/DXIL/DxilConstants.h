@@ -333,8 +333,6 @@ namespace DXIL {
     RTAccelerationStructure,
     FeedbackTexture2D,
     FeedbackTexture2DArray,
-    StructuredBufferWithCounter,
-    SamplerComparison,
     NumEntries,
   };
 
@@ -344,8 +342,7 @@ namespace DXIL {
   }
 
   inline bool IsStructuredBuffer(DXIL::ResourceKind ResourceKind) {
-    return ResourceKind == DXIL::ResourceKind::StructuredBuffer ||
-           ResourceKind == DXIL::ResourceKind::StructuredBufferWithCounter;
+    return ResourceKind == DXIL::ResourceKind::StructuredBuffer;
   }
 
   inline bool IsTypedBuffer(DXIL::ResourceKind ResourceKind) {

@@ -153,14 +153,24 @@ bool IsHLSLSamplerDescType(llvm::Type *Ty) {
   return false;
 }
 
+static bool ConsumePrefix(StringRef &Str, StringRef Prefix) {
+  if (!Str.startswith(Prefix)) return false;
+  Str = Str.substr(Prefix.size());
+  return true;
+}
+
 bool IsHLSLBufferViewType(llvm::Type *Ty) {
   if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
     if (!ST->hasName())
       return false;
-    StringRef name = ST->getName();
 
-    if (name.startswith("class.ConstantBuffer") ||
-        name.startswith("class.TextureBuffer"))
+    StringRef name = ST->getName();
+    if (!(ConsumePrefix(name, "class.") ||
+          ConsumePrefix(name, "struct.")))
+      return false;
+
+    if (name.startswith("ConstantBuffer<") ||
+        name.startswith("TextureBuffer<"))
       return true;
   }
   return false;
@@ -2077,6 +2087,9 @@ bool CreateCBufferVariable(HLCBuffer &CB, HLModule &HLM, llvm::Type *HandleTy) {
               HLM.EmitHLOperationCall(*instBuilder,
                                       HLOpcodeGroup::HLCreateHandle, 0,
                                       HandleTy, HandleArgs, M);
+
+          DxilResourceProperties RP = resource_helper::loadPropsFromResourceBase(&CB);
+          Handle = CreateAnnotateHandle(HLM, Handle, RP, cbGV->getType()->getElementType(), *instBuilder);
 
           args[HLOperandIndex::kSubscriptObjectOpIdx] = Handle;
           args[HLOperandIndex::kSubscriptIndexOpIdx] = arrayIdx;

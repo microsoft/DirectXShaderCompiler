@@ -2018,14 +2018,39 @@ void ReplaceResourceUserWithHandle(
     };
 
     // Search all users for update counter
-    for (User *U : handle->users()) {
-      if (IsDxilOp(U, hlsl::OP::OpCode::BufferUpdateCounter)) {
-        res.SetHasCounter(true);
+    bool updateAnnotateHandle = false;
+    if (!res.HasCounter()) {
+      for (User *U : handle->users()) {
+        if (IsDxilOp(U, hlsl::OP::OpCode::BufferUpdateCounter)) {
+          res.SetHasCounter(true);
+          break;
+        }
+        else if (IsDxilOp(U, hlsl::OP::OpCode::AnnotateHandle)) {
+          for (User *UU : U->users()) {
+            if (IsDxilOp(UU, hlsl::OP::OpCode::BufferUpdateCounter)) {
+              res.SetHasCounter(true);
+              updateAnnotateHandle = true;
+              break;
+            }
+          }
+          if (updateAnnotateHandle)
+            break;
+        }
       }
-      else if (IsDxilOp(U, hlsl::OP::OpCode::AnnotateHandle)) {
-        for (User *UU : U->users()) {
-          if (IsDxilOp(UU, hlsl::OP::OpCode::BufferUpdateCounter))
-            res.SetHasCounter(true);
+      if (updateAnnotateHandle) {
+        // Update resource props with counter flag
+        DxilResourceProperties RP =
+          resource_helper::loadPropsFromResourceBase(&res);
+        // Require ShaderModule to reconstruct resource property constant
+        const ShaderModel *pSM = load->getParent()->getParent()->getParent()
+                                    ->GetDxilModule().GetShaderModel();
+        for (User *U : handle->users()) {
+          DxilInst_AnnotateHandle annotateHandle(cast<Instruction>(U));
+          if (annotateHandle) {
+            annotateHandle.set_props(
+              resource_helper::getAsConstant(
+                RP, annotateHandle.get_props()->getType(), *pSM));
+          }
         }
       }
     }
@@ -2121,7 +2146,7 @@ void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
   Value *bindingV = resource_helper::getAsConstant(
       binding, hlslOP->GetResourceBindingType(), *m_DM->GetShaderModel());
 
-  Value *createHandleFromBindingArgs[] = {opArg, bindingV, resIDArg, isUniformRes};
+  Value *createHandleFromBindingArgs[] = {opArg, bindingV, resLowerBound, isUniformRes};
 
   MutableArrayRef<Value *> Args(bCreateFromBinding ? createHandleFromBindingArgs
                                                    : createHandleArgs,
@@ -2184,8 +2209,7 @@ void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
           // Clear nonUniform on GEP.
           GEPInst->setMetadata(DxilMDHelper::kDxilNonUniformAttributeMDName, nullptr);
         }
-        if (!bCreateFromBinding)
-          Args[resIdxOpIdx] = Builder.CreateAdd(idx, resLowerBound);
+        Args[resIdxOpIdx] = Builder.CreateAdd(idx, resLowerBound);
         handle = Builder.CreateCall(createHandle, Args, handleName);
       }
 
@@ -2197,8 +2221,7 @@ void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
           ReplaceResourceUserWithHandle(static_cast<DxilResource &>(res), ldInst, handle);
         } else {
           IRBuilder<> Builder = IRBuilder<>(ldInst);
-          if (!bCreateFromBinding)
-            Args[resIdxOpIdx] = Builder.CreateAdd(idx, resLowerBound);
+          Args[resIdxOpIdx] = Builder.CreateAdd(idx, resLowerBound);
           Value *localHandle =
               Builder.CreateCall(createHandle, Args, handleName);
           ReplaceResourceUserWithHandle(static_cast<DxilResource &>(res), ldInst, localHandle);

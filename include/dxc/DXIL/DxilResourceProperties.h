@@ -38,7 +38,13 @@ struct DxilResourceProperties {
     uint8_t IsUAV : 1;
     uint8_t IsROV : 1;
     uint8_t IsGloballyCoherent : 1;
-    uint8_t Reserved1 : 1;
+
+    // Depending on ResourceKind, this indicates:
+    //  Sampler: SamplerKind::Comparison
+    //  StructuredBuffer: HasCounter
+    //  Other: must be 0
+    uint8_t SamplerCmpOrHasCounter : 1;
+
     // BYTE 2
     uint8_t Reserved2;
 

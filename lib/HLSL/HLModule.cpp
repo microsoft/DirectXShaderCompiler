@@ -707,7 +707,7 @@ HLModule::AddResourceWithGlobalVariableAndProps(llvm::Constant *GV,
   switch (RC) {
   case DxilResource::Class::Sampler: {
     std::unique_ptr<DxilSampler> S = llvm::make_unique<DxilSampler>();
-    if (RK == DXIL::ResourceKind::SamplerComparison)
+    if (RP.Basic.SamplerCmpOrHasCounter)
       S->SetSamplerKind(DxilSampler::SamplerKind::Comparison);
     else
       S->SetSamplerKind(DxilSampler::SamplerKind::Default);
@@ -744,8 +744,7 @@ HLModule::AddResourceWithGlobalVariableAndProps(llvm::Constant *GV,
     Res->SetRW(true);
     Res->SetROV(RP.Basic.IsROV);
     Res->SetGloballyCoherent(RP.Basic.IsGloballyCoherent);
-    if (RK == DXIL::ResourceKind::StructuredBufferWithCounter)
-      Res->SetHasCounter(true);
+    Res->SetHasCounter(RP.Basic.SamplerCmpOrHasCounter);
     Res->SetKind(RK);
     Res->SetGlobalSymbol(GV);
     Res->SetGlobalName(GV->getName());
