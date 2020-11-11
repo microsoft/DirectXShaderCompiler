@@ -294,6 +294,10 @@ TEST_F(FileTest, BinaryOpMixedTypeArithAssign) {
   // Test mixing float/int/uint/bool/etc.
   runFileTest("binary-op.arith-assign.mixed.type.hlsl");
 }
+TEST_F(FileTest, BinaryOpMulAssignTypeMismatch) {
+  useVulkan1p1();
+  runFileTest("binary-op.mul-assign.type-mismatch.hlsl");
+}
 
 // For bitwise binary operators
 TEST_F(FileTest, BinaryOpScalarBitwise) {
