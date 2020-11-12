@@ -45,10 +45,6 @@
 #define CoTaskMemAlloc malloc
 #define CoTaskMemFree free
 
-#define SysFreeString free
-#define SysAllocStringLen(ptr, size)                                           \
-  (wchar_t *)realloc(ptr, (size + 1) * sizeof(wchar_t))
-
 #define ARRAYSIZE(array) (sizeof(array) / sizeof(array[0]))
 
 #define _countof(a) (sizeof(a) / sizeof(*(a)))
@@ -915,6 +911,12 @@ public:
 };
 
 #define CComHeapPtr CHeapPtr
+
+//===--------------------------- BSTR Allocation --------------------------===//
+
+void SysFreeString(BSTR bstrString);
+// Allocate string with length prefix
+BSTR SysAllocStringLen(const OLECHAR *strIn, UINT ui);
 
 //===--------------------- UTF-8 Related Types ----------------------------===//
 
