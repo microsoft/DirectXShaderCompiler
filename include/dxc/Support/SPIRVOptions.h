@@ -42,6 +42,7 @@ struct SpirvCodeGenOptions {
   bool debugInfoLine;
   bool debugInfoSource;
   bool debugInfoTool;
+  bool debugInfoRich;
   bool defaultRowMajor;
   bool disableValidation;
   bool enable16BitTypes;
@@ -54,6 +55,7 @@ struct SpirvCodeGenOptions {
   bool useGlLayout;
   bool useScalarLayout;
   bool flattenResourceArrays;
+  bool autoShiftBindings;
   SpirvLayoutRule cBufferLayoutRule;
   SpirvLayoutRule sBufferLayoutRule;
   SpirvLayoutRule tBufferLayoutRule;

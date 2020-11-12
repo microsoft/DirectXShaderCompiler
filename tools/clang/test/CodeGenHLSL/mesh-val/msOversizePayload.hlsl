@@ -1,5 +1,5 @@
-// RUN: %dxc -Zi -E main -T ms_6_5 %s | FileCheck %s -check-prefix=CHK_DB
-// RUN: %dxc -E main -T ms_6_5 %s | FileCheck %s -check-prefix=CHK_NODB
+// RUN: %dxilver 1.6 | %dxc -Zi -E main -T ms_6_5 %s | FileCheck %s -check-prefix=CHK_DB
+// RUN: %dxilver 1.6 | %dxc -E main -T ms_6_5 %s | FileCheck %s -check-prefix=CHK_NODB
 
 // CHK_DB: :29: error: For mesh shader with entry 'main', payload size 16404 is greater than maximum size of 16384 bytes.
 // CHK_NODB: error: For mesh shader with entry 'main', payload size 16404 is greater than maximum size of 16384 bytes. Use /Zi for source location.

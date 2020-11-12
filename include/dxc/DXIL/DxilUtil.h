@@ -35,6 +35,8 @@ class PassRegistry;
 class DebugInfoFinder;
 class DebugLoc;
 class DIGlobalVariable;
+class ConstantInt;
+class SwitchInst;
 
 ModulePass *createDxilLoadMetadataPass();
 void initializeDxilLoadMetadataPass(llvm::PassRegistry&);
@@ -113,6 +115,7 @@ namespace dxilutil {
                                       unsigned startOpIdx,
                                       unsigned numOperands);
   bool SimplifyTrivialPHIs(llvm::BasicBlock *BB);
+  llvm::BasicBlock *GetSwitchSuccessorForCond(llvm::SwitchInst *Switch, llvm::ConstantInt *Cond);
   void MigrateDebugValue(llvm::Value *Old, llvm::Value *New);
   void TryScatterDebugValueToVectorElements(llvm::Value *Val);
   std::unique_ptr<llvm::Module> LoadModuleFromBitcode(llvm::StringRef BC,

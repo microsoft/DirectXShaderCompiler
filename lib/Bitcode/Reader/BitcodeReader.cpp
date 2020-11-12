@@ -372,7 +372,7 @@ private:
   std::error_code resolveGlobalAndAliasInits();
   std::error_code parseMetadata();
   std::error_code parseSelectNamedMetadata(ArrayRef<StringRef> NamedMetadata); // HLSL Change
-  std::error_code materializeSelectNamedMetadata(ArrayRef<StringRef> NamedMetadata); // HLSL Change
+  std::error_code materializeSelectNamedMetadata(ArrayRef<StringRef> NamedMetadata) override; // HLSL Change
   std::error_code parseMetadataAttachment(Function &F);
   ErrorOr<std::string> parseModuleTriple();
   std::error_code parseUseLists();

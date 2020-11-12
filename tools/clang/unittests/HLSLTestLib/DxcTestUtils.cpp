@@ -23,8 +23,8 @@
 using namespace std;
 using namespace hlsl_test;
 
-MODULE_SETUP(TestModuleSetup);
-MODULE_CLEANUP(TestModuleCleanup);
+MODULE_SETUP(TestModuleSetup)
+MODULE_CLEANUP(TestModuleCleanup)
 
 bool TestModuleSetup() {
   // Use this module-level function to set up LLVM dependencies.
@@ -252,7 +252,7 @@ std::string BlobToUtf8(_In_ IDxcBlob *pBlob) {
     if (length >= 1 && text[length-1] == '\0')
       length -= 1;  // Exclude null-terminator
     result.resize(length);
-    memcpy((void *)result.data(), text, length);
+    memcpy(&result[0], text, length);
     return result;
   } else {
     throw std::runtime_error("Unsupported codepage.");
@@ -281,7 +281,7 @@ std::wstring BlobToUtf16(_In_ IDxcBlob *pBlob) {
     if (length >= 1 && text[length-1] == L'\0')
       length -= 1;  // Exclude null-terminator
     result.resize(length);
-    memcpy((void *)result.data(), text, length);
+    memcpy(&result[0], text, length);
     return result;
   } else if (codePage == CP_UTF8) {
     const char* text = (const char *)pBlob->GetBufferPointer();

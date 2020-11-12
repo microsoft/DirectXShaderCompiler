@@ -385,6 +385,16 @@ public:
   }
 
   void CodeGenTestCheckFullPath(LPCWSTR fullPath, LPCWSTR dumpPath = nullptr) {
+    // Create file system if needed
+    llvm::sys::fs::MSFileSystem *msfPtr = llvm::sys::fs::GetCurrentThreadFileSystem();
+    std::unique_ptr<llvm::sys::fs::MSFileSystem> msf;
+    if (!msfPtr) {
+      VERIFY_SUCCEEDED(CreateMSFileSystemForDisk(&msfPtr));
+      msf.reset(msfPtr);
+    }
+    llvm::sys::fs::AutoPerThreadSystem pts(msfPtr);
+    IFTLLVM(pts.error_code());
+
     FileRunTestResult t = FileRunTestResult::RunFromFileCommands(fullPath,
       /*pPluginToolsPaths*/nullptr, dumpPath);
     if (t.RunResult != 0) {

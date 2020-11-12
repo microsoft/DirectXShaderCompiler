@@ -22,27 +22,29 @@ public:
                      const SpirvCodeGenOptions &opts)
       : Visitor(opts, spvCtx), astContext(ctx), curFnAstReturnType({}) {}
 
-  bool visit(SpirvFunction *, Phase);
+  bool visit(SpirvFunction *, Phase) override;
 
-  bool visit(SpirvVariable *);
-  bool visit(SpirvAtomic *);
-  bool visit(SpirvUnaryOp *);
-  bool visit(SpirvBinaryOp *);
-  bool visit(SpirvBitFieldInsert *);
-  bool visit(SpirvBitFieldExtract *);
-  bool visit(SpirvSelect *);
-  bool visit(SpirvVectorShuffle *);
-  bool visit(SpirvNonUniformUnaryOp *);
-  bool visit(SpirvNonUniformBinaryOp *);
-  bool visit(SpirvStore *);
-  bool visit(SpirvConstantComposite *);
-  bool visit(SpirvCompositeConstruct *);
-  bool visit(SpirvCompositeExtract *);
-  bool visit(SpirvAccessChain *);
-  bool visit(SpirvExtInst *);
-  bool visit(SpirvReturn *);
-  bool visit(SpirvCompositeInsert *);
-  bool visit(SpirvImageOp *);
+  bool visit(SpirvVariable *) override;
+  bool visit(SpirvAtomic *) override;
+  bool visit(SpirvUnaryOp *) override;
+  bool visit(SpirvBinaryOp *) override;
+  bool visit(SpirvBitFieldInsert *) override;
+  bool visit(SpirvBitFieldExtract *) override;
+  bool visit(SpirvSelect *) override;
+  bool visit(SpirvVectorShuffle *) override;
+  bool visit(SpirvNonUniformUnaryOp *) override;
+  bool visit(SpirvNonUniformBinaryOp *) override;
+  bool visit(SpirvStore *) override;
+  bool visit(SpirvConstantComposite *) override;
+  bool visit(SpirvCompositeConstruct *) override;
+  bool visit(SpirvCompositeExtract *) override;
+  bool visit(SpirvAccessChain *) override;
+  bool visit(SpirvExtInst *) override;
+  bool visit(SpirvReturn *) override;
+  bool visit(SpirvCompositeInsert *) override;
+  bool visit(SpirvImageOp *) override;
+
+  using Visitor::visit;
 
   // Note: We currently don't do anything to deduce literal types for the
   // following instructions:
@@ -57,7 +59,7 @@ public:
   /// By default, all other visit instructions redirect to this visit function.
   /// So that you want override this visit function to handle all instructions,
   /// regardless of their polymorphism.
-  bool visitInstruction(SpirvInstruction *instr);
+  bool visitInstruction(SpirvInstruction *instr) override;
 
 private:
   /// If the given instruction's return type is a literal type and the given

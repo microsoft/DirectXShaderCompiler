@@ -9,19 +9,18 @@ add_dxilconv_project_library(dxilconv SHARED
 
 target_link_libraries(dxilconv PRIVATE
   DxbcConverter
-  DxilConvPasses
   LLVMBitWriter
   LLVMDXIL
   LLVMDxilContainer
   LLVMDxilRootSignature
   LLVMHLSL  
-  LLVMipo
   LLVMMSSupport
   LLVMScalarOpts
-  ShaderBinary
 )
 
 set_target_properties(dxilconv
   PROPERTIES
   OUTPUT_NAME "dxilconv"
 )
+
+add_dependencies(dxilconv DxcEtw)

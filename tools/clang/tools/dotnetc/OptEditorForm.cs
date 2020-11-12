@@ -166,6 +166,40 @@ namespace MainNs
                 System.IO.File.WriteAllLines(fullName, Section.Lines);
             }
         }
+
+        private void btnViewCFGOnly_Click(object sender, EventArgs e)
+        {
+            if (PassesListBox.SelectedIndex == -1)
+            {
+                MessageBox.Show("Select a pass first");
+                return;
+            }
+            TextSection section = (TextSection)PassesListBox.SelectedItem;
+
+            var source = EditorForm.CreateBlobForText(this.Library, section.Text);
+            source = this.Library.GetBlobAstUf8(source);
+
+            string[] options = new string[1];
+            options[0] = "-view-cfg-only";
+            EditorForm.OptimizeResult opt = EditorForm.RunOptimize(this.Library, options, source);
+            if (!opt.Succeeded)
+            {
+                MessageBox.Show("Failed to optimize: " + opt.ResultText);
+                return;
+            }
+            const string dotStart = "digraph";
+            string dotText = opt.ResultText.Substring(opt.ResultText.IndexOf(dotStart));
+            while (dotText.LastIndexOf(dotStart) != -1)
+            {
+                string dot = dotText.Substring(dotText.LastIndexOf(dotStart));
+                dot = dot.Substring(0, dot.LastIndexOf("}") + 1);
+                dot = dot.Replace("\u0001??", "");
+                dot = dot.Replace("\u0001?", "");
+                EditorForm.LogContextMenuHelper.ShowDot(dot);
+                dotText = dotText.Substring(0, dotText.LastIndexOf(dotStart));
+            }
+
+        }
     }
 
     public class TextSection

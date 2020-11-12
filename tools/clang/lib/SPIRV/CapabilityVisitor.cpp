@@ -195,9 +195,20 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
     for (auto field : structType->getFields())
       addCapabilityForType(field.type, loc, sc);
   }
-  //
-  else if (const auto *rayQueryType =
-               dyn_cast<RayQueryProvisionalTypeKHR>(type)) {
+  // AccelerationStructureTypeNV type
+  else if (isa<AccelerationStructureTypeNV>(type)) {
+    if (featureManager.isExtensionEnabled(Extension::NV_ray_tracing)) {
+      addCapability(spv::Capability::RayTracingNV);
+      addExtension(Extension::NV_ray_tracing, "SPV_NV_ray_tracing", {});
+    } else {
+      // KHR_ray_tracing extension requires SPIR-V 1.4/Vulkan 1.2
+      featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_2, "Raytracing", {});
+      addCapability(spv::Capability::RayTracingProvisionalKHR);
+      addExtension(Extension::KHR_ray_tracing, "SPV_KHR_ray_tracing", {});
+    }
+  }
+  // RayQueryProvisionalTypeKHR type
+  else if (isa<RayQueryProvisionalTypeKHR>(type)) {
     addCapability(spv::Capability::RayQueryProvisionalKHR);
     addExtension(Extension::KHR_ray_query, "SPV_KHR_ray_query", {});
   }
@@ -449,6 +460,10 @@ bool CapabilityVisitor::visitInstruction(SpirvInstruction *instr) {
   case spv::Op::OpGroupNonUniformBroadcast:
   case spv::Op::OpGroupNonUniformBroadcastFirst:
     addCapability(spv::Capability::GroupNonUniformBallot);
+    break;
+  case spv::Op::OpGroupNonUniformShuffle:
+  case spv::Op::OpGroupNonUniformShuffleXor:
+    addCapability(spv::Capability::GroupNonUniformShuffle);
     break;
   case spv::Op::OpGroupNonUniformIAdd:
   case spv::Op::OpGroupNonUniformFAdd:

@@ -7119,13 +7119,6 @@ void DxbcConverter::Optimize() {
 #endif
 }
 
-void DxbcConverter::AddOptimizationPasses(PassManagerBase &PassManager, unsigned OptLevel) {
-  PassManagerBuilder Builder;
-  Builder.OptLevel = OptLevel;
-  Builder.SizeLevel = 0;
-  Builder.populateModulePassManager(PassManager);
-}
-
 void DxbcConverter::CreateBranchIfNeeded(BasicBlock *pBB, BasicBlock *pTargetBB) {
   bool bNeedBranch = true;
   if (!pBB->empty()) {

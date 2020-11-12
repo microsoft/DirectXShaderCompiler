@@ -52,8 +52,8 @@ void main() {
 // CHECK:                        OpLine [[file]] 57 3
 // CHECK-NEXT:                   OpBranch %while_continue
 // CHECK-NEXT: %while_continue = OpLabel
+// CHECK-NEXT:                   OpLine [[file]] 57 3
 // CHECK-NEXT:                   OpBranch %while_check
-// CHECK-NEXT:    %while_merge = OpLabel
   }
 
 // CHECK:       OpLine [[file]] 61 19

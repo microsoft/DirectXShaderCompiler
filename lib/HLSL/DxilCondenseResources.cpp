@@ -428,10 +428,123 @@ ModulePass *llvm::createDxilCondenseResourcesPass() {
 
 INITIALIZE_PASS(DxilCondenseResources, "hlsl-dxil-condense", "DXIL Condense Resources", false, false)
 
-static
-bool LegalizeResourcesPHIs(Module &M, DxilValueCache *DVC) {
+static bool GetConstantLegalGepForSplitAlloca(GetElementPtrInst *gep, DxilValueCache *DVC, int64_t *ret) {
+  if (gep->getNumIndices() != 2) {
+    return false;
+  }
+
+  if (ConstantInt *Index0 = dyn_cast<ConstantInt>(gep->getOperand(1))) {
+    if (Index0->getLimitedValue() != 0) {
+      return false;
+    }
+  }
+  else {
+    return false;
+  }
+
+  if (ConstantInt *C = DVC->GetConstInt(gep->getOperand(2))) {
+    int64_t index = C->getSExtValue();
+    *ret = index;
+    return true;
+  }
+
+  return false;
+}
+
+static bool LegalizeResourceArrays(Module &M, DxilValueCache *DVC) {
+  SmallVector<AllocaInst *,16> Allocas;
+
+  bool Changed = false;
+
+  // Find all allocas
+  for (Function &F : M) {
+    if (F.empty())
+      continue;
+
+    BasicBlock &BB = F.getEntryBlock();
+    for (Instruction &I : BB) {
+      if (AllocaInst *AI = dyn_cast<AllocaInst>(&I)) {
+        Type *ty = AI->getAllocatedType();
+        // Only handle single dimentional array. Since this pass runs after MultiDimArrayToOneDimArray,
+        // it should handle all arrays.
+        if (ty->isArrayTy() && hlsl::dxilutil::IsHLSLResourceType(ty->getArrayElementType()))
+          Allocas.push_back(AI);
+      }
+    }
+  }
+
+  SmallVector<AllocaInst *,16> ScalarAllocas;
+  std::unordered_map<GetElementPtrInst *, int64_t> ConstIndices;
+
+  for (AllocaInst *AI : Allocas) {
+    Type *ty = AI->getAllocatedType();
+    Type *resType = ty->getArrayElementType();
+
+    ScalarAllocas.clear();
+    ConstIndices.clear();
+
+    bool SplitAlloca = true;
+
+    for (User *U : AI->users()) {
+      if (GetElementPtrInst *gep = dyn_cast<GetElementPtrInst>(U)) {
+        int64_t index = 0;
+        if (!GetConstantLegalGepForSplitAlloca(gep, DVC, &index)) {
+          SplitAlloca = false;
+          break;
+        }
+
+        // Out of bounds. Out of bounds GEP's will trigger and error later.
+        if (index < 0 || index >= (int64_t)ty->getArrayNumElements()) {
+          SplitAlloca = false;
+          Changed = true;
+          dxilutil::EmitErrorOnInstruction(gep, "Accessing resource array with out-out-bounds index.");
+        }
+        ConstIndices[gep] = index;
+      }
+      else {
+        SplitAlloca = false;
+        break;
+      }
+    }
+
+    if (SplitAlloca) {
+
+      IRBuilder<> B(AI);
+      ScalarAllocas.resize(ty->getArrayNumElements());
+
+      for (auto it = AI->user_begin(),end = AI->user_end(); it != end;) {
+        GetElementPtrInst *gep = cast<GetElementPtrInst>(*(it++));
+        assert(ConstIndices.count(gep));
+        int64_t idx = ConstIndices[gep];
+
+        AllocaInst *ScalarAI = ScalarAllocas[idx];
+        if (!ScalarAI) {
+          ScalarAI = B.CreateAlloca(resType);
+          ScalarAllocas[idx] = ScalarAI;
+        }
+
+        gep->replaceAllUsesWith(ScalarAI);
+        gep->eraseFromParent();
+      }
+
+      AI->eraseFromParent();
+
+      Changed = true;
+    }
+  }
+
+  return Changed;
+}
+
+static bool LegalizeResources(Module &M, DxilValueCache *DVC) {
+
+  bool Changed = false;
+
+  Changed |= LegalizeResourceArrays(M, DVC);
+
   // Simple pass to collect resource PHI's
   SmallVector<PHINode *, 8> PHIs;
+
   for (Function &F : M) {
     for (BasicBlock &BB : F) {
       for (Instruction &I : BB) {
@@ -443,12 +556,10 @@ bool LegalizeResourcesPHIs(Module &M, DxilValueCache *DVC) {
         else {
           break;
         }
-
       }
     }
   }
 
-  bool Changed = false;
 
   SmallVector<Instruction *, 8> DCEWorklist;
 
@@ -572,7 +683,7 @@ public:
 
     {
       DxilValueCache *DVC = &getAnalysis<DxilValueCache>();
-      bool bLocalChanged = LegalizeResourcesPHIs(M, DVC);
+      bool bLocalChanged = LegalizeResources(M, DVC);
       if (bLocalChanged) {
         // Remove unused resources.
         DM.RemoveResourcesWithUnusedSymbols();
@@ -1678,7 +1789,7 @@ Type *UpdateFieldTypeForLegacyLayout(Type *Ty,
       rows = matrix.Rows;
       cols = matrix.Cols;
     } else {
-      DXASSERT(matrix.Orientation == MatrixOrientation::ColumnMajor, "");
+      DXASSERT_NOMSG(matrix.Orientation == MatrixOrientation::ColumnMajor);
       cols = matrix.Rows;
       rows = matrix.Cols;
     }
@@ -1875,8 +1986,10 @@ void DxilLowerCreateHandleForLib::UpdateResourceSymbols() {
 namespace {
 
 void ReplaceResourceUserWithHandle(
-    LoadInst *Res, Value *handle) {
-  for (auto resUser = Res->user_begin(); resUser != Res->user_end();) {
+    DxilResource &res,
+    LoadInst *load, Value *handle)
+{
+  for (auto resUser = load->user_begin(); resUser != load->user_end();) {
     Value *V = *(resUser++);
     CallInst *CI = dyn_cast<CallInst>(V);
     DxilInst_CreateHandleForLib createHandle(CI);
@@ -1884,7 +1997,33 @@ void ReplaceResourceUserWithHandle(
     CI->replaceAllUsesWith(handle);
     CI->eraseFromParent();
   }
-  Res->eraseFromParent();
+
+  if (res.GetClass() == DXIL::ResourceClass::UAV) {
+    // Before this pass, the global resources might not have been mapped with all the uses.
+    // Now we're 100% sure who uses what resources (otherwise the compilation would have failed),
+    // so we do a round on marking UAV's as having counter.
+    static auto IsDxilOp = [](Value *V, hlsl::OP::OpCode Op) -> bool {
+      Instruction *I = dyn_cast<Instruction>(V);
+      if (!I)
+        return false;
+      return hlsl::OP::IsDxilOpFuncCallInst(I, Op);
+    };
+
+    // Search all users for update counter
+    for (User *U : handle->users()) {
+      if (IsDxilOp(U, hlsl::OP::OpCode::BufferUpdateCounter)) {
+        res.SetHasCounter(true);
+      }
+      else if (IsDxilOp(U, hlsl::OP::OpCode::AnnotateHandle)) {
+        for (User *UU : U->users()) {
+          if (IsDxilOp(UU, hlsl::OP::OpCode::BufferUpdateCounter))
+            res.SetHasCounter(true);
+        }
+      }
+    }
+  }
+
+  load->eraseFromParent();
 }
 
 } // namespace
@@ -1938,7 +2077,7 @@ void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
   for (iplist<Function>::iterator F : pM->getFunctionList()) {
     if (!F->isDeclaration()) {
       if (!isResArray) {
-        IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(F));
+        IRBuilder<> Builder(dxilutil::FindAllocaInsertionPt(F));
         if (m_HasDbgInfo) {
           // TODO: set debug info.
           // Builder.SetCurrentDebugLocation(DL);
@@ -1959,7 +2098,7 @@ void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
       Function *userF = ldInst->getParent()->getParent();
       DXASSERT(handleMapOnFunction.count(userF), "must exist");
       Value *handle = handleMapOnFunction[userF];
-      ReplaceResourceUserWithHandle(ldInst, handle);
+      ReplaceResourceUserWithHandle(static_cast<DxilResource &>(res), ldInst, handle);
     } else {
       DXASSERT(dyn_cast<GEPOperator>(user) != nullptr,
                "else AddOpcodeParamForIntrinsic in CodeGen did not patch uses "
@@ -2017,14 +2156,14 @@ void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
         // Must be load inst.
         LoadInst *ldInst = cast<LoadInst>(*(GEPU++));
         if (handle) {
-          ReplaceResourceUserWithHandle(ldInst, handle);
+          ReplaceResourceUserWithHandle(static_cast<DxilResource &>(res), ldInst, handle);
         } else {
           IRBuilder<> Builder = IRBuilder<>(ldInst);
           createHandleArgs[DXIL::OperandIndex::kCreateHandleResIndexOpIdx] =
               Builder.CreateAdd(idx, resLowerBound);
           Value *localHandle =
               Builder.CreateCall(createHandle, createHandleArgs, handleName);
-          ReplaceResourceUserWithHandle(ldInst, localHandle);
+          ReplaceResourceUserWithHandle(static_cast<DxilResource &>(res), ldInst, localHandle);
         }
       }
 

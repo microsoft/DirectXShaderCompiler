@@ -156,7 +156,7 @@ bool LookupRecordMemberExprForHLSL(
   clang::SourceLocation MemberLoc,
   clang::ExprResult &result);
 
-clang::ExprResult MaybeConvertScalarToVector(
+clang::ExprResult MaybeConvertMemberAccess(
   _In_ clang::Sema* Self,
   _In_ clang::Expr* E);
 

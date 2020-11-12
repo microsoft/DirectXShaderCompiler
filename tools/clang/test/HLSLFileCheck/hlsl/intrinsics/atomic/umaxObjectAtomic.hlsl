@@ -47,7 +47,7 @@ float4 main(uint4 a : A, float4 b : B) : SV_Target
     uint4 r = a;
     uint comparevalue = r.w;
     uint newvalue = r.z;
-    uint origvalue;
+    uint origvalue = buf0[r.z];
 
     InterlockedAdd(buf0[r.z], newvalue);
     InterlockedMin(buf0[r.z], newvalue);

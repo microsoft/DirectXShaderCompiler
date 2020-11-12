@@ -1156,7 +1156,7 @@ class db_dxil(object):
             db_dxil_param(2, "$o", "value", "value to read"),
             db_dxil_param(3, "i32", "lane", "lane index")])
         next_op_idx += 1
-        self.add_dxil_op("WaveReadLaneFirst", next_op_idx, "WaveReadLaneFirst", "returns the value from the first lane", "hf18wil", "", [
+        self.add_dxil_op("WaveReadLaneFirst", next_op_idx, "WaveReadLaneFirst", "returns the value from the first lane", "hfd18wil", "", [
             db_dxil_param(0, "$o", "", "operation result"),
             db_dxil_param(2, "$o", "value", "value to read")])
         next_op_idx += 1
@@ -1270,7 +1270,7 @@ class db_dxil(object):
         # End of DXIL 1.0 opcodes.
         self.set_op_count_for_version(1, 0, next_op_idx)
 
-        self.add_dxil_op("AttributeAtVertex", next_op_idx, "AttributeAtVertex", "returns the values of the attributes at the vertex.", "hf", "rn", [
+        self.add_dxil_op("AttributeAtVertex", next_op_idx, "AttributeAtVertex", "returns the values of the attributes at the vertex.", "hfiw", "rn", [
             db_dxil_param(0, "$o", "", "result"),
             db_dxil_param(2, "i32", "inputSigId", "input signature element ID"),
             db_dxil_param(3, "i32", "inputRowIndex", "row index of an input attribute"),
@@ -2050,8 +2050,6 @@ class db_dxil(object):
         add_pass("hl-expand-store-intrinsics", "HLExpandStoreIntrinsics", "Expand HLSL store intrinsics", [])
         add_pass("hl-legalize-parameter", "HLLegalizeParameter", "Legalize parameter", [])
         add_pass('scalarrepl-param-hlsl', 'SROA_Parameter_HLSL', 'Scalar Replacement of Aggregates HLSL (parameters)', [])
-        add_pass('scalarreplhlsl', 'SROA_DT_HLSL', 'Scalar Replacement of Aggregates HLSL (DT)', [])
-        add_pass('scalarreplhlsl-ssa', 'SROA_SSAUp_HLSL', 'Scalar Replacement of Aggregates HLSL (SSAUp)', [])
         add_pass('static-global-to-alloca', 'LowerStaticGlobalIntoAlloca', 'Lower static global into Alloca', [])
         add_pass('hlmatrixlower', 'HLMatrixLowerPass', 'HLSL High-Level Matrix Lower', [])
         add_pass('matrixbitcastlower', 'MatrixBitcastLowerPass', 'Matrix Bitcast lower', [])
@@ -2142,9 +2140,14 @@ class db_dxil(object):
         # C:\nobackup\work\HLSLonLLVM\lib\Transforms\IPO\PassManagerBuilder.cpp:353
         add_pass('indvars', 'IndVarSimplify', "Induction Variable Simplification", [])
         add_pass('loop-idiom', 'LoopIdiomRecognize', "Recognize loop idioms", [])
-        add_pass('dxil-loop-unroll', 'DxilLoopUnroll', 'DxilLoopUnroll', [])
+        add_pass('dxil-loop-unroll', 'DxilLoopUnroll', 'DxilLoopUnroll', [
+            {'n':'MaxIterationAttempt', 't':'unsigned', 'c':1, 'd':'Maximum number of iterations to attempt when iteratively unrolling.'},
+            {'n':'OnlyWarnOnFail', 't':'bool', 'c':1, 'd':'Whether to just warn when unrolling fails.'},
+        ])
         add_pass('dxil-erase-dead-region', 'DxilEraseDeadRegion', 'DxilEraseDeadRegion', [])
         add_pass('dxil-remove-dead-blocks', 'DxilRemoveDeadBlocks', 'DxilRemoveDeadBlocks', [])
+        add_pass('dxil-o0-legalize', 'DxilNoOptLegalize', 'DXIL No-Opt Legalize', [])
+        add_pass('dxil-o0-simplify-inst', 'DxilNoOptSimplifyInstructions', 'DXIL No-Opt Simplify Inst', [])
         add_pass('loop-deletion', 'LoopDeletion', "Delete dead loops", [])
         add_pass('loop-interchange', 'LoopInterchange', 'Interchanges loops for cache reuse', [])
         add_pass('loop-unroll', 'LoopUnroll', 'Unroll loops', [
@@ -2781,6 +2784,7 @@ class db_hlsl(object):
         self.base_types = {
             "bool": "LICOMPTYPE_BOOL",
             "int": "LICOMPTYPE_INT",
+            "int32_only": "LICOMPTYPE_INT32_ONLY",
             "int16_t": "LICOMPTYPE_INT16",
             "uint": "LICOMPTYPE_UINT",
             "uint16_t": "LICOMPTYPE_UINT16",

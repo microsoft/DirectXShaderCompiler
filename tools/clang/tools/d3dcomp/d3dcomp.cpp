@@ -368,12 +368,5 @@ HRESULT WINAPI BridgeD3DPreprocess(_In_reads_bytes_(SrcDataSize) LPCVOID pSrcDat
 }
 
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD Reason, LPVOID) {
-  BOOL result = TRUE;
-  if (Reason == DLL_PROCESS_ATTACH) {
-    DisableThreadLibraryCalls(hinstDLL);
-  } else if (Reason == DLL_PROCESS_DETACH) {
-    // Nothing to clean-up.
-  }
-
-  return result;
+  return TRUE;
 }

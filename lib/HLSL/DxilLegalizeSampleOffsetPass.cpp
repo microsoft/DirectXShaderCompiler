@@ -48,7 +48,7 @@ public:
     return "DXIL legalize sample offset";
   }
 
-  void getAnalysisUsage(AnalysisUsage &AU) const {
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<DxilValueCache>();
     AU.setPreservesAll();
   }

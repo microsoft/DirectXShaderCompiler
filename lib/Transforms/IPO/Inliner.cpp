@@ -39,7 +39,7 @@ using namespace llvm;
 STATISTIC(NumInlined, "Number of functions inlined");
 STATISTIC(NumCallsDeleted, "Number of call sites deleted, not inlined");
 STATISTIC(NumDeleted, "Number of functions deleted because all callers found");
-STATISTIC(NumMergedAllocas, "Number of allocas merged together");
+// STATISTIC(NumMergedAllocas, "Number of allocas merged together"); // HLSL Change - unused
 
 // This weirdly named statistic tracks the number of times that, when attempting
 // to inline a function A into B, we analyze the callers of B in order to see

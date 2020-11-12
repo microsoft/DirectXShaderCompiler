@@ -465,7 +465,16 @@ public:
     TEST_METHOD_PROPERTY(L"Priority", L"2") // This test is disabled because of a bug in WARP; TODO: enable once the bug is fixed
   END_TEST_METHOD()
 
-  // This is defined in d3d.h for Windows 10 Anniversary Edition SDK, but we only
+  dxc::DxcDllSupport m_support;
+  VersionSupportInfo m_ver;
+  bool m_ExperimentalModeEnabled = false;
+
+  const float ClearColor[4] = { 0.0f, 0.2f, 0.4f, 1.0f };
+
+// Do not remove the following line - it is used by TranslateExecutionTest.py
+// MARKER: ExecutionTest/DxilConf Shared Implementation Start
+
+ // This is defined in d3d.h for Windows 10 Anniversary Edition SDK, but we only
   // require the Windows 10 SDK.
   typedef enum D3D_SHADER_MODEL {
     D3D_SHADER_MODEL_5_1 = 0x51,
@@ -475,6 +484,7 @@ public:
     D3D_SHADER_MODEL_6_3 = 0x63,
     D3D_SHADER_MODEL_6_4 = 0x64,
     D3D_SHADER_MODEL_6_5 = 0x65,
+    D3D_SHADER_MODEL_6_6 = 0x66,
 } D3D_SHADER_MODEL;
 
 #if WDK_NTDDI_VERSION == NTDDI_WIN10_RS2
@@ -487,18 +497,15 @@ public:
   static const D3D_SHADER_MODEL HIGHEST_SHADER_MODEL = D3D_SHADER_MODEL_6_3;
 #elif WDK_NTDDI_VERSION == NTDDI_WIN10_19H1
   static const D3D_SHADER_MODEL HIGHEST_SHADER_MODEL = D3D_SHADER_MODEL_6_4;
-#else
+#elif WDK_NTDDI_VERSION == NTDDI_WIN10_VB
   static const D3D_SHADER_MODEL HIGHEST_SHADER_MODEL = D3D_SHADER_MODEL_6_5;
+#elif WDK_NTDDI_VERSION == NTDDI_WIN10_MN
+  static const D3D_SHADER_MODEL HIGHEST_SHADER_MODEL = D3D_SHADER_MODEL_6_5;
+#elif WDK_NTDDI_VERSION == NTDDI_WIN10_FE
+  static const D3D_SHADER_MODEL HIGHEST_SHADER_MODEL = D3D_SHADER_MODEL_6_6;
+#else
+  static const D3D_SHADER_MODEL HIGHEST_SHADER_MODEL = D3D_SHADER_MODEL_6_6;
 #endif
-
-  dxc::DxcDllSupport m_support;
-  VersionSupportInfo m_ver;
-  bool m_ExperimentalModeEnabled = false;
-
-  const float ClearColor[4] = { 0.0f, 0.2f, 0.4f, 1.0f };
-
-// Do not remove the following line - it is used by TranslateExecutionTest.py
-// MARKER: ExecutionTest/DxilConf Shared Implementation Start
 
   bool UseDxbc() {
 #ifdef _HLK_CONF
@@ -3971,6 +3978,13 @@ TEST_F(ExecutionTest, UnaryHalfOpTest) {
     if (!CreateDevice(&pDevice, D3D_SHADER_MODEL::D3D_SHADER_MODEL_6_2)) {
       return;
     }
+
+    if (!DoesDeviceSupportNative16bitOps(pDevice)) {
+      WEX::Logging::Log::Comment(L"Device does not support native 16-bit operations.");
+      WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+      return;
+    }
+
     // Read data from the table
     int tableSize = sizeof(UnaryHalfOpParameters) / sizeof(TableParameter);
     TableParameterHandler handler(UnaryHalfOpParameters, tableSize);
@@ -4040,6 +4054,13 @@ TEST_F(ExecutionTest, BinaryHalfOpTest) {
     if (!CreateDevice(&pDevice, D3D_SHADER_MODEL::D3D_SHADER_MODEL_6_2)) {
         return;
     }
+
+    if (!DoesDeviceSupportNative16bitOps(pDevice)) {
+      WEX::Logging::Log::Comment(L"Device does not support native 16-bit operations.");
+      WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+      return;
+    }
+  
     // Read data from the table
     int tableSize = sizeof(BinaryHalfOpParameters) / sizeof(TableParameter);
     TableParameterHandler handler(BinaryHalfOpParameters, tableSize);
@@ -4134,8 +4155,14 @@ TEST_F(ExecutionTest, TertiaryHalfOpTest) {
     if (!CreateDevice(&pDevice, D3D_SHADER_MODEL::D3D_SHADER_MODEL_6_2)) {
         return;
     }
+
+    if (!DoesDeviceSupportNative16bitOps(pDevice)) {
+      WEX::Logging::Log::Comment(L"Device does not support native 16-bit operations.");
+      WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+      return;
+    }
+
     // Read data from the table
-    
     int tableSize = sizeof(TertiaryHalfOpParameters) / sizeof(TableParameter);
     TableParameterHandler handler(TertiaryHalfOpParameters, tableSize);
 
@@ -4648,8 +4675,14 @@ TEST_F(ExecutionTest, UnaryInt16OpTest) {
   if (!CreateDevice(&pDevice, D3D_SHADER_MODEL::D3D_SHADER_MODEL_6_2)) {
     return;
   }
-  // Read data from the table
 
+  if (!DoesDeviceSupportNative16bitOps(pDevice)) {
+    WEX::Logging::Log::Comment(L"Device does not support native 16-bit operations.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
+  // Read data from the table
   int tableSize = sizeof(UnaryInt16OpParameters) / sizeof(TableParameter);
   TableParameterHandler handler(UnaryInt16OpParameters, tableSize);
 
@@ -4708,8 +4741,14 @@ TEST_F(ExecutionTest, UnaryUint16OpTest) {
   if (!CreateDevice(&pDevice, D3D_SHADER_MODEL::D3D_SHADER_MODEL_6_2)) {
     return;
   }
-  // Read data from the table
 
+  if (!DoesDeviceSupportNative16bitOps(pDevice)) {
+    WEX::Logging::Log::Comment(L"Device does not support native 16-bit operations.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
+  // Read data from the table
   int tableSize = sizeof(UnaryUint16OpParameters) / sizeof(TableParameter);
   TableParameterHandler handler(UnaryUint16OpParameters, tableSize);
 
@@ -4768,6 +4807,13 @@ TEST_F(ExecutionTest, BinaryInt16OpTest) {
   if (!CreateDevice(&pDevice, D3D_SHADER_MODEL::D3D_SHADER_MODEL_6_2)) {
     return;
   }
+
+  if (!DoesDeviceSupportNative16bitOps(pDevice)) {
+    WEX::Logging::Log::Comment(L"Device does not support native 16-bit operations.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
   // Read data from the table
   size_t tableSize = sizeof(BinaryInt16OpParameters) / sizeof(TableParameter);
   TableParameterHandler handler(BinaryInt16OpParameters, tableSize);
@@ -4859,6 +4905,13 @@ TEST_F(ExecutionTest, TertiaryInt16OpTest) {
   if (!CreateDevice(&pDevice, D3D_SHADER_MODEL::D3D_SHADER_MODEL_6_2)) {
     return;
   }
+
+  if (!DoesDeviceSupportNative16bitOps(pDevice)) {
+    WEX::Logging::Log::Comment(L"Device does not support native 16-bit operations.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
   // Read data from the table
   size_t tableSize = sizeof(TertiaryInt16OpParameters) / sizeof(TableParameter);
   TableParameterHandler handler(TertiaryInt16OpParameters, tableSize);
@@ -4928,6 +4981,13 @@ TEST_F(ExecutionTest, BinaryUint16OpTest) {
   if (!CreateDevice(&pDevice, D3D_SHADER_MODEL::D3D_SHADER_MODEL_6_2)) {
     return;
   }
+
+  if (!DoesDeviceSupportNative16bitOps(pDevice)) {
+    WEX::Logging::Log::Comment(L"Device does not support native 16-bit operations.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
   // Read data from the table
   size_t tableSize = sizeof(BinaryUint16OpParameters) / sizeof(TableParameter);
   TableParameterHandler handler(BinaryUint16OpParameters, tableSize);
@@ -5016,6 +5076,13 @@ TEST_F(ExecutionTest, TertiaryUint16OpTest) {
   if (!CreateDevice(&pDevice, D3D_SHADER_MODEL::D3D_SHADER_MODEL_6_2)) {
     return;
   }
+
+  if (!DoesDeviceSupportNative16bitOps(pDevice)) {
+    WEX::Logging::Log::Comment(L"Device does not support native 16-bit operations.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
   // Read data from the table
   size_t tableSize = sizeof(TertiaryUint16OpParameters) / sizeof(TableParameter);
   TableParameterHandler handler(TertiaryUint16OpParameters, tableSize);
@@ -6364,6 +6431,12 @@ TEST_F(ExecutionTest, CBufferTestHalf) {
   CComPtr<ID3D12Device> pDevice;
   if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_2))
     return;
+
+  if (!DoesDeviceSupportNative16bitOps(pDevice)) {
+    WEX::Logging::Log::Comment(L"Device does not support native 16-bit operations.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
 
   uint16_t InputData[] = { 0x3F80, 0x3F00, 0x3D80, 0x7BFF };
 

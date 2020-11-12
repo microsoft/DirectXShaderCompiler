@@ -26,7 +26,6 @@ ShaderModel::ShaderModel(Kind Kind, unsigned Major, unsigned Minor, const char *
 , m_pszName(pszName)
 , m_NumInputRegs(NumInputRegs)
 , m_NumOutputRegs(NumOutputRegs)
-, m_bUAVs(bUAVs)
 , m_bTypedUavs(bTypedUavs)
 , m_NumUAVRegs(NumUAVRegs) {
 }

@@ -28,6 +28,7 @@
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/ADT/BitVector.h"
 #include "llvm/Pass.h"
@@ -439,6 +440,9 @@ public:
         AddFunctionAnnotationForInitializers(M, DM);
       }
 
+      // Fix DIExpression fragments that cover whole variables
+      LegalizeDbgFragments(M);
+
       return true;
     }
 
@@ -478,6 +482,65 @@ private:
         }
         GV->eraseFromParent();
       }
+    }
+  }
+
+  static bool BitPieceCoversEntireVar(DIExpression *expr, DILocalVariable *var, DITypeIdentifierMap &TypeIdentifierMap) {
+    if (expr->isBitPiece()) {
+      DIType *ty = var->getType().resolve(TypeIdentifierMap);
+      return expr->getBitPieceOffset() == 0 && expr->getBitPieceSize() == ty->getSizeInBits();
+    }
+    return false;
+  }
+
+  static void LegalizeDbgFragmentsForDbgIntrinsic(Function *f, DITypeIdentifierMap &TypeIdentifierMap) {
+    Intrinsic::ID intrinsic = f->getIntrinsicID();
+
+    DIBuilder dib(*f->getParent());
+    if (intrinsic == Intrinsic::dbg_value) {
+      for (auto it = f->user_begin(), end = f->user_end(); it != end;) {
+        User *u = *(it++);
+        DbgValueInst *di = cast<DbgValueInst>(u);
+        Value *value = di->getValue();
+        if (!value) {
+          di->eraseFromParent();
+          continue;
+        }
+        DIExpression *expr = di->getExpression();
+        DILocalVariable *var = di->getVariable();
+        if (BitPieceCoversEntireVar(expr, var, TypeIdentifierMap)) {
+          dib.insertDbgValueIntrinsic(value, 0, var, DIExpression::get(di->getContext(), {}), di->getDebugLoc(), di);
+          di->eraseFromParent();
+        }
+      }
+    }
+    else if (intrinsic == Intrinsic::dbg_declare) {
+      for (auto it = f->user_begin(), end = f->user_end(); it != end;) {
+        User *u = *(it++);
+        DbgDeclareInst *di = cast<DbgDeclareInst>(u);
+        Value *addr = di->getAddress();
+        if (!addr) {
+          di->eraseFromParent();
+          continue;
+        }
+        DIExpression *expr = di->getExpression();
+        DILocalVariable *var = di->getVariable();
+        if (BitPieceCoversEntireVar(expr, var, TypeIdentifierMap)) {
+          dib.insertDeclare(addr, var, DIExpression::get(di->getContext(), {}), di->getDebugLoc(), di);
+          di->eraseFromParent();
+        }
+      }
+    }
+  }
+
+  static void LegalizeDbgFragments(Module &M) {
+    DITypeIdentifierMap TypeIdentifierMap;
+
+    if (Function *f = M.getFunction(Intrinsic::getName(Intrinsic::dbg_value))) {
+      LegalizeDbgFragmentsForDbgIntrinsic(f, TypeIdentifierMap);
+    }
+    if (Function *f = M.getFunction(Intrinsic::getName(Intrinsic::dbg_declare))) {
+      LegalizeDbgFragmentsForDbgIntrinsic(f, TypeIdentifierMap);
     }
   }
 
@@ -652,7 +715,7 @@ private:
           Function *F = CI->getParent()->getParent();
           ICmpInst *Cmp = DxBreakCmpMap.lookup(F);
           if (!Cmp) {
-            Instruction *IP = dxilutil::FirstNonAllocaInsertionPt(F);
+            Instruction *IP = dxilutil::FindAllocaInsertionPt(F);
             LoadInst *LI = new LoadInst(Gep, nullptr, false, IP);
             Cmp = new ICmpInst(IP, ICmpInst::ICMP_EQ, LI, llvm::ConstantInt::get(i32Ty,0));
             DxBreakCmpMap[F] = Cmp;
@@ -1085,9 +1148,9 @@ namespace {
 // Cull blocks from BreakBBs that containing instructions that are sensitive to the wave-sensitive Inst
 // Sensitivity entails being an eventual user of the Inst and also belonging to a block with
 // a break conditional on dx.break that breaks out of a loop that contains WaveCI
-// LInfo is needed to determine loop contents. VisitedPhis is needed to prevent infinit looping.
-static void CullSensitiveBlocks(LoopInfo *LInfo, BasicBlock *WaveBB, BasicBlock *LastBB, Instruction *Inst,
-                                SmallPtrSet<Instruction *, 16> &VisitedPhis,
+// LInfo is needed to determine loop contents. Visited is needed to prevent infinite looping.
+static void CullSensitiveBlocks(LoopInfo *LInfo, Loop *WaveLoop, BasicBlock *LastBB, Instruction *Inst,
+                                std::unordered_set<Instruction *> &Visited,
                                 SmallDenseMap<BasicBlock *, Instruction *, 16> &BreakBBs) {
   BasicBlock *BB = Inst->getParent();
   Loop *BreakLoop = LInfo->getLoopFor(BB);
@@ -1095,9 +1158,8 @@ static void CullSensitiveBlocks(LoopInfo *LInfo, BasicBlock *WaveBB, BasicBlock 
   if (!BreakLoop || BreakBBs.empty())
     return;
 
-  // To prevent infinite looping, only visit each PHI once
-  // If we've seen this PHI before, don't reprocess it
-  if (isa<PHINode>(Inst) && !VisitedPhis.insert(Inst).second)
+  // To prevent infinite looping, only visit each instruction once
+  if (!Visited.insert(Inst).second)
     return;
 
   // If this BB wasn't already just processed, handle it now
@@ -1105,14 +1167,14 @@ static void CullSensitiveBlocks(LoopInfo *LInfo, BasicBlock *WaveBB, BasicBlock 
     // Determine if the instruction's block has an artificially-conditional break
     // and breaks out of a loop that contains the waveCI
     BranchInst *BI = dyn_cast<BranchInst>(BB->getTerminator());
-    if (BI && BI->isConditional() && BreakLoop->contains(WaveBB))
+    if (BI && BI->isConditional() && BreakLoop->contains(WaveLoop))
       BreakBBs.erase(BB);
   }
 
   // Recurse on the users
   for (User *U : Inst->users()) {
     Instruction *I = cast<Instruction>(U);
-    CullSensitiveBlocks(LInfo, WaveBB, BB, I, VisitedPhis, BreakBBs);
+    CullSensitiveBlocks(LInfo, WaveLoop, BB, I, Visited, BreakBBs);
   }
 }
 
@@ -1171,7 +1233,11 @@ public:
     if (BreakBBs.empty())
       return false;
 
-    // For each wave operation, remove all the dx.break blocks that are sensitive to it
+
+
+    // Collect all wave calls in this function and group by loop
+    SmallDenseMap<Loop *, SmallVector<CallInst *, 8>, 16> WaveCalls;
+
     for (Function &IF : M->functions()) {
       HLOpcodeGroup opgroup = hlsl::GetHLOpcodeGroup(&IF);
       // Only consider wave-sensitive intrinsics or extintrinsics
@@ -1181,10 +1247,21 @@ public:
         for (User *U : IF.users()) {
           CallInst *CI = cast<CallInst>(U);
           if (CI->getParent()->getParent() == &F) {
-            SmallPtrSet<Instruction *, 16> VisitedPhis;
-            CullSensitiveBlocks(LInfo, CI->getParent(), nullptr, CI, VisitedPhis, BreakBBs);
+            Loop *WaveLoop = LInfo->getLoopFor(CI->getParent());
+            WaveCalls[WaveLoop].emplace_back(CI);
           }
         }
+      }
+    }
+
+    // For each wave operation, remove all the dx.break blocks that are sensitive to it
+    for (DenseMap<Loop*, SmallVector<CallInst *, 8>>::iterator I =
+           WaveCalls.begin(), E = WaveCalls.end();
+         I != E; ++I) {
+      Loop *loop = I->first;
+      std::unordered_set<Instruction *> Visited;
+      for (CallInst *CI : I->second) {
+        CullSensitiveBlocks(LInfo, loop, nullptr, CI, Visited, BreakBBs);
       }
     }
 

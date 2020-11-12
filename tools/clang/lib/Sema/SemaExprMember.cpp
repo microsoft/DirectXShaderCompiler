@@ -1656,7 +1656,7 @@ ExprResult Sema::ActOnMemberAccessExpr(Scope *S, Expr *Base,
 
   // HLSL Changes Start
   if (getLangOpts().HLSL) {
-    Result = hlsl::MaybeConvertScalarToVector(this, Base);
+    Result = hlsl::MaybeConvertMemberAccess(this, Base);
     if (Result.isInvalid()) return ExprError();
     Base = Result.get();
   }

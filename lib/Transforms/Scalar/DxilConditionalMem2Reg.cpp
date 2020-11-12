@@ -387,7 +387,8 @@ public:
           else {
             NewExpr = DIExpression::get(Ctx, {});
           }
-          DIB.insertDbgValueIntrinsic(Val, 0, Var, NewExpr, Loc, Store);
+          if (Loc->getScope()->getSubprogram() == Var->getScope()->getSubprogram())
+            DIB.insertDbgValueIntrinsic(Val, 0, Var, NewExpr, Loc, Store);
         }
 
         Declare->eraseFromParent();
