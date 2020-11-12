@@ -113,14 +113,6 @@ void initializeHLExpandStoreIntrinsicsPass(PassRegistry&);
 
 //===----------------------------------------------------------------------===//
 //
-// ScalarReplAggregatesHLSL - Break up alloca's of aggregates into multiple allocas
-// for hlsl. Array will not change, all structures will be broken up.
-//
-FunctionPass *createScalarReplAggregatesHLSLPass(bool UseDomTree = true,
-                                                 bool Promote = false);
-void initializeSROA_DT_HLSLPass(PassRegistry&);
-//===----------------------------------------------------------------------===//
-//
 // ScalarReplAggregatesHLSL - Break up argument's of aggregates into multiple arguments
 // for hlsl. Array will not change, all structures will be broken up.
 //
@@ -137,7 +129,7 @@ void initializeDxilFixConstArrayInitializerPass(PassRegistry&);
 Pass *createDxilConditionalMem2RegPass(bool NoOpt);
 void initializeDxilConditionalMem2RegPass(PassRegistry&);
 
-Pass *createDxilLoopUnrollPass(unsigned MaxIterationAttempt);
+Pass *createDxilLoopUnrollPass(unsigned MaxIterationAttempt, bool OnlyWarnOnFail, bool StructurizeLoopExits);
 void initializeDxilLoopUnrollPass(PassRegistry&);
 
 Pass *createDxilEraseDeadRegionPass();
@@ -269,7 +261,9 @@ Pass *createLoopInstSimplifyPass();
 // LoopUnroll - This pass is a simple loop unrolling pass.
 //
 Pass *createLoopUnrollPass(int Threshold = -1, int Count = -1,
-                           int AllowPartial = -1, int Runtime = -1);
+                           int AllowPartial = -1, int Runtime = -1,
+                           bool StructurizeLoopExits = false // HLSL Change
+                          );
 // Create an unrolling pass for full unrolling only.
 Pass *createSimpleLoopUnrollPass();
 

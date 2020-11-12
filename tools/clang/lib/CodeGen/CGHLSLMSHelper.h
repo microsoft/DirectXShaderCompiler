@@ -58,7 +58,8 @@ struct PatchConstantInfo {
 /// Use this class to represent HLSL cbuffer in high-level DXIL.
 class HLCBuffer : public hlsl::DxilCBuffer {
 public:
-  HLCBuffer() = default;
+  HLCBuffer(bool bIsView, bool bIsTBuf)
+      : bIsView(bIsView), bIsTBuf(bIsTBuf), bIsArray(false), ResultTy(nullptr) {}
   virtual ~HLCBuffer() = default;
 
   void AddConst(std::unique_ptr<DxilResourceBase> &pItem) {
@@ -70,11 +71,21 @@ public:
     return constants;
   }
 
+  bool IsView() { return bIsView; }
+  bool IsTBuf() { return bIsTBuf; }
+  bool IsArray() { return bIsArray; }
+  void SetIsArray() { bIsArray = true; }
+  llvm::Type *GetResultType() { return ResultTy; }
+  void SetResultType(llvm::Type *Ty) { ResultTy = Ty; }
+
 private:
   std::vector<std::unique_ptr<DxilResourceBase>>
       constants; // constants inside const buffer
+  bool bIsView;
+  bool bIsTBuf;
+  bool bIsArray;
+  llvm::Type *ResultTy;
 };
-
 // Scope to help transform multiple returns.
 struct Scope {
  enum class ScopeKind {
@@ -173,7 +184,7 @@ void FinishCBuffer(
         &AnnotationMap);
 
 void ProcessCtorFunctions(llvm::Module &M, llvm::StringRef globalName,
-                          llvm::Instruction *InsertPt);
+                          llvm::Instruction *InsertPt, bool bRemoveGlobal);
 
 void TranslateRayQueryConstructor(hlsl::HLModule &HLM);
 
@@ -184,11 +195,12 @@ void UpdateLinkage(
     llvm::StringMap<PatchConstantInfo> &patchConstantFunctionMap);
 
 void StructurizeMultiRet(llvm::Module &M,
+                         clang::CodeGen::CodeGenModule &CGM,
                          llvm::DenseMap<llvm::Function *, ScopeInfo> &ScopeMap,
                          bool bWaveEnabledStage,
                          llvm::SmallVector<llvm::BranchInst *, 16> &DxBreaks);
 
-llvm::Value *TryEvalIntrinsic(llvm::CallInst *CI, hlsl::IntrinsicOp intriOp);
+llvm::Value *TryEvalIntrinsic(llvm::CallInst *CI, hlsl::IntrinsicOp intriOp, unsigned hlslVersion);
 void SimpleTransformForHLDXIR(llvm::Module *pM);
 void ExtensionCodeGen(hlsl::HLModule &HLM, clang::CodeGen::CodeGenModule &CGM);
 } // namespace CGHLSLMSHelper

@@ -180,7 +180,7 @@ Value *DxilPIXMeshShaderOutputInstrumentation::reserveDebugEntrySpace(
   
   // Check that the caller didn't ask for so much memory that it will 
   // overwrite the offset counter:
-  assert(m_RemainingReservedSpaceInBytes < CounterOffsetBeyondUsefulData);
+  assert(m_RemainingReservedSpaceInBytes < (int)CounterOffsetBeyondUsefulData);
 
   m_RemainingReservedSpaceInBytes = SpaceInBytes;
 

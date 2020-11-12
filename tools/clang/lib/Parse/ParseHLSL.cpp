@@ -74,60 +74,6 @@ Decl *Parser::ParseCTBuffer(unsigned Context, SourceLocation &DeclEnd,
   return decl;
 }
 
-Decl *Parser::ParseConstBuffer(unsigned Context, SourceLocation &DeclEnd,
-                               ParsedAttributesWithRange &attrs,
-                               SourceLocation InlineLoc) {
-  bool isCBuffer = Tok.is(tok::kw_ConstantBuffer);
-  assert((isCBuffer || Tok.is(tok::kw_TextureBuffer)) && "Not a ConstantBuffer or TextureBuffer!");
-
-  SourceLocation BufferLoc = ConsumeToken(); // eat the 'ConstantBuffer'.
-
-  if (!Tok.is(tok::less)) {
-    Diag(Tok, diag::err_expected) << tok::less;
-    return nullptr;
-  }
-  ConsumeToken(); // eat the <
-
-  ParsingDeclSpec PDS(*this);
-  ParseDeclarationSpecifiers(PDS);
-
-  if (!Tok.is(tok::greater)) {
-    Diag(Tok, diag::err_expected) << tok::greater;
-    return nullptr;
-  }
-  ConsumeToken(); // eat the >
-
-  PDS.takeAttributesFrom(attrs);
-
-  Actions.ActOnStartHLSLBufferView();
-  Parser::DeclGroupPtrTy dcl = ParseDeclGroup(PDS, Declarator::FileContext);
-
-  // If parsing of decl group fails, then decl group must have been illformed. Bail out!
-  // Note that we don't have to generate any diagnostics here as it was already
-  // generated previously in ParseDirectDeclarator().
-  if (!dcl)
-    return nullptr;
-
-  // Check if the register type is valid
-  NamedDecl *namedDecl = cast<NamedDecl>(dcl.get().getSingleDecl());
-  ArrayRef<hlsl::UnusualAnnotation*> annotations = namedDecl->getUnusualAnnotations();
-  for (hlsl::UnusualAnnotation* annotation : annotations) {
-    if (const auto *regAssignment = dyn_cast<hlsl::RegisterAssignment>(annotation)) {
-      if (regAssignment->isSpaceOnly())
-        continue;
-      if (isCBuffer && regAssignment->RegisterType != 'b' && regAssignment->RegisterType != 'B') {
-        Diag(namedDecl->getLocation(), diag::err_hlsl_incorrect_bind_semantic) << "'b'";
-      }
-      else if (!isCBuffer && regAssignment->RegisterType != 't' && regAssignment->RegisterType != 'T') {
-        Diag(namedDecl->getLocation(), diag::err_hlsl_incorrect_bind_semantic) << "'t'";
-      }
-    }
-  }
-
-  Decl *decl = Actions.ActOnHLSLBufferView(getCurScope(), BufferLoc, dcl, isCBuffer);
-
-  return decl;
-}
 
 /// ParseHLSLAttributeSpecifier - Parse an HLSL attribute-specifier. 
 ///
@@ -176,37 +122,8 @@ void Parser::ParseHLSLAttributeSpecifier(ParsedAttributes &attrs,
 
   // Parse attribute arguments
   if (Tok.is(tok::l_paren)) {
-    if (AttrName == &this->Actions.getASTContext().Idents.get("clipplanes")) {
-      ArgsVector ArgExprs;
-      ConsumeParen();
-      for (;;) {
-        ExprResult ArgExpr(ParseAssignmentExpression());
-        if (ArgExpr.isInvalid()) {
-          SkipUntil(tok::r_paren, StopAtSemi);
-          return;
-        }
-
-        ArgExprs.push_back(ArgExpr.get());
-
-        // Consume a comma and process the next argument.
-        if (!Tok.is(tok::comma)) {
-          break;
-        }
-
-        ConsumeToken();
-      }
-
-      SourceLocation EndLoc = Tok.getLocation();
-      if (ExpectAndConsume(tok::r_paren, diag::err_expected))
-        SkipUntil(tok::r_paren);
-
-      attrs.addNew(AttrName, SourceRange(AttrLoc, EndLoc), nullptr,
-                   SourceLocation(), ArgExprs.data(), ArgExprs.size(),
-                   AttributeList::AS_CXX11);
-    } else {
-      ParseGNUAttributeArgs(AttrName, AttrLoc, attrs, endLoc, nullptr,
-                            SourceLocation(), AttributeList::AS_CXX11, nullptr);
-    }
+    ParseGNUAttributeArgs(AttrName, AttrLoc, attrs, endLoc, nullptr,
+                          SourceLocation(), AttributeList::AS_CXX11, nullptr);
   } else {
     attrs.addNew(AttrName, AttrLoc, nullptr, SourceLocation(), 0, 0,
                  AttributeList::AS_CXX11);

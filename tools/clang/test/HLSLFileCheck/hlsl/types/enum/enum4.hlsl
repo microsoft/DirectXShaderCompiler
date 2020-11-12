@@ -16,6 +16,8 @@ int4 getValueInt(int i) {
             return int4(2,2,2,2);
         case 2:
             return int4(3,3,3,3);
+        default:
+            return int4(0,0,0,0);
     }
 }
 

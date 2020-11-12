@@ -49,6 +49,9 @@ bool CanSimplify(const llvm::Function *F) {
     return false;
   }
 
+  if (CanConstantFoldCallTo(F))
+    return true;
+
   // Lookup opcode class in dxil module. Set default value to invalid class.
   OP::OpCodeClass opClass = OP::OpCodeClass::NumOpClasses;
   const bool found =
@@ -72,7 +75,9 @@ bool CanSimplify(const llvm::Function *F) {
 ///
 /// If this call could not be simplified returns null.
 Value *SimplifyDxilCall(llvm::Function *F, ArrayRef<Value *> Args,
-                        llvm::Instruction *I) {
+                        llvm::Instruction *I,
+                        bool MayInsert)
+{
   if (!F->getParent()->HasDxilModule()) {
     assert(!OP::IsDxilOpFunc(F) && "dx.op function with no dxil module?");
     return nullptr;
@@ -124,21 +129,23 @@ Value *SimplifyDxilCall(llvm::Function *F, ArrayRef<Value *> Args,
     if (op1 == zero)
       return op2;
 
-    Constant *one = ConstantFP::get(op0->getType(), 1);
-    if (op0 == one) {
-      IRBuilder<> Builder(I);
-      llvm::FastMathFlags FMF;
-      FMF.setUnsafeAlgebraHLSL();
-      Builder.SetFastMathFlags(FMF);
-      return Builder.CreateFAdd(op1, op2);
-    }
-    if (op1 == one) {
-      IRBuilder<> Builder(I);
-      llvm::FastMathFlags FMF;
-      FMF.setUnsafeAlgebraHLSL();
-      Builder.SetFastMathFlags(FMF);
+    if (MayInsert) {
+      Constant *one = ConstantFP::get(op0->getType(), 1);
+      if (op0 == one) {
+        IRBuilder<> Builder(I);
+        llvm::FastMathFlags FMF;
+        FMF.setUnsafeAlgebraHLSL();
+        Builder.SetFastMathFlags(FMF);
+        return Builder.CreateFAdd(op1, op2);
+      }
+      if (op1 == one) {
+        IRBuilder<> Builder(I);
+        llvm::FastMathFlags FMF;
+        FMF.setUnsafeAlgebraHLSL();
+        Builder.SetFastMathFlags(FMF);
 
-      return Builder.CreateFAdd(op0, op2);
+        return Builder.CreateFAdd(op0, op2);
+      }
     }
     return nullptr;
   } break;
@@ -153,14 +160,16 @@ Value *SimplifyDxilCall(llvm::Function *F, ArrayRef<Value *> Args,
     if (op1 == zero)
       return op2;
 
-    Constant *one = ConstantInt::get(op0->getType(), 1);
-    if (op0 == one) {
-      IRBuilder<> Builder(I);
-      return Builder.CreateAdd(op1, op2);
-    }
-    if (op1 == one) {
-      IRBuilder<> Builder(I);
-      return Builder.CreateAdd(op0, op2);
+    if (MayInsert) {
+      Constant *one = ConstantInt::get(op0->getType(), 1);
+      if (op0 == one) {
+        IRBuilder<> Builder(I);
+        return Builder.CreateAdd(op1, op2);
+      }
+      if (op1 == one) {
+        IRBuilder<> Builder(I);
+        return Builder.CreateAdd(op0, op2);
+      }
     }
     return nullptr;
   } break;

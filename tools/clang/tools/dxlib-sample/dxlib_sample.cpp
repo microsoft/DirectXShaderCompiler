@@ -42,8 +42,6 @@ void  __CRTDECL operator delete (void* ptr, const std::nothrow_t& nothrow_consta
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD Reason, LPVOID) {
   BOOL result = TRUE;
   if (Reason == DLL_PROCESS_ATTACH) {
-    DisableThreadLibraryCalls(hinstDLL);
-
     DxcInitThreadMalloc();
     DxcSetThreadMallocToDefault();
 

@@ -52,6 +52,7 @@
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DxilContainer/DxilRuntimeReflection.h"
+#include <assert.h> // Needed for DxilPipelineStateValidation.h
 #include "dxc/DxilContainer/DxilPipelineStateValidation.h"
 #include "dxc/DXIL/DxilShaderFlags.h"
 #include "dxc/DXIL/DxilUtil.h"
@@ -1379,7 +1380,8 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckReflection1) {
 }
 
 TEST_F(DxilContainerTest, DxcUtils_CreateReflection) {
-  if (m_ver.SkipDxilVersion(1, 3)) return;
+  // Reflection stripping fails on DXIL.dll ver. < 1.5
+  if (m_ver.SkipDxilVersion(1, 5)) return;
 
   CComPtr<IDxcUtils> pUtils;
   VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcUtils, &pUtils));

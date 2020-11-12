@@ -43,6 +43,7 @@
 
 #include <vector>
 #include <memory>
+#include <fenv.h>
 
 #include "CGHLSLMSHelper.h"
 
@@ -1400,7 +1401,7 @@ void SimpleTransformForHLDXIRInst(Instruction *I, SmallInstSet &deadInsts) {
 
 namespace CGHLSLMSHelper {
 
-Value *TryEvalIntrinsic(CallInst *CI, IntrinsicOp intriOp) {
+Value *TryEvalIntrinsic(CallInst *CI, IntrinsicOp intriOp, unsigned hlslVersion) {
   switch (intriOp) {
   case IntrinsicOp::IOP_tan: {
     return EvalUnaryIntrinsic(CI, tanf, tan);
@@ -1527,7 +1528,22 @@ Value *TryEvalIntrinsic(CallInst *CI, IntrinsicOp intriOp) {
     return EvalUnaryIntrinsic(CI, floorf, floor);
   } break;
   case IntrinsicOp::IOP_round: {
-    return EvalUnaryIntrinsic(CI, roundf, round);
+    // round intrinsic could exhibit different behaviour for constant and runtime evaluations.
+    // E.g., for round(0.5): constant evaluation results in 1 (away from zero rounding), 
+    // while runtime evaluation results in 0 (nearest even rounding).
+    // 
+    // For back compat, DXC still preserves the above behavior for language versions 2016 or below.
+    // However, for newer language versions, DXC now always use nearest even for round() intrinsic in all
+    // cases.
+    if (hlslVersion <= 2016) {
+      return EvalUnaryIntrinsic(CI, roundf, round);
+    } else {
+      auto roundingMode = fegetround();
+      fesetround(FE_TONEAREST);
+      Value *result = EvalUnaryIntrinsic(CI, nearbyintf, nearbyint);
+      fesetround(roundingMode);
+      return result;
+    }
   } break;
   case IntrinsicOp::IOP_trunc: {
     return EvalUnaryIntrinsic(CI, truncf, trunc);
@@ -1726,10 +1742,14 @@ void ReplaceUseInFunction(Value *V, Value *NewV, Function *F,
     if (Instruction *I = dyn_cast<Instruction>(user)) {
       if (I->getParent()->getParent() == F) {
         // replace use with GEP if in F
-        for (unsigned i = 0; i < I->getNumOperands(); i++) {
-          if (I->getOperand(i) == V)
-            I->setOperand(i, NewV);
+        if (BitCastInst *BCI = dyn_cast<BitCastInst>(I)) {
+          if (BCI->getType() == NewV->getType()) {
+            I->replaceAllUsesWith(NewV);
+            I->eraseFromParent();
+            continue;
+          }
         }
+        I->replaceUsesOfWith(V, NewV);
       }
     } else {
       // For constant operator, create local clone which use GEP.
@@ -1782,7 +1802,7 @@ bool CreateCBufferVariable(HLCBuffer &CB, HLModule &HLM, llvm::Type *HandleTy) {
   SmallVector<llvm::Type *, 4> Elements;
   for (const std::unique_ptr<DxilResourceBase> &C : CB.GetConstants()) {
     Value *GV = C->GetGlobalSymbol();
-    if (GV->hasNUsesOrMore(1))
+    if (!GV->use_empty())
       bUsed = true;
     // Global variable must be pointer type.
     llvm::Type *Ty = GV->getType()->getPointerElementType();
@@ -1794,18 +1814,28 @@ bool CreateCBufferVariable(HLCBuffer &CB, HLModule &HLM, llvm::Type *HandleTy) {
 
   llvm::Module &M = *HLM.GetModule();
 
-  bool isCBArray = CB.GetRangeSize() != 1;
+  bool isCBArray = CB.IsArray();
   llvm::GlobalVariable *cbGV = nullptr;
   llvm::Type *cbTy = nullptr;
 
   unsigned cbIndexDepth = 0;
   if (!isCBArray) {
-    llvm::StructType *CBStructTy =
-        llvm::StructType::create(Elements, CB.GetGlobalName());
-    cbGV = new llvm::GlobalVariable(M, CBStructTy, /*IsConstant*/ true,
-                                    llvm::GlobalValue::ExternalLinkage,
-                                    /*InitVal*/ nullptr, CB.GetGlobalName());
-    cbTy = cbGV->getType();
+    if (CB.IsView()) {
+      llvm::StructType *CBStructTy =
+          llvm::StructType::create(CB.GetResultType(), CB.GetGlobalName());
+      cbGV = new llvm::GlobalVariable(M, CBStructTy,
+                                      /*IsConstant*/ true,
+                                      llvm::GlobalValue::ExternalLinkage,
+                                      /*InitVal*/ nullptr, CB.GetGlobalName());
+      cbTy = cbGV->getType();
+    } else {
+      llvm::StructType *CBStructTy =
+          llvm::StructType::create(Elements, CB.GetGlobalName());
+      cbGV = new llvm::GlobalVariable(M, CBStructTy, /*IsConstant*/ true,
+                                      llvm::GlobalValue::ExternalLinkage,
+                                      /*InitVal*/ nullptr, CB.GetGlobalName());
+      cbTy = cbGV->getType();
+    }
   } else {
     // For array of ConstantBuffer, create array of struct instead of struct of
     // array.
@@ -1822,7 +1852,7 @@ bool CreateCBufferVariable(HLCBuffer &CB, HLModule &HLM, llvm::Type *HandleTy) {
 
     // Add one level struct type to match normal case.
     llvm::StructType *CBStructTy =
-        llvm::StructType::create({CBEltTy}, CB.GetGlobalName());
+        llvm::StructType::create({CB.GetResultType()}, CB.GetGlobalName());
 
     llvm::ArrayType *CBArrayTy =
         llvm::ArrayType::get(CBStructTy, CB.GetRangeSize());
@@ -2174,7 +2204,7 @@ bool BuildImmInit(Function *Ctor) {
 namespace CGHLSLMSHelper {
 
 void ProcessCtorFunctions(llvm::Module &M, StringRef globalName,
-                          Instruction *InsertPt) {
+                          Instruction *InsertPt, bool bRemoveGlobal) {
   // add global call to entry func
   GlobalVariable *GV = M.getGlobalVariable(globalName);
   if (!GV)
@@ -2212,7 +2242,9 @@ void ProcessCtorFunctions(llvm::Module &M, StringRef globalName,
     }
   }
   // remove the GV
-  GV->eraseFromParent();
+  if (bRemoveGlobal) {
+    GV->eraseFromParent();
+  }
 }
 
 void FinishCBuffer(
@@ -2999,9 +3031,19 @@ void StructurizeMultiRetFunction(Function *F, ScopeInfo &ScopeInfo,
 } // namespace
 
 namespace CGHLSLMSHelper {
-void StructurizeMultiRet(Module &M, DenseMap<Function *, ScopeInfo> &ScopeMap,
+void StructurizeMultiRet(Module &M, clang::CodeGen::CodeGenModule &CGM,
+                         DenseMap<Function *, ScopeInfo> &ScopeMap,
                          bool bWaveEnabledStage,
                          SmallVector<BranchInst *, 16> &DxBreaks) {
+  if (CGM.getCodeGenOpts().HLSLExtensionsCodegen) {
+    if (!CGM.getCodeGenOpts().HLSLExtensionsCodegen->IsOptionEnabled("structurize-returns"))
+      return;
+  } else {
+    if (!CGM.getCodeGenOpts().HLSLOptimizationToggles.count("structurize-returns") ||
+        !CGM.getCodeGenOpts().HLSLOptimizationToggles.find("structurize-returns")->second)
+      return;
+  }
+
   for (Function &F : M) {
     if (F.isDeclaration())
       continue;

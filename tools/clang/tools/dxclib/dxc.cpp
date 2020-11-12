@@ -59,6 +59,7 @@
 #include "llvm/Option/ArgList.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/Path.h"
 #ifdef _WIN32
 #include <dia2.h>
 #include <comdef.h>
@@ -200,6 +201,64 @@ static void WriteDxcOutputToFile(DXC_OUT_KIND kind, IDxcResult *pResult, UINT32 
     IFT(pResult->GetOutput(kind, IID_PPV_ARGS(&pData), &pName));
     if (pName && pName->GetStringLength() > 0)
       WriteBlobToFile(pData, pName->GetStringPointer(), textCodePage);
+  }
+}
+
+static bool StringBlobEqualUtf16(IDxcBlobUtf16 *pBlob, const WCHAR *pStr) {
+  size_t uSize = wcslen(pStr);
+  if (pBlob && pBlob->GetStringLength() == uSize) {
+    return 0 == memcmp(pBlob->GetBufferPointer(), pStr, pBlob->GetBufferSize());
+  }
+  return false;
+}
+
+static void WriteDxcExtraOuputs(IDxcResult *pResult) {
+  DXC_OUT_KIND kind = DXC_OUT_EXTRA_OUTPUTS;
+  if (!pResult->HasOutput(kind)) {
+    return;
+  }
+
+  CComPtr<IDxcExtraOutputs> pOutputs;
+  CComPtr<IDxcBlobUtf16> pName;
+  IFT(pResult->GetOutput(kind, IID_PPV_ARGS(&pOutputs), &pName));
+
+  UINT32 uOutputCount = pOutputs->GetOutputCount();
+  for (UINT32 i = 0; i < uOutputCount; i++) {
+    CComPtr<IDxcBlobUtf16> pFileName;
+    CComPtr<IDxcBlobUtf16> pType;
+    CComPtr<IDxcBlob> pBlob;
+    IFT(pOutputs->GetOutput(i, IID_PPV_ARGS(&pBlob), &pType, &pFileName));
+
+    // Not a blob
+    if (!pBlob)
+      continue;
+
+    UINT32 uCodePage = CP_ACP;
+    CComPtr<IDxcBlobEncoding> pBlobEncoding;
+    if (SUCCEEDED(pBlob.QueryInterface(&pBlobEncoding))) {
+      BOOL bKnown = FALSE;
+      UINT32 uKnownCodePage = CP_ACP;
+      IFT(pBlobEncoding->GetEncoding(&bKnown, &uKnownCodePage));
+      if (bKnown) {
+        uCodePage = uKnownCodePage;
+      }
+    }
+
+    if (pFileName && pFileName->GetStringLength() > 0) {
+      if (StringBlobEqualUtf16(pFileName, DXC_EXTRA_OUTPUT_NAME_STDOUT)) {
+        if (uCodePage != CP_ACP) {
+          WriteBlobToConsole(pBlob, STD_OUTPUT_HANDLE);
+        }
+      }
+      else if (StringBlobEqualUtf16(pFileName, DXC_EXTRA_OUTPUT_NAME_STDERR)) {
+        if (uCodePage != CP_ACP) {
+          WriteBlobToConsole(pBlob, STD_ERROR_HANDLE);
+        }
+      }
+      else {
+        WriteBlobToFile(pBlob, pFileName->GetStringPointer(), uCodePage);
+      }
+    }
   }
 }
 
@@ -555,7 +614,12 @@ public:
     _COM_Outptr_result_maybenull_ IDxcBlob **ppIncludeSource
   ) override {
     try {
-      *ppIncludeSource = includeFiles.at(std::wstring(pFilename));
+      // Convert pFilename into native form for indexing as is done when the MD is created
+      std::string FilenameStr8 = Unicode::UTF16ToUTF8StringOrThrow(pFilename);
+      llvm::SmallString<128> NormalizedPath;
+      llvm::sys::path::native(FilenameStr8, NormalizedPath);
+      std::wstring FilenameStr16 = Unicode::UTF8ToUTF16StringOrThrow(NormalizedPath.c_str());
+      *ppIncludeSource = includeFiles.at(FilenameStr16);
       (*ppIncludeSource)->AddRef();
     }
     CATCH_CPP_RETURN_HRESULT()
@@ -840,6 +904,7 @@ int DxcContext::Compile() {
         WriteDxcOutputToFile(DXC_OUT_ROOT_SIGNATURE, pResult, m_Opts.DefaultTextCodePage);
         WriteDxcOutputToFile(DXC_OUT_SHADER_HASH, pResult, m_Opts.DefaultTextCodePage);
         WriteDxcOutputToFile(DXC_OUT_REFLECTION, pResult, m_Opts.DefaultTextCodePage);
+        WriteDxcExtraOuputs(pResult);
       }
     }
   }
@@ -888,12 +953,6 @@ void DxcContext::Preprocess() {
     IFT(pPreprocessResult->GetResult(&pProgram));
     WriteBlobToFile(pProgram, m_Opts.Preprocess, m_Opts.DefaultTextCodePage);
   }
-}
-
-static void WriteString(HANDLE hFile, _In_z_ LPCSTR value, LPCWSTR pFileName) {
-  DWORD written;
-  if (FALSE == WriteFile(hFile, value, strlen(value) * sizeof(value[0]), &written, nullptr))
-    IFT_Data(HRESULT_FROM_WIN32(GetLastError()), pFileName);
 }
 
 void DxcContext::WriteHeader(IDxcBlobEncoding *pDisassembly, IDxcBlob *pCode,

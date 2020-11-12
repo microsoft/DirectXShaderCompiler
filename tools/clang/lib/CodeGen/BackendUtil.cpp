@@ -91,6 +91,7 @@ private:
   legacy::PassManager *getPerModulePasses() const {
     if (!PerModulePasses) {
       PerModulePasses = new legacy::PassManager();
+      PerModulePasses->HLSLPrintAfterAll = this->CodeGenOpts.HLSLPrintAfterAll;
       PerModulePasses->TrackPassOS = &PerModulePassesConfigOS;
       PerModulePasses->add(
           createTargetTransformInfoWrapperPass(getTargetIRAnalysis()));
@@ -101,6 +102,7 @@ private:
   legacy::FunctionPassManager *getPerFunctionPasses() const {
     if (!PerFunctionPasses) {
       PerFunctionPasses = new legacy::FunctionPassManager(TheModule);
+      PerFunctionPasses->HLSLPrintAfterAll = this->CodeGenOpts.HLSLPrintAfterAll;
       PerFunctionPasses->TrackPassOS = &PerFunctionPassesConfigOS;
       PerFunctionPasses->add(
           createTargetTransformInfoWrapperPass(getTargetIRAnalysis()));
@@ -322,12 +324,23 @@ void EmitAssemblyHelper::CreatePasses() {
   PMBuilder.BBVectorize = CodeGenOpts.VectorizeBB;
   PMBuilder.SLPVectorize = CodeGenOpts.VectorizeSLP;
   PMBuilder.LoopVectorize = CodeGenOpts.VectorizeLoop;
-  PMBuilder.HLSLHighLevel = CodeGenOpts.HLSLHighLevel; // HLSL Change
-  PMBuilder.HLSLAllowPreserveValues = CodeGenOpts.HLSLAllowPreserveValues; // HLSL Change
-  PMBuilder.HLSLExtensionsCodeGen = CodeGenOpts.HLSLExtensionsCodegen.get(); // HLSL Change
-  PMBuilder.HLSLResMayAlias = CodeGenOpts.HLSLResMayAlias; // HLSL Change
-  PMBuilder.ScanLimit = CodeGenOpts.ScanLimit; // HLSL Change
-  PMBuilder.HLSLOptimizationOptions = CodeGenOpts.HLSLOptimizationOptions; // HLSL Change
+
+  // HLSL Change - begin
+  PMBuilder.HLSLHighLevel = CodeGenOpts.HLSLHighLevel;
+  PMBuilder.HLSLAllowPreserveValues = CodeGenOpts.HLSLAllowPreserveValues;
+  PMBuilder.HLSLOnlyWarnOnUnrollFail = CodeGenOpts.HLSLOnlyWarnOnUnrollFail;
+  PMBuilder.HLSLExtensionsCodeGen = CodeGenOpts.HLSLExtensionsCodegen.get();
+  PMBuilder.HLSLResMayAlias = CodeGenOpts.HLSLResMayAlias;
+  PMBuilder.ScanLimit = CodeGenOpts.ScanLimit;
+
+  PMBuilder.EnableGVN = !CodeGenOpts.HLSLOptimizationToggles.count("gvn") ||
+                        CodeGenOpts.HLSLOptimizationToggles.find("gvn")->second;
+
+  PMBuilder.StructurizeLoopExitsForUnroll =
+                        CodeGenOpts.HLSLOptimizationToggles.count("structurize-loop-exits-for-unroll") &&
+                        CodeGenOpts.HLSLOptimizationToggles.find("structurize-loop-exits-for-unroll")->second;
+
+  // HLSL Change - end
 
   PMBuilder.DisableUnitAtATime = !CodeGenOpts.UnitAtATime;
   PMBuilder.DisableUnrollLoops = !CodeGenOpts.UnrollLoops;

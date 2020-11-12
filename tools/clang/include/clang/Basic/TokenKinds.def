@@ -483,8 +483,6 @@ KEYWORD(__super                     , KEYMS)
 // HLSL Change: HLSL-specific keywords
 KEYWORD(cbuffer                     , KEYHLSL)
 KEYWORD(tbuffer                     , KEYHLSL)
-KEYWORD(ConstantBuffer              , KEYHLSL)
-KEYWORD(TextureBuffer               , KEYHLSL)
 KEYWORD(packoffset                  , KEYHLSL)
 KEYWORD(linear                      , KEYHLSL)
 KEYWORD(centroid                    , KEYHLSL)

@@ -54,6 +54,11 @@ public:
   CompilerInstance &getCompilerInstance() { return theCompilerInstance; }
   SpirvCodeGenOptions &getSpirvOptions() { return spirvOptions; }
 
+  /// \brief If DebugSource and DebugCompilationUnit for loc are already
+  /// created, we just return RichDebugInfo containing it. Otherwise,
+  /// create DebugSource and DebugCompilationUnit for loc and return it.
+  RichDebugInfo *getOrCreateRichDebugInfo(const SourceLocation &loc);
+
   void doDecl(const Decl *decl);
   void doStmt(const Stmt *stmt, llvm::ArrayRef<const Attr *> attrs = {});
   SpirvInstruction *doExpr(const Expr *expr);
@@ -106,6 +111,8 @@ private:
   SpirvInstruction *doInitListExpr(const InitListExpr *expr);
   SpirvInstruction *doMemberExpr(const MemberExpr *expr);
   SpirvInstruction *doUnaryOperator(const UnaryOperator *expr);
+  SpirvInstruction *
+  doUnaryExprOrTypeTraitExpr(const UnaryExprOrTypeTraitExpr *expr);
 
   /// Overload with pre computed SpirvEvalInfo.
   ///
@@ -990,6 +997,24 @@ private:
   void addFunctionToWorkQueue(hlsl::DXIL::ShaderKind,
                               const clang::FunctionDecl *,
                               bool isEntryFunction);
+
+  /// \brief Helper function to run SPIRV-Tools optimizer's performance passes.
+  /// Runs the SPIRV-Tools optimizer on the given SPIR-V module |mod|, and
+  /// gets the info/warning/error messages via |messages|.
+  /// Returns true on success and false otherwise.
+  bool spirvToolsOptimize(std::vector<uint32_t> *mod, std::string *messages);
+
+  /// \brief Helper function to run SPIRV-Tools optimizer's legalization passes.
+  /// Runs the SPIRV-Tools legalization on the given SPIR-V module |mod|, and
+  /// gets the info/warning/error messages via |messages|.
+  /// Returns true on success and false otherwise.
+  bool spirvToolsLegalize(std::vector<uint32_t> *mod, std::string *messages);
+
+  /// \brief Helper function to run the SPIRV-Tools validator.
+  /// Runs the SPIRV-Tools validator on the given SPIR-V module |mod|, and
+  /// gets the info/warning/error messages via |messages|.
+  /// Returns true on success and false otherwise.
+  bool spirvToolsValidate(std::vector<uint32_t> *mod, std::string *messages);
 
 public:
   /// \brief Wrapper method to create a fatal error message and report it

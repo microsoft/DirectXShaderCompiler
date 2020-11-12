@@ -90,6 +90,7 @@ target_link_libraries(clang-hlsl-tests PRIVATE
   ${TAEF_LIBRARIES}
   ${DIASDK_LIBRARIES}
   ${D3D12_LIBRARIES}
+  shlwapi
   )
 else(WIN32)
 target_link_libraries(clang-hlsl-tests
@@ -103,7 +104,7 @@ if(WIN32)
 include_directories(${TAEF_INCLUDE_DIRS})
 include_directories(${DIASDK_INCLUDE_DIRS})
 include_directories(${D3D12_INCLUDE_DIRS})
-
+include_directories(${LLVM_MAIN_INCLUDE_DIR}/dxc/Test)
 endif(WIN32)
 
 # Add includes to directly reference intrinsic tables.

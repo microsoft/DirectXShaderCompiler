@@ -6,8 +6,6 @@
 // CHECK:      OpSource HLSL 610 [[file]]
 // Have source code
 // CHECK:      float4 main(uint val
-// No tool
-// CHECK-NOT:  OpModuleProcessed
 // Have line
 // CHECK:      OpLine
 

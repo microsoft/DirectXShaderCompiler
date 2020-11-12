@@ -69,7 +69,7 @@ public:
 
   const char *getPassName() const override;
   DxilValueCache();
-  void getAnalysisUsage(AnalysisUsage &) const;
+  void getAnalysisUsage(AnalysisUsage &) const override;
 
   void dump() const;
   Value *GetValue(Value *V, DominatorTree *DT=nullptr);

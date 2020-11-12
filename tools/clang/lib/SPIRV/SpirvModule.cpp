@@ -17,7 +17,38 @@ namespace spirv {
 SpirvModule::SpirvModule()
     : capabilities({}), extensions({}), extInstSets({}), memoryModel(nullptr),
       entryPoints({}), executionModes({}), moduleProcesses({}), decorations({}),
-      constants({}), variables({}), functions({}) {}
+      constants({}), variables({}), functions({}), debugInstructions({}) {}
+
+SpirvModule::~SpirvModule() {
+  for (auto *cap : capabilities)
+    cap->releaseMemory();
+  for (auto *ext : extensions)
+    ext->releaseMemory();
+  for (auto *set : extInstSets)
+    set->releaseMemory();
+  if (memoryModel)
+    memoryModel->releaseMemory();
+  for (auto *entry : entryPoints)
+    entry->releaseMemory();
+  for (auto *exec : executionModes)
+    exec->releaseMemory();
+  for (auto *str : constStrings)
+    str->releaseMemory();
+  for (auto *d : sources)
+    d->releaseMemory();
+  for (auto *mp : moduleProcesses)
+    mp->releaseMemory();
+  for (auto *decoration : decorations)
+    decoration->releaseMemory();
+  for (auto *constant : constants)
+    constant->releaseMemory();
+  for (auto *var : variables)
+    var->releaseMemory();
+  for (auto *di : debugInstructions)
+    di->releaseMemory();
+  for (auto *f : allFunctions)
+    f->~SpirvFunction();
+}
 
 bool SpirvModule::invokeVisitor(Visitor *visitor, bool reverseOrder) {
   // Note: It is debatable whether reverse order of visiting the module should
@@ -37,6 +68,13 @@ bool SpirvModule::invokeVisitor(Visitor *visitor, bool reverseOrder) {
     for (auto iter = functions.rbegin(); iter != functions.rend(); ++iter) {
       auto *fn = *iter;
       if (!fn->invokeVisitor(visitor, reverseOrder))
+        return false;
+    }
+
+    for (auto iter = debugInstructions.rbegin();
+         iter != debugInstructions.rend(); ++iter) {
+      auto *debugInstruction = *iter;
+      if (!debugInstruction->invokeVisitor(visitor))
         return false;
     }
 
@@ -67,9 +105,8 @@ bool SpirvModule::invokeVisitor(Visitor *visitor, bool reverseOrder) {
         return false;
     }
 
-    if (!debugSources.empty())
-      for (auto iter = debugSources.rbegin(); iter != debugSources.rend();
-           ++iter) {
+    if (!sources.empty())
+      for (auto iter = sources.rbegin(); iter != sources.rend(); ++iter) {
         auto *source = *iter;
         if (!source->invokeVisitor(visitor))
           return false;
@@ -148,8 +185,8 @@ bool SpirvModule::invokeVisitor(Visitor *visitor, bool reverseOrder) {
       if (!str->invokeVisitor(visitor))
         return false;
 
-    if (!debugSources.empty())
-      for (auto *source : debugSources)
+    if (!sources.empty())
+      for (auto *source : sources)
         if (!source->invokeVisitor(visitor))
           return false;
 
@@ -169,6 +206,10 @@ bool SpirvModule::invokeVisitor(Visitor *visitor, bool reverseOrder) {
       if (!var->invokeVisitor(visitor))
         return false;
 
+    for (auto *debugInstruction : debugInstructions)
+      if (!debugInstruction->invokeVisitor(visitor))
+        return false;
+
     for (auto fn : functions)
       if (!fn->invokeVisitor(visitor, reverseOrder))
         return false;
@@ -180,14 +221,19 @@ bool SpirvModule::invokeVisitor(Visitor *visitor, bool reverseOrder) {
   return true;
 }
 
-void SpirvModule::addFunction(SpirvFunction *fn) {
+void SpirvModule::addFunctionToListOfSortedModuleFunctions(SpirvFunction *fn) {
   assert(fn && "cannot add null function to the module");
   functions.push_back(fn);
 }
 
-void SpirvModule::addCapability(SpirvCapability *cap) {
+void SpirvModule::addFunction(SpirvFunction *fn) {
+  assert(fn && "cannot add null function to the module");
+  allFunctions.insert(fn);
+}
+
+bool SpirvModule::addCapability(SpirvCapability *cap) {
   assert(cap && "cannot add null capability to the module");
-  capabilities.insert(cap);
+  return capabilities.insert(cap);
 }
 
 void SpirvModule::setMemoryModel(SpirvMemoryModel *model) {
@@ -205,9 +251,9 @@ void SpirvModule::addExecutionMode(SpirvExecutionMode *em) {
   executionModes.push_back(em);
 }
 
-void SpirvModule::addExtension(SpirvExtension *ext) {
+bool SpirvModule::addExtension(SpirvExtension *ext) {
   assert(ext && "cannot add null extension");
-  extensions.insert(ext);
+  return extensions.insert(ext);
 }
 
 void SpirvModule::addExtInstSet(SpirvExtInstImport *set) {
@@ -249,9 +295,14 @@ void SpirvModule::addString(SpirvString *str) {
   constStrings.push_back(str);
 }
 
-void SpirvModule::addDebugSource(SpirvSource *src) {
+void SpirvModule::addSource(SpirvSource *src) {
   assert(src);
-  debugSources.push_back(src);
+  sources.push_back(src);
+}
+
+void SpirvModule::addDebugInfo(SpirvDebugInstruction *info) {
+  assert(info);
+  debugInstructions.push_back(info);
 }
 
 void SpirvModule::addModuleProcessed(SpirvModuleProcessed *p) {

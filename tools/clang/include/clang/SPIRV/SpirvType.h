@@ -294,7 +294,7 @@ public:
               llvm::Optional<uint32_t> matrixStride_ = llvm::None,
               llvm::Optional<bool> isRowMajor_ = llvm::None,
               bool relaxedPrecision = false, bool precise = false)
-        : type(type_), name(name_), offset(offset_),
+        : type(type_), name(name_), offset(offset_), sizeInBytes(llvm::None),
           matrixStride(matrixStride_), isRowMajor(isRowMajor_),
           isRelaxedPrecision(relaxedPrecision), isPrecise(precise) {
       // A StructType may not contain any hybrid types.
@@ -307,8 +307,10 @@ public:
     const SpirvType *type;
     // The field's name.
     std::string name;
-    // The integer offset for this field.
+    // The integer offset in bytes for this field.
     llvm::Optional<uint32_t> offset;
+    // The integer size in bytes for this field.
+    llvm::Optional<uint32_t> sizeInBytes;
     // The matrix stride for this field (if applicable).
     llvm::Optional<uint32_t> matrixStride;
     // The majorness of this field (if applicable).

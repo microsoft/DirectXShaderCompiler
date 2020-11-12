@@ -29,6 +29,7 @@
 #include "clang/Sema/Template.h"
 #include "clang/Sema/TemplateDeduction.h"
 #include "clang/Sema/SemaHLSL.h" // HLSL Change
+#include "clang/AST/HlslTypes.h" // HLSL Change
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -5741,7 +5742,7 @@ Sema::AddOverloadCandidate(FunctionDecl *Function,
     // argument doesn't participate in overload resolution.
   }
 
-  if (!CandidateSet.isNewCandidate(Function))
+  if (!CandidateSet.isNewCandidate(Function) || hlsl::IsIntrinsicOp(Function))
     return;
 
   // C++ [over.match.oper]p3:

@@ -145,6 +145,8 @@ public:
   WeakVH(const WeakVH &RHS)
     : ValueHandleBase(Weak, RHS) {}
 
+  WeakVH &operator=(const WeakVH &RHS) = default;
+
   Value *operator=(Value *RHS) {
     return ValueHandleBase::operator=(RHS);
   }
@@ -214,6 +216,7 @@ public:
 #else
   AssertingVH() : ThePtr(nullptr) {}
   AssertingVH(ValueTy *P) : ThePtr(GetAsValue(P)) {}
+  AssertingVH(const AssertingVH<ValueTy> &) = default;
 #endif
 
   operator ValueTy*() const {

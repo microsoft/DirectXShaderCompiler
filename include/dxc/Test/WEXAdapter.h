@@ -158,8 +158,8 @@ HRESULT TryGetValue(const wchar_t *param, Common::String &retStr);
 } // namespace TestExecution
 namespace Logging {
 namespace Log {
-inline void StartGroup(const wchar_t *name) { wprintf(L"BEGIN TEST(S): <%ls>\n", name); };
-inline void EndGroup(const wchar_t *name) { wprintf(L"END TEST(S): <%ls>\n", name); };
+inline void StartGroup(const wchar_t *name) { wprintf(L"BEGIN TEST(S): <%ls>\n", name); }
+inline void EndGroup(const wchar_t *name) { wprintf(L"END TEST(S): <%ls>\n", name); }
 inline void Comment(const wchar_t *msg) {
   fputws(msg, stdout);
   fputwc(L'\n', stdout);

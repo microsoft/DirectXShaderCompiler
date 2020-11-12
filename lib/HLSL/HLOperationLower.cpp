@@ -341,6 +341,27 @@ private:
   }
 };
 
+// Helper for lowering resource extension methods.
+struct HLObjectExtensionLowerHelper : public hlsl::HLResourceLookup {
+    explicit HLObjectExtensionLowerHelper(HLObjectOperationLowerHelper &ObjHelper)
+        : m_ObjHelper(ObjHelper)
+    { }
+
+    virtual bool GetResourceKindName(Value *HLHandle, const char **ppName)
+    {
+        DXIL::ResourceKind K = m_ObjHelper.GetRK(HLHandle);
+        bool Success = K != DXIL::ResourceKind::Invalid;
+        if (Success)
+        {
+            *ppName = hlsl::GetResourceKindName(K);
+        }
+        return Success;
+    }
+
+private:
+    HLObjectOperationLowerHelper &m_ObjHelper;
+};
+
 using IntrinsicLowerFuncTy = Value *(CallInst *CI, IntrinsicOp IOP,
                                      DXIL::OpCode opcode,
                                      HLOperationLowerHelper &helper, HLObjectOperationLowerHelper *pObjHelper, bool &Translated);
@@ -529,6 +550,9 @@ Value *TranslateNonUniformResourceIndex(CallInst *CI, IntrinsicOp IOP, OP::OpCod
             DxilMDHelper::MarkNonUniform(I);
         }
       }
+    } else if (CallInst *CI = dyn_cast<CallInst>(U)) {
+      if (hlsl::GetHLOpcodeGroup(CI->getCalledFunction()) == hlsl::HLOpcodeGroup::HLCreateHandle)
+        DxilMDHelper::MarkNonUniform(CI);
     }
   }
   return nullptr;
@@ -6020,8 +6044,8 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
   IRBuilder<> Builder(user);
   if (CallInst *CI = dyn_cast<CallInst>(user)) {
     HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
-    unsigned opcode = GetHLOpcode(CI);
     if (group == HLOpcodeGroup::HLMatLoadStore) {
+      unsigned opcode = GetHLOpcode(CI);
       HLMatLoadStoreOpcode matOp = static_cast<HLMatLoadStoreOpcode>(opcode);
       bool colMajor = matOp == HLMatLoadStoreOpcode::ColMatLoad;
       DXASSERT(matOp == HLMatLoadStoreOpcode::ColMatLoad ||
@@ -6037,6 +6061,7 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
       dxilutil::TryScatterDebugValueToVectorElements(newLd);
       CI->eraseFromParent();
     } else if (group == HLOpcodeGroup::HLSubscript) {
+      unsigned opcode = GetHLOpcode(CI);
       HLSubscriptOpcode subOp = static_cast<HLSubscriptOpcode>(opcode);
       Value *basePtr = CI->getArgOperand(HLOperandIndex::kMatSubscriptMatOpIdx);
       HLMatrixType MatTy = HLMatrixType::cast(basePtr->getType()->getPointerElementType());
@@ -6178,11 +6203,6 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
       }
 
       CI->eraseFromParent();
-    } else if (group == HLOpcodeGroup::HLIntrinsic) {
-      // FIXME: This case is hit when using built-in structures in constant
-      //        buffers passed directly to an intrinsic, such as:
-      //        RayDesc from cbuffer passed to TraceRay.
-      DXASSERT(0, "not implemented yet");
     } else {
       DXASSERT(0, "not implemented yet");
     }
@@ -7693,7 +7713,8 @@ void TranslateHLBuiltinOperation(Function *F, HLOperationLowerHelper &helper,
 typedef std::unordered_map<llvm::Instruction *, llvm::Value *> HandleMap;
 static void TranslateHLExtension(Function *F,
                                  HLSLExtensionsCodegenHelper *helper,
-                                 OP& hlslOp) {
+                                 OP& hlslOp,
+                                 HLObjectOperationLowerHelper &objHelper) {
   // Find all calls to the function F.
   // Store the calls in a vector for now to be replaced the loop below.
   // We use a two step "find then replace" to avoid removing uses while
@@ -7707,7 +7728,8 @@ static void TranslateHLExtension(Function *F,
 
   // Get the lowering strategy to use for this intrinsic.
   llvm::StringRef LowerStrategy = GetHLLowerStrategy(F);
-  ExtensionLowering lower(LowerStrategy, helper, hlslOp);
+  HLObjectExtensionLowerHelper extObjHelper(objHelper);
+  ExtensionLowering lower(LowerStrategy, helper, hlslOp, extObjHelper);
 
   // Replace all calls that were successfully translated.
   for (CallInst *CI : CallsToReplace) {
@@ -7745,7 +7767,7 @@ void TranslateBuiltinOperations(
       continue;
     }
     if (group == HLOpcodeGroup::HLExtIntrinsic) {
-      TranslateHLExtension(F, extCodegenHelper, helper.hlslOP);
+      TranslateHLExtension(F, extCodegenHelper, helper.hlslOP, objHelper);
       continue;
     }
     if (group == HLOpcodeGroup::HLIntrinsic) {

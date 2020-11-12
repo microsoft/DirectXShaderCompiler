@@ -32,20 +32,22 @@ public:
       : Visitor(opts, spvCtx) {}
 
 
-  bool visit(SpirvLoad *);
-  bool visit(SpirvAccessChain *);
-  bool visit(SpirvUnaryOp *);
-  bool visit(SpirvBinaryOp *);
-  bool visit(SpirvSampledImage *);
-  bool visit(SpirvImageTexelPointer *);
-  bool visit(SpirvAtomic *);
+  bool visit(SpirvLoad *) override;
+  bool visit(SpirvAccessChain *) override;
+  bool visit(SpirvUnaryOp *) override;
+  bool visit(SpirvBinaryOp *) override;
+  bool visit(SpirvSampledImage *) override;
+  bool visit(SpirvImageTexelPointer *) override;
+  bool visit(SpirvAtomic *) override;
+
+  using Visitor::visit;
 
   /// The "sink" visit function for all instructions.
   ///
   /// By default, all other visit instructions redirect to this visit function.
   /// So that you want override this visit function to handle all instructions,
   /// regardless of their polymorphism.
-  bool visitInstruction(SpirvInstruction *instr) { return true; }
+  bool visitInstruction(SpirvInstruction *instr) override { return true; }
 
 private:
 };

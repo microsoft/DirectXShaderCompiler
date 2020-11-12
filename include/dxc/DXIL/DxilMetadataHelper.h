@@ -488,6 +488,8 @@ private:
 public:
   // Utility functions.
   static bool IsKnownNamedMetaData(const llvm::NamedMDNode &Node);
+  static bool IsKnownMetadataID(llvm::LLVMContext &Ctx, unsigned ID);
+  static void GetKnownMetadataIDs(llvm::LLVMContext &Ctx, llvm::SmallVectorImpl<unsigned> *pIDs);
   static void combineDxilMetadata(llvm::Instruction *K, const llvm::Instruction *J);
   static llvm::ConstantAsMetadata *Int32ToConstMD(int32_t v, llvm::LLVMContext &Ctx);
   llvm::ConstantAsMetadata *Int32ToConstMD(int32_t v);

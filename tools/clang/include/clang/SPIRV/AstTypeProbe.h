@@ -38,6 +38,20 @@ bool isScalarType(QualType type, QualType *scalarType = nullptr);
 bool isVectorType(QualType type, QualType *elemType = nullptr,
                   uint32_t *elemCount = nullptr);
 
+/// Returns true if the given type will be translated into a SPIR-V scalar type
+/// or vector type.
+///
+/// This includes:
+/// scalar types
+/// vector types (vec1, vec2, vec3, and vec4)
+/// Mx1 matrices (where M can be 1,2,3,4)
+/// 1xN matrices (where N can be 1,2,3,4)
+///
+/// Writes the element type and count into *elementType and *count respectively
+/// if they are not nullptr.
+bool isScalarOrVectorType(QualType type, QualType *elemType = nullptr,
+                          uint32_t *elemCount = nullptr);
+
 /// Returns true if the given type is an array with constant known size.
 bool isConstantArrayType(const ASTContext &, QualType);
 
@@ -72,8 +86,17 @@ bool isMx1Matrix(QualType type, QualType *elemType = nullptr,
 bool isMxNMatrix(QualType type, QualType *elemType = nullptr,
                  uint32_t *rowCount = nullptr, uint32_t *colCount = nullptr);
 
-/// \brief Returns true if the decl is of ConstantBuffer/TextureBuffer type.
-bool isConstantTextureBuffer(const Decl *decl);
+/// \brief Returns true if the given type is a ConstantBuffer or an array of
+/// ConstantBuffers.
+bool isConstantBuffer(QualType);
+
+/// \brief Returns true if the given type is a TextureBuffer or an array of
+/// TextureBuffers.
+bool isTextureBuffer(QualType);
+
+/// \brief Returns true if the given type is a ConstantBuffer or TextureBuffer
+/// or an array of ConstantBuffers/TextureBuffers.
+bool isConstantTextureBuffer(QualType);
 
 /// \brief Returns true if the decl will have a SPIR-V resource type.
 ///
@@ -161,6 +184,10 @@ bool isRowMajorMatrix(const SpirvCodeGenOptions &, QualType type);
 
 /// \brief Returns true if the given type is a (RW)StructuredBuffer type.
 bool isStructuredBuffer(QualType type);
+
+/// \brief Returns true if the given type is a non-writable StructuredBuffer
+/// type.
+bool isNonWritableStructuredBuffer(QualType type);
 
 /// \brief Returns true if the given type is an AppendStructuredBuffer type.
 bool isAppendStructuredBuffer(QualType type);
@@ -290,6 +317,31 @@ QualType getComponentVectorType(const ASTContext &, QualType matrixType);
 /// and rows/columns.
 QualType getHLSLMatrixType(ASTContext &, Sema &, ClassTemplateDecl *,
                            QualType elemType, int rows, int columns);
+
+/// Returns true if the given type is a structure or array of structures for
+/// which flattening all of its members recursively results in resources ONLY.
+bool isResourceOnlyStructure(QualType type);
+
+/// Returns true if the given type is a structure or array of structures for
+/// which flattening all of its members recursively results in at least one
+/// resoure variable.
+bool isStructureContainingResources(QualType type);
+
+/// Returns true if the given type is a structure or array of structures for
+/// which flattening all of its members recursively results in at least one
+/// non-resoure variable.
+bool isStructureContainingNonResources(QualType type);
+
+/// Returns true if the given type is a structure or array of structures for
+/// which flattening all of its members recursively results in a mix of resource
+/// variables and non-resource variables.
+bool isStructureContainingMixOfResourcesAndNonResources(QualType type);
+
+/// Returns true if the given type is a structure or array of structures for
+/// which flattening all of its members recursively results in at least one kind
+/// of buffer: cbuffer, tbuffer, (RW)ByteAddressBuffer, or
+/// (RW|Append|Consume)StructuredBuffer.
+bool isStructureContainingAnyKindOfBuffer(QualType type);
 
 } // namespace spirv
 } // namespace clang

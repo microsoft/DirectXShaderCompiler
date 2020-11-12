@@ -67,21 +67,21 @@ struct FileRunCommandResult {
   static inline FileRunCommandResult Success() {
     FileRunCommandResult result;
     result.ExitCode = 0;
-    return std::move(result);
+    return result;
   }
 
   static inline FileRunCommandResult Success(std::string StdOut) {
     FileRunCommandResult result;
     result.ExitCode = 0;
     result.StdOut = std::move(StdOut);
-    return std::move(result);
+    return result;
   }
 
   static inline FileRunCommandResult Error(int ExitCode, std::string StdErr) {
     FileRunCommandResult result;
     result.ExitCode = ExitCode;
     result.StdErr = std::move(StdErr);
-    return std::move(result);
+    return result;
   }
 
   static inline FileRunCommandResult Error(std::string StdErr) {

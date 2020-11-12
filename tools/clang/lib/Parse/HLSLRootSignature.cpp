@@ -654,7 +654,7 @@ HRESULT RootSignatureParser::ParseRootSignature(DxilVersionedRootSignatureDesc *
     {
         DxilVersionedRootSignatureDesc *pRS1 = NULL;
         try {
-          hlsl::ConvertRootSignature(pRS, m_Version, (const DxilVersionedRootSignatureDesc **)&pRS1);
+          hlsl::ConvertRootSignature(pRS, m_Version, const_cast<const DxilVersionedRootSignatureDesc **>(&pRS1));
         }
         CATCH_CPP_ASSIGN_HRESULT();
         IFC(hr);

@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main
+// Run: %dxc -T vs_6_0 -E main -Wno-return-type
 
 // CHECK:[[null:%\d+]] = OpConstantNull %float
 

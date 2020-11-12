@@ -11,6 +11,7 @@
 #include <tuple>
 
 #include "clang/SPIRV/SpirvContext.h"
+#include "clang/SPIRV/SpirvModule.h"
 
 namespace clang {
 namespace spirv {
@@ -19,12 +20,81 @@ SpirvContext::SpirvContext()
     : allocator(), voidType(nullptr), boolType(nullptr), sintTypes({}),
       uintTypes({}), floatTypes({}), samplerType(nullptr),
       curShaderModelKind(ShaderModelKind::Invalid), majorVersion(0),
-      minorVersion(0) {
+      minorVersion(0), currentLexicalScope(nullptr) {
   voidType = new (this) VoidType;
   boolType = new (this) BoolType;
   samplerType = new (this) SamplerType;
   accelerationStructureTypeNV = new (this) AccelerationStructureTypeNV;
   rayQueryProvisionalTypeKHR = new (this) RayQueryProvisionalTypeKHR;
+}
+
+SpirvContext::~SpirvContext() {
+  voidType->~VoidType();
+  boolType->~BoolType();
+  samplerType->~SamplerType();
+  accelerationStructureTypeNV->~AccelerationStructureTypeNV();
+  rayQueryProvisionalTypeKHR->~RayQueryProvisionalTypeKHR();
+
+  for (auto *sintType : sintTypes)
+    if (sintType) // sintTypes may contain nullptr
+      sintType->~IntegerType();
+
+  for (auto *uintType : uintTypes)
+    if (uintType) // uintTypes may contain nullptr
+      uintType->~IntegerType();
+
+  for (auto *floatType : floatTypes)
+    if (floatType) // floatTypes may contain nullptr
+      floatType->~FloatType();
+
+  for (auto &pair : vecTypes)
+    for (auto *vecType : pair.second)
+      if (vecType) // vecTypes may contain nullptr
+        vecType->~VectorType();
+
+  for (auto &pair : matTypes)
+    for (auto *matType : pair.second)
+      matType->~MatrixType();
+
+  for (auto *arrType : arrayTypes)
+    arrType->~ArrayType();
+
+  for (auto *raType : runtimeArrayTypes)
+    raType->~RuntimeArrayType();
+
+  for (auto *fnType : functionTypes)
+    fnType->~FunctionType();
+
+  for (auto *structType : structTypes)
+    structType->~StructType();
+
+  for (auto *hybridStructType : hybridStructTypes)
+    hybridStructType->~HybridStructType();
+
+  for (auto pair : sampledImageTypes)
+    pair.second->~SampledImageType();
+
+  for (auto *hybridSampledImageType : hybridSampledImageTypes)
+    hybridSampledImageType->~HybridSampledImageType();
+
+  for (auto *imgType : imageTypes)
+    imgType->~ImageType();
+
+  for (auto &pair : pointerTypes)
+    for (auto &scPtrTypePair : pair.second)
+      scPtrTypePair.second->~SpirvPointerType();
+
+  for (auto *hybridPtrType : hybridPointerTypes)
+    hybridPtrType->~HybridPointerType();
+
+  for (auto &typePair : debugTypes)
+    typePair.second->releaseMemory();
+
+  for (auto &typePair : typeTemplates)
+    typePair.second->releaseMemory();
+
+  for (auto &typePair : typeTemplateParams)
+    typePair.second->releaseMemory();
 }
 
 inline uint32_t log2ForBitwidth(uint32_t bitwidth) {
@@ -148,7 +218,10 @@ SpirvContext::getSampledImageType(const ImageType *image) {
 
 const HybridSampledImageType *
 SpirvContext::getSampledImageType(QualType image) {
-  return new (this) HybridSampledImageType(image);
+  const HybridSampledImageType *result =
+      new (this) HybridSampledImageType(image);
+  hybridSampledImageTypes.push_back(result);
+  return result;
 }
 
 const ArrayType *
@@ -207,7 +280,10 @@ SpirvContext::getStructType(llvm::ArrayRef<StructType::FieldInfo> fields,
 const HybridStructType *SpirvContext::getHybridStructType(
     llvm::ArrayRef<HybridStructType::FieldInfo> fields, llvm::StringRef name,
     bool isReadOnly, StructInterfaceType interfaceType) {
-  return new (this) HybridStructType(fields, name, isReadOnly, interfaceType);
+  const HybridStructType *result =
+      new (this) HybridStructType(fields, name, isReadOnly, interfaceType);
+  hybridStructTypes.push_back(result);
+  return result;
 }
 
 const SpirvPointerType *SpirvContext::getPointerType(const SpirvType *pointee,
@@ -227,7 +303,9 @@ const SpirvPointerType *SpirvContext::getPointerType(const SpirvType *pointee,
 
 const HybridPointerType *SpirvContext::getPointerType(QualType pointee,
                                                       spv::StorageClass sc) {
-  return new (this) HybridPointerType(pointee, sc);
+  const HybridPointerType *result = new (this) HybridPointerType(pointee, sc);
+  hybridPointerTypes.push_back(result);
+  return result;
 }
 
 FunctionType *
@@ -266,6 +344,176 @@ const StructType *SpirvContext::getACSBufferCounterType() {
                     /*isReadOnly*/ false, StructInterfaceType::StorageBuffer);
 
   return type;
+}
+
+SpirvDebugType *SpirvContext::getDebugTypeBasic(const SpirvType *spirvType,
+                                                llvm::StringRef name,
+                                                SpirvConstant *size,
+                                                uint32_t encoding) {
+  // Reuse existing debug type if possible.
+  if (debugTypes.find(spirvType) != debugTypes.end())
+    return debugTypes[spirvType];
+
+  auto *debugType = new (this) SpirvDebugTypeBasic(name, size, encoding);
+  debugTypes[spirvType] = debugType;
+  return debugType;
+}
+
+SpirvDebugType *
+SpirvContext::getDebugTypeMember(llvm::StringRef name, SpirvDebugType *type,
+                                 SpirvDebugSource *source, uint32_t line,
+                                 uint32_t column, SpirvDebugInstruction *parent,
+                                 uint32_t flags, uint32_t offsetInBits,
+                                 uint32_t sizeInBits, const APValue *value) {
+  // NOTE: Do not search it in debugTypes because it would have the same
+  // spirvType but has different parent i.e., type composite.
+
+  SpirvDebugTypeMember *debugType =
+      new (this) SpirvDebugTypeMember(name, type, source, line, column, parent,
+                                      flags, offsetInBits, sizeInBits, value);
+  return debugType;
+}
+
+SpirvDebugTypeComposite *SpirvContext::getDebugTypeComposite(
+    const SpirvType *spirvType, llvm::StringRef name, SpirvDebugSource *source,
+    uint32_t line, uint32_t column, SpirvDebugInstruction *parent,
+    llvm::StringRef linkageName, uint32_t flags, uint32_t tag) {
+  // Reuse existing debug type if possible.
+  auto it = debugTypes.find(spirvType);
+  if (it != debugTypes.end()) {
+    assert(it->second != nullptr && isa<SpirvDebugTypeComposite>(it->second));
+    return dyn_cast<SpirvDebugTypeComposite>(it->second);
+  }
+
+  auto *debugType = new (this) SpirvDebugTypeComposite(
+      name, source, line, column, parent, linkageName, flags, tag);
+  debugType->setDebugSpirvType(spirvType);
+  debugTypes[spirvType] = debugType;
+  return debugType;
+}
+
+SpirvDebugType *SpirvContext::getDebugType(const SpirvType *spirvType) {
+  auto it = debugTypes.find(spirvType);
+  if (it != debugTypes.end())
+    return it->second;
+  return nullptr;
+}
+
+SpirvDebugType *
+SpirvContext::getDebugTypeArray(const SpirvType *spirvType,
+                                SpirvDebugInstruction *elemType,
+                                llvm::ArrayRef<uint32_t> elemCount) {
+  // Reuse existing debug type if possible.
+  if (debugTypes.find(spirvType) != debugTypes.end())
+    return debugTypes[spirvType];
+
+  auto *eTy = dyn_cast<SpirvDebugType>(elemType);
+  assert(eTy && "Element type must be a SpirvDebugType.");
+  auto *debugType = new (this) SpirvDebugTypeArray(eTy, elemCount);
+  debugTypes[spirvType] = debugType;
+  return debugType;
+}
+
+SpirvDebugType *
+SpirvContext::getDebugTypeVector(const SpirvType *spirvType,
+                                 SpirvDebugInstruction *elemType,
+                                 uint32_t elemCount) {
+  // Reuse existing debug type if possible.
+  if (debugTypes.find(spirvType) != debugTypes.end())
+    return debugTypes[spirvType];
+
+  auto *eTy = dyn_cast<SpirvDebugType>(elemType);
+  assert(eTy && "Element type must be a SpirvDebugType.");
+  auto *debugType = new (this) SpirvDebugTypeVector(eTy, elemCount);
+  debugTypes[spirvType] = debugType;
+  return debugType;
+}
+
+SpirvDebugType *
+SpirvContext::getDebugTypeFunction(const SpirvType *spirvType, uint32_t flags,
+                                   SpirvDebugType *ret,
+                                   llvm::ArrayRef<SpirvDebugType *> params) {
+  // Reuse existing debug type if possible.
+  if (debugTypes.find(spirvType) != debugTypes.end())
+    return debugTypes[spirvType];
+
+  auto *debugType = new (this) SpirvDebugTypeFunction(flags, ret, params);
+  debugTypes[spirvType] = debugType;
+  return debugType;
+}
+
+SpirvDebugTypeTemplate *SpirvContext::createDebugTypeTemplate(
+    const ClassTemplateSpecializationDecl *templateType,
+    SpirvDebugInstruction *target,
+    const llvm::SmallVector<SpirvDebugTypeTemplateParameter *, 2> &params) {
+  auto *tempTy = getDebugTypeTemplate(templateType);
+  if (tempTy != nullptr)
+    return tempTy;
+  tempTy = new (this) SpirvDebugTypeTemplate(target, params);
+  typeTemplates[templateType] = tempTy;
+  return tempTy;
+}
+
+SpirvDebugTypeTemplate *SpirvContext::getDebugTypeTemplate(
+    const ClassTemplateSpecializationDecl *templateType) {
+  auto it = typeTemplates.find(templateType);
+  if (it != typeTemplates.end())
+    return it->second;
+  return nullptr;
+}
+
+SpirvDebugTypeTemplateParameter *SpirvContext::createDebugTypeTemplateParameter(
+    const TemplateArgument *templateArg, llvm::StringRef name,
+    SpirvDebugType *type, SpirvInstruction *value, SpirvDebugSource *source,
+    uint32_t line, uint32_t column) {
+  auto *param = getDebugTypeTemplateParameter(templateArg);
+  if (param != nullptr)
+    return param;
+  param = new (this)
+      SpirvDebugTypeTemplateParameter(name, type, value, source, line, column);
+  typeTemplateParams[templateArg] = param;
+  return param;
+}
+
+SpirvDebugTypeTemplateParameter *SpirvContext::getDebugTypeTemplateParameter(
+    const TemplateArgument *templateArg) {
+  auto it = typeTemplateParams.find(templateArg);
+  if (it != typeTemplateParams.end())
+    return it->second;
+  return nullptr;
+}
+
+void SpirvContext::pushDebugLexicalScope(RichDebugInfo *info,
+                                         SpirvDebugInstruction *scope) {
+  assert((isa<SpirvDebugLexicalBlock>(scope) ||
+          isa<SpirvDebugFunction>(scope) ||
+          isa<SpirvDebugCompilationUnit>(scope) ||
+          isa<SpirvDebugTypeComposite>(scope)) &&
+         "Given scope is not a lexical scope");
+  currentLexicalScope = scope;
+  info->scopeStack.push_back(scope);
+}
+
+void SpirvContext::moveDebugTypesToModule(SpirvModule *module) {
+  for (const auto &typePair : debugTypes) {
+    module->addDebugInfo(typePair.second);
+
+    if (auto *composite = dyn_cast<SpirvDebugTypeComposite>(typePair.second)) {
+      for (auto *member : composite->getMembers()) {
+        module->addDebugInfo(member);
+      }
+    }
+  }
+  for (const auto &typePair : typeTemplates) {
+    module->addDebugInfo(typePair.second);
+  }
+  for (const auto &typePair : typeTemplateParams) {
+    module->addDebugInfo(typePair.second);
+  }
+
+  debugTypes.clear();
+  typeTemplates.clear();
+  typeTemplateParams.clear();
 }
 
 } // end namespace spirv

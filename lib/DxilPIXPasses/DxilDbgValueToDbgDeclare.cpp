@@ -421,6 +421,7 @@ llvm::AllocaInst *VariableRegisters::GetRegisterForAlignedOffset(
   return it->second;
 }
 
+#ifndef NDEBUG
 // DITypePeelTypeAlias peels const, typedef, and other alias types off of Ty,
 // returning the unalised type.
 static llvm::DIType *DITypePeelTypeAlias(
@@ -443,6 +444,8 @@ static llvm::DIType *DITypePeelTypeAlias(
 
   return Ty;
 }
+#endif // NDEBUG
+
 
 VariableRegisters::VariableRegisters(
     llvm::DIVariable *Variable,
@@ -479,6 +482,9 @@ void VariableRegisters::PopulateAllocaMap(
     case llvm::dwarf::DW_TAG_typedef:
       PopulateAllocaMap(
           DerivedTy->getBaseType().resolve(EmptyMap));
+      return;
+    case llvm::dwarf::DW_TAG_subroutine_type:
+        //ignore member functions.
       return;
     }
   }
@@ -644,7 +650,6 @@ static bool SortMembers(
     std::map<OffsetInBits, llvm::DIDerivedType*> *SortedMembers
 )
 {
-  const llvm::DITypeIdentifierMap EmptyMap;
   for (auto *Element : Ty->getElements())
   {
     switch (Element->getTag())
@@ -661,7 +666,15 @@ static bool SortMembers(
         }
         break;
       }
-      // FALLTHROUGH
+      assert(!"member is not a Member");
+      return false;
+    }
+    case llvm::dwarf::DW_TAG_subprogram: {
+      if (auto *SubProgram = llvm::dyn_cast<llvm::DISubprogram>(Element)) {
+        break;
+      }
+      assert(!"DISubprogram not understood");
+      return false;
     }
     default:
       assert(!"Unhandled field type in DIStructType");

@@ -189,7 +189,7 @@ static bool GetX86XCR0(unsigned *rEAX, unsigned *rEDX) {
   // there is no easy way to conditionally compile based on the assembler used.
   __asm__ (".byte 0x0f, 0x01, 0xd0" : "=a" (*rEAX), "=d" (*rEDX) : "c" (0));
   return false;
-#elif defined(_MSC_FULL_VER) && defined(_XCR_XFEATURE_ENABLED_MASK)
+#elif defined(_MSC_FULL_VER) && defined(_XCR_XFEATURE_ENABLED_MASK) && !defined(_M_ARM64EC)
   unsigned long long Result = _xgetbv(_XCR_XFEATURE_ENABLED_MASK);
   *rEAX = Result;
   *rEDX = Result >> 32;
