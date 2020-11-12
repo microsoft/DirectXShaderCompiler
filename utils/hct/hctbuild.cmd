@@ -397,7 +397,7 @@ if "%DO_SETUP%"=="1" (
   echo Creating solution files for %2, logging to %3\cmake-log.txt
   if "%BUILD_GENERATOR%"=="Ninja" (
     echo Running "%CMAKE_PATH%" -DCMAKE_BUILD_TYPE:STRING=%1 %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% > %3\cmake-log.txt
-    "%CMAKE_PATH%"" -DCMAKE_BUILD_TYPE:STRING=%1 %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
+    "%CMAKE_PATH%" -DCMAKE_BUILD_TYPE:STRING=%1 %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
   ) else (
     rem -DCMAKE_BUILD_TYPE:STRING=%1 is not necessary for multi-config generators like VS
     echo Running "%CMAKE_PATH%" %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% > %3\cmake-log.txt
