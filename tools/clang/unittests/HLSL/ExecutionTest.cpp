@@ -944,111 +944,93 @@ public:
 
   }
 
+  // Create and return descriptor heaps for the given device with the given number or resources and samples.
   void CreateDescHeaps(ID3D12Device *pDevice,
-                       ID3D12GraphicsCommandList *pCommandList,
-                       ID3D12RootSignature *pRootSignature,
-                       const CComPtr<ID3D12Resource> pSRVResources[], int NumSRVs,
-                       const CComPtr<ID3D12Resource> pUAVResources[], int NumUAVs, int NumSamplers,
-                       bool isCompute, ID3D12DescriptorHeap **ppResHeap, ID3D12DescriptorHeap **ppSampHeap) {
+                       int NumResources, int NumSamplers,
+                       ID3D12DescriptorHeap **ppResHeap, ID3D12DescriptorHeap **ppSampHeap) {
     // Describe and create descriptor heaps.
     ID3D12DescriptorHeap *pResHeap, *pSampHeap;
     D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
-    heapDesc.NumDescriptors = NumSRVs + NumUAVs;
+    heapDesc.NumDescriptors = NumResources;
     heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
     heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
     VERIFY_SUCCEEDED(pDevice->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&pResHeap)));
-    UINT descriptorSize = pDevice->GetDescriptorHandleIncrementSize(heapDesc.Type);
 
     heapDesc.NumDescriptors = NumSamplers;
     heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
     VERIFY_SUCCEEDED(pDevice->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&pSampHeap)));
 
-    {
-      ID3D12DescriptorHeap *descHeaps[2] = {pResHeap, pSampHeap};
-      pCommandList->SetDescriptorHeaps(2, descHeaps);
-      if (isCompute)
-        pCommandList->SetComputeRootSignature(pRootSignature);
-      else
-        pCommandList->SetGraphicsRootSignature(pRootSignature);
+    *ppResHeap = pResHeap;
+    *ppSampHeap = pSampHeap;
+  }
 
-      for (int i = 0; i < _countof(descHeaps); i++) {
-        CD3DX12_GPU_DESCRIPTOR_HANDLE baseHandleGpu(descHeaps[i]->GetGPUDescriptorHandleForHeapStart());
-        if (isCompute)
-          pCommandList->SetComputeRootDescriptorTable(i, baseHandleGpu);
-        else
-          pCommandList->SetGraphicsRootDescriptorTable(i, baseHandleGpu);
-      }
-    }
+  void CreateResourceViews(ID3D12Device *pDevice, D3D12_CPU_DESCRIPTOR_HANDLE heapStart,
+                           const CComPtr<ID3D12Resource> pSRVResources[], int NumSRVs,
+                           const CComPtr<ID3D12Resource> pUAVResources[], int NumUAVs) {
 
-    CD3DX12_CPU_DESCRIPTOR_HANDLE baseHandle(pResHeap->GetCPUDescriptorHandleForHeapStart());
+    CD3DX12_CPU_DESCRIPTOR_HANDLE baseHandle(heapStart);
+    UINT descriptorSize = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
     // Create SRVs
-    {
-      D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-      srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
-      srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE1D;
-      srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-      srvDesc.Texture1D.MostDetailedMip = 0;
-      srvDesc.Texture1D.MipLevels = 1;
-      srvDesc.Texture1D.ResourceMinLODClamp = 0;
-      for (int i = 0; i < NumSRVs - 1; i++) {
-        pDevice->CreateShaderResourceView(pSRVResources[i], &srvDesc, baseHandle);
-        baseHandle = baseHandle.Offset(descriptorSize);
-      }
-
-      srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-      srvDesc.Texture2D.MostDetailedMip = 0;
-      srvDesc.Texture2D.MipLevels = 1;
-      srvDesc.Texture2D.PlaneSlice = 0;
-      srvDesc.Texture2D.ResourceMinLODClamp = 0;
-      pDevice->CreateShaderResourceView(pSRVResources[NumSRVs - 1], &srvDesc, baseHandle);
+    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+    srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
+    srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE1D;
+    srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    srvDesc.Texture1D.MostDetailedMip = 0;
+    srvDesc.Texture1D.MipLevels = 1;
+    srvDesc.Texture1D.ResourceMinLODClamp = 0;
+    for (int i = 0; i < NumSRVs - 1; i++) {
+      pDevice->CreateShaderResourceView(pSRVResources[i], &srvDesc, baseHandle);
       baseHandle = baseHandle.Offset(descriptorSize);
     }
 
-    // Create UAVs
-    {
-      D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
-      uavDesc.Format = DXGI_FORMAT_UNKNOWN;
-      uavDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
-      uavDesc.Buffer.FirstElement = 0;
-      uavDesc.Buffer.NumElements = 16;
-      uavDesc.Buffer.StructureByteStride = sizeof(float);
-      uavDesc.Buffer.CounterOffsetInBytes = 0;
-      uavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
-      for (int i = 0; i < NumUAVs; i++) {
-        pDevice->CreateUnorderedAccessView(pUAVResources[i], nullptr, &uavDesc, baseHandle);
-        baseHandle = baseHandle.Offset(descriptorSize);
-      }
-    }
+    srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+    srvDesc.Texture2D.MostDetailedMip = 0;
+    srvDesc.Texture2D.MipLevels = 1;
+    srvDesc.Texture2D.PlaneSlice = 0;
+    srvDesc.Texture2D.ResourceMinLODClamp = 0;
+    pDevice->CreateShaderResourceView(pSRVResources[NumSRVs - 1], &srvDesc, baseHandle);
+    baseHandle = baseHandle.Offset(descriptorSize);
 
-    // Create Sampler
-    // NOTE: This is less general-purpose than the above.
-    // If this is to be adapted for other uses as I hope it is, this will have to change.
-    {
-      CD3DX12_CPU_DESCRIPTOR_HANDLE sampHandle(pSampHeap->GetCPUDescriptorHandleForHeapStart());
-      UINT descriptorSize = pDevice->GetDescriptorHandleIncrementSize(heapDesc.Type);
-      D3D12_SAMPLER_DESC sampDesc = {};
-      sampDesc.Filter = D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT;
-      sampDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
-      sampDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
-      sampDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
-      sampDesc.MipLODBias = 0;
-      sampDesc.MaxAnisotropy = 1;
-      sampDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_EQUAL;
-      for (int i = 0; i < 4; i++)
-        sampDesc.BorderColor[i] = 30.0;
-      sampDesc.MinLOD = 0;
-      sampDesc.MaxLOD = 0;
+    // Create UAVs
+    D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+    uavDesc.Format = DXGI_FORMAT_UNKNOWN;
+    uavDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+    uavDesc.Buffer.FirstElement = 0;
+    uavDesc.Buffer.NumElements = 16;
+    uavDesc.Buffer.StructureByteStride = sizeof(float);
+    uavDesc.Buffer.CounterOffsetInBytes = 0;
+    uavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
+    for (int i = 0; i < NumUAVs; i++) {
+      pDevice->CreateUnorderedAccessView(pUAVResources[i], nullptr, &uavDesc, baseHandle);
+      baseHandle = baseHandle.Offset(descriptorSize);
+    }
+  }
+
+  void CreateSamplers(ID3D12Device *pDevice, D3D12_CPU_DESCRIPTOR_HANDLE heapStart,
+                      D3D12_FILTER filters[], float BorderColors[], int NumSamplers) {
+
+    CD3DX12_CPU_DESCRIPTOR_HANDLE sampHandle(heapStart);
+    UINT descriptorSize = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
+    D3D12_SAMPLER_DESC sampDesc = {};
+    sampDesc.Filter = D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT;
+    sampDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+    sampDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+    sampDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+    sampDesc.MipLODBias = 0;
+    sampDesc.MaxAnisotropy = 1;
+    sampDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_EQUAL;
+    sampDesc.MinLOD = 0;
+    sampDesc.MaxLOD = 0;
+
+    for (int i = 0; i < NumSamplers; i++) {
+      sampDesc.Filter = filters[i];
+      for (int j = 0; j < 4; j++)
+        sampDesc.BorderColor[j] = BorderColors[i];
+
       pDevice->CreateSampler(&sampDesc, sampHandle);
       sampHandle = sampHandle.Offset(descriptorSize);
-
-      sampDesc.Filter = D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT;
-      for (int i = 0; i < 4; i++)
-        sampDesc.BorderColor[i] = 31.0;
-      pDevice->CreateSampler(&sampDesc, sampHandle);
     }
-    *ppResHeap = pResHeap;
-    *ppSampHeap = pSampHeap;
   }
 
   template <typename TVertex, int len>
@@ -7746,8 +7728,26 @@ void ExecutionTest::RunResourceTest(ID3D12Device *pDevice, const char *pShader,
 
   CComPtr<ID3D12DescriptorHeap> pResHeap;
   CComPtr<ID3D12DescriptorHeap> pSampHeap;
-  CreateDescHeaps(pDevice, pCommandList, pRootSignature, pSRVResources, NumSRVs,
-                  pUAVResources, NumUAVs, NumSamplers, true /*isCompute*/, &pResHeap, &pSampHeap);
+  CreateDescHeaps(pDevice, NumSRVs + NumUAVs, NumSamplers, &pResHeap, &pSampHeap);
+
+  // Create Rootsignature and descriptor tables
+  {
+    ID3D12DescriptorHeap *descHeaps[2] = {pResHeap, pSampHeap};
+    pCommandList->SetDescriptorHeaps(2, descHeaps);
+    pCommandList->SetComputeRootSignature(pRootSignature);
+
+    if (!isDynamic) {
+      // Only non-dynamic resources require descriptortables
+      pCommandList->SetComputeRootDescriptorTable(0, pResHeap->GetGPUDescriptorHandleForHeapStart());
+      pCommandList->SetComputeRootDescriptorTable(1, pSampHeap->GetGPUDescriptorHandleForHeapStart());
+    }
+  }
+  CreateResourceViews(pDevice, pResHeap->GetCPUDescriptorHandleForHeapStart(),
+                      pSRVResources, NumSRVs, pUAVResources, NumUAVs);
+  D3D12_FILTER filters[] = {D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT, D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT};
+  float borderColors[] = {30.0, 31.0};
+  CreateSamplers(pDevice, pSampHeap->GetCPUDescriptorHandleForHeapStart(),
+                 filters, borderColors, NumSamplers);
 
   // Run the compute shader and copy the results back to readable memory.
   pCommandList->Dispatch(DispatchGroupX, DispatchGroupY, DispatchGroupZ);
