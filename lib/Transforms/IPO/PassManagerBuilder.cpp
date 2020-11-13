@@ -255,6 +255,19 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, bool OnlyWarnOn
   // Special Mem2Reg pass that skips precise marker.
   MPM.add(createDxilConditionalMem2RegPass(NoOpt));
 
+#if 1
+  //Summary of Non-passing Tests:
+  //  CompilerTest::BatchPasses [Failed]
+  //      D:\msft\DirectXShaderCompiler\tools\clang\test\HLSL\..\HLSLFileCheck\passes\llvm\simplifycfg\fold-cond-branch-on-phi.hlsl [Failed]
+  // Clean up inefficiencies that can cause unnecessary live values.
+  // This is the earliest possible location without interfering with HLSL-specific lowering.
+  if (!NoOpt)
+  {
+    MPM.add(createSROAPass());
+    MPM.add(createJumpThreadingPass());
+  }
+#endif
+
   // Remove unneeded dxbreak conditionals
   MPM.add(createCleanupDxBreakPass());
 
