@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -fspv-flatten-resource-arrays
+// Run: %dxc -T ps_6_0 -E main
 
 struct S {
   Texture2D t[2];
