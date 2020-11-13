@@ -530,6 +530,9 @@ TEST_F(FileTest, ReturnStruct) { runFileTest("cf.return.struct.hlsl"); }
 TEST_F(FileTest, ReturnFromDifferentStorageClass) {
   runFileTest("cf.return.storage-class.hlsl");
 }
+TEST_F(FileTest, ReturnFromDifferentMemoryLayout) {
+  runFileTest("cf.return.memory-layout.hlsl");
+}
 
 // For control flows
 TEST_F(FileTest, ControlFlowNestedIfForStmt) { runFileTest("cf.if.for.hlsl"); }

@@ -1929,7 +1929,7 @@ void SpirvEmitter::doReturnStmt(const ReturnStmt *stmt) {
       return;
 
     auto retType = retVal->getType();
-    if (retInfo->getStorageClass() != spv::StorageClass::Function &&
+    if (retInfo->getLayoutRule() != SpirvLayoutRule::Void &&
         retType->isStructureType()) {
       // We are returning some value from a non-Function storage class. Need to
       // create a temporary variable to "convert" the value to Function storage
