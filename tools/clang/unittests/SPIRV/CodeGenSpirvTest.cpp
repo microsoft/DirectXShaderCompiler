@@ -594,6 +594,9 @@ TEST_F(FileTest, StructMethodCall) {
   setBeforeHLSLLegalization();
   runFileTest("oo.struct.method.hlsl");
 }
+TEST_F(FileTest, StructDerivedMethods) {
+  runFileTest("oo.struct.derived.methods.hlsl");
+}
 TEST_F(FileTest, StructThisAlias) {
   setBeforeHLSLLegalization();
   runFileTest("oo.struct.this.alias.hlsl");
