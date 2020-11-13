@@ -2110,6 +2110,9 @@ TEST_F(FileTest, HullShaderPCFTakesViewId) {
 TEST_F(FileTest, HullShaderPCFTakesViewIdButMainDoesnt) {
   runFileTest("hs.pcf.view-id.2.hlsl");
 }
+TEST_F(FileTest, HullShaderConstOutputPatch) {
+  runFileTest("hs.const.output-patch.hlsl");
+}
 // HS: for the structure of hull shaders
 TEST_F(FileTest, HullShaderStructure) { runFileTest("hs.structure.hlsl"); }
 
