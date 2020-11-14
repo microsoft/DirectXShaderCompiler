@@ -586,6 +586,7 @@ static bool ConsumePrefix(StringRef &Str, StringRef Prefix) {
   return true;
 }
 
+// Used by Live Value Analysis to determine load instrinsics that may be considered for rematerialization.
 bool IsLoadIntrinsic(CallInst *CI) {
   StringRef name = CI->getCalledFunction()->getName();
 
@@ -596,6 +597,7 @@ bool IsLoadIntrinsic(CallInst *CI) {
       name.startswith("dx.op.rawBufferLoad") ||
       name.startswith("dx.op.sampleLevel") ||
       name.startswith("dx.op.textureLoad")) {
+      // This is a load intrinsic that could be considered for rematerialization.
       return true;
     }
   }
@@ -603,6 +605,9 @@ bool IsLoadIntrinsic(CallInst *CI) {
   return false;
 }
 
+// Used by Live Value Analysis to determine trivial rematerialization where possible.
+// No consideration is given for rematerialization cost and this is intentional.
+// Returns true if it is possible to rematerialize the instruction.
 bool IsRematerializable(Instruction *I) {
 
   const unsigned int opc = I->getOpcode();
@@ -660,13 +665,9 @@ bool IsRematerializable(Instruction *I) {
       return false;
 
     switch (GetHLOpcodeGroupByName(F)) {
-    //case HLOpcodeGroup::HLIntrinsic:
     case HLOpcodeGroup::HLCast:
-    //case HLOpcodeGroup::HLInit:
     case HLOpcodeGroup::HLBinOp:
     case HLOpcodeGroup::HLUnOp:
-    //case HLOpcodeGroup::HLSubscript:
-    //case HLOpcodeGroup::HLSelect:
       return true;
     }
 
@@ -693,9 +694,15 @@ bool IsRematerializable(Instruction *I) {
       case OP::OpCodeClass::Unary:
       case OP::OpCodeClass::Binary:
       case OP::OpCodeClass::Tertiary:
+      case OP::OpCodeClass::LegacyF16ToF32:
+      case OP::OpCodeClass::LegacyF32ToF16:
+      case OP::OpCodeClass::LegacyDoubleToFloat:
+      case OP::OpCodeClass::LegacyDoubleToSInt32:
+      case OP::OpCodeClass::LegacyDoubleToUInt32:
       case OP::OpCodeClass::CBufferLoad:
       case OP::OpCodeClass::CBufferLoadLegacy:
       case OP::OpCodeClass::CreateHandleForLib:
+      case OP::OpCodeClass::CreateHandleFromHeap:
       case OP::OpCodeClass::RawBufferLoad:
         return true;
       default:
