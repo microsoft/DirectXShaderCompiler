@@ -67,9 +67,24 @@ namespace llvm {
     struct LiveValueCompare {
       inline bool operator() (LiveValueInst &lhs, LiveValueInst &rhs) {
         // Case insensitive compare.
+#ifdef _WIN32
         const auto result = std::mismatch(lhs.Name.cbegin(), lhs.Name.cend(), rhs.Name.cbegin(), rhs.Name.cend(),
           [](const unsigned char lhs, const unsigned char rhs) {return tolower(lhs) == tolower(rhs); });
         return result.second != rhs.Name.cend() && (result.first == lhs.Name.cend() || tolower(*result.first) < tolower(*result.second));
+#else
+        const size_t lhs_size = lhs.Name.length();
+        const size_t rhs_size = rhs.Name.length();
+        for (size_t i = 0; i < lhs_size, i < rhs_size; ++i)
+        {
+          if (tolower(rhs.Name[i]) == tolower(lhs.Name[i]))
+            continue;
+          if (tolower(rhs.Name[i]) < tolower(lhs.Name[i]))
+            return false;
+          else
+            return true;
+        }
+        return true;
+#endif // _WIN32
       }
     };
 
@@ -239,7 +254,7 @@ bool LiveValueAnalysis::runOnModule(Module &M) {
     // cut into chunks as it won't handle a massive string.
     const size_t outputSize = VSStr.str().length();
     const size_t blockSize = 1024;
-    for (int i = 0; i < outputSize;) {
+    for (size_t i = 0; i < outputSize;) {
       OutputDebugStringA(VSStr.str().substr(i, blockSize).c_str());
       i += blockSize;
     }
@@ -937,7 +952,7 @@ void LiveValueAnalysis::determineValueName(DIType *diType, int64_t &BitOffset, s
     if (size == 0)
     {
       CompTy = dyn_cast_or_null<DICompositeType>(DT->getRawBaseType());
-      while (DT = dyn_cast_or_null<DIDerivedType>(DT->getRawBaseType()))
+      while ((DT = dyn_cast_or_null<DIDerivedType>(DT->getRawBaseType())))
       {
         CompTy = dyn_cast_or_null<DICompositeType>(DT->getRawBaseType());
       }
@@ -952,7 +967,7 @@ void LiveValueAnalysis::determineValueName(DIType *diType, int64_t &BitOffset, s
     {
       Name += DT->getName();
       CompTy = dyn_cast_or_null<DICompositeType>(DT->getRawBaseType());
-      while (DT = dyn_cast_or_null<DIDerivedType>(DT->getRawBaseType()))
+      while ((DT = dyn_cast_or_null<DIDerivedType>(DT->getRawBaseType())))
       {
         CompTy = dyn_cast_or_null<DICompositeType>(DT->getRawBaseType());
       }
@@ -1295,7 +1310,6 @@ void LiveValueAnalysis::outputSourceLocationsVS(SetVector<DILocation *> &UseLoca
 void LiveValueAnalysis::formatOutput(raw_string_ostream &PrettyStr, raw_string_ostream &VSStr) {
   std::string callSiteTitle;
   unsigned int callNumber = 1; // Incrementing counter for TraceRay call sites.
-  const char reportTitle[] = "Live State Summary";
   std::string HeaderText;
   std::string fullPath;
   raw_string_ostream TmpStr(HeaderText);
