@@ -74,7 +74,7 @@ namespace llvm {
 #else
         const size_t lhs_size = lhs.Name.length();
         const size_t rhs_size = rhs.Name.length();
-        for (size_t i = 0; i < lhs_size, i < rhs_size; ++i)
+        for (size_t i = 0; i < lhs_size && i < rhs_size; ++i)
         {
           if (tolower(rhs.Name[i]) == tolower(lhs.Name[i]))
             continue;
