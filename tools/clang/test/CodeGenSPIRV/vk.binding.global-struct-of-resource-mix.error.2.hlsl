@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -fspv-flatten-resource-arrays
+// Run: %dxc -T ps_6_0 -E main
 
 struct T {
   float2x3 a[4];

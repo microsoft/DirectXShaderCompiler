@@ -1859,6 +1859,11 @@ TEST_F(FileTest, BindingStructureOfResourcesContainsBufferError) {
       "vk.binding.global-struct-of-resources.contains-buffer-error.hlsl",
       Expect::Failure);
 }
+TEST_F(FileTest, BindingStructureOfResourcesPassLegalization) {
+  runFileTest("vk.binding.global-struct-of-resources.pass-legalization.hlsl",
+              Expect::Success,
+              /*runValidation*/ true);
+}
 
 TEST_F(FileTest, VulkanPushConstant) { runFileTest("vk.push-constant.hlsl"); }
 TEST_F(FileTest, VulkanPushConstantOffset) {
