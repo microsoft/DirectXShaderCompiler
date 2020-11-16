@@ -100,6 +100,7 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
   H.GetValidatorVersion(ValMajor, ValMinor);
   M.SetValidatorVersion(ValMajor, ValMinor);
   M.SetShaderModel(H.GetShaderModel(), H.GetHLOptions().bUseMinPrecision);
+  M.SetForceZeroStoreLifetimes(H.GetHLOptions().bForceZeroStoreLifetimes);
 
   // Entry function.
   if (!M.GetShaderModel()->IsLib()) {

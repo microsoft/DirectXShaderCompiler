@@ -3,8 +3,8 @@
 // CHECK: flattenedThreadIdInGroup
 // CHECK: threadId
 // CHECK: barrier
-// CHECK: textureLoad
 // CHECK: AtomicAdd
+// CHECK: textureLoad
 
 //
 // Copyright (c) Microsoft. All rights reserved.

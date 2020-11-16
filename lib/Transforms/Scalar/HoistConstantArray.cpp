@@ -82,6 +82,7 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Analysis/ValueTracking.h"
 using namespace llvm;
 
 namespace {
@@ -132,7 +133,7 @@ namespace {
     void EnsureSize();
     void GetArrayStores(GEPOperator *gep,
                         std::vector<StoreInst *> &stores) const;
-    bool AllArrayUsersAreGEP(std::vector<GEPOperator *> &geps);
+    bool AllArrayUsersAreGEPOrLifetime(std::vector<GEPOperator *> &geps);
     bool AllGEPUsersAreValid(GEPOperator *gep);
     UndefValue *UndefElement();
   };
@@ -209,10 +210,14 @@ void CandidateArray::GetArrayStores(GEPOperator *gep,
     }
   }
 }
-// Check to see that all the users of the array are GEPs.
+// Check to see that all the users of the array are GEPs or lifetime intrinsics.
 // If so, populate the `geps` vector with a list of all geps that use the array.
-bool CandidateArray::AllArrayUsersAreGEP(std::vector<GEPOperator *> &geps) {
+bool CandidateArray::AllArrayUsersAreGEPOrLifetime(std::vector<GEPOperator *> &geps) {
   for (User *U : m_Alloca->users()) {
+    // Allow users that are only used by lifetime intrinsics.
+    if (onlyUsedByLifetimeMarkers(U))
+      continue;
+
     GEPOperator *gep = dyn_cast<GEPOperator>(U);
     if (!gep)
       return false;
@@ -250,7 +255,7 @@ bool CandidateArray::AllGEPUsersAreValid(GEPOperator *gep) {
 
 // Analyze all uses of the array to see if it qualifes as a constant array.
 // We check the following conditions:
-//  1. Make sure alloca is only used by GEP.
+//  1. Make sure alloca is only used by GEP and lifetime intrinsics.
 //  2. Make sure GEP is only used in load/store.
 //  3. Make sure all stores have constant indicies.
 //  4. Make sure all stores are constants.
@@ -258,7 +263,7 @@ bool CandidateArray::AllGEPUsersAreValid(GEPOperator *gep) {
 void CandidateArray::AnalyzeUses() {
   m_IsConstArray = false;
   std::vector<GEPOperator *> geps;
-  if (!AllArrayUsersAreGEP(geps))
+  if (!AllArrayUsersAreGEPOrLifetime(geps))
     return;
 
   for (GEPOperator *gep : geps)
