@@ -237,17 +237,19 @@ public:
       CodeGenFunction &CGF, const FunctionDecl *FD, const CallExpr *E,
       llvm::SmallVector<LValue, 8> &castArgList,
       llvm::SmallVector<const Stmt *, 8> &argList,
+      llvm::SmallVector<LValue, 8> &lifetimeCleanupList,
       const std::function<void(const VarDecl *, llvm::Value *)> &TmpArgMap)
       override;
   void EmitHLSLOutParamConversionCopyBack(
-      CodeGenFunction &CGF, llvm::SmallVector<LValue, 8> &castArgList) override;
+      CodeGenFunction &CGF, llvm::SmallVector<LValue, 8> &castArgList,
+      llvm::SmallVector<LValue, 8> &lifetimeCleanupList) override;
 
   Value *EmitHLSLMatrixOperationCall(CodeGenFunction &CGF, const clang::Expr *E,
                                      llvm::Type *RetType,
                                      ArrayRef<Value *> paramList) override;
 
   void EmitHLSLDiscard(CodeGenFunction &CGF) override;
-  void EmitHLSLCondBreak(CodeGenFunction &CGF, llvm::Function *F, llvm::BasicBlock *DestBB, llvm::BasicBlock *AltBB) override;
+  BranchInst *EmitHLSLCondBreak(CodeGenFunction &CGF, llvm::Function *F, llvm::BasicBlock *DestBB, llvm::BasicBlock *AltBB) override;
 
   Value *EmitHLSLMatrixSubscript(CodeGenFunction &CGF, llvm::Type *RetType,
                                  Value *Ptr, Value *Idx, QualType Ty) override;
@@ -370,6 +372,7 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
   opts.bAllResourcesBound = CGM.getCodeGenOpts().HLSLAllResourcesBound;
   opts.PackingStrategy = CGM.getCodeGenOpts().HLSLSignaturePackingStrategy;
   opts.bLegacyResourceReservation = CGM.getCodeGenOpts().HLSLLegacyResourceReservation;
+  opts.bForceZeroStoreLifetimes = CGM.getCodeGenOpts().HLSLForceZeroStoreLifetimes;
 
   opts.bUseMinPrecision = CGM.getLangOpts().UseMinPrecision;
   opts.bDX9CompatMode = CGM.getLangOpts().EnableDX9CompatMode;
@@ -4440,12 +4443,11 @@ void CGMSHLSLRuntime::EmitHLSLDiscard(CodeGenFunction &CGF) {
 // This allows the block containing what would have been an unconditional break to be included in the loop
 // If the block uses values that are wave-sensitive, it needs to stay in the loop to prevent optimizations
 // that might produce incorrect results by ignoring the volatile aspect of wave operation results.
-void CGMSHLSLRuntime::EmitHLSLCondBreak(CodeGenFunction &CGF, Function *F, BasicBlock *DestBB, BasicBlock *AltBB) {
+BranchInst *CGMSHLSLRuntime::EmitHLSLCondBreak(CodeGenFunction &CGF, Function *F, BasicBlock *DestBB, BasicBlock *AltBB) {
   // If not a wave-enabled stage, we can keep everything unconditional as before
   if (!m_pHLModule->GetShaderModel()->IsPS() && !m_pHLModule->GetShaderModel()->IsCS() &&
       !m_pHLModule->GetShaderModel()->IsLib()) {
-    CGF.Builder.CreateBr(DestBB);
-    return;
+    return CGF.Builder.CreateBr(DestBB);
   }
 
   // Create a branch that is temporarily conditional on a constant
@@ -4453,6 +4455,7 @@ void CGMSHLSLRuntime::EmitHLSLCondBreak(CodeGenFunction &CGF, Function *F, Basic
   llvm::Type *boolTy = llvm::Type::getInt1Ty(Context);
   BranchInst *BI = CGF.Builder.CreateCondBr(llvm::ConstantInt::get(boolTy,1), DestBB, AltBB);
   m_DxBreaks.emplace_back(BI);
+  return BI;
 }
 
 static llvm::Type *MergeIntType(llvm::IntegerType *T0, llvm::IntegerType *T1) {
@@ -5491,6 +5494,7 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     CodeGenFunction &CGF, const FunctionDecl *FD, const CallExpr *E,
     llvm::SmallVector<LValue, 8> &castArgList,
     llvm::SmallVector<const Stmt *, 8> &argList,
+    llvm::SmallVector<LValue, 8> &lifetimeCleanupList,
     const std::function<void(const VarDecl *, llvm::Value *)> &TmpArgMap) {
   // Special case: skip first argument of CXXOperatorCall (it is "this").
   unsigned ArgsToSkip = isa<CXXOperatorCallExpr>(E) ? 1 : 0;
@@ -5659,6 +5663,11 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(F));
     tmpArgAddr = AllocaBuilder.CreateAlloca(CGF.ConvertTypeForMem(ParamTy));
 
+    if (CGM.getCodeGenOpts().HLSLEnableLifetimeMarkers) {
+      const uint64_t AllocaSize = CGM.getDataLayout().getTypeAllocSize(CGF.ConvertTypeForMem(ParamTy));
+      CGF.EmitLifetimeStart(AllocaSize, tmpArgAddr);
+    }
+
     // add it to local decl map
     TmpArgMap(tmpArg, tmpArgAddr);
 
@@ -5676,6 +5685,10 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
         Diags.Report(Param->getLocation(), diag::warn_hlsl_implicit_vector_truncation);
       }
     }
+
+    // save to generate lifetime end after call
+    if (CGM.getCodeGenOpts().HLSLEnableLifetimeMarkers)
+      lifetimeCleanupList.emplace_back(tmpLV);
 
     // cast before the call
     if (Param->isModifierIn() &&
@@ -5719,7 +5732,8 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
 }
 
 void CGMSHLSLRuntime::EmitHLSLOutParamConversionCopyBack(
-    CodeGenFunction &CGF, llvm::SmallVector<LValue, 8> &castArgList) {
+    CodeGenFunction &CGF, llvm::SmallVector<LValue, 8> &castArgList,
+    llvm::SmallVector<LValue, 8> &lifetimeCleanupList) {
   for (uint32_t i = 0; i < castArgList.size(); i += 2) {
     // cast after the call
     LValue tmpLV = castArgList[i];
@@ -5779,6 +5793,13 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionCopyBack(
       }
     } else
       tmpArgAddr->replaceAllUsesWith(argLV.getAddress());
+  }
+
+  for (LValue &tmpLV : lifetimeCleanupList) {
+    QualType ParamTy = tmpLV.getType().getNonReferenceType();
+    Value *tmpArgAddr = tmpLV.getAddress();
+    const uint64_t AllocaSize = CGM.getDataLayout().getTypeAllocSize(CGF.ConvertTypeForMem(ParamTy));
+    CGF.EmitLifetimeEnd(CGF.Builder.getInt64(AllocaSize), tmpArgAddr);
   }
 }
 

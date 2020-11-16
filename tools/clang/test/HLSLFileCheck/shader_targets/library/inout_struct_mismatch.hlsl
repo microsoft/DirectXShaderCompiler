@@ -5,6 +5,7 @@
 // CHECK-NOT: bitcast
 // CHECK-NOT: CallStruct
 // CHECK: ParamStruct
+// CHECK: call void @llvm.lifetime.start
 // CHECK-NOT: bitcast
 // CHECK-NOT: CallStruct
 // CHECK-LABEL: ret <4 x float>
