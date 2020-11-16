@@ -10,19 +10,19 @@
 // CHECK: call void @llvm.dbg.value(metadata float
 // CHECK: call void @llvm.dbg.value(metadata float
 // CHECK: call void @llvm.dbg.value(metadata float
+// CHECK: fmul
+// CHECK: fmul
+// CHECK: fmul
+// CHECK: fmul
+// CHECK: call void @llvm.dbg.value(metadata float
+// CHECK: call void @llvm.dbg.value(metadata float
+// CHECK: call void @llvm.dbg.value(metadata float
+// CHECK: call void @llvm.dbg.value(metadata float
 
 // CHECK: phi float [
 // CHECK: phi float [
 // CHECK: phi float [
 // CHECK: phi float [
-// CHECK: call void @llvm.dbg.value(metadata float
-// CHECK: call void @llvm.dbg.value(metadata float
-// CHECK: call void @llvm.dbg.value(metadata float
-// CHECK: call void @llvm.dbg.value(metadata float
-// CHECK: fmul
-// CHECK: fmul
-// CHECK: fmul
-// CHECK: fmul
 // CHECK: call void @llvm.dbg.value(metadata float
 // CHECK: call void @llvm.dbg.value(metadata float
 // CHECK: call void @llvm.dbg.value(metadata float

@@ -340,6 +340,7 @@ void EmitAssemblyHelper::CreatePasses() {
                         CodeGenOpts.HLSLOptimizationToggles.count("structurize-loop-exits-for-unroll") &&
                         CodeGenOpts.HLSLOptimizationToggles.find("structurize-loop-exits-for-unroll")->second;
 
+  PMBuilder.HLSLEnableLifetimeMarkers = CodeGenOpts.HLSLEnableLifetimeMarkers;
   // HLSL Change - end
 
   PMBuilder.DisableUnitAtATime = !CodeGenOpts.UnitAtATime;

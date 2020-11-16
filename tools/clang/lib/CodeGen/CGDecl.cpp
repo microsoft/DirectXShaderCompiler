@@ -874,6 +874,12 @@ llvm::Value *CodeGenFunction::EmitLifetimeStart(uint64_t Size,
   if (CGM.getCodeGenOpts().OptimizationLevel == 0)
     return nullptr;
 
+  // HLSL Change Begins
+  // Don't emit the intrinsic for hlsl for now unless it is explicitly enabled
+  if (!CGM.getCodeGenOpts().HLSLEnableLifetimeMarkers)
+    return nullptr;
+  // HLSL Change Ends
+
   // Disable lifetime markers in msan builds.
   // FIXME: Remove this when msan works with lifetime markers.
   if (getLangOpts().Sanitize.has(SanitizerKind::Memory))

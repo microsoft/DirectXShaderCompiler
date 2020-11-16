@@ -230,6 +230,8 @@ public:
   bool HLSLPrintAfterAll = false;
   /// Force-replace lifetime intrinsics by zeroinitializer stores.
   bool HLSLForceZeroStoreLifetimes = false;
+  /// Enable lifetime marker generation
+  bool HLSLEnableLifetimeMarkers = false;
   // HLSL Change Ends
 
   // SPIRV Change Starts

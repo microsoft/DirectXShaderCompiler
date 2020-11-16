@@ -761,15 +761,15 @@ TEST_F(ValidationTest, DeadLoopFail) {
   if (m_ver.SkipIRSensitiveTest()) return;
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\loop1.hlsl", "ps_6_0",
-      {"br i1 %exitcond, label %for.cond.cleanup.loopexit, label %for.body, !llvm.loop !([0-9]+)",
+      {"br i1 %exitcond, label %for.end.loopexit, label %for.body, !llvm.loop !([0-9]+)",
        "?%add(\\.lcssa)? = phi float \\[ %add, %for.body \\]",
        "!dx.entryPoints = !\\{!([0-9]+)\\}",
-       "\\[ %add(\\.lcssa)?, %for.cond.cleanup.loopexit \\]"
+       "\\[ %add(\\.lcssa)?, %for.end.loopexit \\]"
       },
       {"br label %for.body",
        "",
        "!dx.entryPoints = !\\{!\\1\\}\n!dx.unused = !\\{!\\1\\}",
-       "[ 0.000000e+00, %for.cond.cleanup.loopexit ]"
+       "[ 0.000000e+00, %for.end.loopexit ]"
       },
       {"Loop must have break",
        "Named metadata 'dx.unused' is unknown",

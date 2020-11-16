@@ -4,11 +4,9 @@
 // often creates unstructured flow. This test makes sure
 // that transformation doesn't happen.
 
-// Disable this test. Jump threading causes it to fail, so it doesn't test
-// simplify cfg anymore.
-// XXXCHECK: %[[cond:.+]] = phi i1
-// XXXCHECK-SAME: [ false
-// XXXCHECK: br i1 %[[cond]]
+// CHECK: %[[cond:.+]] = phi i1
+// CHECK-SAME: [ false
+// CHECK: br i1 %[[cond]]
 // CHECK: @main
 
 cbuffer cb : register(b0) {

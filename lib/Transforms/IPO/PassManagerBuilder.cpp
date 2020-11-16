@@ -207,7 +207,7 @@ void PassManagerBuilder::populateFunctionPassManager(
 }
 
 // HLSL Change Starts
-static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, bool OnlyWarnOnUnrollFail, bool StructurizeLoopExitsForUnroll, hlsl::HLSLExtensionsCodegenHelper *ExtHelper, legacy::PassManagerBase &MPM) {
+static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, bool OnlyWarnOnUnrollFail, bool StructurizeLoopExitsForUnroll, bool EnableLifetimeMarkers, hlsl::HLSLExtensionsCodegenHelper *ExtHelper, legacy::PassManagerBase &MPM) {
 
   // Don't do any lowering if we're targeting high-level.
   if (HLSLHighLevel) {
@@ -255,18 +255,13 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, bool OnlyWarnOn
   // Special Mem2Reg pass that skips precise marker.
   MPM.add(createDxilConditionalMem2RegPass(NoOpt));
 
-#if 1
-  //Summary of Non-passing Tests:
-  //  CompilerTest::BatchPasses [Failed]
-  //      D:\msft\DirectXShaderCompiler\tools\clang\test\HLSL\..\HLSLFileCheck\passes\llvm\simplifycfg\fold-cond-branch-on-phi.hlsl [Failed]
-  // Clean up inefficiencies that can cause unnecessary live values.
-  // This is the earliest possible location without interfering with HLSL-specific lowering.
-  if (!NoOpt)
-  {
+  // Clean up inefficiencies that can cause unnecessary live values related to
+  // lifetime marker cleanup blocks. This is the earliest possible location
+  // without interfering with HLSL-specific lowering.
+  if (!NoOpt && EnableLifetimeMarkers) {
     MPM.add(createSROAPass());
     MPM.add(createJumpThreadingPass());
   }
-#endif
 
   // Remove unneeded dxbreak conditionals
   MPM.add(createCleanupDxBreakPass());
@@ -367,6 +362,7 @@ void PassManagerBuilder::populateModulePassManager(
     addHLSLPasses(HLSLHighLevel, OptLevel,
       this->HLSLOnlyWarnOnUnrollFail,
       this->StructurizeLoopExitsForUnroll,
+      this->HLSLEnableLifetimeMarkers,
       this->HLSLExtensionsCodeGen,
       MPM);
 
@@ -402,12 +398,12 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createDxilRewriteOutputArgDebugInfoPass()); // Fix output argument types.
 
   MPM.add(createHLLegalizeParameter()); // legalize parameters before inline.
-  MPM.add(createAlwaysInlinerPass(/*InsertLifeTime*/true));
+  MPM.add(createAlwaysInlinerPass(/*InsertLifeTime*/this->HLSLEnableLifetimeMarkers));
   if (Inliner) {
     delete Inliner;
     Inliner = nullptr;
   }
-  addHLSLPasses(HLSLHighLevel, OptLevel, this->HLSLOnlyWarnOnUnrollFail, this->StructurizeLoopExitsForUnroll, HLSLExtensionsCodeGen, MPM); // HLSL Change
+  addHLSLPasses(HLSLHighLevel, OptLevel, this->HLSLOnlyWarnOnUnrollFail, this->StructurizeLoopExitsForUnroll, this->HLSLEnableLifetimeMarkers, HLSLExtensionsCodeGen, MPM); // HLSL Change
   // HLSL Change Ends
 
   // Add LibraryInfo if we have some.

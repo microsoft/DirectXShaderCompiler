@@ -9,8 +9,8 @@
 // CHECK-NOT: memcpy
 // CHECK-NOT: = br
 // CHECK: icmp slt i32
-// CHECK: br i1
 // CHECK: icmp sgt i32
+// CHECK: and i1
 // CHECK: br i1
 // CHECK: cbufferLoadLegacy
 // CHECK: fadd

@@ -273,6 +273,8 @@ def print_after_all : Flag<["-", "/"], "print-after-all">, Group<hlslcomp_Group>
   HelpText<"Print LLVM IR after each pass.">;
 def force_zero_store_lifetimes : Flag<["-", "/"], "force-zero-store-lifetimes">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"Instead of generating lifetime intrinsics (SM >= 6.6) or storing undef (SM < 6.6), force fall back to storing zeroinitializer.">;
+def enable_lifetime_markers : Flag<["-", "/"], "enable-lifetime-markers">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
+  HelpText<"Enable generation of lifetime markers">;
 
 // Used with API only
 def skip_serialization : Flag<["-", "/"], "skip-serialization">, Group<hlslcore_Group>, Flags<[CoreOption, HelpHidden]>,

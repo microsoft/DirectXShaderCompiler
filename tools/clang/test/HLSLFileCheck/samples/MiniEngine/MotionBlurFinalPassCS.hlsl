@@ -3,9 +3,9 @@
 // CHECK: threadId
 // CHECK: Sqrt
 // CHECK: FMin
+// CHECK: sampleLevel
+// CHECK: sampleLevel
 // CHECK: Round_pi
-// CHECK: sampleLevel
-// CHECK: sampleLevel
 // CHECK: sampleLevel
 // CHECK: sampleLevel
 
