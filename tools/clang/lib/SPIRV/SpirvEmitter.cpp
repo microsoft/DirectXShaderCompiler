@@ -2178,6 +2178,7 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
     // the LValueToRValue implicit cast here.
     auto *arg = callExpr->getArg(i)->IgnoreParenLValueCasts();
     const auto *param = callee->getParamDecl(i);
+    const auto paramType = param->getType();
 
     // Get the evaluation info if this argument is referencing some variable
     // *as a whole*, in which case we can avoid creating the temporary variable
@@ -2199,8 +2200,8 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
     // expects are point-to-pointer argument for resources, which will be
     // resolved by legalization.
     if ((argInfo || (argInst && !argInst->isRValue())) &&
-        canActAsOutParmVar(param) && !isResourceType(param) &&
-        paramTypeMatchesArgType(param->getType(), arg->getType())) {
+        canActAsOutParmVar(param) && !isResourceType(paramType) &&
+        paramTypeMatchesArgType(paramType, arg->getType())) {
       // Based on SPIR-V spec, function parameter must be always Function
       // scope. In addition, we must pass memory object declaration argument
       // to function. If we pass an argument that is not function scope
@@ -2246,16 +2247,14 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
       // the function. And we will cast back the results once the function call
       // has returned.
       if (canActAsOutParmVar(param) &&
-          !paramTypeMatchesArgType(param->getType(), arg->getType())) {
-        auto paramType = param->getType();
+          !paramTypeMatchesArgType(paramType, arg->getType())) {
         if (const auto *refType = paramType->getAs<ReferenceType>())
-          paramType = refType->getPointeeType();
-        rhsVal =
-            castToType(rhsVal, arg->getType(), paramType, arg->getLocStart());
+          rhsVal = castToType(rhsVal, arg->getType(), refType->getPointeeType(),
+                              arg->getLocStart());
       }
 
       // Initialize the temporary variables using the contents of the arguments
-      storeValue(tempVar, rhsVal, param->getType(), arg->getLocStart());
+      storeValue(tempVar, rhsVal, paramType, arg->getLocStart());
     }
   }
 
@@ -2280,6 +2279,7 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
   // Go through all parameters and write those marked as out/inout
   for (uint32_t i = 0; i < numParams; ++i) {
     const auto *param = callee->getParamDecl(i);
+    const auto paramType = param->getType();
     // If it calls a non-static member function, the object itself is argument
     // 0, and therefore all other argument positions are shifted by 1.
     const uint32_t index = i + isNonStaticMemberCall;
@@ -2288,21 +2288,19 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
     // there is no reason to copy back the results after the function call into
     // the resource.
     if (isTempVar[index] && canActAsOutParmVar(param) &&
-        !isResourceType(param)) {
+        !isResourceType(paramType)) {
       const auto *arg = callExpr->getArg(i);
-      SpirvInstruction *value = spvBuilder.createLoad(
-          param->getType(), vars[index], arg->getLocStart());
+      SpirvInstruction *value =
+          spvBuilder.createLoad(paramType, vars[index], arg->getLocStart());
 
       // Now we want to assign 'value' to arg. But first, in rare cases when
       // using 'out' or 'inout' where the parameter and argument have a type
       // mismatch, we need to first cast 'value' to the type of 'arg' because
       // the AST will not include a cast node.
-      if (!paramTypeMatchesArgType(param->getType(), arg->getType())) {
-        auto paramType = param->getType();
+      if (!paramTypeMatchesArgType(paramType, arg->getType())) {
         if (const auto *refType = paramType->getAs<ReferenceType>())
-          paramType = refType->getPointeeType();
-        value =
-            castToType(value, paramType, arg->getType(), arg->getLocStart());
+          value = castToType(value, refType->getPointeeType(), arg->getType(),
+                             arg->getLocStart());
       }
 
       processAssignment(arg, value, false, args[index]);
