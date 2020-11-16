@@ -314,6 +314,30 @@ bool LiveValueAnalysis::isLoadRematerializable(CallInst *Call) {
         return true;
     }
     break;
+  case OP::OpCode::RawBufferLoad:
+    // Check for resource handle.
+    if (CallInst *CI = dyn_cast<CallInst>(Call->getArgOperand(HLOperandIndex::kHandleOpIdx))) {
+      OP::OpCode HandleOp = static_cast<OP::OpCode>(dyn_cast<ConstantInt>(CI->getArgOperand(0))->getZExtValue());
+      if (OP::OpCode::AnnotateHandle == HandleOp) {
+        // Set the resource class and check below.
+        ResClass = CI->getArgOperand(HLOperandIndex::kAnnotateHandleResourceClassOpIdx);
+      }
+      else if (OP::OpCode::CreateHandleForLib == HandleOp) {
+        if (LoadInst *LI = dyn_cast<LoadInst>(CI->getArgOperand(DXIL::OperandIndex::kCreateHandleForLibResOpIdx))) {
+          // If library handle, compare with UAVs.
+          Value *resType = LI->getOperand(0);
+
+          for (auto &&res : m_DM->GetUAVs()) {
+            // UAVs cannot be rematerialized.
+            if (res->GetGlobalSymbol() == resType) {
+              return false;
+            }
+          }
+          return true;
+        }
+      }
+    }
+    break;
   case OP::OpCode::TextureLoad:
     if (CallInst *CI = dyn_cast<CallInst>(createHandle->getArgOperand(HLOperandIndex::kCreateHandleResourceOpIdx))) {
       if (Value *Res = dyn_cast<Value>(CI->getOperand(HLOperandIndex::kCreateHandleResourceOpIdx))) {
@@ -333,7 +357,6 @@ bool LiveValueAnalysis::isLoadRematerializable(CallInst *Call) {
       return true;
     }
     break;
-  case OP::OpCode::RawBufferLoad:
   case OP::OpCode::SampleLevel:
     return true;
   default:
