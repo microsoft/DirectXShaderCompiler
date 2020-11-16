@@ -11937,15 +11937,6 @@ bool SpirvEmitter::spirvToolsOptimize(std::vector<uint32_t> *mod,
     // Add performance passes.
     optimizer.RegisterPerformancePasses();
 
-    // Add flattening of resources if needed.
-    if (spirvOptions.flattenResourceArrays ||
-        declIdMapper.requiresFlatteningCompositeResources()) {
-      optimizer.RegisterPass(spvtools::CreateDescriptorScalarReplacementPass());
-      // ADCE should be run after desc_sroa in order to remove potentially
-      // illegal types such as structures containing opaque types.
-      optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass());
-    }
-
     // Add compact ID pass.
     optimizer.RegisterPass(spvtools::CreateCompactIdsPass());
   } else {
@@ -11972,6 +11963,14 @@ bool SpirvEmitter::spirvToolsLegalize(std::vector<uint32_t> *mod,
   spvtools::OptimizerOptions options;
   options.set_run_validator(false);
   optimizer.RegisterLegalizationPasses();
+  // Add flattening of resources if needed.
+  if (spirvOptions.flattenResourceArrays ||
+      declIdMapper.requiresFlatteningCompositeResources()) {
+    optimizer.RegisterPass(spvtools::CreateDescriptorScalarReplacementPass());
+    // ADCE should be run after desc_sroa in order to remove potentially
+    // illegal types such as structures containing opaque types.
+    optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass());
+  }
   optimizer.RegisterPass(spvtools::CreateReplaceInvalidOpcodePass());
   optimizer.RegisterPass(spvtools::CreateCompactIdsPass());
 
