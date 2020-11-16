@@ -420,6 +420,10 @@ std::string getFnName(const FunctionDecl *fn) {
   return getNamespacePrefix(fn) + classOrStructName + fn->getName().str();
 }
 
+bool isMemoryObjectDeclaration(SpirvInstruction *inst) {
+  return isa<SpirvVariable>(inst) || isa<SpirvFunctionParameter>(inst);
+}
+
 } // namespace
 
 SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
@@ -2188,7 +2192,8 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
         // Based on SPIR-V spec, function parameter must always be in Function
         // scope. If we pass a non-function scope argument, we need
         // the legalization.
-        if (objInstr->getStorageClass() != spv::StorageClass::Function)
+        if (objInstr->getStorageClass() != spv::StorageClass::Function ||
+            !isMemoryObjectDeclaration(objInstr))
           beforeHlslLegalization = true;
 
         args.push_back(objInstr);
