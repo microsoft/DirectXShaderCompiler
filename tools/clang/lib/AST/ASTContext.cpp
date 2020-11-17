@@ -39,6 +39,7 @@
 #include "llvm/Support/Capacity.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/MathExtras.h" // HLSL Change
 #include <map>
 
 using namespace clang;
@@ -1575,7 +1576,7 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
     // HLSL Change Begins.
     // Vector align to its element.
     if (getLangOpts().HLSL) {
-      Width = EltInfo.Align * VT->getNumElements(); // Match data layout's behaviour
+      Width = llvm::RoundUpToAlignment(EltInfo.Width, EltInfo.Align) * VT->getNumElements(); // Match data layout's behaviour
       Align = EltInfo.Align;
     }
     // HLSL Change Ends.
