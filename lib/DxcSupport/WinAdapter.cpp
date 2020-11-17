@@ -63,6 +63,12 @@ DXC_API_IMPORT UINT __stdcall SysStringLen(BSTR pbstr) {
   return SysStringByteLen(pbstr) / sizeof(OLECHAR);
 }
 
+//===-------------------------- CoTask Allocation -------------------------===//
+
+DXC_API_IMPORT LPVOID __stdcall CoTaskMemAlloc(SIZE_T cb) { return malloc(cb); }
+
+DXC_API_IMPORT void __stdcall CoTaskMemFree(LPVOID pv) { free(pv); }
+
 //===--------------------------- CHandle -------------------------------===//
 
 CHandle::CHandle(HANDLE h) { m_h = h; }
