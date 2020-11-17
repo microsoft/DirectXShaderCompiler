@@ -52,13 +52,15 @@ DXC_API_IMPORT BSTR __stdcall SysAllocStringLen(const OLECHAR *strIn, UINT ui) {
   return strOut;
 }
 //===--------------------------- BSTR Length ------------------------------===//
-unsigned int SysStringLen(const BSTR bstrString) {
-  if (!bstrString)
+DXC_API_IMPORT UINT __stdcall SysStringByteLen(BSTR bstr) {
+  if (!bstr)
     return 0;
 
-  uint32_t *blobIn = (uint32_t *)((uintptr_t)bstrString - sizeof(uint32_t));
+  return ((UINT *)bstr)[-1];
+}
 
-  return blobIn[0] / sizeof(OLECHAR);
+DXC_API_IMPORT UINT __stdcall SysStringLen(BSTR pbstr) {
+  return SysStringByteLen(pbstr) / sizeof(OLECHAR);
 }
 
 //===--------------------------- CHandle -------------------------------===//

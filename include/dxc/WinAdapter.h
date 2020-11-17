@@ -910,7 +910,9 @@ extern "C" DXC_API_IMPORT BSTR __stdcall SysAllocStringLen(const OLECHAR *strIn,
                                                            UINT ui);
 
 //===--------------------------- BSTR Length ------------------------------===//
-unsigned int SysStringLen(const BSTR bstrString);
+
+extern "C" DXC_API_IMPORT UINT __stdcall SysStringByteLen(BSTR bstr);
+extern "C" DXC_API_IMPORT UINT __stdcall SysStringLen(BSTR pbstr);
 
 //===--------------------- UTF-8 Related Types ----------------------------===//
 
