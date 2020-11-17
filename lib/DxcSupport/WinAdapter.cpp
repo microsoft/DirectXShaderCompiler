@@ -24,14 +24,14 @@ void CAllocator::Free(void *p) throw() { free(p); }
 
 //===--------------------------- BSTR Allocation --------------------------===//
 
-void SysFreeString(BSTR bstrString) {
+DXC_API_IMPORT void __stdcall SysFreeString(BSTR bstrString) {
   if (bstrString)
     free((void *)((uintptr_t)bstrString - sizeof(uint32_t)));
 }
 
 // Allocate string with length prefix
 // https://docs.microsoft.com/en-us/previous-versions/windows/desktop/automat/bstr
-BSTR SysAllocStringLen(const OLECHAR *strIn, UINT ui) {
+DXC_API_IMPORT BSTR __stdcall SysAllocStringLen(const OLECHAR *strIn, UINT ui) {
   uint32_t *blobOut =
       (uint32_t *)malloc(sizeof(uint32_t) + (ui + 1) * sizeof(OLECHAR));
 

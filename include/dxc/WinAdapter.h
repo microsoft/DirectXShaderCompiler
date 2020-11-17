@@ -215,6 +215,10 @@
 #define UInt32Add UIntAdd
 #define Int32ToUInt32 IntToUInt
 
+#ifndef DXC_API_IMPORT
+#define DXC_API_IMPORT __attribute__((visibility("default")))
+#endif
+
 //===--------------------- HRESULT Related Macros -------------------------===//
 
 #define S_OK ((HRESULT)0L)
@@ -900,9 +904,10 @@ public:
 
 //===--------------------------- BSTR Allocation --------------------------===//
 
-void SysFreeString(BSTR bstrString);
+extern "C" DXC_API_IMPORT void __stdcall SysFreeString(BSTR bstrString);
 // Allocate string with length prefix
-BSTR SysAllocStringLen(const OLECHAR *strIn, UINT ui);
+extern "C" DXC_API_IMPORT BSTR __stdcall SysAllocStringLen(const OLECHAR *strIn,
+                                                           UINT ui);
 
 //===--------------------------- BSTR Length ------------------------------===//
 unsigned int SysStringLen(const BSTR bstrString);
