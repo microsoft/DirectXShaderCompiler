@@ -7,7 +7,6 @@
 // CHECK: %[[cond:.+]] = phi i1
 // CHECK-SAME: [ false
 // CHECK: br i1 %[[cond]]
-// CHECK: @main
 
 cbuffer cb : register(b0) {
   uint a,b,c,d,e,f,g,h,i,j,k,l,m,n;
