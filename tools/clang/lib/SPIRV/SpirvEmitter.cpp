@@ -595,15 +595,6 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   // 'shader' attribute, and must therefore be entry functions.
   assert(numEntryPoints <= workQueue.size());
 
-    // Create dummy entry point for hlsl library
-  if (spvContext.isLib()) {
-    spvBuilder.addEntryPoint(
-        spv::ExecutionModel::GLCompute, emitDummyEntryFunction(), "dummyEntry",
-        targetEnv == SPV_ENV_VULKAN_1_2
-            ? spvBuilder.getModule()->getVariables()
-            : llvm::ArrayRef<SpirvVariable *>(declIdMapper.collectStageVars()));
-  }
-
   for (uint32_t i = 0; i < numEntryPoints; ++i) {
     // TODO: assign specific StageVars w.r.t. to entry point
     const FunctionInfo *entryInfo = workQueue[i];
@@ -10829,28 +10820,6 @@ bool SpirvEmitter::emitEntryFunctionWrapperForRayTracing(
   spvBuilder.endFunction();
 
   return true;
-}
-
-SpirvFunction *SpirvEmitter::emitDummyEntryFunction() {
-  SpirvFunction *entryFunction =
-      spvBuilder.beginFunction(astContext.VoidTy, SourceLocation(), "dummyEntry");
-  // Create compute shader execution mode
-  spvBuilder.addExecutionMode(entryFunction, spv::ExecutionMode::LocalSize,
-                              {1, 1, 1}, SourceLocation());
-
-  auto libraryShaderKind = spvContext.getCurrentShaderModelKind();
-  // Create compute shader builtin
-  spvContext.setCurrentShaderModelKind(SpirvContext::ShaderModelKind::Compute);
-  declIdMapper.getBuiltinVar(spv::BuiltIn::LocalInvocationIndex, astContext.WIntTy, SourceLocation());
-  spvContext.setCurrentShaderModelKind(libraryShaderKind);
-
-  // Create dummy function body
-  auto *entryLabel = spvBuilder.createBasicBlock();
-  spvBuilder.setInsertPoint(entryLabel);
-  spvBuilder.createReturn(SourceLocation());
-  spvBuilder.endFunction();
-
-  return entryFunction;
 }
 
 bool SpirvEmitter::processMeshOrAmplificationShaderAttributes(
