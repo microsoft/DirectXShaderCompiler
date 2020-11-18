@@ -5,13 +5,7 @@
 // CHECK: {{![0-9]+}} = !{{{![0-9]+}}}
 // CHECK: {{![0-9]+}} = !{i32 0, !"a", i32 1, i32 4659}
 
-// Check if metadata is correctly emitted into the dx.dxrPayloadAnnotations metadata and not stripped.
-// trace = 0 => inout
-// closesthit = 0 => inout
-// anyhithit = 1 => in
-// miss = 2 => out
-
-struct Payload
+struct [[payload]] Payload
 {
     int a      : in(trace, closesthit, anyhit) : out(trace, miss, closesthit);
 };

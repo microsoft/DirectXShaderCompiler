@@ -7567,6 +7567,8 @@ def err_qualified_payload_passed_to_incompatible_extern_function : Error<
   "passing a pure '%0' payload to an extern function as '%1' parameter">;
 def err_not_all_payload_fileds_qualified : Error<
   "payload type '%0' requires that all fileds carry payload access qualifies.">;
+def err_payload_requires_attribute : Error<
+  "type '%0' used as payload requires that it is annotated with the [[payload]] attribute">;
 def err_payload_fileds_not_qualified_qualified : Error<
   "payload filed '%0' has no payload access qualifies.">;
 def err_hlsl_unsupported_builtin_op: Error<

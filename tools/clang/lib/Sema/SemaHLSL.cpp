@@ -10130,6 +10130,12 @@ static bool DiagnosePayloadParameter(Sema &S, ParmVarDecl *Payload,
         return false;
     }
 
+    if (!Decl->hasAttr<HLSLPayloadAttr>()) {
+      S.Diag(Decl->getLocation(), diag::err_payload_requires_attribute)
+          << Decl->getName();
+      return false;
+    }
+
     // Only check if all fileds have a payload qualifier if the shader model requires them.
     if (qualifiersAreMandatory) {
         bool allFieldsQualifed = true;
@@ -10467,18 +10473,20 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
       hlsl::ShaderModel::GetByName(self->getLangOpts().HLSLProfile.c_str());
 
   if (shaderModel->IsLib()) {
-    if (shaderModel->GetMajor() > 6 ||
-        (shaderModel->GetMajor() == 6 && shaderModel->GetMinor() >= 5) ||
-        self->getLangOpts().EnablePayloadAccessQualifiers) {
+      const bool payloadQualifiersOptIn =
+        (shaderModel->GetMajor() == 6 && shaderModel->GetMinor() >= 5) &&
+        self->getLangOpts().EnablePayloadAccessQualifiers;
+
+      const bool payloadQualifiersAreMandatory =
+          shaderModel->GetMajor() > 6 ||
+          (shaderModel->GetMajor() == 6 && shaderModel->GetMinor() >= 7);
+      
+      if ( payloadQualifiersAreMandatory || payloadQualifiersOptIn ) {
       ASTContext &ctx = self->getASTContext();
       TranslationUnitDecl *TU = ctx.getTranslationUnitDecl();
 
-      bool qualaifiersAreMandatory =
-          shaderModel->GetMajor() > 6 ||
-          (shaderModel->GetMajor() == 6 && shaderModel->GetMinor() >= 7);
-
       DXRShaderVisitor visitor(*self);
-      visitor.diagnose(TU, qualaifiersAreMandatory);
+      visitor.diagnose(TU, payloadQualifiersAreMandatory);
     }
   }
 

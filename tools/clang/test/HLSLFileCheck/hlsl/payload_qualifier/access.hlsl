@@ -8,7 +8,7 @@
 // CHECK: field 'a' is not modifiable in function 'bar'. 'bar' is called from shader stage 'closesthit' but 'a' is not qualified 'out' for this stage
 // CHECK: field 'b' is not modifiable in function 'bar'. 'bar' is called from shader stage 'miss' but 'b' is not qualified 'out' for this stage
 
-struct Payload
+struct [[payload]] Payload
 {
     int a      : in(trace, closesthit) : out(trace, miss);
     int b      : out(trace, closesthit) : in(trace, miss);

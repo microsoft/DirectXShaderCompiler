@@ -545,10 +545,6 @@ bool DxilModule::GetAllResourcesBound() const {
   return m_bAllResourcesBound;
 }
 
-bool DxilModule::GetPayloadQualifersUsed() const {
-  return m_bHasPayloadQualifiers;
-}
-
 void DxilModule::SetLegacyResourceReservation(bool legacyResourceReservation) {
   m_IntermediateFlags &= ~LegacyResourceReservation;
   if (legacyResourceReservation) m_IntermediateFlags |= LegacyResourceReservation;
@@ -1300,23 +1296,6 @@ void DxilModule::ResetEntryPropsMap(DxilEntryPropsMap &&PropMap) {
             inserter(m_DxilEntryPropsMap, m_DxilEntryPropsMap.begin()));
 }
 
-void DxilModule::InferInformationFromTypeSystem() {
-  DXASSERT(m_pTypeSystem, "module does not have a DXILTypeSystem");
-  m_bHasPayloadQualifiers = false;
-
-  // Infer from the type system if payload annoation qualifers are used on any
-  // struct. This information is required to guide reflection stripping.
-  for (auto &item : m_pTypeSystem->GetStructAnnotationMap()) {
-    const DxilStructAnnotation &annotation = *item.second;
-    for (unsigned idx = 0; idx != item.second->GetNumFields(); ++idx) {
-      const DxilFieldAnnotation &fieldAnnotation =
-          annotation.GetFieldAnnotation(idx);
-      if (!fieldAnnotation.GetPayloadFieldAnnotation().AccessPerShader.empty())
-        m_bHasPayloadQualifiers = true;
-    }
-  }
-}
-
 static const StringRef llvmUsedName = "llvm.used";
 
 void DxilModule::EmitLLVMUsed() {
@@ -1711,17 +1690,6 @@ static bool ResourceTypeRequiresTranslation(const StructType * Ty, SmallStructSe
   return bResult;
 }
 
-// Return true if any field in the DxilStructAnnotation is carring 
-// payload access modifiers. 
-static bool StructContainsPayloadQualifiers(DxilStructAnnotation &annotation) {
-  bool structUsesPayloadQualifiers = false;
-  for (unsigned idx = 0; idx != annotation.GetNumFields(); ++idx) {
-    auto &field = annotation.GetFieldAnnotation(idx);
-    structUsesPayloadQualifiers |= !field.GetPayloadFieldAnnotation().AccessPerShader.empty();
-  }
-  return structUsesPayloadQualifiers;
-}
-
 bool DxilModule::StripReflection() {
   bool bChanged = false;
   bool bIsLib = GetShaderModel()->IsLib();
@@ -1742,7 +1710,7 @@ bool DxilModule::StripReflection() {
     }
   }
 
-  if (bIsLib && (GetUseMinPrecision() || GetPayloadQualifersUsed()))
+  if (bIsLib && GetUseMinPrecision())
   {
     // We must preserve struct annotations for resources containing min-precision types,
     // since they have not yet been converted for legacy layout.
@@ -1751,10 +1719,6 @@ bool DxilModule::StripReflection() {
     SmallStructSetVector structsToRemove;
     for (auto &item : m_pTypeSystem->GetStructAnnotationMap()) {
       SmallStructSetVector containedStructs;
-      if (StructContainsPayloadQualifiers(*item.second)) {
-        structsToKeep.insert(item.first);
-        continue;
-      }
       if (!ResourceTypeRequiresTranslation(item.first, containedStructs))
         structsToRemove.insert(item.first);
       else

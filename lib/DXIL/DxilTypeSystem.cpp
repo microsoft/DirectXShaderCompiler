@@ -79,51 +79,78 @@ const std::string &DxilFieldAnnotation::GetFieldName() const { return m_FieldNam
 void DxilFieldAnnotation::SetFieldName(const std::string &FieldName) { m_FieldName = FieldName; }
 bool DxilFieldAnnotation::IsCBVarUsed() const { return m_bCBufferVarUsed; }
 void DxilFieldAnnotation::SetCBVarUsed(bool used) { m_bCBufferVarUsed = used; }
-const DxilPayloadAnnotation& DxilFieldAnnotation::GetPayloadFieldAnnotation() const { return m_payloadAccessQualifiers; }
-uint32_t DxilFieldAnnotation::GetPayloadFieldAnnotationBitMask() const {
-  unsigned bitmask = 0;
-  for (auto &qualifier : m_payloadAccessQualifiers.AccessPerShader) {
+
+//------------------------------------------------------------------------------
+//
+// DxilPayloadFieldAnnotation class methods.
+//
+bool DxilPayloadFieldAnnotation::HasFieldName() const { return !m_FieldName.empty(); }
+const std::string &DxilPayloadFieldAnnotation::GetFieldName() const { return m_FieldName; }
+void DxilPayloadFieldAnnotation::SetFieldName(const std::string &FieldName) { m_FieldName = FieldName; }
+bool DxilPayloadFieldAnnotation::HasCompType() const { return m_CompType.GetKind() != CompType::Kind::Invalid; }
+const CompType &DxilPayloadFieldAnnotation::GetCompType() const { return m_CompType; }
+void DxilPayloadFieldAnnotation::SetCompType(CompType::Kind kind) { m_CompType = CompType(kind); }
+uint32_t DxilPayloadFieldAnnotation::GetPayloadFieldQualifierMask() const {
+  return m_bitmask;
+}
+
+static int getBitOffsetForShaderStage(llvm::StringRef shaderStage ) {
     int bitOffset = 0;
-    if (qualifier.first == "trace")
-      bitOffset = 0;
-    else if (qualifier.first == "closesthit")
-      bitOffset = 4;
-    else if (qualifier.first == "miss")
-      bitOffset = 8;
-    else if (qualifier.first == "anyhit")
-      bitOffset = 12;
-    else
-      llvm_unreachable("unexpected shader stage");
-
-    unsigned accessBits = 0x0;
-    if (qualifier.second == hlsl::PayloadAccessTypes::In)
-      accessBits |= 0x1; // set the first bit
-    if (qualifier.second == hlsl::PayloadAccessTypes::Out)
-      accessBits |= 0x2; // set the second bit
-    if (qualifier.second == hlsl::PayloadAccessTypes::InOut)
-      accessBits |= 0x3; // set both bits
-
-    accessBits <<= bitOffset;
-    bitmask |= accessBits;
-  }
-  return bitmask;
+  if (shaderStage == "trace")
+    bitOffset = 0;
+  else if (shaderStage == "closesthit")
+    bitOffset = 4;
+  else if (shaderStage == "miss")
+    bitOffset = 8;
+  else if (shaderStage == "anyhit")
+    bitOffset = 12;
+  else
+    llvm_unreachable("unexpected shader stage");
+  return bitOffset;
 }
-void DxilFieldAnnotation::AddPayloadFieldAnnotation(
-    llvm::StringRef shaderType, PayloadAccessTypes qualifer) {
-  for (auto &shaderAccess : m_payloadAccessQualifiers.AccessPerShader) {
-    // Check if this shader type already has an access qualifer.
-    if (shaderType == shaderAccess.first) {
-      // Check if the access qualifer matches.
-      if (qualifer != shaderAccess.second)
-        // If not, override the access qualifer to InOut
-        shaderAccess.second = PayloadAccessTypes::InOut;
-      return;
-    }
-  }
-  // Create a new entry for the provided shader type.
-  m_payloadAccessQualifiers.AccessPerShader.emplace_back(shaderType, qualifer);
+void DxilPayloadFieldAnnotation::AddPayloadFieldQualifier(
+    StringRef shaderStage, PayloadAccessTypes qualifier) {
+
+  int bitOffset = getBitOffsetForShaderStage(shaderStage);
+
+  unsigned accessBits = 0x0;
+  if (qualifier == PayloadAccessTypes::In)
+    accessBits |= 0x1; // set the first bit
+  if (qualifier == PayloadAccessTypes::Out)
+    accessBits |= 0x2; // set the second bit
+  if (qualifier == PayloadAccessTypes::InOut)
+    accessBits |= 0x3; // set both bits
+
+  accessBits <<= bitOffset;
+  m_bitmask |= accessBits;
 }
 
+PayloadAccessTypes DxilPayloadFieldAnnotation::GetPayloadFieldQualifier(
+    StringRef shaderStage) const {
+
+  int bitOffset = getBitOffsetForShaderStage(shaderStage);
+
+  // default type is always InOut
+  PayloadAccessTypes accessType = PayloadAccessTypes::InOut;
+
+  unsigned accessBits = m_bitmask >> bitOffset;
+  if (accessBits & 0x1) {
+    // set In if the first bit is set
+    accessType = PayloadAccessTypes::In;
+  }
+  if (accessBits & 0x2) {
+
+    // set Out if only the second bit set, if both are set set to InOut
+    accessType = accessType == PayloadAccessTypes::InOut
+                     ? PayloadAccessTypes::Out
+                     : PayloadAccessTypes::InOut;
+  }
+  return accessType;
+}
+
+bool DxilPayloadFieldAnnotation::HasAnnotations() const {
+  return m_bitmask != 0;
+}
 
 //------------------------------------------------------------------------------
 //
@@ -141,10 +168,6 @@ bool DxilTemplateArgAnnotation::IsIntegral() const { return m_Type == nullptr; }
 int64_t DxilTemplateArgAnnotation::GetIntegral() const { return m_Integral; }
 void DxilTemplateArgAnnotation::SetIntegral(int64_t i64) { m_Type = nullptr; m_Integral = i64; }
 
-//------------------------------------------------------------------------------
-//
-// DxilStructAnnotation class methods.
-//
 unsigned DxilStructAnnotation::GetNumFields() const {
   return (unsigned)m_FieldAnnotations.size();
 }
@@ -243,7 +266,30 @@ const Function *DxilFunctionAnnotation::GetFunction() const {
 
 //------------------------------------------------------------------------------
 //
-// DxilStructAnnotationSystem class methods.
+// DxilPayloadAnnotation class methods.
+//
+unsigned DxilPayloadAnnotation::GetNumFields() const {
+  return (unsigned)m_FieldAnnotations.size();
+}
+
+DxilPayloadFieldAnnotation &DxilPayloadAnnotation::GetFieldAnnotation(unsigned FieldIdx) {
+  return m_FieldAnnotations[FieldIdx];
+}
+
+const DxilPayloadFieldAnnotation &DxilPayloadAnnotation::GetFieldAnnotation(unsigned FieldIdx) const {
+  return m_FieldAnnotations[FieldIdx];
+}
+
+const StructType *DxilPayloadAnnotation::GetStructType() const {
+  return m_pStructType;
+}
+void DxilPayloadAnnotation::SetStructType(const llvm::StructType *Ty) {
+  m_pStructType = Ty;
+}
+
+//------------------------------------------------------------------------------
+//
+// DxilTypeSystem class methods.
 //
 DxilTypeSystem::DxilTypeSystem(Module *pModule)
     : m_pModule(pModule),
@@ -291,6 +337,49 @@ DxilTypeSystem::StructAnnotationMap &DxilTypeSystem::GetStructAnnotationMap() {
 
 const DxilTypeSystem::StructAnnotationMap &DxilTypeSystem::GetStructAnnotationMap() const{
   return m_StructAnnotations;
+}
+
+DxilPayloadAnnotation *DxilTypeSystem::AddPayloadAnnotation(const StructType *pStructType) {
+  DXASSERT_NOMSG(m_StructAnnotations.find(pStructType) == m_StructAnnotations.end());
+  DxilPayloadAnnotation *pA = new DxilPayloadAnnotation();
+  m_PayloadAnnotations[pStructType] = unique_ptr<DxilPayloadAnnotation>(pA);
+  pA->m_pStructType = pStructType;
+  pA->m_FieldAnnotations.resize(pStructType->getNumElements());
+  return pA;
+}
+
+DxilPayloadAnnotation *DxilTypeSystem::GetPayloadAnnotation(const StructType *pStructType) {
+  auto it = m_PayloadAnnotations.find(pStructType);
+  if (it != m_PayloadAnnotations.end()) {
+    return it->second.get();
+  } else {
+    return nullptr;
+  }
+}
+
+const DxilPayloadAnnotation *
+DxilTypeSystem::GetPayloadAnnotation(const StructType *pStructType) const {
+  auto it = m_PayloadAnnotations.find(pStructType);
+  if (it != m_PayloadAnnotations.end()) {
+    return it->second.get();
+  } else {
+    return nullptr;
+  }
+}
+
+void DxilTypeSystem::ErasePayloadAnnotation(const StructType *pStructType) {
+  DXASSERT_NOMSG(m_StructAnnotations.count(pStructType));
+  m_PayloadAnnotations.remove_if([pStructType](
+      const std::pair<const StructType *, std::unique_ptr<DxilPayloadAnnotation>>
+          &I) { return pStructType == I.first; });
+}
+
+DxilTypeSystem::PayloadAnnotationMap &DxilTypeSystem::GetPayloadAnnotationMap() {
+  return m_PayloadAnnotations;
+}
+
+const DxilTypeSystem::PayloadAnnotationMap &DxilTypeSystem::GetPayloadAnnotationMap() const{
+  return m_PayloadAnnotations;
 }
 
 DxilFunctionAnnotation *DxilTypeSystem::AddFunctionAnnotation(const Function *pFunction) {

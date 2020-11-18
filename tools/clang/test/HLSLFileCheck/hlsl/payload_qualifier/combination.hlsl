@@ -17,7 +17,7 @@ struct S1 {
     int foo;
 };
 
-struct Payload
+struct [[payload]] Payload
 {
     S1 bar       : in(trace, closesthit);
     int a        : in();

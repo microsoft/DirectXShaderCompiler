@@ -825,16 +825,13 @@ void DxilMDHelper::LoadDxilTypeSystem(DxilTypeSystem &TypeSystem) {
 }
 
 void DxilMDHelper::EmitDxrPayloadAnnotations(DxilTypeSystem &TypeSystem, vector<GlobalVariable*> &LLVMUsed) {
-  auto &TypeMap = TypeSystem.GetStructAnnotationMap();
+  auto &TypeMap = TypeSystem.GetPayloadAnnotationMap();
   vector<Metadata *> MDVals;
   MDVals.emplace_back(Uint32ToConstMD(kDxilPayloadAnnotationStructTag)); // Tag
   unsigned GVIdx = 0;
   for (auto it = TypeMap.begin(); it != TypeMap.end(); ++it, GVIdx++) {
     StructType *pStructType = const_cast<StructType *>(it->first);
-    DxilStructAnnotation *pA = it->second.get();
-    // Don't emit type annotation for empty struct.
-    if (pA->IsEmptyStruct())
-      continue;
+    DxilPayloadAnnotation *pA = it->second.get();
     // Emit struct type field annotations.
     Metadata *pMD = EmitDxrPayloadStructAnnotation(*pA);
 
@@ -854,7 +851,7 @@ void DxilMDHelper::EmitDxrPayloadAnnotations(DxilTypeSystem &TypeSystem, vector<
 }
 
 Metadata *
-DxilMDHelper::EmitDxrPayloadStructAnnotation(const DxilStructAnnotation &SA) {
+DxilMDHelper::EmitDxrPayloadStructAnnotation(const DxilPayloadAnnotation &SA) {
   vector<Metadata *> MDVals;
   MDVals.reserve(SA.GetNumFields());
   MDVals.resize(SA.GetNumFields());
@@ -867,7 +864,7 @@ DxilMDHelper::EmitDxrPayloadStructAnnotation(const DxilStructAnnotation &SA) {
 }
 
 void DxilMDHelper::LoadDXRPayloadFiledAnnoation(const MDOperand &MDO,
-                                                DxilStructAnnotation &SA) {
+                                                DxilPayloadAnnotation &SA) {
   IFTBOOL(MDO.get() != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
   const MDTuple *pTupleMD = dyn_cast<MDTuple>(MDO.get());
   IFTBOOL(pTupleMD != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
@@ -900,10 +897,10 @@ void DxilMDHelper::LoadDXRPayloadFiledAnnoation(const MDOperand &MDO,
         if (fieldBitmask & inOutMask) {
           const unsigned traceBits = fieldBitmask & inOutMask;
           if (traceBits & inBit)
-            SA.GetFieldAnnotation(i).AddPayloadFieldAnnotation(
+            SA.GetFieldAnnotation(i).AddPayloadFieldQualifier(
                 stage, hlsl::PayloadAccessTypes::In);
           if (traceBits & outBit)
-            SA.GetFieldAnnotation(i).AddPayloadFieldAnnotation(
+            SA.GetFieldAnnotation(i).AddPayloadFieldQualifier(
                 stage, hlsl::PayloadAccessTypes::Out);
         }
         // Every stage has 4 bits reserved, move to next stage.
@@ -925,11 +922,9 @@ void DxilMDHelper::LoadDXRPayloadAnnotationNode(const llvm::MDTuple &MDT,
   IFTBOOL(pGVType != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
 
   // Check if this struct is already part of the DXIL Type System
-  DxilStructAnnotation *pSA = TypeSystem.GetStructAnnotation(pGVType);
-  if (!pSA)
-    pSA = TypeSystem.AddStructAnnotation(pGVType);
+  DxilPayloadAnnotation *pPA = TypeSystem.AddPayloadAnnotation(pGVType);
 
-  LoadDXRPayloadFiledAnnoation(MDT.getOperand(2), *pSA);
+  LoadDXRPayloadFiledAnnoation(MDT.getOperand(2), *pPA);
 }
 
 void DxilMDHelper::LoadDXRPayloadAnnotations(DxilTypeSystem &TypeSystem) {
@@ -1220,21 +1215,16 @@ void DxilMDHelper::LoadDxilFieldAnnotation(const MDOperand &MDO, DxilFieldAnnota
 }
 
 Metadata *
-DxilMDHelper::EmitDxrPayloadFieldAnnotation(const DxilFieldAnnotation &FA) {
+DxilMDHelper::EmitDxrPayloadFieldAnnotation(const DxilPayloadFieldAnnotation &FA) {
   vector<Metadata *> MDVals; // Tag-Value list.
 
-  if (FA.HasFieldName()) {
-    MDVals.emplace_back(
-        Uint32ToConstMD(kDxilPayloadFieldAnnotationFieldNameTag));
-    MDVals.emplace_back(MDString::get(m_Ctx, FA.GetFieldName()));
-  }
+  MDVals.emplace_back(Uint32ToConstMD(kDxilPayloadFieldAnnotationFieldNameTag));
+  MDVals.emplace_back(MDString::get(m_Ctx, FA.GetFieldName()));
 
-  if (!FA.GetPayloadFieldAnnotation().AccessPerShader.empty()) {
-    MDVals.emplace_back(Uint32ToConstMD(kDxilPayloadFieldAnnotationAccessTag));
+  MDVals.emplace_back(Uint32ToConstMD(kDxilPayloadFieldAnnotationAccessTag));
 
-    auto mask = FA.GetPayloadFieldAnnotationBitMask();
-    MDVals.emplace_back(Uint32ToConstMD(mask));
-  }
+  auto mask = FA.GetPayloadFieldQualifierMask();
+  MDVals.emplace_back(Uint32ToConstMD(mask));
 
   return MDNode::get(m_Ctx, MDVals);
 }

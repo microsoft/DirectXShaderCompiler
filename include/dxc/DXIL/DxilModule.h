@@ -263,7 +263,6 @@ public:
   bool GetDisableOptimization() const;
   void SetAllResourcesBound(bool resourcesBound);
   bool GetAllResourcesBound() const;
-  bool GetPayloadQualifersUsed() const;
 
   // Intermediate options that do not make it to DXIL
   void SetLegacyResourceReservation(bool legacyResourceReservation);

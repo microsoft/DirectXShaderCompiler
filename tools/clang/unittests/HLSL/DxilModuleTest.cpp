@@ -585,7 +585,7 @@ TEST_F(DxilModuleTest, PayloadQualifier) {
   std::vector<LPCWSTR> arguments = { L"-validator-version", L"1.6", L"-allow-payload-qualifiers" };
   Compiler c(m_dllSupport);
 
-  LPCSTR shader = "struct Payload\n"
+  LPCSTR shader = "struct [[payload]] Payload\n"
                   "{\n"
                   "  double a : in(trace, closesthit, anyhit) : out(trace, miss, closesthit);\n"
                   "};\n\n"
@@ -594,37 +594,27 @@ TEST_F(DxilModuleTest, PayloadQualifier) {
 
   c.Compile(shader, L"lib_6_6", arguments, {});
 
-  unsigned numChecks = 0;
-
   DxilModule &DM = c.GetDxilModule();
   const DxilTypeSystem& DTS = DM.GetTypeSystem();
 
-  for (auto &p : DTS.GetStructAnnotationMap()) {
-    const DxilStructAnnotation &stAnnotation = *p.second;
-    for (unsigned i = 0; i < stAnnotation.GetNumFields(); ++i) {
-      const DxilFieldAnnotation &fieldAnnotation =
-          stAnnotation.GetFieldAnnotation(i);
-      const DxilPayloadAnnotation &payloadAnnotation =
-          fieldAnnotation.GetPayloadFieldAnnotation();
-      for (auto &p : payloadAnnotation.AccessPerShader) {
-        if (p.first == "trace" || p.first == "closesthit") {
-          numChecks++;
-          VERIFY_ARE_EQUAL(PayloadAccessTypes::InOut, p.second);
-          continue;
-        }
-        if (p.first == "miss") {
-          numChecks++;
-          VERIFY_ARE_EQUAL(PayloadAccessTypes::Out, p.second);
-          continue;
-        }
-        if (p.first == "anyhit") {
-          numChecks++;
-          VERIFY_ARE_EQUAL(PayloadAccessTypes::In, p.second);
-          continue;
-        }
-      }
+  for (auto &p : DTS.GetPayloadAnnotationMap()) {
+    const DxilPayloadAnnotation &plAnnotation = *p.second;
+    for (unsigned i = 0; i < plAnnotation.GetNumFields(); ++i) {
+      const DxilPayloadFieldAnnotation &fieldAnnotation =
+          plAnnotation.GetFieldAnnotation(i);
+      VERIFY_IS_TRUE(fieldAnnotation.HasAnnotations());
+      VERIFY_ARE_EQUAL(
+          PayloadAccessTypes::InOut,
+          fieldAnnotation.GetPayloadFieldQualifier("trace"));
+      VERIFY_ARE_EQUAL(
+          PayloadAccessTypes::InOut,
+          fieldAnnotation.GetPayloadFieldQualifier("closesthit"));
+      VERIFY_ARE_EQUAL(
+          PayloadAccessTypes::Out,
+          fieldAnnotation.GetPayloadFieldQualifier("miss"));
+      VERIFY_ARE_EQUAL(
+          PayloadAccessTypes::In,
+          fieldAnnotation.GetPayloadFieldQualifier("anyhit"));
     }
   }
-
-  VERIFY_ARE_EQUAL(numChecks, 4);
 }

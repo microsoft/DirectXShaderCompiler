@@ -201,6 +201,7 @@ private:
 
   // Type annotation related.
   unsigned ConstructStructAnnotation(DxilStructAnnotation *annotation,
+                                     DxilPayloadAnnotation* payloadAnnotation,
                                      const RecordDecl *RD,
                                      DxilTypeSystem &dxilTypeSys);
   unsigned AddTypeAnnotation(QualType Ty, DxilTypeSystem &dxilTypeSys,
@@ -867,6 +868,7 @@ static unsigned AlignBaseOffset(QualType Ty, unsigned baseOffset,
 }
 
 unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annotation,
+                                      DxilPayloadAnnotation* payloadAnnotation,
                                       const RecordDecl *RD,
                                       DxilTypeSystem &dxilTypeSys) {
   unsigned fieldIdx = 0;
@@ -967,11 +969,18 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
       } break;
       case hlsl::UnusualAnnotation::UA_PayloadAccessQualifier: {
         // Forward payload access qualifiers to fieldAnnotation. 
-        const hlsl::PayloadAccessQualifier* pq = cast<hlsl::PayloadAccessQualifier>(it);
-        for (StringRef shaderType : pq->ShaderStages) {
-          fieldAnnotation.AddPayloadFieldAnnotation(
-              shaderType,
-              pq->IsInput ? PayloadAccessTypes::In : PayloadAccessTypes::Out);
+        if (payloadAnnotation) {
+          const hlsl::PayloadAccessQualifier *pq =
+              cast<hlsl::PayloadAccessQualifier>(it);
+          for (StringRef shaderStage : pq->ShaderStages) {
+            DxilPayloadFieldAnnotation &payloadFieldAnnotation =
+                payloadAnnotation->GetFieldAnnotation(fieldIdx - 1);
+            payloadFieldAnnotation.AddPayloadFieldQualifier(
+                shaderStage,
+                pq->IsInput ? PayloadAccessTypes::In : PayloadAccessTypes::Out);
+            payloadFieldAnnotation.SetFieldName(fieldDecl->getName());
+            payloadFieldAnnotation.SetCompType(fieldAnnotation.GetCompType().GetKind());
+          }
         }
       } break;
       default:
@@ -1066,7 +1075,12 @@ unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
     DxilStructAnnotation *annotation = dxilTypeSys.AddStructAnnotation(ST,
       GetNumTemplateArgsForRecordDecl(RT->getDecl()));
 
-    return ConstructStructAnnotation(annotation, RD, dxilTypeSys);
+    DxilPayloadAnnotation *payloadAnnotation = nullptr;
+    if (RT->getDecl()->hasAttr<HLSLPayloadAttr>()) {
+      payloadAnnotation = dxilTypeSys.AddPayloadAnnotation(ST);
+    }
+
+    return ConstructStructAnnotation(annotation, payloadAnnotation, RD, dxilTypeSys);
   } else if (const RecordType *RT = dyn_cast<RecordType>(paramTy)) {
     // For this pointer.
     RecordDecl *RD = RT->getDecl();
@@ -1078,8 +1092,12 @@ unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
     }
     DxilStructAnnotation *annotation = dxilTypeSys.AddStructAnnotation(ST,
       GetNumTemplateArgsForRecordDecl(RT->getDecl()));
+    DxilPayloadAnnotation* payloadAnnotation = nullptr;
+    if (RT->getDecl()->hasAttr<HLSLPayloadAttr>()) {
+         payloadAnnotation = dxilTypeSys.AddPayloadAnnotation(ST);
+    }
 
-    return ConstructStructAnnotation(annotation, RD, dxilTypeSys);
+    return ConstructStructAnnotation(annotation, payloadAnnotation, RD, dxilTypeSys);
   } else if (IsHLSLResourceType(Ty)) {
     // Save result type info.
     AddTypeAnnotation(GetHLSLResourceResultType(Ty), dxilTypeSys, arrayEltSize);

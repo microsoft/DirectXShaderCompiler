@@ -48,6 +48,8 @@ class DxilSampler;
 class DxilTypeSystem;
 class DxilStructAnnotation;
 class DxilFieldAnnotation;
+class DxilPayloadAnnotation;
+class DxilPayloadFieldAnnotation;
 class DxilTemplateArgAnnotation;
 class DxilFunctionAnnotation;
 class DxilParameterAnnotation;
@@ -417,11 +419,11 @@ public:
 
   // DXR Payload Annotations 
   void EmitDxrPayloadAnnotations(DxilTypeSystem &TypeSystem, std::vector<llvm::GlobalVariable *> &LLVMUsed);
-  llvm::Metadata *EmitDxrPayloadStructAnnotation(const DxilStructAnnotation& SA);
-  llvm::Metadata *EmitDxrPayloadFieldAnnotation(const DxilFieldAnnotation &FA);
+  llvm::Metadata *EmitDxrPayloadStructAnnotation(const DxilPayloadAnnotation& SA);
+  llvm::Metadata *EmitDxrPayloadFieldAnnotation(const DxilPayloadFieldAnnotation &FA);
   void LoadDXRPayloadAnnotationNode(const llvm::MDTuple &MDT, DxilTypeSystem &TypeSystem);
   void LoadDXRPayloadAnnotations(DxilTypeSystem &TypeSystem);
-  void LoadDXRPayloadFiledAnnoation(const llvm::MDOperand& MDO, DxilStructAnnotation& SA);
+  void LoadDXRPayloadFiledAnnoation(const llvm::MDOperand& MDO, DxilPayloadAnnotation& SA);
 
   // Function props.
   llvm::MDTuple *EmitDxilFunctionProps(const hlsl::DxilFunctionProps *props,

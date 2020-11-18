@@ -1354,10 +1354,6 @@ private:
   }
 
   void UpdatePayloadInfo(const DxilModule &DM) {
-      const bool hasPayloadAnnotations = DM.GetPayloadQualifersUsed(); 
-      if (!hasPayloadAnnotations)
-          return;
-
       Module* module = DM.GetModule();
       assert(module);
       DataLayout DL(module);
@@ -1365,7 +1361,7 @@ private:
       const DxilTypeSystem& DTS = DM.GetTypeSystem();
       int TypeID = 0;
       int FieldID = 0;
-      for (const auto& entry : DTS.GetStructAnnotationMap()) {
+      for (const auto& entry : DTS.GetPayloadAnnotationMap()) {
         const StructType* type = entry.first;
         const auto& annotation = entry.second;
 
@@ -1409,8 +1405,8 @@ private:
             else 
                 fieldInfo.Type = 0xffffffffu; // indicates a struct type in the payload
             fieldInfo.Size = size;
-            fieldInfo.PayloadAccessQualifier = fieldAnnotation.GetPayloadFieldAnnotationBitMask();
-
+            fieldInfo.PayloadAccessQualifier = fieldAnnotation.GetPayloadFieldQualifierMask();
+            
             m_pPayloadFieldTable->Insert(fieldInfo);
 
             RuntimeDataPayloadTypeFieldAssociationInfo association; 
