@@ -550,9 +550,10 @@ void DxilRuntimeReflection_impl::InitializePayloads() {
     for (uint32_t j = 0; j < payloadFieldTableReader->GetCount(); ++j) {
       PayloadFieldReader fieldReader = payloadFieldTableReader->GetItem(j);
       uint32_t fieldId = fieldReader.GetFieldId();
-      if (std::find_if(association.begin(), association.end(), [=](auto pair) {
-            return pair.first == typeId && pair.second == fieldId;
-          }) != association.end()) {
+      if (std::find_if(association.begin(), association.end(),
+                       [=](std::pair<uint32_t, uint32_t> pair) {
+                         return pair.first == typeId && pair.second == fieldId;
+                       }) != association.end()) {
         AddString(fieldReader.GetName());
 
         DxilPayloadFieldDesc desc;
