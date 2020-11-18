@@ -708,11 +708,10 @@ public:
 class PayloadTypeFieldAssociationReader{
 private:
   const RuntimeDataPayloadTypeFieldAssociationInfo *m_AssociationInfo;
-  RuntimeDataContext *m_Context;
 
 public:
   PayloadTypeFieldAssociationReader(const RuntimeDataPayloadTypeFieldAssociationInfo *info, RuntimeDataContext *context)
-    : m_AssociationInfo(info), m_Context(context) {}
+    : m_AssociationInfo(info) {}
 
   uint32_t GetTypeId() const {
     return m_AssociationInfo ? m_AssociationInfo->TypeIndex : 0;
