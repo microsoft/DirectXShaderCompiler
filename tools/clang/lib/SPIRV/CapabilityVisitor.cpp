@@ -601,5 +601,17 @@ bool CapabilityVisitor::visit(SpirvDemoteToHelperInvocationEXT *inst) {
   return true;
 }
 
+bool CapabilityVisitor::visit(SpirvModule *, Visitor::Phase phase) {
+  // If there are no entry-points in the module (hence shaderModel is not set),
+  // add the Linkage capability. This allows library shader models to use
+  // 'export' attribute on functions, and generate an "incomplete/partial"
+  // SPIR-V binary.
+  if (phase == Visitor::Phase::Done &&
+      shaderModel == spv::ExecutionModel::Max) {
+    addCapability(spv::Capability::Linkage, SourceLocation());
+  }
+  return true;
+}
+
 } // end namespace spirv
 } // end namespace clang
