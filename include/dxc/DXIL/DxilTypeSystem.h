@@ -156,7 +156,7 @@ public:
 
   uint32_t GetPayloadFieldQualifierMask() const;
   void AddPayloadFieldQualifier(llvm::StringRef shaderStage, PayloadAccessTypes qualifier);
-  PayloadAccessTypes DxilPayloadFieldAnnotation::GetPayloadFieldQualifier(llvm::StringRef shaderStage) const;
+  PayloadAccessTypes GetPayloadFieldQualifier(llvm::StringRef shaderStage) const;
   bool HasAnnotations() const;
 
 private:
