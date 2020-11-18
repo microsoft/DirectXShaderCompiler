@@ -263,7 +263,7 @@ class FunctionTableReader;
 class SubobjectTableReader;
 class PayloadTypeTableReader;
 class PayloadFieldTableReader;
-class PayloadTypeFieldAssociationReader;
+class PayloadTypeFieldAssociationTableReader;
 
 struct RuntimeDataContext {
   StringTableReader *pStringTableReader;
@@ -272,9 +272,9 @@ struct RuntimeDataContext {
   ResourceTableReader *pResourceTableReader;
   FunctionTableReader *pFunctionTableReader;
   SubobjectTableReader *pSubobjectTableReader;
-  PayloadTypeTableReader* pPayloadTypeTableReader;
-  PayloadFieldTableReader* pPayloadFieldTableReader;
-  PayloadTypeFieldAssociationReader* pPayloadTypeFieldAssociationReader;
+  PayloadTypeTableReader *pPayloadTypeTableReader;
+  PayloadFieldTableReader *pPayloadFieldTableReader;
+  PayloadTypeFieldAssociationTableReader *pPayloadTypeFieldAssociationTableReader;
 };
 
 class ResourceReader {

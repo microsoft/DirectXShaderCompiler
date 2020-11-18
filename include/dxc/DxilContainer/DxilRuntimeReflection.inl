@@ -95,10 +95,12 @@ DxilRuntimeData::DxilRuntimeData() : DxilRuntimeData(nullptr, 0) {}
 DxilRuntimeData::DxilRuntimeData(const void *ptr, size_t size)
     : m_StringReader(), m_IndexTableReader(), m_RawBytesReader(),
       m_ResourceTableReader(), m_FunctionTableReader(),
-      m_SubobjectTableReader(), m_Context() {
+      m_SubobjectTableReader(), m_PayloadTypeTableReader(),
+      m_PayloadFieldTableReader(), m_PayloadTypeFieldAssociationTableReader(), m_Context() {
   m_Context = {&m_StringReader, &m_IndexTableReader, &m_RawBytesReader,
                &m_ResourceTableReader, &m_FunctionTableReader,
-               &m_SubobjectTableReader};
+               &m_SubobjectTableReader, &m_PayloadTypeTableReader, 
+               &m_PayloadFieldTableReader, &m_PayloadTypeFieldAssociationTableReader};
   m_ResourceTableReader.SetContext(&m_Context);
   m_FunctionTableReader.SetContext(&m_Context);
   m_SubobjectTableReader.SetContext(&m_Context);
@@ -540,9 +542,10 @@ void DxilRuntimeReflection_impl::InitializePayloads() {
     PayloadTypeReader typeReader = payloadTypeTableReader->GetItem(i);
     AddString(typeReader.GetName());
     uint32_t typeId = typeReader.GetTypeId();
-    uint32_t numFields =
-        std::count_if(association.begin(), association.end(),
-                      [=](auto pair) { return pair.first == typeId; });
+    uint32_t numFields = std::count_if(association.begin(), association.end(),
+                                       [=](std::pair<uint32_t, uint32_t> pair) {
+                                         return pair.first == typeId;
+                                       });
     m_PayloadFields[i].reserve(numFields);
     for (uint32_t j = 0; j < payloadFieldTableReader->GetCount(); ++j) {
       PayloadFieldReader fieldReader = payloadFieldTableReader->GetItem(j);
@@ -583,7 +586,7 @@ bool VerifyDxilPayloadDescMatches(const DxilLibraryDesc &a, const DxilLibraryDes
 
     for (uint32_t j = 0; j != b.NumPayloads; ++j) {
       DxilPayloadTypeDesc &payloadB = b.pPayloads[j];
-      if (lstrcmpW(payloadA.TypeName, payloadB.TypeName) == 0) {
+      if (std::wstring(payloadA.TypeName) == std::wstring(payloadB.TypeName)) {
         // Matching type names, these two payloads need deep verification.
         // For each payload pair that has equal names, check that fields match
         // and payload annotations are uniform in both types.
@@ -593,7 +596,7 @@ bool VerifyDxilPayloadDescMatches(const DxilLibraryDesc &a, const DxilLibraryDes
         for (uint32_t k = 0; k != payloadA.NumFields; ++k) {
           DxilPayloadFieldDesc &fieldA = payloadA.pFields[k];
           DxilPayloadFieldDesc &fieldB = payloadB.pFields[k];
-          if (lstrcmpW(fieldA.FieldName, fieldB.FieldName) != 0)
+          if (std::wstring(fieldA.FieldName) != std::wstring(fieldB.FieldName))
             return false;
           else {
             if (fieldA.Type == fieldB.Type && fieldA.Size == fieldB.Size &&
