@@ -7304,7 +7304,7 @@ void TranslateDefaultSubscript(CallInst *CI, HLOperationLowerHelper &helper,  HL
           // Invalid operations.
           Translated = false;
           dxilutil::EmitErrorOnInstruction(
-              userCall, "Atomic operation on typed buffer is not supported.");
+              userCall, "Typed resources used in atomic operations must have a scalar element type.");
           return;
         } break;
         default:
