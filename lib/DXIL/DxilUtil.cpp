@@ -430,6 +430,16 @@ bool SimplifyTrivialPHIs(BasicBlock *BB) {
   return Changed;
 }
 
+llvm::BasicBlock *GetSwitchSuccessorForCond(llvm::SwitchInst *Switch,llvm::ConstantInt *Cond) {
+  for (auto it = Switch->case_begin(), end = Switch->case_end(); it != end; it++) {
+    if (it.getCaseValue() == Cond) {
+      return it.getCaseSuccessor();
+      break;
+    }
+  }
+  return Switch->getDefaultDest();
+}
+
 static DbgValueInst *FindDbgValueInst(Value *Val) {
   if (auto *ValAsMD = LocalAsMetadata::getIfExists(Val)) {
     if (auto *ValMDAsVal = MetadataAsValue::getIfExists(Val->getContext(), ValAsMD)) {
@@ -540,18 +550,33 @@ Value *SelectOnOperation(llvm::Instruction *Inst, unsigned operandIdx) {
   return nullptr;
 }
 
-llvm::Instruction *FindInsertionPt(llvm::BasicBlock* BB) {
+llvm::Instruction *SkipAllocas(llvm::Instruction *I) {
+  // Step past any allocas:
+  while (I && (isa<AllocaInst>(I) || isa<DbgInfoIntrinsic>(I)))
+    I = I->getNextNode();
+  return I;
+}
+llvm::Instruction *FindAllocaInsertionPt(llvm::BasicBlock* BB) {
   return &*BB->getFirstInsertionPt();
 }
-llvm::Instruction *FindInsertionPt(llvm::Function* F) {
-  return FindInsertionPt(&F->getEntryBlock());
+llvm::Instruction *FindAllocaInsertionPt(llvm::Function* F) {
+  return FindAllocaInsertionPt(&F->getEntryBlock());
 }
-llvm::Instruction *FindInsertionPt(llvm::Instruction* I) {
+llvm::Instruction *FindAllocaInsertionPt(llvm::Instruction* I) {
   Function *F = I->getParent()->getParent();
   if (F)
-    return FindInsertionPt(F);
+    return FindAllocaInsertionPt(F);
   else // BB with no parent function
-    return FindInsertionPt(I->getParent());
+    return FindAllocaInsertionPt(I->getParent());
+}
+llvm::Instruction *FirstNonAllocaInsertionPt(llvm::Instruction* I) {
+  return SkipAllocas(FindAllocaInsertionPt(I));
+}
+llvm::Instruction *FirstNonAllocaInsertionPt(llvm::BasicBlock* BB) {
+  return SkipAllocas(FindAllocaInsertionPt(BB));
+}
+llvm::Instruction *FirstNonAllocaInsertionPt(llvm::Function* F) {
+  return SkipAllocas(FindAllocaInsertionPt(F));
 }
 
 static bool ConsumePrefix(StringRef &Str, StringRef Prefix) {

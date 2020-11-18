@@ -59,7 +59,7 @@ AllocaInst *createAllocaForPatch(Function &F, Type *Ty) {
 void copyIn(AllocaInst *temp, Value *arg, CallInst *CI, unsigned size) {
   if (size == 0)
     return;
-  // copy arg to temp befor CI.
+  // Copy arg to temp before CI.
   IRBuilder<> Builder(CI);
   Builder.CreateMemCpy(temp, arg, size, 1);
 }
@@ -67,7 +67,7 @@ void copyIn(AllocaInst *temp, Value *arg, CallInst *CI, unsigned size) {
 void copyOut(AllocaInst *temp, Value *arg, CallInst *CI, unsigned size) {
   if (size == 0)
     return;
-  // copy temp to arg after CI.
+  // Copy temp to arg after CI.
   IRBuilder<> Builder(CI->getNextNode());
   Builder.CreateMemCpy(arg, temp, size, 1);
 }
@@ -81,8 +81,18 @@ bool isPointerNeedToLower(Value *V, Type *HandleTy) {
     V = GEP->getPointerOperand();
   }
   CallInst *CI = dyn_cast<CallInst>(V);
-  if (!CI)
-    return false;
+  if (!CI) {
+    // If array of vector, we need a copy to handle vector to array in LowerTypePasses.
+    Type *Ty = V->getType();
+    if (Ty->isPointerTy())
+      Ty = Ty->getPointerElementType();
+    if (!Ty->isArrayTy())
+      return false;
+    while (Ty->isArrayTy()) {
+      Ty = Ty->getArrayElementType();
+    }
+    return Ty->isVectorTy();
+  }
   HLOpcodeGroup group = GetHLOpcodeGroup(CI->getCalledFunction());
   if (group != HLOpcodeGroup::HLSubscript)
     return false;
@@ -217,6 +227,7 @@ void ParameterCopyInCopyOut(hlsl::HLModule &HLM) {
       continue;
     unsigned size = DL.getTypeAllocSize(Ty);
     AllocaInst *temp = createAllocaForPatch(*CI->getParent()->getParent(), Ty);
+    // TODO: Adding lifetime intrinsics isn't easy here, have to analyze uses.
     if (data.bCopyIn)
       copyIn(temp, arg, CI, size);
     if (data.bCopyOut)
@@ -229,9 +240,6 @@ void ParameterCopyInCopyOut(hlsl::HLModule &HLM) {
 
 bool HLLegalizeParameter::runOnModule(Module &M) {
   HLModule &HLM = M.GetOrCreateHLModule();
-  // TODO: enable avoid copy for lib profile.
-  if (HLM.GetShaderModel()->IsLib())
-    return false;
 
   auto &typeSys = HLM.GetTypeSystem();
   const DataLayout &DL = M.getDataLayout();
@@ -282,6 +290,7 @@ bool HLLegalizeParameter::runOnModule(Module &M) {
 
 void HLLegalizeParameter::patchWriteOnInParam(Function &F, Argument &Arg,
                                               const DataLayout &DL) {
+  // TODO: Adding lifetime intrinsics isn't easy here, have to analyze uses.
   Type *Ty = Arg.getType()->getPointerElementType();
   AllocaInst *temp = createAllocaForPatch(F, Ty);
   Arg.replaceAllUsesWith(temp);
@@ -293,6 +302,7 @@ void HLLegalizeParameter::patchWriteOnInParam(Function &F, Argument &Arg,
 
 void HLLegalizeParameter::patchReadOnOutParam(Function &F, Argument &Arg,
                                               const DataLayout &DL) {
+  // TODO: Adding lifetime intrinsics isn't easy here, have to analyze uses.
   Type *Ty = Arg.getType()->getPointerElementType();
   AllocaInst *temp = createAllocaForPatch(F, Ty);
   Arg.replaceAllUsesWith(temp);

@@ -873,11 +873,10 @@ llvm::Value *CodeGenFunction::EmitLifetimeStart(uint64_t Size,
   // For now, only in optimized builds.
   if (CGM.getCodeGenOpts().OptimizationLevel == 0)
     return nullptr;
+
   // HLSL Change Begins
-  // Don't emit the intrinsic for hlsl for now.
-  // Enable this will require SROA_HLSL to support the intrinsic.
-  // Will do it later when support lifetime marker in HLSL.
-  if (CGM.getLangOpts().HLSL)
+  // Don't emit the intrinsic for hlsl for now unless it is explicitly enabled
+  if (!CGM.getCodeGenOpts().HLSLEnableLifetimeMarkers)
     return nullptr;
   // HLSL Change Ends
 

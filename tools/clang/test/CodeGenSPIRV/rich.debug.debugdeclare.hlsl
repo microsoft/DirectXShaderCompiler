@@ -9,16 +9,16 @@
 // CHECK: [[expr:%\d+]] = OpExtInst %void [[set]] DebugExpression
 // CHECK: [[color:%\d+]] = OpExtInst %void [[set]] DebugLocalVariable {{%\d+}} {{%\d+}} {{%\d+}} 28 20 {{%\d+}} FlagIsLocal 1
 
-// CHECK:        %color = OpFunctionParameter
-// CHECK-NEXT: {{%\d+}} = OpExtInst %void [[set]] DebugDeclare [[color]] %color [[expr]]
-// CHECK:      %condition = OpVariable
-// CHECK:                 OpStore %condition %false
-// CHECK-NEXT: {{%\d+}} = OpExtInst %void [[set]] DebugDeclare [[condition]] %condition [[expr]]
+// CHECK:     %color = OpFunctionParameter
+// CHECK:   {{%\d+}} = OpExtInst %void [[set]] DebugDeclare [[color]] %color [[expr]]
+// CHECK: %condition = OpVariable
+// CHECK:              OpStore %condition %false
+// CHECK:   {{%\d+}} = OpExtInst %void [[set]] DebugDeclare [[condition]] %condition [[expr]]
 
-// CHECK:            %x = OpFunctionParameter
-// CHECK:            %y = OpFunctionParameter
-// CHECK-NEXT: {{%\d+}} = OpExtInst %void [[set]] DebugDeclare [[x]] %x [[expr]]
-// CHECK-NEXT: {{%\d+}} = OpExtInst %void [[set]] DebugDeclare [[y]] %y [[expr]]
+// CHECK:       %x = OpFunctionParameter
+// CHECK:       %y = OpFunctionParameter
+// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugDeclare [[x]] %x [[expr]]
+// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugDeclare [[y]] %y [[expr]]
 
 void foo(int x, float y)
 {

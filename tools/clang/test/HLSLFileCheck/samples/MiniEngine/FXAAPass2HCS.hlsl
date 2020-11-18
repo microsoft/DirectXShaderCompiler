@@ -4,9 +4,9 @@
 // CHECK: bufferLoad
 // CHECK: textureLoad
 // CHECK: FAbs
-// CHECK: sampleLevel
 // CHECK: FMin
 // CHECK: FMax
+// CHECK: sampleLevel
 // CHECK: textureStore
 
 

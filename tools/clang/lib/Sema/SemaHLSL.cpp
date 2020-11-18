@@ -9672,10 +9672,10 @@ bool HLSLExternalSource::ValidateCast(
     OpLoc = sourceExpr->getExprLoc();
 
   QualType source = sourceExpr->getType();
-  TYPE_CONVERSION_REMARKS remarks;
+  TYPE_CONVERSION_REMARKS remarks = TYPE_CONVERSION_NONE;
+
   if (!CanConvert(OpLoc, sourceExpr, target, explicitConversion, &remarks, standard))
   {
-    const bool IsOutputParameter = false;
 
     //
     // Check whether the lack of explicit-ness matters.
@@ -9696,6 +9696,13 @@ bool HLSLExternalSource::ValidateCast(
 
     if (!suppressErrors)
     {
+      bool IsOutputParameter = false;
+      if (clang::DeclRefExpr *OutFrom = dyn_cast<clang::DeclRefExpr>(sourceExpr)) {
+        if (ParmVarDecl *Param = dyn_cast<ParmVarDecl>(OutFrom->getDecl())) {
+          IsOutputParameter = Param->isModifierOut();
+        }
+      }
+
       m_sema->Diag(OpLoc, diag::err_hlsl_cannot_convert)
         << explicitForDiagnostics << IsOutputParameter << source << target;
     }

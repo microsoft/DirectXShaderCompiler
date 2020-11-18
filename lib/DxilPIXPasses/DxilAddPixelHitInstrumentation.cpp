@@ -100,7 +100,7 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M) {
   CallInst *HandleForUAV;
   {
     IRBuilder<> Builder(
-        dxilutil::FindInsertionPt(DM.GetEntryFunction()));
+        dxilutil::FirstNonAllocaInsertionPt(DM.GetEntryFunction()));
 
     unsigned int UAVResourceHandle =
         static_cast<unsigned int>(DM.GetUAVs().size());

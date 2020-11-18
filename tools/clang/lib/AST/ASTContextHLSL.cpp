@@ -838,8 +838,10 @@ hlsl::DeclareConstantBufferViewType(clang::ASTContext &context, bool bTBuf) {
   // template<typename T> ConstantBuffer { int h; }
   DeclContext *DC = context.getTranslationUnitDecl();
 
-  BuiltinTypeDeclBuilder typeDeclBuilder(DC, bTBuf ? "TextureBuffer"
-                                                   : "ConstantBuffer");
+  BuiltinTypeDeclBuilder typeDeclBuilder(DC,
+                                         bTBuf ? "TextureBuffer"
+                                               : "ConstantBuffer",
+                                         TagDecl::TagKind::TTK_Struct);
   (void)typeDeclBuilder.addTypeTemplateParam("T");
   typeDeclBuilder.startDefinition();
   CXXRecordDecl *templateRecordDecl = typeDeclBuilder.getRecordDecl();

@@ -31,6 +31,7 @@
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
 #include "llvm/ADT/APSInt.h"
 
@@ -6044,8 +6045,8 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
   IRBuilder<> Builder(user);
   if (CallInst *CI = dyn_cast<CallInst>(user)) {
     HLOpcodeGroup group = GetHLOpcodeGroupByName(CI->getCalledFunction());
-    unsigned opcode = GetHLOpcode(CI);
     if (group == HLOpcodeGroup::HLMatLoadStore) {
+      unsigned opcode = GetHLOpcode(CI);
       HLMatLoadStoreOpcode matOp = static_cast<HLMatLoadStoreOpcode>(opcode);
       bool colMajor = matOp == HLMatLoadStoreOpcode::ColMatLoad;
       DXASSERT(matOp == HLMatLoadStoreOpcode::ColMatLoad ||
@@ -6061,6 +6062,7 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
       dxilutil::TryScatterDebugValueToVectorElements(newLd);
       CI->eraseFromParent();
     } else if (group == HLOpcodeGroup::HLSubscript) {
+      unsigned opcode = GetHLOpcode(CI);
       HLSubscriptOpcode subOp = static_cast<HLSubscriptOpcode>(opcode);
       Value *basePtr = CI->getArgOperand(HLOperandIndex::kMatSubscriptMatOpIdx);
       HLMatrixType MatTy = HLMatrixType::cast(basePtr->getType()->getPointerElementType());
@@ -6202,11 +6204,14 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
       }
 
       CI->eraseFromParent();
-    } else if (group == HLOpcodeGroup::HLIntrinsic) {
-      // FIXME: This case is hit when using built-in structures in constant
-      //        buffers passed directly to an intrinsic, such as:
-      //        RayDesc from cbuffer passed to TraceRay.
-      DXASSERT(0, "not implemented yet");
+    } else if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(user)) {
+      if( II->getIntrinsicID() == Intrinsic::lifetime_start ||
+          II->getIntrinsicID() == Intrinsic::lifetime_end ) {
+        DXASSERT(II->use_empty(), "lifetime intrinsic can't have uses");
+        II->eraseFromParent();
+      } else {
+        DXASSERT(0, "not implemented yet");
+      }
     } else {
       DXASSERT(0, "not implemented yet");
     }
@@ -6532,7 +6537,7 @@ static ResRetValueArray GenerateTypedBufferLoad(
 
 static AllocaInst* SpillValuesToArrayAlloca(ArrayRef<Value*> Values, IRBuilder<>& Builder) {
   DXASSERT_NOMSG(!Values.empty());
-  IRBuilder<> AllocaBuilder(dxilutil::FindInsertionPt(Builder.GetInsertPoint()));
+  IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(Builder.GetInsertPoint()));
   AllocaInst* ArrayAlloca = AllocaBuilder.CreateAlloca(ArrayType::get(Values[0]->getType(), Values.size()));
   for (unsigned i = 0; i < Values.size(); ++i) {
     Value* ArrayElemPtr = Builder.CreateGEP(ArrayAlloca, { Builder.getInt32(0), Builder.getInt32(i) });
@@ -7583,7 +7588,7 @@ static Instruction *BitCastValueOrPtr(Value* V, Instruction *Insert, Type *Ty, b
     return cast<Instruction>(Builder.CreateBitCast(V, Ty, Name));
   } else {
     // If value, we have to alloca, store to bitcast ptr, and load
-    IRBuilder<> AllocaBuilder(dxilutil::FindInsertionPt(Insert));
+    IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(Insert));
     Type *allocaTy = bOrigAllocaTy ? V->getType() : Ty;
     Type *otherTy = bOrigAllocaTy ? Ty : V->getType();
     Instruction *allocaInst = AllocaBuilder.CreateAlloca(allocaTy);

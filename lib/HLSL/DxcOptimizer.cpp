@@ -109,6 +109,8 @@ HRESULT SetupRegistryPassForHLSL() {
     initializeDxilLoopDeletionPass(Registry);
     initializeDxilLoopUnrollPass(Registry);
     initializeDxilLowerCreateHandleForLibPass(Registry);
+    initializeDxilNoOptLegalizePass(Registry);
+    initializeDxilNoOptSimplifyInstructionsPass(Registry);
     initializeDxilPrecisePropagatePassPass(Registry);
     initializeDxilPreserveAllOutputsPass(Registry);
     initializeDxilPreserveToSelectPass(Registry);

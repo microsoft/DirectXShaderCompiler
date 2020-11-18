@@ -32,8 +32,10 @@ SpirvBuilder::SpirvBuilder(ASTContext &ac, SpirvContext &ctx,
 SpirvFunction *SpirvBuilder::createSpirvFunction(QualType returnType,
                                                  SourceLocation loc,
                                                  llvm::StringRef name,
-                                                 bool isPrecise) {
-  auto *fn = new (context) SpirvFunction(returnType, loc, name, isPrecise);
+                                                 bool isPrecise,
+                                                 bool isNoInline) {
+  auto *fn =
+      new (context) SpirvFunction(returnType, loc, name, isPrecise, isNoInline);
   mod->addFunction(fn);
   return fn;
 }
@@ -41,7 +43,7 @@ SpirvFunction *SpirvBuilder::createSpirvFunction(QualType returnType,
 SpirvFunction *SpirvBuilder::beginFunction(QualType returnType,
                                            SourceLocation loc,
                                            llvm::StringRef funcName,
-                                           bool isPrecise,
+                                           bool isPrecise, bool isNoInline,
                                            SpirvFunction *func) {
   assert(!function && "found nested function");
   if (func) {
@@ -50,8 +52,10 @@ SpirvFunction *SpirvBuilder::beginFunction(QualType returnType,
     function->setSourceLocation(loc);
     function->setFunctionName(funcName);
     function->setPrecise(isPrecise);
+    function->setNoInline(isNoInline);
   } else {
-    function = createSpirvFunction(returnType, loc, funcName, isPrecise);
+    function =
+        createSpirvFunction(returnType, loc, funcName, isPrecise, isNoInline);
   }
 
   return function;
@@ -1141,6 +1145,13 @@ void SpirvBuilder::decoratePerTaskNV(SpirvInstruction *target, uint32_t offset,
   mod->addDecoration(decor);
   decor = new (context)
       SpirvDecoration(srcLoc, target, spv::Decoration::Offset, {offset});
+  mod->addDecoration(decor);
+}
+
+void SpirvBuilder::decorateCoherent(SpirvInstruction *target,
+                                    SourceLocation srcLoc) {
+  auto *decor =
+      new (context) SpirvDecoration(srcLoc, target, spv::Decoration::Coherent);
   mod->addDecoration(decor);
 }
 

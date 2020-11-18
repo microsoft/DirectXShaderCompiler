@@ -69,11 +69,11 @@ uint32_t getNumBindingsUsedByResourceType(QualType type) {
 
   // Once we remove the arrayness, we expect the given type to be either a
   // resource OR a structure that only contains resources.
-  assert(hlsl::IsHLSLResourceType(type) || isResourceOnlyStructure(type));
+  assert(isResourceType(type) || isResourceOnlyStructure(type));
 
   // In the case of a resource, each resource takes 1 binding slot, so in total
   // it consumes: 1 * arrayFactor.
-  if (hlsl::IsHLSLResourceType(type))
+  if (isResourceType(type))
     return arrayFactor;
 
   // In the case of a struct of resources, we need to sum up the number of
@@ -229,10 +229,11 @@ bool shouldSkipInStructLayout(const Decl *decl) {
       return true;
 
     // Other resource types
-    if (const auto *valueDecl = dyn_cast<ValueDecl>(decl))
-      if (isResourceType(valueDecl) ||
-          isResourceOnlyStructure((valueDecl->getType())))
+    if (const auto *valueDecl = dyn_cast<ValueDecl>(decl)) {
+      const auto declType = valueDecl->getType();
+      if (isResourceType(declType) || isResourceOnlyStructure(declType))
         return true;
+    }
   }
 
   return false;
@@ -791,7 +792,7 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
   const auto rule = getLayoutRuleForExternVar(type, spirvOptions);
   const auto loc = var->getLocation();
 
-  if (!isGroupShared && !isResourceType(var) &&
+  if (!isGroupShared && !isResourceType(type) &&
       !isResourceOnlyStructure(type)) {
 
     // We currently cannot support global structures that contain both resources
@@ -1090,7 +1091,14 @@ SpirvVariable *DeclResultIdMapper::createCTBuffer(const VarDecl *decl) {
 
 SpirvVariable *DeclResultIdMapper::createPushConstant(const VarDecl *decl) {
   // The front-end errors out if non-struct type push constant is used.
-  const auto *recordType = decl->getType()->getAs<RecordType>();
+  const QualType type = decl->getType();
+  const auto *recordType = type->getAs<RecordType>();
+
+  if (isConstantBuffer(type)) {
+    // Get the templated type for ConstantBuffer.
+    recordType = hlsl::GetHLSLResourceResultType(type)->getAs<RecordType>();
+  }
+
   assert(recordType);
 
   const std::string structName =
@@ -1201,13 +1209,15 @@ SpirvFunction *DeclResultIdMapper::getOrRegisterFn(const FunctionDecl *fn) {
   (void)getTypeAndCreateCounterForPotentialAliasVar(fn, &isAlias);
 
   const bool isPrecise = fn->hasAttr<HLSLPreciseAttr>();
+  const bool isNoInline = fn->hasAttr<NoInlineAttr>();
   // Note: we do not need to worry about function parameter types at this point
   // as this is used when function declarations are seen. When function
   // definition is seen, the parameter types will be set properly and take into
   // account whether the function is a member function of a class/struct (in
   // which case a 'this' parameter is added at the beginnig).
-  SpirvFunction *spirvFunction = spvBuilder.createSpirvFunction(
-      fn->getReturnType(), fn->getLocation(), fn->getName(), isPrecise);
+  SpirvFunction *spirvFunction =
+      spvBuilder.createSpirvFunction(fn->getReturnType(), fn->getLocation(),
+                                     fn->getName(), isPrecise, isNoInline);
 
   // No need to dereference to get the pointer. Function returns that are
   // stand-alone aliases are already pointers to values. All other cases should
@@ -1961,6 +1971,19 @@ bool DeclResultIdMapper::decorateResourceBindings() {
               bindingSet.useNextBinding(defaultSpace, numBindingsToUse,
                                         bindingShift));
         }
+      }
+    }
+  }
+
+  return true;
+}
+
+bool DeclResultIdMapper::decorateResourceCoherent() {
+  for (const auto &var : resourceVars) {
+    if (const auto *decl = var.getDeclaration()) {
+      if (decl->getAttr<HLSLGloballyCoherentAttr>()) {
+        spvBuilder.decorateCoherent(var.getSpirvInstr(),
+                                    var.getSourceLocation());
       }
     }
   }
@@ -3627,7 +3650,7 @@ void DeclResultIdMapper::tryToCreateImplicitConstVar(const ValueDecl *decl) {
     return;
 
   APValue *val = varDecl->evaluateValue();
-  if(!val)
+  if (!val)
     return;
 
   SpirvInstruction *constVal =

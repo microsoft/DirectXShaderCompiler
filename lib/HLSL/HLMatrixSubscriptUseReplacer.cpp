@@ -139,7 +139,7 @@ Value *HLMatrixSubscriptUseReplacer::tryGetScalarIndex(Value *SubIdxVal, IRBuild
   // We need to dynamically index into the level 1 element indices
   if (LazyTempElemIndicesArrayAlloca == nullptr) {
     // The level 2 index is dynamic, use it to index a temporary array of the level 1 indices.
-    IRBuilder<> AllocaBuilder(dxilutil::FindInsertionPt(Builder.GetInsertPoint()));
+    IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(Builder.GetInsertPoint()));
     ArrayType *ArrayTy = ArrayType::get(AllocaBuilder.getInt32Ty(), ElemIndices.size());
     LazyTempElemIndicesArrayAlloca = AllocaBuilder.CreateAlloca(ArrayTy);
   }
@@ -180,7 +180,7 @@ void HLMatrixSubscriptUseReplacer::cacheLoweredMatrix(bool ForDynamicIndexing, I
   // Lazily create the temporary array alloca
   if (LazyTempElemArrayAlloca == nullptr) {
     ArrayType *TempElemArrayTy = ArrayType::get(MatVecTy->getElementType(), MatVecTy->getNumElements());
-    IRBuilder<> AllocaBuilder(dxilutil::FindInsertionPt(Builder.GetInsertPoint()));
+    IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(Builder.GetInsertPoint()));
     LazyTempElemArrayAlloca = AllocaBuilder.CreateAlloca(TempElemArrayTy);
   }
 

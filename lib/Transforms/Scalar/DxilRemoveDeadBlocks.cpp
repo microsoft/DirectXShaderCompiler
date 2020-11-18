@@ -19,6 +19,7 @@
 #include "llvm/Analysis/DxilValueCache.h"
 
 #include "dxc/DXIL/DxilMetadataHelper.h"
+#include "dxc/DXIL/DxilUtil.h"
 
 #include <unordered_set>
 
@@ -33,7 +34,6 @@ static void RemoveIncomingValueFrom(BasicBlock *SuccBB, BasicBlock *BB) {
       break;
   }
 }
-
 
 static bool EraseDeadBlocks(Function &F, DxilValueCache *DVC) {
   std::unordered_set<BasicBlock *> Seen;
@@ -88,8 +88,33 @@ static bool EraseDeadBlocks(Function &F, DxilValueCache *DVC) {
       }
     }
     else if (SwitchInst *Switch = dyn_cast<SwitchInst>(BB->getTerminator())) {
-      for (unsigned i = 0; i < Switch->getNumSuccessors(); i++) {
-        Add(Switch->getSuccessor(i));
+      Value *Cond = Switch->getCondition();
+      BasicBlock *Succ = nullptr;
+      if (ConstantInt *ConstCond = DVC->GetConstInt(Cond)) {
+        Succ = hlsl::dxilutil::GetSwitchSuccessorForCond(Switch, ConstCond);
+      }
+
+      if (Succ) {
+        Add(Succ);
+
+        BranchInst *NewBr = BranchInst::Create(Succ, BB);
+        hlsl::DxilMDHelper::CopyMetadata(*NewBr, *Switch);
+
+        for (unsigned i = 0; i < Switch->getNumSuccessors(); i++) {
+          BasicBlock *NotSucc = Switch->getSuccessor(i);
+          if (NotSucc != Succ) {
+            RemoveIncomingValueFrom(NotSucc, BB);
+          }
+        }
+
+        Switch->eraseFromParent();
+        Switch = nullptr;
+        Changed = true;
+      }
+      else {
+        for (unsigned i = 0; i < Switch->getNumSuccessors(); i++) {
+          Add(Switch->getSuccessor(i));
+        }
       }
     }
   }
@@ -144,6 +169,8 @@ static bool EraseDeadBlocks(Function &F, DxilValueCache *DVC) {
   for (BasicBlock *BB : DeadBlocks) {
     BB->eraseFromParent();
   }
+
+  DVC->ResetUnknowns();
 
   return true;
 }

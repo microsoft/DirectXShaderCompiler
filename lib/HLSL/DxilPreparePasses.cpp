@@ -28,6 +28,7 @@
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/ADT/BitVector.h"
 #include "llvm/Pass.h"
@@ -363,7 +364,7 @@ public:
     }
   }
 
-  void patchDxil_1_6(Module &M, hlsl::OP *hlslOP) {
+  void patchDxil_1_6(Module &M, hlsl::OP *hlslOP, unsigned ValMajor, unsigned ValMinor) {
     for (auto it : hlslOP->GetOpFuncList(DXIL::OpCode::AnnotateHandle)) {
       Function *F = it.second;
       if (!F)
@@ -378,18 +379,108 @@ public:
     }
   }
 
+  // Replace llvm.lifetime.start/.end intrinsics with undef or zeroinitializer
+  // stores (for earlier validator versions) unless the pointer is a global
+  // that has an initializer.
+  // This works around losing scoping information in earlier shader models
+  // that do not support the intrinsics natively.
+  void patchLifetimeIntrinsics(Module &M, unsigned ValMajor, unsigned ValMinor, bool forceZeroStoreLifetimes) {
+    // Get the declarations. This may introduce them if there were none before.
+    Value *StartDecl = Intrinsic::getDeclaration(&M, Intrinsic::lifetime_start);
+    Value *EndDecl   = Intrinsic::getDeclaration(&M, Intrinsic::lifetime_end);
+
+    // Collect all calls to both intrinsics.
+    std::vector<CallInst*> intrinsicCalls;
+    for (Use &U : StartDecl->uses()) {
+      // All users must be call instructions.
+      CallInst *CI = dyn_cast<CallInst>(U.getUser());
+      DXASSERT(CI,
+               "Expected user of lifetime.start intrinsic to be a CallInst");
+      intrinsicCalls.push_back(CI);
+    }
+    for (Use &U : EndDecl->uses()) {
+      // All users must be call instructions.
+      CallInst *CI = dyn_cast<CallInst>(U.getUser());
+      DXASSERT(CI, "Expected user of lifetime.end intrinsic to be a CallInst");
+      intrinsicCalls.push_back(CI);
+    }
+
+    // Replace each intrinsic with an undef store.
+    for (CallInst *CI : intrinsicCalls) {
+      // Find the corresponding pointer (bitcast from alloca, global value, an
+      // argument, ...).
+      Value *voidPtr = CI->getArgOperand(1);
+      DXASSERT(voidPtr->getType()->isPointerTy() &&
+               voidPtr->getType()->getPointerElementType()->isIntegerTy(8),
+               "Expected operand of lifetime intrinsic to be of type i8*" );
+
+      Value *ptr = nullptr;
+      if (ConstantExpr *CE = dyn_cast<ConstantExpr>(voidPtr)) {
+        // This can happen if a local variable/array is promoted to a constant
+        // global. In this case we must not introduce a store, since that would
+        // overwrite the constant values in the initializer. Thus, we simply
+        // remove the intrinsic.
+        DXASSERT(CE->getOpcode() == Instruction::BitCast,
+                 "expected operand of lifetime intrinsic to be a bitcast");
+      } else {
+        // Otherwise, it must be a normal bitcast.
+        DXASSERT(isa<BitCastInst>(voidPtr),
+                 "Expected operand of lifetime intrinsic to be a bitcast");
+        BitCastInst *BC = cast<BitCastInst>(voidPtr);
+        ptr = BC->getOperand(0);
+
+        // If the original pointer is a global with initializer, do not replace
+        // the intrinsic with a store.
+        if (GlobalVariable *GV = dyn_cast<GlobalVariable>(ptr))
+          if (GV->hasInitializer() || GV->isExternallyInitialized())
+            ptr = nullptr;
+      }
+
+      if (ptr) {
+        // Determine the type to use when storing undef.
+        DXASSERT(ptr->getType()->isPointerTy(),
+                 "Expected type of operand of lifetime intrinsic bitcast operand to be a pointer");
+        Type *T = ptr->getType()->getPointerElementType();
+
+        // Store undef at the location of the start/end intrinsic.
+        // If we are targeting validator version < 6.6 we cannot store undef
+        // since it causes a validation error. As a workaround we store 0, which
+        // achieves mostly the same as storing undef but can cause overhead in
+        // some situations.
+        // We also allow to force zeroinitializer through a flag.
+        if (forceZeroStoreLifetimes || ValMajor < 1 || (ValMajor == 1 && ValMinor < 6))
+          IRBuilder<>(CI).CreateStore(Constant::getNullValue(T), ptr);
+        else
+          IRBuilder<>(CI).CreateStore(UndefValue::get(T), ptr);
+      }
+
+      // Erase the intrinsic call and, if it has no uses anymore, the bitcast as
+      // well.
+      DXASSERT_NOMSG(CI->use_empty());
+      CI->eraseFromParent();
+
+      // Erase the bitcast inst if it is not a ConstantExpr.
+      if (BitCastInst *BC = dyn_cast<BitCastInst>(voidPtr))
+        if (BC->use_empty())
+          BC->eraseFromParent();
+    }
+
+    // Erase the intrinsic declarations.
+    DXASSERT_NOMSG(StartDecl->use_empty());
+    DXASSERT_NOMSG(EndDecl->use_empty());
+    cast<Function>(StartDecl)->eraseFromParent();
+    cast<Function>(EndDecl)->eraseFromParent();
+  }
+
   bool runOnModule(Module &M) override {
     if (M.HasDxilModule()) {
       DxilModule &DM = M.GetDxilModule();
       unsigned ValMajor = 0;
       unsigned ValMinor = 0;
-      M.GetDxilModule().GetValidatorVersion(ValMajor, ValMinor);
+      DM.GetValidatorVersion(ValMajor, ValMinor);
       unsigned DxilMajor = 0;
       unsigned DxilMinor = 0;
-      M.GetDxilModule().GetDxilVersion(DxilMajor, DxilMinor);
-
-      // Move all allocas to the top of the entry block
-      ConsolidateAllocas(M);
+      DM.GetDxilVersion(DxilMajor, DxilMinor);
 
       bool IsLib = DM.GetShaderModel()->IsLib();
       // Skip validation patch for lib.
@@ -404,10 +495,16 @@ public:
           MarkUsedSignatureElements(DM.GetPatchConstantFunction(), DM);
       }
 
+      // Replace lifetime intrinsics if requested or necessary.
+      const bool forceZeroStoreLifetimes = DM.GetForceZeroStoreLifetimes();
+      if (forceZeroStoreLifetimes || DxilMinor < 6) {
+        patchLifetimeIntrinsics(M, ValMajor, ValMinor, forceZeroStoreLifetimes);
+      }
+
       // Remove store undef output.
-      hlsl::OP *hlslOP = M.GetDxilModule().GetOP();
+      hlsl::OP *hlslOP = DM.GetOP();
       if (DxilMinor < 6) {
-        patchDxil_1_6(M, hlslOP);
+        patchDxil_1_6(M, hlslOP, ValMajor, ValMinor);
       }
       RemoveStoreUndefOutput(M, hlslOP);
 
@@ -442,6 +539,9 @@ public:
         AddFunctionAnnotationForInitializers(M, DM);
       }
 
+      // Fix DIExpression fragments that cover whole variables
+      LegalizeDbgFragments(M);
+
       return true;
     }
 
@@ -449,22 +549,6 @@ public:
   }
 
 private:
-  void ConsolidateAllocas(Module &M) {
-    for (Function &F : M) {
-      if (F.isDeclaration())
-        continue;
-      Instruction *insertPt = nullptr;
-      for (llvm::Instruction &I : llvm::inst_range(&F)) {
-        if (!insertPt) {
-          if (!isa<AllocaInst>(I) && !isa<DbgInfoIntrinsic>(I))
-            insertPt = &I;
-        } else if (isa<AllocaInst>(I)) {
-          I.moveBefore(insertPt);
-        }
-      }
-    }
-  }
-
   void RemoveUnusedStaticGlobal(Module &M) {
     // Remove unused internal global.
     std::vector<GlobalVariable *> staticGVs;
@@ -497,6 +581,65 @@ private:
         }
         GV->eraseFromParent();
       }
+    }
+  }
+
+  static bool BitPieceCoversEntireVar(DIExpression *expr, DILocalVariable *var, DITypeIdentifierMap &TypeIdentifierMap) {
+    if (expr->isBitPiece()) {
+      DIType *ty = var->getType().resolve(TypeIdentifierMap);
+      return expr->getBitPieceOffset() == 0 && expr->getBitPieceSize() == ty->getSizeInBits();
+    }
+    return false;
+  }
+
+  static void LegalizeDbgFragmentsForDbgIntrinsic(Function *f, DITypeIdentifierMap &TypeIdentifierMap) {
+    Intrinsic::ID intrinsic = f->getIntrinsicID();
+
+    DIBuilder dib(*f->getParent());
+    if (intrinsic == Intrinsic::dbg_value) {
+      for (auto it = f->user_begin(), end = f->user_end(); it != end;) {
+        User *u = *(it++);
+        DbgValueInst *di = cast<DbgValueInst>(u);
+        Value *value = di->getValue();
+        if (!value) {
+          di->eraseFromParent();
+          continue;
+        }
+        DIExpression *expr = di->getExpression();
+        DILocalVariable *var = di->getVariable();
+        if (BitPieceCoversEntireVar(expr, var, TypeIdentifierMap)) {
+          dib.insertDbgValueIntrinsic(value, 0, var, DIExpression::get(di->getContext(), {}), di->getDebugLoc(), di);
+          di->eraseFromParent();
+        }
+      }
+    }
+    else if (intrinsic == Intrinsic::dbg_declare) {
+      for (auto it = f->user_begin(), end = f->user_end(); it != end;) {
+        User *u = *(it++);
+        DbgDeclareInst *di = cast<DbgDeclareInst>(u);
+        Value *addr = di->getAddress();
+        if (!addr) {
+          di->eraseFromParent();
+          continue;
+        }
+        DIExpression *expr = di->getExpression();
+        DILocalVariable *var = di->getVariable();
+        if (BitPieceCoversEntireVar(expr, var, TypeIdentifierMap)) {
+          dib.insertDeclare(addr, var, DIExpression::get(di->getContext(), {}), di->getDebugLoc(), di);
+          di->eraseFromParent();
+        }
+      }
+    }
+  }
+
+  static void LegalizeDbgFragments(Module &M) {
+    DITypeIdentifierMap TypeIdentifierMap;
+
+    if (Function *f = M.getFunction(Intrinsic::getName(Intrinsic::dbg_value))) {
+      LegalizeDbgFragmentsForDbgIntrinsic(f, TypeIdentifierMap);
+    }
+    if (Function *f = M.getFunction(Intrinsic::getName(Intrinsic::dbg_declare))) {
+      LegalizeDbgFragmentsForDbgIntrinsic(f, TypeIdentifierMap);
     }
   }
 
@@ -671,7 +814,7 @@ private:
           Function *F = CI->getParent()->getParent();
           ICmpInst *Cmp = DxBreakCmpMap.lookup(F);
           if (!Cmp) {
-            Instruction *IP = dxilutil::FindInsertionPt(F);
+            Instruction *IP = dxilutil::FindAllocaInsertionPt(F);
             LoadInst *LI = new LoadInst(Gep, nullptr, false, IP);
             Cmp = new ICmpInst(IP, ICmpInst::ICMP_EQ, LI, llvm::ConstantInt::get(i32Ty,0));
             DxBreakCmpMap[F] = Cmp;

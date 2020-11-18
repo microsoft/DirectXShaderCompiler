@@ -156,7 +156,7 @@ bool runCompilerWithSpirvGeneration(const llvm::StringRef inputFilePath,
 
     bool requires_opt = false;
     for (const auto &arg : rest)
-      if (arg == L"-O3" || arg.substr(0, 8) == L"-Oconfig")
+      if (arg == L"-O3" || arg == L"-O0" || arg.substr(0, 8) == L"-Oconfig")
         requires_opt = true;
 
     std::vector<LPCWSTR> flags;

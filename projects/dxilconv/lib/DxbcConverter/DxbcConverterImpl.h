@@ -602,7 +602,6 @@ protected:
   Value *CreateHandle(DxilResourceBase::Class Class, unsigned RangeID, Value *pIndex, bool bNonUniformIndex);
 
   void Optimize();
-  void AddOptimizationPasses(PassManagerBase &PassManager, unsigned OptLevel);
 
   void CheckDxbcString(const char *pStr, const void *pMaxPtrInclusive);
 

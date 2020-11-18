@@ -170,7 +170,6 @@ int uncond_if_else(uint i, int j)
 //CHECK: define i32 @"\01?entry_memcpy@@YAHHH@Z"(i32 %i, i32 %ct)
 //CHECK: call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32
 //CHECK: extractvalue %dx.types.CBufRet.i32
-//CHECK: icmp eq i32
 //CHECK: phi i32
 //CHECK: ret i32
 // This should allow the complete RAUW replacement
@@ -181,7 +180,7 @@ int entry_memcpy(int i, int ct)
 
   istruct = istructs[i];
 
-  int ival;
+  int ival = 0;
 
   for (; i < ct; ++i)
     ival += istruct.ival;

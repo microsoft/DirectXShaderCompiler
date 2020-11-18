@@ -202,14 +202,16 @@ void EmitVisitor::emitDebugNameForInstruction(uint32_t resultId,
 }
 
 void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc,
-                                std::vector<uint32_t> *section) {
+                                std::vector<uint32_t> *section,
+                                bool isDebugScope) {
   if (!spvOptions.debugInfoLine)
     return;
 
-  // Technically entry function wrappers do not exist in HLSL. They
-  // are just created by DXC. We do not want to emit line information
-  // for their instructions.
-  if (inEntryFunctionWrapper)
+  // Technically entry function wrappers do not exist in HLSL. They are just
+  // created by DXC. We do not want to emit line information for their
+  // instructions. To prevent spirv-opt from removing all debug info, we emit
+  // at least a single OpLine to specify the end of the shader.
+  if (inEntryFunctionWrapper && op != spv::Op::OpReturn)
     return;
 
   // Based on SPIR-V spec, OpSelectionMerge must immediately precede either an
@@ -217,6 +219,8 @@ void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc,
   // immediately precede either an OpBranch or OpBranchConditional instruction.
   if (lastOpWasMergeInst) {
     lastOpWasMergeInst = false;
+    debugLine = 0;
+    debugColumn = 0;
     return;
   }
 
@@ -233,29 +237,53 @@ void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc,
   if (op == spv::Op::OpVariable)
     return;
 
+  // If no SourceLocation is provided, we have to emit OpNoLine to
+  // specify the previous OpLine is not applied to this instruction.
+  if (loc == SourceLocation()) {
+    if (!isDebugScope && (debugLine != 0 || debugColumn != 0)) {
+      curInst.clear();
+      curInst.push_back(static_cast<uint32_t>(spv::Op::OpNoLine));
+      curInst[0] |= static_cast<uint32_t>(curInst.size()) << 16;
+      section->insert(section->end(), curInst.begin(), curInst.end());
+    }
+    debugLine = 0;
+    debugColumn = 0;
+    return;
+  }
+
   auto fileId = debugMainFileId;
   const auto &sm = astContext.getSourceManager();
   const char *fileName = sm.getPresumedLoc(loc).getFilename();
   if (fileName)
     fileId = getOrCreateOpStringId(fileName);
 
-  if (!fileId)
-    return;
-
   uint32_t line = sm.getPresumedLineNumber(loc);
   uint32_t column = sm.getPresumedColumnNumber(loc);
 
-  if (!line || !column)
-    return;
+  // If it is a terminator, just reset the last line and column because
+  // a terminator makes the OpLine not effective.
+  bool resetLine = (op >= spv::Op::OpBranch && op <= spv::Op::OpUnreachable) ||
+                   op == spv::Op::OpTerminateInvocation;
 
-  if (line == debugLine && column == debugColumn)
+  if (!fileId || !line || !column ||
+      (line == debugLine && column == debugColumn)) {
+    if (resetLine) {
+      debugLine = 0;
+      debugColumn = 0;
+    }
     return;
+  }
 
   assert(section);
 
-  // We must update these two values to emit the next Opline.
-  debugLine = line;
-  debugColumn = column;
+  if (resetLine) {
+    debugLine = 0;
+    debugColumn = 0;
+  } else {
+    // Keep the last line and column to avoid printing the duplicated OpLine.
+    debugLine = line;
+    debugColumn = column;
+  }
 
   curInst.clear();
   curInst.push_back(static_cast<uint32_t>(spv::Op::OpLine));
@@ -312,7 +340,8 @@ void EmitVisitor::initInstruction(SpirvInstruction *inst) {
     isGlobalVar = var->getStorageClass() != spv::StorageClass::Function;
   const auto op = inst->getopcode();
   emitDebugLine(op, inst->getSourceLocation(),
-                isGlobalVar ? &globalVarsBinary : &mainBinary);
+                isGlobalVar ? &globalVarsBinary : &mainBinary,
+                isa<SpirvDebugScope>(inst));
 
   // Initialize the current instruction for emitting.
   curInst.clear();
@@ -376,7 +405,8 @@ bool EmitVisitor::visit(SpirvFunction *fn, Phase phase) {
     initInstruction(spv::Op::OpFunction, fn->getSourceLocation());
     curInst.push_back(returnTypeId);
     curInst.push_back(getOrAssignResultId<SpirvFunction>(fn));
-    curInst.push_back(
+    curInst.push_back(fn->isNoInline() ?
+        static_cast<uint32_t>(spv::FunctionControlMask::DontInline) :
         static_cast<uint32_t>(spv::FunctionControlMask::MaskNone));
     curInst.push_back(functionTypeId);
     finalizeInstruction(&mainBinary);
@@ -521,14 +551,21 @@ bool EmitVisitor::visit(SpirvSource *inst) {
       }
     }
 
-    // Note: in order to improve performance and avoid multiple copies, we
-    // encode this (potentially large) string directly into the debugFileBinary.
-    const auto &words = string::encodeSPIRVString(firstSnippet.getValue());
-    const auto numWordsInInstr = curInst.size() + words.size();
-    curInst[0] |= static_cast<uint32_t>(numWordsInInstr) << 16;
-    debugFileBinary.insert(debugFileBinary.end(), curInst.begin(),
-                           curInst.end());
-    debugFileBinary.insert(debugFileBinary.end(), words.begin(), words.end());
+    if (firstSnippet.hasValue()) {
+      // Note: in order to improve performance and avoid multiple copies, we
+      // encode this (potentially large) string directly into the
+      // debugFileBinary.
+      const auto &words = string::encodeSPIRVString(firstSnippet.getValue());
+      const auto numWordsInInstr = curInst.size() + words.size();
+      curInst[0] |= static_cast<uint32_t>(numWordsInInstr) << 16;
+      debugFileBinary.insert(debugFileBinary.end(), curInst.begin(),
+                             curInst.end());
+      debugFileBinary.insert(debugFileBinary.end(), words.begin(), words.end());
+    } else {
+      curInst[0] |= static_cast<uint32_t>(curInst.size()) << 16;
+      debugFileBinary.insert(debugFileBinary.end(), curInst.begin(),
+                             curInst.end());
+    }
   } else {
     curInst[0] |= static_cast<uint32_t>(curInst.size()) << 16;
     debugFileBinary.insert(debugFileBinary.end(), curInst.begin(),

@@ -12,7 +12,7 @@ get_filename_component(VS_DIA_INC_PATH "${VS_PATH}/DIA SDK/include" ABSOLUTE CAC
 # (although the friendly name of that is C++ profiling tools).  The toolset is the most likely target.
 set(PROGRAMFILES_X86 "ProgramFiles(x86)")
 execute_process(
-  COMMAND "$ENV{${PROGRAMFILES_X86}}/Microsoft Visual Studio/Installer/vswhere.exe" -latest -prerelease -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+  COMMAND "$ENV{${PROGRAMFILES_X86}}/Microsoft Visual Studio/Installer/vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
   OUTPUT_VARIABLE VSWHERE_LATEST
   ERROR_QUIET
   OUTPUT_STRIP_TRAILING_WHITESPACE
@@ -25,16 +25,30 @@ find_path(DIASDK_INCLUDE_DIR    # Set variable DIASDK_INCLUDE_DIR
           DOC "path to DIA SDK header files"
           )
 
-if (CMAKE_GENERATOR MATCHES "Visual Studio.*Win64" )
-  find_library(DIASDK_GUIDS_LIBRARY NAMES diaguids.lib
-               HINTS ${DIASDK_INCLUDE_DIR}/../lib/amd64 )
-elseif (CMAKE_GENERATOR MATCHES "Visual Studio.*ARM" )
-  find_library(DIASDK_GUIDS_LIBRARY NAMES diaguids.lib
-               HINTS ${DIASDK_INCLUDE_DIR}/../lib/arm )
-else (CMAKE_GENERATOR MATCHES "Visual Studio.*Win64" )
-  find_library(DIASDK_GUIDS_LIBRARY NAMES diaguids.lib
-               HINTS ${DIASDK_INCLUDE_DIR}/../lib )
-endif (CMAKE_GENERATOR MATCHES "Visual Studio.*Win64" )
+
+# VS 2017
+if (CMAKE_GENERATOR MATCHES "Visual Studio 15 2017.*")
+  if (CMAKE_GENERATOR MATCHES "Visual Studio.*Win64")
+    find_library(DIASDK_GUIDS_LIBRARY NAMES diaguids.lib HINTS ${DIASDK_INCLUDE_DIR}/../lib/amd64 )
+  elseif (CMAKE_GENERATOR_PLATFORM STREQUAL "ARM")
+    find_library(DIASDK_GUIDS_LIBRARY NAMES diaguids.lib HINTS ${DIASDK_INCLUDE_DIR}/../lib/arm )
+  else (CMAKE_GENERATOR MATCHES "Visual Studio.*Win64")
+    find_library(DIASDK_GUIDS_LIBRARY NAMES diaguids.lib HINTS ${DIASDK_INCLUDE_DIR}/../lib )
+  endif (CMAKE_GENERATOR MATCHES "Visual Studio.*Win64")
+endif (CMAKE_GENERATOR MATCHES "Visual Studio 15 2017.*")
+
+# VS 2019
+if (CMAKE_GENERATOR MATCHES "Visual Studio 16 2019")
+  if (CMAKE_GENERATOR_PLATFORM STREQUAL "x64") 
+    find_library(DIASDK_GUIDS_LIBRARY NAMES diaguids.lib HINTS ${DIASDK_INCLUDE_DIR}/../lib/amd64 )
+  elseif (CMAKE_GENERATOR_PLATFORM STREQUAL "ARM")
+    find_library(DIASDK_GUIDS_LIBRARY NAMES diaguids.lib HINTS ${DIASDK_INCLUDE_DIR}/../lib/arm )
+  elseif (CMAKE_GENERATOR_PLATFORM MATCHES "ARM64.*")
+    find_library(DIASDK_GUIDS_LIBRARY NAMES diaguids.lib HINTS ${DIASDK_INCLUDE_DIR}/../lib/arm64 )
+  else (CMAKE_GENERATOR_PLATFORM STREQUAL "x64")
+    find_library(DIASDK_GUIDS_LIBRARY NAMES diaguids.lib HINTS ${DIASDK_INCLUDE_DIR}/../lib )
+  endif(CMAKE_GENERATOR_PLATFORM STREQUAL "x64")
+endif (CMAKE_GENERATOR MATCHES "Visual Studio 16 2019")
 
 set(DIASDK_LIBRARIES ${DIASDK_GUIDS_LIBRARY})
 set(DIASDK_INCLUDE_DIRS ${DIASDK_INCLUDE_DIR})
