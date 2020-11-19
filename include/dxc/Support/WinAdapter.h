@@ -560,14 +560,6 @@ constexpr uint8_t nybble_from_hex(char c) {
                      ? (c - 'a' + 10)
                      : ((c >= 'A' && c <= 'F') ? (c - 'A' + 10)
                                                : /* Should be an error */ -1)));
-  // if constexpr (c >= '0' && c <= '9')
-  //   return c - '0';
-  // else if constexpr (c >= 'a' && c <= 'f')
-  //   return c - 'a' + 10;
-  // else if constexpr (c >= 'A' && c <= 'F')
-  //   return c - 'A' + 10;
-  // throw -1;
-  // return -1;
 }
 
 constexpr uint8_t byte_from_hex(char c1, char c2) {
@@ -579,11 +571,6 @@ constexpr uint8_t byte_from_hexstr(const char str[2]) {
 }
 
 constexpr GUID guid_from_string(const char str[37]) {
-  // error: non-constant condition for static assertion :(
-  // static_assert(str[8] == '-', "Expected -");
-  // static_assert(str[13] == '-', "Expected -");
-  // static_assert(str[18] == '-', "Expected -");
-  // static_assert(str[23] == '-', "Expected -");
   return GUID{static_cast<uint32_t>(byte_from_hexstr(str)) << 24 |
                   static_cast<uint32_t>(byte_from_hexstr(str + 2)) << 16 |
                   static_cast<uint32_t>(byte_from_hexstr(str + 4)) << 8 |
