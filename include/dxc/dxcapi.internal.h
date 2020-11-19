@@ -138,7 +138,7 @@ public:
 
   // Get the lowering strategy for an hlsl extension intrinsic.
   virtual HRESULT STDMETHODCALLTYPE GetLoweringStrategy(UINT opcode, LPCSTR *pStrategy) = 0;
-  
+
   // Callback to support custom naming of hlsl extension intrinsic functions in dxil.
   // Return the empty string to get the default intrinsic name, which is the mangled
   // name of the high level intrinsic function.

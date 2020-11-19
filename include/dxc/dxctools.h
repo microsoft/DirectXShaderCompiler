@@ -68,9 +68,9 @@ IDxcRewriter2 : public IDxcRewriter {
 
   virtual HRESULT STDMETHODCALLTYPE RewriteWithOptions(_In_ IDxcBlobEncoding *pSource,
                                                      // Optional file name for pSource. Used in errors and include handlers.
-                                                     _In_opt_ LPCWSTR pSourceName, 
+                                                     _In_opt_ LPCWSTR pSourceName,
                                                      // Compiler arguments
-                                                     _In_count_(argCount) LPCWSTR *pArguments, _In_ UINT32 argCount, 
+                                                     _In_count_(argCount) LPCWSTR *pArguments, _In_ UINT32 argCount,
                                                      // Defines
                                                      _In_count_(defineCount) DxcDefine *pDefines, _In_ UINT32 defineCount,
                                                      // user-provided interface to handle #include directives (optional)
