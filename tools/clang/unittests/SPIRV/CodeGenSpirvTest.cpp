@@ -295,7 +295,6 @@ TEST_F(FileTest, BinaryOpMixedTypeArithAssign) {
   runFileTest("binary-op.arith-assign.mixed.type.hlsl");
 }
 TEST_F(FileTest, BinaryOpMulAssignTypeMismatch) {
-  useVulkan1p1();
   runFileTest("binary-op.mul-assign.type-mismatch.hlsl");
 }
 
