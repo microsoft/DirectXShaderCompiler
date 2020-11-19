@@ -3495,6 +3495,32 @@ static bool DominateAllUsers(Instruction *I, Value *V, DominatorTree *DT) {
   }
 }
 
+static bool isReadOnlyPtr(CallInst *PtrCI) {
+  HLSubscriptOpcode opcode =
+      static_cast<HLSubscriptOpcode>(hlsl::GetHLOpcode(PtrCI));
+  if (opcode == HLSubscriptOpcode::CBufferSubscript) {
+    // Ptr from CBuffer is readonly.
+    return true;
+  } else if (opcode == HLSubscriptOpcode::DefaultSubscript) {
+    Value *ptr = PtrCI->getArgOperand(HLOperandIndex::kSubscriptObjectOpIdx);
+    // Resource ptr.
+    if (CallInst *handleCI = dyn_cast<CallInst>(ptr)) {
+      hlsl::HLOpcodeGroup group =
+          hlsl::GetHLOpcodeGroup(handleCI->getCalledFunction());
+      if (group == HLOpcodeGroup::HLAnnotateHandle) {
+        ConstantInt *RCVal = cast<ConstantInt>(handleCI->getArgOperand(
+            HLOperandIndex::kAnnotateHandleResourceClassOpIdx));
+        DXIL::ResourceClass RC = (DXIL::ResourceClass)RCVal->getLimitedValue();
+        if (RC == DXIL::ResourceClass::SRV) {
+          // Ptr from SRV is readonly.
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
 bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
                               DxilTypeSystem &typeSys, const DataLayout &DL,
                               DominatorTree *DT, bool bAllowReplace) {
@@ -3559,10 +3585,8 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
             hlsl::HLOpcodeGroup group =
                 hlsl::GetHLOpcodeGroup(PtrCI->getCalledFunction());
             if (group == HLOpcodeGroup::HLSubscript) {
-              HLSubscriptOpcode opcode =
-                  static_cast<HLSubscriptOpcode>(hlsl::GetHLOpcode(PtrCI));
-              if (opcode == HLSubscriptOpcode::CBufferSubscript) {
-                // Ptr from CBuffer is safe.
+              if (isReadOnlyPtr(PtrCI)) {
+                // Ptr from CBuffer/SRV is safe.
                 if (ReplaceMemcpy(V, Src, MC, annotation, typeSys, DL, DT))
                   return true;
               }
