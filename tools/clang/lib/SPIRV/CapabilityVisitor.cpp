@@ -201,8 +201,10 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
       addCapability(spv::Capability::RayTracingNV);
       addExtension(Extension::NV_ray_tracing, "SPV_NV_ray_tracing", {});
     } else {
-      // KHR_ray_tracing extension requires SPIR-V 1.4/Vulkan 1.2
-      featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_2, "Raytracing", {});
+      // KHR_ray_tracing extension requires Vulkan 1.1 with VK_KHR_spirv_1_4
+      // extention or Vulkan 1.2.
+      featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1_SPIRV_1_4,
+                                      "Raytracing", {});
       addCapability(spv::Capability::RayTracingKHR);
       addExtension(Extension::KHR_ray_tracing, "SPV_KHR_ray_tracing", {});
     }
@@ -538,8 +540,10 @@ bool CapabilityVisitor::visit(SpirvEntryPoint *entryPoint) {
       addCapability(spv::Capability::RayTracingNV);
       addExtension(Extension::NV_ray_tracing, "SPV_NV_ray_tracing", {});
     } else {
-      // KHR_ray_tracing extension requires SPIR-V 1.4/Vulkan 1.2
-      featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_2, "Raytracing", {});
+      // KHR_ray_tracing extension requires Vulkan 1.1 with VK_KHR_spirv_1_4
+      // extention or Vulkan 1.2.
+      featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1_SPIRV_1_4,
+                                      "Raytracing", {});
       addCapability(spv::Capability::RayTracingKHR);
       addExtension(Extension::KHR_ray_tracing, "SPV_KHR_ray_tracing", {});
     }
@@ -608,6 +612,7 @@ bool CapabilityVisitor::visit(SpirvModule *, Visitor::Phase phase) {
   // SPIR-V binary.
   if (phase == Visitor::Phase::Done &&
       shaderModel == spv::ExecutionModel::Max) {
+    addCapability(spv::Capability::Shader);
     addCapability(spv::Capability::Linkage, SourceLocation());
   }
   return true;

@@ -10,24 +10,19 @@
 #include "RemoveBufferBlockVisitor.h"
 #include "clang/SPIRV/SpirvContext.h"
 
-namespace {
-
-bool isBufferBlockDecorationDeprecated(
-    const clang::spirv::SpirvCodeGenOptions &opts) {
-  return opts.targetEnv.compare("vulkan1.2") >= 0;
-}
-
-} // end anonymous namespace
-
 namespace clang {
 namespace spirv {
+
+bool RemoveBufferBlockVisitor::isBufferBlockDecorationDeprecated() {
+  return featureManager.isTargetEnvVulkan1p2OrAbove();
+}
 
 bool RemoveBufferBlockVisitor::visit(SpirvModule *mod, Phase phase) {
   // If the target environment is Vulkan 1.2 or later, BufferBlock decoration is
   // deprecated and should be removed from the module.
   // Otherwise, no action is needed by this IMR visitor.
   if (phase == Visitor::Phase::Init)
-    if (!isBufferBlockDecorationDeprecated(spvOptions))
+    if (!isBufferBlockDecorationDeprecated())
       return false;
 
   return true;

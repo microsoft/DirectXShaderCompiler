@@ -520,7 +520,7 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
   }
 
   if (spirvOptions.debugInfoTool &&
-      spirvOptions.targetEnv.compare("vulkan1.1") >= 0) {
+      featureManager.isTargetEnvVulkan1p1OrAbove()) {
     // Emit OpModuleProcessed to indicate the commit information.
     std::string commitHash =
         std::string("dxc-commit-hash: ") + clang::getGitCommitHash();
@@ -584,8 +584,6 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
       return;
   }
 
-  const spv_target_env targetEnv = featureManager.getTargetEnv();
-
   // Addressing and memory model are required in a valid SPIR-V module.
   spvBuilder.setMemoryModel(spv::AddressingModel::Logical,
                             spv::MemoryModel::GLSL450);
@@ -602,7 +600,7 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     spvBuilder.addEntryPoint(
         getSpirvShaderStage(entryInfo->shaderModelKind),
         entryInfo->entryFunction, entryInfo->funcDecl->getName(),
-        targetEnv == SPV_ENV_VULKAN_1_2
+        featureManager.isTargetEnvVulkan1p2OrAbove()
             ? spvBuilder.getModule()->getVariables()
             : llvm::ArrayRef<SpirvVariable *>(declIdMapper.collectStageVars()));
   }

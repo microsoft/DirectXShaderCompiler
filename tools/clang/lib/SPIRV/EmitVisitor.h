@@ -8,6 +8,7 @@
 #ifndef LLVM_CLANG_SPIRV_EMITVISITOR_H
 #define LLVM_CLANG_SPIRV_EMITVISITOR_H
 
+#include "clang/SPIRV/FeatureManager.h"
 #include "clang/SPIRV/SpirvContext.h"
 #include "clang/SPIRV/SpirvVisitor.h"
 #include "llvm/ADT/DenseMap.h"
@@ -51,6 +52,7 @@ public:
                   std::vector<uint32_t> *typesVec,
                   const std::function<uint32_t()> &takeNextIdFn)
       : astContext(astCtx), context(spvContext), spvOptions(opts),
+        featureManager(astCtx.getDiagnostics(), opts),
         debugVariableBinary(debugVec), annotationsBinary(decVec),
         typeConstantBinary(typesVec), takeNextIdFunction(takeNextIdFn),
         emittedConstantInts({}), emittedConstantFloats({}),
@@ -146,6 +148,7 @@ private:
   ASTContext &astContext;
   SpirvContext &context;
   const SpirvCodeGenOptions &spvOptions;
+  FeatureManager featureManager;
   std::vector<uint32_t> curTypeInst;
   std::vector<uint32_t> curDecorationInst;
   std::vector<uint32_t> *debugVariableBinary;
