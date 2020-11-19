@@ -340,7 +340,7 @@ const DxilTypeSystem::StructAnnotationMap &DxilTypeSystem::GetStructAnnotationMa
 }
 
 DxilPayloadAnnotation *DxilTypeSystem::AddPayloadAnnotation(const StructType *pStructType) {
-  DXASSERT_NOMSG(m_StructAnnotations.find(pStructType) == m_StructAnnotations.end());
+  DXASSERT_NOMSG(m_PayloadAnnotations.find(pStructType) == m_PayloadAnnotations.end());
   DxilPayloadAnnotation *pA = new DxilPayloadAnnotation();
   m_PayloadAnnotations[pStructType] = unique_ptr<DxilPayloadAnnotation>(pA);
   pA->m_pStructType = pStructType;
