@@ -83,7 +83,7 @@ HRESULT CreateDxcContainerReflection(_In_ REFIID riid, _Out_ LPVOID *ppv) {
 }
 
 HRESULT CreateDxcContainerBuilder(_In_ REFIID riid, _Out_ LPVOID *ppv) {
-  // Call dxil.dll's containerbuilder 
+  // Call dxil.dll's containerbuilder
   *ppv = nullptr;
   const char *warning;
   HRESULT hr = DxilLibCreateInstance(CLSID_DxcContainerBuilder, (IDxcContainerBuilder**)ppv);
