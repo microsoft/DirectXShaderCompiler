@@ -51,7 +51,7 @@ public:
                   std::vector<uint32_t> *decVec,
                   std::vector<uint32_t> *typesVec,
                   const std::function<uint32_t()> &takeNextIdFn)
-      : astContext(astCtx), context(spvContext), spvOptions(opts),
+      : astContext(astCtx), context(spvContext),
         featureManager(astCtx.getDiagnostics(), opts),
         debugVariableBinary(debugVec), annotationsBinary(decVec),
         typeConstantBinary(typesVec), takeNextIdFunction(takeNextIdFn),
@@ -147,7 +147,6 @@ private:
 private:
   ASTContext &astContext;
   SpirvContext &context;
-  const SpirvCodeGenOptions &spvOptions;
   FeatureManager featureManager;
   std::vector<uint32_t> curTypeInst;
   std::vector<uint32_t> curDecorationInst;
