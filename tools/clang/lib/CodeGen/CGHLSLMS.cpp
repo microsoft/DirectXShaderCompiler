@@ -1038,6 +1038,54 @@ static unsigned GetNumTemplateArgsForRecordDecl(const RecordDecl *RD) {
   return 0;
 }
 
+// Displays a dignostic and makes sure it is only displayed once.
+template <unsigned int DiagId>
+void DiagOnylOnce(DiagnosticsEngine &Diag, SourceLocation loc) {
+  static bool hasBeenDiagnosed = false;
+  if (!hasBeenDiagnosed) {
+    Diag.Report(loc, DiagId);
+    hasBeenDiagnosed = true;
+  }
+}
+
+static bool ValidatePayloadDecl(const RecordDecl *Decl,
+                                const ShaderModel &Model,
+                                DiagnosticsEngine &Diag,
+                                const CodeGenOptions &Options) {
+  // Already checked in Sema, this is not a payload.
+  if (!Decl->hasAttr<HLSLPayloadAttr>())
+    return false;
+
+  // If we have a payload warne about them beeing droped.
+  if (!Options.HLSLEnablePayloadAccessQualifiers) {
+    DiagOnylOnce<diag::warn_hlsl_payload_qualifer_dropped>(Diag,
+                                                           Decl->getLocation());
+    return false;
+  }
+
+  // Check if all fileds have a payload qualifier.
+  bool allFieldsQualifed = true;
+  for (FieldDecl *field : Decl->fields()) {
+    bool fieldHasPayloadQualifier = false;
+    for (UnusualAnnotation *annotation : field->getUnusualAnnotations()) {
+      fieldHasPayloadQualifier |= isa<hlsl::PayloadAccessQualifier>(annotation);
+    }
+    if (!fieldHasPayloadQualifier) {
+      Diag.Report(field->getLocation(),
+                  diag::err_payload_fileds_not_qualified_qualified)
+          << field->getName();
+    }
+    allFieldsQualifed &= fieldHasPayloadQualifier;
+  }
+  if (!allFieldsQualifed) {
+    Diag.Report(Decl->getLocation(), diag::err_not_all_payload_fileds_qualified)
+        << Decl->getName();
+    return false;
+  }
+ 
+  return true;
+}
+
 // Return the size for constant buffer of each decl.
 unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
                                             DxilTypeSystem &dxilTypeSys,
@@ -1078,12 +1126,9 @@ unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
     }
     DxilStructAnnotation *annotation = dxilTypeSys.AddStructAnnotation(ST,
       GetNumTemplateArgsForRecordDecl(RT->getDecl()));
-
     DxilPayloadAnnotation *payloadAnnotation = nullptr;
-    if (RT->getDecl()->hasAttr<HLSLPayloadAttr>()) {
+    if (ValidatePayloadDecl(RT->getDecl(), *m_pHLModule->GetShaderModel(), CGM.getDiags(), CGM.getCodeGenOpts()))
       payloadAnnotation = dxilTypeSys.AddPayloadAnnotation(ST);
-    }
-
     return ConstructStructAnnotation(annotation, payloadAnnotation, RD, dxilTypeSys);
   } else if (const RecordType *RT = dyn_cast<RecordType>(paramTy)) {
     // For this pointer.
@@ -1097,10 +1142,8 @@ unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
     DxilStructAnnotation *annotation = dxilTypeSys.AddStructAnnotation(ST,
       GetNumTemplateArgsForRecordDecl(RT->getDecl()));
     DxilPayloadAnnotation* payloadAnnotation = nullptr;
-    if (RT->getDecl()->hasAttr<HLSLPayloadAttr>()) {
+    if (ValidatePayloadDecl(RT->getDecl(), *m_pHLModule->GetShaderModel(), CGM.getDiags(), CGM.getCodeGenOpts()))
          payloadAnnotation = dxilTypeSys.AddPayloadAnnotation(ST);
-    }
-
     return ConstructStructAnnotation(annotation, payloadAnnotation, RD, dxilTypeSys);
   } else if (IsHLSLResourceType(Ty)) {
     // Save result type info.

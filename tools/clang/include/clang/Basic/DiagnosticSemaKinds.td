@@ -7571,6 +7571,8 @@ def err_payload_requires_attribute : Error<
   "type '%0' used as payload requires that it is annotated with the [[payload]] attribute">;
 def err_payload_fileds_not_qualified_qualified : Error<
   "payload filed '%0' has no payload access qualifies.">;
+def warn_hlsl_payload_qualifer_dropped : Warning<
+  "payload access qualifieres are only support for target lib_6_7 and beyond. You can opt-in for lib_6_5 and lib_6_6 with the -allow-payload-qualifiers flag. Qualifiers will be dropped.">, InGroup<HLSLPayloadAccessQualifer>;
 def err_hlsl_unsupported_builtin_op: Error<
   "operator cannot be used with built-in type %0">;
 def err_hlsl_unsupported_char_literal : Error<

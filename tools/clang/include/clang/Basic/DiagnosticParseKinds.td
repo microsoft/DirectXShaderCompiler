@@ -1024,8 +1024,6 @@ def warn_hlsl_effect_technique : Warning <
   InGroup< HLSLEffectsSyntax >;
 def err_hlsl_enum : Error<
   "enum is unsupported in HLSL before 2017">;
-def warn_hlsl_payload_qualifer_dropped : Warning<
-  "payload access qualifieres are only support for target lib_6_7 and beyond. You can opt-in with the -allow-payload-qualifiers flag. Qualifiers will be dropped.">;
 
 // OpenMP support.
 def warn_pragma_omp_ignored : Warning<

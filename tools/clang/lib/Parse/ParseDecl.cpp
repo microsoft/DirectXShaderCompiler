@@ -347,30 +347,11 @@ static void ParseSpaceForHLSL(_In_z_ const char *name,
   }
 }
 
-// TODO: maybe find a better place for this helper.
-// Displays a dignostic and makes sure it is only displayed once.
-template <unsigned int DiagId>
-void DiagOnylOnce(DiagnosticsEngine &Diag, SourceLocation loc) {
-  static bool hasBeenDiagnosed = false;
-  if (!hasBeenDiagnosed) {
-    Diag.Report(loc, DiagId);
-    hasBeenDiagnosed = true;
-  }
-}
-
 bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &target)
 {
   if (!getLangOpts().HLSL) {
     return false;
   }
-  const auto *shaderModel =
-      hlsl::ShaderModel::GetByName(getLangOpts().HLSLProfile.c_str());
-  unsigned dxilMajor = 0, dxilMinor = 0;
-  shaderModel->GetDxilVersion(dxilMajor, dxilMinor);
-  bool allowPayloadAccessQualifiers =
-      (dxilMajor > 1 || (dxilMajor == 1 && dxilMinor >= 5)) &&
-      (shaderModel->GetMajor() > 6 ||
-       (shaderModel->GetMajor() == 6 && shaderModel->GetMinor() >= 5));
 
   ASTContext& context = getActions().getASTContext();
 
@@ -379,73 +360,45 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
       return false;
     }
 
-    // Only accept payload access qualifiers on DXIL version >= 1.5 and SM 6.5+
-    // otherwise throw a parse error.
-    if (allowPayloadAccessQualifiers) {
-      if (NextToken().is(tok::kw_in) || NextToken().is(tok::kw_out)) {
+    if (NextToken().is(tok::kw_in) || NextToken().is(tok::kw_out)) {
+      hlsl::PayloadAccessQualifier mod;
 
-        bool profileAllowsQualifer = false;
-        // Payload access qualifiers are only valid in DXR, thus, we drop them
-        // if this is not a lib profile.
-        // Payload access qualifiers are only supported for lib_6_7 and beyond.
-        // User can opt-in with -allow-payload-qualifier command line flag.
-        if (shaderModel->IsLib()) {
-          if (shaderModel->GetMajor() > 6 ||
-              (shaderModel->GetMajor() == 6 && shaderModel->GetMinor() >= 7))
-            profileAllowsQualifer = true;
-          // Check if the user opt-in to payload access qualifiers through
-          // command line flag.
-          if (!profileAllowsQualifer)
-            profileAllowsQualifer = getLangOpts().EnablePayloadAccessQualifiers;
-        }
+      mod.IsInput = NextToken().is(tok::kw_in);
+      mod.IsOutput = NextToken().is(tok::kw_out);
 
-        hlsl::PayloadAccessQualifier mod;
+      // : in/out ( shader stage *[,shader stage])
+      ConsumeToken(); // consume the colon.
 
-        mod.IsInput = NextToken().is(tok::kw_in);
-        mod.IsOutput = NextToken().is(tok::kw_out);
-
-        // : in/out ( shader stage *[,shader stage])
-        ConsumeToken(); // consume the colon.
-
-        mod.Loc = Tok.getLocation();
-        ConsumeToken(); // consume the kw_in/kw_out;
-        if (ExpectAndConsume(tok::l_paren, diag::err_expected_lparen_after,
-                             "payload access modifier")) {
-          return true;
-        }
-
-        do {
-          if (!Tok.is(tok::identifier)) {
-            Diag(Tok.getLocation(), diag::err_expected) << tok::identifier;
-            SkipUntil(tok::r_paren, StopAtSemi); // skip through )
-            return true;
-          }
-
-          const char *stage = Tok.getIdentifierInfo()->getName().data();
-          mod.ShaderStages.push_back(stage);
-          ConsumeToken(); // consume shader type
-
-          if (Tok.is(tok::comma)) // check if we have a list of shader types
-            ConsumeToken();
-
-        } while (Tok.is(tok::identifier));
-
-        if (ExpectAndConsume(tok::r_paren, diag::err_expected_rparen_after,
-                             "payload access modifier")) {
-          return true;
-        }
-
-        // Only add the qualifer if the profile allows it (lib_6_6+)
-        if (profileAllowsQualifer)
-          target.push_back(new (context) hlsl::PayloadAccessQualifier(mod));
-        else {
-          DiagOnylOnce<diag::warn_hlsl_payload_qualifer_dropped>(Diags,
-                                                                 mod.Loc);
-        }
-        continue;
+      mod.Loc = Tok.getLocation();
+      ConsumeToken(); // consume the kw_in/kw_out;
+      if (ExpectAndConsume(tok::l_paren, diag::err_expected_lparen_after,
+                           "payload access modifier")) {
+        return true;
       }
-    }
-    if (NextToken().is(tok::kw_register)) {
+
+      do {
+        if (!Tok.is(tok::identifier)) {
+          Diag(Tok.getLocation(), diag::err_expected) << tok::identifier;
+          SkipUntil(tok::r_paren, StopAtSemi); // skip through )
+          return true;
+        }
+
+        const char *stage = Tok.getIdentifierInfo()->getName().data();
+        mod.ShaderStages.push_back(stage);
+        ConsumeToken(); // consume shader type
+
+        if (Tok.is(tok::comma)) // check if we have a list of shader types
+          ConsumeToken();
+
+      } while (Tok.is(tok::identifier));
+
+      if (ExpectAndConsume(tok::r_paren, diag::err_expected_rparen_after,
+                           "payload access modifier")) {
+        return true;
+      }
+
+      target.push_back(new (context) hlsl::PayloadAccessQualifier(mod));
+    }else if (NextToken().is(tok::kw_register)) {
       hlsl::RegisterAssignment r;
 
       // : register ([shader_profile], Type#[subcomponent] [,spaceX])

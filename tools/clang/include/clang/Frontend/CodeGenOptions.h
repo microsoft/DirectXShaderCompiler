@@ -232,6 +232,8 @@ public:
   bool HLSLForceZeroStoreLifetimes = false;
   /// Enable lifetime marker generation
   bool HLSLEnableLifetimeMarkers = false;
+  /// Enable generation of payload access qualifier metadata. 
+  bool HLSLEnablePayloadAccessQualifiers = false;
   // HLSL Change Ends
 
   // SPIRV Change Starts

@@ -644,7 +644,12 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.ForceZeroStoreLifetimes = Args.hasFlag(OPT_force_zero_store_lifetimes, OPT_INVALID, false);
   opts.EnableLifetimeMarkers = Args.hasFlag(OPT_enable_lifetime_markers, OPT_INVALID,
                                             DXIL::CompareVersions(Major, Minor, 6, 6) >= 0);
-  opts.AllowPayloadQualifiers = Args.hasFlag(OPT_allow_payload_qualifiers, OPT_INVALID, false);
+  opts.AllowPayloadQualifiers = Args.hasFlag(OPT_allow_payload_qualifiers, OPT_INVALID,
+                                            DXIL::CompareVersions(Major, Minor, 6, 6) >= 0);
+  if (opts.AllowPayloadQualifiers && DXIL::CompareVersions(Major, Minor, 6, 5) < 0) {
+    errors << "Invalid target for payload access qualifiers. Only lib_6_5 and beyond are supported.";
+    return 1;
+  }
 
   if (opts.DefaultColMajor && opts.DefaultRowMajor) {
     errors << "Cannot specify /Zpr and /Zpc together, use /? to get usage information";

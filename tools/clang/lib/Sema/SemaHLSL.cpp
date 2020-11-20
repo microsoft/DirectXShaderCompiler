@@ -10143,26 +10143,6 @@ static bool DiagnosePayloadParameter(Sema &S, ParmVarDecl *Payload,
       return false;
     }
 
-    // Only check if all fileds have a payload qualifier if the shader model requires them.
-    if (qualifiersAreMandatory) {
-        bool allFieldsQualifed = true;
-
-        for (FieldDecl* field : Decl->fields()) {
-            bool fieldHasPayloadQualifier = false;
-            for (UnusualAnnotation* annotation : field->getUnusualAnnotations()) {
-                fieldHasPayloadQualifier |= isa<hlsl::PayloadAccessQualifier>(annotation);
-            }
-            if (!fieldHasPayloadQualifier) {
-                S.Diag(field->getLocation(), diag::err_payload_fileds_not_qualified_qualified) << field->getName();
-            }
-            allFieldsQualifed &= fieldHasPayloadQualifier;
-        }
-        if (!allFieldsQualifed) {
-            S.Diag(Decl->getLocation(), diag::err_not_all_payload_fileds_qualified) << Decl->getName();
-            return false;
-        }
-    }
-
     return true;
   }
 
@@ -10476,28 +10456,15 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
   // We have to do it late because we could have payload access in a called function
   // and have to check the callgraph if the root shader has the right access
   // rights to the payload structure. 
-  const auto *shaderModel =
-      hlsl::ShaderModel::GetByName(self->getLangOpts().HLSLProfile.c_str());
-
-  if (shaderModel->IsLib()) {
-      const bool payloadQualifiersOptIn =
-        (shaderModel->GetMajor() == 6 && shaderModel->GetMinor() >= 5) &&
-        self->getLangOpts().EnablePayloadAccessQualifiers;
-
-      const bool payloadQualifiersAreMandatory =
-          shaderModel->GetMajor() > 6 ||
-          (shaderModel->GetMajor() == 6 && shaderModel->GetMinor() >= 7);
-      
-      if ( payloadQualifiersAreMandatory || payloadQualifiersOptIn ) {
+  if (self->getLangOpts().IsHLSLLibrary) {
+    if (self->getLangOpts().EnablePayloadAccessQualifiers) {
       ASTContext &ctx = self->getASTContext();
       TranslationUnitDecl *TU = ctx.getTranslationUnitDecl();
 
       DXRShaderVisitor visitor(*self);
-      visitor.diagnose(TU, payloadQualifiersAreMandatory);
+      visitor.diagnose(TU, true);
     }
   }
-
-  
 
   // Don't check entry function for library.
   if (self->getLangOpts().IsHLSLLibrary) {
