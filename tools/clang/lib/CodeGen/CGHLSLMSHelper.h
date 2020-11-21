@@ -5,6 +5,7 @@
 #include "clang/Basic/SourceLocation.h"
 
 #include "llvm/ADT/StringMap.h"
+#include "llvm/ADT/MapVector.h"
 
 #include "dxc/DXIL/DxilCBuffer.h"
 
@@ -140,6 +141,18 @@ private:
   llvm::SmallVector<Scope, 16> scopes;
 };
 
+// Map from value to resource properties.
+// This only collect object variables(global/local/parameter), not object fields inside struct.
+// Object fields inside struct is saved by TypeAnnotation.
+struct DxilObjectProperties {
+  bool AddResource(llvm::Value *V, const hlsl::DxilResourceProperties &RP);
+  bool IsResource(llvm::Value *V);
+  hlsl::DxilResourceProperties GetResource(llvm::Value *V);
+
+  // MapVector for deterministic iteration order.
+  llvm::MapVector<llvm::Value *, hlsl::DxilResourceProperties> resMap;
+};
+
 // Align cbuffer offset in legacy mode (16 bytes per row).
 unsigned AlignBufferOffsetInLegacy(unsigned offset, unsigned size,
                                    unsigned scalarSizeInBytes,
@@ -159,9 +172,7 @@ void FinishEntries(hlsl::HLModule &HLM, const EntryFunctionInfo &Entry,
 void FinishIntrinsics(
     hlsl::HLModule &HLM,
     std::vector<std::pair<llvm::Function *, unsigned>> &intrinsicMap,
-    llvm::DenseMap<llvm::Value *, hlsl::DxilResourceProperties>
-        &valToResPropertiesMap,
-    const llvm::DenseMap<llvm::Type *, hlsl::DxilResourceProperties> &resTyPropsMap);
+    DxilObjectProperties &valToResPropertiesMap);
 
 void AddDxBreak(llvm::Module &M, const llvm::SmallVector<llvm::BranchInst*, 16> &DxBreaks);
 
