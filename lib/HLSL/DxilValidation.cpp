@@ -4240,6 +4240,9 @@ static void ValidateSignatureElement(DxilSignatureElement &SE,
   switch (compKind) {
   case CompType::Kind::U64: compWidth = 64; compInt = true; break;
   case CompType::Kind::I64: compWidth = 64; compInt = true; break;
+  // These should be translated for signatures:
+  //case CompType::Kind::PackedS8x32:
+  //case CompType::Kind::PackedU8x32:
   case CompType::Kind::U32: compWidth = 32; compInt = true; break;
   case CompType::Kind::I32: compWidth = 32; compInt = true; break;
   case CompType::Kind::U16: compWidth = 16; compInt = true; break;

@@ -81,7 +81,6 @@ private:
   llvm::DenseMap<HLSLBufferDecl *, uint32_t> constantBufMap;
   // Map for resource type to resource metadata value.
   std::unordered_map<llvm::Type *, MDNode*> resMetadataMap;
-  DenseMap<llvm::Type *, DxilResourceProperties> resTyPropsMap;
   // Map from Constant to register bindings.
   llvm::DenseMap<llvm::Constant *,
                  llvm::SmallVector<std::pair<DXIL::ResourceClass, unsigned>, 1>>
@@ -90,7 +89,9 @@ private:
   // Map from value to resource properties.
   // This only collect object variables(global/local/parameter), not object fields inside struct.
   // Object fields inside struct is saved by TypeAnnotation.
-  DenseMap<Value *, DxilResourceProperties> valToResPropertiesMap;
+  // Returns true if added to one.
+  bool AddValToPropertyMap(Value *V, QualType Ty);
+  CGHLSLMSHelper::DxilObjectProperties objectProperties;
 
   bool  m_bDebugInfo;
   bool  m_bIsLib;
@@ -573,7 +574,11 @@ static CompType::Kind BuiltinTyToCompTy(const BuiltinType *BTy, bool bSNorm,
   switch (BTy->getKind()) {
   // HLSL Changes begin
   case BuiltinType::Int8_4Packed:
+    kind = CompType::Kind::PackedS8x32;
+    break;
   case BuiltinType::UInt8_4Packed:
+    kind = CompType::Kind::PackedU8x32;
+    break;
   // HLSL Changes end
   case BuiltinType::UInt:
     kind = CompType::Kind::U32;
@@ -669,7 +674,6 @@ MDNode *CGMSHLSLRuntime::GetOrAddResTypeMD(QualType resTy, bool bCreate) {
     UAV.SetGlobalSymbol(UndefValue::get(Ty->getPointerTo()));
     MDNode *MD = m_pHLModule->DxilUAVToMDNode(UAV);
     resMetadataMap[Ty] = MD;
-    resTyPropsMap[Ty] = resource_helper::loadPropsFromResourceBase(&UAV);
     return MD;
   } break;
   case DXIL::ResourceClass::SRV: {
@@ -679,7 +683,6 @@ MDNode *CGMSHLSLRuntime::GetOrAddResTypeMD(QualType resTy, bool bCreate) {
     SRV.SetGlobalSymbol(UndefValue::get(Ty->getPointerTo()));
     MDNode *MD = m_pHLModule->DxilSRVToMDNode(SRV);
     resMetadataMap[Ty] = MD;
-    resTyPropsMap[Ty] = resource_helper::loadPropsFromResourceBase(&SRV);
     return MD;
   } break;
   case DXIL::ResourceClass::Sampler: {
@@ -690,7 +693,6 @@ MDNode *CGMSHLSLRuntime::GetOrAddResTypeMD(QualType resTy, bool bCreate) {
     S.SetGlobalSymbol(UndefValue::get(Ty->getPointerTo()));
     MDNode *MD = m_pHLModule->DxilSamplerToMDNode(S);
     resMetadataMap[Ty] = MD;
-    resTyPropsMap[Ty] = resource_helper::loadPropsFromResourceBase(&S);
     return MD;
   }
   default:
@@ -749,6 +751,7 @@ DxilResourceProperties CGMSHLSLRuntime::BuildResourceProperty(QualType resTy) {
     return RP;
 
   llvm::Type *Ty = CGM.getTypes().ConvertType(resTy);
+
   switch (resClass) {
   case DXIL::ResourceClass::UAV: {
     DxilResource UAV;
@@ -756,21 +759,18 @@ DxilResourceProperties CGMSHLSLRuntime::BuildResourceProperty(QualType resTy) {
     SetUAVSRV(loc, resClass, &UAV, resTy);
     UAV.SetGlobalSymbol(UndefValue::get(Ty->getPointerTo()));
     RP = resource_helper::loadPropsFromResourceBase(&UAV);
-    resTyPropsMap[Ty] = RP;
   } break;
   case DXIL::ResourceClass::SRV: {
     DxilResource SRV;
     SetUAVSRV(loc, resClass, &SRV, resTy);
     SRV.SetGlobalSymbol(UndefValue::get(Ty->getPointerTo()));
     RP = resource_helper::loadPropsFromResourceBase(&SRV);
-    resTyPropsMap[Ty] = RP;
   } break;
   case DXIL::ResourceClass::Sampler: {
     DxilSampler::SamplerKind kind = KeywordToSamplerKind(RD->getName());
     DxilSampler Sampler;
     Sampler.SetSamplerKind(kind);
     RP = resource_helper::loadPropsFromResourceBase(&Sampler);
-    resTyPropsMap[Ty] = RP;
   } break;
   case DXIL::ResourceClass::CBuffer: {
     DxilCBuffer CB;
@@ -783,12 +783,15 @@ DxilResourceProperties CGMSHLSLRuntime::BuildResourceProperty(QualType resTy) {
     unsigned Size = AddTypeAnnotation(ResultTy, typeSys, arrayEltSize);
     CB.SetSize(Size);
     RP = resource_helper::loadPropsFromResourceBase(&CB);
-    resTyPropsMap[Ty] = RP;
   } break;
   default:
     break;
   }
   return RP;
+}
+
+bool CGMSHLSLRuntime::AddValToPropertyMap(Value *V, QualType Ty) {
+  return objectProperties.AddResource(V, BuildResourceProperty(Ty));
 }
 
 void CGMSHLSLRuntime::ConstructFieldAttributedAnnotation(
@@ -1681,9 +1684,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     // SRet.
     pRetTyAnnotation = &FuncAnnotation->GetParameterAnnotation(ArgNo++);
     // Save resource properties for parameters.
-    DxilResourceProperties RP = BuildResourceProperty(retTy);
-    if (RP.isValid())
-      valToResPropertiesMap[ArgIt] = RP;
+    AddValToPropertyMap(ArgIt, retTy);
     ++ArgIt;
   } else {
     pRetTyAnnotation = &FuncAnnotation->GetRetTypeAnnotation();
@@ -1727,10 +1728,8 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     const ParmVarDecl *parmDecl = FD->getParamDecl(ParmIdx);
 
     QualType fieldTy = parmDecl->getType();
-    // Save resource properties for parameters.
-    DxilResourceProperties RP = BuildResourceProperty(fieldTy);
-    if (RP.isValid())
-      valToResPropertiesMap[ArgIt] = RP;
+    // Save object properties for parameters.
+    AddValToPropertyMap(ArgIt, fieldTy);
 
     // if parameter type is a typedef, try to desugar it first.
     if (isa<TypedefType>(fieldTy.getTypePtr()))
@@ -2372,10 +2371,8 @@ void CGMSHLSLRuntime::AddControlFlowHint(CodeGenFunction &CGF, const Stmt &S,
 
 void CGMSHLSLRuntime::MarkRetTemp(CodeGenFunction &CGF, Value *V,
                                  QualType QualTy) {
-  // Save resource properties for ret temp.
-  DxilResourceProperties RP = BuildResourceProperty(QualTy);
-  if (RP.isValid())
-    valToResPropertiesMap[V] = RP;
+  // Save object properties for ret temp.
+  AddValToPropertyMap(V, QualTy);
 }
 
 void CGMSHLSLRuntime::FinishAutoVar(CodeGenFunction &CGF, const VarDecl &D,
@@ -2388,10 +2385,8 @@ void CGMSHLSLRuntime::FinishAutoVar(CodeGenFunction &CGF, const VarDecl &D,
   DxilTypeSystem &typeSys = m_pHLModule->GetTypeSystem();
   unsigned arrayEltSize = 0;
   AddTypeAnnotation(D.getType(), typeSys, arrayEltSize);
-  // Save resource properties for local variables.
-  DxilResourceProperties RP = BuildResourceProperty(D.getType());
-  if (RP.isValid())
-    valToResPropertiesMap[V] = RP;
+  // Save object properties for local variables.
+  AddValToPropertyMap(V, D.getType());
 }
 
 hlsl::InterpolationMode CGMSHLSLRuntime::GetInterpMode(const Decl *decl,
@@ -2477,9 +2472,7 @@ void CGMSHLSLRuntime::addResource(Decl *D) {
     // Save resource properties for global variables.
     if (resClass != DXIL::ResourceClass::Invalid) {
       GlobalVariable *GV = cast<GlobalVariable>(CGM.GetAddrOfGlobalVar(VD));
-      DxilResourceProperties RP = BuildResourceProperty(VD->getType());
-      if (RP.isValid())
-        valToResPropertiesMap[GV] = RP;
+      AddValToPropertyMap(GV, VD->getType());
     }
     // skip decl has init which is resource.
     if (VD->hasInit() && resClass != DXIL::ResourceClass::Invalid)
@@ -3200,9 +3193,7 @@ void CGMSHLSLRuntime::AddConstant(VarDecl *constDecl, HLCBuffer &CB) {
 
   auto &regBindings = constantRegBindingMap[constVal];
   // Save resource properties for cbuffer variables.
-  DxilResourceProperties RP = BuildResourceProperty(constDecl->getType());
-  if (RP.isValid())
-    valToResPropertiesMap[constVal] = RP;
+  AddValToPropertyMap(constVal, constDecl->getType());
 
   bool isGlobalCB = CB.GetID() == globalCBIndex;
   uint32_t offset = 0;
@@ -3394,7 +3385,7 @@ void CGMSHLSLRuntime::FinishCodeGen() {
   llvm::Module &M = TheModule;
   // Do this before CloneShaderEntry and TranslateRayQueryConstructor to avoid
   // update valToResPropertiesMap for cloned inst.
-  FinishIntrinsics(HLM, m_IntrinsicMap, valToResPropertiesMap, resTyPropsMap);
+  FinishIntrinsics(HLM, m_IntrinsicMap, objectProperties);
   bool bWaveEnabledStage = m_pHLModule->GetShaderModel()->IsPS() ||
                            m_pHLModule->GetShaderModel()->IsCS() ||
                            m_pHLModule->GetShaderModel()->IsLib();

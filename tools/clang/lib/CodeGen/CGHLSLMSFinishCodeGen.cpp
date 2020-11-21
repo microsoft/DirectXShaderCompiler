@@ -80,12 +80,12 @@ CallInst *CreateAnnotateHandle(HLModule &HLM, Value *Handle,
 // Leave the load/store.
 void LowerDynamicCBVUseToHandle(
     HLModule &HLM,
-    DenseMap<Value *, DxilResourceProperties> &valToResPropertiesMap) {
+    DxilObjectProperties &objectProperties) {
   Type *HandleTy = HLM.GetOP()->GetHandleType();
   Module &M = *HLM.GetModule();
   // Collect BitCast use of CBV.
   SmallVector<std::pair<BitCastInst *, DxilResourceProperties>, 4> BitCasts;
-  for (auto it : valToResPropertiesMap) {
+  for (auto it : objectProperties.resMap) {
     DxilResourceProperties RP = it.second;
     if (RP.getResourceKind() != DXIL::ResourceKind::CBuffer &&
         RP.getResourceKind() != DXIL::ResourceKind::TBuffer)
@@ -177,8 +177,7 @@ bool IsHLSLBufferViewType(llvm::Type *Ty) {
 }
 
 void LowerGetResourceFromHeap(
-    HLModule &HLM, std::vector<std::pair<Function *, unsigned>> &intrinsicMap,
-    const llvm::DenseMap<llvm::Type *, DxilResourceProperties> &resTyPropsMap) {
+    HLModule &HLM, std::vector<std::pair<Function *, unsigned>> &intrinsicMap) {
   llvm::Module &M = *HLM.GetModule();
   llvm::Type *HandleTy = HLM.GetOP()->GetHandleType();
   unsigned GetResFromHeapOp =
@@ -452,70 +451,66 @@ Function *CreateOpFunction(llvm::Module &M, Function *F,
 
 DxilResourceProperties GetResourcePropsFromIntrinsicObjectArg(
     Value *arg, HLModule &HLM, DxilTypeSystem &typeSys,
-    DenseMap<Value *, DxilResourceProperties> &valToResPropertiesMap) {
-  DxilResourceProperties RP;
+    DxilObjectProperties &objectProperties) {
+  DxilResourceProperties RP = objectProperties.GetResource(arg);
+  if (RP.isValid())
+    return RP;
 
-  auto RPIt = valToResPropertiesMap.find(arg);
-  if (RPIt != valToResPropertiesMap.end()) {
-    RP = RPIt->second;
-  } else {
-    // Must be GEP.
-    GEPOperator *GEP = cast<GEPOperator>(arg);
-    // Find RP from GEP.
-    Value *Ptr = GEP->getPointerOperand();
-    // When Ptr is array of resource, check if it is another GEP.
-    while (
-        dxilutil::IsHLSLResourceType(dxilutil::GetArrayEltTy(Ptr->getType()))) {
-      if (GEPOperator *ParentGEP = dyn_cast<GEPOperator>(Ptr)) {
-        GEP = ParentGEP;
-        Ptr = GEP->getPointerOperand();
-      } else {
-        break;
-      }
-    }
-
-    RPIt = valToResPropertiesMap.find(Ptr);
-    // When ptr is array of resource, ptr could be in
-    // valToResPropertiesMap.
-    if (RPIt != valToResPropertiesMap.end()) {
-      RP = RPIt->second;
+  // Must be GEP.
+  GEPOperator *GEP = cast<GEPOperator>(arg);
+  // Find RP from GEP.
+  Value *Ptr = GEP->getPointerOperand();
+  // When Ptr is array of resource, check if it is another GEP.
+  while (
+      dxilutil::IsHLSLResourceType(dxilutil::GetArrayEltTy(Ptr->getType()))) {
+    if (GEPOperator *ParentGEP = dyn_cast<GEPOperator>(Ptr)) {
+      GEP = ParentGEP;
+      Ptr = GEP->getPointerOperand();
     } else {
-      DxilStructAnnotation *Anno = nullptr;
+      break;
+    }
+  }
 
-      for (auto gepIt = gep_type_begin(GEP), E = gep_type_end(GEP); gepIt != E;
-           ++gepIt) {
+  // When ptr is array of resource, ptr could be in
+  // objectProperties.
+  RP = objectProperties.GetResource(Ptr);
+  if (RP.isValid())
+    return RP;
 
-        if (StructType *ST = dyn_cast<StructType>(*gepIt)) {
-          Anno = typeSys.GetStructAnnotation(ST);
-          DXASSERT(Anno, "missing type annotation");
+  DxilStructAnnotation *Anno = nullptr;
 
-          unsigned Index =
-              cast<ConstantInt>(gepIt.getOperand())->getLimitedValue();
+  for (auto gepIt = gep_type_begin(GEP), E = gep_type_end(GEP); gepIt != E;
+        ++gepIt) {
 
-          DxilFieldAnnotation &fieldAnno = Anno->GetFieldAnnotation(Index);
-          if (fieldAnno.HasResourceAttribute()) {
-            MDNode *resAttrib = fieldAnno.GetResourceAttribute();
-            DxilResourceBase R(DXIL::ResourceClass::Invalid);
-            HLM.LoadDxilResourceBaseFromMDNode(resAttrib, R);
-            switch (R.GetClass()) {
-            case DXIL::ResourceClass::SRV:
-            case DXIL::ResourceClass::UAV: {
-              DxilResource Res;
-              HLM.LoadDxilResourceFromMDNode(resAttrib, Res);
-              RP = resource_helper::loadPropsFromResourceBase(&Res);
-            } break;
-            case DXIL::ResourceClass::Sampler: {
-              DxilSampler Sampler;
-              HLM.LoadDxilSamplerFromMDNode(resAttrib, Sampler);
-              RP = resource_helper::loadPropsFromResourceBase(&Sampler);
-            } break;
-            default:
-              DXASSERT(0, "invalid resource attribute in filed annotation");
-              break;
-            }
-            break;
-          }
+    if (StructType *ST = dyn_cast<StructType>(*gepIt)) {
+      Anno = typeSys.GetStructAnnotation(ST);
+      DXASSERT(Anno, "missing type annotation");
+
+      unsigned Index =
+          cast<ConstantInt>(gepIt.getOperand())->getLimitedValue();
+
+      DxilFieldAnnotation &fieldAnno = Anno->GetFieldAnnotation(Index);
+      if (fieldAnno.HasResourceAttribute()) {
+        MDNode *resAttrib = fieldAnno.GetResourceAttribute();
+        DxilResourceBase R(DXIL::ResourceClass::Invalid);
+        HLM.LoadDxilResourceBaseFromMDNode(resAttrib, R);
+        switch (R.GetClass()) {
+        case DXIL::ResourceClass::SRV:
+        case DXIL::ResourceClass::UAV: {
+          DxilResource Res;
+          HLM.LoadDxilResourceFromMDNode(resAttrib, Res);
+          RP = resource_helper::loadPropsFromResourceBase(&Res);
+        } break;
+        case DXIL::ResourceClass::Sampler: {
+          DxilSampler Sampler;
+          HLM.LoadDxilSamplerFromMDNode(resAttrib, Sampler);
+          RP = resource_helper::loadPropsFromResourceBase(&Sampler);
+        } break;
+        default:
+          DXASSERT(0, "invalid resource attribute in filed annotation");
+          break;
         }
+        break;
       }
     }
   }
@@ -525,7 +520,7 @@ DxilResourceProperties GetResourcePropsFromIntrinsicObjectArg(
 
 void AddOpcodeParamForIntrinsic(
     HLModule &HLM, Function *F, unsigned opcode, llvm::Type *HandleTy,
-    DenseMap<Value *, DxilResourceProperties> &valToResPropertiesMap) {
+    DxilObjectProperties &objectProperties) {
   llvm::Module &M = *HLM.GetModule();
   llvm::FunctionType *oldFuncTy = F->getFunctionType();
 
@@ -653,7 +648,7 @@ void AddOpcodeParamForIntrinsic(
       objVal = objGEP->getPointerOperand();
 
       DxilResourceProperties RP = GetResourcePropsFromIntrinsicObjectArg(
-          objVal, HLM, typeSys, valToResPropertiesMap);
+          objVal, HLM, typeSys, objectProperties);
 
       if (IndexList.size() > 1)
         objVal = Builder.CreateInBoundsGEP(objVal, IndexList);
@@ -693,7 +688,7 @@ void AddOpcodeParamForIntrinsic(
         if (dxilutil::IsHLSLResourceType(Ty)) {
 
           DxilResourceProperties RP = GetResourcePropsFromIntrinsicObjectArg(
-              arg, HLM, typeSys, valToResPropertiesMap);
+              arg, HLM, typeSys, objectProperties);
           // Use object type directly, not by pointer.
           // This will make sure temp object variable only used by ld/st.
           if (GEPOperator *argGEP = dyn_cast<GEPOperator>(arg)) {
@@ -737,7 +732,7 @@ void AddOpcodeParamForIntrinsic(
 
 void AddOpcodeParamForIntrinsics(
     HLModule &HLM, std::vector<std::pair<Function *, unsigned>> &intrinsicMap,
-    DenseMap<Value *, DxilResourceProperties> &valToResPropertiesMap) {
+    DxilObjectProperties &objectProperties) {
   llvm::Type *HandleTy = HLM.GetOP()->GetHandleType();
   for (auto mapIter : intrinsicMap) {
     Function *F = mapIter.first;
@@ -748,7 +743,7 @@ void AddOpcodeParamForIntrinsics(
     }
 
     unsigned opcode = mapIter.second;
-    AddOpcodeParamForIntrinsic(HLM, F, opcode, HandleTy, valToResPropertiesMap);
+    AddOpcodeParamForIntrinsic(HLM, F, opcode, HandleTy, objectProperties);
   }
 }
 
@@ -2748,17 +2743,16 @@ void FinishEntries(
 namespace CGHLSLMSHelper {
 void FinishIntrinsics(
     HLModule &HLM, std::vector<std::pair<Function *, unsigned>> &intrinsicMap,
-    DenseMap<Value *, DxilResourceProperties> &valToResPropertiesMap,
-    const llvm::DenseMap<llvm::Type *, DxilResourceProperties> &resTyPropsMap) {
+    DxilObjectProperties &objectProperties) {
   // Lower getResourceHeap before AddOpcodeParamForIntrinsics to skip automatic
   // lower for getResourceFromHeap.
-  LowerGetResourceFromHeap(HLM, intrinsicMap, resTyPropsMap);
+  LowerGetResourceFromHeap(HLM, intrinsicMap);
   // Lower bitcast use of CBV into cbSubscript.
-  LowerDynamicCBVUseToHandle(HLM, valToResPropertiesMap);
+  LowerDynamicCBVUseToHandle(HLM, objectProperties);
   // translate opcode into parameter for intrinsic functions
   // Do this before CloneShaderEntry and TranslateRayQueryConstructor to avoid
   // update valToResPropertiesMap for cloned inst.
-  AddOpcodeParamForIntrinsics(HLM, intrinsicMap, valToResPropertiesMap);
+  AddOpcodeParamForIntrinsics(HLM, intrinsicMap, objectProperties);
 }
 
 // Add the dx.break temporary intrinsic and create Call Instructions
@@ -3175,4 +3169,23 @@ void StructurizeMultiRet(Module &M, clang::CodeGen::CodeGenModule &CGM,
     StructurizeMultiRetFunction(&F, it->second, bWaveEnabledStage, DxBreaks);
   }
 }
+
+bool DxilObjectProperties::AddResource(llvm::Value *V, const hlsl::DxilResourceProperties &RP) {
+  if (RP.isValid()) {
+    DXASSERT(!GetResource(V).isValid() || GetResource(V) == RP, "otherwise, property conflict");
+    resMap[V] = RP;
+    return true;
+  }
+  return false;
+}
+bool DxilObjectProperties::IsResource(llvm::Value *V) {
+  return resMap.count(V) != 0;
+}
+hlsl::DxilResourceProperties DxilObjectProperties::GetResource(llvm::Value *V) {
+  auto it = resMap.find(V);
+  if (it != resMap.end())
+    return it->second;
+  return DxilResourceProperties();
+}
+
 } // namespace CGHLSLMSHelper

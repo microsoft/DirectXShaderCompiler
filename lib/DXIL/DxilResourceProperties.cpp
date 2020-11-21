@@ -29,12 +29,12 @@ DxilResourceProperties::DxilResourceProperties() {
   RawDword1 = 0;
   Basic.ResourceKind = (uint8_t)DXIL::ResourceKind::Invalid;
 }
-bool DxilResourceProperties::isUAV() { return Basic.IsUAV; }
-bool DxilResourceProperties::isValid() {
+bool DxilResourceProperties::isUAV() const { return Basic.IsUAV; }
+bool DxilResourceProperties::isValid() const {
   return getResourceKind() != DXIL::ResourceKind::Invalid;
 }
 
-DXIL::ResourceClass DxilResourceProperties::getResourceClass() {
+DXIL::ResourceClass DxilResourceProperties::getResourceClass() const {
   switch (static_cast<DXIL::ResourceKind>(Basic.ResourceKind)) {
   default:
     return Basic.IsUAV ? DXIL::ResourceClass::UAV : DXIL::ResourceClass::SRV;
@@ -47,7 +47,7 @@ DXIL::ResourceClass DxilResourceProperties::getResourceClass() {
   }
 }
 
-DXIL::ResourceKind DxilResourceProperties::getResourceKind() {
+DXIL::ResourceKind DxilResourceProperties::getResourceKind() const {
   return static_cast<DXIL::ResourceKind>(Basic.ResourceKind);
 }
 
@@ -55,16 +55,16 @@ void DxilResourceProperties::setResourceKind(DXIL::ResourceKind RK) {
   Basic.ResourceKind = (uint8_t)RK;
 }
 
-DXIL::ComponentType DxilResourceProperties::getCompType() {
+DXIL::ComponentType DxilResourceProperties::getCompType() const {
   return static_cast<DXIL::ComponentType>(Typed.CompType);
 }
 
-bool DxilResourceProperties::operator==(const DxilResourceProperties &RP) {
+bool DxilResourceProperties::operator==(const DxilResourceProperties &RP) const {
   return RawDword0 == RP.RawDword0 &&
          RawDword1 == RP.RawDword1;
 }
 
-bool DxilResourceProperties::operator!=(const DxilResourceProperties &RP) {
+bool DxilResourceProperties::operator!=(const DxilResourceProperties &RP) const {
   return !(*this == RP) ;
 }
 

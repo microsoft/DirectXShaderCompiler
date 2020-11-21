@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //                                                                           //
-// DxilHandleAnnotation.h                                                    //
+// DxilResourceProperties.h                                                  //
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
@@ -65,14 +65,14 @@ struct DxilResourceProperties {
     uint32_t RawDword1;
   };
   DxilResourceProperties();
-  DXIL::ResourceClass getResourceClass();
-  DXIL::ResourceKind  getResourceKind();
-  DXIL::ComponentType getCompType();
+  DXIL::ResourceClass getResourceClass() const;
+  DXIL::ResourceKind  getResourceKind() const;
+  DXIL::ComponentType getCompType() const;
   void setResourceKind(DXIL::ResourceKind RK);
-  bool isUAV();
-  bool operator==(const DxilResourceProperties &);
-  bool operator!=(const DxilResourceProperties &);
-  bool isValid();
+  bool isUAV() const;
+  bool operator==(const DxilResourceProperties &) const;
+  bool operator!=(const DxilResourceProperties &) const;
+  bool isValid() const;
 };
 
 static_assert(sizeof(DxilResourceProperties) == 2 * sizeof(uint32_t),
