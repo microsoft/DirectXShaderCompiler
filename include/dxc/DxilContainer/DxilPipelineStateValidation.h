@@ -176,8 +176,6 @@ enum class PSVResourceKind
   RTAccelerationStructure,
   FeedbackTexture2D,
   FeedbackTexture2DArray,
-  StructuredBufferWithCounter,
-  SamplerComparison,
   NumEntries
 };
 
