@@ -132,6 +132,13 @@ struct PSVRuntimeInfo1 : public PSVRuntimeInfo0
   uint8_t SigOutputVectors[4];      // Array for GS Stream Out Index
 };
 
+struct PSVRuntimeInfo2 : public PSVRuntimeInfo1
+{
+  uint32_t NumThreadsX;
+  uint32_t NumThreadsY;
+  uint32_t NumThreadsZ;
+};
+
 enum class PSVResourceType
 {
   Invalid = 0,
@@ -373,9 +380,12 @@ struct PSVInitInfo
 
   static_assert(MAX_PSV_VERSION == 2, "otherwise this needs updating.");
   uint32_t RuntimeInfoSize() const {
-    if (PSVVersion < 1)
-      return sizeof(PSVRuntimeInfo0);
-    return sizeof(PSVRuntimeInfo1);
+    switch (PSVVersion) {
+    case 0: return sizeof(PSVRuntimeInfo0);
+    case 1: return sizeof(PSVRuntimeInfo1);
+    default: break;
+    }
+   return sizeof(PSVRuntimeInfo2);
   }
   uint32_t ResourceBindInfoSize() const {
     if (PSVVersion < 2)
@@ -392,6 +402,7 @@ class DxilPipelineStateValidation
   uint32_t m_uPSVRuntimeInfoSize = 0;
   PSVRuntimeInfo0* m_pPSVRuntimeInfo0 = nullptr;
   PSVRuntimeInfo1 *m_pPSVRuntimeInfo1 = nullptr;
+  PSVRuntimeInfo2 *m_pPSVRuntimeInfo2 = nullptr;
   uint32_t m_uResourceCount = 0;
   uint32_t m_uPSVResourceBindInfoSize = 0;
   void *m_pPSVResourceBindInfo = nullptr;
@@ -494,6 +505,10 @@ public:
 
   PSVRuntimeInfo1* GetPSVRuntimeInfo1() const {
     return m_pPSVRuntimeInfo1;
+  }
+
+  PSVRuntimeInfo2* GetPSVRuntimeInfo2() const {
+    return m_pPSVRuntimeInfo2;
   }
 
   uint32_t GetBindCount() const {
@@ -606,6 +621,16 @@ public:
       return PSVDependencyTable(m_pPCInputToOutputTable, m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors, m_pPSVRuntimeInfo1->SigOutputVectors[0]);
     }
     return PSVDependencyTable();
+  }
+
+  bool GetNumThreads(uint32_t *pNumThreadsX, uint32_t *pNumThreadsY, uint32_t *pNumThreadsZ) {
+    if (m_pPSVRuntimeInfo2) {
+      if (pNumThreadsX) *pNumThreadsX = m_pPSVRuntimeInfo2->NumThreadsX;
+      if (pNumThreadsY) *pNumThreadsY = m_pPSVRuntimeInfo2->NumThreadsY;
+      if (pNumThreadsZ) *pNumThreadsZ = m_pPSVRuntimeInfo2->NumThreadsZ;
+      return true;
+    }
+    return false;
   }
 };
 
@@ -747,6 +772,7 @@ inline bool DxilPipelineStateValidation::ReadOrWrite(
   PSV_RETB(rw.MapValue(&m_uPSVRuntimeInfoSize, initInfo.RuntimeInfoSize()));
   PSV_RETB(rw.MapArray(&m_pPSVRuntimeInfo0, 1, m_uPSVRuntimeInfoSize));
   AssignDerived(&m_pPSVRuntimeInfo1, m_pPSVRuntimeInfo0, m_uPSVRuntimeInfoSize); // failure ok
+  AssignDerived(&m_pPSVRuntimeInfo2, m_pPSVRuntimeInfo0, m_uPSVRuntimeInfoSize); // failure ok
 
   // In RWMode::CalcSize, use temp runtime info to hold needed values from initInfo
   PSVRuntimeInfo1 tempRuntimeInfo = {};

@@ -561,6 +561,7 @@ public:
     // Set DxilRuntimInfo
     PSVRuntimeInfo0* pInfo = m_PSV.GetPSVRuntimeInfo0();
     PSVRuntimeInfo1* pInfo1 = m_PSV.GetPSVRuntimeInfo1();
+    PSVRuntimeInfo2* pInfo2 = m_PSV.GetPSVRuntimeInfo2();
     const ShaderModel* SM = m_Module.GetShaderModel();
     pInfo->MinimumExpectedWaveLaneCount = 0;
     pInfo->MaximumExpectedWaveLaneCount = (UINT)-1;
@@ -673,6 +674,17 @@ public:
       pInfo->AS.PayloadSizeInBytes = m_Module.GetPayloadSizeInBytes();
       break;
     }
+    }
+    if (pInfo2) {
+      switch (SM->GetKind()) {
+      case ShaderModel::Kind::Compute:
+      case ShaderModel::Kind::Mesh:
+      case ShaderModel::Kind::Amplification:
+        pInfo2->NumThreadsX = m_Module.GetNumThreads(0);
+        pInfo2->NumThreadsY = m_Module.GetNumThreads(1);
+        pInfo2->NumThreadsZ = m_Module.GetNumThreads(2);
+        break;
+      }
     }
 
     // Set resource binding information
