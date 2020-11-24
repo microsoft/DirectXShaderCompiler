@@ -1,5 +1,5 @@
-// RUN: %dxc -T ds_6_5 -E main
-// CHECK:  OpCapability RayQueryProvisionalKHR
+// RUN: %dxc -T ds_6_5 -E main -fspv-target-env=vulkan1.2
+// CHECK:  OpCapability RayQueryKHR
 // CHECK:  OpExtension "SPV_KHR_ray_query"
 
 struct VSSceneIn {

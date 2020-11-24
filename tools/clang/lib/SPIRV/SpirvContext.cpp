@@ -25,7 +25,7 @@ SpirvContext::SpirvContext()
   boolType = new (this) BoolType;
   samplerType = new (this) SamplerType;
   accelerationStructureTypeNV = new (this) AccelerationStructureTypeNV;
-  rayQueryProvisionalTypeKHR = new (this) RayQueryProvisionalTypeKHR;
+  rayQueryTypeKHR = new (this) RayQueryTypeKHR;
 }
 
 SpirvContext::~SpirvContext() {
@@ -33,7 +33,7 @@ SpirvContext::~SpirvContext() {
   boolType->~BoolType();
   samplerType->~SamplerType();
   accelerationStructureTypeNV->~AccelerationStructureTypeNV();
-  rayQueryProvisionalTypeKHR->~RayQueryProvisionalTypeKHR();
+  rayQueryTypeKHR->~RayQueryTypeKHR();
 
   for (auto *sintType : sintTypes)
     if (sintType) // sintTypes may contain nullptr
