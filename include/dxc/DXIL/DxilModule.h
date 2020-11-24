@@ -64,6 +64,8 @@ public:
   void SetValidatorVersion(unsigned ValMajor, unsigned ValMinor);
   bool UpgradeValidatorVersion(unsigned ValMajor, unsigned ValMinor);
   void GetValidatorVersion(unsigned &ValMajor, unsigned &ValMinor) const;
+  void SetForceZeroStoreLifetimes(bool ForceZeroStoreLifetimes);
+  bool GetForceZeroStoreLifetimes() const;
 
   // Return true on success, requires valid shader model and CollectShaderFlags to have been set
   bool GetMinValidatorVersion(unsigned &ValMajor, unsigned &ValMinor) const;
@@ -339,6 +341,7 @@ private:
   unsigned m_DxilMinor;
   unsigned m_ValMajor;
   unsigned m_ValMinor;
+  bool m_ForceZeroStoreLifetimes;
 
   std::unique_ptr<OP> m_pOP;
   size_t m_pUnused;

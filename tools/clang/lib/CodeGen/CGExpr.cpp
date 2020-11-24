@@ -3887,6 +3887,7 @@ RValue CodeGenFunction::EmitCall(QualType CalleeType, llvm::Value *Callee,
 
   // HLSL Change Begins
   llvm::SmallVector<LValue, 8> castArgList;
+  llvm::SmallVector<LValue, 8> lifetimeCleanupList;
   // The argList of the CallExpr, may be update for out parameter
   llvm::SmallVector<const Stmt *, 8> argList(E->arg_begin(), E->arg_end());
   ConstExprIterator argBegin = argList.data();
@@ -3899,7 +3900,7 @@ RValue CodeGenFunction::EmitCall(QualType CalleeType, llvm::Value *Callee,
   if (getLangOpts().HLSL) {
     if (const FunctionDecl *FD = E->getDirectCallee())
       CGM.getHLSLRuntime().EmitHLSLOutParamConversionInit(*this, FD, E,
-                                                          castArgList, argList, MapTemp);
+                                                          castArgList, argList, lifetimeCleanupList, MapTemp);
   }
   // HLSL Change Ends
 
@@ -3944,7 +3945,7 @@ RValue CodeGenFunction::EmitCall(QualType CalleeType, llvm::Value *Callee,
   // out param conversion
   // conversion and copy back after the call
   if (getLangOpts().HLSL)
-    CGM.getHLSLRuntime().EmitHLSLOutParamConversionCopyBack(*this, castArgList);
+    CGM.getHLSLRuntime().EmitHLSLOutParamConversionCopyBack(*this, castArgList, lifetimeCleanupList);
   // HLSL Change Ends
 
   return CallVal;

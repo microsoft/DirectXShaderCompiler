@@ -67,9 +67,6 @@ using namespace clang;
 using namespace hlsl;
 using std::string;
 
-DEFINE_CROSS_PLATFORM_UUIDOF(IDxcLangExtensions)
-DEFINE_CROSS_PLATFORM_UUIDOF(IDxcLangExtensions2)
-
 // This declaration is used for the locally-linked validator.
 HRESULT CreateDxcValidator(_In_ REFIID riid, _Out_ LPVOID *ppv);
 
@@ -367,7 +364,7 @@ public:
   virtual std::string GetIntrinsicName(UINT opcode) override {
     return m_langExtensionsHelper.GetIntrinsicName(opcode);
   }
-  
+
   virtual bool GetDxilOpcode(UINT opcode, OP::OpCode &dxilOpcode) override {
     UINT dop = static_cast<UINT>(OP::OpCode::NumOpCodes);
     if (m_langExtensionsHelper.GetDxilOpCode(opcode, dop)) {
@@ -436,7 +433,7 @@ public:
 
   HRESULT STDMETHODCALLTYPE RegisterDxilContainerEventHandler(IDxcContainerEventsHandler *pHandler, UINT64 *pCookie) override {
     DXASSERT(m_pDxcContainerEventsHandler == nullptr, "else events handler is already registered");
-    *pCookie = 1; // Only one EventsHandler supported 
+    *pCookie = 1; // Only one EventsHandler supported
     m_pDxcContainerEventsHandler = pHandler;
     return S_OK;
   };
@@ -965,7 +962,7 @@ public:
 
     HRESULT hr = S_OK;
     DxcEtw_DXCompilerDisassemble_Start();
-    DxcThreadMalloc TM(m_pMalloc); 
+    DxcThreadMalloc TM(m_pMalloc);
     try {
       DefaultFPEnvScope fpEnvScope;
 
@@ -1146,6 +1143,8 @@ public:
     compiler.getCodeGenOpts().HLSLPreciseOutputs = Opts.PreciseOutputs;
     compiler.getCodeGenOpts().MainFileName = pMainFile;
     compiler.getCodeGenOpts().HLSLPrintAfterAll = Opts.PrintAfterAll;
+    compiler.getCodeGenOpts().HLSLForceZeroStoreLifetimes = Opts.ForceZeroStoreLifetimes;
+    compiler.getCodeGenOpts().HLSLEnableLifetimeMarkers = Opts.EnableLifetimeMarkers;
 
     // Translate signature packing options
     if (Opts.PackPrefixStable)

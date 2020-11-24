@@ -1202,11 +1202,19 @@ void CodeGenFunction::EmitBreakStmt(const BreakStmt &S) {
 
   // HLSL Change Begin - incorporate unconditional branch blocks into loops
   // If it has a continue location, it's a loop
-  if (BreakContinueStack.back().ContinueBlock.getBlock() && (BreakContinueStack.size() < 2 ||
-      BreakContinueStack.back().ContinueBlock.getBlock() != BreakContinueStack.end()[-2].ContinueBlock.getBlock())) {
-    assert(EHStack.getInnermostActiveNormalCleanup() == EHStack.stable_end() && "HLSL Shouldn't need cleanups");
-    CGM.getHLSLRuntime().EmitHLSLCondBreak(*this, CurFn, BreakContinueStack.back().BreakBlock.getBlock(),
-                                           BreakContinueStack.back().ContinueBlock.getBlock());
+  llvm::BasicBlock *lastContinueBlock = BreakContinueStack.back().ContinueBlock.getBlock();
+  if (lastContinueBlock && (BreakContinueStack.size() < 2 ||
+      lastContinueBlock != BreakContinueStack.end()[-2].ContinueBlock.getBlock())) {
+    // We execute this if
+    // - we are in an unnested loop, or
+    // - we are in a nested control construct but the continue block of the enclosing loop is different from the current continue block.
+    // The second condition can happen for switch statements inside loops, which share the same continue block.
+    llvm::BasicBlock *lastBreakBlock = BreakContinueStack.back().BreakBlock.getBlock();
+    llvm::BranchInst *condBr = CGM.getHLSLRuntime().EmitHLSLCondBreak(*this, CurFn, lastBreakBlock, lastContinueBlock);
+
+    // Insertion of lifetime.start/end intrinsics may require a cleanup, so we
+    // pass the branch that we already generated into the handler.
+    EmitBranchThroughCleanup(BreakContinueStack.back().BreakBlock, condBr);
     Builder.ClearInsertionPoint();
   } else
   // HLSL Change End - incorporate unconditional branch blocks into loops

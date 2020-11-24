@@ -47,6 +47,7 @@
 #include "llvm/Bitcode/ReaderWriter.h"
 #include <unordered_set>
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "dxc/HLSL/DxilSpanAllocator.h"
@@ -204,7 +205,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::TypesIntWidth: return "Int type '%0' has an invalid width.";
     case hlsl::ValidationRule::TypesNoMultiDim: return "Only one dimension allowed for array type.";
     case hlsl::ValidationRule::TypesNoPtrToPtr: return "Pointers to pointers, or pointers in structures are not allowed.";
-    case hlsl::ValidationRule::TypesI8: return "I8 can only be used as immediate value for intrinsic.";
+    case hlsl::ValidationRule::TypesI8: return "I8 can only be used as immediate value for intrinsic or as i8* via bitcast by lifetime intrinsics.";
     case hlsl::ValidationRule::SmName: return "Unknown shader model '%0'.";
     case hlsl::ValidationRule::SmDxilVersion: return "Shader model requires Dxil Version %0,%1.";
     case hlsl::ValidationRule::SmOpcode: return "Opcode %0 not valid in shader model %1.";
@@ -2521,7 +2522,19 @@ static bool IsDxilFunction(llvm::Function *F) {
   return OP::IsDxilOpFunc(F);
 }
 
+static bool IsLifetimeIntrinsic(llvm::Function *F) {
+  return (F->isIntrinsic() &&
+          (F->getIntrinsicID() == Intrinsic::lifetime_start ||
+           F->getIntrinsicID() == Intrinsic::lifetime_end));
+}
+
 static void ValidateExternalFunction(Function *F, ValidationContext &ValCtx) {
+  if (DXIL::CompareVersions(ValCtx.m_DxilMajor, ValCtx.m_DxilMinor, 1, 6) >= 0 &&
+      IsLifetimeIntrinsic(F)) {
+    // TODO: validate lifetime intrinsic users
+    return;
+  }
+
   if (!IsDxilFunction(F) && !ValCtx.isLibProfile) {
     ValCtx.EmitFnFormatError(F, ValidationRule::DeclDxilFnExtern, {F->getName()});
     return;
@@ -3201,6 +3214,8 @@ static bool IsLLVMInstructionAllowedForLib(Instruction &I, ValidationContext &Va
 static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
   bool SupportsMinPrecision =
       ValCtx.DxilMod.GetGlobalFlags() & DXIL::kEnableMinPrecision;
+  bool SupportsLifetimeIntrinsics =
+      ValCtx.DxilMod.GetShaderModel()->IsSM66Plus();
   SmallVector<CallInst *, 16> gradientOps;
   SmallVector<CallInst *, 16> barriers;
   CallInst *setMeshOutputCounts = nullptr;
@@ -3304,6 +3319,9 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
           if (ShuffleVectorInst *Shuf = dyn_cast<ShuffleVectorInst>(&I)) {
             legalUndef = op == I.getOperand(1);
           }
+          if (StoreInst *Store = dyn_cast<StoreInst>(&I)) {
+            legalUndef = op == I.getOperand(0);
+          }
 
           if (!legalUndef)
             ValCtx.EmitInstrError(&I,
@@ -3318,6 +3336,7 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
         }
         if (IntegerType *IT = dyn_cast<IntegerType>(op->getType())) {
           if (IT->getBitWidth() == 8) {
+            // We always fail if we see i8 as operand type of a non-lifetime instruction.
             ValCtx.EmitInstrError(&I, ValidationRule::TypesI8);
           }
         }
@@ -3330,7 +3349,10 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
         Ty = Ty->getArrayElementType();
       if (IntegerType *IT = dyn_cast<IntegerType>(Ty)) {
         if (IT->getBitWidth() == 8) {
-          ValCtx.EmitInstrError(&I, ValidationRule::TypesI8);
+          // Allow i8* cast for llvm.lifetime.* intrinsics.
+          if (!SupportsLifetimeIntrinsics || !isa<BitCastInst>(I) || !onlyUsedByLifetimeMarkers(&I)) {
+            ValCtx.EmitInstrError(&I, ValidationRule::TypesI8);
+          }
         }
       }
 
@@ -3430,6 +3452,10 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
         BitCastInst *Cast = cast<BitCastInst>(&I);
         Type *FromTy = Cast->getOperand(0)->getType();
         Type *ToTy = Cast->getType();
+        // Allow i8* cast for llvm.lifetime.* intrinsics.
+        if (SupportsLifetimeIntrinsics &&
+            ToTy == Type::getInt8PtrTy(ToTy->getContext()))
+            continue;
         if (isa<PointerType>(FromTy)) {
           FromTy = FromTy->getPointerElementType();
           ToTy = ToTy->getPointerElementType();

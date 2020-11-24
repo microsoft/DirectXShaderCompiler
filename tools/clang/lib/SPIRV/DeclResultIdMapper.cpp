@@ -69,11 +69,11 @@ uint32_t getNumBindingsUsedByResourceType(QualType type) {
 
   // Once we remove the arrayness, we expect the given type to be either a
   // resource OR a structure that only contains resources.
-  assert(hlsl::IsHLSLResourceType(type) || isResourceOnlyStructure(type));
+  assert(isResourceType(type) || isResourceOnlyStructure(type));
 
   // In the case of a resource, each resource takes 1 binding slot, so in total
   // it consumes: 1 * arrayFactor.
-  if (hlsl::IsHLSLResourceType(type))
+  if (isResourceType(type))
     return arrayFactor;
 
   // In the case of a struct of resources, we need to sum up the number of
@@ -229,10 +229,11 @@ bool shouldSkipInStructLayout(const Decl *decl) {
       return true;
 
     // Other resource types
-    if (const auto *valueDecl = dyn_cast<ValueDecl>(decl))
-      if (isResourceType(valueDecl) ||
-          isResourceOnlyStructure((valueDecl->getType())))
+    if (const auto *valueDecl = dyn_cast<ValueDecl>(decl)) {
+      const auto declType = valueDecl->getType();
+      if (isResourceType(declType) || isResourceOnlyStructure(declType))
         return true;
+    }
   }
 
   return false;
@@ -791,7 +792,7 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
   const auto rule = getLayoutRuleForExternVar(type, spirvOptions);
   const auto loc = var->getLocation();
 
-  if (!isGroupShared && !isResourceType(var) &&
+  if (!isGroupShared && !isResourceType(type) &&
       !isResourceOnlyStructure(type)) {
 
     // We currently cannot support global structures that contain both resources
