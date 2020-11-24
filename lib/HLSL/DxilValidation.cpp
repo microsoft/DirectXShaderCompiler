@@ -2522,7 +2522,19 @@ static bool IsDxilFunction(llvm::Function *F) {
   return OP::IsDxilOpFunc(F);
 }
 
+static bool IsLifetimeIntrinsic(llvm::Function *F) {
+  return (F->isIntrinsic() &&
+          (F->getIntrinsicID() == Intrinsic::lifetime_start ||
+           F->getIntrinsicID() == Intrinsic::lifetime_end));
+}
+
 static void ValidateExternalFunction(Function *F, ValidationContext &ValCtx) {
+  if (DXIL::CompareVersions(ValCtx.m_DxilMajor, ValCtx.m_DxilMinor, 1, 6) >= 0 &&
+      IsLifetimeIntrinsic(F)) {
+    // TODO: validate lifetime intrinsic users
+    return;
+  }
+
   if (!IsDxilFunction(F) && !ValCtx.isLibProfile) {
     ValCtx.EmitFnFormatError(F, ValidationRule::DeclDxilFnExtern, {F->getName()});
     return;
