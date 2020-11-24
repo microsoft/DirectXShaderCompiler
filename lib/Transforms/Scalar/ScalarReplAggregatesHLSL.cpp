@@ -3508,10 +3508,10 @@ static bool isReadOnlyPtr(CallInst *PtrCI) {
       hlsl::HLOpcodeGroup group =
           hlsl::GetHLOpcodeGroup(handleCI->getCalledFunction());
       if (group == HLOpcodeGroup::HLAnnotateHandle) {
-        ConstantInt *RCVal = cast<ConstantInt>(handleCI->getArgOperand(
-            HLOperandIndex::kAnnotateHandleResourceClassOpIdx));
-        DXIL::ResourceClass RC = (DXIL::ResourceClass)RCVal->getLimitedValue();
-        if (RC == DXIL::ResourceClass::SRV) {
+        Constant *Props = cast<Constant>(handleCI->getArgOperand(
+                             HLOperandIndex::kAnnotateHandleResourcePropertiesOpIdx));
+        DxilResourceProperties RP = resource_helper::loadPropsFromConstant(*Props);
+        if (RP.getResourceClass() == DXIL::ResourceClass::SRV) {
           // Ptr from SRV is readonly.
           return true;
         }
