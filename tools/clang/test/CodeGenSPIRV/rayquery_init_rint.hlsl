@@ -1,6 +1,6 @@
-// Run: %dxc -T lib_6_3
-// CHECK:  OpCapability RayTracingProvisionalKHR
-// CHECK:  OpCapability RayQueryProvisionalKHR
+// Run: %dxc -T lib_6_3 -fspv-target-env=vulkan1.2
+// CHECK:  OpCapability RayTracingKHR
+// CHECK:  OpCapability RayQueryKHR
 // CHECK:  OpExtension "SPV_KHR_ray_tracing"
 // CHECK:  OpExtension "SPV_KHR_ray_query"
 
