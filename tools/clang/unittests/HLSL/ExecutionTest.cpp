@@ -944,10 +944,12 @@ public:
 
   }
 
-  // Create and return descriptor heaps for the given device with the given number or resources and samples.
-  void CreateDescHeaps(ID3D12Device *pDevice,
-                       int NumResources, int NumSamplers,
-                       ID3D12DescriptorHeap **ppResHeap, ID3D12DescriptorHeap **ppSampHeap) {
+  // Create and return descriptor heaps for the given device
+  // with the given number of resources and samples.
+  // using some reasonable defaults
+  void CreateDefaultDescHeaps(ID3D12Device *pDevice,
+                              int NumResources, int NumSamplers,
+                              ID3D12DescriptorHeap **ppResHeap, ID3D12DescriptorHeap **ppSampHeap) {
     // Describe and create descriptor heaps.
     ID3D12DescriptorHeap *pResHeap, *pSampHeap;
     D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
@@ -964,9 +966,11 @@ public:
     *ppSampHeap = pSampHeap;
   }
 
-  void CreateResourceViews(ID3D12Device *pDevice, D3D12_CPU_DESCRIPTOR_HANDLE heapStart,
-                           const CComPtr<ID3D12Resource> pSRVResources[], int NumSRVs,
-                           const CComPtr<ID3D12Resource> pUAVResources[], int NumUAVs) {
+  // Create Resource views for <pDevice> given the SRV and UAV information provided
+  // using some reasonable defaults
+  void CreateDefaultResourceViews(ID3D12Device *pDevice, D3D12_CPU_DESCRIPTOR_HANDLE heapStart,
+                                  const CComPtr<ID3D12Resource> pSRVResources[], int NumSRVs,
+                                  const CComPtr<ID3D12Resource> pUAVResources[], int NumUAVs) {
 
     CD3DX12_CPU_DESCRIPTOR_HANDLE baseHandle(heapStart);
     UINT descriptorSize = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -1007,8 +1011,10 @@ public:
     }
   }
 
-  void CreateSamplers(ID3D12Device *pDevice, D3D12_CPU_DESCRIPTOR_HANDLE heapStart,
-                      D3D12_FILTER filters[], float BorderColors[], int NumSamplers) {
+  // Create Samplers for <pDevice> given the filter and border color information provided
+  // using some reasonable defaults
+  void CreateDefaultSamplers(ID3D12Device *pDevice, D3D12_CPU_DESCRIPTOR_HANDLE heapStart,
+                             D3D12_FILTER filters[], float BorderColors[], int NumSamplers) {
 
     CD3DX12_CPU_DESCRIPTOR_HANDLE sampHandle(heapStart);
     UINT descriptorSize = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
@@ -7728,7 +7734,7 @@ void ExecutionTest::RunResourceTest(ID3D12Device *pDevice, const char *pShader,
 
   CComPtr<ID3D12DescriptorHeap> pResHeap;
   CComPtr<ID3D12DescriptorHeap> pSampHeap;
-  CreateDescHeaps(pDevice, NumSRVs + NumUAVs, NumSamplers, &pResHeap, &pSampHeap);
+  CreateDefaultDescHeaps(pDevice, NumSRVs + NumUAVs, NumSamplers, &pResHeap, &pSampHeap);
 
   // Create Rootsignature and descriptor tables
   {
@@ -7742,12 +7748,12 @@ void ExecutionTest::RunResourceTest(ID3D12Device *pDevice, const char *pShader,
       pCommandList->SetComputeRootDescriptorTable(1, pSampHeap->GetGPUDescriptorHandleForHeapStart());
     }
   }
-  CreateResourceViews(pDevice, pResHeap->GetCPUDescriptorHandleForHeapStart(),
-                      pSRVResources, NumSRVs, pUAVResources, NumUAVs);
+  CreateDefaultResourceViews(pDevice, pResHeap->GetCPUDescriptorHandleForHeapStart(),
+                             pSRVResources, NumSRVs, pUAVResources, NumUAVs);
   D3D12_FILTER filters[] = {D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT, D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT};
   float borderColors[] = {30.0, 31.0};
-  CreateSamplers(pDevice, pSampHeap->GetCPUDescriptorHandleForHeapStart(),
-                 filters, borderColors, NumSamplers);
+  CreateDefaultSamplers(pDevice, pSampHeap->GetCPUDescriptorHandleForHeapStart(),
+                        filters, borderColors, NumSamplers);
 
   // Run the compute shader and copy the results back to readable memory.
   pCommandList->Dispatch(DispatchGroupX, DispatchGroupY, DispatchGroupZ);
