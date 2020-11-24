@@ -685,7 +685,8 @@ public:
   /// EmitBranchThroughCleanup - Emit a branch from the current insert
   /// block through the normal cleanup handling code (if any) and then
   /// on to \arg Dest.
-  void EmitBranchThroughCleanup(JumpDest Dest);
+  // HLSL Change - allow to use pre-generated branch
+  void EmitBranchThroughCleanup(JumpDest Dest, llvm::BranchInst *PreExistingBr = nullptr);
   
   /// isObviouslyBranchWithoutCleanups - Return true if a branch to the
   /// specified destination obviously has no cleanups to run.  'false' is always

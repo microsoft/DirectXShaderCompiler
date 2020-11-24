@@ -84,6 +84,7 @@
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/HLSL/HLModule.h"
 #include "llvm/Analysis/DxilValueCache.h"
+#include "llvm/Analysis/ValueTracking.h"
 
 #include "DxilRemoveUnstructuredLoopExits.h"
 
@@ -543,8 +544,8 @@ static bool BreakUpArrayAllocas(bool AllowOOBIndex, IteratorT ItBegin, IteratorT
 
     GEPs.clear(); // Re-use array
     for (User *U : AI->users()) {
-      // Try to set all GEP operands to constant
       if (GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
+        // Try to set all GEP operands to constant
         if (!GEP->hasAllConstantIndices() && isa<GetElementPtrInst>(GEP)) {
           for (unsigned i = 0; i < GEP->getNumIndices(); i++) {
             Value *IndexOp = GEP->getOperand(i + 1);
@@ -565,11 +566,17 @@ static bool BreakUpArrayAllocas(bool AllowOOBIndex, IteratorT ItBegin, IteratorT
         else {
           GEPs.push_back(GEP);
         }
+
+        continue;
       }
-      else {
-        GEPs.clear();
-        break;
-      }
+
+      // Ignore uses that are only used by lifetime intrinsics.
+      if (onlyUsedByLifetimeMarkers(U))
+        continue;
+
+      // We've found something that prevents us from safely replacing this alloca.
+      GEPs.clear();
+      break;
     }
 
     if (!GEPs.size())
@@ -613,6 +620,7 @@ static bool BreakUpArrayAllocas(bool AllowOOBIndex, IteratorT ItBegin, IteratorT
         NewPointer = ScalarAlloca;
       }
 
+      // TODO: Inherit lifetimes start/end locations from AI if available.
       GEP->replaceAllUsesWith(NewPointer);
     } 
 

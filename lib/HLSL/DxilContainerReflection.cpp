@@ -390,7 +390,7 @@ HRESULT DxilContainerReflection::GetPartReflection(UINT32 idx, REFIID iid, void 
       }
     }
   }
-  
+
   const DxilProgramHeader *pProgramHeader =
     reinterpret_cast<const DxilProgramHeader*>(GetDxilPartData(pPart));
   if (!IsValidDxilProgramHeader(pProgramHeader, pPart->PartSize)) {
@@ -2565,9 +2565,9 @@ HRESULT CFunctionReflection::GetDesc(D3D12_FUNCTION_DESC *pDesc) {
   pDesc->BoundResources = (UINT)m_UsedResources.size();
 
   //Unset:  UINT                    InstructionCount;            // Number of emitted instructions
-  //Unset:  UINT                    TempRegisterCount;           // Number of temporary registers used 
+  //Unset:  UINT                    TempRegisterCount;           // Number of temporary registers used
   //Unset:  UINT                    TempArrayCount;              // Number of temporary arrays used
-  //Unset:  UINT                    DefCount;                    // Number of constant defines 
+  //Unset:  UINT                    DefCount;                    // Number of constant defines
   //Unset:  UINT                    DclCount;                    // Number of declarations (input + output)
   //Unset:  UINT                    TextureNormalInstructions;   // Number of non-categorized texture instructions
   //Unset:  UINT                    TextureLoadInstructions;     // Number of texture load instructions
@@ -2761,7 +2761,4 @@ void hlsl::CreateDxcContainerReflection(IDxcContainerReflection **ppResult) {
   *ppResult = nullptr;
 }
 
-DEFINE_CROSS_PLATFORM_UUIDOF(IDxcContainerReflection)
-
 #endif // LLVM_ON_WIN32
-

@@ -2435,7 +2435,38 @@ void SROA_Helper::RewriteBitCast(BitCastInst *BCI) {
   SrcTy = SrcTy->getPointerElementType();
 
   if (!DstTy->isStructTy()) {
-    assert(0 && "Type mismatch.");
+    // This is an llvm.lifetime.* intrinsic. Replace bitcast by a bitcast for each element.
+    SmallVector<IntrinsicInst*, 16> ToReplace;
+
+    DXASSERT(onlyUsedByLifetimeMarkers(BCI),
+             "expected struct bitcast to only be used by lifetime intrinsics");
+
+    for (User *User : BCI->users()) {
+      IntrinsicInst *Intrin = cast<IntrinsicInst>(User);
+      ToReplace.push_back(Intrin);
+    }
+
+    const DataLayout &DL = BCI->getModule()->getDataLayout();
+    for (IntrinsicInst *Intrin : ToReplace) {
+      IRBuilder<> Builder(Intrin);
+
+      for (Value *Elt : NewElts) {
+        assert(Elt->getType()->isPointerTy());
+        Type     *ElPtrTy = Elt->getType();
+        Type     *ElTy    = ElPtrTy->getPointerElementType();
+        Value    *SizeV   = Builder.getInt64( DL.getTypeAllocSize(ElTy) );
+        Value    *Ptr     = Builder.CreateBitCast(Elt, Builder.getInt8PtrTy());
+        Value    *Args[]  = {SizeV, Ptr};
+        CallInst *C       = Builder.CreateCall(Intrin->getCalledFunction(), Args);
+        C->setDoesNotThrow();
+      }
+
+      assert(Intrin->use_empty());
+      Intrin->eraseFromParent();
+    }
+
+    assert(BCI->use_empty());
+    BCI->eraseFromParent();
     return;
   }
 
@@ -3191,6 +3222,35 @@ static void CopyElementsOfStructsWithIdenticalLayout(
   }
 }
 
+static void removeLifetimeUsers(Value *V) {
+  std::set<Value*> users(V->users().begin(), V->users().end());
+  for (Value *U : users) {
+    if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(U)) {
+      if (II->getIntrinsicID() == Intrinsic::lifetime_start ||
+          II->getIntrinsicID() == Intrinsic::lifetime_end) {
+        II->eraseFromParent();
+      }
+    } else if (isa<BitCastInst>(U) ||
+               isa<AddrSpaceCastInst>(U) ||
+               isa<GetElementPtrInst>(U)) {
+      // Recurse into bitcast, addrspacecast, GEP.
+      removeLifetimeUsers(U);
+      if (U->use_empty())
+        cast<Instruction>(U)->eraseFromParent();
+    }
+  }
+}
+
+// Conservatively remove all lifetime users of both source and target.
+// Otherwise, wrong lifetimes could be inherited either way.
+// TODO: We should be merging the lifetimes. For convenience, just remove them
+//       for now to be safe.
+static void updateLifetimeForReplacement(Value *From, Value *To)
+{
+    removeLifetimeUsers(From);
+    removeLifetimeUsers(To);
+}
+
 static bool DominateAllUsers(Instruction *I, Value *V, DominatorTree *DT);
 
 
@@ -3210,9 +3270,11 @@ static bool ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
   if (Instruction *SrcI = dyn_cast<Instruction>(Src))
     if (!DominateAllUsers(SrcI, V, DT))
       return false;
+
   Type *TyV = V->getType()->getPointerElementType();
   Type *TySrc = Src->getType()->getPointerElementType();
   if (Constant *C = dyn_cast<Constant>(V)) {
+    updateLifetimeForReplacement(V, Src);
     if (TyV == TySrc) {
       if (isa<Constant>(Src)) {
         V->replaceAllUsesWith(Src);
@@ -3228,8 +3290,10 @@ static bool ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
     }
   } else {
     if (TyV == TySrc) {
-      if (V != Src)
+      if (V != Src) {
+        updateLifetimeForReplacement(V, Src);
         V->replaceAllUsesWith(Src);
+      }
     } else if (!IsUnboundedArrayMemcpy(TyV, TySrc)) {
       Value* DestVal = MC->getRawDest();
       Value* SrcVal = MC->getRawSource();
@@ -3270,6 +3334,7 @@ static bool ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
             MemcpySplitter::SplitMemCpy(MC, DL, annotation, typeSys);
             return true;
           } else {
+            updateLifetimeForReplacement(V, Src);
             DstPtr->replaceAllUsesWith(SrcPtr);
           }
         } else {
@@ -3278,6 +3343,7 @@ static bool ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
         }
       }
     } else {
+      updateLifetimeForReplacement(V, Src);
       DXASSERT(IsUnboundedArrayMemcpy(TyV, TySrc), "otherwise mismatched types in memcpy are not unbounded array");
       ReplaceUnboundedArrayUses(V, Src);
     }
@@ -3429,6 +3495,32 @@ static bool DominateAllUsers(Instruction *I, Value *V, DominatorTree *DT) {
   }
 }
 
+static bool isReadOnlyPtr(CallInst *PtrCI) {
+  HLSubscriptOpcode opcode =
+      static_cast<HLSubscriptOpcode>(hlsl::GetHLOpcode(PtrCI));
+  if (opcode == HLSubscriptOpcode::CBufferSubscript) {
+    // Ptr from CBuffer is readonly.
+    return true;
+  } else if (opcode == HLSubscriptOpcode::DefaultSubscript) {
+    Value *ptr = PtrCI->getArgOperand(HLOperandIndex::kSubscriptObjectOpIdx);
+    // Resource ptr.
+    if (CallInst *handleCI = dyn_cast<CallInst>(ptr)) {
+      hlsl::HLOpcodeGroup group =
+          hlsl::GetHLOpcodeGroup(handleCI->getCalledFunction());
+      if (group == HLOpcodeGroup::HLAnnotateHandle) {
+        ConstantInt *RCVal = cast<ConstantInt>(handleCI->getArgOperand(
+            HLOperandIndex::kAnnotateHandleResourceClassOpIdx));
+        DXIL::ResourceClass RC = (DXIL::ResourceClass)RCVal->getLimitedValue();
+        if (RC == DXIL::ResourceClass::SRV) {
+          // Ptr from SRV is readonly.
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
 bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
                               DxilTypeSystem &typeSys, const DataLayout &DL,
                               DominatorTree *DT, bool bAllowReplace) {
@@ -3493,10 +3585,8 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
             hlsl::HLOpcodeGroup group =
                 hlsl::GetHLOpcodeGroup(PtrCI->getCalledFunction());
             if (group == HLOpcodeGroup::HLSubscript) {
-              HLSubscriptOpcode opcode =
-                  static_cast<HLSubscriptOpcode>(hlsl::GetHLOpcode(PtrCI));
-              if (opcode == HLSubscriptOpcode::CBufferSubscript) {
-                // Ptr from CBuffer is safe.
+              if (isReadOnlyPtr(PtrCI)) {
+                // Ptr from CBuffer/SRV is safe.
                 if (ReplaceMemcpy(V, Src, MC, annotation, typeSys, DL, DT))
                   return true;
               }

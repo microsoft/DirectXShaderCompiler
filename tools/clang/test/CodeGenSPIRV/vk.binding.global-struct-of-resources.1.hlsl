@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -fspv-flatten-resource-arrays
+// Run: %dxc -T ps_6_0 -E main
 
 // globalS.t should take binding #0.
 // globalS.s should take binding #1.
@@ -11,7 +11,9 @@
 //
 // CHECK: OpDecorate %globalSamplerState DescriptorSet 0
 // CHECK: OpDecorate %globalSamplerState Binding 3
-
+//
+// CHECK: OpDecorate %MySubpassInput DescriptorSet 0
+// CHECK: OpDecorate %MySubpassInput Binding 4
 
 // CHECK:                          %S = OpTypeStruct %type_2d_image %type_sampler
 // CHECK:     %_ptr_UniformConstant_S = OpTypePointer UniformConstant %S
@@ -31,6 +33,7 @@ S globalS;
 
 Texture2D globalTexture;
 SamplerState globalSamplerState;
+[[vk::input_attachment_index (0)]] SubpassInput<float4> MySubpassInput;
 
 float4 main() : SV_Target {
 // CHECK: [[globalS:%\d+]] = OpLoad %S %globalS

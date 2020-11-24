@@ -294,6 +294,10 @@ TEST_F(FileTest, BinaryOpMixedTypeArithAssign) {
   // Test mixing float/int/uint/bool/etc.
   runFileTest("binary-op.arith-assign.mixed.type.hlsl");
 }
+TEST_F(FileTest, BinaryOpMulAssignTypeMismatch) {
+  useVulkan1p1();
+  runFileTest("binary-op.mul-assign.type-mismatch.hlsl");
+}
 
 // For bitwise binary operators
 TEST_F(FileTest, BinaryOpScalarBitwise) {
@@ -530,6 +534,9 @@ TEST_F(FileTest, ReturnStruct) { runFileTest("cf.return.struct.hlsl"); }
 TEST_F(FileTest, ReturnFromDifferentStorageClass) {
   runFileTest("cf.return.storage-class.hlsl");
 }
+TEST_F(FileTest, ReturnFromDifferentMemoryLayout) {
+  runFileTest("cf.return.memory-layout.hlsl");
+}
 
 // For control flows
 TEST_F(FileTest, ControlFlowNestedIfForStmt) { runFileTest("cf.if.for.hlsl"); }
@@ -593,6 +600,13 @@ TEST_F(FileTest, FunctionNoInline) { runFileTest("fn.noinline.hlsl"); }
 TEST_F(FileTest, StructMethodCall) {
   setBeforeHLSLLegalization();
   runFileTest("oo.struct.method.hlsl");
+}
+TEST_F(FileTest, StructDerivedMethods) {
+  setBeforeHLSLLegalization();
+  runFileTest("oo.struct.derived.methods.hlsl");
+}
+TEST_F(FileTest, StructDerivedMethodsOverride) {
+  runFileTest("oo.struct.derived.methods.override.hlsl");
 }
 TEST_F(FileTest, StructThisAlias) {
   setBeforeHLSLLegalization();
@@ -1858,6 +1872,11 @@ TEST_F(FileTest, BindingStructureOfResourcesContainsBufferError) {
   runFileTest(
       "vk.binding.global-struct-of-resources.contains-buffer-error.hlsl",
       Expect::Failure);
+}
+TEST_F(FileTest, BindingStructureOfResourcesPassLegalization) {
+  runFileTest("vk.binding.global-struct-of-resources.pass-legalization.hlsl",
+              Expect::Success,
+              /*runValidation*/ true);
 }
 
 TEST_F(FileTest, VulkanPushConstant) { runFileTest("vk.push-constant.hlsl"); }
