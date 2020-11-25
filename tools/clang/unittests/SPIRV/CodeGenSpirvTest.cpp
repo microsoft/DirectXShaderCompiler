@@ -639,6 +639,12 @@ TEST_F(FileTest, InheritanceStageIOVS) {
 TEST_F(FileTest, InheritanceStageIOGS) {
   runFileTest("oo.inheritance.stage-io.gs.hlsl");
 }
+TEST_F(FileTest, InheritanceLayoutDifferences) {
+  runFileTest("oo.inheritance.layout-differences.hlsl");
+}
+TEST_F(FileTest, InheritanceLayoutEmptyStruct) {
+  runFileTest("oo.inheritance.layout.empty-struct.hlsl");
+}
 
 // For semantics
 // SV_Position, SV_ClipDistance, and SV_CullDistance are covered in
