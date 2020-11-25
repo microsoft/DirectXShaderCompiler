@@ -5536,6 +5536,19 @@ SpirvInstruction *SpirvEmitter::reconstructValue(SpirvInstruction *srcVal,
   if (const auto *recordType = valType->getAs<RecordType>()) {
     uint32_t index = 0;
     llvm::SmallVector<SpirvInstruction *, 4> elements;
+
+    // If the struct inherits from other structs, visit the bases.
+    const auto *decl = valType->getAsCXXRecordDecl();
+    for (auto baseIt = decl->bases_begin(), baseIe = decl->bases_end();
+         baseIt != baseIe; ++baseIt, ++index) {
+      SpirvInstruction *subSrcVal = spvBuilder.createCompositeExtract(
+          baseIt->getType(), srcVal, {index}, loc);
+      subSrcVal->setLayoutRule(srcVal->getLayoutRule());
+      elements.push_back(
+          reconstructValue(subSrcVal, baseIt->getType(), dstLR, loc));
+    }
+
+    // Go over struct fields.
     for (const auto *field : recordType->getDecl()->fields()) {
       SpirvInstruction *subSrcVal = spvBuilder.createCompositeExtract(
           field->getType(), srcVal, {index}, loc);
