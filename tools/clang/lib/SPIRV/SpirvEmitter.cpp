@@ -10471,7 +10471,6 @@ SpirvEmitter::getSpirvShaderStage(hlsl::ShaderModel::Kind smk) {
   case hlsl::ShaderModel::Kind::Pixel:
     return spv::ExecutionModel::Fragment;
   case hlsl::ShaderModel::Kind::Compute:
-  case hlsl::ShaderModel::Kind::Library:
     return spv::ExecutionModel::GLCompute;
   case hlsl::ShaderModel::Kind::RayGeneration:
     return spv::ExecutionModel::RayGenerationNV;

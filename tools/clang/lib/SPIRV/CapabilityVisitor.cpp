@@ -610,10 +610,12 @@ bool CapabilityVisitor::visit(SpirvModule *, Visitor::Phase phase) {
   // add the Linkage capability. This allows library shader models to use
   // 'export' attribute on functions, and generate an "incomplete/partial"
   // SPIR-V binary.
+  // ExecutionModel::Max means that no entrypoints exist, therefore we should
+  // add the Linkage Capability.
   if (phase == Visitor::Phase::Done &&
       shaderModel == spv::ExecutionModel::Max) {
     addCapability(spv::Capability::Shader);
-    addCapability(spv::Capability::Linkage, SourceLocation());
+    addCapability(spv::Capability::Linkage);
   }
   return true;
 }
