@@ -2264,8 +2264,7 @@ bool DeclResultIdMapper::createStageVars(
     // Decorate with interpolation modes for pixel shader input variables
     // or vertex shader output variables.
     if (((spvContext.isPS() && sigPoint->IsInput()) ||
-         (spvContext.isVS() && sigPoint->IsOutput()) ||
-         (spvContext.isHS() || spvContext.isDS())) &&
+         (spvContext.isVS() && sigPoint->IsOutput())) &&
         // BaryCoord*AMD buitins already encode the interpolation mode.
         semanticKind != hlsl::Semantic::Kind::Barycentrics)
       decorateInterpolationMode(decl, type, varInstr);
@@ -2945,8 +2944,7 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
 }
 
 SpirvVariable *DeclResultIdMapper::createSpirvIntermediateOutputStageVar(
-    const NamedDecl *decl, const llvm::StringRef name, QualType type,
-    uint32_t arraySize) {
+    const NamedDecl *decl, const llvm::StringRef name, QualType type) {
   const auto *semantic = hlsl::Semantic::GetByName(name);
   SemanticInfo thisSemantic{name, semantic, name, 0, decl->getLocation()};
 
@@ -3702,8 +3700,7 @@ DeclResultIdMapper::createHullMainOutputPatch(const ParmVarDecl *param,
       retType, llvm::APInt(32, numOutputControlPoints),
       clang::ArrayType::Normal, 0);
   SpirvInstruction *hullMainOutputPatch = createSpirvIntermediateOutputStageVar(
-      param, "temp.var.hullMainRetVal", hullMainRetType,
-      numOutputControlPoints);
+      param, "temp.var.hullMainRetVal", hullMainRetType);
   assert(astDecls[param].instr == nullptr);
   astDecls[param].instr = hullMainOutputPatch;
   return hullMainOutputPatch;

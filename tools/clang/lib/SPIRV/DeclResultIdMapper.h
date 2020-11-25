@@ -668,10 +668,8 @@ private:
 
   // Create intermediate output variable to communicate patch constant
   // data in hull shader since workgroup memory is not allowed there.
-  SpirvVariable *
-  createSpirvIntermediateOutputStageVar(const NamedDecl *decl,
-                                        const llvm::StringRef name,
-                                        QualType asType, uint32_t arraySize);
+  SpirvVariable *createSpirvIntermediateOutputStageVar(
+      const NamedDecl *decl, const llvm::StringRef name, QualType asType);
 
   /// Returns true if all vk:: attributes usages are valid.
   bool validateVKAttributes(const NamedDecl *decl);
