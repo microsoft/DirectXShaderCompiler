@@ -307,10 +307,7 @@ public:
   TEST_METHOD(AtomicsFloatTest);
   TEST_METHOD(SignatureResourcesTest)
   TEST_METHOD(DynamicResourcesTest)
-
-  BEGIN_TEST_METHOD(QuadReadTest)
-    TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.0
-  END_TEST_METHOD()
+  TEST_METHOD(QuadReadTest)
 
   BEGIN_TEST_METHOD(CBufferTestHalf)
     TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.2
@@ -3086,10 +3083,10 @@ TEST_F(ExecutionTest, DerivativesTest) {
 void VerifyQuadReadResults(const UINT *pPixels, UINT quadIndex) {
   for (UINT i = 0; i < 4; i++) {
     UINT ix = quadIndex + i;
-    VERIFY_IS_TRUE(pPixels[4*ix + 0] == ix); // ReadLaneAt own quad index
-    VERIFY_IS_TRUE(pPixels[4*ix + 1] == (ix^1));// ReadAcrossX
-    VERIFY_IS_TRUE(pPixels[4*ix + 2] == (ix^2));// ReadAcrossY
-    VERIFY_IS_TRUE(pPixels[4*ix + 3] == (ix^3));// ReadAcrossDiagonal
+    VERIFY_ARE_EQUAL(pPixels[4*ix + 0], ix); // ReadLaneAt own quad index
+    VERIFY_ARE_EQUAL(pPixels[4*ix + 1], (ix^1));// ReadAcrossX
+    VERIFY_ARE_EQUAL(pPixels[4*ix + 2], (ix^2));// ReadAcrossY
+    VERIFY_ARE_EQUAL(pPixels[4*ix + 3], (ix^3));// ReadAcrossDiagonal
   }
 }
 
@@ -3102,6 +3099,12 @@ TEST_F(ExecutionTest, QuadReadTest) {
   CComPtr<ID3D12Device> pDevice;
   if (!CreateDevice(&pDevice))
     return;
+
+  if (GetTestParamUseWARP(UseWarpByDefault())) {
+    WEX::Logging::Log::Comment(L"WARP does not support QuadRead in compute shaders.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
 
   std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
     std::make_shared<st::ShaderOpSet>();
@@ -3137,7 +3140,6 @@ TEST_F(ExecutionTest, QuadReadTest) {
     UINT mwidth = D.mx;
     UINT mheight = D.my;
     UINT mdepth = D.mz;
-    UINT pixelSize = 4; // always int4
     // format compiler args
     char compilerOptions[256];
     VERIFY_IS_TRUE(sprintf_s(compilerOptions, sizeof(compilerOptions),
@@ -3162,8 +3164,7 @@ TEST_F(ExecutionTest, QuadReadTest) {
 
     // To find roughly the center for compute, divide the pixel count in half
     // and truncate to next lowest power of 4 to start at a quad
-    UINT centerIndex = ((UINT64)(width * height * depth)/2) & ~0x3;
-    UINT offsetCenter = centerIndex * pixelSize;
+    UINT offsetCenter = ((UINT64)(width * height * depth)/2) & ~0x3;
 
     // Test first, second and center quads
     LogCommentFmt(L"Verifying QuadRead* in compute shader results");
@@ -3172,8 +3173,7 @@ TEST_F(ExecutionTest, QuadReadTest) {
     VerifyQuadReadResults(pPixels, offsetCenter);
 
     if (DoesDeviceSupportMeshAmpDerivatives(pDevice)) {
-      centerIndex = ((UINT64)(mwidth * mheight * mdepth)/2) & ~0x3;
-      offsetCenter = centerIndex * pixelSize;
+      offsetCenter = ((UINT64)(mwidth * mheight * mdepth)/2) & ~0x3;
 
       // Disable CS so mesh goes forward
       pShaderOp->CS = nullptr;
