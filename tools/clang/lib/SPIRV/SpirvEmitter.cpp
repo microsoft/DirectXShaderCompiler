@@ -1122,7 +1122,7 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
     if (spvContext.isHS() && decl == patchConstFunc &&
         hlsl::IsHLSLOutputPatchType(paramDecl->getType())) {
       // Since the output patch used in hull shaders is translated to
-      // a variable with Workgroup storage class, there is no need
+      // a variable with Output storage class, there is no need
       // to pass the variable as function parameter in SPIR-V.
       continue;
     }
@@ -11270,7 +11270,7 @@ bool SpirvEmitter::processHSEntryPointOutputAndPCF(
   // results to it, so it can be passed to the PCF.
   if (const auto *param = patchConstFuncTakesHullOutputPatch(patchConstFunc)) {
     hullMainOutputPatch = declIdMapper.createHullMainOutputPatch(
-        param, retType, numOutputControlPoints, locEnd);
+        param, retType, numOutputControlPoints);
     auto *tempLocation = spvBuilder.createAccessChain(
         retType, hullMainOutputPatch, {outputControlPointId}, locEnd);
     spvBuilder.createStore(tempLocation, retVal, locEnd);
