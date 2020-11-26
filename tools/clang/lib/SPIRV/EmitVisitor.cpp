@@ -89,16 +89,9 @@ bool isOpLineLegalForOp(spv::Op op) {
 uint32_t getHeaderVersion(llvm::StringRef env) {
   if (env == "vulkan1.1")
     return 0x00010300u;
-  if (env == "vulkan1.2")
+  if (env == "vulkan1.2" || env == "universal1.5")
     return 0x00010500u;
   return 0x00010000u;
-}
-
-// Returns true if the BufferBlock decoration is deprecated for the target
-// Vulkan environment.
-bool isBufferBlockDecorationDeprecated(
-    const clang::spirv::SpirvCodeGenOptions &opts) {
-  return opts.targetEnv.compare("vulkan1.2") >= 0;
 }
 
 // Read the file in |filePath| and returns its contents as a string.
@@ -2115,8 +2108,9 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
     // Emit Block or BufferBlock decorations if necessary.
     auto interfaceType = structType->getInterfaceType();
     if (interfaceType == StructInterfaceType::StorageBuffer)
+      // BufferBlock decoration is deprecated in Vulkan 1.2 and later.
       emitDecoration(id,
-                     isBufferBlockDecorationDeprecated(spvOptions)
+                     featureManager.isTargetEnvVulkan1p2OrAbove()
                          ? spv::Decoration::Block
                          : spv::Decoration::BufferBlock,
                      {});

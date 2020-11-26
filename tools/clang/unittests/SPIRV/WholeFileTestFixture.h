@@ -51,8 +51,6 @@ public:
 
   WholeFileTest() : targetEnv(SPV_ENV_VULKAN_1_0) {}
 
-  void useVulkan1p1() { targetEnv = SPV_ENV_VULKAN_1_1; }
-
 private:
   /// \brief Reads in the given input file.
   /// Stores the SPIR-V portion of the file into the <expectedSpirvAsm>
