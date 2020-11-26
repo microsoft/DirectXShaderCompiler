@@ -1220,7 +1220,8 @@ std::vector<uint32_t> SpirvBuilder::takeModule() {
   RelaxedPrecisionVisitor relaxedPrecisionVisitor(context, spirvOptions);
   PreciseVisitor preciseVisitor(context, spirvOptions);
   NonUniformVisitor nonUniformVisitor(context, spirvOptions);
-  RemoveBufferBlockVisitor removeBufferBlockVisitor(context, spirvOptions);
+  RemoveBufferBlockVisitor removeBufferBlockVisitor(astContext, context,
+                                                    spirvOptions);
   EmitVisitor emitVisitor(astContext, context, spirvOptions);
 
   mod->invokeVisitor(&literalTypeVisitor, true);
