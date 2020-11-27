@@ -112,16 +112,15 @@ bool HasIllegalOffsetInLoop(std::vector<Instruction *> &illegalOffsets,
   return findOffset;
 }
 
-void CollectIllegalOffset(CallInst *CI,
+void CollectIllegalOffset(CallInst *CI, unsigned offsetIdx,
                           std::vector<Instruction *> &illegalOffsets) {
   Value *offset0 =
-      CI->getArgOperand(DXIL::OperandIndex::kTextureSampleOffset0OpIdx);
+      CI->getArgOperand(offsetIdx);
   // No offset.
   if (isa<UndefValue>(offset0))
     return;
 
-  for (unsigned i = DXIL::OperandIndex::kTextureSampleOffset0OpIdx;
-       i <= DXIL::OperandIndex::kTextureSampleOffset2OpIdx; i++) {
+  for (unsigned i = offsetIdx; i <= offsetIdx + 2; i++) {
     Value *offset = CI->getArgOperand(i);
     if (Instruction *I = dyn_cast<Instruction>(offset))
       illegalOffsets.emplace_back(I);
@@ -137,7 +136,7 @@ void DxilLegalizeSampleOffsetPass::FinalCheck(
 
   if (!finalIllegalOffsets.empty()) {
     const StringRef kIllegalOffsetError =
-        "Offsets for Sample* must be immediated value. "
+        "Offsets to texture access operations must be immediate values. "
         "Consider unrolling the loop manually and use -O3, "
         "it may help in some cases.\n";
     std::string errorMsg;
@@ -182,6 +181,9 @@ void DxilLegalizeSampleOffsetPass::CollectIllegalOffsets(
   CollectIllegalOffsets(illegalOffsets, CurF, DXIL::OpCode::SampleGrad, hlslOP);
   CollectIllegalOffsets(illegalOffsets, CurF, DXIL::OpCode::SampleLevel,
                         hlslOP);
+  CollectIllegalOffsets(illegalOffsets, CurF, DXIL::OpCode::TextureGather, hlslOP);
+  CollectIllegalOffsets(illegalOffsets, CurF, DXIL::OpCode::TextureGatherCmp, hlslOP);
+  CollectIllegalOffsets(illegalOffsets, CurF, DXIL::OpCode::TextureLoad, hlslOP);
 }
 
 void DxilLegalizeSampleOffsetPass::CollectIllegalOffsets(
@@ -198,7 +200,10 @@ void DxilLegalizeSampleOffsetPass::CollectIllegalOffsets(
       if (CI->getParent()->getParent() != &CurF)
         continue;
 
-      CollectIllegalOffset(CI, illegalOffsets);
+      unsigned offsetIdx = DXIL::OperandIndex::kTextureSampleOffset0OpIdx;
+      if (opcode == DXIL::OpCode::TextureLoad)
+        offsetIdx = DXIL::OperandIndex::kTextureLoadOffset0OpIdx;
+      CollectIllegalOffset(CI, offsetIdx, illegalOffsets);
     }
   }
 }

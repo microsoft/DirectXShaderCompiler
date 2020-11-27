@@ -1584,11 +1584,11 @@ TEST_F(ValidationTest, SimpleGs10) {
 }
 
 TEST_F(ValidationTest, IllegalSampleOffset3) {
-  TestCheck(L"..\\CodeGenHLSL\\optForNoOpt3.hlsl");
+  TestCheck(L"..\\DXILValidation\\optForNoOpt3.hlsl");
 }
 
 TEST_F(ValidationTest, IllegalSampleOffset4) {
-  TestCheck(L"..\\CodeGenHLSL\\optForNoOpt4.hlsl");
+  TestCheck(L"..\\DXILValidation\\optForNoOpt4.hlsl");
 }
 
 TEST_F(ValidationTest, NoFunctionParam) {

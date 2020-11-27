@@ -1261,7 +1261,7 @@ static void ValidateResourceOffset(CallInst *CI, DXIL::ResourceKind resKind,
           validateOffset(offsets[i]);
       }
     } else {
-      if (!isa<UndefValue>(offsets[i])) {
+      if (i < offsets.size() && !isa<UndefValue>(offsets[i])) {
         ValCtx.EmitInstrError(CI, ValidationRule::InstrResourceOffsetTooMany);
       }
     }
@@ -1384,6 +1384,7 @@ static void ValidateGather(CallInst *CI, Value *srvHandle, Value *samplerHandle,
     ValCtx.EmitInstrError(CI, ValidationRule::InstrResourceKindForGather);
     break;
   }
+  ValidateResourceOffset(CI, resKind, offsets, ValCtx);
 }
 
 static unsigned StoreValueToMask(ArrayRef<Value *> vals) {
@@ -2191,6 +2192,9 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
                             ValidationRule::InstrResourceKindForTextureLoad);
       break;
     }
+
+    ValidateResourceOffset(CI, resKind, {texLd.get_offset0(), texLd.get_offset1(),
+                                         texLd.get_offset2()}, ValCtx);
   } break;
   case DXIL::OpCode::CBufferLoad: {
     DxilInst_CBufferLoad CBLoad(CI);

@@ -1061,6 +1061,9 @@ namespace DXIL {
     const unsigned kTextureSampleOffset2OpIdx = 9;
     const unsigned kTextureSampleClampOpIdx = 10;
 
+    // TextureLoad.
+    const unsigned kTextureLoadOffset0OpIdx = 6;
+
     // AtomicBinOp.
     const unsigned kAtomicBinOpCoord0OpIdx = 3;
     const unsigned kAtomicBinOpCoord1OpIdx = 4;
