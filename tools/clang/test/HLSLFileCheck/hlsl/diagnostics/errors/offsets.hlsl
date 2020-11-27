@@ -1,6 +1,6 @@
-// RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s -check-prefix=CHK_RANGE
-// RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s -check-prefix=CHK_VAROFF
-
+// RUN: %dxc -E Range -T ps_6_0 %s | FileCheck %s -check-prefix=CHK_RANGE
+// RUN: %dxc -E VarOffset -T ps_6_0 %s | FileCheck %s -check-prefix=CHK_VAROFF
+xo
 // CHK_RANGE:  error: offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7.
 // CHK_RANGE:  error: offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7.
 // CHK_RANGE:  error: offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7.
@@ -18,9 +18,9 @@ SamplerState s;
 
 float4 Range(float2 uv : UV, uint2 offset : O) : SV_TARGET
 {
-    float4 a = t.GatherRed(s, uv, int2(9,-8));
-    float4 b = t.Sample(s, uv, int2(-8,9));
-    float4 c = t.Load(0, int2(-8, 9));
+    float4 a = t.GatherRed(s, uv, int2(-9,-8));
+    float4 b = t.Sample(s, uv, int2(-9,8));
+    float4 c = t.Load(0, int2(8, 9));
     return a + b + c;
 }
 

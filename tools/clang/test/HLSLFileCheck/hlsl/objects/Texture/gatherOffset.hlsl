@@ -35,9 +35,9 @@ float4 main(float4 a : A, float4 b : B) : SV_Target
 {
   uint status;
   float4 r = 0;
-  r += text1.GatherRed(samp1, a.xy, b.xy, b.zw, a.xy, a.zw);
-  r += text1.GatherAlpha(samp1, a.xy, b.xy, b.zw, a.xy, a.zw, status); r += status;
+  r += text1.GatherRed(samp1, a.xy, int2(0, 0), int2(-1, 1), int2(3, 4), int2(-8, 7));
+  r += text1.GatherAlpha(samp1, a.xy, int2(0, 0), int2(-1, 1), int2(3, 4), int2(-8, 7), status); r += status;
 
-  r += text2.GatherBlue(samp1, a.xyz, b.xy, b.zw, a.xy, a.zw, status); r += status;
+  r += text2.GatherBlue(samp1, a.xyz, int2(0, 0), int2(-1, 1), int2(3, 4), int2(-8, 7), status); r += status;
   return r;
 }
