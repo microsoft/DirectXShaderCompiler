@@ -30,8 +30,7 @@ void main() {
 // CHECK: %E = OpVariable %_ptr_Function_int Function
   int E;
 
-// CHECK:        [[A:%\d+]] = OpAccessChain %_ptr_Uniform_int %A %int_0 %uint_0
-// CHECK-NEXT:     {{%\d+}} = OpFunctionCall %void %foo [[A]] %B %C %D %E
+// CHECK:    {{%\d+}} = OpFunctionCall %void %foo %param_var_x %param_var_y %param_var_z %param_var_w %param_var_v
   foo(A[0], B, C, D, E);
   A[0] = A[0] | B | C | D.a | E;
 }

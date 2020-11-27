@@ -9,12 +9,17 @@ void foo(in float a, inout float b, out float c) {
 
 void main(float input : INPUT) {
 // CHECK: %param_var_a = OpVariable %_ptr_Function_float Function
+// CHECK: %param_var_b = OpVariable %_ptr_Function_float Function
+// CHECK: %param_var_c = OpVariable %_ptr_Function_float Function
 
 // CHECK: [[val:%\d+]] = OpLoad %float %input
 // CHECK:                OpStore %param_var_a [[val]]
-// CHECK:  [[p0:%\d+]] = OpAccessChain %_ptr_Uniform_float %Data %int_0 %uint_0
-// CHECK:  [[p1:%\d+]] = OpAccessChain %_ptr_Uniform_float %Data %int_0 %uint_1
+// CHECK: [[val:%\d+]] = OpLoad %float {{%\d+}}
+// CHECK:                OpStore %param_var_b [[val]]
+// CHECK: [[val:%\d+]] = OpLoad %float {{%\d+}}
+// CHECK:                OpStore %param_var_c [[val]]
 
-// CHECK:                OpFunctionCall %void %foo %param_var_a [[p0]] [[p1]]
+
+// CHECK:                OpFunctionCall %void %foo %param_var_a %param_var_b %param_var_c
     foo(input, Data[0], Data[1]);
 }
