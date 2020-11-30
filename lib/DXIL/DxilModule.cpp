@@ -113,6 +113,7 @@ DxilModule::DxilModule(Module *pModule)
 , m_DxilMinor(DXIL::kDxilMinor)
 , m_ValMajor(1)
 , m_ValMinor(0)
+, m_ForceZeroStoreLifetimes(false)
 , m_pOP(llvm::make_unique<OP>(pModule->getContext(), pModule))
 , m_pTypeSystem(llvm::make_unique<DxilTypeSystem>(pModule))
 , m_bDisableOptimizations(false)
@@ -182,6 +183,10 @@ void DxilModule::SetValidatorVersion(unsigned ValMajor, unsigned ValMinor) {
   m_ValMinor = ValMinor;
 }
 
+void DxilModule::SetForceZeroStoreLifetimes(bool ForceZeroStoreLifetimes) {
+  m_ForceZeroStoreLifetimes = ForceZeroStoreLifetimes;
+}
+
 bool DxilModule::UpgradeValidatorVersion(unsigned ValMajor, unsigned ValMinor) {
   // Don't upgrade if validation was disabled.
   if (m_ValMajor == 0 && m_ValMinor == 0) {
@@ -198,6 +203,10 @@ bool DxilModule::UpgradeValidatorVersion(unsigned ValMajor, unsigned ValMinor) {
 void DxilModule::GetValidatorVersion(unsigned &ValMajor, unsigned &ValMinor) const {
   ValMajor = m_ValMajor;
   ValMinor = m_ValMinor;
+}
+
+bool DxilModule::GetForceZeroStoreLifetimes() const {
+  return m_ForceZeroStoreLifetimes;
 }
 
 bool DxilModule::GetMinValidatorVersion(unsigned &ValMajor, unsigned &ValMinor) const {

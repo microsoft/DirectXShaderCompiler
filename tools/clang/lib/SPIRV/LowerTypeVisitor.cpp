@@ -544,7 +544,7 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
   }
 
   if (name == "RayQuery")
-    return spvContext.getRayQueryProvisionalTypeKHR();
+    return spvContext.getRayQueryTypeKHR();
 
   if (name == "StructuredBuffer" || name == "RWStructuredBuffer" ||
       name == "AppendStructuredBuffer" || name == "ConsumeStructuredBuffer") {

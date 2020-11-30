@@ -1,6 +1,6 @@
-// Run: %dxc -T hs_6_5 -E main
-// CHECK:  OpCapability RayQueryProvisionalKHR
-// CHECK:  OpCapability RayTraversalPrimitiveCullingProvisionalKHR
+// Run: %dxc -T hs_6_5 -E main -fspv-target-env=vulkan1.2
+// CHECK:  OpCapability RayQueryKHR
+// CHECK:  OpCapability RayTraversalPrimitiveCullingKHR
 // CHECK:  OpExtension "SPV_KHR_ray_query"
 
 #define MAX_POINTS 3
@@ -59,9 +59,9 @@ void doInitialize(RayQuery<RAY_FLAG_FORCE_OPAQUE|RAY_FLAG_SKIP_TRIANGLES> query,
 [outputcontrolpoints(MAX_POINTS)]
 [patchconstantfunc("mainConstant")]
 CONTROL_POINT main(InputPatch<VS_CONTROL_POINT_OUTPUT, MAX_POINTS> ip, uint cpid : SV_OutputControlPointID) {
-// CHECK:  %rayQueryProvisionalKHR = OpTypeRayQueryProvisionalKHR
-// CHECK:  %_ptr_Function_rayQueryProvisionalKHR = OpTypePointer Function %rayQueryProvisionalKHR
-// CHECK:  [[rayquery:%\d+]] = OpVariable %_ptr_Function_rayQueryProvisionalKHR Function
+// CHECK:  %rayQueryKHR = OpTypeRayQueryKHR
+// CHECK:  %_ptr_Function_rayQueryKHR = OpTypePointer Function %rayQueryKHR
+// CHECK:  [[rayquery:%\d+]] = OpVariable %_ptr_Function_rayQueryKHR Function
     RayQuery<RAY_FLAG_FORCE_OPAQUE|RAY_FLAG_SKIP_TRIANGLES> q;
     RayDesc ray = MakeRayDesc();
 // CHECK:  [[accel:%\d+]] = OpLoad %accelerationStructureNV %AccelerationStructure

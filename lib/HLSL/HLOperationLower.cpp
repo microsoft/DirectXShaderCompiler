@@ -31,6 +31,7 @@
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
 #include "llvm/ADT/APSInt.h"
 
@@ -6203,6 +6204,14 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
       }
 
       CI->eraseFromParent();
+    } else if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(user)) {
+      if( II->getIntrinsicID() == Intrinsic::lifetime_start ||
+          II->getIntrinsicID() == Intrinsic::lifetime_end ) {
+        DXASSERT(II->use_empty(), "lifetime intrinsic can't have uses");
+        II->eraseFromParent();
+      } else {
+        DXASSERT(0, "not implemented yet");
+      }
     } else {
       DXASSERT(0, "not implemented yet");
     }
@@ -7295,7 +7304,7 @@ void TranslateDefaultSubscript(CallInst *CI, HLOperationLowerHelper &helper,  HL
           // Invalid operations.
           Translated = false;
           dxilutil::EmitErrorOnInstruction(
-              userCall, "Atomic operation on typed buffer is not supported.");
+              userCall, "Typed resources used in atomic operations must have a scalar element type.");
           return;
         } break;
         default:

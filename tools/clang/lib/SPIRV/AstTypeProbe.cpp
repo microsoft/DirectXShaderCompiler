@@ -291,18 +291,16 @@ bool isConstantTextureBuffer(QualType type) {
   return isConstantBuffer(type) || isTextureBuffer(type);
 }
 
-bool isResourceType(const ValueDecl *decl) {
-  QualType declType = decl->getType();
-
+bool isResourceType(QualType type) {
   // Deprive the arrayness to see the element type
-  while (declType->isArrayType()) {
-    declType = declType->getAsArrayTypeUnsafe()->getElementType();
+  while (type->isArrayType()) {
+    type = type->getAsArrayTypeUnsafe()->getElementType();
   }
 
-  if (isSubpassInput(declType) || isSubpassInputMS(declType))
+  if (isSubpassInput(type) || isSubpassInputMS(type))
     return true;
 
-  return hlsl::IsHLSLResourceType(declType);
+  return hlsl::IsHLSLResourceType(type);
 }
 
 bool isOrContains16BitType(QualType type, bool enable16BitTypesOption) {
@@ -1256,9 +1254,9 @@ bool isResourceOnlyStructure(QualType type) {
 
   if (const auto *structType = type->getAs<RecordType>()) {
     for (const auto *field : structType->getDecl()->fields()) {
+      const auto fieldType = field->getType();
       // isResourceType does remove arrayness for the field if needed.
-      if (!isResourceType(field) &&
-          !isResourceOnlyStructure(field->getType())) {
+      if (!isResourceType(fieldType) && !isResourceOnlyStructure(fieldType)) {
         return false;
       }
     }
@@ -1275,10 +1273,11 @@ bool isStructureContainingResources(QualType type) {
 
   if (const auto *structType = type->getAs<RecordType>()) {
     for (const auto *field : structType->getDecl()->fields()) {
+      const auto fieldType = field->getType();
       // isStructureContainingResources and isResourceType functions both remove
       // arrayness for the field if needed.
-      if (isStructureContainingResources(field->getType()) ||
-          isResourceType(field)) {
+      if (isStructureContainingResources(fieldType) ||
+          isResourceType(fieldType)) {
         return true;
       }
     }
@@ -1293,10 +1292,11 @@ bool isStructureContainingNonResources(QualType type) {
 
   if (const auto *structType = type->getAs<RecordType>()) {
     for (const auto *field : structType->getDecl()->fields()) {
+      const auto fieldType = field->getType();
       // isStructureContainingNonResources and isResourceType functions both
       // remove arrayness for the field if needed.
-      if (isStructureContainingNonResources(field->getType()) ||
-          !isResourceType(field)) {
+      if (isStructureContainingNonResources(fieldType) ||
+          !isResourceType(fieldType)) {
         return true;
       }
     }

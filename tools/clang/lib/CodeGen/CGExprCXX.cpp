@@ -83,6 +83,7 @@ RValue CodeGenFunction::EmitCXXMemberOrOperatorCall(
 
   // HLSL Change Begins
   llvm::SmallVector<LValue, 8> castArgList;
+  llvm::SmallVector<LValue, 8> lifetimeCleanupList;
   // The argList of the CallExpr, may be update for out parameter
   llvm::SmallVector<const Stmt *, 8> argList(CE->arg_begin(), CE->arg_end());
   // out param conversion
@@ -93,7 +94,7 @@ RValue CodeGenFunction::EmitCXXMemberOrOperatorCall(
   if (getLangOpts().HLSL) {
     if (const FunctionDecl *FD = CE->getDirectCallee())
       CGM.getHLSLRuntime().EmitHLSLOutParamConversionInit(*this, FD, CE,
-                                                          castArgList, argList, MapTemp);
+                                                          castArgList, argList, lifetimeCleanupList, MapTemp);
   }
   // HLSL Change Ends
 
@@ -106,7 +107,7 @@ RValue CodeGenFunction::EmitCXXMemberOrOperatorCall(
   // out param conversion
   // conversion and copy back after the call
   if (getLangOpts().HLSL)
-    CGM.getHLSLRuntime().EmitHLSLOutParamConversionCopyBack(*this, castArgList);
+    CGM.getHLSLRuntime().EmitHLSLOutParamConversionCopyBack(*this, castArgList, lifetimeCleanupList);
   // HLSL Change Ends
   return CallVal;
 }
@@ -118,6 +119,7 @@ RValue CodeGenFunction::EmitCXXStructorCall(
   CallArgList Args;
   // HLSL Change Begins
   llvm::SmallVector<LValue, 8> castArgList;
+  llvm::SmallVector<LValue, 8> lifetimeCleanupList;
   // The argList of the CallExpr, may be update for out parameter
   llvm::SmallVector<const Stmt *, 8> argList(CE->arg_begin(), CE->arg_end());
   // out param conversion
@@ -128,7 +130,7 @@ RValue CodeGenFunction::EmitCXXStructorCall(
   if (getLangOpts().HLSL) {
     if (const FunctionDecl *FD = CE->getDirectCallee())
       CGM.getHLSLRuntime().EmitHLSLOutParamConversionInit(*this, FD, CE,
-                                                          castArgList, argList, MapTemp);
+                                                          castArgList, argList, lifetimeCleanupList, MapTemp);
   }
   // HLSL Change Ends
   commonEmitCXXMemberOrOperatorCall(*this, MD, Callee, ReturnValue, This,
@@ -140,7 +142,7 @@ RValue CodeGenFunction::EmitCXXStructorCall(
   // out param conversion
   // conversion and copy back after the call
   if (getLangOpts().HLSL)
-    CGM.getHLSLRuntime().EmitHLSLOutParamConversionCopyBack(*this, castArgList);
+    CGM.getHLSLRuntime().EmitHLSLOutParamConversionCopyBack(*this, castArgList, lifetimeCleanupList);
   // HLSL Change Ends
   return CallVal;
 }

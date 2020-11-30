@@ -60,12 +60,13 @@ private:
   unsigned m_length;
 public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
+  DXC_MICROCOM_TM_ALLOC(DxcBasicUnsavedFile)
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject) override
   {
     return DoBasicQueryInterface<IDxcUnsavedFile>(this, iid, ppvObject);
   }
 
-  DxcBasicUnsavedFile();
+  DxcBasicUnsavedFile(IMalloc *pMalloc);
   ~DxcBasicUnsavedFile();
   HRESULT Initialize(_In_z_ LPCSTR fileName, _In_z_ LPCSTR contents, unsigned length);
   static HRESULT Create(_In_z_ LPCSTR fileName, _In_z_ LPCSTR contents, unsigned length, _COM_Outptr_ IDxcUnsavedFile** pObject);
@@ -496,16 +497,16 @@ CXChildVisitResult LIBCLANG_CC SourceCursorVisit(CXCursor cursor, CXCursor paren
     return CXChildVisit_Continue;
   }
 
-  // If the range start is before or equal to our position, we cover the 
-  // location, and we have a result but might need to recurse. If the range 
-  // start is after, this is where snapping behavior kicks in, and we'll 
-  // consider it just as good as overlap (for the closest match we have). So we 
+  // If the range start is before or equal to our position, we cover the
+  // location, and we have a result but might need to recurse. If the range
+  // start is after, this is where snapping behavior kicks in, and we'll
+  // consider it just as good as overlap (for the closest match we have). So we
   // don't in fact need to consider the value, other than to snap to the closest
   // cursor.
   unsigned cursorStartOffset;
   clang_getSpellingLocation(clang_getRangeStart(range), &cursorFile, nullptr, nullptr, &cursorStartOffset);
 
-  bool isKindResult = 
+  bool isKindResult =
     cursor.kind != CXCursor_CompoundStmt &&
     cursor.kind != CXCursor_TranslationUnit &&
     !clang_isInvalid(cursor.kind);
@@ -528,9 +529,10 @@ CXChildVisitResult LIBCLANG_CC SourceCursorVisit(CXCursor cursor, CXCursor paren
 
 ///////////////////////////////////////////////////////////////////////////////
 
-DxcBasicUnsavedFile::DxcBasicUnsavedFile() : m_fileName(nullptr), m_contents(nullptr)
+DxcBasicUnsavedFile::DxcBasicUnsavedFile(IMalloc *pMalloc)
+    : m_dwRef(0), m_pMalloc(pMalloc)
+    , m_fileName(nullptr), m_contents(nullptr)
 {
-  m_pMalloc = DxcGetThreadMallocNoRef();
 }
 
 DxcBasicUnsavedFile::~DxcBasicUnsavedFile()
@@ -574,7 +576,7 @@ HRESULT DxcBasicUnsavedFile::Create(
 {
   if (pObject == nullptr) return E_POINTER;
   *pObject = nullptr;
-  DxcBasicUnsavedFile* newValue = new (std::nothrow)DxcBasicUnsavedFile();
+  DxcBasicUnsavedFile* newValue = DxcBasicUnsavedFile::Alloc(DxcGetThreadMallocNoRef());
   if (newValue == nullptr) return E_OUTOFMEMORY;
   HRESULT hr = newValue->Initialize(fileName, contents, contentLength);
   if (FAILED(hr))
@@ -608,21 +610,12 @@ HRESULT DxcBasicUnsavedFile::GetLength(unsigned* pLength)
 
 ///////////////////////////////////////////////////////////////////////////////
 
-DxcCursor::DxcCursor()
-{
-  m_pMalloc = DxcGetThreadMallocNoRef();
-}
-
-DxcCursor::~DxcCursor()
-{
-}
-
 _Use_decl_annotations_
 HRESULT DxcCursor::Create(const CXCursor& cursor, IDxcCursor** pObject)
 {
   if (pObject == nullptr) return E_POINTER;
   *pObject = nullptr;
-  DxcCursor* newValue = new (std::nothrow)DxcCursor();
+  DxcCursor* newValue = DxcCursor::Alloc(DxcGetThreadMallocNoRef());
   if (newValue == nullptr) return E_OUTOFMEMORY;
   newValue->Initialize(cursor);
   newValue->AddRef();
@@ -864,9 +857,10 @@ HRESULT DxcCursor::GetSnappedChild(IDxcSourceLocation* location, IDxcCursor** pR
 
 ///////////////////////////////////////////////////////////////////////////////
 
-DxcDiagnostic::DxcDiagnostic() : m_diagnostic(nullptr)
+DxcDiagnostic::DxcDiagnostic(IMalloc *pMalloc)
+    : m_dwRef(0), m_pMalloc(pMalloc)
+    , m_diagnostic(nullptr)
 {
-  m_pMalloc = DxcGetThreadMallocNoRef();
 }
 
 DxcDiagnostic::~DxcDiagnostic()
@@ -887,7 +881,7 @@ HRESULT DxcDiagnostic::Create(const CXDiagnostic& diagnostic, IDxcDiagnostic** p
 {
   if (pObject == nullptr) return E_POINTER;
   *pObject = nullptr;
-  DxcDiagnostic* newValue = new (std::nothrow) DxcDiagnostic();
+  DxcDiagnostic* newValue = DxcDiagnostic::Alloc(DxcGetThreadMallocNoRef());
   if (newValue == nullptr) return E_OUTOFMEMORY;
   newValue->Initialize(diagnostic);
   newValue->AddRef();
@@ -978,15 +972,6 @@ HRESULT DxcDiagnostic::GetFixItAt(unsigned index,
 
 ///////////////////////////////////////////////////////////////////////////////
 
-DxcFile::DxcFile()
-{
-  m_pMalloc = DxcGetThreadMallocNoRef();
-}
-
-DxcFile::~DxcFile()
-{
-}
-
 void DxcFile::Initialize(const CXFile& file)
 {
   m_file = file;
@@ -997,7 +982,7 @@ HRESULT DxcFile::Create(const CXFile& file, IDxcFile** pObject)
 {
   if (pObject == nullptr) return E_POINTER;
   *pObject = nullptr;
-  DxcFile* newValue = new (std::nothrow)DxcFile();
+  DxcFile* newValue = DxcFile::Alloc(DxcGetThreadMallocNoRef());
   if (newValue == nullptr) return E_OUTOFMEMORY;
   newValue->Initialize(file);
   newValue->AddRef();
@@ -1032,9 +1017,9 @@ HRESULT DxcFile::IsEqualTo(IDxcFile* other, BOOL* pResult)
 
 ///////////////////////////////////////////////////////////////////////////////
 
-DxcInclusion::DxcInclusion()
-    : m_file(nullptr), m_locations(nullptr), m_locationLength(0) {
-  m_pMalloc = DxcGetThreadMallocNoRef();
+DxcInclusion::DxcInclusion(IMalloc *pMalloc)
+    : m_dwRef(0), m_pMalloc(pMalloc)
+    , m_file(nullptr), m_locations(nullptr), m_locationLength(0) {
 }
 
 DxcInclusion::~DxcInclusion() {
@@ -1060,7 +1045,7 @@ HRESULT DxcInclusion::Create(CXFile file, unsigned locations, CXSourceLocation *
   *pResult = nullptr;
 
   CComPtr<DxcInclusion> local;
-  local = new (std::nothrow)DxcInclusion();
+  local = DxcInclusion::Alloc(DxcGetThreadMallocNoRef());
   if (local == nullptr) return E_OUTOFMEMORY;
   HRESULT hr = local->Initialize(file, locations, pLocations);
   if (FAILED(hr)) return hr;
@@ -1091,9 +1076,10 @@ HRESULT DxcInclusion::GetStackItem(unsigned index, _Outptr_result_nullonfailure_
 
 ///////////////////////////////////////////////////////////////////////////////
 
-DxcIndex::DxcIndex() : m_index(0), m_options(DxcGlobalOpt_None)
+DxcIndex::DxcIndex(IMalloc *pMalloc)
+    : m_dwRef(0), m_pMalloc(pMalloc)
+    , m_index(0), m_options(DxcGlobalOpt_None)
 {
-  m_pMalloc = DxcGetThreadMallocNoRef();
 }
 
 DxcIndex::~DxcIndex()
@@ -1127,7 +1113,7 @@ HRESULT DxcIndex::Create(hlsl::DxcLangExtensionsHelper &langHelper, DxcIndex** i
   *index = nullptr;
 
   CComPtr<DxcIndex> local;
-  local = new (std::nothrow) DxcIndex();
+  local = DxcIndex::Alloc(DxcGetThreadMallocNoRef());
   if (local == nullptr) return E_OUTOFMEMORY;
   HRESULT hr = local->Initialize(langHelper);
   if (FAILED(hr)) return hr;
@@ -1189,7 +1175,7 @@ HRESULT DxcIndex::ParseTranslationUnit(
       return E_FAIL;
     }
 
-    CComPtr<DxcTranslationUnit> localTU = new (std::nothrow) DxcTranslationUnit();
+    CComPtr<DxcTranslationUnit> localTU = DxcTranslationUnit::Alloc(DxcGetThreadMallocNoRef());
     if (localTU == nullptr)
     {
       clang_disposeTranslationUnit(tu);
@@ -1204,11 +1190,6 @@ HRESULT DxcIndex::ParseTranslationUnit(
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-
-DxcIntelliSense::DxcIntelliSense(IMalloc *pMalloc)
-{
-  m_pMalloc = pMalloc;
-}
 
 _Use_decl_annotations_
 HRESULT DxcIntelliSense::CreateIndex(IDxcIndex** index)
@@ -1275,15 +1256,6 @@ HRESULT DxcIntelliSense::CreateUnsavedFile(LPCSTR fileName, LPCSTR contents, uns
 
 ///////////////////////////////////////////////////////////////////////////////
 
-DxcSourceLocation::DxcSourceLocation()
-{
-  m_pMalloc = DxcGetThreadMallocNoRef();
-}
-
-DxcSourceLocation::~DxcSourceLocation()
-{
-}
-
 void DxcSourceLocation::Initialize(const CXSourceLocation& location)
 {
   m_location = location;
@@ -1296,7 +1268,7 @@ HRESULT DxcSourceLocation::Create(
 {
   if (pObject == nullptr) return E_POINTER;
   *pObject = nullptr;
-  DxcSourceLocation* local = new (std::nothrow)DxcSourceLocation();
+  DxcSourceLocation* local = DxcSourceLocation::Alloc(DxcGetThreadMallocNoRef());
   if (local == nullptr) return E_OUTOFMEMORY;
   local->Initialize(location);
   local->AddRef();
@@ -1355,7 +1327,7 @@ HRESULT DxcSourceLocation::GetPresumedLocation(
   _Out_opt_ unsigned* pCol)
 {
   DxcThreadMalloc TM(m_pMalloc);
-  
+
   CXString filename;
   unsigned line, col;
   clang_getPresumedLocation(m_location, &filename, &line, &col);
@@ -1371,15 +1343,6 @@ HRESULT DxcSourceLocation::GetPresumedLocation(
 
 ///////////////////////////////////////////////////////////////////////////////
 
-DxcSourceRange::DxcSourceRange()
-{
-  m_pMalloc = DxcGetThreadMallocNoRef();
-}
-
-DxcSourceRange::~DxcSourceRange()
-{
-}
-
 void DxcSourceRange::Initialize(const CXSourceRange& range)
 {
   m_range = range;
@@ -1390,7 +1353,7 @@ HRESULT DxcSourceRange::Create(const CXSourceRange& range, IDxcSourceRange** pOb
 {
   if (pObject == nullptr) return E_POINTER;
   *pObject = nullptr;
-  DxcSourceRange* local = new (std::nothrow)DxcSourceRange();
+  DxcSourceRange* local = DxcSourceRange::Alloc(DxcGetThreadMallocNoRef());
   if (local == nullptr) return E_OUTOFMEMORY;
   local->Initialize(range);
   local->AddRef();
@@ -1439,15 +1402,6 @@ HRESULT DxcSourceRange::GetOffsets(_Out_ unsigned* startOffset, _Out_ unsigned* 
 
 ///////////////////////////////////////////////////////////////////////////////
 
-DxcToken::DxcToken()
-{
-  m_pMalloc = DxcGetThreadMallocNoRef();
-}
-
-DxcToken::~DxcToken()
-{
-}
-
 void DxcToken::Initialize(const CXTranslationUnit& tu, const CXToken& token)
 {
   m_tu = tu;
@@ -1462,7 +1416,7 @@ HRESULT DxcToken::Create(
 {
   if (pObject == nullptr) return E_POINTER;
   *pObject = nullptr;
-  DxcToken* local = new (std::nothrow)DxcToken();
+  DxcToken* local = DxcToken::Alloc(DxcGetThreadMallocNoRef());
   if (local == nullptr) return E_OUTOFMEMORY;
   local->Initialize(tu, token);
   local->AddRef();
@@ -1512,9 +1466,10 @@ HRESULT DxcToken::GetSpelling(LPSTR* pValue)
 
 ///////////////////////////////////////////////////////////////////////////////
 
-DxcTranslationUnit::DxcTranslationUnit() : m_tu(nullptr)
+DxcTranslationUnit::DxcTranslationUnit(IMalloc *pMalloc)
+    : m_dwRef(0), m_pMalloc(pMalloc)
+    , m_tu(nullptr)
 {
-  m_pMalloc = DxcGetThreadMallocNoRef();
 }
 
 DxcTranslationUnit::~DxcTranslationUnit() {
@@ -1866,7 +1821,7 @@ HRESULT DxcTranslationUnit::CodeCompleteAt(
   if (results == nullptr) return E_FAIL;
   *pResult = nullptr;
   DxcCodeCompleteResults *newValue =
-      new (std::nothrow) DxcCodeCompleteResults();
+      DxcCodeCompleteResults::Alloc(DxcGetThreadMallocNoRef());
   if (newValue == nullptr)
   {
 	  clang_disposeCodeCompleteResults(results);
@@ -1880,21 +1835,12 @@ HRESULT DxcTranslationUnit::CodeCompleteAt(
 
 ///////////////////////////////////////////////////////////////////////////////
 
-DxcType::DxcType()
-{
-  m_pMalloc = DxcGetThreadMallocNoRef();
-}
-
-DxcType::~DxcType()
-{
-}
-
 _Use_decl_annotations_
 HRESULT DxcType::Create(const CXType& type, IDxcType** pObject)
 {
   if (pObject == nullptr) return E_POINTER;
   *pObject = nullptr;
-  DxcType* newValue = new (std::nothrow) DxcType();
+  DxcType* newValue = DxcType::Alloc(DxcGetThreadMallocNoRef());
   if (newValue == nullptr) return E_OUTOFMEMORY;
   newValue->Initialize(type);
   newValue->AddRef();
@@ -1938,11 +1884,6 @@ HRESULT DxcType::GetKind(DxcTypeKind* pResult)
 
 ///////////////////////////////////////////////////////////////////////////////
 
-DxcCodeCompleteResults::DxcCodeCompleteResults()
-{
-  m_pMalloc = DxcGetThreadMallocNoRef();
-}
-
 DxcCodeCompleteResults::~DxcCodeCompleteResults()
 {
 	clang_disposeCodeCompleteResults(m_ccr);
@@ -1978,7 +1919,7 @@ HRESULT DxcCodeCompleteResults::GetResultAt(
   CXCompletionResult result = m_ccr->Results[index];
 
   *pResult = nullptr;
-  DxcCompletionResult *newValue = new (std::nothrow) DxcCompletionResult();
+  DxcCompletionResult *newValue = DxcCompletionResult::Alloc(DxcGetThreadMallocNoRef());
   if (newValue == nullptr)
     return E_OUTOFMEMORY;
   newValue->Initialize(result);
@@ -1989,15 +1930,6 @@ HRESULT DxcCodeCompleteResults::GetResultAt(
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-
-DxcCompletionResult::DxcCompletionResult()
-{
-  m_pMalloc = DxcGetThreadMallocNoRef();
-}
-
-DxcCompletionResult::~DxcCompletionResult()
-{
-}
 
 void DxcCompletionResult::Initialize(const CXCompletionResult &cr)
 {
@@ -2020,7 +1952,7 @@ HRESULT DxcCompletionResult::GetCompletionString(IDxcCompletionString **pResult)
   DxcThreadMalloc TM(m_pMalloc);
 
   *pResult = nullptr;
-  DxcCompletionString *newValue = new (std::nothrow) DxcCompletionString();
+  DxcCompletionString *newValue = DxcCompletionString::Alloc(DxcGetThreadMallocNoRef());
   if (newValue == nullptr)
     return E_OUTOFMEMORY;
   newValue->Initialize(m_cr.CompletionString);
@@ -2031,15 +1963,6 @@ HRESULT DxcCompletionResult::GetCompletionString(IDxcCompletionString **pResult)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-
-DxcCompletionString::DxcCompletionString()
-{
-  m_pMalloc = DxcGetThreadMallocNoRef();
-}
-
-DxcCompletionString::~DxcCompletionString()
-{
-}
 
 void DxcCompletionString::Initialize(const CXCompletionString &cs)
 {

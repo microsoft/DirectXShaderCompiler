@@ -1,6 +1,6 @@
 // RUN: %dxc -E main -T cs_6_0 %s | FileCheck %s
 
-// CHECK: Atomic operation on typed buffer is not supported
+// CHECK: Typed resources used in atomic operations must have a scalar element type
 
 RWBuffer<uint4> bufA;
 
