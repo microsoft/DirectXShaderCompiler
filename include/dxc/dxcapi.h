@@ -557,6 +557,35 @@ struct IDxcOptimizer : public IUnknown {
     _COM_Outptr_opt_ IDxcBlobEncoding **ppOutputText) = 0;
 };
 
+struct __declspec(uuid("E6C9647E-9D6A-4C3B-B94C-524B5A6C343D"))
+IDxcPdbUtils : public IUnknown {
+  virtual HRESULT STDMETHODCALLTYPE Load(_In_ IDxcBlob *pPdbOrDxil) = 0;
+
+  virtual HRESULT STDMETHODCALLTYPE GetSourceCount(_Out_ UINT32 *pCount) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetSource(_In_ UINT32 uIndex, IDxcBlobEncoding **ppResult) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetSourceName(_In_ UINT32 uIndex, _Out_ BSTR *pResult) = 0;
+
+  virtual HRESULT STDMETHODCALLTYPE GetFlagCount(_Out_ UINT32 *pCount) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetFlag(_In_ UINT32 uIndex, _Out_ BSTR *pResult) = 0;
+
+  virtual HRESULT STDMETHODCALLTYPE GetArgCount(_Out_ UINT32 *pCount) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetArg(_In_ UINT32 uIndex, _Out_ BSTR *pResult) = 0;
+
+  virtual HRESULT STDMETHODCALLTYPE GetDefineCount(_Out_ UINT32 *pCount) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetDefine(_In_ UINT32 uIndex, _Out_ BSTR *pResult) = 0;
+
+  virtual HRESULT STDMETHODCALLTYPE GetTargetProfile(_Out_ BSTR *pResult) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetEntryPoint(_Out_ BSTR *pResult) = 0;
+
+  virtual HRESULT STDMETHODCALLTYPE GetHash(IDxcBlob **ppResult) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetName(BSTR *pResult) = 0;
+
+  virtual BOOL STDMETHODCALLTYPE IsFullPDB() = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetFullPDB(IDxcBlob **ppFullPDB) = 0;
+
+  DECLARE_CROSS_PLATFORM_UUIDOF(IDxcPdbUtils)
+};
+
 static const UINT32 DxcVersionInfoFlags_None = 0;
 static const UINT32 DxcVersionInfoFlags_Debug = 1; // Matches VS_FF_DEBUG
 static const UINT32 DxcVersionInfoFlags_Internal = 2; // Internal Validator (non-signing)
@@ -650,4 +679,12 @@ CLSID_SCOPE const GUID CLSID_DxcContainerBuilder = {
     0x411f,
     0x4574,
     {0xb4, 0xd0, 0x87, 0x41, 0xe2, 0x52, 0x40, 0xd2}};
+
+// {54621dfb-f2ce-457e-ae8c-ec355faeec7c}
+CLSID_SCOPE const GUID CLSID_DxcPdbUtils = {
+    0x54621dfb,
+    0xf2ce,
+    0x457e,
+    {0xae, 0x8c, 0xec, 0x35, 0x5f, 0xae, 0xec, 0x7c}};
+
 #endif
