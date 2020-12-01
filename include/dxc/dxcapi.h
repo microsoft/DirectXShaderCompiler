@@ -557,8 +557,8 @@ struct IDxcOptimizer : public IUnknown {
     _COM_Outptr_opt_ IDxcBlobEncoding **ppOutputText) = 0;
 };
 
-struct __declspec(uuid("E6C9647E-9D6A-4C3B-B94C-524B5A6C343D"))
-IDxcPdbUtils : public IUnknown {
+CROSS_PLATFORM_UUIDOF(IDxcPdbUtils, "E6C9647E-9D6A-4C3B-B94C-524B5A6C343D")
+struct IDxcPdbUtils : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE Load(_In_ IDxcBlob *pPdbOrDxil) = 0;
 
   virtual HRESULT STDMETHODCALLTYPE GetSourceCount(_Out_ UINT32 *pCount) = 0;
@@ -582,8 +582,6 @@ IDxcPdbUtils : public IUnknown {
 
   virtual BOOL STDMETHODCALLTYPE IsFullPDB() = 0;
   virtual HRESULT STDMETHODCALLTYPE GetFullPDB(IDxcBlob **ppFullPDB) = 0;
-
-  DECLARE_CROSS_PLATFORM_UUIDOF(IDxcPdbUtils)
 };
 
 static const UINT32 DxcVersionInfoFlags_None = 0;
