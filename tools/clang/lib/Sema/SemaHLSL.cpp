@@ -3347,10 +3347,13 @@ private:
 
   // Adds intrinsic function declarations to the "vk" namespace.
   // It does so only if SPIR-V code generation is being done.
+  // Assumes the implicit "vk" namespace has already been created.
   void AddVkIntrinsicFunctions() {
     // If not doing SPIR-V CodeGen, return.
     if (!m_sema->getLangOpts().SPIRV)
       return;
+
+    DXASSERT(m_vkNSDecl);
 
     auto &context = m_sema->getASTContext();
     for (uint32_t i = 0; i < _countof(g_VkIntrinsics); ++i) {
@@ -3371,13 +3374,13 @@ private:
 
   // Adds implicitly defined Vulkan-specific constants to the "vk" namespace.
   // It does so only if SPIR-V code generation is being done.
-  // Assumes the implicit "vk" namespace has already been creted.
+  // Assumes the implicit "vk" namespace has already been created.
   void AddVkIntrinsicConstants() {
     // If not doing SPIR-V CodeGen, return.
     if (!m_sema->getLangOpts().SPIRV)
       return;
 
-    assert(m_vkNSDecl);
+    DXASSERT(m_vkNSDecl);
 
     for (auto intConst : GetVkIntegerConstants()) {
       const llvm::StringRef name = intConst.first;
@@ -4345,6 +4348,12 @@ public:
   {
     DXASSERT_NOMSG(ULE != nullptr);
 
+    const bool isQualified = ULE->getQualifier();
+
+    const bool isGlobalNamespace =
+        ULE->getQualifier() &&
+        ULE->getQualifier()->getKind() == NestedNameSpecifier::Global;
+
     const bool isVkNamespace =
         ULE->getQualifier() &&
         ULE->getQualifier()->getKind() == NestedNameSpecifier::Namespace &&
@@ -4353,8 +4362,7 @@ public:
     // Intrinsics live in the global namespace, so references to their names
     // should be either unqualified or '::'-prefixed.
     // Exception: Vulkan-specific intrinsics live in the 'vk::' namespace.
-    if (!isVkNamespace && ULE->getQualifier() &&
-        ULE->getQualifier()->getKind() != NestedNameSpecifier::Global) {
+    if (isQualified && !isGlobalNamespace && !isVkNamespace) {
       return false;
     }
 
@@ -4366,21 +4374,17 @@ public:
     }
 
     StringRef nameIdentifier = idInfo->getName();
-    IntrinsicDefIter cursor =
-        isVkNamespace ? FindIntrinsicByNameAndArgCount(
-                            g_VkIntrinsics, _countof(g_VkIntrinsics),
-                            StringRef(), nameIdentifier, Args.size())
-                      : FindIntrinsicByNameAndArgCount(
-                            g_Intrinsics, _countof(g_Intrinsics), StringRef(),
-                            nameIdentifier, Args.size());
-    IntrinsicDefIter end =
-        isVkNamespace
-            ? IntrinsicDefIter::CreateEnd(
-                  g_VkIntrinsics, _countof(g_VkIntrinsics),
-                  IntrinsicTableDefIter::CreateEnd(m_intrinsicTables))
-            : IntrinsicDefIter::CreateEnd(
-                  g_Intrinsics, _countof(g_Intrinsics),
-                  IntrinsicTableDefIter::CreateEnd(m_intrinsicTables));
+    const HLSL_INTRINSIC *table = g_Intrinsics;
+    auto tableCount = _countof(g_Intrinsics);
+    if (isVkNamespace) {
+      table = g_VkIntrinsics;
+      tableCount = _countof(g_VkIntrinsics);
+    }
+
+    IntrinsicDefIter cursor = FindIntrinsicByNameAndArgCount(
+        table, tableCount, StringRef(), nameIdentifier, Args.size());
+    IntrinsicDefIter end = IntrinsicDefIter::CreateEnd(
+        table, tableCount, IntrinsicTableDefIter::CreateEnd(m_intrinsicTables));
 
     for (;cursor != end; ++cursor)
     {

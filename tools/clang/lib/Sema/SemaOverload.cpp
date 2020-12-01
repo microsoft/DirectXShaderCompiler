@@ -10924,7 +10924,7 @@ bool Sema::buildOverloadedCallSet(Scope *S, Expr *Fn,
         ULE->getQualifier()->getKind() == NestedNameSpecifier::Namespace &&
         ULE->getQualifier()->getAsNamespace()->getName() == "vk";
 
-    assert((!ULE->getQualifier() || isVkNamespace) && "qualified name with ADL");
+    assert((!ULE->getQualifier() || isVkNamespace) && "non-vk qualified name with ADL");
     // HLSL Change Ends
 
     // We don't perform ADL for implicit declarations of builtins.

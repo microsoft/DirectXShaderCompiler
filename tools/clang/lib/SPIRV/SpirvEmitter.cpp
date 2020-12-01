@@ -9227,6 +9227,7 @@ SpirvInstruction *SpirvEmitter::processIntrinsicRcp(const CallExpr *callExpr) {
 SpirvInstruction *
 SpirvEmitter::processIntrinsicReadClock(const CallExpr *callExpr) {
   auto *scope = doExpr(callExpr->getArg(0));
+  assert(scope->getAstResultType()->isIntegerType());
   return spvBuilder.createReadClock(scope, callExpr->getExprLoc());
 }
 

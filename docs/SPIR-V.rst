@@ -3560,19 +3560,14 @@ Overview
 We have introduced an implicit namepace (called ``vk``) that will be home to all
 Vulkan-specific functions, enums, etc. Given the similarity between HLSL and
 C++, developers are likely familiar with namespaces -- and implicit namespaces
-(e.g. ``std::`` in C++). Features that are in the core Vulkan Specification as
-well as KhronosGroup extensions (``VK_KHR_*`` extensions) can be added to this
-namespace.
+(e.g. ``std::`` in C++). The ``vk`` namespace provides an interface for expressing
+Vulkan-specific features (core spec and KHR extensions).
 
 **The compiler will generate the proper error message (** ``unknown 'vk' identifier`` **)
 if** ``vk::`` **is used for compiling to DXIL.**
 
-Some features may always remain specific to Vulkan or DirectX, while others may not.
-One graphics API (Vulkan or DirectX) may introduce a feature ahead of another,
-and it is possible that the same feature is later added to other graphics APIs
-as well. If there is a Vulkan-specific functionality that is also later added
-to DirectX, the Vulkan-specific intrinsic in the ``vk`` namespace should be
-deprecated, and the "native" HLSL feature should be used.
+Any intrinsic function or enum in the vk namespace will be deprecated if an
+equivalent one is added to the default namepsace.
 
 Current Features
 ----------------

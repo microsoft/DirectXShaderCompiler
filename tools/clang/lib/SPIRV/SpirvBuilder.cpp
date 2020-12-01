@@ -932,6 +932,7 @@ SpirvBuilder::createRayQueryOpsKHR(spv::Op opcode, QualType resultType,
 SpirvInstruction *SpirvBuilder::createReadClock(SpirvInstruction *scope,
                                                 SourceLocation loc) {
   assert(insertPoint && "null insert point");
+  assert(scope->getAstResultType()->isIntegerType());
   auto *inst =
       new (context) SpirvReadClock(astContext.UnsignedLongLongTy, scope, loc);
   insertPoint->addInstruction(inst);
