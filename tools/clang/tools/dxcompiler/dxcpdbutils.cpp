@@ -19,7 +19,6 @@
 #include "dxc/Support/microcom.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DXIL/DxilUtil.h"
-#include "dxc/dxcpix.h"
 
 #include "llvm/Support/MSFileSystem.h"
 #include "llvm/Support/FileSystem.h"
@@ -35,6 +34,7 @@
 #include <string>
 
 #ifdef _WIN32
+#include "dxc/dxcpix.h"
 #include <dia2.h>
 #endif
 
@@ -81,7 +81,11 @@ static bool ShouldIncludeInFlags(StringRef strRef, bool *skip_next_arg) {
   return true;
 }
 
-struct DxcPdbUtils : public IDxcPdbUtils, public IDxcPixDxilDebugInfoFactory {
+struct DxcPdbUtils : public IDxcPdbUtils
+#ifdef _WIN32
+  , public IDxcPixDxilDebugInfoFactory
+#endif
+{
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
 
@@ -123,7 +127,11 @@ public:
   DxcPdbUtils(IMalloc *pMalloc) : m_dwRef(0), m_pMalloc(pMalloc) {}
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
-    return DoBasicQueryInterface<IDxcPdbUtils, IDxcPixDxilDebugInfoFactory>(this, iid, ppvObject);
+    return DoBasicQueryInterface<IDxcPdbUtils
+#ifdef _WIN32
+      , IDxcPixDxilDebugInfoFactory
+#endif
+    >(this, iid, ppvObject);
   }
 
   HRESULT STDMETHODCALLTYPE Load(_In_ IDxcBlob *pPdbOrDxil) override {
@@ -351,12 +359,10 @@ public:
     return S_OK;
   }
 
+#ifdef _WIN32
   virtual STDMETHODIMP NewDxcPixDxilDebugInfo(
       _COM_Outptr_ IDxcPixDxilDebugInfo **ppDxilDebugInfo) override
   {
-#ifndef _WIN32
-    return E_NOTIMPL;
-#else
     if (!m_pDxilPartBlob)
       return E_FAIL;
 
@@ -378,7 +384,6 @@ public:
     IFR(pSession.QueryInterface(&pFactory));
 
     return pFactory->NewDxcPixDxilDebugInfo(ppDxilDebugInfo);
-#endif
   }
 
   virtual STDMETHODIMP NewDxcPixCompilationInfo(
@@ -386,6 +391,7 @@ public:
   {
     return E_NOTIMPL;
   }
+#endif
 };
 
 HRESULT CreateDxcPdbUtils(_In_ REFIID riid, _Out_ LPVOID *ppv) {
