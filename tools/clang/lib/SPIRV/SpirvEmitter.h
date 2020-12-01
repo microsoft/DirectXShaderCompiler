@@ -488,6 +488,9 @@ private:
   /// Processes the 'rcp' intrinsic function.
   SpirvInstruction *processIntrinsicRcp(const CallExpr *);
 
+  /// Processes the 'ReadClock' intrinsic function.
+  SpirvInstruction *processIntrinsicReadClock(const CallExpr *);
+
   /// Processes the 'sign' intrinsic function for float types.
   /// The FSign instruction in the GLSL instruction set returns a floating point
   /// result. The HLSL sign function, however, returns an integer. An extra
