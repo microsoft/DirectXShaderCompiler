@@ -177,7 +177,7 @@ public:
 
       case hlsl::DFCC_ShaderHash:
       {
-        hlsl::DxilShaderHash *hash_header = (hlsl::DxilShaderHash *)(part+1);
+        const hlsl::DxilShaderHash *hash_header = (hlsl::DxilShaderHash *)(part+1);
         IFR(hlsl::DxcCreateBlobOnHeapCopy(hash_header->Digest, sizeof(hash_header->Digest), &m_HashBlob));
       } break;
 
@@ -203,7 +203,7 @@ public:
         
         std::string DiagStr;
         pModule = hlsl::dxilutil::LoadModuleFromBitcode(
-          llvm::StringRef((char *)bitcode, bitcode_size),
+          llvm::StringRef(bitcode, bitcode_size),
           context, DiagStr);
 
         if (!pModule)
@@ -334,7 +334,7 @@ public:
     return m_pDxilPartBlob != nullptr;
   }
 
-  virtual HRESULT STDMETHODCALLTYPE GetFullPDB(IDxcBlob **ppFullPDB) {
+  virtual HRESULT STDMETHODCALLTYPE GetFullPDB(IDxcBlob **ppFullPDB) override {
     if (!m_InputBlob)
       return E_FAIL;
     if (!ppFullPDB) return E_POINTER;
