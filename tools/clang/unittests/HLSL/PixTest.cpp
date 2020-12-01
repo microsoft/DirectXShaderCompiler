@@ -180,7 +180,6 @@ public:
 
   TEST_METHOD(CompileWhenDebugThenDIPresent)
   
-  TEST_METHOD(CompileDebugLines)
   TEST_METHOD(CompileDebugPDB)
   TEST_METHOD(CompileDebugDisasmPDB)
   
@@ -1116,101 +1115,6 @@ TEST_F(PixTest, CompileDebugPDB) {
   VERIFY_SUCCEEDED(pReflection->FindFirstPartKind(hlsl::DFCC_ShaderDebugInfoDXIL, &uDebugInfoIndex));
 }
 
-TEST_F(PixTest, CompileDebugLines) {
-  CComPtr<IDiaDataSource> pDiaSource;
-  VERIFY_SUCCEEDED(
-      CreateDiaSourceForCompile(
-    "float main(float pos : A) : SV_Target {\r\n"
-    "  float x = abs(pos);\r\n"
-    "  float y = sin(pos);\r\n"
-    "  float z = x + y;\r\n"
-    "  return z;\r\n"
-    "}", &pDiaSource));
-    
-  const uint32_t numExpectedVAs = 18;
-  const uint32_t numExpectedLineEntries = 7;
-
-  auto verifyLines = [=](const std::vector<LineNumber> lines) {
-    VERIFY_ARE_EQUAL(lines.size(), numExpectedLineEntries);
-
-    // loadInput
-    VERIFY_ARE_EQUAL(lines[0].line, 1);
-    VERIFY_ARE_EQUAL(lines[0].rva,  4);
-
-    // abs
-    VERIFY_ARE_EQUAL(lines[1].line, 2);
-    VERIFY_ARE_EQUAL(lines[1].rva, 7);
-
-    // sin
-    VERIFY_ARE_EQUAL(lines[2].line, 2);
-    VERIFY_ARE_EQUAL(lines[2].rva, 10);
-
-    // fadd
-    VERIFY_ARE_EQUAL(lines[3].line, 4);
-    VERIFY_ARE_EQUAL(lines[3].rva, 13);
-
-    // storeOutput
-    VERIFY_ARE_EQUAL(lines[4].line, 5);
-    VERIFY_ARE_EQUAL(lines[4].rva, 16);
-
-    // ret
-    VERIFY_ARE_EQUAL(lines[5].line, 5);
-    VERIFY_ARE_EQUAL(lines[5].rva, 17);
-  };
-  
-  CComPtr<IDiaSession> pSession;
-  CComPtr<IDiaEnumLineNumbers> pEnumLineNumbers;
-
-  // Verify lines are ok when getting one RVA at a time.
-  std::vector<LineNumber> linesOneByOne;
-  VERIFY_SUCCEEDED(pDiaSource->openSession(&pSession));
-  for (int i = 0; i < numExpectedVAs; ++i) {
-    VERIFY_SUCCEEDED(pSession->findLinesByRVA(i, 1, &pEnumLineNumbers));
-    std::vector<LineNumber> lines = ReadLineNumbers(pEnumLineNumbers);
-    std::copy(lines.begin(), lines.end(), std::back_inserter(linesOneByOne));
-    pEnumLineNumbers.Release();
-  }
-  verifyLines(linesOneByOne);
-
-  // Verify lines are ok when getting all RVAs at once.
-  std::vector<LineNumber> linesAllAtOnce;
-  pEnumLineNumbers.Release();
-  VERIFY_SUCCEEDED(pSession->findLinesByRVA(0, numExpectedVAs, &pEnumLineNumbers));
-  linesAllAtOnce = ReadLineNumbers(pEnumLineNumbers);
-  verifyLines(linesAllAtOnce);
-
-  // Verify lines are ok when getting all lines through enum tables.
-  std::vector<LineNumber> linesFromTable;
-  pEnumLineNumbers.Release();
-  CComPtr<IDiaEnumTables> pTables;
-  CComPtr<IDiaTable> pTable;
-  VERIFY_SUCCEEDED(pSession->getEnumTables(&pTables));
-  DWORD celt;
-  while (SUCCEEDED(pTables->Next(1, &pTable, &celt)) && celt == 1)
-  {
-    if (SUCCEEDED(pTable->QueryInterface(&pEnumLineNumbers))) {
-      linesFromTable = ReadLineNumbers(pEnumLineNumbers);
-      break;
-    }
-    pTable.Release();
-  }
-  verifyLines(linesFromTable);
-  
-  // Verify lines are ok when getting by address.
-  std::vector<LineNumber> linesByAddr;
-  pEnumLineNumbers.Release();
-  VERIFY_SUCCEEDED(pSession->findLinesByAddr(0, 0, numExpectedVAs, &pEnumLineNumbers));
-  linesByAddr = ReadLineNumbers(pEnumLineNumbers);
-  verifyLines(linesByAddr);
-
-  // Verify findFileById.
-  CComPtr<IDiaSourceFile> pFile;
-  VERIFY_SUCCEEDED(pSession->findFileById(0, &pFile));
-  CComBSTR pName;
-  VERIFY_SUCCEEDED(pFile->get_fileName(&pName));
-  VERIFY_ARE_EQUAL_WSTR(pName, L"source.hlsl");
-}
-
 TEST_F(PixTest, DiaLoadBadBitcodeThenFail) {
   CComPtr<IDxcBlob> pBadBitcode;
   CComPtr<IDiaDataSource> pDiaSource;
@@ -1988,7 +1892,7 @@ void main()
     VERIFY_ARE_EQUAL(0, Testables.OffsetAndSizes[0].offset);
     VERIFY_ARE_EQUAL(32, Testables.OffsetAndSizes[0].size);
 
-    VERIFY_ARE_EQUAL(1, Testables.AllocaWrites.size());
+    VERIFY_ARE_EQUAL(2, Testables.AllocaWrites.size());
   }
 }
 
