@@ -295,6 +295,7 @@ public:
 
   TEST_METHOD(ValidateRootSigContainer)
   TEST_METHOD(ValidatePrintfNotAllowed)
+  TEST_METHOD(ValidateVkNamespaceNotAllowed)
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
@@ -3827,5 +3828,9 @@ TEST_F(ValidationTest, ValidateRootSigContainer) {
 
 TEST_F(ValidationTest, ValidatePrintfNotAllowed) {
   TestCheck(L"..\\CodeGenHLSL\\printf.hlsl");
+}
+
+TEST_F(ValidationTest, ValidateVkNamespaceNotAllowed) {
+  TestCheck(L"..\\CodeGenHLSL\\vk-namespace.hlsl");
 }
 
