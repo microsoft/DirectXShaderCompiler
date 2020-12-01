@@ -1128,7 +1128,7 @@ TEST_F(PixTest, CompileDebugLines) {
     "}", &pDiaSource));
     
   const uint32_t numExpectedVAs = 18;
-  const uint32_t numExpectedLineEntries = 6;
+  const uint32_t numExpectedLineEntries = 7;
 
   auto verifyLines = [=](const std::vector<LineNumber> lines) {
     VERIFY_ARE_EQUAL(lines.size(), numExpectedLineEntries);
@@ -1142,7 +1142,7 @@ TEST_F(PixTest, CompileDebugLines) {
     VERIFY_ARE_EQUAL(lines[1].rva, 7);
 
     // sin
-    VERIFY_ARE_EQUAL(lines[2].line, 3);
+    VERIFY_ARE_EQUAL(lines[2].line, 2);
     VERIFY_ARE_EQUAL(lines[2].rva, 10);
 
     // fadd
