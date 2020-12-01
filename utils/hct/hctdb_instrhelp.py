@@ -676,7 +676,7 @@ def get_hlsl_intrinsics():
     for i in sorted(db.intrinsics, key=lambda x: x.key):
         if last_ns != i.ns:
             last_ns = i.ns
-            id_prefix = "IOP" if last_ns == "Intrinsics" else "MOP"
+            id_prefix = "IOP" if last_ns == "Intrinsics" or last_ns == "VkIntrinsics" else "MOP" # SPIRV Change
             if (len(ns_table)):
                 result += ns_table + "};\n"
                 # SPIRV Change Starts

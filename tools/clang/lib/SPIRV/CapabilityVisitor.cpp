@@ -605,6 +605,14 @@ bool CapabilityVisitor::visit(SpirvDemoteToHelperInvocationEXT *inst) {
   return true;
 }
 
+bool CapabilityVisitor::visit(SpirvReadClock *inst) {
+  auto loc = inst->getSourceLocation();
+  addCapabilityForType(inst->getResultType(), loc, inst->getStorageClass());
+  addCapability(spv::Capability::ShaderClockKHR, loc);
+  addExtension(Extension::KHR_shader_clock, "ReadClock", loc);
+  return true;
+}
+
 bool CapabilityVisitor::visit(SpirvModule *, Visitor::Phase phase) {
   // If there are no entry-points in the module (hence shaderModel is not set),
   // add the Linkage capability. This allows library shader models to use

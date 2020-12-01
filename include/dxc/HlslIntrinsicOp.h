@@ -224,6 +224,9 @@ import hctdb_instrhelp
   IOP_texCUBEproj,
   IOP_transpose,
   IOP_trunc,
+#ifdef ENABLE_SPIRV_CODEGEN
+  IOP_VkReadClock,
+#endif // ENABLE_SPIRV_CODEGEN
   MOP_Append,
   MOP_RestartStrip,
   MOP_CalculateLevelOfDetail,

@@ -2742,6 +2742,12 @@ class db_hlsl_intrinsic(object):
         self.ns_idx = ns_idx                            # Namespace index
         self.doc = doc                                  # Documentation
         id_prefix = "IOP" if ns == "Intrinsics" else "MOP"
+        # SPIR-V Change Starts
+        if ns == "VkIntrinsics":
+            name = "Vk" + name
+            self.name = "Vk" + self.name
+            id_prefix = "IOP"
+        # SPIR-V Change Ends
         self.enum_name = "%s_%s" % (id_prefix, name)    # enum name
         self.readonly = ro                              # Only read memory
         self.readnone = rn                              # Not read memory

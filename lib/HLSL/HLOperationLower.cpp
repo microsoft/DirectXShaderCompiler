@@ -5355,6 +5355,9 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_texCUBEproj, EmptyLower, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_transpose, EmptyLower, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_trunc, TrivialUnaryOperation, DXIL::OpCode::Round_z},
+    // SPIR-V Change Starts
+    {IntrinsicOp::IOP_VkReadClock, UnsupportedVulkanIntrinsic, DXIL::OpCode::NumOpCodes},
+    // SPIR-V Change Ends
 
     {IntrinsicOp::MOP_Append, StreamOutputLower, DXIL::OpCode::EmitStream},
     {IntrinsicOp::MOP_RestartStrip, StreamOutputLower, DXIL::OpCode::CutStream},
