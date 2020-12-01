@@ -3353,7 +3353,7 @@ private:
     if (!m_sema->getLangOpts().SPIRV)
       return;
 
-    DXASSERT(m_vkNSDecl);
+    DXASSERT(m_vkNSDecl, "caller has not created the vk namespace yet");
 
     auto &context = m_sema->getASTContext();
     for (uint32_t i = 0; i < _countof(g_VkIntrinsics); ++i) {
@@ -3380,7 +3380,7 @@ private:
     if (!m_sema->getLangOpts().SPIRV)
       return;
 
-    DXASSERT(m_vkNSDecl);
+    DXASSERT(m_vkNSDecl, "caller has not created the vk namespace yet");
 
     for (auto intConst : GetVkIntegerConstants()) {
       const llvm::StringRef name = intConst.first;
