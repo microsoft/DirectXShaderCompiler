@@ -24,7 +24,10 @@ public:
   CapabilityVisitor(ASTContext &astCtx, SpirvContext &spvCtx,
                     const SpirvCodeGenOptions &opts, SpirvBuilder &builder)
       : Visitor(opts, spvCtx), spvBuilder(builder),
+        shaderModel(spv::ExecutionModel::Max),
         featureManager(astCtx.getDiagnostics(), opts) {}
+
+  bool visit(SpirvModule *, Phase) override;
 
   bool visit(SpirvDecoration *decor) override;
   bool visit(SpirvEntryPoint *) override;

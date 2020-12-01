@@ -520,7 +520,7 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
   }
 
   if (spirvOptions.debugInfoTool &&
-      spirvOptions.targetEnv.compare("vulkan1.1") >= 0) {
+      featureManager.isTargetEnvVulkan1p1OrAbove()) {
     // Emit OpModuleProcessed to indicate the commit information.
     std::string commitHash =
         std::string("dxc-commit-hash: ") + clang::getGitCommitHash();
@@ -554,6 +554,9 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
           addFunctionToWorkQueue(getShaderModelKind(shaderAttr->getStage()),
                                  funcDecl, /*isEntryFunction*/ true);
           numEntryPoints++;
+        } else if (funcDecl->getAttr<HLSLExportAttr>()) {
+          addFunctionToWorkQueue(spvContext.getCurrentShaderModelKind(),
+                                 funcDecl, /*isEntryFunction*/ false);
         }
       } else {
         if (funcDecl->getName() == entryFunctionName) {
@@ -581,8 +584,6 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
       return;
   }
 
-  const spv_target_env targetEnv = featureManager.getTargetEnv();
-
   // Addressing and memory model are required in a valid SPIR-V module.
   spvBuilder.setMemoryModel(spv::AddressingModel::Logical,
                             spv::MemoryModel::GLSL450);
@@ -599,7 +600,7 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     spvBuilder.addEntryPoint(
         getSpirvShaderStage(entryInfo->shaderModelKind),
         entryInfo->entryFunction, entryInfo->funcDecl->getName(),
-        targetEnv == SPV_ENV_VULKAN_1_2
+        featureManager.isTargetEnvVulkan1p2OrAbove()
             ? spvBuilder.getModule()->getVariables()
             : llvm::ArrayRef<SpirvVariable *>(declIdMapper.collectStageVars()));
   }
@@ -1121,7 +1122,7 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
     if (spvContext.isHS() && decl == patchConstFunc &&
         hlsl::IsHLSLOutputPatchType(paramDecl->getType())) {
       // Since the output patch used in hull shaders is translated to
-      // a variable with Workgroup storage class, there is no need
+      // a variable with Output storage class, there is no need
       // to pass the variable as function parameter in SPIR-V.
       continue;
     }
@@ -5538,6 +5539,19 @@ SpirvInstruction *SpirvEmitter::reconstructValue(SpirvInstruction *srcVal,
   if (const auto *recordType = valType->getAs<RecordType>()) {
     uint32_t index = 0;
     llvm::SmallVector<SpirvInstruction *, 4> elements;
+
+    // If the struct inherits from other structs, visit the bases.
+    const auto *decl = valType->getAsCXXRecordDecl();
+    for (auto baseIt = decl->bases_begin(), baseIe = decl->bases_end();
+         baseIt != baseIe; ++baseIt, ++index) {
+      SpirvInstruction *subSrcVal = spvBuilder.createCompositeExtract(
+          baseIt->getType(), srcVal, {index}, loc);
+      subSrcVal->setLayoutRule(srcVal->getLayoutRule());
+      elements.push_back(
+          reconstructValue(subSrcVal, baseIt->getType(), dstLR, loc));
+    }
+
+    // Go over struct fields.
     for (const auto *field : recordType->getDecl()->fields()) {
       SpirvInstruction *subSrcVal = spvBuilder.createCompositeExtract(
           field->getType(), srcVal, {index}, loc);
@@ -9885,6 +9899,8 @@ SpirvInstruction *SpirvEmitter::processReportHit(const CallExpr *callExpr) {
 }
 
 void SpirvEmitter::processCallShader(const CallExpr *callExpr) {
+  bool nvRayTracing =
+      featureManager.isExtensionEnabled(Extension::NV_ray_tracing);
   SpirvInstruction *callDataLocInst = nullptr;
   SpirvInstruction *callDataStageVar = nullptr;
   const VarDecl *callDataArg = nullptr;
@@ -9939,10 +9955,16 @@ void SpirvEmitter::processCallShader(const CallExpr *callExpr) {
   // Id)
   llvm::SmallVector<SpirvInstruction *, 2> callShaderArgs;
   callShaderArgs.push_back(doExpr(args[0]));
-  callShaderArgs.push_back(callDataLocInst);
 
-  spvBuilder.createRayTracingOpsNV(spv::Op::OpExecuteCallableNV, QualType(),
-                                   callShaderArgs, callExpr->getExprLoc());
+  if (nvRayTracing) {
+    callShaderArgs.push_back(callDataLocInst);
+    spvBuilder.createRayTracingOpsNV(spv::Op::OpExecuteCallableNV, QualType(),
+                                     callShaderArgs, callExpr->getExprLoc());
+  } else {
+    callShaderArgs.push_back(callDataStageVar);
+    spvBuilder.createRayTracingOpsNV(spv::Op::OpExecuteCallableKHR, QualType(),
+                                     callShaderArgs, callExpr->getExprLoc());
+  }
 
   // Copy data back to argument
   tempLoad = spvBuilder.createLoad(callDataArg->getType(), callDataStageVar,
@@ -9952,6 +9974,9 @@ void SpirvEmitter::processCallShader(const CallExpr *callExpr) {
 }
 
 void SpirvEmitter::processTraceRay(const CallExpr *callExpr) {
+  bool nvRayTracing =
+      featureManager.isExtensionEnabled(Extension::NV_ray_tracing);
+
   SpirvInstruction *rayPayloadLocInst = nullptr;
   SpirvInstruction *rayPayloadStageVar = nullptr;
   const VarDecl *rayPayloadArg = nullptr;
@@ -10049,10 +10074,16 @@ void SpirvEmitter::processTraceRay(const CallExpr *callExpr) {
   traceArgs.push_back(tMin);
   traceArgs.push_back(direction);
   traceArgs.push_back(tMax);
-  traceArgs.push_back(rayPayloadLocInst);
 
-  spvBuilder.createRayTracingOpsNV(spv::Op::OpTraceNV, QualType(), traceArgs,
-                                   callExpr->getExprLoc());
+  if (nvRayTracing) {
+    traceArgs.push_back(rayPayloadLocInst);
+    spvBuilder.createRayTracingOpsNV(spv::Op::OpTraceNV, QualType(), traceArgs,
+                                     callExpr->getExprLoc());
+  } else {
+    traceArgs.push_back(rayPayloadStageVar);
+    spvBuilder.createRayTracingOpsNV(spv::Op::OpTraceRayKHR, QualType(),
+                                     traceArgs, callExpr->getExprLoc());
+  }
 
   // Copy arguments back to stage variable
   tempLoad = spvBuilder.createLoad(rayPayloadArg->getType(), rayPayloadStageVar,
@@ -11241,7 +11272,7 @@ bool SpirvEmitter::processHSEntryPointOutputAndPCF(
   // results to it, so it can be passed to the PCF.
   if (const auto *param = patchConstFuncTakesHullOutputPatch(patchConstFunc)) {
     hullMainOutputPatch = declIdMapper.createHullMainOutputPatch(
-        param, retType, numOutputControlPoints, locEnd);
+        param, retType, numOutputControlPoints);
     auto *tempLocation = spvBuilder.createAccessChain(
         retType, hullMainOutputPatch, {outputControlPointId}, locEnd);
     spvBuilder.createStore(tempLocation, retVal, locEnd);
@@ -11628,9 +11659,6 @@ void SpirvEmitter::addFunctionToWorkQueue(hlsl::DXIL::ShaderKind shaderKind,
 
 SpirvInstruction *
 SpirvEmitter::processTraceRayInline(const CXXMemberCallExpr *expr) {
-  emitWarning("SPV_KHR_ray_query is currently a provisional extension and "
-              "might change in ways that are not backwards compatible",
-              expr->getExprLoc());
   const auto object = expr->getImplicitObjectArgument();
   uint32_t templateFlags = hlsl::GetHLSLResourceTemplateUInt(object->getType());
   const auto constFlags = spvBuilder.getConstantInt(
@@ -11711,9 +11739,6 @@ SpirvEmitter::processTraceRayInline(const CXXMemberCallExpr *expr) {
 SpirvInstruction *
 SpirvEmitter::processRayQueryIntrinsics(const CXXMemberCallExpr *expr,
                                         hlsl::IntrinsicOp opcode) {
-  emitWarning("SPV_KHR_ray_query is currently a provisional extension and "
-              "might change in ways that are not backwards compatible",
-              expr->getExprLoc());
   const auto object = expr->getImplicitObjectArgument();
   SpirvInstruction *rayqueryObj = loadIfAliasVarRef(object);
 

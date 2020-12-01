@@ -3392,14 +3392,14 @@ Example:
   void main() {
     RayQuery<RAY_FLAG_CULL_NON_OPAQUE | RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH> q;
     q.TraceRayInline(myAccelerationStructure, 0 , 0xff, myRay);
-  
+
     // Proceed() is AccelerationStructure traversal loop take places
     while(q.Proceed()) {
       switch(q.CandidateType()) {
         // retrieve intersection information/Do the shadering
       }
     }
-  
+
     // AccelerationStructure traversal end
     // Get the Committed status
     switch(q.CommittedStatus()) {
@@ -3423,7 +3423,7 @@ RayQuery represents the state of an inline ray tracing call into an acceleration
 ============ ================================
  HLSL Type            SPIR-V Opcode
 ------------ --------------------------------
-``RayQuery`` ``OpTypeRayQueryProvisionalKHR``
+``RayQuery`` ``OpTypeRayQueryKHR``
 ============ ================================
 
 RayQuery Mapping to SPIR-V

@@ -10,6 +10,8 @@
 #ifndef LLVM_CLANG_LIB_SPIRV_REMOVEBUFFERBLOCKVISITOR_H
 #define LLVM_CLANG_LIB_SPIRV_REMOVEBUFFERBLOCKVISITOR_H
 
+#include "clang/AST/ASTContext.h"
+#include "clang/SPIRV/FeatureManager.h"
 #include "clang/SPIRV/SpirvVisitor.h"
 
 namespace clang {
@@ -19,9 +21,9 @@ class SpirvContext;
 
 class RemoveBufferBlockVisitor : public Visitor {
 public:
-  RemoveBufferBlockVisitor(SpirvContext &spvCtx,
+  RemoveBufferBlockVisitor(ASTContext &astCtx, SpirvContext &spvCtx,
                            const SpirvCodeGenOptions &opts)
-      : Visitor(opts, spvCtx) {}
+      : Visitor(opts, spvCtx), featureManager(astCtx.getDiagnostics(), opts) {}
 
   bool visit(SpirvModule *, Phase) override;
 
@@ -38,6 +40,12 @@ private:
   /// Returns true if |type| is a SPIR-V type whose interface type is
   /// StorageBuffer.
   bool hasStorageBufferInterfaceType(const SpirvType *type);
+
+  ///  Returns true if the BufferBlock decoration is deprecated (Vulkan 1.2 or
+  ///  above).
+  bool isBufferBlockDecorationDeprecated();
+
+  FeatureManager featureManager;
 };
 
 } // end namespace spirv
