@@ -10,6 +10,8 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#ifdef _WIN32
+
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/dxcapi.use.h"
@@ -33,10 +35,8 @@
 #include <codecvt>
 #include <string>
 
-#ifdef _WIN32
 #include "dxc/dxcpix.h"
 #include <dia2.h>
-#endif
 
 using namespace dxc;
 using namespace llvm;
@@ -81,10 +81,7 @@ static bool ShouldIncludeInFlags(StringRef strRef, bool *skip_next_arg) {
   return true;
 }
 
-struct DxcPdbUtils : public IDxcPdbUtils
-#ifdef _WIN32
-  , public IDxcPixDxilDebugInfoFactory
-#endif
+struct DxcPdbUtils : public IDxcPdbUtils, public IDxcPixDxilDebugInfoFactory
 {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
@@ -127,11 +124,7 @@ public:
   DxcPdbUtils(IMalloc *pMalloc) : m_dwRef(0), m_pMalloc(pMalloc) {}
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
-    return DoBasicQueryInterface<IDxcPdbUtils
-#ifdef _WIN32
-      , IDxcPixDxilDebugInfoFactory
-#endif
-    >(this, iid, ppvObject);
+    return DoBasicQueryInterface<IDxcPdbUtils, IDxcPixDxilDebugInfoFactory>(this, iid, ppvObject);
   }
 
   HRESULT STDMETHODCALLTYPE Load(_In_ IDxcBlob *pPdbOrDxil) override {
@@ -183,7 +176,7 @@ public:
 
       case hlsl::DFCC_ShaderDebugName:
       {
-        hlsl::DxilShaderDebugName *name_header = (hlsl::DxilShaderDebugName *)(part+1);
+        const hlsl::DxilShaderDebugName *name_header = (hlsl::DxilShaderDebugName *)(part+1);
         const char *ptr = (char *)(name_header+1);
         m_Name.assign(ptr, ptr + name_header->NameLength);
       } break;
@@ -359,7 +352,6 @@ public:
     return S_OK;
   }
 
-#ifdef _WIN32
   virtual STDMETHODIMP NewDxcPixDxilDebugInfo(
       _COM_Outptr_ IDxcPixDxilDebugInfo **ppDxilDebugInfo) override
   {
@@ -391,7 +383,6 @@ public:
   {
     return E_NOTIMPL;
   }
-#endif
 };
 
 HRESULT CreateDxcPdbUtils(_In_ REFIID riid, _Out_ LPVOID *ppv) {
@@ -402,3 +393,13 @@ HRESULT CreateDxcPdbUtils(_In_ REFIID riid, _Out_ LPVOID *ppv) {
   }
   return result.p->QueryInterface(riid, ppv);
 }
+
+#else
+
+HRESULT CreateDxcPdbUtils(_In_ REFIID riid, _Out_ LPVOID *ppv) {
+  return E_NOTIMPL;
+}
+
+#endif
+
+

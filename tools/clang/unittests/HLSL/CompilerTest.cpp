@@ -974,6 +974,7 @@ TEST_F(CompilerTest, CompileThenAddCustomDebugName) {
   VERIFY_IS_NULL(pPartHeader);
 }
 
+#ifdef _WIN32
 TEST_F(CompilerTest, CompileThenTestPdbUtils) {
   CComPtr<TestIncludeHandler> pInclude;
   CComPtr<IDxcCompiler> pCompiler;
@@ -1124,16 +1125,13 @@ TEST_F(CompilerTest, CompileThenTestPdbUtils) {
       VERIFY_SUCCEEDED(pPdbUtils.QueryInterface(&pFactory));
       CComPtr<IDxcPixCompilationInfo> pCompInfo;
       VERIFY_ARE_EQUAL(E_NOTIMPL, pFactory->NewDxcPixCompilationInfo(&pCompInfo));
-#ifdef _WIN32
       CComPtr<IDxcPixDxilDebugInfo> pDebugInfo;
       VERIFY_SUCCEEDED(pFactory->NewDxcPixDxilDebugInfo(&pDebugInfo));
       VERIFY_ARE_NOT_EQUAL(pDebugInfo, nullptr);
-#else
-      VERIFY_ARE_EQUAL(E_NOTIMPL, pFactory->NewDxcPixDxilDebugInfo(&pDebugInfo));
-#endif
     }
   }
 }
+#endif
 
 TEST_F(CompilerTest, CompileWithRootSignatureThenStripRootSignature) {
   CComPtr<IDxcCompiler> pCompiler;
