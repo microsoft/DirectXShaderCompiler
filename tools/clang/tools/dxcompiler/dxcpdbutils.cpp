@@ -99,7 +99,7 @@ private:
   std::vector<std::wstring> m_Flags;
   std::wstring m_EntryPoint;
   std::wstring m_TargetProfile;
-  std::string m_Name; // UTF8 string
+  std::wstring m_Name; // UTF8 string
   CComPtr<IDxcBlob> m_HashBlob;
 
   void Reset() {
@@ -129,7 +129,7 @@ public:
   HRESULT STDMETHODCALLTYPE Load(_In_ IDxcBlob *pPdbOrDxil) override {
     DxcThreadMalloc TM(m_pMalloc);
 
-    ::llvm::sys::fs::MSFileSystem *msfPtr;
+    ::llvm::sys::fs::MSFileSystem *msfPtr = nullptr;
     IFT(CreateMSFileSystemForDisk(&msfPtr));
     std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
   
@@ -177,7 +177,7 @@ public:
       {
         const hlsl::DxilShaderDebugName *name_header = (hlsl::DxilShaderDebugName *)(part+1);
         const char *ptr = (char *)(name_header+1);
-        m_Name.assign(ptr, ptr + name_header->NameLength);
+        m_Name = ToWstring(ptr, name_header->NameLength);
       } break;
 
       case hlsl::DFCC_ShaderDebugInfoDXIL:
@@ -226,7 +226,7 @@ public:
 
           // dx.source.content
           if (node_name == hlsl::DxilMDHelper::kDxilSourceContentsMDName ||
-              node_name == hlsl::DxilMDHelper::kDxilSourceContentsMDName)
+              node_name == hlsl::DxilMDHelper::kDxilSourceContentsOldMDName)
           {
             for (unsigned i = 0; i < node.getNumOperands(); i++) {
               llvm::MDTuple *tup = cast<llvm::MDTuple>(node.getOperand(i));
@@ -250,7 +250,7 @@ public:
           }
           // dx.source.defines
           else if (node_name == hlsl::DxilMDHelper::kDxilSourceDefinesMDName ||
-                node_name == hlsl::DxilMDHelper::kDxilSourceDefinesOldMDName)
+                   node_name == hlsl::DxilMDHelper::kDxilSourceDefinesOldMDName)
           {
             MDTuple *tup = cast<MDTuple>(node.getOperand(0));
             for (unsigned i = 0; i < tup->getNumOperands(); i++) {
@@ -260,7 +260,7 @@ public:
           }
           // dx.source.args
           else if (node_name == hlsl::DxilMDHelper::kDxilSourceArgsMDName ||
-                node_name == hlsl::DxilMDHelper::kDxilSourceArgsOldMDName)
+                   node_name == hlsl::DxilMDHelper::kDxilSourceArgsOldMDName)
           {
             MDTuple *tup = cast<MDTuple>(node.getOperand(0));
             // Args
@@ -315,12 +315,7 @@ public:
 
   static inline HRESULT GetStringOption(const std::vector<std::wstring> &list, _In_ UINT32 uIndex, BSTR *pResult) {
     if (uIndex >= list.size()) return E_INVALIDARG;
-    if (!pResult) return E_POINTER;
-    *pResult = nullptr;
-    const std::wstring &str = list[uIndex];
-    CComBSTR buf(str.data());
-    *pResult = buf.Detach();
-    return S_OK;
+    return CopyWstringToBSTR(list[uIndex], pResult);
   }
 
   virtual HRESULT STDMETHODCALLTYPE GetFlagCount(_Out_ UINT32 *pCount) override {  return GetStringCount(m_Flags, pCount); }
@@ -356,14 +351,7 @@ public:
   }
 
   virtual HRESULT STDMETHODCALLTYPE GetName(BSTR *pResult) override {
-    if (!pResult) return E_POINTER;
-    *pResult = nullptr;
-    if (!m_Name.size())
-      return S_OK;
-
-    CComBSTR buf(m_Name.c_str());
-    *pResult = buf.Detach();
-    return S_OK;
+    return CopyWstringToBSTR(m_Name, pResult);
   }
 
   virtual STDMETHODIMP NewDxcPixDxilDebugInfo(
