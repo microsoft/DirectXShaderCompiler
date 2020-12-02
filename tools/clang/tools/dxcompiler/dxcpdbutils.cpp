@@ -396,6 +396,8 @@ HRESULT CreateDxcPdbUtils(_In_ REFIID riid, _Out_ LPVOID *ppv) {
 
 #else
 
+#include "dxc/Support/WinIncludes.h"
+
 HRESULT CreateDxcPdbUtils(_In_ REFIID riid, _Out_ LPVOID *ppv) {
   return E_NOTIMPL;
 }
