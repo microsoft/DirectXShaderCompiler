@@ -1034,6 +1034,13 @@ TEST_F(CompilerTest, CompileThenTestPdbUtils) {
         0 == std::memcmp(suffix.c_str(), &pName[pName.Length() - suffix.size()], suffix.size()));
     }
 
+    // Main file name
+    {
+      CComBSTR pMainFileName;
+      VERIFY_SUCCEEDED(pPdbUtils->GetMainFileName(&pMainFileName));
+      VERIFY_ARE_EQUAL(pMainFileName, L"source.hlsl");
+    }
+
     // This is a full PDB
     {
       VERIFY_IS_TRUE(pPdbUtils->IsFullPDB());

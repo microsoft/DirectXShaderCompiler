@@ -562,26 +562,27 @@ struct IDxcPdbUtils : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE Load(_In_ IDxcBlob *pPdbOrDxil) = 0;
 
   virtual HRESULT STDMETHODCALLTYPE GetSourceCount(_Out_ UINT32 *pCount) = 0;
-  virtual HRESULT STDMETHODCALLTYPE GetSource(_In_ UINT32 uIndex, IDxcBlobEncoding **ppResult) = 0;
-  virtual HRESULT STDMETHODCALLTYPE GetSourceName(_In_ UINT32 uIndex, _Out_ BSTR *pResult) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetSource(_In_ UINT32 uIndex, _COM_Outptr_ IDxcBlobEncoding **ppResult) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetSourceName(_In_ UINT32 uIndex, _Outptr_result_z_ BSTR *pResult) = 0;
 
   virtual HRESULT STDMETHODCALLTYPE GetFlagCount(_Out_ UINT32 *pCount) = 0;
-  virtual HRESULT STDMETHODCALLTYPE GetFlag(_In_ UINT32 uIndex, _Out_ BSTR *pResult) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetFlag(_In_ UINT32 uIndex, _Outptr_result_z_ BSTR *pResult) = 0;
 
   virtual HRESULT STDMETHODCALLTYPE GetArgCount(_Out_ UINT32 *pCount) = 0;
-  virtual HRESULT STDMETHODCALLTYPE GetArg(_In_ UINT32 uIndex, _Out_ BSTR *pResult) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetArg(_In_ UINT32 uIndex, _Outptr_result_z_ BSTR *pResult) = 0;
 
   virtual HRESULT STDMETHODCALLTYPE GetDefineCount(_Out_ UINT32 *pCount) = 0;
-  virtual HRESULT STDMETHODCALLTYPE GetDefine(_In_ UINT32 uIndex, _Out_ BSTR *pResult) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetDefine(_In_ UINT32 uIndex, _Outptr_result_z_ BSTR *pResult) = 0;
 
-  virtual HRESULT STDMETHODCALLTYPE GetTargetProfile(_Out_ BSTR *pResult) = 0;
-  virtual HRESULT STDMETHODCALLTYPE GetEntryPoint(_Out_ BSTR *pResult) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetTargetProfile(_Outptr_result_z_ BSTR *pResult) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetEntryPoint(_Outptr_result_z_ BSTR *pResult) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetMainFileName(_Outptr_result_z_ BSTR *pResult) = 0;
 
-  virtual HRESULT STDMETHODCALLTYPE GetHash(IDxcBlob **ppResult) = 0;
-  virtual HRESULT STDMETHODCALLTYPE GetName(BSTR *pResult) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetHash(_COM_Outptr_ IDxcBlob **ppResult) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetName(_Outptr_result_z_ BSTR *pResult) = 0;
 
   virtual BOOL STDMETHODCALLTYPE IsFullPDB() = 0;
-  virtual HRESULT STDMETHODCALLTYPE GetFullPDB(IDxcBlob **ppFullPDB) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetFullPDB(_COM_Outptr_ IDxcBlob **ppFullPDB) = 0;
 };
 
 static const UINT32 DxcVersionInfoFlags_None = 0;

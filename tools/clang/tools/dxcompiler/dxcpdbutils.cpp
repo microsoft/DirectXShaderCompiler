@@ -99,7 +99,8 @@ private:
   std::vector<std::wstring> m_Flags;
   std::wstring m_EntryPoint;
   std::wstring m_TargetProfile;
-  std::wstring m_Name; // UTF8 string
+  std::wstring m_Name;
+  std::wstring m_MainFileName;
   CComPtr<IDxcBlob> m_HashBlob;
 
   void Reset() {
@@ -113,6 +114,7 @@ private:
     m_EntryPoint.clear();
     m_TargetProfile.clear();
     m_Name.clear();
+    m_MainFileName.clear();
     m_HashBlob = nullptr;
   }
 
@@ -258,6 +260,14 @@ public:
               m_Defines.push_back(ToWstring(define));
             }
           }
+          // dx.source.mainFileName
+          else if (node_name == hlsl::DxilMDHelper::kDxilSourceMainFileNameMDName ||
+                   node_name == hlsl::DxilMDHelper::kDxilSourceMainFileNameOldMDName)
+          {
+            MDTuple *tup = cast<MDTuple>(node.getOperand(0));
+            MDString *str = cast<MDString>(tup->getOperand(0));
+            m_MainFileName = ToWstring(str->getString());
+          }
           // dx.source.args
           else if (node_name == hlsl::DxilMDHelper::kDxilSourceArgsMDName ||
                    node_name == hlsl::DxilMDHelper::kDxilSourceArgsOldMDName)
@@ -295,48 +305,51 @@ public:
     return S_OK;
   }
 
-  virtual HRESULT STDMETHODCALLTYPE GetSource(_In_ UINT32 uIndex, IDxcBlobEncoding **ppResult) override {
+  virtual HRESULT STDMETHODCALLTYPE GetSource(_In_ UINT32 uIndex, _COM_Outptr_ IDxcBlobEncoding **ppResult) override {
     if (uIndex >= m_SourceFiles.size()) return E_INVALIDARG;
     if (!ppResult) return E_POINTER;
     *ppResult = nullptr;
     return m_SourceFiles[uIndex].Content.QueryInterface(ppResult);
   }
 
-  virtual HRESULT STDMETHODCALLTYPE GetSourceName(_In_ UINT32 uIndex, BSTR *pResult) override {
+  virtual HRESULT STDMETHODCALLTYPE GetSourceName(_In_ UINT32 uIndex, _Outptr_result_z_ BSTR *pResult) override {
     if (uIndex >= m_SourceFiles.size()) return E_INVALIDARG;
     return CopyWstringToBSTR(m_SourceFiles[uIndex].Name, pResult);
   }
 
-  static inline HRESULT GetStringCount(const std::vector<std::wstring> &list, UINT32 *pCount) {
+  static inline HRESULT GetStringCount(const std::vector<std::wstring> &list, _Out_ UINT32 *pCount) {
     if (!pCount) return E_POINTER;
     *pCount = (UINT32)list.size();
     return S_OK;
   }
 
-  static inline HRESULT GetStringOption(const std::vector<std::wstring> &list, _In_ UINT32 uIndex, BSTR *pResult) {
+  static inline HRESULT GetStringOption(const std::vector<std::wstring> &list, _In_ UINT32 uIndex, _Outptr_result_z_ BSTR *pResult) {
     if (uIndex >= list.size()) return E_INVALIDARG;
     return CopyWstringToBSTR(list[uIndex], pResult);
   }
 
   virtual HRESULT STDMETHODCALLTYPE GetFlagCount(_Out_ UINT32 *pCount) override {  return GetStringCount(m_Flags, pCount); }
-  virtual HRESULT STDMETHODCALLTYPE GetFlag(_In_ UINT32 uIndex, BSTR *pResult) override { return GetStringOption(m_Flags, uIndex, pResult); }
+  virtual HRESULT STDMETHODCALLTYPE GetFlag(_In_ UINT32 uIndex, _Outptr_result_z_ BSTR *pResult) override { return GetStringOption(m_Flags, uIndex, pResult); }
   virtual HRESULT STDMETHODCALLTYPE GetArgCount(_Out_ UINT32 *pCount) override { return GetStringCount(m_Args, pCount); }
-  virtual HRESULT STDMETHODCALLTYPE GetArg(_In_ UINT32 uIndex, BSTR *pResult) override { return GetStringOption(m_Args, uIndex, pResult); }
+  virtual HRESULT STDMETHODCALLTYPE GetArg(_In_ UINT32 uIndex, _Outptr_result_z_ BSTR *pResult) override { return GetStringOption(m_Args, uIndex, pResult); }
   virtual HRESULT STDMETHODCALLTYPE GetDefineCount(_Out_ UINT32 *pCount) override { return GetStringCount(m_Defines, pCount); }
-  virtual HRESULT STDMETHODCALLTYPE GetDefine(_In_ UINT32 uIndex, BSTR *pResult) override { return GetStringOption(m_Defines, uIndex, pResult); }
+  virtual HRESULT STDMETHODCALLTYPE GetDefine(_In_ UINT32 uIndex, _Outptr_result_z_ BSTR *pResult) override { return GetStringOption(m_Defines, uIndex, pResult); }
 
-  virtual HRESULT STDMETHODCALLTYPE GetTargetProfile(_Out_ BSTR *pResult) override {
+  virtual HRESULT STDMETHODCALLTYPE GetTargetProfile(_Outptr_result_z_ BSTR *pResult) override {
     return CopyWstringToBSTR(m_TargetProfile, pResult);
   }
-  virtual HRESULT STDMETHODCALLTYPE GetEntryPoint(_Out_ BSTR *pResult) override {
+  virtual HRESULT STDMETHODCALLTYPE GetEntryPoint(_Outptr_result_z_ BSTR *pResult) override {
     return CopyWstringToBSTR(m_EntryPoint, pResult);
+  }
+  virtual HRESULT STDMETHODCALLTYPE GetMainFileName(_Outptr_result_z_ BSTR *pResult) {
+    return CopyWstringToBSTR(m_MainFileName, pResult);
   }
 
   virtual BOOL STDMETHODCALLTYPE IsFullPDB() override {
     return m_pDxilPartBlob != nullptr;
   }
 
-  virtual HRESULT STDMETHODCALLTYPE GetFullPDB(IDxcBlob **ppFullPDB) override {
+  virtual HRESULT STDMETHODCALLTYPE GetFullPDB(_COM_Outptr_ IDxcBlob **ppFullPDB) override {
     if (!m_InputBlob)
       return E_FAIL;
     if (!ppFullPDB) return E_POINTER;
@@ -344,13 +357,13 @@ public:
     return m_InputBlob.QueryInterface(ppFullPDB);
   }
 
-  virtual HRESULT STDMETHODCALLTYPE GetHash(IDxcBlob **ppResult) override {
+  virtual HRESULT STDMETHODCALLTYPE GetHash(_COM_Outptr_ IDxcBlob **ppResult) override {
     if (!ppResult) return E_POINTER;
     *ppResult = nullptr;
     return m_HashBlob.QueryInterface(ppResult);
   }
 
-  virtual HRESULT STDMETHODCALLTYPE GetName(BSTR *pResult) override {
+  virtual HRESULT STDMETHODCALLTYPE GetName(_Outptr_result_z_ BSTR *pResult) override {
     return CopyWstringToBSTR(m_Name, pResult);
   }
 
