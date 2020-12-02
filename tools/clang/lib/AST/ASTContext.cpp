@@ -39,6 +39,7 @@
 #include "llvm/Support/Capacity.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/MathExtras.h" // HLSL Change
 #include <map>
 
 using namespace clang;
@@ -1575,6 +1576,7 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
     // HLSL Change Begins.
     // Vector align to its element.
     if (getLangOpts().HLSL) {
+      Width = llvm::RoundUpToAlignment(EltInfo.Width, EltInfo.Align) * VT->getNumElements(); // Match data layout's behaviour
       Align = EltInfo.Align;
     }
     // HLSL Change Ends.
@@ -1624,7 +1626,6 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
       Width = Target->getChar32Width();
       Align = Target->getChar32Align();
       break;
-    case BuiltinType::Min16UInt: // HLSL Change
     case BuiltinType::UShort:
     case BuiltinType::Short:
       Width = Target->getShortWidth();
@@ -1667,12 +1668,19 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
     case BuiltinType::Min10Float:
     case BuiltinType::Min16Float:
       Width = 16;
-      Align = 16;
+      if (!getLangOpts().UseMinPrecision)
+        Align = 16;
+      else
+        Align = 32;
       break;
     case BuiltinType::Min12Int:
     case BuiltinType::Min16Int:
+    case BuiltinType::Min16UInt:
       Width = 16;
-      Align = 16;
+      if (!getLangOpts().UseMinPrecision)
+        Align = 16;
+      else
+        Align = 32;
       break;
     // Treat literals as largest size possible here, as it will be used
     // to determine MaxWidth in GetExprRange
