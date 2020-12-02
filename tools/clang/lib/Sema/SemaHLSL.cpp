@@ -3345,6 +3345,8 @@ private:
       return -1;
   }
 
+
+#ifdef ENABLE_SPIRV_CODEGEN
   // Adds intrinsic function declarations to the "vk" namespace.
   // It does so only if SPIR-V code generation is being done.
   // Assumes the implicit "vk" namespace has already been created.
@@ -3399,6 +3401,7 @@ private:
       m_vkNSDecl->addDecl(varDecl);
     }
   }
+#endif // ENABLE_SPIRV_CODEGEN
 
   // Adds all built-in HLSL object types.
   void AddObjectTypes()
@@ -3604,6 +3607,7 @@ public:
       AddIntrinsicTableMethods(intrinsic);
     }
 
+#ifdef ENABLE_SPIRV_CODEGEN
     if (m_sema->getLangOpts().SPIRV) {
       // Create the "vk" namespace which contains Vulkan-specific intrinsics.
       m_vkNSDecl =
@@ -3617,6 +3621,7 @@ public:
       AddVkIntrinsicFunctions();
       AddVkIntrinsicConstants();
     }
+#endif // ENABLE_SPIRV_CODEGEN
   }
 
   void ForgetSema() override
@@ -4376,10 +4381,12 @@ public:
     StringRef nameIdentifier = idInfo->getName();
     const HLSL_INTRINSIC *table = g_Intrinsics;
     auto tableCount = _countof(g_Intrinsics);
+#ifdef ENABLE_SPIRV_CODEGEN
     if (isVkNamespace) {
       table = g_VkIntrinsics;
       tableCount = _countof(g_VkIntrinsics);
     }
+#endif // ENABLE_SPIRV_CODEGEN
 
     IntrinsicDefIter cursor = FindIntrinsicByNameAndArgCount(
         table, tableCount, StringRef(), nameIdentifier, Args.size());
