@@ -16,17 +16,18 @@
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/Support/FileIOHelper.h"
+#include "llvm/Support/MSFileSystem.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/MemoryBuffer.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
+
 #include "dxc/dxcapi.h"
-#include "dxc/DXIL/DxilPDB.h"
+#include "dxc/dxcpix.h"
 #include "dxc/Support/microcom.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DXIL/DxilUtil.h"
-
-#include "llvm/Support/MSFileSystem.h"
-#include "llvm/Support/FileSystem.h"
-
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/Module.h"
+#include "dxc/DXIL/DxilPDB.h"
 #include "dxc/DXIL/DxilMetadataHelper.h"
 #include "dxc/DXIL/DxilModule.h"
 
@@ -34,8 +35,6 @@
 #include <locale>
 #include <codecvt>
 #include <string>
-
-#include "dxc/dxcpix.h"
 #include <dia2.h>
 
 using namespace dxc;
@@ -193,14 +192,29 @@ public:
 
         llvm::LLVMContext context;
         std::unique_ptr<llvm::Module> pModule;
-        
-        std::string DiagStr;
-        pModule = hlsl::dxilutil::LoadModuleFromBitcode(
-          llvm::StringRef(bitcode, bitcode_size),
-          context, DiagStr);
 
+        // NOTE: this doesn't copy the memory, just references it.
+        std::unique_ptr<llvm::MemoryBuffer> mb = llvm::MemoryBuffer::getMemBuffer(StringRef(bitcode, bitcode_size), "-", /*RequiresNullTerminator*/ false);
+
+        // Lazily parse the module
+        std::string DiagStr;
+        pModule = hlsl::dxilutil::LoadModuleFromBitcodeLazy(std::move(mb), context, DiagStr);
         if (!pModule)
           return E_FAIL;
+
+        // Materialize only the stuff we need, so it's fast
+        {
+          llvm::StringRef DebugMetadataList[] = {
+            hlsl::DxilMDHelper::kDxilSourceContentsMDName,
+            hlsl::DxilMDHelper::kDxilSourceDefinesMDName,
+            hlsl::DxilMDHelper::kDxilSourceArgsMDName,
+            hlsl::DxilMDHelper::kDxilVersionMDName,
+            hlsl::DxilMDHelper::kDxilShaderModelMDName,
+            hlsl::DxilMDHelper::kDxilEntryPointsMDName,
+            hlsl::DxilMDHelper::kDxilSourceMainFileNameMDName,
+          };
+          pModule->materializeSelectNamedMetadata(DebugMetadataList);
+        }
 
         hlsl::DxilModule &DM = pModule->GetOrCreateDxilModule();
         m_EntryPoint = ToWstring(DM.GetEntryFunctionName());
