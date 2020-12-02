@@ -3552,6 +3552,79 @@ Quad          ``QuadReadAcrossDiagonal()`` ``OpGroupNonUniformQuadSwap``
 Quad          ``QuadReadLaneAt()``         ``OpGroupNonUniformQuadBroadcast``
 ============= ============================ =================================== ======================
 
+The Implicit ``vk`` Namespace
+=============================
+
+Overview
+--------
+We have introduced an implicit namepace (called ``vk``) that will be home to all
+Vulkan-specific functions, enums, etc. Given the similarity between HLSL and
+C++, developers are likely familiar with namespaces -- and implicit namespaces
+(e.g. ``std::`` in C++). The ``vk`` namespace provides an interface for expressing
+Vulkan-specific features (core spec and KHR extensions).
+
+**The compiler will generate the proper error message (** ``unknown 'vk' identifier`` **)
+if** ``vk::`` **is used for compiling to DXIL.**
+
+Any intrinsic function or enum in the vk namespace will be deprecated if an
+equivalent one is added to the default namepsace.
+
+Current Features
+----------------
+The following intrinsic functions and constants are currently defined in the
+implicit ``vk`` namepsace.
+
+.. code:: hlsl
+
+  // Implicitly defined when compiling to SPIR-V.
+  namespace vk {
+  
+    const uint CrossDeviceScope = 0;
+    const uint DeviceScope      = 1;
+    const uint WorkgroupScope   = 2;
+    const uint SubgroupScope    = 3;
+    const uint InvocationScope  = 4;
+    const uint QueueFamilyScope = 5;
+  
+    uint64_t ReadClock(in uint scope);
+  } // end namespace
+
+
+Intrinsic Constants
+-------------------
+The following constants are currently defined:
+
+========================  ============================================
+  Constant                value   (SPIR-V constant equivalent, if any)
+========================  ============================================
+``vk::CrossDeviceScope``    ``0`` (``CrossDevice``)
+``vk::DeviceScope``         ``1`` (``Device``)
+``vk::WorkgroupScope``      ``2`` (``Workgroup``)
+``vk::SubgroupScope``       ``3`` (``Subgroup``)
+``vk::InvocationScope``     ``4`` (``Invocation``)
+``vk::QueueFamilyScope``    ``5`` (``QueueFamily``)
+========================  ============================================
+
+Intrinsic Functions
+-------------------
+
+ReadClock
+~~~~~~~~~
+This intrinsic funcion has the following signature:
+
+.. code:: hlsl
+
+  uint64_t ReadClock(in uint scope);
+
+It translates to performing ``OpReadClockKHR`` defined in `VK_KHR_shader_clock <https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VK_KHR_shader_clock.html>`_.
+One can use the predefined scopes in the ``vk`` namepsace to specify the scope argument.
+For example:
+
+.. code:: hlsl
+
+  uint64_t clock = vk::ReadClock(vk::SubgroupScope);
+
+
 Supported Command-line Options
 ==============================
 

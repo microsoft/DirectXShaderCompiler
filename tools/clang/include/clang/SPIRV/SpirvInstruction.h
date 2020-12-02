@@ -118,6 +118,7 @@ public:
     IK_Load,                      // OpLoad
     IK_RayQueryOpKHR,             // KHR rayquery ops
     IK_RayTracingOpNV,            // NV raytracing ops
+    IK_ReadClock,                 // OpReadClock
     IK_SampledImage,              // OpSampledImage
     IK_Select,                    // OpSelect
     IK_SpecConstantBinaryOp,      // SpecConstant binary operations
@@ -2700,6 +2701,25 @@ private:
   // When it is DebugTypeComposite for HLSL resource type i.e., opaque
   // type, we must put DebugInfoNone for Size operand.
   SpirvDebugInfoNone *debugNone;
+};
+
+class SpirvReadClock : public SpirvInstruction {
+public:
+  SpirvReadClock(QualType resultType, SpirvInstruction *scope, SourceLocation);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvReadClock)
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_ReadClock;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  SpirvInstruction *getScope() const { return scope; }
+
+private:
+  SpirvInstruction *scope;
 };
 
 #undef DECLARE_INVOKE_VISITOR_FOR_CLASS

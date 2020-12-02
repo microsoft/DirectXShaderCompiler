@@ -36,6 +36,7 @@
 #include "dxc/dxcapi.internal.h"
 #include "dxc/HlslIntrinsicOp.h"
 #include "gen_intrin_main_tables_15.h"
+#include "VkConstantsTables.h"
 #include "dxc/HLSL/HLOperations.h"
 #include "dxc/DXIL/DxilShaderModel.h"
 #include <array>
@@ -3007,8 +3008,12 @@ private:
   // Declaration for matrix and vector templates.
   ClassTemplateDecl* m_matrixTemplateDecl;
   ClassTemplateDecl* m_vectorTemplateDecl;
-  // Namespace decl for hlsl intrin functions
+  // Namespace decl for hlsl intrinsic functions
   NamespaceDecl*     m_hlslNSDecl;
+
+  // Namespace decl for Vulkan-specific intrinsic functions
+  NamespaceDecl*     m_vkNSDecl;
+
   // Context being processed.
   _Notnull_ ASTContext* m_context;
 
@@ -3433,6 +3438,64 @@ private:
       return -1;
   }
 
+
+#ifdef ENABLE_SPIRV_CODEGEN
+  // Adds intrinsic function declarations to the "vk" namespace.
+  // It does so only if SPIR-V code generation is being done.
+  // Assumes the implicit "vk" namespace has already been created.
+  void AddVkIntrinsicFunctions() {
+    // If not doing SPIR-V CodeGen, return.
+    if (!m_sema->getLangOpts().SPIRV)
+      return;
+
+    DXASSERT(m_vkNSDecl, "caller has not created the vk namespace yet");
+
+    auto &context = m_sema->getASTContext();
+    for (uint32_t i = 0; i < _countof(g_VkIntrinsics); ++i) {
+      const HLSL_INTRINSIC *intrinsic = &g_VkIntrinsics[i];
+      const IdentifierInfo &fnII = context.Idents.get(
+          intrinsic->pArgs->pName, tok::TokenKind::identifier);
+      DeclarationName functionName(&fnII);
+      FunctionDecl *functionDecl = FunctionDecl::Create(
+          context, m_vkNSDecl, NoLoc, DeclarationNameInfo(functionName, NoLoc),
+          /*functionType*/ {}, nullptr, StorageClass::SC_Extern,
+          InlineSpecifiedFalse, HasWrittenPrototypeTrue);
+      m_vkNSDecl->addDecl(functionDecl);
+      functionDecl->setLexicalDeclContext(m_vkNSDecl);
+      functionDecl->setDeclContext(m_vkNSDecl);
+      functionDecl->setImplicit(true);
+    }
+  }
+
+  // Adds implicitly defined Vulkan-specific constants to the "vk" namespace.
+  // It does so only if SPIR-V code generation is being done.
+  // Assumes the implicit "vk" namespace has already been created.
+  void AddVkIntrinsicConstants() {
+    // If not doing SPIR-V CodeGen, return.
+    if (!m_sema->getLangOpts().SPIRV)
+      return;
+
+    DXASSERT(m_vkNSDecl, "caller has not created the vk namespace yet");
+
+    for (auto intConst : GetVkIntegerConstants()) {
+      const llvm::StringRef name = intConst.first;
+      const uint32_t value = intConst.second;
+      auto &context = m_sema->getASTContext();
+      QualType type = context.getConstType(context.UnsignedIntTy);
+      IdentifierInfo &Id = context.Idents.get(name, tok::TokenKind::identifier);
+      VarDecl *varDecl =
+          VarDecl::Create(context, m_vkNSDecl, NoLoc, NoLoc, &Id, type,
+                          context.getTrivialTypeSourceInfo(type),
+                          clang::StorageClass::SC_Static);
+      Expr *exprVal = IntegerLiteral::Create(
+          context, llvm::APInt(context.getIntWidth(type), value), type, NoLoc);
+      varDecl->setInit(exprVal);
+      varDecl->setImplicit(true);
+      m_vkNSDecl->addDecl(varDecl);
+    }
+  }
+#endif // ENABLE_SPIRV_CODEGEN
+
   // Adds all built-in HLSL object types.
   void AddObjectTypes()
   {
@@ -3606,6 +3669,8 @@ public:
   HLSLExternalSource() :
     m_matrixTemplateDecl(nullptr),
     m_vectorTemplateDecl(nullptr),
+    m_hlslNSDecl(nullptr),
+    m_vkNSDecl(nullptr),
     m_context(nullptr),
     m_sema(nullptr),
     m_hlslStringTypedef(nullptr)
@@ -3634,14 +3699,31 @@ public:
 
   void InitializeSema(Sema& S) override
   {
+    auto &context = S.getASTContext();
     m_sema = &S;
     S.addExternalSource(this);
 
     AddObjectTypes();
-    AddStdIsEqualImplementation(S.getASTContext(), S);
+    AddStdIsEqualImplementation(context, S);
     for (auto && intrinsic : m_intrinsicTables) {
       AddIntrinsicTableMethods(intrinsic);
     }
+
+#ifdef ENABLE_SPIRV_CODEGEN
+    if (m_sema->getLangOpts().SPIRV) {
+      // Create the "vk" namespace which contains Vulkan-specific intrinsics.
+      m_vkNSDecl =
+          NamespaceDecl::Create(context, context.getTranslationUnitDecl(),
+                                /*Inline*/ false, SourceLocation(),
+                                SourceLocation(), &context.Idents.get("vk"),
+                                /*PrevDecl*/ nullptr);
+      context.getTranslationUnitDecl()->addDecl(m_vkNSDecl);
+
+      // Add Vulkan-specific intrinsics.
+      AddVkIntrinsicFunctions();
+      AddVkIntrinsicConstants();
+    }
+#endif // ENABLE_SPIRV_CODEGEN
   }
 
   void ForgetSema() override
@@ -4380,9 +4462,21 @@ public:
   {
     DXASSERT_NOMSG(ULE != nullptr);
 
+    const bool isQualified = ULE->getQualifier();
+
+    const bool isGlobalNamespace =
+        ULE->getQualifier() &&
+        ULE->getQualifier()->getKind() == NestedNameSpecifier::Global;
+
+    const bool isVkNamespace =
+        ULE->getQualifier() &&
+        ULE->getQualifier()->getKind() == NestedNameSpecifier::Namespace &&
+        ULE->getQualifier()->getAsNamespace()->getName() == "vk";
+
     // Intrinsics live in the global namespace, so references to their names
     // should be either unqualified or '::'-prefixed.
-    if (ULE->getQualifier() && ULE->getQualifier()->getKind() != NestedNameSpecifier::Global) {
+    // Exception: Vulkan-specific intrinsics live in the 'vk::' namespace.
+    if (isQualified && !isGlobalNamespace && !isVkNamespace) {
       return false;
     }
 
@@ -4394,11 +4488,20 @@ public:
     }
 
     StringRef nameIdentifier = idInfo->getName();
+    const HLSL_INTRINSIC *table = g_Intrinsics;
+    auto tableCount = _countof(g_Intrinsics);
+#ifdef ENABLE_SPIRV_CODEGEN
+    if (isVkNamespace) {
+      table = g_VkIntrinsics;
+      tableCount = _countof(g_VkIntrinsics);
+    }
+#endif // ENABLE_SPIRV_CODEGEN
 
     IntrinsicDefIter cursor = FindIntrinsicByNameAndArgCount(
-      g_Intrinsics, _countof(g_Intrinsics), StringRef(), nameIdentifier, Args.size());
+        table, tableCount, StringRef(), nameIdentifier, Args.size());
     IntrinsicDefIter end = IntrinsicDefIter::CreateEnd(
-      g_Intrinsics, _countof(g_Intrinsics), IntrinsicTableDefIter::CreateEnd(m_intrinsicTables));
+        table, tableCount, IntrinsicTableDefIter::CreateEnd(m_intrinsicTables));
+
     for (;cursor != end; ++cursor)
     {
       // If this is the intrinsic we're interested in, build up a representation
@@ -4424,7 +4527,9 @@ public:
       if (insertedNewValue)
       {
         DXASSERT(tableName, "otherwise IDxcIntrinsicTable::GetTableName() failed");
-        intrinsicFuncDecl = AddHLSLIntrinsicFunction(*m_context, m_hlslNSDecl, tableName, lowering, pIntrinsic, &functionArgTypes);
+        intrinsicFuncDecl = AddHLSLIntrinsicFunction(
+            *m_context, isVkNamespace ? m_vkNSDecl : m_hlslNSDecl, tableName,
+            lowering, pIntrinsic, &functionArgTypes);
         insertResult.first->setFunctionDecl(intrinsicFuncDecl);
       }
       else

@@ -38,6 +38,24 @@ namespace spirv {
 
 namespace {
 
+// Returns true if the given decl is an implicit variable declaration inside the
+// "vk" namespace.
+bool isImplicitVarDeclInVkNamespace(const Decl *decl) {
+  if (!decl)
+    return false;
+
+  if (auto *varDecl = dyn_cast<VarDecl>(decl)) {
+    // Check whether it is implicitly defined.
+    if (!decl->isImplicit())
+      return false;
+
+    if (auto *nsDecl = dyn_cast<NamespaceDecl>(varDecl->getDeclContext()))
+      if (nsDecl->getName().equals("vk"))
+        return true;
+  }
+  return false;
+}
+
 // Returns true if the given decl has the given semantic.
 bool hasSemantic(const DeclaratorDecl *decl,
                  hlsl::DXIL::SemanticKind semanticKind) {
@@ -809,8 +827,12 @@ SpirvInstruction *SpirvEmitter::doExpr(const Expr *expr) {
   expr = expr->IgnoreParens();
 
   if (const auto *declRefExpr = dyn_cast<DeclRefExpr>(expr)) {
-    result = declIdMapper.getDeclEvalInfo(declRefExpr->getDecl(),
-                                          expr->getLocStart());
+    auto *decl = declRefExpr->getDecl();
+    if (isImplicitVarDeclInVkNamespace(declRefExpr->getDecl())) {
+      result = doExpr(cast<VarDecl>(decl)->getInit());
+    } else {
+      result = declIdMapper.getDeclEvalInfo(decl, expr->getLocStart());
+    }
   } else if (const auto *memberExpr = dyn_cast<MemberExpr>(expr)) {
     result = doMemberExpr(memberExpr);
   } else if (const auto *castExpr = dyn_cast<CastExpr>(expr)) {
@@ -7314,6 +7336,9 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_rcp:
     retVal = processIntrinsicRcp(callExpr);
     break;
+  case hlsl::IntrinsicOp::IOP_VkReadClock:
+    retVal = processIntrinsicReadClock(callExpr);
+    break;
   case hlsl::IntrinsicOp::IOP_saturate:
     retVal = processIntrinsicSaturate(callExpr);
     break;
@@ -9199,6 +9224,13 @@ SpirvInstruction *SpirvEmitter::processIntrinsicRcp(const CallExpr *callExpr) {
   // For cases with scalar or vector arguments.
   return spvBuilder.createBinaryOp(spv::Op::OpFDiv, returnType,
                                    getValueOne(argType), argId, loc);
+}
+
+SpirvInstruction *
+SpirvEmitter::processIntrinsicReadClock(const CallExpr *callExpr) {
+  auto *scope = doExpr(callExpr->getArg(0));
+  assert(scope->getAstResultType()->isIntegerType());
+  return spvBuilder.createReadClock(scope, callExpr->getExprLoc());
 }
 
 SpirvInstruction *
