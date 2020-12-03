@@ -159,6 +159,7 @@ static bool ConsumePrefix(StringRef &Str, StringRef Prefix) {
   return true;
 }
 
+#ifndef NDEBUG
 bool IsHLSLBufferViewType(llvm::Type *Ty) {
   if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
     if (!ST->hasName())
@@ -175,6 +176,7 @@ bool IsHLSLBufferViewType(llvm::Type *Ty) {
   }
   return false;
 }
+#endif
 
 void LowerGetResourceFromHeap(
     HLModule &HLM, std::vector<std::pair<Function *, unsigned>> &intrinsicMap) {
