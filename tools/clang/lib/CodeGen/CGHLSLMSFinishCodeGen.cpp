@@ -153,6 +153,7 @@ bool IsHLSLSamplerDescType(llvm::Type *Ty) {
   return false;
 }
 
+#ifndef NDEBUG
 static bool ConsumePrefix(StringRef &Str, StringRef Prefix) {
   if (!Str.startswith(Prefix)) return false;
   Str = Str.substr(Prefix.size());
@@ -175,6 +176,7 @@ bool IsHLSLBufferViewType(llvm::Type *Ty) {
   }
   return false;
 }
+#endif
 
 void LowerGetResourceFromHeap(
     HLModule &HLM, std::vector<std::pair<Function *, unsigned>> &intrinsicMap) {
