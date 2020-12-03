@@ -7488,11 +7488,23 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
                                callExpr->getExprLoc());
       }
     }
-    spvBuilder.createRayTracingOpsNV(
-        hlslOpcode == hlsl::IntrinsicOp ::IOP_AcceptHitAndEndSearch
-            ? spv::Op::OpTerminateRayNV
-            : spv::Op::OpIgnoreIntersectionNV,
-        QualType(), {}, srcLoc);
+    bool nvRayTracing =
+      featureManager.isExtensionEnabled(Extension::NV_ray_tracing);
+
+    if (nvRayTracing)
+      spvBuilder.createRayTracingOpsNV(
+          hlslOpcode == hlsl::IntrinsicOp ::IOP_AcceptHitAndEndSearch
+              ? spv::Op::OpTerminateRayNV
+              : spv::Op::OpIgnoreIntersectionNV,
+          QualType(), {}, srcLoc);
+    else {
+      spvBuilder.createRaytracingTerminateKHR(
+          hlslOpcode == hlsl::IntrinsicOp ::IOP_AcceptHitAndEndSearch
+              ? spv::Op::OpTerminateRayKHR
+              : spv::Op::OpIgnoreIntersectionKHR,
+          srcLoc);
+    }
+
     break;
   }
   case hlsl::IntrinsicOp::IOP_ReportHit: {
