@@ -5163,14 +5163,11 @@ Value *TranslatePack(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   Type *valTy = val->getType();
   Type *eltTy = valTy->getScalarType();
 
-  const unsigned vecSize = 4;
-
-
-  DXASSERT(valTy->isVectorTy() && valTy->getVectorNumElements() == vecSize && eltTy->isIntegerTy() && 
+  DXASSERT(valTy->isVectorTy() && valTy->getVectorNumElements() == 4 && eltTy->isIntegerTy() &&
     (eltTy->getIntegerBitWidth() == 32 || eltTy->getIntegerBitWidth() == 16),
     "otherwise, unexpected input dimension or component type");
 
-  DXIL::PackMode packMode;
+  DXIL::PackMode packMode = DXIL::PackMode::Trunc;
   switch (IOP) {
     case hlsl::IntrinsicOp::IOP_pack_clamp_s8: 
       packMode = DXIL::PackMode::SClamp;
@@ -5210,7 +5207,7 @@ Value *TranslateUnpack(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
     "otherwise, unexpected vector support in high level intrinsic template");
 
   Type *overloadType = nullptr;
-  DXIL::UnpackMode unpackMode;
+  DXIL::UnpackMode unpackMode = DXIL::UnpackMode::Unsigned;
   switch (IOP) {
     case hlsl::IntrinsicOp::IOP_unpack_s8s32:
       unpackMode = DXIL::UnpackMode::Signed;
