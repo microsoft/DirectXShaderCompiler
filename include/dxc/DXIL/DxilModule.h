@@ -239,6 +239,10 @@ public:
   void SetNumThreads(unsigned x, unsigned y, unsigned z);
   unsigned GetNumThreads(unsigned idx) const;
 
+  // Compute shader
+  void SetWaveSize(unsigned size);
+  unsigned GetWaveSize() const;
+
   // Geometry shader.
   DXIL::InputPrimitive GetInputPrimitive() const;
   void SetInputPrimitive(DXIL::InputPrimitive IP);

@@ -96,6 +96,12 @@ UNSIGNED_TYPE(ULongLong, UnsignedLongLongTy)
 // '__uint128_t'
 UNSIGNED_TYPE(UInt128, UnsignedInt128Ty)
 
+// 'int8_t4_packed'
+UNSIGNED_TYPE(Int8_4Packed, Int8_4PackedTy)
+
+// 'uint8_t4_packed'
+UNSIGNED_TYPE(UInt8_4Packed, UInt8_4PackedTy)
+
 //===- Signed Types -------------------------------------------------------===//
 
 // 'char' for targets where it's signed

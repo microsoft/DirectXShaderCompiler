@@ -2769,6 +2769,8 @@ SpirvInstruction *SpirvEmitter::processFlatConversion(
         case BuiltinType::LongLong:
         case BuiltinType::ULong:
         case BuiltinType::ULongLong:
+        case BuiltinType::Int8_4Packed:
+        case BuiltinType::UInt8_4Packed:
           return castToInt(initInstr, initType, ty, srcLoc);
         // Target type is a float variant.
         case BuiltinType::Double:

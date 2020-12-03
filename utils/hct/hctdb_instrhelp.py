@@ -281,8 +281,9 @@ class db_instrhelp_gen:
                         print("  llvm::Value *get_%s() const { return Instr->getOperand(%d); }" % (o.name, o.pos - 1))
                         print("  void set_%s(llvm::Value *val) { Instr->setOperand(%d, val); }" % (o.name, o.pos - 1))
                         if o.is_const:
-                            print("  %s get_%s_val() const { return %s; }" % (self.op_type(o), o.name, self.op_const_expr(o)))
-                            print("  void set_%s_val(%s val) { Instr->setOperand(%d, %s); }" % (o.name, self.op_type(o), o.pos - 1, self.op_set_const_expr(o)))
+                            if o.llvm_type in self.llvm_type_map:
+                                print("  %s get_%s_val() const { return %s; }" % (self.op_type(o), o.name, self.op_const_expr(o)))
+                                print("  void set_%s_val(%s val) { Instr->setOperand(%d, %s); }" % (o.name, self.op_type(o), o.pos - 1, self.op_set_const_expr(o)))
             print("};")
             print("")
 
@@ -404,15 +405,18 @@ class db_oload_gen:
             "threef32": "A(p3F32);",
             "fouri32": "A(p4I32);",
             "fourf32": "A(p4F32);",
+            "fouri16": "A(p4I16);",
             "u32": "A(pI32);",
             "u64": "A(pI64);",
             "u8": "A(pI8);",
             "v": "A(pV);",
+            "$vec4" : "VEC4(pETy);",
             "w": "A(pWav);",
             "SamplePos": "A(pPos);",
             "udt": "A(udt);",
             "obj": "A(obj);",
             "resproperty": "A(resProperty);",
+            "resbind": "A(resBind);",
         }
         last_category = None
         for i in self.instrs:
@@ -439,7 +443,7 @@ class db_oload_gen:
         cb_ret_ty = "$cb"
         udt_ty = "udt"
         obj_ty = "obj"
-
+        vec_ty = "$vec"
         last_category = None
 
         index_dict = collections.OrderedDict()
@@ -458,6 +462,10 @@ class db_oload_gen:
 
             if ret_ty == cb_ret_ty:
                 struct_list.append(instr.name)
+                continue
+
+            if ret_ty.startswith(vec_ty):
+                struct_list.append(instr.name);
                 continue
 
             in_param_ty = False

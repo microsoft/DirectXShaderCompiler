@@ -688,6 +688,8 @@ void DxilViewIdStateBuilder::CollectReachingDeclsRec(Value *pValue, ValueSetType
     CollectReachingDeclsRec(cast<ConstantExpr>(pValue)->getOperand(0), ReachingDecls, Visited);
   } else if (AddrSpaceCastInst *pCI = dyn_cast<AddrSpaceCastInst>(pValue)) {
     CollectReachingDeclsRec(pCI->getOperand(0), ReachingDecls, Visited);
+  } else if (BitCastInst *pCI = dyn_cast<BitCastInst>(pValue)) {
+    CollectReachingDeclsRec(pCI->getOperand(0), ReachingDecls, Visited);
   } else if (dyn_cast<AllocaInst>(pValue)) {
     ReachingDecls.emplace(pValue);
   } else if (PHINode *phi = dyn_cast<PHINode>(pValue)) {

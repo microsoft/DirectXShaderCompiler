@@ -843,6 +843,7 @@ public:
   CanQualType LitIntTy, LitFloatTy;
   CanQualType HalfFloatTy, Min16FloatTy, Min16IntTy, Min16UIntTy;
   CanQualType HLSLStringTy;
+  CanQualType Int8_4PackedTy, UInt8_4PackedTy;
 
   // HLSL Changes end
 

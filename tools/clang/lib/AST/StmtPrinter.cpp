@@ -1144,6 +1144,8 @@ void StmtPrinter::VisitIntegerLiteral(IntegerLiteral *Node) {
   case BuiltinType::ULongLong: OS << "ULL"; break;
   case BuiltinType::Int128:    OS << "i128"; break;
   case BuiltinType::UInt128:   OS << "Ui128"; break;
+  case BuiltinType::Int8_4Packed:  OS << "i8_4pk"; break; // HLSL Change
+  case BuiltinType::UInt8_4Packed: OS << "Ui8_4pk"; break; // HLSL Change
   }
 }
 

@@ -1103,7 +1103,9 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target) {
     InitBuiltinType(HalfFloatTy, BuiltinType::HalfFloat);
     InitBuiltinType(LitIntTy, BuiltinType::LitInt);
     InitBuiltinType(LitFloatTy, BuiltinType::LitFloat);
-    
+    InitBuiltinType(Int8_4PackedTy, BuiltinType::Int8_4Packed);
+    InitBuiltinType(UInt8_4PackedTy, BuiltinType::UInt8_4Packed);
+
     HLSLStringTy = this->getPointerType(CharTy);
 
     hlsl::InitializeASTContextForHLSL(*this); // Previously in constructor, guarded by !DelayInitialization
@@ -1633,6 +1635,8 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
       break;
     case BuiltinType::UInt:
     case BuiltinType::Int:
+    case BuiltinType::Int8_4Packed:  // HLSL Change
+    case BuiltinType::UInt8_4Packed: // HLSL Change
       Width = Target->getIntWidth();
       Align = Target->getIntAlign();
       break;
@@ -5505,6 +5509,8 @@ static char getObjCEncodingForPrimitiveKind(const ASTContext *C,
     case BuiltinType::HalfFloat:
     case BuiltinType::LitInt:
     case BuiltinType::LitFloat:
+    case BuiltinType::Int8_4Packed:
+    case BuiltinType::UInt8_4Packed:
       llvm_unreachable("@encoding HLSL primitive type");
     // HLSL Change Ends
     }

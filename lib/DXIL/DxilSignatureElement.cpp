@@ -58,7 +58,7 @@ void DxilSignatureElement::Initialize(llvm::StringRef Name, const CompType &Elem
     m_SemanticStartIndex = IndexVector[0];
   // Find semantic in the table.
   m_pSemantic = Semantic::GetByName(m_SemanticName, m_sigPointKind);
-  m_CompType = ElementType;
+  SetCompType(ElementType);
   m_InterpMode = InterpMode;
   m_SemanticIndex = IndexVector;
   m_Rows = Rows;
@@ -222,7 +222,16 @@ void DxilSignatureElement::AppendSemanticIndex(unsigned SemIdx) {
 }
 
 void DxilSignatureElement::SetCompType(CompType CT) {
-  m_CompType = CT;
+  // Translate packed types to u32
+  switch(CT.GetKind()) {
+    case CompType::Kind::PackedS8x32:
+    case CompType::Kind::PackedU8x32:
+      m_CompType = CompType::getU32();
+      break;
+    default:
+      m_CompType = CT;
+      break;
+  }
 }
 
 uint8_t DxilSignatureElement::GetColsAsMask() const {

@@ -25,6 +25,7 @@
 #include "dxc/Support/Global.h"
 #include "dxc/HLSL/HLOperations.h"
 #include "dxc/DXIL/DxilSemantic.h"
+#include "dxc/HlslIntrinsicOp.h"
 
 using namespace clang;
 using namespace hlsl;
@@ -69,7 +70,9 @@ const char* HLSLScalarTypeNames[] = {
   "uint64_t",
   "float16_t",
   "float32_t",
-  "float64_t"
+  "float64_t",
+  "int8_t4_packed",
+  "uint8_t4_packed"
 };
 
 static_assert(HLSLScalarTypeCount == _countof(HLSLScalarTypeNames), "otherwise scalar constants are not aligned");
@@ -169,6 +172,20 @@ static HLSLScalarType FindScalarTypeByName(const char *typeName, const size_t ty
             break;
           return HLSLScalarType_float_min16;
         }
+      }
+      break;
+    case 14: // int8_t4_packed
+      if (typeName[0] == 'i' && typeName[1] == 'n') {
+        if (strncmp(typeName, "int8_t4_packed", 14))
+          break;
+        return HLSLScalarType_int8_4packed;
+      }
+      break;
+    case 15: // uint8_t4_packed
+      if (typeName[0] == 'u' && typeName[1] == 'i') {
+        if (strncmp(typeName, "uint8_t4_packed", 15))
+          break;
+        return HLSLScalarType_uint8_4packed;
       }
       break;
     default:
@@ -872,16 +889,47 @@ CXXRecordDecl* hlsl::DeclareRayQueryType(ASTContext& context) {
   return typeDeclBuilder.completeDefinition();
 }
 
-CXXRecordDecl* hlsl::DeclareResourceType(ASTContext& context) {
+CXXRecordDecl* hlsl::DeclareResourceType(ASTContext& context, bool bSampler) {
   // struct ResourceDescriptor { uint8 desc; }
+  StringRef Name = bSampler?".Sampler":".Resource";
   BuiltinTypeDeclBuilder typeDeclBuilder(context.getTranslationUnitDecl(),
-                                         ".Resource",
+                                         Name,
                                          TagDecl::TagKind::TTK_Struct);
   typeDeclBuilder.startDefinition();
 
   typeDeclBuilder.addField("h", GetHLSLObjectHandleType(context));
 
-  return typeDeclBuilder.completeDefinition();
+  CXXRecordDecl *recordDecl = typeDeclBuilder.completeDefinition();
+
+  QualType indexType = context.UnsignedIntTy;
+  QualType resultType = context.getRecordType(recordDecl);
+  resultType = context.getConstType(resultType);
+
+  CXXMethodDecl *functionDecl = CreateObjectFunctionDeclarationWithParams(
+        context, recordDecl, resultType, ArrayRef<QualType>(indexType),
+        ArrayRef<StringRef>(StringRef("index")),
+      context.DeclarationNames.getCXXOperatorName(OO_Subscript), true);
+  // Mark function as createResourceFromHeap intrinsic.
+  functionDecl->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "",
+      static_cast<int>(hlsl::IntrinsicOp::IOP_CreateResourceFromHeap)));
+  return recordDecl;
+}
+
+VarDecl *hlsl::DeclareBuiltinGlobal(llvm::StringRef name, clang::QualType Ty,
+                              clang::ASTContext &context) {
+  IdentifierInfo &II = context.Idents.get(name);
+
+  auto *curDeclCtx =context.getTranslationUnitDecl();
+
+  VarDecl *varDecl = VarDecl::Create(context, curDeclCtx,
+                         SourceLocation(), SourceLocation(), &II, Ty,
+                         context.getTrivialTypeSourceInfo(Ty),
+                         StorageClass::SC_Extern);
+  // Mark implicit to avoid print it when rewrite.
+  varDecl->setImplicit();
+  curDeclCtx->addDecl(varDecl);
+  return varDecl;
 }
 
 bool hlsl::IsIntrinsicOp(const clang::FunctionDecl *FD) {
