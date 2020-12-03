@@ -2,6 +2,8 @@
 // CHECK:  OpCapability RayTracingKHR
 // CHECK:  OpExtension "SPV_KHR_ray_tracing"
 
+// CHECK:  OpDecorate [[l:%\d+]] BuiltIn HitKindNV
+
 // CHECK:  OpTypePointer IncomingRayPayloadNV %Payload
 struct Payload
 {
@@ -19,21 +21,33 @@ void MyAHitMain(inout Payload MyPayload, in Attribute MyAttr) {
 // CHECK:  OpLoad %uint [[l]]
   uint _16 = HitKind();
 
+// CHECK: %if_true = OpLabel
   if (_16 == 1U) {
-// CHECK:  OpIgnoreIntersectionKHR
-// CHECK-NEXT: OpLabel
+// CHECK: OpIgnoreIntersectionKHR
     IgnoreHit();
+// CHECK-NOT: OpLoad %uint %_16
+// CHECK-NOT: OpStore
+    uint a = _16;
+// CHECK-NEXT: %if_false = OpLabel
   } else {
-// CHECK:  OpTerminateRayKHR
-// CHECK-NEXT: OpLabel
+// CHECK: OpTerminateRayKHR
     AcceptHitAndEndSearch();
+// CHECK-NOT: OpLoad %uint %_16
+// CHECK-NOT: OpStore
+    uint b = _16;
   }
+// CHECK-NEXT: %if_merge = OpLabel
+// CHECK-NEXT: OpReturn
+// CHECK-NEXT: OpFunctionEnd
 }
 
 
 [shader("anyhit")]
 void MyAHitMain2(inout Payload MyPayload, in Attribute MyAttr) {
-// CHECK:  OpTerminateRayKHR
-// CHECK-NEXT: OpFunctionEnd
+// CHECK: OpTerminateRayKHR
     AcceptHitAndEndSearch();
+// CHECK-NOT: OpAccessChain
+// CHECK-NOT: OpStore
+    MyPayload.color = 0.xxxx;
+// CHECK-NEXT: OpFunctionEnd
 }

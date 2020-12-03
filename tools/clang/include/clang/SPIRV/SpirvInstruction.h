@@ -635,6 +635,7 @@ private:
 ///
 /// * OpBranch, OpBranchConditional, OpSwitch
 /// * OpReturn, OpReturnValue, OpKill, OpUnreachable
+/// * OpIgnoreIntersectionKHR, OpTerminateIntersectionKHR
 ///
 /// The first group (branching instructions) also include information on
 /// possible branches that will be taken next.
@@ -642,7 +643,8 @@ class SpirvTerminator : public SpirvInstruction {
 public:
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
-    return inst->getKind() >= IK_Branch && inst->getKind() <= IK_RayTracingTerminate;
+    return inst->getKind() >= IK_Branch &&
+           inst->getKind() <= IK_RayTracingTerminate;
   }
 
 protected:
@@ -1961,8 +1963,7 @@ private:
 
 class SpirvRayTracingTerminateOpKHR : public SpirvTerminator {
 public:
-  SpirvRayTracingTerminateOpKHR(spv::Op opcode,
-                                SourceLocation loc);
+  SpirvRayTracingTerminateOpKHR(spv::Op opcode, SourceLocation loc);
   DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvRayTracingTerminateOpKHR)
 
   // For LLVM-style RTTI
