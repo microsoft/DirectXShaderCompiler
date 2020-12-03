@@ -83,7 +83,7 @@ public:
     IK_Return,              // OpReturn*
     IK_Switch,              // OpSwitch
     IK_Unreachable,         // OpUnreachable
-    IK_RayTracingTerminate, // OpIgnoreIntersectionKHR/OpTerminateIntersectionKHR
+    IK_RayTracingTerminate, // OpIgnoreIntersectionKHR/OpTerminateRayKHR
 
     // Normal instruction kinds
     // In alphabetical order

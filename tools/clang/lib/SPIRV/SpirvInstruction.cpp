@@ -990,7 +990,10 @@ SpirvReadClock::SpirvReadClock(QualType resultType, SpirvInstruction *s,
 
 SpirvRayTracingTerminateOpKHR::SpirvRayTracingTerminateOpKHR(spv::Op opcode,
                                                              SourceLocation loc)
-    : SpirvTerminator(IK_RayTracingTerminate, opcode, loc) {}
+    : SpirvTerminator(IK_RayTracingTerminate, opcode, loc) {
+  assert(opcode == spv::Op::OpTerminateRayKHR ||
+         spv::Op::OpIgnoreIntersectionKHR);
+}
 
 } // namespace spirv
 } // namespace clang
