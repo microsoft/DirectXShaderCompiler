@@ -153,13 +153,13 @@ bool IsHLSLSamplerDescType(llvm::Type *Ty) {
   return false;
 }
 
+#ifndef NDEBUG
 static bool ConsumePrefix(StringRef &Str, StringRef Prefix) {
   if (!Str.startswith(Prefix)) return false;
   Str = Str.substr(Prefix.size());
   return true;
 }
 
-#ifndef NDEBUG
 bool IsHLSLBufferViewType(llvm::Type *Ty) {
   if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
     if (!ST->hasName())
