@@ -65,6 +65,8 @@ enum ArBasicKind {
   AR_BASIC_MIN12INT,
   AR_BASIC_MIN16INT,
   AR_BASIC_MIN16UINT,
+  AR_BASIC_INT8_4PACKED,
+  AR_BASIC_UINT8_4PACKED,
   AR_BASIC_ENUM,
 
   AR_BASIC_COUNT,
@@ -207,8 +209,9 @@ enum ArBasicKind {
   // RayQuery
   AR_OBJECT_RAY_QUERY,
 
-  // Resource
-  AR_OBJECT_RESOURCE,
+  // Heap Resource
+  AR_OBJECT_HEAP_RESOURCE,
+  AR_OBJECT_HEAP_SAMPLER,
   AR_BASIC_MAXIMUM_COUNT
 };
 
@@ -362,6 +365,8 @@ const UINT g_uBasicKindProps[] =
   BPROP_PRIMITIVE | BPROP_NUMERIC | BPROP_INTEGER | BPROP_BITS12 | BPROP_MIN_PRECISION,   // AR_BASIC_MIN12INT
   BPROP_PRIMITIVE | BPROP_NUMERIC | BPROP_INTEGER | BPROP_BITS16 | BPROP_MIN_PRECISION,   // AR_BASIC_MIN16INT
   BPROP_PRIMITIVE | BPROP_NUMERIC | BPROP_INTEGER | BPROP_UNSIGNED | BPROP_BITS16 | BPROP_MIN_PRECISION,  // AR_BASIC_MIN16UINT
+  BPROP_PRIMITIVE | BPROP_NUMERIC | BPROP_INTEGER | BPROP_UNSIGNED | BPROP_BITS32,// AR_BASIC_INT8_4PACKED
+  BPROP_PRIMITIVE | BPROP_NUMERIC | BPROP_INTEGER | BPROP_UNSIGNED | BPROP_BITS32,// AR_BASIC_UINT8_4PACKED
 
   BPROP_ENUM | BPROP_NUMERIC | BPROP_INTEGER, // AR_BASIC_ENUM
   BPROP_OTHER,  // AR_BASIC_COUNT
@@ -492,7 +497,8 @@ const UINT g_uBasicKindProps[] =
   0,      //AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1,
 
   0,      //AR_OBJECT_RAY_QUERY,
-  0,      //AR_OBJECT_RESOURCE,
+  0,      //AR_OBJECT_HEAP_RESOURCE,
+  0,      //AR_OBJECT_HEAP_SAMPLER,
   // AR_BASIC_MAXIMUM_COUNT
 };
 
@@ -1122,7 +1128,7 @@ static const ArBasicKind g_Texture2DArrayCT[] =
   AR_BASIC_UNKNOWN
 };
 
-static const ArBasicKind g_ResourceCT[] = {AR_OBJECT_RESOURCE,
+static const ArBasicKind g_ResourceCT[] = {AR_OBJECT_HEAP_RESOURCE,
                                            AR_BASIC_UNKNOWN};
 
 static const ArBasicKind g_RayDescCT[] =
@@ -1209,6 +1215,65 @@ static const ArBasicKind g_Int32OnlyCT[] =
   AR_BASIC_UNKNOWN
 };
 
+static const ArBasicKind g_Float32OnlyCT[] =
+{
+  AR_BASIC_FLOAT32,
+  AR_BASIC_LITERAL_FLOAT,
+  AR_BASIC_NOCAST,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_Int64OnlyCT[] =
+{
+  AR_BASIC_UINT64,
+  AR_BASIC_INT64,
+  AR_BASIC_LITERAL_INT,
+  AR_BASIC_NOCAST,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_AnyInt64CT[] =
+{
+  AR_BASIC_INT64,
+  AR_BASIC_UINT64,
+  AR_BASIC_LITERAL_INT,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_Int8_4PackedCT[] = 
+{
+  AR_BASIC_INT8_4PACKED,
+  AR_BASIC_UINT32,
+  AR_BASIC_LITERAL_INT,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_UInt8_4PackedCT[] =
+{
+  AR_BASIC_UINT8_4PACKED,
+  AR_BASIC_UINT32,
+  AR_BASIC_LITERAL_INT,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_AnyInt16Or32CT[] = {
+  AR_BASIC_INT32,
+  AR_BASIC_UINT32,
+  AR_BASIC_INT16,
+  AR_BASIC_UINT16,
+  AR_BASIC_LITERAL_INT,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_SInt16Or32OnlyCT[] =
+{
+  AR_BASIC_INT32,
+  AR_BASIC_INT16,
+  AR_BASIC_LITERAL_INT,
+  AR_BASIC_NOCAST,
+  AR_BASIC_UNKNOWN
+};
+
 // Basic kinds, indexed by a LEGAL_INTRINSIC_COMPTYPES value.
 const ArBasicKind* g_LegalIntrinsicCompTypes[] =
 {
@@ -1249,6 +1314,13 @@ const ArBasicKind* g_LegalIntrinsicCompTypes[] =
   g_Texture2DArrayCT,   // LICOMPTYPE_TEXTURE2DARRAY
   g_ResourceCT,         // LICOMPTYPE_RESOURCE
   g_Int32OnlyCT,        // LICOMPTYPE_INT32_ONLY
+  g_Int64OnlyCT,        // LICOMPTYPE_INT64_ONLY
+  g_AnyInt64CT,         // LICOMPTYPE_ANY_INT64
+  g_Float32OnlyCT,      // LICOMPTYPE_FLOAT32_ONLY
+  g_Int8_4PackedCT,     // LICOMPTYPE_INT8_4PACKED
+  g_UInt8_4PackedCT,    // LICOMPTYPE_UINT8_4PACKED
+  g_AnyInt16Or32CT,     // LICOMPTYPE_ANY_INT16_OR_32
+  g_SInt16Or32OnlyCT,   // LICOMPTYPE_SINT16_OR_32_ONLY
 };
 static_assert(ARRAYSIZE(g_LegalIntrinsicCompTypes) == LICOMPTYPE_COUNT,
   "Intrinsic comp type table must be updated when new enumerants are added.");
@@ -1343,7 +1415,8 @@ const ArBasicKind g_ArBasicKindsAsTypes[] =
   AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1,
 
   AR_OBJECT_RAY_QUERY,
-  AR_OBJECT_RESOURCE,
+  AR_OBJECT_HEAP_RESOURCE,
+  AR_OBJECT_HEAP_SAMPLER,
 };
 
 // Count of template arguments for basic kind of objects that look like templates (one or more type arguments).
@@ -1432,7 +1505,8 @@ const uint8_t g_ArBasicKindsTemplateCount[] =
   0, // AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1,
 
   1, // AR_OBJECT_RAY_QUERY,
-  0, // AR_OBJECT_RESOURCE,
+  0, // AR_OBJECT_HEAP_RESOURCE,
+  0, // AR_OBJECT_HEAP_SAMPLER,
 };
 
 C_ASSERT(_countof(g_ArBasicKindsAsTypes) == _countof(g_ArBasicKindsTemplateCount));
@@ -1531,7 +1605,8 @@ const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] =
   { 0, MipsFalse, SampleFalse },  // AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1,
 
   { 0, MipsFalse, SampleFalse },  // AR_OBJECT_RAY_QUERY,
-  { 0, MipsFalse, SampleFalse },  // AR_OBJECT_RESOURCE,
+  { 0, MipsFalse, SampleFalse },  // AR_OBJECT_HEAP_RESOURCE,
+  { 0, MipsFalse, SampleFalse },  // AR_OBJECT_HEAP_SAMPLER,
 };
 
 C_ASSERT(_countof(g_ArBasicKindsAsTypes) == _countof(g_ArBasicKindsSubscripts));
@@ -1545,6 +1620,7 @@ const char* g_ArBasicTypeNames[] =
   "int", "uint", "long", "ulong",
   "min10float", "min16float",
   "min12int", "min16int", "min16uint",
+  "int8_t4_packed", "uint8_t4_packed",
   "enum",
 
   "<count>",
@@ -1651,7 +1727,8 @@ const char* g_ArBasicTypeNames[] =
   "RaytracingPipelineConfig1",
 
   "RayQuery",
-  "Resource",
+  "HEAP_Resource",
+  "HEAP_Sampler",
 };
 
 C_ASSERT(_countof(g_ArBasicTypeNames) == AR_BASIC_MAXIMUM_COUNT);
@@ -1747,6 +1824,8 @@ static bool IsAtomicOperation(IntrinsicOp op) {
   case IntrinsicOp::IOP_InterlockedAnd:
   case IntrinsicOp::IOP_InterlockedCompareExchange:
   case IntrinsicOp::IOP_InterlockedCompareStore:
+  case IntrinsicOp::IOP_InterlockedCompareExchangeFloatBitwise:
+  case IntrinsicOp::IOP_InterlockedCompareStoreFloatBitwise:
   case IntrinsicOp::IOP_InterlockedExchange:
   case IntrinsicOp::IOP_InterlockedMax:
   case IntrinsicOp::IOP_InterlockedMin:
@@ -1761,6 +1840,18 @@ static bool IsAtomicOperation(IntrinsicOp op) {
   case IntrinsicOp::MOP_InterlockedMin:
   case IntrinsicOp::MOP_InterlockedOr:
   case IntrinsicOp::MOP_InterlockedXor:
+  case IntrinsicOp::MOP_InterlockedAdd64:
+  case IntrinsicOp::MOP_InterlockedAnd64:
+  case IntrinsicOp::MOP_InterlockedCompareExchange64:
+  case IntrinsicOp::MOP_InterlockedCompareStore64:
+  case IntrinsicOp::MOP_InterlockedExchange64:
+  case IntrinsicOp::MOP_InterlockedMax64:
+  case IntrinsicOp::MOP_InterlockedMin64:
+  case IntrinsicOp::MOP_InterlockedOr64:
+  case IntrinsicOp::MOP_InterlockedXor64:
+  case IntrinsicOp::MOP_InterlockedExchangeFloat:
+  case IntrinsicOp::MOP_InterlockedCompareExchangeFloatBitwise:
+  case IntrinsicOp::MOP_InterlockedCompareStoreFloatBitwise:
     return true;
   default:
     return false;
@@ -3468,8 +3559,17 @@ private:
         recordDecl = DeclareConstantBufferViewType(*m_context, /*bTBuf*/true);
       } else if (kind == AR_OBJECT_RAY_QUERY) {
         recordDecl = DeclareRayQueryType(*m_context);
-      } else if (kind == AR_OBJECT_RESOURCE) {
-        recordDecl = DeclareResourceType(*m_context);
+      } else if (kind == AR_OBJECT_HEAP_RESOURCE) {
+        recordDecl = DeclareResourceType(*m_context, /*bSampler*/false);
+        // create Resource ResourceDescriptorHeap;
+        DeclareBuiltinGlobal("ResourceDescriptorHeap",
+                             m_context->getRecordType(recordDecl), *m_context);
+      } else if (kind == AR_OBJECT_HEAP_SAMPLER) {
+        recordDecl = DeclareResourceType(*m_context, /*bSampler*/true);
+        // create Resource SamplerDescriptorHeap;
+        DeclareBuiltinGlobal("SamplerDescriptorHeap",
+                             m_context->getRecordType(recordDecl), *m_context);
+
       }
       else if (kind == AR_OBJECT_FEEDBACKTEXTURE2D) {
         recordDecl = DeclareUIntTemplatedTypeWithHandle(*m_context, "FeedbackTexture2D", "kind");
@@ -4020,6 +4120,8 @@ public:
       case BuiltinType::Min10Float: return AR_BASIC_MIN10FLOAT;
       case BuiltinType::LitFloat: return AR_BASIC_LITERAL_FLOAT;
       case BuiltinType::LitInt: return AR_BASIC_LITERAL_INT;
+      case BuiltinType::Int8_4Packed: return AR_BASIC_INT8_4PACKED;
+      case BuiltinType::UInt8_4Packed: return AR_BASIC_UINT8_4PACKED;
       default:
         // Only builtin types that have basickind equivalents.
         break;
@@ -4100,6 +4202,8 @@ public:
     case AR_BASIC_MIN12INT:       return HLSLScalarType_int_min12;
     case AR_BASIC_MIN16INT:       return HLSLScalarType_int_min16;
     case AR_BASIC_MIN16UINT:      return HLSLScalarType_uint_min16;
+    case AR_BASIC_INT8_4PACKED:   return HLSLScalarType_int8_4packed;
+    case AR_BASIC_UINT8_4PACKED:  return HLSLScalarType_uint8_4packed;
 
     case AR_BASIC_INT64:          return HLSLScalarType_int64;
     case AR_BASIC_UINT64:         return HLSLScalarType_uint64;
@@ -4135,6 +4239,8 @@ public:
     case AR_BASIC_MIN12INT:       return m_scalarTypes[HLSLScalarType_int_min12];
     case AR_BASIC_MIN16INT:       return m_scalarTypes[HLSLScalarType_int_min16];
     case AR_BASIC_MIN16UINT:      return m_scalarTypes[HLSLScalarType_uint_min16];
+    case AR_BASIC_INT8_4PACKED:   return m_scalarTypes[HLSLScalarType_int8_4packed];
+    case AR_BASIC_UINT8_4PACKED:  return m_scalarTypes[HLSLScalarType_uint8_4packed];
     case AR_BASIC_ENUM:           return m_context->IntTy;
     case AR_BASIC_ENUM_CLASS:     return m_context->IntTy;
 
@@ -4159,7 +4265,8 @@ public:
     case AR_OBJECT_SAMPLER:
     case AR_OBJECT_SAMPLERCOMPARISON:
 
-    case AR_OBJECT_RESOURCE:
+    case AR_OBJECT_HEAP_RESOURCE:
+    case AR_OBJECT_HEAP_SAMPLER:
 
     case AR_OBJECT_BUFFER:
 
@@ -5240,6 +5347,8 @@ void HLSLExternalSource::AddBaseTypes()
   m_baseTypes[HLSLScalarType_int_min12] = m_context->Min12IntTy;
   m_baseTypes[HLSLScalarType_int_min16] = m_context->Min16IntTy;
   m_baseTypes[HLSLScalarType_uint_min16] = m_context->Min16UIntTy;
+  m_baseTypes[HLSLScalarType_int8_4packed] = m_context->Int8_4PackedTy;
+  m_baseTypes[HLSLScalarType_uint8_4packed] = m_context->UInt8_4PackedTy;
   m_baseTypes[HLSLScalarType_float_lit] = m_context->LitFloatTy;
   m_baseTypes[HLSLScalarType_int_lit] = m_context->LitIntTy;
   m_baseTypes[HLSLScalarType_int16] = m_context->ShortTy;
@@ -8654,7 +8763,9 @@ bool HLSLExternalSource::CanConvert(
   }
 
   // Cast from Resource to Object types.
-  if (SourceInfo.EltKind == AR_OBJECT_RESOURCE) {
+  if (SourceInfo.EltKind == AR_OBJECT_HEAP_RESOURCE ||
+      SourceInfo.EltKind == AR_OBJECT_HEAP_SAMPLER) {
+    // TODO: skip things like PointStream.
     if (TargetInfo.ShapeKind == AR_TOBJ_OBJECT) {
       Second = ICK_Flat_Conversion;
       goto lSuccess;
@@ -11511,6 +11622,10 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
   case AttributeList::AT_HLSLWaveSensitive:
     declAttr = ::new (S.Context) HLSLWaveSensitiveAttr(A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
+  case AttributeList::AT_HLSLWaveSize:
+    declAttr = ::new (S.Context) HLSLWaveSizeAttr(A.getRange(), S.Context,
+      ValidateAttributeIntArg(S, A), A.getAttributeSpellingListIndex());
+    break;
   default:
     Handled = false;
     break;  // SPIRV Change: was return;
@@ -12823,6 +12938,15 @@ void hlsl::CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out, con
     break;
   }
   
+  case clang::attr::HLSLWaveSize:
+  {
+    Attr * noconst = const_cast<Attr*>(A);
+    HLSLWaveSizeAttr *ACast = static_cast<HLSLWaveSizeAttr*>(noconst);
+    Indent(Indentation, Out);
+    Out << "[wavesize(" << ACast->getSize() << ")]\n";
+    break;
+  }
+
   // Variable modifiers
   case clang::attr::HLSLGroupShared:
     Out << "groupshared ";
@@ -12949,6 +13073,7 @@ bool hlsl::IsHLSLAttr(clang::attr::Kind AttrKind) {
   case clang::attr::NoInline:
   case clang::attr::HLSLExport:
   case clang::attr::HLSLWaveSensitive:
+  case clang::attr::HLSLWaveSize:
   case clang::attr::VKBinding:
   case clang::attr::VKBuiltIn:
   case clang::attr::VKConstantId:

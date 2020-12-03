@@ -89,7 +89,9 @@ private:
   // Map from value to resource properties.
   // This only collect object variables(global/local/parameter), not object fields inside struct.
   // Object fields inside struct is saved by TypeAnnotation.
-  DenseMap<Value *, DxilResourceProperties> valToResPropertiesMap;
+  // Returns true if added to one.
+  bool AddValToPropertyMap(Value *V, QualType Ty);
+  CGHLSLMSHelper::DxilObjectProperties objectProperties;
 
   bool  m_bDebugInfo;
   bool  m_bIsLib;
@@ -573,6 +575,14 @@ static CompType::Kind BuiltinTyToCompTy(const BuiltinType *BTy, bool bSNorm,
   CompType::Kind kind = CompType::Kind::Invalid;
 
   switch (BTy->getKind()) {
+  // HLSL Changes begin
+  case BuiltinType::Int8_4Packed:
+    kind = CompType::Kind::PackedS8x32;
+    break;
+  case BuiltinType::UInt8_4Packed:
+    kind = CompType::Kind::PackedU8x32;
+    break;
+  // HLSL Changes end
   case BuiltinType::UInt:
     kind = CompType::Kind::U32;
     break;
@@ -709,7 +719,24 @@ QualType GetArrayEltType(ASTContext &Context, QualType Ty) {
     Ty = ArrayTy->getElementType();
   return Ty;
 }
+bool IsTextureBufferViewName(StringRef keyword) {
+  return keyword == "TextureBuffer";
+}
 
+bool IsTextureBufferView(clang::QualType Ty, clang::ASTContext &context) {
+  Ty = Ty.getCanonicalType();
+  if (const clang::ArrayType *arrayType = context.getAsArrayType(Ty)) {
+    return IsTextureBufferView(arrayType->getElementType(), context);
+  } else if (const RecordType *RT = Ty->getAsStructureType()) {
+    return IsTextureBufferViewName(RT->getDecl()->getName());
+  } else if (const RecordType *RT = Ty->getAs<RecordType>()) {
+    if (const ClassTemplateSpecializationDecl *templateDecl =
+            dyn_cast<ClassTemplateSpecializationDecl>(RT->getDecl())) {
+      return IsTextureBufferViewName(templateDecl->getName());
+    }
+  }
+  return false;
+}
 } // namespace
 
 DxilResourceProperties CGMSHLSLRuntime::BuildResourceProperty(QualType resTy) {
@@ -717,42 +744,57 @@ DxilResourceProperties CGMSHLSLRuntime::BuildResourceProperty(QualType resTy) {
   const RecordType *RT = resTy->getAs<RecordType>();
   DxilResourceProperties RP;
   if (!RT) {
-    RP.Class = DXIL::ResourceClass::Invalid;
     return RP;
   }
   RecordDecl *RD = RT->getDecl();
   SourceLocation loc = RD->getLocation();
 
   hlsl::DxilResourceBase::Class resClass = TypeToClass(resTy);
-  RP.Class = resClass;
   if (resClass == DXIL::ResourceClass::Invalid)
     return RP;
 
   llvm::Type *Ty = CGM.getTypes().ConvertType(resTy);
+
   switch (resClass) {
   case DXIL::ResourceClass::UAV: {
     DxilResource UAV;
     // TODO: save globalcoherent to variable in EmitHLSLBuiltinCallExpr.
     SetUAVSRV(loc, resClass, &UAV, resTy);
     UAV.SetGlobalSymbol(UndefValue::get(Ty->getPointerTo()));
-    RP = resource_helper::loadFromResourceBase(&UAV);
+    RP = resource_helper::loadPropsFromResourceBase(&UAV);
   } break;
   case DXIL::ResourceClass::SRV: {
     DxilResource SRV;
     SetUAVSRV(loc, resClass, &SRV, resTy);
     SRV.SetGlobalSymbol(UndefValue::get(Ty->getPointerTo()));
-    RP = resource_helper::loadFromResourceBase(&SRV);
+    RP = resource_helper::loadPropsFromResourceBase(&SRV);
   } break;
   case DXIL::ResourceClass::Sampler: {
     DxilSampler::SamplerKind kind = KeywordToSamplerKind(RD->getName());
     DxilSampler Sampler;
     Sampler.SetSamplerKind(kind);
-    RP = resource_helper::loadFromResourceBase(&Sampler);
-  }
+    RP = resource_helper::loadPropsFromResourceBase(&Sampler);
+  } break;
+  case DXIL::ResourceClass::CBuffer: {
+    DxilCBuffer CB;
+    CB.SetGlobalSymbol(UndefValue::get(Ty->getPointerTo()));
+    if (IsTextureBufferView(resTy, CGM.getContext()))
+      CB.SetKind(DXIL::ResourceKind::TBuffer);
+    DxilTypeSystem &typeSys = m_pHLModule->GetTypeSystem();
+    unsigned arrayEltSize = 0;
+    QualType ResultTy = hlsl::GetHLSLResourceResultType(resTy);
+    unsigned Size = AddTypeAnnotation(ResultTy, typeSys, arrayEltSize);
+    CB.SetSize(Size);
+    RP = resource_helper::loadPropsFromResourceBase(&CB);
+  } break;
   default:
     break;
   }
   return RP;
+}
+
+bool CGMSHLSLRuntime::AddValToPropertyMap(Value *V, QualType Ty) {
+  return objectProperties.AddResource(V, BuildResourceProperty(Ty));
 }
 
 void CGMSHLSLRuntime::ConstructFieldAttributedAnnotation(
@@ -1470,10 +1512,10 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       funcProps->ShaderProps.MS.outputTopology = topology;
     }
     else if (isEntry && !SM->IsHS() && !SM->IsMS()) {
-      unsigned DiagID =
-          Diags.getCustomDiagID(DiagnosticsEngine::Warning,
-                                "attribute outputtopology only valid for HS and MS.");
-      Diags.Report(Attr->getLocation(), DiagID);
+    unsigned DiagID =
+      Diags.getCustomDiagID(DiagnosticsEngine::Warning,
+        "attribute outputtopology only valid for HS and MS.");
+    Diags.Report(Attr->getLocation(), DiagID);
     }
   }
 
@@ -1483,15 +1525,15 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   }
 
   if (const HLSLMaxTessFactorAttr *Attr =
-          FD->getAttr<HLSLMaxTessFactorAttr>()) {
+    FD->getAttr<HLSLMaxTessFactorAttr>()) {
     if (isHS) {
       // TODO: change getFactor to return float.
       llvm::APInt intV(32, Attr->getFactor());
       funcProps->ShaderProps.HS.maxTessFactor = intV.bitsToFloat();
     } else if (isEntry && !SM->IsHS()) {
       unsigned DiagID =
-          Diags.getCustomDiagID(DiagnosticsEngine::Error,
-                                "attribute maxtessfactor only valid for HS.");
+        Diags.getCustomDiagID(DiagnosticsEngine::Error,
+          "attribute maxtessfactor only valid for HS.");
       Diags.Report(Attr->getLocation(), DiagID);
       return;
     }
@@ -1501,8 +1543,8 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   if (const HLSLDomainAttr *Attr = FD->getAttr<HLSLDomainAttr>()) {
     if (isEntry && !SM->IsHS() && !SM->IsDS()) {
       unsigned DiagID =
-          Diags.getCustomDiagID(DiagnosticsEngine::Error,
-                                "attribute domain only valid for HS or DS.");
+        Diags.getCustomDiagID(DiagnosticsEngine::Error,
+          "attribute domain only valid for HS or DS.");
       Diags.Report(Attr->getLocation(), DiagID);
       return;
     }
@@ -1522,7 +1564,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   if (const HLSLClipPlanesAttr *Attr = FD->getAttr<HLSLClipPlanesAttr>()) {
     if (isEntry && !SM->IsVS()) {
       unsigned DiagID = Diags.getCustomDiagID(
-          DiagnosticsEngine::Error, "attribute clipplane only valid for VS.");
+        DiagnosticsEngine::Error, "attribute clipplane only valid for VS.");
       Diags.Report(Attr->getLocation(), DiagID);
       return;
     }
@@ -1535,11 +1577,11 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
 
   // Pixel shader.
   if (const HLSLEarlyDepthStencilAttr *Attr =
-          FD->getAttr<HLSLEarlyDepthStencilAttr>()) {
+    FD->getAttr<HLSLEarlyDepthStencilAttr>()) {
     if (isEntry && !SM->IsPS()) {
       unsigned DiagID = Diags.getCustomDiagID(
-          DiagnosticsEngine::Error,
-          "attribute earlydepthstencil only valid for PS.");
+        DiagnosticsEngine::Error,
+        "attribute earlydepthstencil only valid for PS.");
       Diags.Report(Attr->getLocation(), DiagID);
       return;
     }
@@ -1547,6 +1589,39 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     isPS = true;
     funcProps->ShaderProps.PS.EarlyDepthStencil = true;
     funcProps->shaderKind = DXIL::ShaderKind::Pixel;
+  }
+
+  if (const HLSLWaveSizeAttr *Attr = FD->getAttr<HLSLWaveSizeAttr>()) {
+    if (!m_pHLModule->GetShaderModel()->IsSM66Plus()) {
+      unsigned DiagID = Diags.getCustomDiagID(
+        DiagnosticsEngine::Error,
+        "attribute WaveSize only valid for shader model 6.6 and higher.");
+      Diags.Report(Attr->getLocation(), DiagID);
+      return;
+    }
+    if (!isCS) {
+      unsigned DiagID = Diags.getCustomDiagID(
+        DiagnosticsEngine::Error,
+        "attribute WaveSize only valid for CS.");
+      Diags.Report(Attr->getLocation(), DiagID);
+      return;
+    }
+    if (!isEntry) {
+      unsigned DiagID = Diags.getCustomDiagID(
+        DiagnosticsEngine::Error,
+        "attribute WaveSize only valid on entry point function.");
+      Diags.Report(Attr->getLocation(), DiagID);
+      return;
+    }
+    // validate that it is a power of 2 between 4 and 128
+    unsigned waveSize = Attr->getSize();
+    if (!DXIL::IsValidWaveSizeValue(waveSize)) {
+      unsigned DiagID = Diags.getCustomDiagID(
+        DiagnosticsEngine::Error,
+        "WaveSize value must be between %0 and %1 and a power of 2.");
+      Diags.Report(Attr->getLocation(), DiagID) << DXIL::kMinWaveSize << DXIL::kMaxWaveSize;
+    }
+    funcProps->waveSize = Attr->getSize();
   }
 
   const unsigned profileAttributes = isCS + isHS + isDS + isGS + isVS + isPS + isRay + isMS + isAS;
@@ -1612,9 +1687,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     // SRet.
     pRetTyAnnotation = &FuncAnnotation->GetParameterAnnotation(ArgNo++);
     // Save resource properties for parameters.
-    DxilResourceProperties RP = BuildResourceProperty(retTy);
-    if (RP.Class != DXIL::ResourceClass::Invalid)
-      valToResPropertiesMap[ArgIt] = RP;
+    AddValToPropertyMap(ArgIt, retTy);
     ++ArgIt;
   } else {
     pRetTyAnnotation = &FuncAnnotation->GetRetTypeAnnotation();
@@ -1658,10 +1731,8 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     const ParmVarDecl *parmDecl = FD->getParamDecl(ParmIdx);
 
     QualType fieldTy = parmDecl->getType();
-    // Save resource properties for parameters.
-    DxilResourceProperties RP = BuildResourceProperty(fieldTy);
-    if (RP.Class != DXIL::ResourceClass::Invalid)
-      valToResPropertiesMap[ArgIt] = RP;
+    // Save object properties for parameters.
+    AddValToPropertyMap(ArgIt, fieldTy);
 
     // if parameter type is a typedef, try to desugar it first.
     if (isa<TypedefType>(fieldTy.getTypePtr()))
@@ -2303,10 +2374,8 @@ void CGMSHLSLRuntime::AddControlFlowHint(CodeGenFunction &CGF, const Stmt &S,
 
 void CGMSHLSLRuntime::MarkRetTemp(CodeGenFunction &CGF, Value *V,
                                  QualType QualTy) {
-  // Save resource properties for ret temp.
-  DxilResourceProperties RP = BuildResourceProperty(QualTy);
-  if (RP.Class != DXIL::ResourceClass::Invalid)
-    valToResPropertiesMap[V] = RP;
+  // Save object properties for ret temp.
+  AddValToPropertyMap(V, QualTy);
 }
 
 void CGMSHLSLRuntime::FinishAutoVar(CodeGenFunction &CGF, const VarDecl &D,
@@ -2319,10 +2388,8 @@ void CGMSHLSLRuntime::FinishAutoVar(CodeGenFunction &CGF, const VarDecl &D,
   DxilTypeSystem &typeSys = m_pHLModule->GetTypeSystem();
   unsigned arrayEltSize = 0;
   AddTypeAnnotation(D.getType(), typeSys, arrayEltSize);
-  // Save resource properties for local variables.
-  DxilResourceProperties RP = BuildResourceProperty(D.getType());
-  if (RP.Class != DXIL::ResourceClass::Invalid)
-    valToResPropertiesMap[V] = RP;
+  // Save object properties for local variables.
+  AddValToPropertyMap(V, D.getType());
 }
 
 hlsl::InterpolationMode CGMSHLSLRuntime::GetInterpMode(const Decl *decl,
@@ -2377,6 +2444,10 @@ hlsl::CompType CGMSHLSLRuntime::GetCompType(const BuiltinType *BT) {
   case BuiltinType::Short:
     ElementType = hlsl::CompType::getI16();
     break;
+    // HLSL Changes begin
+  case BuiltinType::Int8_4Packed:
+  case BuiltinType::UInt8_4Packed:
+    // HLSL Changes end
   case BuiltinType::UInt:
     ElementType = hlsl::CompType::getU32();
     break;
@@ -2404,9 +2475,7 @@ void CGMSHLSLRuntime::addResource(Decl *D) {
     // Save resource properties for global variables.
     if (resClass != DXIL::ResourceClass::Invalid) {
       GlobalVariable *GV = cast<GlobalVariable>(CGM.GetAddrOfGlobalVar(VD));
-      DxilResourceProperties RP = BuildResourceProperty(VD->getType());
-      if (RP.Class != DXIL::ResourceClass::Invalid)
-        valToResPropertiesMap[GV] = RP;
+      AddValToPropertyMap(GV, VD->getType());
     }
     // skip decl has init which is resource.
     if (VD->hasInit() && resClass != DXIL::ResourceClass::Invalid)
@@ -3127,9 +3196,7 @@ void CGMSHLSLRuntime::AddConstant(VarDecl *constDecl, HLCBuffer &CB) {
 
   auto &regBindings = constantRegBindingMap[constVal];
   // Save resource properties for cbuffer variables.
-  DxilResourceProperties RP = BuildResourceProperty(constDecl->getType());
-  if (RP.Class != DXIL::ResourceClass::Invalid)
-    valToResPropertiesMap[constVal] = RP;
+  AddValToPropertyMap(constVal, constDecl->getType());
 
   bool isGlobalCB = CB.GetID() == globalCBIndex;
   uint32_t offset = 0;
@@ -3231,24 +3298,6 @@ unique_ptr<HLCBuffer> CreateHLCBuf(NamedDecl *D, bool bIsView, bool bIsTBuf) {
   return CB;
 }
 
-bool IsTextureBufferViewName(StringRef keyword) {
-  return keyword == "TextureBuffer";
-}
-
-bool IsTextureBufferView(clang::QualType Ty, clang::ASTContext &context) {
-  Ty = Ty.getCanonicalType();
-  if (const clang::ArrayType *arrayType = context.getAsArrayType(Ty)) {
-    return IsTextureBufferView(arrayType->getElementType(), context);
-  } else if (const RecordType *RT = Ty->getAsStructureType()) {
-    return IsTextureBufferViewName(RT->getDecl()->getName());
-  } else if (const RecordType *RT = Ty->getAs<RecordType>()) {
-    if (const ClassTemplateSpecializationDecl *templateDecl =
-            dyn_cast<ClassTemplateSpecializationDecl>(RT->getDecl())) {
-      return IsTextureBufferViewName(templateDecl->getName());
-    }
-  }
-  return false;
-}
 } // namespace
 
 uint32_t CGMSHLSLRuntime::AddCBuffer(HLSLBufferDecl *D) {
@@ -3339,7 +3388,7 @@ void CGMSHLSLRuntime::FinishCodeGen() {
   llvm::Module &M = TheModule;
   // Do this before CloneShaderEntry and TranslateRayQueryConstructor to avoid
   // update valToResPropertiesMap for cloned inst.
-  FinishIntrinsics(HLM, m_IntrinsicMap, valToResPropertiesMap);
+  FinishIntrinsics(HLM, m_IntrinsicMap, objectProperties);
   bool bWaveEnabledStage = m_pHLModule->GetShaderModel()->IsPS() ||
                            m_pHLModule->GetShaderModel()->IsCS() ||
                            m_pHLModule->GetShaderModel()->IsLib();
@@ -5263,9 +5312,14 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(CodeGenFunction &CGF, 
       return;
     }
   } else if (dxilutil::IsHLSLResourceDescType(SrcPtrTy) &&
-             dxilutil::IsHLSLResourceType(DestPtrTy)) {
-    // Cast resource desc to resource.
+             (dxilutil::IsHLSLResourceType(DestPtrTy) ||
+              GetResourceClassForType(CGM.getContext(), DestTy) ==
+                  DXIL::ResourceClass::CBuffer)) {
+    // Cast resource desc to resource.// Make sure to generate Inst to help lowering.
+    bool originAllowFolding = CGF.Builder.AllowFolding;
+    CGF.Builder.AllowFolding = false;
     Value *CastPtr = CGF.Builder.CreatePointerCast(SrcPtr, DestPtr->getType());
+    CGF.Builder.AllowFolding = originAllowFolding;
     // Load resource.
     Value *V = CGF.Builder.CreateLoad(CastPtr);
     // Store to resource ptr.

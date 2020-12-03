@@ -558,7 +558,7 @@ public:
     }
     DXASSERT_NOMSG(m_PSVBuffer.size() == m_PSVBufferSize);
 
-    // Set DxilRuntimInfo
+    // Set DxilRuntimeInfo
     PSVRuntimeInfo0* pInfo = m_PSV.GetPSVRuntimeInfo0();
     PSVRuntimeInfo1* pInfo1 = m_PSV.GetPSVRuntimeInfo1();
     const ShaderModel* SM = m_Module.GetShaderModel();
@@ -645,34 +645,41 @@ public:
         }
         break;
       }
-    case ShaderModel::Kind::Compute:
-    case ShaderModel::Kind::Library:
-    case ShaderModel::Kind::Invalid:
-      // Compute, Library, and Invalid not relevant to PSVRuntimeInfo0
-      break;
-    case ShaderModel::Kind::Mesh: {
-      pInfo->MS.MaxOutputVertices = (UINT)m_Module.GetMaxOutputVertices();
-      pInfo->MS.MaxOutputPrimitives = (UINT)m_Module.GetMaxOutputPrimitives();
-      pInfo1->MS1.MeshOutputTopology = (UINT)m_Module.GetMeshOutputTopology();
-      Module *mod = m_Module.GetModule();
-      const DataLayout &DL = mod->getDataLayout();
-      unsigned totalByteSize = 0;
-      for (GlobalVariable &GV : mod->globals()) {
-        PointerType *gvPtrType = cast<PointerType>(GV.getType());
-        if (gvPtrType->getAddressSpace() == hlsl::DXIL::kTGSMAddrSpace) {
-          Type *gvType = gvPtrType->getPointerElementType();
-          unsigned byteSize = DL.getTypeAllocSize(gvType);
-          totalByteSize += byteSize;
+      case ShaderModel::Kind::Compute: {
+        UINT waveSize = (UINT)m_Module.GetWaveSize();
+        if (waveSize != 0) {
+          pInfo->MinimumExpectedWaveLaneCount = waveSize;
+          pInfo->MaximumExpectedWaveLaneCount = waveSize;
         }
+        break;
       }
-      pInfo->MS.GroupSharedBytesUsed = totalByteSize;
-      pInfo->MS.PayloadSizeInBytes = m_Module.GetPayloadSizeInBytes();
-      break;
-    }
-    case ShaderModel::Kind::Amplification: {
-      pInfo->AS.PayloadSizeInBytes = m_Module.GetPayloadSizeInBytes();
-      break;
-    }
+      case ShaderModel::Kind::Library:
+      case ShaderModel::Kind::Invalid:
+        // Library and Invalid not relevant to PSVRuntimeInfo0
+        break;
+      case ShaderModel::Kind::Mesh: {
+        pInfo->MS.MaxOutputVertices = (UINT)m_Module.GetMaxOutputVertices();
+        pInfo->MS.MaxOutputPrimitives = (UINT)m_Module.GetMaxOutputPrimitives();
+        pInfo1->MS1.MeshOutputTopology = (UINT)m_Module.GetMeshOutputTopology();
+        Module *mod = m_Module.GetModule();
+        const DataLayout &DL = mod->getDataLayout();
+        unsigned totalByteSize = 0;
+        for (GlobalVariable &GV : mod->globals()) {
+          PointerType *gvPtrType = cast<PointerType>(GV.getType());
+          if (gvPtrType->getAddressSpace() == hlsl::DXIL::kTGSMAddrSpace) {
+            Type *gvType = gvPtrType->getPointerElementType();
+            unsigned byteSize = DL.getTypeAllocSize(gvType);
+            totalByteSize += byteSize;
+          }
+        }
+        pInfo->MS.GroupSharedBytesUsed = totalByteSize;
+        pInfo->MS.PayloadSizeInBytes = m_Module.GetPayloadSizeInBytes();
+        break;
+      }
+      case ShaderModel::Kind::Amplification: {
+        pInfo->AS.PayloadSizeInBytes = m_Module.GetPayloadSizeInBytes();
+        break;
+      }
     }
 
     // Set resource binding information

@@ -1340,6 +1340,8 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
   case DeclSpec::TST_min16uint: Result = Context.Min16UIntTy; break;
   case DeclSpec::TST_min10float: Result = Context.Min10FloatTy; break;
   case DeclSpec::TST_min12int: Result = Context.Min12IntTy; break;
+  case DeclSpec::TST_int8_4packed: Result = Context.Int8_4PackedTy; break;
+  case DeclSpec::TST_uint8_4packed: Result = Context.UInt8_4PackedTy; break;
     // HLSL Change Ends
   case DeclSpec::TST_double:
     if (DS.getTypeSpecWidth() == DeclSpec::TSW_long)

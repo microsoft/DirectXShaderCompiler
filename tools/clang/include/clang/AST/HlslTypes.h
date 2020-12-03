@@ -76,12 +76,14 @@ enum HLSLScalarType {
   HLSLScalarType_float16,
   HLSLScalarType_float32,
   HLSLScalarType_float64,
+  HLSLScalarType_int8_4packed,
+  HLSLScalarType_uint8_4packed
 };
 
 HLSLScalarType MakeUnsigned(HLSLScalarType T);
 
 static const HLSLScalarType HLSLScalarType_minvalid = HLSLScalarType_bool;
-static const HLSLScalarType HLSLScalarType_max = HLSLScalarType_float64;
+static const HLSLScalarType HLSLScalarType_max = HLSLScalarType_uint8_4packed;
 static const size_t HLSLScalarTypeCount = static_cast<size_t>(HLSLScalarType_max) + 1;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -324,7 +326,10 @@ clang::CXXRecordDecl* DeclareUIntTemplatedTypeWithHandle(
   clang::ASTContext& context, llvm::StringRef typeName, llvm::StringRef templateParamName);
 clang::CXXRecordDecl *DeclareConstantBufferViewType(clang::ASTContext& context, bool bTBuf);
 clang::CXXRecordDecl* DeclareRayQueryType(clang::ASTContext& context);
-clang::CXXRecordDecl *DeclareResourceType(clang::ASTContext &context);
+clang::CXXRecordDecl *DeclareResourceType(clang::ASTContext &context,
+                                          bool bSampler);
+clang::VarDecl *DeclareBuiltinGlobal(llvm::StringRef name, clang::QualType Ty,
+                                     clang::ASTContext &context);
 
 /// <summary>Create a function template declaration for the specified method.</summary>
 /// <param name="context">AST context in which to work.</param>

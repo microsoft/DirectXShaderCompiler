@@ -276,7 +276,8 @@ void RootSignatureTokenizer::ReadNextToken(uint32_t BufferIdx)
               KW(COMPARISON_GREATER) ||
               KW(COMPARISON_NOT_EQUAL) ||
               KW(COMPARISON_GREATER_EQUAL) ||
-              KW(COMPARISON_ALWAYS);
+              KW(COMPARISON_ALWAYS) ||
+              KW(CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED);
         break;
 
     case 'D':
@@ -359,13 +360,14 @@ void RootSignatureTokenizer::ReadNextToken(uint32_t BufferIdx)
 
     case 'S':
         bKW = KW(space) || KW(Sampler) || KW(StaticSampler) || KW(SRV) ||
+              KW(CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED) || KW(SAMPLER_HEAP_DIRECTLY_INDEXED) ||
               KW(SHADER_VISIBILITY_ALL)      ||  KW(SHADER_VISIBILITY_VERTEX) || 
               KW(SHADER_VISIBILITY_HULL)     || KW(SHADER_VISIBILITY_DOMAIN)  ||
               KW(SHADER_VISIBILITY_GEOMETRY) || KW(SHADER_VISIBILITY_PIXEL) ||
               KW(SHADER_VISIBILITY_AMPLIFICATION) || KW(SHADER_VISIBILITY_MESH) ||
               KW(STATIC_BORDER_COLOR_TRANSPARENT_BLACK) ||
               KW(STATIC_BORDER_COLOR_OPAQUE_BLACK) ||
-              KW(STATIC_BORDER_COLOR_OPAQUE_WHITE);
+              KW(STATIC_BORDER_COLOR_OPAQUE_WHITE) || KW(SAMPLER_HEAP_DIRECTLY_INDEXED);
         break;
 
     case 'T':
@@ -742,6 +744,12 @@ HRESULT RootSignatureParser::ParseRootSignatureFlags(DxilRootSignatureFlags & Fl
                 if ((bool)(m_CompilationFlags & DxilRootSignatureCompilationFlags::GlobalRootSignature))
                   IFC(Error(ERR_RS_LOCAL_FLAG_ON_GLOBAL, "LOCAL_ROOT_SIGNATURE flag used in global root signature"));
                 Flags |= DxilRootSignatureFlags::LocalRootSignature;
+                break;
+            case TokenType::CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED:
+                Flags |= DxilRootSignatureFlags::CBVSRVUAVHeapDirectlyIndexed;
+                break;
+            case TokenType::SAMPLER_HEAP_DIRECTLY_INDEXED:
+                Flags |= DxilRootSignatureFlags::SamplerHeapDirectlyIndexed;
                 break;
             default:
                 IFC(Error(ERR_RS_UNEXPECTED_TOKEN, "Expected a root signature flag value, found: '%s'", Token.GetStr()));

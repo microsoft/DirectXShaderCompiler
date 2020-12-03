@@ -330,7 +330,6 @@ void DxilModule::CollectShaderFlagsForModule(ShaderFlags &Flags) {
     switch (UAV->GetKind()) {
     case DXIL::ResourceKind::RawBuffer:
     case DXIL::ResourceKind::StructuredBuffer:
-    case DXIL::ResourceKind::StructuredBufferWithCounter:
       hasRawAndStructuredBuffer = true;
       break;
     default:
@@ -407,6 +406,24 @@ unsigned DxilModule::GetNumThreads(unsigned idx) const {
   const unsigned *numThreads = props.IsCS() ? props.ShaderProps.CS.numThreads :
     props.IsMS() ? props.ShaderProps.MS.numThreads : props.ShaderProps.AS.numThreads;
   return numThreads[idx];
+}
+
+void DxilModule::SetWaveSize(unsigned size) {
+  DXASSERT(m_DxilEntryPropsMap.size() == 1 && m_pSM->IsCS(),
+    "only works for CS profile");
+  DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT_NOMSG(m_pSM->GetKind() == props.shaderKind);
+  props.waveSize = size;
+}
+
+unsigned DxilModule::GetWaveSize() const {
+  DXASSERT(m_DxilEntryPropsMap.size() == 1 && m_pSM->IsCS(),
+    "only works for CS profiles");
+  if (!m_pSM->IsCS())
+    return 0;
+  const DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT_NOMSG(m_pSM->GetKind() == props.shaderKind);
+  return props.waveSize;
 }
 
 DXIL::InputPrimitive DxilModule::GetInputPrimitive() const {
