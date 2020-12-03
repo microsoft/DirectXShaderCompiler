@@ -1,4 +1,4 @@
-// Run: %dxc "./build.x64/Release/bin/dxc.exe" -T lib_6_3 -fspv-target-env=vulkan1.2 -spirv tools\clang\test\CodeGenSPIRV\raytracing.khr.library.hlsl
+// Run: %dxc -T lib_6_3 -fspv-target-env=vulkan1.2
 // CHECK:  OpCapability RayTracingKHR
 // CHECK:  OpExtension "SPV_KHR_ray_tracing"
 
