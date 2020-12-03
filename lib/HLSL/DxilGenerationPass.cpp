@@ -368,10 +368,6 @@ void TranslateHLAnnotateHandle(
     CallInst *CI = cast<CallInst>(user);
     Value *handle =
         CI->getArgOperand(HLOperandIndex::kAnnotateHandleHandleOpIdx);
-    Value *RC =
-        CI->getArgOperand(HLOperandIndex::kAnnotateHandleResourceClassOpIdx);
-    Value *RK =
-        CI->getArgOperand(HLOperandIndex::kAnnotateHandleResourceKindOpIdx);
     Value *RP = CI->getArgOperand(
         HLOperandIndex::kAnnotateHandleResourcePropertiesOpIdx);
     Type *ResTy =
@@ -382,7 +378,7 @@ void TranslateHLAnnotateHandle(
     Function *annotateHandle =
         hlslOP.GetOpFunc(DXIL::OpCode::AnnotateHandle, Builder.getVoidTy());
     CallInst *newHandle =
-        Builder.CreateCall(annotateHandle, {opArg, handle, RC, RK, RP});
+        Builder.CreateCall(annotateHandle, {opArg, handle, RP});
     HandleToResTypeMap[newHandle] = ResTy;
     CI->replaceAllUsesWith(newHandle);
     CI->eraseFromParent();
