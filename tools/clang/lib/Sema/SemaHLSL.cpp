@@ -1131,8 +1131,6 @@ static const ArBasicKind g_Texture2DArrayCT[] =
 static const ArBasicKind g_ResourceCT[] = {AR_OBJECT_HEAP_RESOURCE,
                                            AR_BASIC_UNKNOWN};
 
-static const ArBasicKind g_SamplerStateCT[] = {AR_OBJECT_HEAP_SAMPLER, AR_BASIC_UNKNOWN};
-
 static const ArBasicKind g_RayDescCT[] =
 {
   AR_OBJECT_RAY_DESC,
