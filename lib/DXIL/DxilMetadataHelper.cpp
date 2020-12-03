@@ -68,6 +68,11 @@ const char DxilMDHelper::kDxilSourceDefinesMDName[]                   = "dx.sour
 const char DxilMDHelper::kDxilSourceMainFileNameMDName[]              = "dx.source.mainFileName";
 const char DxilMDHelper::kDxilSourceArgsMDName[]                      = "dx.source.args";
 
+const char DxilMDHelper::kDxilSourceContentsOldMDName[]               = "llvm.dbg.contents";
+const char DxilMDHelper::kDxilSourceDefinesOldMDName[]                = "llvm.dbg.defines";
+const char DxilMDHelper::kDxilSourceMainFileNameOldMDName[]           = "llvm.dbg.mainFileName";
+const char DxilMDHelper::kDxilSourceArgsOldMDName[]                   = "llvm.dbg.args";
+
 // This is reflection-only metadata
 const char DxilMDHelper::kDxilCountersMDName[]                        = "dx.counters";
 
