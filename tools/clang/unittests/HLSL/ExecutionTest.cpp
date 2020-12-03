@@ -1691,8 +1691,11 @@ TEST_F(ExecutionTest, LifetimeIntrinsicTest) {
   // TODO: There's probably a lot of things in the rest of this test that could be stripped away.
 
   CComPtr<ID3D12Device5> pDevice;
-  if (!CreateDevice(reinterpret_cast<ID3D12Device**>(&pDevice), D3D_SHADER_MODEL_6_5, true, true)) // TODO: We need 6.6!
+  if (!CreateDevice(reinterpret_cast<ID3D12Device**>(&pDevice), D3D_SHADER_MODEL_6_6, true, true)) {
+    WEX::Logging::Log::Comment(L"Lifetime test not run pre 6.6");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
     return;
+  }
 
   std::vector<uint32_t> values;
   SetupComputeValuePattern(values, ThreadsPerGroup * DispatchGroupCount);
