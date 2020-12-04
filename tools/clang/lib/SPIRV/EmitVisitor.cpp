@@ -1645,6 +1645,12 @@ bool EmitVisitor::visit(SpirvReadClock *inst) {
   return true;
 }
 
+bool EmitVisitor::visit(SpirvRayTracingTerminateOpKHR *inst) {
+  initInstruction(inst);
+  finalizeInstruction(&mainBinary);
+  return true;
+}
+
 // EmitTypeHandler ------
 
 void EmitTypeHandler::initTypeInstruction(spv::Op op) {

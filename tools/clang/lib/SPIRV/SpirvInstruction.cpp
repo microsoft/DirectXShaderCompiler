@@ -105,6 +105,7 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugTypeTemplate)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugTypeTemplateParameter)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvRayQueryOpKHR)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvReadClock)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvRayTracingTerminateOpKHR)
 
 #undef DEFINE_INVOKE_VISITOR_FOR_CLASS
 
@@ -986,6 +987,13 @@ SpirvReadClock::SpirvReadClock(QualType resultType, SpirvInstruction *s,
                                SourceLocation loc)
     : SpirvInstruction(IK_ReadClock, spv::Op::OpReadClockKHR, resultType, loc),
       scope(s) {}
+
+SpirvRayTracingTerminateOpKHR::SpirvRayTracingTerminateOpKHR(spv::Op opcode,
+                                                             SourceLocation loc)
+    : SpirvTerminator(IK_RayTracingTerminate, opcode, loc) {
+  assert(opcode == spv::Op::OpTerminateRayKHR ||
+         opcode == spv::Op::OpIgnoreIntersectionKHR);
+}
 
 } // namespace spirv
 } // namespace clang
