@@ -197,6 +197,7 @@ class VariableRegisters
 {
 public:
   VariableRegisters(
+      llvm::DebugLoc const &,
       llvm::DIVariable *Variable,
       llvm::Module *M
   );
@@ -233,7 +234,8 @@ private:
       OffsetInBits Offset
   ) const;
 
-  llvm::DIVariable* m_Variable = nullptr;
+  llvm::DebugLoc const &m_dbgLoc;
+  llvm::DIVariable *m_Variable = nullptr;
   llvm::IRBuilder<> m_B;
   llvm::Function *m_DbgDeclareFn = nullptr;
 
@@ -389,7 +391,7 @@ void DxilDbgValueToDbgDeclare::handleDbgValue(
   auto &Register = m_Registers[Variable];
   if (Register == nullptr)
   {
-    Register.reset(new VariableRegisters(Variable, &M));
+    Register.reset(new VariableRegisters(DbgValue->getDebugLoc(), Variable, &M));
   }
 
   // Convert the offset from DbgValue's expression to a packed
@@ -435,8 +437,8 @@ void DxilDbgValueToDbgDeclare::handleDbgValue(
 
     if (AllocaInst->getAllocatedType()->getArrayElementType() == VO.m_V->getType())
     {
-        auto* GEP = B.CreateGEP(AllocaInst, { Zero, Zero });
-        B.CreateStore(VO.m_V, GEP);
+      auto* GEP = B.CreateGEP(AllocaInst, { Zero, Zero });
+      B.CreateStore(VO.m_V, GEP);
     }
   }
 }
@@ -482,9 +484,11 @@ static llvm::DIType *DITypePeelTypeAlias(
 #endif // NDEBUG
 
 VariableRegisters::VariableRegisters(
+    llvm::DebugLoc const & dbgLoc,
     llvm::DIVariable *Variable,
-    llvm::Module *M
-) : m_Variable(Variable)
+    llvm::Module *M)
+  : m_dbgLoc(dbgLoc)
+  ,m_Variable(Variable)
   , m_B(M->GetOrCreateDxilModule().GetEntryFunction()->getEntryBlock().begin())
   , m_DbgDeclareFn(llvm::Intrinsic::getDeclaration(
       M, llvm::Intrinsic::dbg_declare))
@@ -617,7 +621,7 @@ void VariableRegisters::PopulateAllocaMap_BasicType(
   auto *DbgDeclare = m_B.CreateCall(
       m_DbgDeclareFn,
       {Storage, Variable, Expression});
-  DbgDeclare->setDebugLoc(GetVariableLocation());
+  DbgDeclare->setDebugLoc(m_dbgLoc);
 }
 
 static unsigned NumArrayElements(
