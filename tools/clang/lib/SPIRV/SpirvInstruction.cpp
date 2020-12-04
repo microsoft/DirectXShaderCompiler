@@ -992,7 +992,7 @@ SpirvRayTracingTerminateOpKHR::SpirvRayTracingTerminateOpKHR(spv::Op opcode,
                                                              SourceLocation loc)
     : SpirvTerminator(IK_RayTracingTerminate, opcode, loc) {
   assert(opcode == spv::Op::OpTerminateRayKHR ||
-         spv::Op::OpIgnoreIntersectionKHR);
+         opcode == spv::Op::OpIgnoreIntersectionKHR);
 }
 
 } // namespace spirv
