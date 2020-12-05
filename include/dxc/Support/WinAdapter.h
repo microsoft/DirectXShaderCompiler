@@ -355,7 +355,7 @@
 
 #ifdef __cplusplus
 
-typedef unsigned char BYTE;
+typedef unsigned char BYTE, UINT8;
 typedef unsigned char *LPBYTE;
 
 typedef BYTE BOOLEAN;
