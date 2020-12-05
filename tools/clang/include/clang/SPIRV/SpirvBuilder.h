@@ -499,6 +499,10 @@ public:
   /// \brief Creates an OpReadClockKHR instruction.
   SpirvInstruction *createReadClock(SpirvInstruction *scope, SourceLocation);
 
+  /// \brief Create Raytracing terminate Ops
+  /// OpIgnoreIntersectionKHR/OpTerminateIntersectionKHR
+  void createRaytracingTerminateKHR(spv::Op opcode, SourceLocation loc);
+
   // === SPIR-V Module Structure ===
   inline void setMemoryModel(spv::AddressingModel, spv::MemoryModel);
 

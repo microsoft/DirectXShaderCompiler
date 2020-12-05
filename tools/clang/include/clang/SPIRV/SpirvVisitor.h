@@ -138,7 +138,7 @@ public:
 
   DEFINE_VISIT_METHOD(SpirvRayQueryOpKHR)
   DEFINE_VISIT_METHOD(SpirvReadClock)
-
+  DEFINE_VISIT_METHOD(SpirvRayTracingTerminateOpKHR)
 #undef DEFINE_VISIT_METHOD
 
 protected:

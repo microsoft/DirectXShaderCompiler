@@ -975,6 +975,7 @@ public:
   // Create Resource views for <pDevice> given the SRV and UAV information provided
   // using some reasonable defaults
   void CreateDefaultResourceViews(ID3D12Device *pDevice, D3D12_CPU_DESCRIPTOR_HANDLE heapStart,
+                                  int numElements,
                                   const CComPtr<ID3D12Resource> pSRVResources[], int NumSRVs,
                                   const CComPtr<ID3D12Resource> pUAVResources[], int NumUAVs) {
 
@@ -983,17 +984,18 @@ public:
 
     // Create SRVs
     D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-    srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
-    srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE1D;
+    srvDesc.Format = DXGI_FORMAT_UNKNOWN;
+    srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
     srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-    srvDesc.Texture1D.MostDetailedMip = 0;
-    srvDesc.Texture1D.MipLevels = 1;
-    srvDesc.Texture1D.ResourceMinLODClamp = 0;
+    srvDesc.Buffer.FirstElement = 0;
+    srvDesc.Buffer.NumElements = numElements;
+    srvDesc.Buffer.StructureByteStride = sizeof(float);
     for (int i = 0; i < NumSRVs - 1; i++) {
       pDevice->CreateShaderResourceView(pSRVResources[i], &srvDesc, baseHandle);
       baseHandle = baseHandle.Offset(descriptorSize);
     }
 
+    srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
     srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
     srvDesc.Texture2D.MostDetailedMip = 0;
     srvDesc.Texture2D.MipLevels = 1;
@@ -1007,7 +1009,7 @@ public:
     uavDesc.Format = DXGI_FORMAT_UNKNOWN;
     uavDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
     uavDesc.Buffer.FirstElement = 0;
-    uavDesc.Buffer.NumElements = 16;
+    uavDesc.Buffer.NumElements = numElements;
     uavDesc.Buffer.StructureByteStride = sizeof(float);
     uavDesc.Buffer.CounterOffsetInBytes = 0;
     uavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
@@ -7967,12 +7969,12 @@ void ExecutionTest::RunResourceTest(ID3D12Device *pDevice, const char *pShader,
   CComPtr<ID3D12Resource> pUAVResources[NumUAVs];
   CComPtr<ID3D12Resource> pUploadResources[NumResources];
   {
-    D3D12_RESOURCE_DESC tex1dDesc = CD3DX12_RESOURCE_DESC::Tex1D(DXGI_FORMAT_R32_FLOAT, valueSize);
+    D3D12_RESOURCE_DESC bufDesc = CD3DX12_RESOURCE_DESC::Buffer(valueSizeInBytes);
     float values[valueSize];
     for (int i = 0; i < NumSRVs - 1; i++) {
       for (int j = 0; j < valueSize; j++)
         values[j] = 10.0 + i;
-      CreateTestResources(pDevice, pCommandList, values, valueSizeInBytes, tex1dDesc,
+      CreateTestResources(pDevice, pCommandList, values, valueSizeInBytes, bufDesc,
                           &pSRVResources[i], &pUploadResources[i]);
     }
     D3D12_RESOURCE_DESC tex2dDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R32_FLOAT, 4, 4);
@@ -8019,7 +8021,7 @@ void ExecutionTest::RunResourceTest(ID3D12Device *pDevice, const char *pShader,
       pCommandList->SetComputeRootDescriptorTable(1, pSampHeap->GetGPUDescriptorHandleForHeapStart());
     }
   }
-  CreateDefaultResourceViews(pDevice, pResHeap->GetCPUDescriptorHandleForHeapStart(),
+  CreateDefaultResourceViews(pDevice, pResHeap->GetCPUDescriptorHandleForHeapStart(), valueSize,
                              pSRVResources, NumSRVs, pUAVResources, NumUAVs);
   D3D12_FILTER filters[] = {D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT, D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT};
   float borderColors[] = {30.0, 31.0};

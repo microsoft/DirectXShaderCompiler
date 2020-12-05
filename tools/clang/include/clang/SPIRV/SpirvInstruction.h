@@ -77,12 +77,13 @@ public:
 
     // The following section is for termination instructions.
     // Used by LLVM-style RTTI; order matters.
-    IK_Branch,            // OpBranch
-    IK_BranchConditional, // OpBranchConditional
-    IK_Kill,              // OpKill
-    IK_Return,            // OpReturn*
-    IK_Switch,            // OpSwitch
-    IK_Unreachable,       // OpUnreachable
+    IK_Branch,              // OpBranch
+    IK_BranchConditional,   // OpBranchConditional
+    IK_Kill,                // OpKill
+    IK_Return,              // OpReturn*
+    IK_Switch,              // OpSwitch
+    IK_Unreachable,         // OpUnreachable
+    IK_RayTracingTerminate, // OpIgnoreIntersectionKHR/OpTerminateRayKHR
 
     // Normal instruction kinds
     // In alphabetical order
@@ -634,6 +635,7 @@ private:
 ///
 /// * OpBranch, OpBranchConditional, OpSwitch
 /// * OpReturn, OpReturnValue, OpKill, OpUnreachable
+/// * OpIgnoreIntersectionKHR, OpTerminateIntersectionKHR
 ///
 /// The first group (branching instructions) also include information on
 /// possible branches that will be taken next.
@@ -641,7 +643,8 @@ class SpirvTerminator : public SpirvInstruction {
 public:
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
-    return inst->getKind() >= IK_Branch && inst->getKind() <= IK_Unreachable;
+    return inst->getKind() >= IK_Branch &&
+           inst->getKind() <= IK_RayTracingTerminate;
   }
 
 protected:
@@ -1956,6 +1959,19 @@ public:
 private:
   llvm::SmallVector<SpirvInstruction *, 4> operands;
   bool cullFlags;
+};
+
+class SpirvRayTracingTerminateOpKHR : public SpirvTerminator {
+public:
+  SpirvRayTracingTerminateOpKHR(spv::Op opcode, SourceLocation loc);
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvRayTracingTerminateOpKHR)
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_RayTracingTerminate;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
 };
 
 /// \brief OpDemoteToHelperInvocationEXT instruction.
