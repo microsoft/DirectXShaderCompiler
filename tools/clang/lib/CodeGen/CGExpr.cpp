@@ -18,6 +18,7 @@
 #include "CGObjCRuntime.h"
 #include "CGOpenMPRuntime.h"
 #include "CGHLSLRuntime.h"    // HLSL Change
+#include "dxc/HLSL/HLOperations.h" // HLSL Change
 #include "CGRecordLayout.h"
 #include "CodeGenModule.h"
 #include "TargetInfo.h"
@@ -1791,11 +1792,31 @@ void CodeGenFunction::EmitStoreThroughExtVectorComponentLValue(RValue Src,
       }
       Builder.CreateStore(Vec, VecDstPtr);
     } else {
-      for (unsigned i = 0; i < VecTy->getVectorNumElements(); i++) {
-        if (llvm::Constant *Elt = Elts->getAggregateElement(i)) {
-          llvm::Value *EltGEP = Builder.CreateGEP(VecDstPtr, {Zero, Elt});
-          llvm::Value *SrcElt = Builder.CreateExtractElement(SrcVal, i);
-          Builder.CreateStore(SrcElt, EltGEP);
+      // If the vector pointer comes from a call inst, assume it's a subscript.
+      // Do a load and then a store to avoid generating multiple stores.
+      if (llvm::CallInst *CI = llvm::dyn_cast<llvm::CallInst>(VecDstPtr)) {
+        llvm::Value *vec = llvm::UndefValue::get(VecTy);
+        llvm::Value *old_vec = Builder.CreateLoad(VecDstPtr);
+
+        for (unsigned i = 0; i < VecTy->getVectorNumElements(); i++) {
+          if (llvm::Constant *Elt = Elts->getAggregateElement(i)) {
+            llvm::Value *SrcElt = Builder.CreateExtractElement(SrcVal, i);
+            vec = Builder.CreateInsertElement(vec, SrcElt, i);
+          }
+          else {
+            vec = Builder.CreateInsertElement(vec, Builder.CreateExtractElement(old_vec, i), i);
+          }
+        }
+        Builder.CreateStore(vec, VecDstPtr);
+      }
+      // Otherwise just do a gep + store for each component that we're writing to.
+      else {
+        for (unsigned i = 0; i < VecTy->getVectorNumElements(); i++) {
+          if (llvm::Constant *Elt = Elts->getAggregateElement(i)) {
+            llvm::Value *EltGEP = Builder.CreateGEP(VecDstPtr, {Zero, Elt});
+            llvm::Value *SrcElt = Builder.CreateExtractElement(SrcVal, i);
+            Builder.CreateStore(SrcElt, EltGEP);
+          }
         }
       }
     }
