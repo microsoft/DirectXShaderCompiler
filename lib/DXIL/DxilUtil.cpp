@@ -632,8 +632,8 @@ bool IsHLSLResourceType(llvm::Type *Ty) {
 
 std::tuple<bool, hlsl::DXIL::ResourceClass, hlsl::DXIL::ResourceKind> GetHLSLResourceType(llvm::Type *Ty)
 {
-  std::tuple<bool, hlsl::DXIL::ResourceClass, hlsl::DXIL::ResourceKind> FalseRet =
-    { false, hlsl::DXIL::ResourceClass::Invalid, hlsl::DXIL::ResourceKind::Invalid, };
+   using RetType = std::tuple<bool, hlsl::DXIL::ResourceClass, hlsl::DXIL::ResourceKind>;
+   RetType FalseRet(false, hlsl::DXIL::ResourceClass::Invalid, hlsl::DXIL::ResourceKind::Invalid);
 
   if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
     if (!ST->hasName())
@@ -644,19 +644,19 @@ std::tuple<bool, hlsl::DXIL::ResourceClass, hlsl::DXIL::ResourceKind> GetHLSLRes
     ConsumePrefix(name, "struct.");
 
     if (name == "SamplerState")
-      return { true, hlsl::DXIL::ResourceClass::Sampler, hlsl::DXIL::ResourceKind::Sampler };
+      return RetType(true, hlsl::DXIL::ResourceClass::Sampler, hlsl::DXIL::ResourceKind::Sampler);
 
     if (name == "SamplerComparisonState")
-      return { true, hlsl::DXIL::ResourceClass::Sampler, hlsl::DXIL::ResourceKind::SamplerComparison };
+      return RetType(true, hlsl::DXIL::ResourceClass::Sampler, hlsl::DXIL::ResourceKind::SamplerComparison);
 
     if (name.startswith("AppendStructuredBuffer<"))
-      return { true, hlsl::DXIL::ResourceClass::UAV, hlsl::DXIL::ResourceKind::StructuredBufferWithCounter };
+      return RetType(true, hlsl::DXIL::ResourceClass::UAV, hlsl::DXIL::ResourceKind::StructuredBufferWithCounter);
 
     if (name.startswith("ConsumeStructuredBuffer<"))
-      return { true, hlsl::DXIL::ResourceClass::UAV, hlsl::DXIL::ResourceKind::StructuredBufferWithCounter };
+      return RetType(true, hlsl::DXIL::ResourceClass::UAV, hlsl::DXIL::ResourceKind::StructuredBufferWithCounter);
 
     if (name == "RaytracingAccelerationStructure")
-      return { true, hlsl::DXIL::ResourceClass::SRV, hlsl::DXIL::ResourceKind::RTAccelerationStructure };
+      return RetType(true, hlsl::DXIL::ResourceClass::SRV, hlsl::DXIL::ResourceKind::RTAccelerationStructure);
 
     if (ConsumePrefix(name, "FeedbackTexture2D")) {
       hlsl::DXIL::ResourceKind kind = hlsl::DXIL::ResourceKind::Invalid;
@@ -666,7 +666,7 @@ std::tuple<bool, hlsl::DXIL::ResourceClass, hlsl::DXIL::ResourceKind> GetHLSLRes
         kind = hlsl::DXIL::ResourceKind::FeedbackTexture2D;
 
       if (name.startswith("<"))
-        return { true, hlsl::DXIL::ResourceClass::SRV, kind };
+        return RetType(true, hlsl::DXIL::ResourceClass::SRV, kind);
     }
 
     bool RasterizerOrdered = ConsumePrefix(name, "RasterizerOrdered");
@@ -675,41 +675,41 @@ std::tuple<bool, hlsl::DXIL::ResourceClass, hlsl::DXIL::ResourceKind> GetHLSLRes
     hlsl::DXIL::ResourceClass cls = (RasterizerOrdered | ReadWrite) ? hlsl::DXIL::ResourceClass::UAV : hlsl::DXIL::ResourceClass::SRV;
 
     if (name == "ByteAddressBuffer")
-      return { true, cls, hlsl::DXIL::ResourceKind::RawBuffer };
+      return RetType(true, cls, hlsl::DXIL::ResourceKind::RawBuffer);
 
     if (name.startswith("Buffer<"))
-      return { true, cls, hlsl::DXIL::ResourceKind::TypedBuffer };
+      return RetType(true, cls, hlsl::DXIL::ResourceKind::TypedBuffer);
 
     if (name.startswith("StructuredBuffer<"))
-      return { true, cls, hlsl::DXIL::ResourceKind::StructuredBuffer };
+      return RetType(true, cls, hlsl::DXIL::ResourceKind::StructuredBuffer);
 
     if (ConsumePrefix(name, "Texture")) {
       if (name.startswith("1D<"))
-        return { true, cls, hlsl::DXIL::ResourceKind::Texture1D };
+        return RetType(true, cls, hlsl::DXIL::ResourceKind::Texture1D);
 
       if (name.startswith("1DArray<"))
-        return { true, cls, hlsl::DXIL::ResourceKind::Texture1DArray };
+        return RetType(true, cls, hlsl::DXIL::ResourceKind::Texture1DArray);
 
       if (name.startswith("2D<"))
-        return { true, cls, hlsl::DXIL::ResourceKind::Texture2D };
+        return RetType(true, cls, hlsl::DXIL::ResourceKind::Texture2D);
 
       if (name.startswith("2DArray<"))
-        return { true, cls, hlsl::DXIL::ResourceKind::Texture2DArray };
+        return RetType(true, cls, hlsl::DXIL::ResourceKind::Texture2DArray);
 
       if (name.startswith("3D<"))
-        return { true, cls, hlsl::DXIL::ResourceKind::Texture3D };
+        return RetType(true, cls, hlsl::DXIL::ResourceKind::Texture3D);
 
       if (name.startswith("Cube<"))
-        return { true, cls, hlsl::DXIL::ResourceKind::TextureCube };
+        return RetType(true, cls, hlsl::DXIL::ResourceKind::TextureCube);
 
       if (name.startswith("CubeArray<"))
-        return { true, cls, hlsl::DXIL::ResourceKind::TextureCubeArray };
+        return RetType(true, cls, hlsl::DXIL::ResourceKind::TextureCubeArray);
 
       if (name.startswith("2DMS<"))
-        return { true, cls, hlsl::DXIL::ResourceKind::Texture2DMS };
+        return RetType(true, cls, hlsl::DXIL::ResourceKind::Texture2DMS);
 
       if (name.startswith("2DMSArray<"))
-        return { true, cls, hlsl::DXIL::ResourceKind::Texture2DMSArray };
+        return RetType(true, cls, hlsl::DXIL::ResourceKind::Texture2DMSArray);
       return FalseRet;
     }
   }
