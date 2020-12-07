@@ -1798,15 +1798,20 @@ void CodeGenFunction::EmitStoreThroughExtVectorComponentLValue(RValue Src,
         llvm::Value *vec = llvm::UndefValue::get(VecTy);
         llvm::Value *old_vec = Builder.CreateLoad(VecDstPtr);
 
+        llvm::SmallVector<bool, 4> Stored(VecTy->getVectorNumElements());
         for (unsigned i = 0; i < VecTy->getVectorNumElements(); i++) {
           if (llvm::Constant *Elt = Elts->getAggregateElement(i)) {
             llvm::Value *SrcElt = Builder.CreateExtractElement(SrcVal, i);
             vec = Builder.CreateInsertElement(vec, SrcElt, i);
-          }
-          else {
-            vec = Builder.CreateInsertElement(vec, Builder.CreateExtractElement(old_vec, i), i);
+            Stored[cast<llvm::ConstantInt>(Elt)->getLimitedValue()] = true;
           }
         }
+
+        for (unsigned i = 0; i < Stored.size(); i++) {
+          if (!Stored[i])
+            vec = Builder.CreateInsertElement(vec, Builder.CreateExtractElement(old_vec, i), i);
+        }
+
         Builder.CreateStore(vec, VecDstPtr);
       }
       // Otherwise just do a gep + store for each component that we're writing to.
