@@ -627,64 +627,93 @@ uint8_t GetResourceComponentCount(llvm::Type *Ty) {
 }
 
 bool IsHLSLResourceType(llvm::Type *Ty) {
+  return std::get<0>(GetHLSLResourceType(Ty));
+}
+
+std::tuple<bool, hlsl::DXIL::ResourceClass, hlsl::DXIL::ResourceKind> GetHLSLResourceType(llvm::Type *Ty)
+{
+  std::tuple<bool, hlsl::DXIL::ResourceClass, hlsl::DXIL::ResourceKind> FalseRet =
+    { false, hlsl::DXIL::ResourceClass::Invalid, hlsl::DXIL::ResourceKind::Invalid, };
+
   if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
     if (!ST->hasName())
-      return false;
+      return FalseRet;
+
     StringRef name = ST->getName();
     ConsumePrefix(name, "class.");
     ConsumePrefix(name, "struct.");
 
     if (name == "SamplerState")
-      return true;
+      return { true, hlsl::DXIL::ResourceClass::Sampler, hlsl::DXIL::ResourceKind::Sampler };
+
     if (name == "SamplerComparisonState")
-      return true;
+      return { true, hlsl::DXIL::ResourceClass::Sampler, hlsl::DXIL::ResourceKind::SamplerComparison };
 
     if (name.startswith("AppendStructuredBuffer<"))
-      return true;
+      return { true, hlsl::DXIL::ResourceClass::UAV, hlsl::DXIL::ResourceKind::StructuredBufferWithCounter };
+
     if (name.startswith("ConsumeStructuredBuffer<"))
-      return true;
+      return { true, hlsl::DXIL::ResourceClass::UAV, hlsl::DXIL::ResourceKind::StructuredBufferWithCounter };
 
     if (name == "RaytracingAccelerationStructure")
-      return true;
+      return { true, hlsl::DXIL::ResourceClass::SRV, hlsl::DXIL::ResourceKind::RTAccelerationStructure };
 
     if (ConsumePrefix(name, "FeedbackTexture2D")) {
-      ConsumePrefix(name, "Array");
-      return name.startswith("<");
+      hlsl::DXIL::ResourceKind kind = hlsl::DXIL::ResourceKind::Invalid;
+      if (ConsumePrefix(name, "Array"))
+        kind = hlsl::DXIL::ResourceKind::FeedbackTexture2DArray;
+      else
+        kind = hlsl::DXIL::ResourceKind::FeedbackTexture2D;
+
+      if (name.startswith("<"))
+        return { true, hlsl::DXIL::ResourceClass::SRV, kind };
     }
 
-    ConsumePrefix(name, "RasterizerOrdered");
-    ConsumePrefix(name, "RW");
+    bool RasterizerOrdered = ConsumePrefix(name, "RasterizerOrdered");
+    bool ReadWrite         = ConsumePrefix(name, "RW");
+
+    hlsl::DXIL::ResourceClass cls = (RasterizerOrdered | ReadWrite) ? hlsl::DXIL::ResourceClass::UAV : hlsl::DXIL::ResourceClass::SRV;
+
     if (name == "ByteAddressBuffer")
-      return true;
+      return { true, cls, hlsl::DXIL::ResourceKind::RawBuffer };
 
     if (name.startswith("Buffer<"))
-      return true;
+      return { true, cls, hlsl::DXIL::ResourceKind::TypedBuffer };
+
     if (name.startswith("StructuredBuffer<"))
-      return true;
+      return { true, cls, hlsl::DXIL::ResourceKind::StructuredBuffer };
 
     if (ConsumePrefix(name, "Texture")) {
       if (name.startswith("1D<"))
-        return true;
+        return { true, cls, hlsl::DXIL::ResourceKind::Texture1D };
+
       if (name.startswith("1DArray<"))
-        return true;
+        return { true, cls, hlsl::DXIL::ResourceKind::Texture1DArray };
+
       if (name.startswith("2D<"))
-        return true;
+        return { true, cls, hlsl::DXIL::ResourceKind::Texture2D };
+
       if (name.startswith("2DArray<"))
-        return true;
+        return { true, cls, hlsl::DXIL::ResourceKind::Texture2DArray };
+
       if (name.startswith("3D<"))
-        return true;
+        return { true, cls, hlsl::DXIL::ResourceKind::Texture3D };
+
       if (name.startswith("Cube<"))
-        return true;
+        return { true, cls, hlsl::DXIL::ResourceKind::TextureCube };
+
       if (name.startswith("CubeArray<"))
-        return true;
+        return { true, cls, hlsl::DXIL::ResourceKind::TextureCubeArray };
+
       if (name.startswith("2DMS<"))
-        return true;
+        return { true, cls, hlsl::DXIL::ResourceKind::Texture2DMS };
+
       if (name.startswith("2DMSArray<"))
-        return true;
-      return false;
+        return { true, cls, hlsl::DXIL::ResourceKind::Texture2DMSArray };
+      return FalseRet;
     }
   }
-  return false;
+  return FalseRet;
 }
 
 bool IsHLSLObjectType(llvm::Type *Ty) {

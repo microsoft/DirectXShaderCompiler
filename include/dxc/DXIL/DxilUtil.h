@@ -16,6 +16,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/IR/Constants.h"
+#include "dxc/DXIL/DxilConstants.h"
 
 namespace llvm {
 class Type;
@@ -128,6 +129,7 @@ namespace dxilutil {
   bool IsIntegerOrFloatingPointType(llvm::Type *Ty);
   // Returns true if type contains HLSL Object type (resource)
   bool ContainsHLSLObjectType(llvm::Type *Ty);
+  std::tuple<bool, hlsl::DXIL::ResourceClass, hlsl::DXIL::ResourceKind> GetHLSLResourceType(llvm::Type *Ty);
   bool IsHLSLResourceType(llvm::Type *Ty);
   bool IsHLSLObjectType(llvm::Type *Ty);
   bool IsHLSLRayQueryType(llvm::Type *Ty);

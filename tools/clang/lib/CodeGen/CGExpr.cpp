@@ -19,6 +19,7 @@
 #include "CGOpenMPRuntime.h"
 #include "CGHLSLRuntime.h"    // HLSL Change
 #include "dxc/HLSL/HLOperations.h" // HLSL Change
+#include "dxc/DXIL/DxilUtil.h" // HLSL Change
 #include "CGRecordLayout.h"
 #include "CodeGenModule.h"
 #include "TargetInfo.h"
@@ -1758,6 +1759,36 @@ void CodeGenFunction::EmitStoreThroughBitfieldLValue(RValue Src, LValue Dst,
   }
 }
 
+// HLSL Change - begin
+static bool IsHLSubscriptOfTypedBuffer(llvm::Value *V) {
+  llvm::CallInst *CI = nullptr;
+  llvm::Function *F = nullptr;
+
+  if ((CI = dyn_cast<llvm::CallInst>(V)) &&
+    (F = CI->getCalledFunction()) &&
+    hlsl::GetHLOpcodeGroup(F) == hlsl::HLOpcodeGroup::HLSubscript)
+  {
+    for (llvm::Value *arg : CI->arg_operands()) {
+      llvm::Type *Ty = arg->getType();
+      if (Ty->isPointerTy()) {
+        std::tuple<bool, hlsl::DXIL::ResourceClass, hlsl::DXIL::ResourceKind> Result =
+          hlsl::dxilutil::GetHLSLResourceType(Ty->getPointerElementType());
+
+        if (std::get<0>(Result) && 
+          std::get<1>(Result) == hlsl::DXIL::ResourceClass::UAV &&
+          // These are the types of buffers that are not typed
+          std::get<2>(Result) != hlsl::DXIL::ResourceKind::StructuredBuffer &&
+          std::get<2>(Result) != hlsl::DXIL::ResourceKind::RawBuffer)
+        {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+// HLSL Change - end
+
 void CodeGenFunction::EmitStoreThroughExtVectorComponentLValue(RValue Src,
                                                                LValue Dst) {
   // This access turns into a read/modify/write of the vector.  Load the input
@@ -1792,24 +1823,28 @@ void CodeGenFunction::EmitStoreThroughExtVectorComponentLValue(RValue Src,
       }
       Builder.CreateStore(Vec, VecDstPtr);
     } else {
-      // If the vector pointer comes from a call inst, assume it's a subscript.
-      // Do a load and then a store to avoid generating multiple stores.
-      if (llvm::CallInst *CI = llvm::dyn_cast<llvm::CallInst>(VecDstPtr)) {
+
+      // If the vector pointer comes from subscripting a typed rw buffer (Buffer<>, Texture*<>, etc.),
+      // insert the elements from the load.
+      //
+      // This is to avoid the final DXIL producing a load+store for each component later down the line,
+      // as there's no clean way to associate the geps+store with each other.
+      //
+      if (IsHLSubscriptOfTypedBuffer(VecDstPtr)) {
         llvm::Value *vec = llvm::UndefValue::get(VecTy);
-        llvm::Value *old_vec = Builder.CreateLoad(VecDstPtr);
 
         llvm::SmallVector<bool, 4> Stored(VecTy->getVectorNumElements());
         for (unsigned i = 0; i < VecTy->getVectorNumElements(); i++) {
           if (llvm::Constant *Elt = Elts->getAggregateElement(i)) {
             llvm::Value *SrcElt = Builder.CreateExtractElement(SrcVal, i);
-            vec = Builder.CreateInsertElement(vec, SrcElt, i);
+            vec = Builder.CreateInsertElement(vec, SrcElt, Elt);
             Stored[cast<llvm::ConstantInt>(Elt)->getLimitedValue()] = true;
           }
         }
 
         for (unsigned i = 0; i < Stored.size(); i++) {
           if (!Stored[i])
-            vec = Builder.CreateInsertElement(vec, Builder.CreateExtractElement(old_vec, i), i);
+            vec = Builder.CreateInsertElement(vec, Builder.CreateExtractElement(Load, i), i);
         }
 
         Builder.CreateStore(vec, VecDstPtr);
