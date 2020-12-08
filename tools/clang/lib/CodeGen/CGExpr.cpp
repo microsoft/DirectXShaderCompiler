@@ -20,6 +20,7 @@
 #include "CGHLSLRuntime.h"    // HLSL Change
 #include "dxc/HLSL/HLOperations.h" // HLSL Change
 #include "dxc/DXIL/DxilUtil.h" // HLSL Change
+#include "dxc/DXIL/DxilResource.h" // HLSL Change
 #include "CGRecordLayout.h"
 #include "CodeGenModule.h"
 #include "TargetInfo.h"
@@ -1771,14 +1772,14 @@ static bool IsHLSubscriptOfTypedBuffer(llvm::Value *V) {
     for (llvm::Value *arg : CI->arg_operands()) {
       llvm::Type *Ty = arg->getType();
       if (Ty->isPointerTy()) {
-        std::tuple<bool, hlsl::DXIL::ResourceClass, hlsl::DXIL::ResourceKind> Result =
-          hlsl::dxilutil::GetHLSLResourceType(Ty->getPointerElementType());
+        std::pair<bool, hlsl::DxilResourceProperties> Result =
+          hlsl::dxilutil::GetHLSLResourceProperties(Ty->getPointerElementType());
 
-        if (std::get<0>(Result) && 
-          std::get<1>(Result) == hlsl::DXIL::ResourceClass::UAV &&
+        if (Result.first && 
+          Result.second.isUAV() &&
           // These are the types of buffers that are not typed
-          std::get<2>(Result) != hlsl::DXIL::ResourceKind::StructuredBuffer &&
-          std::get<2>(Result) != hlsl::DXIL::ResourceKind::RawBuffer)
+          (hlsl::DxilResource::IsAnyTexture(Result.second.getResourceKind()) ||
+            Result.second.getResourceKind() != hlsl::DXIL::ResourceKind::TypedBuffer))
         {
           return true;
         }

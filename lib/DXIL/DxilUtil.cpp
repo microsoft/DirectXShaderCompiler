@@ -627,13 +627,22 @@ uint8_t GetResourceComponentCount(llvm::Type *Ty) {
 }
 
 bool IsHLSLResourceType(llvm::Type *Ty) {
-  return std::get<0>(GetHLSLResourceType(Ty));
+  return GetHLSLResourceProperties(Ty).first;
 }
 
-std::tuple<bool, hlsl::DXIL::ResourceClass, hlsl::DXIL::ResourceKind> GetHLSLResourceType(llvm::Type *Ty)
+static DxilResourceProperties MakeResourceProperties(hlsl::DXIL::ResourceKind Kind, bool UAV, bool ROV, bool Cmp) {
+  DxilResourceProperties Ret = {};
+  Ret.Basic.IsROV = ROV;
+  Ret.Basic.SamplerCmpOrHasCounter = Cmp;
+  Ret.Basic.IsUAV = UAV;
+  Ret.Basic.ResourceKind = (uint8_t)Kind;
+  return Ret;
+}
+
+std::pair<bool, DxilResourceProperties> GetHLSLResourceProperties(llvm::Type *Ty)
 {
-   using RetType = std::tuple<bool, hlsl::DXIL::ResourceClass, hlsl::DXIL::ResourceKind>;
-   RetType FalseRet(false, hlsl::DXIL::ResourceClass::Invalid, hlsl::DXIL::ResourceKind::Invalid);
+   using RetType = std::pair<bool, DxilResourceProperties>;
+   RetType FalseRet(false, DxilResourceProperties{});
 
   if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
     if (!ST->hasName())
@@ -644,19 +653,19 @@ std::tuple<bool, hlsl::DXIL::ResourceClass, hlsl::DXIL::ResourceKind> GetHLSLRes
     ConsumePrefix(name, "struct.");
 
     if (name == "SamplerState")
-      return RetType(true, hlsl::DXIL::ResourceClass::Sampler, hlsl::DXIL::ResourceKind::Sampler);
+      return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::Sampler, false, false, false));
 
     if (name == "SamplerComparisonState")
-      return RetType(true, hlsl::DXIL::ResourceClass::Sampler, hlsl::DXIL::ResourceKind::SamplerComparison);
+      return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::Sampler, false, false, /*cmp or counter*/true));
 
     if (name.startswith("AppendStructuredBuffer<"))
-      return RetType(true, hlsl::DXIL::ResourceClass::UAV, hlsl::DXIL::ResourceKind::StructuredBufferWithCounter);
+      return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::StructuredBuffer, false, false, /*cmp or counter*/true));
 
     if (name.startswith("ConsumeStructuredBuffer<"))
-      return RetType(true, hlsl::DXIL::ResourceClass::UAV, hlsl::DXIL::ResourceKind::StructuredBufferWithCounter);
+      return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::StructuredBuffer, false, false, /*cmp or counter*/true));
 
     if (name == "RaytracingAccelerationStructure")
-      return RetType(true, hlsl::DXIL::ResourceClass::SRV, hlsl::DXIL::ResourceKind::RTAccelerationStructure);
+      return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::RTAccelerationStructure, false, false, false));
 
     if (ConsumePrefix(name, "FeedbackTexture2D")) {
       hlsl::DXIL::ResourceKind kind = hlsl::DXIL::ResourceKind::Invalid;
@@ -666,50 +675,48 @@ std::tuple<bool, hlsl::DXIL::ResourceClass, hlsl::DXIL::ResourceKind> GetHLSLRes
         kind = hlsl::DXIL::ResourceKind::FeedbackTexture2D;
 
       if (name.startswith("<"))
-        return RetType(true, hlsl::DXIL::ResourceClass::SRV, kind);
+        return RetType(true, MakeResourceProperties(kind, false, false, false));
     }
 
-    bool RasterizerOrdered = ConsumePrefix(name, "RasterizerOrdered");
-    bool ReadWrite         = ConsumePrefix(name, "RW");
-
-    hlsl::DXIL::ResourceClass cls = (RasterizerOrdered | ReadWrite) ? hlsl::DXIL::ResourceClass::UAV : hlsl::DXIL::ResourceClass::SRV;
+    bool ROV = ConsumePrefix(name, "RasterizerOrdered");
+    bool UAV = ConsumePrefix(name, "RW");
 
     if (name == "ByteAddressBuffer")
-      return RetType(true, cls, hlsl::DXIL::ResourceKind::RawBuffer);
+      return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::RawBuffer, UAV, ROV, false));
 
     if (name.startswith("Buffer<"))
-      return RetType(true, cls, hlsl::DXIL::ResourceKind::TypedBuffer);
+      return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::TypedBuffer, UAV, ROV, false));
 
     if (name.startswith("StructuredBuffer<"))
-      return RetType(true, cls, hlsl::DXIL::ResourceKind::StructuredBuffer);
+      return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::StructuredBuffer, UAV, ROV, false));
 
     if (ConsumePrefix(name, "Texture")) {
       if (name.startswith("1D<"))
-        return RetType(true, cls, hlsl::DXIL::ResourceKind::Texture1D);
+        return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::Texture1D, UAV, ROV, false));
 
       if (name.startswith("1DArray<"))
-        return RetType(true, cls, hlsl::DXIL::ResourceKind::Texture1DArray);
+        return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::Texture1DArray, UAV, ROV, false));
 
       if (name.startswith("2D<"))
-        return RetType(true, cls, hlsl::DXIL::ResourceKind::Texture2D);
+        return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::Texture2D, UAV, ROV, false));
 
       if (name.startswith("2DArray<"))
-        return RetType(true, cls, hlsl::DXIL::ResourceKind::Texture2DArray);
+        return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::Texture2DArray, UAV, ROV, false));
 
       if (name.startswith("3D<"))
-        return RetType(true, cls, hlsl::DXIL::ResourceKind::Texture3D);
+        return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::Texture3D, UAV, ROV, false));
 
       if (name.startswith("Cube<"))
-        return RetType(true, cls, hlsl::DXIL::ResourceKind::TextureCube);
+        return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::TextureCube, UAV, ROV, false));
 
       if (name.startswith("CubeArray<"))
-        return RetType(true, cls, hlsl::DXIL::ResourceKind::TextureCubeArray);
+        return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::TextureCubeArray, UAV, ROV, false));
 
       if (name.startswith("2DMS<"))
-        return RetType(true, cls, hlsl::DXIL::ResourceKind::Texture2DMS);
+        return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::Texture2DMS, UAV, ROV, false));
 
       if (name.startswith("2DMSArray<"))
-        return RetType(true, cls, hlsl::DXIL::ResourceKind::Texture2DMSArray);
+        return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::Texture2DMSArray, UAV, ROV, false));
       return FalseRet;
     }
   }
