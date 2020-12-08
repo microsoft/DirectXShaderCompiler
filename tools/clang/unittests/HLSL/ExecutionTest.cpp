@@ -1013,10 +1013,16 @@ public:
     uavDesc.Buffer.StructureByteStride = sizeof(float);
     uavDesc.Buffer.CounterOffsetInBytes = 0;
     uavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
-    for (int i = 0; i < NumUAVs; i++) {
+    for (int i = 0; i < NumUAVs - 1; i++) {
       pDevice->CreateUnorderedAccessView(pUAVResources[i], nullptr, &uavDesc, baseHandle);
       baseHandle = baseHandle.Offset(descriptorSize);
     }
+
+    uavDesc.Format = DXGI_FORMAT_R32_FLOAT;
+    uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE1D;
+    uavDesc.Texture1D.MipSlice = 0;
+    pDevice->CreateUnorderedAccessView(pUAVResources[NumUAVs - 1], nullptr, &uavDesc, baseHandle);
+
   }
 
   // Create Samplers for <pDevice> given the filter and border color information provided
@@ -7987,7 +7993,7 @@ void ExecutionTest::RunResourceTest(ID3D12Device *pDevice, const char *pShader,
   // Set up UAV resources
   CComPtr<ID3D12Resource> pReadBuffer;
   float values[valueSize];
-  for (int i = 0; i < NumUAVs - 1; i++) {
+  for (int i = 0; i < NumUAVs - 2; i++) {
     for (int j = 0; j < valueSize; j++)
       values[j] = 20.0 + i;
     CreateTestUavs(pDevice, pCommandList, values, valueSizeInBytes,
@@ -7996,7 +8002,13 @@ void ExecutionTest::RunResourceTest(ID3D12Device *pDevice, const char *pShader,
   for (int j = 0; j < valueSize; j++)
     values[j] = 20.0 + (NumUAVs - 1);
   CreateTestUavs(pDevice, pCommandList, values, valueSizeInBytes,
-                 &pUAVResources[NumUAVs - 1], &pUploadResources[NumResources - 1], &pReadBuffer);
+                 &pUAVResources[NumUAVs - 2], &pUploadResources[NumResources - 2], &pReadBuffer);
+
+  for (int j = 0; j < valueSize; j++)
+    values[j] = 20.0 + (NumUAVs - 2);
+  D3D12_RESOURCE_DESC tex1dDesc = CD3DX12_RESOURCE_DESC::Tex1D(DXGI_FORMAT_R32_FLOAT, valueSize, 1, 0, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+  CreateTestResources(pDevice, pCommandList, values, valueSizeInBytes, tex1dDesc,
+                      &pUAVResources[NumUAVs - 1], &pUploadResources[NumResources - 1]);
 
   // Close the command list and execute it to perform the GPU setup.
   pCommandList->Close();
@@ -8031,8 +8043,8 @@ void ExecutionTest::RunResourceTest(ID3D12Device *pDevice, const char *pShader,
   // Run the compute shader and copy the results back to readable memory.
   pCommandList->Dispatch(DispatchGroupX, DispatchGroupY, DispatchGroupZ);
 
-  RecordTransitionBarrier(pCommandList, pUAVResources[NumUAVs - 1], D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
-  pCommandList->CopyResource(pReadBuffer, pUAVResources[NumUAVs - 1]);
+  RecordTransitionBarrier(pCommandList, pUAVResources[NumUAVs - 2], D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
+  pCommandList->CopyResource(pReadBuffer, pUAVResources[NumUAVs - 2]);
 
   pCommandList->Close();
   ExecuteCommandList(pCommandQueue, pCommandList);
@@ -8059,8 +8071,8 @@ TEST_F(ExecutionTest, SignatureResourcesTest) {
     "Texture2D<float>          g_tex         : register(t2);\n"
     "RWByteAddressBuffer       g_rwRawBuf    : register(u0);\n"
     "RWStructuredBuffer<float> g_rwStructBuf : register(u1);\n"
-    "RWTexture1D<float>        g_rwTex       : register(u2);\n"
-    "RWBuffer<float>           g_result      : register(u3);\n"
+    "RWBuffer<float>           g_result      : register(u2);\n"
+    "RWTexture1D<float>        g_rwTex       : register(u3);\n"
     "SamplerState              g_samp        : register(s0);\n"
     "SamplerComparisonState    g_sampCmp     : register(s1);\n"
     "[NumThreads(1, 1, 1)]\n"
@@ -8070,16 +8082,10 @@ TEST_F(ExecutionTest, SignatureResourcesTest) {
     "  g_result[2] = g_tex.Load(0);\n"
     "  g_result[3] = g_rwRawBuf.Load<float>(0);\n"
     "  g_result[4] = g_rwStructBuf.Load(0);\n"
-    "  g_result[5] = 22;// g_rwTex.Load(0); // BUG: WARP fails on this\n"
+    "  g_result[5] = g_rwTex.Load(0);\n"
     "  g_result[6] = g_tex.SampleLevel(g_samp, -0.5, 0);\n"
     "  g_result[7] = g_tex.SampleCmpLevelZero(g_sampCmp, -0.5, 31.0);\n"
     "}\n";
-  if (!GetTestParamUseWARP(UseWarpByDefault())) {
-    // Undo WARP workaround
-    size_t pos = pShader.find("22;//");
-    pShader.replace(pos, 5, "     ");
-  }
-
 
   CComPtr<ID3D12Device> pDevice;
   if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6))
@@ -8095,8 +8101,8 @@ TEST_F(ExecutionTest, DynamicResourcesTest) {
     "static Texture2D<float>          g_tex         = ResourceDescriptorHeap[2];\n"
     "static RWByteAddressBuffer       g_rwRawBuf    = ResourceDescriptorHeap[3];\n"
     "static RWStructuredBuffer<float> g_rwStructBuf = ResourceDescriptorHeap[4];\n"
-    "static RWTexture1D<float>        g_rwTex       = ResourceDescriptorHeap[5];\n"
-    "static RWBuffer<float>           g_result      = ResourceDescriptorHeap[6];\n"
+    "static RWBuffer<float>           g_result      = ResourceDescriptorHeap[5];\n"
+    "static RWTexture1D<float>        g_rwTex       = ResourceDescriptorHeap[6];\n"
     "static SamplerState              g_samp        = SamplerDescriptorHeap[0];\n"
     "static SamplerComparisonState    g_sampCmp     = SamplerDescriptorHeap[1];\n"
     "[NumThreads(1, 1, 1)]\n"
