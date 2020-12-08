@@ -41,7 +41,7 @@ set DO_SETUP=1
 set DO_BUILD=1
 set CMAKE_OPTS=
 set CMAKE_PATH=
-set SPEAK=1
+set SPEAK=0
 set PARALLEL_OPT=/m
 set ALL_DEFS=OFF
 set ANALYZE=OFF
@@ -145,7 +145,11 @@ if "%1"=="-tblgen" (
 )
 
 if "%1"=="-dont-speak" (
-  set SPEAK=0
+  shift /1
+)
+
+if "%1"=="-speak-up" (
+  set SPEAK=1
   shift /1
 )
 
@@ -337,7 +341,7 @@ exit /b 0
 echo Builds HLSL solutions and the product and test binaries for the current
 echo flavor and architecture.
 echo.
-echo hctbuild [-s or -b] [-alldef] [-analyze] [-official] [-fv] [-fvloc <path>] [-rel] [-arm or -arm64 or -x86 or -x64] [-Release] [-Debug] [-vs2017] [-vs2019] [-ninja] [-tblgen path] [-dont-speak] [-no-parallel] [-no-dxilconv]
+echo hctbuild [-s or -b] [-alldef] [-analyze] [-official] [-fv] [-fvloc <path>] [-rel] [-arm or -arm64 or -x86 or -x64] [-Release] [-Debug] [-vs2017] [-vs2019] [-ninja] [-tblgen path] [-speak-up] [-no-parallel] [-no-dxilconv]
 echo.
 echo   -s   creates the projects only, without building
 echo   -b   builds the existing project
@@ -348,7 +352,7 @@ echo   -official      will generate official version for build
 echo   -fv            fixes the resource version for release (utils\version\version.inc)
 echo   -fvloc <path>  directory with the version.inc file
 echo   -rel           builds release rather than debug
-echo   -dont-speak    disables audible build confirmation
+echo   -speak-up      enables audible build confirmation
 echo   -no-parallel   disables parallel build
 echo   -no-dxilconv   disables build of DXBC to DXIL converter and tools
 echo   -vs2017        uses Visual Studio 2017 to build
