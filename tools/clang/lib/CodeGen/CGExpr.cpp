@@ -1779,7 +1779,7 @@ static bool IsHLSubscriptOfTypedBuffer(llvm::Value *V) {
           Result.second.isUAV() &&
           // These are the types of buffers that are not typed
           (hlsl::DxilResource::IsAnyTexture(Result.second.getResourceKind()) ||
-            Result.second.getResourceKind() != hlsl::DXIL::ResourceKind::TypedBuffer))
+            Result.second.getResourceKind() == hlsl::DXIL::ResourceKind::TypedBuffer))
         {
           return true;
         }
@@ -1832,22 +1832,13 @@ void CodeGenFunction::EmitStoreThroughExtVectorComponentLValue(RValue Src,
       // as there's no clean way to associate the geps+store with each other.
       //
       if (IsHLSubscriptOfTypedBuffer(VecDstPtr)) {
-        llvm::Value *vec = llvm::UndefValue::get(VecTy);
-
-        llvm::SmallVector<bool, 4> Stored(VecTy->getVectorNumElements());
+        llvm::Value *vec = Load;
         for (unsigned i = 0; i < VecTy->getVectorNumElements(); i++) {
           if (llvm::Constant *Elt = Elts->getAggregateElement(i)) {
             llvm::Value *SrcElt = Builder.CreateExtractElement(SrcVal, i);
             vec = Builder.CreateInsertElement(vec, SrcElt, Elt);
-            Stored[cast<llvm::ConstantInt>(Elt)->getLimitedValue()] = true;
           }
         }
-
-        for (unsigned i = 0; i < Stored.size(); i++) {
-          if (!Stored[i])
-            vec = Builder.CreateInsertElement(vec, Builder.CreateExtractElement(Load, i), i);
-        }
-
         Builder.CreateStore(vec, VecDstPtr);
       }
       // Otherwise just do a gep + store for each component that we're writing to.
