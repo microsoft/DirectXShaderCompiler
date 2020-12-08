@@ -1777,9 +1777,9 @@ static bool IsHLSubscriptOfTypedBuffer(llvm::Value *V) {
 
         if (Result.first && 
           Result.second.isUAV() &&
-          // These are the types of buffers that are not typed
+          // These are the types of buffers that are typed.
           (hlsl::DxilResource::IsAnyTexture(Result.second.getResourceKind()) ||
-            Result.second.getResourceKind() == hlsl::DXIL::ResourceKind::TypedBuffer))
+           Result.second.getResourceKind() == hlsl::DXIL::ResourceKind::TypedBuffer))
         {
           return true;
         }
