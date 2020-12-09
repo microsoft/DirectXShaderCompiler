@@ -1028,7 +1028,12 @@ SpirvInstruction *SpirvEmitter::castToType(SpirvInstruction *value,
 }
 
 void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
-  assert(decl->isThisDeclarationADefinition());
+  // Forward declaration of a function inside another.
+  if(!decl->isThisDeclarationADefinition()) {
+    addFunctionToWorkQueue(spvContext.getCurrentShaderModelKind(), decl,
+                           /*isEntryFunction*/ false);
+    return;
+  }
 
   // A RAII class for maintaining the current function under traversal.
   class FnEnvRAII {
