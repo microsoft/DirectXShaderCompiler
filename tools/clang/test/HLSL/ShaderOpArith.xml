@@ -402,9 +402,9 @@
         };
 
         Texture2D<float> g_tex : register(t0);
-        RWStructuredBuffer<float4> g_bufMain : register(u0);
-        RWStructuredBuffer<float4> g_bufMesh : register(u1);
-        RWStructuredBuffer<float4> g_bufAmp : register(u2);
+        RWStructuredBuffer<uint4> g_bufMain : register(u0);
+        RWStructuredBuffer<uint4> g_bufMesh : register(u1);
+        RWStructuredBuffer<uint4> g_bufAmp : register(u2);
 
         PSInput VSMain(float3 position : POSITION, float2 uv : TEXCOORD) {
           PSInput result;
