@@ -3209,26 +3209,36 @@ TEST_F(ExecutionTest, QuadReadTest) {
 }
 
 void VerifySampleResults(const UINT *pPixels) {
-  UINT lod = 0;
-  // sample coords are such that they alternate between zero and a
-  // value of magnitude dependent on index
-  // Each pixel performs four samples, but only keeps two
-  // These are horizontal using the magnitude of the current pixel,
-  // horizontal using the magnitude of the neighboring pixel
-  // and vertical variants of each. For even rows or columns, the sample value
-  // is zero so the magnitude has no effect on that sample.
-  // The two that are kept are those that use the magnitude of the current pixel.
-  // All samples are performed even if discarded to get proper quad sampling.
+  UINT xlod = 0;
+  UINT ylod = 0;
+  // Each pixel contains 4 samples and 4 LOD calculations.
+  // 2 of these (called 'left' and 'right') have X values that vary and a constant Y
+  // 2 others (called 'top' and 'bot') have Y values that vary and a constant X
+  // Only of the X variant sample results and one of the Y variant results
+  // are actually reported for the pixel.
+  // The other 2 serve as "helpers" to the other pixels in the quad.
+  // On the left side of the quad, the 'left' samples are reported.
+  // Op the top of the quad, the 'top' samples are reported and so on.
+  // The varying coordinate values alternate between zero and a
+  // value whose magnitude increases with the index.
+  // As a result, the LOD level should steadily increas.
+  // Due to vagaries of implementation, the same derivatives
+  // in both directions might result in different levels for different locations
+  // in the quad. So only comparisons between sample results and LOD calculations
+  // and ensuring that the LOD increased and reaches the max can be tested reliably.
   for (unsigned i = 0; i < 64; i++) {
     // CalculateLOD and Sample from texture with mip levels containing LOD index should match
-    // NOTE: this doesn't work on pixel shaders. Should work on the more constrained compute
-    VERIFY_IS_TRUE(pPixels[4*i + 0] == pPixels[2*i + 1]);
-    VERIFY_IS_TRUE(pPixels[4*i + 2] == pPixels[2*i + 3]);
-    VERIFY_IS_TRUE(pPixels[4*i + 0] == pPixels[2*i + 3]);
-    // Make sure LOD is every climbing as magnitudes increase
-    VERIFY_IS_TRUE(pPixels[4*i] >= lod);
-    lod = pPixels[2*i];
+    VERIFY_ARE_EQUAL(pPixels[4*i + 0], pPixels[4*i + 1]);
+    VERIFY_ARE_EQUAL(pPixels[4*i + 2], pPixels[4*i + 3]);
+    // Make sure LODs are ever climbing as magnitudes increase
+    VERIFY_IS_TRUE(pPixels[4*i] >= xlod);
+    xlod = pPixels[4*i];
+    VERIFY_IS_TRUE(pPixels[4*i + 2] >= ylod);
+    ylod = pPixels[4*i + 2];
   }
+  // Make sure we reached the max lod level for both tracks
+  VERIFY_ARE_EQUAL(xlod, 6);
+  VERIFY_ARE_EQUAL(ylod, 6);
 }
 
 TEST_F(ExecutionTest, ComputeSampleTest) {
@@ -3246,16 +3256,13 @@ TEST_F(ExecutionTest, ComputeSampleTest) {
 
   st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("ComputeSample");
 
-  pShaderOp->CS = nullptr;
-  pShaderOp->MS = nullptr;
-
   D3D12_RESOURCE_DESC &texDesc = pShaderOp->GetResourceByName("T0")->Desc;
   UINT texWidth = (UINT)texDesc.Width;
   UINT texHeight = (UINT)texDesc.Height;
 
   // Initialize texture with the LOD number in each corresponding mip level
   auto SampleInitFn = [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
-                        VERIFY_IS_TRUE(0 == _stricmp(Name, "T0"));
+                        VERIFY_ARE_EQUAL(0, _stricmp(Name, "T0"));
                         size_t size = sizeof(float) * texWidth * texHeight * 2;
                         Data.resize(size);
                         float *pPrimitives = (float *)Data.data();
