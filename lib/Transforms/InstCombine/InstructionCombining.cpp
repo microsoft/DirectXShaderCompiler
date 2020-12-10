@@ -60,6 +60,8 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/Local.h"
+#include "dxc/HLSL/HLModule.h"
+
 #include <algorithm>
 #include <climits>
 using namespace llvm;
@@ -3047,10 +3049,12 @@ namespace {
 class InstructionCombiningPass : public FunctionPass {
   InstCombineWorklist Worklist;
 
+  bool SkipExported;  // HLSL Change - if true, don't process entry and other exported functions
+
 public:
   static char ID; // Pass identification, replacement for typeid
 
-  InstructionCombiningPass() : FunctionPass(ID) {
+  InstructionCombiningPass(bool SkipExported = false) : FunctionPass(ID), SkipExported(SkipExported) {  // HLSL Change - added SkipExported
     initializeInstructionCombiningPassPass(*PassRegistry::getPassRegistry());
   }
 
@@ -3071,6 +3075,14 @@ void InstructionCombiningPass::getAnalysisUsage(AnalysisUsage &AU) const {
 bool InstructionCombiningPass::runOnFunction(Function &F) {
   if (skipOptnoneFunction(F))
     return false;
+
+  // HLSL Change begins
+  if (SkipExported) {
+      hlsl::HLModule *hlmodule = &F.getParent()->GetOrCreateHLModule();
+      if (hlmodule->GetEntryFunction() == &F || hlmodule->HasDxilFunctionProps(&F))
+          return false;
+  }
+  // HLSL Change ends
 
   // Required analyses.
   auto AA = &getAnalysis<AliasAnalysis>();
@@ -3104,6 +3116,8 @@ void LLVMInitializeInstCombine(LLVMPassRegistryRef R) {
   initializeInstructionCombiningPassPass(*unwrap(R));
 }
 
-FunctionPass *llvm::createInstructionCombiningPass() {
-  return new InstructionCombiningPass();
+// HLSL Change begins
+FunctionPass *llvm::createInstructionCombiningPass(bool SkipExported) {
+  return new InstructionCombiningPass(SkipExported);
 }
+// HLSL Change ends

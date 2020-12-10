@@ -289,6 +289,7 @@ bool InstCombiner::ShouldOptimizeCast(Instruction::CastOps opc, const Value *V,
 Instruction *InstCombiner::commonCastTransforms(CastInst &CI) {
   Value *Src = CI.getOperand(0);
 
+#if 0 // HLSL Change - Don't eliminate casts of casts to avoid problems with SROA_Helper::LowerMemcpy
   // Many cases of "cast of a cast" are eliminable. If it's eliminable we just
   // eliminate it now.
   if (CastInst *CSrc = dyn_cast<CastInst>(Src)) {   // A->B->C cast
@@ -299,6 +300,7 @@ Instruction *InstCombiner::commonCastTransforms(CastInst &CI) {
       return CastInst::Create(opc, CSrc->getOperand(0), CI.getType());
     }
   }
+#endif // HLSL Change - Don't eliminate casts of casts to avoid problems with SROA_Helper::LowerMemcpy
 
   // If we are casting a select then fold the cast into the select
   if (SelectInst *SI = dyn_cast<SelectInst>(Src))

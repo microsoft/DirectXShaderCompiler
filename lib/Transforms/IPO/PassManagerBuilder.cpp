@@ -405,6 +405,16 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createDxilRewriteOutputArgDebugInfoPass()); // Fix output argument types.
 
   MPM.add(createHLLegalizeParameter()); // legalize parameters before inline.
+
+  // Execute some optimizations on functions to be inlined to avoid code explosion
+  MPM.add(createDxilCleanupAddrSpaceCastPass());
+  MPM.add(createHLPreprocessPass());
+  MPM.add(createDxilConditionalMem2RegPass(/*NoOpt*/false, /*SkipExported*/true));
+  MPM.add(createDxilConvergentMarkPass());  // avoid sample coordinate sinking into control flow (convergent_cs.hlsl)
+  MPM.add(createInstructionCombiningPass(/*SkipExported*/true));
+  MPM.add(createCFGSimplificationPass());
+  MPM.add(createInstructionCombiningPass(/*SkipExported*/true));
+
   MPM.add(createAlwaysInlinerPass(/*InsertLifeTime*/this->HLSLEnableLifetimeMarkers));
   if (Inliner) {
     delete Inliner;
