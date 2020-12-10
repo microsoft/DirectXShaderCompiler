@@ -307,10 +307,7 @@ public:
   TEST_METHOD(AtomicsFloatTest);
   TEST_METHOD(SignatureResourcesTest)
   TEST_METHOD(DynamicResourcesTest)
-
-  BEGIN_TEST_METHOD(QuadReadTest)
-    TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.0
-  END_TEST_METHOD()
+  TEST_METHOD(QuadReadTest)
 
   BEGIN_TEST_METHOD(CBufferTestHalf)
     TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.2
@@ -3097,10 +3094,10 @@ TEST_F(ExecutionTest, DerivativesTest) {
 void VerifyQuadReadResults(const UINT *pPixels, UINT quadIndex) {
   for (UINT i = 0; i < 4; i++) {
     UINT ix = quadIndex + i;
-    VERIFY_IS_TRUE(pPixels[4*ix + 0] == ix); // ReadLaneAt own quad index
-    VERIFY_IS_TRUE(pPixels[4*ix + 1] == (ix^1));// ReadAcrossX
-    VERIFY_IS_TRUE(pPixels[4*ix + 2] == (ix^2));// ReadAcrossY
-    VERIFY_IS_TRUE(pPixels[4*ix + 3] == (ix^3));// ReadAcrossDiagonal
+    VERIFY_ARE_EQUAL(pPixels[4*ix + 0], ix); // ReadLaneAt own quad index
+    VERIFY_ARE_EQUAL(pPixels[4*ix + 1], (ix^1));// ReadAcrossX
+    VERIFY_ARE_EQUAL(pPixels[4*ix + 2], (ix^2));// ReadAcrossY
+    VERIFY_ARE_EQUAL(pPixels[4*ix + 3], (ix^3));// ReadAcrossDiagonal
   }
 }
 
@@ -3113,6 +3110,12 @@ TEST_F(ExecutionTest, QuadReadTest) {
   CComPtr<ID3D12Device> pDevice;
   if (!CreateDevice(&pDevice))
     return;
+
+  if (GetTestParamUseWARP(UseWarpByDefault())) {
+    WEX::Logging::Log::Comment(L"WARP does not support QuadRead in compute shaders.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
 
   std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
     std::make_shared<st::ShaderOpSet>();
@@ -3148,7 +3151,6 @@ TEST_F(ExecutionTest, QuadReadTest) {
     UINT mwidth = D.mx;
     UINT mheight = D.my;
     UINT mdepth = D.mz;
-    UINT pixelSize = 4; // always int4
     // format compiler args
     char compilerOptions[256];
     VERIFY_IS_TRUE(sprintf_s(compilerOptions, sizeof(compilerOptions),
@@ -3173,8 +3175,7 @@ TEST_F(ExecutionTest, QuadReadTest) {
 
     // To find roughly the center for compute, divide the pixel count in half
     // and truncate to next lowest power of 4 to start at a quad
-    UINT centerIndex = ((UINT64)(width * height * depth)/2) & ~0x3;
-    UINT offsetCenter = centerIndex * pixelSize;
+    UINT offsetCenter = ((UINT64)(width * height * depth)/2) & ~0x3;
 
     // Test first, second and center quads
     LogCommentFmt(L"Verifying QuadRead* in compute shader results");
@@ -3183,8 +3184,7 @@ TEST_F(ExecutionTest, QuadReadTest) {
     VerifyQuadReadResults(pPixels, offsetCenter);
 
     if (DoesDeviceSupportMeshAmpDerivatives(pDevice)) {
-      centerIndex = ((UINT64)(mwidth * mheight * mdepth)/2) & ~0x3;
-      offsetCenter = centerIndex * pixelSize;
+      offsetCenter = ((UINT64)(mwidth * mheight * mdepth)/2) & ~0x3;
 
       // Disable CS so mesh goes forward
       pShaderOp->CS = nullptr;
@@ -3209,26 +3209,36 @@ TEST_F(ExecutionTest, QuadReadTest) {
 }
 
 void VerifySampleResults(const UINT *pPixels) {
-  UINT lod = 0;
-  // sample coords are such that they alternate between zero and a
-  // value of magnitude dependent on index
-  // Each pixel performs four samples, but only keeps two
-  // These are horizontal using the magnitude of the current pixel,
-  // horizontal using the magnitude of the neighboring pixel
-  // and vertical variants of each. For even rows or columns, the sample value
-  // is zero so the magnitude has no effect on that sample.
-  // The two that are kept are those that use the magnitude of the current pixel.
-  // All samples are performed even if discarded to get proper quad sampling.
+  UINT xlod = 0;
+  UINT ylod = 0;
+  // Each pixel contains 4 samples and 4 LOD calculations.
+  // 2 of these (called 'left' and 'right') have X values that vary and a constant Y
+  // 2 others (called 'top' and 'bot') have Y values that vary and a constant X
+  // Only of the X variant sample results and one of the Y variant results
+  // are actually reported for the pixel.
+  // The other 2 serve as "helpers" to the other pixels in the quad.
+  // On the left side of the quad, the 'left' samples are reported.
+  // Op the top of the quad, the 'top' samples are reported and so on.
+  // The varying coordinate values alternate between zero and a
+  // value whose magnitude increases with the index.
+  // As a result, the LOD level should steadily increas.
+  // Due to vagaries of implementation, the same derivatives
+  // in both directions might result in different levels for different locations
+  // in the quad. So only comparisons between sample results and LOD calculations
+  // and ensuring that the LOD increased and reaches the max can be tested reliably.
   for (unsigned i = 0; i < 64; i++) {
     // CalculateLOD and Sample from texture with mip levels containing LOD index should match
-    // NOTE: this doesn't work on pixel shaders. Should work on the more constrained compute
-    VERIFY_IS_TRUE(pPixels[4*i + 0] == pPixels[2*i + 1]);
-    VERIFY_IS_TRUE(pPixels[4*i + 2] == pPixels[2*i + 3]);
-    VERIFY_IS_TRUE(pPixels[4*i + 0] == pPixels[2*i + 3]);
-    // Make sure LOD is every climbing as magnitudes increase
-    VERIFY_IS_TRUE(pPixels[4*i] >= lod);
-    lod = pPixels[2*i];
+    VERIFY_ARE_EQUAL(pPixels[4*i + 0], pPixels[4*i + 1]);
+    VERIFY_ARE_EQUAL(pPixels[4*i + 2], pPixels[4*i + 3]);
+    // Make sure LODs are ever climbing as magnitudes increase
+    VERIFY_IS_TRUE(pPixels[4*i] >= xlod);
+    xlod = pPixels[4*i];
+    VERIFY_IS_TRUE(pPixels[4*i + 2] >= ylod);
+    ylod = pPixels[4*i + 2];
   }
+  // Make sure we reached the max lod level for both tracks
+  VERIFY_ARE_EQUAL(xlod, 6);
+  VERIFY_ARE_EQUAL(ylod, 6);
 }
 
 TEST_F(ExecutionTest, ComputeSampleTest) {
@@ -3246,16 +3256,13 @@ TEST_F(ExecutionTest, ComputeSampleTest) {
 
   st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("ComputeSample");
 
-  pShaderOp->CS = nullptr;
-  pShaderOp->MS = nullptr;
-
   D3D12_RESOURCE_DESC &texDesc = pShaderOp->GetResourceByName("T0")->Desc;
   UINT texWidth = (UINT)texDesc.Width;
   UINT texHeight = (UINT)texDesc.Height;
 
   // Initialize texture with the LOD number in each corresponding mip level
   auto SampleInitFn = [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
-                        VERIFY_IS_TRUE(0 == _stricmp(Name, "T0"));
+                        VERIFY_ARE_EQUAL(0, _stricmp(Name, "T0"));
                         size_t size = sizeof(float) * texWidth * texHeight * 2;
                         Data.resize(size);
                         float *pPrimitives = (float *)Data.data();
