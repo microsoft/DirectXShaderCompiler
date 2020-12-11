@@ -271,7 +271,7 @@ enum class ValidationRule : unsigned {
 
   // Type system
   TypesDefined, // Type must be defined based on DXIL primitives
-  TypesI8, // I8 can only be used as immediate value for intrinsic.
+  TypesI8, // I8 can only be used as immediate value for intrinsic or as i8* via bitcast by lifetime intrinsics.
   TypesIntWidth, // Int type must be of valid width
   TypesNoMultiDim, // Only one dimension allowed for array type.
   TypesNoPtrToPtr, // Pointers to pointers, or pointers in structures are not allowed.

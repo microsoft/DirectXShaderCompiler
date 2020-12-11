@@ -2561,7 +2561,7 @@ class db_dxil(object):
         self.add_valrule_msg("Types.IntWidth", "Int type must be of valid width", "Int type '%0' has an invalid width.")
         self.add_valrule("Types.NoMultiDim", "Only one dimension allowed for array type.")
         self.add_valrule("Types.NoPtrToPtr", "Pointers to pointers, or pointers in structures are not allowed.")
-        self.add_valrule("Types.I8", "I8 can only be used as immediate value for intrinsic.")
+        self.add_valrule("Types.I8", "I8 can only be used as immediate value for intrinsic or as i8* via bitcast by lifetime intrinsics.")
 
         self.add_valrule_msg("Sm.Name", "Target shader model name must be known", "Unknown shader model '%0'.")
         self.add_valrule_msg("Sm.DxilVersion", "Target shader model requires specific Dxil Version", "Shader model requires Dxil Version %0,%1.")
