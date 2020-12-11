@@ -3192,7 +3192,7 @@ SM.WAVESIZENEEDSDXIL16PLUS                WaveSize is valid only for DXIL versio
 SM.WAVESIZEVALUE                          Declared WaveSize %0 outside valid range [%1..%2], or not a power of 2.
 SM.ZEROHSINPUTCONTROLPOINTWITHINPUT       When HS input control point count is 0, no input signature should exist.
 TYPES.DEFINED                             Type must be defined based on DXIL primitives
-TYPES.I8                                  I8 can only be used as immediate value for intrinsic.
+TYPES.I8                                  I8 can only be used as immediate value for intrinsic or as i8* via bitcast by lifetime intrinsics.
 TYPES.INTWIDTH                            Int type must be of valid width
 TYPES.NOMULTIDIM                          Only one dimension allowed for array type.
 TYPES.NOPTRTOPTR                          Pointers to pointers, or pointers in structures are not allowed.
