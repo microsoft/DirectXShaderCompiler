@@ -60,13 +60,16 @@ DXIL::ComponentType DxilResourceProperties::getCompType() const {
 }
 
 unsigned DxilResourceProperties::getElementStride() const {
-  switch (static_cast<DXIL::ResourceKind>(Basic.ResourceKind)) {
+  switch (getResourceKind()) {
   default:
-    return 4;
+    return CompType(getCompType()).GetSizeInBits() / 8;
   case DXIL::ResourceKind::RawBuffer:
     return 1;
   case DXIL::ResourceKind::StructuredBuffer:
-    return this->StructStrideInBytes;
+    return StructStrideInBytes;
+  case DXIL::ResourceKind::CBuffer:
+  case DXIL::ResourceKind::Sampler:
+    return 0;
   }
 }
 
