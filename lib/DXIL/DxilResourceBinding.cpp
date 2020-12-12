@@ -88,7 +88,7 @@ DxilResourceBinding loadBindingFromConstant(const llvm::Constant &C) {
   return B;
 }
 DxilResourceBinding loadBindingFromCreateHandleFromBinding(
-    DxilInst_CreateHandleFromBinding &createHandle, llvm::Type *Ty,
+    const DxilInst_CreateHandleFromBinding &createHandle, llvm::Type *Ty,
     const ShaderModel &) {
   Constant *B = cast<Constant>(createHandle.get_bind());
   return loadBindingFromConstant(*B);

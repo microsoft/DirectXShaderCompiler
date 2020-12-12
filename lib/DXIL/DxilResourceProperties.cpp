@@ -59,6 +59,17 @@ DXIL::ComponentType DxilResourceProperties::getCompType() const {
   return static_cast<DXIL::ComponentType>(Typed.CompType);
 }
 
+unsigned DxilResourceProperties::getElementStride() const {
+  switch (static_cast<DXIL::ResourceKind>(Basic.ResourceKind)) {
+  default:
+    return 4;
+  case DXIL::ResourceKind::RawBuffer:
+    return 1;
+  case DXIL::ResourceKind::StructuredBuffer:
+    return this->StructStrideInBytes;
+  }
+}
+
 bool DxilResourceProperties::operator==(const DxilResourceProperties &RP) const {
   return RawDword0 == RP.RawDword0 &&
          RawDword1 == RP.RawDword1;
@@ -121,7 +132,7 @@ loadPropsFromAnnotateHandle(DxilInst_AnnotateHandle &annotateHandle,
   return loadPropsFromConstant(*ResProp);
 }
 
-DxilResourceProperties loadPropsFromResourceBase(DxilResourceBase *Res) {
+DxilResourceProperties loadPropsFromResourceBase(const DxilResourceBase *Res) {
 
   DxilResourceProperties RP;
   if (!Res) {

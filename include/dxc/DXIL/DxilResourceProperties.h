@@ -68,6 +68,7 @@ struct DxilResourceProperties {
   DXIL::ResourceClass getResourceClass() const;
   DXIL::ResourceKind  getResourceKind() const;
   DXIL::ComponentType getCompType() const;
+  unsigned getElementStride() const;
   void setResourceKind(DXIL::ResourceKind RK);
   bool isUAV() const;
   bool operator==(const DxilResourceProperties &) const;
@@ -90,7 +91,7 @@ DxilResourceProperties loadPropsFromConstant(const llvm::Constant &C);
 DxilResourceProperties
 loadPropsFromAnnotateHandle(DxilInst_AnnotateHandle &annotateHandle, llvm::Type *Ty,
                        const ShaderModel &);
-DxilResourceProperties loadPropsFromResourceBase(DxilResourceBase *);
+DxilResourceProperties loadPropsFromResourceBase(const DxilResourceBase *);
 
 } // namespace resource_helper
 
