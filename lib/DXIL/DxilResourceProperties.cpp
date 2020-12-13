@@ -59,6 +59,20 @@ DXIL::ComponentType DxilResourceProperties::getCompType() const {
   return static_cast<DXIL::ComponentType>(Typed.CompType);
 }
 
+unsigned DxilResourceProperties::getElementStride() const {
+  switch (getResourceKind()) {
+  default:
+    return CompType(getCompType()).GetSizeInBits() / 8;
+  case DXIL::ResourceKind::RawBuffer:
+    return 1;
+  case DXIL::ResourceKind::StructuredBuffer:
+    return StructStrideInBytes;
+  case DXIL::ResourceKind::CBuffer:
+  case DXIL::ResourceKind::Sampler:
+    return 0;
+  }
+}
+
 bool DxilResourceProperties::operator==(const DxilResourceProperties &RP) const {
   return RawDword0 == RP.RawDword0 &&
          RawDword1 == RP.RawDword1;
@@ -121,7 +135,7 @@ loadPropsFromAnnotateHandle(DxilInst_AnnotateHandle &annotateHandle,
   return loadPropsFromConstant(*ResProp);
 }
 
-DxilResourceProperties loadPropsFromResourceBase(DxilResourceBase *Res) {
+DxilResourceProperties loadPropsFromResourceBase(const DxilResourceBase *Res) {
 
   DxilResourceProperties RP;
   if (!Res) {
@@ -129,7 +143,7 @@ DxilResourceProperties loadPropsFromResourceBase(DxilResourceBase *Res) {
   }
 
 
-  auto SetResProperties = [&RP](DxilResource &Res) {
+  auto SetResProperties = [&RP](const DxilResource &Res) {
     switch (Res.GetKind()) {
     default:
       break;
@@ -163,12 +177,12 @@ DxilResourceProperties loadPropsFromResourceBase(DxilResourceBase *Res) {
 
   switch (Res->GetClass()) { case DXIL::ResourceClass::Invalid: return RP;
   case DXIL::ResourceClass::SRV: {
-    DxilResource *SRV = (DxilResource*)(Res);
+    const DxilResource *SRV = (const DxilResource*)(Res);
     RP.Basic.ResourceKind = (uint8_t)Res->GetKind();
     SetResProperties(*SRV);
   } break;
   case DXIL::ResourceClass::UAV: {
-    DxilResource *UAV = (DxilResource *)(Res);
+    const DxilResource *UAV = (const DxilResource *)(Res);
     RP.Basic.IsUAV = true;
     RP.Basic.ResourceKind = (uint8_t)Res->GetKind();
     RP.Basic.IsGloballyCoherent = UAV->IsGloballyCoherent();
@@ -178,7 +192,7 @@ DxilResourceProperties loadPropsFromResourceBase(DxilResourceBase *Res) {
   } break;
   case DXIL::ResourceClass::Sampler: {
     RP.Basic.ResourceKind = (uint8_t)Res->GetKind();
-    DxilSampler *Sampler = (DxilSampler*)Res;
+    const DxilSampler *Sampler = (const DxilSampler*)Res;
     if (Sampler->GetSamplerKind() == DXIL::SamplerKind::Comparison)
       RP.Basic.SamplerCmpOrHasCounter = true;
     else if (Sampler->GetSamplerKind() == DXIL::SamplerKind::Invalid)
@@ -186,7 +200,7 @@ DxilResourceProperties loadPropsFromResourceBase(DxilResourceBase *Res) {
   } break;
   case DXIL::ResourceClass::CBuffer: {
     RP.Basic.ResourceKind = (uint8_t)Res->GetKind();
-    DxilCBuffer *CB = (DxilCBuffer *)Res;
+    const DxilCBuffer *CB = (const DxilCBuffer *)Res;
     RP.CBufferSizeInBytes = CB->GetSize();
   } break;
   }

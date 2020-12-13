@@ -45,7 +45,7 @@ llvm::Constant *getAsConstant(const DxilResourceBinding &, llvm::Type *Ty,
                               const ShaderModel &);
 DxilResourceBinding loadBindingFromConstant(const llvm::Constant &C);
 DxilResourceBinding
-loadBindingFromCreateHandleFromBinding(DxilInst_CreateHandleFromBinding &createHandle, llvm::Type *Ty,
+loadBindingFromCreateHandleFromBinding(const DxilInst_CreateHandleFromBinding &createHandle, llvm::Type *Ty,
                        const ShaderModel &);
 DxilResourceBinding loadBindingFromResourceBase(DxilResourceBase *);
 
