@@ -91,7 +91,7 @@ private:
   };
 
   CComPtr<IDxcBlob> m_InputBlob;
-  CComPtr<IDxcBlobEncoding> m_pDxilPartBlob;
+  CComPtr<IDxcBlob> m_pDxilPartBlob;
   CComPtr<IDxcBlob> m_ContainerBlob;
   std::vector<Source_File> m_SourceFiles;
   std::vector<std::wstring> m_Defines;
@@ -116,6 +116,154 @@ private:
     m_Name.clear();
     m_MainFileName.clear();
     m_HashBlob = nullptr;
+  }
+
+  HRESULT HandleDebugProgramHeaderLegacy(IDxcBlob *pProgramBlob) {
+    UINT32 bitcode_size = 0;
+    const char *bitcode = nullptr;
+
+    if (!hlsl::IsValidDxilProgramHeader((hlsl::DxilProgramHeader *)pProgramBlob->GetBufferPointer(), pProgramBlob->GetBufferSize()))
+      return E_FAIL;
+
+    hlsl::GetDxilProgramBitcode((hlsl::DxilProgramHeader *)pProgramBlob->GetBufferPointer(), &bitcode, &bitcode_size);
+
+    llvm::LLVMContext context;
+    std::unique_ptr<llvm::Module> pModule;
+
+    // NOTE: this doesn't copy the memory, just references it.
+    std::unique_ptr<llvm::MemoryBuffer> mb = llvm::MemoryBuffer::getMemBuffer(StringRef(bitcode, bitcode_size), "-", /*RequiresNullTerminator*/ false);
+
+    // Lazily parse the module
+    std::string DiagStr;
+    pModule = hlsl::dxilutil::LoadModuleFromBitcodeLazy(std::move(mb), context, DiagStr);
+    if (!pModule)
+      return E_FAIL;
+
+    // Materialize only the stuff we need, so it's fast
+    {
+      llvm::StringRef DebugMetadataList[] = {
+        hlsl::DxilMDHelper::kDxilSourceContentsMDName,
+        hlsl::DxilMDHelper::kDxilSourceDefinesMDName,
+        hlsl::DxilMDHelper::kDxilSourceArgsMDName,
+        hlsl::DxilMDHelper::kDxilVersionMDName,
+        hlsl::DxilMDHelper::kDxilShaderModelMDName,
+        hlsl::DxilMDHelper::kDxilEntryPointsMDName,
+        hlsl::DxilMDHelper::kDxilSourceMainFileNameMDName,
+      };
+      pModule->materializeSelectNamedMetadata(DebugMetadataList);
+    }
+
+    hlsl::DxilModule &DM = pModule->GetOrCreateDxilModule();
+    m_EntryPoint = ToWstring(DM.GetEntryFunctionName());
+    m_TargetProfile = ToWstring(DM.GetShaderModel()->GetName());
+
+    // For each all the named metadata node in the module
+    for (llvm::NamedMDNode &node : pModule->named_metadata()) {
+      llvm::StringRef node_name = node.getName();
+
+      // dx.source.content
+      if (node_name == hlsl::DxilMDHelper::kDxilSourceContentsMDName ||
+          node_name == hlsl::DxilMDHelper::kDxilSourceContentsOldMDName)
+      {
+        for (unsigned i = 0; i < node.getNumOperands(); i++) {
+          llvm::MDTuple *tup = cast<llvm::MDTuple>(node.getOperand(i));
+          MDString *md_name = cast<MDString>(tup->getOperand(0));
+          MDString *md_content = cast<MDString>(tup->getOperand(1));
+
+          // File name
+          Source_File file;
+          file.Name = ToWstring(md_name->getString());
+
+          // File content
+          IFR(hlsl::DxcCreateBlobWithEncodingOnHeapCopy(
+            md_content->getString().data(),
+            md_content->getString().size(),
+            CP_ACP, // NOTE: ACP instead of UTF8 because it's possible for compiler implementations to
+                    // inject non-UTF8 data here.
+            &file.Content));
+
+          m_SourceFiles.push_back(std::move(file));
+        }
+      }
+      // dx.source.defines
+      else if (node_name == hlsl::DxilMDHelper::kDxilSourceDefinesMDName ||
+               node_name == hlsl::DxilMDHelper::kDxilSourceDefinesOldMDName)
+      {
+        MDTuple *tup = cast<MDTuple>(node.getOperand(0));
+        for (unsigned i = 0; i < tup->getNumOperands(); i++) {
+          StringRef define = cast<MDString>(tup->getOperand(i))->getString();
+          m_Defines.push_back(ToWstring(define));
+        }
+      }
+      // dx.source.mainFileName
+      else if (node_name == hlsl::DxilMDHelper::kDxilSourceMainFileNameMDName ||
+               node_name == hlsl::DxilMDHelper::kDxilSourceMainFileNameOldMDName)
+      {
+        MDTuple *tup = cast<MDTuple>(node.getOperand(0));
+        MDString *str = cast<MDString>(tup->getOperand(0));
+        m_MainFileName = ToWstring(str->getString());
+      }
+      // dx.source.args
+      else if (node_name == hlsl::DxilMDHelper::kDxilSourceArgsMDName ||
+               node_name == hlsl::DxilMDHelper::kDxilSourceArgsOldMDName)
+      {
+        MDTuple *tup = cast<MDTuple>(node.getOperand(0));
+        // Args
+        for (unsigned i = 0; i < tup->getNumOperands(); i++) {
+          StringRef arg = cast<MDString>(tup->getOperand(i))->getString();
+          m_Args.push_back(ToWstring(arg));
+        }
+
+        // Flags - which exclude entry point, target profile, and defines
+        for (unsigned i = 0; i < tup->getNumOperands(); i++) {
+          StringRef arg = cast<MDString>(tup->getOperand(i))->getString();
+          bool skip_another_arg = false;
+          if (ShouldIncludeInFlags(arg, &skip_another_arg)) {
+            m_Flags.push_back(ToWstring(arg));
+          }
+          if (skip_another_arg)
+            i++;
+        }
+      }
+    }
+
+    return S_OK;
+  }
+
+  HRESULT HandleDxilContainer(IDxcBlob *pContainer, IDxcBlob **ppDebugProgramBlob) {
+    const hlsl::DxilContainerHeader *header = (hlsl::DxilContainerHeader *)m_ContainerBlob->GetBufferPointer();
+    for (auto it = hlsl::begin(header); it != hlsl::end(header); it++) {
+      const hlsl::DxilPartHeader *part = *it;
+      hlsl::DxilFourCC four_cc = (hlsl::DxilFourCC)part->PartFourCC;
+
+      switch (four_cc) {
+
+      case hlsl::DFCC_ShaderHash:
+      {
+        const hlsl::DxilShaderHash *hash_header = (hlsl::DxilShaderHash *)(part+1);
+        IFR(hlsl::DxcCreateBlobOnHeapCopy(hash_header, sizeof(*hash_header), &m_HashBlob));
+      } break;
+
+      case hlsl::DFCC_ShaderDebugName:
+      {
+        const hlsl::DxilShaderDebugName *name_header = (hlsl::DxilShaderDebugName *)(part+1);
+        const char *ptr = (char *)(name_header+1);
+        m_Name = ToWstring(ptr, name_header->NameLength);
+      } break;
+
+      case hlsl::DFCC_ShaderDebugInfoDXIL:
+      {
+        hlsl::DxilProgramHeader *program_header = (hlsl::DxilProgramHeader *)(part+1);
+
+        CComPtr<IDxcBlobEncoding> pProgramHeaderBlob;
+        IFR(hlsl::DxcCreateBlobWithEncodingFromPinned(program_header, program_header->SizeInUint32*sizeof(UINT32), CP_ACP, &pProgramHeaderBlob));
+        IFR(pProgramHeaderBlob.QueryInterface(ppDebugProgramBlob));
+
+      } break; // hlsl::DFCC_ShaderDebugInfoDXIL
+      } // switch (four_cc)
+    } // For each part
+
+    return S_OK;
   }
 
 public:
@@ -153,148 +301,44 @@ public:
     {
       CComPtr<IStream> pStream;
       IFR(hlsl::CreateReadOnlyBlobStream(pPdbOrDxil, &pStream));
-      if (SUCCEEDED(hlsl::pdb::LoadDataFromStream(m_pMalloc, pStream, &m_ContainerBlob))) {}
+
+      // PDB
+      if (SUCCEEDED(hlsl::pdb::LoadDataFromStream(m_pMalloc, pStream, &m_ContainerBlob))) {
+        IFR(HandleDxilContainer(m_ContainerBlob, &m_pDxilPartBlob));
+        if (m_pDxilPartBlob) {
+          IFR(HandleDebugProgramHeaderLegacy(m_pDxilPartBlob));
+        }
+        else {
+          // Must have a dxil part
+          return E_FAIL;
+        }
+      }
+      // DXIL Container
       else if (hlsl::IsValidDxilContainer((const hlsl::DxilContainerHeader *)pPdbOrDxil->GetBufferPointer(), pPdbOrDxil->GetBufferSize())) {
         m_ContainerBlob = pPdbOrDxil;
+        IFR(HandleDxilContainer(m_ContainerBlob, &m_pDxilPartBlob));
+        if (m_pDxilPartBlob) {
+          IFR(HandleDebugProgramHeaderLegacy(m_pDxilPartBlob));
+        }
+        else {
+          // Must have a dxil part
+          return E_FAIL;
+        }
+      }
+      // DXIL program header
+      else if (hlsl::IsValidDxilProgramHeader((hlsl::DxilProgramHeader *)pPdbOrDxil->GetBufferPointer(), pPdbOrDxil->GetBufferSize())) {
+        CComPtr<IDxcBlobEncoding> pProgramHeaderBlob;
+        IFR(hlsl::DxcCreateBlobWithEncodingFromPinned(
+          (hlsl::DxilProgramHeader *)pPdbOrDxil->GetBufferPointer(),
+          pPdbOrDxil->GetBufferSize(), CP_ACP, &pProgramHeaderBlob));
+        IFR(pProgramHeaderBlob.QueryInterface(&m_pDxilPartBlob));
+        IFR(HandleDebugProgramHeaderLegacy(m_pDxilPartBlob));
       }
       else {
         return E_INVALIDARG;
       }
     }
 
-    const hlsl::DxilContainerHeader *header = (hlsl::DxilContainerHeader *)m_ContainerBlob->GetBufferPointer();
-    for (auto it = hlsl::begin(header); it != hlsl::end(header); it++) {
-      const hlsl::DxilPartHeader *part = *it;
-      hlsl::DxilFourCC four_cc = (hlsl::DxilFourCC)part->PartFourCC;
-
-      switch (four_cc) {
-
-      case hlsl::DFCC_ShaderHash:
-      {
-        const hlsl::DxilShaderHash *hash_header = (hlsl::DxilShaderHash *)(part+1);
-        IFR(hlsl::DxcCreateBlobOnHeapCopy(hash_header->Digest, sizeof(hash_header->Digest), &m_HashBlob));
-      } break;
-
-      case hlsl::DFCC_ShaderDebugName:
-      {
-        const hlsl::DxilShaderDebugName *name_header = (hlsl::DxilShaderDebugName *)(part+1);
-        const char *ptr = (char *)(name_header+1);
-        m_Name = ToWstring(ptr, name_header->NameLength);
-      } break;
-
-      case hlsl::DFCC_ShaderDebugInfoDXIL:
-      {
-        hlsl::DxilProgramHeader *program_header = (hlsl::DxilProgramHeader *)(part+1);
-
-        IFR(hlsl::DxcCreateBlobWithEncodingFromPinned(program_header, program_header->SizeInUint32*sizeof(UINT32), CP_ACP, &m_pDxilPartBlob));
-
-        UINT32 bitcode_size = 0;
-        const char *bitcode = nullptr;
-        hlsl::GetDxilProgramBitcode(program_header, &bitcode, &bitcode_size);
-
-        llvm::LLVMContext context;
-        std::unique_ptr<llvm::Module> pModule;
-
-        // NOTE: this doesn't copy the memory, just references it.
-        std::unique_ptr<llvm::MemoryBuffer> mb = llvm::MemoryBuffer::getMemBuffer(StringRef(bitcode, bitcode_size), "-", /*RequiresNullTerminator*/ false);
-
-        // Lazily parse the module
-        std::string DiagStr;
-        pModule = hlsl::dxilutil::LoadModuleFromBitcodeLazy(std::move(mb), context, DiagStr);
-        if (!pModule)
-          return E_FAIL;
-
-        // Materialize only the stuff we need, so it's fast
-        {
-          llvm::StringRef DebugMetadataList[] = {
-            hlsl::DxilMDHelper::kDxilSourceContentsMDName,
-            hlsl::DxilMDHelper::kDxilSourceDefinesMDName,
-            hlsl::DxilMDHelper::kDxilSourceArgsMDName,
-            hlsl::DxilMDHelper::kDxilVersionMDName,
-            hlsl::DxilMDHelper::kDxilShaderModelMDName,
-            hlsl::DxilMDHelper::kDxilEntryPointsMDName,
-            hlsl::DxilMDHelper::kDxilSourceMainFileNameMDName,
-          };
-          pModule->materializeSelectNamedMetadata(DebugMetadataList);
-        }
-
-        hlsl::DxilModule &DM = pModule->GetOrCreateDxilModule();
-        m_EntryPoint = ToWstring(DM.GetEntryFunctionName());
-        m_TargetProfile = ToWstring(DM.GetShaderModel()->GetName());
-
-        // For each all the named metadata node in the module
-        for (llvm::NamedMDNode &node : pModule->named_metadata()) {
-          llvm::StringRef node_name = node.getName();
-
-          // dx.source.content
-          if (node_name == hlsl::DxilMDHelper::kDxilSourceContentsMDName ||
-              node_name == hlsl::DxilMDHelper::kDxilSourceContentsOldMDName)
-          {
-            for (unsigned i = 0; i < node.getNumOperands(); i++) {
-              llvm::MDTuple *tup = cast<llvm::MDTuple>(node.getOperand(i));
-              MDString *md_name = cast<MDString>(tup->getOperand(0));
-              MDString *md_content = cast<MDString>(tup->getOperand(1));
-
-              // File name
-              Source_File file;
-              file.Name = ToWstring(md_name->getString());
-
-              // File content
-              IFR(hlsl::DxcCreateBlobWithEncodingOnHeapCopy(
-                md_content->getString().data(),
-                md_content->getString().size(),
-                CP_ACP, // NOTE: ACP instead of UTF8 because it's possible for compiler implementations to
-                        // inject non-UTF8 data here.
-                &file.Content));
-
-              m_SourceFiles.push_back(std::move(file));
-            }
-          }
-          // dx.source.defines
-          else if (node_name == hlsl::DxilMDHelper::kDxilSourceDefinesMDName ||
-                   node_name == hlsl::DxilMDHelper::kDxilSourceDefinesOldMDName)
-          {
-            MDTuple *tup = cast<MDTuple>(node.getOperand(0));
-            for (unsigned i = 0; i < tup->getNumOperands(); i++) {
-              StringRef define = cast<MDString>(tup->getOperand(i))->getString();
-              m_Defines.push_back(ToWstring(define));
-            }
-          }
-          // dx.source.mainFileName
-          else if (node_name == hlsl::DxilMDHelper::kDxilSourceMainFileNameMDName ||
-                   node_name == hlsl::DxilMDHelper::kDxilSourceMainFileNameOldMDName)
-          {
-            MDTuple *tup = cast<MDTuple>(node.getOperand(0));
-            MDString *str = cast<MDString>(tup->getOperand(0));
-            m_MainFileName = ToWstring(str->getString());
-          }
-          // dx.source.args
-          else if (node_name == hlsl::DxilMDHelper::kDxilSourceArgsMDName ||
-                   node_name == hlsl::DxilMDHelper::kDxilSourceArgsOldMDName)
-          {
-            MDTuple *tup = cast<MDTuple>(node.getOperand(0));
-            // Args
-            for (unsigned i = 0; i < tup->getNumOperands(); i++) {
-              StringRef arg = cast<MDString>(tup->getOperand(i))->getString();
-              m_Args.push_back(ToWstring(arg));
-            }
-
-            // Flags - which exclude entry point, target profile, and defines
-            for (unsigned i = 0; i < tup->getNumOperands(); i++) {
-              StringRef arg = cast<MDString>(tup->getOperand(i))->getString();
-              bool skip_another_arg = false;
-              if (ShouldIncludeInFlags(arg, &skip_another_arg)) {
-                m_Flags.push_back(ToWstring(arg));
-              }
-              if (skip_another_arg)
-                i++;
-            }
-          }
-        }
-
-      } break; // hlsl::DFCC_ShaderDebugInfoDXIL
-      } // switch (four_cc)
-    } // For each part
 
     return S_OK;
   }
