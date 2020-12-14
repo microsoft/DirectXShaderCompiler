@@ -37,6 +37,7 @@ public:
   bool visit(SpirvImageSparseTexelsResident *) override;
   bool visit(SpirvExtInstImport *) override;
   bool visit(SpirvExtInst *) override;
+  bool visit(SpirvAtomic *);
   bool visit(SpirvDemoteToHelperInvocationEXT *) override;
   bool visit(SpirvReadClock *) override;
 
