@@ -1476,6 +1476,7 @@ bool OP::GetOpCodeClass(const Function *F, OP::OpCodeClass &opClass) {
   if (iter == m_FunctionToOpClass.end()) {
     // When no user, cannot get opcode.
     DXASSERT(F->user_empty() || !IsDxilOpFunc(F), "dxil function without an opcode class mapping?");
+    opClass = OP::OpCodeClass::NumOpClasses;
     return false;
   }
   opClass = iter->second;
