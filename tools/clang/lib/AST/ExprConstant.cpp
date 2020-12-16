@@ -641,6 +641,7 @@ namespace {
               break;
             // We've had side-effects; we want the diagnostic from them, not
             // some later problem.
+            __fallthrough; // HLSL Change
           case EM_ConstantExpression:
           case EM_PotentialConstantExpression:
           case EM_ConstantExpressionUnevaluated:
@@ -6571,6 +6572,7 @@ bool IntExprEvaluator::VisitCallExpr(const CallExpr *E) {
     case EvalInfo::EM_PotentialConstantExpressionUnevaluated:
       return Success(-1ULL, E);
     }
+    llvm_unreachable("Invalid EvalMode!");
   }
 
   case Builtin::BI__builtin_bswap16:
@@ -9190,6 +9192,8 @@ static ICEDiag CheckICE(const Expr* E, const ASTContext &Ctx) {
     }
 
     // OffsetOf falls through here.
+    __fallthrough; // HLSL Change
+
   }
   case Expr::OffsetOfExprClass: {
     // Note that per C99, offsetof must be an ICE. And AFAIK, using
@@ -9292,6 +9296,7 @@ static ICEDiag CheckICE(const Expr* E, const ASTContext &Ctx) {
       return Worst(LHSResult, RHSResult);
     }
     }
+    llvm_unreachable("Invalid binary operator!");
   }
   case Expr::ImplicitCastExprClass:
   case Expr::CStyleCastExprClass:

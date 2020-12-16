@@ -2159,6 +2159,7 @@ bool InstCombiner::OptimizeOverflowCheck(OverflowCheckFlavor OCF, Value *LHS,
       return SetResult(Builder->CreateAdd(LHS, RHS), Builder->getTrue(), true);
   }
   // FALL THROUGH uadd into sadd
+  __fallthrough; // HLSL Change
   case OCF_SIGNED_ADD: {
     // X + 0 -> {X, false}
     if (match(RHS, m_Zero()))

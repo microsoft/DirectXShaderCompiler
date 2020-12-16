@@ -312,7 +312,14 @@
 
 #define _Printf_format_string_
 #define _Null_terminated_
-#define __fallthrough
+
+#if __cplusplus > 201402L
+#define __fallthrough [[fallthrough]
+#elif defined(__clang__)
+#define __fallthrough [[clang::fallthrough]]
+#else
+#define __fallthrough [[gnu::fallthrough]]
+#endif
 
 #define _Field_size_(size)
 #define _Field_size_full_(size)

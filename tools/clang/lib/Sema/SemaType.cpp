@@ -646,6 +646,7 @@ static void distributeTypeAttrsFromDeclarator(TypeProcessingState &state,
       if (!state.getSema().getLangOpts().ObjCAutoRefCount)
         break;
       // fallthrough
+      __fallthrough; // HLSL Change
 
     FUNCTION_TYPE_ATTRS_CASELIST:
       distributeFunctionTypeAttrFromDeclarator(state, *attr, declSpecType);
@@ -6419,6 +6420,7 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
       if (!state.getSema().getLangOpts().ObjCAutoRefCount)
         break;
       // fallthrough into the function attrs
+      __fallthrough; // HLSL Change
 
     FUNCTION_TYPE_ATTRS_CASELIST:
       attr.setUsedAsTypeAttr();

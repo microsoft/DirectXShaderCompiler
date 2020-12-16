@@ -4569,6 +4569,7 @@ static void ValidateEntrySignatures(ValidationContext &ValCtx,
           Ty = Ty->getPointerElementType();
         attrSize = (unsigned)std::min(DL.getTypeAllocSize(Ty), (uint64_t)UINT_MAX);
       }
+      __fallthrough;
     case DXIL::ShaderKind::Miss:
     case DXIL::ShaderKind::Callable:
       if (itPayload != F.arg_end()) {

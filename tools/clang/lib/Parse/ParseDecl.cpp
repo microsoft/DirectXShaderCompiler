@@ -3020,6 +3020,7 @@ bool Parser::ParseImplicitInt(DeclSpec &DS, CXXScopeSpec *SS,
         }
       }
       // Fall through.
+      __fallthrough; // HLSL Change
     }
     case tok::comma:
     case tok::equal:
@@ -4217,6 +4218,7 @@ HLSLReservedKeyword:
         isInvalid = true;
         break;
       };
+      __fallthrough; // HLSL Change
     case tok::kw___private:
     case tok::kw___global:
     case tok::kw___local:
@@ -5624,6 +5626,7 @@ void Parser::ParseTypeQualifierListOpt(DeclSpec &DS, unsigned AttrReqs,
           continue; // do *not* consume the next token!
         }
         // otherwise, FALL THROUGH!
+        __fallthrough; // HLSL Change
       default:
         // If this is not a type-qualifier token, we're done reading type
         // qualifiers.  First verify that DeclSpec's are consistent.
@@ -5683,6 +5686,7 @@ void Parser::ParseTypeQualifierListOpt(DeclSpec &DS, unsigned AttrReqs,
         if (TryKeywordIdentFallback(false))
           continue;
       }
+    __fallthrough; // HLSL Change
     case tok::kw___sptr:
     case tok::kw___w64:
     case tok::kw___ptr64:
@@ -5732,6 +5736,7 @@ void Parser::ParseTypeQualifierListOpt(DeclSpec &DS, unsigned AttrReqs,
         continue; // do *not* consume the next token!
       }
       // otherwise, FALL THROUGH!
+      __fallthrough; // HLSL Change
     default:
       DoneWithTypeQuals:
       // If this is not a type-qualifier token, we're done reading type

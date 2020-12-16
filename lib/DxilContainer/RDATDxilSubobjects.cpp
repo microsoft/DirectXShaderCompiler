@@ -34,6 +34,7 @@ bool LoadSubobjectsFromRDAT(DxilSubobjects &subobjects, const RDAT::DxilRuntimeD
         break;
       case DXIL::SubobjectKind::LocalRootSignature:
         bLocalRS = true;
+        __fallthrough;
       case DXIL::SubobjectKind::GlobalRootSignature:
         if (!reader.getRootSignature()) {
           result = false;

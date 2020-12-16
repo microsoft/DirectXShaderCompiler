@@ -874,6 +874,7 @@ public:
           return llvm::Constant::getNullValue(destType);
         }
       }
+      return nullptr;
     }
 
     case CK_FlatConversion:
@@ -918,7 +919,7 @@ public:
         llvm::Constant *destVal = llvm::Constant::getNullValue(destType);
         return destVal;
       }
-    }
+    } break;
     case CK_HLSLMatrixTruncationCast: {
       if (llvm::ConstantStruct *CS = dyn_cast<llvm::ConstantStruct>(C)) {
         unsigned rowCt, colCt;

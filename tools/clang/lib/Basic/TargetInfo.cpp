@@ -132,9 +132,11 @@ const char *TargetInfo::getTypeConstantSuffix(IntType T) const {
   case UnsignedChar:
     if (getCharWidth() < getIntWidth())
       return "";
+    __fallthrough; // HLSL Change
   case UnsignedShort:
     if (getShortWidth() < getIntWidth())
       return "";
+    __fallthrough; // HLSL Change
   case UnsignedInt:      return "U";
   case UnsignedLong:     return "UL";
   case UnsignedLongLong: return "ULL";

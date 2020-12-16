@@ -5025,6 +5025,7 @@ SpirvEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
     break;
   case IntrinsicOp::MOP_CalculateLevelOfDetail:
     retVal = processTextureLevelOfDetail(expr, /* unclamped */ false);
+    break;
   case IntrinsicOp::MOP_CalculateLevelOfDetailUnclamped:
     retVal = processTextureLevelOfDetail(expr, /* unclamped */ true);
     break;
@@ -11101,11 +11102,13 @@ SpirvInstruction *SpirvEmitter::processRayBuiltins(const CallExpr *callExpr,
     break;
   case hlsl::IntrinsicOp::IOP_ObjectToWorld3x4:
     transposeMatrix = true;
+    __fallthrough;
   case hlsl::IntrinsicOp::IOP_ObjectToWorld4x3:
     builtin = spv::BuiltIn::ObjectToWorldNV;
     break;
   case hlsl::IntrinsicOp::IOP_WorldToObject3x4:
     transposeMatrix = true;
+    __fallthrough;
   case hlsl::IntrinsicOp::IOP_WorldToObject4x3:
     builtin = spv::BuiltIn::WorldToObjectNV;
     break;

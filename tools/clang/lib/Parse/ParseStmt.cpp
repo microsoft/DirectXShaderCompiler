@@ -234,6 +234,7 @@ Retry:
     }
 
     // Fall through
+    __fallthrough; // HLSL Change
   }
 
   tok_default_case: // HLSL Change - add to target cases dead-code'd by HLSL

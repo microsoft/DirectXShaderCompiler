@@ -540,10 +540,9 @@ void DxilLinkJob::AddResourceToDM(DxilModule &DM) {
       *ptr = *(static_cast<DxilSampler *>(res));
       ID = DM.AddSampler(std::move(pSampler));
       basePtr = &DM.GetSampler(ID);
-    }
+    } break;
     default:
-      DXASSERT(res->GetClass() == DXIL::ResourceClass::Sampler,
-               "else invalid resource");
+      DXASSERT(false, "Invalid resource class");
       break;
     }
     // Update ID.

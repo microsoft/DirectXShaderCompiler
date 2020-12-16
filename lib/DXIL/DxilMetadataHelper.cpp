@@ -1348,6 +1348,7 @@ const Function *DxilMDHelper::LoadDxilFunctionProps(const MDTuple *pProps,
   case DXIL::ShaderKind::AnyHit:
   case DXIL::ShaderKind::ClosestHit:
     bRayAttributes = true;
+    __fallthrough;
   case DXIL::ShaderKind::Miss:
   case DXIL::ShaderKind::Callable:
     // payload/params unioned and first:
@@ -1711,6 +1712,7 @@ DxilMDHelper::EmitDxilFunctionProps(const hlsl::DxilFunctionProps *props,
   case DXIL::ShaderKind::AnyHit:
   case DXIL::ShaderKind::ClosestHit:
     bRayAttributes = true;
+    __fallthrough;
   case DXIL::ShaderKind::Miss:
   case DXIL::ShaderKind::Callable:
     // payload/params unioned and first:

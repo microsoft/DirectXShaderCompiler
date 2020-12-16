@@ -1831,6 +1831,7 @@ bool Parser::isTokenEqualOrEqualTypo() {
     Diag(Tok, diag::err_invalid_token_after_declarator_suggest_equal)
         << Kind
         << FixItHint::CreateReplacement(SourceRange(Tok.getLocation()), "=");
+    __fallthrough; // HLSL Change
   case tok::equal:
     return true;
   }

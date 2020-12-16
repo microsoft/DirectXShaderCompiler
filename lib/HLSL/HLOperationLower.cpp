@@ -8154,8 +8154,10 @@ void TranslateHLBuiltinOperation(Function *F, HLOperationLowerHelper &helper,
           switch (opcode) {
           case HLCastOpcode::RowMatrixToColMatrix:
             bColDest = true;
+            __fallthrough;
           case HLCastOpcode::ColMatrixToRowMatrix:
             bTranspose = true;
+            __fallthrough;
           case HLCastOpcode::ColMatrixToVecCast:
           case HLCastOpcode::RowMatrixToVecCast: {
             Value *matVal = CI->getArgOperand(HLOperandIndex::kInitFirstArgOpIdx);

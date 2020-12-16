@@ -1430,6 +1430,7 @@ Parser::isCXXDeclarationSpecifier(Parser::TPResult BracedCastResult,
     //
 
     // simple-type-specifier:
+    __fallthrough; // HLSL Change
 
   case tok::annot_typename:
   case_typename:
@@ -1456,6 +1457,7 @@ Parser::isCXXDeclarationSpecifier(Parser::TPResult BracedCastResult,
       
       return TPResult::True;
     }
+    __fallthrough; // HLSL Change
       
   case tok::kw_char:
   case tok::kw_wchar_t:

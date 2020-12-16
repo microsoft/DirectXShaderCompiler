@@ -1783,7 +1783,7 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
     } else if (E->getType()->isScalarType()) {
       return Builder.CreateExtractElement(val, (uint64_t)0);
     }
-  }
+  } break;
   case CK_HLSLCC_FloatingToIntegral:
   case CK_HLSLCC_FloatingCast: {
     return EmitScalarConversion(Visit(E), E->getType(), DestTy);

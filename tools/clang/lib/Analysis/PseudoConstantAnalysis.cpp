@@ -110,7 +110,7 @@ void PseudoConstantAnalysis::RunAnalysis() {
         if (LHSDecl == RHSDecl)
           // Do not visit the children
           continue;
-
+        __fallthrough; // HLSL Change
       }
       case BO_AddAssign:
       case BO_SubAssign:

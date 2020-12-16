@@ -444,8 +444,11 @@ static void EncodeUCNEscape(const char *ThisTokBegin, const char *&ThisTokBuf,
   ResultBuf += bytesToWrite;
   switch (bytesToWrite) { // note: everything falls through.
   case 4: *--ResultBuf = (UTF8)((UcnVal | byteMark) & byteMask); UcnVal >>= 6;
+    __fallthrough; // HLSL Change
   case 3: *--ResultBuf = (UTF8)((UcnVal | byteMark) & byteMask); UcnVal >>= 6;
+    __fallthrough; // HLSL Change
   case 2: *--ResultBuf = (UTF8)((UcnVal | byteMark) & byteMask); UcnVal >>= 6;
+    __fallthrough; // HLSL Change
   case 1: *--ResultBuf = (UTF8) (UcnVal | firstByteMark[bytesToWrite]);
   }
   // Update the buffer.

@@ -1334,6 +1334,7 @@ HLSLReservedKeyword:
     }
 
     // Fall through to treat the template-id as an id-expression.
+    __fallthrough; // HLSL Change
   }
 
   case tok::kw_operator: // [C++] id-expression: operator/conversion-function-id
@@ -1512,6 +1513,7 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
       }
         
       // Fall through; this isn't a message send.
+      __fallthrough; // HLSL Change
                 
     default:  // Not a postfix-expression suffix.
       return LHS;

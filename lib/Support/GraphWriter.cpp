@@ -47,6 +47,7 @@ std::string llvm::DOT::EscapeString(const std::string &Label) {
             Str.erase(Str.begin()+i); continue;
           default: break;
         }
+      __fallthrough; // HLSL Change
     case '{': case '}':
     case '<': case '>':
     case '|': case '"':

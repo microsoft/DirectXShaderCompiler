@@ -193,6 +193,7 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(bool StandAloneAllowed) {
       // pseudo-clause OMPFlushClause.
       PP.EnterToken(Tok);
     }
+    __fallthrough; // HLSL Change
   case OMPD_taskyield:
   case OMPD_barrier:
   case OMPD_taskwait:
@@ -204,6 +205,7 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(bool StandAloneAllowed) {
     }
     HasAssociatedStatement = false;
     // Fall through for further analysis.
+    __fallthrough; // HLSL Change
   case OMPD_parallel:
   case OMPD_simd:
   case OMPD_for:

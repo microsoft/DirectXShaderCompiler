@@ -843,6 +843,7 @@ LowerTypeVisitor::translateSampledTypeToImageFormat(QualType sampledType,
       case BuiltinType::LongLong:
         if (elemCount == 1)
           return spv::ImageFormat::R64i;
+        break;
       case BuiltinType::ULongLong:
         if (elemCount == 1)
           return spv::ImageFormat::R64ui;

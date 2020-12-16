@@ -8089,24 +8089,28 @@ VectorMemberAccessError TryConsumeVectorDigit(const char*& memberText, uint32_t*
   switch (*memberText) {
   case 'r':
     rgbaStyle = true;
+    __fallthrough;
   case 'x':
     *value = 0;
     break;
 
   case 'g':
     rgbaStyle = true;
+    __fallthrough;
   case 'y':
     *value = 1;
     break;
 
   case 'b':
     rgbaStyle = true;
+    __fallthrough;
   case 'z':
     *value = 2;
     break;
 
   case 'a':
     rgbaStyle = true;
+    __fallthrough;
   case 'w':
     *value = 3;
     break;

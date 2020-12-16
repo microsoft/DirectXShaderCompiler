@@ -13598,6 +13598,7 @@ bool Sema::checkThisInStaticMemberFunctionExceptionSpec(CXXMethodDecl *Method) {
   case EST_ComputedNoexcept:
     if (!Finder.TraverseStmt(Proto->getNoexceptExpr()))
       return true;
+      __fallthrough; // HLSL Change
     
   case EST_Dynamic:
     for (const auto &E : Proto->exceptions()) {
