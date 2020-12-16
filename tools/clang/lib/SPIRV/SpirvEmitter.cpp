@@ -7452,6 +7452,11 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     }
     break;
   }
+  case hlsl::IntrinsicOp::IOP_pack_s8:
+  case hlsl::IntrinsicOp::IOP_pack_u8: {
+    retVal = processIntrinsic8BitPack(callExpr, hlslOpcode);
+    break;
+  }
   // DXR raytracing intrinsics
   case hlsl::IntrinsicOp::IOP_DispatchRaysDimensions:
   case hlsl::IntrinsicOp::IOP_DispatchRaysIndex:
@@ -9810,6 +9815,55 @@ SpirvEmitter::processIntrinsicLog10(const CallExpr *callExpr) {
                               ? spv::Op::OpVectorTimesScalar
                               : spv::Op::OpMatrixTimesScalar;
   return spvBuilder.createBinaryOp(scaleOp, returnType, log2, scale, loc);
+}
+
+SpirvInstruction *
+SpirvEmitter::processIntrinsic8BitPack(const CallExpr *callExpr,
+                                       hlsl::IntrinsicOp op) {
+  const auto loc = callExpr->getExprLoc();
+  assert(op == hlsl::IntrinsicOp::IOP_pack_s8 ||
+         op == hlsl::IntrinsicOp::IOP_pack_u8);
+
+  // Here's the signature for the pack intrinsic operations:
+  //
+  // uint8_t4_packed pack_u8(uint32_t4 unpackedVal);
+  // uint8_t4_packed pack_u8(uint16_t4 unpackedVal);
+  // int8_t4_packed pack_s8(int32_t4 unpackedVal);
+  // int8_t4_packed pack_s8(int16_t4 unpackedVal);
+  //
+  // These functions take a vec4 of 16-bit or 32-bit integers as input. For each
+  // element of the vec4, they pick the lower 8 bits, and drop the other bits.
+  // The result is four 8-bit values (32 bits in total) which are packed in an
+  // unsigned uint32_t.
+  //
+  // Note: uint8_t4_packed and int8_t4_packed are NOT vector types! They are
+  // scalar 32-bit integer types where each byte represents one value.
+
+  // First, use OpUConvert/OpSConvert to truncate each element of the vec4 to 8
+  // bits. Then perform an OpBitcast to make a 32-bit uint out of the new vec4.
+  auto *arg = callExpr->getArg(0);
+  auto *argInstr = doExpr(arg);
+  QualType elemType = {};
+  uint32_t elemCount = 0;
+  (void)isVectorType(arg->getType(), &elemType, &elemCount);
+  const bool isSigned = elemType->isSignedIntegerType();
+  assert(elemCount == 4);
+
+  if (isSigned) {
+    QualType v4Int8Type =
+        astContext.getExtVectorType(astContext.SignedCharTy, 4);
+    auto *bytesVecInstr = spvBuilder.createUnaryOp(spv::Op::OpSConvert,
+                                                   v4Int8Type, argInstr, loc);
+    return spvBuilder.createUnaryOp(
+        spv::Op::OpBitcast, astContext.Int8_4PackedTy, bytesVecInstr, loc);
+  } else {
+    QualType v4Uint8Type =
+        astContext.getExtVectorType(astContext.UnsignedCharTy, 4);
+    auto *bytesVecInstr = spvBuilder.createUnaryOp(spv::Op::OpUConvert,
+                                                   v4Uint8Type, argInstr, loc);
+    return spvBuilder.createUnaryOp(
+        spv::Op::OpBitcast, astContext.UInt8_4PackedTy, bytesVecInstr, loc);
+  }
 }
 
 SpirvInstruction *SpirvEmitter::processRayBuiltins(const CallExpr *callExpr,
