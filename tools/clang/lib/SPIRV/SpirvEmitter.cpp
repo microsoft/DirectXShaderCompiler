@@ -9814,6 +9814,8 @@ SpirvEmitter::processIntrinsicLog10(const CallExpr *callExpr) {
 
 SpirvInstruction *SpirvEmitter::processRayBuiltins(const CallExpr *callExpr,
                                                    hlsl::IntrinsicOp op) {
+  bool nvRayTracing =
+      featureManager.isExtensionEnabled(Extension::NV_ray_tracing);
   spv::BuiltIn builtin = spv::BuiltIn::Max;
   bool transposeMatrix = false;
   const auto loc = callExpr->getExprLoc();
@@ -9825,7 +9827,10 @@ SpirvInstruction *SpirvEmitter::processRayBuiltins(const CallExpr *callExpr,
     builtin = spv::BuiltIn::LaunchIdNV;
     break;
   case hlsl::IntrinsicOp::IOP_RayTCurrent:
-    builtin = spv::BuiltIn::HitTNV;
+    if (nvRayTracing)
+      builtin = spv::BuiltIn::HitTNV;
+    else
+      builtin = spv::BuiltIn::RayTmaxKHR;
     break;
   case hlsl::IntrinsicOp::IOP_RayTMin:
     builtin = spv::BuiltIn::RayTminNV;

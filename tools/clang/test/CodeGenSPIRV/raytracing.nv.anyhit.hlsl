@@ -15,6 +15,7 @@
 // CHECK:  OpDecorate [[j:%\d+]] BuiltIn ObjectToWorldNV
 // CHECK:  OpDecorate [[k:%\d+]] BuiltIn WorldToObjectNV
 // CHECK:  OpDecorate [[l:%\d+]] BuiltIn HitKindNV
+// CHECK:  OpDecorate [[m:%\d+]] BuiltIn HitTNV
 
 // CHECK:  OpTypePointer IncomingRayPayloadNV %Payload
 struct Payload
@@ -67,6 +68,8 @@ void main(inout Payload MyPayload, in Attribute MyAttr) {
   float4x3 _15 = WorldToObject4x3();
 // CHECK:  OpLoad %uint [[l]]
   uint _16 = HitKind();
+// CHECK:  OpLoad %float [[m]]
+  uint _17 = RayTCurrent();
 
   if (_16 == 1U) {
 // CHECK:  [[payloadread0:%\d+]] = OpLoad %Payload %MyPayload_0
