@@ -9952,7 +9952,6 @@ SpirvEmitter::processIntrinsic8BitUnpack(const CallExpr *callExpr,
   // Use OpUConvert/OpSConvert to zero-extend/sign-extend each element of the
   // vec4 to 16 or 32 bits.
   auto *arg = callExpr->getArg(0);
-  const auto argType = arg->getType();
   SpirvInstruction *argInstr = doExpr(arg);
 
   const bool isSigned = op == hlsl::IntrinsicOp::IOP_unpack_s8s16 ||
