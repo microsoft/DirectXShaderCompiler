@@ -456,6 +456,11 @@ uint32_t getElementSpirvBitwidth(const ASTContext &astContext, QualType type,
     // if -enable-16bit-types is false.
     case BuiltinType::HalfFloat:
       return 32;
+    case BuiltinType::UChar:
+    case BuiltinType::Char_U:
+    case BuiltinType::SChar:
+    case BuiltinType::Char_S:
+      return 8;
     // The following types are treated as 16-bit if '-enable-16bit-types' option
     // is enabled. They are treated as 32-bit otherwise.
     case BuiltinType::Min12Int:
