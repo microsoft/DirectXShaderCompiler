@@ -2895,6 +2895,7 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
   case spv::BuiltIn::SubgroupSize:
   case spv::BuiltIn::SubgroupLocalInvocationId:
   case spv::BuiltIn::HitTNV:
+  case spv::BuiltIn::RayTmaxNV:
   case spv::BuiltIn::RayTminNV:
   case spv::BuiltIn::HitKindNV:
   case spv::BuiltIn::IncomingRayFlagsNV:
