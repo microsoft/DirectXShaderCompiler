@@ -7459,6 +7459,13 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     retVal = processIntrinsic8BitPack(callExpr, hlslOpcode);
     break;
   }
+  case hlsl::IntrinsicOp::IOP_unpack_s8s16:
+  case hlsl::IntrinsicOp::IOP_unpack_s8s32:
+  case hlsl::IntrinsicOp::IOP_unpack_u8u16:
+  case hlsl::IntrinsicOp::IOP_unpack_u8u32: {
+    retVal = processIntrinsic8BitUnpack(callExpr, hlslOpcode);
+    break;
+  }
   // DXR raytracing intrinsics
   case hlsl::IntrinsicOp::IOP_DispatchRaysDimensions:
   case hlsl::IntrinsicOp::IOP_DispatchRaysIndex:
@@ -9911,6 +9918,70 @@ SpirvEmitter::processIntrinsic8BitPack(const CallExpr *callExpr,
                                                    v4Uint8Type, argInstr, loc);
     return spvBuilder.createUnaryOp(
         spv::Op::OpBitcast, astContext.UInt8_4PackedTy, bytesVecInstr, loc);
+  }
+}
+
+SpirvInstruction *
+SpirvEmitter::processIntrinsic8BitUnpack(const CallExpr *callExpr,
+                                         hlsl::IntrinsicOp op) {
+  const auto loc = callExpr->getExprLoc();
+  assert(op == hlsl::IntrinsicOp::IOP_unpack_s8s16 ||
+         op == hlsl::IntrinsicOp::IOP_unpack_s8s32 ||
+         op == hlsl::IntrinsicOp::IOP_unpack_u8u16 ||
+         op == hlsl::IntrinsicOp::IOP_unpack_u8u32);
+
+  // Here's the signature for the pack intrinsic operations:
+  //
+  // int16_t4 unpack_s8s16(int8_t4_packed packedVal);   // Sign Extended
+  // uint16_t4 unpack_u8u16(uint8_t4_packed packedVal); // Non-Sign Extended
+  // int32_t4 unpack_s8s32(int8_t4_packed packedVal);   // Sign Extended
+  // uint32_t4 unpack_u8u32(uint8_t4_packed packedVal); // Non-Sign Extended
+  //
+  // These functions take a 32-bit unsigned integer as input (where each byte of
+  // the input represents one value, i.e. it's packed). They first unpack the
+  // 32-bit integer to a vector of 4 bytes. Then for each element of the vec4,
+  // they zero-extend or sign-extend the byte in order to achieve a 16-bit or
+  // 32-bit vector of integers.
+  //
+  // Note: uint8_t4_packed and int8_t4_packed are NOT vector types! They are
+  // both scalar 32-bit unsigned integer types where each byte represents one
+  // value.
+
+  // Steps:
+  // Use OpBitcast to make a vec4 of bytes from a 32-bit value.
+  // Use OpUConvert/OpSConvert to zero-extend/sign-extend each element of the
+  // vec4 to 16 or 32 bits.
+  auto *arg = callExpr->getArg(0);
+  const auto argType = arg->getType();
+  SpirvInstruction *argInstr = doExpr(arg);
+
+  const bool isSigned = op == hlsl::IntrinsicOp::IOP_unpack_s8s16 ||
+                        op == hlsl::IntrinsicOp::IOP_unpack_s8s32;
+
+  QualType resultType = {};
+  if (op == hlsl::IntrinsicOp::IOP_unpack_s8s16 ||
+      op == hlsl::IntrinsicOp::IOP_unpack_u8u16) {
+    resultType = astContext.getExtVectorType(
+        isSigned ? astContext.ShortTy : astContext.UnsignedShortTy, 4);
+  } else {
+    resultType = astContext.getExtVectorType(
+        isSigned ? astContext.IntTy : astContext.UnsignedIntTy, 4);
+  }
+
+  if (isSigned) {
+    QualType v4Int8Type =
+        astContext.getExtVectorType(astContext.SignedCharTy, 4);
+    auto *bytesVecInstr =
+        spvBuilder.createUnaryOp(spv::Op::OpBitcast, v4Int8Type, argInstr, loc);
+    return spvBuilder.createUnaryOp(spv::Op::OpSConvert, resultType,
+                                    bytesVecInstr, loc);
+  } else {
+    QualType v4Uint8Type =
+        astContext.getExtVectorType(astContext.UnsignedCharTy, 4);
+    auto *bytesVecInstr = spvBuilder.createUnaryOp(spv::Op::OpBitcast,
+                                                   v4Uint8Type, argInstr, loc);
+    return spvBuilder.createUnaryOp(spv::Op::OpUConvert, resultType,
+                                    bytesVecInstr, loc);
   }
 }
 
