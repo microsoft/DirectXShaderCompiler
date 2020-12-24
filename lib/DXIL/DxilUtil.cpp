@@ -41,6 +41,14 @@ namespace dxilutil {
 const char ManglingPrefix[] = "\01?";
 const char EntryPrefix[] = "dx.entry.";
 
+bool IsInt16Or32BitType(Type* ty) {
+  if (ty->isIntegerTy()) {
+    return ty->getScalarSizeInBits() == 16 ||
+      ty->getScalarSizeInBits() == 32;
+  }
+  return false;
+}
+
 Type *GetArrayEltTy(Type *Ty) {
   if (isa<PointerType>(Ty))
     Ty = Ty->getPointerElementType();

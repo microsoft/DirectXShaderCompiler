@@ -55,6 +55,7 @@ namespace dxilutil {
   unsigned
   GetLegacyCBufferFieldElementSize(DxilFieldAnnotation &fieldAnnotation,
                                    llvm::Type *Ty, DxilTypeSystem &typeSys);
+  bool IsInt16Or32BitType(llvm::Type* ty);
   llvm::Type *GetArrayEltTy(llvm::Type *Ty);
   bool HasDynamicIndexing(llvm::Value *V);
 
