@@ -207,7 +207,7 @@ void PassManagerBuilder::populateFunctionPassManager(
 }
 
 // HLSL Change Starts
-static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, hlsl::HLSLExtensionsCodegenHelper *ExtHelper, legacy::PassManagerBase &MPM) {
+static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, bool OnlyWarnOnUnrollFail, bool StructurizeLoopExitsForUnroll, bool EnableLifetimeMarkers, hlsl::HLSLExtensionsCodegenHelper *ExtHelper, legacy::PassManagerBase &MPM) {
 
   // Don't do any lowering if we're targeting high-level.
   if (HLSLHighLevel) {
@@ -255,6 +255,14 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, hlsl::HLSLExten
   // Special Mem2Reg pass that skips precise marker.
   MPM.add(createDxilConditionalMem2RegPass(NoOpt));
 
+  // Clean up inefficiencies that can cause unnecessary live values related to
+  // lifetime marker cleanup blocks. This is the earliest possible location
+  // without interfering with HLSL-specific lowering.
+  if (!NoOpt && EnableLifetimeMarkers) {
+    MPM.add(createSROAPass());
+    MPM.add(createJumpThreadingPass());
+  }
+
   // Remove unneeded dxbreak conditionals
   MPM.add(createCleanupDxBreakPass());
 
@@ -267,19 +275,6 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, hlsl::HLSLExten
 
   if (!NoOpt)
     MPM.add(createCFGSimplificationPass());
-
-  // Passes to handle [unroll]
-  // Needs to happen after SROA since loop count may depend on
-  // struct members.
-  // Needs to happen before resources are lowered and before HL
-  // module is gone.
-  MPM.add(createDxilLoopUnrollPass(1024));
-
-  // Default unroll pass. This is purely for optimizing loops without
-  // attributes.
-  if (OptLevel > 2) {
-    MPM.add(createLoopUnrollPass());
-  }
 
   MPM.add(createDxilPromoteLocalResources());
   MPM.add(createDxilPromoteStaticResources());
@@ -297,14 +292,27 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, hlsl::HLSLExten
   // scalarize vector to scalar
   MPM.add(createScalarizerPass(!NoOpt /* AllowFolding */));
 
+  // Remove vector instructions
+  MPM.add(createDxilEliminateVectorPass());
+
+  // Passes to handle [unroll]
+  // Needs to happen after SROA since loop count may depend on
+  // struct members.
+  // Needs to happen before resources are lowered and before HL
+  // module is gone.
+  MPM.add(createDxilLoopUnrollPass(1024, OnlyWarnOnUnrollFail, StructurizeLoopExitsForUnroll));
+
+  // Default unroll pass. This is purely for optimizing loops without
+  // attributes.
+  if (OptLevel > 2) {
+    MPM.add(createLoopUnrollPass(-1, -1, -1, -1, StructurizeLoopExitsForUnroll));
+  }
+
   if (!NoOpt)
     MPM.add(createSimplifyInstPass());
 
   if (!NoOpt)
     MPM.add(createCFGSimplificationPass());
-
-  // Remove vector instructions
-  MPM.add(createDxilEliminateVectorPass());
 
   MPM.add(createDeadCodeEliminationPass());
 
@@ -351,16 +359,25 @@ void PassManagerBuilder::populateModulePassManager(
     addExtensionsToPM(EP_EnabledOnOptLevel0, MPM);
 
     // HLSL Change Begins.
-    addHLSLPasses(HLSLHighLevel, OptLevel, HLSLExtensionsCodeGen, MPM);
+    addHLSLPasses(HLSLHighLevel, OptLevel,
+      this->HLSLOnlyWarnOnUnrollFail,
+      this->StructurizeLoopExitsForUnroll,
+      this->HLSLEnableLifetimeMarkers,
+      this->HLSLExtensionsCodeGen,
+      MPM);
+
     if (!HLSLHighLevel) {
       MPM.add(createDxilConvergentClearPass());
-      MPM.add(createMultiDimArrayToOneDimArrayPass());
       MPM.add(createDxilRemoveDeadBlocksPass());
+      MPM.add(createDxilNoOptSimplifyInstructionsPass());
+      MPM.add(createGlobalOptimizerPass());
+      MPM.add(createMultiDimArrayToOneDimArrayPass());
       MPM.add(createDeadCodeEliminationPass());
       MPM.add(createGlobalDCEPass());
       MPM.add(createDxilLowerCreateHandleForLibPass());
       MPM.add(createDxilTranslateRawBuffer());
       MPM.add(createDxilLegalizeSampleOffsetPass());
+      MPM.add(createDxilNoOptLegalizePass());
       MPM.add(createDxilFinalizePreservesPass());
       MPM.add(createDxilFinalizeModulePass());
       MPM.add(createComputeViewIdStatePass());
@@ -381,12 +398,12 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createDxilRewriteOutputArgDebugInfoPass()); // Fix output argument types.
 
   MPM.add(createHLLegalizeParameter()); // legalize parameters before inline.
-  MPM.add(createAlwaysInlinerPass(/*InsertLifeTime*/false));
+  MPM.add(createAlwaysInlinerPass(/*InsertLifeTime*/this->HLSLEnableLifetimeMarkers));
   if (Inliner) {
     delete Inliner;
     Inliner = nullptr;
   }
-  addHLSLPasses(HLSLHighLevel, OptLevel, HLSLExtensionsCodeGen, MPM); // HLSL Change
+  addHLSLPasses(HLSLHighLevel, OptLevel, this->HLSLOnlyWarnOnUnrollFail, this->StructurizeLoopExitsForUnroll, this->HLSLEnableLifetimeMarkers, HLSLExtensionsCodeGen, MPM); // HLSL Change
   // HLSL Change Ends
 
   // Add LibraryInfo if we have some.
@@ -463,7 +480,7 @@ void PassManagerBuilder::populateModulePassManager(
     if (EnableMLSM)
       MPM.add(createMergedLoadStoreMotionPass()); // Merge ld/st in diamonds
     // HLSL Change Begins
-    if (!(HLSLOptimizationOptions.DisableGVN)) {
+    if (EnableGVN) {
       MPM.add(createGVNPass(DisableGVNLoadPRE));  // Remove redundancies
       if (!HLSLResMayAlias)
         MPM.add(createDxilSimpleGVNHoistPass());
@@ -601,7 +618,7 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createInstructionCombiningPass());
 
   if (!DisableUnrollLoops) {
-    MPM.add(createLoopUnrollPass());    // Unroll small loops
+    MPM.add(createLoopUnrollPass(/* HLSL Change begin */-1, -1, -1, -1, this->StructurizeLoopExitsForUnroll /* HLSL Change end */));    // Unroll small loops
 
     // LoopUnroll may generate some redundency to cleanup.
     MPM.add(createInstructionCombiningPass());
@@ -737,7 +754,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // PM.add(createLICMPass());                 // Hoist loop invariants.
   if (EnableMLSM)
     PM.add(createMergedLoadStoreMotionPass()); // Merge ld/st in diamonds.
-  if (!(HLSLOptimizationOptions.DisableGVN)) // HLSL Change
+  if (EnableGVN) // HLSL Change
     PM.add(createGVNPass(DisableGVNLoadPRE)); // Remove redundancies.
   PM.add(createMemCpyOptPass());            // Remove dead memcpys.
 

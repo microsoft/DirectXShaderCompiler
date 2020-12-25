@@ -1,4 +1,5 @@
-// RUN: %dxc -E main -T ps_6_0 %s  | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 %s  | FileCheck %s -check-prefixes=CHECK,CHK60
+// RUN: %dxc -E main -T ps_6_6 %s  | FileCheck %s -check-prefixes=CHECK,CHK66
 
 // CHECK: ; cbuffer MyCB
 // CHECK: ; {
@@ -94,40 +95,91 @@
 
 // CHECK: %struct.Resources = type { %"class.Texture2D<float>", %"class.Texture2D<vector<float, 4> >", %"class.Texture2D<float>", %"class.Texture2D<vector<float, 4> >", %"class.RWTexture2D<vector<float, 4> >", %"class.RWTexture2D<vector<float, 4> >", %"class.RWTexture2D<vector<float, 4> >", %"class.RWTexture2D<vector<float, 4> >", %struct.SamplerComparisonState, %struct.SamplerState, %struct.SamplerComparisonState, %struct.SamplerState, <4 x float> }
 
-// CHECK: %RWTex2_UAV_2d = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 1, i32 0, i32 7, i1 false)
-// CHECK: %MyTB_texture_tbuffer = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 4, i32 11, i1 false)
+// CHK60: %[[RWTex2:.*]] = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 1, i32 0, i32 7, i1 false)
+// CHK60: %[[MyTB:.*]] = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 4, i32 11, i1 false)
 
-// CHECK: %Tex1_texture_2d = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 0, i32 0, i1 false)
-// CHECK: %Samp2_sampler = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 3, i32 0, i32 0, i1 false)
+// CHK60: %[[Tex1:.*]] = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 0, i32 0, i1 false)
+// CHK60: %[[Samp2:.*]] = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 3, i32 0, i32 0, i1 false)
 
-// CHECK: %MyCB_cbuffer = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 2, i32 0, i32 11, i1 false)
+// CHK60: %[[MyCB:.*]] = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 2, i32 0, i32 11, i1 false)
 
-// CHECK: %tbuf4_texture_tbuffer = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 8, i32 4, i1 false)
-// CHECK: %tbuf2_texture_tbuffer = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 7, i32 2, i1 false)
-// CHECK: %tbuf3_texture_tbuffer = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 6, i32 6, i1 false)
-// CHECK: %tbuf1_texture_tbuffer = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 5, i32 35, i1 false)
+// CHK60: %[[tbuf4:.*]] = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 8, i32 4, i1 false)
+// CHK60: %[[tbuf2:.*]] = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 7, i32 2, i1 false)
+// CHK60: %[[tbuf3:.*]] = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 6, i32 6, i1 false)
+// CHK60: %[[tbuf1:.*]] = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 5, i32 35, i1 false)
 
-// CHECK: %buf2_cbuffer = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 2, i32 4, i32 55, i1 false)
-// CHECK: %buf1_cbuffer = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 2, i32 3, i32 104, i1 false)
-// CHECK: %buf4_cbuffer = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 2, i32 2, i32 1, i1 false)
+// CHK60: %[[buf2:.*]] = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 2, i32 4, i32 55, i1 false)
+// CHK60: %[[buf1:.*]] = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 2, i32 3, i32 104, i1 false)
+// CHK60: %[[buf4:.*]] = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 2, i32 2, i32 1, i1 false)
 
-// CHECK: %Tex2_texture_2d = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 1, i32 30, i1 false)
-// CHECK: %Tex3_texture_2d = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 2, i32 94, i1 false)
-// CHECK: %Tex4_texture_2d = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 3, i32 10, i1 false)
-// CHECK: %RWTex1_UAV_2d = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 1, i32 3, i32 2, i1 false)
-// CHECK: %RWTex3_UAV_2d = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 1, i32 1, i32 14, i1 false)
-// CHECK: %RWTex4_UAV_2d = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 1, i32 2, i32 22, i1 false)
-// CHECK: %Samp1_sampler = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 3, i32 3, i32 3, i1 false)
-// CHECK: %Samp3_sampler = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 3, i32 1, i32 29, i1 false)
-// CHECK: %Samp4_sampler = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 3, i32 2, i32 23, i1 false)
+// CHK60: %[[Tex2:.*]] = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 1, i32 30, i1 false)
+// CHK60: %[[Tex3:.*]] = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 2, i32 94, i1 false)
+// CHK60: %[[Tex4:.*]] = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 3, i32 10, i1 false)
+// CHK60: %[[RWTex1:.*]] = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 1, i32 3, i32 2, i1 false)
+// CHK60: %[[RWTex3:.*]] = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 1, i32 1, i32 14, i1 false)
+// CHK60: %[[RWTex4:.*]] = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 1, i32 2, i32 22, i1 false)
+// CHK60: %[[Samp1:.*]] = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 3, i32 3, i32 3, i1 false)
+// CHK60: %[[Samp3:.*]] = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 3, i32 1, i32 29, i1 false)
+// CHK60: %[[Samp4:.*]] = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 3, i32 2, i32 23, i1 false)
+
+// Shader Model 6.6
+
+// CHK66-DAG: %[[RWTex2_:.*]] = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 7, i32 7, i32 7, i8 1 }, i32 7, i1 false)
+// CHK66-DAG: %[[RWTex2:.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %[[RWTex2_]], %dx.types.ResourceProperties { i32 4098, i32 1033 })
+// CHK66-DAG: %[[MyTB_:.*]] = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 11, i32 11, i32 3, i8 0 }, i32 11, i1 false)
+// CHK66-DAG: %[[MyTB:.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %[[MyTB_]], %dx.types.ResourceProperties { i32 15, i32 32 })
+
+// CHK66-DAG: %[[Tex1_:.*]] = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind zeroinitializer, i32 0, i1 false)
+// CHK66-DAG: %[[Tex1:.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %[[Tex1_]], %dx.types.ResourceProperties { i32 2, i32 265 })
+// CHK66-DAG: %[[Samp2_:.*]] = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 0, i32 0, i32 0, i8 3 }, i32 0, i1 false)
+// CHK66-DAG: %[[Samp2:.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %[[Samp2_]], %dx.types.ResourceProperties { i32 14, i32 0 })
+
+// CHK66-DAG: %[[MyCB_:.*]] = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 11, i32 11, i32 0, i8 2 }, i32 11, i1 false)
+// CHK66-DAG: %[[MyCB:.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %[[MyCB_]], %dx.types.ResourceProperties { i32 13, i32 356 })
+
+// CHK66-DAG: %[[tbuf4_:.*]] = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 2, i32 5, i32 3, i8 0 }, i32 4, i1 false)
+// CHK66-DAG: %[[tbuf4:.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %[[tbuf4_]], %dx.types.ResourceProperties { i32 15, i32 32 })
+// CHK66-DAG: %[[tbuf2_:.*]] = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 1, i32 2, i32 0, i8 0 }, i32 2, i1 false)
+// CHK66-DAG: %[[tbuf2:.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %[[tbuf2_]], %dx.types.ResourceProperties { i32 15, i32 32 })
+// CHK66-DAG: %[[tbuf3_:.*]] = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 3, i32 6, i32 0, i8 0 }, i32 6, i1 false)
+// CHK66-DAG: %[[tbuf3:.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %[[tbuf3_]], %dx.types.ResourceProperties { i32 15, i32 32 })
+// CHK66-DAG: %[[tbuf1_:.*]] = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 32, i32 35, i32 0, i8 0 }, i32 35, i1 false)
+// CHK66-DAG: %[[tbuf1:.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %[[tbuf1_]], %dx.types.ResourceProperties { i32 15, i32 32 })
+// CHK66-DAG: %[[buf2_:.*]] = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 18, i32 81, i32 0, i8 2 }, i32 55, i1 false)
+// CHK66-DAG: %[[buf2:.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %[[buf2_]], %dx.types.ResourceProperties { i32 13, i32 32 })
+
+// CHK66-DAG: %[[buf1_:.*]] = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 77, i32 108, i32 3, i8 2 }, i32 104, i1 false)
+// CHK66-DAG: %[[buf1:.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %[[buf1_]], %dx.types.ResourceProperties { i32 13, i32 32 })
+// CHK66-DAG: %[[buf4_:.*]] = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 0, i32 2, i32 0, i8 2 }, i32 1, i1 false)
+// CHK66-DAG: %[[buf4:.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %[[buf4_]], %dx.types.ResourceProperties { i32 13, i32 32 })
+// CHK66-DAG: %[[Tex2_:.*]] = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 11, i32 31, i32 0, i8 0 }, i32 30, i1 false)
+// CHK66-DAG: %[[Tex2:.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %[[Tex2_]], %dx.types.ResourceProperties { i32 2, i32 1033 })
+
+// CHK66-DAG: %[[Tex3_:.*]] = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 36, i32 100, i32 0, i8 0 }, i32 94, i1 false)
+// CHK66-DAG: %[[Tex3:.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %[[Tex3_]], %dx.types.ResourceProperties { i32 2, i32 265 })
+// CHK66-DAG: %[[Tex4_:.*]] = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 7, i32 10, i32 0, i8 0 }, i32 10, i1 false)
+// CHK66-DAG: %[[Tex4:.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %[[Tex4_]], %dx.types.ResourceProperties { i32 2, i32 1033 })
+// CHK66-DAG: %[[RWTex1_:.*]] = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 0, i32 3, i32 0, i8 1 }, i32 2, i1 false)
+// CHK66-DAG: %[[RWTex1:.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %[[RWTex1_]], %dx.types.ResourceProperties { i32 4098, i32 1033 })
+// CHK66-DAG: %[[RWTex3_:.*]] = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 5, i32 16, i32 0, i8 1 }, i32 14, i1 false)
+// CHK66-DAG: %[[RWTex3:.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %[[RWTex3_]], %dx.types.ResourceProperties { i32 4098, i32 1033 })
+// CHK66-DAG: %[[RWTex4_:.*]] = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 17, i32 22, i32 0, i8 1 }, i32 22, i1 false)
+// CHK66-DAG: %[[RWTex4:.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %[[RWTex4_]], %dx.types.ResourceProperties { i32 4098, i32 1033 })
+// CHK66-DAG: %[[Samp1_:.*]] = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 1, i32 3, i32 0, i8 3 }, i32 3, i1 false)
+// CHK66-DAG: %[[Samp1:.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %[[Samp1_]], %dx.types.ResourceProperties { i32 32782, i32 0 })
+// CHK66-DAG: %[[Samp3_:.*]] = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 25, i32 30, i32 0, i8 3 }, i32 29, i1 false)
+// CHK66-DAG: %[[Samp3:.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %[[Samp3_]], %dx.types.ResourceProperties { i32 32782, i32 0 })
+// CHK66-DAG: %[[Samp4_:.*]] = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 4, i32 24, i32 0, i8 3 }, i32 23, i1 false)
+// CHK66-DAG: %[[Samp4:.*]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %[[Samp4_]], %dx.types.ResourceProperties { i32 14, i32 0 })
+
 
 // check packoffset:
-// CHECK: @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %MyCB_cbuffer, i32 4)
-// CHECK: @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %MyCB_cbuffer, i32 7)
-// CHECK: @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %MyCB_cbuffer, i32 21)
+// CHECK-DAG: @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %[[MyCB]], i32 4)
+// CHECK-DAG: @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %[[MyCB]], i32 7)
+// CHECK-DAG: @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %[[MyCB]], i32 21)
 
 // check element index:
-// CHECK: @dx.op.bufferLoad.i32(i32 68, %dx.types.Handle %tbuf1_texture_tbuffer, i32 1, i32 undef)
+// CHECK-DAG: @dx.op.bufferLoad.i32(i32 68, %dx.types.Handle %[[tbuf1]], i32 1, i32 undef)
 
 
 

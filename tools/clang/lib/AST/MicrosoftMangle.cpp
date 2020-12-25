@@ -1615,7 +1615,13 @@ void MicrosoftCXXNameMangler::mangleType(const BuiltinType *T, Qualifiers,
   case BuiltinType::Half:
     Out << "$f16@";
     break;
-  // HLSL Change Ends
+  case BuiltinType::Int8_4Packed:
+    Out << "$i8_4pk@";
+    break;
+  case BuiltinType::UInt8_4Packed:
+    Out << "$ui8_4pk@";
+    break;
+    // HLSL Change Ends
   }
 }
 

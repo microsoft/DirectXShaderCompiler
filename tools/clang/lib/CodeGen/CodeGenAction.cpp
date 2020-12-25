@@ -560,8 +560,10 @@ BackendConsumer::DxilDiagHandler(const llvm::DiagnosticInfoDxil &D) {
   // and add function name to give some information
   if (Loc.isInvalid()) {
     Message += " Use /Zi for source location.";
-    if (auto *DiagClient = dynamic_cast<TextDiagnosticPrinter*>(Diags.getClient()))
-      DiagClient->setPrefix("Function: " + D.getFunction()->getName().str());
+    auto *DiagClient = dynamic_cast<TextDiagnosticPrinter*>(Diags.getClient());
+    auto *func = D.getFunction();
+    if (DiagClient && func)
+      DiagClient->setPrefix("Function: " + func->getName().str());
   }
   Diags.Report(Loc, DiagID).AddString(Message);
 

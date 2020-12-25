@@ -742,6 +742,7 @@ void Parser::ParseGNUAttributeArgs(IdentifierInfo *AttrName,
     case AttributeList::AT_HLSLPatchConstantFunc:
     case AttributeList::AT_HLSLMaxVertexCount:
     case AttributeList::AT_HLSLUnroll:
+    case AttributeList::AT_HLSLWaveSize:
     case AttributeList::AT_NoInline:
     // The following are not accepted in [attribute(param)] syntax:
     //case AttributeList::AT_HLSLCentroid:
@@ -1949,10 +1950,6 @@ Parser::DeclGroupPtrTy Parser::ParseDeclaration(unsigned Context,
   case tok::kw_cbuffer:
   case tok::kw_tbuffer:
     SingleDecl = ParseCTBuffer(Context, DeclEnd, attrs);
-    break;
-  case tok::kw_ConstantBuffer:
-  case tok::kw_TextureBuffer:
-    SingleDecl = ParseConstBuffer(Context, DeclEnd, attrs);
     break;
   // HLSL Change Ends
   case tok::kw_namespace:

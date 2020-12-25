@@ -24,33 +24,66 @@ using namespace llvm;
 
 namespace hlsl {
 
-bool DxilResourceProperties::operator==(const DxilResourceProperties &RP) {
-  return Class == RP.Class && Kind == RP.Kind && RawDword0 == RP.RawDword0 &&
+DxilResourceProperties::DxilResourceProperties() {
+  RawDword0 = 0;
+  RawDword1 = 0;
+  Basic.ResourceKind = (uint8_t)DXIL::ResourceKind::Invalid;
+}
+bool DxilResourceProperties::isUAV() const { return Basic.IsUAV; }
+bool DxilResourceProperties::isValid() const {
+  return getResourceKind() != DXIL::ResourceKind::Invalid;
+}
+
+DXIL::ResourceClass DxilResourceProperties::getResourceClass() const {
+  switch (static_cast<DXIL::ResourceKind>(Basic.ResourceKind)) {
+  default:
+    return Basic.IsUAV ? DXIL::ResourceClass::UAV : DXIL::ResourceClass::SRV;
+  case DXIL::ResourceKind::CBuffer:
+    return DXIL::ResourceClass::CBuffer;
+  case DXIL::ResourceKind::Sampler:
+    return DXIL::ResourceClass::Sampler;
+  case DXIL::ResourceKind::Invalid:
+    return DXIL::ResourceClass::Invalid;
+  }
+}
+
+DXIL::ResourceKind DxilResourceProperties::getResourceKind() const {
+  return static_cast<DXIL::ResourceKind>(Basic.ResourceKind);
+}
+
+void DxilResourceProperties::setResourceKind(DXIL::ResourceKind RK) {
+  Basic.ResourceKind = (uint8_t)RK;
+}
+
+DXIL::ComponentType DxilResourceProperties::getCompType() const {
+  return static_cast<DXIL::ComponentType>(Typed.CompType);
+}
+
+unsigned DxilResourceProperties::getElementStride() const {
+  switch (getResourceKind()) {
+  default:
+    return CompType(getCompType()).GetSizeInBits() / 8;
+  case DXIL::ResourceKind::RawBuffer:
+    return 1;
+  case DXIL::ResourceKind::StructuredBuffer:
+    return StructStrideInBytes;
+  case DXIL::ResourceKind::CBuffer:
+  case DXIL::ResourceKind::Sampler:
+    return 0;
+  }
+}
+
+bool DxilResourceProperties::operator==(const DxilResourceProperties &RP) const {
+  return RawDword0 == RP.RawDword0 &&
          RawDword1 == RP.RawDword1;
 }
 
-bool DxilResourceProperties::operator!=(const DxilResourceProperties &RP) {
+bool DxilResourceProperties::operator!=(const DxilResourceProperties &RP) const {
   return !(*this == RP) ;
 }
 
-unsigned DxilResourceProperties::getSampleCount() {
-  assert(DXIL::IsTyped(Kind));
-  const unsigned SampleCountTable[] = {
-    1,  // 0
-    2,  // 1
-    4,  // 2
-    8,  // 3
-    16, // 4
-    32, // 5
-    0,  // 6
-    0,  // kSampleCountUndefined.
-  };
-  return SampleCountTable[Typed.SampleCountPow2];
-}
-
 namespace resource_helper {
-// Resource Class and Resource Kind is used as seperate parameter, other fileds
-// are saved in constant.
+
 // The constant is as struct with int32 fields.
 // ShaderModel 6.6 has 2 fileds.
 Constant *getAsConstant(const DxilResourceProperties &RP, Type *Ty,
@@ -70,12 +103,9 @@ Constant *getAsConstant(const DxilResourceProperties &RP, Type *Ty,
   return nullptr;
 }
 
-DxilResourceProperties loadFromConstant(const Constant &C,
-                                        DXIL::ResourceClass RC,
-                                        DXIL::ResourceKind RK) {
+DxilResourceProperties loadPropsFromConstant(const Constant &C) {
   DxilResourceProperties RP;
-  RP.Class = RC;
-  RP.Kind = RK;
+
   // Ty Should match C.getType().
   Type *Ty = C.getType();
   StructType *ST = cast<StructType>(Ty);
@@ -93,33 +123,27 @@ DxilResourceProperties loadFromConstant(const Constant &C,
     }
   } break;
   default:
-    RP.Class = DXIL::ResourceClass::Invalid;
     break;
   }
   return RP;
 }
 
 DxilResourceProperties
-loadFromAnnotateHandle(DxilInst_AnnotateHandle &annotateHandle, llvm::Type *Ty,
-                       const ShaderModel &SM) {
+loadPropsFromAnnotateHandle(DxilInst_AnnotateHandle &annotateHandle,
+                            llvm::Type *Ty, const ShaderModel &SM) {
   Constant *ResProp = cast<Constant>(annotateHandle.get_props());
-  return loadFromConstant(
-      *ResProp, (DXIL::ResourceClass)annotateHandle.get_resourceClass_val(),
-      (DXIL::ResourceKind)annotateHandle.get_resourceKind_val());
+  return loadPropsFromConstant(*ResProp);
 }
 
-DxilResourceProperties loadFromResourceBase(DxilResourceBase *Res) {
+DxilResourceProperties loadPropsFromResourceBase(const DxilResourceBase *Res) {
 
   DxilResourceProperties RP;
-  RP.Class = DXIL::ResourceClass::Invalid;
   if (!Res) {
     return RP;
   }
 
-  RP.RawDword0 = 0;
-  RP.RawDword1 = 0;
 
-  auto SetResProperties = [&RP](DxilResource &Res) {
+  auto SetResProperties = [&RP](const DxilResource &Res) {
     switch (Res.GetKind()) {
     default:
       break;
@@ -131,35 +155,10 @@ DxilResourceProperties loadFromResourceBase(DxilResourceBase *Res) {
 
       break;
     case DXIL::ResourceKind::StructuredBuffer:
-    case DXIL::ResourceKind::StructuredBufferWithCounter:
-      RP.ElementStride = Res.GetElementStride();
+      RP.StructStrideInBytes = Res.GetElementStride();
       break;
     case DXIL::ResourceKind::Texture2DMS:
     case DXIL::ResourceKind::Texture2DMSArray:
-      switch (Res.GetSampleCount()) {
-      default:
-        RP.Typed.SampleCountPow2 =
-            DxilResourceProperties::kSampleCountUndefined;
-        break;
-      case 1:
-        RP.Typed.SampleCountPow2 = 0;
-        break;
-      case 2:
-        RP.Typed.SampleCountPow2 = 1;
-        break;
-      case 4:
-        RP.Typed.SampleCountPow2 = 2;
-        break;
-      case 8:
-        RP.Typed.SampleCountPow2 = 3;
-        break;
-      case 16:
-        RP.Typed.SampleCountPow2 = 4;
-        break;
-      case 32:
-        RP.Typed.SampleCountPow2 = 5;
-        break;
-      }
       break;
     case DXIL::ResourceKind::TypedBuffer:
     case DXIL::ResourceKind::Texture1D:
@@ -170,46 +169,39 @@ DxilResourceProperties loadFromResourceBase(DxilResourceBase *Res) {
     case DXIL::ResourceKind::TextureCubeArray:
     case DXIL::ResourceKind::Texture3D:
       Type *Ty = Res.GetRetType();
-      RP.Typed.SingleComponent = dxilutil::IsResourceSingleComponent(Ty);
-      RP.Typed.CompType = Res.GetCompType().GetKind();
-      RP.Typed.SampleCountPow2 =
-          DxilResourceProperties::kSampleCountUndefined;
+      RP.Typed.CompCount = dxilutil::GetResourceComponentCount(Ty);
+      RP.Typed.CompType = (uint8_t)Res.GetCompType().GetKind();
       break;
     }
   };
 
   switch (Res->GetClass()) { case DXIL::ResourceClass::Invalid: return RP;
   case DXIL::ResourceClass::SRV: {
-    DxilResource *SRV = (DxilResource*)(Res);
-    RP.Kind = Res->GetKind();
-    RP.Class = Res->GetClass();
+    const DxilResource *SRV = (const DxilResource*)(Res);
+    RP.Basic.ResourceKind = (uint8_t)Res->GetKind();
     SetResProperties(*SRV);
   } break;
   case DXIL::ResourceClass::UAV: {
-    DxilResource *UAV = (DxilResource *)(Res);
-    RP.Kind = Res->GetKind();
-    RP.Class = Res->GetClass();
-    RP.UAV.bGloballyCoherent = UAV->IsGloballyCoherent();
-    if (UAV->HasCounter()) {
-      RP.Kind = DXIL::ResourceKind::StructuredBufferWithCounter;
-    }
-    RP.UAV.bROV = UAV->IsROV();
+    const DxilResource *UAV = (const DxilResource *)(Res);
+    RP.Basic.IsUAV = true;
+    RP.Basic.ResourceKind = (uint8_t)Res->GetKind();
+    RP.Basic.IsGloballyCoherent = UAV->IsGloballyCoherent();
+    RP.Basic.SamplerCmpOrHasCounter = UAV->HasCounter();
+    RP.Basic.IsROV = UAV->IsROV();
     SetResProperties(*UAV);
   } break;
   case DXIL::ResourceClass::Sampler: {
-    RP.Class = DXIL::ResourceClass::Sampler;
-    RP.Kind = Res->GetKind();
-    DxilSampler *Sampler = (DxilSampler*)Res;
+    RP.Basic.ResourceKind = (uint8_t)Res->GetKind();
+    const DxilSampler *Sampler = (const DxilSampler*)Res;
     if (Sampler->GetSamplerKind() == DXIL::SamplerKind::Comparison)
-      RP.Kind = DXIL::ResourceKind::SamplerComparison;
+      RP.Basic.SamplerCmpOrHasCounter = true;
     else if (Sampler->GetSamplerKind() == DXIL::SamplerKind::Invalid)
-      RP.Kind = DXIL::ResourceKind::Invalid;
+      RP.Basic.ResourceKind = (uint8_t)DXIL::ResourceKind::Invalid;
   } break;
   case DXIL::ResourceClass::CBuffer: {
-    RP.Class = DXIL::ResourceClass::CBuffer;
-    RP.Kind = Res->GetKind();
-    DxilCBuffer *CB = (DxilCBuffer *)Res;
-    RP.SizeInBytes = CB->GetSize();
+    RP.Basic.ResourceKind = (uint8_t)Res->GetKind();
+    const DxilCBuffer *CB = (const DxilCBuffer *)Res;
+    RP.CBufferSizeInBytes = CB->GetSize();
   } break;
   }
   return RP;

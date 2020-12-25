@@ -195,10 +195,23 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
     for (auto field : structType->getFields())
       addCapabilityForType(field.type, loc, sc);
   }
-  //
-  else if (const auto *rayQueryType =
-               dyn_cast<RayQueryProvisionalTypeKHR>(type)) {
-    addCapability(spv::Capability::RayQueryProvisionalKHR);
+  // AccelerationStructureTypeNV type
+  else if (isa<AccelerationStructureTypeNV>(type)) {
+    if (featureManager.isExtensionEnabled(Extension::NV_ray_tracing)) {
+      addCapability(spv::Capability::RayTracingNV);
+      addExtension(Extension::NV_ray_tracing, "SPV_NV_ray_tracing", {});
+    } else {
+      // KHR_ray_tracing extension requires Vulkan 1.1 with VK_KHR_spirv_1_4
+      // extention or Vulkan 1.2.
+      featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1_SPIRV_1_4,
+                                      "Raytracing", {});
+      addCapability(spv::Capability::RayTracingKHR);
+      addExtension(Extension::KHR_ray_tracing, "SPV_KHR_ray_tracing", {});
+    }
+  }
+  // RayQueryTypeKHR type
+  else if (isa<RayQueryTypeKHR>(type)) {
+    addCapability(spv::Capability::RayQueryKHR);
     addExtension(Extension::KHR_ray_query, "SPV_KHR_ray_query", {});
   }
 }
@@ -450,6 +463,10 @@ bool CapabilityVisitor::visitInstruction(SpirvInstruction *instr) {
   case spv::Op::OpGroupNonUniformBroadcastFirst:
     addCapability(spv::Capability::GroupNonUniformBallot);
     break;
+  case spv::Op::OpGroupNonUniformShuffle:
+  case spv::Op::OpGroupNonUniformShuffleXor:
+    addCapability(spv::Capability::GroupNonUniformShuffle);
+    break;
   case spv::Op::OpGroupNonUniformIAdd:
   case spv::Op::OpGroupNonUniformFAdd:
   case spv::Op::OpGroupNonUniformIMul:
@@ -485,7 +502,7 @@ bool CapabilityVisitor::visitInstruction(SpirvInstruction *instr) {
     auto rayQueryInst = dyn_cast<SpirvRayQueryOpKHR>(instr);
     if (rayQueryInst->hasCullFlags()) {
       addCapability(
-          spv::Capability::RayTraversalPrimitiveCullingProvisionalKHR);
+          spv::Capability::RayTraversalPrimitiveCullingKHR);
     }
 
     break;
@@ -523,9 +540,11 @@ bool CapabilityVisitor::visit(SpirvEntryPoint *entryPoint) {
       addCapability(spv::Capability::RayTracingNV);
       addExtension(Extension::NV_ray_tracing, "SPV_NV_ray_tracing", {});
     } else {
-      // KHR_ray_tracing extension requires SPIR-V 1.4/Vulkan 1.2
-      featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_2, "Raytracing", {});
-      addCapability(spv::Capability::RayTracingProvisionalKHR);
+      // KHR_ray_tracing extension requires Vulkan 1.1 with VK_KHR_spirv_1_4
+      // extention or Vulkan 1.2.
+      featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1_SPIRV_1_4,
+                                      "Raytracing", {});
+      addCapability(spv::Capability::RayTracingKHR);
       addExtension(Extension::KHR_ray_tracing, "SPV_KHR_ray_tracing", {});
     }
     break;
@@ -583,6 +602,29 @@ bool CapabilityVisitor::visit(SpirvDemoteToHelperInvocationEXT *inst) {
                 inst->getSourceLocation());
   addExtension(Extension::EXT_demote_to_helper_invocation, "discard",
                inst->getSourceLocation());
+  return true;
+}
+
+bool CapabilityVisitor::visit(SpirvReadClock *inst) {
+  auto loc = inst->getSourceLocation();
+  addCapabilityForType(inst->getResultType(), loc, inst->getStorageClass());
+  addCapability(spv::Capability::ShaderClockKHR, loc);
+  addExtension(Extension::KHR_shader_clock, "ReadClock", loc);
+  return true;
+}
+
+bool CapabilityVisitor::visit(SpirvModule *, Visitor::Phase phase) {
+  // If there are no entry-points in the module (hence shaderModel is not set),
+  // add the Linkage capability. This allows library shader models to use
+  // 'export' attribute on functions, and generate an "incomplete/partial"
+  // SPIR-V binary.
+  // ExecutionModel::Max means that no entrypoints exist, therefore we should
+  // add the Linkage Capability.
+  if (phase == Visitor::Phase::Done &&
+      shaderModel == spv::ExecutionModel::Max) {
+    addCapability(spv::Capability::Shader);
+    addCapability(spv::Capability::Linkage);
+  }
   return true;
 }
 

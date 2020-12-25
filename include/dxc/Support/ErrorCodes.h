@@ -104,3 +104,6 @@
 
 // 0X80AA0019 - Abort compilation error.
 #define DXC_E_ABORT_COMPILATION_ERROR                 DXC_MAKE_HRESULT(DXC_SEVERITY_ERROR,FACILITY_DXC,(0x0019))
+
+// 0X80AA001A - Error in extension mechanism.
+#define DXC_E_EXTENSION_ERROR                         DXC_MAKE_HRESULT(DXC_SEVERITY_ERROR,FACILITY_DXC,(0x001A))

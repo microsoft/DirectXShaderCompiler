@@ -38,6 +38,20 @@ bool isScalarType(QualType type, QualType *scalarType = nullptr);
 bool isVectorType(QualType type, QualType *elemType = nullptr,
                   uint32_t *elemCount = nullptr);
 
+/// Returns true if the given type will be translated into a SPIR-V scalar type
+/// or vector type.
+///
+/// This includes:
+/// scalar types
+/// vector types (vec1, vec2, vec3, and vec4)
+/// Mx1 matrices (where M can be 1,2,3,4)
+/// 1xN matrices (where N can be 1,2,3,4)
+///
+/// Writes the element type and count into *elementType and *count respectively
+/// if they are not nullptr.
+bool isScalarOrVectorType(QualType type, QualType *elemType = nullptr,
+                          uint32_t *elemCount = nullptr);
+
 /// Returns true if the given type is an array with constant known size.
 bool isConstantArrayType(const ASTContext &, QualType);
 
@@ -72,17 +86,26 @@ bool isMx1Matrix(QualType type, QualType *elemType = nullptr,
 bool isMxNMatrix(QualType type, QualType *elemType = nullptr,
                  uint32_t *rowCount = nullptr, uint32_t *colCount = nullptr);
 
-/// \brief Returns true if the decl is of ConstantBuffer/TextureBuffer type.
-bool isConstantTextureBuffer(const Decl *decl);
+/// \brief Returns true if the given type is a ConstantBuffer or an array of
+/// ConstantBuffers.
+bool isConstantBuffer(QualType);
 
-/// \brief Returns true if the decl will have a SPIR-V resource type.
+/// \brief Returns true if the given type is a TextureBuffer or an array of
+/// TextureBuffers.
+bool isTextureBuffer(QualType);
+
+/// \brief Returns true if the given type is a ConstantBuffer or TextureBuffer
+/// or an array of ConstantBuffers/TextureBuffers.
+bool isConstantTextureBuffer(QualType);
+
+/// \brief Returns true if the given type will have a SPIR-V resource type.
 ///
 /// Note that this function covers the following HLSL types:
 /// * ConstantBuffer/TextureBuffer
 /// * Various structured buffers
 /// * (RW)ByteAddressBuffer
 /// * SubpassInput(MS)
-bool isResourceType(const ValueDecl *decl);
+bool isResourceType(QualType);
 
 /// Returns true if the given type is or contains a 16-bit type.
 /// The caller must also specify whether 16-bit types have been enabled via

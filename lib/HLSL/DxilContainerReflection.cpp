@@ -390,7 +390,7 @@ HRESULT DxilContainerReflection::GetPartReflection(UINT32 idx, REFIID iid, void 
       }
     }
   }
-  
+
   const DxilProgramHeader *pProgramHeader =
     reinterpret_cast<const DxilProgramHeader*>(GetDxilPartData(pPart));
   if (!IsValidDxilProgramHeader(pProgramHeader, pPart->PartSize)) {
@@ -1262,7 +1262,15 @@ void CShaderReflectionConstantBuffer::Initialize(
 
     // Replicate fxc bug, where Elements == 1 for inner struct of CB array, instead of 0.
     if (CB.GetRangeSize() > 1) {
-      DXASSERT(pVarType->m_Desc.Elements == 0, "otherwise, assumption is wrong");
+      DXASSERT(pVarType->m_Desc.Elements == 0,
+               "otherwise, assumption is wrong");
+      pVarType->m_Desc.Elements = 1;
+    } else if (CB.GetGlobalSymbol()
+                   ->getType()
+                   ->getPointerElementType()
+                   ->isArrayTy() &&
+               CB.GetRangeSize() == 1) {
+      // Set elements to 1 for size 1 array.
       pVarType->m_Desc.Elements = 1;
     }
 
@@ -1485,8 +1493,7 @@ static D3D_SHADER_INPUT_TYPE ResourceToShaderInputType(DxilResourceBase *RB) {
     return D3D_SIT_SAMPLER;
   case DxilResource::Kind::RawBuffer:
     return isUAV ? D3D_SIT_UAV_RWBYTEADDRESS : D3D_SIT_BYTEADDRESS;
-  case DxilResource::Kind::StructuredBuffer:
-  case DxilResource::Kind::StructuredBufferWithCounter: {
+  case DxilResource::Kind::StructuredBuffer: {
     if (!isUAV) return D3D_SIT_STRUCTURED;
     // TODO: D3D_SIT_UAV_CONSUME_STRUCTURED, D3D_SIT_UAV_APPEND_STRUCTURED?
     if (R->HasCounter()) return D3D_SIT_UAV_RWSTRUCTURED_WITH_COUNTER;
@@ -2558,9 +2565,9 @@ HRESULT CFunctionReflection::GetDesc(D3D12_FUNCTION_DESC *pDesc) {
   pDesc->BoundResources = (UINT)m_UsedResources.size();
 
   //Unset:  UINT                    InstructionCount;            // Number of emitted instructions
-  //Unset:  UINT                    TempRegisterCount;           // Number of temporary registers used 
+  //Unset:  UINT                    TempRegisterCount;           // Number of temporary registers used
   //Unset:  UINT                    TempArrayCount;              // Number of temporary arrays used
-  //Unset:  UINT                    DefCount;                    // Number of constant defines 
+  //Unset:  UINT                    DefCount;                    // Number of constant defines
   //Unset:  UINT                    DclCount;                    // Number of declarations (input + output)
   //Unset:  UINT                    TextureNormalInstructions;   // Number of non-categorized texture instructions
   //Unset:  UINT                    TextureLoadInstructions;     // Number of texture load instructions
@@ -2754,7 +2761,4 @@ void hlsl::CreateDxcContainerReflection(IDxcContainerReflection **ppResult) {
   *ppResult = nullptr;
 }
 
-DEFINE_CROSS_PLATFORM_UUIDOF(IDxcContainerReflection)
-
 #endif // LLVM_ON_WIN32
-

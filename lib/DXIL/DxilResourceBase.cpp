@@ -90,13 +90,30 @@ static const char *s_ResourceDimNames[] = {
         "invalid", "1d",        "2d",      "2dMS",      "3d",
         "cube",    "1darray",   "2darray", "2darrayMS", "cubearray",
         "buf",     "rawbuf",    "structbuf", "cbuffer", "sampler",
-        "tbuffer", "ras", "fbtex2d", "fbtex2darray", "structbufwithcounter", "samplercomparison",
+        "tbuffer", "ras", "fbtex2d", "fbtex2darray",
 };
 static_assert(_countof(s_ResourceDimNames) == (unsigned)DxilResourceBase::Kind::NumEntries,
   "Resource dim names array must be updated when new resource kind enums are added.");
 
 const char *DxilResourceBase::GetResDimName() const {
   return s_ResourceDimNames[(unsigned)m_Kind];
+}
+
+static const char *s_ResourceKindNames[] = {
+        "invalid",     "Texture1D",        "Texture2D",        "Texture2DMS",      "Texture3D",
+        "TextureCube", "Texture1DArray",   "Texture2DArray",   "Texture2DMSArray", "TextureCubeArray",
+        "TypedBuffer", "RawBuffer",        "StructuredBuffer", "CBuffer",          "Sampler",
+        "TBuffer",     "RTAccelerationStructure", "FeedbackTexture2D", "FeedbackTexture2DArray",
+};
+static_assert(_countof(s_ResourceKindNames) == (unsigned)DxilResourceBase::Kind::NumEntries,
+  "Resource kind names array must be updated when new resource kind enums are added.");
+
+const char *DxilResourceBase::GetResKindName() const {
+  return GetResourceKindName(m_Kind);
+}
+
+const char *GetResourceKindName(DXIL::ResourceKind K) {
+  return s_ResourceKindNames[(unsigned)K];
 }
 
 } // namespace hlsl

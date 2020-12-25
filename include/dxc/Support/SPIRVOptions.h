@@ -42,6 +42,7 @@ struct SpirvCodeGenOptions {
   bool debugInfoLine;
   bool debugInfoSource;
   bool debugInfoTool;
+  bool debugInfoRich;
   bool defaultRowMajor;
   bool disableValidation;
   bool enable16BitTypes;

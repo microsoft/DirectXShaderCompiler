@@ -438,6 +438,16 @@ bool SimplifyTrivialPHIs(BasicBlock *BB) {
   return Changed;
 }
 
+llvm::BasicBlock *GetSwitchSuccessorForCond(llvm::SwitchInst *Switch,llvm::ConstantInt *Cond) {
+  for (auto it = Switch->case_begin(), end = Switch->case_end(); it != end; it++) {
+    if (it.getCaseValue() == Cond) {
+      return it.getCaseSuccessor();
+      break;
+    }
+  }
+  return Switch->getDefaultDest();
+}
+
 static DbgValueInst *FindDbgValueInst(Value *Val) {
   if (auto *ValAsMD = LocalAsMetadata::getIfExists(Val)) {
     if (auto *ValMDAsVal = MetadataAsValue::getIfExists(Val->getContext(), ValAsMD)) {
@@ -605,68 +615,120 @@ bool IsResourceSingleComponent(Type *Ty) {
   return true;
 }
 
+uint8_t GetResourceComponentCount(llvm::Type *Ty) {
+  if (llvm::ArrayType *arrType = llvm::dyn_cast<llvm::ArrayType>(Ty)) {
+    return arrType->getArrayNumElements() *
+           GetResourceComponentCount(arrType->getArrayElementType());
+  } else if (llvm::StructType *structType =
+                 llvm::dyn_cast<llvm::StructType>(Ty)) {
+    uint32_t Count = 0;
+    for (Type *EltTy : structType->elements())  {
+      Count += GetResourceComponentCount(EltTy);
+    }
+    DXASSERT(Count <= 4, "Component Count out of bound.");
+    return Count;
+  } else if (llvm::VectorType *vectorType =
+                 llvm::dyn_cast<llvm::VectorType>(Ty)) {
+    return vectorType->getNumElements();
+  }
+  return 1;
+}
+
 bool IsHLSLResourceType(llvm::Type *Ty) {
+  return GetHLSLResourceProperties(Ty).first;
+}
+
+static DxilResourceProperties MakeResourceProperties(hlsl::DXIL::ResourceKind Kind, bool UAV, bool ROV, bool Cmp) {
+  DxilResourceProperties Ret = {};
+  Ret.Basic.IsROV = ROV;
+  Ret.Basic.SamplerCmpOrHasCounter = Cmp;
+  Ret.Basic.IsUAV = UAV;
+  Ret.Basic.ResourceKind = (uint8_t)Kind;
+  return Ret;
+}
+
+std::pair<bool, DxilResourceProperties> GetHLSLResourceProperties(llvm::Type *Ty)
+{
+   using RetType = std::pair<bool, DxilResourceProperties>;
+   RetType FalseRet(false, DxilResourceProperties{});
+
   if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
     if (!ST->hasName())
-      return false;
+      return FalseRet;
+
     StringRef name = ST->getName();
     ConsumePrefix(name, "class.");
     ConsumePrefix(name, "struct.");
 
     if (name == "SamplerState")
-      return true;
+      return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::Sampler, false, false, false));
+
     if (name == "SamplerComparisonState")
-      return true;
+      return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::Sampler, false, false, /*cmp or counter*/true));
 
     if (name.startswith("AppendStructuredBuffer<"))
-      return true;
-    if (name.startswith("ConsumeStructuredBuffer<"))
-      return true;
+      return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::StructuredBuffer, false, false, /*cmp or counter*/true));
 
-    if (name.startswith("ConstantBuffer<"))
-      return true;
+    if (name.startswith("ConsumeStructuredBuffer<"))
+      return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::StructuredBuffer, false, false, /*cmp or counter*/true));
 
     if (name == "RaytracingAccelerationStructure")
-      return true;
+      return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::RTAccelerationStructure, false, false, false));
 
     if (ConsumePrefix(name, "FeedbackTexture2D")) {
-      ConsumePrefix(name, "Array");
-      return name.startswith("<");
+      hlsl::DXIL::ResourceKind kind = hlsl::DXIL::ResourceKind::Invalid;
+      if (ConsumePrefix(name, "Array"))
+        kind = hlsl::DXIL::ResourceKind::FeedbackTexture2DArray;
+      else
+        kind = hlsl::DXIL::ResourceKind::FeedbackTexture2D;
+
+      if (name.startswith("<"))
+        return RetType(true, MakeResourceProperties(kind, false, false, false));
     }
 
-    ConsumePrefix(name, "RasterizerOrdered");
-    ConsumePrefix(name, "RW");
+    bool ROV = ConsumePrefix(name, "RasterizerOrdered");
+    bool UAV = ConsumePrefix(name, "RW");
+
     if (name == "ByteAddressBuffer")
-      return true;
+      return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::RawBuffer, UAV, ROV, false));
 
     if (name.startswith("Buffer<"))
-      return true;
+      return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::TypedBuffer, UAV, ROV, false));
+
     if (name.startswith("StructuredBuffer<"))
-      return true;
+      return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::StructuredBuffer, UAV, ROV, false));
 
     if (ConsumePrefix(name, "Texture")) {
       if (name.startswith("1D<"))
-        return true;
+        return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::Texture1D, UAV, ROV, false));
+
       if (name.startswith("1DArray<"))
-        return true;
+        return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::Texture1DArray, UAV, ROV, false));
+
       if (name.startswith("2D<"))
-        return true;
+        return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::Texture2D, UAV, ROV, false));
+
       if (name.startswith("2DArray<"))
-        return true;
+        return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::Texture2DArray, UAV, ROV, false));
+
       if (name.startswith("3D<"))
-        return true;
+        return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::Texture3D, UAV, ROV, false));
+
       if (name.startswith("Cube<"))
-        return true;
+        return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::TextureCube, UAV, ROV, false));
+
       if (name.startswith("CubeArray<"))
-        return true;
+        return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::TextureCubeArray, UAV, ROV, false));
+
       if (name.startswith("2DMS<"))
-        return true;
+        return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::Texture2DMS, UAV, ROV, false));
+
       if (name.startswith("2DMSArray<"))
-        return true;
-      return false;
+        return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::Texture2DMSArray, UAV, ROV, false));
+      return FalseRet;
     }
   }
-  return false;
+  return FalseRet;
 }
 
 bool IsHLSLObjectType(llvm::Type *Ty) {
@@ -720,6 +782,9 @@ bool IsHLSLResourceDescType(llvm::Type *Ty) {
 
     // TODO: don't check names.
     if (name == ("struct..Resource"))
+      return true;
+
+    if (name == "struct..Sampler")
       return true;
   }
   return false;

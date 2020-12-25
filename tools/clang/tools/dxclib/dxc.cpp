@@ -204,6 +204,64 @@ static void WriteDxcOutputToFile(DXC_OUT_KIND kind, IDxcResult *pResult, UINT32 
   }
 }
 
+static bool StringBlobEqualUtf16(IDxcBlobUtf16 *pBlob, const WCHAR *pStr) {
+  size_t uSize = wcslen(pStr);
+  if (pBlob && pBlob->GetStringLength() == uSize) {
+    return 0 == memcmp(pBlob->GetBufferPointer(), pStr, pBlob->GetBufferSize());
+  }
+  return false;
+}
+
+static void WriteDxcExtraOuputs(IDxcResult *pResult) {
+  DXC_OUT_KIND kind = DXC_OUT_EXTRA_OUTPUTS;
+  if (!pResult->HasOutput(kind)) {
+    return;
+  }
+
+  CComPtr<IDxcExtraOutputs> pOutputs;
+  CComPtr<IDxcBlobUtf16> pName;
+  IFT(pResult->GetOutput(kind, IID_PPV_ARGS(&pOutputs), &pName));
+
+  UINT32 uOutputCount = pOutputs->GetOutputCount();
+  for (UINT32 i = 0; i < uOutputCount; i++) {
+    CComPtr<IDxcBlobUtf16> pFileName;
+    CComPtr<IDxcBlobUtf16> pType;
+    CComPtr<IDxcBlob> pBlob;
+    IFT(pOutputs->GetOutput(i, IID_PPV_ARGS(&pBlob), &pType, &pFileName));
+
+    // Not a blob
+    if (!pBlob)
+      continue;
+
+    UINT32 uCodePage = CP_ACP;
+    CComPtr<IDxcBlobEncoding> pBlobEncoding;
+    if (SUCCEEDED(pBlob.QueryInterface(&pBlobEncoding))) {
+      BOOL bKnown = FALSE;
+      UINT32 uKnownCodePage = CP_ACP;
+      IFT(pBlobEncoding->GetEncoding(&bKnown, &uKnownCodePage));
+      if (bKnown) {
+        uCodePage = uKnownCodePage;
+      }
+    }
+
+    if (pFileName && pFileName->GetStringLength() > 0) {
+      if (StringBlobEqualUtf16(pFileName, DXC_EXTRA_OUTPUT_NAME_STDOUT)) {
+        if (uCodePage != CP_ACP) {
+          WriteBlobToConsole(pBlob, STD_OUTPUT_HANDLE);
+        }
+      }
+      else if (StringBlobEqualUtf16(pFileName, DXC_EXTRA_OUTPUT_NAME_STDERR)) {
+        if (uCodePage != CP_ACP) {
+          WriteBlobToConsole(pBlob, STD_ERROR_HANDLE);
+        }
+      }
+      else {
+        WriteBlobToFile(pBlob, pFileName->GetStringPointer(), uCodePage);
+      }
+    }
+  }
+}
+
 // This function is called either after the compilation is done or /dumpbin option is provided
 // Performing options that are used to process dxil container.
 int DxcContext::ActOnBlob(IDxcBlob *pBlob) {
@@ -846,6 +904,7 @@ int DxcContext::Compile() {
         WriteDxcOutputToFile(DXC_OUT_ROOT_SIGNATURE, pResult, m_Opts.DefaultTextCodePage);
         WriteDxcOutputToFile(DXC_OUT_SHADER_HASH, pResult, m_Opts.DefaultTextCodePage);
         WriteDxcOutputToFile(DXC_OUT_REFLECTION, pResult, m_Opts.DefaultTextCodePage);
+        WriteDxcExtraOuputs(pResult);
       }
     }
   }

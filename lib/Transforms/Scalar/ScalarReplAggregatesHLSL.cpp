@@ -233,7 +233,7 @@ static void addDebugInfoForElements(Value *ParentVal,
     // The bit_piece can only represent the leading contiguous bytes.
     // If strides are involved, we'll need additional metadata.
     Type *ElemTy = Elems[ElemIdx]->getType()->getPointerElementType();
-    unsigned ElemBitPieceSize = (unsigned)DatLayout.getTypeAllocSizeInBits(ElemTy);
+    unsigned ElemBitPieceSize = (unsigned)DatLayout.getTypeStoreSizeInBits(ElemTy);
     for (const DxilDIArrayDim& ArrayDim : DIArrayDims)
       ElemBitPieceSize /= ArrayDim.NumElements;
 
@@ -1736,6 +1736,10 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
       if (Value *NewV = TranslatePtrIfUsedByLoweredFn(AI, typeSys)) {
         if (NewV != AI) {
           DXASSERT(AI->getNumUses() == 0, "must have zero users.");
+          // Update debug declare.
+          if (DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(AI)) {
+            DDI->setArgOperand(0, MetadataAsValue::get(NewV->getContext(), ValueAsMetadata::get(NewV)));
+          }
           AI->eraseFromParent();
           Changed = true;
         }
@@ -1748,7 +1752,7 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
       // separate elements.
       if (ShouldAttemptScalarRepl(AI) && isSafeAllocaToScalarRepl(AI)) {
         std::vector<Value *> Elts;
-        IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(AI));
+        IRBuilder<> Builder(dxilutil::FindAllocaInsertionPt(AI));
         bool hasPrecise = HLModule::HasPreciseAttributeWithMetadata(AI);
 
         Type *BrokenUpTy = nullptr;
@@ -2431,7 +2435,38 @@ void SROA_Helper::RewriteBitCast(BitCastInst *BCI) {
   SrcTy = SrcTy->getPointerElementType();
 
   if (!DstTy->isStructTy()) {
-    assert(0 && "Type mismatch.");
+    // This is an llvm.lifetime.* intrinsic. Replace bitcast by a bitcast for each element.
+    SmallVector<IntrinsicInst*, 16> ToReplace;
+
+    DXASSERT(onlyUsedByLifetimeMarkers(BCI),
+             "expected struct bitcast to only be used by lifetime intrinsics");
+
+    for (User *User : BCI->users()) {
+      IntrinsicInst *Intrin = cast<IntrinsicInst>(User);
+      ToReplace.push_back(Intrin);
+    }
+
+    const DataLayout &DL = BCI->getModule()->getDataLayout();
+    for (IntrinsicInst *Intrin : ToReplace) {
+      IRBuilder<> Builder(Intrin);
+
+      for (Value *Elt : NewElts) {
+        assert(Elt->getType()->isPointerTy());
+        Type     *ElPtrTy = Elt->getType();
+        Type     *ElTy    = ElPtrTy->getPointerElementType();
+        Value    *SizeV   = Builder.getInt64( DL.getTypeAllocSize(ElTy) );
+        Value    *Ptr     = Builder.CreateBitCast(Elt, Builder.getInt8PtrTy());
+        Value    *Args[]  = {SizeV, Ptr};
+        CallInst *C       = Builder.CreateCall(Intrin->getCalledFunction(), Args);
+        C->setDoesNotThrow();
+      }
+
+      assert(Intrin->use_empty());
+      Intrin->eraseFromParent();
+    }
+
+    assert(BCI->use_empty());
+    BCI->eraseFromParent();
     return;
   }
 
@@ -2474,6 +2509,7 @@ void SROA_Helper::RewriteBitCast(BitCastInst *BCI) {
     idxList[i] = zeroIdx;
 
   IRBuilder<> Builder(BCI);
+  Builder.AllowFolding = false; // We need an Instruction, so make sure we don't get a constant
   Instruction *GEP = cast<Instruction>(Builder.CreateInBoundsGEP(Val, idxList));
   BCI->replaceAllUsesWith(GEP);
   BCI->eraseFromParent();
@@ -3186,6 +3222,35 @@ static void CopyElementsOfStructsWithIdenticalLayout(
   }
 }
 
+static void removeLifetimeUsers(Value *V) {
+  std::set<Value*> users(V->users().begin(), V->users().end());
+  for (Value *U : users) {
+    if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(U)) {
+      if (II->getIntrinsicID() == Intrinsic::lifetime_start ||
+          II->getIntrinsicID() == Intrinsic::lifetime_end) {
+        II->eraseFromParent();
+      }
+    } else if (isa<BitCastInst>(U) ||
+               isa<AddrSpaceCastInst>(U) ||
+               isa<GetElementPtrInst>(U)) {
+      // Recurse into bitcast, addrspacecast, GEP.
+      removeLifetimeUsers(U);
+      if (U->use_empty())
+        cast<Instruction>(U)->eraseFromParent();
+    }
+  }
+}
+
+// Conservatively remove all lifetime users of both source and target.
+// Otherwise, wrong lifetimes could be inherited either way.
+// TODO: We should be merging the lifetimes. For convenience, just remove them
+//       for now to be safe.
+static void updateLifetimeForReplacement(Value *From, Value *To)
+{
+    removeLifetimeUsers(From);
+    removeLifetimeUsers(To);
+}
+
 static bool DominateAllUsers(Instruction *I, Value *V, DominatorTree *DT);
 
 
@@ -3205,9 +3270,11 @@ static bool ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
   if (Instruction *SrcI = dyn_cast<Instruction>(Src))
     if (!DominateAllUsers(SrcI, V, DT))
       return false;
+
   Type *TyV = V->getType()->getPointerElementType();
   Type *TySrc = Src->getType()->getPointerElementType();
   if (Constant *C = dyn_cast<Constant>(V)) {
+    updateLifetimeForReplacement(V, Src);
     if (TyV == TySrc) {
       if (isa<Constant>(Src)) {
         V->replaceAllUsesWith(Src);
@@ -3223,8 +3290,10 @@ static bool ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
     }
   } else {
     if (TyV == TySrc) {
-      if (V != Src)
+      if (V != Src) {
+        updateLifetimeForReplacement(V, Src);
         V->replaceAllUsesWith(Src);
+      }
     } else if (!IsUnboundedArrayMemcpy(TyV, TySrc)) {
       Value* DestVal = MC->getRawDest();
       Value* SrcVal = MC->getRawSource();
@@ -3265,6 +3334,7 @@ static bool ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
             MemcpySplitter::SplitMemCpy(MC, DL, annotation, typeSys);
             return true;
           } else {
+            updateLifetimeForReplacement(V, Src);
             DstPtr->replaceAllUsesWith(SrcPtr);
           }
         } else {
@@ -3273,6 +3343,7 @@ static bool ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
         }
       }
     } else {
+      updateLifetimeForReplacement(V, Src);
       DXASSERT(IsUnboundedArrayMemcpy(TyV, TySrc), "otherwise mismatched types in memcpy are not unbounded array");
       ReplaceUnboundedArrayUses(V, Src);
     }
@@ -3424,6 +3495,32 @@ static bool DominateAllUsers(Instruction *I, Value *V, DominatorTree *DT) {
   }
 }
 
+static bool isReadOnlyPtr(CallInst *PtrCI) {
+  HLSubscriptOpcode opcode =
+      static_cast<HLSubscriptOpcode>(hlsl::GetHLOpcode(PtrCI));
+  if (opcode == HLSubscriptOpcode::CBufferSubscript) {
+    // Ptr from CBuffer is readonly.
+    return true;
+  } else if (opcode == HLSubscriptOpcode::DefaultSubscript) {
+    Value *ptr = PtrCI->getArgOperand(HLOperandIndex::kSubscriptObjectOpIdx);
+    // Resource ptr.
+    if (CallInst *handleCI = dyn_cast<CallInst>(ptr)) {
+      hlsl::HLOpcodeGroup group =
+          hlsl::GetHLOpcodeGroup(handleCI->getCalledFunction());
+      if (group == HLOpcodeGroup::HLAnnotateHandle) {
+        Constant *Props = cast<Constant>(handleCI->getArgOperand(
+                             HLOperandIndex::kAnnotateHandleResourcePropertiesOpIdx));
+        DxilResourceProperties RP = resource_helper::loadPropsFromConstant(*Props);
+        if (RP.getResourceClass() == DXIL::ResourceClass::SRV) {
+          // Ptr from SRV is readonly.
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
 bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
                               DxilTypeSystem &typeSys, const DataLayout &DL,
                               DominatorTree *DT, bool bAllowReplace) {
@@ -3488,10 +3585,8 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
             hlsl::HLOpcodeGroup group =
                 hlsl::GetHLOpcodeGroup(PtrCI->getCalledFunction());
             if (group == HLOpcodeGroup::HLSubscript) {
-              HLSubscriptOpcode opcode =
-                  static_cast<HLSubscriptOpcode>(hlsl::GetHLOpcode(PtrCI));
-              if (opcode == HLSubscriptOpcode::CBufferSubscript) {
-                // Ptr from CBuffer is safe.
+              if (isReadOnlyPtr(PtrCI)) {
+                // Ptr from CBuffer/SRV is safe.
                 if (ReplaceMemcpy(V, Src, MC, annotation, typeSys, DL, DT))
                   return true;
               }
@@ -3710,6 +3805,23 @@ public:
     // SROA globals and allocas.
     SROAGlobalAndAllocas(*m_pHLModule, m_HasDbgInfo);
 
+    // Move up allocas that might have been pushed down by instruction inserts
+    for (Function &F : M) {
+      if (F.isDeclaration())
+        continue;
+      Instruction *insertPt = nullptr;
+      // SROA only potentially "incorrectly" inserts non-allocas into the entry block.
+      for (llvm::Instruction &I : F.getEntryBlock()) {
+        if (!insertPt) {
+          // Find the first non-alloca to move the allocas above
+          if (!isa<AllocaInst>(I) && !isa<DbgInfoIntrinsic>(I))
+            insertPt = &I;
+        } else if (isa<AllocaInst>(I)) {
+          // Move any alloca to before the first non-alloca
+          I.moveBefore(insertPt);
+        }
+      }
+    }
     return true;
   }
 
@@ -4597,10 +4709,9 @@ void SROA_Parameter_HLSL::flattenArgument(
     const bool bAllowReplace = false;
     SROA_Helper::LowerMemcpy(V, &annotation, dxilTypeSys, DL, nullptr /*DT */, bAllowReplace);
 
-    // Now is safe to create the IRBuilders.
+    // Now is safe to create the IRBuilder.
     // If we create it before LowerMemcpy, the insertion pointer instruction may get deleted
-    IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(EntryBlock));
-    IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(EntryBlock));
+    IRBuilder<> Builder(dxilutil::FindAllocaInsertionPt(EntryBlock));
 
     std::vector<Value *> Elts;
 
@@ -4678,7 +4789,7 @@ void SROA_Parameter_HLSL::flattenArgument(
         unsigned  targetIndex;
         Semantic::DecomposeNameAndIndex(semanticStr, &targetStr, &targetIndex);
         // Replace target parameter with local target.
-        AllocaInst *localTarget = AllocaBuilder.CreateAlloca(Ty);
+        AllocaInst *localTarget = Builder.CreateAlloca(Ty);
         V->replaceAllUsesWith(localTarget);
         unsigned arraySize = 1;
         std::vector<unsigned> arraySizeList;
@@ -4695,7 +4806,7 @@ void SROA_Parameter_HLSL::flattenArgument(
         // Create flattened target.
         DxilFieldAnnotation EltAnnotation = annotation;
         for (unsigned i=0;i<arraySize;i++) {
-          Value *Elt = AllocaBuilder.CreateAlloca(Ty);
+          Value *Elt = Builder.CreateAlloca(Ty);
           EltAnnotation.SetSemanticString(targetStr.str()+std::to_string(targetIndex+i));
 
           // Add semantic type.
@@ -4797,7 +4908,7 @@ void SROA_Parameter_HLSL::flattenArgument(
         // For stream output objects.
         // Create a value as output value.
         Type *outputType = V->getType()->getPointerElementType()->getStructElementType(0);
-        Value *outputVal = AllocaBuilder.CreateAlloca(outputType);
+        Value *outputVal = Builder.CreateAlloca(outputType);
 
         // For each stream.Append(data)
         // transform into
@@ -4923,8 +5034,7 @@ void SROA_Parameter_HLSL::preprocessArgUsedInCall(Function *F) {
   DxilFunctionAnnotation *pFuncAnnot = typeSys.GetFunctionAnnotation(F);
   DXASSERT(pFuncAnnot, "else invalid function");
 
-  IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(F));
-  IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(F));
+  IRBuilder<> Builder(dxilutil::FindAllocaInsertionPt(F));
 
   SmallVector<ReturnInst*, 2> retList;
   for (BasicBlock &bb : F->getBasicBlockList()) {
@@ -4948,7 +5058,7 @@ void SROA_Parameter_HLSL::preprocessArgUsedInCall(Function *F) {
 
     if (bUsedInCall) {
       // Create tmp.
-      Value *TmpArg = AllocaBuilder.CreateAlloca(Ty);
+      Value *TmpArg = Builder.CreateAlloca(Ty);
       // Replace arg with tmp.
       arg.replaceAllUsesWith(TmpArg);
 
@@ -5117,7 +5227,7 @@ static void LegalizeDxilInputOutputs(Function *F,
         // DxilGenerationPass.
         isColMajor = paramAnnotation.GetMatrixAnnotation().Orientation ==
                      MatrixOrientation::ColumnMajor;
-        IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(F));
+        IRBuilder<> Builder(dxilutil::FindAllocaInsertionPt(F));
 
         HLCastOpcode opcode = isColMajor ? HLCastOpcode::ColMatrixToVecCast
                                          : HLCastOpcode::RowMatrixToVecCast;
@@ -5178,10 +5288,9 @@ static void LegalizeDxilInputOutputs(Function *F,
     }
 
     if (bStoreInputToTemp || bLoadOutputFromTemp) {
-      IRBuilder<> AllocaBuilder(EntryBlk.getFirstInsertionPt());
-      IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(&EntryBlk));
+      IRBuilder<> Builder(EntryBlk.getFirstInsertionPt());
 
-      AllocaInst *temp = AllocaBuilder.CreateAlloca(Ty);
+      AllocaInst *temp = Builder.CreateAlloca(Ty);
       // Replace all uses with temp.
       arg.replaceAllUsesWith(temp);
 
@@ -5295,9 +5404,8 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
   std::vector<DxilParameterAnnotation> FlatRetAnnotationList;
   // Split and change to out parameter.
   if (!retType->isVoidTy()) {
-    IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(EntryBlock));
-    IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(EntryBlock));
-    Value *retValAddr = AllocaBuilder.CreateAlloca(retType);
+    IRBuilder<> Builder(dxilutil::FindAllocaInsertionPt(EntryBlock));
+    Value *retValAddr = Builder.CreateAlloca(retType);
     DxilParameterAnnotation &retAnnotation =
         funcAnnotation->GetRetTypeAnnotation();
     Module &M = *m_pHLModule->GetModule();
@@ -5509,8 +5617,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
     LLVMContext &Context = F->getContext();
 
     // Parameter cast come from begining of entry block.
-    IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(flatF));
-    IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(flatF));
+    IRBuilder<> Builder(dxilutil::FindAllocaInsertionPt(flatF));
 
     while (argIter != flatF->arg_end()) {
       Argument *Arg = argIter++;
@@ -5535,7 +5642,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
             StoreInst *SI = cast<StoreInst>(*flatArg->user_begin());
             allocaArg = SI->getPointerOperand();
           } else {
-            allocaArg = AllocaBuilder.CreateAlloca(flatArg->getType());
+            allocaArg = Builder.CreateAlloca(flatArg->getType());
             StoreInst *initArg = Builder.CreateStore(flatArg, allocaArg);
             Value *ldArg = Builder.CreateLoad(allocaArg);
             flatArg->replaceAllUsesWith(ldArg);
@@ -5764,10 +5871,8 @@ bool LowerStaticGlobalIntoAlloca::lowerStaticGlobalIntoAlloca(GlobalVariable *GV
     return false;
 
   Function *F = const_cast<Function*>(PS.AccessingFunction);
-  IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(F));
-  AllocaInst *AI = AllocaBuilder.CreateAlloca(GV->getType()->getElementType());
-
-  IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(F));
+  IRBuilder<> Builder(dxilutil::FindAllocaInsertionPt(F));
+  AllocaInst *AI = Builder.CreateAlloca(GV->getType()->getElementType());
 
   // Store initializer is exist.
   if (GV->hasInitializer() && !isa<UndefValue>(GV->getInitializer())) {

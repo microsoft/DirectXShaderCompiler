@@ -12,15 +12,37 @@
 #include <array>
 
 #include "dxc/DXIL/DxilShaderModel.h"
+#include "clang/AST/DeclTemplate.h"
 #include "clang/Frontend/FrontendAction.h"
 #include "clang/SPIRV/SpirvInstruction.h"
 #include "clang/SPIRV/SpirvType.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseMapInfo.h"
+#include "llvm/ADT/MapVector.h"
+#include "llvm/ADT/StringMap.h"
 #include "llvm/Support/Allocator.h"
 
 namespace clang {
 namespace spirv {
+
+class SpirvModule;
+
+struct RichDebugInfo {
+  RichDebugInfo(SpirvDebugSource *src, SpirvDebugCompilationUnit *cu)
+      : source(src), compilationUnit(cu) {
+    scopeStack.push_back(cu);
+  }
+  RichDebugInfo() : source(nullptr), compilationUnit(nullptr), scopeStack() {}
+
+  // The HLL source code
+  SpirvDebugSource *source;
+
+  // The compilation unit (topmost debug info node)
+  SpirvDebugCompilationUnit *compilationUnit;
+
+  // Stack of lexical scopes
+  std::vector<SpirvDebugInstruction *> scopeStack;
+};
 
 // Provides DenseMapInfo for spv::StorageClass so that we can use
 // spv::StorageClass as key to DenseMap.
@@ -121,7 +143,7 @@ class SpirvContext {
 public:
   using ShaderModelKind = hlsl::ShaderModel::Kind;
   SpirvContext();
-  ~SpirvContext() = default;
+  ~SpirvContext();
 
   // Forbid copy construction and assignment
   SpirvContext(const SpirvContext &) = delete;
@@ -139,10 +161,66 @@ public:
   /// Deallocates the memory pointed by the given pointer.
   void deallocate(void *ptr) const {}
 
+  // === DebugTypes ===
+
+  // TODO: Replace uint32_t with an enum for encoding.
+  SpirvDebugType *getDebugTypeBasic(const SpirvType *spirvType,
+                                    llvm::StringRef name, SpirvConstant *size,
+                                    uint32_t encoding);
+
+  SpirvDebugType *getDebugTypeMember(llvm::StringRef name, SpirvDebugType *type,
+                                     SpirvDebugSource *source, uint32_t line,
+                                     uint32_t column,
+                                     SpirvDebugInstruction *parent,
+                                     uint32_t flags, uint32_t offsetInBits,
+                                     uint32_t sizeInBits, const APValue *value);
+
+  SpirvDebugTypeComposite *getDebugTypeComposite(const SpirvType *spirvType,
+                                                 llvm::StringRef name,
+                                                 SpirvDebugSource *source,
+                                                 uint32_t line, uint32_t column,
+                                                 SpirvDebugInstruction *parent,
+                                                 llvm::StringRef linkageName,
+                                                 uint32_t flags, uint32_t tag);
+
+  SpirvDebugType *getDebugType(const SpirvType *spirvType);
+
+  SpirvDebugType *getDebugTypeArray(const SpirvType *spirvType,
+                                    SpirvDebugInstruction *elemType,
+                                    llvm::ArrayRef<uint32_t> elemCount);
+
+  SpirvDebugType *getDebugTypeVector(const SpirvType *spirvType,
+                                     SpirvDebugInstruction *elemType,
+                                     uint32_t elemCount);
+
+  SpirvDebugType *getDebugTypeFunction(const SpirvType *spirvType,
+                                       uint32_t flags, SpirvDebugType *ret,
+                                       llvm::ArrayRef<SpirvDebugType *> params);
+
+  SpirvDebugTypeTemplate *createDebugTypeTemplate(
+      const ClassTemplateSpecializationDecl *templateType,
+      SpirvDebugInstruction *target,
+      const llvm::SmallVector<SpirvDebugTypeTemplateParameter *, 2> &params);
+
+  SpirvDebugTypeTemplate *
+  getDebugTypeTemplate(const ClassTemplateSpecializationDecl *templateType);
+
+  SpirvDebugTypeTemplateParameter *createDebugTypeTemplateParameter(
+      const TemplateArgument *templateArg, llvm::StringRef name,
+      SpirvDebugType *type, SpirvInstruction *value, SpirvDebugSource *source,
+      uint32_t line, uint32_t column);
+
+  SpirvDebugTypeTemplateParameter *
+  getDebugTypeTemplateParameter(const TemplateArgument *templateArg);
+
+  // Moves all debug type instructions to module and makes the data structures
+  // that contain the debug type instructions empty. After calling this method,
+  // module will have the ownership of debug type instructions.
+  void moveDebugTypesToModule(SpirvModule *module);
+
   // === Types ===
 
   const VoidType *getVoidType() const { return voidType; }
-
   const BoolType *getBoolType() const { return boolType; }
   const IntegerType *getSIntType(uint32_t bitwidth);
   const IntegerType *getUIntType(uint32_t bitwidth);
@@ -185,8 +263,8 @@ public:
     return accelerationStructureTypeNV;
   }
 
-  const RayQueryProvisionalTypeKHR *getRayQueryProvisionalTypeKHR() const {
-    return rayQueryProvisionalTypeKHR;
+  const RayQueryTypeKHR *getRayQueryTypeKHR() const {
+    return rayQueryTypeKHR;
   }
 
   /// --- Hybrid type getter functions ---
@@ -237,6 +315,47 @@ public:
     return curShaderModelKind == ShaderModelKind::Amplification;
   }
 
+  /// Function to get all RichDebugInfo (i.e., the current status of
+  /// compilation units).
+  llvm::StringMap<RichDebugInfo> &getDebugInfo() { return debugInfo; }
+
+  /// Function to let the lexical scope stack grow when it enters a
+  /// new lexical scope.
+  void pushDebugLexicalScope(RichDebugInfo *info, SpirvDebugInstruction *scope);
+
+  /// Function to pop the last element from the lexical scope stack.
+  void popDebugLexicalScope(RichDebugInfo *info) {
+    info->scopeStack.pop_back();
+    currentLexicalScope = info->scopeStack.back();
+  }
+
+  /// Function to get the last lexical scope that the SpirvEmitter
+  /// class instance entered.
+  SpirvDebugInstruction *getCurrentLexicalScope() {
+    return currentLexicalScope;
+  }
+
+  /// Function to add/get the mapping from a SPIR-V type to its Decl for
+  /// a struct type.
+  void registerStructDeclForSpirvType(const SpirvType *spvTy,
+                                      const DeclContext *decl) {
+    assert(spvTy != nullptr && decl != nullptr);
+    spvStructTypeToDecl[spvTy] = decl;
+  }
+  const DeclContext *getStructDeclForSpirvType(const SpirvType *spvTy) {
+    return spvStructTypeToDecl[spvTy];
+  }
+
+  /// Function to add/get the mapping from a FunctionDecl to its DebugFunction.
+  void registerDebugFunctionForDecl(const FunctionDecl *decl,
+                                    SpirvDebugFunction *fn) {
+    assert(decl != nullptr && fn != nullptr);
+    declToDebugFunction[decl] = fn;
+  }
+  SpirvDebugFunction *getDebugFunctionForDecl(const FunctionDecl *decl) {
+    return declToDebugFunction[decl];
+  }
+
 private:
   /// \brief The allocator used to create SPIR-V entity objects.
   ///
@@ -259,7 +378,11 @@ private:
   std::array<const IntegerType *, 7> uintTypes;
   std::array<const FloatType *, 7> floatTypes;
 
+  // The VectorType at index i has the length of i. For example, vector of
+  // size 4 would be at index 4. Valid SPIR-V vector sizes are 2,3,4.
+  // Therefore, index 0 and 1 of this array are unused (nullptr).
   using VectorTypeArray = std::array<const VectorType *, 5>;
+
   using MatrixTypeVector = std::vector<const MatrixType *>;
   using SCToPtrTyMap =
       llvm::DenseMap<spv::StorageClass, const SpirvPointerType *,
@@ -273,20 +396,52 @@ private:
   llvm::DenseSet<const ImageType *, ImageTypeMapInfo> imageTypes;
   const SamplerType *samplerType;
   llvm::DenseMap<const ImageType *, const SampledImageType *> sampledImageTypes;
+  llvm::SmallVector<const HybridSampledImageType *, 4> hybridSampledImageTypes;
   llvm::DenseSet<const ArrayType *, ArrayTypeMapInfo> arrayTypes;
   llvm::DenseSet<const RuntimeArrayType *, RuntimeArrayTypeMapInfo>
       runtimeArrayTypes;
   llvm::SmallVector<const StructType *, 8> structTypes;
+  llvm::SmallVector<const HybridStructType *, 8> hybridStructTypes;
   llvm::DenseMap<const SpirvType *, SCToPtrTyMap> pointerTypes;
+  llvm::SmallVector<const HybridPointerType *, 8> hybridPointerTypes;
   llvm::DenseSet<FunctionType *, FunctionTypeMapInfo> functionTypes;
   const AccelerationStructureTypeNV *accelerationStructureTypeNV;
-  const RayQueryProvisionalTypeKHR *rayQueryProvisionalTypeKHR;
+  const RayQueryTypeKHR *rayQueryTypeKHR;
 
   // Current ShaderModelKind for entry point.
   ShaderModelKind curShaderModelKind;
   // Major/Minor hlsl profile version.
   uint32_t majorVersion;
   uint32_t minorVersion;
+
+  /// File name to rich debug info map. When the main source file
+  /// includes header files, we create an element of debugInfo for
+  /// each file. RichDebugInfo includes DebugSource,
+  /// DebugCompilationUnit and scopeStack which keeps lexical scopes
+  /// recursively.
+  llvm::StringMap<RichDebugInfo> debugInfo;
+  SpirvDebugInstruction *currentLexicalScope;
+
+  // Mapping from SPIR-V type to debug type instruction.
+  // The purpose is not to generate several DebugType* instructions for the same
+  // type if the type is used for several variables.
+  llvm::MapVector<const SpirvType *, SpirvDebugType *> debugTypes;
+
+  // Mapping from template decl to DebugTypeTemplate.
+  llvm::MapVector<const ClassTemplateSpecializationDecl *,
+                  SpirvDebugTypeTemplate *>
+      typeTemplates;
+
+  // Mapping from template parameter decl to DebugTypeTemplateParameter.
+  llvm::MapVector<const TemplateArgument *, SpirvDebugTypeTemplateParameter *>
+      typeTemplateParams;
+
+  // Mapping from SPIR-V type to Decl for a struct type.
+  llvm::DenseMap<const SpirvType *, const DeclContext *> spvStructTypeToDecl;
+
+  // Mapping from FunctionDecl to SPIR-V debug function.
+  llvm::DenseMap<const FunctionDecl *, SpirvDebugFunction *>
+      declToDebugFunction;
 };
 
 } // end namespace spirv

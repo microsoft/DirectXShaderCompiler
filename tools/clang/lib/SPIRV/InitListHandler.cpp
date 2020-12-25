@@ -130,7 +130,9 @@ bool InitListHandler::tryToSplitStruct() {
   const QualType initType = init->getAstResultType();
   if (!initType->isStructureType() ||
       // Sampler types will pass the above check but we cannot split it.
-      isSampler(initType))
+      isSampler(initType) ||
+      // Can not split structuredOrByteBuffer
+      isAKindOfStructuredOrByteBuffer(initType))
     return false;
 
   // We are certain the current intializer will be replaced by now.
@@ -214,12 +216,11 @@ SpirvInstruction *InitListHandler::createInitForType(QualType type,
   // Samplers, (RW)Buffers, (RW)Textures
   // It is important that this happens before checking of structure types.
   if (isOpaqueType(type))
-    return createInitForSamplerImageType(type, srcLoc);
+    return createInitForBufferOrImageType(type, srcLoc);
 
   // This should happen before the check for normal struct types
   if (isAKindOfStructuredOrByteBuffer(type)) {
-    emitError("cannot handle structured/byte buffer as initializer", srcLoc);
-    return nullptr;
+    return createInitForBufferOrImageType(type, srcLoc);
   }
 
   if (type->isStructureType())
@@ -427,9 +428,9 @@ InitListHandler::createInitForConstantArrayType(QualType type,
 }
 
 SpirvInstruction *
-InitListHandler::createInitForSamplerImageType(QualType type,
-                                               SourceLocation srcLoc) {
-  assert(isOpaqueType(type));
+InitListHandler::createInitForBufferOrImageType(QualType type,
+                                                SourceLocation srcLoc) {
+  assert(isOpaqueType(type) || isAKindOfStructuredOrByteBuffer(type));
 
   // Samplers, (RW)Buffers, and (RW)Textures are translated into OpTypeSampler
   // and OpTypeImage. They should be treated similar as builtin types.

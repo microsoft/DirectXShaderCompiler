@@ -218,7 +218,7 @@ private:
 #ifndef NDEBUG
     for (auto *Node : m_pStruct->getElements())
     {
-      assert(llvm::isa<llvm::DIDerivedType>(Node));
+      assert(llvm::isa<llvm::DIDerivedType>(Node) || llvm::isa<llvm::DISubprogram>(Node));
     }
 #endif  // !NDEBUG
   }

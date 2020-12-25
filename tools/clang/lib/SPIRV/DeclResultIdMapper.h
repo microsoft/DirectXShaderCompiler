@@ -115,10 +115,12 @@ public:
               const hlsl::RegisterAssignment *r, const VKBindingAttr *b,
               const VKCounterBindingAttr *cb, bool counter = false,
               bool globalsBuffer = false)
-      : variable(var), srcLoc(loc), reg(r), binding(b), counterBinding(cb),
-        isCounterVar(counter), isGlobalsCBuffer(globalsBuffer) {}
+      : variable(var), declaration(decl), srcLoc(loc), reg(r), binding(b),
+        counterBinding(cb), isCounterVar(counter),
+        isGlobalsCBuffer(globalsBuffer) {}
 
   SpirvVariable *getSpirvInstr() const { return variable; }
+  const Decl *getDeclaration() const { return declaration; }
   SourceLocation getSourceLocation() const { return srcLoc; }
   const hlsl::RegisterAssignment *getRegister() const { return reg; }
   const VKBindingAttr *getBinding() const { return binding; }
@@ -130,6 +132,7 @@ public:
 
 private:
   SpirvVariable *variable;                    ///< The variable
+  const Decl *declaration;                    ///< The declaration
   SourceLocation srcLoc;                      ///< Source location
   const hlsl::RegisterAssignment *reg;        ///< HLSL register assignment
   const VKBindingAttr *binding;               ///< Vulkan binding assignment
@@ -310,8 +313,13 @@ public:
                               uint32_t payloadMemOffset = 0);
 
   /// \brief Creates a function-scope paramter in the current function and
-  /// returns its instruction.
-  SpirvFunctionParameter *createFnParam(const ParmVarDecl *param);
+  /// returns its instruction. dbgArgNumber is used to specify the argument
+  /// number of param among function parameters, which will be used for the
+  /// debug information. Note that dbgArgNumber for the first function
+  /// parameter must have "1", not "0", which is what Clang generates for
+  /// LLVM debug metadata.
+  SpirvFunctionParameter *createFnParam(const ParmVarDecl *param,
+                                        uint32_t dbgArgNumber = 0);
 
   /// \brief Creates the counter variable associated with the given param.
   /// This is meant to be used for forward-declared functions and this objects
@@ -394,11 +402,21 @@ public:
   /// \brief Sets the entry function.
   void setEntryFunction(SpirvFunction *fn) { entryFunction = fn; }
 
-  /// Raytracing specific functions
-  /// \brief Handle specific implicit declarations present only in raytracing
-  /// stages.
-  void createRayTracingNVImplicitVar(const VarDecl *varDecl);
+  /// \brief If the given decl is an implicit VarDecl that evaluates to a
+  /// constant, it evaluates the constant and registers the resulting SPIR-V
+  /// instruction in the astDecls map. Otherwise returns without doing anything.
+  ///
+  /// Note: There are many cases where the front-end might create such implicit
+  /// VarDecls (such as some ray tracing enums).
+  void tryToCreateImplicitConstVar(const ValueDecl *);
 
+  /// \brief Creates a variable for hull shader output patch with Output
+  /// storage class, and registers the SPIR-V variable for the given decl.
+  SpirvInstruction *createHullMainOutputPatch(const ParmVarDecl *param,
+                                              const QualType retType,
+                                              uint32_t numOutputControlPoints);
+
+  /// Raytracing specific functions
   /// \brief Creates a ShaderRecordBufferNV block from the given decl.
   SpirvVariable *createShaderRecordBufferNV(const VarDecl *decl);
   SpirvVariable *createShaderRecordBufferNV(const HLSLBufferDecl *decl);
@@ -507,6 +525,10 @@ public:
   /// This method will write the set and binding number assignment into the
   /// module under construction.
   bool decorateResourceBindings();
+
+  /// \brief Decorates resource variables with Coherent decoration if they
+  /// are declared as globallycoherent.
+  bool decorateResourceCoherent();
 
   /// \brief Returns whether the SPIR-V module requires SPIR-V legalization
   /// passes run to make it legal.
@@ -644,6 +666,11 @@ private:
                                      const llvm::StringRef name,
                                      SourceLocation);
 
+  // Create intermediate output variable to communicate patch constant
+  // data in hull shader since workgroup memory is not allowed there.
+  SpirvVariable *createSpirvIntermediateOutputStageVar(
+      const NamedDecl *decl, const llvm::StringRef name, QualType asType);
+
   /// Returns true if all vk:: attributes usages are valid.
   bool validateVKAttributes(const NamedDecl *decl);
 
@@ -691,6 +718,13 @@ private:
   /// Returns true if the given SPIR-V stage variable has Input storage class.
   inline bool isInputStorageClass(const StageVar &v);
 
+  /// Creates DebugGlobalVariable and returns it if rich debug information
+  /// generation is enabled. Otherwise, returns nullptr.
+  SpirvDebugGlobalVariable *createDebugGlobalVariable(SpirvVariable *var,
+                                                      const QualType &type,
+                                                      const SourceLocation &loc,
+                                                      const StringRef &name);
+
   /// Determines the register type for a resource that does not have an
   /// explicit register() declaration.  Returns true if it is able to
   /// determine the register type and will set |*registerTypeOut| to
@@ -736,7 +770,8 @@ private:
   /// b - for constant buffer views (CBV)
   ///    CBUFFER
   ///    CONSTANTBUFFER
-  bool getImplicitRegisterType(const ResourceVar &var, char *registerTypeOut) const;
+  bool getImplicitRegisterType(const ResourceVar &var,
+                               char *registerTypeOut) const;
 
 private:
   SpirvBuilder &spvBuilder;

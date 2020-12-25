@@ -1,6 +1,6 @@
-// Run: %dxc -T vs_6_5 -E main
-// CHECK:  OpCapability RayQueryProvisionalKHR
-// CHECK:  OpCapability RayTraversalPrimitiveCullingProvisionalKHR
+// Run: %dxc -T vs_6_5 -E main -fspv-target-env=vulkan1.2
+// CHECK:  OpCapability RayQueryKHR
+// CHECK:  OpCapability RayTraversalPrimitiveCullingKHR
 // CHECK:  OpExtension "SPV_KHR_ray_query"
 
 
@@ -31,9 +31,9 @@ void doInitialize(RayQuery<RAY_FLAG_FORCE_OPAQUE|RAY_FLAG_ACCEPT_FIRST_HIT_AND_E
 
 void main()
 {
-// CHECK:  %rayQueryProvisionalKHR = OpTypeRayQueryProvisionalKHR
-// CHECK:  %_ptr_Function_rayQueryProvisionalKHR = OpTypePointer Function %rayQueryProvisionalKHR
-// CHECK:  [[rayquery:%\d+]] = OpVariable %_ptr_Function_rayQueryProvisionalKHR Function
+// CHECK:  %rayQueryKHR = OpTypeRayQueryKHR
+// CHECK:  %_ptr_Function_rayQueryKHR = OpTypePointer Function %rayQueryKHR
+// CHECK:  [[rayquery:%\d+]] = OpVariable %_ptr_Function_rayQueryKHR Function
     RayQuery<RAY_FLAG_FORCE_OPAQUE|RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH> q;
     RayDesc ray = MakeRayDesc();
 // CHECK:  [[accel:%\d+]] = OpLoad %accelerationStructureNV %AccelerationStructure

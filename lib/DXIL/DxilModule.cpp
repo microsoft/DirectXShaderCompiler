@@ -113,6 +113,7 @@ DxilModule::DxilModule(Module *pModule)
 , m_DxilMinor(DXIL::kDxilMinor)
 , m_ValMajor(1)
 , m_ValMinor(0)
+, m_ForceZeroStoreLifetimes(false)
 , m_pOP(llvm::make_unique<OP>(pModule->getContext(), pModule))
 , m_pTypeSystem(llvm::make_unique<DxilTypeSystem>(pModule))
 , m_bDisableOptimizations(false)
@@ -182,6 +183,10 @@ void DxilModule::SetValidatorVersion(unsigned ValMajor, unsigned ValMinor) {
   m_ValMinor = ValMinor;
 }
 
+void DxilModule::SetForceZeroStoreLifetimes(bool ForceZeroStoreLifetimes) {
+  m_ForceZeroStoreLifetimes = ForceZeroStoreLifetimes;
+}
+
 bool DxilModule::UpgradeValidatorVersion(unsigned ValMajor, unsigned ValMinor) {
   // Don't upgrade if validation was disabled.
   if (m_ValMajor == 0 && m_ValMinor == 0) {
@@ -198,6 +203,10 @@ bool DxilModule::UpgradeValidatorVersion(unsigned ValMajor, unsigned ValMinor) {
 void DxilModule::GetValidatorVersion(unsigned &ValMajor, unsigned &ValMinor) const {
   ValMajor = m_ValMajor;
   ValMinor = m_ValMinor;
+}
+
+bool DxilModule::GetForceZeroStoreLifetimes() const {
+  return m_ForceZeroStoreLifetimes;
 }
 
 bool DxilModule::GetMinValidatorVersion(unsigned &ValMajor, unsigned &ValMinor) const {
@@ -321,7 +330,6 @@ void DxilModule::CollectShaderFlagsForModule(ShaderFlags &Flags) {
     switch (UAV->GetKind()) {
     case DXIL::ResourceKind::RawBuffer:
     case DXIL::ResourceKind::StructuredBuffer:
-    case DXIL::ResourceKind::StructuredBufferWithCounter:
       hasRawAndStructuredBuffer = true;
       break;
     default:
@@ -398,6 +406,24 @@ unsigned DxilModule::GetNumThreads(unsigned idx) const {
   const unsigned *numThreads = props.IsCS() ? props.ShaderProps.CS.numThreads :
     props.IsMS() ? props.ShaderProps.MS.numThreads : props.ShaderProps.AS.numThreads;
   return numThreads[idx];
+}
+
+void DxilModule::SetWaveSize(unsigned size) {
+  DXASSERT(m_DxilEntryPropsMap.size() == 1 && m_pSM->IsCS(),
+    "only works for CS profile");
+  DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT_NOMSG(m_pSM->GetKind() == props.shaderKind);
+  props.waveSize = size;
+}
+
+unsigned DxilModule::GetWaveSize() const {
+  DXASSERT(m_DxilEntryPropsMap.size() == 1 && m_pSM->IsCS(),
+    "only works for CS profiles");
+  if (!m_pSM->IsCS())
+    return 0;
+  const DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT_NOMSG(m_pSM->GetKind() == props.shaderKind);
+  return props.waveSize;
 }
 
 DXIL::InputPrimitive DxilModule::GetInputPrimitive() const {

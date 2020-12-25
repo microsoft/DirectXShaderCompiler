@@ -27,32 +27,6 @@
 #include "dxc/DxilContainer/DxcContainerBuilder.h"
 #include <memory>
 
-// Initialize the UUID for the interfaces.
-DEFINE_CROSS_PLATFORM_UUIDOF(IDxcLibrary)
-DEFINE_CROSS_PLATFORM_UUIDOF(IDxcBlobEncoding)
-DEFINE_CROSS_PLATFORM_UUIDOF(IDxcOperationResult)
-DEFINE_CROSS_PLATFORM_UUIDOF(IDxcAssembler)
-DEFINE_CROSS_PLATFORM_UUIDOF(IDxcBlob)
-DEFINE_CROSS_PLATFORM_UUIDOF(IDxcIncludeHandler)
-DEFINE_CROSS_PLATFORM_UUIDOF(IDxcCompiler)
-DEFINE_CROSS_PLATFORM_UUIDOF(IDxcCompiler2)
-DEFINE_CROSS_PLATFORM_UUIDOF(IDxcVersionInfo)
-DEFINE_CROSS_PLATFORM_UUIDOF(IDxcVersionInfo2)
-DEFINE_CROSS_PLATFORM_UUIDOF(IDxcValidator)
-DEFINE_CROSS_PLATFORM_UUIDOF(IDxcContainerBuilder)
-DEFINE_CROSS_PLATFORM_UUIDOF(IDxcOptimizerPass)
-DEFINE_CROSS_PLATFORM_UUIDOF(IDxcOptimizer)
-DEFINE_CROSS_PLATFORM_UUIDOF(IDxcRewriter)
-DEFINE_CROSS_PLATFORM_UUIDOF(IDxcRewriter2)
-DEFINE_CROSS_PLATFORM_UUIDOF(IDxcIntelliSense)
-DEFINE_CROSS_PLATFORM_UUIDOF(IDxcLinker)
-DEFINE_CROSS_PLATFORM_UUIDOF(IDxcBlobUtf16)
-DEFINE_CROSS_PLATFORM_UUIDOF(IDxcBlobUtf8)
-DEFINE_CROSS_PLATFORM_UUIDOF(IDxcCompilerArgs)
-DEFINE_CROSS_PLATFORM_UUIDOF(IDxcUtils)
-DEFINE_CROSS_PLATFORM_UUIDOF(IDxcResult)
-DEFINE_CROSS_PLATFORM_UUIDOF(IDxcCompiler3)
-
 HRESULT CreateDxcCompiler(_In_ REFIID riid, _Out_ LPVOID *ppv);
 HRESULT CreateDxcDiaDataSource(_In_ REFIID riid, _Out_ LPVOID *ppv);
 HRESULT CreateDxcIntelliSense(_In_ REFIID riid, _Out_ LPVOID *ppv);
@@ -64,6 +38,7 @@ HRESULT CreateDxcAssembler(_In_ REFIID riid, _Out_ LPVOID *ppv);
 HRESULT CreateDxcOptimizer(_In_ REFIID riid, _Out_ LPVOID *ppv);
 HRESULT CreateDxcContainerBuilder(_In_ REFIID riid, _Out_ LPVOID *ppv);
 HRESULT CreateDxcLinker(_In_ REFIID riid, _Out_ LPVOID *ppv);
+HRESULT CreateDxcPdbUtils(_In_ REFIID riid, _Out_ LPVOID *ppv);
 
 namespace hlsl {
 void CreateDxcContainerReflection(IDxcContainerReflection **ppResult);
@@ -82,7 +57,7 @@ HRESULT CreateDxcContainerReflection(_In_ REFIID riid, _Out_ LPVOID *ppv) {
 }
 
 HRESULT CreateDxcContainerBuilder(_In_ REFIID riid, _Out_ LPVOID *ppv) {
-  // Call dxil.dll's containerbuilder 
+  // Call dxil.dll's containerbuilder
   *ppv = nullptr;
   const char *warning;
   HRESULT hr = DxilLibCreateInstance(CLSID_DxcContainerBuilder, (IDxcContainerBuilder**)ppv);
@@ -146,6 +121,9 @@ static HRESULT ThreadMallocDxcCreateInstance(
   }
   else if (IsEqualCLSID(rclsid, CLSID_DxcContainerBuilder)) {
     hr = CreateDxcContainerBuilder(riid, ppv);
+  }
+  else if (IsEqualCLSID(rclsid, CLSID_DxcPdbUtils)) {
+    hr = CreateDxcPdbUtils(riid, ppv);
   }
 #endif
   else {

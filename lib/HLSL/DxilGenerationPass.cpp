@@ -55,18 +55,12 @@ void SimplifyGlobalSymbol(GlobalVariable *GV) {
         Function *F = LI->getParent()->getParent();
         auto it = handleMapOnFunction.find(F);
         if (it == handleMapOnFunction.end()) {
+          LI->moveBefore(dxilutil::FindAllocaInsertionPt(F));
           handleMapOnFunction[F] = LI;
         } else {
           LI->replaceAllUsesWith(it->second);
         }
       }
-    }
-    for (auto it : handleMapOnFunction) {
-      Function *F = it.first;
-      Instruction *I = it.second;
-      IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(F));
-      Value *headLI = Builder.CreateLoad(GV);
-      I->replaceAllUsesWith(headLI);
     }
   }
 }
@@ -106,6 +100,7 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
   H.GetValidatorVersion(ValMajor, ValMinor);
   M.SetValidatorVersion(ValMajor, ValMinor);
   M.SetShaderModel(H.GetShaderModel(), H.GetHLOptions().bUseMinPrecision);
+  M.SetForceZeroStoreLifetimes(H.GetHLOptions().bForceZeroStoreLifetimes);
 
   // Entry function.
   if (!M.GetShaderModel()->IsLib()) {
@@ -373,10 +368,6 @@ void TranslateHLAnnotateHandle(
     CallInst *CI = cast<CallInst>(user);
     Value *handle =
         CI->getArgOperand(HLOperandIndex::kAnnotateHandleHandleOpIdx);
-    Value *RC =
-        CI->getArgOperand(HLOperandIndex::kAnnotateHandleResourceClassOpIdx);
-    Value *RK =
-        CI->getArgOperand(HLOperandIndex::kAnnotateHandleResourceKindOpIdx);
     Value *RP = CI->getArgOperand(
         HLOperandIndex::kAnnotateHandleResourcePropertiesOpIdx);
     Type *ResTy =
@@ -387,7 +378,7 @@ void TranslateHLAnnotateHandle(
     Function *annotateHandle =
         hlslOP.GetOpFunc(DXIL::OpCode::AnnotateHandle, Builder.getVoidTy());
     CallInst *newHandle =
-        Builder.CreateCall(annotateHandle, {opArg, handle, RC, RK, RP});
+        Builder.CreateCall(annotateHandle, {opArg, handle, RP});
     HandleToResTypeMap[newHandle] = ResTy;
     CI->replaceAllUsesWith(newHandle);
     CI->eraseFromParent();
@@ -528,7 +519,8 @@ void DxilGenerationPass::GenerateDxilCBufferHandles() {
                              DIV->getScope());
     }
 
-    if (CB.GetRangeSize() == 1) {
+    if (CB.GetRangeSize() == 1 &&
+        !GV->getType()->getElementType()->isArrayTy()) {
       Function *createHandle =
           hlslOP->GetOpFunc(OP::OpCode::CreateHandleForLib,
                             GV->getType()->getElementType());
@@ -565,6 +557,9 @@ void DxilGenerationPass::GenerateDxilCBufferHandles() {
         }
         // Add GEP for cbv array use.
         Value *GEP = Builder.CreateGEP(GV, {zeroIdx, CBIndex});
+        if (DxilMDHelper::IsMarkedNonUniform(CI)) {
+          DxilMDHelper::MarkNonUniform(cast<Instruction>(GEP));
+        }
         Value *V = Builder.CreateLoad(GEP);
         CallInst *handle = Builder.CreateCall(createHandle, {opArg, V}, handleName);
         CI->replaceAllUsesWith(handle);

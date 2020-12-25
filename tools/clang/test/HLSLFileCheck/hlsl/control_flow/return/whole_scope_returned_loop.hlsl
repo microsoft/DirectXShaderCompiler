@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -fcgl -structurize-returns -T ps_6_0 %s | FileCheck %s
+// RUN: %dxc -E main -fcgl -opt-enable structurize-returns -T ps_6_0 %s | FileCheck %s
 
 int i;
 // CHECK:define float @main
@@ -6,8 +6,6 @@ float main(float4 a:A) : SV_Target {
 // Init bReturned.
 // CHECK:%[[bReturned:.*]] = alloca i1
 // CHECK-NEXT:store i1 false, i1* %[[bReturned]]
-// Init retVal to 0.
-// CHECK:store float undef
   float r = a.w;
 
 // CHECK: [[if_then:.*]] ; preds =

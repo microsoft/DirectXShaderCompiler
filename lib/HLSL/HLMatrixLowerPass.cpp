@@ -29,6 +29,7 @@
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Analysis/ValueTracking.h"
 #include <unordered_set>
 #include <vector>
 
@@ -291,6 +292,11 @@ void HLMatrixLowerPass::getMatrixAllocasAndOtherInsts(Function &Func,
       // typically a global variable or alloca.
       if (isa<GetElementPtrInst>(&Inst)) continue;
 
+      // Don't lower lifetime intrinsics here, we'll handle them as we lower the alloca.
+      IntrinsicInst *Intrin = dyn_cast<IntrinsicInst>(&Inst);
+      if (Intrin && Intrin->getIntrinsicID() == Intrinsic::lifetime_start) continue;
+      if (Intrin && Intrin->getIntrinsicID() == Intrinsic::lifetime_end) continue;
+
       if (AllocaInst *Alloca = dyn_cast<AllocaInst>(&Inst)) {
         if (HLMatrixType::isMatrixOrPtrOrArrayPtr(Alloca->getType())) {
           MatAllocas.emplace_back(Alloca);
@@ -370,6 +376,9 @@ Value* HLMatrixLowerPass::getLoweredByValOperand(Value *Val, IRBuilder<> &Builde
       return LoweredVal;
     }
   }
+  // Lower mat 0 to vec 0.
+  if (isa<ConstantAggregateZero>(Val))
+    return ConstantAggregateZero::get(LoweredTy);
 
   // Return a mat-to-vec translation stub
   FunctionType *TranslationStubTy = FunctionType::get(LoweredTy, { Ty }, /* isVarArg */ false);
@@ -406,7 +415,7 @@ Value *HLMatrixLowerPass::tryGetLoweredPtrOperand(Value *Ptr, IRBuilder<> &Build
     RootPtr = GEP->getPointerOperand();
 
   Argument *Arg = dyn_cast<Argument>(RootPtr);
-  bool IsNonShaderArg = Arg != nullptr && !m_pHLModule->IsGraphicsShader(Arg->getParent());
+  bool IsNonShaderArg = Arg != nullptr && !m_pHLModule->IsEntryThatUsesSignatures(Arg->getParent());
   if (IsNonShaderArg || isa<AllocaInst>(RootPtr)) {
     // Bitcast the matrix pointer to its lowered equivalent.
     // The HLMatrixBitcast pass will take care of this later.
@@ -473,7 +482,7 @@ void HLMatrixLowerPass::replaceAllUsesByLoweredValue(Instruction* MatInst, Value
       Instruction *PrevInst = dyn_cast<Instruction>(VecVal);
       if (PrevInst == nullptr) PrevInst = MatInst;
 
-      IRBuilder<> Builder(dxilutil::SkipAllocas(PrevInst->getNextNode()));
+      IRBuilder<> Builder(PrevInst->getNextNode());
       VecToMatStub = Builder.CreateCall(TranslationStub, { VecVal });
     }
 
@@ -535,6 +544,22 @@ void HLMatrixLowerPass::replaceAllVariableUses(
       Use.set(UndefValue::get(Use->getType()));
       addToDeadInsts(CI);
       continue;
+    }
+
+    if (BitCastInst *BCI = dyn_cast<BitCastInst>(Use.getUser())) {
+      // Replace bitcasts to i8* for lifetime intrinsics.
+      if (BCI->getType()->isPointerTy() && BCI->getType()->getPointerElementType()->isIntegerTy(8))
+      {
+        DXASSERT(onlyUsedByLifetimeMarkers(BCI),
+                 "bitcast to i8* must only be used by lifetime intrinsics");
+        Value *NewBCI = IRBuilder<>(BCI).CreateBitCast(LoweredPtr, BCI->getType());
+        // Replace all uses of the use.
+        BCI->replaceAllUsesWith(NewBCI);
+        // Remove the current use to end iteration.
+        Use.set(UndefValue::get(Use->getType()));
+        addToDeadInsts(BCI);
+        continue;
+      }
     }
 
     // Recreate the same GEP sequence, if any, on the lowered pointer
@@ -1474,17 +1499,32 @@ void HLMatrixLowerPass::lowerHLMatSubscript(CallInst *Call, Value *MatPtr, Small
 
   IRBuilder<> CallBuilder(Call);
   Value *LoweredPtr = tryGetLoweredPtrOperand(MatPtr, CallBuilder);
-  if (LoweredPtr == nullptr) return;
-
-  // For global variables, we can GEP directly into the lowered vector pointer.
-  // This is necessary to support group shared memory atomics and the likes.
-  Value *RootPtr = LoweredPtr;
+  Value *LoweredMatrix = nullptr;
+  Value *RootPtr = LoweredPtr? LoweredPtr: MatPtr;
   while (GEPOperator *GEP = dyn_cast<GEPOperator>(RootPtr))
     RootPtr = GEP->getPointerOperand();
+
+  if (LoweredPtr == nullptr) {
+    if (!isa<Argument>(RootPtr))
+      return;
+
+    // For a shader input, load the matrix into a lowered ptr
+    // The load will be handled by LowerSignature
+    HLMatLoadStoreOpcode Opcode = (HLSubscriptOpcode)GetHLOpcode(Call) == HLSubscriptOpcode::RowMatSubscript ?
+                                   HLMatLoadStoreOpcode::RowMatLoad : HLMatLoadStoreOpcode::ColMatLoad;
+    HLMatrixType MatTy = HLMatrixType::cast(MatPtr->getType()->getPointerElementType());
+    LoweredMatrix = callHLFunction(
+      *m_pModule, HLOpcodeGroup::HLMatLoadStore, static_cast<unsigned>(Opcode),
+      MatTy.getLoweredVectorTypeForReg(), { CallBuilder.getInt32((uint32_t)Opcode), MatPtr },
+      Call->getCalledFunction()->getAttributes().getFnAttributes(), CallBuilder);
+  }
+  // For global variables, we can GEP directly into the lowered vector pointer.
+  // This is necessary to support group shared memory atomics and the likes.
   bool AllowLoweredPtrGEPs = isa<GlobalVariable>(RootPtr);
   
   // Just constructing this does all the work
-  HLMatrixSubscriptUseReplacer UseReplacer(Call, LoweredPtr, ElemIndices, AllowLoweredPtrGEPs, m_deadInsts);
+  HLMatrixSubscriptUseReplacer UseReplacer(Call, LoweredPtr, LoweredMatrix,
+                                           ElemIndices, AllowLoweredPtrGEPs, m_deadInsts);
 
   DXASSERT(Call->use_empty(), "Expected all matrix subscript uses to have been replaced.");
   addToDeadInsts(Call);

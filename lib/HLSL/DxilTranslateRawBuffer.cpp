@@ -52,7 +52,7 @@ public:
         if (hlslOP->GetOpCodeClass(func, opClass)) {
           if (opClass == DXIL::OpCodeClass::RawBufferLoad) {
             Type *ETy =
-                hlslOP->GetOverloadType(DXIL::OpCode::RawBufferLoad, func);
+                OP::GetOverloadType(DXIL::OpCode::RawBufferLoad, func);
 
             bool is64 =
                 ETy->isDoubleTy() || ETy == Type::getInt64Ty(ETy->getContext());
@@ -62,7 +62,7 @@ public:
             }
           } else if (opClass == DXIL::OpCodeClass::RawBufferStore) {
             Type *ETy =
-                hlslOP->GetOverloadType(DXIL::OpCode::RawBufferStore, func);
+                OP::GetOverloadType(DXIL::OpCode::RawBufferStore, func);
 
             bool is64 =
                 ETy->isDoubleTy() || ETy == Type::getInt64Ty(ETy->getContext());

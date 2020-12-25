@@ -29,6 +29,7 @@
 #include "clang/Sema/Template.h"
 #include "clang/Sema/TemplateDeduction.h"
 #include "clang/Sema/SemaHLSL.h" // HLSL Change
+#include "clang/AST/HlslTypes.h" // HLSL Change
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -5741,7 +5742,7 @@ Sema::AddOverloadCandidate(FunctionDecl *Function,
     // argument doesn't participate in overload resolution.
   }
 
-  if (!CandidateSet.isNewCandidate(Function))
+  if (!CandidateSet.isNewCandidate(Function) || hlsl::IsIntrinsicOp(Function))
     return;
 
   // C++ [over.match.oper]p3:
@@ -10913,7 +10914,18 @@ bool Sema::buildOverloadedCallSet(Scope *S, Expr *Fn,
 #ifndef NDEBUG
   if (ULE->requiresADL()) {
     // To do ADL, we must have found an unqualified name.
-    assert(!ULE->getQualifier() && "qualified name with ADL");
+    // HLSL Change Begins
+    //
+    // We do want to allow argument-dependent lookup for intrinsic
+    // function names inside the "vk" namespace (which are by definition
+    // qualified names).
+    bool isVkNamespace =
+        ULE->getQualifier() &&
+        ULE->getQualifier()->getKind() == NestedNameSpecifier::Namespace &&
+        ULE->getQualifier()->getAsNamespace()->getName() == "vk";
+
+    assert((!ULE->getQualifier() || isVkNamespace) && "non-vk qualified name with ADL");
+    // HLSL Change Ends
 
     // We don't perform ADL for implicit declarations of builtins.
     // Verify that this was correctly set up.

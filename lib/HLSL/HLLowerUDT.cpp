@@ -408,7 +408,7 @@ void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
 
         std::vector<Instruction*> DeadInsts;
         HLMatrixSubscriptUseReplacer UseReplacer(
-          CI, NewV, ElemIndices, /*AllowLoweredPtrGEPs*/true, DeadInsts);
+          CI, NewV, /*TempLoweredMatrix*/nullptr, ElemIndices, /*AllowLoweredPtrGEPs*/true, DeadInsts);
         DXASSERT(CI->use_empty(),
                  "Expected all matrix subscript uses to have been replaced.");
         CI->eraseFromParent();

@@ -54,6 +54,11 @@ public:
   CompilerInstance &getCompilerInstance() { return theCompilerInstance; }
   SpirvCodeGenOptions &getSpirvOptions() { return spirvOptions; }
 
+  /// \brief If DebugSource and DebugCompilationUnit for loc are already
+  /// created, we just return RichDebugInfo containing it. Otherwise,
+  /// create DebugSource and DebugCompilationUnit for loc and return it.
+  RichDebugInfo *getOrCreateRichDebugInfo(const SourceLocation &loc);
+
   void doDecl(const Decl *decl);
   void doStmt(const Stmt *stmt, llvm::ArrayRef<const Attr *> attrs = {});
   SpirvInstruction *doExpr(const Expr *expr);
@@ -106,6 +111,8 @@ private:
   SpirvInstruction *doInitListExpr(const InitListExpr *expr);
   SpirvInstruction *doMemberExpr(const MemberExpr *expr);
   SpirvInstruction *doUnaryOperator(const UnaryOperator *expr);
+  SpirvInstruction *
+  doUnaryExprOrTypeTraitExpr(const UnaryExprOrTypeTraitExpr *expr);
 
   /// Overload with pre computed SpirvEvalInfo.
   ///
@@ -481,6 +488,9 @@ private:
   /// Processes the 'rcp' intrinsic function.
   SpirvInstruction *processIntrinsicRcp(const CallExpr *);
 
+  /// Processes the 'ReadClock' intrinsic function.
+  SpirvInstruction *processIntrinsicReadClock(const CallExpr *);
+
   /// Processes the 'sign' intrinsic function for float types.
   /// The FSign instruction in the GLSL instruction set returns a floating point
   /// result. The HLSL sign function, however, returns an integer. An extra
@@ -693,6 +703,7 @@ private:
   /// variables for some cases.
   bool emitEntryFunctionWrapperForRayTracing(const FunctionDecl *entryFunction,
                                              SpirvFunction *entryFuncId);
+
   /// \brief Performs the following operations for the Hull shader:
   /// * Creates an output variable which is an Array containing results for all
   /// control points.

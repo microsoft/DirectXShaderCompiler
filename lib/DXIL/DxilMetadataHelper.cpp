@@ -68,6 +68,11 @@ const char DxilMDHelper::kDxilSourceDefinesMDName[]                   = "dx.sour
 const char DxilMDHelper::kDxilSourceMainFileNameMDName[]              = "dx.source.mainFileName";
 const char DxilMDHelper::kDxilSourceArgsMDName[]                      = "dx.source.args";
 
+const char DxilMDHelper::kDxilSourceContentsOldMDName[]               = "llvm.dbg.contents";
+const char DxilMDHelper::kDxilSourceDefinesOldMDName[]                = "llvm.dbg.defines";
+const char DxilMDHelper::kDxilSourceMainFileNameOldMDName[]           = "llvm.dbg.mainFileName";
+const char DxilMDHelper::kDxilSourceArgsOldMDName[]                   = "llvm.dbg.args";
+
 // This is reflection-only metadata
 const char DxilMDHelper::kDxilCountersMDName[]                        = "dx.counters";
 
@@ -1227,6 +1232,13 @@ MDTuple *DxilMDHelper::EmitDxilEntryProperties(uint64_t rawShaderFlag,
     NumThreadVals.emplace_back(Uint32ToConstMD(CS.numThreads[1]));
     NumThreadVals.emplace_back(Uint32ToConstMD(CS.numThreads[2]));
     MDVals.emplace_back(MDNode::get(m_Ctx, NumThreadVals));
+
+    if (props.waveSize != 0) {
+      MDVals.emplace_back(Uint32ToConstMD(DxilMDHelper::kDxilWaveSizeTag));
+      vector<Metadata *> WaveSizeVal;
+      WaveSizeVal.emplace_back(Uint32ToConstMD(props.waveSize));
+      MDVals.emplace_back(MDNode::get(m_Ctx, WaveSizeVal));
+    }
   } break;
   // Geometry shader.
   case DXIL::ShaderKind::Geometry: {
@@ -1427,6 +1439,11 @@ void DxilMDHelper::LoadDxilEntryProperties(const MDOperand &MDO,
       DXASSERT(props.IsAS(), "else invalid shader kind");
       auto &AS = props.ShaderProps.AS;
       LoadDxilASState(MDO, AS.numThreads, AS.payloadSizeInBytes);
+    } break;
+    case DxilMDHelper::kDxilWaveSizeTag: {
+      DXASSERT(props.IsCS(), "else invalid shader kind");
+      MDNode *pNode = cast<MDNode>(MDO.get());
+      props.waveSize = ConstMDToUint32(pNode->getOperand(0));
     } break;
     default:
       DXASSERT(false, "Unknown extended shader properties tag");

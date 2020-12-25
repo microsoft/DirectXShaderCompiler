@@ -41,11 +41,12 @@ float4 main() : SV_Target {
   f3 = WaveActiveSum(f3);
   f3 = WaveActiveProduct(f3);
   // WaveActiveBit* with an invalid signature suggests the use of WaveActiveBallot instead.
-  // expected-note@? {{'WaveActiveBallot' declared here}}
-  // expected-note@? {{'WaveActiveBallot' declared here}}
-  WaveActiveBitAnd(f1); // expected-error {{use of undeclared identifier 'WaveActiveBitAnd'}}
-  WaveActiveBitOr(f1);  // expected-error {{use of undeclared identifier 'WaveActiveBitOr'}}
-  WaveActiveBitXor(f1); // expected-error {{use of undeclared identifier 'WaveActiveBitXor'}}
+  // expected-note@? {{candidate function}}
+  // expected-note@? {{candidate function}}
+  // expected-note@? {{candidate function}}
+  WaveActiveBitAnd(f1); // expected-error {{no matching function for call to 'WaveActiveBitAnd'}}
+  WaveActiveBitOr(f1);  // expected-error {{no matching function for call to 'WaveActiveBitOr'}}
+  WaveActiveBitXor(f1); // expected-error {{no matching function for call to 'WaveActiveBitXor'}}
   u3 = WaveActiveBitAnd(u3);
   u3 = WaveActiveBitOr(u3);
   u3 = WaveActiveBitXor(u3);
