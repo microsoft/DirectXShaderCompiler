@@ -3046,7 +3046,6 @@ SpirvInstruction *SpirvEmitter::processRWByteAddressBufferAtomicMethods(
   // The signature of RWByteAddressBuffer atomic methods are largely:
   // void Interlocked*(in UINT dest, in UINT value);
   // void Interlocked*(in UINT dest, in UINT value, out UINT original_value);
-
   const auto *object = expr->getImplicitObjectArgument();
   auto *objectInfo = loadIfAliasVarRef(object);
 
@@ -7656,7 +7655,8 @@ SpirvEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
     const Expr *valueExpr = callExpr->getArg(argIndex);
     if (const auto *castExpr = dyn_cast<ImplicitCastExpr>(valueExpr))
       if (castExpr->getCastKind() == CK_IntegralCast &&
-          castExpr->getSubExpr()->getType() == baseType)
+          castExpr->getSubExpr()->getType()->getCanonicalTypeUnqualified() ==
+              baseType)
         valueExpr = castExpr->getSubExpr();
 
     auto *argInstr = doExpr(valueExpr);
