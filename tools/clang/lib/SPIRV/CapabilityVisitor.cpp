@@ -597,6 +597,14 @@ bool CapabilityVisitor::visit(SpirvExtInst *instr) {
   return visitInstruction(instr);
 }
 
+bool CapabilityVisitor::visit(SpirvAtomic *instr) {
+  if (instr->hasValue() && SpirvType::isOrContainsType<IntegerType, 64>(
+                               instr->getValue()->getResultType())) {
+    addCapability(spv::Capability::Int64Atomics, instr->getSourceLocation());
+  }
+  return true;
+}
+
 bool CapabilityVisitor::visit(SpirvDemoteToHelperInvocationEXT *inst) {
   addCapability(spv::Capability::DemoteToHelperInvocationEXT,
                 inst->getSourceLocation());
