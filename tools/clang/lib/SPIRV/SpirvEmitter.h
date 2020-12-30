@@ -549,6 +549,15 @@ private:
   /// Processes the NonUniformResourceIndex intrinsic function.
   SpirvInstruction *processIntrinsicNonUniformResourceIndex(const CallExpr *);
 
+  /// Processes the SM 6.6 pack_{s|u}8 and pack_clamp_{s|u}8 intrinsic
+  /// functions.
+  SpirvInstruction *processIntrinsic8BitPack(const CallExpr *,
+                                             hlsl::IntrinsicOp);
+
+  /// Processes the SM 6.6 unpack_{s|u}8{s|u}{16|32} intrinsic functions.
+  SpirvInstruction *processIntrinsic8BitUnpack(const CallExpr *,
+                                               hlsl::IntrinsicOp);
+
   /// Process builtins specific to raytracing.
   SpirvInstruction *processRayBuiltins(const CallExpr *, hlsl::IntrinsicOp op);
 
