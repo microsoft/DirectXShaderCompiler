@@ -38,6 +38,10 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
   // Integer-related capabilities
   if (const auto *intType = dyn_cast<IntegerType>(type)) {
     switch (intType->getBitwidth()) {
+    case 8: {
+      addCapability(spv::Capability::Int8);
+      break;
+    }
     case 16: {
       // Usage of a 16-bit integer type.
       addCapability(spv::Capability::Int16);
