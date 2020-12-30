@@ -9899,7 +9899,6 @@ SpirvEmitter::processIntrinsic8BitPack(const CallExpr *callExpr,
     auto *maxVec = spvBuilder.getConstantComposite(
         argType, {maxInstr, maxInstr, maxInstr, maxInstr});
     auto clampOp = isSigned ? GLSLstd450SClamp : GLSLstd450UClamp;
-    // ehsan
     argInstr = spvBuilder.createGLSLExtInst(argType, clampOp,
                                             {argInstr, minVec, maxVec}, loc);
   }
