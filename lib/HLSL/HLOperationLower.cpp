@@ -533,7 +533,7 @@ Value *TranslateNonUniformResourceIndex(CallInst *CI, IntrinsicOp IOP, OP::OpCod
                       HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   Value *V = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
   CI->replaceAllUsesWith(V);
-
+  Type *hdlTy = helper.hlslOP.GetHandleType();
   for (User *U : V->users()) {
     if (GetElementPtrInst *I = dyn_cast<GetElementPtrInst>(U)) {
       // Only mark on GEP which point to resource.
@@ -548,7 +548,7 @@ Value *TranslateNonUniformResourceIndex(CallInst *CI, IntrinsicOp IOP, OP::OpCod
         }
       }
     } else if (CallInst *CI = dyn_cast<CallInst>(U)) {
-      if (hlsl::GetHLOpcodeGroup(CI->getCalledFunction()) == hlsl::HLOpcodeGroup::HLCreateHandle)
+      if (CI->getType() == hdlTy)
         DxilMDHelper::MarkNonUniform(CI);
     }
   }
