@@ -295,9 +295,6 @@ public:
     m_InputBlob = pPdbOrDxil;
 
     // Right now, what we do here is just to support the current PDB formats.
-    // Note: this API only supports PDB blob, and DXIL container, not DXIL module or program header,
-    // because we're moving away from that.
-    //
     {
       CComPtr<IStream> pStream;
       IFR(hlsl::CreateReadOnlyBlobStream(pPdbOrDxil, &pStream));
