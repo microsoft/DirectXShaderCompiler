@@ -95,6 +95,7 @@ enum DxilFourCC {
   DFCC_PipelineStateValidation  = DXIL_FOURCC('P', 'S', 'V', '0'),
   DFCC_RuntimeData              = DXIL_FOURCC('R', 'D', 'A', 'T'),
   DFCC_ShaderHash               = DXIL_FOURCC('H', 'A', 'S', 'H'),
+  DFCC_ShaderSource             = DXIL_FOURCC('S', 'R', 'C', 'E'),
 };
 
 #undef DXIL_FOURCC
@@ -209,6 +210,49 @@ struct DxilShaderDebugName {
   // Followed by [0-3] zero bytes to align to a 4-byte boundary.
 };
 static const size_t MinDxilShaderDebugNameSize = sizeof(DxilShaderDebugName) + 4;
+
+// Shader source has the following structure:
+//
+//   DxilShaderSource
+//   char SourcesBlob[]
+//
+// SourcesBlob may be compressed. When uncompressed, its data is:
+//
+//   DxilShaderSourceEntry
+//   char Name   [ NameSize ]    + NullTerminator
+//   char Content[ ContentSize ] + NullTerminator
+//   (Zero padding for 4 bytes)
+//
+//   DxilShaderSourceEntry
+//   char Name   [ NameSize ]    + NullTerminator
+//   char Content[ ContentSize ] + NullTerminator
+//   (Zero padding for 4 bytes)
+//
+//     ...
+//
+//   DxilShaderSourceEntry
+//   char Name   [ NameSize ]    + NullTerminator
+//   char Content[ ContentSize ] + NullTerminator
+//   (Zero padding for 4 bytes)
+//
+enum class DxilShaderSourceCompressType : uint32_t {
+  None,
+  Zlib
+};
+struct DxilShaderSource {
+  uint32_t Flags;
+  uint32_t SizeInBytes;
+  DxilShaderSourceCompressType CompressType;
+  uint32_t UncompressedSizeInBytes;
+  uint32_t FileCount;
+};
+
+struct DxilShaderSourceEntry {
+  uint32_t Flags;
+  uint32_t SizeInDwords;
+  uint32_t NameSize;
+  uint32_t ContentSize;
+};
 
 #pragma pack(pop)
 
