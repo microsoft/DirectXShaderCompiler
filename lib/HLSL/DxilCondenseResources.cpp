@@ -658,8 +658,10 @@ public:
     FailOnPoisonResources();
 
     bool bChanged = false;
-    if (DM.GetShaderModel()->IsSM66Plus())
+    if (DM.GetShaderModel()->IsSM66Plus()) {
       bChanged = PatchDynamicTBuffers(DM);
+      SetNonUniformIndexForDynamicResource(DM);
+    }
 
     unsigned numResources = DM.GetCBuffers().size() + DM.GetUAVs().size() +
                             DM.GetSRVs().size() + DM.GetSamplers().size();
@@ -751,6 +753,7 @@ private:
   bool PatchTBuffers(DxilModule &DM);
   void PatchTBufferUse(Value *V, DxilModule &DM, DenseSet<Value *> &patchedSet);
   void UpdateCBufferUsage();
+  void SetNonUniformIndexForDynamicResource(DxilModule &DM);
 };
 
 } // namespace
@@ -2717,6 +2720,26 @@ void DxilLowerCreateHandleForLib::UpdateCBufferUsage() {
  }
 }
 
+void DxilLowerCreateHandleForLib::SetNonUniformIndexForDynamicResource(
+    DxilModule &DM) {
+  hlsl::OP *hlslOP = DM.GetOP();
+  Value *TrueVal = hlslOP->GetI1Const(true);
+  for (auto it : hlslOP->GetOpFuncList(DXIL::OpCode::CreateHandleFromHeap)) {
+    Function *F = it.second;
+    if (!F)
+      continue;
+    for (User *U : F->users()) {
+      CallInst *CI = cast<CallInst>(U);
+      if (!DxilMDHelper::IsMarkedNonUniform(CI))
+        continue;
+      // Set NonUniform to be true.
+      CI->setOperand(DxilInst_CreateHandleFromHeap::arg_nonUniformIndex,
+                     TrueVal);
+      // Clear nonUniform metadata.
+      CI->setMetadata(DxilMDHelper::kDxilNonUniformAttributeMDName, nullptr);
+    }
+  }
+}
 
 char DxilLowerCreateHandleForLib::ID = 0;
 
