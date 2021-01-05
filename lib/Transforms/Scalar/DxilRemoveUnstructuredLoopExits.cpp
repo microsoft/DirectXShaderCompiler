@@ -276,6 +276,16 @@ static bool IsNoop(Instruction *inst) {
   return false;
 }
 
+static Value* GetDefaultValue(Type *type) {
+  if (type->isIntegerTy()) {
+    return ConstantInt::get(type, 0);
+  }
+  else if (type->isFloatingPointTy()) {
+    return ConstantFP::get(type, 0);
+  }
+  return UndefValue::get(type);
+}
+
 static BasicBlock *GetExitBlockForExitingBlock(Loop *L, BasicBlock *exiting_block) {
   BranchInst *br = dyn_cast<BranchInst>(exiting_block->getTerminator());
   assert(L->contains(exiting_block));
@@ -297,21 +307,25 @@ static void SkipBlockWithBranch(BasicBlock *bb, Value *cond, Loop *L, LoopInfo *
   bb->getTerminator()->eraseFromParent();
   BranchInst::Create(end, body, cond, bb);
 
+  SmallVector<User *, 4> users;
   for (Instruction &inst : *body) {
     PHINode *phi = nullptr;
 
-    for (User *user : inst.users()) {
-      Instruction *user_inst = dyn_cast<Instruction>(user);
-      if (!user_inst)
-        continue;
+    // Put the users in a list, since we're modifying the user list as we go
+    users.clear();
+    for (User *user : inst.users())
+      users.push_back(user);
 
+    // For each user that's outside of 'body', replace its use of 'inst' with a phi created
+    // in 'end'
+    for (User *user : users) {
+      Instruction *user_inst = cast<Instruction>(user);
       if (user_inst->getParent() != body) {
         if (!phi) {
           phi = PHINode::Create(inst.getType(), 2, "", &*end->begin());
-          phi->addIncoming(UndefValue::get(inst.getType()), bb);
+          phi->addIncoming(GetDefaultValue(inst.getType()), bb);
           phi->addIncoming(&inst, body);
         }
-
         user_inst->replaceUsesOfWith(&inst, phi);
       }
     } // For each user of inst of body
@@ -369,7 +383,7 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop
           exit_cond_has_phi = true;
         }
         else {
-          false_value = UndefValue::get(value->getType());
+          false_value = GetDefaultValue(value->getType());
         }
         exit_values.push_back({ value, false_value, phi });
       }
@@ -462,7 +476,7 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop
       PHINode *phi = dyn_cast<PHINode>(&inst);
       if (!phi)
         break;
-      phi->addIncoming(UndefValue::get(phi->getType()), new_exiting_block);
+      phi->addIncoming(GetDefaultValue(phi->getType()), new_exiting_block);
     }
 
 
