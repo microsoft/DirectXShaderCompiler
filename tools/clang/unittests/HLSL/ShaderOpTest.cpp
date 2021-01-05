@@ -297,7 +297,9 @@ void ShaderOpTest::CreateDescriptorHeaps() {
 
     const UINT descriptorSize = m_pDevice->GetDescriptorHandleIncrementSize(H.Desc.Type);
     CD3DX12_CPU_DESCRIPTOR_HANDLE cpuHandle(pHeap->GetCPUDescriptorHandleForHeapStart());
-    CD3DX12_GPU_DESCRIPTOR_HANDLE gpuHandle(pHeap->GetGPUDescriptorHandleForHeapStart());
+    CD3DX12_GPU_DESCRIPTOR_HANDLE gpuHandle;
+    if (H.Desc.Type != D3D12_DESCRIPTOR_HEAP_TYPE_RTV)
+        gpuHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(pHeap->GetGPUDescriptorHandleForHeapStart());
     for (ShaderOpDescriptor &D : H.Descriptors) {
       ShaderOpResource *R = m_pShaderOp->GetResourceByName(D.ResName);
       if (R == nullptr) {
@@ -336,11 +338,13 @@ void ShaderOpTest::CreateDescriptorHeaps() {
         m_pDevice->CreateConstantBufferView(&cbvDesc, cpuHandle);
       }
 
-      DData.GPUHandle = gpuHandle;
       DData.CPUHandle = cpuHandle;
       m_DescriptorData[R->Name] = DData;
       cpuHandle = cpuHandle.Offset(descriptorSize);
-      gpuHandle = gpuHandle.Offset(descriptorSize);
+      if (H.Desc.Type != D3D12_DESCRIPTOR_HEAP_TYPE_RTV) {
+        DData.GPUHandle = gpuHandle;
+        gpuHandle = gpuHandle.Offset(descriptorSize);
+      }
     }
   }
 
