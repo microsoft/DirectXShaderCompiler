@@ -307,19 +307,15 @@ static void SkipBlockWithBranch(BasicBlock *bb, Value *cond, Loop *L, LoopInfo *
   bb->getTerminator()->eraseFromParent();
   BranchInst::Create(end, body, cond, bb);
 
-  SmallVector<User *, 4> users;
   for (Instruction &inst : *body) {
     PHINode *phi = nullptr;
 
-    // Put the users in a list, since we're modifying the user list as we go
-    users.clear();
-    for (User *user : inst.users())
-      users.push_back(user);
-
     // For each user that's outside of 'body', replace its use of 'inst' with a phi created
     // in 'end'
-    for (User *user : users) {
-      Instruction *user_inst = cast<Instruction>(user);
+    for (auto it = inst.user_begin(); it != inst.user_end();) {
+      Instruction *user_inst = cast<Instruction>(*(it++));
+      if (user_inst == phi)
+        continue;
       if (user_inst->getParent() != body) {
         if (!phi) {
           phi = PHINode::Create(inst.getType(), 2, "", &*end->begin());
