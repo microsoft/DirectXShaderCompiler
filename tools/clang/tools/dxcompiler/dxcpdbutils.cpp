@@ -314,12 +314,9 @@ public:
       else if (hlsl::IsValidDxilContainer((const hlsl::DxilContainerHeader *)pPdbOrDxil->GetBufferPointer(), pPdbOrDxil->GetBufferSize())) {
         m_ContainerBlob = pPdbOrDxil;
         IFR(HandleDxilContainer(m_ContainerBlob, &m_pDxilPartBlob));
+        // If we have a DXIL part, populate the debug info.
         if (m_pDxilPartBlob) {
           IFR(HandleDebugProgramHeaderLegacy(m_pDxilPartBlob));
-        }
-        else {
-          // Must have a dxil part
-          return E_FAIL;
         }
       }
       // DXIL program header
