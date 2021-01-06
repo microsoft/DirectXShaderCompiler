@@ -96,6 +96,8 @@ enum DxilFourCC {
   DFCC_RuntimeData              = DXIL_FOURCC('R', 'D', 'A', 'T'),
   DFCC_ShaderHash               = DXIL_FOURCC('H', 'A', 'S', 'H'),
   DFCC_ShaderSource             = DXIL_FOURCC('S', 'R', 'C', 'E'),
+  DFCC_ShaderCompileOptions     = DXIL_FOURCC('O', 'P', 'T', 'S'),
+  DFCC_ShaderDefines            = DXIL_FOURCC('D', 'E', 'F', 'N'),
 };
 
 #undef DXIL_FOURCC
@@ -211,6 +213,16 @@ struct DxilShaderDebugName {
 };
 static const size_t MinDxilShaderDebugNameSize = sizeof(DxilShaderDebugName) + 4;
 
+struct DxilShaderCompileArgs {
+  uint16_t Flags; // Reserved, must be set to zero.
+  uint16_t Count;
+};
+
+struct DxilShaderCompileDefines {
+  uint16_t Flags; // Reserved, must be set to zero.
+  uint16_t Count;
+};
+
 // Shader source has the following structure:
 //
 //   DxilShaderSource
@@ -240,15 +252,14 @@ enum class DxilShaderSourceCompressType : uint32_t {
   Zlib
 };
 struct DxilShaderSource {
-  uint32_t Flags;
+  uint32_t Flags; // Reserved, must be set to zero.
   uint32_t SizeInBytes;
   DxilShaderSourceCompressType CompressType;
   uint32_t UncompressedSizeInBytes;
   uint32_t FileCount;
 };
-
 struct DxilShaderSourceEntry {
-  uint32_t Flags;
+  uint32_t Flags; // Reserved, must be set to zero.
   uint32_t SizeInDwords;
   uint32_t NameSize;
   uint32_t ContentSize;

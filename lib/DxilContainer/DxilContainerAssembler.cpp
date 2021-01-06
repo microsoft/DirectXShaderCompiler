@@ -1551,6 +1551,136 @@ public:
 
 } // namespace
 
+uint32_t PadToDword(uint32_t size) {
+  uint32_t rem = size % 4;
+  if (rem)
+    return size + (4 - rem);
+  return size;
+}
+
+static void Append(std::vector<BYTE> *Buf, const void *ptr, size_t size) {
+  size_t old_size = Buf->size();
+  Buf->resize(old_size + size);
+  memcpy(Buf->data()+old_size, ptr, size);
+}
+
+void SerializeSlimDebugInfo(llvm::Module *pModule, std::vector<BYTE> *SourcesPart, std::vector<BYTE> *OptionsPart, std::vector<BYTE> *DefinesPart) {
+  // For each all the named metadata node in the module
+  for (llvm::NamedMDNode &node : pModule->named_metadata()) {
+    llvm::StringRef node_name = node.getName();
+
+    // dx.source.content
+    if (node_name == hlsl::DxilMDHelper::kDxilSourceContentsMDName ||
+        node_name == hlsl::DxilMDHelper::kDxilSourceContentsOldMDName)
+    {
+      llvm::SmallVector<char, 0> UncompressedContentBuffer;
+      {
+        llvm::raw_svector_ostream os(UncompressedContentBuffer);
+        for (unsigned i = 0; i < node.getNumOperands(); i++) {
+          llvm::MDTuple *tup = cast<llvm::MDTuple>(node.getOperand(i));
+          StringRef md_name = cast<MDString>(tup->getOperand(0))->getString();
+          StringRef md_content = cast<MDString>(tup->getOperand(1))->getString();
+
+          hlsl::DxilShaderSourceEntry entry_header = {};
+
+          uint32_t TotalSizeInBytes = PadToDword(sizeof(entry_header) + md_name.size()+1 + md_content.size()+1);
+
+          entry_header.NameSize = md_name.size();
+          entry_header.ContentSize = md_content.size();
+          entry_header.SizeInDwords = TotalSizeInBytes / 4;
+
+          os.write((char *)&entry_header, sizeof(entry_header));
+          os << md_name;
+          os.write(0); // Null term
+          os << md_content;
+          os.write(0); // Null term
+        }
+        os.flush();
+      }
+
+      hlsl::DxilShaderSource header = {};
+      header.UncompressedSizeInBytes = UncompressedContentBuffer.size();
+      header.FileCount = node.getNumOperands();
+      header.SizeInBytes = header.UncompressedSizeInBytes;
+      header.CompressType = hlsl::DxilShaderSourceCompressType::None;
+
+      size_t Size = 0;
+
+      Size = SourcesPart->size();
+      SourcesPart->resize(Size + sizeof(header));
+      memcpy(SourcesPart->data()+Size, &header, sizeof(header));
+
+      Size = SourcesPart->size();
+      SourcesPart->resize(Size + UncompressedContentBuffer.size());
+      memcpy(SourcesPart->data()+Size, UncompressedContentBuffer.data(), UncompressedContentBuffer.size());
+    }
+    // dx.source.defines
+    else if (node_name == hlsl::DxilMDHelper::kDxilSourceDefinesMDName ||
+             node_name == hlsl::DxilMDHelper::kDxilSourceDefinesOldMDName)
+    {
+      DefinesPart->clear();
+      hlsl::DxilShaderCompileDefines header = {};
+      header.Count = DefinesPart->size();
+      Append(DefinesPart, &header, sizeof(header));
+
+      MDTuple *tup = cast<MDTuple>(node.getOperand(0));
+      for (unsigned i = 0; i < tup->getNumOperands(); i++) {
+        StringRef define = cast<MDString>(tup->getOperand(i))->getString();
+        Append(DefinesPart, define.data(), define.size());
+        BYTE NullTerm = 0;
+        Append(DefinesPart, &NullTerm, sizeof(NullTerm));
+      }
+
+      // Double null terminator
+      BYTE NullTerm = 0;
+      Append(DefinesPart, &NullTerm, sizeof(NullTerm));
+
+      uint32_t PaddedSize = PadToDword(DefinesPart->size());
+      for (uint32_t i = DefinesPart->size(); i < PaddedSize; i++) {
+        BYTE NullTerm = 0;
+        Append(DefinesPart, &NullTerm, sizeof(NullTerm));
+      }
+    }
+#if 0
+    // dx.source.mainFileName
+    else if (node_name == hlsl::DxilMDHelper::kDxilSourceMainFileNameMDName ||
+             node_name == hlsl::DxilMDHelper::kDxilSourceMainFileNameOldMDName)
+    {
+      MDTuple *tup = cast<MDTuple>(node.getOperand(0));
+      MDString *str = cast<MDString>(tup->getOperand(0));
+      m_MainFileName = ToWstring(str->getString());
+    }
+#endif
+    // dx.source.args
+    else if (node_name == hlsl::DxilMDHelper::kDxilSourceArgsMDName ||
+             node_name == hlsl::DxilMDHelper::kDxilSourceArgsOldMDName)
+    {
+      OptionsPart->clear();
+      hlsl::DxilShaderCompileDefines header = {};
+      header.Count = OptionsPart->size();
+      Append(OptionsPart, &header, sizeof(header));
+
+      MDTuple *tup = cast<MDTuple>(node.getOperand(0));
+      for (unsigned i = 0; i < tup->getNumOperands(); i++) {
+        StringRef define = cast<MDString>(tup->getOperand(i))->getString();
+        Append(OptionsPart, define.data(), define.size());
+        BYTE NullTerm = 0;
+        Append(OptionsPart, &NullTerm, sizeof(NullTerm));
+      }
+
+      // Double null terminator
+      BYTE NullTerm = 0;
+      Append(OptionsPart, &NullTerm, sizeof(NullTerm));
+
+      uint32_t PaddedSize = PadToDword(OptionsPart->size());
+      for (uint32_t i = OptionsPart->size(); i < PaddedSize; i++) {
+        BYTE NullTerm = 0;
+        Append(OptionsPart, &NullTerm, sizeof(NullTerm));
+      }
+    }
+  }
+}
+
 void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
                                            AbstractMemoryStream *pModuleBitcode,
                                            AbstractMemoryStream *pFinalStream,
@@ -1574,6 +1704,9 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   bool bCompat_1_4 = DXIL::CompareVersions(ValMajor, ValMinor, 1, 5) < 0;
   bool bEmitReflection = Flags & SerializeDxilFlags::IncludeReflectionPart ||
                          pReflectionStreamOut;
+
+  bool bUseSlimPDB = DXIL::CompareVersions(ValMajor, ValMinor, 1, 6) >= 0;
+  bool bSupportSlimPDB = DXIL::CompareVersions(ValMajor, ValMinor, 1, 6) >= 0;
 
   DxilContainerWriter_impl writer;
 
@@ -1668,9 +1801,43 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
     }
   }
 
+  std::vector<BYTE> Sources;
+  std::vector<BYTE> Options;
+  std::vector<BYTE> Defines;
+  bool bDebugModuleSlimmed = false;
+
+  bool bModuleStripped = false;
+  bool bHasDebugInfo = HasDebugInfo(*pModule->GetModule());
+  if (bHasDebugInfo & bSupportSlimPDB) {
+    if (Flags & SerializeDxilFlags::IncludeDebugInfoPart) {
+      SerializeSlimDebugInfo(pModule->GetModule(), &Sources, &Options, &Defines);
+      writer.AddPart(DFCC_ShaderSource, Sources.size(), [&Sources](AbstractMemoryStream *pStream) {
+        ULONG cbWritten = 0;
+        IFT(pStream->Write(Sources.data(), Sources.size(), &cbWritten));
+      });
+
+      writer.AddPart(DFCC_ShaderCompileOptions, Options.size(), [&Options](AbstractMemoryStream *pStream) {
+        ULONG cbWritten = 0;
+        IFT(pStream->Write(Options.data(), Options.size(), &cbWritten));
+      });
+
+      writer.AddPart(DFCC_ShaderDefines, Defines.size(), [&Defines](AbstractMemoryStream *pStream) {
+        ULONG cbWritten = 0;
+        IFT(pStream->Write(Defines.data(), Defines.size(), &cbWritten));
+      });
+    }
+    pModule->StripDebugRelatedCode();
+    bDebugModuleSlimmed = true;
+
+    if (bUseSlimPDB) {
+      llvm::StripDebugInfo(*pModule->GetModule());
+      bModuleStripped = true;
+    }
+  }
+
   // If metadata was stripped, re-serialize the input module.
   CComPtr<AbstractMemoryStream> pInputProgramStream = pModuleBitcode;
-  if (bMetadataStripped) {
+  if (bDebugModuleSlimmed || bMetadataStripped) {
     pInputProgramStream.Release();
     IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pInputProgramStream));
     raw_stream_ostream outStream(pInputProgramStream.p);
@@ -1679,20 +1846,22 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
 
   // If we have debug information present, serialize it to a debug part, then use the stripped version as the canonical program version.
   CComPtr<AbstractMemoryStream> pProgramStream = pInputProgramStream;
-  bool bModuleStripped = false;
-  bool bHasDebugInfo = HasDebugInfo(*pModule->GetModule());
   if (bHasDebugInfo) {
-    uint32_t debugInUInt32, debugPaddingBytes;
-    GetPaddedProgramPartSize(pInputProgramStream, debugInUInt32, debugPaddingBytes);
     if (Flags & SerializeDxilFlags::IncludeDebugInfoPart) {
-      writer.AddPart(DFCC_ShaderDebugInfoDXIL, debugInUInt32 * sizeof(uint32_t) + sizeof(DxilProgramHeader), [&](AbstractMemoryStream *pStream) {
-        WriteProgramPart(pModule->GetShaderModel(), pInputProgramStream, pStream);
-      });
+      if (bUseSlimPDB) {
+        uint32_t debugInUInt32, debugPaddingBytes;
+        GetPaddedProgramPartSize(pInputProgramStream, debugInUInt32, debugPaddingBytes);
+        writer.AddPart(DFCC_ShaderDebugInfoDXIL, debugInUInt32 * sizeof(uint32_t) + sizeof(DxilProgramHeader), [&](AbstractMemoryStream *pStream) {
+          WriteProgramPart(pModule->GetShaderModel(), pInputProgramStream, pStream);
+        });
+      }
     }
 
-    llvm::StripDebugInfo(*pModule->GetModule());
-    pModule->StripDebugRelatedCode();
-    bModuleStripped = true;
+    if (!bModuleStripped) {
+      llvm::StripDebugInfo(*pModule->GetModule());
+      pModule->StripDebugRelatedCode();
+      bModuleStripped = true;
+    }
   } else {
     // If no debug info, clear DebugNameDependOnSource
     // (it's default, and this scenario can happen)
