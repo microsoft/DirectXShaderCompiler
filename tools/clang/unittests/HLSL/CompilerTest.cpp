@@ -127,6 +127,7 @@ public:
   TEST_METHOD(CompileWhenWorksThenAddRemovePrivate)
   TEST_METHOD(CompileThenAddCustomDebugName)
   TEST_METHOD(CompileThenTestPdbUtils)
+  TEST_METHOD(CompileThenTestPdbUtilsStripped)
   TEST_METHOD(CompileWithRootSignatureThenStripRootSignature)
 
   TEST_METHOD(CompileWhenIncludeThenLoadInvoked)
@@ -1107,6 +1108,65 @@ static void VerifyPdbUtil(IDxcPdbUtils *pPdbUtils, bool HasHashAndPdbName, IDxcB
 }
 
 #ifdef _WIN32
+
+TEST_F(CompilerTest, CompileThenTestPdbUtilsStripped) {
+  CComPtr<TestIncludeHandler> pInclude;
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcOperationResult> pOperationResult;
+
+  std::string main_source = "#include \"helper.h\"\r\n"
+    "float4 PSMain() : SV_Target { return ZERO; }";
+  std::string included_File = "#define ZERO 0";
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText(main_source.c_str(), &pSource);
+
+  pInclude = new TestIncludeHandler(m_dllSupport);
+  pInclude->CallResults.emplace_back(included_File.c_str());
+
+  const WCHAR *pArgs[] = { L"/Zi", L"/Od", L"-flegacy-macro-expansion", L"-Qstrip_debug", L"/DTHIS_IS_A_DEFINE=HELLO" };
+  const DxcDefine pDefines[] = { L"THIS_IS_ANOTHER_DEFINE", L"1" };
+
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"PSMain",
+    L"ps_6_0", pArgs, _countof(pArgs), pDefines, _countof(pDefines), pInclude, &pOperationResult));
+
+  CComPtr<IDxcBlob> pCompiledBlob;
+  VERIFY_SUCCEEDED(pOperationResult->GetResult(&pCompiledBlob));
+
+  CComPtr<IDxcPdbUtils> pPdbUtils;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcPdbUtils, &pPdbUtils));
+
+  VERIFY_SUCCEEDED(pPdbUtils->Load(pCompiledBlob));
+
+  // PDB file path
+  {
+    CComBSTR pName;
+    VERIFY_SUCCEEDED(pPdbUtils->GetName(&pName));
+    std::wstring suffix = L".pdb";
+    VERIFY_IS_TRUE(pName.Length() >= suffix.size());
+    VERIFY_IS_TRUE(
+      0 == std::memcmp(suffix.c_str(), &pName[pName.Length() - suffix.size()], suffix.size()));
+  }
+
+  // There is hash and hash is not empty
+  {
+    CComPtr<IDxcBlob> pHash;
+    VERIFY_SUCCEEDED(pPdbUtils->GetHash(&pHash));
+    hlsl::DxilShaderHash EmptyHash = {};
+    VERIFY_ARE_EQUAL(pHash->GetBufferSize(), sizeof(EmptyHash));
+    VERIFY_IS_FALSE(0 == std::memcmp(pHash->GetBufferPointer(), &EmptyHash, sizeof(EmptyHash)));
+  }
+
+  {
+    VERIFY_IS_FALSE(pPdbUtils->IsFullPDB());
+    UINT32 uSourceCount = 0;
+    VERIFY_SUCCEEDED(pPdbUtils->GetSourceCount(&uSourceCount));
+    VERIFY_ARE_EQUAL(uSourceCount, 0);
+  }
+}
+
+
 TEST_F(CompilerTest, CompileThenTestPdbUtils) {
   CComPtr<TestIncludeHandler> pInclude;
   CComPtr<IDxcCompiler> pCompiler;
@@ -1141,7 +1201,6 @@ TEST_F(CompilerTest, CompileThenTestPdbUtils) {
 
   CComPtr<IDxcBlob> pPdbBlob;
   VERIFY_SUCCEEDED(pResult->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pPdbBlob), nullptr));
-
 
   CComPtr<IDxcPdbUtils> pPdbUtils;
   VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcPdbUtils, &pPdbUtils));

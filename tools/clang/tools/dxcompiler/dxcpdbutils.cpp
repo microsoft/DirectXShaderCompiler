@@ -91,7 +91,7 @@ private:
   };
 
   CComPtr<IDxcBlob> m_InputBlob;
-  CComPtr<IDxcBlob> m_pDxilPartBlob;
+  CComPtr<IDxcBlob> m_pDebugProgramBlob;
   CComPtr<IDxcBlob> m_ContainerBlob;
   std::vector<Source_File> m_SourceFiles;
   std::vector<std::wstring> m_Defines;
@@ -104,7 +104,7 @@ private:
   CComPtr<IDxcBlob> m_HashBlob;
 
   void Reset() {
-    m_pDxilPartBlob = nullptr;
+    m_pDebugProgramBlob = nullptr;
     m_InputBlob = nullptr;
     m_ContainerBlob = nullptr;
     m_SourceFiles.clear();
@@ -301,25 +301,22 @@ public:
 
       // PDB
       if (SUCCEEDED(hlsl::pdb::LoadDataFromStream(m_pMalloc, pStream, &m_ContainerBlob))) {
-        IFR(HandleDxilContainer(m_ContainerBlob, &m_pDxilPartBlob));
-        if (m_pDxilPartBlob) {
-          IFR(HandleDebugProgramHeaderLegacy(m_pDxilPartBlob));
+        IFR(HandleDxilContainer(m_ContainerBlob, &m_pDebugProgramBlob));
+        if (m_pDebugProgramBlob) {
+          IFR(HandleDebugProgramHeaderLegacy(m_pDebugProgramBlob));
         }
         else {
-          // Must have a dxil part
+          // Must have a debug program part
           return E_FAIL;
         }
       }
       // DXIL Container
       else if (hlsl::IsValidDxilContainer((const hlsl::DxilContainerHeader *)pPdbOrDxil->GetBufferPointer(), pPdbOrDxil->GetBufferSize())) {
         m_ContainerBlob = pPdbOrDxil;
-        IFR(HandleDxilContainer(m_ContainerBlob, &m_pDxilPartBlob));
-        if (m_pDxilPartBlob) {
-          IFR(HandleDebugProgramHeaderLegacy(m_pDxilPartBlob));
-        }
-        else {
-          // Must have a dxil part
-          return E_FAIL;
+        IFR(HandleDxilContainer(m_ContainerBlob, &m_pDebugProgramBlob));
+        // If we have a Debug DXIL, populate the debug info.
+        if (m_pDebugProgramBlob) {
+          IFR(HandleDebugProgramHeaderLegacy(m_pDebugProgramBlob));
         }
       }
       // DXIL program header
@@ -328,8 +325,8 @@ public:
         IFR(hlsl::DxcCreateBlobWithEncodingFromPinned(
           (hlsl::DxilProgramHeader *)pPdbOrDxil->GetBufferPointer(),
           pPdbOrDxil->GetBufferSize(), CP_ACP, &pProgramHeaderBlob));
-        IFR(pProgramHeaderBlob.QueryInterface(&m_pDxilPartBlob));
-        IFR(HandleDebugProgramHeaderLegacy(m_pDxilPartBlob));
+        IFR(pProgramHeaderBlob.QueryInterface(&m_pDebugProgramBlob));
+        IFR(HandleDebugProgramHeaderLegacy(m_pDebugProgramBlob));
       }
       else {
         return E_INVALIDARG;
@@ -387,7 +384,7 @@ public:
   }
 
   virtual BOOL STDMETHODCALLTYPE IsFullPDB() override {
-    return m_pDxilPartBlob != nullptr;
+    return m_pDebugProgramBlob != nullptr;
   }
 
   virtual HRESULT STDMETHODCALLTYPE GetFullPDB(_COM_Outptr_ IDxcBlob **ppFullPDB) override {
@@ -411,7 +408,7 @@ public:
   virtual STDMETHODIMP NewDxcPixDxilDebugInfo(
       _COM_Outptr_ IDxcPixDxilDebugInfo **ppDxilDebugInfo) override
   {
-    if (!m_pDxilPartBlob)
+    if (!m_pDebugProgramBlob)
       return E_FAIL;
 
     DxcThreadMalloc TM(m_pMalloc);
@@ -421,7 +418,7 @@ public:
       (void **)&pDataSource));
 
     CComPtr<IStream> pStream;
-    IFR(hlsl::CreateReadOnlyBlobStream(m_pDxilPartBlob, &pStream));
+    IFR(hlsl::CreateReadOnlyBlobStream(m_pDebugProgramBlob, &pStream));
 
     IFR(pDataSource->loadDataFromIStream(pStream));
 
