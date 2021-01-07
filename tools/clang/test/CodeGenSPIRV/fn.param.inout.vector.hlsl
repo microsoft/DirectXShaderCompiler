@@ -18,9 +18,7 @@ float4 main() : C {
 
     float4 val;
 // CHECK:    [[z_ptr:%\d+]] = OpAccessChain %_ptr_Function_float %val %int_2
-// CHECK:          {{%\d+}} = OpFunctionCall %void %bar %param_var_x %param_var_y %param_var_z %param_var_w
-// CHECK-NEXT:   [[x:%\d+]] = OpLoad %v4float %param_var_x
-// CHECK-NEXT:                OpStore %val [[x]]
+// CHECK:          {{%\d+}} = OpFunctionCall %void %bar %val %param_var_y %param_var_z %param_var_w
 // CHECK-NEXT:   [[y:%\d+]] = OpLoad %v3float %param_var_y
 // CHECK-NEXT: [[old:%\d+]] = OpLoad %v4float %val
     // Write to val.zwx:

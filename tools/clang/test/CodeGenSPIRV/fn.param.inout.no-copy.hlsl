@@ -31,7 +31,7 @@ void main() {
 // CHECK: %d = OpVariable %_ptr_Function_S Function
 // CHECK: %e = OpVariable %_ptr_Function__arr_float_uint_4 Function
 
-// CHECK:      OpFunctionCall %void %foo %param_var_a %param_var_b %param_var_c %param_var_d %param_var_e
+// CHECK:      OpFunctionCall %void %foo %a %b %c %d %e
 
     foo(a, b, c, d, e);
 }

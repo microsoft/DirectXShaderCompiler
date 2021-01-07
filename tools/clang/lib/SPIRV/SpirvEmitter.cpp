@@ -2235,8 +2235,8 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
     // create a temporary variable for it because the function definition
     // expects are point-to-pointer argument for resources, which will be
     // resolved by legalization.
-    if ((argInfo || (argInst && !argInst->isRValue())) &&
-        hlsl::IsHLSLRayQueryType(paramType) && !isResourceType(paramType) &&
+    if ((argInfo || (argInst && isMemoryObjectDeclaration(argInst))) &&
+        canActAsOutParmVar(param) && !isResourceType(paramType) &&
         paramTypeMatchesArgType(paramType, arg->getType())) {
       // Based on SPIR-V spec, function parameter must be always Function
       // scope. In addition, we must pass memory object declaration argument

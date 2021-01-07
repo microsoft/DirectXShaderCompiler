@@ -39,13 +39,9 @@ void main() {
 // CHECK-NEXT:   [[b:%\d+]] = OpCompositeExtract %float [[A_0]] 1
 // CHECK-NEXT: [[A_0:%\d+]] = OpCompositeConstruct %S [[a]] [[b]]
 // CHECK-NEXT:                OpStore %param_var_x [[A_0]]
-// CHECK-NEXT:   [[Y:%\d+]] = OpLoad %S %B
-// CHECK-NEXT:                OpStore %param_var_y [[Y]]
-// CHECK-NEXT:   [[Z:%\d+]] = OpLoad %S %C
-// CHECK-NEXT:                OpStore %param_var_z [[Z]]
 // CHECK-NEXT:   [[E:%\d+]] = OpLoad %S %E
 // CHECK-NEXT:                OpStore %param_var_w [[E]]
-// CHECK-NEXT:     {{%\d+}} = OpFunctionCall %void %S_foo %D %param_var_x %param_var_y %param_var_z %param_var_w
+// CHECK-NEXT:     {{%\d+}} = OpFunctionCall %void %S_foo %D %param_var_x %B %C %param_var_w
   D.foo(A[0], B, C, E);
 
   A[0].a = A[0].a | B.a | C.a | D.a;
