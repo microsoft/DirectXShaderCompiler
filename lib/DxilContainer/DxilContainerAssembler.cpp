@@ -1564,6 +1564,7 @@ static void Append(std::vector<BYTE> *Buf, const void *ptr, size_t size) {
   memcpy(Buf->data()+old_size, ptr, size);
 }
 
+#if 0
 void SerializeSlimDebugInfo(llvm::Module *pModule, std::vector<BYTE> *SourcesPart, std::vector<BYTE> *OptionsPart, std::vector<BYTE> *DefinesPart) {
   // For each all the named metadata node in the module
   for (llvm::NamedMDNode &node : pModule->named_metadata()) {
@@ -1680,6 +1681,7 @@ void SerializeSlimDebugInfo(llvm::Module *pModule, std::vector<BYTE> *SourcesPar
     }
   }
 }
+#endif
 
 void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
                                            AbstractMemoryStream *pModuleBitcode,

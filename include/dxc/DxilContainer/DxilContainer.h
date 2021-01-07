@@ -95,9 +95,7 @@ enum DxilFourCC {
   DFCC_PipelineStateValidation  = DXIL_FOURCC('P', 'S', 'V', '0'),
   DFCC_RuntimeData              = DXIL_FOURCC('R', 'D', 'A', 'T'),
   DFCC_ShaderHash               = DXIL_FOURCC('H', 'A', 'S', 'H'),
-  DFCC_ShaderSource             = DXIL_FOURCC('S', 'R', 'C', 'E'),
-  DFCC_ShaderCompileOptions     = DXIL_FOURCC('O', 'P', 'T', 'S'),
-  DFCC_ShaderDefines            = DXIL_FOURCC('D', 'E', 'F', 'N'),
+  DFCC_ShaderSourceInfo         = DXIL_FOURCC('S', 'R', 'C', 'I'),
 };
 
 #undef DXIL_FOURCC
@@ -213,16 +211,6 @@ struct DxilShaderDebugName {
 };
 static const size_t MinDxilShaderDebugNameSize = sizeof(DxilShaderDebugName) + 4;
 
-struct DxilShaderCompileArgs {
-  uint16_t Flags; // Reserved, must be set to zero.
-  uint16_t Count;
-};
-
-struct DxilShaderCompileDefines {
-  uint16_t Flags; // Reserved, must be set to zero.
-  uint16_t Count;
-};
-
 // Shader source has the following structure:
 //
 //   DxilShaderSource
@@ -247,18 +235,41 @@ struct DxilShaderCompileDefines {
 //   char Content[ ContentSize ] + NullTerminator
 //   (Zero padding for 4 bytes)
 //
-enum class DxilShaderSourceCompressType : uint32_t {
+
+enum class DxilShaderSourceElementType : uint32_t {
+  Sources,
+  Defines,
+  Args,
+};
+
+struct DxilShaderSourceInfo {
+  uint32_t Flags;
+  uint32_t ElementCount;
+};
+
+struct DxilShaderSourceInfoElement {
+  DxilShaderSourceElementType Type;
+  uint32_t Flags;
+  uint32_t SizeInDwords;
+};
+
+struct DxilShaderCompileOptions {
+  uint16_t Flags; // Reserved, must be set to zero.
+  uint16_t Count;
+};
+
+enum class DxilShaderSourceCompressType : uint16_t {
   None,
   Zlib
 };
-struct DxilShaderSource {
-  uint32_t Flags; // Reserved, must be set to zero.
-  uint32_t SizeInBytes;
+struct DxilShaderSources {
+  uint16_t FileCount;
   DxilShaderSourceCompressType CompressType;
+  uint32_t SizeInBytes;
   uint32_t UncompressedSizeInBytes;
-  uint32_t FileCount;
 };
-struct DxilShaderSourceEntry {
+
+struct DxilShaderSourcesElement {
   uint32_t Flags; // Reserved, must be set to zero.
   uint32_t SizeInDwords;
   uint32_t NameSize;
@@ -468,6 +479,7 @@ enum class SerializeDxilFlags : uint32_t {
   StripReflectionFromDxilPart = 1 << 3, // Strip Reflection info from DXIL part.
   IncludeReflectionPart       = 1 << 4, // Include reflection in STAT part.
   StripRootSignature          = 1 << 5, // Strip Root Signature from main shader container.
+  UseSlimPDB                  = 1 << 6, // Strip Root Signature from main shader container.
 };
 inline SerializeDxilFlags& operator |=(SerializeDxilFlags& l, const SerializeDxilFlags& r) {
   l = static_cast<SerializeDxilFlags>(static_cast<int>(l) | static_cast<int>(r));
