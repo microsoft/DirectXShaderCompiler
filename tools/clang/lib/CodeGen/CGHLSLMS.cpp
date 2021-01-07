@@ -3452,6 +3452,9 @@ void CGMSHLSLRuntime::FinishCodeGen() {
     }
     ProcessCtorFunctions(M, "llvm.global_ctors",
                          Entry.Func->getEntryBlock().getFirstInsertionPt(), true);
+  } else {
+    // Process ctors for static global resources.
+    ProcessCtorFunctionsForLib(M, "llvm.global_ctors", HLM.GetTypeSystem());
   }
 
   UpdateLinkage(HLM, CGM, m_ExportMap, entryFunctionMap,

@@ -199,6 +199,9 @@ void FinishCBuffer(
 void ProcessCtorFunctions(llvm::Module &M, llvm::StringRef globalName,
                           llvm::Instruction *InsertPt, bool bRemoveGlobal);
 
+void ProcessCtorFunctionsForLib(llvm::Module &M, llvm::StringRef globalName,
+                                hlsl::DxilTypeSystem &typeSys);
+
 void TranslateRayQueryConstructor(hlsl::HLModule &HLM);
 
 void UpdateLinkage(

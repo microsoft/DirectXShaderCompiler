@@ -18,6 +18,8 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
 #include "llvm/Transforms/Utils/Cloning.h"
@@ -2305,6 +2307,107 @@ bool BuildImmInit(Function *Ctor) {
   return true;
 }
 
+bool IsSingleStoreStaticGlobal(GlobalVariable *GV, DxilTypeSystem &typeSys) {
+  if (GV->getLinkage() != GlobalVariable::LinkageTypes::InternalLinkage)
+    return false;
+  // Assume store and memcpy/store on gep should not happen on same GV.
+  unsigned StCount = 0;
+  for (User *U : GV->users()) {
+    if (isa<StoreInst>(U)) {
+      StCount++;
+      if (StCount > 1)
+        break;
+    } else if (CallInst *CI = dyn_cast<CallInst>(U)) {
+      // it is OK to use as input param.
+      Function *F = CI->getCalledFunction();
+      if (!F)
+        return false;
+      DxilFunctionAnnotation *FnAnnot = typeSys.GetFunctionAnnotation(F);
+      if (!FnAnnot)
+        return false;
+      for (Argument &Arg : F->args()) {
+        Value *Op = CI->getArgOperand(Arg.getArgNo());
+        if (Op == GV) {
+          // Check is input param.
+          DxilParameterAnnotation &ParamAnnot =
+              FnAnnot->GetParameterAnnotation(Arg.getArgNo());
+          if (ParamAnnot.GetParamInputQual() != DxilParamInputQual::In)
+            return false;
+        }
+      }
+    } else if (!isa<LoadInst>(U)) {
+      // Only support case used by ld/st.
+      return false;
+    }
+  }
+  return StCount == 1;
+}
+
+bool IsFromGlobal(Value *V) {
+  if (isa<GlobalVariable>(V))
+    return true;
+
+  if (GEPOperator *GEP = dyn_cast<GEPOperator>(V))
+    return IsFromGlobal(GEP->getPointerOperand());
+
+  if (BitCastOperator *BC = dyn_cast<BitCastOperator>(V))
+    return IsFromGlobal(BC->getOperand(0));
+
+  return false;
+}
+
+bool HasSideEffect(CallInst *CI, DxilTypeSystem &typeSys) {
+  Function *F = CI->getCalledFunction();
+  if (!F) {
+    return true;
+  }
+  if (MemCpyInst *MCI = dyn_cast<MemCpyInst>(CI)) {
+    if (IsFromGlobal(MCI->getDest())) {
+      return true;
+    }
+  } else if (MemSetInst *MSI = dyn_cast<MemSetInst>(CI)) {
+    if (IsFromGlobal(MSI->getDest())) {
+      return true;
+    }
+  } else {
+    // Find all output arg which use global variable.
+    DxilFunctionAnnotation *FnAnnot = typeSys.GetFunctionAnnotation(F);
+    if (FnAnnot) {
+      for (Argument &Arg : F->args()) {
+        DxilParameterAnnotation &ParamAnnot =
+            FnAnnot->GetParameterAnnotation(Arg.getArgNo());
+        if (ParamAnnot.GetParamInputQual() == DxilParamInputQual::In)
+          continue;
+        Value *V = CI->getArgOperand(Arg.getArgNo());
+        if (IsFromGlobal(V)) {
+          return true;
+        }
+      }
+    }
+
+    for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
+      Instruction *Inst = cast<Instruction>(&(*I));
+      StoreInst *ST = dyn_cast<StoreInst>(Inst);
+      if (!ST) {
+        if (CallInst *CI = dyn_cast<CallInst>(Inst)) {
+          if (HasSideEffect(CI, typeSys))
+            return true;
+        } else {
+          if (Inst->mayHaveSideEffects())
+            return true;
+        }
+      } else {
+        // Write to global.
+        if (IsFromGlobal(ST->getPointerOperand()))
+          return true;
+      }
+
+    }
+
+  }
+  return false;
+}
+
 } // namespace
 
 namespace CGHLSLMSHelper {
@@ -2351,6 +2454,130 @@ void ProcessCtorFunctions(llvm::Module &M, StringRef globalName,
   if (bRemoveGlobal) {
     GV->eraseFromParent();
   }
+}
+
+void ProcessCtorFunctionsForLib(llvm::Module &M, llvm::StringRef globalName,
+                                DxilTypeSystem &typeSys) {
+  // Identify const static globals which only have one store in ctors first.
+  GlobalVariable *GV = M.getGlobalVariable(globalName);
+  if (!GV)
+    return;
+  ConstantArray *CA = dyn_cast<ConstantArray>(GV->getInitializer());
+  if (!CA)
+    return;
+
+  SmallVector<Function *, 2> Ctors;
+  for (User::op_iterator i = CA->op_begin(), e = CA->op_end(); i != e; ++i) {
+    if (isa<ConstantAggregateZero>(*i))
+      continue;
+    ConstantStruct *CS = cast<ConstantStruct>(*i);
+    if (isa<ConstantPointerNull>(CS->getOperand(1)))
+      continue;
+
+    // Must have a function or null ptr.
+    if (!isa<Function>(CS->getOperand(1)))
+      continue;
+    Function *Ctor = cast<Function>(CS->getOperand(1));
+    DXASSERT(Ctor->getReturnType()->isVoidTy() && Ctor->arg_size() == 0,
+             "function type must be void (void)");
+
+    for (inst_iterator I = inst_begin(Ctor), E = inst_end(Ctor); I != E; ++I) {
+      if (CallInst *CI = dyn_cast<CallInst>(&(*I))) {
+        Function *F = CI->getCalledFunction();
+        DXASSERT(F->getReturnType()->isVoidTy(), "ctor must be void(void)");
+        DXASSERT(F->arg_empty(), "ctor must be void(void)");
+        Ctors.emplace_back(F);
+      } else {
+        DXASSERT(isa<ReturnInst>(&(*I)),
+                 "else invalid Global constructor function");
+      }
+    }
+  }
+
+  for (Function *Ctor : Ctors) {
+    SmallVector<GlobalVariable *, 2> ConstStaticGV;
+    bool bHasSideEffect = false;
+    // Check all StoreInst in Ctor which is store a GV has only one store.
+    for (inst_iterator I = inst_begin(Ctor), E = inst_end(Ctor); I != E; ++I) {
+      Instruction *Inst = cast<Instruction>(&(*I));
+      StoreInst *ST = dyn_cast<StoreInst>(Inst);
+      if (!ST) {
+        if (CallInst *CI = dyn_cast<CallInst>(Inst)) {
+          if (HasSideEffect(CI, typeSys)) {
+            bHasSideEffect = true;
+            break;
+          }
+        } else if (Inst->mayHaveSideEffects()) {
+          bHasSideEffect = true;
+          break;
+        }
+        continue;
+      }
+      GlobalVariable *GV = dyn_cast<GlobalVariable>(ST->getPointerOperand());
+      if (!GV)
+        continue;
+      if (!IsSingleStoreStaticGlobal(GV, typeSys)) {
+        // Store on GV with multiple defines.
+        bHasSideEffect = true;
+        break;
+      }
+      ConstStaticGV.emplace_back(GV);
+    }
+    // Not support case when Ctor has side effect.
+    if (bHasSideEffect)
+      continue;
+    // Only take care Function init 1 const static GV.
+    if (ConstStaticGV.size() != 1)
+      continue;
+    GlobalVariable *GV = ConstStaticGV.back();
+    // Clone Ctor.
+    FunctionType *FT =
+        FunctionType::get(Ctor->getReturnType(), {GV->getType()}, false);
+    Function *NewCtor = Function::Create(
+        FT, GlobalValue::LinkageTypes::InternalLinkage, Ctor->getName(), &M);
+
+    SmallVector<ReturnInst *, 2> Returns;
+    ValueToValueMapTy vmap;
+    // Map params.
+    // Add param for each const static GV to the cloned ctor.
+    // Change the store ptr to the param.
+    vmap[GV] = NewCtor->arg_begin();
+
+    llvm::CloneFunctionInto(NewCtor, Ctor, vmap, /*ModuleLevelChagnes*/ false,
+                            Returns);
+    // Add Function annotation for NewCtor.
+    DxilFunctionAnnotation *FnAnnot = typeSys.AddFunctionAnnotation(NewCtor);
+    DxilParameterAnnotation &ParamAnnot = FnAnnot->GetParameterAnnotation(0);
+    ParamAnnot.SetParamInputQual(DxilParamInputQual::Out);
+
+    // Add alloca for each function used the const static GV, replace use of the
+    // GV with the alloca. Call cloned ctor at the beginning of the function.
+    DenseMap<Function *, AllocaInst *> InitMap;
+    for (auto it = GV->user_begin(); it != GV->user_end();) {
+      User *U = *(it++);
+      LoadInst *LI = dyn_cast<LoadInst>(U);
+      if (!LI)
+        continue;
+
+      Function *F = LI->getParent()->getParent();
+      auto ait = InitMap.find(F);
+      AllocaInst *AI = nullptr;
+      if (ait != InitMap.end()) {
+        AI = ait->second;
+      } else {
+        IRBuilder<> B(F->getEntryBlock().getFirstInsertionPt());
+        AI = B.CreateAlloca(GV->getType()->getElementType());
+        InitMap.insert(std::make_pair(F, AI));
+        // Call NewCtor to init AI.
+        B.CreateCall(NewCtor, {AI});
+      }
+      IRBuilder<> B(LI);
+      Value *NewLI = B.CreateLoad(AI);
+      LI->replaceAllUsesWith(NewLI);
+      LI->eraseFromParent();
+    }
+  }
+
 }
 
 void FinishCBuffer(HLModule &HLM, llvm::Type *CBufferType,
