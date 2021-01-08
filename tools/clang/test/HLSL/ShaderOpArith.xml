@@ -2136,7 +2136,91 @@
     </Shader>
   </ShaderOp>
 
-    <!--
-  TODO: Dynamically index into tables
-  -->
+  <ShaderOp Name="HelperLaneTestNoWave" PS="PS" VS="VS" TopologyType="TRIANGLE">
+    <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), UAV(u0)</RootSignature>
+    <Resource Name="VBuffer" Dimension="BUFFER" InitialResourceState="COPY_DEST" Init="FromBytes" Topology="TRIANGLELIST">
+        { { -1.0f,  1.0f, 0.0f } },
+        { {  1.0f,  1.0f, 0.0f } },
+        { {  1.0f, -1.0f, 0.0f } },
+    </Resource>
+    <Resource Name="UAVBuffer0" Dimension="BUFFER" Width="120" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" Format="R32_TYPELESS" />
+    <Resource Name="RTarget" Dimension="TEXTURE2D" Width="16" Height="16" Format="R32G32B32A32_UINT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" ReadBack="true" />
+    <RootValues>
+        <RootValue Index="1" ResName="UAVBuffer0" />
+    </RootValues>
+    <DescriptorHeap Name="RtvHeap" NumDescriptors="1" Type="RTV">
+      <Descriptor Name="RTarget" Kind="RTV"/>
+    </DescriptorHeap>
+    <InputElements>
+      <InputElement SemanticName="POSITION" Format="R32G32B32_FLOAT" AlignedByteOffset="0" />
+    </InputElements>
+    <RenderTargets>
+      <RenderTarget Name="RTarget" Viewport="{ 0.0f, 0.0f, 2.0f, 2.0f, 0.0f, 1.0f }"/>
+    </RenderTargets>
+
+    <Shader Name="VS" Target="vs_6_0">
+        <![CDATA[
+        struct PSInput {
+            float4 pos : SV_POSITION;
+        };
+        
+        PSInput main(float3 pos : POSITION) {
+            PSInput r;
+            r.pos = float4(pos, 1); 
+            return r;
+        }
+        ]]>
+    </Shader>
+    <Shader Name="PS" Target="ps_6_0">
+        <![CDATA[
+        #ifdef ISHELPERLANE_PLACEHOLDER
+            #define CALL(x) ph_##x
+           
+            bool ph_IsHelperLane(float4 pos, bool first_call) {
+                if (first_call) {
+                    return pos.x == 0.5 && pos.y == 1.5;
+                }
+                else {
+                    return pos.x == 0.5;
+                }
+            }
+        #else
+            #define CALL(x) x
+        #endif
+        
+        struct PSInput {
+          float4 pos : SV_POSITION;
+        };
+        
+        struct HelperLaneTestResult{
+            uint id;
+            int ddx1;
+            int ddy1;
+            int ddx2;
+            int ddy2;
+        };
+        
+        RWStructuredBuffer<HelperLaneTestResult> g_structBuf : register(u0);
+        
+        uint4 main(PSInput input) : SV_TARGET {
+          uint index = ((uint)(input.pos.y - 0.5) << 1) + (uint)(input.pos.x - 0.5);
+          uint id = 1 << index;
+          g_structBuf[index].id = id;
+
+          int is_helper = (int)CALL(IsHelperLane(input.pos, true));
+          g_structBuf[index].ddx1 = (int)ddx_fine(id * is_helper);
+          g_structBuf[index].ddy1 = (int)ddy_fine(id * is_helper);
+          
+          if (id == 1) 
+            discard;
+          
+          is_helper = (int)CALL(IsHelperLane(input.pos, false));
+          g_structBuf[index].ddx2 = (int)ddx_fine(id * is_helper);
+          g_structBuf[index].ddy2 = (int)ddy_fine(id * is_helper);
+
+          return uint4(0xFFFFFFFF, index, id, 1);
+        }
+        ]]>
+    </Shader>
+  </ShaderOp>
 </ShaderOpSet>

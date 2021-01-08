@@ -55,6 +55,8 @@
 #pragma comment(lib, "dxguid.lib")
 #pragma comment(lib, "version.lib")
 
+#define ISHELPERLANE_PLACEHOLDER
+
 // A more recent Windows SDK than currently required is needed for these.
 typedef HRESULT(WINAPI *D3D12EnableExperimentalFeaturesFn)(
   UINT                                    NumFeatures,
@@ -305,6 +307,7 @@ public:
   TEST_METHOD(AtomicsTyped64Test);
   TEST_METHOD(AtomicsShared64Test);
   TEST_METHOD(AtomicsFloatTest);
+  TEST_METHOD(HelperLaneTest);
   TEST_METHOD(SignatureResourcesTest)
   TEST_METHOD(DynamicResourcesTest)
   TEST_METHOD(QuadReadTest)
@@ -8838,6 +8841,115 @@ TEST_F(ExecutionTest, AtomicsFloatTest) {
   test = RunShaderOpTestAfterParse(pDevice, m_support, "FloatAtomics", nullptr, ShaderOpSet);
   VerifyAtomicsFloatTest(test, 64*64+6, false /* hasGroupShared */);
 }
+
+// The IsHelperLane test renders 3-pixel triangle into 16x16 render target restricted 
+// to 2x2 viewport alligned at (0,0) which guarantees it will run in a single quad. 
+//
+// Each pixel is assigned an index into RWStructuredBuffer where to write the test results.
+// It has also ID that is a power of 2 to identify it in the ddx_fine/ddy_fine operations.
+// 
+// Pixels to be rendered*     indices in UAVBuffer0   IDs
+// (0,0)*  (0,1)*             0 1                     1 2
+// (1,0)   (1,1)*             2 3                     4 8
+//
+// ddx_fine and ddy_fine intrinsics are used on (IsHelperLane() * id) expression to determine
+// if the IsHelperLane intrinsics returns true for non-rendered or discarded pixels.
+
+// Step 1 - pixel (1,0) is in helper lane based on the triangle geometry and is not rendered.
+// 
+// (IsHelperLane()*id)          ddx_fine     ddy_fine
+//  | 0 0 |                     | 0  0 |     | 4  0 |
+//  | 4 0 |                     |-4 -4 |     | 4  0 |
+
+// Step 2 - pixel (0,0) gets discarded and its lane becomes helper lane.
+// 
+// (IsHelperLane()*id)          ddx_fine     ddy_fine
+//  | 1 0 |                     |-1 -1 |     | 3  0 |
+//  | 4 0 |                     |-4 -4 |     | 3  0 |
+//
+// Runs with shader models 6.0 and 6.6 to test both the HLSL built-in IsHelperLane fallback 
+// function (sm <= 6.5) and the IsHelperLane intrisics (sm >= 6.6).
+//
+TEST_F(ExecutionTest, HelperLaneTest) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet = std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+
+#ifdef ISHELPERLANE_PLACEHOLDER
+  string args = "-DISHELPERLANE_PLACEHOLDER";
+#else 
+  string args = "";
+#endif
+
+  D3D_SHADER_MODEL TestShaderModels[] = { D3D_SHADER_MODEL_6_0, D3D_SHADER_MODEL_6_5 };
+  for (unsigned i = 0; i < _countof(TestShaderModels); i++) {
+    D3D_SHADER_MODEL sm = TestShaderModels[i];
+    LogCommentFmt(L"Verifying IsHelperLane in shader model 6.%1u", ((UINT)sm & 0x0f));
+
+    CComPtr<ID3D12Device> pDevice;
+    if (!CreateDevice(&pDevice, sm, false /* skipUnsupported */))
+      continue;
+
+    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "HelperLaneTestNoWave", 
+      // this callbacked is called when the test is creating the resource to run the test
+      [&](LPCSTR Name, std::vector<BYTE>& Data, st::ShaderOp* pShaderOp) {
+        VERIFY_IS_TRUE(0 == _stricmp(Name, "UAVBuffer0"));
+        std::fill(Data.begin(), Data.end(), 0xCC);
+        pShaderOp->Shaders.at(1).Arguments = args.c_str();
+      }, ShaderOpSet);
+
+    struct HelperLaneTestResult {
+      uint32_t id;
+      int32_t ddx1;
+      int32_t ddy1;
+      int32_t ddx2;
+      int32_t ddy2;
+    };
+
+    MappedData uavData;
+    test->Test->GetReadBackData("UAVBuffer0", &uavData);
+    HelperLaneTestResult* pTestResults = (HelperLaneTestResult*)uavData.data();
+
+    MappedData renderData;
+    test->Test->GetReadBackData("RTarget", &renderData);
+    const uint32_t* pPixels = (uint32_t*)renderData.data();
+
+    // Pixel (0,0) - gets discarded in step 2 and never writes ddx2/ddy2 values
+    VerifyOutputWithExpectedValueUInt(pTestResults[0].id, 1, 0);
+    VerifyOutputWithExpectedValueUInt(pTestResults[0].ddx1, 0, 0);
+    VerifyOutputWithExpectedValueUInt(pTestResults[0].ddy1, 4, 0);
+    VerifyOutputWithExpectedValueUInt(pTestResults[0].ddx2, 0xCCCCCCCC, 0);
+    VerifyOutputWithExpectedValueUInt(pTestResults[0].ddy2, 0xCCCCCCCC, 0);
+
+    // Pixel (0,1)
+    VerifyOutputWithExpectedValueUInt(pTestResults[1].id, 2, 0);
+    VerifyOutputWithExpectedValueUInt(pTestResults[1].ddx1, 0, 0);
+    VerifyOutputWithExpectedValueUInt(pTestResults[1].ddy1, 0, 0);
+    VerifyOutputWithExpectedValueUInt(pTestResults[1].ddx2, -1, 0);
+    VerifyOutputWithExpectedValueUInt(pTestResults[1].ddy2, 0, 0);
+
+    // Pixel (1,0) - in helper lane from the start and never writes to output
+    VerifyOutputWithExpectedValueUInt(pTestResults[2].id,   0xCCCCCCCC, 0);
+    VerifyOutputWithExpectedValueUInt(pTestResults[2].ddx1, 0xCCCCCCCC, 0);
+    VerifyOutputWithExpectedValueUInt(pTestResults[2].ddy1, 0xCCCCCCCC, 0);
+    VerifyOutputWithExpectedValueUInt(pTestResults[2].ddx2, 0xCCCCCCCC, 0);
+    VerifyOutputWithExpectedValueUInt(pTestResults[2].ddy2, 0xCCCCCCCC, 0);
+
+    // Pixel (1,1)
+    VerifyOutputWithExpectedValueUInt(pTestResults[3].id, 8, 0);
+    VerifyOutputWithExpectedValueUInt(pTestResults[3].ddx1, -4, 0);
+    VerifyOutputWithExpectedValueUInt(pTestResults[3].ddy1, 0, 0);
+    VerifyOutputWithExpectedValueUInt(pTestResults[3].ddx2, -4, 0);
+    VerifyOutputWithExpectedValueUInt(pTestResults[3].ddy2, 0, 0);
+
+    UNREFERENCED_PARAMETER(pPixels);
+  }
+}
+
+
 
 #ifndef _HLK_CONF
 static void WriteReadBackDump(st::ShaderOp *pShaderOp, st::ShaderOpTest *pTest,
