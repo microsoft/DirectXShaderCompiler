@@ -8297,7 +8297,7 @@ void VerifyAtomicResults(const BYTE *uResults, const BYTE *sResults,
   LogCommentFmt(L"Verifying %d-bit integer atomic add", bitSize);
   // For 32-bit values, the sum exceeds the 16 bit limit, so we can't duplicate
   // That's fine, the duplication is really for 64-bit values.
-  if (addResult >= 1ULL << shBits)
+  if (bitSize < 64)
     VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*ADD_IDX, addResult, byteSize));
   else
     VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*ADD_IDX, SHIFT(addResult, shBits), byteSize));
@@ -8518,11 +8518,9 @@ void VerifyAtomicsSharedTest(std::shared_ptr<ShaderOpTestResult> test,
 }
 
 void VerifyAtomicsTest(std::shared_ptr<ShaderOpTestResult> test,
-                       size_t maxIdx, size_t bitSize, bool hasGroupShared) {
+                       size_t maxIdx, size_t bitSize) {
   VerifyAtomicsRawTest(test, maxIdx, bitSize);
   VerifyAtomicsTypedTest(test, maxIdx, bitSize);
-  if (hasGroupShared)
-    VerifyAtomicsSharedTest(test, maxIdx, bitSize);
 }
 
 TEST_F(ExecutionTest, AtomicsTest) {
@@ -8544,21 +8542,23 @@ TEST_F(ExecutionTest, AtomicsTest) {
   LogCommentFmt(L"Verifying 32-bit integer atomic operations in compute shader");
   std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
 
-  VerifyAtomicsTest(test, 32*32, 32, true /* hasGroupShared */);
+  VerifyAtomicsTest(test, 32*32, 32);
+  VerifyAtomicsSharedTest(test, 32*32, 32);
 
   // Test mesh shader if available
   pShaderOp->CS = nullptr;
   if (DoesDeviceSupportMeshShaders(pDevice)) {
     LogCommentFmt(L"Verifying 32-bit integer atomic operations in amp/mesh/pixel shaders");
     test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
-    VerifyAtomicsTest(test, 8*8*8*8 + 64*64, 32, false /* hasGroupShared */);
+    VerifyAtomicsTest(test, 8*8*2 + 8*8*2 + 64*64, 32);
+    VerifyAtomicsSharedTest(test, 8*8*2 + 8*8*2, 32);
   }
 
   // Test Vertex + Pixel shader
   pShaderOp->MS = nullptr;
   LogCommentFmt(L"Verifying 32-bit integer atomic operations in vert/pixel shaders");
   test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
-  VerifyAtomicsTest(test, 64*64+6, 32, false /* hasGroupShared */);
+  VerifyAtomicsTest(test, 64*64+6, 32);
 }
 
 TEST_F(ExecutionTest, Atomics64Test) {
@@ -8603,7 +8603,7 @@ TEST_F(ExecutionTest, Atomics64Test) {
   if (DoesDeviceSupportMeshShaders(pDevice)) {
     LogCommentFmt(L"Verifying 64-bit integer atomic operations on raw buffers in amp/mesh/pixel shader");
     test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
-    VerifyAtomicsRawTest(test, 8*8*8*8 + 64*64, 64);
+    VerifyAtomicsRawTest(test, 8*8*2 + 8*8*2 + 64*64, 64);
   }
 
   // Test Vertex + Pixel shader
@@ -8667,7 +8667,7 @@ TEST_F(ExecutionTest, AtomicsTyped64Test) {
   if (DoesDeviceSupportMeshShaders(pDevice)) {
     LogCommentFmt(L"Verifying 64-bit integer atomic operations on typed resources in amp/mesh/pixel shader");
     test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
-    VerifyAtomicsTypedTest(test, 8*8*8*8 + 64*64, 64);
+    VerifyAtomicsTypedTest(test, 8*8*2 + 8*8*2 + 64*64, 64);
   }
 
   // Test Vertex + Pixel shader
@@ -8729,7 +8729,7 @@ TEST_F(ExecutionTest, AtomicsShared64Test) {
   if (DoesDeviceSupportMeshShaders(pDevice)) {
     LogCommentFmt(L"Verifying 64-bit integer atomic operations on groupshared variables in amp/mesh/pixel shader");
     test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
-    VerifyAtomicsSharedTest(test, 8*8*8*8 + 64*64, 64);
+    VerifyAtomicsSharedTest(test, 8*8*2 + 8*8*2, 64);
   }
 }
 
@@ -8757,7 +8757,18 @@ void VerifyAtomicFloatResults(const float *results, size_t maxIdx) {
   }
 }
 
-void VerifyAtomicsFloatTest(std::shared_ptr<ShaderOpTestResult> test, size_t maxIdx, bool hasGroupShared) {
+void VerifyAtomicsFloatSharedTest(std::shared_ptr<ShaderOpTestResult> test, size_t maxIdx) {
+  MappedData Data;
+  const float *pData = nullptr;
+
+  test->Test->GetReadBackData("U4", &Data);
+  pData = (float *)Data.data();
+
+  LogCommentFmt(L"Verifying float cmp/xchg atomic operations on groupshared variables");
+  VerifyAtomicFloatResults(pData, maxIdx);
+}
+
+void VerifyAtomicsFloatTest(std::shared_ptr<ShaderOpTestResult> test, size_t maxIdx) {
 
   // struct mirroring that in the shader
   struct AtomicStuff {
@@ -8795,13 +8806,6 @@ void VerifyAtomicsFloatTest(std::shared_ptr<ShaderOpTestResult> test, size_t max
   LogCommentFmt(L"Verifying float cmp/xchg atomic operations on RWTexture resources");
   VerifyAtomicFloatResults(pData, maxIdx);
 
-  if (hasGroupShared) {
-    test->Test->GetReadBackData("U4", &Data);
-    pData = (float *)Data.data();
-
-    LogCommentFmt(L"Verifying float cmp/xchg atomic operations on groupshared variables");
-    VerifyAtomicFloatResults(pData, maxIdx);
-  }
 }
 
 TEST_F(ExecutionTest, AtomicsFloatTest) {
@@ -8822,21 +8826,23 @@ TEST_F(ExecutionTest, AtomicsFloatTest) {
   // Test compute shader
   LogCommentFmt(L"Verifying float cmp/xchg atomic operations in compute shader");
   std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "FloatAtomics", nullptr, ShaderOpSet);
-  VerifyAtomicsFloatTest(test, 32*32, true /* hasGroupShared */);
+  VerifyAtomicsFloatTest(test, 32*32);
+  VerifyAtomicsFloatSharedTest(test, 32*32);
 
   // Test mesh shader if available
   pShaderOp->CS = nullptr;
   if (DoesDeviceSupportMeshShaders(pDevice)) {
     LogCommentFmt(L"Verifying float cmp/xchg atomic operations in amp/mesh/pixel shaders");
     test = RunShaderOpTestAfterParse(pDevice, m_support, "FloatAtomics", nullptr, ShaderOpSet);
-    VerifyAtomicsFloatTest(test, 8*8*8*8 + 64*64, false /* hasGroupShared */);
+    VerifyAtomicsFloatTest(test, 8*8*2 + 8*8*2 + 64*64);
+    VerifyAtomicsFloatSharedTest(test, 8*8*2 + 8*8*2);
   }
 
   // Test Vertex + Pixel shader
   pShaderOp->MS = nullptr;
     LogCommentFmt(L"Verifying float cmp/xchg atomic operations in vert/pixel shaders");
   test = RunShaderOpTestAfterParse(pDevice, m_support, "FloatAtomics", nullptr, ShaderOpSet);
-  VerifyAtomicsFloatTest(test, 64*64+6, false /* hasGroupShared */);
+  VerifyAtomicsFloatTest(test, 64*64+6);
 }
 
 #ifndef _HLK_CONF
