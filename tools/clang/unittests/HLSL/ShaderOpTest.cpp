@@ -1920,6 +1920,8 @@ void ShaderOpParser::ParseRootValues(IXmlReader *pReader, std::vector<ShaderOpRo
 void ShaderOpParser::ParseShaderOpSet(IStream *pStream, ShaderOpSet *pShaderOpSet) {
   CComPtr<IXmlReader> pReader;
   CHECK_HR(CreateXmlReader(__uuidof(IXmlReader), (void **)&pReader, nullptr));
+  CHECK_HR(pReader->SetProperty(XmlReaderProperty_DtdProcessing, DtdProcessing_Parse));
+  CHECK_HR(pReader->SetProperty(XmlReaderProperty_MaxEntityExpansion, 10));
   CHECK_HR(pReader->SetInput(pStream));
   ParseShaderOpSet(pReader, pShaderOpSet);
 }

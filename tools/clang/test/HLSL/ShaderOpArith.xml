@@ -1,4 +1,18 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<!DOCTYPE ShaderOpSet [
+    <!ENTITY IsHelperLanePlaceholder "
+#ifdef ISHELPERLANE_PLACEHOLDER
+bool ph_IsHelperLane(float4 pos, bool first_call) {
+    if (first_call) {
+        return pos.x == 0.5 &amp;&amp; pos.y == 1.5;
+    }
+    else {
+        return pos.x == 0.5;
+    }
+}
+#endif
+">
+]>
 <ShaderOpSet xmlns="http://schemas.microsoft.com/test/ShaderOp">
   <ShaderOp Name="DerivFine" PS="PS" VS="VS" TopologyType="TRIANGLE">
     <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), DescriptorTable(SRV(t0,numDescriptors=1))</RootSignature>
@@ -2172,22 +2186,8 @@
         ]]>
     </Shader>
     <Shader Name="PS" Target="ps_6_0">
+        &IsHelperLanePlaceholder;
         <![CDATA[
-        #ifdef ISHELPERLANE_PLACEHOLDER
-            #define CALL(x) ph_##x
-           
-            bool ph_IsHelperLane(float4 pos, bool first_call) {
-                if (first_call) {
-                    return pos.x == 0.5 && pos.y == 1.5;
-                }
-                else {
-                    return pos.x == 0.5;
-                }
-            }
-        #else
-            #define CALL(x) x
-        #endif
-        
         struct PSInput {
           float4 pos : SV_POSITION;
         };
@@ -2207,14 +2207,22 @@
           uint id = 1 << index;
           g_structBuf[index].id = id;
 
-          int is_helper = (int)CALL(IsHelperLane(input.pos, true));
+#ifdef ISHELPERLANE_PLACEHOLDER
+          int is_helper = ph_IsHelperLane(input.pos, true);
+#else
+          int is_helper = IsHelperLane();
+#endif
           g_structBuf[index].ddx1 = (int)ddx_fine(id * is_helper);
           g_structBuf[index].ddy1 = (int)ddy_fine(id * is_helper);
           
           if (id == 1) 
             discard;
           
-          is_helper = (int)CALL(IsHelperLane(input.pos, false));
+#ifdef ISHELPERLANE_PLACEHOLDER
+          is_helper = ph_IsHelperLane(input.pos, false);
+#else
+          is_helper = IsHelperLane();
+#endif
           g_structBuf[index].ddx2 = (int)ddx_fine(id * is_helper);
           g_structBuf[index].ddy2 = (int)ddy_fine(id * is_helper);
 

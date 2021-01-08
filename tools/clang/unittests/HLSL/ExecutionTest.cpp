@@ -8949,8 +8949,6 @@ TEST_F(ExecutionTest, HelperLaneTest) {
   }
 }
 
-
-
 #ifndef _HLK_CONF
 static void WriteReadBackDump(st::ShaderOp *pShaderOp, st::ShaderOpTest *pTest,
                               char **pReadBackDump) {
