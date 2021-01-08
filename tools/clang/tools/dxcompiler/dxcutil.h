@@ -47,6 +47,7 @@ struct AssembleInputs {
                  CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode,
                  bool bDebugInfo = false,
                  llvm::StringRef DebugName = llvm::StringRef(),
+                 llvm::StringRef ShaderSourceInfoData = llvm::StringRef(),
                  clang::DiagnosticsEngine *pDiag = nullptr,
                  hlsl::DxilShaderHash *pShaderHashOut = nullptr,
                  hlsl::AbstractMemoryStream *pReflectionOut = nullptr,
@@ -58,6 +59,7 @@ struct AssembleInputs {
   CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode;
   bool bDebugInfo;
   llvm::StringRef DebugName = llvm::StringRef();
+  llvm::StringRef ShaderSourceInfoData = llvm::StringRef();
   clang::DiagnosticsEngine *pDiag;
   hlsl::DxilShaderHash *pShaderHashOut = nullptr;
   hlsl::AbstractMemoryStream *pReflectionOut = nullptr;

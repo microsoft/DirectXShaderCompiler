@@ -46,6 +46,7 @@
 #include "dxcetw.h"
 #endif
 #include "dxillib.h"
+#include "dxcshadersourceinfo.h"
 #include "dxcompileradapter.h"
 #include <algorithm>
 #include <cfloat>
@@ -89,7 +90,7 @@ static bool ShouldPartBeIncludedInPDB(UINT32 FourCC) {
   return false;
 }
 
-static HRESULT CreateContainerForPDB(IMalloc *pMalloc, IDxcBlob *pOldContainer, IDxcBlob *pDebugBlob, IDxcBlob **ppNewContaner) {
+static HRESULT CreateContainerForPDB(IMalloc *pMalloc, IDxcBlob *pOldContainer, IDxcBlob *pDebugBlob, StringRef SourceInfoData, IDxcBlob **ppNewContaner) {
   // If the pContainer is not a valid container, give up.
   if (!hlsl::IsValidDxilContainer((hlsl::DxilContainerHeader *)pOldContainer->GetBufferPointer(), pOldContainer->GetBufferSize()))
     return E_FAIL;
@@ -145,7 +146,20 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc, IDxcBlob *pOldContainer, 
   if (!ProgramHeader)
     return E_FAIL;
 
-  {
+  if (SourceInfoData.size()) {
+    Part NewPart(
+      hlsl::DFCC_ShaderSourceInfo,
+      SourceInfoData.size(),
+      [SourceInfoData](IStream *pStream) {
+        ULONG uBytesWritten = 0;
+        pStream->Write(SourceInfoData.data(), SourceInfoData.size(), &uBytesWritten);
+        return S_OK;
+      }
+    );
+    PartWriters.push_back(NewPart);
+  }
+
+  if (pDebugBlob) {
     static auto AlignByDword = [](UINT32 uSize, UINT32 *pPaddingBytes) {
       UINT32 uRem = uSize % sizeof(UINT32);
       UINT32 uResult = (uSize/sizeof(UINT32) + (uRem ? 1 : 0)) * sizeof(UINT32);
@@ -158,7 +172,7 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc, IDxcBlob *pOldContainer, 
 
     OffsetTable.push_back(uTotalPartsSize);
     uTotalPartsSize += uPartSize + sizeof(hlsl::DxilPartHeader);
-
+    
     Part NewPart(
       hlsl::DFCC_ShaderDebugInfoDXIL,
       uPartSize,
@@ -410,192 +424,6 @@ static void CreateDefineStrings(
   }
 }
 
-struct DebugSourceInfoWriter {
-  typedef std::vector<BYTE> Buffer;
-
-  Buffer m_Buffer;
-
-  static uint32_t PadToFourBytes(uint32_t size) {
-    uint32_t rem = size % 4;
-    if (rem)
-      return size + (4 - rem);
-    return size;
-  }
-
-  static void Append(Buffer *buf, BYTE c) {
-    buf->push_back(c);
-  }
-  static void Append(Buffer *buf, const void *ptr, size_t size) {
-    size_t OldSize = buf->size();
-    buf->resize(OldSize + size);
-    memcpy(buf->data() + OldSize, ptr, size);
-  }
-
-  StringRef GetBuffer() {
-    return StringRef((char *)m_Buffer.data(), m_Buffer.size());
-  }
-
-  static void AddFileEntry(Buffer *buf, StringRef name, StringRef content) {
-    hlsl::DxilShaderSourcesElement header = {};
-    header.ContentSize = content.size();
-    header.NameSize = name.size();
-    header.SizeInDwords = PadToFourBytes(sizeof(header) + name.size()+1 + content.size()+1) / 4;
-
-    Append(buf, &header, sizeof(header));
-    Append(buf, name.data(), name.size());
-    Append(buf, 0); // Null term
-    Append(buf, content.data(), content.size());
-    Append(buf, 0); // Null term
-  }
-
-  void Write(CodeGenOptions &CodeGenOpts, SourceManager &srcMgr) {
-    m_Buffer.clear();
-
-    // Write an empty header first.
-    hlsl::DxilShaderSourceInfo mainHeader = {};
-    Append(&m_Buffer, &mainHeader, sizeof(mainHeader));
-
-    ////////////////////////////////////////////////////////////////////
-    // Add all file contents in a list of filename/content pairs.
-    ////////////////////////////////////////////////////////////////////
-    {
-      size_t partOffset = 0;
-      size_t partSize = 0;
-
-      std::vector<BYTE> uncompressedBuffer;
-
-      std::map<std::string, StringRef> filesMap;
-      bool bFoundMainFile = false;
-      for (SourceManager::fileinfo_iterator
-               it = srcMgr.fileinfo_begin(),
-               end = srcMgr.fileinfo_end();
-           it != end; ++it) {
-        if (it->first->isValid() && !it->second->IsSystemFile) {
-          // If main file, write that to metadata first.
-          // Add the rest to filesMap to sort by name.
-          llvm::SmallString<128> NormalizedPath;
-          llvm::sys::path::native(it->first->getName(), NormalizedPath);
-          if (CodeGenOpts.MainFileName.compare(it->first->getName()) == 0) {
-            assert(!bFoundMainFile && "otherwise, more than one file matches main filename");
-            AddFileEntry(&uncompressedBuffer, NormalizedPath, it->second->getRawBuffer()->getBuffer());
-            bFoundMainFile = true;
-          } else {
-            filesMap[NormalizedPath.str()] =
-                it->second->getRawBuffer()->getBuffer();
-          }
-        }
-      }
-      assert(bFoundMainFile && "otherwise, no file found matches main filename");
-      // Emit the rest of the files in sorted order.
-      for (auto it : filesMap) {
-        AddFileEntry(&uncompressedBuffer, it.first, it.second);
-      }
-
-      hlsl::DxilShaderSourceInfoElement elementHeader = {};
-
-      // @TODO: Compress
-      hlsl::DxilShaderSources header = {};
-      header.UncompressedSizeInBytes = uncompressedBuffer.size();
-      header.SizeInBytes = uncompressedBuffer.size();
-      header.FileCount = filesMap.size() + 1;
-
-      partOffset = m_Buffer.size();
-      Append(&m_Buffer, &elementHeader, sizeof(elementHeader)); // Write an empty header
-      Append(&m_Buffer, &header, sizeof(header));
-      Append(&m_Buffer, uncompressedBuffer.data(), uncompressedBuffer.size());
-      partSize = m_Buffer.size() - partOffset;
-
-      // Go back and rewrite the element header
-      assert(partSize % sizeof(uint32_t) == 0);
-      elementHeader.SizeInDwords = partSize / 4;
-      elementHeader.Type = hlsl::DxilShaderSourceElementType::Sources;
-      memcpy(m_Buffer.data() + partOffset, &elementHeader, sizeof(elementHeader));
-      mainHeader.ElementCount++;
-    }
-
-
-    // Defines
-    {
-      size_t partOffset = 0;
-      size_t partSize = 0;
-
-      partOffset = m_Buffer.size();
-
-      hlsl::DxilShaderSourceInfoElement elementHeader = {};
-      Append(&m_Buffer, &elementHeader, sizeof(elementHeader)); // Write an empty header
-
-      hlsl::DxilShaderCompileOptions header = {};
-      header.Count = CodeGenOpts.HLSLDefines.size();
-
-      Append(&m_Buffer, &header, sizeof(header));
-
-      for (std::string &def : CodeGenOpts.HLSLDefines) {
-        Append(&m_Buffer, def.data(), def.size());
-        Append(&m_Buffer, 0); // Null terminator
-      }
-      Append(&m_Buffer, 0); // Double null terminator
-
-      uint32_t unpaddedPartSize = m_Buffer.size() - partOffset;
-      partSize = PadToFourBytes(unpaddedPartSize);
-
-      // Padding.
-      for (uint32_t i = unpaddedPartSize; i < partSize; i++) {
-        Append(&m_Buffer, 0);
-      }
-
-      // Go back and rewrite the element header
-      assert(partSize % sizeof(uint32_t) == 0);
-      elementHeader.SizeInDwords = partSize;
-      elementHeader.Type = hlsl::DxilShaderSourceElementType::Defines;
-      memcpy(m_Buffer.data() + partOffset, &elementHeader, sizeof(elementHeader));
-      mainHeader.ElementCount++;
-    }
-
-
-    // Args
-    {
-      size_t partOffset = 0;
-      size_t partSize = 0;
-
-      hlsl::DxilShaderSourceInfoElement elementHeader = {};
-      Append(&m_Buffer, &elementHeader, sizeof(elementHeader)); // Write an empty header
-
-      hlsl::DxilShaderCompileOptions header = {};
-      header.Count = CodeGenOpts.HLSLArguments.size();
-
-      partOffset = m_Buffer.size();
-      Append(&m_Buffer, &header, sizeof(header));
-
-      for (std::string &arg : CodeGenOpts.HLSLArguments) {
-        Append(&m_Buffer, arg.data(), arg.size());
-        Append(&m_Buffer, 0); // Null terminator
-      }
-      Append(&m_Buffer, 0); // Double null terminator
-
-      uint32_t unpaddedPartSize = m_Buffer.size() - partOffset;
-      partSize = PadToFourBytes(unpaddedPartSize);
-
-      // Padding.
-      for (uint32_t i = unpaddedPartSize; i < partSize; i++) {
-        Append(&m_Buffer, 0);
-      }
-
-      // Go back and rewrite the element header
-      assert(partSize % sizeof(uint32_t) == 0);
-      elementHeader.SizeInDwords = partSize;
-      elementHeader.Type = hlsl::DxilShaderSourceElementType::Args;
-      memcpy(m_Buffer.data() + partOffset, &elementHeader, sizeof(elementHeader));
-      mainHeader.ElementCount++;
-    }
-
-    // Go back and rewrite the main header.
-    assert(m_Buffer.size() >= sizeof(mainHeader));
-    memcpy(m_Buffer.data(), &mainHeader, sizeof(mainHeader));
-
-    size_t mainPartSize = m_Buffer.size();
-  }
-};
-
 class DxcCompiler : public IDxcCompiler3,
                     public IDxcLangExtensions2,
                     public IDxcContainerEvent,
@@ -672,7 +500,8 @@ public:
     bool bPreprocessStarted = false;
     DxilShaderHash ShaderHashContent;
     DxcThreadMalloc TM(m_pMalloc);
-    DebugSourceInfoWriter debugSourceInfo;
+    hlsl::SourceInfoWriter debugSourceInfoWriter;
+    bool bSlimPDB = false;
 
     try {
       DefaultFPEnvScope fpEnvScope;
@@ -1004,6 +833,9 @@ public:
         if (opts.StripRootSignature) {
           SerializeFlags |= SerializeDxilFlags::StripRootSignature;
         }
+        if (bSlimPDB) {
+          SerializeFlags |= SerializeDxilFlags::UseSlimPDB;
+        }
 
         // Don't do work to put in a container if an error has occurred
         // Do not create a container when there is only a a high-level representation in the module.
@@ -1014,13 +846,15 @@ public:
           IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pReflectionStream));
           IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pRootSigStream));
 
-          debugSourceInfo.Write(compiler.getCodeGenOpts(), compiler.getSourceManager());
+          // Create the shader source information
+          debugSourceInfoWriter.Write(compiler.getCodeGenOpts(), compiler.getSourceManager());
 
           dxcutil::AssembleInputs inputs(
                 action.takeModule(), pOutputBlob, m_pMalloc, SerializeFlags,
                 pOutputStream, opts.IsDebugInfoEnabled(),
-                opts.GetPDBName(), &compiler.getDiagnostics(),
+                opts.GetPDBName(), debugSourceInfoWriter.GetBuffer(), &compiler.getDiagnostics(),
                 &ShaderHashContent, pReflectionStream, pRootSigStream);
+
           if (needsValidation) {
             valHR = dxcutil::ValidateAndAssembleToContainer(inputs);
           } else {
@@ -1097,8 +931,17 @@ public:
         CComPtr<IDxcBlob> pDebugBlob;
         IFT(pOutputStream.QueryInterface(&pDebugBlob));
         CComPtr<IDxcBlob> pStrippedContainer;
-        IFT(CreateContainerForPDB(m_pMalloc, pOutputBlob, pDebugBlob, &pStrippedContainer));
+
+        // If we have the shader source info, don't
+        StringRef SourceInfoData = debugSourceInfoWriter.GetBuffer();
+        if (bSlimPDB) {
+          assert(SourceInfoData.size());
+          pDebugBlob = nullptr;
+        }
+
+        IFT(CreateContainerForPDB(m_pMalloc, pOutputBlob, pDebugBlob, SourceInfoData, &pStrippedContainer));
         pDebugBlob.Release();
+
         IFT(hlsl::pdb::WriteDxilPDB(m_pMalloc, pStrippedContainer, ShaderHashContent.Digest, &pDebugBlob));
         IFT(pResult->SetOutputObject(DXC_OUT_PDB, pDebugBlob));
       }
@@ -1228,10 +1071,15 @@ public:
     }
 
     compiler.getFrontendOpts().Inputs.push_back(FrontendInputFile(pMainFile, IK_HLSL));
+    compiler.getCodeGenOpts().setDebugInfo(CodeGenOptions::DebugLineTablesOnly); // HLSL Change - enable line numbers anyway.
     // Setup debug information.
     if (Opts.IsDebugInfoEnabled()) {
       CodeGenOptions &CGOpts = compiler.getCodeGenOpts();
-      CGOpts.setDebugInfo(CodeGenOptions::FullDebugInfo);
+      // HLSL Change - begin
+      if (Opts.FullDebug)
+        CGOpts.setDebugInfo(CodeGenOptions::DebugLineTablesOnly);
+      // HLSL Change - end
+      // CGOpts.setDebugInfo(CodeGenOptions::FullDebugInfo); // HLSL change
       CGOpts.DebugColumnInfo = 1;
       CGOpts.DwarfVersion = 4; // Latest version.
       // TODO: consider

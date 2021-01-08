@@ -56,6 +56,8 @@ set(SOURCES
   dxcdisassembler.cpp
   dxcpdbutils.cpp
   dxclinker.cpp
+  dxcshadersourceinfo.cpp
+  miniz.c
 )
 else ()
 set(SOURCES
@@ -70,6 +72,7 @@ set(SOURCES
   dxcpdbutils.cpp
   dxillib.cpp
   dxcvalidator.cpp
+  miniz.c
 )
 set (HLSL_IGNORE_SOURCES
   dxcdia.cpp

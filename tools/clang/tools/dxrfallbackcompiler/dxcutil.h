@@ -59,6 +59,7 @@ struct AssembleInputs {
   hlsl::SerializeDxilFlags SerializeFlags;
   CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode;
   bool bDebugInfo;
+  llvm::StringRef ShaderSourceInfoData;
   llvm::StringRef DebugName = llvm::StringRef();
   clang::DiagnosticsEngine *pDiag;
   hlsl::DxilShaderHash *pShaderHashOut = nullptr;

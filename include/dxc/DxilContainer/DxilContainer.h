@@ -236,20 +236,21 @@ static const size_t MinDxilShaderDebugNameSize = sizeof(DxilShaderDebugName) + 4
 //   (Zero padding for 4 bytes)
 //
 
-enum class DxilShaderSourceElementType : uint32_t {
+enum class DxilShaderSourceElementType : uint16_t {
   Sources,
   Defines,
   Args,
+  Version,
 };
 
 struct DxilShaderSourceInfo {
-  uint32_t Flags;
-  uint32_t ElementCount;
+  uint16_t Flags;         // Reserved, must be set to zero.
+  uint16_t ElementCount;  // The number of elements in the source info.
 };
 
 struct DxilShaderSourceInfoElement {
+  uint16_t Flags;                   // Reserved, must be set to zero.
   DxilShaderSourceElementType Type;
-  uint32_t Flags;
   uint32_t SizeInDwords;
 };
 
@@ -270,7 +271,7 @@ struct DxilShaderSources {
 };
 
 struct DxilShaderSourcesElement {
-  uint32_t Flags; // Reserved, must be set to zero.
+  uint32_t Flags;
   uint32_t SizeInDwords;
   uint32_t NameSize;
   uint32_t ContentSize;
@@ -479,7 +480,7 @@ enum class SerializeDxilFlags : uint32_t {
   StripReflectionFromDxilPart = 1 << 3, // Strip Reflection info from DXIL part.
   IncludeReflectionPart       = 1 << 4, // Include reflection in STAT part.
   StripRootSignature          = 1 << 5, // Strip Root Signature from main shader container.
-  UseSlimPDB                  = 1 << 6, // Strip Root Signature from main shader container.
+  UseSlimPDB                  = 1 << 6, // Don't include debug program in the container.
 };
 inline SerializeDxilFlags& operator |=(SerializeDxilFlags& l, const SerializeDxilFlags& r) {
   l = static_cast<SerializeDxilFlags>(static_cast<int>(l) | static_cast<int>(r));

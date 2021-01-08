@@ -1687,6 +1687,7 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
                                            AbstractMemoryStream *pModuleBitcode,
                                            AbstractMemoryStream *pFinalStream,
                                            llvm::StringRef DebugName,
+                                           llvm::StringRef ShaderSourceInfoData,
                                            SerializeDxilFlags Flags,
                                            DxilShaderHash *pShaderHashOut,
                                            AbstractMemoryStream *pReflectionStreamOut,
@@ -1707,8 +1708,8 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   bool bEmitReflection = Flags & SerializeDxilFlags::IncludeReflectionPart ||
                          pReflectionStreamOut;
 
-  bool bUseSlimPDB = DXIL::CompareVersions(ValMajor, ValMinor, 1, 6) >= 0;
   bool bSupportSlimPDB = DXIL::CompareVersions(ValMajor, ValMinor, 1, 6) >= 0;
+  bool bUseSlimPDB = bSupportSlimPDB && (Flags & SerializeDxilFlags::UseSlimPDB);
 
   DxilContainerWriter_impl writer;
 
@@ -1803,54 +1804,34 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
     }
   }
 
-  std::vector<BYTE> Sources;
-  std::vector<BYTE> Options;
-  std::vector<BYTE> Defines;
-  bool bDebugModuleSlimmed = false;
-
-  bool bModuleStripped = false;
   bool bHasDebugInfo = HasDebugInfo(*pModule->GetModule());
+  // This block of code only runs if we support slim PDB.
   if (bHasDebugInfo & bSupportSlimPDB) {
     if (Flags & SerializeDxilFlags::IncludeDebugInfoPart) {
-      SerializeSlimDebugInfo(pModule->GetModule(), &Sources, &Options, &Defines);
-      writer.AddPart(DFCC_ShaderSource, Sources.size(), [&Sources](AbstractMemoryStream *pStream) {
-        ULONG cbWritten = 0;
-        IFT(pStream->Write(Sources.data(), Sources.size(), &cbWritten));
-      });
-
-      writer.AddPart(DFCC_ShaderCompileOptions, Options.size(), [&Options](AbstractMemoryStream *pStream) {
-        ULONG cbWritten = 0;
-        IFT(pStream->Write(Options.data(), Options.size(), &cbWritten));
-      });
-
-      writer.AddPart(DFCC_ShaderDefines, Defines.size(), [&Defines](AbstractMemoryStream *pStream) {
-        ULONG cbWritten = 0;
-        IFT(pStream->Write(Defines.data(), Defines.size(), &cbWritten));
-      });
-    }
-    pModule->StripDebugRelatedCode();
-    bDebugModuleSlimmed = true;
-
-    if (bUseSlimPDB) {
-      llvm::StripDebugInfo(*pModule->GetModule());
-      bModuleStripped = true;
+      if (ShaderSourceInfoData.size()) {
+        writer.AddPart(DFCC_ShaderSourceInfo, ShaderSourceInfoData.size(), [&ShaderSourceInfoData](AbstractMemoryStream *pStream) {
+          ULONG cbWritten = 0;
+          IFT(pStream->Write(ShaderSourceInfoData.data(), ShaderSourceInfoData.size(), &cbWritten));
+        });
+      }
     }
   }
 
   // If metadata was stripped, re-serialize the input module.
   CComPtr<AbstractMemoryStream> pInputProgramStream = pModuleBitcode;
-  if (bDebugModuleSlimmed || bMetadataStripped) {
+  if (bMetadataStripped) {
     pInputProgramStream.Release();
     IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pInputProgramStream));
     raw_stream_ostream outStream(pInputProgramStream.p);
     WriteBitcodeToFile(pModule->GetModule(), outStream, true);
   }
 
+  bool bModuleStripped = false;
   // If we have debug information present, serialize it to a debug part, then use the stripped version as the canonical program version.
   CComPtr<AbstractMemoryStream> pProgramStream = pInputProgramStream;
   if (bHasDebugInfo) {
     if (Flags & SerializeDxilFlags::IncludeDebugInfoPart) {
-      if (bUseSlimPDB) {
+      if (!bUseSlimPDB) {
         uint32_t debugInUInt32, debugPaddingBytes;
         GetPaddedProgramPartSize(pInputProgramStream, debugInUInt32, debugPaddingBytes);
         writer.AddPart(DFCC_ShaderDebugInfoDXIL, debugInUInt32 * sizeof(uint32_t) + sizeof(DxilProgramHeader), [&](AbstractMemoryStream *pStream) {
@@ -1859,11 +1840,9 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
       }
     }
 
-    if (!bModuleStripped) {
-      llvm::StripDebugInfo(*pModule->GetModule());
-      pModule->StripDebugRelatedCode();
-      bModuleStripped = true;
-    }
+    llvm::StripDebugInfo(*pModule->GetModule());
+    pModule->StripDebugRelatedCode();
+    bModuleStripped = true;
   } else {
     // If no debug info, clear DebugNameDependOnSource
     // (it's default, and this scenario can happen)
