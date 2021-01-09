@@ -87,6 +87,7 @@ static bool ShouldPartBeIncludedInPDB(UINT32 FourCC) {
   switch (FourCC) {
   case hlsl::DFCC_ShaderDebugName:
   case hlsl::DFCC_ShaderHash:
+  case hlsl::DFCC_CompilerVersion:
     return true;
   }
   return false;
@@ -503,7 +504,6 @@ public:
     DxilShaderHash ShaderHashContent;
     DxcThreadMalloc TM(m_pMalloc);
     hlsl::SourceInfoWriter debugSourceInfoWriter;
-    bool bSlimPDB = false;
 
     try {
       DefaultFPEnvScope fpEnvScope;
@@ -532,6 +532,7 @@ public:
         }
       }
 
+      bool bSlimPDB = opts.SlimDebug;
       bool isPreprocessing = !opts.Preprocess.empty();
       if (isPreprocessing) {
         DxcEtw_DXCompilerPreprocess_Start();
@@ -856,7 +857,8 @@ public:
                 action.takeModule(), pOutputBlob, m_pMalloc, SerializeFlags,
                 pOutputStream, opts.IsDebugInfoEnabled(),
                 opts.GetPDBName(), sourceInfoPart, &compiler.getDiagnostics(),
-                &ShaderHashContent, pReflectionStream, pRootSigStream);
+                &ShaderHashContent, static_cast<IDxcVersionInfo *>(this),
+                pReflectionStream, pRootSigStream);
 
           if (needsValidation) {
             valHR = dxcutil::ValidateAndAssembleToContainer(inputs);

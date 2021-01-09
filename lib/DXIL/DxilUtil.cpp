@@ -1163,6 +1163,10 @@ bool ValidatorSupportsSlimPDB(unsigned Major, unsigned Minor) {
   return DXIL::CompareVersions(Major, Minor, 1, 6) >= 0;
 }
 
+bool ValidatorSupportsVersion(unsigned Major, unsigned Minor) {
+  return DXIL::CompareVersions(Major, Minor, 1, 6) >= 0;
+}
+
 } // namespace dxilutil
 } // namespace hlsl
 

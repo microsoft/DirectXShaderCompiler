@@ -15,6 +15,8 @@
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "llvm/ADT/StringRef.h"
 
+struct IDxcVersionInfo;
+
 namespace hlsl {
 
 class AbstractMemoryStream;
@@ -53,6 +55,7 @@ void SerializeDxilContainerForModule(hlsl::DxilModule *pModule,
                                      const hlsl::DxilSourceInfo *ShaderSourceInfo,
                                      SerializeDxilFlags Flags,
                                      DxilShaderHash *pShaderHashOut = nullptr,
+                                     IDxcVersionInfo *pVersionInfo = nullptr,
                                      AbstractMemoryStream *pReflectionStreamOut = nullptr,
                                      AbstractMemoryStream *pRootSigStreamOut = nullptr);
 void SerializeDxilContainerForRootSignature(hlsl::RootSignatureHandle *pRootSigHandle,

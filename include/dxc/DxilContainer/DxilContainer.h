@@ -96,6 +96,7 @@ enum DxilFourCC {
   DFCC_RuntimeData              = DXIL_FOURCC('R', 'D', 'A', 'T'),
   DFCC_ShaderHash               = DXIL_FOURCC('H', 'A', 'S', 'H'),
   DFCC_ShaderSourceInfo         = DXIL_FOURCC('S', 'R', 'C', 'I'),
+  DFCC_CompilerVersion          = DXIL_FOURCC('V', 'E', 'R', 'S'),
 };
 
 #undef DXIL_FOURCC
@@ -210,6 +211,15 @@ struct DxilShaderDebugName {
   // Followed by [0-3] zero bytes to align to a 4-byte boundary.
 };
 static const size_t MinDxilShaderDebugNameSize = sizeof(DxilShaderDebugName) + 4;
+
+struct DxilCompilerVersion {
+  uint16_t Major;
+  uint16_t Minor;
+  uint32_t VersionStringLength;
+  // Followed by CommitStringLength bytes of the version string.
+  // Followed by a null terminator.
+  // Followed by [0-3] zero bytes to align to a 4-byte boundary.
+};
 
 // Source Info has the following top level structure:
 //

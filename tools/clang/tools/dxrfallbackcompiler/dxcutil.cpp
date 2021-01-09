@@ -111,7 +111,7 @@ void AssembleToContainer(AssembleInputs &inputs) {
   IFT(CreateMemoryStream(inputs.pMalloc, &pContainerStream));
   SerializeDxilContainerForModule(&inputs.pM->GetOrCreateDxilModule(),
                                   inputs.pModuleBitcode, pContainerStream, inputs.DebugName, nullptr, inputs.SerializeFlags,
-                                  inputs.pShaderHashOut, inputs.pReflectionOut, inputs.pRootSigOut);
+                                  inputs.pShaderHashOut, nullptr, inputs.pReflectionOut, inputs.pRootSigOut);
   inputs.pOutputContainerBlob.Release();
   IFT(pContainerStream.QueryInterface(&inputs.pOutputContainerBlob));
 }

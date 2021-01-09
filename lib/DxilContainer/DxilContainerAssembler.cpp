@@ -1551,10 +1551,16 @@ public:
 
 } // namespace
 
-uint32_t PadToDword(uint32_t size) {
+uint32_t PadToDword(uint32_t size, uint32_t *outNumPadding=nullptr) {
   uint32_t rem = size % 4;
-  if (rem)
-    return size + (4 - rem);
+  if (rem) {
+    uint32_t padding = (4 - rem);
+    if (outNumPadding)
+      *outNumPadding = padding;
+    return size + padding;
+  }
+  if (outNumPadding)
+    *outNumPadding = 0;
   return size;
 }
 
@@ -1690,6 +1696,7 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
                                            const hlsl::DxilSourceInfo *ShaderSourceInfo,
                                            SerializeDxilFlags Flags,
                                            DxilShaderHash *pShaderHashOut,
+                                           IDxcVersionInfo *pVersionInfo,
                                            AbstractMemoryStream *pReflectionStreamOut,
                                            AbstractMemoryStream *pRootSigStreamOut) {
   // TODO: add a flag to update the module and remove information that is not part
@@ -1707,6 +1714,7 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   bool bCompat_1_4 = DXIL::CompareVersions(ValMajor, ValMinor, 1, 5) < 0;
   bool bEmitReflection = Flags & SerializeDxilFlags::IncludeReflectionPart ||
                          pReflectionStreamOut;
+  bool bEmitVersion = dxilutil::ValidatorSupportsVersion(ValMajor, ValMinor);
 
   bool bSupportSlimPDB = dxilutil::ValidatorSupportsSlimPDB(ValMajor, ValMinor);
   bool bUseSlimPDB = bSupportSlimPDB && (Flags & SerializeDxilFlags::UseSlimPDB);
@@ -1802,6 +1810,37 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
       }
       bMetadataStripped |= pModule->StripRootSignatureFromMetadata();
     }
+  }
+
+  DxilCompilerVersion VersionHeader = {};
+  CComHeapPtr<char> CommitVersionHash;
+  if (bEmitVersion && pVersionInfo) {
+    UINT32 Major = 0, Minor = 0;
+    IFT(pVersionInfo->GetVersion(&Major, &Minor));
+
+    VersionHeader.Major = Major;
+    VersionHeader.Minor = Minor;
+    CComPtr<IDxcVersionInfo2> pVersionInfo2;
+    if (SUCCEEDED(pVersionInfo->QueryInterface(&pVersionInfo2))) {
+      UINT32 CommitCount = 0;
+      IFT(pVersionInfo2->GetCommitInfo(&CommitCount, &CommitVersionHash));
+      VersionHeader.VersionStringLength = strlen(CommitVersionHash.m_pData);
+    }
+
+    uint32_t size = sizeof(VersionHeader) + (VersionHeader.VersionStringLength > 0 ? VersionHeader.VersionStringLength+1 : 0);
+    uint32_t padding = 0;
+    size = PadToDword(size, &padding);
+    writer.AddPart(DFCC_CompilerVersion, size,
+      [&VersionHeader, &CommitVersionHash, padding](AbstractMemoryStream *pStream) {
+      ULONG cbWritten = 0;
+      IFT(pStream->Write(&VersionHeader, sizeof(VersionHeader), &cbWritten));
+      if (VersionHeader.VersionStringLength > 0)
+        IFT(pStream->Write(CommitVersionHash.m_pData, VersionHeader.VersionStringLength+1, &cbWritten));
+      for (unsigned i = 0 ; i < padding; i++) {
+        uint8_t padByte = 0;
+        pStream->Write(&padByte, sizeof(padByte), &cbWritten);
+      }
+    });
   }
 
   bool bHasDebugInfo = HasDebugInfo(*pModule->GetModule());

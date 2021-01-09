@@ -154,6 +154,7 @@ namespace dxilutil {
   void ReplaceRawBufferStore64Bit(llvm::Function *F, llvm::Type *ETy, hlsl::OP *hlslOP);
 
   bool ValidatorSupportsSlimPDB(unsigned Major, unsigned Minor);
+  bool ValidatorSupportsVersion(unsigned Major, unsigned Minor);
 }
 
 }

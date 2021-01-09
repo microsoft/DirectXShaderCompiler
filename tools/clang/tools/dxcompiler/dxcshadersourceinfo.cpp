@@ -400,7 +400,7 @@ void SourceInfoWriter::Write(clang::CodeGenOptions &cgOpts, clang::SourceManager
 
     // Go back and rewrite the element header
     assert(elementSize % sizeof(uint32_t) == 0);
-    elementHeader.SizeInDwords = elementSize;
+    elementHeader.SizeInDwords = elementSize / 4;
     elementHeader.Type = hlsl::DxilSourceInfoElementType::Defines;
     memcpy(m_Buffer.data() + elementOffset, &elementHeader, sizeof(elementHeader));
     mainHeader.ElementCount++;
@@ -437,7 +437,7 @@ void SourceInfoWriter::Write(clang::CodeGenOptions &cgOpts, clang::SourceManager
 
     // Go back and rewrite the element header
     assert(elementSize % sizeof(uint32_t) == 0);
-    elementHeader.SizeInDwords = elementSize;
+    elementHeader.SizeInDwords = elementSize / 4;
     elementHeader.Type = hlsl::DxilSourceInfoElementType::Args;
     memcpy(m_Buffer.data() + elementOffset, &elementHeader, sizeof(elementHeader));
     mainHeader.ElementCount++;
@@ -448,7 +448,8 @@ void SourceInfoWriter::Write(clang::CodeGenOptions &cgOpts, clang::SourceManager
 
   size_t mainPartSize = m_Buffer.size();
   mainPartSize = PadBufferToFourBytes(&m_Buffer, mainPartSize);
-  mainHeader.SizeInDwords = mainPartSize;
+  assert(mainPartSize % sizeof(uint32_t) == 0);
+  mainHeader.SizeInDwords = mainPartSize / 4;
 
   memcpy(m_Buffer.data(), &mainHeader, sizeof(mainHeader));
 }

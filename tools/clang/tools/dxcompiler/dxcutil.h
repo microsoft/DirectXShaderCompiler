@@ -51,6 +51,7 @@ struct AssembleInputs {
                  const hlsl::DxilSourceInfo *ShaderSourceInfo = nullptr,
                  clang::DiagnosticsEngine *pDiag = nullptr,
                  hlsl::DxilShaderHash *pShaderHashOut = nullptr,
+                 IDxcVersionInfo *pVersionInfo = nullptr,
                  hlsl::AbstractMemoryStream *pReflectionOut = nullptr,
                  hlsl::AbstractMemoryStream *pRootSigOut = nullptr);
   std::unique_ptr<llvm::Module> pM;
@@ -63,6 +64,7 @@ struct AssembleInputs {
   const hlsl::DxilSourceInfo *ShaderSourceInfo = nullptr;
   clang::DiagnosticsEngine *pDiag;
   hlsl::DxilShaderHash *pShaderHashOut = nullptr;
+  IDxcVersionInfo *pVersionInfo = nullptr;
   hlsl::AbstractMemoryStream *pReflectionOut = nullptr;
   hlsl::AbstractMemoryStream *pRootSigOut = nullptr;
 };
