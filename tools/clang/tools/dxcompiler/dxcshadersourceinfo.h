@@ -49,9 +49,9 @@ struct SourceInfoReader {
 
   llvm::StringRef GetArgs() const;
   llvm::StringRef GetDefines() const;
-  llvm::StringRef GetSource(unsigned i) const;
+  Source GetSource(unsigned i) const;
   unsigned GetSourcesCount() const;
-  void Read(const hlsl::DxilShaderSourceInfo *SourceInfo);
+  void Read(const hlsl::DxilSourceInfo *SourceInfo);
 };
 
 // Herper for writing the shader source part.
@@ -59,7 +59,7 @@ struct SourceInfoWriter {
   using Buffer = std::vector<uint8_t>;
   Buffer m_Buffer;
 
-  const hlsl::DxilShaderSourceInfo *GetPart() const;
+  const hlsl::DxilSourceInfo *GetPart() const;
   void Write(clang::CodeGenOptions &cgOpts, clang::SourceManager &srcMgr);
 };
 

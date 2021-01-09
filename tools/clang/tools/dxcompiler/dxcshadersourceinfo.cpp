@@ -100,45 +100,47 @@ static bool ZlibDecompress(const void *pBuffer, size_t BufferSizeInBytes, Buffer
   return true;
 }
 
-#if 0
 llvm::StringRef SourceInfoReader::GetArgs() const {
+  return m_Args;
 }
 llvm::StringRef SourceInfoReader::GetDefines() const {
+  return m_Defines;
 }
-llvm::StringRef SourceInfoReader::GetSource(unsigned i) const {
+SourceInfoReader::Source SourceInfoReader::GetSource(unsigned i) const {
+  return m_Sources[i];
 }
 unsigned SourceInfoReader::GetSourcesCount() const {
+  return m_Sources.size();
 }
-#endif
-void SourceInfoReader::Read(const hlsl::DxilShaderSourceInfo *SourceInfo) {
+void SourceInfoReader::Read(const hlsl::DxilSourceInfo *SourceInfo) {
   const hlsl::DxilShaderSourceInfoElement *element = (hlsl::DxilShaderSourceInfoElement *)(SourceInfo+1);
   for (unsigned i = 0; i < SourceInfo->ElementCount; i++) {
     switch (element->Type) {
-    case hlsl::DxilShaderSourceElementType::Defines:
+    case hlsl::DxilSourceInfoElementType::Defines:
     {
-      auto header = (hlsl::DxilShaderCompileOptions *)&element[1];
-      m_Defines = { (char *)(header+1), element->SizeInDwords * sizeof(uint32_t) - sizeof(*header) };
+      auto header = (hlsl::DxilSourceInfo_Options *)&element[1];
+      m_Defines = { (char *)(header+1), header->SizeInBytes };
     } break;
-    case hlsl::DxilShaderSourceElementType::Args:
+    case hlsl::DxilSourceInfoElementType::Args:
     {
-      auto header = (hlsl::DxilShaderCompileOptions *)&element[1];
-      m_Args = { (char *)(header+1), element->SizeInDwords * sizeof(uint32_t) - sizeof(*header) };
+      auto header = (hlsl::DxilSourceInfo_Options *)&element[1];
+      m_Args = { (char *)(header+1), header->SizeInBytes };
     } break;
-    case hlsl::DxilShaderSourceElementType::Sources:
+    case hlsl::DxilSourceInfoElementType::Sources:
     {
-      auto header = (hlsl::DxilShaderSources *)&element[1];
-      const hlsl::DxilShaderSourcesElement *src = nullptr;
-      if (header->CompressType == hlsl::DxilShaderSourceCompressType::Zlib) {
+      auto header = (hlsl::DxilSourceInfo_Sources *)&element[1];
+      const hlsl::DxilSourceInfo_SourcesElement *src = nullptr;
+      if (header->CompressType == hlsl::DxilSourceInfo_SourcesCompressType::Zlib) {
         m_UncompressedSources.reserve(header->UncompressedSizeInBytes);
         bool bDecompressSucc = ZlibDecompress(header+1, header->SizeInBytes, &m_UncompressedSources);
         assert(bDecompressSucc);
         if (bDecompressSucc) {
-          src = (hlsl::DxilShaderSourcesElement *)m_UncompressedSources.data();
+          src = (hlsl::DxilSourceInfo_SourcesElement *)m_UncompressedSources.data();
         }
       }
       else {
         assert(header->UncompressedSizeInBytes == header->UncompressedSizeInBytes);
-        src = (hlsl::DxilShaderSourcesElement *)(header+1);
+        src = (hlsl::DxilSourceInfo_SourcesElement *)(header+1);
       }
 
       assert(src);
@@ -150,7 +152,7 @@ void SourceInfoReader::Read(const hlsl::DxilShaderSourceInfo *SourceInfo) {
 
           m_Sources.push_back({ name, content });
 
-          src = (hlsl::DxilShaderSourcesElement *)((uint8_t *)src + src->SizeInDwords*sizeof(uint32_t));
+          src = (hlsl::DxilSourceInfo_SourcesElement *)((uint8_t *)src + src->SizeInDwords*sizeof(uint32_t));
         }
       }
 
@@ -191,7 +193,7 @@ static uint32_t PadBufferToFourBytes(Buffer *buf, uint32_t unpaddedSize) {
 }
 
 static void AppendFileEntry(Buffer *buf, llvm::StringRef name, llvm::StringRef content) {
-  hlsl::DxilShaderSourcesElement header = {};
+  hlsl::DxilSourceInfo_SourcesElement header = {};
   header.ContentSize = content.size();
   header.NameSize = name.size();
   header.SizeInDwords = PadToFourBytes(sizeof(header) + name.size()+1 + content.size()+1) / sizeof(uint32_t);
@@ -285,7 +287,7 @@ void SourceInfoWriter::Write(clang::CodeGenOptions &cgOpts, clang::SourceManager
   m_Buffer.clear();
 
   // Write an empty header first.
-  hlsl::DxilShaderSourceInfo mainHeader = {};
+  hlsl::DxilSourceInfo mainHeader = {};
   Append(&m_Buffer, &mainHeader, sizeof(mainHeader));
 
   ////////////////////////////////////////////////////////////////////
@@ -327,7 +329,7 @@ void SourceInfoWriter::Write(clang::CodeGenOptions &cgOpts, clang::SourceManager
     const size_t headerOffset = m_Buffer.size();
 
     // Write the header
-    hlsl::DxilShaderSources header = {};
+    hlsl::DxilSourceInfo_Sources header = {};
     header.UncompressedSizeInBytes = uncompressedBuffer.size();
     header.SizeInBytes = uncompressedBuffer.size();
     header.FileCount = filesMap.size() + 1;
@@ -348,7 +350,7 @@ void SourceInfoWriter::Write(clang::CodeGenOptions &cgOpts, clang::SourceManager
     if (bCompressed) {
       size_t compressedSize = m_Buffer.size() - contentOffset;
       header.SizeInBytes = compressedSize;
-      header.CompressType = hlsl::DxilShaderSourceCompressType::Zlib;
+      header.CompressType = hlsl::DxilSourceInfo_SourcesCompressType::Zlib;
       memcpy(m_Buffer.data() + headerOffset, &header, sizeof(header));
     }
     // Otherwise, just write the whole uncompressed
@@ -363,7 +365,7 @@ void SourceInfoWriter::Write(clang::CodeGenOptions &cgOpts, clang::SourceManager
     // Go back and rewrite the element header
     assert(paddedElementSize % sizeof(uint32_t) == 0);
     elementHeader.SizeInDwords = paddedElementSize / 4;
-    elementHeader.Type = hlsl::DxilShaderSourceElementType::Sources;
+    elementHeader.Type = hlsl::DxilSourceInfoElementType::Sources;
     memcpy(m_Buffer.data() + elementOffset, &elementHeader, sizeof(elementHeader));
     mainHeader.ElementCount++;
   }
@@ -377,9 +379,9 @@ void SourceInfoWriter::Write(clang::CodeGenOptions &cgOpts, clang::SourceManager
     hlsl::DxilShaderSourceInfoElement elementHeader = {};
     Append(&m_Buffer, &elementHeader, sizeof(elementHeader)); // Write an empty header
 
-    hlsl::DxilShaderCompileOptions header = {};
-    header.Count = cgOpts.HLSLDefines.size();
+    hlsl::DxilSourceInfo_Options header = {};
 
+    const size_t headerOffset = m_Buffer.size();
     Append(&m_Buffer, &header, sizeof(header));
 
     for (std::string &def : cgOpts.HLSLDefines) {
@@ -388,6 +390,10 @@ void SourceInfoWriter::Write(clang::CodeGenOptions &cgOpts, clang::SourceManager
     }
     Append(&m_Buffer, 0); // Double null terminator
 
+    // Go back and rewrite the header now that we know the size
+    header.SizeInBytes = m_Buffer.size() - headerOffset;
+    memcpy(m_Buffer.data() + headerOffset, &header, sizeof(header));
+
     // Calculate and pad the size of the element.
     uint32_t unpaddedElementSize = m_Buffer.size() - elementOffset;
     uint32_t elementSize = PadBufferToFourBytes(&m_Buffer, unpaddedElementSize);
@@ -395,7 +401,7 @@ void SourceInfoWriter::Write(clang::CodeGenOptions &cgOpts, clang::SourceManager
     // Go back and rewrite the element header
     assert(elementSize % sizeof(uint32_t) == 0);
     elementHeader.SizeInDwords = elementSize;
-    elementHeader.Type = hlsl::DxilShaderSourceElementType::Defines;
+    elementHeader.Type = hlsl::DxilSourceInfoElementType::Defines;
     memcpy(m_Buffer.data() + elementOffset, &elementHeader, sizeof(elementHeader));
     mainHeader.ElementCount++;
   }
@@ -410,9 +416,9 @@ void SourceInfoWriter::Write(clang::CodeGenOptions &cgOpts, clang::SourceManager
     hlsl::DxilShaderSourceInfoElement elementHeader = {};
     Append(&m_Buffer, &elementHeader, sizeof(elementHeader)); // Write an empty header
 
-    hlsl::DxilShaderCompileOptions header = {};
-    header.Count = cgOpts.HLSLArguments.size();
+    hlsl::DxilSourceInfo_Options header = {};
 
+    const size_t headerOffset = m_Buffer.size();
     Append(&m_Buffer, &header, sizeof(header));
 
     for (std::string &arg : cgOpts.HLSLArguments) {
@@ -421,6 +427,10 @@ void SourceInfoWriter::Write(clang::CodeGenOptions &cgOpts, clang::SourceManager
     }
     Append(&m_Buffer, 0); // Double null terminator
 
+    // Go back and rewrite the header now that we know the size
+    header.SizeInBytes = m_Buffer.size() - headerOffset;
+    memcpy(m_Buffer.data() + headerOffset, &header, sizeof(header));
+
     // Calculate and pad the size of the element.
     size_t elementSize = m_Buffer.size() - elementOffset;
     elementSize = PadBufferToFourBytes(&m_Buffer, elementSize);
@@ -428,7 +438,7 @@ void SourceInfoWriter::Write(clang::CodeGenOptions &cgOpts, clang::SourceManager
     // Go back and rewrite the element header
     assert(elementSize % sizeof(uint32_t) == 0);
     elementHeader.SizeInDwords = elementSize;
-    elementHeader.Type = hlsl::DxilShaderSourceElementType::Args;
+    elementHeader.Type = hlsl::DxilSourceInfoElementType::Args;
     memcpy(m_Buffer.data() + elementOffset, &elementHeader, sizeof(elementHeader));
     mainHeader.ElementCount++;
   }
@@ -443,11 +453,11 @@ void SourceInfoWriter::Write(clang::CodeGenOptions &cgOpts, clang::SourceManager
   memcpy(m_Buffer.data(), &mainHeader, sizeof(mainHeader));
 }
 
-const hlsl::DxilShaderSourceInfo *hlsl::SourceInfoWriter::GetPart() const {
+const hlsl::DxilSourceInfo *hlsl::SourceInfoWriter::GetPart() const {
   if (!m_Buffer.size())
     return nullptr;
-  assert(m_Buffer.size() >= sizeof(hlsl::DxilShaderSourceInfo));
-  const hlsl::DxilShaderSourceInfo *ret = (hlsl::DxilShaderSourceInfo *)m_Buffer.data();
+  assert(m_Buffer.size() >= sizeof(hlsl::DxilSourceInfo));
+  const hlsl::DxilSourceInfo *ret = (hlsl::DxilSourceInfo *)m_Buffer.data();
   assert(ret->SizeInDwords * sizeof(uint32_t) == m_Buffer.size());
   return ret;
 }

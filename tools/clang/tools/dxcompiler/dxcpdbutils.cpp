@@ -242,7 +242,7 @@ private:
 
       case hlsl::DFCC_ShaderSourceInfo:
       {
-        const hlsl::DxilShaderSourceInfo *header = (hlsl::DxilShaderSourceInfo *)(part+1);
+        const hlsl::DxilSourceInfo *header = (hlsl::DxilSourceInfo *)(part+1);
         (void)header;
         // hlsl::SourceInfoReader reader;
         // reader.Read(header);

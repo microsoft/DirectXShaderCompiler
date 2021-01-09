@@ -211,71 +211,110 @@ struct DxilShaderDebugName {
 };
 static const size_t MinDxilShaderDebugNameSize = sizeof(DxilShaderDebugName) + 4;
 
-// Shader source has the following structure:
+// Source Info has the following top level structure:
 //
-//   DxilShaderSource
-//   char SourcesBlob[]
+//   DxilShaderSourceInfo mainHeader;
 //
-// SourcesBlob may be compressed. When uncompressed, its data is:
+//   DxilShaderSourceInfoElement elementHeader;
+//   char Data[]
+//   (0-3 zero bytes to align to a 4-byte boundary)
 //
-//   DxilShaderSourceEntry
-//   char Name   [ NameSize ]    + NullTerminator
-//   char Content[ ContentSize ] + NullTerminator
-//   (Zero padding for 4 bytes)
-//
-//   DxilShaderSourceEntry
-//   char Name   [ NameSize ]    + NullTerminator
-//   char Content[ ContentSize ] + NullTerminator
-//   (Zero padding for 4 bytes)
+//   DxilShaderSourceInfoElement
+//   char Data[]
+//   (0-3 zero bytes to align to a 4-byte boundary)
 //
 //     ...
 //
-//   DxilShaderSourceEntry
+//   DxilShaderSourceInfoElement
+//   char Data[]
+//   (0-3 zero bytes to align to a 4-byte boundary)
+//
+// Each DxilShaderSourceInfoElement is followed by a blob of data.
+// The each type of data has its own structure:
+//
+// ================ 1. Sources ==================================
+// 
+//   DxilShaderSources
+//   char Data[SizeInBytes]
+//   
+//  `Data` may be compressed. When uncompressed, this is the structure:
+//
+//   DxilShaderSourcesElement
 //   char Name   [ NameSize ]    + NullTerminator
 //   char Content[ ContentSize ] + NullTerminator
-//   (Zero padding for 4 bytes)
+//   (0-3 zero bytes to align to a 4-byte boundary)
+//
+//   DxilShaderSourcesElement
+//   char Name   [ NameSize ]    + NullTerminator
+//   char Content[ ContentSize ] + NullTerminator
+//   (0-3 zero bytes to align to a 4-byte boundary)
+//
+//     ...
+//
+//   DxilShaderSourcesElement
+//   char Name   [ NameSize ]    + NullTerminator
+//   char Content[ ContentSize ] + NullTerminator
+//   (0-3 zero bytes to align to a 4-byte boundary)
+//
+// ================ 2. Defines ==================================
+//
+//   DxilShaderCompileOptions
+//     char Definition[] + NullTerminator
+//     char Definition[] + NullTerminator
+//       ...
+//     char Definition[] + NullTerminator
+//     NullTerminator (to mark no more options)
+//
+// ================ 3. Args ==================================
+//
+//   DxilShaderCompileOptions
+//     char Arg[] + NullTerminator
+//     char Arg[] + NullTerminator
+//       ...
+//     char Arg[] + NullTerminator
+//     NullTerminator (to mark no more options)
+//
 //
 
-enum class DxilShaderSourceElementType : uint16_t {
-  Sources,
-  Defines,
-  Args,
-  Version,
-};
-
-struct DxilShaderSourceInfo {
+struct DxilSourceInfo {
   uint16_t Flags;         // Reserved, must be set to zero.
   uint16_t ElementCount;  // The number of elements in the source info.
   uint32_t SizeInDwords;
 };
 
+enum class DxilSourceInfoElementType : uint16_t {
+  Sources,
+  Defines,
+  Args,
+};
+
 struct DxilShaderSourceInfoElement {
   uint16_t Flags;                   // Reserved, must be set to zero.
-  DxilShaderSourceElementType Type;
-  uint32_t SizeInDwords;
+  DxilSourceInfoElementType Type;   // The type of data following this header.
+  uint32_t SizeInDwords;            // Size of the element, including this header
 };
 
-struct DxilShaderCompileOptions {
-  uint16_t Flags; // Reserved, must be set to zero.
-  uint16_t Count;
+struct DxilSourceInfo_Options {
+  uint16_t Flags;       // Reserved, must be set to zero.
+  uint16_t SizeInBytes; // Length of all options, including the double null terminator, not including this header.
 };
 
-enum class DxilShaderSourceCompressType : uint16_t {
+enum class DxilSourceInfo_SourcesCompressType : uint16_t {
   None,
   Zlib
 };
-struct DxilShaderSources {
-  uint16_t FileCount;
-  DxilShaderSourceCompressType CompressType;
-  uint32_t SizeInBytes;
-  uint32_t UncompressedSizeInBytes;
+struct DxilSourceInfo_Sources {
+  uint16_t FileCount;                               // The number of files
+  DxilSourceInfo_SourcesCompressType CompressType;
+  uint32_t SizeInBytes;                             // Compressed size in bytes. Must equal to UncompressedSizeInBytes if uncompressed.
+  uint32_t UncompressedSizeInBytes;                 // Uncompressed size in bytes.
 };
 
-struct DxilShaderSourcesElement {
-  uint32_t Flags;
-  uint32_t SizeInDwords;
-  uint32_t NameSize;
-  uint32_t ContentSize;
+struct DxilSourceInfo_SourcesElement {
+  uint32_t Flags;                                   // Reserved, must be set to 0.
+  uint32_t SizeInDwords;                            // Total size in Dwords (including the padding and this structure).
+  uint32_t NameSize;                                // Size of the source's file name (not including null terminator).
+  uint32_t ContentSize;                             // Size of the source's content (not including null terminator).
 };
 
 #pragma pack(pop)

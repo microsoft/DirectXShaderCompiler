@@ -31,7 +31,7 @@ class Twine;
 namespace hlsl {
 enum class SerializeDxilFlags : uint32_t;
 struct DxilShaderHash;
-struct DxilShaderSourceInfo;
+struct DxilSourceInfo;
 class AbstractMemoryStream;
 namespace options {
 class MainArgs;
@@ -48,7 +48,7 @@ struct AssembleInputs {
                  CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode,
                  bool bDebugInfo = false,
                  llvm::StringRef DebugName = llvm::StringRef(),
-                 const hlsl::DxilShaderSourceInfo *ShaderSourceInfo = nullptr,
+                 const hlsl::DxilSourceInfo *ShaderSourceInfo = nullptr,
                  clang::DiagnosticsEngine *pDiag = nullptr,
                  hlsl::DxilShaderHash *pShaderHashOut = nullptr,
                  hlsl::AbstractMemoryStream *pReflectionOut = nullptr,
@@ -60,7 +60,7 @@ struct AssembleInputs {
   CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode;
   bool bDebugInfo;
   llvm::StringRef DebugName = llvm::StringRef();
-  const hlsl::DxilShaderSourceInfo *ShaderSourceInfo = nullptr;
+  const hlsl::DxilSourceInfo *ShaderSourceInfo = nullptr;
   clang::DiagnosticsEngine *pDiag;
   hlsl::DxilShaderHash *pShaderHashOut = nullptr;
   hlsl::AbstractMemoryStream *pReflectionOut = nullptr;
