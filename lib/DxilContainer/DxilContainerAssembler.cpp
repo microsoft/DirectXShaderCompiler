@@ -1708,7 +1708,7 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   bool bEmitReflection = Flags & SerializeDxilFlags::IncludeReflectionPart ||
                          pReflectionStreamOut;
 
-  bool bSupportSlimPDB = DXIL::CompareVersions(ValMajor, ValMinor, 1, 6) >= 0;
+  bool bSupportSlimPDB = dxilutil::ValidatorSupportsSlimPDB(ValMajor, ValMinor);
   bool bUseSlimPDB = bSupportSlimPDB && (Flags & SerializeDxilFlags::UseSlimPDB);
 
   DxilContainerWriter_impl writer;

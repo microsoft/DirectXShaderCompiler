@@ -33,6 +33,7 @@
 #include "dxc/DxilContainer/DxilContainerAssembler.h"
 #include "dxc/dxcapi.internal.h"
 #include "dxc/DXIL/DxilPDB.h"
+#include "dxc/DXIL/DxilUtil.h"
 
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/Support/Global.h"
@@ -42,6 +43,7 @@
 #include "dxc/Support/dxcapi.impl.h"
 #include "dxc/Support/DxcLangExtensionsHelper.h"
 #include "dxc/Support/HLSLOptions.h"
+
 #ifdef _WIN32
 #include "dxcetw.h"
 #endif
@@ -1077,7 +1079,18 @@ public:
       CodeGenOptions &CGOpts = compiler.getCodeGenOpts();
       // HLSL Change - begin
       if (Opts.FullDebug)
-        CGOpts.setDebugInfo(CodeGenOptions::DebugLineTablesOnly);
+        CGOpts.setDebugInfo(CodeGenOptions::FullDebugInfo);
+
+      {
+        unsigned Major = 0;
+        unsigned Minor = 0;
+        dxcutil::GetValidatorVersion(&Major, &Minor);
+        if (!hlsl::dxilutil::ValidatorSupportsSlimPDB(Major, Minor)) {
+          CGOpts.setDebugInfo(CodeGenOptions::FullDebugInfo);
+          CGOpts.HLSLEmbedSourcesInModule = true;
+        }
+      }
+
       // HLSL Change - end
       // CGOpts.setDebugInfo(CodeGenOptions::FullDebugInfo); // HLSL change
       CGOpts.DebugColumnInfo = 1;

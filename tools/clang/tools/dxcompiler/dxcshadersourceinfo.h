@@ -1,11 +1,11 @@
 ///////////////////////////////////////////////////////////////////////////////
 //                                                                           //
-// dxcshadersourceinfo.cpp                                                   //
+// dxcshadersourceinfo.h                                                     //
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
 //                                                                           //
-// Has utility helpers for dealing with DXIL part related to shader sources  //
+// Utility helpers for dealing with DXIL part related to shader sources      //
 // and options.                                                              //
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
@@ -35,10 +35,11 @@ struct SourceInfo {
 
 // Herper for writing the shader source part.
 struct SourceInfoWriter {
-  typedef std::vector<uint8_t> Buffer;
+  using Buffer = std::vector<uint8_t>;
   Buffer m_Buffer;
+
   llvm::StringRef GetBuffer();
-  void Write(clang::CodeGenOptions &CodeGenOpts, clang::SourceManager &srcMgr);
+  void Write(clang::CodeGenOptions &cgOpts, clang::SourceManager &srcMgr);
 };
 
 } // namespace hlsl;

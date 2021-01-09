@@ -1159,8 +1159,12 @@ void ReplaceRawBufferStore64Bit(llvm::Function *F, llvm::Type *ETy, hlsl::OP *hl
   }
 }
 
+bool ValidatorSupportsSlimPDB(unsigned Major, unsigned Minor) {
+  return DXIL::CompareVersions(Major, Minor, 1, 6) >= 0;
 }
-}
+
+} // namespace dxilutil
+} // namespace hlsl
 
 ///////////////////////////////////////////////////////////////////////////////
 
