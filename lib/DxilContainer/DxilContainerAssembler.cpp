@@ -1687,7 +1687,7 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
                                            AbstractMemoryStream *pModuleBitcode,
                                            AbstractMemoryStream *pFinalStream,
                                            llvm::StringRef DebugName,
-                                           llvm::StringRef ShaderSourceInfoData,
+                                           const hlsl::DxilShaderSourceInfo *ShaderSourceInfo,
                                            SerializeDxilFlags Flags,
                                            DxilShaderHash *pShaderHashOut,
                                            AbstractMemoryStream *pReflectionStreamOut,
@@ -1808,10 +1808,10 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   // This block of code only runs if we support slim PDB.
   if (bHasDebugInfo & bSupportSlimPDB) {
     if (Flags & SerializeDxilFlags::IncludeDebugInfoPart) {
-      if (ShaderSourceInfoData.size()) {
-        writer.AddPart(DFCC_ShaderSourceInfo, ShaderSourceInfoData.size(), [&ShaderSourceInfoData](AbstractMemoryStream *pStream) {
+      if (ShaderSourceInfo) {
+        writer.AddPart(DFCC_ShaderSourceInfo, ShaderSourceInfo->SizeInDwords * sizeof(uint32_t), [ShaderSourceInfo](AbstractMemoryStream *pStream) {
           ULONG cbWritten = 0;
-          IFT(pStream->Write(ShaderSourceInfoData.data(), ShaderSourceInfoData.size(), &cbWritten));
+          IFT(pStream->Write(ShaderSourceInfo, ShaderSourceInfo->SizeInDwords * sizeof(uint32_t), &cbWritten));
         });
       }
     }

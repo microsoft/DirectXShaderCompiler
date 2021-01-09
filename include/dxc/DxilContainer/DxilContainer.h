@@ -246,6 +246,7 @@ enum class DxilShaderSourceElementType : uint16_t {
 struct DxilShaderSourceInfo {
   uint16_t Flags;         // Reserved, must be set to zero.
   uint16_t ElementCount;  // The number of elements in the source info.
+  uint32_t SizeInDwords;
 };
 
 struct DxilShaderSourceInfoElement {

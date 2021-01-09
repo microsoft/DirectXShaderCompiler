@@ -13,6 +13,7 @@
 #include <vector>
 #include <stdint.h>
 #include "llvm/ADT/StringRef.h"
+#include "dxc/DxilContainer/DxilContainer.h"
 
 namespace clang {
   class CodeGenOptions;
@@ -33,12 +34,32 @@ struct SourceInfo {
   std::vector<Source> Sources;
 };
 
+struct SourceInfoReader {
+  using Buffer = std::vector<uint8_t>;
+  Buffer m_UncompressedSources;
+
+  struct Source {
+    llvm::StringRef Name;
+    llvm::StringRef Content;
+  };
+
+  std::vector<Source> m_Sources;
+  llvm::StringRef m_Defines;
+  llvm::StringRef m_Args;
+
+  llvm::StringRef GetArgs() const;
+  llvm::StringRef GetDefines() const;
+  llvm::StringRef GetSource(unsigned i) const;
+  unsigned GetSourcesCount() const;
+  void Read(const hlsl::DxilShaderSourceInfo *SourceInfo);
+};
+
 // Herper for writing the shader source part.
 struct SourceInfoWriter {
   using Buffer = std::vector<uint8_t>;
   Buffer m_Buffer;
 
-  llvm::StringRef GetBuffer();
+  const hlsl::DxilShaderSourceInfo *GetPart() const;
   void Write(clang::CodeGenOptions &cgOpts, clang::SourceManager &srcMgr);
 };
 

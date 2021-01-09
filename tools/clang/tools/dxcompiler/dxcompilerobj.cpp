@@ -92,7 +92,7 @@ static bool ShouldPartBeIncludedInPDB(UINT32 FourCC) {
   return false;
 }
 
-static HRESULT CreateContainerForPDB(IMalloc *pMalloc, IDxcBlob *pOldContainer, IDxcBlob *pDebugBlob, StringRef SourceInfoData, IDxcBlob **ppNewContaner) {
+static HRESULT CreateContainerForPDB(IMalloc *pMalloc, IDxcBlob *pOldContainer, IDxcBlob *pDebugBlob, const hlsl::DxilShaderSourceInfo *pSourceInfo, IDxcBlob **ppNewContaner) {
   // If the pContainer is not a valid container, give up.
   if (!hlsl::IsValidDxilContainer((hlsl::DxilContainerHeader *)pOldContainer->GetBufferPointer(), pOldContainer->GetBufferSize()))
     return E_FAIL;
@@ -148,13 +148,13 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc, IDxcBlob *pOldContainer, 
   if (!ProgramHeader)
     return E_FAIL;
 
-  if (SourceInfoData.size()) {
+  if (pSourceInfo) {
     Part NewPart(
       hlsl::DFCC_ShaderSourceInfo,
-      SourceInfoData.size(),
-      [SourceInfoData](IStream *pStream) {
+      pSourceInfo->SizeInDwords * sizeof(uint32_t),
+      [pSourceInfo](IStream *pStream) {
         ULONG uBytesWritten = 0;
-        pStream->Write(SourceInfoData.data(), SourceInfoData.size(), &uBytesWritten);
+        pStream->Write(pSourceInfo, pSourceInfo->SizeInDwords * sizeof(uint32_t), &uBytesWritten);
         return S_OK;
       }
     );
@@ -850,11 +850,12 @@ public:
 
           // Create the shader source information
           debugSourceInfoWriter.Write(compiler.getCodeGenOpts(), compiler.getSourceManager());
+          const hlsl::DxilShaderSourceInfo *sourceInfoPart = debugSourceInfoWriter.GetPart();
 
           dxcutil::AssembleInputs inputs(
                 action.takeModule(), pOutputBlob, m_pMalloc, SerializeFlags,
                 pOutputStream, opts.IsDebugInfoEnabled(),
-                opts.GetPDBName(), debugSourceInfoWriter.GetBuffer(), &compiler.getDiagnostics(),
+                opts.GetPDBName(), sourceInfoPart, &compiler.getDiagnostics(),
                 &ShaderHashContent, pReflectionStream, pRootSigStream);
 
           if (needsValidation) {
@@ -935,13 +936,13 @@ public:
         CComPtr<IDxcBlob> pStrippedContainer;
 
         // If we have the shader source info, don't
-        StringRef SourceInfoData = debugSourceInfoWriter.GetBuffer();
+        const hlsl::DxilShaderSourceInfo *pSourceInfo = debugSourceInfoWriter.GetPart();
         if (bSlimPDB) {
-          assert(SourceInfoData.size());
+          assert(pSourceInfo);
           pDebugBlob = nullptr;
         }
 
-        IFT(CreateContainerForPDB(m_pMalloc, pOutputBlob, pDebugBlob, SourceInfoData, &pStrippedContainer));
+        IFT(CreateContainerForPDB(m_pMalloc, pOutputBlob, pDebugBlob, pSourceInfo, &pStrippedContainer));
         pDebugBlob.Release();
 
         IFT(hlsl::pdb::WriteDxilPDB(m_pMalloc, pStrippedContainer, ShaderHashContent.Digest, &pDebugBlob));

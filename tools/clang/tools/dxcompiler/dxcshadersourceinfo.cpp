@@ -24,6 +24,142 @@ using Buffer = SourceInfoWriter::Buffer;
 // Reader
 ///////////////////////////////////////////////////////////////////////////////
 
+static bool ZlibDecompress(const void *pBuffer, size_t BufferSizeInBytes, Buffer *output) {
+
+  struct Zlib_Stream {
+    z_stream stream = {};
+    Zlib_Stream() {
+      inflateInit(&stream);
+    }
+    ~Zlib_Stream() {
+      inflateEnd(&stream);
+    }
+  };
+
+  Zlib_Stream streamStorage;
+  z_stream *stream = &streamStorage.stream;
+
+  constexpr size_t CHUNK_SIZE = 1024 * 16;
+
+  Buffer &readBuffer = *output;
+
+  stream->zalloc = [](void *opaque, size_t items, size_t size) -> void* {
+    void *ret = nullptr;
+    try {
+      ret = new uint8_t[items * size];
+    }
+    catch (std::bad_alloc e) {
+      return NULL;
+    }
+    return ret;
+  };
+
+  stream->zfree = [](void *opaque, void *address) -> void {
+    delete[] (uint8_t *)address;
+  };
+
+  stream->avail_in = BufferSizeInBytes;
+  stream->next_in = (Byte *)pBuffer;
+
+  int status = Z_OK;
+
+  try {
+    while (true) {
+      size_t readOffset = readBuffer.size();
+      readBuffer.resize(readOffset + CHUNK_SIZE);
+
+      stream->avail_out = CHUNK_SIZE;
+      stream->next_out = (unsigned char *)readBuffer.data() + readOffset;
+
+      status = inflate(stream, Z_NO_FLUSH);
+      switch (status) {
+        case Z_NEED_DICT:
+        case Z_DATA_ERROR:
+        case Z_MEM_ERROR:
+          // Failed to zlib decompress buffer
+          return false;
+      }
+
+      if (stream->avail_out != 0)
+        readBuffer.resize(readBuffer.size() - stream->avail_out);
+
+      if (stream->avail_out != 0 || status == Z_STREAM_END) {
+        break;
+      }
+    }
+  }
+  catch (std::bad_alloc) {
+    return false;
+  }
+
+  if (status != Z_STREAM_END) {
+    // Failed to zlib decompress buffer (likely due to incomplete data)
+    return false;
+  }
+
+  return true;
+}
+
+#if 0
+llvm::StringRef SourceInfoReader::GetArgs() const {
+}
+llvm::StringRef SourceInfoReader::GetDefines() const {
+}
+llvm::StringRef SourceInfoReader::GetSource(unsigned i) const {
+}
+unsigned SourceInfoReader::GetSourcesCount() const {
+}
+#endif
+void SourceInfoReader::Read(const hlsl::DxilShaderSourceInfo *SourceInfo) {
+  const hlsl::DxilShaderSourceInfoElement *element = (hlsl::DxilShaderSourceInfoElement *)(SourceInfo+1);
+  for (unsigned i = 0; i < SourceInfo->ElementCount; i++) {
+    switch (element->Type) {
+    case hlsl::DxilShaderSourceElementType::Defines:
+    {
+      auto header = (hlsl::DxilShaderCompileOptions *)&element[1];
+      m_Defines = { (char *)(header+1), element->SizeInDwords * sizeof(uint32_t) - sizeof(*header) };
+    } break;
+    case hlsl::DxilShaderSourceElementType::Args:
+    {
+      auto header = (hlsl::DxilShaderCompileOptions *)&element[1];
+      m_Args = { (char *)(header+1), element->SizeInDwords * sizeof(uint32_t) - sizeof(*header) };
+    } break;
+    case hlsl::DxilShaderSourceElementType::Sources:
+    {
+      auto header = (hlsl::DxilShaderSources *)&element[1];
+      const hlsl::DxilShaderSourcesElement *src = nullptr;
+      if (header->CompressType == hlsl::DxilShaderSourceCompressType::Zlib) {
+        m_UncompressedSources.reserve(header->UncompressedSizeInBytes);
+        bool bDecompressSucc = ZlibDecompress(header+1, header->SizeInBytes, &m_UncompressedSources);
+        assert(bDecompressSucc);
+        if (bDecompressSucc) {
+          src = (hlsl::DxilShaderSourcesElement *)m_UncompressedSources.data();
+        }
+      }
+      else {
+        assert(header->UncompressedSizeInBytes == header->UncompressedSizeInBytes);
+        src = (hlsl::DxilShaderSourcesElement *)(header+1);
+      }
+
+      assert(src);
+      if (src) {
+        for (unsigned i = 0; i < header->FileCount; i++) {
+          const void *ptr = src+1;
+          llvm::StringRef name    = { (char *)ptr,  src->NameSize };
+          llvm::StringRef content = { (char *)ptr + src->NameSize+1, src->ContentSize, };
+
+          m_Sources.push_back({ name, content });
+
+          src = (hlsl::DxilShaderSourcesElement *)((uint8_t *)src + src->SizeInDwords*sizeof(uint32_t));
+        }
+      }
+
+    } break;
+    }
+    element = (hlsl::DxilShaderSourceInfoElement *)((uint8_t *)element + element->SizeInDwords*sizeof(uint32_t));
+  }
+}
+
 
 ///////////////////////////////////////////////////////////////////////////////
 // Writer
@@ -110,27 +246,33 @@ static bool ZlibCompress(const void *src, size_t srcSize, Buffer *outCompressedD
   stream->next_in = (unsigned char *)src;
   stream->avail_in = (uInt)srcSize;
 
-  for (;;) {
-    uInt OldSize = compressedData.size();
-    compressedData.resize(compressedData.size() + CHUNK_SIZE);
+  // The following block of code is the only part that can throw.
+  try {
+    for (;;) {
+      const size_t oldSize = compressedData.size();
+      compressedData.resize(compressedData.size() + CHUNK_SIZE);
 
-    stream->next_out = (unsigned char *)(compressedData.data() + OldSize);
-    stream->avail_out = CHUNK_SIZE;
+      stream->next_out = (unsigned char *)(compressedData.data() + oldSize);
+      stream->avail_out = CHUNK_SIZE;
 
-    status = deflate(stream, stream->avail_in != 0 ? Z_NO_FLUSH : Z_FINISH);
+      status = deflate(stream, stream->avail_in != 0 ? Z_NO_FLUSH : Z_FINISH);
 
-    if (status != Z_OK && status != Z_STREAM_END)
-      return false;
+      if (status != Z_OK && status != Z_STREAM_END)
+        return false;
 
-    // Have to shrink the buffer every time we have some left over, because even
-    // if the stream wasn't written completely, it doesn't mean the compression
-    // is over. Might have to do a MZ_FINISH, which could write more data.
-    if (stream->avail_out) {
-      compressedData.resize(compressedData.size() - stream->avail_out);
+      // Have to shrink the buffer every time we have some left over, because even
+      // if the stream wasn't written completely, it doesn't mean the compression
+      // is over. Might have to do a MZ_FINISH, which could write more data.
+      if (stream->avail_out) {
+        compressedData.resize(compressedData.size() - stream->avail_out);
+      }
+
+      if (Z_STREAM_END == status)
+        break;
     }
-
-    if (Z_STREAM_END == status)
-      break;
+  }
+  catch (std::bad_alloc) {
+    return false;
   }
 
   if (Z_STREAM_END != status)
@@ -293,15 +435,20 @@ void SourceInfoWriter::Write(clang::CodeGenOptions &cgOpts, clang::SourceManager
 
   // Go back and rewrite the main header.
   assert(m_Buffer.size() >= sizeof(mainHeader));
-  memcpy(m_Buffer.data(), &mainHeader, sizeof(mainHeader));
 
   size_t mainPartSize = m_Buffer.size();
   mainPartSize = PadBufferToFourBytes(&m_Buffer, mainPartSize);
+  mainHeader.SizeInDwords = mainPartSize;
+
+  memcpy(m_Buffer.data(), &mainHeader, sizeof(mainHeader));
 }
 
-llvm::StringRef hlsl::SourceInfoWriter::GetBuffer() {
-  if (m_Buffer.size())
-    return llvm::StringRef((char *)m_Buffer.data(), m_Buffer.size());
-  return llvm::StringRef();
+const hlsl::DxilShaderSourceInfo *hlsl::SourceInfoWriter::GetPart() const {
+  if (!m_Buffer.size())
+    return nullptr;
+  assert(m_Buffer.size() >= sizeof(hlsl::DxilShaderSourceInfo));
+  const hlsl::DxilShaderSourceInfo *ret = (hlsl::DxilShaderSourceInfo *)m_Buffer.data();
+  assert(ret->SizeInDwords * sizeof(uint32_t) == m_Buffer.size());
+  return ret;
 }
 

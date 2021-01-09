@@ -72,7 +72,7 @@ AssembleInputs::AssembleInputs(std::unique_ptr<llvm::Module> &&pM,
                 CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode,
                 bool bDebugInfo,
                 llvm::StringRef DebugName,
-                llvm::StringRef ShaderSourceInfoData,
+                 const hlsl::DxilShaderSourceInfo *ShaderSourceInfo,
                 clang::DiagnosticsEngine *pDiag,
                 hlsl::DxilShaderHash *pShaderHashOut,
                 AbstractMemoryStream *pReflectionOut,
@@ -84,7 +84,7 @@ AssembleInputs::AssembleInputs(std::unique_ptr<llvm::Module> &&pM,
     pModuleBitcode(pModuleBitcode),
     bDebugInfo(bDebugInfo),
     DebugName(DebugName),
-    ShaderSourceInfoData(ShaderSourceInfoData),
+    ShaderSourceInfo(ShaderSourceInfo),
     pDiag(pDiag),
     pShaderHashOut(pShaderHashOut),
     pReflectionOut(pReflectionOut),
@@ -112,7 +112,7 @@ void AssembleToContainer(AssembleInputs &inputs) {
   CComPtr<AbstractMemoryStream> pContainerStream;
   IFT(CreateMemoryStream(inputs.pMalloc, &pContainerStream));
   SerializeDxilContainerForModule(&inputs.pM->GetOrCreateDxilModule(),
-                                  inputs.pModuleBitcode, pContainerStream, inputs.DebugName, inputs.ShaderSourceInfoData, inputs.SerializeFlags,
+                                  inputs.pModuleBitcode, pContainerStream, inputs.DebugName, inputs.ShaderSourceInfo, inputs.SerializeFlags,
                                   inputs.pShaderHashOut, inputs.pReflectionOut, inputs.pRootSigOut);
   inputs.pOutputContainerBlob.Release();
   IFT(pContainerStream.QueryInterface(&inputs.pOutputContainerBlob));

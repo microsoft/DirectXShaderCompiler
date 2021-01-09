@@ -31,6 +31,8 @@
 #include "dxc/DXIL/DxilMetadataHelper.h"
 #include "dxc/DXIL/DxilModule.h"
 
+#include "dxcshadersourceinfo.h"
+
 #include <vector>
 #include <locale>
 #include <codecvt>
@@ -237,6 +239,14 @@ private:
       hlsl::DxilFourCC four_cc = (hlsl::DxilFourCC)part->PartFourCC;
 
       switch (four_cc) {
+
+      case hlsl::DFCC_ShaderSourceInfo:
+      {
+        const hlsl::DxilShaderSourceInfo *header = (hlsl::DxilShaderSourceInfo *)(part+1);
+        (void)header;
+        // hlsl::SourceInfoReader reader;
+        // reader.Read(header);
+      } break;
 
       case hlsl::DFCC_ShaderHash:
       {
