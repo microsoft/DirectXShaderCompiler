@@ -235,6 +235,8 @@ public:
   HRESULT CreateCompiler(IDxcCompiler **ppResult) {
     return m_dllSupport.CreateInstance(CLSID_DxcCompiler, ppResult);
   }
+ 
+  void TestPdbUtils(bool bSlim);
 
 #ifdef _WIN32 // No ContainerBuilder support yet
   HRESULT CreateContainerBuilder(IDxcContainerBuilder **ppResult) {
@@ -1166,8 +1168,7 @@ TEST_F(CompilerTest, CompileThenTestPdbUtilsStripped) {
   }
 }
 
-
-TEST_F(CompilerTest, CompileThenTestPdbUtils) {
+void CompilerTest::TestPdbUtils(bool bSlim) {
   CComPtr<TestIncludeHandler> pInclude;
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcBlobEncoding> pSource;
@@ -1183,11 +1184,19 @@ TEST_F(CompilerTest, CompileThenTestPdbUtils) {
   pInclude = new TestIncludeHandler(m_dllSupport);
   pInclude->CallResults.emplace_back(included_File.c_str());
 
-  const WCHAR *pArgs[] = { L"/Zi", L"/Od", L"-flegacy-macro-expansion", L"-Qembed_debug", L"/DTHIS_IS_A_DEFINE=HELLO" };
+  std::vector<const WCHAR *> args;
+  args.push_back(L"/Zi");
+  args.push_back(L"/Od");
+  args.push_back(L"-flegacy-macro-expansion");
+  args.push_back(L"-Qembed_debug");
+  args.push_back(L"/DTHIS_IS_A_DEFINE=HELLO");
+  if (bSlim) {
+    args.push_back(L"/Qslim_debug");
+  }
   const DxcDefine pDefines[] = { L"THIS_IS_ANOTHER_DEFINE", L"1" };
 
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"PSMain",
-    L"ps_6_0", pArgs, _countof(pArgs), pDefines, _countof(pDefines), pInclude, &pOperationResult));
+    L"ps_6_0", args.data(), args.size(), pDefines, _countof(pDefines), pInclude, &pOperationResult));
 
   HRESULT CompileStatus = S_OK;
   VERIFY_SUCCEEDED(pOperationResult->GetStatus(&CompileStatus));
@@ -1206,20 +1215,24 @@ TEST_F(CompilerTest, CompileThenTestPdbUtils) {
   VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcPdbUtils, &pPdbUtils));
 
   CComPtr<IDxcBlob> pProgramHeaderBlob;
-  {
+  if (!bSlim) {
     CComPtr<IDxcContainerReflection> pRef;
     VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pRef));
     VERIFY_SUCCEEDED(pRef->Load(pPdbBlob));
-
     UINT32 uIndex = 0;
     VERIFY_SUCCEEDED(pRef->FindFirstPartKind(hlsl::DFCC_ShaderDebugInfoDXIL, &uIndex));
-
     VERIFY_SUCCEEDED(pRef->GetPartContent(uIndex, &pProgramHeaderBlob));
+
+    VerifyPdbUtil(pPdbUtils, false, pProgramHeaderBlob, main_source, included_File);
   }
 
-  VerifyPdbUtil(pPdbUtils, false, pProgramHeaderBlob, main_source, included_File);
   VerifyPdbUtil(pPdbUtils, true,  pCompiledBlob, main_source, included_File);
   VerifyPdbUtil(pPdbUtils, true,  pPdbBlob, main_source, included_File);
+}
+
+TEST_F(CompilerTest, CompileThenTestPdbUtils) {
+  TestPdbUtils(/*bSlim*/false);
+  TestPdbUtils(/*bSlim*/true);
 }
 #endif
 

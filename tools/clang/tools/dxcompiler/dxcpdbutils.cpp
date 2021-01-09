@@ -67,15 +67,15 @@ static HRESULT CopyWstringToBSTR(const std::wstring &str, BSTR *pResult) {
   return S_OK;
 }
 
-static bool ShouldIncludeInFlags(StringRef strRef, bool *skip_next_arg) {
+static bool ShouldIncludeInFlags(const std::wstring &str, bool *skip_next_arg) {
   *skip_next_arg = false;
-  const char *specialCases[] = { "/T", "-T", "-D", "/D", "-E", "/E", };
+  const wchar_t *specialCases[] = { L"/T", L"-T", L"-D", L"/D", L"-E", L"/E", };
   for (unsigned i = 0; i < _countof(specialCases); i++) {
-    if (strRef == specialCases[i]) {
+    if (str == specialCases[i]) {
       *skip_next_arg = true;
       return false;
     }
-    else if (strRef.startswith(specialCases[i])) {
+    else if (str.find(specialCases[i]) == 0) {
       return false;
     }
   }
@@ -120,7 +120,37 @@ private:
     m_HashBlob = nullptr;
   }
 
-  HRESULT HandleDebugProgramHeaderLegacy(IDxcBlob *pProgramBlob) {
+  void ComputeFlagsBasedOnArgs() {
+#if 0
+    // Flags - which exclude entry point, target profile, and defines
+    for (unsigned i = 0; i < tup->getNumOperands(); i++) {
+      StringRef arg = cast<MDString>(tup->getOperand(i))->getString();
+      bool skip_another_arg = false;
+      if (ShouldIncludeInFlags(arg, &skip_another_arg)) {
+        m_Flags.push_back(ToWstring(arg));
+      }
+      if (skip_another_arg)
+        i++;
+    }
+#else
+    // Flags - which exclude entry point, target profile, and defines
+    for (unsigned i = 0; i < m_Args.size(); i++) {
+      const std::wstring &arg = m_Args[i];
+      bool skip_another_arg = false;
+      if (ShouldIncludeInFlags(arg, &skip_another_arg)) {
+        m_Flags.push_back(arg);
+      }
+      if (skip_another_arg)
+        i++;
+    }
+#endif
+  }
+
+  bool HasSources() const {
+    return m_SourceFiles.size();
+  }
+
+  HRESULT PopulateSourcesFromProgramHeader(IDxcBlob *pProgramBlob) {
     UINT32 bitcode_size = 0;
     const char *bitcode = nullptr;
 
@@ -215,17 +245,7 @@ private:
           StringRef arg = cast<MDString>(tup->getOperand(i))->getString();
           m_Args.push_back(ToWstring(arg));
         }
-
-        // Flags - which exclude entry point, target profile, and defines
-        for (unsigned i = 0; i < tup->getNumOperands(); i++) {
-          StringRef arg = cast<MDString>(tup->getOperand(i))->getString();
-          bool skip_another_arg = false;
-          if (ShouldIncludeInFlags(arg, &skip_another_arg)) {
-            m_Flags.push_back(ToWstring(arg));
-          }
-          if (skip_another_arg)
-            i++;
-        }
+        ComputeFlagsBasedOnArgs();
       }
     }
 
@@ -243,9 +263,58 @@ private:
       case hlsl::DFCC_ShaderSourceInfo:
       {
         const hlsl::DxilSourceInfo *header = (hlsl::DxilSourceInfo *)(part+1);
-        (void)header;
-        // hlsl::SourceInfoReader reader;
-        // reader.Read(header);
+        hlsl::SourceInfoReader reader;
+        reader.Read(header);
+
+        {
+          StringRef definesData = reader.GetDefines();
+          if (definesData.size()) {
+            const char *def = definesData.data();
+            while (true) {
+              if (def[0] == 0)
+                break;
+              size_t def_len = strlen(def);
+              m_Defines.push_back(ToWstring(def, def_len));
+              def += def_len+1;
+            }
+          }
+        }
+
+        {
+          StringRef argsData = reader.GetArgs();
+          if (argsData.size()) {
+            const char *arg = argsData.data();
+            while (true) {
+              if (arg[0] == 0)
+                break;
+              size_t arg_len = strlen(arg);
+              m_Args.push_back(ToWstring(arg, arg_len));
+              arg += arg_len+1;
+            }
+            ComputeFlagsBasedOnArgs();
+          }
+        }
+
+        for (unsigned i = 0; i < reader.GetSourcesCount(); i++) {
+          hlsl::SourceInfoReader::Source source_data = reader.GetSource(i);
+
+          Source_File source;
+          source.Name = ToWstring(source_data.Name);
+          IFR(hlsl::DxcCreateBlobWithEncodingOnHeapCopy(
+            source_data.Content.data(),
+            source_data.Content.size(),
+            CP_ACP, // NOTE: ACP instead of UTF8 because it's possible for compiler implementations to
+                    // inject non-UTF8 data here.
+            &source.Content));
+
+          // First file is the main file
+          if (i == 0) {
+            m_MainFileName = source.Name;
+          }
+
+          m_SourceFiles.push_back(std::move(source));
+        }
+
       } break;
 
       case hlsl::DFCC_ShaderHash:
@@ -312,8 +381,8 @@ public:
       // PDB
       if (SUCCEEDED(hlsl::pdb::LoadDataFromStream(m_pMalloc, pStream, &m_ContainerBlob))) {
         IFR(HandleDxilContainer(m_ContainerBlob, &m_pDebugProgramBlob));
-        if (m_pDebugProgramBlob) {
-          IFR(HandleDebugProgramHeaderLegacy(m_pDebugProgramBlob));
+        if (m_pDebugProgramBlob && !HasSources()) {
+          IFR(PopulateSourcesFromProgramHeader(m_pDebugProgramBlob));
         }
         else {
           // Must have a debug program part
@@ -325,8 +394,8 @@ public:
         m_ContainerBlob = pPdbOrDxil;
         IFR(HandleDxilContainer(m_ContainerBlob, &m_pDebugProgramBlob));
         // If we have a Debug DXIL, populate the debug info.
-        if (m_pDebugProgramBlob) {
-          IFR(HandleDebugProgramHeaderLegacy(m_pDebugProgramBlob));
+        if (m_pDebugProgramBlob && !HasSources()) {
+          IFR(PopulateSourcesFromProgramHeader(m_pDebugProgramBlob));
         }
       }
       // DXIL program header
@@ -336,7 +405,7 @@ public:
           (hlsl::DxilProgramHeader *)pPdbOrDxil->GetBufferPointer(),
           pPdbOrDxil->GetBufferSize(), CP_ACP, &pProgramHeaderBlob));
         IFR(pProgramHeaderBlob.QueryInterface(&m_pDebugProgramBlob));
-        IFR(HandleDebugProgramHeaderLegacy(m_pDebugProgramBlob));
+        IFR(PopulateSourcesFromProgramHeader(m_pDebugProgramBlob));
       }
       else {
         return E_INVALIDARG;
