@@ -1551,7 +1551,7 @@ public:
 
 } // namespace
 
-uint32_t PadToDword(uint32_t size, uint32_t *outNumPadding=nullptr) {
+static uint32_t PadToDword(uint32_t size, uint32_t *outNumPadding=nullptr) {
   uint32_t rem = size % 4;
   if (rem) {
     uint32_t padding = (4 - rem);
@@ -1563,131 +1563,6 @@ uint32_t PadToDword(uint32_t size, uint32_t *outNumPadding=nullptr) {
     *outNumPadding = 0;
   return size;
 }
-
-static void Append(std::vector<BYTE> *Buf, const void *ptr, size_t size) {
-  size_t old_size = Buf->size();
-  Buf->resize(old_size + size);
-  memcpy(Buf->data()+old_size, ptr, size);
-}
-
-#if 0
-void SerializeSlimDebugInfo(llvm::Module *pModule, std::vector<BYTE> *SourcesPart, std::vector<BYTE> *OptionsPart, std::vector<BYTE> *DefinesPart) {
-  // For each all the named metadata node in the module
-  for (llvm::NamedMDNode &node : pModule->named_metadata()) {
-    llvm::StringRef node_name = node.getName();
-
-    // dx.source.content
-    if (node_name == hlsl::DxilMDHelper::kDxilSourceContentsMDName ||
-        node_name == hlsl::DxilMDHelper::kDxilSourceContentsOldMDName)
-    {
-      llvm::SmallVector<char, 0> UncompressedContentBuffer;
-      {
-        llvm::raw_svector_ostream os(UncompressedContentBuffer);
-        for (unsigned i = 0; i < node.getNumOperands(); i++) {
-          llvm::MDTuple *tup = cast<llvm::MDTuple>(node.getOperand(i));
-          StringRef md_name = cast<MDString>(tup->getOperand(0))->getString();
-          StringRef md_content = cast<MDString>(tup->getOperand(1))->getString();
-
-          hlsl::DxilShaderSourceEntry entry_header = {};
-
-          uint32_t TotalSizeInBytes = PadToDword(sizeof(entry_header) + md_name.size()+1 + md_content.size()+1);
-
-          entry_header.NameSize = md_name.size();
-          entry_header.ContentSize = md_content.size();
-          entry_header.SizeInDwords = TotalSizeInBytes / 4;
-
-          os.write((char *)&entry_header, sizeof(entry_header));
-          os << md_name;
-          os.write(0); // Null term
-          os << md_content;
-          os.write(0); // Null term
-        }
-        os.flush();
-      }
-
-      hlsl::DxilShaderSource header = {};
-      header.UncompressedSizeInBytes = UncompressedContentBuffer.size();
-      header.FileCount = node.getNumOperands();
-      header.SizeInBytes = header.UncompressedSizeInBytes;
-      header.CompressType = hlsl::DxilShaderSourceCompressType::None;
-
-      size_t Size = 0;
-
-      Size = SourcesPart->size();
-      SourcesPart->resize(Size + sizeof(header));
-      memcpy(SourcesPart->data()+Size, &header, sizeof(header));
-
-      Size = SourcesPart->size();
-      SourcesPart->resize(Size + UncompressedContentBuffer.size());
-      memcpy(SourcesPart->data()+Size, UncompressedContentBuffer.data(), UncompressedContentBuffer.size());
-    }
-    // dx.source.defines
-    else if (node_name == hlsl::DxilMDHelper::kDxilSourceDefinesMDName ||
-             node_name == hlsl::DxilMDHelper::kDxilSourceDefinesOldMDName)
-    {
-      DefinesPart->clear();
-      hlsl::DxilShaderCompileDefines header = {};
-      header.Count = DefinesPart->size();
-      Append(DefinesPart, &header, sizeof(header));
-
-      MDTuple *tup = cast<MDTuple>(node.getOperand(0));
-      for (unsigned i = 0; i < tup->getNumOperands(); i++) {
-        StringRef define = cast<MDString>(tup->getOperand(i))->getString();
-        Append(DefinesPart, define.data(), define.size());
-        BYTE NullTerm = 0;
-        Append(DefinesPart, &NullTerm, sizeof(NullTerm));
-      }
-
-      // Double null terminator
-      BYTE NullTerm = 0;
-      Append(DefinesPart, &NullTerm, sizeof(NullTerm));
-
-      uint32_t PaddedSize = PadToDword(DefinesPart->size());
-      for (uint32_t i = DefinesPart->size(); i < PaddedSize; i++) {
-        BYTE NullTerm = 0;
-        Append(DefinesPart, &NullTerm, sizeof(NullTerm));
-      }
-    }
-#if 0
-    // dx.source.mainFileName
-    else if (node_name == hlsl::DxilMDHelper::kDxilSourceMainFileNameMDName ||
-             node_name == hlsl::DxilMDHelper::kDxilSourceMainFileNameOldMDName)
-    {
-      MDTuple *tup = cast<MDTuple>(node.getOperand(0));
-      MDString *str = cast<MDString>(tup->getOperand(0));
-      m_MainFileName = ToWstring(str->getString());
-    }
-#endif
-    // dx.source.args
-    else if (node_name == hlsl::DxilMDHelper::kDxilSourceArgsMDName ||
-             node_name == hlsl::DxilMDHelper::kDxilSourceArgsOldMDName)
-    {
-      OptionsPart->clear();
-      hlsl::DxilShaderCompileDefines header = {};
-      header.Count = OptionsPart->size();
-      Append(OptionsPart, &header, sizeof(header));
-
-      MDTuple *tup = cast<MDTuple>(node.getOperand(0));
-      for (unsigned i = 0; i < tup->getNumOperands(); i++) {
-        StringRef define = cast<MDString>(tup->getOperand(i))->getString();
-        Append(OptionsPart, define.data(), define.size());
-        BYTE NullTerm = 0;
-        Append(OptionsPart, &NullTerm, sizeof(NullTerm));
-      }
-
-      // Double null terminator
-      BYTE NullTerm = 0;
-      Append(OptionsPart, &NullTerm, sizeof(NullTerm));
-
-      uint32_t PaddedSize = PadToDword(OptionsPart->size());
-      for (uint32_t i = OptionsPart->size(); i < PaddedSize; i++) {
-        BYTE NullTerm = 0;
-        Append(OptionsPart, &NullTerm, sizeof(NullTerm));
-      }
-    }
-  }
-}
-#endif
 
 void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
                                            AbstractMemoryStream *pModuleBitcode,
