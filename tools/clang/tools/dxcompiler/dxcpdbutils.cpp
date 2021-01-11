@@ -19,6 +19,7 @@
 #include "llvm/Support/MSFileSystem.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 
@@ -82,6 +83,21 @@ static bool ShouldIncludeInFlags(const std::wstring &str, bool *skip_next_arg) {
   return true;
 }
 
+static std::vector<std::wstring> ComputeFlagsBasedOnArgs(ArrayRef<std::wstring> args) {
+  std::vector<std::wstring> flags;
+  // Flags - which exclude entry point, target profile, and defines
+  for (unsigned i = 0; i < args.size(); i++) {
+    const std::wstring &arg = args[i];
+    bool skip_another_arg = false;
+    if (ShouldIncludeInFlags(arg, &skip_another_arg)) {
+      flags.push_back(arg);
+    }
+    if (skip_another_arg)
+      i++;
+  }
+  return flags;
+}
+
 struct DxcPdbUtils : public IDxcPdbUtils, public IDxcPixDxilDebugInfoFactory
 {
 private:
@@ -118,32 +134,6 @@ private:
     m_Name.clear();
     m_MainFileName.clear();
     m_HashBlob = nullptr;
-  }
-
-  void ComputeFlagsBasedOnArgs() {
-#if 0
-    // Flags - which exclude entry point, target profile, and defines
-    for (unsigned i = 0; i < tup->getNumOperands(); i++) {
-      StringRef arg = cast<MDString>(tup->getOperand(i))->getString();
-      bool skip_another_arg = false;
-      if (ShouldIncludeInFlags(arg, &skip_another_arg)) {
-        m_Flags.push_back(ToWstring(arg));
-      }
-      if (skip_another_arg)
-        i++;
-    }
-#else
-    // Flags - which exclude entry point, target profile, and defines
-    for (unsigned i = 0; i < m_Args.size(); i++) {
-      const std::wstring &arg = m_Args[i];
-      bool skip_another_arg = false;
-      if (ShouldIncludeInFlags(arg, &skip_another_arg)) {
-        m_Flags.push_back(arg);
-      }
-      if (skip_another_arg)
-        i++;
-    }
-#endif
   }
 
   bool HasSources() const {
@@ -245,7 +235,7 @@ private:
           StringRef arg = cast<MDString>(tup->getOperand(i))->getString();
           m_Args.push_back(ToWstring(arg));
         }
-        ComputeFlagsBasedOnArgs();
+        m_Flags = ComputeFlagsBasedOnArgs(m_Args);
       }
     }
 
@@ -265,6 +255,9 @@ private:
         const hlsl::DxilSourceInfo *header = (hlsl::DxilSourceInfo *)(part+1);
         hlsl::SourceInfoReader reader;
         reader.Read(header);
+
+        m_TargetProfile = ToWstring(reader.GetTargetProfile());
+        m_EntryPoint = ToWstring(reader.GetEntryPoint());
 
         {
           StringRef definesData = reader.GetDefines();
@@ -291,7 +284,7 @@ private:
               m_Args.push_back(ToWstring(arg, arg_len));
               arg += arg_len+1;
             }
-            ComputeFlagsBasedOnArgs();
+            m_Flags = ComputeFlagsBasedOnArgs(m_Args);
           }
         }
 
@@ -381,12 +374,13 @@ public:
       // PDB
       if (SUCCEEDED(hlsl::pdb::LoadDataFromStream(m_pMalloc, pStream, &m_ContainerBlob))) {
         IFR(HandleDxilContainer(m_ContainerBlob, &m_pDebugProgramBlob));
-        if (m_pDebugProgramBlob && !HasSources()) {
-          IFR(PopulateSourcesFromProgramHeader(m_pDebugProgramBlob));
-        }
-        else {
-          // Must have a debug program part
-          return E_FAIL;
+        if (!HasSources()) {
+          if (m_pDebugProgramBlob) {
+            IFR(PopulateSourcesFromProgramHeader(m_pDebugProgramBlob));
+          }
+          else {
+            return E_FAIL;
+          }
         }
       }
       // DXIL Container

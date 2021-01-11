@@ -150,9 +150,14 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc, IDxcBlob *pOldContainer, 
     return E_FAIL;
 
   if (pSourceInfo) {
+    const UINT32 uPartSize = pSourceInfo->SizeInDwords * sizeof(uint32_t);
+
+    OffsetTable.push_back(uTotalPartsSize);
+    uTotalPartsSize += uPartSize + sizeof(hlsl::DxilPartHeader);
+
     Part NewPart(
       hlsl::DFCC_ShaderSourceInfo,
-      pSourceInfo->SizeInDwords * sizeof(uint32_t),
+      uPartSize,
       [pSourceInfo](IStream *pStream) {
         ULONG uBytesWritten = 0;
         pStream->Write(pSourceInfo, pSourceInfo->SizeInDwords * sizeof(uint32_t), &uBytesWritten);
@@ -532,7 +537,6 @@ public:
         }
       }
 
-      bool bSlimPDB = opts.SlimDebug;
       bool isPreprocessing = !opts.Preprocess.empty();
       if (isPreprocessing) {
         DxcEtw_DXCompilerPreprocess_Start();
@@ -817,7 +821,9 @@ public:
         // Or, if there is no output pointer for the debug blob (such as when called by Compile()),
         // embed the debug info and emit a note.
         if (opts.EmbedDebugInfo()) {
-          SerializeFlags |= SerializeDxilFlags::IncludeDebugInfoPart;
+          if (!opts.SlimDebug) {
+            SerializeFlags |= SerializeDxilFlags::IncludeDebugInfoPart;
+          }
         }
         if (opts.DebugNameForSource) {
           // Implies name part
@@ -836,9 +842,6 @@ public:
         if (opts.StripRootSignature) {
           SerializeFlags |= SerializeDxilFlags::StripRootSignature;
         }
-        if (bSlimPDB) {
-          SerializeFlags |= SerializeDxilFlags::UseSlimPDB;
-        }
 
         // Don't do work to put in a container if an error has occurred
         // Do not create a container when there is only a a high-level representation in the module.
@@ -850,8 +853,13 @@ public:
           IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pRootSigStream));
 
           // Create the shader source information
-          debugSourceInfoWriter.Write(compiler.getCodeGenOpts(), compiler.getSourceManager());
-          const hlsl::DxilSourceInfo *sourceInfoPart = debugSourceInfoWriter.GetPart();
+          const hlsl::DxilSourceInfo *sourceInfoPart = nullptr;
+          if (opts.IsDebugInfoEnabled() && !opts.LegacyDebug) { // If we are using legacy PDB, do not generate it at all
+            debugSourceInfoWriter.Write(opts.TargetProfile, opts.EntryPoint, compiler.getCodeGenOpts(), compiler.getSourceManager());
+            if (opts.EmbedDebugInfo()) { // Pass this into assembler only if we're embedding debug info.
+              sourceInfoPart = debugSourceInfoWriter.GetPart();
+            }
+          }
 
           dxcutil::AssembleInputs inputs(
                 action.takeModule(), pOutputBlob, m_pMalloc, SerializeFlags,
@@ -938,8 +946,13 @@ public:
         CComPtr<IDxcBlob> pStrippedContainer;
 
         // If we have the shader source info, don't
-        const hlsl::DxilSourceInfo *pSourceInfo = debugSourceInfoWriter.GetPart();
-        if (bSlimPDB) {
+        const hlsl::DxilSourceInfo *pSourceInfo = nullptr;
+        if (!opts.LegacyDebug) {
+          pSourceInfo = debugSourceInfoWriter.GetPart();
+        }
+
+        // Don't include the debug part if using slim PDB
+        if (opts.SlimDebug) {
           assert(pSourceInfo);
           pDebugBlob = nullptr;
         }
@@ -1081,14 +1094,14 @@ public:
     if (Opts.IsDebugInfoEnabled()) {
       CodeGenOptions &CGOpts = compiler.getCodeGenOpts();
       // HLSL Change - begin
-      if (Opts.FullDebug)
+      if (!Opts.SlimDebug)
         CGOpts.setDebugInfo(CodeGenOptions::FullDebugInfo);
 
       {
         unsigned Major = 0;
         unsigned Minor = 0;
         dxcutil::GetValidatorVersion(&Major, &Minor);
-        if (!hlsl::dxilutil::ValidatorSupportsSlimPDB(Major, Minor)) {
+        if (Opts.LegacyDebug || !hlsl::dxilutil::ValidatorSupportsSourceInfoPart(Major, Minor)) {
           CGOpts.setDebugInfo(CodeGenOptions::FullDebugInfo);
           CGOpts.HLSLEmbedSourcesInModule = true;
         }

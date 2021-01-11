@@ -815,6 +815,10 @@ HRESULT dxil_dia::hlsl_symbols::CompilandEnvSymbol::CreateFlags(IMalloc *pMalloc
   IFR(AllocAndInit(pMalloc, pSession, HlslCompilandEnvFlagsId, SymTagCompilandEnv, (CompilandEnvSymbol**)ppSym));
   (*ppSym)->SetName(L"hlslFlags");
 
+  // In the new format, these metadata don't necessarily exist anymore.
+  if (!pSession->Arguments())
+    return S_OK;
+
   const char *specialCases[] = { "/T", "-T", "-D", "/D", "-E", "/E", };
 
   llvm::MDNode *argsNode = pSession->Arguments()->getOperand(0);
@@ -873,6 +877,10 @@ HRESULT dxil_dia::hlsl_symbols::CompilandEnvSymbol::CreateEntry(IMalloc *pMalloc
 HRESULT dxil_dia::hlsl_symbols::CompilandEnvSymbol::CreateDefines(IMalloc *pMalloc, Session *pSession, Symbol **ppSym) {
   IFR(AllocAndInit(pMalloc, pSession, HlslCompilandEnvDefinesId, SymTagCompilandEnv, (CompilandEnvSymbol**)ppSym));
   (*ppSym)->SetName(L"hlslDefines");
+
+  if (!pSession->Defines())
+    return S_OK;
+
   llvm::MDNode *definesNode = pSession->Defines()->getOperand(0);
   // Construct a double null terminated string for defines with L"\0" as a delimiter
   CComBSTR pBSTR;
@@ -894,6 +902,8 @@ HRESULT dxil_dia::hlsl_symbols::CompilandEnvSymbol::CreateDefines(IMalloc *pMall
 HRESULT dxil_dia::hlsl_symbols::CompilandEnvSymbol::CreateArguments(IMalloc *pMalloc, Session *pSession, Symbol **ppSym) {
   IFR(AllocAndInit(pMalloc, pSession, HlslCompilandEnvArgumentsId, SymTagCompilandEnv, (CompilandEnvSymbol**)ppSym));
   (*ppSym)->SetName(L"hlslArguments");
+  if (!pSession->Arguments())
+    return S_OK;
   auto Arguments = pSession->Arguments()->getOperand(0);
   auto NumArguments = Arguments->getNumOperands();
   std::string args;

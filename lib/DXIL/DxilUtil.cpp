@@ -1159,11 +1159,11 @@ void ReplaceRawBufferStore64Bit(llvm::Function *F, llvm::Type *ETy, hlsl::OP *hl
   }
 }
 
-bool ValidatorSupportsSlimPDB(unsigned Major, unsigned Minor) {
+bool ValidatorSupportsSourceInfoPart(unsigned Major, unsigned Minor) {
   return DXIL::CompareVersions(Major, Minor, 1, 6) >= 0;
 }
 
-bool ValidatorSupportsVersion(unsigned Major, unsigned Minor) {
+bool ValidatorSupportsCompilerVersionPart(unsigned Major, unsigned Minor) {
   return DXIL::CompareVersions(Major, Minor, 1, 6) >= 0;
 }
 

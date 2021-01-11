@@ -244,10 +244,10 @@ struct DxilCompilerVersion {
 //
 // ================ 1. Sources ==================================
 // 
-//   DxilShaderSources
-//   char Data[SizeInBytes]
+//  DxilSourceInfo_Sources
+//    char Data[SizeInBytes]
 //   
-//  `Data` may be compressed. When uncompressed, this is the structure:
+// `Data` may be compressed. When uncompressed, this is the structure:
 //
 //   DxilShaderSourcesElement
 //   char Name   [ NameSize ]    + NullTerminator
@@ -268,22 +268,31 @@ struct DxilCompilerVersion {
 //
 // ================ 2. Defines ==================================
 //
-//   DxilShaderCompileOptions
-//     char Definition[] + NullTerminator
-//     char Definition[] + NullTerminator
+//   DxilSourceInfo_Options
+//     char Define[] + NullTerminator
+//     char Define[] + NullTerminator
 //       ...
-//     char Definition[] + NullTerminator
+//     char Define[] + NullTerminator
 //     NullTerminator (to mark no more options)
 //
 // ================ 3. Args ==================================
 //
-//   DxilShaderCompileOptions
+//   DxilSourceInfo_Options
 //     char Arg[] + NullTerminator
 //     char Arg[] + NullTerminator
 //       ...
 //     char Arg[] + NullTerminator
 //     NullTerminator (to mark no more options)
 //
+// ================ 4. Target Profile ==================================
+//
+//   DxilSourceInfo_String
+//     char TargetProfile[] + NullTerminator
+//
+// ================ 5. Entry Point Name ==================================
+//
+//   DxilSourceInfo_String
+//     char EntryPoint[] + NullTerminator
 //
 
 struct DxilSourceInfo {
@@ -296,17 +305,24 @@ enum class DxilSourceInfoElementType : uint16_t {
   Sources,
   Defines,
   Args,
+  TargetProfile,
+  EntryPoint,
 };
 
 struct DxilShaderSourceInfoElement {
   uint16_t Flags;                   // Reserved, must be set to zero.
   DxilSourceInfoElementType Type;   // The type of data following this header.
-  uint32_t SizeInDwords;            // Size of the element, including this header
+  uint32_t SizeInDwords;            // Size of the element, including this header, and the padding
 };
 
 struct DxilSourceInfo_Options {
   uint16_t Flags;       // Reserved, must be set to zero.
   uint16_t SizeInBytes; // Length of all options, including the double null terminator, not including this header.
+};
+
+struct DxilSourceInfo_String {
+  uint16_t Flags;       // Reserved, must be set to zero.
+  uint16_t SizeInBytes; // Length of the string, not including null terminator
 };
 
 enum class DxilSourceInfo_SourcesCompressType : uint16_t {
@@ -530,7 +546,6 @@ enum class SerializeDxilFlags : uint32_t {
   StripReflectionFromDxilPart = 1 << 3, // Strip Reflection info from DXIL part.
   IncludeReflectionPart       = 1 << 4, // Include reflection in STAT part.
   StripRootSignature          = 1 << 5, // Strip Root Signature from main shader container.
-  UseSlimPDB                  = 1 << 6, // Don't include debug program in the container.
 };
 inline SerializeDxilFlags& operator |=(SerializeDxilFlags& l, const SerializeDxilFlags& r) {
   l = static_cast<SerializeDxilFlags>(static_cast<int>(l) | static_cast<int>(r));

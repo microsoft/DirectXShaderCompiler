@@ -46,9 +46,13 @@ struct SourceInfoReader {
   std::vector<Source> m_Sources;
   llvm::StringRef m_Defines;
   llvm::StringRef m_Args;
+  llvm::StringRef m_TargetProfile;
+  llvm::StringRef m_EntryPoint;
 
   llvm::StringRef GetArgs() const;
   llvm::StringRef GetDefines() const;
+  llvm::StringRef GetTargetProfile() const { return m_TargetProfile; }
+  llvm::StringRef GetEntryPoint() const { return m_EntryPoint; }
   Source GetSource(unsigned i) const;
   unsigned GetSourcesCount() const;
   void Read(const hlsl::DxilSourceInfo *SourceInfo);
@@ -60,7 +64,7 @@ struct SourceInfoWriter {
   Buffer m_Buffer;
 
   const hlsl::DxilSourceInfo *GetPart() const;
-  void Write(clang::CodeGenOptions &cgOpts, clang::SourceManager &srcMgr);
+  void Write(llvm::StringRef targetProfile, llvm::StringRef entryPoint, clang::CodeGenOptions &cgOpts, clang::SourceManager &srcMgr);
 };
 
 } // namespace hlsl;

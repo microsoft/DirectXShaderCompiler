@@ -1714,10 +1714,8 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   bool bCompat_1_4 = DXIL::CompareVersions(ValMajor, ValMinor, 1, 5) < 0;
   bool bEmitReflection = Flags & SerializeDxilFlags::IncludeReflectionPart ||
                          pReflectionStreamOut;
-  bool bEmitVersion = dxilutil::ValidatorSupportsVersion(ValMajor, ValMinor);
-
-  bool bSupportSlimPDB = dxilutil::ValidatorSupportsSlimPDB(ValMajor, ValMinor);
-  bool bUseSlimPDB = bSupportSlimPDB && (Flags & SerializeDxilFlags::UseSlimPDB);
+  bool bEmitVersionPart = dxilutil::ValidatorSupportsCompilerVersionPart(ValMajor, ValMinor);
+  bool bSupportSourceInfoPart = dxilutil::ValidatorSupportsSourceInfoPart(ValMajor, ValMinor);
 
   DxilContainerWriter_impl writer;
 
@@ -1814,7 +1812,7 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
 
   DxilCompilerVersion VersionHeader = {};
   CComHeapPtr<char> CommitVersionHash;
-  if (bEmitVersion && pVersionInfo) {
+  if (bEmitVersionPart && pVersionInfo) {
     UINT32 Major = 0, Minor = 0;
     IFT(pVersionInfo->GetVersion(&Major, &Minor));
 
@@ -1845,14 +1843,12 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
 
   bool bHasDebugInfo = HasDebugInfo(*pModule->GetModule());
   // This block of code only runs if we support slim PDB.
-  if (bHasDebugInfo & bSupportSlimPDB) {
-    if (Flags & SerializeDxilFlags::IncludeDebugInfoPart) {
-      if (ShaderSourceInfo) {
-        writer.AddPart(DFCC_ShaderSourceInfo, ShaderSourceInfo->SizeInDwords * sizeof(uint32_t), [ShaderSourceInfo](AbstractMemoryStream *pStream) {
-          ULONG cbWritten = 0;
-          IFT(pStream->Write(ShaderSourceInfo, ShaderSourceInfo->SizeInDwords * sizeof(uint32_t), &cbWritten));
-        });
-      }
+  if (bSupportSourceInfoPart) {
+    if (ShaderSourceInfo) {
+      writer.AddPart(DFCC_ShaderSourceInfo, ShaderSourceInfo->SizeInDwords * sizeof(uint32_t), [ShaderSourceInfo](AbstractMemoryStream *pStream) {
+        ULONG cbWritten = 0;
+        IFT(pStream->Write(ShaderSourceInfo, ShaderSourceInfo->SizeInDwords * sizeof(uint32_t), &cbWritten));
+      });
     }
   }
 
@@ -1870,13 +1866,11 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   CComPtr<AbstractMemoryStream> pProgramStream = pInputProgramStream;
   if (bHasDebugInfo) {
     if (Flags & SerializeDxilFlags::IncludeDebugInfoPart) {
-      if (!bUseSlimPDB) {
-        uint32_t debugInUInt32, debugPaddingBytes;
-        GetPaddedProgramPartSize(pInputProgramStream, debugInUInt32, debugPaddingBytes);
-        writer.AddPart(DFCC_ShaderDebugInfoDXIL, debugInUInt32 * sizeof(uint32_t) + sizeof(DxilProgramHeader), [&](AbstractMemoryStream *pStream) {
-          WriteProgramPart(pModule->GetShaderModel(), pInputProgramStream, pStream);
-        });
-      }
+      uint32_t debugInUInt32, debugPaddingBytes;
+      GetPaddedProgramPartSize(pInputProgramStream, debugInUInt32, debugPaddingBytes);
+      writer.AddPart(DFCC_ShaderDebugInfoDXIL, debugInUInt32 * sizeof(uint32_t) + sizeof(DxilProgramHeader), [&](AbstractMemoryStream *pStream) {
+        WriteProgramPart(pModule->GetShaderModel(), pInputProgramStream, pStream);
+      });
     }
 
     llvm::StripDebugInfo(*pModule->GetModule());
