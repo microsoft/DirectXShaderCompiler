@@ -215,6 +215,8 @@ static const size_t MinDxilShaderDebugNameSize = sizeof(DxilShaderDebugName) + 4
 struct DxilCompilerVersion {
   uint16_t Major;
   uint16_t Minor;
+  uint32_t VersionFlags;
+  uint32_t CommitCount;
   uint32_t VersionStringLength;
   // Followed by CommitStringLength bytes of the version string.
   // Followed by a null terminator.

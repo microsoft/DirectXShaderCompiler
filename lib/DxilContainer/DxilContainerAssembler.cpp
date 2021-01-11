@@ -1814,15 +1814,19 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   CComHeapPtr<char> CommitVersionHash;
   if (bEmitVersionPart && pVersionInfo) {
     UINT32 Major = 0, Minor = 0;
+    UINT32 Flags = 0;
     IFT(pVersionInfo->GetVersion(&Major, &Minor));
+    IFT(pVersionInfo->GetFlags(&Flags));
 
     VersionHeader.Major = Major;
     VersionHeader.Minor = Minor;
+    VersionHeader.VersionFlags = Flags;
     CComPtr<IDxcVersionInfo2> pVersionInfo2;
     if (SUCCEEDED(pVersionInfo->QueryInterface(&pVersionInfo2))) {
       UINT32 CommitCount = 0;
       IFT(pVersionInfo2->GetCommitInfo(&CommitCount, &CommitVersionHash));
       VersionHeader.VersionStringLength = strlen(CommitVersionHash.m_pData);
+      VersionHeader.CommitCount = CommitCount;
     }
 
     uint32_t size = sizeof(VersionHeader) + (VersionHeader.VersionStringLength > 0 ? VersionHeader.VersionStringLength+1 : 0);

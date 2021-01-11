@@ -983,12 +983,63 @@ static void VerifyPdbUtil(
     llvm::ArrayRef<const WCHAR *> ExpectedArgs,
     llvm::ArrayRef<const WCHAR *> ExpectedFlags,
     llvm::ArrayRef<const WCHAR *> ExpectedDefines,
+    IDxcCompiler *pCompiler,
+    bool HasVersion,
     bool IsFullPDB,
     bool HasHashAndPdbName,
     const std::string &main_source,
     const std::string &included_File)
 {
   VERIFY_SUCCEEDED(pPdbUtils->Load(pBlob));
+
+  // Compiler version comparison
+  if (!HasVersion) {
+    CComPtr<IDxcVersionInfo> pVersion;
+    VERIFY_FAILED(pPdbUtils->GetVersionInfo(&pVersion));
+  }
+  else {
+    CComPtr<IDxcVersionInfo> pVersion;
+    VERIFY_SUCCEEDED(pPdbUtils->GetVersionInfo(&pVersion));
+
+    CComPtr<IDxcVersionInfo2> pVersion2;
+    VERIFY_IS_NOT_NULL(pVersion);
+    VERIFY_SUCCEEDED(pVersion.QueryInterface(&pVersion2));
+
+    CComPtr<IDxcVersionInfo> pCompilerVersion;
+    pCompiler->QueryInterface(&pCompilerVersion);
+
+    if (pCompilerVersion) {
+      UINT32 uCompilerMajor = 0;
+      UINT32 uCompilerMinor = 0;
+      UINT32 uCompilerFlags = 0;
+      VERIFY_SUCCEEDED(pCompilerVersion->GetVersion(&uCompilerMajor, &uCompilerMinor));
+      VERIFY_SUCCEEDED(pCompilerVersion->GetFlags(&uCompilerFlags));
+
+      UINT32 uMajor = 0;
+      UINT32 uMinor = 0;
+      UINT32 uFlags = 0;
+      VERIFY_SUCCEEDED(pVersion->GetVersion(&uMajor, &uMinor));
+      VERIFY_SUCCEEDED(pVersion->GetFlags(&uFlags));
+
+      VERIFY_ARE_EQUAL(uMajor, uCompilerMajor);
+      VERIFY_ARE_EQUAL(uMinor, uCompilerMinor);
+      VERIFY_ARE_EQUAL(uFlags, uCompilerFlags);
+
+      CComPtr<IDxcVersionInfo2> pCompilerVersion2;
+      if (SUCCEEDED(pCompiler->QueryInterface(&pCompilerVersion2))) {
+        UINT32 uCompilerCommitCount = 0;
+        CComHeapPtr<char> CompilerCommitVersionHash;
+        VERIFY_SUCCEEDED(pCompilerVersion2->GetCommitInfo(&uCompilerCommitCount, &CompilerCommitVersionHash));
+
+        UINT32 uCommitCount = 0;
+        CComHeapPtr<char> CommitVersionHash;
+        VERIFY_SUCCEEDED(pVersion2->GetCommitInfo(&uCommitCount, &CommitVersionHash));
+
+        VERIFY_IS_TRUE(0 == strcmp(CommitVersionHash, CompilerCommitVersionHash));
+        VERIFY_ARE_EQUAL(uCommitCount, uCompilerCommitCount);
+      }
+    }
+  }
 
   // Target profile
   {
@@ -1259,19 +1310,25 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bLegacy) {
 
     VerifyPdbUtil(pProgramHeaderBlob, pPdbUtils,
       expectedArgs, expectedFlags, expectedDefines,
-      /*IsFullPDB*/false,
+      pCompiler,
+      /*HasVersion*/ false,
+      /*IsFullPDB*/ false,
       /*hasHasAndPDBName*/false,
       main_source, included_File);
   }
 
   VerifyPdbUtil(pCompiledBlob, pPdbUtils,
     expectedArgs, expectedFlags, expectedDefines,
+    pCompiler,
+    /*HasVersion*/ true,
     /*IsFullPDB*/ !bSlim,
     /*hasHasAndPDBName*/true,
     main_source, included_File);
 
   VerifyPdbUtil(pPdbBlob, pPdbUtils,
     expectedArgs, expectedFlags, expectedDefines,
+    pCompiler,
+    /*HasVersion*/ true,
     /*IsFullPDB*/ !bSlim,
     /*hasHasAndPDBName*/true,
     main_source, included_File);

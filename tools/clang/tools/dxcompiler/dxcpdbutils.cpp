@@ -98,6 +98,62 @@ static std::vector<std::wstring> ComputeFlagsBasedOnArgs(ArrayRef<std::wstring> 
   return flags;
 }
 
+struct DxcPdbVersionInfo : public IDxcVersionInfo2 {
+private:
+  DXC_MICROCOM_TM_REF_FIELDS()
+
+public:
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
+  DXC_MICROCOM_TM_ALLOC(DxcPdbVersionInfo)
+
+  DxcPdbVersionInfo(IMalloc *pMalloc) : m_dwRef(0), m_pMalloc(pMalloc) {}
+
+  UINT32 m_Major = 0;
+  UINT32 m_Minor = 0;
+  std::string m_Hash;
+  UINT32 m_Flags = 0;
+  UINT32 m_CommitCount = 0;
+
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
+    return DoBasicQueryInterface<IDxcVersionInfo, IDxcVersionInfo2>(this, iid, ppvObject);
+  }
+
+  virtual HRESULT STDMETHODCALLTYPE GetVersion(_Out_ UINT32 *pMajor, _Out_ UINT32 *pMinor) override {
+    if (!pMajor || !pMinor)
+      return E_POINTER;
+    *pMajor = m_Major;
+    *pMinor = m_Minor;
+    return S_OK;
+  }
+
+  virtual HRESULT STDMETHODCALLTYPE GetFlags(_Out_ UINT32 *pFlags) {
+    if (!pFlags) return E_POINTER;
+    *pFlags = m_Flags;
+    return S_OK;
+  }
+
+  virtual HRESULT STDMETHODCALLTYPE GetCommitInfo(_Out_ UINT32 *pCommitCount, _Out_ char **pCommitHash) {
+    if (!pCommitHash)
+      return E_POINTER;
+
+    *pCommitHash = nullptr;
+    if (!m_Hash.size()) {
+      return S_OK;
+    }
+
+    char *const hash = (char *)CoTaskMemAlloc(m_Hash.size() + 1);
+    if (hash == nullptr)
+      return E_OUTOFMEMORY;
+    std::memcpy(hash, m_Hash.data(), m_Hash.size());
+    hash[m_Hash.size()] = 0;
+
+    *pCommitHash = hash;
+    *pCommitCount = m_CommitCount;
+
+    return S_OK;
+  }
+};
+
 struct DxcPdbUtils : public IDxcPdbUtils, public IDxcPixDxilDebugInfoFactory
 {
 private:
@@ -120,6 +176,9 @@ private:
   std::wstring m_Name;
   std::wstring m_MainFileName;
   CComPtr<IDxcBlob> m_HashBlob;
+  bool m_HasVersionInfo = false;
+  hlsl::DxilCompilerVersion m_VersionInfo;
+  std::string m_VersionCommitHash;
 
   void Reset() {
     m_pDebugProgramBlob = nullptr;
@@ -134,6 +193,9 @@ private:
     m_Name.clear();
     m_MainFileName.clear();
     m_HashBlob = nullptr;
+    m_HasVersionInfo = false;
+    m_VersionInfo = {};
+    m_VersionCommitHash.clear();
   }
 
   bool HasSources() const {
@@ -249,6 +311,17 @@ private:
       hlsl::DxilFourCC four_cc = (hlsl::DxilFourCC)part->PartFourCC;
 
       switch (four_cc) {
+
+      case hlsl::DFCC_CompilerVersion:
+      {
+        const hlsl::DxilCompilerVersion *header = (hlsl::DxilCompilerVersion *)(part+1);
+        m_HasVersionInfo = true;
+        memcpy(&m_VersionInfo, header, sizeof(m_VersionInfo));
+        m_VersionCommitHash.resize(header->VersionStringLength);
+
+        const char *hash = (char *)(header+1);
+        memcpy(&m_VersionCommitHash[0], hash, header->VersionStringLength);
+      } break;
 
       case hlsl::DFCC_ShaderSourceInfo:
       {
@@ -366,8 +439,7 @@ public:
 
     m_InputBlob = pPdbOrDxil;
 
-    // Right now, what we do here is just to support the current PDB formats.
-    {
+    try {
       CComPtr<IStream> pStream;
       IFR(hlsl::CreateReadOnlyBlobStream(pPdbOrDxil, &pStream));
 
@@ -405,7 +477,10 @@ public:
         return E_INVALIDARG;
       }
     }
-
+    catch (std::bad_alloc) {
+      Reset();
+      return E_OUTOFMEMORY;
+    }
 
     return S_OK;
   }
@@ -510,6 +585,27 @@ public:
       _COM_Outptr_ IDxcPixCompilationInfo **ppCompilationInfo) override
   {
     return E_NOTIMPL;
+  }
+
+  virtual HRESULT STDMETHODCALLTYPE GetVersionInfo(_COM_Outptr_ IDxcVersionInfo **ppVersionInfo) {
+    if (!ppVersionInfo)
+      return E_POINTER;
+
+    *ppVersionInfo = nullptr;
+    if (!m_HasVersionInfo)
+      return E_FAIL;
+
+    CComPtr<DxcPdbVersionInfo> result = CreateOnMalloc<DxcPdbVersionInfo>(m_pMalloc);
+    if (result == nullptr) {
+      return E_OUTOFMEMORY;
+    }
+    result->m_CommitCount = m_VersionInfo.CommitCount;
+    result->m_Major = m_VersionInfo.Major;
+    result->m_Minor = m_VersionInfo.Minor;
+    result->m_Flags = m_VersionInfo.VersionFlags;
+    result->m_Hash = m_VersionCommitHash;
+    *ppVersionInfo = result.Detach();
+    return S_OK;
   }
 };
 
