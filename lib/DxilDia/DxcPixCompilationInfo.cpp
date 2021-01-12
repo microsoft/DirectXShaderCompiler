@@ -139,7 +139,7 @@ CompilationInfo::GetSourceFile(_In_ DWORD SourceFileOrdinal,
   }
 
   llvm::MDTuple *FileTuple =
-      llvm::cast_or_null<llvm::MDTuple>(m_contents->getOperand(SourceFileOrdinal));
+      llvm::cast<llvm::MDTuple>(m_contents->getOperand(SourceFileOrdinal));
 
   MDStringOperandToBSTR(FileTuple->getOperand(0), pSourceName);
   MDStringOperandToBSTR(FileTuple->getOperand(1), pSourceContents);
@@ -196,8 +196,6 @@ STDMETHODIMP CompilationInfo::GetArguments(_Outptr_result_z_ BSTR *pArguments) {
 STDMETHODIMP CompilationInfo::GetMacroDefinitions(
     _Outptr_result_z_ BSTR *pMacroDefinitions) {
   llvm::MDNode *definesNode = m_defines->getOperand(0);
-  if (!definesNode)
-    return E_FAIL;
   // Concatenate definitions into one string separated by spaces
   CComBSTR pBSTR;
   for (llvm::MDNode::op_iterator it = definesNode->op_begin();
