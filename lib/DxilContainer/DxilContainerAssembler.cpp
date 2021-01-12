@@ -1720,7 +1720,6 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
     });
   }
 
-  bool bHasDebugInfo = HasDebugInfo(*pModule->GetModule());
   // This block of code only runs if we support slim PDB.
   if (bSupportSourceInfoPart) {
     if (ShaderSourceInfo) {
@@ -1740,9 +1739,10 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
     WriteBitcodeToFile(pModule->GetModule(), outStream, true);
   }
 
-  bool bModuleStripped = false;
   // If we have debug information present, serialize it to a debug part, then use the stripped version as the canonical program version.
   CComPtr<AbstractMemoryStream> pProgramStream = pInputProgramStream;
+  bool bModuleStripped = false;
+  bool bHasDebugInfo = HasDebugInfo(*pModule->GetModule());
   if (bHasDebugInfo) {
     if (Flags & SerializeDxilFlags::IncludeDebugInfoPart) {
       uint32_t debugInUInt32, debugPaddingBytes;
