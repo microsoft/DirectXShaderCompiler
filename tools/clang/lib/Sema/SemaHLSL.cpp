@@ -11989,18 +11989,17 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
          "otherwise this is called without checking language first");
 
   // NOTE: some tests may declare templates.
-  if (DC->isNamespace() || DC->isDependentContext()) return true;
+  if (DC->isDependentContext()) return true;
 
   DeclSpec::SCS storage = D.getDeclSpec().getStorageClassSpec();
   assert(!DC->isClosure() && "otherwise parser accepted closure syntax instead of failing with a syntax error");
   assert(!DC->isDependentContext() && "otherwise parser accepted a template instead of failing with a syntax error");
-  assert(!DC->isNamespace() && "otherwise parser accepted a namespace instead of failing a syntax error");
 
   bool result = true;
   bool isTypedef = storage == DeclSpec::SCS_typedef;
   bool isFunction = D.isFunctionDeclarator() && !DC->isRecord();
   bool isLocalVar = DC->isFunctionOrMethod() && !isFunction && !isTypedef;
-  bool isGlobal = !isParameter && !isTypedef && !isFunction && (DC->isTranslationUnit() || DC->getDeclKind() == Decl::HLSLBuffer);
+  bool isGlobal = !isParameter && !isTypedef && !isFunction && (DC->isTranslationUnit() || DC->isNamespace() || DC->getDeclKind() == Decl::HLSLBuffer);
   bool isMethod = DC->isRecord() && D.isFunctionDeclarator() && !isTypedef;
   bool isField = DC->isRecord() && !D.isFunctionDeclarator() && !isTypedef;
 
