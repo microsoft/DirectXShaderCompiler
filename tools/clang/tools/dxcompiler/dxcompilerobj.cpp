@@ -945,7 +945,6 @@ public:
         IFT(pOutputStream.QueryInterface(&pDebugBlob));
         CComPtr<IDxcBlob> pStrippedContainer;
 
-        // If we have the shader source info, don't
         const hlsl::DxilSourceInfo *pSourceInfo = nullptr;
         if (!opts.LegacyDebug) {
           pSourceInfo = debugSourceInfoWriter.GetPart();
