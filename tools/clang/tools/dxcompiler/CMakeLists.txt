@@ -72,6 +72,7 @@ set(SOURCES
   dxcpdbutils.cpp
   dxillib.cpp
   dxcvalidator.cpp
+  dxcshadersourceinfo.cpp
   miniz.c
 )
 set (HLSL_IGNORE_SOURCES
