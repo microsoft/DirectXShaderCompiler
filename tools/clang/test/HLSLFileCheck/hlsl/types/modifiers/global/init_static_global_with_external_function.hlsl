@@ -1,5 +1,5 @@
 // RUN: %dxc -E main -T lib_6_3 %s | FileCheck %s
-// CHECK:Initialize static global g with external function is not supported
+// CHECK:Initializer for static global g makes disallowed call to external function.
 
 float foo();
 

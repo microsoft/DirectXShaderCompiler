@@ -2314,25 +2314,57 @@ void CallCtorFunctionsAtInsertPt(llvm::Module &M,
   }
 }
 
+void CollectFunctionCallers(Function *F, DenseSet<Function *> &Callers,
+                            DenseSet<Function *> &ProcessedCallers) {
+  if (ProcessedCallers.count(F) > 0)
+    return;
+
+  for (User *U : F->users()) {
+    CallInst *CI = dyn_cast<CallInst>(U);
+    if (!CI)
+      continue;
+
+    Function *Caller = CI->getParent()->getParent();
+    Callers.insert(Caller);
+  }
+
+  ProcessedCallers.insert(F);
+  for (User *U : F->users()) {
+    CallInst *CI = dyn_cast<CallInst>(U);
+    if (!CI)
+      continue;
+    // Add Caller's Caller.
+    Function *Caller = CI->getParent()->getParent();
+    CollectFunctionCallers(Caller, Callers, ProcessedCallers);
+  }
+}
+
+DenseSet<Function *> CollectExternalFunctionCallers(Module &M) {
+  DenseSet<Function *> Callers;
+  DenseSet<Function *> ProcessedCallers;
+
+  for (Function &F : M) {
+    if (F.isIntrinsic())
+      continue;
+    if (!F.isDeclaration())
+      continue;
+
+    if (hlsl::GetHLOpcodeGroup(&F) != hlsl::HLOpcodeGroup::NotHL)
+      continue;
+    // Find an external function.
+    // Add users to Callers.
+    CollectFunctionCallers(&F, Callers, ProcessedCallers);
+  }
+  return Callers;
+}
+
 // If static initializers contain calls to external functions, this can
 // introduce inter-module init function ordering dependencies.  Some
 // dependencies may even introduce contradictions.  Creating and implementing an
 // intuitive standard approach to solve this is likely quite difficult.  Better
 // to disallow the ambiguous and unlikely case for now.
-bool IsValidCtorFunction(Function *F) {
-  for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
-    if (CallInst *CI = dyn_cast<CallInst>(&(*I))) {
-      Function *Callee = CI->getCalledFunction();
-      if (Callee->isIntrinsic())
-        continue;
-      if (!Callee->isDeclaration())
-        continue;
-      if (hlsl::GetHLOpcodeGroup(Callee) != hlsl::HLOpcodeGroup::NotHL)
-        continue;
-      return false;
-    }
-  }
-  return true;
+bool IsValidCtorFunction(Function *F, DenseSet<Function *> &Callers) {
+  return Callers.count(F) == 0;
 }
 
 void ReportInitStaticGlobalWithExternalFunction(
@@ -2340,7 +2372,7 @@ void ReportInitStaticGlobalWithExternalFunction(
   clang::DiagnosticsEngine &Diags = CGM.getDiags();
   unsigned DiagID = Diags.getCustomDiagID(
       clang::DiagnosticsEngine::Error,
-      "Initialize static global %0 with external function is not supported.");
+      "Initializer for static global %0 makes disallowed call to external function.");
   std::string escaped;
   llvm::raw_string_ostream os(escaped);
   size_t end = name.find_first_of('@');
@@ -2368,6 +2400,8 @@ void CollectCtorFunctions(llvm::Module &M, llvm::StringRef globalName,
   if (!CA)
     return;
 
+  DenseSet<Function *> Callers = CollectExternalFunctionCallers(M);
+
   for (User::op_iterator i = CA->op_begin(), e = CA->op_end(); i != e; ++i) {
     if (isa<ConstantAggregateZero>(*i))
       continue;
@@ -2388,7 +2422,7 @@ void CollectCtorFunctions(llvm::Module &M, llvm::StringRef globalName,
         // Try to build imm initilizer.
         // If not work, add global call to entry func.
         if (BuildImmInit(F) == false) {
-          if (IsValidCtorFunction(F)) {
+          if (IsValidCtorFunction(F, Callers)) {
             Ctors.emplace_back(F);
           } else {
             ReportInitStaticGlobalWithExternalFunction(CGM, F->getName());
