@@ -125,11 +125,7 @@ public:
 
   DxcPdbVersionInfo(IMalloc *pMalloc) : m_dwRef(0), m_pMalloc(pMalloc) {}
 
-  UINT32 m_Major = 0;
-  UINT32 m_Minor = 0;
-  std::string m_Hash;
-  UINT32 m_Flags = 0;
-  UINT32 m_CommitCount = 0;
+  hlsl::DxilCompilerVersion m_Version = {};
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
     return DoBasicQueryInterface<IDxcVersionInfo, IDxcVersionInfo2>(this, iid, ppvObject);
@@ -138,14 +134,14 @@ public:
   virtual HRESULT STDMETHODCALLTYPE GetVersion(_Out_ UINT32 *pMajor, _Out_ UINT32 *pMinor) override {
     if (!pMajor || !pMinor)
       return E_POINTER;
-    *pMajor = m_Major;
-    *pMinor = m_Minor;
+    *pMajor = m_Version.Major;
+    *pMinor = m_Version.Minor;
     return S_OK;
   }
 
   virtual HRESULT STDMETHODCALLTYPE GetFlags(_Out_ UINT32 *pFlags) {
     if (!pFlags) return E_POINTER;
-    *pFlags = m_Flags;
+    *pFlags = m_Version.VersionFlags;
     return S_OK;
   }
 
@@ -154,18 +150,15 @@ public:
       return E_POINTER;
 
     *pCommitHash = nullptr;
-    if (!m_Hash.size()) {
-      return S_OK;
-    }
 
-    char *const hash = (char *)CoTaskMemAlloc(m_Hash.size() + 1);
+    char *const hash = (char *)CoTaskMemAlloc(sizeof(m_Version.CommitSha) + 1);
     if (hash == nullptr)
       return E_OUTOFMEMORY;
-    std::memcpy(hash, m_Hash.data(), m_Hash.size());
-    hash[m_Hash.size()] = 0;
+    std::memcpy(hash, m_Version.CommitSha, sizeof(m_Version.CommitSha));
+    hash[sizeof(m_Version.CommitSha)] = 0;
 
     *pCommitHash = hash;
-    *pCommitCount = m_CommitCount;
+    *pCommitCount = m_Version.CommitCount;
 
     return S_OK;
   }
@@ -234,7 +227,6 @@ private:
   CComPtr<IDxcBlob> m_HashBlob;
   bool m_HasVersionInfo = false;
   hlsl::DxilCompilerVersion m_VersionInfo;
-  std::string m_VersionCommitHash;
 
   void Reset() {
     m_pDebugProgramBlob = nullptr;
@@ -251,7 +243,6 @@ private:
     m_HashBlob = nullptr;
     m_HasVersionInfo = false;
     m_VersionInfo = {};
-    m_VersionCommitHash.clear();
   }
 
   bool HasSources() const {
@@ -379,10 +370,6 @@ private:
         const hlsl::DxilCompilerVersion *header = (hlsl::DxilCompilerVersion *)(part+1);
         m_HasVersionInfo = true;
         memcpy(&m_VersionInfo, header, sizeof(m_VersionInfo));
-        m_VersionCommitHash.resize(header->VersionStringLength);
-
-        const char *hash = (char *)(header+1);
-        memcpy(&m_VersionCommitHash[0], hash, header->VersionStringLength);
       } break;
 
       case hlsl::DFCC_ShaderSourceInfo:
@@ -718,11 +705,7 @@ public:
     if (result == nullptr) {
       return E_OUTOFMEMORY;
     }
-    result->m_CommitCount = m_VersionInfo.CommitCount;
-    result->m_Major = m_VersionInfo.Major;
-    result->m_Minor = m_VersionInfo.Minor;
-    result->m_Flags = m_VersionInfo.VersionFlags;
-    result->m_Hash = m_VersionCommitHash;
+    result->m_Version = m_VersionInfo;
     *ppVersionInfo = result.Detach();
     return S_OK;
   }

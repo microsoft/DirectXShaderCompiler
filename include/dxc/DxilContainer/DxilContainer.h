@@ -217,6 +217,7 @@ struct DxilCompilerVersion {
   uint16_t Minor;
   uint32_t VersionFlags;
   uint32_t CommitCount;
+  uint8_t  CommitSha[8];
   uint32_t VersionStringLength;
   // Followed by VersionStringLength bytes of the version string.
   // Followed by a null terminator.
@@ -251,19 +252,19 @@ struct DxilCompilerVersion {
 //   
 // `Data` may be compressed. When uncompressed, this is the structure:
 //
-//   DxilShaderSourcesElement
+//   DxilSourceInfo_SourcesElement
 //   char Name   [ NameSize ]    + NullTerminator
 //   char Content[ ContentSize ] + NullTerminator
 //   (0-3 zero bytes to align to a 4-byte boundary)
 //
-//   DxilShaderSourcesElement
+//   DxilSourceInfo_SourcesElement
 //   char Name   [ NameSize ]    + NullTerminator
 //   char Content[ ContentSize ] + NullTerminator
 //   (0-3 zero bytes to align to a 4-byte boundary)
 //
 //     ...
 //
-//   DxilShaderSourcesElement
+//   DxilSourceInfo_SourcesElement
 //   char Name   [ NameSize ]    + NullTerminator
 //   char Content[ ContentSize ] + NullTerminator
 //   (0-3 zero bytes to align to a 4-byte boundary)

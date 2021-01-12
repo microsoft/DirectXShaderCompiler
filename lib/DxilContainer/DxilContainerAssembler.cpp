@@ -1686,7 +1686,6 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   }
 
   DxilCompilerVersion VersionHeader = {};
-  CComHeapPtr<char> CommitVersionHash;
   if (bEmitVersionPart && pVersionInfo) {
     UINT32 Major = 0, Minor = 0;
     UINT32 Flags = 0;
@@ -1699,22 +1698,30 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
     CComPtr<IDxcVersionInfo2> pVersionInfo2;
     if (SUCCEEDED(pVersionInfo->QueryInterface(&pVersionInfo2))) {
       UINT32 CommitCount = 0;
+      CComHeapPtr<char> CommitVersionHash;
       IFT(pVersionInfo2->GetCommitInfo(&CommitCount, &CommitVersionHash));
-      VersionHeader.VersionStringLength = strlen(CommitVersionHash.m_pData);
+      size_t CommitLength = strlen(CommitVersionHash.m_pData);
+      size_t CopyLength = std::min(sizeof(VersionHeader.CommitSha), CommitLength);
+      memcpy(VersionHeader.CommitSha, CommitVersionHash.m_pData, CopyLength);
+      VersionHeader.VersionStringLength = 0;
       VersionHeader.CommitCount = CommitCount;
     }
 
-    uint32_t size = sizeof(VersionHeader) + (VersionHeader.VersionStringLength > 0 ? VersionHeader.VersionStringLength+1 : 0);
+    // Write a null terminator even if the string is empty
+    uint32_t size = sizeof(VersionHeader) + VersionHeader.VersionStringLength+1;
     uint32_t padding = 0;
     size = PadToDword(size, &padding);
     writer.AddPart(DFCC_CompilerVersion, size,
-      [&VersionHeader, &CommitVersionHash, padding](AbstractMemoryStream *pStream) {
+      [&VersionHeader, padding](AbstractMemoryStream *pStream) {
       ULONG cbWritten = 0;
       IFT(pStream->Write(&VersionHeader, sizeof(VersionHeader), &cbWritten));
-      if (VersionHeader.VersionStringLength > 0)
-        IFT(pStream->Write(CommitVersionHash.m_pData, VersionHeader.VersionStringLength+1, &cbWritten));
-      for (unsigned i = 0 ; i < padding; i++) {
-        uint8_t padByte = 0;
+
+      // Write a null terminator even if the string is empty
+      uint8_t padByte = 0;
+      pStream->Write(&padByte, sizeof(padByte), &cbWritten);
+
+      // Write padding
+      for (unsigned i = 0; i < padding; i++) {
         pStream->Write(&padByte, sizeof(padByte), &cbWritten);
       }
     });
