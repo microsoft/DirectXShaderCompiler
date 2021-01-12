@@ -68,6 +68,28 @@ static HRESULT CopyWstringToBSTR(const std::wstring &str, BSTR *pResult) {
   return S_OK;
 }
 
+static std::wstring NormalizePath(const WCHAR *path) {
+  size_t len = wcslen(path);
+  std::wstring ret;
+  ret.reserve(len);
+
+  bool was_separator  = false;
+  for (unsigned i = 0; i < len; i++) {
+    if (path[i] == L'\\' || path[i] == L'/') {
+      if (!was_separator) {
+        ret += L"/";
+      }
+      was_separator = true;
+    }
+    else {
+      was_separator = false;
+      ret += path[i];
+    }
+  }
+
+  return ret;
+}
+
 static bool ShouldIncludeInFlags(const std::wstring &str, bool *skip_next_arg) {
   *skip_next_arg = false;
   const wchar_t *specialCases[] = { L"/T", L"-T", L"-D", L"/D", L"-E", L"/E", };
@@ -151,6 +173,45 @@ public:
     *pCommitCount = m_CommitCount;
 
     return S_OK;
+  }
+};
+
+struct PdbRecompilerIncludeHandler : public IDxcIncludeHandler {
+  private:
+  DXC_MICROCOM_TM_REF_FIELDS()
+
+  public:
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
+  DXC_MICROCOM_TM_ALLOC(PdbRecompilerIncludeHandler)
+
+  PdbRecompilerIncludeHandler(IMalloc *pMalloc) : m_dwRef(0), m_pMalloc(pMalloc) {}
+
+  std::unordered_map< std::wstring, unsigned > m_FileMap;
+  IDxcPdbUtils *m_pPdbUtils = nullptr;
+
+  UINT32 m_Major = 0;
+  UINT32 m_Minor = 0;
+  std::string m_Hash;
+  UINT32 m_Flags = 0;
+  UINT32 m_CommitCount = 0;
+
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
+    return DoBasicQueryInterface<IDxcIncludeHandler>(this, iid, ppvObject);
+  }
+
+  virtual HRESULT STDMETHODCALLTYPE LoadSource(
+    _In_z_ LPCWSTR pFilename,                                 // Candidate filename.
+    _COM_Outptr_result_maybenull_ IDxcBlob **ppIncludeSource  // Resultant source object for included file, nullptr if not found.
+    ) override
+  {
+    auto it = m_FileMap.find(pFilename);
+    if (it == m_FileMap.end())
+      return E_FAIL;
+
+    CComPtr<IDxcBlobEncoding> pEncoding;
+    IFR(m_pPdbUtils->GetSource(it->second, &pEncoding));
+
+    return pEncoding.QueryInterface(ppIncludeSource);
   }
 };
 
@@ -548,7 +609,55 @@ public:
       return m_InputBlob.QueryInterface(ppFullPDB);
     }
 
-    return E_FAIL;
+    CComPtr<IDxcCompiler3> pCompiler;
+    IFR(DxcCreateInstance2(m_pMalloc, CLSID_DxcCompiler, __uuidof(IDxcCompiler3), (void **)&pCompiler));
+
+    DxcThreadMalloc TM(m_pMalloc);
+
+    std::vector<const WCHAR *> new_args;
+    for (unsigned i = 0; i < m_Args.size(); i++) {
+      if (m_Args[i] == L"/Qslim_debug" || m_Args[i] == L"-Qslim_debug")
+        continue;
+      new_args.push_back(m_Args[i].c_str());
+    }
+    new_args.push_back(L"-Qfull_debug");
+
+    if (m_SourceFiles.empty())
+      return E_FAIL;
+
+    CComPtr<PdbRecompilerIncludeHandler> pIncludeHandler = CreateOnMalloc<PdbRecompilerIncludeHandler>(m_pMalloc);
+    if (!pIncludeHandler)
+      return E_OUTOFMEMORY;
+
+    pIncludeHandler->m_pPdbUtils = this;
+    for (unsigned i = 0; i < m_SourceFiles.size(); i++) {
+      std::wstring NormalizedName = NormalizePath(m_SourceFiles[i].Name.c_str());
+      pIncludeHandler->m_FileMap.insert(std::pair<std::wstring, unsigned>(NormalizedName, i));
+    }
+
+    IDxcBlobEncoding *main_file = m_SourceFiles[0].Content;
+
+    DxcBuffer source_buf = {};
+    source_buf.Ptr = main_file->GetBufferPointer();
+    source_buf.Size = main_file->GetBufferSize();
+    BOOL bEndodingKnown = FALSE;
+    IFR(main_file->GetEncoding(&bEndodingKnown, &source_buf.Encoding));
+
+    CComPtr<IDxcResult> pResult;
+    IFR(pCompiler->Compile(&source_buf, new_args.data(), new_args.size(), pIncludeHandler, __uuidof(IDxcResult), (void **)&pResult));
+
+    CComPtr<IDxcOperationResult> pOperationResult;
+    IFR(pResult.QueryInterface(&pOperationResult));
+
+    HRESULT CompileResult = S_OK;
+    IFR(pOperationResult->GetStatus(&CompileResult));
+    IFR(CompileResult);
+
+    CComPtr<IDxcBlob> pFullPDB;
+    CComPtr<IDxcBlobUtf16> pFullPDBName;
+    IFR(pResult->GetOutput(DXC_OUT_PDB, __uuidof(IDxcBlob), (void **)&pFullPDB, &pFullPDBName));
+
+    return pFullPDB.QueryInterface(ppFullPDB);
   }
 
   virtual HRESULT STDMETHODCALLTYPE GetHash(_COM_Outptr_ IDxcBlob **ppResult) override {

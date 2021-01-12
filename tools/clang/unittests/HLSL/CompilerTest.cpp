@@ -980,6 +980,7 @@ TEST_F(CompilerTest, CompileThenAddCustomDebugName) {
 
 static void VerifyPdbUtil(
     IDxcBlob *pBlob, IDxcPdbUtils *pPdbUtils,
+    const WCHAR *pMainFileName,
     llvm::ArrayRef<const WCHAR *> ExpectedArgs,
     llvm::ArrayRef<const WCHAR *> ExpectedFlags,
     llvm::ArrayRef<const WCHAR *> ExpectedDefines,
@@ -1069,7 +1070,7 @@ static void VerifyPdbUtil(
   {
     CComBSTR pMainFileName;
     VERIFY_SUCCEEDED(pPdbUtils->GetMainFileName(&pMainFileName));
-    VERIFY_ARE_EQUAL(pMainFileName, L"source.hlsl");
+    VERIFY_ARE_EQUAL(pMainFileName, pMainFileName);
   }
 
   // There is hash and hash is not empty
@@ -1090,7 +1091,7 @@ static void VerifyPdbUtil(
       CComPtr<IDxcBlobEncoding> pFileContent;
       VERIFY_SUCCEEDED(pPdbUtils->GetSourceName(i, &pFileName));
       VERIFY_SUCCEEDED(pPdbUtils->GetSource(i, &pFileContent));
-      if (0 == wcscmp(pFileName, L"source.hlsl")) {
+      if (0 == wcscmp(pFileName, pMainFileName)) {
         VERIFY_IS_TRUE(pFileContent->GetBufferSize() == main_source.size());
         VERIFY_IS_TRUE(0 == std::memcmp(pFileContent->GetBufferPointer(), main_source.data(), main_source.size()));
       }
@@ -1175,7 +1176,28 @@ static void VerifyPdbUtil(
   }
   else {
     VERIFY_IS_FALSE(pPdbUtils->IsFullPDB());
-    // @TODO: Get full PDB and do this whole test again.
+    CComPtr<IDxcBlob> pFullPdb;
+    VERIFY_SUCCEEDED(pPdbUtils->GetFullPDB(&pFullPdb));
+
+    auto ReplaceDebugFlag = [](const std::vector<const WCHAR *> &List) -> std::vector<const WCHAR *> {
+      std::vector<const WCHAR *> ret;
+      for (unsigned i = 0; i < List.size(); i++) {
+        if (!wcscmp(List[i], L"/Qslim_debug") || !wcscmp(List[i], L"-Qslim_debug"))
+          ret.push_back(L"-Qfull_debug");
+        else
+          ret.push_back(List[i]);
+      }
+      return ret;
+    };
+
+    std::vector<const WCHAR *> NewExpectedFlags = ReplaceDebugFlag(ExpectedFlags);
+    std::vector<const WCHAR *> NewExpectedArgs  = ReplaceDebugFlag(ExpectedArgs);
+
+    VerifyPdbUtil(pFullPdb, pPdbUtils,
+      L"hlsl.hlsl",
+      NewExpectedArgs, NewExpectedFlags, ExpectedDefines,
+      pCompiler, HasVersion, /*IsFullPDB*/true,
+      HasHashAndPdbName, main_source, included_File);
   }
 }
 
@@ -1310,15 +1332,17 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bLegacy) {
     VERIFY_SUCCEEDED(pRef->GetPartContent(uIndex, &pProgramHeaderBlob));
 
     VerifyPdbUtil(pProgramHeaderBlob, pPdbUtils,
+      L"source.hlsl",
       expectedArgs, expectedFlags, expectedDefines,
       pCompiler,
       /*HasVersion*/ false,
-      /*IsFullPDB*/ false,
+      /*IsFullPDB*/ true,
       /*hasHasAndPDBName*/false,
       main_source, included_File);
   }
 
   VerifyPdbUtil(pCompiledBlob, pPdbUtils,
+    L"source.hlsl",
     expectedArgs, expectedFlags, expectedDefines,
     pCompiler,
     /*HasVersion*/ true,
@@ -1327,6 +1351,7 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bLegacy) {
     main_source, included_File);
 
   VerifyPdbUtil(pPdbBlob, pPdbUtils,
+    L"source.hlsl",
     expectedArgs, expectedFlags, expectedDefines,
     pCompiler,
     /*HasVersion*/ true,

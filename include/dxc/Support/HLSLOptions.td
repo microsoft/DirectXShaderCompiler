@@ -409,6 +409,8 @@ def Qlegacy_debug : Flag<["-", "/"], "Qlegacy_debug">, Flags<[CoreOption, HelpHi
   HelpText<"Generate old PDB format.">;
 def Qslim_debug : Flag<["-", "/"], "Qslim_debug">, Flags<[CoreOption, HelpHidden]>, Group<hlslutil_Group>,
   HelpText<"Generate slim debug info for PDB.">;
+def Qfull_debug : Flag<["-", "/"], "Qfull_debug">, Flags<[CoreOption, HelpHidden]>, Group<hlslutil_Group>,
+  HelpText<"Generate full debug info for PDB.">;
 
 def Qstrip_rootsignature : Flag<["-", "/"], "Qstrip_rootsignature">, Flags<[CoreOption, DriverOption]>, Group<hlslutil_Group>, HelpText<"Strip root signature data from shader bytecode  (must be used with /Fo <file>)">;
 def setrootsignature     : JoinedOrSeparate<["-", "/"], "setrootsignature">,     MetaVarName<"<file>">, Flags<[CoreOption, DriverOption]>, Group<hlslutil_Group>, HelpText<"Attach root signature to shader bytecode">;
