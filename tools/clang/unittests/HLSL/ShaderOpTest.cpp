@@ -616,7 +616,7 @@ void ShaderOpTest::CreateResources() {
       }
 
       D3D12_SUBRESOURCE_DATA transferData[16];
-      UINT width = R.Desc.Width;
+      UINT width = (UINT)R.Desc.Width;
       UINT height = R.Desc.Height;
       UINT pixelSize = GetByteSizeForFormat(R.Desc.Format);
       BYTE *data = values.data();
