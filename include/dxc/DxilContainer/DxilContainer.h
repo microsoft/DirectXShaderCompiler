@@ -218,7 +218,7 @@ struct DxilCompilerVersion {
   uint32_t VersionFlags;
   uint32_t CommitCount;
   uint32_t VersionStringLength;
-  // Followed by CommitStringLength bytes of the version string.
+  // Followed by VersionStringLength bytes of the version string.
   // Followed by a null terminator.
   // Followed by [0-3] zero bytes to align to a 4-byte boundary.
 };
