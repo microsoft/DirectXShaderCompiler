@@ -58,7 +58,9 @@ private:
   llvm::NamedMDNode *m_arguments;
 
 public:
-  CompilationInfo(IMalloc *pMalloc, dxil_dia::Session *pSession);
+
+  CompilationInfo(IMalloc *pMalloc) : m_pMalloc(pMalloc) {}
+  HRESULT Init(dxil_dia::Session *pSession);
 
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL();
   DXC_MICROCOM_TM_ALLOC(CompilationInfo);
@@ -82,8 +84,8 @@ public:
   GetEntryPoint(_Outptr_result_z_ BSTR *pEntryPoint) override;
 };
 
-CompilationInfo::CompilationInfo(IMalloc *pMalloc, dxil_dia::Session *pSession)
-    : m_pSession(pSession), m_pMalloc(pMalloc) {
+HRESULT CompilationInfo::Init(dxil_dia::Session *pSession) {
+  m_pSession = pSession;
   auto *Module = m_pSession->DxilModuleRef().GetModule();
   m_contents =
       Module->getNamedMetadata(hlsl::DxilMDHelper::kDxilSourceContentsMDName);
@@ -104,6 +106,12 @@ CompilationInfo::CompilationInfo(IMalloc *pMalloc, dxil_dia::Session *pSession)
       Module->getNamedMetadata(hlsl::DxilMDHelper::kDxilSourceArgsMDName);
   if (!m_arguments)
     m_arguments = Module->getNamedMetadata("llvm.dbg.args");
+
+  if (!m_contents || !m_defines || !m_mainFileName || !m_arguments) {
+    return E_FAIL;
+  }
+
+  return S_OK;
 }
 
 static void MDStringOperandToBSTR(llvm::MDOperand const &mdOperand,
@@ -131,7 +139,7 @@ CompilationInfo::GetSourceFile(_In_ DWORD SourceFileOrdinal,
   }
 
   llvm::MDTuple *FileTuple =
-      llvm::cast<llvm::MDTuple>(m_contents->getOperand(SourceFileOrdinal));
+      llvm::cast_or_null<llvm::MDTuple>(m_contents->getOperand(SourceFileOrdinal));
 
   MDStringOperandToBSTR(FileTuple->getOperand(0), pSourceName);
   MDStringOperandToBSTR(FileTuple->getOperand(1), pSourceContents);
@@ -188,6 +196,8 @@ STDMETHODIMP CompilationInfo::GetArguments(_Outptr_result_z_ BSTR *pArguments) {
 STDMETHODIMP CompilationInfo::GetMacroDefinitions(
     _Outptr_result_z_ BSTR *pMacroDefinitions) {
   llvm::MDNode *definesNode = m_defines->getOperand(0);
+  if (!definesNode)
+    return E_FAIL;
   // Concatenate definitions into one string separated by spaces
   CComBSTR pBSTR;
   for (llvm::MDNode::op_iterator it = definesNode->op_begin();
@@ -259,6 +269,9 @@ HRESULT
 dxil_debug_info::CreateDxilCompilationInfo(IMalloc *pMalloc,
                                            dxil_dia::Session *pSession,
                                            IDxcPixCompilationInfo **ppResult) {
-  return NewDxcPixDxilDebugInfoObjectOrThrow<CompilationInfo>(ppResult, pMalloc,
-                                                              pSession);
+  CComPtr<CompilationInfo> pCompilationInfo;
+  IFR(NewDxcPixDxilDebugInfoObjectOrThrow<CompilationInfo>(&pCompilationInfo, pMalloc));
+  IFR(pCompilationInfo->Init(pSession));
+  IFR(pCompilationInfo.QueryInterface(ppResult));
+  return S_OK;
 }

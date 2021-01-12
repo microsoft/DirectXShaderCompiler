@@ -1072,13 +1072,6 @@ static void VerifyPdbUtil(
     VERIFY_ARE_EQUAL(pMainFileName, L"source.hlsl");
   }
 
-  // This is a full PDB
-  if (IsFullPDB) {
-    VERIFY_IS_TRUE(pPdbUtils->IsFullPDB());
-    CComPtr<IDxcBlob> pPDBBlob;
-    VERIFY_SUCCEEDED(pPdbUtils->GetFullPDB(&pPDBBlob));
-  }
-
   // There is hash and hash is not empty
   if (HasHashAndPdbName) {
     CComPtr<IDxcBlob> pHash;
@@ -1168,6 +1161,10 @@ static void VerifyPdbUtil(
 
   // Make the pix debug info
   if (IsFullPDB) {
+    VERIFY_IS_TRUE(pPdbUtils->IsFullPDB());
+    CComPtr<IDxcBlob> pPDBBlob;
+    VERIFY_SUCCEEDED(pPdbUtils->GetFullPDB(&pPDBBlob));
+
     CComPtr<IDxcPixDxilDebugInfoFactory> pFactory;
     VERIFY_SUCCEEDED(pPdbUtils->QueryInterface(&pFactory));
     CComPtr<IDxcPixCompilationInfo> pCompInfo;
@@ -1175,6 +1172,10 @@ static void VerifyPdbUtil(
     CComPtr<IDxcPixDxilDebugInfo> pDebugInfo;
     VERIFY_SUCCEEDED(pFactory->NewDxcPixDxilDebugInfo(&pDebugInfo));
     VERIFY_ARE_NOT_EQUAL(pDebugInfo, nullptr);
+  }
+  else {
+    VERIFY_IS_FALSE(pPdbUtils->IsFullPDB());
+    // @TODO: Get full PDB and do this whole test again.
   }
 }
 

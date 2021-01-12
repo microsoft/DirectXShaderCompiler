@@ -538,9 +538,17 @@ public:
   virtual HRESULT STDMETHODCALLTYPE GetFullPDB(_COM_Outptr_ IDxcBlob **ppFullPDB) override {
     if (!m_InputBlob)
       return E_FAIL;
+
     if (!ppFullPDB) return E_POINTER;
+
     *ppFullPDB = nullptr;
-    return m_InputBlob.QueryInterface(ppFullPDB);
+
+    // If we are already a full pdb, just return the input blob
+    if (IsFullPDB()) {
+      return m_InputBlob.QueryInterface(ppFullPDB);
+    }
+
+    return E_FAIL;
   }
 
   virtual HRESULT STDMETHODCALLTYPE GetHash(_COM_Outptr_ IDxcBlob **ppResult) override {

@@ -1089,20 +1089,17 @@ public:
     }
 
     compiler.getFrontendOpts().Inputs.push_back(FrontendInputFile(pMainFile, IK_HLSL));
-    compiler.getCodeGenOpts().setDebugInfo(CodeGenOptions::DebugLineTablesOnly); // HLSL Change - enable line numbers anyway.
     // Setup debug information.
     if (Opts.IsDebugInfoEnabled()) {
       CodeGenOptions &CGOpts = compiler.getCodeGenOpts();
       // HLSL Change - begin
-      if (!Opts.SlimDebug)
-        CGOpts.setDebugInfo(CodeGenOptions::FullDebugInfo);
+      CGOpts.setDebugInfo(CodeGenOptions::FullDebugInfo);
 
       {
         unsigned Major = 0;
         unsigned Minor = 0;
         dxcutil::GetValidatorVersion(&Major, &Minor);
         if (Opts.LegacyDebug || !hlsl::dxilutil::ValidatorSupportsSourceInfoPart(Major, Minor)) {
-          CGOpts.setDebugInfo(CodeGenOptions::FullDebugInfo);
           CGOpts.HLSLEmbedSourcesInModule = true;
         }
       }
