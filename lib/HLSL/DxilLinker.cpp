@@ -796,7 +796,10 @@ DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
   for (auto &it : m_functionDefs) {
     DxilFunctionLinkInfo *linkInfo = it.first;
     DxilLib *pLib = it.second;
-
+    // Skip constructor in entry lib which is already called for entries inside
+    // entry lib.
+    if (pLib == entryLinkPair.second)
+      continue;
     Function *F = linkInfo->func;
     if (pLib->IsInitFunc(F)) {
       Function *NewF = m_newFunctions[F->getName()];
@@ -1101,6 +1104,8 @@ void DxilLinkJob::RunPreparePass(Module &M) {
 
   // SROA
   PM.add(createSROAPass(/*RequiresDomTree*/false, /*SkipHLSLMat*/false));
+  // For static global handle.
+  PM.add(createLowerStaticGlobalIntoAlloca());
 
   // Remove MultiDimArray from function call arg.
   PM.add(createMultiDimArrayToOneDimArrayPass());

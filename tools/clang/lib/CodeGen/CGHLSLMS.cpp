@@ -3422,38 +3422,46 @@ void CGMSHLSLRuntime::FinishCodeGen() {
   TranslateRayQueryConstructor(HLM);
 
   bool bIsLib = HLM.GetShaderModel()->IsLib();
-  if (!bIsLib) {
-    // need this for "llvm.global_dtors"?
-    if (HLM.GetShaderModel()->IsHS()) {
-      if (Function *patchConstantFn = HLM.GetPatchConstantFunction()) {
-        // static globals are independent for entry function and patch constant function.
-        // Update static global in entry function will not affect value in patch constant function.
-        // So just call ctors for patch constant function too.
-        ProcessCtorFunctions(
-            M, "llvm.global_ctors",
-            patchConstantFn->getEntryBlock().getFirstInsertionPt(), false);
-        IRBuilder<> B(patchConstantFn->getEntryBlock().getFirstInsertionPt());
-        // For static globals which has const initialize value, copy it at
-        // beginning of patch constant function to avoid use value updated by
-        // entry function.
-        for (GlobalVariable &GV : M.globals()) {
-          if (GV.isConstant())
-            continue;
-          if (!GV.hasInitializer())
-            continue;
-          if (GV.getName() == "llvm.global_ctors")
-            continue;
-          Value *V = GV.getInitializer();
-          if (isa<UndefValue>(V))
-            continue;
-          B.CreateStore(V, &GV);
+  StringRef GlobalCtorName = "llvm.global_ctors";
+  llvm::SmallVector<llvm::Function *, 2> Ctors;
+  CollectCtorFunctions(M, GlobalCtorName, Ctors, CGM);
+  if (!Ctors.empty()) {
+    if (!bIsLib) {
+      // need this for "llvm.global_dtors"?
+      Function *patchConstantFn = nullptr;
+      if (HLM.GetShaderModel()->IsHS()) {
+        patchConstantFn = HLM.GetPatchConstantFunction();
+      }
+      ProcessCtorFunctions(M, Ctors, Entry.Func, patchConstantFn);
+      // remove the GV
+      if (GlobalVariable *GV = M.getGlobalVariable(GlobalCtorName))
+        GV->eraseFromParent();
+    } else {
+      // Call ctors for each entry.
+      DenseSet<Function *> processedPatchConstantFnSet;
+      for (auto &Entry : entryFunctionMap) {
+        Function *F = Entry.second.Func;
+        Function *patchConstFunc = nullptr;
+        auto AttrIter = HSEntryPatchConstantFuncAttr.find(F);
+        if (AttrIter != HSEntryPatchConstantFuncAttr.end()) {
+          StringRef funcName = AttrIter->second->getFunctionName();
+
+          auto PatchEntry = patchConstantFunctionMap.find(funcName);
+          if (PatchEntry != patchConstantFunctionMap.end() &&
+              PatchEntry->second.NumOverloads == 1) {
+            patchConstFunc = PatchEntry->second.Func;
+            // Each patchConstFunc should only be processed once.
+            if (patchConstFunc &&
+                processedPatchConstantFnSet.count(patchConstFunc) == 0)
+              processedPatchConstantFnSet.insert(patchConstFunc);
+            else
+              patchConstFunc = nullptr;
+          }
         }
+        ProcessCtorFunctions(M, Ctors, F, patchConstFunc);
       }
     }
-    ProcessCtorFunctions(M, "llvm.global_ctors",
-                         Entry.Func->getEntryBlock().getFirstInsertionPt(), true);
   }
-
   UpdateLinkage(HLM, CGM, m_ExportMap, entryFunctionMap,
                 patchConstantFunctionMap);
 
