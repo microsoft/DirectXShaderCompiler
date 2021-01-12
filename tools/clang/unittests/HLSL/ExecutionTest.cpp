@@ -1308,8 +1308,8 @@ public:
   void RunLifetimeIntrinsicTest(ID3D12Device *pDevice, LPCSTR shader, D3D_SHADER_MODEL shaderModel, bool useLibTarget, LPCWSTR *pOptions, int numOptions, std::vector<uint32_t> &values);
   void RunLifetimeIntrinsicComputeTest(ID3D12Device *pDevice, LPCSTR pShader, CComPtr<ID3D12DescriptorHeap>& pUavHeap, CComPtr<ID3D12RootSignature>& pRootSignature,
                                        LPCWSTR pTargetProfile, LPCWSTR *pOptions, int numOptions, std::vector<uint32_t> &values);
-  void RunLifetimeIntrinsicLibTest(ID3D12Device5 *pDevice, LPCSTR pShader, CComPtr<ID3D12DescriptorHeap>& pUavHeap, CComPtr<ID3D12RootSignature>& pRootSignature,
-                                   LPCWSTR pTargetProfile, LPCWSTR *pOptions, int numOptions, std::vector<uint32_t> &values);
+  void RunLifetimeIntrinsicLibTest(ID3D12Device5 *pDevice, LPCSTR pShader, CComPtr<ID3D12RootSignature>& pRootSignature,
+                                   LPCWSTR pTargetProfile, LPCWSTR *pOptions, int numOptions);
 
   void SetDescriptorHeap(ID3D12GraphicsCommandList *pCommandList, ID3D12DescriptorHeap *pHeap) {
     ID3D12DescriptorHeap *const pHeaps[1] = { pHeap };
@@ -1555,11 +1555,8 @@ void ExecutionTest::RunLifetimeIntrinsicComputeTest(ID3D12Device *pDevice, LPCST
   WaitForSignal(pCommandQueue, FO);
 }
 
-void ExecutionTest::RunLifetimeIntrinsicLibTest(ID3D12Device5 *pDevice, LPCSTR pShader, CComPtr<ID3D12DescriptorHeap>& pUavHeap, CComPtr<ID3D12RootSignature>& pRootSignature,
-                                                LPCWSTR pTargetProfile, LPCWSTR *pOptions, int numOptions, std::vector<uint32_t> &values) {
-  UNREFERENCED_PARAMETER(values);
-  UNREFERENCED_PARAMETER(pUavHeap);
-
+void ExecutionTest::RunLifetimeIntrinsicLibTest(ID3D12Device5 *pDevice, LPCSTR pShader, CComPtr<ID3D12RootSignature>& pRootSignature,
+                                                LPCWSTR pTargetProfile, LPCWSTR *pOptions, int numOptions) {
   // Create command queue.
   CComPtr<ID3D12CommandQueue> pCommandQueue;
   CreateCommandQueue(pDevice, L"RunLifetimeIntrinsicTest Command Queue", &pCommandQueue, D3D12_COMMAND_LIST_TYPE_DIRECT);
@@ -1647,7 +1644,7 @@ void ExecutionTest::RunLifetimeIntrinsicTest(ID3D12Device *pDevice, LPCSTR pShad
   }
 
   if (useLibTarget)
-    RunLifetimeIntrinsicLibTest(reinterpret_cast<ID3D12Device5*>(pDevice), pShader, pUavHeap, pRootSignature, pTargetProfile, pOptions, numOptions, values);
+    RunLifetimeIntrinsicLibTest(reinterpret_cast<ID3D12Device5*>(pDevice), pShader, pRootSignature, pTargetProfile, pOptions, numOptions);
   else
     RunLifetimeIntrinsicComputeTest(pDevice, pShader, pUavHeap, pRootSignature, pTargetProfile, pOptions, numOptions, values);
 }
