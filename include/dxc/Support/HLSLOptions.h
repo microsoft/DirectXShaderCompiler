@@ -174,6 +174,7 @@ public:
   bool EmbedDebug = false; // OPT Qembed_debug
   bool LegacyDebug = false; // OPT Qlegacy_debug
   bool SlimDebug = false; // OPT Qslim_debug
+  bool FullDebug = false; // OPT Qfull_debug
   bool StripRootSignature = false; // OPT_Qstrip_rootsignature
   bool StripPrivate = false; // OPT_Qstrip_priv
   bool StripReflection = false; // OPT_Qstrip_reflect

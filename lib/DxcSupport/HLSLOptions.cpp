@@ -627,6 +627,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.EmbedDebug = Args.hasFlag(OPT_Qembed_debug, OPT_INVALID, false);
   opts.LegacyDebug = Args.hasFlag(OPT_Qlegacy_debug, OPT_INVALID, false);
   opts.SlimDebug = Args.hasFlag(OPT_Qslim_debug, OPT_INVALID, false);
+  opts.FullDebug = Args.hasFlag(OPT_Qfull_debug, OPT_INVALID, true); // Default true for now
   opts.StripRootSignature = Args.hasFlag(OPT_Qstrip_rootsignature, OPT_INVALID, false);
   opts.StripPrivate = Args.hasFlag(OPT_Qstrip_priv, OPT_INVALID, false);
   opts.StripReflection = Args.hasFlag(OPT_Qstrip_reflect, OPT_INVALID, false);
@@ -913,6 +914,11 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   // failing if placed before spirv path sets DebugInfo to true.
   if (opts.EmbedDebug && !opts.DebugInfo) {
     errors << "Must enable debug info with /Zi for /Qembed_debug";
+    return 1;
+  }
+
+  if (opts.FullDebug && opts.SlimDebug) {
+    errors << "Cannot specify both /Qfull_debug and /Qslim_debug";
     return 1;
   }
 
