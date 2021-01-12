@@ -1157,6 +1157,10 @@ public:
     const ShaderModel *pSM = DM.GetShaderModel();
     if (!pSM->IsPS() && !pSM->IsLib())
       return false;
+    // Shader model 6.6 don't need this anymore, since helper lane is treat as
+    // active lane on wave operations.
+    if (pSM->IsSM66Plus())
+      return false;
 
     SmallVector<CallInst *, 16> gradientOps;
     SmallVector<CallInst *, 16> barriers;
