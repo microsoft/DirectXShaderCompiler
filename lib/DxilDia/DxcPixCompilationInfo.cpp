@@ -59,7 +59,7 @@ private:
 
 public:
 
-  CompilationInfo(IMalloc *pMalloc) : m_pMalloc(pMalloc) {}
+  CompilationInfo(IMalloc *pMalloc) : m_dwRef(0), m_pMalloc(pMalloc) {}
   HRESULT Init(dxil_dia::Session *pSession);
 
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL();
