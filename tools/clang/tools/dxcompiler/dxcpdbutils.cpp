@@ -192,6 +192,10 @@ struct PdbRecompilerIncludeHandler : public IDxcIncludeHandler {
     _COM_Outptr_result_maybenull_ IDxcBlob **ppIncludeSource  // Resultant source object for included file, nullptr if not found.
     ) override
   {
+    if (!ppIncludeSource)
+      return E_POINTER;
+    *ppIncludeSource = nullptr;
+
     auto it = m_FileMap.find(NormalizePath(pFilename));
     if (it == m_FileMap.end())
       return E_FAIL;
@@ -357,8 +361,25 @@ private:
     return S_OK;
   }
 
+  static void ReadNullSeparatedStringList(StringRef string_list, std::vector<std::wstring> *out_list) {
+    const char *def = string_list.data();
+    for (unsigned i = 0; i < string_list.size();) {
+      if (def[i] == 0)
+        break;
+      unsigned def_len = 0;
+      for (; i < string_list.size(); i++) {
+        if (def[i] == 0) {
+          i++;
+          break;
+        }
+        def_len++;
+      }
+      out_list->push_back(ToWstring(def, def_len));
+    }
+  }
+
   HRESULT HandleDxilContainer(IDxcBlob *pContainer, IDxcBlob **ppDebugProgramBlob) {
-    const hlsl::DxilContainerHeader *header = (hlsl::DxilContainerHeader *)m_ContainerBlob->GetBufferPointer();
+    const hlsl::DxilContainerHeader *header = (const hlsl::DxilContainerHeader *)m_ContainerBlob->GetBufferPointer();
     for (auto it = hlsl::begin(header); it != hlsl::end(header); it++) {
       const hlsl::DxilPartHeader *part = *it;
       hlsl::DxilFourCC four_cc = (hlsl::DxilFourCC)part->PartFourCC;
@@ -367,14 +388,14 @@ private:
 
       case hlsl::DFCC_CompilerVersion:
       {
-        const hlsl::DxilCompilerVersion *header = (hlsl::DxilCompilerVersion *)(part+1);
+        const hlsl::DxilCompilerVersion *header = (const hlsl::DxilCompilerVersion *)(part+1);
+        m_VersionInfo = *header;
         m_HasVersionInfo = true;
-        memcpy(&m_VersionInfo, header, sizeof(m_VersionInfo));
       } break;
 
       case hlsl::DFCC_ShaderSourceInfo:
       {
-        const hlsl::DxilSourceInfo *header = (hlsl::DxilSourceInfo *)(part+1);
+        const hlsl::DxilSourceInfo *header = (const hlsl::DxilSourceInfo *)(part+1);
         hlsl::SourceInfoReader reader;
         reader.Read(header);
 
@@ -382,32 +403,13 @@ private:
         m_EntryPoint = ToWstring(reader.GetEntryPoint());
 
         {
-          StringRef definesData = reader.GetDefines();
-          if (definesData.size()) {
-            const char *def = definesData.data();
-            while (true) {
-              if (def[0] == 0)
-                break;
-              size_t def_len = strlen(def);
-              m_Defines.push_back(ToWstring(def, def_len));
-              def += def_len+1;
-            }
-          }
+          StringRef defines_data = reader.GetDefines();
+          ReadNullSeparatedStringList(defines_data, &m_Defines);
         }
 
         {
-          StringRef argsData = reader.GetArgs();
-          if (argsData.size()) {
-            const char *arg = argsData.data();
-            while (true) {
-              if (arg[0] == 0)
-                break;
-              size_t arg_len = strlen(arg);
-              m_Args.push_back(ToWstring(arg, arg_len));
-              arg += arg_len+1;
-            }
-            m_Flags = ComputeFlagsBasedOnArgs(m_Args);
-          }
+          StringRef args_data = reader.GetArgs();
+          ReadNullSeparatedStringList(args_data, &m_Args);
         }
 
         for (unsigned i = 0; i < reader.GetSourcesCount(); i++) {

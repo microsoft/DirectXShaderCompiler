@@ -263,6 +263,7 @@ void SourceInfoWriter::Write(llvm::StringRef targetProfile, llvm::StringRef entr
     const size_t headerOffset = m_Buffer.size();
     Append(&m_Buffer, &header, sizeof(header));
 
+    const size_t contentOffset = m_Buffer.size();
     uint32_t count = 0;
     for (std::string &def : cgOpts.HLSLDefines) {
       Append(&m_Buffer, def.data(), def.size());
@@ -272,7 +273,7 @@ void SourceInfoWriter::Write(llvm::StringRef targetProfile, llvm::StringRef entr
     Append(&m_Buffer, 0); // Double null terminator
 
     // Go back and rewrite the header now that we know the size
-    header.SizeInBytes = m_Buffer.size() - headerOffset;
+    header.SizeInBytes = m_Buffer.size() - contentOffset;
     header.Count = count;
     memcpy(m_Buffer.data() + headerOffset, &header, sizeof(header));
 
@@ -291,6 +292,7 @@ void SourceInfoWriter::Write(llvm::StringRef targetProfile, llvm::StringRef entr
     const size_t headerOffset = m_Buffer.size();
     Append(&m_Buffer, &header, sizeof(header));
 
+    const size_t contentOffset = m_Buffer.size();
     uint32_t count = 0;
     for (std::string &arg : cgOpts.HLSLArguments) {
       Append(&m_Buffer, arg.data(), arg.size());
@@ -300,7 +302,7 @@ void SourceInfoWriter::Write(llvm::StringRef targetProfile, llvm::StringRef entr
     Append(&m_Buffer, 0); // Double null terminator
 
     // Go back and rewrite the header now that we know the size
-    header.SizeInBytes = m_Buffer.size() - headerOffset;
+    header.SizeInBytes = m_Buffer.size() - contentOffset;
     header.Count = count;
     memcpy(m_Buffer.data() + headerOffset, &header, sizeof(header));
 
