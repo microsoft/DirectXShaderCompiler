@@ -157,7 +157,7 @@ call :run-fail dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /HV 2015
 if %Failed% neq 0 goto :failed
 
 set testname=Embed Debug, Recompile
-call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Qembed_debug /Fo smoke.cso 1> nul
+call :run dxc.exe /Qlegacy_debug /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Qembed_debug /Fo smoke.cso 1> nul
 call :check_file smoke.cso
 if %Failed% neq 0 goto :failed
 call :run dxc.exe -dumpbin smoke.cso
@@ -178,6 +178,7 @@ if %Failed% neq 0 goto :failed
 rem Note: this smoke.cso is used for a lot of other tests, and they rely on options set here
 set testname=Command-line Defines, Recompile
 call :run dxc.exe "%testfiles%\smoke.hlsl" /D "semantic = SV_Position" /T vs_6_0 /Zi /Qembed_debug /DDX12 /Fo smoke.cso
+call :run dxc.exe "%testfiles%\smoke.hlsl" /D "semantic = SV_Position" /T vs_6_0 /Zi /Qembed_debug /DDX12 /Fo smoke_legacy.cso /Qlegacy_debug
 call :check_file smoke.cso
 if %Failed% neq 0 goto :failed
 call :run dxc.exe smoke.cso /recompile
@@ -313,16 +314,20 @@ rem Check for expected parts for this container
 call :check_file log find DXIL find ILDB find RTS0 find PSV0 find STAT find ILDN find HASH find ISG1 find OSG1
 if %Failed% neq 0 goto :failed
 
+set testname=dxa extract all files
+call :run dxa.exe smoke.cso -extractfile *
+call :check_file log find "float4 main()"
+
 set testname=dxa extract debug module
-call :run dxa.exe smoke.cso -extractpart dbgmodule -o smoke.cso.dbgmodule
-call :check_file smoke.cso.dbgmodule
+call :run dxa.exe smoke_legacy.cso -extractpart dbgmodule -o smoke_legacy.cso.dbgmodule
+call :check_file smoke_legacy.cso.dbgmodule
 if %Failed% neq 0 goto :failed
-call :run dxa.exe smoke.cso.dbgmodule -listfiles
+call :run dxa.exe smoke_legacy.cso.dbgmodule -listfiles
 call :check_file log find "smoke.hlsl"
 if %Failed% neq 0 goto :failed
 
 set testname=dxa extract all files from debug module
-call :run dxa.exe smoke.cso.dbgmodule -extractfile *
+call :run dxa.exe smoke_legacy.cso.dbgmodule -extractfile *
 call :check_file log find "float4 main()"
 if %Failed% neq 0 goto :failed
 

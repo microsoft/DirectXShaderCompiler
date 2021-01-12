@@ -22,6 +22,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Support/Path.h"
 
 #include "dxc/dxcapi.h"
 #include "dxc/dxcpix.h"
@@ -31,6 +32,7 @@
 #include "dxc/DXIL/DxilPDB.h"
 #include "dxc/DXIL/DxilMetadataHelper.h"
 #include "dxc/DXIL/DxilModule.h"
+#include "dxc/Support/Unicode.h"
 
 #include "dxcshadersourceinfo.h"
 
@@ -69,25 +71,18 @@ static HRESULT CopyWstringToBSTR(const std::wstring &str, BSTR *pResult) {
 }
 
 static std::wstring NormalizePath(const WCHAR *path) {
-  size_t len = wcslen(path);
-  std::wstring ret;
-  ret.reserve(len);
+  std::string FilenameStr8 = Unicode::UTF16ToUTF8StringOrThrow(path);
+  llvm::SmallString<128> NormalizedPath;
+  llvm::sys::path::native(FilenameStr8, NormalizedPath);
+  std::wstring FilenameStr16 = Unicode::UTF8ToUTF16StringOrThrow(NormalizedPath.c_str());
+  return FilenameStr16;
+}
 
-  bool was_separator  = false;
-  for (unsigned i = 0; i < len; i++) {
-    if (path[i] == L'\\' || path[i] == L'/') {
-      if (!was_separator) {
-        ret += L"/";
-      }
-      was_separator = true;
-    }
-    else {
-      was_separator = false;
-      ret += path[i];
-    }
-  }
-
-  return ret;
+static bool IsBitcode(const void *ptr, size_t size) {
+  const uint8_t pattern[] = {'B','C',};
+  if (size < _countof(pattern))
+    return false;
+  return !memcmp(ptr, pattern, _countof(pattern));
 }
 
 static bool ShouldIncludeInFlags(const std::wstring &str, bool *skip_next_arg) {
@@ -204,7 +199,7 @@ struct PdbRecompilerIncludeHandler : public IDxcIncludeHandler {
     _COM_Outptr_result_maybenull_ IDxcBlob **ppIncludeSource  // Resultant source object for included file, nullptr if not found.
     ) override
   {
-    auto it = m_FileMap.find(pFilename);
+    auto it = m_FileMap.find(NormalizePath(pFilename));
     if (it == m_FileMap.end())
       return E_FAIL;
 
@@ -263,14 +258,20 @@ private:
     return m_SourceFiles.size();
   }
 
-  HRESULT PopulateSourcesFromProgramHeader(IDxcBlob *pProgramBlob) {
+  HRESULT PopulateSourcesFromProgramHeaderOrBitcode(IDxcBlob *pProgramBlob) {
     UINT32 bitcode_size = 0;
     const char *bitcode = nullptr;
 
-    if (!hlsl::IsValidDxilProgramHeader((hlsl::DxilProgramHeader *)pProgramBlob->GetBufferPointer(), pProgramBlob->GetBufferSize()))
-      return E_FAIL;
-
-    hlsl::GetDxilProgramBitcode((hlsl::DxilProgramHeader *)pProgramBlob->GetBufferPointer(), &bitcode, &bitcode_size);
+    if (hlsl::IsValidDxilProgramHeader((hlsl::DxilProgramHeader *)pProgramBlob->GetBufferPointer(), pProgramBlob->GetBufferSize())) {
+      hlsl::GetDxilProgramBitcode((hlsl::DxilProgramHeader *)pProgramBlob->GetBufferPointer(), &bitcode, &bitcode_size);
+    }
+    else if (IsBitcode(pProgramBlob->GetBufferPointer(), pProgramBlob->GetBufferSize())) {
+      bitcode = (char *)pProgramBlob->GetBufferPointer();
+      bitcode_size = pProgramBlob->GetBufferSize();
+    }
+    else {
+      return E_INVALIDARG;
+    }
 
     llvm::LLVMContext context;
     std::unique_ptr<llvm::Module> pModule;
@@ -509,7 +510,7 @@ public:
         IFR(HandleDxilContainer(m_ContainerBlob, &m_pDebugProgramBlob));
         if (!HasSources()) {
           if (m_pDebugProgramBlob) {
-            IFR(PopulateSourcesFromProgramHeader(m_pDebugProgramBlob));
+            IFR(PopulateSourcesFromProgramHeaderOrBitcode(m_pDebugProgramBlob));
           }
           else {
             return E_FAIL;
@@ -522,20 +523,17 @@ public:
         IFR(HandleDxilContainer(m_ContainerBlob, &m_pDebugProgramBlob));
         // If we have a Debug DXIL, populate the debug info.
         if (m_pDebugProgramBlob && !HasSources()) {
-          IFR(PopulateSourcesFromProgramHeader(m_pDebugProgramBlob));
+          IFR(PopulateSourcesFromProgramHeaderOrBitcode(m_pDebugProgramBlob));
         }
       }
-      // DXIL program header
-      else if (hlsl::IsValidDxilProgramHeader((hlsl::DxilProgramHeader *)pPdbOrDxil->GetBufferPointer(), pPdbOrDxil->GetBufferSize())) {
+      // DXIL program header or bitcode
+      else {
         CComPtr<IDxcBlobEncoding> pProgramHeaderBlob;
         IFR(hlsl::DxcCreateBlobWithEncodingFromPinned(
           (hlsl::DxilProgramHeader *)pPdbOrDxil->GetBufferPointer(),
           pPdbOrDxil->GetBufferSize(), CP_ACP, &pProgramHeaderBlob));
         IFR(pProgramHeaderBlob.QueryInterface(&m_pDebugProgramBlob));
-        IFR(PopulateSourcesFromProgramHeader(m_pDebugProgramBlob));
-      }
-      else {
-        return E_INVALIDARG;
+        IFR(PopulateSourcesFromProgramHeaderOrBitcode(m_pDebugProgramBlob));
       }
     }
     catch (std::bad_alloc) {

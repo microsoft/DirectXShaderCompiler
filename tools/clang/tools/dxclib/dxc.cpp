@@ -634,6 +634,95 @@ void DxcContext::Recompile(IDxcBlob *pSource, IDxcLibrary *pLibrary,
                            IDxcOperationResult **ppCompileResult) {
 // Recompile currently only supported on Windows
 #ifdef _WIN32
+  CComPtr<IDxcPdbUtils> pPdbUtils;
+  IFT(CreateInstance(CLSID_DxcPdbUtils, &pPdbUtils));
+  IFT(pPdbUtils->Load(pSource));
+
+  UINT32 uNumFlags = 0;
+  IFT(pPdbUtils->GetFlagCount(&uNumFlags));
+  std::vector<const WCHAR *> NewArgs;
+  std::vector<std::wstring> NewArgsStorage;
+  for (UINT32 i = 0; i < uNumFlags; i++) {
+    CComBSTR pFlag;
+    IFT(pPdbUtils->GetFlag(i, &pFlag));
+    NewArgsStorage.push_back(std::wstring(pFlag));
+  }
+  for (const std::wstring &flag : NewArgsStorage)
+    NewArgs.push_back(flag.c_str());
+
+  UINT32 uNumDefines = 0;
+  IFT(pPdbUtils->GetDefineCount(&uNumDefines));
+  std::vector<std::wstring> NewDefinesStorage;
+  std::vector<DxcDefine> NewDefines;
+  for (UINT32 i = 0; i < uNumDefines; i++) {
+    CComBSTR pDefine;
+    IFT(pPdbUtils->GetDefine(i, &pDefine));
+    NewDefinesStorage.push_back(std::wstring(pDefine));
+  }
+  for (std::wstring &Define : NewDefinesStorage) {
+    wchar_t *pDefineStart = &Define[0];
+    wchar_t *pDefineEnd = pDefineStart + Define.size();
+
+    DxcDefine D = {};
+    D.Name = pDefineStart;
+    D.Value = nullptr;
+    for (wchar_t *pCursor = pDefineStart; pCursor < pDefineEnd; ++pCursor) {
+      if (*pCursor == L'=') {
+        *pCursor = L'\0';
+        D.Value = (pCursor + 1);
+        break;
+      }
+    }
+    NewDefines.push_back(D);
+  }
+
+  CComBSTR pMainFileName;
+  CComBSTR pTargetProfile;
+  CComBSTR pEntryPoint;
+  IFT(pPdbUtils->GetMainFileName(&pMainFileName));
+  IFT(pPdbUtils->GetTargetProfile(&pTargetProfile));
+  IFT(pPdbUtils->GetEntryPoint(&pEntryPoint));
+
+  CComPtr<IDxcBlobEncoding> pCompileSource;
+  CComPtr<DxcIncludeHandlerForInjectedSources> pIncludeHandler = new DxcIncludeHandlerForInjectedSources();
+  UINT32 uSourceCount = 0;
+  IFT(pPdbUtils->GetSourceCount(&uSourceCount));
+  for (UINT32 i = 0; i < uSourceCount; i++) {
+    CComPtr<IDxcBlobEncoding> pSourceFile;
+    CComBSTR pFileName;
+    IFT(pPdbUtils->GetSource(i, &pSourceFile));
+    IFT(pPdbUtils->GetSourceName(i, &pFileName));
+    IFT(pIncludeHandler->insertIncludeFile(pFileName, pSourceFile, 0));
+    if (pMainFileName == pFileName) {
+      pCompileSource.Attach(pSourceFile);
+    }
+  }
+
+  CComPtr<IDxcOperationResult> pResult;
+
+  if (!m_Opts.DebugFile.empty()) {
+    CComPtr<IDxcCompiler2> pCompiler2;
+    CComHeapPtr<WCHAR> pDebugName;
+    Unicode::UTF8ToUTF16String(m_Opts.DebugFile.str().c_str(), &outputPDBPath);
+    IFT(pCompiler->QueryInterface(&pCompiler2));
+    IFT(pCompiler2->CompileWithDebug(
+        pCompileSource, pMainFileName, pEntryPoint,
+        pTargetProfile, NewArgs.data(), NewArgs.size(),
+        NewDefines.data(), NewDefines.size(), pIncludeHandler, &pResult,
+        &pDebugName, &pDebugBlob));
+    if (pDebugName.m_pData && m_Opts.DebugFileIsDirectory()) {
+      outputPDBPath += pDebugName.m_pData;
+    }
+  } else {
+    IFT(pCompiler->Compile(pCompileSource, pMainFileName,
+      pEntryPoint, pTargetProfile, NewArgs.data(),
+      NewArgs.size(), NewDefines.data(),
+      NewDefines.size(), pIncludeHandler, &pResult));
+  }
+
+  *ppCompileResult = pResult.Detach();
+
+#if 0
   CComPtr<IDxcBlob> pTargetBlob;
   IFT(FindModuleBlob(hlsl::DxilFourCC::DFCC_ShaderDebugInfoDXIL, pSource, pLibrary, &pTargetBlob));
   // Retrieve necessary data from DIA symbols for recompiling
@@ -801,6 +890,7 @@ void DxcContext::Recompile(IDxcBlob *pSource, IDxcLibrary *pLibrary,
   }
 
   *ppCompileResult = pResult.Detach();
+#endif
 #else
   assert(false && "Recompile is currently only supported on Windows.");
   *ppCompileResult = nullptr;
