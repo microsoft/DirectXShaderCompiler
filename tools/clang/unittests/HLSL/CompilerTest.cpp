@@ -988,8 +988,8 @@ static void VerifyPdbUtil(
     bool HasVersion,
     bool IsFullPDB,
     bool HasHashAndPdbName,
-    const std::string &main_source,
-    const std::string &included_File)
+    const std::string &MainSource,
+    const std::string &IncludedFile)
 {
   VERIFY_SUCCEEDED(pPdbUtils->Load(pBlob));
 
@@ -1092,11 +1092,11 @@ static void VerifyPdbUtil(
       VERIFY_SUCCEEDED(pPdbUtils->GetSourceName(i, &pFileName));
       VERIFY_SUCCEEDED(pPdbUtils->GetSource(i, &pFileContent));
       if (0 == wcscmp(pFileName, pMainFileName)) {
-        VERIFY_IS_TRUE(pFileContent->GetBufferSize() == main_source.size());
-        VERIFY_IS_TRUE(0 == std::memcmp(pFileContent->GetBufferPointer(), main_source.data(), main_source.size()));
+        VERIFY_IS_TRUE(pFileContent->GetBufferSize() == MainSource.size());
+        VERIFY_IS_TRUE(0 == std::memcmp(pFileContent->GetBufferPointer(), MainSource.data(), MainSource.size()));
       }
       else {
-        VERIFY_IS_TRUE(0 == std::memcmp(pFileContent->GetBufferPointer(), included_File.data(), included_File.size()));
+        VERIFY_IS_TRUE(0 == std::memcmp(pFileContent->GetBufferPointer(), IncludedFile.data(), IncludedFile.size()));
       }
     }
   }
@@ -1194,10 +1194,10 @@ static void VerifyPdbUtil(
     std::vector<const WCHAR *> NewExpectedArgs  = ReplaceDebugFlag(ExpectedArgs);
 
     VerifyPdbUtil(pFullPdb, pPdbUtils,
-      L"hlsl.hlsl",
+      pMainFileName,
       NewExpectedArgs, NewExpectedFlags, ExpectedDefines,
       pCompiler, HasVersion, /*IsFullPDB*/true,
-      HasHashAndPdbName, main_source, included_File);
+      HasHashAndPdbName, MainSource, IncludedFile);
   }
 }
 

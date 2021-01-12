@@ -622,6 +622,10 @@ public:
     }
     new_args.push_back(L"-Qfull_debug");
 
+    assert(m_MainFileName.size());
+    if (m_MainFileName.size())
+      new_args.push_back(m_MainFileName.c_str());
+
     if (m_SourceFiles.empty())
       return E_FAIL;
 
