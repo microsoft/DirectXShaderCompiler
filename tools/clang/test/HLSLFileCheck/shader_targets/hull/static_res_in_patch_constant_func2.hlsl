@@ -1,13 +1,12 @@
 // RUN: %dxc -E main -T hs_6_0  %s 2>&1 | FileCheck %s
 
-// Make sure @sf is restored to original value in patch constant function.
+// Make sure @sf is restored to original value 3.0 in patch constant function.
 // CHECK:define void @"\01?HSPerPatchFunc@@YA?AUHSPerPatchData@@XZ"() {
-// CHECK:store float 3.000000e+00, float* @sf, align 4
+
+// CHECK:call void @dx.op.storePatchConstant.f32
 // CHECK-NEXT:call void @dx.op.storePatchConstant.f32
 // CHECK-NEXT:call void @dx.op.storePatchConstant.f32
-// CHECK-NEXT:call void @dx.op.storePatchConstant.f32
-// CHECK-NEXT:load float, float* @sf, align 4
-// CHECK-NEXT:call void @dx.op.storePatchConstant.f32
+// CHECK-NEXT:call void @dx.op.storePatchConstant.f32(i32 106, i32 1, i32 0, i8 0, float 3.000000e+00)
 struct HSPerPatchData
 {
 	float	edges[3] : SV_TessFactor;
