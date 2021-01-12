@@ -969,57 +969,119 @@ public:
     *ppSampHeap = pSampHeap;
   }
 
-  // Create Resource views for <pDevice> given the SRV and UAV information provided
-  // using some reasonable defaults
-  void CreateDefaultResourceViews(ID3D12Device *pDevice, D3D12_CPU_DESCRIPTOR_HANDLE heapStart,
-                                  int numElements,
-                                  const CComPtr<ID3D12Resource> pSRVResources[], int NumSRVs,
-                                  const CComPtr<ID3D12Resource> pUAVResources[], int NumUAVs) {
-
-    CD3DX12_CPU_DESCRIPTOR_HANDLE baseHandle(heapStart);
+  void CreateSRV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &baseHandle,
+                 DXGI_FORMAT format, D3D12_SRV_DIMENSION viewDimension, UINT numElements, UINT stride,
+                 const CComPtr<ID3D12Resource> pResource) {
     UINT descriptorSize = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-    // Create SRVs
+    // Create SRV
     D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-    srvDesc.Format = DXGI_FORMAT_UNKNOWN;
-    srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+    srvDesc.Format = format;
+    srvDesc.ViewDimension = viewDimension;
     srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-    srvDesc.Buffer.FirstElement = 0;
-    srvDesc.Buffer.NumElements = numElements;
-    srvDesc.Buffer.StructureByteStride = sizeof(float);
-    for (int i = 0; i < NumSRVs - 1; i++) {
-      pDevice->CreateShaderResourceView(pSRVResources[i], &srvDesc, baseHandle);
-      baseHandle = baseHandle.Offset(descriptorSize);
+    switch (viewDimension) {
+    case D3D12_SRV_DIMENSION_BUFFER:
+      srvDesc.Buffer.FirstElement = 0;
+      srvDesc.Buffer.NumElements = numElements;
+      srvDesc.Buffer.StructureByteStride = stride;
+      if (format == DXGI_FORMAT_R32_TYPELESS && stride == 0)
+        srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
+      else
+        srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+      break;
+    case D3D12_SRV_DIMENSION_TEXTURE1D:
+      srvDesc.Texture1D.MostDetailedMip = 0;
+      srvDesc.Texture1D.MipLevels = 1;
+      srvDesc.Texture1D.ResourceMinLODClamp = 0;
+      break;
+    case D3D12_SRV_DIMENSION_TEXTURE2D:
+      srvDesc.Texture2D.MostDetailedMip = 0;
+      srvDesc.Texture2D.MipLevels = 1;
+      srvDesc.Texture2D.PlaneSlice = 0;
+      srvDesc.Texture2D.ResourceMinLODClamp = 0;
+      break;
     }
+    pDevice->CreateShaderResourceView(pResource, &srvDesc, baseHandle);
+    baseHandle.Offset(descriptorSize);
+  }
 
-    srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
-    srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-    srvDesc.Texture2D.MostDetailedMip = 0;
-    srvDesc.Texture2D.MipLevels = 1;
-    srvDesc.Texture2D.PlaneSlice = 0;
-    srvDesc.Texture2D.ResourceMinLODClamp = 0;
-    pDevice->CreateShaderResourceView(pSRVResources[NumSRVs - 1], &srvDesc, baseHandle);
-    baseHandle = baseHandle.Offset(descriptorSize);
 
-    // Create UAVs
+  void CreateRawSRV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &heapStart,
+                    UINT numElements, const CComPtr<ID3D12Resource> pResource) {
+    CreateSRV(pDevice, heapStart, DXGI_FORMAT_R32_TYPELESS, D3D12_SRV_DIMENSION_BUFFER, numElements, 0, pResource);
+  }
+
+  void CreateStructSRV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &heapStart,
+                       UINT numElements, UINT stride, const CComPtr<ID3D12Resource> pResource) {
+    CreateSRV(pDevice, heapStart, DXGI_FORMAT_UNKNOWN, D3D12_SRV_DIMENSION_BUFFER, numElements, stride, pResource);
+  }
+
+  void CreateTypedSRV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &heapStart,
+                      UINT numElements, DXGI_FORMAT format, const CComPtr<ID3D12Resource> pResource) {
+    CreateSRV(pDevice, heapStart, format, D3D12_SRV_DIMENSION_BUFFER, numElements, 0, pResource);
+  }
+
+  void CreateTex1DSRV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &heapStart,
+                      UINT numElements, DXGI_FORMAT format, const CComPtr<ID3D12Resource> pResource) {
+    CreateSRV(pDevice, heapStart, format, D3D12_SRV_DIMENSION_TEXTURE1D, numElements, 0, pResource);
+  }
+
+  void CreateTex2DSRV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &heapStart,
+                      UINT numElements, DXGI_FORMAT format, const CComPtr<ID3D12Resource> pResource) {
+    CreateSRV(pDevice, heapStart, format, D3D12_SRV_DIMENSION_TEXTURE2D, numElements, 0, pResource);
+  }
+
+  void CreateUAV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &baseHandle,
+                 DXGI_FORMAT format, D3D12_UAV_DIMENSION viewDimension, UINT numElements, UINT stride,
+                 const CComPtr<ID3D12Resource> pResource) {
+    UINT descriptorSize = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
-    uavDesc.Format = DXGI_FORMAT_UNKNOWN;
-    uavDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
-    uavDesc.Buffer.FirstElement = 0;
-    uavDesc.Buffer.NumElements = numElements;
-    uavDesc.Buffer.StructureByteStride = sizeof(float);
-    uavDesc.Buffer.CounterOffsetInBytes = 0;
-    uavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
-    for (int i = 0; i < NumUAVs - 1; i++) {
-      pDevice->CreateUnorderedAccessView(pUAVResources[i], nullptr, &uavDesc, baseHandle);
-      baseHandle = baseHandle.Offset(descriptorSize);
+    uavDesc.Format = format;
+    uavDesc.ViewDimension = viewDimension;
+    switch (viewDimension) {
+    case D3D12_UAV_DIMENSION_BUFFER:
+      uavDesc.Buffer.FirstElement = 0;
+      uavDesc.Buffer.NumElements = numElements;
+      uavDesc.Buffer.StructureByteStride = stride;
+      if (format == DXGI_FORMAT_R32_TYPELESS && stride == 0)
+        uavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_RAW;
+      else
+        uavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
+      break;
+    case D3D12_UAV_DIMENSION_TEXTURE1D:
+      uavDesc.Texture1D.MipSlice = 0;
+      break;
+    case D3D12_UAV_DIMENSION_TEXTURE2D:
+      uavDesc.Texture2D.MipSlice = 0;
+      uavDesc.Texture2D.PlaneSlice = 0;
+      break;
     }
+    pDevice->CreateUnorderedAccessView(pResource, nullptr, &uavDesc, baseHandle);
+    baseHandle.Offset(descriptorSize);
+  }
 
-    uavDesc.Format = DXGI_FORMAT_R32_FLOAT;
-    uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE1D;
-    uavDesc.Texture1D.MipSlice = 0;
-    pDevice->CreateUnorderedAccessView(pUAVResources[NumUAVs - 1], nullptr, &uavDesc, baseHandle);
+  void CreateRawUAV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &heapStart,
+                    UINT numElements, const CComPtr<ID3D12Resource> pResource) {
+    CreateUAV(pDevice, heapStart, DXGI_FORMAT_R32_TYPELESS, D3D12_UAV_DIMENSION_BUFFER, numElements, 0, pResource);
+  }
 
+  void CreateStructUAV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &heapStart,
+                       UINT numElements, UINT stride, const CComPtr<ID3D12Resource> pResource) {
+    CreateUAV(pDevice, heapStart, DXGI_FORMAT_UNKNOWN, D3D12_UAV_DIMENSION_BUFFER, numElements, stride, pResource);
+  }
+
+  void CreateTypedUAV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &heapStart,
+                      UINT numElements, DXGI_FORMAT format, const CComPtr<ID3D12Resource> pResource) {
+    CreateUAV(pDevice, heapStart, format, D3D12_UAV_DIMENSION_BUFFER, numElements, 0, pResource);
+  }
+
+  void CreateTex1DUAV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &heapStart,
+                      UINT numElements, DXGI_FORMAT format, const CComPtr<ID3D12Resource> pResource) {
+    CreateUAV(pDevice, heapStart, format, D3D12_UAV_DIMENSION_TEXTURE1D, numElements, 0, pResource);
+  }
+
+  void CreateTex2DUAV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &heapStart,
+                 UINT numElements, DXGI_FORMAT format, const CComPtr<ID3D12Resource> pResource) {
+    CreateUAV(pDevice, heapStart, format, D3D12_UAV_DIMENSION_TEXTURE2D, numElements, 0, pResource);
   }
 
   // Create Samplers for <pDevice> given the filter and border color information provided
@@ -8040,8 +8102,17 @@ void ExecutionTest::RunResourceTest(ID3D12Device *pDevice, const char *pShader,
       pCommandList->SetComputeRootDescriptorTable(1, pSampHeap->GetGPUDescriptorHandleForHeapStart());
     }
   }
-  CreateDefaultResourceViews(pDevice, pResHeap->GetCPUDescriptorHandleForHeapStart(), valueSize,
-                             pSRVResources, NumSRVs, pUAVResources, NumUAVs);
+  CD3DX12_CPU_DESCRIPTOR_HANDLE baseHandle(pResHeap->GetCPUDescriptorHandleForHeapStart());
+  // Create SRVs
+  CreateRawSRV(pDevice, baseHandle, valueSize, pSRVResources[0]);
+  CreateStructSRV(pDevice, baseHandle, valueSize, sizeof(float), pSRVResources[1]);
+  CreateTex2DSRV(pDevice, baseHandle, valueSize, DXGI_FORMAT_R32_FLOAT, pSRVResources[2]);
+  // Create UAVs
+  CreateRawUAV(pDevice, baseHandle, valueSize, pUAVResources[0]);
+  CreateStructUAV(pDevice, baseHandle, valueSize, sizeof(float), pUAVResources[1]);
+  CreateTypedUAV(pDevice, baseHandle, valueSize, DXGI_FORMAT_R32_FLOAT, pUAVResources[2]);
+  CreateTex1DUAV(pDevice, baseHandle, valueSize, DXGI_FORMAT_R32_FLOAT, pUAVResources[3]);
+
   D3D12_FILTER filters[] = {D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT, D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT};
   float borderColors[] = {30.0, 31.0};
   CreateDefaultSamplers(pDevice, pSampHeap->GetCPUDescriptorHandleForHeapStart(),
