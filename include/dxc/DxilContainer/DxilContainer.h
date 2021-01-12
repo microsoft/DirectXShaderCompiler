@@ -228,21 +228,21 @@ struct DxilCompilerVersion {
 //
 //   DxilSourceInfo
 //
-//   DxilSourceInfoElement
-//   char Data[]
-//   (0-3 zero bytes to align to a 4-byte boundary)
+//       DxilSourceInfoSection
+//       char Data[]
+//       (0-3 zero bytes to align to a 4-byte boundary)
 //
-//   DxilSourceInfoElement
-//   char Data[]
-//   (0-3 zero bytes to align to a 4-byte boundary)
+//       DxilSourceInfoSection
+//       char Data[]
+//       (0-3 zero bytes to align to a 4-byte boundary)
 //
-//     ...
+//         ...
 //
-//   DxilSourceInfoElement
-//   char Data[]
-//   (0-3 zero bytes to align to a 4-byte boundary)
+//       DxilSourceInfoSection
+//       char Data[]
+//       (0-3 zero bytes to align to a 4-byte boundary)
 //
-// Each DxilShaderSourceInfoElement is followed by a blob of Data.
+// Each DxilSourceInfoSection is followed by a blob of Data.
 // The each type of data has its own internal structure:
 //
 // ================ 1. Sources ==================================
@@ -300,11 +300,11 @@ struct DxilCompilerVersion {
 
 struct DxilSourceInfo {
   uint16_t Flags;         // Reserved, must be set to zero.
-  uint16_t ElementCount;  // The number of elements in the source info.
+  uint16_t SectionCount;  // The number of elements in the source info.
   uint32_t SizeInDwords;
 };
 
-enum class DxilSourceInfoElementType : uint16_t {
+enum class DxilSourceInfoSectionType : uint16_t {
   Sources,
   Defines,
   Args,
@@ -312,9 +312,9 @@ enum class DxilSourceInfoElementType : uint16_t {
   EntryPoint,
 };
 
-struct DxilSourceInfoElement {
+struct DxilSourceInfoSection {
   uint16_t Flags;                   // Reserved, must be set to zero.
-  DxilSourceInfoElementType Type;   // The type of data following this header.
+  DxilSourceInfoSectionType Type;   // The type of data following this header.
   uint32_t SizeInDwords;            // Size of the element, including this header, and the padding
 };
 
