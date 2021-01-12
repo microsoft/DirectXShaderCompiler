@@ -2314,46 +2314,32 @@ void CallCtorFunctionsAtInsertPt(llvm::Module &M,
   }
 }
 
-void CollectFunctionCallers(Function *F, DenseSet<Function *> &Callers,
-                            DenseSet<Function *> &ProcessedCallers) {
-  if (ProcessedCallers.count(F) > 0)
-    return;
-
-  for (User *U : F->users()) {
-    CallInst *CI = dyn_cast<CallInst>(U);
-    if (!CI)
-      continue;
-
-    Function *Caller = CI->getParent()->getParent();
-    Callers.insert(Caller);
-  }
-
-  ProcessedCallers.insert(F);
-  for (User *U : F->users()) {
-    CallInst *CI = dyn_cast<CallInst>(U);
-    if (!CI)
-      continue;
-    // Add Caller's Caller.
-    Function *Caller = CI->getParent()->getParent();
-    CollectFunctionCallers(Caller, Callers, ProcessedCallers);
+void CollectFunctionCallers(Function *F, DenseSet<Function *> &Callers) {
+  // worklist size max = call depth
+  SmallVector<Function *, 8> worklist;
+  worklist.push_back(F);
+  // add callers
+  while (worklist.size()) {
+    Function *F = worklist.pop_back_val();
+    for (User *U : F->users()) {
+      if (CallInst *CI = dyn_cast<CallInst>(U)) {
+        Function *Caller = CI->getParent()->getParent();
+        if (Callers.insert(Caller).second == true) {
+          // new caller
+          worklist.push_back(Caller);
+        }
+      }
+    }
   }
 }
 
 DenseSet<Function *> CollectExternalFunctionCallers(Module &M) {
   DenseSet<Function *> Callers;
-  DenseSet<Function *> ProcessedCallers;
-
   for (Function &F : M) {
-    if (F.isIntrinsic())
-      continue;
-    if (!F.isDeclaration())
-      continue;
-
-    if (hlsl::GetHLOpcodeGroup(&F) != hlsl::HLOpcodeGroup::NotHL)
-      continue;
-    // Find an external function.
-    // Add users to Callers.
-    CollectFunctionCallers(&F, Callers, ProcessedCallers);
+    if (!F.isIntrinsic() && F.isDeclaration() &&
+        hlsl::GetHLOpcodeGroup(&F) == hlsl::HLOpcodeGroup::NotHL) {
+      CollectFunctionCallers(&F, Callers);
+    }
   }
   return Callers;
 }
