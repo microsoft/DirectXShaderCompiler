@@ -42,6 +42,5 @@ float main() : SV_Target {
   return x;
 }
 
-// Exclude quoted source file (see readme)
-// CHECK-LABEL: {{!"[^"]*\\0A[^"]*"}}
+
 

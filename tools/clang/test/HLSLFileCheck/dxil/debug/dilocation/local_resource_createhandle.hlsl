@@ -2,8 +2,8 @@
 
 // Make sure createHandle has debug info.
 
-// CHECK: @dx.op.createHandle(i32 59, i8 1, i32 0, i32 0, i1 false), !dbg
-// CHECK: @dx.op.createHandle(i32 59, i8 1, i32 1, i32 1, i1 false), !dbg
+// CHECK-DAG: @dx.op.createHandle(i32 57, i8 1, i32 0, i32 0, i1 false), !dbg
+// CHECK-DAG: @dx.op.createHandle(i32 57, i8 1, i32 1, i32 1, i1 false), !dbg
 
 RWBuffer<uint> uav1;
 RWBuffer<uint> uav2;

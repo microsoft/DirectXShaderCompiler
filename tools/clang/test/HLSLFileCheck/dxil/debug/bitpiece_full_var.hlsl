@@ -4,9 +4,6 @@
 
 // CHECK-DAG: call void @llvm.dbg.value(metadata float %{{.*}}, i64 0, metadata !{{[0-9]+}}, metadata !{{[0-9]+}}), !dbg !{{[0-9]+}} ; var:"my_s" !DIExpression()
 
-// Exclude quoted source file (see readme)
-// CHECK-LABEL: {{!"[^"]*\\0A[^"]*"}}
-
 struct MyStruct {
   float1 foo;
 };

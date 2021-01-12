@@ -21,8 +21,8 @@ float main() : SV_Target {
   // CHECK: dx.nothing
 
   S c = { a.x+b.x, a.y+b.y };
-  // CHECK: fmul
-  // CHECK: fmul
+  // CHECK: fadd
+  // CHECK: fadd
 
   S d = c;
   // Memcpy should just get lowered to a noop for now.

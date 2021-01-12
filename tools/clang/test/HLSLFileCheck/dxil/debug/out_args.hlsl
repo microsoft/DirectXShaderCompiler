@@ -29,6 +29,5 @@ float3 main() : SV_Target {
   return output;
 }
 
-// Exclude quoted source file (see readme)
-// CHECK-LABEL: {{!"[^"]*\\0A[^"]*"}}
+
 

@@ -15,8 +15,5 @@
 // CHECK: !DIFile(filename: "{{[^:]*}}:{{[^:]*}}"
 // CHECK-NOT: !DIFile(
 
-// Exclude quoted source file (see readme)
-// CHECK: {{!"[^"]*\\0A[^"]*"}}
-
 Texture2D tex; // This is necessary for the second, non-bogus !DIFile
 void main() {}

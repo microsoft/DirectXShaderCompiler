@@ -11,9 +11,6 @@
 // CHECK: call void @dx.op.storeOutput.i32
 // CHECK: ret void
 
-// Exclude quoted source file (see readme)
-// CHECK: {{!"[^"]*\\0A[^"]*"}}
-
 // CHECK: !DILocalVariable(tag: DW_TAG_arg_variable, name: "a", arg: 1
 // CHECK: !DIExpression(DW_OP_bit_piece, 0, 32)
 // CHECK: !DIExpression(DW_OP_bit_piece, 32, 32)

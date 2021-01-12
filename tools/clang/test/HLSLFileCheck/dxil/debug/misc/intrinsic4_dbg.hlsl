@@ -16,8 +16,7 @@
 // CHECK: getDimensions
 // CHECK: getDimensions
 
-// Exclude quoted source file (see readme)
-// CHECK-LABEL: {{!"[^"]*\\0A[^"]*"}}
+
 
 SamplerState samp1 : register(s5);
 Texture2D<float4> text1 : register(t3);

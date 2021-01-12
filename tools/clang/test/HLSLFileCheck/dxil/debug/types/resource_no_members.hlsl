@@ -8,8 +8,7 @@
 // CHECK-DAG: !DICompositeType(tag: DW_TAG_class_type, name: "Buffer<float>", {{.*}}, elements: ![[empty]]
 // CHECK-DAG: !DICompositeType(tag: DW_TAG_class_type, name: "RWStructuredBuffer<float>", {{.*}}, elements: ![[empty]]
 
-// Exclude quoted source file (see readme)
-// CHECK-LABEL: {{!"[^"]*\\0A[^"]*"}}
+
 
 Texture1D<float> tex;
 Buffer<float> buf;

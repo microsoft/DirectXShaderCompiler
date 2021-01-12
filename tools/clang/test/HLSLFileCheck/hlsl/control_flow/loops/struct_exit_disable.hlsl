@@ -48,6 +48,5 @@ float main(uint a : A, uint b : B, uint c : C) : SV_Target {
 }
 
 
-// Exclude quoted source file (see readme)
-// CHECK-LABEL: {{!"[^"]*\\0A[^"]*"}}
+
 

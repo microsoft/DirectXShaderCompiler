@@ -5,9 +5,6 @@
 
 // CHECK: @main
 
-// Exclude quoted source file (see readme)
-// CHECK-LABEL: {{!"[^"]*\\0A[^"]*"}}
-
 // CHECK: !DILocalVariable(tag: DW_TAG_arg_variable, name: "global.gG"
 
 static bool gG;
