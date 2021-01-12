@@ -223,26 +223,26 @@ struct DxilCompilerVersion {
   // Followed by [0-3] zero bytes to align to a 4-byte boundary.
 };
 
-// Source Info has the following top level structure:
+// Source Info part has the following top level structure:
 //
-//   DxilShaderSourceInfo mainHeader;
+//   DxilSourceInfo
 //
-//   DxilShaderSourceInfoElement elementHeader;
+//   DxilSourceInfoElement
 //   char Data[]
 //   (0-3 zero bytes to align to a 4-byte boundary)
 //
-//   DxilShaderSourceInfoElement
+//   DxilSourceInfoElement
 //   char Data[]
 //   (0-3 zero bytes to align to a 4-byte boundary)
 //
 //     ...
 //
-//   DxilShaderSourceInfoElement
+//   DxilSourceInfoElement
 //   char Data[]
 //   (0-3 zero bytes to align to a 4-byte boundary)
 //
-// Each DxilShaderSourceInfoElement is followed by a blob of data.
-// The each type of data has its own structure:
+// Each DxilShaderSourceInfoElement is followed by a blob of Data.
+// The each type of data has its own internal structure:
 //
 // ================ 1. Sources ==================================
 // 
@@ -270,7 +270,7 @@ struct DxilCompilerVersion {
 //
 // ================ 2. Defines ==================================
 //
-//   DxilSourceInfo_Options
+//   DxilSourceInfo_StringList
 //     char Define[] + NullTerminator
 //     char Define[] + NullTerminator
 //       ...
@@ -279,7 +279,7 @@ struct DxilCompilerVersion {
 //
 // ================ 3. Args ==================================
 //
-//   DxilSourceInfo_Options
+//   DxilSourceInfo_StringList
 //     char Arg[] + NullTerminator
 //     char Arg[] + NullTerminator
 //       ...
@@ -311,15 +311,16 @@ enum class DxilSourceInfoElementType : uint16_t {
   EntryPoint,
 };
 
-struct DxilShaderSourceInfoElement {
+struct DxilSourceInfoElement {
   uint16_t Flags;                   // Reserved, must be set to zero.
   DxilSourceInfoElementType Type;   // The type of data following this header.
   uint32_t SizeInDwords;            // Size of the element, including this header, and the padding
 };
 
-struct DxilSourceInfo_Options {
+struct DxilSourceInfo_StringList {
   uint16_t Flags;       // Reserved, must be set to zero.
-  uint16_t SizeInBytes; // Length of all options, including the double null terminator, not including this header.
+  uint16_t SizeInBytes; // Length of all strings, including the double null terminator, not including this header.
+  uint32_t Count;
 };
 
 struct DxilSourceInfo_String {

@@ -41,7 +41,7 @@ unsigned SourceInfoReader::GetSourcesCount() const {
   return m_Sources.size();
 }
 void SourceInfoReader::Read(const hlsl::DxilSourceInfo *SourceInfo) {
-  const hlsl::DxilShaderSourceInfoElement *element = (hlsl::DxilShaderSourceInfoElement *)(SourceInfo+1);
+  const hlsl::DxilSourceInfoElement *element = (hlsl::DxilSourceInfoElement *)(SourceInfo+1);
 
   for (unsigned i = 0; i < SourceInfo->ElementCount; i++) {
     switch (element->Type) {
@@ -59,13 +59,13 @@ void SourceInfoReader::Read(const hlsl::DxilSourceInfo *SourceInfo) {
 
     case hlsl::DxilSourceInfoElementType::Defines:
     {
-      auto header = (hlsl::DxilSourceInfo_Options *)&element[1];
+      auto header = (hlsl::DxilSourceInfo_StringList *)&element[1];
       m_Defines = llvm::StringRef( (char *)(header+1), header->SizeInBytes );
     } break;
 
     case hlsl::DxilSourceInfoElementType::Args:
     {
-      auto header = (hlsl::DxilSourceInfo_Options *)&element[1];
+      auto header = (hlsl::DxilSourceInfo_StringList *)&element[1];
       m_Args = llvm::StringRef( (char *)(header+1), header->SizeInBytes );
     } break;
 
@@ -101,7 +101,7 @@ void SourceInfoReader::Read(const hlsl::DxilSourceInfo *SourceInfo) {
 
     } break;
     }
-    element = (hlsl::DxilShaderSourceInfoElement *)((uint8_t *)element + element->SizeInDwords*sizeof(uint32_t));
+    element = (hlsl::DxilSourceInfoElement *)((uint8_t *)element + element->SizeInDwords*sizeof(uint32_t));
   }
 }
 
@@ -156,14 +156,14 @@ static void AppendFileEntry(Buffer *buf, llvm::StringRef name, llvm::StringRef c
 static size_t BeginElement(Buffer *buf) {
   const size_t elementOffset = buf->size();
 
-  hlsl::DxilShaderSourceInfoElement elementHeader = {};
+  hlsl::DxilSourceInfoElement elementHeader = {};
   Append(buf, &elementHeader, sizeof(elementHeader)); // Write an empty header
 
   return elementOffset;
 }
 
 static void FinishElement(Buffer *buf, const size_t elementOffset, hlsl::DxilSourceInfoElementType type) {
-  hlsl::DxilShaderSourceInfoElement elementHeader = {};
+  hlsl::DxilSourceInfoElement elementHeader = {};
 
   // Calculate and pad the size of the element.
   const size_t elementSize = buf->size() - elementOffset;
@@ -258,19 +258,22 @@ void SourceInfoWriter::Write(llvm::StringRef targetProfile, llvm::StringRef entr
   {
     const size_t elementOffset = BeginElement(&m_Buffer);
 
-    hlsl::DxilSourceInfo_Options header = {};
+    hlsl::DxilSourceInfo_StringList header = {};
 
     const size_t headerOffset = m_Buffer.size();
     Append(&m_Buffer, &header, sizeof(header));
 
+    uint32_t count = 0;
     for (std::string &def : cgOpts.HLSLDefines) {
       Append(&m_Buffer, def.data(), def.size());
       Append(&m_Buffer, 0); // Null terminator
+      count++;
     }
     Append(&m_Buffer, 0); // Double null terminator
 
     // Go back and rewrite the header now that we know the size
     header.SizeInBytes = m_Buffer.size() - headerOffset;
+    header.Count = count;
     memcpy(m_Buffer.data() + headerOffset, &header, sizeof(header));
 
     FinishElement(&m_Buffer, elementOffset, hlsl::DxilSourceInfoElementType::Defines);
@@ -283,19 +286,22 @@ void SourceInfoWriter::Write(llvm::StringRef targetProfile, llvm::StringRef entr
   {
     const size_t elementOffset = BeginElement(&m_Buffer);
 
-    hlsl::DxilSourceInfo_Options header = {};
+    hlsl::DxilSourceInfo_StringList header = {};
 
     const size_t headerOffset = m_Buffer.size();
     Append(&m_Buffer, &header, sizeof(header));
 
+    uint32_t count = 0;
     for (std::string &arg : cgOpts.HLSLArguments) {
       Append(&m_Buffer, arg.data(), arg.size());
       Append(&m_Buffer, 0); // Null terminator
+      count++;
     }
     Append(&m_Buffer, 0); // Double null terminator
 
     // Go back and rewrite the header now that we know the size
     header.SizeInBytes = m_Buffer.size() - headerOffset;
+    header.Count = count;
     memcpy(m_Buffer.data() + headerOffset, &header, sizeof(header));
 
     FinishElement(&m_Buffer, elementOffset, hlsl::DxilSourceInfoElementType::Args);
