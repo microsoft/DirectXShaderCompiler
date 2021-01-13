@@ -228,84 +228,120 @@ struct DxilCompilerVersion {
 //
 //   DxilSourceInfo
 //
-//       DxilSourceInfoSection
-//       char Data[]
-//       (0-3 zero bytes to align to a 4-byte boundary)
+//      DxilSourceInfoSection
+//         char Data[]
+//         (0-3 zero bytes to align to a 4-byte boundary)
 //
-//       DxilSourceInfoSection
-//       char Data[]
-//       (0-3 zero bytes to align to a 4-byte boundary)
+//      DxilSourceInfoSection
+//         char Data[]
+//         (0-3 zero bytes to align to a 4-byte boundary)
 //
-//         ...
+//      ...
 //
-//       DxilSourceInfoSection
-//       char Data[]
-//       (0-3 zero bytes to align to a 4-byte boundary)
+//      DxilSourceInfoSection
+//         char Data[]
+//         (0-3 zero bytes to align to a 4-byte boundary)
 //
 // Each DxilSourceInfoSection is followed by a blob of Data.
 // The each type of data has its own internal structure:
 //
-// ================ 1. Sources ==================================
+// ================ 1. Source Names ==================================
+//
+//  DxilSourceInfo_SourceNames
+//
+//     DxilSourceInfo_SourceNamesEntry
+//        char Name[ NameSizeInBytes ]
+//        char NullTerminator
+//        (0-3 zero bytes to align to a 4-byte boundary)
+//
+//     DxilSourceInfo_SourceNamesEntry
+//        char Name[ NameSizeInBytes ]
+//        char NullTerminator
+//        (0-3 zero bytes to align to a 4-byte boundary)
+//
+//      ...
+//
+//     DxilSourceInfo_SourceNamesEntry
+//        char Name[ NameSizeInBytes ]
+//        char NullTerminator
+//        (0-3 zero bytes to align to a 4-byte boundary)
+//
+// ================ 2. Source Contents ==================================
 // 
-//  DxilSourceInfo_Sources
-//    char Data[SizeInBytes]
+//  DxilSourceInfo_SourceContents
+//    char Entries[CompressedEntriesSizeInBytes]
 //   
-// `Data` may be compressed. When uncompressed, this is the structure:
+// `Entries` may be compressed. Here is the uncompressed structure:
 //
-//   DxilSourceInfo_SourcesElement
-//   char Name   [ NameSize ]    + NullTerminator
-//   char Content[ ContentSize ] + NullTerminator
-//   (0-3 zero bytes to align to a 4-byte boundary)
+//     DxilSourceInfo_SourcesContentsEntry
+//        char Content[ ContentSizeInBytes ]
+//        char NullTerminator
+//        (0-3 zero bytes to align to a 4-byte boundary)
 //
-//   DxilSourceInfo_SourcesElement
-//   char Name   [ NameSize ]    + NullTerminator
-//   char Content[ ContentSize ] + NullTerminator
-//   (0-3 zero bytes to align to a 4-byte boundary)
+//     DxilSourceInfo_SourcesContentsEntry
+//        char Content[ ContentSizeInBytes ]
+//        char NullTerminator
+//        (0-3 zero bytes to align to a 4-byte boundary)
 //
 //     ...
 //
-//   DxilSourceInfo_SourcesElement
-//   char Name   [ NameSize ]    + NullTerminator
-//   char Content[ ContentSize ] + NullTerminator
-//   (0-3 zero bytes to align to a 4-byte boundary)
+//     DxilSourceInfo_SourcesContentsEntry
+//        char Content[ ContentSizeInBytes ]
+//        char NullTerminator
+//        (0-3 zero bytes to align to a 4-byte boundary)
 //
-// ================ 2. Defines ==================================
-//
-//   DxilSourceInfo_StringList
-//     char Define[] + NullTerminator
-//     char Define[] + NullTerminator
-//       ...
-//     char Define[] + NullTerminator
-//     NullTerminator (to mark no more options)
-//
-// ================ 3. Args ==================================
+// ================ 3. Defines ==================================
 //
 //   DxilSourceInfo_StringList
-//     char Arg[] + NullTerminator
-//     char Arg[] + NullTerminator
-//       ...
-//     char Arg[] + NullTerminator
-//     NullTerminator (to mark no more options)
 //
-// ================ 4. Target Profile ==================================
+//      char Define[]
+//      char NullTerminator
+//
+//      char Define[]
+//      char NullTerminator
+//
+//      ...
+//
+//      char Define[]
+//      char NullTerminator
+//
+// ================ 4. Args ==================================
+//
+//   DxilSourceInfo_StringList
+//
+//      char Arg[]
+//      char NullTerminator
+//
+//      char Arg[]
+//      char NullTerminator
+//
+//      ...
+//
+//      char Arg[]
+//      char NullTerminator
+//
+// ================ 5. Target Profile ==================================
 //
 //   DxilSourceInfo_String
-//     char TargetProfile[] + NullTerminator
+//      char TargetProfile[]
+//      char NullTerminator
 //
-// ================ 5. Entry Point Name ==================================
+// ================ 6. Entry Point Name ==================================
 //
 //   DxilSourceInfo_String
-//     char EntryPoint[] + NullTerminator
+//      char EntryPoint[]
+//      char NullTerminator
 //
 
 struct DxilSourceInfo {
-  uint16_t Flags;         // Reserved, must be set to zero.
-  uint16_t SectionCount;  // The number of elements in the source info.
-  uint32_t SizeInDwords;
+  uint32_t AlignedSizeInBytes;  // Total size of the contents including this header
+  uint16_t Flags;               // Reserved, must be set to zero.
+  uint16_t SectionCount;        // The number of sections in the source info.
 };
 
 enum class DxilSourceInfoSectionType : uint16_t {
-  Sources,
+  SourceContents,
+  SourceNames,
   Defines,
   Args,
   TargetProfile,
@@ -313,38 +349,67 @@ enum class DxilSourceInfoSectionType : uint16_t {
 };
 
 struct DxilSourceInfoSection {
+  uint32_t AlignedSizeInBytes;      // Size of the section, including this header, and the padding. Aligned to 4-byte boundary.
   uint16_t Flags;                   // Reserved, must be set to zero.
   DxilSourceInfoSectionType Type;   // The type of data following this header.
-  uint32_t SizeInDwords;            // Size of the element, including this header, and the padding
 };
 
 struct DxilSourceInfo_StringList {
-  uint16_t Flags;       // Reserved, must be set to zero.
-  uint16_t SizeInBytes; // Length of all strings, including the double null terminator, not including this header.
-  uint32_t Count;
+  uint32_t Flags;       // Reserved, must be set to zero.
+  uint32_t SizeInBytes; // Length of all strings, including their null terminators, not including this header.
+  uint32_t Count;       // Number of strings
+
+  // Followed by `Count` null-terminated strings.
 };
 
 struct DxilSourceInfo_String {
-  uint16_t Flags;       // Reserved, must be set to zero.
-  uint16_t SizeInBytes; // Length of the string, not including null terminator
+  uint32_t Flags;       // Reserved, must be set to zero.
+  uint32_t SizeInBytes; // Length of the string, not including null terminator
+
+  // Followed by SizeInBytes bytes of the UTF-8-encoded string.
+  // Followed by a null terminator.
 };
 
-enum class DxilSourceInfo_SourcesCompressType : uint16_t {
+struct DxilSourceInfo_SourceNames {
+  uint32_t Flags;                                   // Reserved, must be set to 0.
+  uint32_t Count;                                   // The number of data entries
+  uint16_t EntriesSizeInBytes;                      // The total size of the data entries following this header.
+
+  // Followed by `Count` data entries with the header DxilSourceInfo_SourceNamesEntry
+};
+
+struct DxilSourceInfo_SourceNamesEntry {
+  uint32_t AlignedSizeInBytes;                      // Size of the data including this header and padding. Aligned to 4-byte boundary.
+  uint32_t Flags;                                   // Reserved, must be set to 0.
+  uint32_t NameSizeInBytes;                         // Size of the file name, NOT including the null terminator.
+  uint32_t ContentSizeInBytes;                      // Size of the file content, NOT including the null terminator.
+  // Followed by NameSizeInBytes bytes of the UTF-8-encoded file name.
+  // Followed by a null terminator.
+  // Followed by [0-3] zero bytes to align to a 4-byte boundary.
+};
+
+enum class DxilSourceInfo_SourceContentsCompressType : uint16_t {
   None,
   Zlib
 };
-struct DxilSourceInfo_Sources {
-  uint16_t FileCount;                               // The number of files
-  DxilSourceInfo_SourcesCompressType CompressType;
-  uint32_t SizeInBytes;                             // Compressed size in bytes. Must equal to UncompressedSizeInBytes if uncompressed.
-  uint32_t UncompressedSizeInBytes;                 // Uncompressed size in bytes.
+
+struct DxilSourceInfo_SourceContents {
+  uint32_t AlignedSizeInBytes;                             // Size of the entry including this header. Aligned to 4-byte boundary.
+  uint16_t Flags;                                          // Reserved, must be set to 0.
+  DxilSourceInfo_SourceContentsCompressType CompressType;  // The type of compression used to compress the data
+  uint32_t EntriesSizeInBytes;                             // The size of the data entries following this header.
+  uint32_t UncompressedEntriesSizeInBytes;                 // Total size of the data entries when uncompressed.
+  uint32_t Count;                                          // The number of data entries
+  // Followed by (compressed) `Count` data entries with the header DxilSourceInfo_SourceContentsEntry
 };
 
-struct DxilSourceInfo_SourcesElement {
-  uint32_t Flags;                                   // Reserved, must be set to 0.
-  uint32_t SizeInDwords;                            // Total size in Dwords (including the padding and this structure).
-  uint32_t NameSize;                                // Size of the source's file name (not including null terminator).
-  uint32_t ContentSize;                             // Size of the source's content (not including null terminator).
+struct DxilSourceInfo_SourceContentsEntry {
+  uint32_t AlignedSizeInBytes;                             // Size of the entry including this header and padding. Aligned to 4-byte boundary.
+  uint32_t Flags;                                          // Reserved, must be set to 0.
+  uint32_t ContentSizeInBytes;                             // Size of the data following this header
+  // Followed by NameSizeInBytes bytes of the UTF-8-encoded content.
+  // Followed by a null terminator.
+  // Followed by [0-3] zero bytes to align to a 4-byte boundary.
 };
 
 #pragma pack(pop)

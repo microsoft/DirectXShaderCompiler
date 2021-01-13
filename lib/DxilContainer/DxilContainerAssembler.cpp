@@ -1730,9 +1730,9 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   // This block of code only runs if we support slim PDB.
   if (bSupportSourceInfoPart) {
     if (ShaderSourceInfo) {
-      writer.AddPart(DFCC_ShaderSourceInfo, ShaderSourceInfo->SizeInDwords * sizeof(uint32_t), [ShaderSourceInfo](AbstractMemoryStream *pStream) {
+      writer.AddPart(DFCC_ShaderSourceInfo, ShaderSourceInfo->AlignedSizeInBytes, [ShaderSourceInfo](AbstractMemoryStream *pStream) {
         ULONG cbWritten = 0;
-        IFT(pStream->Write(ShaderSourceInfo, ShaderSourceInfo->SizeInDwords * sizeof(uint32_t), &cbWritten));
+        IFT(pStream->Write(ShaderSourceInfo, ShaderSourceInfo->AlignedSizeInBytes, &cbWritten));
       });
     }
   }

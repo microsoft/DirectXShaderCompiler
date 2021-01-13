@@ -150,7 +150,7 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc, IDxcBlob *pOldContainer, 
     return E_FAIL;
 
   if (pSourceInfo) {
-    const UINT32 uPartSize = pSourceInfo->SizeInDwords * sizeof(uint32_t);
+    const UINT32 uPartSize = pSourceInfo->AlignedSizeInBytes;
 
     OffsetTable.push_back(uTotalPartsSize);
     uTotalPartsSize += uPartSize + sizeof(hlsl::DxilPartHeader);
@@ -160,7 +160,7 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc, IDxcBlob *pOldContainer, 
       uPartSize,
       [pSourceInfo](IStream *pStream) {
         ULONG uBytesWritten = 0;
-        pStream->Write(pSourceInfo, pSourceInfo->SizeInDwords * sizeof(uint32_t), &uBytesWritten);
+        pStream->Write(pSourceInfo, pSourceInfo->AlignedSizeInBytes, &uBytesWritten);
         return S_OK;
       }
     );

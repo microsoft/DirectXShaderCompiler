@@ -362,19 +362,18 @@ private:
   }
 
   static void ReadNullSeparatedStringList(StringRef string_list, std::vector<std::wstring> *out_list) {
-    const char *def = string_list.data();
+    const char *ptr = string_list.data();
     for (unsigned i = 0; i < string_list.size();) {
-      if (def[i] == 0)
-        break;
-      unsigned def_len = 0;
+      const char *item = ptr + i;
+      unsigned item_len = 0;
       for (; i < string_list.size(); i++) {
-        if (def[i] == 0) {
+        if (ptr[i] == 0) {
           i++;
           break;
         }
-        def_len++;
+        item_len++;
       }
-      out_list->push_back(ToWstring(def, def_len));
+      out_list->push_back(ToWstring(item, item_len));
     }
   }
 
@@ -402,16 +401,20 @@ private:
         m_TargetProfile = ToWstring(reader.GetTargetProfile());
         m_EntryPoint = ToWstring(reader.GetEntryPoint());
 
+        // Defines
         {
           StringRef defines_data = reader.GetDefines();
           ReadNullSeparatedStringList(defines_data, &m_Defines);
         }
 
+        // Args and Flags
         {
           StringRef args_data = reader.GetArgs();
           ReadNullSeparatedStringList(args_data, &m_Args);
+          m_Flags = ComputeFlagsBasedOnArgs(m_Args);
         }
 
+        // Sources
         for (unsigned i = 0; i < reader.GetSourcesCount(); i++) {
           hlsl::SourceInfoReader::Source source_data = reader.GetSource(i);
 
@@ -436,20 +439,20 @@ private:
 
       case hlsl::DFCC_ShaderHash:
       {
-        const hlsl::DxilShaderHash *hash_header = (hlsl::DxilShaderHash *)(part+1);
+        const hlsl::DxilShaderHash *hash_header = (const hlsl::DxilShaderHash *)(part+1);
         IFR(hlsl::DxcCreateBlobOnHeapCopy(hash_header, sizeof(*hash_header), &m_HashBlob));
       } break;
 
       case hlsl::DFCC_ShaderDebugName:
       {
-        const hlsl::DxilShaderDebugName *name_header = (hlsl::DxilShaderDebugName *)(part+1);
+        const hlsl::DxilShaderDebugName *name_header = (const hlsl::DxilShaderDebugName *)(part+1);
         const char *ptr = (char *)(name_header+1);
         m_Name = ToWstring(ptr, name_header->NameLength);
       } break;
 
       case hlsl::DFCC_ShaderDebugInfoDXIL:
       {
-        hlsl::DxilProgramHeader *program_header = (hlsl::DxilProgramHeader *)(part+1);
+        const hlsl::DxilProgramHeader *program_header = (const hlsl::DxilProgramHeader *)(part+1);
 
         CComPtr<IDxcBlobEncoding> pProgramHeaderBlob;
         IFR(hlsl::DxcCreateBlobWithEncodingFromPinned(program_header, program_header->SizeInUint32*sizeof(UINT32), CP_ACP, &pProgramHeaderBlob));
