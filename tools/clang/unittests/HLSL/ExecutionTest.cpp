@@ -8853,29 +8853,18 @@ TEST_F(ExecutionTest, AtomicsFloatTest) {
 // The IsHelperLane test renders 3-pixel triangle into 16x16 render target restricted 
 // to 2x2 viewport alligned at (0,0) which guarantees it will run in a single quad. 
 //
-// Each pixel is assigned an index into RWStructuredBuffer where to write the test results.
-// It has also ID that is a power of 2 to identify it in the ddx_fine/ddy_fine operations.
-// 
-// Pixels to be rendered*     indices in UAVBuffer0   IDs
-// (0,0)*  (0,1)*             0 1                     1 2
-// (1,0)   (1,1)*             2 3                     4 8
+// Pixels to be rendered*
+// (0,0)*  (0,1)*
+// (1,0)   (1,1)*
 //
-// ddx_fine and ddy_fine intrinsics are used on (IsHelperLane() * id) expression to determine
-// if the IsHelperLane intrinsics returns true for non-rendered or discarded pixels.
-
-// Step 1 - pixel (1,0) is in helper lane based on the triangle geometry and is not rendered.
-// 
-// (IsHelperLane()*id)          ddx_fine     ddy_fine
-//  | 0 0 |                     | 0  0 |     | 4  0 |
-//  | 4 0 |                     |-4 -4 |     | 4  0 |
-
-// Step 2 - pixel (0,0) gets discarded and its lane becomes helper lane.
-// 
-// (IsHelperLane()*id)          ddx_fine     ddy_fine
-//  | 1 0 |                     |-1 -1 |     | 3  0 |
-//  | 4 0 |                     |-4 -4 |     | 3  0 |
+// Pixel (1,0) is not rendered and is in helper lane.
 //
-// Runs with shader models 6.0 and 6.6 to test both the HLSL built-in IsHelperLane fallback 
+// Each thread will use ddx_fine and ddy_fine to read the IsHelperLane() values from other threads.
+// The bottom right pixel will write the results into the UAV buffer.
+// 
+// Then the top level pixel (0,0) is discarded and the process above is repeated.
+//
+// Runs with shader models 6.0 and 6.0 to test both the HLSL built-in IsHelperLane fallback 
 // function (sm <= 6.5) and the IsHelperLane intrisics (sm >= 6.6).
 //
 TEST_F(ExecutionTest, HelperLaneTest) {
@@ -8906,15 +8895,15 @@ TEST_F(ExecutionTest, HelperLaneTest) {
       [&](LPCSTR Name, std::vector<BYTE>& Data, st::ShaderOp* pShaderOp) {
         VERIFY_IS_TRUE(0 == _stricmp(Name, "UAVBuffer0"));
         std::fill(Data.begin(), Data.end(), 0xCC);
+        pShaderOp->Shaders.at(0).Arguments = args.c_str();
         pShaderOp->Shaders.at(1).Arguments = args.c_str();
       }, ShaderOpSet);
 
     struct HelperLaneTestResult {
-      uint32_t id;
-      int32_t ddx1;
-      int32_t ddy1;
-      int32_t ddx2;
-      int32_t ddy2;
+      int32_t is_helper_00;
+      int32_t is_helper_10;
+      int32_t is_helper_01;
+      int32_t is_helper_11;
     };
 
     MappedData uavData;
@@ -8925,33 +8914,17 @@ TEST_F(ExecutionTest, HelperLaneTest) {
     test->Test->GetReadBackData("RTarget", &renderData);
     const uint32_t* pPixels = (uint32_t*)renderData.data();
 
-    // Pixel (0,0) - gets discarded in step 2 and never writes ddx2/ddy2 values
-    VERIFY_ARE_EQUAL(pTestResults[0].id, 1);
-    VERIFY_ARE_EQUAL(pTestResults[0].ddx1, 0);
-    VERIFY_ARE_EQUAL(pTestResults[0].ddy1, 4);
-    VERIFY_ARE_EQUAL(pTestResults[0].ddx2, 0xCCCCCCCC);
-    VERIFY_ARE_EQUAL(pTestResults[0].ddy2, 0xCCCCCCCC);
+    // before discard
+    VERIFY_ARE_EQUAL(pTestResults[0].is_helper_00, 0);
+    VERIFY_ARE_EQUAL(pTestResults[0].is_helper_10, 0);
+    VERIFY_ARE_EQUAL(pTestResults[0].is_helper_01, 1);
+    VERIFY_ARE_EQUAL(pTestResults[0].is_helper_11, 0);
 
-    // Pixel (0,1)
-    VERIFY_ARE_EQUAL(pTestResults[1].id, 2);
-    VERIFY_ARE_EQUAL(pTestResults[1].ddx1, 0);
-    VERIFY_ARE_EQUAL(pTestResults[1].ddy1, 0);
-    VERIFY_ARE_EQUAL(pTestResults[1].ddx2, -1);
-    VERIFY_ARE_EQUAL(pTestResults[1].ddy2, 0);
-
-    // Pixel (1,0) - in helper lane from the start and never writes to output
-    VERIFY_ARE_EQUAL(pTestResults[2].id,   0xCCCCCCCC);
-    VERIFY_ARE_EQUAL(pTestResults[2].ddx1, 0xCCCCCCCC);
-    VERIFY_ARE_EQUAL(pTestResults[2].ddy1, 0xCCCCCCCC);
-    VERIFY_ARE_EQUAL(pTestResults[2].ddx2, 0xCCCCCCCC);
-    VERIFY_ARE_EQUAL(pTestResults[2].ddy2, 0xCCCCCCCC);
-
-    // Pixel (1,1)
-    VERIFY_ARE_EQUAL(pTestResults[3].id, 8);
-    VERIFY_ARE_EQUAL(pTestResults[3].ddx1, -4);
-    VERIFY_ARE_EQUAL(pTestResults[3].ddy1, 0);
-    VERIFY_ARE_EQUAL(pTestResults[3].ddx2, -4);
-    VERIFY_ARE_EQUAL(pTestResults[3].ddy2, 0);
+    // after discard
+    VERIFY_ARE_EQUAL(pTestResults[1].is_helper_00, 1);
+    VERIFY_ARE_EQUAL(pTestResults[1].is_helper_10, 0);
+    VERIFY_ARE_EQUAL(pTestResults[1].is_helper_01, 1);
+    VERIFY_ARE_EQUAL(pTestResults[1].is_helper_11, 0);
 
     UNREFERENCED_PARAMETER(pPixels);
   }
