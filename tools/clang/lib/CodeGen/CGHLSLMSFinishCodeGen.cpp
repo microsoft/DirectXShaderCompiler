@@ -2305,12 +2305,79 @@ bool BuildImmInit(Function *Ctor) {
   return true;
 }
 
+void CallCtorFunctionsAtInsertPt(llvm::Module &M,
+                                 llvm::SmallVector<llvm::Function *, 2> &Ctors,
+                                 Instruction *InsertPt) {
+  IRBuilder<> Builder(InsertPt);
+  for (Function *Ctor : Ctors) {
+    Builder.CreateCall(Ctor);
+  }
+}
+
+void CollectFunctionCallers(Function *F, DenseSet<Function *> &Callers) {
+  // worklist size max = call depth
+  SmallVector<Function *, 8> worklist;
+  worklist.push_back(F);
+  // add callers
+  while (worklist.size()) {
+    Function *F = worklist.pop_back_val();
+    for (User *U : F->users()) {
+      if (CallInst *CI = dyn_cast<CallInst>(U)) {
+        Function *Caller = CI->getParent()->getParent();
+        if (Callers.insert(Caller).second == true) {
+          // new caller
+          worklist.push_back(Caller);
+        }
+      }
+    }
+  }
+}
+
+DenseSet<Function *> CollectExternalFunctionCallers(Module &M) {
+  DenseSet<Function *> Callers;
+  for (Function &F : M) {
+    if (!F.isIntrinsic() && F.isDeclaration() &&
+        hlsl::GetHLOpcodeGroup(&F) == hlsl::HLOpcodeGroup::NotHL) {
+      CollectFunctionCallers(&F, Callers);
+    }
+  }
+  return Callers;
+}
+
+// If static initializers contain calls to external functions, this can
+// introduce inter-module init function ordering dependencies.  Some
+// dependencies may even introduce contradictions.  Creating and implementing an
+// intuitive standard approach to solve this is likely quite difficult.  Better
+// to disallow the ambiguous and unlikely case for now.
+bool IsValidCtorFunction(Function *F, DenseSet<Function *> &Callers) {
+  return Callers.count(F) == 0;
+}
+
+void ReportInitStaticGlobalWithExternalFunction(
+    clang::CodeGen ::CodeGenModule &CGM, StringRef name) {
+  clang::DiagnosticsEngine &Diags = CGM.getDiags();
+  unsigned DiagID = Diags.getCustomDiagID(
+      clang::DiagnosticsEngine::Error,
+      "Initializer for static global %0 makes disallowed call to external function.");
+  std::string escaped;
+  llvm::raw_string_ostream os(escaped);
+  size_t end = name.find_first_of('@');
+  if (end != StringRef::npos)
+    name = name.substr(0, end);
+  StringRef prefix = "\01??__E";
+  if (name.startswith(prefix))
+    name = name.substr(prefix.size());
+
+  dxilutil::PrintEscapedString(name, os);
+  Diags.Report(DiagID) << os.str();
+}
 } // namespace
 
 namespace CGHLSLMSHelper {
 
-void ProcessCtorFunctions(llvm::Module &M, StringRef globalName,
-                          Instruction *InsertPt, bool bRemoveGlobal) {
+void CollectCtorFunctions(llvm::Module &M, llvm::StringRef globalName,
+                          llvm::SmallVector<llvm::Function *, 2> &Ctors,
+                          clang::CodeGen::CodeGenModule &CGM) {
   // add global call to entry func
   GlobalVariable *GV = M.getGlobalVariable(globalName);
   if (!GV)
@@ -2318,7 +2385,9 @@ void ProcessCtorFunctions(llvm::Module &M, StringRef globalName,
   ConstantArray *CA = dyn_cast<ConstantArray>(GV->getInitializer());
   if (!CA)
     return;
-  IRBuilder<> Builder(InsertPt);
+
+  DenseSet<Function *> Callers = CollectExternalFunctionCallers(M);
+
   for (User::op_iterator i = CA->op_begin(), e = CA->op_end(); i != e; ++i) {
     if (isa<ConstantAggregateZero>(*i))
       continue;
@@ -2339,7 +2408,11 @@ void ProcessCtorFunctions(llvm::Module &M, StringRef globalName,
         // Try to build imm initilizer.
         // If not work, add global call to entry func.
         if (BuildImmInit(F) == false) {
-          Builder.CreateCall(F);
+          if (IsValidCtorFunction(F, Callers)) {
+            Ctors.emplace_back(F);
+          } else {
+            ReportInitStaticGlobalWithExternalFunction(CGM, F->getName());
+          }
         }
       } else {
         DXASSERT(isa<ReturnInst>(&(*I)),
@@ -2347,10 +2420,38 @@ void ProcessCtorFunctions(llvm::Module &M, StringRef globalName,
       }
     }
   }
-  // remove the GV
-  if (bRemoveGlobal) {
-    GV->eraseFromParent();
+}
+
+void ProcessCtorFunctions(llvm::Module &M,
+                          llvm::SmallVector<llvm::Function *, 2> &Ctors,
+                          llvm::Function *Entry,
+                          llvm::Function *PatchConstantFn) {
+  if (PatchConstantFn) {
+    // static globals are independent for entry function and patch constant
+    // function. Update static global in entry function will not affect
+    // value in patch constant function. So just call ctors for patch
+    // constant function too.
+    CallCtorFunctionsAtInsertPt(
+        M, Ctors, PatchConstantFn->getEntryBlock().getFirstInsertionPt());
+    IRBuilder<> B(PatchConstantFn->getEntryBlock().getFirstInsertionPt());
+    // For static globals which has const initialize value, copy it at
+    // beginning of patch constant function to avoid use value updated by
+    // entry function.
+    for (GlobalVariable &GV : M.globals()) {
+      if (GV.isConstant())
+        continue;
+      if (!GV.hasInitializer())
+        continue;
+      if (GV.getName() == "llvm.global_ctors")
+        continue;
+      Value *V = GV.getInitializer();
+      if (isa<UndefValue>(V))
+        continue;
+      B.CreateStore(V, &GV);
+    }
   }
+  CallCtorFunctionsAtInsertPt(M, Ctors,
+                              Entry->getEntryBlock().getFirstInsertionPt());
 }
 
 void FinishCBuffer(HLModule &HLM, llvm::Type *CBufferType,
