@@ -1672,7 +1672,6 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
     }
   }
 
-  DxilCompilerVersion VersionHeader = {};
   hlsl::dxilutil::CompilerVersionPartWriter VersionWriter;
   if (bEmitVersionPart && pVersionInfo) {
     VersionWriter.Init(pVersionInfo);
