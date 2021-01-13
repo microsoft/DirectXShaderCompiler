@@ -2146,7 +2146,7 @@
     <Resource Name="UAVBuffer0" Dimension="BUFFER" Width="120" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" Format="R32_TYPELESS" />
     <Resource Name="RTarget" Dimension="TEXTURE2D" Width="16" Height="16" Format="R32G32B32A32_UINT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" ReadBack="true" />
     <RootValues>
-        <RootValue Index="1" ResName="UAVBuffer0" />
+        <RootValue Index="0" ResName="UAVBuffer0" />
     </RootValues>
     <DescriptorHeap Name="RtvHeap" NumDescriptors="1" Type="RTV">
       <Descriptor Name="RTarget" Kind="RTV"/>
@@ -2244,7 +2244,7 @@
       <Resource Name="UAVBuffer0" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" Format="R32_TYPELESS" />
       <Resource Name="RTarget" Dimension="TEXTURE2D" Width="16" Height="16" Format="R32G32B32A32_UINT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" ReadBack="true" />
       <RootValues>
-        <RootValue Index="1" ResName="UAVBuffer0" />
+        <RootValue Index="0" ResName="UAVBuffer0" />
       </RootValues>
       <DescriptorHeap Name="RtvHeap" NumDescriptors="1" Type="RTV">
          <Descriptor Name="RTarget" Kind="RTV"/>
