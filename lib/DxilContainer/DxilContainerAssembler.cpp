@@ -1703,7 +1703,6 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
       size_t CommitLength = strlen(CommitVersionHash.m_pData);
       size_t CopyLength = std::min(sizeof(VersionHeader.CommitSha), CommitLength);
       memcpy(VersionHeader.CommitSha, CommitVersionHash.m_pData, CopyLength);
-      VersionHeader.VersionStringLength = 0;
       VersionHeader.CommitCount = CommitCount;
     }
 
