@@ -5719,8 +5719,9 @@ public:
         }
       } else {
         for (Function &F : M) {
-          if (!HLM.IsEntryThatUsesSignatures(&F))
+          if (!HLM.IsEntry(&F)) {
             continue;
+          }
           entryAndInitFunctionSet.insert(&F);
         }
       }
@@ -5736,7 +5737,7 @@ public:
         }
       } else {
         for (Function &F : M) {
-          if (!DM.IsEntryThatUsesSignatures(&F))
+          if (!DM.IsEntry(&F))
             continue;
           entryAndInitFunctionSet.insert(&F);
         }
