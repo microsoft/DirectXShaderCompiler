@@ -1551,19 +1551,6 @@ public:
 
 } // namespace
 
-static uint32_t PadToDword(uint32_t size, uint32_t *outNumPadding=nullptr) {
-  uint32_t rem = size % 4;
-  if (rem) {
-    uint32_t padding = (4 - rem);
-    if (outNumPadding)
-      *outNumPadding = padding;
-    return size + padding;
-  }
-  if (outNumPadding)
-    *outNumPadding = 0;
-  return size;
-}
-
 void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
                                            AbstractMemoryStream *pModuleBitcode,
                                            AbstractMemoryStream *pFinalStream,
@@ -1686,43 +1673,13 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   }
 
   DxilCompilerVersion VersionHeader = {};
+  hlsl::dxilutil::CompilerVersionPartWriter VersionWriter;
   if (bEmitVersionPart && pVersionInfo) {
-    UINT32 Major = 0, Minor = 0;
-    UINT32 Flags = 0;
-    IFT(pVersionInfo->GetVersion(&Major, &Minor));
-    IFT(pVersionInfo->GetFlags(&Flags));
-
-    VersionHeader.Major = Major;
-    VersionHeader.Minor = Minor;
-    VersionHeader.VersionFlags = Flags;
-    CComPtr<IDxcVersionInfo2> pVersionInfo2;
-    if (SUCCEEDED(pVersionInfo->QueryInterface(&pVersionInfo2))) {
-      UINT32 CommitCount = 0;
-      CComHeapPtr<char> CommitVersionHash;
-      IFT(pVersionInfo2->GetCommitInfo(&CommitCount, &CommitVersionHash));
-      size_t CommitLength = strlen(CommitVersionHash.m_pData);
-      size_t CopyLength = std::min(sizeof(VersionHeader.CommitSha), CommitLength);
-      memcpy(VersionHeader.CommitSha, CommitVersionHash.m_pData, CopyLength);
-      VersionHeader.CommitCount = CommitCount;
-    }
-
-    // Write a null terminator even if the string is empty
-    uint32_t size = sizeof(VersionHeader) + VersionHeader.VersionStringLength+1;
-    uint32_t padding = 0;
-    size = PadToDword(size, &padding);
-    writer.AddPart(DFCC_CompilerVersion, size,
-      [&VersionHeader, padding](AbstractMemoryStream *pStream) {
-      ULONG cbWritten = 0;
-      IFT(pStream->Write(&VersionHeader, sizeof(VersionHeader), &cbWritten));
-
-      // Write a null terminator even if the string is empty
-      uint8_t padByte = 0;
-      pStream->Write(&padByte, sizeof(padByte), &cbWritten);
-
-      // Write padding
-      for (unsigned i = 0; i < padding; i++) {
-        pStream->Write(&padByte, sizeof(padByte), &cbWritten);
-      }
+    VersionWriter.Init(pVersionInfo);
+    writer.AddPart(DFCC_CompilerVersion, VersionWriter.GetSize(),
+      [&VersionWriter](AbstractMemoryStream *pStream)
+    {
+      VersionWriter.Write(pStream);
     });
   }
 

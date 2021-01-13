@@ -18,6 +18,10 @@
 #include "llvm/IR/Constants.h"
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilResourceProperties.h"
+#include "dxc/DxilContainer/DxilContainer.h"
+
+struct IStream;
+struct IDxcVersionInfo;
 
 namespace llvm {
 class Type;
@@ -155,6 +159,14 @@ namespace dxilutil {
 
   bool ValidatorSupportsSourceInfoPart(unsigned Major, unsigned Minor);
   bool ValidatorSupportsCompilerVersionPart(unsigned Major, unsigned Minor);
+
+  struct CompilerVersionPartWriter {
+    hlsl::DxilCompilerVersion m_Header = {};
+
+    void Init(IDxcVersionInfo *pVersionInfo);
+    uint32_t GetSize(uint32_t *pPadding = nullptr) const;
+    void Write(IStream *pStream);
+  };
 }
 
 }

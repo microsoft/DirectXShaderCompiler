@@ -87,13 +87,12 @@ static bool ShouldBeCopiedIntoPDB(UINT32 FourCC) {
   switch (FourCC) {
   case hlsl::DFCC_ShaderDebugName:
   case hlsl::DFCC_ShaderHash:
-  case hlsl::DFCC_CompilerVersion:
     return true;
   }
   return false;
 }
 
-static HRESULT CreateContainerForPDB(IMalloc *pMalloc, IDxcBlob *pOldContainer, IDxcBlob *pDebugBlob, const hlsl::DxilSourceInfo *pSourceInfo, IDxcBlob **ppNewContaner) {
+static HRESULT CreateContainerForPDB(IMalloc *pMalloc, IDxcBlob *pOldContainer, IDxcBlob *pDebugBlob, IDxcVersionInfo *pVersionInfo, const hlsl::DxilSourceInfo *pSourceInfo, IDxcBlob **ppNewContaner) {
   // If the pContainer is not a valid container, give up.
   if (!hlsl::IsValidDxilContainer((hlsl::DxilContainerHeader *)pOldContainer->GetBufferPointer(), pOldContainer->GetBufferSize()))
     return E_FAIL;
@@ -161,6 +160,24 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc, IDxcBlob *pOldContainer, 
       [pSourceInfo](IStream *pStream) {
         ULONG uBytesWritten = 0;
         pStream->Write(pSourceInfo, pSourceInfo->AlignedSizeInBytes, &uBytesWritten);
+        return S_OK;
+      }
+    );
+    PartWriters.push_back(NewPart);
+  }
+
+  hlsl::dxilutil::CompilerVersionPartWriter versionWriter;
+  if (pVersionInfo) {
+    versionWriter.Init(pVersionInfo);
+
+    OffsetTable.push_back(uTotalPartsSize);
+    uTotalPartsSize += versionWriter.GetSize() + sizeof(hlsl::DxilPartHeader);
+
+    Part NewPart(
+      hlsl::DFCC_CompilerVersion,
+      versionWriter.GetSize(),
+      [&versionWriter](IStream *pStream) {
+        versionWriter.Write(pStream);
         return S_OK;
       }
     );
@@ -852,6 +869,12 @@ public:
           IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pReflectionStream));
           IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pRootSigStream));
 
+          // Version info to pass in the assembler
+          IDxcVersionInfo *pVersionInfo = nullptr;
+          if (opts.IsDebugInfoEnabled()) { // Only put version info if embedding debug
+            pVersionInfo = static_cast<IDxcVersionInfo *>(this);
+          }
+
           // Create the shader source information
           const hlsl::DxilSourceInfo *sourceInfoPart = nullptr;
           if (opts.IsDebugInfoEnabled() && !opts.LegacyDebug) { // If we are using legacy PDB, do not generate it at all
@@ -865,7 +888,7 @@ public:
                 action.takeModule(), pOutputBlob, m_pMalloc, SerializeFlags,
                 pOutputStream, opts.IsDebugInfoEnabled(),
                 opts.GetPDBName(), sourceInfoPart, &compiler.getDiagnostics(),
-                &ShaderHashContent, static_cast<IDxcVersionInfo *>(this),
+                &ShaderHashContent, pVersionInfo,
                 pReflectionStream, pRootSigStream);
 
           if (needsValidation) {
@@ -956,7 +979,11 @@ public:
           pDebugBlob = nullptr;
         }
 
-        IFT(CreateContainerForPDB(m_pMalloc, pOutputBlob, pDebugBlob, pSourceInfo, &pStrippedContainer));
+        IFT(CreateContainerForPDB(
+          m_pMalloc, pOutputBlob, pDebugBlob,
+          static_cast<IDxcVersionInfo *>(this), pSourceInfo,
+          &pStrippedContainer));
+
         pDebugBlob.Release();
 
         IFT(hlsl::pdb::WriteDxilPDB(m_pMalloc, pStrippedContainer, ShaderHashContent.Digest, &pDebugBlob));

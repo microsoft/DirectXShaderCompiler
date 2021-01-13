@@ -236,7 +236,7 @@ public:
     return m_dllSupport.CreateInstance(CLSID_DxcCompiler, ppResult);
   }
  
-  void TestPdbUtils(bool bSlim, bool bLegacy);
+  void TestPdbUtils(bool bSlim, bool bLegacy, bool bStrip);
 
 #ifdef _WIN32 // No ContainerBuilder support yet
   HRESULT CreateContainerBuilder(IDxcContainerBuilder **ppResult) {
@@ -1260,7 +1260,7 @@ TEST_F(CompilerTest, CompileThenTestPdbUtilsStripped) {
   }
 }
 
-void CompilerTest::TestPdbUtils(bool bSlim, bool bLegacy) {
+void CompilerTest::TestPdbUtils(bool bSlim, bool bLegacy, bool bStrip) {
   CComPtr<TestIncludeHandler> pInclude;
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcBlobEncoding> pSource;
@@ -1291,7 +1291,14 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bLegacy) {
   AddArg(L"/Zi", false);
   AddArg(L"/Od", false);
   AddArg(L"-flegacy-macro-expansion", false);
-  AddArg(L"-Qembed_debug", false);
+
+  if (bStrip) {
+    AddArg(L"-Qstrip_debug", false);
+  }
+  else {
+    AddArg(L"-Qembed_debug", false);
+  }
+
   if (bLegacy) {
     AddArg(L"/Qlegacy_debug", false);
   }
@@ -1336,19 +1343,21 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bLegacy) {
       expectedArgs, expectedFlags, expectedDefines,
       pCompiler,
       /*HasVersion*/ false,
-      /*IsFullPDB*/ true,
+      /*IsFullPDB*/  true,
       /*hasHasAndPDBName*/false,
       main_source, included_File);
   }
 
-  VerifyPdbUtil(pCompiledBlob, pPdbUtils,
-    L"source.hlsl",
-    expectedArgs, expectedFlags, expectedDefines,
-    pCompiler,
-    /*HasVersion*/ true,
-    /*IsFullPDB*/ !bSlim,
-    /*hasHasAndPDBName*/true,
-    main_source, included_File);
+  if (!bStrip) {
+    VerifyPdbUtil(pCompiledBlob, pPdbUtils,
+      L"source.hlsl",
+      expectedArgs, expectedFlags, expectedDefines,
+      pCompiler,
+      /*HasVersion*/ true,
+      /*IsFullPDB*/ !bSlim,
+      /*hasHasAndPDBName*/true,
+      main_source, included_File);
+  }
 
   VerifyPdbUtil(pPdbBlob, pPdbUtils,
     L"source.hlsl",
@@ -1361,9 +1370,13 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bLegacy) {
 }
 
 TEST_F(CompilerTest, CompileThenTestPdbUtils) {
-  TestPdbUtils(/*bSlim*/false, /*Legacy*/true);  // Legacy PDB, where source info is embedded in the module
-  TestPdbUtils(/*bSlim*/false, /*Legacy*/false); // Full PDB, where source info is stored in a DXIL part and debug module is present
-  TestPdbUtils(/*bSlim*/true, /*Legacy*/false);  // Slim PDB, where source info is stored in a DXIL part and debug module is NOT present
+  TestPdbUtils(/*bSlim*/false, /*Legacy*/true,  /*strip*/false);  // Legacy PDB, where source info is embedded in the module
+  TestPdbUtils(/*bSlim*/false, /*Legacy*/false, /*strip*/false);  // Full PDB, where source info is stored in a DXIL part and debug module is present
+  TestPdbUtils(/*bSlim*/true,  /*Legacy*/false, /*strip*/false);  // Slim PDB, where source info is stored in a DXIL part and debug module is NOT present
+
+  TestPdbUtils(/*bSlim*/false, /*Legacy*/true,  /*strip*/true);  // Legacy PDB, where source info is embedded in the module
+  TestPdbUtils(/*bSlim*/false, /*Legacy*/false, /*strip*/true);  // Full PDB, where source info is stored in a DXIL part and debug module is present
+  TestPdbUtils(/*bSlim*/true,  /*Legacy*/false, /*strip*/true);  // Slim PDB, where source info is stored in a DXIL part and debug module is NOT present
 }
 #endif
 

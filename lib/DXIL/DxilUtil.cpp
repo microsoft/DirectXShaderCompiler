@@ -1167,6 +1167,7 @@ bool ValidatorSupportsCompilerVersionPart(unsigned Major, unsigned Minor) {
   return DXIL::CompareVersions(Major, Minor, 1, 6) >= 0;
 }
 
+
 } // namespace dxilutil
 } // namespace hlsl
 
@@ -1198,3 +1199,77 @@ ModulePass *llvm::createDxilLoadMetadataPass() {
 }
 
 INITIALIZE_PASS(DxilLoadMetadata, "hlsl-dxilload", "HLSL load DxilModule from metadata", false, false)
+
+
+//==========================================================================
+// The following code needs the windows headers.
+//
+
+#include "dxc/Support/WinIncludes.h"
+#include "dxc/Support/microcom.h"
+#include "dxc/dxcapi.h"
+
+namespace hlsl {
+namespace dxilutil {
+
+void CompilerVersionPartWriter::Init(IDxcVersionInfo *pVersionInfo) {
+  m_Header = {};
+
+  UINT32 Major = 0, Minor = 0;
+  UINT32 Flags = 0;
+  IFT(pVersionInfo->GetVersion(&Major, &Minor));
+  IFT(pVersionInfo->GetFlags(&Flags));
+
+  m_Header.Major = Major;
+  m_Header.Minor = Minor;
+  m_Header.VersionFlags = Flags;
+  CComPtr<IDxcVersionInfo2> pVersionInfo2;
+  if (SUCCEEDED(pVersionInfo->QueryInterface(&pVersionInfo2))) {
+    UINT32 CommitCount = 0;
+    CComHeapPtr<char> CommitVersionHash;
+    IFT(pVersionInfo2->GetCommitInfo(&CommitCount, &CommitVersionHash));
+    size_t CommitLength = strlen(CommitVersionHash.m_pData);
+    size_t CopyLength = std::min(sizeof(m_Header.CommitSha), CommitLength);
+    memcpy(m_Header.CommitSha, CommitVersionHash.m_pData, CopyLength);
+    m_Header.CommitCount = CommitCount;
+  }
+}
+
+static uint32_t PadToDword(uint32_t size, uint32_t *outNumPadding=nullptr) {
+  uint32_t rem = size % 4;
+  if (rem) {
+    uint32_t padding = (4 - rem);
+    if (outNumPadding)
+      *outNumPadding = padding;
+    return size + padding;
+  }
+  if (outNumPadding)
+    *outNumPadding = 0;
+  return size;
+}
+
+UINT32 CompilerVersionPartWriter::GetSize(UINT32 *pPadding) const {
+  return PadToDword(sizeof(m_Header) + m_Header.VersionStringLength+1, pPadding);
+}
+void CompilerVersionPartWriter::Write(IStream *pStream) {
+  UINT32 uPadding = 0;
+  UINT32 uSize = GetSize(&uPadding);
+  (void)uSize;
+
+  ULONG cbWritten = 0;
+  IFT(pStream->Write(&m_Header, sizeof(m_Header), &cbWritten));
+
+  // Write a null terminator even if the string is empty
+  uint8_t padByte = 0;
+  IFT(pStream->Write(&padByte, sizeof(padByte), &cbWritten));
+
+  // Write padding
+  for (unsigned i = 0; i < uPadding; i++) {
+    IFT(pStream->Write(&padByte, sizeof(padByte), &cbWritten));
+  }
+}
+
+} // namespace dxilutil
+} // namespace hlsl
+
+
