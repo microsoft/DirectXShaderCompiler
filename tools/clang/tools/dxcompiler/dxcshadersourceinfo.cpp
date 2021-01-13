@@ -41,32 +41,32 @@ unsigned SourceInfoReader::GetSourcesCount() const {
   return m_Sources.size();
 }
 void SourceInfoReader::Read(const hlsl::DxilSourceInfo *SourceInfo) {
-  const hlsl::DxilSourceInfoSection *section = (hlsl::DxilSourceInfoSection *)(SourceInfo+1);
+  const hlsl::DxilSourceInfoSection *section = (const hlsl::DxilSourceInfoSection *)(SourceInfo+1);
 
   for (unsigned i = 0; i < SourceInfo->SectionCount; i++) {
     switch (section->Type) {
     case hlsl::DxilSourceInfoSectionType::TargetProfile:
     {
       const hlsl::DxilSourceInfo_String *header = (const hlsl::DxilSourceInfo_String *)&section[1];
-      m_TargetProfile = llvm::StringRef((char *)(header+1), header->SizeInBytes);
+      m_TargetProfile = llvm::StringRef((const char *)(header+1), header->SizeInBytes);
     } break;
 
     case hlsl::DxilSourceInfoSectionType::EntryPoint:
     {
       const hlsl::DxilSourceInfo_String *header = (const hlsl::DxilSourceInfo_String *)&section[1];
-      m_EntryPoint = llvm::StringRef((char *)(header+1), header->SizeInBytes);
+      m_EntryPoint = llvm::StringRef((const char *)(header+1), header->SizeInBytes);
     } break;
 
     case hlsl::DxilSourceInfoSectionType::Defines:
     {
       const hlsl::DxilSourceInfo_StringList *header = (const hlsl::DxilSourceInfo_StringList *)&section[1];
-      m_Defines = llvm::StringRef( (char *)(header+1), header->SizeInBytes );
+      m_Defines = llvm::StringRef( (const char *)(header+1), header->SizeInBytes );
     } break;
 
     case hlsl::DxilSourceInfoSectionType::Args:
     {
       const hlsl::DxilSourceInfo_StringList *header = (const hlsl::DxilSourceInfo_StringList *)&section[1];
-      m_Args = llvm::StringRef( (char *)(header+1), header->SizeInBytes );
+      m_Args = llvm::StringRef( (const char *)(header+1), header->SizeInBytes );
     } break;
 
     case hlsl::DxilSourceInfoSectionType::SourceNames:
@@ -84,10 +84,10 @@ void SourceInfoReader::Read(const hlsl::DxilSourceInfo *SourceInfo) {
           break;
 
         const void *ptr = entry+1;
-        llvm::StringRef name = { (char *)ptr, entry->NameSizeInBytes, };
+        llvm::StringRef name = { (const char *)ptr, entry->NameSizeInBytes, };
         m_Sources[i].Name = name;
 
-        entry = (const hlsl::DxilSourceInfo_SourceNamesEntry *)((uint8_t *)entry + entry->AlignedSizeInBytes);
+        entry = (const hlsl::DxilSourceInfo_SourceNamesEntry *)((const uint8_t *)entry + entry->AlignedSizeInBytes);
       }
 
     } break;
@@ -121,16 +121,16 @@ void SourceInfoReader::Read(const hlsl::DxilSourceInfo *SourceInfo) {
             break;
 
           const void *ptr = entry+1;
-          llvm::StringRef content = { (char *)ptr, entry->ContentSizeInBytes, };
+          llvm::StringRef content = { (const char *)ptr, entry->ContentSizeInBytes, };
           m_Sources[i].Content = content;
 
-          entry = (const hlsl::DxilSourceInfo_SourceContentsEntry *)((uint8_t *)entry + entry->AlignedSizeInBytes);
+          entry = (const hlsl::DxilSourceInfo_SourceContentsEntry *)((const uint8_t *)entry + entry->AlignedSizeInBytes);
         }
       }
 
     } break;
     }
-    section = (const hlsl::DxilSourceInfoSection *)((uint8_t *)section + section->AlignedSizeInBytes);
+    section = (const hlsl::DxilSourceInfoSection *)((const uint8_t *)section + section->AlignedSizeInBytes);
   }
 }
 
@@ -442,7 +442,7 @@ const hlsl::DxilSourceInfo *hlsl::SourceInfoWriter::GetPart() const {
   if (!m_Buffer.size())
     return nullptr;
   assert(m_Buffer.size() >= sizeof(hlsl::DxilSourceInfo));
-  const hlsl::DxilSourceInfo *ret = (hlsl::DxilSourceInfo *)m_Buffer.data();
+  const hlsl::DxilSourceInfo *ret = (const hlsl::DxilSourceInfo *)m_Buffer.data();
   assert(ret->AlignedSizeInBytes == m_Buffer.size());
   return ret;
 }
@@ -491,7 +491,7 @@ static bool ZlibDecompress(const void *pBuffer, size_t BufferSizeInBytes, Buffer
   Buffer &readBuffer = *output;
 
   stream->avail_in = BufferSizeInBytes;
-  stream->next_in = (Byte *)pBuffer;
+  stream->next_in = (const Byte *)pBuffer;
 
   int status = Z_OK;
 
@@ -555,7 +555,7 @@ static bool ZlibCompress(const void *src, size_t srcSize, Buffer *outCompressedD
   if (Z_OK != status)
     return false;
 
-  stream->next_in = (unsigned char *)src;
+  stream->next_in = (const unsigned char *)src;
   stream->avail_in = (uInt)srcSize;
 
   // The following block of code is the only part that can throw.
