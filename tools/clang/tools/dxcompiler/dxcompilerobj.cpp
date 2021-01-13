@@ -83,7 +83,7 @@ HRESULT RunInternalValidator(_In_ IDxcValidator *pValidator,
                              _In_ IDxcBlob *pShader, UINT32 Flags,
                              _In_ IDxcOperationResult **ppResult);
 
-static bool ShouldPartBeIncludedInPDB(UINT32 FourCC) {
+static bool ShouldBeCopiedIntoPDB(UINT32 FourCC) {
   switch (FourCC) {
   case hlsl::DFCC_ShaderDebugName:
   case hlsl::DFCC_ShaderHash:
@@ -120,7 +120,7 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc, IDxcBlob *pOldContainer, 
   UINT32 uTotalPartsSize = 0;
   for (unsigned i = 0; i < DxilHeader->PartCount; i++) {
     hlsl::DxilPartHeader *PartHeader = GetDxilContainerPart(DxilHeader, i);
-    if (ShouldPartBeIncludedInPDB(PartHeader->PartFourCC)) {
+    if (ShouldBeCopiedIntoPDB(PartHeader->PartFourCC)) {
       OffsetTable.push_back(uTotalPartsSize);
       uTotalPartsSize += PartHeader->PartSize + sizeof(*PartHeader);
 
