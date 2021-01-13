@@ -1,18 +1,4 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<!DOCTYPE ShaderOpSet [
-    <!ENTITY IsHelperLanePlaceholder "
-#ifdef ISHELPERLANE_PLACEHOLDER
-bool ph_IsHelperLane(float4 pos, bool first_call) {
-    if (first_call) {
-        return pos.x == 0.5 &amp;&amp; pos.y == 1.5;
-    }
-    else {
-        return pos.x == 0.5;
-    }
-}
-#endif
-">
-]>
 <ShaderOpSet xmlns="http://schemas.microsoft.com/test/ShaderOp">
   <ShaderOp Name="DerivFine" PS="PS" VS="VS" TopologyType="TRIANGLE">
     <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), DescriptorTable(SRV(t0,numDescriptors=1))</RootSignature>
@@ -2171,27 +2157,20 @@ bool ph_IsHelperLane(float4 pos, bool first_call) {
     <RenderTargets>
       <RenderTarget Name="RTarget" Viewport="{ 0.0f, 0.0f, 2.0f, 2.0f, 0.0f, 1.0f }"/>
     </RenderTargets>
-
-    <Shader Name="VS" Target="vs_6_0">
+    <Shader Name="VS" Target="vs_6_0" EntryPoint="VSMain" Text="@PS" />
+    <Shader Name="PS" Target="ps_6_0" EntryPoint="PSMain">
         <![CDATA[
-        struct PSInput {
-            float4 pos : SV_POSITION;
-        };
-        
-        PSInput main(float3 pos : POSITION) {
-            PSInput r;
-            r.pos = float4(pos, 1); 
-            return r;
+#ifdef ISHELPERLANE_PLACEHOLDER
+        bool ph_IsHelperLane(float4 pos, bool first_call) {
+            if (first_call) {
+                return pos.x == 0.5 &amp;&amp; pos.y == 1.5;
+            }
+        else {
+            return pos.x == 0.5;
+            }
         }
-        ]]>
-    </Shader>
-    <Shader Name="PS" Target="ps_6_0">
-        &IsHelperLanePlaceholder;
-        <![CDATA[
-        struct PSInput {
-          float4 pos : SV_POSITION;
-        };
-        
+#endif // ISHELPERLANE_PLACEHOLDER
+
         struct HelperLaneTestResult{
             uint id;
             int ddx1;
@@ -2200,20 +2179,30 @@ bool ph_IsHelperLane(float4 pos, bool first_call) {
             int ddy2;
         };
         
-        RWStructuredBuffer<HelperLaneTestResult> g_structBuf : register(u0);
+        RWStructuredBuffer<HelperLaneTestResult> g_testResults : register(u0);
+
+        struct PSInput {
+            float4 pos : SV_POSITION;
+        };
         
-        uint4 main(PSInput input) : SV_TARGET {
+        PSInput VSMain(float3 pos : POSITION) {
+            PSInput r;
+            r.pos = float4(pos, 1); 
+            return r;
+        }
+
+        uint4 PSMain(PSInput input) : SV_TARGET {
           uint index = ((uint)(input.pos.y - 0.5) << 1) + (uint)(input.pos.x - 0.5);
           uint id = 1 << index;
-          g_structBuf[index].id = id;
+          g_testResults[index].id = id;
 
 #ifdef ISHELPERLANE_PLACEHOLDER
           int is_helper = ph_IsHelperLane(input.pos, true);
 #else
           int is_helper = IsHelperLane();
 #endif
-          g_structBuf[index].ddx1 = (int)ddx_fine(id * is_helper);
-          g_structBuf[index].ddy1 = (int)ddy_fine(id * is_helper);
+          g_testResults[index].ddx1 = (int)ddx_fine(id * is_helper);
+          g_testResults[index].ddy1 = (int)ddy_fine(id * is_helper);
           
           if (id == 1) 
             discard;
@@ -2223,12 +2212,228 @@ bool ph_IsHelperLane(float4 pos, bool first_call) {
 #else
           is_helper = IsHelperLane();
 #endif
-          g_structBuf[index].ddx2 = (int)ddx_fine(id * is_helper);
-          g_structBuf[index].ddy2 = (int)ddy_fine(id * is_helper);
+          g_testResults[index].ddx2 = (int)ddx_fine(id * is_helper);
+          g_testResults[index].ddy2 = (int)ddy_fine(id * is_helper);
 
           return uint4(0xFFFFFFFF, index, id, 1);
         }
         ]]>
+    </Shader>
+  </ShaderOp>
+
+  <ShaderOp Name="HelperLaneTestWave" CS="CS" PS="PS" VS="VS" DispatchX="3" DispatchY="1" TopologyType="TRIANGLE">
+    <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), UAV(u0)</RootSignature>
+      <Resource Name="VBuffer" Dimension="BUFFER" InitialResourceState="COPY_DEST" Init="FromBytes" Topology="TRIANGLELIST">
+            { { -1.0f,  1.0f, 0.0f } },
+            { {  1.0f,  1.0f, 0.0f } },
+            { {  1.0f, -1.0f, 0.0f } },
+      </Resource>
+      <Resource Name="UAVBuffer0" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" Format="R32_TYPELESS" />
+      <Resource Name="RTarget" Dimension="TEXTURE2D" Width="16" Height="16" Format="R32G32B32A32_UINT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" ReadBack="true" />
+      <RootValues>
+        <RootValue Index="1" ResName="UAVBuffer0" />
+      </RootValues>
+      <DescriptorHeap Name="RtvHeap" NumDescriptors="1" Type="RTV">
+         <Descriptor Name="RTarget" Kind="RTV"/>
+      </DescriptorHeap>
+      <InputElements>
+         <InputElement SemanticName="POSITION" Format="R32G32B32_FLOAT" AlignedByteOffset="0" />
+      </InputElements>
+      <RenderTargets>
+         <RenderTarget Name="RTarget" Viewport="{ 0.0f, 0.0f, 2.0f, 2.0f, 0.0f, 1.0f }"/>
+      </RenderTargets>
+      <Shader Name="PS65" Target="ps_6_5" EntryPoint="PSMain65" Text="@CS"/>
+      <Shader Name="VS65" Target="vs_6_5" EntryPoint="VSMain65" Text="@CS"/>
+      <Shader Name="CS65" Target="cs_6_5" EntryPoint="CSMain65" Text="@CS"/>
+      <Shader Name="VS"   Target="vs_6_0" EntryPoint="VSMain"   Text="@CS"/>
+      <Shader Name="PS"   Target="ps_6_0" EntryPoint="PSMain"   Text="@CS"/>
+      <Shader Name="CS"   Target="cs_6_0" EntryPoint="CSMain">
+        <![CDATA[
+        #ifdef ISHELPERLANE_PLACEHOLDER
+        #define CALL(x) ph_##x
+                bool ph_IsHelperLane() {
+                    return false;
+                }
+        #else
+        #define CALL(x) x
+        #endif
+
+        #define SHADER_MODEL_6_5_PLUS (defined(__SHADER_TARGET_MAJOR) && defined(__SHADER_TARGET_MINOR) && __SHADER_TARGET_MAJOR == 6 && __SHADER_TARGET_MINOR >= 5)
+
+        // 6.0 wave ops
+        struct HelperLaneWaveTestResult60 {
+            int anyTrue;
+            int allTrue;
+            uint4 ballot;
+            int waterfallLoopCount;
+            int allEqual;
+            int countBits;
+            int sum;
+            int product;
+            int bitAnd;
+            int bitOr;
+            int bitXor;
+            int min;
+            int max;
+            int prefixCountBits;
+            int prefixProduct;
+            int prefixSum;
+        };
+        
+        // 6.5 wave ops
+        struct HelperLaneWaveTestResult65 {
+            uint4 match;
+            int mpCountBits;
+            int mpSum;
+            int mpProduct;
+            int mpBitAnd;
+            int mpBitOr;
+            int mpBitXor;
+        };
+        
+        struct HelperLaneWaveTestResult {
+            HelperLaneWaveTestResult60 sm60;
+            HelperLaneWaveTestResult65 sm65;
+        };
+        
+        RWStructuredBuffer<HelperLaneWaveTestResult> g_TestResults : register(u0);
+        
+        #define CS_INDEX    0
+        #define VS_INDEX    0
+        #define PS_INDEX    1
+        #define PS_INDEX_AFTER_DISCARD 2
+        
+        HelperLaneWaveTestResult60 RunHelperLaneWaveTests60() {
+            HelperLaneWaveTestResult60 tr;
+            bool is_helper = CALL(IsHelperLane());
+            tr.anyTrue = WaveActiveAnyTrue(is_helper);
+            tr.allTrue = WaveActiveAllTrue(!is_helper);
+            tr.ballot = WaveActiveBallot(true);
+
+            // waterfall loop
+            int count = 0;
+            int waveCount = WaveGetLaneCount();
+            while (count < waveCount) {
+                count++;
+                if (WaveReadLaneFirst(!CALL(IsHelperLane())) && WaveIsFirstLane()) {
+                    break;
+                }
+            }
+            tr.waterfallLoopCount = count;
+            
+            is_helper = CALL(IsHelperLane());
+            tr.allEqual = WaveActiveAllEqual(is_helper);
+            tr.countBits = WaveActiveCountBits(true);
+            tr.sum = WaveActiveSum(4);
+            tr.product = WaveActiveProduct(4);
+            tr.bitAnd = WaveActiveBitAnd((uint)!is_helper);
+            tr.bitOr = WaveActiveBitOr((uint)is_helper);
+            tr.bitXor = WaveActiveBitXor((uint)is_helper);
+            tr.min = WaveActiveMin(is_helper ? 1 : 10);
+            tr.max = WaveActiveMax(is_helper ? 10 : 1);
+            tr.prefixCountBits = WavePrefixCountBits(1);
+            tr.prefixProduct = WavePrefixProduct(4);
+            tr.prefixSum = WavePrefixSum(4);
+            return tr;
+        }
+        
+        HelperLaneWaveTestResult65 RunHelperLaneWaveTests65() {
+            HelperLaneWaveTestResult65 tr;
+            uint4 noMaskedBits = (uint4)0xFFFFFFFF;
+            bool is_helper = CALL(IsHelperLane());
+
+            tr.match = WaveMatch(true);
+            tr.mpCountBits = WaveMultiPrefixCountBits(1, noMaskedBits);
+            tr.mpSum = WaveMultiPrefixSum(2, noMaskedBits);
+            tr.mpProduct = WaveMultiPrefixProduct(4, noMaskedBits);
+            tr.mpBitAnd = WaveMultiPrefixBitAnd(is_helper ? 0 : 1, noMaskedBits);
+            tr.mpBitOr = WaveMultiPrefixBitOr(is_helper ? 1 : 0, noMaskedBits);
+            tr.mpBitXor = WaveMultiPrefixBitXor(is_helper ? 1 : 0, noMaskedBits);
+            return tr;
+        }
+        
+        struct PSInput {
+            float4 pos : SV_POSITION;
+        };
+        
+        PSInput VSMain(float3 pos : POSITION) {
+            HelperLaneWaveTestResult60 tr60 = RunHelperLaneWaveTests60();
+            if (WaveGetLaneIndex() == 2) { // last lane writes results
+                g_TestResults[VS_INDEX].sm60 = tr60;
+            }
+            PSInput r;
+            r.pos = float4(pos, 1); 
+            return r;
+        }
+        
+        PSInput VSMain65(float3 pos : POSITION) {
+            HelperLaneWaveTestResult60 tr60 = RunHelperLaneWaveTests60();
+            HelperLaneWaveTestResult65 tr65 = RunHelperLaneWaveTests65();
+            if (WaveGetLaneIndex() == 2) { // last lane writes results
+                g_TestResults[VS_INDEX].sm60 = tr60;
+                g_TestResults[VS_INDEX].sm65 = tr65;
+            }
+            PSInput r;
+            r.pos = float4(pos, 1); 
+            return r;
+        }
+
+        uint4 PSMain(PSInput input) : SV_TARGET {
+            HelperLaneWaveTestResult60 tr60 = RunHelperLaneWaveTests60();
+            if (input.pos.x == 1.5f && input.pos.x == 1.5f) { // bottom right pixel writes results
+                g_TestResults[PS_INDEX].sm60 = tr60;
+            }
+            //int posComb = ((uint)(input.pos.x * 10) << 4) + (uint)(input.pos.y * 10);
+            //g_TestResults[WaveGetLaneIndex()].sm60.ballot = uint4(WaveReadLaneAt(posComb, 0), WaveReadLaneAt(posComb, 1), WaveReadLaneAt(posComb, 2), WaveReadLaneAt(posComb, 3));
+
+            if (input.pos.x == 0.5f && input.pos.y == 0.5f) // top left pixel is discarded
+                discard;
+                
+            HelperLaneWaveTestResult60 tr60_disc = RunHelperLaneWaveTests60();
+            if (input.pos.x == 1.5f && input.pos.x == 1.5f) { // bottom right pixel writes results
+                g_TestResults[PS_INDEX_AFTER_DISCARD].sm60 = tr60_disc;
+            }
+            return uint4(0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 1);
+        }
+
+        uint4 PSMain65(PSInput input) : SV_TARGET {
+            HelperLaneWaveTestResult60 tr60 = RunHelperLaneWaveTests60();
+            HelperLaneWaveTestResult65 tr65 = RunHelperLaneWaveTests65();
+            if (input.pos.x == 1.5f && input.pos.x == 1.5f) { // bottom right pixel writes results
+                g_TestResults[PS_INDEX].sm60 = tr60;
+                g_TestResults[PS_INDEX].sm65 = tr65;
+            }
+
+            if (input.pos.x == 0.5f && input.pos.y == 0.5f) // top left pixel is discarded
+                discard;
+                
+            HelperLaneWaveTestResult60 tr60_disc = RunHelperLaneWaveTests60();
+            HelperLaneWaveTestResult65 tr65_disc = RunHelperLaneWaveTests65();
+            if (input.pos.x == 1.5f && input.pos.x == 1.5f) { // bottom right pixel writes results
+                g_TestResults[PS_INDEX_AFTER_DISCARD].sm60 = tr60_disc;
+                g_TestResults[PS_INDEX_AFTER_DISCARD].sm65 = tr65_disc;
+            }
+            return uint4(0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 1);
+        }
+        
+        [numthreads(3,1,1)]
+        void CSMain(uint3 tid : SV_GroupThreadID) {
+            HelperLaneWaveTestResult60 tr60 = RunHelperLaneWaveTests60();
+            if (WaveGetLaneIndex() == 2) { // last lane writes results
+                g_TestResults[CS_INDEX].sm60 = tr60;
+            }
+        }
+        
+        [numthreads(3,1,1)]
+        void CSMain65() {
+            HelperLaneWaveTestResult60 tr60 = RunHelperLaneWaveTests60();
+            HelperLaneWaveTestResult65 tr65 = RunHelperLaneWaveTests65();
+            if (WaveGetLaneIndex() == 2) { // last lane writes results
+                g_TestResults[CS_INDEX].sm60 = tr60;
+                g_TestResults[CS_INDEX].sm65 = tr65;
+            }
+        }
+]]>
     </Shader>
   </ShaderOp>
 </ShaderOpSet>

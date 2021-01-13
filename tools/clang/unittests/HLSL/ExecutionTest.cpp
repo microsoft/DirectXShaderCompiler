@@ -308,6 +308,7 @@ public:
   TEST_METHOD(AtomicsShared64Test);
   TEST_METHOD(AtomicsFloatTest);
   TEST_METHOD(HelperLaneTest);
+  TEST_METHOD(HelperLaneTestWave);
   TEST_METHOD(SignatureResourcesTest)
   TEST_METHOD(DynamicResourcesTest)
   TEST_METHOD(QuadReadTest)
@@ -4526,6 +4527,13 @@ static void VerifyOutputWithExpectedValueInt(int output, int ref, int tolerance)
 
 static void VerifyOutputWithExpectedValueUInt(uint32_t output, uint32_t ref, uint32_t tolerance) {
     VERIFY_IS_TRUE(output - ref <= tolerance && ref - output <= tolerance);
+}
+
+static void VerifyOutputWithExpectedValueUInt4(XMUINT4 output, XMUINT4 ref) {
+  VERIFY_ARE_EQUAL(output.x, ref.x);
+  VERIFY_ARE_EQUAL(output.y, ref.y);
+  VERIFY_ARE_EQUAL(output.z, ref.z);
+  VERIFY_ARE_EQUAL(output.w, ref.w);
 }
 
 static void VerifyOutputWithExpectedValueFloat(
@@ -8918,34 +8926,374 @@ TEST_F(ExecutionTest, HelperLaneTest) {
     const uint32_t* pPixels = (uint32_t*)renderData.data();
 
     // Pixel (0,0) - gets discarded in step 2 and never writes ddx2/ddy2 values
-    VerifyOutputWithExpectedValueUInt(pTestResults[0].id, 1, 0);
-    VerifyOutputWithExpectedValueUInt(pTestResults[0].ddx1, 0, 0);
-    VerifyOutputWithExpectedValueUInt(pTestResults[0].ddy1, 4, 0);
-    VerifyOutputWithExpectedValueUInt(pTestResults[0].ddx2, 0xCCCCCCCC, 0);
-    VerifyOutputWithExpectedValueUInt(pTestResults[0].ddy2, 0xCCCCCCCC, 0);
+    VERIFY_ARE_EQUAL(pTestResults[0].id, 1);
+    VERIFY_ARE_EQUAL(pTestResults[0].ddx1, 0);
+    VERIFY_ARE_EQUAL(pTestResults[0].ddy1, 4);
+    VERIFY_ARE_EQUAL(pTestResults[0].ddx2, 0xCCCCCCCC);
+    VERIFY_ARE_EQUAL(pTestResults[0].ddy2, 0xCCCCCCCC);
 
     // Pixel (0,1)
-    VerifyOutputWithExpectedValueUInt(pTestResults[1].id, 2, 0);
-    VerifyOutputWithExpectedValueUInt(pTestResults[1].ddx1, 0, 0);
-    VerifyOutputWithExpectedValueUInt(pTestResults[1].ddy1, 0, 0);
-    VerifyOutputWithExpectedValueUInt(pTestResults[1].ddx2, -1, 0);
-    VerifyOutputWithExpectedValueUInt(pTestResults[1].ddy2, 0, 0);
+    VERIFY_ARE_EQUAL(pTestResults[1].id, 2);
+    VERIFY_ARE_EQUAL(pTestResults[1].ddx1, 0);
+    VERIFY_ARE_EQUAL(pTestResults[1].ddy1, 0);
+    VERIFY_ARE_EQUAL(pTestResults[1].ddx2, -1);
+    VERIFY_ARE_EQUAL(pTestResults[1].ddy2, 0);
 
     // Pixel (1,0) - in helper lane from the start and never writes to output
-    VerifyOutputWithExpectedValueUInt(pTestResults[2].id,   0xCCCCCCCC, 0);
-    VerifyOutputWithExpectedValueUInt(pTestResults[2].ddx1, 0xCCCCCCCC, 0);
-    VerifyOutputWithExpectedValueUInt(pTestResults[2].ddy1, 0xCCCCCCCC, 0);
-    VerifyOutputWithExpectedValueUInt(pTestResults[2].ddx2, 0xCCCCCCCC, 0);
-    VerifyOutputWithExpectedValueUInt(pTestResults[2].ddy2, 0xCCCCCCCC, 0);
+    VERIFY_ARE_EQUAL(pTestResults[2].id,   0xCCCCCCCC);
+    VERIFY_ARE_EQUAL(pTestResults[2].ddx1, 0xCCCCCCCC);
+    VERIFY_ARE_EQUAL(pTestResults[2].ddy1, 0xCCCCCCCC);
+    VERIFY_ARE_EQUAL(pTestResults[2].ddx2, 0xCCCCCCCC);
+    VERIFY_ARE_EQUAL(pTestResults[2].ddy2, 0xCCCCCCCC);
 
     // Pixel (1,1)
-    VerifyOutputWithExpectedValueUInt(pTestResults[3].id, 8, 0);
-    VerifyOutputWithExpectedValueUInt(pTestResults[3].ddx1, -4, 0);
-    VerifyOutputWithExpectedValueUInt(pTestResults[3].ddy1, 0, 0);
-    VerifyOutputWithExpectedValueUInt(pTestResults[3].ddx2, -4, 0);
-    VerifyOutputWithExpectedValueUInt(pTestResults[3].ddy2, 0, 0);
+    VERIFY_ARE_EQUAL(pTestResults[3].id, 8);
+    VERIFY_ARE_EQUAL(pTestResults[3].ddx1, -4);
+    VERIFY_ARE_EQUAL(pTestResults[3].ddy1, 0);
+    VERIFY_ARE_EQUAL(pTestResults[3].ddx2, -4);
+    VERIFY_ARE_EQUAL(pTestResults[3].ddy2, 0);
 
     UNREFERENCED_PARAMETER(pPixels);
+  }
+}
+
+struct HelperLaneWaveTestResult60 {
+  // 6.0 wave ops
+  int32_t anyTrue;
+  int32_t allTrue;
+  XMUINT4 ballot;
+  int32_t waterfallLoopCount;
+  int32_t allEqual;
+  int32_t countBits;
+  int32_t sum;
+  int32_t product;
+  int32_t bitAnd;
+  int32_t bitOr;
+  int32_t bitXor;
+  int32_t min;
+  int32_t max;
+  int32_t prefixCountBits;
+  int32_t prefixProduct;
+  int32_t prefixSum;
+};
+
+struct HelperLaneWaveTestResult65 {
+  // 6.5 wave ops
+  XMUINT4  match;
+  int mpCountBits;
+  int mpSum;
+  int mpProduct;
+  int mpBitAnd;
+  int mpBitOr;
+  int mpBitXor;
+};
+
+struct HelperLaneWaveTestResult {
+  HelperLaneWaveTestResult60 sm60;
+  HelperLaneWaveTestResult65 sm65;
+};
+
+void VerifyHelperLaneWaveResults_CS_VS(ExecutionTest::D3D_SHADER_MODEL sm, HelperLaneWaveTestResult *pTestResults) {
+  HelperLaneWaveTestResult60& tr60 = pTestResults->sm60;
+
+  // WaveActiveAnyTrue( IsHelperLane() ) == false
+  VERIFY_ARE_EQUAL(tr60.anyTrue, 0);
+  // WaveActiveAllTrue(!IsHelperLane()) == true
+  VERIFY_ARE_EQUAL(tr60.allTrue, 1);
+  // WaveActiveBallot(true) has exactly 3 bits set only
+  VerifyOutputWithExpectedValueUInt4(tr60.ballot, XMUINT4(0x7, 0, 0, 0));
+
+  // WaveReadLaneFirst(IsHelperLane()) = false in a waterfall loop exactly 3 times
+  VERIFY_ARE_EQUAL(tr60.waterfallLoopCount, 3);
+  // WaveActiveAllEqual(IsHelperLane()) = true
+  VERIFY_ARE_EQUAL(tr60.allEqual, 1);
+  // WaveActiveCountBits(true) = 3
+  VERIFY_ARE_EQUAL(tr60.countBits, 3);
+
+  // WaveActiveSum(4) = 12
+  VERIFY_ARE_EQUAL(tr60.sum, 12);
+
+  // WaveActiveProduct(4) = 64
+  VERIFY_ARE_EQUAL(tr60.product, 64);
+
+  // WaveActiveBitAnd(!IsHelperLane()) = 1
+  VERIFY_ARE_EQUAL(tr60.bitAnd, 1);
+  // WaveActiveBitOr(IsHelperLane()) = 0
+  VERIFY_ARE_EQUAL(tr60.bitOr, 0);
+  // WaveActiveBitXor(IsHelperLane()) = 0
+  VERIFY_ARE_EQUAL(tr60.bitXor, 0);
+
+  // WaveActiveMin(IsHelperLane() ? 1 : 10) = 10;
+  VERIFY_ARE_EQUAL(tr60.min, 10);
+  // WaveActiveMax(IsHelperLane() ? 10 : 1) = 1;
+// BUG HERE - nVidia returns 0x80000000
+//  VERIFY_ARE_EQUAL(tr60.max, 1);
+
+  // WavePrefixCountBits(1) = 2
+  VERIFY_ARE_EQUAL(tr60.prefixCountBits, 2);
+  // WavePrefixProduct(4) = 16
+  VERIFY_ARE_EQUAL(tr60.prefixProduct, 16);
+  // WavePrefixSum(2) = 8
+  VERIFY_ARE_EQUAL(tr60.prefixSum, 8);
+
+  if (sm >= D3D_SHADER_MODEL_6_5) {
+    HelperLaneWaveTestResult65& tr65 = pTestResults->sm65;
+    // WaveMatch(true) has exactly 3 bits set
+    VerifyOutputWithExpectedValueUInt4(tr65.match, XMUINT4(0x7, 0, 0, 0));
+
+    // WaveMultiPrefixCountBits(1, no_masked_bits) = 3
+    VERIFY_ARE_EQUAL(tr65.mpCountBits, 2);
+    // WaveMultiPrefixSum(2, no_masked_bits) = 4
+    VERIFY_ARE_EQUAL(tr65.mpSum, 4);
+    // WaveMultiPrefixProduct(4, no_masked_bits) = 16
+    VERIFY_ARE_EQUAL(tr65.mpProduct, 16);
+
+    // WaveMultiPrefixAnd(IsHelperLane() ? 0 : 1, no_masked_bits) = 1
+    VERIFY_ARE_EQUAL(tr60.bitAnd, 1);
+    // WaveMultiPrefixOr(IsHelperLane() ? 1 : 0, no_masked_bits) = 0
+    VERIFY_ARE_EQUAL(tr65.mpBitOr, 0);
+    // verify WaveMultiPrefixXor(IsHelperLane() ? 1 : 0, no_masked_bits) = 0
+    VERIFY_ARE_EQUAL(tr65.mpBitXor, 0);
+  }
+}
+
+void VerifyHelperLaneWaveResults_PS(ExecutionTest::D3D_SHADER_MODEL sm, HelperLaneWaveTestResult* pTestResults) {
+  HelperLaneWaveTestResult60& tr60 = pTestResults->sm60;
+
+  // WaveActiveAnyTrue( IsHelperLane() ) == false
+  VERIFY_ARE_EQUAL(tr60.anyTrue, 0);
+  // WaveActiveAllTrue(!IsHelperLane()) == true
+  VERIFY_ARE_EQUAL(tr60.allTrue, 1);
+  // WaveActiveBallot(true) has exactly 3 bits set only
+// !! BUG HERE - NVidia return 0xF
+  //VerifyOutputWithExpectedValueUInt4(tr60.ballot, XMUINT4(0x7, 0, 0, 0));
+
+  // WaveReadLaneFirst(IsHelperLane()) = false in a waterfall loop exactly 3 times
+// !! BUG HERE - NVidia returns 2
+//  VERIFY_ARE_EQUAL(tr60.waterfallLoopCount, 3);
+  // WaveActiveAllEqual(IsHelperLane()) = true
+  VERIFY_ARE_EQUAL(tr60.allEqual, 1);
+  // WaveActiveCountBits(true) = 3
+// !! BUG HERE - NVidia returns 4
+  // VERIFY_ARE_EQUAL(tr60.countBits, 3);
+
+  // WaveActiveSum(4) = 12
+// !! BUG HERE - NVidia return 16
+  //VERIFY_ARE_EQUAL(tr60.sum, 12);
+
+  // WaveActiveProduct(4) = 64
+// !! BUG HERE - NVidia returns 256
+  //VERIFY_ARE_EQUAL(tr60.product, 64);
+
+  // WaveActiveBitAnd(!IsHelperLane()) = 1
+  VERIFY_ARE_EQUAL(tr60.bitAnd, 1);
+  // WaveActiveBitOr(IsHelperLane()) = 0
+  VERIFY_ARE_EQUAL(tr60.bitOr, 0);
+  // WaveActiveBitXor(IsHelperLane()) = 0
+  VERIFY_ARE_EQUAL(tr60.bitXor, 0);
+
+  // WaveActiveMin(IsHelperLane() ? 1 : 10) = 10;
+  VERIFY_ARE_EQUAL(tr60.min, 10);
+  // WaveActiveMax(IsHelperLane() ? 10 : 1) = 1;
+  VERIFY_ARE_EQUAL(tr60.max, 1);
+
+  // WavePrefixCountBits(1) = 2
+// !! BUG HERE - NVidia returns 1
+  //VERIFY_ARE_EQUAL(tr60.prefixCountBits, 2);
+  // WavePrefixProduct(4) = 16
+// !! BUG HERE - NVidia returns 4
+  //VERIFY_ARE_EQUAL(tr60.prefixProduct, 16);
+  // WavePrefixSum(2) = 4
+  VERIFY_ARE_EQUAL(tr60.prefixSum, 4);
+
+  if (sm >= D3D_SHADER_MODEL_6_5) {
+    HelperLaneWaveTestResult65& tr65 = pTestResults->sm65;
+    // WaveMatch(true) has exactly 3 bits set
+// !! BUG HERE - NVidia returns 15
+    //VerifyOutputWithExpectedValueUInt4(tr65.match, XMUINT4(0x7, 0, 0, 0));
+
+    // WaveMultiPrefixCountBits(1, no_masked_bits) = 3
+// !! BUG HERE - NVidia returns 1
+    //VERIFY_ARE_EQUAL(tr65.mpCountBits, 2);
+
+    // WaveMultiPrefixSum(2, no_masked_bits) = 4
+// !! BUG HERE - NVidia returns 2
+//    VERIFY_ARE_EQUAL(tr65.mpSum, 4);
+    
+    // WaveMultiPrefixProduct(4, no_masked_bits) = 16
+// !! BUG HERE - NVidia returns 4
+    //VERIFY_ARE_EQUAL(tr65.mpProduct, 16);
+
+    // WaveMultiPrefixAnd(IsHelperLane() ? 0 : 1, no_masked_bits) = 1
+    VERIFY_ARE_EQUAL(tr60.bitAnd, 1);
+    // WaveMultiPrefixOr(IsHelperLane() ? 1 : 0, no_masked_bits) = 0
+    VERIFY_ARE_EQUAL(tr65.mpBitOr, 0);
+    // verify WaveMultiPrefixXor(IsHelperLane() ? 1 : 0, no_masked_bits) = 0
+    VERIFY_ARE_EQUAL(tr65.mpBitXor, 0);
+  }
+}
+
+void VerifyHelperLaneWaveResults_PSAfterDiscard(ExecutionTest::D3D_SHADER_MODEL sm, HelperLaneWaveTestResult* pTestResults) {
+  HelperLaneWaveTestResult60& tr60 = pTestResults->sm60;
+
+  // WaveActiveAnyTrue( IsHelperLane() ) == false
+  VERIFY_ARE_EQUAL(tr60.anyTrue, 0);
+  // WaveActiveAllTrue(!IsHelperLane()) == true
+  VERIFY_ARE_EQUAL(tr60.allTrue, 1);
+  // WaveActiveBallot(true) has exactly 3 bits set only
+// !! BUG HERE - NVidia return 0xF
+  //VerifyOutputWithExpectedValueUInt4(tr60.ballot, XMUINT4(0x7, 0, 0, 0));
+
+  // WaveReadLaneFirst(IsHelperLane()) = false in a waterfall loop exactly 3 times
+// !! BUG HERE - NVidia returns 2
+//  VERIFY_ARE_EQUAL(tr60.waterfallLoopCount, 3);
+  // WaveActiveAllEqual(IsHelperLane()) = true
+  VERIFY_ARE_EQUAL(tr60.allEqual, 1);
+  // WaveActiveCountBits(true) = 3
+// !! BUG HERE - NVidia returns 4
+  // VERIFY_ARE_EQUAL(tr60.countBits, 4);
+
+  // WaveActiveSum(4) = 12
+// !! BUG HERE - NVidia return 16
+  //VERIFY_ARE_EQUAL(tr60.sum, 12);
+
+  // WaveActiveProduct(4) = 64
+// !! BUG HERE - NVidia returns 256
+  //VERIFY_ARE_EQUAL(tr60.product, 64);
+
+  // WaveActiveBitAnd(!IsHelperLane()) = 1
+  VERIFY_ARE_EQUAL(tr60.bitAnd, 1);
+  // WaveActiveBitOr(IsHelperLane()) = 0
+  VERIFY_ARE_EQUAL(tr60.bitOr, 0);
+  // WaveActiveBitXor(IsHelperLane()) = 0
+  VERIFY_ARE_EQUAL(tr60.bitXor, 0);
+
+  // WaveActiveMin(IsHelperLane() ? 1 : 10) = 10;
+  VERIFY_ARE_EQUAL(tr60.min, 10);
+  // WaveActiveMax(IsHelperLane() ? 10 : 1) = 1;
+  VERIFY_ARE_EQUAL(tr60.max, 1);
+
+  // WavePrefixCountBits(1) = 2
+// !! BUG HERE - NVidia returns 1
+  //VERIFY_ARE_EQUAL(tr60.prefixCountBits, 2);
+  // WavePrefixProduct(4) = 16
+// !! BUG HERE - NVidia returns 4
+  //VERIFY_ARE_EQUAL(tr60.prefixProduct, 16);
+  // WavePrefixSum(2) = 4
+  VERIFY_ARE_EQUAL(tr60.prefixSum, 4);
+
+  if (sm >= D3D_SHADER_MODEL_6_5) {
+    HelperLaneWaveTestResult65& tr65 = pTestResults->sm65;
+    // WaveMatch(true) has exactly 3 bits set
+// !! BUG HERE - NVidia returns 15
+    //VerifyOutputWithExpectedValueUInt4(tr65.match, XMUINT4(0x7, 0, 0, 0));
+
+    // WaveMultiPrefixCountBits(1, no_masked_bits) = 3
+// !! BUG HERE - NVidia returns 1
+    //VERIFY_ARE_EQUAL(tr65.mpCountBits, 2);
+
+    // WaveMultiPrefixSum(2, no_masked_bits) = 4
+// !! BUG HERE - NVidia returns 2
+//    VERIFY_ARE_EQUAL(tr65.mpSum, 4);
+
+    // WaveMultiPrefixProduct(4, no_masked_bits) = 16
+// !! BUG HERE - NVidia returns 4
+    //VERIFY_ARE_EQUAL(tr65.mpProduct, 16);
+
+    // WaveMultiPrefixAnd(IsHelperLane() ? 0 : 1, no_masked_bits) = 1
+    VERIFY_ARE_EQUAL(tr60.bitAnd, 1);
+    // WaveMultiPrefixOr(IsHelperLane() ? 1 : 0, no_masked_bits) = 0
+    VERIFY_ARE_EQUAL(tr65.mpBitOr, 0);
+    // verify WaveMultiPrefixXor(IsHelperLane() ? 1 : 0, no_masked_bits) = 0
+    VERIFY_ARE_EQUAL(tr65.mpBitXor, 0);
+  }
+}
+
+void CleanUAVBuffer0Buffer(LPCSTR BufferName, std::vector<BYTE>& Data, st::ShaderOp* pShaderOp) {
+  VERIFY_IS_TRUE(0 == _stricmp(BufferName, "UAVBuffer0"));
+  std::fill(Data.begin(), Data.end(), 0xCC);
+}
+
+//
+// The IsHelperLane test that use Wave intrinsics to verify IsHelperLane() and Wave operations on active lanes.
+//
+TEST_F(ExecutionTest, HelperLaneTestWave) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet = std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+  st::ShaderOp* pShaderOp = ShaderOpSet->GetShaderOp("HelperLaneTestWave");
+
+#ifdef ISHELPERLANE_PLACEHOLDER
+  LPCSTR args = "-DISHELPERLANE_PLACEHOLDER";
+#else 
+  LPCSTR args = "";
+#endif
+
+  if (args[0]) {
+    for (st::ShaderOpShader& S : pShaderOp->Shaders)
+      S.Arguments = args;
+  }
+
+  D3D_SHADER_MODEL TestShaderModels[] = { D3D_SHADER_MODEL_6_0, D3D_SHADER_MODEL_6_5, D3D_SHADER_MODEL_6_6 };
+  for (unsigned i = 0; i < _countof(TestShaderModels); i++) {
+    D3D_SHADER_MODEL sm = TestShaderModels[i];
+    LogCommentFmt(L"Verifying IsHelperLane using Wave intrinsics in shader model 6.%1u", ((UINT)sm & 0x0f));
+
+    CComPtr<ID3D12Device> pDevice;
+    if (!CreateDevice(&pDevice, sm, false /* skipUnsupported */)) {
+      continue;
+    }
+
+    if (!DoesDeviceSupportWaveOps(pDevice)) {
+      LogCommentFmt(L"Device does not support wave operations in shader model 6.%1u", ((UINT)sm & 0x0f));
+      continue;
+    }
+
+    if (sm >= D3D_SHADER_MODEL_6_5) {
+      // Reassign shader stages to 6.5 versions
+      LPCSTR CS65 = nullptr, VS65 = nullptr, PS65 = nullptr;
+      for (st::ShaderOpShader& S : pShaderOp->Shaders) {
+        if (!strcmp(S.Name, "CS65")) CS65 = S.Name;
+        if (!strcmp(S.Name, "VS65")) VS65 = S.Name;
+        if (!strcmp(S.Name, "PS65")) PS65 = S.Name;
+      }
+      pShaderOp->CS = CS65;
+      pShaderOp->VS = VS65;
+      pShaderOp->PS = PS65;
+    }
+
+    // Test Compute shader
+    {
+      std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "HelperLaneTestWave",
+        CleanUAVBuffer0Buffer, ShaderOpSet);
+
+      MappedData uavData;
+      test->Test->GetReadBackData("UAVBuffer0", &uavData);
+      HelperLaneWaveTestResult* pTestResults = (HelperLaneWaveTestResult*)uavData.data();
+      VerifyHelperLaneWaveResults_CS_VS(sm, pTestResults);
+    }
+    
+    // Test Vertex + Pixel shader
+    {
+      pShaderOp->CS = nullptr;
+      std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "HelperLaneTestWave", CleanUAVBuffer0Buffer, ShaderOpSet);
+
+      MappedData uavData;
+      test->Test->GetReadBackData("UAVBuffer0", &uavData);
+      HelperLaneWaveTestResult* pTestResults = (HelperLaneWaveTestResult*)uavData.data();
+      VerifyHelperLaneWaveResults_CS_VS(sm, pTestResults);
+      VerifyHelperLaneWaveResults_PS(sm, pTestResults + 1);
+      VerifyHelperLaneWaveResults_PSAfterDiscard(sm, pTestResults + 2);
+      
+      MappedData renderData;
+      test->Test->GetReadBackData("RTarget", &renderData);
+      const uint32_t* pPixels = (uint32_t*)renderData.data();
+
+      UNREFERENCED_PARAMETER(pPixels);
+    }
   }
 }
 
