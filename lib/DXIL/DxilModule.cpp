@@ -1253,6 +1253,16 @@ bool DxilModule::IsEntryThatUsesSignatures(const llvm::Function *F) const {
   // Otherwise, return true if patch constant function
   return IsPatchConstantShader(F);
 }
+bool DxilModule::IsEntry(const llvm::Function *F) const {
+  auto propIter = m_DxilEntryPropsMap.find(F);
+  if (propIter != m_DxilEntryPropsMap.end()) {
+    DXASSERT(propIter->second->props.shaderKind != DXIL::ShaderKind::Invalid,
+             "invalid entry props");
+    return true;
+  }
+  // Otherwise, return true if patch constant function
+  return IsPatchConstantShader(F);
+}
 
 bool DxilModule::StripRootSignatureFromMetadata() {
   NamedMDNode *pRootSignatureNamedMD = GetModule()->getNamedMetadata(DxilMDHelper::kDxilRootSignatureMDName);
