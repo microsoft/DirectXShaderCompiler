@@ -606,7 +606,7 @@ public:
 
     std::vector<const WCHAR *> new_args;
     for (unsigned i = 0; i < m_Args.size(); i++) {
-      if (m_Args[i] == L"/Qslim_debug" || m_Args[i] == L"-Qslim_debug")
+      if (m_Args[i] == L"/Qsource_only_debug" || m_Args[i] == L"-Qsource_only_debug")
         continue;
       new_args.push_back(m_Args[i].c_str());
     }

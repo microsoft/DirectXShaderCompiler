@@ -1031,8 +1031,8 @@ public:
           }
 
           CComPtr<IDxcBlob> pDebugProgramBlob;
-          // Don't include the debug part if using slim PDB
-          if (opts.SlimDebug) {
+          // Don't include the debug part if using source only PDB
+          if (opts.SourceOnlyDebug) {
             assert(pSourceInfo);
           }
           else {

@@ -1182,7 +1182,7 @@ static void VerifyPdbUtil(
     auto ReplaceDebugFlag = [](const std::vector<const WCHAR *> &List) -> std::vector<const WCHAR *> {
       std::vector<const WCHAR *> ret;
       for (unsigned i = 0; i < List.size(); i++) {
-        if (!wcscmp(List[i], L"/Qslim_debug") || !wcscmp(List[i], L"-Qslim_debug"))
+        if (!wcscmp(List[i], L"/Qsource_only_debug") || !wcscmp(List[i], L"-Qsource_only_debug"))
           ret.push_back(L"-Qfull_debug");
         else
           ret.push_back(List[i]);
@@ -1260,7 +1260,7 @@ TEST_F(CompilerTest, CompileThenTestPdbUtilsStripped) {
   }
 }
 
-void CompilerTest::TestPdbUtils(bool bSlim, bool bLegacy, bool bStrip) {
+void CompilerTest::TestPdbUtils(bool bSlim, bool bSourceInDebugModule, bool bStrip) {
   CComPtr<TestIncludeHandler> pInclude;
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcBlobEncoding> pSource;
@@ -1299,11 +1299,11 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bLegacy, bool bStrip) {
     AddArg(L"-Qembed_debug", false);
   }
 
-  if (bLegacy) {
-    AddArg(L"/Qlegacy_debug", false);
+  if (bSourceInDebugModule) {
+    AddArg(L"/Qsource_in_debug_module", false);
   }
   if (bSlim) {
-    AddArg(L"/Qslim_debug", false);
+    AddArg(L"/Qsource_only_debug", false);
   }
   AddArg(L"/DTHIS_IS_A_DEFINE=HELLO", true);
   const DxcDefine pDefines[] = { L"THIS_IS_ANOTHER_DEFINE", L"1" };
@@ -1330,7 +1330,7 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bLegacy, bool bStrip) {
   VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcPdbUtils, &pPdbUtils));
 
   CComPtr<IDxcBlob> pProgramHeaderBlob;
-  if (bLegacy) {
+  if (bSourceInDebugModule) {
     CComPtr<IDxcContainerReflection> pRef;
     VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pRef));
     VERIFY_SUCCEEDED(pRef->Load(pPdbBlob));
@@ -1370,13 +1370,13 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bLegacy, bool bStrip) {
 }
 
 TEST_F(CompilerTest, CompileThenTestPdbUtils) {
-  TestPdbUtils(/*bSlim*/false, /*Legacy*/true,  /*strip*/false);  // Legacy PDB, where source info is embedded in the module
-  TestPdbUtils(/*bSlim*/false, /*Legacy*/false, /*strip*/false);  // Full PDB, where source info is stored in a DXIL part and debug module is present
-  TestPdbUtils(/*bSlim*/true,  /*Legacy*/false, /*strip*/false);  // Slim PDB, where source info is stored in a DXIL part and debug module is NOT present
+  TestPdbUtils(/*bSlim*/false, /*bSourceInDebugModule*/true,  /*strip*/false);  // Old PDB format, where source info is embedded in the module
+  TestPdbUtils(/*bSlim*/false, /*bSourceInDebugModule*/false, /*strip*/false);  // Full PDB, where source info is stored in its own part, and a debug module which is present
+  TestPdbUtils(/*bSlim*/true,  /*bSourceInDebugModule*/false, /*strip*/false);  // Slim PDB, where source info is stored in its own part, and a debug module which is NOT present
 
-  TestPdbUtils(/*bSlim*/false, /*Legacy*/true,  /*strip*/true);  // Legacy PDB, where source info is embedded in the module
-  TestPdbUtils(/*bSlim*/false, /*Legacy*/false, /*strip*/true);  // Full PDB, where source info is stored in a DXIL part and debug module is present
-  TestPdbUtils(/*bSlim*/true,  /*Legacy*/false, /*strip*/true);  // Slim PDB, where source info is stored in a DXIL part and debug module is NOT present
+  TestPdbUtils(/*bSlim*/false, /*bSourceInDebugModule*/true,  /*strip*/true);  // Legacy PDB, where source info is embedded in the module
+  TestPdbUtils(/*bSlim*/false, /*bSourceInDebugModule*/false, /*strip*/true);  // Full PDB, where source info is stored in its own part, and debug module is present
+  TestPdbUtils(/*bSlim*/true,  /*bSourceInDebugModule*/false, /*strip*/true);  // Slim PDB, where source info is stored in its own part, and debug module is NOT present
 }
 #endif
 

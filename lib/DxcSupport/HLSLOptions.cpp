@@ -625,8 +625,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.RecompileFromBinary = Args.hasFlag(OPT_recompile, OPT_INVALID, false);
   opts.StripDebug = Args.hasFlag(OPT_Qstrip_debug, OPT_INVALID, false);
   opts.EmbedDebug = Args.hasFlag(OPT_Qembed_debug, OPT_INVALID, false);
-  opts.LegacyDebug = Args.hasFlag(OPT_Qlegacy_debug, OPT_INVALID, false);
-  opts.SlimDebug = Args.hasFlag(OPT_Qslim_debug, OPT_INVALID, false);
+  opts.LegacyDebug = Args.hasFlag(OPT_Qsource_in_debug_module, OPT_INVALID, false);
+  opts.SourceOnlyDebug = Args.hasFlag(OPT_Qsource_only_debug, OPT_INVALID, false);
   opts.FullDebug = Args.hasFlag(OPT_Qfull_debug, OPT_INVALID, false);
   opts.StripRootSignature = Args.hasFlag(OPT_Qstrip_rootsignature, OPT_INVALID, false);
   opts.StripPrivate = Args.hasFlag(OPT_Qstrip_priv, OPT_INVALID, false);
@@ -917,13 +917,13 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     return 1;
   }
 
-  if (opts.FullDebug && opts.SlimDebug) {
-    errors << "Cannot specify both /Qfull_debug and /Qslim_debug";
+  if (opts.FullDebug && opts.SourceOnlyDebug) {
+    errors << "Cannot specify both /Qfull_debug and /Qsource_only_debug";
     return 1;
   }
 
-  if (opts.LegacyDebug && opts.SlimDebug) {
-    errors << "Cannot specify both /Qlegacy_debug and /Qslim_debug";
+  if (opts.LegacyDebug && opts.SourceOnlyDebug) {
+    errors << "Cannot specify both /Qsource_in_debug_module and /Qsource_only_debug";
     return 1;
   }
 
