@@ -223,8 +223,8 @@ void DynamicIndexingVectorToArray::ReplaceStaticIndexingOnVector(Value *V) {
         // Skip the pointer idx.
         Idx++;
         ConstantInt *constIdx = cast<ConstantInt>(Idx);
-        Type *Ty = GEP->getType()->getPointerElementType();
-
+        // AllocaInst for Call user.
+        AllocaInst *TmpAI = nullptr;
         for (auto GEPU = GEP->user_begin(), GEPE = GEP->user_end();
              GEPU != GEPE;) {
           Instruction *GEPUser = cast<Instruction>(*(GEPU++));
@@ -252,11 +252,14 @@ void DynamicIndexingVectorToArray::ReplaceStaticIndexingOnVector(Value *V) {
             //   b = ld a
             //   b.x = ld tmp
             //   st b, a
-            IRBuilder<> AllocaB(CI->getParent()
-                                    ->getParent()
-                                    ->getEntryBlock()
-                                    .getFirstInsertionPt());
-            AllocaInst *TmpAI = AllocaB.CreateAlloca(Ty);
+            if (TmpAI == nullptr) {
+              Type *Ty = GEP->getType()->getPointerElementType();
+              IRBuilder<> AllocaB(CI->getParent()
+                                      ->getParent()
+                                      ->getEntryBlock()
+                                      .getFirstInsertionPt());
+              TmpAI = AllocaB.CreateAlloca(Ty);
+            }
             Value *ldVal = Builder.CreateLoad(V);
             Value *Elt = Builder.CreateExtractElement(ldVal, constIdx);
             Builder.CreateStore(Elt, TmpAI);
