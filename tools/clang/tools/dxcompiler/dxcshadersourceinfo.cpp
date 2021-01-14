@@ -28,12 +28,6 @@ static bool ZlibCompress(const void *src, size_t srcSize, Buffer *outCompressedD
 // Reader
 ///////////////////////////////////////////////////////////////////////////////
 
-llvm::StringRef SourceInfoReader::GetArgs() const {
-  return m_Args;
-}
-llvm::StringRef SourceInfoReader::GetDefines() const {
-  return m_Defines;
-}
 SourceInfoReader::Source SourceInfoReader::GetSource(unsigned i) const {
   return m_Sources[i];
 }
@@ -45,28 +39,21 @@ void SourceInfoReader::Read(const hlsl::DxilSourceInfo *SourceInfo) {
 
   for (unsigned i = 0; i < SourceInfo->SectionCount; i++) {
     switch (section->Type) {
-    case hlsl::DxilSourceInfoSectionType::TargetProfile:
-    {
-      const hlsl::DxilSourceInfo_String *header = (const hlsl::DxilSourceInfo_String *)&section[1];
-      m_TargetProfile = llvm::StringRef((const char *)(header+1), header->SizeInBytes);
-    } break;
-
-    case hlsl::DxilSourceInfoSectionType::EntryPoint:
-    {
-      const hlsl::DxilSourceInfo_String *header = (const hlsl::DxilSourceInfo_String *)&section[1];
-      m_EntryPoint = llvm::StringRef((const char *)(header+1), header->SizeInBytes);
-    } break;
-
-    case hlsl::DxilSourceInfoSectionType::Defines:
-    {
-      const hlsl::DxilSourceInfo_StringList *header = (const hlsl::DxilSourceInfo_StringList *)&section[1];
-      m_Defines = llvm::StringRef( (const char *)(header+1), header->SizeInBytes );
-    } break;
-
     case hlsl::DxilSourceInfoSectionType::Args:
     {
-      const hlsl::DxilSourceInfo_StringList *header = (const hlsl::DxilSourceInfo_StringList *)&section[1];
-      m_Args = llvm::StringRef( (const char *)(header+1), header->SizeInBytes );
+      const hlsl::DxilSourceInfo_Args *header = (const hlsl::DxilSourceInfo_Args *)&section[1];
+      const char *args = (const char *)(header + 1);
+      int begin = 0;
+      for (uint32_t i = 0; i < header->SizeInBytes && m_Args.size() < header->Count; i++) {
+        assert(i < header->SizeInBytes);
+        if (i >= header->SizeInBytes)
+          break;
+        if (args[i] == '\0') {
+          uint32_t length = i - begin;
+          m_Args.push_back(std::string(args+begin, args+begin+length));
+          begin = i+1;
+        }
+      }
     } break;
 
     case hlsl::DxilSourceInfoSectionType::SourceNames:
@@ -342,40 +329,12 @@ void SourceInfoWriter::Write(llvm::StringRef targetProfile, llvm::StringRef entr
   }
 
   ////////////////////////////////////////////////////////////////////
-  // Defines
-  ////////////////////////////////////////////////////////////////////
-  {
-    const size_t sectionOffset = BeginSection(&m_Buffer);
-
-    hlsl::DxilSourceInfo_StringList header = {};
-
-    const size_t headerOffset = m_Buffer.size();
-    Append(&m_Buffer, &header, sizeof(header));
-
-    const size_t contentOffset = m_Buffer.size();
-    uint32_t count = 0;
-    for (std::string &def : cgOpts.HLSLDefines) {
-      Append(&m_Buffer, def.data(), def.size());
-      Append(&m_Buffer, 0); // Null terminator
-      count++;
-    }
-
-    // Go back and rewrite the header now that we know the size
-    header.SizeInBytes = m_Buffer.size() - contentOffset;
-    header.Count = count;
-    memcpy(m_Buffer.data() + headerOffset, &header, sizeof(header));
-
-    FinishSection(&m_Buffer, sectionOffset, hlsl::DxilSourceInfoSectionType::Defines);
-    mainHeader.SectionCount++;
-  }
-
-  ////////////////////////////////////////////////////////////////////
   // Args
   ////////////////////////////////////////////////////////////////////
   {
     const size_t sectionOffset = BeginSection(&m_Buffer);
 
-    hlsl::DxilSourceInfo_StringList header = {};
+    hlsl::DxilSourceInfo_Args header = {};
 
     const size_t headerOffset = m_Buffer.size();
     Append(&m_Buffer, &header, sizeof(header));
@@ -394,36 +353,6 @@ void SourceInfoWriter::Write(llvm::StringRef targetProfile, llvm::StringRef entr
     memcpy(m_Buffer.data() + headerOffset, &header, sizeof(header));
 
     FinishSection(&m_Buffer, sectionOffset, hlsl::DxilSourceInfoSectionType::Args);
-    mainHeader.SectionCount++;
-  }
-
-  ////////////////////////////////////////////////////////////////////
-  // Target Profile
-  ////////////////////////////////////////////////////////////////////
-  {
-    const size_t sectionOffset = BeginSection(&m_Buffer);
-
-    hlsl::DxilSourceInfo_String header = {};
-    header.SizeInBytes = targetProfile.size();
-    Append(&m_Buffer, &header, sizeof(header));
-    Append(&m_Buffer, targetProfile.data(), targetProfile.size());
-
-    FinishSection(&m_Buffer, sectionOffset, hlsl::DxilSourceInfoSectionType::TargetProfile);
-    mainHeader.SectionCount++;
-  }
-
-  ////////////////////////////////////////////////////////////////////
-  // Target Profile
-  ////////////////////////////////////////////////////////////////////
-  {
-    const size_t sectionOffset = BeginSection(&m_Buffer);
-
-    hlsl::DxilSourceInfo_String header = {};
-    header.SizeInBytes = entryPoint.size();
-    Append(&m_Buffer, &header, sizeof(header));
-    Append(&m_Buffer, entryPoint.data(), entryPoint.size());
-
-    FinishSection(&m_Buffer, sectionOffset, hlsl::DxilSourceInfoSectionType::EntryPoint);
     mainHeader.SectionCount++;
   }
 

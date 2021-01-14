@@ -23,6 +23,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Path.h"
+#include "llvm/Support/raw_ostream.h"
 
 #include "dxc/dxcapi.h"
 #include "dxc/dxcpix.h"
@@ -33,6 +34,7 @@
 #include "dxc/DXIL/DxilMetadataHelper.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/Support/Unicode.h"
+#include "dxc/Support/HLSLOptions.h"
 
 #include "dxcshadersourceinfo.h"
 
@@ -44,6 +46,11 @@
 
 using namespace dxc;
 using namespace llvm;
+
+static const std::string ToUtf8String(const std::wstring &str) {
+  std::wstring_convert<std::codecvt_utf8<wchar_t> > converter;
+  return converter.to_bytes(str.data(), str.data()+str.size());
+}
 
 static std::wstring ToWstring(const char *ptr, size_t size) {
   std::wstring_convert<std::codecvt_utf8_utf16<wchar_t> > converter;
@@ -100,19 +107,45 @@ static bool ShouldIncludeInFlags(const std::wstring &str, bool *skip_next_arg) {
   return true;
 }
 
-static std::vector<std::wstring> ComputeFlagsBasedOnArgs(ArrayRef<std::wstring> args) {
-  std::vector<std::wstring> flags;
-  // Flags - which exclude entry point, target profile, and defines
-  for (unsigned i = 0; i < args.size(); i++) {
-    const std::wstring &arg = args[i];
-    bool skip_another_arg = false;
-    if (ShouldIncludeInFlags(arg, &skip_another_arg)) {
-      flags.push_back(arg);
+static void ComputeFlagsBasedOnArgs(ArrayRef<std::wstring> args, std::vector<std::wstring> *outFlags, std::vector<std::wstring> *outDefines, std::wstring *outTargetProfile, std::wstring *outEntryPoint) {
+  const llvm::opt::OptTable *optionTable = hlsl::options::getHlslOptTable();
+  assert(optionTable);
+  if (optionTable) {
+    std::vector<std::string> argUtf8List;
+    for (unsigned i = 0; i < args.size(); i++) {
+      argUtf8List.push_back(ToUtf8String(args[i]));
     }
-    if (skip_another_arg)
-      i++;
+
+    std::vector<const char *> argPointerList;
+    for (unsigned i = 0; i < argUtf8List.size(); i++) {
+      argPointerList.push_back(argUtf8List[i].c_str());
+    }
+
+    unsigned missingIndex = 0;
+    unsigned missingCount = 0;
+    llvm::opt::InputArgList argList = optionTable->ParseArgs(argPointerList, missingIndex, missingCount);
+    for (llvm::opt::Arg *arg : argList) {
+      if (arg->getOption().matches(hlsl::options::OPT_D)) {
+        std::wstring def = ToWstring(arg->getValue());
+        if (outDefines)
+          outDefines->push_back(def);
+        continue;
+      }
+      else if (arg->getOption().matches(hlsl::options::OPT_target_profile)) {
+        if (outTargetProfile)
+          *outTargetProfile = ToWstring(arg->getValue());
+        continue;
+      }
+      else if (arg->getOption().matches(hlsl::options::OPT_entrypoint)) {
+        if (outEntryPoint)
+          *outEntryPoint = ToWstring(arg->getValue());
+        continue;
+      }
+
+      if (outFlags)
+        outFlags->push_back(ToWstring(arg->getAsString(argList)));
+    }
   }
-  return flags;
 }
 
 struct DxcPdbVersionInfo : public IDxcVersionInfo2 {
@@ -354,7 +387,8 @@ private:
           StringRef arg = cast<MDString>(tup->getOperand(i))->getString();
           m_Args.push_back(ToWstring(arg));
         }
-        m_Flags = ComputeFlagsBasedOnArgs(m_Args);
+
+        ComputeFlagsBasedOnArgs(m_Args, &m_Flags, nullptr, nullptr, nullptr);
       }
     }
 
@@ -398,20 +432,13 @@ private:
         hlsl::SourceInfoReader reader;
         reader.Read(header);
 
-        m_TargetProfile = ToWstring(reader.GetTargetProfile());
-        m_EntryPoint = ToWstring(reader.GetEntryPoint());
-
-        // Defines
         {
-          StringRef defines_data = reader.GetDefines();
-          ReadNullSeparatedStringList(defines_data, &m_Defines);
-        }
+          unsigned numArgs = reader.GetNumArgs();
+          for (unsigned i = 0; i < numArgs; i++) {
+            m_Args.push_back(ToWstring(reader.GetArg(i)));
+          }
 
-        // Args and Flags
-        {
-          StringRef args_data = reader.GetArgs();
-          ReadNullSeparatedStringList(args_data, &m_Args);
-          m_Flags = ComputeFlagsBasedOnArgs(m_Args);
+          ComputeFlagsBasedOnArgs(m_Args, &m_Flags, &m_Defines, &m_TargetProfile, &m_EntryPoint);
         }
 
         // Sources

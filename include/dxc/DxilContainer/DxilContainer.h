@@ -290,24 +290,9 @@ struct DxilCompilerVersion {
 //        char NullTerminator
 //        (0-3 zero bytes to align to a 4-byte boundary)
 //
-// ================ 3. Defines ==================================
+// ================ 3. Args ==================================
 //
-//   DxilSourceInfo_StringList
-//
-//      char Define[]
-//      char NullTerminator
-//
-//      char Define[]
-//      char NullTerminator
-//
-//      ...
-//
-//      char Define[]
-//      char NullTerminator
-//
-// ================ 4. Args ==================================
-//
-//   DxilSourceInfo_StringList
+//   DxilSourceInfo_Args
 //
 //      char Arg[]
 //      char NullTerminator
@@ -318,18 +303,6 @@ struct DxilCompilerVersion {
 //      ...
 //
 //      char Arg[]
-//      char NullTerminator
-//
-// ================ 5. Target Profile ==================================
-//
-//   DxilSourceInfo_String
-//      char TargetProfile[]
-//      char NullTerminator
-//
-// ================ 6. Entry Point Name ==================================
-//
-//   DxilSourceInfo_String
-//      char EntryPoint[]
 //      char NullTerminator
 //
 
@@ -340,12 +313,9 @@ struct DxilSourceInfo {
 };
 
 enum class DxilSourceInfoSectionType : uint16_t {
-  SourceContents,
-  SourceNames,
-  Defines,
-  Args,
-  TargetProfile,
-  EntryPoint,
+  SourceContents = 0,
+  SourceNames    = 1,
+  Args           = 2,
 };
 
 struct DxilSourceInfoSection {
@@ -354,20 +324,12 @@ struct DxilSourceInfoSection {
   DxilSourceInfoSectionType Type;   // The type of data following this header.
 };
 
-struct DxilSourceInfo_StringList {
+struct DxilSourceInfo_Args {
   uint32_t Flags;       // Reserved, must be set to zero.
   uint32_t SizeInBytes; // Length of all strings, including their null terminators, not including this header.
   uint32_t Count;       // Number of strings
 
   // Followed by `Count` null-terminated strings.
-};
-
-struct DxilSourceInfo_String {
-  uint32_t Flags;       // Reserved, must be set to zero.
-  uint32_t SizeInBytes; // Length of the string, not including null terminator
-
-  // Followed by SizeInBytes bytes of the UTF-8-encoded string.
-  // Followed by a null terminator.
 };
 
 struct DxilSourceInfo_SourceNames {

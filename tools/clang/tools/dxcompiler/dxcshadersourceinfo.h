@@ -44,15 +44,10 @@ struct SourceInfoReader {
   };
 
   std::vector<Source> m_Sources;
-  llvm::StringRef m_Defines;
-  llvm::StringRef m_Args;
-  llvm::StringRef m_TargetProfile;
-  llvm::StringRef m_EntryPoint;
+  std::vector<std::string> m_Args;
 
-  llvm::StringRef GetArgs() const;
-  llvm::StringRef GetDefines() const;
-  llvm::StringRef GetTargetProfile() const { return m_TargetProfile; }
-  llvm::StringRef GetEntryPoint() const { return m_EntryPoint; }
+  unsigned GetNumArgs() const { return m_Args.size(); }
+  const std::string &GetArg(unsigned i) const { return m_Args[i]; }
   Source GetSource(unsigned i) const;
   unsigned GetSourcesCount() const;
   void Read(const hlsl::DxilSourceInfo *SourceInfo);
