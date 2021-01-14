@@ -159,6 +159,7 @@ public:
   DxcPdbVersionInfo(IMalloc *pMalloc) : m_dwRef(0), m_pMalloc(pMalloc) {}
 
   hlsl::DxilCompilerVersion m_Version = {};
+  std::string m_VersionCommitSha = {};
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
     return DoBasicQueryInterface<IDxcVersionInfo, IDxcVersionInfo2>(this, iid, ppvObject);
@@ -184,11 +185,11 @@ public:
 
     *pCommitHash = nullptr;
 
-    char *const hash = (char *)CoTaskMemAlloc(sizeof(m_Version.CommitSha) + 1);
+    char *const hash = (char *)CoTaskMemAlloc(m_VersionCommitSha.size() + 1);
     if (hash == nullptr)
       return E_OUTOFMEMORY;
-    std::memcpy(hash, m_Version.CommitSha, sizeof(m_Version.CommitSha));
-    hash[sizeof(m_Version.CommitSha)] = 0;
+    std::memcpy(hash, m_VersionCommitSha.data(), m_VersionCommitSha.size());
+    hash[m_VersionCommitSha.size()] = 0;
 
     *pCommitHash = hash;
     *pCommitCount = m_Version.CommitCount;
@@ -264,6 +265,8 @@ private:
   CComPtr<IDxcBlob> m_HashBlob;
   bool m_HasVersionInfo = false;
   hlsl::DxilCompilerVersion m_VersionInfo;
+  std::string m_VersionCommitSha;
+  std::string m_VersionString;
 
   void Reset() {
     m_pDebugProgramBlob = nullptr;
@@ -280,6 +283,8 @@ private:
     m_HashBlob = nullptr;
     m_HasVersionInfo = false;
     m_VersionInfo = {};
+    m_VersionCommitSha.clear();
+    m_VersionString.clear();
   }
 
   bool HasSources() const {
@@ -424,6 +429,33 @@ private:
         const hlsl::DxilCompilerVersion *header = (const hlsl::DxilCompilerVersion *)(part+1);
         m_VersionInfo = *header;
         m_HasVersionInfo = true;
+
+        const char *ptr = (const char *)(header+1);
+        unsigned commitShaLength = 0;
+        unsigned i = 0;
+
+        const char *commitSha = (const char *)(header+1) + i;
+        for (; i < header->VersionStringListSizeInBytes; i++) {
+          if (ptr[i] == 0) {
+            commitShaLength = i;
+            i++;
+            break;
+          }
+        }
+
+        const char *versionString = (const char *)(header+1) + i;
+        unsigned versionStringLength = 0;
+        for (; i < header->VersionStringListSizeInBytes; i++) {
+          if (ptr[i] == 0) {
+            commitShaLength = i;
+            i++;
+            break;
+          }
+        }
+
+        m_VersionCommitSha.assign(commitSha, commitShaLength);
+        m_VersionString.assign(versionString, versionStringLength);
+
       } break;
 
       case hlsl::DFCC_ShaderSourceInfo:
@@ -738,6 +770,7 @@ public:
       return E_OUTOFMEMORY;
     }
     result->m_Version = m_VersionInfo;
+    result->m_VersionCommitSha = m_VersionCommitSha;
     *ppVersionInfo = result.Detach();
     return S_OK;
   }

@@ -217,10 +217,10 @@ struct DxilCompilerVersion {
   uint16_t Minor;
   uint32_t VersionFlags;
   uint32_t CommitCount;
-  uint8_t  CommitSha[8];
-  uint32_t VersionStringLength;
-  // Followed by VersionStringLength bytes of the version string.
-  // Followed by a null terminator.
+  uint32_t VersionStringListSizeInBytes;
+  // Followed by VersionStringListSizeInBytes bytes, containing up to two null-terminated strings, sequentially:
+  //  1. CommitSha
+  //  1. CustomVersionString
   // Followed by [0-3] zero bytes to align to a 4-byte boundary.
 };
 

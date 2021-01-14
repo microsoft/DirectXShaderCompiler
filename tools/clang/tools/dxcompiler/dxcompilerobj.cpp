@@ -95,6 +95,8 @@ static bool ShouldBeCopiedIntoPDB(UINT32 FourCC) {
 
 struct CompilerVersionPartWriter {
   hlsl::DxilCompilerVersion m_Header = {};
+  CComHeapPtr<char> m_CommitShaStorage;
+  llvm::StringRef m_CommitSha;
 
   void Init(IDxcVersionInfo *pVersionInfo) {
     m_Header = {};
@@ -110,12 +112,10 @@ struct CompilerVersionPartWriter {
     CComPtr<IDxcVersionInfo2> pVersionInfo2;
     if (SUCCEEDED(pVersionInfo->QueryInterface(&pVersionInfo2))) {
       UINT32 CommitCount = 0;
-      CComHeapPtr<char> CommitVersionHash;
-      IFT(pVersionInfo2->GetCommitInfo(&CommitCount, &CommitVersionHash));
-      size_t CommitLength = strlen(CommitVersionHash.m_pData);
-      size_t CopyLength = std::min(sizeof(m_Header.CommitSha), CommitLength);
-      memcpy(m_Header.CommitSha, CommitVersionHash.m_pData, CopyLength);
+      IFT(pVersionInfo2->GetCommitInfo(&CommitCount, &m_CommitShaStorage));
+      m_CommitSha = llvm::StringRef(m_CommitShaStorage.m_pData, strlen(m_CommitShaStorage.m_pData));
       m_Header.CommitCount = CommitCount;
+      m_Header.VersionStringListSizeInBytes = m_CommitSha.size() + /*null term*/1 + /*another null term for the empty custom string*/1;
     }
   }
 
@@ -133,9 +133,11 @@ struct CompilerVersionPartWriter {
   }
 
   UINT32 GetSize(UINT32 *pPadding = nullptr) const {
-    return PadToDword(sizeof(m_Header) + m_Header.VersionStringLength+1, pPadding);
+    return PadToDword(sizeof(m_Header) + m_Header.VersionStringListSizeInBytes, pPadding);
   }
+
   void Write(IStream *pStream) {
+    const uint8_t padByte = 0;
     UINT32 uPadding = 0;
     UINT32 uSize = GetSize(&uPadding);
     (void)uSize;
@@ -144,7 +146,11 @@ struct CompilerVersionPartWriter {
     IFT(pStream->Write(&m_Header, sizeof(m_Header), &cbWritten));
 
     // Write a null terminator even if the string is empty
-    uint8_t padByte = 0;
+    IFT(pStream->Write(m_CommitSha.data(), m_CommitSha.size(), &cbWritten));
+    // Null terminator for the commit sha
+    IFT(pStream->Write(&padByte, sizeof(padByte), &cbWritten));
+
+    // Null terminator for the empty version string
     IFT(pStream->Write(&padByte, sizeof(padByte), &cbWritten));
 
     // Write padding
