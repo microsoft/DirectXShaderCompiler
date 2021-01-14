@@ -34,7 +34,6 @@
 #include "dxc/DxilContainer/DxilContainerAssembler.h"
 #include "dxc/dxcapi.internal.h"
 #include "dxc/DXIL/DxilPDB.h"
-#include "dxc/DXIL/DxilUtil.h"
 #include "dxc/DXIL/DxilModule.h"
 
 #include "dxc/Support/dxcapi.use.h"

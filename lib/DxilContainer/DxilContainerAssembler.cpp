@@ -1682,9 +1682,9 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   bool bModuleStripped = false;
   bool bHasDebugInfo = HasDebugInfo(*pModule->GetModule());
   if (bHasDebugInfo) {
+    uint32_t debugInUInt32, debugPaddingBytes;
+    GetPaddedProgramPartSize(pInputProgramStream, debugInUInt32, debugPaddingBytes);
     if (Flags & SerializeDxilFlags::IncludeDebugInfoPart) {
-      uint32_t debugInUInt32, debugPaddingBytes;
-      GetPaddedProgramPartSize(pInputProgramStream, debugInUInt32, debugPaddingBytes);
       writer.AddPart(DFCC_ShaderDebugInfoDXIL, debugInUInt32 * sizeof(uint32_t) + sizeof(DxilProgramHeader), [&](AbstractMemoryStream *pStream) {
         WriteProgramPart(pModule->GetShaderModel(), pInputProgramStream, pStream);
       });

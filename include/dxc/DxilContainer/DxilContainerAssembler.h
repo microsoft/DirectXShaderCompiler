@@ -15,8 +15,6 @@
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "llvm/ADT/StringRef.h"
 
-struct IDxcVersionInfo;
-
 namespace hlsl {
 
 class AbstractMemoryStream;
