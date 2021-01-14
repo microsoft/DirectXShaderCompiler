@@ -223,6 +223,7 @@ void DynamicIndexingVectorToArray::ReplaceStaticIndexingOnVector(Value *V) {
         // Skip the pointer idx.
         Idx++;
         ConstantInt *constIdx = cast<ConstantInt>(Idx);
+        Type *Ty = GEP->getType()->getPointerElementType();
 
         for (auto GEPU = GEP->user_begin(), GEPE = GEP->user_end();
              GEPU != GEPE;) {
@@ -240,6 +241,34 @@ void DynamicIndexingVectorToArray::ReplaceStaticIndexingOnVector(Value *V) {
             Value *Elt = Builder.CreateExtractElement(ldVal, constIdx);
             ldInst->replaceAllUsesWith(Elt);
             ldInst->eraseFromParent();
+          } else if (CallInst *CI = dyn_cast<CallInst>(GEPUser)) {
+            // Change
+            //    call a->x
+            // into
+            //   tmp = alloca
+            //   b = ld a
+            //   st b.x, tmp
+            //   call tmp
+            //   b = ld a
+            //   b.x = ld tmp
+            //   st b, a
+            IRBuilder<> AllocaB(CI->getParent()
+                                    ->getParent()
+                                    ->getEntryBlock()
+                                    .getFirstInsertionPt());
+            AllocaInst *TmpAI = AllocaB.CreateAlloca(Ty);
+            Value *ldVal = Builder.CreateLoad(V);
+            Value *Elt = Builder.CreateExtractElement(ldVal, constIdx);
+            Builder.CreateStore(Elt, TmpAI);
+
+            CI->replaceUsesOfWith(GEP, TmpAI);
+
+            Builder.SetInsertPoint(CI->getNextNode());
+            Elt = Builder.CreateLoad(TmpAI);
+
+            ldVal = Builder.CreateLoad(V);
+            ldVal = Builder.CreateInsertElement(ldVal, Elt, constIdx);
+            Builder.CreateStore(ldVal, V);
           } else {
             // Change
             //    st val, a->x
