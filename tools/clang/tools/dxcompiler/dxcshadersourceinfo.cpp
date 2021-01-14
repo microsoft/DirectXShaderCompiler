@@ -71,8 +71,10 @@ void SourceInfoReader::Read(const hlsl::DxilSourceInfo *SourceInfo) {
           break;
 
         const void *ptr = entry+1;
-        llvm::StringRef name = { (const char *)ptr, entry->NameSizeInBytes, };
-        m_Sources[i].Name = name;
+        if (entry->NameSizeInBytes > 0) {
+          llvm::StringRef name = { (const char *)ptr, entry->NameSizeInBytes-1, };
+          m_Sources[i].Name = name;
+        }
 
         entry = (const hlsl::DxilSourceInfo_SourceNamesEntry *)((const uint8_t *)entry + entry->AlignedSizeInBytes);
       }
@@ -108,8 +110,10 @@ void SourceInfoReader::Read(const hlsl::DxilSourceInfo *SourceInfo) {
             break;
 
           const void *ptr = entry+1;
-          llvm::StringRef content = { (const char *)ptr, entry->ContentSizeInBytes, };
-          m_Sources[i].Content = content;
+          if (entry->ContentSizeInBytes > 0) {
+            llvm::StringRef content = { (const char *)ptr, entry->ContentSizeInBytes-1, };
+            m_Sources[i].Content = content;
+          }
 
           entry = (const hlsl::DxilSourceInfo_SourceContentsEntry *)((const uint8_t *)entry + entry->AlignedSizeInBytes);
         }
@@ -154,7 +158,7 @@ static uint32_t PadBufferToFourBytes(Buffer *buf, uint32_t unpaddedSize) {
 static void AppendFileContentEntry(Buffer *buf, llvm::StringRef content) {
   hlsl::DxilSourceInfo_SourceContentsEntry header = {};
   header.AlignedSizeInBytes = PadToFourBytes(sizeof(header) + content.size()+1);
-  header.ContentSizeInBytes = content.size();
+  header.ContentSizeInBytes = content.size()+1;
 
   const size_t offset = buf->size();
   Append(buf, &header, sizeof(header));
@@ -258,8 +262,8 @@ void SourceInfoWriter::Write(llvm::StringRef targetProfile, llvm::StringRef entr
 
       // Write the header
       hlsl::DxilSourceInfo_SourceNamesEntry entryHeader = {};
-      entryHeader.NameSizeInBytes = file.Name.size();
-      entryHeader.ContentSizeInBytes = file.Content.size();
+      entryHeader.NameSizeInBytes = file.Name.size()+1;
+      entryHeader.ContentSizeInBytes = file.Content.size()+1;
       entryHeader.AlignedSizeInBytes = PadToFourBytes(sizeof(entryHeader) + file.Name.size() + 1);
 
       Append(&m_Buffer, &entryHeader, sizeof(entryHeader));

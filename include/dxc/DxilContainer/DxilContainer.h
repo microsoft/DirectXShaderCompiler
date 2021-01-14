@@ -250,20 +250,17 @@ struct DxilCompilerVersion {
 //  DxilSourceInfo_SourceNames
 //
 //     DxilSourceInfo_SourceNamesEntry
-//        char Name[ NameSizeInBytes ]
-//        char NullTerminator
+//        char Name[ NameSizeInBytes + 1 ]
 //        (0-3 zero bytes to align to a 4-byte boundary)
 //
 //     DxilSourceInfo_SourceNamesEntry
-//        char Name[ NameSizeInBytes ]
-//        char NullTerminator
+//        char Name[ NameSizeInBytes + 1 ]
 //        (0-3 zero bytes to align to a 4-byte boundary)
 //
 //      ...
 //
 //     DxilSourceInfo_SourceNamesEntry
-//        char Name[ NameSizeInBytes ]
-//        char NullTerminator
+//        char Name[ NameSizeInBytes + 1 ]
 //        (0-3 zero bytes to align to a 4-byte boundary)
 //
 // ================ 2. Source Contents ==================================
@@ -274,20 +271,17 @@ struct DxilCompilerVersion {
 // `Entries` may be compressed. Here is the uncompressed structure:
 //
 //     DxilSourceInfo_SourcesContentsEntry
-//        char Content[ ContentSizeInBytes ]
-//        char NullTerminator
+//        char Content[ ContentSizeInBytes + 1 ]
 //        (0-3 zero bytes to align to a 4-byte boundary)
 //
 //     DxilSourceInfo_SourcesContentsEntry
-//        char Content[ ContentSizeInBytes ]
-//        char NullTerminator
+//        char Content[ ContentSizeInBytes + 1 ]
 //        (0-3 zero bytes to align to a 4-byte boundary)
 //
 //     ...
 //
 //     DxilSourceInfo_SourcesContentsEntry
-//        char Content[ ContentSizeInBytes ]
-//        char NullTerminator
+//        char Content[ ContentSizeInBytes + 1 ]
 //        (0-3 zero bytes to align to a 4-byte boundary)
 //
 // ================ 3. Args ==================================
@@ -343,10 +337,9 @@ struct DxilSourceInfo_SourceNames {
 struct DxilSourceInfo_SourceNamesEntry {
   uint32_t AlignedSizeInBytes;                      // Size of the data including this header and padding. Aligned to 4-byte boundary.
   uint32_t Flags;                                   // Reserved, must be set to 0.
-  uint32_t NameSizeInBytes;                         // Size of the file name, NOT including the null terminator.
-  uint32_t ContentSizeInBytes;                      // Size of the file content, NOT including the null terminator.
-  // Followed by NameSizeInBytes bytes of the UTF-8-encoded file name.
-  // Followed by a null terminator.
+  uint32_t NameSizeInBytes;                         // Size of the file name, *including* the null terminator.
+  uint32_t ContentSizeInBytes;                      // Size of the file content, *including* the null terminator.
+  // Followed by NameSizeInBytes bytes of the UTF-8-encoded file name (including null terminator).
   // Followed by [0-3] zero bytes to align to a 4-byte boundary.
 };
 
@@ -368,9 +361,8 @@ struct DxilSourceInfo_SourceContents {
 struct DxilSourceInfo_SourceContentsEntry {
   uint32_t AlignedSizeInBytes;                             // Size of the entry including this header and padding. Aligned to 4-byte boundary.
   uint32_t Flags;                                          // Reserved, must be set to 0.
-  uint32_t ContentSizeInBytes;                             // Size of the data following this header
-  // Followed by NameSizeInBytes bytes of the UTF-8-encoded content.
-  // Followed by a null terminator.
+  uint32_t ContentSizeInBytes;                             // Size of the data following this header, *including* the null terminator
+  // Followed by NameSizeInBytes bytes of the UTF-8-encoded content (including null terminator).
   // Followed by [0-3] zero bytes to align to a 4-byte boundary.
 };
 
