@@ -1159,17 +1159,8 @@ void ReplaceRawBufferStore64Bit(llvm::Function *F, llvm::Type *ETy, hlsl::OP *hl
   }
 }
 
-bool ValidatorSupportsSourceInfoPart(unsigned Major, unsigned Minor) {
-  return DXIL::CompareVersions(Major, Minor, 1, 6) >= 0;
 }
-
-bool ValidatorSupportsCompilerVersionPart(unsigned Major, unsigned Minor) {
-  return DXIL::CompareVersions(Major, Minor, 1, 6) >= 0;
 }
-
-
-} // namespace dxilutil
-} // namespace hlsl
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -1199,20 +1190,3 @@ ModulePass *llvm::createDxilLoadMetadataPass() {
 }
 
 INITIALIZE_PASS(DxilLoadMetadata, "hlsl-dxilload", "HLSL load DxilModule from metadata", false, false)
-
-
-//==========================================================================
-// The following code needs the windows headers.
-//
-
-#include "dxc/Support/WinIncludes.h"
-#include "dxc/Support/microcom.h"
-#include "dxc/dxcapi.h"
-
-namespace hlsl {
-namespace dxilutil {
-
-} // namespace dxilutil
-} // namespace hlsl
-
-

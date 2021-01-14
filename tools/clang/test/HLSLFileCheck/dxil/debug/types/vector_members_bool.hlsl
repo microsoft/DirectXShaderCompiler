@@ -8,5 +8,6 @@
 // CHECK-DAG: !DIDerivedType(tag: DW_TAG_member, name: "x", {{.*}}, size: 32, align: 32
 // CHECK-DAG: !DIDerivedType(tag: DW_TAG_member, name: "y", {{.*}}, size: 32, align: 32, offset: 32
 
-
+// Exclude quoted source file (see readme)
+// CHECK-LABEL: {{!"[^"]*\\0A[^"]*"}}
 bool2 main(bool2 v : IN) : OUT { return v; }

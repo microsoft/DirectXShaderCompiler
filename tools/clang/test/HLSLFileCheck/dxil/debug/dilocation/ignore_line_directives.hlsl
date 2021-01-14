@@ -5,6 +5,9 @@
 // CHECK: !DIFile(filename: "{{.*}}ignore_line_directives.hlsl"
 // CHECK-NOT: !DIFile
 
+// Exclude quoted source file (see readme)
+// CHECK-LABEL: {{!"[^"]*\\0A[^"]*"}}
+
 // CHECK-NOT: !DIFile
 
 #line 0 "test.h"

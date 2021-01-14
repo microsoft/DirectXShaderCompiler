@@ -4,7 +4,8 @@
 // an SROA'd struct is consistent with the reported
 // size of a preceding resource-typed field.
 
-
+// Exclude quoted source file (see readme)
+// CHECK-LABEL: {{!"[^"]*\\0A[^"]*"}}
 
 // Texture types are currently 64 bits due to an implementation detail.
 // If this changes, this test can be safely updated.

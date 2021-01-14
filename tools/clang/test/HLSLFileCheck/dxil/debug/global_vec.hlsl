@@ -13,5 +13,8 @@ float4 main(float4 vec : COLOR, int index : INDEX) : SV_Target {
   return MyGlobal;
 }
 
+// Exclude quoted source file (see readme)
+// CHECK-LABEL: {{!"[^"]*\\0A[^"]*"}}
+
 // CHECK: !DILocalVariable(tag: DW_TAG_arg_variable, name: "global.MyGlobal"
 

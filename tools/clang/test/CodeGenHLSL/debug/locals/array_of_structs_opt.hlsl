@@ -15,7 +15,8 @@
 // CHECK-DAG: call void @llvm.dbg.value(metadata i32 %[[i2]], i64 0, metadata !{{.*}}, metadata ![[i2expr:.*]])
 // CHECK-DAG: call void @llvm.dbg.value(metadata float %[[f2]], i64 0, metadata !{{.*}}, metadata ![[f2expr:.*]])
 
-
+// Exclude quoted source file (see readme)
+// CHECK-LABEL: {{!"[^"]*\\0A[^"]*"}}
 
 // CHECK-DAG: !DILocalVariable(tag: DW_TAG_auto_variable, name: "var"
 

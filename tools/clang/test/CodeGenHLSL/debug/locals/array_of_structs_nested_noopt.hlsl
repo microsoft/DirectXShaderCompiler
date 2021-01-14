@@ -12,7 +12,8 @@
 // CHECK-DAG: call void @llvm.dbg.declare(metadata [6 x float]* %{{.*}}, metadata !{{.*}}, metadata !{{.*}}), !dbg !{{.*}}, !dx.dbg.varlayout !{{.*}}
 // CHECK-DAG: call void @llvm.dbg.declare(metadata [6 x float]* %{{.*}}, metadata !{{.*}}, metadata !{{.*}}), !dbg !{{.*}}, !dx.dbg.varlayout !{{.*}}
 
-
+// Exclude quoted source file (see readme)
+// CHECK-LABEL: {{!"[^"]*\\0A[^"]*"}}
 
 // CHECK: !DILocalVariable(tag: DW_TAG_auto_variable, name: "var"
 

@@ -10,7 +10,8 @@
 // CHECK: call void @dx.op.storeOutput.i32
 // CHECK: call void @dx.op.storeOutput.i32
 
-
+// Exclude quoted source file (see readme)
+// CHECK-LABEL: {{!"[^"]*\\0A[^"]*"}}
 
 StructuredBuffer<int2> buf;
 int2 main() : OUT

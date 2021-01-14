@@ -2,6 +2,9 @@
 
 // CHECK: call void @llvm.dbg.value(metadata %struct.smallPayload{{.*}}*
 
+// Exclude quoted source file (see readme)
+// CHECK-LABEL: {{!"[^"]*\\0A[^"]*"}}
+
 struct smallPayload
 {
     float f1;

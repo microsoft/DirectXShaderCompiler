@@ -8,7 +8,8 @@
 
 // CHECK: !DIBasicType(name: "half", size: 16, align: 16, encoding: DW_ATE_float)
 
-
+// Exclude quoted source file (see readme)
+// CHECK-LABEL: {{!"[^"]*\\0A[^"]*"}}
 
 // CHECK-DAG: ![[divar]] = !DILocalVariable(tag: DW_TAG_auto_variable, name: "h"
 // CHECK-DAG: ![[diexpr]] = !DIExpression()

@@ -7,7 +7,8 @@
 // CHECK: call void @llvm.dbg.value
 // CHECK: call void @llvm.dbg.value
 
-
+// Exclude quoted source file (see readme)
+// CHECK-LABEL: {{!"[^"]*\\0A[^"]*"}}
 
 // CHECK-DAG: !DILocalVariable(tag: DW_TAG_auto_variable, name: "mat"
 // CHECK-DAG: !DIExpression(DW_OP_bit_piece, 0, 32)

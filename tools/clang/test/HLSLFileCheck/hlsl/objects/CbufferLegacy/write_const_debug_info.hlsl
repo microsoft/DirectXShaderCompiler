@@ -3,7 +3,8 @@
 // Make sure debug info for s.
 
 // CHECK:!DIGlobalVariable(name: "s.0"
-
+// Exclude quoted source file (see readme)
+// CHECK-LABEL: {{!"[^"]*\\0A[^"]*"}}
 
 
 struct S {

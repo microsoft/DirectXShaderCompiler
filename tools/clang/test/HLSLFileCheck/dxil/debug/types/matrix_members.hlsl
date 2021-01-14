@@ -9,5 +9,6 @@
 // CHECK-DAG: !DIDerivedType(tag: DW_TAG_member, name: "_21", {{.*}}, size: 32, align: 32, offset: 64
 // CHECK-DAG: !DIDerivedType(tag: DW_TAG_member, name: "_22", {{.*}}, size: 32, align: 32, offset: 96
 
-
+// Exclude quoted source file (see readme)
+// CHECK-LABEL: {{!"[^"]*\\0A[^"]*"}}
 int2x2 main(int2x2 v : IN) : OUT { return v; }

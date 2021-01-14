@@ -18,10 +18,6 @@
 #include "llvm/IR/Constants.h"
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilResourceProperties.h"
-#include "dxc/DxilContainer/DxilContainer.h"
-
-struct IStream;
-struct IDxcVersionInfo;
 
 namespace llvm {
 class Type;
@@ -156,9 +152,6 @@ namespace dxilutil {
 
   void ReplaceRawBufferLoad64Bit(llvm::Function *F, llvm::Type *EltTy, hlsl::OP *hlslOP);
   void ReplaceRawBufferStore64Bit(llvm::Function *F, llvm::Type *ETy, hlsl::OP *hlslOP);
-
-  bool ValidatorSupportsSourceInfoPart(unsigned Major, unsigned Minor);
-  bool ValidatorSupportsCompilerVersionPart(unsigned Major, unsigned Minor);
 }
 
 }

@@ -7,7 +7,8 @@
 // CHECK: @llvm.dbg.value(metadata i32 %{{.*}}, metadata ![[divar]], metadata ![[diexpr2:[0-9]+]]
 // CHECK: @llvm.dbg.value(metadata i32 %{{.*}}, metadata ![[divar]], metadata ![[diexpr3:[0-9]+]]
 
-
+// Exclude quoted source file (see readme)
+// CHECK-LABEL: {{!"[^"]*\\0A[^"]*"}}
 
 // CHECK-DAG: ![[divar]] = !DILocalVariable(tag: DW_TAG_auto_variable, name: "mat"
 // CHECK-DAG: ![[diexpr0]] = !DIExpression(DW_OP_bit_piece, {{[0-9]+}}, {{[0-9]+}})

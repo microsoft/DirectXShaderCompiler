@@ -3,7 +3,8 @@
 // Make sure llvm.dbg.value exist.
 // CHECK: call void @llvm.dbg.value
 
-
+// Exclude quoted source file (see readme)
+// CHECK-LABEL: {{!"[^"]*\\0A[^"]*"}}
 
 typedef float4 MyCoolFloat4;
 

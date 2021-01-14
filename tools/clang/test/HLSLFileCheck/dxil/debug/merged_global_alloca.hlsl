@@ -17,7 +17,8 @@
 // CHECK-DAG: call void @llvm.dbg.value(metadata float {{.+}}, i64 0, metadata !{{[0-9]+}}, metadata !{{[0-9]+}}), !dbg !{{[0-9]+}} ; var:"global.foo" !DIExpression(DW_OP_bit_piece, 384, 32)
 // CHECK-DAG: call void @llvm.dbg.value(metadata float {{.+}}, i64 0, metadata !{{[0-9]+}}, metadata !{{[0-9]+}}), !dbg !{{[0-9]+}} ; var:"global.foo" !DIExpression(DW_OP_bit_piece, 416, 32)
 
-
+// Exclude quoted source file (see readme)
+// CHECK-LABEL: {{!"[^"]*\\0A[^"]*"}}
 
 struct Baz {
   float4 a;

@@ -62,5 +62,6 @@ float main(uint a : A, uint b : B, uint c : C) : SV_Target {
   return ret + array[0];
 }
 
-
+// Exclude quoted source file (see readme)
+// CHECK-LABEL: {{!"[^"]*\\0A[^"]*"}}
 
