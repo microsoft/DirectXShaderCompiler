@@ -153,6 +153,9 @@ public:
   // Is an entry function that uses input/output signature conventions?
   // Includes: vs/hs/ds/gs/ps/cs as well as the patch constant function.
   bool IsEntryThatUsesSignatures(const llvm::Function *F) const ;
+  // Is F an entry?
+  // Includes: IsEntryThatUsesSignatures and all ray tracing shaders.
+  bool IsEntry(const llvm::Function *F) const;
 
   // Remove Root Signature from module metadata, return true if changed
   bool StripRootSignatureFromMetadata();
