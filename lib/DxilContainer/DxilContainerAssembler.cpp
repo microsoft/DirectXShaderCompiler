@@ -1555,10 +1555,8 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
                                            AbstractMemoryStream *pModuleBitcode,
                                            AbstractMemoryStream *pFinalStream,
                                            llvm::StringRef DebugName,
-                                           const hlsl::DxilSourceInfo *ShaderSourceInfo,
                                            SerializeDxilFlags Flags,
                                            DxilShaderHash *pShaderHashOut,
-                                           IDxcVersionInfo *pVersionInfo,
                                            AbstractMemoryStream *pReflectionStreamOut,
                                            AbstractMemoryStream *pRootSigStreamOut) {
   // TODO: add a flag to update the module and remove information that is not part
@@ -1576,8 +1574,6 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   bool bCompat_1_4 = DXIL::CompareVersions(ValMajor, ValMinor, 1, 5) < 0;
   bool bEmitReflection = Flags & SerializeDxilFlags::IncludeReflectionPart ||
                          pReflectionStreamOut;
-  bool bEmitVersionPart = dxilutil::ValidatorSupportsCompilerVersionPart(ValMajor, ValMinor);
-  bool bSupportSourceInfoPart = dxilutil::ValidatorSupportsSourceInfoPart(ValMajor, ValMinor);
 
   DxilContainerWriter_impl writer;
 
@@ -1669,26 +1665,6 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
           [&](AbstractMemoryStream *pStream) { rootSigWriter.write(pStream); });
       }
       bMetadataStripped |= pModule->StripRootSignatureFromMetadata();
-    }
-  }
-
-  hlsl::dxilutil::CompilerVersionPartWriter VersionWriter;
-  if (bEmitVersionPart && pVersionInfo) {
-    VersionWriter.Init(pVersionInfo);
-    writer.AddPart(DFCC_CompilerVersion, VersionWriter.GetSize(),
-      [&VersionWriter](AbstractMemoryStream *pStream)
-    {
-      VersionWriter.Write(pStream);
-    });
-  }
-
-  // This block of code only runs if we support slim PDB.
-  if (bSupportSourceInfoPart) {
-    if (ShaderSourceInfo) {
-      writer.AddPart(DFCC_ShaderSourceInfo, ShaderSourceInfo->AlignedSizeInBytes, [ShaderSourceInfo](AbstractMemoryStream *pStream) {
-        ULONG cbWritten = 0;
-        IFT(pStream->Write(ShaderSourceInfo, ShaderSourceInfo->AlignedSizeInBytes, &cbWritten));
-      });
     }
   }
 

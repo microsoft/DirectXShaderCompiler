@@ -1835,7 +1835,7 @@ void DxilModule::LoadDxilResources(const llvm::MDOperand &MDO) {
   }
 }
 
-void DxilModule::StripDebugRelatedCode() {
+void DxilModule::StripShaderSourcesAndCompileOptions() {
   // Remove dx.source metadata.
   if (NamedMDNode *contents = m_pModule->getNamedMetadata(
           DxilMDHelper::kDxilSourceContentsMDName)) {
@@ -1853,7 +1853,10 @@ void DxilModule::StripDebugRelatedCode() {
           m_pModule->getNamedMetadata(DxilMDHelper::kDxilSourceArgsMDName)) {
     arguments->eraseFromParent();
   }
+}
 
+void DxilModule::StripDebugRelatedCode() {
+  StripShaderSourcesAndCompileOptions();
   if (NamedMDNode *flags = m_pModule->getModuleFlagsMetadata()) {
     SmallVector<llvm::Module::ModuleFlagEntry, 4> flagEntries;
     m_pModule->getModuleFlagsMetadata(flagEntries);

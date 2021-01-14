@@ -71,11 +71,10 @@ AssembleInputs::AssembleInputs(std::unique_ptr<llvm::Module> &&pM,
                 hlsl::SerializeDxilFlags SerializeFlags,
                 CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode,
                 bool bDebugInfo,
+                llvm::Module *pOriginalModule,
                 llvm::StringRef DebugName,
-                const hlsl::DxilSourceInfo *ShaderSourceInfo,
                 clang::DiagnosticsEngine *pDiag,
                 hlsl::DxilShaderHash *pShaderHashOut,
-                IDxcVersionInfo *pVersionInfo,
                 AbstractMemoryStream *pReflectionOut,
                 AbstractMemoryStream *pRootSigOut)
   : pM(std::move(pM)),
@@ -84,11 +83,10 @@ AssembleInputs::AssembleInputs(std::unique_ptr<llvm::Module> &&pM,
     SerializeFlags(SerializeFlags),
     pModuleBitcode(pModuleBitcode),
     bDebugInfo(bDebugInfo),
+    pOriginalModule(pOriginalModule),
     DebugName(DebugName),
-    ShaderSourceInfo(ShaderSourceInfo),
     pDiag(pDiag),
     pShaderHashOut(pShaderHashOut),
-    pVersionInfo(pVersionInfo),
     pReflectionOut(pReflectionOut),
     pRootSigOut(pRootSigOut)
 {}
@@ -114,8 +112,8 @@ void AssembleToContainer(AssembleInputs &inputs) {
   CComPtr<AbstractMemoryStream> pContainerStream;
   IFT(CreateMemoryStream(inputs.pMalloc, &pContainerStream));
   SerializeDxilContainerForModule(&inputs.pM->GetOrCreateDxilModule(),
-                                  inputs.pModuleBitcode, pContainerStream, inputs.DebugName, inputs.ShaderSourceInfo, inputs.SerializeFlags,
-                                  inputs.pShaderHashOut, inputs.pVersionInfo, inputs.pReflectionOut, inputs.pRootSigOut);
+                                  inputs.pModuleBitcode, pContainerStream, inputs.DebugName, inputs.SerializeFlags,
+                                  inputs.pShaderHashOut, inputs.pReflectionOut, inputs.pRootSigOut);
   inputs.pOutputContainerBlob.Release();
   IFT(pContainerStream.QueryInterface(&inputs.pOutputContainerBlob));
 }
@@ -149,7 +147,8 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
 
   // If we have debug info, this will be a clone of the module before debug info is stripped.
   // This is used with internal validator to provide more useful error messages.
-  std::unique_ptr<llvm::Module> llvmModuleWithDebugInfo;
+  llvm::Module *llvmModuleWithDebugInfo = nullptr;
+  std::unique_ptr<llvm::Module> llvmModuleWithDebugInfoStorage;
 
   CComPtr<IDxcValidator> pValidator;
   bool bInternalValidator = CreateValidator(pValidator);
@@ -169,7 +168,11 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
     // info will be stripped from the orginal module, but preserved in the cloned
     // module.
     if (inputs.bDebugInfo) {
-      llvmModuleWithDebugInfo.reset(llvm::CloneModule(inputs.pM.get()));
+      llvmModuleWithDebugInfo = inputs.pOriginalModule;
+      if (!llvmModuleWithDebugInfo) {
+        llvmModuleWithDebugInfoStorage.reset(llvm::CloneModule(inputs.pM.get()));
+        llvmModuleWithDebugInfo = llvmModuleWithDebugInfoStorage.get();
+      }
     }
   }
 
@@ -200,7 +203,7 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
   // dxil.dll can be released.
   if (bInternalValidator) {
     IFT(RunInternalValidator(pValidator, inputs.pM.get(),
-                             llvmModuleWithDebugInfo.get(), inputs.pOutputContainerBlob,
+                             llvmModuleWithDebugInfo, inputs.pOutputContainerBlob,
                              DxcValidatorFlags_InPlaceEdit, &pValResult));
   } else {
     IFT(pValidator->Validate(inputs.pOutputContainerBlob, DxcValidatorFlags_InPlaceEdit,

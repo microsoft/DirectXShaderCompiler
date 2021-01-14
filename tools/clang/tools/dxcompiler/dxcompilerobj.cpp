@@ -24,6 +24,7 @@
 #include "clang/Frontend/FrontendActions.h"
 #include "clang/CodeGen/CodeGenAction.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h"
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
@@ -34,6 +35,7 @@
 #include "dxc/dxcapi.internal.h"
 #include "dxc/DXIL/DxilPDB.h"
 #include "dxc/DXIL/DxilUtil.h"
+#include "dxc/DXIL/DxilModule.h"
 
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/Support/Global.h"
@@ -91,6 +93,67 @@ static bool ShouldBeCopiedIntoPDB(UINT32 FourCC) {
   }
   return false;
 }
+
+struct CompilerVersionPartWriter {
+  hlsl::DxilCompilerVersion m_Header = {};
+
+  void Init(IDxcVersionInfo *pVersionInfo) {
+    m_Header = {};
+
+    UINT32 Major = 0, Minor = 0;
+    UINT32 Flags = 0;
+    IFT(pVersionInfo->GetVersion(&Major, &Minor));
+    IFT(pVersionInfo->GetFlags(&Flags));
+
+    m_Header.Major = Major;
+    m_Header.Minor = Minor;
+    m_Header.VersionFlags = Flags;
+    CComPtr<IDxcVersionInfo2> pVersionInfo2;
+    if (SUCCEEDED(pVersionInfo->QueryInterface(&pVersionInfo2))) {
+      UINT32 CommitCount = 0;
+      CComHeapPtr<char> CommitVersionHash;
+      IFT(pVersionInfo2->GetCommitInfo(&CommitCount, &CommitVersionHash));
+      size_t CommitLength = strlen(CommitVersionHash.m_pData);
+      size_t CopyLength = std::min(sizeof(m_Header.CommitSha), CommitLength);
+      memcpy(m_Header.CommitSha, CommitVersionHash.m_pData, CopyLength);
+      m_Header.CommitCount = CommitCount;
+    }
+  }
+
+  static uint32_t PadToDword(uint32_t size, uint32_t *outNumPadding=nullptr) {
+    uint32_t rem = size % 4;
+    if (rem) {
+      uint32_t padding = (4 - rem);
+      if (outNumPadding)
+        *outNumPadding = padding;
+      return size + padding;
+    }
+    if (outNumPadding)
+      *outNumPadding = 0;
+    return size;
+  }
+
+  UINT32 GetSize(UINT32 *pPadding = nullptr) const {
+    return PadToDword(sizeof(m_Header) + m_Header.VersionStringLength+1, pPadding);
+  }
+  void Write(IStream *pStream) {
+    UINT32 uPadding = 0;
+    UINT32 uSize = GetSize(&uPadding);
+    (void)uSize;
+
+    ULONG cbWritten = 0;
+    IFT(pStream->Write(&m_Header, sizeof(m_Header), &cbWritten));
+
+    // Write a null terminator even if the string is empty
+    uint8_t padByte = 0;
+    IFT(pStream->Write(&padByte, sizeof(padByte), &cbWritten));
+
+    // Write padding
+    for (unsigned i = 0; i < uPadding; i++) {
+      IFT(pStream->Write(&padByte, sizeof(padByte), &cbWritten));
+    }
+  }
+};
 
 static HRESULT CreateContainerForPDB(IMalloc *pMalloc, IDxcBlob *pOldContainer, IDxcBlob *pDebugBlob, IDxcVersionInfo *pVersionInfo, const hlsl::DxilSourceInfo *pSourceInfo, IDxcBlob **ppNewContaner) {
   // If the pContainer is not a valid container, give up.
@@ -166,7 +229,7 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc, IDxcBlob *pOldContainer, 
     PartWriters.push_back(NewPart);
   }
 
-  hlsl::dxilutil::CompilerVersionPartWriter versionWriter;
+  CompilerVersionPartWriter versionWriter;
   if (pVersionInfo) {
     versionWriter.Init(pVersionInfo);
 
@@ -525,7 +588,6 @@ public:
     bool bPreprocessStarted = false;
     DxilShaderHash ShaderHashContent;
     DxcThreadMalloc TM(m_pMalloc);
-    hlsl::SourceInfoWriter debugSourceInfoWriter;
 
     try {
       DefaultFPEnvScope fpEnvScope;
@@ -651,6 +713,7 @@ public:
       // Setup a compiler instance.
       raw_stream_ostream outStream(pOutputStream.p);
       llvm::LLVMContext llvmContext; // LLVMContext should outlive CompilerInstance
+      std::unique_ptr<llvm::Module> compiledModule;
       CompilerInstance compiler;
       std::unique_ptr<TextDiagnosticPrinter> diagPrinter =
           llvm::make_unique<TextDiagnosticPrinter>(w, &compiler.getDiagnosticOpts());
@@ -838,9 +901,7 @@ public:
         // Or, if there is no output pointer for the debug blob (such as when called by Compile()),
         // embed the debug info and emit a note.
         if (opts.EmbedDebugInfo()) {
-          if (!opts.SlimDebug) {
-            SerializeFlags |= SerializeDxilFlags::IncludeDebugInfoPart;
-          }
+          SerializeFlags |= SerializeDxilFlags::IncludeDebugInfoPart;
         }
         if (opts.DebugNameForSource) {
           // Implies name part
@@ -869,26 +930,14 @@ public:
           IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pReflectionStream));
           IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pRootSigStream));
 
-          // Version info to pass in the assembler
-          IDxcVersionInfo *pVersionInfo = nullptr;
-          if (opts.IsDebugInfoEnabled()) { // Only put version info if embedding debug
-            pVersionInfo = static_cast<IDxcVersionInfo *>(this);
-          }
-
-          // Create the shader source information
-          const hlsl::DxilSourceInfo *sourceInfoPart = nullptr;
-          if (opts.IsDebugInfoEnabled() && !opts.LegacyDebug) { // If we are using legacy PDB, do not generate it at all
-            debugSourceInfoWriter.Write(opts.TargetProfile, opts.EntryPoint, compiler.getCodeGenOpts(), compiler.getSourceManager());
-            if (opts.EmbedDebugInfo()) { // Pass this into assembler only if we're embedding debug info.
-              sourceInfoPart = debugSourceInfoWriter.GetPart();
-            }
-          }
+          compiledModule = action.takeModule();
+          // Clone it for serialization, since serialization might modify it.
+          std::unique_ptr<llvm::Module> serializeModule( llvm::CloneModule(compiledModule.get()) );
 
           dxcutil::AssembleInputs inputs(
-                action.takeModule(), pOutputBlob, m_pMalloc, SerializeFlags,
-                pOutputStream, opts.IsDebugInfoEnabled(),
-                opts.GetPDBName(), sourceInfoPart, &compiler.getDiagnostics(),
-                &ShaderHashContent, pVersionInfo,
+                std::move(serializeModule), pOutputBlob, m_pMalloc, SerializeFlags,
+                pOutputStream, opts.IsDebugInfoEnabled(), compiledModule.get(),
+                opts.GetPDBName(), &compiler.getDiagnostics(), &ShaderHashContent,
                 pReflectionStream, pRootSigStream);
 
           if (needsValidation) {
@@ -964,19 +1013,40 @@ public:
       // SPIRV change ends
 
       if (!hasErrorOccurred && writePDB) {
-        CComPtr<IDxcBlob> pDebugBlob;
-        IFT(pOutputStream.QueryInterface(&pDebugBlob));
+        //CComPtr<IDxcBlob> pDebugBlob;
+        //IFT(pOutputStream.QueryInterface(&pDebugBlob));
         CComPtr<IDxcBlob> pStrippedContainer;
 
+        // Version info to store in the PDB
+        IDxcVersionInfo *pVersionInfo = nullptr;
+        if (opts.IsDebugInfoEnabled()) { // Only put version info if embedding debug
+          pVersionInfo = static_cast<IDxcVersionInfo *>(this);
+        }
+
+        // Create the shader source information for PDB
+        hlsl::SourceInfoWriter debugSourceInfoWriter;
         const hlsl::DxilSourceInfo *pSourceInfo = nullptr;
-        if (!opts.LegacyDebug) {
+        if (!opts.LegacyDebug) { // If we are using legacy PDB, do not generate it at all
+          debugSourceInfoWriter.Write(opts.TargetProfile, opts.EntryPoint, compiler.getCodeGenOpts(), compiler.getSourceManager());
           pSourceInfo = debugSourceInfoWriter.GetPart();
         }
 
+        CComPtr<IDxcBlob> pDebugBlob;
         // Don't include the debug part if using slim PDB
         if (opts.SlimDebug) {
           assert(pSourceInfo);
-          pDebugBlob = nullptr;
+        }
+        else {
+          if (!opts.LegacyDebug) {
+            // Strip out the source related metadata
+            compiledModule->GetOrCreateDxilModule().StripShaderSourcesAndCompileOptions();
+          }
+          CComPtr<AbstractMemoryStream> pDebugBlobStorage;
+          IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pDebugBlobStorage));
+          raw_stream_ostream outStream(pDebugBlobStorage.p);
+          WriteBitcodeToFile(compiledModule.get(), outStream, true);
+          outStream.flush();
+          IFT(pDebugBlobStorage.QueryInterface(&pDebugBlob));
         }
 
         IFT(CreateContainerForPDB(
@@ -1120,16 +1190,7 @@ public:
       CodeGenOptions &CGOpts = compiler.getCodeGenOpts();
       // HLSL Change - begin
       CGOpts.setDebugInfo(CodeGenOptions::FullDebugInfo);
-
-      {
-        unsigned Major = 0;
-        unsigned Minor = 0;
-        dxcutil::GetValidatorVersion(&Major, &Minor);
-        if (Opts.LegacyDebug || !hlsl::dxilutil::ValidatorSupportsSourceInfoPart(Major, Minor)) {
-          CGOpts.HLSLEmbedSourcesInModule = true;
-        }
-      }
-
+      CGOpts.HLSLEmbedSourcesInModule = true;
       // HLSL Change - end
       // CGOpts.setDebugInfo(CodeGenOptions::FullDebugInfo); // HLSL change
       CGOpts.DebugColumnInfo = 1;

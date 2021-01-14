@@ -204,6 +204,7 @@ public:
 
   bool StripReflection();
   void StripDebugRelatedCode();
+  void StripShaderSourcesAndCompileOptions();
   llvm::DebugInfoFinder &GetOrCreateDebugInfoFinder();
 
   static DxilModule *TryGetDxilModule(llvm::Module *pModule);

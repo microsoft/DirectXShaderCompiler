@@ -1348,17 +1348,6 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bLegacy, bool bStrip) {
       main_source, included_File);
   }
 
-  if (!bStrip) {
-    VerifyPdbUtil(pCompiledBlob, pPdbUtils,
-      L"source.hlsl",
-      expectedArgs, expectedFlags, expectedDefines,
-      pCompiler,
-      /*HasVersion*/ true,
-      /*IsFullPDB*/ !bSlim,
-      /*hasHasAndPDBName*/true,
-      main_source, included_File);
-  }
-
   VerifyPdbUtil(pPdbBlob, pPdbUtils,
     L"source.hlsl",
     expectedArgs, expectedFlags, expectedDefines,
@@ -1367,6 +1356,17 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bLegacy, bool bStrip) {
     /*IsFullPDB*/ !bSlim,
     /*hasHasAndPDBName*/true,
     main_source, included_File);
+
+  if (!bStrip) {
+    VerifyPdbUtil(pCompiledBlob, pPdbUtils,
+      L"source.hlsl",
+      expectedArgs, expectedFlags, expectedDefines,
+      pCompiler,
+      /*HasVersion*/ false,
+      /*IsFullPDB*/ true,
+      /*hasHasAndPDBName*/true,
+      main_source, included_File);
+  }
 }
 
 TEST_F(CompilerTest, CompileThenTestPdbUtils) {

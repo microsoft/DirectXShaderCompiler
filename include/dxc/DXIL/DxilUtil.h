@@ -159,14 +159,6 @@ namespace dxilutil {
 
   bool ValidatorSupportsSourceInfoPart(unsigned Major, unsigned Minor);
   bool ValidatorSupportsCompilerVersionPart(unsigned Major, unsigned Minor);
-
-  struct CompilerVersionPartWriter {
-    hlsl::DxilCompilerVersion m_Header = {};
-
-    void Init(IDxcVersionInfo *pVersionInfo);
-    uint32_t GetSize(uint32_t *pPadding = nullptr) const;
-    void Write(IStream *pStream);
-  };
 }
 
 }

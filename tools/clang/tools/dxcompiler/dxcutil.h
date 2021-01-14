@@ -41,19 +41,20 @@ class DxcOpts;
 
 namespace dxcutil {
 struct AssembleInputs {
-  AssembleInputs(std::unique_ptr<llvm::Module> &&pM,
+  AssembleInputs(std::unique_ptr<llvm::Module> &&pM, // A module that the assembler can modify.
                  CComPtr<IDxcBlob> &pOutputContainerBlob,
                  IMalloc *pMalloc,
                  hlsl::SerializeDxilFlags SerializeFlags,
                  CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode,
                  bool bDebugInfo = false,
+                 llvm::Module *pOriginalModule = nullptr, // A copy of the original module that will not be modified
                  llvm::StringRef DebugName = llvm::StringRef(),
-                 const hlsl::DxilSourceInfo *ShaderSourceInfo = nullptr,
                  clang::DiagnosticsEngine *pDiag = nullptr,
                  hlsl::DxilShaderHash *pShaderHashOut = nullptr,
-                 IDxcVersionInfo *pVersionInfo = nullptr,
                  hlsl::AbstractMemoryStream *pReflectionOut = nullptr,
-                 hlsl::AbstractMemoryStream *pRootSigOut = nullptr);
+                 hlsl::AbstractMemoryStream *pRootSigOut = nullptr
+            );
+  llvm::Module *pOriginalModule = nullptr;
   std::unique_ptr<llvm::Module> pM;
   CComPtr<IDxcBlob> &pOutputContainerBlob;
   IMalloc *pMalloc;
@@ -61,10 +62,8 @@ struct AssembleInputs {
   CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode;
   bool bDebugInfo;
   llvm::StringRef DebugName = llvm::StringRef();
-  const hlsl::DxilSourceInfo *ShaderSourceInfo = nullptr;
   clang::DiagnosticsEngine *pDiag;
   hlsl::DxilShaderHash *pShaderHashOut = nullptr;
-  IDxcVersionInfo *pVersionInfo = nullptr;
   hlsl::AbstractMemoryStream *pReflectionOut = nullptr;
   hlsl::AbstractMemoryStream *pRootSigOut = nullptr;
 };

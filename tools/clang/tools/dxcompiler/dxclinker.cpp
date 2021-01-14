@@ -270,8 +270,7 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
         HRESULT valHR = S_OK;
         dxcutil::AssembleInputs inputs(
           std::move(pM), pOutputBlob, pMalloc, SerializeFlags,
-          pOutputStream,
-          opts.DebugInfo, opts.DebugFile, nullptr, &Diag);
+          pOutputStream, opts.DebugInfo, nullptr, opts.DebugFile, &Diag);
         if (needsValidation) {
           valHR = dxcutil::ValidateAndAssembleToContainer(inputs);
         } else {
