@@ -464,13 +464,28 @@ private:
         hlsl::SourceInfoReader reader;
         reader.Read(header);
 
-        {
-          unsigned numArgs = reader.GetNumArgs();
-          for (unsigned i = 0; i < numArgs; i++) {
-            m_Args.push_back(ToWstring(reader.GetArg(i)));
+        // Args
+        for (unsigned i = 0; i < reader.GetArgPairCount(); i++) {
+          const hlsl::SourceInfoReader::ArgPair &pair = reader.GetArgPair(i);
+          bool excludeFromFlags = false;
+          if (pair.Name == "E") {
+            m_EntryPoint = ToWstring(pair.Value);
+            excludeFromFlags = true;
+          }
+          else if (pair.Name == "T") {
+            m_TargetProfile = ToWstring(pair.Value);
+            excludeFromFlags = true;
+          }
+          else if (pair.Name == "D") {
+            m_Defines.push_back(ToWstring(pair.Value));
+            excludeFromFlags = true;
           }
 
-          ComputeFlagsBasedOnArgs(m_Args, &m_Flags, &m_Defines, &m_TargetProfile, &m_EntryPoint);
+          std::wstring rendered = ToWstring(pair.Render());
+          if (!excludeFromFlags)
+            m_Flags.push_back(rendered);
+
+          m_Args.push_back(rendered);
         }
 
         // Sources

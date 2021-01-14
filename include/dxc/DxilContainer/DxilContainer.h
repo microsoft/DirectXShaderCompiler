@@ -288,16 +288,16 @@ struct DxilCompilerVersion {
 //
 //   DxilSourceInfo_Args
 //
-//      char Arg[]
-//      char NullTerminator
+//      char ArgName[]; char NullTerm;
+//      char ArgValue[]; char NullTerm;
 //
-//      char Arg[]
-//      char NullTerminator
+//      char ArgName[]; char NullTerm;
+//      char ArgValue[]; char NullTerm;
 //
 //      ...
 //
-//      char Arg[]
-//      char NullTerminator
+//      char ArgName[]; char NullTerm;
+//      char ArgValue[]; char NullTerm;
 //
 
 struct DxilSourceInfo {
@@ -320,10 +320,22 @@ struct DxilSourceInfoSection {
 
 struct DxilSourceInfo_Args {
   uint32_t Flags;       // Reserved, must be set to zero.
-  uint32_t SizeInBytes; // Length of all strings, including their null terminators, not including this header.
-  uint32_t Count;       // Number of strings
+  uint32_t SizeInBytes; // Length of all argument pairs, including their null terminators, not including this header.
+  uint32_t Count;       // Number of arguments.
 
-  // Followed by `Count` null-terminated strings.
+  // Followed by `Count` argument pairs.
+  //
+  // For example, given the following arguments:
+  //    /T ps_6_0 -EMain -D MyDefine=1 /DMyOtherDefine=2 -Zi MyShader.hlsl
+  //
+  // The argument pair data becomes:
+  //    T\0ps_6_0\0
+  //    E\0Main\0
+  //    D\0MyDefine=1\0
+  //    D\0MyOtherDefine=2\0
+  //    Zi\0\0
+  //    \0MyShader.hlsl\0
+  //
 };
 
 struct DxilSourceInfo_SourceNames {

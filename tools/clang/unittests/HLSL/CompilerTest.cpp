@@ -1288,8 +1288,8 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bSourceInDebugModule, bool bStr
       expectedFlags.push_back(arg);
   };
 
-  AddArg(L"/Zi", false);
-  AddArg(L"/Od", false);
+  AddArg(L"-Zi", false);
+  AddArg(L"-Od", false);
   AddArg(L"-flegacy-macro-expansion", false);
 
   if (bStrip) {
@@ -1300,12 +1300,12 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bSourceInDebugModule, bool bStr
   }
 
   if (bSourceInDebugModule) {
-    AddArg(L"/Qsource_in_debug_module", false);
+    AddArg(L"-Qsource_in_debug_module", false);
   }
   if (bSlim) {
-    AddArg(L"/Qsource_only_debug", false);
+    AddArg(L"-Qsource_only_debug", false);
   }
-  AddArg(L"/DTHIS_IS_A_DEFINE=HELLO", true);
+  AddArg(L"-DTHIS_IS_A_DEFINE=HELLO", true);
   const DxcDefine pDefines[] = { L"THIS_IS_ANOTHER_DEFINE", L"1" };
   expectedDefines.push_back(L"THIS_IS_ANOTHER_DEFINE=1");
   expectedDefines.push_back(L"THIS_IS_A_DEFINE=HELLO");

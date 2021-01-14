@@ -22,18 +22,6 @@ namespace clang {
 
 namespace hlsl {
 
-struct SourceInfo {
-  struct Source {
-    llvm::StringRef Path;
-    llvm::StringRef Content;
-  };
-
-  llvm::StringRef MainFile;
-  std::vector<llvm::StringRef> Args;
-  std::vector<llvm::StringRef> Defines;
-  std::vector<Source> Sources;
-};
-
 struct SourceInfoReader {
   using Buffer = std::vector<uint8_t>;
   Buffer m_UncompressedSources;
@@ -43,13 +31,23 @@ struct SourceInfoReader {
     llvm::StringRef Content;
   };
 
-  std::vector<Source> m_Sources;
-  std::vector<std::string> m_Args;
+  struct ArgPair {
+    std::string Name;
+    std::string Value;
+    inline std::string Render() const {
+      if (Name.size())
+        return std::string("-") + Name + Value;
+      return Value;
+    }
+  };
 
-  unsigned GetNumArgs() const { return m_Args.size(); }
-  const std::string &GetArg(unsigned i) const { return m_Args[i]; }
+  std::vector<Source> m_Sources;
+  std::vector<ArgPair> m_ArgPairs;
+
   Source GetSource(unsigned i) const;
   unsigned GetSourcesCount() const;
+  unsigned GetArgPairCount() const { return m_ArgPairs.size(); }
+  const ArgPair &GetArgPair(unsigned i) const { return m_ArgPairs[i]; }
   void Read(const hlsl::DxilSourceInfo *SourceInfo);
 };
 

@@ -17,6 +17,10 @@
 #include "llvm/Support/Path.h"
 #include "miniz.h"
 
+#include "dxc/Support/Global.h"
+#include "dxc/Support/WinIncludes.h"
+#include "dxc/Support/HLSLOptions.h"
+
 using namespace hlsl;
 using Buffer = SourceInfoWriter::Buffer;
 
@@ -42,17 +46,40 @@ void SourceInfoReader::Read(const hlsl::DxilSourceInfo *SourceInfo) {
     case hlsl::DxilSourceInfoSectionType::Args:
     {
       const hlsl::DxilSourceInfo_Args *header = (const hlsl::DxilSourceInfo_Args *)&section[1];
-      const char *args = (const char *)(header + 1);
-      int begin = 0;
-      for (uint32_t i = 0; i < header->SizeInBytes && m_Args.size() < header->Count; i++) {
-        assert(i < header->SizeInBytes);
-        if (i >= header->SizeInBytes)
-          break;
-        if (args[i] == '\0') {
-          uint32_t length = i - begin;
-          m_Args.push_back(std::string(args+begin, args+begin+length));
-          begin = i+1;
+      const char *ptr = (const char *)(header + 1);
+      unsigned i = 0;
+      while (i < header->SizeInBytes) {
+
+        // To learn more about the format of this data, check struct DxilSourceInfo_Args in DxilContainer.h
+        // Read the argument name
+        const char *argName = ptr + i;
+        unsigned argNameLength = 0;
+        for (; i < header->SizeInBytes; i++) {
+          if (ptr[i] == '\0') {
+            i++;
+            break;
+          }
+          argNameLength++;
         }
+
+        // Read the argument value
+        const char *argValue = ptr + i;
+        unsigned argValueLength = 0;
+        for (; i < header->SizeInBytes; i++) {
+          if (ptr[i] == '\0') {
+            i++;
+            break;
+          }
+          argValueLength++;
+        }
+
+        ArgPair pair = {};
+        assert(argNameLength || argValueLength);
+        if (argNameLength)
+          pair.Name.assign(argName, argNameLength);
+        if (argValueLength)
+          pair.Value.assign(argValue, argValueLength);
+        m_ArgPairs.push_back(std::move(pair));
       }
     } break;
 
@@ -336,24 +363,46 @@ void SourceInfoWriter::Write(llvm::StringRef targetProfile, llvm::StringRef entr
   // Args
   ////////////////////////////////////////////////////////////////////
   {
+    // Use the opt table to render the arguments and separate them into
+    // argName and argValue.
     const size_t sectionOffset = BeginSection(&m_Buffer);
 
     hlsl::DxilSourceInfo_Args header = {};
-
     const size_t headerOffset = m_Buffer.size();
-    Append(&m_Buffer, &header, sizeof(header));
+    Append(&m_Buffer, &header, sizeof(header)); // Write an empty header first
 
-    const size_t contentOffset = m_Buffer.size();
-    uint32_t count = 0;
-    for (std::string &arg : cgOpts.HLSLArguments) {
-      Append(&m_Buffer, arg.data(), arg.size());
-      Append(&m_Buffer, 0); // Null terminator
-      count++;
+    llvm::SmallVector<const char *, 32> optPointers;
+    for (const std::string &arg : cgOpts.HLSLArguments) {
+      optPointers.push_back(arg.c_str());
     }
+    unsigned missingIndex = 0;
+    unsigned missingCount = 0;
+    const llvm::opt::OptTable *optTable = hlsl::options::getHlslOptTable();
+    llvm::opt::InputArgList argList = optTable->ParseArgs(optPointers, missingIndex, missingCount);
+
+    const size_t argumentsOffset = m_Buffer.size();
+    for (llvm::opt::Arg *arg : argList) {
+      llvm::StringRef name = arg->getOption().getName();
+      const char *value = nullptr;
+      if (arg->getNumValues() > 0) {
+        assert(arg->getNumValues() == 1);
+        value = arg->getValue();
+      }
+
+      // Name
+      Append(&m_Buffer, name.data(), name.size());
+      Append(&m_Buffer, 0); // Null term
+
+      // Value
+      if (value)
+        Append(&m_Buffer, value, strlen(value));
+      Append(&m_Buffer, 0); // Null term
+
+      header.Count++;
+    } // For each arg
 
     // Go back and rewrite the header now that we know the size
-    header.SizeInBytes = m_Buffer.size() - contentOffset;
-    header.Count = count;
+    header.SizeInBytes = m_Buffer.size() - argumentsOffset;
     memcpy(m_Buffer.data() + headerOffset, &header, sizeof(header));
 
     FinishSection(&m_Buffer, sectionOffset, hlsl::DxilSourceInfoSectionType::Args);
