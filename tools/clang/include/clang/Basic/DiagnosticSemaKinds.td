@@ -7568,11 +7568,15 @@ def err_qualified_payload_passed_to_incompatible_extern_function : Error<
 def err_not_all_payload_fileds_qualified : Error<
   "payload type '%0' requires that all fileds carry payload access qualifies.">;
 def err_payload_requires_attribute : Error<
-  "type '%0' used as payload requires that it is annotated with the [[payload]] attribute">;
-def err_payload_fileds_not_qualified_qualified : Error<
+  "type '%0' used as payload requires that it is annotated with the [payload] attribute">;
+def err_payload_fileds_not_qualified : Error<
   "payload filed '%0' has no payload access qualifies.">;
+def err_payload_fields_is_pure_out_but_never_written : Error<
+  "payload field '%0' is qualified pure output but never written in '%1'.">;
+def warn_payload_fields_is_pure_in_but_never_read : Warning<
+  "payload field '%0' is qualified pure input but never read in '%1'.">, InGroup<HLSLPayloadAccessQualifer>;
 def warn_hlsl_payload_qualifer_dropped : Warning<
-  "payload access qualifieres are only support for target lib_6_7 and beyond. You can opt-in for lib_6_5 and lib_6_6 with the -allow-payload-qualifiers flag. Qualifiers will be dropped.">, InGroup<HLSLPayloadAccessQualifer>;
+  "payload access qualifieres are only support for target lib_6_6 and beyond. You can opt-in for lib_6_5 with the -allow-payload-qualifiers flag. Qualifiers will be dropped.">, InGroup<HLSLPayloadAccessQualifer>;
 def err_hlsl_unsupported_builtin_op: Error<
   "operator cannot be used with built-in type %0">;
 def err_hlsl_unsupported_char_literal : Error<

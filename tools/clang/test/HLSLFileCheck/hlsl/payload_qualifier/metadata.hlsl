@@ -5,10 +5,12 @@
 // CHECK: {{![0-9]+}} = !{{{![0-9]+}}}
 // CHECK: {{![0-9]+}} = !{i32 0, !"a", i32 1, i32 4659}
 
-struct [[payload]] Payload
+struct [payload] Payload
 {
     int a      : in(trace, closesthit, anyhit) : out(trace, miss, closesthit);
 };
 
 [shader("miss")]
-void Miss( inout Payload payload ) {}
+void Miss( inout Payload payload ) {
+    payload.a = 42;
+}

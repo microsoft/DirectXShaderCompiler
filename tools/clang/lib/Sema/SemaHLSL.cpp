@@ -10014,7 +10014,7 @@ namespace {
 
 enum class PayloadStructQualifier { In, Out, InOut };
 
-static ParmVarDecl *GetPayloadQualifedParameter(FunctionDecl *Decl) {
+ParmVarDecl *GetPayloadQualifedParameter(FunctionDecl *Decl) {
   for (unsigned i = 0; i < Decl->getNumParams(); ++i) {
     ParmVarDecl *param = Decl->getParamDecl(i);
     QualType pType = param->getOriginalType();
@@ -10034,7 +10034,7 @@ static ParmVarDecl *GetPayloadQualifedParameter(FunctionDecl *Decl) {
   return nullptr;
 }
 
-static PayloadStructQualifier GetAggregatedPayloadQualifer(ParmVarDecl *Decl) {
+PayloadStructQualifier GetAggregatedPayloadQualifer(ParmVarDecl *Decl) {
   bool hasInput = false;
   bool hasOutput = false;
   QualType pType = Decl->getOriginalType();
@@ -10061,7 +10061,71 @@ static PayloadStructQualifier GetAggregatedPayloadQualifer(ParmVarDecl *Decl) {
     return PayloadStructQualifier::Out;
 }
 
-static bool DiagnoseCallExprForExternal(Sema& S, FunctionDecl* FD, CallExpr *CE, ParmVarDecl *Payload) {
+bool HasPayloadAccessQualifers(FieldDecl *D) {
+  for (auto &annotation : D->getUnusualAnnotations()) {
+
+    if (isa<hlsl::PayloadAccessQualifier>(annotation))
+      return true;
+  }
+  return false;
+}
+
+llvm::SmallVector<hlsl::PayloadAccessQualifier*, 2> GetQualifiersForStage(FieldDecl *D, StringRef ShaderStage) {
+  llvm::SmallVector<hlsl::PayloadAccessQualifier*, 2> Quals;
+  for (auto &annotation : D->getUnusualAnnotations()) {
+    if (isa<hlsl::PayloadAccessQualifier>(annotation)) {
+      hlsl::PayloadAccessQualifier *qual =
+          cast<hlsl::PayloadAccessQualifier>(annotation);
+
+      for (StringRef s : qual->ShaderStages)
+        if (s == ShaderStage)
+            Quals.push_back(qual); 
+    }
+  }
+  return Quals;
+}
+
+bool IsQualfiedPureInput(FieldDecl *D, StringRef ShaderStage) {
+  auto Quals = GetQualifiersForStage(D, ShaderStage);
+
+  // There are no qualifiers for this stage.
+  // The field is considered inout.
+  if (Quals.empty())
+    return false;
+
+  bool isPureInput = true;
+  bool isInput = false;
+  for (auto &Q : Quals) {
+    if (Q->IsInput)
+      isInput = true;
+    else if (Q->IsOutput)
+      isPureInput = false;
+  }
+
+  return isInput & isPureInput;
+}
+
+bool IsQualfiedPureOutput(FieldDecl *D, StringRef ShaderStage) {
+  auto Quals = GetQualifiersForStage(D, ShaderStage);
+
+  // There are no qualifiers for this stage.
+  // The field is considered inout.
+  if (Quals.empty())
+    return false;
+
+  bool isPureOutput = true;
+  bool isOutput = false;
+  for (auto &Q : Quals) {
+    if (Q->IsOutput)
+      isOutput = true;
+    else if (Q->IsInput)
+      isPureOutput = false;
+  }
+
+  return isOutput & isPureOutput;
+}
+
+bool DiagnoseCallExprForExternal(Sema& S, FunctionDecl* FD, CallExpr *CE, ParmVarDecl *Payload) {
   // We check if we are passing the entire payload struct to an extern function.
   // Here ends what we can check, so we just issue a warning if the aggregated
   // qualification of the payload does not match the qualifer of the parameter.
@@ -10119,7 +10183,7 @@ static bool DiagnoseCallExprForExternal(Sema& S, FunctionDecl* FD, CallExpr *CE,
   return false;
 }
 
-static bool DiagnosePayloadParameter(Sema &S, ParmVarDecl *Payload,
+bool DiagnosePayloadParameter(Sema &S, ParmVarDecl *Payload,
                                      FunctionDecl *FD, StringRef stage,
                                      bool qualifiersAreMandatory) {
     if (!Payload) {
@@ -10138,7 +10202,7 @@ static bool DiagnosePayloadParameter(Sema &S, ParmVarDecl *Payload,
     }
 
     if (!Decl->hasAttr<HLSLPayloadAttr>()) {
-      S.Diag(Decl->getLocation(), diag::err_payload_requires_attribute)
+      S.Diag(Payload->getLocation(), diag::err_payload_requires_attribute)
           << Decl->getName();
       return false;
     }
@@ -10161,15 +10225,18 @@ public:
       return true;
 
     StringRef stage = attr->getStage();
-    if (StringRef("miss,closesthit,anyhit").count(stage)) {
-      ParmVarDecl *Payload = Decl->getParamDecl(0);
+    if (StringRef("miss,closesthit,anyhit,raygeneration").count(stage)) {
+      ParmVarDecl *Payload = nullptr; 
+      if (stage != "raygeneration")
+          Payload = Decl->getParamDecl(0);
 
       // Diagnose the payload parameter.
-      if (!DiagnosePayloadParameter(S, Payload, Decl, stage, m_qualifiersAreMandatory)){
-        return true;
+      if (Payload) {
+        DiagnosePayloadParameter(S, Payload, Decl, stage,
+                                 m_qualifiersAreMandatory);
       }
 
-      dispatcher.diagnose(Decl, Payload, stage, "");
+      dispatcher.Diagnose(Decl, Payload, stage, "");
 
       // After we checked the shader stage, collect all
       // called functions and check them against illigal access.
@@ -10183,9 +10250,11 @@ public:
         for (FunctionDecl *callee : callees.CalleeFns) {
           // Only check the function if it gets the payload as parmeter.
           if (ParmVarDecl *PayloadParam = GetPayloadQualifedParameter(callee))
-            dispatcher.diagnose(callee, PayloadParam, stage, callee->getName());
+            dispatcher.Diagnose(callee, PayloadParam, stage, callee->getName());
         }
       }
+      dispatcher.DiagnoseLate(Decl);
+      dispatcher.ResetState();
     }
     return true;
   }
@@ -10262,6 +10331,18 @@ private:
       return true;
     }
 
+    const llvm::SmallSetVector<FieldDecl*, 8>& GetAccessedInFields(){
+        return m_accessedInFields;
+    }
+    const llvm::SmallSetVector<FieldDecl*, 8>& GetAccessedOutFields(){
+        return m_accessedOutFields;
+    }
+
+    void ResetState(){
+        m_accessedInFields.clear();
+        m_accessedOutFields.clear();
+    }
+
   private:
     bool IsExprReadable(MemberExpr *ME) {
       // Ignore non-FieldDecls
@@ -10270,36 +10351,21 @@ private:
 
       FieldDecl *D = cast<FieldDecl>(ME->getMemberDecl());
 
-      bool isOuptutOnly = true;
-      bool hasPayloadAccessQualifier = false;
-      for (auto &annotation : D->getUnusualAnnotations()) {
-
-        if (isa<hlsl::PayloadAccessQualifier>(annotation)) {
-          hasPayloadAccessQualifier = true;
-          hlsl::PayloadAccessQualifier *qual =
-              cast<hlsl::PayloadAccessQualifier>(annotation);
-          bool foundMatchingShaderType = false;
-          for (StringRef s : qual->ShaderStages)
-            if (s == m_shaderStage)
-              foundMatchingShaderType = true;
-
-          if (foundMatchingShaderType) {
-            if (qual->IsInput) {
-              isOuptutOnly = false;
-              break;
-            }
-          }
-        }
-      }
-
       // Unqualified fields are always inout => An RValue is readable.
-      if (!hasPayloadAccessQualifier)
+      if (!HasPayloadAccessQualifers(D))
         return true;
 
-      // The field is qualified as output => the RValue is not readable.
-      if (isOuptutOnly)
-        return false;
+      auto Quals = GetQualifiersForStage(D, m_shaderStage);
 
+      bool isInput = false;
+      for (auto& Q : Quals)
+          isInput |= Q->IsInput;
+
+      // The filed is not qualified as input => the RValue is not readable.
+      if (!isInput)
+          return false;
+
+      m_accessedInFields.insert(D);
       return true;
     }
 
@@ -10310,36 +10376,22 @@ private:
 
       FieldDecl *D = cast<FieldDecl>(ME->getMemberDecl());
 
-      bool isInputOnly = true;
-      bool hasPayloadQualifer = false;
-      for (auto &annotation : D->getUnusualAnnotations()) {
-        if (isa<hlsl::PayloadAccessQualifier>(annotation)) {
-          hasPayloadQualifer = true;
-          hlsl::PayloadAccessQualifier *qual =
-              cast<hlsl::PayloadAccessQualifier>(annotation);
-
-          bool foundMatchingShaderType = false;
-          for (StringRef s : qual->ShaderStages)
-            if (s == m_shaderStage)
-              foundMatchingShaderType = true;
-
-          if (foundMatchingShaderType) {
-            if (qual->IsOutput) {
-              isInputOnly = false;
-              break;
-            }
-          }
-        }
-      }
-
       // No qualifer means inout by default => the LValue is modifieable.
-      if (!hasPayloadQualifer)
+      if (!HasPayloadAccessQualifers(D))
         return true;
 
-      // The field is input only => the LValue is unmodifiable.
-      if (isInputOnly) {
-        return false;
-      }
+      auto Quals = GetQualifiersForStage(D, m_shaderStage);
+
+      bool isOutput = false;
+      for (auto& Q : Quals)
+          isOutput |= Q->IsOutput;
+
+      // The filed is not qualified as input => the LValue is not modifieable.
+      if (!isOutput)
+          return false;
+
+      // Found write to an out field, store for later.
+      m_accessedOutFields.insert(D);
       return true;
     }
 
@@ -10348,6 +10400,8 @@ private:
     StringRef m_functionName;
     AccessType m_accessType;
     ParmVarDecl *m_payloadParameterDecl;
+    llvm::SmallSetVector<FieldDecl*, 8> m_accessedInFields;
+    llvm::SmallSetVector<FieldDecl*, 8> m_accessedOutFields;
   };
 
   class CheckDispatcher : public RecursiveASTVisitor<CheckDispatcher> {
@@ -10356,13 +10410,47 @@ private:
 
     CheckDispatcher(Sema &S) : S(S), accessVisitor(S) {}
 
-    void diagnose(FunctionDecl *decl, ParmVarDecl *PayloadDecl, StringRef stage,
+    void Diagnose(FunctionDecl *decl, ParmVarDecl *PayloadDecl, StringRef stage,
                   StringRef functionName) {
       m_shaderStage = stage;
       m_functionName = functionName;
       m_payloadParameterDecl = PayloadDecl;
 
       TraverseFunctionDecl(decl);
+    }
+    
+    void DiagnoseLate(FunctionDecl *decl) {
+      if (!m_payloadParameterDecl)
+          return;
+
+      llvm::SmallSetVector<FieldDecl*, 8> accessedInFields = accessVisitor.GetAccessedInFields();
+      llvm::SmallSetVector<FieldDecl*, 8> accessedOutFields = accessVisitor.GetAccessedOutFields();
+      
+      CXXRecordDecl* Decl = m_payloadParameterDecl->getType()->getAsCXXRecordDecl();
+      if (!Decl)
+          return;
+
+      // Perform a late check on accessed fields.
+      // If a field is pure output and never written issue an error.
+      // If a field is pure input and never read issue a warning.
+      for (FieldDecl *FD : Decl->fields()) {
+        if (HasPayloadAccessQualifers(FD)) {
+          if (IsQualfiedPureOutput(FD, m_shaderStage) && !accessedOutFields.count(FD)) {
+            S.Diag(FD->getLocation(),
+                   diag::err_payload_fields_is_pure_out_but_never_written)
+                << FD->getName() << decl->getName();
+          }
+          if (IsQualfiedPureInput(FD, m_shaderStage) && !accessedInFields.count(FD)) {
+            S.Diag(FD->getLocation(),
+                   diag::warn_payload_fields_is_pure_in_but_never_read)
+                << FD->getName() << decl->getName();
+          }
+        }
+      }
+    }
+
+    void ResetState() {
+        accessVisitor.ResetState();
     }
 
     bool VisitCallExpr(CallExpr *CE) {
@@ -10376,8 +10464,26 @@ private:
 
       FunctionDecl *FD = cast<FunctionDecl>(callee);
 
-      if (DiagnoseCallExprForExternal(S, FD, CE, m_payloadParameterDecl)) {
-        // Found a probleme, stop checking this CE and move on.
+      if (FD->isImplicit() && FD->getName() == "TraceRay") {
+        // Check if the payload type is annotated.
+        Stmt *Param = IgnoreParensAndDecay(CE->getArg(7));
+        if (DeclRefExpr *ParamRef = dyn_cast<DeclRefExpr>(Param)) {
+          {
+            QualType pType = ParamRef->getDecl()->getType();
+            if (pType->isStructureOrClassType()) {
+
+              CXXRecordDecl *RD = pType->getAsCXXRecordDecl();
+              if (!RD->hasAttr<HLSLPayloadAttr>()) {
+                S.Diag(Param->getLocStart(),
+                       diag::err_payload_requires_attribute)
+                    << RD->getName();
+              }
+            }
+          }
+        }
+      }
+
+      if (!m_payloadParameterDecl || DiagnoseCallExprForExternal(S, FD, CE, m_payloadParameterDecl)) {
         return true;
       }
 

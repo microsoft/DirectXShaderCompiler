@@ -580,14 +580,21 @@ DxilRuntimeReflection *hlsl::RDAT::CreateDxilRuntimeReflection() {
 }
 
 bool VerifyDxilPayloadDescMatches(const DxilLibraryDesc &a, const DxilLibraryDesc &b) {
+  // Check if the number of payloads in each desc matches. 
+  // All payload types must be declared for every library. 
+  if (a.NumPayloads != b.NumPayloads)
+      return false;
+
   // Check if equal named payloads exist, payloads with different names
-  // are considered different types.
+  // are considered different types. We count how many payload types we found.
+  int numPayloadsMatched = 0; 
   for (uint32_t i = 0; i != a.NumPayloads; ++i) {
     DxilPayloadTypeDesc &payloadA = a.pPayloads[i];
 
     for (uint32_t j = 0; j != b.NumPayloads; ++j) {
       DxilPayloadTypeDesc &payloadB = b.pPayloads[j];
       if (std::wstring(payloadA.TypeName) == std::wstring(payloadB.TypeName)) {
+        numPayloadsMatched++;
         // Matching type names, these two payloads need deep verification.
         // For each payload pair that has equal names, check that fields match
         // and payload annotations are uniform in both types.
@@ -612,5 +619,11 @@ bool VerifyDxilPayloadDescMatches(const DxilLibraryDesc &a, const DxilLibraryDes
       }
     }
   }
+
+  // If not all payloads have matched, this means that the two sets of 
+  // payload types don't contain the same set of payload types.
+  if (a.NumPayloads != numPayloadsMatched)
+      return false;
+
   return true;
 }

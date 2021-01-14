@@ -1072,7 +1072,7 @@ static bool ValidatePayloadDecl(const RecordDecl *Decl,
     }
     if (!fieldHasPayloadQualifier) {
       Diag.Report(field->getLocation(),
-                  diag::err_payload_fileds_not_qualified_qualified)
+                  diag::err_payload_fileds_not_qualified)
           << field->getName();
     }
     allFieldsQualifed &= fieldHasPayloadQualifier;

@@ -12,13 +12,13 @@
 
 // check if we get DXIL and the payload type is there 
 // CHK3: Invalid target for payload access qualifiers. Only lib_6_5 and beyond are supported.
-// CHK4: warning: payload access qualifieres are only support for target lib_6_7 and beyond. You can opt-in for lib_6_5 and lib_6_6 with the -allow-payload-qualifiers flag. Qualifiers will be dropped.
+// CHK4: warning: payload access qualifieres are only support for target lib_6_6 and beyond. You can opt-in for lib_6_5 with the -allow-payload-qualifiers flag. Qualifiers will be dropped.
 // CHK5: %struct.Payload = type { i32, i32 }
 
-// CHK6: error: type 'Payload' used as payload requires that it is annotated with the {{\[\[[a-z]*\]\]}} attribute
+// CHK6: error: type 'Payload' used as payload requires that it is annotated with the {{\[[a-z]*\]}} attribute
 
 #if TEST_NUM <= 3
-struct [[payload]] Payload {
+struct [payload] Payload {
     int a : in(trace, closesthit);
     int b : out (trace, closesthit);
 };
@@ -51,10 +51,13 @@ void Miss3(inout int payload){}
 // test if compilation succeeds for lib_6_5 where payload access qualifiers are not required
 #if TEST_NUM == 3
 [shader("miss")]
-void Miss4(inout Payload payload){}
+void Miss4(inout Payload payload){
+}
 #endif
 
 #if TEST_NUM == 4
 [shader("miss")]
-void Miss4(inout Payload payload){}
+void Miss5(inout Payload payload){
+    payload.b = 42;
+}
 #endif

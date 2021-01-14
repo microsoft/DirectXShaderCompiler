@@ -4,17 +4,17 @@
 // CHECK: error: passing a pure 'in' payload to an extern function as 'out' parameter
 // CHECK: error: passing a pure 'out' payload to an extern function as 'in' parameter
 
-struct [[payload]] PayloadInputOnly
+struct [payload] PayloadInputOnly
 {
     int a      : in(trace, closesthit);
 };
 
-struct [[payload]] PayloadOutputOnly
+struct [payload] PayloadOutputOnly
 {
     int a      : out(trace, closesthit);
 };
 
-struct [[payload]] PayloadInOut
+struct [payload] PayloadInOut
 {
     int a      : in(trace, closesthit) : out(trace, closesthit);
 };

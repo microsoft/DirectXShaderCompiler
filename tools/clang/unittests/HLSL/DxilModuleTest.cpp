@@ -585,12 +585,12 @@ TEST_F(DxilModuleTest, PayloadQualifier) {
   std::vector<LPCWSTR> arguments = { L"-validator-version", L"1.6", L"-allow-payload-qualifiers" };
   Compiler c(m_dllSupport);
 
-  LPCSTR shader = "struct [[payload]] Payload\n"
+  LPCSTR shader = "struct [payload] Payload\n"
                   "{\n"
                   "  double a : in(trace, closesthit, anyhit) : out(trace, miss, closesthit);\n"
                   "};\n\n"
                   "[shader(\"miss\")]\n"
-                  "void Miss( inout Payload payload ) {}\n";
+                  "void Miss( inout Payload payload ) { payload.a = 4.2; }\n";
 
   c.Compile(shader, L"lib_6_6", arguments, {});
 
