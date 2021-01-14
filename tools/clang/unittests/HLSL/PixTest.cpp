@@ -190,9 +190,7 @@ public:
   TEST_METHOD(DiaLoadRelocatedBitcode)
   TEST_METHOD(DiaLoadBitcodePlusExtraData)
   TEST_METHOD(DiaCompileArgs)
-  TEST_METHOD(PixDebugCompileInfoLegacy)
-  TEST_METHOD(PixDebugNoCompileInfo)
-  void PixDebugCompileInfoImpl(bool bLegacy);
+  TEST_METHOD(PixDebugCompileInfo)
 
   TEST_METHOD(PixStructAnnotation_Simple)
   TEST_METHOD(PixStructAnnotation_CopiedStruct)
@@ -549,7 +547,7 @@ public:
 
     VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
     CreateBlobFromText(hlsl, &pSource);
-    LPCWSTR args[] = { L"/Zi", L"/Qembed_debug", L"/Od", L"/Qlegacy_debug" /*For dia support*/, };
+    LPCWSTR args[] = { L"/Zi", L"/Qembed_debug", L"/Od" };
     VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
       L"ps_6_0", args, _countof(args), nullptr, 0, nullptr, &pResult));
     
@@ -1307,7 +1305,6 @@ TEST_F(PixTest, DiaCompileArgs) {
     L"/Qembed_debug",
     L"/Fd", L"F:\\my dir\\",
     L"-Fo", L"F:\\my dir\\file.dxc",
-    L"/Qlegacy_debug", // For dia support
   };
   const WCHAR *DefineList[] = {
     L"MY_SPECIAL_DEFINE",
@@ -1534,7 +1531,7 @@ TEST_F(PixTest, DiaTableIndexThenOK) {
   VERIFY_FAILED(pEnumTables->Item(vtIndex, &pTable));
 }
 
-void PixTest::PixDebugCompileInfoImpl(bool bLegacy) {
+TEST_F(PixTest, PixDebugCompileInfo) {
   static const char source[] = R"(
     SamplerState  samp0 : register(s0);
     Texture2DArray tex0 : register(t0);
@@ -1559,20 +1556,17 @@ void PixTest::PixDebugCompileInfoImpl(bool bLegacy) {
   CComPtr<IDxcLibrary> pLib;
   VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
 
-  std::vector<const WCHAR *> FlagList = {
+  const WCHAR *FlagList[] = {
       L"/Zi",          L"-Zpr", L"/Qembed_debug",        L"/Fd",
       L"F:\\my dir\\", L"-Fo",  L"F:\\my dir\\file.dxc",
   };
-  if (bLegacy) {
-    FlagList.push_back(L"-Qlegacy_debug");
-  }
   const WCHAR *DefineList[] = {
       L"MY_SPECIAL_DEFINE",
       L"MY_OTHER_SPECIAL_DEFINE=\"MY_STRING\"",
   };
 
   std::vector<LPCWSTR> args;
-  for (unsigned i = 0; i < FlagList.size(); i++) {
+  for (unsigned i = 0; i < _countof(FlagList); i++) {
     args.push_back(FlagList[i]);
   }
   for (unsigned i = 0; i < _countof(DefineList); i++) {
@@ -1618,19 +1612,11 @@ void PixTest::PixDebugCompileInfoImpl(bool bLegacy) {
   VERIFY_SUCCEEDED(pSession->QueryInterface(IID_PPV_ARGS(&factory)));
 
   CComPtr<IDxcPixCompilationInfo> compilationInfo;
-
-  // non-Legacy debug info doesn't support PixCompilationInfo.
-  // Test that it fails.
-  if (!bLegacy) {
-    VERIFY_FAILED(factory->NewDxcPixCompilationInfo(&compilationInfo));
-    return;
-  }
-
   VERIFY_SUCCEEDED(factory->NewDxcPixCompilationInfo(&compilationInfo));
 
   CComBSTR arguments;
   VERIFY_SUCCEEDED(compilationInfo->GetArguments(&arguments));
-  for (unsigned i = 0; i < FlagList.size(); i++) {
+  for (unsigned i = 0; i < _countof(FlagList); i++) {
     VERIFY_IS_TRUE(nullptr != wcsstr(arguments, FlagList[i]));
   }
 
@@ -1652,13 +1638,6 @@ void PixTest::PixDebugCompileInfoImpl(bool bLegacy) {
   CComBSTR hlslTarget;
   VERIFY_SUCCEEDED(compilationInfo->GetHlslTarget(&hlslTarget));
   VERIFY_ARE_EQUAL(std::wstring(profile), std::wstring(hlslTarget));
-}
-
-TEST_F(PixTest, PixDebugNoCompileInfo) {
-  PixDebugCompileInfoImpl(/* bLegacy */ false);
-}
-TEST_F(PixTest, PixDebugCompileInfoLegacy) {
-  PixDebugCompileInfoImpl(/* bLegacy */ true);
 }
 
 // This function lives in lib\DxilPIXPasses\DxilAnnotateWithVirtualRegister.cpp

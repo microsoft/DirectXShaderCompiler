@@ -71,7 +71,6 @@ AssembleInputs::AssembleInputs(std::unique_ptr<llvm::Module> &&pM,
                 hlsl::SerializeDxilFlags SerializeFlags,
                 CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode,
                 bool bDebugInfo,
-                llvm::Module *pOriginalModule,
                 llvm::StringRef DebugName,
                 clang::DiagnosticsEngine *pDiag,
                 hlsl::DxilShaderHash *pShaderHashOut,
@@ -83,7 +82,6 @@ AssembleInputs::AssembleInputs(std::unique_ptr<llvm::Module> &&pM,
     SerializeFlags(SerializeFlags),
     pModuleBitcode(pModuleBitcode),
     bDebugInfo(bDebugInfo),
-    pOriginalModule(pOriginalModule),
     DebugName(DebugName),
     pDiag(pDiag),
     pShaderHashOut(pShaderHashOut),
@@ -147,8 +145,7 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
 
   // If we have debug info, this will be a clone of the module before debug info is stripped.
   // This is used with internal validator to provide more useful error messages.
-  llvm::Module *llvmModuleWithDebugInfo = nullptr;
-  std::unique_ptr<llvm::Module> llvmModuleWithDebugInfoStorage;
+  std::unique_ptr<llvm::Module> llvmModuleWithDebugInfo;
 
   CComPtr<IDxcValidator> pValidator;
   bool bInternalValidator = CreateValidator(pValidator);
@@ -168,11 +165,7 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
     // info will be stripped from the orginal module, but preserved in the cloned
     // module.
     if (inputs.bDebugInfo) {
-      llvmModuleWithDebugInfo = inputs.pOriginalModule;
-      if (!llvmModuleWithDebugInfo) {
-        llvmModuleWithDebugInfoStorage.reset(llvm::CloneModule(inputs.pM.get()));
-        llvmModuleWithDebugInfo = llvmModuleWithDebugInfoStorage.get();
-      }
+      llvmModuleWithDebugInfo.reset(llvm::CloneModule(inputs.pM.get()));
     }
   }
 
@@ -203,7 +196,7 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
   // dxil.dll can be released.
   if (bInternalValidator) {
     IFT(RunInternalValidator(pValidator, inputs.pM.get(),
-                             llvmModuleWithDebugInfo, inputs.pOutputContainerBlob,
+                             llvmModuleWithDebugInfo.get(), inputs.pOutputContainerBlob,
                              DxcValidatorFlags_InPlaceEdit, &pValResult));
   } else {
     IFT(pValidator->Validate(inputs.pOutputContainerBlob, DxcValidatorFlags_InPlaceEdit,

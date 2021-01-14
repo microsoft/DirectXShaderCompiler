@@ -929,15 +929,16 @@ public:
           IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pReflectionStream));
           IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pRootSigStream));
 
-          compiledModule = action.takeModule();
-          // Clone it for serialization, since serialization might modify it.
-          std::unique_ptr<llvm::Module> serializeModule( llvm::CloneModule(compiledModule.get()) );
+          std::unique_ptr<llvm::Module> serializeModule( action.takeModule() );
+
+          // Clone and save the copy.
+          compiledModule.reset(llvm::CloneModule(serializeModule.get()));
 
           dxcutil::AssembleInputs inputs(
                 std::move(serializeModule), pOutputBlob, m_pMalloc, SerializeFlags,
-                pOutputStream, opts.IsDebugInfoEnabled(), compiledModule.get(),
-                opts.GetPDBName(), &compiler.getDiagnostics(), &ShaderHashContent,
-                pReflectionStream, pRootSigStream);
+                pOutputStream, opts.IsDebugInfoEnabled(),
+                opts.GetPDBName(), &compiler.getDiagnostics(),
+                &ShaderHashContent, pReflectionStream, pRootSigStream);
 
           if (needsValidation) {
             valHR = dxcutil::ValidateAndAssembleToContainer(inputs);
@@ -1012,51 +1013,51 @@ public:
       // SPIRV change ends
 
       if (!hasErrorOccurred && writePDB) {
-        //CComPtr<IDxcBlob> pDebugBlob;
-        //IFT(pOutputStream.QueryInterface(&pDebugBlob));
         CComPtr<IDxcBlob> pStrippedContainer;
 
-        // Version info to store in the PDB
-        IDxcVersionInfo *pVersionInfo = nullptr;
-        if (opts.IsDebugInfoEnabled()) { // Only put version info if embedding debug
-          pVersionInfo = static_cast<IDxcVersionInfo *>(this);
-        }
-
-        // Create the shader source information for PDB
-        hlsl::SourceInfoWriter debugSourceInfoWriter;
-        const hlsl::DxilSourceInfo *pSourceInfo = nullptr;
-        if (!opts.LegacyDebug) { // If we are using legacy PDB, do not generate it at all
-          debugSourceInfoWriter.Write(opts.TargetProfile, opts.EntryPoint, compiler.getCodeGenOpts(), compiler.getSourceManager());
-          pSourceInfo = debugSourceInfoWriter.GetPart();
-        }
-
-        CComPtr<IDxcBlob> pDebugBlob;
-        // Don't include the debug part if using slim PDB
-        if (opts.SlimDebug) {
-          assert(pSourceInfo);
-        }
-        else {
-          if (!opts.LegacyDebug) {
-            // Strip out the source related metadata
-            compiledModule->GetOrCreateDxilModule().StripShaderSourcesAndCompileOptions();
+        {
+          // Version info to store in the PDB
+          IDxcVersionInfo *pVersionInfo = nullptr;
+          if (opts.IsDebugInfoEnabled()) { // Only put version info if embedding debug
+            pVersionInfo = static_cast<IDxcVersionInfo *>(this);
           }
-          CComPtr<AbstractMemoryStream> pDebugBlobStorage;
-          IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pDebugBlobStorage));
-          raw_stream_ostream outStream(pDebugBlobStorage.p);
-          WriteBitcodeToFile(compiledModule.get(), outStream, true);
-          outStream.flush();
-          IFT(pDebugBlobStorage.QueryInterface(&pDebugBlob));
+
+          // Create the shader source information for PDB
+          hlsl::SourceInfoWriter debugSourceInfoWriter;
+          const hlsl::DxilSourceInfo *pSourceInfo = nullptr;
+          if (!opts.LegacyDebug) { // If we are using legacy PDB, do not generate it at all
+            debugSourceInfoWriter.Write(opts.TargetProfile, opts.EntryPoint, compiler.getCodeGenOpts(), compiler.getSourceManager());
+            pSourceInfo = debugSourceInfoWriter.GetPart();
+          }
+
+          CComPtr<IDxcBlob> pDebugProgramBlob;
+          // Don't include the debug part if using slim PDB
+          if (opts.SlimDebug) {
+            assert(pSourceInfo);
+          }
+          else {
+            if (!opts.LegacyDebug) {
+              // Strip out the source related metadata
+              compiledModule->GetOrCreateDxilModule().StripShaderSourcesAndCompileOptions();
+            }
+            CComPtr<AbstractMemoryStream> pDebugBlobStorage;
+            IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pDebugBlobStorage));
+            raw_stream_ostream outStream(pDebugBlobStorage.p);
+            WriteBitcodeToFile(compiledModule.get(), outStream, true);
+            outStream.flush();
+            IFT(pDebugBlobStorage.QueryInterface(&pDebugProgramBlob));
+          }
+
+          IFT(CreateContainerForPDB(
+            m_pMalloc, pOutputBlob, pDebugProgramBlob,
+            static_cast<IDxcVersionInfo *>(this), pSourceInfo,
+            &pStrippedContainer));
         }
 
-        IFT(CreateContainerForPDB(
-          m_pMalloc, pOutputBlob, pDebugBlob,
-          static_cast<IDxcVersionInfo *>(this), pSourceInfo,
-          &pStrippedContainer));
-
-        pDebugBlob.Release();
-
-        IFT(hlsl::pdb::WriteDxilPDB(m_pMalloc, pStrippedContainer, ShaderHashContent.Digest, &pDebugBlob));
-        IFT(pResult->SetOutputObject(DXC_OUT_PDB, pDebugBlob));
+        // Create the final PDB Blob
+        CComPtr<IDxcBlob> pPdbBlob;
+        IFT(hlsl::pdb::WriteDxilPDB(m_pMalloc, pStrippedContainer, ShaderHashContent.Digest, &pPdbBlob));
+        IFT(pResult->SetOutputObject(DXC_OUT_PDB, pPdbBlob));
       }
 
       IFT(primaryOutput.SetObject(pOutputBlob, opts.DefaultTextCodePage));

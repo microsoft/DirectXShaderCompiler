@@ -31,7 +31,6 @@ class Twine;
 namespace hlsl {
 enum class SerializeDxilFlags : uint32_t;
 struct DxilShaderHash;
-struct DxilSourceInfo;
 class AbstractMemoryStream;
 namespace options {
 class MainArgs;
@@ -41,20 +40,17 @@ class DxcOpts;
 
 namespace dxcutil {
 struct AssembleInputs {
-  AssembleInputs(std::unique_ptr<llvm::Module> &&pM, // A module that the assembler can modify.
+  AssembleInputs(std::unique_ptr<llvm::Module> &&pM,
                  CComPtr<IDxcBlob> &pOutputContainerBlob,
                  IMalloc *pMalloc,
                  hlsl::SerializeDxilFlags SerializeFlags,
                  CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode,
                  bool bDebugInfo = false,
-                 llvm::Module *pOriginalModule = nullptr, // A copy of the original module that will not be modified
                  llvm::StringRef DebugName = llvm::StringRef(),
                  clang::DiagnosticsEngine *pDiag = nullptr,
                  hlsl::DxilShaderHash *pShaderHashOut = nullptr,
                  hlsl::AbstractMemoryStream *pReflectionOut = nullptr,
-                 hlsl::AbstractMemoryStream *pRootSigOut = nullptr
-            );
-  llvm::Module *pOriginalModule = nullptr;
+                 hlsl::AbstractMemoryStream *pRootSigOut = nullptr);
   std::unique_ptr<llvm::Module> pM;
   CComPtr<IDxcBlob> &pOutputContainerBlob;
   IMalloc *pMalloc;
