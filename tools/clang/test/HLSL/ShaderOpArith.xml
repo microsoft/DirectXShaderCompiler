@@ -2267,11 +2267,18 @@
                 bool ph_IsHelperLane() {
                     return false;
                 }
+
+                bool ph_IsHelperLane(float4 pos, bool first_call) {
+                    if (first_call) {
+                        return pos.x == 0.5 && pos.y == 1.5;
+                    }
+                else {
+                        return pos.x == 0.5;
+                    }
+                }
         #else
         #define CALL(x) x
         #endif
-
-        #define SHADER_MODEL_6_5_PLUS (defined(__SHADER_TARGET_MAJOR) && defined(__SHADER_TARGET_MINOR) && __SHADER_TARGET_MAJOR == 6 && __SHADER_TARGET_MINOR >= 5)
 
         // 6.0 wave ops
         struct HelperLaneWaveTestResult60 {
@@ -2293,6 +2300,13 @@
             int prefixSum;
         };
         
+        struct HelperLaneQuadTestResult {
+            int is_helper_this;
+            int is_helper_across_X;
+            int is_helper_across_Y;
+            int is_helper_across_Diag;
+        };
+        
         // 6.5 wave ops
         struct HelperLaneWaveTestResult65 {
             uint4 match;
@@ -2305,8 +2319,9 @@
         };
         
         struct HelperLaneWaveTestResult {
-            HelperLaneWaveTestResult60 sm60;
-            HelperLaneWaveTestResult65 sm65;
+            HelperLaneWaveTestResult60 sm60_wave;
+            HelperLaneQuadTestResult sm60_quad;
+            HelperLaneWaveTestResult65 sm65_wave;
         };
         
         RWStructuredBuffer<HelperLaneWaveTestResult> g_TestResults : register(u0);
@@ -2346,10 +2361,37 @@
             tr.max = WaveActiveMax(is_helper ? 10 : 1);
             tr.prefixCountBits = WavePrefixCountBits(1);
             tr.prefixProduct = WavePrefixProduct(4);
-            tr.prefixSum = WavePrefixSum(4);
+            tr.prefixSum = WavePrefixSum(2);
+
             return tr;
         }
         
+        HelperLaneQuadTestResult RunHelperLaneQuadTests() {
+            HelperLaneQuadTestResult tr;
+            int is_helper = CALL(IsHelperLane());
+
+            tr.is_helper_this = is_helper;
+            tr.is_helper_across_X = QuadReadAcrossX(is_helper);
+            tr.is_helper_across_Y = QuadReadAcrossY(is_helper);
+            tr.is_helper_across_Diag = QuadReadAcrossDiagonal(is_helper);
+            
+            return tr;
+        }
+        
+        #ifdef ISHELPERLANE_PLACEHOLDER
+        HelperLaneQuadTestResult ph_RunHelperLaneQuadTests_PS(float4 pos, bool first_call) {
+            HelperLaneQuadTestResult tr;
+            
+            int is_helper = ph_IsHelperLane(pos, first_call);
+            tr.is_helper_this = is_helper;
+            tr.is_helper_across_X = QuadReadAcrossX(is_helper);
+            tr.is_helper_across_Y = QuadReadAcrossY(is_helper);
+            tr.is_helper_across_Diag = QuadReadAcrossDiagonal(is_helper);
+            
+            return tr;
+        }
+        #endif
+
         HelperLaneWaveTestResult65 RunHelperLaneWaveTests65() {
             HelperLaneWaveTestResult65 tr;
             uint4 noMaskedBits = (uint4)0xFFFFFFFF;
@@ -2372,7 +2414,7 @@
         PSInput VSMain(float3 pos : POSITION) {
             HelperLaneWaveTestResult60 tr60 = RunHelperLaneWaveTests60();
             if (WaveGetLaneIndex() == 2) { // last lane writes results
-                g_TestResults[VS_INDEX].sm60 = tr60;
+                g_TestResults[VS_INDEX].sm60_wave = tr60;
             }
             PSInput r;
             r.pos = float4(pos, 1); 
@@ -2383,8 +2425,8 @@
             HelperLaneWaveTestResult60 tr60 = RunHelperLaneWaveTests60();
             HelperLaneWaveTestResult65 tr65 = RunHelperLaneWaveTests65();
             if (WaveGetLaneIndex() == 2) { // last lane writes results
-                g_TestResults[VS_INDEX].sm60 = tr60;
-                g_TestResults[VS_INDEX].sm65 = tr65;
+                g_TestResults[VS_INDEX].sm60_wave = tr60;
+                g_TestResults[VS_INDEX].sm65_wave = tr65;
             }
             PSInput r;
             r.pos = float4(pos, 1); 
@@ -2393,38 +2435,62 @@
 
         uint4 PSMain(PSInput input) : SV_TARGET {
             HelperLaneWaveTestResult60 tr60 = RunHelperLaneWaveTests60();
-            if (input.pos.x == 1.5f && input.pos.x == 1.5f) { // bottom right pixel writes results
-                g_TestResults[PS_INDEX].sm60 = tr60;
+            
+        #ifdef ISHELPERLANE_PLACEHOLDER
+            HelperLaneQuadTestResult tr60_quad = ph_RunHelperLaneQuadTests_PS(input.pos, true);
+        #else
+            HelperLaneQuadTestResult tr60_quad = RunHelperLaneQuadTests();
+        #endif
+        
+            if (input.pos.x == 1.5f && input.pos.y == 1.5f) { // bottom right pixel writes results
+                g_TestResults[PS_INDEX].sm60_wave = tr60;
+                g_TestResults[PS_INDEX].sm60_quad = tr60_quad;
             }
-            //int posComb = ((uint)(input.pos.x * 10) << 4) + (uint)(input.pos.y * 10);
-            //g_TestResults[WaveGetLaneIndex()].sm60.ballot = uint4(WaveReadLaneAt(posComb, 0), WaveReadLaneAt(posComb, 1), WaveReadLaneAt(posComb, 2), WaveReadLaneAt(posComb, 3));
-
             if (input.pos.x == 0.5f && input.pos.y == 0.5f) // discard top left pixel
                 discard;
                 
             HelperLaneWaveTestResult60 tr60_disc = RunHelperLaneWaveTests60();
-            if (input.pos.x == 1.5f && input.pos.x == 1.5f) { // bottom right pixel writes results
-                g_TestResults[PS_INDEX_AFTER_DISCARD].sm60 = tr60_disc;
+
+        #ifdef ISHELPERLANE_PLACEHOLDER
+            HelperLaneQuadTestResult tr60_quad_disc  = ph_RunHelperLaneQuadTests_PS(input.pos, false);
+        #else
+            HelperLaneQuadTestResult tr60_quad_disc = RunHelperLaneQuadTests();
+        #endif
+            if (input.pos.x == 1.5f && input.pos.y == 1.5f) { // bottom right pixel writes results
+                g_TestResults[PS_INDEX_AFTER_DISCARD].sm60_wave = tr60_disc;
+                g_TestResults[PS_INDEX_AFTER_DISCARD].sm60_quad = tr60_quad_disc;
             }
             return uint4(0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 1);
         }
 
         uint4 PSMain65(PSInput input) : SV_TARGET {
-            HelperLaneWaveTestResult60 tr60 = RunHelperLaneWaveTests60();
-            HelperLaneWaveTestResult65 tr65 = RunHelperLaneWaveTests65();
-            if (input.pos.x == 1.5f && input.pos.x == 1.5f) { // bottom right pixel writes results
-                g_TestResults[PS_INDEX].sm60 = tr60;
-                g_TestResults[PS_INDEX].sm65 = tr65;
+            HelperLaneWaveTestResult tr;
+            tr.sm60_wave = RunHelperLaneWaveTests60();
+        #ifdef ISHELPERLANE_PLACEHOLDER
+            tr.sm60_quad = ph_RunHelperLaneQuadTests_PS(input.pos, true);
+        #else
+            tr.sm60_quad = RunHelperLaneQuadTests();
+        #endif
+            tr.sm65_wave = RunHelperLaneWaveTests65();
+            
+            if (input.pos.x == 1.5f && input.pos.y == 1.5f) { // bottom right pixel writes results
+                g_TestResults[PS_INDEX] = tr;
             }
 
             if (input.pos.x == 0.5f && input.pos.y == 0.5f) // discard top left pixel
                 discard;
                 
-            HelperLaneWaveTestResult60 tr60_disc = RunHelperLaneWaveTests60();
-            HelperLaneWaveTestResult65 tr65_disc = RunHelperLaneWaveTests65();
-            if (input.pos.x == 1.5f && input.pos.x == 1.5f) { // bottom right pixel writes results
-                g_TestResults[PS_INDEX_AFTER_DISCARD].sm60 = tr60_disc;
-                g_TestResults[PS_INDEX_AFTER_DISCARD].sm65 = tr65_disc;
+            HelperLaneWaveTestResult tr_disc;
+            tr_disc.sm60_wave = RunHelperLaneWaveTests60();
+        #ifdef ISHELPERLANE_PLACEHOLDER
+            tr_disc.sm60_quad = ph_RunHelperLaneQuadTests_PS(input.pos, false);
+        #else
+            tr_disc.sm60_quad = RunHelperLaneQuadTests();
+        #endif
+            tr_disc.sm65_wave = RunHelperLaneWaveTests65();
+            
+            if (input.pos.x == 1.5f && input.pos.y == 1.5f) { // bottom right pixel writes results
+                g_TestResults[PS_INDEX_AFTER_DISCARD] = tr_disc;
             }
             return uint4(0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 1);
         }
@@ -2432,18 +2498,22 @@
         [numthreads(3,1,1)]
         void CSMain(uint3 tid : SV_GroupThreadID) {
             HelperLaneWaveTestResult60 tr60 = RunHelperLaneWaveTests60();
+            HelperLaneQuadTestResult tr60_quad = RunHelperLaneQuadTests();
             if (WaveGetLaneIndex() == 2) { // last lane writes results
-                g_TestResults[CS_INDEX].sm60 = tr60;
+                g_TestResults[CS_INDEX].sm60_wave = tr60;
+                g_TestResults[CS_INDEX].sm60_quad = tr60_quad;
             }
         }
         
         [numthreads(3,1,1)]
         void CSMain65() {
-            HelperLaneWaveTestResult60 tr60 = RunHelperLaneWaveTests60();
-            HelperLaneWaveTestResult65 tr65 = RunHelperLaneWaveTests65();
+            HelperLaneWaveTestResult tr;
+            tr.sm60_wave = RunHelperLaneWaveTests60();
+            tr.sm60_quad = RunHelperLaneQuadTests();
+            tr.sm65_wave = RunHelperLaneWaveTests65();
+
             if (WaveGetLaneIndex() == 2) { // last lane writes results
-                g_TestResults[CS_INDEX].sm60 = tr60;
-                g_TestResults[CS_INDEX].sm65 = tr65;
+                g_TestResults[CS_INDEX] = tr;
             }
         }
 ]]>
