@@ -250,17 +250,17 @@ struct DxilCompilerVersion {
 //  DxilSourceInfo_SourceNames
 //
 //     DxilSourceInfo_SourceNamesEntry
-//        char Name[ NameSizeInBytes + 1 ]
+//        char Name[ NameSizeInBytes ]
 //        (0-3 zero bytes to align to a 4-byte boundary)
 //
 //     DxilSourceInfo_SourceNamesEntry
-//        char Name[ NameSizeInBytes + 1 ]
+//        char Name[ NameSizeInBytes ]
 //        (0-3 zero bytes to align to a 4-byte boundary)
 //
 //      ...
 //
 //     DxilSourceInfo_SourceNamesEntry
-//        char Name[ NameSizeInBytes + 1 ]
+//        char Name[ NameSizeInBytes ]
 //        (0-3 zero bytes to align to a 4-byte boundary)
 //
 // ================ 2. Source Contents ==================================
@@ -271,17 +271,17 @@ struct DxilCompilerVersion {
 // `Entries` may be compressed. Here is the uncompressed structure:
 //
 //     DxilSourceInfo_SourcesContentsEntry
-//        char Content[ ContentSizeInBytes + 1 ]
+//        char Content[ ContentSizeInBytes ]
 //        (0-3 zero bytes to align to a 4-byte boundary)
 //
 //     DxilSourceInfo_SourcesContentsEntry
-//        char Content[ ContentSizeInBytes + 1 ]
+//        char Content[ ContentSizeInBytes ]
 //        (0-3 zero bytes to align to a 4-byte boundary)
 //
 //     ...
 //
 //     DxilSourceInfo_SourcesContentsEntry
-//        char Content[ ContentSizeInBytes + 1 ]
+//        char Content[ ContentSizeInBytes ]
 //        (0-3 zero bytes to align to a 4-byte boundary)
 //
 // ================ 3. Args ==================================
