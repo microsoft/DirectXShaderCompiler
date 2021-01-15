@@ -22,6 +22,7 @@ namespace clang {
 
 namespace hlsl {
 
+// TODO: Move this type to its own library.
 struct SourceInfoReader {
   using Buffer = std::vector<uint8_t>;
   Buffer m_UncompressedSources;
@@ -44,11 +45,13 @@ struct SourceInfoReader {
   std::vector<Source> m_Sources;
   std::vector<ArgPair> m_ArgPairs;
 
-  Source GetSource(unsigned i) const;
-  unsigned GetSourcesCount() const;
-  unsigned GetArgPairCount() const { return m_ArgPairs.size(); }
+  Source GetSource(unsigned i) const { return m_Sources[i]; }
+  unsigned GetSourcesCount() const { return m_Sources.size(); }
+
   const ArgPair &GetArgPair(unsigned i) const { return m_ArgPairs[i]; }
-  void Read(const hlsl::DxilSourceInfo *SourceInfo);
+  unsigned GetArgPairCount() const { return m_ArgPairs.size(); }
+
+  void Init(const hlsl::DxilSourceInfo *SourceInfo);
 };
 
 // Herper for writing the shader source part.

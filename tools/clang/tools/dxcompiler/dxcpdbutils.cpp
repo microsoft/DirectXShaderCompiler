@@ -92,21 +92,6 @@ static bool IsBitcode(const void *ptr, size_t size) {
   return !memcmp(ptr, pattern, _countof(pattern));
 }
 
-static bool ShouldIncludeInFlags(const std::wstring &str, bool *skip_next_arg) {
-  *skip_next_arg = false;
-  const wchar_t *specialCases[] = { L"/T", L"-T", L"-D", L"/D", L"-E", L"/E", };
-  for (unsigned i = 0; i < _countof(specialCases); i++) {
-    if (str == specialCases[i]) {
-      *skip_next_arg = true;
-      return false;
-    }
-    else if (str.find(specialCases[i]) == 0) {
-      return false;
-    }
-  }
-  return true;
-}
-
 static void ComputeFlagsBasedOnArgs(ArrayRef<std::wstring> args, std::vector<std::wstring> *outFlags, std::vector<std::wstring> *outDefines, std::wstring *outTargetProfile, std::wstring *outEntryPoint) {
   const llvm::opt::OptTable *optionTable = hlsl::options::getHlslOptTable();
   assert(optionTable);
@@ -462,7 +447,7 @@ private:
       {
         const hlsl::DxilSourceInfo *header = (const hlsl::DxilSourceInfo *)(part+1);
         hlsl::SourceInfoReader reader;
-        reader.Read(header);
+        reader.Init(header);
 
         // Args
         for (unsigned i = 0; i < reader.GetArgPairCount(); i++) {
@@ -674,7 +659,7 @@ public:
     }
 
     CComPtr<IDxcCompiler3> pCompiler;
-    IFR(DxcCreateInstance2(m_pMalloc, CLSID_DxcCompiler, __uuidof(IDxcCompiler3), (void **)&pCompiler));
+    IFR(DxcCreateInstance2(m_pMalloc, CLSID_DxcCompiler, IID_PPV_ARGS(&pCompiler)));
 
     DxcThreadMalloc TM(m_pMalloc);
 
@@ -712,7 +697,7 @@ public:
     IFR(main_file->GetEncoding(&bEndodingKnown, &source_buf.Encoding));
 
     CComPtr<IDxcResult> pResult;
-    IFR(pCompiler->Compile(&source_buf, new_args.data(), new_args.size(), pIncludeHandler, __uuidof(IDxcResult), (void **)&pResult));
+    IFR(pCompiler->Compile(&source_buf, new_args.data(), new_args.size(), pIncludeHandler, IID_PPV_ARGS(&pResult)));
 
     CComPtr<IDxcOperationResult> pOperationResult;
     IFR(pResult.QueryInterface(&pOperationResult));
@@ -723,7 +708,7 @@ public:
 
     CComPtr<IDxcBlob> pFullPDB;
     CComPtr<IDxcBlobUtf16> pFullPDBName;
-    IFR(pResult->GetOutput(DXC_OUT_PDB, __uuidof(IDxcBlob), (void **)&pFullPDB, &pFullPDBName));
+    IFR(pResult->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pFullPDB), &pFullPDBName));
 
     return pFullPDB.QueryInterface(ppFullPDB);
   }
@@ -749,8 +734,7 @@ public:
     DxcThreadMalloc TM(m_pMalloc);
 
     CComPtr<IDiaDataSource> pDataSource;
-    IFR(DxcCreateInstance2(m_pMalloc, CLSID_DxcDiaDataSource, __uuidof(IDiaDataSource),
-      (void **)&pDataSource));
+    IFR(DxcCreateInstance2(m_pMalloc, CLSID_DxcDiaDataSource, IID_PPV_ARGS(&pDataSource)));
 
     CComPtr<IStream> pStream;
     IFR(hlsl::CreateReadOnlyBlobStream(m_pDebugProgramBlob, &pStream));

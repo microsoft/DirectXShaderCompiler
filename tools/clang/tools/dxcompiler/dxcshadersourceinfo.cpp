@@ -32,13 +32,7 @@ static bool ZlibCompress(const void *src, size_t srcSize, Buffer *outCompressedD
 // Reader
 ///////////////////////////////////////////////////////////////////////////////
 
-SourceInfoReader::Source SourceInfoReader::GetSource(unsigned i) const {
-  return m_Sources[i];
-}
-unsigned SourceInfoReader::GetSourcesCount() const {
-  return m_Sources.size();
-}
-void SourceInfoReader::Read(const hlsl::DxilSourceInfo *SourceInfo) {
+void SourceInfoReader::Init(const hlsl::DxilSourceInfo *SourceInfo) {
   const hlsl::DxilSourceInfoSection *section = (const hlsl::DxilSourceInfoSection *)(SourceInfo+1);
 
   for (unsigned i = 0; i < SourceInfo->SectionCount; i++) {
