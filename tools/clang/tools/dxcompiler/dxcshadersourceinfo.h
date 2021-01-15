@@ -35,11 +35,6 @@ struct SourceInfoReader {
   struct ArgPair {
     std::string Name;
     std::string Value;
-    inline std::string Render() const {
-      if (Name.size())
-        return std::string("-") + Name + Value;
-      return Value;
-    }
   };
 
   std::vector<Source> m_Sources;

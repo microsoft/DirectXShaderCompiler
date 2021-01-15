@@ -127,8 +127,15 @@ static void ComputeFlagsBasedOnArgs(ArrayRef<std::wstring> args, std::vector<std
         continue;
       }
 
-      if (outFlags)
-        outFlags->push_back(ToWstring(arg->getAsString(argList)));
+      if (outFlags) {
+        llvm::StringRef Name = arg->getOption().getName();
+        if (Name.size()) {
+          outFlags->push_back(std::wstring(L"-") + ToWstring(Name));
+        }
+        if (arg->getNumValues() > 0) {
+          outFlags->push_back(ToWstring(arg->getValue()));
+        }
+      }
     }
   }
 }
@@ -469,11 +476,22 @@ private:
             excludeFromFlags = true;
           }
 
-          std::wstring rendered = ToWstring(pair.Render());
-          if (!excludeFromFlags)
-            m_Flags.push_back(rendered);
+          std::wstring name;
+          if (pair.Name.size())
+            name = std::wstring(L"-") + ToWstring(pair.Name);
+          std::wstring value = ToWstring(pair.Value);
 
-          m_Args.push_back(rendered);
+          if (!excludeFromFlags) {
+            if (name.size())
+              m_Flags.push_back(name);
+            if (value.size())
+              m_Flags.push_back(value);
+          }
+
+          if (name.size())
+            m_Args.push_back(name);
+          if (value.size())
+            m_Args.push_back(value);
         }
 
         // Sources

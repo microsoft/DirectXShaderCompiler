@@ -981,8 +981,8 @@ TEST_F(CompilerTest, CompileThenAddCustomDebugName) {
 static void VerifyPdbUtil(
     IDxcBlob *pBlob, IDxcPdbUtils *pPdbUtils,
     const WCHAR *pMainFileName,
-    llvm::ArrayRef<const WCHAR *> ExpectedArgs,
-    llvm::ArrayRef<const WCHAR *> ExpectedFlags,
+    llvm::ArrayRef<std::pair<const WCHAR *, const WCHAR *> > ExpectedArgs,
+    llvm::ArrayRef<std::pair<const WCHAR *, const WCHAR *> > ExpectedFlags,
     llvm::ArrayRef<const WCHAR *> ExpectedDefines,
     IDxcCompiler *pCompiler,
     bool HasVersion,
@@ -1121,43 +1121,60 @@ static void VerifyPdbUtil(
     VERIFY_IS_TRUE(tally.size() == 0);
   }
 
+  auto TestArgumentPair = [](llvm::ArrayRef<std::wstring> Args, llvm::ArrayRef<std::pair<const WCHAR *, const WCHAR *> > Expected) {
+    for (int i = 0; i < Expected.size(); i++) {
+      auto Pair = Expected[i];
+      bool found = false;
+      for (int j = 0; j < Args.size(); j++) {
+        if (!Pair.second && Args[j] == Pair.first) {
+          found = true;
+          break;
+        }
+        else if (!Pair.first && Args[j] == Pair.second) {
+          found = true;
+          break;
+        }
+        else if (Pair.first && Pair.second &&
+          Args[j] == Pair.first &&
+          j+1 < Args.size() &&
+          Args[j+1] == Pair.second)
+        {
+          found = true;
+          break;
+        }
+      }
+
+      VERIFY_IS_TRUE(found);
+    }
+  };
+
   // Flags
   {
     UINT32 uCount = 0;
-    std::map<std::wstring, int> tally;
+    std::vector<std::wstring> Flags;
     VERIFY_SUCCEEDED(pPdbUtils->GetFlagCount(&uCount));
     VERIFY_IS_TRUE(uCount == ExpectedFlags.size());
     for (UINT32 i = 0; i < uCount; i++) {
-      CComBSTR def;
-      VERIFY_SUCCEEDED(pPdbUtils->GetFlag(i, &def));
-      tally[std::wstring(def)]++;
+      CComBSTR item;
+      VERIFY_SUCCEEDED(pPdbUtils->GetFlag(i, &item));
+      Flags.push_back(std::wstring(item));
     }
 
-    auto Expected = ExpectedFlags;
-    for (int i = 0; i < Expected.size(); i++) {
-      auto it = tally.find(Expected[i]);
-      VERIFY_IS_TRUE(it != tally.end() && it->second == 1);
-      tally.erase(it);
-    }
-    VERIFY_IS_TRUE(tally.size() == 0);
+    TestArgumentPair(Flags, ExpectedFlags);
   }
 
   // Args
   {
     UINT32 uCount = 0;
-    std::map<std::wstring, int> tally;
+    std::vector<std::wstring> Args;
     VERIFY_SUCCEEDED(pPdbUtils->GetArgCount(&uCount));
     for (UINT32 i = 0; i < uCount; i++) {
-      CComBSTR def;
-      VERIFY_SUCCEEDED(pPdbUtils->GetArg(i, &def));
-      tally[std::wstring(def)]++;
+      CComBSTR item;
+      VERIFY_SUCCEEDED(pPdbUtils->GetArg(i, &item));
+      Args.push_back( std::wstring(item) );
     }
 
-    auto Expected = ExpectedArgs;
-    for (int i = 0; i < Expected.size(); i++) {
-      auto it = tally.find(Expected[i]);
-      VERIFY_IS_TRUE(it != tally.end() && it->second == 1);
-    }
+    TestArgumentPair(Args, ExpectedArgs);
   }
 
   // Make the pix debug info
@@ -1179,19 +1196,19 @@ static void VerifyPdbUtil(
     CComPtr<IDxcBlob> pFullPdb;
     VERIFY_SUCCEEDED(pPdbUtils->GetFullPDB(&pFullPdb));
 
-    auto ReplaceDebugFlag = [](const std::vector<const WCHAR *> &List) -> std::vector<const WCHAR *> {
-      std::vector<const WCHAR *> ret;
+    auto ReplaceDebugFlagPair = [](const std::vector<std::pair<const WCHAR *, const WCHAR *> > &List) -> std::vector<std::pair<const WCHAR *, const WCHAR *> > {
+      std::vector<std::pair<const WCHAR *, const WCHAR *> > ret;
       for (unsigned i = 0; i < List.size(); i++) {
-        if (!wcscmp(List[i], L"/Qsource_only_debug") || !wcscmp(List[i], L"-Qsource_only_debug"))
-          ret.push_back(L"-Qfull_debug");
+        if (!wcscmp(List[i].first, L"/Qsource_only_debug") || !wcscmp(List[i].first, L"-Qsource_only_debug"))
+          ret.push_back(std::pair<const WCHAR *, const WCHAR *>(L"-Qfull_debug", nullptr));
         else
           ret.push_back(List[i]);
       }
       return ret;
     };
 
-    std::vector<const WCHAR *> NewExpectedFlags = ReplaceDebugFlag(ExpectedFlags);
-    std::vector<const WCHAR *> NewExpectedArgs  = ReplaceDebugFlag(ExpectedArgs);
+    auto NewExpectedFlags = ReplaceDebugFlagPair(ExpectedFlags);
+    auto NewExpectedArgs  = ReplaceDebugFlagPair(ExpectedArgs);
 
     VerifyPdbUtil(pFullPdb, pPdbUtils,
       pMainFileName,
@@ -1277,35 +1294,43 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bSourceInDebugModule, bool bStr
   pInclude->CallResults.emplace_back(included_File.c_str());
 
   std::vector<const WCHAR *> args;
-  std::vector<const WCHAR *> expectedArgs;
-  std::vector<const WCHAR *> expectedFlags;
+  std::vector<std::pair<const WCHAR *, const WCHAR *> > expectedArgs;
+  std::vector<std::pair<const WCHAR *, const WCHAR *> > expectedFlags;
   std::vector<const WCHAR *> expectedDefines;
 
-  auto AddArg = [&args, &expectedFlags, &expectedArgs](const WCHAR *arg, bool isDefine) {
+  auto AddArg = [&args, &expectedFlags, &expectedArgs](const WCHAR *arg, const WCHAR *value, bool isDefine) {
     args.push_back(arg);
-    expectedArgs.push_back(arg);
-    if (!isDefine)
-      expectedFlags.push_back(arg);
+    if (value)
+      args.push_back(value);
+
+    std::pair<const WCHAR *, const WCHAR *> pair(arg, value);
+    expectedArgs.push_back(pair);
+
+    if (!isDefine) {
+      expectedFlags.push_back(pair);
+    }
   };
 
-  AddArg(L"-Zi", false);
-  AddArg(L"-Od", false);
-  AddArg(L"-flegacy-macro-expansion", false);
+  AddArg(L"-Zi", nullptr, false);
+  AddArg(L"-Od", nullptr, false);
+  AddArg(L"-flegacy-macro-expansion", nullptr, false);
 
   if (bStrip) {
-    AddArg(L"-Qstrip_debug", false);
+    AddArg(L"-Qstrip_debug", nullptr, false);
   }
   else {
-    AddArg(L"-Qembed_debug", false);
+    AddArg(L"-Qembed_debug", nullptr, false);
   }
 
   if (bSourceInDebugModule) {
-    AddArg(L"-Qsource_in_debug_module", false);
+    AddArg(L"-Qsource_in_debug_module", nullptr, false);
   }
   if (bSlim) {
-    AddArg(L"-Qsource_only_debug", false);
+    AddArg(L"-Qsource_only_debug", nullptr, false);
   }
-  AddArg(L"-DTHIS_IS_A_DEFINE=HELLO", true);
+
+  AddArg(L"-D", L"THIS_IS_A_DEFINE=HELLO", true);
+
   const DxcDefine pDefines[] = { L"THIS_IS_ANOTHER_DEFINE", L"1" };
   expectedDefines.push_back(L"THIS_IS_ANOTHER_DEFINE=1");
   expectedDefines.push_back(L"THIS_IS_A_DEFINE=HELLO");
