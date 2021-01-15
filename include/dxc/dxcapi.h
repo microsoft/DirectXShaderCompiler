@@ -587,7 +587,7 @@ struct IDxcPdbUtils : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE GetArg(_In_ UINT32 uIndex, _Outptr_result_z_ BSTR *pResult) = 0;
 
   virtual HRESULT STDMETHODCALLTYPE GetArgPairCount(_Out_ UINT32 *pCount) = 0;
-  virtual HRESULT STDMETHODCALLTYPE GetArgPair(_In_ UINT32 uIndex, _Outptr_result_z_ BSTR *pArg, _Outptr_result_z_ BSTR *pValue) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetArgPair(_In_ UINT32 uIndex, _Outptr_result_z_ BSTR *pName, _Outptr_result_z_ BSTR *pValue) = 0;
 
   virtual HRESULT STDMETHODCALLTYPE GetDefineCount(_Out_ UINT32 *pCount) = 0;
   virtual HRESULT STDMETHODCALLTYPE GetDefine(_In_ UINT32 uIndex, _Outptr_result_z_ BSTR *pResult) = 0;
