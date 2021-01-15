@@ -15,7 +15,7 @@
 #include "clang/Basic/SourceManager.h"
 #include "clang/Frontend/CodeGenOptions.h"
 #include "llvm/Support/Path.h"
-#include "miniz.h"
+#include "miniz/miniz.h"
 
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
