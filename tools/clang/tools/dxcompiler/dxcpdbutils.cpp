@@ -260,6 +260,12 @@ private:
   std::string m_VersionCommitSha;
   std::string m_VersionString;
 
+  struct ArgPair {
+    std::wstring Name;
+    std::wstring Value;
+  };
+  std::vector<ArgPair> m_ArgPairs;
+
   void Reset() {
     m_pDebugProgramBlob = nullptr;
     m_InputBlob = nullptr;
@@ -277,6 +283,7 @@ private:
     m_VersionInfo = {};
     m_VersionCommitSha.clear();
     m_VersionString.clear();
+    m_ArgPairs.clear();
   }
 
   bool HasSources() const {
@@ -461,37 +468,44 @@ private:
 
         // Args
         for (unsigned i = 0; i < reader.GetArgPairCount(); i++) {
-          const hlsl::SourceInfoReader::ArgPair &pair = reader.GetArgPair(i);
+          ArgPair newPair;
+          {
+            const hlsl::SourceInfoReader::ArgPair &pair = reader.GetArgPair(i);
+            newPair.Name = ToWstring(pair.Name);
+            newPair.Value = ToWstring(pair.Value);
+          }
+
           bool excludeFromFlags = false;
-          if (pair.Name == "E") {
-            m_EntryPoint = ToWstring(pair.Value);
+          if (newPair.Name == L"E") {
+            m_EntryPoint = newPair.Value;
             excludeFromFlags = true;
           }
-          else if (pair.Name == "T") {
-            m_TargetProfile = ToWstring(pair.Value);
+          else if (newPair.Name == L"T") {
+            m_TargetProfile = newPair.Value;
             excludeFromFlags = true;
           }
-          else if (pair.Name == "D") {
-            m_Defines.push_back(ToWstring(pair.Value));
+          else if (newPair.Name == L"D") {
+            m_Defines.push_back(newPair.Value);
             excludeFromFlags = true;
           }
 
-          std::wstring name;
-          if (pair.Name.size())
-            name = std::wstring(L"-") + ToWstring(pair.Name);
-          std::wstring value = ToWstring(pair.Value);
+          std::wstring nameWithDash;
+          if (newPair.Name.size())
+            nameWithDash = std::wstring(L"-") + newPair.Name;
 
           if (!excludeFromFlags) {
-            if (name.size())
-              m_Flags.push_back(name);
-            if (value.size())
-              m_Flags.push_back(value);
+            if (nameWithDash.size())
+              m_Flags.push_back(nameWithDash);
+            if (newPair.Value.size())
+              m_Flags.push_back(newPair.Value);
           }
 
-          if (name.size())
-            m_Args.push_back(name);
-          if (value.size())
-            m_Args.push_back(value);
+          if (nameWithDash.size())
+            m_Args.push_back(nameWithDash);
+          if (newPair.Value.size())
+            m_Args.push_back(newPair.Value);
+
+          m_ArgPairs.push_back( std::move(newPair) );
         }
 
         // Sources
@@ -651,6 +665,28 @@ public:
   virtual HRESULT STDMETHODCALLTYPE GetArg(_In_ UINT32 uIndex, _Outptr_result_z_ BSTR *pResult) override { return GetStringOption(m_Args, uIndex, pResult); }
   virtual HRESULT STDMETHODCALLTYPE GetDefineCount(_Out_ UINT32 *pCount) override { return GetStringCount(m_Defines, pCount); }
   virtual HRESULT STDMETHODCALLTYPE GetDefine(_In_ UINT32 uIndex, _Outptr_result_z_ BSTR *pResult) override { return GetStringOption(m_Defines, uIndex, pResult); }
+
+  virtual HRESULT STDMETHODCALLTYPE GetArgPairCount(_Out_ UINT32 *pCount) override {
+    if (!pCount) return E_POINTER;
+    *pCount = (UINT32)m_ArgPairs.size();
+    return S_OK;
+  }
+
+  virtual HRESULT STDMETHODCALLTYPE GetArgPair(_In_ UINT32 uIndex, _Outptr_result_z_ BSTR *pName, _Outptr_result_z_ BSTR *pValue) override {
+    if (!pName || !pValue) return E_POINTER;
+    const ArgPair &pair = m_ArgPairs[uIndex];
+
+    *pName = nullptr;
+    *pValue = nullptr;
+
+    if (pair.Name.size())
+      IFR(CopyWstringToBSTR(pair.Name, pName));
+
+    if (pair.Value.size())
+      IFR(CopyWstringToBSTR(pair.Value, pValue));
+
+    return S_OK;
+  }
 
   virtual HRESULT STDMETHODCALLTYPE GetTargetProfile(_Outptr_result_z_ BSTR *pResult) override {
     return CopyWstringToBSTR(m_TargetProfile, pResult);

@@ -1121,11 +1121,47 @@ static void VerifyPdbUtil(
     VERIFY_IS_TRUE(tally.size() == 0);
   }
 
+  // Arg pairs
+  {
+    std::vector<std::pair< std::wstring, std::wstring > > ArgPairs;
+    UINT32 uCount = 0;
+    VERIFY_SUCCEEDED(pPdbUtils->GetArgPairCount(&uCount));
+    for (unsigned i = 0; i < uCount; i++) {
+      CComBSTR pName;
+      CComBSTR pValue;
+      VERIFY_SUCCEEDED(pPdbUtils->GetArgPair(i, &pName, &pValue));
+
+      VERIFY_IS_TRUE(pName || pValue);
+
+      std::pair<std::wstring, std::wstring> NewPair;
+      if (pName)
+        NewPair.first = std::wstring(pName);
+      if (pValue)
+        NewPair.second = std::wstring(pValue);
+      ArgPairs.push_back(std::move(NewPair));
+    }
+
+    for (size_t i = 0; i < ExpectedArgs.size(); i++) {
+      auto ExpectedPair = ExpectedArgs[i];
+      bool Found = false;
+      for (size_t j = 0; j < ArgPairs.size(); j++) {
+        auto Pair = ArgPairs[j];
+        if ((!ExpectedPair.first || Pair.first == ExpectedPair.first) &&
+          (!ExpectedPair.second || Pair.second == ExpectedPair.second))
+        {
+          Found = true;
+          break;
+        }
+      }
+      VERIFY_SUCCEEDED(Found);
+    }
+  }
+
   auto TestArgumentPair = [](llvm::ArrayRef<std::wstring> Args, llvm::ArrayRef<std::pair<const WCHAR *, const WCHAR *> > Expected) {
-    for (int i = 0; i < Expected.size(); i++) {
+    for (size_t i = 0; i < Expected.size(); i++) {
       auto Pair = Expected[i];
       bool found = false;
-      for (int j = 0; j < Args.size(); j++) {
+      for (size_t j = 0; j < Args.size(); j++) {
         if (!Pair.second && Args[j] == Pair.first) {
           found = true;
           break;
