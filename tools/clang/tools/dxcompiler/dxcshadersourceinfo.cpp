@@ -168,11 +168,11 @@ bool SourceInfoReader::Init(const hlsl::DxilSourceInfo *SourceInfo, unsigned sou
 
       const hlsl::DxilSourceInfo_SourceContentsEntry *entry = firstEntry;
       for (unsigned i = 0; i < header->Count; i++) {
-        if (PointerByteOffset(entry+1, firstEntry) > header->EntriesSizeInBytes)
+        if (PointerByteOffset(entry+1, firstEntry) > header->UncompressedEntriesSizeInBytes)
           return false;
-        if (PointerByteOffset(entry+1, firstEntry) + entry->ContentSizeInBytes > header->EntriesSizeInBytes)
+        if (PointerByteOffset(entry+1, firstEntry) + entry->ContentSizeInBytes > header->UncompressedEntriesSizeInBytes)
           return false;
-        if (PointerByteOffset(entry, firstEntry) + entry->AlignedSizeInBytes > header->EntriesSizeInBytes)
+        if (PointerByteOffset(entry, firstEntry) + entry->AlignedSizeInBytes > header->UncompressedEntriesSizeInBytes)
           return false;
 
         const void *ptr = entry+1;
@@ -379,7 +379,7 @@ void SourceInfoWriter::Write(llvm::StringRef targetProfile, llvm::StringRef entr
     if (bCompress) {
       bCompressed = ZlibCompress(uncompressedBuffer.data(), uncompressedBuffer.size(), &m_Buffer);
       if (!bCompressed)
-        uncompressedBuffer.resize(contentOffset); // Reset the size back
+        m_Buffer.resize(contentOffset); // Reset the size back
     }
 
     // If we compressed the content, go back to rewrite the header to write the
