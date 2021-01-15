@@ -128,6 +128,9 @@ bool SourceInfoReader::Init(const hlsl::DxilSourceInfo *SourceInfo, unsigned sou
 
         const void *ptr = entry+1;
         if (entry->NameSizeInBytes > 0) {
+          // Fail if not null terminated
+          if (((const char *)ptr)[entry->NameSizeInBytes-1] != '\0')
+            return false;
           llvm::StringRef name = { (const char *)ptr, entry->NameSizeInBytes-1, };
           m_Sources[i].Name = name;
         }
@@ -177,6 +180,9 @@ bool SourceInfoReader::Init(const hlsl::DxilSourceInfo *SourceInfo, unsigned sou
 
         const void *ptr = entry+1;
         if (entry->ContentSizeInBytes > 0) {
+          // Fail if not null terminated
+          if (((const char *)ptr)[entry->ContentSizeInBytes-1] != '\0')
+            return false;
           llvm::StringRef content = { (const char *)ptr, entry->ContentSizeInBytes-1, };
           m_Sources[i].Content = content;
         }
