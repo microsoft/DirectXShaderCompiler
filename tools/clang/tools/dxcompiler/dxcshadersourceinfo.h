@@ -51,7 +51,8 @@ struct SourceInfoReader {
   const ArgPair &GetArgPair(unsigned i) const { return m_ArgPairs[i]; }
   unsigned GetArgPairCount() const { return m_ArgPairs.size(); }
 
-  void Init(const hlsl::DxilSourceInfo *SourceInfo);
+  // Note: The memory for SourceInfo must outlive this structure.
+  bool Init(const hlsl::DxilSourceInfo *SourceInfo, unsigned sourceInfoSize);
 };
 
 // Herper for writing the shader source part.

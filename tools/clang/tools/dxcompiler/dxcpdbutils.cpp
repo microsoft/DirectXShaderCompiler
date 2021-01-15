@@ -447,7 +447,10 @@ private:
       {
         const hlsl::DxilSourceInfo *header = (const hlsl::DxilSourceInfo *)(part+1);
         hlsl::SourceInfoReader reader;
-        reader.Init(header);
+        if (!reader.Init(header, part->PartSize)) {
+          Reset();
+          return E_FAIL;
+        }
 
         // Args
         for (unsigned i = 0; i < reader.GetArgPairCount(); i++) {
