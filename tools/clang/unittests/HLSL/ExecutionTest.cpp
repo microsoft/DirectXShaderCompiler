@@ -1198,37 +1198,51 @@ public:
 #endif
   }
 
+  bool DoesDeviceSupportRayTracing(ID3D12Device *pDevice) {
+#if WDK_NTDDI_VERSION > NTDDI_WIN10_RS4
+    D3D12_FEATURE_DATA_D3D12_OPTIONS5 O5;
+    if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS5, &O5, sizeof(O5))))
+      return false;
+    return O5.RaytracingTier != D3D12_RAYTRACING_TIER_NOT_SUPPORTED;
+#else
+    return false;
+#endif
+  }
+
+  // Replace with appropriate WDK check when available
+#define SM66_RUNTIME_SUPPORT 0
+
   bool DoesDeviceSupportMeshAmpDerivatives(ID3D12Device *pDevice) {
-#if 0
+#if SM66_RUNTIME_SUPPORT
     D3D12_FEATURE_DATA_D3D12_OPTIONS7 O7;
-    D3D12_FEATURE_DATA_D3D12_OPTIONS8 O8;
+    D3D12_FEATURE_DATA_D3D12_OPTIONS9 O9;
     if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS7, &O7, sizeof(O7))) ||
-        FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS8, &O8, sizeof(O8))))
+        FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS9, &O9, sizeof(O9))))
       return false;
     return O7.MeshShaderTier != D3D12_MESH_SHADER_TIER_NOT_SUPPORTED &&
-      O8.DerivativesInMeshAndAmplificationShadersSupported != FALSE;
+      O9.DerivativesInMeshAndAmplificationShadersSupported != FALSE;
 #else
     return false;
 #endif
   }
 
   bool DoesDeviceSupportTyped64Atomics(ID3D12Device *pDevice) {
-#if 0
-    D3D12_FEATURE_DATA_D3D12_OPTIONS8 O8;
-    if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS8, &O8, sizeof(O8))))
+#if SM66_RUNTIME_SUPPORT
+    D3D12_FEATURE_DATA_D3D12_OPTIONS9 O9;
+    if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS9, &O9, sizeof(O9))))
       return false;
-    return O8.AtomicInt64OnTypedResourceSupported != FALSE;
+    return O9.AtomicInt64OnTypedResourceSupported != FALSE;
 #else
     return false;
 #endif
   }
 
   bool DoesDeviceSupportShared64Atomics(ID3D12Device *pDevice) {
-#if 0
-    D3D12_FEATURE_DATA_D3D12_OPTIONS8 O8;
-    if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS8, &O8, sizeof(O8))))
+#if SM66_RUNTIME_SUPPORT
+    D3D12_FEATURE_DATA_D3D12_OPTIONS9 O9;
+    if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS9, &O9, sizeof(O9))))
       return false;
-    return O8.AtomicInt64OnGroupSharedSupported != FALSE;
+    return O9.AtomicInt64OnGroupSharedSupported != FALSE;
 #else
     return false;
 #endif
@@ -1570,7 +1584,7 @@ void ExecutionTest::RunLifetimeIntrinsicComputeTest(ID3D12Device *pDevice, LPCST
   CComPtr<ID3D12Resource> pUavResource;
   CComPtr<ID3D12Resource> pReadBuffer;
   CComPtr<ID3D12Resource> pUploadResource;
-  CreateTestUavs(pDevice, pCommandList, values.data(), valueSizeInBytes, &pUavResource, &pReadBuffer, &pUploadResource);
+  CreateTestUavs(pDevice, pCommandList, values.data(), valueSizeInBytes, &pUavResource, &pUploadResource, &pReadBuffer);
   VERIFY_SUCCEEDED(pUavResource->SetName(L"RunLifetimeIntrinsicTest UAV"));
   VERIFY_SUCCEEDED(pReadBuffer->SetName(L"RunLifetimeIntrinsicTest UAV Read Buffer"));
   VERIFY_SUCCEEDED(pUploadResource->SetName(L"RunLifetimeIntrinsicTest UAV Upload Buffer"));
@@ -1779,9 +1793,11 @@ TEST_F(ExecutionTest, LifetimeIntrinsicTest) {
   RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_0, false, pOptions15, _countof(pOptions15), values);
   VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
 
-  // Test library with zeroinitializer store.
-  RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_3, true, pOptions15, _countof(pOptions15), values);
-  VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
+  if (DoesDeviceSupportRayTracing(pDevice)) {
+    // Test library with zeroinitializer store.
+    RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_3, true, pOptions15, _countof(pOptions15), values);
+    VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
+  }
 
   // Testing SM 6.6 and validator version 1.6 requires experimental shaders
   // being turned on.
@@ -1792,17 +1808,21 @@ TEST_F(ExecutionTest, LifetimeIntrinsicTest) {
   RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_0, false, pOptions16, _countof(pOptions16), values);
   VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
 
-  // Test library with undef store.
-  RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_3, true, pOptions16, _countof(pOptions16), values);
-  VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
+  if (DoesDeviceSupportRayTracing(pDevice)) {
+    // Test library with undef store.
+    RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_3, true, pOptions16, _countof(pOptions16), values);
+    VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
+  }
 
   // Test regular shader with lifetime intrinsics.
   RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_5, false, pOptions16, _countof(pOptions16), values); // TODO: Test 6.6 here!
   VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
 
-  // Test library with lifetime intrinsics.
-  RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_5, true, pOptions16, _countof(pOptions16), values); // TODO: Test 6.6 here!
-  VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
+  if (DoesDeviceSupportRayTracing(pDevice)) {
+    // Test library with lifetime intrinsics.
+    RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_5, true, pOptions16, _countof(pOptions16), values); // TODO: Test 6.6 here!
+    VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
+  }
 }
 
 TEST_F(ExecutionTest, BasicComputeTest) {
