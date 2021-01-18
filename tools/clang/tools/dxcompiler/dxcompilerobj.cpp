@@ -1031,7 +1031,7 @@ public:
           // Create the shader source information for PDB
           hlsl::SourceInfoWriter debugSourceInfoWriter;
           const hlsl::DxilSourceInfo *pSourceInfo = nullptr;
-          if (!opts.LegacyDebug) { // If we are using legacy PDB, do not generate it at all
+          if (!opts.SourceInDebugModule) { // If we are using old PDB format where sources are in debug module, do not generate source info at all
             debugSourceInfoWriter.Write(opts.TargetProfile, opts.EntryPoint, compiler.getCodeGenOpts(), compiler.getSourceManager());
             pSourceInfo = debugSourceInfoWriter.GetPart();
           }
@@ -1042,7 +1042,7 @@ public:
             assert(pSourceInfo);
           }
           else {
-            if (!opts.LegacyDebug) {
+            if (!opts.SourceInDebugModule) {
               // Strip out the source related metadata
               compiledModule->GetOrCreateDxilModule()
                 .StripShaderSourcesAndCompileOptions(/* bReplaceWithDummyData */ true);

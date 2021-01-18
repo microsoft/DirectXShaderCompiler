@@ -625,7 +625,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.RecompileFromBinary = Args.hasFlag(OPT_recompile, OPT_INVALID, false);
   opts.StripDebug = Args.hasFlag(OPT_Qstrip_debug, OPT_INVALID, false);
   opts.EmbedDebug = Args.hasFlag(OPT_Qembed_debug, OPT_INVALID, false);
-  opts.LegacyDebug = Args.hasFlag(OPT_Qsource_in_debug_module, OPT_INVALID, false);
+  opts.SourceInDebugModule = Args.hasFlag(OPT_Qsource_in_debug_module, OPT_INVALID, false);
   opts.SourceOnlyDebug = Args.hasFlag(OPT_Qsource_only_debug, OPT_INVALID, false);
   opts.FullDebug = Args.hasFlag(OPT_Qfull_debug, OPT_INVALID, false);
   opts.StripRootSignature = Args.hasFlag(OPT_Qstrip_rootsignature, OPT_INVALID, false);
@@ -922,7 +922,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     return 1;
   }
 
-  if (opts.LegacyDebug && opts.SourceOnlyDebug) {
+  if (opts.SourceInDebugModule && opts.SourceOnlyDebug) {
     errors << "Cannot specify both /Qsource_in_debug_module and /Qsource_only_debug";
     return 1;
   }
