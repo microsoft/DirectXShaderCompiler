@@ -1355,5 +1355,22 @@ bool isStructureContainingAnyKindOfBuffer(QualType type) {
   return false;
 }
 
+bool isScalarOrNonStructAggregateOfNumericalTypes(QualType type) {
+  // Remove arrayness if present.
+  while (type->isArrayType())
+    type = type->getAsArrayTypeUnsafe()->getElementType();
+
+  QualType elemType = {};
+  if (isScalarType(type, &elemType) || isVectorType(type, &elemType) ||
+      isMxNMatrix(type, &elemType)) {
+    // Return true if the basic elemen type is a float or non-boolean integer
+    // type.
+    return elemType->isFloatingType() ||
+           (elemType->isIntegerType() && !elemType->isBooleanType());
+  }
+
+  return false;
+}
+
 } // namespace spirv
 } // namespace clang
