@@ -1044,7 +1044,8 @@ public:
           else {
             if (!opts.LegacyDebug) {
               // Strip out the source related metadata
-              compiledModule->GetOrCreateDxilModule().StripShaderSourcesAndCompileOptions();
+              compiledModule->GetOrCreateDxilModule()
+                .StripShaderSourcesAndCompileOptions(/* bReplaceWithDummyData */ true);
             }
             CComPtr<AbstractMemoryStream> pDebugBlobStorage;
             IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pDebugBlobStorage));

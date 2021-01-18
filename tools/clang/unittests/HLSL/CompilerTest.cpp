@@ -978,7 +978,7 @@ TEST_F(CompilerTest, CompileThenAddCustomDebugName) {
   VERIFY_IS_NULL(pPartHeader);
 }
 
-static void VerifyPdbUtil(
+static void VerifyPdbUtil(dxc::DxcDllSupport &dllSupport,
     IDxcBlob *pBlob, IDxcPdbUtils *pPdbUtils,
     const WCHAR *pMainFileName,
     llvm::ArrayRef<std::pair<const WCHAR *, const WCHAR *> > ExpectedArgs,
@@ -1246,11 +1246,54 @@ static void VerifyPdbUtil(
     auto NewExpectedFlags = ReplaceDebugFlagPair(ExpectedFlags);
     auto NewExpectedArgs  = ReplaceDebugFlagPair(ExpectedArgs);
 
-    VerifyPdbUtil(pFullPdb, pPdbUtils,
+    VerifyPdbUtil(dllSupport, pFullPdb, pPdbUtils,
       pMainFileName,
       NewExpectedArgs, NewExpectedFlags, ExpectedDefines,
       pCompiler, HasVersion, /*IsFullPDB*/true,
       HasHashAndPdbName, MainSource, IncludedFile);
+  }
+
+  // Now, test that dia interface doesn't crash (even if it fails).
+  {
+    CComPtr<IDiaDataSource> pDataSource;
+    VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcDiaDataSource, &pDataSource));
+
+    CComPtr<IDxcLibrary> pLib;
+    VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
+
+    CComPtr<IStream> pStream;
+    VERIFY_SUCCEEDED(pLib->CreateStreamFromBlobReadOnly(pBlob, &pStream));
+    if (SUCCEEDED(pDataSource->loadDataFromIStream(pStream))) {
+      CComPtr<IDiaSession> pSession;
+      if (SUCCEEDED(pDataSource->openSession(&pSession))) {
+        CComPtr<IDxcPixDxilDebugInfoFactory> pFactory;
+        VERIFY_SUCCEEDED(pSession->QueryInterface(&pFactory));
+
+        CComPtr<IDxcPixCompilationInfo> pCompilationInfo;
+        if (SUCCEEDED(pFactory->NewDxcPixCompilationInfo(&pCompilationInfo))) {
+          CComBSTR args;
+          CComBSTR defs;
+          CComBSTR mainName;
+          CComBSTR entryPoint;
+          CComBSTR entryPointFile;
+          CComBSTR target;
+          pCompilationInfo->GetArguments(&args);
+          pCompilationInfo->GetMacroDefinitions(&defs);
+          pCompilationInfo->GetEntryPoint(&entryPoint);
+          pCompilationInfo->GetEntryPointFile(&entryPointFile);
+          pCompilationInfo->GetHlslTarget(&target);
+          for (DWORD i = 0;;i++) {
+            CComBSTR sourceName;
+            CComBSTR sourceContent;
+            if (FAILED(pCompilationInfo->GetSourceFile(i, &sourceName, &sourceContent)))
+              break;
+          }
+        }
+
+        CComPtr<IDxcPixDxilDebugInfo> pDebugInfo;
+        pFactory->NewDxcPixDxilDebugInfo(&pDebugInfo);
+      }
+    }
   }
 }
 
@@ -1399,7 +1442,8 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bSourceInDebugModule, bool bStr
     VERIFY_SUCCEEDED(pRef->FindFirstPartKind(hlsl::DFCC_ShaderDebugInfoDXIL, &uIndex));
     VERIFY_SUCCEEDED(pRef->GetPartContent(uIndex, &pProgramHeaderBlob));
 
-    VerifyPdbUtil(pProgramHeaderBlob, pPdbUtils,
+    VerifyPdbUtil(m_dllSupport,
+      pProgramHeaderBlob, pPdbUtils,
       L"source.hlsl",
       expectedArgs, expectedFlags, expectedDefines,
       pCompiler,
@@ -1409,7 +1453,8 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bSourceInDebugModule, bool bStr
       main_source, included_File);
   }
 
-  VerifyPdbUtil(pPdbBlob, pPdbUtils,
+  VerifyPdbUtil(m_dllSupport,
+    pPdbBlob, pPdbUtils,
     L"source.hlsl",
     expectedArgs, expectedFlags, expectedDefines,
     pCompiler,
@@ -1419,7 +1464,8 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bSourceInDebugModule, bool bStr
     main_source, included_File);
 
   if (!bStrip) {
-    VerifyPdbUtil(pCompiledBlob, pPdbUtils,
+    VerifyPdbUtil(m_dllSupport,
+      pCompiledBlob, pPdbUtils,
       L"source.hlsl",
       expectedArgs, expectedFlags, expectedDefines,
       pCompiler,
