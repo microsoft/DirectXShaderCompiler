@@ -971,57 +971,119 @@ public:
     *ppSampHeap = pSampHeap;
   }
 
-  // Create Resource views for <pDevice> given the SRV and UAV information provided
-  // using some reasonable defaults
-  void CreateDefaultResourceViews(ID3D12Device *pDevice, D3D12_CPU_DESCRIPTOR_HANDLE heapStart,
-                                  int numElements,
-                                  const CComPtr<ID3D12Resource> pSRVResources[], int NumSRVs,
-                                  const CComPtr<ID3D12Resource> pUAVResources[], int NumUAVs) {
-
-    CD3DX12_CPU_DESCRIPTOR_HANDLE baseHandle(heapStart);
+  void CreateSRV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &baseHandle,
+                 DXGI_FORMAT format, D3D12_SRV_DIMENSION viewDimension, UINT numElements, UINT stride,
+                 const CComPtr<ID3D12Resource> pResource) {
     UINT descriptorSize = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-    // Create SRVs
+    // Create SRV
     D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-    srvDesc.Format = DXGI_FORMAT_UNKNOWN;
-    srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+    srvDesc.Format = format;
+    srvDesc.ViewDimension = viewDimension;
     srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-    srvDesc.Buffer.FirstElement = 0;
-    srvDesc.Buffer.NumElements = numElements;
-    srvDesc.Buffer.StructureByteStride = sizeof(float);
-    for (int i = 0; i < NumSRVs - 1; i++) {
-      pDevice->CreateShaderResourceView(pSRVResources[i], &srvDesc, baseHandle);
-      baseHandle = baseHandle.Offset(descriptorSize);
+    switch (viewDimension) {
+    case D3D12_SRV_DIMENSION_BUFFER:
+      srvDesc.Buffer.FirstElement = 0;
+      srvDesc.Buffer.NumElements = numElements;
+      srvDesc.Buffer.StructureByteStride = stride;
+      if (format == DXGI_FORMAT_R32_TYPELESS && stride == 0)
+        srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
+      else
+        srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+      break;
+    case D3D12_SRV_DIMENSION_TEXTURE1D:
+      srvDesc.Texture1D.MostDetailedMip = 0;
+      srvDesc.Texture1D.MipLevels = 1;
+      srvDesc.Texture1D.ResourceMinLODClamp = 0;
+      break;
+    case D3D12_SRV_DIMENSION_TEXTURE2D:
+      srvDesc.Texture2D.MostDetailedMip = 0;
+      srvDesc.Texture2D.MipLevels = 1;
+      srvDesc.Texture2D.PlaneSlice = 0;
+      srvDesc.Texture2D.ResourceMinLODClamp = 0;
+      break;
     }
+    pDevice->CreateShaderResourceView(pResource, &srvDesc, baseHandle);
+    baseHandle.Offset(descriptorSize);
+  }
 
-    srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
-    srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-    srvDesc.Texture2D.MostDetailedMip = 0;
-    srvDesc.Texture2D.MipLevels = 1;
-    srvDesc.Texture2D.PlaneSlice = 0;
-    srvDesc.Texture2D.ResourceMinLODClamp = 0;
-    pDevice->CreateShaderResourceView(pSRVResources[NumSRVs - 1], &srvDesc, baseHandle);
-    baseHandle = baseHandle.Offset(descriptorSize);
 
-    // Create UAVs
+  void CreateRawSRV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &heapStart,
+                    UINT numElements, const CComPtr<ID3D12Resource> pResource) {
+    CreateSRV(pDevice, heapStart, DXGI_FORMAT_R32_TYPELESS, D3D12_SRV_DIMENSION_BUFFER, numElements, 0, pResource);
+  }
+
+  void CreateStructSRV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &heapStart,
+                       UINT numElements, UINT stride, const CComPtr<ID3D12Resource> pResource) {
+    CreateSRV(pDevice, heapStart, DXGI_FORMAT_UNKNOWN, D3D12_SRV_DIMENSION_BUFFER, numElements, stride, pResource);
+  }
+
+  void CreateTypedSRV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &heapStart,
+                      UINT numElements, DXGI_FORMAT format, const CComPtr<ID3D12Resource> pResource) {
+    CreateSRV(pDevice, heapStart, format, D3D12_SRV_DIMENSION_BUFFER, numElements, 0, pResource);
+  }
+
+  void CreateTex1DSRV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &heapStart,
+                      UINT numElements, DXGI_FORMAT format, const CComPtr<ID3D12Resource> pResource) {
+    CreateSRV(pDevice, heapStart, format, D3D12_SRV_DIMENSION_TEXTURE1D, numElements, 0, pResource);
+  }
+
+  void CreateTex2DSRV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &heapStart,
+                      UINT numElements, DXGI_FORMAT format, const CComPtr<ID3D12Resource> pResource) {
+    CreateSRV(pDevice, heapStart, format, D3D12_SRV_DIMENSION_TEXTURE2D, numElements, 0, pResource);
+  }
+
+  void CreateUAV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &baseHandle,
+                 DXGI_FORMAT format, D3D12_UAV_DIMENSION viewDimension, UINT numElements, UINT stride,
+                 const CComPtr<ID3D12Resource> pResource) {
+    UINT descriptorSize = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
-    uavDesc.Format = DXGI_FORMAT_UNKNOWN;
-    uavDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
-    uavDesc.Buffer.FirstElement = 0;
-    uavDesc.Buffer.NumElements = numElements;
-    uavDesc.Buffer.StructureByteStride = sizeof(float);
-    uavDesc.Buffer.CounterOffsetInBytes = 0;
-    uavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
-    for (int i = 0; i < NumUAVs - 1; i++) {
-      pDevice->CreateUnorderedAccessView(pUAVResources[i], nullptr, &uavDesc, baseHandle);
-      baseHandle = baseHandle.Offset(descriptorSize);
+    uavDesc.Format = format;
+    uavDesc.ViewDimension = viewDimension;
+    switch (viewDimension) {
+    case D3D12_UAV_DIMENSION_BUFFER:
+      uavDesc.Buffer.FirstElement = 0;
+      uavDesc.Buffer.NumElements = numElements;
+      uavDesc.Buffer.StructureByteStride = stride;
+      if (format == DXGI_FORMAT_R32_TYPELESS && stride == 0)
+        uavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_RAW;
+      else
+        uavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
+      break;
+    case D3D12_UAV_DIMENSION_TEXTURE1D:
+      uavDesc.Texture1D.MipSlice = 0;
+      break;
+    case D3D12_UAV_DIMENSION_TEXTURE2D:
+      uavDesc.Texture2D.MipSlice = 0;
+      uavDesc.Texture2D.PlaneSlice = 0;
+      break;
     }
+    pDevice->CreateUnorderedAccessView(pResource, nullptr, &uavDesc, baseHandle);
+    baseHandle.Offset(descriptorSize);
+  }
 
-    uavDesc.Format = DXGI_FORMAT_R32_FLOAT;
-    uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE1D;
-    uavDesc.Texture1D.MipSlice = 0;
-    pDevice->CreateUnorderedAccessView(pUAVResources[NumUAVs - 1], nullptr, &uavDesc, baseHandle);
+  void CreateRawUAV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &heapStart,
+                    UINT numElements, const CComPtr<ID3D12Resource> pResource) {
+    CreateUAV(pDevice, heapStart, DXGI_FORMAT_R32_TYPELESS, D3D12_UAV_DIMENSION_BUFFER, numElements, 0, pResource);
+  }
 
+  void CreateStructUAV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &heapStart,
+                       UINT numElements, UINT stride, const CComPtr<ID3D12Resource> pResource) {
+    CreateUAV(pDevice, heapStart, DXGI_FORMAT_UNKNOWN, D3D12_UAV_DIMENSION_BUFFER, numElements, stride, pResource);
+  }
+
+  void CreateTypedUAV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &heapStart,
+                      UINT numElements, DXGI_FORMAT format, const CComPtr<ID3D12Resource> pResource) {
+    CreateUAV(pDevice, heapStart, format, D3D12_UAV_DIMENSION_BUFFER, numElements, 0, pResource);
+  }
+
+  void CreateTex1DUAV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &heapStart,
+                      UINT numElements, DXGI_FORMAT format, const CComPtr<ID3D12Resource> pResource) {
+    CreateUAV(pDevice, heapStart, format, D3D12_UAV_DIMENSION_TEXTURE1D, numElements, 0, pResource);
+  }
+
+  void CreateTex2DUAV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &heapStart,
+                 UINT numElements, DXGI_FORMAT format, const CComPtr<ID3D12Resource> pResource) {
+    CreateUAV(pDevice, heapStart, format, D3D12_UAV_DIMENSION_TEXTURE2D, numElements, 0, pResource);
   }
 
   // Create Samplers for <pDevice> given the filter and border color information provided
@@ -1138,37 +1200,51 @@ public:
 #endif
   }
 
+  bool DoesDeviceSupportRayTracing(ID3D12Device *pDevice) {
+#if WDK_NTDDI_VERSION > NTDDI_WIN10_RS4
+    D3D12_FEATURE_DATA_D3D12_OPTIONS5 O5;
+    if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS5, &O5, sizeof(O5))))
+      return false;
+    return O5.RaytracingTier != D3D12_RAYTRACING_TIER_NOT_SUPPORTED;
+#else
+    return false;
+#endif
+  }
+
+  // Replace with appropriate WDK check when available
+#define SM66_RUNTIME_SUPPORT 0
+
   bool DoesDeviceSupportMeshAmpDerivatives(ID3D12Device *pDevice) {
-#if 0
+#if SM66_RUNTIME_SUPPORT
     D3D12_FEATURE_DATA_D3D12_OPTIONS7 O7;
-    D3D12_FEATURE_DATA_D3D12_OPTIONS8 O8;
+    D3D12_FEATURE_DATA_D3D12_OPTIONS9 O9;
     if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS7, &O7, sizeof(O7))) ||
-        FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS8, &O8, sizeof(O8))))
+        FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS9, &O9, sizeof(O9))))
       return false;
     return O7.MeshShaderTier != D3D12_MESH_SHADER_TIER_NOT_SUPPORTED &&
-      O8.DerivativesInMeshAndAmplificationShadersSupported != FALSE;
+      O9.DerivativesInMeshAndAmplificationShadersSupported != FALSE;
 #else
     return false;
 #endif
   }
 
   bool DoesDeviceSupportTyped64Atomics(ID3D12Device *pDevice) {
-#if 0
-    D3D12_FEATURE_DATA_D3D12_OPTIONS8 O8;
-    if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS8, &O8, sizeof(O8))))
+#if SM66_RUNTIME_SUPPORT
+    D3D12_FEATURE_DATA_D3D12_OPTIONS9 O9;
+    if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS9, &O9, sizeof(O9))))
       return false;
-    return O8.AtomicInt64OnTypedResourceSupported != FALSE;
+    return O9.AtomicInt64OnTypedResourceSupported != FALSE;
 #else
     return false;
 #endif
   }
 
   bool DoesDeviceSupportShared64Atomics(ID3D12Device *pDevice) {
-#if 0
-    D3D12_FEATURE_DATA_D3D12_OPTIONS8 O8;
-    if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS8, &O8, sizeof(O8))))
+#if SM66_RUNTIME_SUPPORT
+    D3D12_FEATURE_DATA_D3D12_OPTIONS9 O9;
+    if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS9, &O9, sizeof(O9))))
       return false;
-    return O8.AtomicInt64OnGroupSharedSupported != FALSE;
+    return O9.AtomicInt64OnGroupSharedSupported != FALSE;
 #else
     return false;
 #endif
@@ -1310,8 +1386,8 @@ public:
   void RunLifetimeIntrinsicTest(ID3D12Device *pDevice, LPCSTR shader, D3D_SHADER_MODEL shaderModel, bool useLibTarget, LPCWSTR *pOptions, int numOptions, std::vector<uint32_t> &values);
   void RunLifetimeIntrinsicComputeTest(ID3D12Device *pDevice, LPCSTR pShader, CComPtr<ID3D12DescriptorHeap>& pUavHeap, CComPtr<ID3D12RootSignature>& pRootSignature,
                                        LPCWSTR pTargetProfile, LPCWSTR *pOptions, int numOptions, std::vector<uint32_t> &values);
-  void RunLifetimeIntrinsicLibTest(ID3D12Device5 *pDevice, LPCSTR pShader, CComPtr<ID3D12DescriptorHeap>& pUavHeap, CComPtr<ID3D12RootSignature>& pRootSignature,
-                                   LPCWSTR pTargetProfile, LPCWSTR *pOptions, int numOptions, std::vector<uint32_t> &values);
+  void RunLifetimeIntrinsicLibTest(ID3D12Device5 *pDevice, LPCSTR pShader, CComPtr<ID3D12RootSignature>& pRootSignature,
+                                   LPCWSTR pTargetProfile, LPCWSTR *pOptions, int numOptions);
 
   void SetDescriptorHeap(ID3D12GraphicsCommandList *pCommandList, ID3D12DescriptorHeap *pHeap) {
     ID3D12DescriptorHeap *const pHeaps[1] = { pHeap };
@@ -1510,7 +1586,7 @@ void ExecutionTest::RunLifetimeIntrinsicComputeTest(ID3D12Device *pDevice, LPCST
   CComPtr<ID3D12Resource> pUavResource;
   CComPtr<ID3D12Resource> pReadBuffer;
   CComPtr<ID3D12Resource> pUploadResource;
-  CreateTestUavs(pDevice, pCommandList, values.data(), valueSizeInBytes, &pUavResource, &pReadBuffer, &pUploadResource);
+  CreateTestUavs(pDevice, pCommandList, values.data(), valueSizeInBytes, &pUavResource, &pUploadResource, &pReadBuffer);
   VERIFY_SUCCEEDED(pUavResource->SetName(L"RunLifetimeIntrinsicTest UAV"));
   VERIFY_SUCCEEDED(pReadBuffer->SetName(L"RunLifetimeIntrinsicTest UAV Read Buffer"));
   VERIFY_SUCCEEDED(pUploadResource->SetName(L"RunLifetimeIntrinsicTest UAV Upload Buffer"));
@@ -1557,8 +1633,8 @@ void ExecutionTest::RunLifetimeIntrinsicComputeTest(ID3D12Device *pDevice, LPCST
   WaitForSignal(pCommandQueue, FO);
 }
 
-void ExecutionTest::RunLifetimeIntrinsicLibTest(ID3D12Device5 *pDevice, LPCSTR pShader, CComPtr<ID3D12DescriptorHeap>& pUavHeap, CComPtr<ID3D12RootSignature>& pRootSignature,
-                                                LPCWSTR pTargetProfile, LPCWSTR *pOptions, int numOptions, std::vector<uint32_t> &values) {
+void ExecutionTest::RunLifetimeIntrinsicLibTest(ID3D12Device5 *pDevice, LPCSTR pShader, CComPtr<ID3D12RootSignature>& pRootSignature,
+                                                LPCWSTR pTargetProfile, LPCWSTR *pOptions, int numOptions) {
   // Create command queue.
   CComPtr<ID3D12CommandQueue> pCommandQueue;
   CreateCommandQueue(pDevice, L"RunLifetimeIntrinsicTest Command Queue", &pCommandQueue, D3D12_COMMAND_LIST_TYPE_DIRECT);
@@ -1646,7 +1722,7 @@ void ExecutionTest::RunLifetimeIntrinsicTest(ID3D12Device *pDevice, LPCSTR pShad
   }
 
   if (useLibTarget)
-    RunLifetimeIntrinsicLibTest(reinterpret_cast<ID3D12Device5*>(pDevice), pShader, pUavHeap, pRootSignature, pTargetProfile, pOptions, numOptions, values);
+    RunLifetimeIntrinsicLibTest(reinterpret_cast<ID3D12Device5*>(pDevice), pShader, pRootSignature, pTargetProfile, pOptions, numOptions);
   else
     RunLifetimeIntrinsicComputeTest(pDevice, pShader, pUavHeap, pRootSignature, pTargetProfile, pOptions, numOptions, values);
 }
@@ -1719,9 +1795,11 @@ TEST_F(ExecutionTest, LifetimeIntrinsicTest) {
   RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_0, false, pOptions15, _countof(pOptions15), values);
   VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
 
-  // Test library with zeroinitializer store.
-  RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_3, true, pOptions15, _countof(pOptions15), values);
-  VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
+  if (DoesDeviceSupportRayTracing(pDevice)) {
+    // Test library with zeroinitializer store.
+    RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_3, true, pOptions15, _countof(pOptions15), values);
+    VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
+  }
 
   // Testing SM 6.6 and validator version 1.6 requires experimental shaders
   // being turned on.
@@ -1732,17 +1810,21 @@ TEST_F(ExecutionTest, LifetimeIntrinsicTest) {
   RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_0, false, pOptions16, _countof(pOptions16), values);
   VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
 
-  // Test library with undef store.
-  RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_3, true, pOptions16, _countof(pOptions16), values);
-  VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
+  if (DoesDeviceSupportRayTracing(pDevice)) {
+    // Test library with undef store.
+    RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_3, true, pOptions16, _countof(pOptions16), values);
+    VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
+  }
 
   // Test regular shader with lifetime intrinsics.
   RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_5, false, pOptions16, _countof(pOptions16), values); // TODO: Test 6.6 here!
   VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
 
-  // Test library with lifetime intrinsics.
-  RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_5, true, pOptions16, _countof(pOptions16), values); // TODO: Test 6.6 here!
-  VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
+  if (DoesDeviceSupportRayTracing(pDevice)) {
+    // Test library with lifetime intrinsics.
+    RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_5, true, pOptions16, _countof(pOptions16), values); // TODO: Test 6.6 here!
+    VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
+  }
 }
 
 TEST_F(ExecutionTest, BasicComputeTest) {
@@ -8049,8 +8131,17 @@ void ExecutionTest::RunResourceTest(ID3D12Device *pDevice, const char *pShader,
       pCommandList->SetComputeRootDescriptorTable(1, pSampHeap->GetGPUDescriptorHandleForHeapStart());
     }
   }
-  CreateDefaultResourceViews(pDevice, pResHeap->GetCPUDescriptorHandleForHeapStart(), valueSize,
-                             pSRVResources, NumSRVs, pUAVResources, NumUAVs);
+  CD3DX12_CPU_DESCRIPTOR_HANDLE baseHandle(pResHeap->GetCPUDescriptorHandleForHeapStart());
+  // Create SRVs
+  CreateRawSRV(pDevice, baseHandle, valueSize, pSRVResources[0]);
+  CreateStructSRV(pDevice, baseHandle, valueSize, sizeof(float), pSRVResources[1]);
+  CreateTex2DSRV(pDevice, baseHandle, valueSize, DXGI_FORMAT_R32_FLOAT, pSRVResources[2]);
+  // Create UAVs
+  CreateRawUAV(pDevice, baseHandle, valueSize, pUAVResources[0]);
+  CreateStructUAV(pDevice, baseHandle, valueSize, sizeof(float), pUAVResources[1]);
+  CreateTypedUAV(pDevice, baseHandle, valueSize, DXGI_FORMAT_R32_FLOAT, pUAVResources[2]);
+  CreateTex1DUAV(pDevice, baseHandle, valueSize, DXGI_FORMAT_R32_FLOAT, pUAVResources[3]);
+
   D3D12_FILTER filters[] = {D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT, D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT};
   float borderColors[] = {30.0, 31.0};
   CreateDefaultSamplers(pDevice, pSampHeap->GetCPUDescriptorHandleForHeapStart(),
@@ -8306,7 +8397,7 @@ void VerifyAtomicResults(const BYTE *uResults, const BYTE *sResults,
   LogCommentFmt(L"Verifying %d-bit integer atomic add", bitSize);
   // For 32-bit values, the sum exceeds the 16 bit limit, so we can't duplicate
   // That's fine, the duplication is really for 64-bit values.
-  if (addResult >= 1ULL << shBits)
+  if (bitSize < 64)
     VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*ADD_IDX, addResult, byteSize));
   else
     VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*ADD_IDX, SHIFT(addResult, shBits), byteSize));
@@ -8527,11 +8618,9 @@ void VerifyAtomicsSharedTest(std::shared_ptr<ShaderOpTestResult> test,
 }
 
 void VerifyAtomicsTest(std::shared_ptr<ShaderOpTestResult> test,
-                       size_t maxIdx, size_t bitSize, bool hasGroupShared) {
+                       size_t maxIdx, size_t bitSize) {
   VerifyAtomicsRawTest(test, maxIdx, bitSize);
   VerifyAtomicsTypedTest(test, maxIdx, bitSize);
-  if (hasGroupShared)
-    VerifyAtomicsSharedTest(test, maxIdx, bitSize);
 }
 
 TEST_F(ExecutionTest, AtomicsTest) {
@@ -8553,21 +8642,23 @@ TEST_F(ExecutionTest, AtomicsTest) {
   LogCommentFmt(L"Verifying 32-bit integer atomic operations in compute shader");
   std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
 
-  VerifyAtomicsTest(test, 32*32, 32, true /* hasGroupShared */);
+  VerifyAtomicsTest(test, 32*32, 32);
+  VerifyAtomicsSharedTest(test, 32*32, 32);
 
   // Test mesh shader if available
   pShaderOp->CS = nullptr;
   if (DoesDeviceSupportMeshShaders(pDevice)) {
     LogCommentFmt(L"Verifying 32-bit integer atomic operations in amp/mesh/pixel shaders");
     test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
-    VerifyAtomicsTest(test, 8*8*8*8 + 64*64, 32, false /* hasGroupShared */);
+    VerifyAtomicsTest(test, 8*8*2 + 8*8*2 + 64*64, 32);
+    VerifyAtomicsSharedTest(test, 8*8*2 + 8*8*2, 32);
   }
 
   // Test Vertex + Pixel shader
   pShaderOp->MS = nullptr;
   LogCommentFmt(L"Verifying 32-bit integer atomic operations in vert/pixel shaders");
   test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
-  VerifyAtomicsTest(test, 64*64+6, 32, false /* hasGroupShared */);
+  VerifyAtomicsTest(test, 64*64+6, 32);
 }
 
 TEST_F(ExecutionTest, Atomics64Test) {
@@ -8612,7 +8703,7 @@ TEST_F(ExecutionTest, Atomics64Test) {
   if (DoesDeviceSupportMeshShaders(pDevice)) {
     LogCommentFmt(L"Verifying 64-bit integer atomic operations on raw buffers in amp/mesh/pixel shader");
     test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
-    VerifyAtomicsRawTest(test, 8*8*8*8 + 64*64, 64);
+    VerifyAtomicsRawTest(test, 8*8*2 + 8*8*2 + 64*64, 64);
   }
 
   // Test Vertex + Pixel shader
@@ -8676,7 +8767,7 @@ TEST_F(ExecutionTest, AtomicsTyped64Test) {
   if (DoesDeviceSupportMeshShaders(pDevice)) {
     LogCommentFmt(L"Verifying 64-bit integer atomic operations on typed resources in amp/mesh/pixel shader");
     test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
-    VerifyAtomicsTypedTest(test, 8*8*8*8 + 64*64, 64);
+    VerifyAtomicsTypedTest(test, 8*8*2 + 8*8*2 + 64*64, 64);
   }
 
   // Test Vertex + Pixel shader
@@ -8738,7 +8829,7 @@ TEST_F(ExecutionTest, AtomicsShared64Test) {
   if (DoesDeviceSupportMeshShaders(pDevice)) {
     LogCommentFmt(L"Verifying 64-bit integer atomic operations on groupshared variables in amp/mesh/pixel shader");
     test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
-    VerifyAtomicsSharedTest(test, 8*8*8*8 + 64*64, 64);
+    VerifyAtomicsSharedTest(test, 8*8*2 + 8*8*2, 64);
   }
 }
 
@@ -8766,7 +8857,18 @@ void VerifyAtomicFloatResults(const float *results, size_t maxIdx) {
   }
 }
 
-void VerifyAtomicsFloatTest(std::shared_ptr<ShaderOpTestResult> test, size_t maxIdx, bool hasGroupShared) {
+void VerifyAtomicsFloatSharedTest(std::shared_ptr<ShaderOpTestResult> test, size_t maxIdx) {
+  MappedData Data;
+  const float *pData = nullptr;
+
+  test->Test->GetReadBackData("U4", &Data);
+  pData = (float *)Data.data();
+
+  LogCommentFmt(L"Verifying float cmp/xchg atomic operations on groupshared variables");
+  VerifyAtomicFloatResults(pData, maxIdx);
+}
+
+void VerifyAtomicsFloatTest(std::shared_ptr<ShaderOpTestResult> test, size_t maxIdx) {
 
   // struct mirroring that in the shader
   struct AtomicStuff {
@@ -8804,13 +8906,6 @@ void VerifyAtomicsFloatTest(std::shared_ptr<ShaderOpTestResult> test, size_t max
   LogCommentFmt(L"Verifying float cmp/xchg atomic operations on RWTexture resources");
   VerifyAtomicFloatResults(pData, maxIdx);
 
-  if (hasGroupShared) {
-    test->Test->GetReadBackData("U4", &Data);
-    pData = (float *)Data.data();
-
-    LogCommentFmt(L"Verifying float cmp/xchg atomic operations on groupshared variables");
-    VerifyAtomicFloatResults(pData, maxIdx);
-  }
 }
 
 TEST_F(ExecutionTest, AtomicsFloatTest) {
@@ -8831,21 +8926,23 @@ TEST_F(ExecutionTest, AtomicsFloatTest) {
   // Test compute shader
   LogCommentFmt(L"Verifying float cmp/xchg atomic operations in compute shader");
   std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "FloatAtomics", nullptr, ShaderOpSet);
-  VerifyAtomicsFloatTest(test, 32*32, true /* hasGroupShared */);
+  VerifyAtomicsFloatTest(test, 32*32);
+  VerifyAtomicsFloatSharedTest(test, 32*32);
 
   // Test mesh shader if available
   pShaderOp->CS = nullptr;
   if (DoesDeviceSupportMeshShaders(pDevice)) {
     LogCommentFmt(L"Verifying float cmp/xchg atomic operations in amp/mesh/pixel shaders");
     test = RunShaderOpTestAfterParse(pDevice, m_support, "FloatAtomics", nullptr, ShaderOpSet);
-    VerifyAtomicsFloatTest(test, 8*8*8*8 + 64*64, false /* hasGroupShared */);
+    VerifyAtomicsFloatTest(test, 8*8*2 + 8*8*2 + 64*64);
+    VerifyAtomicsFloatSharedTest(test, 8*8*2 + 8*8*2);
   }
 
   // Test Vertex + Pixel shader
   pShaderOp->MS = nullptr;
     LogCommentFmt(L"Verifying float cmp/xchg atomic operations in vert/pixel shaders");
   test = RunShaderOpTestAfterParse(pDevice, m_support, "FloatAtomics", nullptr, ShaderOpSet);
-  VerifyAtomicsFloatTest(test, 64*64+6, false /* hasGroupShared */);
+  VerifyAtomicsFloatTest(test, 64*64+6);
 }
 
 // The IsHelperLane test renders 3-pixel triangle into 16x16 render target restricted 

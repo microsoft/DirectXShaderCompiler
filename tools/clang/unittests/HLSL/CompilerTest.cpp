@@ -127,6 +127,7 @@ public:
   TEST_METHOD(CompileWhenWorksThenAddRemovePrivate)
   TEST_METHOD(CompileThenAddCustomDebugName)
   TEST_METHOD(CompileThenTestPdbUtils)
+  TEST_METHOD(CompileThenTestPdbUtilsStripped)
   TEST_METHOD(CompileWithRootSignatureThenStripRootSignature)
 
   TEST_METHOD(CompileWhenIncludeThenLoadInvoked)
@@ -975,12 +976,202 @@ TEST_F(CompilerTest, CompileThenAddCustomDebugName) {
   VERIFY_IS_NULL(pPartHeader);
 }
 
+static void VerifyPdbUtil(IDxcPdbUtils *pPdbUtils, bool HasHashAndPdbName, IDxcBlob *pBlob, const std::string &main_source, const std::string &included_File) {
+  VERIFY_SUCCEEDED(pPdbUtils->Load(pBlob));
+
+  // Target profile
+  {
+    CComBSTR str;
+    VERIFY_SUCCEEDED(pPdbUtils->GetTargetProfile(&str));
+    VERIFY_ARE_EQUAL(str, L"ps_6_0");
+  }
+
+  // Entry point
+  {
+    CComBSTR str;
+    VERIFY_SUCCEEDED(pPdbUtils->GetEntryPoint(&str));
+    VERIFY_ARE_EQUAL(str, L"PSMain");
+  }
+
+  // PDB file path
+  if (HasHashAndPdbName) {
+    CComBSTR pName;
+    VERIFY_SUCCEEDED(pPdbUtils->GetName(&pName));
+    std::wstring suffix = L".pdb";
+    VERIFY_IS_TRUE(pName.Length() >= suffix.size());
+    VERIFY_IS_TRUE(
+      0 == std::memcmp(suffix.c_str(), &pName[pName.Length() - suffix.size()], suffix.size()));
+  }
+
+  // Main file name
+  {
+    CComBSTR pMainFileName;
+    VERIFY_SUCCEEDED(pPdbUtils->GetMainFileName(&pMainFileName));
+    VERIFY_ARE_EQUAL(pMainFileName, L"source.hlsl");
+  }
+
+  // This is a full PDB
+  {
+    VERIFY_IS_TRUE(pPdbUtils->IsFullPDB());
+    CComPtr<IDxcBlob> pPDBBlob;
+    VERIFY_SUCCEEDED(pPdbUtils->GetFullPDB(&pPDBBlob));
+  }
+
+  // There is hash and hash is not empty
+  if (HasHashAndPdbName) {
+    CComPtr<IDxcBlob> pHash;
+    VERIFY_SUCCEEDED(pPdbUtils->GetHash(&pHash));
+    hlsl::DxilShaderHash EmptyHash = {};
+    VERIFY_ARE_EQUAL(pHash->GetBufferSize(), sizeof(EmptyHash));
+    VERIFY_IS_FALSE(0 == std::memcmp(pHash->GetBufferPointer(), &EmptyHash, sizeof(EmptyHash)));
+  }
+
+  // Source files
+  {
+    UINT32 uSourceCount = 0;
+    VERIFY_SUCCEEDED(pPdbUtils->GetSourceCount(&uSourceCount));
+    for (UINT32 i = 0; i < uSourceCount; i++) {
+      CComBSTR pFileName;
+      CComPtr<IDxcBlobEncoding> pFileContent;
+      VERIFY_SUCCEEDED(pPdbUtils->GetSourceName(i, &pFileName));
+      VERIFY_SUCCEEDED(pPdbUtils->GetSource(i, &pFileContent));
+      if (0 == wcscmp(pFileName, L"source.hlsl")) {
+        VERIFY_IS_TRUE(pFileContent->GetBufferSize() == main_source.size());
+        VERIFY_IS_TRUE(0 == std::memcmp(pFileContent->GetBufferPointer(), main_source.data(), main_source.size()));
+      }
+      else {
+        VERIFY_IS_TRUE(0 == std::memcmp(pFileContent->GetBufferPointer(), included_File.data(), included_File.size()));
+      }
+    }
+  }
+
+  // Defines
+  {
+    UINT32 uDefineCount = 0;
+    std::map<std::wstring, int> pdb_defines;
+    VERIFY_SUCCEEDED(pPdbUtils->GetDefineCount(&uDefineCount));
+    VERIFY_IS_TRUE(uDefineCount == 2);
+    for (UINT32 i = 0; i < uDefineCount; i++) {
+      CComBSTR def;
+      VERIFY_SUCCEEDED(pPdbUtils->GetDefine(i, &def));
+      pdb_defines[std::wstring(def)]++;
+    }
+    VERIFY_IS_TRUE(1 == pdb_defines[L"THIS_IS_A_DEFINE=HELLO"]);
+    VERIFY_IS_TRUE(1 == pdb_defines[L"THIS_IS_ANOTHER_DEFINE=1"]);
+  }
+
+  // Flags
+  {
+    const WCHAR *pExpectedFlags[] = { L"/Zi", L"/Od", L"-flegacy-macro-expansion", L"-Qembed_debug", };
+
+    UINT32 uCount = 0;
+    std::map<std::wstring, int> tally;
+    VERIFY_SUCCEEDED(pPdbUtils->GetFlagCount(&uCount));
+    VERIFY_IS_TRUE(uCount == _countof(pExpectedFlags));
+    for (UINT32 i = 0; i < uCount; i++) {
+      CComBSTR def;
+      VERIFY_SUCCEEDED(pPdbUtils->GetFlag(i, &def));
+      tally[std::wstring(def)]++;
+    }
+    for (unsigned i = 0; i < _countof(pExpectedFlags); i++) {
+      VERIFY_IS_TRUE(1 == tally[pExpectedFlags[i]]);
+    }
+  }
+
+  // Args
+  {
+    UINT32 uCount = 0;
+    std::map<std::wstring, int> tally;
+    VERIFY_SUCCEEDED(pPdbUtils->GetArgCount(&uCount));
+    for (UINT32 i = 0; i < uCount; i++) {
+      CComBSTR def;
+      VERIFY_SUCCEEDED(pPdbUtils->GetArg(i, &def));
+      tally[std::wstring(def)]++;
+    }
+    VERIFY_IS_TRUE(1 == tally[L"/Zi"]);
+    VERIFY_IS_TRUE(1 == tally[L"/Od"]);
+    VERIFY_IS_TRUE(1 == tally[L"-flegacy-macro-expansion"]);
+    VERIFY_IS_TRUE(1 == tally[L"-Qembed_debug"]);
+    VERIFY_IS_TRUE(1 == tally[L"/DTHIS_IS_A_DEFINE=HELLO"]);
+  }
+
+  // Make the pix debug info
+  {
+    CComPtr<IDxcPixDxilDebugInfoFactory> pFactory;
+    VERIFY_SUCCEEDED(pPdbUtils->QueryInterface(&pFactory));
+    CComPtr<IDxcPixCompilationInfo> pCompInfo;
+    VERIFY_ARE_EQUAL(E_NOTIMPL, pFactory->NewDxcPixCompilationInfo(&pCompInfo));
+    CComPtr<IDxcPixDxilDebugInfo> pDebugInfo;
+    VERIFY_SUCCEEDED(pFactory->NewDxcPixDxilDebugInfo(&pDebugInfo));
+    VERIFY_ARE_NOT_EQUAL(pDebugInfo, nullptr);
+  }
+}
+
 #ifdef _WIN32
+
+TEST_F(CompilerTest, CompileThenTestPdbUtilsStripped) {
+  CComPtr<TestIncludeHandler> pInclude;
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcOperationResult> pOperationResult;
+
+  std::string main_source = "#include \"helper.h\"\r\n"
+    "float4 PSMain() : SV_Target { return ZERO; }";
+  std::string included_File = "#define ZERO 0";
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText(main_source.c_str(), &pSource);
+
+  pInclude = new TestIncludeHandler(m_dllSupport);
+  pInclude->CallResults.emplace_back(included_File.c_str());
+
+  const WCHAR *pArgs[] = { L"/Zi", L"/Od", L"-flegacy-macro-expansion", L"-Qstrip_debug", L"/DTHIS_IS_A_DEFINE=HELLO" };
+  const DxcDefine pDefines[] = { L"THIS_IS_ANOTHER_DEFINE", L"1" };
+
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"PSMain",
+    L"ps_6_0", pArgs, _countof(pArgs), pDefines, _countof(pDefines), pInclude, &pOperationResult));
+
+  CComPtr<IDxcBlob> pCompiledBlob;
+  VERIFY_SUCCEEDED(pOperationResult->GetResult(&pCompiledBlob));
+
+  CComPtr<IDxcPdbUtils> pPdbUtils;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcPdbUtils, &pPdbUtils));
+
+  VERIFY_SUCCEEDED(pPdbUtils->Load(pCompiledBlob));
+
+  // PDB file path
+  {
+    CComBSTR pName;
+    VERIFY_SUCCEEDED(pPdbUtils->GetName(&pName));
+    std::wstring suffix = L".pdb";
+    VERIFY_IS_TRUE(pName.Length() >= suffix.size());
+    VERIFY_IS_TRUE(
+      0 == std::memcmp(suffix.c_str(), &pName[pName.Length() - suffix.size()], suffix.size()));
+  }
+
+  // There is hash and hash is not empty
+  {
+    CComPtr<IDxcBlob> pHash;
+    VERIFY_SUCCEEDED(pPdbUtils->GetHash(&pHash));
+    hlsl::DxilShaderHash EmptyHash = {};
+    VERIFY_ARE_EQUAL(pHash->GetBufferSize(), sizeof(EmptyHash));
+    VERIFY_IS_FALSE(0 == std::memcmp(pHash->GetBufferPointer(), &EmptyHash, sizeof(EmptyHash)));
+  }
+
+  {
+    VERIFY_IS_FALSE(pPdbUtils->IsFullPDB());
+    UINT32 uSourceCount = 0;
+    VERIFY_SUCCEEDED(pPdbUtils->GetSourceCount(&uSourceCount));
+    VERIFY_ARE_EQUAL(uSourceCount, 0);
+  }
+}
+
+
 TEST_F(CompilerTest, CompileThenTestPdbUtils) {
   CComPtr<TestIncludeHandler> pInclude;
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcBlobEncoding> pSource;
-  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcOperationResult> pOperationResult;
 
   std::string main_source = "#include \"helper.h\"\r\n"
     "float4 PSMain() : SV_Target { return ZERO; }";
@@ -996,148 +1187,39 @@ TEST_F(CompilerTest, CompileThenTestPdbUtils) {
   const DxcDefine pDefines[] = { L"THIS_IS_ANOTHER_DEFINE", L"1" };
 
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"PSMain",
-    L"ps_6_0", pArgs, _countof(pArgs), pDefines, _countof(pDefines), pInclude, &pResult));
+    L"ps_6_0", pArgs, _countof(pArgs), pDefines, _countof(pDefines), pInclude, &pOperationResult));
 
   HRESULT CompileStatus = S_OK;
-  VERIFY_SUCCEEDED(pResult->GetStatus(&CompileStatus));
+  VERIFY_SUCCEEDED(pOperationResult->GetStatus(&CompileStatus));
   VERIFY_SUCCEEDED(CompileStatus);
 
   CComPtr<IDxcBlob> pCompiledBlob;
-  VERIFY_SUCCEEDED(pResult->GetResult(&pCompiledBlob));
+  VERIFY_SUCCEEDED(pOperationResult->GetResult(&pCompiledBlob));
+
+  CComPtr<IDxcResult> pResult;
+  VERIFY_SUCCEEDED(pOperationResult.QueryInterface(&pResult));
+
+  CComPtr<IDxcBlob> pPdbBlob;
+  VERIFY_SUCCEEDED(pResult->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pPdbBlob), nullptr));
 
   CComPtr<IDxcPdbUtils> pPdbUtils;
   VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcPdbUtils, &pPdbUtils));
 
+  CComPtr<IDxcBlob> pProgramHeaderBlob;
   {
-    VERIFY_SUCCEEDED(pPdbUtils->Load(pCompiledBlob));
+    CComPtr<IDxcContainerReflection> pRef;
+    VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pRef));
+    VERIFY_SUCCEEDED(pRef->Load(pPdbBlob));
 
-    // Target profile
-    {
-      CComBSTR str;
-      VERIFY_SUCCEEDED(pPdbUtils->GetTargetProfile(&str));
-      VERIFY_ARE_EQUAL(str, L"ps_6_0");
-    }
+    UINT32 uIndex = 0;
+    VERIFY_SUCCEEDED(pRef->FindFirstPartKind(hlsl::DFCC_ShaderDebugInfoDXIL, &uIndex));
 
-    // Entry point
-    {
-      CComBSTR str;
-      VERIFY_SUCCEEDED(pPdbUtils->GetEntryPoint(&str));
-      VERIFY_ARE_EQUAL(str, L"PSMain");
-    }
-
-    // PDB file path
-    {
-      CComBSTR pName;
-      VERIFY_SUCCEEDED(pPdbUtils->GetName(&pName));
-      std::wstring suffix = L".pdb";
-      VERIFY_IS_TRUE(pName.Length() >= suffix.size());
-      VERIFY_IS_TRUE(
-        0 == std::memcmp(suffix.c_str(), &pName[pName.Length() - suffix.size()], suffix.size()));
-    }
-
-    // Main file name
-    {
-      CComBSTR pMainFileName;
-      VERIFY_SUCCEEDED(pPdbUtils->GetMainFileName(&pMainFileName));
-      VERIFY_ARE_EQUAL(pMainFileName, L"source.hlsl");
-    }
-
-    // This is a full PDB
-    {
-      VERIFY_IS_TRUE(pPdbUtils->IsFullPDB());
-      CComPtr<IDxcBlob> pPDBBlob;
-      VERIFY_SUCCEEDED(pPdbUtils->GetFullPDB(&pPDBBlob));
-    }
-
-    // There is hash and hash is not empty
-    {
-      CComPtr<IDxcBlob> pHash;
-      VERIFY_SUCCEEDED(pPdbUtils->GetHash(&pHash));
-      BYTE EmptyHash[16] = {};
-      VERIFY_ARE_EQUAL(pHash->GetBufferSize(), _countof(EmptyHash));
-      VERIFY_IS_FALSE(0 == std::memcmp(pHash->GetBufferPointer(), EmptyHash, _countof(EmptyHash)));
-    }
-
-    // Source files
-    {
-      UINT32 uSourceCount = 0;
-      VERIFY_SUCCEEDED(pPdbUtils->GetSourceCount(&uSourceCount));
-      for (UINT32 i = 0; i < uSourceCount; i++) {
-        CComBSTR pFileName;
-        CComPtr<IDxcBlobEncoding> pFileContent;
-        VERIFY_SUCCEEDED(pPdbUtils->GetSourceName(i, &pFileName));
-        VERIFY_SUCCEEDED(pPdbUtils->GetSource(i, &pFileContent));
-        if (0 == wcscmp(pFileName, L"source.hlsl")) {
-          VERIFY_IS_TRUE(pFileContent->GetBufferSize() == main_source.size());
-          VERIFY_IS_TRUE(0 == std::memcmp(pFileContent->GetBufferPointer(), main_source.data(), main_source.size()));
-        }
-        else {
-          VERIFY_IS_TRUE(0 == std::memcmp(pFileContent->GetBufferPointer(), included_File.data(), included_File.size()));
-        }
-      }
-    }
-
-    // Defines
-    {
-      UINT32 uDefineCount = 0;
-      std::map<std::wstring, int> pdb_defines;
-      VERIFY_SUCCEEDED(pPdbUtils->GetDefineCount(&uDefineCount));
-      VERIFY_IS_TRUE(uDefineCount == 2);
-      for (UINT32 i = 0; i < uDefineCount; i++) {
-        CComBSTR def;
-        VERIFY_SUCCEEDED(pPdbUtils->GetDefine(i, &def));
-        pdb_defines[std::wstring(def)]++;
-      }
-      VERIFY_IS_TRUE(1 == pdb_defines[L"THIS_IS_A_DEFINE=HELLO"]);
-      VERIFY_IS_TRUE(1 == pdb_defines[L"THIS_IS_ANOTHER_DEFINE=1"]);
-    }
-
-    // Flags
-    {
-      const WCHAR *pExpectedFlags[] = { L"/Zi", L"/Od", L"-flegacy-macro-expansion", L"-Qembed_debug", };
-
-      UINT32 uCount = 0;
-      std::map<std::wstring, int> tally;
-      VERIFY_SUCCEEDED(pPdbUtils->GetFlagCount(&uCount));
-      VERIFY_IS_TRUE(uCount == _countof(pExpectedFlags));
-      for (UINT32 i = 0; i < uCount; i++) {
-        CComBSTR def;
-        VERIFY_SUCCEEDED(pPdbUtils->GetFlag(i, &def));
-        tally[std::wstring(def)]++;
-      }
-      for (unsigned i = 0; i < _countof(pExpectedFlags); i++) {
-        VERIFY_IS_TRUE(1 == tally[pExpectedFlags[i]]);
-      }
-    }
-
-    // Args
-    {
-      UINT32 uCount = 0;
-      std::map<std::wstring, int> tally;
-      VERIFY_SUCCEEDED(pPdbUtils->GetArgCount(&uCount));
-      for (UINT32 i = 0; i < uCount; i++) {
-        CComBSTR def;
-        VERIFY_SUCCEEDED(pPdbUtils->GetArg(i, &def));
-        tally[std::wstring(def)]++;
-      }
-      VERIFY_IS_TRUE(1 == tally[L"/Zi"]);
-      VERIFY_IS_TRUE(1 == tally[L"/Od"]);
-      VERIFY_IS_TRUE(1 == tally[L"-flegacy-macro-expansion"]);
-      VERIFY_IS_TRUE(1 == tally[L"-Qembed_debug"]);
-      VERIFY_IS_TRUE(1 == tally[L"/DTHIS_IS_A_DEFINE=HELLO"]);
-    }
-
-    // Make the pix debug info
-    {
-      CComPtr<IDxcPixDxilDebugInfoFactory> pFactory;
-      VERIFY_SUCCEEDED(pPdbUtils.QueryInterface(&pFactory));
-      CComPtr<IDxcPixCompilationInfo> pCompInfo;
-      VERIFY_ARE_EQUAL(E_NOTIMPL, pFactory->NewDxcPixCompilationInfo(&pCompInfo));
-      CComPtr<IDxcPixDxilDebugInfo> pDebugInfo;
-      VERIFY_SUCCEEDED(pFactory->NewDxcPixDxilDebugInfo(&pDebugInfo));
-      VERIFY_ARE_NOT_EQUAL(pDebugInfo, nullptr);
-    }
+    VERIFY_SUCCEEDED(pRef->GetPartContent(uIndex, &pProgramHeaderBlob));
   }
+
+  VerifyPdbUtil(pPdbUtils, false, pProgramHeaderBlob, main_source, included_File);
+  VerifyPdbUtil(pPdbUtils, true,  pCompiledBlob, main_source, included_File);
+  VerifyPdbUtil(pPdbUtils, true,  pPdbBlob, main_source, included_File);
 }
 #endif
 

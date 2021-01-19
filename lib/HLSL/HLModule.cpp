@@ -408,6 +408,16 @@ bool HLModule::IsEntryThatUsesSignatures(llvm::Function *F) {
   // Otherwise, return true if patch constant function
   return IsPatchConstantShader(F);
 }
+bool HLModule::IsEntry(llvm::Function *F) {
+  auto propIter = m_DxilFunctionPropsMap.find(F);
+  if (propIter != m_DxilFunctionPropsMap.end()) {
+    DXASSERT(propIter->second->shaderKind != DXIL::ShaderKind::Invalid,
+             "invalid entry props");
+    return true;
+  }
+  // Otherwise, return true if patch constant function
+  return IsPatchConstantShader(F);
+}
 
 DxilFunctionAnnotation *HLModule::GetFunctionAnnotation(llvm::Function *F) {
   return m_pTypeSystem->GetFunctionAnnotation(F);

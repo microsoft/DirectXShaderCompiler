@@ -38,6 +38,10 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
   // Integer-related capabilities
   if (const auto *intType = dyn_cast<IntegerType>(type)) {
     switch (intType->getBitwidth()) {
+    case 8: {
+      addCapability(spv::Capability::Int8);
+      break;
+    }
     case 16: {
       // Usage of a 16-bit integer type.
       addCapability(spv::Capability::Int16);
@@ -595,6 +599,14 @@ bool CapabilityVisitor::visit(SpirvExtInst *instr) {
     }
 
   return visitInstruction(instr);
+}
+
+bool CapabilityVisitor::visit(SpirvAtomic *instr) {
+  if (instr->hasValue() && SpirvType::isOrContainsType<IntegerType, 64>(
+                               instr->getValue()->getResultType())) {
+    addCapability(spv::Capability::Int64Atomics, instr->getSourceLocation());
+  }
+  return true;
 }
 
 bool CapabilityVisitor::visit(SpirvDemoteToHelperInvocationEXT *inst) {
