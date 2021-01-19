@@ -55,8 +55,6 @@
 #pragma comment(lib, "dxguid.lib")
 #pragma comment(lib, "version.lib")
 
-#define ISHELPERLANE_PLACEHOLDER
-
 // A more recent Windows SDK than currently required is needed for these.
 typedef HRESULT(WINAPI *D3D12EnableExperimentalFeaturesFn)(
   UINT                                    NumFeatures,
@@ -8960,12 +8958,12 @@ struct HelperLaneQuadTestResult {
 struct HelperLaneWaveTestResult65 {
   // 6.5 wave ops
   XMUINT4  match;
-  int mpCountBits;
-  int mpSum;
-  int mpProduct;
-  int mpBitAnd;
-  int mpBitOr;
-  int mpBitXor;
+  int32_t mpCountBits;
+  int32_t mpSum;
+  int32_t mpProduct;
+  int32_t mpBitAnd;
+  int32_t mpBitOr;
+  int32_t mpBitXor;
 };
 
 struct HelperLaneWaveTestResult {
@@ -8974,280 +8972,106 @@ struct HelperLaneWaveTestResult {
   HelperLaneWaveTestResult65 sm65;
 };
 
-#define HIDE_NVIDIA_BUGS
-//#define HIDE_AMD_BUGS
+struct foo { int32_t a; int32_t b; int32_t c; };
+struct bar { foo f; int32_t d; XMUINT4 g; };
+foo f = {1, 2, 3};
+bar b = { { 1, 2, 3 }, 0, { 1, 2, 3, 4 } };
 
-void VerifyHelperLaneWaveResults_CS_VS_NoQuad(ExecutionTest::D3D_SHADER_MODEL sm, HelperLaneWaveTestResult &testResults) {
-  HelperLaneWaveTestResult60& tr60 = testResults.sm60;
+HelperLaneWaveTestResult HelperLane_CS_ExpectedResults = {
+  // HelperLaneWaveTestResult60
+  { 0, 1, { 0x7, 0, 0, 0 }, 3, 1, 3, 12, 64, 1, 0, 0, 10, 1, 2, 16, 4 },
+  // HelperLaneQuadTestResult
+  { 0, 0, 0, 0 },
+  // HelperLaneWaveTestResult65
+  { {0x7, 0, 0, 0}, 2, 4, 16, 1, 0, 0 }
+};
 
-  // WaveActiveAnyTrue( IsHelperLane() ) == false
-  VERIFY_ARE_EQUAL(tr60.anyTrue, 0);
-  // WaveActiveAllTrue(!IsHelperLane()) == true
-  VERIFY_ARE_EQUAL(tr60.allTrue, 1);
-  // WaveActiveBallot(true) has exactly 3 bits set only
-  VerifyOutputWithExpectedValueUInt4(tr60.ballot, XMUINT4(0x7, 0, 0, 0));
+HelperLaneWaveTestResult HelperLane_VS_ExpectedResults = HelperLane_CS_ExpectedResults;
+  
+HelperLaneWaveTestResult HelperLane_PS_ExpectedResults = {
+  // HelperLaneWaveTestResult60
+  { 0, 1, { 0xB, 0, 0, 0 }, 3, 1, 3, 12, 64, 1, 0, 0, 10, 1, 2, 16, 4 },
+  // HelperLaneQuadTestResult
+  { 0, 1, 0, 0 },
+  // HelperLaneWaveTestResult65
+  { {0xB, 0, 0, 0}, 2, 4, 16, 1, 0, 0 }
+};
 
-  // WaveReadLaneFirst(IsHelperLane()) = false in a waterfall loop exactly 3 times
-  VERIFY_ARE_EQUAL(tr60.waterfallLoopCount, 3);
-  // WaveActiveAllEqual(IsHelperLane()) = true
-  VERIFY_ARE_EQUAL(tr60.allEqual, 1);
-  // WaveActiveCountBits(true) = 3
-  VERIFY_ARE_EQUAL(tr60.countBits, 3);
-  // WaveActiveSum(4) = 12
-  VERIFY_ARE_EQUAL(tr60.sum, 12);
-  // WaveActiveProduct(4) = 64
-  VERIFY_ARE_EQUAL(tr60.product, 64);
+HelperLaneWaveTestResult HelperLane_PSAfterDiscard_ExpectedResults = {
+  // HelperLaneWaveTestResult60
+  { 0, 1, { 0xA, 0, 0, 0 }, 2, 1, 2, 8, 16, 1, 0, 0, 10, 1, 1, 4, 2 },
+  // HelperLaneQuadTestResult
+  { 0, 1, 0, 1 },
+  // HelperLaneWaveTestResult65
+  { {0xA, 0, 0, 0}, 1, 2, 4, 1, 0, 0 }
+};
 
-  // WaveActiveBitAnd(!IsHelperLane()) = 1
-  VERIFY_ARE_EQUAL(tr60.bitAnd, 1);
-  // WaveActiveBitOr(IsHelperLane()) = 0
-  VERIFY_ARE_EQUAL(tr60.bitOr, 0);
-  // WaveActiveBitXor(IsHelperLane()) = 0
-  VERIFY_ARE_EQUAL(tr60.bitXor, 0);
+bool HelperLaneResultLogAndVerify(const wchar_t* testDesc, uint32_t expectedValue, uint32_t actualValue) {
+  bool matches = (expectedValue == actualValue);
+  LogCommentFmt(L"%s%s, expected = %u, actual = %u", matches ? L" - " : L"FAILED: ", testDesc, expectedValue, actualValue);
+  return matches;
+}
 
-  // WaveActiveMin(IsHelperLane() ? 1 : 10) = 10;
-  VERIFY_ARE_EQUAL(tr60.min, 10);
-  // WaveActiveMax(IsHelperLane() ? 10 : 1) = 1;
-#ifndef HIDE_NVIDIA_BUGS // BUG HERE - nVidia returns 0x80000000 on WaveActiveMax(const)
-  VERIFY_ARE_EQUAL(tr60.max, 1);
-#endif
+bool HelperLaneResultLogAndVerify(const wchar_t* testDesc, XMUINT4 expectedValue, XMUINT4 actualValue) {
+  bool matches = (expectedValue.x == actualValue.x && expectedValue.y == actualValue.y &&
+                  expectedValue.z == actualValue.z && expectedValue.w == actualValue.w);
+  LogCommentFmt(L"%s%s, expected = (0x%X,0x%X,0x%X,0x%X), actual = (0x%X,0x%X,0x%X,0x%X)", matches ? L" - " : L"FAILED: ", testDesc,
+    expectedValue.x, expectedValue.y, expectedValue.z, expectedValue.w, actualValue.x, actualValue.y, actualValue.z, actualValue.w);
+  return matches;
+}
+  
 
-  // WavePrefixCountBits(1) = 2
-  VERIFY_ARE_EQUAL(tr60.prefixCountBits, 2);
-  // WavePrefixProduct(4) = 16
-  VERIFY_ARE_EQUAL(tr60.prefixProduct, 16);
-  // WavePrefixSum(2) = 4
-  VERIFY_ARE_EQUAL(tr60.prefixSum, 4);
+bool VerifyHelperLaneWaveResults(ExecutionTest::D3D_SHADER_MODEL sm, HelperLaneWaveTestResult& testResults, HelperLaneWaveTestResult& expectedResults, bool verifyQuads) {
+  bool passed = true;
+  {
+    HelperLaneWaveTestResult60& tr60 = testResults.sm60;
+    HelperLaneWaveTestResult60& tr60exp = expectedResults.sm60;
 
-  if (sm >= D3D_SHADER_MODEL_6_5) {
-    HelperLaneWaveTestResult65& tr65 = testResults.sm65;
-    // WaveMatch(true) has exactly 3 bits set
-    VerifyOutputWithExpectedValueUInt4(tr65.match, XMUINT4(0x7, 0, 0, 0));
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveAnyTrue(IsHelperLane())", tr60exp.anyTrue, tr60.anyTrue);
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveAllTrue(!IsHelperLane())", tr60exp.allTrue, tr60.allTrue);
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveBallot(true) has exactly 3 bits set", tr60exp.ballot, tr60.ballot);
 
-    // WaveMultiPrefixCountBits(1, no_masked_bits) = 2
-    VERIFY_ARE_EQUAL(tr65.mpCountBits, 2);
-    // WaveMultiPrefixSum(2, no_masked_bits) = 4
-    VERIFY_ARE_EQUAL(tr65.mpSum, 4);
-    // WaveMultiPrefixProduct(4, no_masked_bits) = 16
-    VERIFY_ARE_EQUAL(tr65.mpProduct, 16);
+    passed &= HelperLaneResultLogAndVerify(L"!WaveReadLaneFirst( IsHelperLane() ) && WaveIsFirstLane() in a waterfall loop", tr60exp.waterfallLoopCount, tr60.waterfallLoopCount);
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveAllEqual(IsHelperLane())", tr60exp.allEqual, tr60.allEqual);
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveCountBits(true)", tr60exp.countBits, tr60.countBits);
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveSum(4)", tr60exp.sum, tr60.sum);
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveProduct(4)", tr60exp.product, tr60.product);
 
-    // WaveMultiPrefixAnd(IsHelperLane() ? 0 : 1, no_masked_bits) = 1
-    VERIFY_ARE_EQUAL(tr65.mpBitAnd, 1);
-    // WaveMultiPrefixOr(IsHelperLane() ? 1 : 0, no_masked_bits) = 0
-    VERIFY_ARE_EQUAL(tr65.mpBitOr, 0);
-    // verify WaveMultiPrefixXor(IsHelperLane() ? 1 : 0, no_masked_bits) = 0
-    VERIFY_ARE_EQUAL(tr65.mpBitXor, 0);
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveBitAnd(!IsHelperLane())", tr60exp.bitAnd, tr60.bitAnd);
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveBitOr(IsHelperLane())", tr60exp.bitOr, tr60.bitOr);
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveBitXor(IsHelperLane())", tr60exp.bitXor, tr60.bitXor);
+
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveMin(IsHelperLane() ? 1 : 10)", tr60exp.min, tr60.min);
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveMax(IsHelperLane() ? 10 : 1)", tr60exp.max, tr60.max);
+
+    passed &= HelperLaneResultLogAndVerify(L"WavePrefixCountBits(1)", tr60exp.prefixCountBits, tr60.prefixCountBits);
+    passed &= HelperLaneResultLogAndVerify(L"WavePrefixProduct(4)", tr60exp.prefixProduct, tr60.prefixProduct);
+    passed &= HelperLaneResultLogAndVerify(L"WavePrefixSum(2)", tr60exp.prefixSum, tr60.prefixSum);
   }
-}
 
-void VerifyHelperLaneWaveResults_CS(ExecutionTest::D3D_SHADER_MODEL sm, HelperLaneWaveTestResult &testResults) {
-  VerifyHelperLaneWaveResults_CS_VS_NoQuad(sm, testResults);
-
-  // Verify IsHelperLane() via Quad intrinsics
-  // IsHelperLane() should always return false for CS ans VS shaders
-  HelperLaneQuadTestResult& quad_tr = testResults.sm60_quad;
-  VERIFY_ARE_EQUAL(quad_tr.is_helper_this, 0);
-  VERIFY_ARE_EQUAL(quad_tr.is_helper_across_X, 0);
-  VERIFY_ARE_EQUAL(quad_tr.is_helper_across_Y, 0);
-  VERIFY_ARE_EQUAL(quad_tr.is_helper_across_Diag, 0);
-}
-
-void VerifyHelperLaneWaveResults_VS(ExecutionTest::D3D_SHADER_MODEL sm, HelperLaneWaveTestResult &testResults) {
-  VerifyHelperLaneWaveResults_CS_VS_NoQuad(sm, testResults);
-}
-
-void VerifyHelperLaneWaveResults_PS(ExecutionTest::D3D_SHADER_MODEL sm, HelperLaneWaveTestResult &testResults) {
-  HelperLaneWaveTestResult60& tr60 = testResults.sm60;
-
-  // WaveActiveAnyTrue( IsHelperLane() ) == false
-  VERIFY_ARE_EQUAL(tr60.anyTrue, 0);
-  // WaveActiveAllTrue(!IsHelperLane()) == true
-  VERIFY_ARE_EQUAL(tr60.allTrue, 1);
-  // WaveActiveBallot(true) has exactly 3 bits set only, helper lane bit is set to 0
-#ifndef HIDE_NVIDIA_BUGS // !! BUG HERE - NVidia returns 0xF
-  VerifyOutputWithExpectedValueUInt4(tr60.ballot, XMUINT4(0xB, 0, 0, 0));
-#endif
-  // WaveReadLaneFirst(IsHelperLane()) = false in a waterfall loop exactly 3 times
-#ifndef HIDE_NVIDIA_BUGS // !! BUG HERE - NVidia returns 4
-  VERIFY_ARE_EQUAL(tr60.waterfallLoopCount, 3);
-#endif
-  // WaveActiveAllEqual(IsHelperLane()) = true
-  VERIFY_ARE_EQUAL(tr60.allEqual, 1);
-  // WaveActiveCountBits(true) = 3
-#ifndef HIDE_NVIDIA_BUGS // !! BUG HERE - NVidia returns 4
-  VERIFY_ARE_EQUAL(tr60.countBits, 3);
-#endif
-
-  // WaveActiveSum(4) = 12
-#ifndef HIDE_NVIDIA_BUGS // !! BUG HERE - NVidia return 16
-  VERIFY_ARE_EQUAL(tr60.sum, 12);
-#endif
-
-  // WaveActiveProduct(4) = 64
-#ifndef HIDE_NVIDIA_BUGS // !! BUG HERE - NVidia returns 256
-  VERIFY_ARE_EQUAL(tr60.product, 64);
-#endif
-
-  // WaveActiveBitAnd(!IsHelperLane()) = 1
-  VERIFY_ARE_EQUAL(tr60.bitAnd, 1);
-  // WaveActiveBitOr(IsHelperLane()) = 0
-  VERIFY_ARE_EQUAL(tr60.bitOr, 0);
-  // WaveActiveBitXor(IsHelperLane()) = 0
-  VERIFY_ARE_EQUAL(tr60.bitXor, 0);
-
-  // WaveActiveMin(IsHelperLane() ? 1 : 10) = 10;
-  VERIFY_ARE_EQUAL(tr60.min, 10);
-  // WaveActiveMax(IsHelperLane() ? 10 : 1) = 1;
-  VERIFY_ARE_EQUAL(tr60.max, 1);
-
-  // WavePrefixCountBits(1) = 2
-#ifndef HIDE_NVIDIA_BUGS // !! BUG HERE - NVidia returns 3
-  VERIFY_ARE_EQUAL(tr60.prefixCountBits, 2);
-#endif
-
-  // WavePrefixProduct(4) = 16
-#ifndef HIDE_NVIDIA_BUGS // !! BUG HERE - NVidia returns 64
-  VERIFY_ARE_EQUAL(tr60.prefixProduct, 16);
-#endif
-
-  // WavePrefixSum(2) = 4
-#ifndef HIDE_NVIDIA_BUGS// !! BUG HERE - NVidia returns 6
-  VERIFY_ARE_EQUAL(tr60.prefixSum, 4);
-#endif
-
-  // Verify IsHelperLane() via Quad intrinsics
-  // Note: these values are from the last lane of the quad (lane index 3)
-  HelperLaneQuadTestResult& quad_tr = testResults.sm60_quad;
-  VERIFY_ARE_EQUAL(quad_tr.is_helper_this, 0); // lane 3
-  VERIFY_ARE_EQUAL(quad_tr.is_helper_across_X, 1); // lane 2
-  VERIFY_ARE_EQUAL(quad_tr.is_helper_across_Y, 0); // lane 1
-  VERIFY_ARE_EQUAL(quad_tr.is_helper_across_Diag, 0); // lane 0
+  if (verifyQuads) {
+    HelperLaneQuadTestResult& quad_tr = testResults.sm60_quad;
+    HelperLaneQuadTestResult& quad_tr_exp = expectedResults.sm60_quad;
+    passed &= HelperLaneResultLogAndVerify(L"QuadReadAcross* - lane 3 / pixel (1,1) - IsHelperLane()", quad_tr_exp.is_helper_this, quad_tr.is_helper_this);
+    passed &= HelperLaneResultLogAndVerify(L"QuadReadAcross* - lane 2 / pixel (0,1) - IsHelperLane()", quad_tr_exp.is_helper_across_X, quad_tr.is_helper_across_X);
+    passed &= HelperLaneResultLogAndVerify(L"QuadReadAcross* - lane 1 / pixel (1,0) - IsHelperLane()", quad_tr_exp.is_helper_across_Y, quad_tr.is_helper_across_Y);
+    passed &= HelperLaneResultLogAndVerify(L"QuadReadAcross* - lane 0 / pixel (0,0) - IsHelperLane()", quad_tr_exp.is_helper_across_Diag, quad_tr.is_helper_across_Diag);
+  }
 
   if (sm >= D3D_SHADER_MODEL_6_5) {
     HelperLaneWaveTestResult65& tr65 = testResults.sm65;
-    // WaveMatch(true) has exactly 3 bits set, helper lane bit is 0
-#ifndef HIDE_NVIDIA_BUGS // !! BUG HERE - NVidia returns 15
-    VerifyOutputWithExpectedValueUInt4(tr65.match, XMUINT4(0xB, 0, 0, 0));
-#endif
-
-    // WaveMultiPrefixCountBits(1, no_masked_bits) = 2
-#ifndef HIDE_NVIDIA_BUGS // !! BUG HERE - NVidia returns 1
-    VERIFY_ARE_EQUAL(tr65.mpCountBits, 2);
-#endif
-
-    // WaveMultiPrefixSum(2, no_masked_bits) = 4
-#ifndef HIDE_NVIDIA_BUGS // !! BUG HERE - NVidia returns 2
-    VERIFY_ARE_EQUAL(tr65.mpSum, 4);
-#endif
+    HelperLaneWaveTestResult65& tr65exp = expectedResults.sm65;
     
-    // WaveMultiPrefixProduct(4, no_masked_bits) = 16
-#ifndef HIDE_NVIDIA_BUGS // !! BUG HERE - NVidia returns 4
-    VERIFY_ARE_EQUAL(tr65.mpProduct, 16);
-#endif
+    passed &= HelperLaneResultLogAndVerify(L"WaveMatch(true) has exactly 3 bits set", tr65exp.match, tr65.match);
+    passed &= HelperLaneResultLogAndVerify(L"WaveMultiPrefixCountBits(1, no_masked_bits)", tr65exp.mpCountBits, tr65.mpCountBits);
+    passed &= HelperLaneResultLogAndVerify(L"WaveMultiPrefixSum(2, no_masked_bits)", tr65exp.mpSum, tr65.mpSum);
+    passed &= HelperLaneResultLogAndVerify(L"WaveMultiPrefixProduct(4, no_masked_bits)", tr65exp.mpProduct, tr65.mpProduct);
 
-    // WaveMultiPrefixAnd(IsHelperLane() ? 0 : 1, no_masked_bits) = 1
-    VERIFY_ARE_EQUAL(tr65.mpBitAnd, 1);
-    // WaveMultiPrefixOr(IsHelperLane() ? 1 : 0, no_masked_bits) = 0
-    VERIFY_ARE_EQUAL(tr65.mpBitOr, 0);
-    // verify WaveMultiPrefixXor(IsHelperLane() ? 1 : 0, no_masked_bits) = 0
-    VERIFY_ARE_EQUAL(tr65.mpBitXor, 0);
+    passed &= HelperLaneResultLogAndVerify(L"WaveMultiPrefixAnd(IsHelperLane() ? 0 : 1, no_masked_bits)", tr65exp.mpBitAnd, tr65.mpBitAnd);
+    passed &= HelperLaneResultLogAndVerify(L"WaveMultiPrefixOr(IsHelperLane() ? 1 : 0, no_masked_bits)", tr65exp.mpBitOr, tr65.mpBitOr);
+    passed &= HelperLaneResultLogAndVerify(L"verify WaveMultiPrefixXor(IsHelperLane() ? 1 : 0, no_masked_bits)", tr65exp.mpBitXor, tr65.mpBitXor);
   }
-}
-
-void VerifyHelperLaneWaveResults_PSAfterDiscard(ExecutionTest::D3D_SHADER_MODEL sm, HelperLaneWaveTestResult &testResults) {
-  HelperLaneWaveTestResult60& tr60 = testResults.sm60;
-
-  // WaveActiveAnyTrue( IsHelperLane() ) == false
-  VERIFY_ARE_EQUAL(tr60.anyTrue, 0);
-  // WaveActiveAllTrue(!IsHelperLane()) == true
-  VERIFY_ARE_EQUAL(tr60.allTrue, 1);
-  // WaveActiveBallot(true) has exactly 2 bits set, helper lane bits are 0
-#ifndef HIDE_NVIDIA_BUGS // !! BUG HERE - NVidia return 0xF
-  VerifyOutputWithExpectedValueUInt4(tr60.ballot, XMUINT4(0xA, 0, 0, 0));
-#endif
-
-  // WaveReadLaneFirst(IsHelperLane()) = false in a waterfall loop exactly 2 times
-#ifndef HIDE_NVIDIA_BUGS // !! BUG HERE - NVidia returns 4
-  VERIFY_ARE_EQUAL(tr60.waterfallLoopCount, 2);
-#endif
-  // WaveActiveAllEqual(IsHelperLane()) = true
-  VERIFY_ARE_EQUAL(tr60.allEqual, 1);
-  // WaveActiveCountBits(true) = 2
-#ifndef HIDE_NVIDIA_BUGS // !! BUG HERE - NVidia returns 4
-  VERIFY_ARE_EQUAL(tr60.countBits, 2);
-#endif
-
-  // WaveActiveSum(4) = 8
-#ifndef HIDE_NVIDIA_BUGS // !! BUG HERE - NVidia returns 16
-  VERIFY_ARE_EQUAL(tr60.sum, 8);
-#endif
-  // WaveActiveProduct(4) = 16
-#ifndef HIDE_NVIDIA_BUGS // !! BUG HERE - NVidia returns 256
-  VERIFY_ARE_EQUAL(tr60.product, 16);
-#endif
-
-  // WaveActiveBitAnd(!IsHelperLane()) = 1
-  VERIFY_ARE_EQUAL(tr60.bitAnd, 1);
-  // WaveActiveBitOr(IsHelperLane()) = 0
-  VERIFY_ARE_EQUAL(tr60.bitOr, 0);
-  // WaveActiveBitXor(IsHelperLane()) = 0
-  VERIFY_ARE_EQUAL(tr60.bitXor, 0);
-
-  // WaveActiveMin(IsHelperLane() ? 1 : 10) = 10;
-  VERIFY_ARE_EQUAL(tr60.min, 10);
-  // WaveActiveMax(IsHelperLane() ? 10 : 1) = 1;
-  VERIFY_ARE_EQUAL(tr60.max, 1);
-
-  // WavePrefixCountBits(1) = 1
-#ifndef HIDE_NVIDIA_BUGS // !! BUG HERE - NVidia returns 3
-  VERIFY_ARE_EQUAL(tr60.prefixCountBits, 1);
-#endif
-  // WavePrefixProduct(4) = 4
-#ifndef HIDE_NVIDIA_BUGS // !! BUG HERE ? - NVidia returns 64, AMD returns ?
-  VERIFY_ARE_EQUAL(tr60.prefixProduct, 4);
-#endif
-  // WavePrefixSum(2) = 2
-#ifndef HIDE_NVIDIA_BUGS // !! BUG HERE - NVidia returns 6, 
-  VERIFY_ARE_EQUAL(tr60.prefixSum, 2);
-#endif
-
-  // Verify IsHelperLane() via Quad intrinsics
-  // Note: these values are from the last lane of the quad (lane index 3)
-  HelperLaneQuadTestResult& quad_tr = testResults.sm60_quad;
-  VERIFY_ARE_EQUAL(quad_tr.is_helper_this, 0); // lane 3
-  VERIFY_ARE_EQUAL(quad_tr.is_helper_across_X, 1); // lane 2
-  VERIFY_ARE_EQUAL(quad_tr.is_helper_across_Y, 0); // lane 1
-  VERIFY_ARE_EQUAL(quad_tr.is_helper_across_Diag, 1); // lane 0
-
-  if (sm >= D3D_SHADER_MODEL_6_5) {
-    HelperLaneWaveTestResult65& tr65 = testResults.sm65;
-    // WaveMatch(true) has exactly 2 bits set, , helper lane bits are 0
-#ifndef HIDE_NVIDIA_BUGS // !! BUG HERE - NVidia returns 15
-    VerifyOutputWithExpectedValueUInt4(tr65.match, XMUINT4(0xA, 0, 0, 0));
-#endif
-
-    // WaveMultiPrefixCountBits(1, no_masked_bits) = 1
-#ifndef HIDE_NVIDIA_BUGS // !! BUG HERE - NVidia returns 3
-    VERIFY_ARE_EQUAL(tr65.mpCountBits, 1);
-#endif
-
-#ifndef HIDE_NVIDIA_BUGS // !! BUG HERE - NVidia returns 6
-    // WaveMultiPrefixSum(2, no_masked_bits) = 2
-    VERIFY_ARE_EQUAL(tr65.mpSum, 2);
-#endif
-
-#ifndef HIDE_NVIDIA_BUGS // !! BUG HERE - NVidia returns 64
-    // WaveMultiPrefixProduct(4, no_masked_bits) = 4
-    VERIFY_ARE_EQUAL(tr65.mpProduct, 4);
-#endif
-
-    // WaveMultiPrefixAnd(IsHelperLane() ? 0 : 1, no_masked_bits) = 1
-    VERIFY_ARE_EQUAL(tr65.mpBitAnd, 1);
-    // WaveMultiPrefixOr(IsHelperLane() ? 1 : 0, no_masked_bits) = 0
-    VERIFY_ARE_EQUAL(tr65.mpBitOr, 0);
-    // verify WaveMultiPrefixXor(IsHelperLane() ? 1 : 0, no_masked_bits) = 0
-    VERIFY_ARE_EQUAL(tr65.mpBitXor, 0);
-  }
+  return passed;
 }
 
 void CleanUAVBuffer0Buffer(LPCSTR BufferName, std::vector<BYTE>& Data, st::ShaderOp* pShaderOp) {
@@ -9278,10 +9102,14 @@ TEST_F(ExecutionTest, HelperLaneTestWave) {
       S.Arguments = args;
   }
 
+  bool testPassed = true;
+
   D3D_SHADER_MODEL TestShaderModels[] = { D3D_SHADER_MODEL_6_0, D3D_SHADER_MODEL_6_5, D3D_SHADER_MODEL_6_6 };
   for (unsigned i = 0; i < _countof(TestShaderModels); i++) {
     D3D_SHADER_MODEL sm = TestShaderModels[i];
-    LogCommentFmt(L"Verifying IsHelperLane using Wave intrinsics in shader model 6.%1u", ((UINT)sm & 0x0f));
+    LogCommentFmt(L"\r\nVerifying IsHelperLane using Wave intrinsics in shader model 6.%1u", ((UINT)sm & 0x0f));
+
+    bool smPassed = true;
 
     CComPtr<ID3D12Device> pDevice;
     if (!CreateDevice(&pDevice, sm, false /* skipUnsupported */)) {
@@ -9316,7 +9144,8 @@ TEST_F(ExecutionTest, HelperLaneTestWave) {
       MappedData uavData;
       test->Test->GetReadBackData("UAVBuffer0", &uavData);
       HelperLaneWaveTestResult* pTestResults = (HelperLaneWaveTestResult*)uavData.data();
-      VerifyHelperLaneWaveResults_CS(sm, pTestResults[CS_INDEX]);
+      LogCommentFmt(L"\r\nCompute shader");
+      smPassed &= VerifyHelperLaneWaveResults(sm, pTestResults[CS_INDEX], HelperLane_CS_ExpectedResults, true);
     }
     
     // Test Vertex + Pixel shader
@@ -9327,9 +9156,12 @@ TEST_F(ExecutionTest, HelperLaneTestWave) {
       MappedData uavData;
       test->Test->GetReadBackData("UAVBuffer0", &uavData);
       HelperLaneWaveTestResult* pTestResults = (HelperLaneWaveTestResult*)uavData.data();
-      VerifyHelperLaneWaveResults_VS(sm, pTestResults[VS_INDEX]);
-      VerifyHelperLaneWaveResults_PS(sm, pTestResults[PS_INDEX]);
-      VerifyHelperLaneWaveResults_PSAfterDiscard(sm, pTestResults[PS_INDEX_AFTER_DISCARD]);
+      LogCommentFmt(L"\r\nVertex shader");
+      smPassed &= VerifyHelperLaneWaveResults(sm, pTestResults[VS_INDEX], HelperLane_VS_ExpectedResults, false);
+      LogCommentFmt(L"\r\nPixel shader");
+      smPassed &= VerifyHelperLaneWaveResults(sm, pTestResults[PS_INDEX], HelperLane_PS_ExpectedResults, true);
+      LogCommentFmt(L"\r\nPixel shader with discarded pixel");
+      smPassed &= VerifyHelperLaneWaveResults(sm, pTestResults[PS_INDEX_AFTER_DISCARD], HelperLane_PSAfterDiscard_ExpectedResults, true);
       
       MappedData renderData;
       test->Test->GetReadBackData("RTarget", &renderData);
@@ -9337,7 +9169,9 @@ TEST_F(ExecutionTest, HelperLaneTestWave) {
 
       UNREFERENCED_PARAMETER(pPixels);
     }
+    testPassed &= smPassed;
   }
+  VERIFY_ARE_EQUAL(testPassed, true);
 }
 
 #ifndef _HLK_CONF
