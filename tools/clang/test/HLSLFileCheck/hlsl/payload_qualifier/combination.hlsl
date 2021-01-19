@@ -7,7 +7,7 @@
 // CHECK: field is qualified 'out' for shader stage 'closesthit' but trace is missing
 // CHECK: payload access qualifiers are only defined for raytracing shader stages closesthit, miss, anyhit and for special keyword: trace. 'lollipop' is not supported
 // CHECK: payload access qualifier 'out' has already been defined
-// CHECK: field is marked 'out' for 'anyhit' but is not marked 'in' for closesthit or miss or trace
+// CHECK: field is marked 'out' for 'anyhit' but is not marked 'in' for closesthit, miss or anyhit or trace
 // CHECK: field is marked 'in' for 'miss' but is not marked 'out' for anyhit or trace
 // CHECK: field is qualified 'out' for trace but a valid shader stage is missing. Supported shader stages are closesthit, miss or anyhit
 
@@ -30,4 +30,5 @@ struct [payload] Payload
     int h        : out(anyhit);
     int i        : in(miss);
     int j        : out(trace);
+    int k        : in(anyhit) : out(anyhit);
 };

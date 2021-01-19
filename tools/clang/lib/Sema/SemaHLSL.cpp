@@ -10800,11 +10800,15 @@ void hlsl::DiagnosePayloadAccessQualifierAnnotations(
       }
     } else {
       if (inQualContains.anyhit) {
-        S.Diag(inQual->Loc,
-               diag::err_hlsl_payload_access_qualifier_trace_not_present)
-            << "in" << "anyhit";
+          // Check if anyhit loops values back to anyhit
+        if (!outQual || !outQualContains.anyhit) {
+          S.Diag(inQual->Loc,
+                 diag::err_hlsl_payload_access_qualifier_trace_not_present)
+              << "in"
+              << "anyhit";
+        }
       }
-      // check if the field is in for closesthit or miss => the field must be out
+      // Check if the field is in for closesthit or miss => the field must be out
       // for anyhit
       if (inQualContains.closesthit || inQualContains.miss) {
         if (!outQual || !outQualContains.anyhit) {
@@ -10840,16 +10844,16 @@ void hlsl::DiagnosePayloadAccessQualifierAnnotations(
             << "out" << (outQualContains.closesthit ? "closesthit" : "miss");
       }
       // Check if the field is out for anyhit => the field must be in for
-      // closesthit or miss
+      // closesthit or miss or in (loop back) for anyhit 
       if (outQualContains.anyhit) {
-        if (!inQual || !(inQualContains.closesthit || inQualContains.miss)) {
+        if (!inQual || !(inQualContains.closesthit || inQualContains.miss || inQualContains.anyhit)) {
           S.Diag(
               outQual->Loc,
               diag::err_hlsl_payload_access_qualifier_producer_has_no_consumer)
               << "out"
               << "anyhit"
               << "in"
-              << "closesthit or miss";
+              << "closesthit, miss or anyhit";
         }
       }
     }
