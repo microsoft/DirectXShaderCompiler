@@ -464,7 +464,7 @@ void ShaderOpTest::CreatePipelineState() {
     ZeroMemory(&RtArray, sizeof(RtArray));
     RtArray.NumRenderTargets = (UINT)m_pShaderOp->RenderTargets.size();
     for (size_t i = 0; i < RtArray.NumRenderTargets; ++i) {
-      ShaderOpResource *R = m_pShaderOp->GetResourceByName(m_pShaderOp->RenderTargets[i]);
+      ShaderOpResource *R = m_pShaderOp->GetResourceByName(m_pShaderOp->RenderTargets[i].Name);
       RtArray.RTFormats[i] = R->Desc.Format;
     }
     MDesc.RTVFormats = CD3DX12_PIPELINE_STATE_STREAM_RENDER_TARGET_FORMATS(RtArray);
