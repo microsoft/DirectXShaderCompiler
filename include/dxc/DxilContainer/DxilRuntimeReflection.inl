@@ -587,7 +587,7 @@ bool VerifyDxilPayloadDescMatches(const DxilLibraryDesc &a, const DxilLibraryDes
 
   // Check if equal named payloads exist, payloads with different names
   // are considered different types. We count how many payload types we found.
-  int numPayloadsMatched = 0; 
+  unsigned int numPayloadsMatched = 0; 
   for (uint32_t i = 0; i != a.NumPayloads; ++i) {
     DxilPayloadTypeDesc &payloadA = a.pPayloads[i];
 
