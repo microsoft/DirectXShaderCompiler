@@ -398,7 +398,9 @@ public:
   virtual HRESULT STDMETHODCALLTYPE GetHash(_COM_Outptr_ IDxcBlob **ppResult) override {
     if (!ppResult) return E_POINTER;
     *ppResult = nullptr;
-    return m_HashBlob.QueryInterface(ppResult);
+    if (m_HashBlob)
+      return m_HashBlob.QueryInterface(ppResult);
+    return E_FAIL;
   }
 
   virtual HRESULT STDMETHODCALLTYPE GetName(_Outptr_result_z_ BSTR *pResult) override {
