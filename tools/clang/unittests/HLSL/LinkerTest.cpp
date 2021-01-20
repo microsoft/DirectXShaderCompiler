@@ -800,7 +800,7 @@ TEST_F(LinkerTest, LinkSm63ToSm66) {
 
   LPCWSTR libName = L"foo";
   RegisterDxcModule(libName, pLib0, pLinker);
-  // Make sure global_ctors created for lib to lib.
+  // Make sure add annotateHandle when link lib_6_3 to ps_6_6.
   Link(L"ps_main", L"ps_6_6", pLinker, {libName},
        {"call %dx.types.Handle @dx.op.annotateHandle\\(i32 216, %dx.types.Handle "
         "%(.*), %dx.types.ResourceProperties { i32 13, i32 4 }\\)"},
