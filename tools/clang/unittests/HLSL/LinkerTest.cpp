@@ -65,6 +65,7 @@ public:
   TEST_METHOD(RunLinkWithValidatorVersion);
   TEST_METHOD(RunLinkWithTempReg);
   TEST_METHOD(RunLinkToLibWithGlobalCtor);
+  TEST_METHOD(LinkSm63ToSm66);
 
 
   dxc::DxcDllSupport m_dllSupport;
@@ -788,4 +789,20 @@ TEST_F(LinkerTest, RunLinkToLibWithGlobalCtor) {
         "@foo._GLOBAL__sub_I_lib_static_cb_init.hlsl, i8* null }]"},
        {},
        {});
+}
+
+TEST_F(LinkerTest, LinkSm63ToSm66) {
+  CComPtr<IDxcBlob> pLib0;
+  CompileLib(L"..\\CodeGenHLSL\\linker\\link_to_sm66.hlsl", &pLib0, {}, L"lib_6_3");
+
+  CComPtr<IDxcLinker> pLinker;
+  CreateLinker(&pLinker);
+
+  LPCWSTR libName = L"foo";
+  RegisterDxcModule(libName, pLib0, pLinker);
+  // Make sure global_ctors created for lib to lib.
+  Link(L"ps_main", L"ps_6_6", pLinker, {libName},
+       {"call %dx.types.Handle @dx.op.annotateHandle\\(i32 216, %dx.types.Handle "
+        "%(.*), %dx.types.ResourceProperties { i32 13, i32 4 }\\)"},
+       {}, {}, true);
 }
