@@ -175,6 +175,19 @@ if %Failed% neq 0 goto :failed
 call :run dxc.exe smoke.cso /recompile /T ps_6_0 /E main
 if %Failed% neq 0 goto :failed
 
+set testname=Strip Debug, Recompile PDB
+call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Fd smoke.pdb 1> nul
+call :check_file smoke.pdb
+if %Failed% neq 0 goto :failed
+call :run dxc.exe -dumpbin smoke.pdb
+call :check_file log find "DICompileUnit"
+if %Failed% neq 0 goto :failed
+call :run dxc.exe smoke.pdb /recompile > smoke.pdb.ll
+if %Failed% neq 0 goto :failed
+call :run dxc.exe smoke.pdb /recompile /T ps_6_0 /E main
+if %Failed% neq 0 goto :failed
+call :check_file smoke.pdb del
+
 rem Note: this smoke.cso is used for a lot of other tests, and they rely on options set here
 set testname=Command-line Defines, Recompile
 call :run dxc.exe "%testfiles%\smoke.hlsl" /D "semantic = SV_Position" /T vs_6_0 /Zi /Qembed_debug /DDX12 /Fo smoke.cso

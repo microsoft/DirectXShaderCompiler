@@ -557,6 +557,21 @@ struct IDxcOptimizer : public IUnknown {
     _COM_Outptr_opt_ IDxcBlobEncoding **ppOutputText) = 0;
 };
 
+static const UINT32 DxcVersionInfoFlags_None = 0;
+static const UINT32 DxcVersionInfoFlags_Debug = 1; // Matches VS_FF_DEBUG
+static const UINT32 DxcVersionInfoFlags_Internal = 2; // Internal Validator (non-signing)
+
+CROSS_PLATFORM_UUIDOF(IDxcVersionInfo, "b04f5b50-2059-4f12-a8ff-a1e0cde1cc7e")
+struct IDxcVersionInfo : public IUnknown {
+  virtual HRESULT STDMETHODCALLTYPE GetVersion(_Out_ UINT32 *pMajor, _Out_ UINT32 *pMinor) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetFlags(_Out_ UINT32 *pFlags) = 0;
+};
+
+CROSS_PLATFORM_UUIDOF(IDxcVersionInfo2, "fb6904c4-42f0-4b62-9c46-983af7da7c83")
+struct IDxcVersionInfo2 : public IDxcVersionInfo {
+  virtual HRESULT STDMETHODCALLTYPE GetCommitInfo(_Out_ UINT32 *pCommitCount, _Out_ char **pCommitHash) = 0;
+};
+
 CROSS_PLATFORM_UUIDOF(IDxcPdbUtils, "E6C9647E-9D6A-4C3B-B94C-524B5A6C343D")
 struct IDxcPdbUtils : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE Load(_In_ IDxcBlob *pPdbOrDxil) = 0;
@@ -571,6 +586,9 @@ struct IDxcPdbUtils : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE GetArgCount(_Out_ UINT32 *pCount) = 0;
   virtual HRESULT STDMETHODCALLTYPE GetArg(_In_ UINT32 uIndex, _Outptr_result_z_ BSTR *pResult) = 0;
 
+  virtual HRESULT STDMETHODCALLTYPE GetArgPairCount(_Out_ UINT32 *pCount) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetArgPair(_In_ UINT32 uIndex, _Outptr_result_z_ BSTR *pName, _Outptr_result_z_ BSTR *pValue) = 0;
+
   virtual HRESULT STDMETHODCALLTYPE GetDefineCount(_Out_ UINT32 *pCount) = 0;
   virtual HRESULT STDMETHODCALLTYPE GetDefine(_In_ UINT32 uIndex, _Outptr_result_z_ BSTR *pResult) = 0;
 
@@ -583,21 +601,8 @@ struct IDxcPdbUtils : public IUnknown {
 
   virtual BOOL STDMETHODCALLTYPE IsFullPDB() = 0;
   virtual HRESULT STDMETHODCALLTYPE GetFullPDB(_COM_Outptr_ IDxcBlob **ppFullPDB) = 0;
-};
 
-static const UINT32 DxcVersionInfoFlags_None = 0;
-static const UINT32 DxcVersionInfoFlags_Debug = 1; // Matches VS_FF_DEBUG
-static const UINT32 DxcVersionInfoFlags_Internal = 2; // Internal Validator (non-signing)
-
-CROSS_PLATFORM_UUIDOF(IDxcVersionInfo, "b04f5b50-2059-4f12-a8ff-a1e0cde1cc7e")
-struct IDxcVersionInfo : public IUnknown {
-  virtual HRESULT STDMETHODCALLTYPE GetVersion(_Out_ UINT32 *pMajor, _Out_ UINT32 *pMinor) = 0;
-  virtual HRESULT STDMETHODCALLTYPE GetFlags(_Out_ UINT32 *pFlags) = 0;
-};
-
-CROSS_PLATFORM_UUIDOF(IDxcVersionInfo2, "fb6904c4-42f0-4b62-9c46-983af7da7c83")
-struct IDxcVersionInfo2 : public IDxcVersionInfo {
-  virtual HRESULT STDMETHODCALLTYPE GetCommitInfo(_Out_ UINT32 *pCommitCount, _Out_ char **pCommitHash) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetVersionInfo(_COM_Outptr_ IDxcVersionInfo **ppVersionInfo) = 0;
 };
 
 // Note: __declspec(selectany) requires 'extern'

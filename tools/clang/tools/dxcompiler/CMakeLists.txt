@@ -38,6 +38,7 @@ set(LLVM_LINK_COMPONENTS
   target
   transformutils
   vectorize
+  miniz
   )
 
 if (WIN32)
@@ -56,6 +57,7 @@ set(SOURCES
   dxcdisassembler.cpp
   dxcpdbutils.cpp
   dxclinker.cpp
+  dxcshadersourceinfo.cpp
 )
 else ()
 set(SOURCES
@@ -70,6 +72,7 @@ set(SOURCES
   dxcpdbutils.cpp
   dxillib.cpp
   dxcvalidator.cpp
+  dxcshadersourceinfo.cpp
 )
 set (HLSL_IGNORE_SOURCES
   dxcdia.cpp
