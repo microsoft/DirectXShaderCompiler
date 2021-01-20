@@ -11,13 +11,13 @@ Introduction
 
 This document presents the design of the DirectX Intermediate Language (DXIL) for GPU shaders. DXIL is intended to support a direct mapping of the HLSL programming language into Low-Level Virtual Machine Intermediate Representation (LLVM IR), suitable for consumption in GPU drivers. This version of the specification is based on LLVM 3.7 in the use of metadata syntax.
 
-We distinguish between DXIL, which is a low-level IR for GPU driver compilers, and DXIR, which is a high-level IR, more suitable for emission by IR producers, such as Clang. DXIR is transformed to DXIL by the optimizer. DXIR accepts high-level constructs, such as user-defined types, multi-dimensional arrays, matrices, and vectors. These, however, are not suitable for fast JIT-ing in the driver compilers, and so are lowered by the optimizer, such that DXIL works on simpler abstractions. Both DXIL and DXIR are derived from LLVM IR. This document does not describe DXIR.
+We distinguish between DXIL, which is a low-level IR for GPU driver compilers, and DXIR, which is a high-level IR used internally to emit DXIL. DXIR is transformed to DXIL by the optimizer. DXIR accepts high-level constructs, such as user-defined types, multi-dimensional arrays, matrices, and vectors. These, however, are not suitable for fast JIT-ing in the driver compilers, and so are lowered by the optimizer, such that DXIL works on simpler abstractions. Both DXIL and DXIR are derived from LLVM IR. This document does not describe DXIR.
 
 LLVM is quickly becoming a de facto standard in modern compilation technology. The LLVM framework offers several distinct features, such as a vibrant ecosystem, complete compilation framework, modular design, and reasonable documentation. We can leverage these to achieve two important objectives.
 
 First, unification of shader compilation tool chain. DXIL is a contract between IR producers, such as compilers for HLSL and other domain-specific languages, and IR consumers, such as IHV driver JIT compilers or offline XBOX shader compiler. In addition, the design provides for conversion the current HLSL IL, called DXBC IL in this document, to DXIL.
 
-Second, leveraging the LLVM ecosystem. Microsoft will publicly document DXIL and DXIR to attract domain language implementers and spur innovation. Using LLVM-based IR offers reduced entry costs for small teams, simply because small teams are likely to use LLVM and Clang as their main compilation framework. We will provide DXIL verifier to check consistency of generated DXIL.
+Second, leveraging the LLVM ecosystem. Microsoft will publicly document DXIL to attract domain language implementers and spur innovation. Using LLVM-based IR offers reduced entry costs for small teams, simply because small teams are likely to use LLVM and Clang as their main compilation framework. We will provide DXIL verifier to check consistency of generated DXIL.
 
 The following diagram shows how some of these components tie together::
 
