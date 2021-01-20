@@ -351,6 +351,8 @@ struct DxilLinkJob {
        const ShaderModel *pSM);
   std::unique_ptr<llvm::Module> LinkToLib(const ShaderModel *pSM);
   void StripDeadDebugInfo(llvm::Module &M);
+  // Fix issues when link to different shader model.
+  void FixShaderModelMismatch(llvm::Module &M);
   void RunPreparePass(llvm::Module &M);
   void AddFunction(std::pair<DxilFunctionLinkInfo *, DxilLib *> &linkPair);
   void AddFunction(llvm::Function *F);
@@ -1094,8 +1096,127 @@ void DxilLinkJob::StripDeadDebugInfo(Module &M) {
   }
 }
 
+// TODO: move FixShaderModelMismatch to separate file.
+#include "dxc/DXIL/DxilInstructions.h"
+namespace {
+bool onlyUsedByAnnotateHandle(Value *V) {
+  bool bResult = true;
+  for (User *U : V->users()) {
+    CallInst *CI = dyn_cast<CallInst>(U);
+    if (!CI) {
+      bResult = false;
+      break;
+    }
+    DxilInst_AnnotateHandle Hdl(CI);
+    if (!Hdl) {
+      bResult = false;
+      break;
+    }
+  }
+  return bResult;
+}
+
+DxilResourceBase *
+findResourceFromPtr(Value *Ptr, DxilModule &DM,
+                    DenseMap<Value *, DxilResourceBase *> &PtrResMap) {
+  auto it = PtrResMap.find(Ptr);
+  if (Ptr)
+    return it->second;
+  DxilResourceBase *Res = nullptr;
+  if (GlobalVariable *GV = dyn_cast<GlobalVariable>(Ptr)) {
+    DXASSERT(false, "global resource should already in map");
+  } else {
+    // Not support allocaInst of resource when missing annotateHandle.
+    GEPOperator *GEP = cast<GEPOperator>(Ptr);
+    Res = findResourceFromPtr(GEP->getPointerOperand(), DM, PtrResMap);
+  }
+  PtrResMap[Ptr] = Res;
+  return Res;
+}
+
+template <typename T>
+void addGVFromResTable(T &Tab,
+                       DenseMap<Value *, DxilResourceBase *> &PtrResMap) {
+  for (auto &it : Tab) {
+    PtrResMap[it->GetGlobalSymbol()] = it.get();
+  }
+}
+
+// Make sure createHandleForLib is annotated before use.
+bool addAnnotHandle(Module &M, DxilModule &DM) {
+  hlsl::OP *hlslOP = DM.GetOP();
+  auto *pSM = DM.GetShaderModel();
+  if (!pSM->IsSM66Plus())
+    return false;
+  // If no createHandleForLib, do nothing.
+  if (!hlslOP->IsDxilOpUsed(DXIL::OpCode::CreateHandleForLib))
+    return false;
+
+  Type *pVoidTy = Type::getVoidTy(M.getContext());
+  SmallVector<CallInst *, 4> Candidates;
+  for (Function &F : M) {
+    if (!F.isDeclaration())
+      continue;
+    if (!hlslOP->IsDxilOpFunc(&F))
+      continue;
+    DXIL::OpCodeClass opClass;
+    if (!hlslOP->GetOpCodeClass(&F, opClass))
+      continue;
+    if (opClass != DXIL::OpCodeClass::CreateHandleForLib)
+      continue;
+    for (User *U : F.users()) {
+      CallInst *CI = cast<CallInst>(U);
+      // Check user is annotateHandle.
+      if (onlyUsedByAnnotateHandle(CI))
+        continue;
+      Candidates.emplace_back(CI);
+    }
+  }
+
+  if (Candidates.empty())
+    return false;
+
+  DenseMap<Value *, DxilResourceBase *> PtrResMap;
+  // Add GV from resTable first.
+  addGVFromResTable(DM.GetCBuffers(), PtrResMap);
+  addGVFromResTable(DM.GetSRVs(), PtrResMap);
+  addGVFromResTable(DM.GetUAVs(), PtrResMap);
+  addGVFromResTable(DM.GetSamplers(), PtrResMap);
+
+  Function *annotHandleFn =
+      hlslOP->GetOpFunc(DXIL::OpCode::AnnotateHandle, pVoidTy);
+  Value *annotHandleArg =
+      hlslOP->GetI32Const((unsigned)DXIL::OpCode::AnnotateHandle);
+  // Replace createHandle with annotateHandle and createHandleFromBinding.
+  Type *resPropertyTy = hlslOP->GetResourcePropertiesType();
+  for (CallInst *CI : Candidates) {
+    DxilInst_CreateHandleForLib Hdl(CI);
+    LoadInst *Ld = cast<LoadInst>(Hdl.get_Resource());
+    Value *Ptr = Ld->getPointerOperand();
+    DxilResourceBase *Res = findResourceFromPtr(Ptr, DM, PtrResMap);
+    DXASSERT(Res, "fail to find resource when missing annotateHandle");
+
+    DxilResourceProperties RP = resource_helper::loadPropsFromResourceBase(Res);
+    Value *propertiesV =
+        resource_helper::getAsConstant(RP, resPropertyTy, *DM.GetShaderModel());
+    IRBuilder<> B(CI->getNextNode());
+    CallInst *annotHdl =
+        B.CreateCall(annotHandleFn, {annotHandleArg, CI, propertiesV});
+    CI->replaceAllUsesWith(annotHdl);
+    annotHdl->setArgOperand(DxilInst_AnnotateHandle::arg_res, CI);
+  }
+  return true;
+}
+} // namespace
+
+void DxilLinkJob::FixShaderModelMismatch(llvm::Module &M) {
+  // TODO: fix more issues.
+  addAnnotHandle(M, M.GetDxilModule());
+}
+
 void DxilLinkJob::RunPreparePass(Module &M) {
   StripDeadDebugInfo(M);
+  FixShaderModelMismatch(M);
   legacy::PassManager PM;
   PM.add(createAlwaysInlinerPass(/*InsertLifeTime*/ false));
 
