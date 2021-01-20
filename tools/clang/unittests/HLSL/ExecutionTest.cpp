@@ -8959,7 +8959,7 @@ TEST_F(ExecutionTest, AtomicsFloatTest) {
 // 
 // Then the top level pixel (0,0) is discarded and the process above is repeated.
 //
-// Runs with shader models 6.0 and 6.0 to test both the HLSL built-in IsHelperLane fallback 
+// Runs with shader models 6.0 and 6.6 to test both the HLSL built-in IsHelperLane fallback 
 // function (sm <= 6.5) and the IsHelperLane intrisics (sm >= 6.6).
 //
 TEST_F(ExecutionTest, HelperLaneTest) {
@@ -9128,7 +9128,7 @@ bool VerifyHelperLaneWaveResults(ExecutionTest::D3D_SHADER_MODEL sm, HelperLaneW
     passed &= HelperLaneResultLogAndVerify(L"WaveActiveAllTrue(!IsHelperLane())", tr60exp.allTrue, tr60.allTrue);
     passed &= HelperLaneResultLogAndVerify(L"WaveActiveBallot(true) has exactly 3 bits set", tr60exp.ballot, tr60.ballot);
 
-    passed &= HelperLaneResultLogAndVerify(L"!WaveReadLaneFirst( IsHelperLane() ) && WaveIsFirstLane() in a waterfall loop", tr60exp.waterfallLoopCount, tr60.waterfallLoopCount);
+    passed &= HelperLaneResultLogAndVerify(L"!WaveReadLaneFirst(IsHelperLane()) && WaveIsFirstLane() in a waterfall loop", tr60exp.waterfallLoopCount, tr60.waterfallLoopCount);
     passed &= HelperLaneResultLogAndVerify(L"WaveActiveAllEqual(IsHelperLane())", tr60exp.allEqual, tr60.allEqual);
     passed &= HelperLaneResultLogAndVerify(L"WaveActiveCountBits(true)", tr60exp.countBits, tr60.countBits);
     passed &= HelperLaneResultLogAndVerify(L"WaveActiveSum(4)", tr60exp.sum, tr60.sum);

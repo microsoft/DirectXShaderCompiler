@@ -2223,7 +2223,7 @@
                 return pos.x == 0.5 && pos.y == 1.5;
             }
         else {
-            return pos.x == 0.5;
+                return pos.x == 0.5;
             }
         }
 #endif // ISHELPERLANE_PLACEHOLDER
