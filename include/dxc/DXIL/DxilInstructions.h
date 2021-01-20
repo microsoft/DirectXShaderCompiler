@@ -7148,5 +7148,23 @@ struct DxilInst_Pack4x8 {
   llvm::Value *get_w() const { return Instr->getOperand(5); }
   void set_w(llvm::Value *val) { Instr->setOperand(5, val); }
 };
+
+/// This instruction returns true on helper lanes in pixel shaders
+struct DxilInst_IsHelperLane {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_IsHelperLane(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::IsHelperLane);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+};
 // INSTR-HELPER:END
 } // namespace hlsl

@@ -1288,7 +1288,8 @@ static const char *OpCodeSignatures[] = {
   "(bind,index,nonUniformIndex)",  // CreateHandleFromBinding
   "(index,samplerHeap,nonUniformIndex)",  // CreateHandleFromHeap
   "(unpackMode,pk)",  // Unpack4x8
-  "(packMode,x,y,z,w)"  // Pack4x8
+  "(packMode,x,y,z,w)",  // Pack4x8
+  "()"  // IsHelperLane
 };
 // OPCODE-SIGS:END
 

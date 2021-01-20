@@ -449,6 +449,9 @@ class db_dxil(object):
         for i in "Pack4x8".split(","):
             self.name_idx[i].category = "Packing intrinsics"
             self.name_idx[i].shader_model = 6,6
+        for i in "IsHelperLane".split(","):
+            self.name_idx[i].category = "Helper Lanes"
+            self.name_idx[i].shader_model = 6,6
 
     def populate_llvm_instructions(self):
         # Add instructions that map to LLVM instructions.
@@ -1858,9 +1861,13 @@ class db_dxil(object):
             db_dxil_param(6, "$o", "w", "the fourth component of the vector")])
         next_op_idx += 1
 
+        self.add_dxil_op("IsHelperLane", next_op_idx, "IsHelperLane", "returns true on helper lanes in pixel shaders", "1", "ro", [
+            db_dxil_param(0, "i1", "", "result")])
+        next_op_idx += 1
+
         # End of DXIL 1.6 opcodes.
         self.set_op_count_for_version(1, 6, next_op_idx)
-        assert next_op_idx == 221, "221 is expected next operation index but encountered %d and thus opcodes are broken" % next_op_idx
+        assert next_op_idx == 222, "222 is expected next operation index but encountered %d and thus opcodes are broken" % next_op_idx
 
         # Set interesting properties.
         self.build_indices()
