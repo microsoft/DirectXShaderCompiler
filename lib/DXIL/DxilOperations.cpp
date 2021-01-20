@@ -1458,6 +1458,20 @@ OP::GetOpFuncList(OpCode opCode) const {
       .pOverloads;
 }
 
+bool OP::IsDxilOpUsed(OpCode opcode) const {
+  auto &FnList = GetOpFuncList(opcode);
+  for (auto &it : FnList) {
+    llvm::Function *F = it.second;
+    if (!F) {
+      continue;
+    }
+    if (!F->user_empty()) {
+      return true;
+    }
+  }
+  return false;
+}
+
 void OP::RemoveFunction(Function *F) {
   if (OP::IsDxilOpFunc(F)) {
     OpCodeClass opClass = m_FunctionToOpClass[F];
