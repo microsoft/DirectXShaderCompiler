@@ -76,6 +76,7 @@ void InitResourceBase(const DxilResourceBase *pSource,
   pDest->SetGlobalSymbol(pSource->GetGlobalSymbol());
   pDest->SetGlobalName(pSource->GetGlobalName());
   pDest->SetHandle(pSource->GetHandle());
+  pDest->SetHLSLType(pSource->GetHLSLType());
 
   if (GlobalVariable *GV = dyn_cast<GlobalVariable>(pSource->GetGlobalSymbol()))
     SimplifyGlobalSymbol(GV);

@@ -675,6 +675,7 @@ MDNode *CGMSHLSLRuntime::GetOrAddResTypeMD(QualType resTy, bool bCreate) {
     SetUAVSRV(loc, resClass, &UAV, resTy);
     // Set global symbol to save type.
     UAV.SetGlobalSymbol(UndefValue::get(Ty->getPointerTo()));
+    UAV.SetHLSLType(Ty);
     MDNode *MD = m_pHLModule->DxilUAVToMDNode(UAV);
     resMetadataMap[Ty] = MD;
     return MD;
@@ -684,6 +685,7 @@ MDNode *CGMSHLSLRuntime::GetOrAddResTypeMD(QualType resTy, bool bCreate) {
     SetUAVSRV(loc, resClass, &SRV, resTy);
     // Set global symbol to save type.
     SRV.SetGlobalSymbol(UndefValue::get(Ty->getPointerTo()));
+    SRV.SetHLSLType(Ty);
     MDNode *MD = m_pHLModule->DxilSRVToMDNode(SRV);
     resMetadataMap[Ty] = MD;
     return MD;
@@ -694,6 +696,7 @@ MDNode *CGMSHLSLRuntime::GetOrAddResTypeMD(QualType resTy, bool bCreate) {
     S.SetSamplerKind(kind);
     // Set global symbol to save type.
     S.SetGlobalSymbol(UndefValue::get(Ty->getPointerTo()));
+    S.SetHLSLType(Ty);
     MDNode *MD = m_pHLModule->DxilSamplerToMDNode(S);
     resMetadataMap[Ty] = MD;
     return MD;
