@@ -821,6 +821,8 @@ public:
     if (!m_HasVersionInfo)
       return E_FAIL;
 
+    DxcThreadMalloc TM(m_pMalloc);
+
     CComPtr<DxcPdbVersionInfo> result = CreateOnMalloc<DxcPdbVersionInfo>(m_pMalloc);
     if (result == nullptr) {
       return E_OUTOFMEMORY;
