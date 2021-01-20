@@ -31,3 +31,4 @@ if(WIN32) # HLSL Change
 endif(WIN32) # HLSL Change
 add_subdirectory(DxilRootSignature) # HLSL Change
 add_subdirectory(DxrFallback) # HLSL Change
+add_subdirectory(Miniz) # HLSL Change
