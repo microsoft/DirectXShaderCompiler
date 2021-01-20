@@ -51,6 +51,7 @@
 #include "dxillib.h"
 #include "dxcshadersourceinfo.h"
 #include "dxcompileradapter.h"
+#include "spirv_to_dxil.h"
 #include <algorithm>
 #include <cfloat>
 
@@ -1568,6 +1569,9 @@ HRESULT DxcCompilerAdapter::WrapCompile(
       IFT(pArgs->AddArguments(EmbedDebugOpt, _countof(EmbedDebugOpt)));
     }
 
+    LPCWSTR SpirvOpt[] = {L"-spirv"};
+    IFT(pArgs->AddArguments(SpirvOpt, _countof(SpirvOpt)));
+
     CComPtr<DxcResult> pResult = DxcResult::Alloc(m_pMalloc);
     pResult->SetEncoding(opts.DefaultTextCodePage);
 
@@ -1581,6 +1585,44 @@ HRESULT DxcCompilerAdapter::WrapCompile(
 
     outStream.flush();
 
+    CComPtr<IDxcBlob> pSpirv;
+    IFT(pResult->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&pSpirv), nullptr));
+    // Replace spirv result with dxil
+    CComPtr<IDxcBlob> pDxil;
+    dxil_spirv_shader_stage stage;
+    switch(pTargetProfile[0]) {
+    case L'p':
+      stage = DXIL_SPIRV_SHADER_FRAGMENT;
+      break;
+    case L'v':
+      stage = DXIL_SPIRV_SHADER_VERTEX;
+      break;
+    case L'g':
+      stage = DXIL_SPIRV_SHADER_GEOMETRY;
+      break;
+    case L'h':
+      stage = DXIL_SPIRV_SHADER_TESS_CTRL;
+      break;
+    case L'd':
+      stage = DXIL_SPIRV_SHADER_TESS_EVAL;
+      break;
+    case L'c':
+      stage = DXIL_SPIRV_SHADER_COMPUTE;
+      break;
+    }
+    void *dxilBC;
+    size_t bcSize;
+    CW2A pUtf8EntryPoint(pEntryPoint, CP_UTF8);
+    spirv_to_dxil((uint32_t*)pSpirv->GetBufferPointer(), pSpirv->GetBufferSize()/sizeof(uint32_t),
+                  nullptr, 0, stage,
+                  pUtf8EntryPoint.m_psz,
+                  &dxilBC, &bcSize);
+    IFT(hlsl::DxcCreateBlobOnHeapCopy(
+                                      dxilBC, bcSize,
+                                      &pDxil));
+
+    pResult->Output(DXC_OUT_OBJECT)->object.Release();
+    pResult->SetOutputObject(DXC_OUT_OBJECT, pDxil);
     // Insert any warnings generated here
     if (pOutputStream->GetPosition() > 0) {
       CComPtr<IDxcBlobEncoding> pErrorsEncoding;
