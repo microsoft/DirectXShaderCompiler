@@ -481,8 +481,8 @@ bool IsMatchedType(Type *Ty0, Type *Ty) {
 bool DxilLinkJob::AddResource(DxilResourceBase *res, llvm::GlobalVariable *GV) {
   if (m_resourceMap.count(res->GetGlobalName())) {
     DxilResourceBase *res0 = m_resourceMap[res->GetGlobalName()].first;
-    Type *Ty0 = res0->GetGlobalSymbol()->getType()->getPointerElementType();
-    Type *Ty = res->GetGlobalSymbol()->getType()->getPointerElementType();
+    Type *Ty0 = res0->GetHLSLType()->getPointerElementType();
+    Type *Ty = res->GetHLSLType()->getPointerElementType();
     // Make sure res0 match res.
     bool bMatch = IsMatchedType(Ty0, Ty);
     if (!bMatch) {

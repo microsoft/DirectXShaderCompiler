@@ -8,6 +8,10 @@
 // CHECK: %[[val:[^, ]+]] = load %dx.types.Handle, %dx.types.Handle* %[[ptr]]
 // CHECK: call %dx.types.Handle @dx.op.createHandleForLib.dx.types.Handle(i32 160, %dx.types.Handle %[[val]])
 
+// Make sure save bitcast for global symbol and HLSL type.
+// CHECK:i32 0, %struct.RWByteAddressBuffer* bitcast (%dx.types.Handle* @"\01?outputBuffer@@3URWByteAddressBuffer@@A" to %struct.RWByteAddressBuffer*), !"outputBuffer"
+// CHECK:i32 1, %struct.RWByteAddressBuffer* bitcast (%dx.types.Handle* @"\01?outputBuffer2@@3URWByteAddressBuffer@@A" to %struct.RWByteAddressBuffer*), !"outputBuffer2"
+
 
 struct T {
 RWByteAddressBuffer outputBuffer;

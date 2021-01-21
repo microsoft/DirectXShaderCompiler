@@ -252,16 +252,12 @@ public:
       auto &HLM = M.GetHLModule();
       if (!HLM.GetShaderModel()->IsSM66Plus())
         return false;
-      if (!HLM.GetShaderModel()->IsLib())
-        return false;
 
       hdlTy = HLM.GetOP()->GetHandleType();
       pTypeSys = &HLM.GetTypeSystem();
     } else if (M.HasDxilModule()) {
       auto &DM = M.GetDxilModule();
       if (!DM.GetShaderModel()->IsSM66Plus())
-        return false;
-      if (!DM.GetShaderModel()->IsLib())
         return false;
 
       hdlTy = DM.GetOP()->GetHandleType();
@@ -360,7 +356,7 @@ Type *DxilMutateResourceToHandle::mutateToHandleTy(Type *Ty) {
 bool DxilMutateResourceToHandle::mutateTypesToHandleTy(
     SmallVector<Type *, 4> &Tys) {
   bool bMutated = false;
-  for (int i = 0; i < Tys.size(); i++) {
+  for (size_t i = 0; i < Tys.size(); i++) {
     Type *Ty = Tys[i];
     Type *mutatedTy = mutateToHandleTy(Ty);
     if (Ty != mutatedTy) {

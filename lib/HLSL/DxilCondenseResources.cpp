@@ -1893,7 +1893,7 @@ StructType *UpdateStructTypeForLegacyLayout(StructType *ST,
 void UpdateStructTypeForLegacyLayout(DxilResourceBase &Res,
                                      DxilTypeSystem &TypeSys, Module &M) {
   Constant *Symbol = Res.GetGlobalSymbol();
-  Type *ElemTy = Symbol->getType()->getPointerElementType();
+  Type *ElemTy = Res.GetHLSLType()->getPointerElementType();
   // Support Array of ConstantBuffer/StructuredBuffer.
   llvm::SmallVector<unsigned, 4> arrayDims;
   ElemTy = dxilutil::StripArrayTypes(ElemTy, &arrayDims);

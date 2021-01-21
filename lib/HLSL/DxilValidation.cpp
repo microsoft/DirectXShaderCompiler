@@ -483,6 +483,9 @@ struct ValidationContext {
           }
         } else if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
           PropagateResMap(U, Res);
+        } else if (isa<BitCastOperator>(U) && U->user_empty()) {
+          // For hlsl type.
+          continue;
         } else {
           EmitResourceError(Res, ValidationRule::InstrResourceUser);
         }
@@ -572,8 +575,7 @@ struct ValidationContext {
           }
 
           ConstantInt *cIndex = dyn_cast<ConstantInt>(hdl.get_index());
-          if (!Res->GetGlobalSymbol()
-                   ->getType()
+          if (!Res->GetHLSLType()
                    ->getPointerElementType()
                    ->isArrayTy()) {
             if (!cIndex) {
@@ -4133,7 +4135,7 @@ CollectCBufferRanges(DxilStructAnnotation *annotation,
 }
 
 static void ValidateCBuffer(DxilCBuffer &cb, ValidationContext &ValCtx) {
-  Type *Ty = cb.GetGlobalSymbol()->getType()->getPointerElementType();
+  Type *Ty = cb.GetHLSLType()->getPointerElementType();
   if (cb.GetRangeSize() != 1 || Ty->isArrayTy()) {
     Ty = Ty->getArrayElementType();
   }

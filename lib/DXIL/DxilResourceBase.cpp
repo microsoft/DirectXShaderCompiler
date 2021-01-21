@@ -9,6 +9,7 @@
 
 #include "dxc/DXIL/DxilResourceBase.h"
 #include "dxc/Support/Global.h"
+#include "llvm/IR/Constant.h"
 
 
 namespace hlsl {
@@ -44,8 +45,13 @@ unsigned DxilResourceBase::GetUpperBound() const  { return m_RangeSize != UINT_M
 unsigned DxilResourceBase::GetRangeSize() const   { return m_RangeSize; }
 llvm::Constant *DxilResourceBase::GetGlobalSymbol() const { return m_pSymbol; }
 const std::string &DxilResourceBase::GetGlobalName() const      { return m_Name; }
-llvm::Value *DxilResourceBase::GetHandle() const  { return m_pHandle; }
-llvm::Type *DxilResourceBase::GetHLSLType() const  { return m_pHLSLTy; }
+llvm::Value *DxilResourceBase::GetHandle() const { return m_pHandle; }
+// If m_pHLSLTy is nullptr, HLSL type is the type of m_pSymbol.
+// In sm6.6, type of m_pSymbol will be mutated to handleTy, m_pHLSLTy will save
+// the original HLSL type.
+llvm::Type *DxilResourceBase::GetHLSLType() const {
+  return m_pHLSLTy == nullptr ? m_pSymbol->getType() : m_pHLSLTy;
+}
 bool DxilResourceBase::IsAllocated() const        { return m_LowerBound != UINT_MAX; }
 bool DxilResourceBase::IsUnbounded() const        { return m_RangeSize == UINT_MAX; }
 
