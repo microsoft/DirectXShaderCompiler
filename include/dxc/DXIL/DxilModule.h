@@ -204,6 +204,11 @@ public:
 
   bool StripReflection();
   void StripDebugRelatedCode();
+
+  // Helper to remove dx.* metadata with source and compile options.
+  // If the parameter `bReplaceWithDummyData` is true, the named metadata
+  // are replaced with valid empty data that satisfy tools.
+  void StripShaderSourcesAndCompileOptions(bool bReplaceWithDummyData=false);
   llvm::DebugInfoFinder &GetOrCreateDebugInfoFinder();
 
   static DxilModule *TryGetDxilModule(llvm::Module *pModule);

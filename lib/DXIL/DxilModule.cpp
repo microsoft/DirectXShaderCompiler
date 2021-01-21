@@ -1835,25 +1835,52 @@ void DxilModule::LoadDxilResources(const llvm::MDOperand &MDO) {
   }
 }
 
-void DxilModule::StripDebugRelatedCode() {
+void DxilModule::StripShaderSourcesAndCompileOptions(bool bReplaceWithDummyData) {
   // Remove dx.source metadata.
   if (NamedMDNode *contents = m_pModule->getNamedMetadata(
           DxilMDHelper::kDxilSourceContentsMDName)) {
     contents->eraseFromParent();
+    if (bReplaceWithDummyData) {
+      // Insert an empty source and content
+      llvm::LLVMContext &context = m_pModule->getContext();
+      llvm::NamedMDNode *newNamedMD = m_pModule->getOrInsertNamedMetadata(DxilMDHelper::kDxilSourceContentsMDName);
+      llvm::Metadata *operands[2] = { llvm::MDString::get(context, ""), llvm::MDString::get(context, "") };
+      newNamedMD->addOperand(llvm::MDTuple::get(context, operands));
+    }
   }
   if (NamedMDNode *defines =
           m_pModule->getNamedMetadata(DxilMDHelper::kDxilSourceDefinesMDName)) {
     defines->eraseFromParent();
+    if (bReplaceWithDummyData) {
+      llvm::LLVMContext &context = m_pModule->getContext();
+      llvm::NamedMDNode *newNamedMD = m_pModule->getOrInsertNamedMetadata(DxilMDHelper::kDxilSourceDefinesMDName);
+      newNamedMD->addOperand(llvm::MDTuple::get(context, llvm::ArrayRef<llvm::Metadata *>()));
+    }
   }
   if (NamedMDNode *mainFileName = m_pModule->getNamedMetadata(
           DxilMDHelper::kDxilSourceMainFileNameMDName)) {
     mainFileName->eraseFromParent();
+    if (bReplaceWithDummyData) {
+      // Insert an empty file name
+      llvm::LLVMContext &context = m_pModule->getContext();
+      llvm::NamedMDNode *newNamedMD = m_pModule->getOrInsertNamedMetadata(DxilMDHelper::kDxilSourceMainFileNameMDName);
+      llvm::Metadata *operands[1] = { llvm::MDString::get(context, "") };
+      newNamedMD->addOperand(llvm::MDTuple::get(context, operands));
+    }
   }
   if (NamedMDNode *arguments =
           m_pModule->getNamedMetadata(DxilMDHelper::kDxilSourceArgsMDName)) {
     arguments->eraseFromParent();
+    if (bReplaceWithDummyData) {
+      llvm::LLVMContext &context = m_pModule->getContext();
+      llvm::NamedMDNode *newNamedMD = m_pModule->getOrInsertNamedMetadata(DxilMDHelper::kDxilSourceArgsMDName);
+      newNamedMD->addOperand(llvm::MDTuple::get(context, llvm::ArrayRef<llvm::Metadata *>()));
+    }
   }
+}
 
+void DxilModule::StripDebugRelatedCode() {
+  StripShaderSourcesAndCompileOptions();
   if (NamedMDNode *flags = m_pModule->getModuleFlagsMetadata()) {
     SmallVector<llvm::Module::ModuleFlagEntry, 4> flagEntries;
     m_pModule->getModuleFlagsMetadata(flagEntries);
