@@ -97,7 +97,7 @@ bool FeatureManager::requestTargetEnv(spv_target_env requestedEnv,
                                       SourceLocation srcLoc) {
   if (targetEnv < requestedEnv) {
     emitError("%0 is required for %1 but not permitted to use", srcLoc)
-        << (requestedEnv == SPV_ENV_VULKAN_1_2 ? "Vulkan 1.2" : "Vulkan 1.1")
+        << (requestedEnv > SPV_ENV_VULKAN_1_1 ? "Vulkan 1.2" : "Vulkan 1.1")
         << target;
     emitNote("please specify your target environment via command line option "
              "-fspv-target-env=",
