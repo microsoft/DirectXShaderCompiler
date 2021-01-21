@@ -1217,6 +1217,10 @@ void DxilLinkJob::FixShaderModelMismatch(llvm::Module &M) {
 void DxilLinkJob::RunPreparePass(Module &M) {
   StripDeadDebugInfo(M);
   FixShaderModelMismatch(M);
+
+  DxilModule &DM = M.GetDxilModule();
+  const ShaderModel *pSM = DM.GetShaderModel();
+
   legacy::PassManager PM;
   PM.add(createAlwaysInlinerPass(/*InsertLifeTime*/ false));
 
@@ -1246,6 +1250,9 @@ void DxilLinkJob::RunPreparePass(Module &M) {
 
   PM.add(createDeadCodeEliminationPass());
   PM.add(createGlobalDCEPass());
+
+  if (pSM->IsSM66Plus() && pSM->IsLib())
+    PM.add(createDxilMutateResourceToHandlePass());
 
   PM.add(createDxilLowerCreateHandleForLibPass());
   PM.add(createDxilTranslateRawBuffer());
