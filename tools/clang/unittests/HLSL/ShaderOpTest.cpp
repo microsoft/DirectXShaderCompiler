@@ -856,19 +856,13 @@ void ShaderOpTest::RunCommandList() {
     SetDescriptorHeaps(pList, m_DescriptorHeaps);
     SetRootValues(pList, m_pShaderOp->IsCompute());
 
+    D3D12_VIEWPORT viewport;
     if (!m_pShaderOp->RenderTargets.empty()) {
       // Use the first render target to set up the viewport and scissors.
-      ShaderOpResource *R = m_pShaderOp->GetResourceByName(m_pShaderOp->RenderTargets[0].Name);
-
-      D3D12_VIEWPORT viewport;
-      if (!m_pShaderOp->RenderTargets[0].InitBytes.empty()) {
-        std::vector<BYTE>& Bytes = m_pShaderOp->RenderTargets[0].InitBytes;
-        if (Bytes.size() != sizeof(viewport)) {
-          ShaderOpLogFmt(L"Invalid length of viewport initialization bytes of render target: %S\r\n",
-            m_pShaderOp->RenderTargets[0].Name);
-          CHECK_HR(E_FAIL);
-        }
-        memcpy(&viewport, Bytes.data(), sizeof(viewport));
+      ShaderOpRenderTarget& rt = m_pShaderOp->RenderTargets[0];
+      ShaderOpResource *R = m_pShaderOp->GetResourceByName(rt.Name);
+      if (rt.Viewport.Width != 0 && rt.Viewport.Height != 0 ) {
+        memcpy(&viewport, &rt.Viewport, sizeof(rt.Viewport));
       }
       else {
         memset(&viewport, 0, sizeof(viewport));
@@ -1131,13 +1125,15 @@ private:
   HRESULT ReadAttrUINT64(IXmlReader *pReader, LPCWSTR pAttrName, UINT64 *pValue, UINT64 defaultValue = 0);
   HRESULT ReadAttrUINT16(IXmlReader *pReader, LPCWSTR pAttrName, UINT16 *pValue, UINT16 defaultValue = 0);
   HRESULT ReadAttrUINT(IXmlReader *pReader, LPCWSTR pAttrName, UINT *pValue, UINT defaultValue = 0);
-  HRESULT ReadAttrBytes(IXmlReader* pReader, LPCWSTR pAttrName, std::vector<BYTE>* pBytes);
+  HRESULT ReadAttrFloat(IXmlReader* pReader, LPCWSTR pAttrName, float* pValue, float defaultValue = 0);
   void ReadElementContentStr(IXmlReader *pReader, LPCSTR *ppValue);
   void ParseDescriptor(IXmlReader *pReader, ShaderOpDescriptor *pDesc);
   void ParseDescriptorHeap(IXmlReader *pReader, ShaderOpDescriptorHeap *pHeap);
   void ParseInputElement(IXmlReader *pReader, D3D12_INPUT_ELEMENT_DESC *pInputElement);
   void ParseInputElements(IXmlReader *pReader, std::vector<D3D12_INPUT_ELEMENT_DESC> *pInputElements);
   void ParseRenderTargets(IXmlReader *pReader, std::vector<ShaderOpRenderTarget> *pRenderTargets);
+  void ParseRenderTarget(IXmlReader* pReader, ShaderOpRenderTarget *pRenderTarget);
+  void ParseViewport(IXmlReader* pReader, D3D12_VIEWPORT *pViewport);
   void ParseRootValue(IXmlReader *pReader, ShaderOpRootValue *pRootValue);
   void ParseRootValues(IXmlReader *pReader, std::vector<ShaderOpRootValue> *pRootValues);
   void ParseResource(IXmlReader *pReader, ShaderOpResource *pResource);
@@ -1664,6 +1660,20 @@ HRESULT ShaderOpParser::ReadAttrUINT16(IXmlReader *pReader, LPCWSTR pAttrName, U
   return hrRead;
 }
 
+HRESULT ShaderOpParser::ReadAttrFloat(IXmlReader* pReader, LPCWSTR pAttrName, float* pValue, float defaultValue) {
+  if (S_FALSE == CHECK_HR_RET(pReader->MoveToAttributeByName(pAttrName, nullptr))) {
+    *pValue = defaultValue;
+    return S_FALSE;
+  }
+  LPCWSTR pText;
+  CHECK_HR(pReader->GetValue(&pText, nullptr));
+  float d = (float)_wtof(pText);
+  if (errno == ERANGE) CHECK_HR(E_INVALIDARG);
+  *pValue = d;
+  CHECK_HR(pReader->MoveToElement());
+  return S_OK;
+}
+
 void ShaderOpParser::ReadElementContentStr(IXmlReader *pReader, LPCSTR *ppValue) {
   *ppValue = nullptr;
   if (pReader->IsEmptyElement())
@@ -1888,11 +1898,62 @@ void ShaderOpParser::ParseRenderTargets(IXmlReader *pReader, std::vector<ShaderO
       CHECK_HR(pReader->GetLocalName(&pLocalName, nullptr));
       if (0 == wcscmp(pLocalName, L"RenderTarget")) {
         ShaderOpRenderTarget RT;
-        CHECK_HR(ReadAttrStr(pReader, L"Name", &RT.Name));
-        CHECK_HR(ReadAttrBytes(pReader, L"Viewport", &RT.InitBytes));
+        ParseRenderTarget(pReader, &RT);
         pRenderTargets->push_back(RT);
       }
     }
+  }
+}
+
+void ShaderOpParser::ParseRenderTarget(IXmlReader* pReader, ShaderOpRenderTarget *pRenderTarget) {
+  if (!ReadAtElementName(pReader, L"RenderTarget"))
+    return;
+
+  CHECK_HR(ReadAttrStr(pReader, L"Name", &pRenderTarget->Name));
+
+  if (pReader->IsEmptyElement()) return;
+
+  UINT startDepth;
+  XmlNodeType nt;
+  CHECK_HR(pReader->GetDepth(&startDepth));
+  for (;;) {
+    UINT depth;
+    CHECK_HR(pReader->Read(&nt));
+    CHECK_HR(pReader->GetDepth(&depth));
+    if (nt == XmlNodeType_EndElement && depth == startDepth + 1)
+      return;
+    if (nt == XmlNodeType_Element) {
+      LPCWSTR pLocalName;
+      CHECK_HR(pReader->GetLocalName(&pLocalName, nullptr));
+      if (0 == wcscmp(pLocalName, L"Viewport")) {
+        ParseViewport(pReader, &pRenderTarget->Viewport);
+      }
+    }
+  }
+}
+
+void ShaderOpParser::ParseViewport(IXmlReader* pReader, D3D12_VIEWPORT *pViewport) {
+  if (!ReadAtElementName(pReader, L"Viewport"))
+    return;
+
+  CHECK_HR(ReadAttrFloat(pReader, L"TopLeftX", &pViewport->TopLeftX));
+  CHECK_HR(ReadAttrFloat(pReader, L"TopLeftY", &pViewport->TopLeftY));
+  CHECK_HR(ReadAttrFloat(pReader, L"Width",    &pViewport->Width));
+  CHECK_HR(ReadAttrFloat(pReader, L"Height",   &pViewport->Height));
+  CHECK_HR(ReadAttrFloat(pReader, L"MinDepth", &pViewport->MinDepth));
+  CHECK_HR(ReadAttrFloat(pReader, L"MaxDepth", &pViewport->MaxDepth));
+
+  if (pReader->IsEmptyElement()) return;
+
+  UINT startDepth;
+  XmlNodeType nt;
+  CHECK_HR(pReader->GetDepth(&startDepth));
+  for (;;) {
+    UINT depth;
+    CHECK_HR(pReader->Read(&nt));
+    CHECK_HR(pReader->GetDepth(&depth));
+    if (nt == XmlNodeType_EndElement && depth == startDepth + 1)
+      return;
   }
 }
 
@@ -2245,26 +2306,6 @@ bool ShaderOpParser::ReadAtElementName(IXmlReader *pReader, LPCWSTR pName) {
     if (S_FALSE == CHECK_HR_RET(pReader->Read(&nt)))
       return false;
   }
-}
-
-HRESULT ShaderOpParser::ReadAttrBytes(IXmlReader* pReader, LPCWSTR pAttrName, std::vector<BYTE>* pBytes) {
-  if (S_FALSE == CHECK_HR_RET(pReader->MoveToAttributeByName(pAttrName, nullptr))) {
-    return S_FALSE;
-  }
-  LPCWSTR pText;
-  CHECK_HR(pReader->GetValue(&pText, nullptr));
-  CHECK_HR(pReader->MoveToElement());
-
-  while (*pText) {
-    pText = SkipByteInitSeparators(pText);
-    if (!*pText) continue;
-    LPCWSTR pEnd = FindByteInitSeparators(pText);
-    // Consider looking for prefixes/suffixes to handle bases and types.
-    DXIL::ComponentType compType = GetCompType(pText, pEnd);
-    ParseDataFromText(pText, pEnd, compType, *pBytes);
-    pText = pEnd;
-  }
-  return S_OK;
 }
 
 #pragma endregion Parsing support

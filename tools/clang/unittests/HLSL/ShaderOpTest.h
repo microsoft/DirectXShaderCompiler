@@ -171,7 +171,7 @@ public:
 class ShaderOpRenderTarget {
 public:
   LPCSTR             Name;        // Render target name
-  std::vector<BYTE>  InitBytes;   // Byte payload for initialization of D3D12_VIEWPORT
+  D3D12_VIEWPORT     Viewport;    // Viewport to use; if Width == 0 use the full render target
 };
 
 // Use this class to hold all information needed for a Draw/Dispatch call.

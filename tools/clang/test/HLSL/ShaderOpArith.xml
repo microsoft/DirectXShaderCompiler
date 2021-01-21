@@ -2212,7 +2212,9 @@
       <InputElement SemanticName="POSITION" Format="R32G32B32_FLOAT" AlignedByteOffset="0" />
     </InputElements>
     <RenderTargets>
-      <RenderTarget Name="RTarget" Viewport="{ 0.0f, 0.0f, 2.0f, 2.0f, 0.0f, 1.0f }"/>
+      <RenderTarget Name="RTarget">
+        <Viewport Width="2.0" Height="2.0" MaxDepth="1.0"/>
+      </RenderTarget>
     </RenderTargets>
     <Shader Name="VS" Target="vs_6_0" EntryPoint="VSMain" Text="@PS" />
     <Shader Name="PS" Target="ps_6_0" EntryPoint="PSMain">
@@ -2220,10 +2222,10 @@
 #ifdef ISHELPERLANE_PLACEHOLDER
         bool ph_IsHelperLane(float4 pos, bool first_call) {
             if (first_call) {
-                return pos.x == 0.5 && pos.y == 1.5;
+                return pos.x < 1.0f && pos.y > 1.0f;
             }
-        else {
-                return pos.x == 0.5;
+            else {
+                return pos.x < 1.0f;
             }
         }
 #endif // ISHELPERLANE_PLACEHOLDER
@@ -2262,8 +2264,8 @@
         }
 
         uint4 PSMain(PSInput input) : SV_TARGET {
-          bool isLeft = (input.pos.x == 0.5);
-          bool isTop = (input.pos.y == 0.5);
+          bool isLeft = (input.pos.x < 1.0f);
+          bool isTop = (input.pos.y < 1.0f);
           
           for (int i = 0; i < 2; i++) {
 #ifdef ISHELPERLANE_PLACEHOLDER
@@ -2310,7 +2312,9 @@
          <InputElement SemanticName="POSITION" Format="R32G32B32_FLOAT" AlignedByteOffset="0" />
       </InputElements>
       <RenderTargets>
-         <RenderTarget Name="RTarget" Viewport="{ 0.0f, 0.0f, 2.0f, 2.0f, 0.0f, 1.0f }"/>
+          <RenderTarget Name="RTarget">
+              <Viewport Width="2.0" Height="2.0" MaxDepth="1.0"/>
+          </RenderTarget>
       </RenderTargets>
       <Shader Name="PS65" Target="ps_6_5" EntryPoint="PSMain65" Text="@CS"/>
       <Shader Name="VS65" Target="vs_6_5" EntryPoint="VSMain65" Text="@CS"/>
@@ -2319,23 +2323,24 @@
       <Shader Name="PS"   Target="ps_6_0" EntryPoint="PSMain"   Text="@CS"/>
       <Shader Name="CS"   Target="cs_6_0" EntryPoint="CSMain">
         <![CDATA[
-        #ifdef ISHELPERLANE_PLACEHOLDER
+#ifdef ISHELPERLANE_PLACEHOLDER
         #define CALL(x) ph_##x
-                bool ph_IsHelperLane() {
-                    return false;
-                }
+        
+        bool ph_IsHelperLane() {
+            return false;
+        }
 
-                bool ph_IsHelperLane(float4 pos, bool first_call) {
-                    if (first_call) {
-                        return pos.x == 0.5 && pos.y == 1.5;
-                    }
-                else {
-                        return pos.x == 0.5;
-                    }
-                }
-        #else
+        bool ph_IsHelperLane(float4 pos, bool first_call) {
+            if (first_call) {
+                return pos.x < 1.0f && pos.y > 1.0f;
+            }
+            else {
+                return pos.x < 1.0f;
+            }
+        }
+#else
         #define CALL(x) x
-        #endif
+#endif
 
         // 6.0 wave ops
         struct HelperLaneWaveTestResult60 {
@@ -2499,21 +2504,21 @@
             HelperLaneQuadTestResult tr60_quad = RunHelperLaneQuadTests();
         #endif
         
-            if (input.pos.x == 1.5f && input.pos.y == 1.5f) { // bottom right pixel writes results
+            if (input.pos.x > 1.0f && input.pos.y > 1.0f) { // bottom right pixel writes results
                 g_TestResults[PS_INDEX].sm60_wave = tr60;
                 g_TestResults[PS_INDEX].sm60_quad = tr60_quad;
             }
-            if (input.pos.x == 0.5f && input.pos.y == 0.5f) // discard top left pixel
+            if (input.pos.x < 1.0f && input.pos.y < 1.0f) // discard top left pixel
                 discard;
                 
             HelperLaneWaveTestResult60 tr60_disc = RunHelperLaneWaveTests60();
 
-        #ifdef ISHELPERLANE_PLACEHOLDER
+#ifdef ISHELPERLANE_PLACEHOLDER
             HelperLaneQuadTestResult tr60_quad_disc  = ph_RunHelperLaneQuadTests_PS(input.pos, false);
-        #else
+#else
             HelperLaneQuadTestResult tr60_quad_disc = RunHelperLaneQuadTests();
-        #endif
-            if (input.pos.x == 1.5f && input.pos.y == 1.5f) { // bottom right pixel writes results
+#endif
+            if (input.pos.x > 1.0f && input.pos.y > 1.0f) { // bottom right pixel writes results
                 g_TestResults[PS_INDEX_AFTER_DISCARD].sm60_wave = tr60_disc;
                 g_TestResults[PS_INDEX_AFTER_DISCARD].sm60_quad = tr60_quad_disc;
             }
@@ -2523,30 +2528,30 @@
         uint4 PSMain65(PSInput input) : SV_TARGET {
             HelperLaneWaveTestResult tr;
             tr.sm60_wave = RunHelperLaneWaveTests60();
-        #ifdef ISHELPERLANE_PLACEHOLDER
+#ifdef ISHELPERLANE_PLACEHOLDER
             tr.sm60_quad = ph_RunHelperLaneQuadTests_PS(input.pos, true);
-        #else
+#else
             tr.sm60_quad = RunHelperLaneQuadTests();
-        #endif
+#endif
             tr.sm65_wave = RunHelperLaneWaveTests65();
             
-            if (input.pos.x == 1.5f && input.pos.y == 1.5f) { // bottom right pixel writes results
+            if (input.pos.x > 1.0f && input.pos.y > 1.0f) { // bottom right pixel writes results
                 g_TestResults[PS_INDEX] = tr;
             }
 
-            if (input.pos.x == 0.5f && input.pos.y == 0.5f) // discard top left pixel
+            if (input.pos.x < 1.0f && input.pos.y < 1.0f) // discard top left pixel
                 discard;
                 
             HelperLaneWaveTestResult tr_disc;
             tr_disc.sm60_wave = RunHelperLaneWaveTests60();
-        #ifdef ISHELPERLANE_PLACEHOLDER
+#ifdef ISHELPERLANE_PLACEHOLDER
             tr_disc.sm60_quad = ph_RunHelperLaneQuadTests_PS(input.pos, false);
-        #else
+#else
             tr_disc.sm60_quad = RunHelperLaneQuadTests();
-        #endif
+#endif
             tr_disc.sm65_wave = RunHelperLaneWaveTests65();
             
-            if (input.pos.x == 1.5f && input.pos.y == 1.5f) { // bottom right pixel writes results
+            if (input.pos.x > 1.0f && input.pos.y > 1.0f) { // bottom right pixel writes results
                 g_TestResults[PS_INDEX_AFTER_DISCARD] = tr_disc;
             }
             return uint4(0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 1);

@@ -9179,6 +9179,14 @@ void CleanUAVBuffer0Buffer(LPCSTR BufferName, std::vector<BYTE>& Data, st::Shade
 //
 // The IsHelperLane test that use Wave intrinsics to verify IsHelperLane() and Wave operations on active lanes.
 //
+// Runs with shader models 6.0, 6.5 and 6.6 to test both the HLSL built-in IsHelperLane fallback 
+// function (sm <= 6.5) and the IsHelperLane intrisics (sm >= 6.6) and the shader model 6.5 wave intrinsics (sm >= 6.5).
+//
+// For compute and vertex shaders IsHelperLane() always returns false and might be optimized away in the front end.
+// However it can be exposed to the driver in CS/VS through an exported function in a library so drivers need 
+// to be prepared to handle it. The tests are also validating that wave intrinsics operate correctly with 3 threads 
+// in a CS or 3 vertices in a VS where the rest of the lanes in the wave are not active (dead lanes).
+//
 TEST_F(ExecutionTest, HelperLaneTestWave) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
