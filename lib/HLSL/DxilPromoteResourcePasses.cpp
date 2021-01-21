@@ -234,7 +234,10 @@ INITIALIZE_PASS(DxilPromoteStaticResources,
                 "hlsl-dxil-promote-static-resources",
                 "DXIL promote static resource use", false, false)
 
-// Mutate resource into handle.
+// Mutate high-level resource type into handle.
+// This is used for SM 6.6+, on libraries only, where
+// CreateHandleForLib is eliminated, and high-level resource
+// types are only preserved in metadata for reflection purposes.
 namespace {
 // Start from resource global variable, function parameter/ret, alloca.
 // Propagate to all insts, ld/st/phi/select
