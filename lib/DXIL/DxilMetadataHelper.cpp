@@ -600,8 +600,9 @@ void DxilMDHelper::EmitDxilResourceBase(const DxilResourceBase &R, Metadata *ppM
   // Save hlsl type by generate bitcast on global symbol.
   if (m_pSM->IsSM66Plus()) {
     Type *HLSLTy = R.GetHLSLType();
-    IRBuilder<> B(m_Ctx);
-    GlobalSymbol = cast<Constant>(B.CreateBitCast(GlobalSymbol, HLSLTy));
+    if (HLSLTy && HLSLTy != GlobalSymbol->getType())
+      GlobalSymbol = cast<Constant>(
+          ConstantExpr::getCast(Instruction::BitCast, GlobalSymbol, HLSLTy));
   }
   ppMDVals[kDxilResourceBaseVariable  ] = ValueAsMetadata::get(GlobalSymbol);
   ppMDVals[kDxilResourceBaseName      ] = MDString::get(m_Ctx, R.GetGlobalName());
