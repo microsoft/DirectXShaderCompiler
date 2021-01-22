@@ -18,6 +18,7 @@
 namespace llvm {
 class Value;
 class Constant;
+class Type;
 }
 
 
@@ -41,6 +42,7 @@ public:
   unsigned GetUpperBound() const;
   unsigned GetRangeSize() const;
   llvm::Constant *GetGlobalSymbol() const;
+  llvm::Type *GetHLSLType() const;
   const std::string &GetGlobalName() const;
   llvm::Value *GetHandle() const;
   bool IsAllocated() const;
@@ -53,6 +55,7 @@ public:
   void SetGlobalSymbol(llvm::Constant *pGV);
   void SetGlobalName(const std::string &Name);
   void SetHandle(llvm::Value *pHandle);
+  void SetHLSLType(llvm::Type *Ty);
 
   // TODO: check whether we can make this a protected method.
   void SetID(unsigned ID);
@@ -76,6 +79,7 @@ private:
   llvm::Constant *m_pSymbol;      // Global variable.
   std::string m_Name;             // Unmangled name of the global variable.
   llvm::Value *m_pHandle;         // Cached resource handle for SM5.0- (and maybe SM5.1).
+  llvm::Type *m_pHLSLTy;           // The original hlsl type for reflection.
 };
 
 const char *GetResourceKindName(DXIL::ResourceKind K);

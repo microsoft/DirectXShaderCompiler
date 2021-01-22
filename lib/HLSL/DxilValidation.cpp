@@ -388,6 +388,7 @@ struct ValidationContext {
   Module &M;
   Module *pDebugModule;
   DxilModule &DxilMod;
+  const Type *HandleTy;
   const DataLayout &DL;
   DebugLoc LastDebugLocEmit;
   ValidationRule LastRuleEmit;
@@ -421,6 +422,7 @@ struct ValidationContext {
         kLLVMLoopMDKind(llvmModule.getContext().getMDKindID("llvm.loop")),
         slotTracker(&llvmModule, true) {
     DxilMod.GetDxilVersion(m_DxilMajor, m_DxilMinor);
+    HandleTy = DxilMod.GetOP()->GetHandleType();
 
     for (Function &F : llvmModule.functions()) {
       if (DxilMod.HasDxilEntryProps(&F)) {
@@ -481,6 +483,9 @@ struct ValidationContext {
           }
         } else if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
           PropagateResMap(U, Res);
+        } else if (isa<BitCastOperator>(U) && U->user_empty()) {
+          // For hlsl type.
+          continue;
         } else {
           EmitResourceError(Res, ValidationRule::InstrResourceUser);
         }
@@ -570,8 +575,7 @@ struct ValidationContext {
           }
 
           ConstantInt *cIndex = dyn_cast<ConstantInt>(hdl.get_index());
-          if (!Res->GetGlobalSymbol()
-                   ->getType()
+          if (!Res->GetHLSLType()
                    ->getPointerElementType()
                    ->isArrayTy()) {
             if (!cIndex) {
@@ -2722,6 +2726,9 @@ static bool ValidateType(Type *Ty, ValidationContext &ValCtx, bool bInner = fals
 
     StringRef Name = ST->getName();
     if (Name.startswith("dx.")) {
+      // Allow handle type.
+      if (ValCtx.HandleTy == Ty)
+        return true;
       hlsl::OP *hlslOP = ValCtx.DxilMod.GetOP();
       if (IsDxilBuiltinStructType(ST, hlslOP)) {
         ValCtx.EmitTypeError(Ty, ValidationRule::InstrDxilStructUser);
@@ -4128,7 +4135,7 @@ CollectCBufferRanges(DxilStructAnnotation *annotation,
 }
 
 static void ValidateCBuffer(DxilCBuffer &cb, ValidationContext &ValCtx) {
-  Type *Ty = cb.GetGlobalSymbol()->getType()->getPointerElementType();
+  Type *Ty = cb.GetHLSLType()->getPointerElementType();
   if (cb.GetRangeSize() != 1 || Ty->isArrayTy()) {
     Ty = Ty->getArrayElementType();
   }
