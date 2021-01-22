@@ -278,6 +278,7 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, bool OnlyWarnOn
 
   MPM.add(createDxilPromoteLocalResources());
   MPM.add(createDxilPromoteStaticResources());
+
   // Verify no undef resource again after promotion
   MPM.add(createInvalidateUndefResourcesPass());
 
@@ -374,6 +375,7 @@ void PassManagerBuilder::populateModulePassManager(
       MPM.add(createMultiDimArrayToOneDimArrayPass());
       MPM.add(createDeadCodeEliminationPass());
       MPM.add(createGlobalDCEPass());
+      MPM.add(createDxilMutateResourceToHandlePass());
       MPM.add(createDxilLowerCreateHandleForLibPass());
       MPM.add(createDxilTranslateRawBuffer());
       MPM.add(createDxilLegalizeSampleOffsetPass());
@@ -675,6 +677,7 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createDxilRemoveDeadBlocksPass());
     MPM.add(createDeadCodeEliminationPass());
     MPM.add(createGlobalDCEPass());
+    MPM.add(createDxilMutateResourceToHandlePass());
     MPM.add(createDxilLowerCreateHandleForLibPass());
     MPM.add(createDxilTranslateRawBuffer());
     // Always try to legalize sample offsets as loop unrolling

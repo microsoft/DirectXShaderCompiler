@@ -1805,7 +1805,7 @@ unsigned AllocateDxilConstantBuffer(
       continue;
 
     unsigned size = C->GetRangeSize();
-    llvm::Type *Ty = C->GetGlobalSymbol()->getType()->getPointerElementType();
+    llvm::Type *Ty = C->GetHLSLType()->getPointerElementType();
     auto fieldAnnotation = constVarAnnotationMap.at(C->GetGlobalSymbol());
     bool bRowMajor = HLMatrixType::isa(Ty)
                          ? fieldAnnotation.GetMatrixAnnotation().Orientation ==
@@ -1906,7 +1906,7 @@ bool CreateCBufferVariable(HLCBuffer &CB, HLModule &HLM, llvm::Type *HandleTy) {
     if (!GV->use_empty())
       bUsed = true;
     // Global variable must be pointer type.
-    llvm::Type *Ty = GV->getType()->getPointerElementType();
+    llvm::Type *Ty = C->GetHLSLType()->getPointerElementType();
     Elements.emplace_back(Ty);
   }
   // Don't create CBuffer variable for unused cbuffer.
@@ -1942,9 +1942,8 @@ bool CreateCBufferVariable(HLCBuffer &CB, HLModule &HLM, llvm::Type *HandleTy) {
     // array.
     DXASSERT(CB.GetConstants().size() == 1,
              "ConstantBuffer should have 1 constant");
-    Value *GV = CB.GetConstants()[0]->GetGlobalSymbol();
     llvm::Type *CBEltTy =
-        GV->getType()->getPointerElementType()->getArrayElementType();
+        CB.GetConstants()[0]->GetHLSLType()->getPointerElementType()->getArrayElementType();
     cbIndexDepth = 1;
     while (CBEltTy->isArrayTy()) {
       CBEltTy = CBEltTy->getArrayElementType();

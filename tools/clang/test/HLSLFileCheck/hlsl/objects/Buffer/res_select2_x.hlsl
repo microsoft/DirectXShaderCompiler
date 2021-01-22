@@ -1,8 +1,8 @@
 // RUN: %dxc -T lib_6_x -auto-binding-space 11 %s | FileCheck %s
 
 // lib_6_x does not reduce phi/select of resource or handle in lib.
-// CHECK: phi %"class.RWBuffer
-// CHECK: select i1 %{{[^,]+}}, %"class.
+// CHECK: phi %dx.types.Handle
+// CHECK: select i1 %{{[^,]+}}, %dx.types.Handle
 // CHECK: ret <4 x float>
 
 RWBuffer<float4> BufArray[2][2][3];

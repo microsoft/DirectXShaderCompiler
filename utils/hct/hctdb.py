@@ -2136,6 +2136,7 @@ class db_dxil(object):
                 {'n':'from-binding', 'i':'FromBinding', 't':'bool', 'c':1, 'd':'Append binding to name when bound'},
                 {'n':'keep-name', 'i':'KeepName', 't':'bool', 'c':1, 'd':'Keep name when appending binding'},
             ])
+        add_pass('hlsl-dxil-resources-to-handle', 'DxilMutateResourceToHandle', 'Mutate resource to handle',[])
 
         category_lib="llvm"
         add_pass('ipsccp', 'IPSCCP', 'Interprocedural Sparse Conditional Constant Propagation', [])

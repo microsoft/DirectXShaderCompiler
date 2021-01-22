@@ -481,8 +481,8 @@ bool IsMatchedType(Type *Ty0, Type *Ty) {
 bool DxilLinkJob::AddResource(DxilResourceBase *res, llvm::GlobalVariable *GV) {
   if (m_resourceMap.count(res->GetGlobalName())) {
     DxilResourceBase *res0 = m_resourceMap[res->GetGlobalName()].first;
-    Type *Ty0 = res0->GetGlobalSymbol()->getType()->getPointerElementType();
-    Type *Ty = res->GetGlobalSymbol()->getType()->getPointerElementType();
+    Type *Ty0 = res0->GetHLSLType()->getPointerElementType();
+    Type *Ty = res->GetHLSLType()->getPointerElementType();
     // Make sure res0 match res.
     bool bMatch = IsMatchedType(Ty0, Ty);
     if (!bMatch) {
@@ -1217,6 +1217,10 @@ void DxilLinkJob::FixShaderModelMismatch(llvm::Module &M) {
 void DxilLinkJob::RunPreparePass(Module &M) {
   StripDeadDebugInfo(M);
   FixShaderModelMismatch(M);
+
+  DxilModule &DM = M.GetDxilModule();
+  const ShaderModel *pSM = DM.GetShaderModel();
+
   legacy::PassManager PM;
   PM.add(createAlwaysInlinerPass(/*InsertLifeTime*/ false));
 
@@ -1246,6 +1250,9 @@ void DxilLinkJob::RunPreparePass(Module &M) {
 
   PM.add(createDeadCodeEliminationPass());
   PM.add(createGlobalDCEPass());
+
+  if (pSM->IsSM66Plus() && pSM->IsLib())
+    PM.add(createDxilMutateResourceToHandlePass());
 
   PM.add(createDxilLowerCreateHandleForLibPass());
   PM.add(createDxilTranslateRawBuffer());

@@ -307,14 +307,15 @@ TEST_F(LinkerTest, RunLinkGlobalInit) {
 }
 
 TEST_F(LinkerTest, RunLinkFailReDefineGlobal) {
+  LPCWSTR option[] = { L"-default-linkage", L"external" };
   CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\lib_global2.hlsl", &pEntryLib);
+  CompileLib(L"..\\CodeGenHLSL\\lib_global2.hlsl", &pEntryLib, option, L"lib_6_3");
 
   CComPtr<IDxcBlob> pLib0;
-  CompileLib(L"..\\CodeGenHLSL\\lib_global3.hlsl", &pLib0);
+  CompileLib(L"..\\CodeGenHLSL\\lib_global3.hlsl", &pLib0, option, L"lib_6_3");
 
   CComPtr<IDxcBlob> pLib1;
-  CompileLib(L"..\\CodeGenHLSL\\lib_global4.hlsl", &pLib1);
+  CompileLib(L"..\\CodeGenHLSL\\lib_global4.hlsl", &pLib1, option, L"lib_6_3");
 
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
@@ -688,14 +689,14 @@ TEST_F(LinkerTest, RunLinkToLibWithNoExports) {
 }
 
 TEST_F(LinkerTest, RunLinkWithPotentialIntrinsicNameCollisions) {
-  LPCWSTR option[] = { L"-Zi", L"-Qembed_debug" };
+  LPCWSTR option[] = { L"-Zi", L"-Qembed_debug", L"-default-linkage", L"external" };
 
   CComPtr<IDxcBlob> pLib1;
   CompileLib(L"..\\CodeGenHLSL\\linker\\createHandle_multi.hlsl",
-    &pLib1, option);
+    &pLib1, option, L"lib_6_3");
   CComPtr<IDxcBlob> pLib2;
   CompileLib(L"..\\CodeGenHLSL\\linker\\createHandle_multi2.hlsl",
-    &pLib2, option);
+    &pLib2, option, L"lib_6_3");
 
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
