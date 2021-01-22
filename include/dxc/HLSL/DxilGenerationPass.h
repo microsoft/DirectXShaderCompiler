@@ -131,4 +131,7 @@ void initializeDxilNoOptLegalizePass(llvm::PassRegistry&);
 ModulePass *createDxilNoOptSimplifyInstructionsPass();
 void initializeDxilNoOptSimplifyInstructionsPass(llvm::PassRegistry&);
 
+ModulePass *createDxilMutateResourceToHandlePass();
+void initializeDxilMutateResourceToHandlePass(llvm::PassRegistry&);
+
 }

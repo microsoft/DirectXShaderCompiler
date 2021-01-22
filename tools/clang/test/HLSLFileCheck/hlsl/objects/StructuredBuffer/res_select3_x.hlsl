@@ -4,14 +4,11 @@
 // phi/select of handle should not be produced in this case, but would be allowed if it were.
 
 // CHECK: define i32 @"\01?test@@YAIHHH@Z"(i32 %i, i32 %j, i32 %m)
-// CHECK-NOT: phi %dx.types.Handle
-// CHECK-NOT: select i1 %{{[^,]+}}, %dx.types.Handle
-// CHECK: phi %"class.
-// CHECK-NOT: phi %dx.types.Handle
-// CHECK-NOT: select i1 %{{[^,]+}}, %dx.types.Handle
-// CHECK: select i1 %{{[^,]+}}, %"class.
-// CHECK-NOT: phi %dx.types.Handle
-// CHECK-NOT: select i1 %{{[^,]+}}, %dx.types.Handle
+
+// CHECK: phi %dx.types.Handle
+// CHECK: select i1 %{{[^,]+}}, %dx.types.Handle
+// CHECK: phi %dx.types.Handle
+// CHECK: select i1 %{{[^,]+}}, %dx.types.Handle
 
 // Make sure get dimensions returns 24
 // CHECK: ret i32 24
