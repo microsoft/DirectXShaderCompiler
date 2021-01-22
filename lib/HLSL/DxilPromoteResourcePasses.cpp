@@ -529,7 +529,7 @@ void DxilMutateResourceToHandle::collectCandidates(Module &M) {
           Intrinsic::ID ID = F->getIntrinsicID();
           if (ID != Intrinsic::lifetime_start &&
               ID != Intrinsic::lifetime_end) {
-            llvm::report_fatal_error("invalid user of resource");
+            DXASSERT(false, "unexpected resource object user");
           }
         }
       } else {
