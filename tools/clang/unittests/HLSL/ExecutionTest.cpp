@@ -9184,8 +9184,9 @@ void CleanUAVBuffer0Buffer(LPCSTR BufferName, std::vector<BYTE>& Data, st::Shade
 //
 // For compute and vertex shaders IsHelperLane() always returns false and might be optimized away in the front end.
 // However it can be exposed to the driver in CS/VS through an exported function in a library so drivers need 
-// to be prepared to handle it. The tests are also validating that wave intrinsics operate correctly with 3 threads 
-// in a CS or 3 vertices in a VS where the rest of the lanes in the wave are not active (dead lanes).
+// to be prepared to handle it. For this reason the test is compiled with disabled optimizations (/Od).
+// The tests are also validating that wave intrinsics operate correctly with 3 threads in a CS or 3 vertices 
+// in a VS where the rest of the lanes in the wave are not active (dead lanes).
 //
 TEST_F(ExecutionTest, HelperLaneTestWave) {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
@@ -9197,9 +9198,9 @@ TEST_F(ExecutionTest, HelperLaneTestWave) {
   st::ShaderOp* pShaderOp = ShaderOpSet->GetShaderOp("HelperLaneTestWave");
 
 #ifdef ISHELPERLANE_PLACEHOLDER
-  LPCSTR args = "-DISHELPERLANE_PLACEHOLDER";
+  LPCSTR args = "/Od -DISHELPERLANE_PLACEHOLDER";
 #else 
-  LPCSTR args = "";
+  LPCSTR args = "/Od";
 #endif
 
   if (args[0]) {
