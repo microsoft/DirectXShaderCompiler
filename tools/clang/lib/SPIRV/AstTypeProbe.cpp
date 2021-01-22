@@ -441,6 +441,8 @@ uint32_t getElementSpirvBitwidth(const ASTContext &astContext, QualType type,
     case BuiltinType::Int8_4Packed:
     case BuiltinType::UInt8_4Packed:
     case BuiltinType::Float:
+    case BuiltinType::Long:
+    case BuiltinType::ULong:
       return 32;
     case BuiltinType::Double:
     case BuiltinType::LongLong:
