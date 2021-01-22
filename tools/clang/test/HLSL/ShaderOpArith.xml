@@ -2193,7 +2193,392 @@
     </Shader>
   </ShaderOp>
 
-    <!--
-  TODO: Dynamically index into tables
-  -->
+  <ShaderOp Name="HelperLaneTestNoWave" PS="PS" VS="VS" TopologyType="TRIANGLE">
+    <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), UAV(u0)</RootSignature>
+    <Resource Name="VBuffer" Dimension="BUFFER" InitialResourceState="COPY_DEST" Init="FromBytes" Topology="TRIANGLELIST">
+        { { -1.0f,  1.0f, 0.0f } },
+        { {  1.0f,  1.0f, 0.0f } },
+        { {  1.0f, -1.0f, 0.0f } },
+    </Resource>
+    <Resource Name="UAVBuffer0" Dimension="BUFFER" Width="120" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" Format="R32_TYPELESS" />
+    <Resource Name="RTarget" Dimension="TEXTURE2D" Width="16" Height="16" Format="R32G32B32A32_UINT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" ReadBack="true" />
+    <RootValues>
+        <RootValue Index="0" ResName="UAVBuffer0" />
+    </RootValues>
+    <DescriptorHeap Name="RtvHeap" NumDescriptors="1" Type="RTV">
+      <Descriptor Name="RTarget" Kind="RTV"/>
+    </DescriptorHeap>
+    <InputElements>
+      <InputElement SemanticName="POSITION" Format="R32G32B32_FLOAT" AlignedByteOffset="0" />
+    </InputElements>
+    <RenderTargets>
+      <RenderTarget Name="RTarget">
+        <Viewport Width="2.0" Height="2.0" MaxDepth="1.0"/>
+      </RenderTarget>
+    </RenderTargets>
+    <Shader Name="VS" Target="vs_6_0" EntryPoint="VSMain" Text="@PS" />
+    <Shader Name="PS" Target="ps_6_0" EntryPoint="PSMain">
+        <![CDATA[
+#ifdef ISHELPERLANE_PLACEHOLDER
+        bool ph_IsHelperLane(float4 pos, bool first_call) {
+            if (first_call) {
+                return pos.x < 1.0f && pos.y > 1.0f;
+            }
+            else {
+                return pos.x < 1.0f;
+            }
+        }
+#endif // ISHELPERLANE_PLACEHOLDER
+
+        struct HelperLaneTestResult{
+            int is_helper_00;
+            int is_helper_10;
+            int is_helper_01;
+            int is_helper_11;
+        };
+        
+        RWStructuredBuffer<HelperLaneTestResult> g_testResults : register(u0);
+        
+        int ReadAcrossX_DD(int value, bool isLeft) {
+          int d = ddx_fine(value);
+          return isLeft ? value + d : value - d;
+        }
+        
+        int ReadAcrossY_DD(int value, bool isTop) {
+          int d = ddy_fine(value);
+          return isTop ? value + d : value - d;
+        }
+        
+        int ReadAcrossDiagonal_DD(int value, bool isLeft, bool isTop) {
+          return ReadAcrossY_DD(ReadAcrossX_DD(value, isLeft), isTop);
+        }
+
+        struct PSInput {
+            float4 pos : SV_POSITION;
+        };
+        
+        PSInput VSMain(float3 pos : POSITION) {
+            PSInput r;
+            r.pos = float4(pos, 1); 
+            return r;
+        }
+
+        uint4 PSMain(PSInput input) : SV_TARGET {
+          bool isLeft = (input.pos.x < 1.0f);
+          bool isTop = (input.pos.y < 1.0f);
+          
+          for (int i = 0; i < 2; i++) {
+#ifdef ISHELPERLANE_PLACEHOLDER
+            int is_helper = ph_IsHelperLane(input.pos, i == 0);
+#else
+            int is_helper = IsHelperLane();
+#endif
+            int is_helper_accross_X = ReadAcrossX_DD(is_helper, isLeft);
+            int is_helper_accross_Y = ReadAcrossY_DD(is_helper, isTop);
+            int is_helper_accross_Diag = ReadAcrossDiagonal_DD(is_helper, isLeft, isTop);
+          
+            if (!isLeft && !isTop) { //bottom right pixel writes results
+              g_testResults[i].is_helper_00 = is_helper_accross_Diag;
+              g_testResults[i].is_helper_10 = is_helper_accross_Y;
+              g_testResults[i].is_helper_01 = is_helper_accross_X;
+              g_testResults[i].is_helper_11 = is_helper;
+            }
+
+            if (i == 0 && isLeft && isTop) // discard top left pixel
+              discard;
+          }
+          return uint4(0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 1);
+        }
+        ]]>
+    </Shader>
+  </ShaderOp>
+
+  <ShaderOp Name="HelperLaneTestWave" CS="CS" PS="PS" VS="VS" DispatchX="3" DispatchY="1" TopologyType="TRIANGLE">
+    <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), UAV(u0)</RootSignature>
+      <Resource Name="VBuffer" Dimension="BUFFER" InitialResourceState="COPY_DEST" Init="FromBytes" Topology="TRIANGLELIST">
+            { { -1.0f,  1.0f, 0.0f } },
+            { {  1.0f,  1.0f, 0.0f } },
+            { {  1.0f, -1.0f, 0.0f } },
+      </Resource>
+      <Resource Name="UAVBuffer0" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" Format="R32_TYPELESS" />
+      <Resource Name="RTarget" Dimension="TEXTURE2D" Width="16" Height="16" Format="R32G32B32A32_UINT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" ReadBack="true" />
+      <RootValues>
+        <RootValue Index="0" ResName="UAVBuffer0" />
+      </RootValues>
+      <DescriptorHeap Name="RtvHeap" NumDescriptors="1" Type="RTV">
+         <Descriptor Name="RTarget" Kind="RTV"/>
+      </DescriptorHeap>
+      <InputElements>
+         <InputElement SemanticName="POSITION" Format="R32G32B32_FLOAT" AlignedByteOffset="0" />
+      </InputElements>
+      <RenderTargets>
+          <RenderTarget Name="RTarget">
+              <Viewport Width="2.0" Height="2.0" MaxDepth="1.0"/>
+          </RenderTarget>
+      </RenderTargets>
+      <Shader Name="PS65" Target="ps_6_5" EntryPoint="PSMain65" Text="@CS"/>
+      <Shader Name="VS65" Target="vs_6_5" EntryPoint="VSMain65" Text="@CS"/>
+      <Shader Name="CS65" Target="cs_6_5" EntryPoint="CSMain65" Text="@CS"/>
+      <Shader Name="VS"   Target="vs_6_0" EntryPoint="VSMain"   Text="@CS"/>
+      <Shader Name="PS"   Target="ps_6_0" EntryPoint="PSMain"   Text="@CS"/>
+      <Shader Name="CS"   Target="cs_6_0" EntryPoint="CSMain">
+        <![CDATA[
+#ifdef ISHELPERLANE_PLACEHOLDER
+        #define CALL(x) ph_##x
+        
+        bool ph_IsHelperLane() {
+            return false;
+        }
+
+        bool ph_IsHelperLane(float4 pos, bool first_call) {
+            if (first_call) {
+                return pos.x < 1.0f && pos.y > 1.0f;
+            }
+            else {
+                return pos.x < 1.0f;
+            }
+        }
+#else
+        #define CALL(x) x
+#endif
+
+        // 6.0 wave ops
+        struct HelperLaneWaveTestResult60 {
+            int anyTrue;
+            int allTrue;
+            uint4 ballot;
+            int waterfallLoopCount;
+            int allEqual;
+            int countBits;
+            int sum;
+            int product;
+            int bitAnd;
+            int bitOr;
+            int bitXor;
+            int min;
+            int max;
+            int prefixCountBits;
+            int prefixProduct;
+            int prefixSum;
+        };
+        
+        struct HelperLaneQuadTestResult {
+            int is_helper_this;
+            int is_helper_across_X;
+            int is_helper_across_Y;
+            int is_helper_across_Diag;
+        };
+        
+        // 6.5 wave ops
+        struct HelperLaneWaveTestResult65 {
+            uint4 match;
+            int mpCountBits;
+            int mpSum;
+            int mpProduct;
+            int mpBitAnd;
+            int mpBitOr;
+            int mpBitXor;
+        };
+        
+        struct HelperLaneWaveTestResult {
+            HelperLaneWaveTestResult60 sm60_wave;
+            HelperLaneQuadTestResult sm60_quad;
+            HelperLaneWaveTestResult65 sm65_wave;
+        };
+        
+        RWStructuredBuffer<HelperLaneWaveTestResult> g_TestResults : register(u0);
+        
+        #define CS_INDEX    0
+        #define VS_INDEX    0
+        #define PS_INDEX    1
+        #define PS_INDEX_AFTER_DISCARD 2
+        
+        HelperLaneWaveTestResult60 RunHelperLaneWaveTests60() {
+            HelperLaneWaveTestResult60 tr;
+            bool is_helper = CALL(IsHelperLane());
+            tr.anyTrue = WaveActiveAnyTrue(is_helper);
+            tr.allTrue = WaveActiveAllTrue(!is_helper);
+            tr.ballot = WaveActiveBallot(true);
+
+            // waterfall loop
+            int count = 0;
+            int waveCount = WaveGetLaneCount();
+            while (count < waveCount) {
+                count++;
+                if (WaveReadLaneFirst(!CALL(IsHelperLane())) && WaveIsFirstLane()) {
+                    break;
+                }
+            }
+            tr.waterfallLoopCount = count;
+            
+            is_helper = CALL(IsHelperLane());
+            tr.allEqual = WaveActiveAllEqual(is_helper);
+            tr.countBits = WaveActiveCountBits(true);
+            tr.sum = WaveActiveSum(4);
+            tr.product = WaveActiveProduct(4);
+            tr.bitAnd = WaveActiveBitAnd((uint)!is_helper);
+            tr.bitOr = WaveActiveBitOr((uint)is_helper);
+            tr.bitXor = WaveActiveBitXor((uint)is_helper);
+            tr.min = WaveActiveMin(is_helper ? 1 : 10);
+            tr.max = WaveActiveMax(is_helper ? 10 : 1);
+            tr.prefixCountBits = WavePrefixCountBits(1);
+            tr.prefixProduct = WavePrefixProduct(4);
+            tr.prefixSum = WavePrefixSum(2);
+
+            return tr;
+        }
+        
+        HelperLaneQuadTestResult RunHelperLaneQuadTests() {
+            HelperLaneQuadTestResult tr;
+            int is_helper = CALL(IsHelperLane());
+
+            tr.is_helper_this = is_helper;
+            tr.is_helper_across_X = QuadReadAcrossX(is_helper);
+            tr.is_helper_across_Y = QuadReadAcrossY(is_helper);
+            tr.is_helper_across_Diag = QuadReadAcrossDiagonal(is_helper);
+            
+            return tr;
+        }
+        
+        #ifdef ISHELPERLANE_PLACEHOLDER
+        HelperLaneQuadTestResult ph_RunHelperLaneQuadTests_PS(float4 pos, bool first_call) {
+            HelperLaneQuadTestResult tr;
+            
+            int is_helper = ph_IsHelperLane(pos, first_call);
+            tr.is_helper_this = is_helper;
+            tr.is_helper_across_X = QuadReadAcrossX(is_helper);
+            tr.is_helper_across_Y = QuadReadAcrossY(is_helper);
+            tr.is_helper_across_Diag = QuadReadAcrossDiagonal(is_helper);
+            
+            return tr;
+        }
+        #endif
+
+        HelperLaneWaveTestResult65 RunHelperLaneWaveTests65() {
+            HelperLaneWaveTestResult65 tr;
+            uint4 noMaskedBits = (uint4)0xFFFFFFFF;
+            bool is_helper = CALL(IsHelperLane());
+
+            tr.match = WaveMatch(true);
+            tr.mpCountBits = WaveMultiPrefixCountBits(1, noMaskedBits);
+            tr.mpSum = WaveMultiPrefixSum(2, noMaskedBits);
+            tr.mpProduct = WaveMultiPrefixProduct(4, noMaskedBits);
+            tr.mpBitAnd = WaveMultiPrefixBitAnd(is_helper ? 0 : 1, noMaskedBits);
+            tr.mpBitOr = WaveMultiPrefixBitOr(is_helper ? 1 : 0, noMaskedBits);
+            tr.mpBitXor = WaveMultiPrefixBitXor(is_helper ? 1 : 0, noMaskedBits);
+            return tr;
+        }
+        
+        struct PSInput {
+            float4 pos : SV_POSITION;
+        };
+        
+        PSInput VSMain(float3 pos : POSITION) {
+            HelperLaneWaveTestResult60 tr60 = RunHelperLaneWaveTests60();
+            if (WaveGetLaneIndex() == 2) { // last lane writes results
+                g_TestResults[VS_INDEX].sm60_wave = tr60;
+            }
+            PSInput r;
+            r.pos = float4(pos, 1); 
+            return r;
+        }
+        
+        PSInput VSMain65(float3 pos : POSITION) {
+            HelperLaneWaveTestResult60 tr60 = RunHelperLaneWaveTests60();
+            HelperLaneWaveTestResult65 tr65 = RunHelperLaneWaveTests65();
+            if (WaveGetLaneIndex() == 2) { // last lane writes results
+                g_TestResults[VS_INDEX].sm60_wave = tr60;
+                g_TestResults[VS_INDEX].sm65_wave = tr65;
+            }
+            PSInput r;
+            r.pos = float4(pos, 1); 
+            return r;
+        }
+
+        uint4 PSMain(PSInput input) : SV_TARGET {
+            HelperLaneWaveTestResult60 tr60 = RunHelperLaneWaveTests60();
+            
+        #ifdef ISHELPERLANE_PLACEHOLDER
+            HelperLaneQuadTestResult tr60_quad = ph_RunHelperLaneQuadTests_PS(input.pos, true);
+        #else
+            HelperLaneQuadTestResult tr60_quad = RunHelperLaneQuadTests();
+        #endif
+        
+            if (input.pos.x > 1.0f && input.pos.y > 1.0f) { // bottom right pixel writes results
+                g_TestResults[PS_INDEX].sm60_wave = tr60;
+                g_TestResults[PS_INDEX].sm60_quad = tr60_quad;
+            }
+            if (input.pos.x < 1.0f && input.pos.y < 1.0f) // discard top left pixel
+                discard;
+                
+            HelperLaneWaveTestResult60 tr60_disc = RunHelperLaneWaveTests60();
+
+#ifdef ISHELPERLANE_PLACEHOLDER
+            HelperLaneQuadTestResult tr60_quad_disc  = ph_RunHelperLaneQuadTests_PS(input.pos, false);
+#else
+            HelperLaneQuadTestResult tr60_quad_disc = RunHelperLaneQuadTests();
+#endif
+            if (input.pos.x > 1.0f && input.pos.y > 1.0f) { // bottom right pixel writes results
+                g_TestResults[PS_INDEX_AFTER_DISCARD].sm60_wave = tr60_disc;
+                g_TestResults[PS_INDEX_AFTER_DISCARD].sm60_quad = tr60_quad_disc;
+            }
+            return uint4(0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 1);
+        }
+
+        uint4 PSMain65(PSInput input) : SV_TARGET {
+            HelperLaneWaveTestResult tr;
+            tr.sm60_wave = RunHelperLaneWaveTests60();
+#ifdef ISHELPERLANE_PLACEHOLDER
+            tr.sm60_quad = ph_RunHelperLaneQuadTests_PS(input.pos, true);
+#else
+            tr.sm60_quad = RunHelperLaneQuadTests();
+#endif
+            tr.sm65_wave = RunHelperLaneWaveTests65();
+            
+            if (input.pos.x > 1.0f && input.pos.y > 1.0f) { // bottom right pixel writes results
+                g_TestResults[PS_INDEX] = tr;
+            }
+
+            if (input.pos.x < 1.0f && input.pos.y < 1.0f) // discard top left pixel
+                discard;
+                
+            HelperLaneWaveTestResult tr_disc;
+            tr_disc.sm60_wave = RunHelperLaneWaveTests60();
+#ifdef ISHELPERLANE_PLACEHOLDER
+            tr_disc.sm60_quad = ph_RunHelperLaneQuadTests_PS(input.pos, false);
+#else
+            tr_disc.sm60_quad = RunHelperLaneQuadTests();
+#endif
+            tr_disc.sm65_wave = RunHelperLaneWaveTests65();
+            
+            if (input.pos.x > 1.0f && input.pos.y > 1.0f) { // bottom right pixel writes results
+                g_TestResults[PS_INDEX_AFTER_DISCARD] = tr_disc;
+            }
+            return uint4(0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 1);
+        }
+        
+        [numthreads(3,1,1)]
+        void CSMain(uint3 tid : SV_GroupThreadID) {
+            HelperLaneWaveTestResult60 tr60 = RunHelperLaneWaveTests60();
+            HelperLaneQuadTestResult tr60_quad = RunHelperLaneQuadTests();
+            if (WaveGetLaneIndex() == 2) { // last lane writes results
+                g_TestResults[CS_INDEX].sm60_wave = tr60;
+                g_TestResults[CS_INDEX].sm60_quad = tr60_quad;
+            }
+        }
+        
+        [numthreads(3,1,1)]
+        void CSMain65() {
+            HelperLaneWaveTestResult tr;
+            tr.sm60_wave = RunHelperLaneWaveTests60();
+            tr.sm60_quad = RunHelperLaneQuadTests();
+            tr.sm65_wave = RunHelperLaneWaveTests65();
+
+            if (WaveGetLaneIndex() == 2) { // last lane writes results
+                g_TestResults[CS_INDEX] = tr;
+            }
+        }
+]]>
+    </Shader>
+  </ShaderOp>
 </ShaderOpSet>

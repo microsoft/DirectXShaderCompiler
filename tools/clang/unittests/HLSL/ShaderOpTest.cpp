@@ -463,7 +463,7 @@ void ShaderOpTest::CreatePipelineState() {
     ZeroMemory(&RtArray, sizeof(RtArray));
     RtArray.NumRenderTargets = (UINT)m_pShaderOp->RenderTargets.size();
     for (size_t i = 0; i < RtArray.NumRenderTargets; ++i) {
-      ShaderOpResource *R = m_pShaderOp->GetResourceByName(m_pShaderOp->RenderTargets[i]);
+      ShaderOpResource *R = m_pShaderOp->GetResourceByName(m_pShaderOp->RenderTargets[i].Name);
       RtArray.RTFormats[i] = R->Desc.Format;
     }
     MDesc.RTVFormats = CD3DX12_PIPELINE_STATE_STREAM_RENDER_TARGET_FORMATS(RtArray);
@@ -498,7 +498,7 @@ void ShaderOpTest::CreatePipelineState() {
     GDesc.NumRenderTargets = (UINT)m_pShaderOp->RenderTargets.size();
     GDesc.SampleMask = m_pShaderOp->SampleMask;
     for (size_t i = 0; i < m_pShaderOp->RenderTargets.size(); ++i) {
-      ShaderOpResource *R = m_pShaderOp->GetResourceByName(m_pShaderOp->RenderTargets[i]);
+      ShaderOpResource *R = m_pShaderOp->GetResourceByName(m_pShaderOp->RenderTargets[i].Name);
       GDesc.RTVFormats[i] = R->Desc.Format;
     }
     GDesc.SampleDesc.Count = 1; // TODO: read from file, set from shader operation; also apply to count
@@ -856,20 +856,26 @@ void ShaderOpTest::RunCommandList() {
     SetDescriptorHeaps(pList, m_DescriptorHeaps);
     SetRootValues(pList, m_pShaderOp->IsCompute());
 
+    D3D12_VIEWPORT viewport;
     if (!m_pShaderOp->RenderTargets.empty()) {
       // Use the first render target to set up the viewport and scissors.
-      ShaderOpResource *R = m_pShaderOp->GetResourceByName(m_pShaderOp->RenderTargets[0]);
-      D3D12_VIEWPORT viewport;
-      D3D12_RECT scissorRect;
+      ShaderOpRenderTarget& rt = m_pShaderOp->RenderTargets[0];
+      ShaderOpResource *R = m_pShaderOp->GetResourceByName(rt.Name);
+      if (rt.Viewport.Width != 0 && rt.Viewport.Height != 0 ) {
+        memcpy(&viewport, &rt.Viewport, sizeof(rt.Viewport));
+      }
+      else {
+        memset(&viewport, 0, sizeof(viewport));
+        viewport.Height = (FLOAT)R->Desc.Height;
+        viewport.Width = (FLOAT)R->Desc.Width;
+        viewport.MaxDepth = 1.0f;
+      }
+      pList->RSSetViewports(1, &viewport);
 
-      memset(&viewport, 0, sizeof(viewport));
-      viewport.Height = (FLOAT)R->Desc.Height;
-      viewport.Width = (FLOAT)R->Desc.Width;
-      viewport.MaxDepth = 1.0f;
+      D3D12_RECT scissorRect;
       memset(&scissorRect, 0, sizeof(scissorRect));
       scissorRect.right = (LONG)viewport.Width;
       scissorRect.bottom = (LONG)viewport.Height;
-      pList->RSSetViewports(1, &viewport);
       pList->RSSetScissorRects(1, &scissorRect);
     }
 
@@ -877,7 +883,7 @@ void ShaderOpTest::RunCommandList() {
     D3D12_CPU_DESCRIPTOR_HANDLE rtvHandles[8];
     UINT rtvHandleCount = (UINT)m_pShaderOp->RenderTargets.size();
     for (size_t i = 0; i < rtvHandleCount; ++i) {
-      auto &rt = m_pShaderOp->RenderTargets[i];
+      auto &rt = m_pShaderOp->RenderTargets[i].Name;
       ShaderOpDescriptorData &DData = m_DescriptorData[rt];
       rtvHandles[i] = DData.CPUHandle;
       RecordTransitionBarrier(pList, DData.ResData->Resource,
@@ -1038,7 +1044,9 @@ void ShaderOpTest::SetupRenderTarget(ShaderOp *pShaderOp, ID3D12Device *pDevice,
   m_CommandList.Queue = pCommandQueue;
   // Simplification - add the render target name if missing, set it up 'by hand' if not.
   if (pShaderOp->RenderTargets.empty()) {
-    pShaderOp->RenderTargets.push_back(pShaderOp->Strings.insert("RTarget"));
+    ShaderOpRenderTarget RT;
+    RT.Name = pShaderOp->Strings.insert("RTarget");
+    pShaderOp->RenderTargets.push_back(RT);
     ShaderOpResource R;
     ZeroMemory(&R, sizeof(R));
     R.Desc = pRenderTarget->GetDesc();
@@ -1117,12 +1125,15 @@ private:
   HRESULT ReadAttrUINT64(IXmlReader *pReader, LPCWSTR pAttrName, UINT64 *pValue, UINT64 defaultValue = 0);
   HRESULT ReadAttrUINT16(IXmlReader *pReader, LPCWSTR pAttrName, UINT16 *pValue, UINT16 defaultValue = 0);
   HRESULT ReadAttrUINT(IXmlReader *pReader, LPCWSTR pAttrName, UINT *pValue, UINT defaultValue = 0);
+  HRESULT ReadAttrFloat(IXmlReader* pReader, LPCWSTR pAttrName, float* pValue, float defaultValue = 0);
   void ReadElementContentStr(IXmlReader *pReader, LPCSTR *ppValue);
   void ParseDescriptor(IXmlReader *pReader, ShaderOpDescriptor *pDesc);
   void ParseDescriptorHeap(IXmlReader *pReader, ShaderOpDescriptorHeap *pHeap);
   void ParseInputElement(IXmlReader *pReader, D3D12_INPUT_ELEMENT_DESC *pInputElement);
   void ParseInputElements(IXmlReader *pReader, std::vector<D3D12_INPUT_ELEMENT_DESC> *pInputElements);
-  void ParseRenderTargets(IXmlReader *pReader, std::vector<LPCSTR> *pRenderTargets);
+  void ParseRenderTargets(IXmlReader *pReader, std::vector<ShaderOpRenderTarget> *pRenderTargets);
+  void ParseRenderTarget(IXmlReader* pReader, ShaderOpRenderTarget *pRenderTarget);
+  void ParseViewport(IXmlReader* pReader, D3D12_VIEWPORT *pViewport);
   void ParseRootValue(IXmlReader *pReader, ShaderOpRootValue *pRootValue);
   void ParseRootValues(IXmlReader *pReader, std::vector<ShaderOpRootValue> *pRootValues);
   void ParseResource(IXmlReader *pReader, ShaderOpResource *pResource);
@@ -1649,6 +1660,20 @@ HRESULT ShaderOpParser::ReadAttrUINT16(IXmlReader *pReader, LPCWSTR pAttrName, U
   return hrRead;
 }
 
+HRESULT ShaderOpParser::ReadAttrFloat(IXmlReader* pReader, LPCWSTR pAttrName, float* pValue, float defaultValue) {
+  if (S_FALSE == CHECK_HR_RET(pReader->MoveToAttributeByName(pAttrName, nullptr))) {
+    *pValue = defaultValue;
+    return S_FALSE;
+  }
+  LPCWSTR pText;
+  CHECK_HR(pReader->GetValue(&pText, nullptr));
+  float d = (float)_wtof(pText);
+  if (errno == ERANGE) CHECK_HR(E_INVALIDARG);
+  *pValue = d;
+  CHECK_HR(pReader->MoveToElement());
+  return S_OK;
+}
+
 void ShaderOpParser::ReadElementContentStr(IXmlReader *pReader, LPCSTR *ppValue) {
   *ppValue = nullptr;
   if (pReader->IsEmptyElement())
@@ -1854,7 +1879,7 @@ void ShaderOpParser::ParseInputElements(IXmlReader *pReader, std::vector<D3D12_I
   }
 }
 
-void ShaderOpParser::ParseRenderTargets(IXmlReader *pReader, std::vector<LPCSTR> *pRenderTargets) {
+void ShaderOpParser::ParseRenderTargets(IXmlReader *pReader, std::vector<ShaderOpRenderTarget> *pRenderTargets) {
   if (!ReadAtElementName(pReader, L"RenderTargets"))
     return;
   if (pReader->IsEmptyElement()) return;
@@ -1872,11 +1897,63 @@ void ShaderOpParser::ParseRenderTargets(IXmlReader *pReader, std::vector<LPCSTR>
       LPCWSTR pLocalName;
       CHECK_HR(pReader->GetLocalName(&pLocalName, nullptr));
       if (0 == wcscmp(pLocalName, L"RenderTarget")) {
-        LPCSTR pName;
-        CHECK_HR(ReadAttrStr(pReader, L"Name", &pName));
-        pRenderTargets->push_back(pName);
+        ShaderOpRenderTarget RT;
+        ParseRenderTarget(pReader, &RT);
+        pRenderTargets->push_back(RT);
       }
     }
+  }
+}
+
+void ShaderOpParser::ParseRenderTarget(IXmlReader* pReader, ShaderOpRenderTarget *pRenderTarget) {
+  if (!ReadAtElementName(pReader, L"RenderTarget"))
+    return;
+
+  CHECK_HR(ReadAttrStr(pReader, L"Name", &pRenderTarget->Name));
+
+  if (pReader->IsEmptyElement()) return;
+
+  UINT startDepth;
+  XmlNodeType nt;
+  CHECK_HR(pReader->GetDepth(&startDepth));
+  for (;;) {
+    UINT depth;
+    CHECK_HR(pReader->Read(&nt));
+    CHECK_HR(pReader->GetDepth(&depth));
+    if (nt == XmlNodeType_EndElement && depth == startDepth + 1)
+      return;
+    if (nt == XmlNodeType_Element) {
+      LPCWSTR pLocalName;
+      CHECK_HR(pReader->GetLocalName(&pLocalName, nullptr));
+      if (0 == wcscmp(pLocalName, L"Viewport")) {
+        ParseViewport(pReader, &pRenderTarget->Viewport);
+      }
+    }
+  }
+}
+
+void ShaderOpParser::ParseViewport(IXmlReader* pReader, D3D12_VIEWPORT *pViewport) {
+  if (!ReadAtElementName(pReader, L"Viewport"))
+    return;
+
+  CHECK_HR(ReadAttrFloat(pReader, L"TopLeftX", &pViewport->TopLeftX));
+  CHECK_HR(ReadAttrFloat(pReader, L"TopLeftY", &pViewport->TopLeftY));
+  CHECK_HR(ReadAttrFloat(pReader, L"Width",    &pViewport->Width));
+  CHECK_HR(ReadAttrFloat(pReader, L"Height",   &pViewport->Height));
+  CHECK_HR(ReadAttrFloat(pReader, L"MinDepth", &pViewport->MinDepth));
+  CHECK_HR(ReadAttrFloat(pReader, L"MaxDepth", &pViewport->MaxDepth));
+
+  if (pReader->IsEmptyElement()) return;
+
+  UINT startDepth;
+  XmlNodeType nt;
+  CHECK_HR(pReader->GetDepth(&startDepth));
+  for (;;) {
+    UINT depth;
+    CHECK_HR(pReader->Read(&nt));
+    CHECK_HR(pReader->GetDepth(&depth));
+    if (nt == XmlNodeType_EndElement && depth == startDepth + 1)
+      return;
   }
 }
 
