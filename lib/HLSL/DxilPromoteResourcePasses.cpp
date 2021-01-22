@@ -239,8 +239,15 @@ INITIALIZE_PASS(DxilPromoteStaticResources,
 // CreateHandleForLib is eliminated, and high-level resource
 // types are only preserved in metadata for reflection purposes.
 namespace {
-// Start from resource global variable, function parameter/ret, alloca.
-// Propagate to all insts, ld/st/phi/select
+// Overview
+// 1. collectCandidates - collect to MutateValSet
+//    Start from resource global variable, function parameter/ret, alloca.
+//    Propagate to all insts, GEP/ld/st/phi/select/called functions.
+// 2. mutateCandidates
+//    Mutate all non-function value types.
+//    Mutate functions by creating new function with new type, then
+//    splice original function blocks into new function, and
+//    replace old argument uses with new function's arguments.
 class DxilMutateResourceToHandle : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
