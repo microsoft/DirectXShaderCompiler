@@ -305,6 +305,8 @@ public:
   TEST_METHOD(AtomicsTyped64Test);
   TEST_METHOD(AtomicsShared64Test);
   TEST_METHOD(AtomicsFloatTest);
+  TEST_METHOD(HelperLaneTest);
+  TEST_METHOD(HelperLaneTestWave);
   TEST_METHOD(SignatureResourcesTest)
   TEST_METHOD(DynamicResourcesTest)
   TEST_METHOD(QuadReadTest)
@@ -4605,6 +4607,13 @@ static void VerifyOutputWithExpectedValueInt(int output, int ref, int tolerance)
 
 static void VerifyOutputWithExpectedValueUInt(uint32_t output, uint32_t ref, uint32_t tolerance) {
     VERIFY_IS_TRUE(output - ref <= tolerance && ref - output <= tolerance);
+}
+
+static void VerifyOutputWithExpectedValueUInt4(XMUINT4 output, XMUINT4 ref) {
+  VERIFY_ARE_EQUAL(output.x, ref.x);
+  VERIFY_ARE_EQUAL(output.y, ref.y);
+  VERIFY_ARE_EQUAL(output.z, ref.z);
+  VERIFY_ARE_EQUAL(output.w, ref.w);
 }
 
 static void VerifyOutputWithExpectedValueFloat(
@@ -8934,6 +8943,341 @@ TEST_F(ExecutionTest, AtomicsFloatTest) {
     LogCommentFmt(L"Verifying float cmp/xchg atomic operations in vert/pixel shaders");
   test = RunShaderOpTestAfterParse(pDevice, m_support, "FloatAtomics", nullptr, ShaderOpSet);
   VerifyAtomicsFloatTest(test, 64*64+6);
+}
+
+// The IsHelperLane test renders 3-pixel triangle into 16x16 render target restricted 
+// to 2x2 viewport alligned at (0,0) which guarantees it will run in a single quad. 
+//
+// Pixels to be rendered*
+// (0,0)*  (0,1)*
+// (1,0)   (1,1)*
+//
+// Pixel (1,0) is not rendered and is in helper lane.
+//
+// Each thread will use ddx_fine and ddy_fine to read the IsHelperLane() values from other threads.
+// The bottom right pixel will write the results into the UAV buffer.
+// 
+// Then the top level pixel (0,0) is discarded and the process above is repeated.
+//
+// Runs with shader models 6.0 and 6.6 to test both the HLSL built-in IsHelperLane fallback 
+// function (sm <= 6.5) and the IsHelperLane intrisics (sm >= 6.6).
+//
+TEST_F(ExecutionTest, HelperLaneTest) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet = std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+
+#ifdef ISHELPERLANE_PLACEHOLDER
+  string args = "-DISHELPERLANE_PLACEHOLDER";
+#else 
+  string args = "";
+#endif
+
+  D3D_SHADER_MODEL TestShaderModels[] = { D3D_SHADER_MODEL_6_0, D3D_SHADER_MODEL_6_6 };
+  for (unsigned i = 0; i < _countof(TestShaderModels); i++) {
+    D3D_SHADER_MODEL sm = TestShaderModels[i];
+    LogCommentFmt(L"Verifying IsHelperLane in shader model 6.%1u", ((UINT)sm & 0x0f));
+
+    CComPtr<ID3D12Device> pDevice;
+    if (!CreateDevice(&pDevice, sm, false /* skipUnsupported */))
+      continue;
+
+    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "HelperLaneTestNoWave", 
+      // this callbacked is called when the test is creating the resource to run the test
+      [&](LPCSTR Name, std::vector<BYTE>& Data, st::ShaderOp* pShaderOp) {
+        VERIFY_IS_TRUE(0 == _stricmp(Name, "UAVBuffer0"));
+        std::fill(Data.begin(), Data.end(), 0xCC);
+        pShaderOp->Shaders.at(0).Arguments = args.c_str();
+        pShaderOp->Shaders.at(1).Arguments = args.c_str();
+      }, ShaderOpSet);
+
+    struct HelperLaneTestResult {
+      int32_t is_helper_00;
+      int32_t is_helper_10;
+      int32_t is_helper_01;
+      int32_t is_helper_11;
+    };
+
+    MappedData uavData;
+    test->Test->GetReadBackData("UAVBuffer0", &uavData);
+    HelperLaneTestResult* pTestResults = (HelperLaneTestResult*)uavData.data();
+
+    MappedData renderData;
+    test->Test->GetReadBackData("RTarget", &renderData);
+    const uint32_t* pPixels = (uint32_t*)renderData.data();
+
+    // before discard
+    VERIFY_ARE_EQUAL(pTestResults[0].is_helper_00, 0);
+    VERIFY_ARE_EQUAL(pTestResults[0].is_helper_10, 0);
+    VERIFY_ARE_EQUAL(pTestResults[0].is_helper_01, 1);
+    VERIFY_ARE_EQUAL(pTestResults[0].is_helper_11, 0);
+
+    // after discard
+    VERIFY_ARE_EQUAL(pTestResults[1].is_helper_00, 1);
+    VERIFY_ARE_EQUAL(pTestResults[1].is_helper_10, 0);
+    VERIFY_ARE_EQUAL(pTestResults[1].is_helper_01, 1);
+    VERIFY_ARE_EQUAL(pTestResults[1].is_helper_11, 0);
+
+    UNREFERENCED_PARAMETER(pPixels);
+  }
+}
+
+struct HelperLaneWaveTestResult60 {
+  // 6.0 wave ops
+  int32_t anyTrue;
+  int32_t allTrue;
+  XMUINT4 ballot;
+  int32_t waterfallLoopCount;
+  int32_t allEqual;
+  int32_t countBits;
+  int32_t sum;
+  int32_t product;
+  int32_t bitAnd;
+  int32_t bitOr;
+  int32_t bitXor;
+  int32_t min;
+  int32_t max;
+  int32_t prefixCountBits;
+  int32_t prefixProduct;
+  int32_t prefixSum;
+};
+
+struct HelperLaneQuadTestResult {
+  int32_t is_helper_this;
+  int32_t is_helper_across_X;
+  int32_t is_helper_across_Y;
+  int32_t is_helper_across_Diag;
+};
+
+struct HelperLaneWaveTestResult65 {
+  // 6.5 wave ops
+  XMUINT4  match;
+  int32_t mpCountBits;
+  int32_t mpSum;
+  int32_t mpProduct;
+  int32_t mpBitAnd;
+  int32_t mpBitOr;
+  int32_t mpBitXor;
+};
+
+struct HelperLaneWaveTestResult {
+  HelperLaneWaveTestResult60 sm60;
+  HelperLaneQuadTestResult sm60_quad;
+  HelperLaneWaveTestResult65 sm65;
+};
+
+struct foo { int32_t a; int32_t b; int32_t c; };
+struct bar { foo f; int32_t d; XMUINT4 g; };
+foo f = {1, 2, 3};
+bar b = { { 1, 2, 3 }, 0, { 1, 2, 3, 4 } };
+
+HelperLaneWaveTestResult HelperLane_CS_ExpectedResults = {
+  // HelperLaneWaveTestResult60
+  { 0, 1, { 0x7, 0, 0, 0 }, 3, 1, 3, 12, 64, 1, 0, 0, 10, 1, 2, 16, 4 },
+  // HelperLaneQuadTestResult
+  { 0, 0, 0, 0 },
+  // HelperLaneWaveTestResult65
+  { {0x7, 0, 0, 0}, 2, 4, 16, 1, 0, 0 }
+};
+
+HelperLaneWaveTestResult HelperLane_VS_ExpectedResults = HelperLane_CS_ExpectedResults;
+  
+HelperLaneWaveTestResult HelperLane_PS_ExpectedResults = {
+  // HelperLaneWaveTestResult60
+  { 0, 1, { 0xB, 0, 0, 0 }, 3, 1, 3, 12, 64, 1, 0, 0, 10, 1, 2, 16, 4 },
+  // HelperLaneQuadTestResult
+  { 0, 1, 0, 0 },
+  // HelperLaneWaveTestResult65
+  { {0xB, 0, 0, 0}, 2, 4, 16, 1, 0, 0 }
+};
+
+HelperLaneWaveTestResult HelperLane_PSAfterDiscard_ExpectedResults = {
+  // HelperLaneWaveTestResult60
+  { 0, 1, { 0xA, 0, 0, 0 }, 2, 1, 2, 8, 16, 1, 0, 0, 10, 1, 1, 4, 2 },
+  // HelperLaneQuadTestResult
+  { 0, 1, 0, 1 },
+  // HelperLaneWaveTestResult65
+  { {0xA, 0, 0, 0}, 1, 2, 4, 1, 0, 0 }
+};
+
+bool HelperLaneResultLogAndVerify(const wchar_t* testDesc, uint32_t expectedValue, uint32_t actualValue) {
+  bool matches = (expectedValue == actualValue);
+  LogCommentFmt(L"%s%s, expected = %u, actual = %u", matches ? L" - " : L"FAILED: ", testDesc, expectedValue, actualValue);
+  return matches;
+}
+
+bool HelperLaneResultLogAndVerify(const wchar_t* testDesc, XMUINT4 expectedValue, XMUINT4 actualValue) {
+  bool matches = (expectedValue.x == actualValue.x && expectedValue.y == actualValue.y &&
+                  expectedValue.z == actualValue.z && expectedValue.w == actualValue.w);
+  LogCommentFmt(L"%s%s, expected = (0x%X,0x%X,0x%X,0x%X), actual = (0x%X,0x%X,0x%X,0x%X)", matches ? L" - " : L"FAILED: ", testDesc,
+    expectedValue.x, expectedValue.y, expectedValue.z, expectedValue.w, actualValue.x, actualValue.y, actualValue.z, actualValue.w);
+  return matches;
+}
+  
+
+bool VerifyHelperLaneWaveResults(ExecutionTest::D3D_SHADER_MODEL sm, HelperLaneWaveTestResult& testResults, HelperLaneWaveTestResult& expectedResults, bool verifyQuads) {
+  bool passed = true;
+  {
+    HelperLaneWaveTestResult60& tr60 = testResults.sm60;
+    HelperLaneWaveTestResult60& tr60exp = expectedResults.sm60;
+
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveAnyTrue(IsHelperLane())", tr60exp.anyTrue, tr60.anyTrue);
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveAllTrue(!IsHelperLane())", tr60exp.allTrue, tr60.allTrue);
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveBallot(true) has exactly 3 bits set", tr60exp.ballot, tr60.ballot);
+
+    passed &= HelperLaneResultLogAndVerify(L"!WaveReadLaneFirst(IsHelperLane()) && WaveIsFirstLane() in a waterfall loop", tr60exp.waterfallLoopCount, tr60.waterfallLoopCount);
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveAllEqual(IsHelperLane())", tr60exp.allEqual, tr60.allEqual);
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveCountBits(true)", tr60exp.countBits, tr60.countBits);
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveSum(4)", tr60exp.sum, tr60.sum);
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveProduct(4)", tr60exp.product, tr60.product);
+
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveBitAnd(!IsHelperLane())", tr60exp.bitAnd, tr60.bitAnd);
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveBitOr(IsHelperLane())", tr60exp.bitOr, tr60.bitOr);
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveBitXor(IsHelperLane())", tr60exp.bitXor, tr60.bitXor);
+
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveMin(IsHelperLane() ? 1 : 10)", tr60exp.min, tr60.min);
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveMax(IsHelperLane() ? 10 : 1)", tr60exp.max, tr60.max);
+
+    passed &= HelperLaneResultLogAndVerify(L"WavePrefixCountBits(1)", tr60exp.prefixCountBits, tr60.prefixCountBits);
+    passed &= HelperLaneResultLogAndVerify(L"WavePrefixProduct(4)", tr60exp.prefixProduct, tr60.prefixProduct);
+    passed &= HelperLaneResultLogAndVerify(L"WavePrefixSum(2)", tr60exp.prefixSum, tr60.prefixSum);
+  }
+
+  if (verifyQuads) {
+    HelperLaneQuadTestResult& quad_tr = testResults.sm60_quad;
+    HelperLaneQuadTestResult& quad_tr_exp = expectedResults.sm60_quad;
+    passed &= HelperLaneResultLogAndVerify(L"QuadReadAcross* - lane 3 / pixel (1,1) - IsHelperLane()", quad_tr_exp.is_helper_this, quad_tr.is_helper_this);
+    passed &= HelperLaneResultLogAndVerify(L"QuadReadAcross* - lane 2 / pixel (0,1) - IsHelperLane()", quad_tr_exp.is_helper_across_X, quad_tr.is_helper_across_X);
+    passed &= HelperLaneResultLogAndVerify(L"QuadReadAcross* - lane 1 / pixel (1,0) - IsHelperLane()", quad_tr_exp.is_helper_across_Y, quad_tr.is_helper_across_Y);
+    passed &= HelperLaneResultLogAndVerify(L"QuadReadAcross* - lane 0 / pixel (0,0) - IsHelperLane()", quad_tr_exp.is_helper_across_Diag, quad_tr.is_helper_across_Diag);
+  }
+
+  if (sm >= D3D_SHADER_MODEL_6_5) {
+    HelperLaneWaveTestResult65& tr65 = testResults.sm65;
+    HelperLaneWaveTestResult65& tr65exp = expectedResults.sm65;
+    
+    passed &= HelperLaneResultLogAndVerify(L"WaveMatch(true) has exactly 3 bits set", tr65exp.match, tr65.match);
+    passed &= HelperLaneResultLogAndVerify(L"WaveMultiPrefixCountBits(1, no_masked_bits)", tr65exp.mpCountBits, tr65.mpCountBits);
+    passed &= HelperLaneResultLogAndVerify(L"WaveMultiPrefixSum(2, no_masked_bits)", tr65exp.mpSum, tr65.mpSum);
+    passed &= HelperLaneResultLogAndVerify(L"WaveMultiPrefixProduct(4, no_masked_bits)", tr65exp.mpProduct, tr65.mpProduct);
+
+    passed &= HelperLaneResultLogAndVerify(L"WaveMultiPrefixAnd(IsHelperLane() ? 0 : 1, no_masked_bits)", tr65exp.mpBitAnd, tr65.mpBitAnd);
+    passed &= HelperLaneResultLogAndVerify(L"WaveMultiPrefixOr(IsHelperLane() ? 1 : 0, no_masked_bits)", tr65exp.mpBitOr, tr65.mpBitOr);
+    passed &= HelperLaneResultLogAndVerify(L"verify WaveMultiPrefixXor(IsHelperLane() ? 1 : 0, no_masked_bits)", tr65exp.mpBitXor, tr65.mpBitXor);
+  }
+  return passed;
+}
+
+void CleanUAVBuffer0Buffer(LPCSTR BufferName, std::vector<BYTE>& Data, st::ShaderOp* pShaderOp) {
+  VERIFY_IS_TRUE(0 == _stricmp(BufferName, "UAVBuffer0"));
+  std::fill(Data.begin(), Data.end(), 0xCC);
+}
+
+//
+// The IsHelperLane test that use Wave intrinsics to verify IsHelperLane() and Wave operations on active lanes.
+//
+// Runs with shader models 6.0, 6.5 and 6.6 to test both the HLSL built-in IsHelperLane fallback 
+// function (sm <= 6.5) and the IsHelperLane intrisics (sm >= 6.6) and the shader model 6.5 wave intrinsics (sm >= 6.5).
+//
+// For compute and vertex shaders IsHelperLane() always returns false and might be optimized away in the front end.
+// However it can be exposed to the driver in CS/VS through an exported function in a library so drivers need 
+// to be prepared to handle it. For this reason the test is compiled with disabled optimizations (/Od).
+// The tests are also validating that wave intrinsics operate correctly with 3 threads in a CS or 3 vertices 
+// in a VS where the rest of the lanes in the wave are not active (dead lanes).
+//
+TEST_F(ExecutionTest, HelperLaneTestWave) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet = std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+  st::ShaderOp* pShaderOp = ShaderOpSet->GetShaderOp("HelperLaneTestWave");
+
+#ifdef ISHELPERLANE_PLACEHOLDER
+  LPCSTR args = "/Od -DISHELPERLANE_PLACEHOLDER";
+#else 
+  LPCSTR args = "/Od";
+#endif
+
+  if (args[0]) {
+    for (st::ShaderOpShader& S : pShaderOp->Shaders)
+      S.Arguments = args;
+  }
+
+  bool testPassed = true;
+
+  D3D_SHADER_MODEL TestShaderModels[] = { D3D_SHADER_MODEL_6_0, D3D_SHADER_MODEL_6_5, D3D_SHADER_MODEL_6_6 };
+  for (unsigned i = 0; i < _countof(TestShaderModels); i++) {
+    D3D_SHADER_MODEL sm = TestShaderModels[i];
+    LogCommentFmt(L"\r\nVerifying IsHelperLane using Wave intrinsics in shader model 6.%1u", ((UINT)sm & 0x0f));
+
+    bool smPassed = true;
+
+    CComPtr<ID3D12Device> pDevice;
+    if (!CreateDevice(&pDevice, sm, false /* skipUnsupported */)) {
+      continue;
+    }
+
+    if (!DoesDeviceSupportWaveOps(pDevice)) {
+      LogCommentFmt(L"Device does not support wave operations in shader model 6.%1u", ((UINT)sm & 0x0f));
+      continue;
+    }
+
+    if (sm >= D3D_SHADER_MODEL_6_5) {
+      // Reassign shader stages to 6.5 versions
+      LPCSTR CS65 = nullptr, VS65 = nullptr, PS65 = nullptr;
+      for (st::ShaderOpShader& S : pShaderOp->Shaders) {
+        if (!strcmp(S.Name, "CS65")) CS65 = S.Name;
+        if (!strcmp(S.Name, "VS65")) VS65 = S.Name;
+        if (!strcmp(S.Name, "PS65")) PS65 = S.Name;
+      }
+      pShaderOp->CS = CS65;
+      pShaderOp->VS = VS65;
+      pShaderOp->PS = PS65;
+    }
+
+    const unsigned CS_INDEX = 0, VS_INDEX = 0, PS_INDEX = 1, PS_INDEX_AFTER_DISCARD = 2;
+
+    // Test Compute shader
+    {
+      std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "HelperLaneTestWave",
+        CleanUAVBuffer0Buffer, ShaderOpSet);
+
+      MappedData uavData;
+      test->Test->GetReadBackData("UAVBuffer0", &uavData);
+      HelperLaneWaveTestResult* pTestResults = (HelperLaneWaveTestResult*)uavData.data();
+      LogCommentFmt(L"\r\nCompute shader");
+      smPassed &= VerifyHelperLaneWaveResults(sm, pTestResults[CS_INDEX], HelperLane_CS_ExpectedResults, true);
+    }
+    
+    // Test Vertex + Pixel shader
+    {
+      pShaderOp->CS = nullptr;
+      std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "HelperLaneTestWave", CleanUAVBuffer0Buffer, ShaderOpSet);
+
+      MappedData uavData;
+      test->Test->GetReadBackData("UAVBuffer0", &uavData);
+      HelperLaneWaveTestResult* pTestResults = (HelperLaneWaveTestResult*)uavData.data();
+      LogCommentFmt(L"\r\nVertex shader");
+      smPassed &= VerifyHelperLaneWaveResults(sm, pTestResults[VS_INDEX], HelperLane_VS_ExpectedResults, false);
+      LogCommentFmt(L"\r\nPixel shader");
+      smPassed &= VerifyHelperLaneWaveResults(sm, pTestResults[PS_INDEX], HelperLane_PS_ExpectedResults, true);
+      LogCommentFmt(L"\r\nPixel shader with discarded pixel");
+      smPassed &= VerifyHelperLaneWaveResults(sm, pTestResults[PS_INDEX_AFTER_DISCARD], HelperLane_PSAfterDiscard_ExpectedResults, true);
+      
+      MappedData renderData;
+      test->Test->GetReadBackData("RTarget", &renderData);
+      const uint32_t* pPixels = (uint32_t*)renderData.data();
+
+      UNREFERENCED_PARAMETER(pPixels);
+    }
+    testPassed &= smPassed;
+  }
+  VERIFY_ARE_EQUAL(testPassed, true);
 }
 
 #ifndef _HLK_CONF
