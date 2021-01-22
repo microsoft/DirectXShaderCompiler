@@ -12,22 +12,33 @@
 // be decorated.
 
 // CHECK:     OpDecorate %a RelaxedPrecision
+// CHECK:     OpDecorate %b RelaxedPrecision
 // CHECK:     OpDecorate [[a:%\d+]] RelaxedPrecision
 // CHECK:     OpDecorate [[compare_op:%\d+]] RelaxedPrecision
+// CHECK:     OpDecorate [[b:%\d+]] RelaxedPrecision
+// CHECK:     OpDecorate [[compare_op_2:%\d+]] RelaxedPrecision
 //
 // We should NOT have a decoration for the 'any' operation.
+// We should NOT have a decoration for the '||' operation.
 //
 // CHECK-NOT: OpDecorate {{%\d+}} RelaxedPrecision
 
-// CHECK:           [[a]] = OpLoad %v2float %a
-// CHECK:  [[compare_op]] = OpFOrdGreaterThan %v2bool [[a]] {{%\d+}}
-// CHECK: [[any_op:%\d+]] = OpAny %bool [[compare_op]]
+// CHECK:            [[a]] = OpLoad %float %a
+// CHECK:   [[compare_op]] = OpFOrdGreaterThan %bool [[a]] %float_0
+// CHECK:            [[b]] = OpLoad %v2float %b
+// CHECK: [[compare_op_2]] = OpFOrdGreaterThan %v2bool [[b]] {{%\d+}}
+// CHECK:  [[any_op:%\d+]] = OpAny %bool %26
+// CHECK:   [[or_op:%\d+]] = OpLogicalOr %bool
 
 RWBuffer<float2> Buf;
 
 [numthreads(1, 1, 1)]
 void main() {
-  min16float2 a = Buf[0];
-  if (any(a > 0.0))
-    Buf[0] = 1;
+  // Scalar
+  min16float a;
+
+  // Vector
+  min16float2 b;
+
+  bool x = (a > 0.0) || any(b > 0.0);
 }
