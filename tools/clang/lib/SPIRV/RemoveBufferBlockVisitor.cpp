@@ -86,10 +86,10 @@ bool RemoveBufferBlockVisitor::visitInstruction(SpirvInstruction *inst) {
 bool RemoveBufferBlockVisitor::updateStorageClass(
     const SpirvType *type, const SpirvType **newType,
     spv::StorageClass *newStorageClass) {
-  if (!isa<SpirvPointerType>(type))
+  auto *ptrType = dyn_cast<SpirvPointerType>(type);
+  if (ptrType == nullptr)
     return false;
 
-  auto *ptrType = cast<SpirvPointerType>(type);
   const auto *innerType = ptrType->getPointeeType();
 
   // For usual cases such as _ptr_Uniform_StructuredBuffer_float.
