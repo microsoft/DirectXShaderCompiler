@@ -530,6 +530,8 @@ static Constant *ConstantFoldIntIntrinsic(OP::OpCode opcode, Type *Ty, const Dxi
 
     return ConstantFoldQuaternaryIntInstrinsic(opcode, Ty, Op1, Op2, Op3, Op4);
   }
+  case OP::OpCodeClass::IsHelperLane:
+    return ConstantInt::get(Ty, (uint64_t)0);
   }
 
   return nullptr;
@@ -588,6 +590,11 @@ bool hlsl::CanConstantFoldCallTo(const Function *F) {
     case OP::OpCodeClass::Dot3:
     case OP::OpCodeClass::Dot4:
       return true;
+    case OP::OpCodeClass::IsHelperLane: {
+      const hlsl::ShaderModel *pSM =
+          F->getParent()->GetDxilModule().GetShaderModel();
+      return !pSM->IsPS() && !pSM->IsLib();
+    }
     }
   }
 

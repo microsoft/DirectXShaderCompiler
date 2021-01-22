@@ -2317,6 +2317,7 @@ ID  Name                                                  Description
 218 CreateHandleFromHeap                                  create resource handle from heap
 219 Unpack4x8                                             unpacks 4 8-bit signed or unsigned values into int32 or int16 vector
 220 Pack4x8                                               packs vector of 4 signed or unsigned values into a packed datatype, drops or clamps unused bits
+221 IsHelperLane                                          returns true on helper lanes in pixel shaders
 === ===================================================== =======================================================================================================================================================================================================================
 
 
