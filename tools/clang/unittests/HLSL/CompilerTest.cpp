@@ -1113,7 +1113,7 @@ static void VerifyPdbUtil(dxc::DxcDllSupport &dllSupport,
       tally[std::wstring(def)]++;
     }
     auto Expected = ExpectedDefines;
-    for (int i = 0; i < Expected.size(); i++) {
+    for (size_t i = 0; i < Expected.size(); i++) {
       auto it = tally.find(Expected[i]);
       VERIFY_IS_TRUE(it != tally.end() && it->second == 1);
       tally.erase(it);
