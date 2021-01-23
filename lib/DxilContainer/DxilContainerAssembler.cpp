@@ -485,18 +485,18 @@ private:
   }
 
 public:
-  DxilPSVWriter(const DxilModule &mod, uint32_t PSVVersion = 0)
+  DxilPSVWriter(const DxilModule &mod, uint32_t PSVVersion = UINT_MAX)
   : m_Module(mod),
     m_PSVInitInfo(PSVVersion)
   {
     m_Module.GetValidatorVersion(m_ValMajor, m_ValMinor);
-    // Allow PSVVersion to be upgraded
-    if (m_ValMajor == 0 && m_ValMinor == 0) {
-      // Validation disabled upgrades to maximum PSVVersion
-      m_PSVInitInfo.PSVVersion = MAX_PSV_VERSION;
-    } else if (m_PSVInitInfo.PSVVersion < 1 && (m_ValMajor > 1 || (m_ValMajor == 1 && m_ValMinor >= 1))) {
+    // Constraint PSVVersion based on validator version
+    if (PSVVersion > 0 && DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 1) < 0)
+      m_PSVInitInfo.PSVVersion = 0;
+    else if (PSVVersion > 1 && DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 6) < 0)
       m_PSVInitInfo.PSVVersion = 1;
-    }
+    else if (PSVVersion > MAX_PSV_VERSION)
+      m_PSVInitInfo.PSVVersion = MAX_PSV_VERSION;
 
     const ShaderModel *SM = m_Module.GetShaderModel();
     UINT uCBuffers = m_Module.GetCBuffers().size();
@@ -561,6 +561,7 @@ public:
     // Set DxilRuntimeInfo
     PSVRuntimeInfo0* pInfo = m_PSV.GetPSVRuntimeInfo0();
     PSVRuntimeInfo1* pInfo1 = m_PSV.GetPSVRuntimeInfo1();
+    PSVRuntimeInfo2* pInfo2 = m_PSV.GetPSVRuntimeInfo2();
     const ShaderModel* SM = m_Module.GetShaderModel();
     pInfo->MinimumExpectedWaveLaneCount = 0;
     pInfo->MaximumExpectedWaveLaneCount = (UINT)-1;
@@ -681,32 +682,52 @@ public:
         break;
       }
     }
+    if (pInfo2) {
+      switch (SM->GetKind()) {
+      case ShaderModel::Kind::Compute:
+      case ShaderModel::Kind::Mesh:
+      case ShaderModel::Kind::Amplification:
+        pInfo2->NumThreadsX = m_Module.GetNumThreads(0);
+        pInfo2->NumThreadsY = m_Module.GetNumThreads(1);
+        pInfo2->NumThreadsZ = m_Module.GetNumThreads(2);
+        break;
+      }
+    }
 
     // Set resource binding information
     UINT uResIndex = 0;
     for (auto &&R : m_Module.GetCBuffers()) {
       DXASSERT_NOMSG(uResIndex < m_PSVInitInfo.ResourceCount);
       PSVResourceBindInfo0* pBindInfo = m_PSV.GetPSVResourceBindInfo0(uResIndex);
+      PSVResourceBindInfo1* pBindInfo1 = m_PSV.GetPSVResourceBindInfo1(uResIndex);
       DXASSERT_NOMSG(pBindInfo);
       pBindInfo->ResType = (UINT)PSVResourceType::CBV;
       pBindInfo->Space = R->GetSpaceID();
       pBindInfo->LowerBound = R->GetLowerBound();
       pBindInfo->UpperBound = R->GetUpperBound();
+      if (pBindInfo1) {
+        pBindInfo1->ResKind = (UINT)R->GetKind();
+      }
       uResIndex++;
     }
     for (auto &&R : m_Module.GetSamplers()) {
       DXASSERT_NOMSG(uResIndex < m_PSVInitInfo.ResourceCount);
       PSVResourceBindInfo0* pBindInfo = m_PSV.GetPSVResourceBindInfo0(uResIndex);
+      PSVResourceBindInfo1* pBindInfo1 = m_PSV.GetPSVResourceBindInfo1(uResIndex);
       DXASSERT_NOMSG(pBindInfo);
       pBindInfo->ResType = (UINT)PSVResourceType::Sampler;
       pBindInfo->Space = R->GetSpaceID();
       pBindInfo->LowerBound = R->GetLowerBound();
       pBindInfo->UpperBound = R->GetUpperBound();
+      if (pBindInfo1) {
+        pBindInfo1->ResKind = (UINT)R->GetKind();
+      }
       uResIndex++;
     }
     for (auto &&R : m_Module.GetSRVs()) {
       DXASSERT_NOMSG(uResIndex < m_PSVInitInfo.ResourceCount);
       PSVResourceBindInfo0* pBindInfo = m_PSV.GetPSVResourceBindInfo0(uResIndex);
+      PSVResourceBindInfo1* pBindInfo1 = m_PSV.GetPSVResourceBindInfo1(uResIndex);
       DXASSERT_NOMSG(pBindInfo);
       if (R->IsStructuredBuffer()) {
         pBindInfo->ResType = (UINT)PSVResourceType::SRVStructured;
@@ -718,11 +739,15 @@ public:
       pBindInfo->Space = R->GetSpaceID();
       pBindInfo->LowerBound = R->GetLowerBound();
       pBindInfo->UpperBound = R->GetUpperBound();
+      if (pBindInfo1) {
+        pBindInfo1->ResKind = (UINT)R->GetKind();
+      }
       uResIndex++;
     }
     for (auto &&R : m_Module.GetUAVs()) {
       DXASSERT_NOMSG(uResIndex < m_PSVInitInfo.ResourceCount);
       PSVResourceBindInfo0* pBindInfo = m_PSV.GetPSVResourceBindInfo0(uResIndex);
+      PSVResourceBindInfo1* pBindInfo1 = m_PSV.GetPSVResourceBindInfo1(uResIndex);
       DXASSERT_NOMSG(pBindInfo);
       if (R->IsStructuredBuffer()) {
         if (R->HasCounter())
@@ -737,6 +762,9 @@ public:
       pBindInfo->Space = R->GetSpaceID();
       pBindInfo->LowerBound = R->GetLowerBound();
       pBindInfo->UpperBound = R->GetUpperBound();
+      if (pBindInfo1) {
+        pBindInfo1->ResKind = (UINT)R->GetKind();
+      }
       uResIndex++;
     }
     DXASSERT_NOMSG(uResIndex == m_PSVInitInfo.ResourceCount);
@@ -1366,7 +1394,7 @@ private:
   SubobjectTable *m_pSubobjectTable;
 
 public:
-  DxilRDATWriter(const DxilModule &mod, uint32_t InfoVersion = 0)
+  DxilRDATWriter(const DxilModule &mod)
       : m_RDATBuffer(), m_Parts(), m_FuncToResNameOffset() {
     // Keep track of validator version so we can make a compatible RDAT
     mod.GetValidatorVersion(m_ValMajor, m_ValMinor);
@@ -1432,8 +1460,8 @@ DxilPartWriter *hlsl::NewPSVWriter(const DxilModule &M, uint32_t PSVVersion) {
   return new DxilPSVWriter(M, PSVVersion);
 }
 
-DxilPartWriter *hlsl::NewRDATWriter(const DxilModule &M, uint32_t InfoVersion) {
-  return new DxilRDATWriter(M, InfoVersion);
+DxilPartWriter *hlsl::NewRDATWriter(const DxilModule &M) {
+  return new DxilRDATWriter(M);
 }
 
 class DxilContainerWriter_impl : public DxilContainerWriter  {
