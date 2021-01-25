@@ -2292,6 +2292,9 @@ TEST_F(FileTest, DecorationRelaxedPrecisionStruct) {
 TEST_F(FileTest, DecorationRelaxedPrecisionImage) {
   runFileTest("decoration.relaxed-precision.image.hlsl");
 }
+TEST_F(FileTest, DecorationRelaxedPrecisionBool) {
+  runFileTest("decoration.relaxed-precision.bool.hlsl");
+}
 
 // For NoContraction decorations
 TEST_F(FileTest, DecorationNoContraction) {
