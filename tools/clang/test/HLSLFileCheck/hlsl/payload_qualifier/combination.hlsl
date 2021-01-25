@@ -31,4 +31,4 @@ struct [payload] Payload
     int i        : in(miss);
     int j        : out(trace);
     int k        : in(anyhit) : out(anyhit);
-};
+}; 
