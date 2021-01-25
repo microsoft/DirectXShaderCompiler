@@ -1,13 +1,10 @@
-// RUN: %dxc -E main -T ps_6_0 -O0 /Vd %s | FileCheck %s
-
-// /Vd because we want the global initialier function
-// to show up.
+// RUN: %dxc -E main -T ps_6_0 -O0 %s | FileCheck %s
 
 // Make sure global initializer is correctly removed
 // when the initial values are constants at codegen
 // time.
 
-// CHECK-NOT: @_GLOBAL_
+// CHECK: @main
 
 static float2 x[5] = {
   float2(1, 1) / 2,

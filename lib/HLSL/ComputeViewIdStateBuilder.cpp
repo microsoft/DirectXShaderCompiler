@@ -509,11 +509,10 @@ void DxilViewIdStateBuilder::CollectValuesContributingToOutputRec(EntryInfo &Ent
     return;
   }
 
-  // It's possible the parent function is actually unreachable but didn't get cleaned up because
-  // of const references. An example would be static global initialization function.
   BasicBlock *pBB = pContributingInst->getParent();
   Function *F = pBB->getParent();
   auto FuncInfoIt = m_FuncInfo.find(F);
+  DXASSERT_NOMSG(FuncInfoIt != m_FuncInfo.end());
   if (FuncInfoIt == m_FuncInfo.end()) {
     return;
   }
