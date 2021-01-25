@@ -42,7 +42,7 @@ bool LowerTypeVisitor::visit(SpirvFunction *fn, Phase phase) {
         lowerType(fn->getAstReturnType(), SpirvLayoutRule::Void,
                   /*isRowMajor*/ llvm::None,
                   /*SourceLocation*/ {});
-    fn->setReturnType(const_cast<SpirvType *>(spirvReturnType));
+    fn->setReturnType(spirvReturnType);
 
     // Lower the function parameter types.
     auto params = fn->getParameters();
