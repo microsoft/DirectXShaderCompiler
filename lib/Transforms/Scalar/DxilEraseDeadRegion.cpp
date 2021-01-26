@@ -75,15 +75,10 @@ struct DxilEraseDeadRegion : public FunctionPass {
       if (CallInst *CI = dyn_cast<CallInst>(&I)) {
         if (hlsl::OP::IsDxilOpFuncCallInst(CI)) {
           DXIL::OpCode opcode = hlsl::OP::GetDxilOpFuncCallInst(CI);
-          switch (opcode) {
-          default:
-            break;
-          // Skip dxil OPs which not mark readnone because cannot move around.
-          case DXIL::OpCode::WaveReadLaneAt:
-          case DXIL::OpCode::WaveReadLaneFirst:
-          case DXIL::OpCode::QuadReadLaneAt:
+          // Wave Ops are marked has side effect to avoid move cross control flow.
+          // But they're safe to remove if unused.
+          if (hlsl::OP::IsDxilOpWave(opcode))
             continue;
-          }
         }
       }
 
