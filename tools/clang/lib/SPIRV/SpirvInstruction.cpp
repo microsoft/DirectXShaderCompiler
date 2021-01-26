@@ -114,8 +114,8 @@ SpirvInstruction::SpirvInstruction(Kind k, spv::Op op, QualType astType,
     : kind(k), opcode(op), astResultType(astType), resultId(0), srcLoc(loc),
       debugName(), resultType(nullptr), resultTypeId(0),
       layoutRule(SpirvLayoutRule::Void), containsAlias(false),
-      storageClass(spv::StorageClass::Function), isRValue_(false),
-      isRelaxedPrecision_(false), isNonUniform_(false), isPrecise_(false) {}
+      storageClass(spv::StorageClass::Function), imageFormat(spv::ImageFormat::Unknown),
+      isRValue_(false), isRelaxedPrecision_(false), isNonUniform_(false), isPrecise_(false) {}
 
 bool SpirvInstruction::isArithmeticInstruction() const {
   switch (opcode) {

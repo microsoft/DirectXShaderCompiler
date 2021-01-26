@@ -398,6 +398,144 @@ SpirvLayoutRule getLayoutRuleForExternVar(QualType type,
   return SpirvLayoutRule::Void;
 }
 
+void handleImageFormat(const VarDecl *var, SpirvVariable *varInstr) {
+  const auto *imageFormatAttr = var->getAttr<VKImageFormatAttr>();
+  if (imageFormatAttr) {
+    const VKImageFormatAttr::ImageFormatType format =
+        imageFormatAttr->getImageFormat();
+    spv::ImageFormat spvFormat;
+    switch (format) {
+    case VKImageFormatAttr::Unknown:
+      spvFormat = spv::ImageFormat::Unknown;
+      break;
+    case VKImageFormatAttr::Rgba32f:
+      spvFormat = spv::ImageFormat::Rgba32f;
+      break;
+    case VKImageFormatAttr::Rgba16f:
+      spvFormat = spv::ImageFormat::Rgba16f;
+      break;
+    case VKImageFormatAttr::R32f:
+      spvFormat = spv::ImageFormat::R32f;
+      break;
+    case VKImageFormatAttr::Rgba8:
+      spvFormat = spv::ImageFormat::Rgba8;
+      break;
+    case VKImageFormatAttr::Rgba8Snorm:
+      spvFormat = spv::ImageFormat::Rgba8Snorm;
+      break;
+    case VKImageFormatAttr::Rg32f:
+      spvFormat = spv::ImageFormat::Rg32f;
+      break;
+    case VKImageFormatAttr::Rg16f:
+      spvFormat = spv::ImageFormat::Rg16f;
+      break;
+    case VKImageFormatAttr::R11fG11fB10f:
+      spvFormat = spv::ImageFormat::R11fG11fB10f;
+      break;
+    case VKImageFormatAttr::R16f:
+      spvFormat = spv::ImageFormat::R16f;
+      break;
+    case VKImageFormatAttr::Rgba16:
+      spvFormat = spv::ImageFormat::Rgba16;
+      break;
+    case VKImageFormatAttr::Rgb10A2:
+      spvFormat = spv::ImageFormat::Rgb10A2;
+      break;
+    case VKImageFormatAttr::Rg16:
+      spvFormat = spv::ImageFormat::Rg16;
+      break;
+    case VKImageFormatAttr::Rg8:
+      spvFormat = spv::ImageFormat::Rg8;
+      break;
+    case VKImageFormatAttr::R16:
+      spvFormat = spv::ImageFormat::R16;
+      break;
+    case VKImageFormatAttr::R8:
+      spvFormat = spv::ImageFormat::R8;
+      break;
+    case VKImageFormatAttr::Rgba16Snorm:
+      spvFormat = spv::ImageFormat::Rgba16Snorm;
+      break;
+    case VKImageFormatAttr::Rg16Snorm:
+      spvFormat = spv::ImageFormat::Rg16Snorm;
+      break;
+    case VKImageFormatAttr::Rg8Snorm:
+      spvFormat = spv::ImageFormat::Rg8Snorm;
+      break;
+    case VKImageFormatAttr::R16Snorm:
+      spvFormat = spv::ImageFormat::R16Snorm;
+      break;
+    case VKImageFormatAttr::R8Snorm:
+      spvFormat = spv::ImageFormat::R8Snorm;
+      break;
+    case VKImageFormatAttr::Rgba32i:
+      spvFormat = spv::ImageFormat::Rgba32i;
+      break;
+    case VKImageFormatAttr::Rgba16i:
+      spvFormat = spv::ImageFormat::Rgba16i;
+      break;
+    case VKImageFormatAttr::Rgba8i:
+      spvFormat = spv::ImageFormat::Rgba8i;
+      break;
+    case VKImageFormatAttr::R32i:
+      spvFormat = spv::ImageFormat::R32i;
+      break;
+    case VKImageFormatAttr::Rg32i:
+      spvFormat = spv::ImageFormat::Rg32i;
+      break;
+    case VKImageFormatAttr::Rg16i:
+      spvFormat = spv::ImageFormat::Rg16i;
+      break;
+    case VKImageFormatAttr::Rg8i:
+      spvFormat = spv::ImageFormat::Rg8i;
+      break;
+    case VKImageFormatAttr::R16i:
+      spvFormat = spv::ImageFormat::R16i;
+      break;
+    case VKImageFormatAttr::R8i:
+      spvFormat = spv::ImageFormat::R8i;
+      break;
+    case VKImageFormatAttr::Rgba32ui:
+      spvFormat = spv::ImageFormat::Rgba32ui;
+      break;
+    case VKImageFormatAttr::Rgba16ui:
+      spvFormat = spv::ImageFormat::Rgba16ui;
+      break;
+    case VKImageFormatAttr::Rgba8ui:
+      spvFormat = spv::ImageFormat::Rgba8ui;
+      break;
+    case VKImageFormatAttr::R32ui:
+      spvFormat = spv::ImageFormat::R32ui;
+      break;
+    case VKImageFormatAttr::Rgb10a2ui:
+      spvFormat = spv::ImageFormat::Rgb10a2ui;
+      break;
+    case VKImageFormatAttr::Rg32ui:
+      spvFormat = spv::ImageFormat::Rg32ui;
+      break;
+    case VKImageFormatAttr::Rg16ui:
+      spvFormat = spv::ImageFormat::Rg16ui;
+      break;
+    case VKImageFormatAttr::Rg8ui:
+      spvFormat = spv::ImageFormat::Rg8ui;
+      break;
+    case VKImageFormatAttr::R16ui:
+      spvFormat = spv::ImageFormat::R16ui;
+      break;
+    case VKImageFormatAttr::R8ui:
+      spvFormat = spv::ImageFormat::R8ui;
+      break;
+    case VKImageFormatAttr::R64ui:
+      spvFormat = spv::ImageFormat::R64ui;
+      break;
+    case VKImageFormatAttr::R64i:
+      spvFormat = spv::ImageFormat::R64i;
+      break;
+    }
+    varInstr->setImageFormat(spvFormat);
+  }
+}
+
 } // anonymous namespace
 
 std::string StageVar::getSemanticStr() const {
@@ -847,6 +985,8 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
       type, storageClass, var->hasAttr<HLSLPreciseAttr>(), name, llvm::None,
       loc);
   varInstr->setLayoutRule(rule);
+  handleImageFormat(var, varInstr);
+
   DeclSpirvInfo info(varInstr);
   astDecls[var] = info;
 

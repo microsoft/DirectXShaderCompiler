@@ -60,11 +60,19 @@ bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
   const QualType astType = instr->getAstResultType();
   const SpirvType *hybridType = instr->getResultType();
 
+  spv::ImageFormat format = instr->getImageFormat();
+  // Propagate image format to the result type of load
+  if (instr->getopcode() == spv::Op::OpLoad) {
+    if (auto *load = dyn_cast<SpirvLoad>(instr)) {
+      format = load->getPointer()->getImageFormat();
+    }
+  }
+
   // Lower QualType to SpirvType
   if (astType != QualType({})) {
     const SpirvType *spirvType =
         lowerType(astType, instr->getLayoutRule(), /*isRowMajor*/ llvm::None,
-                  instr->getSourceLocation());
+                  instr->getSourceLocation(), format);
     instr->setResultType(spirvType);
   }
   // Lower Hybrid type to SpirvType
@@ -254,10 +262,9 @@ const SpirvType *LowerTypeVisitor::lowerType(const SpirvType *type,
   llvm_unreachable("lowering of hybrid type not implemented");
 }
 
-const SpirvType *LowerTypeVisitor::lowerType(QualType type,
-                                             SpirvLayoutRule rule,
-                                             llvm::Optional<bool> isRowMajor,
-                                             SourceLocation srcLoc) {
+const SpirvType *LowerTypeVisitor::lowerType(
+    QualType type, SpirvLayoutRule rule, llvm::Optional<bool> isRowMajor,
+    SourceLocation srcLoc, spv::ImageFormat explicitImageFormat) {
   const auto desugaredType = desugarType(type, &isRowMajor);
 
   if (desugaredType != type) {
@@ -404,7 +411,8 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
     // (ClassTemplateSpecializationDecl is a subclass of CXXRecordDecl, which
     // is then a subclass of RecordDecl.) So we need to check them before
     // checking the general struct type.
-    if (const auto *spvType = lowerResourceType(type, rule, srcLoc)) {
+    if (const auto *spvType =
+            lowerResourceType(type, rule, srcLoc, explicitImageFormat)) {
       spvContext.registerStructDeclForSpirvType(spvType, decl);
       return spvType;
     }
@@ -490,9 +498,10 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
   return 0;
 }
 
-const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
-                                                     SpirvLayoutRule rule,
-                                                     SourceLocation srcLoc) {
+const SpirvType *
+LowerTypeVisitor::lowerResourceType(QualType type, SpirvLayoutRule rule,
+                                    SourceLocation srcLoc,
+                                    spv::ImageFormat explicitImageFormat) {
   // Resource types are either represented like C struct or C++ class in the
   // AST. Samplers are represented like C struct, so isStructureType() will
   // return true for it; textures are represented like C++ class, so
@@ -536,7 +545,9 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
         (dim = spv::Dim::Dim2D, isArray = true, name == "RWTexture2DArray")) {
       const auto sampledType = hlsl::GetHLSLResourceResultType(type);
       const auto format =
-          translateSampledTypeToImageFormat(sampledType, srcLoc);
+          explicitImageFormat == spv::ImageFormat::Unknown
+              ? translateSampledTypeToImageFormat(sampledType, srcLoc)
+              : explicitImageFormat;
       return spvContext.getImageType(
           lowerType(getElementType(astContext, sampledType), rule,
                     /*isRowMajor*/ llvm::None, srcLoc),
@@ -651,7 +662,10 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
           << sampledType;
       return 0;
     }
-    const auto format = translateSampledTypeToImageFormat(sampledType, srcLoc);
+    const auto format =
+        explicitImageFormat == spv::ImageFormat::Unknown
+            ? translateSampledTypeToImageFormat(sampledType, srcLoc)
+            : explicitImageFormat;
     return spvContext.getImageType(
         lowerType(getElementType(astContext, sampledType), rule,
                   /*isRowMajor*/ llvm::None, srcLoc),

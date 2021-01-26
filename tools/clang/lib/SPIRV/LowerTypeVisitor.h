@@ -31,6 +31,7 @@ public:
   bool visit(SpirvModule *, Phase) override { return true; }
   bool visit(SpirvFunction *, Phase) override;
   bool visit(SpirvBasicBlock *, Phase) override { return true; }
+  //bool visit(SpirvLoad *, Phase) override;
 
   using Visitor::visit;
 
@@ -45,8 +46,10 @@ public:
   ///
   /// The lowering is recursive; all the types that the target type depends
   /// on will be created in SpirvContext.
-  const SpirvType *lowerType(QualType type, SpirvLayoutRule,
-                             llvm::Optional<bool> isRowMajor, SourceLocation);
+  const SpirvType *
+  lowerType(QualType type, SpirvLayoutRule, llvm::Optional<bool> isRowMajor,
+            SourceLocation,
+            spv::ImageFormat explicitImageFormat = spv::ImageFormat::Unknown);
 
 private:
   /// Emits error to the diagnostic engine associated with this visitor.
@@ -67,7 +70,8 @@ private:
 
   /// Lowers the given HLSL resource type into its SPIR-V type.
   const SpirvType *lowerResourceType(QualType type, SpirvLayoutRule rule,
-                                     SourceLocation);
+                                     SourceLocation,
+                                     spv::ImageFormat explicitImageFormat);
 
   /// For the given sampled type, returns the corresponding image format
   /// that can be used to create an image object.

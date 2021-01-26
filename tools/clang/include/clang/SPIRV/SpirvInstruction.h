@@ -192,6 +192,9 @@ public:
   void setStorageClass(spv::StorageClass sc) { storageClass = sc; }
   spv::StorageClass getStorageClass() const { return storageClass; }
 
+  void setImageFormat(spv::ImageFormat format) { imageFormat = format; }
+  spv::ImageFormat getImageFormat() const { return imageFormat; }
+
   void setRValue(bool rvalue = true) { isRValue_ = rvalue; }
   bool isRValue() const { return isRValue_; }
 
@@ -241,6 +244,7 @@ protected:
   bool containsAlias;
 
   spv::StorageClass storageClass;
+  spv::ImageFormat imageFormat;
   bool isRValue_;
   bool isRelaxedPrecision_;
   bool isNonUniform_;
