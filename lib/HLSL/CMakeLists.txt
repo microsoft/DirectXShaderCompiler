@@ -17,6 +17,7 @@ add_llvm_library(LLVMHLSL
   DxilGenerationPass.cpp
   DxilLegalizeEvalOperations.cpp
   DxilLegalizeSampleOffsetPass.cpp
+  DxilLegalizeQuadReadLaneAt.cpp
   DxilLinker.cpp
   DxilLoopDeletion.cpp
   DxilPrecisePropagatePass.cpp

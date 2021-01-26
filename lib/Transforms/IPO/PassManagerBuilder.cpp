@@ -379,6 +379,7 @@ void PassManagerBuilder::populateModulePassManager(
       MPM.add(createDxilLowerCreateHandleForLibPass());
       MPM.add(createDxilTranslateRawBuffer());
       MPM.add(createDxilLegalizeSampleOffsetPass());
+      MPM.add(createDxilLegalizeQuadReadLaneAtPass());
       MPM.add(createDxilNoOptLegalizePass());
       MPM.add(createDxilFinalizePreservesPass());
       MPM.add(createDxilFinalizeModulePass());
@@ -683,6 +684,7 @@ void PassManagerBuilder::populateModulePassManager(
     // Always try to legalize sample offsets as loop unrolling
     // is not guaranteed for higher opt levels.
     MPM.add(createDxilLegalizeSampleOffsetPass());
+    MPM.add(createDxilLegalizeQuadReadLaneAtPass());
     MPM.add(createDxilFinalizeModulePass());
     MPM.add(createComputeViewIdStatePass());
     MPM.add(createDxilDeadFunctionEliminationPass());
