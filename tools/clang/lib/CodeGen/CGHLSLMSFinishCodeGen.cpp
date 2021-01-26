@@ -2387,6 +2387,7 @@ void CollectCtorFunctions(llvm::Module &M, llvm::StringRef globalName,
 
   DenseSet<Function *> Callers = CollectExternalFunctionCallers(M);
 
+  bool allEvaluated = true;
   for (User::op_iterator i = CA->op_begin(), e = CA->op_end(); i != e; ++i) {
     if (isa<ConstantAggregateZero>(*i))
       continue;
@@ -2407,6 +2408,7 @@ void CollectCtorFunctions(llvm::Module &M, llvm::StringRef globalName,
         // Try to build imm initilizer.
         // If not work, add global call to entry func.
         if (BuildImmInit(F) == false) {
+          allEvaluated = false;
           if (IsValidCtorFunction(F, Callers)) {
             Ctors.emplace_back(F);
           } else {
@@ -2418,6 +2420,12 @@ void CollectCtorFunctions(llvm::Module &M, llvm::StringRef globalName,
                  "else invalid Global constructor function");
       }
     }
+  }
+
+  // If all globals constructors are replaced with initializers, just get rid
+  // of the GV.
+  if (allEvaluated) {
+    GV->eraseFromParent();
   }
 }
 

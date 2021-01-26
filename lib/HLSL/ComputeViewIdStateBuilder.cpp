@@ -509,6 +509,14 @@ void DxilViewIdStateBuilder::CollectValuesContributingToOutputRec(EntryInfo &Ent
     return;
   }
 
+  BasicBlock *pBB = pContributingInst->getParent();
+  Function *F = pBB->getParent();
+  auto FuncInfoIt = m_FuncInfo.find(F);
+  DXASSERT_NOMSG(FuncInfoIt != m_FuncInfo.end());
+  if (FuncInfoIt == m_FuncInfo.end()) {
+    return;
+  }
+
   auto itInst = ContributingInstructions.emplace(pContributingInst);
   // Already visited instruction.
   if (!itInst.second) return;
@@ -552,9 +560,7 @@ void DxilViewIdStateBuilder::CollectValuesContributingToOutputRec(EntryInfo &Ent
   }
 
   // Handle control dependence of this instruction BB.
-  BasicBlock *pBB = pContributingInst->getParent();
-  Function *F = pBB->getParent();
-  FuncInfo *pFuncInfo = m_FuncInfo[F].get();
+  FuncInfo *pFuncInfo = FuncInfoIt->second.get();
   const BasicBlockSet &CtrlDepSet = pFuncInfo->CtrlDep.GetCDBlocks(pBB);
   for (BasicBlock *B : CtrlDepSet) {
     CollectValuesContributingToOutputRec(Entry, B->getTerminator(), ContributingInstructions);
