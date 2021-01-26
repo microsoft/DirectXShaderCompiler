@@ -10,6 +10,11 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+////////////////////////////////////////////////////////////
+// Define this until fallback implementation is complete.
+#define ISHELPERLANE_PLACEHOLDER
+////////////////////////////////////////////////////////////
+
 #include <algorithm>
 #include <memory>
 #include <array>
@@ -306,7 +311,9 @@ public:
   TEST_METHOD(AtomicsShared64Test);
   TEST_METHOD(AtomicsFloatTest);
   TEST_METHOD(HelperLaneTest);
-  TEST_METHOD(HelperLaneTestWave);
+  BEGIN_TEST_METHOD(HelperLaneTestWave)
+    TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp handles this
+  END_TEST_METHOD(HelperLaneTestWave)
   TEST_METHOD(SignatureResourcesTest)
   TEST_METHOD(DynamicResourcesTest)
   TEST_METHOD(QuadReadTest)
