@@ -23,18 +23,15 @@
 #endif
 #endif
 
-#ifdef _WIN32
+#ifndef _WIN32
+#include <dlfcn.h>
+#include "dxc/Support/WinAdapter.h"
+#endif
 
 #ifndef CROSS_PLATFORM_UUIDOF
 // Warning: This macro exists in WinAdapter.h as well
 #define CROSS_PLATFORM_UUIDOF(interface, spec)                                 \
   struct __declspec(uuid(spec)) interface;
-#endif
-
-#else
-
-#include <dlfcn.h>
-#include "dxc/Support/WinAdapter.h"
 #endif
 
 struct IMalloc;
