@@ -7625,8 +7625,8 @@ def warn_hlsl_sema_minprecision_promotion : Warning <
   "%0 is promoted to %1">,
   InGroup<Conversion>, DefaultWarn;
 def warn_hlsl_ambiguous_literal_shift : Warning <
-  "use a type suffix on literal values, like 'L' or 'U', or a cast, to resolve ambiguity">,
-  InGroup<Conversion>, DefaultWarn;
+  "ambiguous type for bit shift; use a type suffix on literal values, like 'L' or 'U', or a cast">,
+  InGroup<HLSLAmbigLitShift>, DefaultWarn;
 def warn_hlsl_implicit_vector_truncation  : Warning<
   "implicit truncation of vector type">,
   InGroup<Conversion>, DefaultWarn;
