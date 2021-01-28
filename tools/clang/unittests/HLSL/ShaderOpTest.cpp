@@ -1898,6 +1898,7 @@ void ShaderOpParser::ParseRenderTargets(IXmlReader *pReader, std::vector<ShaderO
       CHECK_HR(pReader->GetLocalName(&pLocalName, nullptr));
       if (0 == wcscmp(pLocalName, L"RenderTarget")) {
         ShaderOpRenderTarget RT;
+        ZeroMemory(&RT, sizeof(RT));
         ParseRenderTarget(pReader, &RT);
         pRenderTargets->push_back(RT);
       }
