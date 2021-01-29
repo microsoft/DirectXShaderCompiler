@@ -1815,13 +1815,15 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateLocalVariables() {
     auto *LS = llvm::dyn_cast_or_null<llvm::DILocalScope>(CI->getDebugLoc()->getInlinedAtScope());
     auto SymIt = m_ScopeToSym.find(LS);
     if (SymIt == m_ScopeToSym.end()) {
-      return E_FAIL;
+        continue;
     }
 
     auto *LocalNameMetadata = llvm::dyn_cast<llvm::MetadataAsValue>(CI->getArgOperand(1));
     if (auto *LV = llvm::dyn_cast<llvm::DILocalVariable>(LocalNameMetadata->getMetadata())) {
       const DWORD dwParentID = SymIt->second;
-      IFR(CreateLocalVariable(dwParentID, LV));
+      if (FAILED(CreateLocalVariable(dwParentID, LV))) {
+          continue;
+      }
     }
   }
 

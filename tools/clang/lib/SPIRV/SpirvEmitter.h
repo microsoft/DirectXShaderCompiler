@@ -488,6 +488,9 @@ private:
   /// Processes the 'rcp' intrinsic function.
   SpirvInstruction *processIntrinsicRcp(const CallExpr *);
 
+  /// Processes the 'ReadClock' intrinsic function.
+  SpirvInstruction *processIntrinsicReadClock(const CallExpr *);
+
   /// Processes the 'sign' intrinsic function for float types.
   /// The FSign instruction in the GLSL instruction set returns a floating point
   /// result. The HLSL sign function, however, returns an integer. An extra
@@ -545,6 +548,15 @@ private:
 
   /// Processes the NonUniformResourceIndex intrinsic function.
   SpirvInstruction *processIntrinsicNonUniformResourceIndex(const CallExpr *);
+
+  /// Processes the SM 6.6 pack_{s|u}8 and pack_clamp_{s|u}8 intrinsic
+  /// functions.
+  SpirvInstruction *processIntrinsic8BitPack(const CallExpr *,
+                                             hlsl::IntrinsicOp);
+
+  /// Processes the SM 6.6 unpack_{s|u}8{s|u}{16|32} intrinsic functions.
+  SpirvInstruction *processIntrinsic8BitUnpack(const CallExpr *,
+                                               hlsl::IntrinsicOp);
 
   /// Process builtins specific to raytracing.
   SpirvInstruction *processRayBuiltins(const CallExpr *, hlsl::IntrinsicOp op);
@@ -700,6 +712,7 @@ private:
   /// variables for some cases.
   bool emitEntryFunctionWrapperForRayTracing(const FunctionDecl *entryFunction,
                                              SpirvFunction *entryFuncId);
+
   /// \brief Performs the following operations for the Hull shader:
   /// * Creates an output variable which is an Array containing results for all
   /// control points.

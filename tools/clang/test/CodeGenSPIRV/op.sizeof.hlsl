@@ -45,4 +45,10 @@ void main() {
     struct {} _; // Zero-sized field.
   } complexStruct;
   buf.Append(sizeof(complexStruct));
+
+// CHECK:         [[foo:%\d+]] = OpLoad %int %foo
+// CHECK-NEXT: [[ui_foo:%\d+]] = OpBitcast %uint [[foo]]
+// CHECK-NEXT:                   OpIMul %uint %uint_4 [[ui_foo]]
+  int foo;
+  buf.Append(sizeof(float) * foo);
 }

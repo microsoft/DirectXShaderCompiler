@@ -147,6 +147,27 @@ $type1 [[]] frexp(in float<> x, out $type1 exp);
 $type1 [[rn]] fwidth(in float_like<> x);
 void [[]] GroupMemoryBarrier() : syncsharedmemory;
 void [[]] GroupMemoryBarrierWithGroupSync() : syncgroupandsharedmemory;
+// 64-bit integers interlocks
+void [[]] InterlockedAdd(in int64_only result, in u64 value);
+void [[]] InterlockedAdd(in int64_only result, in u64 value, out any_int64 original) : interlockedadd_immediate;
+void [[unsigned_op=InterlockedUMin,overload=0]] InterlockedMin(in int64_only result, in any_int64 value) : interlockedmin;
+void [[unsigned_op=InterlockedUMin,overload=0]] InterlockedMin(in int64_only result, in any_int64 value, out any_int64 original) : interlockedmin_immediate;
+void [[unsigned_op=InterlockedUMax,overload=0]] InterlockedMax(in int64_only result, in any_int64 value) : interlockedmax;
+void [[unsigned_op=InterlockedUMax,overload=0]] InterlockedMax(in int64_only result, in any_int64 value, out any_int64 original) : interlockedmax_immediate;
+void [[]] InterlockedAnd(in int64_only result, in u64 value);
+void [[]] InterlockedAnd(in int64_only result, in u64 value, out any_int64 original) : interlockedand_immediate;
+void [[]] InterlockedOr(in int64_only result, in u64 value);
+void [[]] InterlockedOr(in int64_only result, in u64 value, out any_int64 original) : interlockedor_immediate;
+void [[]] InterlockedXor(in int64_only result, in u64 value);
+void [[]] InterlockedXor(in int64_only result, in u64 value, out any_int64 original) : interlockedxor_immediate;
+void [[]] InterlockedCompareStore(in int64_only result, in u64 compare, in u64 value);
+void [[]] InterlockedExchange(in int64_only result, in any_int64 value, out any_int64 original);
+void [[]] InterlockedCompareExchange(in int64_only result, in u64 compare, in u64 value, out any_int64 original);
+// floating point interlocks
+void [[]] InterlockedExchange(in float32_only result, in float value, out float original);
+void [[]] InterlockedCompareStoreFloatBitwise(in float32_only result, in float compare, in float value);
+void [[]] InterlockedCompareExchangeFloatBitwise(in float32_only result, in float compare, in float value, out float original);
+// 32-bit integer interlocks
 void [[]] InterlockedAdd(in int32_only result, in uint value);
 void [[]] InterlockedAdd(in int32_only result, in uint value, out any_int32 original) : interlockedadd_immediate;
 void [[unsigned_op=InterlockedUMin,overload=0]] InterlockedMin(in int32_only result, in any_int32 value) : interlockedmin;
@@ -317,18 +338,42 @@ $type3 [[rn]] dot4add_u8packed(in uint a, in $type1 b, in uint b);
 $type3 [[rn]] dot4add_i8packed(in uint a, in $type1 b, in int b);
 $type3 [[rn]] dot2add(in float16_t<2> a, in $type1 b, in float b);
 
+// Unpacking intrinsics
+int16_t<4> [[rn]] unpack_s8s16(in p32i8 pk);
+uint16_t<4> [[rn]] unpack_u8u16(in p32u8 pk);
+int<4> [[rn]] unpack_s8s32(in p32i8 pk);
+uint<4> [[rn]] unpack_u8u32(in p32u8 pk);
+
+// Packing intrinsics
+p32i8 [[rn]] pack_s8(in any_int16or32<4> v);
+p32u8 [[rn]] pack_u8(in any_int16or32<4> v);
+p32i8 [[rn]] pack_clamp_s8(in sint16or32_only<4> v);
+p32u8 [[rn]] pack_clamp_u8(in sint16or32_only<4> v);
+
 // Mesh shader intrinsics:
 void [[]] SetMeshOutputCounts(in uint numVertices, in uint numPrimitives);
 
 // Amplification shader intrinsics:
 void [[]] DispatchMesh(in uint threadGroupCountX, in uint threadGroupCountY, in uint threadGroupCountZ, in udt meshPayload);
 
+// Return true if the current lane is a helper lane
+bool [[ro]] IsHelperLane();
+
 // HL Op for allocating ray query object that default constructor uses
 uint [[hidden]] AllocateRayQuery(in uint flags);
 
-resource [[rn]] CreateResourceFromHeap(in uint index);
+resource [[hidden]] CreateResourceFromHeap(in uint index);
 
 } namespace
+
+
+// SPIRV Change Starts
+namespace VkIntrinsics {
+
+u64 [[]] ReadClock(in uint scope);
+
+} namespace
+// SPIRV Change Ends
 
 namespace StreamMethods {
 
@@ -798,6 +843,27 @@ void [[]] Store(in uint byteOffset, in $funcT value) : byteaddress_store;
 void [[]] Store2(in uint byteOffset, in uint<2> value) : byteaddress_store;
 void [[]] Store3(in uint byteOffset, in uint<3> value) : byteaddress_store;
 void [[]] Store4(in uint byteOffset, in uint<4> value) : byteaddress_store;
+// 64-bit integer interlocks
+void [[]] InterlockedAdd64(in uint byteOffset, in u64 value);
+void [[]] InterlockedAdd64(in uint byteOffset, in u64 value, out any_int64 original) : interlockedadd_immediate;
+void [[unsigned_op=InterlockedUMin,overload=1]] InterlockedMin64(in uint byteOffset, in any_int64 value) : interlockedmin;
+void [[unsigned_op=InterlockedUMin,overload=1]] InterlockedMin64(in uint byteOffset, in any_int64 value, out any_int64 original) : interlockedmin_immediate;
+void [[unsigned_op=InterlockedUMax,overload=1]] InterlockedMax64(in uint byteOffset, in any_int64 value) : interlockedmax;
+void [[unsigned_op=InterlockedUMax,overload=1]] InterlockedMax64(in uint byteOffset, in any_int64 value, out any_int64 original) : interlockedmax_immediate;
+void [[]] InterlockedAnd64(in uint byteOffset, in u64 value);
+void [[]] InterlockedAnd64(in uint byteOffset, in u64 value, out any_int64 original) : interlockedand_immediate;
+void [[]] InterlockedOr64(in uint byteOffset, in u64 value);
+void [[]] InterlockedOr64(in uint byteOffset, in u64 value, out any_int64 original) : interlockedor_immediate;
+void [[]] InterlockedXor64(in uint byteOffset, in u64 value);
+void [[]] InterlockedXor64(in uint byteOffset, in u64 value, out any_int64 original) : interlockedxor_immediate;
+void [[]] InterlockedCompareStore64(in uint byteOffset, in u64 compare, in u64 value);
+void [[]] InterlockedExchange64(in uint byteOffset, in any_int64 value, out any_int64 original);
+void [[]] InterlockedCompareExchange64(in uint byteOffset, in u64 compare, in u64 value, out any_int64 original);
+// floating point interlocks
+void [[]] InterlockedExchangeFloat(in uint byteOffest, in float value, out float original);
+void [[]] InterlockedCompareStoreFloatBitwise(in uint byteOffest, in float compare, in float value);
+void [[]] InterlockedCompareExchangeFloatBitwise(in uint byteOffest, in float compare, in float value, out float original);
+// 32-bit integer interlocks
 void [[]] InterlockedAdd(in uint byteOffset, in uint value);
 void [[]] InterlockedAdd(in uint byteOffset, in uint value, out uint original) : interlockedadd_immediate;
 void [[unsigned_op=InterlockedUMin,overload=1]] InterlockedMin(in uint byteOffset, in any_int32 value) : interlockedmin;

@@ -786,5 +786,6 @@ def HLSLAttributeType : DiagGroup<"attribute-type">;
 def HLSLSpecifierOverride : DiagGroup<"specifier-override">;
 def HLSLPackOffsetOverride : DiagGroup<"packoffset-override">;
 def HLSLCommaInInit : DiagGroup<"comma-in-init">;
+def HLSLAmbigLitShift : DiagGroup<"ambig-lit-shift">;
 def HLSLPayloadAccessQualifer: DiagGroup<"payload-access-qualifier">;
 // HLSL Change Ends

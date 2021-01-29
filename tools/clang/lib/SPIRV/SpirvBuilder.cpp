@@ -929,6 +929,23 @@ SpirvBuilder::createRayQueryOpsKHR(spv::Op opcode, QualType resultType,
   return inst;
 }
 
+SpirvInstruction *SpirvBuilder::createReadClock(SpirvInstruction *scope,
+                                                SourceLocation loc) {
+  assert(insertPoint && "null insert point");
+  assert(scope->getAstResultType()->isIntegerType());
+  auto *inst =
+      new (context) SpirvReadClock(astContext.UnsignedLongLongTy, scope, loc);
+  insertPoint->addInstruction(inst);
+  return inst;
+}
+
+void SpirvBuilder::createRaytracingTerminateKHR(spv::Op opcode,
+                                                SourceLocation loc) {
+  assert(insertPoint && "null insert point");
+  auto *inst = new (context) SpirvRayTracingTerminateOpKHR(opcode, loc);
+  insertPoint->addInstruction(inst);
+}
+
 void SpirvBuilder::addModuleProcessed(llvm::StringRef process) {
   mod->addModuleProcessed(new (context) SpirvModuleProcessed({}, process));
 }
@@ -1220,7 +1237,8 @@ std::vector<uint32_t> SpirvBuilder::takeModule() {
   RelaxedPrecisionVisitor relaxedPrecisionVisitor(context, spirvOptions);
   PreciseVisitor preciseVisitor(context, spirvOptions);
   NonUniformVisitor nonUniformVisitor(context, spirvOptions);
-  RemoveBufferBlockVisitor removeBufferBlockVisitor(context, spirvOptions);
+  RemoveBufferBlockVisitor removeBufferBlockVisitor(astContext, context,
+                                                    spirvOptions);
   EmitVisitor emitVisitor(astContext, context, spirvOptions);
 
   mod->invokeVisitor(&literalTypeVisitor, true);

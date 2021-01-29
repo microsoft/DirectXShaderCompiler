@@ -1,5 +1,5 @@
-// Run: dxc -T cs_6_5 -E CS
-// CHECK:  OpCapability RayQueryProvisionalKHR
+// Run: dxc -T cs_6_5 -E CS -fspv-target-env=vulkan1.2
+// CHECK:  OpCapability RayQueryKHR
 // CHECK:  OpExtension "SPV_KHR_ray_query"
 
 RaytracingAccelerationStructure AccelerationStructure : register(t0);
@@ -28,7 +28,7 @@ void CS()
     q.TraceRayInline(AccelerationStructure,RAY_FLAG_NONE,0xFF,ray);
     float4x3 mat4x3;
     float3x4 mat3x4;
-// CHECK:  [[rayquery:%\d+]] = OpVariable %_ptr_Function_rayQueryProvisionalKHR Function
+// CHECK:  [[rayquery:%\d+]] = OpVariable %_ptr_Function_rayQueryKHR Function
 // CHECK:  OpRayQueryProceedKHR %bool [[rayquery]]
     while(q.Proceed())
     {

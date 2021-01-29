@@ -36,6 +36,7 @@ enum class Extension {
   KHR_shader_draw_parameters,
   KHR_post_depth_coverage,
   KHR_ray_tracing,
+  KHR_shader_clock,
   EXT_demote_to_helper_invocation,
   EXT_descriptor_indexing,
   EXT_fragment_fully_covered,
@@ -98,6 +99,14 @@ public:
   /// Returns true if the given extension is set in allowedExtensions
   bool isExtensionEnabled(Extension);
 
+  /// Returns true if the target environment is Vulkan 1.1 or above.
+  /// Returns false otherwise.
+  bool isTargetEnvVulkan1p1OrAbove();
+
+  /// Returns true if the target environment is Vulkan 1.2 or above.
+  /// Returns false otherwise.
+  bool isTargetEnvVulkan1p2OrAbove();
+
 private:
   /// Returns whether codegen should allow usage of this extension by default.
   bool enabledByDefault(Extension);
@@ -124,6 +133,7 @@ private:
 
   llvm::SmallBitVector allowedExtensions;
   spv_target_env targetEnv;
+  std::string targetEnvStr;
 };
 
 } // end namespace spirv

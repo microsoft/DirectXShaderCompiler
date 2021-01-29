@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_2 -E main -enable-16bit-types
+// Run: %dxc -T ps_6_2 -E main -fspv-target-env=vulkan1.1 -enable-16bit-types
  
 Texture2D tex;
 SamplerState texSampler;

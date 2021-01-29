@@ -232,6 +232,8 @@ public:
   bool HLSLForceZeroStoreLifetimes = false;
   /// Enable lifetime marker generation
   bool HLSLEnableLifetimeMarkers = false;
+  /// Put shader sources and options in the module
+  bool HLSLEmbedSourcesInModule = false;
   /// Enable generation of payload access qualifier metadata. 
   bool HLSLEnablePayloadAccessQualifiers = false;
   // HLSL Change Ends

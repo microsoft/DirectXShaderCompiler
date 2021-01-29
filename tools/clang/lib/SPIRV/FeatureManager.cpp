@@ -29,15 +29,21 @@ FeatureManager::FeatureManager(DiagnosticsEngine &de,
       allowExtension(ext);
   }
 
+  targetEnvStr = opts.targetEnv;
+
   if (opts.targetEnv == "vulkan1.0")
     targetEnv = SPV_ENV_VULKAN_1_0;
   else if (opts.targetEnv == "vulkan1.1")
     targetEnv = SPV_ENV_VULKAN_1_1;
   else if (opts.targetEnv == "vulkan1.2")
     targetEnv = SPV_ENV_VULKAN_1_2;
+  else if(opts.targetEnv == "universal1.5")
+    targetEnv = SPV_ENV_UNIVERSAL_1_5;
   else {
     emitError("unknown SPIR-V target environment '%0'", {}) << opts.targetEnv;
-    emitNote("allowed options are:\n vulkan1.0\n vulkan1.1\n vulkan1.2", {});
+    emitNote("allowed options are:\n vulkan1.0\n vulkan1.1\n vulkan1.2\n "
+             "universal1.5",
+             {});
   }
 }
 
@@ -91,7 +97,7 @@ bool FeatureManager::requestTargetEnv(spv_target_env requestedEnv,
                                       SourceLocation srcLoc) {
   if (targetEnv < requestedEnv) {
     emitError("%0 is required for %1 but not permitted to use", srcLoc)
-        << (requestedEnv == SPV_ENV_VULKAN_1_2 ? "Vulkan 1.2" : "Vulkan 1.1")
+        << (requestedEnv > SPV_ENV_VULKAN_1_1 ? "Vulkan 1.2" : "Vulkan 1.1")
         << target;
     emitNote("please specify your target environment via command line option "
              "-fspv-target-env=",
@@ -130,6 +136,7 @@ Extension FeatureManager::getExtensionSymbol(llvm::StringRef name) {
             Extension::GOOGLE_hlsl_functionality1)
       .Case("SPV_GOOGLE_user_type", Extension::GOOGLE_user_type)
       .Case("SPV_KHR_post_depth_coverage", Extension::KHR_post_depth_coverage)
+      .Case("SPV_KHR_shader_clock", Extension::KHR_shader_clock)
       .Case("SPV_NV_ray_tracing", Extension::NV_ray_tracing)
       .Case("SPV_NV_mesh_shader", Extension::NV_mesh_shader)
       .Case("SPV_KHR_ray_query", Extension::KHR_ray_query)
@@ -154,6 +161,8 @@ const char *FeatureManager::getExtensionName(Extension symbol) {
     return "SPV_KHR_post_depth_coverage";
   case Extension::KHR_ray_tracing:
     return "SPV_KHR_ray_tracing";
+  case Extension::KHR_shader_clock:
+    return "SPV_KHR_shader_clock";
   case Extension::EXT_demote_to_helper_invocation:
     return "SPV_EXT_demote_to_helper_invocation";
   case Extension::EXT_descriptor_indexing:
@@ -255,6 +264,18 @@ bool FeatureManager::enabledByDefault(Extension ext) {
   default:
     return true;
   }
+}
+
+bool FeatureManager::isTargetEnvVulkan1p1OrAbove() {
+  std::string vulkanStr = "vulkan";
+  return targetEnvStr.substr(0, vulkanStr.size()) == vulkanStr &&
+         targetEnvStr.compare("vulkan1.1") >= 0;
+}
+
+bool FeatureManager::isTargetEnvVulkan1p2OrAbove() {
+  std::string vulkanStr = "vulkan";
+  return targetEnvStr.substr(0, vulkanStr.size()) == vulkanStr &&
+         targetEnvStr.compare("vulkan1.2") >= 0;
 }
 
 } // end namespace spirv

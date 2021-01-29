@@ -91,7 +91,14 @@ enum LEGAL_INTRINSIC_COMPTYPES {
   LICOMPTYPE_TEXTURE2DARRAY = 34,
   LICOMPTYPE_RESOURCE = 35,
   LICOMPTYPE_INT32_ONLY = 36,
-  LICOMPTYPE_COUNT = 37
+  LICOMPTYPE_INT64_ONLY = 37,
+  LICOMPTYPE_ANY_INT64 = 38,
+  LICOMPTYPE_FLOAT32_ONLY = 39,
+  LICOMPTYPE_INT8_4PACKED = 40,
+  LICOMPTYPE_UINT8_4PACKED = 41,
+  LICOMPTYPE_ANY_INT16_OR_32 = 42,
+  LICOMPTYPE_SINT16_OR_32_ONLY = 43,
+  LICOMPTYPE_COUNT = 44
 };
 
 static const BYTE IA_SPECIAL_BASE = 0xf0;
@@ -126,8 +133,8 @@ struct HLSL_INTRINSIC {
 
 ///////////////////////////////////////////////////////////////////////////////
 // Interfaces.
-struct __declspec(uuid("f0d4da3f-f863-4660-b8b4-dfd94ded6215"))
-IDxcIntrinsicTable : public IUnknown
+CROSS_PLATFORM_UUIDOF(IDxcIntrinsicTable, "f0d4da3f-f863-4660-b8b4-dfd94ded6215")
+struct IDxcIntrinsicTable : public IUnknown
 {
 public:
   virtual HRESULT STDMETHODCALLTYPE GetTableName(_Outptr_ LPCSTR *pTableName) = 0;
@@ -138,7 +145,7 @@ public:
 
   // Get the lowering strategy for an hlsl extension intrinsic.
   virtual HRESULT STDMETHODCALLTYPE GetLoweringStrategy(UINT opcode, LPCSTR *pStrategy) = 0;
-  
+
   // Callback to support custom naming of hlsl extension intrinsic functions in dxil.
   // Return the empty string to get the default intrinsic name, which is the mangled
   // name of the high level intrinsic function.
@@ -153,15 +160,15 @@ public:
   virtual HRESULT STDMETHODCALLTYPE GetDxilOpCode(UINT opcode, UINT *pDxilOpcode) = 0;
 };
 
-struct __declspec(uuid("1d063e4f-515a-4d57-a12a-431f6a44cfb9"))
-IDxcSemanticDefineValidator : public IUnknown
+CROSS_PLATFORM_UUIDOF(IDxcSemanticDefineValidator, "1d063e4f-515a-4d57-a12a-431f6a44cfb9")
+struct IDxcSemanticDefineValidator : public IUnknown
 {
 public:
   virtual HRESULT STDMETHODCALLTYPE GetSemanticDefineWarningsAndErrors(LPCSTR pName, LPCSTR pValue, IDxcBlobEncoding **ppWarningBlob, IDxcBlobEncoding **ppErrorBlob) = 0;
 };
 
-struct __declspec(uuid("282a56b4-3f56-4360-98c7-9ea04a752272"))
-IDxcLangExtensions : public IUnknown
+CROSS_PLATFORM_UUIDOF(IDxcLangExtensions, "282a56b4-3f56-4360-98c7-9ea04a752272")
+struct IDxcLangExtensions : public IUnknown
 {
 public:
   /// <summary>
@@ -181,19 +188,16 @@ public:
   virtual HRESULT STDMETHODCALLTYPE SetSemanticDefineValidator(_In_ IDxcSemanticDefineValidator* pValidator) = 0;
   /// <summary>Sets the name for the root metadata node used in DXIL to hold the semantic defines.</summary>
   virtual HRESULT STDMETHODCALLTYPE SetSemanticDefineMetaDataName(LPCSTR name) = 0;
-
-  DECLARE_CROSS_PLATFORM_UUIDOF(IDxcLangExtensions)
 };
 
-struct __declspec(uuid("2490C368-89EE-4491-A4B2-C6547B6C9381"))
-IDxcLangExtensions2 : public IDxcLangExtensions {
+CROSS_PLATFORM_UUIDOF(IDxcLangExtensions2, "2490C368-89EE-4491-A4B2-C6547B6C9381")
+struct IDxcLangExtensions2 : public IDxcLangExtensions {
 public:
   virtual HRESULT STDMETHODCALLTYPE SetTargetTriple(LPCSTR name) = 0;
-  DECLARE_CROSS_PLATFORM_UUIDOF(IDxcLangExtensions2)
 };
 
-struct __declspec(uuid("454b764f-3549-475b-958c-a7a6fcd05fbc"))
-IDxcSystemAccess : public IUnknown
+CROSS_PLATFORM_UUIDOF(IDxcSystemAccess, "454b764f-3549-475b-958c-a7a6fcd05fbc")
+struct IDxcSystemAccess : public IUnknown
 {
 public:
   virtual HRESULT STDMETHODCALLTYPE EnumFiles(LPCWSTR fileName, IEnumSTATSTG** pResult) = 0;
@@ -237,15 +241,15 @@ public:
   virtual HRESULT STDMETHODCALLTYPE GetStreamDisplay(_COM_Outptr_result_maybenull_ ITextFont** textFont, _Out_ unsigned* columnCount) = 0;
 };
 
-struct __declspec(uuid("e991ca8d-2045-413c-a8b8-788b2c06e14d"))
-IDxcContainerEventsHandler : public IUnknown
+CROSS_PLATFORM_UUIDOF(IDxcContainerEventsHandler, "e991ca8d-2045-413c-a8b8-788b2c06e14d")
+struct IDxcContainerEventsHandler : public IUnknown
 {
 public:
   virtual HRESULT STDMETHODCALLTYPE OnDxilContainerBuilt(_In_ IDxcBlob *pSource, _Out_ IDxcBlob **ppTarget) = 0;
 };
 
-struct __declspec(uuid("0cfc5058-342b-4ff2-83f7-04c12aad3d01"))
-IDxcContainerEvent : public IUnknown
+CROSS_PLATFORM_UUIDOF(IDxcContainerEvent, "0cfc5058-342b-4ff2-83f7-04c12aad3d01")
+struct IDxcContainerEvent : public IUnknown
 {
 public:
   virtual HRESULT STDMETHODCALLTYPE RegisterDxilContainerEventHandler(IDxcContainerEventsHandler *pHandler, UINT64 *pCookie) = 0;

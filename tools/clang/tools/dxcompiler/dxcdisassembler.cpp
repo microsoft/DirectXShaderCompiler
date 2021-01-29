@@ -339,7 +339,10 @@ PCSTR g_pFeatureInfoNames[] = {
     "Use native low precision",
     "Shading Rate",
     "Raytracing tier 1.1 features",
-    "Sampler feedback"
+    "Sampler feedback",
+    "64-bit Atomics on Typed Resources",
+    "64-bit Atomics on Group Shared",
+    "Derivatives in mesh and amplification shaders"
 };
 static_assert(_countof(g_pFeatureInfoNames) == ShaderFeatureInfoCount, "g_pFeatureInfoNames needs to be updated");
 
@@ -371,7 +374,6 @@ void PrintResourceFormat(DxilResourceBase &res, unsigned alignment,
       OS << right_justify("byte", alignment);
       break;
     case DxilResource::Kind::StructuredBuffer:
-    case DxilResource::Kind::StructuredBufferWithCounter:
       OS << right_justify("struct", alignment);
       break;
     default:
@@ -399,7 +401,6 @@ void PrintResourceDim(DxilResourceBase &res, unsigned alignment,
     switch (res.GetKind()) {
     case DxilResource::Kind::RawBuffer:
     case DxilResource::Kind::StructuredBuffer:
-    case DxilResource::Kind::StructuredBufferWithCounter:
       if (res.GetClass() == DxilResourceBase::Class::SRV)
         OS << right_justify("r/o", alignment);
       else {
@@ -953,7 +954,7 @@ void PrintStructBufferDefinition(DxilResource *buf,
   llvm::Type *RetTy = buf->GetRetType();
   // Skip none struct type.
   if (!RetTy->isStructTy() || HLMatrixType::isa(RetTy)) {
-    llvm::Type *Ty = buf->GetGlobalSymbol()->getType()->getPointerElementType();
+    llvm::Type *Ty = buf->GetHLSLType()->getPointerElementType();
     // For resource array, use element type.
     if (Ty->isArrayTy())
       Ty = Ty->getArrayElementType();
@@ -992,7 +993,7 @@ void PrintStructBufferDefinition(DxilResource *buf,
 void PrintTBufferDefinition(DxilResource *buf, DxilTypeSystem &typeSys,
                                    raw_string_ostream &OS, StringRef comment) {
   const unsigned offsetIndent = 50;
-  llvm::Type *Ty = buf->GetGlobalSymbol()->getType()->getPointerElementType();
+  llvm::Type *Ty = buf->GetHLSLType()->getPointerElementType();
   // For TextureBuffer<> buf[2], the array size is in Resource binding count
   // part.
   if (Ty->isArrayTy())
@@ -1018,7 +1019,7 @@ void PrintTBufferDefinition(DxilResource *buf, DxilTypeSystem &typeSys,
 void PrintCBufferDefinition(DxilCBuffer *buf, DxilTypeSystem &typeSys,
                                    raw_string_ostream &OS, StringRef comment) {
   const unsigned offsetIndent = 50;
-  llvm::Type *Ty = buf->GetGlobalSymbol()->getType()->getPointerElementType();
+  llvm::Type *Ty = buf->GetHLSLType()->getPointerElementType();
   // For ConstantBuffer<> buf[2], the array size is in Resource binding count
   // part.
   if (Ty->isArrayTy())
@@ -1283,8 +1284,12 @@ static const char *OpCodeSignatures[] = {
   "()",  // GeometryIndex
   "(rayQueryHandle)",  // RayQuery_CandidateInstanceContributionToHitGroupIndex
   "(rayQueryHandle)",  // RayQuery_CommittedInstanceContributionToHitGroupIndex
-  "(index,nonUniformIndex)",  // CreateHandleFromHeap
-  "(res,resourceClass,resourceKind,props)"  // AnnotateHandle
+  "(res,props)",  // AnnotateHandle
+  "(bind,index,nonUniformIndex)",  // CreateHandleFromBinding
+  "(index,samplerHeap,nonUniformIndex)",  // CreateHandleFromHeap
+  "(unpackMode,pk)",  // Unpack4x8
+  "(packMode,x,y,z,w)",  // Pack4x8
+  "()"  // IsHelperLane
 };
 // OPCODE-SIGS:END
 
@@ -1309,8 +1314,6 @@ LPCSTR ResourceKindToString(DXIL::ResourceKind RK) {
   case DXIL::ResourceKind::RTAccelerationStructure: return "RTAccelerationStructure";
   case DXIL::ResourceKind::FeedbackTexture2D: return "FeedbackTexture2D";
   case DXIL::ResourceKind::FeedbackTexture2DArray: return "FeedbackTexture2DArray";
-  case DXIL::ResourceKind::StructuredBufferWithCounter: return "StructuredBufferWithCounter";
-  case DXIL::ResourceKind::SamplerComparison: return "SamplerComparison";
   default:
     return "<invalid ResourceKind>";
   }
@@ -1352,28 +1355,29 @@ void PrintResourceProperties(DxilResourceProperties &RP,
                              formatted_raw_ostream &OS) {
   OS << "  resource: ";
 
-  if (RP.Class == DXIL::ResourceClass::CBuffer) {
+  if (RP.getResourceClass() == DXIL::ResourceClass::CBuffer) {
     OS << "CBuffer";
     return;
-  } else if (RP.Class == DXIL::ResourceClass::SRV &&
-             RP.Kind == DXIL::ResourceKind::TBuffer) {
+  } else if (RP.getResourceClass() == DXIL::ResourceClass::SRV &&
+             RP.getResourceKind() == DXIL::ResourceKind::TBuffer) {
     OS << "TBuffer";
     return;
   }
 
-  if (RP.Class == DXIL::ResourceClass::Sampler) {
-    if (RP.Kind == DXIL::ResourceKind::Sampler)
+  if (RP.getResourceClass() == DXIL::ResourceClass::Sampler) {
+    if (!RP.Basic.SamplerCmpOrHasCounter)
       OS << "SamplerState";
-    else if (RP.Kind == DXIL::ResourceKind::SamplerComparison)
+    else
       OS << "SamplerComparisonState";
     return;
   }
 
-  bool bUAV = RP.Class == DXIL::ResourceClass::UAV;
-  LPCSTR RW = bUAV ? (RP.UAV.bROV ? "ROV" : "RW") : "";
-  LPCSTR GC = bUAV && RP.UAV.bGloballyCoherent ? "globallycoherent " : "";
+  bool bUAV = RP.isUAV();
+  LPCSTR RW = bUAV ? (RP.Basic.IsROV ? "ROV" : "RW") : "";
+  LPCSTR GC = bUAV && RP.Basic.IsGloballyCoherent ? "globallycoherent " : "";
+  LPCSTR COUNTER = bUAV && RP.Basic.SamplerCmpOrHasCounter ? ", counter" : "";
 
-  switch (RP.Kind)
+  switch (RP.getResourceKind())
   {
   case DXIL::ResourceKind::Texture1D:
   case DXIL::ResourceKind::Texture2D:
@@ -1383,37 +1387,35 @@ void PrintResourceProperties(DxilResourceProperties &RP,
   case DXIL::ResourceKind::Texture2DArray:
   case DXIL::ResourceKind::TextureCubeArray:
   case DXIL::ResourceKind::TypedBuffer:
-    OS << GC << RW << ResourceKindToString(RP.Kind);
-    OS << "<" << CompTypeToString(RP.Typed.CompType)
-       << (bUAV && !RP.Typed.SingleComponent ? "[vec]" : "")
+    OS << GC << RW << ResourceKindToString(RP.getResourceKind());
+    OS << "<" << CompTypeToString(RP.getCompType())
+       << (bUAV && RP.Typed.CompCount > 1 ? "[vec]" : "")
        << ">";
     break;
 
   case DXIL::ResourceKind::Texture2DMS:
   case DXIL::ResourceKind::Texture2DMSArray:
-    OS << ResourceKindToString(RP.Kind);
-    OS << "<" << CompTypeToString(RP.Typed.CompType)
-       << ", samples=" << RP.getSampleCount()
+    OS << ResourceKindToString(RP.getResourceKind());
+    OS << "<" << CompTypeToString(RP.getCompType())
        << ">";
     break;
 
   case DXIL::ResourceKind::RawBuffer:
-    OS << GC << RW << ResourceKindToString(RP.Kind);
+    OS << GC << RW << ResourceKindToString(RP.getResourceKind());
     break;
 
   case DXIL::ResourceKind::StructuredBuffer:
-  case DXIL::ResourceKind::StructuredBufferWithCounter:
-    OS << GC << RW << ResourceKindToString(RP.Kind);
-    OS << "<stride=" << RP.ElementStride << ">";
+    OS << GC << RW << ResourceKindToString(RP.getResourceKind());
+    OS << "<stride=" << RP.StructStrideInBytes << COUNTER << ">";
     break;
 
   case DXIL::ResourceKind::RTAccelerationStructure:
-    OS << ResourceKindToString(RP.Kind);
+    OS << ResourceKindToString(RP.getResourceKind());
     break;
 
   case DXIL::ResourceKind::FeedbackTexture2D:
   case DXIL::ResourceKind::FeedbackTexture2DArray:
-    OS << ResourceKindToString(RP.Kind);
+    OS << ResourceKindToString(RP.getResourceKind());
     OS << "<" << SamplerFeedbackTypeToString(RP.SamplerFeedbackType) << ">";
     break;
 
@@ -1484,9 +1486,7 @@ public:
       // Decode resource properties
       DxilInst_AnnotateHandle AH(const_cast<CallInst*>(CI));
       if (Constant *Props = dyn_cast<Constant>(AH.get_props())) {
-        DXIL::ResourceClass RC = static_cast<DXIL::ResourceClass>(AH.get_resourceClass_val());
-        DXIL::ResourceKind RK = static_cast<DXIL::ResourceKind>(AH.get_resourceKind_val());
-        DxilResourceProperties RP = resource_helper::loadFromConstant(*Props, RC, RK);
+        DxilResourceProperties RP = resource_helper::loadPropsFromConstant(*Props);
         PrintResourceProperties(RP, OS);
       }
     } break;
@@ -1724,6 +1724,10 @@ void PrintPipelineStateValidationRuntimeInfo(const char *pBuffer,
   case DXIL::ShaderKind::Invalid:
     // Nothing to print for these shader kinds.
     break;
+  }
+
+  if (pInfo->MinimumExpectedWaveLaneCount == pInfo->MaximumExpectedWaveLaneCount) {
+    OS << comment << " WaveSize=" << pInfo->MinimumExpectedWaveLaneCount << "\n";
   }
 
   OS << comment << "\n";

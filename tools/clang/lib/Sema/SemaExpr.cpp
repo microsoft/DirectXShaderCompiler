@@ -2739,8 +2739,17 @@ bool Sema::UseArgumentDependentLookup(const CXXScopeSpec &SS,
     return false;
 
   // Never if a scope specifier was provided.
-  if (SS.isSet())
-    return false;
+  if (SS.isSet()) {
+    // HLSL Change begins
+    // We want to be able to have intrinsics inside the "vk" namespace.
+    const bool isVkNamespace =
+        SS.getScopeRep() && SS.getScopeRep()->getAsNamespace() &&
+        SS.getScopeRep()->getAsNamespace()->getName() == "vk";
+
+    if (!isVkNamespace)
+    // HLSL Change ends
+      return false;
+  }
 
   // Only in C++ or ObjC++.
   if (!getLangOpts().CPlusPlus)

@@ -59,6 +59,8 @@ uint8_t CompType::GetSizeInBits() const {
   case Kind::I32:
   case Kind::U32:
   case Kind::F32:
+  case Kind::PackedS8x32:
+  case Kind::PackedU8x32:
     return 32;
   case Kind::I64:
   case Kind::U64:
@@ -157,7 +159,8 @@ bool CompType::IsSIntTy() const {
 }
 
 bool CompType::IsUIntTy() const {
-  return m_Kind == Kind::U16 || m_Kind == Kind::U32 || m_Kind == Kind::U64;
+  return m_Kind == Kind::U16 || m_Kind == Kind::U32 || m_Kind == Kind::U64 ||
+    m_Kind == Kind::PackedS8x32 || m_Kind == Kind::PackedU8x32;
 }
 
 bool CompType::IsBoolTy() const {
@@ -202,6 +205,8 @@ CompType CompType::GetBaseCompType() const {
   switch (m_Kind) {
   case Kind::I1:        return CompType(Kind::I1);
   case Kind::I16:       __fallthrough;
+  case Kind::PackedS8x32: __fallthrough;
+  case Kind::PackedU8x32: __fallthrough;
   case Kind::I32:       return CompType(Kind::I32);
   case Kind::I64:       return CompType(Kind::I64);
   case Kind::U16:       __fallthrough;
@@ -231,6 +236,8 @@ bool CompType::HasMinPrec() const {
   case Kind::UNormF16:
     return true;
   case Kind::I1:
+  case Kind::PackedS8x32:
+  case Kind::PackedU8x32:
   case Kind::I32:
   case Kind::U32:
   case Kind::I64:
@@ -253,6 +260,8 @@ Type *CompType::GetLLVMType(LLVMContext &Ctx) const {
   case Kind::I1:        return (Type*)Type::getInt1Ty(Ctx);
   case Kind::I16:
   case Kind::U16:       return (Type*)Type::getInt16Ty(Ctx);
+  case Kind::PackedS8x32:
+  case Kind::PackedU8x32:
   case Kind::I32:
   case Kind::U32:       return (Type*)Type::getInt32Ty(Ctx);
   case Kind::I64:
@@ -277,6 +286,8 @@ PointerType *CompType::GetLLVMPtrType(LLVMContext &Ctx, const unsigned AddrSpace
   case Kind::I1:        return Type::getInt1PtrTy  (Ctx, AddrSpace);
   case Kind::I16:
   case Kind::U16:       return Type::getInt16PtrTy (Ctx, AddrSpace);
+  case Kind::PackedS8x32:
+  case Kind::PackedU8x32:
   case Kind::I32:
   case Kind::U32:       return Type::getInt32PtrTy (Ctx, AddrSpace);
   case Kind::I64:
@@ -319,6 +330,7 @@ static const char *s_TypeKindNames[(unsigned)CompType::Kind::LastEntry] = {
   "i1", "i16", "u16", "i32", "u32", "i64", "u64",
   "f16", "f32", "f64",
   "snorm_f16", "unorm_f16", "snorm_f32", "unorm_f32", "snorm_f64", "unorm_f64",
+  "p32i8", "p32u8",
 };
 
 const char *CompType::GetName() const {
@@ -330,6 +342,7 @@ static const char *s_TypeKindHLSLNames[(unsigned)CompType::Kind::LastEntry] = {
   "bool", "int16_t", "uint16_t", "int", "uint", "int64_t", "uint64_t",
   "half", "float", "double",
   "snorm_half", "unorm_half", "snorm_float", "unorm_float", "snorm_double", "unorm_double",
+  "int8_t_packed", "uint8_t_packed",
 };
 
 static const char *s_TypeKindHLSLNamesMinPrecision[(unsigned)CompType::Kind::LastEntry] = {
@@ -337,6 +350,7 @@ static const char *s_TypeKindHLSLNamesMinPrecision[(unsigned)CompType::Kind::Las
   "bool", "min16i", "min16ui", "int", "uint", "int64_t", "uint64_t",
   "min16float", "float", "double",
   "snorm_min16f", "unorm_min16f", "snorm_float", "unorm_float", "snorm_double", "unorm_double",
+  "int8_t_packed", "uint8_t_packed",
 };
 
 const char *CompType::GetHLSLName(bool MinPrecision) const {

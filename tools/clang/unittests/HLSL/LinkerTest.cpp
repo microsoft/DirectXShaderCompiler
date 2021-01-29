@@ -65,6 +65,7 @@ public:
   TEST_METHOD(RunLinkWithValidatorVersion);
   TEST_METHOD(RunLinkWithTempReg);
   TEST_METHOD(RunLinkToLibWithGlobalCtor);
+  TEST_METHOD(LinkSm63ToSm66);
 
 
   dxc::DxcDllSupport m_dllSupport;
@@ -306,14 +307,15 @@ TEST_F(LinkerTest, RunLinkGlobalInit) {
 }
 
 TEST_F(LinkerTest, RunLinkFailReDefineGlobal) {
+  LPCWSTR option[] = { L"-default-linkage", L"external" };
   CComPtr<IDxcBlob> pEntryLib;
-  CompileLib(L"..\\CodeGenHLSL\\lib_global2.hlsl", &pEntryLib);
+  CompileLib(L"..\\CodeGenHLSL\\lib_global2.hlsl", &pEntryLib, option, L"lib_6_3");
 
   CComPtr<IDxcBlob> pLib0;
-  CompileLib(L"..\\CodeGenHLSL\\lib_global3.hlsl", &pLib0);
+  CompileLib(L"..\\CodeGenHLSL\\lib_global3.hlsl", &pLib0, option, L"lib_6_3");
 
   CComPtr<IDxcBlob> pLib1;
-  CompileLib(L"..\\CodeGenHLSL\\lib_global4.hlsl", &pLib1);
+  CompileLib(L"..\\CodeGenHLSL\\lib_global4.hlsl", &pLib1, option, L"lib_6_3");
 
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
@@ -687,14 +689,14 @@ TEST_F(LinkerTest, RunLinkToLibWithNoExports) {
 }
 
 TEST_F(LinkerTest, RunLinkWithPotentialIntrinsicNameCollisions) {
-  LPCWSTR option[] = { L"-Zi", L"-Qembed_debug" };
+  LPCWSTR option[] = { L"-Zi", L"-Qembed_debug", L"-default-linkage", L"external" };
 
   CComPtr<IDxcBlob> pLib1;
   CompileLib(L"..\\CodeGenHLSL\\linker\\createHandle_multi.hlsl",
-    &pLib1, option);
+    &pLib1, option, L"lib_6_3");
   CComPtr<IDxcBlob> pLib2;
   CompileLib(L"..\\CodeGenHLSL\\linker\\createHandle_multi2.hlsl",
-    &pLib2, option);
+    &pLib2, option, L"lib_6_3");
 
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);
@@ -788,4 +790,20 @@ TEST_F(LinkerTest, RunLinkToLibWithGlobalCtor) {
         "@foo._GLOBAL__sub_I_lib_static_cb_init.hlsl, i8* null }]"},
        {},
        {});
+}
+
+TEST_F(LinkerTest, LinkSm63ToSm66) {
+  CComPtr<IDxcBlob> pLib0;
+  CompileLib(L"..\\CodeGenHLSL\\linker\\link_to_sm66.hlsl", &pLib0, {}, L"lib_6_3");
+
+  CComPtr<IDxcLinker> pLinker;
+  CreateLinker(&pLinker);
+
+  LPCWSTR libName = L"foo";
+  RegisterDxcModule(libName, pLib0, pLinker);
+  // Make sure add annotateHandle when link lib_6_3 to ps_6_6.
+  Link(L"ps_main", L"ps_6_6", pLinker, {libName},
+       {"call %dx.types.Handle @dx.op.annotateHandle\\(i32 216, %dx.types.Handle "
+        "%(.*), %dx.types.ResourceProperties { i32 13, i32 4 }\\)"},
+       {}, {}, true);
 }

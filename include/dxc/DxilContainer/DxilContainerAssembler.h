@@ -41,8 +41,8 @@ public:
 DxilPartWriter *NewProgramSignatureWriter(const DxilModule &M, DXIL::SignatureKind Kind);
 DxilPartWriter *NewRootSignatureWriter(const RootSignatureHandle &S);
 DxilPartWriter *NewFeatureInfoWriter(const DxilModule &M);
-DxilPartWriter *NewPSVWriter(const DxilModule &M, uint32_t PSVVersion = 0);
-DxilPartWriter *NewRDATWriter(const DxilModule &M, uint32_t InfoVersion = 0);
+DxilPartWriter *NewPSVWriter(const DxilModule &M, uint32_t PSVVersion = UINT_MAX);
+DxilPartWriter *NewRDATWriter(const DxilModule &M);
 
 DxilContainerWriter *NewDxilContainerWriter();
 

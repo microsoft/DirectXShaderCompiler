@@ -114,6 +114,12 @@ public:
   static const char kDxilSourceMainFileNameMDName[];
   static const char kDxilSourceArgsMDName[];
 
+  // Old source info.
+  static const char kDxilSourceContentsOldMDName[];
+  static const char kDxilSourceDefinesOldMDName[];
+  static const char kDxilSourceMainFileNameOldMDName[];
+  static const char kDxilSourceArgsOldMDName[];
+
   static const unsigned kDxilEntryPointNumFields  = 5;
   static const unsigned kDxilEntryPointFunction   = 0;  // Entry point function symbol.
   static const unsigned kDxilEntryPointName       = 1;  // Entry point unmangled name.
@@ -265,6 +271,7 @@ public:
   static const unsigned kDxilShaderKindTag      = 8;
   static const unsigned kDxilMSStateTag         = 9;
   static const unsigned kDxilASStateTag         = 10;
+  static const unsigned kDxilWaveSizeTag        = 11;
 
   // GSState.
   static const unsigned kDxilGSStateNumFields               = 5;

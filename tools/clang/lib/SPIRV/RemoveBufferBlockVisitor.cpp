@@ -9,25 +9,21 @@
 
 #include "RemoveBufferBlockVisitor.h"
 #include "clang/SPIRV/SpirvContext.h"
-
-namespace {
-
-bool isBufferBlockDecorationDeprecated(
-    const clang::spirv::SpirvCodeGenOptions &opts) {
-  return opts.targetEnv.compare("vulkan1.2") >= 0;
-}
-
-} // end anonymous namespace
+#include "clang/SPIRV/SpirvFunction.h"
 
 namespace clang {
 namespace spirv {
+
+bool RemoveBufferBlockVisitor::isBufferBlockDecorationDeprecated() {
+  return featureManager.isTargetEnvVulkan1p2OrAbove();
+}
 
 bool RemoveBufferBlockVisitor::visit(SpirvModule *mod, Phase phase) {
   // If the target environment is Vulkan 1.2 or later, BufferBlock decoration is
   // deprecated and should be removed from the module.
   // Otherwise, no action is needed by this IMR visitor.
   if (phase == Visitor::Phase::Init)
-    if (!isBufferBlockDecorationDeprecated(spvOptions))
+    if (!isBufferBlockDecorationDeprecated())
       return false;
 
   return true;
@@ -76,15 +72,88 @@ bool RemoveBufferBlockVisitor::visitInstruction(SpirvInstruction *inst) {
 
   // For all instructions, if the result type is a pointer pointing to a struct
   // with StorageBuffer interface, the storage class must be updated.
-  if (auto *ptrResultType = dyn_cast<SpirvPointerType>(inst->getResultType())) {
-    if (hasStorageBufferInterfaceType(ptrResultType->getPointeeType()) &&
-        ptrResultType->getStorageClass() != spv::StorageClass::StorageBuffer) {
-      inst->setStorageClass(spv::StorageClass::StorageBuffer);
-      inst->setResultType(context.getPointerType(
-          ptrResultType->getPointeeType(), spv::StorageClass::StorageBuffer));
+  const auto *instType = inst->getResultType();
+  const auto *newInstType = instType;
+  spv::StorageClass newInstStorageClass = spv::StorageClass::Max;
+  if (updateStorageClass(instType, &newInstType, &newInstStorageClass)) {
+    inst->setResultType(newInstType);
+    inst->setStorageClass(newInstStorageClass);
+  }
+
+  return true;
+}
+
+bool RemoveBufferBlockVisitor::updateStorageClass(
+    const SpirvType *type, const SpirvType **newType,
+    spv::StorageClass *newStorageClass) {
+  auto *ptrType = dyn_cast<SpirvPointerType>(type);
+  if (ptrType == nullptr)
+    return false;
+
+  const auto *innerType = ptrType->getPointeeType();
+
+  // For usual cases such as _ptr_Uniform_StructuredBuffer_float.
+  if (hasStorageBufferInterfaceType(innerType) &&
+      ptrType->getStorageClass() != spv::StorageClass::StorageBuffer) {
+    *newType =
+        context.getPointerType(innerType, spv::StorageClass::StorageBuffer);
+    *newStorageClass = spv::StorageClass::StorageBuffer;
+    return true;
+  }
+
+  // For pointer-to-pointer cases (which need legalization), we could have a
+  // type like: _ptr_Function__ptr_Uniform_type_StructuredBuffer_float.
+  // In such cases, we need to update the storage class for the inner pointer.
+  if (const auto *innerPtrType = dyn_cast<SpirvPointerType>(innerType)) {
+    if (hasStorageBufferInterfaceType(innerPtrType->getPointeeType()) &&
+        innerPtrType->getStorageClass() != spv::StorageClass::StorageBuffer) {
+      auto *newInnerType = context.getPointerType(
+          innerPtrType->getPointeeType(), spv::StorageClass::StorageBuffer);
+      *newType =
+          context.getPointerType(newInnerType, ptrType->getStorageClass());
+      *newStorageClass = ptrType->getStorageClass();
+      return true;
     }
   }
 
+  return false;
+}
+
+bool RemoveBufferBlockVisitor::visit(SpirvFunction *fn, Phase phase) {
+  if (phase == Visitor::Phase::Init) {
+    llvm::SmallVector<const SpirvType *, 4> paramTypes;
+    bool updatedParamTypes = false;
+    for (auto *param : fn->getParameters()) {
+      const auto *paramType = param->getResultType();
+      // This pass is run after all types are lowered.
+      assert(paramType != nullptr);
+
+      // Update the parameter type if needed (update storage class of pointers).
+      const auto *newParamType = paramType;
+      spv::StorageClass newParamSC = spv::StorageClass::Max;
+      if (updateStorageClass(paramType, &newParamType, &newParamSC)) {
+        param->setStorageClass(newParamSC);
+        param->setResultType(newParamType);
+        updatedParamTypes = true;
+      }
+      paramTypes.push_back(newParamType);
+    }
+
+    // Update the return type if needed (update storage class of pointers).
+    const auto *returnType = fn->getReturnType();
+    const auto *newReturnType = returnType;
+    spv::StorageClass newReturnSC = spv::StorageClass::Max;
+    bool updatedReturnType =
+        updateStorageClass(returnType, &newReturnType, &newReturnSC);
+    if (updatedReturnType) {
+      fn->setReturnType(newReturnType);
+    }
+
+    if (updatedParamTypes || updatedReturnType) {
+      fn->setFunctionType(context.getFunctionType(newReturnType, paramTypes));
+    }
+    return true;
+  }
   return true;
 }
 

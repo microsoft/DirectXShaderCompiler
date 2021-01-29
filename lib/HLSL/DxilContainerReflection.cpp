@@ -390,7 +390,7 @@ HRESULT DxilContainerReflection::GetPartReflection(UINT32 idx, REFIID iid, void 
       }
     }
   }
-  
+
   const DxilProgramHeader *pProgramHeader =
     reinterpret_cast<const DxilProgramHeader*>(GetDxilPartData(pPart));
   if (!IsValidDxilProgramHeader(pProgramHeader, pPart->PartSize)) {
@@ -1228,7 +1228,7 @@ void CShaderReflectionConstantBuffer::Initialize(
   // For ConstantBuffer<> buf[2], the array size is in Resource binding count
   // part.
   Type *Ty = dxilutil::StripArrayTypes(
-    CB.GetGlobalSymbol()->getType()->getPointerElementType());
+    CB.GetHLSLType()->getPointerElementType());
 
   DxilTypeSystem &typeSys = M.GetTypeSystem();
   StructType *ST = cast<StructType>(Ty);
@@ -1265,8 +1265,7 @@ void CShaderReflectionConstantBuffer::Initialize(
       DXASSERT(pVarType->m_Desc.Elements == 0,
                "otherwise, assumption is wrong");
       pVarType->m_Desc.Elements = 1;
-    } else if (CB.GetGlobalSymbol()
-                   ->getType()
+    } else if (CB.GetHLSLType()
                    ->getPointerElementType()
                    ->isArrayTy() &&
                CB.GetRangeSize() == 1) {
@@ -1315,7 +1314,7 @@ static unsigned CalcTypeSize(Type *Ty, unsigned &alignment) {
 
 static unsigned CalcResTypeSize(DxilModule &M, DxilResource &R) {
   UNREFERENCED_PARAMETER(M);
-  Type *Ty = R.GetGlobalSymbol()->getType()->getPointerElementType();
+  Type *Ty = R.GetHLSLType()->getPointerElementType();
   if (R.IsStructuredBuffer()) {
     Ty = dxilutil::StripArrayTypes(Ty);
   }
@@ -1351,7 +1350,7 @@ void CShaderReflectionConstantBuffer::InitializeStructuredBuffer(
   // Create reflection type, if we have the necessary annotation info
 
   // Extract the `struct` that wraps element type of the buffer resource
-  Type *Ty = R.GetGlobalSymbol()->getType()->getPointerElementType();
+  Type *Ty = R.GetHLSLType()->getPointerElementType();
   SmallVector<unsigned, 4> arrayDims;
   Ty = dxilutil::StripArrayTypes(Ty, &arrayDims);
   for (unsigned i = 0; i < arrayDims.size(); ++i) {
@@ -1396,7 +1395,7 @@ void CShaderReflectionConstantBuffer::InitializeTBuffer(
   m_Desc.Type = D3D11_CT_TBUFFER;
   m_Desc.uFlags = 0;
 
-  Type *Ty = R.GetGlobalSymbol()->getType()->getPointerElementType();
+  Type *Ty = R.GetHLSLType()->getPointerElementType();
 
   DxilTypeSystem &typeSys = M.GetTypeSystem();
   StructType *ST = cast<StructType>(Ty);
@@ -1493,8 +1492,7 @@ static D3D_SHADER_INPUT_TYPE ResourceToShaderInputType(DxilResourceBase *RB) {
     return D3D_SIT_SAMPLER;
   case DxilResource::Kind::RawBuffer:
     return isUAV ? D3D_SIT_UAV_RWBYTEADDRESS : D3D_SIT_BYTEADDRESS;
-  case DxilResource::Kind::StructuredBuffer:
-  case DxilResource::Kind::StructuredBufferWithCounter: {
+  case DxilResource::Kind::StructuredBuffer: {
     if (!isUAV) return D3D_SIT_STRUCTURED;
     // TODO: D3D_SIT_UAV_CONSUME_STRUCTURED, D3D_SIT_UAV_APPEND_STRUCTURED?
     if (R->HasCounter()) return D3D_SIT_UAV_RWSTRUCTURED_WITH_COUNTER;
@@ -2566,9 +2564,9 @@ HRESULT CFunctionReflection::GetDesc(D3D12_FUNCTION_DESC *pDesc) {
   pDesc->BoundResources = (UINT)m_UsedResources.size();
 
   //Unset:  UINT                    InstructionCount;            // Number of emitted instructions
-  //Unset:  UINT                    TempRegisterCount;           // Number of temporary registers used 
+  //Unset:  UINT                    TempRegisterCount;           // Number of temporary registers used
   //Unset:  UINT                    TempArrayCount;              // Number of temporary arrays used
-  //Unset:  UINT                    DefCount;                    // Number of constant defines 
+  //Unset:  UINT                    DefCount;                    // Number of constant defines
   //Unset:  UINT                    DclCount;                    // Number of declarations (input + output)
   //Unset:  UINT                    TextureNormalInstructions;   // Number of non-categorized texture instructions
   //Unset:  UINT                    TextureLoadInstructions;     // Number of texture load instructions
@@ -2762,7 +2760,4 @@ void hlsl::CreateDxcContainerReflection(IDxcContainerReflection **ppResult) {
   *ppResult = nullptr;
 }
 
-DEFINE_CROSS_PLATFORM_UUIDOF(IDxcContainerReflection)
-
 #endif // LLVM_ON_WIN32
-
