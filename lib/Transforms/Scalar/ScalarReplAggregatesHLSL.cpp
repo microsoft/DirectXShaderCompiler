@@ -5774,6 +5774,9 @@ public:
       // only for non-constant static globals
       if (!dxilutil::IsStaticGlobal(&GV) || GV.isConstant())
         continue;
+      // Skip dx.ishelper
+      if (GV.getName().compare(DXIL::kDxIsHelperGlobalName) == 0)
+        continue;
       // Skip if GV used in functions other than entry.
       if (!usedOnlyInEntry(&GV, entryAndInitFunctionSet))
         continue;

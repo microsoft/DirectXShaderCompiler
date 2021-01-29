@@ -16,10 +16,30 @@
 // RUN: %dxc -T lib_6_6 %s | FileCheck %s -check-prefixes=CHECKLIB
 // RUN: %dxc -T lib_6_6 -fcgl %s | FileCheck %s -check-prefixes=CHECKHLLIB
 
+// RUN: %dxc -E vs -T vs_6_0 %s | FileCheck %s -check-prefixes=CHECKCONST
+// RUN: %dxc -E gs -T gs_6_0 %s | FileCheck %s -check-prefixes=CHECKCONST
+// RUN: %dxc -E hs -T hs_6_0 %s | FileCheck %s -check-prefixes=CHECKCONST
+// RUN: %dxc -E ds -T ds_6_0 %s | FileCheck %s -check-prefixes=CHECKCONST
+// RUN: %dxc -E ps -T ps_6_0 %s | FileCheck %s -check-prefixes=CHECKGV
+// RUN: %dxc -E cs -T cs_6_0 %s | FileCheck %s -check-prefixes=CHECKCONST
+// RUN: %dxc -E as -T as_6_5 %s | FileCheck %s -check-prefixes=CHECKCONST
+// RUN: %dxc -E ms -T ms_6_5 %s | FileCheck %s -check-prefixes=CHECKCONST
+// RUN: %dxc -E vs -T vs_6_0 -Od %s | FileCheck %s -check-prefixes=CHECKCONST
+// RUN: %dxc -E gs -T gs_6_0 -Od %s | FileCheck %s -check-prefixes=CHECKCONST
+// RUN: %dxc -E hs -T hs_6_0 -Od %s | FileCheck %s -check-prefixes=CHECKCONST
+// RUN: %dxc -E ds -T ds_6_0 -Od %s | FileCheck %s -check-prefixes=CHECKCONST
+// RUN: %dxc -E ps -T ps_6_0 -Od %s | FileCheck %s -check-prefixes=CHECKGV
+// RUN: %dxc -E cs -T cs_6_0 -Od %s | FileCheck %s -check-prefixes=CHECKCONST
+// RUN: %dxc -E as -T as_6_5 -Od %s | FileCheck %s -check-prefixes=CHECKCONST
+// RUN: %dxc -E ms -T ms_6_5 -Od %s | FileCheck %s -check-prefixes=CHECKCONST
+// RUN: %dxc -T lib_6_5 %s | FileCheck %s -check-prefixes=CHECKLIBGV
+
+
 // Exactly one call
 // CHECK define void @{{.*}}()
 // CHECK: call i1 @dx.op.isHelperLane.i1(i32 221)
 // CHECK-NOT: call i1 @dx.op.isHelperLane.i1(i32 221)
+
 
 // Exactly two calls for HS and PC func
 // CHECKHS define void @{{.*}}()
@@ -27,9 +47,11 @@
 // CHECKHS: call i1 @dx.op.isHelperLane.i1(i32 221)
 // CHECKHS-NOT: call i1 @dx.op.isHelperLane.i1(i32 221)
 
+
 // Translated to constant zero, so no call:
 // CHECKCONST: define void @{{.*}}()
 // CHECKCONST-NOT: call i1 @dx.op.isHelperLane.i1(i32 221)
+
 
 // No calls simplified for lib target.
 // 10 for: vs, gs, hs + pc, ds, cs, as, ms, and exported testfn
@@ -44,6 +66,7 @@
 // CHECKLIB: call i1 @dx.op.isHelperLane.i1(i32 221)
 // CHECKLIB: call i1 @dx.op.isHelperLane.i1(i32 221)
 // CHECKLIB-NOT: call i1 @dx.op.isHelperLane.i1(i32 221)
+
 
 // One HL call from each function
 // 18 functions for HL lib due to entry cloning
@@ -66,6 +89,93 @@
 // CHECKHLLIB: call i1 @"dx.hl.op..i1 (i32)"(i32 [[id]])
 // CHECKHLLIB: call i1 @"dx.hl.op..i1 (i32)"(i32 [[id]])
 // CHECKHLLIB-NOT: call i1 @"dx.hl.op..i1 (i32)"(i32 [[id]])
+
+
+// CHECKGV:   %[[cov:.*]] = call i32 @dx.op.coverage.i32(i32 91)  ; Coverage()
+// CHECKGV:   %[[cmp:.*]] = icmp eq i32 0, %[[cov]]
+// CHECKGV:   %[[zext:.*]] = zext i1 %[[cmp]] to i32
+// CHECKGV:   store i32 %[[zext]], i32* @dx.ishelper
+// CHECKGV:   store i32 1, i32* @dx.ishelper
+// CHECKGV-NEXT:   call void @dx.op.discard
+// CHECKGV:   %[[load:.*]] = load i32, i32* @dx.ishelper
+// CHECKGV:   trunc i32 %[[load]] to i1
+
+
+// CHECKLIBGV: @dx.ishelper = {{(internal )?}}global i32 0
+
+// CHECKLIBGV-LABEL: define void @cs()
+// CHECKLIBGV-NOT: call i32 @dx.op.coverage.i32(i32 91)
+// CHECKLIBGV-NOT: store i32 %{{.*}}, i32* @dx.ishelper
+// CHECKLIBGV:   %[[load:.*]] = load i32, i32* @dx.ishelper
+// CHECKLIBGV:   trunc i32 %[[load]] to i1
+// CHECKLIBGV-LABEL: ret void
+
+// CHECKLIBGV-LABEL: define void @as()
+// CHECKLIBGV-NOT: call i32 @dx.op.coverage.i32(i32 91)
+// CHECKLIBGV-NOT: store i32 %{{.*}}, i32* @dx.ishelper
+// CHECKLIBGV:   %[[load:.*]] = load i32, i32* @dx.ishelper
+// CHECKLIBGV:   trunc i32 %[[load]] to i1
+// CHECKLIBGV-LABEL: ret void
+
+// CHECKLIBGV-LABEL: define <4 x float> @{{.*}}?testfn{{.*}}()
+// CHECKLIBGV-NOT: call i32 @dx.op.coverage.i32(i32 91)
+// CHECKLIBGV-NOT: store i32 %{{.*}}, i32* @dx.ishelper
+// CHECKLIBGV:   %[[load:.*]] = load i32, i32* @dx.ishelper
+// CHECKLIBGV:   trunc i32 %[[load]] to i1
+// CHECKLIBGV-LABEL: ret <4 x float>
+
+// CHECKLIBGV-LABEL: define void @vs()
+// CHECKLIBGV-NOT: call i32 @dx.op.coverage.i32(i32 91)
+// CHECKLIBGV-NOT: store i32 %{{.*}}, i32* @dx.ishelper
+// CHECKLIBGV:   %[[load:.*]] = load i32, i32* @dx.ishelper
+// CHECKLIBGV:   trunc i32 %[[load]] to i1
+// CHECKLIBGV-LABEL: ret void
+
+// CHECKLIBGV-LABEL: define void @gs()
+// CHECKLIBGV-NOT: call i32 @dx.op.coverage.i32(i32 91)
+// CHECKLIBGV-NOT: store i32 %{{.*}}, i32* @dx.ishelper
+// CHECKLIBGV:   %[[load:.*]] = load i32, i32* @dx.ishelper
+// CHECKLIBGV:   trunc i32 %[[load]] to i1
+// CHECKLIBGV-LABEL: ret void
+
+// CHECKLIBGV-LABEL: define void @{{.*}}?pc{{.*}}()
+// CHECKLIBGV-NOT: call i32 @dx.op.coverage.i32(i32 91)
+// CHECKLIBGV-NOT: store i32 %{{.*}}, i32* @dx.ishelper
+// CHECKLIBGV:   %[[load:.*]] = load i32, i32* @dx.ishelper
+// CHECKLIBGV:   trunc i32 %[[load]] to i1
+// CHECKLIBGV-LABEL: ret void
+
+// CHECKLIBGV-LABEL: define void @hs()
+// CHECKLIBGV-NOT: call i32 @dx.op.coverage.i32(i32 91)
+// CHECKLIBGV-NOT: store i32 %{{.*}}, i32* @dx.ishelper
+// CHECKLIBGV:   %[[load:.*]] = load i32, i32* @dx.ishelper
+// CHECKLIBGV:   trunc i32 %[[load]] to i1
+// CHECKLIBGV-LABEL: ret void
+
+// CHECKLIBGV-LABEL: define void @ds()
+// CHECKLIBGV-NOT: call i32 @dx.op.coverage.i32(i32 91)
+// CHECKLIBGV-NOT: store i32 %{{.*}}, i32* @dx.ishelper
+// CHECKLIBGV:   %[[load:.*]] = load i32, i32* @dx.ishelper
+// CHECKLIBGV:   trunc i32 %[[load]] to i1
+// CHECKLIBGV-LABEL: ret void
+
+// CHECKLIBGV-LABEL: define void @ps()
+// CHECKLIBGV:   %[[cov:.*]] = call i32 @dx.op.coverage.i32(i32 91)  ; Coverage()
+// CHECKLIBGV:   %[[cmp:.*]] = icmp eq i32 0, %[[cov]]
+// CHECKLIBGV:   %[[zext:.*]] = zext i1 %[[cmp]] to i32
+// CHECKLIBGV:   store i32 %[[zext]], i32* @dx.ishelper
+// CHECKLIBGV:   store i32 1, i32* @dx.ishelper
+// CHECKLIBGV-NEXT:   call void @dx.op.discard
+// CHECKLIBGV:   %[[load:.*]] = load i32, i32* @dx.ishelper
+// CHECKLIBGV:   trunc i32 %[[load]] to i1
+// CHECKLIBGV-LABEL: ret void
+
+// CHECKLIBGV-LABEL: define void @ms()
+// CHECKLIBGV-NOT: call i32 @dx.op.coverage.i32(i32 91)
+// CHECKLIBGV-NOT: store i32 %{{.*}}, i32* @dx.ishelper
+// CHECKLIBGV:   %[[load:.*]] = load i32, i32* @dx.ishelper
+// CHECKLIBGV:   trunc i32 %[[load]] to i1
+// CHECKLIBGV-LABEL: ret void
 
 float4 a;
 
@@ -150,8 +260,10 @@ PosStruct ds(const float3 bary : SV_DomainLocation,
 /// Pixel Shader
 
 [shader("pixel")]
-float4 ps(): SV_Target
+float4 ps(float f : IN): SV_Target
 {
+  if (f < 0.0)
+    discard;
   float4 result = a + IsHelperLane();
   return ddx(result);
 }
@@ -165,7 +277,7 @@ RWStructuredBuffer<float4> SB;
 void cs(uint gidx : SV_GroupIndex)
 {
   float4 result = a + IsHelperLane();
-  SB[gidx] = ddx(result);
+  SB[gidx] = QuadReadAcrossX(result);
 }
 
 /// Amplification Shader
