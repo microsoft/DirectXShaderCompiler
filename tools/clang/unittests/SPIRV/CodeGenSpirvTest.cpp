@@ -2960,5 +2960,11 @@ TEST_F(FileTest, ShaderDebugInfoFunction) {
 TEST_F(FileTest, ShaderDebugInfoDebugLexicalBlock) {
   runFileTest("shader.debug.debuglexicalblock.hlsl");
 }
+TEST_F(FileTest, ShaderDebugInfoSource) {
+  runFileTest("shader.debug.source.hlsl");
+}
+TEST_F(FileTest, ShaderDebugInfoSourceContinued) {
+  runFileTest("shader.debug.sourcecontinued.hlsl");
+}
 
 } // namespace

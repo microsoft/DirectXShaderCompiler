@@ -316,6 +316,17 @@ private:
   /// one. Otherwise, create it, keep it in stringIdMap, and return its id.
   uint32_t getOrCreateOpStringId(llvm::StringRef str);
 
+  // Generate DebugSource for inst
+  void generateDebugSource(uint32_t fileId, uint32_t textId,
+                           SpirvDebugSource *inst);
+
+  // Generate DebugSourceContinued for inst
+  void generateDebugSourceContinued(uint32_t textId, SpirvDebugSource *inst);
+
+  /// Generate DebugSource and DebugSourceContinue for inst using previously
+  /// generated fileId, chopping source into pieces as needed.
+  void generateChoppedSource(uint32_t fileId, SpirvDebugSource *inst);
+
   /// In the OpenCL.DebugInfo.100 spec some parameters are literals, where in
   /// the NonSemantic.Shader.DebugInfo.100 spec they are encoded as constant
   /// operands. This function takes care of checking which version we are
