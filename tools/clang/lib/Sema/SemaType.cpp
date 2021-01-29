@@ -1340,6 +1340,8 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
   case DeclSpec::TST_min16uint: Result = Context.Min16UIntTy; break;
   case DeclSpec::TST_min10float: Result = Context.Min10FloatTy; break;
   case DeclSpec::TST_min12int: Result = Context.Min12IntTy; break;
+  case DeclSpec::TST_int8_4packed: Result = Context.Int8_4PackedTy; break;
+  case DeclSpec::TST_uint8_4packed: Result = Context.UInt8_4PackedTy; break;
     // HLSL Change Ends
   case DeclSpec::TST_double:
     if (DS.getTypeSpecWidth() == DeclSpec::TSW_long)
@@ -4514,6 +4516,8 @@ static AttributeList::Kind getAttrListKind(AttributedType::Kind kind) {
     return AttributeList::AT_HLSLRowMajor;
   case AttributedType::attr_hlsl_column_major:
     return AttributeList::AT_HLSLColumnMajor;
+  case AttributedType::attr_hlsl_globallycoherent:
+    return AttributeList::AT_HLSLGloballyCoherent;
   // HLSL Change Ends
   }
   llvm_unreachable("unexpected attribute kind!");
@@ -5756,6 +5760,7 @@ static bool isHLSLTypeAttr(AttributeList::Kind Kind) {
   case AttributeList::AT_HLSLColumnMajor:
   case AttributeList::AT_HLSLSnorm:
   case AttributeList::AT_HLSLUnorm:
+  case AttributeList::AT_HLSLGloballyCoherent:
     return true;
   default:
     // Only meant to catch attr handled by handleHLSLTypeAttr, ignore the rest
@@ -5782,11 +5787,17 @@ static bool handleHLSLTypeAttr(TypeProcessingState &State,
               !hlsl::GetOriginalElementType(&S, Type)->isFloatingType()) {
     S.Diag(Attr.getLoc(), diag::err_hlsl_norm_float_only) << Attr.getRange();
     return true;
+  } else if (Kind == AttributeList::AT_HLSLGloballyCoherent &&
+             !hlsl::IsObjectType(&S, Type)) {
+    S.Diag(Attr.getLoc(), diag::err_hlsl_varmodifierna) <<
+        Attr.getName() << "non-UAV type";
+    return true;
   }
 
   const AttributedType *pMatrixOrientation = nullptr;
   const AttributedType *pNorm = nullptr;
-  hlsl::GetHLSLAttributedTypes(&S, Type, &pMatrixOrientation, &pNorm);
+  const AttributedType *pGLC = nullptr;
+  hlsl::GetHLSLAttributedTypes(&S, Type, &pMatrixOrientation, &pNorm, &pGLC);
 
   if (pMatrixOrientation &&
     (Kind == AttributeList::AT_HLSLColumnMajor ||
@@ -5820,6 +5831,14 @@ static bool handleHLSLTypeAttr(TypeProcessingState &State,
     return true;
   }
 
+  if (pGLC && Kind == AttributeList::AT_HLSLGloballyCoherent) {
+    AttributedType::Kind CurAttrKind = pGLC->getAttrKind();
+    if (Kind == getAttrListKind(CurAttrKind)) {
+      S.Diag(Attr.getLoc(), diag::warn_duplicate_attribute_exact)
+          << Attr.getName() << Attr.getRange();
+    }
+  }
+
   AttributedType::Kind TAK;
   switch (Kind) {
   default: llvm_unreachable("Unknown attribute kind");
@@ -5827,6 +5846,8 @@ static bool handleHLSLTypeAttr(TypeProcessingState &State,
   case AttributeList::AT_HLSLColumnMajor: TAK = AttributedType::attr_hlsl_column_major; break;
   case AttributeList::AT_HLSLUnorm:       TAK = AttributedType::attr_hlsl_unorm; break;
   case AttributeList::AT_HLSLSnorm:       TAK = AttributedType::attr_hlsl_snorm; break;
+  case AttributeList::AT_HLSLGloballyCoherent:
+    TAK = AttributedType::attr_hlsl_globallycoherent; break;
   }
 
   Type = S.Context.getAttributedType(TAK, Type, Type);

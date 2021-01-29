@@ -54,6 +54,11 @@ public:
   CompilerInstance &getCompilerInstance() { return theCompilerInstance; }
   SpirvCodeGenOptions &getSpirvOptions() { return spirvOptions; }
 
+  /// \brief If DebugSource and DebugCompilationUnit for loc are already
+  /// created, we just return RichDebugInfo containing it. Otherwise,
+  /// create DebugSource and DebugCompilationUnit for loc and return it.
+  RichDebugInfo *getOrCreateRichDebugInfo(const SourceLocation &loc);
+
   void doDecl(const Decl *decl);
   void doStmt(const Stmt *stmt, llvm::ArrayRef<const Attr *> attrs = {});
   SpirvInstruction *doExpr(const Expr *expr);
@@ -106,6 +111,8 @@ private:
   SpirvInstruction *doInitListExpr(const InitListExpr *expr);
   SpirvInstruction *doMemberExpr(const MemberExpr *expr);
   SpirvInstruction *doUnaryOperator(const UnaryOperator *expr);
+  SpirvInstruction *
+  doUnaryExprOrTypeTraitExpr(const UnaryExprOrTypeTraitExpr *expr);
 
   /// Overload with pre computed SpirvEvalInfo.
   ///
@@ -403,6 +410,9 @@ private:
   /// Processes the 'mul' intrinsic function.
   SpirvInstruction *processIntrinsicMul(const CallExpr *);
 
+  /// Processes the 'printf' intrinsic function.
+  SpirvInstruction *processIntrinsicPrintf(const CallExpr *);
+
   /// Transposes a non-floating point matrix and returns the result-id of the
   /// transpose.
   SpirvInstruction *processNonFpMatrixTranspose(QualType matType,
@@ -478,6 +488,9 @@ private:
   /// Processes the 'rcp' intrinsic function.
   SpirvInstruction *processIntrinsicRcp(const CallExpr *);
 
+  /// Processes the 'ReadClock' intrinsic function.
+  SpirvInstruction *processIntrinsicReadClock(const CallExpr *);
+
   /// Processes the 'sign' intrinsic function for float types.
   /// The FSign instruction in the GLSL instruction set returns a floating point
   /// result. The HLSL sign function, however, returns an integer. An extra
@@ -549,6 +562,13 @@ private:
 
   /// Process mesh shader intrinsics.
   void processMeshOutputCounts(const CallExpr *callExpr);
+
+  /// Process ray query traceinline intrinsics.
+  SpirvInstruction *processTraceRayInline(const CXXMemberCallExpr *expr);
+
+  /// Process ray query intrinsics
+  SpirvInstruction *processRayQueryIntrinsics(const CXXMemberCallExpr *expr,
+                                              hlsl::IntrinsicOp opcode);
 
 private:
   /// Returns the <result-id> for constant value 0 of the given type.
@@ -683,6 +703,7 @@ private:
   /// variables for some cases.
   bool emitEntryFunctionWrapperForRayTracing(const FunctionDecl *entryFunction,
                                              SpirvFunction *entryFuncId);
+
   /// \brief Performs the following operations for the Hull shader:
   /// * Creates an output variable which is an Array containing results for all
   /// control points.
@@ -981,6 +1002,24 @@ private:
                               const clang::FunctionDecl *,
                               bool isEntryFunction);
 
+  /// \brief Helper function to run SPIRV-Tools optimizer's performance passes.
+  /// Runs the SPIRV-Tools optimizer on the given SPIR-V module |mod|, and
+  /// gets the info/warning/error messages via |messages|.
+  /// Returns true on success and false otherwise.
+  bool spirvToolsOptimize(std::vector<uint32_t> *mod, std::string *messages);
+
+  /// \brief Helper function to run SPIRV-Tools optimizer's legalization passes.
+  /// Runs the SPIRV-Tools legalization on the given SPIR-V module |mod|, and
+  /// gets the info/warning/error messages via |messages|.
+  /// Returns true on success and false otherwise.
+  bool spirvToolsLegalize(std::vector<uint32_t> *mod, std::string *messages);
+
+  /// \brief Helper function to run the SPIRV-Tools validator.
+  /// Runs the SPIRV-Tools validator on the given SPIR-V module |mod|, and
+  /// gets the info/warning/error messages via |messages|.
+  /// Returns true on success and false otherwise.
+  bool spirvToolsValidate(std::vector<uint32_t> *mod, std::string *messages);
+
 public:
   /// \brief Wrapper method to create a fatal error message and report it
   /// in the diagnostic engine associated with this consumer.
@@ -1145,6 +1184,11 @@ private:
   llvm::SmallDenseMap<QualType,
                       std::pair<SpirvInstruction *, SpirvInstruction *>, 4>
       callDataMap;
+
+  /// Incoming ray payload for current entry function being translated.
+  /// Only valid for any-hit/closest-hit ray tracing shaders.
+  SpirvInstruction *currentRayPayload;
+
   /// This is the Patch Constant Function. This function is not explicitly
   /// called from the entry point function.
   FunctionDecl *patchConstFunc;

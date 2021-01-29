@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_6_0 -Od %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 -Od %s -fcgl | FileCheck %s
 
 // CHECK: !"dx.controlflow.hints", i32 2
 

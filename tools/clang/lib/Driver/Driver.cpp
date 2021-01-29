@@ -746,7 +746,7 @@ void Driver::PrintHelp(bool ShowHidden) const {
   if (!ShowHidden)
     ExcludedFlagsBitmask |= HelpHidden;
 
-  getOpts().PrintHelp(llvm::outs(), Name.c_str(), DriverTitle.c_str(),
+  getOpts().PrintHelp(llvm::outs(), Name.c_str(), DriverTitle.c_str(), "",
                       IncludedFlagsBitmask, ExcludedFlagsBitmask);
 }
 

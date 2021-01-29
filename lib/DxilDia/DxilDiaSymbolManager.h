@@ -60,7 +60,7 @@ public:
 
 
   SymbolManager();
-  SymbolManager(SymbolManager&&) = default;
+  SymbolManager(SymbolManager &&) = default;
   SymbolManager &operator =(SymbolManager &&) = default;
   ~SymbolManager();
 

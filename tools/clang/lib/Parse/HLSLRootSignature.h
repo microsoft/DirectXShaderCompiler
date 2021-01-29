@@ -84,6 +84,8 @@ public:
             DENY_MESH_SHADER_ROOT_ACCESS,
             ALLOW_STREAM_OUTPUT,
             LOCAL_ROOT_SIGNATURE,
+            CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED,
+            SAMPLER_HEAP_DIRECTLY_INDEXED,
 
             // Filter
             filter,

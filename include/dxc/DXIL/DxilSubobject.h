@@ -23,6 +23,10 @@ namespace hlsl {
 
 class DxilSubobjects;
 
+namespace RDAT {
+  class SubobjectTableReader;
+}
+
 class DxilSubobject {
 public:
   using Kind = DXIL::SubobjectKind;
@@ -170,5 +174,7 @@ private:
   BytesStorage m_BytesStorage;
   SubobjectStorage m_Subobjects;
 };
+
+bool LoadSubobjectsFromRDAT(DxilSubobjects &subobjects, RDAT::SubobjectTableReader *pSubobjectTableReader);
 
 } // namespace hlsl

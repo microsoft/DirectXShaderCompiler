@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T vs_6_0 -Od -Zi %s | FileCheck %s
+// RUN: %dxc -E main -T vs_6_0 -Od -Zi -fcgl %s | FileCheck %s
 
 // Test that dbg.declares are emitted for temporaries.
 

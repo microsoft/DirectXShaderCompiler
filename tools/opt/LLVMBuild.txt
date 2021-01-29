@@ -23,12 +23,17 @@ required_libraries =
  AsmParser
  BitReader
  BitWriter
+ HLSL
  IRReader
  IPO
  Scalar
  Passes
+ PassPrinters
  all-targets
 
 ; CodeGen - HLSL Change
 ; Instrumentation - HLSL Change
 ; ObjCARC - HLSL Change
+; DXIL - HLSL Change
+; HLSL - HLSL Change
+; PassPrinters - HLSL Change

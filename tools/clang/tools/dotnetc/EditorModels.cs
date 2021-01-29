@@ -505,10 +505,8 @@ namespace MainNs
         {
             this.doc = new XDocument(new XElement("settings"));
             this.SettingsPath =
-                System.IO.Path.Combine(
-                    System.Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "dndxc",
-                    "settings.xml");
+                System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
+                    "dndxc.settings.xml");
         }
 
         #endregion Constructors.

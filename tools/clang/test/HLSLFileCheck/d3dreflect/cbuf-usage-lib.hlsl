@@ -1,4 +1,4 @@
-// RUN: %dxilver 1.5 | %dxc -auto-binding-space 13 -T lib_6_3 %s | %D3DReflect %s | FileCheck %s
+// RUN: %dxc -auto-binding-space 13 -T lib_6_3 -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
 
 // Make sure usage flag is set properly for cbuffers used in libraries
 
@@ -7,7 +7,7 @@
 // CHECK: D3D12_SHADER_BUFFER_DESC: Name: CBuf1
 // CHECK: Num Variables: 1
 // CHECK: D3D12_SHADER_VARIABLE_DESC: Name: CBuf1
-// CHECK: uFlags: 0x2
+// CHECK: uFlags: (D3D_SVF_USED)
 // CHECK: CBuffer: CBuf1
 
 // CHECK: D3D12_SHADER_BUFFER_DESC: Name: CBuf0
@@ -15,13 +15,13 @@
 // CHECK: D3D12_SHADER_VARIABLE_DESC: Name: i1
 // CHECK: uFlags: 0
 // CHECK: D3D12_SHADER_VARIABLE_DESC: Name: f1
-// CHECK: uFlags: 0x2
+// CHECK: uFlags: (D3D_SVF_USED)
 // CHECK: CBuffer: CBuf0
 
 // CHECK: D3D12_SHADER_BUFFER_DESC: Name: CBuf2
 // CHECK: Num Variables: 1
 // CHECK: D3D12_SHADER_VARIABLE_DESC: Name: CBuf2
-// CHECK: uFlags: 0x2
+// CHECK: uFlags: (D3D_SVF_USED)
 // CHECK: CBuffer: CBuf2
 
 cbuffer CBuf0 {

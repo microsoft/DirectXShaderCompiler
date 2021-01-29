@@ -46,7 +46,13 @@ typedef char acp_char;
 typedef char ccp_char;
 
 _Success_(return != false)
+bool UTF8ToConsoleString(_In_opt_count_(textLen) const char* text, _In_ size_t textLen, _Inout_ std::string* pValue, _Out_opt_ bool* lossy);
+
+_Success_(return != false)
 bool UTF8ToConsoleString(_In_z_ const char* text, _Inout_ std::string* pValue, _Out_opt_ bool* lossy);
+
+_Success_(return != false)
+bool UTF16ToConsoleString(_In_opt_count_(textLen) const wchar_t* text, _In_ size_t textLen, _Inout_ std::string* pValue, _Out_opt_ bool* lossy);
 
 _Success_(return != false)
 bool UTF16ToConsoleString(_In_z_ const wchar_t* text, _Inout_ std::string* pValue, _Out_opt_ bool* lossy);
@@ -60,6 +66,7 @@ bool UTF8ToUTF16String(_In_opt_count_(cbUTF8) const char *pUTF8, size_t cbUTF8, 
 std::wstring UTF8ToUTF16StringOrThrow(_In_z_ const char *pUTF8);
 
 _Success_(return != false)
+bool UTF16ToUTF8String(_In_z_ const wchar_t *pUTF16, size_t cUTF16, _Inout_ std::string *pUTF8);
 bool UTF16ToUTF8String(_In_z_ const wchar_t *pUTF16, _Inout_ std::string *pUTF8);
 
 std::string UTF16ToUTF8StringOrThrow(_In_z_ const wchar_t *pUTF16);

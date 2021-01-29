@@ -26,6 +26,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/Local.h"
+#include "llvm/Analysis/ValueTracking.h"
 #include <vector>
 
 using namespace llvm;
@@ -66,7 +67,9 @@ protected:
 AllocaInst *LowerTypePass::lowerAlloca(AllocaInst *A) {
   IRBuilder<> AllocaBuilder(A);
   Type *NewTy = lowerType(A->getAllocatedType());
-  return AllocaBuilder.CreateAlloca(NewTy);
+  AllocaInst *NewA = AllocaBuilder.CreateAlloca(NewTy);
+  NewA->setAlignment(A->getAlignment());
+  return NewA;
 }
 
 GlobalVariable *LowerTypePass::lowerInternalGlobal(GlobalVariable *GV) {
@@ -92,6 +95,7 @@ GlobalVariable *LowerTypePass::lowerInternalGlobal(GlobalVariable *GV) {
       *M, NewTy, /*IsConstant*/ isConst, linkage,
       /*InitVal*/ InitVal, GV->getName() + getGlobalPrefix(),
       /*InsertBefore*/ nullptr, TLMode, AddressSpace);
+  NewGV->setAlignment(GV->getAlignment());
   return NewGV;
 }
 
@@ -110,16 +114,9 @@ bool LowerTypePass::runOnFunction(Function &F, bool HasDbgInfo) {
   for (AllocaInst *A : workList) {
     AllocaInst *NewA = lowerAlloca(A);
     if (HasDbgInfo) {
-      // Add debug info.
+      // Migrate debug info.
       DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(A);
-      if (DDI) {
-        Value *DDIVar = MetadataAsValue::get(Context, DDI->getRawVariable());
-        Value *DDIExp = MetadataAsValue::get(Context, DDI->getRawExpression());
-        Value *VMD = MetadataAsValue::get(Context, ValueAsMetadata::get(NewA));
-        IRBuilder<> debugBuilder(DDI);
-        debugBuilder.CreateCall(DDI->getCalledFunction(),
-                                {VMD, DDIVar, DDIExp});
-      }
+      if (DDI) DDI->setOperand(0, MetadataAsValue::get(Context, LocalAsMetadata::get(NewA)));
     }
     // Replace users.
     lowerUseWithNewValue(A, NewA);
@@ -349,10 +346,12 @@ void DynamicIndexingVectorToArray::ReplaceVectorWithArray(Value *Vec, Value *A) 
       // If ld whole struct, need to split the load.
       Value *newLd = UndefValue::get(ldInst->getType());
       Value *zero = Builder.getInt32(0);
+      unsigned align = ldInst->getAlignment();
       for (unsigned i = 0; i < size; i++) {
         Value *idx = Builder.getInt32(i);
         Value *GEP = Builder.CreateInBoundsGEP(A, {zero, idx});
-        Value *Elt = Builder.CreateLoad(GEP);
+        LoadInst *Elt = Builder.CreateLoad(GEP);
+        Elt->setAlignment(align);
         newLd = Builder.CreateInsertElement(newLd, Elt, i);
       }
       ldInst->replaceAllUsesWith(newLd);
@@ -360,13 +359,19 @@ void DynamicIndexingVectorToArray::ReplaceVectorWithArray(Value *Vec, Value *A) 
     } else if (StoreInst *stInst = dyn_cast<StoreInst>(User)) {
       Value *val = stInst->getValueOperand();
       Value *zero = Builder.getInt32(0);
+      unsigned align = stInst->getAlignment();
       for (unsigned i = 0; i < size; i++) {
         Value *Elt = Builder.CreateExtractElement(val, i);
         Value *idx = Builder.getInt32(i);
         Value *GEP = Builder.CreateInBoundsGEP(A, {zero, idx});
-        Builder.CreateStore(Elt, GEP);
+        StoreInst *EltSt = Builder.CreateStore(Elt, GEP);
+        EltSt->setAlignment(align);
       }
       stInst->eraseFromParent();
+    } else if (BitCastInst *castInst = dyn_cast<BitCastInst>(User)) {
+      DXASSERT(onlyUsedByLifetimeMarkers(castInst),
+               "expected bitcast to only be used by lifetime intrinsics");
+      castInst->setOperand(0, A);
     } else {
       // Vector parameter should be lowered.
       // No function call should use vector.
@@ -522,19 +527,31 @@ void ReplaceMultiDimGEP(User *GEP, Value *OneDim, IRBuilder<> &Builder) {
   Value *ArrayIdx = GEPIt.getOperand();
   ++GEPIt;
   Value *VecIdx = nullptr;
+  SmallVector<Value*,8> StructIdxs;
   for (; GEPIt != E; ++GEPIt) {
     if (GEPIt->isArrayTy()) {
       unsigned arraySize = GEPIt->getArrayNumElements();
       Value *V = GEPIt.getOperand();
       ArrayIdx = Builder.CreateMul(ArrayIdx, Builder.getInt32(arraySize));
       ArrayIdx = Builder.CreateAdd(V, ArrayIdx);
+    } else if (isa<StructType>(*GEPIt)) {
+      // Replaces multi-dim array of struct, with single-dim array of struct
+      StructIdxs.push_back(PtrOffset);
+      StructIdxs.push_back(ArrayIdx);
+      while (GEPIt != E) {
+        StructIdxs.push_back(GEPIt.getOperand());
+        ++GEPIt;
+      }
+      break;
     } else {
       DXASSERT_NOMSG(isa<VectorType>(*GEPIt));
       VecIdx = GEPIt.getOperand();
     }
   }
   Value *NewGEP = nullptr;
-  if (!VecIdx)
+  if (StructIdxs.size())
+    NewGEP = Builder.CreateGEP(OneDim, StructIdxs);
+  else if (!VecIdx)
     NewGEP = Builder.CreateGEP(OneDim, {PtrOffset, ArrayIdx});
   else
     NewGEP = Builder.CreateGEP(OneDim, {PtrOffset, ArrayIdx, VecIdx});

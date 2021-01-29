@@ -2546,6 +2546,8 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
   case Min12Int:          return "min12int";
   case LitFloat:          return "literal float";
   case LitInt:            return "literal int";
+  case Int8_4Packed:      return "int8_t4_packed";
+  case UInt8_4Packed:     return "uint8_t4_packed";
   // HLSL Change Ends
   }
   
@@ -2942,6 +2944,7 @@ bool AttributedType::isHLSLTypeSpec() const {
   case attr_hlsl_column_major:
   case attr_hlsl_snorm:
   case attr_hlsl_unorm:
+  case attr_hlsl_globallycoherent:
     return true;
   }
   llvm_unreachable("invalid attr kind");
@@ -2971,6 +2974,7 @@ bool AttributedType::isCallingConv() const {
   case attr_hlsl_column_major:
   case attr_hlsl_snorm:
   case attr_hlsl_unorm:
+  case attr_hlsl_globallycoherent:
   // HLSL Change Ends
     return false;
 

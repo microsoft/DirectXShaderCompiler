@@ -31,7 +31,6 @@ public:
       : targetEnv(SPV_ENV_VULKAN_1_0), beforeHLSLLegalization(false),
         glLayout(false), dxLayout(false) {}
 
-  void useVulkan1p1() { targetEnv = SPV_ENV_VULKAN_1_1; }
   void setBeforeHLSLLegalization() { beforeHLSLLegalization = true; }
   void setGlLayout() { glLayout = true; }
   void setDxLayout() { dxLayout = true; }

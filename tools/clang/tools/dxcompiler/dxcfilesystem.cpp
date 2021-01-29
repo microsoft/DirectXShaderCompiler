@@ -153,7 +153,7 @@ bool IsAbsoluteOrCurDirRelativeW(LPCWSTR Path) {
     return Path[1] == L'\0' || Path[1] == L'/' || Path[1] == L'\\';
   }
   // Disk designator, then absolute path.
-  if (Path[1] == L':' && Path[2] == L'\\') {
+  if (Path[1] == L':' && (Path[2] == L'\\' || Path[2] == L'/')) {
     return TRUE;
   }
   // UNC name
@@ -217,7 +217,7 @@ namespace dxcutil {
 /// disambiguate between one or the other).
 class DxcArgsFileSystemImpl : public DxcArgsFileSystem {
 private:
-  CComPtr<IDxcBlob> m_pSource;
+  CComPtr<IDxcBlobUtf8> m_pSource;
   LPCWSTR m_pSourceName;
   std::wstring m_pAbsSourceName; // absolute (or '.'-relative) source name
   CComPtr<IStream> m_pSourceStream;
@@ -233,10 +233,10 @@ private:
   // Some constraints of the current design: opening the same file twice
   // will return the same handle/structure, and thus the same file pointer.
   struct IncludedFile {
-    CComPtr<IDxcBlob> Blob;
+    CComPtr<IDxcBlobUtf8> Blob;
     CComPtr<IStream> BlobStream;
     std::wstring Name;
-    IncludedFile(std::wstring &&name, IDxcBlob *pBlob, IStream *pStream)
+    IncludedFile(std::wstring &&name, IDxcBlobUtf8 *pBlob, IStream *pStream)
       : Blob(pBlob), BlobStream(pStream), Name(name) { }
   };
   llvm::SmallVector<IncludedFile, 4> m_includedFiles;
@@ -294,15 +294,15 @@ private:
         return ERROR_UNHANDLED_EXCEPTION;
       }
       if (fileBlob.p != nullptr) {
-        CComPtr<IDxcBlobEncoding> fileBlobEncoded;
-        if (FAILED(hlsl::DxcGetBlobAsUtf8(fileBlob, &fileBlobEncoded))) {
+        CComPtr<IDxcBlobUtf8> fileBlobUtf8;
+        if (FAILED(hlsl::DxcGetBlobAsUtf8(fileBlob, DxcGetThreadMallocNoRef(), &fileBlobUtf8))) {
           return ERROR_UNHANDLED_EXCEPTION;
         }
         CComPtr<IStream> fileStream;
-        if (FAILED(hlsl::CreateReadOnlyBlobStream(fileBlobEncoded, &fileStream))) {
+        if (FAILED(hlsl::CreateReadOnlyBlobStream(fileBlobUtf8, &fileStream))) {
           return ERROR_UNHANDLED_EXCEPTION;
         }
-        m_includedFiles.emplace_back(std::wstring(lpFileName), fileBlobEncoded, fileStream);
+        m_includedFiles.emplace_back(std::wstring(lpFileName), fileBlobUtf8, fileStream);
         index = m_includedFiles.size() - 1;
 
         if (m_bDisplayIncludeProcess) {
@@ -334,7 +334,7 @@ private:
   }
 
 public:
-  DxcArgsFileSystemImpl(_In_ IDxcBlob *pSource, LPCWSTR pSourceName, _In_opt_ IDxcIncludeHandler* pHandler)
+  DxcArgsFileSystemImpl(_In_ IDxcBlobUtf8 *pSource, LPCWSTR pSourceName, _In_opt_ IDxcIncludeHandler* pHandler)
       : m_pSource(pSource), m_pSourceName(pSourceName), m_pOutputStreamName(nullptr),
         m_includeLoader(pHandler), m_bDisplayIncludeProcess(false) {
     MakeAbsoluteOrCurDirRelativeW(m_pSourceName, m_pAbsSourceName);
@@ -481,7 +481,7 @@ public:
     if (argsHandle.IsFileKind()) {
       IncludedFile &file = HandleToIncludedFile(hFile);
       lpFileInformation->dwFileAttributes = FILE_ATTRIBUTE_NORMAL;
-      lpFileInformation->nFileSizeLow = file.Blob->GetBufferSize();
+      lpFileInformation->nFileSizeLow = file.Blob->GetStringLength();
       return TRUE;
     }
     if (argsHandle == OutputHandle) {
@@ -775,7 +775,7 @@ public:
   }
 
   virtual int Open(const char *lpFileName, int flags, mode_t mode) throw() override {
-    HANDLE H = CreateFileW(CA2W(lpFileName), GENERIC_READ | GENERIC_WRITE,
+    HANDLE H = CreateFileW(CA2W(lpFileName, CP_UTF8), GENERIC_READ | GENERIC_WRITE,
                            FILE_SHARE_READ | FILE_SHARE_WRITE,
                            OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL);
     if (H == INVALID_HANDLE_VALUE)
@@ -788,7 +788,7 @@ public:
 
   // fake my way toward as linux-y a file_status as I can get
   virtual int Stat(const char *lpFileName, struct stat *Status) throw() override {
-    CA2W fileName_utf16(lpFileName);
+    CA2W fileName_utf16(lpFileName, CP_UTF8);
 
     DWORD attr = GetFileAttributesW(fileName_utf16);
     if (attr == INVALID_FILE_ATTRIBUTES)
@@ -816,7 +816,7 @@ namespace dxcutil {
 
 DxcArgsFileSystem *
 CreateDxcArgsFileSystem(
-    _In_ IDxcBlob *pSource, _In_ LPCWSTR pSourceName,
+    _In_ IDxcBlobUtf8 *pSource, _In_ LPCWSTR pSourceName,
     _In_opt_ IDxcIncludeHandler *pIncludeHandler) {
   return new DxcArgsFileSystemImpl(pSource, pSourceName, pIncludeHandler);
 }

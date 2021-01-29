@@ -18,6 +18,9 @@
 #include "CGObjCRuntime.h"
 #include "CGOpenMPRuntime.h"
 #include "CGHLSLRuntime.h"    // HLSL Change
+#include "dxc/HLSL/HLOperations.h" // HLSL Change
+#include "dxc/DXIL/DxilUtil.h" // HLSL Change
+#include "dxc/DXIL/DxilResource.h" // HLSL Change
 #include "CGRecordLayout.h"
 #include "CodeGenModule.h"
 #include "TargetInfo.h"
@@ -1757,6 +1760,36 @@ void CodeGenFunction::EmitStoreThroughBitfieldLValue(RValue Src, LValue Dst,
   }
 }
 
+// HLSL Change - begin
+static bool IsHLSubscriptOfTypedBuffer(llvm::Value *V) {
+  llvm::CallInst *CI = nullptr;
+  llvm::Function *F = nullptr;
+
+  if ((CI = dyn_cast<llvm::CallInst>(V)) &&
+    (F = CI->getCalledFunction()) &&
+    hlsl::GetHLOpcodeGroup(F) == hlsl::HLOpcodeGroup::HLSubscript)
+  {
+    for (llvm::Value *arg : CI->arg_operands()) {
+      llvm::Type *Ty = arg->getType();
+      if (Ty->isPointerTy()) {
+        std::pair<bool, hlsl::DxilResourceProperties> Result =
+          hlsl::dxilutil::GetHLSLResourceProperties(Ty->getPointerElementType());
+
+        if (Result.first && 
+          Result.second.isUAV() &&
+          // These are the types of buffers that are typed.
+          (hlsl::DxilResource::IsAnyTexture(Result.second.getResourceKind()) ||
+           Result.second.getResourceKind() == hlsl::DXIL::ResourceKind::TypedBuffer))
+        {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+// HLSL Change - end
+
 void CodeGenFunction::EmitStoreThroughExtVectorComponentLValue(RValue Src,
                                                                LValue Dst) {
   // This access turns into a read/modify/write of the vector.  Load the input
@@ -1791,11 +1824,31 @@ void CodeGenFunction::EmitStoreThroughExtVectorComponentLValue(RValue Src,
       }
       Builder.CreateStore(Vec, VecDstPtr);
     } else {
-      for (unsigned i = 0; i < VecTy->getVectorNumElements(); i++) {
-        if (llvm::Constant *Elt = Elts->getAggregateElement(i)) {
-          llvm::Value *EltGEP = Builder.CreateGEP(VecDstPtr, {Zero, Elt});
-          llvm::Value *SrcElt = Builder.CreateExtractElement(SrcVal, i);
-          Builder.CreateStore(SrcElt, EltGEP);
+
+      // If the vector pointer comes from subscripting a typed rw buffer (Buffer<>, Texture*<>, etc.),
+      // insert the elements from the load.
+      //
+      // This is to avoid the final DXIL producing a load+store for each component later down the line,
+      // as there's no clean way to associate the geps+store with each other.
+      //
+      if (IsHLSubscriptOfTypedBuffer(VecDstPtr)) {
+        llvm::Value *vec = Load;
+        for (unsigned i = 0; i < VecTy->getVectorNumElements(); i++) {
+          if (llvm::Constant *Elt = Elts->getAggregateElement(i)) {
+            llvm::Value *SrcElt = Builder.CreateExtractElement(SrcVal, i);
+            vec = Builder.CreateInsertElement(vec, SrcElt, Elt);
+          }
+        }
+        Builder.CreateStore(vec, VecDstPtr);
+      }
+      // Otherwise just do a gep + store for each component that we're writing to.
+      else {
+        for (unsigned i = 0; i < VecTy->getVectorNumElements(); i++) {
+          if (llvm::Constant *Elt = Elts->getAggregateElement(i)) {
+            llvm::Value *EltGEP = Builder.CreateGEP(VecDstPtr, {Zero, Elt});
+            llvm::Value *SrcElt = Builder.CreateExtractElement(SrcVal, i);
+            Builder.CreateStore(SrcElt, EltGEP);
+          }
         }
       }
     }
@@ -3492,7 +3545,11 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
 
     // bitcast to target type
     llvm::Type *ResultType = ConvertType(ToType);
+    // Make sure generate Inst not Operator to make lowering easy.
+    bool originAllowFolding = Builder.AllowFolding;
+    Builder.AllowFolding = false;
     llvm::Value *bitcast = Builder.CreateBitCast(This, ResultType);
+    Builder.AllowFolding = originAllowFolding;
     return MakeAddrLValue(bitcast, ToType);
   }
   case CK_HLSLDerivedToBase: {
@@ -3883,6 +3940,7 @@ RValue CodeGenFunction::EmitCall(QualType CalleeType, llvm::Value *Callee,
 
   // HLSL Change Begins
   llvm::SmallVector<LValue, 8> castArgList;
+  llvm::SmallVector<LValue, 8> lifetimeCleanupList;
   // The argList of the CallExpr, may be update for out parameter
   llvm::SmallVector<const Stmt *, 8> argList(E->arg_begin(), E->arg_end());
   ConstExprIterator argBegin = argList.data();
@@ -3895,7 +3953,7 @@ RValue CodeGenFunction::EmitCall(QualType CalleeType, llvm::Value *Callee,
   if (getLangOpts().HLSL) {
     if (const FunctionDecl *FD = E->getDirectCallee())
       CGM.getHLSLRuntime().EmitHLSLOutParamConversionInit(*this, FD, E,
-                                                          castArgList, argList, MapTemp);
+                                                          castArgList, argList, lifetimeCleanupList, MapTemp);
   }
   // HLSL Change Ends
 
@@ -3940,7 +3998,7 @@ RValue CodeGenFunction::EmitCall(QualType CalleeType, llvm::Value *Callee,
   // out param conversion
   // conversion and copy back after the call
   if (getLangOpts().HLSL)
-    CGM.getHLSLRuntime().EmitHLSLOutParamConversionCopyBack(*this, castArgList);
+    CGM.getHLSLRuntime().EmitHLSLOutParamConversionCopyBack(*this, castArgList, lifetimeCleanupList);
   // HLSL Change Ends
 
   return CallVal;

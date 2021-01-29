@@ -123,34 +123,40 @@ bool IsConversionToLessOrEqualElements(
   const clang::QualType& targetType,
   bool explicitConversion);
 
-bool LookupMatrixMemberExprForHLSL(
+clang::ExprResult LookupMatrixMemberExprForHLSL(
+  clang::Sema* self,
+  clang::Expr& BaseExpr,
+  clang::DeclarationName MemberName,
+  bool IsArrow,
+  clang::SourceLocation OpLoc,
+  clang::SourceLocation MemberLoc);
+
+clang::ExprResult LookupVectorMemberExprForHLSL(
+  clang::Sema* self,
+  clang::Expr& BaseExpr,
+  clang::DeclarationName MemberName,
+  bool IsArrow,
+  clang::SourceLocation OpLoc,
+  clang::SourceLocation MemberLoc);
+
+clang::ExprResult LookupArrayMemberExprForHLSL(
+  clang::Sema* self,
+  clang::Expr& BaseExpr,
+  clang::DeclarationName MemberName,
+  bool IsArrow,
+  clang::SourceLocation OpLoc,
+  clang::SourceLocation MemberLoc);
+
+bool LookupRecordMemberExprForHLSL(
   clang::Sema* self,
   clang::Expr& BaseExpr,
   clang::DeclarationName MemberName,
   bool IsArrow,
   clang::SourceLocation OpLoc,
   clang::SourceLocation MemberLoc,
-  _Inout_ clang::ExprResult* result);
+  clang::ExprResult &result);
 
-bool LookupVectorMemberExprForHLSL(
-  clang::Sema* self,
-  clang::Expr& BaseExpr,
-  clang::DeclarationName MemberName,
-  bool IsArrow,
-  clang::SourceLocation OpLoc,
-  clang::SourceLocation MemberLoc,
-  _Inout_ clang::ExprResult* result);
-
-bool LookupArrayMemberExprForHLSL(
-  clang::Sema* self,
-  clang::Expr& BaseExpr,
-  clang::DeclarationName MemberName,
-  bool IsArrow,
-  clang::SourceLocation OpLoc,
-  clang::SourceLocation MemberLoc,
-  _Inout_ clang::ExprResult* result);
-
-clang::ExprResult MaybeConvertScalarToVector(
+clang::ExprResult MaybeConvertMemberAccess(
   _In_ clang::Sema* Self,
   _In_ clang::Expr* E);
 
@@ -205,10 +211,10 @@ void CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out, const cla
 void PrintClipPlaneIfPresent(clang::Expr *ClipPlane, llvm::raw_ostream &Out, const clang::PrintingPolicy &Policy);
 void Indent(unsigned int Indentation, llvm::raw_ostream &Out);
 void GetHLSLAttributedTypes(
-  _In_ clang::Sema* self,
-  clang::QualType type, 
-  _Inout_opt_ const clang::AttributedType** ppMatrixOrientation, 
-  _Inout_opt_ const clang::AttributedType** ppNorm);
+    _In_ clang::Sema *self, clang::QualType type,
+    _Inout_opt_ const clang::AttributedType **ppMatrixOrientation,
+    _Inout_opt_ const clang::AttributedType **ppNorm,
+    _Inout_opt_ const clang::AttributedType **ppGLC);
 
 bool IsMatrixType(
   _In_ clang::Sema* self, 
@@ -251,6 +257,7 @@ clang::QualType CheckVectorConditional(
 }
 
 bool IsTypeNumeric(_In_ clang::Sema* self, _In_ clang::QualType &type);
+bool IsExprAccessingOutIndicesArray(clang::Expr* BaseExpr);
 
 // This function reads the given declaration TSS and returns the corresponding parsedType with the
 // corresponding type. Replaces the given parsed type with the new type

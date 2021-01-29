@@ -25,6 +25,7 @@
 #include "dxc/Support/Global.h"
 #include "dxc/HLSL/HLOperations.h"
 #include "dxc/DXIL/DxilSemantic.h"
+#include "dxc/HlslIntrinsicOp.h"
 
 using namespace clang;
 using namespace hlsl;
@@ -39,6 +40,7 @@ static const bool DelayTypeCreationTrue = true;   // delay type creation for a d
 static const SourceLocation NoLoc;                // no source location attribution available
 static const bool InlineFalse = false;            // namespace is not an inline namespace
 static const bool InlineSpecifiedFalse = false;   // function was not specified as inline
+static const bool ExplicitFalse = false;          // constructor was not specified as explicit
 static const bool IsConstexprFalse = false;       // function is not constexpr
 static const bool VirtualFalse = false;           // whether the base class is declares 'virtual'
 static const bool BaseClassFalse = false;         // whether the base class is declared as 'class' (vs. 'struct')
@@ -68,7 +70,9 @@ const char* HLSLScalarTypeNames[] = {
   "uint64_t",
   "float16_t",
   "float32_t",
-  "float64_t"
+  "float64_t",
+  "int8_t4_packed",
+  "uint8_t4_packed"
 };
 
 static_assert(HLSLScalarTypeCount == _countof(HLSLScalarTypeNames), "otherwise scalar constants are not aligned");
@@ -168,6 +172,20 @@ static HLSLScalarType FindScalarTypeByName(const char *typeName, const size_t ty
             break;
           return HLSLScalarType_float_min16;
         }
+      }
+      break;
+    case 14: // int8_t4_packed
+      if (typeName[0] == 'i' && typeName[1] == 'n') {
+        if (strncmp(typeName, "int8_t4_packed", 14))
+          break;
+        return HLSLScalarType_int8_4packed;
+      }
+      break;
+    case 15: // uint8_t4_packed
+      if (typeName[0] == 'u' && typeName[1] == 'i') {
+        if (strncmp(typeName, "uint8_t4_packed", 15))
+          break;
+        return HLSLScalarType_uint8_4packed;
       }
       break;
     default:
@@ -733,6 +751,28 @@ void AssociateParametersToFunctionPrototype(
   }
 }
 
+static void CreateConstructorDeclaration(
+  ASTContext &context, _In_ CXXRecordDecl *recordDecl, QualType resultType,
+  ArrayRef<QualType> args, DeclarationName declarationName, bool isConst,
+  _Out_ CXXConstructorDecl **constructorDecl, _Out_ TypeSourceInfo **tinfo) {
+  DXASSERT_NOMSG(recordDecl != nullptr);
+  DXASSERT_NOMSG(constructorDecl != nullptr);
+
+  FunctionProtoType::ExtProtoInfo functionExtInfo;
+  functionExtInfo.TypeQuals = isConst ? Qualifiers::Const : 0;
+  QualType functionQT = context.getFunctionType(
+    resultType, args, functionExtInfo, ArrayRef<ParameterModifier>());
+  DeclarationNameInfo declNameInfo(declarationName, NoLoc);
+  *tinfo = context.getTrivialTypeSourceInfo(functionQT, NoLoc);
+  DXASSERT_NOMSG(*tinfo != nullptr);
+  *constructorDecl = CXXConstructorDecl::Create(
+    context, recordDecl, NoLoc, declNameInfo, functionQT, *tinfo,
+    StorageClass::SC_None, ExplicitFalse, InlineSpecifiedFalse, IsConstexprFalse);
+  DXASSERT_NOMSG(*constructorDecl != nullptr);
+  (*constructorDecl)->setLexicalDeclContext(recordDecl);
+  (*constructorDecl)->setAccess(AccessSpecifier::AS_public);
+}
+
 static void CreateObjectFunctionDeclaration(
     ASTContext &context, _In_ CXXRecordDecl *recordDecl, QualType resultType,
     ArrayRef<QualType> args, DeclarationName declarationName, bool isConst,
@@ -800,12 +840,96 @@ CXXMethodDecl* hlsl::CreateObjectFunctionDeclarationWithParams(
 
 CXXRecordDecl* hlsl::DeclareUIntTemplatedTypeWithHandle(
   ASTContext& context, StringRef typeName, StringRef templateParamName) {
-  // template<uint kind> RayQuery/FeedbackTexture2D[Array] { ... }
+  // template<uint kind> FeedbackTexture2D[Array] { ... }
   BuiltinTypeDeclBuilder typeDeclBuilder(context.getTranslationUnitDecl(), typeName);
   typeDeclBuilder.addIntegerTemplateParam(templateParamName, context.UnsignedIntTy);
   typeDeclBuilder.startDefinition();
   typeDeclBuilder.addField("h", context.UnsignedIntTy); // Add an 'h' field to hold the handle.
   return typeDeclBuilder.completeDefinition();
+}
+
+clang::CXXRecordDecl *
+hlsl::DeclareConstantBufferViewType(clang::ASTContext &context, bool bTBuf) {
+  // Create ConstantBufferView template declaration in translation unit scope
+  // like other resource.
+  // template<typename T> ConstantBuffer { int h; }
+  DeclContext *DC = context.getTranslationUnitDecl();
+
+  BuiltinTypeDeclBuilder typeDeclBuilder(DC,
+                                         bTBuf ? "TextureBuffer"
+                                               : "ConstantBuffer",
+                                         TagDecl::TagKind::TTK_Struct);
+  (void)typeDeclBuilder.addTypeTemplateParam("T");
+  typeDeclBuilder.startDefinition();
+  CXXRecordDecl *templateRecordDecl = typeDeclBuilder.getRecordDecl();
+
+  typeDeclBuilder.addField(
+      "h", context.UnsignedIntTy); // Add an 'h' field to hold the handle.
+
+  typeDeclBuilder.completeDefinition();
+
+  return templateRecordDecl;
+}
+
+CXXRecordDecl* hlsl::DeclareRayQueryType(ASTContext& context) {
+  // template<uint kind> RayQuery { ... }
+  BuiltinTypeDeclBuilder typeDeclBuilder(context.getTranslationUnitDecl(), "RayQuery");
+  typeDeclBuilder.addIntegerTemplateParam("flags", context.UnsignedIntTy);
+  typeDeclBuilder.startDefinition();
+  typeDeclBuilder.addField("h", context.UnsignedIntTy); // Add an 'h' field to hold the handle.
+
+  // Add constructor that will be lowered to the intrinsic that produces
+  // the RayQuery handle for this object.
+  CanQualType canQualType = typeDeclBuilder.getRecordDecl()->getTypeForDecl()->getCanonicalTypeUnqualified();
+  CXXConstructorDecl *pConstructorDecl = nullptr;
+  TypeSourceInfo *pTypeSourceInfo = nullptr;
+  CreateConstructorDeclaration(context, typeDeclBuilder.getRecordDecl(), context.VoidTy, {}, context.DeclarationNames.getCXXConstructorName(canQualType), false, &pConstructorDecl, &pTypeSourceInfo);
+  typeDeclBuilder.getRecordDecl()->addDecl(pConstructorDecl);
+
+  return typeDeclBuilder.completeDefinition();
+}
+
+CXXRecordDecl* hlsl::DeclareResourceType(ASTContext& context, bool bSampler) {
+  // struct ResourceDescriptor { uint8 desc; }
+  StringRef Name = bSampler?".Sampler":".Resource";
+  BuiltinTypeDeclBuilder typeDeclBuilder(context.getTranslationUnitDecl(),
+                                         Name,
+                                         TagDecl::TagKind::TTK_Struct);
+  typeDeclBuilder.startDefinition();
+
+  typeDeclBuilder.addField("h", GetHLSLObjectHandleType(context));
+
+  CXXRecordDecl *recordDecl = typeDeclBuilder.completeDefinition();
+
+  QualType indexType = context.UnsignedIntTy;
+  QualType resultType = context.getRecordType(recordDecl);
+  resultType = context.getConstType(resultType);
+
+  CXXMethodDecl *functionDecl = CreateObjectFunctionDeclarationWithParams(
+        context, recordDecl, resultType, ArrayRef<QualType>(indexType),
+        ArrayRef<StringRef>(StringRef("index")),
+      context.DeclarationNames.getCXXOperatorName(OO_Subscript), true);
+  // Mark function as createResourceFromHeap intrinsic.
+  functionDecl->addAttr(HLSLIntrinsicAttr::CreateImplicit(
+      context, "op", "",
+      static_cast<int>(hlsl::IntrinsicOp::IOP_CreateResourceFromHeap)));
+  return recordDecl;
+}
+
+VarDecl *hlsl::DeclareBuiltinGlobal(llvm::StringRef name, clang::QualType Ty,
+                              clang::ASTContext &context) {
+  IdentifierInfo &II = context.Idents.get(name);
+
+  auto *curDeclCtx =context.getTranslationUnitDecl();
+
+  VarDecl *varDecl = VarDecl::Create(context, curDeclCtx,
+                         SourceLocation(), SourceLocation(), &II, Ty,
+                         context.getTrivialTypeSourceInfo(Ty),
+                         StorageClass::SC_Extern);
+  // Mark implicit to avoid print it when rewrite.
+  varDecl->setImplicit();
+  curDeclCtx->addDecl(varDecl);
+  return varDecl;
 }
 
 bool hlsl::IsIntrinsicOp(const clang::FunctionDecl *FD) {

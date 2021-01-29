@@ -7,9 +7,9 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "CompilationResult.h"
-#include "HlslTestUtils.h"
-#include "DxcTestUtils.h"
+#include "dxc/Test/CompilationResult.h"
+#include "dxc/Test/HlslTestUtils.h"
+#include "dxc/Test/DxcTestUtils.h"
 #include "dxc/Support/microcom.h"
 #include "dxc/dxcapi.internal.h"
 #include "dxc/HLSL/HLOperationLowerExtension.h"
@@ -450,9 +450,9 @@ TEST_F(DxilModuleTest, CSGetNumThreads) {
   );
 
   DxilModule &DM = c.GetDxilModule();
-  VERIFY_ARE_EQUAL(8, DM.GetNumThreads(0));
-  VERIFY_ARE_EQUAL(4, DM.GetNumThreads(1));
-  VERIFY_ARE_EQUAL(2, DM.GetNumThreads(2));
+  VERIFY_ARE_EQUAL(8u, DM.GetNumThreads(0));
+  VERIFY_ARE_EQUAL(4u, DM.GetNumThreads(1));
+  VERIFY_ARE_EQUAL(2u, DM.GetNumThreads(2));
 }
 
 TEST_F(DxilModuleTest, MSGetNumThreads) {
@@ -472,9 +472,9 @@ TEST_F(DxilModuleTest, MSGetNumThreads) {
   );
 
   DxilModule &DM = c.GetDxilModule();
-  VERIFY_ARE_EQUAL(8, DM.GetNumThreads(0));
-  VERIFY_ARE_EQUAL(4, DM.GetNumThreads(1));
-  VERIFY_ARE_EQUAL(2, DM.GetNumThreads(2));
+  VERIFY_ARE_EQUAL(8u, DM.GetNumThreads(0));
+  VERIFY_ARE_EQUAL(4u, DM.GetNumThreads(1));
+  VERIFY_ARE_EQUAL(2u, DM.GetNumThreads(2));
 }
 
 TEST_F(DxilModuleTest, ASGetNumThreads) {
@@ -492,9 +492,9 @@ TEST_F(DxilModuleTest, ASGetNumThreads) {
   );
 
   DxilModule &DM = c.GetDxilModule();
-  VERIFY_ARE_EQUAL(8, DM.GetNumThreads(0));
-  VERIFY_ARE_EQUAL(4, DM.GetNumThreads(1));
-  VERIFY_ARE_EQUAL(2, DM.GetNumThreads(2));
+  VERIFY_ARE_EQUAL(8u, DM.GetNumThreads(0));
+  VERIFY_ARE_EQUAL(4u, DM.GetNumThreads(1));
+  VERIFY_ARE_EQUAL(2u, DM.GetNumThreads(2));
 }
 
 void DxilModuleTest::VerifyValidatorVersionFails(

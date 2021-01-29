@@ -28,16 +28,25 @@ public:
         alignmentCalc(astCtx, opts) {}
 
   // Visiting different SPIR-V constructs.
-  bool visit(SpirvModule *, Phase) { return true; }
-  bool visit(SpirvFunction *, Phase);
-  bool visit(SpirvBasicBlock *, Phase) { return true; }
+  bool visit(SpirvModule *, Phase) override { return true; }
+  bool visit(SpirvFunction *, Phase) override;
+  bool visit(SpirvBasicBlock *, Phase) override { return true; }
+
+  using Visitor::visit;
 
   /// The "sink" visit function for all instructions.
   ///
   /// By default, all other visit instructions redirect to this visit function.
   /// So that you want override this visit function to handle all instructions,
   /// regardless of their polymorphism.
-  bool visitInstruction(SpirvInstruction *instr);
+  bool visitInstruction(SpirvInstruction *instr) override;
+
+  /// Lowers the given AST QualType into the corresponding SPIR-V type.
+  ///
+  /// The lowering is recursive; all the types that the target type depends
+  /// on will be created in SpirvContext.
+  const SpirvType *lowerType(QualType type, SpirvLayoutRule,
+                             llvm::Optional<bool> isRowMajor, SourceLocation);
 
 private:
   /// Emits error to the diagnostic engine associated with this visitor.
@@ -49,12 +58,6 @@ private:
     return astContext.getDiagnostics().Report(srcLoc, diagId);
   }
 
-  /// Lowers the given AST QualType into the corresponding SPIR-V type.
-  ///
-  /// The lowering is recursive; all the types that the target type depends
-  /// on will be created in SpirvContext.
-  const SpirvType *lowerType(QualType type, SpirvLayoutRule,
-                             llvm::Optional<bool> isRowMajor, SourceLocation);
   /// Lowers the given Hybrid type into a SPIR-V type.
   ///
   /// Uses the above lowerType method to lower the QualType components of hybrid

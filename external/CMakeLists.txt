@@ -25,7 +25,9 @@ if (${ENABLE_SPIRV_CODEGEN})
     if (IS_DIRECTORY ${DXC_SPIRV_TOOLS_DIR})
       # We only need the library from SPIRV-Tools.
       set(SPIRV_SKIP_EXECUTABLES ON CACHE BOOL "Skip building SPIRV-Tools executables")
-      set(SPIRV_TOOLS_EXTRA_DEFINITIONS /D_ITERATOR_DEBUG_LEVEL=0)
+      if (NOT HLSL_ENABLE_DEBUG_ITERATORS)
+        set(SPIRV_TOOLS_EXTRA_DEFINITIONS /D_ITERATOR_DEBUG_LEVEL=0)
+      endif()
       add_subdirectory(${DXC_SPIRV_TOOLS_DIR} EXCLUDE_FROM_ALL)
     endif()
   endif()
@@ -36,7 +38,7 @@ if (${ENABLE_SPIRV_CODEGEN})
   endif()
 
   set(SPIRV_DEP_TARGETS
-    SPIRV-Tools
+    SPIRV-Tools-static
     SPIRV-Tools-opt
   )
 

@@ -22,90 +22,62 @@ using namespace llvm;
 //
 
 CallGraph::CallGraph(Module &M)
-    : M(M), Root(nullptr), ExternalCallingNode(nullptr), // HLSL Change - no allocation here
-      CallsExternalNode(nullptr) {
-  try { // HLSL change - guard and reset
-    ExternalCallingNode = getOrInsertFunction(nullptr);
-    CallsExternalNode = new CallGraphNode(nullptr);
-    // Add every function to the call graph.
-    for (Function &F : M)
-      addToCallGraph(&F);
-
-    // If we didn't find a main function, use the external call graph node
-    if (!Root)
-      Root = ExternalCallingNode;
-  } catch (...) {
-    reset();
-    throw;
-  }
+    : M(M), ExternalCallingNode(getOrInsertFunction(nullptr)),
+      CallsExternalNode(llvm::make_unique<CallGraphNode>(nullptr)) {
+  // Add every function to the call graph.
+  for (Function &F : M)
+    addToCallGraph(&F);
 }
 
-// HLSL Change Starts
-CallGraph::~CallGraph() { reset(); }
-void CallGraph::reset() {
-  // This function cleans up the CallGraph, called from the destructor or
-  // an under-construction instance.
-// HLSL Change Ends
+
+
+CallGraph::CallGraph(CallGraph &&Arg)
+    : M(Arg.M), FunctionMap(std::move(Arg.FunctionMap)),
+      ExternalCallingNode(Arg.ExternalCallingNode),
+      CallsExternalNode(std::move(Arg.CallsExternalNode)) {
+  Arg.FunctionMap.clear();
+  Arg.ExternalCallingNode = nullptr;
+}
+
+
+
+CallGraph::~CallGraph() {
   // CallsExternalNode is not in the function map, delete it explicitly.
-  if (CallsExternalNode) // HLSL Change - guard
+  if (CallsExternalNode)
     CallsExternalNode->allReferencesDropped();
-  delete CallsExternalNode;
-  CallsExternalNode = nullptr;
 
 // Reset all node's use counts to zero before deleting them to prevent an
 // assertion from firing.
 #ifndef NDEBUG
   for (auto &I : FunctionMap)
-    if (I.second) // HLSL Change - this guard needed when slot is alloc'ed but not populated
-      I.second->allReferencesDropped();
+    I.second->allReferencesDropped();
 #endif
-  for (auto &I : FunctionMap)
-    delete I.second;
-  FunctionMap.clear();
 }
+
 
 void CallGraph::addToCallGraph(Function *F) {
   CallGraphNode *Node = getOrInsertFunction(F);
 
-  // If this function has external linkage, anything could call it.
-  if (!F->hasLocalLinkage()) {
-    ExternalCallingNode->addCalledFunction(CallSite(), Node);
-    // HLSL Change Begins.
-    if (M.HasHLModule()) {
-      if (M.GetHLModule().GetEntryFunction() == F)
-        Root = Node;
-    } else // Make sure Root not overwrite by main.
-    // HLSL Change Ends.
-    // Found the entry point?
-    if (F->getName() == "main") {
-      if (Root) // Found multiple external mains?  Don't pick one.
-        Root = ExternalCallingNode;
-      else
-        Root = Node; // Found a main, keep track of it!
-    }
-  }
-
-  // If this function has its address taken, anything could call it.
-  if (F->hasAddressTaken())
+  // If this function has external linkage or has its address taken, anything
+  // could call it.
+  if (!F->hasLocalLinkage() || F->hasAddressTaken())
     ExternalCallingNode->addCalledFunction(CallSite(), Node);
 
   // If this function is not defined in this translation unit, it could call
   // anything.
   if (F->isDeclaration() && !F->isIntrinsic())
-    Node->addCalledFunction(CallSite(), CallsExternalNode);
+    Node->addCalledFunction(CallSite(), CallsExternalNode.get());
 
   // Look for calls by this function.
-  for (Function::iterator BB = F->begin(), BBE = F->end(); BB != BBE; ++BB)
-    for (BasicBlock::iterator II = BB->begin(), IE = BB->end(); II != IE;
-         ++II) {
-      CallSite CS(cast<Value>(II));
-      if (CS) {
+  for (BasicBlock &BB : *F)
+    for (Instruction &I : BB) {
+      if (auto CS = CallSite(&I)) {
         const Function *Callee = CS.getCalledFunction();
         if (!Callee || !Intrinsic::isLeaf(Callee->getIntrinsicID()))
           // Indirect calls of intrinsics are not allowed so no need to check.
           // We can be more precise here by using TargetArg returned by
           // Intrinsic::isLeaf.
-          Node->addCalledFunction(CS, CallsExternalNode);
+          Node->addCalledFunction(CS, CallsExternalNode.get());
         else if (!Callee->isIntrinsic())
           Node->addCalledFunction(CS, getOrInsertFunction(Callee));
       }
@@ -113,24 +85,17 @@ void CallGraph::addToCallGraph(Function *F) {
 }
 
 void CallGraph::print(raw_ostream &OS) const {
-  OS << "CallGraph Root is: ";
-  if (Function *F = Root->getFunction())
-    OS << F->getName() << "\n";
-  else {
-    OS << "<<null function: 0x" << Root << ">>\n";
-  }
-
   // Print in a deterministic order by sorting CallGraphNodes by name.  We do
   // this here to avoid slowing down the non-printing fast path.
 
   SmallVector<CallGraphNode *, 16> Nodes;
   Nodes.reserve(FunctionMap.size());
 
-  for (auto I = begin(), E = end(); I != E; ++I)
-    Nodes.push_back(I->second);
+  for (const auto &I : *this)
+    Nodes.push_back(I.second.get());
 
   std::sort(Nodes.begin(), Nodes.end(),
-            [](CallGraphNode *LHS, CallGraphNode *RHS) {
+             [](CallGraphNode *LHS, CallGraphNode *RHS) {
     if (Function *LF = LHS->getFunction())
       if (Function *RF = RHS->getFunction())
         return LF->getName() < RF->getName();
@@ -156,7 +121,6 @@ Function *CallGraph::removeFunctionFromModule(CallGraphNode *CGN) {
   assert(CGN->empty() && "Cannot remove function from call "
          "graph if it references other functions!");
   Function *F = CGN->getFunction(); // Get the function for the call graph node
-  delete CGN;                       // Delete the call graph node for this func
   FunctionMap.erase(F);             // Remove the call graph node from the map
 
   M.CallRemoveGlobalHook(F); // HLSL Change
@@ -176,7 +140,7 @@ void CallGraph::spliceFunction(const Function *From, const Function *To) {
          "Pointing CallGraphNode at a function that already exists");
   FunctionMapTy::iterator I = FunctionMap.find(From);
   I->second->F = const_cast<Function*>(To);
-  FunctionMap[To] = I->second;
+  FunctionMap[To] = std::move(I->second);
   FunctionMap.erase(I);
 }
 
@@ -184,12 +148,13 @@ void CallGraph::spliceFunction(const Function *From, const Function *To) {
 // it will insert a new CallGraphNode for the specified function if one does
 // not already exist.
 CallGraphNode *CallGraph::getOrInsertFunction(const Function *F) {
-  CallGraphNode *&CGN = FunctionMap[F];
+  auto &CGN = FunctionMap[F];
   if (CGN)
-    return CGN;
+    return CGN.get();
 
   assert((!F || F->getParent() == &M) && "Function not in current module!");
-  return CGN = new CallGraphNode(const_cast<Function*>(F));
+  CGN = llvm::make_unique<CallGraphNode>(const_cast<Function *>(F));
+  return CGN.get();
 }
 
 //===----------------------------------------------------------------------===//

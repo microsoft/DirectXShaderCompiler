@@ -48,6 +48,7 @@ public:
     TK_Pointer,
     TK_Function,
     TK_AccelerationStructureNV,
+    TK_RayQueryKHR,
     // Order matters: all the following are hybrid types
     TK_HybridStruct,
     TK_HybridPointer,
@@ -293,7 +294,7 @@ public:
               llvm::Optional<uint32_t> matrixStride_ = llvm::None,
               llvm::Optional<bool> isRowMajor_ = llvm::None,
               bool relaxedPrecision = false, bool precise = false)
-        : type(type_), name(name_), offset(offset_),
+        : type(type_), name(name_), offset(offset_), sizeInBytes(llvm::None),
           matrixStride(matrixStride_), isRowMajor(isRowMajor_),
           isRelaxedPrecision(relaxedPrecision), isPrecise(precise) {
       // A StructType may not contain any hybrid types.
@@ -306,8 +307,10 @@ public:
     const SpirvType *type;
     // The field's name.
     std::string name;
-    // The integer offset for this field.
+    // The integer offset in bytes for this field.
     llvm::Optional<uint32_t> offset;
+    // The integer size in bytes for this field.
+    llvm::Optional<uint32_t> sizeInBytes;
     // The matrix stride for this field (if applicable).
     llvm::Optional<uint32_t> matrixStride;
     // The majorness of this field (if applicable).
@@ -396,6 +399,16 @@ public:
 
   static bool classof(const SpirvType *t) {
     return t->getKind() == TK_AccelerationStructureNV;
+  }
+};
+
+class RayQueryTypeKHR : public SpirvType {
+public:
+  RayQueryTypeKHR()
+      : SpirvType(TK_RayQueryKHR, "rayQueryKHR") {}
+
+  static bool classof(const SpirvType *t) {
+    return t->getKind() == TK_RayQueryKHR;
   }
 };
 
@@ -501,29 +514,6 @@ public:
 
 private:
   QualType imageType;
-};
-
-// This class can be extended to also accept QualType vector as param types.
-class HybridFunctionType : public HybridType {
-public:
-  HybridFunctionType(QualType ret, llvm::ArrayRef<QualType> param)
-      : HybridType(TK_HybridFunction), returnType(ret),
-        paramTypes(param.begin(), param.end()) {}
-
-  static bool classof(const SpirvType *t) {
-    return t->getKind() == TK_HybridFunction;
-  }
-
-  bool operator==(const HybridFunctionType &that) const {
-    return returnType == that.returnType && paramTypes == that.paramTypes;
-  }
-
-  QualType getReturnType() const { return returnType; }
-  llvm::ArrayRef<QualType> getParamTypes() const { return paramTypes; }
-
-private:
-  QualType returnType;
-  llvm::SmallVector<QualType, 8> paramTypes;
 };
 
 //

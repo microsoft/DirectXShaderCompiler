@@ -2739,8 +2739,17 @@ bool Sema::UseArgumentDependentLookup(const CXXScopeSpec &SS,
     return false;
 
   // Never if a scope specifier was provided.
-  if (SS.isSet())
-    return false;
+  if (SS.isSet()) {
+    // HLSL Change begins
+    // We want to be able to have intrinsics inside the "vk" namespace.
+    const bool isVkNamespace =
+        SS.getScopeRep() && SS.getScopeRep()->getAsNamespace() &&
+        SS.getScopeRep()->getAsNamespace()->getName() == "vk";
+
+    if (!isVkNamespace)
+    // HLSL Change ends
+      return false;
+  }
 
   // Only in C++ or ObjC++.
   if (!getLangOpts().CPlusPlus)
@@ -4116,6 +4125,16 @@ Sema::ActOnArraySubscriptExpr(Scope *S, Expr *base, SourceLocation lbLoc,
     if (result.isInvalid()) return ExprError();
     idx = result.get();
   }
+
+  // HLSL Change Starts - Check for subscript access of out indices
+  // Disallow component access for out indices for DXIL path. We still allow
+  // this in SPIR-V path.
+  if (getLangOpts().HLSL && !getLangOpts().SPIRV &&
+      base->getType()->isRecordType() && IsExprAccessingOutIndicesArray(base)) {
+    Diag(lbLoc, diag::err_hlsl_out_indices_array_incorrect_access);
+    return ExprError();
+  }
+  // HLSL Change Ends
 
   // Build an unanalyzed expression if either operand is type-dependent.
   if (getLangOpts().CPlusPlus &&

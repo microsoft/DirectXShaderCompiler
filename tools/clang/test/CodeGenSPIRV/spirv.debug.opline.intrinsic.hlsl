@@ -53,9 +53,9 @@ void main() {
   m2x2f = ddx(m2x2f);
 
 // CHECK:                       OpLine [[file]] 60 11
-// CHECK-NEXT: [[fmod0:%\d+]] = OpFMod %v2float {{%\d+}} {{%\d+}}
+// CHECK-NEXT: [[fmod0:%\d+]] = OpFRem %v2float {{%\d+}} {{%\d+}}
 // CHECK:                       OpLine [[file]] 60 11
-// CHECK-NEXT: [[fmod1:%\d+]] = OpFMod %v2float {{%\d+}} {{%\d+}}
+// CHECK-NEXT: [[fmod1:%\d+]] = OpFRem %v2float {{%\d+}} {{%\d+}}
 // CHECK-NEXT:       {{%\d+}} = OpCompositeConstruct %mat2v2float [[fmod0]] [[fmod1]]
   m2x2f = fmod(m2x2f, float2x2(v4i));
 
@@ -81,9 +81,9 @@ void main() {
 
 // CHECK:                     OpLine [[file]] 87 41
 // CHECK-NEXT: [[idx:%\d+]] = OpIAdd %uint
-// CHECK-NEXT:                OpLine [[file]] 87 3
+// CHECK:                     OpLine [[file]] 87 3
 // CHECK-NEXT: [[v4i:%\d+]] = OpAccessChain %_ptr_Function_uint %v4i %int_0
-// CHECK-NEXT:                OpStore [[v4i]] [[idx]]
+// CHECK-NEXT:                OpStore [[v4i]] {{%\d+}}
   v4i.x = NonUniformResourceIndex(v4i.y + v4i.z);
 
 // CHECK:      OpLine [[file]] 93 11
@@ -179,7 +179,7 @@ void main() {
 // CHECK-NEXT: OpExtInst %uint {{%\d+}} FindUMsb
   max(firstbithigh(sqrt(abs(v2f.x * v4f.w)) + v4i.x),
 // CHECK:      OpLine [[file]] 183 7
-// CHECK-NEXT: OpExtInst %float {{%\d+}} Cos %468
+// CHECK-NEXT: OpExtInst %float {{%\d+}} Cos
       cos(v4f.x));
 // CHECK:      OpLine [[file]] 180 3
 // CHECK-NEXT: OpExtInst %float {{%\d+}} FMax

@@ -55,5 +55,15 @@ float main(float val: A, uint index: B) : C {
 // CHECK-NEXT:                 OpStore %r [[load]]
     r = matvar[0][1][2];
 
+//
+// Test using a boolean as index
+//
+// CHECK:            [[index:%\d+]] = OpLoad %uint %index
+// CHECK-NEXT:   [[indexBool:%\d+]] = OpINotEqual %bool [[index]] %uint_0
+// CHECK-NEXT:    [[indexNot:%\d+]] = OpLogicalNot %bool [[indexBool]]
+// CHECK-NEXT: [[indexResult:%\d+]] = OpSelect %uint [[indexNot]] %uint_1 %uint_0
+// CHECK-NEXT:             {{%\d+}} = OpAccessChain %_ptr_Function_v4float %vecvar [[indexResult]]
+    float4 result = vecvar[!index];
+
     return r;
 }

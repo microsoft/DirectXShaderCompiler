@@ -16,8 +16,10 @@ class ModulePass;
 class PassRegistry;
 
 ModulePass *createDxilAddPixelHitInstrumentationPass();
+ModulePass *createDxilDbgValueToDbgDeclarePass();
 ModulePass *createDxilAnnotateWithVirtualRegisterPass();
 ModulePass *createDxilOutputColorBecomesConstantPass();
+ModulePass *createDxilDxilPIXMeshShaderOutputInstrumentation();
 ModulePass *createDxilRemoveDiscardsPass();
 ModulePass *createDxilReduceMSAAToSingleSamplePass();
 ModulePass *createDxilForceEarlyZPass();
@@ -25,8 +27,10 @@ ModulePass *createDxilDebugInstrumentationPass();
 ModulePass *createDxilShaderAccessTrackingPass();
 
 void initializeDxilAddPixelHitInstrumentationPass(llvm::PassRegistry&);
+void initializeDxilDbgValueToDbgDeclarePass(llvm::PassRegistry&);
 void initializeDxilAnnotateWithVirtualRegisterPass(llvm::PassRegistry&);
 void initializeDxilOutputColorBecomesConstantPass(llvm::PassRegistry&);
+void initializeDxilPIXMeshShaderOutputInstrumentationPass(llvm::PassRegistry &);
 void initializeDxilRemoveDiscardsPass(llvm::PassRegistry&);
 void initializeDxilReduceMSAAToSingleSamplePass(llvm::PassRegistry&);
 void initializeDxilForceEarlyZPass(llvm::PassRegistry&);

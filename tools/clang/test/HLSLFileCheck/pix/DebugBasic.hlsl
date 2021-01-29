@@ -16,11 +16,11 @@
 // CHECK: %IncrementForThisInvocation = mul i32 8, %OffsetMultiplicand
 
 // Check the first instruction was instrumented:
-// CHECK: %UAVIncResult = call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %PIX_DebugUAV_Handle, i32 0, i32 0, i32 undef, i32 undef, i32 %IncrementForThisInvocation)
+// CHECK: %UAVIncResult = call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %PIX_DebugUAV_Handle, i32 0
 // CHECK: %MaskedForUAVLimit = and i32 %UAVIncResult, 983039
 // CHECK: %MultipliedForInterest = mul i32 %MaskedForUAVLimit, %OffsetMultiplicand
 // CHECK: %AddedForInterest = add i32 %MultipliedForInterest, %OffsetAddend
-// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_DebugUAV_Handle, i32 %AddedForInterest, i32 undef, i32 0, i32 undef, i32 undef, i32 undef, i8 1)
+// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_DebugUAV_Handle, i32 %AddedForInterest
 
 
 [RootSignature("")]

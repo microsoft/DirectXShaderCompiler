@@ -10,8 +10,10 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/HLSL/DxilGenerationPass.h"
+#include "llvm/Analysis/DxilValueCache.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilOperations.h"
+#include "dxc/DXIL/DxilUtil.h"
 
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -46,6 +48,11 @@ public:
     return "DXIL legalize sample offset";
   }
 
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<DxilValueCache>();
+    AU.setPreservesAll();
+  }
+
   bool runOnFunction(Function &F) override {
     DxilModule &DM = F.getParent()->GetOrCreateDxilModule();
     hlsl::OP *hlslOP = DM.GetOP();
@@ -66,11 +73,6 @@ public:
 
     // Run simple optimization to legalize offsets.
     LegalizeOffsets(ssaIllegalOffsets);
-
-    // Remove PHINodes to keep code shape.
-    legacy::FunctionPassManager PM(F.getParent());
-    PM.add(createDemoteRegisterToMemoryHlslPass());
-    PM.run(F);
 
     FinalCheck(illegalOffsets, F, hlslOP);
 
@@ -136,17 +138,12 @@ void DxilLegalizeSampleOffsetPass::FinalCheck(
   if (!finalIllegalOffsets.empty()) {
     const StringRef kIllegalOffsetError =
         "Offsets for Sample* must be immediated value. "
-        "Consider unroll the loop manually and use O3, it may help in some "
-        "cases\n";
+        "Consider unrolling the loop manually and use -O3, "
+        "it may help in some cases.\n";
     std::string errorMsg;
     raw_string_ostream errorStr(errorMsg);
-    for (Instruction *offset : finalIllegalOffsets) {
-      if (const DebugLoc &L = offset->getDebugLoc())
-        L.print(errorStr);
-      errorStr << " " << kIllegalOffsetError;
-    }
-    errorStr.flush();
-    F.getContext().emitError(errorMsg);
+    for (Instruction *offset : finalIllegalOffsets)
+      dxilutil::EmitErrorOnInstruction(offset, kIllegalOffsetError);
   }
 }
 
@@ -158,7 +155,8 @@ void DxilLegalizeSampleOffsetPass::TryUnrollLoop(
   // Always need mem2reg for simplify illegal offsets.
   PM.add(createPromoteMemoryToRegisterPass());
 
-  if (HasIllegalOffsetInLoop(illegalOffsets, F)) {
+  bool UnrollLoop = HasIllegalOffsetInLoop(illegalOffsets, F);
+  if (UnrollLoop) {
     PM.add(createCFGSimplificationPass());
     PM.add(createLCSSAPass());
     PM.add(createLoopSimplifyPass());
@@ -166,6 +164,11 @@ void DxilLegalizeSampleOffsetPass::TryUnrollLoop(
     PM.add(createLoopUnrollPass(-2, -1, 0, 0));
   }
   PM.run(F);
+
+  if (UnrollLoop) {
+    DxilValueCache *DVC = &getAnalysis<DxilValueCache>();
+    DVC->ResetUnknowns();
+  }
 }
 
 void DxilLegalizeSampleOffsetPass::CollectIllegalOffsets(
@@ -202,13 +205,22 @@ void DxilLegalizeSampleOffsetPass::CollectIllegalOffsets(
 
 void DxilLegalizeSampleOffsetPass::LegalizeOffsets(
     const std::vector<Instruction *> &illegalOffsets) {
-  for (Instruction *I : illegalOffsets)
-    llvm::recursivelySimplifyInstruction(I);
+  if (illegalOffsets.size()) {
+    DxilValueCache *DVC = &getAnalysis<DxilValueCache>();
+    for (Instruction *I : illegalOffsets) {
+      if (Value *V = DVC->GetValue(I)) {
+        I->replaceAllUsesWith(V);
+      }
+    }
+  }
 }
 
 FunctionPass *llvm::createDxilLegalizeSampleOffsetPass() {
   return new DxilLegalizeSampleOffsetPass();
 }
 
-INITIALIZE_PASS(DxilLegalizeSampleOffsetPass, "dxil-legalize-sample-offset",
+INITIALIZE_PASS_BEGIN(DxilLegalizeSampleOffsetPass, "dxil-legalize-sample-offset",
+                "DXIL legalize sample offset", false, false)
+INITIALIZE_PASS_DEPENDENCY(DxilValueCache)
+INITIALIZE_PASS_END(DxilLegalizeSampleOffsetPass, "dxil-legalize-sample-offset",
                 "DXIL legalize sample offset", false, false)

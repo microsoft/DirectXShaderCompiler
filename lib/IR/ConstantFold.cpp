@@ -544,6 +544,7 @@ Constant *llvm::ConstantFoldCastInstruction(unsigned opc, Constant *V,
       if (unsigned newOpc = foldConstantCastPair(opc, CE, DestTy))
         return ConstantExpr::getCast(newOpc, CE->getOperand(0), DestTy);
     } else if (CE->getOpcode() == Instruction::GetElementPtr &&
+               false && // HLSL change - not fold gep 0, ... 0 for HLSL.
                // Do not fold addrspacecast (gep 0, .., 0). It might make the
                // addrspacecast uncanonicalized.
                opc != Instruction::AddrSpaceCast) {

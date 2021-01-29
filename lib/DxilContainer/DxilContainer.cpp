@@ -33,11 +33,16 @@ void InitDxilContainer(_Out_ DxilContainerHeader *pHeader, uint32_t partCount,
 }
 
 const DxilContainerHeader *IsDxilContainerLike(const void *ptr, size_t length) {
-  if (ptr == nullptr || length < 4)
+  if (ptr == nullptr || length < sizeof(DxilContainerHeader))
     return nullptr;
   if (DFCC_Container != *reinterpret_cast<const uint32_t *>(ptr))
     return nullptr;
   return reinterpret_cast<const DxilContainerHeader *>(ptr);
+}
+
+DxilContainerHeader *IsDxilContainerLike(void *ptr, size_t length) {
+  return const_cast<DxilContainerHeader *>(IsDxilContainerLike(
+    static_cast<const void *>(ptr), length));
 }
 
 bool IsValidDxilContainer(const DxilContainerHeader *pHeader, size_t length) {

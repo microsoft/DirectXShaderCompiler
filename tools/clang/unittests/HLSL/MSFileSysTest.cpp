@@ -12,7 +12,7 @@
 #include <stdint.h>
 #include <dxc/Support/WinIncludes.h>
 #include "WexTestClass.h"
-#include "HlslTestUtils.h"
+#include "dxc/Test/HlslTestUtils.h"
 
 #include "llvm/Support/MSFileSystem.h"
 #include "llvm/Support/Atomic.h"

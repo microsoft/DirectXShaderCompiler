@@ -32,14 +32,19 @@
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/dxcapi.impl.h"
+#include <assert.h> // Needed for DxilPipelineStateValidation.h
 #include "dxc/DxilContainer/DxilPipelineStateValidation.h"
 #include "dxc/DxilContainer/DxilRuntimeReflection.h"
+#include "dxc/DXIL/DxilCounters.h"
 #include <algorithm>
 #include <functional>
 
 using namespace llvm;
 using namespace hlsl;
 using namespace hlsl::RDAT;
+
+static_assert((unsigned)PSVShaderKind::Invalid == (unsigned)DXIL::ShaderKind::Invalid,
+              "otherwise, PSVShaderKind enum out of sync.");
 
 static DxilProgramSigSemantic KindToSystemValue(Semantic::Kind kind, DXIL::TessellatorDomain domain) {
   switch (kind) {
@@ -480,8 +485,8 @@ private:
   }
 
 public:
-  DxilPSVWriter(const DxilModule &module, uint32_t PSVVersion = 0)
-  : m_Module(module),
+  DxilPSVWriter(const DxilModule &mod, uint32_t PSVVersion = 0)
+  : m_Module(mod),
     m_PSVInitInfo(PSVVersion)
   {
     m_Module.GetValidatorVersion(m_ValMajor, m_ValMinor);
@@ -553,7 +558,7 @@ public:
     }
     DXASSERT_NOMSG(m_PSVBuffer.size() == m_PSVBufferSize);
 
-    // Set DxilRuntimInfo
+    // Set DxilRuntimeInfo
     PSVRuntimeInfo0* pInfo = m_PSV.GetPSVRuntimeInfo0();
     PSVRuntimeInfo1* pInfo1 = m_PSV.GetPSVRuntimeInfo1();
     const ShaderModel* SM = m_Module.GetShaderModel();
@@ -640,34 +645,41 @@ public:
         }
         break;
       }
-    case ShaderModel::Kind::Compute:
-    case ShaderModel::Kind::Library:
-    case ShaderModel::Kind::Invalid:
-      // Compute, Library, and Invalid not relevant to PSVRuntimeInfo0
-      break;
-    case ShaderModel::Kind::Mesh: {
-      pInfo->MS.MaxOutputVertices = (UINT)m_Module.GetMaxOutputVertices();
-      pInfo->MS.MaxOutputPrimitives = (UINT)m_Module.GetMaxOutputPrimitives();
-      pInfo1->MS1.MeshOutputTopology = (UINT)m_Module.GetMeshOutputTopology();
-      Module *mod = m_Module.GetModule();
-      const DataLayout &DL = mod->getDataLayout();
-      unsigned totalByteSize = 0;
-      for (GlobalVariable &GV : mod->globals()) {
-        PointerType *gvPtrType = cast<PointerType>(GV.getType());
-        if (gvPtrType->getAddressSpace() == hlsl::DXIL::kTGSMAddrSpace) {
-          Type *gvType = gvPtrType->getPointerElementType();
-          unsigned byteSize = DL.getTypeAllocSize(gvType);
-          totalByteSize += byteSize;
+      case ShaderModel::Kind::Compute: {
+        UINT waveSize = (UINT)m_Module.GetWaveSize();
+        if (waveSize != 0) {
+          pInfo->MinimumExpectedWaveLaneCount = waveSize;
+          pInfo->MaximumExpectedWaveLaneCount = waveSize;
         }
+        break;
       }
-      pInfo->MS.GroupSharedBytesUsed = totalByteSize;
-      pInfo->MS.PayloadSizeInBytes = m_Module.GetPayloadSizeInBytes();
-      break;
-    }
-    case ShaderModel::Kind::Amplification: {
-      pInfo->AS.PayloadSizeInBytes = m_Module.GetPayloadSizeInBytes();
-      break;
-    }
+      case ShaderModel::Kind::Library:
+      case ShaderModel::Kind::Invalid:
+        // Library and Invalid not relevant to PSVRuntimeInfo0
+        break;
+      case ShaderModel::Kind::Mesh: {
+        pInfo->MS.MaxOutputVertices = (UINT)m_Module.GetMaxOutputVertices();
+        pInfo->MS.MaxOutputPrimitives = (UINT)m_Module.GetMaxOutputPrimitives();
+        pInfo1->MS1.MeshOutputTopology = (UINT)m_Module.GetMeshOutputTopology();
+        Module *mod = m_Module.GetModule();
+        const DataLayout &DL = mod->getDataLayout();
+        unsigned totalByteSize = 0;
+        for (GlobalVariable &GV : mod->globals()) {
+          PointerType *gvPtrType = cast<PointerType>(GV.getType());
+          if (gvPtrType->getAddressSpace() == hlsl::DXIL::kTGSMAddrSpace) {
+            Type *gvType = gvPtrType->getPointerElementType();
+            unsigned byteSize = DL.getTypeAllocSize(gvType);
+            totalByteSize += byteSize;
+          }
+        }
+        pInfo->MS.GroupSharedBytesUsed = totalByteSize;
+        pInfo->MS.PayloadSizeInBytes = m_Module.GetPayloadSizeInBytes();
+        break;
+      }
+      case ShaderModel::Kind::Amplification: {
+        pInfo->AS.PayloadSizeInBytes = m_Module.GetPayloadSizeInBytes();
+        break;
+      }
     }
 
     // Set resource binding information
@@ -1354,15 +1366,15 @@ private:
   SubobjectTable *m_pSubobjectTable;
 
 public:
-  DxilRDATWriter(const DxilModule &module, uint32_t InfoVersion = 0)
+  DxilRDATWriter(const DxilModule &mod, uint32_t InfoVersion = 0)
       : m_RDATBuffer(), m_Parts(), m_FuncToResNameOffset() {
     // Keep track of validator version so we can make a compatible RDAT
-    module.GetValidatorVersion(m_ValMajor, m_ValMinor);
+    mod.GetValidatorVersion(m_ValMajor, m_ValMinor);
 
     CreateParts();
-    UpdateResourceInfo(module);
-    UpdateFunctionInfo(module);
-    UpdateSubobjectInfo(module);
+    UpdateResourceInfo(mod);
+    UpdateFunctionInfo(mod);
+    UpdateSubobjectInfo(mod);
 
     // Delete any empty parts:
     std::vector<std::unique_ptr<RDATPart>>::iterator it = m_Parts.begin();
@@ -1545,7 +1557,8 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
                                            llvm::StringRef DebugName,
                                            SerializeDxilFlags Flags,
                                            DxilShaderHash *pShaderHashOut,
-                                           AbstractMemoryStream *pReflectionStreamOut) {
+                                           AbstractMemoryStream *pReflectionStreamOut,
+                                           AbstractMemoryStream *pRootSigStreamOut) {
   // TODO: add a flag to update the module and remove information that is not part
   // of DXIL proper and is used only to assemble the container.
 
@@ -1634,11 +1647,23 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
     writer.AddPart(
         DFCC_PipelineStateValidation, pPSVWriter->size(),
         [&](AbstractMemoryStream *pStream) { pPSVWriter->write(pStream); });
+
     // Write the root signature (RTS0) part.
     if (rootSigWriter.size()) {
-      writer.AddPart(
-        DFCC_RootSignature, rootSigWriter.size(),
-        [&](AbstractMemoryStream *pStream) { rootSigWriter.write(pStream); });
+      if (pRootSigStreamOut) {
+        // Write root signature wrapped in container for separate output
+        DxilContainerWriter_impl rootSigContainerWriter;
+        rootSigContainerWriter.AddPart(
+          DFCC_RootSignature, rootSigWriter.size(),
+          [&](AbstractMemoryStream *pStream) { rootSigWriter.write(pStream); });
+        rootSigContainerWriter.write(pRootSigStreamOut);
+      }
+      if ((Flags & SerializeDxilFlags::StripRootSignature) == 0) {
+        // Write embedded root signature
+        writer.AddPart(
+          DFCC_RootSignature, rootSigWriter.size(),
+          [&](AbstractMemoryStream *pStream) { rootSigWriter.write(pStream); });
+      }
       bMetadataStripped |= pModule->StripRootSignatureFromMetadata();
     }
   }
@@ -1677,21 +1702,18 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   // Clone module for reflection, strip function defs
   std::unique_ptr<Module> reflectionModule;
   if (bEmitReflection) {
-    if (DXIL::CompareVersions(ValMajor, ValMinor, 1, 5) < 0) {
-      // Retain usage information in metadata for reflection by:
-      // Upgrade validator version, re-emit metadata, then clone module for reflection.
-      // 0,0 = Not meant to be validated, support latest
-      pModule->SetValidatorVersion(0, 0);
-      pModule->ReEmitDxilResources();
-    }
+    // Retain usage information in metadata for reflection by:
+    // Upgrade validator version, re-emit metadata, then clone module for reflection.
+    // 0,0 = Not meant to be validated, support latest
+    pModule->SetValidatorVersion(0, 0);
+    pModule->ReEmitDxilResources();
+    pModule->EmitDxilCounters();
 
     reflectionModule.reset(llvm::CloneModule(pModule->GetModule()));
 
-    if (DXIL::CompareVersions(ValMajor, ValMinor, 1, 5) < 0) {
-      // Now restore validator version on main module and re-emit metadata.
-      pModule->SetValidatorVersion(ValMajor, ValMinor);
-      pModule->ReEmitDxilResources();
-    }
+    // Now restore validator version on main module and re-emit metadata.
+    pModule->SetValidatorVersion(ValMajor, ValMinor);
+    pModule->ReEmitDxilResources();
 
     for (Function &F : reflectionModule->functions()) {
       if (!F.isDeclaration()) {
@@ -1752,73 +1774,72 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
     WriteBitcodeToFile(pModule->GetModule(), outStream, false);
   }
 
-  // Serialize debug name if requested.
-  CComPtr<AbstractMemoryStream> pHashStream;
-  std::string DebugNameStr; // Used if constructing name based on hash
+  // Compute hash if needed.
   DxilShaderHash HashContent;
-  if (pShaderHashOut || Flags & SerializeDxilFlags::IncludeDebugNamePart) {
+  SmallString<32> HashStr;
+  if (bSupportsShaderHash || pShaderHashOut ||
+      (Flags & SerializeDxilFlags::IncludeDebugNamePart &&
+        DebugName.empty()))
+  {
     // If the debug name should be specific to the sources, base the name on the debug
     // bitcode, which will include the source references, line numbers, etc. Otherwise,
     // do it exclusively on the target shader bitcode.
+    llvm::MD5 md5;
     if (Flags & SerializeDxilFlags::DebugNameDependOnSource) {
-      pHashStream = CComPtr<AbstractMemoryStream>(pModuleBitcode);
+      md5.update(ArrayRef<uint8_t>(pModuleBitcode->GetPtr(), pModuleBitcode->GetPtrSize()));
       HashContent.Flags = (uint32_t)DxilShaderHashFlags::IncludesSource;
     } else {
-      pHashStream = CComPtr<AbstractMemoryStream>(pProgramStream);
+      md5.update(ArrayRef<uint8_t>(pProgramStream->GetPtr(), pProgramStream->GetPtrSize()));
       HashContent.Flags = (uint32_t)DxilShaderHashFlags::None;
     }
-
-    ArrayRef<uint8_t> Data((uint8_t *)pHashStream->GetPtr(),
-                           pHashStream->GetPtrSize());
-    llvm::MD5 md5;
-    SmallString<32> Hash;
-    md5.update(Data);
     md5.final(HashContent.Digest);
+    md5.stringifyResult(HashContent.Digest, HashStr);
+  }
 
-    if (Flags & SerializeDxilFlags::IncludeDebugNamePart) {
-      if (DebugName.empty()) {
-        md5.stringifyResult(HashContent.Digest, Hash);
-        DebugNameStr += Hash;
-        DebugNameStr += ".pdb";
-        DebugName = DebugNameStr;
-      }
-
-      DebugName = DebugName.trim("\"");
-
-      // Calculate the size of the blob part.
-      const uint32_t DebugInfoContentLen = PSVALIGN4(
-          sizeof(DxilShaderDebugName) + DebugName.size() + 1); // 1 for null
-
-      writer.AddPart(DFCC_ShaderDebugName, DebugInfoContentLen,
-        [DebugName]
-        (AbstractMemoryStream *pStream)
-      {
-        DxilShaderDebugName NameContent;
-        NameContent.Flags = 0;
-        NameContent.NameLength = DebugName.size();
-        IFT(WriteStreamValue(pStream, NameContent));
-
-        ULONG cbWritten;
-        IFT(pStream->Write(DebugName.begin(), DebugName.size(), &cbWritten));
-        const char Pad[] = { '\0','\0','\0','\0' };
-        // Always writes at least one null to align size
-        unsigned padLen = (4 - ((sizeof(DxilShaderDebugName) + cbWritten) & 0x3));
-        IFT(pStream->Write(Pad, padLen, &cbWritten));
-      });
+  // Serialize debug name if requested.
+  std::string DebugNameStr; // Used if constructing name based on hash
+  if (Flags & SerializeDxilFlags::IncludeDebugNamePart) {
+    if (DebugName.empty()) {
+      DebugNameStr += HashStr;
+      DebugNameStr += ".pdb";
+      DebugName = DebugNameStr;
     }
 
-    if (bSupportsShaderHash) {
-      writer.AddPart(DFCC_ShaderHash, sizeof(HashContent),
-        [HashContent]
-        (AbstractMemoryStream *pStream)
-      {
-        IFT(WriteStreamValue(pStream, HashContent));
-      });
-    }
+    // Calculate the size of the blob part.
+    const uint32_t DebugInfoContentLen = PSVALIGN4(
+        sizeof(DxilShaderDebugName) + DebugName.size() + 1); // 1 for null
 
-    if (pShaderHashOut) {
-      memcpy(pShaderHashOut, &HashContent, sizeof(DxilShaderHash));
-    }
+    writer.AddPart(DFCC_ShaderDebugName, DebugInfoContentLen,
+      [DebugName]
+      (AbstractMemoryStream *pStream)
+    {
+      DxilShaderDebugName NameContent;
+      NameContent.Flags = 0;
+      NameContent.NameLength = DebugName.size();
+      IFT(WriteStreamValue(pStream, NameContent));
+
+      ULONG cbWritten;
+      IFT(pStream->Write(DebugName.begin(), DebugName.size(), &cbWritten));
+      const char Pad[] = { '\0','\0','\0','\0' };
+      // Always writes at least one null to align size
+      unsigned padLen = (4 - ((sizeof(DxilShaderDebugName) + cbWritten) & 0x3));
+      IFT(pStream->Write(Pad, padLen, &cbWritten));
+    });
+  }
+
+  // Add hash to container if supported by validator version.
+  if (bSupportsShaderHash) {
+    writer.AddPart(DFCC_ShaderHash, sizeof(HashContent),
+      [HashContent]
+      (AbstractMemoryStream *pStream)
+    {
+      IFT(WriteStreamValue(pStream, HashContent));
+    });
+  }
+
+  // Write hash to separate output if requested.
+  if (pShaderHashOut) {
+    memcpy(pShaderHashOut, &HashContent, sizeof(DxilShaderHash));
   }
 
   // Compute padded bitcode size.

@@ -12,7 +12,7 @@
 #ifdef _WIN32
 #include "WexTestClass.h"
 #endif
-#include "HlslTestUtils.h"
+#include "dxc/Test/HlslTestUtils.h"
 
 #include "dxc/HLSL/DxilSpanAllocator.h"
 #include <cstdlib>

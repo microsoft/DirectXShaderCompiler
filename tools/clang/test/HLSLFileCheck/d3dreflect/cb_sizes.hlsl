@@ -1,4 +1,4 @@
-// RUN: %dxilver 1.5 | %dxc -E main -T vs_6_0 %s | %D3DReflect %s | FileCheck %s
+// RUN: %dxc -E main -T vs_6_0 -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
 
 // Verify CB variable sizes align with expectations.
 // This also tests some matrix, struct, and array cases that may
@@ -22,7 +22,7 @@
 // CHECK-NEXT:          D3D12_SHADER_VARIABLE_DESC: Name: B
 // CHECK-NEXT:            Size: 16
 // CHECK-NEXT:            StartOffset: 16
-// CHECK-NEXT:            uFlags: 0x2
+// CHECK-NEXT:            uFlags: (D3D_SVF_USED)
 
 // CHECK:        ID3D12ShaderReflectionVariable:
 // CHECK-NEXT:          D3D12_SHADER_VARIABLE_DESC: Name: D

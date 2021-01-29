@@ -109,8 +109,10 @@ enum class DxilRootSignatureFlags : uint32_t {
   LocalRootSignature = 0x80,
   DenyAmplificationShaderRootAccess = 0x100,
   DenyMeshShaderRootAccess = 0x200,
+  CBVSRVUAVHeapDirectlyIndexed = 0x400,
+  SamplerHeapDirectlyIndexed = 0x800,
   AllowLowTierReservedHwCbLimit = 0x80000000,
-  ValidFlags = 0x800003ff
+  ValidFlags = 0x80000fff
 };
 enum class DxilRootParameterType {
   DescriptorTable = 0,
@@ -240,7 +242,7 @@ struct DxilDescriptorRange {
 };
 struct DxilRootDescriptorTable {
   uint32_t NumDescriptorRanges;
-  _Field_size_full_(NumDescriptorRanges)  const DxilDescriptorRange *pDescriptorRanges;
+  _Field_size_full_(NumDescriptorRanges)  DxilDescriptorRange *pDescriptorRanges;
 };
 struct DxilRootConstants {
   uint32_t ShaderRegister;
@@ -275,7 +277,7 @@ struct DxilDescriptorRange1 {
 };
 struct DxilRootDescriptorTable1 {
   uint32_t NumDescriptorRanges;
-  _Field_size_full_(NumDescriptorRanges)  const DxilDescriptorRange1 *pDescriptorRanges;
+  _Field_size_full_(NumDescriptorRanges)  DxilDescriptorRange1 *pDescriptorRanges;
 };
 struct DxilRootParameter1 {
   DxilRootParameterType ParameterType;

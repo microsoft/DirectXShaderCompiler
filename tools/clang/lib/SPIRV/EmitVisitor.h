@@ -8,6 +8,7 @@
 #ifndef LLVM_CLANG_SPIRV_EMITVISITOR_H
 #define LLVM_CLANG_SPIRV_EMITVISITOR_H
 
+#include "clang/SPIRV/FeatureManager.h"
 #include "clang/SPIRV/SpirvContext.h"
 #include "clang/SPIRV/SpirvVisitor.h"
 #include "llvm/ADT/DenseMap.h"
@@ -45,15 +46,18 @@ public:
 
 public:
   EmitTypeHandler(ASTContext &astCtx, SpirvContext &spvContext,
+                  const SpirvCodeGenOptions &opts,
                   std::vector<uint32_t> *debugVec,
                   std::vector<uint32_t> *decVec,
                   std::vector<uint32_t> *typesVec,
                   const std::function<uint32_t()> &takeNextIdFn)
-      : astContext(astCtx), context(spvContext), debugVariableBinary(debugVec),
-        annotationsBinary(decVec), typeConstantBinary(typesVec),
-        takeNextIdFunction(takeNextIdFn), emittedConstantInts({}),
-        emittedConstantFloats({}), emittedConstantComposites({}),
-        emittedConstantNulls({}), emittedConstantBools() {
+      : astContext(astCtx), context(spvContext),
+        featureManager(astCtx.getDiagnostics(), opts),
+        debugVariableBinary(debugVec), annotationsBinary(decVec),
+        typeConstantBinary(typesVec), takeNextIdFunction(takeNextIdFn),
+        emittedConstantInts({}), emittedConstantFloats({}),
+        emittedConstantComposites({}), emittedConstantNulls({}),
+        emittedConstantBools() {
     assert(decVec);
     assert(typesVec);
   }
@@ -143,6 +147,7 @@ private:
 private:
   ASTContext &astContext;
   SpirvContext &context;
+  FeatureManager featureManager;
   std::vector<uint32_t> curTypeInst;
   std::vector<uint32_t> curDecorationInst;
   std::vector<uint32_t> *debugVariableBinary;
@@ -189,72 +194,101 @@ public:
   EmitVisitor(ASTContext &astCtx, SpirvContext &spvCtx,
               const SpirvCodeGenOptions &opts)
       : Visitor(opts, spvCtx), astContext(astCtx), id(0),
-        typeHandler(astCtx, spvCtx, &debugVariableBinary, &annotationsBinary,
-                    &typeConstantBinary,
+        typeHandler(astCtx, spvCtx, opts, &debugVariableBinary,
+                    &annotationsBinary, &typeConstantBinary,
                     [this]() -> uint32_t { return takeNextId(); }),
         debugMainFileId(0), debugLine(0), debugColumn(0),
-        lastOpWasMergeInst(false) {}
+        lastOpWasMergeInst(false), inEntryFunctionWrapper(false),
+        hlslVersion(0) {}
+
+  ~EmitVisitor();
 
   // Visit different SPIR-V constructs for emitting.
-  bool visit(SpirvModule *, Phase phase);
-  bool visit(SpirvFunction *, Phase phase);
-  bool visit(SpirvBasicBlock *, Phase phase);
+  bool visit(SpirvModule *, Phase phase) override;
+  bool visit(SpirvFunction *, Phase phase) override;
+  bool visit(SpirvBasicBlock *, Phase phase) override;
 
-  bool visit(SpirvCapability *);
-  bool visit(SpirvExtension *);
-  bool visit(SpirvExtInstImport *);
-  bool visit(SpirvMemoryModel *);
-  bool visit(SpirvEmitVertex *);
-  bool visit(SpirvEndPrimitive *);
-  bool visit(SpirvEntryPoint *);
-  bool visit(SpirvExecutionMode *);
-  bool visit(SpirvString *);
-  bool visit(SpirvSource *);
-  bool visit(SpirvModuleProcessed *);
-  bool visit(SpirvDecoration *);
-  bool visit(SpirvVariable *);
-  bool visit(SpirvFunctionParameter *);
-  bool visit(SpirvLoopMerge *);
-  bool visit(SpirvSelectionMerge *);
-  bool visit(SpirvBranch *);
-  bool visit(SpirvBranchConditional *);
-  bool visit(SpirvKill *);
-  bool visit(SpirvReturn *);
-  bool visit(SpirvSwitch *);
-  bool visit(SpirvUnreachable *);
-  bool visit(SpirvAccessChain *);
-  bool visit(SpirvAtomic *);
-  bool visit(SpirvBarrier *);
-  bool visit(SpirvBinaryOp *);
-  bool visit(SpirvBitFieldExtract *);
-  bool visit(SpirvBitFieldInsert *);
-  bool visit(SpirvConstantBoolean *);
-  bool visit(SpirvConstantInteger *);
-  bool visit(SpirvConstantFloat *);
-  bool visit(SpirvConstantComposite *);
-  bool visit(SpirvConstantNull *);
-  bool visit(SpirvCompositeConstruct *);
-  bool visit(SpirvCompositeExtract *);
-  bool visit(SpirvCompositeInsert *);
-  bool visit(SpirvExtInst *);
-  bool visit(SpirvFunctionCall *);
-  bool visit(SpirvNonUniformBinaryOp *);
-  bool visit(SpirvNonUniformElect *);
-  bool visit(SpirvNonUniformUnaryOp *);
-  bool visit(SpirvImageOp *);
-  bool visit(SpirvImageQuery *);
-  bool visit(SpirvImageSparseTexelsResident *);
-  bool visit(SpirvImageTexelPointer *);
-  bool visit(SpirvLoad *);
-  bool visit(SpirvSampledImage *);
-  bool visit(SpirvSelect *);
-  bool visit(SpirvSpecConstantBinaryOp *);
-  bool visit(SpirvSpecConstantUnaryOp *);
-  bool visit(SpirvStore *);
-  bool visit(SpirvUnaryOp *);
-  bool visit(SpirvVectorShuffle *);
-  bool visit(SpirvArrayLength *);
-  bool visit(SpirvRayTracingOpNV *);
+  bool visit(SpirvCapability *) override;
+  bool visit(SpirvExtension *) override;
+  bool visit(SpirvExtInstImport *) override;
+  bool visit(SpirvMemoryModel *) override;
+  bool visit(SpirvEmitVertex *) override;
+  bool visit(SpirvEndPrimitive *) override;
+  bool visit(SpirvEntryPoint *) override;
+  bool visit(SpirvExecutionMode *) override;
+  bool visit(SpirvString *) override;
+  bool visit(SpirvSource *) override;
+  bool visit(SpirvModuleProcessed *) override;
+  bool visit(SpirvDecoration *) override;
+  bool visit(SpirvVariable *) override;
+  bool visit(SpirvFunctionParameter *) override;
+  bool visit(SpirvLoopMerge *) override;
+  bool visit(SpirvSelectionMerge *) override;
+  bool visit(SpirvBranch *) override;
+  bool visit(SpirvBranchConditional *) override;
+  bool visit(SpirvKill *) override;
+  bool visit(SpirvReturn *) override;
+  bool visit(SpirvSwitch *) override;
+  bool visit(SpirvUnreachable *) override;
+  bool visit(SpirvAccessChain *) override;
+  bool visit(SpirvAtomic *) override;
+  bool visit(SpirvBarrier *) override;
+  bool visit(SpirvBinaryOp *) override;
+  bool visit(SpirvBitFieldExtract *) override;
+  bool visit(SpirvBitFieldInsert *) override;
+  bool visit(SpirvConstantBoolean *) override;
+  bool visit(SpirvConstantInteger *) override;
+  bool visit(SpirvConstantFloat *) override;
+  bool visit(SpirvConstantComposite *) override;
+  bool visit(SpirvConstantNull *) override;
+  bool visit(SpirvCompositeConstruct *) override;
+  bool visit(SpirvCompositeExtract *) override;
+  bool visit(SpirvCompositeInsert *) override;
+  bool visit(SpirvExtInst *) override;
+  bool visit(SpirvFunctionCall *) override;
+  bool visit(SpirvNonUniformBinaryOp *) override;
+  bool visit(SpirvNonUniformElect *) override;
+  bool visit(SpirvNonUniformUnaryOp *) override;
+  bool visit(SpirvImageOp *) override;
+  bool visit(SpirvImageQuery *) override;
+  bool visit(SpirvImageSparseTexelsResident *) override;
+  bool visit(SpirvImageTexelPointer *) override;
+  bool visit(SpirvLoad *) override;
+  bool visit(SpirvCopyObject *) override;
+  bool visit(SpirvSampledImage *) override;
+  bool visit(SpirvSelect *) override;
+  bool visit(SpirvSpecConstantBinaryOp *) override;
+  bool visit(SpirvSpecConstantUnaryOp *) override;
+  bool visit(SpirvStore *) override;
+  bool visit(SpirvUnaryOp *) override;
+  bool visit(SpirvVectorShuffle *) override;
+  bool visit(SpirvArrayLength *) override;
+  bool visit(SpirvRayTracingOpNV *) override;
+  bool visit(SpirvDemoteToHelperInvocationEXT *) override;
+  bool visit(SpirvRayQueryOpKHR *) override;
+  bool visit(SpirvReadClock *) override;
+  bool visit(SpirvRayTracingTerminateOpKHR *) override;
+  bool visit(SpirvDebugInfoNone *) override;
+  bool visit(SpirvDebugSource *) override;
+  bool visit(SpirvDebugCompilationUnit *) override;
+  bool visit(SpirvDebugLexicalBlock *) override;
+  bool visit(SpirvDebugScope *) override;
+  bool visit(SpirvDebugFunctionDeclaration *) override;
+  bool visit(SpirvDebugFunction *) override;
+  bool visit(SpirvDebugLocalVariable *) override;
+  bool visit(SpirvDebugDeclare *) override;
+  bool visit(SpirvDebugGlobalVariable *) override;
+  bool visit(SpirvDebugExpression *) override;
+  bool visit(SpirvDebugTypeBasic *) override;
+  bool visit(SpirvDebugTypeVector *) override;
+  bool visit(SpirvDebugTypeArray *) override;
+  bool visit(SpirvDebugTypeFunction *) override;
+  bool visit(SpirvDebugTypeComposite *) override;
+  bool visit(SpirvDebugTypeMember *) override;
+  bool visit(SpirvDebugTypeTemplate *) override;
+  bool visit(SpirvDebugTypeTemplateParameter *) override;
+
+  using Visitor::visit;
 
   // Returns the assembled binary built up in this visitor.
   std::vector<uint32_t> takeBinary();
@@ -274,7 +308,14 @@ private:
     return obj->getResultId();
   }
 
-  void emitDebugLine(spv::Op op, const SourceLocation &loc);
+  /// If we already created OpString for str, just return the id of the created
+  /// one. Otherwise, create it, keep it in stringIdMap, and return its id.
+  uint32_t getOrCreateOpStringId(llvm::StringRef str);
+
+  // Emits an OpLine instruction for the given operation into the given binary
+  // section.
+  void emitDebugLine(spv::Op op, const SourceLocation &loc,
+                     std::vector<uint32_t> *section, bool isDebugScope = false);
 
   // Initiates the creation of a new instruction with the given Opcode.
   void initInstruction(spv::Op, const SourceLocation &);
@@ -285,8 +326,9 @@ private:
   void initInstruction(SpirvInstruction *);
 
   // Finalizes the current instruction by encoding the instruction size into the
-  // first word, and then appends the current instruction to the SPIR-V binary.
-  void finalizeInstruction();
+  // first word, and then appends the current instruction to the given SPIR-V
+  // binary section.
+  void finalizeInstruction(std::vector<uint32_t> *section);
 
   // Encodes the given string into the current instruction that is being built.
   void encodeString(llvm::StringRef value);
@@ -331,10 +373,15 @@ private:
   std::vector<uint32_t> annotationsBinary;
   // All type and constant instructions
   std::vector<uint32_t> typeConstantBinary;
+  // All global variable declarations (all OpVariable instructions whose Storage
+  // Class is not Function)
+  std::vector<uint32_t> globalVarsBinary;
+  // All Rich Debug Info instructions
+  std::vector<uint32_t> richDebugInfo;
   // All other instructions
   std::vector<uint32_t> mainBinary;
-  // File information for debugging that will be used by OpLine.
-  llvm::StringMap<uint32_t> debugFileIdMap;
+  // String literals to SpirvString objects
+  llvm::StringMap<uint32_t> stringIdMap;
   // Main file information for debugging that will be used by OpLine.
   uint32_t debugMainFileId;
   // One HLSL source line may result in several SPIR-V instructions. In order to
@@ -347,6 +394,14 @@ private:
   uint32_t debugColumn;
   // True if the last emitted instruction was OpSelectionMerge or OpLoopMerge.
   bool lastOpWasMergeInst;
+  // True if currently it enters an entry function wrapper.
+  bool inEntryFunctionWrapper;
+  // Set of files that we already dumped their source code in OpSource.
+  llvm::DenseSet<uint32_t> dumpedFiles;
+  uint32_t hlslVersion;
+  // Vector to contain SpirvInstruction objects created by this class. The
+  // destructor of this class will release them.
+  std::vector<SpirvInstruction *> spvInstructions;
 };
 
 } // namespace spirv

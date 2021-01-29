@@ -12,15 +12,18 @@
 #pragma once
 
 #include <functional>
+#include <llvm/ADT/SmallVector.h> // HLSL Change
 
 namespace llvm {
 class Function;
-template <typename T, unsigned N> class SmallVector;
 class Value;
 class Constant;
 class TerminatorInst;
 class GlobalVariable;
 class Type;
+class BasicBlock;
+class BranchInst;
+class SwitchInst;
 template <typename T> class ArrayRef;
 }
 
@@ -49,6 +52,7 @@ class LValue;
 class CGHLSLRuntime {
 protected:
   CodeGenModule &CGM;
+  llvm::SmallVector<llvm::BranchInst*, 16> m_DxBreaks;
 
 public:
   CGHLSLRuntime(CodeGenModule &CGM) : CGM(CGM) {}
@@ -72,12 +76,17 @@ public:
       CodeGenFunction &CGF, const FunctionDecl *FD, const CallExpr *E,
       llvm::SmallVector<LValue, 8> &castArgList,
       llvm::SmallVector<const Stmt *, 8> &argList,
+      llvm::SmallVector<LValue, 8> &lifetimeCleanupList,
       const std::function<void(const VarDecl *, llvm::Value *)> &TmpArgMap) = 0;
   virtual void EmitHLSLOutParamConversionCopyBack(
-      CodeGenFunction &CGF, llvm::SmallVector<LValue, 8> &castArgList) = 0;
+      CodeGenFunction &CGF, llvm::SmallVector<LValue, 8> &castArgList,
+      llvm::SmallVector<LValue, 8> &lifetimeCleanupList) = 0;
+  virtual void MarkRetTemp(CodeGenFunction &CGF, llvm::Value *V,
+                          clang::QualType QaulTy) = 0;
   virtual llvm::Value *EmitHLSLMatrixOperationCall(CodeGenFunction &CGF, const clang::Expr *E, llvm::Type *RetType,
       llvm::ArrayRef<llvm::Value*> paramList) = 0;
   virtual void EmitHLSLDiscard(CodeGenFunction &CGF) = 0;
+  virtual llvm::BranchInst *EmitHLSLCondBreak(CodeGenFunction &CGF, llvm::Function *F, llvm::BasicBlock *DestBB, llvm::BasicBlock *AltBB) = 0;
 
   // For [] on matrix
   virtual llvm::Value *EmitHLSLMatrixSubscript(CodeGenFunction &CGF,
@@ -121,7 +130,19 @@ public:
   
   virtual void AddControlFlowHint(CodeGenFunction &CGF, const Stmt &S, llvm::TerminatorInst *TI, llvm::ArrayRef<const Attr *> Attrs) = 0;
 
-  virtual void FinishAutoVar(CodeGenFunction &CGF, const VarDecl &D, llvm::Value *V) = 0;
+  virtual void FinishAutoVar(CodeGenFunction &CGF, const VarDecl &D,
+                             llvm::Value *V) = 0;
+  virtual void MarkIfStmt(CodeGenFunction &CGF, llvm::BasicBlock *endIfBB) = 0;
+  virtual void MarkSwitchStmt(CodeGenFunction &CGF,
+                              llvm::SwitchInst *switchInst,
+                              llvm::BasicBlock *endSwitch) = 0;
+  virtual void MarkReturnStmt(CodeGenFunction &CGF,
+                              llvm::BasicBlock *bbWithRet) = 0;
+  virtual void MarkLoopStmt(CodeGenFunction &CGF,
+                             llvm::BasicBlock *loopContinue,
+                             llvm::BasicBlock *loopExit) = 0;
+
+  virtual void MarkScopeEnd(CodeGenFunction &CGF) = 0;
 };
 
 /// Create an instance of a HLSL runtime class.

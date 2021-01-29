@@ -1,7 +1,7 @@
 // RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
 // CHECK: textureGather
-// CHECK: i32 undef, i32 undef, i32 0)
+// CHECK: i32 0, i32 0, i32 0)
 
 // CHECK: textureGather
 // CHECK: i32 -5, i32 7, i32 1)

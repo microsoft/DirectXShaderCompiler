@@ -22,11 +22,11 @@
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/dxcapi.h"
 
-#include "HLSLTestData.h"
+#include "dxc/Test/HLSLTestData.h"
 #ifdef _WIN32
 #include "WexTestClass.h"
 #endif
-#include "HlslTestUtils.h"
+#include "dxc/Test/HlslTestUtils.h"
 
 #include "llvm/Support/raw_os_ostream.h"
 #include "llvm/ADT/STLExtras.h"
@@ -78,6 +78,8 @@ public:
   TEST_METHOD(CopyOptionsWhenSingleThenOK)
   //TEST_METHOD(CopyOptionsWhenMultipleThenOK)
 
+  TEST_METHOD(ReadOptionsJoinedWithSpacesThenOK)
+
   std::unique_ptr<DxcOpts> ReadOptsTest(const MainArgs &mainArgs,
                                         unsigned flagsToInclude,
                                         bool shouldFail = false,
@@ -115,14 +117,14 @@ TEST_F(OptionsTest, ReadOptionsWhenExtensionsThenOK) {
     L"exe.exe",   L"/E",        L"main",    L"/T",           L"ps_6_0",
     L"hlsl.hlsl", L"-external", L"foo.dll" };
   MainArgsArr ArgsArr(Args);
-  std::unique_ptr<DxcOpts> o = ReadOptsTest(ArgsArr, DxrFlags);
+  std::unique_ptr<DxcOpts> o = ReadOptsTest(ArgsArr, DxcFlags);
   VERIFY_ARE_EQUAL_STR("CreateObj", o->ExternalFn.data());
   VERIFY_ARE_EQUAL_STR("foo.dll", o->ExternalLib.data());
 
   MainArgsArr ArgsNoLibArr(ArgsNoLib);
-  ReadOptsTest(ArgsNoLibArr, DxrFlags, true, true);
+  ReadOptsTest(ArgsNoLibArr, DxcFlags, true, true);
   MainArgsArr ArgsNoFnArr(ArgsNoFn);
-  ReadOptsTest(ArgsNoFnArr, DxrFlags, true, true);
+  ReadOptsTest(ArgsNoFnArr, DxcFlags, true, true);
 }
 
 TEST_F(OptionsTest, ReadOptionsForOutputObject) {
@@ -130,7 +132,7 @@ TEST_F(OptionsTest, ReadOptionsForOutputObject) {
       L"exe.exe",   L"/E",        L"main",    L"/T",           L"ps_6_0",
       L"hlsl.hlsl", L"-Fo", L"hlsl.dxbc"};
   MainArgsArr ArgsArr(Args);
-  std::unique_ptr<DxcOpts> o = ReadOptsTest(ArgsArr, DxrFlags);
+  std::unique_ptr<DxcOpts> o = ReadOptsTest(ArgsArr, DxcFlags);
   VERIFY_ARE_EQUAL_STR("hlsl.dxbc", o->OutputObject.data());  
 }
 
@@ -140,33 +142,33 @@ TEST_F(OptionsTest, ReadOptionsConflict) {
       L"-Zpr", L"-Zpc",
       L"hlsl.hlsl"};
   MainArgsArr ArgsArr(matrixArgs);
-  ReadOptsTest(ArgsArr, DxrFlags, "Cannot specify /Zpr and /Zpc together, use /? to get usage information");
+  ReadOptsTest(ArgsArr, DxcFlags, "Cannot specify /Zpr and /Zpc together, use /? to get usage information");
 
   const wchar_t *controlFlowArgs[] = {
       L"exe.exe",   L"/E",        L"main",    L"/T",           L"ps_6_0",
       L"-Gfa", L"-Gfp",
       L"hlsl.hlsl"};
   MainArgsArr controlFlowArr(controlFlowArgs);
-  ReadOptsTest(controlFlowArr, DxrFlags, "Cannot specify /Gfa and /Gfp together, use /? to get usage information");
+  ReadOptsTest(controlFlowArr, DxcFlags, "Cannot specify /Gfa and /Gfp together, use /? to get usage information");
 
   const wchar_t *libArgs[] = {
       L"exe.exe",   L"/E",        L"main",    L"/T",           L"lib_6_1",
       L"hlsl.hlsl"};
   MainArgsArr libArr(libArgs);
-  ReadOptsTest(libArr, DxrFlags, "cannot specify entry point for a library");
+  ReadOptsTest(libArr, DxcFlags, "Must disable validation for unsupported lib_6_1 or lib_6_2 targets.");
 }
 
 TEST_F(OptionsTest, ReadOptionsWhenHelpThenShortcut) {
   const wchar_t *Args[] = { L"exe.exe", L"--help", L"--unknown-flag" };
   MainArgsArr ArgsArr(Args);
-  std::unique_ptr<DxcOpts> o = ReadOptsTest(ArgsArr, DxrFlags);
+  std::unique_ptr<DxcOpts> o = ReadOptsTest(ArgsArr, DxcFlags);
   EXPECT_EQ(true, o->ShowHelp);
 }
 
 TEST_F(OptionsTest, ReadOptionsWhenValidThenOK) {
   const wchar_t *Args[] = { L"exe.exe", L"/E", L"main", L"/T", L"ps_6_0", L"hlsl.hlsl" };
   MainArgsArr ArgsArr(Args);
-  std::unique_ptr<DxcOpts> o = ReadOptsTest(ArgsArr, DxrFlags);
+  std::unique_ptr<DxcOpts> o = ReadOptsTest(ArgsArr, DxcFlags);
   VERIFY_ARE_EQUAL_STR("main", o->EntryPoint.data());
   VERIFY_ARE_EQUAL_STR("ps_6_0", o->TargetProfile.data());
   VERIFY_ARE_EQUAL_STR("hlsl.hlsl", o->InputFile.data());
@@ -175,7 +177,7 @@ TEST_F(OptionsTest, ReadOptionsWhenValidThenOK) {
 TEST_F(OptionsTest, ReadOptionsWhenJoinedThenOK) {
   const wchar_t *Args[] = { L"exe.exe", L"/Emain", L"/Tps_6_0", L"hlsl.hlsl" };
   MainArgsArr ArgsArr(Args);
-  std::unique_ptr<DxcOpts> o = ReadOptsTest(ArgsArr, DxrFlags);
+  std::unique_ptr<DxcOpts> o = ReadOptsTest(ArgsArr, DxcFlags);
   VERIFY_ARE_EQUAL_STR("main", o->EntryPoint.data());
   VERIFY_ARE_EQUAL_STR("ps_6_0", o->TargetProfile.data());
   VERIFY_ARE_EQUAL_STR("hlsl.hlsl", o->InputFile.data());
@@ -186,7 +188,7 @@ TEST_F(OptionsTest, ReadOptionsWhenNoEntryThenOK) {
   // set to 'main' on behalf of callers either.
   const wchar_t *Args[] = { L"exe.exe", L"/T", L"ps_6_0", L"hlsl.hlsl" };
   MainArgsArr ArgsArr(Args);
-  std::unique_ptr<DxcOpts> o = ReadOptsTest(ArgsArr, DxrFlags);
+  std::unique_ptr<DxcOpts> o = ReadOptsTest(ArgsArr, DxcFlags);
   VERIFY_IS_TRUE(o->EntryPoint.empty());
 }
 
@@ -202,11 +204,11 @@ TEST_F(OptionsTest, ReadOptionsWhenInvalidThenFail) {
   MainArgsArr ArgsNoTargetArr(ArgsNoTarget),
       ArgsNoInputArr(ArgsNoInput), ArgsNoArgArr(ArgsNoArg),
     ArgsUnknownArr(ArgsUnknown), ArgsUnknownButIgnoreArr(ArgsUnknownButIgnore);
-  ReadOptsTest(ArgsNoTargetArr, DxrFlags, true, true);
-  ReadOptsTest(ArgsNoInputArr, DxrFlags, true, true);
-  ReadOptsTest(ArgsNoArgArr, DxrFlags, true, true);
-  ReadOptsTest(ArgsUnknownArr, DxrFlags, true, true);
-  ReadOptsTest(ArgsUnknownButIgnoreArr, DxrFlags);
+  ReadOptsTest(ArgsNoTargetArr, DxcFlags, true, true);
+  ReadOptsTest(ArgsNoInputArr, DxcFlags, true, true);
+  ReadOptsTest(ArgsNoArgArr, DxcFlags, true, true);
+  ReadOptsTest(ArgsUnknownArr, DxcFlags, true, true);
+  ReadOptsTest(ArgsUnknownButIgnoreArr, DxcFlags);
 }
 
 TEST_F(OptionsTest, ReadOptionsWhenDefinesThenInit) {
@@ -219,22 +221,22 @@ TEST_F(OptionsTest, ReadOptionsWhenDefinesThenInit) {
       ArgsTwoDefinesArr(ArgsTwoDefines), ArgsEmptyDefineArr(ArgsEmptyDefine);
 
   std::unique_ptr<DxcOpts> o;
-  o = ReadOptsTest(ArgsNoDefinesArr, DxrFlags);
+  o = ReadOptsTest(ArgsNoDefinesArr, DxcFlags);
   EXPECT_EQ(0U, o->Defines.size());
   
-  o = ReadOptsTest(ArgsOneDefineArr, DxrFlags);
+  o = ReadOptsTest(ArgsOneDefineArr, DxcFlags);
   EXPECT_EQ(1U, o->Defines.size());
   EXPECT_STREQW(L"NAME1", o->Defines.data()[0].Name);
   EXPECT_STREQW(L"1", o->Defines.data()[0].Value);
 
-  o = ReadOptsTest(ArgsTwoDefinesArr, DxrFlags);
+  o = ReadOptsTest(ArgsTwoDefinesArr, DxcFlags);
   EXPECT_EQ(2U, o->Defines.size());
   EXPECT_STREQW(L"NAME1", o->Defines.data()[0].Name);
   EXPECT_STREQW(L"1", o->Defines.data()[0].Value);
   EXPECT_STREQW(L"NAME2", o->Defines.data()[1].Name);
   EXPECT_STREQW(L"2", o->Defines.data()[1].Value);
 
-  o = ReadOptsTest(ArgsEmptyDefineArr, DxrFlags);
+  o = ReadOptsTest(ArgsEmptyDefineArr, DxcFlags);
   EXPECT_EQ(1U, o->Defines.size());
   EXPECT_STREQW(L"NAME1", o->Defines.data()[0].Name);
   EXPECT_EQ(nullptr, o->Defines.data()[0].Value);
@@ -305,4 +307,45 @@ TEST_F(OptionsTest, CopyOptionsWhenSingleThenOK) {
   VERIFY_ARE_NOT_EQUAL(outArgs.end(), std::find(outArgs.begin(), outArgs.end(), std::wstring(L"/E")));
   VERIFY_ARE_NOT_EQUAL(outArgs.end(), std::find(outArgs.begin(), outArgs.end(), std::wstring(L"main")));
   VERIFY_ARE_EQUAL    (outArgs.end(), std::find(outArgs.begin(), outArgs.end(), std::wstring(L"hlsl.hlsl")));
+}
+
+TEST_F(OptionsTest, ReadOptionsJoinedWithSpacesThenOK) {
+  {
+    // Ensure parsing arguments in joined form with embedded spaces
+    // between the option and the argument works, for these argument types:
+    // - JoinedOrSeparateClass (-E, -T)
+    // - SeparateClass (-external, -external-fn)
+    const wchar_t *Args[] = {
+      L"exe.exe",   L"-E main",    L"/T  ps_6_0",
+      L"hlsl.hlsl", L"-external foo.dll", L"-external-fn  CreateObj"};
+    MainArgsArr ArgsArr(Args);
+    std::unique_ptr<DxcOpts> o = ReadOptsTest(ArgsArr, DxcFlags);
+    VERIFY_ARE_EQUAL_STR("main", o->EntryPoint.data());
+    VERIFY_ARE_EQUAL_STR("ps_6_0", o->TargetProfile.data());
+    VERIFY_ARE_EQUAL_STR("CreateObj", o->ExternalFn.data());
+    VERIFY_ARE_EQUAL_STR("foo.dll", o->ExternalLib.data());
+  }
+
+  {
+    // Ignore trailing spaces in option name for JoinedOrSeparateClass
+    // Otherwise error messages are not easy for user to interpret
+    const wchar_t *Args[] = {
+      L"exe.exe",   L"-E ", L"main",    L"/T  ", L"ps_6_0",
+      L"hlsl.hlsl"};
+    MainArgsArr ArgsArr(Args);
+    std::unique_ptr<DxcOpts> o = ReadOptsTest(ArgsArr, DxcFlags);
+    VERIFY_ARE_EQUAL_STR("main", o->EntryPoint.data());
+    VERIFY_ARE_EQUAL_STR("ps_6_0", o->TargetProfile.data());
+  }
+  {
+    // Ignore trailing spaces in option name for SeparateClass
+    // Otherwise error messages are not easy for user to interpret
+    const wchar_t *Args[] = {
+      L"exe.exe",   L"-E", L"main",    L"/T", L"ps_6_0",
+      L"hlsl.hlsl", L"-external ", L"foo.dll", L"-external-fn  ", L"CreateObj"};
+    MainArgsArr ArgsArr(Args);
+    std::unique_ptr<DxcOpts> o = ReadOptsTest(ArgsArr, DxcFlags);
+    VERIFY_ARE_EQUAL_STR("CreateObj", o->ExternalFn.data());
+    VERIFY_ARE_EQUAL_STR("foo.dll", o->ExternalLib.data());
+  }
 }

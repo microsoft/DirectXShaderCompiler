@@ -37,6 +37,7 @@
 #include <comdef.h>
 #include <thread>
 #include <unordered_map>
+#include <ios>
 
 #include "llvm/Support//MSFileSystem.h"
 #include "llvm/Support/CommandLine.h"
@@ -170,8 +171,8 @@ static int Compile(llvm::StringRef command, DxcDllSupport &dxcSupport,
   return retVal;
 }
 
-static void WriteBlobToFile(_In_opt_ IDxcBlob *pBlob, llvm::StringRef FName) {
-  ::dxc::WriteBlobToFile(pBlob, StringRefUtf16(FName));
+static void WriteBlobToFile(_In_opt_ IDxcBlob *pBlob, llvm::StringRef FName, UINT32 defaultTextCodePage) {
+  ::dxc::WriteBlobToFile(pBlob, StringRefUtf16(FName), defaultTextCodePage);
 }
 
 static void WritePartToFile(IDxcBlob *pBlob, hlsl::DxilFourCC CC,
@@ -224,7 +225,7 @@ int DxcContext::ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob,
     if (!m_Opts.ExtractRootSignature) {
       CComPtr<IDxcBlob> pResult;
       UpdatePart(pBlob, &pResult);
-      WriteBlobToFile(pResult, m_Opts.OutputObject);
+      WriteBlobToFile(pResult, m_Opts.OutputObject, m_Opts.DefaultTextCodePage);
     }
   }
 
@@ -244,7 +245,7 @@ int DxcContext::ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob,
     if (pDebugBlob != nullptr) {
       IFTBOOLMSG(pDebugBlobName && *pDebugBlobName, E_INVALIDARG,
                  "/Fd was specified but no debug name was produced");
-      WriteBlobToFile(pDebugBlob, pDebugBlobName);
+      WriteBlobToFile(pDebugBlob, pDebugBlobName, m_Opts.DefaultTextCodePage);
     } else {
       WritePartToFile(pBlob, hlsl::DFCC_ShaderDebugInfoDXIL, m_Opts.DebugFile);
     }
@@ -254,7 +255,7 @@ int DxcContext::ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob,
   if (m_Opts.ExtractRootSignature) {
     CComPtr<IDxcBlob> pRootSignatureContainer;
     ExtractRootSignature(pBlob, &pRootSignatureContainer);
-    WriteBlobToFile(pRootSignatureContainer, m_Opts.OutputObject);
+    WriteBlobToFile(pRootSignatureContainer, m_Opts.OutputObject, m_Opts.DefaultTextCodePage);
   }
 
   // Extract and write private data.
@@ -296,7 +297,7 @@ int DxcContext::ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob,
     WriteHeader(pDisassembleResult, pBlob, varName,
                 StringRefUtf16(m_Opts.OutputHeader));
   } else if (!m_Opts.AssemblyCode.empty()) {
-    WriteBlobToFile(pDisassembleResult, m_Opts.AssemblyCode);
+    WriteBlobToFile(pDisassembleResult, m_Opts.AssemblyCode, m_Opts.DefaultTextCodePage);
   } else {
     WriteBlobToConsole(pDisassembleResult);
   }
@@ -366,7 +367,7 @@ void DxcContext::UpdatePart(IDxcBlob *pSource, IDxcBlob **ppResult) {
     CComPtr<IDxcBlobEncoding> pErrors;
     IFT(pBuilderResult->GetErrorBuffer(&pErrors));
     if (pErrors != nullptr) {
-      WriteBlobToFile(pErrors, m_Opts.OutputWarningsFile);
+      WriteBlobToFile(pErrors, m_Opts.OutputWarningsFile, m_Opts.DefaultTextCodePage);
     }
   } else {
     WriteOperationErrorsToConsole(pBuilderResult, m_Opts.OutputWarnings);
@@ -408,10 +409,9 @@ HRESULT DxcContext::ReadFileIntoPartContent(hlsl::DxilFourCC fourCC,
     hlsl::ReadBinaryFile(fileName, (void **)&pData, &dataSize);
     DXASSERT(pData != nullptr,
              "otherwise ReadBinaryFile should throw an exception");
-    hlsl::DxilContainerHeader *pHeader =
-        (hlsl::DxilContainerHeader *)pData.m_pData;
-    IFRBOOL(hlsl::IsDxilContainerLike(pHeader, pHeader->ContainerSizeInBytes),
-            E_INVALIDARG);
+    hlsl::DxilContainerHeader *pHeader = 
+        hlsl::IsDxilContainerLike(pData.m_pData, dataSize);
+    IFRBOOL(IsValidDxilContainer(pHeader, dataSize), E_INVALIDARG);
     hlsl::DxilPartHeader *pPartHeader =
         hlsl::GetDxilPartByType(pHeader, hlsl::DxilFourCC::DFCC_RootSignature);
     IFRBOOL(pPartHeader != nullptr, E_INVALIDARG);
@@ -513,7 +513,7 @@ int DxcContext::VerifyRootSignature() {
     if (!m_Opts.OutputWarningsFile.empty()) {
       CComPtr<IDxcBlobEncoding> pErrors;
       IFT(pOperationResult->GetErrorBuffer(&pErrors));
-      WriteBlobToFile(pErrors, m_Opts.OutputWarningsFile);
+      WriteBlobToFile(pErrors, m_Opts.OutputWarningsFile, m_Opts.DefaultTextCodePage);
     } else {
       WriteOperationErrorsToConsole(pOperationResult, m_Opts.OutputWarnings);
     }
@@ -638,7 +638,7 @@ int DxcContext::Compile(llvm::StringRef path, bool bLibLink) {
   if (!m_Opts.OutputWarningsFile.empty()) {
     CComPtr<IDxcBlobEncoding> pErrors;
     IFT(pCompileResult->GetErrorBuffer(&pErrors));
-    WriteBlobToFile(pErrors, m_Opts.OutputWarningsFile);
+    WriteBlobToFile(pErrors, m_Opts.OutputWarningsFile, m_Opts.DefaultTextCodePage);
   } else {
     WriteOperationErrorsToConsole(pCompileResult, m_Opts.OutputWarnings);
   }
@@ -689,7 +689,7 @@ void DxcContext::Preprocess() {
   if (SUCCEEDED(status)) {
     CComPtr<IDxcBlob> pProgram;
     IFT(pPreprocessResult->GetResult(&pProgram));
-    WriteBlobToFile(pProgram, m_Opts.Preprocess);
+    WriteBlobToFile(pProgram, m_Opts.Preprocess, m_Opts.DefaultTextCodePage);
   }
 }
 
@@ -900,7 +900,7 @@ int __cdecl wmain(int argc, const wchar_t **argv_) {
     if (dxcOpts.ShowHelp) {
       std::string helpString;
       llvm::raw_string_ostream helpStream(helpString);
-      optionTable->PrintHelp(helpStream, "dxc_bach.exe", "HLSL Compiler", "");
+      optionTable->PrintHelp(helpStream, "dxc_batch.exe", "HLSL Compiler", "");
       helpStream << "multi-thread";
       helpStream.flush();
       dxc::WriteUtf8ToConsoleSizeT(helpString.data(), helpString.size());

@@ -14,7 +14,7 @@
 
 #include "BreakpointPrinter.h"
 #include "NewPMDriver.h"
-#include "PassPrinters.h"
+#include "llvm/PassPrinters/PassPrinters.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
@@ -295,6 +295,10 @@ void initializePollyPasses(llvm::PassRegistry &Registry);
 }
 #endif
 
+// HLSL Change Start
+void __cdecl initializeDxilConvPasses(llvm::PassRegistry &);
+// HLSL Change End
+
 //===----------------------------------------------------------------------===//
 // main for opt
 //
@@ -348,13 +352,12 @@ int __cdecl main(int argc, char **argv) {
   //initializeWinEHPreparePass(Registry);   // HLSL Change: remove EH passes
   //initializeDwarfEHPreparePass(Registry); // HLSL Change: remove EH passes
   //initializeSjLjEHPreparePass(Registry);  // HLSL Change: remove EH passes
-  // MS Change Starts
+  // HLSL Change Starts
   initializeReducibilityAnalysisPass(Registry);
-#if HLSL_INTERNAL
-  void initializeHlslInternalPasses(PassRegistry &);
-  initializeHlslInternalPasses(Registry);
+#ifdef _WIN32
+  initializeDxilConvPasses(Registry);
 #endif
-  // MS Change Ends
+  // HLSL Change Ends
 
 #ifdef LINK_POLLY_INTO_TOOLS
   polly::initializePollyPasses(Registry);

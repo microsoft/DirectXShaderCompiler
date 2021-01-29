@@ -17,6 +17,9 @@
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/dxcapi.impl.h"
 
+#include "llvm/Support/MSFileSystem.h"
+#include "llvm/Support/FileSystem.h"
+
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/LLVMContext.h"
@@ -73,11 +76,23 @@ STDMETHODIMP dxil_dia::DataSource::loadDataFromIStream(_In_ IStream *pInputIStre
       return E_FAIL;
     }
 
+    // Setup filesystem because bitcode reader might emit warning
+    ::llvm::sys::fs::MSFileSystem* msfPtr;
+    IFT(CreateMSFileSystemForDisk(&msfPtr));
+    std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
+
+    ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
+    IFTLLVM(pts.error_code());
+
     CComPtr<IStream> pIStream = pInputIStream;
     CComPtr<IDxcBlob> pContainer;
     if (SUCCEEDED(hlsl::pdb::LoadDataFromStream(m_pMalloc, pInputIStream, &pContainer))) {
-      hlsl::DxilPartHeader *PartHeader =
-        hlsl::GetDxilPartByType((hlsl::DxilContainerHeader *)pContainer->GetBufferPointer(), hlsl::DFCC_ShaderDebugInfoDXIL);
+      const hlsl::DxilContainerHeader *pContainerHeader = 
+        hlsl::IsDxilContainerLike(pContainer->GetBufferPointer(), pContainer->GetBufferSize());
+      if (!hlsl::IsValidDxilContainer(pContainerHeader, pContainer->GetBufferSize()))
+        return E_FAIL;
+      const hlsl::DxilPartHeader *PartHeader =
+        hlsl::GetDxilPartByType(pContainerHeader, hlsl::DFCC_ShaderDebugInfoDXIL);
       if (!PartHeader)
         return E_FAIL;
       CComPtr<IDxcBlobEncoding> pPinnedBlob;
@@ -117,9 +132,8 @@ STDMETHODIMP dxil_dia::DataSource::loadDataFromIStream(_In_ IStream *pInputIStre
       UINT32 BlobSize;
       const char *pBitcode = nullptr;
       hlsl::GetDxilProgramBitcode(pDxilProgramHeader, &pBitcode, &BlobSize);
-      UINT32 offset = (UINT32)(pBitcode - (const char *)pDxilProgramHeader);
       std::unique_ptr<llvm::MemoryBuffer> p = llvm::MemoryBuffer::getMemBuffer(
-        llvm::StringRef(pBitcode, bufferSize - offset), "data");
+        llvm::StringRef(pBitcode, BlobSize), "data", false /* RequiresNullTerminator */);
       pEmbeddedBuffer.swap(p);
       pBitcodeBuffer = pEmbeddedBuffer.get();
     }
@@ -142,6 +156,14 @@ STDMETHODIMP dxil_dia::DataSource::openSession(_COM_Outptr_ IDiaSession **ppSess
   *ppSession = nullptr;
   if (m_module.get() == nullptr)
     return E_FAIL;
+
+  ::llvm::sys::fs::MSFileSystem *msfPtr;
+  IFT(CreateMSFileSystemForDisk(&msfPtr));
+  std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
+
+  ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
+  IFTLLVM(pts.error_code());
+
   CComPtr<Session> pSession = Session::Alloc(DxcGetThreadMallocNoRef());
   IFROOM(pSession.p);
   pSession->Init(m_context, m_module, m_finder);

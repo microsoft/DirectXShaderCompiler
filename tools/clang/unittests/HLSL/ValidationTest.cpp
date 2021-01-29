@@ -27,8 +27,8 @@
 #include "dxc/Support/Global.h"
 #include "dxc/Support/FileIOHelper.h"
 
-#include "DxcTestUtils.h"
-#include "HlslTestUtils.h"
+#include "dxc/Test/DxcTestUtils.h"
+#include "dxc/Test/HlslTestUtils.h"
 
 using namespace std;
 using namespace hlsl;
@@ -71,6 +71,7 @@ public:
   TEST_METHOD(SignatureStreamIDForNonGS)
   TEST_METHOD(TypedUAVStoreFullMask0)
   TEST_METHOD(TypedUAVStoreFullMask1)
+  TEST_METHOD(UAVStoreMaskMatch)
   TEST_METHOD(Recursive)
   TEST_METHOD(Recursive2)
   TEST_METHOD(Recursive3)
@@ -291,6 +292,10 @@ public:
   TEST_METHOD(AmplificationLessThanMinZ)
   TEST_METHOD(AmplificationGreaterThanMaxZ)
   TEST_METHOD(AmplificationGreaterThanMaxXYZ)
+  TEST_METHOD(WaveSizeValid)
+
+  TEST_METHOD(ValidateRootSigContainer)
+  TEST_METHOD(ValidatePrintfNotAllowed)
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
@@ -305,11 +310,10 @@ public:
     }
   }
 
-  void CheckValidationMsgs(IDxcBlob *pBlob, llvm::ArrayRef<LPCSTR> pErrorMsgs, bool bRegex = false) {
+  void CheckValidationMsgs(IDxcBlob *pBlob, llvm::ArrayRef<LPCSTR> pErrorMsgs, bool bRegex = false, UINT32 Flags = DxcValidatorFlags_Default) {
     CComPtr<IDxcValidator> pValidator;
     CComPtr<IDxcOperationResult> pResult;
 
-    UINT32 Flags = DxcValidatorFlags_Default;
     if (!IsDxilContainerLike(pBlob->GetBufferPointer(), pBlob->GetBufferSize())) {
       // Validation of raw bitcode as opposed to DxilContainer is not supported through DXIL.dll
       if (!m_ver.m_InternalValidator) {
@@ -325,12 +329,12 @@ public:
     CheckOperationResultMsgs(pResult, pErrorMsgs, false, bRegex);
   }
 
-  void CheckValidationMsgs(const char *pBlob, size_t blobSize, llvm::ArrayRef<LPCSTR> pErrorMsgs, bool bRegex = false) {
+  void CheckValidationMsgs(const char *pBlob, size_t blobSize, llvm::ArrayRef<LPCSTR> pErrorMsgs, bool bRegex = false, UINT32 Flags = DxcValidatorFlags_Default) {
     CComPtr<IDxcLibrary> pLibrary;
     CComPtr<IDxcBlobEncoding> pBlobEncoding; // Encoding doesn't actually matter, it's binary.
     VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
     VERIFY_SUCCEEDED(pLibrary->CreateBlobWithEncodingFromPinned(pBlob, blobSize, CP_UTF8, &pBlobEncoding));
-    CheckValidationMsgs(pBlobEncoding, pErrorMsgs, bRegex);
+    CheckValidationMsgs(pBlobEncoding, pErrorMsgs, bRegex, Flags);
   }
 
   bool CompileSource(IDxcBlobEncoding *pSource, LPCSTR pShaderModel,
@@ -1064,11 +1068,13 @@ TEST_F(ValidationTest, UpdateCounterFail) {
 }
 
 TEST_F(ValidationTest, LocalResCopy) {
+  // error updated, so must exclude previous validator versions.
+  if (m_ver.SkipDxilVersion(1, 6)) return;
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\resCopy.hlsl", "cs_6_0", {"ret void"},
       {"%H = alloca %dx.types.ResRet.i32\n"
        "ret void"},
-      {"Dxil struct types should only used by ExtractValue"});
+      {"Dxil struct types should only be used by ExtractValue"});
 }
 
 TEST_F(ValidationTest, WhenIncorrectModelThenFail) {
@@ -1153,6 +1159,16 @@ TEST_F(ValidationTest, TypedUAVStoreFullMask1) {
       "float 3.000000e+00, i8 15)",
       "float 3.000000e+00, i8 undef)",
       "Mask of BufferStore must be an immediate constant");
+}
+
+TEST_F(ValidationTest, UAVStoreMaskMatch) {
+  // error updated, so must exclude previous validator versions.
+  if (m_ver.SkipDxilVersion(1, 6)) return;
+  RewriteAssemblyCheckMsg(
+      L"..\\CodeGenHLSL\\uav_store.hlsl", "ps_6_0",
+      "i32 2, i8 15)",
+      "i32 2, i8 7)",
+      "uav store write mask must match store value mask, write mask is 7 and store value mask is 15.");
 }
 
 TEST_F(ValidationTest, Recursive) {
@@ -1265,11 +1281,13 @@ TEST_F(ValidationTest, PullModelPosition) {
 }
 
 TEST_F(ValidationTest, StructBufGlobalCoherentAndCounter) {
+    // error updated, so must exclude previous validator versions.
+    if (m_ver.SkipDxilVersion(1, 6)) return;
     RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\struct_buf1.hlsl", "ps_6_0",
       "!\"buf2\", i32 0, i32 0, i32 1, i32 12, i1 false, i1 false",
       "!\"buf2\", i32 0, i32 0, i32 1, i32 12, i1 true, i1 true",
-      "globallycoherent cannot be used with append/consume buffers'buf2'");
+      "globallycoherent cannot be used with append/consume buffers: 'buf2'");
 }
 
 TEST_F(ValidationTest, StructBufStrideAlign) {
@@ -1583,11 +1601,13 @@ TEST_F(ValidationTest, NoFunctionParam) {
 }
 
 TEST_F(ValidationTest, I8Type) {
+  // error updated, so must exclude previous validator versions.
+  if (m_ver.SkipDxilVersion(1, 6)) return;
   RewriteAssemblyCheckMsg(L"..\\DXILValidation\\staticGlobals.hlsl", "ps_6_0",
                           "%([0-9]+) = alloca \\[4 x i32\\]",
                           "%\\1 = alloca [4 x i32]\n"
                           "  %m8 = alloca i8",
-                          "I8 can only used as immediate value for intrinsic",
+                          "I8 can only be used as immediate value for intrinsic",
     /*bRegex*/true);
 }
 
@@ -2014,6 +2034,8 @@ float4 main(float4 col : COLOR, out uint coverage : SV_Coverage) : SV_Target7 { 
 }
 
 TEST_F(ValidationTest, SemComponentOrder) {
+  // error updated, so must exclude previous validator versions.
+  if (m_ver.SkipDxilVersion(1, 6)) return;
   RewriteAssemblyCheckMsg(" \
 void main( \
   float2 f2in : f2in, \
@@ -2045,12 +2067,14 @@ void main( \
       "!\\9 = !{i32 4, !\"SV_CullDistance\", i8 9, i8 7, !\\10, i8 2, i32 1, i8 1, i32 1, i8 0, \\11}\n",
       "!1012 =" },
 
-    "signature element SV_ClipDistance at location \\(2,0\\) size \\(1,2\\) violates component ordering rule \\(arb < sv < sgv\\).\n"
-    "signature element SV_CullDistance at location \\(1,0\\) size \\(1,1\\) violates component ordering rule \\(arb < sv < sgv\\).",
+      {"signature element SV_ClipDistance at location \\(2,0\\) size \\(1,2\\) violates component ordering rule \\(arb < sv < sgv\\).",
+       "signature element SV_CullDistance at location \\(1,0\\) size \\(1,1\\) violates component ordering rule \\(arb < sv < sgv\\)."},
     /*bRegex*/true);
 }
 
 TEST_F(ValidationTest, SemComponentOrder2) {
+  // error updated, so must exclude previous validator versions.
+  if (m_ver.SkipDxilVersion(1, 6)) return;
   RewriteAssemblyCheckMsg(" \
 float4 main( \
   float4 col : Color, \
@@ -2071,12 +2095,14 @@ float4 main( \
     "!\\2 = !{i32 2, !\"SV_PrimitiveID\", i8 5, i8 10, !\\3, i8 1, i32 1, i8 1, i32 1, i8 0, null}\n"
     "!\\4 = !{i32 3, !\"SV_IsFrontFace\", i8 \\5, i8 13, !\\6, i8 1, i32 1, i8 1, i32 1, i8 1, null}\n",
 
-    "signature element SV_PrimitiveID at location \\(1,0\\) size \\(1,1\\) violates component ordering rule \\(arb < sv < sgv\\).\n"
-    "signature element SV_IsFrontFace at location \\(1,1\\) size \\(1,1\\) violates component ordering rule \\(arb < sv < sgv\\).",
+    {"signature element SV_PrimitiveID at location \\(1,0\\) size \\(1,1\\) violates component ordering rule \\(arb < sv < sgv\\).",
+     "signature element SV_IsFrontFace at location \\(1,1\\) size \\(1,1\\) violates component ordering rule \\(arb < sv < sgv\\)."},
     /*bRegex*/true);
 }
 
 TEST_F(ValidationTest, SemComponentOrder3) {
+  // error updated, so must exclude previous validator versions.
+  if (m_ver.SkipDxilVersion(1, 6)) return;
   RewriteAssemblyCheckMsg(" \
 float4 main( \
   float4 col : Color, \
@@ -2102,8 +2128,8 @@ float4 main( \
       "!\\7 = !{i32 4, !\"ViewPortArrayIndex\", i8 5, i8 0, !\\8, i8 1, i32 1, i8 1, i32 1, i8 3, null}\n",
       "!1012 ="},
 
-    "signature element SV_PrimitiveID at location \\(1,0\\) size \\(1,1\\) violates component ordering rule \\(arb < sv < sgv\\).\n"
-    "signature element ViewPortArrayIndex at location \\(1,3\\) size \\(1,1\\) violates component ordering rule \\(arb < sv < sgv\\).",
+    {"signature element SV_PrimitiveID at location \\(1,0\\) size \\(1,1\\) violates component ordering rule \\(arb < sv < sgv\\).",
+     "signature element ViewPortArrayIndex at location \\(1,3\\) size \\(1,1\\) violates component ordering rule \\(arb < sv < sgv\\)."},
     /*bRegex*/true);
 }
 
@@ -3781,4 +3807,32 @@ TEST_F(ValidationTest, AmplificationGreaterThanMaxXYZ) {
                           "= !{i32 32, i32 1, i32 1}",
                           "= !{i32 32, i32 2, i32 4}",
                           "Declared Thread Group Count 256 (X*Y*Z) is beyond the valid maximum of 128");
+}
+
+TEST_F(ValidationTest, WaveSizeValid) {
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\attributes_wavesize.hlsl", "cs_6_6",
+    "= !{i32 32}",
+    "= !{i32 3}",
+    "Declared WaveSize 3 outside valid range [4..128], or not a power of 2");
+}
+
+TEST_F(ValidationTest, ValidateRootSigContainer) {
+  // Validation of root signature-only container not supported until 1.5
+  if (m_ver.SkipDxilVersion(1, 5)) return;
+
+  LPCSTR pSource = "#define main \"DescriptorTable(UAV(u0))\"";
+  CComPtr<IDxcBlob> pObject;
+  if (!CompileSource(pSource, "rootsig_1_0", &pObject))
+    return;
+  CheckValidationMsgs(pObject, {}, false,
+    DxcValidatorFlags_RootSignatureOnly | DxcValidatorFlags_InPlaceEdit);
+  pObject.Release();
+  if (!CompileSource(pSource, "rootsig_1_1", &pObject))
+    return;
+  CheckValidationMsgs(pObject, {}, false,
+    DxcValidatorFlags_RootSignatureOnly | DxcValidatorFlags_InPlaceEdit);
+}
+
+TEST_F(ValidationTest, ValidatePrintfNotAllowed) {
+  TestCheck(L"..\\CodeGenHLSL\\printf.hlsl");
 }

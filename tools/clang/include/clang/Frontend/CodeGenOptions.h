@@ -19,6 +19,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <map>
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h" // HLSL change
 #include "dxc/Support/SPIRVOptions.h" // SPIR-V Change
 
@@ -177,6 +178,10 @@ public:
   std::string HLSLProfile;
   /// Whether to target high-level DXIL.
   bool HLSLHighLevel = false;
+  /// Whether we allow preserve intermediate values
+  bool HLSLAllowPreserveValues = false;
+  /// Whether we fail compilation if loop fails to unroll
+  bool HLSLOnlyWarnOnUnrollFail = false;
   /// Whether use row major as default matrix major.
   bool HLSLDefaultRowMajor = false;
   /// Whether use legacy cbuffer load.
@@ -195,6 +200,8 @@ public:
   unsigned HLSLValidatorMinorVer = 0;
   /// Define macros passed in from command line
   std::vector<std::string> HLSLDefines;
+  /// Precise output passed in from command line
+  std::vector<std::string> HLSLPreciseOutputs;
   /// Arguments passed in from command line
   std::vector<std::string> HLSLArguments;
   /// Helper for generating llvm bitcode for hlsl extensions.
@@ -214,6 +221,17 @@ public:
   hlsl::DXIL::DefaultLinkage DefaultLinkage = hlsl::DXIL::DefaultLinkage::Default;
   /// Assume UAVs/SRVs may alias.
   bool HLSLResMayAlias = false;
+  /// Lookback scan limit for memory dependencies
+  unsigned ScanLimit = 0;
+  // Optimization pass enables, disables and selects
+  std::map<std::string, bool> HLSLOptimizationToggles;
+  std::map<std::string, std::string> HLSLOptimizationSelects;
+  /// Debug option to print IR after every pass
+  bool HLSLPrintAfterAll = false;
+  /// Force-replace lifetime intrinsics by zeroinitializer stores.
+  bool HLSLForceZeroStoreLifetimes = false;
+  /// Enable lifetime marker generation
+  bool HLSLEnableLifetimeMarkers = false;
   // HLSL Change Ends
 
   // SPIRV Change Starts

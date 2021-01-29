@@ -12,6 +12,8 @@ set TEST_ALL=1
 set TEST_CLANG=0
 set TEST_CMD=0
 set TEST_EXEC=0
+set TEST_DXILCONV=0
+set TEST_DXILCONV_FILTER=
 set TEST_EXEC_FUTURE=0
 set TEST_EXTRAS=0
 set TEST_EXEC_REQUIRED=0
@@ -22,6 +24,7 @@ set TEST_COMPAT_SUITE=0
 set MANUAL_FILE_CHECK_PATH=
 set TEST_MANUAL_FILE_CHECK=0
 set SINGLE_FILE_CHECK_NAME=0
+set CUSTOM_BIN_SET=
 
 rem Begin SPIRV change
 set TEST_SPIRV=0
@@ -47,6 +50,7 @@ if "%1"=="" (goto :done_opt)
 
 if "%1"=="/?" goto :showhelp
 if "%1"=="-?" goto :showhelp
+if "%1"=="-h" goto :showhelp
 if "%1"=="-help" goto :showhelp
 if "%1"=="--help" goto :showhelp
 
@@ -90,10 +94,19 @@ if "%1"=="-clean" (
 ) else if "%1"=="cmd" (
   set TEST_ALL=0
   set TEST_CMD=1
+) else if "%1" == "dxilconv" (
+  set TEST_ALL=0
+  set TEST_DXILCONV=1
+) else if "%1" == "dxilconv-filter" (
+  set TEST_ALL=0
+  set TEST_DXILCONV=1
+  set TEST_DXILCONV_FILTER= /name:%2
+  shift /1
 ) else if "%1"=="noexec" (
   set TEST_ALL=0
   set TEST_CLANG=1
   set TEST_CMD=1
+  set TEST_DXILCONV=1
 ) else if "%1"=="exec" (
   rem If exec is explicitly supplied, hcttest will fail if machine is not configured
   rem to run execution tests, otherwise, execution tests would be skipped.
@@ -125,6 +138,10 @@ if "%1"=="-clean" (
   set GENERATOR_NINJA=1
 ) else if "%1"=="-rel" (
   set BUILD_CONFIG=Release
+) else if /i "%1"=="-Release" (
+  set BUILD_CONFIG=Release
+) else if /i "%1"=="-Debug" (
+  set BUILD_CONFIG=Debug
 ) else if "%1"=="-x86" (
   rem Allow BUILD_ARCH override.  This may be used by HCT_EXTRAS scripts.
   set BUILD_ARCH=Win32
@@ -138,6 +155,18 @@ if "%1"=="-clean" (
 ) else if "%1"=="-verbose" (
   set LOG_FILTER=
   set PARALLEL_OPTION=
+) else if "%1"=="-dxilconv-loc" (
+  set DXILCONV_LOC=%~2
+  shift /1
+) else if "%1"=="-custom-bin-set" (
+  set CUSTOM_BIN_SET=%~2
+  shift /1
+) else if "%1"=="-file-check-dump" (
+  set ADDITIONAL_OPTS=%ADDITIONAL_OPTS% /p:"FileCheckDumpDir=%~2\HLSL"
+  shift /1
+) else if "%1"=="-dxil-loc" (
+  set DXIL_DLL_LOC=%~2
+  shift /1
 ) else if "%1"=="--" (
   shift /1
   goto :done_opt
@@ -156,12 +185,13 @@ shift /1
 goto :collect_args
 :done_args
 
-rem By default, run clang tests and execution tests.
+rem By default, run all clang tests and execution tests and dxilconv tests
 if "%TEST_ALL%"=="1" (
   set TEST_CLANG=1
   set TEST_CMD=1
   set TEST_EXEC=1
   set TEST_EXTRAS=1
+  set TEST_DXILCONV=1
 )
 
 where te.exe 1>nul 2>nul
@@ -181,6 +211,16 @@ if "%GENERATOR_NINJA%"=="1" (
   set TEST_DIR=%HLSL_BLD_DIR%\%BUILD_CONFIG%\test
 )
 
+if "%DXILCONV_LOC%"=="" ( 
+  set DXILCONV_LOC=%BIN_DIR%
+)
+if "%TEST_DXILCONV%"=="1" (
+  if not exist "%DXILCONV_LOC%\dxilconv.dll" (
+    echo Skipping dxilconv tests, dxilconv.dll not found at %DXILCONV_LOC%.
+    set TEST_DXILCONV=0
+  )
+)
+
 if "%TEST_CLEAN%"=="1" (
   echo Cleaning %TEST_DIR% ...
   if exist %TEST_DIR%\. (
@@ -192,11 +232,30 @@ if "%TEST_CLEAN%"=="1" (
   )
 )
 
-if not exist %TEST_DIR%\. (mkdir %TEST_DIR%)
+if not exist %TEST_DIR% (mkdir %TEST_DIR%)
 
 echo Copying binaries to test to %TEST_DIR%:
-call %HCT_DIR%\hctcopy.cmd %BIN_DIR% %TEST_DIR% dxa.exe dxc.exe dxexp.exe dxopt.exe dxr.exe dxv.exe clang-hlsl-tests.dll dxcompiler.dll d3dcompiler_dxc_bridge.dll dxl.exe dxc_batch.exe dxlib_sample.dll
+if "%CUSTOM_BIN_SET%"=="" (
+  call %HCT_DIR%\hctcopy.cmd %BIN_DIR% %TEST_DIR% dxa.exe dxc.exe dxexp.exe dxopt.exe dxr.exe dxv.exe clang-hlsl-tests.dll dxcompiler.dll d3dcompiler_dxc_bridge.dll dxl.exe dxc_batch.exe dxlib_sample.dll
+  if errorlevel 1 exit /b 1
+  if "%TEST_DXILCONV%"=="1" (
+    call %HCT_DIR%\hctcopy.cmd %BIN_DIR% %TEST_DIR% dxbc2dxil.exe dxilconv-tests.dll opt.exe
+    call %HCT_DIR%\hctcopy.cmd %DXILCONV_LOC% %TEST_DIR% dxilconv.dll
+  )
+) else (
+  call %HCT_DIR%\hctcopy.cmd %BIN_DIR% %TEST_DIR% %CUSTOM_BIN_SET%
+  if errorlevel 1 exit /b 1
+  if "%TEST_DXILCONV%"=="1" (
+    call %HCT_DIR%\hctcopy.cmd %DXILCONV_LOC% %TEST_DIR% dxilconv.dll
+  )
+)
 if errorlevel 1 exit /b 1
+
+if not "%DXIL_DLL_LOC%"=="" (
+  echo Copying DXIL.dll to %TEST_DIR%:
+  call %HCT_DIR%\hctcopy.cmd %DXIL_DLL_LOC% %TEST_DIR% dxil.dll
+  if errorlevel 1 exit /b 1
+)
 
 rem Begin SPIRV change
 if "%TEST_SPIRV%"=="1" (
@@ -233,7 +292,7 @@ if "%TEST_CLANG%"=="1" (
 )
 
 if "%TEST_CMD%"=="1" (
-  copy /y %HLSL_SRC_DIR%\utils\hct\smoke.hlsl %TEST_DIR%\smoke.hlsl
+  copy /y %HLSL_SRC_DIR%\utils\hct\cmdtestfiles\smoke.hlsl %TEST_DIR%\smoke.hlsl
   call %HLSL_SRC_DIR%\utils\hct\hcttestcmds.cmd %TEST_DIR% %HLSL_SRC_DIR%\tools\clang\test\HLSL
   set RES_CMD=!ERRORLEVEL!
 )
@@ -271,6 +330,12 @@ if exist "%HCT_EXTRAS%\hcttest-extras.cmd" (
   )
 )
 
+if "%TEST_DXILCONV%"=="1" (
+  call :runte dxilconv-tests.dll /p:"HlslDataDir=%HLSL_SRC_DIR%\projects\dxilconv\test" %TEST_DXILCONV_FILTER%
+  set RES_DXILCONV=!ERRORLEVEL!
+)
+
+
 if exist "%HCT_EXTRAS%\hcttest-after.cmd" (
   call "%HCT_EXTRAS%\hcttest-after.cmd" %TEST_DIR%
   set RES_HCTTEST_AFTER=!ERRORLEVEL!
@@ -293,6 +358,7 @@ if "%TEST_EXEC%"=="1" (
 )
 call :check_result "hcttest-extras tests" %RES_EXTRAS%
 call :check_result "hcttest-after script" %RES_HCTTEST_AFTER%
+call :check_result "dxilconv tests" %RES_DXILCONV%
 
 if not "%TESTS_PASSED%"=="0" (
   echo %TESTS_PASSED% succeeded.
@@ -323,6 +389,10 @@ echo   -ninja - artifacts were built using the Ninja generator
 echo   -rel   - tests release rather than debug
 echo   -adapter "adapter name" - overrides Adapter for execution tests
 echo   -verbose - for TAEF: turns off /parallel and removes logging filter
+echo   -custom-bin-set "file [file]..." - custom set of binaries to copy into test directory
+echo   -dxilconv-loc "dxilconv.dll location" - fetch dxilconv.dll from custom location
+echo   -dxil-loc "dxil.dll location" - fetch dxil.dll from provided location
+echo   -file-check-dump "dump-path" - dump file-check inputs to files under dump-path
 echo.
 echo current BUILD_ARCH=%BUILD_ARCH%.  Override with:
 echo   -x86 targets an x86 build (aka. Win32)
@@ -336,6 +406,7 @@ echo                - hcttest file-check "..\CodeGenHLSL\shader-compat-suite\lib
 echo  compat-suite  - run compat-suite test.
 echo                - hcttest compat-suite "..\CodeGenHLSL\shader-compat-suite\lib_arg_flatten"
 echo  cmd           - run command line tool tests.
+echo  dxilconv      - run dxilconv tests
 echo  v             - run the subset of clang tests that are verified-based.
 echo  exec          - run execution tests.
 echo  exec-future   - run execution tests for future releases.
@@ -346,6 +417,7 @@ echo Select clang or exec targets with filter by test name:
 echo  clang-filter Name
 echo  exec-filter Name
 echo  exec-exp-filter Name
+echo  dxilconv-filter Name
 echo.
 echo Use the HCT_EXTRAS environment variable to add hcttest-before and hcttest-after hooks.
 echo.
@@ -363,8 +435,9 @@ rem %2 - first argument to te
 rem %3 - second argument to te
 rem %4 - third argument to te
 
-echo te /labMode /miniDumpOnCrash %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
-call te /labMode /miniDumpOnCrash %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
+echo te /labMode /miniDumpOnCrash /unicodeOutput:false /outputFolder:%TEST_DIR% %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
+call te /labMode /miniDumpOnCrash /unicodeOutput:false /outputFolder:%TEST_DIR% %LOG_FILTER% %PARALLEL_OPTION% %TEST_DIR%\%*
+
 if errorlevel 1 (
   call :showtesample %*
   exit /b 1

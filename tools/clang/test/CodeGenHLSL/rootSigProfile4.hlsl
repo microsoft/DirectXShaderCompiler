@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T rootsig_1_0  /Dmain="SSRV(t0)"  %s  | FileCheck %s
+// RUN: %dxilver 1.5 | %dxc -E main -T rootsig_1_0  /Dmain="SSRV(t0)"  %s  | FileCheck %s
 
 // CHECK: root signature error - Unexpected token 'SSRV' when parsing root signature
 

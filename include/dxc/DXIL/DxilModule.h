@@ -64,6 +64,8 @@ public:
   void SetValidatorVersion(unsigned ValMajor, unsigned ValMinor);
   bool UpgradeValidatorVersion(unsigned ValMajor, unsigned ValMinor);
   void GetValidatorVersion(unsigned &ValMajor, unsigned &ValMinor) const;
+  void SetForceZeroStoreLifetimes(bool ForceZeroStoreLifetimes);
+  bool GetForceZeroStoreLifetimes() const;
 
   // Return true on success, requires valid shader model and CollectShaderFlags to have been set
   bool GetMinValidatorVersion(unsigned &ValMajor, unsigned &ValMinor) const;
@@ -113,6 +115,9 @@ public:
   void RemoveUnusedResources();
   void RemoveResourcesWithUnusedSymbols();
   void RemoveFunction(llvm::Function *F);
+
+  bool RenameResourcesWithPrefix(const std::string &prefix);
+  bool RenameResourceGlobalsWithBinding(bool bKeepName = true);
 
   // Signatures.
   DxilSignature &GetInputSignature();
@@ -178,6 +183,11 @@ public:
   void ReEmitDxilResources();
   /// Deserialize DXIL metadata form into in-memory form.
   void LoadDxilMetadata();
+  /// Return true if non-fatal metadata error was detected.
+  bool HasMetadataErrors();
+
+  void EmitDxilCounters();
+  void LoadDxilCounters(DxilCounters &counters) const;
 
   /// Check if a Named meta data node is known by dxil module.
   static bool IsKnownNamedMetaData(llvm::NamedMDNode &Node);
@@ -228,6 +238,10 @@ public:
   // Compute/Mesh/Amplification shader.
   void SetNumThreads(unsigned x, unsigned y, unsigned z);
   unsigned GetNumThreads(unsigned idx) const;
+
+  // Compute shader
+  void SetWaveSize(unsigned size);
+  unsigned GetWaveSize() const;
 
   // Geometry shader.
   DXIL::InputPrimitive GetInputPrimitive() const;
@@ -327,6 +341,7 @@ private:
   unsigned m_DxilMinor;
   unsigned m_ValMajor;
   unsigned m_ValMinor;
+  bool m_ForceZeroStoreLifetimes;
 
   std::unique_ptr<OP> m_pOP;
   size_t m_pUnused;
@@ -364,6 +379,10 @@ private:
   uint32_t m_AutoBindingSpace;
 
   std::unique_ptr<DxilSubobjects> m_pSubobjects;
+
+  // m_bMetadataErrors is true if non-fatal metadata errors were encountered.
+  // Validator will fail in this case, but should not block module load.
+  bool m_bMetadataErrors;
 };
 
 } // namespace hlsl

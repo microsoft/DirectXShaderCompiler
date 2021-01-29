@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "clang/SPIRV/SpirvInstruction.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallVector.h"
@@ -76,7 +77,7 @@ struct CapabilityComparisonInfo {
 class SpirvModule {
 public:
   SpirvModule();
-  ~SpirvModule() = default;
+  ~SpirvModule();
 
   // Forbid copy construction and assignment
   SpirvModule(const SpirvModule &) = delete;
@@ -90,10 +91,16 @@ public:
   bool invokeVisitor(Visitor *, bool reverseOrder = false);
 
   // Add a function to the list of module functions.
+  void addFunctionToListOfSortedModuleFunctions(SpirvFunction *);
+
+  // Adds the given function to the vector of all discovered functions. Calling
+  // this function will not result in emitting the function.
   void addFunction(SpirvFunction *);
 
   // Add a capability to the list of module capabilities.
-  void addCapability(SpirvCapability *cap);
+  // Returns true if the capability was added.
+  // Returns false otherwise (e.g. if the capability already existed).
+  bool addCapability(SpirvCapability *cap);
 
   // Set the memory model of the module.
   void setMemoryModel(SpirvMemoryModel *model);
@@ -104,15 +111,16 @@ public:
   // Adds an execution mode to the module.
   void addExecutionMode(SpirvExecutionMode *);
 
-  // Adds an extension to the module.
-  void addExtension(SpirvExtension *);
+  // Adds an extension to the module. Returns true if the extension was added.
+  // Returns false otherwise (e.g. if the extension already existed).
+  bool addExtension(SpirvExtension *);
 
   // Adds an extended instruction set to the module.
   void addExtInstSet(SpirvExtInstImport *);
 
-  // Returns the GLSL extended instruction set if already added to the module.
+  // Returns the extended instruction set with the given name if already added
   // Returns nullptr otherwise.
-  SpirvExtInstImport *getGLSLExtInstSet();
+  SpirvExtInstImport *getExtInstSet(llvm::StringRef name);
 
   // Adds a variable to the module.
   void addVariable(SpirvVariable *);
@@ -123,11 +131,23 @@ public:
   // Adds a constant to the module.
   void addConstant(SpirvConstant *);
 
+  // Adds given string to the module which will be emitted via OpString.
+  void addString(SpirvString *);
+
   // Adds the debug source to the module.
-  void addDebugSource(SpirvSource *);
+  void addSource(SpirvSource *);
+
+  // Adds the given debug info instruction to debugInstructions.
+  void addDebugInfo(SpirvDebugInstruction *);
+
+  llvm::SmallVector<SpirvDebugInstruction *, 32> &getDebugInfo() {
+    return debugInstructions;
+  }
 
   // Adds the given OpModuleProcessed to the module.
   void addModuleProcessed(SpirvModuleProcessed *);
+
+  llvm::ArrayRef<SpirvVariable *> getVariables() const { return variables; }
 
 private:
   // Use a set for storing capabilities. This will ensure there are no duplicate
@@ -150,7 +170,8 @@ private:
   SpirvMemoryModel *memoryModel;
   llvm::SmallVector<SpirvEntryPoint *, 1> entryPoints;
   llvm::SmallVector<SpirvExecutionMode *, 4> executionModes;
-  std::vector<SpirvSource *> debugSources;
+  llvm::SmallVector<SpirvString *, 4> constStrings;
+  std::vector<SpirvSource *> sources;
   std::vector<SpirvModuleProcessed *> moduleProcesses;
 
   // Use a set for storing decoration. This will ensure that we don't apply the
@@ -163,7 +184,16 @@ private:
 
   std::vector<SpirvConstant *> constants;
   std::vector<SpirvVariable *> variables;
+  // A vector of functions in the module in the order that they should be
+  // emitted. The order starts with the entry-point function followed by a
+  // depth-first discovery of functions reachable from the entry-point function.
   std::vector<SpirvFunction *> functions;
+  // A vector of all functions that have been visited in the AST tree. This
+  // vector is not in any particular order, and may contain unused functions.
+  llvm::SetVector<SpirvFunction *> allFunctions;
+
+  // Keep all OpenCL.DebugInfo.100 instructions.
+  llvm::SmallVector<SpirvDebugInstruction *, 32> debugInstructions;
 };
 
 } // end namespace spirv

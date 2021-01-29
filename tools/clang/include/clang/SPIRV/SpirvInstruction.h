@@ -11,6 +11,7 @@
 #include "dxc/Support/SPIRVOptions.h"
 #include "spirv/unified1/GLSL.std.450.h"
 #include "spirv/unified1/spirv.hpp11"
+#include "clang/AST/APValue.h"
 #include "clang/AST/Type.h"
 #include "clang/Basic/SourceLocation.h"
 #include "llvm/ADT/APFloat.h"
@@ -31,6 +32,12 @@ class SpirvType;
 class SpirvVariable;
 class SpirvString;
 class Visitor;
+class DebugTypeComposite;
+class SpirvDebugDeclare;
+class FunctionType;
+
+#define DEFINE_RELEASE_MEMORY_FOR_CLASS(cls)                                   \
+  void releaseMemory() override { this->~cls(); }
 
 /// \brief The base class for representing SPIR-V instructions.
 class SpirvInstruction {
@@ -47,9 +54,7 @@ public:
     IK_ExecutionMode,   // OpExecutionMode
     IK_String,          // OpString (debug)
     IK_Source,          // OpSource (debug)
-    IK_Name,            // Op*Name (debug)
     IK_ModuleProcessed, // OpModuleProcessed (debug)
-    IK_LineInfo,        // OpLine (debug)
     IK_Decoration,      // Op*Decorate
     IK_Type,            // OpType*
     IK_Variable,        // OpVariable
@@ -72,27 +77,31 @@ public:
 
     // The following section is for termination instructions.
     // Used by LLVM-style RTTI; order matters.
-    IK_Branch,            // OpBranch
-    IK_BranchConditional, // OpBranchConditional
-    IK_Kill,              // OpKill
-    IK_Return,            // OpReturn*
-    IK_Switch,            // OpSwitch
-    IK_Unreachable,       // OpUnreachable
+    IK_Branch,              // OpBranch
+    IK_BranchConditional,   // OpBranchConditional
+    IK_Kill,                // OpKill
+    IK_Return,              // OpReturn*
+    IK_Switch,              // OpSwitch
+    IK_Unreachable,         // OpUnreachable
+    IK_RayTracingTerminate, // OpIgnoreIntersectionKHR/OpTerminateRayKHR
 
     // Normal instruction kinds
     // In alphabetical order
 
-    IK_AccessChain,        // OpAccessChain
-    IK_Atomic,             // OpAtomic*
-    IK_Barrier,            // Op*Barrier
-    IK_BinaryOp,           // Binary operations
-    IK_BitFieldExtract,    // OpBitFieldExtract
-    IK_BitFieldInsert,     // OpBitFieldInsert
-    IK_CompositeConstruct, // OpCompositeConstruct
-    IK_CompositeExtract,   // OpCompositeExtract
-    IK_CompositeInsert,    // OpCompositeInsert
-    IK_ExtInst,            // OpExtInst
-    IK_FunctionCall,       // OpFunctionCall
+    IK_AccessChain,                 // OpAccessChain
+    IK_ArrayLength,                 // OpArrayLength
+    IK_Atomic,                      // OpAtomic*
+    IK_Barrier,                     // Op*Barrier
+    IK_BinaryOp,                    // Binary operations
+    IK_BitFieldExtract,             // OpBitFieldExtract
+    IK_BitFieldInsert,              // OpBitFieldInsert
+    IK_CompositeConstruct,          // OpCompositeConstruct
+    IK_CompositeExtract,            // OpCompositeExtract
+    IK_CompositeInsert,             // OpCompositeInsert
+    IK_CopyObject,                  // OpCopyObject
+    IK_DemoteToHelperInvocationEXT, // OpDemoteToHelperInvocationEXT
+    IK_ExtInst,                     // OpExtInst
+    IK_FunctionCall,                // OpFunctionCall
 
     IK_EndPrimitive, // OpEndPrimitive
     IK_EmitVertex,   // OpEmitVertex
@@ -108,6 +117,9 @@ public:
     IK_ImageSparseTexelsResident, // OpImageSparseTexelsResident
     IK_ImageTexelPointer,         // OpImageTexelPointer
     IK_Load,                      // OpLoad
+    IK_RayQueryOpKHR,             // KHR rayquery ops
+    IK_RayTracingOpNV,            // NV raytracing ops
+    IK_ReadClock,                 // OpReadClock
     IK_SampledImage,              // OpSampledImage
     IK_Select,                    // OpSelect
     IK_SpecConstantBinaryOp,      // SpecConstant binary operations
@@ -115,9 +127,34 @@ public:
     IK_Store,                     // OpStore
     IK_UnaryOp,                   // Unary operations
     IK_VectorShuffle,             // OpVectorShuffle
-    IK_ArrayLength,               // OpArrayLength
-    IK_RayTracingOpNV,            // NV raytracing ops
+
+    // For DebugInfo instructions defined in OpenCL.DebugInfo.100
+    IK_DebugInfoNone,
+    IK_DebugCompilationUnit,
+    IK_DebugSource,
+    IK_DebugFunctionDecl,
+    IK_DebugFunction,
+    IK_DebugLocalVariable,
+    IK_DebugGlobalVariable,
+    IK_DebugOperation,
+    IK_DebugExpression,
+    IK_DebugDeclare,
+    IK_DebugLexicalBlock,
+    IK_DebugScope,
+    IK_DebugTypeBasic,
+    IK_DebugTypeArray,
+    IK_DebugTypeVector,
+    IK_DebugTypeFunction,
+    IK_DebugTypeComposite,
+    IK_DebugTypeMember,
+    IK_DebugTypeTemplate,
+    IK_DebugTypeTemplateParameter,
   };
+
+  // All instruction classes should include a releaseMemory method.
+  // This is needed in order to avoid leaking memory for classes that include
+  // members that are not trivially destructible.
+  virtual void releaseMemory() = 0;
 
   virtual ~SpirvInstruction() = default;
 
@@ -215,6 +252,8 @@ class SpirvCapability : public SpirvInstruction {
 public:
   SpirvCapability(SourceLocation loc, spv::Capability cap);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvCapability)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_Capability;
@@ -235,6 +274,8 @@ class SpirvExtension : public SpirvInstruction {
 public:
   SpirvExtension(SourceLocation loc, llvm::StringRef extensionName);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvExtension)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_Extension;
@@ -253,8 +294,9 @@ private:
 /// \brief ExtInstImport instruction
 class SpirvExtInstImport : public SpirvInstruction {
 public:
-  SpirvExtInstImport(SourceLocation loc,
-                     llvm::StringRef extensionName = "GLSL.std.450");
+  SpirvExtInstImport(SourceLocation loc, llvm::StringRef extensionName);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvExtInstImport)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -273,6 +315,8 @@ private:
 class SpirvMemoryModel : public SpirvInstruction {
 public:
   SpirvMemoryModel(spv::AddressingModel addrModel, spv::MemoryModel memModel);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvMemoryModel)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -295,6 +339,8 @@ public:
   SpirvEntryPoint(SourceLocation loc, spv::ExecutionModel executionModel,
                   SpirvFunction *entryPoint, llvm::StringRef nameStr,
                   llvm::ArrayRef<SpirvVariable *> iface);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvEntryPoint)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -322,6 +368,8 @@ public:
                      spv::ExecutionMode, llvm::ArrayRef<uint32_t> params,
                      bool usesIdParams);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvExecutionMode)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_ExecutionMode;
@@ -344,6 +392,8 @@ class SpirvString : public SpirvInstruction {
 public:
   SpirvString(SourceLocation loc, llvm::StringRef stringLiteral);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvString)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_String;
@@ -362,6 +412,8 @@ class SpirvSource : public SpirvInstruction {
 public:
   SpirvSource(SourceLocation loc, spv::SourceLanguage language, uint32_t ver,
               SpirvString *file, llvm::StringRef src);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvSource)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -387,6 +439,8 @@ private:
 class SpirvModuleProcessed : public SpirvInstruction {
 public:
   SpirvModuleProcessed(SourceLocation loc, llvm::StringRef processStr);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvModuleProcessed)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -415,6 +469,8 @@ public:
   SpirvDecoration(SourceLocation loc, SpirvInstruction *target,
                   spv::Decoration decor,
                   llvm::ArrayRef<SpirvInstruction *> params);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvDecoration)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -452,6 +508,12 @@ public:
   SpirvVariable(QualType resultType, SourceLocation loc, spv::StorageClass sc,
                 bool isPrecise, SpirvInstruction *initializerId = 0);
 
+  SpirvVariable(const SpirvType *spvType, SourceLocation loc,
+                spv::StorageClass sc, bool isPrecise,
+                SpirvInstruction *initializerId = 0);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvVariable)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_Variable;
@@ -480,12 +542,28 @@ public:
   SpirvFunctionParameter(QualType resultType, bool isPrecise,
                          SourceLocation loc);
 
+  SpirvFunctionParameter(const SpirvType *spvType, bool isPrecise,
+                         SourceLocation loc);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvFunctionParameter)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_FunctionParameter;
   }
 
   bool invokeVisitor(Visitor *v) override;
+
+  void setDebugDeclare(SpirvDebugDeclare *decl) { debugDecl = decl; }
+  SpirvDebugDeclare *getDebugDeclare() const { return debugDecl; }
+
+private:
+  // When we turn on the rich debug info generation option, we want
+  // to keep the function parameter information (like a local
+  // variable). Since DebugDeclare instruction maps a
+  // DebugLocalVariable instruction to OpFunctionParameter instruction,
+  // we keep a pointer to SpirvDebugDeclare in SpirvFunctionParameter.
+  SpirvDebugDeclare *debugDecl;
 };
 
 /// \brief Merge instructions include OpLoopMerge and OpSelectionMerge
@@ -512,6 +590,8 @@ public:
   SpirvLoopMerge(SourceLocation loc, SpirvBasicBlock *mergeBlock,
                  SpirvBasicBlock *contTarget, spv::LoopControlMask mask);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvLoopMerge)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_LoopMerge;
@@ -531,6 +611,8 @@ class SpirvSelectionMerge : public SpirvMerge {
 public:
   SpirvSelectionMerge(SourceLocation loc, SpirvBasicBlock *mergeBlock,
                       spv::SelectionControlMask mask);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvSelectionMerge)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -553,6 +635,7 @@ private:
 ///
 /// * OpBranch, OpBranchConditional, OpSwitch
 /// * OpReturn, OpReturnValue, OpKill, OpUnreachable
+/// * OpIgnoreIntersectionKHR, OpTerminateIntersectionKHR
 ///
 /// The first group (branching instructions) also include information on
 /// possible branches that will be taken next.
@@ -560,7 +643,8 @@ class SpirvTerminator : public SpirvInstruction {
 public:
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
-    return inst->getKind() >= IK_Branch && inst->getKind() <= IK_Unreachable;
+    return inst->getKind() >= IK_Branch &&
+           inst->getKind() <= IK_RayTracingTerminate;
   }
 
 protected:
@@ -586,6 +670,8 @@ protected:
 class SpirvBranch : public SpirvBranching {
 public:
   SpirvBranch(SourceLocation loc, SpirvBasicBlock *target);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvBranch)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -613,6 +699,8 @@ public:
                          SpirvBasicBlock *trueLabel,
                          SpirvBasicBlock *falseLabel);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvBranchConditional)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_BranchConditional;
@@ -639,6 +727,8 @@ class SpirvKill : public SpirvTerminator {
 public:
   SpirvKill(SourceLocation loc);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvKill)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_Kill;
@@ -651,6 +741,8 @@ public:
 class SpirvReturn : public SpirvTerminator {
 public:
   SpirvReturn(SourceLocation loc, SpirvInstruction *retVal = 0);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvReturn)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -673,6 +765,8 @@ public:
       SourceLocation loc, SpirvInstruction *selector,
       SpirvBasicBlock *defaultLabel,
       llvm::ArrayRef<std::pair<uint32_t, SpirvBasicBlock *>> &targetsVec);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvSwitch)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -702,6 +796,8 @@ class SpirvUnreachable : public SpirvTerminator {
 public:
   SpirvUnreachable(SourceLocation loc);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvUnreachable)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_Unreachable;
@@ -719,6 +815,8 @@ public:
   SpirvAccessChain(QualType resultType, SourceLocation loc,
                    SpirvInstruction *base,
                    llvm::ArrayRef<SpirvInstruction *> indexVec);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvAccessChain)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -767,6 +865,8 @@ public:
               spv::MemorySemanticsMask semanticsUnequal,
               SpirvInstruction *value, SpirvInstruction *comparator);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvAtomic)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_Atomic;
@@ -803,6 +903,8 @@ public:
   SpirvBarrier(SourceLocation loc, spv::Scope memoryScope,
                spv::MemorySemanticsMask memorySemantics,
                llvm::Optional<spv::Scope> executionScope = llvm::None);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvBarrier)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -891,6 +993,8 @@ public:
   SpirvBinaryOp(spv::Op opcode, QualType resultType, SourceLocation loc,
                 SpirvInstruction *op1, SpirvInstruction *op2);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvBinaryOp)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_BinaryOp;
@@ -942,6 +1046,8 @@ public:
                        SpirvInstruction *base, SpirvInstruction *offset,
                        SpirvInstruction *count, bool isSigned);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvBitFieldExtract)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_BitFieldExtract;
@@ -959,6 +1065,8 @@ public:
   SpirvBitFieldInsert(QualType resultType, SourceLocation loc,
                       SpirvInstruction *base, SpirvInstruction *insert,
                       SpirvInstruction *offset, SpirvInstruction *count);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvBitFieldInsert)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -992,6 +1100,8 @@ class SpirvConstantBoolean : public SpirvConstant {
 public:
   SpirvConstantBoolean(QualType type, bool value, bool isSpecConst = false);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvConstantBoolean)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_ConstantBoolean;
@@ -1013,6 +1123,8 @@ public:
   SpirvConstantInteger(QualType type, llvm::APInt value,
                        bool isSpecConst = false);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvConstantInteger)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_ConstantInteger;
@@ -1032,6 +1144,8 @@ class SpirvConstantFloat : public SpirvConstant {
 public:
   SpirvConstantFloat(QualType type, llvm::APFloat value,
                      bool isSpecConst = false);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvConstantFloat)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1054,6 +1168,8 @@ public:
                          llvm::ArrayRef<SpirvConstant *> constituents,
                          bool isSpecConst = false);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvConstantComposite)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_ConstantComposite;
@@ -1073,6 +1189,8 @@ class SpirvConstantNull : public SpirvConstant {
 public:
   SpirvConstantNull(QualType type);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvConstantNull)
+
   bool invokeVisitor(Visitor *v) override;
 
   // For LLVM-style RTTI
@@ -1088,6 +1206,8 @@ class SpirvCompositeConstruct : public SpirvInstruction {
 public:
   SpirvCompositeConstruct(QualType resultType, SourceLocation loc,
                           llvm::ArrayRef<SpirvInstruction *> constituentsVec);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvCompositeConstruct)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1111,6 +1231,8 @@ public:
                         SpirvInstruction *composite,
                         llvm::ArrayRef<uint32_t> indices);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvCompositeExtract)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_CompositeExtract;
@@ -1132,6 +1254,8 @@ public:
   SpirvCompositeInsert(QualType resultType, SourceLocation loc,
                        SpirvInstruction *composite, SpirvInstruction *object,
                        llvm::ArrayRef<uint32_t> indices);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvCompositeInsert)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1155,6 +1279,8 @@ class SpirvEmitVertex : public SpirvInstruction {
 public:
   SpirvEmitVertex(SourceLocation loc);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvEmitVertex)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_EmitVertex;
@@ -1168,6 +1294,8 @@ class SpirvEndPrimitive : public SpirvInstruction {
 public:
   SpirvEndPrimitive(SourceLocation loc);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvEndPrimitive)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_EndPrimitive;
@@ -1180,7 +1308,9 @@ public:
 class SpirvExtInst : public SpirvInstruction {
 public:
   SpirvExtInst(QualType resultType, SourceLocation loc, SpirvExtInstImport *set,
-               GLSLstd450 inst, llvm::ArrayRef<SpirvInstruction *> operandsVec);
+               uint32_t inst, llvm::ArrayRef<SpirvInstruction *> operandsVec);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvExtInst)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1190,12 +1320,12 @@ public:
   bool invokeVisitor(Visitor *v) override;
 
   SpirvExtInstImport *getInstructionSet() const { return instructionSet; }
-  GLSLstd450 getInstruction() const { return instruction; }
+  uint32_t getInstruction() const { return instruction; }
   llvm::ArrayRef<SpirvInstruction *> getOperands() const { return operands; }
 
 private:
   SpirvExtInstImport *instructionSet;
-  GLSLstd450 instruction;
+  uint32_t instruction;
   llvm::SmallVector<SpirvInstruction *, 4> operands;
 };
 
@@ -1205,6 +1335,8 @@ public:
   SpirvFunctionCall(QualType resultType, SourceLocation loc,
                     SpirvFunction *function,
                     llvm::ArrayRef<SpirvInstruction *> argsVec);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvFunctionCall)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1247,6 +1379,8 @@ public:
                           SourceLocation loc, spv::Scope scope,
                           SpirvInstruction *arg1, SpirvInstruction *arg2);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvNonUniformBinaryOp)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_GroupNonUniformBinaryOp;
@@ -1269,6 +1403,8 @@ public:
   SpirvNonUniformElect(QualType resultType, SourceLocation loc,
                        spv::Scope scope);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvNonUniformElect)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_GroupNonUniformElect;
@@ -1284,6 +1420,8 @@ public:
                          SourceLocation loc, spv::Scope scope,
                          llvm::Optional<spv::GroupOperation> group,
                          SpirvInstruction *arg);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvNonUniformUnaryOp)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1343,6 +1481,8 @@ public:
                SpirvInstruction *minLod = nullptr,
                SpirvInstruction *component = nullptr,
                SpirvInstruction *texelToWrite = nullptr);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvImageOp)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1418,6 +1558,8 @@ public:
                   SpirvInstruction *img, SpirvInstruction *lod = nullptr,
                   SpirvInstruction *coord = nullptr);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvImageQuery)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_ImageQuery;
@@ -1443,6 +1585,8 @@ public:
   SpirvImageSparseTexelsResident(QualType resultType, SourceLocation loc,
                                  SpirvInstruction *resCode);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvImageSparseTexelsResident)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_ImageSparseTexelsResident;
@@ -1465,6 +1609,8 @@ public:
   SpirvImageTexelPointer(QualType resultType, SourceLocation loc,
                          SpirvInstruction *image, SpirvInstruction *coordinate,
                          SpirvInstruction *sample);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvImageTexelPointer)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1489,6 +1635,8 @@ public:
   SpirvLoad(QualType resultType, SourceLocation loc, SpirvInstruction *pointer,
             llvm::Optional<spv::MemoryAccessMask> mask = llvm::None);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvLoad)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_Load;
@@ -1507,6 +1655,27 @@ private:
   llvm::Optional<spv::MemoryAccessMask> memoryAccess;
 };
 
+/// \brief OpCopyObject instruction
+class SpirvCopyObject : public SpirvInstruction {
+public:
+  SpirvCopyObject(QualType resultType, SourceLocation loc,
+                  SpirvInstruction *pointer);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvCopyObject)
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_CopyObject;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  SpirvInstruction *getPointer() const { return pointer; }
+
+private:
+  SpirvInstruction *pointer;
+};
+
 /// \brief OpSampledImage instruction
 /// Result Type must be the OpTypeSampledImage type whose Image Type operand is
 /// the type of Image. We store the QualType for the underlying image as result
@@ -1515,6 +1684,8 @@ class SpirvSampledImage : public SpirvInstruction {
 public:
   SpirvSampledImage(QualType resultType, SourceLocation loc,
                     SpirvInstruction *image, SpirvInstruction *sampler);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvSampledImage)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1536,6 +1707,8 @@ class SpirvSelect : public SpirvInstruction {
 public:
   SpirvSelect(QualType resultType, SourceLocation loc, SpirvInstruction *cond,
               SpirvInstruction *trueId, SpirvInstruction *falseId);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvSelect)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1561,6 +1734,8 @@ public:
                             SourceLocation loc, SpirvInstruction *operand1,
                             SpirvInstruction *operand2);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvSpecConstantBinaryOp)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_SpecConstantBinaryOp;
@@ -1584,6 +1759,8 @@ public:
   SpirvSpecConstantUnaryOp(spv::Op specConstantOp, QualType resultType,
                            SourceLocation loc, SpirvInstruction *operand);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvSpecConstantUnaryOp)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_SpecConstantUnaryOp;
@@ -1605,6 +1782,8 @@ public:
   SpirvStore(SourceLocation loc, SpirvInstruction *pointer,
              SpirvInstruction *object,
              llvm::Optional<spv::MemoryAccessMask> mask = llvm::None);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvStore)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1669,6 +1848,8 @@ public:
   SpirvUnaryOp(spv::Op opcode, QualType resultType, SourceLocation loc,
                SpirvInstruction *op);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvUnaryOp)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_UnaryOp;
@@ -1689,6 +1870,8 @@ public:
   SpirvVectorShuffle(QualType resultType, SourceLocation loc,
                      SpirvInstruction *vec1, SpirvInstruction *vec2,
                      llvm::ArrayRef<uint32_t> componentsVec);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvVectorShuffle)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1711,6 +1894,8 @@ class SpirvArrayLength : public SpirvInstruction {
 public:
   SpirvArrayLength(QualType resultType, SourceLocation loc,
                    SpirvInstruction *structure, uint32_t arrayMember);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvArrayLength)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1737,6 +1922,8 @@ public:
                       llvm::ArrayRef<SpirvInstruction *> vecOperands,
                       SourceLocation loc);
 
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvRayTracingOpNV)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_RayTracingOpNV;
@@ -1748,6 +1935,807 @@ public:
 
 private:
   llvm::SmallVector<SpirvInstruction *, 4> operands;
+};
+
+class SpirvRayQueryOpKHR : public SpirvInstruction {
+public:
+  SpirvRayQueryOpKHR(QualType resultType, spv::Op opcode,
+                     llvm::ArrayRef<SpirvInstruction *> vecOperands, bool flags,
+                     SourceLocation loc);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvRayQueryOpKHR)
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_RayQueryOpKHR;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  llvm::ArrayRef<SpirvInstruction *> getOperands() const { return operands; }
+
+  bool hasCullFlags() const { return cullFlags; }
+
+private:
+  llvm::SmallVector<SpirvInstruction *, 4> operands;
+  bool cullFlags;
+};
+
+class SpirvRayTracingTerminateOpKHR : public SpirvTerminator {
+public:
+  SpirvRayTracingTerminateOpKHR(spv::Op opcode, SourceLocation loc);
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvRayTracingTerminateOpKHR)
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_RayTracingTerminate;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+};
+
+/// \brief OpDemoteToHelperInvocationEXT instruction.
+/// Demote fragment shader invocation to a helper invocation. Any stores to
+/// memory after this instruction are suppressed and the fragment does not write
+/// outputs to the framebuffer. Unlike the OpKill instruction, this does not
+/// necessarily terminate the invocation. It is not considered a flow control
+/// instruction (flow control does not become non-uniform) and does not
+/// terminate the block.
+class SpirvDemoteToHelperInvocationEXT : public SpirvInstruction {
+public:
+  SpirvDemoteToHelperInvocationEXT(SourceLocation);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvDemoteToHelperInvocationEXT)
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DemoteToHelperInvocationEXT;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+};
+
+/// \breif Base class for all OpenCL.DebugInfo.100 extension instructions.
+/// Note that all of these instructions should be added to the SPIR-V module as
+/// an OpExtInst instructions. So, all of these instructions must:
+/// 1) contain the result-id of the extended instruction set
+/// 2) have OpTypeVoid as their Result Type.
+/// 3) contain additional QualType and SpirvType for the debug type.
+class SpirvDebugInstruction : public SpirvInstruction {
+public:
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() >= IK_DebugInfoNone &&
+           inst->getKind() <= IK_DebugTypeTemplateParameter;
+  }
+
+  void setDebugType(SpirvDebugInstruction *type) { debugType = type; }
+  void setInstructionSet(SpirvExtInstImport *set) { instructionSet = set; }
+  SpirvExtInstImport *getInstructionSet() const { return instructionSet; }
+  uint32_t getDebugOpcode() const { return debugOpcode; }
+  QualType getDebugQualType() const { return debugQualType; }
+  const SpirvType *getDebugSpirvType() const { return debugSpirvType; }
+  SpirvDebugInstruction *getDebugType() const { return debugType; }
+  void setDebugQualType(QualType type) { debugQualType = type; }
+  void setDebugSpirvType(const SpirvType *type) { debugSpirvType = type; }
+
+  virtual SpirvDebugInstruction *getParentScope() const { return nullptr; }
+
+protected:
+  // TODO: Replace opcode type with an enum, when it is available in
+  // SPIRV-Headers.
+  SpirvDebugInstruction(Kind kind, uint32_t opcode);
+
+private:
+  // TODO: Replace this with an enum, when it is available in SPIRV-Headers.
+  uint32_t debugOpcode;
+
+  QualType debugQualType;
+  const SpirvType *debugSpirvType;
+
+  // The constructor for SpirvDebugInstruction sets the debug type to nullptr.
+  // A type lowering IMR pass will set debug types for all debug instructions
+  // that do contain a debug type.
+  SpirvDebugInstruction *debugType;
+
+  // The pointer to the debug info extended instruction set.
+  // This is not required by the constructor, and can be set via any IMR pass.
+  SpirvExtInstImport *instructionSet;
+};
+
+class SpirvDebugInfoNone : public SpirvDebugInstruction {
+public:
+  SpirvDebugInfoNone();
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvDebugInfoNone)
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugInfoNone;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+};
+
+class SpirvDebugSource : public SpirvDebugInstruction {
+public:
+  SpirvDebugSource(llvm::StringRef file, llvm::StringRef text);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvDebugSource)
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugSource;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  llvm::StringRef getFile() const { return file; }
+  llvm::StringRef getContent() const { return text; }
+
+private:
+  std::string file;
+  std::string text;
+};
+
+class SpirvDebugCompilationUnit : public SpirvDebugInstruction {
+public:
+  SpirvDebugCompilationUnit(uint32_t spirvVersion, uint32_t dwarfVersion,
+                            SpirvDebugSource *src);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvDebugCompilationUnit)
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugCompilationUnit;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  uint32_t getSpirvVersion() const { return spirvVersion; }
+  uint32_t getDwarfVersion() const { return dwarfVersion; }
+  SpirvDebugSource *getDebugSource() const { return source; }
+  spv::SourceLanguage getLanguage() const { return lang; }
+
+private:
+  uint32_t spirvVersion;
+  uint32_t dwarfVersion;
+  SpirvDebugSource *source;
+  spv::SourceLanguage lang;
+};
+
+// This class is not actually used. It can be cleaned up.
+class SpirvDebugFunctionDeclaration : public SpirvDebugInstruction {
+public:
+  SpirvDebugFunctionDeclaration(llvm::StringRef name, SpirvDebugSource *src,
+                                uint32_t fnLine, uint32_t fnColumn,
+                                SpirvDebugInstruction *parentScope,
+                                llvm::StringRef linkageName, uint32_t flags);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvDebugFunctionDeclaration)
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugFunctionDecl;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  SpirvDebugSource *getSource() const { return source; }
+  uint32_t getLine() const { return fnLine; }
+  uint32_t getColumn() const { return fnColumn; }
+  void setParent(SpirvDebugInstruction *scope) { parentScope = scope; }
+  SpirvDebugInstruction *getParentScope() const override { return parentScope; }
+  llvm::StringRef getLinkageName() const { return linkageName; }
+  uint32_t getFlags() const { return flags; }
+
+private:
+  SpirvDebugSource *source;
+  // Source line number at which the function appears
+  uint32_t fnLine;
+  // Source column number at which the function appears
+  uint32_t fnColumn;
+  // Debug instruction which represents the parent lexical scope
+  SpirvDebugInstruction *parentScope;
+  std::string linkageName;
+  // TODO: Replace this with an enum, when it is available in SPIRV-Headers
+  uint32_t flags;
+};
+
+class SpirvDebugFunction : public SpirvDebugInstruction {
+public:
+  SpirvDebugFunction(llvm::StringRef name, SpirvDebugSource *src,
+                     uint32_t fnLine, uint32_t fnColumn,
+                     SpirvDebugInstruction *parentScope,
+                     llvm::StringRef linkageName, uint32_t flags,
+                     uint32_t scopeLine, SpirvFunction *fn);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvDebugFunction)
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugFunction;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  SpirvDebugSource *getSource() const { return source; }
+  uint32_t getLine() const { return fnLine; }
+  uint32_t getColumn() const { return fnColumn; }
+  void setParent(SpirvDebugInstruction *scope) { parentScope = scope; }
+  SpirvDebugInstruction *getParentScope() const override { return parentScope; }
+  llvm::StringRef getLinkageName() const { return linkageName; }
+  uint32_t getFlags() const { return flags; }
+  uint32_t getScopeLine() const { return scopeLine; }
+  SpirvFunction *getSpirvFunction() const { return fn; }
+
+  void setFunctionType(clang::spirv::FunctionType *t) { fnType = t; }
+  clang::spirv::FunctionType *getFunctionType() const { return fnType; }
+
+  void setDebugInfoNone(SpirvDebugInfoNone *none) { debugNone = none; }
+  SpirvDebugInfoNone *getDebugInfoNone() const { return debugNone; }
+
+private:
+  SpirvDebugSource *source;
+  // Source line number at which the function appears
+  uint32_t fnLine;
+  // Source column number at which the function appears
+  uint32_t fnColumn;
+  // Debug instruction which represents the parent lexical scope
+  SpirvDebugInstruction *parentScope;
+  std::string linkageName;
+  // TODO: Replace this with an enum, when it is available in SPIRV-Headers
+  uint32_t flags;
+  // Line number in the source program at which the function scope begins
+  uint32_t scopeLine;
+  // The function to which this debug instruction belongs
+  SpirvFunction *fn;
+
+  // When fn is nullptr, we want to put DebugInfoNone for Function operand
+  // of DebugFunction. Note that the spec must allow it (which will be
+  // discussed). We can consider this debugNone is a fallback of fn.
+  SpirvDebugInfoNone *debugNone;
+
+  // When the function debug info is generated by LowerTypeVisitor (not
+  // SpirvEmitter), we do not generate SpirvFunction. We only generate
+  // SpirvDebugFunction. Similar to fnType of SpirvFunction, we want to
+  // keep the function type info in this fnType.
+  clang::spirv::FunctionType *fnType;
+};
+
+class SpirvDebugLocalVariable : public SpirvDebugInstruction {
+public:
+  SpirvDebugLocalVariable(QualType debugQualType, llvm::StringRef varName,
+                          SpirvDebugSource *src, uint32_t line, uint32_t column,
+                          SpirvDebugInstruction *parentScope, uint32_t flags,
+                          llvm::Optional<uint32_t> argNumber = llvm::None);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvDebugLocalVariable)
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugLocalVariable;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  SpirvDebugSource *getSource() const { return source; }
+  uint32_t getLine() const { return line; }
+  uint32_t getColumn() const { return column; }
+  SpirvDebugInstruction *getParentScope() const override { return parentScope; }
+  uint32_t getFlags() const { return flags; }
+  llvm::Optional<uint32_t> getArgNumber() const { return argNumber; }
+
+private:
+  SpirvDebugSource *source;
+  uint32_t line;
+  uint32_t column;
+  SpirvDebugInstruction *parentScope;
+  // TODO: Replace this with an enum, when it is available in SPIRV-Headers
+  uint32_t flags;
+  llvm::Optional<uint32_t> argNumber;
+};
+
+class SpirvDebugGlobalVariable : public SpirvDebugInstruction {
+public:
+  SpirvDebugGlobalVariable(
+      QualType debugQualType, llvm::StringRef varName, SpirvDebugSource *src,
+      uint32_t line, uint32_t column, SpirvDebugInstruction *parentScope,
+      llvm::StringRef linkageName, SpirvVariable *var, uint32_t flags,
+      llvm::Optional<SpirvInstruction *> staticMemberDebugType = llvm::None);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvDebugGlobalVariable)
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugGlobalVariable;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  SpirvDebugSource *getSource() const { return source; }
+  uint32_t getLine() const { return line; }
+  uint32_t getColumn() const { return column; }
+  SpirvDebugInstruction *getParentScope() const override { return parentScope; }
+  llvm::StringRef getLinkageName() const { return linkageName; }
+  uint32_t getFlags() const { return flags; }
+  SpirvInstruction *getVariable() const { return var; }
+  llvm::Optional<SpirvInstruction *> getStaticMemberDebugDecl() const {
+    return staticMemberDebugDecl;
+  }
+
+private:
+  SpirvDebugSource *source;
+  uint32_t line;
+  uint32_t column;
+  SpirvDebugInstruction *parentScope;
+  std::string linkageName;
+  SpirvVariable *var;
+  // TODO: Replace this with an enum, when it is available in SPIRV-Headers
+  uint32_t flags;
+  llvm::Optional<SpirvInstruction *> staticMemberDebugDecl;
+};
+
+class SpirvDebugOperation : public SpirvDebugInstruction {
+public:
+  SpirvDebugOperation(uint32_t operationOpCode,
+                      llvm::ArrayRef<int32_t> operands = {});
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvDebugOperation)
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugOperation;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  uint32_t getOperationOpcode() { return operationOpcode; }
+
+private:
+  uint32_t operationOpcode;
+  llvm::SmallVector<int32_t, 2> operands;
+};
+
+class SpirvDebugExpression : public SpirvDebugInstruction {
+public:
+  SpirvDebugExpression(llvm::ArrayRef<SpirvDebugOperation *> operations = {});
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvDebugExpression)
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugExpression;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  llvm::ArrayRef<SpirvDebugOperation *> getOperations() const {
+    return operations;
+  }
+
+private:
+  llvm::SmallVector<SpirvDebugOperation *, 4> operations;
+};
+
+class SpirvDebugDeclare : public SpirvDebugInstruction {
+public:
+  SpirvDebugDeclare(SpirvDebugLocalVariable *, SpirvInstruction *,
+                    SpirvDebugExpression *);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvDebugDeclare)
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugDeclare;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  SpirvDebugLocalVariable *getDebugLocalVariable() const { return debugVar; }
+  SpirvInstruction *getVariable() const { return var; }
+  SpirvDebugExpression *getDebugExpression() const { return expression; }
+
+private:
+  SpirvDebugLocalVariable *debugVar;
+  SpirvInstruction *var;
+  SpirvDebugExpression *expression;
+};
+
+class SpirvDebugLexicalBlock : public SpirvDebugInstruction {
+public:
+  SpirvDebugLexicalBlock(SpirvDebugSource *source, uint32_t line,
+                         uint32_t column, SpirvDebugInstruction *parent);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvDebugLexicalBlock)
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugLexicalBlock;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  SpirvDebugSource *getSource() const { return source; }
+  uint32_t getLine() const { return line; }
+  uint32_t getColumn() const { return column; }
+  SpirvDebugInstruction *getParentScope() const override { return parent; }
+
+private:
+  SpirvDebugSource *source;
+  uint32_t line;
+  uint32_t column;
+  SpirvDebugInstruction *parent;
+};
+
+/// Represent DebugScope. DebugScope has two operands: a lexical scope
+/// and DebugInlinedAt. The DebugInlinedAt is an optional argument
+/// and it is only used when we inline a function. Since DXC does not
+/// conduct the inlining, we do not add DebugInlinedAt operand.
+class SpirvDebugScope : public SpirvDebugInstruction {
+public:
+  SpirvDebugScope(SpirvDebugInstruction *);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvDebugScope)
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugScope;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  SpirvDebugInstruction *getScope() const { return scope; }
+
+private:
+  SpirvDebugInstruction *scope;
+};
+
+/// The following classes represent debug types defined in the
+/// OpenCL.DebugInfo.100 spec.
+///
+/// Note: While debug type and SPIR-V type are very similar, they are not quite
+/// identical. For example: the debug type contains the HLL string name of the
+/// type. Another example: two structs with similar definitions in different
+/// lexical scopes translate into 1 SPIR-V type, but translate into 2 different
+/// debug type instructions.
+///
+/// Note: DebugTypeComposite contains a vector of its members, which can be
+/// DebugTypeMember or DebugFunction. The former is a type, and the latter is a
+/// SPIR-V instruction. This somewhat tips the sclae in favor of using the
+/// SpirvInstruction base class for representing debug types.
+///
+/// TODO: Add support for the following debug types:
+///   DebugTypePointer,
+///   DebugTypeQualifier,
+///   DebugTypedef,
+///   DebugTypeEnum,
+///   DebugTypeInheritance,
+///   DebugTypePtrToMember,
+///   DebugTypeTemplate,
+///   DebugTypeTemplateParameter,
+///   DebugTypeTemplateTemplateParameter,
+///   DebugTypeTemplateParameterPack,
+
+class SpirvDebugType : public SpirvDebugInstruction {
+public:
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() >= IK_DebugTypeBasic &&
+           inst->getKind() <= IK_DebugTypeTemplateParameter;
+  }
+
+  virtual uint32_t getSizeInBits() const { return 0u; }
+
+protected:
+  SpirvDebugType(Kind kind, uint32_t opcode)
+      : SpirvDebugInstruction(kind, opcode) {}
+};
+
+/// Represents basic debug types, including boolean, float, integer.
+class SpirvDebugTypeBasic : public SpirvDebugType {
+public:
+  SpirvDebugTypeBasic(llvm::StringRef name, SpirvConstant *size,
+                      uint32_t encoding);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvDebugTypeBasic)
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugTypeBasic;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  SpirvConstant *getSize() const { return size; }
+  uint32_t getEncoding() const { return encoding; }
+  uint32_t getSizeInBits() const override;
+
+private:
+  SpirvConstant *size;
+  // TODO: Replace uint32_t with enum from SPIRV-Headers once available.
+  // 0, Unspecified
+  // 1, Address
+  // 2, Boolean
+  // 3, Float
+  // 4, Signed
+  // 5, SignedChar
+  // 6, Unsigned
+  // 7, UnsignedChar
+  uint32_t encoding;
+};
+
+/// Represents array debug types
+class SpirvDebugTypeArray : public SpirvDebugType {
+public:
+  SpirvDebugTypeArray(SpirvDebugType *elemType,
+                      llvm::ArrayRef<uint32_t> elemCount);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvDebugTypeArray)
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugTypeArray;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  SpirvDebugType *getElementType() const { return elementType; }
+  llvm::SmallVector<uint32_t, 2> &getElementCount() { return elementCount; }
+
+  uint32_t getSizeInBits() const override {
+    // TODO: avoid integer overflow
+    uint32_t nElem = elementType->getSizeInBits();
+    for (auto k : elementCount)
+      nElem *= k;
+    return nElem;
+  }
+
+private:
+  SpirvDebugType *elementType;
+  llvm::SmallVector<uint32_t, 2> elementCount;
+};
+
+/// Represents vector debug types
+class SpirvDebugTypeVector : public SpirvDebugType {
+public:
+  SpirvDebugTypeVector(SpirvDebugType *elemType, uint32_t elemCount);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvDebugTypeVector)
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugTypeVector;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  SpirvDebugType *getElementType() const { return elementType; }
+  uint32_t getElementCount() const { return elementCount; }
+
+  uint32_t getSizeInBits() const override {
+    return elementCount * elementType->getSizeInBits();
+  }
+
+private:
+  SpirvDebugType *elementType;
+  uint32_t elementCount;
+};
+
+/// Represents a function debug type. Includes the function return type and
+/// parameter types.
+class SpirvDebugTypeFunction : public SpirvDebugType {
+public:
+  SpirvDebugTypeFunction(uint32_t flags, SpirvDebugType *ret,
+                         llvm::ArrayRef<SpirvDebugType *> params);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvDebugTypeFunction)
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugTypeFunction;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  uint32_t getDebugFlags() const { return debugFlags; }
+  SpirvDebugType *getReturnType() const { return returnType; }
+  llvm::ArrayRef<SpirvDebugType *> getParamTypes() const { return paramTypes; }
+
+private:
+  // TODO: Replace uint32_t with enum in the SPIRV-Headers once it is available.
+  uint32_t debugFlags;
+  // Return Type is a debug instruction which represents type of return value of
+  // the function. If the function has no return value, this operand is
+  // OpTypeVoid, in which case we will use nullptr for this member.
+  SpirvDebugType *returnType;
+  llvm::SmallVector<SpirvDebugType *, 4> paramTypes;
+};
+
+/// Represents debug information for a template type parameter.
+class SpirvDebugTypeTemplateParameter : public SpirvDebugType {
+public:
+  SpirvDebugTypeTemplateParameter(llvm::StringRef name, SpirvDebugType *type,
+                                  SpirvInstruction *value,
+                                  SpirvDebugSource *source, uint32_t line,
+                                  uint32_t column);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvDebugTypeTemplateParameter)
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugTypeTemplateParameter;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  SpirvDebugType *getActualType() const { return actualType; }
+  void setValue(SpirvInstruction *c) { value = c; }
+  SpirvInstruction *getValue() const { return value; }
+  SpirvDebugSource *getSource() const { return source; }
+  uint32_t getLine() const { return line; }
+  uint32_t getColumn() const { return column; }
+
+private:
+  SpirvDebugType *actualType; //< Type for type param
+  SpirvInstruction *value;    //< Value. It must be null for type.
+  SpirvDebugSource *source;   //< DebugSource containing this type
+  uint32_t line;              //< Line number
+  uint32_t column;            //< Column number
+};
+
+/// Represents debug information for a template type.
+class SpirvDebugTypeTemplate : public SpirvDebugType {
+public:
+  SpirvDebugTypeTemplate(
+      SpirvDebugInstruction *target,
+      const llvm::SmallVector<SpirvDebugTypeTemplateParameter *, 2> &params);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvDebugTypeTemplate)
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugTypeTemplate;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  llvm::SmallVector<SpirvDebugTypeTemplateParameter *, 2> getParams() {
+    return params;
+  }
+  SpirvDebugInstruction *getTarget() const { return target; }
+
+private:
+  // A debug instruction representing class, struct or function which has
+  // template parameter(s).
+  SpirvDebugInstruction *target;
+
+  // Debug instructions representing the template parameters for this
+  // particular instantiation. It must be DebugTypeTemplateParameter
+  // or DebugTypeTemplateTemplateParameter.
+  // TODO: change the type to SpirvDebugType * when we support
+  // DebugTypeTemplateTemplateParameter.
+  llvm::SmallVector<SpirvDebugTypeTemplateParameter *, 2> params;
+};
+
+/// Represents the debug type of a struct/union/class member.
+/// Note: We have intentionally left out the pointer to the parent composite
+/// type.
+class SpirvDebugTypeMember : public SpirvDebugType {
+public:
+  SpirvDebugTypeMember(llvm::StringRef name, SpirvDebugType *type,
+                       SpirvDebugSource *source, uint32_t line_,
+                       uint32_t column_, SpirvDebugInstruction *parent,
+                       uint32_t flags, uint32_t offsetInBits,
+                       uint32_t sizeInBits, const APValue *value = nullptr);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvDebugTypeMember)
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugTypeMember;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  SpirvDebugInstruction *getParentScope() const override { return parent; }
+
+  SpirvDebugSource *getSource() const { return source; }
+  uint32_t getLine() const { return line; }
+  uint32_t getColumn() const { return column; }
+  uint32_t getOffsetInBits() const { return offsetInBits; }
+  uint32_t getDebugFlags() const { return debugFlags; }
+  uint32_t getSizeInBits() const override { return sizeInBits; }
+  const APValue *getValue() const { return value; }
+
+private:
+  SpirvDebugSource *source; //< DebugSource
+  uint32_t line;            //< Line number
+  uint32_t column;          //< Column number
+
+  SpirvDebugInstruction *parent; //< The parent DebugTypeComposite
+
+  uint32_t offsetInBits; //< Offset (in bits) of this member in the struct
+  uint32_t sizeInBits;   //< Size (in bits) of this member in the struct
+  // TODO: Replace uint32_t with enum in the SPIRV-Headers once it is
+  // available.
+  uint32_t debugFlags;
+  const APValue *value; //< Value (if static member)
+};
+
+class SpirvDebugTypeComposite : public SpirvDebugType {
+public:
+  SpirvDebugTypeComposite(llvm::StringRef name, SpirvDebugSource *source,
+                          uint32_t line, uint32_t column,
+                          SpirvDebugInstruction *parent,
+                          llvm::StringRef linkageName, uint32_t flags,
+                          uint32_t tag);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvDebugTypeComposite)
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugTypeComposite;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  llvm::SmallVector<SpirvDebugInstruction *, 4> getMembers() { return members; }
+  void appendMember(SpirvDebugInstruction *member) {
+    members.push_back(member);
+  }
+  void
+  setMembers(const llvm::SmallVector<SpirvDebugInstruction *, 4> &memberTypes) {
+    members = memberTypes;
+  }
+
+  SpirvDebugInstruction *getParentScope() const override { return parent; }
+  uint32_t getTag() const { return tag; }
+  SpirvDebugSource *getSource() const { return source; }
+  uint32_t getLine() const { return line; }
+  uint32_t getColumn() const { return column; }
+  llvm::StringRef getLinkageName() const { return linkageName; }
+  uint32_t getDebugFlags() const { return debugFlags; }
+
+  void setSizeInBits(uint32_t size_) { sizeInBits = size_; }
+  uint32_t getSizeInBits() const override { return sizeInBits; }
+
+  void markAsOpaqueType(SpirvDebugInfoNone *none) {
+    // If it was already marked as a opaque type, just return. For example,
+    // `debugName` can be "@@Texture2D" if we call this method twice.
+    if (debugNone == none && !debugName.empty() && debugName[0] == '@')
+      return;
+    debugName = std::string("@") + debugName;
+    debugNone = none;
+  }
+  SpirvDebugInfoNone *getDebugInfoNone() const { return debugNone; }
+
+private:
+  SpirvDebugSource *source; //< DebugSource containing this type
+  uint32_t line;            //< Line number
+  uint32_t column;          //< Column number
+
+  // The parent lexical scope. Must be one of the following:
+  // DebugCompilationUnit, DebugFunction, DebugLexicalBlock or other
+  // DebugTypeComposite
+  SpirvDebugInstruction *parent; //< The parent lexical scope
+
+  std::string linkageName; //< Linkage name
+  uint32_t sizeInBits;     //< Size (in bits) of an instance of composite
+
+  // TODO: Replace uint32_t with enum in the SPIRV-Headers once it is
+  // available.
+  uint32_t debugFlags;
+  // TODO: Replace uint32_t with enum in the SPIRV-Headers once it is
+  // available.
+  uint32_t tag;
+
+  // Pointer to members inside this composite type.
+  // Note: Members must be ids of DebugTypeMember, DebugFunction or
+  // DebugTypeInheritance. Since DebugFunction may be a member, we cannot use a
+  // vector of SpirvDebugType.
+  llvm::SmallVector<SpirvDebugInstruction *, 4> members;
+
+  // When it is DebugTypeComposite for HLSL resource type i.e., opaque
+  // type, we must put DebugInfoNone for Size operand.
+  SpirvDebugInfoNone *debugNone;
+};
+
+class SpirvReadClock : public SpirvInstruction {
+public:
+  SpirvReadClock(QualType resultType, SpirvInstruction *scope, SourceLocation);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvReadClock)
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_ReadClock;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  SpirvInstruction *getScope() const { return scope; }
+
+private:
+  SpirvInstruction *scope;
 };
 
 #undef DECLARE_INVOKE_VISITOR_FOR_CLASS

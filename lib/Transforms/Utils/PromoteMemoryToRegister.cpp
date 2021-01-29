@@ -102,7 +102,8 @@ struct AllocaInfo {
   bool OnlyUsedInOneBlock;
 
   Value *AllocaPointerVal;
-  DbgDeclareInst *DbgDeclare;
+  //DbgDeclareInst *DbgDeclare; // HLSL Change
+  SmallVector<DbgDeclareInst *, 4> DbgDeclareInsts; // HLSL Change
 
   void clear() {
     DefiningBlocks.clear();
@@ -111,7 +112,8 @@ struct AllocaInfo {
     OnlyBlock = nullptr;
     OnlyUsedInOneBlock = true;
     AllocaPointerVal = nullptr;
-    DbgDeclare = nullptr;
+    // DbgDeclare = nullptr; // HLSL Change
+    DbgDeclareInsts.clear(); // HLSL Change
   }
 
   /// Scan the uses of the specified alloca, filling in the AllocaInfo used
@@ -146,7 +148,8 @@ struct AllocaInfo {
       }
     }
 
-    DbgDeclare = FindAllocaDbgDeclare(AI);
+    // DbgDeclare = FindAllocaDbgDeclare(AI); // HLSL Change
+    FindAllocaDbgDeclare(AI, DbgDeclareInsts); // HLSL Change
   }
 };
 
@@ -255,7 +258,8 @@ struct PromoteMem2Reg {
   /// For each alloca, we keep track of the dbg.declare intrinsic that
   /// describes it, if any, so that we can convert it to a dbg.value
   /// intrinsic if the alloca gets promoted.
-  SmallVector<DbgDeclareInst *, 8> AllocaDbgDeclares;
+  // SmallVector<DbgDeclareInst *, 8> AllocaDbgDeclares; // HLSL Change
+  SmallVector<SmallVector<DbgDeclareInst *, 4>, 8> AllocaDbgDeclares; // HLSL Change
 
   /// The set of basic blocks the renamer has already visited.
   ///
@@ -293,7 +297,8 @@ private:
 
   void ComputeLiveInBlocks(AllocaInst *AI, AllocaInfo &Info,
                            const SmallPtrSetImpl<BasicBlock *> &DefBlocks,
-                           SmallPtrSetImpl<BasicBlock *> &LiveInBlocks);
+                           SmallPtrSetImpl<BasicBlock *> &LiveInBlocks,
+                           BasicBlock *LifetimeStartBB);
   void RenamePass(BasicBlock *BB, BasicBlock *Pred,
                   RenamePassData::ValVector &IncVals,
                   std::vector<RenamePassData> &Worklist);
@@ -302,9 +307,11 @@ private:
 
 } // end of anonymous namespace
 
-static void removeLifetimeIntrinsicUsers(AllocaInst *AI) {
+static BasicBlock *determineLifetimeStartBBAndRemoveLifetimeIntrinsicUsers(AllocaInst *AI) {
   // Knowing that this alloca is promotable, we know that it's safe to kill all
   // instructions except for load and store.
+  bool DetermineLifetimeStartLoc = true;
+  BasicBlock *LifetimeStartBB = nullptr;
 
   for (auto UI = AI->user_begin(), UE = AI->user_end(); UI != UE;) {
     Instruction *I = cast<Instruction>(*UI);
@@ -314,16 +321,30 @@ static void removeLifetimeIntrinsicUsers(AllocaInst *AI) {
 
     if (!I->getType()->isVoidTy()) {
       // The only users of this bitcast/GEP instruction are lifetime intrinsics.
-      // Follow the use/def chain to erase them now instead of leaving it for
-      // dead code elimination later.
       for (auto UUI = I->user_begin(), UUE = I->user_end(); UUI != UUE;) {
-        Instruction *Inst = cast<Instruction>(*UUI);
+        IntrinsicInst *Inst = dyn_cast<IntrinsicInst>(*UUI);
+        assert(Inst);
         ++UUI;
+        if (DetermineLifetimeStartLoc && Inst->getIntrinsicID() == Intrinsic::lifetime_start) {
+          if (!LifetimeStartBB) {
+            // Remember the lifetime start block.
+            LifetimeStartBB = Inst->getParent();
+          } else {
+            // We currently don't handle alloca with multiple lifetime.start
+            // intrinsics because there can be lots of complicated cases such
+            // as multiple disjoint lifetimes in a single block.
+            // Clear the block and stop looking for a new one.
+            LifetimeStartBB = nullptr;
+            DetermineLifetimeStartLoc = false;
+          }
+        }
         Inst->eraseFromParent();
       }
     }
     I->eraseFromParent();
   }
+
+  return LifetimeStartBB;
 }
 
 /// \brief Rewrite as many loads as possible given a single store.
@@ -401,7 +422,8 @@ static bool rewriteSingleStoreAlloca(AllocaInst *AI, AllocaInfo &Info,
 
   // Record debuginfo for the store and remove the declaration's
   // debuginfo.
-  if (DbgDeclareInst *DDI = Info.DbgDeclare) {
+  // if (DbgDeclareInst *DDI = Info.DbgDeclare) { // HLSL Change
+  for (DbgDeclareInst *DDI : Info.DbgDeclareInsts) {
     DIBuilder DIB(*AI->getParent()->getParent()->getParent(),
                   /*AllowUnresolved*/ false);
     ConvertDebugDeclareToDebugValue(DDI, Info.OnlyStore, DIB);
@@ -425,14 +447,17 @@ static bool rewriteSingleStoreAlloca(AllocaInst *AI, AllocaInfo &Info,
 /// using the Alloca.
 ///
 /// If we cannot promote this alloca (because it is read before it is written),
-/// return true.  This is necessary in cases where, due to control flow, the
-/// alloca is potentially undefined on some control flow paths.  e.g. code like
-/// this is potentially correct:
-///
-///   for (...) { if (c) { A = undef; undef = B; } }
-///
-/// ... so long as A is not used before undef is set.
-static void promoteSingleBlockAlloca(AllocaInst *AI, const AllocaInfo &Info,
+/// return false.  This is necessary in cases where, due to control flow, the
+/// alloca is undefined only on some control flow paths.  e.g. code like
+/// this is correct in LLVM IR:
+///  // A is an alloca with no stores so far
+///  for (...) {
+///    int t = *A;
+///    if (!first_iteration)
+///      use(t);
+///    *A = 42;
+///  }
+static bool promoteSingleBlockAlloca(AllocaInst *AI, const AllocaInfo &Info,
                                      LargeBlockInfo &LBI,
                                      AliasSetTracker *AST) {
   // The trickiest case to handle is when we have large blocks. Because of this,
@@ -468,12 +493,19 @@ static void promoteSingleBlockAlloca(AllocaInst *AI, const AllocaInfo &Info,
                                         static_cast<StoreInst *>(nullptr)),
                          less_first());
 
-    if (I == StoresByIndex.begin())
-      // If there is no store before this load, the load takes the undef value.
-      LI->replaceAllUsesWith(UndefValue::get(LI->getType()));
-    else
+    if (I == StoresByIndex.begin()) {
+      if (StoresByIndex.empty())
+        // If there are no stores, the load takes the undef value.
+        LI->replaceAllUsesWith(UndefValue::get(LI->getType()));
+      else
+        // There is no store before this load, bail out (load may be affected
+        // by the following stores - see main comment).
+        return false;
+    }
+    else {
       // Otherwise, there was a store before this load, the load takes its value.
       LI->replaceAllUsesWith(std::prev(I)->second->getOperand(0));
+    }
 
     if (AST && LI->getType()->isPointerTy())
       AST->deleteValue(LI);
@@ -485,7 +517,8 @@ static void promoteSingleBlockAlloca(AllocaInst *AI, const AllocaInfo &Info,
   while (!AI->use_empty()) {
     StoreInst *SI = cast<StoreInst>(AI->user_back());
     // Record debuginfo for the store before removing it.
-    if (DbgDeclareInst *DDI = Info.DbgDeclare) {
+    // if (DbgDeclareInst *DDI = Info.DbgDeclare) { // HLSL Change
+    for (DbgDeclareInst *DDI : Info.DbgDeclareInsts) { // HLSL Change
       DIBuilder DIB(*AI->getParent()->getParent()->getParent(),
                     /*AllowUnresolved*/ false);
       ConvertDebugDeclareToDebugValue(DDI, SI, DIB);
@@ -500,12 +533,14 @@ static void promoteSingleBlockAlloca(AllocaInst *AI, const AllocaInfo &Info,
   LBI.deleteValue(AI);
 
   // The alloca's debuginfo can be removed as well.
-  if (DbgDeclareInst *DDI = Info.DbgDeclare) {
+  // if (DbgDeclareInst *DDI = Info.DbgDeclare) { // HLSL Change
+  for (DbgDeclareInst *DDI : Info.DbgDeclareInsts) { // HLSL Change
     DDI->eraseFromParent();
     LBI.deleteValue(DDI);
   }
 
   ++NumLocalPromoted;
+  return true;
 }
 
 void PromoteMem2Reg::run() {
@@ -526,7 +561,7 @@ void PromoteMem2Reg::run() {
     assert(AI->getParent()->getParent() == &F &&
            "All allocas should be in the same function, which is same as DF!");
 
-    removeLifetimeIntrinsicUsers(AI);
+    BasicBlock *LifetimeStartBB = determineLifetimeStartBBAndRemoveLifetimeIntrinsicUsers(AI);
 
     if (AI->use_empty()) {
       // If there are no uses of the alloca, just delete it now.
@@ -544,9 +579,16 @@ void PromoteMem2Reg::run() {
     // analogous to finding the 'uses' and 'definitions' of each variable.
     Info.AnalyzeAlloca(AI);
 
+    // Determine whether this alloca only has one store *before* potentially
+    // adding a lifetime.start block as another definition. This allows to
+    // rewrite such an alloca efficiently if possible but still benefit from
+    // correct lifetime information should the single store not dominate all
+    // loads.
+    const bool IsSingleStoreAlloca = Info.DefiningBlocks.size() == 1;
+
     // If there is only a single store to this value, replace any loads of
     // it that are directly dominated by the definition with the value stored.
-    if (Info.DefiningBlocks.size() == 1) {
+    if (IsSingleStoreAlloca) {
       if (rewriteSingleStoreAlloca(AI, Info, LBI, DT, AST)) {
         // The alloca has been processed, move on.
         RemoveFromAllocasList(AllocaNum);
@@ -557,9 +599,8 @@ void PromoteMem2Reg::run() {
 
     // If the alloca is only read and written in one basic block, just perform a
     // linear sweep over the block to eliminate it.
-    if (Info.OnlyUsedInOneBlock) {
-      promoteSingleBlockAlloca(AI, Info, LBI, AST);
-
+    if (Info.OnlyUsedInOneBlock &&
+        promoteSingleBlockAlloca(AI, Info, LBI, AST)) {
       // The alloca has been processed, move on.
       RemoveFromAllocasList(AllocaNum);
       continue;
@@ -579,8 +620,9 @@ void PromoteMem2Reg::run() {
       PointerAllocaValues[AllocaNum] = Info.AllocaPointerVal;
 
     // Remember the dbg.declare intrinsic describing this alloca, if any.
-    if (Info.DbgDeclare)
-      AllocaDbgDeclares[AllocaNum] = Info.DbgDeclare;
+    // if (Info.DbgDeclare)
+    if (Info.DbgDeclareInsts.size())
+      AllocaDbgDeclares[AllocaNum] = Info.DbgDeclareInsts;
 
     // Keep the reverse mapping of the 'Allocas' array for the rename pass.
     AllocaLookup[Allocas[AllocaNum]] = AllocaNum;
@@ -598,7 +640,15 @@ void PromoteMem2Reg::run() {
     // Determine which blocks the value is live in.  These are blocks which lead
     // to uses.
     SmallPtrSet<BasicBlock *, 32> LiveInBlocks;
-    ComputeLiveInBlocks(AI, Info, DefBlocks, LiveInBlocks);
+    ComputeLiveInBlocks(AI, Info, DefBlocks, LiveInBlocks, LifetimeStartBB);
+
+    // If there is a lifetime start block, add it to the def blocks now.
+    // This ensures that the block that holds the lifetime.start call is treated
+    // as a "definition" by IDF to prevent phi nodes inserted into loop headers
+    // due to false dependencies.
+    if (LifetimeStartBB) {
+        DefBlocks.insert(LifetimeStartBB);
+    }
 
     // At this point, we're committed to promoting the alloca using IDF's, and
     // the standard SSA construction algorithm.  Determine which blocks need phi
@@ -769,16 +819,16 @@ void PromoteMem2Reg::run() {
        I != E; ++I) {
     PHINode *PN = I->second;
     unsigned AllocaNum = I->first.second;
-    DbgDeclareInst *DDI = AllocaDbgDeclares[AllocaNum];
-    if (!DDI) continue;
-
-    DIBuilder DIB(*PN->getModule());
-    DIB.insertDbgValueIntrinsic(PN, 0, DDI->getVariable(), DDI->getExpression(), DDI->getDebugLoc(), PN->getParent()->getFirstNonPHI());
+    ArrayRef<DbgDeclareInst *> DDIs = AllocaDbgDeclares[AllocaNum];
+    for (DbgDeclareInst *DDI : DDIs) {
+      DIBuilder DIB(*PN->getModule());
+      DIB.insertDbgValueIntrinsic(PN, 0, DDI->getVariable(), DDI->getExpression(), DDI->getDebugLoc(), PN->getParent()->getFirstNonPHI());
+    }
   }
 
   // Remove alloca's dbg.declare instrinsics from the function.
   for (unsigned i = 0, e = AllocaDbgDeclares.size(); i != e; ++i)
-    if (DbgDeclareInst *DDI = AllocaDbgDeclares[i])
+    for (DbgDeclareInst *DDI : AllocaDbgDeclares[i])
       DDI->eraseFromParent();
 // HLSL Change - End
 
@@ -790,10 +840,19 @@ void PromoteMem2Reg::run() {
 /// These are blocks which lead to uses.  Knowing this allows us to avoid
 /// inserting PHI nodes into blocks which don't lead to uses (thus, the
 /// inserted phi nodes would be dead).
+///
+/// The lifetime start block is important for cases where lifetime is restricted
+/// to a loop and not all loads are dominated by stores. When walking up the
+/// CFG, stopping at this block prevents the value from being considered live in
+/// the loop header, which in turn prevents the value from being live across
+/// multiple loop iterations through a phi with undef as input from the preheader.
+/// Also, the block must not even be considered as starting point for the CFG
+/// traversal since the value can't be live-in before its lifetime starts.
 void PromoteMem2Reg::ComputeLiveInBlocks(
     AllocaInst *AI, AllocaInfo &Info,
     const SmallPtrSetImpl<BasicBlock *> &DefBlocks,
-    SmallPtrSetImpl<BasicBlock *> &LiveInBlocks) {
+    SmallPtrSetImpl<BasicBlock *> &LiveInBlocks,
+    BasicBlock *LifetimeStartBB) {
 
   // To determine liveness, we must iterate through the predecessors of blocks
   // where the def is live.  Blocks are added to the worklist if we need to
@@ -808,6 +867,18 @@ void PromoteMem2Reg::ComputeLiveInBlocks(
     BasicBlock *BB = LiveInBlockWorklist[i];
     if (!DefBlocks.count(BB))
       continue;
+
+    // If lifetime of this value starts in this block it isn't live-in.
+    // Even if the block is in a loop, a load before the lifetime intrinsic is
+    // dead by definition since lifetime must also end in the same loop
+    // iteration. In fact, this very condition prevents false dependencies
+    // across loop iterations that in turn cause phi nodes.
+    if (BB == LifetimeStartBB) {
+      LiveInBlockWorklist[i] = LiveInBlockWorklist.back();
+      LiveInBlockWorklist.pop_back();
+      --i, --e;
+      continue;
+    }
 
     // Okay, this is a block that both uses and defines the value.  If the first
     // reference to the alloca is a def (store), then we know it isn't live-in.
@@ -853,6 +924,10 @@ void PromoteMem2Reg::ComputeLiveInBlocks(
 
       // The value is not live into a predecessor if it defines the value.
       if (DefBlocks.count(P))
+        continue;
+
+      // The value is not live into a predecessor if lifetime starts there.
+      if (P == LifetimeStartBB)
         continue;
 
       // Otherwise it is, add to the worklist.
@@ -974,7 +1049,8 @@ NextIteration:
       // what value were we writing?
       IncomingVals[ai->second] = SI->getOperand(0);
       // Record debuginfo for the store before removing it.
-      if (DbgDeclareInst *DDI = AllocaDbgDeclares[ai->second])
+      // if (DbgDeclareInst *DDI = AllocaDbgDeclares[ai->second]) // HLSL Change
+      for (DbgDeclareInst *DDI : AllocaDbgDeclares[ai->second]) // HLSL Change
         ConvertDebugDeclareToDebugValue(DDI, SI, DIB);
       BB->getInstList().erase(SI);
     }

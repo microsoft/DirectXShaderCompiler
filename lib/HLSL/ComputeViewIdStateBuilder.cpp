@@ -684,6 +684,12 @@ void DxilViewIdStateBuilder::CollectReachingDeclsRec(Value *pValue, ValueSetType
   } else if (GEPOperator *pGepOp = dyn_cast<GEPOperator>(pValue)) {
     Value *pPtrValue = pGepOp->getPointerOperand();
     CollectReachingDeclsRec(pPtrValue, ReachingDecls, Visited);
+  } else if (isa<ConstantExpr>(pValue) && cast<ConstantExpr>(pValue)->getOpcode() == Instruction::AddrSpaceCast) {
+    CollectReachingDeclsRec(cast<ConstantExpr>(pValue)->getOperand(0), ReachingDecls, Visited);
+  } else if (AddrSpaceCastInst *pCI = dyn_cast<AddrSpaceCastInst>(pValue)) {
+    CollectReachingDeclsRec(pCI->getOperand(0), ReachingDecls, Visited);
+  } else if (BitCastInst *pCI = dyn_cast<BitCastInst>(pValue)) {
+    CollectReachingDeclsRec(pCI->getOperand(0), ReachingDecls, Visited);
   } else if (dyn_cast<AllocaInst>(pValue)) {
     ReachingDecls.emplace(pValue);
   } else if (PHINode *phi = dyn_cast<PHINode>(pValue)) {
@@ -696,9 +702,8 @@ void DxilViewIdStateBuilder::CollectReachingDeclsRec(Value *pValue, ValueSetType
   } else if (dyn_cast<Argument>(pValue)) {
     ReachingDecls.emplace(pValue);
   } else if (CallInst *call = dyn_cast<CallInst>(pValue)) {
-    Function *func = call->getCalledFunction();
-    StringRef funcName = func->getName();
-    DXASSERT(funcName.startswith("dx.op.getMeshPayload"), "the function must be @dx.op.getMeshPayload here.");
+    DXASSERT(OP::GetDxilOpFuncCallInst(call) == DXIL::OpCode::GetMeshPayload,
+             "the function must be @dx.op.getMeshPayload here.");
     ReachingDecls.emplace(pValue);
   } else {
     IFT(DXC_E_GENERAL_INTERNAL_ERROR);
@@ -837,7 +842,7 @@ void DxilViewIdStateBuilder::CreateViewIdSets(const std::unordered_map<unsigned,
 unsigned DxilViewIdStateBuilder::GetLinearIndex(DxilSignatureElement &SigElem, int row, unsigned col) const {
   DXASSERT_NOMSG(row >= 0 && col < kNumComps && SigElem.GetStartRow() != Semantic::kUndefinedRow);
   unsigned idx = (((unsigned)row) + SigElem.GetStartRow())*kNumComps + col + SigElem.GetStartCol();
-  DXASSERT_NOMSG(idx < kMaxSigScalars);
+  DXASSERT_NOMSG(idx < kMaxSigScalars); (void)kMaxSigScalars;
   return idx;
 }
 

@@ -2006,18 +2006,6 @@ AnalysisBasedWarnings::IssueWarnings(sema::AnalysisBasedWarnings::Policy P,
     Analyzer.run(AC);
   }
 
-  // HLSL changes begin
-  // Enable diagnostics related to uninitialized variables
-  if (S.getLangOpts().HLSL) {
-    Diags.setSeverity(diag::warn_uninit_var, diag::Severity::Warning,
-                      D->getLocStart());
-    Diags.setSeverity(diag::warn_sometimes_uninit_var, diag::Severity::Warning,
-                      D->getLocStart());
-    Diags.setSeverity(diag::warn_maybe_uninit_var, diag::Severity::Warning,
-                      D->getLocStart());
-  }
-  // HLSL changes end
-
   if (!Diags.isIgnored(diag::warn_uninit_var, D->getLocStart()) ||
       !Diags.isIgnored(diag::warn_sometimes_uninit_var, D->getLocStart()) ||
       !Diags.isIgnored(diag::warn_maybe_uninit_var, D->getLocStart())) {

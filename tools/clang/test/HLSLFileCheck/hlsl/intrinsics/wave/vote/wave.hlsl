@@ -1,25 +1,26 @@
 // RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
 // CHECK: Wave level operations
-// CHECK: waveIsFirstLane
-// CHECK: waveGetLaneIndex
-// CHECK: waveGetLaneCount
-// CHECK: waveAnyTrue
-// CHECK: waveAllTrue
-// CHECK: waveActiveAllEqual
-// CHECK: waveActiveBallot
-// CHECK: waveReadLaneAt
-// CHECK: waveReadLaneFirst
-// CHECK: waveActiveOp
-// CHECK: waveActiveOp
-// CHECK: waveActiveBit
-// CHECK: waveActiveBit
-// CHECK: waveActiveBit
-// CHECK: waveActiveOp
-// CHECK: waveActiveOp
-// CHECK: quadReadLaneAt
-// CHECK: quadOp
-// CHECK: quadOp
+// CHECK: call i1 @dx.op.waveIsFirstLane(i32 110
+// CHECK: call i32 @dx.op.waveGetLaneIndex(i32 111
+// CHECK: call i32 @dx.op.waveGetLaneCount(i32 112
+// CHECK: call i1 @dx.op.waveAnyTrue(i32 113, i1
+// CHECK: call i1 @dx.op.waveAllTrue(i32 114, i1
+// CHECK: call i1 @dx.op.waveActiveAllEqual.i32(i32 115, i32
+// CHECK: call i1 @dx.op.waveActiveAllEqual.i1(i32 115, i1
+// CHECK: call %dx.types.fouri32 @dx.op.waveActiveBallot(i32 116, i1
+// CHECK: call float @dx.op.waveReadLaneAt.f32(i32 117, float
+// CHECK: call float @dx.op.waveReadLaneFirst.f32(i32 118, float
+// CHECK: call float @dx.op.waveActiveOp.f32(i32 119, float
+// CHECK: call float @dx.op.waveActiveOp.f32(i32 119, float
+// CHECK: call i32 @dx.op.waveActiveBit.i32(i32 120, i32
+// CHECK: call i32 @dx.op.waveActiveBit.i32(i32 120, i32
+// CHECK: call i32 @dx.op.waveActiveBit.i32(i32 120, i32
+// CHECK: call i32 @dx.op.waveActiveOp.i32(i32 119, i32
+// CHECK: call i32 @dx.op.waveActiveOp.i32(i32 119, i32
+// CHECK: call float @dx.op.quadReadLaneAt.f32(i32 122, float
+// CHECK: call i32 @dx.op.quadOp.i32(i32 123, i32
+// CHECK: call i32 @dx.op.quadOp.i32(i32 123, i32
 
 float4 main() : SV_TARGET {
   float f = 1;
@@ -37,6 +38,9 @@ float4 main() : SV_TARGET {
     f += 1;
   }
   if (WaveActiveAllEqual(WaveGetLaneIndex())) {
+    f += 1;
+  }
+  if(WaveActiveAllEqual((f<100))){
     f += 1;
   }
   uint4 val = WaveActiveBallot(true);

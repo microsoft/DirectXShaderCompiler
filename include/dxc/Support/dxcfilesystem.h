@@ -43,7 +43,7 @@ public:
 };
 
 DxcArgsFileSystem *
-CreateDxcArgsFileSystem(_In_ IDxcBlob *pSource, _In_ LPCWSTR pSourceName,
+CreateDxcArgsFileSystem(_In_ IDxcBlobUtf8 *pSource, _In_ LPCWSTR pSourceName,
                         _In_opt_ IDxcIncludeHandler *pIncludeHandler);
 
 } // namespace dxcutil

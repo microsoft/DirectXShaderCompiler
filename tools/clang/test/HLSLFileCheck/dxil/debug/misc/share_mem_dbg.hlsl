@@ -22,7 +22,7 @@
 // Make sure source info contents exist.
 // CHECK: !{!"DefineA=1", !"DefineB=0"}
 // CHECK: share_mem_dbg.hlsl"}
-// CHECK: !{!"-E", !"main", !"-T", !"cs_6_0", !"-Zi", !"-Od", !"-D", !"DefineA", !"-D", !"DefineB=0", !"-Qstrip_reflect"}
+// CHECK: !{!"-E", !"main", !"-T", !"cs_6_0", !"-Zi", !"-Od", !"-D", !"DefineA", !"-D", !"DefineB=0", !"-Qstrip_reflect", !"-Qembed_debug"}
 
 
 struct S {

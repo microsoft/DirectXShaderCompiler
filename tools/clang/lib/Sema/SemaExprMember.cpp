@@ -1234,26 +1234,11 @@ static ExprResult LookupMemberExpr(Sema &S, LookupResult &R,
   }
 
   // HLSL Change Starts
-  {
-    ExprResult matrixResult;
-    if (S.getLangOpts().HLSL &&
-      hlsl::LookupMatrixMemberExprForHLSL(&S, *BaseExpr.get(), MemberName, IsArrow, OpLoc, MemberLoc, &matrixResult)) {
-      return matrixResult;
-    }
-  }
-  {
-    ExprResult vectorResult;
-    if (S.getLangOpts().HLSL &&
-      hlsl::LookupVectorMemberExprForHLSL(&S, *BaseExpr.get(), MemberName, IsArrow, OpLoc, MemberLoc, &vectorResult)) {
-      return vectorResult;
-    }
-  }
-  {
-    ExprResult arrayResult;
-    if (S.getLangOpts().HLSL &&
-      hlsl::LookupArrayMemberExprForHLSL(&S, *BaseExpr.get(), MemberName, IsArrow, OpLoc, MemberLoc, &arrayResult)) {
-      return arrayResult;
-    }
+  // Look up HLSL specialty records: Matrix, Vector, Array
+  if (S.getLangOpts().HLSL) {
+    ExprResult res;
+    if (hlsl::LookupRecordMemberExprForHLSL(&S, *BaseExpr.get(), MemberName, IsArrow, OpLoc, MemberLoc, res))
+      return res;
   }
   // HLSL Change Ends
 
@@ -1671,7 +1656,7 @@ ExprResult Sema::ActOnMemberAccessExpr(Scope *S, Expr *Base,
 
   // HLSL Changes Start
   if (getLangOpts().HLSL) {
-    Result = hlsl::MaybeConvertScalarToVector(this, Base);
+    Result = hlsl::MaybeConvertMemberAccess(this, Base);
     if (Result.isInvalid()) return ExprError();
     Base = Result.get();
   }

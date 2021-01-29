@@ -42,6 +42,7 @@ static const char kMsfMagic[] = {'M',  'i',  'c',    'r', 'o', 's',  'o',  'f',
                                  'M',  'S',  'F',    ' ', '7', '.',  '0',  '0',
                                  '\r', '\n', '\x1a', 'D', 'S', '\0', '\0', '\0'};
 
+static const uint32_t kPdbStreamIndex = 1; // This is the fixed stream index where the PDB stream header is
 static const uint32_t kDataStreamIndex = 5; // This is the fixed stream index where we will store our custom data.
 static const uint32_t kMsfBlockSize = 512;
 
@@ -154,7 +155,7 @@ struct MSFWriter {
     void WriteBlocks(uint32_t NumBlocks, const void *Data, uint32_t Size) {
       assert(NumBlocks >= GetNumBlocks(Size) && "Cannot fit data into the requested number of blocks!");
       uint32_t TotalSize = NumBlocks * kMsfBlockSize;
-      OS.write((char *)Data, Size);
+      OS.write(static_cast<char*>(const_cast<void *>(Data)), Size);
       WriteZeroPads(TotalSize - Size);
       BlocksWritten += NumBlocks;
     }
@@ -187,7 +188,9 @@ struct MSFWriter {
     MSF_SuperBlock SB = CalculateSuperblock();
     const uint32_t NumDirectoryBlocks = GetNumBlocks(SB.NumDirectoryBytes);
     const uint32_t StreamDirectoryAddr = SB.BlockMapAddr;
-    const uint32_t StreamDirectoryStart = StreamDirectoryAddr + 1;
+    const uint32_t BlockAddrSize = NumDirectoryBlocks * sizeof(support::ulittle32_t);
+    const uint32_t NumBlockAddrBlocks = GetNumBlocks(BlockAddrSize);
+    const uint32_t StreamDirectoryStart = StreamDirectoryAddr + NumBlockAddrBlocks;
     const uint32_t StreamStart = StreamDirectoryStart + NumDirectoryBlocks;
 
     BlockWriter Writer(OS);
@@ -206,7 +209,8 @@ struct MSFWriter {
         V = Start++;
         BlockAddr.push_back(V);
       }
-      Writer.WriteBlocks(1, BlockAddr.data(), sizeof(BlockAddr[0])*BlockAddr.size());
+      assert(BlockAddrSize == sizeof(BlockAddr[0])*BlockAddr.size());
+      Writer.WriteBlocks(NumBlockAddrBlocks, BlockAddr.data(), BlockAddrSize);
     }
 
     // Stream Directory. Describes where all the streams are
@@ -375,29 +379,7 @@ struct PDBReader {
     return m_pStream->Seek(Offset, STREAM_SEEK_CUR, &BytesMoved);
   }
 
-  HRESULT ReadU32ListFromBlocks(ArrayRef<uint32_t> Blocks, UINT32 uOffsetByU32, UINT32 uNumU32, SmallVectorImpl<uint32_t> &Output) {
-    if (Blocks.size() == 0) return E_FAIL;
-    Output.clear();
-
-    for (unsigned i = 0; i < uNumU32; i++) {
-      UINT32 uOffsetInBytes = (uOffsetByU32+i) * sizeof(UINT32);
-      UINT32 BlockIndex = uOffsetInBytes / m_SB.BlockSize;
-      UINT32 ByteOffset = uOffsetInBytes % m_SB.BlockSize;
-
-      UINT32 uBlock = Blocks[BlockIndex];
-      IFR(GoToBeginningOfBlock(uBlock));
-      IFR(OffsetByU32(ByteOffset / sizeof(UINT32)));
-
-      UINT32 uData = 0;
-      IFR(ReadU32(&uData));
-
-      Output.push_back(uData);
-    }
-
-    return S_OK;
-  }
-
-  HRESULT ReadContainedData(IDxcBlob **ppData) {
+  HRESULT ReadWholeStream(uint32_t StreamIndex, IDxcBlob **ppData) {
     if (FAILED(m_Status)) return m_Status;
 
     UINT32 uNumDirectoryBlocks =
@@ -418,21 +400,21 @@ struct PDBReader {
     IFR(ReadU32(&uNumStreams));
 
     // If we don't have enough streams, then give up.
-    if (uNumStreams <= kDataStreamIndex)
+    if (uNumStreams <= StreamIndex)
       return E_FAIL;
 
     llvm::SmallVector<uint32_t, 6> StreamSizes;
     IFR(ReadU32ListFromBlocks(DirectoryBlocks, 1, uNumStreams, StreamSizes));
 
     UINT32 uOffsets = 0;
-    for (unsigned i = 0; i <= kDataStreamIndex-1; i++) {
+    for (unsigned i = 0; i < StreamIndex; i++) {
       UINT32 uNumBlocks = CalculateNumBlocks(m_SB.BlockSize, StreamSizes[i]);
       uOffsets += uNumBlocks;
     }
 
     llvm::SmallVector<uint32_t, 12> DataBlocks;
     IFR(ReadU32ListFromBlocks(DirectoryBlocks, 1 + uNumStreams + uOffsets, 
-      CalculateNumBlocks(m_SB.BlockSize, StreamSizes[kDataStreamIndex]), DataBlocks));
+      CalculateNumBlocks(m_SB.BlockSize, StreamSizes[StreamIndex]), DataBlocks));
 
     if (DataBlocks.size() == 0)
       return E_FAIL;
@@ -457,20 +439,66 @@ struct PDBReader {
 
     return S_OK;
   }
+
+  HRESULT ReadU32ListFromBlocks(ArrayRef<uint32_t> Blocks, UINT32 uOffsetByU32, UINT32 uNumU32, SmallVectorImpl<uint32_t> &Output) {
+    if (Blocks.size() == 0) return E_FAIL;
+    Output.clear();
+
+    for (unsigned i = 0; i < uNumU32; i++) {
+      UINT32 uOffsetInBytes = (uOffsetByU32+i) * sizeof(UINT32);
+      UINT32 BlockIndex = uOffsetInBytes / m_SB.BlockSize;
+      UINT32 ByteOffset = uOffsetInBytes % m_SB.BlockSize;
+
+      UINT32 uBlock = Blocks[BlockIndex];
+      IFR(GoToBeginningOfBlock(uBlock));
+      IFR(OffsetByU32(ByteOffset / sizeof(UINT32)));
+
+      UINT32 uData = 0;
+      IFR(ReadU32(&uData));
+
+      Output.push_back(uData);
+    }
+
+    return S_OK;
+  }
 };
 
-
-HRESULT hlsl::pdb::LoadDataFromStream(IMalloc *pMalloc, IStream *pIStream, IDxcBlob **ppContainer) {
+HRESULT hlsl::pdb::LoadDataFromStream(IMalloc *pMalloc, IStream *pIStream, IDxcBlob **ppHash, IDxcBlob **ppContainer) {
   PDBReader Reader(pMalloc, pIStream);
 
-  CComPtr<IDxcBlob> pDataBlob;
-  IFR(Reader.ReadContainedData(&pDataBlob));
+  if (ppHash) {
+    CComPtr<IDxcBlob> pPdbStream;
+    IFR(Reader.ReadWholeStream(kPdbStreamIndex, &pPdbStream));
 
-  if (!hlsl::IsValidDxilContainer((hlsl::DxilContainerHeader *)pDataBlob->GetBufferPointer(), pDataBlob->GetBufferSize()))
+    if (pPdbStream->GetBufferSize() < sizeof(PdbStreamHeader))
+      return E_FAIL;
+
+    PdbStreamHeader PdbHeader = {};
+    memcpy(&PdbHeader, pPdbStream->GetBufferPointer(), sizeof(PdbHeader));
+
+    CComPtr<hlsl::AbstractMemoryStream> pHash;
+    IFR(CreateMemoryStream(pMalloc, &pHash));
+    ULONG uBytesWritten = 0;
+    IFR(pHash->Write(PdbHeader.UniqueId, sizeof(PdbHeader.UniqueId), &uBytesWritten));
+
+    if (uBytesWritten != sizeof(PdbHeader.UniqueId))
+      return E_FAIL;
+
+    IFR(pHash.QueryInterface(ppHash));
+  }
+
+  CComPtr<IDxcBlob> pContainer;
+  IFR(Reader.ReadWholeStream(kDataStreamIndex, &pContainer));
+
+  if (!hlsl::IsValidDxilContainer((hlsl::DxilContainerHeader *)pContainer->GetBufferPointer(), pContainer->GetBufferSize()))
     return E_FAIL;
 
-  *ppContainer = pDataBlob.Detach();
+  *ppContainer = pContainer.Detach();
 
   return S_OK;
+}
+
+HRESULT hlsl::pdb::LoadDataFromStream(IMalloc *pMalloc, IStream *pIStream, IDxcBlob **ppContainer) {
+  return LoadDataFromStream(pMalloc, pIStream, nullptr, ppContainer);
 }
 

@@ -13,12 +13,12 @@
 #include <memory>
 #include <vector>
 #include <string>
-#include "CompilationResult.h"
-#include "HLSLTestData.h"
+#include "dxc/Test/CompilationResult.h"
+#include "dxc/Test/HLSLTestData.h"
 
 #undef _read
-#include "HlslTestUtils.h"
-#include "DxcTestUtils.h"
+#include "dxc/Test/HlslTestUtils.h"
+#include "dxc/Test/DxcTestUtils.h"
 #include "dxc/Support/Global.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 

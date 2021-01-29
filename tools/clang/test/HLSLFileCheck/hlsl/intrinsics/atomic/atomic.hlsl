@@ -1,4 +1,7 @@
-// RUN: %dxc -E main -T cs_6_0 %s | FileCheck %s
+// RUN: %dxc -E main -DTYPE=uint -T cs_6_0 %s | FileCheck %s
+// RUN: %dxc -E main -DTYPE=int -T cs_6_0 %s | FileCheck %s
+// RUN: %dxc -E main -DTYPE=uint64_t -T cs_6_6 %s | FileCheck %s
+// RUN: %dxc -E main -DTYPE=int64_t -T cs_6_6 %s | FileCheck %s
 
 // CHECK: atomicrmw add
 // CHECK: atomicrmw add
@@ -17,20 +20,24 @@
 // CHECK: atomicCompareExchange
 // CHECK: AtomicAdd
 
+
 RWByteAddressBuffer rawBuf0 : register( u0 );
+
+#define _TOTUPLE(type) type##2
+#define TOTUPLE(type) _TOTUPLE(type)
 
 struct Foo
 {
   float2 a;
   float3 b;
-  uint   u;
-  int2 c[4];
+  TYPE   u;
+  TOTUPLE(TYPE) c[4];
+  TYPE d[4];
 };
 RWStructuredBuffer<Foo> structBuf1 : register( u1 );
-RWTexture2D<uint> rwTex2: register( u2 );
+RWTexture2D<TYPE> rwTex2: register( u2 );
 
-
-groupshared uint shareMem[256];
+groupshared TYPE shareMem[256];
 
 [numthreads( 8, 8, 1 )]
 void main( uint GI : SV_GroupIndex, uint3 DTid : SV_DispatchThreadID )
@@ -38,7 +45,7 @@ void main( uint GI : SV_GroupIndex, uint3 DTid : SV_DispatchThreadID )
     shareMem[GI] = 0;
 
     GroupMemoryBarrierWithGroupSync();
-    uint v;
+    TYPE v;
 
     InterlockedAdd( shareMem[DTid.x], 1 );
     InterlockedAdd( shareMem[DTid.x], 1, v );
@@ -61,4 +68,20 @@ void main( uint GI : SV_GroupIndex, uint3 DTid : SV_DispatchThreadID )
     rawBuf0.InterlockedCompareStore( GI * 4, shareMem[GI], v );
     rawBuf0.InterlockedCompareExchange( GI * 4, shareMem[GI], 2, v );
     rawBuf0.InterlockedAdd( GI * 4, v );
+
+	// Special case: vector component access operation on scalars; Github issue# 2434
+	// CHECK: atomicBinOp
+	InterlockedAdd(structBuf1[DTid.z].u.x, 1);
+
+	// CHECK: atomicBinOp
+	InterlockedAdd(structBuf1[DTid.z].d[1].r, 1);
+
+	// CHECK: atomicBinOp
+	InterlockedAdd(structBuf1[DTid.z].d[1].r, 1);
+
+	// CHECK: atomicBinOp
+	InterlockedAdd(rwTex2[DTid.xy].x, 1);
+
+	// CHECK: atomicrmw
+	InterlockedAdd(shareMem[DTid.z].r, 1);
 }

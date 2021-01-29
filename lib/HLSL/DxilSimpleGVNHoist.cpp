@@ -515,6 +515,26 @@ bool DxilSimpleGVNHoist::tryToHoist(BasicBlock *BB, BasicBlock *Succ0,
 
     Instruction *FirstI = Insts.front();
     if (bHoist) {
+      // When operand is different, need to hoist operand.
+      auto it = Insts.begin();
+      it++;
+      bool bHasDifferentOperand = false;
+      unsigned NumOps = FirstI->getNumOperands();
+      for (; it != Insts.end(); it++) {
+        Instruction *I = *it;
+        assert(NumOps == I->getNumOperands());
+        for (unsigned i = 0; i < NumOps; i++) {
+          if (FirstI->getOperand(i) != I->getOperand(i)) {
+            bHasDifferentOperand = true;
+            break;
+          }
+        }
+        if (bHasDifferentOperand)
+          break;
+      }
+      // TODO: hoist operands.
+      if (bHasDifferentOperand)
+        continue;
       // Move FirstI to BB.
       FirstI->removeFromParent();
       FirstI->insertBefore(TI);

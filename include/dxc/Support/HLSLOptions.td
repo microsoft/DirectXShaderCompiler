@@ -26,6 +26,9 @@ def CoreOption : OptionFlag;
 // ISenseOption - This option is only supported for IntelliSense.
 def ISenseOption : OptionFlag;
 
+// RewriteOption - This is considered a "rewriter" HLSL option.
+def RewriteOption : OptionFlag;
+
 //////////////////////////////////////////////////////////////////////////////
 // Groups
 
@@ -41,8 +44,8 @@ def T_Group               : OptionGroup<"<T group>">;
 def O_Group               : OptionGroup<"<O group>">, Group<CompileOnly_Group>;
 def R_Group               : OptionGroup<"<R group>">, Group<CompileOnly_Group>;
 def R_value_Group         : OptionGroup<"<R (with value) group>">, Group<R_Group>;
-def W_Group               : OptionGroup<"<W group>">, Group<CompileOnly_Group>;
-def W_value_Group         : OptionGroup<"<W (with value) group>">, Group<W_Group>;
+def W_Group               : OptionGroup<"<W group>">, Group<CompileOnly_Group>, HelpText<"Warning Options">;
+def W_value_Group         : OptionGroup<"<W (with value) group>">, Group<W_Group>, HelpText<"Warning Options">;
 def d_Group               : OptionGroup<"<d group>">;
 def f_Group               : OptionGroup<"<f group>">, Group<CompileOnly_Group>;
 def f_clang_Group         : OptionGroup<"<f (clang-only) group>">, Group<CompileOnly_Group>;
@@ -66,6 +69,7 @@ def hlslcomp_Group : OptionGroup<"HLSL Compilation">, HelpText<"Compilation Opti
 def hlsloptz_Group : OptionGroup<"HLSL Optimization">, HelpText<"Optimization Options">;
 def hlslutil_Group : OptionGroup<"HLSL Utility">, HelpText<"Utility Options">;
 def hlslcore_Group : OptionGroup<"HLSL Core">, HelpText<"Common Options">;
+def hlslrewrite_Group : OptionGroup<"HLSL Rewriter">, HelpText<"Rewriter Options">;
 
 def spirv_Group : OptionGroup<"SPIR-V CodeGen">, HelpText<"SPIR-V CodeGen Options">; // SPIRV Change
 
@@ -82,11 +86,11 @@ def spirv_Group : OptionGroup<"SPIR-V CodeGen">, HelpText<"SPIR-V CodeGen Option
 // The general approach is to include only things that are in use, in the
 // same order as in Options.td.
 
-def D : JoinedOrSeparate<["-", "/"], "D">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
+def D : JoinedOrSeparate<["-", "/"], "D">, Group<hlslcomp_Group>, Flags<[CoreOption, RewriteOption]>,
     HelpText<"Define macro">;
 def H : Flag<["-"], "H">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
     HelpText<"Show header includes and nesting depth">;
-def I : JoinedOrSeparate<["-", "/"], "I">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
+def I : JoinedOrSeparate<["-", "/"], "I">, Group<hlslcomp_Group>, Flags<[CoreOption, RewriteOption]>,
     HelpText<"Add directory to include search path">;
 def O0 : Flag<["-", "/"], "O0">, Group<hlsloptz_Group>, Flags<[CoreOption]>,
     HelpText<"Optimization Level 0">;
@@ -100,10 +104,10 @@ def Odump : Flag<["-", "/"], "Odump">, Group<hlslcomp_Group>, Flags<[CoreOption]
     HelpText<"Print the optimizer commands.">;
 def Qunused_arguments : Flag<["-"], "Qunused-arguments">, Group<hlslcore_Group>, Flags<[CoreOption]>,
   HelpText<"Don't emit warning for unused driver arguments">;
-def Wall : Flag<["-"], "Wall">, Group<hlslcomp_Group>, Flags<[CoreOption]>;
-def Wdeprecated : Flag<["-"], "Wdeprecated">, Group<hlslcomp_Group>, Flags<[CoreOption]>;
-//def W_Joined : Joined<["-"], "W">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
-//  MetaVarName<"<warning>">, HelpText<"Enable the specified warning">;
+def Wall : Flag<["-"], "Wall">, Group<W_Group>, Flags<[CoreOption]>;
+def Wdeprecated : Flag<["-"], "Wdeprecated">, Group<W_Group>, Flags<[CoreOption]>;
+def W_Joined : Joined<["-"], "W">, Group<W_Group>, Flags<[CoreOption]>,
+  MetaVarName<"[no-]<warning>">, HelpText<"Enable/Disable the specified warning">;
 def d_Flag : Flag<["-"], "d">, Group<d_Group>;
 def d_Joined : Joined<["-"], "d">, Group<d_Group>;
 //def fcolor_diagnostics : Flag<["-"], "fcolor-diagnostics">, Group<hlslcomp_Group>,
@@ -117,8 +121,10 @@ def fconstexpr_depth_EQ : Joined<["-"], "fconstexpr-depth=">, Group<f_Group>;
 def fconstexpr_steps_EQ : Joined<["-"], "fconstexpr-steps=">, Group<f_Group>;
 def fconstexpr_backtrace_limit_EQ : Joined<["-"], "fconstexpr-backtrace-limit=">,
                                     Group<f_Group>;
-//def fdiagnostics_show_option : Flag<["-"], "fdiagnostics-show-option">, Group<hlslcomp_Group>,
-//    Flags<[CoreOption]>, HelpText<"Print option name with mappable diagnostics">;
+def fdiagnostics_show_option : Flag<["-"], "fdiagnostics-show-option">, Group<hlslcomp_Group>,
+    Flags<[CoreOption]>, HelpText<"Print option name with mappable diagnostics">;
+def fno_diagnostics_show_option : Flag<["-"], "fno-diagnostics-show-option">, Group<hlslcomp_Group>,
+    Flags<[CoreOption]>, HelpText<"Do not print option name with mappable diagnostics">;
 def fdiagnostics_show_category_EQ : Joined<["-"], "fdiagnostics-show-category=">, Group<hlslcomp_Group>;
 def ferror_limit_EQ : Joined<["-"], "ferror-limit=">, Group<hlslcomp_Group>, Flags<[CoreOption]>;
 
@@ -148,7 +154,14 @@ def fno_honor_infinities : Flag<["-"], "fno-honor-infinities">, Group<hlsloptz_G
 //  Flags<[CoreOption]>, HelpText<"Form fused FP ops (e.g. FMAs): fast (everywhere)"
 //  " | on (according to FP_CONTRACT pragma, default) | off (never fuse)">;
 def flimited_precision_EQ : Joined<["-"], "flimited-precision=">, Group<hlsloptz_Group>;
-
+def memdep_block_scan_limit : Separate<["-", "/"], "memdep-block-scan-limit">, Group<hlsloptz_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
+  HelpText<"The number of instructions to scan in a block in memory dependency analysis.">;
+def opt_disable : Separate<["-", "/"], "opt-disable">, Group<hlsloptz_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
+  HelpText<"Disable this optimization.">;
+def opt_enable : Separate<["-", "/"], "opt-enable">, Group<hlsloptz_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
+  HelpText<"Enable this optimization.">;
+def opt_select : MultiArg<["-", "/"], "opt-select", 2>, MetaVarName<"<opt> <variant>">, Group<hlsloptz_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
+  HelpText<"Select this optimization variant.">;
 
 /*
 def fno_caret_diagnostics : Flag<["-"], "fno-caret-diagnostics">, Group<hlslcomp_Group>,
@@ -209,29 +222,37 @@ def _help_question : Flag<["-", "/"], "?">, Flags<[DriverOption]>, Alias<help>;
 
 def ast_dump : Flag<["-", "/"], "ast-dump">, Flags<[CoreOption, DriverOption, HelpHidden]>,
   HelpText<"Dumps the parsed Abstract Syntax Tree.">; // should not be core, but handy workaround until explicit API written
-def external_lib : Separate<["-", "/"], "external">, Group<hlslcore_Group>, Flags<[DriverOption, HelpHidden]>,
+def external_lib : Separate<["-", "/"], "external">, Group<hlslcore_Group>, Flags<[DriverOption, RewriteOption, HelpHidden]>,
   HelpText<"External DLL name to load for compiler support">;
-def external_fn : Separate<["-", "/"], "external-fn">, Group<hlslcore_Group>, Flags<[DriverOption, HelpHidden]>,
+def external_fn : Separate<["-", "/"], "external-fn">, Group<hlslcore_Group>, Flags<[DriverOption, RewriteOption, HelpHidden]>,
   HelpText<"External function name to load for compiler support">;
 def fcgl : Flag<["-", "/"], "fcgl">, Group<hlslcore_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Generate high-level code only">;
-def flegacy_macro_expansion : Flag<["-", "/"], "flegacy-macro-expansion">, Group<hlslcomp_Group>, Flags<[CoreOption, DriverOption]>,
+def preserve_intermediate_values : Flag<["-", "/"], "preserve-intermediate-values">, Group<hlslcore_Group>, Flags<[CoreOption, HelpHidden]>,
+  HelpText<"Preserve intermediate values to help shader debugging">;
+def flegacy_macro_expansion : Flag<["-", "/"], "flegacy-macro-expansion">, Group<hlslcomp_Group>, Flags<[CoreOption, RewriteOption, DriverOption]>,
     HelpText<"Expand the operands before performing token-pasting operation (fxc behavior)">;
 def flegacy_resource_reservation : Flag<["-", "/"], "flegacy-resource-reservation">, Group<hlslcomp_Group>, Flags<[CoreOption, DriverOption]>,
     HelpText<"Reserve unused explicit register assignments for compatibility with shader model 5.0 and below">;
-def not_use_legacy_cbuf_load : Flag<["-", "/"], "not_use_legacy_cbuf_load">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
+def no_legacy_cbuf_layout : Flag<["-", "/"], "no-legacy-cbuf-layout">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"Do not use legacy cbuffer load">;
-def pack_prefix_stable : Flag<["-", "/"], "pack_prefix_stable">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
+def not_use_legacy_cbuf_load_ : Flag<["-", "/"], "not_use_legacy_cbuf_load">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
+  HelpText<"Do not use legacy cbuffer load">;
+def pack_prefix_stable : Flag<["-", "/"], "pack-prefix-stable">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"(default) Pack signatures preserving prefix-stable property - appended elements will not disturb placement of prior elements">;
-def pack_optimized : Flag<["-", "/"], "pack_optimized">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
+def pack_prefix_stable_ : Flag<["-", "/"], "pack_prefix_stable">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
+  HelpText<"(default) Pack signatures preserving prefix-stable property - appended elements will not disturb placement of prior elements">;
+def pack_optimized : Flag<["-", "/"], "pack-optimized">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"Optimize signature packing assuming identical signature provided for each connecting stage">;
-def hlsl_version : Separate<["-", "/"], "HV">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
+def pack_optimized_ : Flag<["-", "/"], "pack_optimized">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
+  HelpText<"Optimize signature packing assuming identical signature provided for each connecting stage">;
+def hlsl_version : Separate<["-", "/"], "HV">, Group<hlslcomp_Group>, Flags<[CoreOption, RewriteOption]>,
   HelpText<"HLSL version (2016, 2017, 2018). Default is 2018">;
-def no_warnings : Flag<["-", "/"], "no-warnings">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
+def no_warnings : Flag<["-", "/"], "no-warnings">, Group<hlslcomp_Group>, Flags<[CoreOption, RewriteOption]>,
   HelpText<"Suppress warnings">;
 def rootsig_define : Separate<["-", "/"], "rootsig-define">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"Read root signature from a #define">;
-def enable_16bit_types: Flag<["-", "/"], "enable-16bit-types">, Flags<[CoreOption, DriverOption]>, Group<hlslcomp_Group>,
+def enable_16bit_types: Flag<["-", "/"], "enable-16bit-types">, Flags<[CoreOption, RewriteOption, DriverOption]>, Group<hlslcomp_Group>,
   HelpText<"Enable 16bit types and disable min precision types. Available in HLSL 2018 and shader model 6.2">;
 def ignore_line_directives : Flag<["-", "/"], "ignore-line-directives">, HelpText<"Ignore line directives">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
 def auto_binding_space : Separate<["-", "/"], "auto-binding-space">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
@@ -242,8 +263,22 @@ def export_shaders_only : Flag<["-", "/"], "export-shaders-only">, Group<hlslcom
   HelpText<"Only export shaders when compiling a library">;
 def default_linkage : Separate<["-", "/"], "default-linkage">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"Set default linkage for non-shader functions when compiling or linking to a library target (internal, external)">;
+def precise_output : Separate<["-", "/"], "precise-output">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
+    HelpText<"Mark output semantic as precise">;
+def encoding : Separate<["-", "/"], "encoding">, Group<hlslcomp_Group>, Flags<[CoreOption, RewriteOption, DriverOption]>,
+  HelpText<"Set default encoding for text outputs (utf8|utf16) default=utf8">;
 def validator_version : Separate<["-", "/"], "validator-version">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Override validator version for module.  Format: <major.minor> ; Default: DXIL.dll version or current internal version.">;
+def print_after_all : Flag<["-", "/"], "print-after-all">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
+  HelpText<"Print LLVM IR after each pass.">;
+def force_zero_store_lifetimes : Flag<["-", "/"], "force-zero-store-lifetimes">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
+  HelpText<"Instead of generating lifetime intrinsics (SM >= 6.6) or storing undef (SM < 6.6), force fall back to storing zeroinitializer.">;
+def enable_lifetime_markers : Flag<["-", "/"], "enable-lifetime-markers">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
+  HelpText<"Enable generation of lifetime markers">;
+
+// Used with API only
+def skip_serialization : Flag<["-", "/"], "skip-serialization">, Group<hlslcore_Group>, Flags<[CoreOption, HelpHidden]>,
+  HelpText<"Return a module interface instead of serialized output">;
 
 // SPIRV Change Starts
 def spirv : Flag<["-"], "spirv">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
@@ -283,6 +318,8 @@ def fspv_target_env_EQ : Joined<["-"], "fspv-target-env=">, Group<spirv_Group>, 
   HelpText<"Specify the target environment: vulkan1.0 (default) or vulkan1.1">;
 def fspv_flatten_resource_arrays: Flag<["-"], "fspv-flatten-resource-arrays">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Flatten arrays of resources so each array element takes one binding number">;
+def fvk_auto_shift_bindings: Flag<["-"], "fvk-auto-shift-bindings">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Apply fvk-*-shift to resources without an explicit register assignment.">;
 def Wno_vk_ignored_features : Joined<["-"], "Wno-vk-ignored-features">, Group<spirv_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
   HelpText<"Do not emit warnings for ingored features resulting from no Vulkan support">;
 def Wno_vk_emulated_features : Joined<["-"], "Wno-vk-emulated-features">, Group<spirv_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
@@ -295,8 +332,11 @@ def Oconfig : CommaJoined<["-"], "Oconfig=">, Group<spirv_Group>, Flags<[CoreOpt
 // fxc-based flags that don't match those previously defined.
 
 def target_profile : JoinedOrSeparate<["-", "/"], "T">, Flags<[CoreOption]>, Group<hlslcomp_Group>, MetaVarName<"<profile>">,
-  HelpText<"Set target profile. \n\t<profile>: ps_6_0, ps_6_1, ps_6_2, ps_6_3, ps_6_4, ps_6_5, \n\t\t vs_6_0, vs_6_1, vs_6_2, vs_6_3, vs_6_4, vs_6_5, \n\t\t cs_6_0, cs_6_1, cs_6_2, cs_6_3, cs_6_4, cs_6_5, \n\t\t gs_6_0, gs_6_1, gs_6_2, gs_6_3, gs_6_4, gs_6_5, \n\t\t ds_6_0, ds_6_1, ds_6_2, ds_6_3, ds_6_4, ds_6_5, \n\t\t hs_6_0, hs_6_1, hs_6_2, hs_6_3, hs_6_4, hs_6_5, \n\t\t lib_6_3, lib_6_4, lib_6_5, ms_6_5, as_6_5">;
-def entrypoint :  JoinedOrSeparate<["-", "/"], "E">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
+  /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_target_profiles()</py>*/
+  // VALRULE-TEXT:BEGIN
+  HelpText<"Set target profile. \n\t<profile>: ps_6_0, ps_6_1, ps_6_2, ps_6_3, ps_6_4, ps_6_5, ps_6_6, \n\t\t vs_6_0, vs_6_1, vs_6_2, vs_6_3, vs_6_4, vs_6_5, vs_6_6, \n\t\t gs_6_0, gs_6_1, gs_6_2, gs_6_3, gs_6_4, gs_6_5, gs_6_6, \n\t\t hs_6_0, hs_6_1, hs_6_2, hs_6_3, hs_6_4, hs_6_5, hs_6_6, \n\t\t ds_6_0, ds_6_1, ds_6_2, ds_6_3, ds_6_4, ds_6_5, ds_6_6, \n\t\t cs_6_0, cs_6_1, cs_6_2, cs_6_3, cs_6_4, cs_6_5, cs_6_6, \n\t\t lib_6_1, lib_6_2, lib_6_3, lib_6_4, lib_6_5, lib_6_6, \n\t\t ms_6_5, ms_6_6, \n\t\t as_6_5, as_6_6, \n\t\t ">;
+  // VALRULE-TEXT:END
+def entrypoint :  JoinedOrSeparate<["-", "/"], "E">, Flags<[CoreOption, RewriteOption]>, Group<hlslcomp_Group>,
   HelpText<"Entry point name">;
 // /I <include> - already defined above
 def _vi : Flag<["-", "/"], "Vi">, Alias<H>, Flags<[CoreOption]>, Group<hlslcomp_Group>,
@@ -316,9 +356,9 @@ def Zpr : Flag<["-", "/"], "Zpr">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
 def Zpc : Flag<["-", "/"], "Zpc">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
   HelpText<"Pack matrices in column-major order">;
 def Zss : Flag<["-", "/"], "Zss">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
-  HelpText<"Build debug name considering source information">;
+  HelpText<"Compute Shader Hash considering source information">;
 def Zsb : Flag<["-", "/"], "Zsb">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
-  HelpText<"Build debug name considering only output binary">;
+  HelpText<"Compute Shader Hash considering only output binary">;
 
 // deprecated /Gpp def Gpp : Flag<["-", "/"], "Gpp">, HelpText<"Force partial precision">;
 def Gfa : Flag<["-", "/"], "Gfa">, HelpText<"Avoid flow control constructs">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
@@ -330,7 +370,7 @@ def Gis : Flag<["-", "/"], "Gis">, HelpText<"Force IEEE strictness">, Flags<[Cor
 
 def denorm : JoinedOrSeparate<["-", "/"], "denorm">, HelpText<"select denormal value options (any, preserve, ftz). any is the default.">, Flags<[CoreOption]>, Group<hlslcomp_Group>;
 
-def Fo : JoinedOrSeparate<["-", "/"], "Fo">, MetaVarName<"<file>">, HelpText<"Output object file">, Flags<[CoreOption, DriverOption]>, Group<hlslcomp_Group>;
+def Fo : JoinedOrSeparate<["-", "/"], "Fo">, MetaVarName<"<file>">, HelpText<"Output object file">, Flags<[CoreOption, RewriteOption, DriverOption]>, Group<hlslcomp_Group>;
 // def Fl : JoinedOrSeparate<["-", "/"], "Fl">, MetaVarName<"<file>">, HelpText<"Output a library">;
 def Fc : JoinedOrSeparate<["-", "/"], "Fc">, MetaVarName<"<file>">, HelpText<"Output assembly code listing file">, Flags<[DriverOption]>, Group<hlslcomp_Group>;
 //def Fx : JoinedOrSeparate<["-", "/"], "Fx">, MetaVarName<"<file>">, HelpText<"Output assembly code and hex listing file">;
@@ -339,6 +379,10 @@ def Fe : JoinedOrSeparate<["-", "/"], "Fe">, MetaVarName<"<file>">, HelpText<"Ou
 def Fd : JoinedOrSeparate<["-", "/"], "Fd">, MetaVarName<"<file>">,
   HelpText<"Write debug information to the given file, or automatically named file in directory when ending in '\\'">,
   Flags<[CoreOption, DriverOption]>, Group<hlslcomp_Group>;
+def Fre : Separate<["-", "/"], "Fre">, MetaVarName<"<file>">, HelpText<"Output reflection to the given file">, Flags<[CoreOption, DriverOption]>, Group<hlslcomp_Group>;
+def Frs : Separate<["-", "/"], "Frs">, MetaVarName<"<file>">, HelpText<"Output root signature to the given file">, Flags<[CoreOption, DriverOption]>, Group<hlslcomp_Group>;
+def Fsh : Separate<["-", "/"], "Fsh">, MetaVarName<"<file>">, HelpText<"Output shader hash to the given file">, Flags<[CoreOption, DriverOption]>, Group<hlslcomp_Group>;
+
 def Vn : JoinedOrSeparate<["-", "/"], "Vn">, MetaVarName<"<name>">, HelpText<"Use <name> as variable name in header file">, Flags<[DriverOption]>, Group<hlslcomp_Group>;
 def Cc : Flag<["-", "/"], "Cc">, HelpText<"Output color coded assembly listings">, Group<hlslcomp_Group>, Flags<[DriverOption]>;
 def Ni : Flag<["-", "/"], "Ni">, HelpText<"Output instruction numbers in assembly listings">, Group<hlslcomp_Group>, Flags<[DriverOption]>;
@@ -366,7 +410,8 @@ def Qstrip_rootsignature : Flag<["-", "/"], "Qstrip_rootsignature">, Flags<[Core
 def setrootsignature     : JoinedOrSeparate<["-", "/"], "setrootsignature">,     MetaVarName<"<file>">, Flags<[CoreOption, DriverOption]>, Group<hlslutil_Group>, HelpText<"Attach root signature to shader bytecode">;
 def extractrootsignature : Flag<["-", "/"], "extractrootsignature">, Flags<[DriverOption]>, Group<hlslutil_Group>, HelpText<"Extract root signature from shader bytecode (must be used with /Fo <file>)">;
 def verifyrootsignature  : JoinedOrSeparate<["-", "/"], "verifyrootsignature">,  MetaVarName<"<file>">, Flags<[DriverOption]>, Group<hlslutil_Group>, HelpText<"Verify shader bytecode with root signature">;
-def force_rootsig_ver    : JoinedOrSeparate<["-", "/"], "force_rootsig_ver">,    Flags<[CoreOption]>, MetaVarName<"<profile>">, Group<hlslcomp_Group>, HelpText<"force root signature version (rootsig_1_1 if omitted)">;
+def force_rootsig_ver    : JoinedOrSeparate<["-", "/"], "force-rootsig-ver">,    Flags<[CoreOption]>, MetaVarName<"<profile>">, Group<hlslcomp_Group>, HelpText<"force root signature version (rootsig_1_1 if omitted)">;
+def force_rootsig_ver_    : JoinedOrSeparate<["-", "/"], "force_rootsig_ver">,    Flags<[CoreOption, HelpHidden]>, MetaVarName<"<profile>">, Group<hlslcomp_Group>, HelpText<"force root signature version (rootsig_1_1 if omitted)">;
 
 // Temporary TEST options, until reflection inside DXIL part can always be stripped
 def Qkeep_reflect_in_dxil : Flag<["-", "/"], "Qkeep_reflect_in_dxil">,
@@ -386,9 +431,13 @@ def matchUAVs : JoinedOrSeparate<["-", "/"], "matchUAVs">, MetaVarName<"<file>">
 def enable_unbounded_descriptor_tables : Flag<["-", "/"], "enable_unbounded_descriptor_tables">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
   HelpText<"Enables unbounded descriptor tables">;
 */
-def res_may_alias : Flag<["-", "/"], "res_may_alias">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
+def res_may_alias : Flag<["-", "/"], "res-may-alias">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
   HelpText<"Assume that UAVs/SRVs may alias">;
-def all_resources_bound : Flag<["-", "/"], "all_resources_bound">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
+def res_may_alias_ : Flag<["-", "/"], "res_may_alias">, Flags<[CoreOption, HelpHidden]>, Group<hlslcomp_Group>,
+  HelpText<"Assume that UAVs/SRVs may alias">;
+def all_resources_bound : Flag<["-", "/"], "all-resources-bound">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
+  HelpText<"Enables agressive flattening">;
+def all_resources_bound_ : Flag<["-", "/"], "all_resources_bound">, Flags<[CoreOption, HelpHidden]>, Group<hlslcomp_Group>,
   HelpText<"Enables agressive flattening">;
 
 def setprivate : JoinedOrSeparate<["-", "/"], "setprivate">, Flags<[DriverOption]>, MetaVarName<"<file>">, Group<hlslutil_Group>,
@@ -399,5 +448,26 @@ def getprivate : JoinedOrSeparate<["-", "/"], "getprivate">, Flags<[DriverOption
 def nologo : Flag<["-", "/"], "nologo">, Group<hlslcore_Group>, Flags<[DriverOption]>,
   HelpText<"Suppress copyright message">;
 
+//////////////////////////////////////////////////////////////////////////////
+// Rewriter Options
+
+def rw_unchanged : Flag<["-", "/"], "unchanged">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
+  HelpText<"Rewrite HLSL, without changes.">;
+def rw_skip_function_body : Flag<["-", "/"], "skip-fn-body">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
+  HelpText<"Translate function definitions to declarations">;
+def rw_skip_static : Flag<["-", "/"], "skip-static">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
+  HelpText<"Remove static functions and globals when used with -skip-fn-body">;
+def rw_global_extern_by_default : Flag<["-", "/"], "global-extern-by-default">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
+  HelpText<"Set extern on non-static globals">;
+def rw_keep_user_macro : Flag<["-", "/"], "keep-user-macro">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
+  HelpText<"Write out user defines after rewritten HLSL">;
+def rw_extract_entry_uniforms : Flag<["-", "/"], "extract-entry-uniforms">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
+  HelpText<"Move uniform parameters from entry point to global scope">;
+def rw_remove_unused_globals : Flag<["-", "/"], "remove-unused-globals">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
+  HelpText<"Remove unused static globals and functions">;
+def rw_remove_unused_functions : Flag<["-", "/"], "remove-unused-functions">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
+  HelpText<"Remove unused functions and types">;
+def rw_line_directive : Flag<["-", "/"], "line-directive">, Group<hlslrewrite_Group>, Flags<[RewriteOption]>,
+  HelpText<"Add line directive">;
 // Also removed: compress, decompress, /Gch (child effect), /Gpp (partial precision)
 // /Op - no support for preshaders.

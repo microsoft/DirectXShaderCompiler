@@ -18,6 +18,7 @@
 #include "dxc/DXIL/DxilEntryProps.h"
 #include "dxc/DXIL/DxilSubobject.h"
 #include "dxc/DXIL/DxilInstructions.h"
+#include "dxc/DXIL/DxilCounters.h"
 
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
@@ -31,6 +32,7 @@
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/SetVector.h"
 #include <unordered_set>
 
 using namespace llvm;
@@ -74,6 +76,10 @@ const char* kFP32DenormKindString          = "fp32-denorm-mode";
 const char* kFP32DenormValueAnyString      = "any";
 const char* kFP32DenormValuePreserveString = "preserve";
 const char* kFP32DenormValueFtzString      = "ftz";
+
+const char *kDxBreakFuncName = "dx.break";
+const char *kDxBreakCondName = "dx.break.cond";
+const char *kDxBreakMDName = "dx.break.br";
 }
 
 // Avoid dependency on DxilModule from llvm::Module using this:
@@ -107,6 +113,7 @@ DxilModule::DxilModule(Module *pModule)
 , m_DxilMinor(DXIL::kDxilMinor)
 , m_ValMajor(1)
 , m_ValMinor(0)
+, m_ForceZeroStoreLifetimes(false)
 , m_pOP(llvm::make_unique<OP>(pModule->getContext(), pModule))
 , m_pTypeSystem(llvm::make_unique<DxilTypeSystem>(pModule))
 , m_bDisableOptimizations(false)
@@ -115,6 +122,7 @@ DxilModule::DxilModule(Module *pModule)
 , m_IntermediateFlags(0)
 , m_AutoBindingSpace(UINT_MAX)
 , m_pSubobjects(nullptr)
+, m_bMetadataErrors(false)
 {
 
   DXASSERT_NOMSG(m_pModule != nullptr);
@@ -175,6 +183,10 @@ void DxilModule::SetValidatorVersion(unsigned ValMajor, unsigned ValMinor) {
   m_ValMinor = ValMinor;
 }
 
+void DxilModule::SetForceZeroStoreLifetimes(bool ForceZeroStoreLifetimes) {
+  m_ForceZeroStoreLifetimes = ForceZeroStoreLifetimes;
+}
+
 bool DxilModule::UpgradeValidatorVersion(unsigned ValMajor, unsigned ValMinor) {
   // Don't upgrade if validation was disabled.
   if (m_ValMajor == 0 && m_ValMinor == 0) {
@@ -191,6 +203,10 @@ bool DxilModule::UpgradeValidatorVersion(unsigned ValMajor, unsigned ValMinor) {
 void DxilModule::GetValidatorVersion(unsigned &ValMajor, unsigned &ValMinor) const {
   ValMajor = m_ValMajor;
   ValMinor = m_ValMinor;
+}
+
+bool DxilModule::GetForceZeroStoreLifetimes() const {
+  return m_ForceZeroStoreLifetimes;
 }
 
 bool DxilModule::GetMinValidatorVersion(unsigned &ValMajor, unsigned &ValMinor) const {
@@ -354,7 +370,7 @@ void DxilModule::CollectShaderFlagsForModule() {
           for (const Instruction &I : BB.getInstList()) {
             const DxilInst_DispatchMesh dispatch(const_cast<Instruction*>(&I));
             if (dispatch) {
-              Type *payloadTy = dispatch.get_payload()->getType();
+              Type *payloadTy = dispatch.get_payload()->getType()->getPointerElementType();
               const DataLayout &DL = m_pModule->getDataLayout();
               props.ShaderProps.AS.payloadSizeInBytes = DL.getTypeAllocSize(payloadTy);
             }
@@ -390,6 +406,24 @@ unsigned DxilModule::GetNumThreads(unsigned idx) const {
   const unsigned *numThreads = props.IsCS() ? props.ShaderProps.CS.numThreads :
     props.IsMS() ? props.ShaderProps.MS.numThreads : props.ShaderProps.AS.numThreads;
   return numThreads[idx];
+}
+
+void DxilModule::SetWaveSize(unsigned size) {
+  DXASSERT(m_DxilEntryPropsMap.size() == 1 && m_pSM->IsCS(),
+    "only works for CS profile");
+  DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT_NOMSG(m_pSM->GetKind() == props.shaderKind);
+  props.waveSize = size;
+}
+
+unsigned DxilModule::GetWaveSize() const {
+  DXASSERT(m_DxilEntryPropsMap.size() == 1 && m_pSM->IsCS(),
+    "only works for CS profiles");
+  if (!m_pSM->IsCS())
+    return 0;
+  const DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT_NOMSG(m_pSM->GetKind() == props.shaderKind);
+  return props.waveSize;
 }
 
 DXIL::InputPrimitive DxilModule::GetInputPrimitive() const {
@@ -1009,6 +1043,7 @@ namespace {
 template <typename TResource>
 static void RemoveResourcesWithUnusedSymbolsHelper(std::vector<std::unique_ptr<TResource>> &vec) {
   unsigned resID = 0;
+  std::unordered_set<GlobalVariable *> eraseList; // Need in case of duplicate defs of lib resources
   for (auto p = vec.begin(); p != vec.end();) {
     auto c = p++;
     Constant *symbol = (*c)->GetGlobalSymbol();
@@ -1016,13 +1051,16 @@ static void RemoveResourcesWithUnusedSymbolsHelper(std::vector<std::unique_ptr<T
     if (symbol->user_empty()) {
       p = vec.erase(c);
       if (GlobalVariable *GV = dyn_cast<GlobalVariable>(symbol))
-        GV->eraseFromParent();
+        eraseList.insert(GV);
       continue;
     }
     if ((*c)->GetID() != resID) {
       (*c)->SetID(resID);
     }
     resID++;
+  }
+  for (auto gv : eraseList) {
+    gv->eraseFromParent();
   }
 }
 }
@@ -1032,6 +1070,62 @@ void DxilModule::RemoveResourcesWithUnusedSymbols() {
   RemoveResourcesWithUnusedSymbolsHelper(m_UAVs);
   RemoveResourcesWithUnusedSymbolsHelper(m_CBuffers);
   RemoveResourcesWithUnusedSymbolsHelper(m_Samplers);
+}
+
+namespace {
+template <typename TResource>
+static bool RenameResources(std::vector<std::unique_ptr<TResource>> &vec, const std::string &prefix) {
+  bool bChanged = false;
+  for (auto &res : vec) {
+    res->SetGlobalName(prefix + res->GetGlobalName());
+    if (GlobalVariable *GV = dyn_cast<GlobalVariable>(res->GetGlobalSymbol())) {
+      GV->setName(prefix + GV->getName());
+    }
+    bChanged = true;
+  }
+  return bChanged;
+}
+}
+
+bool DxilModule::RenameResourcesWithPrefix(const std::string &prefix) {
+  bool bChanged = false;
+  bChanged |= RenameResources(m_SRVs, prefix);
+  bChanged |= RenameResources(m_UAVs, prefix);
+  bChanged |= RenameResources(m_CBuffers, prefix);
+  bChanged |= RenameResources(m_Samplers, prefix);
+  return bChanged;
+}
+
+namespace {
+template <typename TResource>
+static bool RenameGlobalsWithBinding(std::vector<std::unique_ptr<TResource>> &vec, llvm::StringRef prefix, bool bKeepName) {
+  bool bChanged = false;
+  for (auto &res : vec) {
+    if (res->IsAllocated()) {
+      std::string newName;
+      if (bKeepName)
+        newName = (Twine(res->GetGlobalName()) + "." + Twine(prefix) + Twine(res->GetLowerBound()) + "." + Twine(res->GetSpaceID())).str();
+      else
+        newName = (Twine(prefix) + Twine(res->GetLowerBound()) + "." + Twine(res->GetSpaceID())).str();
+
+      res->SetGlobalName(newName);
+      if (GlobalVariable *GV = dyn_cast<GlobalVariable>(res->GetGlobalSymbol())) {
+        GV->setName(newName);
+      }
+      bChanged = true;
+    }
+  }
+  return bChanged;
+}
+}
+
+bool DxilModule::RenameResourceGlobalsWithBinding(bool bKeepName) {
+  bool bChanged = false;
+  bChanged |= RenameGlobalsWithBinding(m_SRVs, "t", bKeepName);
+  bChanged |= RenameGlobalsWithBinding(m_UAVs, "u", bKeepName);
+  bChanged |= RenameGlobalsWithBinding(m_CBuffers, "b", bKeepName);
+  bChanged |= RenameGlobalsWithBinding(m_Samplers, "s", bKeepName);
+  return bChanged;
 }
 
 DxilSignature &DxilModule::GetInputSignature() {
@@ -1297,6 +1391,7 @@ void DxilModule::ClearDxilMetadata(Module &M) {
       name == DxilMDHelper::kDxilTypeSystemMDName ||
       name == DxilMDHelper::kDxilViewIdStateMDName ||
       name == DxilMDHelper::kDxilSubobjectsMDName ||
+      name == DxilMDHelper::kDxilCountersMDName ||
       name.startswith(DxilMDHelper::kDxilTypeSystemHelperVariablePrefix)) {
       nodes.push_back(&b);
     }
@@ -1385,7 +1480,12 @@ bool DxilModule::IsKnownNamedMetaData(llvm::NamedMDNode &Node) {
   return DxilMDHelper::IsKnownNamedMetaData(Node);
 }
 
+bool DxilModule::HasMetadataErrors() {
+  return m_bMetadataErrors;
+}
+
 void DxilModule::LoadDxilMetadata() {
+  m_bMetadataErrors = false;
   m_pMDHelper->LoadDxilVersion(m_DxilMajor, m_DxilMinor);
   m_pMDHelper->LoadValidatorVersion(m_ValMajor, m_ValMinor);
   const ShaderModel *loadedSM;
@@ -1476,11 +1576,23 @@ void DxilModule::LoadDxilMetadata() {
 
   LoadDxilResources(*pEntryResources);
 
-  m_pMDHelper->LoadDxilTypeSystem(*m_pTypeSystem.get());
+  // Type system is not required for consumption of dxil.
+  try {
+    m_pMDHelper->LoadDxilTypeSystem(*m_pTypeSystem.get());
+  } catch (hlsl::Exception &) {
+    m_bMetadataErrors = true;
+#ifdef DBG
+    throw;
+#endif
+    m_pTypeSystem->GetStructAnnotationMap().clear();
+    m_pTypeSystem->GetFunctionAnnotationMap().clear();
+  }
 
   m_pMDHelper->LoadRootSignature(m_SerializedRootSignature);
 
   m_pMDHelper->LoadDxilViewIdState(m_SerializedState);
+
+  m_bMetadataErrors |= m_pMDHelper->HasExtraMetadata();
 }
 
 MDTuple *DxilModule::EmitDxilResources() {
@@ -1536,6 +1648,16 @@ void DxilModule::ReEmitDxilResources() {
   EmitDxilMetadata();
 }
 
+void DxilModule::EmitDxilCounters() {
+  DxilCounters counters = {};
+  hlsl::CountInstructions(*m_pModule, counters);
+  m_pMDHelper->EmitDxilCounters(counters);
+}
+void DxilModule::LoadDxilCounters(DxilCounters &counters) const {
+  m_pMDHelper->LoadDxilCounters(counters);
+}
+
+
 template <typename TResource>
 static bool
 StripResourcesReflection(std::vector<std::unique_ptr<TResource>> &vec) {
@@ -1548,23 +1670,29 @@ StripResourcesReflection(std::vector<std::unique_ptr<TResource>> &vec) {
   return bChanged;
 }
 
-static bool ResourceTypeRequiresTranslation(const StructType* Ty) {
+// Return true if any members or components of struct <Ty> contain
+// scalars of less than 32 bits or are matrices, in which case translation is required
+typedef llvm::SmallSetVector<const StructType*, 4> SmallStructSetVector;
+static bool ResourceTypeRequiresTranslation(const StructType * Ty, SmallStructSetVector & containedStructs) {
   if (Ty->getName().startswith("class.matrix."))
     return true;
+  bool bResult = false;
+  containedStructs.insert(Ty);
   for (auto eTy : Ty->elements()) {
-    if (StructType *structTy = dyn_cast<StructType>(eTy)) {
-      if (ResourceTypeRequiresTranslation(structTy))
-        return true;
-    }
+    // Skip past all levels of sequential types to test their elements
     SequentialType *seqTy;
-    while (seqTy = dyn_cast<SequentialType>(eTy)) {
+    while ((seqTy = dyn_cast<SequentialType>(eTy))) {
       eTy = seqTy->getElementType();
     }
-    if (eTy->getScalarSizeInBits() < 32) {
-      return true;
+    // Recursively call this function again to process internal structs
+    if (StructType *structTy = dyn_cast<StructType>(eTy)) {
+      if (ResourceTypeRequiresTranslation(structTy, containedStructs))
+        bResult = true;
+    } else if (eTy->getScalarSizeInBits() < 32) { // test scalar sizes
+      bResult = true;
     }
   }
-  return false;
+  return bResult;
 }
 
 bool DxilModule::StripReflection() {
@@ -1591,11 +1719,19 @@ bool DxilModule::StripReflection() {
   {
     // We must preserve struct annotations for resources containing min-precision types,
     // since they have not yet been converted for legacy layout.
-    SmallVector<const StructType*, 4> structsToRemove;
+    // Keep all structs contained in any we must keep.
+    SmallStructSetVector structsToKeep;
+    SmallStructSetVector structsToRemove;
     for (auto &item : m_pTypeSystem->GetStructAnnotationMap()) {
-      if (!ResourceTypeRequiresTranslation(item.first))
-        structsToRemove.emplace_back(item.first);
+      SmallStructSetVector containedStructs;
+      if (!ResourceTypeRequiresTranslation(item.first, containedStructs))
+        structsToRemove.insert(item.first);
+      else
+        structsToKeep.insert(containedStructs.begin(), containedStructs.end());
     }
+
+    for (auto Ty : structsToKeep)
+      structsToRemove.remove(Ty);
     for (auto Ty : structsToRemove) {
       m_pTypeSystem->GetStructAnnotationMap().erase(Ty);
     }

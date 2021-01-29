@@ -57,6 +57,7 @@
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
 #include "llvm/Transforms/Utils/SSAUpdater.h"
 #include "dxc/DXIL/DxilUtil.h"  // HLSL Change - don't sroa resource type.
+#include "dxc/DXIL/DxilMetadataHelper.h"  // HLSL Change - support strided debug variables
 #include "dxc/HLSL/HLMatrixType.h"  // HLSL Change - don't sroa matrix types.
 
 #if __cplusplus >= 201103L && !defined(NDEBUG)
@@ -1304,7 +1305,7 @@ public:
 private:
   friend class PHIOrSelectSpeculator;
   friend class AllocaSliceRewriter;
-
+  bool runOnFunctionImp(Function &F);
   bool presplitLoadsAndStores(AllocaInst &AI, AllocaSlices &AS);
   AllocaInst *rewritePartition(AllocaInst &AI, AllocaSlices &AS,
                                AllocaSlices::Partition &P);
@@ -4310,11 +4311,29 @@ bool SROA::splitAlloca(AllocaInst &AI, AllocaSlices &AS) {
     DIBuilder DIB(*AI.getParent()->getParent()->getParent(),
                   /*AllowUnresolved*/ false);
     bool IsSplit = Pieces.size() > 1;
+
+    // HLSL Change Begins
+    // Take into account debug stride in extra metadata
+    std::vector<hlsl::DxilDIArrayDim> ArrayDims;
+    unsigned FirstFragmentOffsetInBits = 0;
+    if (!hlsl::DxilMDHelper::GetVariableDebugLayout(DbgDecl, FirstFragmentOffsetInBits, ArrayDims)
+      && Expr->isBitPiece()) {
+      FirstFragmentOffsetInBits = Expr->getBitPieceOffset();
+    }
+
+    unsigned FragmentSizeInBits = DL.getTypeAllocSizeInBits(AI.getAllocatedType());
+    for (const hlsl::DxilDIArrayDim& ArrayDim : ArrayDims) {
+      assert(FragmentSizeInBits % ArrayDim.NumElements == 0);
+      FragmentSizeInBits /= ArrayDim.NumElements;
+    }
+    // HLSL Change Ends
+
     for (auto Piece : Pieces) {
       // Create a piece expression describing the new partition or reuse AI's
       // expression if there is only one partition.
       auto *PieceExpr = Expr;
       if (IsSplit || Expr->isBitPiece()) {
+#if 0 // HLSL Change - Handle Strides
         // If this alloca is already a scalar replacement of a larger aggregate,
         // Piece.Offset describes the offset inside the scalar.
         uint64_t Offset = Expr->isBitPiece() ? Expr->getBitPieceOffset() : 0;
@@ -4327,6 +4346,22 @@ bool SROA::splitAlloca(AllocaInst &AI, AllocaSlices &AS) {
             continue;
           Size = std::min(Size, AbsEnd - Start);
         }
+// HLSL Change Begins
+#else
+        // Find the fragment from the original user variable in which this piece falls
+        uint64_t PieceFragmentIndex = Piece.Offset / FragmentSizeInBits;
+
+        // Compute the offset in the original user variable
+        uint64_t StartInFragment = Piece.Offset % FragmentSizeInBits;
+        uint64_t Start = FirstFragmentOffsetInBits + Piece.Offset % FragmentSizeInBits;
+        for (auto ArrayDimIter = ArrayDims.rbegin(); ArrayDimIter != ArrayDims.rend(); ++ArrayDimIter) {
+          Start += ArrayDimIter->StrideInBits * (PieceFragmentIndex % ArrayDimIter->NumElements);
+          PieceFragmentIndex /= ArrayDimIter->NumElements;
+        }
+
+        uint64_t Size = std::min<uint64_t>(Piece.Size, FragmentSizeInBits - StartInFragment);
+#endif
+// HLSL Change Ends
         PieceExpr = DIB.createBitPieceExpression(Start, Size);
       }
 
@@ -4578,8 +4613,8 @@ bool SROA::promoteAllocas(Function &F) {
   PromotableAllocas.clear();
   return true;
 }
-
-bool SROA::runOnFunction(Function &F) {
+// HLSL Change - run SROA more than once if updated.
+bool SROA::runOnFunctionImp(Function &F) {
   if (skipOptnoneFunction(F))
     return false;
 
@@ -4629,6 +4664,19 @@ bool SROA::runOnFunction(Function &F) {
 
   return Changed;
 }
+// HLSL Change Begin.
+// In some case, alloca fail to optimized early will be ready to optimize after
+// other alloca is optimized.
+bool SROA::runOnFunction(Function &F) {
+  unsigned count = 0;
+  const unsigned kMaxCount = 3;
+  while ((count++) < kMaxCount) {
+    if (!runOnFunctionImp(F))
+      break;
+  }
+  return count > 1;
+}
+// HLSL Change End.
 
 void SROA::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<AssumptionCacheTracker>();

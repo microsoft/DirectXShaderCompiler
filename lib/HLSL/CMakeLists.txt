@@ -1,5 +1,10 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # This file is distributed under the University of Illinois Open Source License. See LICENSE.TXT for details.
+set(LLVM_LINK_COMPONENTS
+  ${LLVM_TARGETS_TO_BUILD}
+  passprinters
+)
+
 add_llvm_library(LLVMHLSL
   ComputeViewIdState.cpp
   ComputeViewIdStateBuilder.cpp
@@ -13,12 +18,15 @@ add_llvm_library(LLVMHLSL
   DxilLegalizeEvalOperations.cpp
   DxilLegalizeSampleOffsetPass.cpp
   DxilLinker.cpp
+  DxilLoopDeletion.cpp
   DxilPrecisePropagatePass.cpp
   DxilPreparePasses.cpp
   DxilPromoteResourcePasses.cpp
   DxilPackSignatureElement.cpp
   DxilPatchShaderRecordBindings.cpp
+  DxilNoops.cpp
   DxilPreserveAllOutputs.cpp
+  DxilRenameResourcesPass.cpp
   DxilSimpleGVNHoist.cpp
   DxilSignatureValidation.cpp
   DxilTargetLowering.cpp
@@ -29,6 +37,8 @@ add_llvm_library(LLVMHLSL
   DxcOptimizer.cpp
   HLDeadFunctionElimination.cpp
   HLExpandStoreIntrinsics.cpp
+  HLLegalizeParameter.cpp
+  HLLowerUDT.cpp
   HLMatrixBitcastLowerPass.cpp
   HLMatrixLowerPass.cpp
   HLMatrixSubscriptUseReplacer.cpp
@@ -41,8 +51,10 @@ add_llvm_library(LLVMHLSL
   HLPreprocess.cpp
   HLResource.cpp
   HLSignatureLower.cpp
+  HLUtil.cpp
   PauseResumePasses.cpp
   WaveSensitivityAnalysis.cpp
+  DxilNoOptLegalize.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/IR

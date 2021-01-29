@@ -1,6 +1,6 @@
 // Run: %dxc -T ps_6_0 -E main
 
-// CHECK: OpCapability RuntimeDescriptorArrayEXT
+// CHECK: OpCapability RuntimeDescriptorArray
 
 // CHECK: OpExtension "SPV_EXT_descriptor_indexing"
 

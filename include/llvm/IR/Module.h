@@ -515,6 +515,7 @@ public:
   std::error_code materializeAllPermanently();
 
   std::error_code materializeMetadata();
+  std::error_code materializeSelectNamedMetadata(ArrayRef<StringRef> NamedMetadata); // HLSL Change
 
 /// @}
 /// @name Direct access to the globals list, functions list, and symbol table

@@ -223,6 +223,20 @@ bool HasHLSLUNormSNorm(clang::QualType type, bool *pIsSNorm) {
   return false;
 }
 
+bool HasHLSLGloballyCoherent(clang::QualType type) {
+  const AttributedType *AT = type->getAs<AttributedType>();
+  while (AT) {
+    AttributedType::Kind kind = AT->getAttrKind();
+    switch (kind) {
+    case AttributedType::attr_hlsl_globallycoherent:
+      return true;
+    }
+    AT = AT->getLocallyUnqualifiedSingleStepDesugaredType()
+             ->getAs<AttributedType>();
+  }
+  return false;
+}
+
 /// Checks whether the pAttributes indicate a parameter is inout or out; if
 /// inout, pIsIn will be set to true.
 bool IsParamAttributedAsOut(_In_opt_ clang::AttributeList *pAttributes,
@@ -244,7 +258,8 @@ QualType GetStructuralForm(QualType type) {
     type = RefType ? RefType->getPointeeType() : AttrType->getEquivalentType();
   }
 
-  return type->getCanonicalTypeUnqualified();
+  // Despite its name, getCanonicalTypeUnqualified will preserve const for array elements or something
+  return QualType(type->getCanonicalTypeUnqualified()->getTypePtr(), 0);
 }
 
 uint32_t GetElementCount(clang::QualType type) {
@@ -529,10 +544,19 @@ bool IsHLSLResourceType(clang::QualType type) {
     if (name == "SamplerState" || name == "SamplerComparisonState")
       return true;
 
-    if (name == "ConstantBuffer")
+    if (name == "ConstantBuffer" || name == "TextureBuffer")
       return true;
 
     if (name == "RaytracingAccelerationStructure")
+      return true;
+  }
+  return false;
+}
+
+bool IsHLSLBufferViewType(clang::QualType type) {
+  if (const RecordType *RT = type->getAs<RecordType>()) {
+    StringRef name = RT->getDecl()->getName();
+    if (name == "ConstantBuffer" || name == "TextureBuffer")
       return true;
   }
   return false;
@@ -578,6 +602,20 @@ bool GetHLSLSubobjectKind(clang::QualType type, DXIL::SubobjectKind &subobjectKi
         return true;
       }
       return false;
+    }
+  }
+  return false;
+}
+
+bool IsHLSLRayQueryType(clang::QualType type) {
+  type = type.getCanonicalType();
+  if (const RecordType *RT = dyn_cast<RecordType>(type)) {
+    if (const ClassTemplateSpecializationDecl *templateDecl =
+            dyn_cast<ClassTemplateSpecializationDecl>(
+                RT->getAsCXXRecordDecl())) {
+      StringRef name = templateDecl->getName();
+      if (name == "RayQuery")
+        return true;
     }
   }
   return false;

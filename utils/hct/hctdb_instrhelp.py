@@ -281,8 +281,9 @@ class db_instrhelp_gen:
                         print("  llvm::Value *get_%s() const { return Instr->getOperand(%d); }" % (o.name, o.pos - 1))
                         print("  void set_%s(llvm::Value *val) { Instr->setOperand(%d, val); }" % (o.name, o.pos - 1))
                         if o.is_const:
-                            print("  %s get_%s_val() const { return %s; }" % (self.op_type(o), o.name, self.op_const_expr(o)))
-                            print("  void set_%s_val(%s val) { Instr->setOperand(%d, %s); }" % (o.name, self.op_type(o), o.pos - 1, self.op_set_const_expr(o)))
+                            if o.llvm_type in self.llvm_type_map:
+                                print("  %s get_%s_val() const { return %s; }" % (self.op_type(o), o.name, self.op_const_expr(o)))
+                                print("  void set_%s_val(%s val) { Instr->setOperand(%d, %s); }" % (o.name, self.op_type(o), o.pos - 1, self.op_set_const_expr(o)))
             print("};")
             print("")
 
@@ -363,7 +364,7 @@ class db_oload_gen:
         f = lambda i,c : "true" if i.oload_types.find(c) >= 0 else "false"
         lower_exceptions = { "CBufferLoad" : "cbufferLoad", "CBufferLoadLegacy" : "cbufferLoadLegacy", "GSInstanceID" : "gsInstanceID" }
         lower_fn = lambda t: lower_exceptions[t] if t in lower_exceptions else t[:1].lower() + t[1:]
-        attr_dict = { "": "None", "ro": "ReadOnly", "rn": "ReadNone", "nd": "NoDuplicate", "nr": "NoReturn" }
+        attr_dict = { "": "None", "ro": "ReadOnly", "rn": "ReadNone", "nd": "NoDuplicate", "nr": "NoReturn", "wv" : "None" }
         attr_fn = lambda i : "Attribute::" + attr_dict[i.fn_attr] + ","
         for i in self.instrs:
             if last_category != i.category:
@@ -398,18 +399,24 @@ class db_oload_gen:
             "splitdouble": "A(pSDT);",
             "twoi32": "A(p2I32);",
             "twof32": "A(p2F32);",
+            "twof16": "A(p2F16);",
+            "twoi16": "A(p2I16);",
             "threei32": "A(p3I32);",
             "threef32": "A(p3F32);",
             "fouri32": "A(p4I32);",
             "fourf32": "A(p4F32);",
+            "fouri16": "A(p4I16);",
             "u32": "A(pI32);",
             "u64": "A(pI64);",
             "u8": "A(pI8);",
             "v": "A(pV);",
+            "$vec4" : "VEC4(pETy);",
             "w": "A(pWav);",
             "SamplePos": "A(pPos);",
             "udt": "A(udt);",
             "obj": "A(obj);",
+            "resproperty": "A(resProperty);",
+            "resbind": "A(resBind);",
         }
         last_category = None
         for i in self.instrs:
@@ -436,7 +443,7 @@ class db_oload_gen:
         cb_ret_ty = "$cb"
         udt_ty = "udt"
         obj_ty = "obj"
-
+        vec_ty = "$vec"
         last_category = None
 
         index_dict = collections.OrderedDict()
@@ -455,6 +462,10 @@ class db_oload_gen:
 
             if ret_ty == cb_ret_ty:
                 struct_list.append(instr.name)
+                continue
+
+            if ret_ty.startswith(vec_ty):
+                struct_list.append(instr.name);
                 continue
 
             in_param_ty = False
@@ -494,17 +505,17 @@ class db_oload_gen:
             assert len(instr.oload_types)==1, "overload no elt_ty %s" % (instr.name)
             ty = instr.oload_types[0]
             type_code_texts = {
-            "d": "Type::getDoubleTy(m_Ctx)",
-            "f": "Type::getFloatTy(m_Ctx)",
+            "d": "Type::getDoubleTy(Ctx)",
+            "f": "Type::getFloatTy(Ctx)",
             "h": "Type::getHalfTy",
-            "1": "IntegerType::get(m_Ctx, 1)",
-			"8": "IntegerType::get(m_Ctx, 8)",
-            "w": "IntegerType::get(m_Ctx, 16)",
-            "i": "IntegerType::get(m_Ctx, 32)",
-            "l": "IntegerType::get(m_Ctx, 64)",
-            "v": "Type::getVoidTy(m_Ctx)",
-            "u": "Type::getInt32PtrTy(m_Ctx)",
-            "o": "Type::getInt32PtrTy(m_Ctx)",
+            "1": "IntegerType::get(Ctx, 1)",
+            "8": "IntegerType::get(Ctx, 8)",
+            "w": "IntegerType::get(Ctx, 16)",
+            "i": "IntegerType::get(Ctx, 32)",
+            "l": "IntegerType::get(Ctx, 64)",
+            "v": "Type::getVoidTy(Ctx)",
+            "u": "Type::getInt32PtrTy(Ctx)",
+            "o": "Type::getInt32PtrTy(Ctx)",
             }
             assert ty in type_code_texts, "llvm type %s is unknown" % (ty)
             ty_code = type_code_texts[ty]
@@ -673,7 +684,7 @@ def get_hlsl_intrinsics():
     for i in sorted(db.intrinsics, key=lambda x: x.key):
         if last_ns != i.ns:
             last_ns = i.ns
-            id_prefix = "IOP" if last_ns == "Intrinsics" else "MOP"
+            id_prefix = "IOP" if last_ns == "Intrinsics" or last_ns == "VkIntrinsics" else "MOP" # SPIRV Change
             if (len(ns_table)):
                 result += ns_table + "};\n"
                 # SPIRV Change Starts
@@ -690,11 +701,16 @@ def get_hlsl_intrinsics():
                 result += "#ifdef ENABLE_SPIRV_CODEGEN\n\n"
             # SPIRV Change Ends
             arg_idx = 0
-        ns_table += "    {(UINT)%s::%s_%s, %s, %s, %d, %d, g_%s_Args%s},\n" % (opcode_namespace, id_prefix, i.name, str(i.readonly).lower(), str(i.readnone).lower(), i.overload_param_index,len(i.params), last_ns, arg_idx)
+        ns_table += "    {(UINT)%s::%s_%s, %s, %s, %s, %d, %d, g_%s_Args%s},\n" % (opcode_namespace, id_prefix, i.name, str(i.readonly).lower(), str(i.readnone).lower(), str(i.wave).lower(), i.overload_param_index,len(i.params), last_ns, arg_idx)
         result += "static const HLSL_INTRINSIC_ARGUMENT g_%s_Args%s[] =\n{\n" % (last_ns, arg_idx)
         for p in i.params:
+            name = p.name
+            if name == i.name and i.hidden:
+                # First parameter defines intrinsic name for parsing in HLSL.
+                # Prepend '$hidden$' for hidden intrinsic so it can't be used in HLSL.
+                name = "$hidden$" + name
             result += "    {\"%s\", %s, %s, %s, %s, %s, %s, %s},\n" % (
-                p.name, p.param_qual, p.template_id, p.template_list,
+                name, p.param_qual, p.template_id, p.template_list,
                 p.component_id, p.component_list, p.rows, p.cols)
         result += "};\n\n"
         arg_idx += 1
@@ -802,6 +818,21 @@ def get_instrs_pred(varname, pred, attr_name="dxil_opid"):
     result += "return %s;" % build_range_code(varname, [getattr(i, attr_name) for i in llvm_instrs])
     result += "\n"
     return result
+
+def counter_pred(name, dxil_op=True):
+    def pred(i):
+        return (dxil_op == i.is_dxil_op) and getattr(i, 'props') and 'counters' in i.props and name in i.props['counters']
+    return pred
+
+def get_counters():
+    db = get_db_dxil()
+    return db.counters
+def get_llvm_op_counters():
+    db = get_db_dxil()
+    return [c for c in db.counters if c in db.llvm_op_counters]
+def get_dxil_op_counters():
+    db = get_db_dxil()
+    return [c for c in db.counters if c in db.dxil_op_counters]
 
 def get_instrs_rst():
     "Create an rst table of allowed LLVM instructions."
@@ -1081,6 +1112,258 @@ def get_interpretation_table():
     gen = db_sigpoint_gen(db)
     return run_with_stdout(lambda: gen.print_interpretation_table())
 
+highest_major = 6
+highest_minor = 6
+highest_shader_models = {4:1, 5:1, 6:highest_minor}
+
+def getShaderModels():
+    shader_models = []
+    for major, minor in highest_shader_models.items():
+        for i in range(0, minor+1):
+            shader_models.append(str(major) + "_" + str(i))
+
+    return shader_models;
+
+def get_highest_shader_model():
+    result = """static const unsigned kHighestMajor = %d;
+static const unsigned kHighestMinor = %d;"""%(highest_major, highest_minor)
+    return result
+
+def get_dxil_version_minor():
+    return "const unsigned kDxilMinor = %d;"%highest_minor
+
+def get_is_shader_model_plus():
+    result = ""
+
+    for i in range(0, highest_minor+1):
+        result += "bool IsSM%d%dPlus() const { return IsSMAtLeast(%d, %d); }\n"%(highest_major, i,highest_major, i)
+    return result
+
+profile_to_kind = {"ps":"Kind::Pixel", "vs":"Kind::Vertex", "gs":"Kind::Geometry", "hs":"5_0", "ds":"5_0", "cs":"4_0", "lib":"6_1", "ms":"6_5", "as":"6_5"}
+
+class shader_profile(object):
+    "The profile description for a DXIL instruction"
+    def __init__(self, kind, kind_name, enum_name, start_sm, input_size, output_size):
+        self.kind = kind                  # position in parameter list
+        self.kind_name = kind_name
+        self.enum_name = enum_name
+        self.start_sm = start_sm
+        self.input_size = input_size
+        self.output_size = output_size
+
+# kind is from DXIL::ShaderKind.
+shader_profiles = [ shader_profile(0, "ps", "Kind::Pixel", "4_0", 32, 8),
+             shader_profile(1, "vs", "Kind::Vertex", "4_0", 32, 32),
+             shader_profile(2, "gs", "Kind::Geometry", "4_0", 32, 32),
+             shader_profile(3, "hs", "Kind::Hull", "5_0", 32, 32),
+             shader_profile(4, "ds", "Kind::Domain", "5_0", 32, 32),
+             shader_profile(5, "cs", "Kind::Compute", "4_0", 0,0),
+             shader_profile(6, "lib", "Kind::Library", "6_1", 32,32),
+             shader_profile(13, "ms", "Kind::Mesh", "6_5", 0,0),
+             shader_profile(14, "as", "Kind::Amplification", "6_5", 0,0),
+             ]
+
+def getShaderProfiles():
+    # order match DXIL::ShaderKind.
+    profiles = {"ps":"4_0", "vs":"4_0", "gs":"4_0", "hs":"5_0", "ds":"5_0", "cs":"4_0", "lib":"6_1", "ms":"6_5", "as":"6_5"}
+    return profiles;
+
+def get_shader_models():
+    result = ""
+    for profile in shader_profiles:
+        min_sm = profile.start_sm
+        input_size = profile.input_size
+        output_size = profile.output_size
+        kind = profile.kind
+        kind_name = profile.kind_name
+        enum_name = profile.enum_name
+
+        for major, minor in highest_shader_models.items():
+
+            UAV_info = "true, true, UINT_MAX"
+            if major > 5:
+                pass
+            elif major == 4:
+                UAV_info = "false, false, 0"
+                if kind == "cs":
+                    UAV_info = "true, false, 1"
+
+            elif major == 5:
+                UAV_info = "true, true, 64"
+
+            for i in range(0, minor+1):
+                sm = "%d_%d"%(major, i)
+                if (min_sm > sm):
+                    continue
+
+                input_size = profile.input_size
+                output_size = profile.output_size
+
+                if major == 4:
+                    if i == 0:
+                        if kind_name == "gs":
+                            input_size = 16
+                        elif kind_name == "vs":
+                            input_size = 16
+                            output_size = 16
+
+                sm_name = "%s_%s"%(kind_name,sm)
+                result += "SM(%s, %d, %d, \"%s\", %d, %d, %s),\n" % (enum_name, major, i, sm_name, input_size, output_size, UAV_info)
+
+        if kind_name == "lib":
+            result += "// lib_6_x is for offline linking only, and relaxes restrictions\n"
+            result += "SM(Kind::Library,  6, kOfflineMinor, \"lib_6_x\",  32, 32,  true,  true,  UINT_MAX),\n"
+
+    result += "// Values before Invalid must remain sorted by Kind, then Major, then Minor.\n"
+    result += "SM(Kind::Invalid,  0, 0, \"invalid\", 0,  0,   false, false, 0),\n"
+    return result
+
+def get_num_shader_models():
+    count = 0
+    for profile in shader_profiles:
+        min_sm = profile.start_sm
+        input_size = profile.input_size
+        output_size = profile.output_size
+        kind = profile.kind
+        kind_name = profile.kind_name
+        enum_name = profile.enum_name
+
+        for major, minor in highest_shader_models.items():
+
+            for i in range(0, minor+1):
+                sm = "%d_%d"%(major, i)
+                if (min_sm > sm):
+                    continue
+                count += 1
+
+        if kind_name == "lib":
+            # for lib_6_x
+            count += 1
+    # for invalid shader_model.
+    count += 1
+    return "static const unsigned kNumShaderModels = %d;"%count
+
+def build_shader_model_hash_idx_map():
+    #must match get_shader_models.
+    result = "const static std::unordered_map<unsigned, unsigned> hashToIdxMap = {\n"
+    count = 0
+    for profile in shader_profiles:
+        min_sm = profile.start_sm
+        kind = profile.kind
+        kind_name = profile.kind_name
+
+        for major, minor in highest_shader_models.items():
+
+            for i in range(0, minor+1):
+                sm = "%d_%d"%(major, i)
+                if (min_sm > sm):
+                    continue
+                sm_name = "%s_%s"%(kind_name,sm)
+                hash_v = kind << 16 | major << 8 | i;
+                result += "{%d,%d}, //%s\n" % (hash_v, count, sm_name)
+                count += 1
+
+        if kind_name == "lib":
+            result += "// lib_6_x is for offline linking only, and relaxes restrictions\n"
+            major = 6
+            #static const unsigned kOfflineMinor = 0xF;
+            i = 15
+            hash_v = kind << 16 | major << 8 | i;
+            result += "{%d,%d},//%s\n" % (hash_v, count, "lib_6_x")
+            count += 1
+
+    result += "};\n"
+    return result
+
+def get_validation_version():
+    result = """// 1.0 is the first validator.
+// 1.1 adds:
+// - ILDN container part support
+// 1.2 adds:
+// - Metadata for floating point denorm mode
+// 1.3 adds:
+// - Library support
+// - Raytracing support
+// - i64/f64 overloads for rawBufferLoad/Store
+// 1.4 adds:
+// - packed u8x4/i8x4 dot with accumulate to i32
+// - half dot2 with accumulate to float
+// 1.5 adds:
+// - WaveMatch, WaveMultiPrefixOp, WaveMultiPrefixBitCount
+// - HASH container part support
+// - Mesh and Amplification shaders
+// - DXR 1.1 & RayQuery support
+*pMajor = 1;
+*pMinor = %d;
+""" % highest_minor
+    return result
+
+def get_target_profiles():
+    result = "HelpText<\"Set target profile. \\n"
+    result += "\\t<profile>: "
+
+    profiles = getShaderProfiles()
+    shader_models = getShaderModels()
+
+    base_sm = "%d_0"%highest_major
+    for profile, min_sm in profiles.items():
+        for shader_model in shader_models:
+            if (base_sm > shader_model):
+                continue
+            if (min_sm > shader_model):
+                continue
+            result += "%s_%s, "%(profile,shader_model)
+        result += "\\n\\t\\t "
+
+    result += "\">;"
+    return result
+
+def get_min_validator_version():
+    result = ""
+    for i in range(0, highest_minor+1):
+        result += "case %d:\n"%i
+        result += "  ValMinor = %d;\n"%i
+        result += "  break;\n"
+    return result
+
+def get_dxil_version():
+    result = ""
+    for i in range(0, highest_minor+1):
+        result += "case %d:\n"%i
+        result += "  DxilMinor = %d;\n"%i
+        result += "  break;\n"
+    result += "case kOfflineMinor: // Always update this to highest dxil version\n"
+    result += "  DxilMinor = %d;\n"%highest_minor
+    result += "  break;\n"
+    return result
+
+def get_shader_model_get():
+    # const static std::unordered_map<unsigned, unsigned> hashToIdxMap = {};
+    result = build_shader_model_hash_idx_map()
+    result += "unsigned hash = (unsigned)Kind << 16 | Major << 8 | Minor;\n"
+    result += "auto it = hashToIdxMap.find(hash);\n"
+    result += "if (it == hashToIdxMap.end())\n"
+    result += "  return GetInvalid();\n"
+    result += "return &ms_ShaderModels[it->second];"
+    return result
+
+def get_shader_model_by_name():
+    result = ""
+    for i in range(2, highest_minor+1):
+        result += "case '%d':\n"%i
+        result += "  if (Major == %d) {\n"%highest_major
+        result += "    Minor = %d;\n"%i
+        result += "    break;\n"
+        result += "  }\n"
+        result += "else return GetInvalid();\n"
+
+    return result
+
+def get_is_valid_for_dxil():
+    result = ""
+    for i in range(0, highest_minor+1):
+        result += "case %d:\n"%i
+    return result
 
 def RunCodeTagUpdate(file_path):
     import os
@@ -1150,8 +1433,11 @@ if __name__ == "__main__":
         files = [
             'docs/DXIL.rst',
             'lib/DXIL/DXILOperations.cpp',
+            'lib/DXIL/DXILShaderModel.cpp',
             'include/dxc/DXIL/DXILConstants.h',
+            'include/dxc/DXIL/DXILShaderModel.h',
             'include/dxc/HLSL/DxilValidation.h',
+            'include/dxc/Support/HLSLOptions.td',
             'include/dxc/DXIL/DxilInstructions.h',
             'lib/HLSL/DxcOptimizer.cpp',
             'lib/DxilPIXPasses/DxilPIXPasses.cpp',
@@ -1160,6 +1446,9 @@ if __name__ == "__main__":
             'include/dxc/HlslIntrinsicOp.h',
             'tools/clang/tools/dxcompiler/dxcdisassembler.cpp',
             'include/dxc/DXIL/DxilSigPoint.inl',
+            'include/dxc/DXIL/DxilCounters.h',
+            'lib/DXIL/DxilCounters.cpp',
+            'lib/DXIL/DxilMetadataHelper.cpp',
             ]
         for relative_file_path in files:
             RunCodeTagUpdate(pj(hlsl_src_dir, relative_file_path))

@@ -19,7 +19,7 @@
 // CHECK-NOT: {{(.*g_a.*)(.*static.copy.*)}} = internal global [5 x i32] zeroinitializer
 // CHECK-NOT: {{(.*g_a2d.*)(.*static.copy.*)}} = internal global [3 x [2 x i32]] zeroinitializer
 // CHECK: define <4 x float> @main
-// CHECK: ret %dx.types.Handle undef
+
 
 float g_s1;
 float g_s2; // write enabled

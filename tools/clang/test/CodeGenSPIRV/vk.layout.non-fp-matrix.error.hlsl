@@ -17,4 +17,3 @@ void main() {
 }
 
 // CHECK: :6:5: error: externally initialized non-floating-point column-major matrices not supported yet
-// CHECK: :13:23: error: externally initialized non-floating-point column-major matrices not supported yet

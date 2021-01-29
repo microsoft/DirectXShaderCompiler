@@ -68,6 +68,14 @@ void main() {
   float1x3 f = n;
 
 
+// TEST float1x4 --> float1x3
+
+// CHECK:       [[n:%\d+]] = OpLoad %v4float %n
+// CHECK-NEXT: [[n0:%\d+]] = OpCompositeExtract %float [[n]] 0
+// CHECK-NEXT:               OpStore %scalar [[n0]]
+  float1x1 scalar = n;
+
+
 // TEST float3x1 --> float2x1
 
 // CHECK:      [[o:%\d+]] = OpLoad %v3float %o

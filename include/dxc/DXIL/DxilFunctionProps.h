@@ -82,6 +82,9 @@ struct DxilFunctionProps {
     } AS;
   } ShaderProps;
   DXIL::ShaderKind shaderKind;
+  // WaveSize is currently allowed only on compute shaders, but could be supported on other shader types in the future
+  unsigned waveSize; 
+
   // TODO: Should we have an unmangled name here for ray tracing shaders?
   bool IsPS() const     { return shaderKind == DXIL::ShaderKind::Pixel; }
   bool IsVS() const     { return shaderKind == DXIL::ShaderKind::Vertex; }

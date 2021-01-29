@@ -73,7 +73,7 @@ FunctionPass *createDeadCodeEliminationPass();
 // DeadStoreElimination - This pass deletes stores that are post-dominated by
 // must-aliased stores and are not loaded used between the stores.
 //
-FunctionPass *createDeadStoreEliminationPass();
+FunctionPass *createDeadStoreEliminationPass(unsigned ScanLimit = 0); // HLSL Change - Add ScanLimit
 
 //===----------------------------------------------------------------------===//
 //
@@ -113,14 +113,6 @@ void initializeHLExpandStoreIntrinsicsPass(PassRegistry&);
 
 //===----------------------------------------------------------------------===//
 //
-// ScalarReplAggregatesHLSL - Break up alloca's of aggregates into multiple allocas
-// for hlsl. Array will not change, all structures will be broken up.
-//
-FunctionPass *createScalarReplAggregatesHLSLPass(bool UseDomTree = true,
-                                                 bool Promote = false);
-void initializeSROA_DT_HLSLPass(PassRegistry&);
-//===----------------------------------------------------------------------===//
-//
 // ScalarReplAggregatesHLSL - Break up argument's of aggregates into multiple arguments
 // for hlsl. Array will not change, all structures will be broken up.
 //
@@ -137,8 +129,30 @@ void initializeDxilFixConstArrayInitializerPass(PassRegistry&);
 Pass *createDxilConditionalMem2RegPass(bool NoOpt);
 void initializeDxilConditionalMem2RegPass(PassRegistry&);
 
-Pass *createDxilLoopUnrollPass(unsigned MaxIterationAttempt);
+Pass *createDxilLoopUnrollPass(unsigned MaxIterationAttempt, bool OnlyWarnOnFail, bool StructurizeLoopExits);
 void initializeDxilLoopUnrollPass(PassRegistry&);
+
+Pass *createDxilEraseDeadRegionPass();
+void initializeDxilEraseDeadRegionPass(PassRegistry&);
+
+Pass *createDxilEliminateVectorPass();
+void initializeDxilEliminateVectorPass(PassRegistry&);
+
+Pass *createDxilInsertPreservesPass(bool AllowPreserves);
+void initializeDxilInsertPreservesPass(PassRegistry&);
+
+Pass *createDxilFinalizePreservesPass();
+void initializeDxilFinalizePreservesPass(PassRegistry&);
+
+Pass *createDxilPreserveToSelectPass();
+void initializeDxilPreserveToSelectPass(PassRegistry&);
+
+Pass *createDxilRemoveDeadBlocksPass();
+void initializeDxilRemoveDeadBlocksPass(PassRegistry&);
+
+void initializeDxilRewriteOutputArgDebugInfoPass(PassRegistry&);
+Pass *createDxilRewriteOutputArgDebugInfoPass();
+
 //===----------------------------------------------------------------------===//
 //
 // LowerStaticGlobalIntoAlloca. Replace static globals with alloca if only used
@@ -247,7 +261,9 @@ Pass *createLoopInstSimplifyPass();
 // LoopUnroll - This pass is a simple loop unrolling pass.
 //
 Pass *createLoopUnrollPass(int Threshold = -1, int Count = -1,
-                           int AllowPartial = -1, int Runtime = -1);
+                           int AllowPartial = -1, int Runtime = -1,
+                           bool StructurizeLoopExits = false // HLSL Change
+                          );
 // Create an unrolling pass for full unrolling only.
 Pass *createSimpleLoopUnrollPass();
 
@@ -490,6 +506,7 @@ FunctionPass *createSampleProfileLoaderPass(StringRef Name);
 // ScalarizerPass - Converts vector operations into scalar operations
 //
 FunctionPass *createScalarizerPass();
+FunctionPass *createScalarizerPass(bool NoOpt);
 
 //===----------------------------------------------------------------------===//
 //

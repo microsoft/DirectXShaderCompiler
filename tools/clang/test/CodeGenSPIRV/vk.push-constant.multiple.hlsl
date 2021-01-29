@@ -10,9 +10,6 @@ S pcs1;
 [[vk::push_constant]] // error
 S pcs2;
 
-[[vk::push_constant]] // error
-S pcs3;
-
 float main() : A {
     return 1.0;
 }
@@ -20,5 +17,3 @@ float main() : A {
 // CHECK: :10:3: error: cannot have more than one push constant block
 // CHECK: :7:3: note: push constant block previously defined here
 
-// CHECK: :13:3: error: cannot have more than one push constant block
-// CHECK: :7:3: note: push constant block previously defined here

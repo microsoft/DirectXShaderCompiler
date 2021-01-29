@@ -19,6 +19,7 @@ struct IMalloc;
 namespace hlsl {
 namespace pdb {
 
+  HRESULT LoadDataFromStream(IMalloc *pMalloc, IStream *pIStream, IDxcBlob **ppHash, IDxcBlob **ppContainer);
   HRESULT LoadDataFromStream(IMalloc *pMalloc, IStream *pIStream, IDxcBlob **pOutContainer);
   HRESULT WriteDxilPDB(IMalloc *pMalloc, IDxcBlob *pContainer, llvm::ArrayRef<BYTE> HashData, IDxcBlob **ppOutBlob);
 }

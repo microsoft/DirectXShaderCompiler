@@ -36,8 +36,8 @@ class ModuleLoadResult {
 public:
   ModuleLoadResult() : Storage() { }
 
-  ModuleLoadResult(Module *module, bool missingExpected)
-    : Storage(module, missingExpected) { }
+  ModuleLoadResult(Module *mod, bool missingExpected)
+    : Storage(mod, missingExpected) { }
 
   operator Module *() const { return Storage.getPointer(); }
 

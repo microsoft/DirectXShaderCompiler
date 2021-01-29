@@ -36,9 +36,22 @@
 #include <functional>
 
 #include "dxc/DXIL/DXIL.h"
-
+#include "dxc/HLSL/DxilConvergentName.h"
 using namespace llvm;
 using namespace hlsl;
+
+namespace {
+
+bool IsConvergentMarker(const Function *F) {
+  return F->getName().startswith(kConvergentFunctionPrefix);
+}
+
+bool IsConvergentMarker(const char *Name) {
+  StringRef RName = Name;
+  return RName.startswith(kConvergentFunctionPrefix);
+}
+
+} // namespace
 
 // Check if the given function is a dxil intrinsic and if so extract the
 // opcode for the instrinsic being called.
@@ -535,6 +548,12 @@ Constant *hlsl::ConstantFoldScalarCall(StringRef Name, Type *Ty, ArrayRef<Consta
     else if (Ty->isIntegerTy()) {
       return ConstantFoldIntIntrinsic(opcode, Ty, IntrinsicOperands);
     }
+  } else if (IsConvergentMarker(Name.data())) {
+    assert(RawOperands.size() == 1);
+    if (ConstantInt *C = dyn_cast<ConstantInt>(RawOperands[0]))
+      return C;
+    if (ConstantFP *C = dyn_cast<ConstantFP>(RawOperands[0]))
+      return C;
   }
 
   return hlsl::ConstantFoldScalarCallExt(Name, Ty, RawOperands);
@@ -550,7 +569,8 @@ bool hlsl::CanConstantFoldCallTo(const Function *F) {
     assert(!OP::IsDxilOpFunc(F) && "dx.op function with no dxil module?");
     return false;
   }
-
+  if (IsConvergentMarker(F))
+    return true;
   // Lookup opcode class in dxil module. Set default value to invalid class.
   OP::OpCodeClass opClass = OP::OpCodeClass::NumOpClasses;
   const bool found = F->getParent()->GetDxilModule().GetOP()->GetOpCodeClass(F, opClass);

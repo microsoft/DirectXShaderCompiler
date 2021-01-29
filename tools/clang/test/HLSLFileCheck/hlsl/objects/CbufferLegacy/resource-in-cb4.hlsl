@@ -1,6 +1,6 @@
 // RUN: %dxc -E main -T ps_6_0 %s  | FileCheck %s
 
-// CHECK: Tex1                              texture     f32          2d      T0             t0     4
+// CHECK:Index for resource array inside cbuffer must be a literal expression
 
 
 SamplerState Samp;

@@ -3,7 +3,7 @@
 // CHECK:      [[file:%\d+]] = OpString
 // CHECK-SAME: spirv.debug.opline.intrinsic.vulkan1.1.hlsl
 
-void main() {
+[numthreads(1,1,1)]void main() {
 // CHECK:      OpLine [[file]] 11 11
 // CHECK:      OpLoad %uint %SubgroupSize
 // CHECK-NEXT: OpLine [[file]] 11 32
@@ -49,7 +49,7 @@ void main() {
   WavePrefixCountBits(i == 1);
 
 // CHECK:      OpLine [[file]] 53 3
-// CHECK-NEXT: OpGroupNonUniformBroadcast %int %uint_3
+// CHECK-NEXT: OpGroupNonUniformShuffle %int %uint_3
   WaveReadLaneAt(i, 15);
 
 // CHECK:      OpLine [[file]] 57 3

@@ -14,6 +14,7 @@
 #include "dxc/dxcapi.h"
 #include "dxc/Support/microcom.h"
 #include <memory>
+#include "llvm/ADT/StringRef.h"
 
 #define DISABLE_GET_CUSTOM_DIAG_ID 1
 
@@ -26,12 +27,12 @@ class LLVMContext;
 class MemoryBuffer;
 class Module;
 class raw_string_ostream;
-class StringRef;
 class Twine;
 } // namespace llvm
 
 namespace hlsl {
 enum class SerializeDxilFlags : uint32_t;
+struct DxilShaderHash;
 class AbstractMemoryStream;
 namespace options {
 class MainArgs;
@@ -40,26 +41,46 @@ class DxcOpts;
 } // namespace hlsl
 
 namespace dxcutil {
-HRESULT ValidateAndAssembleToContainer(
-    std::unique_ptr<llvm::Module> pM, CComPtr<IDxcBlob> &pOutputContainerBlob,
-    IMalloc *pMalloc, hlsl::SerializeDxilFlags SerializeFlags,
-    CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode, bool bDebugInfo
-#if  !DISABLE_GET_CUSTOM_DIAG_ID
-  , clang::DiagnosticsEngine &Diag
-#endif
-  );
+struct AssembleInputs {
+  AssembleInputs(std::unique_ptr<llvm::Module> &&pM,
+                 CComPtr<IDxcBlob> &pOutputContainerBlob,
+                 IMalloc *pMalloc,
+                 hlsl::SerializeDxilFlags SerializeFlags,
+                 CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode,
+                 bool bDebugInfo = false,
+                 llvm::StringRef DebugName = llvm::StringRef(),
+                 clang::DiagnosticsEngine *pDiag = nullptr,
+                 hlsl::DxilShaderHash *pShaderHashOut = nullptr,
+                 hlsl::AbstractMemoryStream *pReflectionOut = nullptr,
+                 hlsl::AbstractMemoryStream *pRootSigOut = nullptr);
+  std::unique_ptr<llvm::Module> pM;
+  CComPtr<IDxcBlob> &pOutputContainerBlob;
+  IMalloc *pMalloc;
+  hlsl::SerializeDxilFlags SerializeFlags;
+  CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode;
+  bool bDebugInfo;
+  llvm::StringRef DebugName = llvm::StringRef();
+  clang::DiagnosticsEngine *pDiag;
+  hlsl::DxilShaderHash *pShaderHashOut = nullptr;
+  hlsl::AbstractMemoryStream *pReflectionOut = nullptr;
+  hlsl::AbstractMemoryStream *pRootSigOut = nullptr;
+};
+HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs);
+HRESULT ValidateRootSignatureInContainer(
+    IDxcBlob *pRootSigContainer, clang::DiagnosticsEngine *pDiag = nullptr);
 void GetValidatorVersion(unsigned *pMajor, unsigned *pMinor);
-void AssembleToContainer(std::unique_ptr<llvm::Module> pM,
-                         CComPtr<IDxcBlob> &pOutputContainerBlob,
-                         IMalloc *pMalloc,
-                         hlsl::SerializeDxilFlags SerializeFlags,
-                         CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode);
+void AssembleToContainer(AssembleInputs &inputs);
 HRESULT Disassemble(IDxcBlob *pProgram, llvm::raw_string_ostream &Stream);
 void ReadOptsAndValidate(hlsl::options::MainArgs &mainArgs,
                          hlsl::options::DxcOpts &opts,
                          hlsl::AbstractMemoryStream *pOutputStream,
                          _COM_Outptr_ IDxcOperationResult **ppResult,
                          bool &finished);
+void CreateOperationResultFromOutputs(
+    DXC_OUT_KIND resultKind, UINT32 textEncoding,
+    IDxcBlob *pResultBlob, CComPtr<IStream> &pErrorStream,
+    const std::string &warnings, bool hasErrorOccurred,
+    _COM_Outptr_ IDxcOperationResult **ppResult);
 void CreateOperationResultFromOutputs(
     IDxcBlob *pResultBlob, CComPtr<IStream> &pErrorStream,
     const std::string &warnings, bool hasErrorOccurred,

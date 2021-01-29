@@ -27,7 +27,10 @@ import hctdb_instrhelp
 namespace DXIL {
   // DXIL version.
   const unsigned kDxilMajor = 1;
-  const unsigned kDxilMinor = 5;
+  /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_dxil_version_minor()</py>*/
+  // VALRULE-TEXT:BEGIN
+  const unsigned kDxilMinor = 6;
+  // VALRULE-TEXT:END
 
   inline unsigned MakeDxilVersion(unsigned DxilMajor, unsigned DxilMinor) {
     return 0 | (DxilMajor << 8) | (DxilMinor);
@@ -106,17 +109,20 @@ namespace DXIL {
   const unsigned kMaxMSPSigRows = 32;
   const unsigned kMaxMSTotalSigRows = 32;
   const unsigned kMaxMSSMSize = 1024 * 28;
+  const unsigned kMinWaveSize = 4;
+  const unsigned kMaxWaveSize = 128;
 
   const float kMaxMipLodBias = 15.99f;
   const float kMinMipLodBias = -16.0f;
 
   const unsigned kResRetStatusIndex = 4;
 
-  enum class ComponentType : uint8_t { 
+  enum class ComponentType : uint32_t {
     Invalid = 0,
     I1, I16, U16, I32, U32, I64, U64,
     F16, F32, F64,
     SNormF16, UNormF16, SNormF32, UNormF32, SNormF64, UNormF64,
+    PackedS8x32, PackedU8x32,
     LastEntry };
 
   // Must match D3D_INTERPOLATION_MODE
@@ -330,6 +336,41 @@ namespace DXIL {
     NumEntries,
   };
 
+  inline bool IsAnyTexture(DXIL::ResourceKind ResourceKind) {
+    return DXIL::ResourceKind::Texture1D <= ResourceKind &&
+           ResourceKind <= DXIL::ResourceKind::TextureCubeArray;
+  }
+
+  inline bool IsStructuredBuffer(DXIL::ResourceKind ResourceKind) {
+    return ResourceKind == DXIL::ResourceKind::StructuredBuffer;
+  }
+
+  inline bool IsTypedBuffer(DXIL::ResourceKind ResourceKind) {
+    return ResourceKind == DXIL::ResourceKind::TypedBuffer;
+  }
+
+  inline bool IsTyped(DXIL::ResourceKind ResourceKind) {
+    return IsTypedBuffer(ResourceKind) || IsAnyTexture(ResourceKind);
+  }
+
+  inline bool IsRawBuffer(DXIL::ResourceKind ResourceKind) {
+    return ResourceKind == DXIL::ResourceKind::RawBuffer;
+  }
+
+  inline bool IsTBuffer(DXIL::ResourceKind ResourceKind) {
+    return ResourceKind == DXIL::ResourceKind::TBuffer;
+  }
+
+  inline bool IsFeedbackTexture(DXIL::ResourceKind ResourceKind) {
+    return ResourceKind == DXIL::ResourceKind::FeedbackTexture2D ||
+           ResourceKind == DXIL::ResourceKind::FeedbackTexture2DArray;
+  }
+
+  inline bool IsValidWaveSizeValue(unsigned size) {
+    // must be power of 2 between 4 and 128
+    return size >= kMinWaveSize && size <= kMaxWaveSize && (size & (size - 1)) == 0;
+  }
+
   // TODO: change opcodes.
   /* <py::lines('OPCODE-ENUM')>hctdb_instrhelp.get_enum_decl("OpCode")</py>*/
   // OPCODE-ENUM:BEGIN
@@ -379,6 +420,13 @@ namespace DXIL {
     ThreadId = 93, // reads the thread ID
     ThreadIdInGroup = 95, // reads the thread ID within the group (SV_GroupThreadID)
   
+    // Derivatives
+    CalculateLOD = 81, // calculates the level of detail
+    DerivCoarseX = 83, // computes the rate of change per stamp in x direction.
+    DerivCoarseY = 84, // computes the rate of change per stamp in y direction.
+    DerivFineX = 85, // computes the rate of change per pixel in x direction.
+    DerivFineY = 86, // computes the rate of change per pixel in y direction.
+  
     // Domain and hull shader
     LoadOutputControlPoint = 103, // LoadOutputControlPoint
     LoadPatchConstant = 104, // LoadPatchConstant
@@ -409,6 +457,11 @@ namespace DXIL {
     EmitThenCutStream = 99, // equivalent to an EmitStream followed by a CutStream
     GSInstanceID = 100, // GSInstanceID
   
+    // Get handle from heap
+    AnnotateHandle = 216, // annotate handle with resource properties
+    CreateHandleFromBinding = 217, // create resource handle from binding
+    CreateHandleFromHeap = 218, // create resource handle from heap
+  
     // Graphics shader
     ViewID = 138, // returns the view index
   
@@ -428,6 +481,7 @@ namespace DXIL {
     AllocateRayQuery = 178, // allocates space for RayQuery and return handle
     RayQuery_Abort = 181, // aborts a ray query
     RayQuery_CandidateGeometryIndex = 203, // returns candidate hit geometry index
+    RayQuery_CandidateInstanceContributionToHitGroupIndex = 214, // returns candidate hit InstanceContributionToHitGroupIndex
     RayQuery_CandidateInstanceID = 202, // returns candidate hit instance ID
     RayQuery_CandidateInstanceIndex = 201, // returns candidate hit instance index
     RayQuery_CandidateObjectRayDirection = 206, // returns candidate object ray direction
@@ -443,6 +497,7 @@ namespace DXIL {
     RayQuery_CommitNonOpaqueTriangleHit = 182, // commits a non opaque triangle hit
     RayQuery_CommitProceduralPrimitiveHit = 183, // commits a procedural primitive hit
     RayQuery_CommittedGeometryIndex = 209, // returns committed hit geometry index
+    RayQuery_CommittedInstanceContributionToHitGroupIndex = 215, // returns committed hit InstanceContributionToHitGroupIndex
     RayQuery_CommittedInstanceID = 208, // returns committed hit instance ID
     RayQuery_CommittedInstanceIndex = 207, // returns committed hit instance index
     RayQuery_CommittedObjectRayDirection = 212, // returns committed object ray direction
@@ -478,14 +533,12 @@ namespace DXIL {
     // Other
     CycleCounterLegacy = 109, // CycleCounterLegacy
   
+    // Packing intrinsics
+    Pack4x8 = 220, // packs vector of 4 signed or unsigned values into a packed datatype, drops or clamps unused bits
+  
     // Pixel shader
     AttributeAtVertex = 137, // returns the values of the attributes at the vertex.
-    CalculateLOD = 81, // calculates the level of detail
     Coverage = 91, // returns the coverage mask input in a pixel shader
-    DerivCoarseX = 83, // computes the rate of change per stamp in x direction.
-    DerivCoarseY = 84, // computes the rate of change per stamp in y direction.
-    DerivFineX = 85, // computes the rate of change per pixel in x direction.
-    DerivFineY = 86, // computes the rate of change per pixel in y direction.
     Discard = 82, // discard the current pixel
     EvalCentroid = 89, // evaluates an input attribute at pixel center
     EvalSampleIndex = 88, // evaluates an input attribute at a sample location
@@ -632,6 +685,9 @@ namespace DXIL {
     // Unary uint
     FirstbitHi = 33, // Returns the location of the first set bit starting from the highest order bit and working downward.
   
+    // Unpacking intrinsics
+    Unpack4x8 = 219, // unpacks 4 8-bit signed or unsigned values into int32 or int16 vector
+  
     // Wave
     WaveActiveAllEqual = 115, // returns 1 if all the lanes have the same value
     WaveActiveBallot = 116, // returns a struct with a bit set for each lane where the condition is true
@@ -656,9 +712,10 @@ namespace DXIL {
     NumOpCodes_Dxil_1_2 = 141,
     NumOpCodes_Dxil_1_3 = 162,
     NumOpCodes_Dxil_1_4 = 165,
-    NumOpCodes_Dxil_1_5 = 214,
+    NumOpCodes_Dxil_1_5 = 216,
+    NumOpCodes_Dxil_1_6 = 221,
   
-    NumOpCodes = 214 // exclusive last value of enumeration
+    NumOpCodes = 221 // exclusive last value of enumeration
   };
   // OPCODE-ENUM:END
 
@@ -696,6 +753,10 @@ namespace DXIL {
     ThreadId,
     ThreadIdInGroup,
   
+    // Derivatives
+    CalculateLOD,
+    Unary,
+  
     // Domain and hull shader
     LoadOutputControlPoint,
     LoadPatchConstant,
@@ -724,6 +785,11 @@ namespace DXIL {
     EmitStream,
     EmitThenCutStream,
     GSInstanceID,
+  
+    // Get handle from heap
+    AnnotateHandle,
+    CreateHandleFromBinding,
+    CreateHandleFromHeap,
   
     // Graphics shader
     ViewID,
@@ -771,9 +837,11 @@ namespace DXIL {
     // Other
     CycleCounterLegacy,
   
+    // Packing intrinsics
+    Pack4x8,
+  
     // Pixel shader
     AttributeAtVertex,
-    CalculateLOD,
     Coverage,
     Discard,
     EvalCentroid,
@@ -781,7 +849,6 @@ namespace DXIL {
     EvalSnapped,
     InnerCoverage,
     SampleIndex,
-    Unary,
   
     // Quad Wave Ops
     QuadOp,
@@ -881,6 +948,9 @@ namespace DXIL {
     // Unary int
     UnaryBits,
   
+    // Unpacking intrinsics
+    Unpack4x8,
+  
     // Wave
     WaveActiveAllEqual,
     WaveActiveBallot,
@@ -905,8 +975,9 @@ namespace DXIL {
     NumOpClasses_Dxil_1_3 = 118,
     NumOpClasses_Dxil_1_4 = 120,
     NumOpClasses_Dxil_1_5 = 143,
+    NumOpClasses_Dxil_1_6 = 148,
   
-    NumOpClasses = 143 // exclusive last value of enumeration
+    NumOpClasses = 148 // exclusive last value of enumeration
   };
   // OPCODECLASS-ENUM:END
 
@@ -1014,6 +1085,7 @@ namespace DXIL {
     const unsigned kTextureSampleClampOpIdx = 10;
 
     // AtomicBinOp.
+    const unsigned kAtomicBinOpHandleOpIdx = 1;
     const unsigned kAtomicBinOpCoord0OpIdx = 3;
     const unsigned kAtomicBinOpCoord1OpIdx = 4;
     const unsigned kAtomicBinOpCoord2OpIdx = 5;
@@ -1277,6 +1349,18 @@ namespace DXIL {
     SkipProceduralPrimitives = 0x200,
   };
 
+  // Packing/unpacking intrinsics
+  enum class UnpackMode : uint8_t {
+    Unsigned = 0,   // not sign extended
+    Signed = 1,     // sign extended
+  };
+
+  enum class PackMode : uint8_t {
+    Trunc = 0,      // Pack low bits, drop the rest
+    UClamp = 1,     // Unsigned clamp - [0, 255] for 8-bits
+    SClamp = 2,     // Signed clamp - [-128, 127] for 8-bits
+  };
+
   // Corresponds to HIT_KIND_* in HLSL
   enum class HitKind : uint8_t {
     None = 0x00,
@@ -1323,8 +1407,11 @@ namespace DXIL {
   const uint64_t ShaderFeatureInfo_ShadingRate = 0x80000;
   const uint64_t ShaderFeatureInfo_Raytracing_Tier_1_1 = 0x100000;
   const uint64_t ShaderFeatureInfo_SamplerFeedback = 0x200000;
+  const uint64_t ShaderFeatureInfo_AtomicInt64OnTypedResource = 0x400000;
+  const uint64_t ShaderFeatureInfo_AtomicInt64OnGroupShared = 0x800000;
+  const uint64_t ShaderFeatureInfo_DerivativesInMeshAndAmpShaders = 0x1000000;
 
-  const unsigned ShaderFeatureInfoCount = 22;
+  const unsigned ShaderFeatureInfoCount = 25;
 
   // DxilSubobjectType must match D3D12_STATE_SUBOBJECT_TYPE, with
   // certain values reserved, since they cannot be used from Dxil.
@@ -1389,6 +1476,10 @@ namespace DXIL {
   extern const char* kFP32DenormValueAnyString;
   extern const char* kFP32DenormValuePreserveString;
   extern const char* kFP32DenormValueFtzString;
+
+  extern const char *kDxBreakFuncName;
+  extern const char *kDxBreakCondName;
+  extern const char *kDxBreakMDName;
 
 } // namespace DXIL
 

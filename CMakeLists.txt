@@ -1,6 +1,10 @@
 # See docs/CMake.html for instructions about how to build LLVM with CMake.
 cmake_minimum_required(VERSION 2.8.12.2)
 
+if (NOT "${DXC_CMAKE_BEGINS_INCLUDE}" STREQUAL "")
+  include(${DXC_CMAKE_BEGINS_INCLUDE})
+endif()
+
 if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   message(STATUS "No build type selected, default to Debug")
   set(CMAKE_BUILD_TYPE "Debug")
@@ -81,20 +85,15 @@ endif()
 
 option(HLSL_EMBED_VERSION "If set, embeds version information in the binaries." ON) # HLSL Change
 # HLSL Change - Directory with version.inc file used for the build (generated or copied from HLSL_FIXED_VERSION_LOCATION)
-set(HLSL_VERSION_LOCATION ${CMAKE_BINARY_DIR}\\utils\\version) 
+set(HLSL_VERSION_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/utils/version)
 option(HLSL_OFFICIAL_BUILD "If set, embeds official version in the binaries (based on the latest release version)" OFF) # HLSL Change
 option(HLSL_ENABLE_FIXED_VER "Reads version information from a file." OFF) # HLSL Change
 
-if (HLSL_ENABLE_FIXED_VER)
-  set(HLSL_EMBED_VERSION ON)
-  if (NOT DEFINED HLSL_FIXED_VERSION_LOCATION)
-    # HLSL Change - Directory with fixed version.inc file
-    set(HLSL_FIXED_VERSION_LOCATION  ${CMAKE_SOURCE_DIR}\\utils\\version) 
-  endif()
-endif()
-
 option(HLSL_ENABLE_ANALYZE "Enables compiler analysis during compilation." OFF) # HLSL Change
 option(HLSL_OPTIONAL_PROJS_IN_DEFAULT "Include optional projects in default build target." OFF) # HLSL Change
+option(HLSL_BUILD_DXILCONV "Include DXBC to DXIL converter and tools." ON) # HLSL Change
+
+option(HLSL_ENABLE_DEBUG_ITERATORS "Disable debug iterators for faster debug and to remove some additional allocations with improper noexcept attribution" OFF) # HLSL Change
 
 # HLSL Change Starts - support commit querying
 option(HLSL_SUPPORT_QUERY_GIT_COMMIT_INFO "Supports querying Git commit info." ON)
@@ -743,4 +742,8 @@ if (NOT LLVM_INSTALL_TOOLCHAIN_ONLY)
                               -DCMAKE_INSTALL_COMPONENT=llvm-headers
                               -P "${CMAKE_BINARY_DIR}/cmake_install.cmake")
   endif()
+endif()
+
+if (NOT "${DXC_CMAKE_ENDS_INCLUDE}" STREQUAL "")
+  include(${DXC_CMAKE_ENDS_INCLUDE})
 endif()

@@ -19,9 +19,10 @@
 using namespace llvm;
 using namespace hlsl;
 
-HLMatrixSubscriptUseReplacer::HLMatrixSubscriptUseReplacer(CallInst* Call, Value *LoweredPtr,
+HLMatrixSubscriptUseReplacer::HLMatrixSubscriptUseReplacer(CallInst* Call, Value *LoweredPtr, Value *TempLoweredMatrix,
   SmallVectorImpl<Value*> &ElemIndices, bool AllowLoweredPtrGEPs, std::vector<Instruction*> &DeadInsts)
-  : LoweredPtr(LoweredPtr), ElemIndices(ElemIndices), DeadInsts(DeadInsts), AllowLoweredPtrGEPs(AllowLoweredPtrGEPs)
+  : LoweredPtr(LoweredPtr), ElemIndices(ElemIndices), DeadInsts(DeadInsts),
+    AllowLoweredPtrGEPs(AllowLoweredPtrGEPs), TempLoweredMatrix(TempLoweredMatrix)
 {
   HasScalarResult = !Call->getType()->getPointerElementType()->isVectorTy();
 
@@ -31,6 +32,11 @@ HLMatrixSubscriptUseReplacer::HLMatrixSubscriptUseReplacer(CallInst* Call, Value
       break;
     }
   }
+
+  if (TempLoweredMatrix)
+    LoweredTy = TempLoweredMatrix->getType();
+  else
+    LoweredTy = LoweredPtr->getType()->getPointerElementType();
 
   replaceUses(Call, /* GEPIdx */ nullptr);
 }
@@ -162,7 +168,8 @@ void HLMatrixSubscriptUseReplacer::cacheLoweredMatrix(bool ForDynamicIndexing, I
 
   // Load without memory to register representation conversion,
   // since the point is to mimic pointer semantics
-  TempLoweredMatrix = Builder.CreateLoad(LoweredPtr);
+  if (!TempLoweredMatrix)
+    TempLoweredMatrix = Builder.CreateLoad(LoweredPtr);
 
   if (!ForDynamicIndexing) return;
 
@@ -237,7 +244,9 @@ Value *HLMatrixSubscriptUseReplacer::loadVector(IRBuilder<> &Builder) {
   }
 
   // Otherwise load elements one by one
-  Type* ElemTy = LoweredPtr->getType()->getPointerElementType()->getScalarType();
+  // Lowered form may be array when AllowLoweredPtrGEPs == true.
+  Type* ElemTy = LoweredTy->isVectorTy() ? LoweredTy->getScalarType() :
+              cast<ArrayType>(LoweredTy)->getArrayElementType();
   VectorType *VecTy = VectorType::get(ElemTy, static_cast<unsigned>(ElemIndices.size()));
   Value *Result = UndefValue::get(VecTy);
   for (unsigned SubIdx = 0; SubIdx < ElemIndices.size(); ++SubIdx) {
@@ -267,7 +276,7 @@ void HLMatrixSubscriptUseReplacer::flushLoweredMatrix(IRBuilder<> &Builder) {
     // First re-create the vector from the temporary array
     DXASSERT_NOMSG(LazyTempElemArrayAlloca != nullptr);
 
-    VectorType *LoweredMatrixTy = cast<VectorType>(LoweredPtr->getType()->getPointerElementType());
+    VectorType *LoweredMatrixTy = cast<VectorType>(LoweredTy);
     TempLoweredMatrix = UndefValue::get(LoweredMatrixTy);
     Value *GEPIndices[2] = { Builder.getInt32(0), nullptr };
     for (unsigned ElemIdx = 0; ElemIdx < LoweredMatrixTy->getNumElements(); ++ElemIdx) {

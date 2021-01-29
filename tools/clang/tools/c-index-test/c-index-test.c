@@ -2929,8 +2929,8 @@ static CXIdxClientFile index_importedASTFile(CXClientData client_data,
   
   printf("[importedASTFile]: ");
   printCXIndexFile((CXIdxClientFile)info->file);
-  if (info->module) {
-    CXString name = clang_Module_getFullName(info->module);
+  if (info->mod) {
+    CXString name = clang_Module_getFullName(info->mod);
     printf(" | loc: ");
     printCXIndexLoc(info->loc, client_data);
     printf(" | name: \"%s\"", clang_getCString(name));

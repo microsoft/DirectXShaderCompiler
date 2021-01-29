@@ -43,7 +43,8 @@ struct PrintingPolicy {
       Bool(LO.Bool), TerseOutput(false), PolishForDeclaration(false),
       Half(LO.HLSL || LO.Half), // HLSL Change - always print 'half' for HLSL
       MSWChar(LO.MicrosoftExt && !LO.WChar),
-      IncludeNewlines(true) { }
+      IncludeNewlines(true),
+      HLSLSuppressUniformParameters(false) { }
 
   /// \brief What language we're printing.
   LangOptions LangOpts;
@@ -164,6 +165,11 @@ struct PrintingPolicy {
 
   /// \brief When true, include newlines after statements like "break", etc.
   unsigned IncludeNewlines : 1;
+
+  // HLSL Change Begin
+  /// \brief When true, exclude uniform function parameters
+  unsigned HLSLSuppressUniformParameters : 1;
+  // HLSL Change Ends
 };
 
 } // end namespace clang

@@ -86,12 +86,11 @@ static void ReadOptsAndValidate(hlsl::options::MainArgs &mainArgs,
                                       mainArgs, opts, outStream)) {
     CComPtr<IDxcBlob> pErrorBlob;
     IFT(pOutputStream->QueryInterface(&pErrorBlob));
-    CComPtr<IDxcBlobEncoding> pErrorBlobWithEncoding;
     outStream.flush();
-    IFT(DxcCreateBlobWithEncodingSet(pErrorBlob.p, CP_UTF8,
-                                     &pErrorBlobWithEncoding));
-    IFT(DxcOperationResult::CreateFromResultErrorStatus(
-        nullptr, pErrorBlobWithEncoding.p, E_INVALIDARG, ppResult));
+    IFT(DxcResult::Create(E_INVALIDARG, DXC_OUT_NONE, {
+        DxcOutputObject::ErrorOutput(opts.DefaultTextCodePage,
+          (LPCSTR)pErrorBlob->GetBufferPointer(), pErrorBlob->GetBufferSize())
+      }, ppResult));
     finished = true;
     return;
   }
@@ -271,9 +270,10 @@ HRESULT WINAPI DxilD3DCompile(LPCVOID pSrcData, SIZE_T SrcDataSize,
     }
 
     std::vector<LPCWSTR> arguments;
-    // /Gec, /Ges Not implemented:
-    // if(Flags1 & D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY)
-    // arguments.push_back(L"/Gec");  if(Flags1 & D3DCOMPILE_ENABLE_STRICTNESS)
+    if (Flags1 & D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY)
+      arguments.push_back(L"/Gec");
+    // /Ges Not implemented:
+    //if (Flags1 & D3DCOMPILE_ENABLE_STRICTNESS)
     // arguments.push_back(L"/Ges");
     if (Flags1 & D3DCOMPILE_IEEE_STRICTNESS)
       arguments.push_back(L"/Gis");

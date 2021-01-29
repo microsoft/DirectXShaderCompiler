@@ -1,4 +1,4 @@
-// Run: %dxc -T lib_6_3
+// Run: %dxc -T lib_6_3 -fspv-extension=SPV_NV_ray_tracing
 // CHECK:  OpCapability RayTracingNV
 // CHECK:  OpExtension "SPV_NV_ray_tracing"
 // CHECK:  OpDecorate [[a:%\d+]] BuiltIn LaunchIdNV
@@ -15,6 +15,7 @@
 // CHECK:  OpDecorate [[j:%\d+]] BuiltIn ObjectToWorldNV
 // CHECK:  OpDecorate [[k:%\d+]] BuiltIn WorldToObjectNV
 // CHECK:  OpDecorate [[l:%\d+]] BuiltIn HitKindNV
+// CHECK:  OpDecorate [[m:%\d+]] BuiltIn HitTNV
 
 // CHECK:  OpTypePointer IncomingRayPayloadNV %Payload
 struct Payload
@@ -67,6 +68,8 @@ void main(inout Payload MyPayload, in Attribute MyAttr) {
   float4x3 _15 = WorldToObject4x3();
 // CHECK:  OpLoad %uint [[l]]
   uint _16 = HitKind();
+// CHECK:  OpLoad %float [[m]]
+  uint _17 = RayTCurrent();
 
   Payload myPayload = { float4(0.0f,0.0f,0.0f,0.0f) };
   RayDesc rayDesc;

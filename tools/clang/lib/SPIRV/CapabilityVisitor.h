@@ -24,22 +24,30 @@ public:
   CapabilityVisitor(ASTContext &astCtx, SpirvContext &spvCtx,
                     const SpirvCodeGenOptions &opts, SpirvBuilder &builder)
       : Visitor(opts, spvCtx), spvBuilder(builder),
+        shaderModel(spv::ExecutionModel::Max),
         featureManager(astCtx.getDiagnostics(), opts) {}
 
-  bool visit(SpirvDecoration *decor);
-  bool visit(SpirvEntryPoint *);
-  bool visit(SpirvExecutionMode *);
-  bool visit(SpirvImageQuery *);
-  bool visit(SpirvImageOp *);
-  bool visit(SpirvImageSparseTexelsResident *);
-  bool visit(SpirvExtInst *);
+  bool visit(SpirvModule *, Phase) override;
+
+  bool visit(SpirvDecoration *decor) override;
+  bool visit(SpirvEntryPoint *) override;
+  bool visit(SpirvExecutionMode *) override;
+  bool visit(SpirvImageQuery *) override;
+  bool visit(SpirvImageOp *) override;
+  bool visit(SpirvImageSparseTexelsResident *) override;
+  bool visit(SpirvExtInstImport *) override;
+  bool visit(SpirvExtInst *) override;
+  bool visit(SpirvDemoteToHelperInvocationEXT *) override;
+  bool visit(SpirvReadClock *) override;
+
+  using Visitor::visit;
 
   /// The "sink" visit function for all instructions.
   ///
   /// By default, all other visit instructions redirect to this visit function.
   /// So that you want override this visit function to handle all instructions,
   /// regardless of their polymorphism.
-  bool visitInstruction(SpirvInstruction *instr);
+  bool visitInstruction(SpirvInstruction *instr) override;
 
 private:
   /// Adds necessary capabilities for using the given type.

@@ -76,12 +76,14 @@ enum HLSLScalarType {
   HLSLScalarType_float16,
   HLSLScalarType_float32,
   HLSLScalarType_float64,
+  HLSLScalarType_int8_4packed,
+  HLSLScalarType_uint8_4packed
 };
 
 HLSLScalarType MakeUnsigned(HLSLScalarType T);
 
 static const HLSLScalarType HLSLScalarType_minvalid = HLSLScalarType_bool;
-static const HLSLScalarType HLSLScalarType_max = HLSLScalarType_float64;
+static const HLSLScalarType HLSLScalarType_max = HLSLScalarType_uint8_4packed;
 static const size_t HLSLScalarTypeCount = static_cast<size_t>(HLSLScalarType_max) + 1;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -322,6 +324,12 @@ clang::CXXRecordDecl* DeclareTemplateTypeWithHandle(
 
 clang::CXXRecordDecl* DeclareUIntTemplatedTypeWithHandle(
   clang::ASTContext& context, llvm::StringRef typeName, llvm::StringRef templateParamName);
+clang::CXXRecordDecl *DeclareConstantBufferViewType(clang::ASTContext& context, bool bTBuf);
+clang::CXXRecordDecl* DeclareRayQueryType(clang::ASTContext& context);
+clang::CXXRecordDecl *DeclareResourceType(clang::ASTContext &context,
+                                          bool bSampler);
+clang::VarDecl *DeclareBuiltinGlobal(llvm::StringRef name, clang::QualType Ty,
+                                     clang::ASTContext &context);
 
 /// <summary>Create a function template declaration for the specified method.</summary>
 /// <param name="context">AST context in which to work.</param>
@@ -361,6 +369,7 @@ bool HasHLSLMatOrientation(clang::QualType type, bool *pIsRowMajor = nullptr);
 bool IsHLSLMatRowMajor(clang::QualType type, bool defaultValue);
 bool IsHLSLUnsigned(clang::QualType type);
 bool HasHLSLUNormSNorm(clang::QualType type, bool *pIsSNorm = nullptr);
+bool HasHLSLGloballyCoherent(clang::QualType type);
 bool IsHLSLInputPatchType(clang::QualType type);
 bool IsHLSLOutputPatchType(clang::QualType type);
 bool IsHLSLPointStreamType(clang::QualType type);
@@ -368,6 +377,7 @@ bool IsHLSLLineStreamType(clang::QualType type);
 bool IsHLSLTriangleStreamType(clang::QualType type);
 bool IsHLSLStreamOutputType(clang::QualType type);
 bool IsHLSLResourceType(clang::QualType type);
+bool IsHLSLBufferViewType(clang::QualType type);
 bool IsHLSLNumericOrAggregateOfNumericType(clang::QualType type);
 bool IsHLSLNumericUserDefinedType(clang::QualType type);
 bool IsHLSLAggregateType(clang::QualType type);
@@ -382,6 +392,7 @@ unsigned GetHLSLOutputPatchCount(clang::QualType type);
 bool IsHLSLSubobjectType(clang::QualType type);
 bool GetHLSLSubobjectKind(clang::QualType type, DXIL::SubobjectKind &subobjectKind, 
                           DXIL::HitGroupType &ghType);
+bool IsHLSLRayQueryType(clang::QualType type);
 
 bool IsArrayConstantStringType(const clang::QualType type);
 bool IsPointerStringType(const clang::QualType type);

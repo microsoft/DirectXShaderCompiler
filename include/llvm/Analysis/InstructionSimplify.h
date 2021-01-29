@@ -322,6 +322,11 @@ namespace llvm {
                       AssumptionCache *AC = nullptr,
                       const Instruction *CxtI = nullptr);
 
+// HLSL Change - Begin
+  Value *SimplifyCastInst(unsigned CastOpc, Value *Op,
+                          Type *Ty, const DataLayout &DL);
+// HLSL Change - End
+
   /// SimplifyInstruction - See if we can compute a simplified version of this
   /// instruction.  If not, this returns null.
   Value *SimplifyInstruction(Instruction *I, const DataLayout &DL,

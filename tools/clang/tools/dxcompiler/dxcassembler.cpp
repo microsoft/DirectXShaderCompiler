@@ -17,9 +17,11 @@
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/Support/dxcapi.impl.h"
+#include "dxc/Support/dxcfilesystem.h"
 #include "dxillib.h"
 #include "dxcutil.h"
 
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Bitcode/ReaderWriter.h"
@@ -73,23 +75,29 @@ HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
   HRESULT hr = S_OK;
   DxcThreadMalloc TM(m_pMalloc);
   try {
+    ::llvm::sys::fs::MSFileSystem *msfPtr;
+    IFT(CreateMSFileSystemForDisk(&msfPtr));
+    std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
+    ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
+
     // Setup input buffer.
     // The ir parsing requires the buffer to be null terminated. We deal with
     // both source and bitcode input, so the input buffer may not be null terminated.
     // Create a new membuf that copies the buffer and adds a null terminator.
-    unsigned char *pBytes = (unsigned char *)(pShader->GetBufferPointer());
+    const unsigned char *pBytes = (const unsigned char *)(pShader->GetBufferPointer());
     unsigned bytesLen = pShader->GetBufferSize();
     bool bytesAreText = !isBitcode(pBytes, pBytes + bytesLen);
     CComPtr<IDxcBlob> readingBlob;
-    CComPtr<IDxcBlobEncoding> bytesEncoded;
+    CComPtr<IDxcBlobUtf8> bytesEncoded;
     if (bytesAreText) {
       // IR parsing requires a null terminator in the buffer.
-      IFT(hlsl::DxcGetBlobAsUtf8NullTerm(pShader, &bytesEncoded));
-      pBytes = (unsigned char *)bytesEncoded->GetBufferPointer();
+      IFT(hlsl::DxcGetBlobAsUtf8(pShader, m_pMalloc, &bytesEncoded));
+      pBytes = (const unsigned char *)bytesEncoded->GetStringPointer();
       bytesLen = bytesEncoded->GetBufferSize() - 1; // nullterm not included
+      DXASSERT(pBytes[bytesLen] == 0, "otherwise, text not null-terminated.");
     }
 
-    StringRef InputData((char *)pBytes, bytesLen);
+    StringRef InputData((const char *)pBytes, bytesLen);
     const bool RequiresNullTerminator = false;
     std::unique_ptr<MemoryBuffer> memBuf =
         MemoryBuffer::getMemBuffer(InputData, "", RequiresNullTerminator);
@@ -112,8 +120,10 @@ HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
       CComPtr<IDxcBlob> pStreamBlob;
       CComPtr<IDxcBlobEncoding> pErrorBlob;
       DXVERIFY_NOMSG(SUCCEEDED(pOutputStream.QueryInterface(&pStreamBlob)));
-      IFT(DxcCreateBlobWithEncodingSet(pStreamBlob, CP_UTF8, &pErrorBlob));
-      IFT(DxcOperationResult::CreateFromResultErrorStatus(nullptr, pErrorBlob, E_FAIL, ppResult));
+      IFT(DxcResult::Create(E_FAIL, DXC_OUT_NONE, {
+          DxcOutputObject::ErrorOutput(CP_UTF8,   // TODO Support DefaultTextCodePage
+            (LPCSTR)pStreamBlob->GetBufferPointer(), pStreamBlob->GetBufferSize())
+        }, ppResult));
       return S_OK;
     }
 
@@ -121,7 +131,8 @@ HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
     try {
       DxilModule &program = M->GetOrCreateDxilModule();
 
-      {
+      // Only set validator version metadata if none present.
+      if (nullptr == M->getNamedMetadata(DxilMDHelper::kDxilValidatorVersionMDName)) {
         UINT32 majorVer, minorVer;
         dxcutil::GetValidatorVersion(&majorVer, &minorVer);
         if (program.UpgradeValidatorVersion(majorVer, minorVer)) {
@@ -129,11 +140,10 @@ HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
         }
       }
     } catch (hlsl::Exception &e) {
-      CComPtr<IDxcBlobEncoding> pErrorBlob;
-      IFT(DxcCreateBlobWithEncodingOnHeapCopy(e.msg.c_str(), e.msg.size(),
-                                              CP_UTF8, &pErrorBlob));
-      IFT(DxcOperationResult::CreateFromResultErrorStatus(nullptr, pErrorBlob,
-                                                          e.hr, ppResult));
+      IFT(DxcResult::Create(e.hr, DXC_OUT_NONE, {
+          DxcOutputObject::ErrorOutput(CP_UTF8,   // TODO Support DefaultTextCodePage
+            e.msg.c_str(), e.msg.size())
+        }, ppResult));
       return S_OK;
     }
     // Create bitcode of M.
@@ -147,11 +157,14 @@ HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
       flags |= SerializeDxilFlags::IncludeDebugNamePart;
       flags |= SerializeDxilFlags::DebugNameDependOnSource;
     }
-    dxcutil::AssembleToContainer(std::move(M), pResultBlob,
-                                         TM.GetInstalledAllocator(), flags,
-                                         pOutputStream);
+    dxcutil::AssembleInputs inputs(std::move(M), pResultBlob,
+                                   TM.GetInstalledAllocator(), flags,
+                                   pOutputStream);
+    dxcutil::AssembleToContainer(inputs);
 
-    IFT(DxcOperationResult::CreateFromResultErrorStatus(pResultBlob, nullptr, S_OK, ppResult));
+    IFT(DxcResult::Create(S_OK, DXC_OUT_OBJECT, {
+        DxcOutputObject::DataOutput(DXC_OUT_OBJECT, pResultBlob, DxcOutNoName)
+      }, ppResult));
   }
   CATCH_CPP_ASSIGN_HRESULT();
 
