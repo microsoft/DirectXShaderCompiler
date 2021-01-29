@@ -3675,6 +3675,14 @@ static void ValidateGlobalVariable(GlobalVariable &GV,
     isRes |= isResourceGlobal(ValCtx.DxilMod.GetSRVs());
     isRes |= isSamplerGlobal(ValCtx.DxilMod.GetSamplers());
     isInternalGV |= isRes;
+
+    // Allow special dx.ishelper for library target
+    if (GV.getName().compare(DXIL::kDxIsHelperGlobalName) == 0) {
+      Type *Ty = GV.getType()->getPointerElementType();
+      if (Ty->isIntegerTy() && Ty->getScalarSizeInBits() == 32) {
+        isInternalGV = true;
+      }
+    }
   }
 
   if (!isInternalGV) {
