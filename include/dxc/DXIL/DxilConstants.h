@@ -1486,6 +1486,7 @@ namespace DXIL {
   extern const char *kDxBreakFuncName;
   extern const char *kDxBreakCondName;
   extern const char *kDxBreakMDName;
+  extern const char *kDxIsHelperGlobalName;
 
 } // namespace DXIL
 
