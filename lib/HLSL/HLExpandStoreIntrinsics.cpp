@@ -129,6 +129,9 @@ void HLExpandStoreIntrinsics::emitElementStores(CallInst &OriginalCall,
     if (HLMatrixType::isa(StackTopTy) && fieldAnnotation &&
         fieldAnnotation->HasMatrixAnnotation()) {
 
+      // For matrix load, we generate HL intrinsic matldst.colLoad/matldst.rowLoad
+      // instead of LLVM LoadInst to ensure that it gets lowered properly later
+      // in HLMatrixLowerPass
       bool isRowMajor = fieldAnnotation->GetMatrixAnnotation().Orientation ==
                         hlsl::MatrixOrientation::RowMajor;
       unsigned matLdOpcode =
@@ -144,6 +147,7 @@ void HLExpandStoreIntrinsics::emitElementStores(CallInst &OriginalCall,
       Value *MatLdOpCode = ConstantInt::get(Builder.getInt32Ty(), matLdOpcode);
       ElemVal = Builder.CreateCall(MatLdFn, {MatLdOpCode, ElemPtr});
 
+      // Convert to row major if not already.
       if (!isRowMajor) {
         FunctionType *ColToRowMatFnTy =
             FunctionType::get(StackTopTy, {Builder.getInt32Ty(), StackTopTy},
