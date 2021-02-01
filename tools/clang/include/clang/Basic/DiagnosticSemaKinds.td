@@ -7544,39 +7544,35 @@ def err_hlsl_unsupported_payload_access_qualifier : Error<
 def err_hlsl_unsupported_payload_access_qualifier_struct : Error<
   "payload access qualifiers are not supported on struct types.">;
 def err_hlsl_payload_access_qualifier_producer_has_no_consumer : Error<
-  "field is marked '%0' for '%1' but is not marked '%2' for %3 or trace">;
+  "field is marked '%0' for '%1' but is not marked '%2' for %3 or caller">;
 def err_hlsl_payload_access_qualifier_unsupported_shader : Error<
-  "payload access qualifiers are only defined for raytracing shader stages closesthit, miss, anyhit and for special keyword: trace. '%0' is not supported">;
-def err_hlsl_payload_access_qualifier_trace_not_present : Error<
-  "field is qualified '%0' for shader stage '%1' but trace is missing">;
-def err_hlsl_payload_access_qualifier_trace_but_no_shader_present : Error<
-  "field is qualified '%0' for trace but a valid shader stage is missing. Supported shader stages are closesthit, miss or anyhit">;
+  "payload access qualifiers are only defined for raytracing shader stages closesthit, miss, anyhit and for special keyword: caller. '%0' is not supported">;
+def err_hlsl_payload_access_qualifier_invalid_combination : Error<
+  "field %0 is qualified '%1' for shader stage '%2' but has no valid %3">;
 def err_hlsl_payload_access_qualifier_multiple_defined : Error<
   "payload access qualifier '%0' has already been defined">;
-def err_hlsl_field_not_modifieable_because_payload_qualified_in : Error<
-  "field '%0' is not modifiable because it is not qualified 'out' for shader stage '%1'">;
-def err_hlsl_field_not_readable_because_payload_qualified_out : Error<
-  "field '%0' is not readable because it is not qualified 'in' for shader stage '%1'">;
-def err_hlsl_field_not_modifieable_in_function_because_payload_qualified_in : Error<
-  "field '%0' is not modifiable in function '%1'. '%1' is called from shader stage '%2' but '%0' is not qualified 'out' for this stage">;
-def err_hlsl_field_not_readable_in_function_because_payload_qualified_out : Error<
-  "field '%0' is not readable in function '%1'. '%1' is called from shader stage '%2' but '%0' is not qualified 'in' for this stage">;
+def err_hlsl_field_not_modifieable_because_payload_qualified_read : Error<
+  "field '%0' is not modifiable because it is not qualified 'write' for shader stage '%1'">;
+def err_hlsl_field_not_readable_because_payload_qualified_write : Error<
+  "field '%0' is not readable because it is not qualified 'read' for shader stage '%1'">;
+def err_hlsl_field_not_modifieable_in_function_because_payload_qualified_read : Error<
+  "field '%0' is not modifiable in function '%1'. '%1' is called from shader stage '%2' but '%0' is not qualified 'write' for this stage">;
+def err_hlsl_field_not_readable_in_function_because_payload_qualified_write : Error<
+  "field '%0' is not readable in function '%1'. '%1' is called from shader stage '%2' but '%0' is not qualified 'read' for this stage">;
 def warn_qualified_payload_passed_to_extern_function : Warning<
   "passing a qualified payload to an extern function can cause undefined behavior if payload qualifiers mismatch">;
 def err_qualified_payload_passed_to_incompatible_extern_function : Error<
   "passing a pure '%0' payload to an extern function as '%1' parameter">;
-def err_not_all_payload_fileds_qualified : Error<
-  "payload type '%0' requires that all fileds carry payload access qualifies.">;
+def err_not_all_payload_fields_qualified : Error<
+  "payload type '%0' requires that all fields carry payload access qualifies.">;
 def err_payload_requires_attribute : Error<
   "type '%0' used as payload requires that it is annotated with the [payload] attribute">;
-def err_payload_fileds_not_qualified : Error<
-  "payload filed '%0' has no payload access qualifies.">;
-def err_payload_fields_is_pure_out_but_never_written : Error<
-  "payload field '%0' is qualified pure output but never written in '%1'.">;
-def warn_payload_fields_is_pure_in_but_never_read : Warning<
-  "payload field '%0' is qualified pure input but never read in '%1'.">, InGroup<HLSLPayloadAccessQualifer>;
+def err_payload_fields_not_qualified : Error<
+  "payload field '%0' has no payload access qualifies.">;
+def err_payload_fields_is_payload_and_overqualified : Error<
+  "payload field '%0' is a payload struct. Payload access qualifies are not allowed on payload types.">;
 def warn_hlsl_payload_qualifer_dropped : Warning<
-  "payload access qualifieres are only support for target lib_6_6 and beyond. You can opt-in for lib_6_5 with the -allow-payload-qualifiers flag. Qualifiers will be dropped.">, InGroup<HLSLPayloadAccessQualifer>;
+  "payload access qualifieres are only support for target lib_6_6 and beyond. You can opt-in for lib_6_6 with the -allow-payload-qualifiers flag. Qualifiers will be dropped.">, InGroup<HLSLPayloadAccessQualifer>;
 def err_hlsl_unsupported_builtin_op: Error<
   "operator cannot be used with built-in type %0">;
 def err_hlsl_unsupported_char_literal : Error<

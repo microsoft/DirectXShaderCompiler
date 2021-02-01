@@ -554,12 +554,12 @@ void DxilRuntimeReflection_impl::InitializePayloads() {
                        [=](std::pair<uint32_t, uint32_t> pair) {
                          return pair.first == typeId && pair.second == fieldId;
                        }) != association.end()) {
-        AddString(fieldReader.GetName());
+        AddString(fieldReader.GetStructTypeName());
 
         DxilPayloadFieldDesc desc;
-        desc.FieldName = GetWideString(fieldReader.GetName());
         desc.Size = fieldReader.GetSize();
         desc.Type = fieldReader.GetType();
+        desc.StructName = GetWideString(fieldReader.GetStructTypeName());
         desc.PayloadAccessQualifier = fieldReader.GetPayloadAccessQualifier();
         m_PayloadFields[i].push_back(desc);
       }
@@ -579,6 +579,18 @@ DxilRuntimeReflection *hlsl::RDAT::CreateDxilRuntimeReflection() {
   return new DxilRuntimeReflection_impl();
 }
 
+
+// Will return true if both DXilLibraryDesc have matching sets of DxilPayloadTypeDesc.
+// The function will return false if: 
+//      a) the number of types mismatch between the two desc
+//         every collection must declare all payload types used
+//         in every shader that will form a D3D12_STATE_OBJECT_TYPE_RAYTRACING_PIPELINE
+//      b) if two payload types are equaly named but do not match: 
+//              1. in number of fields 
+//              2. the type of fields 
+//              3. the payload access qualifier for the field 
+//      c) if the number of types matches but not every payload type can be matched agains
+//         another payload type
 bool VerifyDxilPayloadDescMatches(const DxilLibraryDesc &a, const DxilLibraryDesc &b) {
   // Check if the number of payloads in each desc matches. 
   // All payload types must be declared for every library. 
@@ -595,24 +607,22 @@ bool VerifyDxilPayloadDescMatches(const DxilLibraryDesc &a, const DxilLibraryDes
       DxilPayloadTypeDesc &payloadB = b.pPayloads[j];
       if (std::wstring(payloadA.TypeName) == std::wstring(payloadB.TypeName)) {
         numPayloadsMatched++;
-        // Matching type names, these two payloads need deep verification.
+        // Matching type names, these two payloads need deeper verification.
         // For each payload pair that has equal names, check that fields match
-        // and payload annotations are uniform in both types.
+        // and payload annotations are equal in both types.
         if (payloadA.NumFields != payloadB.NumFields)
           return false;
 
         for (uint32_t k = 0; k != payloadA.NumFields; ++k) {
           DxilPayloadFieldDesc &fieldA = payloadA.pFields[k];
           DxilPayloadFieldDesc &fieldB = payloadB.pFields[k];
-          if (std::wstring(fieldA.FieldName) != std::wstring(fieldB.FieldName))
-            return false;
-          else {
-            if (fieldA.Type == fieldB.Type && fieldA.Size == fieldB.Size &&
-                fieldA.PayloadAccessQualifier == fieldB.PayloadAccessQualifier)
-              continue;
+          if (fieldA.Type == fieldB.Type && fieldA.Size == fieldB.Size &&
+              fieldA.PayloadAccessQualifier == fieldB.PayloadAccessQualifier &&
+              std::wstring(fieldA.StructName) == std::wstring(fieldB.StructName))
+            continue;
 
-            return false;
-          }
+          // A field does not match. Stop verification and return.
+          return false;
         }
 
         break;

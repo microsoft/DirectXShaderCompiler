@@ -587,7 +587,7 @@ TEST_F(DxilModuleTest, PayloadQualifier) {
 
   LPCSTR shader = "struct [payload] Payload\n"
                   "{\n"
-                  "  double a : in(trace, closesthit, anyhit) : out(trace, miss, closesthit);\n"
+                  "  double a : read(caller, closesthit, anyhit) : write(caller, miss, closesthit);\n"
                   "};\n\n"
                   "[shader(\"miss\")]\n"
                   "void Miss( inout Payload payload ) { payload.a = 4.2; }\n";
@@ -604,16 +604,16 @@ TEST_F(DxilModuleTest, PayloadQualifier) {
           plAnnotation.GetFieldAnnotation(i);
       VERIFY_IS_TRUE(fieldAnnotation.HasAnnotations());
       VERIFY_ARE_EQUAL(
-          PayloadAccessTypes::InOut,
-          fieldAnnotation.GetPayloadFieldQualifier("trace"));
+          PayloadAccessTypes::ReadWrite,
+          fieldAnnotation.GetPayloadFieldQualifier("caller"));
       VERIFY_ARE_EQUAL(
-          PayloadAccessTypes::InOut,
+          PayloadAccessTypes::ReadWrite,
           fieldAnnotation.GetPayloadFieldQualifier("closesthit"));
       VERIFY_ARE_EQUAL(
-          PayloadAccessTypes::Out,
+          PayloadAccessTypes::Write,
           fieldAnnotation.GetPayloadFieldQualifier("miss"));
       VERIFY_ARE_EQUAL(
-          PayloadAccessTypes::In,
+          PayloadAccessTypes::Read,
           fieldAnnotation.GetPayloadFieldQualifier("anyhit"));
     }
   }

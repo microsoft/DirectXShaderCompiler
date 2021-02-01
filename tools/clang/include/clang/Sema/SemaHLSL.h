@@ -88,7 +88,7 @@ void DiagnoseUnusualAnnotationsForHLSL(
 
 void DiagnosePayloadAccessQualifierAnnotations(
   clang::Sema &S,
-  clang::SourceLocation Loc,
+  clang::Declarator& D,
   const clang::QualType& T,
   const std::vector<hlsl::UnusualAnnotation *> &annotations);
 

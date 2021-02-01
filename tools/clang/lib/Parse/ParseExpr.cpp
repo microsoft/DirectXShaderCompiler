@@ -798,6 +798,8 @@ HLSLReservedKeyword:
   case tok::kw_vertices:
   case tok::kw_primitives:
   case tok::kw_payload:
+  case tok::kw_read:
+  case tok::kw_write:
     // Back-compat: 'precise', 'globallycoherent', 'center' and 'sample' are keywords when used as an interpolation 
     // modifiers, but in FXC they can also be used an identifiers. No interpolation modifiers are expected here
     // so we need to change the token type to tok::identifier and fall through to the next case.
@@ -1732,6 +1734,8 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
         case tok::kw_vertices:
         case tok::kw_primitives:
         case tok::kw_payload:
+        case tok::kw_read:
+        case tok::kw_write:
           Tok.setKind(tok::identifier);
           Tok.setIdentifierInfo(PP.getIdentifierInfo(getKeywordSpelling(tk)));
           break;

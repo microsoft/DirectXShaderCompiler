@@ -56,11 +56,18 @@ static void DiagnoseFailures(const DxilLibraryDesc &a,
                              const DxilLibraryDesc &b) {
   // Check if equal named payloads exist, payloads with different names
   // are considered different types.
+
+  std::vector<std::wstring> matched;
+
+  if (a.NumPayloads != b.NumPayloads)
+    std::wcerr << "Error: the number of payload types does not match\n";
+
   for (uint32_t i = 0; i != a.NumPayloads; ++i) {
     DxilPayloadTypeDesc &payloadA = a.pPayloads[i];
 
     for (uint32_t j = 0; j != b.NumPayloads; ++j) {
       DxilPayloadTypeDesc &payloadB = b.pPayloads[j];
+      bool hasErrors = false;
       if (lstrcmpW(payloadA.TypeName, payloadB.TypeName) == 0) {
         // Matching type names, these two payloads need deep verification.
         // For each payload pair that has equal names, check that fields match
@@ -70,39 +77,56 @@ static void DiagnoseFailures(const DxilLibraryDesc &a,
                     << payloadA.TypeName << "' which has "
                     << payloadA.NumFields << " but " << payloadB.NumFields
                     << " were expected\n";
+          hasErrors = true;
+        } else {
+          for (uint32_t k = 0; k != payloadA.NumFields; ++k) {
+            DxilPayloadFieldDesc &fieldA = payloadA.pFields[k];
+            DxilPayloadFieldDesc &fieldB = payloadB.pFields[k];
+
+            if (fieldA.Type == fieldB.Type && fieldA.Size == fieldB.Size &&
+                fieldA.PayloadAccessQualifier == fieldB.PayloadAccessQualifier &&
+                std::wstring(fieldA.StructName) == std::wstring(fieldB.StructName))
+              continue;
+
+            hasErrors = true;
+            if (std::wstring(fieldA.StructName) != std::wstring(fieldB.StructName)) {
+              std::wcerr << "Error: type mismatch in type '"
+                         << payloadA.TypeName << "' for field '" << k
+                         << "' expected '" << fieldA.StructName << "' but got '"
+                         << fieldB.StructName << "'\n";
+            }            
+            if (fieldA.Type != fieldB.Type) {
+              std::wcerr << "Error: type mismatch in type '"
+                         << payloadA.TypeName << "' for field '" << k << "'\n";
+            }
+            if (fieldA.Size != fieldB.Size) {
+              std::wcerr << "Error: size mismatch in type '"
+                         << payloadA.TypeName << "' for field '" << k << "'\n";
+            }
+            if (fieldA.PayloadAccessQualifier !=
+                fieldB.PayloadAccessQualifier) {
+              std::wcerr << "Error: payload access modifier mismatch in type '"
+                         << payloadA.TypeName << "' for field '" << k << "'\n";
+            }
+          }
         }
-
-        for (uint32_t k = 0; k != payloadA.NumFields; ++k) {
-          DxilPayloadFieldDesc &fieldA = payloadA.pFields[k];
-          DxilPayloadFieldDesc &fieldB = payloadB.pFields[k];
-
-          if (k >= payloadB.NumFields || lstrcmpW(fieldA.FieldName, fieldB.FieldName) != 0) {
-              std::wcerr << "Error: unexpected field '" << fieldA.FieldName << "'\n";
-            continue;
-          }
-
-          if (fieldA.Type == fieldB.Type && fieldA.Size == fieldB.Size &&
-              fieldA.PayloadAccessQualifier == fieldB.PayloadAccessQualifier)
-            continue;
-
-          if (fieldA.Type != fieldB.Type) {
-            std::wcerr << "Error: type mismatch for field '" << fieldA.FieldName
-                      << "'\n";
-          }          
-          if (fieldA.Size != fieldB.Size) {
-            std::wcerr << "Error: size mismatch for field '" << fieldA.FieldName
-                      << "'\n";
-          }
-          if (fieldA.PayloadAccessQualifier != fieldB.PayloadAccessQualifier) {
-            std::wcerr << "Error: payload access qualifiers mismatch for field '"
-                      << fieldA.FieldName << "'\n";
-          }
-        }
-
+        if (!hasErrors)
+            matched.push_back(payloadA.TypeName);
         break;
       }
     }
   }
+  
+  for (uint32_t j = 0; j != b.NumPayloads; ++j) {
+    DxilPayloadTypeDesc &payloadB = b.pPayloads[j];
+    if (std::find(matched.begin(), matched.end(),
+                  std::wstring(payloadB.TypeName)) == matched.end()) {
+      std::wcerr
+          << "Error: " << payloadB.TypeName
+          << " could not be matched because it is missing or contains errors\n";
+    }
+  }
+
 }
 
 enum class VerificationResult { Ok, Failur, OkNeedsAppend };
@@ -184,8 +208,8 @@ static bool ValidateDxilRDAT(const DxilContainerHeader *pContainer,
 }
 
 static void printUsage() {
-  std::cout << "Usage examples:\n payloadAccessVerifier -f library.dxil\n "
-               "payloadAccessVerifer -f library.dxil -d verification.dump\n";
+  std::cout << "Usage examples:\n payloadAccessVerifier -f library1.dxil\t\t\t\t\tCreates a verification database which could be used to verify subsequent DXIL files.\n "
+               "payloadAccessVerifer -f library.dxil -d verification.dump\t\tVerifies the DXIL module against the verification database.\n";
 }
 
 int main(int argc, char *argv[]) {

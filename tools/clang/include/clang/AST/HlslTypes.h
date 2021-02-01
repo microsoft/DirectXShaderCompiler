@@ -251,8 +251,8 @@ struct PayloadAccessQualifier : public UnusualAnnotation {
 
   bool IsValid = false;
 
-  bool IsInput = false;
-  bool IsOutput = false;
+  bool IsReadable = false;
+  bool IsWriteable = false;
 
   llvm::SmallVector<llvm::StringRef, 3> ShaderStages;
 

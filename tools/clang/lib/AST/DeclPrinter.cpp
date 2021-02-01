@@ -1498,7 +1498,7 @@ void DeclPrinter::VisitHLSLUnusualAnnotation(const hlsl::UnusualAnnotation *UA) 
   case hlsl::UnusualAnnotation::UA_PayloadAccessQualifier: {
     const hlsl::PayloadAccessQualifier *payloadQualaifer =
         cast<hlsl::PayloadAccessQualifier>(UA);
-    Out << " : " << (payloadQualaifer->IsInput ? "in" : "out") << "(";
+    Out << " : " << (payloadQualaifer->IsReadable ? "read" : "write") << "(";
     for (unsigned i = 0; i < payloadQualaifer->ShaderStages.size(); ++i) {
       Out << payloadQualaifer->ShaderStages[i];
       if (i < payloadQualaifer->ShaderStages.size() - 1)

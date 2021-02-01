@@ -1,22 +1,22 @@
 // RUN: %dxc -T lib_6_6 %s -allow-payload-qualifiers | FileCheck %s
 
 // CHECK: warning: passing a qualified payload to an extern function can cause undefined behavior if payload qualifiers mismatch
-// CHECK: error: passing a pure 'in' payload to an extern function as 'out' parameter
-// CHECK: error: passing a pure 'out' payload to an extern function as 'in' parameter
+// CHECK: error: passing a pure 'read' payload to an extern function as 'out' parameter
+// CHECK: error: passing a pure 'write' payload to an extern function as 'in' parameter
 
 struct [payload] PayloadInputOnly
 {
-    int a      : in(trace, closesthit);
+    int a      : read(closesthit) : write(caller);
 };
 
 struct [payload] PayloadOutputOnly
 {
-    int a      : out(trace, closesthit);
+    int a      : write(closesthit) : read(caller);
 };
 
 struct [payload] PayloadInOut
 {
-    int a      : in(trace, closesthit) : out(trace, closesthit);
+    int a      : read(caller, closesthit) : write(caller, closesthit);
 };
 
 struct Attribs

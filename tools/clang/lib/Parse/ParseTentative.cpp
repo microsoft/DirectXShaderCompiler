@@ -1279,6 +1279,8 @@ Parser::isCXXDeclarationSpecifier(Parser::TPResult BracedCastResult,
   case tok::kw_vertices:
   case tok::kw_primitives:
   case tok::kw_payload:
+  case tok::kw_read:
+  case tok::kw_write:
     // FXC compatiblity: these are keywords when used as modifiers, but in
     // FXC they can also be used an identifiers. If the next token is a
     // punctuator, then we are using them as identifers. Need to change

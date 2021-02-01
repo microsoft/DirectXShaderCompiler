@@ -242,14 +242,14 @@ struct RuntimeDataSubobjectInfo {
 
 struct RuntimeDataPayloadTypeInfo {
     uint32_t ID;                     // identifier to associate types with fields
-    uint32_t Name;                   // ofset for string table hodling the payload type name
+    uint32_t Name;                   // ofset for string table holding the payload type name
 };
 
 struct RuntimeDataPayloadFieldInfo {
     uint32_t ID;                     // identifier to associate fields with types
-    uint32_t Name;                   // offset for string table holding the field name
     uint32_t Type;                   // CompType of the field
-    uint32_t Size;                   // if scalar 0, if array it holds the number of elements
+    uint32_t Size;                   // Size is 0 for scalars, the number of elements/values for vectors/arrays. For structs it holds the actual size. 
+    uint32_t StructTypeName;         // ofset for string table holding the name of a struct type
     uint32_t PayloadAccessQualifier; // bitfield containing the payload access qualifiers
 };
 
@@ -663,12 +663,6 @@ public:
   PayloadFieldReader(const RuntimeDataPayloadFieldInfo *info, RuntimeDataContext *context)
     : m_FieldInfo(info), m_Context(context) {}
 
-  const char *GetName() const {
-    return m_FieldInfo && m_FieldInfo->Name
-               ? m_Context->pStringTableReader->Get(m_FieldInfo->Name)
-               : "";
-  }
-
   uint32_t GetSize() const {
     return m_FieldInfo ? m_FieldInfo->Size : 0;
   }  
@@ -683,6 +677,12 @@ public:
   
   uint32_t GetPayloadAccessQualifier() const {
     return m_FieldInfo ? m_FieldInfo->PayloadAccessQualifier : 0;
+  }
+
+  const char *GetStructTypeName() const {
+    return m_FieldInfo && m_FieldInfo->StructTypeName
+               ? m_Context->pStringTableReader->Get(m_FieldInfo->StructTypeName)
+               : "";
   }
 };
 
@@ -845,9 +845,9 @@ struct DxilSubobjectDesc {
 };
 
 struct DxilPayloadFieldDesc {
-  LPCWSTR FieldName;
   uint32_t Type;
   uint32_t Size;
+  LPCWSTR StructName;
   uint32_t PayloadAccessQualifier;
 };
 

@@ -1023,8 +1023,7 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
                 payloadAnnotation->GetFieldAnnotation(fieldIdx - 1);
             payloadFieldAnnotation.AddPayloadFieldQualifier(
                 shaderStage,
-                pq->IsInput ? PayloadAccessTypes::In : PayloadAccessTypes::Out);
-            payloadFieldAnnotation.SetFieldName(fieldDecl->getName());
+                pq->IsReadable ? PayloadAccessTypes::Read : PayloadAccessTypes::Write);
             payloadFieldAnnotation.SetCompType(fieldAnnotation.GetCompType().GetKind());
           }
         }
@@ -1098,7 +1097,7 @@ static bool ValidatePayloadDecl(const RecordDecl *Decl,
   if (!Decl->hasAttr<HLSLPayloadAttr>())
     return false;
 
-  // If we have a payload warne about them beeing droped.
+  // If we have a payload warn about them beeing droped.
   if (!Options.HLSLEnablePayloadAccessQualifiers) {
     DiagOnylOnce<diag::warn_hlsl_payload_qualifer_dropped>(Diag,
                                                            Decl->getLocation());
@@ -1109,18 +1108,42 @@ static bool ValidatePayloadDecl(const RecordDecl *Decl,
   bool allFieldsQualifed = true;
   for (FieldDecl *field : Decl->fields()) {
     bool fieldHasPayloadQualifier = false;
+    bool isPayloadStruct = false;
+    bool isStruct = false;
     for (UnusualAnnotation *annotation : field->getUnusualAnnotations()) {
       fieldHasPayloadQualifier |= isa<hlsl::PayloadAccessQualifier>(annotation);
     }
+    // Check if this is a struct type. 
+    // If it is, check for the [payload] field, [payload] structs must carry
+    // PayloadAccessQualifiers and these are taken from the struct directly. 
+    // If it is not a payload struct, check if it has qualifiers attached.
+    if (RecordDecl *recordTy = field->getType()->getAsCXXRecordDecl()) {
+      isStruct = true;
+      if (recordTy->hasAttr<HLSLPayloadAttr>())
+        isPayloadStruct = true;
+    }
+
+    if (fieldHasPayloadQualifier && isPayloadStruct) {
+      Diag.Report(field->getLocation(),
+                  diag::err_payload_fields_is_payload_and_overqualified)
+          << field->getName();
+      continue;
+    }
+    else 
+    {
+        if (isPayloadStruct)
+            fieldHasPayloadQualifier = true;
+    }
+
     if (!fieldHasPayloadQualifier) {
       Diag.Report(field->getLocation(),
-                  diag::err_payload_fileds_not_qualified)
+                  diag::err_payload_fields_not_qualified)
           << field->getName();
     }
     allFieldsQualifed &= fieldHasPayloadQualifier;
   }
   if (!allFieldsQualifed) {
-    Diag.Report(Decl->getLocation(), diag::err_not_all_payload_fileds_qualified)
+    Diag.Report(Decl->getLocation(), diag::err_not_all_payload_fields_qualified)
         << Decl->getName();
     return false;
   }

@@ -1434,11 +1434,16 @@ private:
             const auto& fieldAnnotation = annotation->GetFieldAnnotation(i);
 
             fieldInfo.ID = FieldID; 
-            fieldInfo.Name = m_pStringBufferPart->Insert(fieldAnnotation.GetFieldName());
+            fieldInfo.StructTypeName = 0;
             if (!fieldIsStructType)
-                fieldInfo.Type = static_cast<uint32_t>(fieldAnnotation.GetCompType().GetKind());
-            else 
-                fieldInfo.Type = 0xffffffffu; // indicates a struct type in the payload
+              fieldInfo.Type = static_cast<uint32_t>(
+                  fieldAnnotation.GetCompType().GetKind());
+            else {
+              fieldInfo.Type =
+                  0xffffffffu; // indicates a struct type in the payload
+              fieldInfo.StructTypeName =
+                  m_pStringBufferPart->Insert(cast<StructType>(fieldType)->getName());
+            }
             fieldInfo.Size = size;
             fieldInfo.PayloadAccessQualifier = fieldAnnotation.GetPayloadFieldQualifierMask();
             

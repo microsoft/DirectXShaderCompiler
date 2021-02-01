@@ -1049,7 +1049,7 @@ void ASTDumper::dumpHLSLUnusualAnnotations(const ArrayRef<hlsl::UnusualAnnotatio
       case hlsl::UnusualAnnotation::UA_PayloadAccessQualifier: {
           const hlsl::PayloadAccessQualifier *payloadQualaifer =
               cast<hlsl::PayloadAccessQualifier>(*It);
-          OS << " " << (payloadQualaifer->IsInput ? "in" : "out") << "(";
+          OS << " " << (payloadQualaifer->IsReadable ? "read" : "write") << "(";
           for (unsigned i = 0; i < payloadQualaifer->ShaderStages.size(); ++i) {
 
             OS << payloadQualaifer->ShaderStages[i];

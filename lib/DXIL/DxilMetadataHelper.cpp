@@ -884,8 +884,9 @@ DxilMDHelper::EmitDxrPayloadStructAnnotation(const DxilPayloadAnnotation &SA) {
   MDVals.reserve(SA.GetNumFields());
   MDVals.resize(SA.GetNumFields());
 
+  const StructType* STy = SA.GetStructType();
   for (unsigned i = 0; i < SA.GetNumFields(); i++) {
-    MDVals[i] = EmitDxrPayloadFieldAnnotation(SA.GetFieldAnnotation(i));
+    MDVals[i] = EmitDxrPayloadFieldAnnotation(SA.GetFieldAnnotation(i), STy->getElementType(i));
   }
 
   return MDNode::get(m_Ctx, MDVals);
@@ -903,7 +904,7 @@ void DxilMDHelper::LoadDXRPayloadFiledAnnoation(const MDOperand &MDO,
     IFTBOOL(fieldNode != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
 
     unsigned Tag = ConstMDToInt32(fieldNode->getOperand(0));
-    IFTBOOL(Tag == kDxilPayloadFieldAnnotationFieldNameTag,
+    IFTBOOL(Tag == kDxilPayloadFieldAnnotationFieldTypeTag,
             DXC_E_INCORRECT_DXIL_METADATA);
 
     if (fieldNode->getNumOperands() > 2) {
@@ -919,17 +920,17 @@ void DxilMDHelper::LoadDXRPayloadFiledAnnoation(const MDOperand &MDO,
       const unsigned inBit          = 0x00000001u;
       const unsigned outBit         = 0x00000002u;
 
-      const StringRef stages[] = { "trace", "closesthit", "miss", "anyhit" };
+      const StringRef stages[] = { "caller", "closesthit", "miss", "anyhit" };
 
       for (StringRef stage : stages) {
         if (fieldBitmask & inOutMask) {
           const unsigned traceBits = fieldBitmask & inOutMask;
           if (traceBits & inBit)
             SA.GetFieldAnnotation(i).AddPayloadFieldQualifier(
-                stage, hlsl::PayloadAccessTypes::In);
+                stage, hlsl::PayloadAccessTypes::Read);
           if (traceBits & outBit)
             SA.GetFieldAnnotation(i).AddPayloadFieldQualifier(
-                stage, hlsl::PayloadAccessTypes::Out);
+                stage, hlsl::PayloadAccessTypes::Write);
         }
         // Every stage has 4 bits reserved, move to next stage.
         fieldBitmask >>= 4;
@@ -1243,11 +1244,11 @@ void DxilMDHelper::LoadDxilFieldAnnotation(const MDOperand &MDO, DxilFieldAnnota
 }
 
 Metadata *
-DxilMDHelper::EmitDxrPayloadFieldAnnotation(const DxilPayloadFieldAnnotation &FA) {
+DxilMDHelper::EmitDxrPayloadFieldAnnotation(const DxilPayloadFieldAnnotation &FA, Type* fieldType) {
   vector<Metadata *> MDVals; // Tag-Value list.
 
-  MDVals.emplace_back(Uint32ToConstMD(kDxilPayloadFieldAnnotationFieldNameTag));
-  MDVals.emplace_back(MDString::get(m_Ctx, FA.GetFieldName()));
+  MDVals.emplace_back(Uint32ToConstMD(kDxilPayloadFieldAnnotationFieldTypeTag));
+  MDVals.emplace_back(ValueAsMetadata::get(UndefValue::get(fieldType)));
 
   MDVals.emplace_back(Uint32ToConstMD(kDxilPayloadFieldAnnotationAccessTag));
 

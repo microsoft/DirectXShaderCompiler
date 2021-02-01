@@ -10232,7 +10232,7 @@ static Stmt* IgnoreParensAndDecay(Stmt* S);
 
 namespace {
 
-enum class PayloadStructQualifier { In, Out, InOut };
+enum class PayloadStructQualifier { ReadWrite, Read, Write };
 
 ParmVarDecl *GetPayloadQualifedParameter(FunctionDecl *Decl) {
   for (unsigned i = 0; i < Decl->getNumParams(); ++i) {
@@ -10254,12 +10254,12 @@ ParmVarDecl *GetPayloadQualifedParameter(FunctionDecl *Decl) {
   return nullptr;
 }
 
-PayloadStructQualifier GetAggregatedPayloadQualifer(ParmVarDecl *Decl) {
-  bool hasInput = false;
-  bool hasOutput = false;
+PayloadStructQualifier GetAggregatedPayloadQualifer(ParmVarDecl *Decl, StringRef& stage) {
+  bool isReadable = false;
+  bool isWriteable = false;
   QualType pType = Decl->getOriginalType();
   if (!pType->isStructureOrClassType())
-    return PayloadStructQualifier::InOut;
+    return PayloadStructQualifier::ReadWrite;
 
   CXXRecordDecl *RD = pType->getAsCXXRecordDecl();
 
@@ -10267,18 +10267,22 @@ PayloadStructQualifier GetAggregatedPayloadQualifer(ParmVarDecl *Decl) {
     for (UnusualAnnotation *annotation : field->getUnusualAnnotations()) {
       if (auto *qualifier =
               dyn_cast<hlsl::PayloadAccessQualifier>(annotation)) {
-        hasInput |= qualifier->IsInput;
-        hasOutput |= qualifier->IsOutput;
+        for (auto &shaderStage : qualifier->ShaderStages) {
+          if (shaderStage != stage)
+            continue;
+          isReadable |= qualifier->IsReadable;
+          isWriteable |= qualifier->IsWriteable;
+        }
       }
     }
   }
 
-  if (hasInput && hasOutput)
-    return PayloadStructQualifier::InOut;
-  else if (hasInput)
-    return PayloadStructQualifier::In;
+  if (isReadable && isWriteable)
+    return PayloadStructQualifier::ReadWrite;
+  else if (isReadable)
+    return PayloadStructQualifier::Read;
   else
-    return PayloadStructQualifier::Out;
+    return PayloadStructQualifier::Write;
 }
 
 bool HasPayloadAccessQualifers(FieldDecl *D) {
@@ -10305,47 +10309,7 @@ llvm::SmallVector<hlsl::PayloadAccessQualifier*, 2> GetQualifiersForStage(FieldD
   return Quals;
 }
 
-bool IsQualfiedPureInput(FieldDecl *D, StringRef ShaderStage) {
-  auto Quals = GetQualifiersForStage(D, ShaderStage);
-
-  // There are no qualifiers for this stage.
-  // The field is considered inout.
-  if (Quals.empty())
-    return false;
-
-  bool isPureInput = true;
-  bool isInput = false;
-  for (auto &Q : Quals) {
-    if (Q->IsInput)
-      isInput = true;
-    else if (Q->IsOutput)
-      isPureInput = false;
-  }
-
-  return isInput & isPureInput;
-}
-
-bool IsQualfiedPureOutput(FieldDecl *D, StringRef ShaderStage) {
-  auto Quals = GetQualifiersForStage(D, ShaderStage);
-
-  // There are no qualifiers for this stage.
-  // The field is considered inout.
-  if (Quals.empty())
-    return false;
-
-  bool isPureOutput = true;
-  bool isOutput = false;
-  for (auto &Q : Quals) {
-    if (Q->IsOutput)
-      isOutput = true;
-    else if (Q->IsInput)
-      isPureOutput = false;
-  }
-
-  return isOutput & isPureOutput;
-}
-
-bool DiagnoseCallExprForExternal(Sema& S, FunctionDecl* FD, CallExpr *CE, ParmVarDecl *Payload) {
+bool DiagnoseCallExprForExternal(Sema& S, FunctionDecl* FD, CallExpr *CE, ParmVarDecl *Payload, StringRef stage) {
   // We check if we are passing the entire payload struct to an extern function.
   // Here ends what we can check, so we just issue a warning if the aggregated
   // qualification of the payload does not match the qualifer of the parameter.
@@ -10365,31 +10329,31 @@ bool DiagnoseCallExprForExternal(Sema& S, FunctionDecl* FD, CallExpr *CE, ParmVa
 
     if (DRef) {
       bool needsWarning = false;
-      auto qualifer = GetAggregatedPayloadQualifer(Payload);
+      auto qualifer = GetAggregatedPayloadQualifer(Payload, stage);
 
       if (PDecl->getAttr<HLSLInAttr>()) {
-        if (qualifer == PayloadStructQualifier::Out) {
+        if (qualifer == PayloadStructQualifier::Write) {
           S.Diag(
               CE->getExprLoc(),
               diag::
                   err_qualified_payload_passed_to_incompatible_extern_function)
-              << "out"
+              << "write"
               << "in";
           return true;
         }
 
-        needsWarning = qualifer != PayloadStructQualifier::In;
+        needsWarning = qualifer != PayloadStructQualifier::Read;
       } else if (PDecl->getAttr<HLSLOutAttr>()) {
-        if (qualifer == PayloadStructQualifier::In) {
+        if (qualifer == PayloadStructQualifier::Read) {
           S.Diag(
               CE->getExprLoc(),
               diag::
                   err_qualified_payload_passed_to_incompatible_extern_function)
-              << "in"
+              << "read"
               << "out";
           return true;
         }
-        needsWarning = qualifer != PayloadStructQualifier::Out;
+        needsWarning = qualifer != PayloadStructQualifier::Write;
       } else
         needsWarning = true;
 
@@ -10473,7 +10437,6 @@ public:
             dispatcher.Diagnose(callee, PayloadParam, stage, callee->getName());
         }
       }
-      dispatcher.DiagnoseLate(Decl);
       dispatcher.ResetState();
     }
     return true;
@@ -10518,13 +10481,13 @@ private:
             S.Diag(
                 ME->getExprLoc(),
                 diag::
-                    err_hlsl_field_not_modifieable_because_payload_qualified_in)
+                    err_hlsl_field_not_modifieable_because_payload_qualified_read)
                 << ME->getMemberDecl()->getName() << m_shaderStage;
           } else {
             S.Diag(
                 ME->getExprLoc(),
                 diag::
-                    err_hlsl_field_not_modifieable_in_function_because_payload_qualified_in)
+                    err_hlsl_field_not_modifieable_in_function_because_payload_qualified_read)
                 << ME->getMemberDecl()->getName() << m_functionName
                 << m_shaderStage;
           }
@@ -10536,13 +10499,13 @@ private:
           if (m_functionName.empty()) {
             S.Diag(
                 ME->getExprLoc(),
-                diag::err_hlsl_field_not_readable_because_payload_qualified_out)
+                diag::err_hlsl_field_not_readable_because_payload_qualified_write)
                 << ME->getMemberDecl()->getName() << m_shaderStage;
           } else {
             S.Diag(
                 ME->getExprLoc(),
                 diag::
-                    err_hlsl_field_not_readable_in_function_because_payload_qualified_out)
+                    err_hlsl_field_not_readable_in_function_because_payload_qualified_write)
                 << ME->getMemberDecl()->getName() << m_functionName
                 << m_shaderStage;
           }
@@ -10577,12 +10540,12 @@ private:
 
       auto Quals = GetQualifiersForStage(D, m_shaderStage);
 
-      bool isInput = false;
+      bool isReadable = false;
       for (auto& Q : Quals)
-          isInput |= Q->IsInput;
+          isReadable |= Q->IsReadable;
 
       // The filed is not qualified as input => the RValue is not readable.
-      if (!isInput)
+      if (!isReadable)
           return false;
 
       m_accessedInFields.insert(D);
@@ -10602,12 +10565,12 @@ private:
 
       auto Quals = GetQualifiersForStage(D, m_shaderStage);
 
-      bool isOutput = false;
+      bool isWriteable = false;
       for (auto& Q : Quals)
-          isOutput |= Q->IsOutput;
+          isWriteable |= Q->IsWriteable;
 
       // The filed is not qualified as input => the LValue is not modifieable.
-      if (!isOutput)
+      if (!isWriteable)
           return false;
 
       // Found write to an out field, store for later.
@@ -10639,36 +10602,6 @@ private:
       TraverseFunctionDecl(decl);
     }
     
-    void DiagnoseLate(FunctionDecl *decl) {
-      if (!m_payloadParameterDecl)
-          return;
-
-      llvm::SmallSetVector<FieldDecl*, 8> accessedInFields = accessVisitor.GetAccessedInFields();
-      llvm::SmallSetVector<FieldDecl*, 8> accessedOutFields = accessVisitor.GetAccessedOutFields();
-      
-      CXXRecordDecl* Decl = m_payloadParameterDecl->getType()->getAsCXXRecordDecl();
-      if (!Decl)
-          return;
-
-      // Perform a late check on accessed fields.
-      // If a field is pure output and never written issue an error.
-      // If a field is pure input and never read issue a warning.
-      for (FieldDecl *FD : Decl->fields()) {
-        if (HasPayloadAccessQualifers(FD)) {
-          if (IsQualfiedPureOutput(FD, m_shaderStage) && !accessedOutFields.count(FD)) {
-            S.Diag(FD->getLocation(),
-                   diag::err_payload_fields_is_pure_out_but_never_written)
-                << FD->getName() << decl->getName();
-          }
-          if (IsQualfiedPureInput(FD, m_shaderStage) && !accessedInFields.count(FD)) {
-            S.Diag(FD->getLocation(),
-                   diag::warn_payload_fields_is_pure_in_but_never_read)
-                << FD->getName() << decl->getName();
-          }
-        }
-      }
-    }
-
     void ResetState() {
         accessVisitor.ResetState();
     }
@@ -10703,7 +10636,7 @@ private:
         }
       }
 
-      if (!m_payloadParameterDecl || DiagnoseCallExprForExternal(S, FD, CE, m_payloadParameterDecl)) {
+      if (!m_payloadParameterDecl || DiagnoseCallExprForExternal(S, FD, CE, m_payloadParameterDecl, m_shaderStage)) {
         return true;
       }
 
@@ -10905,34 +10838,34 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
 }
 
 void hlsl::DiagnosePayloadAccessQualifierAnnotations(
-    Sema &S, SourceLocation Loc, const QualType& T, const std::vector<hlsl::UnusualAnnotation *>& annotations) {
+    Sema &S, Declarator& D, const QualType& T, const std::vector<hlsl::UnusualAnnotation *>& annotations) {
 
   auto &&iter = annotations.begin();
   auto &&end = annotations.end();
 
-  hlsl::PayloadAccessQualifier *inQual = nullptr;
-  hlsl::PayloadAccessQualifier *outQual = nullptr;
+  hlsl::PayloadAccessQualifier *readQual = nullptr;
+  hlsl::PayloadAccessQualifier *writeQual = nullptr;
 
   for (; iter != end; ++iter) {
     switch ((*iter)->getKind()) {
     case hlsl::UnusualAnnotation::UA_PayloadAccessQualifier: {
       hlsl::PayloadAccessQualifier *qualifier = cast<hlsl::PayloadAccessQualifier>(*iter);
-      if (qualifier->IsInput) {
-        if (!inQual)
-          inQual = qualifier;
+      if (qualifier->IsReadable) {
+        if (!readQual)
+          readQual = qualifier;
         else {
           S.Diag(qualifier->Loc,
                  diag::err_hlsl_payload_access_qualifier_multiple_defined)
-              << "in";
+              << "read";
           return;
         }
-      } else if (qualifier->IsOutput) {
-        if (!outQual)
-          outQual = qualifier;
+      } else if (qualifier->IsWriteable) {
+        if (!writeQual)
+          writeQual = qualifier;
         else {
           S.Diag(qualifier->Loc,
                  diag::err_hlsl_payload_access_qualifier_multiple_defined)
-              << "out";
+              << "write";
           return;
         }
       }
@@ -10945,29 +10878,31 @@ void hlsl::DiagnosePayloadAccessQualifierAnnotations(
     }
   }
 
+  /*
   // Check the qualified type. struct types are not allowed to be qualified 
   // directly. Only there fields may be qualified with in/out.
-  if (inQual || outQual) {
+  if (readQual || writeQual) {
     const Type *Ty = T.getTypePtrOrNull();
     assert(Ty);
     if (Ty->isStructureOrClassType()) {
       TagDecl *Decl = Ty->getAsTagDecl();
       // Ignore implicit types declared in HLSL such as vector/matrix
       if (Decl && !Decl->isImplicit()) {
-        S.Diag(Loc, diag::err_hlsl_unsupported_payload_access_qualifier_struct);
+        S.Diag(D.getLocStart(), diag::err_hlsl_unsupported_payload_access_qualifier_struct);
         return;
       }
     }
   }
+  */
 
   struct PayloadAccessQualifierInformation{
     bool anyhit = false;
     bool closesthit = false;
     bool miss = false;
-    bool trace = false;
+    bool caller = false;
     bool invalid = false; 
     StringRef invalidShader;
-  } inQualContains, outQualContains;
+  } readQualContains, writeQualContains;
 
   auto collectInformationAboutShaderStages =
       [&](hlsl::PayloadAccessQualifier *qual,
@@ -10979,8 +10914,8 @@ void hlsl::DiagnosePayloadAccessQualifierAnnotations(
             info.closesthit = true;
           else if (shaderType == "miss")
             info.miss = true;
-          else if (shaderType == "trace")
-            info.trace = true;
+          else if (shaderType == "caller")
+            info.caller = true;
           else {
             info.invalid = true;
             info.invalidShader = shaderType;
@@ -10995,87 +10930,115 @@ void hlsl::DiagnosePayloadAccessQualifierAnnotations(
         return true;
       };
 
-  if (inQual) {
-    if (!collectInformationAboutShaderStages(inQual, inQualContains))
+  if (readQual) {
+    if (!collectInformationAboutShaderStages(readQual, readQualContains))
       return;
   }
-  if (outQual) {
-    if (!collectInformationAboutShaderStages(outQual, outQualContains))
+  if (writeQual) {
+    if (!collectInformationAboutShaderStages(writeQual, writeQualContains))
       return;
   }
 
-  // Validate the in qualifer if present.
-  if (inQual) {
-    if (inQualContains.trace) {
-      // If the qualifer carries the trace keyword, check if a valid shader type
-      // is provided to produce or consume the field.
-      const bool hasValidShaderType = inQualContains.anyhit ||
-                                      inQualContains.closesthit ||
-                                      inQualContains.miss;
-      if (!hasValidShaderType) {
-        S.Diag(
-            inQual->Loc,
-            diag::err_hlsl_payload_access_qualifier_trace_but_no_shader_present)
-            << "in";
+  if (writeQual) {
+    // Note: keep the following two checks separated to diagnose both
+    //       stages (closesthit and miss)
+    // If closesthit/miss writes a value the caller must consume it.
+    if (writeQualContains.miss) {
+      if (!readQual || !readQualContains.caller) {
+         S.Diag(writeQual->Loc,
+               diag::err_hlsl_payload_access_qualifier_invalid_combination)
+            << D.getIdentifier()
+            << "write"
+            << "miss"
+            << "consumer";
       }
-    } else {
-      if (inQualContains.anyhit) {
-          // Check if anyhit loops values back to anyhit
-        if (!outQual || !outQualContains.anyhit) {
-          S.Diag(inQual->Loc,
-                 diag::err_hlsl_payload_access_qualifier_trace_not_present)
-              << "in"
-              << "anyhit";
-        }
+    }    
+    if (writeQualContains.closesthit) {
+      if (!readQual || !readQualContains.caller) {
+         S.Diag(writeQual->Loc,
+               diag::err_hlsl_payload_access_qualifier_invalid_combination)
+            << D.getIdentifier()
+            << "write"
+            << "closesthit"
+            << "consumer";
       }
-      // Check if the field is in for closesthit or miss => the field must be out
-      // for anyhit
-      if (inQualContains.closesthit || inQualContains.miss) {
-        if (!outQual || !outQualContains.anyhit) {
-          S.Diag(
-              inQual->Loc,
-              diag::err_hlsl_payload_access_qualifier_producer_has_no_consumer)
-              << "in" << (inQualContains.closesthit ? "closesthit" : "miss")
-              << "out"
-              << "anyhit";
-        }
-      }
+    }
+
+    // If anyhit writes, we need at least one consumer
+    if (writeQualContains.anyhit && !readQual) {
+         S.Diag(writeQual->Loc,
+               diag::err_hlsl_payload_access_qualifier_invalid_combination)
+            << D.getIdentifier()
+            << "write"
+            << "anyhit"
+            << "consumer";
+    }
+
+    // If the caller writes, we need at least one consumer
+    if (writeQualContains.caller && !readQual) {
+         S.Diag(writeQual->Loc,
+               diag::err_hlsl_payload_access_qualifier_invalid_combination)
+            << D.getIdentifier()
+            << "write"
+            << "caller"
+            << "consumer";
     }
   }
 
-  // Validate the out qualifer if present.
-  if (outQual) {
-    if (outQualContains.trace) {
-      // If the qualifer carries the trace keyword, check if a valid shader
-      // type is provided to produce or consume the field.
-      const bool hasValidShaderType = outQualContains.anyhit ||
-                                      outQualContains.closesthit ||
-                                      outQualContains.miss;
-      if (!hasValidShaderType) {
-        S.Diag(
-            outQual->Loc,
-            diag::err_hlsl_payload_access_qualifier_trace_but_no_shader_present)
-            << "out";
+  // Validate the read qualifer if present.
+  if (readQual) {
+    // Note: keep the following two checks separated to diagnose both
+    //       stages (closesthit and miss)
+    // If closeshit/miss consume a value we need a producer.
+    // Valid producers are the caller and anyhit.
+    if (readQualContains.miss) {
+      if (!writeQual ||
+          !(writeQualContains.anyhit || writeQualContains.caller)) {
+         S.Diag(readQual->Loc,
+               diag::err_hlsl_payload_access_qualifier_invalid_combination)
+            << D.getIdentifier()
+            << "read"
+            << "miss"
+            << "producer";
       }
-    } else {
-      if (outQualContains.closesthit || outQualContains.miss) {
-        S.Diag(outQual->Loc,
-               diag::err_hlsl_payload_access_qualifier_trace_not_present)
-            << "out" << (outQualContains.closesthit ? "closesthit" : "miss");
+    }
+
+    // If closeshit/miss consume a value we need a producer.
+    // Valid producers are the caller and anyhit.
+    if (readQualContains.closesthit) {
+      if (!writeQual ||
+          !(writeQualContains.anyhit || writeQualContains.caller)) {
+         S.Diag(readQual->Loc,
+               diag::err_hlsl_payload_access_qualifier_invalid_combination)
+            << D.getIdentifier()
+            << "read"
+            << "closesthit"
+            << "producer";
       }
-      // Check if the field is out for anyhit => the field must be in for
-      // closesthit or miss or in (loop back) for anyhit 
-      if (outQualContains.anyhit) {
-        if (!inQual || !(inQualContains.closesthit || inQualContains.miss || inQualContains.anyhit)) {
-          S.Diag(
-              outQual->Loc,
-              diag::err_hlsl_payload_access_qualifier_producer_has_no_consumer)
-              << "out"
-              << "anyhit"
-              << "in"
-              << "closesthit, miss or anyhit";
-        }
+    }    
+
+    // If anyhit consumes the value we need a producer.
+    // Valid producers are the caller and antoher anyhit.
+    if (readQualContains.anyhit) {
+      if (!writeQual ||
+          !(writeQualContains.anyhit || writeQualContains.caller)) {
+        S.Diag(readQual->Loc,
+               diag::err_hlsl_payload_access_qualifier_invalid_combination)
+            << D.getIdentifier()
+            << "read"
+            << "anyhit"
+            << "producer";
       }
+    }
+
+    // If the caller consumes the value we need a valid producer.
+    if (readQualContains.caller && !writeQual) {
+         S.Diag(readQual->Loc,
+               diag::err_hlsl_payload_access_qualifier_invalid_combination)
+            << D.getIdentifier()
+            << "read"
+            << "caller"
+            << "producer";
     }
   }
 }
@@ -13236,7 +13199,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
   // Validate unusual annotations.
   hlsl::DiagnoseUnusualAnnotationsForHLSL(*this, D.UnusualAnnotations);
   if (isField)
-    hlsl::DiagnosePayloadAccessQualifierAnnotations(*this, D.getLocStart(), qt,
+    hlsl::DiagnosePayloadAccessQualifierAnnotations(*this, D, qt,
                                                     D.UnusualAnnotations);
   auto && unusualIter = D.UnusualAnnotations.begin();
   auto && unusualEnd = D.UnusualAnnotations.end();

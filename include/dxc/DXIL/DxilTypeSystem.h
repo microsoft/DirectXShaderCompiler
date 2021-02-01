@@ -139,7 +139,7 @@ private:
   std::vector<DxilTemplateArgAnnotation> m_TemplateAnnotations;
 };
 
-enum class PayloadAccessTypes{ InOut = 0, In = 1, Out = 2 };
+enum class PayloadAccessTypes{ ReadWrite = 0, Read = 1, Write = 2 };
 
 /// Use this class to represent type annotation for DXR payload field.
 class DxilPayloadFieldAnnotation {
@@ -147,8 +147,8 @@ public:
   DxilPayloadFieldAnnotation() = default;
 
   bool HasFieldName() const;
-  const std::string &GetFieldName() const;
-  void SetFieldName(const std::string &FieldName);
+//  const std::string &GetFieldName() const;
+//  void SetFieldName(const std::string &FieldName);
 
   bool HasCompType() const;
   const CompType &GetCompType() const;

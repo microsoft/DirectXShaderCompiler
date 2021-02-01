@@ -360,11 +360,11 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
       return false;
     }
 
-    if (NextToken().is(tok::kw_in) || NextToken().is(tok::kw_out)) {
+    if (NextToken().is(tok::kw_read) || NextToken().is(tok::kw_write)) {
       hlsl::PayloadAccessQualifier mod;
 
-      mod.IsInput = NextToken().is(tok::kw_in);
-      mod.IsOutput = NextToken().is(tok::kw_out);
+      mod.IsReadable = NextToken().is(tok::kw_read);
+      mod.IsWriteable = NextToken().is(tok::kw_write);
 
       // : in/out ( shader stage *[,shader stage])
       ConsumeToken(); // consume the colon.
@@ -393,7 +393,7 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
       } while (Tok.is(tok::identifier));
 
       if (ExpectAndConsume(tok::r_paren, diag::err_expected_rparen_after,
-                           "payload access modifier")) {
+                           "payload access qualifier")) {
         return true;
       }
 
@@ -3830,6 +3830,8 @@ HLSLReservedKeyword:
     case tok::kw_vertices:
     case tok::kw_primitives:
     case tok::kw_payload:
+    case tok::kw_read:
+    case tok::kw_write:
       // Back-compat: 'precise', 'globallycoherent', 'center' and 'sample' are keywords when used as an interpolation
       // modifiers, but in FXC they can also be used an identifiers. If the decl type has already been specified
       // we need to update the token to be handled as an identifier.
@@ -5286,6 +5288,8 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
   case tok::kw_vertices:
   case tok::kw_primitives:
   case tok::kw_payload:
+  case tok::kw_read:
+  case tok::kw_write:
     return true;
   // HLSL Change Ends
 
@@ -6070,6 +6074,8 @@ void Parser::ParseDirectDeclarator(Declarator &D) {
       case tok::kw_vertices:
       case tok::kw_primitives:
       case tok::kw_payload:
+      case tok::kw_read:
+      case tok::kw_write:
         if (tok::isPunctuator(NextToken().getKind()))
           Tok.setKind(tok::identifier);
         break;

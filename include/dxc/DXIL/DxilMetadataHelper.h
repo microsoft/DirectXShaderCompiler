@@ -32,6 +32,7 @@ class MDNode;
 class NamedMDNode;
 class GlobalVariable;
 class StringRef;
+class Type;
 }
 
 namespace hlsl {
@@ -220,7 +221,7 @@ public:
 
   // DXR Payload Annotations
   static const unsigned kDxilPayloadAnnotationStructTag           = 0;
-  static const unsigned kDxilPayloadFieldAnnotationFieldNameTag   = 0;
+  static const unsigned kDxilPayloadFieldAnnotationFieldTypeTag   = 0;
   static const unsigned kDxilPayloadFieldAnnotationAccessTag      = 1;
 
   // StructAnnotation extended property tags (DXIL 1.5+ only, appended)
@@ -427,7 +428,7 @@ public:
   // DXR Payload Annotations 
   void EmitDxrPayloadAnnotations(DxilTypeSystem &TypeSystem, std::vector<llvm::GlobalVariable *> &LLVMUsed);
   llvm::Metadata *EmitDxrPayloadStructAnnotation(const DxilPayloadAnnotation& SA);
-  llvm::Metadata *EmitDxrPayloadFieldAnnotation(const DxilPayloadFieldAnnotation &FA);
+  llvm::Metadata *EmitDxrPayloadFieldAnnotation(const DxilPayloadFieldAnnotation &FA, llvm::Type* fieldType);
   void LoadDXRPayloadAnnotationNode(const llvm::MDTuple &MDT, DxilTypeSystem &TypeSystem);
   void LoadDXRPayloadAnnotations(DxilTypeSystem &TypeSystem);
   void LoadDXRPayloadFiledAnnoation(const llvm::MDOperand& MDO, DxilPayloadAnnotation& SA);

@@ -85,8 +85,8 @@ void DxilFieldAnnotation::SetCBVarUsed(bool used) { m_bCBufferVarUsed = used; }
 // DxilPayloadFieldAnnotation class methods.
 //
 bool DxilPayloadFieldAnnotation::HasFieldName() const { return !m_FieldName.empty(); }
-const std::string &DxilPayloadFieldAnnotation::GetFieldName() const { return m_FieldName; }
-void DxilPayloadFieldAnnotation::SetFieldName(const std::string &FieldName) { m_FieldName = FieldName; }
+//const std::string &DxilPayloadFieldAnnotation::GetFieldName() const { return m_FieldName; }
+//void DxilPayloadFieldAnnotation::SetFieldName(const std::string &FieldName) { m_FieldName = FieldName; }
 bool DxilPayloadFieldAnnotation::HasCompType() const { return m_CompType.GetKind() != CompType::Kind::Invalid; }
 const CompType &DxilPayloadFieldAnnotation::GetCompType() const { return m_CompType; }
 void DxilPayloadFieldAnnotation::SetCompType(CompType::Kind kind) { m_CompType = CompType(kind); }
@@ -96,7 +96,7 @@ uint32_t DxilPayloadFieldAnnotation::GetPayloadFieldQualifierMask() const {
 
 static int getBitOffsetForShaderStage(llvm::StringRef shaderStage ) {
     int bitOffset = 0;
-  if (shaderStage == "trace")
+  if (shaderStage == "caller")
     bitOffset = 0;
   else if (shaderStage == "closesthit")
     bitOffset = 4;
@@ -114,11 +114,11 @@ void DxilPayloadFieldAnnotation::AddPayloadFieldQualifier(
   int bitOffset = getBitOffsetForShaderStage(shaderStage);
 
   unsigned accessBits = 0x0;
-  if (qualifier == PayloadAccessTypes::In)
+  if (qualifier == PayloadAccessTypes::Read)
     accessBits |= 0x1; // set the first bit
-  if (qualifier == PayloadAccessTypes::Out)
+  if (qualifier == PayloadAccessTypes::Write)
     accessBits |= 0x2; // set the second bit
-  if (qualifier == PayloadAccessTypes::InOut)
+  if (qualifier == PayloadAccessTypes::ReadWrite)
     accessBits |= 0x3; // set both bits
 
   accessBits <<= bitOffset;
@@ -130,20 +130,20 @@ PayloadAccessTypes DxilPayloadFieldAnnotation::GetPayloadFieldQualifier(
 
   int bitOffset = getBitOffsetForShaderStage(shaderStage);
 
-  // default type is always InOut
-  PayloadAccessTypes accessType = PayloadAccessTypes::InOut;
+  // default type is always ReadWrite
+  PayloadAccessTypes accessType = PayloadAccessTypes::ReadWrite;
 
   unsigned accessBits = m_bitmask >> bitOffset;
   if (accessBits & 0x1) {
-    // set In if the first bit is set
-    accessType = PayloadAccessTypes::In;
+    // set Read if the first bit is set
+    accessType = PayloadAccessTypes::Read;
   }
   if (accessBits & 0x2) {
 
-    // set Out if only the second bit set, if both are set set to InOut
-    accessType = accessType == PayloadAccessTypes::InOut
-                     ? PayloadAccessTypes::Out
-                     : PayloadAccessTypes::InOut;
+    // set Write only if the second bit set, if both are set set to ReadWrite
+    accessType = accessType == PayloadAccessTypes::ReadWrite
+                     ? PayloadAccessTypes::Write
+                     : PayloadAccessTypes::ReadWrite;
   }
   return accessType;
 }
