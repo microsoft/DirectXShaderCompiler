@@ -335,7 +335,7 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createDxilRewriteOutputArgDebugInfoPass()); // Fix output argument types.
 
     if (!HLSLHighLevel)
-      MPM.add(createDxilInsertPreservesPass(HLSLAllowPreserveValues)); // HLSL Change - insert preserve instructions
+      if (HLSLEnableDebugNops) MPM.add(createDxilInsertPreservesPass(HLSLAllowPreserveValues)); // HLSL Change - insert preserve instructions
 
     if (Inliner) {
       MPM.add(createHLLegalizeParameter()); // HLSL Change - legalize parameters
