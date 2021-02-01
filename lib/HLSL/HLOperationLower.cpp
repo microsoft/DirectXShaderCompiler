@@ -3882,76 +3882,99 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
     // TODO: support mip for texture ST
   }
 
-  // values
-  uint8_t mask = 0;
-  if (Ty->isVectorTy()) {
-    unsigned vecSize = Ty->getVectorNumElements();
-    Value *emptyVal = undefVal;
-    if (isTyped) {
-      mask = DXIL::kCompMask_All;
-      emptyVal = Builder.CreateExtractElement(val, (uint64_t)0);
-    }
+  constexpr unsigned MaxStoreElemCount = 4;
+  const unsigned CompCount = Ty->isVectorTy() ? Ty->getVectorNumElements() : 1;
+  const unsigned StoreInstCount = (CompCount / MaxStoreElemCount) + (CompCount % MaxStoreElemCount != 0);
+  SmallVector<decltype(storeArgs), 4> storeArgsList;
 
-    for (unsigned i = 0; i < 4; i++) {
-      if (i < vecSize) {
-        storeArgs.emplace_back(Builder.CreateExtractElement(val, i));
-        mask |= (1<<i);
-      } else {
-        storeArgs.emplace_back(emptyVal);
+  // Max number of element to store should be 16 (for a 4x4 matrix)
+  DXASSERT_NOMSG(StoreInstCount >= 1 && StoreInstCount <= 16);
+  
+  // If number of elements to store exceeds the maximum number of elements
+  // that can be store in a single store call,  make sure to generate enough 
+  // store calls to store all elements
+  for (unsigned j = 0; j < StoreInstCount; j++) {
+    decltype(storeArgs) newStoreArgs;
+    for (Value* storeArg : storeArgs)
+      newStoreArgs.emplace_back(storeArg);
+    storeArgsList.emplace_back(newStoreArgs);
+  }
+
+  for (unsigned j = 0; j < storeArgsList.size(); j++) {
+    // values
+    uint8_t mask = 0;
+    if (Ty->isVectorTy()) {
+      unsigned vecSize = std::min((j + 1) * MaxStoreElemCount, Ty->getVectorNumElements()) - (j * MaxStoreElemCount);
+      Value* emptyVal = undefVal;
+      if (isTyped) {
+        mask = DXIL::kCompMask_All;
+        emptyVal = Builder.CreateExtractElement(val, (uint64_t)0);
+      }
+
+      for (unsigned i = 0; i < MaxStoreElemCount; i++) {
+        if (i < vecSize) {
+          storeArgsList[j].emplace_back(Builder.CreateExtractElement(val, (j * MaxStoreElemCount) + i));
+          mask |= (1 << i);
+        }
+        else {
+          storeArgsList[j].emplace_back(emptyVal);
+        }
+      }
+
+    }
+    else {
+      if (isTyped) {
+        mask = DXIL::kCompMask_All;
+        storeArgsList[j].emplace_back(val);
+        storeArgsList[j].emplace_back(val);
+        storeArgsList[j].emplace_back(val);
+        storeArgsList[j].emplace_back(val);
+      }
+      else {
+        storeArgsList[j].emplace_back(val);
+        storeArgsList[j].emplace_back(undefVal);
+        storeArgsList[j].emplace_back(undefVal);
+        storeArgsList[j].emplace_back(undefVal);
+        mask = DXIL::kCompMask_X;
       }
     }
 
-  } else {
-    if (isTyped) {
-      mask = DXIL::kCompMask_All;
-      storeArgs.emplace_back(val);
-      storeArgs.emplace_back(val);
-      storeArgs.emplace_back(val);
-      storeArgs.emplace_back(val);
-    } else {
-      storeArgs.emplace_back(val);
-      storeArgs.emplace_back(undefVal);
-      storeArgs.emplace_back(undefVal);
-      storeArgs.emplace_back(undefVal);
-      mask = DXIL::kCompMask_X;
+    if (is64 && isTyped) {
+      unsigned size = 1;
+      if (Ty->isVectorTy()) {
+        size = std::min((j + 1) * MaxStoreElemCount, Ty->getVectorNumElements()) - (j * MaxStoreElemCount);
+      }
+      DXASSERT(size <= 2, "raw/typed buffer only allow 4 dwords");
+      unsigned val0OpIdx = opcode == DXIL::OpCode::TextureStore
+        ? DXIL::OperandIndex::kTextureStoreVal0OpIdx
+        : DXIL::OperandIndex::kBufferStoreVal0OpIdx;
+      Value* V0 = storeArgsList[j][val0OpIdx];
+      Value* V1 = storeArgsList[j][val0OpIdx + 1];
+
+      Value* vals32[4];
+      EltTy = Ty->getScalarType();
+      Split64bitValForStore(EltTy, { V0, V1 }, size, vals32, OP, Builder);
+      // Fill the uninit vals.
+      if (size == 1) {
+        vals32[2] = vals32[0];
+        vals32[3] = vals32[1];
+      }
+      // Change valOp to 32 version.
+      for (unsigned i = 0; i < 4; i++) {
+        storeArgsList[j][val0OpIdx + i] = vals32[i];
+      }
+      // change mask for double
+      if (opcode == DXIL::OpCode::RawBufferStore) {
+        mask = size == 1 ?
+          DXIL::kCompMask_X | DXIL::kCompMask_Y : DXIL::kCompMask_All;
+      }
     }
+
+    storeArgsList[j].emplace_back(OP->GetU8Const(mask)); // mask
+    if (opcode == DXIL::OpCode::RawBufferStore)
+      storeArgsList[j].emplace_back(Alignment); // alignment only for raw buffer
+    Builder.CreateCall(F, storeArgsList[j]);
   }
-
-  if (is64 && isTyped) {
-    unsigned size = 1;
-    if (Ty->isVectorTy()) {
-      size = Ty->getVectorNumElements();
-    }
-    DXASSERT(size <= 2, "raw/typed buffer only allow 4 dwords");
-    unsigned val0OpIdx = opcode == DXIL::OpCode::TextureStore
-                             ? DXIL::OperandIndex::kTextureStoreVal0OpIdx
-                             : DXIL::OperandIndex::kBufferStoreVal0OpIdx;
-    Value *V0 = storeArgs[val0OpIdx];
-    Value *V1 = storeArgs[val0OpIdx+1];
-
-    Value *vals32[4];
-    EltTy = Ty->getScalarType();
-    Split64bitValForStore(EltTy, {V0, V1}, size, vals32, OP, Builder);
-    // Fill the uninit vals.
-    if (size == 1) {
-      vals32[2] = vals32[0];
-      vals32[3] = vals32[1];
-    }
-    // Change valOp to 32 version.
-    for (unsigned i = 0; i < 4; i++) {
-      storeArgs[val0OpIdx + i] = vals32[i];
-    }
-    // change mask for double
-    if (opcode == DXIL::OpCode::RawBufferStore) {
-      mask = size == 1 ?
-        DXIL::kCompMask_X | DXIL::kCompMask_Y : DXIL::kCompMask_All;
-    }
-  }
-
-  storeArgs.emplace_back(OP->GetU8Const(mask)); // mask
-  if (opcode == DXIL::OpCode::RawBufferStore)
-    storeArgs.emplace_back(Alignment); // alignment only for raw buffer
-  Builder.CreateCall(F, storeArgs);
 }
 
 Value *TranslateResourceStore(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
