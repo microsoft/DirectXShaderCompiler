@@ -1213,8 +1213,11 @@ public:
 #endif
   }
 
+  // Replace with appropriate WDK check when available
+#define SM66_RUNTIME_SUPPORT 0
+
   bool DoesDeviceSupportMeshAmpDerivatives(ID3D12Device *pDevice) {
-#if WDK_NTDDI_VERSION >= NTDDI_WIN10_FE
+#if SM66_RUNTIME_SUPPORT
     D3D12_FEATURE_DATA_D3D12_OPTIONS7 O7;
     D3D12_FEATURE_DATA_D3D12_OPTIONS9 O9;
     if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS7, &O7, sizeof(O7))) ||
@@ -1228,7 +1231,7 @@ public:
   }
 
   bool DoesDeviceSupportTyped64Atomics(ID3D12Device *pDevice) {
-#if WDK_NTDDI_VERSION >= NTDDI_WIN10_FE
+#if SM66_RUNTIME_SUPPORT
     D3D12_FEATURE_DATA_D3D12_OPTIONS9 O9;
     if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS9, &O9, sizeof(O9))))
       return false;
@@ -1239,7 +1242,7 @@ public:
   }
 
   bool DoesDeviceSupportShared64Atomics(ID3D12Device *pDevice) {
-#if WDK_NTDDI_VERSION >= NTDDI_WIN10_FE
+#if SM66_RUNTIME_SUPPORT
     D3D12_FEATURE_DATA_D3D12_OPTIONS9 O9;
     if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS9, &O9, sizeof(O9))))
       return false;

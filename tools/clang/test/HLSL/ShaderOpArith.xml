@@ -466,7 +466,7 @@
           // All previous full quads on this quad row
           uint prevQuads = (x/2)*4;
           // index into current quad
-          uint quadIx = (y%1)*2 + (x%1);
+          uint quadIx = (y&1)*2 + (x&1);
           return prevRows + prevQuads + quadIx;
         }
 
