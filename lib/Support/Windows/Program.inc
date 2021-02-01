@@ -97,7 +97,7 @@ ErrorOr<std::string> sys::findProgramByName(StringRef Name,
 
   return std::string(U8Result.begin(), U8Result.end());
 #else
-  return "";
+  return std::string("");
 #endif
 }
 

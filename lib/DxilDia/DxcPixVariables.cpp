@@ -208,7 +208,7 @@ STDMETHODIMP dxil_debug_info::DxcPixDxilLiveVariables::GetVariableByName(
     _In_ LPCWSTR Name,
     _Outptr_result_z_ IDxcPixVariable **ppVariable)
 {
-  std::string name = CW2A(Name);
+  std::string name(CW2A(Name).m_psz);
 
   for (auto *VarInfo : m_LiveVars)
   {

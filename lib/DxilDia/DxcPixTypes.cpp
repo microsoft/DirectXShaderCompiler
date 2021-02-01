@@ -275,7 +275,7 @@ STDMETHODIMP dxil_debug_info::DxcPixStructType::GetFieldByName(
     _In_ LPCWSTR lpName,
     _Outptr_result_z_ IDxcPixStructField **ppField)
 {
-  std::string name = CW2A(lpName);
+  std::string name(CW2A(lpName).m_psz);
   for (auto *Node : m_pStruct->getElements())
   {
     auto* pDIField = llvm::dyn_cast<llvm::DIDerivedType>(Node);
