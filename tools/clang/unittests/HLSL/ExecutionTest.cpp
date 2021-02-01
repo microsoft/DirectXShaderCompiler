@@ -1213,11 +1213,8 @@ public:
 #endif
   }
 
-  // Replace with appropriate WDK check when available
-#define SM66_RUNTIME_SUPPORT 0
-
   bool DoesDeviceSupportMeshAmpDerivatives(ID3D12Device *pDevice) {
-#if SM66_RUNTIME_SUPPORT
+#if WDK_NTDDI_VERSION >= NTDDI_WIN10_FE
     D3D12_FEATURE_DATA_D3D12_OPTIONS7 O7;
     D3D12_FEATURE_DATA_D3D12_OPTIONS9 O9;
     if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS7, &O7, sizeof(O7))) ||
@@ -1231,7 +1228,7 @@ public:
   }
 
   bool DoesDeviceSupportTyped64Atomics(ID3D12Device *pDevice) {
-#if SM66_RUNTIME_SUPPORT
+#if WDK_NTDDI_VERSION >= NTDDI_WIN10_FE
     D3D12_FEATURE_DATA_D3D12_OPTIONS9 O9;
     if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS9, &O9, sizeof(O9))))
       return false;
@@ -1242,7 +1239,7 @@ public:
   }
 
   bool DoesDeviceSupportShared64Atomics(ID3D12Device *pDevice) {
-#if SM66_RUNTIME_SUPPORT
+#if WDK_NTDDI_VERSION >= NTDDI_WIN10_FE
     D3D12_FEATURE_DATA_D3D12_OPTIONS9 O9;
     if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS9, &O9, sizeof(O9))))
       return false;
@@ -3342,13 +3339,12 @@ TEST_F(ExecutionTest, ComputeSampleTest) {
 
   st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("ComputeSample");
 
-  D3D12_RESOURCE_DESC &texDesc = pShaderOp->GetResourceByName("T0")->Desc;
-  UINT texWidth = (UINT)texDesc.Width;
-  UINT texHeight = (UINT)texDesc.Height;
-
   // Initialize texture with the LOD number in each corresponding mip level
   auto SampleInitFn = [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
                         VERIFY_ARE_EQUAL(0, _stricmp(Name, "T0"));
+                        D3D12_RESOURCE_DESC &texDesc = pShaderOp->GetResourceByName("T0")->Desc;
+                        UINT texWidth = (UINT)texDesc.Width;
+                        UINT texHeight = (UINT)texDesc.Height;
                         size_t size = sizeof(float) * texWidth * texHeight * 2;
                         Data.resize(size);
                         float *pPrimitives = (float *)Data.data();
@@ -3367,6 +3363,14 @@ TEST_F(ExecutionTest, ComputeSampleTest) {
                           texWidth >>= 1;
                         }
                       };
+  LPCSTR CS2 = nullptr, AS2 = nullptr, MS2 = nullptr;
+  for (st::ShaderOpShader &S : pShaderOp->Shaders) {
+    if (!strcmp(S.Name, "CS2")) CS2 = S.Name;
+    if (!strcmp(S.Name, "AS2")) AS2 = S.Name;
+    if (!strcmp(S.Name, "MS2")) MS2 = S.Name;
+  }
+
+  // Test 1D compute shader
   std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "ComputeSample", SampleInitFn, ShaderOpSet);
   MappedData data;
 
@@ -3374,10 +3378,44 @@ TEST_F(ExecutionTest, ComputeSampleTest) {
   const UINT *pPixels = (UINT *)data.data();
 
   VerifySampleResults(pPixels);
+
+  // Test 2D compute shader
+  pShaderOp->CS = CS2;
+
+  test = RunShaderOpTestAfterParse(pDevice, m_support, "ComputeSample", SampleInitFn, ShaderOpSet);
+
+  test->Test->GetReadBackData("U0", &data);
+  pPixels = (UINT *)data.data();
+
+  VerifySampleResults(pPixels);
+
+
   if (DoesDeviceSupportMeshAmpDerivatives(pDevice)) {
     // Disable CS so mesh goes forward
     pShaderOp->CS = nullptr;
     test = RunShaderOpTestAfterParse(pDevice, m_support, "ComputeSample", SampleInitFn, ShaderOpSet);
+    test->Test->GetReadBackData("U1", &data);
+    pPixels = (UINT *)data.data();
+
+    VerifySampleResults(pPixels);
+
+    test->Test->GetReadBackData("U2", &data);
+    pPixels = (UINT *)data.data();
+
+    VerifySampleResults(pPixels);
+
+    pShaderOp->AS = AS2;
+    pShaderOp->MS = MS2;
+    test = RunShaderOpTestAfterParse(pDevice, m_support, "ComputeSample", SampleInitFn, ShaderOpSet);
+    test->Test->GetReadBackData("U1", &data);
+    pPixels = (UINT *)data.data();
+
+    VerifySampleResults(pPixels);
+
+    test->Test->GetReadBackData("U2", &data);
+    pPixels = (UINT *)data.data();
+
+    VerifySampleResults(pPixels);
   }
 }
 
