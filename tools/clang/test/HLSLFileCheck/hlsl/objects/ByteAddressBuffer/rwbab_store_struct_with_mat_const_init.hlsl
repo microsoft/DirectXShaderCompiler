@@ -30,7 +30,7 @@ void main()
 #ifdef TEST1
     S t = {{1}};
 #else
-    S t = {{1, 2, 3, 4}, 5.f, 6, {7}};
+    S t = {{1, 2}, {3, 4}, 5.f, 6, {7}};
 #endif
     // CHK_TEST1: dx.op.rawBufferStore.f32
     // CHK_TEST1: float 1.000000e+00
