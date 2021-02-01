@@ -1201,7 +1201,7 @@ class db_dxil(object):
         self.add_dxil_op("QuadReadLaneAt", next_op_idx, "QuadReadLaneAt", "reads from a lane in the quad", "hfd18wil", "", [
             db_dxil_param(0, "$o", "", "operation result"),
             db_dxil_param(2, "$o", "value", "value to read"),
-            db_dxil_param(3, "u32", "quadLane", "lane to read from (0-4)", max_value = 3, is_const=True)])
+            db_dxil_param(3, "u32", "quadLane", "lane to read from (0-4)", max_value = 3)])
         next_op_idx += 1
         self.add_enum_type("QuadOpKind", "Kind of quad-level operation", [
             (0, "ReadAcrossX", "returns the value from the other lane in the quad in the horizontal direction"), 

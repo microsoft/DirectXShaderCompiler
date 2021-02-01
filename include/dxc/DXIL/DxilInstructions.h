@@ -4318,8 +4318,6 @@ struct DxilInst_QuadReadLaneAt {
   void set_value(llvm::Value *val) { Instr->setOperand(1, val); }
   llvm::Value *get_quadLane() const { return Instr->getOperand(2); }
   void set_quadLane(llvm::Value *val) { Instr->setOperand(2, val); }
-  uint32_t get_quadLane_val() const { return (uint32_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(2))->getZExtValue()); }
-  void set_quadLane_val(uint32_t val) { Instr->setOperand(2, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 32), llvm::APInt(32, (uint64_t)val))); }
 };
 
 /// This instruction returns the result of a quad-level operation
