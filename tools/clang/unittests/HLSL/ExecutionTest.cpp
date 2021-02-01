@@ -3294,7 +3294,7 @@ TEST_F(ExecutionTest, QuadReadTest) {
   }
 }
 
-void VerifySampleResults(const UINT *pPixels) {
+void VerifySampleResults(const UINT *pPixels, UINT width) {
   UINT xlod = 0;
   UINT ylod = 0;
   // Each pixel contains 4 samples and 4 LOD calculations.
@@ -3312,7 +3312,7 @@ void VerifySampleResults(const UINT *pPixels) {
   // in both directions might result in different levels for different locations
   // in the quad. So only comparisons between sample results and LOD calculations
   // and ensuring that the LOD increased and reaches the max can be tested reliably.
-  for (unsigned i = 0; i < 64; i++) {
+  for (unsigned i = 0; i < width; i++) {
     // CalculateLOD and Sample from texture with mip levels containing LOD index should match
     VERIFY_ARE_EQUAL(pPixels[4*i + 0], pPixels[4*i + 1]);
     VERIFY_ARE_EQUAL(pPixels[4*i + 2], pPixels[4*i + 3]);
@@ -3380,7 +3380,7 @@ TEST_F(ExecutionTest, ComputeSampleTest) {
   test->Test->GetReadBackData("U0", &data);
   const UINT *pPixels = (UINT *)data.data();
 
-  VerifySampleResults(pPixels);
+  VerifySampleResults(pPixels, 1008);
 
   // Test 2D compute shader
   pShaderOp->CS = CS2;
@@ -3390,7 +3390,7 @@ TEST_F(ExecutionTest, ComputeSampleTest) {
   test->Test->GetReadBackData("U0", &data);
   pPixels = (UINT *)data.data();
 
-  VerifySampleResults(pPixels);
+  VerifySampleResults(pPixels, 1008);
 
 
   if (DoesDeviceSupportMeshAmpDerivatives(pDevice)) {
@@ -3400,12 +3400,12 @@ TEST_F(ExecutionTest, ComputeSampleTest) {
     test->Test->GetReadBackData("U1", &data);
     pPixels = (UINT *)data.data();
 
-    VerifySampleResults(pPixels);
+    VerifySampleResults(pPixels, 116);
 
     test->Test->GetReadBackData("U2", &data);
     pPixels = (UINT *)data.data();
 
-    VerifySampleResults(pPixels);
+    VerifySampleResults(pPixels, 84);
 
     pShaderOp->AS = AS2;
     pShaderOp->MS = MS2;
@@ -3413,12 +3413,12 @@ TEST_F(ExecutionTest, ComputeSampleTest) {
     test->Test->GetReadBackData("U1", &data);
     pPixels = (UINT *)data.data();
 
-    VerifySampleResults(pPixels);
+    VerifySampleResults(pPixels, 116);
 
     test->Test->GetReadBackData("U2", &data);
     pPixels = (UINT *)data.data();
 
-    VerifySampleResults(pPixels);
+    VerifySampleResults(pPixels, 84);
   }
 }
 
