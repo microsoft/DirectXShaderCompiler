@@ -532,9 +532,8 @@ bool IsResourceGEP(GetElementPtrInst *I) {
 Value *TranslateNonUniformResourceIndex(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                       HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   Value *V = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
-  CI->replaceAllUsesWith(V);
   Type *hdlTy = helper.hlslOP.GetHandleType();
-  for (User *U : V->users()) {
+  for (User *U : CI->users()) {
     if (GetElementPtrInst *I = dyn_cast<GetElementPtrInst>(U)) {
       // Only mark on GEP which point to resource.
       if (IsResourceGEP(I))
@@ -552,6 +551,7 @@ Value *TranslateNonUniformResourceIndex(CallInst *CI, IntrinsicOp IOP, OP::OpCod
         DxilMDHelper::MarkNonUniform(CI);
     }
   }
+  CI->replaceAllUsesWith(V);
   return nullptr;
 }
 
