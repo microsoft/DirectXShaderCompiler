@@ -1201,6 +1201,7 @@ public:
       return false;
     return O7.MeshShaderTier != D3D12_MESH_SHADER_TIER_NOT_SUPPORTED;
 #else
+    UNREFERENCED_PARAMETER(pDevice);
     return false;
 #endif
   }
@@ -1212,6 +1213,7 @@ public:
       return false;
     return O5.RaytracingTier != D3D12_RAYTRACING_TIER_NOT_SUPPORTED;
 #else
+    UNREFERENCED_PARAMETER(pDevice);
     return false;
 #endif
   }
@@ -1229,6 +1231,7 @@ public:
     return O7.MeshShaderTier != D3D12_MESH_SHADER_TIER_NOT_SUPPORTED &&
       O9.DerivativesInMeshAndAmplificationShadersSupported != FALSE;
 #else
+    UNREFERENCED_PARAMETER(pDevice);
     return false;
 #endif
   }
@@ -1240,6 +1243,7 @@ public:
       return false;
     return O9.AtomicInt64OnTypedResourceSupported != FALSE;
 #else
+    UNREFERENCED_PARAMETER(pDevice);
     return false;
 #endif
   }
@@ -1251,6 +1255,7 @@ public:
       return false;
     return O9.AtomicInt64OnGroupSharedSupported != FALSE;
 #else
+    UNREFERENCED_PARAMETER(pDevice);
     return false;
 #endif
   }
@@ -1964,6 +1969,7 @@ TEST_F(ExecutionTest, BasicTriangleTest) {
       }
     }
     static void __stdcall OutputFn(void *pCtx, const wchar_t *pMsg) {
+      UNREFERENCED_PARAMETER(pCtx);
       LogCommentFmt(L"%s", pMsg);
     }
   };
@@ -2211,7 +2217,7 @@ TEST_F(ExecutionTest, WaveIntrinsicsTest) {
   values.resize(ThreadsPerGroup * DispatchGroupCount);
   for (size_t i = 0; i < values.size(); ++i) {
     memset(&values[i], 0, sizeof(PerThreadData));
-    values[i].id = i;
+    values[i].id = (uint32_t)i;
     values[i].i_diver = (int)i;
     values[i].i_diver *= (i % 2) ? 1 : -1;
   }
@@ -2270,7 +2276,7 @@ TEST_F(ExecutionTest, WaveIntrinsicsTest) {
   CComPtr<ID3D12Resource> pUavResource;
   CComPtr<ID3D12Resource> pReadBuffer;
   CComPtr<ID3D12Resource> pUploadResource;
-  CreateTestUavs(pDevice, pCommandList, values.data(), valueSizeInBytes, &pUavResource, &pUploadResource, &pReadBuffer);
+  CreateTestUavs(pDevice, pCommandList, values.data(), (UINT)valueSizeInBytes, &pUavResource, &pUploadResource, &pReadBuffer);
 
   // Close the command list and execute it to perform the GPU setup.
   pCommandList->Close();
@@ -2285,7 +2291,7 @@ TEST_F(ExecutionTest, WaveIntrinsicsTest) {
     uavDesc.Format = DXGI_FORMAT_UNKNOWN;
     uavDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
     uavDesc.Buffer.FirstElement = 0;
-    uavDesc.Buffer.NumElements = values.size();
+    uavDesc.Buffer.NumElements = (UINT)values.size();
     uavDesc.Buffer.StructureByteStride = sizeof(PerThreadData);
     uavDesc.Buffer.CounterOffsetInBytes = 0;
     uavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
@@ -2303,7 +2309,7 @@ TEST_F(ExecutionTest, WaveIntrinsicsTest) {
   ExecuteCommandList(pCommandQueue, pCommandList);
   WaitForSignal(pCommandQueue, FO);
   {
-    MappedData mappedData(pReadBuffer, valueSizeInBytes);
+    MappedData mappedData(pReadBuffer, (UINT)valueSizeInBytes);
     PerThreadData *pData = (PerThreadData *)mappedData.data();
     memcpy(values.data(), pData, valueSizeInBytes);
 
@@ -2958,8 +2964,8 @@ void ExecutionTest::BasicTriangleTestSetup(LPCSTR ShaderOpName, LPCWSTR FileName
   std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(pDevice, m_support, pStream, ShaderOpName, nullptr);
   MappedData data;
   D3D12_RESOURCE_DESC &D = test->ShaderOp->GetResourceByName("RTarget")->Desc;
-  UINT width = (UINT64)D.Width;
-  UINT height = (UINT64)D.Height;
+  UINT width = (UINT)D.Width;
+  UINT height = D.Height;
   test->Test->GetReadBackData("RTarget", &data);
   const uint32_t *pPixels = (uint32_t *)data.data();
   if (SaveImages()) {
@@ -3326,8 +3332,8 @@ void VerifySampleResults(const UINT *pPixels) {
     ylod = pPixels[4*i + 2];
   }
   // Make sure we reached the max lod level for both tracks
-  VERIFY_ARE_EQUAL(xlod, 6);
-  VERIFY_ARE_EQUAL(ylod, 6);
+  VERIFY_ARE_EQUAL(xlod, 6u);
+  VERIFY_ARE_EQUAL(ylod, 6u);
 }
 
 TEST_F(ExecutionTest, ComputeSampleTest) {
@@ -3351,6 +3357,7 @@ TEST_F(ExecutionTest, ComputeSampleTest) {
 
   // Initialize texture with the LOD number in each corresponding mip level
   auto SampleInitFn = [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
+                        UNREFERENCED_PARAMETER(pShaderOp);
                         VERIFY_ARE_EQUAL(0, _stricmp(Name, "T0"));
                         size_t size = sizeof(float) * texWidth * texHeight * 2;
                         Data.resize(size);
@@ -7734,7 +7741,7 @@ void ExecutionTest::RunComputeRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, Ra
 
    CComPtr<ID3D12Device> pDevice;
    CComPtr<IStream> pStream;
-   char *sTy, *additionalOptions;
+   char *sTy = nullptr, *additionalOptions = nullptr;
 
    if (!SetupRawBufferLdStTest(shaderModel, dataType, pDevice, pStream, sTy, additionalOptions)) {
      return;
@@ -7774,7 +7781,7 @@ void ExecutionTest::RunGraphicsRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, R
 
   CComPtr<ID3D12Device> pDevice;
   CComPtr<IStream> pStream;
-  char *sTy, *additionalOptions;
+  char *sTy = nullptr, *additionalOptions = nullptr;
 
   if (!SetupRawBufferLdStTest(shaderModel, dataType, pDevice, pStream, sTy, additionalOptions)) {
     return;
@@ -7966,7 +7973,7 @@ TEST_F(ExecutionTest, PackUnpackTest) {
         }
         else
         {
-            std::fill(Data.begin(), Data.end(), 0);
+            std::fill(Data.begin(), Data.end(), (BYTE)0);
         }
 
         // use shader from data table
@@ -8032,7 +8039,7 @@ void ExecutionTest::RunResourceTest(ID3D12Device *pDevice, const char *pShader,
   CComPtr<ID3D12CommandAllocator> pCommandAllocator;
   FenceObj FO;
 
-  size_t valueSizeInBytes = valueSize * sizeof(float);
+  UINT valueSizeInBytes = valueSize * sizeof(float);
   CreateComputeCommandQueue(pDevice, L"DynamicResourcesTest Command Queue", &pCommandQueue);
   InitFenceObj(pDevice, &FO);
 
@@ -8082,7 +8089,7 @@ void ExecutionTest::RunResourceTest(ID3D12Device *pDevice, const char *pShader,
     float values[valueSize];
     for (int i = 0; i < NumSRVs - 1; i++) {
       for (int j = 0; j < valueSize; j++)
-        values[j] = 10.0 + i;
+        values[j] = 10.0f + i;
       CreateTestResources(pDevice, pCommandList, values, valueSizeInBytes, bufDesc,
                           &pSRVResources[i], &pUploadResources[i]);
     }
@@ -8098,7 +8105,7 @@ void ExecutionTest::RunResourceTest(ID3D12Device *pDevice, const char *pShader,
   float values[valueSize];
   for (int i = 0; i < NumUAVs - 2; i++) {
     for (int j = 0; j < valueSize; j++)
-      values[j] = 20.0 + i;
+      values[j] = 20.0f + i;
     CreateTestUavs(pDevice, pCommandList, values, valueSizeInBytes,
                    &pUAVResources[i], &pUploadResources[NumSRVs + i]);
   }
@@ -8427,7 +8434,7 @@ void VerifyAtomicResults(const BYTE *uResults, const BYTE *sResults,
   // This is interpretted as -maxIndex and will be the lowest
   // The maxIndex will be unaltered and interpretted as the highest.
   LogCommentFmt(L"Verifying %d-bit integer atomic smin", bitSize);
-  VERIFY_IS_TRUE(AtomicResultMatches(sResults + stride*SMIN_IDX, SHIFT(-(maxIdx-1), shBits), byteSize)); // SMin
+  VERIFY_IS_TRUE(AtomicResultMatches(sResults + stride*SMIN_IDX, SHIFT(-((int)maxIdx-1), shBits), byteSize)); // SMin
   LogCommentFmt(L"Verifying %d-bit integer atomic smax", bitSize);
   VERIFY_IS_TRUE(AtomicResultMatches(sResults + stride*SMAX_IDX, SHIFT(maxIdx-1, shBits), byteSize)); // SMax
 
@@ -8852,7 +8859,7 @@ TEST_F(ExecutionTest, AtomicsShared64Test) {
 // the zero-indexed location available.
 
 // Verify results for a particular set of atomics results
-void VerifyAtomicFloatResults(const float *results, size_t maxIdx) {
+void VerifyAtomicFloatResults(const float *results) {
   // The first entry is for NaN to ensure that compares between NaNs succeed
   // The sentinal value is 0.123, for which this compare is sufficient.
   VERIFY_IS_TRUE(results[0] >= 0.120 && results[0] < 0.125);
@@ -8862,7 +8869,7 @@ void VerifyAtomicFloatResults(const float *results, size_t maxIdx) {
   }
 }
 
-void VerifyAtomicsFloatSharedTest(std::shared_ptr<ShaderOpTestResult> test, size_t maxIdx) {
+void VerifyAtomicsFloatSharedTest(std::shared_ptr<ShaderOpTestResult> test) {
   MappedData Data;
   const float *pData = nullptr;
 
@@ -8870,10 +8877,10 @@ void VerifyAtomicsFloatSharedTest(std::shared_ptr<ShaderOpTestResult> test, size
   pData = (float *)Data.data();
 
   LogCommentFmt(L"Verifying float cmp/xchg atomic operations on groupshared variables");
-  VerifyAtomicFloatResults(pData, maxIdx);
+  VerifyAtomicFloatResults(pData);
 }
 
-void VerifyAtomicsFloatTest(std::shared_ptr<ShaderOpTestResult> test, size_t maxIdx) {
+void VerifyAtomicsFloatTest(std::shared_ptr<ShaderOpTestResult> test) {
 
   // struct mirroring that in the shader
   struct AtomicStuff {
@@ -8899,17 +8906,17 @@ void VerifyAtomicsFloatTest(std::shared_ptr<ShaderOpTestResult> test, size_t max
   test->Test->GetReadBackData("U1", &Data);
   pData = (float *)Data.data();
   LogCommentFmt(L"Verifying float cmp/xchg atomic operations on RWByteAddressBuffer resources");
-  VerifyAtomicFloatResults(pData, maxIdx);
+  VerifyAtomicFloatResults(pData);
 
   test->Test->GetReadBackData("U2", &Data);
   pData = (float *)Data.data();
   LogCommentFmt(L"Verifying float cmp/xchg atomic operations on RWBuffer resources");
-  VerifyAtomicFloatResults(pData, maxIdx);
+  VerifyAtomicFloatResults(pData);
 
   test->Test->GetReadBackData("U3", &Data);
   pData = (float *)Data.data();
   LogCommentFmt(L"Verifying float cmp/xchg atomic operations on RWTexture resources");
-  VerifyAtomicFloatResults(pData, maxIdx);
+  VerifyAtomicFloatResults(pData);
 
 }
 
@@ -8931,23 +8938,23 @@ TEST_F(ExecutionTest, AtomicsFloatTest) {
   // Test compute shader
   LogCommentFmt(L"Verifying float cmp/xchg atomic operations in compute shader");
   std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "FloatAtomics", nullptr, ShaderOpSet);
-  VerifyAtomicsFloatTest(test, 32*32);
-  VerifyAtomicsFloatSharedTest(test, 32*32);
+  VerifyAtomicsFloatTest(test);
+  VerifyAtomicsFloatSharedTest(test);
 
   // Test mesh shader if available
   pShaderOp->CS = nullptr;
   if (DoesDeviceSupportMeshShaders(pDevice)) {
     LogCommentFmt(L"Verifying float cmp/xchg atomic operations in amp/mesh/pixel shaders");
     test = RunShaderOpTestAfterParse(pDevice, m_support, "FloatAtomics", nullptr, ShaderOpSet);
-    VerifyAtomicsFloatTest(test, 8*8*2 + 8*8*2 + 64*64);
-    VerifyAtomicsFloatSharedTest(test, 8*8*2 + 8*8*2);
+    VerifyAtomicsFloatTest(test);
+    VerifyAtomicsFloatSharedTest(test);
   }
 
   // Test Vertex + Pixel shader
   pShaderOp->MS = nullptr;
     LogCommentFmt(L"Verifying float cmp/xchg atomic operations in vert/pixel shaders");
   test = RunShaderOpTestAfterParse(pDevice, m_support, "FloatAtomics", nullptr, ShaderOpSet);
-  VerifyAtomicsFloatTest(test, 64*64+6);
+  VerifyAtomicsFloatTest(test);
 }
 
 // The IsHelperLane test renders 3-pixel triangle into 16x16 render target restricted 
@@ -8994,7 +9001,7 @@ TEST_F(ExecutionTest, HelperLaneTest) {
       // this callbacked is called when the test is creating the resource to run the test
       [&](LPCSTR Name, std::vector<BYTE>& Data, st::ShaderOp* pShaderOp) {
         VERIFY_IS_TRUE(0 == _stricmp(Name, "UAVBuffer0"));
-        std::fill(Data.begin(), Data.end(), 0xCC);
+        std::fill(Data.begin(), Data.end(), (BYTE)0xCC);
         pShaderOp->Shaders.at(0).Arguments = args.c_str();
         pShaderOp->Shaders.at(1).Arguments = args.c_str();
       }, ShaderOpSet);
@@ -9177,8 +9184,9 @@ bool VerifyHelperLaneWaveResults(ExecutionTest::D3D_SHADER_MODEL sm, HelperLaneW
 }
 
 void CleanUAVBuffer0Buffer(LPCSTR BufferName, std::vector<BYTE>& Data, st::ShaderOp* pShaderOp) {
+  UNREFERENCED_PARAMETER(pShaderOp);
   VERIFY_IS_TRUE(0 == _stricmp(BufferName, "UAVBuffer0"));
-  std::fill(Data.begin(), Data.end(), 0xCC);
+  std::fill(Data.begin(), Data.end(), (BYTE)0xCC);
 }
 
 //
@@ -9387,7 +9395,7 @@ extern "C" {
       m_support.Initialize();
 
       const char *pName = nullptr;
-      CComPtr<IStream> pStream = SHCreateMemStream((BYTE *)pText, strlen(pText));
+      CComPtr<IStream> pStream = SHCreateMemStream((BYTE *)pText, (UINT)strlen(pText));
       std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
         std::make_shared<st::ShaderOpSet>();
       st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
