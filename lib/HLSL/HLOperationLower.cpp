@@ -3851,6 +3851,7 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
   storeArgs.emplace_back(opArg);  // opcode
   storeArgs.emplace_back(handle); // resource handle
 
+  unsigned offset0Idx = 0;
   if (RK == DxilResource::Kind::RawBuffer ||
       RK == DxilResource::Kind::TypedBuffer) {
     // Offset 0
@@ -3860,6 +3861,9 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
     } else {
       storeArgs.emplace_back(offset); // offset
     }
+
+    // Store offset0 for later use
+    offset0Idx = storeArgs.size() - 1;
 
     // Offset 1
     storeArgs.emplace_back(undefI);
@@ -3872,6 +3876,9 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
       storeArgs.emplace_back(Builder.CreateExtractElement(offset, (uint64_t)0));
     else
       storeArgs.emplace_back(offset);
+
+    // Store offset0 for later use
+    offset0Idx = storeArgs.size() - 1;
 
     for (unsigned i = 1; i < 3; i++) {
       if (i < coordSize)
@@ -3891,7 +3898,7 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
   DXASSERT_NOMSG(StoreInstCount >= 1 && StoreInstCount <= 4);
   
   // If number of elements to store exceeds the maximum number of elements
-  // that can be store in a single store call,  make sure to generate enough 
+  // that can be stored in a single store call,  make sure to generate enough 
   // store calls to store all elements
   for (unsigned j = 0; j < StoreInstCount; j++) {
     decltype(storeArgs) newStoreArgs;
@@ -3901,6 +3908,14 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
   }
 
   for (unsigned j = 0; j < storeArgsList.size(); j++) {
+
+    // For second and subsequent store calls, increment the offset0 (i.e. store index)
+    if (j > 0) {
+      Value* newOffset = ConstantInt::get(Builder.getInt32Ty(), j);
+      newOffset = Builder.CreateAdd(storeArgsList[0][offset0Idx], newOffset);
+      storeArgsList[j][offset0Idx] = newOffset;
+    }
+
     // values
     uint8_t mask = 0;
     if (Ty->isVectorTy()) {
