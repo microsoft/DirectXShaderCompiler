@@ -42,19 +42,33 @@ float foo([[vk::push_constant]] int param) // error
 [[vk::push_constant(5)]]
 T pcs;
 
-struct SRB {
+struct SRB_NV {
     [[vk::shader_record_nv]] // error
     float4 f;
 };
 
 [[vk::shader_record_nv]] // error
-float foosrb([[vk::shader_record_nv]] int param) // error
+float foosrbnv([[vk::shader_record_nv]] int param) // error
 {
     return param;
 }
 
 [[vk::shader_record_nv(5)]]
-SRB recordBuf;
+SRB_NV recordBufNV;
+
+struct SRB_EXT {
+    [[vk::shader_record_ext]] // error
+    float4 f;
+};
+
+[[vk::shader_record_ext]] // error
+float foosrbext([[vk::shader_record_ext]] int param)
+{
+    return param;
+}
+
+[[vk::shader_record_khr(5)]]
+SRB_EXT recordBufEXT;
 
 // CHECK:   :4:7: error: 'binding' attribute only applies to global variables, cbuffers, and tbuffers
 // CHECK:   :6:7: error: 'counter_binding' attribute only applies to RWStructuredBuffers, AppendStructuredBuffers, and ConsumeStructuredBuffers
@@ -73,3 +87,7 @@ SRB recordBuf;
 // CHECK: :51:16: error: 'shader_record_nv' attribute only applies to cbuffer or ConstantBuffer
 // CHECK:  :50:3: error: 'shader_record_nv' attribute only applies to cbuffer or ConstantBuffer
 // CHECK:  :56:3: error: 'shader_record_nv' attribute takes no arguments
+// CHECK:  :60:7: error: 'shader_record_ext' attribute only applies to cbuffer or ConstantBuffer
+// CHECK: :65:16: error: 'shader_record_ext' attribute only applies to cbuffer or ConstantBuffer
+// CHECK:  :64:3: error: 'shader_record_ext' attribute only applies to cbuffer or ConstantBuffer
+// CHECK:  :70:3: error: 'shader_record_ext' attribute takes no arguments

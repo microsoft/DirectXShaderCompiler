@@ -420,6 +420,9 @@ public:
   /// \brief Creates a ShaderRecordBufferNV block from the given decl.
   SpirvVariable *createShaderRecordBufferNV(const VarDecl *decl);
   SpirvVariable *createShaderRecordBufferNV(const HLSLBufferDecl *decl);
+  /// \brief Creates a ShaderRecordBufferEXT block from the given decl.
+  SpirvVariable *createShaderRecordBufferEXT(const VarDecl *decl);
+  SpirvVariable *createShaderRecordBufferEXT(const HLSLBufferDecl *decl);
 
 private:
   /// The struct containing SPIR-V information of a AST Decl.
@@ -607,6 +610,7 @@ private:
     PushConstant,
     Globals,
     ShaderRecordBufferNV,
+    ShaderRecordBufferEXT
   };
 
   /// Creates a variable of struct type with explicit layout decorations.
