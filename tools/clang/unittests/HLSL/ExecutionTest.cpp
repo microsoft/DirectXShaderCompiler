@@ -10,6 +10,9 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+// We need to keep & fix these warnings to integrate smoothly with HLK
+#pragma warning(error: 4100 4146 4242 4244 4267 4701 4389)
+
 #include <algorithm>
 #include <memory>
 #include <array>
@@ -8855,7 +8858,7 @@ void VerifyAtomicFloatResults(const float *results, size_t maxIdx) {
   VERIFY_IS_TRUE(results[0] >= 0.120 && results[0] < 0.125);
   // Start at 1 because 0 is just for NaN tests
   for (size_t i = 1; i < 64; i++) {
-    VERIFY_ARE_EQUAL((int(results[i])/3)%63 + 1, i);
+    VERIFY_ARE_EQUAL((int(results[i])/3)%63 + 1, (int)i);
   }
 }
 
@@ -8890,7 +8893,7 @@ void VerifyAtomicsFloatTest(std::shared_ptr<ShaderOpTestResult> test, size_t max
   LogCommentFmt(L"Verifying float cmp/xchg atomic operations on RWStructuredBuffer resources");
   VERIFY_IS_TRUE(pStructData[0].fltEl[1] >= 0.120 && pStructData[0].fltEl[1] < 0.125);
   for (size_t i = 1; i < 64; i++) {
-    VERIFY_ARE_EQUAL((int(pStructData[i].fltEl[1])/3)%63 + 1, i);
+    VERIFY_ARE_EQUAL((int(pStructData[i].fltEl[1])/3)%63 + 1, (int)i);
   }
 
   test->Test->GetReadBackData("U1", &Data);
@@ -9314,7 +9317,7 @@ static void WriteReadBackDump(st::ShaderOp *pShaderOp, st::ShaderOpTest *pTest,
         MappedData data;
         pTest->GetReadBackData(R.Name, &data);
         uint32_t *pData = (uint32_t *)data.data();
-        size_t u32_count = R.Desc.Width / sizeof(uint32_t);
+        size_t u32_count = ((size_t)R.Desc.Width) / sizeof(uint32_t);
         for (size_t i = 0; i < u32_count; ++i) {
           float f = *(float *)pData;
           str << i << ": 0n" << *pData << "   0x" << std::hex << *pData
