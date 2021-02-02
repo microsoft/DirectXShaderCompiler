@@ -67,7 +67,7 @@ float foosrbext([[vk::shader_record_ext]] int param)
     return param;
 }
 
-[[vk::shader_record_khr(5)]]
+[[vk::shader_record_ext(5)]]
 SRB_EXT recordBufEXT;
 
 // CHECK:   :4:7: error: 'binding' attribute only applies to global variables, cbuffers, and tbuffers
@@ -88,6 +88,6 @@ SRB_EXT recordBufEXT;
 // CHECK:  :50:3: error: 'shader_record_nv' attribute only applies to cbuffer or ConstantBuffer
 // CHECK:  :56:3: error: 'shader_record_nv' attribute takes no arguments
 // CHECK:  :60:7: error: 'shader_record_ext' attribute only applies to cbuffer or ConstantBuffer
-// CHECK: :65:16: error: 'shader_record_ext' attribute only applies to cbuffer or ConstantBuffer
+// CHECK: :65:17: error: 'shader_record_ext' attribute only applies to cbuffer or ConstantBuffer
 // CHECK:  :64:3: error: 'shader_record_ext' attribute only applies to cbuffer or ConstantBuffer
 // CHECK:  :70:3: error: 'shader_record_ext' attribute takes no arguments
