@@ -146,22 +146,6 @@ void HLExpandStoreIntrinsics::emitElementStores(CallInst &OriginalCall,
           Module, MatLdFnType, HLOpcodeGroup::HLMatLoadStore, matLdOpcode);
       Value *MatLdOpCode = ConstantInt::get(Builder.getInt32Ty(), matLdOpcode);
       ElemVal = Builder.CreateCall(MatLdFn, {MatLdOpCode, ElemPtr});
-
-      // Convert to row major if not already.
-      if (!isRowMajor) {
-        FunctionType *ColToRowMatFnTy =
-            FunctionType::get(StackTopTy, {Builder.getInt32Ty(), StackTopTy},
-                              /* isVarArg */ false);
-
-        Function *ColToRowMatFn = GetOrCreateHLFunction(
-            Module, ColToRowMatFnTy, HLOpcodeGroup::HLCast,
-            (unsigned)HLCastOpcode::ColMatrixToRowMatrix);
-        Value *ColToRowMatOpCode = ConstantInt::get(
-            Builder.getInt32Ty(), (unsigned)HLCastOpcode::ColMatrixToRowMatrix);
-
-        ElemVal =
-            Builder.CreateCall(ColToRowMatFn, {ColToRowMatOpCode, ElemVal});
-      }
     } else {
       ElemVal = Builder.CreateLoad(ElemPtr); // We go from memory to memory so no special bool handling needed
     }
