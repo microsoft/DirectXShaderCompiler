@@ -2405,17 +2405,22 @@ bool DxilMDHelper::IsKnownMetadataID(LLVMContext &Ctx, unsigned ID)
 
 void DxilMDHelper::GetKnownMetadataIDs(LLVMContext &Ctx, SmallVectorImpl<unsigned> *pIDs)
 {
-    auto AddIdIfExists = [&Ctx, &pIDs](StringRef Name) {
-        unsigned ID = 0;
-        if (Ctx.findMDKindID(hlsl::DxilMDHelper::kDxilPreciseAttributeMDName, &ID))
-        {
-            pIDs->push_back(ID);
-        }
-    };
+  auto AddIdIfExists = [&Ctx, &pIDs](StringRef Name) {
+    unsigned ID = 0;
+    if (Ctx.findMDKindID(hlsl::DxilMDHelper::kDxilPreciseAttributeMDName,
+                         &ID)) {
+      pIDs->push_back(ID);
+    }
+    if (Ctx.findMDKindID(hlsl::DxilMDHelper::kDxilNonUniformAttributeMDName,
+                         &ID)) {
+      pIDs->push_back(ID);
+    }
+  };
 
-    AddIdIfExists(hlsl::DxilMDHelper::kDxilPreciseAttributeMDName);
-    AddIdIfExists(hlsl::DxilMDHelper::kDxilNonUniformAttributeMDName);
+  AddIdIfExists(hlsl::DxilMDHelper::kDxilPreciseAttributeMDName);
+  AddIdIfExists(hlsl::DxilMDHelper::kDxilNonUniformAttributeMDName);
 }
+
 void DxilMDHelper::combineDxilMetadata(llvm::Instruction *K,
                                        const llvm::Instruction *J) {
   if (IsMarkedNonUniform(J))
