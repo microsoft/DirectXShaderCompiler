@@ -510,7 +510,7 @@
           out vertices PSInput verts[6],
           out indices uint3 tris[2]) {
             SetMeshOutputCounts(6, 2);
-            uint ix = convert2Dto1D(id.x, id.y, 84);
+            uint ix = convert2Dto1D(id.x, id.y, 42);
             // Assign static fullscreen 2 tri quad
             verts[ix%6].position = g_Verts[ix%6];
             verts[ix%6].uv = g_UV[ix%6];
