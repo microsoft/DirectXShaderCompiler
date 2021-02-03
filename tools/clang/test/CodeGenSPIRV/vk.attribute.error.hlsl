@@ -84,10 +84,10 @@ SRB_EXT recordBufEXT;
 // CHECK:  :36:3: error: 'push_constant' attribute only applies to global variables of struct type
 // CHECK:  :42:3: error: 'push_constant' attribute takes no arguments
 // CHECK:  :46:7: error: 'shader_record_nv' attribute only applies to cbuffer or ConstantBuffer
-// CHECK: :51:16: error: 'shader_record_nv' attribute only applies to cbuffer or ConstantBuffer
+// CHECK: :51:18: error: 'shader_record_nv' attribute only applies to cbuffer or ConstantBuffer
 // CHECK:  :50:3: error: 'shader_record_nv' attribute only applies to cbuffer or ConstantBuffer
 // CHECK:  :56:3: error: 'shader_record_nv' attribute takes no arguments
 // CHECK:  :60:7: error: 'shader_record_ext' attribute only applies to cbuffer or ConstantBuffer
-// CHECK: :65:17: error: 'shader_record_ext' attribute only applies to cbuffer or ConstantBuffer
+// CHECK: :65:19: error: 'shader_record_ext' attribute only applies to cbuffer or ConstantBuffer
 // CHECK:  :64:3: error: 'shader_record_ext' attribute only applies to cbuffer or ConstantBuffer
 // CHECK:  :70:3: error: 'shader_record_ext' attribute takes no arguments

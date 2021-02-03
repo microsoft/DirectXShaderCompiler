@@ -1,4 +1,4 @@
-// Run: %dxc -T lib_6_3 -fspv-extension=SPV_KHR_ray_tracing
+// Run: %dxc -T lib_6_3 -fspv-target-env=vulkan1.2
 
 struct T {
     float2 val[3];
@@ -19,9 +19,9 @@ struct S {
     float2x3 f3;
     T        f4;
 };
-// CHECK: %_ptr_ShaderRecordBufferEXT_type_ShaderRecordBufferEXT_S = OpTypePointer ShaderRecordBufferEXT %type_ShaderRecordBufferEXT_S
+// CHECK: %_ptr_ShaderRecordBufferNV_type_ShaderRecordBufferEXT_S = OpTypePointer ShaderRecordBufferNV %type_ShaderRecordBufferEXT_S
 
-// CHECK: %srb = OpVariable %_ptr_ShaderRecordBufferEXT_type_ShaderRecordBufferEXT_S ShaderRecordBufferEXT
+// CHECK: %srb = OpVariable %_ptr_ShaderRecordBufferNV_type_ShaderRecordBufferEXT_S ShaderRecordBufferNV
 [[vk::shader_record_ext]]
 ConstantBuffer<S> srb;
 
@@ -32,14 +32,14 @@ struct Attribute { float a; };
 void main(inout Payload P) 
 {
    P.p = 
-// CHECK:     {{%\d+}} = OpAccessChain %_ptr_ShaderRecordBufferEXT_float %srb %int_0
+// CHECK:     {{%\d+}} = OpAccessChain %_ptr_ShaderRecordBufferNV_float %srb %int_0
         srb.f1 +
-// CHECK: [[ptr:%\d+]] = OpAccessChain %_ptr_ShaderRecordBufferEXT_v3float %srb %int_1
-// CHECK:     {{%\d+}} = OpAccessChain %_ptr_ShaderRecordBufferEXT_float [[ptr]] %int_2
+// CHECK: [[ptr:%\d+]] = OpAccessChain %_ptr_ShaderRecordBufferNV_v3float %srb %int_1
+// CHECK:     {{%\d+}} = OpAccessChain %_ptr_ShaderRecordBufferNV_float [[ptr]] %int_2
         srb.f2.z +
-// CHECK:     {{%\d+}} = OpAccessChain %_ptr_ShaderRecordBufferEXT_float %srb %int_2 %uint_1 %uint_2
+// CHECK:     {{%\d+}} = OpAccessChain %_ptr_ShaderRecordBufferNV_float %srb %int_2 %uint_1 %uint_2
         srb.f3[1][2] +
-// CHECK: [[ptr:%\d+]] = OpAccessChain %_ptr_ShaderRecordBufferEXT_v2float %srb %int_3 %int_0 %int_2
-// CHECK:     {{%\d+}} = OpAccessChain %_ptr_ShaderRecordBufferEXT_float [[ptr]] %int_1
+// CHECK: [[ptr:%\d+]] = OpAccessChain %_ptr_ShaderRecordBufferNV_v2float %srb %int_3 %int_0 %int_2
+// CHECK:     {{%\d+}} = OpAccessChain %_ptr_ShaderRecordBufferNV_float [[ptr]] %int_1
         srb.f4.val[2].y;
 }
