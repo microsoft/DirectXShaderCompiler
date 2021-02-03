@@ -4,7 +4,7 @@
 // is implicitly converted to T.
 
 // A temp `alloca ConstantBuffer<My_Struct>` was generated which couldn't be
-// cleaned up during codegen,
+// cleaned up during codegen.
 
 // CHECK: %[[handle:.+]] = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 2, i32 0, i32 3
 // CHECK: %[[cbufret:.+]] = call %dx.types.CBufRet.f32 @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %[[handle]]
