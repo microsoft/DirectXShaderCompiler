@@ -1,4 +1,6 @@
+// RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
+// CHECK: @main
 
 [RootSignature("")]
 float main(float foo : FOO) : SV_Target {

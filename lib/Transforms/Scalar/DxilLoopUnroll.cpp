@@ -91,32 +91,13 @@
 using namespace llvm;
 using namespace hlsl;
 
-// Copied over from LoopUnroll.cpp - RemapInstruction()
-static inline void RemapInstruction(Instruction *I,
-                                    ValueToValueMapTy &VMap) {
-  for (unsigned op = 0, E = I->getNumOperands(); op != E; ++op) {
-    Value *Op = I->getOperand(op);
-    ValueToValueMapTy::iterator It = VMap.find(Op);
-    if (It != VMap.end())
-      I->setOperand(op, It->second);
-  }
-
-  if (PHINode *PN = dyn_cast<PHINode>(I)) {
-    for (unsigned i = 0, e = PN->getNumIncomingValues(); i != e; ++i) {
-      ValueToValueMapTy::iterator It = VMap.find(PN->getIncomingBlock(i));
-      if (It != VMap.end())
-        PN->setIncomingBlock(i, cast<BasicBlock>(It->second));
-    }
-  }
-}
-
-
 namespace {
 
 class DxilLoopUnroll : public LoopPass {
 public:
   static char ID;
 
+  std::set<Loop *> LoopsThatFailed;
   std::unordered_set<Function *> CleanedUpAlloca;
   unsigned MaxIterationAttempt = 0;
   bool OnlyWarnOnFail = false;
@@ -132,6 +113,7 @@ public:
   }
   const char *getPassName() const override { return "Dxil Loop Unroll"; }
   bool runOnLoop(Loop *L, LPPassManager &LPM) override;
+  bool doFinalization() override;
   bool IsLoopSafeToClone(Loop *L);
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<LoopInfoWrapperPass>();
@@ -154,8 +136,32 @@ public:
     OS << ",MaxIterationAttempt=" << MaxIterationAttempt;
     OS << ",OnlyWarnOnFail=" << OnlyWarnOnFail;
   }
-
+  void RecursivelyRemoveLoop(LPPassManager &LPM, Loop *L);
 };
+
+}
+
+// Copied over from LoopUnroll.cpp - RemapInstruction()
+static inline void RemapInstruction(Instruction *I,
+                                    ValueToValueMapTy &VMap) {
+  for (unsigned op = 0, E = I->getNumOperands(); op != E; ++op) {
+    Value *Op = I->getOperand(op);
+    ValueToValueMapTy::iterator It = VMap.find(Op);
+    if (It != VMap.end())
+      I->setOperand(op, It->second);
+  }
+
+  if (PHINode *PN = dyn_cast<PHINode>(I)) {
+    for (unsigned i = 0, e = PN->getNumIncomingValues(); i != e; ++i) {
+      ValueToValueMapTy::iterator It = VMap.find(PN->getIncomingBlock(i));
+      if (It != VMap.end())
+        PN->setIncomingBlock(i, cast<BasicBlock>(It->second));
+    }
+  }
+}
+
+
+namespace {
 
 char DxilLoopUnroll::ID;
 
@@ -633,16 +639,17 @@ static bool BreakUpArrayAllocas(bool AllowOOBIndex, IteratorT ItBegin, IteratorT
   return Success;
 }
 
-static void RecursivelyRemoveLoopFromQueue(LPPassManager &LPM, Loop *L) {
+void DxilLoopUnroll::RecursivelyRemoveLoop(LPPassManager &LPM, Loop *L) {
   // Copy the sub loops into a separate list because
   // the original list may change.
   SmallVector<Loop *, 4> SubLoops(L->getSubLoops().begin(), L->getSubLoops().end());
 
   // Must remove all child loops first.
   for (Loop *SubL : SubLoops) {
-    RecursivelyRemoveLoopFromQueue(LPM, SubL);
+    RecursivelyRemoveLoop(LPM, SubL);
   }
 
+  LoopsThatFailed.erase(L);
   LPM.deleteLoopFromQueue(L);
 }
 
@@ -995,6 +1002,25 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   }
 
   if (Succeeded) {
+    for (std::unique_ptr<LoopIteration> &IterPtr : Iterations) {
+      for (Loop *ChildLoop : L->getSubLoops()) {
+        Loop *NewChildLoop = new Loop();
+        for (auto it = ChildLoop->block_begin(), end = ChildLoop->block_end(); it != end; it++) {
+          BasicBlock *OriginalBB = *it;
+          LoopIteration &Iter = *IterPtr.get();
+          BasicBlock *NewBB = cast<BasicBlock>(Iter.VarMap[OriginalBB]);
+          NewChildLoop->addBlockEntry(NewBB);
+        }
+        if (OuterL) {
+          OuterL->addChildLoop(NewChildLoop);
+        }
+        else {
+          LI->addTopLevelLoop(NewChildLoop);
+        }
+        LPM.insertLoopIntoQueue(NewChildLoop);
+      }
+    }
+
     // We are going to be cleaning them up later. Maker sure
     // they're in entry block so deleting loop blocks don't 
     // kill them too.
@@ -1047,7 +1073,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       LI->removeBlock(BB);
 
     // Remove loop and all child loops from queue.
-    RecursivelyRemoveLoopFromQueue(LPM, L);
+    RecursivelyRemoveLoop(LPM, L);
 
     // Remove dead blocks.
     for (BasicBlock *BB : ToBeCloned)
@@ -1079,6 +1105,8 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
   // If we were unsuccessful in unrolling the loop
   else {
+    LoopsThatFailed.insert(L);
+#if 0
     const char *Msg =
         "Could not unroll loop. Loop bound could not be deduced at compile time. "
         "Use [unroll(n)] to give an explicit count.";
@@ -1089,6 +1117,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       FailLoopUnroll(false /*warn only*/, F, LoopLoc,
         Twine(Msg) + Twine(" Use '-HV 2016' to treat this as warning."));
     }
+#endif
 
     // Remove all the cloned blocks
     for (std::unique_ptr<LoopIteration> &Ptr : Iterations) {
@@ -1109,6 +1138,27 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
     return false;
   }
+}
+
+bool DxilLoopUnroll::doFinalization() {
+  const char *Msg =
+      "Could not unroll loop. Loop bound could not be deduced at compile time. "
+      "Use [unroll(n)] to give an explicit count.";
+
+  if (LoopsThatFailed.size()) {
+    for (Loop *L : LoopsThatFailed) {
+      Function *F = L->getHeader()->getParent();
+      DebugLoc LoopLoc = L->getStartLoc(); // Debug location for the start of the loop.
+      if (OnlyWarnOnFail) {
+        FailLoopUnroll(true /*warn only*/, F, LoopLoc, Msg);
+      }
+      else {
+        FailLoopUnroll(false /*warn only*/, F, LoopLoc,
+          Twine(Msg) + Twine(" Use '-HV 2016' to treat this as warning."));
+      }
+    }
+  }
+  return false;
 }
 
 }
