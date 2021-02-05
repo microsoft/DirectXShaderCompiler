@@ -28,6 +28,8 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 
+#include "PixPassHelpers.h"
+
 #define DEBUG_TYPE "dxil-dbg-value-to-dbg-declare"
 
 namespace {
@@ -350,23 +352,6 @@ static OffsetInBits GetAlignedOffsetFromDIExpression(
   return Exp->getBitPieceOffset();
 }
 
-static bool IsAllocateRayQueryInstruction(llvm::Value *Val) {
-  if (llvm::Instruction *Inst = llvm::dyn_cast<llvm::Instruction>(Val)) {
-    if (Inst->getOpcode() == llvm::Instruction::OtherOps::Call) {
-      if (Inst->getNumOperands() > 0) {
-        if (auto *asInt =
-                llvm::cast_or_null<llvm::ConstantInt>(Inst->getOperand(0))) {
-          if (asInt->getZExtValue() ==
-              (uint64_t)hlsl::DXIL::OpCode::AllocateRayQuery) {
-            return true;
-          }
-        }
-      }
-    }
-  }
-  return false;
-}
-
 bool DxilDbgValueToDbgDeclare::runOnModule(
     llvm::Module &M
 )
@@ -382,7 +367,7 @@ bool DxilDbgValueToDbgDeclare::runOnModule(
     if (auto *DbgValue = llvm::dyn_cast<llvm::DbgValueInst>(User))
     {
       llvm::Value *V = DbgValue->getValue();
-      if (IsAllocateRayQueryInstruction(V)) {
+      if (PIXPassHelpers::IsAllocateRayQueryInstruction(V)) {
           continue;
       }
       Changed = true;

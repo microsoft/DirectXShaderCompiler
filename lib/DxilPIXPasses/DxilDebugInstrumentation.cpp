@@ -22,6 +22,8 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Module.h"
 
+#include "PixPassHelpers.h"
+
 using namespace llvm;
 using namespace hlsl;
 
@@ -263,9 +265,6 @@ private:
   void addInvocationStartMarker(BuilderContext &BC);
   void reserveDebugEntrySpace(BuilderContext &BC, uint32_t SpaceInDwords);
   void addStoreStepDebugEntry(BuilderContext &BC, StoreInst *Inst);
-
-  bool IsAllocateRayQueryInstruction(Value* Inst);
-
   void addStepDebugEntry(BuilderContext& BC, Instruction* Inst);
   void addStepDebugEntryValue(BuilderContext &BC, std::uint32_t InstNum,
                               Value *V, std::uint32_t ValueOrdinal,
@@ -810,22 +809,6 @@ void DxilDebugInstrumentation::addStepEntryForType(
   }
 }
 
-bool DxilDebugInstrumentation::IsAllocateRayQueryInstruction(Value* Val) {
-    if (llvm::Instruction* Inst = llvm::dyn_cast<llvm::Instruction>(Val)) {
-        if (Inst->getOpcode() == Instruction::OtherOps::Call) {
-            if (Inst->getNumOperands() > 0) {
-                if (auto* asInt =
-                    llvm::cast_or_null<llvm::ConstantInt>(Inst->getOperand(0))) {
-                    if (asInt->getZExtValue() == (uint64_t)DXIL::OpCode::AllocateRayQuery) {
-                        return true;
-                    }
-                }
-            }
-        }
-    }
-  return false;
-}
-
 void DxilDebugInstrumentation::addStoreStepDebugEntry(BuilderContext& BC,
     StoreInst* Inst) {
     std::uint32_t ValueOrdinalBase;
@@ -842,7 +825,7 @@ void DxilDebugInstrumentation::addStoreStepDebugEntry(BuilderContext& BC,
         return;
     }
 
-    if (IsAllocateRayQueryInstruction(Inst->getValueOperand())) {
+    if (PIXPassHelpers::IsAllocateRayQueryInstruction(Inst->getValueOperand())) {
         return;
     }
 
@@ -855,7 +838,7 @@ void DxilDebugInstrumentation::addStepDebugEntry(BuilderContext &BC,
   if (Inst->getOpcode() == Instruction::OtherOps::PHI) {
     return;
   }
-  if (IsAllocateRayQueryInstruction(Inst)) {
+  if (PIXPassHelpers::IsAllocateRayQueryInstruction(Inst)) {
       return;
   }
 
