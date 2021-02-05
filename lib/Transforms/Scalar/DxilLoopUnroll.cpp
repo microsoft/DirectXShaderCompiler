@@ -1005,18 +1005,24 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     for (std::unique_ptr<LoopIteration> &IterPtr : Iterations) {
       for (Loop *ChildLoop : L->getSubLoops()) {
         Loop *NewChildLoop = new Loop();
-        for (auto it = ChildLoop->block_begin(), end = ChildLoop->block_end(); it != end; it++) {
-          BasicBlock *OriginalBB = *it;
-          LoopIteration &Iter = *IterPtr.get();
-          BasicBlock *NewBB = cast<BasicBlock>(Iter.VarMap[OriginalBB]);
-          NewChildLoop->addBlockEntry(NewBB);
-        }
         if (OuterL) {
           OuterL->addChildLoop(NewChildLoop);
         }
         else {
           LI->addTopLevelLoop(NewChildLoop);
         }
+
+        // Add the blocks in the iteration body to NewChildLoop.
+        // We do this AFTER having added NewChildLoop to the parent
+        // because `addBasicBlockToLoop` also adds the loop to all
+        // parent loops.
+        for (auto it = ChildLoop->block_begin(), end = ChildLoop->block_end(); it != end; it++) {
+          BasicBlock *OriginalBB = *it;
+          LoopIteration &Iter = *IterPtr.get();
+          BasicBlock *NewBB = cast<BasicBlock>(Iter.VarMap[OriginalBB]);
+          NewChildLoop->addBasicBlockToLoop(NewBB, *LI);
+        }
+
         LPM.insertLoopIntoQueue(NewChildLoop);
       }
     }
@@ -1044,7 +1050,11 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       for (size_t i = 0; i < Iterations.size(); i++) {
         LoopIteration &Iteration = *Iterations[i].get();
         for (BasicBlock *BB : Iteration.Body) {
-          if (!Iteration.Extended.count(BB)) {
+          if (!Iteration.Extended.count(BB) &&
+            // Check if it's already added to loop when we added
+            // the block to new child loop earlier.
+            !OuterL->contains(BB))
+          {
             OuterL->addBasicBlockToLoop(BB, *LI);
           }
         }
