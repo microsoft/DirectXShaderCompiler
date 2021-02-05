@@ -8296,8 +8296,6 @@ void ExecutionTest::WaveSizeTest() {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
   CComPtr<ID3D12Device> pDevice;
-  CComPtr<IStream> pStream;
-
   if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6)) {
     return;
   }
@@ -8309,9 +8307,6 @@ void ExecutionTest::WaveSizeTest() {
     return;
   }
 
-  // read shader config
-  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
-
   // Get supported wave sizes
   D3D12_FEATURE_DATA_D3D12_OPTIONS1 waveOpts;
   VERIFY_SUCCEEDED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS1, &waveOpts, sizeof(waveOpts)));
@@ -8321,6 +8316,12 @@ void ExecutionTest::WaveSizeTest() {
   DXASSERT_NOMSG(minWaveSize <= maxWaveSize);
   DXASSERT((minWaveSize & (minWaveSize - 1)) == 0, "must be a power of 2");
   DXASSERT((maxWaveSize & (maxWaveSize - 1)) == 0, "must be a power of 2");
+
+  // read shader config
+  CComPtr<IStream> pStream;
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet = std::make_shared<st::ShaderOpSet>();
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
 
   // format shader source
   const char waveSizeTestShader[] =
@@ -8346,7 +8347,7 @@ void ExecutionTest::WaveSizeTest() {
     VERIFY_IS_TRUE(sprintf_s(compilerOptions, sizeof(compilerOptions), "-D WAVESIZE=%d", waveSize) != -1);
 
     // run the shader
-    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(pDevice, m_support, pStream, "WaveSizeTest",
+    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "WaveSizeTest",
       [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
       VERIFY_IS_TRUE((0 == strncmp(Name, "UAVBuffer0", 10)));
       pShaderOp->Shaders.at(0).Arguments = compilerOptions;
@@ -8355,7 +8356,7 @@ void ExecutionTest::WaveSizeTest() {
       VERIFY_IS_TRUE(sizeof(WaveSizeTestData)*MAX_WAVESIZE <= Data.size());
       WaveSizeTestData *pInData = (WaveSizeTestData *)Data.data();
       memset(&pInData, sizeof(WaveSizeTestData)*MAX_WAVESIZE, 0);
-    });
+    }, ShaderOpSet);
 
     // verify expected values
     MappedData dataUav;
