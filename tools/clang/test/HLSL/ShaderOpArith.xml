@@ -2063,11 +2063,11 @@
       <Descriptor Name="U1" Kind="UAV" ResName="U1"
                   NumElements="64" StructureByteStride="4" />
       <Descriptor Name="U2" Kind="UAV" ResName="U2"
-                  NumElements="64" StructureByteStride="4" />
+                  NumElements="64" Format="R32_FLOAT" StructureByteStride="0" />
       <Descriptor Name="U3" Kind="UAV" ResName="U3" Dimension="TEXTURE1D"
                   NumElements="64" StructureByteStride="4" />
       <Descriptor Name="U4" Kind="UAV" ResName="U4"
-                  NumElements="64" StructureByteStride="4" />
+                  NumElements="64" Format="R32_FLOAT" StructureByteStride="0" />
     </DescriptorHeap>
     <DescriptorHeap Name="RtvHeap" NumDescriptors="1" Type="RTV">
       <Descriptor Name="RTarget" Kind="RTV"/>
