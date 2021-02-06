@@ -93,6 +93,15 @@ using namespace hlsl;
 
 namespace {
 
+struct LoopIteration {
+  SmallVector<BasicBlock *, 16> Body;
+  BasicBlock *Latch = nullptr;
+  BasicBlock *Header = nullptr;
+  ValueToValueMapTy VarMap;
+  SetVector<BasicBlock *> Extended; // Blocks that are included in the clone that are not in the core loop body.
+  LoopIteration() {}
+};
+
 class DxilLoopUnroll : public LoopPass {
 public:
   static char ID;
@@ -136,13 +145,12 @@ public:
     OS << ",MaxIterationAttempt=" << MaxIterationAttempt;
     OS << ",OnlyWarnOnFail=" << OnlyWarnOnFail;
   }
-  void RecursivelyRemoveLoop(LPPassManager &LPM, Loop *L);
+  void RecursivelyRemoveLoopOnSuccess(LPPassManager &LPM, Loop *L);
+  void RecursivelyCreateSubLoopForIteration(LPPassManager &LPM, LoopInfo *LI, Loop *OuterL, Loop *L, LoopIteration &Iter);
 };
 
-}
-
 // Copied over from LoopUnroll.cpp - RemapInstruction()
-static inline void RemapInstruction(Instruction *I,
+static inline void DxilLoopUnrollRemapInstruction(Instruction *I,
                                     ValueToValueMapTy &VMap) {
   for (unsigned op = 0, E = I->getNumOperands(); op != E; ++op) {
     Value *Op = I->getOperand(op);
@@ -160,9 +168,6 @@ static inline void RemapInstruction(Instruction *I,
   }
 }
 
-
-namespace {
-
 char DxilLoopUnroll::ID;
 
 static void FailLoopUnroll(bool WarnOnly, Function *F, DebugLoc DL, const Twine &Message) {
@@ -172,15 +177,6 @@ static void FailLoopUnroll(bool WarnOnly, Function *F, DebugLoc DL, const Twine 
     severity = DiagnosticSeverity::DS_Warning;
   Ctx.diagnose(DiagnosticInfoDxil(F, DL.get(), Message, severity));
 }
-
-struct LoopIteration {
-  SmallVector<BasicBlock *, 16> Body;
-  BasicBlock *Latch = nullptr;
-  BasicBlock *Header = nullptr;
-  ValueToValueMapTy VarMap;
-  SetVector<BasicBlock *> Extended; // Blocks that are included in the clone that are not in the core loop body.
-  LoopIteration() {}
-};
 
 static bool GetConstantI1(Value *V, bool *Val=nullptr) {
   if (ConstantInt *C = dyn_cast<ConstantInt>(V)) {
@@ -639,17 +635,21 @@ static bool BreakUpArrayAllocas(bool AllowOOBIndex, IteratorT ItBegin, IteratorT
   return Success;
 }
 
-void DxilLoopUnroll::RecursivelyRemoveLoop(LPPassManager &LPM, Loop *L) {
+void DxilLoopUnroll::RecursivelyRemoveLoopOnSuccess(LPPassManager &LPM, Loop *L) {
   // Copy the sub loops into a separate list because
   // the original list may change.
   SmallVector<Loop *, 4> SubLoops(L->getSubLoops().begin(), L->getSubLoops().end());
 
   // Must remove all child loops first.
   for (Loop *SubL : SubLoops) {
-    RecursivelyRemoveLoop(LPM, SubL);
+    RecursivelyRemoveLoopOnSuccess(LPM, SubL);
   }
 
+  // Remove any loops/subloops that failed because we are about to
+  // delete the loops, so gotta avoid dangling pointers
   LoopsThatFailed.erase(L);
+
+  // Loop is done and about to be deleted, remove it from queue.
   LPM.deleteLoopFromQueue(L);
 }
 
@@ -678,6 +678,44 @@ bool DxilLoopUnroll::IsLoopSafeToClone(Loop *L) {
     }
   }
   return true;
+}
+
+void DxilLoopUnroll::RecursivelyCreateSubLoopForIteration(LPPassManager &LPM, LoopInfo *LI, Loop *OuterL, Loop *L, LoopIteration &Iter) {
+  Loop *NewL = new Loop();
+
+  // Insert it to queue in a depth first way, otherwise `insertLoopIntoQueue`
+  // inserts adds parent first.
+  LPM.insertLoopIntoQueue(NewL);
+  if (OuterL) {
+    OuterL->addChildLoop(NewL);
+  }
+  else {
+    LI->addTopLevelLoop(NewL);
+  }
+
+  for (auto it = L->block_begin(), end = L->block_end(); it != end; it++) {
+    BasicBlock *OriginalBB = *it;
+    BasicBlock *NewBB = cast<BasicBlock>(Iter.VarMap[OriginalBB]);
+    // addBlockEntry instead of addBasicBlockToLoop because addBasicBlockToLoop
+    // will try to add block to outer loop, which adds it twice.
+    NewL->addBlockEntry(NewBB);
+    LI->changeLoopFor(NewBB, NewL);
+
+    Loop *OuterL_it = OuterL;
+    while (OuterL_it) {
+      if (!OuterL_it->contains(NewBB)) {
+        OuterL_it->addBlockEntry(NewBB);
+        break;
+      }
+      OuterL_it = OuterL_it->getParentLoop();
+    }
+  }
+
+  // Construct any sub-loops that exist. The BB -> Loop mapping in LI will be
+  // rewritten to the sub-loop as needed.
+  for (Loop *SubL : L->getSubLoops()) {
+    RecursivelyCreateSubLoopForIteration(LPM, LI, NewL, SubL, Iter);
+  }
 }
 
 bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
@@ -920,7 +958,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     // Remap the instructions inside of cloned blocks.
     for (BasicBlock *BB : CurIteration.Body) {
       for (Instruction &I : *BB) {
-        ::RemapInstruction(&I, CurIteration.VarMap);
+        DxilLoopUnrollRemapInstruction(&I, CurIteration.VarMap);
       }
     }
 
@@ -1003,28 +1041,8 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
   if (Succeeded) {
     for (std::unique_ptr<LoopIteration> &IterPtr : Iterations) {
-      for (Loop *ChildLoop : L->getSubLoops()) {
-        Loop *NewChildLoop = new Loop();
-        if (OuterL) {
-          OuterL->addChildLoop(NewChildLoop);
-        }
-        else {
-          LI->addTopLevelLoop(NewChildLoop);
-        }
-
-        // Add the blocks in the iteration body to NewChildLoop.
-        // We do this AFTER having added NewChildLoop to the parent
-        // because `addBasicBlockToLoop` also adds the loop to all
-        // parent loops.
-        for (auto it = ChildLoop->block_begin(), end = ChildLoop->block_end(); it != end; it++) {
-          BasicBlock *OriginalBB = *it;
-          LoopIteration &Iter = *IterPtr.get();
-          BasicBlock *NewBB = cast<BasicBlock>(Iter.VarMap[OriginalBB]);
-          NewChildLoop->addBasicBlockToLoop(NewBB, *LI);
-        }
-
-        LPM.insertLoopIntoQueue(NewChildLoop);
-      }
+      for (Loop *SubL : L->getSubLoops())
+        RecursivelyCreateSubLoopForIteration(LPM, LI, OuterL, SubL, *IterPtr);
     }
 
     // We are going to be cleaning them up later. Maker sure
@@ -1051,6 +1069,8 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
         LoopIteration &Iteration = *Iterations[i].get();
         for (BasicBlock *BB : Iteration.Body) {
           if (!Iteration.Extended.count(BB) &&
+            // Check We didn't already add BB to a sub-loop
+            !LI->getLoopFor(BB) &&
             // Check if it's already added to loop when we added
             // the block to new child loop earlier.
             !OuterL->contains(BB))
@@ -1083,7 +1103,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       LI->removeBlock(BB);
 
     // Remove loop and all child loops from queue.
-    RecursivelyRemoveLoop(LPM, L);
+    RecursivelyRemoveLoopOnSuccess(LPM, L);
 
     // Remove dead blocks.
     for (BasicBlock *BB : ToBeCloned)
@@ -1115,19 +1135,8 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
   // If we were unsuccessful in unrolling the loop
   else {
+    // Mark loop as failed.
     LoopsThatFailed.insert(L);
-#if 0
-    const char *Msg =
-        "Could not unroll loop. Loop bound could not be deduced at compile time. "
-        "Use [unroll(n)] to give an explicit count.";
-    if (OnlyWarnOnFail) {
-      FailLoopUnroll(true /*warn only*/, F, LoopLoc, Msg);
-    }
-    else {
-      FailLoopUnroll(false /*warn only*/, F, LoopLoc,
-        Twine(Msg) + Twine(" Use '-HV 2016' to treat this as warning."));
-    }
-#endif
 
     // Remove all the cloned blocks
     for (std::unique_ptr<LoopIteration> &Ptr : Iterations) {
