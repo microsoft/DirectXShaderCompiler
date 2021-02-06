@@ -1345,9 +1345,12 @@ void SpirvEmitter::doHLSLBufferDecl(const HLSLBufferDecl *bufferDecl) {
   if (!validateVKAttributes(bufferDecl))
     return;
   if (bufferDecl->hasAttr<VKShaderRecordNVAttr>()) {
-    (void)declIdMapper.createShaderRecordBufferNV(bufferDecl);
+    (void)declIdMapper.createShaderRecordBuffer(
+        bufferDecl, DeclResultIdMapper::ContextUsageKind::ShaderRecordBufferNV);
   } else if (bufferDecl->hasAttr<VKShaderRecordEXTAttr>()) {
-    (void)declIdMapper.createShaderRecordBufferEXT(bufferDecl);
+    (void)declIdMapper.createShaderRecordBuffer(
+        bufferDecl,
+        DeclResultIdMapper::ContextUsageKind::ShaderRecordBufferEXT);
   } else {
     (void)declIdMapper.createCTBuffer(bufferDecl);
   }
@@ -1429,12 +1432,14 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
   }
 
   if (decl->hasAttr<VKShaderRecordNVAttr>()) {
-    (void)declIdMapper.createShaderRecordBufferNV(decl);
+    (void)declIdMapper.createShaderRecordBuffer(
+        decl, DeclResultIdMapper::ContextUsageKind::ShaderRecordBufferNV);
     return;
   }
 
   if (decl->hasAttr<VKShaderRecordEXTAttr>()) {
-    (void)declIdMapper.createShaderRecordBufferEXT(decl);
+    (void)declIdMapper.createShaderRecordBuffer(
+        decl, DeclResultIdMapper::ContextUsageKind::ShaderRecordBufferEXT);
     return;
   }
 
