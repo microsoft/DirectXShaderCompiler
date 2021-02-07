@@ -1160,7 +1160,7 @@ DeclResultIdMapper::createShaderRecordBuffer(const HLSLBufferDecl *decl,
                             : "type.ShaderRecordBufferNV.";
 
   const std::string structName =
-      "type.ShaderRecordBufferNV." + decl->getName().str();
+      typeName + decl->getName().str();
   // The front-end does not allow arrays of cbuffer/tbuffer.
   SpirvVariable *bufferVar = createStructOrStructArrayVarOfExplicitLayout(
       decl, /*arraySize*/ 0, kind, structName,
