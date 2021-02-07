@@ -1131,7 +1131,7 @@ DeclResultIdMapper::createShaderRecordBuffer(const VarDecl *decl,
          kind == ContextUsageKind::ShaderRecordBufferNV);
 
   const auto typeName = kind == ContextUsageKind::ShaderRecordBufferEXT
-                            ? "type.ShaderRecordBufferKHR."
+                            ? "type.ShaderRecordBufferEXT."
                             : "type.ShaderRecordBufferNV.";
 
   const std::string structName =
@@ -1156,7 +1156,7 @@ DeclResultIdMapper::createShaderRecordBuffer(const HLSLBufferDecl *decl,
          kind == ContextUsageKind::ShaderRecordBufferNV);
 
   const auto typeName = kind == ContextUsageKind::ShaderRecordBufferEXT
-                            ? "type.ShaderRecordBufferKHR."
+                            ? "type.ShaderRecordBufferEXT."
                             : "type.ShaderRecordBufferNV.";
 
   const std::string structName =
