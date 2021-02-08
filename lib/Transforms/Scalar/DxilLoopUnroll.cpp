@@ -93,13 +93,13 @@ using namespace hlsl;
 
 namespace {
 
-struct LoopIteration {
+struct ClonedIteration {
   SmallVector<BasicBlock *, 16> Body;
   BasicBlock *Latch = nullptr;
   BasicBlock *Header = nullptr;
   ValueToValueMapTy VarMap;
   SetVector<BasicBlock *> Extended; // Blocks that are included in the clone that are not in the core loop body.
-  LoopIteration() {}
+  ClonedIteration() {}
 };
 
 class DxilLoopUnroll : public LoopPass {
@@ -146,7 +146,7 @@ public:
     OS << ",OnlyWarnOnFail=" << OnlyWarnOnFail;
   }
   void RecursivelyRemoveLoopOnSuccess(LPPassManager &LPM, Loop *L);
-  void RecursivelyCreateSubLoopForIteration(LPPassManager &LPM, LoopInfo *LI, Loop *OuterL, Loop *L, LoopIteration &Iter);
+  void RecursivelyRecreateSubLoopForIteration(LPPassManager &LPM, LoopInfo *LI, Loop *OuterL, Loop *L, ClonedIteration &Iter, unsigned Depth=0);
 };
 
 // Copied over from LoopUnroll.cpp - RemapInstruction()
@@ -646,7 +646,8 @@ void DxilLoopUnroll::RecursivelyRemoveLoopOnSuccess(LPPassManager &LPM, Loop *L)
   }
 
   // Remove any loops/subloops that failed because we are about to
-  // delete the loops, so gotta avoid dangling pointers
+  // delete them. This will not prevent them from being retried because
+  // they would have been recreated for each cloned iteration.
   LoopsThatFailed.erase(L);
 
   // Loop is done and about to be deleted, remove it from queue.
@@ -680,7 +681,7 @@ bool DxilLoopUnroll::IsLoopSafeToClone(Loop *L) {
   return true;
 }
 
-void DxilLoopUnroll::RecursivelyCreateSubLoopForIteration(LPPassManager &LPM, LoopInfo *LI, Loop *OuterL, Loop *L, LoopIteration &Iter) {
+void DxilLoopUnroll::RecursivelyRecreateSubLoopForIteration(LPPassManager &LPM, LoopInfo *LI, Loop *OuterL, Loop *L, ClonedIteration &Iter, unsigned Depth) {
   Loop *NewL = new Loop();
 
   // Insert it to queue in a depth first way, otherwise `insertLoopIntoQueue`
@@ -693,28 +694,33 @@ void DxilLoopUnroll::RecursivelyCreateSubLoopForIteration(LPPassManager &LPM, Lo
     LI->addTopLevelLoop(NewL);
   }
 
+  // First add all the blocks. It's important that we first add them here first
+  // (Instead of letting the recursive call do the job), since it's important that
+  // the loop header is added FIRST.
   for (auto it = L->block_begin(), end = L->block_end(); it != end; it++) {
     BasicBlock *OriginalBB = *it;
     BasicBlock *NewBB = cast<BasicBlock>(Iter.VarMap[OriginalBB]);
-    // addBlockEntry instead of addBasicBlockToLoop because addBasicBlockToLoop
-    // will try to add block to outer loop, which adds it twice.
+
+    // Manually call addBlockEntry instead of addBasicBlockToLoop because 
+    // addBasicBlockToLoop also checks and sets the BB -> Loop mapping.
     NewL->addBlockEntry(NewBB);
     LI->changeLoopFor(NewBB, NewL);
 
-    Loop *OuterL_it = OuterL;
-    while (OuterL_it) {
-      if (!OuterL_it->contains(NewBB)) {
+    // Now check if the block has been added to outer loops already. This is
+    // only necessary for the first depth of this call.
+    if (Depth == 0) {
+      Loop *OuterL_it = OuterL;
+      while (OuterL_it) {
         OuterL_it->addBlockEntry(NewBB);
-        break;
+        OuterL_it = OuterL_it->getParentLoop();
       }
-      OuterL_it = OuterL_it->getParentLoop();
     }
   }
 
   // Construct any sub-loops that exist. The BB -> Loop mapping in LI will be
   // rewritten to the sub-loop as needed.
   for (Loop *SubL : L->getSubLoops()) {
-    RecursivelyCreateSubLoopForIteration(LPM, LI, NewL, SubL, Iter);
+    RecursivelyRecreateSubLoopForIteration(LPM, LI, NewL, SubL, Iter, Depth+1);
   }
 }
 
@@ -888,7 +894,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   // Re-establish LCSSA form to get ready for unrolling.
   CreateLCSSA(ToBeCloned, NewExits, L, *DT, LI);
 
-  SmallVector<std::unique_ptr<LoopIteration>, 16> Iterations; // List of cloned iterations
+  SmallVector<std::unique_ptr<ClonedIteration>, 16> Iterations; // List of cloned iterations
   bool Succeeded = false;
 
   unsigned MaxAttempt = this->MaxIterationAttempt;
@@ -903,11 +909,11 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
   for (unsigned IterationI = 0; IterationI < MaxAttempt; IterationI++) {
 
-    LoopIteration *PrevIteration = nullptr;
+    ClonedIteration *PrevIteration = nullptr;
     if (Iterations.size())
       PrevIteration = Iterations.back().get();
-    Iterations.push_back(llvm::make_unique<LoopIteration>());
-    LoopIteration &CurIteration = *Iterations.back().get();
+    Iterations.push_back(llvm::make_unique<ClonedIteration>());
+    ClonedIteration &CurIteration = *Iterations.back().get();
 
     // Clone the blocks.
     for (BasicBlock *BB : ToBeCloned) {
@@ -1040,9 +1046,11 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   }
 
   if (Succeeded) {
-    for (std::unique_ptr<LoopIteration> &IterPtr : Iterations) {
+    // Now that we successfully unrolled the loop L, if there were any sub loops in L,
+    // we have to recreate all the sub-loops for each iteration of L that we cloned.
+    for (std::unique_ptr<ClonedIteration> &IterPtr : Iterations) {
       for (Loop *SubL : L->getSubLoops())
-        RecursivelyCreateSubLoopForIteration(LPM, LI, OuterL, SubL, *IterPtr);
+        RecursivelyRecreateSubLoopForIteration(LPM, LI, OuterL, SubL, *IterPtr);
     }
 
     // We are going to be cleaning them up later. Maker sure
@@ -1051,7 +1059,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     for (AllocaInst *AI : ProblemAllocas)
       DXASSERT_LOCALVAR(AI, AI->getParent() == &F->getEntryBlock(), "Alloca is not in entry block.");
 
-    LoopIteration &FirstIteration = *Iterations.front().get();
+    ClonedIteration &FirstIteration = *Iterations.front().get();
     // Make the predecessor branch to the first new header.
     {
       BranchInst *BI = cast<BranchInst>(Predecessor->getTerminator());
@@ -1066,13 +1074,9 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
       // Core body blocks need to be added to outer loop
       for (size_t i = 0; i < Iterations.size(); i++) {
-        LoopIteration &Iteration = *Iterations[i].get();
+        ClonedIteration &Iteration = *Iterations[i].get();
         for (BasicBlock *BB : Iteration.Body) {
           if (!Iteration.Extended.count(BB) &&
-            // Check We didn't already add BB to a sub-loop
-            !LI->getLoopFor(BB) &&
-            // Check if it's already added to loop when we added
-            // the block to new child loop earlier.
             !OuterL->contains(BB))
           {
             OuterL->addBasicBlockToLoop(BB, *LI);
@@ -1088,7 +1092,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
       // Cloned exit blocks may need to be added to outer loop
       for (size_t i = 0; i < Iterations.size(); i++) {
-        LoopIteration &Iteration = *Iterations[i].get();
+        ClonedIteration &Iteration = *Iterations[i].get();
         for (BasicBlock *BB : Iteration.Extended) {
           if (HasSuccessorsInLoop(BB, OuterL))
             OuterL->addBasicBlockToLoop(BB, *LI);
@@ -1139,18 +1143,18 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     LoopsThatFailed.insert(L);
 
     // Remove all the cloned blocks
-    for (std::unique_ptr<LoopIteration> &Ptr : Iterations) {
-      LoopIteration &Iteration = *Ptr.get();
+    for (std::unique_ptr<ClonedIteration> &Ptr : Iterations) {
+      ClonedIteration &Iteration = *Ptr.get();
       for (BasicBlock *BB : Iteration.Body)
         DetachFromSuccessors(BB);
     }
-    for (std::unique_ptr<LoopIteration> &Ptr : Iterations) {
-      LoopIteration &Iteration = *Ptr.get();
+    for (std::unique_ptr<ClonedIteration> &Ptr : Iterations) {
+      ClonedIteration &Iteration = *Ptr.get();
       for (BasicBlock *BB : Iteration.Body)
         BB->dropAllReferences();
     }
-    for (std::unique_ptr<LoopIteration> &Ptr : Iterations) {
-      LoopIteration &Iteration = *Ptr.get();
+    for (std::unique_ptr<ClonedIteration> &Ptr : Iterations) {
+      ClonedIteration &Iteration = *Ptr.get();
       for (BasicBlock *BB : Iteration.Body)
         BB->eraseFromParent();
     }
