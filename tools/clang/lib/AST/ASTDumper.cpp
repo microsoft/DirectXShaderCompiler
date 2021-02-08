@@ -1047,18 +1047,23 @@ void ASTDumper::dumpHLSLUnusualAnnotations(const ArrayRef<hlsl::UnusualAnnotatio
           break;
         }      
       case hlsl::UnusualAnnotation::UA_PayloadAccessQualifier: {
-          const hlsl::PayloadAccessQualifier *payloadQualaifer =
-              cast<hlsl::PayloadAccessQualifier>(*It);
-          OS << " " << (payloadQualaifer->IsReadable ? "read" : "write") << "(";
-          for (unsigned i = 0; i < payloadQualaifer->ShaderStages.size(); ++i) {
-
-            OS << payloadQualaifer->ShaderStages[i];
-            if (i < payloadQualaifer->ShaderStages.size() - 1)
-              OS << ", ";
-          }
-          OS << ")";
-          break;
+        const hlsl::PayloadAccessAnnotation *annotation =
+            cast<hlsl::PayloadAccessAnnotation>(*It);
+        OS << " "
+           << (annotation->qualifier == hlsl::DXIL::PayloadAccessQualifier::Read
+                   ? "read"
+                   : "write")
+           << "(";
+        StringRef shaderStageNames[] = {"caller", "closesthit", "miss", "anyhit"};
+        for (unsigned i = 0; i < annotation->ShaderStages.size(); ++i) {
+          OS << shaderStageNames[static_cast<unsigned>(
+              annotation->ShaderStages[i])];
+          if (i < annotation->ShaderStages.size() - 1)
+            OS << ", ";
         }
+        OS << ")";
+        break;
+      }
       }
     });
   }

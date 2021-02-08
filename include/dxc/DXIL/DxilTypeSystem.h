@@ -12,6 +12,7 @@
 #pragma once
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/MapVector.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilCompType.h"
 #include "dxc/DXIL/DxilInterpolationMode.h"
 
@@ -139,28 +140,25 @@ private:
   std::vector<DxilTemplateArgAnnotation> m_TemplateAnnotations;
 };
 
-enum class PayloadAccessTypes{ ReadWrite = 0, Read = 1, Write = 2 };
 
 /// Use this class to represent type annotation for DXR payload field.
 class DxilPayloadFieldAnnotation {
 public:
-  DxilPayloadFieldAnnotation() = default;
 
-  bool HasFieldName() const;
-//  const std::string &GetFieldName() const;
-//  void SetFieldName(const std::string &FieldName);
+  static unsigned GetBitOffsetForShaderStage(DXIL::PayloadAccessShaderStage shaderStage);
+
+  DxilPayloadFieldAnnotation() = default;
 
   bool HasCompType() const;
   const CompType &GetCompType() const;
   void SetCompType(CompType::Kind kind);
 
   uint32_t GetPayloadFieldQualifierMask() const;
-  void AddPayloadFieldQualifier(llvm::StringRef shaderStage, PayloadAccessTypes qualifier);
-  PayloadAccessTypes GetPayloadFieldQualifier(llvm::StringRef shaderStage) const;
+  void AddPayloadFieldQualifier(DXIL::PayloadAccessShaderStage shaderStage, DXIL::PayloadAccessQualifier qualifier);
+  DXIL::PayloadAccessQualifier GetPayloadFieldQualifier(DXIL::PayloadAccessShaderStage shaderStage) const;
   bool HasAnnotations() const;
 
 private:
-  std::string m_FieldName;
   CompType m_CompType;
   unsigned m_bitmask = 0;
 };

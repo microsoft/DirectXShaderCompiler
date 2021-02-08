@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_6 -validator-version 1.6 %s -allow-payload-qualifiers | FileCheck %s
+// RUN: %dxc -T lib_6_6 %s -enable-payload-qualifiers | FileCheck %s
 
 // CHECK: error: field 'x1' is qualified 'read' for shader stage 'miss' but has no valid producer
 // CHECK: error: field 'x2' is qualified 'read' for shader stage 'closesthit' but has no valid producer
@@ -249,6 +249,7 @@
 // CHECK: error: field 'x247' is qualified 'write' for shader stage 'miss' but has no valid consumer
 // CHECK: error: field 'x247' is qualified 'write' for shader stage 'closesthit' but has no valid consumer
 struct [payload] MyPayload {
+int x0 : read();
 int x1 : read(miss);
 int x2 : read(closesthit);
 int x3 : read(miss, closesthit);

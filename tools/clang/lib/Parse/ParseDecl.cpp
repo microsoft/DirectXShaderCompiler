@@ -30,6 +30,7 @@
 #include "dxc/Support/Global.h"       // HLSL Change
 #include "clang/Sema/SemaHLSL.h"      // HLSL Change
 #include "dxc/DXIL/DxilShaderModel.h" // HLSL Change
+#include "dxc/DXIL/DxilConstants.h"   // HLSL Change
 
 using namespace clang;
 
@@ -360,30 +361,52 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
       return false;
     }
 
-    if (NextToken().is(tok::kw_read) || NextToken().is(tok::kw_write)) {
-      hlsl::PayloadAccessQualifier mod;
+    bool identifierIsPayloadAnnotation = false;
+    if (NextToken().is(tok::identifier)) {
+        StringRef identifier = NextToken().getIdentifierInfo()->getName();
+        identifierIsPayloadAnnotation = identifier == "read" || identifier == "write";
+    }
 
-      mod.IsReadable = NextToken().is(tok::kw_read);
-      mod.IsWriteable = NextToken().is(tok::kw_write);
+    if (identifierIsPayloadAnnotation) {
+      hlsl::PayloadAccessAnnotation mod;
 
-      // : in/out ( shader stage *[,shader stage])
+      if (NextToken().getIdentifierInfo()->getName() == "read")
+          mod.qualifier = hlsl::DXIL::PayloadAccessQualifier::Read;
+      else
+          mod.qualifier = hlsl::DXIL::PayloadAccessQualifier::Write;
+
+      // : read/write ( shader stage *[,shader stage])
       ConsumeToken(); // consume the colon.
 
       mod.Loc = Tok.getLocation();
-      ConsumeToken(); // consume the kw_in/kw_out;
+      ConsumeToken(); // consume the read/write identifier
       if (ExpectAndConsume(tok::l_paren, diag::err_expected_lparen_after,
-                           "payload access modifier")) {
+                           "payload access qualifier")) {
         return true;
       }
 
-      do {
-        if (!Tok.is(tok::identifier)) {
-          Diag(Tok.getLocation(), diag::err_expected) << tok::identifier;
-          SkipUntil(tok::r_paren, StopAtSemi); // skip through )
+      while(Tok.is(tok::identifier)) {
+        hlsl::DXIL::PayloadAccessShaderStage stage = hlsl::DXIL::PayloadAccessShaderStage::Invalid;
+        const char *stagePtr = Tok.getIdentifierInfo()->getName().data();
+        StringRef shaderStage(stagePtr);
+        if (shaderStage != "caller" && shaderStage != "anyhit" &&
+            shaderStage != "closesthit" && shaderStage != "miss") {
+          Diag(Tok.getLocation(),
+               diag::err_hlsl_payload_access_qualifier_unsupported_shader)
+              << shaderStage;
           return true;
         }
 
-        const char *stage = Tok.getIdentifierInfo()->getName().data();
+        if (shaderStage == "caller") {
+          stage = hlsl::DXIL::PayloadAccessShaderStage::Caller;
+        } else if (shaderStage == "closesthit") {
+          stage = hlsl::DXIL::PayloadAccessShaderStage::Closesthit;
+        } else if (shaderStage == "miss") {
+          stage = hlsl::DXIL::PayloadAccessShaderStage::Miss;
+        } else if (shaderStage == "anyhit") {
+          stage = hlsl::DXIL::PayloadAccessShaderStage::Anyhit;
+        } 
+
         mod.ShaderStages.push_back(stage);
         ConsumeToken(); // consume shader type
 
@@ -397,7 +420,10 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
         return true;
       }
 
-      target.push_back(new (context) hlsl::PayloadAccessQualifier(mod));
+      if (mod.ShaderStages.empty())
+          mod.qualifier = hlsl::DXIL::PayloadAccessQualifier::NoAccess;
+
+      target.push_back(new (context) hlsl::PayloadAccessAnnotation(mod));
     }else if (NextToken().is(tok::kw_register)) {
       hlsl::RegisterAssignment r;
 
@@ -3830,8 +3856,6 @@ HLSLReservedKeyword:
     case tok::kw_vertices:
     case tok::kw_primitives:
     case tok::kw_payload:
-    case tok::kw_read:
-    case tok::kw_write:
       // Back-compat: 'precise', 'globallycoherent', 'center' and 'sample' are keywords when used as an interpolation
       // modifiers, but in FXC they can also be used an identifiers. If the decl type has already been specified
       // we need to update the token to be handled as an identifier.
@@ -5288,8 +5312,6 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
   case tok::kw_vertices:
   case tok::kw_primitives:
   case tok::kw_payload:
-  case tok::kw_read:
-  case tok::kw_write:
     return true;
   // HLSL Change Ends
 
@@ -6074,8 +6096,6 @@ void Parser::ParseDirectDeclarator(Declarator &D) {
       case tok::kw_vertices:
       case tok::kw_primitives:
       case tok::kw_payload:
-      case tok::kw_read:
-      case tok::kw_write:
         if (tok::isPunctuator(NextToken().getKind()))
           Tok.setKind(tok::identifier);
         break;

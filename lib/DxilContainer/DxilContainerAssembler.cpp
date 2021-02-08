@@ -37,6 +37,7 @@
 #include "dxc/DxilContainer/DxilRuntimeReflection.h"
 #include "dxc/DXIL/DxilCounters.h"
 #include <algorithm>
+#include <deque>
 #include <functional>
 
 using namespace llvm;
@@ -1077,11 +1078,6 @@ public:
   RuntimeDataPartType GetType() const { return RuntimeDataPartType::PayloadFieldTable; }
 };
 
-class PayloadTypeFieldAssociationTable : public RDATTable<RuntimeDataPayloadTypeFieldAssociationInfo> {
-public:
-  RuntimeDataPartType GetType() const { return RuntimeDataPartType::PayloadTypeFieldAssociationTable; }
-};
-
 using namespace DXIL;
 
 class DxilRDATWriter : public DxilPartWriter {
@@ -1394,69 +1390,81 @@ private:
       DataLayout DL(module);
 
       const DxilTypeSystem& DTS = DM.GetTypeSystem();
-      int TypeID = 0;
       int FieldID = 0;
-      for (const auto& entry : DTS.GetPayloadAnnotationMap()) {
-        const StructType* type = entry.first;
-        const auto& annotation = entry.second;
+
+      std::deque<const StructType*> toProcess;
+
+      const auto& PayloadAnnotations = DTS.GetPayloadAnnotationMap();
+
+      // Enforce an order on the payload types to allow to use their 
+      // IDs in structs using these types to declare a member.
+      // Struct types that are used for fields are inserted into 
+      // toProcess at the front while the the using struct type is 
+      // inserted at the back.
+      for (const auto &entry : PayloadAnnotations) {
+        const StructType *type = entry.first;
+        // Check if this type is depenending on another payload type.
+        for (unsigned i = 0; i < type->getNumElements(); ++i) {
+          Type *elementType = type->getElementType(i);
+          if (StructType *elementSType = dyn_cast<StructType>(elementType)) {
+            // This is a struct type, check for payload informations.
+            if (PayloadAnnotations.count(elementSType)) {
+              // This is a payload type.
+              // Enqueue the type at the front to get it processed
+              // earlier then the type holding it as member.
+              toProcess.push_front(elementSType);
+            }
+          }
+        }
+        // Enqueue this type at the end to make sure all dependencies are
+        // processed earlier.
+        toProcess.push_back(type);
+      }
+
+      DenseMap<const StructType*, unsigned> STypeMapping;
+      unsigned StructID = 0;
+      for (const StructType *type : toProcess) {
+        if (STypeMapping.count(type))
+          continue;
+
+        const auto& annotation = PayloadAnnotations.find(type)->second;
 
         RuntimeDataPayloadTypeInfo info; 
-        info.ID = TypeID;
         info.Name = m_pStringBufferPart->Insert(type->getName());
-        m_pPayloadTypeTable->Insert(info);
+        info.NumFields = annotation->GetNumFields();
+        info.FirstFieldID = FieldID;
 
         for (unsigned i = 0; i < annotation->GetNumFields(); ++i) {
             Type* fieldType = type->getElementType(i);
-            uint32_t size = 0;
-            bool fieldIsStructType = false;
-
-            if (fieldType->isAggregateType()) {
-              if (fieldType->isStructTy()) {
-                  size = DL.getTypeAllocSize(fieldType);
-                  fieldIsStructType = true;
-              } else {
-                ArrayType *arrayType = cast<ArrayType>(fieldType);
-                fieldType = arrayType->getElementType();
-                size = arrayType->getNumElements();
-                if (fieldType->isStructTy()) {
-                    size *= DL.getTypeAllocSize(fieldType);
-                    fieldIsStructType = true;
-                }
-              }
-            } else if (fieldType->isVectorTy()) {
-              VectorType *vectorType = cast<VectorType>(fieldType);
-              fieldType = vectorType->getElementType();
-              size = vectorType->getNumElements();
-            }
-            
-            RuntimeDataPayloadFieldInfo fieldInfo; 
-
             const auto& fieldAnnotation = annotation->GetFieldAnnotation(i);
 
-            fieldInfo.ID = FieldID; 
-            fieldInfo.StructTypeName = 0;
-            if (!fieldIsStructType)
-              fieldInfo.Type = static_cast<uint32_t>(
-                  fieldAnnotation.GetCompType().GetKind());
-            else {
-              fieldInfo.Type =
-                  0xffffffffu; // indicates a struct type in the payload
-              fieldInfo.StructTypeName =
-                  m_pStringBufferPart->Insert(cast<StructType>(fieldType)->getName());
+            RuntimeDataPayloadFieldInfo fieldInfo; 
+            // Set the CompType, for structs this is Invalid(0)
+            fieldInfo.CompType =
+                static_cast<uint32_t>(fieldAnnotation.GetCompType().GetKind());
+            // Declare all fields independent at first. 
+            // This means that they carry PAQs on the field itself. 
+            fieldInfo.StructTypeIndex = DXIL::IndependentPayloadFieldType;
+            if (StructType* fieldSType = dyn_cast<StructType>(fieldType)) {
+              // For other payload types store the index of the type.
+              if (PayloadAnnotations.count(fieldSType)){
+                assert(STypeMapping.count(fieldSType));
+                // This fields don't carry PAQs and they are dependent on the
+                // used payload type. Update the type to an index into the 
+                // payload segment to allow the runtime to verify also this 
+                // field.
+                fieldInfo.StructTypeIndex = STypeMapping[fieldSType];
+              }
             }
-            fieldInfo.Size = size;
-            fieldInfo.PayloadAccessQualifier = fieldAnnotation.GetPayloadFieldQualifierMask();
+            fieldInfo.Size = DL.getTypeAllocSize(fieldType);;
+            fieldInfo.PayloadAccessQualifiers = fieldAnnotation.GetPayloadFieldQualifierMask();
             
             m_pPayloadFieldTable->Insert(fieldInfo);
-
-            RuntimeDataPayloadTypeFieldAssociationInfo association; 
-            association.TypeIndex = TypeID; 
-            association.FieldIndex = FieldID; 
-
-            m_pPayloadTypeFieldAssociationTable->Insert(association);
             FieldID++;
         }
-        TypeID++;
+        STypeMapping[type] = StructID;
+        m_pPayloadTypeTable->Insert(info);
+        StructID++;
       }
   }
 
@@ -1472,7 +1480,6 @@ private:
     ADD_PART(SubobjectTable);
     ADD_PART(PayloadTypeTable);
     ADD_PART(PayloadFieldTable);
-    ADD_PART(PayloadTypeFieldAssociationTable);
 #undef ADD_PART
   }
 
@@ -1484,7 +1491,6 @@ private:
   SubobjectTable *m_pSubobjectTable;
   PayloadTypeTable *m_pPayloadTypeTable;
   PayloadFieldTable *m_pPayloadFieldTable;
-  PayloadTypeFieldAssociationTable *m_pPayloadTypeFieldAssociationTable;
   
 public:
   DxilRDATWriter(const DxilModule &mod)

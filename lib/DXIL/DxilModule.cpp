@@ -1453,14 +1453,8 @@ void DxilModule::EmitDxilMetadata() {
   // The front-end has checked if the payload access qualifiers are valid for this target
   // and DXIL version. We double check and also check the validator version. 
   if (m_pSM->IsLib()) {
-    const bool validatorSupported =
-        DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 5) >= 0;
-    const bool shaderModelSupported =
-        DXIL::CompareVersions(m_pSM->GetMajor(), m_pSM->GetMinor(), 6, 5) >= 0;
-    const bool dxilVersionSupported =
-        DXIL::CompareVersions(m_DxilMajor, m_DxilMinor, 1, 5) >= 0;
-    if (validatorSupported && shaderModelSupported && dxilVersionSupported) {
-      m_pMDHelper->EmitDxrPayloadAnnotations(GetTypeSystem(), m_LLVMUsed);
+    if (DXIL::CompareVersions(m_pSM->GetMajor(), m_pSM->GetMinor(), 6, 5) >= 0) {
+      m_pMDHelper->EmitDxrPayloadAnnotations(GetTypeSystem());
     }
   }
 

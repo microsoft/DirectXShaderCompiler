@@ -10,13 +10,13 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-
 #include "dxc/Support/Global.h"
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/DXIL/DxilSubobject.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DxilContainer/DxilRuntimeReflection.h"
+#include "llvm/Support/CommandLine.h"
 
 // DxilRuntimeReflection implementation
 #include "dxc/DxilContainer/DxilRuntimeReflection.inl"
@@ -26,6 +26,15 @@
 #include <iterator>
 #include <string>
 #include <vector>
+#include <windows.h>
+#include "llvm/Support/MSFileSystem.h"
+
+using namespace llvm;
+
+cl::opt<std::string> InputFile("f", cl::desc("Specify input dxil filename"), cl::value_desc("filename"));
+cl::opt<std::string> InputVerificationFile("d", cl::desc("Specify input verification filename"), cl::value_desc("filename"));
+cl::opt<bool> Verbose("v", cl::desc("Enables verbose prints"), cl::Hidden);
+
 
 std::vector<std::vector<char>> partsData;
 std::vector<std::pair<const void *, size_t>> parts;
@@ -52,84 +61,89 @@ static bool PayloadRDATIsEqual(const DxilLibraryDesc &a,
   return true;
 }
 
-static void DiagnoseFailures(const DxilLibraryDesc &a,
-                             const DxilLibraryDesc &b) {
+static void DiagnoseFailures(const DxilPayloadMismatchDetail &errorDetails,
+                             const DxilLibraryDesc &gold,
+                             const DxilLibraryDesc &toVerify) {
   // Check if equal named payloads exist, payloads with different names
   // are considered different types.
 
-  std::vector<std::wstring> matched;
-
-  if (a.NumPayloads != b.NumPayloads)
-    std::wcerr << "Error: the number of payload types does not match\n";
-
-  for (uint32_t i = 0; i != a.NumPayloads; ++i) {
-    DxilPayloadTypeDesc &payloadA = a.pPayloads[i];
-
-    for (uint32_t j = 0; j != b.NumPayloads; ++j) {
-      DxilPayloadTypeDesc &payloadB = b.pPayloads[j];
-      bool hasErrors = false;
-      if (lstrcmpW(payloadA.TypeName, payloadB.TypeName) == 0) {
-        // Matching type names, these two payloads need deep verification.
-        // For each payload pair that has equal names, check that fields match
-        // and payload annotations are uniform in both types.
-        if (payloadA.NumFields != payloadB.NumFields) {
-          std::wcerr << "Error: number of payload fields mismatch for type: '"
-                    << payloadA.TypeName << "' which has "
-                    << payloadA.NumFields << " but " << payloadB.NumFields
-                    << " were expected\n";
-          hasErrors = true;
-        } else {
-          for (uint32_t k = 0; k != payloadA.NumFields; ++k) {
-            DxilPayloadFieldDesc &fieldA = payloadA.pFields[k];
-            DxilPayloadFieldDesc &fieldB = payloadB.pFields[k];
-
-            if (fieldA.Type == fieldB.Type && fieldA.Size == fieldB.Size &&
-                fieldA.PayloadAccessQualifier == fieldB.PayloadAccessQualifier &&
-                std::wstring(fieldA.StructName) == std::wstring(fieldB.StructName))
-              continue;
-
-            hasErrors = true;
-            if (std::wstring(fieldA.StructName) != std::wstring(fieldB.StructName)) {
-              std::wcerr << "Error: type mismatch in type '"
-                         << payloadA.TypeName << "' for field '" << k
-                         << "' expected '" << fieldA.StructName << "' but got '"
-                         << fieldB.StructName << "'\n";
-            }            
-            if (fieldA.Type != fieldB.Type) {
-              std::wcerr << "Error: type mismatch in type '"
-                         << payloadA.TypeName << "' for field '" << k << "'\n";
-            }
-            if (fieldA.Size != fieldB.Size) {
-              std::wcerr << "Error: size mismatch in type '"
-                         << payloadA.TypeName << "' for field '" << k << "'\n";
-            }
-            if (fieldA.PayloadAccessQualifier !=
-                fieldB.PayloadAccessQualifier) {
-              std::wcerr << "Error: payload access modifier mismatch in type '"
-                         << payloadA.TypeName << "' for field '" << k << "'\n";
-            }
+  // TODO: improve error reporting
+ using ErrorType =  DxilPayloadMismatchDetail::ErrorType;
+  switch(errorDetails.errorType) { 
+      case ErrorType::PayloadCountMismatch: 
+          std::wcerr << "The number of payloads mismatch between the two sets. "
+                     << "Expected: "
+                     << gold.NumPayloads 
+                     << " Got: " 
+                     << toVerify.NumPayloads
+                     << std::endl;
+          break;
+      case ErrorType::IncompletePayloadMatch: 
+          std::wcerr << "Not all payload types match." << std::endl;
+          break;
+      case ErrorType::FieldCountMismatch: 
+          std::wcerr << "Payload "
+                     << std::wstring(gold.pPayloads[errorDetails.payloadIdxB].TypeName)
+                     << " has different number of fields. Expected: "
+                     << gold.pPayloads[errorDetails.payloadIdxB].NumFields
+                     << " Got: "
+                     << toVerify.pPayloads[errorDetails.payloadIdxA].NumFields
+                     << std::endl;
+          break;
+      case ErrorType::FieldMismatch: 
+          auto GoldDesc = gold.pPayloads[errorDetails.payloadIdxB].pFields[errorDetails.fieldIdx];
+          auto GotDesc = toVerify.pPayloads[errorDetails.payloadIdxA].pFields[errorDetails.fieldIdx];
+          std::wstring goldType;
+          std::wstring gotType;
+          if (GoldDesc.StructTypeIndex != DXIL::IndependentPayloadFieldType) {
+            auto goldTypeIndex = gold.pPayloads[errorDetails.payloadIdxB]
+                                     .pFields[errorDetails.fieldIdx]
+                                     .StructTypeIndex;
+            auto gotTypeIndex = toVerify.pPayloads[errorDetails.payloadIdxA]
+                                    .pFields[errorDetails.fieldIdx]
+                                    .StructTypeIndex;
+            goldType = gold.pPayloads[goldTypeIndex].TypeName;
+            gotType = toVerify.pPayloads[gotTypeIndex].TypeName;
           }
-        }
-        if (!hasErrors)
-            matched.push_back(payloadA.TypeName);
-        break;
-      }
-    }
+          std::wcerr << "Field "<< errorDetails.fieldIdx <<" mismatched in payload "<< std::wstring(gold.pPayloads[errorDetails.payloadIdxB].TypeName) <<"!" << std::endl;
+          std::wcerr << "Expected:" << std::endl
+            << (goldType.empty() ? L" Type: " + std::to_wstring(GoldDesc.Type) : L" Type: " + goldType)
+            << " Size: " << GoldDesc.Size
+            << " PAQ: " << GoldDesc.PayloadAccessQualifiers
+            << "\n";        
+          std::wcerr << "Got:" << std::endl
+            << (gotType.empty() ? L" Type: " + std::to_wstring(GotDesc.Type) : L" Type: " + gotType)
+            << " Size: " << GotDesc.Size
+            << " PAQ: " << GotDesc.PayloadAccessQualifiers
+            << "\n";
+          break;      
   }
-  
-  for (uint32_t j = 0; j != b.NumPayloads; ++j) {
-    DxilPayloadTypeDesc &payloadB = b.pPayloads[j];
-    if (std::find(matched.begin(), matched.end(),
-                  std::wstring(payloadB.TypeName)) == matched.end()) {
-      std::wcerr
-          << "Error: " << payloadB.TypeName
-          << " could not be matched because it is missing or contains errors\n";
-    }
-  }
-
 }
 
-enum class VerificationResult { Ok, Failur, OkNeedsAppend };
+enum class VerificationResult { Ok, Failure };
+
+static void PrintDxilLibraryDesc(const DxilLibraryDesc &desc) {
+  if (!Verbose)
+      return;
+
+  std::wcout << "DxilLibraryDesc contains " << desc.NumPayloads << " payloads:\n";
+
+  for (unsigned i = 0; i < desc.NumPayloads; ++i) {
+    auto PayloadDesc = desc.pPayloads[i];
+    std::wcout << "Payload " << i << " " << std::wstring(PayloadDesc.TypeName)
+               << " contains " << PayloadDesc.NumFields << " fields:\n";
+    for (unsigned j = 0; j < PayloadDesc.NumFields; ++j) {
+      auto FieldDesc = PayloadDesc.pFields[j];
+      std::wcout << "\t"
+                 << "Field " << j << " Type: " << FieldDesc.Type
+                 << " Size: " << FieldDesc.Size
+                 << " StructTypeIndex: " << FieldDesc.StructTypeIndex
+                 << " PAQ: " << FieldDesc.PayloadAccessQualifiers
+                 << "\n";
+    }
+  }
+}
+
 
 static VerificationResult VerifyPayloadMatches(_In_reads_bytes_(RDATSize)
                                                    const void *pRDATData,
@@ -141,14 +155,17 @@ static VerificationResult VerifyPayloadMatches(_In_reads_bytes_(RDATSize)
   if (!inputReflection->InitFromRDAT(pRDATData, RDATSize)) {
     std::cerr << "Fatal: failed to initialze reflection data! Invalid DXIL "
                  "Container?\n";
-    return VerificationResult::Failur;
+    return VerificationResult::Failure;
   }
 
   if (isFirstRun) {
-    return VerificationResult::OkNeedsAppend;
+    // We verified that we can load the RDAT part of the container.
+    return VerificationResult::Ok;
   }
 
-  const DxilLibraryDesc &descA = inputReflection->GetLibraryReflection();
+  const DxilLibraryDesc &toVerify = inputReflection->GetLibraryReflection();
+  PrintDxilLibraryDesc(toVerify);
+
   bool verificationSucceeded = true;
   for (auto &pair : parts) {
     RDAT::DxilRuntimeReflection *dumpReflection =
@@ -156,23 +173,20 @@ static VerificationResult VerifyPayloadMatches(_In_reads_bytes_(RDATSize)
     if (!dumpReflection->InitFromRDAT(pair.first, pair.second)) {
       std::cerr << "Fatal: failed to initialze reflection data! Invalid DXIL "
                    "Container?\n";
-      return VerificationResult::Failur;
+      return VerificationResult::Failure;
     }
-    const DxilLibraryDesc &descB = dumpReflection->GetLibraryReflection();
+    const DxilLibraryDesc &gold = dumpReflection->GetLibraryReflection();
+    PrintDxilLibraryDesc(gold);
+
+    DxilPayloadMismatchDetail errorDetails;
 
     // Verify if payload definitions match.
-    verificationSucceeded &= VerifyDxilPayloadDescMatches(descA, descB);
+    verificationSucceeded &= VerifyDxilPayloadDescMatches(gold, toVerify, &errorDetails);
     if (!verificationSucceeded) {
-      result = VerificationResult::Failur;
+      result = VerificationResult::Failure;
       // Print an error to the user.
-      DiagnoseFailures(descA, descB);
+      DiagnoseFailures(errorDetails, gold, toVerify);
       break;
-    } else {
-      // Payload structs are matching. Check if we need to
-      // append the RDAT for next verifcation to the dump.
-      if (!PayloadRDATIsEqual(descA, descB)) {
-        result = VerificationResult::OkNeedsAppend;
-      }
     }
   }
 
@@ -182,7 +196,7 @@ static VerificationResult VerifyPayloadMatches(_In_reads_bytes_(RDATSize)
 static bool ValidateDxilRDAT(const DxilContainerHeader *pContainer,
                              uint32_t ContainerSize) {
 
-  VerificationResult result = VerificationResult::Failur;
+  VerificationResult result = VerificationResult::Failure;
 
   for (auto it = begin(pContainer), itEnd = end(pContainer); it != itEnd;
        ++it) {
@@ -190,11 +204,8 @@ static bool ValidateDxilRDAT(const DxilContainerHeader *pContainer,
     switch (pPart->PartFourCC) {
     // Only care about RDAT and skip all other parts.
     case DFCC_RuntimeData: {
-
       result = VerifyPayloadMatches(GetDxilPartData(pPart), pPart->PartSize);
-      if (result == VerificationResult::OkNeedsAppend) {
-        // If validation has succeeded append the RDAT part to the dump file
-        // for next invocation.
+      if (result == VerificationResult::Ok && isFirstRun) {
         parts.emplace_back(GetDxilPartData(pPart), pPart->PartSize);
       }
       break;
@@ -204,7 +215,7 @@ static bool ValidateDxilRDAT(const DxilContainerHeader *pContainer,
     }
   }
 
-  return result != VerificationResult::Failur;
+  return result != VerificationResult::Failure;
 }
 
 static void printUsage() {
@@ -213,36 +224,15 @@ static void printUsage() {
 }
 
 int main(int argc, char *argv[]) {
-
   if (argc < 3) {
     printUsage();
     return 1;
   }
 
-  std::string inputName;
-  std::string dumpName;
+  cl::ParseCommandLineOptions(argc, argv);
 
-  for (int i = 1; i < argc; ++i) {
-    if (std::string(argv[i]) == "-f") {
-      if (i + 1 >= argc) {
-        printUsage();
-        return 2;
-      }
-      inputName = argv[i + 1];
-      ++i;
-      continue;
-    }
-    if (std::string(argv[i]) == "-d") {
-      if (i + 1 >= argc) {
-        printUsage();
-        return 2;
-      }
-      dumpName = argv[i + 1];
-      ++i;
-      continue;
-    }
-  }
-
+  std::string inputName = InputFile;
+  std::string dumpName  = InputVerificationFile;
   isFirstRun = dumpName.empty();
 
   std::ifstream input(inputName, std::ios::binary);
@@ -253,6 +243,7 @@ int main(int argc, char *argv[]) {
     std::ifstream dump(dumpName, std::ios::binary);
     if (dump.peek() == std::ifstream::traits_type::eof()) {
       std::cout << "Warning: " << dumpName << " does not contain data!\n";
+      std::cout << "         " <<"creating new verification file from input data!\n";
     } else {
       // Load the content of the dump file.
       do {
@@ -272,6 +263,11 @@ int main(int argc, char *argv[]) {
     // Falling back to just create a new dump file.
     if (parts.empty())
       isFirstRun = true;
+  }
+
+  if (buffer.empty()) {
+    std::cerr << "Input file not found!\n";
+    return -1;
   }
 
   const DxilContainerHeader *pContainer =

@@ -1,12 +1,12 @@
-// RUN: %dxc -T lib_6_6 main %s -allow-payload-qualifiers | FileCheck %s
+// RUN: %dxc -T lib_6_6 main %s -enable-payload-qualifiers | FileCheck %s
 
-// CHECK: field 'a' is not modifiable because it is not qualified 'write' for shader stage 'closesthit'
-// CHECK: field 'b' is not readable because it is not qualified 'read' for shader stage 'closesthit'
-// CHECK: field 'arr' is not readable because it is not qualified 'read' for shader stage 'closesthit'
-// CHECK: field 'arr2' is not modifiable because it is not qualified 'write' for shader stage 'closesthit'
+// CHECK: error: field 'a' is not modifiable because it is not qualified 'write' for shader stage 'closesthit'
+// CHECK: error: field 'b' is not readable because it is not qualified 'read' for shader stage 'closesthit'
+// CHECK: error: field 'arr' is not readable because it is not qualified 'read' for shader stage 'closesthit'
+// CHECK: error: field 'arr2' is not modifiable because it is not qualified 'write' for shader stage 'closesthit'
 
-// CHECK: field 'a' is not modifiable in function 'bar'. 'bar' is called from shader stage 'closesthit' but 'a' is not qualified 'write' for this stage
-// CHECK: field 'b' is not modifiable in function 'bar'. 'bar' is called from shader stage 'miss' but 'b' is not qualified 'write' for this stage
+// CHECK: error: field 'a' is written in function 'bar', but is not qualified 'write' for shader stage 'closesthit'
+// CHECK: error: field 'b' is written in function 'bar', but is not qualified 'write' for shader stage 'miss'
 
 
 struct [payload] Payload

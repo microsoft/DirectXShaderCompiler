@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_6 %s -allow-payload-qualifiers | FileCheck %s
+// RUN: %dxc -T lib_6_6 %s -enable-payload-qualifiers | FileCheck %s
 
 // CHECK: warning: passing a qualified payload to an extern function can cause undefined behavior if payload qualifiers mismatch
 // CHECK: error: passing a pure 'read' payload to an extern function as 'out' parameter

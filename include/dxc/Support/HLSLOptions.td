@@ -277,7 +277,7 @@ def enable_lifetime_markers : Flag<["-", "/"], "enable-lifetime-markers">, Group
   HelpText<"Enable generation of lifetime markers">;
 def disable_lifetime_markers : Flag<["-", "/"], "disable-lifetime-markers">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Disable generation of lifetime markers where they would be otherwise (6.6+)">;
-def allow_payload_qualifiers : Flag<["-", "/"], "allow-payload-qualifiers">, Group<hlslcomp_Group>, Flags<[CoreOption, RewriteOption, DriverOption]>,
+def enable_payload_qualifiers : Flag<["-", "/"], "enable-payload-qualifiers">, Group<hlslcomp_Group>, Flags<[CoreOption, RewriteOption, DriverOption]>,
   HelpText<"Enables support for payload access qualifiers for raytracing payloads in SM 6.6.">;
 def disable_payload_qualifiers : Flag<["-", "/"], "disable-payload-qualifiers">, Group<hlslcomp_Group>, Flags<[CoreOption, RewriteOption, DriverOption]>,
   HelpText<"Disables support for payload access qualifiers for raytracing payloads in SM 6.7.">;

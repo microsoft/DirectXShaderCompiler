@@ -7556,9 +7556,9 @@ def err_hlsl_field_not_modifieable_because_payload_qualified_read : Error<
 def err_hlsl_field_not_readable_because_payload_qualified_write : Error<
   "field '%0' is not readable because it is not qualified 'read' for shader stage '%1'">;
 def err_hlsl_field_not_modifieable_in_function_because_payload_qualified_read : Error<
-  "field '%0' is not modifiable in function '%1'. '%1' is called from shader stage '%2' but '%0' is not qualified 'write' for this stage">;
+  "field '%0' is written in function '%1', but is not qualified 'write' for shader stage '%2'">;
 def err_hlsl_field_not_readable_in_function_because_payload_qualified_write : Error<
-  "field '%0' is not readable in function '%1'. '%1' is called from shader stage '%2' but '%0' is not qualified 'read' for this stage">;
+  "field '%0' is read in function '%1', but is not qualified 'read' for for shader stage '%2'">;
 def warn_qualified_payload_passed_to_extern_function : Warning<
   "passing a qualified payload to an extern function can cause undefined behavior if payload qualifiers mismatch">;
 def err_qualified_payload_passed_to_incompatible_extern_function : Error<
@@ -7572,7 +7572,7 @@ def err_payload_fields_not_qualified : Error<
 def err_payload_fields_is_payload_and_overqualified : Error<
   "payload field '%0' is a payload struct. Payload access qualifies are not allowed on payload types.">;
 def warn_hlsl_payload_qualifer_dropped : Warning<
-  "payload access qualifieres are only support for target lib_6_6 and beyond. You can opt-in for lib_6_6 with the -allow-payload-qualifiers flag. Qualifiers will be dropped.">, InGroup<HLSLPayloadAccessQualifer>;
+  "payload access qualifieres are only supported for target lib_6_6 and beyond. You can opt-in for lib_6_6 with the -enable-payload-qualifiers flag. Qualifiers will be dropped.">, InGroup<HLSLPayloadAccessQualifer>;
 def err_hlsl_unsupported_builtin_op: Error<
   "operator cannot be used with built-in type %0">;
 def err_hlsl_unsupported_char_literal : Error<

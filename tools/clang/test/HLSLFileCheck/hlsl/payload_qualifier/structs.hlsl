@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_6 -validator-version 1.6 %s -allow-payload-qualifiers | FileCheck %s
+// RUN: %dxc -T lib_6_6 %s -enable-payload-qualifiers | FileCheck %s
 
 // CHECK: error: payload field 's1' has no payload access qualifies.
 // CHECK: error: payload field 'p3' is a payload struct. Payload access qualifies are not allowed on payload types.

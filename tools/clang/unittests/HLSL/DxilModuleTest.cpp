@@ -582,7 +582,7 @@ TEST_F(DxilModuleTest, SetValidatorVersion) {
 }
 
 TEST_F(DxilModuleTest, PayloadQualifier) {
-  std::vector<LPCWSTR> arguments = { L"-validator-version", L"1.6", L"-allow-payload-qualifiers" };
+  std::vector<LPCWSTR> arguments = { L"-enable-payload-qualifiers" };
   Compiler c(m_dllSupport);
 
   LPCSTR shader = "struct [payload] Payload\n"
@@ -595,7 +595,7 @@ TEST_F(DxilModuleTest, PayloadQualifier) {
   c.Compile(shader, L"lib_6_6", arguments, {});
 
   DxilModule &DM = c.GetDxilModule();
-  const DxilTypeSystem& DTS = DM.GetTypeSystem();
+  const DxilTypeSystem &DTS = DM.GetTypeSystem();
 
   for (auto &p : DTS.GetPayloadAnnotationMap()) {
     const DxilPayloadAnnotation &plAnnotation = *p.second;
@@ -603,18 +603,18 @@ TEST_F(DxilModuleTest, PayloadQualifier) {
       const DxilPayloadFieldAnnotation &fieldAnnotation =
           plAnnotation.GetFieldAnnotation(i);
       VERIFY_IS_TRUE(fieldAnnotation.HasAnnotations());
-      VERIFY_ARE_EQUAL(
-          PayloadAccessTypes::ReadWrite,
-          fieldAnnotation.GetPayloadFieldQualifier("caller"));
-      VERIFY_ARE_EQUAL(
-          PayloadAccessTypes::ReadWrite,
-          fieldAnnotation.GetPayloadFieldQualifier("closesthit"));
-      VERIFY_ARE_EQUAL(
-          PayloadAccessTypes::Write,
-          fieldAnnotation.GetPayloadFieldQualifier("miss"));
-      VERIFY_ARE_EQUAL(
-          PayloadAccessTypes::Read,
-          fieldAnnotation.GetPayloadFieldQualifier("anyhit"));
+      VERIFY_ARE_EQUAL(DXIL::PayloadAccessQualifier::ReadWrite,
+                       fieldAnnotation.GetPayloadFieldQualifier(
+                           DXIL::PayloadAccessShaderStage::Caller));
+      VERIFY_ARE_EQUAL(DXIL::PayloadAccessQualifier::ReadWrite,
+                       fieldAnnotation.GetPayloadFieldQualifier(
+                           DXIL::PayloadAccessShaderStage::Closesthit));
+      VERIFY_ARE_EQUAL(DXIL::PayloadAccessQualifier::Write,
+                       fieldAnnotation.GetPayloadFieldQualifier(
+                           DXIL::PayloadAccessShaderStage::Miss));
+      VERIFY_ARE_EQUAL(DXIL::PayloadAccessQualifier::Read,
+                       fieldAnnotation.GetPayloadFieldQualifier(
+                           DXIL::PayloadAccessShaderStage::Anyhit));
     }
   }
 }

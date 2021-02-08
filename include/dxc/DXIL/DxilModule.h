@@ -203,8 +203,6 @@ public:
   void ResetOP(hlsl::OP *hlslOP);
   void ResetEntryPropsMap(DxilEntryPropsMap &&PropMap);
 
-  void InferInformationFromTypeSystem();
-
   bool StripReflection();
   void StripDebugRelatedCode();
 

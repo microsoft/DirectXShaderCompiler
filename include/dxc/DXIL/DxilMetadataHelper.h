@@ -221,8 +221,7 @@ public:
 
   // DXR Payload Annotations
   static const unsigned kDxilPayloadAnnotationStructTag           = 0;
-  static const unsigned kDxilPayloadFieldAnnotationFieldTypeTag   = 0;
-  static const unsigned kDxilPayloadFieldAnnotationAccessTag      = 1;
+  static const unsigned kDxilPayloadFieldAnnotationAccessTag      = 0;
 
   // StructAnnotation extended property tags (DXIL 1.5+ only, appended)
   static const unsigned kDxilTemplateArgumentsTag                 = 0;  // Name for name-value list of extended struct properties
@@ -426,12 +425,12 @@ public:
   void LoadDxilTemplateArgAnnotation(const llvm::MDOperand &MDO, DxilTemplateArgAnnotation &annotation);
 
   // DXR Payload Annotations 
-  void EmitDxrPayloadAnnotations(DxilTypeSystem &TypeSystem, std::vector<llvm::GlobalVariable *> &LLVMUsed);
+  void EmitDxrPayloadAnnotations(DxilTypeSystem &TypeSystem);
   llvm::Metadata *EmitDxrPayloadStructAnnotation(const DxilPayloadAnnotation& SA);
   llvm::Metadata *EmitDxrPayloadFieldAnnotation(const DxilPayloadFieldAnnotation &FA, llvm::Type* fieldType);
   void LoadDXRPayloadAnnotationNode(const llvm::MDTuple &MDT, DxilTypeSystem &TypeSystem);
   void LoadDXRPayloadAnnotations(DxilTypeSystem &TypeSystem);
-  void LoadDXRPayloadFiledAnnoation(const llvm::MDOperand& MDO, DxilPayloadAnnotation& SA);
+  void LoadDXRPayloadFieldAnnoations(const llvm::MDOperand& MDO, DxilPayloadAnnotation& SA);
 
   // Function props.
   llvm::MDTuple *EmitDxilFunctionProps(const hlsl::DxilFunctionProps *props,

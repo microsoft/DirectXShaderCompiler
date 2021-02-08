@@ -1,5 +1,5 @@
-// RUN: %dxc -T lib_6_6 -validator-version 1.6 %s -allow-payload-qualifiers -D TEST_NUM=0 %s | FileCheck -check-prefix=CHK0 %s
-// RUN: %dxc -T lib_6_6 -validator-version 1.6 %s -allow-payload-qualifiers -D TEST_NUM=1 %s | FileCheck -check-prefix=CHK1 %s
+// RUN: %dxc -T lib_6_6 %s -enable-payload-qualifiers -D TEST_NUM=0 %s | FileCheck -check-prefix=CHK0 %s
+// RUN: %dxc -T lib_6_6 %s -enable-payload-qualifiers -D TEST_NUM=1 %s | FileCheck -check-prefix=CHK1 %s
 
 // CHK0: error: type 'Payload' used as payload requires that it is annotated with the [payload] attribute
 // CHK1: error: type 'Payload' used as payload requires that it is annotated with the [payload] attribute

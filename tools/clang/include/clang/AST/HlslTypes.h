@@ -245,21 +245,19 @@ struct RegisterAssignment : public UnusualAnnotation
 };
 
 // <summary>Use this structure to capture a ': in/out' definiton.</summary>
-struct PayloadAccessQualifier : public UnusualAnnotation {
-  /// <summary>Initializes a new PayloadAccessQualifier in invalid state.</summary>
-  PayloadAccessQualifier() : UnusualAnnotation(UA_PayloadAccessQualifier){};
+struct PayloadAccessAnnotation: public UnusualAnnotation {
+  /// <summary>Initializes a new PayloadAccessAnnotation in invalid state.</summary>
+  PayloadAccessAnnotation() : UnusualAnnotation(UA_PayloadAccessQualifier){};
 
-  bool IsValid = false;
-
-  bool IsReadable = false;
-  bool IsWriteable = false;
-
-  llvm::SmallVector<llvm::StringRef, 3> ShaderStages;
+  DXIL::PayloadAccessQualifier qualifier = DXIL::PayloadAccessQualifier::NoAccess;
+  
+  llvm::SmallVector<DXIL::PayloadAccessShaderStage, 4> ShaderStages;
 
   static bool classof(const UnusualAnnotation *UA) {
     return UA->getKind() == UA_PayloadAccessQualifier;
   }
 };
+
 
 /// <summary>Use this structure to capture a ': packoffset' definition.</summary>
 struct ConstantPacking : public UnusualAnnotation

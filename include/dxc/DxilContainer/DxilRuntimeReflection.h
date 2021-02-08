@@ -31,16 +31,15 @@ namespace RDAT {
 //      uint32_t IndexData[part.Size / 4];
 
 enum class RuntimeDataPartType : uint32_t {
-  Invalid                          = 0,
-  StringBuffer                     = 1,
-  IndexArrays                      = 2,
-  ResourceTable                    = 3,
-  FunctionTable                    = 4,
-  RawBytes                         = 5,
-  SubobjectTable                   = 6,
-  PayloadTypeTable                 = 7,
-  PayloadFieldTable                = 8,
-  PayloadTypeFieldAssociationTable = 9,
+  Invalid           = 0,
+  StringBuffer      = 1,
+  IndexArrays       = 2,
+  ResourceTable     = 3,
+  FunctionTable     = 4,
+  RawBytes          = 5,
+  SubobjectTable    = 6,
+  PayloadTypeTable  = 7,
+  PayloadFieldTable = 8,
 };
 
 enum RuntimeDataVersion {
@@ -241,21 +240,16 @@ struct RuntimeDataSubobjectInfo {
 };
 
 struct RuntimeDataPayloadTypeInfo {
-    uint32_t ID;                     // identifier to associate types with fields
     uint32_t Name;                   // ofset for string table holding the payload type name
+    uint32_t NumFields;              // number of fields in the struct
+    uint32_t FirstFieldID;           // index of the first field of the struct in PayloadFieldTable
 };
 
 struct RuntimeDataPayloadFieldInfo {
-    uint32_t ID;                     // identifier to associate fields with types
-    uint32_t Type;                   // CompType of the field
-    uint32_t Size;                   // Size is 0 for scalars, the number of elements/values for vectors/arrays. For structs it holds the actual size. 
-    uint32_t StructTypeName;         // ofset for string table holding the name of a struct type
-    uint32_t PayloadAccessQualifier; // bitfield containing the payload access qualifiers
-};
-
-struct RuntimeDataPayloadTypeFieldAssociationInfo {
-    uint32_t TypeIndex;              // index into payload type table
-    uint32_t FieldIndex;             // index into payload field table
+    uint32_t CompType;                // CompType of the field
+    uint32_t Size;                    // Size is 0 for scalars, the number of elements/values for vectors/arrays. For structs it holds the actual size. 
+    uint32_t StructTypeIndex;         // If the field is a of struct type, offset into the string table to the struct name
+    uint32_t PayloadAccessQualifiers; // Bitfield containing the payload access qualifiers, 0 if [payload] annotated struct
 };
 
 class ResourceTableReader;
@@ -263,7 +257,6 @@ class FunctionTableReader;
 class SubobjectTableReader;
 class PayloadTypeTableReader;
 class PayloadFieldTableReader;
-class PayloadTypeFieldAssociationTableReader;
 
 struct RuntimeDataContext {
   StringTableReader *pStringTableReader;
@@ -274,7 +267,6 @@ struct RuntimeDataContext {
   SubobjectTableReader *pSubobjectTableReader;
   PayloadTypeTableReader *pPayloadTypeTableReader;
   PayloadFieldTableReader *pPayloadFieldTableReader;
-  PayloadTypeFieldAssociationTableReader *pPayloadTypeFieldAssociationTableReader;
 };
 
 class ResourceReader {
@@ -630,8 +622,11 @@ public:
                : "";
   }
 
-  uint32_t GetTypeId() const {
-    return m_TypeInfo ? m_TypeInfo->ID : 0;
+  uint32_t GetNumFields() const {
+    return m_TypeInfo ? m_TypeInfo->NumFields : 0;
+  }  
+  uint32_t GetFirstFieldId() const {
+    return m_TypeInfo ? m_TypeInfo->FirstFieldID : 0;
   }
 };
 
@@ -667,22 +662,16 @@ public:
     return m_FieldInfo ? m_FieldInfo->Size : 0;
   }  
   
-  uint32_t GetType() const {
-    return m_FieldInfo ? m_FieldInfo->Type : 0;
+  uint32_t GetCompType() const {
+    return m_FieldInfo ? m_FieldInfo->CompType : 0;
   }  
   
-  uint32_t GetFieldId() const {
-    return m_FieldInfo ? m_FieldInfo->ID : 0;
-  }  
-  
-  uint32_t GetPayloadAccessQualifier() const {
-    return m_FieldInfo ? m_FieldInfo->PayloadAccessQualifier : 0;
+  uint32_t GetPayloadAccessQualifiers() const {
+    return m_FieldInfo ? m_FieldInfo->PayloadAccessQualifiers : 0;
   }
 
-  const char *GetStructTypeName() const {
-    return m_FieldInfo && m_FieldInfo->StructTypeName
-               ? m_Context->pStringTableReader->Get(m_FieldInfo->StructTypeName)
-               : "";
+  uint32_t GetStructTypeIndex() const {
+    return m_FieldInfo ? m_FieldInfo->StructTypeIndex : 0;
   }
 };
 
@@ -705,41 +694,6 @@ public:
   }
 };
 
-class PayloadTypeFieldAssociationReader{
-private:
-  const RuntimeDataPayloadTypeFieldAssociationInfo *m_AssociationInfo;
-
-public:
-  PayloadTypeFieldAssociationReader(const RuntimeDataPayloadTypeFieldAssociationInfo *info, RuntimeDataContext *context)
-    : m_AssociationInfo(info) {}
-
-  uint32_t GetTypeId() const {
-    return m_AssociationInfo ? m_AssociationInfo->TypeIndex : 0;
-  }  
-
-  uint32_t GetFieldId() const {
-    return m_AssociationInfo ? m_AssociationInfo->FieldIndex : 0;
-  }  
-};
-
-class PayloadTypeFieldAssociationTableReader {
-private:
-  TableReader m_Table;
-  RuntimeDataContext *m_Context;
-
-public:
-  PayloadTypeFieldAssociationTableReader() : m_Context(nullptr) {}
-
-  void SetContext(RuntimeDataContext *context) { m_Context = context; }
-  void SetPayloadFieldAssociationInfo(const char *ptr, uint32_t count, uint32_t recordStride) {
-    m_Table.Init(ptr, count, recordStride);
-  }
-
-  uint32_t GetCount() const { return m_Table.Count(); }
-  PayloadTypeFieldAssociationReader GetItem(uint32_t i) const {
-    return PayloadTypeFieldAssociationReader(m_Table.Row<RuntimeDataPayloadTypeFieldAssociationInfo>(i), m_Context);
-  }
-};
 
 class DxilRuntimeData {
 private:
@@ -751,7 +705,6 @@ private:
   SubobjectTableReader m_SubobjectTableReader;
   PayloadTypeTableReader m_PayloadTypeTableReader;
   PayloadFieldTableReader m_PayloadFieldTableReader;
-  PayloadTypeFieldAssociationTableReader m_PayloadTypeFieldAssociationTableReader;
   RuntimeDataContext m_Context;
 
 public:
@@ -764,7 +717,6 @@ public:
   SubobjectTableReader *GetSubobjectTableReader();
   PayloadTypeTableReader *GetPayloadTypeTableReader();
   PayloadFieldTableReader *GetPayloadFieldTableReader();
-  PayloadTypeFieldAssociationTableReader *GetPayloadTypeFieldAssociationTableReader();
 };
 
 //////////////////////////////////
@@ -847,8 +799,8 @@ struct DxilSubobjectDesc {
 struct DxilPayloadFieldDesc {
   uint32_t Type;
   uint32_t Size;
-  LPCWSTR StructName;
-  uint32_t PayloadAccessQualifier;
+  uint32_t StructTypeIndex;
+  uint32_t PayloadAccessQualifiers;
 };
 
 struct DxilPayloadTypeDesc {
@@ -879,7 +831,21 @@ public:
 
 DxilRuntimeReflection *CreateDxilRuntimeReflection();
 
-bool VerifyDxilPayloadDescMatches(DxilLibraryDesc& a, DxilLibraryDesc& b);
+struct DxilPayloadMismatchDetail {
+  enum class ErrorType {
+    Pass,
+    PayloadCountMismatch,
+    IncompletePayloadMatch,  // (a.NumPayloads != numPayloadsMatched)
+    FieldCountMismatch,
+    FieldMismatch
+  } errorType = ErrorType::Pass;
+  uint32_t payloadsMatched = 0;  // IncompletePayloadMatch
+  uint32_t payloadIdxA = 0;
+  uint32_t payloadIdxB = 0;
+  uint32_t fieldIdx = 0;
+};
+
+bool VerifyDxilPayloadDescMatches(DxilLibraryDesc& a, DxilLibraryDesc& b, DxilPayloadMismatchDetail* pOptErrorDetail);
 
 } // namespace RDAT
 } // namespace hlsl

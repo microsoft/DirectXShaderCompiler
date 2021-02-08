@@ -1250,7 +1250,7 @@ public:
 
     compiler.getLangOpts().UseMinPrecision = !Opts.Enable16BitTypes;
 
-    compiler.getLangOpts().EnablePayloadAccessQualifiers = Opts.AllowPayloadQualifiers;
+    compiler.getLangOpts().EnablePayloadAccessQualifiers = Opts.EnablePayloadQualifiers;
 
 // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
@@ -1304,7 +1304,7 @@ public:
     compiler.getCodeGenOpts().HLSLPrintAfterAll = Opts.PrintAfterAll;
     compiler.getCodeGenOpts().HLSLForceZeroStoreLifetimes = Opts.ForceZeroStoreLifetimes;
     compiler.getCodeGenOpts().HLSLEnableLifetimeMarkers = Opts.EnableLifetimeMarkers;
-    compiler.getCodeGenOpts().HLSLEnablePayloadAccessQualifiers = Opts.AllowPayloadQualifiers;
+    compiler.getCodeGenOpts().HLSLEnablePayloadAccessQualifiers = Opts.EnablePayloadQualifiers;
 
     // Translate signature packing options
     if (Opts.PackPrefixStable)
