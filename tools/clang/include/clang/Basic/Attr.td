@@ -1037,6 +1037,15 @@ def VKShaderRecordNV : InheritableAttr {
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];
 }
+
+def VKShaderRecordEXT : InheritableAttr {
+  let Spellings = [CXX11<"vk", "shader_record_ext">];
+  let Subjects = SubjectList<[StructGlobalVar, HLSLBuffer, ConstantBuffer],
+                             ErrorDiag, "ExpectedCTBuffer">;
+  let Args = [];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
 // SPIRV Change Ends
 
 def C11NoReturn : InheritableAttr {

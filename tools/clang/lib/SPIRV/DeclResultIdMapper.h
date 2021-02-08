@@ -416,10 +416,20 @@ public:
                                               const QualType retType,
                                               uint32_t numOutputControlPoints);
 
+  /// \brief An enum class for representing what the DeclContext is used for
+  enum class ContextUsageKind {
+    CBuffer,
+    TBuffer,
+    PushConstant,
+    Globals,
+    ShaderRecordBufferNV,
+    ShaderRecordBufferEXT
+  };
+
   /// Raytracing specific functions
-  /// \brief Creates a ShaderRecordBufferNV block from the given decl.
-  SpirvVariable *createShaderRecordBufferNV(const VarDecl *decl);
-  SpirvVariable *createShaderRecordBufferNV(const HLSLBufferDecl *decl);
+  /// \brief Creates a ShaderRecordBufferEXT or ShaderRecordBufferNV block from the given decl.
+  SpirvVariable *createShaderRecordBuffer(const VarDecl *decl, ContextUsageKind kind);
+  SpirvVariable *createShaderRecordBuffer(const HLSLBufferDecl *decl, ContextUsageKind kind);
 
 private:
   /// The struct containing SPIR-V information of a AST Decl.
@@ -599,15 +609,6 @@ private:
   /// This method will write the location assignment into the module under
   /// construction.
   bool finalizeStageIOLocations(bool forInput);
-
-  /// \brief An enum class for representing what the DeclContext is used for
-  enum class ContextUsageKind {
-    CBuffer,
-    TBuffer,
-    PushConstant,
-    Globals,
-    ShaderRecordBufferNV,
-  };
 
   /// Creates a variable of struct type with explicit layout decorations.
   /// The sub-Decls in the given DeclContext will be treated as the struct
