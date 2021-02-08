@@ -652,11 +652,10 @@ public:
 class PayloadFieldReader{
 private:
   const RuntimeDataPayloadFieldInfo *m_FieldInfo;
-  RuntimeDataContext *m_Context;
 
 public:
-  PayloadFieldReader(const RuntimeDataPayloadFieldInfo *info, RuntimeDataContext *context)
-    : m_FieldInfo(info), m_Context(context) {}
+  PayloadFieldReader(const RuntimeDataPayloadFieldInfo *info)
+    : m_FieldInfo(info) {}
 
   uint32_t GetSize() const {
     return m_FieldInfo ? m_FieldInfo->Size : 0;
@@ -690,7 +689,7 @@ public:
 
   uint32_t GetCount() const { return m_Table.Count(); }
   PayloadFieldReader GetItem(uint32_t i) const {
-    return PayloadFieldReader(m_Table.Row<RuntimeDataPayloadFieldInfo>(i), m_Context);
+    return PayloadFieldReader(m_Table.Row<RuntimeDataPayloadFieldInfo>(i));
   }
 };
 
