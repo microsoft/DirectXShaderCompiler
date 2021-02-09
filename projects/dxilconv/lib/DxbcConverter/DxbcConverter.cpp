@@ -4570,27 +4570,19 @@ void DxbcConverter::InsertSM50ResourceHandles() {
     // the interfaces implementation uses non-zero space when compiling from SM 5.0.
     for (size_t i = 0; i < m_pPR->GetSRVs().size(); ++i) {
       DxilResource &R = m_pPR->GetSRV(i);
-      if (R.GetSpaceID() == 0) {
-        SetCachedHandle(R);
-      }
+      SetCachedHandle(R);
     }
     for (size_t i = 0; i < m_pPR->GetUAVs().size(); ++i) {
       DxilResource &R = m_pPR->GetUAV(i);
-      if (R.GetSpaceID() == 0) {
-        SetCachedHandle(R);
-      }
+      SetCachedHandle(R);
     }
     for (size_t i = 0; i < m_pPR->GetCBuffers().size(); ++i) {
       DxilCBuffer &R = m_pPR->GetCBuffer(i);
-      if (R.GetSpaceID() == 0) {
-        SetCachedHandle(R);
-      }
+      SetCachedHandle(R);
     }
     for (size_t i = 0; i < m_pPR->GetSamplers().size(); ++i) {
       DxilSampler &R = m_pPR->GetSampler(i);
-      if (R.GetSpaceID() == 0) {
-        SetCachedHandle(R);
-      }
+      SetCachedHandle(R);
     }
   }
 }
@@ -5708,11 +5700,13 @@ Value *DxbcConverter::CreateHandle(DxilResourceBase::Class Class, unsigned Range
 }
 void DxbcConverter::SetCachedHandle(const DxilResourceBase &R) {
   DXASSERT(!IsSM51Plus(), "must not cache handles on SM 5.1");
-  m_HandleMap[std::make_pair((unsigned)R.GetClass(), (unsigned)R.GetLowerBound())] =
-    CreateHandle(R.GetClass(), R.GetID(), m_pOP->GetU32Const(R.GetLowerBound()), false);
+  if (R.GetSpaceID() == 0) {
+    m_HandleMap[std::make_pair((unsigned)R.GetClass(), (unsigned)R.GetLowerBound())] =
+      CreateHandle(R.GetClass(), R.GetID(), m_pOP->GetU32Const(R.GetLowerBound()), false);
+  }
 }
 Value *DxbcConverter::GetCachedHandle(const DxilResourceBase &R) {
-  if (IsSM51Plus())
+  if (IsSM51Plus() || R.GetSpaceID() != 0)
     return nullptr;
   auto it = m_HandleMap.find(std::make_pair((unsigned)R.GetClass(), (unsigned)R.GetLowerBound()));
   if (it != m_HandleMap.end())
