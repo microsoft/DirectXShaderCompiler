@@ -1204,29 +1204,6 @@ void HLSignatureLower::GenerateDxilInputsOutputs(DXIL::SignatureKind SK) {
   }
 }
 
-static bool IsValidDxilCSInputType(Semantic::Kind kind, Type* inputTy) {
-  // Should either be a scalar integer or a vector or integer
-  if (!inputTy->isIntegerTy() && !inputTy->isVectorTy())
-    return false;
-
-  Type* compTy = inputTy->isVectorTy() ? inputTy->getScalarType() : inputTy;
-  unsigned compSz = inputTy->isVectorTy() ? inputTy->getVectorNumElements() : 1;
-
-  // Component type must either a 16-bit or 32-bit integer
-  if (!dxilutil::IsInt16Or32BitType(compTy))
-    return false;
-
-  // CS inputs should have max component size of 3
-  if (kind != Semantic::Kind::GroupIndex && compSz > 3)
-    return false;
-
-  // GroupIndex must be scalar
-  if (kind == Semantic::Kind::GroupIndex && inputTy->isVectorTy())
-    return false;
-
-  return true;
-}
-
 void HLSignatureLower::GenerateDxilCSInputs() {
   OP *hlslOP = HLM.GetOP();
 
@@ -1272,12 +1249,7 @@ void HLSignatureLower::GenerateDxilCSInputs() {
     Constant *OpArg = hlslOP->GetU32Const((unsigned)opcode);
     Type *NumTy = arg.getType();
     DXASSERT(!NumTy->isPointerTy(), "Unexpected byref value for CS SV_***ID semantic.");
-
-    // Validate semantic type
-    if (!IsValidDxilCSInputType(semantic->GetKind(), NumTy)) {
-      dxilutil::EmitErrorOnFunction(Entry, "invalid type used for \'" + semanticStr.str() + "\' input semantics");
-      return;
-    }
+    DXASSERT(NumTy->getScalarType()->isIntegerTy(), "Unexpected non-integer value for CS SV_***ID semantic.");
 
     // Always use the i32 overload of those intrinsics, and then cast as needed
     Function *dxilFunc = hlslOP->GetOpFunc(opcode, Builder.getInt32Ty());
