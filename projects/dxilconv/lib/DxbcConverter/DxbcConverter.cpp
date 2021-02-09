@@ -4566,8 +4566,6 @@ void DxbcConverter::InsertSM50ResourceHandles() {
   // Create resource handles for SM5.0- to reduce the number of call instructions (to reduce IR size).
   // Later: it may be worthwhile to implement a pass to hoist handle creation for SM5.1 here when the index into range is constant and used more than once within the shader.
   if (!IsSM51Plus()) {
-    // Note: Even though space should normally be 0 for SM 5.0 and below,
-    // the interfaces implementation uses non-zero space when compiling from SM 5.0.
     for (size_t i = 0; i < m_pPR->GetSRVs().size(); ++i) {
       DxilResource &R = m_pPR->GetSRV(i);
       SetCachedHandle(R);
@@ -5701,6 +5699,8 @@ Value *DxbcConverter::CreateHandle(DxilResourceBase::Class Class, unsigned Range
 void DxbcConverter::SetCachedHandle(const DxilResourceBase &R) {
   DXASSERT(!IsSM51Plus(), "must not cache handles on SM 5.1");
   if (R.GetSpaceID() == 0) {
+    // Note: Even though space should normally be 0 for SM 5.0 and below,
+    // the interfaces implementation uses non-zero space when converting from SM 5.0.
     m_HandleMap[std::make_pair((unsigned)R.GetClass(), (unsigned)R.GetLowerBound())] =
       CreateHandle(R.GetClass(), R.GetID(), m_pOP->GetU32Const(R.GetLowerBound()), false);
   }
