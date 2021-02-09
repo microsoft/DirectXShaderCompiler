@@ -1,19 +1,19 @@
-// RUN: %dxc -no-warnings -T vs_6_0 -DTYPE=double  %s | %FileCheck %s -check-prefixes=INTFAIL,FLTFAIL
-// RUN: %dxc -no-warnings -T vs_6_2 -DTYPE=float16_t -enable-16bit-types  %s | %FileCheck %s -check-prefixes=INTFAIL,FLTFAIL
-// RUN: %dxc -no-warnings -T vs_6_2 -DTYPE=int16_t -enable-16bit-types  %s | %FileCheck %s -check-prefixes=INTFAIL,FLTFAIL
-// RUN: %dxc -no-warnings -T vs_6_2 -DTYPE=uint16_t -enable-16bit-types  %s | %FileCheck %s -check-prefixes=INTFAIL,FLTFAIL
-// RUN: %dxc -no-warnings -T vs_6_0 -DTYPE=bool  %s | %FileCheck %s -check-prefixes=INTFAIL,FLTFAIL
-// RUN: %dxilver 1.6 | %dxc -no-warnings -T vs_6_5 -DTYPE=int64_t  %s | %FileCheck %s -check-prefix=VALFAIL
-// RUN: %dxilver 1.6 | %dxc -no-warnings -T vs_6_5 -DTYPE=uint64_t  %s | %FileCheck %s -check-prefix=VALFAIL
+// RUN: %dxc -no-warnings -T cs_6_0 -DTYPE=double  %s | %FileCheck %s -check-prefixes=INTFAIL,FLTFAIL
+// RUN: %dxc -no-warnings -T cs_6_2 -DTYPE=float16_t -enable-16bit-types  %s | %FileCheck %s -check-prefixes=INTFAIL,FLTFAIL
+// RUN: %dxc -no-warnings -T cs_6_2 -DTYPE=int16_t -enable-16bit-types  %s | %FileCheck %s -check-prefixes=INTFAIL,FLTFAIL
+// RUN: %dxc -no-warnings -T cs_6_2 -DTYPE=uint16_t -enable-16bit-types  %s | %FileCheck %s -check-prefixes=INTFAIL,FLTFAIL
+// RUN: %dxc -no-warnings -T cs_6_0 -DTYPE=bool  %s | %FileCheck %s -check-prefixes=INTFAIL,FLTFAIL
+// RUN: %dxilver 1.6 | %dxc -no-warnings -T cs_6_5 -DTYPE=int64_t  %s | %FileCheck %s -check-prefix=VALFAIL
+// RUN: %dxilver 1.6 | %dxc -no-warnings -T cs_6_5 -DTYPE=uint64_t  %s | %FileCheck %s -check-prefix=VALFAIL
 
 
-// RUN: %dxc -no-warnings -T vs_6_0 -DTYPE=float  %s | %FileCheck %s -check-prefixes=INTFAIL,
-// RUN: %dxc -no-warnings -T vs_6_0 -DTYPE=half  %s | %FileCheck %s -check-prefixes=INTFAIL
+// RUN: %dxc -no-warnings -T cs_6_0 -DTYPE=float  %s | %FileCheck %s -check-prefixes=INTFAIL,
+// RUN: %dxc -no-warnings -T cs_6_0 -DTYPE=half  %s | %FileCheck %s -check-prefixes=INTFAIL
 
-// RUN: %dxc -no-warnings -T vs_6_6 -DTYPE=int64_t  %s | %FileCheck %s -check-prefixes=INTCHK
-// RUN: %dxc -no-warnings -T vs_6_6 -DTYPE=uint64_t  %s | %FileCheck %s -check-prefixes=INTCHK
-// RUN: %dxc -no-warnings -T vs_6_0 -DTYPE=int  %s | %FileCheck %s -check-prefixes=INTCHK
-// RUN: %dxc -no-warnings -T vs_6_0 -DTYPE=uint  %s | %FileCheck %s -check-prefixes=INTCHK
+// RUN: %dxc -no-warnings -T cs_6_6 -DTYPE=int64_t  %s | %FileCheck %s -check-prefixes=INTCHK
+// RUN: %dxc -no-warnings -T cs_6_6 -DTYPE=uint64_t  %s | %FileCheck %s -check-prefixes=INTCHK
+// RUN: %dxc -no-warnings -T cs_6_0 -DTYPE=int  %s | %FileCheck %s -check-prefixes=INTCHK
+// RUN: %dxc -no-warnings -T cs_6_0 -DTYPE=uint  %s | %FileCheck %s -check-prefixes=INTCHK
 
 
 // Test various Interlocked ops using different memory types with invalid types
@@ -22,7 +22,10 @@ RWBuffer<TYPE> rw_res;
 groupshared TYPE gs_res;
 RWByteAddressBuffer ba_res;
 
-float main() :OUT{
+RWStructuredBuffer<float4> output;
+
+[numthreads(1,1,1)]
+void main(uint ix : SV_GroupIndex) {
   int val = 1;
   TYPE comp = 1;
   TYPE orig;
@@ -213,5 +216,5 @@ float main() :OUT{
   InterlockedCompareExchange(rw_res[0], comp, val, orig);
   InterlockedCompareExchange(gs_res, comp, val, orig);
 
-  return (float)rw_res[0] + gs_res;
+  output[ix] = (float)rw_res[0] + gs_res;
 }

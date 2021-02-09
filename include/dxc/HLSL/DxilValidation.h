@@ -258,6 +258,7 @@ enum class ValidationRule : unsigned {
   SmSampleCountOnlyOn2DMS, // Only Texture2DMS/2DMSArray could has sample count.
   SmSemantic, // Semantic must be defined in target shader model
   SmStreamIndexRange, // Stream index (%0) must between 0 and %1.
+  SmTGSMUnsupported, // Thread Group Shared Memory not supported %0.
   SmTessFactorForDomain, // Required TessFactor for domain not found declared anywhere in Patch Constant data.
   SmTessFactorSizeMatchDomain, // TessFactor rows, columns (%0, %1) invalid for domain %2.  Expected %3 rows and 1 column.
   SmThreadGroupChannelRange, // Declared Thread Group %0 size %1 outside valid range [%2..%3].

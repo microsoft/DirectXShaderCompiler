@@ -12215,7 +12215,19 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
         result = false;
       }
       break;
-    case AttributeList::AT_HLSLGroupShared:
+    case AttributeList::AT_HLSLGroupShared: {
+      const auto *shaderModel =
+        hlsl::ShaderModel::GetByName(getLangOpts().HLSLProfile.c_str());
+      // If not compute/amp/mesh, produce error
+      // If lib, give it a pass since we don't know enough to tell yet.
+      // Validation will catch it
+      if (shaderModel->IsValid() && !shaderModel->IsCS() && !shaderModel->IsAS() &&
+          !shaderModel->IsMS() && !shaderModel->IsLib()) {
+        Diag(pAttr->getLoc(), diag::err_hlsl_sm_unsupported)
+          << getLangOpts().HLSLProfile.c_str() << pAttr->getName() << pAttr->getRange();
+        result = false;
+      }
+
       if (!isGlobal) {
         Diag(pAttr->getLoc(), diag::err_hlsl_varmodifierna)
             << pAttr->getName() << declarationType << pAttr->getRange();
@@ -12228,6 +12240,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
         result = false;
       }
       break;
+    }
     case AttributeList::AT_HLSLGloballyCoherent:
       if (!bIsObject) {
         Diag(pAttr->getLoc(), diag::err_hlsl_varmodifierna)

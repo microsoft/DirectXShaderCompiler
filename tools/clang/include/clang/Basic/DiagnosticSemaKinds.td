@@ -7576,6 +7576,8 @@ def err_hlsl_varmodifierna : Error<
   "%0 is not a valid modifier for a %1">;
 def err_hlsl_varmodifiersna : Error<
   "%0 and %1 cannot be used together for a %2">;
+def err_hlsl_sm_unsupported : Error<
+  "%0 does not support %1">;
 def err_hlsl_vla : Error< // Patterened after err_opencl_vla
   "variable length arrays are not supported in HLSL">;
 def err_hlsl_type_empty_init : Error<
