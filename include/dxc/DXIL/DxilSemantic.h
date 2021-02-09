@@ -69,8 +69,8 @@ public:
   bool IsArbitrary() const;
   bool IsInvalid() const;
   bool IsSupportedType(llvm::Type *semTy) const;
-  CompTy Semantic::GetCompType(llvm::Type* ty) const;
-  SizeClass Semantic::GetCompCount(llvm::Type* ty) const;
+  CompTy GetCompType(llvm::Type* ty) const;
+  SizeClass GetCompCount(llvm::Type* ty) const;
 
 private:
   Kind m_Kind;                   // Semantic kind.
