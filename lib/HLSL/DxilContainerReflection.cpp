@@ -1228,7 +1228,7 @@ void CShaderReflectionConstantBuffer::Initialize(
   // For ConstantBuffer<> buf[2], the array size is in Resource binding count
   // part.
   Type *Ty = dxilutil::StripArrayTypes(
-    CB.GetGlobalSymbol()->getType()->getPointerElementType());
+    CB.GetHLSLType()->getPointerElementType());
 
   DxilTypeSystem &typeSys = M.GetTypeSystem();
   StructType *ST = cast<StructType>(Ty);
@@ -1265,8 +1265,7 @@ void CShaderReflectionConstantBuffer::Initialize(
       DXASSERT(pVarType->m_Desc.Elements == 0,
                "otherwise, assumption is wrong");
       pVarType->m_Desc.Elements = 1;
-    } else if (CB.GetGlobalSymbol()
-                   ->getType()
+    } else if (CB.GetHLSLType()
                    ->getPointerElementType()
                    ->isArrayTy() &&
                CB.GetRangeSize() == 1) {
@@ -1315,7 +1314,7 @@ static unsigned CalcTypeSize(Type *Ty, unsigned &alignment) {
 
 static unsigned CalcResTypeSize(DxilModule &M, DxilResource &R) {
   UNREFERENCED_PARAMETER(M);
-  Type *Ty = R.GetGlobalSymbol()->getType()->getPointerElementType();
+  Type *Ty = R.GetHLSLType()->getPointerElementType();
   if (R.IsStructuredBuffer()) {
     Ty = dxilutil::StripArrayTypes(Ty);
   }
@@ -1351,7 +1350,7 @@ void CShaderReflectionConstantBuffer::InitializeStructuredBuffer(
   // Create reflection type, if we have the necessary annotation info
 
   // Extract the `struct` that wraps element type of the buffer resource
-  Type *Ty = R.GetGlobalSymbol()->getType()->getPointerElementType();
+  Type *Ty = R.GetHLSLType()->getPointerElementType();
   SmallVector<unsigned, 4> arrayDims;
   Ty = dxilutil::StripArrayTypes(Ty, &arrayDims);
   for (unsigned i = 0; i < arrayDims.size(); ++i) {
@@ -1396,7 +1395,7 @@ void CShaderReflectionConstantBuffer::InitializeTBuffer(
   m_Desc.Type = D3D11_CT_TBUFFER;
   m_Desc.uFlags = 0;
 
-  Type *Ty = R.GetGlobalSymbol()->getType()->getPointerElementType();
+  Type *Ty = R.GetHLSLType()->getPointerElementType();
 
   DxilTypeSystem &typeSys = M.GetTypeSystem();
   StructType *ST = cast<StructType>(Ty);
@@ -2324,11 +2323,19 @@ ID3D12ShaderReflectionConstantBuffer* DxilModuleReflection::_GetConstantBufferBy
     return &g_InvalidSRConstantBuffer;
   }
 
+  size_t index = m_CBs.size();
   auto it = m_CBsByName.find(Name);
-  if (it == m_CBsByName.end())
+  if (it != m_CBsByName.end()) {
+    index = it->second;
+  } else {
     it = m_StructuredBufferCBsByName.find(Name);
-  if (it != m_StructuredBufferCBsByName.end())
-    return m_CBs[it->second].get();
+    if (it != m_StructuredBufferCBsByName.end()) {
+      index = it->second;
+    }
+  }
+  if (index < m_CBs.size()) {
+    return m_CBs[index].get();
+  }
 
   return &g_InvalidSRConstantBuffer;
 }

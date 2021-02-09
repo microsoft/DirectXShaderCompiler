@@ -210,7 +210,10 @@ void WaveSensitivityAnalyzer::VisitInst(Instruction *I) {
 
 bool WaveSensitivityAnalyzer::IsWaveSensitive(Instruction *op) {
   auto c = InstState.find(op);
-  DXASSERT(c != InstState.end(), "else analysis didn't complete");
+  if(c == InstState.end()) {
+    DXASSERT(false, "Instruction sensitivity not foud. Analysis didn't complete!");
+    return false;
+  }
   DXASSERT((*c).second != Unknown, "else analysis is missing a case");
   return (*c).second == KnownSensitive;
 }

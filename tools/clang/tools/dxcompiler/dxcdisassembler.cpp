@@ -954,7 +954,7 @@ void PrintStructBufferDefinition(DxilResource *buf,
   llvm::Type *RetTy = buf->GetRetType();
   // Skip none struct type.
   if (!RetTy->isStructTy() || HLMatrixType::isa(RetTy)) {
-    llvm::Type *Ty = buf->GetGlobalSymbol()->getType()->getPointerElementType();
+    llvm::Type *Ty = buf->GetHLSLType()->getPointerElementType();
     // For resource array, use element type.
     if (Ty->isArrayTy())
       Ty = Ty->getArrayElementType();
@@ -993,7 +993,7 @@ void PrintStructBufferDefinition(DxilResource *buf,
 void PrintTBufferDefinition(DxilResource *buf, DxilTypeSystem &typeSys,
                                    raw_string_ostream &OS, StringRef comment) {
   const unsigned offsetIndent = 50;
-  llvm::Type *Ty = buf->GetGlobalSymbol()->getType()->getPointerElementType();
+  llvm::Type *Ty = buf->GetHLSLType()->getPointerElementType();
   // For TextureBuffer<> buf[2], the array size is in Resource binding count
   // part.
   if (Ty->isArrayTy())
@@ -1019,7 +1019,7 @@ void PrintTBufferDefinition(DxilResource *buf, DxilTypeSystem &typeSys,
 void PrintCBufferDefinition(DxilCBuffer *buf, DxilTypeSystem &typeSys,
                                    raw_string_ostream &OS, StringRef comment) {
   const unsigned offsetIndent = 50;
-  llvm::Type *Ty = buf->GetGlobalSymbol()->getType()->getPointerElementType();
+  llvm::Type *Ty = buf->GetHLSLType()->getPointerElementType();
   // For ConstantBuffer<> buf[2], the array size is in Resource binding count
   // part.
   if (Ty->isArrayTy())
@@ -1288,7 +1288,8 @@ static const char *OpCodeSignatures[] = {
   "(bind,index,nonUniformIndex)",  // CreateHandleFromBinding
   "(index,samplerHeap,nonUniformIndex)",  // CreateHandleFromHeap
   "(unpackMode,pk)",  // Unpack4x8
-  "(packMode,x,y,z,w)"  // Pack4x8
+  "(packMode,x,y,z,w)",  // Pack4x8
+  "()"  // IsHelperLane
 };
 // OPCODE-SIGS:END
 

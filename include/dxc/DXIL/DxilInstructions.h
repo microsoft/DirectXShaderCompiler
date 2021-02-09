@@ -4318,8 +4318,6 @@ struct DxilInst_QuadReadLaneAt {
   void set_value(llvm::Value *val) { Instr->setOperand(1, val); }
   llvm::Value *get_quadLane() const { return Instr->getOperand(2); }
   void set_quadLane(llvm::Value *val) { Instr->setOperand(2, val); }
-  uint32_t get_quadLane_val() const { return (uint32_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(2))->getZExtValue()); }
-  void set_quadLane_val(uint32_t val) { Instr->setOperand(2, llvm::Constant::getIntegerValue(llvm::IntegerType::get(Instr->getContext(), 32), llvm::APInt(32, (uint64_t)val))); }
 };
 
 /// This instruction returns the result of a quad-level operation
@@ -7147,6 +7145,24 @@ struct DxilInst_Pack4x8 {
   void set_z(llvm::Value *val) { Instr->setOperand(4, val); }
   llvm::Value *get_w() const { return Instr->getOperand(5); }
   void set_w(llvm::Value *val) { Instr->setOperand(5, val); }
+};
+
+/// This instruction returns true on helper lanes in pixel shaders
+struct DxilInst_IsHelperLane {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_IsHelperLane(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::IsHelperLane);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
 };
 // INSTR-HELPER:END
 } // namespace hlsl

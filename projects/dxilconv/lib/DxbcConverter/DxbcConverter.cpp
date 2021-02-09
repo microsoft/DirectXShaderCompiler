@@ -1234,7 +1234,6 @@ void DxbcConverter::AnalyzeShader(D3D10ShaderBinary::CShaderCodeParser &Parser) 
       R.SetGlobalName(SynthesizeResGVName("CB", R.GetID()));
       StructType *pResType = GetStructResElemType(CBufferSize);
       R.SetGlobalSymbol(DeclareUndefPtr(pResType, DXIL::kCBufferAddrSpace));
-      R.SetHandle(nullptr);
 
       // CBuffer-specific state.
       R.SetSize(CBufferSize);
@@ -1278,7 +1277,6 @@ void DxbcConverter::AnalyzeShader(D3D10ShaderBinary::CShaderCodeParser &Parser) 
         pResType = StructType::create(m_Ctx, ResTypeName);
       }
       R.SetGlobalSymbol(DeclareUndefPtr(pResType, DXIL::kDeviceMemoryAddrSpace));
-      R.SetHandle(nullptr);
 
       // Sampler-specific state.
       R.SetSamplerKind(DXBC::GetSamplerKind(Inst.m_SamplerDecl.SamplerMode));
@@ -1309,7 +1307,6 @@ void DxbcConverter::AnalyzeShader(D3D10ShaderBinary::CShaderCodeParser &Parser) 
       }
       R.SetLowerBound(LB);
       R.SetRangeSize(RangeSize);
-      R.SetHandle(nullptr);
 
       // Resource-specific state.
       StructType *pResType = nullptr;
@@ -1375,7 +1372,6 @@ void DxbcConverter::AnalyzeShader(D3D10ShaderBinary::CShaderCodeParser &Parser) 
       }
       R.SetLowerBound(LB);
       R.SetRangeSize(RangeSize);
-      R.SetHandle(nullptr);
 
       // Resource-specific state.
       string GVTypeName;
@@ -4572,26 +4568,23 @@ void DxbcConverter::InsertSM50ResourceHandles() {
   if (!IsSM51Plus()) {
     for (size_t i = 0; i < m_pPR->GetSRVs().size(); ++i) {
       DxilResource &R = m_pPR->GetSRV(i);
-      if (R.GetSpaceID() == 0) {
-        R.SetHandle(CreateHandle(R.GetClass(), R.GetID(), m_pOP->GetU32Const(R.GetLowerBound()), false));
-      }
+      DXASSERT(R.GetSpaceID() == 0, "In SM5.0, all resources should be in space 0");
+      SetCachedHandle(R);
     }
     for (size_t i = 0; i < m_pPR->GetUAVs().size(); ++i) {
       DxilResource &R = m_pPR->GetUAV(i);
-      DXASSERT(R.GetSpaceID() == 0, "In SM5.0, all UAVs should be in space 0");
-      R.SetHandle(CreateHandle(R.GetClass(), R.GetID(), m_pOP->GetU32Const(R.GetLowerBound()), false));
+      DXASSERT(R.GetSpaceID() == 0, "In SM5.0, all resources should be in space 0");
+      SetCachedHandle(R);
     }
     for (size_t i = 0; i < m_pPR->GetCBuffers().size(); ++i) {
       DxilCBuffer &R = m_pPR->GetCBuffer(i);
-      if (R.GetSpaceID() == 0) {
-        R.SetHandle(CreateHandle(R.GetClass(), R.GetID(), m_pOP->GetU32Const(R.GetLowerBound()), false));
-      }
+      DXASSERT(R.GetSpaceID() == 0, "In SM5.0, all resources should be in space 0");
+      SetCachedHandle(R);
     }
     for (size_t i = 0; i < m_pPR->GetSamplers().size(); ++i) {
       DxilSampler &R = m_pPR->GetSampler(i);
-      if (R.GetSpaceID() == 0) {
-        R.SetHandle(CreateHandle(R.GetClass(), R.GetID(), m_pOP->GetU32Const(R.GetLowerBound()), false));
-      }
+      DXASSERT(R.GetSpaceID() == 0, "In SM5.0, all resources should be in space 0");
+      SetCachedHandle(R);
     }
   }
 }
@@ -4623,7 +4616,6 @@ void DxbcConverter::InsertInterfacesResourceDecls() {
     R.SetGlobalName(SynthesizeResGVName("CB", R.GetID()));
     StructType *pResType = GetStructResElemType(CBufferSize);
     R.SetGlobalSymbol(DeclareUndefPtr(pResType, DXIL::kCBufferAddrSpace));
-    R.SetHandle(nullptr);
 
     // CBuffer-specific state.
     R.SetSize(CBufferSize);
@@ -4644,7 +4636,6 @@ void DxbcConverter::InsertInterfacesResourceDecls() {
     R.SetGlobalName(SynthesizeResGVName("CB", R.GetID()));
     StructType *pResType = GetStructResElemType(CBufferSize);
     R.SetGlobalSymbol(DeclareUndefPtr(pResType, DXIL::kCBufferAddrSpace));
-    R.SetHandle(nullptr);
 
     // CBuffer-specific state.
     R.SetSize(CBufferSize);
@@ -4667,7 +4658,6 @@ void DxbcConverter::InsertInterfacesResourceDecls() {
       pResType = StructType::create(m_Ctx, ResTypeName);
     }
     R.SetGlobalSymbol(DeclareUndefPtr(pResType, DXIL::kDeviceMemoryAddrSpace));
-    R.SetHandle(nullptr);
 
     // Sampler-specific state.
     R.SetSamplerKind(i == 0 ? DXIL::SamplerKind::Default : DXIL::SamplerKind::Comparison);
@@ -4698,7 +4688,6 @@ const DxilResource& DxbcConverter::GetInterfacesSRVDecl(D3D10ShaderBinary::CInst
   // Root signature bindings.
   R.SetLowerBound(0);
   R.SetRangeSize(D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT);
-  R.SetHandle(nullptr);
   R.SetSpaceID(m_ClassInstanceSRVs.size() + 1);
 
   unsigned SampleCount =
@@ -5711,6 +5700,20 @@ Value *DxbcConverter::CreateHandle(DxilResourceBase::Class Class, unsigned Range
   Function *pCreateHandleFunc = m_pOP->GetOpFunc(OpCode, Type::getVoidTy(m_Ctx));
   return m_pBuilder->CreateCall(pCreateHandleFunc, Args);
 }
+void DxbcConverter::SetCachedHandle(const DxilResourceBase &R) {
+  DXASSERT(!IsSM51Plus(), "must not cache handles on SM 5.1");
+  m_HandleMap[std::make_pair((unsigned)R.GetClass(), (unsigned)R.GetLowerBound())] =
+    CreateHandle(R.GetClass(), R.GetID(), m_pOP->GetU32Const(R.GetLowerBound()), false);
+}
+Value *DxbcConverter::GetCachedHandle(const DxilResourceBase &R) {
+  if (IsSM51Plus())
+    return nullptr;
+  auto it = m_HandleMap.find(std::make_pair((unsigned)R.GetClass(), (unsigned)R.GetLowerBound()));
+  if (it != m_HandleMap.end())
+    return it->second;
+  return nullptr;
+}
+
 
 Value *DxbcConverter::LoadConstFloat(float& fVal) {
   unsigned uVal = *(unsigned *)&fVal;
@@ -6006,7 +6009,7 @@ void DxbcConverter::LoadOperand(OperandValue &SrcVal,
     const DxilCBuffer &R = *pR;
 
     // Setup cbuffer handle.
-    Value *pHandle = R.GetHandle();
+    Value *pHandle = GetCachedHandle(R);
     if (pHandle == nullptr) {
       // Create dynamic-index handle.
       pHandle = CreateHandle(R.GetClass(), R.GetID(), LoadOperandIndex(O.m_Index[1], O.m_IndexType[1]), O.m_Nonuniform);
@@ -6134,7 +6137,7 @@ void DxbcConverter::LoadOperand(OperandValue &SrcVal,
     const DxilSampler &R = *pR;
 
     // Setup sampler handle.
-    Value *pHandle = R.GetHandle();
+    Value *pHandle = GetCachedHandle(R);
     if (pHandle == nullptr) {
       // Create dynamic-index handle.
       pHandle = CreateHandle(R.GetClass(), R.GetID(), LoadOperandIndex(O.m_Index[1], O.m_IndexType[1]), O.m_Nonuniform);
@@ -6170,7 +6173,7 @@ void DxbcConverter::LoadOperand(OperandValue &SrcVal,
     const DxilResource &R = m_pPR->GetUAV(RecIdx);
 
     // Setup UAV handle.
-    Value *pHandle = R.GetHandle();
+    Value *pHandle = GetCachedHandle(R);
     if (pHandle == nullptr) {
       DXASSERT(IsSM51Plus(), "otherwise did not initialize handles on entry to main");
       // Create dynamic-index handle.
@@ -6453,7 +6456,7 @@ const DxilResource& DxbcConverter::LoadSRVOperand(OperandValue &SrcVal,
   const DxilResource &R = GetSRVFromOperand(Inst, OpIdx);
 
   // Setup SRV handle.
-  Value *pHandle = R.GetHandle();
+  Value *pHandle = GetCachedHandle(R);
   if (pHandle == nullptr) {
     // Create dynamic-index handle.
     pHandle = CreateHandle(R.GetClass(), R.GetID(), LoadOperandIndex(O.m_Index[1], O.m_IndexType[1]), O.m_Nonuniform);

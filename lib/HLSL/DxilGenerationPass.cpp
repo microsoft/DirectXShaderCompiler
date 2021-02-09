@@ -76,6 +76,7 @@ void InitResourceBase(const DxilResourceBase *pSource,
   pDest->SetGlobalSymbol(pSource->GetGlobalSymbol());
   pDest->SetGlobalName(pSource->GetGlobalName());
   pDest->SetHandle(pSource->GetHandle());
+  pDest->SetHLSLType(pSource->GetHLSLType());
 
   if (GlobalVariable *GV = dyn_cast<GlobalVariable>(pSource->GetGlobalSymbol()))
     SimplifyGlobalSymbol(GV);
@@ -374,7 +375,16 @@ void TranslateHLAnnotateHandle(
         CI->getArgOperand(HLOperandIndex::kAnnotateHandleResourceTypeOpIdx)
             ->getType();
     IRBuilder<> Builder(CI);
-
+    // put annotateHandle near the Handle it annotated.
+    if (Instruction *I = dyn_cast<Instruction>(handle)) {
+      if (isa<PHINode>(I)) {
+        Builder.SetInsertPoint(I->getParent()->getFirstInsertionPt());
+      } else {
+        Builder.SetInsertPoint(I->getNextNode());
+      }
+    } else if (Argument *Arg = dyn_cast<Argument>(handle)) {
+      Builder.SetInsertPoint(Arg->getParent()->getEntryBlock().getFirstInsertionPt());
+    }
     Function *annotateHandle =
         hlslOP.GetOpFunc(DXIL::OpCode::AnnotateHandle, Builder.getVoidTy());
     CallInst *newHandle =

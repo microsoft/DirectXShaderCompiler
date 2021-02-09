@@ -449,6 +449,9 @@ class db_dxil(object):
         for i in "Pack4x8".split(","):
             self.name_idx[i].category = "Packing intrinsics"
             self.name_idx[i].shader_model = 6,6
+        for i in "IsHelperLane".split(","):
+            self.name_idx[i].category = "Helper Lanes"
+            self.name_idx[i].shader_model = 6,6
 
     def populate_llvm_instructions(self):
         # Add instructions that map to LLVM instructions.
@@ -1198,7 +1201,7 @@ class db_dxil(object):
         self.add_dxil_op("QuadReadLaneAt", next_op_idx, "QuadReadLaneAt", "reads from a lane in the quad", "hfd18wil", "", [
             db_dxil_param(0, "$o", "", "operation result"),
             db_dxil_param(2, "$o", "value", "value to read"),
-            db_dxil_param(3, "u32", "quadLane", "lane to read from (0-4)", max_value = 3, is_const=True)])
+            db_dxil_param(3, "u32", "quadLane", "lane to read from (0-4)", max_value = 3)])
         next_op_idx += 1
         self.add_enum_type("QuadOpKind", "Kind of quad-level operation", [
             (0, "ReadAcrossX", "returns the value from the other lane in the quad in the horizontal direction"), 
@@ -1858,9 +1861,13 @@ class db_dxil(object):
             db_dxil_param(6, "$o", "w", "the fourth component of the vector")])
         next_op_idx += 1
 
+        self.add_dxil_op("IsHelperLane", next_op_idx, "IsHelperLane", "returns true on helper lanes in pixel shaders", "1", "ro", [
+            db_dxil_param(0, "i1", "", "result")])
+        next_op_idx += 1
+
         # End of DXIL 1.6 opcodes.
         self.set_op_count_for_version(1, 6, next_op_idx)
-        assert next_op_idx == 221, "221 is expected next operation index but encountered %d and thus opcodes are broken" % next_op_idx
+        assert next_op_idx == 222, "222 is expected next operation index but encountered %d and thus opcodes are broken" % next_op_idx
 
         # Set interesting properties.
         self.build_indices()
@@ -2100,7 +2107,6 @@ class db_dxil(object):
         add_pass('hlsl-passes-nopause', 'NoPausePasses', 'Clears metadata used for pause and resume', [])
         add_pass('hlsl-passes-pause', 'PausePasses', 'Prepare to pause passes', [])
         add_pass('hlsl-passes-resume', 'ResumePasses', 'Prepare to resume passes', [])
-        add_pass('hlsl-dxil-condense', 'DxilCondenseResources', 'DXIL Condense Resources', [])
         add_pass('hlsl-dxil-lower-handle-for-lib', 'DxilLowerCreateHandleForLib', 'DXIL Lower createHandleForLib', [])
         add_pass('hlsl-dxil-allocate-resources-for-lib', 'DxilAllocateResourcesForLib', 'DXIL Allocate Resources For Library', [])
         add_pass('hlsl-dxil-convergent-mark', 'DxilConvergentMark', 'Mark convergent', [])
@@ -2136,6 +2142,7 @@ class db_dxil(object):
                 {'n':'from-binding', 'i':'FromBinding', 't':'bool', 'c':1, 'd':'Append binding to name when bound'},
                 {'n':'keep-name', 'i':'KeepName', 't':'bool', 'c':1, 'd':'Keep name when appending binding'},
             ])
+        add_pass('hlsl-dxil-resources-to-handle', 'DxilMutateResourceToHandle', 'Mutate resource to handle',[])
 
         category_lib="llvm"
         add_pass('ipsccp', 'IPSCCP', 'Interprocedural Sparse Conditional Constant Propagation', [])

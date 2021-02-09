@@ -634,147 +634,68 @@ void DxcContext::Recompile(IDxcBlob *pSource, IDxcLibrary *pLibrary,
                            IDxcOperationResult **ppCompileResult) {
 // Recompile currently only supported on Windows
 #ifdef _WIN32
-  CComPtr<IDxcBlob> pTargetBlob;
-  IFT(FindModuleBlob(hlsl::DxilFourCC::DFCC_ShaderDebugInfoDXIL, pSource, pLibrary, &pTargetBlob));
-  // Retrieve necessary data from DIA symbols for recompiling
-  CComPtr<IDiaTable> pSymbolTable;
-  IFT(GetDxcDiaTable(pLibrary, pTargetBlob, &pSymbolTable, L"Symbols"));
-  IFTARG(pSymbolTable != nullptr);
-  std::wstring Arguments;   // Backing storage for blob arguments
-  std::wstring BlobDefines; // Backing storage for blob defines
-  std::string EntryPoint = m_Opts.EntryPoint;
-  std::string TargetProfile = m_Opts.TargetProfile;
-  std::vector<LPCWSTR> ConcatArgs;      // Blob arguments + command-line arguments
-  std::vector<DxcDefine> ConcatDefines; // Blob defines + command-line defines
-  CComBSTR pMainFileName;
-  ULONG fetched;
-  for (;;) {
-    CComPtr<IUnknown> pSymbolUnk;
-    CComPtr<IDiaSymbol> pSymbol;
-    DWORD symTag;
-    IFT(pSymbolTable->Next(1, &pSymbolUnk, &fetched));
-    if (fetched == 0) {
-      break;
-    }
-    IFT(pSymbolUnk->QueryInterface(&pSymbol));
-    IFT(pSymbol->get_symTag(&symTag));
+  CComPtr<IDxcPdbUtils> pPdbUtils;
+  IFT(CreateInstance(CLSID_DxcPdbUtils, &pPdbUtils));
+  IFT(pPdbUtils->Load(pSource));
 
-    CComBSTR pName;
-    pSymbol->get_name(&pName);
+  UINT32 uNumFlags = 0;
+  IFT(pPdbUtils->GetFlagCount(&uNumFlags));
+  std::vector<const WCHAR *> NewArgs;
+  std::vector<std::wstring> NewArgsStorage;
+  for (UINT32 i = 0; i < uNumFlags; i++) {
+    CComBSTR pFlag;
+    IFT(pPdbUtils->GetFlag(i, &pFlag));
+    NewArgsStorage.push_back(std::wstring(pFlag));
+  }
+  for (const std::wstring &flag : NewArgsStorage)
+    NewArgs.push_back(flag.c_str());
 
-    if (symTag == SymTagCompiland && wcseq(pName, L"main")) {
-      pMainFileName.Empty();
-      IFT(pSymbol->get_sourceFileName(&pMainFileName));
-      continue;
-    }
+  UINT32 uNumDefines = 0;
+  IFT(pPdbUtils->GetDefineCount(&uNumDefines));
+  std::vector<std::wstring> NewDefinesStorage;
+  std::vector<DxcDefine> NewDefines;
+  for (UINT32 i = 0; i < uNumDefines; i++) {
+    CComBSTR pDefine;
+    IFT(pPdbUtils->GetDefine(i, &pDefine));
+    NewDefinesStorage.push_back(std::wstring(pDefine));
+  }
+  for (std::wstring &Define : NewDefinesStorage) {
+    wchar_t *pDefineStart = &Define[0];
+    wchar_t *pDefineEnd = pDefineStart + Define.size();
 
-    // Check for well-known compiland environment values (name/value pairs).
-    if (symTag != SymTagCompilandEnv) {
-      continue;
-    }
-
-    CComVariant pVariant;
-    IFT(pSymbol->get_value(&pVariant));
-    if (EntryPoint.empty() && wcseq(pName, L"hlslEntry")) {
-      IFTARG(VARENUM::VT_BSTR == pVariant.vt);
-      EntryPoint = Unicode::UTF16ToUTF8StringOrThrow(pVariant.bstrVal);
-      continue;
-    }
-    if (TargetProfile.empty() && wcseq(pName, L"hlslTarget")) {
-      IFTARG(VARENUM::VT_BSTR == pVariant.vt);
-      TargetProfile = Unicode::UTF16ToUTF8StringOrThrow(pVariant.bstrVal);
-      continue;
-    }
-    if (wcseq(pName, L"hlslArguments")) {
-      IFTARG(VARENUM::VT_BSTR == pVariant.vt);
-      Arguments = pVariant.bstrVal;
-      continue;
-    }
-
-    if (wcseq(pName, L"hlslDefines")) {
-      IFTARG(VARENUM::VT_BSTR == pVariant.vt);
-      // Parsing double null terminated string of defines into ConcatDefines.
-      BlobDefines = std::wstring(pVariant.bstrVal, SysStringLen(pVariant.bstrVal));
-      ConcatDefines.clear();
-      LPWSTR Defines = const_cast<wchar_t *>(BlobDefines.data());
-      UINT32 begin = 0;
-      for (UINT32 i = 0;; ++i) {
-        if (Defines[i] != L'\0') {
-          continue;
-        }
-        if (begin != i) {
-          wchar_t *pDefineStart = Defines + begin;
-          wchar_t *pDefineEnd = Defines + i;
-          DxcDefine D;
-          D.Name = Defines + begin;
-          D.Value = nullptr;
-          for (wchar_t *pCursor = pDefineStart; pCursor < pDefineEnd+ i; ++pCursor) {
-            if (*pCursor == L'=') {
-              *pCursor = L'\0';
-              D.Value = (pCursor + 1);
-              break;
-            }
-          }
-          ConcatDefines.push_back(D);
-        }
-        if (Defines[i + 1] == L'\0') {
-          break;
-        }
-        begin = i + 1;
+    DxcDefine D = {};
+    D.Name = pDefineStart;
+    D.Value = nullptr;
+    for (wchar_t *pCursor = pDefineStart; pCursor < pDefineEnd; ++pCursor) {
+      if (*pCursor == L'=') {
+        *pCursor = L'\0';
+        D.Value = (pCursor + 1);
+        break;
       }
     }
+    NewDefines.push_back(D);
   }
 
-  // Extracting file content from the blob
-  CComPtr<IDiaTable> pInjectedSourceTable;
-  IFT(GetDxcDiaTable(pLibrary, pTargetBlob, &pInjectedSourceTable, L"InjectedSource"));
-  IFTARG(pInjectedSourceTable != nullptr);
+  CComBSTR pMainFileName;
+  CComBSTR pTargetProfile;
+  CComBSTR pEntryPoint;
+  IFT(pPdbUtils->GetMainFileName(&pMainFileName));
+  IFT(pPdbUtils->GetTargetProfile(&pTargetProfile));
+  IFT(pPdbUtils->GetEntryPoint(&pEntryPoint));
+
   CComPtr<IDxcBlobEncoding> pCompileSource;
   CComPtr<DxcIncludeHandlerForInjectedSources> pIncludeHandler = new DxcIncludeHandlerForInjectedSources();
-  for (;;) {
-    CComPtr<IUnknown> pInjectedSourcesUnk;
-    ULONG fetched;
-    IFT(pInjectedSourceTable->Next(1, &pInjectedSourcesUnk, &fetched));
-    if (fetched == 0) {
-      break;
-    }
-    CComPtr<IDiaInjectedSource> pInjectedSource;
-    IFT(pInjectedSourcesUnk->QueryInterface(&pInjectedSource));
-
-    // Retrieve source from InjectedSource
-    ULONGLONG dataLenLL;
-    DWORD dataLen;
-    IFT(pInjectedSource->get_length(&dataLenLL));
-    IFT(ULongLongToDWord(dataLenLL, &dataLen));
-
-    CComHeapPtr<BYTE> heapCopy;
-    if (!heapCopy.AllocateBytes(dataLen)) {
-      throw ::hlsl::Exception(E_OUTOFMEMORY);
-    }
-    CComPtr<IMalloc> pIMalloc;
-    IFT(CoGetMalloc(1, &pIMalloc));
-    IFT(pInjectedSource->get_source(dataLen, &dataLen, heapCopy.m_pData));
-
-    // Get file name for this injected source
+  UINT32 uSourceCount = 0;
+  IFT(pPdbUtils->GetSourceCount(&uSourceCount));
+  for (UINT32 i = 0; i < uSourceCount; i++) {
+    CComPtr<IDxcBlobEncoding> pSourceFile;
     CComBSTR pFileName;
-    IFT(pInjectedSource->get_filename(&pFileName));
-    IFTARG(pFileName);
-
-    CComPtr<IDxcBlobEncoding> pBlobEncoding;
-    IFT(pLibrary->CreateBlobWithEncodingOnMalloc(heapCopy.Detach(), pIMalloc, dataLen, CP_UTF8, &pBlobEncoding));
-    IFT(pIncludeHandler->insertIncludeFile(pFileName, pBlobEncoding, dataLen));
-    // Check if this file is the main file or included file
-    if (wcscmp(pFileName, pMainFileName) == 0) {
-      pCompileSource.Attach(pBlobEncoding.Detach());
+    IFT(pPdbUtils->GetSource(i, &pSourceFile));
+    IFT(pPdbUtils->GetSourceName(i, &pFileName));
+    IFT(pIncludeHandler->insertIncludeFile(pFileName, pSourceFile, 0));
+    if (pMainFileName == pFileName) {
+      pCompileSource.Attach(pSourceFile);
     }
-  }
-
-  // Append arguments and defines from the command-line specification.
-  for (LPCWSTR &A : args) {
-    ConcatArgs.push_back(A);
-  }
-  for (DxcDefine &D : m_Opts.Defines.DefineVector) {
-    ConcatDefines.push_back(D);
   }
 
   CComPtr<IDxcOperationResult> pResult;
@@ -785,19 +706,18 @@ void DxcContext::Recompile(IDxcBlob *pSource, IDxcLibrary *pLibrary,
     Unicode::UTF8ToUTF16String(m_Opts.DebugFile.str().c_str(), &outputPDBPath);
     IFT(pCompiler->QueryInterface(&pCompiler2));
     IFT(pCompiler2->CompileWithDebug(
-        pCompileSource, pMainFileName, StringRefUtf16(EntryPoint),
-        StringRefUtf16(TargetProfile), ConcatArgs.data(), ConcatArgs.size(),
-        ConcatDefines.data(), ConcatDefines.size(), pIncludeHandler, &pResult,
+        pCompileSource, pMainFileName, pEntryPoint,
+        pTargetProfile, NewArgs.data(), NewArgs.size(),
+        NewDefines.data(), NewDefines.size(), pIncludeHandler, &pResult,
         &pDebugName, &pDebugBlob));
     if (pDebugName.m_pData && m_Opts.DebugFileIsDirectory()) {
       outputPDBPath += pDebugName.m_pData;
     }
   } else {
     IFT(pCompiler->Compile(pCompileSource, pMainFileName,
-      StringRefUtf16(EntryPoint),
-      StringRefUtf16(TargetProfile), ConcatArgs.data(),
-      ConcatArgs.size(), ConcatDefines.data(),
-      ConcatDefines.size(), pIncludeHandler, &pResult));
+      pEntryPoint, pTargetProfile, NewArgs.data(),
+      NewArgs.size(), NewDefines.data(),
+      NewDefines.size(), pIncludeHandler, &pResult));
   }
 
   *ppCompileResult = pResult.Detach();

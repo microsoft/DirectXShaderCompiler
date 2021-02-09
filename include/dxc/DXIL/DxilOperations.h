@@ -46,6 +46,7 @@ public:
 
   llvm::Function *GetOpFunc(OpCode OpCode, llvm::Type *pOverloadType);
   const llvm::SmallMapVector<llvm::Type *, llvm::Function *, 8> &GetOpFuncList(OpCode OpCode) const;
+  bool IsDxilOpUsed(OpCode opcode) const;
   void RemoveFunction(llvm::Function *F);
   llvm::LLVMContext &GetCtx() { return m_Ctx; }
   llvm::Type *GetHandleType() const;

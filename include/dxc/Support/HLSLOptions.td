@@ -275,6 +275,8 @@ def force_zero_store_lifetimes : Flag<["-", "/"], "force-zero-store-lifetimes">,
   HelpText<"Instead of generating lifetime intrinsics (SM >= 6.6) or storing undef (SM < 6.6), force fall back to storing zeroinitializer.">;
 def enable_lifetime_markers : Flag<["-", "/"], "enable-lifetime-markers">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"Enable generation of lifetime markers">;
+def disable_lifetime_markers : Flag<["-", "/"], "disable-lifetime-markers">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
+  HelpText<"Disable generation of lifetime markers where they would be otherwise (6.6+)">;
 
 // Used with API only
 def skip_serialization : Flag<["-", "/"], "skip-serialization">, Group<hlslcore_Group>, Flags<[CoreOption, HelpHidden]>,
@@ -405,6 +407,12 @@ def Qembed_debug : Flag<["-", "/"], "Qembed_debug">, Flags<[CoreOption]>, Group<
   HelpText<"Embed PDB in shader container (must be used with /Zi)">;
 def Qstrip_priv : Flag<["-", "/"], "Qstrip_priv">, Flags<[DriverOption]>, Group<hlslutil_Group>,
   HelpText<"Strip private data from shader bytecode  (must be used with /Fo <file>)">;
+def Qsource_in_debug_module : Flag<["-", "/"], "Qsource_in_debug_module">, Flags<[CoreOption, HelpHidden]>, Group<hlslutil_Group>,
+  HelpText<"Generate old PDB format.">;
+def Qsource_only_debug : Flag<["-", "/"], "Qsource_only_debug">, Flags<[CoreOption, HelpHidden]>, Group<hlslutil_Group>,
+  HelpText<"Generate small PDB with just sources and compile options.">;
+def Qfull_debug : Flag<["-", "/"], "Qfull_debug">, Flags<[CoreOption, HelpHidden]>, Group<hlslutil_Group>,
+  HelpText<"Generate full debug info for PDB.">;
 
 def Qstrip_rootsignature : Flag<["-", "/"], "Qstrip_rootsignature">, Flags<[CoreOption, DriverOption]>, Group<hlslutil_Group>, HelpText<"Strip root signature data from shader bytecode  (must be used with /Fo <file>)">;
 def setrootsignature     : JoinedOrSeparate<["-", "/"], "setrootsignature">,     MetaVarName<"<file>">, Flags<[CoreOption, DriverOption]>, Group<hlslutil_Group>, HelpText<"Attach root signature to shader bytecode">;

@@ -196,8 +196,14 @@ void FinishCBuffer(
     std::unordered_map<llvm::Constant *, hlsl::DxilFieldAnnotation>
         &AnnotationMap);
 
-void ProcessCtorFunctions(llvm::Module &M, llvm::StringRef globalName,
-                          llvm::Instruction *InsertPt, bool bRemoveGlobal);
+void ProcessCtorFunctions(llvm::Module &M,
+                          llvm::SmallVector<llvm::Function *, 2> &Ctors,
+                          llvm::Function *Entry,
+                          llvm::Function *PatchConstantFn);
+
+void CollectCtorFunctions(llvm::Module &M, llvm::StringRef globalName,
+                          llvm::SmallVector<llvm::Function *, 2> &Ctors,
+                          clang::CodeGen::CodeGenModule &CGM);
 
 void TranslateRayQueryConstructor(hlsl::HLModule &HLM);
 

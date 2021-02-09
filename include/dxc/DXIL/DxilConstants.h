@@ -465,6 +465,9 @@ namespace DXIL {
     // Graphics shader
     ViewID = 138, // returns the view index
   
+    // Helper Lanes
+    IsHelperLane = 221, // returns true on helper lanes in pixel shaders
+  
     // Hull shader
     OutputControlPointID = 107, // OutputControlPointID
     StorePatchConstant = 106, // StorePatchConstant
@@ -713,9 +716,9 @@ namespace DXIL {
     NumOpCodes_Dxil_1_3 = 162,
     NumOpCodes_Dxil_1_4 = 165,
     NumOpCodes_Dxil_1_5 = 216,
-    NumOpCodes_Dxil_1_6 = 221,
+    NumOpCodes_Dxil_1_6 = 222,
   
-    NumOpCodes = 221 // exclusive last value of enumeration
+    NumOpCodes = 222 // exclusive last value of enumeration
   };
   // OPCODE-ENUM:END
 
@@ -793,6 +796,9 @@ namespace DXIL {
   
     // Graphics shader
     ViewID,
+  
+    // Helper Lanes
+    IsHelperLane,
   
     // Hull shader
     OutputControlPointID,
@@ -975,9 +981,9 @@ namespace DXIL {
     NumOpClasses_Dxil_1_3 = 118,
     NumOpClasses_Dxil_1_4 = 120,
     NumOpClasses_Dxil_1_5 = 143,
-    NumOpClasses_Dxil_1_6 = 148,
+    NumOpClasses_Dxil_1_6 = 149,
   
-    NumOpClasses = 148 // exclusive last value of enumeration
+    NumOpClasses = 149 // exclusive last value of enumeration
   };
   // OPCODECLASS-ENUM:END
 
@@ -1480,6 +1486,7 @@ namespace DXIL {
   extern const char *kDxBreakFuncName;
   extern const char *kDxBreakCondName;
   extern const char *kDxBreakMDName;
+  extern const char *kDxIsHelperGlobalName;
 
 } // namespace DXIL
 

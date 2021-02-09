@@ -7275,7 +7275,7 @@
             <Parameter Name="ShaderOp.Arguments">-denorm ftz</Parameter>
         </Row>
     </Table>
-        <Table Id="PackUnpackOpTable">
+    <Table Id="PackUnpackOpTable">
         <ParameterTypes>
             <ParameterType Name="ShaderOp.Text">String</ParameterType>
             <ParameterType Name="Validation.Type">String</ParameterType>

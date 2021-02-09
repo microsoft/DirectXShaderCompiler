@@ -532,9 +532,8 @@ bool IsResourceGEP(GetElementPtrInst *I) {
 Value *TranslateNonUniformResourceIndex(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                       HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   Value *V = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
-  CI->replaceAllUsesWith(V);
-
-  for (User *U : V->users()) {
+  Type *hdlTy = helper.hlslOP.GetHandleType();
+  for (User *U : CI->users()) {
     if (GetElementPtrInst *I = dyn_cast<GetElementPtrInst>(U)) {
       // Only mark on GEP which point to resource.
       if (IsResourceGEP(I))
@@ -548,10 +547,11 @@ Value *TranslateNonUniformResourceIndex(CallInst *CI, IntrinsicOp IOP, OP::OpCod
         }
       }
     } else if (CallInst *CI = dyn_cast<CallInst>(U)) {
-      if (hlsl::GetHLOpcodeGroup(CI->getCalledFunction()) == hlsl::HLOpcodeGroup::HLCreateHandle)
+      if (CI->getType() == hdlTy)
         DxilMDHelper::MarkNonUniform(CI);
     }
   }
+  CI->replaceAllUsesWith(V);
   return nullptr;
 }
 
@@ -3851,6 +3851,7 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
   storeArgs.emplace_back(opArg);  // opcode
   storeArgs.emplace_back(handle); // resource handle
 
+  unsigned offset0Idx = 0;
   if (RK == DxilResource::Kind::RawBuffer ||
       RK == DxilResource::Kind::TypedBuffer) {
     // Offset 0
@@ -3860,6 +3861,9 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
     } else {
       storeArgs.emplace_back(offset); // offset
     }
+
+    // Store offset0 for later use
+    offset0Idx = storeArgs.size() - 1;
 
     // Offset 1
     storeArgs.emplace_back(undefI);
@@ -3873,6 +3877,9 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
     else
       storeArgs.emplace_back(offset);
 
+    // Store offset0 for later use
+    offset0Idx = storeArgs.size() - 1;
+
     for (unsigned i = 1; i < 3; i++) {
       if (i < coordSize)
         storeArgs.emplace_back(Builder.CreateExtractElement(offset, i));
@@ -3882,76 +3889,107 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
     // TODO: support mip for texture ST
   }
 
-  // values
-  uint8_t mask = 0;
-  if (Ty->isVectorTy()) {
-    unsigned vecSize = Ty->getVectorNumElements();
-    Value *emptyVal = undefVal;
-    if (isTyped) {
-      mask = DXIL::kCompMask_All;
-      emptyVal = Builder.CreateExtractElement(val, (uint64_t)0);
+  constexpr unsigned MaxStoreElemCount = 4;
+  const unsigned CompCount = Ty->isVectorTy() ? Ty->getVectorNumElements() : 1;
+  const unsigned StoreInstCount = (CompCount / MaxStoreElemCount) + (CompCount % MaxStoreElemCount != 0);
+  SmallVector<decltype(storeArgs), 4> storeArgsList;
+
+  // Max number of element to store should be 16 (for a 4x4 matrix)
+  DXASSERT_NOMSG(StoreInstCount >= 1 && StoreInstCount <= 4);
+  
+  // If number of elements to store exceeds the maximum number of elements
+  // that can be stored in a single store call,  make sure to generate enough 
+  // store calls to store all elements
+  for (unsigned j = 0; j < StoreInstCount; j++) {
+    decltype(storeArgs) newStoreArgs;
+    for (Value* storeArg : storeArgs)
+      newStoreArgs.emplace_back(storeArg);
+    storeArgsList.emplace_back(newStoreArgs);
+  }
+
+  for (unsigned j = 0; j < storeArgsList.size(); j++) {
+
+    // For second and subsequent store calls, increment the offset0 (i.e. store index)
+    if (j > 0) {
+      Value* newOffset = ConstantInt::get(Builder.getInt32Ty(), j);
+      newOffset = Builder.CreateAdd(storeArgsList[0][offset0Idx], newOffset);
+      storeArgsList[j][offset0Idx] = newOffset;
     }
 
-    for (unsigned i = 0; i < 4; i++) {
-      if (i < vecSize) {
-        storeArgs.emplace_back(Builder.CreateExtractElement(val, i));
-        mask |= (1<<i);
-      } else {
-        storeArgs.emplace_back(emptyVal);
+    // values
+    uint8_t mask = 0;
+    if (Ty->isVectorTy()) {
+      unsigned vecSize = std::min((j + 1) * MaxStoreElemCount, Ty->getVectorNumElements()) - (j * MaxStoreElemCount);
+      Value* emptyVal = undefVal;
+      if (isTyped) {
+        mask = DXIL::kCompMask_All;
+        emptyVal = Builder.CreateExtractElement(val, (uint64_t)0);
+      }
+
+      for (unsigned i = 0; i < MaxStoreElemCount; i++) {
+        if (i < vecSize) {
+          storeArgsList[j].emplace_back(Builder.CreateExtractElement(val, (j * MaxStoreElemCount) + i));
+          mask |= (1 << i);
+        }
+        else {
+          storeArgsList[j].emplace_back(emptyVal);
+        }
+      }
+
+    }
+    else {
+      if (isTyped) {
+        mask = DXIL::kCompMask_All;
+        storeArgsList[j].emplace_back(val);
+        storeArgsList[j].emplace_back(val);
+        storeArgsList[j].emplace_back(val);
+        storeArgsList[j].emplace_back(val);
+      }
+      else {
+        storeArgsList[j].emplace_back(val);
+        storeArgsList[j].emplace_back(undefVal);
+        storeArgsList[j].emplace_back(undefVal);
+        storeArgsList[j].emplace_back(undefVal);
+        mask = DXIL::kCompMask_X;
       }
     }
 
-  } else {
-    if (isTyped) {
-      mask = DXIL::kCompMask_All;
-      storeArgs.emplace_back(val);
-      storeArgs.emplace_back(val);
-      storeArgs.emplace_back(val);
-      storeArgs.emplace_back(val);
-    } else {
-      storeArgs.emplace_back(val);
-      storeArgs.emplace_back(undefVal);
-      storeArgs.emplace_back(undefVal);
-      storeArgs.emplace_back(undefVal);
-      mask = DXIL::kCompMask_X;
+    if (is64 && isTyped) {
+      unsigned size = 1;
+      if (Ty->isVectorTy()) {
+        size = std::min((j + 1) * MaxStoreElemCount, Ty->getVectorNumElements()) - (j * MaxStoreElemCount);
+      }
+      DXASSERT(size <= 2, "raw/typed buffer only allow 4 dwords");
+      unsigned val0OpIdx = opcode == DXIL::OpCode::TextureStore
+        ? DXIL::OperandIndex::kTextureStoreVal0OpIdx
+        : DXIL::OperandIndex::kBufferStoreVal0OpIdx;
+      Value* V0 = storeArgsList[j][val0OpIdx];
+      Value* V1 = storeArgsList[j][val0OpIdx + 1];
+
+      Value* vals32[4];
+      EltTy = Ty->getScalarType();
+      Split64bitValForStore(EltTy, { V0, V1 }, size, vals32, OP, Builder);
+      // Fill the uninit vals.
+      if (size == 1) {
+        vals32[2] = vals32[0];
+        vals32[3] = vals32[1];
+      }
+      // Change valOp to 32 version.
+      for (unsigned i = 0; i < 4; i++) {
+        storeArgsList[j][val0OpIdx + i] = vals32[i];
+      }
+      // change mask for double
+      if (opcode == DXIL::OpCode::RawBufferStore) {
+        mask = size == 1 ?
+          DXIL::kCompMask_X | DXIL::kCompMask_Y : DXIL::kCompMask_All;
+      }
     }
+
+    storeArgsList[j].emplace_back(OP->GetU8Const(mask)); // mask
+    if (opcode == DXIL::OpCode::RawBufferStore)
+      storeArgsList[j].emplace_back(Alignment); // alignment only for raw buffer
+    Builder.CreateCall(F, storeArgsList[j]);
   }
-
-  if (is64 && isTyped) {
-    unsigned size = 1;
-    if (Ty->isVectorTy()) {
-      size = Ty->getVectorNumElements();
-    }
-    DXASSERT(size <= 2, "raw/typed buffer only allow 4 dwords");
-    unsigned val0OpIdx = opcode == DXIL::OpCode::TextureStore
-                             ? DXIL::OperandIndex::kTextureStoreVal0OpIdx
-                             : DXIL::OperandIndex::kBufferStoreVal0OpIdx;
-    Value *V0 = storeArgs[val0OpIdx];
-    Value *V1 = storeArgs[val0OpIdx+1];
-
-    Value *vals32[4];
-    EltTy = Ty->getScalarType();
-    Split64bitValForStore(EltTy, {V0, V1}, size, vals32, OP, Builder);
-    // Fill the uninit vals.
-    if (size == 1) {
-      vals32[2] = vals32[0];
-      vals32[3] = vals32[1];
-    }
-    // Change valOp to 32 version.
-    for (unsigned i = 0; i < 4; i++) {
-      storeArgs[val0OpIdx + i] = vals32[i];
-    }
-    // change mask for double
-    if (opcode == DXIL::OpCode::RawBufferStore) {
-      mask = size == 1 ?
-        DXIL::kCompMask_X | DXIL::kCompMask_Y : DXIL::kCompMask_All;
-    }
-  }
-
-  storeArgs.emplace_back(OP->GetU8Const(mask)); // mask
-  if (opcode == DXIL::OpCode::RawBufferStore)
-    storeArgs.emplace_back(Alignment); // alignment only for raw buffer
-  Builder.CreateCall(F, storeArgs);
 }
 
 Value *TranslateResourceStore(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
@@ -5340,6 +5378,7 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_InterlockedMin, TranslateIopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_InterlockedOr, TranslateIopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_InterlockedXor, TranslateIopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::IOP_IsHelperLane, TrivialNoArgWithRetOperation, DXIL::OpCode::IsHelperLane},
     {IntrinsicOp::IOP_NonUniformResourceIndex, TranslateNonUniformResourceIndex, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_ObjectRayDirection, TranslateNoArgVectorOperation, DXIL::OpCode::ObjectRayDirection},
     {IntrinsicOp::IOP_ObjectRayOrigin, TranslateNoArgVectorOperation, DXIL::OpCode::ObjectRayOrigin},

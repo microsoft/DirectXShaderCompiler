@@ -2,10 +2,10 @@
 
 // Make sure snorm/unorm and globallycoherent works.
 // CHECK:call %dx.types.Handle @dx.op.createHandleFromHeap(i32 218
-// CHECK:call %dx.types.Handle @dx.op.createHandleFromHeap(i32 218
-// CHECK:call %dx.types.Handle @dx.op.createHandleFromHeap(i32 218
 // CHECK:call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %{{.*}}, %dx.types.ResourceProperties { i32 4106, i32 270 })  ; AnnotateHandle(res,props)  resource: RWTypedBuffer<UNormF32>
+// CHECK:call %dx.types.Handle @dx.op.createHandleFromHeap(i32 218
 // CHECK:call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %{{.*}}, %dx.types.ResourceProperties { i32 20490, i32 269 })  ; AnnotateHandle(res,props)  resource: globallycoherent RWTypedBuffer<SNormF32>
+// CHECK:call %dx.types.Handle @dx.op.createHandleFromHeap(i32 218
 // CHECK:call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %{{.*}}, %dx.types.ResourceProperties { i32 20490, i32 269 })  ; AnnotateHandle(res,props)  resource: globallycoherent RWTypedBuffer<SNormF32>
 
 

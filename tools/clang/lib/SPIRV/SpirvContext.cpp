@@ -98,7 +98,7 @@ SpirvContext::~SpirvContext() {
 }
 
 inline uint32_t log2ForBitwidth(uint32_t bitwidth) {
-  assert(bitwidth >= 16 && bitwidth <= 64 && llvm::isPowerOf2_32(bitwidth));
+  assert(bitwidth >= 8 && bitwidth <= 64 && llvm::isPowerOf2_32(bitwidth));
 
   return llvm::Log2_32(bitwidth);
 }

@@ -59,6 +59,7 @@ import hctdb_instrhelp
   IOP_InterlockedMin,
   IOP_InterlockedOr,
   IOP_InterlockedXor,
+  IOP_IsHelperLane,
   IOP_NonUniformResourceIndex,
   IOP_ObjectRayDirection,
   IOP_ObjectRayOrigin,

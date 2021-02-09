@@ -401,6 +401,9 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
 
   // Packing intrinsics                                                                                                      void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
   {  OC::Pack4x8,                 "Pack4x8",                  OCC::Pack4x8,                  "pack4x8",                   { false, false, false, false, false, false,  true,  true, false, false, false}, Attribute::ReadNone, },
+
+  // Helper Lanes                                                                                                            void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::IsHelperLane,            "IsHelperLane",             OCC::IsHelperLane,             "isHelperLane",              { false, false, false, false,  true, false, false, false, false, false, false}, Attribute::ReadOnly, },
 };
 // OPCODE-OLOADS:END
 
@@ -839,8 +842,8 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     return;
   }
   // Instructions: AnnotateHandle=216, CreateHandleFromBinding=217,
-  // CreateHandleFromHeap=218, Unpack4x8=219, Pack4x8=220
-  if ((216 <= op && op <= 220)) {
+  // CreateHandleFromHeap=218, Unpack4x8=219, Pack4x8=220, IsHelperLane=221
+  if ((216 <= op && op <= 221)) {
     major = 6;  minor = 6;
     return;
   }
@@ -1427,6 +1430,9 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
 
     // Packing intrinsics
   case OpCode::Pack4x8:                A(pI32);     A(pI32); A(pI8);  A(pETy); A(pETy); A(pETy); A(pETy); break;
+
+    // Helper Lanes
+  case OpCode::IsHelperLane:           A(pI1);      A(pI32); break;
   // OPCODE-OLOAD-FUNCS:END
   default: DXASSERT(false, "otherwise unhandled case"); break;
   }
@@ -1456,6 +1462,20 @@ OP::GetOpFuncList(OpCode opCode) const {
   return m_OpCodeClassCache[(unsigned)m_OpCodeProps[(unsigned)opCode]
                                 .opCodeClass]
       .pOverloads;
+}
+
+bool OP::IsDxilOpUsed(OpCode opcode) const {
+  auto &FnList = GetOpFuncList(opcode);
+  for (auto &it : FnList) {
+    llvm::Function *F = it.second;
+    if (!F) {
+      continue;
+    }
+    if (!F->user_empty()) {
+      return true;
+    }
+  }
+  return false;
 }
 
 void OP::RemoveFunction(Function *F) {
@@ -1670,6 +1690,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::RayQuery_CandidateProceduralPrimitiveNonOpaque:
   case OpCode::RayQuery_CandidateTriangleFrontFace:
   case OpCode::RayQuery_CommittedTriangleFrontFace:
+  case OpCode::IsHelperLane:
     return IntegerType::get(Ctx, 1);
   case OpCode::CBufferLoadLegacy:
   case OpCode::Sample:

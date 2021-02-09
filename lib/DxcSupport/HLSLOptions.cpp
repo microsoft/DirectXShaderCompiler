@@ -625,6 +625,9 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.RecompileFromBinary = Args.hasFlag(OPT_recompile, OPT_INVALID, false);
   opts.StripDebug = Args.hasFlag(OPT_Qstrip_debug, OPT_INVALID, false);
   opts.EmbedDebug = Args.hasFlag(OPT_Qembed_debug, OPT_INVALID, false);
+  opts.SourceInDebugModule = Args.hasFlag(OPT_Qsource_in_debug_module, OPT_INVALID, false);
+  opts.SourceOnlyDebug = Args.hasFlag(OPT_Qsource_only_debug, OPT_INVALID, false);
+  opts.FullDebug = Args.hasFlag(OPT_Qfull_debug, OPT_INVALID, false);
   opts.StripRootSignature = Args.hasFlag(OPT_Qstrip_rootsignature, OPT_INVALID, false);
   opts.StripPrivate = Args.hasFlag(OPT_Qstrip_priv, OPT_INVALID, false);
   opts.StripReflection = Args.hasFlag(OPT_Qstrip_reflect, OPT_INVALID, false);
@@ -642,8 +645,10 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.ResMayAlias = Args.hasFlag(OPT_res_may_alias, OPT_INVALID, false);
   opts.ResMayAlias = Args.hasFlag(OPT_res_may_alias_, OPT_INVALID, opts.ResMayAlias);
   opts.ForceZeroStoreLifetimes = Args.hasFlag(OPT_force_zero_store_lifetimes, OPT_INVALID, false);
+  // Lifetime markers on by default in 6.6 unless disabled explicitly
   opts.EnableLifetimeMarkers = Args.hasFlag(OPT_enable_lifetime_markers, OPT_INVALID,
-                                            DXIL::CompareVersions(Major, Minor, 6, 6) >= 0);
+                                            DXIL::CompareVersions(Major, Minor, 6, 6) >= 0) &&
+                               !Args.hasFlag(OPT_disable_lifetime_markers, OPT_INVALID, false);
 
   if (opts.DefaultColMajor && opts.DefaultRowMajor) {
     errors << "Cannot specify /Zpr and /Zpc together, use /? to get usage information";
@@ -911,6 +916,16 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   // failing if placed before spirv path sets DebugInfo to true.
   if (opts.EmbedDebug && !opts.DebugInfo) {
     errors << "Must enable debug info with /Zi for /Qembed_debug";
+    return 1;
+  }
+
+  if (opts.FullDebug && opts.SourceOnlyDebug) {
+    errors << "Cannot specify both /Qfull_debug and /Qsource_only_debug";
+    return 1;
+  }
+
+  if (opts.SourceInDebugModule && opts.SourceOnlyDebug) {
+    errors << "Cannot specify both /Qsource_in_debug_module and /Qsource_only_debug";
     return 1;
   }
 

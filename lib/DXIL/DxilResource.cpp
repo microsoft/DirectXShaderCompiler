@@ -49,7 +49,7 @@ void DxilResource::SetCompType(const CompType CT) {
 }
 
 Type *DxilResource::GetRetType() const {
-  Type *Ty = GetGlobalSymbol()->getType()->getPointerElementType();
+  Type *Ty = GetHLSLType()->getPointerElementType();
   // For resource array, use element type.
   while (Ty->isArrayTy())
     Ty = Ty->getArrayElementType();

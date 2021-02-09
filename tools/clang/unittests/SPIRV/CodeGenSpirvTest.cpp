@@ -1131,6 +1131,13 @@ TEST_F(FileTest, IntrinsicsIsFinite) {
 TEST_F(FileTest, IntrinsicsInterlockedMethodsPS) {
   runFileTest("intrinsics.interlocked-methods.ps.hlsl");
 }
+TEST_F(FileTest, Intrinsics64BitInterlockedMethodsPS) {
+  runFileTest("intrinsics.64bit-interlocked-methods.ps.hlsl");
+}
+TEST_F(FileTest, Intrinsics64BitInterlockedMethodsCS) {
+  setBeforeHLSLLegalization();
+  runFileTest("intrinsics.64bit-interlocked-methods.cs.hlsl");
+}
 TEST_F(FileTest, IntrinsicsInterlockedMethodsCS) {
   runFileTest("intrinsics.interlocked-methods.cs.hlsl");
 }
@@ -1258,6 +1265,17 @@ TEST_F(FileTest, IntrinsicsVkQueueFamilyScope) {
 }
 TEST_F(FileTest, IntrinsicsVkReadClock) {
   runFileTest("intrinsics.vkreadclock.hlsl");
+}
+
+// Intrinsics added in SM 6.6
+TEST_F(FileTest, IntrinsicsSM66PackU8S8) {
+  runFileTest("intrinsics.sm6_6.pack_s8u8.hlsl");
+}
+TEST_F(FileTest, IntrinsicsSM66PackClampU8S8) {
+  runFileTest("intrinsics.sm6_6.pack_clamp_s8u8.hlsl");
+}
+TEST_F(FileTest, IntrinsicsSM66Unpack) {
+  runFileTest("intrinsics.sm6_6.unpack.hlsl");
 }
 
 // For attributes
@@ -1676,6 +1694,9 @@ TEST_F(FileTest, VulkanAttributePushConstantInvalidUsages) {
 }
 TEST_F(FileTest, VulkanAttributeShaderRecordNVInvalidUsages) {
   runFileTest("vk.attribute.shader-record-nv.invalid.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, VulkanAttributeShaderRecordEXTInvalidUsages) {
+  runFileTest("vk.attribute.shader-record-ext.invalid.hlsl", Expect::Failure);
 }
 
 TEST_F(FileTest, VulkanCLOptionInvertYVS) {
@@ -2251,6 +2272,10 @@ TEST_F(FileTest, RayTracingTerminate) {
   runFileTest("raytracing.khr.terminate.hlsl");
 }
 
+TEST_F(FileTest, RayTracingTargetEnvErro) {
+  runFileTest("raytracing.target-env-error.hlsl", Expect::Failure);
+}
+
 // For decoration uniqueness
 TEST_F(FileTest, DecorationUnique) { runFileTest("decoration.unique.hlsl"); }
 
@@ -2269,6 +2294,9 @@ TEST_F(FileTest, DecorationRelaxedPrecisionStruct) {
 }
 TEST_F(FileTest, DecorationRelaxedPrecisionImage) {
   runFileTest("decoration.relaxed-precision.image.hlsl");
+}
+TEST_F(FileTest, DecorationRelaxedPrecisionBool) {
+  runFileTest("decoration.relaxed-precision.bool.hlsl");
 }
 
 // For NoContraction decorations
@@ -2309,6 +2337,18 @@ TEST_F(FileTest, VulkanLayoutShaderRecordBufferNVStd430) {
 TEST_F(FileTest, VulkanShaderRecordBufferNVOffset) {
   // Checks the behavior of [[vk::offset]] with [[vk::shader_record_nv]]
   runFileTest("vk.shader-record-nv.offset.hlsl");
+}
+// Tests for [[vk::shader_record_ext]]
+TEST_F(FileTest, VulkanShaderRecordBufferEXT) {
+  runFileTest("vk.shader-record-ext.hlsl");
+}
+TEST_F(FileTest, VulkanLayoutShaderRecordBufferEXTStd430) {
+  setGlLayout();
+  runFileTest("vk.layout.shader-record-ext.std430.hlsl");
+}
+TEST_F(FileTest, VulkanShaderRecordBufferEXTOffset) {
+  // Checks the behavior of [[vk::offset]] with [[vk::shader_record_ext]]
+  runFileTest("vk.shader-record-ext.offset.hlsl");
 }
 TEST_F(FileTest, VulkanShadingRate) { runFileTest("vk.shading-rate.hlsl"); }
 TEST_F(FileTest, VulkanShadingRateError) {
@@ -2408,6 +2448,14 @@ TEST_F(FileTest, Vk1p2BlockDecoration) {
 }
 TEST_F(FileTest, Vk1p2RemoveBufferBlockRuntimeArray) {
   runFileTest("vk.1p2.remove.bufferblock.runtimearray.hlsl");
+}
+TEST_F(FileTest, Vk1p2RemoveBufferBlockPtrToPtr) {
+  setBeforeHLSLLegalization();
+  runFileTest("vk.1p2.remove.bufferblock.ptr-to-ptr.hlsl");
+}
+TEST_F(FileTest, Vk1p2RemoveBufferBlockPtrToPtr2) {
+  setBeforeHLSLLegalization();
+  runFileTest("vk.1p2.remove.bufferblock.ptr-to-ptr.example2.hlsl");
 }
 
 // Test shaders that require Vulkan1.1 support with

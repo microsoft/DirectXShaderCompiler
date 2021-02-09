@@ -16,6 +16,7 @@
 #include "dxc/HLSL/DxilValidation.h"
 #include "dxc/DxilContainer/DxilContainerAssembler.h"
 #include "dxc/DxilContainer/DxilRuntimeReflection.h"
+#include "dxc/DxilContainer/DxilPipelineStateValidation.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilModule.h"
@@ -388,6 +389,7 @@ struct ValidationContext {
   Module &M;
   Module *pDebugModule;
   DxilModule &DxilMod;
+  const Type *HandleTy;
   const DataLayout &DL;
   DebugLoc LastDebugLocEmit;
   ValidationRule LastRuleEmit;
@@ -421,6 +423,7 @@ struct ValidationContext {
         kLLVMLoopMDKind(llvmModule.getContext().getMDKindID("llvm.loop")),
         slotTracker(&llvmModule, true) {
     DxilMod.GetDxilVersion(m_DxilMajor, m_DxilMinor);
+    HandleTy = DxilMod.GetOP()->GetHandleType();
 
     for (Function &F : llvmModule.functions()) {
       if (DxilMod.HasDxilEntryProps(&F)) {
@@ -481,6 +484,9 @@ struct ValidationContext {
           }
         } else if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
           PropagateResMap(U, Res);
+        } else if (isa<BitCastOperator>(U) && U->user_empty()) {
+          // For hlsl type.
+          continue;
         } else {
           EmitResourceError(Res, ValidationRule::InstrResourceUser);
         }
@@ -570,8 +576,7 @@ struct ValidationContext {
           }
 
           ConstantInt *cIndex = dyn_cast<ConstantInt>(hdl.get_index());
-          if (!Res->GetGlobalSymbol()
-                   ->getType()
+          if (!Res->GetHLSLType()
                    ->getPointerElementType()
                    ->isArrayTy()) {
             if (!cIndex) {
@@ -964,8 +969,8 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
     return (major > 6 || (major == 6 && minor >= 5))
         && (SK == DXIL::ShaderKind::Mesh);
   // Instructions: AnnotateHandle=216, CreateHandleFromBinding=217,
-  // CreateHandleFromHeap=218, Unpack4x8=219, Pack4x8=220
-  if ((216 <= op && op <= 220))
+  // CreateHandleFromHeap=218, Unpack4x8=219, Pack4x8=220, IsHelperLane=221
+  if ((216 <= op && op <= 221))
     return (major > 6 || (major == 6 && minor >= 6));
   return true;
   // VALOPCODESM-TEXT:END
@@ -2722,6 +2727,9 @@ static bool ValidateType(Type *Ty, ValidationContext &ValCtx, bool bInner = fals
 
     StringRef Name = ST->getName();
     if (Name.startswith("dx.")) {
+      // Allow handle type.
+      if (ValCtx.HandleTy == Ty)
+        return true;
       hlsl::OP *hlslOP = ValCtx.DxilMod.GetOP();
       if (IsDxilBuiltinStructType(ST, hlslOP)) {
         ValCtx.EmitTypeError(Ty, ValidationRule::InstrDxilStructUser);
@@ -3667,6 +3675,14 @@ static void ValidateGlobalVariable(GlobalVariable &GV,
     isRes |= isResourceGlobal(ValCtx.DxilMod.GetSRVs());
     isRes |= isSamplerGlobal(ValCtx.DxilMod.GetSamplers());
     isInternalGV |= isRes;
+
+    // Allow special dx.ishelper for library target
+    if (GV.getName().compare(DXIL::kDxIsHelperGlobalName) == 0) {
+      Type *Ty = GV.getType()->getPointerElementType();
+      if (Ty->isIntegerTy() && Ty->getScalarSizeInBits() == 32) {
+        isInternalGV = true;
+      }
+    }
   }
 
   if (!isInternalGV) {
@@ -4128,7 +4144,7 @@ CollectCBufferRanges(DxilStructAnnotation *annotation,
 }
 
 static void ValidateCBuffer(DxilCBuffer &cb, ValidationContext &ValCtx) {
-  Type *Ty = cb.GetGlobalSymbol()->getType()->getPointerElementType();
+  Type *Ty = cb.GetHLSLType()->getPointerElementType();
   if (cb.GetRangeSize() != 1 || Ty->isArrayTy()) {
     Ty = Ty->getArrayElementType();
   }
@@ -5764,7 +5780,7 @@ bool VerifySignatureMatches(llvm::Module *pModule,
 static void VerifyPSVMatches(_In_ ValidationContext &ValCtx,
                              _In_reads_bytes_(PSVSize) const void *pPSVData,
                              _In_ uint32_t PSVSize) {
-  uint32_t PSVVersion = 1;  // This should be set to the newest version
+  uint32_t PSVVersion = MAX_PSV_VERSION;  // This should be set to the newest version
   unique_ptr<DxilPartWriter> pWriter(NewPSVWriter(ValCtx.DxilMod, PSVVersion));
   // Try each version in case an earlier version matches module
   while (PSVVersion && pWriter->size() != PSVSize) {
@@ -5811,7 +5827,7 @@ static void VerifyRDATMatches(_In_ ValidationContext &ValCtx,
     }
   }
 
-  unique_ptr<DxilPartWriter> pWriter(NewRDATWriter(ValCtx.DxilMod, 0));
+  unique_ptr<DxilPartWriter> pWriter(NewRDATWriter(ValCtx.DxilMod));
   VerifyBlobPartMatches(ValCtx, PartName, pWriter.get(), pRDATData, RDATSize);
 
   // Verify no errors when runtime reflection from RDAT:
@@ -6092,7 +6108,7 @@ HRESULT ValidateDxilBitcode(
   DxilModule &dxilModule = pModule->GetDxilModule();
   auto &SerializedRootSig = dxilModule.GetSerializedRootSignature();
   if (!SerializedRootSig.empty()) {
-    unique_ptr<DxilPartWriter> pWriter(NewPSVWriter(dxilModule, 0));
+    unique_ptr<DxilPartWriter> pWriter(NewPSVWriter(dxilModule));
     DXASSERT_NOMSG(pWriter->size());
     CComPtr<AbstractMemoryStream> pOutputStream;
     IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pOutputStream));
