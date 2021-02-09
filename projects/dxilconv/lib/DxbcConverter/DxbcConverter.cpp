@@ -4566,25 +4566,31 @@ void DxbcConverter::InsertSM50ResourceHandles() {
   // Create resource handles for SM5.0- to reduce the number of call instructions (to reduce IR size).
   // Later: it may be worthwhile to implement a pass to hoist handle creation for SM5.1 here when the index into range is constant and used more than once within the shader.
   if (!IsSM51Plus()) {
+    // Note: Even though space should normally be 0 for SM 5.0 and below,
+    // the interfaces implementation uses non-zero space when compiling from SM 5.0.
     for (size_t i = 0; i < m_pPR->GetSRVs().size(); ++i) {
       DxilResource &R = m_pPR->GetSRV(i);
-      DXASSERT(R.GetSpaceID() == 0, "In SM5.0, all resources should be in space 0");
-      SetCachedHandle(R);
+      if (R.GetSpaceID() == 0) {
+        SetCachedHandle(R);
+      }
     }
     for (size_t i = 0; i < m_pPR->GetUAVs().size(); ++i) {
       DxilResource &R = m_pPR->GetUAV(i);
-      DXASSERT(R.GetSpaceID() == 0, "In SM5.0, all resources should be in space 0");
-      SetCachedHandle(R);
+      if (R.GetSpaceID() == 0) {
+        SetCachedHandle(R);
+      }
     }
     for (size_t i = 0; i < m_pPR->GetCBuffers().size(); ++i) {
       DxilCBuffer &R = m_pPR->GetCBuffer(i);
-      DXASSERT(R.GetSpaceID() == 0, "In SM5.0, all resources should be in space 0");
-      SetCachedHandle(R);
+      if (R.GetSpaceID() == 0) {
+        SetCachedHandle(R);
+      }
     }
     for (size_t i = 0; i < m_pPR->GetSamplers().size(); ++i) {
       DxilSampler &R = m_pPR->GetSampler(i);
-      DXASSERT(R.GetSpaceID() == 0, "In SM5.0, all resources should be in space 0");
-      SetCachedHandle(R);
+      if (R.GetSpaceID() == 0) {
+        SetCachedHandle(R);
+      }
     }
   }
 }
