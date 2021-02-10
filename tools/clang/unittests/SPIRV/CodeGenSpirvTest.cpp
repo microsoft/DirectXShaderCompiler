@@ -1695,6 +1695,9 @@ TEST_F(FileTest, VulkanAttributePushConstantInvalidUsages) {
 TEST_F(FileTest, VulkanAttributeShaderRecordNVInvalidUsages) {
   runFileTest("vk.attribute.shader-record-nv.invalid.hlsl", Expect::Failure);
 }
+TEST_F(FileTest, VulkanAttributeShaderRecordEXTInvalidUsages) {
+  runFileTest("vk.attribute.shader-record-ext.invalid.hlsl", Expect::Failure);
+}
 
 TEST_F(FileTest, VulkanCLOptionInvertYVS) {
   runFileTest("vk.cloption.invert-y.vs.hlsl");
@@ -2334,6 +2337,18 @@ TEST_F(FileTest, VulkanLayoutShaderRecordBufferNVStd430) {
 TEST_F(FileTest, VulkanShaderRecordBufferNVOffset) {
   // Checks the behavior of [[vk::offset]] with [[vk::shader_record_nv]]
   runFileTest("vk.shader-record-nv.offset.hlsl");
+}
+// Tests for [[vk::shader_record_ext]]
+TEST_F(FileTest, VulkanShaderRecordBufferEXT) {
+  runFileTest("vk.shader-record-ext.hlsl");
+}
+TEST_F(FileTest, VulkanLayoutShaderRecordBufferEXTStd430) {
+  setGlLayout();
+  runFileTest("vk.layout.shader-record-ext.std430.hlsl");
+}
+TEST_F(FileTest, VulkanShaderRecordBufferEXTOffset) {
+  // Checks the behavior of [[vk::offset]] with [[vk::shader_record_ext]]
+  runFileTest("vk.shader-record-ext.offset.hlsl");
 }
 TEST_F(FileTest, VulkanShadingRate) { runFileTest("vk.shading-rate.hlsl"); }
 TEST_F(FileTest, VulkanShadingRateError) {

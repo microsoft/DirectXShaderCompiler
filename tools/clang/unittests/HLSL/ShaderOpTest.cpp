@@ -9,6 +9,9 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+// We need to keep & fix these warnings to integrate smoothly with HLK
+#pragma warning(error: 4100 4146 4242 4244 4267 4701 4389)
+
 #include <windows.h>
 #include <d3d12.h>
 #include <dxgi1_4.h>
@@ -297,7 +300,7 @@ void ShaderOpTest::CreateDescriptorHeaps() {
 
     const UINT descriptorSize = m_pDevice->GetDescriptorHandleIncrementSize(H.Desc.Type);
     CD3DX12_CPU_DESCRIPTOR_HANDLE cpuHandle(pHeap->GetCPUDescriptorHandleForHeapStart());
-    CD3DX12_GPU_DESCRIPTOR_HANDLE gpuHandle;
+    CD3DX12_GPU_DESCRIPTOR_HANDLE gpuHandle = {};
     if (H.Desc.Type != D3D12_DESCRIPTOR_HEAP_TYPE_RTV)
         gpuHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(pHeap->GetGPUDescriptorHandleForHeapStart());
     for (ShaderOpDescriptor &D : H.Descriptors) {

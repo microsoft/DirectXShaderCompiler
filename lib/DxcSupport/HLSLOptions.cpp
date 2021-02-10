@@ -645,8 +645,10 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.ResMayAlias = Args.hasFlag(OPT_res_may_alias, OPT_INVALID, false);
   opts.ResMayAlias = Args.hasFlag(OPT_res_may_alias_, OPT_INVALID, opts.ResMayAlias);
   opts.ForceZeroStoreLifetimes = Args.hasFlag(OPT_force_zero_store_lifetimes, OPT_INVALID, false);
+  // Lifetime markers on by default in 6.6 unless disabled explicitly
   opts.EnableLifetimeMarkers = Args.hasFlag(OPT_enable_lifetime_markers, OPT_INVALID,
-                                            DXIL::CompareVersions(Major, Minor, 6, 6) >= 0);
+                                            DXIL::CompareVersions(Major, Minor, 6, 6) >= 0) &&
+                               !Args.hasFlag(OPT_disable_lifetime_markers, OPT_INVALID, false);
 
   if (opts.DefaultColMajor && opts.DefaultRowMajor) {
     errors << "Cannot specify /Zpr and /Zpc together, use /? to get usage information";

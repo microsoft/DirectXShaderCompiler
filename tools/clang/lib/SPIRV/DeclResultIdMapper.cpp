@@ -912,6 +912,8 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
   const bool forPC = usageKind == ContextUsageKind::PushConstant;
   const bool forShaderRecordNV =
       usageKind == ContextUsageKind::ShaderRecordBufferNV;
+  const bool forShaderRecordEXT =
+      usageKind == ContextUsageKind::ShaderRecordBufferEXT;
 
   const auto &declGroup = collectDeclsInDeclContext(decl);
 
@@ -960,7 +962,9 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
   const auto sc = forPC ? spv::StorageClass::PushConstant
                         : forShaderRecordNV
                               ? spv::StorageClass::ShaderRecordBufferNV
-                              : spv::StorageClass::Uniform;
+                              : forShaderRecordEXT
+                                    ? spv::StorageClass::ShaderRecordBufferKHR
+                                    : spv::StorageClass::Uniform;
 
   // Create the variable for the whole struct / struct array.
   // The fields may be 'precise', but the structure itself is not.
@@ -1117,16 +1121,24 @@ SpirvVariable *DeclResultIdMapper::createPushConstant(const VarDecl *decl) {
 }
 
 SpirvVariable *
-DeclResultIdMapper::createShaderRecordBufferNV(const VarDecl *decl) {
+DeclResultIdMapper::createShaderRecordBuffer(const VarDecl *decl, 
+                                                ContextUsageKind kind) {
   const auto *recordType =
       hlsl::GetHLSLResourceResultType(decl->getType())->getAs<RecordType>();
   assert(recordType);
 
+  assert(kind == ContextUsageKind::ShaderRecordBufferEXT ||
+         kind == ContextUsageKind::ShaderRecordBufferNV);
+
+  const auto typeName = kind == ContextUsageKind::ShaderRecordBufferEXT
+                            ? "type.ShaderRecordBufferEXT."
+                            : "type.ShaderRecordBufferNV.";
+
   const std::string structName =
-      "type.ShaderRecordBufferNV." + recordType->getDecl()->getName().str();
+      typeName + recordType->getDecl()->getName().str();
   SpirvVariable *var = createStructOrStructArrayVarOfExplicitLayout(
       recordType->getDecl(), /*arraySize*/ 0,
-      ContextUsageKind::ShaderRecordBufferNV, structName, decl->getName());
+      kind, structName, decl->getName());
 
   // Register the VarDecl
   astDecls[decl] = DeclSpirvInfo(var);
@@ -1138,13 +1150,20 @@ DeclResultIdMapper::createShaderRecordBufferNV(const VarDecl *decl) {
 }
 
 SpirvVariable *
-DeclResultIdMapper::createShaderRecordBufferNV(const HLSLBufferDecl *decl) {
+DeclResultIdMapper::createShaderRecordBuffer(const HLSLBufferDecl *decl,
+                                               ContextUsageKind kind) {
+  assert(kind == ContextUsageKind::ShaderRecordBufferEXT ||
+         kind == ContextUsageKind::ShaderRecordBufferNV);
+
+  const auto typeName = kind == ContextUsageKind::ShaderRecordBufferEXT
+                            ? "type.ShaderRecordBufferEXT."
+                            : "type.ShaderRecordBufferNV.";
 
   const std::string structName =
-      "type.ShaderRecordBufferNV." + decl->getName().str();
+      typeName + decl->getName().str();
   // The front-end does not allow arrays of cbuffer/tbuffer.
   SpirvVariable *bufferVar = createStructOrStructArrayVarOfExplicitLayout(
-      decl, /*arraySize*/ 0, ContextUsageKind::ShaderRecordBufferNV, structName,
+      decl, /*arraySize*/ 0, kind, structName,
       decl->getName());
 
   // We still register all VarDecls seperately here. All the VarDecls are

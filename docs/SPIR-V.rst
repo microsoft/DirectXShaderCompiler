@@ -247,6 +247,10 @@ Please note as per the requirements of VK_NV_ray_tracing, "there must be no
 more than one shader_record_nv block statically used per shader entry point
 otherwise results are undefined."
 
+The official Khronos ray tracing extension also comes with a SPIR-V storage class
+that has the same functionality. The ``[[vk::shader_record_ext]]`` annotation can 
+be used when targeting the SPV_KHR_ray_tracing extension.
+
 Builtin variables
 ~~~~~~~~~~~~~~~~~
 

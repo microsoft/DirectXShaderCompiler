@@ -10,10 +10,8 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-////////////////////////////////////////////////////////////
-// Define this until fallback implementation is complete.
-#define ISHELPERLANE_PLACEHOLDER
-////////////////////////////////////////////////////////////
+// We need to keep & fix these warnings to integrate smoothly with HLK
+#pragma warning(error: 4100 4146 4242 4244 4267 4701 4389)
 
 #include <algorithm>
 #include <memory>
@@ -1205,6 +1203,7 @@ public:
       return false;
     return O7.MeshShaderTier != D3D12_MESH_SHADER_TIER_NOT_SUPPORTED;
 #else
+    UNREFERENCED_PARAMETER(pDevice);
     return false;
 #endif
   }
@@ -1216,6 +1215,7 @@ public:
       return false;
     return O5.RaytracingTier != D3D12_RAYTRACING_TIER_NOT_SUPPORTED;
 #else
+    UNREFERENCED_PARAMETER(pDevice);
     return false;
 #endif
   }
@@ -1233,6 +1233,7 @@ public:
     return O7.MeshShaderTier != D3D12_MESH_SHADER_TIER_NOT_SUPPORTED &&
       O9.DerivativesInMeshAndAmplificationShadersSupported != FALSE;
 #else
+    UNREFERENCED_PARAMETER(pDevice);
     return false;
 #endif
   }
@@ -1244,6 +1245,7 @@ public:
       return false;
     return O9.AtomicInt64OnTypedResourceSupported != FALSE;
 #else
+    UNREFERENCED_PARAMETER(pDevice);
     return false;
 #endif
   }
@@ -1255,6 +1257,7 @@ public:
       return false;
     return O9.AtomicInt64OnGroupSharedSupported != FALSE;
 #else
+    UNREFERENCED_PARAMETER(pDevice);
     return false;
 #endif
   }
@@ -1968,6 +1971,7 @@ TEST_F(ExecutionTest, BasicTriangleTest) {
       }
     }
     static void __stdcall OutputFn(void *pCtx, const wchar_t *pMsg) {
+      UNREFERENCED_PARAMETER(pCtx);
       LogCommentFmt(L"%s", pMsg);
     }
   };
@@ -2215,7 +2219,7 @@ TEST_F(ExecutionTest, WaveIntrinsicsTest) {
   values.resize(ThreadsPerGroup * DispatchGroupCount);
   for (size_t i = 0; i < values.size(); ++i) {
     memset(&values[i], 0, sizeof(PerThreadData));
-    values[i].id = i;
+    values[i].id = (uint32_t)i;
     values[i].i_diver = (int)i;
     values[i].i_diver *= (i % 2) ? 1 : -1;
   }
@@ -2274,7 +2278,7 @@ TEST_F(ExecutionTest, WaveIntrinsicsTest) {
   CComPtr<ID3D12Resource> pUavResource;
   CComPtr<ID3D12Resource> pReadBuffer;
   CComPtr<ID3D12Resource> pUploadResource;
-  CreateTestUavs(pDevice, pCommandList, values.data(), valueSizeInBytes, &pUavResource, &pUploadResource, &pReadBuffer);
+  CreateTestUavs(pDevice, pCommandList, values.data(), (UINT)valueSizeInBytes, &pUavResource, &pUploadResource, &pReadBuffer);
 
   // Close the command list and execute it to perform the GPU setup.
   pCommandList->Close();
@@ -2289,7 +2293,7 @@ TEST_F(ExecutionTest, WaveIntrinsicsTest) {
     uavDesc.Format = DXGI_FORMAT_UNKNOWN;
     uavDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
     uavDesc.Buffer.FirstElement = 0;
-    uavDesc.Buffer.NumElements = values.size();
+    uavDesc.Buffer.NumElements = (UINT)values.size();
     uavDesc.Buffer.StructureByteStride = sizeof(PerThreadData);
     uavDesc.Buffer.CounterOffsetInBytes = 0;
     uavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
@@ -2307,7 +2311,7 @@ TEST_F(ExecutionTest, WaveIntrinsicsTest) {
   ExecuteCommandList(pCommandQueue, pCommandList);
   WaitForSignal(pCommandQueue, FO);
   {
-    MappedData mappedData(pReadBuffer, valueSizeInBytes);
+    MappedData mappedData(pReadBuffer, (UINT)valueSizeInBytes);
     PerThreadData *pData = (PerThreadData *)mappedData.data();
     memcpy(values.data(), pData, valueSizeInBytes);
 
@@ -2962,8 +2966,8 @@ void ExecutionTest::BasicTriangleTestSetup(LPCSTR ShaderOpName, LPCWSTR FileName
   std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(pDevice, m_support, pStream, ShaderOpName, nullptr);
   MappedData data;
   D3D12_RESOURCE_DESC &D = test->ShaderOp->GetResourceByName("RTarget")->Desc;
-  UINT width = (UINT64)D.Width;
-  UINT height = (UINT64)D.Height;
+  UINT width = (UINT)D.Width;
+  UINT height = D.Height;
   test->Test->GetReadBackData("RTarget", &data);
   const uint32_t *pPixels = (uint32_t *)data.data();
   if (SaveImages()) {
@@ -3301,7 +3305,7 @@ TEST_F(ExecutionTest, QuadReadTest) {
   }
 }
 
-void VerifySampleResults(const UINT *pPixels) {
+void VerifySampleResults(const UINT *pPixels, UINT width) {
   UINT xlod = 0;
   UINT ylod = 0;
   // Each pixel contains 4 samples and 4 LOD calculations.
@@ -3319,7 +3323,7 @@ void VerifySampleResults(const UINT *pPixels) {
   // in both directions might result in different levels for different locations
   // in the quad. So only comparisons between sample results and LOD calculations
   // and ensuring that the LOD increased and reaches the max can be tested reliably.
-  for (unsigned i = 0; i < 64; i++) {
+  for (unsigned i = 0; i < width; i++) {
     // CalculateLOD and Sample from texture with mip levels containing LOD index should match
     VERIFY_ARE_EQUAL(pPixels[4*i + 0], pPixels[4*i + 1]);
     VERIFY_ARE_EQUAL(pPixels[4*i + 2], pPixels[4*i + 3]);
@@ -3330,8 +3334,8 @@ void VerifySampleResults(const UINT *pPixels) {
     ylod = pPixels[4*i + 2];
   }
   // Make sure we reached the max lod level for both tracks
-  VERIFY_ARE_EQUAL(xlod, 6);
-  VERIFY_ARE_EQUAL(ylod, 6);
+  VERIFY_ARE_EQUAL(xlod, 6u);
+  VERIFY_ARE_EQUAL(ylod, 6u);
 }
 
 TEST_F(ExecutionTest, ComputeSampleTest) {
@@ -3349,13 +3353,13 @@ TEST_F(ExecutionTest, ComputeSampleTest) {
 
   st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("ComputeSample");
 
-  D3D12_RESOURCE_DESC &texDesc = pShaderOp->GetResourceByName("T0")->Desc;
-  UINT texWidth = (UINT)texDesc.Width;
-  UINT texHeight = (UINT)texDesc.Height;
-
   // Initialize texture with the LOD number in each corresponding mip level
   auto SampleInitFn = [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
+                        UNREFERENCED_PARAMETER(pShaderOp);
                         VERIFY_ARE_EQUAL(0, _stricmp(Name, "T0"));
+                        D3D12_RESOURCE_DESC &texDesc = pShaderOp->GetResourceByName("T0")->Desc;
+                        UINT texWidth = (UINT)texDesc.Width;
+                        UINT texHeight = (UINT)texDesc.Height;
                         size_t size = sizeof(float) * texWidth * texHeight * 2;
                         Data.resize(size);
                         float *pPrimitives = (float *)Data.data();
@@ -3374,17 +3378,59 @@ TEST_F(ExecutionTest, ComputeSampleTest) {
                           texWidth >>= 1;
                         }
                       };
+  LPCSTR CS2 = nullptr, AS2 = nullptr, MS2 = nullptr;
+  for (st::ShaderOpShader &S : pShaderOp->Shaders) {
+    if (!strcmp(S.Name, "CS2")) CS2 = S.Name;
+    if (!strcmp(S.Name, "AS2")) AS2 = S.Name;
+    if (!strcmp(S.Name, "MS2")) MS2 = S.Name;
+  }
+
+  // Test 1D compute shader
   std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "ComputeSample", SampleInitFn, ShaderOpSet);
   MappedData data;
 
   test->Test->GetReadBackData("U0", &data);
   const UINT *pPixels = (UINT *)data.data();
 
-  VerifySampleResults(pPixels);
+  VerifySampleResults(pPixels, 1008);
+
+  // Test 2D compute shader
+  pShaderOp->CS = CS2;
+
+  test = RunShaderOpTestAfterParse(pDevice, m_support, "ComputeSample", SampleInitFn, ShaderOpSet);
+
+  test->Test->GetReadBackData("U0", &data);
+  pPixels = (UINT *)data.data();
+
+  VerifySampleResults(pPixels, 1008);
+
+
   if (DoesDeviceSupportMeshAmpDerivatives(pDevice)) {
     // Disable CS so mesh goes forward
     pShaderOp->CS = nullptr;
     test = RunShaderOpTestAfterParse(pDevice, m_support, "ComputeSample", SampleInitFn, ShaderOpSet);
+    test->Test->GetReadBackData("U1", &data);
+    pPixels = (UINT *)data.data();
+
+    VerifySampleResults(pPixels, 116);
+
+    test->Test->GetReadBackData("U2", &data);
+    pPixels = (UINT *)data.data();
+
+    VerifySampleResults(pPixels, 84);
+
+    pShaderOp->AS = AS2;
+    pShaderOp->MS = MS2;
+    test = RunShaderOpTestAfterParse(pDevice, m_support, "ComputeSample", SampleInitFn, ShaderOpSet);
+    test->Test->GetReadBackData("U1", &data);
+    pPixels = (UINT *)data.data();
+
+    VerifySampleResults(pPixels, 116);
+
+    test->Test->GetReadBackData("U2", &data);
+    pPixels = (UINT *)data.data();
+
+    VerifySampleResults(pPixels, 84);
   }
 }
 
@@ -7738,7 +7784,7 @@ void ExecutionTest::RunComputeRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, Ra
 
    CComPtr<ID3D12Device> pDevice;
    CComPtr<IStream> pStream;
-   char *sTy, *additionalOptions;
+   char *sTy = nullptr, *additionalOptions = nullptr;
 
    if (!SetupRawBufferLdStTest(shaderModel, dataType, pDevice, pStream, sTy, additionalOptions)) {
      return;
@@ -7778,7 +7824,7 @@ void ExecutionTest::RunGraphicsRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, R
 
   CComPtr<ID3D12Device> pDevice;
   CComPtr<IStream> pStream;
-  char *sTy, *additionalOptions;
+  char *sTy = nullptr, *additionalOptions = nullptr;
 
   if (!SetupRawBufferLdStTest(shaderModel, dataType, pDevice, pStream, sTy, additionalOptions)) {
     return;
@@ -7970,7 +8016,7 @@ TEST_F(ExecutionTest, PackUnpackTest) {
         }
         else
         {
-            std::fill(Data.begin(), Data.end(), 0);
+            std::fill(Data.begin(), Data.end(), (BYTE)0);
         }
 
         // use shader from data table
@@ -8036,7 +8082,7 @@ void ExecutionTest::RunResourceTest(ID3D12Device *pDevice, const char *pShader,
   CComPtr<ID3D12CommandAllocator> pCommandAllocator;
   FenceObj FO;
 
-  size_t valueSizeInBytes = valueSize * sizeof(float);
+  UINT valueSizeInBytes = valueSize * sizeof(float);
   CreateComputeCommandQueue(pDevice, L"DynamicResourcesTest Command Queue", &pCommandQueue);
   InitFenceObj(pDevice, &FO);
 
@@ -8086,7 +8132,7 @@ void ExecutionTest::RunResourceTest(ID3D12Device *pDevice, const char *pShader,
     float values[valueSize];
     for (int i = 0; i < NumSRVs - 1; i++) {
       for (int j = 0; j < valueSize; j++)
-        values[j] = 10.0 + i;
+        values[j] = 10.0f + i;
       CreateTestResources(pDevice, pCommandList, values, valueSizeInBytes, bufDesc,
                           &pSRVResources[i], &pUploadResources[i]);
     }
@@ -8102,7 +8148,7 @@ void ExecutionTest::RunResourceTest(ID3D12Device *pDevice, const char *pShader,
   float values[valueSize];
   for (int i = 0; i < NumUAVs - 2; i++) {
     for (int j = 0; j < valueSize; j++)
-      values[j] = 20.0 + i;
+      values[j] = 20.0f + i;
     CreateTestUavs(pDevice, pCommandList, values, valueSizeInBytes,
                    &pUAVResources[i], &pUploadResources[NumSRVs + i]);
   }
@@ -8250,8 +8296,6 @@ void ExecutionTest::WaveSizeTest() {
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
   CComPtr<ID3D12Device> pDevice;
-  CComPtr<IStream> pStream;
-
   if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6)) {
     return;
   }
@@ -8263,9 +8307,6 @@ void ExecutionTest::WaveSizeTest() {
     return;
   }
 
-  // read shader config
-  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
-
   // Get supported wave sizes
   D3D12_FEATURE_DATA_D3D12_OPTIONS1 waveOpts;
   VERIFY_SUCCEEDED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS1, &waveOpts, sizeof(waveOpts)));
@@ -8275,6 +8316,12 @@ void ExecutionTest::WaveSizeTest() {
   DXASSERT_NOMSG(minWaveSize <= maxWaveSize);
   DXASSERT((minWaveSize & (minWaveSize - 1)) == 0, "must be a power of 2");
   DXASSERT((maxWaveSize & (maxWaveSize - 1)) == 0, "must be a power of 2");
+
+  // read shader config
+  CComPtr<IStream> pStream;
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet = std::make_shared<st::ShaderOpSet>();
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
 
   // format shader source
   const char waveSizeTestShader[] =
@@ -8300,7 +8347,7 @@ void ExecutionTest::WaveSizeTest() {
     VERIFY_IS_TRUE(sprintf_s(compilerOptions, sizeof(compilerOptions), "-D WAVESIZE=%d", waveSize) != -1);
 
     // run the shader
-    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(pDevice, m_support, pStream, "WaveSizeTest",
+    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "WaveSizeTest",
       [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
       VERIFY_IS_TRUE((0 == strncmp(Name, "UAVBuffer0", 10)));
       pShaderOp->Shaders.at(0).Arguments = compilerOptions;
@@ -8309,7 +8356,7 @@ void ExecutionTest::WaveSizeTest() {
       VERIFY_IS_TRUE(sizeof(WaveSizeTestData)*MAX_WAVESIZE <= Data.size());
       WaveSizeTestData *pInData = (WaveSizeTestData *)Data.data();
       memset(&pInData, sizeof(WaveSizeTestData)*MAX_WAVESIZE, 0);
-    });
+    }, ShaderOpSet);
 
     // verify expected values
     MappedData dataUav;
@@ -8431,7 +8478,7 @@ void VerifyAtomicResults(const BYTE *uResults, const BYTE *sResults,
   // This is interpretted as -maxIndex and will be the lowest
   // The maxIndex will be unaltered and interpretted as the highest.
   LogCommentFmt(L"Verifying %d-bit integer atomic smin", bitSize);
-  VERIFY_IS_TRUE(AtomicResultMatches(sResults + stride*SMIN_IDX, SHIFT(-(maxIdx-1), shBits), byteSize)); // SMin
+  VERIFY_IS_TRUE(AtomicResultMatches(sResults + stride*SMIN_IDX, SHIFT(-((int)maxIdx-1), shBits), byteSize)); // SMin
   LogCommentFmt(L"Verifying %d-bit integer atomic smax", bitSize);
   VERIFY_IS_TRUE(AtomicResultMatches(sResults + stride*SMAX_IDX, SHIFT(maxIdx-1, shBits), byteSize)); // SMax
 
@@ -8856,17 +8903,17 @@ TEST_F(ExecutionTest, AtomicsShared64Test) {
 // the zero-indexed location available.
 
 // Verify results for a particular set of atomics results
-void VerifyAtomicFloatResults(const float *results, size_t maxIdx) {
+void VerifyAtomicFloatResults(const float *results) {
   // The first entry is for NaN to ensure that compares between NaNs succeed
   // The sentinal value is 0.123, for which this compare is sufficient.
   VERIFY_IS_TRUE(results[0] >= 0.120 && results[0] < 0.125);
   // Start at 1 because 0 is just for NaN tests
   for (size_t i = 1; i < 64; i++) {
-    VERIFY_ARE_EQUAL((int(results[i])/3)%63 + 1, i);
+    VERIFY_ARE_EQUAL((int(results[i])/3)%63 + 1, (int)i);
   }
 }
 
-void VerifyAtomicsFloatSharedTest(std::shared_ptr<ShaderOpTestResult> test, size_t maxIdx) {
+void VerifyAtomicsFloatSharedTest(std::shared_ptr<ShaderOpTestResult> test) {
   MappedData Data;
   const float *pData = nullptr;
 
@@ -8874,10 +8921,10 @@ void VerifyAtomicsFloatSharedTest(std::shared_ptr<ShaderOpTestResult> test, size
   pData = (float *)Data.data();
 
   LogCommentFmt(L"Verifying float cmp/xchg atomic operations on groupshared variables");
-  VerifyAtomicFloatResults(pData, maxIdx);
+  VerifyAtomicFloatResults(pData);
 }
 
-void VerifyAtomicsFloatTest(std::shared_ptr<ShaderOpTestResult> test, size_t maxIdx) {
+void VerifyAtomicsFloatTest(std::shared_ptr<ShaderOpTestResult> test) {
 
   // struct mirroring that in the shader
   struct AtomicStuff {
@@ -8897,23 +8944,23 @@ void VerifyAtomicsFloatTest(std::shared_ptr<ShaderOpTestResult> test, size_t max
   LogCommentFmt(L"Verifying float cmp/xchg atomic operations on RWStructuredBuffer resources");
   VERIFY_IS_TRUE(pStructData[0].fltEl[1] >= 0.120 && pStructData[0].fltEl[1] < 0.125);
   for (size_t i = 1; i < 64; i++) {
-    VERIFY_ARE_EQUAL((int(pStructData[i].fltEl[1])/3)%63 + 1, i);
+    VERIFY_ARE_EQUAL((int(pStructData[i].fltEl[1])/3)%63 + 1, (int)i);
   }
 
   test->Test->GetReadBackData("U1", &Data);
   pData = (float *)Data.data();
   LogCommentFmt(L"Verifying float cmp/xchg atomic operations on RWByteAddressBuffer resources");
-  VerifyAtomicFloatResults(pData, maxIdx);
+  VerifyAtomicFloatResults(pData);
 
   test->Test->GetReadBackData("U2", &Data);
   pData = (float *)Data.data();
   LogCommentFmt(L"Verifying float cmp/xchg atomic operations on RWBuffer resources");
-  VerifyAtomicFloatResults(pData, maxIdx);
+  VerifyAtomicFloatResults(pData);
 
   test->Test->GetReadBackData("U3", &Data);
   pData = (float *)Data.data();
   LogCommentFmt(L"Verifying float cmp/xchg atomic operations on RWTexture resources");
-  VerifyAtomicFloatResults(pData, maxIdx);
+  VerifyAtomicFloatResults(pData);
 
 }
 
@@ -8935,23 +8982,23 @@ TEST_F(ExecutionTest, AtomicsFloatTest) {
   // Test compute shader
   LogCommentFmt(L"Verifying float cmp/xchg atomic operations in compute shader");
   std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "FloatAtomics", nullptr, ShaderOpSet);
-  VerifyAtomicsFloatTest(test, 32*32);
-  VerifyAtomicsFloatSharedTest(test, 32*32);
+  VerifyAtomicsFloatTest(test);
+  VerifyAtomicsFloatSharedTest(test);
 
   // Test mesh shader if available
   pShaderOp->CS = nullptr;
   if (DoesDeviceSupportMeshShaders(pDevice)) {
     LogCommentFmt(L"Verifying float cmp/xchg atomic operations in amp/mesh/pixel shaders");
     test = RunShaderOpTestAfterParse(pDevice, m_support, "FloatAtomics", nullptr, ShaderOpSet);
-    VerifyAtomicsFloatTest(test, 8*8*2 + 8*8*2 + 64*64);
-    VerifyAtomicsFloatSharedTest(test, 8*8*2 + 8*8*2);
+    VerifyAtomicsFloatTest(test);
+    VerifyAtomicsFloatSharedTest(test);
   }
 
   // Test Vertex + Pixel shader
   pShaderOp->MS = nullptr;
     LogCommentFmt(L"Verifying float cmp/xchg atomic operations in vert/pixel shaders");
   test = RunShaderOpTestAfterParse(pDevice, m_support, "FloatAtomics", nullptr, ShaderOpSet);
-  VerifyAtomicsFloatTest(test, 64*64+6);
+  VerifyAtomicsFloatTest(test);
 }
 
 // The IsHelperLane test renders 3-pixel triangle into 16x16 render target restricted 
@@ -8998,7 +9045,7 @@ TEST_F(ExecutionTest, HelperLaneTest) {
       // this callbacked is called when the test is creating the resource to run the test
       [&](LPCSTR Name, std::vector<BYTE>& Data, st::ShaderOp* pShaderOp) {
         VERIFY_IS_TRUE(0 == _stricmp(Name, "UAVBuffer0"));
-        std::fill(Data.begin(), Data.end(), 0xCC);
+        std::fill(Data.begin(), Data.end(), (BYTE)0xCC);
         pShaderOp->Shaders.at(0).Arguments = args.c_str();
         pShaderOp->Shaders.at(1).Arguments = args.c_str();
       }, ShaderOpSet);
@@ -9181,8 +9228,9 @@ bool VerifyHelperLaneWaveResults(ExecutionTest::D3D_SHADER_MODEL sm, HelperLaneW
 }
 
 void CleanUAVBuffer0Buffer(LPCSTR BufferName, std::vector<BYTE>& Data, st::ShaderOp* pShaderOp) {
+  UNREFERENCED_PARAMETER(pShaderOp);
   VERIFY_IS_TRUE(0 == _stricmp(BufferName, "UAVBuffer0"));
-  std::fill(Data.begin(), Data.end(), 0xCC);
+  std::fill(Data.begin(), Data.end(), (BYTE)0xCC);
 }
 
 //
@@ -9321,7 +9369,7 @@ static void WriteReadBackDump(st::ShaderOp *pShaderOp, st::ShaderOpTest *pTest,
         MappedData data;
         pTest->GetReadBackData(R.Name, &data);
         uint32_t *pData = (uint32_t *)data.data();
-        size_t u32_count = R.Desc.Width / sizeof(uint32_t);
+        size_t u32_count = ((size_t)R.Desc.Width) / sizeof(uint32_t);
         for (size_t i = 0; i < u32_count; ++i) {
           float f = *(float *)pData;
           str << i << ": 0n" << *pData << "   0x" << std::hex << *pData
@@ -9391,7 +9439,7 @@ extern "C" {
       m_support.Initialize();
 
       const char *pName = nullptr;
-      CComPtr<IStream> pStream = SHCreateMemStream((BYTE *)pText, strlen(pText));
+      CComPtr<IStream> pStream = SHCreateMemStream((BYTE *)pText, (UINT)strlen(pText));
       std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
         std::make_shared<st::ShaderOpSet>();
       st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());

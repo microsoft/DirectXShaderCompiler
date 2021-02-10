@@ -2323,11 +2323,19 @@ ID3D12ShaderReflectionConstantBuffer* DxilModuleReflection::_GetConstantBufferBy
     return &g_InvalidSRConstantBuffer;
   }
 
+  size_t index = m_CBs.size();
   auto it = m_CBsByName.find(Name);
-  if (it == m_CBsByName.end())
+  if (it != m_CBsByName.end()) {
+    index = it->second;
+  } else {
     it = m_StructuredBufferCBsByName.find(Name);
-  if (it != m_StructuredBufferCBsByName.end())
-    return m_CBs[it->second].get();
+    if (it != m_StructuredBufferCBsByName.end()) {
+      index = it->second;
+    }
+  }
+  if (index < m_CBs.size()) {
+    return m_CBs[index].get();
+  }
 
   return &g_InvalidSRConstantBuffer;
 }

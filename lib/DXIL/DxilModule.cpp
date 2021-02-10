@@ -80,6 +80,7 @@ const char* kFP32DenormValueFtzString      = "ftz";
 const char *kDxBreakFuncName = "dx.break";
 const char *kDxBreakCondName = "dx.break.cond";
 const char *kDxBreakMDName = "dx.break.br";
+const char *kDxIsHelperGlobalName = "dx.ishelper";
 }
 
 // Avoid dependency on DxilModule from llvm::Module using this:
