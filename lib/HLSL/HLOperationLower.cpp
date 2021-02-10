@@ -3578,6 +3578,10 @@ Value *GenerateStructBufLd(Value *handle, Value *bufIdx, Value *offset,
   MutableArrayRef<Value *> resultElts, hlsl::OP *OP,
   IRBuilder<> &Builder, unsigned NumComponents, Constant *alignment);
 
+static Value* TranslateStructBufVecLd(Type* VecEltTy, unsigned VecElemCount,
+  IRBuilder<>& Builder, Value* handle, hlsl::OP* OP, Value* status,
+  Value* bufIdx, Value* baseOffset, const DataLayout& DL, std::vector<Value*>& bufLds);
+
 void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
                    IRBuilder<> &Builder, hlsl::OP *OP, const DataLayout &DL) {
 
@@ -3607,12 +3611,36 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
   }
 
   if (DXIL::IsStructuredBuffer(RK)) {
-    // Basic type case for StructuredBuffer::Load()
-    Value *ResultElts[4];
-    Value *StructBufLoad = GenerateStructBufLd(helper.handle, helper.addr, OP->GetU32Const(0),
-      helper.status, EltTy, ResultElts, OP, Builder, numComponents, Alignment);
-    dxilutil::MigrateDebugValue(helper.retVal, StructBufLoad);
-    Value *retValNew = ScalarizeElements(Ty, ResultElts, Builder);
+    Type* RetTy = helper.retVal->getType();
+    unsigned ElemCount = RetTy->isVectorTy() ? RetTy->getVectorNumElements() : 1;
+    std::vector<Value*> bufLds;
+    const bool isBool = EltTy->isIntegerTy(1);
+
+    // Bool are represented as i32 in memory
+    Type* MemReprTy = isBool ? Builder.getInt32Ty() : EltTy;
+    Value* retValNew = TranslateStructBufVecLd(MemReprTy, ElemCount, Builder, helper.handle, OP, helper.status,
+      helper.addr, OP->GetU32Const(0), DL, bufLds);
+    DXASSERT_NOMSG(!bufLds.empty());
+    dxilutil::MigrateDebugValue(helper.retVal, bufLds.front());
+
+    if (isBool) {
+      // Convert result back to register representation.
+      retValNew = Builder.CreateICmpNE(retValNew, Constant::getNullValue(retValNew->getType()));
+    }
+
+    // We always get a vector from TranslateStructBufVecLd(). For vec1 case,
+    // convert it to scalar if needed to match the target type.
+    // Ex 1: For stbuf.Load<float1x1>(i), both the new value type and
+    // the target type is <1 x float>. No conversion needed here.
+    //
+    // Ex 2: For stbuf.Load<float>(i), the new value type is <1 x float>, but
+    // the target type is float, so we need a conversion here.
+    Type* NewValTy = retValNew->getType();
+    if (NewValTy->isVectorTy() && NewValTy->getVectorNumElements() == 1 &&
+       helper.retVal->getType() == NewValTy->getVectorElementType()) {
+      retValNew = Builder.CreateExtractElement(retValNew, (uint64_t) 0);
+    }
+
     helper.retVal->replaceAllUsesWith(retValNew);
     helper.retVal = retValNew;
     return;
@@ -6856,34 +6884,34 @@ void GenerateStructBufSt(Value *handle, Value *bufIdx, Value *offset,
   Builder.CreateCall(dxilF, Args);
 }
 
-Value *TranslateStructBufMatLd(Type *matType, IRBuilder<> &Builder,
-                               Value *handle, hlsl::OP *OP, Value *status,
-                               Value *bufIdx, Value *baseOffset,
-                               const DataLayout &DL) {
-  HLMatrixType MatTy = HLMatrixType::cast(matType);
-  Type *EltTy = MatTy.getElementTypeForMem();
-  unsigned  EltSize = DL.getTypeAllocSize(EltTy);
+
+static Value* TranslateStructBufVecLd(Type* VecEltTy, unsigned ElemCount,
+  IRBuilder<>& Builder, Value* handle, hlsl::OP* OP, Value* status,
+  Value* bufIdx, Value* baseOffset, const DataLayout& DL, std::vector<Value*> &bufLds) {
+  unsigned  EltSize = DL.getTypeAllocSize(VecEltTy);
   Constant* alignment = OP->GetI32Const(EltSize);
 
-  Value *offset = baseOffset;
+  Value* offset = baseOffset;
   if (baseOffset == nullptr)
     offset = OP->GetU32Const(0);
 
-  unsigned matSize = MatTy.getNumElements();
-  std::vector<Value *> elts(matSize);
+  //unsigned matSize = MatTy.getNumElements();
+  std::vector<Value*> elts(ElemCount);
 
-  unsigned rest = (matSize % 4);
+  unsigned rest = (ElemCount % 4);
   if (rest) {
-    Value *ResultElts[4];
-    GenerateStructBufLd(handle, bufIdx, offset, status, EltTy, ResultElts, OP, Builder, 3, alignment);
+    Value* ResultElts[4];
+    Value *bufLd = GenerateStructBufLd(handle, bufIdx, offset, status, VecEltTy, ResultElts, OP, Builder, rest, alignment);
+    bufLds.emplace_back(bufLd);
     for (unsigned i = 0; i < rest; i++)
       elts[i] = ResultElts[i];
     offset = Builder.CreateAdd(offset, OP->GetU32Const(EltSize * rest));
   }
 
-  for (unsigned i = rest; i < matSize; i += 4) {
-    Value *ResultElts[4];
-    GenerateStructBufLd(handle, bufIdx, offset, status, EltTy, ResultElts, OP, Builder, 4, alignment);
+  for (unsigned i = rest; i < ElemCount; i += 4) {
+    Value* ResultElts[4];
+    Value* bufLd = GenerateStructBufLd(handle, bufIdx, offset, status, VecEltTy, ResultElts, OP, Builder, 4, alignment);
+    bufLds.emplace_back(bufLd);
     elts[i] = ResultElts[0];
     elts[i + 1] = ResultElts[1];
     elts[i + 2] = ResultElts[2];
@@ -6893,7 +6921,19 @@ Value *TranslateStructBufMatLd(Type *matType, IRBuilder<> &Builder,
     offset = Builder.CreateAdd(offset, OP->GetU32Const(4 * EltSize));
   }
 
-  Value *Vec = HLMatrixLower::BuildVector(EltTy, elts, Builder);
+  Value* Vec = HLMatrixLower::BuildVector(VecEltTy, elts, Builder);
+  return Vec;
+}
+
+Value *TranslateStructBufMatLd(Type *matType, IRBuilder<> &Builder,
+                               Value *handle, hlsl::OP *OP, Value *status,
+                               Value *bufIdx, Value *baseOffset,
+                               const DataLayout &DL) {
+  HLMatrixType MatTy = HLMatrixType::cast(matType);
+  Type *EltTy = MatTy.getElementTypeForMem();
+  unsigned matSize = MatTy.getNumElements();
+  std::vector<Value*> bufLds;
+  Value* Vec = TranslateStructBufVecLd(EltTy, matSize, Builder, handle, OP, status, bufIdx, baseOffset, DL, bufLds);
   Vec = MatTy.emitLoweredMemToReg(Vec, Builder);
   return Vec;
 }
