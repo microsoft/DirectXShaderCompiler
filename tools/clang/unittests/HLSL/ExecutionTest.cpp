@@ -3392,7 +3392,7 @@ TEST_F(ExecutionTest, ComputeSampleTest) {
   test->Test->GetReadBackData("U0", &data);
   const UINT *pPixels = (UINT *)data.data();
 
-  VerifySampleResults(pPixels, 1008);
+  VerifySampleResults(pPixels, 84*4);
 
   // Test 2D compute shader
   pShaderOp->CS = CS2;
@@ -3402,7 +3402,7 @@ TEST_F(ExecutionTest, ComputeSampleTest) {
   test->Test->GetReadBackData("U0", &data);
   pPixels = (UINT *)data.data();
 
-  VerifySampleResults(pPixels, 1008);
+  VerifySampleResults(pPixels, 84*4);
 
 
   if (DoesDeviceSupportMeshAmpDerivatives(pDevice)) {

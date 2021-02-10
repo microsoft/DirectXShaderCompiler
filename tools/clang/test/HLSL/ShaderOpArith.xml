@@ -355,7 +355,7 @@
       { { 1.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
       { { 1.0f, -1.0f, 0.0f }, { 1.0f, 1.0f } }
     </Resource>
-    <Resource Name="T0" Dimension="Texture2D" Width="1008" Height="1008" MipLevels="7" InitialResourceState="COPY_DEST" Init="ByName" Format="R32_FLOAT" />
+    <Resource Name="T0" Dimension="Texture2D" Width="336" Height="336" MipLevels="7" InitialResourceState="COPY_DEST" Init="ByName" Format="R32_FLOAT" />
     <Resource Name="RTarget" Dimension="TEXTURE2D" Width="84" Height="4" Format="R32G32B32A32_FLOAT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" />
     <Resource Name="U0" Dimension="BUFFER" Width="16384"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
@@ -373,7 +373,7 @@
     <DescriptorHeap Name="ResHeap" Type="CBV_SRV_UAV">
       <Descriptor Name='T0' Kind='SRV' ResName='T0' />
       <Descriptor Name='U0' Kind='UAV' ResName='U0'
-                  NumElements="1008" StructureByteStride="16" />
+                  NumElements="336" StructureByteStride="16" />
       <Descriptor Name='U1' Kind='UAV' ResName='U1'
                   NumElements="128" StructureByteStride="16" />
       <Descriptor Name='U2' Kind='UAV' ResName='U2'
@@ -523,15 +523,15 @@
           g_bufMain[ix] = DerivTest(ix, 84*4*3);
           return 1;
         }
-        [NumThreads(1008, 1, 1)]
+        [NumThreads(336, 1, 1)]
         void CSMain1D(uint ix : SV_GroupIndex) {
-          g_bufMain[ix] = DerivTest(ix, 1008);
+          g_bufMain[ix] = DerivTest(ix, 336);
         }
 
         [NumThreads(84, 4, 3)]
         void CSMain2D(uint3 id : SV_GroupThreadID) {
           uint ix = convert2Dto1D(id.x, id.y, 84);
-          g_bufMain[ix] = DerivTest(ix, 84*4*3);
+          g_bufMain[ix] = DerivTest(ix, 84*4);
         }
 
       ]]>
