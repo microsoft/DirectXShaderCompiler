@@ -26,6 +26,7 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include "dxc/dxcapi.h"
+#include "dxc/dxcapi.internal.h"
 #include "dxc/dxcpix.h"
 #include "dxc/Support/microcom.h"
 #include "dxc/DxilContainer/DxilContainer.h"
@@ -233,7 +234,7 @@ struct PdbRecompilerIncludeHandler : public IDxcIncludeHandler {
   }
 };
 
-struct DxcPdbUtils : public IDxcPdbUtils, public IDxcPixDxilDebugInfoFactory
+struct DxcPdbUtils : public IDxcPdbUtils, public IDxcPdbUtils2, public IDxcPixDxilDebugInfoFactory
 {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
@@ -259,6 +260,7 @@ private:
   hlsl::DxilCompilerVersion m_VersionInfo;
   std::string m_VersionCommitSha;
   std::string m_VersionString;
+  CComPtr<IDxcCompiler3> m_pCompiler;
 
   struct ArgPair {
     std::wstring Name;
@@ -566,7 +568,7 @@ public:
   DxcPdbUtils(IMalloc *pMalloc) : m_dwRef(0), m_pMalloc(pMalloc) {}
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
-    return DoBasicQueryInterface<IDxcPdbUtils, IDxcPixDxilDebugInfoFactory>(this, iid, ppvObject);
+    return DoBasicQueryInterface<IDxcPdbUtils, IDxcPdbUtils2, IDxcPixDxilDebugInfoFactory>(this, iid, ppvObject);
   }
 
   HRESULT STDMETHODCALLTYPE Load(_In_ IDxcBlob *pPdbOrDxil) override {
@@ -716,7 +718,10 @@ public:
     }
 
     CComPtr<IDxcCompiler3> pCompiler;
-    IFR(DxcCreateInstance2(m_pMalloc, CLSID_DxcCompiler, IID_PPV_ARGS(&pCompiler)));
+    if (m_pCompiler)
+      pCompiler = m_pCompiler;
+    else
+      IFR(DxcCreateInstance2(m_pMalloc, CLSID_DxcCompiler, IID_PPV_ARGS(&pCompiler)));
 
     DxcThreadMalloc TM(m_pMalloc);
 
@@ -830,6 +835,11 @@ public:
     result->m_Version = m_VersionInfo;
     result->m_VersionCommitSha = m_VersionCommitSha;
     *ppVersionInfo = result.Detach();
+    return S_OK;
+  }
+
+  virtual HRESULT STDMETHODCALLTYPE SetCompiler(_In_ IDxcCompiler3 *pCompiler) {
+    m_pCompiler = pCompiler;
     return S_OK;
   }
 };
