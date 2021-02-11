@@ -196,11 +196,6 @@ public:
   virtual HRESULT STDMETHODCALLTYPE SetTargetTriple(LPCSTR name) = 0;
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcPdbUtils2, "7D678438-A9F8-493F-861C-4DA9366898FE")
-struct IDxcPdbUtils2 : public IUnknown {
-  virtual HRESULT STDMETHODCALLTYPE SetCompiler(_In_ IDxcCompiler3 *pCompiler) = 0;
-};
-
 CROSS_PLATFORM_UUIDOF(IDxcSystemAccess, "454b764f-3549-475b-958c-a7a6fcd05fbc")
 struct IDxcSystemAccess : public IUnknown
 {

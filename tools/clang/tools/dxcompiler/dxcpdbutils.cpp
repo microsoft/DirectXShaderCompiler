@@ -234,7 +234,7 @@ struct PdbRecompilerIncludeHandler : public IDxcIncludeHandler {
   }
 };
 
-struct DxcPdbUtils : public IDxcPdbUtils, public IDxcPdbUtils2, public IDxcPixDxilDebugInfoFactory
+struct DxcPdbUtils : public IDxcPdbUtils, public IDxcPixDxilDebugInfoFactory
 {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
@@ -260,6 +260,9 @@ private:
   hlsl::DxilCompilerVersion m_VersionInfo;
   std::string m_VersionCommitSha;
   std::string m_VersionString;
+
+  // NOTE: This is not set to null by Reset() since it doesn't
+  // necessarily change across different PDBs.
   CComPtr<IDxcCompiler3> m_pCompiler;
 
   struct ArgPair {
@@ -568,7 +571,7 @@ public:
   DxcPdbUtils(IMalloc *pMalloc) : m_dwRef(0), m_pMalloc(pMalloc) {}
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
-    return DoBasicQueryInterface<IDxcPdbUtils, IDxcPdbUtils2, IDxcPixDxilDebugInfoFactory>(this, iid, ppvObject);
+    return DoBasicQueryInterface<IDxcPdbUtils, IDxcPixDxilDebugInfoFactory>(this, iid, ppvObject);
   }
 
   HRESULT STDMETHODCALLTYPE Load(_In_ IDxcBlob *pPdbOrDxil) override {
@@ -718,11 +721,8 @@ public:
       return m_InputBlob.QueryInterface(ppFullPDB);
     }
 
-    CComPtr<IDxcCompiler3> pCompiler;
-    if (m_pCompiler)
-      pCompiler = m_pCompiler;
-    else
-      IFR(DxcCreateInstance2(m_pMalloc, CLSID_DxcCompiler, IID_PPV_ARGS(&pCompiler)));
+    if (!m_pCompiler)
+      IFR(DxcCreateInstance2(m_pMalloc, CLSID_DxcCompiler, IID_PPV_ARGS(&m_pCompiler)));
 
     DxcThreadMalloc TM(m_pMalloc);
 
@@ -760,7 +760,7 @@ public:
     IFR(main_file->GetEncoding(&bEndodingKnown, &source_buf.Encoding));
 
     CComPtr<IDxcResult> pResult;
-    IFR(pCompiler->Compile(&source_buf, new_args.data(), new_args.size(), pIncludeHandler, IID_PPV_ARGS(&pResult)));
+    IFR(m_pCompiler->Compile(&source_buf, new_args.data(), new_args.size(), pIncludeHandler, IID_PPV_ARGS(&pResult)));
 
     CComPtr<IDxcOperationResult> pOperationResult;
     IFR(pResult.QueryInterface(&pOperationResult));
@@ -839,7 +839,7 @@ public:
     return S_OK;
   }
 
-  virtual HRESULT STDMETHODCALLTYPE SetCompiler(_In_ IDxcCompiler3 *pCompiler) {
+  virtual HRESULT STDMETHODCALLTYPE SetCompiler(_In_ IDxcCompiler3 *pCompiler) override {
     m_pCompiler = pCompiler;
     return S_OK;
   }
