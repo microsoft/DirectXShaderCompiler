@@ -572,24 +572,25 @@ public:
   }
 
   HRESULT STDMETHODCALLTYPE Load(_In_ IDxcBlob *pPdbOrDxil) override {
-    DxcThreadMalloc TM(m_pMalloc);
-
-    ::llvm::sys::fs::MSFileSystem *msfPtr = nullptr;
-    IFT(CreateMSFileSystemForDisk(&msfPtr));
-    std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
-  
-    ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
-    IFTLLVM(pts.error_code());
 
     if (!pPdbOrDxil)
       return E_POINTER;
 
-    // Remove all the data
-    Reset();
-
-    m_InputBlob = pPdbOrDxil;
-
     try {
+      DxcThreadMalloc TM(m_pMalloc);
+
+      ::llvm::sys::fs::MSFileSystem *msfPtr = nullptr;
+      IFT(CreateMSFileSystemForDisk(&msfPtr));
+      std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
+
+      ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
+      IFTLLVM(pts.error_code());
+
+      // Remove all the data
+      Reset();
+
+      m_InputBlob = pPdbOrDxil;
+
       CComPtr<IStream> pStream;
       IFR(hlsl::CreateReadOnlyBlobStream(pPdbOrDxil, &pStream));
 
