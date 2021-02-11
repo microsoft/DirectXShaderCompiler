@@ -8449,7 +8449,7 @@ void VerifyAtomicResults(const BYTE *uResults, const BYTE *sResults,
   // Test ADD Operation
   // ADD just sums all the indices. The result should the sum of the highest and lowest indices
   // multiplied by half the number of sums.
-  size_t addResult = (maxIdx)*(maxIdx-1)/2;
+  uint64_t addResult = (maxIdx)*(maxIdx-1)/2;
   LogCommentFmt(L"Verifying %d-bit integer atomic add", bitSize);
   // For 32-bit values, the sum exceeds the 16 bit limit, so we can't duplicate
   // That's fine, the duplication is really for 64-bit values.
@@ -8495,7 +8495,7 @@ void VerifyAtomicResults(const BYTE *uResults, const BYTE *sResults,
   // are bitflipped versions of each other.
   // Finding the most significant set bit by the max index or next power of two (pot)
   // gives us the pivot point for these results
-  size_t nextPot = 1ULL << (bitSize - 1);
+  uint64_t nextPot = 1ULL << (bitSize - 1);
   for (;nextPot && !((maxIdx-1) & (nextPot)); nextPot >>= 1) {}
   nextPot <<= 1;
   LogCommentFmt(L"Verifying %d-bit integer atomic and", bitSize);
@@ -8520,7 +8520,7 @@ void VerifyAtomicResults(const BYTE *uResults, const BYTE *sResults,
   // Each "pass" sets or clears the bits depending on what's already there.
   // if the number of the pass is odd, the bits are being unset and all above the mod position should be set.
   // If even, the bits are in the process of being set and bits below the mod position should be set.
-  size_t xorResult = ((1ULL<<((maxIdx)%(bitSize-1))) -1);
+  uint64_t xorResult = ((1ULL<<((maxIdx)%(bitSize-1))) -1);
 
   if (((maxIdx/(bitSize-1))&1)) {
     xorResult ^= ~0ULL;
