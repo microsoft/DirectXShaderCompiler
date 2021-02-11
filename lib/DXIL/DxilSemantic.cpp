@@ -11,6 +11,7 @@
 #include "dxc/DXIL/DxilSemantic.h"
 #include "dxc/DXIL/DxilSignature.h"
 #include "dxc/DXIL/DxilShaderModel.h"
+#include "dxc/DXIL/DxilUtil.h"
 #include "dxc/Support/Global.h"
 
 #include <string>
@@ -121,7 +122,7 @@ bool Semantic::IsInvalid() const {
 
 Semantic::SizeClass Semantic::GetCompCount(llvm::Type* ty) const {
 
-  if (!ty->isVectorTy() && !ty->isIntegerTy() && !ty->isFloatingPointTy())
+  if (!ty->isVectorTy() && !dxilutil::IsIntegerOrFloatingPointType(ty))
     return SizeClass::Unknown;
 
   if (ty->isVectorTy()) {
@@ -145,14 +146,14 @@ Semantic::SizeClass Semantic::GetCompCount(llvm::Type* ty) const {
 
 Semantic::CompTy Semantic::GetCompType(llvm::Type* ty) const {
 
-  if (!ty->isVectorTy() && !ty->isIntegerTy() && !ty->isFloatingPointTy())
+  if (!ty->isVectorTy() && !dxilutil::IsIntegerOrFloatingPointType(ty))
     return CompTy::AnyTy;
 
   if (ty->isVectorTy())
     ty = ty->getScalarType();
 
   // must be an integer or a floating point type here
-  DXASSERT_NOMSG(ty->isIntegerTy() || ty->isFloatingPointTy());
+  DXASSERT_NOMSG(dxilutil::IsIntegerOrFloatingPointType(ty));
   if (ty->getScalarType()->isIntegerTy()) {
     if (ty->getScalarSizeInBits() == 1) {
       return CompTy::BoolTy;
@@ -175,14 +176,11 @@ Semantic::CompTy Semantic::GetCompType(llvm::Type* ty) const {
   }
 }
 
-static bool IsScalarTy(llvm::Type* ty) {
-  return ty->isIntegerTy() || ty->isFloatingPointTy();
-}
-
 static bool IsScalarOrVectorTy(llvm::Type* ty) {
-  if (IsScalarTy(ty))
+  if (dxilutil::IsIntegerOrFloatingPointType(ty))
     return true;
-  if (ty->isVectorTy() && IsScalarTy(ty->getVectorElementType()))
+  if (ty->isVectorTy() &&
+    dxilutil::IsIntegerOrFloatingPointType(ty->getVectorElementType()))
     return true;
   return false;
 }
@@ -205,7 +203,7 @@ bool Semantic::IsSupportedType(llvm::Type* semTy) const {
         // TessFactor or InsideTessFactor must either be float[2] or float
         if ((m_Kind == Kind::TessFactor ||
              m_Kind == Kind::InsideTessFactor) &&
-          !IsScalarTy(semTy)) {
+          !dxilutil::IsIntegerOrFloatingPointType(semTy)) {
           return false;
         }
         // Clip/Cull can be array of scalar or vector
