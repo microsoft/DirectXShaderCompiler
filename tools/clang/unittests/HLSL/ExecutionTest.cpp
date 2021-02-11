@@ -8418,7 +8418,7 @@ bool AtomicResultMatches(const BYTE *uResults, uint64_t gold, size_t size) {
 
 // Used to duplicate the lower half bits into the upper half bits of an integer
 // To verify that the full value is being considered, many tests duplicate the results into the upper half
-#define SHIFT(val, bits) (((val)&((1ULL<<(bits))-1ULL)) | ((val) << (bits)))
+#define SHIFT(val, bits) (((val)&((1ULL<<(bits))-1ULL)) | ((uint64_t)(val) << (bits)))
 
 // Symbolic constants for the results
 #define ADD_IDX 0
@@ -8439,11 +8439,11 @@ bool AtomicResultMatches(const BYTE *uResults, uint64_t gold, size_t size) {
 // which is used to determine what the results should be. <bitSize> is the size in bits of
 // the produced results, either 32 or 64.
 void VerifyAtomicResults(const BYTE *uResults, const BYTE *sResults,
-                         const BYTE *pXchg, size_t stride, size_t maxIdx, size_t bitSize) {
+                         const BYTE *pXchg, size_t stride, uint64_t maxIdx, size_t bitSize) {
   // Each atomic test performs the test on the value in the lower half
   // and also duplicated in the upper half of the value. The SHIFT macros account for this.
   // This is to verify that the upper bits are considered
-  size_t shBits = bitSize/2;
+  uint64_t shBits = bitSize/2;
   size_t byteSize = bitSize/8;
 
   // Test ADD Operation
@@ -8561,7 +8561,7 @@ void VerifyAtomicResults(const BYTE *uResults, const BYTE *sResults,
 }
 
 void VerifyAtomicsRawTest(std::shared_ptr<ShaderOpTestResult> test,
-                          size_t maxIdx, size_t bitSize) {
+                          uint64_t maxIdx, size_t bitSize) {
 
   size_t stride = 8;
   // struct mirroring that in the shader
@@ -8605,7 +8605,7 @@ void VerifyAtomicsRawTest(std::shared_ptr<ShaderOpTestResult> test,
 }
 
 void VerifyAtomicsTypedTest(std::shared_ptr<ShaderOpTestResult> test,
-                            size_t maxIdx, size_t bitSize) {
+                            uint64_t maxIdx, size_t bitSize) {
 
 
   size_t stride = 8;
@@ -8655,7 +8655,7 @@ void VerifyAtomicsTypedTest(std::shared_ptr<ShaderOpTestResult> test,
 }
 
 void VerifyAtomicsSharedTest(std::shared_ptr<ShaderOpTestResult> test,
-                             size_t maxIdx, size_t bitSize) {
+                             uint64_t maxIdx, size_t bitSize) {
 
   size_t stride = 8;
   MappedData uintData, xchgData;
@@ -8674,7 +8674,7 @@ void VerifyAtomicsSharedTest(std::shared_ptr<ShaderOpTestResult> test,
 }
 
 void VerifyAtomicsTest(std::shared_ptr<ShaderOpTestResult> test,
-                       size_t maxIdx, size_t bitSize) {
+                       uint64_t maxIdx, size_t bitSize) {
   VerifyAtomicsRawTest(test, maxIdx, bitSize);
   VerifyAtomicsTypedTest(test, maxIdx, bitSize);
 }
@@ -8908,8 +8908,8 @@ void VerifyAtomicFloatResults(const float *results) {
   // The sentinal value is 0.123, for which this compare is sufficient.
   VERIFY_IS_TRUE(results[0] >= 0.120 && results[0] < 0.125);
   // Start at 1 because 0 is just for NaN tests
-  for (size_t i = 1; i < 64; i++) {
-    VERIFY_ARE_EQUAL((int(results[i])/3)%63 + 1, (int)i);
+  for (int i = 1; i < 64; i++) {
+    VERIFY_ARE_EQUAL((int(results[i])/3)%63 + 1, i);
   }
 }
 
@@ -8943,8 +8943,8 @@ void VerifyAtomicsFloatTest(std::shared_ptr<ShaderOpTestResult> test) {
   const AtomicStuff *pStructData = (AtomicStuff *)Data.data();
   LogCommentFmt(L"Verifying float cmp/xchg atomic operations on RWStructuredBuffer resources");
   VERIFY_IS_TRUE(pStructData[0].fltEl[1] >= 0.120 && pStructData[0].fltEl[1] < 0.125);
-  for (size_t i = 1; i < 64; i++) {
-    VERIFY_ARE_EQUAL((int(pStructData[i].fltEl[1])/3)%63 + 1, (int)i);
+  for (int i = 1; i < 64; i++) {
+    VERIFY_ARE_EQUAL((int(pStructData[i].fltEl[1])/3)%63 + 1, i);
   }
 
   test->Test->GetReadBackData("U1", &Data);
