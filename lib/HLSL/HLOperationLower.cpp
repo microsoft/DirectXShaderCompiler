@@ -6895,9 +6895,7 @@ static Value* TranslateStructBufVecLd(Type* VecEltTy, unsigned ElemCount,
   if (baseOffset == nullptr)
     offset = OP->GetU32Const(0);
 
-  //unsigned matSize = MatTy.getNumElements();
   std::vector<Value*> elts(ElemCount);
-
   unsigned rest = (ElemCount % 4);
   if (rest) {
     Value* ResultElts[4];
