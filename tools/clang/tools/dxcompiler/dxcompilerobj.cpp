@@ -96,7 +96,7 @@ static bool ShouldBeCopiedIntoPDB(UINT32 FourCC) {
 struct CompilerVersionPartWriter {
   hlsl::DxilCompilerVersion m_Header = {};
   CComHeapPtr<char> m_CommitShaStorage;
-  llvm::StringRef m_CommitSha;
+  llvm::StringRef m_CommitSha = "";
 
   void Init(IDxcVersionInfo *pVersionInfo) {
     m_Header = {};
