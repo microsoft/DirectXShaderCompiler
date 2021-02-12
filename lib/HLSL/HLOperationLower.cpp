@@ -3580,7 +3580,7 @@ Value *GenerateStructBufLd(Value *handle, Value *bufIdx, Value *offset,
 
 static Value* TranslateStructBufVecLd(Type* VecEltTy, unsigned VecElemCount,
   IRBuilder<>& Builder, Value* handle, hlsl::OP* OP, Value* status,
-  Value* bufIdx, Value* baseOffset, const DataLayout& DL, std::vector<Value*>& bufLds);
+  Value* bufIdx, Value* baseOffset, const DataLayout& DL, std::vector<Value*>& bufLds, bool isScalarTy = false);
 
 void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
                    IRBuilder<> &Builder, hlsl::OP *OP, const DataLayout &DL) {
@@ -3611,34 +3611,20 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
   }
 
   if (DXIL::IsStructuredBuffer(RK)) {
-    Type* RetTy = helper.retVal->getType();
-    unsigned ElemCount = RetTy->isVectorTy() ? RetTy->getVectorNumElements() : 1;
     std::vector<Value*> bufLds;
     const bool isBool = EltTy->isIntegerTy(1);
 
     // Bool are represented as i32 in memory
     Type* MemReprTy = isBool ? Builder.getInt32Ty() : EltTy;
-    Value* retValNew = TranslateStructBufVecLd(MemReprTy, ElemCount, Builder, helper.handle, OP, helper.status,
-      helper.addr, OP->GetU32Const(0), DL, bufLds);
+    bool isScalarTy = !Ty->isVectorTy();
+    Value* retValNew = TranslateStructBufVecLd(MemReprTy, numComponents, Builder, helper.handle, OP, helper.status,
+      helper.addr, OP->GetU32Const(0), DL, bufLds, isScalarTy);
     DXASSERT_NOMSG(!bufLds.empty());
     dxilutil::MigrateDebugValue(helper.retVal, bufLds.front());
 
     if (isBool) {
       // Convert result back to register representation.
       retValNew = Builder.CreateICmpNE(retValNew, Constant::getNullValue(retValNew->getType()));
-    }
-
-    // We always get a vector from TranslateStructBufVecLd(). For vec1 case,
-    // convert it to scalar if needed to match the target type.
-    // Ex 1: For stbuf.Load<float1x1>(i), both the new value type and
-    // the target type is <1 x float>. No conversion needed here.
-    //
-    // Ex 2: For stbuf.Load<float>(i), the new value type is <1 x float>, but
-    // the target type is float, so we need a conversion here.
-    Type* NewValTy = retValNew->getType();
-    if (NewValTy->isVectorTy() && NewValTy->getVectorNumElements() == 1 &&
-       helper.retVal->getType() == NewValTy->getVectorElementType()) {
-      retValNew = Builder.CreateExtractElement(retValNew, (uint64_t) 0);
     }
 
     helper.retVal->replaceAllUsesWith(retValNew);
@@ -6887,7 +6873,7 @@ void GenerateStructBufSt(Value *handle, Value *bufIdx, Value *offset,
 
 static Value* TranslateStructBufVecLd(Type* VecEltTy, unsigned ElemCount,
   IRBuilder<>& Builder, Value* handle, hlsl::OP* OP, Value* status,
-  Value* bufIdx, Value* baseOffset, const DataLayout& DL, std::vector<Value*> &bufLds) {
+  Value* bufIdx, Value* baseOffset, const DataLayout& DL, std::vector<Value*> &bufLds, bool isScalarTy) {
   unsigned  EltSize = DL.getTypeAllocSize(VecEltTy);
   Constant* alignment = OP->GetI32Const(EltSize);
 
@@ -6917,6 +6903,11 @@ static Value* TranslateStructBufVecLd(Type* VecEltTy, unsigned ElemCount,
 
     // Update offset by 4*4bytes.
     offset = Builder.CreateAdd(offset, OP->GetU32Const(4 * EltSize));
+  }
+
+  // If the expected return type is scalar then skip building a vector
+  if (isScalarTy) {
+    return elts[0];
   }
 
   Value* Vec = HLMatrixLower::BuildVector(VecEltTy, elts, Builder);
