@@ -83,6 +83,8 @@ public:
       llvm::SmallVector<LValue, 8> &lifetimeCleanupList) = 0;
   virtual void MarkRetTemp(CodeGenFunction &CGF, llvm::Value *V,
                           clang::QualType QaulTy) = 0;
+  virtual void MarkCallArgumentTemp(CodeGenFunction &CGF, llvm::Value *V,
+                  clang::QualType QaulTy) = 0;
   virtual llvm::Value *EmitHLSLMatrixOperationCall(CodeGenFunction &CGF, const clang::Expr *E, llvm::Type *RetType,
       llvm::ArrayRef<llvm::Value*> paramList) = 0;
   virtual void EmitHLSLDiscard(CodeGenFunction &CGF) = 0;
