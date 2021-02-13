@@ -2383,7 +2383,7 @@ void CGMSHLSLRuntime::MarkRetTemp(CodeGenFunction &CGF, Value *V,
 void CGMSHLSLRuntime::MarkCallArgumentTemp(CodeGenFunction &CGF, llvm::Value *V,
                                            clang::QualType QualTy) {
   // Save object properties for call arg temp.
-  // Igonre V already in property map.
+  // Ignore V already in property map.
   if (objectProperties.GetResource(V).isValid())
     return;
   AddValToPropertyMap(V, QualTy);
