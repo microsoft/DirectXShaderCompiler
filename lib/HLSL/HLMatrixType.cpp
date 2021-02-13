@@ -104,7 +104,7 @@ Value *HLMatrixType::emitLoweredVectorColToRow(Value *VecVal, IRBuilder<> &Build
 
 bool HLMatrixType::isa(Type *Ty) {
   StructType *StructTy = llvm::dyn_cast<StructType>(Ty);
-  return StructTy != nullptr && StructTy->getName().startswith(StructNamePrefix);
+  return StructTy != nullptr && !StructTy->isLiteral() && StructTy->getName().startswith(StructNamePrefix);
 }
 
 bool HLMatrixType::isMatrixPtr(Type *Ty) {
