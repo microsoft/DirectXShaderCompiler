@@ -3573,7 +3573,7 @@ static Constant *GetRawBufferMaskForETy(Type *Ty, unsigned NumComponents, hlsl::
   return OP->GetI8Const(mask);
 }
 
-Value *GenerateStructBufLd(Value *handle, Value *bufIdx, Value *offset,
+Value *GenerateRawBufLd(Value *handle, Value *bufIdx, Value *offset,
   Value *status, Type *EltTy,
   MutableArrayRef<Value *> resultElts, hlsl::OP *OP,
   IRBuilder<> &Builder, unsigned NumComponents, Constant *alignment);
@@ -6815,7 +6815,7 @@ static Value* ExtractFromTypedBufferLoad(const ResRetValueArray& ResRet,
   return ScalarizeElements(ResultTy, Elems, Builder);
 }
 
-Value *GenerateStructBufLd(Value *handle, Value *bufIdx, Value *offset,
+Value *GenerateRawBufLd(Value *handle, Value *bufIdx, Value *offset,
                          Value *status, Type *EltTy,
                          MutableArrayRef<Value *> resultElts, hlsl::OP *OP,
                          IRBuilder<> &Builder, unsigned NumComponents, Constant *alignment) {
@@ -6885,7 +6885,7 @@ static Value* TranslateStructBufVecLd(Type* VecEltTy, unsigned ElemCount,
   unsigned rest = (ElemCount % 4);
   for (unsigned i = 0; i < ElemCount-rest; i += 4) {
     Value* ResultElts[4];
-    Value* bufLd = GenerateStructBufLd(handle, bufIdx, offset, status, VecEltTy, ResultElts, OP, Builder, 4, alignment);
+    Value* bufLd = GenerateRawBufLd(handle, bufIdx, offset, status, VecEltTy, ResultElts, OP, Builder, 4, alignment);
     bufLds.emplace_back(bufLd);
     elts[i] = ResultElts[0];
     elts[i + 1] = ResultElts[1];
@@ -6898,7 +6898,7 @@ static Value* TranslateStructBufVecLd(Type* VecEltTy, unsigned ElemCount,
 
   if (rest) {
     Value* ResultElts[4];
-    Value* bufLd = GenerateStructBufLd(handle, bufIdx, offset, status, VecEltTy, ResultElts, OP, Builder, rest, alignment);
+    Value* bufLd = GenerateRawBufLd(handle, bufIdx, offset, status, VecEltTy, ResultElts, OP, Builder, rest, alignment);
     bufLds.emplace_back(bufLd);
     for (unsigned i = 0; i < rest; i++)
       elts[ElemCount - rest + i] = ResultElts[i];
@@ -7136,13 +7136,13 @@ void TranslateStructBufMatSubscript(CallInst *CI,
         for (unsigned i = 0; i < resultSize; i++) {
           Value *ResultElt;
           // TODO: This can be inefficient for row major matrix load
-          GenerateStructBufLd(handle, bufIdx, idxList[i],
+          GenerateRawBufLd(handle, bufIdx, idxList[i],
                               /*status*/ nullptr, EltTy, ResultElt, hlslOP,
                               ldBuilder, 1, alignment);
           ldData = ldBuilder.CreateInsertElement(ldData, ResultElt, i);
         }
       } else {
-        GenerateStructBufLd(handle, bufIdx, idxList[0], /*status*/ nullptr,
+        GenerateRawBufLd(handle, bufIdx, idxList[0], /*status*/ nullptr,
                             EltTy, ldData, hlslOP, ldBuilder, 4, alignment);
       }
       ldUser->replaceAllUsesWith(ldData);
@@ -7300,7 +7300,7 @@ void TranslateStructBufSubscriptUser(
         }
         else {
           Value* ResultElts[4];
-          GenerateStructBufLd(handle, bufIdx, offset, status, pOverloadTy,
+          GenerateRawBufLd(handle, bufIdx, offset, status, pOverloadTy,
                               ResultElts, OP, Builder, numComponents, alignment);
           return ScalarizeElements(Ty, ResultElts, Builder);
         }
