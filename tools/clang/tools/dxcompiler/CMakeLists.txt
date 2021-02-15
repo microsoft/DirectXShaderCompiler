@@ -128,7 +128,7 @@ if (WIN32)
 endif()
 target_link_libraries(dxcompiler PRIVATE ${LIBRARIES})
 if (ENABLE_SPIRV_CODEGEN)
-  target_link_libraries(dxcompiler PRIVATE clangSPIRV)
+  target_link_libraries(dxcompiler PRIVATE clangSPIRV spirv_to_dxil)
 endif (ENABLE_SPIRV_CODEGEN)
 include_directories(AFTER ${LLVM_INCLUDE_DIR}/dxc/Tracing ${DIASDK_INCLUDE_DIRS})
 
