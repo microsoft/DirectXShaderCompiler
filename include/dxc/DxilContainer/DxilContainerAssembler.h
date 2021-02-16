@@ -15,6 +15,8 @@
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "llvm/ADT/StringRef.h"
 
+struct IStream;
+
 namespace llvm {
 class Module;
 }
@@ -24,6 +26,7 @@ namespace hlsl {
 class AbstractMemoryStream;
 class DxilModule;
 class RootSignatureHandle;
+class ShaderModel;
 namespace DXIL {
 enum class SignatureKind;
 }
@@ -50,6 +53,10 @@ DxilPartWriter *NewRDATWriter(const DxilModule &M);
 
 DxilContainerWriter *NewDxilContainerWriter();
 void CreateReflectionStream(llvm::Module *pReflectionM, uint32_t *pReflectionPartSizeInBytes, AbstractMemoryStream **ppReflectionStreamOut);
+
+void WriteProgramPart(const hlsl::ShaderModel *pModel,
+                      AbstractMemoryStream *pModuleBitcode,
+                      IStream *pStream);
 
 void SerializeDxilContainerForModule(hlsl::DxilModule *pModule,
                                      AbstractMemoryStream *pModuleBitcode,

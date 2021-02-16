@@ -1536,9 +1536,9 @@ static void GetPaddedProgramPartSize(AbstractMemoryStream *pStream,
   bitcodeInUInt32 = (bitcodeInUInt32 / 4) + (bitcodePaddingBytes ? 1 : 0);
 }
 
-static void WriteProgramPart(const ShaderModel *pModel,
+void hlsl::WriteProgramPart(const ShaderModel *pModel,
                              AbstractMemoryStream *pModuleBitcode,
-                             AbstractMemoryStream *pStream) {
+                             IStream *pStream) {
   DXASSERT(pModel != nullptr, "else generation should have failed");
   DxilProgramHeader programHeader;
   uint32_t shaderVersion =
@@ -1578,6 +1578,27 @@ public:
 };
 
 } // namespace
+
+static std::unique_ptr<Module> CloneModuleForReflection(Module *pM) {
+  DxilModule &DM = pM->GetOrCreateDxilModule();
+
+  unsigned ValMajor = 0, ValMinor = 0;
+  DM.GetValidatorVersion(ValMajor, ValMinor);
+
+  // Retain usage information in metadata for reflection by:
+  // Upgrade validator version, re-emit metadata, then clone module for reflection.
+  // 0,0 = Not meant to be validated, support latest
+  DM.SetValidatorVersion(0, 0);
+  DM.ReEmitDxilResources();
+  DM.EmitDxilCounters();
+
+  std::unique_ptr<Module> reflectionModule( llvm::CloneModule(pM) );
+
+  DM.SetValidatorVersion(ValMajor, ValMinor);
+  DM.ReEmitDxilResources();
+
+  return reflectionModule;
+}
 
 void hlsl::CreateReflectionStream(Module *pReflectionM, uint32_t *pReflectionPartSizeInBytes, AbstractMemoryStream **ppReflectionStreamOut) {
   // Retain usage information in metadata for reflection by:
@@ -1745,7 +1766,7 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
     GetPaddedProgramPartSize(pInputProgramStream, debugInUInt32, debugPaddingBytes);
     if (Flags & SerializeDxilFlags::IncludeDebugInfoPart) {
       writer.AddPart(DFCC_ShaderDebugInfoDXIL, debugInUInt32 * sizeof(uint32_t) + sizeof(DxilProgramHeader), [&](AbstractMemoryStream *pStream) {
-        WriteProgramPart(pModule->GetShaderModel(), pInputProgramStream, pStream);
+        hlsl::WriteProgramPart(pModule->GetShaderModel(), pInputProgramStream, pStream);
       });
     }
 
@@ -1762,13 +1783,8 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   CComPtr<AbstractMemoryStream> pReflectionBitcodeStream;
 
   if (bEmitReflection) {
-
-    pModule->ReEmitDxilResources();
-    pModule->EmitDxilCounters();
-
-    std::unique_ptr<Module> reflectionModule;
-    // Clone module for reflection, strip function defs
-    reflectionModule.reset(llvm::CloneModule(pModule->GetModule()));
+    // Clone module for reflection
+    std::unique_ptr<Module> reflectionModule = CloneModuleForReflection(pModule->GetModule());
     hlsl::CreateReflectionStream(reflectionModule.get(), &reflectPartSizeInBytes, &pReflectionBitcodeStream);
   }
 
