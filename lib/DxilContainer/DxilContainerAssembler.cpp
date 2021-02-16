@@ -1612,8 +1612,6 @@ static std::unique_ptr<Module> CloneModuleForReflection(Module *pM) {
 }
 
 void hlsl::StripAndCreateReflectionStream(Module *pReflectionM, uint32_t *pReflectionPartSizeInBytes, AbstractMemoryStream **ppReflectionStreamOut) {
-  DxilModule *DM = &pReflectionM->GetOrCreateDxilModule();
-
   for (Function &F : pReflectionM->functions()) {
     if (!F.isDeclaration()) {
       F.deleteBody();
