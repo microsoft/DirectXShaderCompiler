@@ -6883,16 +6883,7 @@ static Value* TranslateStructBufVecLd(Type* VecEltTy, unsigned ElemCount,
 
   std::vector<Value*> elts(ElemCount);
   unsigned rest = (ElemCount % 4);
-  if (rest) {
-    Value* ResultElts[4];
-    Value *bufLd = GenerateStructBufLd(handle, bufIdx, offset, status, VecEltTy, ResultElts, OP, Builder, rest, alignment);
-    bufLds.emplace_back(bufLd);
-    for (unsigned i = 0; i < rest; i++)
-      elts[i] = ResultElts[i];
-    offset = Builder.CreateAdd(offset, OP->GetU32Const(EltSize * rest));
-  }
-
-  for (unsigned i = rest; i < ElemCount; i += 4) {
+  for (unsigned i = 0; i < ElemCount-rest; i += 4) {
     Value* ResultElts[4];
     Value* bufLd = GenerateStructBufLd(handle, bufIdx, offset, status, VecEltTy, ResultElts, OP, Builder, 4, alignment);
     bufLds.emplace_back(bufLd);
@@ -6903,6 +6894,14 @@ static Value* TranslateStructBufVecLd(Type* VecEltTy, unsigned ElemCount,
 
     // Update offset by 4*4bytes.
     offset = Builder.CreateAdd(offset, OP->GetU32Const(4 * EltSize));
+  }
+
+  if (rest) {
+    Value* ResultElts[4];
+    Value* bufLd = GenerateStructBufLd(handle, bufIdx, offset, status, VecEltTy, ResultElts, OP, Builder, rest, alignment);
+    bufLds.emplace_back(bufLd);
+    for (unsigned i = 0; i < rest; i++)
+      elts[ElemCount - rest + i] = ResultElts[i];
   }
 
   // If the expected return type is scalar then skip building a vector
