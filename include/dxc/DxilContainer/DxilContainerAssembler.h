@@ -15,6 +15,10 @@
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "llvm/ADT/StringRef.h"
 
+namespace llvm {
+class Module;
+}
+
 namespace hlsl {
 
 class AbstractMemoryStream;
@@ -45,6 +49,7 @@ DxilPartWriter *NewPSVWriter(const DxilModule &M, uint32_t PSVVersion = UINT_MAX
 DxilPartWriter *NewRDATWriter(const DxilModule &M);
 
 DxilContainerWriter *NewDxilContainerWriter();
+void CreateReflectionStream(llvm::Module *pReflectionM, uint32_t *pReflectionPartSizeInBytes, AbstractMemoryStream **ppReflectionStreamOut);
 
 void SerializeDxilContainerForModule(hlsl::DxilModule *pModule,
                                      AbstractMemoryStream *pModuleBitcode,

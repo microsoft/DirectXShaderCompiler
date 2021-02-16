@@ -1036,10 +1036,14 @@ public:
             pSourceInfo = debugSourceInfoWriter.GetPart();
           }
 
+          uint32_t reflectionSizeInBytes = 0;
+          CComPtr<AbstractMemoryStream> pReflectionStream;
+
           CComPtr<IDxcBlob> pDebugProgramBlob;
           // Don't include the debug part if using source only PDB
           if (opts.SourceOnlyDebug) {
             assert(pSourceInfo);
+            hlsl::CreateReflectionStream(compiledModule.get(), &reflectionSizeInBytes, &pReflectionStream);
           }
           else {
             if (!opts.SourceInDebugModule) {

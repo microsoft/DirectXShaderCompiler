@@ -1579,6 +1579,37 @@ public:
 
 } // namespace
 
+void hlsl::CreateReflectionStream(Module *pReflectionM, uint32_t *pReflectionPartSizeInBytes, AbstractMemoryStream **ppReflectionStreamOut) {
+  // Retain usage information in metadata for reflection by:
+  // 0,0 = Not meant to be validated, support latest
+
+  DxilModule *DM = &pReflectionM->GetOrCreateDxilModule();
+
+  DM->SetValidatorVersion(0,0);
+  DM->ReEmitDxilResources();
+  DM->EmitDxilCounters();
+
+  for (Function &F : pReflectionM->functions()) {
+    if (!F.isDeclaration()) {
+      F.deleteBody();
+    }
+  }
+
+  uint32_t reflectPartSizeInBytes = 0;
+  CComPtr<AbstractMemoryStream> pReflectionBitcodeStream;
+
+  IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pReflectionBitcodeStream));
+  raw_stream_ostream outStream(pReflectionBitcodeStream.p);
+  WriteBitcodeToFile(pReflectionM, outStream, false);
+  outStream.flush();
+  uint32_t reflectInUInt32 = 0, reflectPaddingBytes = 0;
+  GetPaddedProgramPartSize(pReflectionBitcodeStream, reflectInUInt32, reflectPaddingBytes);
+  reflectPartSizeInBytes = reflectInUInt32 * sizeof(uint32_t) + sizeof(DxilProgramHeader);
+
+  *pReflectionPartSizeInBytes = reflectPartSizeInBytes;
+  *ppReflectionStreamOut = pReflectionBitcodeStream.Detach();
+}
+
 void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
                                            AbstractMemoryStream *pModuleBitcode,
                                            AbstractMemoryStream *pFinalStream,
@@ -1727,43 +1758,18 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
     Flags &= ~SerializeDxilFlags::DebugNameDependOnSource;
   }
 
-  // Clone module for reflection, strip function defs
-  std::unique_ptr<Module> reflectionModule;
+  uint32_t reflectPartSizeInBytes = 0;
+  CComPtr<AbstractMemoryStream> pReflectionBitcodeStream;
+
   if (bEmitReflection) {
-    // Retain usage information in metadata for reflection by:
-    // Upgrade validator version, re-emit metadata, then clone module for reflection.
-    // 0,0 = Not meant to be validated, support latest
-    pModule->SetValidatorVersion(0, 0);
+
     pModule->ReEmitDxilResources();
     pModule->EmitDxilCounters();
 
+    std::unique_ptr<Module> reflectionModule;
+    // Clone module for reflection, strip function defs
     reflectionModule.reset(llvm::CloneModule(pModule->GetModule()));
-
-    // Now restore validator version on main module and re-emit metadata.
-    pModule->SetValidatorVersion(ValMajor, ValMinor);
-    pModule->ReEmitDxilResources();
-
-    for (Function &F : reflectionModule->functions()) {
-      if (!F.isDeclaration()) {
-        F.deleteBody();
-      }
-    }
-    // Just make sure this doesn't crash/assert on debug build:
-    DXASSERT_NOMSG(&reflectionModule->GetOrCreateDxilModule());
-  }
-
-  CComPtr<AbstractMemoryStream> pReflectionBitcodeStream;
-
-  uint32_t reflectPartSizeInBytes = 0;
-  if (bEmitReflection)
-  {
-    IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pReflectionBitcodeStream));
-    raw_stream_ostream outStream(pReflectionBitcodeStream.p);
-    WriteBitcodeToFile(reflectionModule.get(), outStream, false);
-    outStream.flush();
-    uint32_t reflectInUInt32 = 0, reflectPaddingBytes = 0;
-    GetPaddedProgramPartSize(pReflectionBitcodeStream, reflectInUInt32, reflectPaddingBytes);
-    reflectPartSizeInBytes = reflectInUInt32 * sizeof(uint32_t) + sizeof(DxilProgramHeader);
+    hlsl::CreateReflectionStream(reflectionModule.get(), &reflectPartSizeInBytes, &pReflectionBitcodeStream);
   }
 
   if (pReflectionStreamOut) {
