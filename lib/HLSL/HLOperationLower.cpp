@@ -3578,9 +3578,10 @@ Value *GenerateRawBufLd(Value *handle, Value *bufIdx, Value *offset,
   MutableArrayRef<Value *> resultElts, hlsl::OP *OP,
   IRBuilder<> &Builder, unsigned NumComponents, Constant *alignment);
 
-static Value* TranslateStructBufVecLd(Type* VecEltTy, unsigned VecElemCount,
+static Value* TranslateStructOrRawBufVecLd(Type* VecEltTy, unsigned VecElemCount,
   IRBuilder<>& Builder, Value* handle, hlsl::OP* OP, Value* status,
-  Value* bufIdx, Value* baseOffset, const DataLayout& DL, std::vector<Value*>& bufLds, bool isScalarTy = false);
+  Value* bufIdx, Value* baseOffset, const DataLayout& DL,
+  std::vector<Value*>& bufLds, DXIL::ResourceKind kind,  bool isScalarTy = false);
 
 void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
                    IRBuilder<> &Builder, hlsl::OP *OP, const DataLayout &DL) {
@@ -3599,26 +3600,22 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
   Type *i64Ty = Builder.getInt64Ty();
   Type *doubleTy = Builder.getDoubleTy();
   Type *EltTy = Ty->getScalarType();
-  // If RawBuffer load of 64-bit value, don't set alignment to 8,
-  // since buffer alignment isn't known to be anything over 4.
-  unsigned alignValue = OP->GetAllocSizeForType(EltTy);
-  if (RK == HLResource::Kind::RawBuffer && alignValue > 4)
-    alignValue = 4;
-  Constant *Alignment = OP->GetI32Const(alignValue);
   unsigned numComponents = 1;
   if (Ty->isVectorTy()) {
     numComponents = Ty->getVectorNumElements();
   }
 
-  if (DXIL::IsStructuredBuffer(RK)) {
+  if (DXIL::IsStructuredBuffer(RK) || DXIL::IsRawBuffer(RK)) {
     std::vector<Value*> bufLds;
     const bool isBool = EltTy->isIntegerTy(1);
 
     // Bool are represented as i32 in memory
     Type* MemReprTy = isBool ? Builder.getInt32Ty() : EltTy;
     bool isScalarTy = !Ty->isVectorTy();
-    Value* retValNew = TranslateStructBufVecLd(MemReprTy, numComponents, Builder, helper.handle, OP, helper.status,
-      helper.addr, OP->GetU32Const(0), DL, bufLds, isScalarTy);
+    Value* baseOffset = DXIL::IsRawBuffer(RK) ?
+      UndefValue::get(Builder.getInt32Ty()) :  OP->GetU32Const(0);
+    Value* retValNew = TranslateStructOrRawBufVecLd(MemReprTy, numComponents, Builder, helper.handle, OP, helper.status,
+      helper.addr, baseOffset, DL, bufLds, RK, isScalarTy);
     DXASSERT_NOMSG(!bufLds.empty());
     dxilutil::MigrateDebugValue(helper.retVal, bufLds.front());
 
@@ -3703,14 +3700,7 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
   }
 
   // Offset 1
-  if (RK == DxilResource::Kind::RawBuffer) {
-    // elementOffset, mask, alignment
-    loadArgs.emplace_back(undefI);
-    Type *rtnTy = helper.retVal->getType();
-    loadArgs.emplace_back(GetRawBufferMaskForETy(rtnTy, numComponents, OP));
-    loadArgs.emplace_back(Alignment);
-  }
-  else if (RK == DxilResource::Kind::TypedBuffer) {
+  if (RK == DxilResource::Kind::TypedBuffer) {
     loadArgs.emplace_back(undefI);
   }
 
@@ -6871,34 +6861,57 @@ void GenerateStructBufSt(Value *handle, Value *bufIdx, Value *offset,
 }
 
 
-static Value* TranslateStructBufVecLd(Type* VecEltTy, unsigned ElemCount,
+static Value* TranslateStructOrRawBufVecLd(Type* VecEltTy, unsigned ElemCount,
   IRBuilder<>& Builder, Value* handle, hlsl::OP* OP, Value* status,
-  Value* bufIdx, Value* baseOffset, const DataLayout& DL, std::vector<Value*> &bufLds, bool isScalarTy) {
-  unsigned  EltSize = DL.getTypeAllocSize(VecEltTy);
-  Constant* alignment = OP->GetI32Const(EltSize);
+  Value* bufIdx, Value* baseOffset, const DataLayout& DL,
+  std::vector<Value*> &bufLds, DXIL::ResourceKind kind, bool isScalarTy) {
 
+  DXASSERT_NOMSG(kind == DXIL::ResourceKind::StructuredBuffer ||
+    kind == DXIL::ResourceKind::RawBuffer);
+
+  unsigned  EltSize = DL.getTypeAllocSize(VecEltTy);
+  // If RawBuffer load of 64-bit value, don't set alignment to 8,
+  // since buffer alignment isn't known to be anything over 4.
+  if (kind == HLResource::Kind::RawBuffer && EltSize > 4) {
+    EltSize = 4;
+  }
+  Constant* alignment = OP->GetI32Const(EltSize);
   Value* offset = baseOffset;
-  if (baseOffset == nullptr)
-    offset = OP->GetU32Const(0);
+  Value* index = bufIdx;
+
+  if (baseOffset == nullptr) {
+    if (kind == DXIL::ResourceKind::RawBuffer) {
+      offset = UndefValue::get(Builder.getInt32Ty());
+    }
+    else {
+      offset = OP->GetU32Const(0);
+    }
+  }
 
   std::vector<Value*> elts(ElemCount);
   unsigned rest = (ElemCount % 4);
   for (unsigned i = 0; i < ElemCount-rest; i += 4) {
     Value* ResultElts[4];
-    Value* bufLd = GenerateRawBufLd(handle, bufIdx, offset, status, VecEltTy, ResultElts, OP, Builder, 4, alignment);
+    Value* bufLd = GenerateRawBufLd(handle, index, offset, status, VecEltTy, ResultElts, OP, Builder, 4, alignment);
     bufLds.emplace_back(bufLd);
     elts[i] = ResultElts[0];
     elts[i + 1] = ResultElts[1];
     elts[i + 2] = ResultElts[2];
     elts[i + 3] = ResultElts[3];
 
-    // Update offset by 4*4bytes.
-    offset = Builder.CreateAdd(offset, OP->GetU32Const(4 * EltSize));
+    if (kind == DXIL::ResourceKind::RawBuffer) {
+      // For rawbuffer, the validator expects offset to be undef.
+      // Therefore leave the offset as-is and increment the index instead.
+      index = Builder.CreateAdd(index, OP->GetU32Const(1));
+    }
+    else {
+      offset = Builder.CreateAdd(offset, OP->GetU32Const(4 * EltSize));
+    }
   }
 
   if (rest) {
     Value* ResultElts[4];
-    Value* bufLd = GenerateRawBufLd(handle, bufIdx, offset, status, VecEltTy, ResultElts, OP, Builder, rest, alignment);
+    Value* bufLd = GenerateRawBufLd(handle, index, offset, status, VecEltTy, ResultElts, OP, Builder, rest, alignment);
     bufLds.emplace_back(bufLd);
     for (unsigned i = 0; i < rest; i++)
       elts[ElemCount - rest + i] = ResultElts[i];
@@ -6921,7 +6934,8 @@ Value *TranslateStructBufMatLd(Type *matType, IRBuilder<> &Builder,
   Type *EltTy = MatTy.getElementTypeForMem();
   unsigned matSize = MatTy.getNumElements();
   std::vector<Value*> bufLds;
-  Value* Vec = TranslateStructBufVecLd(EltTy, matSize, Builder, handle, OP, status, bufIdx, baseOffset, DL, bufLds);
+  Value* Vec = TranslateStructOrRawBufVecLd(EltTy, matSize, Builder, handle, OP, status, bufIdx,
+    baseOffset, DL, bufLds, DXIL::ResourceKind::StructuredBuffer);
   Vec = MatTy.emitLoweredMemToReg(Vec, Builder);
   return Vec;
 }
