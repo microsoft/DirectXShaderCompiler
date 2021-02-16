@@ -1058,7 +1058,8 @@ public:
           // Don't include the debug part if using source only PDB
           if (opts.SourceOnlyDebug) {
             assert(pSourceInfo);
-            hlsl::CreateReflectionStream(compiledModule.get(), &reflectionSizeInBytes, &pReflectionStream);
+            hlsl::ReEmitLatestReflectionData(compiledModule.get());
+            hlsl::StripAndCreateReflectionStream(compiledModule.get(), &reflectionSizeInBytes, &pReflectionStream);
           }
           else {
             if (!opts.SourceInDebugModule) {

@@ -1579,36 +1579,40 @@ public:
 
 } // namespace
 
+
+void hlsl::ReEmitLatestReflectionData(llvm::Module *pM) {
+  // Retain usage information in metadata for reflection by:
+  // Upgrade validator version, re-emit metadata
+  // 0,0 = Not meant to be validated, support latest
+
+  DxilModule &DM = pM->GetOrCreateDxilModule();
+
+  DM.SetValidatorVersion(0, 0);
+  DM.ReEmitDxilResources();
+  DM.EmitDxilCounters();
+}
+
 static std::unique_ptr<Module> CloneModuleForReflection(Module *pM) {
   DxilModule &DM = pM->GetOrCreateDxilModule();
 
   unsigned ValMajor = 0, ValMinor = 0;
   DM.GetValidatorVersion(ValMajor, ValMinor);
 
-  // Retain usage information in metadata for reflection by:
-  // Upgrade validator version, re-emit metadata, then clone module for reflection.
-  // 0,0 = Not meant to be validated, support latest
-  DM.SetValidatorVersion(0, 0);
-  DM.ReEmitDxilResources();
-  DM.EmitDxilCounters();
+  // Emit the latest reflection metadata
+  hlsl::ReEmitLatestReflectionData(pM);
 
+  // Clone module
   std::unique_ptr<Module> reflectionModule( llvm::CloneModule(pM) );
 
+  // Now restore validator version on main module and re-emit metadata.
   DM.SetValidatorVersion(ValMajor, ValMinor);
   DM.ReEmitDxilResources();
 
   return reflectionModule;
 }
 
-void hlsl::CreateReflectionStream(Module *pReflectionM, uint32_t *pReflectionPartSizeInBytes, AbstractMemoryStream **ppReflectionStreamOut) {
-  // Retain usage information in metadata for reflection by:
-  // 0,0 = Not meant to be validated, support latest
-
+void hlsl::StripAndCreateReflectionStream(Module *pReflectionM, uint32_t *pReflectionPartSizeInBytes, AbstractMemoryStream **ppReflectionStreamOut) {
   DxilModule *DM = &pReflectionM->GetOrCreateDxilModule();
-
-  DM->SetValidatorVersion(0,0);
-  DM->ReEmitDxilResources();
-  DM->EmitDxilCounters();
 
   for (Function &F : pReflectionM->functions()) {
     if (!F.isDeclaration()) {
@@ -1785,7 +1789,7 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   if (bEmitReflection) {
     // Clone module for reflection
     std::unique_ptr<Module> reflectionModule = CloneModuleForReflection(pModule->GetModule());
-    hlsl::CreateReflectionStream(reflectionModule.get(), &reflectPartSizeInBytes, &pReflectionBitcodeStream);
+    hlsl::StripAndCreateReflectionStream(reflectionModule.get(), &reflectPartSizeInBytes, &pReflectionBitcodeStream);
   }
 
   if (pReflectionStreamOut) {

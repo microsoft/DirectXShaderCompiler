@@ -52,7 +52,12 @@ DxilPartWriter *NewPSVWriter(const DxilModule &M, uint32_t PSVVersion = UINT_MAX
 DxilPartWriter *NewRDATWriter(const DxilModule &M);
 
 DxilContainerWriter *NewDxilContainerWriter();
-void CreateReflectionStream(llvm::Module *pReflectionM, uint32_t *pReflectionPartSizeInBytes, AbstractMemoryStream **ppReflectionStreamOut);
+
+// Set validator version to 0,0 (not validated) then re-emit as much reflection metadata as possible.
+void ReEmitLatestReflectionData(llvm::Module *pReflectionM);
+
+// Strip functions and serialize module.
+void StripAndCreateReflectionStream(llvm::Module *pReflectionM, uint32_t *pReflectionPartSizeInBytes, AbstractMemoryStream **ppReflectionStreamOut);
 
 void WriteProgramPart(const hlsl::ShaderModel *pModel,
                       AbstractMemoryStream *pModuleBitcode,
