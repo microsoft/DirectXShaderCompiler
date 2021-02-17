@@ -4399,7 +4399,9 @@ SpirvInstruction *SpirvEmitter::createImageSample(
     SourceLocation loc) {
 
   if (varOffset) {
-    emitError("Offsets for Sample* must be immediated value", loc);
+    emitError("Use constant value for offset (SPIR-V spec does not accept a "
+              "variable offset for OpImage* instructions other than "
+              "OpImage*Gather)", loc);
     return nullptr;
   }
 
@@ -4836,8 +4838,9 @@ SpirvEmitter::processBufferTextureLoad(const CXXMemberCallExpr *expr) {
     }
 
     if (hasOffsetArg && varOffset) {
-      emitError("Texture instructions must take offset which can resolve to "
-                "integer literal in the range -8 to 7",
+      emitError("Use constant value for offset (SPIR-V spec does not accept a "
+                "variable offset for OpImage* instructions other than "
+                "OpImage*Gather)",
                 expr->getArg(textureMS ? 2 : 1)->getExprLoc());
       return nullptr;
     }

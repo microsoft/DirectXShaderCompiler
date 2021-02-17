@@ -10,15 +10,15 @@ Texture3D   <float4> t3 : register(t3);
 TextureCube <float4> t4 : register(t4);
 
 float4 main(int2 offset: A) : SV_Position {
-// CHECK: Offsets for Sample* must be immediated value
+// CHECK: Use constant value for offset (SPIR-V spec does not accept a variable offset for OpImage* instructions other than OpImage*Gather)
     float4 val2 = t2.Sample(gSampler, float2(0.5, 0.25), offset);
 
     float clamp;
-// CHECK: Offsets for Sample* must be immediated value
+// CHECK: Use constant value for offset (SPIR-V spec does not accept a variable offset for OpImage* instructions other than OpImage*Gather)
     float4 val5 = t2.Sample(gSampler, float2(0.5, 0.25), offset, clamp);
 
     uint status;
-// CHECK: Offsets for Sample* must be immediated value
+// CHECK: Use constant value for offset (SPIR-V spec does not accept a variable offset for OpImage* instructions other than OpImage*Gather)
     float4 val7 = t2.Sample(gSampler, float2(0.5, 0.25), offset, clamp, status);
 
     return float4(0.0, 0.0, 0.0, 1.0);
