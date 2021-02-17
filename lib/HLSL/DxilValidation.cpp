@@ -1233,7 +1233,6 @@ static void ValidateCalcLODResourceDimensionCoord(CallInst *CI, DXIL::ResourceKi
 static void ValidateResourceOffset(CallInst *CI, DXIL::ResourceKind resKind,
                                    ArrayRef<Value *> offsets,
                                    ValidationContext &ValCtx) {
-  const unsigned kMaxNumOffsets = 3;
   unsigned numOffsets = DxilResource::GetNumOffsets(resKind);
   bool hasOffset = !isa<UndefValue>(offsets[0]);
 
@@ -1252,7 +1251,7 @@ static void ValidateResourceOffset(CallInst *CI, DXIL::ResourceKind resKind,
     validateOffset(offsets[0]);
   }
 
-  for (unsigned i = 1; i < kMaxNumOffsets; i++) {
+  for (unsigned i = 1; i < offsets.size(); i++) {
     if (i < numOffsets) {
       if (hasOffset) {
         if (isa<UndefValue>(offsets[i]))
@@ -1261,7 +1260,7 @@ static void ValidateResourceOffset(CallInst *CI, DXIL::ResourceKind resKind,
           validateOffset(offsets[i]);
       }
     } else {
-      if (i < offsets.size() && !isa<UndefValue>(offsets[i])) {
+      if (!isa<UndefValue>(offsets[i])) {
         ValCtx.EmitInstrError(CI, ValidationRule::InstrResourceOffsetTooMany);
       }
     }

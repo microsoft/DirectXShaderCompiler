@@ -1044,8 +1044,7 @@ namespace DXIL {
     const unsigned kTextureGatherCoord3OpIdx = 6;
     const unsigned kTextureGatherOffset0OpIdx = 7;
     const unsigned kTextureGatherOffset1OpIdx = 8;
-    const unsigned kTextureGatherOffset2OpIdx = 9;
-    const unsigned kTextureGatherChannelOpIdx = 10;
+    const unsigned kTextureGatherChannelOpIdx = 9;
     // TextureGatherCmp.
     const unsigned kTextureGatherCmpCmpValOpIdx = 11;
 
@@ -1063,6 +1062,8 @@ namespace DXIL {
 
     // TextureLoad.
     const unsigned kTextureLoadOffset0OpIdx = 6;
+    const unsigned kTextureLoadOffset1OpIdx = 8;
+    const unsigned kTextureLoadOffset2OpIdx = 9;
 
     // AtomicBinOp.
     const unsigned kAtomicBinOpCoord0OpIdx = 3;

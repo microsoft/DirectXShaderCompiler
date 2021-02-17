@@ -112,15 +112,40 @@ bool HasIllegalOffsetInLoop(std::vector<Instruction *> &illegalOffsets,
   return findOffset;
 }
 
-void CollectIllegalOffset(CallInst *CI, unsigned offsetIdx,
+void GetOffsetRange(DXIL::OpCode opcode, unsigned &offsetStart, unsigned &offsetEnd)
+{
+  switch(opcode) {
+  case DXIL::OpCode::TextureLoad:
+    offsetStart = DXIL::OperandIndex::kTextureLoadOffset0OpIdx;
+    offsetEnd = DXIL::OperandIndex::kTextureLoadOffset2OpIdx;
+    break;
+  case DXIL::OpCode::TextureGather:
+  case DXIL::OpCode::TextureGatherCmp:
+    offsetStart = DXIL::OperandIndex::kTextureGatherOffset0OpIdx;
+    offsetEnd = DXIL::OperandIndex::kTextureGatherOffset1OpIdx;
+    break;
+  default:
+    // everything else are sample variants
+    offsetStart = DXIL::OperandIndex::kTextureSampleOffset0OpIdx;
+    offsetEnd = DXIL::OperandIndex::kTextureSampleOffset2OpIdx;
+    break;
+  }
+}
+
+void CollectIllegalOffset(CallInst *CI, DXIL::OpCode opcode,
                           std::vector<Instruction *> &illegalOffsets) {
+
+  unsigned offsetStart = 0, offsetEnd = 0;
+
+  GetOffsetRange(opcode, offsetStart, offsetEnd);
+
   Value *offset0 =
-      CI->getArgOperand(offsetIdx);
-  // No offset.
+      CI->getArgOperand(offsetStart);
+  // No offsets
   if (isa<UndefValue>(offset0))
     return;
 
-  for (unsigned i = offsetIdx; i <= offsetIdx + 2; i++) {
+  for (unsigned i = offsetStart; i <= offsetEnd; i++) {
     Value *offset = CI->getArgOperand(i);
     if (Instruction *I = dyn_cast<Instruction>(offset))
       illegalOffsets.emplace_back(I);
@@ -200,10 +225,7 @@ void DxilLegalizeSampleOffsetPass::CollectIllegalOffsets(
       if (CI->getParent()->getParent() != &CurF)
         continue;
 
-      unsigned offsetIdx = DXIL::OperandIndex::kTextureSampleOffset0OpIdx;
-      if (opcode == DXIL::OpCode::TextureLoad)
-        offsetIdx = DXIL::OperandIndex::kTextureLoadOffset0OpIdx;
-      CollectIllegalOffset(CI, offsetIdx, illegalOffsets);
+      CollectIllegalOffset(CI, opcode, illegalOffsets);
     }
   }
 }
