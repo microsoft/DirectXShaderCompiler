@@ -11,7 +11,7 @@
 // CHECK-NEXT: OpSource HLSL 600 [[file2]] "static int a;
 // CHECK:      [[file3:%\d+]] = OpString
 // CHECK-SAME: spirv.debug.opline.include-file-3.hlsl
-// CHECK-NEXT: OpSource HLSL 600 [[file3]] "groupshared int b;
+// CHECK-NEXT: OpSource HLSL 600 [[file3]] "int b;
 
 // CHECK:                  OpLine [[main]] 65 1
 // CHECK-NEXT: %src_main = OpFunction %void None
@@ -101,4 +101,4 @@ void main() {
 // CHECK:      OpLine [[file3]] 3 1
 // CHECK-NEXT: %function3 = OpFunction %int None
 // CHECK:      OpLine [[file3]] 4 10
-// CHECK-NEXT: OpLoad %int %b
+// CHECK:      OpLoad %int
