@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// Run: %dxc -T cs_6_0 -E main
 
 struct R {
   int a;
@@ -37,6 +37,7 @@ groupshared S gsarr[10];
 // CHECK: %starr = OpVariable %_ptr_Private__arr_S_uint_10 Private
 static S starr[10];
 
+[numthreads(1, 1, 1)]
 void main() {
 // CHECK:    %fn = OpVariable %_ptr_Function_S Function
   S fn;

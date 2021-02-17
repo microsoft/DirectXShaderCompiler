@@ -1,4 +1,4 @@
-groupshared int b;
+int b;
 
 int function3() {
   return b;

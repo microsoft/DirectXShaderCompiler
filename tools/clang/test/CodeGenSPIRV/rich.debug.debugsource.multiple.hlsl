@@ -4,7 +4,7 @@
 
 // CHECK: rich.debug.debugsource.multiple.hlsl
 // CHECK: spirv.debug.opline.include-file-3.hlsl
-// CHECK: [[file3_code:%\d+]] = OpString "groupshared int b;
+// CHECK: [[file3_code:%\d+]] = OpString "int b;
 // CHECK: spirv.debug.opline.include-file-2.hlsl
 // CHECK: [[file2_code:%\d+]] = OpString "static int a;
 // CHECK: spirv.debug.opline.include-file-1.hlsl
