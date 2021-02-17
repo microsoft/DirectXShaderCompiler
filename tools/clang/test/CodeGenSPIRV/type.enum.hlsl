@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// Run: %dxc -T cs_6_0 -E main
 
 //CHECK:      %First = OpVariable %_ptr_Private_int Private %int_0
 //CHECK-NEXT: %Second = OpVariable %_ptr_Private_int Private %int_1
@@ -24,6 +24,7 @@ AppendStructuredBuffer<Number> c;
 void testParam(Number param) {}
 void testParamTypeCast(int param) {}
 
+[numthreads(1, 1, 1)]
 void main() {
 //CHECK:      [[a:%\d+]] = OpLoad %int %a
 //CHECK-NEXT:              OpStore %foo [[a]]
