@@ -1576,10 +1576,6 @@
         RWBuffer<uint2> g_shareBuf : register(u10);
         RWBuffer<uint2> g_shareXchgBuf : register(u11);
 
-        groupshared uint g_uintShare[12];
-        groupshared int g_sintShare[6];
-        groupshared uint g_xchgShare[128];
-
         RWStructuredBuffer<Atomic64Stuff> g_struct64Buf : register(u0);
         RWStructuredBuffer<Atomic64Stuff> g_strXchg64Buf : register(u1);
 
@@ -1596,10 +1592,6 @@
 
         RWBuffer<uint64_t> g_share64Buf : register(u10);
         RWBuffer<uint64_t> g_shareXchg64Buf : register(u11);
-
-        groupshared uint64_t g_uint64Share[6];
-        groupshared int64_t g_sint64Share[3];
-        groupshared uint64_t g_xchg64Share[64];
 
         #define VEC_CALL(op, uav, ix, val) op(uav[ix*stride], val);
 
@@ -1641,7 +1633,7 @@
           uint addVal = ix; // 32 bits isn't enough room to dupliate upper and lower
           uint uminMaxVal = ~value*(~value&1) + value*(value&1);
           int sminMaxVal = ~value*(~value&1) + value*(value&1);
-          uint xorVal = 1 << (ix%(bitSize-1));
+          uint xorVal = 1U << (ix%(bitSize-1));
           // make higher bits differ while lower bits match
           uint xchgVal = (ix << (bitSize/2)) | ((ix/3)%64);
           uint output = 0;
@@ -1712,6 +1704,46 @@
           XCHG_TEST(VEC_CALL3, VEC_CALL4, g_xtex64Buf)
         }
 
+        // Payloads are used to transport AS test results to MS where they are finalized
+        struct Payload {
+          uint arith[16];
+          uint xchg[64];
+        };
+
+        struct Payload64 {
+          uint64_t arith[16];
+          uint64_t xchg[64];
+        };
+
+        static float4 g_Verts[6] = {
+          { -1.0f,  1.0f, 0.0f, 1.0f },
+          {  1.0f,  1.0f, 0.0f, 1.0f },
+          { -1.0f, -1.0f, 0.0f, 1.0f },
+
+          { -1.0f, -1.0f, 0.0f, 1.0f },
+          {  1.0f,  1.0f, 0.0f, 1.0f },
+          {  1.0f, -1.0f, 0.0f, 1.0f }};
+
+        static float2 g_UV[6] = {
+          { 0.0f, 0.0f },
+          { 1.0f, 0.0f },
+          { 0.0f, 1.0f },
+
+          { 0.0f, 1.0f },
+          { 1.0f, 0.0f },
+          { 1.0f, 1.0f }};
+
+#ifdef CAN_GROUPSHARE
+
+        groupshared uint g_uintShare[12];
+        groupshared int g_sintShare[6];
+        groupshared uint g_xchgShare[128];
+
+        groupshared uint64_t g_uint64Share[6];
+        groupshared int64_t g_sint64Share[3];
+        groupshared uint64_t g_xchg64Share[64];
+
+
         void InitSharedMem(uint ix) {
           // Zero-init shared memory
           g_uintShare[ix%6] = 0;
@@ -1746,7 +1778,7 @@
           uint addVal = ix; // 32 bits isn't enough room to dupliate upper and lower
           uint uminMaxVal = ~value*(~value&1) + value*(value&1);
           int sminMaxVal = ~value*(~value&1) + value*(value&1);
-          uint xorVal = 1 << (ix%(bitSize-1));
+          uint xorVal = 1U << (ix%(bitSize-1));
           uint xchgVal = (ix << (bitSize/2)) | ((ix/3)%64);
           uint output = 0;
 
@@ -1773,35 +1805,6 @@
 
           GroupMemoryBarrierWithGroupSync();
         }
-
-        // Payloads are used to transport AS test results to MS where they are finalized
-        struct Payload {
-          uint arith[16];
-          uint xchg[64];
-        };
-
-        struct Payload64 {
-          uint64_t arith[16];
-          uint64_t xchg[64];
-        };
-
-        static float4 g_Verts[6] = {
-          { -1.0f,  1.0f, 0.0f, 1.0f },
-          {  1.0f,  1.0f, 0.0f, 1.0f },
-          { -1.0f, -1.0f, 0.0f, 1.0f },
-
-          { -1.0f, -1.0f, 0.0f, 1.0f },
-          {  1.0f,  1.0f, 0.0f, 1.0f },
-          {  1.0f, -1.0f, 0.0f, 1.0f }};
-
-        static float2 g_UV[6] = {
-          { 0.0f, 0.0f },
-          { 1.0f, 0.0f },
-          { 0.0f, 1.0f },
-
-          { 0.0f, 1.0f },
-          { 1.0f, 0.0f },
-          { 1.0f, 1.0f }};
 
         groupshared Payload payload;
 
@@ -1854,6 +1857,19 @@
             g_shareXchgBuf[ix%64].x = g_xchgShare[ix%64];
         }
 
+        [NumThreads(32, 32, 1)]
+        void CSMain(uint ix : SV_GroupIndex) {
+          AtomicTest(ix, 32);
+          InitSharedMem(ix);
+          AtomicGroupSharedTest(ix);
+
+          g_shareBuf[ix%6].x = g_uintShare[ix%6];
+          g_shareBuf[ix%3 + 6].x = g_sintShare[ix%3 + 1];
+
+          g_shareXchgBuf[ix%64].x = g_xchgShare[ix%64];
+        }
+#endif // CAN_GROUPSHARE
+
         PSInput VSMain(float3 position : POSITION, float2 uv : TEXCOORD, uint ix : SV_VertexID) {
           PSInput result;
           result.position = float4(position, 1.0);
@@ -1868,22 +1884,12 @@
           return 1;
         }
 
-        [NumThreads(32, 32, 1)]
-        void CSMain(uint ix : SV_GroupIndex) {
-          AtomicTest(ix, 32);
-          InitSharedMem(ix);
-          AtomicGroupSharedTest(ix);
-
-          g_shareBuf[ix%6].x = g_uintShare[ix%6];
-          g_shareBuf[ix%3 + 6].x = g_sintShare[ix%3 + 1];
-
-          g_shareXchgBuf[ix%64].x = g_xchgShare[ix%64];
-        }
 
         [NumThreads(8, 8, 2)]
         void ASMain64(uint ix : SV_GroupIndex) {
           AtomicRaw64Test(64*64 + 8*8*2 + ix, 64);
-          DispatchMesh(1, 1, 1, payload);
+          Payload pld = (Payload)0;
+          DispatchMesh(1, 1, 1, pld);
         }
 
         [NumThreads(8, 8, 2)]
@@ -1900,6 +1906,7 @@
             tris[ix&1] = uint3((ix&1)*3, (ix&1)*3 + 1, (ix&1)*3 + 2);
             AtomicRaw64Test(64*64 + ix, 64);
         }
+
 
         PSInput VSMain64(float3 position : POSITION, float2 uv : TEXCOORD, uint ix : SV_VertexID) {
           PSInput result;
@@ -1923,7 +1930,8 @@
         [NumThreads(8, 8, 2)]
         void ASMainTyped64(uint ix : SV_GroupIndex) {
           AtomicTyped64Test(64*64 + 8*8*2 + ix, 64);
-          DispatchMesh(1, 1, 1, payload);
+          Payload pld = (Payload)0;
+          DispatchMesh(1, 1, 1, pld);
         }
 
         [NumThreads(8, 8, 2)]
@@ -1959,6 +1967,8 @@
         void CSMainTyped64(uint ix : SV_GroupIndex) {
           AtomicTyped64Test(ix, 64);
         }
+
+#ifdef CAN_GROUPSHARE
 
         groupshared Payload64 payload64;
 
@@ -2019,6 +2029,7 @@
           g_shareXchg64Buf[ix%64] = g_xchg64Share[ix%64];
 
         }
+#endif // CAN_GROUPSHARE
       ]]>
     </Shader>
   </ShaderOp>
@@ -2104,8 +2115,6 @@
         RWTexture1D<float> g_xtexBuf : register(u3);
         RWBuffer<float> g_shareXchgBuf : register(u4);
 
-        groupshared float g_xchgShare[1024];
-
         #define VEC_CALL3(op, uav, ix, cmp, val) op(uav[(ix)], cmp, val)
         #define VEC_CALL4(op, uav, ix, cmp, val, o) op(uav[(ix)], cmp, val, o)
 
@@ -2147,6 +2156,9 @@
           InterlockedCompareExchangeFloatBitwise(g_xtexBuf[0], 0, sqrt(-1), output);
           if (output == 0.0) InterlockedCompareStoreFloatBitwise(g_xtexBuf[0], sqrt(-1), 0.123);
         }
+
+#ifdef CAN_GROUPSHARE
+        groupshared float g_xchgShare[1024];
 
         void InitSharedMem(uint ix) {
           // Zero-init shared memory
@@ -2232,6 +2244,18 @@
             g_shareXchgBuf[ix%64] = g_xchgShare[ix%64];
         }
 
+        [NumThreads(32, 32, 1)]
+        void CSMain(uint ix : SV_GroupIndex) {
+          AtomicTest(ix);
+
+          InitSharedMem(ix);
+          AtomicGroupSharedTest(ix);
+
+          g_shareXchgBuf[ix%64] = g_xchgShare[ix%64];
+        }
+
+#endif // CAN_GROUPSHARE
+
         PSInput VSMain(float3 position : POSITION, float2 uv : TEXCOORD, uint ix : SV_VertexID) {
           PSInput result;
           result.position = float4(position, 1.0);
@@ -2246,15 +2270,6 @@
           return 1;
         }
 
-        [NumThreads(32, 32, 1)]
-        void CSMain(uint ix : SV_GroupIndex) {
-          AtomicTest(ix);
-
-          InitSharedMem(ix);
-          AtomicGroupSharedTest(ix);
-
-          g_shareXchgBuf[ix%64] = g_xchgShare[ix%64];
-        }
       ]]>
     </Shader>
   </ShaderOp>

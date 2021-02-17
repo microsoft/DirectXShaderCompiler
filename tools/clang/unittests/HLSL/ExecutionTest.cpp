@@ -8694,6 +8694,13 @@ TEST_F(ExecutionTest, AtomicsTest) {
 
   st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("Atomics");
 
+  const char *args = "-DCAN_GROUPSHARE";
+  for (st::ShaderOpShader& S : pShaderOp->Shaders) {
+    if (!strncmp(S.Name, "CS", 2)) S.Arguments = args;
+    if (!strncmp(S.Name, "MS", 2)) S.Arguments = args;
+    if (!strncmp(S.Name, "AS", 2)) S.Arguments = args;
+  }
+
   // Test compute shader
   LogCommentFmt(L"Verifying 32-bit integer atomic operations in compute shader");
   std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
@@ -8731,6 +8738,13 @@ TEST_F(ExecutionTest, Atomics64Test) {
   st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
 
   st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("Atomics");
+
+  const char *args = "-DCAN_GROUPSHARE";
+  for (st::ShaderOpShader& S : pShaderOp->Shaders) {
+    if (!strncmp(S.Name, "CS", 2)) S.Arguments = args;
+    if (!strncmp(S.Name, "MS", 2)) S.Arguments = args;
+    if (!strncmp(S.Name, "AS", 2)) S.Arguments = args;
+  }
 
   // Reassign shader stages to 64-bit versions
   // Collect 64-bit shaders
@@ -8978,6 +8992,13 @@ TEST_F(ExecutionTest, AtomicsFloatTest) {
   st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
 
   st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("FloatAtomics");
+
+  const char *args = "-DCAN_GROUPSHARE";
+  for (st::ShaderOpShader& S : pShaderOp->Shaders) {
+    if (!strncmp(S.Name, "CS", 2)) S.Arguments = args;
+    if (!strncmp(S.Name, "MS", 2)) S.Arguments = args;
+    if (!strncmp(S.Name, "AS", 2)) S.Arguments = args;
+  }
 
   // Test compute shader
   LogCommentFmt(L"Verifying float cmp/xchg atomic operations in compute shader");
