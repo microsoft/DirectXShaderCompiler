@@ -1217,18 +1217,16 @@ static void VerifyPdbUtil(dxc::DxcDllSupport &dllSupport,
 
   // Shader reflection
   if (TestReflection) {
-    CComPtr<IDxcContainerReflection> pContainerRef;
-    VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pContainerRef));
-    VERIFY_SUCCEEDED(pContainerRef->Load(pBlob));
-    UINT32 uIndex = 0;
-    if (SUCCEEDED(pContainerRef->FindFirstPartKind(hlsl::DFCC_ShaderDebugInfoDXIL, &uIndex))) {}
-    else if (SUCCEEDED(pContainerRef->FindFirstPartKind(hlsl::DFCC_ShaderStatistics, &uIndex))) {}
-    else {
-      VERIFY_SUCCEEDED(E_FAIL);
-    }
+    CComPtr<IDxcUtils> pUtils;
+    VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcUtils, &pUtils));
+
+    DxcBuffer buf = {};
+    buf.Ptr = pBlob->GetBufferPointer();
+    buf.Size = pBlob->GetBufferSize();
+    buf.Encoding = CP_ACP;
 
     CComPtr<ID3D12ShaderReflection> pRefl;
-    VERIFY_SUCCEEDED(pContainerRef->GetPartReflection(uIndex, IID_PPV_ARGS(&pRefl)));
+    VERIFY_SUCCEEDED(pUtils->CreateReflection(&buf, IID_PPV_ARGS(&pRefl)));
 
     D3D12_SHADER_DESC desc = {};
     VERIFY_SUCCEEDED(pRefl->GetDesc(&desc));
@@ -1497,8 +1495,8 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bSourceInDebugModule, bool bStr
       pCompiler,
       /*HasVersion*/ false,
       /*IsFullPDB*/  true,
-      /*hasHasAndPDBName*/false,
-      /*TestReflection*/false,
+      /*HasHashAndPdbName*/false,
+      /*TestReflection*/false, // Reflection creation interface doesn't support just
       main_source, included_File);
   }
 
@@ -1509,7 +1507,7 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bSourceInDebugModule, bool bStr
     pCompiler,
     /*HasVersion*/ true,
     /*IsFullPDB*/ !bSlim,
-    /*hasHasAndPDBName*/true,
+    /*HasHashAndPdbName*/true,
     /*TestReflection*/true,
     main_source, included_File);
 
@@ -1521,8 +1519,8 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bSourceInDebugModule, bool bStr
       pCompiler,
       /*HasVersion*/ false,
       /*IsFullPDB*/ true,
-      /*hasHasAndPDBName*/true,
-      /*TestReflection*/false,
+      /*HasHashAndPdbName*/true,
+      /*TestReflection*/true,
       main_source, included_File);
   }
 }
