@@ -183,6 +183,7 @@ public:
   void setResultId(uint32_t id) { resultId = id; }
 
   clang::SourceLocation getSourceLocation() const { return srcLoc; }
+  clang::SourceRange getSourceRange() const { return srcRange; }
 
   void setDebugName(llvm::StringRef name) { debugName = name; }
   llvm::StringRef getDebugName() const { return debugName; }
@@ -219,7 +220,7 @@ public:
 protected:
   // Forbid creating SpirvInstruction directly
   SpirvInstruction(Kind kind, spv::Op opcode, QualType astResultType,
-                   SourceLocation loc);
+                   SourceLocation loc, SourceRange range = {});
 
 protected:
   const Kind kind;
@@ -228,6 +229,7 @@ protected:
   QualType astResultType;
   uint32_t resultId;
   SourceLocation srcLoc;
+  SourceRange srcRange;
   std::string debugName;
   const SpirvType *resultType;
   uint32_t resultTypeId;
@@ -659,7 +661,8 @@ public:
   }
 
 protected:
-  SpirvTerminator(Kind kind, spv::Op opcode, SourceLocation loc);
+  SpirvTerminator(Kind kind, spv::Op opcode, SourceLocation loc,
+                  SourceRange range = {});
 };
 
 /// \brief Base class for branching instructions
@@ -751,7 +754,8 @@ public:
 /// \brief OpReturn and OpReturnValue instructions
 class SpirvReturn : public SpirvTerminator {
 public:
-  SpirvReturn(SourceLocation loc, SpirvInstruction *retVal = 0);
+  SpirvReturn(SourceLocation loc, SpirvInstruction *retVal = 0,
+              SourceRange range = {});
 
   DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvReturn)
 
@@ -825,7 +829,8 @@ class SpirvAccessChain : public SpirvInstruction {
 public:
   SpirvAccessChain(QualType resultType, SourceLocation loc,
                    SpirvInstruction *base,
-                   llvm::ArrayRef<SpirvInstruction *> indexVec);
+                   llvm::ArrayRef<SpirvInstruction *> indexVec,
+                   SourceRange range = {});
 
   DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvAccessChain)
 
@@ -1002,7 +1007,8 @@ private:
 class SpirvBinaryOp : public SpirvInstruction {
 public:
   SpirvBinaryOp(spv::Op opcode, QualType resultType, SourceLocation loc,
-                SpirvInstruction *op1, SpirvInstruction *op2);
+                SpirvInstruction *op1, SpirvInstruction *op2,
+                SourceRange range = {});
 
   DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvBinaryOp)
 
@@ -1481,20 +1487,18 @@ private:
 ///
 class SpirvImageOp : public SpirvInstruction {
 public:
-  SpirvImageOp(spv::Op opcode, QualType resultType, SourceLocation loc,
-               SpirvInstruction *image, SpirvInstruction *coordinate,
-               spv::ImageOperandsMask mask, SpirvInstruction *dref = nullptr,
-               SpirvInstruction *bias = nullptr,
-               SpirvInstruction *lod = nullptr,
-               SpirvInstruction *gradDx = nullptr,
-               SpirvInstruction *gradDy = nullptr,
-               SpirvInstruction *constOffset = nullptr,
-               SpirvInstruction *offset = nullptr,
-               SpirvInstruction *constOffsets = nullptr,
-               SpirvInstruction *sample = nullptr,
-               SpirvInstruction *minLod = nullptr,
-               SpirvInstruction *component = nullptr,
-               SpirvInstruction *texelToWrite = nullptr);
+  SpirvImageOp(
+      spv::Op opcode, QualType resultType, SourceLocation loc,
+      SpirvInstruction *image, SpirvInstruction *coordinate,
+      spv::ImageOperandsMask mask, SpirvInstruction *dref = nullptr,
+      SpirvInstruction *bias = nullptr, SpirvInstruction *lod = nullptr,
+      SpirvInstruction *gradDx = nullptr, SpirvInstruction *gradDy = nullptr,
+      SpirvInstruction *constOffset = nullptr,
+      SpirvInstruction *offset = nullptr,
+      SpirvInstruction *constOffsets = nullptr,
+      SpirvInstruction *sample = nullptr, SpirvInstruction *minLod = nullptr,
+      SpirvInstruction *component = nullptr,
+      SpirvInstruction *texelToWrite = nullptr, SourceRange range = {});
 
   DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvImageOp)
 
@@ -1647,6 +1651,7 @@ private:
 class SpirvLoad : public SpirvInstruction {
 public:
   SpirvLoad(QualType resultType, SourceLocation loc, SpirvInstruction *pointer,
+            SourceRange range = {},
             llvm::Optional<spv::MemoryAccessMask> mask = llvm::None);
 
   DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvLoad)
@@ -1697,7 +1702,8 @@ private:
 class SpirvSampledImage : public SpirvInstruction {
 public:
   SpirvSampledImage(QualType resultType, SourceLocation loc,
-                    SpirvInstruction *image, SpirvInstruction *sampler);
+                    SpirvInstruction *image, SpirvInstruction *sampler,
+                    SourceRange range = {});
 
   DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvSampledImage)
 
@@ -1795,7 +1801,8 @@ class SpirvStore : public SpirvInstruction {
 public:
   SpirvStore(SourceLocation loc, SpirvInstruction *pointer,
              SpirvInstruction *object,
-             llvm::Optional<spv::MemoryAccessMask> mask = llvm::None);
+             llvm::Optional<spv::MemoryAccessMask> mask = llvm::None,
+             SourceRange range = {});
 
   DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvStore)
 
@@ -2383,7 +2390,8 @@ private:
 class SpirvDebugDeclare : public SpirvDebugInstruction {
 public:
   SpirvDebugDeclare(SpirvDebugLocalVariable *, SpirvInstruction *,
-                    SpirvDebugExpression *);
+                    SpirvDebugExpression *, SourceLocation loc = {},
+                    SourceRange range = {});
 
   DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvDebugDeclare)
 
