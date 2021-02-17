@@ -316,16 +316,13 @@ void DxilModule::CollectShaderFlagsForModule(ShaderFlags &Flags) {
 
   const ShaderModel *SM = GetShaderModel();
 
-  unsigned NumUAVs = m_UAVs.size();
+  unsigned NumUAVs = 0;
   const unsigned kSmallUAVCount = 8;
-  if (NumUAVs > kSmallUAVCount)
-    Flags.Set64UAVs(true);
-  if (NumUAVs && !(SM->IsCS() || SM->IsPS()))
-    Flags.SetUAVsAtEveryStage(true);
 
   bool hasRawAndStructuredBuffer = false;
 
   for (auto &UAV : m_UAVs) {
+    NumUAVs += UAV->GetRangeSize();
     if (UAV->IsROV())
       Flags.SetROVs(true);
     switch (UAV->GetKind()) {
@@ -338,6 +335,12 @@ void DxilModule::CollectShaderFlagsForModule(ShaderFlags &Flags) {
       break;
     }
   }
+  if (NumUAVs > kSmallUAVCount)
+    Flags.Set64UAVs(true);
+  if (NumUAVs && !(SM->IsCS() || SM->IsPS()))
+    Flags.SetUAVsAtEveryStage(true);
+
+
   for (auto &SRV : m_SRVs) {
     switch (SRV->GetKind()) {
     case DXIL::ResourceKind::RawBuffer:
