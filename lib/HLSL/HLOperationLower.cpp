@@ -6870,48 +6870,50 @@ static Value* TranslateStructOrRawBufVecLd(Type* VecEltTy, unsigned ElemCount,
     kind == DXIL::ResourceKind::RawBuffer);
 
   unsigned  EltSize = DL.getTypeAllocSize(VecEltTy);
+  unsigned alignment = EltSize;
   // If RawBuffer load of 64-bit value, don't set alignment to 8,
   // since buffer alignment isn't known to be anything over 4.
-  if (kind == HLResource::Kind::RawBuffer && EltSize > 4) {
-    EltSize = 4;
+  if (kind == HLResource::Kind::RawBuffer && alignment > 4) {
+    alignment = 4;
   }
-  Constant* alignment = OP->GetI32Const(EltSize);
-  Value* offset = baseOffset;
-  Value* index = bufIdx;
+  Constant* alignmentVal = OP->GetI32Const(alignment);
 
   if (baseOffset == nullptr) {
     if (kind == DXIL::ResourceKind::RawBuffer) {
-      offset = UndefValue::get(Builder.getInt32Ty());
-    }
-    else {
-      offset = OP->GetU32Const(0);
+      baseOffset = UndefValue::get(Builder.getInt32Ty());
+    } else {
+      baseOffset = OP->GetU32Const(0);
     }
   }
+  Value* offset = (kind == DXIL::ResourceKind::RawBuffer) ? bufIdx : baseOffset;
 
   std::vector<Value*> elts(ElemCount);
   unsigned rest = (ElemCount % 4);
   for (unsigned i = 0; i < ElemCount-rest; i += 4) {
     Value* ResultElts[4];
-    Value* bufLd = GenerateRawBufLd(handle, index, offset, status, VecEltTy, ResultElts, OP, Builder, 4, alignment);
+    Value* bufLd = nullptr;
+    if (kind == DXIL::ResourceKind::RawBuffer) {
+      bufLd = GenerateRawBufLd(handle, offset, baseOffset, status, VecEltTy, ResultElts, OP, Builder, 4, alignmentVal);
+    } else {
+      bufLd = GenerateRawBufLd(handle, bufIdx, offset, status, VecEltTy, ResultElts, OP, Builder, 4, alignmentVal);
+    }
     bufLds.emplace_back(bufLd);
     elts[i] = ResultElts[0];
     elts[i + 1] = ResultElts[1];
     elts[i + 2] = ResultElts[2];
     elts[i + 3] = ResultElts[3];
 
-    if (kind == DXIL::ResourceKind::RawBuffer) {
-      // For rawbuffer, the validator expects offset to be undef.
-      // Therefore leave the offset as-is and increment the index instead.
-      index = Builder.CreateAdd(index, OP->GetU32Const(1));
-    }
-    else {
-      offset = Builder.CreateAdd(offset, OP->GetU32Const(4 * EltSize));
-    }
+    offset = Builder.CreateAdd(offset, OP->GetU32Const(4 * EltSize));
   }
 
   if (rest) {
     Value* ResultElts[4];
-    Value* bufLd = GenerateRawBufLd(handle, index, offset, status, VecEltTy, ResultElts, OP, Builder, rest, alignment);
+    Value* bufLd = nullptr;
+    if (kind == DXIL::ResourceKind::RawBuffer) {
+      bufLd = GenerateRawBufLd(handle, offset, baseOffset, status, VecEltTy, ResultElts, OP, Builder, rest, alignmentVal);
+    } else {
+      bufLd = GenerateRawBufLd(handle, bufIdx, offset, status, VecEltTy, ResultElts, OP, Builder, rest, alignmentVal);
+    }
     bufLds.emplace_back(bufLd);
     for (unsigned i = 0; i < rest; i++)
       elts[ElemCount - rest + i] = ResultElts[i];
