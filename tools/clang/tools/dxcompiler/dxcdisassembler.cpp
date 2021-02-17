@@ -419,7 +419,7 @@ void PrintResourceDim(DxilResourceBase &res, unsigned alignment,
       DxilResource *pRes = static_cast<DxilResource *>(&res);
       std::string dimName = res.GetResDimName();
       if (pRes->GetSampleCount())
-        dimName += pRes->GetSampleCount();
+        dimName += std::to_string(pRes->GetSampleCount());
       OS << right_justify(dimName, alignment);
     } break;
     default:

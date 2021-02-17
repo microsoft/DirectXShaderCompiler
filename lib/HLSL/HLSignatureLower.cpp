@@ -676,8 +676,11 @@ void replaceMatStWithStOutputs(CallInst *CI, HLMatLoadStoreOpcode matOp,
       for (unsigned r = 0; r < MatTy.getNumRows(); r++) {
         unsigned matIdx = MatTy.getColumnMajorIndex(r, c);
         Value *Elt = LocalBuilder.CreateExtractElement(Val, matIdx);
-        LocalBuilder.CreateCall(ldStFunc,
-                                { OpArg, ID, colIdx, columnConsts[r], Elt });
+
+        SmallVector<Value*, 6> argList = {OpArg, ID, colIdx, columnConsts[r], Elt};
+        if (vertexOrPrimID)
+          argList.emplace_back(vertexOrPrimID);
+        LocalBuilder.CreateCall(ldStFunc, argList);
       }
     }
   } else {
@@ -687,8 +690,11 @@ void replaceMatStWithStOutputs(CallInst *CI, HLMatLoadStoreOpcode matOp,
       for (unsigned c = 0; c < MatTy.getNumColumns(); c++) {
         unsigned matIdx = MatTy.getRowMajorIndex(r, c);
         Value *Elt = LocalBuilder.CreateExtractElement(Val, matIdx);
-        LocalBuilder.CreateCall(ldStFunc,
-                                { OpArg, ID, rowIdx, columnConsts[c], Elt });
+
+        SmallVector<Value*, 6> argList = {OpArg, ID, rowIdx, columnConsts[c], Elt};
+        if (vertexOrPrimID)
+          argList.emplace_back(vertexOrPrimID);
+        LocalBuilder.CreateCall(ldStFunc, argList);
       }
     }
   }

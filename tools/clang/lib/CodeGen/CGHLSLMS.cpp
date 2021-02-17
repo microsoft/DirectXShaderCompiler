@@ -292,6 +292,8 @@ public:
                           ArrayRef<const Attr *> Attrs) override;
   void MarkRetTemp(CodeGenFunction &CGF, llvm::Value *V,
                   clang::QualType QaulTy) override;
+  void MarkCallArgumentTemp(CodeGenFunction &CGF, llvm::Value *V,
+                  clang::QualType QaulTy) override;
   void FinishAutoVar(CodeGenFunction &CGF, const VarDecl &D, llvm::Value *V) override;
   void MarkIfStmt(CodeGenFunction &CGF, BasicBlock *endIfBB) override;
   void MarkSwitchStmt(CodeGenFunction &CGF, SwitchInst *switchInst,
@@ -2375,6 +2377,15 @@ void CGMSHLSLRuntime::AddControlFlowHint(CodeGenFunction &CGF, const Stmt &S,
 void CGMSHLSLRuntime::MarkRetTemp(CodeGenFunction &CGF, Value *V,
                                  QualType QualTy) {
   // Save object properties for ret temp.
+  AddValToPropertyMap(V, QualTy);
+}
+
+void CGMSHLSLRuntime::MarkCallArgumentTemp(CodeGenFunction &CGF, llvm::Value *V,
+                                           clang::QualType QualTy) {
+  // Save object properties for call arg temp.
+  // Ignore V already in property map.
+  if (objectProperties.GetResource(V).isValid())
+    return;
   AddValToPropertyMap(V, QualTy);
 }
 

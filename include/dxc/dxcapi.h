@@ -603,6 +603,8 @@ struct IDxcPdbUtils : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE GetFullPDB(_COM_Outptr_ IDxcBlob **ppFullPDB) = 0;
 
   virtual HRESULT STDMETHODCALLTYPE GetVersionInfo(_COM_Outptr_ IDxcVersionInfo **ppVersionInfo) = 0;
+
+  virtual HRESULT STDMETHODCALLTYPE SetCompiler(_In_ IDxcCompiler3 *pCompiler) = 0;
 };
 
 // Note: __declspec(selectany) requires 'extern'

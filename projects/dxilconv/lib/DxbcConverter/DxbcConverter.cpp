@@ -4568,22 +4568,18 @@ void DxbcConverter::InsertSM50ResourceHandles() {
   if (!IsSM51Plus()) {
     for (size_t i = 0; i < m_pPR->GetSRVs().size(); ++i) {
       DxilResource &R = m_pPR->GetSRV(i);
-      DXASSERT(R.GetSpaceID() == 0, "In SM5.0, all resources should be in space 0");
       SetCachedHandle(R);
     }
     for (size_t i = 0; i < m_pPR->GetUAVs().size(); ++i) {
       DxilResource &R = m_pPR->GetUAV(i);
-      DXASSERT(R.GetSpaceID() == 0, "In SM5.0, all resources should be in space 0");
       SetCachedHandle(R);
     }
     for (size_t i = 0; i < m_pPR->GetCBuffers().size(); ++i) {
       DxilCBuffer &R = m_pPR->GetCBuffer(i);
-      DXASSERT(R.GetSpaceID() == 0, "In SM5.0, all resources should be in space 0");
       SetCachedHandle(R);
     }
     for (size_t i = 0; i < m_pPR->GetSamplers().size(); ++i) {
       DxilSampler &R = m_pPR->GetSampler(i);
-      DXASSERT(R.GetSpaceID() == 0, "In SM5.0, all resources should be in space 0");
       SetCachedHandle(R);
     }
   }
@@ -5702,11 +5698,15 @@ Value *DxbcConverter::CreateHandle(DxilResourceBase::Class Class, unsigned Range
 }
 void DxbcConverter::SetCachedHandle(const DxilResourceBase &R) {
   DXASSERT(!IsSM51Plus(), "must not cache handles on SM 5.1");
-  m_HandleMap[std::make_pair((unsigned)R.GetClass(), (unsigned)R.GetLowerBound())] =
-    CreateHandle(R.GetClass(), R.GetID(), m_pOP->GetU32Const(R.GetLowerBound()), false);
+  if (R.GetSpaceID() == 0) {
+    // Note: Even though space should normally be 0 for SM 5.0 and below,
+    // the interfaces implementation uses non-zero space when converting from SM 5.0.
+    m_HandleMap[std::make_pair((unsigned)R.GetClass(), (unsigned)R.GetLowerBound())] =
+      CreateHandle(R.GetClass(), R.GetID(), m_pOP->GetU32Const(R.GetLowerBound()), false);
+  }
 }
 Value *DxbcConverter::GetCachedHandle(const DxilResourceBase &R) {
-  if (IsSM51Plus())
+  if (IsSM51Plus() || R.GetSpaceID() != 0)
     return nullptr;
   auto it = m_HandleMap.find(std::make_pair((unsigned)R.GetClass(), (unsigned)R.GetLowerBound()));
   if (it != m_HandleMap.end())

@@ -3,7 +3,7 @@
 // CHECK:      [[file:%\d+]] = OpString
 // CHECK-SAME: spirv.debug.opline.intrinsic.hlsl
 
-groupshared int dest_i;
+static int dest_i;
 
 void main() {
   float2 v2f;
@@ -75,9 +75,9 @@ void main() {
 // CHECK-NEXT: {{%\d+}} = OpExtInst %v2float {{%\d+}} FClamp
   v2f = saturate(v2f);
 
-// CHECK:      OpLine [[file]] 80 17
-// CHECK-NEXT: OpAtomicCompareExchange %int %dest_i %uint_1 %uint_0 %uint_0
-  /* comment */ InterlockedCompareStore(dest_i, v4i.x, v4i.y);
+// CHECK: OpLine [[file]] 80 26
+// CHECK: OpAny
+  /* comment */ dest_i = any(v4i);
 
 // CHECK:                     OpLine [[file]] 87 41
 // CHECK-NEXT: [[idx:%\d+]] = OpIAdd %uint

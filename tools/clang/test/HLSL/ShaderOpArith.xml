@@ -355,7 +355,7 @@
       { { 1.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
       { { 1.0f, -1.0f, 0.0f }, { 1.0f, 1.0f } }
     </Resource>
-    <Resource Name="T0" Dimension="Texture2D" Width="1008" Height="1008" MipLevels="7" InitialResourceState="COPY_DEST" Init="ByName" Format="R32_FLOAT" />
+    <Resource Name="T0" Dimension="Texture2D" Width="336" Height="336" MipLevels="7" InitialResourceState="COPY_DEST" Init="ByName" Format="R32_FLOAT" />
     <Resource Name="RTarget" Dimension="TEXTURE2D" Width="84" Height="4" Format="R32G32B32A32_FLOAT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" />
     <Resource Name="U0" Dimension="BUFFER" Width="16384"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
@@ -373,7 +373,7 @@
     <DescriptorHeap Name="ResHeap" Type="CBV_SRV_UAV">
       <Descriptor Name='T0' Kind='SRV' ResName='T0' />
       <Descriptor Name='U0' Kind='UAV' ResName='U0'
-                  NumElements="1008" StructureByteStride="16" />
+                  NumElements="336" StructureByteStride="16" />
       <Descriptor Name='U1' Kind='UAV' ResName='U1'
                   NumElements="128" StructureByteStride="16" />
       <Descriptor Name='U2' Kind='UAV' ResName='U2'
@@ -523,15 +523,15 @@
           g_bufMain[ix] = DerivTest(ix, 84*4*3);
           return 1;
         }
-        [NumThreads(1008, 1, 1)]
+        [NumThreads(336, 1, 1)]
         void CSMain1D(uint ix : SV_GroupIndex) {
-          g_bufMain[ix] = DerivTest(ix, 1008);
+          g_bufMain[ix] = DerivTest(ix, 336);
         }
 
         [NumThreads(84, 4, 3)]
         void CSMain2D(uint3 id : SV_GroupThreadID) {
           uint ix = convert2Dto1D(id.x, id.y, 84);
-          g_bufMain[ix] = DerivTest(ix, 84*4*3);
+          g_bufMain[ix] = DerivTest(ix, 84*4);
         }
 
       ]]>
@@ -2148,12 +2148,15 @@
           if (output == 0.0) InterlockedCompareStoreFloatBitwise(g_xtexBuf[0], sqrt(-1), 0.123);
         }
 
+        void InitSharedMem(uint ix) {
+          // Zero-init shared memory
+          g_xchgShare[ix%64] = 0;
+          GroupMemoryBarrierWithGroupSync();
+        }
+
         void AtomicGroupSharedTest(uint ix) {
           float xchgVal = ix;
           float output = 0;
-
-          g_xchgShare[ix%64] = 0;
-          GroupMemoryBarrierWithGroupSync();
 
           XCHG_TEST(VEC_CALL3, VEC_CALL4, g_xchgShare)
 
@@ -2161,12 +2164,11 @@
           if (output == 0.0) InterlockedCompareStoreFloatBitwise(g_xchgShare[0], sqrt(-1), 0.123);
 
           GroupMemoryBarrierWithGroupSync();
-
-          g_shareXchgBuf[ix%64] = g_xchgShare[ix%64];
         }
 
+        // Payloads are used to transport AS test results to MS where they are finalized
         struct Payload {
-          uint nothing;
+          float xchg[64];
         };
 
         static float4 g_Verts[6] = {
@@ -2187,12 +2189,19 @@
           { 1.0f, 0.0f },
           { 1.0f, 1.0f }};
 
+        groupshared Payload payload;
+
         [NumThreads(8, 8, 2)]
         void ASMain(uint ix : SV_GroupIndex) {
-          Payload payload;
-          payload.nothing = 0;
-          AtomicTest(ix);
+          AtomicTest(64*64 + 8*8*2 + ix);
+
+          InitSharedMem(ix);
           AtomicGroupSharedTest(ix);
+
+          // Copy AS test results to payload and ultimately to MS
+          // More threads than results are possible,
+          // so indices will result in duplicate copies
+          payload.xchg[ix%64] = g_xchgShare[ix%64];
           DispatchMesh(1, 1, 1, payload);
         }
 
@@ -2208,8 +2217,19 @@
             verts[ix%6].position = g_Verts[ix%6];
             verts[ix%6].uv = g_UV[ix%6];
             tris[ix&1] = uint3((ix&1)*3, (ix&1)*3 + 1, (ix&1)*3 + 2);
-            AtomicTest(ix);
-            AtomicGroupSharedTest(ix);
+
+            AtomicTest(64*64 + ix);
+
+            // Load AS test results from payload
+            // More threads than results are possible,
+            // so indices will result in duplicate copies
+            g_xchgShare[ix%64] = payload.xchg[ix%64];
+            GroupMemoryBarrierWithGroupSync();
+
+            AtomicGroupSharedTest(8*8*2 + ix);
+
+            // Copy final AS + MS results to output UAVs
+            g_shareXchgBuf[ix%64] = g_xchgShare[ix%64];
         }
 
         PSInput VSMain(float3 position : POSITION, float2 uv : TEXCOORD, uint ix : SV_VertexID) {
@@ -2229,7 +2249,11 @@
         [NumThreads(32, 32, 1)]
         void CSMain(uint ix : SV_GroupIndex) {
           AtomicTest(ix);
+
+          InitSharedMem(ix);
           AtomicGroupSharedTest(ix);
+
+          g_shareXchgBuf[ix%64] = g_xchgShare[ix%64];
         }
       ]]>
     </Shader>
