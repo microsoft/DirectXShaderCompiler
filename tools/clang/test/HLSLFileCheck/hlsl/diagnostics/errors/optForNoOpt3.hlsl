@@ -1,10 +1,7 @@
 // RUN: %dxc -Zi -E main -Od -T ps_6_0 %s | FileCheck %s -check-prefix=CHK_DB
 // RUN: %dxc -E main -Od -T ps_6_0 %s | FileCheck %s -check-prefix=CHK_NODB
 
-// CHK_DB: 20:36: error: Offsets to texture access operations must be immediate values
-// CHK_DB: 20:40: error: Offsets to texture access operations must be immediate values
-// CHK_NODB: Offsets to texture access operations must be immediate values.
-// CHK_NODB-SAME Use /Zi for source location.
+// CHK_DB: 17:7: error: Offsets to texture access operations must be immediate values
 // CHK_NODB: Offsets to texture access operations must be immediate values.
 // CHK_NODB-SAME Use /Zi for source location.
 

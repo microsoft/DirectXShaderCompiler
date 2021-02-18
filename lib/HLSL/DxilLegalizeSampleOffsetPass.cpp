@@ -40,6 +40,8 @@ namespace {
 // When optimizations are disabled, try to legalize sample offset.
 class DxilLegalizeSampleOffsetPass : public FunctionPass {
 
+  LoopInfo LI;
+
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilLegalizeSampleOffsetPass() : FunctionPass(ID) {}
@@ -57,7 +59,7 @@ public:
     DxilModule &DM = F.getParent()->GetOrCreateDxilModule();
     hlsl::OP *hlslOP = DM.GetOP();
 
-    std::vector<Instruction *> illegalOffsets;
+    std::vector<std::pair<Value *, CallInst*>> illegalOffsets;
 
     CollectIllegalOffsets(illegalOffsets, F, hlslOP);
 
@@ -68,45 +70,45 @@ public:
     TryUnrollLoop(illegalOffsets, F);
 
     // Collect offset again after mem2reg.
-    std::vector<Instruction *> ssaIllegalOffsets;
+    std::vector<std::pair<Value *, CallInst*>> ssaIllegalOffsets;
     CollectIllegalOffsets(ssaIllegalOffsets, F, hlslOP);
 
     // Run simple optimization to legalize offsets.
     LegalizeOffsets(ssaIllegalOffsets);
 
-    FinalCheck(illegalOffsets, F, hlslOP);
+    FinalCheck(F, hlslOP);
 
     return true;
   }
 
 private:
-  void TryUnrollLoop(std::vector<Instruction *> &illegalOffsets, Function &F);
-  void CollectIllegalOffsets(std::vector<Instruction *> &illegalOffsets,
+  void TryUnrollLoop(std::vector<std::pair<Value *, CallInst*>> &illegalOffsets, Function &F);
+  void CollectIllegalOffsets(std::vector<std::pair<Value *, CallInst*>> &illegalOffsets,
                              Function &F, hlsl::OP *hlslOP);
-  void CollectIllegalOffsets(std::vector<Instruction *> &illegalOffsets,
+  void CollectIllegalOffsets(std::vector<std::pair<Value *, CallInst*>> &illegalOffsets,
                              Function &F, DXIL::OpCode opcode,
                              hlsl::OP *hlslOP);
-  void LegalizeOffsets(const std::vector<Instruction *> &illegalOffsets);
-  void FinalCheck(std::vector<Instruction *> &illegalOffsets, Function &F,
-                  hlsl::OP *hlslOP);
+  void LegalizeOffsets(const std::vector<std::pair<Value *, CallInst*>> &illegalOffsets);
+  void FinalCheck(Function &F, hlsl::OP *hlslOP);
 };
 
 char DxilLegalizeSampleOffsetPass::ID = 0;
 
-bool HasIllegalOffsetInLoop(std::vector<Instruction *> &illegalOffsets,
+bool HasIllegalOffsetInLoop(std::vector<std::pair<Value *, CallInst*>> &illegalOffsets, LoopInfo &LI,
                             Function &F) {
   DominatorTreeAnalysis DTA;
   DominatorTree DT = DTA.run(F);
-  LoopInfo LI;
   LI.Analyze(DT);
 
   bool findOffset = false;
 
-  for (Instruction *I : illegalOffsets) {
-    BasicBlock *BB = I->getParent();
-    if (LI.getLoopFor(BB)) {
-      findOffset = true;
-      break;
+  for (auto it : illegalOffsets) {
+    if (Instruction *I = dyn_cast<Instruction>(it.first)) {
+      BasicBlock *BB = I->getParent();
+      if (LI.getLoopFor(BB)) {
+        findOffset = true;
+        break;
+      }
     }
   }
   return findOffset;
@@ -133,7 +135,7 @@ void GetOffsetRange(DXIL::OpCode opcode, unsigned &offsetStart, unsigned &offset
 }
 
 void CollectIllegalOffset(CallInst *CI, DXIL::OpCode opcode,
-                          std::vector<Instruction *> &illegalOffsets) {
+                          std::vector<std::pair<Value *, CallInst*>> &illegalOffsets) {
 
   unsigned offsetStart = 0, offsetEnd = 0;
 
@@ -148,38 +150,62 @@ void CollectIllegalOffset(CallInst *CI, DXIL::OpCode opcode,
   for (unsigned i = offsetStart; i <= offsetEnd; i++) {
     Value *offset = CI->getArgOperand(i);
     if (Instruction *I = dyn_cast<Instruction>(offset))
-      illegalOffsets.emplace_back(I);
+      illegalOffsets.emplace_back(std::make_pair(I, CI));
   }
 }
 }
 
-void DxilLegalizeSampleOffsetPass::FinalCheck(
-    std::vector<Instruction *> &illegalOffsets, Function &F, hlsl::OP *hlslOP) {
+// Return true if the call instruction in pair a and b are the same
+bool InstEq(const std::pair<Value*,CallInst*> &a, const std::pair<Value*,CallInst*> &b) {
+  return a.second == b.second;
+}
+
+// Return true if the call instruction in pair a is before that in pair b
+bool InstLT(const std::pair<Value*,CallInst*> &a, const std::pair<Value*,CallInst*> &b) {
+  DebugLoc aLoc = a.second->getDebugLoc();
+  DebugLoc bLoc = b.second->getDebugLoc();
+  if (aLoc && bLoc)
+    return aLoc.getLine() < bLoc.getLine();
+  // No line numbers, just compare pointers so that matching instructions will be adjacent
+  return a.second < b.second;
+}
+
+void DxilLegalizeSampleOffsetPass::FinalCheck(Function &F, hlsl::OP *hlslOP) {
   // Collect offset to make sure no illegal offsets.
-  std::vector<Instruction *> finalIllegalOffsets;
+  std::vector<std::pair<Value *, CallInst*>> finalIllegalOffsets;
   CollectIllegalOffsets(finalIllegalOffsets, F, hlslOP);
 
   if (!finalIllegalOffsets.empty()) {
-    const StringRef kIllegalOffsetError =
-        "Offsets to texture access operations must be immediate values. "
-        "Consider unrolling the loop manually and use -O3, "
-        "it may help in some cases.\n";
-    std::string errorMsg;
-    raw_string_ostream errorStr(errorMsg);
-    for (Instruction *offset : finalIllegalOffsets)
-      dxilutil::EmitErrorOnInstruction(offset, kIllegalOffsetError);
+    std::string errorMsg = "Offsets to texture access operations must be immediate values. ";
+
+    auto offsetBegin = finalIllegalOffsets.begin();
+    auto offsetEnd = finalIllegalOffsets.end();
+
+    std::sort(offsetBegin, offsetEnd, InstLT);
+    offsetEnd = std::unique(offsetBegin, offsetEnd, InstEq);
+
+    for (auto it = offsetBegin; it != offsetEnd; it++) {
+      CallInst *CI = it->second;
+      if (Instruction *offset = dyn_cast<Instruction>(it->first)) {
+        if (LI.getLoopFor(offset->getParent()))
+          dxilutil::EmitErrorOnInstruction(CI, errorMsg + "Unrolling the loop containing the offset value"
+                                           " manually and using -O3 may help in some cases.\n");
+        else
+          dxilutil::EmitErrorOnInstruction(CI, errorMsg);
+      }
+    }
   }
 }
 
 void DxilLegalizeSampleOffsetPass::TryUnrollLoop(
-    std::vector<Instruction *> &illegalOffsets, Function &F) {
+    std::vector<std::pair<Value *, CallInst*>> &illegalOffsets, Function &F) {
   legacy::FunctionPassManager PM(F.getParent());
   // Scalarize aggregates as mem2reg only applies on scalars.
   PM.add(createSROAPass());
   // Always need mem2reg for simplify illegal offsets.
   PM.add(createPromoteMemoryToRegisterPass());
 
-  bool UnrollLoop = HasIllegalOffsetInLoop(illegalOffsets, F);
+  bool UnrollLoop = HasIllegalOffsetInLoop(illegalOffsets, LI, F);
   if (UnrollLoop) {
     PM.add(createCFGSimplificationPass());
     PM.add(createLCSSAPass());
@@ -196,7 +222,7 @@ void DxilLegalizeSampleOffsetPass::TryUnrollLoop(
 }
 
 void DxilLegalizeSampleOffsetPass::CollectIllegalOffsets(
-    std::vector<Instruction *> &illegalOffsets, Function &CurF,
+    std::vector<std::pair<Value *, CallInst*>> &illegalOffsets, Function &CurF,
     hlsl::OP *hlslOP) {
   CollectIllegalOffsets(illegalOffsets, CurF, DXIL::OpCode::Sample, hlslOP);
   CollectIllegalOffsets(illegalOffsets, CurF, DXIL::OpCode::SampleBias, hlslOP);
@@ -212,7 +238,7 @@ void DxilLegalizeSampleOffsetPass::CollectIllegalOffsets(
 }
 
 void DxilLegalizeSampleOffsetPass::CollectIllegalOffsets(
-    std::vector<Instruction *> &illegalOffsets, Function &CurF,
+    std::vector<std::pair<Value *, CallInst*>> &illegalOffsets, Function &CurF,
     DXIL::OpCode opcode, hlsl::OP *hlslOP) {
   auto &intrFuncList = hlslOP->GetOpFuncList(opcode);
   for (auto it : intrFuncList) {
@@ -231,13 +257,13 @@ void DxilLegalizeSampleOffsetPass::CollectIllegalOffsets(
 }
 
 void DxilLegalizeSampleOffsetPass::LegalizeOffsets(
-    const std::vector<Instruction *> &illegalOffsets) {
-  if (illegalOffsets.size()) {
+    const std::vector<std::pair<Value *, CallInst*>> &illegalOffsets) {
+  if (!illegalOffsets.empty()) {
     DxilValueCache *DVC = &getAnalysis<DxilValueCache>();
-    for (Instruction *I : illegalOffsets) {
-      if (Value *V = DVC->GetValue(I)) {
-        I->replaceAllUsesWith(V);
-      }
+    for (auto it : illegalOffsets) {
+      if (Instruction *I = dyn_cast<Instruction>(it.first))
+        if (Value *V = DVC->GetValue(I))
+          I->replaceAllUsesWith(V);
     }
   }
 }
