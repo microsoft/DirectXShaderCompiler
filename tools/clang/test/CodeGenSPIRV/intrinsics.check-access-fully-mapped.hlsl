@@ -10,7 +10,7 @@ Texture2D<float4> t         : register(t1);
 float4 main(int2 offset: A) : SV_Target {
     uint status;
     float clamp;
-    float4 val = t.Sample(gSampler, float2(0.1, 0.2), offset, clamp, status);
+    float4 val = t.Sample(gSampler, float2(0.1, 0.2), 1, clamp, status);
     
 // CHECK: [[residency_code:%\d+]] = OpLoad %uint %status
 // CHECK:        [[success:%\d+]] = OpImageSparseTexelsResident %bool [[residency_code]]
