@@ -28,6 +28,7 @@
 #include "dxc/dxcpix.h"
 #ifdef _WIN32
 #include <atlfile.h>
+#include <d3dcompiler.h>
 #include "dia2.h"
 #endif
 
@@ -988,6 +989,7 @@ static void VerifyPdbUtil(dxc::DxcDllSupport &dllSupport,
     bool HasVersion,
     bool IsFullPDB,
     bool HasHashAndPdbName,
+    bool TestReflection,
     const std::string &MainSource,
     const std::string &IncludedFile)
 {
@@ -1213,6 +1215,40 @@ static void VerifyPdbUtil(dxc::DxcDllSupport &dllSupport,
     TestArgumentPair(Args, ExpectedArgs);
   }
 
+  // Shader reflection
+  if (TestReflection) {
+    CComPtr<IDxcUtils> pUtils;
+    VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcUtils, &pUtils));
+
+    DxcBuffer buf = {};
+    buf.Ptr = pBlob->GetBufferPointer();
+    buf.Size = pBlob->GetBufferSize();
+    buf.Encoding = CP_ACP;
+
+    CComPtr<ID3D12ShaderReflection> pRefl;
+    VERIFY_SUCCEEDED(pUtils->CreateReflection(&buf, IID_PPV_ARGS(&pRefl)));
+
+    D3D12_SHADER_DESC desc = {};
+    VERIFY_SUCCEEDED(pRefl->GetDesc(&desc));
+
+    VERIFY_ARE_EQUAL(desc.ConstantBuffers, 1);
+    ID3D12ShaderReflectionConstantBuffer *pCB = pRefl->GetConstantBufferByIndex(0);
+
+    D3D12_SHADER_BUFFER_DESC cbDesc = {};
+    VERIFY_SUCCEEDED(pCB->GetDesc(&cbDesc));
+
+    VERIFY_IS_TRUE(0 == strcmp(cbDesc.Name, "MyCbuffer"));
+    VERIFY_ARE_EQUAL(cbDesc.Variables, 1);
+
+    ID3D12ShaderReflectionVariable *pVar = pCB->GetVariableByIndex(0);
+    D3D12_SHADER_VARIABLE_DESC varDesc = {};
+    VERIFY_SUCCEEDED(pVar->GetDesc(&varDesc));
+
+    VERIFY_ARE_EQUAL(varDesc.uFlags, D3D_SVF_USED);
+    VERIFY_IS_TRUE(0 == strcmp(varDesc.Name, "my_cbuf_foo"));
+    VERIFY_ARE_EQUAL(varDesc.Size, sizeof(float) * 4);
+  }
+
   // Make the pix debug info
   if (IsFullPDB) {
     VERIFY_IS_TRUE(pPdbUtils->IsFullPDB());
@@ -1250,6 +1286,7 @@ static void VerifyPdbUtil(dxc::DxcDllSupport &dllSupport,
       pMainFileName,
       NewExpectedArgs, NewExpectedFlags, ExpectedDefines,
       pCompiler, HasVersion, /*IsFullPDB*/true,
+      /*TestReflection*/true,
       HasHashAndPdbName, MainSource, IncludedFile);
   }
 
@@ -1362,8 +1399,17 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bSourceInDebugModule, bool bStr
   CComPtr<IDxcBlobEncoding> pSource;
   CComPtr<IDxcOperationResult> pOperationResult;
 
-  std::string main_source = "#include \"helper.h\"\r\n"
-    "float4 PSMain() : SV_Target { return ZERO; }";
+  std::string main_source = R"x(
+      #include "helper.h"
+      cbuffer MyCbuffer : register(b1) {
+        float4 my_cbuf_foo;
+      }
+
+      [RootSignature("CBV(b1)")]
+      float4 PSMain() : SV_Target {
+        return ZERO + my_cbuf_foo;
+      }
+  )x";
   std::string included_File = "#define ZERO 0";
 
   VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
@@ -1449,7 +1495,8 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bSourceInDebugModule, bool bStr
       pCompiler,
       /*HasVersion*/ false,
       /*IsFullPDB*/  true,
-      /*hasHasAndPDBName*/false,
+      /*HasHashAndPdbName*/false,
+      /*TestReflection*/false, // Reflection creation interface doesn't support just the DxilProgramHeader.
       main_source, included_File);
   }
 
@@ -1460,7 +1507,8 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bSourceInDebugModule, bool bStr
     pCompiler,
     /*HasVersion*/ true,
     /*IsFullPDB*/ !bSlim,
-    /*hasHasAndPDBName*/true,
+    /*HasHashAndPdbName*/true,
+    /*TestReflection*/true,
     main_source, included_File);
 
   if (!bStrip) {
@@ -1471,7 +1519,8 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bSourceInDebugModule, bool bStr
       pCompiler,
       /*HasVersion*/ false,
       /*IsFullPDB*/ true,
-      /*hasHasAndPDBName*/true,
+      /*HasHashAndPdbName*/true,
+      /*TestReflection*/true,
       main_source, included_File);
   }
 }
