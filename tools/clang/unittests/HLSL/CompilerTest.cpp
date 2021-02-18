@@ -1496,7 +1496,7 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bSourceInDebugModule, bool bStr
       /*HasVersion*/ false,
       /*IsFullPDB*/  true,
       /*HasHashAndPdbName*/false,
-      /*TestReflection*/false, // Reflection creation interface doesn't support just
+      /*TestReflection*/false, // Reflection creation interface doesn't support just the DxilProgramHeader.
       main_source, included_File);
   }
 
