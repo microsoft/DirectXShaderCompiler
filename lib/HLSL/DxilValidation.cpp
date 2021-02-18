@@ -1381,7 +1381,7 @@ static void ValidateGather(CallInst *CI, Value *srvHandle, Value *samplerHandle,
   default:
     // Invalid resource type for gather.
     ValCtx.EmitInstrError(CI, ValidationRule::InstrResourceKindForGather);
-    break;
+    return;
   }
   ValidateResourceOffset(CI, resKind, offsets, ValCtx);
 }
@@ -2189,7 +2189,7 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
     default:
       ValCtx.EmitInstrError(CI,
                             ValidationRule::InstrResourceKindForTextureLoad);
-      break;
+      return;
     }
 
     ValidateResourceOffset(CI, resKind, {texLd.get_offset0(), texLd.get_offset1(),
