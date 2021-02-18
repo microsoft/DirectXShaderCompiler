@@ -236,7 +236,7 @@ HRESULT CreateReadOnlyBlobStream(_In_ IDxcBlob *pSource, _COM_Outptr_ IStream** 
 HRESULT CreateFixedSizeMemoryStream(_In_ LPBYTE pBuffer, size_t size, _COM_Outptr_ AbstractMemoryStream** ppResult) throw();
 
 template <typename T>
-HRESULT WriteStreamValue(AbstractMemoryStream *pStream, const T& value) {
+HRESULT WriteStreamValue(IStream *pStream, const T& value) {
   ULONG cb;
   return pStream->Write(&value, sizeof(value), &cb);
 }
