@@ -200,25 +200,25 @@ bool DxaContext::AddPart(const char *pName, const char *pPartBinFilename) {
   IFT(pReflection->GetPartCount(&partCount));
   IFTARG(strlen(pName) == 4);
 
-  const UINT32 matchName =
+  const UINT32 matchFourCC =
       ((UINT32)pName[0] | ((UINT32)pName[1] << 8) | ((UINT32)pName[2] << 16) |
        ((UINT32)pName[3] << 24));
   for (UINT32 i = 0; i < partCount; ++i) {
     UINT32 partKind;
     IFT(pReflection->GetPartKind(i, &partKind));
-    if (partKind == matchName) {
+    if (partKind == matchFourCC) {
       printf("%s part is already exist\n", pName);
       return false;
     }
   }
-  uint32_t fourcc = matchName;
+
   CComPtr<IDxcBlobEncoding> pPartSource;
   ReadFileIntoBlob(m_dxcSupport, StringRefUtf16(pPartBinFilename),
                    &pPartSource);
   CComPtr<IDxcContainerBuilder> pBuilder;
   IFT(m_dxcSupport.CreateInstance(CLSID_DxcContainerBuilder, &pBuilder));
   IFT(pBuilder->Load(pSource));
-  IFT(pBuilder->AddPart(fourcc, pPartSource));
+  IFT(pBuilder->AddPart(matchFourCC, pPartSource));
 
   CComPtr<IDxcOperationResult> pAssembleResult;
   IFT(pBuilder->SerializeContainer(&pAssembleResult));
