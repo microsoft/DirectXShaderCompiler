@@ -190,6 +190,11 @@ bool DxaContext::ExtractFile(const char *pName) {
 }
 
 bool DxaContext::AddPart(const char *pName, const char *pPartBinFilename) {
+  if (InputFilename == "-") {
+    printf(
+        "Standard input/output not supported when adding a container part.\n");
+    return false;
+  }
   CComPtr<IDxcContainerReflection> pReflection;
   CComPtr<IDxcBlobEncoding> pSource;
   UINT32 partCount;
@@ -240,15 +245,9 @@ bool DxaContext::AddPart(const char *pName, const char *pPartBinFilename) {
     if (pContainer.p != nullptr) {
       // Infer the output filename if needed.
       if (OutputFilename.empty()) {
-        if (InputFilename == "-") {
-          printf("Not support streaming input.\n");
-          return false;
-        } else {
-          StringRef IFN = InputFilename;
-          IFN.find_last_of('.');
-          OutputFilename = IFN.substr(0, IFN.find_last_of('.')).str();
-          OutputFilename += ".dxo";
-        }
+        StringRef IFN = InputFilename;
+        OutputFilename = IFN.substr(0, IFN.find_last_of('.')).str();
+        OutputFilename += ".dxo";
       }
 
       WriteBlobToFile(pContainer, StringRefUtf16(OutputFilename), DXC_CP_ACP);
