@@ -241,20 +241,21 @@ bool DxaContext::AddPart(const char *pName, const char *pPartBinFilename) {
       // Infer the output filename if needed.
       if (OutputFilename.empty()) {
         if (InputFilename == "-") {
-          OutputFilename = "-";
+          printf("Not support streaming input.\n");
+          return false;
         } else {
           StringRef IFN = InputFilename;
-          OutputFilename = (IFN.endswith(".ll") ? IFN.drop_back(3) : IFN).str();
-          OutputFilename = (IFN.endswith(".bc") ? IFN.drop_back(3) : IFN).str();
-          OutputFilename += ".dxbc";
+          IFN.find_last_of('.');
+          OutputFilename = IFN.substr(0, IFN.find_last_of('.')).str();
+          OutputFilename += ".dxo";
         }
       }
 
-      WriteBlobToFile(pContainer, StringRefUtf16(OutputFilename), DXC_CP_UTF8);
+      WriteBlobToFile(pContainer, StringRefUtf16(OutputFilename), DXC_CP_ACP);
       printf("Output written to \"%s\"\n", OutputFilename.c_str());
     }
   } else {
-    printf("Assembly failed.\n");
+    printf("Adding root signature to container failed.\n");
   }
   return true;
 }
