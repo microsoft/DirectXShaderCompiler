@@ -2385,6 +2385,9 @@
       <Shader Name="PS65" Target="ps_6_5" EntryPoint="PSMain65" Text="@CS"/>
       <Shader Name="VS65" Target="vs_6_5" EntryPoint="VSMain65" Text="@CS"/>
       <Shader Name="CS65" Target="cs_6_5" EntryPoint="CSMain65" Text="@CS"/>
+      <Shader Name="PS66" Target="ps_6_6" EntryPoint="PSMain65" Text="@CS"/>
+      <Shader Name="VS66" Target="vs_6_6" EntryPoint="VSMain65" Text="@CS"/>
+      <Shader Name="CS66" Target="cs_6_6" EntryPoint="CSMain65" Text="@CS"/>
       <Shader Name="VS"   Target="vs_6_0" EntryPoint="VSMain"   Text="@CS"/>
       <Shader Name="PS"   Target="ps_6_0" EntryPoint="PSMain"   Text="@CS"/>
       <Shader Name="CS"   Target="cs_6_0" EntryPoint="CSMain">
