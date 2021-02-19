@@ -2129,6 +2129,12 @@ bool DeclResultIdMapper::createStageVars(
                                 noWriteBack, /*vecComponent=*/nullptr, loc))
       return true;
 
+    auto evalElemType =
+        hlsl::IsHLSLVecType(type) ? hlsl::GetHLSLVecElementType(type) : type;
+    const auto vecSizeOfType =
+        hlsl::IsHLSLVecType(type) ? hlsl::GetHLSLVecSize(type) : 1;
+    bool differentTypeIsUsedForEvalType = false;
+
     switch (semanticKind) {
     case hlsl::Semantic::Kind::DomainLocation:
       evalType = astContext.getExtVectorType(astContext.FloatTy, 3);
@@ -2157,12 +2163,19 @@ bool DeclResultIdMapper::createStageVars(
       evalType = astContext.getExtVectorType(astContext.FloatTy, 2);
       break;
     case hlsl::Semantic::Kind::DispatchThreadID:
+      // Based on SPIR-V spec, we have to always use a vector with 3 int
+      // elements for DispatchThreadID. Therefore, we use `astContext.IntTy`
+      // instead of `type`.
+      if (!evalElemType->isIntegerType()) {
+        evalElemType = astContext.IntTy;
+        differentTypeIsUsedForEvalType = true;
+      }
+      evalType = astContext.getExtVectorType(evalElemType, 3);
+      break;
     case hlsl::Semantic::Kind::GroupThreadID:
     case hlsl::Semantic::Kind::GroupID:
       // Keep the original integer signedness
-      evalType = astContext.getExtVectorType(
-          hlsl::IsHLSLVecType(type) ? hlsl::GetHLSLVecElementType(type) : type,
-          3);
+      evalType = astContext.getExtVectorType(evalElemType, 3);
       break;
     case hlsl::Semantic::Kind::ShadingRate:
       evalType = astContext.getExtVectorType(astContext.IntTy, 2);
@@ -2392,17 +2405,12 @@ bool DeclResultIdMapper::createStageVars(
                 semanticKind == hlsl::Semantic::Kind::GroupID) &&
                (!hlsl::IsHLSLVecType(type) ||
                 hlsl::GetHLSLVecSize(type) != 3)) {
-        const auto srcVecElemType = hlsl::IsHLSLVecType(type)
-                                        ? hlsl::GetHLSLVecElementType(type)
-                                        : type;
-        const auto vecSize =
-            hlsl::IsHLSLVecType(type) ? hlsl::GetHLSLVecSize(type) : 1;
-        if (vecSize == 1)
-          *value = spvBuilder.createCompositeExtract(srcVecElemType, *value,
-                                                     {0}, thisSemantic.loc);
-        else if (vecSize == 2)
+        if (vecSizeOfType == 1)
+          *value = spvBuilder.createCompositeExtract(evalElemType, *value, {0},
+                                                     thisSemantic.loc);
+        else if (vecSizeOfType == 2)
           *value = spvBuilder.createVectorShuffle(
-              astContext.getExtVectorType(srcVecElemType, 2), *value, *value,
+              astContext.getExtVectorType(evalElemType, 2), *value, *value,
               {0, 1}, thisSemantic.loc);
       }
       // Special handling of SV_ShadingRate, which is a bitpacked enum value,
@@ -2519,6 +2527,22 @@ bool DeclResultIdMapper::createStageVars(
       else {
         spvBuilder.createStore(ptr, *value, thisSemantic.loc);
       }
+    }
+
+    // When it is a special stage variable that the given QualType is not
+    // allowed based on SPIR-V spec, we use a evalType different from the given
+    // AST type for stageVar. To follow the given HLSL context, We have to
+    // conduct the proper type-cast.
+    if (differentTypeIsUsedForEvalType) {
+      auto *stageVarWithGivenAstType =
+          spvBuilder.addFnVar(type, thisSemantic.loc, name);
+      auto *castInst =
+          theEmitter.castToType(*value, evalType, type, thisSemantic.loc);
+      spvBuilder.createStore(stageVarWithGivenAstType, castInst,
+                             thisSemantic.loc);
+      stageVarInstructions[cast<DeclaratorDecl>(decl)] =
+          stageVarWithGivenAstType;
+      *value = spvBuilder.createLoad(type, stageVarWithGivenAstType, loc);
     }
 
     return true;

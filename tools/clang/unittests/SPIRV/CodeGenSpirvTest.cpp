@@ -1561,6 +1561,10 @@ TEST_F(FileTest, SpirvStageIO16bitTypes) {
   runFileTest("spirv.stage-io.16bit.hlsl");
 }
 
+TEST_F(FileTest, DispatchThreadIdWithFloatType) {
+  runFileTest("spirv.interface.cs.float.dispatch-thread-id.hlsl");
+}
+
 TEST_F(FileTest, SpirvInterpolationPS) {
   runFileTest("spirv.interpolation.ps.hlsl");
 }
