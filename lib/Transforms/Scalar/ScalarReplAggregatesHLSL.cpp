@@ -3254,6 +3254,109 @@ static void updateLifetimeForReplacement(Value *From, Value *To)
 
 static bool DominateAllUsers(Instruction *I, Value *V, DominatorTree *DT);
 
+namespace {
+void replaceScalarArrayGEPWithVectorArrayGEP(User *GEP, Value *VectorArray,
+                                             IRBuilder<> &Builder) {
+  gep_type_iterator GEPIt = gep_type_begin(GEP), E = gep_type_end(GEP);
+
+  Value *PtrOffset = GEPIt.getOperand();
+  ++GEPIt;
+  Value *ArrayIdx = GEPIt.getOperand();
+  ++GEPIt;
+  ArrayIdx = Builder.CreateAdd(PtrOffset, ArrayIdx);
+  DXASSERT(GEPIt == E, "invalid gep on scalar array");
+  Value *VecIdx = Builder.CreateLShr(ArrayIdx, 2);
+  Value *VecPtr = Builder.CreateGEP(VectorArray, {ConstantInt::get(VecIdx->getType(), 0), VecIdx});
+  Value *CompIdx = Builder.CreateAnd(ArrayIdx, 0x3);
+  Value *NewGEP = Builder.CreateGEP(
+      VecPtr, {ConstantInt::get(CompIdx->getType(), 0), CompIdx});
+  GEP->replaceAllUsesWith(NewGEP);
+}
+
+void replaceScalarArrayWithVectorArray(Value *ScalarArray, Value *VectorArray, MemCpyInst *MC) {
+  LLVMContext &Context = ScalarArray->getContext();
+  // All users should be element type.
+  // Replace users of AI or GV.
+  for (auto it = ScalarArray->user_begin(); it != ScalarArray->user_end();) {
+    User *U = *(it++);
+    if (U->user_empty())
+      continue;
+    if (BitCastInst *BCI = dyn_cast<BitCastInst>(U)) {
+      BCI->setOperand(0, VectorArray);
+      continue;
+    }
+
+    if (ConstantExpr *CE = dyn_cast<ConstantExpr>(U)) {
+      IRBuilder<> Builder(Context);
+      if (GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
+        // NewGEP must be GEPOperator too.
+        // No instruction will be build.
+        replaceScalarArrayGEPWithVectorArrayGEP(U, VectorArray, Builder);
+      } else if (CE->getOpcode() == Instruction::AddrSpaceCast) {
+        Value *NewAddrSpaceCast = Builder.CreateAddrSpaceCast(
+            VectorArray,
+            PointerType::get(VectorArray->getType()->getPointerElementType(),
+                             CE->getType()->getPointerAddressSpace()));
+        replaceScalarArrayWithVectorArray(CE, NewAddrSpaceCast, MC);
+      } else if (CE->hasOneUse() && CE->user_back() == MC) {
+        continue;
+      } else {
+        DXASSERT(0, "not implemented");
+      }
+    } else if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(U)) {
+      IRBuilder<> Builder(GEP);
+      replaceScalarArrayGEPWithVectorArrayGEP(U, VectorArray, Builder);
+      GEP->eraseFromParent();
+    } else {
+      DXASSERT(0, "not implemented");
+    }
+  }
+}
+
+// For pattern like
+// float4 cb[16];
+// float v[64] = cb;
+bool tryToReplaceCBVec4ArrayToScalarArray(Value *V, Type *TyV, Value *Src,
+                                          Type *TySrc, MemCpyInst *MC) {
+  IRBuilder<> Builder(MC);
+  Value *SrcPtr = Src;
+  while (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(SrcPtr)) {
+    SrcPtr = GEP->getPointerOperand();
+  }
+  CallInst *CI = dyn_cast<CallInst>(SrcPtr);
+  if (!CI)
+    return false;
+
+  Function *F = CI->getCalledFunction();
+  if (hlsl::GetHLOpcodeGroupByName(F) != HLOpcodeGroup::HLSubscript)
+    return false;
+
+  if (hlsl::GetHLOpcode(CI) != (unsigned)HLSubscriptOpcode::CBufferSubscript)
+    return false;
+
+  ArrayType *AT = dyn_cast<ArrayType>(TySrc);
+  if (!AT)
+    return false;
+  VectorType *VT = dyn_cast<VectorType>(AT->getElementType());
+
+  if (!VT)
+    return false;
+
+  if (VT->getNumElements() != 4)
+    return false;
+  ArrayType *DstAT = dyn_cast<ArrayType>(TyV);
+  if (!DstAT)
+    return false;
+
+  if (VT->getElementType() != DstAT->getElementType())
+    return false;
+
+  // Convert array of float4 to array of float.
+  replaceScalarArrayWithVectorArray(V, Src, MC);
+  return true;
+}
+
+} // namespace
 
 static bool ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
                           DxilFieldAnnotation *annotation, DxilTypeSystem &typeSys,
@@ -3285,9 +3388,13 @@ static bool ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
         ReplaceConstantWithInst(C, Src, Builder);
       }
     } else {
-      IRBuilder<> Builder(MC);
-      Src = Builder.CreateBitCast(Src, V->getType());
-      ReplaceConstantWithInst(C, Src, Builder);
+      // Try convert special pattern for cbuffer which copy array of float4 to
+      // array of float.
+      if (!tryToReplaceCBVec4ArrayToScalarArray(V, TyV, Src, TySrc, MC)) {
+        IRBuilder<> Builder(MC);
+        Src = Builder.CreateBitCast(Src, V->getType());
+        ReplaceConstantWithInst(C, Src, Builder);
+      }
     }
   } else {
     if (TyV == TySrc) {

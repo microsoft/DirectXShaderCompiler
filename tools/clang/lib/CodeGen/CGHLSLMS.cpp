@@ -5306,6 +5306,20 @@ static bool IsTypeMatchForMemcpy(llvm::Type *SrcTy, llvm::Type *DestTy) {
   }
 }
 
+static bool IsVec4ArrayToScalarArrayForMemcpy(llvm::Type *SrcTy, llvm::Type *DestTy) {
+  llvm::Type *SrcEltTy = dxilutil::GetArrayEltTy(SrcTy);
+  llvm::Type *DestEltTy = dxilutil::GetArrayEltTy(DestTy);
+  if (SrcEltTy == DestEltTy)
+    return true;
+  llvm::VectorType *VT  = dyn_cast<llvm::VectorType>(SrcEltTy);
+  if (!VT)
+    return false;
+  if (VT->getNumElements() != 4)
+    return false;
+
+  return VT->getElementType() == DestEltTy;
+}
+
 void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(CodeGenFunction &CGF, llvm::Value *SrcPtr,
     clang::QualType SrcTy,
     llvm::Value *DestPtr,
@@ -5371,6 +5385,29 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(CodeGenFunction &CGF, 
       unsigned sizeDest = TheModule.getDataLayout().getTypeAllocSize(DestPtrTy);
       CGF.Builder.CreateMemCpy(DestPtr, SrcPtr, std::min(sizeSrc, sizeDest), 1);
       return;
+    } else if (GlobalVariable *SrcGV = dyn_cast<GlobalVariable>(SrcPtr)) {
+      if (m_ConstVarAnnotationMap.count(SrcGV) &&
+          IsVec4ArrayToScalarArrayForMemcpy(SrcPtrTy, DestPtrTy)) {
+        unsigned sizeSrc = TheModule.getDataLayout().getTypeAllocSize(SrcPtrTy);
+        unsigned sizeDest =
+            TheModule.getDataLayout().getTypeAllocSize(DestPtrTy);
+        if (sizeSrc == sizeDest) {
+          CGF.Builder.CreateMemCpy(DestPtr, SrcPtr, std::min(sizeSrc, sizeDest),
+                                   1);
+          return;
+        }
+      }
+    }
+  } else if (GlobalVariable *SrcGV = dyn_cast<GlobalVariable>(SrcPtr)) {
+    if (m_ConstVarAnnotationMap.count(SrcGV) &&
+        IsVec4ArrayToScalarArrayForMemcpy(SrcPtrTy, DestPtrTy)) {
+      unsigned sizeSrc = TheModule.getDataLayout().getTypeAllocSize(SrcPtrTy);
+      unsigned sizeDest = TheModule.getDataLayout().getTypeAllocSize(DestPtrTy);
+      if (sizeSrc == sizeDest) {
+        CGF.Builder.CreateMemCpy(DestPtr, SrcPtr, std::min(sizeSrc, sizeDest),
+                                 1);
+        return;
+      }
     }
   }
 
