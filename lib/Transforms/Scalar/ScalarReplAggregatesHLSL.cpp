@@ -1007,6 +1007,73 @@ DxilFieldAnnotation *FindAnnotationFromMatUser(Value *Mat,
   return nullptr;
 }
 
+namespace {
+bool isCBVec4ArrayToScalarArray(Type *TyV, Value *Src, Type *TySrc, const DataLayout &DL) {
+  Value *SrcPtr = Src;
+  while (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(SrcPtr)) {
+    SrcPtr = GEP->getPointerOperand();
+  }
+  CallInst *CI = dyn_cast<CallInst>(SrcPtr);
+  if (!CI)
+    return false;
+
+  Function *F = CI->getCalledFunction();
+  if (hlsl::GetHLOpcodeGroupByName(F) != HLOpcodeGroup::HLSubscript)
+    return false;
+
+  if (hlsl::GetHLOpcode(CI) != (unsigned)HLSubscriptOpcode::CBufferSubscript)
+    return false;
+
+  ArrayType *AT = dyn_cast<ArrayType>(TySrc);
+  if (!AT)
+    return false;
+  VectorType *VT = dyn_cast<VectorType>(AT->getElementType());
+
+  if (!VT)
+    return false;
+
+  if (DL.getTypeSizeInBits(VT) != 128)
+    return false;
+
+  ArrayType *DstAT = dyn_cast<ArrayType>(TyV);
+  if (!DstAT)
+    return false;
+
+  if (VT->getElementType() != DstAT->getElementType())
+    return false;
+
+  unsigned sizeInBits = DL.getTypeSizeInBits(VT->getElementType());
+  if (sizeInBits < 32)
+    return false;
+  return true;
+}
+
+bool trySplitCBVec4ArrayToScalarArray(Value *Dest, Type *TyV, Value *Src,
+                                      Type *TySrc, const DataLayout &DL,
+                                      IRBuilder<> &B) {
+  if (!isCBVec4ArrayToScalarArray(TyV, Src, TySrc, DL))
+    return false;
+
+  ArrayType *AT = cast<ArrayType>(TyV);
+  Type *EltTy = AT->getElementType();
+  unsigned sizeInBits = DL.getTypeSizeInBits(EltTy);
+  unsigned vecSize = 4;
+  if (sizeInBits == 64)
+    vecSize = 2;
+  unsigned arraySize = AT->getNumElements();
+  Value *zeroIdx = B.getInt32(0);
+  for (unsigned i = 0; i < arraySize; i++) {
+    Value *SrcGEP = B.CreateGEP(
+        Src, {zeroIdx, B.getInt32(i / vecSize), B.getInt32(i % vecSize)});
+    Value *DestGEP = B.CreateGEP(Dest, {zeroIdx, B.getInt32(i)});
+    Value *Ld = B.CreateLoad(SrcGEP);
+    B.CreateStore(Ld, DestGEP);
+  }
+  return true;
+}
+
+}
+
 void MemcpySplitter::SplitMemCpy(MemCpyInst *MI, const DataLayout &DL,
                                  DxilFieldAnnotation *fieldAnnotation,
                                  DxilTypeSystem &typeSys,
@@ -1031,6 +1098,11 @@ void MemcpySplitter::SplitMemCpy(MemCpyInst *MI, const DataLayout &DL,
 
   // Allow copy between different address space.
   if (DestTy != SrcTy) {
+    if (trySplitCBVec4ArrayToScalarArray(Dest, DestTy, Src, SrcTy, DL,
+                                         Builder)) {
+      // delete memcpy
+      DeleteMemcpy(MI);
+    }
     return;
   }
   // Try to find fieldAnnotation from user of Dest/Src.
@@ -3256,7 +3328,8 @@ static bool DominateAllUsers(Instruction *I, Value *V, DominatorTree *DT);
 
 namespace {
 void replaceScalarArrayGEPWithVectorArrayGEP(User *GEP, Value *VectorArray,
-                                             IRBuilder<> &Builder) {
+                                             IRBuilder<> &Builder,
+                                             unsigned sizeInDwords) {
   gep_type_iterator GEPIt = gep_type_begin(GEP), E = gep_type_end(GEP);
 
   Value *PtrOffset = GEPIt.getOperand();
@@ -3264,16 +3337,35 @@ void replaceScalarArrayGEPWithVectorArrayGEP(User *GEP, Value *VectorArray,
   Value *ArrayIdx = GEPIt.getOperand();
   ++GEPIt;
   ArrayIdx = Builder.CreateAdd(PtrOffset, ArrayIdx);
-  DXASSERT(GEPIt == E, "invalid gep on scalar array");
-  Value *VecIdx = Builder.CreateLShr(ArrayIdx, 2);
-  Value *VecPtr = Builder.CreateGEP(VectorArray, {ConstantInt::get(VecIdx->getType(), 0), VecIdx});
-  Value *CompIdx = Builder.CreateAnd(ArrayIdx, 0x3);
+  DXASSERT_LOCALVAR(E, GEPIt == E, "invalid gep on scalar array");
+
+  unsigned shift = 2;
+  unsigned mask = 0x3;
+  switch (sizeInDwords) {
+  case 2:
+    shift = 1;
+    mask = 1;
+    break;
+  case 1:
+    shift = 2;
+    mask = 0x3;
+    break;
+  default:
+    DXASSERT(0, "invalid scalar size");
+    break;
+  }
+
+  Value *VecIdx = Builder.CreateLShr(ArrayIdx, shift);
+  Value *VecPtr = Builder.CreateGEP(
+      VectorArray, {ConstantInt::get(VecIdx->getType(), 0), VecIdx});
+  Value *CompIdx = Builder.CreateAnd(ArrayIdx, mask);
   Value *NewGEP = Builder.CreateGEP(
       VecPtr, {ConstantInt::get(CompIdx->getType(), 0), CompIdx});
   GEP->replaceAllUsesWith(NewGEP);
 }
 
-void replaceScalarArrayWithVectorArray(Value *ScalarArray, Value *VectorArray, MemCpyInst *MC) {
+void replaceScalarArrayWithVectorArray(Value *ScalarArray, Value *VectorArray,
+                                       MemCpyInst *MC, unsigned sizeInDwords) {
   LLVMContext &Context = ScalarArray->getContext();
   // All users should be element type.
   // Replace users of AI or GV.
@@ -3291,13 +3383,15 @@ void replaceScalarArrayWithVectorArray(Value *ScalarArray, Value *VectorArray, M
       if (GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
         // NewGEP must be GEPOperator too.
         // No instruction will be build.
-        replaceScalarArrayGEPWithVectorArrayGEP(U, VectorArray, Builder);
+        replaceScalarArrayGEPWithVectorArrayGEP(U, VectorArray, Builder,
+                                                sizeInDwords);
       } else if (CE->getOpcode() == Instruction::AddrSpaceCast) {
         Value *NewAddrSpaceCast = Builder.CreateAddrSpaceCast(
             VectorArray,
             PointerType::get(VectorArray->getType()->getPointerElementType(),
                              CE->getType()->getPointerAddressSpace()));
-        replaceScalarArrayWithVectorArray(CE, NewAddrSpaceCast, MC);
+        replaceScalarArrayWithVectorArray(CE, NewAddrSpaceCast, MC,
+                                          sizeInDwords);
       } else if (CE->hasOneUse() && CE->user_back() == MC) {
         continue;
       } else {
@@ -3305,7 +3399,8 @@ void replaceScalarArrayWithVectorArray(Value *ScalarArray, Value *VectorArray, M
       }
     } else if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(U)) {
       IRBuilder<> Builder(GEP);
-      replaceScalarArrayGEPWithVectorArrayGEP(U, VectorArray, Builder);
+      replaceScalarArrayGEPWithVectorArrayGEP(U, VectorArray, Builder,
+                                              sizeInDwords);
       GEP->eraseFromParent();
     } else {
       DXASSERT(0, "not implemented");
@@ -3317,42 +3412,16 @@ void replaceScalarArrayWithVectorArray(Value *ScalarArray, Value *VectorArray, M
 // float4 cb[16];
 // float v[64] = cb;
 bool tryToReplaceCBVec4ArrayToScalarArray(Value *V, Type *TyV, Value *Src,
-                                          Type *TySrc, MemCpyInst *MC) {
-  IRBuilder<> Builder(MC);
-  Value *SrcPtr = Src;
-  while (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(SrcPtr)) {
-    SrcPtr = GEP->getPointerOperand();
-  }
-  CallInst *CI = dyn_cast<CallInst>(SrcPtr);
-  if (!CI)
+                                          Type *TySrc, MemCpyInst *MC,
+                                          const DataLayout &DL) {
+  if (!isCBVec4ArrayToScalarArray(TyV, Src, TySrc, DL))
     return false;
 
-  Function *F = CI->getCalledFunction();
-  if (hlsl::GetHLOpcodeGroupByName(F) != HLOpcodeGroup::HLSubscript)
-    return false;
-
-  if (hlsl::GetHLOpcode(CI) != (unsigned)HLSubscriptOpcode::CBufferSubscript)
-    return false;
-
-  ArrayType *AT = dyn_cast<ArrayType>(TySrc);
-  if (!AT)
-    return false;
-  VectorType *VT = dyn_cast<VectorType>(AT->getElementType());
-
-  if (!VT)
-    return false;
-
-  if (VT->getNumElements() != 4)
-    return false;
-  ArrayType *DstAT = dyn_cast<ArrayType>(TyV);
-  if (!DstAT)
-    return false;
-
-  if (VT->getElementType() != DstAT->getElementType())
-    return false;
-
+  ArrayType *AT = cast<ArrayType>(TyV);
+  Type *EltTy = AT->getElementType();
+  unsigned sizeInBits = DL.getTypeSizeInBits(EltTy);
   // Convert array of float4 to array of float.
-  replaceScalarArrayWithVectorArray(V, Src, MC);
+  replaceScalarArrayWithVectorArray(V, Src, MC, sizeInBits >> 5);
   return true;
 }
 
@@ -3390,7 +3459,7 @@ static bool ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
     } else {
       // Try convert special pattern for cbuffer which copy array of float4 to
       // array of float.
-      if (!tryToReplaceCBVec4ArrayToScalarArray(V, TyV, Src, TySrc, MC)) {
+      if (!tryToReplaceCBVec4ArrayToScalarArray(V, TyV, Src, TySrc, MC, DL)) {
         IRBuilder<> Builder(MC);
         Src = Builder.CreateBitCast(Src, V->getType());
         ReplaceConstantWithInst(C, Src, Builder);
