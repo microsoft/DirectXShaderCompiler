@@ -244,9 +244,12 @@ std::pair<uint32_t, uint32_t> AlignmentSizeCalculator::getAlignmentAndSize(
 
   // Rule 9
   if (const auto *structType = type->getAs<RecordType>()) {
+    bool hasBaseStructs = type->getAsCXXRecordDecl() &&
+                          type->getAsCXXRecordDecl()->getNumBases() > 0;
+
     // Special case for handling empty structs, whose size is 0 and has no
     // requirement over alignment (thus 1).
-    if (structType->getDecl()->field_empty())
+    if (structType->getDecl()->field_empty() && !hasBaseStructs)
       return {1, 0};
 
     uint32_t maxAlignment = 0;

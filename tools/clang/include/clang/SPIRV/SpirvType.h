@@ -48,7 +48,7 @@ public:
     TK_Pointer,
     TK_Function,
     TK_AccelerationStructureNV,
-    TK_RayQueryProvisionalKHR,
+    TK_RayQueryKHR,
     // Order matters: all the following are hybrid types
     TK_HybridStruct,
     TK_HybridPointer,
@@ -402,13 +402,13 @@ public:
   }
 };
 
-class RayQueryProvisionalTypeKHR : public SpirvType {
+class RayQueryTypeKHR : public SpirvType {
 public:
-  RayQueryProvisionalTypeKHR()
-      : SpirvType(TK_RayQueryProvisionalKHR, "rayQueryProvisionalKHR") {}
+  RayQueryTypeKHR()
+      : SpirvType(TK_RayQueryKHR, "rayQueryKHR") {}
 
   static bool classof(const SpirvType *t) {
-    return t->getKind() == TK_RayQueryProvisionalKHR;
+    return t->getKind() == TK_RayQueryKHR;
   }
 };
 

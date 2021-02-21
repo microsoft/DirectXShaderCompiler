@@ -47,7 +47,7 @@ bool FileTest::parseInputFile() {
     const auto runCmdEndPos = checkCommands.find('\n', runCmdStartPos);
     const auto runCommand = checkCommands.substr(runCmdStartPos, runCmdEndPos);
     if (!utils::processRunCommandArgs(runCommand, &targetProfile, &entryPoint,
-                                      &restArgs)) {
+                                      &targetEnv, &restArgs)) {
       // An error has occured when parsing the Run command.
       return false;
     }

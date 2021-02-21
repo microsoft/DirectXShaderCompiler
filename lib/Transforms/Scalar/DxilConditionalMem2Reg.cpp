@@ -25,6 +25,7 @@
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/HLSL/HLModule.h"
 #include "llvm/Analysis/DxilValueCache.h"
+#include "llvm/Analysis/ValueTracking.h"
 
 using namespace llvm;
 using namespace hlsl;
@@ -232,6 +233,15 @@ public:
             hlsl::DxilMDHelper::CopyMetadata(*ElemStore, *Store);
           }
           Store->eraseFromParent();
+        }
+        else if (BitCastInst *BCI = dyn_cast<BitCastInst>(U)) {
+          DXASSERT(onlyUsedByLifetimeMarkers(BCI),
+                   "expected bitcast to only be used by lifetime intrinsics");
+          for (auto BCIU = BCI->user_begin(), BCIE = BCI->user_end(); BCIU != BCIE;) {
+            IntrinsicInst *II = cast<IntrinsicInst>(*(BCIU++));
+            II->eraseFromParent();
+          }
+          BCI->eraseFromParent();
         }
         else {
           llvm_unreachable("Cannot handle non-store/load on precise vector allocas");

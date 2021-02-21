@@ -263,8 +263,8 @@ public:
     return accelerationStructureTypeNV;
   }
 
-  const RayQueryProvisionalTypeKHR *getRayQueryProvisionalTypeKHR() const {
-    return rayQueryProvisionalTypeKHR;
+  const RayQueryTypeKHR *getRayQueryTypeKHR() const {
+    return rayQueryTypeKHR;
   }
 
   /// --- Hybrid type getter functions ---
@@ -406,7 +406,7 @@ private:
   llvm::SmallVector<const HybridPointerType *, 8> hybridPointerTypes;
   llvm::DenseSet<FunctionType *, FunctionTypeMapInfo> functionTypes;
   const AccelerationStructureTypeNV *accelerationStructureTypeNV;
-  const RayQueryProvisionalTypeKHR *rayQueryProvisionalTypeKHR;
+  const RayQueryTypeKHR *rayQueryTypeKHR;
 
   // Current ShaderModelKind for entry point.
   ShaderModelKind curShaderModelKind;

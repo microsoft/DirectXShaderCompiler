@@ -6,10 +6,10 @@
 // CHECK: addrspace(3)
 // CHECK: barrier
 // CHECK: addrspace(3)
-// CHECK: barrier
 // CHECK: addrspace(3)
 // CHECK: barrier
 // CHECK: addrspace(3)
+// CHECK: barrier
 // CHECK: bufferStore
 
 //--------------------------------------------------------------------------------------
