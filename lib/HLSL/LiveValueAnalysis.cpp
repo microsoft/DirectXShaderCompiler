@@ -1,7 +1,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 //                                                                           //
 // LiveValueAnalysis.cpp                                                     //
-// Copyright (C) 2020 NVIDIA Corporation.  All rights reserved.              //
+// Copyright (C) 2021 NVIDIA Corporation.  All rights reserved.              //
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
 //                                                                           //
@@ -50,7 +50,7 @@ namespace llvm {
       // Trace ray call sites can have identical source locations, but have distinct code flow based on how the shaders call them.
       // For example having macros and/or helper functions that take different code paths, but eventually call the exact same
       // trace call.  This is hard to represent easily to the user so call sites can be numbered and store string information
-      // displying the call stack to reach the trace ray call.
+      // displaying the call stack to reach the trace ray call.
       // ie:   [shader("raygeneration")]
       //                  |- ...
       //                  |-helper func1
@@ -100,6 +100,10 @@ namespace llvm {
     static std::string m_rootPath;
     // Output file name for the 'pretty' report.
     std::string m_outputFile;
+    // Extract value element index for processing instructions with no metadata.
+    int m_elementIndex = -1;
+    // Indicates when the object containing the value has been found. Required for offsets in instructions with no metadata (ie: ExtractValue)
+    bool m_bFoundObjectOffset = false; 
 
   public:
     LiveValueAnalysis(StringRef LiveValueAnalysisOutputFile = "");
@@ -190,7 +194,6 @@ bool LiveValueAnalysis::runOnModule(Module &M) {
 
   m_module = &M;
   m_DM = &M.GetDxilModule();
-
   // Find any define for LIVE_VALUE_REPORT_ROOT in order to build absolute path
   // locations in the LVA Visual Studio (VS) console report.
   // Full file paths allows for source linking by double-clicking the
@@ -340,7 +343,15 @@ bool LiveValueAnalysis::isLoadRematerializable(CallInst *Call) {
     break;
   case OP::OpCode::TextureLoad:
     if (CallInst *CI = dyn_cast<CallInst>(createHandle->getArgOperand(HLOperandIndex::kCreateHandleResourceOpIdx))) {
-      if (Value *Res = dyn_cast<Value>(CI->getOperand(HLOperandIndex::kCreateHandleResourceOpIdx))) {
+      if (LoadInst *LI = dyn_cast<LoadInst>(CI->getOperand(HLOperandIndex::kCreateHandleResourceOpIdx))) {
+        Value *resType = LI->getOperand(0);
+
+        for (auto &&res : m_DM->GetUAVs()) {
+          // UAVs cannot be rematerialized.
+          if (res->GetGlobalSymbol() == resType) {
+            return false;
+          }
+        }
         return true;
       }
     }
@@ -403,6 +414,13 @@ bool LiveValueAnalysis::canRemat(Instruction *I) {
 
   // Inspect the instruction in more detail to see if it is possible to rematerialize.
   if (dxilutil::IsRematerializable(I)) {
+    // Check for extract of non-rematerializable resources, like uav.
+    if (isa<ExtractValueInst>(I)) {
+      CallInst *CI = dyn_cast<CallInst>(dyn_cast<ExtractValueInst>(I)->getAggregateOperand());
+      if (!isLoadRematerializable(CI))
+        return false;
+    }
+
     return true;
   }
 
@@ -948,8 +966,31 @@ void LiveValueAnalysis::determineValueName(DIType *diType, int64_t &BitOffset, s
     }
     break;
     case dwarf::DW_TAG_class_type:
+      // Search class type. 
+      for (auto const& node : CT->getElements())
+      {
+        // An element index is used for an extractvalue with no metadata so we must look at a parent instruction requires the index
+        // for proper offseting to find the element member name.
+        if (m_elementIndex >= 0)
+          BitOffset -= dyn_cast<DIDerivedType>(node)->getSizeInBits();
+
+        // If there is an element index offset skip until the correct element is found.
+        if (m_bFoundObjectOffset && m_elementIndex > 0) {
+          m_elementIndex--;
+          if (m_elementIndex == 0)
+            m_bFoundObjectOffset = false;
+          continue;
+        }
+        if (DIType* subType = dyn_cast<DIType>(node)) {
+          determineValueName(subType, BitOffset, Name);
+        }
+        // Found the element matching the BitOffset.
+        if (BitOffset < 0)
+          break;
+      }
+      break;
     case dwarf::DW_TAG_structure_type:
-      // Search each element.
+      // Search structure type. Structures can be nested in each other.
       for (auto const& node : CT->getElements())
       {
         if (DIType* subType = dyn_cast<DIType>(node))
@@ -981,6 +1022,7 @@ void LiveValueAnalysis::determineValueName(DIType *diType, int64_t &BitOffset, s
       }
       if (CompTy)
       {
+        m_bFoundObjectOffset = true;
         // Traverse inside this composite type.
         determineValueName(CompTy, BitOffset, Name);
       }
@@ -990,12 +1032,12 @@ void LiveValueAnalysis::determineValueName(DIType *diType, int64_t &BitOffset, s
     {
       Name += DT->getName();
       CompTy = dyn_cast_or_null<DICompositeType>(DT->getRawBaseType());
-      while ((DT = dyn_cast_or_null<DIDerivedType>(DT->getRawBaseType())))
-      {
+      while ((DT = dyn_cast_or_null<DIDerivedType>(DT->getRawBaseType()))) {
         CompTy = dyn_cast_or_null<DICompositeType>(DT->getRawBaseType());
       }
-      if (CompTy)
-      {
+      if (CompTy) {
+        // Check for a nested composite type, or has the final object member been found.
+        m_bFoundObjectOffset = true;
         // Traverse inside this composite type, using '.' for the new member name.
         Name += ".";
         determineValueName(CompTy, BitOffset, Name);
@@ -1348,10 +1390,17 @@ void LiveValueAnalysis::formatOutput(raw_string_ostream &PrettyStr, raw_string_o
       // Prepare a map of the live value instructions and their associated value names.
       for (Instruction *I : (m_spillsPerTraceCall[callSite])) {
 
+        // Reset tracking between live values.
         bool foundMetadata = false;
+        m_bFoundObjectOffset = false;
+        m_elementIndex = -1;
 
         if (isa<ExtractValueInst>(I)) {
-          I = dyn_cast<Instruction>(dyn_cast<ExtractValueInst>(I)->getAggregateOperand());
+          // Record the element index so the operand instruction with the resource debug info can be properly offset.
+          m_elementIndex = (int)dyn_cast<ExtractValueInst>(I)->getIndices()[0];
+          // Only switch instructions if there is no metadata attached to this extractvalue.
+          if (!I->isUsedByMetadata())
+            I = dyn_cast<Instruction>(dyn_cast<ExtractValueInst>(I)->getAggregateOperand());
         }
 
         // Add to the live values list even if it's not used by metadata so that we can track more accurately. Only filter out artifical values.
@@ -1504,7 +1553,7 @@ void LiveValueAnalysis::formatOutput(raw_string_ostream &PrettyStr, raw_string_o
       // Find the metadata for the instruction, value, use locations, etc.
       if (I->isUsedByMetadata()) {
         if (auto *DVI = findDbgValueInst(I)) {
-          TmpStr << translateValueToName(DVI, I);
+          TmpStr << LVI.Name;
 
           // Get use locations.
           SetVector<DILocation *> UseLocations;
@@ -1513,7 +1562,7 @@ void LiveValueAnalysis::formatOutput(raw_string_ostream &PrettyStr, raw_string_o
           TmpStr << "Use Locations:\n";
           PrettyStr << TmpStr.str();
           // Copy the PrettyStr to the VSStr as the output diverges on the Use Locations formatting.
-          // The VS text stream requires a very rigid format to support source lookup via mouse clicks in the debug console.
+          // The VS text stream requires a very strict format to support source lookup via mouse clicks in the debug console.
           VSStr << TmpStr.str();
 
           // Find max path length to format horizontal dividers in the output.

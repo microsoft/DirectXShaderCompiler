@@ -676,6 +676,7 @@ bool IsRematerializable(Instruction *I) {
       switch (DxilOp) {
       case OP::OpCode::DispatchRaysDimensions:
       case OP::OpCode::DispatchRaysIndex:
+      case OP::OpCode::PrimitiveIndex:
       case OP::OpCode::WorldRayDirection:
       case OP::OpCode::WorldRayOrigin:
         return true;

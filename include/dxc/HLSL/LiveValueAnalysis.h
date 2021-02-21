@@ -1,7 +1,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 //                                                                           //
 // LiveValueAnalysis.h                                                       //
-// Copyright (C) 2020 NVIDIA Corporation.  All rights reserved.              //
+// Copyright (C) 2021 NVIDIA Corporation.  All rights reserved.              //
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
 //                                                                           //

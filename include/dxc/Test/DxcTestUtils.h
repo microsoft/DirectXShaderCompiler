@@ -124,6 +124,8 @@ private:
 #endif
 
   void SubstituteFilenameVars(std::string &args);
+  void SubstituteFilenameVarsNoPath(std::string &args);
+  void SubstituteFilenameVarsNoPath(std::wstring &args);
 #ifdef _WIN32
   bool ReadFileContentToString(HANDLE hFile, std::string &str);
 #endif
