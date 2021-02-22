@@ -14,6 +14,7 @@
 
 #include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/DXIL/DxilModule.h"
+#include "dxc/DXIL/DxilResourceBinding.h"
 #include "dxc/DxilPIXPasses/DxilPIXPasses.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/HLSL/DxilSpanAllocator.h"
@@ -369,18 +370,44 @@ DxilResourceAndClass GetResourceFromHandle(Value *resHandle, DxilModule &DM) {
   DxilResourceAndClass ret{nullptr, nullptr, DXIL::ResourceClass::Invalid};
 
   CallInst *handle = cast<CallInst>(resHandle);
-  DxilInst_CreateHandle createHandle(handle);
 
-  // Dynamic rangeId is not supported - skip and let validation report the
-  // error.
-  if (!isa<ConstantInt>(createHandle.get_rangeId()))
+  DXIL::ResourceClass resClass = DXIL::ResourceClass::Invalid;
+  unsigned rangeId = -1;
+
+  if (hlsl::OP::IsDxilOpFuncCallInst(handle, hlsl::OP::OpCode::CreateHandle))
+  {
+      DxilInst_CreateHandle createHandle(handle);
+      ret.index = createHandle.get_index();
+
+      // Dynamic rangeId is not supported - skip and let validation report the
+      // error.
+      if (!isa<ConstantInt>(createHandle.get_rangeId()))
+          return ret;
+
+      rangeId = cast<ConstantInt>(createHandle.get_rangeId())->getLimitedValue();
+
+      resClass = static_cast<DXIL::ResourceClass>(createHandle.get_resourceClass_val());
+  }
+  else if (hlsl::OP::IsDxilOpFuncCallInst(handle, hlsl::OP::OpCode::CreateHandleFromBinding))
+  {
+    DxilInst_CreateHandleFromBinding createHandleFromBinding(handle);
+    ret.index = createHandleFromBinding.get_index();
+    Constant *B = cast<Constant>(createHandleFromBinding.get_bind());
+    auto binding = hlsl::resource_helper::loadBindingFromConstant(*B);
+    if (binding.rangeLowerBound == binding.rangeUpperBound)
+    {
+      rangeId = binding.rangeLowerBound;
+      resClass = static_cast<DXIL::ResourceClass>(binding.resourceClass);
+    }
+    else
+    {
+      return ret;
+    }
+  }
+  else
+  {
     return ret;
-
-  unsigned rangeId =
-      cast<ConstantInt>(createHandle.get_rangeId())->getLimitedValue();
-
-  auto resClass =
-      static_cast<DXIL::ResourceClass>(createHandle.get_resourceClass_val());
+  }
 
   switch (resClass) {
   case DXIL::ResourceClass::SRV:
@@ -400,7 +427,6 @@ DxilResourceAndClass GetResourceFromHandle(Value *resHandle, DxilModule &DM) {
     return ret;
   }
 
-  ret.index = createHandle.get_index();
   ret.resClass = resClass;
 
   return ret;
@@ -580,6 +606,9 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
           if (res.resClass == DXIL::ResourceClass::UAV &&
               res.resource->GetSpaceID() == (unsigned)-2) {
             break;
+          }
+          if (res.resource == nullptr) {
+              continue;
           }
           if (EmitResourceAccess(res, Call, HlslOP, Ctx, readWrite)) {
             Modified = true;
