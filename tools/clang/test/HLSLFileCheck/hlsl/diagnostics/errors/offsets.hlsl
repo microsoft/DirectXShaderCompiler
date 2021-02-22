@@ -5,29 +5,21 @@
 // RUN: %dxc -E VarOffset -T ps_6_0 -DOFFSETS=constOffsets %s | FileCheck %s -check-prefix=CHK_VAROFF
 // RUN: %dxc -E VarOffset -T ps_6_0 -DOFFSETS=validOffsets %s | FileCheck %s -check-prefix=CHK_VALID
 
-// RUN: %dxc -E ValidVarOffset -T ps_6_0 -DOFFSETS=argOffsets %s | FileCheck %s -check-prefix=CHK_VALID
-// RUN: %dxc -E ValidVarOffset -T ps_6_0 -DOFFSETS=cbufOffsets %s | FileCheck %s -check-prefix=CHK_VALID
-// RUN: %dxc -E ValidVarOffset -T ps_6_0 -DOFFSETS=constOffsets %s | FileCheck %s -check-prefix=CHK_VALID
-// RUN: %dxc -E ValidVarOffset -T ps_6_0 -DOFFSETS=validOffsets %s | FileCheck %s -check-prefix=CHK_VALID
+// RUN: %dxc -E ValidOffset -T ps_6_0 -DOFFSETS=argOffsets %s | FileCheck %s -check-prefix=CHK_VALID
+// RUN: %dxc -E ValidOffset -T ps_6_0 -DOFFSETS=cbufOffsets %s | FileCheck %s -check-prefix=CHK_VALID
+// RUN: %dxc -E ValidOffset -T ps_6_0 -DOFFSETS=constOffsets %s | FileCheck %s -check-prefix=CHK_VALID
+// RUN: %dxc -E ValidOffset -T ps_6_0 -DOFFSETS=validOffsets %s | FileCheck %s -check-prefix=CHK_VALID
 
-// CHK_RANGE:  error: offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7.
-// CHK_RANGE:  error: offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7.
-// CHK_RANGE:  error: offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7.
-// CHK_RANGE:  error: offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7.
-// CHK_RANGE:  error: offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7.
-// CHK_RANGE:  error: offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7.
-// CHK_RANGE:  error: offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7.
-// CHK_RANGE:  error: offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7.
-// CHK_RANGE:  error: offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7.
-// CHK_RANGE:  error: offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7.
-// CHK_RANGE:  error: offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7.
-// CHK_RANGE:  error: offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7.
-// CHK_RANGE:  error: offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7.
-// CHK_RANGE:  error: offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7.
-// CHK_RANGE:  error: offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7.
-// CHK_RANGE:  error: offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7.
-// CHK_RANGE:  error: offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7.
-// CHK_RANGE:  error: offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7.
+// CHK_RANGE: error: Offsets to texture access operations must be between -8 and 7.
+// CHK_RANGE: error: Offsets to texture access operations must be between -8 and 7.
+// CHK_RANGE: error: Offsets to texture access operations must be between -8 and 7.
+// CHK_RANGE: error: Offsets to texture access operations must be between -8 and 7.
+// CHK_RANGE: error: Offsets to texture access operations must be between -8 and 7.
+// CHK_RANGE: error: Offsets to texture access operations must be between -8 and 7.
+// CHK_RANGE: error: Offsets to texture access operations must be between -8 and 7.
+// CHK_RANGE: error: Offsets to texture access operations must be between -8 and 7.
+// CHK_RANGE: error: Offsets to texture access operations must be between -8 and 7.
+// CHK_RANGE: error: Offsets to texture access operations must be between -8 and 7.
 
 // CHK_VAROFF: Offsets to texture access operations must be immediate values
 // CHK_VAROFF: Offsets to texture access operations must be immediate values

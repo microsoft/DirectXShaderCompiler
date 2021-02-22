@@ -153,6 +153,11 @@ void CollectIllegalOffset(CallInst *CI, DXIL::OpCode opcode,
     Value *offset = CI->getArgOperand(i);
     if (Instruction *I = dyn_cast<Instruction>(offset))
       illegalOffsets.emplace_back(std::make_pair(I, CI));
+    else if(ConstantInt *cOffset = dyn_cast<ConstantInt>(offset)) {
+      int val = cOffset->getValue().getSExtValue();
+      if (val > 7 || val < -8)
+        illegalOffsets.emplace_back(std::make_pair(cOffset, CI));
+    }
   }
 }
 }
@@ -194,6 +199,8 @@ void DxilLegalizeSampleOffsetPass::FinalCheck(Function &F, hlsl::OP *hlslOP) {
                                            " manually and using -O3 may help in some cases.\n");
         else
           dxilutil::EmitErrorOnInstruction(CI, errorMsg);
+      } else {
+        dxilutil::EmitErrorOnInstruction(CI, "Offsets to texture access operations must be between -8 and 7. ");
       }
     }
   }
