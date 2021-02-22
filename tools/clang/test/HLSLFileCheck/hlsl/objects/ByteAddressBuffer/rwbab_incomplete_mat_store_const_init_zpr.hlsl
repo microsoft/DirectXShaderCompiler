@@ -35,47 +35,47 @@ void main()
   // CHK_TEST5: dx.op.rawBufferStore.f32
   // CHK_TEST5: i32 0, i32 undef, float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00
   // CHK_TEST5: dx.op.rawBufferStore.f32
-  // CHK_TEST5: i32 1, i32 undef, float 5.000000e+00, float 6.000000e+00
+  // CHK_TEST5: i32 16, i32 undef, float 5.000000e+00, float 6.000000e+00
   float2x3 t = {1,2,3,4,5,6};
 #elif TEST6
   // CHK_TEST6: dx.op.rawBufferStore.f32
   // CHK_TEST6: i32 0, i32 undef, float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00
   // CHK_TEST6: dx.op.rawBufferStore.f32
-  // CHK_TEST6: i32 1, i32 undef, float 5.000000e+00, float 6.000000e+00
+  // CHK_TEST6: i32 16, i32 undef, float 5.000000e+00, float 6.000000e+00
   float3x2 t = {1,2,3,4,5,6};
 #elif TEST7  
   // CHK_TEST7: dx.op.rawBufferStore.f32
   // CHK_TEST7: i32 0, i32 undef, float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00
   // CHK_TEST7: dx.op.rawBufferStore.f32
-  // CHK_TEST7: i32 1, i32 undef, float 5.000000e+00, float 6.000000e+00, float 7.000000e+00, float 8.000000e+00
+  // CHK_TEST7: i32 16, i32 undef, float 5.000000e+00, float 6.000000e+00, float 7.000000e+00, float 8.000000e+00
   // CHK_TEST7: dx.op.rawBufferStore.f32
-  // CHK_TEST7: i32 2, i32 undef, float 9.000000e+00
+  // CHK_TEST7: i32 32, i32 undef, float 9.000000e+00
   float3x3 t = {1,2,3,4,5,6,7,8,9};
 #elif TEST8  
   // CHK_TEST8: dx.op.rawBufferStore.f32
   // CHK_TEST8: i32 0, i32 undef, float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00
   // CHK_TEST8: dx.op.rawBufferStore.f32
-  // CHK_TEST8: i32 1, i32 undef, float 5.000000e+00, float 6.000000e+00, float 7.000000e+00, float 8.000000e+00
+  // CHK_TEST8: i32 16, i32 undef, float 5.000000e+00, float 6.000000e+00, float 7.000000e+00, float 8.000000e+00
   // CHK_TEST8: dx.op.rawBufferStore.f32
-  // CHK_TEST8: i32 2, i32 undef, float 9.000000e+00, float 1.000000e+01, float 1.100000e+01, float 1.200000e+01
+  // CHK_TEST8: i32 32, i32 undef, float 9.000000e+00, float 1.000000e+01, float 1.100000e+01, float 1.200000e+01
   float3x4 t = {1,2,3,4,5,6,7,8,9,10,11,12};
 #elif TEST9  
   // CHK_TEST9: dx.op.rawBufferStore.f32
   // CHK_TEST9: i32 0, i32 undef, float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00
   // CHK_TEST9: dx.op.rawBufferStore.f32
-  // CHK_TEST9: i32 1, i32 undef, float 5.000000e+00, float 6.000000e+00, float 7.000000e+00, float 8.000000e+00
+  // CHK_TEST9: i32 16, i32 undef, float 5.000000e+00, float 6.000000e+00, float 7.000000e+00, float 8.000000e+00
   // CHK_TEST9: dx.op.rawBufferStore.f32
-  // CHK_TEST9: i32 2, i32 undef, float 9.000000e+00, float 1.000000e+01, float 1.100000e+01, float 1.200000e+01
+  // CHK_TEST9: i32 32, i32 undef, float 9.000000e+00, float 1.000000e+01, float 1.100000e+01, float 1.200000e+01
   float4x3 t = {1,2,3,4,5,6,7,8,9,10,11,12};
 #else
   // CHK_TEST10: dx.op.rawBufferStore.f32
   // CHK_TEST10: i32 0, i32 undef, float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00
   // CHK_TEST10: dx.op.rawBufferStore.f32
-  // CHK_TEST10: i32 1, i32 undef, float 5.000000e+00, float 6.000000e+00, float 7.000000e+00, float 8.000000e+00
+  // CHK_TEST10: i32 16, i32 undef, float 5.000000e+00, float 6.000000e+00, float 7.000000e+00, float 8.000000e+00
   // CHK_TEST10: dx.op.rawBufferStore.f32
-  // CHK_TEST10: i32 2, i32 undef, float 9.000000e+00, float 1.000000e+01, float 1.100000e+01, float 1.200000e+01
+  // CHK_TEST10: i32 32, i32 undef, float 9.000000e+00, float 1.000000e+01, float 1.100000e+01, float 1.200000e+01
   // CHK_TEST10: dx.op.rawBufferStore.f32
-  // CHK_TEST10: i32 3, i32 undef, float 1.300000e+01, float 1.400000e+01, float 1.500000e+01, float 1.600000e+01
+  // CHK_TEST10: i32 48, i32 undef, float 1.300000e+01, float 1.400000e+01, float 1.500000e+01, float 1.600000e+01
 	float4x4 t = {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16};
 #endif
 	buffer.Store(0, t);

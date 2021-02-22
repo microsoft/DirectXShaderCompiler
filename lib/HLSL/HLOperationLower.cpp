@@ -3921,9 +3921,16 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
 
     // For second and subsequent store calls, increment the offset0 (i.e. store index)
     if (j > 0) {
-      Value* newOffset = ConstantInt::get(Builder.getInt32Ty(), j);
-      newOffset = Builder.CreateAdd(storeArgsList[0][offset0Idx], newOffset);
-      storeArgsList[j][offset0Idx] = newOffset;
+      // Greater than four-components store is not allowed for
+      // TypedBuffer and Textures. Also, StructuredBuffer store
+      // doesn't use this function. So greater than four elements
+      // scenario should only get hit here for RawBuffer.
+      DXASSERT_NOMSG(RK == DxilResource::Kind::RawBuffer);
+      unsigned EltSize = OP->GetAllocSizeForType(EltTy);
+      unsigned newOffset = EltSize * MaxStoreElemCount * j;
+      Value* newOffsetVal = ConstantInt::get(Builder.getInt32Ty(), newOffset);
+      newOffsetVal = Builder.CreateAdd(storeArgsList[0][offset0Idx], newOffsetVal);
+      storeArgsList[j][offset0Idx] = newOffsetVal;
     }
 
     // values
