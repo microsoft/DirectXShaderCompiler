@@ -2232,7 +2232,8 @@ bool DeclResultIdMapper::createStageVars(
     //   invocation. BaseInstance is the firstInstance parameter to a direct
     //   drawing command or the firstInstance member of a structure consumed by
     //   an indirect drawing command.
-    if (asInput && semanticKind == hlsl::Semantic::Kind::InstanceID &&
+    if (spirvOptions.supportNonzeroBaseInstance && asInput &&
+        semanticKind == hlsl::Semantic::Kind::InstanceID &&
         sigPointKind == hlsl::SigPoint::Kind::VSIn) {
       // The above call to createSpirvStageVar creates the gl_InstanceIndex.
       // We should now manually create the gl_BaseInstance variable and do the

@@ -1161,6 +1161,17 @@ public:
     BOOL Int64ShaderOps;
   };
 
+  bool IsDeviceBasicAdapter(ID3D12Device *pDevice) {
+    CComPtr<IDXGIFactory4> factory;
+    VERIFY_SUCCEEDED(CreateDXGIFactory1(IID_PPV_ARGS(&factory)));
+    LUID adapterID = pDevice->GetAdapterLuid();
+    CComPtr<IDXGIAdapter1> adapter;
+    factory->EnumAdapterByLuid(adapterID, IID_PPV_ARGS(&adapter));
+    DXGI_ADAPTER_DESC1 AdapterDesc;
+    VERIFY_SUCCEEDED(adapter->GetDesc1(&AdapterDesc));
+    return (AdapterDesc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE);
+  }
+
   bool DoesDeviceSupportInt64(ID3D12Device *pDevice) {
     D3D12_FEATURE_DATA_D3D12_OPTIONS1 O;
     if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS1, &O, sizeof(O))))
@@ -3208,7 +3219,7 @@ TEST_F(ExecutionTest, QuadReadTest) {
   if (!CreateDevice(&pDevice))
     return;
 
-  if (GetTestParamUseWARP(UseWarpByDefault())) {
+  if (GetTestParamUseWARP(UseWarpByDefault()) || IsDeviceBasicAdapter(pDevice)) {
     WEX::Logging::Log::Comment(L"WARP does not support QuadRead in compute shaders.");
     WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
     return;
@@ -9284,7 +9295,7 @@ TEST_F(ExecutionTest, HelperLaneTestWave) {
       continue;
     }
 
-    if (sm >= D3D_SHADER_MODEL_6_5) {
+    if (sm == D3D_SHADER_MODEL_6_5) {
       // Reassign shader stages to 6.5 versions
       LPCSTR CS65 = nullptr, VS65 = nullptr, PS65 = nullptr;
       for (st::ShaderOpShader& S : pShaderOp->Shaders) {
@@ -9295,6 +9306,17 @@ TEST_F(ExecutionTest, HelperLaneTestWave) {
       pShaderOp->CS = CS65;
       pShaderOp->VS = VS65;
       pShaderOp->PS = PS65;
+    } else if (sm == D3D_SHADER_MODEL_6_6) {
+      // Reassign shader stages to 6.6 versions
+      LPCSTR CS66 = nullptr, VS66 = nullptr, PS66 = nullptr;
+      for (st::ShaderOpShader& S : pShaderOp->Shaders) {
+        if (!strcmp(S.Name, "CS66")) CS66 = S.Name;
+        if (!strcmp(S.Name, "VS66")) VS66 = S.Name;
+        if (!strcmp(S.Name, "PS66")) PS66 = S.Name;
+      }
+      pShaderOp->CS = CS66;
+      pShaderOp->VS = VS66;
+      pShaderOp->PS = PS66;
     }
 
     const unsigned CS_INDEX = 0, VS_INDEX = 0, PS_INDEX = 1, PS_INDEX_AFTER_DISCARD = 2;

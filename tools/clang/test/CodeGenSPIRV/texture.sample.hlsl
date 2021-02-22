@@ -11,11 +11,11 @@ TextureCube <float4> t4 : register(t4);
 Texture1D   <float>  t5 : register(t5);
 TextureCube <float3> t6 : register(t6);
 
-// CHECK: OpCapability ImageGatherExtended
 // CHECK: OpCapability MinLod
 // CHECK: OpCapability SparseResidency
 
 // CHECK: [[v2fc:%\d+]] = OpConstantComposite %v2float %float_0_5 %float_0_25
+// CHECK: [[v2ic:%\d+]] = OpConstantComposite %v2int %int_2 %int_3
 // CHECK: [[v3fc:%\d+]] = OpConstantComposite %v3float %float_0_5 %float_0_25 %float_0_3
 // CHECK: [[v3ic:%\d+]] = OpConstantComposite %v3int %int_3 %int_3 %int_3
 
@@ -34,10 +34,9 @@ float4 main(int2 offset: A) : SV_Target {
 
 // CHECK:              [[t2:%\d+]] = OpLoad %type_2d_image %t2
 // CHECK-NEXT:   [[gSampler:%\d+]] = OpLoad %type_sampler %gSampler
-// CHECK-NEXT:     [[offset:%\d+]] = OpLoad %v2int %offset
 // CHECK-NEXT: [[sampledImg:%\d+]] = OpSampledImage %type_sampled_image_0 [[t2]] [[gSampler]]
-// CHECK-NEXT:            {{%\d+}} = OpImageSampleImplicitLod %v4float [[sampledImg]] [[v2fc]] Offset [[offset]]
-    float4 val2 = t2.Sample(gSampler, float2(0.5, 0.25), offset);
+// CHECK-NEXT:            {{%\d+}} = OpImageSampleImplicitLod %v4float [[sampledImg]] [[v2fc]] ConstOffset [[v2ic]]
+    float4 val2 = t2.Sample(gSampler, float2(0.5, 0.25), int2(2, 3));
 
 // CHECK:              [[t3:%\d+]] = OpLoad %type_3d_image %t3
 // CHECK-NEXT:   [[gSampler:%\d+]] = OpLoad %type_sampler %gSampler
@@ -55,10 +54,9 @@ float4 main(int2 offset: A) : SV_Target {
 // CHECK:           [[clamp:%\d+]] = OpLoad %float %clamp
 // CHECK-NEXT:         [[t2:%\d+]] = OpLoad %type_2d_image %t2
 // CHECK-NEXT:   [[gSampler:%\d+]] = OpLoad %type_sampler %gSampler
-// CHECK-NEXT:     [[offset:%\d+]] = OpLoad %v2int %offset
 // CHECK-NEXT: [[sampledImg:%\d+]] = OpSampledImage %type_sampled_image_0 [[t2]] [[gSampler]]
-// CHECK-NEXT:            {{%\d+}} = OpImageSampleImplicitLod %v4float [[sampledImg]] [[v2fc]] Offset|MinLod [[offset]] [[clamp]]
-    float4 val5 = t2.Sample(gSampler, float2(0.5, 0.25), offset, clamp);
+// CHECK-NEXT:            {{%\d+}} = OpImageSampleImplicitLod %v4float [[sampledImg]] [[v2fc]] ConstOffset|MinLod [[v2ic]] [[clamp]]
+    float4 val5 = t2.Sample(gSampler, float2(0.5, 0.25), int2(2, 3), clamp);
 
 // CHECK:              [[t4:%\d+]] = OpLoad %type_cube_image %t4
 // CHECK-NEXT:   [[gSampler:%\d+]] = OpLoad %type_sampler %gSampler
@@ -70,14 +68,13 @@ float4 main(int2 offset: A) : SV_Target {
 // CHECK:             [[clamp:%\d+]] = OpLoad %float %clamp
 // CHECK-NEXT:           [[t2:%\d+]] = OpLoad %type_2d_image %t2
 // CHECK-NEXT:     [[gSampler:%\d+]] = OpLoad %type_sampler %gSampler
-// CHECK-NEXT:       [[offset:%\d+]] = OpLoad %v2int %offset
 // CHECK-NEXT:   [[sampledImg:%\d+]] = OpSampledImage %type_sampled_image_0 [[t2]] [[gSampler]]
-// CHECK-NEXT: [[structResult:%\d+]] = OpImageSparseSampleImplicitLod %SparseResidencyStruct [[sampledImg]] [[v2fc]] Offset|MinLod [[offset]] [[clamp]]
+// CHECK-NEXT: [[structResult:%\d+]] = OpImageSparseSampleImplicitLod %SparseResidencyStruct [[sampledImg]] [[v2fc]] ConstOffset|MinLod [[v2ic]] [[clamp]]
 // CHECK-NEXT:       [[status:%\d+]] = OpCompositeExtract %uint [[structResult]] 0
 // CHECK-NEXT:                         OpStore %status [[status]]
 // CHECK-NEXT:       [[result:%\d+]] = OpCompositeExtract %v4float [[structResult]] 1
 // CHECK-NEXT:                         OpStore %val7 [[result]]
-    float4 val7 = t2.Sample(gSampler, float2(0.5, 0.25), offset, clamp, status);
+    float4 val7 = t2.Sample(gSampler, float2(0.5, 0.25), int2(2, 3), clamp, status);
 
 // CHECK:                [[t4:%\d+]] = OpLoad %type_cube_image %t4
 // CHECK-NEXT:     [[gSampler:%\d+]] = OpLoad %type_sampler %gSampler
