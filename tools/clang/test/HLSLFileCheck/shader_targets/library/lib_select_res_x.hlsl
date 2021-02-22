@@ -1,7 +1,7 @@
 // RUN: %dxc -T lib_6_x -Od %s | FileCheck %s
 
 // lib_6_x allows phi on resource, targeting offline linking only.
-// CHECK: phi %struct.ByteAddressBuffer
+// CHECK: phi %dx.types.Handle
 
 ByteAddressBuffer firstBuffer, secondBuffer;
 uint firstBufferSize;

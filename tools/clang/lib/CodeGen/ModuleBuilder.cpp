@@ -214,7 +214,7 @@ namespace {
         Builder->Release();
       // HLSL Change Begins
       // Error may happen in Builder->Release for HLSL
-      if (CodeGenOpts.getDebugInfo() == CodeGenOptions::DebugInfoKind::FullDebugInfo) {
+      if (CodeGenOpts.HLSLEmbedSourcesInModule) {
         // Add all file contents in a list of filename/content pairs.
         llvm::NamedMDNode *pContents = nullptr;
         llvm::LLVMContext &LLVMCtx = M->getContext();

@@ -1,4 +1,5 @@
 // RUN: %dxc -T lib_6_3 %s | FileCheck %s
+// RUN: %dxc -T lib_6_6 %s | FileCheck %s
 
 // Global array with external linkage does not need constant indexing.
 // Check that the block is not included in the unroll and only happens

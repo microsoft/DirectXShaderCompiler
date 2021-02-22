@@ -343,6 +343,10 @@ bool isStructureContainingMixOfResourcesAndNonResources(QualType type);
 /// (RW|Append|Consume)StructuredBuffer.
 bool isStructureContainingAnyKindOfBuffer(QualType type);
 
+/// Returns true if the given type is a scalar, vector, or matrix of numeric
+/// types, or it's an array of scalar, vector, or matrix of numeric types.
+bool isScalarOrNonStructAggregateOfNumericalTypes(QualType type);
+
 } // namespace spirv
 } // namespace clang
 

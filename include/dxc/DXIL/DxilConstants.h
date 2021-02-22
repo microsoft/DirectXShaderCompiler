@@ -109,6 +109,8 @@ namespace DXIL {
   const unsigned kMaxMSPSigRows = 32;
   const unsigned kMaxMSTotalSigRows = 32;
   const unsigned kMaxMSSMSize = 1024 * 28;
+  const unsigned kMinWaveSize = 4;
+  const unsigned kMaxWaveSize = 128;
 
   const float kMaxMipLodBias = 15.99f;
   const float kMinMipLodBias = -16.0f;
@@ -120,6 +122,7 @@ namespace DXIL {
     I1, I16, U16, I32, U32, I64, U64,
     F16, F32, F64,
     SNormF16, UNormF16, SNormF32, UNormF32, SNormF64, UNormF64,
+    PackedS8x32, PackedU8x32,
     LastEntry };
 
   // Must match D3D_INTERPOLATION_MODE
@@ -330,8 +333,6 @@ namespace DXIL {
     RTAccelerationStructure,
     FeedbackTexture2D,
     FeedbackTexture2DArray,
-    StructuredBufferWithCounter,
-    SamplerComparison,
     NumEntries,
   };
 
@@ -341,8 +342,7 @@ namespace DXIL {
   }
 
   inline bool IsStructuredBuffer(DXIL::ResourceKind ResourceKind) {
-    return ResourceKind == DXIL::ResourceKind::StructuredBuffer ||
-           ResourceKind == DXIL::ResourceKind::StructuredBufferWithCounter;
+    return ResourceKind == DXIL::ResourceKind::StructuredBuffer;
   }
 
   inline bool IsTypedBuffer(DXIL::ResourceKind ResourceKind) {
@@ -364,6 +364,11 @@ namespace DXIL {
   inline bool IsFeedbackTexture(DXIL::ResourceKind ResourceKind) {
     return ResourceKind == DXIL::ResourceKind::FeedbackTexture2D ||
            ResourceKind == DXIL::ResourceKind::FeedbackTexture2DArray;
+  }
+
+  inline bool IsValidWaveSizeValue(unsigned size) {
+    // must be power of 2 between 4 and 128
+    return size >= kMinWaveSize && size <= kMaxWaveSize && (size & (size - 1)) == 0;
   }
 
   // TODO: change opcodes.
@@ -415,6 +420,13 @@ namespace DXIL {
     ThreadId = 93, // reads the thread ID
     ThreadIdInGroup = 95, // reads the thread ID within the group (SV_GroupThreadID)
   
+    // Derivatives
+    CalculateLOD = 81, // calculates the level of detail
+    DerivCoarseX = 83, // computes the rate of change per stamp in x direction.
+    DerivCoarseY = 84, // computes the rate of change per stamp in y direction.
+    DerivFineX = 85, // computes the rate of change per pixel in x direction.
+    DerivFineY = 86, // computes the rate of change per pixel in y direction.
+  
     // Domain and hull shader
     LoadOutputControlPoint = 103, // LoadOutputControlPoint
     LoadPatchConstant = 104, // LoadPatchConstant
@@ -446,11 +458,15 @@ namespace DXIL {
     GSInstanceID = 100, // GSInstanceID
   
     // Get handle from heap
-    AnnotateHandle = 217, // annotate handle with resource properties
-    CreateHandleFromHeap = 216, // create resource handle from heap
+    AnnotateHandle = 216, // annotate handle with resource properties
+    CreateHandleFromBinding = 217, // create resource handle from binding
+    CreateHandleFromHeap = 218, // create resource handle from heap
   
     // Graphics shader
     ViewID = 138, // returns the view index
+  
+    // Helper Lanes
+    IsHelperLane = 221, // returns true on helper lanes in pixel shaders
   
     // Hull shader
     OutputControlPointID = 107, // OutputControlPointID
@@ -520,14 +536,12 @@ namespace DXIL {
     // Other
     CycleCounterLegacy = 109, // CycleCounterLegacy
   
+    // Packing intrinsics
+    Pack4x8 = 220, // packs vector of 4 signed or unsigned values into a packed datatype, drops or clamps unused bits
+  
     // Pixel shader
     AttributeAtVertex = 137, // returns the values of the attributes at the vertex.
-    CalculateLOD = 81, // calculates the level of detail
     Coverage = 91, // returns the coverage mask input in a pixel shader
-    DerivCoarseX = 83, // computes the rate of change per stamp in x direction.
-    DerivCoarseY = 84, // computes the rate of change per stamp in y direction.
-    DerivFineX = 85, // computes the rate of change per pixel in x direction.
-    DerivFineY = 86, // computes the rate of change per pixel in y direction.
     Discard = 82, // discard the current pixel
     EvalCentroid = 89, // evaluates an input attribute at pixel center
     EvalSampleIndex = 88, // evaluates an input attribute at a sample location
@@ -674,6 +688,9 @@ namespace DXIL {
     // Unary uint
     FirstbitHi = 33, // Returns the location of the first set bit starting from the highest order bit and working downward.
   
+    // Unpacking intrinsics
+    Unpack4x8 = 219, // unpacks 4 8-bit signed or unsigned values into int32 or int16 vector
+  
     // Wave
     WaveActiveAllEqual = 115, // returns 1 if all the lanes have the same value
     WaveActiveBallot = 116, // returns a struct with a bit set for each lane where the condition is true
@@ -699,9 +716,9 @@ namespace DXIL {
     NumOpCodes_Dxil_1_3 = 162,
     NumOpCodes_Dxil_1_4 = 165,
     NumOpCodes_Dxil_1_5 = 216,
-    NumOpCodes_Dxil_1_6 = 218,
+    NumOpCodes_Dxil_1_6 = 222,
   
-    NumOpCodes = 218 // exclusive last value of enumeration
+    NumOpCodes = 222 // exclusive last value of enumeration
   };
   // OPCODE-ENUM:END
 
@@ -739,6 +756,10 @@ namespace DXIL {
     ThreadId,
     ThreadIdInGroup,
   
+    // Derivatives
+    CalculateLOD,
+    Unary,
+  
     // Domain and hull shader
     LoadOutputControlPoint,
     LoadPatchConstant,
@@ -770,10 +791,14 @@ namespace DXIL {
   
     // Get handle from heap
     AnnotateHandle,
+    CreateHandleFromBinding,
     CreateHandleFromHeap,
   
     // Graphics shader
     ViewID,
+  
+    // Helper Lanes
+    IsHelperLane,
   
     // Hull shader
     OutputControlPointID,
@@ -818,9 +843,11 @@ namespace DXIL {
     // Other
     CycleCounterLegacy,
   
+    // Packing intrinsics
+    Pack4x8,
+  
     // Pixel shader
     AttributeAtVertex,
-    CalculateLOD,
     Coverage,
     Discard,
     EvalCentroid,
@@ -828,7 +855,6 @@ namespace DXIL {
     EvalSnapped,
     InnerCoverage,
     SampleIndex,
-    Unary,
   
     // Quad Wave Ops
     QuadOp,
@@ -928,6 +954,9 @@ namespace DXIL {
     // Unary int
     UnaryBits,
   
+    // Unpacking intrinsics
+    Unpack4x8,
+  
     // Wave
     WaveActiveAllEqual,
     WaveActiveBallot,
@@ -952,9 +981,9 @@ namespace DXIL {
     NumOpClasses_Dxil_1_3 = 118,
     NumOpClasses_Dxil_1_4 = 120,
     NumOpClasses_Dxil_1_5 = 143,
-    NumOpClasses_Dxil_1_6 = 145,
+    NumOpClasses_Dxil_1_6 = 149,
   
-    NumOpClasses = 145 // exclusive last value of enumeration
+    NumOpClasses = 149 // exclusive last value of enumeration
   };
   // OPCODECLASS-ENUM:END
 
@@ -1062,6 +1091,7 @@ namespace DXIL {
     const unsigned kTextureSampleClampOpIdx = 10;
 
     // AtomicBinOp.
+    const unsigned kAtomicBinOpHandleOpIdx = 1;
     const unsigned kAtomicBinOpCoord0OpIdx = 3;
     const unsigned kAtomicBinOpCoord1OpIdx = 4;
     const unsigned kAtomicBinOpCoord2OpIdx = 5;
@@ -1325,6 +1355,18 @@ namespace DXIL {
     SkipProceduralPrimitives = 0x200,
   };
 
+  // Packing/unpacking intrinsics
+  enum class UnpackMode : uint8_t {
+    Unsigned = 0,   // not sign extended
+    Signed = 1,     // sign extended
+  };
+
+  enum class PackMode : uint8_t {
+    Trunc = 0,      // Pack low bits, drop the rest
+    UClamp = 1,     // Unsigned clamp - [0, 255] for 8-bits
+    SClamp = 2,     // Signed clamp - [-128, 127] for 8-bits
+  };
+
   // Corresponds to HIT_KIND_* in HLSL
   enum class HitKind : uint8_t {
     None = 0x00,
@@ -1371,8 +1413,11 @@ namespace DXIL {
   const uint64_t ShaderFeatureInfo_ShadingRate = 0x80000;
   const uint64_t ShaderFeatureInfo_Raytracing_Tier_1_1 = 0x100000;
   const uint64_t ShaderFeatureInfo_SamplerFeedback = 0x200000;
+  const uint64_t ShaderFeatureInfo_AtomicInt64OnTypedResource = 0x400000;
+  const uint64_t ShaderFeatureInfo_AtomicInt64OnGroupShared = 0x800000;
+  const uint64_t ShaderFeatureInfo_DerivativesInMeshAndAmpShaders = 0x1000000;
 
-  const unsigned ShaderFeatureInfoCount = 22;
+  const unsigned ShaderFeatureInfoCount = 25;
 
   // DxilSubobjectType must match D3D12_STATE_SUBOBJECT_TYPE, with
   // certain values reserved, since they cannot be used from Dxil.
@@ -1441,6 +1486,7 @@ namespace DXIL {
   extern const char *kDxBreakFuncName;
   extern const char *kDxBreakCondName;
   extern const char *kDxBreakMDName;
+  extern const char *kDxIsHelperGlobalName;
 
 } // namespace DXIL
 

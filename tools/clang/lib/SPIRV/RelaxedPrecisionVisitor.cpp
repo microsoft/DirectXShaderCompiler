@@ -70,35 +70,51 @@ bool RelaxedPrecisionVisitor::visit(SpirvUnaryOp *inst) {
     break;
   }
 
-  // If the argument of the unary operation is RelaxedPrecision, the result is
-  // also RelaxedPrecision.
-  if (inst->getOperand()->isRelaxedPrecision())
+  // If the argument of the unary operation is RelaxedPrecision and the unary
+  // operation is operating on numerical values, the result is also
+  // RelaxedPrecision.
+  if (inst->getOperand()->isRelaxedPrecision() &&
+      isScalarOrNonStructAggregateOfNumericalTypes(
+          inst->getOperand()->getAstResultType()))
     inst->setRelaxedPrecision();
   return true;
 }
 
 bool RelaxedPrecisionVisitor::visit(SpirvBinaryOp *inst) {
-  // If either argument of the binary operation is RelaxedPrecision, the result
-  // is also RelaxedPrecision.
+  // If either argument of the binary operation is RelaxedPrecision, and the
+  // binary operation is operating on numerical values, the result is also
+  // RelaxedPrecision.
   if (inst->getOperand1()->isRelaxedPrecision() &&
-      inst->getOperand2()->isRelaxedPrecision())
+      isScalarOrNonStructAggregateOfNumericalTypes(
+          inst->getOperand1()->getAstResultType()) &&
+      inst->getOperand2()->isRelaxedPrecision() &&
+      isScalarOrNonStructAggregateOfNumericalTypes(
+          inst->getOperand2()->getAstResultType()))
     inst->setRelaxedPrecision();
   return true;
 }
 
 bool RelaxedPrecisionVisitor::visit(SpirvSpecConstantUnaryOp *inst) {
-  // If the argument of the unary operation is RelaxedPrecision, the result is
-  // also RelaxedPrecision.
-  if (inst->getOperand()->isRelaxedPrecision())
+  // If the argument of the unary operation is RelaxedPrecision and the unary
+  // operation is operating on numerical values, the result is also
+  // RelaxedPrecision.
+  if (inst->getOperand()->isRelaxedPrecision() &&
+      isScalarOrNonStructAggregateOfNumericalTypes(
+          inst->getOperand()->getAstResultType()))
     inst->setRelaxedPrecision();
   return true;
 }
 
 bool RelaxedPrecisionVisitor::visit(SpirvSpecConstantBinaryOp *inst) {
-  // If either argument of the binary operation is RelaxedPrecision, the result
-  // is also RelaxedPrecision.
+  // If either argument of the binary operation is RelaxedPrecision, and the
+  // binary operation is operating on numerical values, the result is also
+  // RelaxedPrecision.
   if (inst->getOperand1()->isRelaxedPrecision() &&
-      inst->getOperand2()->isRelaxedPrecision())
+      isScalarOrNonStructAggregateOfNumericalTypes(
+          inst->getOperand1()->getAstResultType()) &&
+      inst->getOperand2()->isRelaxedPrecision() &&
+      isScalarOrNonStructAggregateOfNumericalTypes(
+          inst->getOperand2()->getAstResultType()))
     inst->setRelaxedPrecision();
   return true;
 }

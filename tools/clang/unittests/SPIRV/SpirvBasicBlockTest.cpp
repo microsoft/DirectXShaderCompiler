@@ -97,6 +97,24 @@ TEST_F(SpirvBasicBlockTest, CheckTerminatedByUnreachable) {
   EXPECT_TRUE(bb.hasTerminator());
 }
 
+TEST_F(SpirvBasicBlockTest, CheckTerminatedByTerminateRay) {
+  SpirvBasicBlock bb("bb");
+  SpirvContext &context = getSpirvContext();
+  auto *khrTerminateRay = new (context)
+      SpirvRayTracingTerminateOpKHR(spv::Op::OpTerminateRayKHR, {});
+  bb.addInstruction(khrTerminateRay);
+  EXPECT_TRUE(bb.hasTerminator());
+}
+
+TEST_F(SpirvBasicBlockTest, CheckTerminatedByIgnoreIntersection) {
+  SpirvBasicBlock bb("bb");
+  SpirvContext &context = getSpirvContext();
+  auto *khrIgnoreIntersection = new (context)
+      SpirvRayTracingTerminateOpKHR(spv::Op::OpIgnoreIntersectionKHR, {});
+  bb.addInstruction(khrIgnoreIntersection);
+  EXPECT_TRUE(bb.hasTerminator());
+}
+
 TEST_F(SpirvBasicBlockTest, CheckNotTerminated) {
   SpirvBasicBlock bb("bb");
   SpirvContext &context = getSpirvContext();

@@ -26,6 +26,7 @@ public:
       : Visitor(opts, spvCtx), featureManager(astCtx.getDiagnostics(), opts) {}
 
   bool visit(SpirvModule *, Phase) override;
+  bool visit(SpirvFunction *, Phase) override;
 
   using Visitor::visit;
 
@@ -41,9 +42,34 @@ private:
   /// StorageBuffer.
   bool hasStorageBufferInterfaceType(const SpirvType *type);
 
-  ///  Returns true if the BufferBlock decoration is deprecated (Vulkan 1.2 or
-  ///  above).
+  /// Returns true if the BufferBlock decoration is deprecated (Vulkan 1.2 or
+  /// above).
   bool isBufferBlockDecorationDeprecated();
+
+  /// Transforms the given |type| if it is one of the following cases:
+  ///
+  /// 1- a pointer to a structure with StorageBuffer interface
+  /// 2- a pointer to a pointer to a structure with StorageBuffer interface
+  ///
+  /// by updating the storage class of the pointer whose pointee is the struct.
+  ///
+  /// Example of case (1):
+  /// type:              _ptr_Uniform_SturcturedBuffer_float
+  /// new type:          _ptr_StorageBuffer_SturcturedBuffer_float
+  /// new storage class: StorageBuffer
+  ///
+  /// Example of case (2):
+  /// type:              _ptr_Function__ptr_Uniform_SturcturedBuffer_float
+  /// new type:          _ptr_Function__ptr_StorageBuffer_SturcturedBuffer_float
+  /// new storage class: Function
+  ///
+  /// If |type| is transformed, the |newType| and |newStorageClass| are
+  /// returned by reference and the function returns true.
+  ///
+  /// If |type| is not transformed, |newType| and |newStorageClass| are
+  /// untouched, and the function returns false.
+  bool updateStorageClass(const SpirvType *type, const SpirvType **newType,
+                          spv::StorageClass *newStorageClass);
 
   FeatureManager featureManager;
 };

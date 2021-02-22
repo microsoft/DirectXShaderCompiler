@@ -426,6 +426,8 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
     case BuiltinType::Min16Int:
     case BuiltinType::Min16UInt:
     case BuiltinType::LitInt:
+    case BuiltinType::Int8_4Packed:
+    case BuiltinType::UInt8_4Packed:
     // HLSL Change Ends
     case BuiltinType::Char16:
     case BuiltinType::Char32:

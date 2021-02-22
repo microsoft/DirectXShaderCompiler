@@ -901,6 +901,12 @@ def HLSLWaveSensitive : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def HLSLWaveSize : InheritableAttr {
+  let Spellings = [CXX11<"", "wavesize", 2017>];
+  let Args = [IntArgument<"Size">];
+  let Documentation = [Undocumented];
+}
+
 // HLSL Change Ends
 
 // SPIRV Change Starts
@@ -1025,6 +1031,15 @@ def VKPostDepthCoverage : InheritableAttr {
 
 def VKShaderRecordNV : InheritableAttr {
   let Spellings = [CXX11<"vk", "shader_record_nv">];
+  let Subjects = SubjectList<[StructGlobalVar, HLSLBuffer, ConstantBuffer],
+                             ErrorDiag, "ExpectedCTBuffer">;
+  let Args = [];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+def VKShaderRecordEXT : InheritableAttr {
+  let Spellings = [CXX11<"vk", "shader_record_ext">];
   let Subjects = SubjectList<[StructGlobalVar, HLSLBuffer, ConstantBuffer],
                              ErrorDiag, "ExpectedCTBuffer">;
   let Args = [];

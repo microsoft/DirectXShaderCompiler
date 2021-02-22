@@ -483,7 +483,9 @@ llvm::DIType *CGDebugInfo::CreateType(const BuiltinType *BT) {
     Encoding = llvm::dwarf::DW_ATE_UTF;
     break;
   case BuiltinType::UShort:
-  case BuiltinType::Min16UInt: // HLSL Change
+  case BuiltinType::Min16UInt:      // HLSL Change
+  case BuiltinType::Int8_4Packed:   // HLSL Change
+  case BuiltinType::UInt8_4Packed:  // HLSL Change
   case BuiltinType::UInt:
   case BuiltinType::UInt128:
   case BuiltinType::ULong:

@@ -97,7 +97,7 @@ bool FeatureManager::requestTargetEnv(spv_target_env requestedEnv,
                                       SourceLocation srcLoc) {
   if (targetEnv < requestedEnv) {
     emitError("%0 is required for %1 but not permitted to use", srcLoc)
-        << (requestedEnv == SPV_ENV_VULKAN_1_2 ? "Vulkan 1.2" : "Vulkan 1.1")
+        << (requestedEnv > SPV_ENV_VULKAN_1_1 ? "Vulkan 1.2" : "Vulkan 1.1")
         << target;
     emitNote("please specify your target environment via command line option "
              "-fspv-target-env=",
@@ -136,6 +136,7 @@ Extension FeatureManager::getExtensionSymbol(llvm::StringRef name) {
             Extension::GOOGLE_hlsl_functionality1)
       .Case("SPV_GOOGLE_user_type", Extension::GOOGLE_user_type)
       .Case("SPV_KHR_post_depth_coverage", Extension::KHR_post_depth_coverage)
+      .Case("SPV_KHR_shader_clock", Extension::KHR_shader_clock)
       .Case("SPV_NV_ray_tracing", Extension::NV_ray_tracing)
       .Case("SPV_NV_mesh_shader", Extension::NV_mesh_shader)
       .Case("SPV_KHR_ray_query", Extension::KHR_ray_query)
@@ -160,6 +161,8 @@ const char *FeatureManager::getExtensionName(Extension symbol) {
     return "SPV_KHR_post_depth_coverage";
   case Extension::KHR_ray_tracing:
     return "SPV_KHR_ray_tracing";
+  case Extension::KHR_shader_clock:
+    return "SPV_KHR_shader_clock";
   case Extension::EXT_demote_to_helper_invocation:
     return "SPV_EXT_demote_to_helper_invocation";
   case Extension::EXT_descriptor_indexing:

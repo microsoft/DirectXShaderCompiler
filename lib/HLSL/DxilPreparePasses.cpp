@@ -16,6 +16,7 @@
 #include "dxc/Support/Global.h"
 #include "dxc/DXIL/DxilTypeSystem.h"
 #include "dxc/DXIL/DxilUtil.h"
+#include "dxc/DXIL/DxilEntryProps.h"
 #include "dxc/DXIL/DxilFunctionProps.h"
 #include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/DXIL/DxilConstants.h"
@@ -31,6 +32,7 @@
 #include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/ADT/BitVector.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Analysis/AssumptionCache.h"
@@ -364,7 +366,7 @@ public:
     }
   }
 
-  void patchDxil_1_6(Module &M, hlsl::OP *hlslOP, unsigned ValMajor, unsigned ValMinor) {
+  void RemoveAnnotateHandle(hlsl::OP *hlslOP) {
     for (auto it : hlslOP->GetOpFuncList(DXIL::OpCode::AnnotateHandle)) {
       Function *F = it.second;
       if (!F)
@@ -376,6 +378,229 @@ public:
         CI->replaceAllUsesWith(hdl);
         CI->eraseFromParent();
       }
+    }
+  }
+
+  ///////////////////////////////////////////////////
+  // IsHelperLane() lowering for SM < 6.6
+
+  // Identify pattern icmp_eq(0, dx.coverage())
+  bool IsCmpZOfCoverage(Value *V, hlsl::OP *hlslOP) {
+    if (ICmpInst *IC = dyn_cast<ICmpInst>(V)) {
+      if (IC->getPredicate() == ICmpInst::ICMP_EQ) {
+        Value *V0 = IC->getOperand(0);
+        Value *V1 = IC->getOperand(1);
+        if (!isa<ConstantInt>(V0))
+          std::swap(V0, V1);
+        if (ConstantInt *C = dyn_cast<ConstantInt>(V0)) {
+          if (CallInst *CI = dyn_cast<CallInst>(V1)) {
+            // compare dx.op.coverage with zero
+            if (C->isZero() &&
+                hlslOP->IsDxilOpFuncCallInst(CI, DXIL::OpCode::Coverage)) {
+              return true;
+            }
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  // Identify init as use in entry block that either:
+  //  - non-PS: store i32 0
+  //  - PS: store zext(icmp_eq(0, dx.coverage()))
+  bool IsInitOfIsHelperGV(User *U, hlsl::OP *hlslOP) {
+    if (StoreInst *SI = dyn_cast<StoreInst>(U)) {
+      BasicBlock *BB = SI->getParent();
+      if (BB == &BB->getParent()->getEntryBlock()) {
+        Value *V = SI->getValueOperand();
+        if (ConstantInt *C = dyn_cast<ConstantInt>(V)) {
+          if (C->isZero()) {
+            return true;
+          }
+        } else if (ZExtInst *ZEI = dyn_cast<ZExtInst>(V)) {
+          if (IsCmpZOfCoverage(ZEI->getOperand(0), hlslOP)) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  void RemoveFnIfIsHelperInit(User *U, hlsl::OP *hlslOP,
+                              SmallSetVector<Function *, 4> &psEntries) {
+    if (Instruction *I = dyn_cast<Instruction>(U)) {
+      // Early out: only check if in function still in set
+      Function *F = I->getParent()->getParent();
+      if (!psEntries.count(F))
+        return;
+      if (IsInitOfIsHelperGV(I, hlslOP)) {
+        psEntries.remove(F);
+      }
+    }
+  }
+
+  // Init IsHelper GV to zext(!dx.op.coverage()) in PS entry points
+  void InitIsHelperGV(Module &M) {
+    GlobalVariable *GV =
+        M.getGlobalVariable(DXIL::kDxIsHelperGlobalName, /*AllowLocal*/ true);
+    if (!GV)
+      return;
+
+    DxilModule &DM = M.GetDxilModule();
+    hlsl::OP *hlslOP = DM.GetOP();
+    const ShaderModel *pSM = DM.GetShaderModel();
+
+    // If PS, and GV is ExternalLinkage, change to InternalLinkage
+    // This can happen after link to final PS.
+    if (pSM->IsPS() && GV->getLinkage() == GlobalValue::ExternalLinkage) {
+      GV->setLinkage(GlobalValue::InternalLinkage);
+    }
+
+    // add PS entry points to set
+    SmallSetVector<Function*, 4> psEntries;
+    if (pSM->IsPS()) {
+      psEntries.insert(DM.GetEntryFunction());
+    } else if (pSM->IsLib()) {
+      for (auto &F : M.functions()) {
+        if (DM.HasDxilEntryProps(&F)) {
+          if (DM.GetDxilEntryProps(&F).props.IsPS()) {
+            psEntries.insert(&F);
+          }
+        }
+      }
+    }
+
+    // iterate users of GV to skip entries that already init GV
+    for (auto &U : GV->uses()) {
+      RemoveFnIfIsHelperInit(U.getUser(), DM.GetOP(), psEntries);
+    }
+
+    // store zext(!dx.op.coverage())
+    Type *I32Ty = Type::getInt32Ty(hlslOP->GetCtx());
+    Constant *C0 = hlslOP->GetI32Const(0);
+    Constant *OpArg = hlslOP->GetI32Const((int)DXIL::OpCode::Coverage);
+    Function *CoverageF = nullptr;
+    for (auto *F : psEntries) {
+      if (!CoverageF)
+        CoverageF = hlslOP->GetOpFunc(DXIL::OpCode::Coverage, I32Ty);
+      IRBuilder<> Builder(F->getEntryBlock().getFirstInsertionPt());
+      Value *V = Builder.CreateCall(CoverageF, {OpArg});
+      V = Builder.CreateICmpEQ(C0, V);
+      V = Builder.CreateZExt(V, I32Ty);
+      Builder.CreateStore(V, GV);
+    }
+  }
+
+  GlobalVariable *GetOrCreateIsHelperGV(Module &M, hlsl::OP *hlslOP) {
+    GlobalVariable *GV =
+        M.getGlobalVariable(DXIL::kDxIsHelperGlobalName, /*AllowLocal*/ true);
+    if (GV)
+      return GV;
+    DxilModule &DM = M.GetDxilModule();
+    const ShaderModel *pSM = DM.GetShaderModel();
+    GV = new GlobalVariable(M, IntegerType::get(M.getContext(), 32),
+                            /*constant*/ false,
+                            pSM->IsLib() ? GlobalValue::ExternalLinkage
+                                         : GlobalValue::InternalLinkage,
+                            /*Initializer*/ hlslOP->GetI32Const(0),
+                            DXIL::kDxIsHelperGlobalName);
+    return GV;
+  }
+
+  // Replace IsHelperLane() with false (for non-lib, non-PS SM)
+  void ReplaceIsHelperWithConstFalse(hlsl::OP *hlslOP) {
+    Constant *False = hlslOP->GetI1Const(0);
+    bool bDone = false;
+    while (!bDone) {
+      bDone = true;
+      for (auto it : hlslOP->GetOpFuncList(DXIL::OpCode::IsHelperLane)) {
+        Function *F = it.second;
+        if (!F)
+          continue;
+        for (auto uit = F->user_begin(); uit != F->user_end();) {
+          CallInst *CI = dyn_cast<CallInst>(*(uit++));
+          CI->replaceAllUsesWith(False);
+          CI->eraseFromParent();
+        }
+        hlslOP->RemoveFunction(F);
+        F->eraseFromParent();
+        bDone = false;
+        break;
+      }
+    }
+  }
+
+  void ConvertIsHelperToLoadGV(hlsl::OP *hlslOP) {
+    GlobalVariable *GV = nullptr;
+    Type *I1Ty = Type::getInt1Ty(hlslOP->GetCtx());
+    bool bDone = false;
+    while (!bDone) {
+      bDone = true;
+      for (auto it : hlslOP->GetOpFuncList(DXIL::OpCode::IsHelperLane)) {
+        Function *F = it.second;
+        if (!F)
+          continue;
+        for (auto uit = F->user_begin(); uit != F->user_end();) {
+          CallInst *CI = cast<CallInst>(*(uit++));
+          if (!GV)
+            GV = GetOrCreateIsHelperGV(*F->getParent(), hlslOP);
+          IRBuilder<> Builder(CI);
+          Value *V = Builder.CreateLoad(GV);
+          V = Builder.CreateTrunc(V, I1Ty);
+          CI->replaceAllUsesWith(V);
+          CI->eraseFromParent();
+        }
+        hlslOP->RemoveFunction(F);
+        F->eraseFromParent();
+        bDone = false;
+        break;
+      }
+    }
+  }
+
+  void ConvertDiscardToStoreGV(hlsl::OP *hlslOP) {
+    GlobalVariable *GV = nullptr;
+    Type *I32Ty = Type::getInt32Ty(hlslOP->GetCtx());
+    for (auto it : hlslOP->GetOpFuncList(DXIL::OpCode::Discard)) {
+      Function *F = it.second;
+      if (!F)
+        continue;
+      for (auto uit = F->user_begin(); uit != F->user_end();) {
+        CallInst *CI = cast<CallInst>(*(uit++));
+        if (!GV)
+          GV = GetOrCreateIsHelperGV(*F->getParent(), hlslOP);
+        IRBuilder<> Builder(CI);
+        Value *Cond =
+            Builder.CreateZExt(DxilInst_Discard(CI).get_condition(), I32Ty);
+        Builder.CreateStore(Cond, GV);
+      }
+    }
+  }
+  ///////////////////////////////////////////////////
+
+  void patchDxil_1_6(Module &M, hlsl::OP *hlslOP, unsigned ValMajor, unsigned ValMinor) {
+    RemoveAnnotateHandle(hlslOP);
+
+    // Convert IsHelperLane() on down-level targets
+    const ShaderModel *pSM = M.GetDxilModule().GetShaderModel();
+    if (pSM->IsLib() || pSM->IsPS()) {
+      ConvertIsHelperToLoadGV(hlslOP);
+      ConvertDiscardToStoreGV(hlslOP);
+      InitIsHelperGV(M);
+
+      // Set linkage of dx.ishelper to internal for validator version < 1.6
+      // This means IsHelperLane() fallback code will not return correct result
+      // in an exported function linked to a PS in another library in this case.
+      // But it won't pass validation otherwise.
+      if (pSM->IsLib() && DXIL::CompareVersions(ValMajor, ValMinor, 1, 6) < 1) {
+        if (GlobalVariable *GV = M.getGlobalVariable(DXIL::kDxIsHelperGlobalName, /*AllowLocal*/ true)) {
+          GV->setLinkage(GlobalValue::InternalLinkage);
+        }
+      }
+    } else {
+      ReplaceIsHelperWithConstFalse(hlslOP);
     }
   }
 
@@ -485,7 +710,7 @@ public:
       bool IsLib = DM.GetShaderModel()->IsLib();
       // Skip validation patch for lib.
       if (!IsLib) {
-        if (ValMajor == 1 && ValMinor <= 1) {
+        if (DXIL::CompareVersions(ValMajor, ValMinor, 1, 1) <= 0) {
           patchValidation_1_1(M);
         }
 
@@ -497,15 +722,17 @@ public:
 
       // Replace lifetime intrinsics if requested or necessary.
       const bool forceZeroStoreLifetimes = DM.GetForceZeroStoreLifetimes();
-      if (forceZeroStoreLifetimes || DxilMinor < 6) {
+      if (forceZeroStoreLifetimes ||
+          DXIL::CompareVersions(DxilMajor, DxilMinor, 1, 6) < 0) {
         patchLifetimeIntrinsics(M, ValMajor, ValMinor, forceZeroStoreLifetimes);
       }
 
-      // Remove store undef output.
       hlsl::OP *hlslOP = DM.GetOP();
-      if (DxilMinor < 6) {
+      // Basic down-conversions for Dxil < 1.6
+      if (DXIL::CompareVersions(DxilMajor, DxilMinor, 1, 6) < 0) {
         patchDxil_1_6(M, hlslOP, ValMajor, ValMinor);
       }
+      // Remove store undef output.
       RemoveStoreUndefOutput(M, hlslOP);
 
       // Turn dx.break() conditional into global
