@@ -1061,14 +1061,20 @@ bool trySplitCBVec4ArrayToScalarArray(Value *Dest, Type *TyV, Value *Src,
   if (sizeInBits == 64)
     vecSize = 2;
   unsigned arraySize = AT->getNumElements();
+  unsigned vecArraySize = arraySize / vecSize;
   Value *zeroIdx = B.getInt32(0);
-  for (unsigned i = 0; i < arraySize; i++) {
-    Value *SrcGEP = B.CreateGEP(
-        Src, {zeroIdx, B.getInt32(i / vecSize), B.getInt32(i % vecSize)});
-    Value *DestGEP = B.CreateGEP(Dest, {zeroIdx, B.getInt32(i)});
+  for (unsigned a = 0; a < vecArraySize; a++) {
+    Value *SrcGEP = B.CreateGEP(Src, {zeroIdx, B.getInt32(a)});
     Value *Ld = B.CreateLoad(SrcGEP);
-    B.CreateStore(Ld, DestGEP);
+    for (unsigned v = 0; v < vecSize; v++) {
+      Value *Elt = B.CreateExtractElement(Ld, v);
+
+      Value *DestGEP =
+          B.CreateGEP(Dest, {zeroIdx, B.getInt32(a * vecSize + v)});
+      B.CreateStore(Elt, DestGEP);
+    }
   }
+
   return true;
 }
 

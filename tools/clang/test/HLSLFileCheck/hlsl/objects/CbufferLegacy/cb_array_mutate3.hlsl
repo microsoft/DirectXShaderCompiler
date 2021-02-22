@@ -1,18 +1,6 @@
 // RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
-// Make sure have 16 cb load
-// CHECK:call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32
-// CHECK:call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32
-// CHECK:call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32
-// CHECK:call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32
-// CHECK:call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32
-// CHECK:call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32
-// CHECK:call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32
-// CHECK:call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32
-// CHECK:call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32
-// CHECK:call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32
-// CHECK:call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32
-// CHECK:call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32
+// Make sure have 4 cb load
 // CHECK:call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32
 // CHECK:call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32
 // CHECK:call %dx.types.CBufRet.i32 @dx.op.cbufferLoadLegacy.i32
