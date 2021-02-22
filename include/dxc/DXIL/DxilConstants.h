@@ -579,6 +579,8 @@ namespace DXIL {
     // Resources - gather
     TextureGather = 73, // gathers the four texels that would be used in a bi-linear filtering operation
     TextureGatherCmp = 74, // same as TextureGather, except this instrution performs comparison on texels, similar to SampleCmp
+    TextureGatherCmpImm = 219, // same as TextureGatherCmp, except offsets are limited to immediate values between -8 and 7
+    TextureGatherImm = 218, // same as TextureGather, except offsets are limited to immediate values between -8 and 7
   
     // Resources - sample
     RenderTargetGetSampleCount = 77, // gets the number of samples for a render target
@@ -701,7 +703,7 @@ namespace DXIL {
     NumOpCodes_Dxil_1_5 = 216,
     NumOpCodes_Dxil_1_6 = 218,
   
-    NumOpCodes = 218 // exclusive last value of enumeration
+    NumOpCodes = 220 // exclusive last value of enumeration
   };
   // OPCODE-ENUM:END
 
@@ -874,6 +876,8 @@ namespace DXIL {
     // Resources - gather
     TextureGather,
     TextureGatherCmp,
+    TextureGatherCmpImm,
+    TextureGatherImm,
   
     // Resources - sample
     RenderTargetGetSampleCount,
@@ -954,7 +958,7 @@ namespace DXIL {
     NumOpClasses_Dxil_1_5 = 143,
     NumOpClasses_Dxil_1_6 = 145,
   
-    NumOpClasses = 145 // exclusive last value of enumeration
+    NumOpClasses = 147 // exclusive last value of enumeration
   };
   // OPCODECLASS-ENUM:END
 

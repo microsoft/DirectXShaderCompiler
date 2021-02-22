@@ -174,8 +174,9 @@ bool CountDxilOp_tex_bias(unsigned op) {
   return op == 61;
 }
 bool CountDxilOp_tex_cmp(unsigned op) {
-  // Instructions: SampleCmp=64, SampleCmpLevelZero=65, TextureGatherCmp=74
-  return (64 <= op && op <= 65) || op == 74;
+  // Instructions: SampleCmp=64, SampleCmpLevelZero=65, TextureGatherCmp=74,
+  // TextureGatherCmpImm=219
+  return (64 <= op && op <= 65) || op == 74 || op == 219;
 }
 bool CountDxilOp_tex_grad(unsigned op) {
   // Instructions: SampleGrad=63
@@ -186,8 +187,9 @@ bool CountDxilOp_tex_load(unsigned op) {
   return op == 66 || op == 68 || op == 139;
 }
 bool CountDxilOp_tex_norm(unsigned op) {
-  // Instructions: Sample=60, SampleLevel=62, TextureGather=73
-  return op == 60 || op == 62 || op == 73;
+  // Instructions: Sample=60, SampleLevel=62, TextureGather=73,
+  // TextureGatherImm=218
+  return op == 60 || op == 62 || op == 73 || op == 218;
 }
 bool CountDxilOp_tex_store(unsigned op) {
   // Instructions: TextureStore=67, BufferStore=69, RawBufferStore=140,

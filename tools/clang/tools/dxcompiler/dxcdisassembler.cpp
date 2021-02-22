@@ -1284,7 +1284,9 @@ static const char *OpCodeSignatures[] = {
   "(rayQueryHandle)",  // RayQuery_CandidateInstanceContributionToHitGroupIndex
   "(rayQueryHandle)",  // RayQuery_CommittedInstanceContributionToHitGroupIndex
   "(index,nonUniformIndex)",  // CreateHandleFromHeap
-  "(res,resourceClass,resourceKind,props)"  // AnnotateHandle
+  "(res,resourceClass,resourceKind,props)",  // AnnotateHandle
+  "(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,channel)",  // TextureGatherImm
+  "(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,channel,compareVale)"  // TextureGatherCmpImm
 };
 // OPCODE-SIGS:END
 

@@ -1,9 +1,15 @@
 // RUN: %dxc -E Range -T ps_6_0 %s | FileCheck %s -check-prefix=CHK_RANGE
+
 // RUN: %dxc -E VarOffset -T ps_6_0 -DOFFSETS=argOffsets %s | FileCheck %s -check-prefix=CHK_VAROFF
 // RUN: %dxc -E VarOffset -T ps_6_0 -DOFFSETS=cbufOffsets %s | FileCheck %s -check-prefix=CHK_VAROFF
 // RUN: %dxc -E VarOffset -T ps_6_0 -DOFFSETS=constOffsets %s | FileCheck %s -check-prefix=CHK_VAROFF
 // RUN: %dxc -E VarOffset -T ps_6_0 -DOFFSETS=validOffsets %s | FileCheck %s -check-prefix=CHK_VALID
 
+// RUN: %dxc -E ValidVarOffset -T ps_6_0 -DOFFSETS=argOffsets %s | FileCheck %s -check-prefix=CHK_VALID
+// RUN: %dxc -E ValidVarOffset -T ps_6_0 -DOFFSETS=cbufOffsets %s | FileCheck %s -check-prefix=CHK_VALID
+// RUN: %dxc -E ValidVarOffset -T ps_6_0 -DOFFSETS=constOffsets %s | FileCheck %s -check-prefix=CHK_VALID
+// RUN: %dxc -E ValidVarOffset -T ps_6_0 -DOFFSETS=validOffsets %s | FileCheck %s -check-prefix=CHK_VALID
+
 // CHK_RANGE:  error: offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7.
 // CHK_RANGE:  error: offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7.
 // CHK_RANGE:  error: offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7.
@@ -23,14 +29,6 @@
 // CHK_RANGE:  error: offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7.
 // CHK_RANGE:  error: offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7.
 
-// CHK_VAROFF: Offsets to texture access operations must be immediate values
-// CHK_VAROFF: Offsets to texture access operations must be immediate values
-// CHK_VAROFF: Offsets to texture access operations must be immediate values
-// CHK_VAROFF: Offsets to texture access operations must be immediate values
-// CHK_VAROFF: Offsets to texture access operations must be immediate values
-// CHK_VAROFF: Offsets to texture access operations must be immediate values
-// CHK_VAROFF: Offsets to texture access operations must be immediate values
-// CHK_VAROFF: Offsets to texture access operations must be immediate values
 // CHK_VAROFF: Offsets to texture access operations must be immediate values
 // CHK_VAROFF: Offsets to texture access operations must be immediate values
 // CHK_VAROFF: Offsets to texture access operations must be immediate values
@@ -44,7 +42,8 @@
 
 
 // Just make sure it compiles without errors
-// CHK_VALID: @VarOffset
+// CHK_VALID: define void
+// CHK_VALID: ret void
 
 Texture1D t1;
 Texture2D t2;
@@ -65,17 +64,8 @@ float4 Range(float3 str : STR) : SV_TARGET
 
     res += t2.Gather     (s, str.xy, int2(9,8));
     res += t2.GatherRed  (s, str.xy, int2(-9,-8));
-    res += t2.GatherRed  (s, str.xy, int2(0,0), int2(1,1), int2(2,2), int2(-11, 1));
-    res += t2.GatherGreen(s, str.xy, int2(0,0), int2(1,1), int2(0,-9), int2(3,3));
-    res += t2.GatherBlue (s, str.xy, int2(0,0), int2(3,33), int2(2,2), int2(3,3));
-    res += t2.GatherAlpha(s, str.xy, int2(11,1), int2(1,1), int2(2,2), int2(3,3));
-
     res += t2.GatherCmp     (sc, str.xy, 0.0, int2(999999, -999999));
     res += t2.GatherCmpRed  (sc, str.xy, 0.0, int2(0, 10));
-    res += t2.GatherCmpRed  (sc, str.xy, 0.0, int2(0,0), int2(1,1), int2(2,2), int2(3,-9));
-    res += t2.GatherCmpGreen(sc, str.xy, 0.0, int2(0,0), int2(1,1), int2(10, 5), int2(3,3));
-    res += t2.GatherCmpBlue (sc, str.xy, 0.0, int2(0,0), int2(-11,6), int2(2,2), int2(3,3));
-    res += t2.GatherCmpAlpha(sc, str.xy, 0.0, int2(9,9), int2(1,1), int2(2,2), int2(3,3));
 
     return res;
 }
@@ -100,14 +90,38 @@ float4 VarOffset(float3 str : STR, uint3 argOffsets[4] : O, uint a : A) : SV_TAR
     res += t1.Load(0, OFFSETS[0].x);
     res += t2.Load(1, OFFSETS[0].xy);
     res += t3.Load(2, OFFSETS[0]);
+
     res += t2.Gather     (s, str.xy, OFFSETS[0].xy);
     res += t2.GatherRed  (s, str.xy, OFFSETS[1].xy);
+    res += t2.GatherCmp     (sc, str.xy, 0.0, OFFSETS[0].xy);
+    res += t2.GatherCmpRed  (sc, str.xy, 0.0, OFFSETS[1].xy);
+
+    return res;
+}
+
+float4 ValidOffset(float3 str : STR, uint3 argOffsets[4] : O, uint a : A) : SV_TARGET
+{
+    uint b = 3 + a;
+    uint v = 3;
+    const uint3 constOffsets[4] = {uint3(a,a,a), argOffsets[0], cbufOffsets[0], uint3(b,b,b)};
+    uint3 validOffsets[4] = {uint3(v,v,v), uint3(1,1,1), uint3(2,2,2), uint3(3,3,3)};
+    float4 res = 0.0;
+
+    res += t2.GatherRed  (s, str.xy, int2(0,0), int2(1,1), int2(2,2), int2(-11, 1));
+    res += t2.GatherGreen(s, str.xy, int2(0,0), int2(1,1), int2(0,-9), int2(3,3));
+    res += t2.GatherBlue (s, str.xy, int2(0,0), int2(3,33), int2(2,2), int2(3,3));
+    res += t2.GatherAlpha(s, str.xy, int2(11,1), int2(1,1), int2(2,2), int2(3,3));
+
+    res += t2.GatherCmpRed  (sc, str.xy, 0.0, int2(0,0), int2(1,1), int2(2,2), int2(3,-9));
+    res += t2.GatherCmpGreen(sc, str.xy, 0.0, int2(0,0), int2(1,1), int2(10, 5), int2(3,3));
+    res += t2.GatherCmpBlue (sc, str.xy, 0.0, int2(0,0), int2(-11,6), int2(2,2), int2(3,3));
+    res += t2.GatherCmpAlpha(sc, str.xy, 0.0, int2(9,9), int2(1,1), int2(2,2), int2(3,3));
+
     res += t2.GatherRed  (s, str.xy, int2(0,0), int2(1,1), int2(2,2), OFFSETS[3].xy);
     res += t2.GatherGreen(s, str.xy, int2(0,0), int2(1,1), OFFSETS[2].xy, int2(3,3));
     res += t2.GatherBlue (s, str.xy, int2(0,0), OFFSETS[1].xy, int2(2,2), int2(3,3));
     res += t2.GatherAlpha(s, str.xy, OFFSETS[0].xy, int2(1,1), int2(2,2), int2(3,3));
-    res += t2.GatherCmp     (sc, str.xy, 0.0, OFFSETS[0].xy);
-    res += t2.GatherCmpRed  (sc, str.xy, 0.0, OFFSETS[1].xy);
+
     res += t2.GatherCmpRed  (sc, str.xy, 0.0, int2(0,0), int2(1,1), int2(2,2), OFFSETS[3].xy);
     res += t2.GatherCmpGreen(sc, str.xy, 0.0, int2(0,0), int2(1,1), OFFSETS[2].xy, int2(3,3));
     res += t2.GatherCmpBlue (sc, str.xy, 0.0, int2(0,0), OFFSETS[1].xy, int2(2,2), int2(3,3));

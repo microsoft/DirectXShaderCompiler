@@ -2313,6 +2313,8 @@ ID  Name                                                  Description
 215 RayQuery_CommittedInstanceContributionToHitGroupIndex returns committed hit InstanceContributionToHitGroupIndex
 216 CreateHandleFromHeap                                  create resource handle from heap
 217 AnnotateHandle                                        annotate handle with resource properties
+218 TextureGatherImm                                      same as TextureGather, except offsets are limited to immediate values between -8 and 7
+219 TextureGatherCmpImm                                   same as TextureGatherCmp, except offsets are limited to immediate values between -8 and 7
 === ===================================================== =======================================================================================================================================================================================================================
 
 
@@ -3186,7 +3188,7 @@ SM.VALIDDOMAIN                            Invalid Tessellator Domain specified. 
 SM.VIEWIDNEEDSSLOT                        ViewID requires compatible space in pixel shader input signature
 SM.ZEROHSINPUTCONTROLPOINTWITHINPUT       When HS input control point count is 0, no input signature should exist.
 TYPES.DEFINED                             Type must be defined based on DXIL primitives
-TYPES.I8                                  I8 can only be used as immediate value for intrinsic.
+TYPES.I8                                  I8 can only be used as immediate value for intrinsic or as i8* via bitcast by lifetime intrinsics.
 TYPES.INTWIDTH                            Int type must be of valid width
 TYPES.NOMULTIDIM                          Only one dimension allowed for array type.
 TYPES.NOPTRTOPTR                          Pointers to pointers, or pointers in structures are not allowed.

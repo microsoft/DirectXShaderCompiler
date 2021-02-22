@@ -28,26 +28,26 @@ void main(uint id : SV_GroupIndex)
   r += text1.GatherAlpha(samp1, a);
   r += text1.GatherAlpha(samp1, a, uint2(-3,7));
   r += text1.GatherAlpha(samp1, a, uint2(-3,7),status); r += CheckAccessFullyMapped(status);
-  r += text1.GatherAlpha(samp1, a, uint2(-3,7),uint2(-2,3), uint2(-3,7),uint2(-2,3));
-  r += text1.GatherAlpha(samp1, a, uint2(-3,7),uint2(7,-3), uint2(7,-3), uint2(-3,2), status); r+=CheckAccessFullyMapped(status);
+  r += text1.GatherAlpha(samp1, a, uint2(-3,8),uint2(-2,3), uint2(-3,8),uint2(-2,3));
+  r += text1.GatherAlpha(samp1, a, uint2(-3,8),uint2(8,-3), uint2(8,-3), uint2(-3,2), status); r+=CheckAccessFullyMapped(status);
 
   r += text1.GatherBlue(samp1, a);
   r += text1.GatherBlue(samp1, a, uint2(-3,7));
   r += text1.GatherBlue(samp1, a, uint2(-3,7),status); r += CheckAccessFullyMapped(status);
-  r += text1.GatherBlue(samp1, a, uint2(-3,7),uint2(-2,3), uint2(-3,7),uint2(-2,3));
-  r += text1.GatherBlue(samp1, a, uint2(-3,7),uint2(7,-3), uint2(7,-3), uint2(-3,2), status); r+=CheckAccessFullyMapped(status);
+  r += text1.GatherBlue(samp1, a, uint2(-3,8),uint2(-2,3), uint2(-3,8),uint2(-2,3));
+  r += text1.GatherBlue(samp1, a, uint2(-3,8),uint2(8,-3), uint2(8,-3), uint2(-3,2), status); r+=CheckAccessFullyMapped(status);
 
   r += text1.GatherGreen(samp1, a);
   r += text1.GatherGreen(samp1, a, uint2(-3,7));
   r += text1.GatherGreen(samp1, a, uint2(-3,7),status); r += CheckAccessFullyMapped(status);
-  r += text1.GatherGreen(samp1, a, uint2(-3,7),uint2(-2,3), uint2(-3,7),uint2(-2,3));
-  r += text1.GatherGreen(samp1, a, uint2(-3,7),uint2(7,-3), uint2(7,-3), uint2(-3,2), status); r+=CheckAccessFullyMapped(status);
+  r += text1.GatherGreen(samp1, a, uint2(-3,8),uint2(-2,3), uint2(-3,8),uint2(-2,3));
+  r += text1.GatherGreen(samp1, a, uint2(-3,8),uint2(8,-3), uint2(8,-3), uint2(-3,2), status); r+=CheckAccessFullyMapped(status);
 
   r += text1.GatherRed(samp1, a);
   r += text1.GatherRed(samp1, a, uint2(-3,7));
   r += text1.GatherRed(samp1, a, uint2(-3,7),status); r += CheckAccessFullyMapped(status);
-  r += text1.GatherRed(samp1, a, uint2(-3,7),uint2(-2,3), uint2(-3,7),uint2(-2,3));
-  r += text1.GatherRed(samp1, a, uint2(-3,7),uint2(7,-3), uint2(7,-3), uint2(-3,2), status); r+=CheckAccessFullyMapped(status);
+  r += text1.GatherRed(samp1, a, uint2(-3,8),uint2(-2,3), uint2(-3,8),uint2(-2,3));
+  r += text1.GatherRed(samp1, a, uint2(-3,8),uint2(8,-3), uint2(8,-3), uint2(-3,2), status); r+=CheckAccessFullyMapped(status);
 
   Data[id].result = r;
 }

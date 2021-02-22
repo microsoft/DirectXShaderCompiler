@@ -388,6 +388,10 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
   // Get handle from heap                                                                                                    void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
   {  OC::CreateHandleFromHeap,    "CreateHandleFromHeap",     OCC::CreateHandleFromHeap,     "createHandleFromHeap",      {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
   {  OC::AnnotateHandle,          "AnnotateHandle",           OCC::AnnotateHandle,           "annotateHandle",            {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+
+  // Resources - gather                                                                                                      void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::TextureGatherImm,        "TextureGatherImm",         OCC::TextureGatherImm,         "textureGatherImm",          { false,  true,  true, false, false, false,  true,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::TextureGatherCmpImm,     "TextureGatherCmpImm",      OCC::TextureGatherCmpImm,      "textureGatherCmpImm",       { false,  true,  true, false, false, false,  true,  true, false, false, false}, Attribute::ReadOnly, },
 };
 // OPCODE-OLOADS:END
 
@@ -1363,6 +1367,10 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     // Get handle from heap
   case OpCode::CreateHandleFromHeap:   A(pRes);     A(pI32); A(pI32); A(pI1);  break;
   case OpCode::AnnotateHandle:         A(pRes);     A(pI32); A(pRes); A(pI8);  A(pI8);  A(resProperty);break;
+
+    // Resources - gather
+  case OpCode::TextureGatherImm:       RRT(pETy);   A(pI32); A(pRes); A(pRes); A(pF32); A(pF32); A(pF32); A(pF32); A(pI32); A(pI32); A(pI32); break;
+  case OpCode::TextureGatherCmpImm:    RRT(pETy);   A(pI32); A(pRes); A(pRes); A(pF32); A(pF32); A(pF32); A(pF32); A(pI32); A(pI32); A(pI32); A(pF32); break;
   // OPCODE-OLOAD-FUNCS:END
   default: DXASSERT(false, "otherwise unhandled case"); break;
   }
@@ -1618,6 +1626,8 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::TextureGather:
   case OpCode::TextureGatherCmp:
   case OpCode::RawBufferLoad:
+  case OpCode::TextureGatherImm:
+  case OpCode::TextureGatherCmpImm:
   {
     StructType *ST = cast<StructType>(Ty);
     return ST->getElementType(0);
