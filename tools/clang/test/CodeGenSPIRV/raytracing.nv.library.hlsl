@@ -65,7 +65,7 @@ void MyRayGenMain() {
   rayDesc.TMax = 1000.0f;
 // CHECK: OpTraceNV {{%\d+}} %uint_0 %uint_255 %uint_0 %uint_1 %uint_0 {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} %uint_0
   TraceRay(rs, 0x0, 0xff, 0, 1, 0, rayDesc, myPayload);
-// CHECK: OpExecuteCallableKHR %uint_0 %uint_0
+// CHECK: OpExecuteCallableNV %uint_0 %uint_0
   CallShader(0, myCallData);
 }
 
@@ -180,17 +180,17 @@ void MyAHitMain(inout Payload MyPayload, in Attribute MyAttr) {
   uint _16 = HitKind();
 
   if (_16 == 1U) {
-// CHECK:  OpIgnoreIntersectionKHR
+// CHECK:  OpIgnoreIntersectionNV
     IgnoreHit();
   } else {
-// CHECK:  OpTerminateRayKHR
+// CHECK:  OpTerminateRayNV
     AcceptHitAndEndSearch();
   }
 }
 
 [shader("anyhit")]
 void MyAHitMain2(inout Payload MyPayload, in Attribute MyAttr) {
-// CHECK:  OpTerminateRayKHR
+// CHECK:  OpTerminateRayNV
     AcceptHitAndEndSearch();
 }
 

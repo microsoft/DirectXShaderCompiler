@@ -1,4 +1,7 @@
 // RUN: %dxc -T lib_6_6 %s  | FileCheck %s
+// RUN: %dxc -disable-lifetime-markers -T lib_6_6 %s  | FileCheck %s -check-prefix=NOLIFE
+
+// NOLIFE-NOT: @llvm.lifetime
 
 //
 // Non-SSA arrays should have lifetimes within the correct scope.

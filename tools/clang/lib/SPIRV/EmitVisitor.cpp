@@ -89,16 +89,9 @@ bool isOpLineLegalForOp(spv::Op op) {
 uint32_t getHeaderVersion(llvm::StringRef env) {
   if (env == "vulkan1.1")
     return 0x00010300u;
-  if (env == "vulkan1.2")
+  if (env == "vulkan1.2" || env == "universal1.5")
     return 0x00010500u;
   return 0x00010000u;
-}
-
-// Returns true if the BufferBlock decoration is deprecated for the target
-// Vulkan environment.
-bool isBufferBlockDecorationDeprecated(
-    const clang::spirv::SpirvCodeGenOptions &opts) {
-  return opts.targetEnv.compare("vulkan1.2") >= 0;
 }
 
 // Read the file in |filePath| and returns its contents as a string.
@@ -1641,6 +1634,23 @@ bool EmitVisitor::visit(SpirvRayQueryOpKHR *inst) {
   return true;
 }
 
+bool EmitVisitor::visit(SpirvReadClock *inst) {
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getScope()));
+  finalizeInstruction(&mainBinary);
+  emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
+  return true;
+}
+
+bool EmitVisitor::visit(SpirvRayTracingTerminateOpKHR *inst) {
+  initInstruction(inst);
+  finalizeInstruction(&mainBinary);
+  return true;
+}
+
 // EmitTypeHandler ------
 
 void EmitTypeHandler::initTypeInstruction(spv::Op op) {
@@ -2115,8 +2125,9 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
     // Emit Block or BufferBlock decorations if necessary.
     auto interfaceType = structType->getInterfaceType();
     if (interfaceType == StructInterfaceType::StorageBuffer)
+      // BufferBlock decoration is deprecated in Vulkan 1.2 and later.
       emitDecoration(id,
-                     isBufferBlockDecorationDeprecated(spvOptions)
+                     featureManager.isTargetEnvVulkan1p2OrAbove()
                          ? spv::Decoration::Block
                          : spv::Decoration::BufferBlock,
                      {});
@@ -2158,10 +2169,10 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
     curTypeInst.push_back(id);
     finalizeTypeInstruction();
   }
-  // RayQueryProvisionalType KHR type
+  // RayQueryType KHR type
   else if (const auto *rayQueryType =
-               dyn_cast<RayQueryProvisionalTypeKHR>(type)) {
-    initTypeInstruction(spv::Op::OpTypeRayQueryProvisionalKHR);
+               dyn_cast<RayQueryTypeKHR>(type)) {
+    initTypeInstruction(spv::Op::OpTypeRayQueryKHR);
     curTypeInst.push_back(id);
     finalizeTypeInstruction();
   }

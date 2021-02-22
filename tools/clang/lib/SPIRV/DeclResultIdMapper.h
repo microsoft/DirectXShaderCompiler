@@ -410,17 +410,26 @@ public:
   /// VarDecls (such as some ray tracing enums).
   void tryToCreateImplicitConstVar(const ValueDecl *);
 
-  /// \brief Creates a variable for hull shader output patch with Workgroup
+  /// \brief Creates a variable for hull shader output patch with Output
   /// storage class, and registers the SPIR-V variable for the given decl.
   SpirvInstruction *createHullMainOutputPatch(const ParmVarDecl *param,
                                               const QualType retType,
-                                              uint32_t numOutputControlPoints,
-                                              SourceLocation loc);
+                                              uint32_t numOutputControlPoints);
+
+  /// \brief An enum class for representing what the DeclContext is used for
+  enum class ContextUsageKind {
+    CBuffer,
+    TBuffer,
+    PushConstant,
+    Globals,
+    ShaderRecordBufferNV,
+    ShaderRecordBufferEXT
+  };
 
   /// Raytracing specific functions
-  /// \brief Creates a ShaderRecordBufferNV block from the given decl.
-  SpirvVariable *createShaderRecordBufferNV(const VarDecl *decl);
-  SpirvVariable *createShaderRecordBufferNV(const HLSLBufferDecl *decl);
+  /// \brief Creates a ShaderRecordBufferEXT or ShaderRecordBufferNV block from the given decl.
+  SpirvVariable *createShaderRecordBuffer(const VarDecl *decl, ContextUsageKind kind);
+  SpirvVariable *createShaderRecordBuffer(const HLSLBufferDecl *decl, ContextUsageKind kind);
 
 private:
   /// The struct containing SPIR-V information of a AST Decl.
@@ -601,15 +610,6 @@ private:
   /// construction.
   bool finalizeStageIOLocations(bool forInput);
 
-  /// \brief An enum class for representing what the DeclContext is used for
-  enum class ContextUsageKind {
-    CBuffer,
-    TBuffer,
-    PushConstant,
-    Globals,
-    ShaderRecordBufferNV,
-  };
-
   /// Creates a variable of struct type with explicit layout decorations.
   /// The sub-Decls in the given DeclContext will be treated as the struct
   /// fields. The struct type will be named as typeName, and the variable
@@ -666,6 +666,11 @@ private:
   SpirvVariable *createSpirvStageVar(StageVar *, const NamedDecl *decl,
                                      const llvm::StringRef name,
                                      SourceLocation);
+
+  // Create intermediate output variable to communicate patch constant
+  // data in hull shader since workgroup memory is not allowed there.
+  SpirvVariable *createSpirvIntermediateOutputStageVar(
+      const NamedDecl *decl, const llvm::StringRef name, QualType asType);
 
   /// Returns true if all vk:: attributes usages are valid.
   bool validateVKAttributes(const NamedDecl *decl);

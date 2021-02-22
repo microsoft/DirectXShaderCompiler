@@ -1,4 +1,7 @@
-// RUN: %dxc -E main -T cs_6_0 %s | FileCheck %s
+// RUN: %dxc -E main -DTYPE=uint -T cs_6_0 %s | FileCheck %s
+// RUN: %dxc -E main -DTYPE=int -T cs_6_0 %s | FileCheck %s
+// RUN: %dxc -E main -DTYPE=uint64_t -T cs_6_6 %s | FileCheck %s
+// RUN: %dxc -E main -DTYPE=int64_t -T cs_6_6 %s | FileCheck %s
 
 // CHECK: atomicrmw add
 // CHECK: atomicrmw add
@@ -20,19 +23,21 @@
 
 RWByteAddressBuffer rawBuf0 : register( u0 );
 
+#define _TOTUPLE(type) type##2
+#define TOTUPLE(type) _TOTUPLE(type)
+
 struct Foo
 {
   float2 a;
   float3 b;
-  uint   u;
-  int2 c[4];
-  int d[4];
+  TYPE   u;
+  TOTUPLE(TYPE) c[4];
+  TYPE d[4];
 };
 RWStructuredBuffer<Foo> structBuf1 : register( u1 );
-RWTexture2D<uint> rwTex2: register( u2 );
+RWTexture2D<TYPE> rwTex2: register( u2 );
 
-
-groupshared uint shareMem[256];
+groupshared TYPE shareMem[256];
 
 [numthreads( 8, 8, 1 )]
 void main( uint GI : SV_GroupIndex, uint3 DTid : SV_DispatchThreadID )
@@ -40,7 +45,7 @@ void main( uint GI : SV_GroupIndex, uint3 DTid : SV_DispatchThreadID )
     shareMem[GI] = 0;
 
     GroupMemoryBarrierWithGroupSync();
-    uint v;
+    TYPE v;
 
     InterlockedAdd( shareMem[DTid.x], 1 );
     InterlockedAdd( shareMem[DTid.x], 1, v );

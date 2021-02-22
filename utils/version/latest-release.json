@@ -1,8 +1,8 @@
 {
     "version" : {
         "major" : "1",
-        "minor" : "5",
-        "rev"   : "2010"
+        "minor" : "6",
+        "rev"   : "2102"
     },
-    "sha" : "754e99b405ea3aa49600c72e5a73f4cb834595ff"
+    "sha" : "4c998a5e7eab965284e866921afd0ba159f7b0c3"
 }

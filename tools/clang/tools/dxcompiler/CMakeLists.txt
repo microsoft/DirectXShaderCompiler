@@ -38,6 +38,7 @@ set(LLVM_LINK_COMPONENTS
   target
   transformutils
   vectorize
+  miniz
   )
 
 if (WIN32)
@@ -54,7 +55,9 @@ set(SOURCES
   dxillib.cpp
   dxcutil.cpp
   dxcdisassembler.cpp
+  dxcpdbutils.cpp
   dxclinker.cpp
+  dxcshadersourceinfo.cpp
 )
 else ()
 set(SOURCES
@@ -66,8 +69,10 @@ set(SOURCES
   dxcfilesystem.cpp
   dxcutil.cpp
   dxcdisassembler.cpp
+  dxcpdbutils.cpp
   dxillib.cpp
   dxcvalidator.cpp
+  dxcshadersourceinfo.cpp
 )
 set (HLSL_IGNORE_SOURCES
   dxcdia.cpp
@@ -111,6 +116,10 @@ set(GENERATED_HEADERS
   ClangStmtNodes
   )
 
+if (WIN32)
+  find_package(DiaSDK REQUIRED) # Used for constants and declarations.
+endif (WIN32)
+
 add_clang_library(dxcompiler SHARED ${SOURCES})
 add_dependencies(dxcompiler TablegenHLSLOptions) 
 if (WIN32)
@@ -121,7 +130,7 @@ target_link_libraries(dxcompiler PRIVATE ${LIBRARIES})
 if (ENABLE_SPIRV_CODEGEN)
   target_link_libraries(dxcompiler PRIVATE clangSPIRV)
 endif (ENABLE_SPIRV_CODEGEN)
-include_directories(AFTER ${LLVM_INCLUDE_DIR}/dxc/Tracing)
+include_directories(AFTER ${LLVM_INCLUDE_DIR}/dxc/Tracing ${DIASDK_INCLUDE_DIRS})
 
 set_target_properties(dxcompiler
   PROPERTIES

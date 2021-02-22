@@ -27,6 +27,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/ADT/DenseSet.h"
 #include <array>
@@ -67,6 +68,11 @@ const char DxilMDHelper::kDxilSourceContentsMDName[]                  = "dx.sour
 const char DxilMDHelper::kDxilSourceDefinesMDName[]                   = "dx.source.defines";
 const char DxilMDHelper::kDxilSourceMainFileNameMDName[]              = "dx.source.mainFileName";
 const char DxilMDHelper::kDxilSourceArgsMDName[]                      = "dx.source.args";
+
+const char DxilMDHelper::kDxilSourceContentsOldMDName[]               = "llvm.dbg.contents";
+const char DxilMDHelper::kDxilSourceDefinesOldMDName[]                = "llvm.dbg.defines";
+const char DxilMDHelper::kDxilSourceMainFileNameOldMDName[]           = "llvm.dbg.mainFileName";
+const char DxilMDHelper::kDxilSourceArgsOldMDName[]                   = "llvm.dbg.args";
 
 // This is reflection-only metadata
 const char DxilMDHelper::kDxilCountersMDName[]                        = "dx.counters";
@@ -589,7 +595,16 @@ void DxilMDHelper::GetDxilResources(const MDOperand &MDO, const MDTuple *&pSRVs,
 
 void DxilMDHelper::EmitDxilResourceBase(const DxilResourceBase &R, Metadata *ppMDVals[]) {
   ppMDVals[kDxilResourceBaseID        ] = Uint32ToConstMD(R.GetID());
-  ppMDVals[kDxilResourceBaseVariable  ] = ValueAsMetadata::get(R.GetGlobalSymbol());
+  Constant *GlobalSymbol = R.GetGlobalSymbol();
+  // For sm66+, global symbol will be mutated into handle type.
+  // Save hlsl type by generate bitcast on global symbol.
+  if (m_pSM->IsSM66Plus()) {
+    Type *HLSLTy = R.GetHLSLType();
+    if (HLSLTy && HLSLTy != GlobalSymbol->getType())
+      GlobalSymbol = cast<Constant>(
+          ConstantExpr::getCast(Instruction::BitCast, GlobalSymbol, HLSLTy));
+  }
+  ppMDVals[kDxilResourceBaseVariable  ] = ValueAsMetadata::get(GlobalSymbol);
   ppMDVals[kDxilResourceBaseName      ] = MDString::get(m_Ctx, R.GetGlobalName());
   ppMDVals[kDxilResourceBaseSpaceID   ] = Uint32ToConstMD(R.GetSpaceID());
   ppMDVals[kDxilResourceBaseLowerBound] = Uint32ToConstMD(R.GetLowerBound());
@@ -603,7 +618,20 @@ void DxilMDHelper::LoadDxilResourceBase(const MDOperand &MDO, DxilResourceBase &
   IFTBOOL(pTupleMD->getNumOperands() >= kDxilResourceBaseNumFields, DXC_E_INCORRECT_DXIL_METADATA);
 
   R.SetID(ConstMDToUint32(pTupleMD->getOperand(kDxilResourceBaseID)));
-  R.SetGlobalSymbol(dyn_cast<Constant>(ValueMDToValue(pTupleMD->getOperand(kDxilResourceBaseVariable))));
+  Constant *GlobalSymbol = dyn_cast<Constant>(ValueMDToValue(pTupleMD->getOperand(kDxilResourceBaseVariable)));
+  // For sm66+, global symbol will be mutated into handle type.
+  // Read hlsl type and global symbol from bitcast.
+  if (m_pSM->IsSM66Plus()) {
+    // Before mutate, there's no bitcast. After GlobalSymbol changed into undef,
+    // there's no bitcast too. Bitcast will only exist when global symbol is
+    // mutated into handle and not changed into undef for lib linking.
+    if (BitCastOperator *BCO = dyn_cast<BitCastOperator>(GlobalSymbol)) {
+      GlobalSymbol = cast<Constant>(BCO->getOperand(0));
+      R.SetHLSLType(BCO->getType());
+    }
+  }
+  R.SetGlobalSymbol(GlobalSymbol);
+
   R.SetGlobalName(StringMDToString(pTupleMD->getOperand(kDxilResourceBaseName)));
   R.SetSpaceID(ConstMDToUint32(pTupleMD->getOperand(kDxilResourceBaseSpaceID)));
   R.SetLowerBound(ConstMDToUint32(pTupleMD->getOperand(kDxilResourceBaseLowerBound)));
@@ -1227,6 +1255,13 @@ MDTuple *DxilMDHelper::EmitDxilEntryProperties(uint64_t rawShaderFlag,
     NumThreadVals.emplace_back(Uint32ToConstMD(CS.numThreads[1]));
     NumThreadVals.emplace_back(Uint32ToConstMD(CS.numThreads[2]));
     MDVals.emplace_back(MDNode::get(m_Ctx, NumThreadVals));
+
+    if (props.waveSize != 0) {
+      MDVals.emplace_back(Uint32ToConstMD(DxilMDHelper::kDxilWaveSizeTag));
+      vector<Metadata *> WaveSizeVal;
+      WaveSizeVal.emplace_back(Uint32ToConstMD(props.waveSize));
+      MDVals.emplace_back(MDNode::get(m_Ctx, WaveSizeVal));
+    }
   } break;
   // Geometry shader.
   case DXIL::ShaderKind::Geometry: {
@@ -1427,6 +1462,11 @@ void DxilMDHelper::LoadDxilEntryProperties(const MDOperand &MDO,
       DXASSERT(props.IsAS(), "else invalid shader kind");
       auto &AS = props.ShaderProps.AS;
       LoadDxilASState(MDO, AS.numThreads, AS.payloadSizeInBytes);
+    } break;
+    case DxilMDHelper::kDxilWaveSizeTag: {
+      DXASSERT(props.IsCS(), "else invalid shader kind");
+      MDNode *pNode = cast<MDNode>(MDO.get());
+      props.waveSize = ConstMDToUint32(pNode->getOperand(0));
     } break;
     default:
       DXASSERT(false, "Unknown extended shader properties tag");
@@ -2365,17 +2405,22 @@ bool DxilMDHelper::IsKnownMetadataID(LLVMContext &Ctx, unsigned ID)
 
 void DxilMDHelper::GetKnownMetadataIDs(LLVMContext &Ctx, SmallVectorImpl<unsigned> *pIDs)
 {
-    auto AddIdIfExists = [&Ctx, &pIDs](StringRef Name) {
-        unsigned ID = 0;
-        if (Ctx.findMDKindID(hlsl::DxilMDHelper::kDxilPreciseAttributeMDName, &ID))
-        {
-            pIDs->push_back(ID);
-        }
-    };
+  auto AddIdIfExists = [&Ctx, &pIDs](StringRef Name) {
+    unsigned ID = 0;
+    if (Ctx.findMDKindID(hlsl::DxilMDHelper::kDxilPreciseAttributeMDName,
+                         &ID)) {
+      pIDs->push_back(ID);
+    }
+    if (Ctx.findMDKindID(hlsl::DxilMDHelper::kDxilNonUniformAttributeMDName,
+                         &ID)) {
+      pIDs->push_back(ID);
+    }
+  };
 
-    AddIdIfExists(hlsl::DxilMDHelper::kDxilPreciseAttributeMDName);
-    AddIdIfExists(hlsl::DxilMDHelper::kDxilNonUniformAttributeMDName);
+  AddIdIfExists(hlsl::DxilMDHelper::kDxilPreciseAttributeMDName);
+  AddIdIfExists(hlsl::DxilMDHelper::kDxilNonUniformAttributeMDName);
 }
+
 void DxilMDHelper::combineDxilMetadata(llvm::Instruction *K,
                                        const llvm::Instruction *J) {
   if (IsMarkedNonUniform(J))

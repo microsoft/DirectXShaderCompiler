@@ -1,7 +1,7 @@
-// RUN: %dxc -E main -T ps_6_5
+// RUN: %dxc -E main -T ps_6_5 -fspv-target-env=vulkan1.2
 
 // RUN: %dxc -T gs_6_5 -E main
-// CHECK:  OpCapability RayQueryProvisionalKHR
+// CHECK:  OpCapability RayQueryKHR
 // CHECK:  OpExtension "SPV_KHR_ray_query
 
 RaytracingAccelerationStructure AccelerationStructure : register(t0);

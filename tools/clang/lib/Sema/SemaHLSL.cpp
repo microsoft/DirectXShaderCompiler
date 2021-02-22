@@ -36,6 +36,7 @@
 #include "dxc/dxcapi.internal.h"
 #include "dxc/HlslIntrinsicOp.h"
 #include "gen_intrin_main_tables_15.h"
+#include "VkConstantsTables.h"
 #include "dxc/HLSL/HLOperations.h"
 #include "dxc/DXIL/DxilShaderModel.h"
 #include <array>
@@ -64,6 +65,8 @@ enum ArBasicKind {
   AR_BASIC_MIN12INT,
   AR_BASIC_MIN16INT,
   AR_BASIC_MIN16UINT,
+  AR_BASIC_INT8_4PACKED,
+  AR_BASIC_UINT8_4PACKED,
   AR_BASIC_ENUM,
 
   AR_BASIC_COUNT,
@@ -206,8 +209,9 @@ enum ArBasicKind {
   // RayQuery
   AR_OBJECT_RAY_QUERY,
 
-  // Resource
-  AR_OBJECT_RESOURCE,
+  // Heap Resource
+  AR_OBJECT_HEAP_RESOURCE,
+  AR_OBJECT_HEAP_SAMPLER,
   AR_BASIC_MAXIMUM_COUNT
 };
 
@@ -361,6 +365,8 @@ const UINT g_uBasicKindProps[] =
   BPROP_PRIMITIVE | BPROP_NUMERIC | BPROP_INTEGER | BPROP_BITS12 | BPROP_MIN_PRECISION,   // AR_BASIC_MIN12INT
   BPROP_PRIMITIVE | BPROP_NUMERIC | BPROP_INTEGER | BPROP_BITS16 | BPROP_MIN_PRECISION,   // AR_BASIC_MIN16INT
   BPROP_PRIMITIVE | BPROP_NUMERIC | BPROP_INTEGER | BPROP_UNSIGNED | BPROP_BITS16 | BPROP_MIN_PRECISION,  // AR_BASIC_MIN16UINT
+  BPROP_PRIMITIVE | BPROP_NUMERIC | BPROP_INTEGER | BPROP_UNSIGNED | BPROP_BITS32,// AR_BASIC_INT8_4PACKED
+  BPROP_PRIMITIVE | BPROP_NUMERIC | BPROP_INTEGER | BPROP_UNSIGNED | BPROP_BITS32,// AR_BASIC_UINT8_4PACKED
 
   BPROP_ENUM | BPROP_NUMERIC | BPROP_INTEGER, // AR_BASIC_ENUM
   BPROP_OTHER,  // AR_BASIC_COUNT
@@ -491,7 +497,8 @@ const UINT g_uBasicKindProps[] =
   0,      //AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1,
 
   0,      //AR_OBJECT_RAY_QUERY,
-  0,      //AR_OBJECT_RESOURCE,
+  0,      //AR_OBJECT_HEAP_RESOURCE,
+  0,      //AR_OBJECT_HEAP_SAMPLER,
   // AR_BASIC_MAXIMUM_COUNT
 };
 
@@ -1121,7 +1128,7 @@ static const ArBasicKind g_Texture2DArrayCT[] =
   AR_BASIC_UNKNOWN
 };
 
-static const ArBasicKind g_ResourceCT[] = {AR_OBJECT_RESOURCE,
+static const ArBasicKind g_ResourceCT[] = {AR_OBJECT_HEAP_RESOURCE,
                                            AR_BASIC_UNKNOWN};
 
 static const ArBasicKind g_RayDescCT[] =
@@ -1208,6 +1215,65 @@ static const ArBasicKind g_Int32OnlyCT[] =
   AR_BASIC_UNKNOWN
 };
 
+static const ArBasicKind g_Float32OnlyCT[] =
+{
+  AR_BASIC_FLOAT32,
+  AR_BASIC_LITERAL_FLOAT,
+  AR_BASIC_NOCAST,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_Int64OnlyCT[] =
+{
+  AR_BASIC_UINT64,
+  AR_BASIC_INT64,
+  AR_BASIC_LITERAL_INT,
+  AR_BASIC_NOCAST,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_AnyInt64CT[] =
+{
+  AR_BASIC_INT64,
+  AR_BASIC_UINT64,
+  AR_BASIC_LITERAL_INT,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_Int8_4PackedCT[] = 
+{
+  AR_BASIC_INT8_4PACKED,
+  AR_BASIC_UINT32,
+  AR_BASIC_LITERAL_INT,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_UInt8_4PackedCT[] =
+{
+  AR_BASIC_UINT8_4PACKED,
+  AR_BASIC_UINT32,
+  AR_BASIC_LITERAL_INT,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_AnyInt16Or32CT[] = {
+  AR_BASIC_INT32,
+  AR_BASIC_UINT32,
+  AR_BASIC_INT16,
+  AR_BASIC_UINT16,
+  AR_BASIC_LITERAL_INT,
+  AR_BASIC_UNKNOWN
+};
+
+static const ArBasicKind g_SInt16Or32OnlyCT[] =
+{
+  AR_BASIC_INT32,
+  AR_BASIC_INT16,
+  AR_BASIC_LITERAL_INT,
+  AR_BASIC_NOCAST,
+  AR_BASIC_UNKNOWN
+};
+
 // Basic kinds, indexed by a LEGAL_INTRINSIC_COMPTYPES value.
 const ArBasicKind* g_LegalIntrinsicCompTypes[] =
 {
@@ -1248,6 +1314,13 @@ const ArBasicKind* g_LegalIntrinsicCompTypes[] =
   g_Texture2DArrayCT,   // LICOMPTYPE_TEXTURE2DARRAY
   g_ResourceCT,         // LICOMPTYPE_RESOURCE
   g_Int32OnlyCT,        // LICOMPTYPE_INT32_ONLY
+  g_Int64OnlyCT,        // LICOMPTYPE_INT64_ONLY
+  g_AnyInt64CT,         // LICOMPTYPE_ANY_INT64
+  g_Float32OnlyCT,      // LICOMPTYPE_FLOAT32_ONLY
+  g_Int8_4PackedCT,     // LICOMPTYPE_INT8_4PACKED
+  g_UInt8_4PackedCT,    // LICOMPTYPE_UINT8_4PACKED
+  g_AnyInt16Or32CT,     // LICOMPTYPE_ANY_INT16_OR_32
+  g_SInt16Or32OnlyCT,   // LICOMPTYPE_SINT16_OR_32_ONLY
 };
 static_assert(ARRAYSIZE(g_LegalIntrinsicCompTypes) == LICOMPTYPE_COUNT,
   "Intrinsic comp type table must be updated when new enumerants are added.");
@@ -1342,7 +1415,8 @@ const ArBasicKind g_ArBasicKindsAsTypes[] =
   AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1,
 
   AR_OBJECT_RAY_QUERY,
-  AR_OBJECT_RESOURCE,
+  AR_OBJECT_HEAP_RESOURCE,
+  AR_OBJECT_HEAP_SAMPLER,
 };
 
 // Count of template arguments for basic kind of objects that look like templates (one or more type arguments).
@@ -1431,7 +1505,8 @@ const uint8_t g_ArBasicKindsTemplateCount[] =
   0, // AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1,
 
   1, // AR_OBJECT_RAY_QUERY,
-  0, // AR_OBJECT_RESOURCE,
+  0, // AR_OBJECT_HEAP_RESOURCE,
+  0, // AR_OBJECT_HEAP_SAMPLER,
 };
 
 C_ASSERT(_countof(g_ArBasicKindsAsTypes) == _countof(g_ArBasicKindsTemplateCount));
@@ -1530,7 +1605,8 @@ const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] =
   { 0, MipsFalse, SampleFalse },  // AR_OBJECT_RAYTRACING_PIPELINE_CONFIG1,
 
   { 0, MipsFalse, SampleFalse },  // AR_OBJECT_RAY_QUERY,
-  { 0, MipsFalse, SampleFalse },  // AR_OBJECT_RESOURCE,
+  { 0, MipsFalse, SampleFalse },  // AR_OBJECT_HEAP_RESOURCE,
+  { 0, MipsFalse, SampleFalse },  // AR_OBJECT_HEAP_SAMPLER,
 };
 
 C_ASSERT(_countof(g_ArBasicKindsAsTypes) == _countof(g_ArBasicKindsSubscripts));
@@ -1544,6 +1620,7 @@ const char* g_ArBasicTypeNames[] =
   "int", "uint", "long", "ulong",
   "min10float", "min16float",
   "min12int", "min16int", "min16uint",
+  "int8_t4_packed", "uint8_t4_packed",
   "enum",
 
   "<count>",
@@ -1650,7 +1727,8 @@ const char* g_ArBasicTypeNames[] =
   "RaytracingPipelineConfig1",
 
   "RayQuery",
-  "Resource",
+  "HEAP_Resource",
+  "HEAP_Sampler",
 };
 
 C_ASSERT(_countof(g_ArBasicTypeNames) == AR_BASIC_MAXIMUM_COUNT);
@@ -1746,6 +1824,8 @@ static bool IsAtomicOperation(IntrinsicOp op) {
   case IntrinsicOp::IOP_InterlockedAnd:
   case IntrinsicOp::IOP_InterlockedCompareExchange:
   case IntrinsicOp::IOP_InterlockedCompareStore:
+  case IntrinsicOp::IOP_InterlockedCompareExchangeFloatBitwise:
+  case IntrinsicOp::IOP_InterlockedCompareStoreFloatBitwise:
   case IntrinsicOp::IOP_InterlockedExchange:
   case IntrinsicOp::IOP_InterlockedMax:
   case IntrinsicOp::IOP_InterlockedMin:
@@ -1760,6 +1840,18 @@ static bool IsAtomicOperation(IntrinsicOp op) {
   case IntrinsicOp::MOP_InterlockedMin:
   case IntrinsicOp::MOP_InterlockedOr:
   case IntrinsicOp::MOP_InterlockedXor:
+  case IntrinsicOp::MOP_InterlockedAdd64:
+  case IntrinsicOp::MOP_InterlockedAnd64:
+  case IntrinsicOp::MOP_InterlockedCompareExchange64:
+  case IntrinsicOp::MOP_InterlockedCompareStore64:
+  case IntrinsicOp::MOP_InterlockedExchange64:
+  case IntrinsicOp::MOP_InterlockedMax64:
+  case IntrinsicOp::MOP_InterlockedMin64:
+  case IntrinsicOp::MOP_InterlockedOr64:
+  case IntrinsicOp::MOP_InterlockedXor64:
+  case IntrinsicOp::MOP_InterlockedExchangeFloat:
+  case IntrinsicOp::MOP_InterlockedCompareExchangeFloatBitwise:
+  case IntrinsicOp::MOP_InterlockedCompareStoreFloatBitwise:
     return true;
   default:
     return false;
@@ -2914,8 +3006,12 @@ private:
   // Declaration for matrix and vector templates.
   ClassTemplateDecl* m_matrixTemplateDecl;
   ClassTemplateDecl* m_vectorTemplateDecl;
-  // Namespace decl for hlsl intrin functions
+  // Namespace decl for hlsl intrinsic functions
   NamespaceDecl*     m_hlslNSDecl;
+
+  // Namespace decl for Vulkan-specific intrinsic functions
+  NamespaceDecl*     m_vkNSDecl;
+
   // Context being processed.
   _Notnull_ ASTContext* m_context;
 
@@ -3340,6 +3436,64 @@ private:
       return -1;
   }
 
+
+#ifdef ENABLE_SPIRV_CODEGEN
+  // Adds intrinsic function declarations to the "vk" namespace.
+  // It does so only if SPIR-V code generation is being done.
+  // Assumes the implicit "vk" namespace has already been created.
+  void AddVkIntrinsicFunctions() {
+    // If not doing SPIR-V CodeGen, return.
+    if (!m_sema->getLangOpts().SPIRV)
+      return;
+
+    DXASSERT(m_vkNSDecl, "caller has not created the vk namespace yet");
+
+    auto &context = m_sema->getASTContext();
+    for (uint32_t i = 0; i < _countof(g_VkIntrinsics); ++i) {
+      const HLSL_INTRINSIC *intrinsic = &g_VkIntrinsics[i];
+      const IdentifierInfo &fnII = context.Idents.get(
+          intrinsic->pArgs->pName, tok::TokenKind::identifier);
+      DeclarationName functionName(&fnII);
+      FunctionDecl *functionDecl = FunctionDecl::Create(
+          context, m_vkNSDecl, NoLoc, DeclarationNameInfo(functionName, NoLoc),
+          /*functionType*/ {}, nullptr, StorageClass::SC_Extern,
+          InlineSpecifiedFalse, HasWrittenPrototypeTrue);
+      m_vkNSDecl->addDecl(functionDecl);
+      functionDecl->setLexicalDeclContext(m_vkNSDecl);
+      functionDecl->setDeclContext(m_vkNSDecl);
+      functionDecl->setImplicit(true);
+    }
+  }
+
+  // Adds implicitly defined Vulkan-specific constants to the "vk" namespace.
+  // It does so only if SPIR-V code generation is being done.
+  // Assumes the implicit "vk" namespace has already been created.
+  void AddVkIntrinsicConstants() {
+    // If not doing SPIR-V CodeGen, return.
+    if (!m_sema->getLangOpts().SPIRV)
+      return;
+
+    DXASSERT(m_vkNSDecl, "caller has not created the vk namespace yet");
+
+    for (auto intConst : GetVkIntegerConstants()) {
+      const llvm::StringRef name = intConst.first;
+      const uint32_t value = intConst.second;
+      auto &context = m_sema->getASTContext();
+      QualType type = context.getConstType(context.UnsignedIntTy);
+      IdentifierInfo &Id = context.Idents.get(name, tok::TokenKind::identifier);
+      VarDecl *varDecl =
+          VarDecl::Create(context, m_vkNSDecl, NoLoc, NoLoc, &Id, type,
+                          context.getTrivialTypeSourceInfo(type),
+                          clang::StorageClass::SC_Static);
+      Expr *exprVal = IntegerLiteral::Create(
+          context, llvm::APInt(context.getIntWidth(type), value), type, NoLoc);
+      varDecl->setInit(exprVal);
+      varDecl->setImplicit(true);
+      m_vkNSDecl->addDecl(varDecl);
+    }
+  }
+#endif // ENABLE_SPIRV_CODEGEN
+
   // Adds all built-in HLSL object types.
   void AddObjectTypes()
   {
@@ -3405,8 +3559,17 @@ private:
         recordDecl = DeclareConstantBufferViewType(*m_context, /*bTBuf*/true);
       } else if (kind == AR_OBJECT_RAY_QUERY) {
         recordDecl = DeclareRayQueryType(*m_context);
-      } else if (kind == AR_OBJECT_RESOURCE) {
-        recordDecl = DeclareResourceType(*m_context);
+      } else if (kind == AR_OBJECT_HEAP_RESOURCE) {
+        recordDecl = DeclareResourceType(*m_context, /*bSampler*/false);
+        // create Resource ResourceDescriptorHeap;
+        DeclareBuiltinGlobal("ResourceDescriptorHeap",
+                             m_context->getRecordType(recordDecl), *m_context);
+      } else if (kind == AR_OBJECT_HEAP_SAMPLER) {
+        recordDecl = DeclareResourceType(*m_context, /*bSampler*/true);
+        // create Resource SamplerDescriptorHeap;
+        DeclareBuiltinGlobal("SamplerDescriptorHeap",
+                             m_context->getRecordType(recordDecl), *m_context);
+
       }
       else if (kind == AR_OBJECT_FEEDBACKTEXTURE2D) {
         recordDecl = DeclareUIntTemplatedTypeWithHandle(*m_context, "FeedbackTexture2D", "kind");
@@ -3504,6 +3667,8 @@ public:
   HLSLExternalSource() :
     m_matrixTemplateDecl(nullptr),
     m_vectorTemplateDecl(nullptr),
+    m_hlslNSDecl(nullptr),
+    m_vkNSDecl(nullptr),
     m_context(nullptr),
     m_sema(nullptr),
     m_hlslStringTypedef(nullptr)
@@ -3532,14 +3697,31 @@ public:
 
   void InitializeSema(Sema& S) override
   {
+    auto &context = S.getASTContext();
     m_sema = &S;
     S.addExternalSource(this);
 
     AddObjectTypes();
-    AddStdIsEqualImplementation(S.getASTContext(), S);
+    AddStdIsEqualImplementation(context, S);
     for (auto && intrinsic : m_intrinsicTables) {
       AddIntrinsicTableMethods(intrinsic);
     }
+
+#ifdef ENABLE_SPIRV_CODEGEN
+    if (m_sema->getLangOpts().SPIRV) {
+      // Create the "vk" namespace which contains Vulkan-specific intrinsics.
+      m_vkNSDecl =
+          NamespaceDecl::Create(context, context.getTranslationUnitDecl(),
+                                /*Inline*/ false, SourceLocation(),
+                                SourceLocation(), &context.Idents.get("vk"),
+                                /*PrevDecl*/ nullptr);
+      context.getTranslationUnitDecl()->addDecl(m_vkNSDecl);
+
+      // Add Vulkan-specific intrinsics.
+      AddVkIntrinsicFunctions();
+      AddVkIntrinsicConstants();
+    }
+#endif // ENABLE_SPIRV_CODEGEN
   }
 
   void ForgetSema() override
@@ -3938,6 +4120,8 @@ public:
       case BuiltinType::Min10Float: return AR_BASIC_MIN10FLOAT;
       case BuiltinType::LitFloat: return AR_BASIC_LITERAL_FLOAT;
       case BuiltinType::LitInt: return AR_BASIC_LITERAL_INT;
+      case BuiltinType::Int8_4Packed: return AR_BASIC_INT8_4PACKED;
+      case BuiltinType::UInt8_4Packed: return AR_BASIC_UINT8_4PACKED;
       default:
         // Only builtin types that have basickind equivalents.
         break;
@@ -4018,6 +4202,8 @@ public:
     case AR_BASIC_MIN12INT:       return HLSLScalarType_int_min12;
     case AR_BASIC_MIN16INT:       return HLSLScalarType_int_min16;
     case AR_BASIC_MIN16UINT:      return HLSLScalarType_uint_min16;
+    case AR_BASIC_INT8_4PACKED:   return HLSLScalarType_int8_4packed;
+    case AR_BASIC_UINT8_4PACKED:  return HLSLScalarType_uint8_4packed;
 
     case AR_BASIC_INT64:          return HLSLScalarType_int64;
     case AR_BASIC_UINT64:         return HLSLScalarType_uint64;
@@ -4053,6 +4239,8 @@ public:
     case AR_BASIC_MIN12INT:       return m_scalarTypes[HLSLScalarType_int_min12];
     case AR_BASIC_MIN16INT:       return m_scalarTypes[HLSLScalarType_int_min16];
     case AR_BASIC_MIN16UINT:      return m_scalarTypes[HLSLScalarType_uint_min16];
+    case AR_BASIC_INT8_4PACKED:   return m_scalarTypes[HLSLScalarType_int8_4packed];
+    case AR_BASIC_UINT8_4PACKED:  return m_scalarTypes[HLSLScalarType_uint8_4packed];
     case AR_BASIC_ENUM:           return m_context->IntTy;
     case AR_BASIC_ENUM_CLASS:     return m_context->IntTy;
 
@@ -4077,7 +4265,8 @@ public:
     case AR_OBJECT_SAMPLER:
     case AR_OBJECT_SAMPLERCOMPARISON:
 
-    case AR_OBJECT_RESOURCE:
+    case AR_OBJECT_HEAP_RESOURCE:
+    case AR_OBJECT_HEAP_SAMPLER:
 
     case AR_OBJECT_BUFFER:
 
@@ -4271,9 +4460,21 @@ public:
   {
     DXASSERT_NOMSG(ULE != nullptr);
 
+    const bool isQualified = ULE->getQualifier();
+
+    const bool isGlobalNamespace =
+        ULE->getQualifier() &&
+        ULE->getQualifier()->getKind() == NestedNameSpecifier::Global;
+
+    const bool isVkNamespace =
+        ULE->getQualifier() &&
+        ULE->getQualifier()->getKind() == NestedNameSpecifier::Namespace &&
+        ULE->getQualifier()->getAsNamespace()->getName() == "vk";
+
     // Intrinsics live in the global namespace, so references to their names
     // should be either unqualified or '::'-prefixed.
-    if (ULE->getQualifier() && ULE->getQualifier()->getKind() != NestedNameSpecifier::Global) {
+    // Exception: Vulkan-specific intrinsics live in the 'vk::' namespace.
+    if (isQualified && !isGlobalNamespace && !isVkNamespace) {
       return false;
     }
 
@@ -4285,11 +4486,20 @@ public:
     }
 
     StringRef nameIdentifier = idInfo->getName();
+    const HLSL_INTRINSIC *table = g_Intrinsics;
+    auto tableCount = _countof(g_Intrinsics);
+#ifdef ENABLE_SPIRV_CODEGEN
+    if (isVkNamespace) {
+      table = g_VkIntrinsics;
+      tableCount = _countof(g_VkIntrinsics);
+    }
+#endif // ENABLE_SPIRV_CODEGEN
 
     IntrinsicDefIter cursor = FindIntrinsicByNameAndArgCount(
-      g_Intrinsics, _countof(g_Intrinsics), StringRef(), nameIdentifier, Args.size());
+        table, tableCount, StringRef(), nameIdentifier, Args.size());
     IntrinsicDefIter end = IntrinsicDefIter::CreateEnd(
-      g_Intrinsics, _countof(g_Intrinsics), IntrinsicTableDefIter::CreateEnd(m_intrinsicTables));
+        table, tableCount, IntrinsicTableDefIter::CreateEnd(m_intrinsicTables));
+
     for (;cursor != end; ++cursor)
     {
       // If this is the intrinsic we're interested in, build up a representation
@@ -4315,7 +4525,9 @@ public:
       if (insertedNewValue)
       {
         DXASSERT(tableName, "otherwise IDxcIntrinsicTable::GetTableName() failed");
-        intrinsicFuncDecl = AddHLSLIntrinsicFunction(*m_context, m_hlslNSDecl, tableName, lowering, pIntrinsic, &functionArgTypes);
+        intrinsicFuncDecl = AddHLSLIntrinsicFunction(
+            *m_context, isVkNamespace ? m_vkNSDecl : m_hlslNSDecl, tableName,
+            lowering, pIntrinsic, &functionArgTypes);
         insertResult.first->setFunctionDecl(intrinsicFuncDecl);
       }
       else
@@ -5135,6 +5347,8 @@ void HLSLExternalSource::AddBaseTypes()
   m_baseTypes[HLSLScalarType_int_min12] = m_context->Min12IntTy;
   m_baseTypes[HLSLScalarType_int_min16] = m_context->Min16IntTy;
   m_baseTypes[HLSLScalarType_uint_min16] = m_context->Min16UIntTy;
+  m_baseTypes[HLSLScalarType_int8_4packed] = m_context->Int8_4PackedTy;
+  m_baseTypes[HLSLScalarType_uint8_4packed] = m_context->UInt8_4PackedTy;
   m_baseTypes[HLSLScalarType_float_lit] = m_context->LitFloatTy;
   m_baseTypes[HLSLScalarType_int_lit] = m_context->LitIntTy;
   m_baseTypes[HLSLScalarType_int16] = m_context->ShortTy;
@@ -8460,7 +8674,8 @@ bool HLSLExternalSource::CanConvert(
   if ((SourceInfo.EltKind == AR_OBJECT_CONSTANT_BUFFER ||
        SourceInfo.EltKind == AR_OBJECT_TEXTURE_BUFFER) &&
       TargetInfo.ShapeKind == AR_TOBJ_COMPOUND) {
-    standard->Second = ICK_Flat_Conversion;
+    if (standard)
+      standard->Second = ICK_Flat_Conversion;
     return hlsl::GetHLSLResourceResultType(source) == target;
   }
 
@@ -8549,7 +8764,9 @@ bool HLSLExternalSource::CanConvert(
   }
 
   // Cast from Resource to Object types.
-  if (SourceInfo.EltKind == AR_OBJECT_RESOURCE) {
+  if (SourceInfo.EltKind == AR_OBJECT_HEAP_RESOURCE ||
+      SourceInfo.EltKind == AR_OBJECT_HEAP_SAMPLER) {
+    // TODO: skip things like PointStream.
     if (TargetInfo.ShapeKind == AR_TOBJ_OBJECT) {
       Second = ICK_Flat_Conversion;
       goto lSuccess;
@@ -8888,7 +9105,11 @@ void HLSLExternalSource::CheckBinOpForHLSL(
                rightElementKind != AR_BASIC_LITERAL_INT &&
                rightElementKind != AR_BASIC_LITERAL_FLOAT) {
       // For case like 1<<x.
-      resultElementKind = AR_BASIC_UINT32;
+      m_sema->Diag(OpLoc, diag::warn_hlsl_ambiguous_literal_shift);
+      if (rightElementKind == AR_BASIC_UINT32)
+        resultElementKind = AR_BASIC_UINT32;
+      else
+        resultElementKind = AR_BASIC_INT32;
     } else if (resultElementKind == AR_BASIC_BOOL &&
                BinaryOperatorKindRequiresBoolAsNumeric(Opc)) {
       resultElementKind = AR_BASIC_INT32;
@@ -11406,6 +11627,10 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
   case AttributeList::AT_HLSLWaveSensitive:
     declAttr = ::new (S.Context) HLSLWaveSensitiveAttr(A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
+  case AttributeList::AT_HLSLWaveSize:
+    declAttr = ::new (S.Context) HLSLWaveSizeAttr(A.getRange(), S.Context,
+      ValidateAttributeIntArg(S, A), A.getAttributeSpellingListIndex());
+    break;
   default:
     Handled = false;
     break;  // SPIRV Change: was return;
@@ -11472,6 +11697,9 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     break;
   case AttributeList::AT_VKShaderRecordNV:
     declAttr = ::new (S.Context) VKShaderRecordNVAttr(A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_VKShaderRecordEXT:
+    declAttr = ::new (S.Context) VKShaderRecordEXTAttr(A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
   default:
     Handled = false;
@@ -11767,18 +11995,17 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
          "otherwise this is called without checking language first");
 
   // NOTE: some tests may declare templates.
-  if (DC->isNamespace() || DC->isDependentContext()) return true;
+  if (DC->isDependentContext()) return true;
 
   DeclSpec::SCS storage = D.getDeclSpec().getStorageClassSpec();
   assert(!DC->isClosure() && "otherwise parser accepted closure syntax instead of failing with a syntax error");
   assert(!DC->isDependentContext() && "otherwise parser accepted a template instead of failing with a syntax error");
-  assert(!DC->isNamespace() && "otherwise parser accepted a namespace instead of failing a syntax error");
 
   bool result = true;
   bool isTypedef = storage == DeclSpec::SCS_typedef;
   bool isFunction = D.isFunctionDeclarator() && !DC->isRecord();
   bool isLocalVar = DC->isFunctionOrMethod() && !isFunction && !isTypedef;
-  bool isGlobal = !isParameter && !isTypedef && !isFunction && (DC->isTranslationUnit() || DC->getDeclKind() == Decl::HLSLBuffer);
+  bool isGlobal = !isParameter && !isTypedef && !isFunction && (DC->isTranslationUnit() || DC->isNamespace() || DC->getDeclKind() == Decl::HLSLBuffer);
   bool isMethod = DC->isRecord() && D.isFunctionDeclarator() && !isTypedef;
   bool isField = DC->isRecord() && !D.isFunctionDeclarator() && !isTypedef;
 
@@ -12718,6 +12945,15 @@ void hlsl::CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out, con
     break;
   }
   
+  case clang::attr::HLSLWaveSize:
+  {
+    Attr * noconst = const_cast<Attr*>(A);
+    HLSLWaveSizeAttr *ACast = static_cast<HLSLWaveSizeAttr*>(noconst);
+    Indent(Indentation, Out);
+    Out << "[wavesize(" << ACast->getSize() << ")]\n";
+    break;
+  }
+
   // Variable modifiers
   case clang::attr::HLSLGroupShared:
     Out << "groupshared ";
@@ -12844,6 +13080,7 @@ bool hlsl::IsHLSLAttr(clang::attr::Kind AttrKind) {
   case clang::attr::NoInline:
   case clang::attr::HLSLExport:
   case clang::attr::HLSLWaveSensitive:
+  case clang::attr::HLSLWaveSize:
   case clang::attr::VKBinding:
   case clang::attr::VKBuiltIn:
   case clang::attr::VKConstantId:
@@ -12854,6 +13091,7 @@ bool hlsl::IsHLSLAttr(clang::attr::Kind AttrKind) {
   case clang::attr::VKOffset:
   case clang::attr::VKPushConstant:
   case clang::attr::VKShaderRecordNV:
+  case clang::attr::VKShaderRecordEXT:
     return true;
   default:
     // Only HLSL/VK Attributes return true. Only used for printPretty(), which doesn't support them.

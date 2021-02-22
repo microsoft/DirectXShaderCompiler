@@ -42,7 +42,7 @@ bool LowerTypeVisitor::visit(SpirvFunction *fn, Phase phase) {
         lowerType(fn->getAstReturnType(), SpirvLayoutRule::Void,
                   /*isRowMajor*/ llvm::None,
                   /*SourceLocation*/ {});
-    fn->setReturnType(const_cast<SpirvType *>(spirvReturnType));
+    fn->setReturnType(spirvReturnType);
 
     // Lower the function parameter types.
     auto params = fn->getParameters();
@@ -284,6 +284,10 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
           return spvContext.getSIntType(32);
         case BuiltinType::UInt:
         case BuiltinType::ULong:
+        // The 'int8_t4_packed' and 'uint8_t4_packed' types are in fact 32-bit
+        // unsigned integers.
+        case BuiltinType::Int8_4Packed:
+        case BuiltinType::UInt8_4Packed:
           return spvContext.getUIntType(32);
 
           // void and bool
@@ -315,6 +319,14 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
           return spvContext.getSIntType(16);
         case BuiltinType::UShort: // uint16_t
           return spvContext.getUIntType(16);
+
+        // 8-bit integer types
+        case BuiltinType::UChar:
+        case BuiltinType::Char_U:
+          return spvContext.getUIntType(8);
+        case BuiltinType::SChar:
+        case BuiltinType::Char_S:
+          return spvContext.getSIntType(8);
 
           // Relaxed precision types
         case BuiltinType::Min10Float:
@@ -544,7 +556,7 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
   }
 
   if (name == "RayQuery")
-    return spvContext.getRayQueryProvisionalTypeKHR();
+    return spvContext.getRayQueryTypeKHR();
 
   if (name == "StructuredBuffer" || name == "RWStructuredBuffer" ||
       name == "AppendStructuredBuffer" || name == "ConsumeStructuredBuffer") {

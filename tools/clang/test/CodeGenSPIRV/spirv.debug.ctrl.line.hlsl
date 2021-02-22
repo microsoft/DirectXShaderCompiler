@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_1 -E main -fspv-debug=line
+// Run: %dxc -T ps_6_1 -E main -fspv-target-env=vulkan1.1 -fspv-debug=line
 
 // Have file path
 // CHECK:      [[file:%\d+]] = OpString

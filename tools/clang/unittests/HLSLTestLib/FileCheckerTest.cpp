@@ -130,8 +130,10 @@ FileRunCommandResult FileRunCommandPart::RunFileChecker(const FileRunCommandResu
   // Parse command arguments
   static constexpr char checkPrefixStr[] = "-check-prefix=";
   static constexpr char checkPrefixesStr[] = "-check-prefixes=";
+  static constexpr char defineStr[] = "-D";
   bool hasInputFilename = false;
-  for (const std::string& arg : strtok(Arguments)) {
+  auto args = strtok(Arguments);
+  for (const std::string& arg : args) {
     if (arg == "%s") hasInputFilename = true;
     else if (arg == "-input=stderr") t.InputForStdin = Prior->StdErr;
     else if (strstartswith(arg, checkPrefixStr))
@@ -140,6 +142,11 @@ FileRunCommandResult FileRunCommandPart::RunFileChecker(const FileRunCommandResu
       auto prefixes = strtok(arg.substr(sizeof(checkPrefixesStr) - 1), ", ");
       for (auto &prefix : prefixes)
         t.CheckPrefixes.emplace_back(prefix);
+    } else if (strstartswith(arg, defineStr)) {
+      auto kv = strtok(arg.substr(sizeof(defineStr) - 1), "=");
+      if (kv.size() != 2)
+        return FileRunCommandResult::Error("Invalid argument");
+      t.VariableTable[kv[0]] = kv[1];
     }
     else return FileRunCommandResult::Error("Invalid argument");
   }

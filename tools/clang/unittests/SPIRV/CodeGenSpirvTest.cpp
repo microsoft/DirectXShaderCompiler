@@ -295,7 +295,6 @@ TEST_F(FileTest, BinaryOpMixedTypeArithAssign) {
   runFileTest("binary-op.arith-assign.mixed.type.hlsl");
 }
 TEST_F(FileTest, BinaryOpMulAssignTypeMismatch) {
-  useVulkan1p1();
   runFileTest("binary-op.mul-assign.type-mismatch.hlsl");
 }
 
@@ -595,6 +594,10 @@ TEST_F(FileTest, FunctionInCTBuffer) {
 }
 
 TEST_F(FileTest, FunctionNoInline) { runFileTest("fn.noinline.hlsl"); }
+TEST_F(FileTest, FunctionExport) { runFileTest("fn.export.hlsl"); }
+TEST_F(FileTest, FunctionForwardDecl) {
+  runFileTest("fn.forward-declaration.hlsl");
+}
 
 // For OO features
 TEST_F(FileTest, StructMethodCall) {
@@ -639,6 +642,12 @@ TEST_F(FileTest, InheritanceStageIOVS) {
 TEST_F(FileTest, InheritanceStageIOGS) {
   runFileTest("oo.inheritance.stage-io.gs.hlsl");
 }
+TEST_F(FileTest, InheritanceLayoutDifferences) {
+  runFileTest("oo.inheritance.layout-differences.hlsl");
+}
+TEST_F(FileTest, InheritanceLayoutEmptyStruct) {
+  runFileTest("oo.inheritance.layout.empty-struct.hlsl");
+}
 
 // For semantics
 // SV_Position, SV_ClipDistance, and SV_CullDistance are covered in
@@ -648,6 +657,9 @@ TEST_F(FileTest, SemanticVertexIDVS) {
 }
 TEST_F(FileTest, SemanticInstanceIDVS) {
   runFileTest("semantic.instance-id.vs.hlsl");
+}
+TEST_F(FileTest, SemanticNonzeroBaseInstanceVS) {
+  runFileTest("semantic.nonzero-base-instance.vs.hlsl");
 }
 TEST_F(FileTest, SemanticInstanceIDHS) {
   runFileTest("semantic.instance-id.hs.hlsl");
@@ -856,6 +868,9 @@ TEST_F(FileTest, TextureArraySample) {
 }
 TEST_F(FileTest, TextureLoad) { runFileTest("texture.load.hlsl"); }
 TEST_F(FileTest, TextureArrayLoad) { runFileTest("texture.array.load.hlsl"); }
+TEST_F(FileTest, TextureLoadInvalidOffsetOperand) {
+  runFileTest("texture.load-invalid-offset-operand.hlsl", Expect::Failure);
+}
 TEST_F(FileTest, TextureGetDimensions) {
   runFileTest("texture.get-dimensions.hlsl");
 }
@@ -937,6 +952,9 @@ TEST_F(FileTest, TextureArraySampleCmpLevelZero) {
 }
 TEST_F(FileTest, TextureSampleInvalidImplicitLod) {
   runFileTest("texture.sample-invalid-implicit-lod.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, TextureSampleInvalidOffsetOperand) {
+  runFileTest("texture.sample-invalid-offset-operand.hlsl", Expect::Failure);
 }
 TEST_F(FileTest, TextureInvalidTex2D) {
   runFileTest("texture.sample.invalid.tex2d.hlsl", Expect::Failure);
@@ -1122,6 +1140,13 @@ TEST_F(FileTest, IntrinsicsIsFinite) {
 TEST_F(FileTest, IntrinsicsInterlockedMethodsPS) {
   runFileTest("intrinsics.interlocked-methods.ps.hlsl");
 }
+TEST_F(FileTest, Intrinsics64BitInterlockedMethodsPS) {
+  runFileTest("intrinsics.64bit-interlocked-methods.ps.hlsl");
+}
+TEST_F(FileTest, Intrinsics64BitInterlockedMethodsCS) {
+  setBeforeHLSLLegalization();
+  runFileTest("intrinsics.64bit-interlocked-methods.cs.hlsl");
+}
 TEST_F(FileTest, IntrinsicsInterlockedMethodsCS) {
   runFileTest("intrinsics.interlocked-methods.cs.hlsl");
 }
@@ -1228,6 +1253,40 @@ TEST_F(FileTest, IntrinsicsMultiPrefix) {
   runFileTest("intrinsics.multiprefix.hlsl", Expect::Failure);
 }
 
+// Vulkan-specific intrinsic functions
+TEST_F(FileTest, IntrinsicsVkCrossDeviceScope) {
+  runFileTest("intrinsics.vkcrossdevicescope.hlsl");
+}
+TEST_F(FileTest, IntrinsicsVkDeviceScope) {
+  runFileTest("intrinsics.vkdevicescope.hlsl");
+}
+TEST_F(FileTest, IntrinsicsVkWorkgroupScope) {
+  runFileTest("intrinsics.vkworkgroupscope.hlsl");
+}
+TEST_F(FileTest, IntrinsicsVkSubgroupScope) {
+  runFileTest("intrinsics.vksubgroupscope.hlsl");
+}
+TEST_F(FileTest, IntrinsicsVkInvocationScope) {
+  runFileTest("intrinsics.vkinvocationscope.hlsl");
+}
+TEST_F(FileTest, IntrinsicsVkQueueFamilyScope) {
+  runFileTest("intrinsics.vkqueuefamilyscope.hlsl");
+}
+TEST_F(FileTest, IntrinsicsVkReadClock) {
+  runFileTest("intrinsics.vkreadclock.hlsl");
+}
+
+// Intrinsics added in SM 6.6
+TEST_F(FileTest, IntrinsicsSM66PackU8S8) {
+  runFileTest("intrinsics.sm6_6.pack_s8u8.hlsl");
+}
+TEST_F(FileTest, IntrinsicsSM66PackClampU8S8) {
+  runFileTest("intrinsics.sm6_6.pack_clamp_s8u8.hlsl");
+}
+TEST_F(FileTest, IntrinsicsSM66Unpack) {
+  runFileTest("intrinsics.sm6_6.unpack.hlsl");
+}
+
 // For attributes
 TEST_F(FileTest, AttributeEarlyDepthStencil) {
   runFileTest("attribute.earlydepthstencil.ps.hlsl");
@@ -1305,113 +1364,88 @@ TEST_F(FileTest, PrimitiveErrorGS) {
 
 // Shader model 6.0 wave query
 TEST_F(FileTest, SM6WaveIsFirstLane) {
-  useVulkan1p1();
   runFileTest("sm6.wave-is-first-lane.hlsl");
 }
 TEST_F(FileTest, SM6WaveGetLaneCount) {
-  useVulkan1p1();
   runFileTest("sm6.wave-get-lane-count.hlsl");
 }
 TEST_F(FileTest, SM6WaveGetLaneIndex) {
-  useVulkan1p1();
   runFileTest("sm6.wave-get-lane-index.hlsl");
 }
 TEST_F(FileTest, SM6WaveBuiltInNoDuplicate) {
-  useVulkan1p1();
   runFileTest("sm6.wave.builtin.no-dup.hlsl");
 }
 
 // Shader model 6.0 wave vote
 TEST_F(FileTest, SM6WaveActiveAnyTrue) {
-  useVulkan1p1();
   runFileTest("sm6.wave-active-any-true.hlsl");
 }
 TEST_F(FileTest, SM6WaveActiveAllTrue) {
-  useVulkan1p1();
   runFileTest("sm6.wave-active-all-true.hlsl");
 }
 TEST_F(FileTest, SM6WaveActiveBallot) {
-  useVulkan1p1();
   runFileTest("sm6.wave-active-ballot.hlsl");
 }
 
 // Shader model 6.0 wave reduction
 TEST_F(FileTest, SM6WaveActiveAllEqual) {
-  useVulkan1p1();
   runFileTest("sm6.wave-active-all-equal.hlsl");
 }
 TEST_F(FileTest, SM6WaveActiveSum) {
-  useVulkan1p1();
   runFileTest("sm6.wave-active-sum.hlsl");
 }
 TEST_F(FileTest, SM6WaveActiveProduct) {
-  useVulkan1p1();
   runFileTest("sm6.wave-active-product.hlsl");
 }
 TEST_F(FileTest, SM6WaveActiveMax) {
-  useVulkan1p1();
   runFileTest("sm6.wave-active-max.hlsl");
 }
 TEST_F(FileTest, SM6WaveActiveMin) {
-  useVulkan1p1();
   runFileTest("sm6.wave-active-min.hlsl");
 }
 TEST_F(FileTest, SM6WaveActiveBitAnd) {
-  useVulkan1p1();
   runFileTest("sm6.wave-active-bit-and.hlsl");
 }
 TEST_F(FileTest, SM6WaveActiveBitOr) {
-  useVulkan1p1();
   runFileTest("sm6.wave-active-bit-or.hlsl");
 }
 TEST_F(FileTest, SM6WaveActiveBitXor) {
-  useVulkan1p1();
   runFileTest("sm6.wave-active-bit-xor.hlsl");
 }
 TEST_F(FileTest, SM6WaveActiveCountBits) {
-  useVulkan1p1();
   runFileTest("sm6.wave-active-count-bits.hlsl");
 }
 
 // Shader model 6.0 wave scan/prefix
 TEST_F(FileTest, SM6WavePrefixSum) {
-  useVulkan1p1();
   runFileTest("sm6.wave-prefix-sum.hlsl");
 }
 TEST_F(FileTest, SM6WavePrefixProduct) {
-  useVulkan1p1();
   runFileTest("sm6.wave-prefix-product.hlsl");
 }
 TEST_F(FileTest, SM6WavePrefixCountBits) {
-  useVulkan1p1();
   runFileTest("sm6.wave-prefix-count-bits.hlsl");
 }
 
 // Shader model 6.0 wave broadcast
 TEST_F(FileTest, SM6WaveReadLaneAt) {
-  useVulkan1p1();
   runFileTest("sm6.wave-read-lane-at.hlsl");
 }
 TEST_F(FileTest, SM6WaveReadLaneFirst) {
-  useVulkan1p1();
   runFileTest("sm6.wave-read-lane-first.hlsl");
 }
 
 // Shader model 6.0 wave quad-wide shuffle
 TEST_F(FileTest, SM6QuadReadAcrossX) {
-  useVulkan1p1();
   runFileTest("sm6.quad-read-across-x.hlsl");
 }
 TEST_F(FileTest, SM6QuadReadAcrossY) {
-  useVulkan1p1();
   runFileTest("sm6.quad-read-across-y.hlsl");
 }
 TEST_F(FileTest, SM6QuadReadAcrossDiagonal) {
-  useVulkan1p1();
   runFileTest("sm6.quad-read-across-diagonal.hlsl");
 }
 TEST_F(FileTest, SM6QuadReadLaneAt) {
-  useVulkan1p1();
   runFileTest("sm6.quad-read-lane-at.hlsl");
 }
 
@@ -1612,7 +1646,6 @@ TEST_F(FileTest, SpirvDebugOpLineIntrinsicsControlBarrier) {
   runFileTest("spirv.debug.opline.intrinsic.control.barrier.hlsl");
 }
 TEST_F(FileTest, SpirvDebugOpLineIntrinsicsVulkan1_1) {
-  useVulkan1p1();
   runFileTest("spirv.debug.opline.intrinsic.vulkan1.1.hlsl");
 }
 TEST_F(FileTest, SpirvDebugOpLineOperators) {
@@ -1629,13 +1662,11 @@ TEST_F(FileTest, SpirvDebugOpLineEndOfShader) {
 }
 
 TEST_F(FileTest, SpirvDebugDxcCommitInfo) {
-  useVulkan1p1();
   runFileTest("spirv.debug.commit.hlsl");
 }
 
 // Test that command line options are exposed using OpModuleProcessed.
 TEST_F(FileTest, SpirvDebugClOption) {
-  useVulkan1p1();
   runFileTest("spirv.debug.cl-option.hlsl");
 }
 
@@ -1648,24 +1679,19 @@ TEST_F(FileTest, SpirvDebugO2Option) {
 }
 
 TEST_F(FileTest, SpirvDebugO3Option) {
-  useVulkan1p1();
   runFileTest("spirv.debug.o3.option.hlsl");
 }
 
 TEST_F(FileTest, SpirvDebugControlFile) {
-  useVulkan1p1();
   runFileTest("spirv.debug.ctrl.file.hlsl");
 }
 TEST_F(FileTest, SpirvDebugControlLine) {
-  useVulkan1p1();
   runFileTest("spirv.debug.ctrl.line.hlsl");
 }
 TEST_F(FileTest, SpirvDebugControlTool) {
-  useVulkan1p1();
   runFileTest("spirv.debug.ctrl.tool.hlsl");
 }
 TEST_F(FileTest, SpirvDebugControlUnknown) {
-  useVulkan1p1();
   runFileTest("spirv.debug.ctrl.unknown.hlsl", Expect::Failure);
 }
 
@@ -1677,6 +1703,9 @@ TEST_F(FileTest, VulkanAttributePushConstantInvalidUsages) {
 }
 TEST_F(FileTest, VulkanAttributeShaderRecordNVInvalidUsages) {
   runFileTest("vk.attribute.shader-record-nv.invalid.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, VulkanAttributeShaderRecordEXTInvalidUsages) {
+  runFileTest("vk.attribute.shader-record-ext.invalid.hlsl", Expect::Failure);
 }
 
 TEST_F(FileTest, VulkanCLOptionInvertYVS) {
@@ -2110,6 +2139,9 @@ TEST_F(FileTest, HullShaderPCFTakesViewId) {
 TEST_F(FileTest, HullShaderPCFTakesViewIdButMainDoesnt) {
   runFileTest("hs.pcf.view-id.2.hlsl");
 }
+TEST_F(FileTest, HullShaderConstOutputPatch) {
+  runFileTest("hs.const.output-patch.hlsl");
+}
 // HS: for the structure of hull shaders
 TEST_F(FileTest, HullShaderStructure) { runFileTest("hs.structure.hlsl"); }
 
@@ -2233,19 +2265,24 @@ TEST_F(FileTest, RayTracingNVLibrary) {
   runFileTest("raytracing.nv.library.hlsl");
 }
 TEST_F(FileTest, RayTracingNVAccelerationStructure) {
-  useVulkan1p2();
   runFileTest("raytracing.nv.acceleration-structure.hlsl");
 }
 
 // === Raytracing KHR examples ===
 TEST_F(FileTest, RayTracingKHRClosestHit) {
-  useVulkan1p2();
   runFileTest("raytracing.khr.closesthit.hlsl");
 }
 
 TEST_F(FileTest, RayTracingAccelerationStructure) {
-  useVulkan1p2();
   runFileTest("raytracing.acceleration-structure.hlsl");
+}
+
+TEST_F(FileTest, RayTracingTerminate) {
+  runFileTest("raytracing.khr.terminate.hlsl");
+}
+
+TEST_F(FileTest, RayTracingTargetEnvErro) {
+  runFileTest("raytracing.target-env-error.hlsl", Expect::Failure);
 }
 
 // For decoration uniqueness
@@ -2266,6 +2303,9 @@ TEST_F(FileTest, DecorationRelaxedPrecisionStruct) {
 }
 TEST_F(FileTest, DecorationRelaxedPrecisionImage) {
   runFileTest("decoration.relaxed-precision.image.hlsl");
+}
+TEST_F(FileTest, DecorationRelaxedPrecisionBool) {
+  runFileTest("decoration.relaxed-precision.bool.hlsl");
 }
 
 // For NoContraction decorations
@@ -2306,6 +2346,18 @@ TEST_F(FileTest, VulkanLayoutShaderRecordBufferNVStd430) {
 TEST_F(FileTest, VulkanShaderRecordBufferNVOffset) {
   // Checks the behavior of [[vk::offset]] with [[vk::shader_record_nv]]
   runFileTest("vk.shader-record-nv.offset.hlsl");
+}
+// Tests for [[vk::shader_record_ext]]
+TEST_F(FileTest, VulkanShaderRecordBufferEXT) {
+  runFileTest("vk.shader-record-ext.hlsl");
+}
+TEST_F(FileTest, VulkanLayoutShaderRecordBufferEXTStd430) {
+  setGlLayout();
+  runFileTest("vk.layout.shader-record-ext.std430.hlsl");
+}
+TEST_F(FileTest, VulkanShaderRecordBufferEXTOffset) {
+  // Checks the behavior of [[vk::offset]] with [[vk::shader_record_ext]]
+  runFileTest("vk.shader-record-ext.offset.hlsl");
 }
 TEST_F(FileTest, VulkanShadingRate) { runFileTest("vk.shading-rate.hlsl"); }
 TEST_F(FileTest, VulkanShadingRateError) {
@@ -2377,7 +2429,6 @@ TEST_F(FileTest, MeshShadingNVAmplification) {
               /* runValidation */ false);
 }
 TEST_F(FileTest, MeshShadingNVAmplificationFunCall) {
-  useVulkan1p1();
   // TODO: Re-enable spirv-val once issue#3006 is fixed.
   runFileTest("meshshading.nv.fncall.amplification.hlsl", Expect::Success,
               /* runValidation */ false);
@@ -2397,25 +2448,29 @@ TEST_F(FileTest, MeshShadingNVAmplificationError4) {
 
 // Test OpEntryPoint in the Vulkan1.2 target environment
 TEST_F(FileTest, Vk1p2EntryPoint) {
-  useVulkan1p2();
   runFileTest("vk.1p2.entry-point.hlsl");
 }
 
 // Test deprecation of BufferBlock decoration after SPIR-V 1.3.
 TEST_F(FileTest, Vk1p2BlockDecoration) {
-  useVulkan1p2();
   runFileTest("vk.1p2.block-decoration.hlsl");
 }
 TEST_F(FileTest, Vk1p2RemoveBufferBlockRuntimeArray) {
-  useVulkan1p2();
   runFileTest("vk.1p2.remove.bufferblock.runtimearray.hlsl");
+}
+TEST_F(FileTest, Vk1p2RemoveBufferBlockPtrToPtr) {
+  setBeforeHLSLLegalization();
+  runFileTest("vk.1p2.remove.bufferblock.ptr-to-ptr.hlsl");
+}
+TEST_F(FileTest, Vk1p2RemoveBufferBlockPtrToPtr2) {
+  setBeforeHLSLLegalization();
+  runFileTest("vk.1p2.remove.bufferblock.ptr-to-ptr.example2.hlsl");
 }
 
 // Test shaders that require Vulkan1.1 support with
 // -fspv-target-env=vulkan1.2 option to make sure that enabling
 // Vulkan1.2 also enables Vulkan1.1.
 TEST_F(FileTest, CompatibilityWithVk1p1) {
-  useVulkan1p2();
   // TODO: Re-enable spirv-val once issue#3006 is fixed.
   runFileTest("meshshading.nv.fncall.amplification.vulkan1.2.hlsl",
               Expect::Success,

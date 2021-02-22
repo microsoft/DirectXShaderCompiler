@@ -10,8 +10,12 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+// We need to keep & fix these warnings to integrate smoothly with HLK
+#pragma warning(error: 4100 4146 4242 4244 4267 4701 4389)
+
 #include <algorithm>
 #include <memory>
+#include <array>
 #include <vector>
 #include <string>
 #include <map>
@@ -295,7 +299,22 @@ public:
   TEST_METHOD(WaveIntrinsicsTest);
   TEST_METHOD(WaveIntrinsicsDDITest);
   TEST_METHOD(WaveIntrinsicsInPSTest);
+  TEST_METHOD(WaveSizeTest);
   TEST_METHOD(PartialDerivTest);
+  TEST_METHOD(DerivativesTest);
+  TEST_METHOD(ComputeSampleTest);
+  TEST_METHOD(AtomicsTest);
+  TEST_METHOD(Atomics64Test);
+  TEST_METHOD(AtomicsTyped64Test);
+  TEST_METHOD(AtomicsShared64Test);
+  TEST_METHOD(AtomicsFloatTest);
+  TEST_METHOD(HelperLaneTest);
+  BEGIN_TEST_METHOD(HelperLaneTestWave)
+    TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp handles this
+  END_TEST_METHOD()
+  TEST_METHOD(SignatureResourcesTest)
+  TEST_METHOD(DynamicResourcesTest)
+  TEST_METHOD(QuadReadTest)
 
   BEGIN_TEST_METHOD(CBufferTestHalf)
     TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.2
@@ -466,6 +485,10 @@ public:
     TEST_METHOD_PROPERTY(L"Priority", L"2") // This test is disabled because of a bug in WARP; TODO: enable once the bug is fixed
   END_TEST_METHOD()
 
+  BEGIN_TEST_METHOD(PackUnpackTest)
+    TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#PackUnpackOpTable")
+  END_TEST_METHOD()
+
   dxc::DxcDllSupport m_support;
   VersionSupportInfo m_ver;
   bool m_ExperimentalModeEnabled = false;
@@ -504,6 +527,8 @@ public:
   static const D3D_SHADER_MODEL HIGHEST_SHADER_MODEL = D3D_SHADER_MODEL_6_5;
 #elif WDK_NTDDI_VERSION == NTDDI_WIN10_FE
   static const D3D_SHADER_MODEL HIGHEST_SHADER_MODEL = D3D_SHADER_MODEL_6_6;
+#elif WDK_NTDDI_VERSION == NTDDI_WIN10_CO
+  static const D3D_SHADER_MODEL HIGHEST_SHADER_MODEL = D3D_SHADER_MODEL_6_6;
 #else
   static const D3D_SHADER_MODEL HIGHEST_SHADER_MODEL = D3D_SHADER_MODEL_6_6;
 #endif
@@ -531,6 +556,8 @@ public:
   bool SaveImages() {
     return GetTestParamBool(L"SaveImages");
   }
+
+  void RunResourceTest(ID3D12Device *pDevice, const char *pShader, const wchar_t *sm, bool isDynamic);
 
   template <class T1, class T2>
   void WaveIntrinsicsActivePrefixTest(TableParameter *pParameterList,
@@ -834,6 +861,19 @@ public:
         IID_PPV_ARGS(pRootSig)));
   }
 
+  void CreateRootSignatureFromRanges(ID3D12Device *pDevice, ID3D12RootSignature **pRootSig,
+                                     CD3DX12_DESCRIPTOR_RANGE *resRanges, UINT resCt,
+                                     CD3DX12_DESCRIPTOR_RANGE *sampRanges = nullptr, UINT sampCt = 0,
+                                     D3D12_ROOT_SIGNATURE_FLAGS flags = D3D12_ROOT_SIGNATURE_FLAG_NONE) {
+    CD3DX12_ROOT_PARAMETER rootParameters[2];
+    rootParameters[0].InitAsDescriptorTable(resCt, resRanges, D3D12_SHADER_VISIBILITY_ALL);
+    rootParameters[1].InitAsDescriptorTable(sampCt, sampRanges, D3D12_SHADER_VISIBILITY_ALL);
+
+    CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc;
+    rootSignatureDesc.Init(_countof(rootParameters), rootParameters, 0, nullptr, flags);
+    CreateRootSignatureFromDesc(pDevice, &rootSignatureDesc, pRootSig);
+  }
+
   void CreateRtvDescriptorHeap(ID3D12Device *pDevice, UINT numDescriptors,
                                ID3D12DescriptorHeap **pRtvHeap, UINT *rtvDescriptorSize) {
     D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {};
@@ -849,29 +889,32 @@ public:
     }
   }
 
-  void CreateTestUavs(ID3D12Device *pDevice,
-                      ID3D12GraphicsCommandList *pCommandList, LPCVOID values,
-                      UINT32 valueSizeInBytes, ID3D12Resource **ppUavResource,
-                      ID3D12Resource **ppReadBuffer,
-                      ID3D12Resource **ppUploadResource) {
-    CComPtr<ID3D12Resource> pUavResource;
+  void CreateTestResources(ID3D12Device *pDevice,
+                           ID3D12GraphicsCommandList *pCommandList, LPCVOID values,
+                           UINT32 valueSizeInBytes, D3D12_RESOURCE_DESC resDesc,
+                           ID3D12Resource **ppResource,
+                           ID3D12Resource **ppUploadResource,
+                           ID3D12Resource **ppReadBuffer = nullptr) {
+    CComPtr<ID3D12Resource> pResource;
     CComPtr<ID3D12Resource> pReadBuffer;
     CComPtr<ID3D12Resource> pUploadResource;
     D3D12_SUBRESOURCE_DATA transferData;
     D3D12_HEAP_PROPERTIES defaultHeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
     D3D12_HEAP_PROPERTIES uploadHeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
-    D3D12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(valueSizeInBytes, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
     D3D12_RESOURCE_DESC uploadBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(valueSizeInBytes);
     CD3DX12_HEAP_PROPERTIES readHeap(D3D12_HEAP_TYPE_READBACK);
     CD3DX12_RESOURCE_DESC readDesc(CD3DX12_RESOURCE_DESC::Buffer(valueSizeInBytes));
 
+    pDevice->GetCopyableFootprints(&resDesc, 0, 1/*mipleveles*/, 0, nullptr, nullptr, nullptr, &uploadBufferDesc.Width);
+    uploadBufferDesc.Height = 1;
+
     VERIFY_SUCCEEDED(pDevice->CreateCommittedResource(
       &defaultHeapProperties,
       D3D12_HEAP_FLAG_NONE,
-      &bufferDesc,
+      &resDesc,
       D3D12_RESOURCE_STATE_COPY_DEST,
       nullptr,
-      IID_PPV_ARGS(&pUavResource)));
+      IID_PPV_ARGS(&pResource)));
 
     VERIFY_SUCCEEDED(pDevice->CreateCommittedResource(
       &uploadHeapProperties,
@@ -881,20 +924,201 @@ public:
       nullptr,
       IID_PPV_ARGS(&pUploadResource)));
 
-    VERIFY_SUCCEEDED(pDevice->CreateCommittedResource(
-      &readHeap, D3D12_HEAP_FLAG_NONE, &readDesc,
-      D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&pReadBuffer)));
+    if (ppReadBuffer)
+      VERIFY_SUCCEEDED(pDevice->CreateCommittedResource(
+        &readHeap, D3D12_HEAP_FLAG_NONE, &readDesc,
+        D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&pReadBuffer)));
 
     transferData.pData = values;
-    transferData.RowPitch = valueSizeInBytes;
-    transferData.SlicePitch = transferData.RowPitch;
+    transferData.RowPitch = valueSizeInBytes/resDesc.Height;
+    transferData.SlicePitch = valueSizeInBytes;
 
-    UpdateSubresources<1>(pCommandList, pUavResource.p, pUploadResource.p, 0, 0, 1, &transferData);
-    RecordTransitionBarrier(pCommandList, pUavResource, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+    UpdateSubresources<1>(pCommandList, pResource.p, pUploadResource.p, 0, 0, 1, &transferData);
+    if (resDesc.Flags & D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS)
+      RecordTransitionBarrier(pCommandList, pResource, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+    else
+      RecordTransitionBarrier(pCommandList, pResource, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COMMON);
 
-    *ppUavResource = pUavResource.Detach();
-    *ppReadBuffer = pReadBuffer.Detach();
+    *ppResource = pResource.Detach();
     *ppUploadResource = pUploadResource.Detach();
+    if (ppReadBuffer)
+      *ppReadBuffer = pReadBuffer.Detach();
+  }
+
+  void CreateTestUavs(ID3D12Device *pDevice,
+                      ID3D12GraphicsCommandList *pCommandList, LPCVOID values,
+                      UINT32 valueSizeInBytes, ID3D12Resource **ppUavResource,
+                      ID3D12Resource **ppUploadResource = nullptr,
+                      ID3D12Resource **ppReadBuffer = nullptr) {
+    D3D12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(valueSizeInBytes, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+    CreateTestResources(pDevice, pCommandList, values, valueSizeInBytes, bufferDesc,
+                        ppUavResource, ppUploadResource, ppReadBuffer);
+
+  }
+
+  // Create and return descriptor heaps for the given device
+  // with the given number of resources and samples.
+  // using some reasonable defaults
+  void CreateDefaultDescHeaps(ID3D12Device *pDevice,
+                              int NumResources, int NumSamplers,
+                              ID3D12DescriptorHeap **ppResHeap, ID3D12DescriptorHeap **ppSampHeap) {
+    // Describe and create descriptor heaps.
+    ID3D12DescriptorHeap *pResHeap, *pSampHeap;
+    D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
+    heapDesc.NumDescriptors = NumResources;
+    heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+    heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+    VERIFY_SUCCEEDED(pDevice->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&pResHeap)));
+
+    heapDesc.NumDescriptors = NumSamplers;
+    heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
+    VERIFY_SUCCEEDED(pDevice->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&pSampHeap)));
+
+    *ppResHeap = pResHeap;
+    *ppSampHeap = pSampHeap;
+  }
+
+  void CreateSRV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &baseHandle,
+                 DXGI_FORMAT format, D3D12_SRV_DIMENSION viewDimension, UINT numElements, UINT stride,
+                 const CComPtr<ID3D12Resource> pResource) {
+    UINT descriptorSize = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    // Create SRV
+    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+    srvDesc.Format = format;
+    srvDesc.ViewDimension = viewDimension;
+    srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    switch (viewDimension) {
+    case D3D12_SRV_DIMENSION_BUFFER:
+      srvDesc.Buffer.FirstElement = 0;
+      srvDesc.Buffer.NumElements = numElements;
+      srvDesc.Buffer.StructureByteStride = stride;
+      if (format == DXGI_FORMAT_R32_TYPELESS && stride == 0)
+        srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
+      else
+        srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+      break;
+    case D3D12_SRV_DIMENSION_TEXTURE1D:
+      srvDesc.Texture1D.MostDetailedMip = 0;
+      srvDesc.Texture1D.MipLevels = 1;
+      srvDesc.Texture1D.ResourceMinLODClamp = 0;
+      break;
+    case D3D12_SRV_DIMENSION_TEXTURE2D:
+      srvDesc.Texture2D.MostDetailedMip = 0;
+      srvDesc.Texture2D.MipLevels = 1;
+      srvDesc.Texture2D.PlaneSlice = 0;
+      srvDesc.Texture2D.ResourceMinLODClamp = 0;
+      break;
+    }
+    pDevice->CreateShaderResourceView(pResource, &srvDesc, baseHandle);
+    baseHandle.Offset(descriptorSize);
+  }
+
+
+  void CreateRawSRV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &heapStart,
+                    UINT numElements, const CComPtr<ID3D12Resource> pResource) {
+    CreateSRV(pDevice, heapStart, DXGI_FORMAT_R32_TYPELESS, D3D12_SRV_DIMENSION_BUFFER, numElements, 0, pResource);
+  }
+
+  void CreateStructSRV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &heapStart,
+                       UINT numElements, UINT stride, const CComPtr<ID3D12Resource> pResource) {
+    CreateSRV(pDevice, heapStart, DXGI_FORMAT_UNKNOWN, D3D12_SRV_DIMENSION_BUFFER, numElements, stride, pResource);
+  }
+
+  void CreateTypedSRV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &heapStart,
+                      UINT numElements, DXGI_FORMAT format, const CComPtr<ID3D12Resource> pResource) {
+    CreateSRV(pDevice, heapStart, format, D3D12_SRV_DIMENSION_BUFFER, numElements, 0, pResource);
+  }
+
+  void CreateTex1DSRV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &heapStart,
+                      UINT numElements, DXGI_FORMAT format, const CComPtr<ID3D12Resource> pResource) {
+    CreateSRV(pDevice, heapStart, format, D3D12_SRV_DIMENSION_TEXTURE1D, numElements, 0, pResource);
+  }
+
+  void CreateTex2DSRV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &heapStart,
+                      UINT numElements, DXGI_FORMAT format, const CComPtr<ID3D12Resource> pResource) {
+    CreateSRV(pDevice, heapStart, format, D3D12_SRV_DIMENSION_TEXTURE2D, numElements, 0, pResource);
+  }
+
+  void CreateUAV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &baseHandle,
+                 DXGI_FORMAT format, D3D12_UAV_DIMENSION viewDimension, UINT numElements, UINT stride,
+                 const CComPtr<ID3D12Resource> pResource) {
+    UINT descriptorSize = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+    uavDesc.Format = format;
+    uavDesc.ViewDimension = viewDimension;
+    switch (viewDimension) {
+    case D3D12_UAV_DIMENSION_BUFFER:
+      uavDesc.Buffer.FirstElement = 0;
+      uavDesc.Buffer.NumElements = numElements;
+      uavDesc.Buffer.StructureByteStride = stride;
+      if (format == DXGI_FORMAT_R32_TYPELESS && stride == 0)
+        uavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_RAW;
+      else
+        uavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
+      break;
+    case D3D12_UAV_DIMENSION_TEXTURE1D:
+      uavDesc.Texture1D.MipSlice = 0;
+      break;
+    case D3D12_UAV_DIMENSION_TEXTURE2D:
+      uavDesc.Texture2D.MipSlice = 0;
+      uavDesc.Texture2D.PlaneSlice = 0;
+      break;
+    }
+    pDevice->CreateUnorderedAccessView(pResource, nullptr, &uavDesc, baseHandle);
+    baseHandle.Offset(descriptorSize);
+  }
+
+  void CreateRawUAV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &heapStart,
+                    UINT numElements, const CComPtr<ID3D12Resource> pResource) {
+    CreateUAV(pDevice, heapStart, DXGI_FORMAT_R32_TYPELESS, D3D12_UAV_DIMENSION_BUFFER, numElements, 0, pResource);
+  }
+
+  void CreateStructUAV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &heapStart,
+                       UINT numElements, UINT stride, const CComPtr<ID3D12Resource> pResource) {
+    CreateUAV(pDevice, heapStart, DXGI_FORMAT_UNKNOWN, D3D12_UAV_DIMENSION_BUFFER, numElements, stride, pResource);
+  }
+
+  void CreateTypedUAV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &heapStart,
+                      UINT numElements, DXGI_FORMAT format, const CComPtr<ID3D12Resource> pResource) {
+    CreateUAV(pDevice, heapStart, format, D3D12_UAV_DIMENSION_BUFFER, numElements, 0, pResource);
+  }
+
+  void CreateTex1DUAV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &heapStart,
+                      UINT numElements, DXGI_FORMAT format, const CComPtr<ID3D12Resource> pResource) {
+    CreateUAV(pDevice, heapStart, format, D3D12_UAV_DIMENSION_TEXTURE1D, numElements, 0, pResource);
+  }
+
+  void CreateTex2DUAV(ID3D12Device *pDevice, CD3DX12_CPU_DESCRIPTOR_HANDLE &heapStart,
+                 UINT numElements, DXGI_FORMAT format, const CComPtr<ID3D12Resource> pResource) {
+    CreateUAV(pDevice, heapStart, format, D3D12_UAV_DIMENSION_TEXTURE2D, numElements, 0, pResource);
+  }
+
+  // Create Samplers for <pDevice> given the filter and border color information provided
+  // using some reasonable defaults
+  void CreateDefaultSamplers(ID3D12Device *pDevice, D3D12_CPU_DESCRIPTOR_HANDLE heapStart,
+                             D3D12_FILTER filters[], float BorderColors[], int NumSamplers) {
+
+    CD3DX12_CPU_DESCRIPTOR_HANDLE sampHandle(heapStart);
+    UINT descriptorSize = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
+    D3D12_SAMPLER_DESC sampDesc = {};
+    sampDesc.Filter = D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT;
+    sampDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+    sampDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+    sampDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+    sampDesc.MipLODBias = 0;
+    sampDesc.MaxAnisotropy = 1;
+    sampDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_EQUAL;
+    sampDesc.MinLOD = 0;
+    sampDesc.MaxLOD = 0;
+
+    for (int i = 0; i < NumSamplers; i++) {
+      sampDesc.Filter = filters[i];
+      for (int j = 0; j < 4; j++)
+        sampDesc.BorderColor[j] = BorderColors[i];
+
+      pDevice->CreateSampler(&sampDesc, sampHandle);
+      sampHandle = sampHandle.Offset(descriptorSize);
+    }
   }
 
   template <typename TVertex, int len>
@@ -937,6 +1161,17 @@ public:
     BOOL Int64ShaderOps;
   };
 
+  bool IsDeviceBasicAdapter(ID3D12Device *pDevice) {
+    CComPtr<IDXGIFactory4> factory;
+    VERIFY_SUCCEEDED(CreateDXGIFactory1(IID_PPV_ARGS(&factory)));
+    LUID adapterID = pDevice->GetAdapterLuid();
+    CComPtr<IDXGIAdapter1> adapter;
+    factory->EnumAdapterByLuid(adapterID, IID_PPV_ARGS(&adapter));
+    DXGI_ADAPTER_DESC1 AdapterDesc;
+    VERIFY_SUCCEEDED(adapter->GetDesc1(&AdapterDesc));
+    return (AdapterDesc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE);
+  }
+
   bool DoesDeviceSupportInt64(ID3D12Device *pDevice) {
     D3D12_FEATURE_DATA_D3D12_OPTIONS1 O;
     if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS1, &O, sizeof(O))))
@@ -972,6 +1207,72 @@ public:
     return O.Native16BitShaderOpsSupported != FALSE;
   }
     
+  bool DoesDeviceSupportMeshShaders(ID3D12Device *pDevice) {
+#if defined(NTDDI_WIN10_VB) && WDK_NTDDI_VERSION >= NTDDI_WIN10_VB
+    D3D12_FEATURE_DATA_D3D12_OPTIONS7 O7;
+    if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS7, &O7, sizeof(O7))))
+      return false;
+    return O7.MeshShaderTier != D3D12_MESH_SHADER_TIER_NOT_SUPPORTED;
+#else
+    UNREFERENCED_PARAMETER(pDevice);
+    return false;
+#endif
+  }
+
+  bool DoesDeviceSupportRayTracing(ID3D12Device *pDevice) {
+#if WDK_NTDDI_VERSION > NTDDI_WIN10_RS4
+    D3D12_FEATURE_DATA_D3D12_OPTIONS5 O5;
+    if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS5, &O5, sizeof(O5))))
+      return false;
+    return O5.RaytracingTier != D3D12_RAYTRACING_TIER_NOT_SUPPORTED;
+#else
+    UNREFERENCED_PARAMETER(pDevice);
+    return false;
+#endif
+  }
+
+  // Replace with appropriate WDK check when available
+#define SM66_RUNTIME_SUPPORT 0
+
+  bool DoesDeviceSupportMeshAmpDerivatives(ID3D12Device *pDevice) {
+#if SM66_RUNTIME_SUPPORT
+    D3D12_FEATURE_DATA_D3D12_OPTIONS7 O7;
+    D3D12_FEATURE_DATA_D3D12_OPTIONS9 O9;
+    if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS7, &O7, sizeof(O7))) ||
+        FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS9, &O9, sizeof(O9))))
+      return false;
+    return O7.MeshShaderTier != D3D12_MESH_SHADER_TIER_NOT_SUPPORTED &&
+      O9.DerivativesInMeshAndAmplificationShadersSupported != FALSE;
+#else
+    UNREFERENCED_PARAMETER(pDevice);
+    return false;
+#endif
+  }
+
+  bool DoesDeviceSupportTyped64Atomics(ID3D12Device *pDevice) {
+#if SM66_RUNTIME_SUPPORT
+    D3D12_FEATURE_DATA_D3D12_OPTIONS9 O9;
+    if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS9, &O9, sizeof(O9))))
+      return false;
+    return O9.AtomicInt64OnTypedResourceSupported != FALSE;
+#else
+    UNREFERENCED_PARAMETER(pDevice);
+    return false;
+#endif
+  }
+
+  bool DoesDeviceSupportShared64Atomics(ID3D12Device *pDevice) {
+#if SM66_RUNTIME_SUPPORT
+    D3D12_FEATURE_DATA_D3D12_OPTIONS9 O9;
+    if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS9, &O9, sizeof(O9))))
+      return false;
+    return O9.AtomicInt64OnGroupSharedSupported != FALSE;
+#else
+    UNREFERENCED_PARAMETER(pDevice);
+    return false;
+#endif
+  }
+
 #ifndef _HLK_CONF
   void DXBCFromText(LPCSTR pText, LPCWSTR pEntryPoint, LPCWSTR pTargetProfile, ID3DBlob **ppBlob) {
     CW2A pEntryPointA(pEntryPoint, CP_UTF8);
@@ -1108,8 +1409,8 @@ public:
   void RunLifetimeIntrinsicTest(ID3D12Device *pDevice, LPCSTR shader, D3D_SHADER_MODEL shaderModel, bool useLibTarget, LPCWSTR *pOptions, int numOptions, std::vector<uint32_t> &values);
   void RunLifetimeIntrinsicComputeTest(ID3D12Device *pDevice, LPCSTR pShader, CComPtr<ID3D12DescriptorHeap>& pUavHeap, CComPtr<ID3D12RootSignature>& pRootSignature,
                                        LPCWSTR pTargetProfile, LPCWSTR *pOptions, int numOptions, std::vector<uint32_t> &values);
-  void RunLifetimeIntrinsicLibTest(ID3D12Device5 *pDevice, LPCSTR pShader, CComPtr<ID3D12DescriptorHeap>& pUavHeap, CComPtr<ID3D12RootSignature>& pRootSignature,
-                                   LPCWSTR pTargetProfile, LPCWSTR *pOptions, int numOptions, std::vector<uint32_t> &values);
+  void RunLifetimeIntrinsicLibTest(ID3D12Device5 *pDevice, LPCSTR pShader, CComPtr<ID3D12RootSignature>& pRootSignature,
+                                   LPCWSTR pTargetProfile, LPCWSTR *pOptions, int numOptions);
 
   void SetDescriptorHeap(ID3D12GraphicsCommandList *pCommandList, ID3D12DescriptorHeap *pHeap) {
     ID3D12DescriptorHeap *const pHeaps[1] = { pHeap };
@@ -1240,7 +1541,7 @@ void ExecutionTest::RunRWByteBufferComputeTest(ID3D12Device *pDevice, LPCSTR pSh
   CComPtr<ID3D12Resource> pUavResource;
   CComPtr<ID3D12Resource> pReadBuffer;
   CComPtr<ID3D12Resource> pUploadResource;
-  CreateTestUavs(pDevice, pCommandList, values.data(), valueSizeInBytes, &pUavResource, &pReadBuffer, &pUploadResource);
+  CreateTestUavs(pDevice, pCommandList, values.data(), valueSizeInBytes, &pUavResource, &pUploadResource, &pReadBuffer);
   VERIFY_SUCCEEDED(pUavResource->SetName(L"RunRWByteBufferComputeText UAV"));
   VERIFY_SUCCEEDED(pReadBuffer->SetName(L"RunRWByteBufferComputeText UAV Read Buffer"));
   VERIFY_SUCCEEDED(pUploadResource->SetName(L"RunRWByteBufferComputeText UAV Upload Buffer"));
@@ -1308,7 +1609,7 @@ void ExecutionTest::RunLifetimeIntrinsicComputeTest(ID3D12Device *pDevice, LPCST
   CComPtr<ID3D12Resource> pUavResource;
   CComPtr<ID3D12Resource> pReadBuffer;
   CComPtr<ID3D12Resource> pUploadResource;
-  CreateTestUavs(pDevice, pCommandList, values.data(), valueSizeInBytes, &pUavResource, &pReadBuffer, &pUploadResource);
+  CreateTestUavs(pDevice, pCommandList, values.data(), valueSizeInBytes, &pUavResource, &pUploadResource, &pReadBuffer);
   VERIFY_SUCCEEDED(pUavResource->SetName(L"RunLifetimeIntrinsicTest UAV"));
   VERIFY_SUCCEEDED(pReadBuffer->SetName(L"RunLifetimeIntrinsicTest UAV Read Buffer"));
   VERIFY_SUCCEEDED(pUploadResource->SetName(L"RunLifetimeIntrinsicTest UAV Upload Buffer"));
@@ -1355,8 +1656,8 @@ void ExecutionTest::RunLifetimeIntrinsicComputeTest(ID3D12Device *pDevice, LPCST
   WaitForSignal(pCommandQueue, FO);
 }
 
-void ExecutionTest::RunLifetimeIntrinsicLibTest(ID3D12Device5 *pDevice, LPCSTR pShader, CComPtr<ID3D12DescriptorHeap>& pUavHeap, CComPtr<ID3D12RootSignature>& pRootSignature,
-                                                LPCWSTR pTargetProfile, LPCWSTR *pOptions, int numOptions, std::vector<uint32_t> &values) {
+void ExecutionTest::RunLifetimeIntrinsicLibTest(ID3D12Device5 *pDevice, LPCSTR pShader, CComPtr<ID3D12RootSignature>& pRootSignature,
+                                                LPCWSTR pTargetProfile, LPCWSTR *pOptions, int numOptions) {
   // Create command queue.
   CComPtr<ID3D12CommandQueue> pCommandQueue;
   CreateCommandQueue(pDevice, L"RunLifetimeIntrinsicTest Command Queue", &pCommandQueue, D3D12_COMMAND_LIST_TYPE_DIRECT);
@@ -1444,7 +1745,7 @@ void ExecutionTest::RunLifetimeIntrinsicTest(ID3D12Device *pDevice, LPCSTR pShad
   }
 
   if (useLibTarget)
-    RunLifetimeIntrinsicLibTest(reinterpret_cast<ID3D12Device5*>(pDevice), pShader, pUavHeap, pRootSignature, pTargetProfile, pOptions, numOptions, values);
+    RunLifetimeIntrinsicLibTest(reinterpret_cast<ID3D12Device5*>(pDevice), pShader, pRootSignature, pTargetProfile, pOptions, numOptions);
   else
     RunLifetimeIntrinsicComputeTest(pDevice, pShader, pUavHeap, pRootSignature, pTargetProfile, pOptions, numOptions, values);
 }
@@ -1496,8 +1797,11 @@ TEST_F(ExecutionTest, LifetimeIntrinsicTest) {
   // TODO: There's probably a lot of things in the rest of this test that could be stripped away.
 
   CComPtr<ID3D12Device5> pDevice;
-  if (!CreateDevice(reinterpret_cast<ID3D12Device**>(&pDevice), D3D_SHADER_MODEL_6_5, true, true)) // TODO: We need 6.6!
+  if (!CreateDevice(reinterpret_cast<ID3D12Device**>(&pDevice), D3D_SHADER_MODEL_6_6, true, true)) {
+    WEX::Logging::Log::Comment(L"Lifetime test not run pre 6.6");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
     return;
+  }
 
   std::vector<uint32_t> values;
   SetupComputeValuePattern(values, ThreadsPerGroup * DispatchGroupCount);
@@ -1514,9 +1818,11 @@ TEST_F(ExecutionTest, LifetimeIntrinsicTest) {
   RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_0, false, pOptions15, _countof(pOptions15), values);
   VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
 
-  // Test library with zeroinitializer store.
-  RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_3, true, pOptions15, _countof(pOptions15), values);
-  VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
+  if (DoesDeviceSupportRayTracing(pDevice)) {
+    // Test library with zeroinitializer store.
+    RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_3, true, pOptions15, _countof(pOptions15), values);
+    VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
+  }
 
   // Testing SM 6.6 and validator version 1.6 requires experimental shaders
   // being turned on.
@@ -1527,17 +1833,21 @@ TEST_F(ExecutionTest, LifetimeIntrinsicTest) {
   RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_0, false, pOptions16, _countof(pOptions16), values);
   VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
 
-  // Test library with undef store.
-  RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_3, true, pOptions16, _countof(pOptions16), values);
-  VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
+  if (DoesDeviceSupportRayTracing(pDevice)) {
+    // Test library with undef store.
+    RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_3, true, pOptions16, _countof(pOptions16), values);
+    VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
+  }
 
   // Test regular shader with lifetime intrinsics.
   RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_5, false, pOptions16, _countof(pOptions16), values); // TODO: Test 6.6 here!
   VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
 
-  // Test library with lifetime intrinsics.
-  RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_5, true, pOptions16, _countof(pOptions16), values); // TODO: Test 6.6 here!
-  VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
+  if (DoesDeviceSupportRayTracing(pDevice)) {
+    // Test library with lifetime intrinsics.
+    RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_5, true, pOptions16, _countof(pOptions16), values); // TODO: Test 6.6 here!
+    VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
+  }
 }
 
 TEST_F(ExecutionTest, BasicComputeTest) {
@@ -1672,6 +1982,7 @@ TEST_F(ExecutionTest, BasicTriangleTest) {
       }
     }
     static void __stdcall OutputFn(void *pCtx, const wchar_t *pMsg) {
+      UNREFERENCED_PARAMETER(pCtx);
       LogCommentFmt(L"%s", pMsg);
     }
   };
@@ -1919,7 +2230,7 @@ TEST_F(ExecutionTest, WaveIntrinsicsTest) {
   values.resize(ThreadsPerGroup * DispatchGroupCount);
   for (size_t i = 0; i < values.size(); ++i) {
     memset(&values[i], 0, sizeof(PerThreadData));
-    values[i].id = i;
+    values[i].id = (uint32_t)i;
     values[i].i_diver = (int)i;
     values[i].i_diver *= (i % 2) ? 1 : -1;
   }
@@ -1978,7 +2289,7 @@ TEST_F(ExecutionTest, WaveIntrinsicsTest) {
   CComPtr<ID3D12Resource> pUavResource;
   CComPtr<ID3D12Resource> pReadBuffer;
   CComPtr<ID3D12Resource> pUploadResource;
-  CreateTestUavs(pDevice, pCommandList, values.data(), valueSizeInBytes, &pUavResource, &pReadBuffer, &pUploadResource);
+  CreateTestUavs(pDevice, pCommandList, values.data(), (UINT)valueSizeInBytes, &pUavResource, &pUploadResource, &pReadBuffer);
 
   // Close the command list and execute it to perform the GPU setup.
   pCommandList->Close();
@@ -1993,7 +2304,7 @@ TEST_F(ExecutionTest, WaveIntrinsicsTest) {
     uavDesc.Format = DXGI_FORMAT_UNKNOWN;
     uavDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
     uavDesc.Buffer.FirstElement = 0;
-    uavDesc.Buffer.NumElements = values.size();
+    uavDesc.Buffer.NumElements = (UINT)values.size();
     uavDesc.Buffer.StructureByteStride = sizeof(PerThreadData);
     uavDesc.Buffer.CounterOffsetInBytes = 0;
     uavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
@@ -2011,7 +2322,7 @@ TEST_F(ExecutionTest, WaveIntrinsicsTest) {
   ExecuteCommandList(pCommandQueue, pCommandList);
   WaitForSignal(pCommandQueue, FO);
   {
-    MappedData mappedData(pReadBuffer, valueSizeInBytes);
+    MappedData mappedData(pReadBuffer, (UINT)valueSizeInBytes);
     PerThreadData *pData = (PerThreadData *)mappedData.data();
     memcpy(values.data(), pData, valueSizeInBytes);
 
@@ -2305,14 +2616,14 @@ TEST_F(ExecutionTest, WaveIntrinsicsInPSTest) {
   CComPtr<ID3D12Resource> pUavResource;
   CComPtr<ID3D12Resource> pUavReadBuffer;
   CComPtr<ID3D12Resource> pUploadResource;
-  CreateTestUavs(pDevice, pCommandList, values.data(), valueSizeInBytes, &pUavResource, &pUavReadBuffer, &pUploadResource);
+  CreateTestUavs(pDevice, pCommandList, values.data(), valueSizeInBytes, &pUavResource, &pUploadResource, &pUavReadBuffer);
 
   // Set up the append counter resource.
   CComPtr<ID3D12Resource> pUavCounterResource;
   CComPtr<ID3D12Resource> pReadCounterBuffer;
   CComPtr<ID3D12Resource> pUploadCounterResource;
   BYTE zero[sizeof(UINT)] = { 0 };
-  CreateTestUavs(pDevice, pCommandList, zero, sizeof(zero), &pUavCounterResource, &pReadCounterBuffer, &pUploadCounterResource);
+  CreateTestUavs(pDevice, pCommandList, zero, sizeof(zero), &pUavCounterResource, &pUploadCounterResource, &pReadCounterBuffer);
 
   // Close the command list and execute it to perform the GPU setup.
   pCommandList->Close();
@@ -2666,8 +2977,8 @@ void ExecutionTest::BasicTriangleTestSetup(LPCSTR ShaderOpName, LPCWSTR FileName
   std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(pDevice, m_support, pStream, ShaderOpName, nullptr);
   MappedData data;
   D3D12_RESOURCE_DESC &D = test->ShaderOp->GetResourceByName("RTarget")->Desc;
-  UINT width = (UINT64)D.Width;
-  UINT height = (UINT64)D.Height;
+  UINT width = (UINT)D.Width;
+  UINT height = D.Height;
   test->Test->GetReadBackData("RTarget", &data);
   const uint32_t *pPixels = (uint32_t *)data.data();
   if (SaveImages()) {
@@ -2694,31 +3005,9 @@ TEST_F(ExecutionTest, BasicTriangleOpTestHalf) {
   BasicTriangleTestSetup("TriangleHalf", L"basic-triangle-half.bmp", D3D_SHADER_MODEL_6_2);
 }
 
-// Rendering two right triangles forming a square and assigning a texture value
-// for each pixel to calculate derivates.
-TEST_F(ExecutionTest, PartialDerivTest) {
-  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
-  CComPtr<IStream> pStream;
-  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
-
-  CComPtr<ID3D12Device> pDevice;
-  if (!CreateDevice(&pDevice))
-      return;
-
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(pDevice, m_support, pStream, "DerivFine", nullptr);
-  MappedData data;
-  D3D12_RESOURCE_DESC &D = test->ShaderOp->GetResourceByName("RTarget")->Desc;
-  UINT width = (UINT)D.Width;
-  UINT height = D.Height;
-  UINT pixelSize = GetByteSizeForFormat(D.Format) / 4;
-
-  test->Test->GetReadBackData("RTarget", &data);
-  const float *pPixels = (float *)data.data();
-
-  UINT centerIndex = (UINT64)width * height / 2 - width / 2;
+void VerifyDerivResults(const float *pPixels, UINT offsetCenter) {
 
   // pixel at the center
-  UINT offsetCenter = centerIndex * pixelSize;
   float CenterDDXFine = pPixels[offsetCenter];
   float CenterDDYFine = pPixels[offsetCenter + 1];
   float CenterDDXCoarse = pPixels[offsetCenter + 2];
@@ -2768,6 +3057,391 @@ TEST_F(ExecutionTest, PartialDerivTest) {
                    CompareFloatULP(CenterDDXCoarse, .125f, ulpTolerance))  &&
                    (CompareFloatULP(CenterDDYCoarse, -255.875f, ulpTolerance) ||
                    CompareFloatULP(CenterDDYCoarse, -511.75f, ulpTolerance)));
+  }
+}
+
+// Rendering two right triangles forming a square and assigning a texture value
+// for each pixel to calculate derivates.
+TEST_F(ExecutionTest, PartialDerivTest) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice))
+      return;
+
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(pDevice, m_support, pStream, "DerivFine", nullptr);
+  MappedData data;
+  D3D12_RESOURCE_DESC &D = test->ShaderOp->GetResourceByName("RTarget")->Desc;
+  UINT width = (UINT)D.Width;
+  UINT height = D.Height;
+  UINT pixelSize = GetByteSizeForFormat(D.Format) / 4;
+
+  test->Test->GetReadBackData("RTarget", &data);
+  const float *pPixels = (float *)data.data();
+
+  UINT centerIndex = (UINT64)width * height / 2 - width / 2;
+  UINT offsetCenter = centerIndex * pixelSize;
+
+  VerifyDerivResults(pPixels, offsetCenter);
+}
+
+TEST_F(ExecutionTest, DerivativesTest) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6))
+    return;
+
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+    std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+
+  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("Derivatives");
+
+  LPCSTR CS = pShaderOp->CS;
+
+  struct Dispatch {
+    int x, y, z;
+    int mx, my, mz;
+  };
+  std::vector<Dispatch> dispatches =
+  {
+   {32, 32, 1, 8, 8, 1},
+   {64, 4, 1, 64, 2, 1},
+   {1, 4, 64, 1, 4, 32},
+   {64, 1, 1, 64, 1, 1},
+   {1, 64, 1, 1, 64, 1},
+   {1, 1, 64, 1, 1, 64},
+   {16, 16, 3, 4, 4, 3},
+   {32, 3, 8, 8, 3, 2},
+   {3, 1, 64, 3, 1, 32}
+  };
+
+  char compilerOptions[256];
+  for (Dispatch &D : dispatches) {
+
+    UINT width = D.x;
+    UINT height = D.y;
+    UINT depth = D.z;
+
+    UINT mwidth = D.mx;
+    UINT mheight = D.my;
+    UINT mdepth = D.mz;
+    UINT pixelSize = 4; // always float4
+
+    // format compiler args
+    VERIFY_IS_TRUE(sprintf_s(compilerOptions, sizeof(compilerOptions),
+                             "-D DISPATCHX=%d -D DISPATCHY=%d -D DISPATCHZ=%d "
+                             "-D MESHDISPATCHX=%d -D MESHDISPATCHY=%d -D MESHDISPATCHZ=%d",
+                             width, height, depth, mwidth, mheight, mdepth));
+
+    for (st::ShaderOpShader &S : pShaderOp->Shaders)
+      S.Arguments = compilerOptions;
+
+    pShaderOp->DispatchX = width;
+    pShaderOp->DispatchY = height;
+    pShaderOp->DispatchZ = depth;
+
+    // Test Compute Shader
+    pShaderOp->CS = CS;
+    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Derivatives", nullptr, ShaderOpSet);
+    MappedData data;
+
+    test->Test->GetReadBackData("U0", &data);
+    const float *pPixels = (float *)data.data();
+
+    // To find roughly the center for compute, divide the pixel count in half,
+    // truncate to next lowest power of 16 (4x4), which is the repeating period
+    // and then add 10 to reach the point the test expects
+    UINT centerIndex = (((UINT64)(width * height * depth)/2) & ~0xF) + 10;
+    UINT offsetCenter = centerIndex * pixelSize;
+    LogCommentFmt(L"Verifying derivatives in compute shader results");
+    VerifyDerivResults(pPixels, offsetCenter);
+
+    if (DoesDeviceSupportMeshAmpDerivatives(pDevice)) {
+      // Disable CS so mesh goes forward
+      pShaderOp->CS = nullptr;
+      test = RunShaderOpTestAfterParse(pDevice, m_support, "Derivatives", nullptr, ShaderOpSet);
+      test->Test->GetReadBackData("U1", &data);
+      pPixels = (float *)data.data();
+      centerIndex = (((UINT64)(mwidth * mheight * mdepth)/2) & ~0xF) + 10;
+      offsetCenter = centerIndex * pixelSize;
+      LogCommentFmt(L"Verifying derivatives in mesh shader results");
+      VerifyDerivResults(pPixels, offsetCenter);
+
+      test->Test->GetReadBackData("U2", &data);
+      pPixels = (float *)data.data();
+      LogCommentFmt(L"Verifying derivatives in amplification shader results");
+      VerifyDerivResults(pPixels, offsetCenter);
+    }
+  }
+
+  // Final test with not divisible by 4 dispatch size just to make sure it runs
+  for (st::ShaderOpShader &S : pShaderOp->Shaders)
+    S.Arguments = "-D DISPATCHX=3 -D DISPATCHY=3 -D DISPATCHZ=3 "
+                  "-D MESHDISPATCHX=3 -D MESHDISPATCHY=3 -D MESHDISPATCHZ=3";
+
+  pShaderOp->DispatchX = 3;
+  pShaderOp->DispatchY = 3;
+  pShaderOp->DispatchZ = 3;
+
+  // Test Compute Shader
+  pShaderOp->CS = CS;
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Derivatives", nullptr, ShaderOpSet);
+  if (DoesDeviceSupportMeshAmpDerivatives(pDevice)) {
+    pShaderOp->CS = nullptr;
+    test = RunShaderOpTestAfterParse(pDevice, m_support, "Derivatives", nullptr, ShaderOpSet);
+  }
+}
+
+// Verify the results for the quad starting with the given index
+void VerifyQuadReadResults(const UINT *pPixels, UINT quadIndex) {
+  for (UINT i = 0; i < 4; i++) {
+    UINT ix = quadIndex + i;
+    VERIFY_ARE_EQUAL(pPixels[4*ix + 0], ix); // ReadLaneAt own quad index
+    VERIFY_ARE_EQUAL(pPixels[4*ix + 1], (ix^1));// ReadAcrossX
+    VERIFY_ARE_EQUAL(pPixels[4*ix + 2], (ix^2));// ReadAcrossY
+    VERIFY_ARE_EQUAL(pPixels[4*ix + 3], (ix^3));// ReadAcrossDiagonal
+  }
+}
+
+
+TEST_F(ExecutionTest, QuadReadTest) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice))
+    return;
+
+  if (GetTestParamUseWARP(UseWarpByDefault()) || IsDeviceBasicAdapter(pDevice)) {
+    WEX::Logging::Log::Comment(L"WARP does not support QuadRead in compute shaders.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+    std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+
+  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("QuadRead");
+  LPCSTR CS = pShaderOp->CS;
+
+  struct Dispatch {
+    int x, y, z;
+    int mx, my, mz;
+  };
+  //std::vector<std::tuple<int, int, int, int, int>> dispatches =
+  std::vector<Dispatch> dispatches =
+  {
+   {32, 32, 1, 8, 8, 1},
+   {64, 4, 1, 64, 2, 1},
+   {1, 4, 64, 1, 4, 32},
+   {64, 1, 1, 64, 1, 1},
+   {1, 64, 1, 1, 64, 1},
+   {1, 1, 64, 1, 1, 64},
+   {16, 16, 3, 4, 4, 3},
+   {32, 3, 8, 8, 3, 2},
+   {3, 1, 64, 3, 1, 32}
+  };
+
+  for (Dispatch &D : dispatches) {
+
+    UINT width = D.x;
+    UINT height = D.y;
+    UINT depth = D.z;
+
+    UINT mwidth = D.mx;
+    UINT mheight = D.my;
+    UINT mdepth = D.mz;
+    // format compiler args
+    char compilerOptions[256];
+    VERIFY_IS_TRUE(sprintf_s(compilerOptions, sizeof(compilerOptions),
+                             "-D DISPATCHX=%d -D DISPATCHY=%d -D DISPATCHZ=%d "
+                             "-D MESHDISPATCHX=%d -D MESHDISPATCHY=%d -D MESHDISPATCHZ=%d",
+                             width, height, depth, mwidth, mheight, mdepth));
+
+    for (st::ShaderOpShader &S : pShaderOp->Shaders)
+      S.Arguments = compilerOptions;
+
+    pShaderOp->DispatchX = width;
+    pShaderOp->DispatchY = height;
+    pShaderOp->DispatchZ = depth;
+
+    // Test Compute Shader
+    pShaderOp->CS = CS;
+    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "QuadRead", nullptr, ShaderOpSet);
+    MappedData data;
+
+    test->Test->GetReadBackData("U0", &data);
+    const UINT *pPixels = (UINT *)data.data();
+
+    // To find roughly the center for compute, divide the pixel count in half
+    // and truncate to next lowest power of 4 to start at a quad
+    UINT offsetCenter = ((UINT64)(width * height * depth)/2) & ~0x3;
+
+    // Test first, second and center quads
+    LogCommentFmt(L"Verifying QuadRead* in compute shader results");
+    VerifyQuadReadResults(pPixels, 0);
+    VerifyQuadReadResults(pPixels, 4);
+    VerifyQuadReadResults(pPixels, offsetCenter);
+
+    if (DoesDeviceSupportMeshAmpDerivatives(pDevice)) {
+      offsetCenter = ((UINT64)(mwidth * mheight * mdepth)/2) & ~0x3;
+
+      // Disable CS so mesh goes forward
+      pShaderOp->CS = nullptr;
+      test = RunShaderOpTestAfterParse(pDevice, m_support, "QuadRead", nullptr, ShaderOpSet);
+      test->Test->GetReadBackData("U1", &data);
+      pPixels = (UINT *)data.data();
+      // Test first, second and center quads
+      LogCommentFmt(L"Verifying QuadRead* in mesh shader results");
+      VerifyQuadReadResults(pPixels, 0);
+      VerifyQuadReadResults(pPixels, 4);
+      VerifyQuadReadResults(pPixels, offsetCenter);
+
+      test->Test->GetReadBackData("U2", &data);
+      pPixels = (UINT *)data.data();
+      // Test first, second and center quads
+      LogCommentFmt(L"Verifying QuadRead* in amplification shader results");
+      VerifyQuadReadResults(pPixels, 0);
+      VerifyQuadReadResults(pPixels, 4);
+      VerifyQuadReadResults(pPixels, offsetCenter);
+    }
+  }
+}
+
+void VerifySampleResults(const UINT *pPixels, UINT width) {
+  UINT xlod = 0;
+  UINT ylod = 0;
+  // Each pixel contains 4 samples and 4 LOD calculations.
+  // 2 of these (called 'left' and 'right') have X values that vary and a constant Y
+  // 2 others (called 'top' and 'bot') have Y values that vary and a constant X
+  // Only of the X variant sample results and one of the Y variant results
+  // are actually reported for the pixel.
+  // The other 2 serve as "helpers" to the other pixels in the quad.
+  // On the left side of the quad, the 'left' samples are reported.
+  // Op the top of the quad, the 'top' samples are reported and so on.
+  // The varying coordinate values alternate between zero and a
+  // value whose magnitude increases with the index.
+  // As a result, the LOD level should steadily increas.
+  // Due to vagaries of implementation, the same derivatives
+  // in both directions might result in different levels for different locations
+  // in the quad. So only comparisons between sample results and LOD calculations
+  // and ensuring that the LOD increased and reaches the max can be tested reliably.
+  for (unsigned i = 0; i < width; i++) {
+    // CalculateLOD and Sample from texture with mip levels containing LOD index should match
+    VERIFY_ARE_EQUAL(pPixels[4*i + 0], pPixels[4*i + 1]);
+    VERIFY_ARE_EQUAL(pPixels[4*i + 2], pPixels[4*i + 3]);
+    // Make sure LODs are ever climbing as magnitudes increase
+    VERIFY_IS_TRUE(pPixels[4*i] >= xlod);
+    xlod = pPixels[4*i];
+    VERIFY_IS_TRUE(pPixels[4*i + 2] >= ylod);
+    ylod = pPixels[4*i + 2];
+  }
+  // Make sure we reached the max lod level for both tracks
+  VERIFY_ARE_EQUAL(xlod, 6u);
+  VERIFY_ARE_EQUAL(ylod, 6u);
+}
+
+TEST_F(ExecutionTest, ComputeSampleTest) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6))
+      return;
+
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+    std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+
+  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("ComputeSample");
+
+  // Initialize texture with the LOD number in each corresponding mip level
+  auto SampleInitFn = [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
+                        UNREFERENCED_PARAMETER(pShaderOp);
+                        VERIFY_ARE_EQUAL(0, _stricmp(Name, "T0"));
+                        D3D12_RESOURCE_DESC &texDesc = pShaderOp->GetResourceByName("T0")->Desc;
+                        UINT texWidth = (UINT)texDesc.Width;
+                        UINT texHeight = (UINT)texDesc.Height;
+                        size_t size = sizeof(float) * texWidth * texHeight * 2;
+                        Data.resize(size);
+                        float *pPrimitives = (float *)Data.data();
+                        float lod = 0.0;
+                        int ix = 0;
+                        while (texHeight > 0 && texWidth > 0) {
+                          if(!texHeight) texHeight = 1;
+                          if(!texWidth) texWidth = 1;
+                          for (size_t j = 0; j < texHeight; ++j) {
+                            for (size_t i = 0; i < texWidth; ++i) {
+                              pPrimitives[ix++] = lod;
+                            }
+                          }
+                          lod += 1.0;
+                          texHeight >>= 1;
+                          texWidth >>= 1;
+                        }
+                      };
+  LPCSTR CS2 = nullptr, AS2 = nullptr, MS2 = nullptr;
+  for (st::ShaderOpShader &S : pShaderOp->Shaders) {
+    if (!strcmp(S.Name, "CS2")) CS2 = S.Name;
+    if (!strcmp(S.Name, "AS2")) AS2 = S.Name;
+    if (!strcmp(S.Name, "MS2")) MS2 = S.Name;
+  }
+
+  // Test 1D compute shader
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "ComputeSample", SampleInitFn, ShaderOpSet);
+  MappedData data;
+
+  test->Test->GetReadBackData("U0", &data);
+  const UINT *pPixels = (UINT *)data.data();
+
+  VerifySampleResults(pPixels, 84*4);
+
+  // Test 2D compute shader
+  pShaderOp->CS = CS2;
+
+  test = RunShaderOpTestAfterParse(pDevice, m_support, "ComputeSample", SampleInitFn, ShaderOpSet);
+
+  test->Test->GetReadBackData("U0", &data);
+  pPixels = (UINT *)data.data();
+
+  VerifySampleResults(pPixels, 84*4);
+
+
+  if (DoesDeviceSupportMeshAmpDerivatives(pDevice)) {
+    // Disable CS so mesh goes forward
+    pShaderOp->CS = nullptr;
+    test = RunShaderOpTestAfterParse(pDevice, m_support, "ComputeSample", SampleInitFn, ShaderOpSet);
+    test->Test->GetReadBackData("U1", &data);
+    pPixels = (UINT *)data.data();
+
+    VerifySampleResults(pPixels, 116);
+
+    test->Test->GetReadBackData("U2", &data);
+    pPixels = (UINT *)data.data();
+
+    VerifySampleResults(pPixels, 84);
+
+    pShaderOp->AS = AS2;
+    pShaderOp->MS = MS2;
+    test = RunShaderOpTestAfterParse(pDevice, m_support, "ComputeSample", SampleInitFn, ShaderOpSet);
+    test->Test->GetReadBackData("U1", &data);
+    pPixels = (UINT *)data.data();
+
+    VerifySampleResults(pPixels, 116);
+
+    test->Test->GetReadBackData("U2", &data);
+    pPixels = (UINT *)data.data();
+
+    VerifySampleResults(pPixels, 84);
   }
 }
 
@@ -3086,6 +3760,33 @@ struct SMsad4 {
     XMUINT4 accum;
     XMUINT4 result;
 };
+
+struct SPackUnpackOpOutPacked
+{
+    uint32_t packedUint32;
+    uint32_t packedInt32;
+    uint32_t packedUint16;
+    uint32_t packedInt16;
+
+    uint32_t packedClampedUint32;
+    uint32_t packedClampedInt32;
+    uint32_t packedClampedUint16;
+    uint32_t packedClampedInt16;
+};
+
+struct SPackUnpackOpOutUnpacked {
+    std::array<uint32_t, 4> outputUint32;
+    std::array<int32_t,  4> outputInt32;
+    std::array<uint16_t, 4> outputUint16;
+    std::array<int16_t,  4> outputInt16;
+
+    std::array<uint32_t, 4> outputClampedUint32;
+    std::array<int32_t,  4> outputClampedInt32;
+    std::array<uint16_t, 4> outputClampedUint16;
+    std::array<int16_t,  4> outputClampedInt16;
+};
+
+
 // Parameter representation for taef data-driven tests
 struct TableParameter {
     LPCWSTR m_name;
@@ -3592,6 +4293,13 @@ static TableParameter DenormTertiaryFPOpParameters[] = {
     { L"Validation.Tolerance", TableParameter::DOUBLE, true },
 };
 
+static TableParameter PackUnpackOpParameters[] = {
+    { L"ShaderOp.Text", TableParameter::STRING, true },
+    { L"Validation.Type", TableParameter::STRING, true },
+    { L"Validation.Tolerance", TableParameter::UINT, true },
+    { L"Validation.Input", TableParameter::UINT32_TABLE, true },
+};
+
 static bool IsHexString(PCWSTR str, uint16_t *value) {
   std::wstring wString(str);
   wString.erase(std::remove(wString.begin(), wString.end(), L' '), wString.end());
@@ -3965,6 +4673,13 @@ static void VerifyOutputWithExpectedValueInt(int output, int ref, int tolerance)
 
 static void VerifyOutputWithExpectedValueUInt(uint32_t output, uint32_t ref, uint32_t tolerance) {
     VERIFY_IS_TRUE(output - ref <= tolerance && ref - output <= tolerance);
+}
+
+static void VerifyOutputWithExpectedValueUInt4(XMUINT4 output, XMUINT4 ref) {
+  VERIFY_ARE_EQUAL(output.x, ref.x);
+  VERIFY_ARE_EQUAL(output.y, ref.y);
+  VERIFY_ARE_EQUAL(output.z, ref.z);
+  VERIFY_ARE_EQUAL(output.w, ref.w);
 }
 
 static void VerifyOutputWithExpectedValueFloat(
@@ -7080,7 +7795,7 @@ void ExecutionTest::RunComputeRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, Ra
 
    CComPtr<ID3D12Device> pDevice;
    CComPtr<IStream> pStream;
-   char *sTy, *additionalOptions;
+   char *sTy = nullptr, *additionalOptions = nullptr;
 
    if (!SetupRawBufferLdStTest(shaderModel, dataType, pDevice, pStream, sTy, additionalOptions)) {
      return;
@@ -7120,7 +7835,7 @@ void ExecutionTest::RunGraphicsRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, R
 
   CComPtr<ID3D12Device> pDevice;
   CComPtr<IStream> pStream;
-  char *sTy, *additionalOptions;
+  char *sTy = nullptr, *additionalOptions = nullptr;
 
   if (!SetupRawBufferLdStTest(shaderModel, dataType, pDevice, pStream, sTy, additionalOptions)) {
     return;
@@ -7151,6 +7866,1486 @@ void ExecutionTest::RunGraphicsRawBufferLdStTest(D3D_SHADER_MODEL shaderModel, R
 
   // verify expected values
   VerifyRawBufferLdStTestResults<Ty>(test->Test, testData);
+}
+
+template<typename T>
+uint32_t pack(std::array<T, 4> unpackedVals)
+{   
+    uint32_t dst = 0;
+    constexpr uint32_t bitMask = 0xFF;
+    for (uint32_t i = 0U; i < 4U; ++i)
+    {
+        dst |= (unpackedVals[i] & bitMask) << (i * 8);
+    }
+
+    return dst;
+}
+
+template <typename T>
+uint32_t pack_clamp_u8(std::array<T, 4> unpackedVals)
+{
+    int32_t clamp_min = std::numeric_limits<uint8_t>::min();
+    int32_t clamp_max = std::numeric_limits<uint8_t>::max();
+
+    uint32_t dst = 0;
+    for (uint32_t i = 0U; i < 4U; ++i)
+    {
+        int32_t clamped = std::min(std::max((int32_t)unpackedVals[i], clamp_min), clamp_max);
+        dst |= ((uint8_t)clamped) << (i * 8);
+    }
+
+    return dst;
+}
+
+template <typename T>
+uint32_t pack_clamp_s8(std::array<T, 4> unpackedVals)
+{
+    int32_t clamp_min = std::numeric_limits<int8_t>::min();
+    int32_t clamp_max = std::numeric_limits<int8_t>::max();
+
+    uint32_t dst = 0;
+    for (uint32_t i = 0U; i < 4U; ++i)
+    {
+        int32_t clamped = std::min(std::max((int32_t)unpackedVals[i], clamp_min), clamp_max);
+        dst |= ((uint8_t)clamped) << (i * 8);
+    }
+
+    return dst;
+}
+
+template<typename T>
+std::array<T, 4> unpack_u(uint32_t packedVal)
+{   
+    std::array<T, 4> ret;
+    ret[0] = (uint8_t)((packedVal & 0x000000FF) >> 0 );
+    ret[1] = (uint8_t)((packedVal & 0x0000FF00) >> 8 );
+    ret[2] = (uint8_t)((packedVal & 0x00FF0000) >> 16);
+    ret[3] = (uint8_t)((packedVal & 0xFF000000) >> 24);
+
+    return ret;
+}
+
+template<typename T>
+std::array<T, 4> unpack_s(uint32_t packedVal)
+{   
+    std::array<T, 4> ret;
+    ret[0] = (int8_t)((packedVal & 0x000000FF) >> 0 );
+    ret[1] = (int8_t)((packedVal & 0x0000FF00) >> 8 );
+    ret[2] = (int8_t)((packedVal & 0x00FF0000) >> 16);
+    ret[3] = (int8_t)((packedVal & 0xFF000000) >> 24);
+
+    return ret;
+}
+
+
+TEST_F(ExecutionTest, PackUnpackTest) {
+    WEX::TestExecution::SetVerifyOutput verifySettings(
+        WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+    CComPtr<IStream> pStream;
+    ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+    CComPtr<ID3D12Device> pDevice;
+
+#ifdef PACKUNPACK_PLACEHOLDER
+    string args = "-enable-16bit-types -DPACKUNPACK_PLACEHOLDER";
+    string target = "cs_6_2";
+
+    if (!CreateDevice(&pDevice)) {
+        return;
+    }
+#else 
+    string args = "-enable-16bit-types";
+    string target = "cs_6_6";
+
+    if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6)) {
+        return;
+    }
+#endif
+
+    int tableSize = sizeof(PackUnpackOpParameters) / sizeof(TableParameter);
+    TableParameterHandler handler(PackUnpackOpParameters, tableSize);
+
+    CW2A Text(handler.GetTableParamByName(L"ShaderOp.Text")->m_str);
+
+    std::vector<uint32_t> *validation_input = &handler.GetTableParamByName(L"Validation.Input")->m_uint32Table;
+    uint32_t validation_tolerance = handler.GetTableParamByName(L"Validation.Tolerance")->m_uint;
+
+    size_t count = validation_input->size();
+    std::vector<SPackUnpackOpOutPacked> expectedPacked(count / 4);
+    std::vector<SPackUnpackOpOutUnpacked> expectedUnpacked(count / 4);
+
+    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
+        pDevice, m_support, pStream, "PackUnpackOp",
+        // this callback is called when the test
+        // is creating the resource to run the test
+        [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
+
+        if (0 == _stricmp(Name, "g_bufIn"))
+        {
+            size_t size = sizeof(uint32_t) * 4 * count;
+            Data.resize(size);
+            uint32_t *pPrimitives = (uint32_t*)Data.data();
+
+            for (size_t i = 0; i < count / 4; ++i) {
+                uint32_t *p = &pPrimitives[i * 4];
+                uint32_t x = (*validation_input)[i * 4 + 0];
+                uint32_t y = (*validation_input)[i * 4 + 1];
+                uint32_t z = (*validation_input)[i * 4 + 2];
+                uint32_t w = (*validation_input)[i * 4 + 3];
+
+                p[0] = x;
+                p[1] = y;
+                p[2] = z;
+                p[3] = w;
+
+                std::array<uint32_t, 4> inputUint32 = { x, y, z, w };
+                std::array<int32_t, 4> inputInt32 = { (int32_t)x, (int32_t)y, (int32_t)z, (int32_t)w };
+                std::array<uint16_t, 4> inputUint16 = { (uint16_t)x, (uint16_t)y, (uint16_t)z, (uint16_t)w };
+                std::array<int16_t, 4> inputInt16 = { (int16_t)x, (int16_t)y, (int16_t)z, (int16_t)w };
+
+                // Pack unclamped
+                expectedPacked[i].packedUint32 = pack(inputUint32);
+                expectedPacked[i].packedInt32 = pack(inputInt32);
+                expectedPacked[i].packedUint16 = pack(inputUint16);
+                expectedPacked[i].packedInt16 = pack(inputInt16);
+                // pack clamped
+                expectedPacked[i].packedClampedUint32 = pack_clamp_u8(inputInt32);
+                expectedPacked[i].packedClampedInt32 = pack_clamp_s8(inputInt32);
+                expectedPacked[i].packedClampedUint16 = pack_clamp_u8(inputInt16);
+                expectedPacked[i].packedClampedInt16 = pack_clamp_s8(inputInt16);
+
+                // unpack
+                expectedUnpacked[i].outputUint32 = unpack_u<uint32_t>(expectedPacked[i].packedUint32);
+                expectedUnpacked[i].outputInt32  = unpack_s<int32_t >(expectedPacked[i].packedInt32 );
+                expectedUnpacked[i].outputUint16 = unpack_u<uint16_t>(expectedPacked[i].packedUint16);
+                expectedUnpacked[i].outputInt16  = unpack_s<int16_t >(expectedPacked[i].packedInt16 );
+                expectedUnpacked[i].outputClampedUint32 = unpack_u<uint32_t>(expectedPacked[i].packedClampedUint32);
+                expectedUnpacked[i].outputClampedInt32  = unpack_s<int32_t >(expectedPacked[i].packedClampedInt32 );
+                expectedUnpacked[i].outputClampedUint16 = unpack_u<uint16_t>(expectedPacked[i].packedClampedUint16);
+                expectedUnpacked[i].outputClampedInt16  = unpack_s<int16_t >(expectedPacked[i].packedClampedInt16 );
+            }
+        }
+        else
+        {
+            std::fill(Data.begin(), Data.end(), (BYTE)0);
+        }
+
+        // use shader from data table
+        pShaderOp->Shaders.at(0).Target = target.c_str();
+        pShaderOp->Shaders.at(0).Text = Text.m_psz;
+        pShaderOp->Shaders.at(0).Arguments = args.c_str();
+    });
+
+    MappedData packedData;
+    test->Test->GetReadBackData("g_bufOutPacked", &packedData);
+    SPackUnpackOpOutPacked *readBackPacked = (SPackUnpackOpOutPacked *)packedData.data();
+
+    MappedData unpackedData;
+    test->Test->GetReadBackData("g_bufOutPackedUnpacked", &unpackedData);
+    SPackUnpackOpOutUnpacked *readBackUnpacked = (SPackUnpackOpOutUnpacked *)unpackedData.data();
+
+    for (size_t i = 0; i < count / 4; ++i)
+    {
+        VerifyOutputWithExpectedValueUInt(readBackPacked[i].packedUint32, expectedPacked[i].packedUint32, validation_tolerance);
+        VerifyOutputWithExpectedValueInt (readBackPacked[i].packedInt32 , expectedPacked[i].packedInt32 , validation_tolerance);
+        VerifyOutputWithExpectedValueUInt(readBackPacked[i].packedUint16, expectedPacked[i].packedUint16, validation_tolerance);
+        VerifyOutputWithExpectedValueInt (readBackPacked[i].packedInt16 , expectedPacked[i].packedInt16 , validation_tolerance);
+        VerifyOutputWithExpectedValueUInt(readBackPacked[i].packedClampedUint32, expectedPacked[i].packedClampedUint32, validation_tolerance);
+        VerifyOutputWithExpectedValueInt (readBackPacked[i].packedClampedInt32 , expectedPacked[i].packedClampedInt32 , validation_tolerance);
+        VerifyOutputWithExpectedValueUInt(readBackPacked[i].packedClampedUint16, expectedPacked[i].packedClampedUint16, validation_tolerance);
+        VerifyOutputWithExpectedValueInt (readBackPacked[i].packedClampedInt16 , expectedPacked[i].packedClampedInt16 , validation_tolerance);
+
+        for (uint32_t j = 0; j < 4; ++j)
+        {
+            VerifyOutputWithExpectedValueUInt(readBackUnpacked[i].outputUint32[j], expectedUnpacked[i].outputUint32[j], validation_tolerance);
+            VerifyOutputWithExpectedValueInt (readBackUnpacked[i].outputInt32 [j], expectedUnpacked[i].outputInt32 [j], validation_tolerance);
+            VerifyOutputWithExpectedValueUInt(readBackUnpacked[i].outputUint16[j], expectedUnpacked[i].outputUint16[j], validation_tolerance);
+            VerifyOutputWithExpectedValueInt (readBackUnpacked[i].outputInt16 [j], expectedUnpacked[i].outputInt16 [j], validation_tolerance);
+            VerifyOutputWithExpectedValueUInt(readBackUnpacked[i].outputClampedUint32[j], expectedUnpacked[i].outputClampedUint32[j], validation_tolerance);
+            VerifyOutputWithExpectedValueInt (readBackUnpacked[i].outputClampedInt32 [j], expectedUnpacked[i].outputClampedInt32 [j], validation_tolerance);
+            VerifyOutputWithExpectedValueUInt(readBackUnpacked[i].outputClampedUint16[j], expectedUnpacked[i].outputClampedUint16[j], validation_tolerance);
+            VerifyOutputWithExpectedValueInt (readBackUnpacked[i].outputClampedInt16 [j], expectedUnpacked[i].outputClampedInt16 [j], validation_tolerance);
+        }
+    }
+}
+
+
+// This test expects a <pShader> that retrieves a signal value from each of a few
+// resources that are initialized here. <isDynamic> determines if it uses the
+// 6.6 Dynamic Resources feature.
+// Values are read back from the result UAV and compared to the expected signals
+void ExecutionTest::RunResourceTest(ID3D12Device *pDevice, const char *pShader,
+                                    const wchar_t *sm, bool isDynamic) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
+  const int NumSRVs = 3;
+  const int NumUAVs = 4;
+  const int NumResources = NumSRVs + NumUAVs;
+  const int NumSamplers = 2;
+  const int valueSize = 16;
+
+  static const int DispatchGroupX = 1;
+  static const int DispatchGroupY = 1;
+  static const int DispatchGroupZ = 1;
+
+  CComPtr<ID3D12GraphicsCommandList> pCommandList;
+  CComPtr<ID3D12CommandQueue> pCommandQueue;
+  CComPtr<ID3D12CommandAllocator> pCommandAllocator;
+  FenceObj FO;
+
+  UINT valueSizeInBytes = valueSize * sizeof(float);
+  CreateComputeCommandQueue(pDevice, L"DynamicResourcesTest Command Queue", &pCommandQueue);
+  InitFenceObj(pDevice, &FO);
+
+  // Create root signature.
+  CComPtr<ID3D12RootSignature> pRootSignature;
+  if (!isDynamic) {
+    // Not dynamic, create a range for each resource and from them, the root signature
+    CD3DX12_DESCRIPTOR_RANGE ranges[NumResources];
+    CD3DX12_DESCRIPTOR_RANGE srange[NumSamplers];
+    for (int i = 0; i < NumSRVs; i++)
+      ranges[i].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, i, 0);
+
+    for (int i = NumSRVs; i < NumResources; i++)
+      ranges[i].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, i - NumSRVs, 0);
+
+    for (int i = 0; i < NumSamplers; i++)
+      srange[i].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 1, i, 0);
+
+    CreateRootSignatureFromRanges(pDevice, &pRootSignature, ranges, NumResources, srange, NumSamplers);
+  } else {
+    // Dynamic just requires the flags indicating that the builtin arrays should be accessible
+#if !defined(D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED)
+#define D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED (D3D12_ROOT_SIGNATURE_FLAGS)0x400
+#define D3D12_ROOT_SIGNATURE_FLAG_SAMPLER_HEAP_DIRECTLY_INDEXED (D3D12_ROOT_SIGNATURE_FLAGS)0x800
+#endif
+    CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc;
+    rootSignatureDesc.Init(0, nullptr, 0, nullptr,
+                           D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED |
+                           D3D12_ROOT_SIGNATURE_FLAG_SAMPLER_HEAP_DIRECTLY_INDEXED);
+    CreateRootSignatureFromDesc(pDevice, &rootSignatureDesc, &pRootSignature);
+  }
+
+  // Create pipeline state object.
+  CComPtr<ID3D12PipelineState> pComputeState;
+  CreateComputePSO(pDevice, pRootSignature, pShader, sm, &pComputeState);
+
+  // Create a command allocator and list for compute.
+  VERIFY_SUCCEEDED(pDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COMPUTE, IID_PPV_ARGS(&pCommandAllocator)));
+  VERIFY_SUCCEEDED(pDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COMPUTE, pCommandAllocator, pComputeState, IID_PPV_ARGS(&pCommandList)));
+
+  // Set up SRV resources
+  CComPtr<ID3D12Resource> pSRVResources[NumSRVs];
+  CComPtr<ID3D12Resource> pUAVResources[NumUAVs];
+  CComPtr<ID3D12Resource> pUploadResources[NumResources];
+  {
+    D3D12_RESOURCE_DESC bufDesc = CD3DX12_RESOURCE_DESC::Buffer(valueSizeInBytes);
+    float values[valueSize];
+    for (int i = 0; i < NumSRVs - 1; i++) {
+      for (int j = 0; j < valueSize; j++)
+        values[j] = 10.0f + i;
+      CreateTestResources(pDevice, pCommandList, values, valueSizeInBytes, bufDesc,
+                          &pSRVResources[i], &pUploadResources[i]);
+    }
+    D3D12_RESOURCE_DESC tex2dDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R32_FLOAT, 4, 4);
+    for (int j = 0; j < valueSize; j++)
+      values[j] = 10.0 + (NumSRVs - 1);
+    CreateTestResources(pDevice, pCommandList, values, valueSizeInBytes, tex2dDesc,
+                        &pSRVResources[NumSRVs - 1], &pUploadResources[NumSRVs - 1]);
+  }
+
+  // Set up UAV resources
+  CComPtr<ID3D12Resource> pReadBuffer;
+  float values[valueSize];
+  for (int i = 0; i < NumUAVs - 2; i++) {
+    for (int j = 0; j < valueSize; j++)
+      values[j] = 20.0f + i;
+    CreateTestUavs(pDevice, pCommandList, values, valueSizeInBytes,
+                   &pUAVResources[i], &pUploadResources[NumSRVs + i]);
+  }
+  for (int j = 0; j < valueSize; j++)
+    values[j] = 20.0 + (NumUAVs - 1);
+  CreateTestUavs(pDevice, pCommandList, values, valueSizeInBytes,
+                 &pUAVResources[NumUAVs - 2], &pUploadResources[NumResources - 2], &pReadBuffer);
+
+  for (int j = 0; j < valueSize; j++)
+    values[j] = 20.0 + (NumUAVs - 2);
+  D3D12_RESOURCE_DESC tex1dDesc = CD3DX12_RESOURCE_DESC::Tex1D(DXGI_FORMAT_R32_FLOAT, valueSize, 1, 0, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+  CreateTestResources(pDevice, pCommandList, values, valueSizeInBytes, tex1dDesc,
+                      &pUAVResources[NumUAVs - 1], &pUploadResources[NumResources - 1]);
+
+  // Close the command list and execute it to perform the GPU setup.
+  pCommandList->Close();
+  ExecuteCommandList(pCommandQueue, pCommandList);
+  WaitForSignal(pCommandQueue, FO);
+  VERIFY_SUCCEEDED(pCommandAllocator->Reset());
+  VERIFY_SUCCEEDED(pCommandList->Reset(pCommandAllocator, pComputeState));
+
+  CComPtr<ID3D12DescriptorHeap> pResHeap;
+  CComPtr<ID3D12DescriptorHeap> pSampHeap;
+  CreateDefaultDescHeaps(pDevice, NumSRVs + NumUAVs, NumSamplers, &pResHeap, &pSampHeap);
+
+  // Create Rootsignature and descriptor tables
+  {
+    ID3D12DescriptorHeap *descHeaps[2] = {pResHeap, pSampHeap};
+    pCommandList->SetDescriptorHeaps(2, descHeaps);
+    pCommandList->SetComputeRootSignature(pRootSignature);
+
+    if (!isDynamic) {
+      // Only non-dynamic resources require descriptortables
+      pCommandList->SetComputeRootDescriptorTable(0, pResHeap->GetGPUDescriptorHandleForHeapStart());
+      pCommandList->SetComputeRootDescriptorTable(1, pSampHeap->GetGPUDescriptorHandleForHeapStart());
+    }
+  }
+  CD3DX12_CPU_DESCRIPTOR_HANDLE baseHandle(pResHeap->GetCPUDescriptorHandleForHeapStart());
+  // Create SRVs
+  CreateRawSRV(pDevice, baseHandle, valueSize, pSRVResources[0]);
+  CreateStructSRV(pDevice, baseHandle, valueSize, sizeof(float), pSRVResources[1]);
+  CreateTex2DSRV(pDevice, baseHandle, valueSize, DXGI_FORMAT_R32_FLOAT, pSRVResources[2]);
+  // Create UAVs
+  CreateRawUAV(pDevice, baseHandle, valueSize, pUAVResources[0]);
+  CreateStructUAV(pDevice, baseHandle, valueSize, sizeof(float), pUAVResources[1]);
+  CreateTypedUAV(pDevice, baseHandle, valueSize, DXGI_FORMAT_R32_FLOAT, pUAVResources[2]);
+  CreateTex1DUAV(pDevice, baseHandle, valueSize, DXGI_FORMAT_R32_FLOAT, pUAVResources[3]);
+
+  D3D12_FILTER filters[] = {D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT, D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT};
+  float borderColors[] = {30.0, 31.0};
+  CreateDefaultSamplers(pDevice, pSampHeap->GetCPUDescriptorHandleForHeapStart(),
+                        filters, borderColors, NumSamplers);
+
+  // Run the compute shader and copy the results back to readable memory.
+  pCommandList->Dispatch(DispatchGroupX, DispatchGroupY, DispatchGroupZ);
+
+  RecordTransitionBarrier(pCommandList, pUAVResources[NumUAVs - 2], D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
+  pCommandList->CopyResource(pReadBuffer, pUAVResources[NumUAVs - 2]);
+
+  pCommandList->Close();
+  ExecuteCommandList(pCommandQueue, pCommandList);
+  WaitForSignal(pCommandQueue, FO);
+
+  MappedData data(pReadBuffer,  valueSize*sizeof(float));
+  const float *pData = (float*)data.data();
+  LogCommentFmt(L"Verify bound resources are properly selected");
+  VERIFY_ARE_EQUAL(pData[0], 10);
+  VERIFY_ARE_EQUAL(pData[1], 11);
+  VERIFY_ARE_EQUAL(pData[2], 12);
+
+  VERIFY_ARE_EQUAL(pData[3], 20);
+  VERIFY_ARE_EQUAL(pData[4], 21);
+  VERIFY_ARE_EQUAL(pData[5], 22);
+  VERIFY_ARE_EQUAL(pData[6], 30);
+  VERIFY_ARE_EQUAL(pData[7], 1); // samplecmp 1 means it matched 31
+}
+
+TEST_F(ExecutionTest, SignatureResourcesTest) {
+  std::string pShader =
+    "ByteAddressBuffer         g_rawBuf      : register(t0);\n"
+    "StructuredBuffer<float>   g_structBuf   : register(t1);\n"
+    "Texture2D<float>          g_tex         : register(t2);\n"
+    "RWByteAddressBuffer       g_rwRawBuf    : register(u0);\n"
+    "RWStructuredBuffer<float> g_rwStructBuf : register(u1);\n"
+    "RWBuffer<float>           g_result      : register(u2);\n"
+    "RWTexture1D<float>        g_rwTex       : register(u3);\n"
+    "SamplerState              g_samp        : register(s0);\n"
+    "SamplerComparisonState    g_sampCmp     : register(s1);\n"
+    "[NumThreads(1, 1, 1)]\n"
+    "void main(uint ix : SV_GroupIndex) {\n"
+    "  g_result[0] = g_rawBuf.Load<float>(0);\n"
+    "  g_result[1] = g_structBuf.Load(0);\n"
+    "  g_result[2] = g_tex.Load(0);\n"
+    "  g_result[3] = g_rwRawBuf.Load<float>(0);\n"
+    "  g_result[4] = g_rwStructBuf.Load(0);\n"
+    "  g_result[5] = g_rwTex.Load(0);\n"
+    "  g_result[6] = g_tex.SampleLevel(g_samp, -0.5, 0);\n"
+    "  g_result[7] = g_tex.SampleCmpLevelZero(g_sampCmp, -0.5, 31.0);\n"
+    "}\n";
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6))
+    return;
+
+  RunResourceTest(pDevice, pShader.c_str(), L"cs_6_6", /*isDynamic*/false);
+}
+
+TEST_F(ExecutionTest, DynamicResourcesTest) {
+  static const char pShader[] =
+    "static ByteAddressBuffer         g_rawBuf      = ResourceDescriptorHeap[0];\n"
+    "static StructuredBuffer<float>   g_structBuf   = ResourceDescriptorHeap[1];\n"
+    "static Texture2D<float>          g_tex         = ResourceDescriptorHeap[2];\n"
+    "static RWByteAddressBuffer       g_rwRawBuf    = ResourceDescriptorHeap[3];\n"
+    "static RWStructuredBuffer<float> g_rwStructBuf = ResourceDescriptorHeap[4];\n"
+    "static RWBuffer<float>           g_result      = ResourceDescriptorHeap[5];\n"
+    "static RWTexture1D<float>        g_rwTex       = ResourceDescriptorHeap[6];\n"
+    "static SamplerState              g_samp        = SamplerDescriptorHeap[0];\n"
+    "static SamplerComparisonState    g_sampCmp     = SamplerDescriptorHeap[1];\n"
+    "[NumThreads(1, 1, 1)]\n"
+    "void main(uint ix : SV_GroupIndex) {\n"
+    "  g_result[0] = g_rawBuf.Load<float>(0);\n"
+    "  g_result[1] = g_structBuf.Load(0);\n"
+    "  g_result[2] = g_tex.Load(0);\n"
+    "  g_result[3] = g_rwRawBuf.Load<float>(0);\n"
+    "  g_result[4] = g_rwStructBuf.Load(0);\n"
+    "  g_result[5] = g_rwTex.Load(0);\n"
+    "  g_result[6] = g_tex.SampleLevel(g_samp, -0.5, 0);\n"
+    "  g_result[7] = g_tex.SampleCmpLevelZero(g_sampCmp, -0.5, 31.0);\n"
+    "}\n";
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6))
+    return;
+
+  RunResourceTest(pDevice, pShader, L"cs_6_6", /*isDynamic*/true);
+}
+
+
+#define MAX_WAVESIZE 128
+
+#define strinfigy2(arg) #arg
+#define strinfigy(arg) strinfigy2(arg)
+
+void ExecutionTest::WaveSizeTest() {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6)) {
+    return;
+  }
+
+  // Check Wave support
+  if (!DoesDeviceSupportWaveOps(pDevice)) {
+    // Optional feature, so it's correct to not support it if declared as such.
+    WEX::Logging::Log::Comment(L"Device does not support wave operations.");
+    return;
+  }
+
+  // Get supported wave sizes
+  D3D12_FEATURE_DATA_D3D12_OPTIONS1 waveOpts;
+  VERIFY_SUCCEEDED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS1, &waveOpts, sizeof(waveOpts)));
+  UINT minWaveSize = waveOpts.WaveLaneCountMin;
+  UINT maxWaveSize = waveOpts.WaveLaneCountMax;
+
+  DXASSERT_NOMSG(minWaveSize <= maxWaveSize);
+  DXASSERT((minWaveSize & (minWaveSize - 1)) == 0, "must be a power of 2");
+  DXASSERT((maxWaveSize & (maxWaveSize - 1)) == 0, "must be a power of 2");
+
+  // read shader config
+  CComPtr<IStream> pStream;
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet = std::make_shared<st::ShaderOpSet>();
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+
+  // format shader source
+  const char waveSizeTestShader[] =
+    "struct TestData { \r\n"
+    "  uint count; \r\n"
+    "}; \r\n"
+    "RWStructuredBuffer<TestData> data : register(u0); \r\n"
+    "\r\n"
+    "// Note: WAVESIZE will be defined via compiler option -D\r\n"
+    "[wavesize(WAVESIZE)]\r\n"
+    "[numthreads(" strinfigy(MAX_WAVESIZE) "*2,1,1)]\r\n"
+    "void main(uint3 tid : SV_DispatchThreadID ) { \r\n"
+    "  data[tid.x].count = WaveActiveSum(1); \r\n"
+    "}\r\n";
+
+  struct WaveSizeTestData {
+    uint32_t count;
+  };
+
+  for (UINT waveSize = minWaveSize; waveSize <= maxWaveSize; waveSize *= 2) {
+    // format compiler args
+    char compilerOptions[32];
+    VERIFY_IS_TRUE(sprintf_s(compilerOptions, sizeof(compilerOptions), "-D WAVESIZE=%d", waveSize) != -1);
+
+    // run the shader
+    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "WaveSizeTest",
+      [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
+      VERIFY_IS_TRUE((0 == strncmp(Name, "UAVBuffer0", 10)));
+      pShaderOp->Shaders.at(0).Arguments = compilerOptions;
+      pShaderOp->Shaders.at(0).Text = waveSizeTestShader;
+
+      VERIFY_IS_TRUE(sizeof(WaveSizeTestData)*MAX_WAVESIZE <= Data.size());
+      WaveSizeTestData *pInData = (WaveSizeTestData *)Data.data();
+      memset(&pInData, sizeof(WaveSizeTestData)*MAX_WAVESIZE, 0);
+    }, ShaderOpSet);
+
+    // verify expected values
+    MappedData dataUav;
+    WaveSizeTestData *pOutData;
+
+    test->Test->GetReadBackData("UAVBuffer0", &dataUav);
+    VERIFY_ARE_EQUAL(sizeof(WaveSizeTestData)*MAX_WAVESIZE, dataUav.size());
+    pOutData = (WaveSizeTestData*)dataUav.data();
+
+    LogCommentFmt(L"Verifying test result for wave size %d", waveSize);
+
+    for (unsigned i = 0; i < MAX_WAVESIZE; i++) {
+      if (!VERIFY_ARE_EQUAL(pOutData[i].count, waveSize))
+        break;
+    }
+  }
+}
+
+
+// Atomic operation testing
+
+// Atomic tests take a single integer index as input and contort it into some
+// kind of interesting contributor to the operation in question.
+// So each vertex, pixel, thread, or other will have a unique index that produces
+// a contributing value to the calculation which is stored in a small resource
+
+// For arithmetic or bitwise operations, each contributor accumulates to the same
+// location in the resource indexed by the operation type. Addition is in index 0
+// umin/umax are in 1 and 2 and so on.
+
+// To make sure that the most significant bits are involved in the calculation,
+// particularly in the case of 64-bit values, each contributing value is duplicated
+// to the lower and upper halves of the value. There is an exception to this when
+// addition exceeds the available size and also for compare and exchange explained below.
+
+// For compare and exchange operations, 64 output locations are shared by the various lanes.
+// Each lane attempts to write to a location that is shared with several others.
+// The first one to write to it determines its contents, which will be the lane index <ix>
+// in the upper bits and the output location index in the lower bits.
+// This ensures that the compare operations consider the upper bits in the comparison.
+// The initial compare store is followed by a compare exchange that compares for the
+// value the current lane would have assigned there. Finally, the output of the cmpxchg
+// is used to determine if the current lane should perform the final unconditional exchange.
+// The values are verified by checking the lower bits for the matching location index
+// and ensuring that the upper bits undergoing the same transformation result in the location index.
+// For lane index <ix> the location is calculated and final result assigned as if by this code:
+//    g_outputBuf[(ix/3)%64] = (ix << shBits) | ((ix/3)%64);
+
+bool AtomicResultMatches(const BYTE *uResults, uint64_t gold, size_t size) {
+  if (memcmp(uResults, &gold, size)) {
+    if (size == 4)
+      LogCommentFmt(L"  value %d is not %d", ((uint32_t*)uResults)[0], (uint32_t)gold);
+    else
+      LogCommentFmt(L"  value %lld is not %lld", ((uint64_t*)uResults)[0], gold);
+    return false;
+  }
+  return true;
+}
+
+// Used to duplicate the lower half bits into the upper half bits of an integer
+// To verify that the full value is being considered, many tests duplicate the results into the upper half
+#define SHIFT(val, bits) (((val)&((1ULL<<(bits))-1ULL)) | ((uint64_t)(val) << (bits)))
+
+// Symbolic constants for the results
+#define ADD_IDX 0
+#define UMIN_IDX 1
+#define UMAX_IDX 2
+#define AND_IDX 3
+#define OR_IDX 4
+#define XOR_IDX 5
+
+#define SMIN_IDX 0
+#define SMAX_IDX 1
+
+// Verify results for atomic operations. <uResults> and <sResults> are pointers to
+// the readback resource sections containing unsigned and signed integers respectively.
+// <pXchg> is a poiner to the readback resource containing the results of the compare
+// and exchange operations tests. <stride> is the number of bytes between results for
+// all of the results pointers. <maxIdx> is the number of indices that went into the results
+// which is used to determine what the results should be. <bitSize> is the size in bits of
+// the produced results, either 32 or 64.
+void VerifyAtomicResults(const BYTE *uResults, const BYTE *sResults,
+                         const BYTE *pXchg, size_t stride, uint64_t maxIdx, size_t bitSize) {
+  // Each atomic test performs the test on the value in the lower half
+  // and also duplicated in the upper half of the value. The SHIFT macros account for this.
+  // This is to verify that the upper bits are considered
+  uint64_t shBits = bitSize/2;
+  size_t byteSize = bitSize/8;
+
+  // Test ADD Operation
+  // ADD just sums all the indices. The result should the sum of the highest and lowest indices
+  // multiplied by half the number of sums.
+  uint64_t addResult = (maxIdx)*(maxIdx-1)/2;
+  LogCommentFmt(L"Verifying %d-bit integer atomic add", bitSize);
+  // For 32-bit values, the sum exceeds the 16 bit limit, so we can't duplicate
+  // That's fine, the duplication is really for 64-bit values.
+  if (bitSize < 64)
+    VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*ADD_IDX, addResult, byteSize));
+  else
+    VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*ADD_IDX, SHIFT(addResult, shBits), byteSize));
+
+  // Test MIN and MAX Operations
+
+  // The result of a simple min and max of any sequence of indices would be fairly uninteresting
+  // and certain erroneous behavior might mistakenly produce the correct results.
+
+  // To make it interesting, the contributing values will change depending on the evenness of the index.
+  // On an even index, min and max operate on the bitflipped index. For signed compares, this is
+  // interpretted as a negative value and for unsigned, a very high value.
+
+  // For unsigned min/max, index 0 will be bitflipped to ~0, which is interpretted as the maximum
+  // Because zero is manipulated, this leaves 1 as the lowest value.
+  LogCommentFmt(L"Verifying %d-bit integer atomic umin", bitSize);
+  VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*UMIN_IDX, SHIFT(1ULL, shBits), byteSize)); // UMin
+  LogCommentFmt(L"Verifying %d-bit integer atomic umax", bitSize);
+  VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*UMAX_IDX, ~0ULL, byteSize)); // UMax
+
+  // For signed min/max, the index just before the last will be bitflipped (maxIndex is always even).
+  // This is interpretted as -(maxIndex-1) and will be the lowest
+  // The maxIndex will be unaltered and interpretted as the highest.
+  LogCommentFmt(L"Verifying %d-bit integer atomic smin", bitSize);
+  VERIFY_IS_TRUE(AtomicResultMatches(sResults + stride*SMIN_IDX, SHIFT(-((int64_t)maxIdx-1), shBits), byteSize)); // SMin
+  LogCommentFmt(L"Verifying %d-bit integer atomic smax", bitSize);
+  VERIFY_IS_TRUE(AtomicResultMatches(sResults + stride*SMAX_IDX, SHIFT(maxIdx-1, shBits), byteSize)); // SMax
+
+  // Test AND and OR operations.
+
+  // For AND operations, all indices are bitflipped and ANDed to the previous result.
+  // This means that the highest bits, which are never set by the contributing indices will be set
+  // for all the indices, so they will be set in the final result.
+
+  // For OR operations, the indices are ORed to the previous result unaltered
+  // This means that any bit that is set in any index will be set in the final OR result.
+
+  // In practice, this means that the cumulative result of the AND and OR operations
+  // are bitflipped versions of each other.
+  // Finding the most significant set bit by the max index or next power of two (pot)
+  // gives us the pivot point for these results
+  uint64_t nextPot = 1ULL << (bitSize - 1);
+  for (;nextPot && !((maxIdx-1) & (nextPot)); nextPot >>= 1) {}
+  nextPot <<= 1;
+  LogCommentFmt(L"Verifying %d-bit integer atomic and", bitSize);
+  VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*AND_IDX, ~SHIFT(nextPot-1, shBits), byteSize)); // And
+  LogCommentFmt(L"Verifying %d-bit integer atomic or", bitSize);
+  VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*OR_IDX, SHIFT(nextPot-1, shBits), byteSize)); // Or
+
+  // Test XOR operation
+
+  // For XOR operations, a 1 is shifted by the number of spaces equal to the index and XORed
+  // to the previous result. Because this would rapidely shift off the end of the value,
+  // giving undefined and uninteresting results, the index is moduloed to a value that will
+  // fit within the type size.
+
+  // Because many of the tests use total numbers of lanes that can be evenly divisible by 32 or 64,
+  // these values aren't used for the modulo since the expected result might be zero, 
+  // which could be encountered through erroneous behavior.
+
+  // Instead, one less than the type size in bits is used for the modulo.
+  // Even though we don't know the actual order these operations are performed,
+  // indices that make up a contiguous sequence of 31 or 63 values can be thought of as one of a series of "passes".
+  // Each "pass" sets or clears the bits depending on what's already there.
+  // if the number of the pass is odd, the bits are being unset and all above the mod position should be set.
+  // If even, the bits are in the process of being set and bits below the mod position should be set.
+  uint64_t xorResult = ((1ULL<<((maxIdx)%(bitSize-1))) -1);
+
+  if (((maxIdx/(bitSize-1))&1)) {
+    xorResult ^= ~0ULL;
+    // The XOR above may set uninvolved upper bits, messing up the compare. So AND off the uninvolved bits.
+    xorResult &= ((1ULL<<(bitSize-1)) - 1);
+  }
+
+  LogCommentFmt(L"Verifying %d-bit integer atomic xor", bitSize);
+  VERIFY_IS_TRUE(AtomicResultMatches(uResults + stride*XOR_IDX, xorResult, byteSize));
+
+  // Test CMP/XCHG Operations
+  // This tests CompareStore, CompareExchange, and Exchange operations.
+
+  // Unlike above, every lane isn't contributing to the same resource location
+  // Instead, every lane competes with a few others to update the same resource location.
+  // The first lane to find the contents of their location uninitialized will
+  // update it. To verify that upper bits are considered in the comparison and
+  // in the assignment, the value stored in the lowest bits is the location index.
+  // This ensures that part will be the same for each of the competing lanes.
+  // The uppermost bits are updated with the index of the lane that got there first.
+  // Subsequent calls to CompareExchange will verify this value matches and alter
+  // the content slightly. Finally, a simple check of the output value to what
+  // the current lane would expect and a call to exchange will update the value once more
+
+  // To verify this has gone through properly, the upper portion is converted as 
+  // if to calculate the location index and compared with the location index.
+  // It could be the index of any of several lanes that assign to that location,
+  // but this ensures that it is not any lane outside of that group.
+  // The lower bits are compared to the location index as well.
+  LogCommentFmt(L"Verifying %d-bit integer atomic cmp/xchg results", bitSize);
+  for (size_t i = 0; i < 64; i++) {
+    uint64_t val = *((uint64_t*)(pXchg + i*stride));
+    // Verify lower bits match location index exactly
+    VERIFY_ARE_EQUAL(i, val & ((1ULL << shBits) - 1ULL));
+    // Verify that upper bits contain original index that transforms to location index
+    VERIFY_ARE_EQUAL(((val >> shBits)/3)%64, i);
+  }
+}
+
+void VerifyAtomicsRawTest(std::shared_ptr<ShaderOpTestResult> test,
+                          uint64_t maxIdx, size_t bitSize) {
+
+  size_t stride = 8;
+  // struct mirroring that in the shader
+  struct AtomicStuff {
+    float prepad[2][3];
+    UINT uintEl[4];
+    int  sintEl[4];
+    struct useless {
+      uint32_t unused[3];
+    } postpad;
+    float last;
+  };
+
+  MappedData uintData, xchgData;
+
+  test->Test->GetReadBackData("U0", &uintData);
+  test->Test->GetReadBackData("U1", &xchgData);
+
+  const AtomicStuff *pStruct = (AtomicStuff *)uintData.data();
+  const AtomicStuff *pStrXchg = (AtomicStuff *)xchgData.data();
+
+  LogCommentFmt(L"Verifying %d-bit integer atomic operations on RWStructuredBuffer resource", bitSize);
+
+  VerifyAtomicResults((const BYTE*)&(pStruct[0].uintEl[2]), (const BYTE*)&(pStruct[1].sintEl[2]),
+                      (const BYTE*)&(pStrXchg[0].uintEl[2]), sizeof(AtomicStuff), maxIdx, bitSize);
+
+  const BYTE *pUint = nullptr;
+  const BYTE *pXchg = nullptr;
+
+  test->Test->GetReadBackData("U2", &uintData);
+  test->Test->GetReadBackData("U3", &xchgData);
+
+  pUint = (BYTE *)uintData.data();
+  pXchg = (BYTE *)xchgData.data();
+
+  LogCommentFmt(L"Verifying %d-bit integer atomic operations on RWByteAddressBuffer resource", bitSize);
+
+  VerifyAtomicResults(pUint, pUint + stride*6,
+                      pXchg, stride, maxIdx, bitSize);
+
+}
+
+void VerifyAtomicsTypedTest(std::shared_ptr<ShaderOpTestResult> test,
+                            uint64_t maxIdx, size_t bitSize) {
+
+
+  size_t stride = 8;
+  MappedData uintData, sintData, xchgData;
+  const BYTE *pUint = nullptr;
+  const BYTE *pSint = nullptr;
+  const BYTE *pXchg = nullptr;
+
+  // Typed resources can't share between 32 and 64 bits
+  if (bitSize == 32) {
+    test->Test->GetReadBackData("U4", &uintData);
+    test->Test->GetReadBackData("U5", &sintData);
+    test->Test->GetReadBackData("U6", &xchgData);
+  } else {
+    test->Test->GetReadBackData("U12", &uintData);
+    test->Test->GetReadBackData("U13", &sintData);
+    test->Test->GetReadBackData("U14", &xchgData);
+  }
+
+  pUint = (BYTE *)uintData.data();
+  pSint = (BYTE *)sintData.data();
+  pXchg = (BYTE *)xchgData.data();
+
+  LogCommentFmt(L"Verifying %d-bit integer atomic operations on RWBuffer resource", bitSize);
+
+  VerifyAtomicResults(pUint, pSint + stride, pXchg, stride, maxIdx, bitSize);
+
+  // Typed resources can't share between 32 and 64 bits
+  if (bitSize == 32) {
+    test->Test->GetReadBackData("U7", &uintData);
+    test->Test->GetReadBackData("U8", &sintData);
+    test->Test->GetReadBackData("U9", &xchgData);
+  } else {
+    test->Test->GetReadBackData("U15", &uintData);
+    test->Test->GetReadBackData("U16", &sintData);
+    test->Test->GetReadBackData("U17", &xchgData);
+  }
+
+  pUint = (BYTE *)uintData.data();
+  pSint = (BYTE *)sintData.data();
+  pXchg = (BYTE *)xchgData.data();
+
+  LogCommentFmt(L"Verifying %d-bit integer atomic operations on RWTexture resource", bitSize);
+
+  VerifyAtomicResults(pUint, pSint + stride, pXchg, stride, maxIdx, bitSize);
+
+}
+
+void VerifyAtomicsSharedTest(std::shared_ptr<ShaderOpTestResult> test,
+                             uint64_t maxIdx, size_t bitSize) {
+
+  size_t stride = 8;
+  MappedData uintData, xchgData;
+  const BYTE *pUint = nullptr;
+  const BYTE *pXchg = nullptr;
+
+  test->Test->GetReadBackData("U10", &uintData);
+  test->Test->GetReadBackData("U11", &xchgData);
+
+  pUint = (BYTE *)uintData.data();
+  pXchg = (BYTE *)xchgData.data();
+
+  LogCommentFmt(L"Verifying %d-bit integer atomic operations on groupshared variables", bitSize);
+  VerifyAtomicResults(pUint, pUint + stride*6,
+                      pXchg, stride, maxIdx, bitSize);
+}
+
+void VerifyAtomicsTest(std::shared_ptr<ShaderOpTestResult> test,
+                       uint64_t maxIdx, size_t bitSize) {
+  VerifyAtomicsRawTest(test, maxIdx, bitSize);
+  VerifyAtomicsTypedTest(test, maxIdx, bitSize);
+}
+
+TEST_F(ExecutionTest, AtomicsTest) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice))
+    return;
+
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+    std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+
+  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("Atomics");
+
+  // Test compute shader
+  LogCommentFmt(L"Verifying 32-bit integer atomic operations in compute shader");
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+
+  VerifyAtomicsTest(test, 32*32, 32);
+  VerifyAtomicsSharedTest(test, 32*32, 32);
+
+  // Test mesh shader if available
+  pShaderOp->CS = nullptr;
+  if (DoesDeviceSupportMeshShaders(pDevice)) {
+    LogCommentFmt(L"Verifying 32-bit integer atomic operations in amp/mesh/pixel shaders");
+    test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+    VerifyAtomicsTest(test, 8*8*2 + 8*8*2 + 64*64, 32);
+    VerifyAtomicsSharedTest(test, 8*8*2 + 8*8*2, 32);
+  }
+
+  // Test Vertex + Pixel shader
+  pShaderOp->MS = nullptr;
+  LogCommentFmt(L"Verifying 32-bit integer atomic operations in vert/pixel shaders");
+  test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+  VerifyAtomicsTest(test, 64*64+6, 32);
+}
+
+TEST_F(ExecutionTest, Atomics64Test) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6))
+    return;
+
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+    std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+
+  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("Atomics");
+
+  // Reassign shader stages to 64-bit versions
+  // Collect 64-bit shaders
+  LPCSTR CS64 = nullptr, VS64 = nullptr, PS64 = nullptr;
+  LPCSTR AS64 = nullptr, MS64 = nullptr;
+  for (st::ShaderOpShader &S : pShaderOp->Shaders) {
+    if (!strcmp(S.Name, "CS64")) CS64 = S.Name;
+    if (!strcmp(S.Name, "VS64")) VS64 = S.Name;
+    if (!strcmp(S.Name, "PS64")) PS64 = S.Name;
+    if (!strcmp(S.Name, "AS64")) AS64 = S.Name;
+    if (!strcmp(S.Name, "MS64")) MS64 = S.Name;
+  }
+  pShaderOp->CS = CS64;
+  pShaderOp->VS = VS64;
+  pShaderOp->PS = PS64;
+  pShaderOp->AS = AS64;
+  pShaderOp->MS = MS64;
+
+  // Test compute shader
+  LogCommentFmt(L"Verifying 64-bit integer atomic operations on raw buffers in compute shader");
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+  VerifyAtomicsRawTest(test, 32*32, 64);
+
+  // Test mesh shader if available
+  pShaderOp->CS = nullptr;
+  if (DoesDeviceSupportMeshShaders(pDevice)) {
+    LogCommentFmt(L"Verifying 64-bit integer atomic operations on raw buffers in amp/mesh/pixel shader");
+    test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+    VerifyAtomicsRawTest(test, 8*8*2 + 8*8*2 + 64*64, 64);
+  }
+
+  // Test Vertex + Pixel shader
+  pShaderOp->MS = nullptr;
+  LogCommentFmt(L"Verifying 64-bit integer atomic operations on raw buffers in vert/pixel shader");
+  test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+  VerifyAtomicsRawTest(test, 64*64+6, 64);
+}
+
+TEST_F(ExecutionTest, AtomicsTyped64Test) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6))
+    return;
+
+  if (!DoesDeviceSupportInt64(pDevice)) {
+    WEX::Logging::Log::Comment(L"Device does not support int64 operations.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
+  if (!DoesDeviceSupportTyped64Atomics(pDevice)) {
+    WEX::Logging::Log::Comment(L"Device does not support int64 atomic operations on typed resources.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+    std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+
+  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("Atomics");
+
+  // Reassign shader stages to 64-bit versions
+  // Collect 64-bit shaders
+  LPCSTR CS64 = nullptr, VS64 = nullptr, PS64 = nullptr;
+  LPCSTR AS64 = nullptr, MS64 = nullptr;
+  for (st::ShaderOpShader &S : pShaderOp->Shaders) {
+    if (!strcmp(S.Name, "CSTY64")) CS64 = S.Name;
+    if (!strcmp(S.Name, "VSTY64")) VS64 = S.Name;
+    if (!strcmp(S.Name, "PSTY64")) PS64 = S.Name;
+    if (!strcmp(S.Name, "ASTY64")) AS64 = S.Name;
+    if (!strcmp(S.Name, "MSTY64")) MS64 = S.Name;
+  }
+  pShaderOp->CS = CS64;
+  pShaderOp->VS = VS64;
+  pShaderOp->PS = PS64;
+  pShaderOp->AS = AS64;
+  pShaderOp->MS = MS64;
+
+  // Test compute shader
+  LogCommentFmt(L"Verifying 64-bit integer atomic operations on typed resources in compute shader");
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+  VerifyAtomicsTypedTest(test, 32*32, 64);
+
+  // Test mesh shader if available
+  pShaderOp->CS = nullptr;
+  if (DoesDeviceSupportMeshShaders(pDevice)) {
+    LogCommentFmt(L"Verifying 64-bit integer atomic operations on typed resources in amp/mesh/pixel shader");
+    test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+    VerifyAtomicsTypedTest(test, 8*8*2 + 8*8*2 + 64*64, 64);
+  }
+
+  // Test Vertex + Pixel shader
+  pShaderOp->MS = nullptr;
+  LogCommentFmt(L"Verifying 64-bit integer atomic operations on typed resources in vert/pixel shader");
+  test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+  VerifyAtomicsTypedTest(test, 64*64+6, 64);
+}
+
+TEST_F(ExecutionTest, AtomicsShared64Test) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6))
+    return;
+
+  if (!DoesDeviceSupportInt64(pDevice)) {
+    WEX::Logging::Log::Comment(L"Device does not support int64 operations.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
+  if (!DoesDeviceSupportShared64Atomics(pDevice)) {
+    WEX::Logging::Log::Comment(L"Device does not support int64 atomic operations on groupshared variables.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+    std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+
+  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("Atomics");
+
+  // Reassign shader stages to 64-bit versions
+  // Collect 64-bit shaders
+  LPCSTR CS64 = nullptr, PS64 = nullptr;
+  LPCSTR AS64 = nullptr, MS64 = nullptr;
+  for (st::ShaderOpShader &S : pShaderOp->Shaders) {
+    if (!strcmp(S.Name, "CSSH64")) CS64 = S.Name;
+    if (!strcmp(S.Name, "CSSH64")) CS64 = S.Name;
+    if (!strcmp(S.Name, "PS64")) PS64 = S.Name;
+    if (!strcmp(S.Name, "ASSH64")) AS64 = S.Name;
+    if (!strcmp(S.Name, "MSSH64")) MS64 = S.Name;
+  }
+  pShaderOp->CS = CS64;
+  pShaderOp->PS = PS64;
+  pShaderOp->AS = AS64;
+  pShaderOp->MS = MS64;
+
+  LogCommentFmt(L"Verifying 64-bit integer atomic operations on groupshared variables in compute shader");
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+  VerifyAtomicsSharedTest(test, 32*32, 64);
+
+  // Test mesh shader if available
+  pShaderOp->CS = nullptr;
+  if (DoesDeviceSupportMeshShaders(pDevice)) {
+    LogCommentFmt(L"Verifying 64-bit integer atomic operations on groupshared variables in amp/mesh/pixel shader");
+    test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+    VerifyAtomicsSharedTest(test, 8*8*2 + 8*8*2, 64);
+  }
+}
+
+
+// Float Atomics
+
+// These operations are almost the same as for the 32-bit and 64-bit integer tests
+// The difference is that there is no need to verify the upper bits.
+// So there is no storing of different parts in upper and lower halves.
+// Additionally, the only operations that are supported on floats
+// are compare and exchange operations. So that's all that is tested here.
+// Just as above, a number of lanes are assigned the same output value.
+// Unlike above, one location is needed for the result of the special NaN test
+// For this reason, the conversion is reduced by one and shifted by one to leave
+// the zero-indexed location available.
+
+// Verify results for a particular set of atomics results
+void VerifyAtomicFloatResults(const float *results) {
+  // The first entry is for NaN to ensure that compares between NaNs succeed
+  // The sentinal value is 0.123, for which this compare is sufficient.
+  VERIFY_IS_TRUE(results[0] >= 0.120 && results[0] < 0.125);
+  // Start at 1 because 0 is just for NaN tests
+  for (int i = 1; i < 64; i++) {
+    VERIFY_ARE_EQUAL((int(results[i])/3)%63 + 1, i);
+  }
+}
+
+void VerifyAtomicsFloatSharedTest(std::shared_ptr<ShaderOpTestResult> test) {
+  MappedData Data;
+  const float *pData = nullptr;
+
+  test->Test->GetReadBackData("U4", &Data);
+  pData = (float *)Data.data();
+
+  LogCommentFmt(L"Verifying float cmp/xchg atomic operations on groupshared variables");
+  VerifyAtomicFloatResults(pData);
+}
+
+void VerifyAtomicsFloatTest(std::shared_ptr<ShaderOpTestResult> test) {
+
+  // struct mirroring that in the shader
+  struct AtomicStuff {
+    float prepad[2][3];
+    float fltEl[2];
+    struct useless {
+      uint32_t unused[3];
+    } postpad;
+  };
+
+  // Test Compute Shader
+  MappedData Data;
+  const float *pData = nullptr;
+
+  test->Test->GetReadBackData("U0", &Data);
+  const AtomicStuff *pStructData = (AtomicStuff *)Data.data();
+  LogCommentFmt(L"Verifying float cmp/xchg atomic operations on RWStructuredBuffer resources");
+  VERIFY_IS_TRUE(pStructData[0].fltEl[1] >= 0.120 && pStructData[0].fltEl[1] < 0.125);
+  for (int i = 1; i < 64; i++) {
+    VERIFY_ARE_EQUAL((int(pStructData[i].fltEl[1])/3)%63 + 1, i);
+  }
+
+  test->Test->GetReadBackData("U1", &Data);
+  pData = (float *)Data.data();
+  LogCommentFmt(L"Verifying float cmp/xchg atomic operations on RWByteAddressBuffer resources");
+  VerifyAtomicFloatResults(pData);
+
+  test->Test->GetReadBackData("U2", &Data);
+  pData = (float *)Data.data();
+  LogCommentFmt(L"Verifying float cmp/xchg atomic operations on RWBuffer resources");
+  VerifyAtomicFloatResults(pData);
+
+  test->Test->GetReadBackData("U3", &Data);
+  pData = (float *)Data.data();
+  LogCommentFmt(L"Verifying float cmp/xchg atomic operations on RWTexture resources");
+  VerifyAtomicFloatResults(pData);
+
+}
+
+TEST_F(ExecutionTest, AtomicsFloatTest) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice))
+    return;
+
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+    std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+
+  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("FloatAtomics");
+
+  // Test compute shader
+  LogCommentFmt(L"Verifying float cmp/xchg atomic operations in compute shader");
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "FloatAtomics", nullptr, ShaderOpSet);
+  VerifyAtomicsFloatTest(test);
+  VerifyAtomicsFloatSharedTest(test);
+
+  // Test mesh shader if available
+  pShaderOp->CS = nullptr;
+  if (DoesDeviceSupportMeshShaders(pDevice)) {
+    LogCommentFmt(L"Verifying float cmp/xchg atomic operations in amp/mesh/pixel shaders");
+    test = RunShaderOpTestAfterParse(pDevice, m_support, "FloatAtomics", nullptr, ShaderOpSet);
+    VerifyAtomicsFloatTest(test);
+    VerifyAtomicsFloatSharedTest(test);
+  }
+
+  // Test Vertex + Pixel shader
+  pShaderOp->MS = nullptr;
+    LogCommentFmt(L"Verifying float cmp/xchg atomic operations in vert/pixel shaders");
+  test = RunShaderOpTestAfterParse(pDevice, m_support, "FloatAtomics", nullptr, ShaderOpSet);
+  VerifyAtomicsFloatTest(test);
+}
+
+// The IsHelperLane test renders 3-pixel triangle into 16x16 render target restricted 
+// to 2x2 viewport alligned at (0,0) which guarantees it will run in a single quad. 
+//
+// Pixels to be rendered*
+// (0,0)*  (0,1)*
+// (1,0)   (1,1)*
+//
+// Pixel (1,0) is not rendered and is in helper lane.
+//
+// Each thread will use ddx_fine and ddy_fine to read the IsHelperLane() values from other threads.
+// The bottom right pixel will write the results into the UAV buffer.
+// 
+// Then the top level pixel (0,0) is discarded and the process above is repeated.
+//
+// Runs with shader models 6.0 and 6.6 to test both the HLSL built-in IsHelperLane fallback 
+// function (sm <= 6.5) and the IsHelperLane intrisics (sm >= 6.6).
+//
+TEST_F(ExecutionTest, HelperLaneTest) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet = std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+
+#ifdef ISHELPERLANE_PLACEHOLDER
+  string args = "-DISHELPERLANE_PLACEHOLDER";
+#else 
+  string args = "";
+#endif
+
+  D3D_SHADER_MODEL TestShaderModels[] = { D3D_SHADER_MODEL_6_0, D3D_SHADER_MODEL_6_6 };
+  for (unsigned i = 0; i < _countof(TestShaderModels); i++) {
+    D3D_SHADER_MODEL sm = TestShaderModels[i];
+    LogCommentFmt(L"Verifying IsHelperLane in shader model 6.%1u", ((UINT)sm & 0x0f));
+
+    CComPtr<ID3D12Device> pDevice;
+    if (!CreateDevice(&pDevice, sm, false /* skipUnsupported */))
+      continue;
+
+    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "HelperLaneTestNoWave", 
+      // this callbacked is called when the test is creating the resource to run the test
+      [&](LPCSTR Name, std::vector<BYTE>& Data, st::ShaderOp* pShaderOp) {
+        VERIFY_IS_TRUE(0 == _stricmp(Name, "UAVBuffer0"));
+        std::fill(Data.begin(), Data.end(), (BYTE)0xCC);
+        pShaderOp->Shaders.at(0).Arguments = args.c_str();
+        pShaderOp->Shaders.at(1).Arguments = args.c_str();
+      }, ShaderOpSet);
+
+    struct HelperLaneTestResult {
+      int32_t is_helper_00;
+      int32_t is_helper_10;
+      int32_t is_helper_01;
+      int32_t is_helper_11;
+    };
+
+    MappedData uavData;
+    test->Test->GetReadBackData("UAVBuffer0", &uavData);
+    HelperLaneTestResult* pTestResults = (HelperLaneTestResult*)uavData.data();
+
+    MappedData renderData;
+    test->Test->GetReadBackData("RTarget", &renderData);
+    const uint32_t* pPixels = (uint32_t*)renderData.data();
+
+    // before discard
+    VERIFY_ARE_EQUAL(pTestResults[0].is_helper_00, 0);
+    VERIFY_ARE_EQUAL(pTestResults[0].is_helper_10, 0);
+    VERIFY_ARE_EQUAL(pTestResults[0].is_helper_01, 1);
+    VERIFY_ARE_EQUAL(pTestResults[0].is_helper_11, 0);
+
+    // after discard
+    VERIFY_ARE_EQUAL(pTestResults[1].is_helper_00, 1);
+    VERIFY_ARE_EQUAL(pTestResults[1].is_helper_10, 0);
+    VERIFY_ARE_EQUAL(pTestResults[1].is_helper_01, 1);
+    VERIFY_ARE_EQUAL(pTestResults[1].is_helper_11, 0);
+
+    UNREFERENCED_PARAMETER(pPixels);
+  }
+}
+
+struct HelperLaneWaveTestResult60 {
+  // 6.0 wave ops
+  int32_t anyTrue;
+  int32_t allTrue;
+  XMUINT4 ballot;
+  int32_t waterfallLoopCount;
+  int32_t allEqual;
+  int32_t countBits;
+  int32_t sum;
+  int32_t product;
+  int32_t bitAnd;
+  int32_t bitOr;
+  int32_t bitXor;
+  int32_t min;
+  int32_t max;
+  int32_t prefixCountBits;
+  int32_t prefixProduct;
+  int32_t prefixSum;
+};
+
+struct HelperLaneQuadTestResult {
+  int32_t is_helper_this;
+  int32_t is_helper_across_X;
+  int32_t is_helper_across_Y;
+  int32_t is_helper_across_Diag;
+};
+
+struct HelperLaneWaveTestResult65 {
+  // 6.5 wave ops
+  XMUINT4  match;
+  int32_t mpCountBits;
+  int32_t mpSum;
+  int32_t mpProduct;
+  int32_t mpBitAnd;
+  int32_t mpBitOr;
+  int32_t mpBitXor;
+};
+
+struct HelperLaneWaveTestResult {
+  HelperLaneWaveTestResult60 sm60;
+  HelperLaneQuadTestResult sm60_quad;
+  HelperLaneWaveTestResult65 sm65;
+};
+
+struct foo { int32_t a; int32_t b; int32_t c; };
+struct bar { foo f; int32_t d; XMUINT4 g; };
+foo f = {1, 2, 3};
+bar b = { { 1, 2, 3 }, 0, { 1, 2, 3, 4 } };
+
+HelperLaneWaveTestResult HelperLane_CS_ExpectedResults = {
+  // HelperLaneWaveTestResult60
+  { 0, 1, { 0x7, 0, 0, 0 }, 3, 1, 3, 12, 64, 1, 0, 0, 10, 1, 2, 16, 4 },
+  // HelperLaneQuadTestResult
+  { 0, 0, 0, 0 },
+  // HelperLaneWaveTestResult65
+  { {0x7, 0, 0, 0}, 2, 4, 16, 1, 0, 0 }
+};
+
+HelperLaneWaveTestResult HelperLane_VS_ExpectedResults = HelperLane_CS_ExpectedResults;
+  
+HelperLaneWaveTestResult HelperLane_PS_ExpectedResults = {
+  // HelperLaneWaveTestResult60
+  { 0, 1, { 0xB, 0, 0, 0 }, 3, 1, 3, 12, 64, 1, 0, 0, 10, 1, 2, 16, 4 },
+  // HelperLaneQuadTestResult
+  { 0, 1, 0, 0 },
+  // HelperLaneWaveTestResult65
+  { {0xB, 0, 0, 0}, 2, 4, 16, 1, 0, 0 }
+};
+
+HelperLaneWaveTestResult HelperLane_PSAfterDiscard_ExpectedResults = {
+  // HelperLaneWaveTestResult60
+  { 0, 1, { 0xA, 0, 0, 0 }, 2, 1, 2, 8, 16, 1, 0, 0, 10, 1, 1, 4, 2 },
+  // HelperLaneQuadTestResult
+  { 0, 1, 0, 1 },
+  // HelperLaneWaveTestResult65
+  { {0xA, 0, 0, 0}, 1, 2, 4, 1, 0, 0 }
+};
+
+bool HelperLaneResultLogAndVerify(const wchar_t* testDesc, uint32_t expectedValue, uint32_t actualValue) {
+  bool matches = (expectedValue == actualValue);
+  LogCommentFmt(L"%s%s, expected = %u, actual = %u", matches ? L" - " : L"FAILED: ", testDesc, expectedValue, actualValue);
+  return matches;
+}
+
+bool HelperLaneResultLogAndVerify(const wchar_t* testDesc, XMUINT4 expectedValue, XMUINT4 actualValue) {
+  bool matches = (expectedValue.x == actualValue.x && expectedValue.y == actualValue.y &&
+                  expectedValue.z == actualValue.z && expectedValue.w == actualValue.w);
+  LogCommentFmt(L"%s%s, expected = (0x%X,0x%X,0x%X,0x%X), actual = (0x%X,0x%X,0x%X,0x%X)", matches ? L" - " : L"FAILED: ", testDesc,
+    expectedValue.x, expectedValue.y, expectedValue.z, expectedValue.w, actualValue.x, actualValue.y, actualValue.z, actualValue.w);
+  return matches;
+}
+  
+
+bool VerifyHelperLaneWaveResults(ExecutionTest::D3D_SHADER_MODEL sm, HelperLaneWaveTestResult& testResults, HelperLaneWaveTestResult& expectedResults, bool verifyQuads) {
+  bool passed = true;
+  {
+    HelperLaneWaveTestResult60& tr60 = testResults.sm60;
+    HelperLaneWaveTestResult60& tr60exp = expectedResults.sm60;
+
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveAnyTrue(IsHelperLane())", tr60exp.anyTrue, tr60.anyTrue);
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveAllTrue(!IsHelperLane())", tr60exp.allTrue, tr60.allTrue);
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveBallot(true) has exactly 3 bits set", tr60exp.ballot, tr60.ballot);
+
+    passed &= HelperLaneResultLogAndVerify(L"!WaveReadLaneFirst(IsHelperLane()) && WaveIsFirstLane() in a waterfall loop", tr60exp.waterfallLoopCount, tr60.waterfallLoopCount);
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveAllEqual(IsHelperLane())", tr60exp.allEqual, tr60.allEqual);
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveCountBits(true)", tr60exp.countBits, tr60.countBits);
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveSum(4)", tr60exp.sum, tr60.sum);
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveProduct(4)", tr60exp.product, tr60.product);
+
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveBitAnd(!IsHelperLane())", tr60exp.bitAnd, tr60.bitAnd);
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveBitOr(IsHelperLane())", tr60exp.bitOr, tr60.bitOr);
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveBitXor(IsHelperLane())", tr60exp.bitXor, tr60.bitXor);
+
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveMin(IsHelperLane() ? 1 : 10)", tr60exp.min, tr60.min);
+    passed &= HelperLaneResultLogAndVerify(L"WaveActiveMax(IsHelperLane() ? 10 : 1)", tr60exp.max, tr60.max);
+
+    passed &= HelperLaneResultLogAndVerify(L"WavePrefixCountBits(1)", tr60exp.prefixCountBits, tr60.prefixCountBits);
+    passed &= HelperLaneResultLogAndVerify(L"WavePrefixProduct(4)", tr60exp.prefixProduct, tr60.prefixProduct);
+    passed &= HelperLaneResultLogAndVerify(L"WavePrefixSum(2)", tr60exp.prefixSum, tr60.prefixSum);
+  }
+
+  if (verifyQuads) {
+    HelperLaneQuadTestResult& quad_tr = testResults.sm60_quad;
+    HelperLaneQuadTestResult& quad_tr_exp = expectedResults.sm60_quad;
+    passed &= HelperLaneResultLogAndVerify(L"QuadReadAcross* - lane 3 / pixel (1,1) - IsHelperLane()", quad_tr_exp.is_helper_this, quad_tr.is_helper_this);
+    passed &= HelperLaneResultLogAndVerify(L"QuadReadAcross* - lane 2 / pixel (0,1) - IsHelperLane()", quad_tr_exp.is_helper_across_X, quad_tr.is_helper_across_X);
+    passed &= HelperLaneResultLogAndVerify(L"QuadReadAcross* - lane 1 / pixel (1,0) - IsHelperLane()", quad_tr_exp.is_helper_across_Y, quad_tr.is_helper_across_Y);
+    passed &= HelperLaneResultLogAndVerify(L"QuadReadAcross* - lane 0 / pixel (0,0) - IsHelperLane()", quad_tr_exp.is_helper_across_Diag, quad_tr.is_helper_across_Diag);
+  }
+
+  if (sm >= D3D_SHADER_MODEL_6_5) {
+    HelperLaneWaveTestResult65& tr65 = testResults.sm65;
+    HelperLaneWaveTestResult65& tr65exp = expectedResults.sm65;
+    
+    passed &= HelperLaneResultLogAndVerify(L"WaveMatch(true) has exactly 3 bits set", tr65exp.match, tr65.match);
+    passed &= HelperLaneResultLogAndVerify(L"WaveMultiPrefixCountBits(1, no_masked_bits)", tr65exp.mpCountBits, tr65.mpCountBits);
+    passed &= HelperLaneResultLogAndVerify(L"WaveMultiPrefixSum(2, no_masked_bits)", tr65exp.mpSum, tr65.mpSum);
+    passed &= HelperLaneResultLogAndVerify(L"WaveMultiPrefixProduct(4, no_masked_bits)", tr65exp.mpProduct, tr65.mpProduct);
+
+    passed &= HelperLaneResultLogAndVerify(L"WaveMultiPrefixAnd(IsHelperLane() ? 0 : 1, no_masked_bits)", tr65exp.mpBitAnd, tr65.mpBitAnd);
+    passed &= HelperLaneResultLogAndVerify(L"WaveMultiPrefixOr(IsHelperLane() ? 1 : 0, no_masked_bits)", tr65exp.mpBitOr, tr65.mpBitOr);
+    passed &= HelperLaneResultLogAndVerify(L"verify WaveMultiPrefixXor(IsHelperLane() ? 1 : 0, no_masked_bits)", tr65exp.mpBitXor, tr65.mpBitXor);
+  }
+  return passed;
+}
+
+void CleanUAVBuffer0Buffer(LPCSTR BufferName, std::vector<BYTE>& Data, st::ShaderOp* pShaderOp) {
+  UNREFERENCED_PARAMETER(pShaderOp);
+  VERIFY_IS_TRUE(0 == _stricmp(BufferName, "UAVBuffer0"));
+  std::fill(Data.begin(), Data.end(), (BYTE)0xCC);
+}
+
+//
+// The IsHelperLane test that use Wave intrinsics to verify IsHelperLane() and Wave operations on active lanes.
+//
+// Runs with shader models 6.0, 6.5 and 6.6 to test both the HLSL built-in IsHelperLane fallback 
+// function (sm <= 6.5) and the IsHelperLane intrisics (sm >= 6.6) and the shader model 6.5 wave intrinsics (sm >= 6.5).
+//
+// For compute and vertex shaders IsHelperLane() always returns false and might be optimized away in the front end.
+// However it can be exposed to the driver in CS/VS through an exported function in a library so drivers need 
+// to be prepared to handle it. For this reason the test is compiled with disabled optimizations (/Od).
+// The tests are also validating that wave intrinsics operate correctly with 3 threads in a CS or 3 vertices 
+// in a VS where the rest of the lanes in the wave are not active (dead lanes).
+//
+TEST_F(ExecutionTest, HelperLaneTestWave) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet = std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+  st::ShaderOp* pShaderOp = ShaderOpSet->GetShaderOp("HelperLaneTestWave");
+
+#ifdef ISHELPERLANE_PLACEHOLDER
+  LPCSTR args = "/Od -DISHELPERLANE_PLACEHOLDER";
+#else 
+  LPCSTR args = "/Od";
+#endif
+
+  if (args[0]) {
+    for (st::ShaderOpShader& S : pShaderOp->Shaders)
+      S.Arguments = args;
+  }
+
+  bool testPassed = true;
+
+  D3D_SHADER_MODEL TestShaderModels[] = { D3D_SHADER_MODEL_6_0, D3D_SHADER_MODEL_6_5, D3D_SHADER_MODEL_6_6 };
+  for (unsigned i = 0; i < _countof(TestShaderModels); i++) {
+    D3D_SHADER_MODEL sm = TestShaderModels[i];
+    LogCommentFmt(L"\r\nVerifying IsHelperLane using Wave intrinsics in shader model 6.%1u", ((UINT)sm & 0x0f));
+
+    bool smPassed = true;
+
+    CComPtr<ID3D12Device> pDevice;
+    if (!CreateDevice(&pDevice, sm, false /* skipUnsupported */)) {
+      continue;
+    }
+
+    if (!DoesDeviceSupportWaveOps(pDevice)) {
+      LogCommentFmt(L"Device does not support wave operations in shader model 6.%1u", ((UINT)sm & 0x0f));
+      continue;
+    }
+
+    if (sm >= D3D_SHADER_MODEL_6_5) {
+      // Reassign shader stages to 6.5 versions
+      LPCSTR CS65 = nullptr, VS65 = nullptr, PS65 = nullptr;
+      for (st::ShaderOpShader& S : pShaderOp->Shaders) {
+        if (!strcmp(S.Name, "CS65")) CS65 = S.Name;
+        if (!strcmp(S.Name, "VS65")) VS65 = S.Name;
+        if (!strcmp(S.Name, "PS65")) PS65 = S.Name;
+      }
+      pShaderOp->CS = CS65;
+      pShaderOp->VS = VS65;
+      pShaderOp->PS = PS65;
+    }
+
+    const unsigned CS_INDEX = 0, VS_INDEX = 0, PS_INDEX = 1, PS_INDEX_AFTER_DISCARD = 2;
+
+    // Test Compute shader
+    {
+      std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "HelperLaneTestWave",
+        CleanUAVBuffer0Buffer, ShaderOpSet);
+
+      MappedData uavData;
+      test->Test->GetReadBackData("UAVBuffer0", &uavData);
+      HelperLaneWaveTestResult* pTestResults = (HelperLaneWaveTestResult*)uavData.data();
+      LogCommentFmt(L"\r\nCompute shader");
+      smPassed &= VerifyHelperLaneWaveResults(sm, pTestResults[CS_INDEX], HelperLane_CS_ExpectedResults, true);
+    }
+    
+    // Test Vertex + Pixel shader
+    {
+      pShaderOp->CS = nullptr;
+      std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "HelperLaneTestWave", CleanUAVBuffer0Buffer, ShaderOpSet);
+
+      MappedData uavData;
+      test->Test->GetReadBackData("UAVBuffer0", &uavData);
+      HelperLaneWaveTestResult* pTestResults = (HelperLaneWaveTestResult*)uavData.data();
+      LogCommentFmt(L"\r\nVertex shader");
+      smPassed &= VerifyHelperLaneWaveResults(sm, pTestResults[VS_INDEX], HelperLane_VS_ExpectedResults, false);
+      LogCommentFmt(L"\r\nPixel shader");
+      smPassed &= VerifyHelperLaneWaveResults(sm, pTestResults[PS_INDEX], HelperLane_PS_ExpectedResults, true);
+      LogCommentFmt(L"\r\nPixel shader with discarded pixel");
+      smPassed &= VerifyHelperLaneWaveResults(sm, pTestResults[PS_INDEX_AFTER_DISCARD], HelperLane_PSAfterDiscard_ExpectedResults, true);
+      
+      MappedData renderData;
+      test->Test->GetReadBackData("RTarget", &renderData);
+      const uint32_t* pPixels = (uint32_t*)renderData.data();
+
+      UNREFERENCED_PARAMETER(pPixels);
+    }
+    testPassed &= smPassed;
+  }
+  VERIFY_ARE_EQUAL(testPassed, true);
 }
 
 #ifndef _HLK_CONF
@@ -7185,7 +9380,7 @@ static void WriteReadBackDump(st::ShaderOp *pShaderOp, st::ShaderOpTest *pTest,
         MappedData data;
         pTest->GetReadBackData(R.Name, &data);
         uint32_t *pData = (uint32_t *)data.data();
-        size_t u32_count = R.Desc.Width / sizeof(uint32_t);
+        size_t u32_count = ((size_t)R.Desc.Width) / sizeof(uint32_t);
         for (size_t i = 0; i < u32_count; ++i) {
           float f = *(float *)pData;
           str << i << ": 0n" << *pData << "   0x" << std::hex << *pData
@@ -7255,7 +9450,7 @@ extern "C" {
       m_support.Initialize();
 
       const char *pName = nullptr;
-      CComPtr<IStream> pStream = SHCreateMemStream((BYTE *)pText, strlen(pText));
+      CComPtr<IStream> pStream = SHCreateMemStream((BYTE *)pText, (UINT)strlen(pText));
       std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
         std::make_shared<st::ShaderOpSet>();
       st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());

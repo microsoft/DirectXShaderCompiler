@@ -554,12 +554,18 @@ subdirectories = %s
 #
 # FIXME: File a CMake RFE to get a properly supported version of this
 # feature.
+
+if(NOT HLSL_OFFICIAL_BUILD)
 """)
         for dep in dependencies:
             f.write("""\
 configure_file(\"%s\"
                ${CMAKE_CURRENT_BINARY_DIR}/DummyConfigureOutput)\n""" % (
                 cmake_quote_path(dep),))
+
+        f.write("""
+endif(NOT HLSL_OFFICIAL_BUILD)
+""")
 
         # Write the properties we use to encode the required library dependency
         # information in a form CMake can easily use directly.

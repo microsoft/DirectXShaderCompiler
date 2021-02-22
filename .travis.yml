@@ -41,10 +41,11 @@ matrix:
   # Allow address sanitizer bot to fail for now. TODO(Remove this).
   allow_failures:
     - os: linux
-      compiler: clang
-      env:
-        - DXC_BUILD_TYPE=Debug
-        - BUILD_CONFIG=ASAN
+      # All linux timing out with empty log currently.
+      # compiler: clang
+      # env:
+      #   - DXC_BUILD_TYPE=Debug
+      #   - BUILD_CONFIG=ASAN
 
 cache:
   apt: true

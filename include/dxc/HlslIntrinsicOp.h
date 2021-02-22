@@ -51,12 +51,15 @@ import hctdb_instrhelp
   IOP_InterlockedAdd,
   IOP_InterlockedAnd,
   IOP_InterlockedCompareExchange,
+  IOP_InterlockedCompareExchangeFloatBitwise,
   IOP_InterlockedCompareStore,
+  IOP_InterlockedCompareStoreFloatBitwise,
   IOP_InterlockedExchange,
   IOP_InterlockedMax,
   IOP_InterlockedMin,
   IOP_InterlockedOr,
   IOP_InterlockedXor,
+  IOP_IsHelperLane,
   IOP_NonUniformResourceIndex,
   IOP_ObjectRayDirection,
   IOP_ObjectRayOrigin,
@@ -182,6 +185,10 @@ import hctdb_instrhelp
   IOP_msad4,
   IOP_mul,
   IOP_normalize,
+  IOP_pack_clamp_s8,
+  IOP_pack_clamp_u8,
+  IOP_pack_s8,
+  IOP_pack_u8,
   IOP_pow,
   IOP_printf,
   IOP_radians,
@@ -224,6 +231,13 @@ import hctdb_instrhelp
   IOP_texCUBEproj,
   IOP_transpose,
   IOP_trunc,
+  IOP_unpack_s8s16,
+  IOP_unpack_s8s32,
+  IOP_unpack_u8u16,
+  IOP_unpack_u8u32,
+#ifdef ENABLE_SPIRV_CODEGEN
+  IOP_VkReadClock,
+#endif // ENABLE_SPIRV_CODEGEN
   MOP_Append,
   MOP_RestartStrip,
   MOP_CalculateLevelOfDetail,
@@ -251,14 +265,26 @@ import hctdb_instrhelp
   MOP_Load3,
   MOP_Load4,
   MOP_InterlockedAdd,
+  MOP_InterlockedAdd64,
   MOP_InterlockedAnd,
+  MOP_InterlockedAnd64,
   MOP_InterlockedCompareExchange,
+  MOP_InterlockedCompareExchange64,
+  MOP_InterlockedCompareExchangeFloatBitwise,
   MOP_InterlockedCompareStore,
+  MOP_InterlockedCompareStore64,
+  MOP_InterlockedCompareStoreFloatBitwise,
   MOP_InterlockedExchange,
+  MOP_InterlockedExchange64,
+  MOP_InterlockedExchangeFloat,
   MOP_InterlockedMax,
+  MOP_InterlockedMax64,
   MOP_InterlockedMin,
+  MOP_InterlockedMin64,
   MOP_InterlockedOr,
+  MOP_InterlockedOr64,
   MOP_InterlockedXor,
+  MOP_InterlockedXor64,
   MOP_Store,
   MOP_Store2,
   MOP_Store3,
@@ -365,7 +391,9 @@ import hctdb_instrhelp
   case IntrinsicOp::IOP_mul:
   case IntrinsicOp::IOP_sign:
   case IntrinsicOp::MOP_InterlockedMax:
+  case IntrinsicOp::MOP_InterlockedMax64:
   case IntrinsicOp::MOP_InterlockedMin:
+  case IntrinsicOp::MOP_InterlockedMin64:
 // HLSL-HAS-UNSIGNED-INTRINSICS:END
     return true;
   default:
@@ -419,7 +447,11 @@ import hctdb_instrhelp
     return static_cast<unsigned>(IntrinsicOp::IOP_usign);
   case IntrinsicOp::MOP_InterlockedMax:
     return static_cast<unsigned>(IntrinsicOp::MOP_InterlockedUMax);
+  case IntrinsicOp::MOP_InterlockedMax64:
+    return static_cast<unsigned>(IntrinsicOp::MOP_InterlockedUMax);
   case IntrinsicOp::MOP_InterlockedMin:
+    return static_cast<unsigned>(IntrinsicOp::MOP_InterlockedUMin);
+  case IntrinsicOp::MOP_InterlockedMin64:
     return static_cast<unsigned>(IntrinsicOp::MOP_InterlockedUMin);
 // HLSL-GET-UNSIGNED-INTRINSICS:END
   default:
