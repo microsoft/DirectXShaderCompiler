@@ -9295,7 +9295,7 @@ TEST_F(ExecutionTest, HelperLaneTestWave) {
       continue;
     }
 
-    if (sm >= D3D_SHADER_MODEL_6_5) {
+    if (sm == D3D_SHADER_MODEL_6_5) {
       // Reassign shader stages to 6.5 versions
       LPCSTR CS65 = nullptr, VS65 = nullptr, PS65 = nullptr;
       for (st::ShaderOpShader& S : pShaderOp->Shaders) {
@@ -9306,6 +9306,17 @@ TEST_F(ExecutionTest, HelperLaneTestWave) {
       pShaderOp->CS = CS65;
       pShaderOp->VS = VS65;
       pShaderOp->PS = PS65;
+    } else if (sm == D3D_SHADER_MODEL_6_6) {
+      // Reassign shader stages to 6.6 versions
+      LPCSTR CS66 = nullptr, VS66 = nullptr, PS66 = nullptr;
+      for (st::ShaderOpShader& S : pShaderOp->Shaders) {
+        if (!strcmp(S.Name, "CS66")) CS66 = S.Name;
+        if (!strcmp(S.Name, "VS66")) VS66 = S.Name;
+        if (!strcmp(S.Name, "PS66")) PS66 = S.Name;
+      }
+      pShaderOp->CS = CS66;
+      pShaderOp->VS = VS66;
+      pShaderOp->PS = PS66;
     }
 
     const unsigned CS_INDEX = 0, VS_INDEX = 0, PS_INDEX = 1, PS_INDEX_AFTER_DISCARD = 2;
