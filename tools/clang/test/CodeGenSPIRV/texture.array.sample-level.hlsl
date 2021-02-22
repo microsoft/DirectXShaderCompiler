@@ -10,7 +10,6 @@ TextureCubeArray <float4> t3 : register(t3);
 Texture2DArray   <float>  t4 : register(t4);
 TextureCubeArray <float3> t5 : register(t5);
 
-// CHECK: OpCapability ImageGatherExtended
 // CHECK: OpCapability SparseResidency
 
 // CHECK: [[v2fc:%\d+]] = OpConstantComposite %v2float %float_1 %float_1
@@ -31,10 +30,9 @@ float4 main(int2 offset : A) : SV_Target {
 
 // CHECK:              [[t2:%\d+]] = OpLoad %type_2d_image_array %t2
 // CHECK-NEXT:   [[gSampler:%\d+]] = OpLoad %type_sampler %gSampler
-// CHECK-NEXT:     [[offset:%\d+]] = OpLoad %v2int %offset
 // CHECK-NEXT: [[sampledImg:%\d+]] = OpSampledImage %type_sampled_image_0 [[t2]] [[gSampler]]
-// CHECK-NEXT:            {{%\d+}} = OpImageSampleExplicitLod %v4float [[sampledImg]] [[v3fc]] Lod|Offset %float_20 [[offset]]
-    float4 val2 = t2.SampleLevel(gSampler, float3(1, 2, 1), 20, offset);
+// CHECK-NEXT:            {{%\d+}} = OpImageSampleExplicitLod %v4float [[sampledImg]] [[v3fc]] Lod|ConstOffset %float_20
+    float4 val2 = t2.SampleLevel(gSampler, float3(1, 2, 1), 20, 1);
 
 // CHECK:              [[t3:%\d+]] = OpLoad %type_cube_image_array %t3
 // CHECK-NEXT:   [[gSampler:%\d+]] = OpLoad %type_sampler %gSampler
@@ -45,14 +43,13 @@ float4 main(int2 offset : A) : SV_Target {
     uint status;
 // CHECK:                [[t2:%\d+]] = OpLoad %type_2d_image_array %t2
 // CHECK-NEXT:     [[gSampler:%\d+]] = OpLoad %type_sampler %gSampler
-// CHECK-NEXT:       [[offset:%\d+]] = OpLoad %v2int %offset
 // CHECK-NEXT:   [[sampledImg:%\d+]] = OpSampledImage %type_sampled_image_0 [[t2]] [[gSampler]]
-// CHECK-NEXT: [[structResult:%\d+]] = OpImageSparseSampleExplicitLod %SparseResidencyStruct [[sampledImg]] [[v3fc]] Lod|Offset %float_20 [[offset]]
+// CHECK-NEXT: [[structResult:%\d+]] = OpImageSparseSampleExplicitLod %SparseResidencyStruct [[sampledImg]] [[v3fc]] Lod|ConstOffset %float_20
 // CHECK-NEXT:       [[status:%\d+]] = OpCompositeExtract %uint [[structResult]] 0
 // CHECK-NEXT:                         OpStore %status [[status]]
 // CHECK-NEXT:       [[result:%\d+]] = OpCompositeExtract %v4float [[structResult]] 1
 // CHECK-NEXT:                         OpStore %val4 [[result]]
-    float4 val4 = t2.SampleLevel(gSampler, float3(1, 2, 1), 20, offset, status);
+    float4 val4 = t2.SampleLevel(gSampler, float3(1, 2, 1), 20, 1, status);
 
 // CHECK:                [[t3:%\d+]] = OpLoad %type_cube_image_array %t3
 // CHECK-NEXT:     [[gSampler:%\d+]] = OpLoad %type_sampler %gSampler
@@ -69,9 +66,9 @@ float4 main(int2 offset : A) : SV_Target {
 // Make sure OpImageSparseSampleExplicitLod returns a struct, in which the second member is a vec4.
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// CHECK: [[v4result:%\d+]] = OpImageSampleExplicitLod %v4float {{%\d+}} {{%\d+}} Lod|Offset %float_20 {{%\d+}}
+// CHECK: [[v4result:%\d+]] = OpImageSampleExplicitLod %v4float {{%\d+}} {{%\d+}} Lod|ConstOffset %float_20
 // CHECK:          {{%\d+}} = OpCompositeExtract %float [[v4result]] 0
-    float val6 = t4.SampleLevel(gSampler, float3(1, 2, 1), 20, offset);
+    float val6 = t4.SampleLevel(gSampler, float3(1, 2, 1), 20, 1);
 
 // CHECK: [[structResult:%\d+]] = OpImageSparseSampleExplicitLod %SparseResidencyStruct {{%\d+}} {{%\d+}} Lod %float_30
 // CHECK:     [[v4result:%\d+]] = OpCompositeExtract %v4float [[structResult]] 1
