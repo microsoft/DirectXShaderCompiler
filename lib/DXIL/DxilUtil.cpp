@@ -288,56 +288,57 @@ void EmitWarningOnInstruction(Instruction *I, Twine Msg) {
   EmitWarningOrErrorOnInstruction(I, Msg, DiagnosticSeverity::DS_Warning);
 }
 
-static void EmitWarningOrErrorOnFunction(Function *F, Twine Msg,
+static void EmitWarningOrErrorOnFunction(llvm::LLVMContext &Ctx, Function *F, Twine Msg,
                                          DiagnosticSeverity severity) {
-  DISubprogram *DISP = getDISubprogram(F);
   DILocation *DLoc = nullptr;
-  if (DISP) {
+
+  if (DISubprogram *DISP = getDISubprogram(F)) {
     DLoc = DILocation::get(F->getContext(), DISP->getLine(), 0,
                            DISP, nullptr /*InlinedAt*/);
   }
-  F->getContext().diagnose(DiagnosticInfoDxil(F, DLoc, Msg, severity));
+  Ctx.diagnose(DiagnosticInfoDxil(F, DLoc, Msg, severity));
 }
 
-void EmitErrorOnFunction(Function *F, Twine Msg) {
-  EmitWarningOrErrorOnFunction(F, Msg, DiagnosticSeverity::DS_Error);
+void EmitErrorOnFunction(llvm::LLVMContext &Ctx, Function *F, Twine Msg) {
+  EmitWarningOrErrorOnFunction(Ctx, F, Msg, DiagnosticSeverity::DS_Error);
 }
 
-void EmitWarningOnFunction(Function *F, Twine Msg) {
-  EmitWarningOrErrorOnFunction(F, Msg, DiagnosticSeverity::DS_Warning);
+void EmitWarningOnFunction(llvm::LLVMContext &Ctx, Function *F, Twine Msg) {
+  EmitWarningOrErrorOnFunction(Ctx, F, Msg, DiagnosticSeverity::DS_Warning);
 }
 
-static void EmitWarningOrErrorOnGlobalVariable(GlobalVariable *GV,
+static void EmitWarningOrErrorOnGlobalVariable(llvm::LLVMContext &Ctx, GlobalVariable *GV,
                                                Twine Msg, DiagnosticSeverity severity) {
   DIVariable *DIV = nullptr;
-  if (!GV) return;
 
-  Module &M = *GV->getParent();
   DILocation *DLoc = nullptr;
 
-  if (getDebugMetadataVersionFromModule(M) != 0) {
-    DebugInfoFinder FinderObj;
-    DebugInfoFinder &Finder = FinderObj;
-    // Debug modules have no dxil modules. Use it if you got it.
-    if (M.HasDxilModule())
-      Finder = M.GetDxilModule().GetOrCreateDebugInfoFinder();
-    else
-      Finder.processModule(M);
-    DIV = FindGlobalVariableDebugInfo(GV, Finder);
-    if (DIV)
-      DLoc = DILocation::get(GV->getContext(), DIV->getLine(), 0,
-                             DIV->getScope(), nullptr /*InlinedAt*/);
+  if (GV) {
+    Module &M = *GV->getParent();
+    if (getDebugMetadataVersionFromModule(M) != 0) {
+      DebugInfoFinder FinderObj;
+      DebugInfoFinder &Finder = FinderObj;
+      // Debug modules have no dxil modules. Use it if you got it.
+      if (M.HasDxilModule())
+        Finder = M.GetDxilModule().GetOrCreateDebugInfoFinder();
+      else
+        Finder.processModule(M);
+      DIV = FindGlobalVariableDebugInfo(GV, Finder);
+      if (DIV)
+        DLoc = DILocation::get(GV->getContext(), DIV->getLine(), 0,
+                               DIV->getScope(), nullptr /*InlinedAt*/);
+    }
   }
 
-  GV->getContext().diagnose(DiagnosticInfoDxil(nullptr /*Function*/, DLoc, Msg, severity));
+  Ctx.diagnose(DiagnosticInfoDxil(nullptr /*Function*/, DLoc, Msg, severity));
 }
 
-void EmitErrorOnGlobalVariable(GlobalVariable *GV, Twine Msg) {
-  EmitWarningOrErrorOnGlobalVariable(GV, Msg, DiagnosticSeverity::DS_Error);
+void EmitErrorOnGlobalVariable(llvm::LLVMContext &Ctx, GlobalVariable *GV, Twine Msg) {
+  EmitWarningOrErrorOnGlobalVariable(Ctx, GV, Msg, DiagnosticSeverity::DS_Error);
 }
 
-void EmitWarningOnGlobalVariable(GlobalVariable *GV, Twine Msg) {
-  EmitWarningOrErrorOnGlobalVariable(GV, Msg, DiagnosticSeverity::DS_Warning);
+void EmitWarningOnGlobalVariable(llvm::LLVMContext &Ctx, GlobalVariable *GV, Twine Msg) {
+  EmitWarningOrErrorOnGlobalVariable(Ctx, GV, Msg, DiagnosticSeverity::DS_Warning);
 }
 
 const char *kResourceMapErrorMsg =
@@ -740,65 +741,120 @@ bool IsResourceSingleComponent(Type *Ty) {
   return true;
 }
 
+uint8_t GetResourceComponentCount(llvm::Type *Ty) {
+  if (llvm::ArrayType *arrType = llvm::dyn_cast<llvm::ArrayType>(Ty)) {
+    return arrType->getArrayNumElements() *
+           GetResourceComponentCount(arrType->getArrayElementType());
+  } else if (llvm::StructType *structType =
+                 llvm::dyn_cast<llvm::StructType>(Ty)) {
+    uint32_t Count = 0;
+    for (Type *EltTy : structType->elements())  {
+      Count += GetResourceComponentCount(EltTy);
+    }
+    DXASSERT(Count <= 4, "Component Count out of bound.");
+    return Count;
+  } else if (llvm::VectorType *vectorType =
+                 llvm::dyn_cast<llvm::VectorType>(Ty)) {
+    return vectorType->getNumElements();
+  }
+  return 1;
+}
+
 bool IsHLSLResourceType(llvm::Type *Ty) {
+  return GetHLSLResourceProperties(Ty).first;
+}
+
+static DxilResourceProperties MakeResourceProperties(hlsl::DXIL::ResourceKind Kind, bool UAV, bool ROV, bool Cmp) {
+  DxilResourceProperties Ret = {};
+  Ret.Basic.IsROV = ROV;
+  Ret.Basic.SamplerCmpOrHasCounter = Cmp;
+  Ret.Basic.IsUAV = UAV;
+  Ret.Basic.ResourceKind = (uint8_t)Kind;
+  return Ret;
+}
+
+std::pair<bool, DxilResourceProperties> GetHLSLResourceProperties(llvm::Type *Ty)
+{
+   using RetType = std::pair<bool, DxilResourceProperties>;
+   RetType FalseRet(false, DxilResourceProperties{});
+
   if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
     if (!ST->hasName())
-      return false;
+      return FalseRet;
+
     StringRef name = ST->getName();
     ConsumePrefix(name, "class.");
     ConsumePrefix(name, "struct.");
 
     if (name == "SamplerState")
-      return true;
+      return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::Sampler, false, false, false));
+
     if (name == "SamplerComparisonState")
-      return true;
+      return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::Sampler, false, false, /*cmp or counter*/true));
 
     if (name.startswith("AppendStructuredBuffer<"))
-      return true;
+      return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::StructuredBuffer, false, false, /*cmp or counter*/true));
+
     if (name.startswith("ConsumeStructuredBuffer<"))
-      return true;
+      return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::StructuredBuffer, false, false, /*cmp or counter*/true));
 
     if (name == "RaytracingAccelerationStructure")
-      return true;
+      return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::RTAccelerationStructure, false, false, false));
 
     if (ConsumePrefix(name, "FeedbackTexture2D")) {
-      ConsumePrefix(name, "Array");
-      return name.startswith("<");
+      hlsl::DXIL::ResourceKind kind = hlsl::DXIL::ResourceKind::Invalid;
+      if (ConsumePrefix(name, "Array"))
+        kind = hlsl::DXIL::ResourceKind::FeedbackTexture2DArray;
+      else
+        kind = hlsl::DXIL::ResourceKind::FeedbackTexture2D;
+
+      if (name.startswith("<"))
+        return RetType(true, MakeResourceProperties(kind, false, false, false));
     }
 
-    ConsumePrefix(name, "RasterizerOrdered");
-    ConsumePrefix(name, "RW");
+    bool ROV = ConsumePrefix(name, "RasterizerOrdered");
+    bool UAV = ConsumePrefix(name, "RW");
+
     if (name == "ByteAddressBuffer")
-      return true;
+      return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::RawBuffer, UAV, ROV, false));
 
     if (name.startswith("Buffer<"))
-      return true;
+      return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::TypedBuffer, UAV, ROV, false));
+
     if (name.startswith("StructuredBuffer<"))
-      return true;
+      return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::StructuredBuffer, UAV, ROV, false));
 
     if (ConsumePrefix(name, "Texture")) {
       if (name.startswith("1D<"))
-        return true;
+        return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::Texture1D, UAV, ROV, false));
+
       if (name.startswith("1DArray<"))
-        return true;
+        return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::Texture1DArray, UAV, ROV, false));
+
       if (name.startswith("2D<"))
-        return true;
+        return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::Texture2D, UAV, ROV, false));
+
       if (name.startswith("2DArray<"))
-        return true;
+        return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::Texture2DArray, UAV, ROV, false));
+
       if (name.startswith("3D<"))
-        return true;
+        return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::Texture3D, UAV, ROV, false));
+
       if (name.startswith("Cube<"))
-        return true;
+        return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::TextureCube, UAV, ROV, false));
+
       if (name.startswith("CubeArray<"))
-        return true;
+        return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::TextureCubeArray, UAV, ROV, false));
+
       if (name.startswith("2DMS<"))
-        return true;
+        return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::Texture2DMS, UAV, ROV, false));
+
       if (name.startswith("2DMSArray<"))
-        return true;
-      return false;
+        return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::Texture2DMSArray, UAV, ROV, false));
+      return FalseRet;
     }
   }
-  return false;
+  return FalseRet;
 }
 
 bool IsHLSLObjectType(llvm::Type *Ty) {
@@ -852,6 +908,9 @@ bool IsHLSLResourceDescType(llvm::Type *Ty) {
 
     // TODO: don't check names.
     if (name == ("struct..Resource"))
+      return true;
+
+    if (name == "struct..Sampler")
       return true;
   }
   return false;

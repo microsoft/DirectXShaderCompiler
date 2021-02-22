@@ -11,13 +11,13 @@ TextureCube <float4> t4 : register(t4);
 Texture1D   <float>  t5 : register(t5);
 Texture3D   <float2> t6 : register(t6);
 
-// CHECK: OpCapability ImageGatherExtended
 // CHECK: OpCapability MinLod
 // CHECK: OpCapability SparseResidency
 
 // CHECK: [[v2fc:%\d+]] = OpConstantComposite %v2float %float_1 %float_2
 // CHECK: [[v2ic:%\d+]] = OpConstantComposite %v2int %int_2 %int_2
 // CHECK: [[v3fc:%\d+]] = OpConstantComposite %v3float %float_1 %float_2 %float_3
+// CHECK: [[v3ic:%\d+]] = OpConstantComposite %v3int %int_1 %int_1 %int_1
 
 // CHECK: %type_sampled_image = OpTypeSampledImage %type_1d_image
 // CHECK: %type_sampled_image_0 = OpTypeSampledImage %type_2d_image
@@ -40,10 +40,9 @@ float4 main(int3 offset: A) : SV_Target {
 
 // CHECK:              [[t3:%\d+]] = OpLoad %type_3d_image %t3
 // CHECK-NEXT:   [[gSampler:%\d+]] = OpLoad %type_sampler %gSampler
-// CHECK-NEXT:     [[offset:%\d+]] = OpLoad %v3int %offset
 // CHECK-NEXT: [[sampledImg:%\d+]] = OpSampledImage %type_sampled_image_1 [[t3]] [[gSampler]]
-// CHECK-NEXT:            {{%\d+}} = OpImageSampleImplicitLod %v4float [[sampledImg]] [[v3fc]] Bias|Offset %float_0_5 [[offset]]
-    float4 val3 = t3.SampleBias(gSampler, float3(1, 2, 3), 0.5, offset);
+// CHECK-NEXT:            {{%\d+}} = OpImageSampleImplicitLod %v4float [[sampledImg]] [[v3fc]] Bias|ConstOffset %float_0_5 [[v3ic]]
+    float4 val3 = t3.SampleBias(gSampler, float3(1, 2, 3), 0.5, 1);
 
 // CHECK:              [[t4:%\d+]] = OpLoad %type_cube_image %t4
 // CHECK-NEXT:   [[gSampler:%\d+]] = OpLoad %type_sampler %gSampler
@@ -55,10 +54,9 @@ float4 main(int3 offset: A) : SV_Target {
 // CHECK:           [[clamp:%\d+]] = OpLoad %float %clamp
 // CHECK-NEXT:         [[t3:%\d+]] = OpLoad %type_3d_image %t3
 // CHECK-NEXT:   [[gSampler:%\d+]] = OpLoad %type_sampler %gSampler
-// CHECK-NEXT:     [[offset:%\d+]] = OpLoad %v3int %offset
 // CHECK-NEXT: [[sampledImg:%\d+]] = OpSampledImage %type_sampled_image_1 [[t3]] [[gSampler]]
-// CHECK-NEXT:            {{%\d+}} = OpImageSampleImplicitLod %v4float [[sampledImg]] [[v3fc]] Bias|Offset|MinLod %float_0_5 [[offset]] [[clamp]]
-    float4 val5 = t3.SampleBias(gSampler, float3(1, 2, 3), 0.5, offset, clamp);
+// CHECK-NEXT:            {{%\d+}} = OpImageSampleImplicitLod %v4float [[sampledImg]] [[v3fc]] Bias|ConstOffset|MinLod %float_0_5 [[v3ic]] [[clamp]]
+    float4 val5 = t3.SampleBias(gSampler, float3(1, 2, 3), 0.5, 1, clamp);
 
 // CHECK:              [[t4:%\d+]] = OpLoad %type_cube_image %t4
 // CHECK-NEXT:   [[gSampler:%\d+]] = OpLoad %type_sampler %gSampler
@@ -70,14 +68,13 @@ float4 main(int3 offset: A) : SV_Target {
 // CHECK:             [[clamp:%\d+]] = OpLoad %float %clamp
 // CHECK-NEXT:           [[t3:%\d+]] = OpLoad %type_3d_image %t3
 // CHECK-NEXT:     [[gSampler:%\d+]] = OpLoad %type_sampler %gSampler
-// CHECK-NEXT:       [[offset:%\d+]] = OpLoad %v3int %offset
 // CHECK-NEXT:   [[sampledImg:%\d+]] = OpSampledImage %type_sampled_image_1 [[t3]] [[gSampler]]
-// CHECK-NEXT: [[structResult:%\d+]] = OpImageSparseSampleImplicitLod %SparseResidencyStruct [[sampledImg]] [[v3fc]] Bias|Offset|MinLod %float_0_5 [[offset]] [[clamp]]
+// CHECK-NEXT: [[structResult:%\d+]] = OpImageSparseSampleImplicitLod %SparseResidencyStruct [[sampledImg]] [[v3fc]] Bias|ConstOffset|MinLod %float_0_5 [[v3ic]] [[clamp]]
 // CHECK-NEXT:       [[status:%\d+]] = OpCompositeExtract %uint [[structResult]] 0
 // CHECK-NEXT:                         OpStore %status [[status]]
 // CHECK-NEXT:       [[result:%\d+]] = OpCompositeExtract %v4float [[structResult]] 1
 // CHECK-NEXT:                         OpStore %val7 [[result]]
-    float4 val7 = t3.SampleBias(gSampler, float3(1, 2, 3), 0.5, offset, clamp, status);
+    float4 val7 = t3.SampleBias(gSampler, float3(1, 2, 3), 0.5, 1, clamp, status);
 
 // CHECK:                [[t4:%\d+]] = OpLoad %type_cube_image %t4
 // CHECK-NEXT:     [[gSampler:%\d+]] = OpLoad %type_sampler %gSampler
@@ -98,10 +95,10 @@ float4 main(int3 offset: A) : SV_Target {
 // CHECK:           {{%\d+}} = OpCompositeExtract %float [[v4result]] 0
     float val9 = t5.SampleBias(gSampler, 1, 0.5);
 
-// CHECK: [[structResult:%\d+]] = OpImageSparseSampleImplicitLod %SparseResidencyStruct {{%\d+}} {{%\d+}} Bias|Offset|MinLod %float_0_5 {{%\d+}} {{%\d+}}
+// CHECK: [[structResult:%\d+]] = OpImageSparseSampleImplicitLod %SparseResidencyStruct {{%\d+}} {{%\d+}} Bias|ConstOffset|MinLod %float_0_5 {{%\d+}} {{%\d+}}
 // CHECK:     [[v4result:%\d+]] = OpCompositeExtract %v4float [[structResult]] 1
 // CHECK:              {{%\d+}} = OpVectorShuffle %v2float [[v4result]] [[v4result]] 0 1
-    float2 val10 = t6.SampleBias(gSampler, float3(1, 2, 3), 0.5, offset, clamp, status);
+    float2 val10 = t6.SampleBias(gSampler, float3(1, 2, 3), 0.5, 1, clamp, status);
 
     return 1.0;
 }

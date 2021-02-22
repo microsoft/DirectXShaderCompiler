@@ -60,7 +60,7 @@ public:
   TrivialDxcUnsavedFile(LPCSTR fileName, LPCSTR contents)
     : m_dwRef(0), m_fileName(fileName), m_contents(contents)
   {
-    m_length = strlen(m_contents);
+    m_length = (unsigned)strlen(m_contents);
   }
 
   static HRESULT Create(LPCSTR fileName, LPCSTR contents, IDxcUnsavedFile** pResult)

@@ -16,6 +16,8 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/IR/Constants.h"
+#include "dxc/DXIL/DxilConstants.h"
+#include "dxc/DXIL/DxilResourceProperties.h"
 
 namespace llvm {
 class Type;
@@ -80,10 +82,10 @@ namespace dxilutil {
 
   void EmitErrorOnInstruction(llvm::Instruction *I, llvm::Twine Msg);
   void EmitWarningOnInstruction(llvm::Instruction *I, llvm::Twine Msg);
-  void EmitErrorOnFunction(llvm::Function *F, llvm::Twine Msg);
-  void EmitWarningOnFunction(llvm::Function *F, llvm::Twine Msg);
-  void EmitErrorOnGlobalVariable(llvm::GlobalVariable *GV, llvm::Twine Msg);
-  void EmitWarningOnGlobalVariable(llvm::GlobalVariable *GV, llvm::Twine Msg);
+  void EmitErrorOnFunction(llvm::LLVMContext &Ctx, llvm::Function *F, llvm::Twine Msg);
+  void EmitWarningOnFunction(llvm::LLVMContext &Ctx, llvm::Function *F, llvm::Twine Msg);
+  void EmitErrorOnGlobalVariable(llvm::LLVMContext &Ctx, llvm::GlobalVariable *GV, llvm::Twine Msg);
+  void EmitWarningOnGlobalVariable(llvm::LLVMContext &Ctx, llvm::GlobalVariable *GV, llvm::Twine Msg);
   void EmitErrorOnContext(llvm::LLVMContext &Ctx, llvm::Twine Msg);
   void EmitWarningOnContext(llvm::LLVMContext &Ctx, llvm::Twine Msg);
   void EmitNoteOnContext(llvm::LLVMContext &Ctx, llvm::Twine Msg);
@@ -128,6 +130,7 @@ namespace dxilutil {
   bool IsIntegerOrFloatingPointType(llvm::Type *Ty);
   // Returns true if type contains HLSL Object type (resource)
   bool ContainsHLSLObjectType(llvm::Type *Ty);
+  std::pair<bool, DxilResourceProperties> GetHLSLResourceProperties(llvm::Type *Ty);
   bool IsHLSLResourceType(llvm::Type *Ty);
   bool IsHLSLObjectType(llvm::Type *Ty);
   bool IsHLSLRayQueryType(llvm::Type *Ty);
@@ -135,6 +138,7 @@ namespace dxilutil {
   bool IsLoadIntrinsic(llvm::CallInst *CI);
   bool IsRematerializable(llvm::Instruction *I);
   bool IsResourceSingleComponent(llvm::Type *Ty);
+  uint8_t GetResourceComponentCount(llvm::Type *Ty);
   bool IsSplat(llvm::ConstantDataVector *cdv);
 
   llvm::Type* StripArrayTypes(llvm::Type *Ty, llvm::SmallVectorImpl<unsigned> *OuterToInnerLengths = nullptr);

@@ -2546,6 +2546,8 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
   case Min12Int:          return "min12int";
   case LitFloat:          return "literal float";
   case LitInt:            return "literal int";
+  case Int8_4Packed:      return "int8_t4_packed";
+  case UInt8_4Packed:     return "uint8_t4_packed";
   // HLSL Change Ends
   }
   

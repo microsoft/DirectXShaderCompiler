@@ -18,6 +18,7 @@
 #include "dxc/Support/dxcapi.use.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/StringMap.h"
 
 namespace hlsl {
 namespace options {
@@ -45,6 +46,9 @@ public:
   /// Allow the input file to be empty. This is useful when making
   /// checks that some error message does not occur, for example.
   bool AllowEmptyInput;
+
+  /// VariableTable - This holds all the current filecheck variables.
+  llvm::StringMap<std::string> VariableTable;
 
   /// String to read in place of standard input.
   std::string InputForStdin;

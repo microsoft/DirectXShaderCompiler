@@ -68,3 +68,4 @@ OpenBSD regex       llvm/lib/Support/{reg*, COPYRIGHT.regex}
 pyyaml tests        llvm/test/YAMLParser/{*.data, LICENSE.TXT}
 ARM contributions   llvm/lib/Target/ARM/LICENSE.TXT
 md5 contributions   llvm/lib/Support/MD5.cpp llvm/include/llvm/Support/MD5.h
+miniz               llvm/lib/Miniz/miniz.c llvm/include/miniz/miniz.h llvm/lib/Miniz/LICENSE.txt

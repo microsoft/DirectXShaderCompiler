@@ -615,7 +615,11 @@ void USRGenerator::VisitType(QualType T) {
           c = '?'; break;
         case BuiltinType::LitInt:
           c = '?'; break;
-        // HLSL Change Ends
+        case BuiltinType::Int8_4Packed:
+          c = '?'; break;
+        case BuiltinType::UInt8_4Packed:
+          c = '?'; break;
+          // HLSL Change Ends
         case BuiltinType::NullPtr:
           c = 'n'; break;
 #define BUILTIN_TYPE(Id, SingletonId)

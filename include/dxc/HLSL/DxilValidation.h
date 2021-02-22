@@ -265,11 +265,13 @@ enum class ValidationRule : unsigned {
   SmUndefinedOutput, // Not all elements of output %0 were written.
   SmValidDomain, // Invalid Tessellator Domain specified. Must be isoline, tri or quad.
   SmViewIDNeedsSlot, // ViewID requires compatible space in pixel shader input signature
+  SmWaveSizeNeedsDxil16Plus, // WaveSize is valid only for DXIL version 1.6 and higher.
+  SmWaveSizeValue, // Declared WaveSize %0 outside valid range [%1..%2], or not a power of 2.
   SmZeroHSInputControlPointWithInput, // When HS input control point count is 0, no input signature should exist.
 
   // Type system
   TypesDefined, // Type must be defined based on DXIL primitives
-  TypesI8, // I8 can only be used as immediate value for intrinsic.
+  TypesI8, // I8 can only be used as immediate value for intrinsic or as i8* via bitcast by lifetime intrinsics.
   TypesIntWidth, // Int type must be of valid width
   TypesNoMultiDim, // Only one dimension allowed for array type.
   TypesNoPtrToPtr, // Pointers to pointers, or pointers in structures are not allowed.

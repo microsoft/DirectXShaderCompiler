@@ -77,12 +77,13 @@ public:
 
     // The following section is for termination instructions.
     // Used by LLVM-style RTTI; order matters.
-    IK_Branch,            // OpBranch
-    IK_BranchConditional, // OpBranchConditional
-    IK_Kill,              // OpKill
-    IK_Return,            // OpReturn*
-    IK_Switch,            // OpSwitch
-    IK_Unreachable,       // OpUnreachable
+    IK_Branch,              // OpBranch
+    IK_BranchConditional,   // OpBranchConditional
+    IK_Kill,                // OpKill
+    IK_Return,              // OpReturn*
+    IK_Switch,              // OpSwitch
+    IK_Unreachable,         // OpUnreachable
+    IK_RayTracingTerminate, // OpIgnoreIntersectionKHR/OpTerminateRayKHR
 
     // Normal instruction kinds
     // In alphabetical order
@@ -118,6 +119,7 @@ public:
     IK_Load,                      // OpLoad
     IK_RayQueryOpKHR,             // KHR rayquery ops
     IK_RayTracingOpNV,            // NV raytracing ops
+    IK_ReadClock,                 // OpReadClock
     IK_SampledImage,              // OpSampledImage
     IK_Select,                    // OpSelect
     IK_SpecConstantBinaryOp,      // SpecConstant binary operations
@@ -633,6 +635,7 @@ private:
 ///
 /// * OpBranch, OpBranchConditional, OpSwitch
 /// * OpReturn, OpReturnValue, OpKill, OpUnreachable
+/// * OpIgnoreIntersectionKHR, OpTerminateIntersectionKHR
 ///
 /// The first group (branching instructions) also include information on
 /// possible branches that will be taken next.
@@ -640,7 +643,8 @@ class SpirvTerminator : public SpirvInstruction {
 public:
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
-    return inst->getKind() >= IK_Branch && inst->getKind() <= IK_Unreachable;
+    return inst->getKind() >= IK_Branch &&
+           inst->getKind() <= IK_RayTracingTerminate;
   }
 
 protected:
@@ -1957,6 +1961,19 @@ private:
   bool cullFlags;
 };
 
+class SpirvRayTracingTerminateOpKHR : public SpirvTerminator {
+public:
+  SpirvRayTracingTerminateOpKHR(spv::Op opcode, SourceLocation loc);
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvRayTracingTerminateOpKHR)
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_RayTracingTerminate;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+};
+
 /// \brief OpDemoteToHelperInvocationEXT instruction.
 /// Demote fragment shader invocation to a helper invocation. Any stores to
 /// memory after this instruction are suppressed and the fragment does not write
@@ -2700,6 +2717,25 @@ private:
   // When it is DebugTypeComposite for HLSL resource type i.e., opaque
   // type, we must put DebugInfoNone for Size operand.
   SpirvDebugInfoNone *debugNone;
+};
+
+class SpirvReadClock : public SpirvInstruction {
+public:
+  SpirvReadClock(QualType resultType, SpirvInstruction *scope, SourceLocation);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvReadClock)
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_ReadClock;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  SpirvInstruction *getScope() const { return scope; }
+
+private:
+  SpirvInstruction *scope;
 };
 
 #undef DECLARE_INVOKE_VISITOR_FOR_CLASS

@@ -80,6 +80,7 @@ const char* kFP32DenormValueFtzString      = "ftz";
 const char *kDxBreakFuncName = "dx.break";
 const char *kDxBreakCondName = "dx.break.cond";
 const char *kDxBreakMDName = "dx.break.br";
+const char *kDxIsHelperGlobalName = "dx.ishelper";
 }
 
 // Avoid dependency on DxilModule from llvm::Module using this:
@@ -330,7 +331,6 @@ void DxilModule::CollectShaderFlagsForModule(ShaderFlags &Flags) {
     switch (UAV->GetKind()) {
     case DXIL::ResourceKind::RawBuffer:
     case DXIL::ResourceKind::StructuredBuffer:
-    case DXIL::ResourceKind::StructuredBufferWithCounter:
       hasRawAndStructuredBuffer = true;
       break;
     default:
@@ -407,6 +407,24 @@ unsigned DxilModule::GetNumThreads(unsigned idx) const {
   const unsigned *numThreads = props.IsCS() ? props.ShaderProps.CS.numThreads :
     props.IsMS() ? props.ShaderProps.MS.numThreads : props.ShaderProps.AS.numThreads;
   return numThreads[idx];
+}
+
+void DxilModule::SetWaveSize(unsigned size) {
+  DXASSERT(m_DxilEntryPropsMap.size() == 1 && m_pSM->IsCS(),
+    "only works for CS profile");
+  DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT_NOMSG(m_pSM->GetKind() == props.shaderKind);
+  props.waveSize = size;
+}
+
+unsigned DxilModule::GetWaveSize() const {
+  DXASSERT(m_DxilEntryPropsMap.size() == 1 && m_pSM->IsCS(),
+    "only works for CS profiles");
+  if (!m_pSM->IsCS())
+    return 0;
+  const DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT_NOMSG(m_pSM->GetKind() == props.shaderKind);
+  return props.waveSize;
 }
 
 DXIL::InputPrimitive DxilModule::GetInputPrimitive() const {
@@ -1236,6 +1254,16 @@ bool DxilModule::IsEntryThatUsesSignatures(const llvm::Function *F) const {
   // Otherwise, return true if patch constant function
   return IsPatchConstantShader(F);
 }
+bool DxilModule::IsEntry(const llvm::Function *F) const {
+  auto propIter = m_DxilEntryPropsMap.find(F);
+  if (propIter != m_DxilEntryPropsMap.end()) {
+    DXASSERT(propIter->second->props.shaderKind != DXIL::ShaderKind::Invalid,
+             "invalid entry props");
+    return true;
+  }
+  // Otherwise, return true if patch constant function
+  return IsPatchConstantShader(F);
+}
 
 bool DxilModule::StripRootSignatureFromMetadata() {
   NamedMDNode *pRootSignatureNamedMD = GetModule()->getNamedMetadata(DxilMDHelper::kDxilRootSignatureMDName);
@@ -1808,25 +1836,52 @@ void DxilModule::LoadDxilResources(const llvm::MDOperand &MDO) {
   }
 }
 
-void DxilModule::StripDebugRelatedCode() {
+void DxilModule::StripShaderSourcesAndCompileOptions(bool bReplaceWithDummyData) {
   // Remove dx.source metadata.
   if (NamedMDNode *contents = m_pModule->getNamedMetadata(
           DxilMDHelper::kDxilSourceContentsMDName)) {
     contents->eraseFromParent();
+    if (bReplaceWithDummyData) {
+      // Insert an empty source and content
+      llvm::LLVMContext &context = m_pModule->getContext();
+      llvm::NamedMDNode *newNamedMD = m_pModule->getOrInsertNamedMetadata(DxilMDHelper::kDxilSourceContentsMDName);
+      llvm::Metadata *operands[2] = { llvm::MDString::get(context, ""), llvm::MDString::get(context, "") };
+      newNamedMD->addOperand(llvm::MDTuple::get(context, operands));
+    }
   }
   if (NamedMDNode *defines =
           m_pModule->getNamedMetadata(DxilMDHelper::kDxilSourceDefinesMDName)) {
     defines->eraseFromParent();
+    if (bReplaceWithDummyData) {
+      llvm::LLVMContext &context = m_pModule->getContext();
+      llvm::NamedMDNode *newNamedMD = m_pModule->getOrInsertNamedMetadata(DxilMDHelper::kDxilSourceDefinesMDName);
+      newNamedMD->addOperand(llvm::MDTuple::get(context, llvm::ArrayRef<llvm::Metadata *>()));
+    }
   }
   if (NamedMDNode *mainFileName = m_pModule->getNamedMetadata(
           DxilMDHelper::kDxilSourceMainFileNameMDName)) {
     mainFileName->eraseFromParent();
+    if (bReplaceWithDummyData) {
+      // Insert an empty file name
+      llvm::LLVMContext &context = m_pModule->getContext();
+      llvm::NamedMDNode *newNamedMD = m_pModule->getOrInsertNamedMetadata(DxilMDHelper::kDxilSourceMainFileNameMDName);
+      llvm::Metadata *operands[1] = { llvm::MDString::get(context, "") };
+      newNamedMD->addOperand(llvm::MDTuple::get(context, operands));
+    }
   }
   if (NamedMDNode *arguments =
           m_pModule->getNamedMetadata(DxilMDHelper::kDxilSourceArgsMDName)) {
     arguments->eraseFromParent();
+    if (bReplaceWithDummyData) {
+      llvm::LLVMContext &context = m_pModule->getContext();
+      llvm::NamedMDNode *newNamedMD = m_pModule->getOrInsertNamedMetadata(DxilMDHelper::kDxilSourceArgsMDName);
+      newNamedMD->addOperand(llvm::MDTuple::get(context, llvm::ArrayRef<llvm::Metadata *>()));
+    }
   }
+}
 
+void DxilModule::StripDebugRelatedCode() {
+  StripShaderSourcesAndCompileOptions();
   if (NamedMDNode *flags = m_pModule->getModuleFlagsMetadata()) {
     SmallVector<llvm::Module::ModuleFlagEntry, 4> flagEntries;
     m_pModule->getModuleFlagsMetadata(flagEntries);

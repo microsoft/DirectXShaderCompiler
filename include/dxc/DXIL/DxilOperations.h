@@ -46,19 +46,23 @@ public:
 
   llvm::Function *GetOpFunc(OpCode OpCode, llvm::Type *pOverloadType);
   const llvm::SmallMapVector<llvm::Type *, llvm::Function *, 8> &GetOpFuncList(OpCode OpCode) const;
+  bool IsDxilOpUsed(OpCode opcode) const;
   void RemoveFunction(llvm::Function *F);
   llvm::LLVMContext &GetCtx() { return m_Ctx; }
   llvm::Type *GetHandleType() const;
   llvm::Type *GetResourcePropertiesType() const;
+  llvm::Type *GetResourceBindingType() const;
   llvm::Type *GetDimensionsType() const;
   llvm::Type *GetSamplePosType() const;
   llvm::Type *GetBinaryWithCarryType() const;
   llvm::Type *GetBinaryWithTwoOutputsType() const;
   llvm::Type *GetSplitDoubleType() const;
-  llvm::Type *GetInt4Type() const;
+  llvm::Type *GetFourI32Type() const;
+  llvm::Type *GetFourI16Type() const;
 
   llvm::Type *GetResRetType(llvm::Type *pOverloadType);
   llvm::Type *GetCBufferRetType(llvm::Type *pOverloadType);
+  llvm::Type *GetVectorType(unsigned numElements, llvm::Type *pOverloadType);
   bool IsResRetType(llvm::Type *Ty);
 
   // Try to get the opcode class for a function.
@@ -122,12 +126,14 @@ private:
 
   llvm::Type *m_pHandleType;
   llvm::Type *m_pResourcePropertiesType;
+  llvm::Type *m_pResourceBindingType;
   llvm::Type *m_pDimensionsType;
   llvm::Type *m_pSamplePosType;
   llvm::Type *m_pBinaryWithCarryType;
   llvm::Type *m_pBinaryWithTwoOutputsType;
   llvm::Type *m_pSplitDoubleType;
-  llvm::Type *m_pInt4Type;
+  llvm::Type *m_pFourI32Type;
+  llvm::Type *m_pFourI16Type;
 
   DXIL::LowPrecisionMode m_LowPrecisionMode;
 

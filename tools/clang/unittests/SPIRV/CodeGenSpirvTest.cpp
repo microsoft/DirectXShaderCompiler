@@ -595,6 +595,9 @@ TEST_F(FileTest, FunctionInCTBuffer) {
 
 TEST_F(FileTest, FunctionNoInline) { runFileTest("fn.noinline.hlsl"); }
 TEST_F(FileTest, FunctionExport) { runFileTest("fn.export.hlsl"); }
+TEST_F(FileTest, FunctionForwardDecl) {
+  runFileTest("fn.forward-declaration.hlsl");
+}
 
 // For OO features
 TEST_F(FileTest, StructMethodCall) {
@@ -654,6 +657,9 @@ TEST_F(FileTest, SemanticVertexIDVS) {
 }
 TEST_F(FileTest, SemanticInstanceIDVS) {
   runFileTest("semantic.instance-id.vs.hlsl");
+}
+TEST_F(FileTest, SemanticNonzeroBaseInstanceVS) {
+  runFileTest("semantic.nonzero-base-instance.vs.hlsl");
 }
 TEST_F(FileTest, SemanticInstanceIDHS) {
   runFileTest("semantic.instance-id.hs.hlsl");
@@ -862,6 +868,9 @@ TEST_F(FileTest, TextureArraySample) {
 }
 TEST_F(FileTest, TextureLoad) { runFileTest("texture.load.hlsl"); }
 TEST_F(FileTest, TextureArrayLoad) { runFileTest("texture.array.load.hlsl"); }
+TEST_F(FileTest, TextureLoadInvalidOffsetOperand) {
+  runFileTest("texture.load-invalid-offset-operand.hlsl", Expect::Failure);
+}
 TEST_F(FileTest, TextureGetDimensions) {
   runFileTest("texture.get-dimensions.hlsl");
 }
@@ -943,6 +952,9 @@ TEST_F(FileTest, TextureArraySampleCmpLevelZero) {
 }
 TEST_F(FileTest, TextureSampleInvalidImplicitLod) {
   runFileTest("texture.sample-invalid-implicit-lod.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, TextureSampleInvalidOffsetOperand) {
+  runFileTest("texture.sample-invalid-offset-operand.hlsl", Expect::Failure);
 }
 TEST_F(FileTest, TextureInvalidTex2D) {
   runFileTest("texture.sample.invalid.tex2d.hlsl", Expect::Failure);
@@ -1128,6 +1140,13 @@ TEST_F(FileTest, IntrinsicsIsFinite) {
 TEST_F(FileTest, IntrinsicsInterlockedMethodsPS) {
   runFileTest("intrinsics.interlocked-methods.ps.hlsl");
 }
+TEST_F(FileTest, Intrinsics64BitInterlockedMethodsPS) {
+  runFileTest("intrinsics.64bit-interlocked-methods.ps.hlsl");
+}
+TEST_F(FileTest, Intrinsics64BitInterlockedMethodsCS) {
+  setBeforeHLSLLegalization();
+  runFileTest("intrinsics.64bit-interlocked-methods.cs.hlsl");
+}
 TEST_F(FileTest, IntrinsicsInterlockedMethodsCS) {
   runFileTest("intrinsics.interlocked-methods.cs.hlsl");
 }
@@ -1232,6 +1251,40 @@ TEST_F(FileTest, IntrinsicsNonUniformResourceIndex) {
 }
 TEST_F(FileTest, IntrinsicsMultiPrefix) {
   runFileTest("intrinsics.multiprefix.hlsl", Expect::Failure);
+}
+
+// Vulkan-specific intrinsic functions
+TEST_F(FileTest, IntrinsicsVkCrossDeviceScope) {
+  runFileTest("intrinsics.vkcrossdevicescope.hlsl");
+}
+TEST_F(FileTest, IntrinsicsVkDeviceScope) {
+  runFileTest("intrinsics.vkdevicescope.hlsl");
+}
+TEST_F(FileTest, IntrinsicsVkWorkgroupScope) {
+  runFileTest("intrinsics.vkworkgroupscope.hlsl");
+}
+TEST_F(FileTest, IntrinsicsVkSubgroupScope) {
+  runFileTest("intrinsics.vksubgroupscope.hlsl");
+}
+TEST_F(FileTest, IntrinsicsVkInvocationScope) {
+  runFileTest("intrinsics.vkinvocationscope.hlsl");
+}
+TEST_F(FileTest, IntrinsicsVkQueueFamilyScope) {
+  runFileTest("intrinsics.vkqueuefamilyscope.hlsl");
+}
+TEST_F(FileTest, IntrinsicsVkReadClock) {
+  runFileTest("intrinsics.vkreadclock.hlsl");
+}
+
+// Intrinsics added in SM 6.6
+TEST_F(FileTest, IntrinsicsSM66PackU8S8) {
+  runFileTest("intrinsics.sm6_6.pack_s8u8.hlsl");
+}
+TEST_F(FileTest, IntrinsicsSM66PackClampU8S8) {
+  runFileTest("intrinsics.sm6_6.pack_clamp_s8u8.hlsl");
+}
+TEST_F(FileTest, IntrinsicsSM66Unpack) {
+  runFileTest("intrinsics.sm6_6.unpack.hlsl");
 }
 
 // For attributes
@@ -1650,6 +1703,9 @@ TEST_F(FileTest, VulkanAttributePushConstantInvalidUsages) {
 }
 TEST_F(FileTest, VulkanAttributeShaderRecordNVInvalidUsages) {
   runFileTest("vk.attribute.shader-record-nv.invalid.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, VulkanAttributeShaderRecordEXTInvalidUsages) {
+  runFileTest("vk.attribute.shader-record-ext.invalid.hlsl", Expect::Failure);
 }
 
 TEST_F(FileTest, VulkanCLOptionInvertYVS) {
@@ -2221,6 +2277,14 @@ TEST_F(FileTest, RayTracingAccelerationStructure) {
   runFileTest("raytracing.acceleration-structure.hlsl");
 }
 
+TEST_F(FileTest, RayTracingTerminate) {
+  runFileTest("raytracing.khr.terminate.hlsl");
+}
+
+TEST_F(FileTest, RayTracingTargetEnvErro) {
+  runFileTest("raytracing.target-env-error.hlsl", Expect::Failure);
+}
+
 // For decoration uniqueness
 TEST_F(FileTest, DecorationUnique) { runFileTest("decoration.unique.hlsl"); }
 
@@ -2239,6 +2303,9 @@ TEST_F(FileTest, DecorationRelaxedPrecisionStruct) {
 }
 TEST_F(FileTest, DecorationRelaxedPrecisionImage) {
   runFileTest("decoration.relaxed-precision.image.hlsl");
+}
+TEST_F(FileTest, DecorationRelaxedPrecisionBool) {
+  runFileTest("decoration.relaxed-precision.bool.hlsl");
 }
 
 // For NoContraction decorations
@@ -2279,6 +2346,18 @@ TEST_F(FileTest, VulkanLayoutShaderRecordBufferNVStd430) {
 TEST_F(FileTest, VulkanShaderRecordBufferNVOffset) {
   // Checks the behavior of [[vk::offset]] with [[vk::shader_record_nv]]
   runFileTest("vk.shader-record-nv.offset.hlsl");
+}
+// Tests for [[vk::shader_record_ext]]
+TEST_F(FileTest, VulkanShaderRecordBufferEXT) {
+  runFileTest("vk.shader-record-ext.hlsl");
+}
+TEST_F(FileTest, VulkanLayoutShaderRecordBufferEXTStd430) {
+  setGlLayout();
+  runFileTest("vk.layout.shader-record-ext.std430.hlsl");
+}
+TEST_F(FileTest, VulkanShaderRecordBufferEXTOffset) {
+  // Checks the behavior of [[vk::offset]] with [[vk::shader_record_ext]]
+  runFileTest("vk.shader-record-ext.offset.hlsl");
 }
 TEST_F(FileTest, VulkanShadingRate) { runFileTest("vk.shading-rate.hlsl"); }
 TEST_F(FileTest, VulkanShadingRateError) {
@@ -2378,6 +2457,14 @@ TEST_F(FileTest, Vk1p2BlockDecoration) {
 }
 TEST_F(FileTest, Vk1p2RemoveBufferBlockRuntimeArray) {
   runFileTest("vk.1p2.remove.bufferblock.runtimearray.hlsl");
+}
+TEST_F(FileTest, Vk1p2RemoveBufferBlockPtrToPtr) {
+  setBeforeHLSLLegalization();
+  runFileTest("vk.1p2.remove.bufferblock.ptr-to-ptr.hlsl");
+}
+TEST_F(FileTest, Vk1p2RemoveBufferBlockPtrToPtr2) {
+  setBeforeHLSLLegalization();
+  runFileTest("vk.1p2.remove.bufferblock.ptr-to-ptr.example2.hlsl");
 }
 
 // Test shaders that require Vulkan1.1 support with

@@ -266,7 +266,8 @@ public:
   bool visit(SpirvRayTracingOpNV *) override;
   bool visit(SpirvDemoteToHelperInvocationEXT *) override;
   bool visit(SpirvRayQueryOpKHR *) override;
-
+  bool visit(SpirvReadClock *) override;
+  bool visit(SpirvRayTracingTerminateOpKHR *) override;
   bool visit(SpirvDebugInfoNone *) override;
   bool visit(SpirvDebugSource *) override;
   bool visit(SpirvDebugCompilationUnit *) override;

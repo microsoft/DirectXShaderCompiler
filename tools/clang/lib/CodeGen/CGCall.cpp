@@ -2895,6 +2895,12 @@ void CodeGenFunction::EmitCallArgs(CallArgList &Args,
     for (int I = ArgTypes.size() - 1; I >= 0; --I) {
       CallExpr::const_arg_iterator Arg = ArgBeg + I;
       EmitCallArg(Args, *Arg, ArgTypes[I]);
+      // HLSL Change begin.
+      RValue CallArg = Args.back().RV;
+      if (CallArg.isAggregate())
+        CGM.getHLSLRuntime().MarkCallArgumentTemp(*this, CallArg.getAggregateAddr(),
+                                                  ArgTypes[I]);
+      // HLSL Change end.
       EmitNonNullArgCheck(Args.back().RV, ArgTypes[I], Arg->getExprLoc(),
                           CalleeDecl, ParamsToSkip + I);
     }

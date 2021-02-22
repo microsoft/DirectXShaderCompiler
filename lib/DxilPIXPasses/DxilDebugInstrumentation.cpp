@@ -22,6 +22,8 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Module.h"
 
+#include "PixPassHelpers.h"
+
 using namespace llvm;
 using namespace hlsl;
 
@@ -263,7 +265,7 @@ private:
   void addInvocationStartMarker(BuilderContext &BC);
   void reserveDebugEntrySpace(BuilderContext &BC, uint32_t SpaceInDwords);
   void addStoreStepDebugEntry(BuilderContext &BC, StoreInst *Inst);
-  void addStepDebugEntry(BuilderContext &BC, Instruction *Inst);
+  void addStepDebugEntry(BuilderContext& BC, Instruction* Inst);
   void addStepDebugEntryValue(BuilderContext &BC, std::uint32_t InstNum,
                               Value *V, std::uint32_t ValueOrdinal,
                               Value *ValueOrdinalIndex);
@@ -807,24 +809,28 @@ void DxilDebugInstrumentation::addStepEntryForType(
   }
 }
 
-void DxilDebugInstrumentation::addStoreStepDebugEntry(BuilderContext &BC,
-                                                      StoreInst *Inst) {
-  std::uint32_t ValueOrdinalBase;
-  std::uint32_t UnusedValueOrdinalSize;
-  llvm::Value *ValueOrdinalIndex;
-  if (!pix_dxil::PixAllocaRegWrite::FromInst(Inst, &ValueOrdinalBase,
-                                             &UnusedValueOrdinalSize,
-                                             &ValueOrdinalIndex)) {
-    return;
-  }
+void DxilDebugInstrumentation::addStoreStepDebugEntry(BuilderContext& BC,
+    StoreInst* Inst) {
+    std::uint32_t ValueOrdinalBase;
+    std::uint32_t UnusedValueOrdinalSize;
+    llvm::Value* ValueOrdinalIndex;
+    if (!pix_dxil::PixAllocaRegWrite::FromInst(Inst, &ValueOrdinalBase,
+        &UnusedValueOrdinalSize,
+        &ValueOrdinalIndex)) {
+        return;
+    }
 
-  std::uint32_t InstNum;
-  if (!pix_dxil::PixDxilInstNum::FromInst(Inst, &InstNum)) {
-    return;
-  }
+    std::uint32_t InstNum;
+    if (!pix_dxil::PixDxilInstNum::FromInst(Inst, &InstNum)) {
+        return;
+    }
 
-  addStepDebugEntryValue(BC, InstNum, Inst->getValueOperand(), ValueOrdinalBase,
-                         ValueOrdinalIndex);
+    if (PIXPassHelpers::IsAllocateRayQueryInstruction(Inst->getValueOperand())) {
+        return;
+    }
+
+    addStepDebugEntryValue(BC, InstNum, Inst->getValueOperand(), ValueOrdinalBase,
+        ValueOrdinalIndex);
 }
 
 void DxilDebugInstrumentation::addStepDebugEntry(BuilderContext &BC,
@@ -832,17 +838,8 @@ void DxilDebugInstrumentation::addStepDebugEntry(BuilderContext &BC,
   if (Inst->getOpcode() == Instruction::OtherOps::PHI) {
     return;
   }
-
-  if (Inst->getOpcode() == Instruction::OtherOps::Call) {
-    if (Inst->getNumOperands() > 0) {
-      if (auto *asInt =
-              llvm::cast_or_null<llvm::ConstantInt>(Inst->getOperand(0))) {
-        if (asInt->getZExtValue() == (uint64_t)DXIL::OpCode::AllocateRayQuery) {
-          // Ray query handles should not be stored in the debug trace UAV
-          return;
-        }
-      }
-    }
+  if (PIXPassHelpers::IsAllocateRayQueryInstruction(Inst)) {
+      return;
   }
 
   if (auto *St = llvm::dyn_cast<llvm::StoreInst>(Inst)) {
@@ -980,7 +977,6 @@ bool DxilDebugInstrumentation::runOnModule(Module &M) {
     };
 
     std::map<BasicBlock *, std::vector<ValueAndPhi>> InsertableEdges;
-
     auto &Is = CurrentBlock.getInstList();
     for (auto &Inst : Is) {
       if (Inst.getOpcode() != Instruction::OtherOps::PHI) {

@@ -264,6 +264,18 @@
                   <xs:sequence>
                     <xs:element minOccurs="0" maxOccurs="unbounded" name="RenderTarget">
                       <xs:complexType>
+                        <xs:sequence>
+                          <xs:element minOccurs="0" maxOccurs="1" name="Viewport" >
+                            <xs:complexType>
+                              <xs:attribute name="TopLeftX" type="xs:float" use="optional" />
+                              <xs:attribute name="TopLeftY" type="xs:float" use="optional" />
+                              <xs:attribute name="Width" type="xs:float" use="optional" />
+                              <xs:attribute name="Height" type="xs:float" use="optional" />
+                              <xs:attribute name="MinDepth" type="xs:float" use="optional" />
+                              <xs:attribute name="MaxDepth" type="xs:float" use="optional" />
+                            </xs:complexType>
+                          </xs:element>
+                        </xs:sequence>
                         <xs:attribute name="Name" type="xs:string" use="required" />
                       </xs:complexType>
                     </xs:element>

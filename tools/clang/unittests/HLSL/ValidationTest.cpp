@@ -292,6 +292,7 @@ public:
   TEST_METHOD(AmplificationLessThanMinZ)
   TEST_METHOD(AmplificationGreaterThanMaxZ)
   TEST_METHOD(AmplificationGreaterThanMaxXYZ)
+  TEST_METHOD(WaveSizeValid)
 
   TEST_METHOD(ValidateRootSigContainer)
   TEST_METHOD(ValidatePrintfNotAllowed)
@@ -3808,6 +3809,13 @@ TEST_F(ValidationTest, AmplificationGreaterThanMaxXYZ) {
                           "Declared Thread Group Count 256 (X*Y*Z) is beyond the valid maximum of 128");
 }
 
+TEST_F(ValidationTest, WaveSizeValid) {
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\attributes_wavesize.hlsl", "cs_6_6",
+    "= !{i32 32}",
+    "= !{i32 3}",
+    "Declared WaveSize 3 outside valid range [4..128], or not a power of 2");
+}
+
 TEST_F(ValidationTest, ValidateRootSigContainer) {
   // Validation of root signature-only container not supported until 1.5
   if (m_ver.SkipDxilVersion(1, 5)) return;
@@ -3828,4 +3836,3 @@ TEST_F(ValidationTest, ValidateRootSigContainer) {
 TEST_F(ValidationTest, ValidatePrintfNotAllowed) {
   TestCheck(L"..\\CodeGenHLSL\\printf.hlsl");
 }
-

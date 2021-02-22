@@ -438,7 +438,11 @@ uint32_t getElementSpirvBitwidth(const ASTContext &astContext, QualType type,
     case BuiltinType::Bool:
     case BuiltinType::Int:
     case BuiltinType::UInt:
+    case BuiltinType::Int8_4Packed:
+    case BuiltinType::UInt8_4Packed:
     case BuiltinType::Float:
+    case BuiltinType::Long:
+    case BuiltinType::ULong:
       return 32;
     case BuiltinType::Double:
     case BuiltinType::LongLong:
@@ -456,6 +460,11 @@ uint32_t getElementSpirvBitwidth(const ASTContext &astContext, QualType type,
     // if -enable-16bit-types is false.
     case BuiltinType::HalfFloat:
       return 32;
+    case BuiltinType::UChar:
+    case BuiltinType::Char_U:
+    case BuiltinType::SChar:
+    case BuiltinType::Char_S:
+      return 8;
     // The following types are treated as 16-bit if '-enable-16bit-types' option
     // is enabled. They are treated as 32-bit otherwise.
     case BuiltinType::Min12Int:
@@ -485,6 +494,24 @@ bool canTreatAsSameScalarType(QualType type1, QualType type2) {
   type2.removeLocalConst();
 
   return (type1.getCanonicalType() == type2.getCanonicalType()) ||
+         // Treat uint8_t4_packed and int8_t4_packed as the same because they
+         // are both repressented as 32-bit unsigned integers in SPIR-V.
+         (type1->isSpecificBuiltinType(BuiltinType::Int8_4Packed) &&
+          type2->isSpecificBuiltinType(BuiltinType::UInt8_4Packed)) ||
+         (type2->isSpecificBuiltinType(BuiltinType::Int8_4Packed) &&
+          type1->isSpecificBuiltinType(BuiltinType::UInt8_4Packed)) ||
+         // Treat uint8_t4_packed and uint32_t as the same because they
+         // are both repressented as 32-bit unsigned integers in SPIR-V.
+         (type1->isSpecificBuiltinType(BuiltinType::UInt) &&
+          type2->isSpecificBuiltinType(BuiltinType::UInt8_4Packed)) ||
+         (type2->isSpecificBuiltinType(BuiltinType::UInt) &&
+          type1->isSpecificBuiltinType(BuiltinType::UInt8_4Packed)) ||
+         // Treat int8_t4_packed and uint32_t as the same because they
+         // are both repressented as 32-bit unsigned integers in SPIR-V.
+         (type1->isSpecificBuiltinType(BuiltinType::UInt) &&
+          type2->isSpecificBuiltinType(BuiltinType::Int8_4Packed)) ||
+         (type2->isSpecificBuiltinType(BuiltinType::UInt) &&
+          type1->isSpecificBuiltinType(BuiltinType::Int8_4Packed)) ||
          // Treat 'literal float' and 'float' as the same
          (type1->isSpecificBuiltinType(BuiltinType::LitFloat) &&
           type2->isFloatingType()) ||
@@ -1327,6 +1354,23 @@ bool isStructureContainingAnyKindOfBuffer(QualType type) {
       }
     }
   }
+  return false;
+}
+
+bool isScalarOrNonStructAggregateOfNumericalTypes(QualType type) {
+  // Remove arrayness if present.
+  while (type->isArrayType())
+    type = type->getAsArrayTypeUnsafe()->getElementType();
+
+  QualType elemType = {};
+  if (isScalarType(type, &elemType) || isVectorType(type, &elemType) ||
+      isMxNMatrix(type, &elemType)) {
+    // Return true if the basic elemen type is a float or non-boolean integer
+    // type.
+    return elemType->isFloatingType() ||
+           (elemType->isIntegerType() && !elemType->isBooleanType());
+  }
+
   return false;
 }
 

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //                                                                           //
-// DxilHandleAnnotation.h                                                    //
+// DxilResourceProperties.h                                                  //
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
@@ -21,43 +21,62 @@ class Type;
 namespace hlsl {
 
 struct DxilResourceProperties {
-  DXIL::ResourceClass Class;
-  DXIL::ResourceKind  Kind;
-  static constexpr unsigned kSampleCountUndefined = 0x7;
+  struct TypedProps {
+    uint8_t CompType;  // TypedBuffer/Image component type.
+    uint8_t CompCount; // Number of components known to shader.
+    uint8_t Reserved2;
+    uint8_t Reserved3;
+  };
 
-  struct DxilTyped {
-    DXIL::ComponentType CompType : 5; // TypedBuffer/Image.
-    uint32_t SingleComponent : 1;     // Return type is single component.
-    // 2^SampleCountPow2 for Sample count of Texture2DMS.
-    uint32_t SampleCountPow2 : 3;
-    uint32_t Reserved : 23;
+  struct BasicProps {
+    // BYTE 0
+    uint8_t ResourceKind; // DXIL::ResourceKind
+
+    // BYTE 1
+    // Alignment of SRV/UAV base in 2^n. 0 is unknown/worst-case.
+    uint8_t BaseAlignLog2 : 4;
+    uint8_t IsUAV : 1;
+    uint8_t IsROV : 1;
+    uint8_t IsGloballyCoherent : 1;
+
+    // Depending on ResourceKind, this indicates:
+    //  Sampler: SamplerKind::Comparison
+    //  StructuredBuffer: HasCounter
+    //  Other: must be 0
+    uint8_t SamplerCmpOrHasCounter : 1;
+
+    // BYTE 2
+    uint8_t Reserved2;
+
+    // BYTE 3
+    uint8_t Reserved3;
   };
 
   union {
-    DxilTyped Typed;
-    uint32_t ElementStride; // in bytes for StructurizedBuffer.
-    DXIL::SamplerFeedbackType SamplerFeedbackType; // FeedbackTexture2D.
-    uint32_t SizeInBytes; // Cbuffer instance size in bytes.
+    BasicProps  Basic;
     uint32_t RawDword0;
   };
-
-  struct DxilUAV {
-    uint32_t bROV : 1;              // UAV
-    uint32_t bGloballyCoherent : 1; // UAV
-    uint32_t Reserved : 30;
-  };
-
+  // DWORD
   union {
-    DxilUAV UAV;
+    TypedProps Typed;
+    uint32_t StructStrideInBytes; // in bytes for StructuredBuffer.
+    DXIL::SamplerFeedbackType SamplerFeedbackType; // FeedbackTexture2D.
+    uint32_t CBufferSizeInBytes; // Cbuffer used size in bytes.
     uint32_t RawDword1;
   };
-
-  bool operator==(const DxilResourceProperties &);
-  bool operator!=(const DxilResourceProperties &);
-  unsigned getSampleCount();
+  DxilResourceProperties();
+  DXIL::ResourceClass getResourceClass() const;
+  DXIL::ResourceKind  getResourceKind() const;
+  DXIL::ComponentType getCompType() const;
+  unsigned getElementStride() const;
+  void setResourceKind(DXIL::ResourceKind RK);
+  bool isUAV() const;
+  bool operator==(const DxilResourceProperties &) const;
+  bool operator!=(const DxilResourceProperties &) const;
+  bool isValid() const;
 };
 
-static_assert(sizeof(DxilResourceProperties) == 4 * sizeof(uint32_t),
+static_assert(sizeof(DxilResourceProperties) == 2 * sizeof(uint32_t),
               "update shader model and functions read/write "
               "DxilResourceProperties when size is changed");
 
@@ -68,13 +87,11 @@ struct DxilInst_AnnotateHandle;
 namespace resource_helper {
 llvm::Constant *getAsConstant(const DxilResourceProperties &, llvm::Type *Ty,
                               const ShaderModel &);
-DxilResourceProperties loadFromConstant(const llvm::Constant &C,
-                                        DXIL::ResourceClass RC,
-                                        DXIL::ResourceKind RK);
+DxilResourceProperties loadPropsFromConstant(const llvm::Constant &C);
 DxilResourceProperties
-loadFromAnnotateHandle(DxilInst_AnnotateHandle &annotateHandle, llvm::Type *Ty,
+loadPropsFromAnnotateHandle(DxilInst_AnnotateHandle &annotateHandle, llvm::Type *Ty,
                        const ShaderModel &);
-DxilResourceProperties loadFromResourceBase(DxilResourceBase *);
+DxilResourceProperties loadPropsFromResourceBase(const DxilResourceBase *);
 
 } // namespace resource_helper
 

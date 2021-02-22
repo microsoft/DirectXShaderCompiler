@@ -24,12 +24,16 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/Module.h"
 #include "llvm/IR/BasicBlock.h"
+
+#include "dxc/DXIL/DxilOperations.h"
 
 #include <unordered_map>
 #include <unordered_set>
 
 using namespace llvm;
+using namespace hlsl;
 
 struct DxilEraseDeadRegion : public FunctionPass {
   static char ID;
@@ -55,7 +59,33 @@ struct DxilEraseDeadRegion : public FunctionPass {
     m_HasSideEffect[BB] = false;
     return false;
   }
+  bool IsEmptySelfLoop(BasicBlock *BB) {
+    // Make sure all inst not used outside BB.
+    for (Instruction &I : *BB) {
+      for (User *U : I.users()) {
+        if (Instruction *UI = dyn_cast<Instruction>(U)) {
+          if (UI->getParent() != BB)
+            return false;
+        }
+      }
 
+      if (!I.mayHaveSideEffects())
+        continue;
+
+      if (CallInst *CI = dyn_cast<CallInst>(&I)) {
+        if (hlsl::OP::IsDxilOpFuncCallInst(CI)) {
+          DXIL::OpCode opcode = hlsl::OP::GetDxilOpFuncCallInst(CI);
+          // Wave Ops are marked has side effect to avoid move cross control flow.
+          // But they're safe to remove if unused.
+          if (hlsl::OP::IsDxilOpWave(opcode))
+            continue;
+        }
+      }
+
+      return false;
+    }
+    return true;
+  }
   bool FindDeadRegion(BasicBlock *Begin, BasicBlock *End, std::set<BasicBlock *> &Region) {
     std::vector<BasicBlock *> WorkList;
     auto ProcessSuccessors = [this, &WorkList, Begin, End, &Region](BasicBlock *BB) {
@@ -94,8 +124,34 @@ struct DxilEraseDeadRegion : public FunctionPass {
 
     // Give up if BB is a self loop
     for (BasicBlock *PredBB : Predecessors)
-      if (PredBB == BB)
-        return false;
+      if (PredBB == BB) {
+        if (!IsEmptySelfLoop(BB)) {
+          return false;
+        } else if (Predecessors.size() != 2) {
+          return false;
+        } else {
+          BasicBlock *PredBB0 = Predecessors[0];
+          BasicBlock *PredBB1 = Predecessors[1];
+          BasicBlock *LoopBB = PredBB;
+          BasicBlock *LoopPrevBB = PredBB == PredBB0? PredBB1 : PredBB0;
+          // Remove LoopBB, LoopPrevBB branch to succ of LoopBB.
+          BranchInst *BI = cast<BranchInst>(LoopBB->getTerminator());
+
+          if (BI->getNumSuccessors() != 2)
+            return false;
+
+          BasicBlock *Succ0 = BI->getSuccessor(0);
+          BasicBlock *Succ1 = BI->getSuccessor(1);
+          BasicBlock *NextBB = Succ0 == PredBB ? Succ1 : Succ0;
+          // Make sure it is not a dead loop.
+          if (NextBB == LoopPrevBB || NextBB == BB)
+            return false;
+
+          LoopPrevBB->getTerminator()->eraseFromParent();
+          BranchInst::Create(NextBB, LoopPrevBB);
+          return true;
+        }
+      }
 
     // Find the common ancestor of all the predecessors
     BasicBlock *Common = DT->findNearestCommonDominator(Predecessors[0], Predecessors[1]);

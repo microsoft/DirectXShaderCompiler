@@ -153,6 +153,9 @@ public:
   // Is an entry function that uses input/output signature conventions?
   // Includes: vs/hs/ds/gs/ps/cs as well as the patch constant function.
   bool IsEntryThatUsesSignatures(llvm::Function *F);
+  // Is F an entry?
+  // Includes: IsEntryThatUsesSignatures and all ray tracing shaders.
+  bool IsEntry(llvm::Function *F);
 
   DxilFunctionAnnotation *GetFunctionAnnotation(llvm::Function *F);
   DxilFunctionAnnotation *AddFunctionAnnotation(llvm::Function *F);
