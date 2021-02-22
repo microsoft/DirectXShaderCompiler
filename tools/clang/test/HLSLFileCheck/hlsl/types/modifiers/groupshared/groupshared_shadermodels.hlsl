@@ -11,11 +11,13 @@
 // Test that the proper error for groupshared is produced when compiling in non-compute contexts
 // and that everything is fine when we are
 
-// targets that reject groupsahred outright get Sema errors
-// CHECK: does not support 'groupshared'
 
 // CSCHK: @[[gs:.*]] = addrspace(3) global float
 
+// CHECK: error: Thread Group Shared Memory not supported in Shader Model
+// CHECK: error: Thread Group Shared Memory not supported in Shader Model
+// CHECK: error: Thread Group Shared Memory not supported in Shader Model
+// CHECK: error: Thread Group Shared Memory not supported in Shader Model
 groupshared float4 foo;
 
 RWStructuredBuffer<float4> output;
@@ -26,7 +28,6 @@ int4 getit()
   return foo;
 }
 
-// Library targets don't catch the error until validation
 // LIBCHK: error: Thread Group Shared Memory not supported from non-compute entry points.
 // LIBCHK: of function 'VSMain'
 [shader("vertex")]
