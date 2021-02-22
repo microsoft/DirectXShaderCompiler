@@ -636,7 +636,7 @@ struct ValidationContext {
     FormatRuleText(ruleText, args);
     if (pDebugModule)
       GV = pDebugModule->getGlobalVariable(GV->getName());
-    dxilutil::EmitErrorOnGlobalVariable(GV, ruleText);
+    dxilutil::EmitErrorOnGlobalVariable(M.getContext(), GV, ruleText);
     Failed = true;
   }
 
@@ -805,8 +805,9 @@ struct ValidationContext {
 
   void EmitFnError(Function *F, ValidationRule rule) {
     if (pDebugModule)
-      F = pDebugModule->getFunction(F->getName());
-    dxilutil::EmitErrorOnFunction(F, GetValidationRuleText(rule));
+      if (Function *dbgF = pDebugModule->getFunction(F->getName()))
+        F = dbgF;
+    dxilutil::EmitErrorOnFunction(M.getContext(), F, GetValidationRuleText(rule));
     Failed = true;
   }
 
@@ -814,8 +815,9 @@ struct ValidationContext {
     std::string ruleText = GetValidationRuleText(rule);
     FormatRuleText(ruleText, args);
     if (pDebugModule)
-      F = pDebugModule->getFunction(F->getName());
-    dxilutil::EmitErrorOnFunction(F, ruleText);
+      if (Function *dbgF = pDebugModule->getFunction(F->getName()))
+        F = dbgF;
+    dxilutil::EmitErrorOnFunction(M.getContext(), F, ruleText);
     Failed = true;
   }
 
