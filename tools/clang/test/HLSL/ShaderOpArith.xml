@@ -1028,7 +1028,7 @@
         { {   1.0f, -1.0f , 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f } },
         { {  -1.0f, -1.0f , 0.0f }, { 0.0f, 0.0f, 1.0f, 1.0f } }
       </Resource>
-    <Resource Name="RTarget" Dimension="TEXTURE2D" Width="5120" Height="9600" Format="R32G32B32A32_FLOAT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" ReadBack="true" />
+    <Resource Name="RTarget" Dimension="TEXTURE2D" Width="1280" Height="2400" Format="R32G32B32A32_FLOAT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" ReadBack="true" />
     <DescriptorHeap Name="RtvHeap" NumDescriptors="1" Type="RTV">
       <Descriptor Name="RTarget" Kind="RTV"/>
     </DescriptorHeap>
@@ -2385,6 +2385,9 @@
       <Shader Name="PS65" Target="ps_6_5" EntryPoint="PSMain65" Text="@CS"/>
       <Shader Name="VS65" Target="vs_6_5" EntryPoint="VSMain65" Text="@CS"/>
       <Shader Name="CS65" Target="cs_6_5" EntryPoint="CSMain65" Text="@CS"/>
+      <Shader Name="PS66" Target="ps_6_6" EntryPoint="PSMain65" Text="@CS"/>
+      <Shader Name="VS66" Target="vs_6_6" EntryPoint="VSMain65" Text="@CS"/>
+      <Shader Name="CS66" Target="cs_6_6" EntryPoint="CSMain65" Text="@CS"/>
       <Shader Name="VS"   Target="vs_6_0" EntryPoint="VSMain"   Text="@CS"/>
       <Shader Name="PS"   Target="ps_6_0" EntryPoint="PSMain"   Text="@CS"/>
       <Shader Name="CS"   Target="cs_6_0" EntryPoint="CSMain">
