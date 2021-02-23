@@ -223,7 +223,7 @@ void [[]] ProcessTriTessFactorsMin(in float<3> RawEdgeFactors, in float<1> Insid
 $type1 [[rn]] radians(in float_like<> x);
 $type1 [[rn]] rcp(in any_float<> x) : rcp_approx;
 $type1 [[rn]] reflect(in float_like<c> i, in $type1 n);
-$type1 [[rn]] refract(in float_like<c> i, in $type1 n, in float_like ri);
+$type1 [[rn]] refract(in float_like<c> i, in $type1 n, in $match<3, 1> float_like ri);
 $type1 [[rn]] reversebits(in any_int<> x);
 $type1 [[rn]] round(in float_like<> x);
 $type1 [[rn]] rsqrt(in float_like<> x);
