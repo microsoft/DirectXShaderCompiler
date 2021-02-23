@@ -513,6 +513,11 @@ private:
           m_ArgPairs.push_back( std::move(newPair) );
         }
 
+        // Entry point might have been omitted. Set it to main by default.
+        if (m_EntryPoint.empty()) {
+          m_EntryPoint = L"main";
+        }
+
         // Sources
         for (unsigned i = 0; i < reader.GetSourcesCount(); i++) {
           hlsl::SourceInfoReader::Source source_data = reader.GetSource(i);
