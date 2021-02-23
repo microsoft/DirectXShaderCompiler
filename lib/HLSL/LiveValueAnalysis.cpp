@@ -304,7 +304,7 @@ bool LiveValueAnalysis::isLoadRematerializable(CallInst *Call) {
 
   switch (DxilOp) {
   case OP::OpCode::AnnotateHandle:
-    ResClass = Call->getArgOperand(HLOperandIndex::kAnnotateHandleResourceClassOpIdx);
+    ResClass = Call->getArgOperand(HLOperandIndex::kAnnotateHandleResourcePropertiesOpIdx);
     break;
   case OP::OpCode::CreateHandle:
     ResClass = Call->getArgOperand(HLOperandIndex::kCreateHandleResourceOpIdx);
@@ -323,7 +323,7 @@ bool LiveValueAnalysis::isLoadRematerializable(CallInst *Call) {
       OP::OpCode HandleOp = static_cast<OP::OpCode>(dyn_cast<ConstantInt>(CI->getArgOperand(0))->getZExtValue());
       if (OP::OpCode::AnnotateHandle == HandleOp) {
         // Set the resource class and check below.
-        ResClass = CI->getArgOperand(HLOperandIndex::kAnnotateHandleResourceClassOpIdx);
+        ResClass = CI->getArgOperand(HLOperandIndex::kAnnotateHandleResourcePropertiesOpIdx);
       }
       else if (OP::OpCode::CreateHandleForLib == HandleOp) {
         if (LoadInst *LI = dyn_cast<LoadInst>(CI->getArgOperand(DXIL::OperandIndex::kCreateHandleForLibResOpIdx))) {
