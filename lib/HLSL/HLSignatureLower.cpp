@@ -1247,7 +1247,7 @@ bool HLSignatureLower::ValidateSemanticType(llvm::Function* F) {
     }
 
     if (!semantic->IsSupportedType(argTy)) {
-      dxilutil::EmitErrorOnFunction(F, "invalid type used for \'"+ semanticStr.str() + "\' semantic.");
+      dxilutil::EmitErrorOnFunction(F->getContext(), F, "invalid type used for \'"+ semanticStr.str() + "\' semantic.");
       result = false;
     }
   }
