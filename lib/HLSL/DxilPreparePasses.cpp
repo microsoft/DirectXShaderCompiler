@@ -1432,13 +1432,20 @@ public:
       if (F.isDeclaration())
         continue;
 
-      SmallVector<CallInst *, 16> localGradientOps;
+      DenseSet<Instruction *> localGradientArgs;
       for (CallInst *CI : gradientOps) {
-        if (CI->getParent()->getParent() == &F)
-          localGradientOps.emplace_back(CI);
+        if (CI->getParent()->getParent() == &F) {
+          for (Value *V : CI->arg_operands()) {
+            // TODO: only check operand which used for gradient calculation.
+            Instruction *vI = dyn_cast<Instruction>(V);
+            if (!vI)
+              continue;
+            localGradientArgs.insert(vI);
+          }
+        }
       }
 
-      if (localGradientOps.empty())
+      if (localGradientArgs.empty())
         continue;
 
       PostDominatorTree PDT;
@@ -1447,9 +1454,10 @@ public:
           WaveSensitivityAnalysis::create(PDT));
 
       WaveVal->Analyze(&F);
-      for (CallInst *op : localGradientOps) {
-        if (WaveVal->IsWaveSensitive(op)) {
-          dxilutil::EmitWarningOnInstruction(op,
+      for (Instruction *gradArg : localGradientArgs) {
+        // Check operand of gradient ops, not gradientOps itself.
+        if (WaveVal->IsWaveSensitive(gradArg)) {
+          dxilutil::EmitWarningOnInstruction(gradArg,
                                              UniNoWaveSensitiveGradientErrMsg);
         }
       }
