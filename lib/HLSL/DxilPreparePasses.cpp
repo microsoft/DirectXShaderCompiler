@@ -1448,9 +1448,15 @@ public:
 
       WaveVal->Analyze(&F);
       for (CallInst *op : localGradientOps) {
-        if (WaveVal->IsWaveSensitive(op)) {
-          dxilutil::EmitWarningOnInstruction(op,
-                                             UniNoWaveSensitiveGradientErrMsg);
+        for (Value *V : op->arg_operands()) {
+          Instruction *vI = dyn_cast<Instruction>(V);
+          if (!vI)
+            continue;
+          // Check operand of gradient ops, not gradientOps itself.
+          if (WaveVal->IsWaveSensitive(vI)) {
+            dxilutil::EmitWarningOnInstruction(
+                op, UniNoWaveSensitiveGradientErrMsg);
+          }
         }
       }
     }
