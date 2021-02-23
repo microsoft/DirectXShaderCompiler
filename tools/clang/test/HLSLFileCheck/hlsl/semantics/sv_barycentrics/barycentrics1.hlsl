@@ -1,5 +1,8 @@
 // RUN: %dxilver 1.1 | %dxc -E main -T ps_6_1 %s | FileCheck %s
 
+// CHECK: Note: shader requires additional functionality:
+// CHECK-NEXT: Barycentrics
+
 // CHECK: ; SV_Barycentrics
 // CHECK: ; SV_Barycentrics
 // CHECK: ; SV_Barycentrics
