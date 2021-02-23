@@ -129,6 +129,8 @@ public:
   TEST_METHOD(CompileThenAddCustomDebugName)
   TEST_METHOD(CompileThenTestPdbUtils)
   TEST_METHOD(CompileThenTestPdbUtilsStripped)
+  TEST_METHOD(CompileThenTestPdbUtilsEmptyEntry)
+  TEST_METHOD(CompileThenTestPdbUtilsRelativePath)
   TEST_METHOD(CompileWithRootSignatureThenStripRootSignature)
 
   TEST_METHOD(CompileWhenIncludeThenLoadInvoked)
@@ -1534,6 +1536,101 @@ TEST_F(CompilerTest, CompileThenTestPdbUtils) {
   TestPdbUtils(/*bSlim*/false, /*bSourceInDebugModule*/false, /*strip*/true);  // Full PDB, where source info is stored in its own part, and debug module is present
   TestPdbUtils(/*bSlim*/true,  /*bSourceInDebugModule*/false, /*strip*/true);  // Slim PDB, where source info is stored in its own part, and debug module is NOT present
 }
+
+TEST_F(CompilerTest, CompileThenTestPdbUtilsRelativePath) {
+  std::string main_source = R"x(
+      #include "helper.h"
+      cbuffer MyCbuffer : register(b1) {
+        float4 my_cbuf_foo;
+      }
+
+      [RootSignature("CBV(b1)")]
+      float4 main() : SV_Target {
+        return my_cbuf_foo;
+      }
+  )x";
+
+  CComPtr<IDxcCompiler3> pCompiler;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
+
+  DxcBuffer SourceBuf = {};
+  SourceBuf.Ptr = main_source.c_str();
+  SourceBuf.Size = main_source.size();
+  SourceBuf.Encoding = CP_UTF8;
+
+  std::vector<const WCHAR *> args;
+  args.push_back(L"/Tps_6_0");
+  args.push_back(L"/Zi");
+  args.push_back(L"/Qsource_only_debug");
+  args.push_back(L"shaders/Shader.hlsl");
+
+  CComPtr<TestIncludeHandler> pInclude;
+  std::string included_File = "#define ZERO 0";
+  pInclude = new TestIncludeHandler(m_dllSupport);
+  pInclude->CallResults.emplace_back(included_File.c_str());
+
+  CComPtr<IDxcResult> pResult;
+  VERIFY_SUCCEEDED(pCompiler->Compile(&SourceBuf, args.data(), args.size(), pInclude, IID_PPV_ARGS(&pResult)));
+
+  CComPtr<IDxcBlob> pPdb;
+  CComPtr<IDxcBlobUtf16> pPdbName;
+  VERIFY_SUCCEEDED(pResult->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pPdb), &pPdbName));
+
+  CComPtr<IDxcPdbUtils> pPdbUtils;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcPdbUtils, &pPdbUtils));
+
+  VERIFY_SUCCEEDED(pPdbUtils->Load(pPdb));
+
+  CComPtr<IDxcBlob> pFullPdb;
+  VERIFY_SUCCEEDED(pPdbUtils->GetFullPDB(&pFullPdb));
+
+  VERIFY_SUCCEEDED(pPdbUtils->Load(pFullPdb));
+  VERIFY_IS_TRUE(pPdbUtils->IsFullPDB());
+}
+
+
+TEST_F(CompilerTest, CompileThenTestPdbUtilsEmptyEntry) {
+  std::string main_source = R"x(
+      cbuffer MyCbuffer : register(b1) {
+        float4 my_cbuf_foo;
+      }
+
+      [RootSignature("CBV(b1)")]
+      float4 main() : SV_Target {
+        return my_cbuf_foo;
+      }
+  )x";
+
+  CComPtr<IDxcCompiler3> pCompiler;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
+
+  DxcBuffer SourceBuf = {};
+  SourceBuf.Ptr = main_source.c_str();
+  SourceBuf.Size = main_source.size();
+  SourceBuf.Encoding = CP_UTF8;
+
+  std::vector<const WCHAR *> args;
+  args.push_back(L"/Tps_6_0");
+  args.push_back(L"/Zi");
+
+  CComPtr<IDxcResult> pResult;
+  VERIFY_SUCCEEDED(pCompiler->Compile(&SourceBuf, args.data(), args.size(), nullptr, IID_PPV_ARGS(&pResult)));
+
+  CComPtr<IDxcBlob> pPdb;
+  CComPtr<IDxcBlobUtf16> pPdbName;
+  VERIFY_SUCCEEDED(pResult->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pPdb), &pPdbName));
+
+  CComPtr<IDxcPdbUtils> pPdbUtils;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcPdbUtils, &pPdbUtils));
+
+  VERIFY_SUCCEEDED(pPdbUtils->Load(pPdb));
+
+  CComBSTR pEntryName;
+  VERIFY_SUCCEEDED(pPdbUtils->GetEntryPoint(&pEntryName));
+
+  VERIFY_ARE_EQUAL(pEntryName, L"main");
+}
+
 #endif
 
 TEST_F(CompilerTest, CompileWithRootSignatureThenStripRootSignature) {
