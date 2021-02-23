@@ -1449,6 +1449,7 @@ public:
       WaveVal->Analyze(&F);
       for (CallInst *op : localGradientOps) {
         for (Value *V : op->arg_operands()) {
+          // TODO: only check operand which used for gradient calculation.
           Instruction *vI = dyn_cast<Instruction>(V);
           if (!vI)
             continue;
