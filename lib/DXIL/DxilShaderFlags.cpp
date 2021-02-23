@@ -409,6 +409,9 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
         case DXIL::OpCode::GeometryIndex:
           hasRaytracingTier1_1 = true;
           break;
+        case DXIL::OpCode::AttributeAtVertex:
+          hasBarycentrics = true;
+        break;
         case DXIL::OpCode::AtomicBinOp:
         case DXIL::OpCode::AtomicCompareExchange:
           if (isInt64) {

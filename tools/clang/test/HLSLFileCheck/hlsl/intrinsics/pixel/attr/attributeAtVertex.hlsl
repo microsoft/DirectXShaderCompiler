@@ -1,5 +1,9 @@
 // RUN: %dxilver 1.1 | %dxc -E main -T ps_6_1 %s | FileCheck %s
 
+
+// CHECK: Note: shader requires additional functionality:
+// CHECK-NEXT: Barycentrics
+
 // CHECK: call float @dx.op.attributeAtVertex.f32(i32 137, i32 0, i32 0, i8 0, i8 0)
 // CHECK: call float @dx.op.attributeAtVertex.f32(i32 137, i32 0, i32 0, i8 1, i8 0)
 // CHECK: call float @dx.op.attributeAtVertex.f32(i32 137, i32 0, i32 0, i8 2, i8 0)
