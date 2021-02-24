@@ -667,6 +667,12 @@ std::pair<bool, DxilResourceProperties> GetHLSLResourceProperties(llvm::Type *Ty
     if (name == "RaytracingAccelerationStructure")
       return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::RTAccelerationStructure, false, false, false));
 
+    if (name.startswith("ConstantBuffer<"))
+      return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::CBuffer, false, false, false));
+
+    if (name.startswith("TextureBuffer<"))
+      return RetType(true, MakeResourceProperties(hlsl::DXIL::ResourceKind::TBuffer, false, false, false));
+
     if (ConsumePrefix(name, "FeedbackTexture2D")) {
       hlsl::DXIL::ResourceKind kind = hlsl::DXIL::ResourceKind::Invalid;
       if (ConsumePrefix(name, "Array"))
@@ -676,6 +682,8 @@ std::pair<bool, DxilResourceProperties> GetHLSLResourceProperties(llvm::Type *Ty
 
       if (name.startswith("<"))
         return RetType(true, MakeResourceProperties(kind, false, false, false));
+
+      return FalseRet;
     }
 
     bool ROV = ConsumePrefix(name, "RasterizerOrdered");
@@ -732,6 +740,9 @@ bool IsHLSLObjectType(llvm::Type *Ty) {
     StringRef name = ST->getName();
     // TODO: don't check names.
     if (name.startswith("dx.types.wave_t"))
+      return true;
+
+    if (name.compare("dx.types.Handle") == 0)
       return true;
 
     if (name.endswith("_slice_type"))
