@@ -35,24 +35,36 @@ using namespace hlsl;
 namespace {
 
 struct MemberUse {
+  MemberUse() = default;
+  MemberUse(const Stmt *S, const MemberExpr *E, const CFGBlock *Parent)
+      : S(S), E(E), Parent(Parent) {}
   const Stmt *S = nullptr;
   const MemberExpr *E = nullptr;
-  const CFGBlock* Parent = nullptr;
+  const CFGBlock *Parent = nullptr;
 };
 
 struct PayloadUse {
+  PayloadUse() = default;
+  PayloadUse(const Stmt *S, const CFGBlock *Parent) : S(S), Parent(Parent) {}
   const Stmt *S = nullptr;
-  const CFGBlock* Parent = nullptr;
+  const CFGBlock *Parent = nullptr;
 };
 
 struct TraceRayCall {
+  TraceRayCall() = default;
+  TraceRayCall(const CallExpr *Call, const CFGBlock *Parent)
+      : Call(Call), Parent(Parent) {}
   const CallExpr *Call = nullptr;
-  const CFGBlock* Parent = nullptr;
+  const CFGBlock *Parent = nullptr;
 };
 
 struct PayloadAccessInfo {
+  PayloadAccessInfo() = default;
+  PayloadAccessInfo(const MemberExpr *Member, const CallExpr *Call,
+                    bool IsLValue)
+      : Member(Member), Call(Call), IsLValue(IsLValue) {}
   const MemberExpr *Member = nullptr;
-  const CallExpr* Call = nullptr;
+  const CallExpr *Call = nullptr;
   bool IsLValue = false;
 };
 
