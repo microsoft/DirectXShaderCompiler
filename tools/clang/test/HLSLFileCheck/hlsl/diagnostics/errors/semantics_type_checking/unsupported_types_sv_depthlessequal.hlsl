@@ -1,4 +1,9 @@
 // RUN: %dxc -E main -T ps_6_2 -DTY=float %s | FileCheck %s -check-prefix=CHK_NO_ERR
+// RUN: %dxc -E main -T ps_6_2 -enable-16bit-types -DTY=float16_t %s | FileCheck %s -check-prefix=CHK_NO_ERR
+// RUN: %dxc -E main -T ps_6_2 -DTY=min16float %s | FileCheck %s -check-prefix=CHK_NO_ERR
+// RUN: %dxc -E main -T ps_6_2 -DTY=float1 %s | FileCheck %s -check-prefix=CHK_NO_ERR
+// RUN: %dxc -E main -T ps_6_2 -enable-16bit-types -DTY=float16_t1 %s | FileCheck %s -check-prefix=CHK_NO_ERR
+// RUN: %dxc -E main -T ps_6_2 -DTY=min16float1 %s | FileCheck %s -check-prefix=CHK_NO_ERR
 // RUN: %dxc -E main -T ps_6_2 -DTY=float2 %s | FileCheck %s -check-prefix=CHK_ERR
 // RUN: %dxc -E main -T ps_6_2 -DTY=int %s | FileCheck %s -check-prefix=CHK_ERR
 // RUN: %dxc -E main -T ps_6_2 -DTY=int2 %s | FileCheck %s -check-prefix=CHK_ERR

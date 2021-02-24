@@ -126,7 +126,10 @@ Semantic::SizeClass Semantic::GetCompCount(llvm::Type* ty) const {
     return SizeClass::Unknown;
 
   if (ty->isVectorTy()) {
-    if (ty->getVectorNumElements() == 2) {
+    if (ty->getVectorNumElements() == 1) {
+      return SizeClass::Vec1;
+    }
+    else if (ty->getVectorNumElements() == 2) {
       return SizeClass::Vec2;
     }
     else if (ty->getVectorNumElements() == 3) {
@@ -239,36 +242,36 @@ typedef Semantic SP;
 const Semantic Semantic::ms_SemanticTable[kNumSemanticRecords] = {
   // Kind                         Name
   SP(Kind::Arbitrary,             nullptr,                     CompTy::AnyTy,              SizeClass::Other,  SizeClass::Other),
-  SP(Kind::VertexID,              "SV_VertexID",               CompTy::Int32Ty,            SizeClass::Scalar, SizeClass::Scalar),
-  SP(Kind::InstanceID,            "SV_InstanceID",             CompTy::Int32Ty,            SizeClass::Scalar, SizeClass::Scalar),
-  SP(Kind::Position,              "SV_Position",               CompTy::FloatTy,            SizeClass::Vec4,   SizeClass::Vec4),
-  SP(Kind::RenderTargetArrayIndex,"SV_RenderTargetArrayIndex", CompTy::Int32Ty,            SizeClass::Scalar, SizeClass::Scalar),
-  SP(Kind::ViewPortArrayIndex,    "SV_ViewportArrayIndex",     CompTy::Int32Ty,            SizeClass::Scalar, SizeClass::Scalar),
-  SP(Kind::ClipDistance,          "SV_ClipDistance",           CompTy::FloatTy,            SizeClass::Other,  SizeClass::Other),
-  SP(Kind::CullDistance,          "SV_CullDistance",           CompTy::FloatTy,            SizeClass::Other,  SizeClass::Other),
+  SP(Kind::VertexID,              "SV_VertexID",               CompTy::Int16Or32Ty,        SizeClass::Scalar, SizeClass::Vec1),
+  SP(Kind::InstanceID,            "SV_InstanceID",             CompTy::Int16Or32Ty,        SizeClass::Scalar, SizeClass::Vec1),
+  SP(Kind::Position,              "SV_Position",               CompTy::HalfOrFloatTy,      SizeClass::Vec4,   SizeClass::Vec4),
+  SP(Kind::RenderTargetArrayIndex,"SV_RenderTargetArrayIndex", CompTy::Int16Or32Ty,        SizeClass::Scalar, SizeClass::Vec1),
+  SP(Kind::ViewPortArrayIndex,    "SV_ViewportArrayIndex",     CompTy::Int16Or32Ty,        SizeClass::Scalar, SizeClass::Vec1),
+  SP(Kind::ClipDistance,          "SV_ClipDistance",           CompTy::HalfOrFloatTy,      SizeClass::Other,  SizeClass::Other),
+  SP(Kind::CullDistance,          "SV_CullDistance",           CompTy::HalfOrFloatTy,      SizeClass::Other,  SizeClass::Other),
   SP(Kind::OutputControlPointID,  "SV_OutputControlPointID",   CompTy::Int32Ty,            SizeClass::Scalar, SizeClass::Scalar),
   SP(Kind::DomainLocation,        "SV_DomainLocation",         CompTy::FloatTy,            SizeClass::Scalar, SizeClass::Vec3),
   SP(Kind::PrimitiveID,           "SV_PrimitiveID",            CompTy::Int32Ty,            SizeClass::Scalar, SizeClass::Scalar),
   SP(Kind::GSInstanceID,          "SV_GSInstanceID",           CompTy::Int32Ty,            SizeClass::Scalar, SizeClass::Scalar),
   SP(Kind::SampleIndex,           "SV_SampleIndex",            CompTy::Int32Ty,            SizeClass::Scalar, SizeClass::Scalar),
-  SP(Kind::IsFrontFace,           "SV_IsFrontFace",            CompTy::BoolOrInt32Ty,      SizeClass::Scalar, SizeClass::Scalar),
-  SP(Kind::Coverage,              "SV_Coverage",               CompTy::Int32Ty,            SizeClass::Scalar, SizeClass::Scalar),
+  SP(Kind::IsFrontFace,           "SV_IsFrontFace",            CompTy::BoolOrInt32Ty,      SizeClass::Scalar, SizeClass::Vec1),
+  SP(Kind::Coverage,              "SV_Coverage",               CompTy::Int32Ty,            SizeClass::Scalar, SizeClass::Vec1),
   SP(Kind::InnerCoverage,         "SV_InnerCoverage",          CompTy::Int32Ty,            SizeClass::Scalar, SizeClass::Scalar),
   SP(Kind::Target,                "SV_Target",                 CompTy::AnyTy,              SizeClass::Scalar, SizeClass::Vec4),
-  SP(Kind::Depth,                 "SV_Depth",                  CompTy::FloatTy,            SizeClass::Scalar, SizeClass::Scalar),
-  SP(Kind::DepthLessEqual,        "SV_DepthLessEqual",         CompTy::FloatTy,            SizeClass::Scalar, SizeClass::Scalar),
-  SP(Kind::DepthGreaterEqual,     "SV_DepthGreaterEqual",      CompTy::FloatTy,            SizeClass::Scalar, SizeClass::Scalar),
-  SP(Kind::StencilRef,            "SV_StencilRef",             CompTy::Int32Ty,            SizeClass::Scalar, SizeClass::Scalar),
+  SP(Kind::Depth,                 "SV_Depth",                  CompTy::HalfOrFloatTy,      SizeClass::Scalar, SizeClass::Vec1),
+  SP(Kind::DepthLessEqual,        "SV_DepthLessEqual",         CompTy::HalfOrFloatTy,      SizeClass::Scalar, SizeClass::Vec1),
+  SP(Kind::DepthGreaterEqual,     "SV_DepthGreaterEqual",      CompTy::HalfOrFloatTy,      SizeClass::Scalar, SizeClass::Vec1),
+  SP(Kind::StencilRef,            "SV_StencilRef",             CompTy::Int16Or32Ty,        SizeClass::Scalar, SizeClass::Vec1),
   SP(Kind::DispatchThreadID,      "SV_DispatchThreadID",       CompTy::Int16Or32Ty,        SizeClass::Scalar, SizeClass::Vec3),
   SP(Kind::GroupID,               "SV_GroupID",                CompTy::Int16Or32Ty,        SizeClass::Scalar, SizeClass::Vec3),
   SP(Kind::GroupIndex,            "SV_GroupIndex",             CompTy::Int16Or32Ty,        SizeClass::Scalar, SizeClass::Scalar),
   SP(Kind::GroupThreadID,         "SV_GroupThreadID",          CompTy::Int16Or32Ty,        SizeClass::Scalar, SizeClass::Vec3),
-  SP(Kind::TessFactor,            "SV_TessFactor",             CompTy::FloatTy,            SizeClass::Other,  SizeClass::Other),
-  SP(Kind::InsideTessFactor,      "SV_InsideTessFactor",       CompTy::FloatTy,            SizeClass::Other,  SizeClass::Other),
+  SP(Kind::TessFactor,            "SV_TessFactor",             CompTy::HalfOrFloatTy,      SizeClass::Other,  SizeClass::Other),
+  SP(Kind::InsideTessFactor,      "SV_InsideTessFactor",       CompTy::HalfOrFloatTy,      SizeClass::Other,  SizeClass::Other),
   SP(Kind::ViewID,                "SV_ViewID",                 CompTy::Int32Ty,            SizeClass::Scalar, SizeClass::Scalar),
-  SP(Kind::Barycentrics,          "SV_Barycentrics",           CompTy::FloatTy,            SizeClass::Vec3,   SizeClass::Vec3),
-  SP(Kind::ShadingRate,           "SV_ShadingRate",            CompTy::Int32Ty,            SizeClass::Scalar, SizeClass::Scalar),
-  SP(Kind::CullPrimitive,         "SV_CullPrimitive",          CompTy::BoolOrInt32Ty,      SizeClass::Scalar, SizeClass::Scalar),
+  SP(Kind::Barycentrics,          "SV_Barycentrics",           CompTy::HalfOrFloatTy,      SizeClass::Vec3,   SizeClass::Vec3),
+  SP(Kind::ShadingRate,           "SV_ShadingRate",            CompTy::Int16Or32Ty,        SizeClass::Scalar, SizeClass::Vec1),
+  SP(Kind::CullPrimitive,         "SV_CullPrimitive",          CompTy::BoolOrInt16Or32Ty,  SizeClass::Scalar, SizeClass::Vec1),
   SP(Kind::Invalid,               nullptr,                     CompTy::AnyTy,              SizeClass::Other,  SizeClass::Other),
 };
 

@@ -1,6 +1,12 @@
 // RUN: %dxc -E main -T cs_6_0 -DTID_TY=uint3 -DGI_TY=uint -DGID_TY=uint3 -DGTID_TY=uint3 %s | FileCheck %s -check-prefix=CHK_NO_ERR
+// RUN: %dxc -E main -T cs_6_0 -DTID_TY=uint2 -DGI_TY=uint -DGID_TY=uint2 -DGTID_TY=uint2 %s | FileCheck %s -check-prefix=CHK_NO_ERR
+// RUN: %dxc -E main -T cs_6_0 -DTID_TY=uint -DGI_TY=uint -DGID_TY=uint -DGTID_TY=uint %s | FileCheck %s -check-prefix=CHK_NO_ERR
 // RUN: %dxc -E main -T cs_6_0 -DTID_TY=min16uint3 -DGI_TY=min16uint -DGID_TY=min16uint3 -DGTID_TY=min16uint3 %s | FileCheck %s -check-prefix=CHK_NO_ERR
+// RUN: %dxc -E main -T cs_6_0 -DTID_TY=min16uint2 -DGI_TY=min16uint -DGID_TY=min16uint2 -DGTID_TY=min16uint2 %s | FileCheck %s -check-prefix=CHK_NO_ERR
+// RUN: %dxc -E main -T cs_6_0 -DTID_TY=min16uint -DGI_TY=min16uint -DGID_TY=min16uint -DGTID_TY=min16uint %s | FileCheck %s -check-prefix=CHK_NO_ERR
 // RUN: %dxc -E main -T cs_6_2 -enable-16bit-types -DTID_TY=uint16_t3 -DGI_TY=uint16_t -DGID_TY=uint16_t3 -DGTID_TY=uint16_t3 %s | FileCheck %s -check-prefix=CHK_NO_ERR
+// RUN: %dxc -E main -T cs_6_2 -enable-16bit-types -DTID_TY=uint16_t2 -DGI_TY=uint16_t -DGID_TY=uint16_t2 -DGTID_TY=uint16_t2 %s | FileCheck %s -check-prefix=CHK_NO_ERR
+// RUN: %dxc -E main -T cs_6_2 -enable-16bit-types -DTID_TY=uint16_t -DGI_TY=uint16_t -DGID_TY=uint16_t -DGTID_TY=uint16_t %s | FileCheck %s -check-prefix=CHK_NO_ERR
 // RUN: %dxc -E main -T cs_6_0 -DTID_TY=float3 -DGI_TY=uint -DGID_TY=uint3 -DGTID_TY=uint3 %s | FileCheck %s -check-prefix=CHK_TID_TY_ERR
 // RUN: %dxc -E main -T cs_6_0 -DTID_TY=float1x1 -DGI_TY=uint -DGID_TY=uint3 -DGTID_TY=uint3 %s | FileCheck %s -check-prefix=CHK_TID_TY_ERR
 // RUN: %dxc -E main -T cs_6_0 -DTID_TY=float -DGI_TY=uint -DGID_TY=uint3 -DGTID_TY=uint3 %s | FileCheck %s -check-prefix=CHK_TID_TY_ERR

@@ -1,4 +1,6 @@
 // RUN: %dxc -E main -T vs_6_2 -DTY=uint %s | FileCheck %s -check-prefix=CHK_NO_ERR
+// RUN: %dxc -E main -T vs_6_2 -DTY=min16uint %s | FileCheck %s -check-prefix=CHK_ERR
+// RUN: %dxc -E main -T vs_6_2 -DTY=uint1 %s | FileCheck %s -check-prefix=CHK_ERR
 // RUN: %dxc -E main -T vs_6_2 -DTY=int %s | FileCheck %s -check-prefix=CHK_NO_ERR
 // RUN: %dxc -E main -T vs_6_2 -DTY=int2 %s | FileCheck %s -check-prefix=CHK_ERR
 // RUN: %dxc -E main -T vs_6_2 -DTY=int2x2 %s | FileCheck %s -check-prefix=CHK_ERR
