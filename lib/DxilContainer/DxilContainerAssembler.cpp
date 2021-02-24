@@ -1110,7 +1110,18 @@ private:
           info.minMinor = minor;
         }
         info.mask &= mask;
+      } else if (const llvm::LoadInst *LI = dyn_cast<LoadInst>(user)) {
+        // If loading a groupshared variable, limit to CS/AS/MS
+#define SFLAG(stage) ((unsigned)1 << (unsigned)DXIL::ShaderKind::stage)
+        if (LI->getPointerAddressSpace() == DXIL::kTGSMAddrSpace) {
+          const llvm::Function *F = cast<const llvm::Function>(CI->getParent()->getParent());
+          ShaderCompatInfo &info = m_FuncToShaderCompat[F];
+          info.mask &= (SFLAG(Compute) | SFLAG(Mesh) | SFLAG(Amplification));
+        }
+#undef SFLAG
+
       }
+
     }
   }
 

@@ -1,8 +1,8 @@
-// RUN: %dxc -T ps_6_6 %s | FileCheck %s -check-prefix=GSCHECK
+// RUN: %dxc -E CSMain -T cs_6_6 %s | FileCheck %s -check-prefix=GSCHECK
 // RUN: %dxc -T ps_6_6 -DMEMTYPE=RWBuffer %s | FileCheck %s -check-prefixes=CHECK,TYCHECK
 // RUN: %dxc -T ps_6_6 -DMEMTYPE=RWStructuredBuffer %s | FileCheck %s -check-prefix=CHECK
 
-// RUN: %dxilver 1.6 | %dxc -T ps_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
+// RUN: %dxilver 1.6 | %dxc -E CSMain -T cs_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
 // RUN: %dxilver 1.6 | %dxc -T ps_6_5 -DMEMTYPE=RWBuffer %s | FileCheck %s -check-prefix=ERRCHECK
 // RUN: %dxilver 1.6 | %dxc -T ps_6_5 -DMEMTYPE=RWStructuredBuffer %s | FileCheck %s -check-prefix=ERRCHECK
 
@@ -25,7 +25,7 @@ groupshared int64_t  resI64[256];
 // GSCHECK: Note: shader requires additional functionality:
 // GSCHECK: 64-bit Atomics on Group Shared
 
-void main( uint a : A, uint b: B, uint c :C) : SV_Target
+void dotest( uint a, uint b, uint c)
 {
   resU[a] = a;
   resI[a] = a;
@@ -212,4 +212,15 @@ void main( uint a : A, uint b: B, uint c :C) : SV_Target
   InterlockedCompareExchange( resI64[a], iv, liv2, oliv );
   InterlockedCompareExchange( resI64[a], liv, iv2, oliv );
   InterlockedCompareExchange( resI64[a], liv, liv2, oiv );
+}
+
+void main( uint a : A, uint b: B, uint c :C) : SV_Target
+{
+  dotest(a,b,c);
+}
+
+[numthreads(1,1,1)]
+void CSMain( uint3 gtid : SV_GroupThreadID)
+{
+  dotest(gtid.x, gtid.y, gtid.z);
 }

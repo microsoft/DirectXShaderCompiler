@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_6 %s | FileCheck %s
+// RUN: %dxc -T cs_6_6 %s | FileCheck %s
 
 // Verify that the first arg determines the overload and the others can be what they will
 
@@ -9,8 +9,12 @@ RWBuffer<uint64_t> resBI64;
 
 RWByteAddressBuffer Rres;
 
-void main( uint a : A, uint b: B, uint c :C) : SV_Target
+[numthreads(1,1,1)]
+void main( uint3 gtid : SV_GroupThreadID)
 {
+  uint a = gtid.x;
+  uint b = gtid.y;
+  uint c = gtid.z;
   resGI[a] = a;
   resGI64[a] = a;
   resBI[a] = a;

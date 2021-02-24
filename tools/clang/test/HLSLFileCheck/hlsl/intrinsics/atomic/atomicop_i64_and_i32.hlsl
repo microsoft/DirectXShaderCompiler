@@ -1,9 +1,9 @@
-// RUN: %dxc -DINTRIN=InterlockedAdd -T ps_6_6 %s | FileCheck %s -check-prefix=GSCHECK
-// RUN: %dxc -DINTRIN=InterlockedMin -T ps_6_6 %s | FileCheck %s -check-prefix=GSCHECK
-// RUN: %dxc -DINTRIN=InterlockedMax -T ps_6_6 %s | FileCheck %s -check-prefix=GSCHECK
-// RUN: %dxc -DINTRIN=InterlockedAnd -T ps_6_6 %s | FileCheck %s -check-prefix=GSCHECK
-// RUN: %dxc -DINTRIN=InterlockedOr -T ps_6_6 %s | FileCheck %s -check-prefix=GSCHECK
-// RUN: %dxc -DINTRIN=InterlockedXor -T ps_6_6 %s | FileCheck %s -check-prefix=GSCHECK
+// RUN: %dxc -DINTRIN=InterlockedAdd -E CSMain -T cs_6_6 %s | FileCheck %s -check-prefix=GSCHECK
+// RUN: %dxc -DINTRIN=InterlockedMin -E CSMain -T cs_6_6 %s | FileCheck %s -check-prefix=GSCHECK
+// RUN: %dxc -DINTRIN=InterlockedMax -E CSMain -T cs_6_6 %s | FileCheck %s -check-prefix=GSCHECK
+// RUN: %dxc -DINTRIN=InterlockedAnd -E CSMain -T cs_6_6 %s | FileCheck %s -check-prefix=GSCHECK
+// RUN: %dxc -DINTRIN=InterlockedOr -E CSMain -T cs_6_6 %s | FileCheck %s -check-prefix=GSCHECK
+// RUN: %dxc -DINTRIN=InterlockedXor -E CSMain -T cs_6_6 %s | FileCheck %s -check-prefix=GSCHECK
 
 // RUN: %dxc -DMEMTYPE=RWBuffer -DINTRIN=InterlockedAdd -T ps_6_6 %s | FileCheck %s -check-prefixes=CHECK,TYCHECK
 // RUN: %dxc -DMEMTYPE=RWBuffer -DINTRIN=InterlockedMin -T ps_6_6 %s | FileCheck %s -check-prefixes=CHECK,TYCHECK
@@ -26,12 +26,12 @@
 // RUN: %dxilver 1.6 | %dxc -DMEMTYPE=RWBuffer -DINTRIN=InterlockedOr -T ps_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
 // RUN: %dxilver 1.6 | %dxc -DMEMTYPE=RWBuffer -DINTRIN=InterlockedXor -T ps_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
 
-// RUN: %dxilver 1.6 | %dxc -DINTRIN=InterlockedAdd -T ps_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
-// RUN: %dxilver 1.6 | %dxc -DINTRIN=InterlockedMin -T ps_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
-// RUN: %dxilver 1.6 | %dxc -DINTRIN=InterlockedMax -T ps_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
-// RUN: %dxilver 1.6 | %dxc -DINTRIN=InterlockedAnd -T ps_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
-// RUN: %dxilver 1.6 | %dxc -DINTRIN=InterlockedOr -T ps_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
-// RUN: %dxilver 1.6 | %dxc -DINTRIN=InterlockedXor -T ps_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
+// RUN: %dxilver 1.6 | %dxc -DINTRIN=InterlockedAdd -E CSMain -T cs_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
+// RUN: %dxilver 1.6 | %dxc -DINTRIN=InterlockedMin -E CSMain -T cs_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
+// RUN: %dxilver 1.6 | %dxc -DINTRIN=InterlockedMax -E CSMain -T cs_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
+// RUN: %dxilver 1.6 | %dxc -DINTRIN=InterlockedAnd -E CSMain -T cs_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
+// RUN: %dxilver 1.6 | %dxc -DINTRIN=InterlockedOr -E CSMain -T cs_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
+// RUN: %dxilver 1.6 | %dxc -DINTRIN=InterlockedXor -E CSMain -T cs_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
 
 // Verify that the first arg determines the overload and the others can be what they will
 
@@ -52,7 +52,7 @@ groupshared int64_t  resI64[256];
 // GSCHECK: Note: shader requires additional functionality:
 // GSCHECK: 64-bit Atomics on Group Shared
 
-void main( uint a : A, uint b: B, uint c :C) : SV_Target
+void dotest( uint a, uint b, uint c)
 {
   resU[a] = a;
   resI[a] = a;
@@ -125,4 +125,15 @@ void main( uint a : A, uint b: B, uint c :C) : SV_Target
   INTRIN( resI[a], 2.0 );
   INTRIN( resU64[a], 3.0 );
   INTRIN( resI64[a], 4.0 );
+}
+
+void main( uint a : A, uint b: B, uint c :C) : SV_Target
+{
+  dotest(a,b,c);
+}
+
+[numthreads(1,1,1)]
+void CSMain( uint3 gtid : SV_GroupThreadID)
+{
+  dotest(gtid.x, gtid.y, gtid.z);
 }
