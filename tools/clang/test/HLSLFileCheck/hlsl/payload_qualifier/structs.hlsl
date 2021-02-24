@@ -4,7 +4,7 @@
 // CHECK: error: payload field 'p3' is a payload struct. Payload access qualifies are not allowed on payload types.
 // CHECK: error: payload type 'P1' requires that all fields carry payload access qualifies.
 
-struct [payload] P2 {
+struct [raypayload] P2 {
     int c2 : write(miss, closesthit, anyhit, caller) : read(miss, closesthit, anyhit, caller);
 };
 
@@ -12,7 +12,7 @@ struct S1 {
     int c1;
 };
 
-struct [payload] P1 {
+struct [raypayload] P1 {
     int a : write(miss, closesthit, anyhit, caller) : read(miss, closesthit, anyhit, caller);
     int b : write(miss, closesthit, anyhit, caller) : read(miss, closesthit, anyhit, caller);
     S1 s1;

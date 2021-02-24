@@ -20,7 +20,7 @@
 // CHK7: error: type 'Payload' used as payload requires that it is annotated with the {{\[[a-z]*\]}} attribute
 
 #if TEST_NUM <= 4
-struct [payload] Payload {
+struct [raypayload] Payload {
     int a : read(closesthit) : write(caller);
     int b : write(closesthit) : read(caller);
 };

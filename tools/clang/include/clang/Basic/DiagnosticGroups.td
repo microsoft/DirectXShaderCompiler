@@ -787,5 +787,14 @@ def HLSLSpecifierOverride : DiagGroup<"specifier-override">;
 def HLSLPackOffsetOverride : DiagGroup<"packoffset-override">;
 def HLSLCommaInInit : DiagGroup<"comma-in-init">;
 def HLSLAmbigLitShift : DiagGroup<"ambig-lit-shift">;
-def HLSLPayloadAccessQualifer: DiagGroup<"payload-access-qualifier">;
+def HLSLPayloadAccessQualiferTrace: DiagGroup<"payload-access-trace">;
+def HLSLPayloadAccessQualiferShader: DiagGroup<"payload-access-shader">;
+def HLSLPayloadAccessQualiferPerf: DiagGroup<"payload-access-perf">;
+def HLSLPayloadAccessQualiferCall: DiagGroup<"payload-access-call">;
+def HLSLPayloadAccessQualifer: DiagGroup<"payload-access-qualifier", [
+     HLSLPayloadAccessQualiferTrace,
+     HLSLPayloadAccessQualiferShader,
+     HLSLPayloadAccessQualiferPerf,
+     HLSLPayloadAccessQualiferCall
+  ]>;
 // HLSL Change Ends

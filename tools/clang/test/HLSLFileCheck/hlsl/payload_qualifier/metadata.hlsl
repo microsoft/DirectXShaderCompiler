@@ -124,12 +124,12 @@
 // CHECK: {{![0-9]+}} = !{i32 0, i32 12851}
 // CHECK: {{![0-9]+}} = !{i32 0, i32 13107}
 
-struct [payload] SubPayload{
+struct [raypayload] SubPayload{
     int a1 : write(miss, closesthit, anyhit, caller) : read(miss, closesthit, anyhit, caller);
     int a2 : write(miss, closesthit, anyhit, caller) : read(miss, closesthit, anyhit, caller);
 };
 
-struct [payload] MyPayload {
+struct [raypayload] MyPayload {
 int x0  : write(); 
 int x1  : read();
 int x2  : read() : write();

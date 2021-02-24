@@ -108,10 +108,7 @@ void Parser::ParseHLSLAttributeSpecifier(ParsedAttributes &attrs,
     return;
   }
 
-  // '[payload]' is a valid type attribute for DXR shader, however,
-  // we expect an identifier here but payload is also a keyword for mesh shader
-  // and parsed as such. Allow the payload keyword in '[]'.
-  if (!Tok.isAnyIdentifier() && !Tok.is(tok::kw_payload)) {
+  if (!Tok.isAnyIdentifier()) {
     Diag(Tok, diag::err_expected) << tok::identifier;
     SkipUntil(tok::r_square);
     return;

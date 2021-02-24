@@ -891,6 +891,12 @@ def HLSLPrimitives : InheritableAttr {
 
 def HLSLPayload : InheritableAttr {
   let Spellings = [CXX11<"", "payload", 2015>];
+  let Subjects = SubjectList<[ParmVar]>;
+  let Documentation = [Undocumented];
+}
+
+def HLSLRayPayload : InheritableAttr {
+  let Spellings = [CXX11<"", "raypayload", 2015>];
   let Documentation = [Undocumented];
 }
 

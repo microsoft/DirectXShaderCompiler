@@ -7543,30 +7543,32 @@ def err_hlsl_unsupported_payload_access_qualifier : Error<
   "payload access qualifiers are only allowed for member variables of a payload structure">;
 def err_hlsl_unsupported_payload_access_qualifier_struct : Error<
   "payload access qualifiers are not supported on struct types.">;
-def err_hlsl_payload_access_qualifier_producer_has_no_consumer : Error<
-  "field is marked '%0' for '%1' but is not marked '%2' for %3 or caller">;
 def err_hlsl_payload_access_qualifier_unsupported_shader : Error<
   "payload access qualifiers are only defined for raytracing shader stages closesthit, miss, anyhit and for special keyword: caller. '%0' is not supported">;
 def err_hlsl_payload_access_qualifier_invalid_combination : Error<
   "field %0 is qualified '%1' for shader stage '%2' but has no valid %3">;
 def err_hlsl_payload_access_qualifier_multiple_defined : Error<
   "payload access qualifier '%0' has already been defined">;
-def err_hlsl_field_not_modifieable_because_payload_qualified_read : Error<
-  "field '%0' is not modifiable because it is not qualified 'write' for shader stage '%1'">;
-def err_hlsl_field_not_readable_because_payload_qualified_write : Error<
-  "field '%0' is not readable because it is not qualified 'read' for shader stage '%1'">;
-def err_hlsl_field_not_modifieable_in_function_because_payload_qualified_read : Error<
-  "field '%0' is written in function '%1', but is not qualified 'write' for shader stage '%2'">;
-def err_hlsl_field_not_readable_in_function_because_payload_qualified_write : Error<
-  "field '%0' is read in function '%1', but is not qualified 'read' for for shader stage '%2'">;
+def warn_hlsl_payload_access_data_loss : Warning<
+  "potential loss of data for payload field '%0'. Field is qualified 'write' in earlier stages and 'write' only for stage '%1' but never unconditionally written.">, InGroup<HLSLPayloadAccessQualiferShader>;
+def warn_hlsl_payload_access_undef_read : Warning<
+  "reading undefined value ('%0' is not qualified 'read' for shader stage '%1')">, InGroup<HLSLPayloadAccessQualiferShader>;
+def warn_hlsl_payload_access_write_loss : Warning<
+  "write will be droped ('%0' is not qualified 'write' for shader stage '%1')">, InGroup<HLSLPayloadAccessQualiferShader>;
+def warn_hlsl_payload_access_no_write_for_trace_payload : Warning<
+  "field '%0' is 'write' for 'caller' stage but field is never written for TraceRay call">, InGroup<HLSLPayloadAccessQualiferTrace>;
+def warn_hlsl_payload_access_write_but_no_write_for_trace_payload : Warning<
+  "value will be undefined inside TraceRay ('%0' is not qualified 'write' for 'caller')">, InGroup<HLSLPayloadAccessQualiferTrace>;
+def warn_hlsl_payload_access_read_of_undef_after_trace : Warning<
+  "reading undefined value ('%0' is returned from TraceRay but not qualified 'read' for 'caller')">, InGroup<HLSLPayloadAccessQualiferTrace>;
+def warn_hlsl_payload_access_read_but_no_read_after_trace : Warning<
+  "'%0' is qualified 'read' for 'caller' but the field is never read after TraceCall (possible performance issue)">, InGroup<HLSLPayloadAccessQualiferPerf>;
 def warn_qualified_payload_passed_to_extern_function : Warning<
-  "passing a qualified payload to an extern function can cause undefined behavior if payload qualifiers mismatch">;
-def err_qualified_payload_passed_to_incompatible_extern_function : Error<
-  "passing a pure '%0' payload to an extern function as '%1' parameter">;
+  "passing a qualified payload to an extern function can cause undefined behavior if payload qualifiers mismatch">, InGroup<HLSLPayloadAccessQualiferCall>;
 def err_not_all_payload_fields_qualified : Error<
   "payload type '%0' requires that all fields carry payload access qualifies.">;
 def err_payload_requires_attribute : Error<
-  "type '%0' used as payload requires that it is annotated with the [payload] attribute">;
+  "type '%0' used as payload requires that it is annotated with the [raypayload] attribute">;
 def err_payload_fields_not_qualified : Error<
   "payload field '%0' has no payload access qualifies.">;
 def err_payload_fields_is_payload_and_overqualified : Error<

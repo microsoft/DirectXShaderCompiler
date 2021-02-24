@@ -585,7 +585,7 @@ TEST_F(DxilModuleTest, PayloadQualifier) {
   std::vector<LPCWSTR> arguments = { L"-enable-payload-qualifiers" };
   Compiler c(m_dllSupport);
 
-  LPCSTR shader = "struct [payload] Payload\n"
+  LPCSTR shader = "struct [raypayload] Payload\n"
                   "{\n"
                   "  double a : read(caller, closesthit, anyhit) : write(caller, miss, closesthit);\n"
                   "};\n\n"

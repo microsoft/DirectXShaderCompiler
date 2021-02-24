@@ -1083,7 +1083,7 @@ static bool ValidatePayloadDecl(const RecordDecl *Decl,
                                 DiagnosticsEngine &Diag,
                                 const CodeGenOptions &Options) {
   // Already checked in Sema, this is not a payload.
-  if (!Decl->hasAttr<HLSLPayloadAttr>())
+  if (!Decl->hasAttr<HLSLRayPayloadAttr>())
     return false;
 
   // If we have a payload warn about them beeing droped.
@@ -1105,7 +1105,7 @@ static bool ValidatePayloadDecl(const RecordDecl *Decl,
     // PayloadAccessQualifiers and these are taken from the struct directly. 
     // If it is not a payload struct, check if it has qualifiers attached.
     if (RecordDecl *recordTy = field->getType()->getAsCXXRecordDecl()) {
-      if (recordTy->hasAttr<HLSLPayloadAttr>())
+      if (recordTy->hasAttr<HLSLRayPayloadAttr>())
         isPayloadStruct = true;
     }
 
