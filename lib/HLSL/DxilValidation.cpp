@@ -3803,7 +3803,6 @@ static void ValidateGlobalVariables(ValidationContext &ValCtx) {
   ValidationRule Rule = ValidationRule::SmMaxTGSMSize;
   unsigned MaxSize = DXIL::kMaxTGSMSize;
 
-
   if (M.GetShaderModel()->IsMS()) {
     Rule = ValidationRule::SmMaxMSSMSize;
     MaxSize = DXIL::kMaxMSSMSize;

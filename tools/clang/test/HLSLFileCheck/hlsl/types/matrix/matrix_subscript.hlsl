@@ -21,7 +21,7 @@ float3 GetRow(const float3x3 m, const int j)
 }
 
 float3x3 g[2];
-
+groupshared float3x3 gs[2];
 
 struct JustMtx {
   float3x3 mtx;
@@ -31,11 +31,7 @@ struct MtxArray {
   float3x3 mtx[2];
 };
 
-#ifdef GS
-
 RWStructuredBuffer<float3> output;
-
-groupshared float3x3 gs[2];
 
 [shader("compute")]
 [numthreads(8,8,1)]
@@ -54,7 +50,6 @@ void CSMain(uint3 gtid : SV_GroupThreadID, uint ix : SV_GroupIndex)
 
   output[ix] = ret;
 }
-#endif // GS
 
 [shader("pixel")]
 float3 main(const int i : I, const int j : J, const float3x3 m[2]: M, JustMtx jm[2] : JM, MtxArray ma : A) : SV_Target

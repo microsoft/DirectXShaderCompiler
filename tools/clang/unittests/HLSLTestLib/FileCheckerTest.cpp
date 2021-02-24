@@ -136,7 +136,6 @@ FileRunCommandResult FileRunCommandPart::RunFileChecker(const FileRunCommandResu
   for (const std::string& arg : args) {
     if (arg == "%s") hasInputFilename = true;
     else if (arg == "-input=stderr") t.InputForStdin = Prior->StdErr;
-    else if (arg == "-input=stdall") t.InputForStdin = Prior->StdErr + Prior->StdOut;
     else if (strstartswith(arg, checkPrefixStr))
       t.CheckPrefixes.emplace_back(arg.substr(sizeof(checkPrefixStr) - 1));
     else if (strstartswith(arg, checkPrefixesStr)) {

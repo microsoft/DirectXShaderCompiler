@@ -282,11 +282,12 @@ void cs(uint gidx : SV_GroupIndex)
 
 /// Amplification Shader
 
+groupshared PosStruct pld;
+
 [shader("amplification")]
 [numthreads(1, 1, 1)]
 void as()
 {
-  PosStruct pld;
   float4 result = a + IsHelperLane();
   pld.pos = result;
   DispatchMesh(1, 1, 1, pld);
