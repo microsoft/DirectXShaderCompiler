@@ -137,7 +137,7 @@ void GetPayloadAccesses(const Stmt *S, const DxrShaderDiagnoseInfo &Info,
       continue;
     if (const DeclRefExpr *Ref = dyn_cast<DeclRefExpr>(C)) {
       if (Ref->getDecl() == Info.Payload) {
-        Accesses.push_back({Member, Call, IsLValue});
+        Accesses.push_back(PayloadAccessInfo{Member, Call, IsLValue});
       }
       return;
     }
@@ -164,12 +164,12 @@ void CollectReadsWritesAndCallsForPayload(const Stmt *S, DxrShaderDiagnoseInfo &
     if (Access.Member) {
       FieldDecl *Field = cast<FieldDecl>(Access.Member->getMemberDecl());
       if (Access.IsLValue) {
-        Info.WritesPerField[Field].push_back({S, Access.Member, Block});
+        Info.WritesPerField[Field].push_back(MemberUse{S, Access.Member, Block});
       } else {
-        Info.ReadsPerField[Field].push_back({S, Access.Member, Block});
+        Info.ReadsPerField[Field].push_back(MemberUse{S, Access.Member, Block});
       }
     } else if (Access.Call) {
-      Info.PayloadAsCallArg.push_back({S, Block});
+      Info.PayloadAsCallArg.push_back(PayloadUse{S, Block});
     }
   }
 }
@@ -204,7 +204,7 @@ MemberUse GetLastWriteInBlock(CFGBlock &Block,
     if (Optional<CFGStmt> S = Element.getAs<CFGStmt>()) {
       auto It =
           std::find_if(PayloadWrites.begin(), PayloadWrites.end(),
-                       [&](const auto &V) { return V.S == S->getStmt(); });
+                       [&](const MemberUse &V) { return V.S == S->getStmt(); });
       if (It != std::end(PayloadWrites)) {
         LastWrite = *It;
         LastWrite.Parent = &Block;
@@ -254,7 +254,7 @@ MemberUse GetFirstReadInBlock(CFGBlock &Block,
   for (auto &Element : Block) {
     if (Optional<CFGStmt> S = Element.getAs<CFGStmt>()) {
       auto It = std::find_if(PayloadReads.begin(), PayloadReads.end(), 
-          [&](const auto& V) { return V.S == S->getStmt(); }
+          [&](const MemberUse& V) { return V.S == S->getStmt(); }
         );
       if (It != std::end(PayloadReads)) {
         FirstRead = *It;
@@ -425,7 +425,6 @@ void DiagnosePayloadReads(Sema &S, CFG &ShaderCFG, DominatorTree &DT,
         GetAllReadsReachedFromEntry(ShaderCFG, ReadsFromField->second);
 
     for (auto &Read : ReadsToDiagnose) {
-      const CFGBlock *ReadBlock = Read.Parent;
       bool ReadIsDominatedByWrite = false;
       if (FieldHasWrites) {
         // We found a read to a field that needs diagnose.
@@ -618,7 +617,7 @@ void DiagnosePayloadAsFunctionArg(
 
       // Ignore trace calls here.
       if (CalledFunction->isImplicit() && CalledFunction->getName() == "TraceRay") {
-          Info.TraceCalls.push_back({Call, Use.Parent});
+          Info.TraceCalls.push_back(TraceRayCall{Call, Use.Parent});
           continue;
       }
 
@@ -768,7 +767,6 @@ void DiagnoseTraceCall(Sema &S, const VarDecl *Payload,
       auto WritesToField = TraceInfo.WritesPerField.find(Field);
       bool FieldHasWrites = WritesToField != TraceInfo.WritesPerField.end();
       for (auto &Read : TraceInfo.ReadsPerField[Field]) {
-        const CFGBlock *ReadBlock = Read.Parent;
         bool ReadIsDominatedByWrite = false;
         if (FieldHasWrites) {
           // We found a read to a field that needs diagnose.
