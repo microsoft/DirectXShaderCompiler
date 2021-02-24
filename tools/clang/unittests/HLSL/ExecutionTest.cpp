@@ -3059,7 +3059,40 @@ TEST_F(ExecutionTest, PartialDerivTest) {
   VerifyDerivResults(pPixels, offsetCenter);
 }
 
+struct Dispatch {
+  int width, height, depth;
+};
+
+std::shared_ptr<st::ShaderOpTest>
+RunDispatch(ID3D12Device *pDevice, dxc::DxcDllSupport &support,
+            st::ShaderOp *pShaderOp, const Dispatch D) {
+  char compilerOptions[256];
+
+  std::shared_ptr<st::ShaderOpTest> test = std::make_shared<st::ShaderOpTest>();
+  test->SetDxcSupport(&support);
+  test->SetInitCallback(nullptr);
+  test->SetDevice(pDevice);
+
+  // format compiler args
+  VERIFY_IS_TRUE(sprintf_s(compilerOptions, sizeof(compilerOptions),
+                           "-D DISPATCHX=%d -D DISPATCHY=%d -D DISPATCHZ=%d ",
+                           D.width, D.height, D.depth));
+
+  for (st::ShaderOpShader &S : pShaderOp->Shaders)
+    S.Arguments = compilerOptions;
+
+  pShaderOp->DispatchX = D.width;
+  pShaderOp->DispatchY = D.height;
+  pShaderOp->DispatchZ = D.depth;
+
+  test->RunShaderOp(pShaderOp);
+
+  return test;
+}
+
 TEST_F(ExecutionTest, DerivativesTest) {
+  const UINT pixelSize = 4; // always float4
+
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
   ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
@@ -3074,99 +3107,93 @@ TEST_F(ExecutionTest, DerivativesTest) {
 
   st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("Derivatives");
 
-  LPCSTR CS = pShaderOp->CS;
-
-  struct Dispatch {
-    int x, y, z;
-    int mx, my, mz;
-  };
   std::vector<Dispatch> dispatches =
   {
-   {32, 32, 1, 8, 8, 1},
-   {64, 4, 1, 64, 2, 1},
-   {1, 4, 64, 1, 4, 32},
-   {64, 1, 1, 64, 1, 1},
-   {1, 64, 1, 1, 64, 1},
-   {1, 1, 64, 1, 1, 64},
-   {16, 16, 3, 4, 4, 3},
-   {32, 3, 8, 8, 3, 2},
-   {3, 1, 64, 3, 1, 32}
+   {40, 1, 1},
+   {1000, 1, 1},
+   {32, 32, 1},
+   {16, 64, 1},
+   {4, 12, 4},
+   {4, 64, 1},
+   {16, 16, 3},
+   {32, 8, 2}
   };
 
-  char compilerOptions[256];
+  std::vector<Dispatch> meshDispatches =
+  {
+   {60, 1, 1},
+   {128, 1, 1},
+   {8, 8, 1},
+   {32, 8, 1},
+   {8, 16, 4},
+   {8, 64, 1},
+   {8, 8, 3},
+  };
+
+  std::vector<Dispatch> badDispatches =
+  {
+   {16, 3, 1},
+   {2, 16, 1},
+   {33, 1, 1}
+  };
+
+  pShaderOp->UseWarpDevice = GetTestParamUseWARP(true);
+  LPCSTR CS = pShaderOp->CS;
+
+  MappedData data;
+
   for (Dispatch &D : dispatches) {
-
-    UINT width = D.x;
-    UINT height = D.y;
-    UINT depth = D.z;
-
-    UINT mwidth = D.mx;
-    UINT mheight = D.my;
-    UINT mdepth = D.mz;
-    UINT pixelSize = 4; // always float4
-
-    // format compiler args
-    VERIFY_IS_TRUE(sprintf_s(compilerOptions, sizeof(compilerOptions),
-                             "-D DISPATCHX=%d -D DISPATCHY=%d -D DISPATCHZ=%d "
-                             "-D MESHDISPATCHX=%d -D MESHDISPATCHY=%d -D MESHDISPATCHZ=%d",
-                             width, height, depth, mwidth, mheight, mdepth));
-
-    for (st::ShaderOpShader &S : pShaderOp->Shaders)
-      S.Arguments = compilerOptions;
-
-    pShaderOp->DispatchX = width;
-    pShaderOp->DispatchY = height;
-    pShaderOp->DispatchZ = depth;
-
     // Test Compute Shader
-    pShaderOp->CS = CS;
-    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Derivatives", nullptr, ShaderOpSet);
-    MappedData data;
+    std::shared_ptr<st::ShaderOpTest> test = RunDispatch(pDevice, m_support, pShaderOp, D);
 
-    test->Test->GetReadBackData("U0", &data);
-    const float *pPixels = (float *)data.data();
+    test->GetReadBackData("U0", &data);
 
-    // To find roughly the center for compute, divide the pixel count in half,
-    // truncate to next lowest power of 16 (4x4), which is the repeating period
-    // and then add 10 to reach the point the test expects
-    UINT centerIndex = (((UINT64)(width * height * depth)/2) & ~0xF) + 10;
+    float *pPixels = (float *)data.data();;
+
+    // To find roughly the center for compute, divide the height and width in half,
+    // truncate to the previous multiple of 4 to get to the start of the repeating pattern
+    // and then add 2 rows to get to the second row of quads and 2 to get to the first texel
+    // of the second row of that quad row
+    UINT centerRow = ((D.height/2UL) & ~0x3) + 2;
+    UINT centerCol = ((D.width/2UL) & ~0x3) + 2;
+    UINT centerIndex = centerRow * D.width + centerCol;
     UINT offsetCenter = centerIndex * pixelSize;
     LogCommentFmt(L"Verifying derivatives in compute shader results");
     VerifyDerivResults(pPixels, offsetCenter);
 
-    if (DoesDeviceSupportMeshAmpDerivatives(pDevice)) {
-      // Disable CS so mesh goes forward
-      pShaderOp->CS = nullptr;
-      test = RunShaderOpTestAfterParse(pDevice, m_support, "Derivatives", nullptr, ShaderOpSet);
-      test->Test->GetReadBackData("U1", &data);
-      pPixels = (float *)data.data();
-      centerIndex = (((UINT64)(mwidth * mheight * mdepth)/2) & ~0xF) + 10;
-      offsetCenter = centerIndex * pixelSize;
+  }
+
+  if (DoesDeviceSupportMeshAmpDerivatives(pDevice)) {
+    // Disable CS so mesh goes forward
+    pShaderOp->CS = nullptr;
+
+    for (Dispatch &D : meshDispatches) {
+      std::shared_ptr<st::ShaderOpTest> test = RunDispatch(pDevice, m_support, pShaderOp, D);
+
+      test->GetReadBackData("U1", &data);
+      const float *pPixels = (float *)data.data();
+      UINT centerIndex = (((UINT64)(D.width * D.height * D.depth)/2) & ~0xF) + 10;
+      UINT offsetCenter = centerIndex * pixelSize;
       LogCommentFmt(L"Verifying derivatives in mesh shader results");
       VerifyDerivResults(pPixels, offsetCenter);
 
-      test->Test->GetReadBackData("U2", &data);
+      test->GetReadBackData("U2", &data);
       pPixels = (float *)data.data();
       LogCommentFmt(L"Verifying derivatives in amplification shader results");
       VerifyDerivResults(pPixels, offsetCenter);
     }
   }
 
-  // Final test with not divisible by 4 dispatch size just to make sure it runs
-  for (st::ShaderOpShader &S : pShaderOp->Shaders)
-    S.Arguments = "-D DISPATCHX=3 -D DISPATCHY=3 -D DISPATCHZ=3 "
-                  "-D MESHDISPATCHX=3 -D MESHDISPATCHY=3 -D MESHDISPATCHZ=3";
+  // Final tests with invalid dispatch size just to make sure they run
+  for (Dispatch &D : badDispatches) {
+    // Test Compute Shader
+    pShaderOp->CS = CS;
+    std::shared_ptr<st::ShaderOpTest> test = RunDispatch(pDevice, m_support, pShaderOp, D);
 
-  pShaderOp->DispatchX = 3;
-  pShaderOp->DispatchY = 3;
-  pShaderOp->DispatchZ = 3;
-
-  // Test Compute Shader
-  pShaderOp->CS = CS;
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Derivatives", nullptr, ShaderOpSet);
-  if (DoesDeviceSupportMeshAmpDerivatives(pDevice)) {
-    pShaderOp->CS = nullptr;
-    test = RunShaderOpTestAfterParse(pDevice, m_support, "Derivatives", nullptr, ShaderOpSet);
+    if (DoesDeviceSupportMeshAmpDerivatives(pDevice)) {
+      pShaderOp->CS = nullptr;
+      test = RunDispatch(pDevice, m_support, pShaderOp, D);
+    }
   }
 }
 
