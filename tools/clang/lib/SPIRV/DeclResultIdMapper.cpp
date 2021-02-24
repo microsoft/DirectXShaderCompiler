@@ -405,130 +405,130 @@ void handleImageFormat(const VarDecl *var, SpirvVariable *varInstr) {
         imageFormatAttr->getImageFormat();
     spv::ImageFormat spvFormat;
     switch (format) {
-    case VKImageFormatAttr::Unknown:
+    case VKImageFormatAttr::unknown:
       spvFormat = spv::ImageFormat::Unknown;
       break;
-    case VKImageFormatAttr::Rgba32f:
+    case VKImageFormatAttr::rgba32f:
       spvFormat = spv::ImageFormat::Rgba32f;
       break;
-    case VKImageFormatAttr::Rgba16f:
+    case VKImageFormatAttr::rgba16f:
       spvFormat = spv::ImageFormat::Rgba16f;
       break;
-    case VKImageFormatAttr::R32f:
+    case VKImageFormatAttr::r32f:
       spvFormat = spv::ImageFormat::R32f;
       break;
-    case VKImageFormatAttr::Rgba8:
+    case VKImageFormatAttr::rgba8:
       spvFormat = spv::ImageFormat::Rgba8;
       break;
-    case VKImageFormatAttr::Rgba8Snorm:
+    case VKImageFormatAttr::rgba8snorm:
       spvFormat = spv::ImageFormat::Rgba8Snorm;
       break;
-    case VKImageFormatAttr::Rg32f:
+    case VKImageFormatAttr::rg32f:
       spvFormat = spv::ImageFormat::Rg32f;
       break;
-    case VKImageFormatAttr::Rg16f:
+    case VKImageFormatAttr::rg16f:
       spvFormat = spv::ImageFormat::Rg16f;
       break;
-    case VKImageFormatAttr::R11fG11fB10f:
+    case VKImageFormatAttr::r11g11b10f:
       spvFormat = spv::ImageFormat::R11fG11fB10f;
       break;
-    case VKImageFormatAttr::R16f:
+    case VKImageFormatAttr::r16f:
       spvFormat = spv::ImageFormat::R16f;
       break;
-    case VKImageFormatAttr::Rgba16:
+    case VKImageFormatAttr::rgba16:
       spvFormat = spv::ImageFormat::Rgba16;
       break;
-    case VKImageFormatAttr::Rgb10A2:
+    case VKImageFormatAttr::rgb10a2:
       spvFormat = spv::ImageFormat::Rgb10A2;
       break;
-    case VKImageFormatAttr::Rg16:
+    case VKImageFormatAttr::rg16:
       spvFormat = spv::ImageFormat::Rg16;
       break;
-    case VKImageFormatAttr::Rg8:
+    case VKImageFormatAttr::rg8:
       spvFormat = spv::ImageFormat::Rg8;
       break;
-    case VKImageFormatAttr::R16:
+    case VKImageFormatAttr::r16:
       spvFormat = spv::ImageFormat::R16;
       break;
-    case VKImageFormatAttr::R8:
+    case VKImageFormatAttr::r8:
       spvFormat = spv::ImageFormat::R8;
       break;
-    case VKImageFormatAttr::Rgba16Snorm:
+    case VKImageFormatAttr::rgba16snorm:
       spvFormat = spv::ImageFormat::Rgba16Snorm;
       break;
-    case VKImageFormatAttr::Rg16Snorm:
+    case VKImageFormatAttr::rg16snorm:
       spvFormat = spv::ImageFormat::Rg16Snorm;
       break;
-    case VKImageFormatAttr::Rg8Snorm:
+    case VKImageFormatAttr::rg8snorm:
       spvFormat = spv::ImageFormat::Rg8Snorm;
       break;
-    case VKImageFormatAttr::R16Snorm:
+    case VKImageFormatAttr::r16snorm:
       spvFormat = spv::ImageFormat::R16Snorm;
       break;
-    case VKImageFormatAttr::R8Snorm:
+    case VKImageFormatAttr::r8snorm:
       spvFormat = spv::ImageFormat::R8Snorm;
       break;
-    case VKImageFormatAttr::Rgba32i:
+    case VKImageFormatAttr::rgba32i:
       spvFormat = spv::ImageFormat::Rgba32i;
       break;
-    case VKImageFormatAttr::Rgba16i:
+    case VKImageFormatAttr::rgba16i:
       spvFormat = spv::ImageFormat::Rgba16i;
       break;
-    case VKImageFormatAttr::Rgba8i:
+    case VKImageFormatAttr::rgba8i:
       spvFormat = spv::ImageFormat::Rgba8i;
       break;
-    case VKImageFormatAttr::R32i:
+    case VKImageFormatAttr::r32i:
       spvFormat = spv::ImageFormat::R32i;
       break;
-    case VKImageFormatAttr::Rg32i:
+    case VKImageFormatAttr::rg32i:
       spvFormat = spv::ImageFormat::Rg32i;
       break;
-    case VKImageFormatAttr::Rg16i:
+    case VKImageFormatAttr::rg16i:
       spvFormat = spv::ImageFormat::Rg16i;
       break;
-    case VKImageFormatAttr::Rg8i:
+    case VKImageFormatAttr::rg8i:
       spvFormat = spv::ImageFormat::Rg8i;
       break;
-    case VKImageFormatAttr::R16i:
+    case VKImageFormatAttr::r16i:
       spvFormat = spv::ImageFormat::R16i;
       break;
-    case VKImageFormatAttr::R8i:
+    case VKImageFormatAttr::r8i:
       spvFormat = spv::ImageFormat::R8i;
       break;
-    case VKImageFormatAttr::Rgba32ui:
+    case VKImageFormatAttr::rgba32ui:
       spvFormat = spv::ImageFormat::Rgba32ui;
       break;
-    case VKImageFormatAttr::Rgba16ui:
+    case VKImageFormatAttr::rgba16ui:
       spvFormat = spv::ImageFormat::Rgba16ui;
       break;
-    case VKImageFormatAttr::Rgba8ui:
+    case VKImageFormatAttr::rgba8ui:
       spvFormat = spv::ImageFormat::Rgba8ui;
       break;
-    case VKImageFormatAttr::R32ui:
+    case VKImageFormatAttr::r32ui:
       spvFormat = spv::ImageFormat::R32ui;
       break;
-    case VKImageFormatAttr::Rgb10a2ui:
+    case VKImageFormatAttr::rgb10a2ui:
       spvFormat = spv::ImageFormat::Rgb10a2ui;
       break;
-    case VKImageFormatAttr::Rg32ui:
+    case VKImageFormatAttr::rg32ui:
       spvFormat = spv::ImageFormat::Rg32ui;
       break;
-    case VKImageFormatAttr::Rg16ui:
+    case VKImageFormatAttr::rg16ui:
       spvFormat = spv::ImageFormat::Rg16ui;
       break;
-    case VKImageFormatAttr::Rg8ui:
+    case VKImageFormatAttr::rg8ui:
       spvFormat = spv::ImageFormat::Rg8ui;
       break;
-    case VKImageFormatAttr::R16ui:
+    case VKImageFormatAttr::r16ui:
       spvFormat = spv::ImageFormat::R16ui;
       break;
-    case VKImageFormatAttr::R8ui:
+    case VKImageFormatAttr::r8ui:
       spvFormat = spv::ImageFormat::R8ui;
       break;
-    case VKImageFormatAttr::R64ui:
+    case VKImageFormatAttr::r64ui:
       spvFormat = spv::ImageFormat::R64ui;
       break;
-    case VKImageFormatAttr::R64i:
+    case VKImageFormatAttr::r64i:
       spvFormat = spv::ImageFormat::R64i;
       break;
     }

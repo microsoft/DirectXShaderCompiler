@@ -11709,7 +11709,7 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     VKImageFormatAttr::ImageFormatType Kind = ValidateAttributeEnumArg<
         VKImageFormatAttr, VKImageFormatAttr::ImageFormatType,
         VKImageFormatAttr::ConvertStrToImageFormatType>(
-        S, A, VKImageFormatAttr::ImageFormatType::Unknown);
+        S, A, VKImageFormatAttr::ImageFormatType::unknown);
     declAttr = ::new (S.Context) VKImageFormatAttr(
         A.getRange(), S.Context, Kind, A.getAttributeSpellingListIndex());
     break;

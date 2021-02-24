@@ -1028,20 +1028,20 @@ def VKImageFormat : InheritableAttr {
   let Subjects = SubjectList<[RWTexture, Buffer],
                              ErrorDiag, "ExpectedRWTextureOrBuffer">;
   let Args = [EnumArgument<"ImageFormat", "ImageFormatType",
-                           ["Unknown", "Rgba32f", "Rgba16f", "R32f", "Rgba8", "Rgba8Snorm",
-                           "Rg32f", "Rg16f", "R11fG11fB10f", "R16f", "Rgba16", "Rgb10A2",
-                           "Rg16", "Rg8", "R16", "R8", "Rgba16Snorm", "Rg16Snorm", "Rg8Snorm",
-                           "R16Snorm", "R8Snorm", "Rgba32i", "Rgba16i", "Rgba8i", "R32i",
-                           "Rg32i", "Rg16i", "Rg8i", "R16i", "R8i", "Rgba32ui", "Rgba16ui", "Rgba8ui",
-                           "R32ui", "Rgb10a2ui", "Rg32ui", "Rg16ui", "Rg8ui", "R16ui",
-                           "R8ui", "R64ui", "R64i"],
-                           ["Unknown", "Rgba32f", "Rgba16f", "R32f", "Rgba8", "Rgba8Snorm",
-                           "Rg32f", "Rg16f", "R11fG11fB10f", "R16f", "Rgba16", "Rgb10A2",
-                           "Rg16", "Rg8", "R16", "R8", "Rgba16Snorm", "Rg16Snorm", "Rg8Snorm",
-                           "R16Snorm", "R8Snorm", "Rgba32i", "Rgba16i", "Rgba8i", "R32i",
-                           "Rg32i", "Rg16i", "Rg8i", "R16i", "R8i", "Rgba32ui", "Rgba16ui", "Rgba8ui",
-                           "R32ui", "Rgb10a2ui", "Rg32ui", "Rg16ui", "Rg8ui", "R16ui",
-                           "R8ui", "R64ui", "R64i"]>];
+                           ["unknown", "rgba32f", "rgba16f", "r32f", "rgba8", "rgba8snorm",
+                           "rg32f", "rg16f", "r11g11b10f", "r16f", "rgba16", "rgb10a2",
+                           "rg16", "rg8", "r16", "r8", "rgba16snorm", "rg16snorm", "rg8snorm",
+                           "r16snorm", "r8snorm", "rgba32i", "rgba16i", "rgba8i", "r32i",
+                           "rg32i", "rg16i", "rg8i", "r16i", "r8i", "rgba32ui", "rgba16ui", "rgba8ui",
+                           "r32ui", "rgb10a2ui", "rg32ui", "rg16ui", "rg8ui", "r16ui",
+                           "r8ui", "r64ui", "r64i"],
+                           ["unknown", "rgba32f", "rgba16f", "r32f", "rgba8", "rgba8snorm",
+                           "rg32f", "rg16f", "r11g11b10f", "r16f", "rgba16", "rgb10a2",
+                           "rg16", "rg8", "r16", "r8", "rgba16snorm", "rg16snorm", "rg8snorm",
+                           "r16snorm", "r8snorm", "rgba32i", "rgba16i", "rgba8i", "r32i",
+                           "rg32i", "rg16i", "rg8i", "r16i", "r8i", "rgba32ui", "rgba16ui", "rgba8ui",
+                           "r32ui", "rgb10a2ui", "rg32ui", "rg16ui", "rg8ui", "r16ui",
+                           "r8ui", "r64ui", "r64i"]>];
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];
 }
