@@ -3813,6 +3813,7 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
   OP::OpCode opcode = OP::OpCode::NumOpCodes;
   switch (RK) {
   case DxilResource::Kind::RawBuffer:
+  case DxilResource::Kind::StructuredBuffer:
     opcode = OP::OpCode::RawBufferStore;
     break;
   case DxilResource::Kind::TypedBuffer:
