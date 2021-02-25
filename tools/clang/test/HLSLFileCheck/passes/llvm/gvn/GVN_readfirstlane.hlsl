@@ -1,17 +1,16 @@
 // RUN: %dxc -E main -T ps_6_0 %s  | FileCheck %s
 
-//CHECK:%[[FirstLane:[a-zA-Z0-9]+]] = call float @dx.op.waveReadLaneFirst.f32(i32 118,
+//CHECK:%[[FirstLane:[a-zA-Z0-9]+]] = call i32 @dx.op.waveReadLaneFirst.i32(i32 118,
 // Make sure use FirstLane.
-//CHECK:call float @dx.op.unary.f32(i32 13, float %[[FirstLane]])
+//CHECK:uitofp i32 %[[FirstLane]] to float
 
 
-float main(float i:I) : SV_Target {
-  const float uniformIndex = WaveReadLaneFirst ( i ) ;
+float main(uint i:I) : SV_Target {
+  const uint uniformIndex = WaveReadLaneFirst ( i ) ;
   if ( uniformIndex == i)
   {
     return sin(uniformIndex);
   } else {
-    return 12;
+    return 13;
   }
-
 }
