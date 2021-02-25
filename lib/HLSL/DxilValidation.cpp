@@ -219,6 +219,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::SmThreadGroupChannelRange: return "Declared Thread Group %0 size %1 outside valid range [%2..%3].";
     case hlsl::ValidationRule::SmMaxTheadGroup: return "Declared Thread Group Count %0 (X*Y*Z) is beyond the valid maximum of %1.";
     case hlsl::ValidationRule::SmMaxTGSMSize: return "Total Thread Group Shared Memory storage is %0, exceeded %1.";
+    case hlsl::ValidationRule::SmTGSMUnsupported: return "Thread Group Shared Memory not supported %0.";
     case hlsl::ValidationRule::SmWaveSizeValue: return "Declared WaveSize %0 outside valid range [%1..%2], or not a power of 2.";
     case hlsl::ValidationRule::SmWaveSizeNeedsDxil16Plus: return "WaveSize is valid only for DXIL version 1.6 and higher.";
     case hlsl::ValidationRule::SmROVOnlyInPS: return "RasterizerOrdered objects are only allowed in 5.0+ pixel shaders.";
@@ -636,7 +637,7 @@ struct ValidationContext {
     FormatRuleText(ruleText, args);
     if (pDebugModule)
       GV = pDebugModule->getGlobalVariable(GV->getName());
-    dxilutil::EmitErrorOnGlobalVariable(GV, ruleText);
+    dxilutil::EmitErrorOnGlobalVariable(M.getContext(), GV, ruleText);
     Failed = true;
   }
 
@@ -805,8 +806,9 @@ struct ValidationContext {
 
   void EmitFnError(Function *F, ValidationRule rule) {
     if (pDebugModule)
-      F = pDebugModule->getFunction(F->getName());
-    dxilutil::EmitErrorOnFunction(F, GetValidationRuleText(rule));
+      if (Function *dbgF = pDebugModule->getFunction(F->getName()))
+        F = dbgF;
+    dxilutil::EmitErrorOnFunction(M.getContext(), F, GetValidationRuleText(rule));
     Failed = true;
   }
 
@@ -814,8 +816,9 @@ struct ValidationContext {
     std::string ruleText = GetValidationRuleText(rule);
     FormatRuleText(ruleText, args);
     if (pDebugModule)
-      F = pDebugModule->getFunction(F->getName());
-    dxilutil::EmitErrorOnFunction(F, ruleText);
+      if (Function *dbgF = pDebugModule->getFunction(F->getName()))
+        F = dbgF;
+    dxilutil::EmitErrorOnFunction(M.getContext(), F, ruleText);
     Failed = true;
   }
 
@@ -3767,12 +3770,33 @@ static void ValidateTGSMRaceCondition(std::vector<StoreInst *> &fixAddrTGSMList,
 static void ValidateGlobalVariables(ValidationContext &ValCtx) {
   DxilModule &M = ValCtx.DxilMod;
 
+  const ShaderModel *pSM = ValCtx.DxilMod.GetShaderModel();
+  bool TGSMAllowed = pSM->IsCS() || pSM->IsAS() || pSM->IsMS() || pSM->IsLib();
+
   unsigned TGSMSize = 0;
   std::vector<StoreInst*> fixAddrTGSMList;
   const DataLayout &DL = M.GetModule()->getDataLayout();
   for (GlobalVariable &GV : M.GetModule()->globals()) {
     ValidateGlobalVariable(GV, ValCtx);
     if (GV.getType()->getAddressSpace() == DXIL::kTGSMAddrSpace) {
+      if (!TGSMAllowed)
+        ValCtx.EmitGlobalVariableFormatError(&GV, ValidationRule::SmTGSMUnsupported,
+                                             { std::string("in Shader Model ") + M.GetShaderModel()->GetName() });
+      // Lib targets need to check the usage to know if it's allowed
+      if (pSM->IsLib()) {
+        for (User *U : GV.users()) {
+          if (Instruction *I = dyn_cast<Instruction>(U)) {
+            llvm::Function *F = I->getParent()->getParent();
+            if (M.HasDxilEntryProps(F)) {
+              DxilFunctionProps &props = M.GetDxilEntryProps(F).props;
+              if (!props.IsCS() && !props.IsAS() && !props.IsMS()) {
+                ValCtx.EmitInstrFormatError(I, ValidationRule::SmTGSMUnsupported,
+                                            { "from non-compute entry points" });
+              }
+            }
+          }
+        }
+      }
       TGSMSize += DL.getTypeAllocSize(GV.getType()->getElementType());
       CollectFixAddressAccess(&GV, fixAddrTGSMList);
     }

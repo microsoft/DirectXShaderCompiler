@@ -38,6 +38,7 @@
 #include "dxc/Support/HLSLOptions.h"
 
 #include "dxcshadersourceinfo.h"
+#include "dxc/Support/dxcfilesystem.h"
 
 #include <vector>
 #include <locale>
@@ -79,6 +80,8 @@ static HRESULT CopyWstringToBSTR(const std::wstring &str, BSTR *pResult) {
 }
 
 static std::wstring NormalizePath(const WCHAR *path) {
+  std::wstring PathStorage;
+  dxcutil::MakeAbsoluteOrCurDirRelativeW(path, PathStorage);
   std::string FilenameStr8 = Unicode::UTF16ToUTF8StringOrThrow(path);
   llvm::SmallString<128> NormalizedPath;
   llvm::sys::path::native(FilenameStr8, NormalizedPath);
@@ -223,7 +226,8 @@ struct PdbRecompilerIncludeHandler : public IDxcIncludeHandler {
       return E_POINTER;
     *ppIncludeSource = nullptr;
 
-    auto it = m_FileMap.find(NormalizePath(pFilename));
+    std::wstring Filename = NormalizePath(pFilename);
+    auto it = m_FileMap.find(Filename);
     if (it == m_FileMap.end())
       return E_FAIL;
 
@@ -511,6 +515,11 @@ private:
             m_Args.push_back(newPair.Value);
 
           m_ArgPairs.push_back( std::move(newPair) );
+        }
+
+        // Entry point might have been omitted. Set it to main by default.
+        if (m_EntryPoint.empty()) {
+          m_EntryPoint = L"main";
         }
 
         // Sources

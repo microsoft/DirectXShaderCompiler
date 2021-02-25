@@ -117,7 +117,7 @@ private:
 
   template <typename T>
   static bool
-  AllocateRegisters(const std::vector<std::unique_ptr<T>> &resourceList,
+  AllocateRegisters(LLVMContext &Ctx, const std::vector<std::unique_ptr<T>> &resourceList,
     SpacesAllocator<unsigned, T> &ReservedRegisters,
     unsigned AutoBindingSpace) {
     bool bChanged = false;
@@ -135,7 +135,7 @@ private:
         if (res->IsUnbounded()) {
           const T *unbounded = alloc.GetUnbounded();
           if (unbounded) {
-            dxilutil::EmitErrorOnGlobalVariable(dyn_cast<GlobalVariable>(res->GetGlobalSymbol()),
+            dxilutil::EmitErrorOnGlobalVariable(Ctx, dyn_cast<GlobalVariable>(res->GetGlobalSymbol()),
                                                 Twine("more than one unbounded resource (") +
                                                 unbounded->GetGlobalName() + (" and ") +
                                                 res->GetGlobalName() + (") in space ") + Twine(space));
@@ -152,7 +152,7 @@ private:
           conflict = alloc.Insert(res.get(), reg, res->GetUpperBound());
         }
         if (conflict) {
-          dxilutil::EmitErrorOnGlobalVariable(dyn_cast<GlobalVariable>(res->GetGlobalSymbol()), 
+          dxilutil::EmitErrorOnGlobalVariable(Ctx, dyn_cast<GlobalVariable>(res->GetGlobalSymbol()), 
                                               ((res->IsUnbounded()) ? Twine("unbounded ") : Twine("")) +
                                               Twine("resource ") + res->GetGlobalName() +
                                               Twine(" at register ") + Twine(reg) +
@@ -184,7 +184,7 @@ private:
       if (res->IsUnbounded()) {
         if (alloc.GetUnbounded() != nullptr) {
           const T *unbounded = alloc.GetUnbounded();
-          dxilutil::EmitErrorOnGlobalVariable(dyn_cast<GlobalVariable>(res->GetGlobalSymbol()),
+          dxilutil::EmitErrorOnGlobalVariable(Ctx, dyn_cast<GlobalVariable>(res->GetGlobalSymbol()),
                                               Twine("more than one unbounded resource (") +
                                               unbounded->GetGlobalName() + Twine(" and ") +
                                               res->GetGlobalName() + Twine(") in space ") +
@@ -218,7 +218,7 @@ private:
         res->SetSpaceID(space);
         bChanged = true;
       } else {
-        dxilutil::EmitErrorOnGlobalVariable(dyn_cast<GlobalVariable>(res->GetGlobalSymbol()),
+        dxilutil::EmitErrorOnGlobalVariable(Ctx, dyn_cast<GlobalVariable>(res->GetGlobalSymbol()),
                                             ((res->IsUnbounded()) ? Twine("unbounded ") : Twine("")) +
                                             Twine("resource ") + res->GetGlobalName() +
                                             Twine(" could not be allocated"));
@@ -251,10 +251,10 @@ public:
     }
 
     bool bChanged = false;
-    bChanged |= AllocateRegisters(DM.GetCBuffers(), m_reservedCBufferRegisters, AutoBindingSpace);
-    bChanged |= AllocateRegisters(DM.GetSamplers(), m_reservedSamplerRegisters, AutoBindingSpace);
-    bChanged |= AllocateRegisters(DM.GetUAVs(), m_reservedUAVRegisters, AutoBindingSpace);
-    bChanged |= AllocateRegisters(DM.GetSRVs(), m_reservedSRVRegisters, AutoBindingSpace);
+    bChanged |= AllocateRegisters(DM.GetCtx(), DM.GetCBuffers(), m_reservedCBufferRegisters, AutoBindingSpace);
+    bChanged |= AllocateRegisters(DM.GetCtx(), DM.GetSamplers(), m_reservedSamplerRegisters, AutoBindingSpace);
+    bChanged |= AllocateRegisters(DM.GetCtx(), DM.GetUAVs(), m_reservedUAVRegisters, AutoBindingSpace);
+    bChanged |= AllocateRegisters(DM.GetCtx(), DM.GetSRVs(), m_reservedSRVRegisters, AutoBindingSpace);
     return bChanged;
   }
 };

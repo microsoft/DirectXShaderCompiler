@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_6 %s | FileCheck %s -check-prefix=GSCHECK
+// RUN: %dxc -E CSMain -T cs_6_6 %s | FileCheck %s -check-prefix=GSCHECK
 // RUN: %dxc -T ps_6_6 -DMEMTYPE=RWBuffer %s | FileCheck %s -check-prefixes=CHECK,TYCHECK
 // RUN: %dxc -T ps_6_6 -DMEMTYPE=RWStructuredBuffer %s | FileCheck %s -check-prefix=CHECK
 
@@ -12,8 +12,7 @@ groupshared int      resI[256];
 groupshared int64_t  resI64[256];
 #endif
 
-
-float4 main( uint a : A, uint b: B, uint c :C) : SV_Target
+float4 dotest( uint a, uint b, uint c)
 {
   float fv = b - c;
   float fv2 = b + c;
@@ -111,4 +110,16 @@ float4 main( uint a : A, uint b: B, uint c :C) : SV_Target
   InterlockedCompareExchangeFloatBitwise( resF[a], iv2, 2.0, ofv );
 
   return ofv;
+}
+
+float4 main( uint a : A, uint b: B, uint c :C) : SV_Target
+{
+  return dotest(a,b,c);
+}
+
+RWStructuredBuffer<float4> output;
+[numthreads(1,1,1)]
+void CSMain( uint3 gtid : SV_GroupThreadID, uint ix : SV_GroupIndex)
+{
+  output[ix] = dotest(gtid.x, gtid.y, gtid.z);
 }

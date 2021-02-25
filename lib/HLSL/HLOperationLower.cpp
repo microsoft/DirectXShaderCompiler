@@ -6647,15 +6647,21 @@ void TranslateCBGepLegacy(GetElementPtrInst *GEP, Value *handle,
         }
       } else {
         Type *EltTy = GEPIt->getVectorElementType();
+        unsigned size = DL.getTypeSizeInBits(EltTy);
+        unsigned vecSize = 4;
+        if (size == 64)
+          vecSize = 2;
+        else if (size == 16)
+          vecSize = 8;
         // Load the whole register.
         Value *newLd = GenerateCBLoadLegacy(handle, legacyIndex,
                                      /*channelOffset*/ 0, EltTy,
-                                     /*vecSize*/ 4, hlslOP, Builder);
+                                     /*vecSize*/ vecSize, hlslOP, Builder);
         // Copy to array.
         IRBuilder<> AllocaBuilder(GEP->getParent()->getParent()->getEntryBlock().getFirstInsertionPt());
-        Value *tempArray = AllocaBuilder.CreateAlloca(ArrayType::get(EltTy, 4));
+        Value *tempArray = AllocaBuilder.CreateAlloca(ArrayType::get(EltTy, vecSize));
         Value *zeroIdx = hlslOP->GetU32Const(0);
-        for (unsigned i = 0; i < 4; i++) {
+        for (unsigned i = 0; i < vecSize; i++) {
           Value *Elt = Builder.CreateExtractElement(newLd, i);
           Value *EltGEP = Builder.CreateInBoundsGEP(tempArray, {zeroIdx, hlslOP->GetU32Const(i)});
           Builder.CreateStore(Elt, EltGEP);
