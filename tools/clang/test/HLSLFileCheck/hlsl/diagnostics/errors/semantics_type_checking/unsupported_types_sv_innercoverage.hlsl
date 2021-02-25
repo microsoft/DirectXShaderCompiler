@@ -1,5 +1,4 @@
 // RUN: %dxc -E main -T ps_6_2 -DTY=uint %s | FileCheck %s -check-prefix=CHK_NO_ERR
-// RUN: %dxc -E main -T ps_6_2 -DTY=uint1 %s | FileCheck %s -check-prefix=CHK_ERR
 // RUN: %dxc -E main -T ps_6_2 -DTY=min16uint %s | FileCheck %s -check-prefix=CHK_ERR
 // RUN: %dxc -E main -T ps_6_2 -enable-16bit-types -DTY=uint16_t %s | FileCheck %s -check-prefix=CHK_ERR
 // RUN: %dxc -E main -T ps_6_2 -DTY=float2 %s | FileCheck %s -check-prefix=CHK_ERR

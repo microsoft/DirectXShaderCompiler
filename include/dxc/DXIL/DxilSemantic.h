@@ -43,13 +43,12 @@ public:
   };
 
   enum class SizeClass {
+    Unknown,
     Scalar,
-    Vec1,
     Vec2,
     Vec3,
     Vec4,
-    Other,
-    Unknown
+    Other
   };
 
   static const int kUndefinedRow = -1;
