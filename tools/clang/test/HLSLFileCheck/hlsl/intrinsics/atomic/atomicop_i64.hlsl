@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_6 %s | FileCheck %s
+// RUN: %dxc -T cs_6_6 %s | FileCheck %s
 
 // A test to verify that 64-bit atomic binary operation intrinsics select the right variant
 
@@ -11,8 +11,11 @@ groupshared uint64_t ugs[256];
 RWBuffer<uint64_t> utb;
 RWStructuredBuffer<uint64_t> usb;
 
-void main( uint a : A, uint b: B) : SV_Target
+[numthreads(1,1,1)]
+void main( uint3 gtid : SV_GroupThreadID)
 {
+  uint a = gtid.x;
+  uint b = gtid.y;
   uint64_t luv = a * b;
   int64_t liv = a + b;
   uint ix = 0;

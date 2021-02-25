@@ -3806,6 +3806,10 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
                     Value *offset, IRBuilder<> &Builder, hlsl::OP *OP) {
   Type *Ty = val->getType();
 
+  // This function is no longer used for lowering stores to a
+  // structured buffer.
+  DXASSERT_NOMSG(RK != DxilResource::Kind::StructuredBuffer);
+
   OP::OpCode opcode = OP::OpCode::NumOpCodes;
   switch (RK) {
   case DxilResource::Kind::RawBuffer:
@@ -3921,9 +3925,15 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
 
     // For second and subsequent store calls, increment the offset0 (i.e. store index)
     if (j > 0) {
-      Value* newOffset = ConstantInt::get(Builder.getInt32Ty(), j);
-      newOffset = Builder.CreateAdd(storeArgsList[0][offset0Idx], newOffset);
-      storeArgsList[j][offset0Idx] = newOffset;
+      // Greater than four-components store is not allowed for
+      // TypedBuffer and Textures. So greater than four elements
+      // scenario should only get hit here for RawBuffer.
+      DXASSERT_NOMSG(RK == DxilResource::Kind::RawBuffer);
+      unsigned EltSize = OP->GetAllocSizeForType(EltTy);
+      unsigned newOffset = EltSize * MaxStoreElemCount * j;
+      Value* newOffsetVal = ConstantInt::get(Builder.getInt32Ty(), newOffset);
+      newOffsetVal = Builder.CreateAdd(storeArgsList[0][offset0Idx], newOffsetVal);
+      storeArgsList[j][offset0Idx] = newOffsetVal;
     }
 
     // values
@@ -6638,15 +6648,21 @@ void TranslateCBGepLegacy(GetElementPtrInst *GEP, Value *handle,
         }
       } else {
         Type *EltTy = GEPIt->getVectorElementType();
+        unsigned size = DL.getTypeSizeInBits(EltTy);
+        unsigned vecSize = 4;
+        if (size == 64)
+          vecSize = 2;
+        else if (size == 16)
+          vecSize = 8;
         // Load the whole register.
         Value *newLd = GenerateCBLoadLegacy(handle, legacyIndex,
                                      /*channelOffset*/ 0, EltTy,
-                                     /*vecSize*/ 4, hlslOP, Builder);
+                                     /*vecSize*/ vecSize, hlslOP, Builder);
         // Copy to array.
         IRBuilder<> AllocaBuilder(GEP->getParent()->getParent()->getEntryBlock().getFirstInsertionPt());
-        Value *tempArray = AllocaBuilder.CreateAlloca(ArrayType::get(EltTy, 4));
+        Value *tempArray = AllocaBuilder.CreateAlloca(ArrayType::get(EltTy, vecSize));
         Value *zeroIdx = hlslOP->GetU32Const(0);
-        for (unsigned i = 0; i < 4; i++) {
+        for (unsigned i = 0; i < vecSize; i++) {
           Value *Elt = Builder.CreateExtractElement(newLd, i);
           Value *EltGEP = Builder.CreateInBoundsGEP(tempArray, {zeroIdx, hlslOP->GetU32Const(i)});
           Builder.CreateStore(Elt, EltGEP);

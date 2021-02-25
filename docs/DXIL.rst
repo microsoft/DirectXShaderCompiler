@@ -3184,6 +3184,7 @@ SM.SEMANTIC                               Semantic must be defined in target sha
 SM.STREAMINDEXRANGE                       Stream index (%0) must between 0 and %1.
 SM.TESSFACTORFORDOMAIN                    Required TessFactor for domain not found declared anywhere in Patch Constant data.
 SM.TESSFACTORSIZEMATCHDOMAIN              TessFactor rows, columns (%0, %1) invalid for domain %2.  Expected %3 rows and 1 column.
+SM.TGSMUNSUPPORTED                        Thread Group Shared Memory not supported %0.
 SM.THREADGROUPCHANNELRANGE                Declared Thread Group %0 size %1 outside valid range [%2..%3].
 SM.TRIOUTPUTPRIMITIVEMISMATCH             Hull Shader declared with Tri Domain must specify output primitive point, triangle_cw or triangle_ccw. Line output is not compatible with the Tri domain.
 SM.UNDEFINEDOUTPUT                        Not all elements of output %0 were written.
