@@ -15,6 +15,7 @@
 #include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilResourceBinding.h"
+#include "dxc/DXIL/DxilResourceProperties.h"
 #include "dxc/DxilPIXPasses/DxilPIXPasses.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/HLSL/DxilSpanAllocator.h"
@@ -142,10 +143,14 @@ struct SlotRange {
   unsigned numInvariableSlots;
 };
 
+enum class AccessStyle { None, FromRootSig, ResourceFromDescriptorHeap, SamplerFromDescriptorHeap };
 struct DxilResourceAndClass {
-  DxilResourceBase *resource;
+  AccessStyle accessStyle;
+  RegisterType registerType;
+  int RegisterSpace;
+  unsigned RegisterID;
   Value *index;
-  DXIL::ResourceClass resClass;
+  Value *dynamicallyBoundIndex;
 };
 
 //---------------------------------------------------------------------------------------------------------------------------------
@@ -307,127 +312,156 @@ bool DxilShaderAccessTracking::EmitResourceAccess(DxilResourceAndClass &res,
                                                   Instruction *instruction,
                                                   OP *HlslOP, LLVMContext &Ctx,
                                                   ShaderAccessFlags readWrite) {
-
-  RegisterTypeAndSpace typeAndSpace{RegisterTypeFromResourceClass(res.resClass),
-                                    res.resource->GetSpaceID()};
-
-  auto slot = m_slotAssignments.find(typeAndSpace);
-  // If the assignment isn't found, we assume it's not accessed
-  if (slot != m_slotAssignments.end()) {
-
-    IRBuilder<> Builder(instruction);
-    Value *slotIndex;
-
-    if (isa<ConstantInt>(res.index)) {
-      unsigned index = cast<ConstantInt>(res.index)->getLimitedValue();
-      if (index > slot->second.numSlots) {
-        // out-of-range accesses are written to slot zero:
-        slotIndex = HlslOP->GetU32Const(0);
+  if(res.accessStyle == AccessStyle::FromRootSig) {
+    RegisterTypeAndSpace typeAndSpace{
+        res.registerType, 
+        static_cast<unsigned>(res.RegisterSpace) // reserved spaces are -ve, but user spaces can only be +ve
+    };
+    
+    auto slot = m_slotAssignments.find(typeAndSpace);
+    // If the assignment isn't found, we assume it's not accessed
+    if (slot != m_slotAssignments.end()) {
+    
+      IRBuilder<> Builder(instruction);
+      Value *slotIndex;
+    
+      if (isa<ConstantInt>(res.index)) {
+        unsigned index = cast<ConstantInt>(res.index)->getLimitedValue();
+        if (index > slot->second.numSlots) {
+          // out-of-range accesses are written to slot zero:
+          slotIndex = HlslOP->GetU32Const(0);
+        } else {
+          slotIndex = HlslOP->GetU32Const((slot->second.startSlot + index) *
+                                          DWORDsPerResource * BytesPerDWORD);
+        }
       } else {
-        slotIndex = HlslOP->GetU32Const((slot->second.startSlot + index) *
-                                        DWORDsPerResource * BytesPerDWORD);
+        RSRegisterIdentifier id{typeAndSpace.Type, typeAndSpace.Space,
+                                res.RegisterID};
+        m_DynamicallyIndexedBindPoints.emplace(std::move(id));
+    
+        // CompareWithSlotLimit will contain 1 if the access is out-of-bounds
+        // (both over- and and under-flow via the unsigned >= with slot count)
+        auto CompareWithSlotLimit = Builder.CreateICmpUGE(
+            res.index, HlslOP->GetU32Const(slot->second.numSlots),
+            "CompareWithSlotLimit");
+        auto CompareWithSlotLimitAsUint = Builder.CreateCast(
+            Instruction::CastOps::ZExt, CompareWithSlotLimit,
+            Type::getInt32Ty(Ctx), "CompareWithSlotLimitAsUint");
+    
+        // IsInBounds will therefore contain 0 if the access is out-of-bounds, and
+        // 1 otherwise.
+        auto IsInBounds = Builder.CreateSub(
+            HlslOP->GetU32Const(1), CompareWithSlotLimitAsUint, "IsInBounds");
+    
+        auto SlotDwordOffset = Builder.CreateAdd(
+            res.index, HlslOP->GetU32Const(slot->second.startSlot),
+            "SlotDwordOffset");
+        auto SlotByteOffset = Builder.CreateMul(
+            SlotDwordOffset,
+            HlslOP->GetU32Const(DWORDsPerResource * BytesPerDWORD),
+            "SlotByteOffset");
+    
+        // This will drive an out-of-bounds access slot down to 0
+        slotIndex = Builder.CreateMul(SlotByteOffset, IsInBounds, "slotIndex");
       }
-    } else {
-      RSRegisterIdentifier id{typeAndSpace.Type, typeAndSpace.Space,
-                              res.resource->GetID()};
-      m_DynamicallyIndexedBindPoints.emplace(std::move(id));
-
-      // CompareWithSlotLimit will contain 1 if the access is out-of-bounds
-      // (both over- and and under-flow via the unsigned >= with slot count)
-      auto CompareWithSlotLimit = Builder.CreateICmpUGE(
-          res.index, HlslOP->GetU32Const(slot->second.numSlots),
-          "CompareWithSlotLimit");
-      auto CompareWithSlotLimitAsUint = Builder.CreateCast(
-          Instruction::CastOps::ZExt, CompareWithSlotLimit,
-          Type::getInt32Ty(Ctx), "CompareWithSlotLimitAsUint");
-
-      // IsInBounds will therefore contain 0 if the access is out-of-bounds, and
-      // 1 otherwise.
-      auto IsInBounds = Builder.CreateSub(
-          HlslOP->GetU32Const(1), CompareWithSlotLimitAsUint, "IsInBounds");
-
-      auto SlotDwordOffset = Builder.CreateAdd(
-          res.index, HlslOP->GetU32Const(slot->second.startSlot),
-          "SlotDwordOffset");
-      auto SlotByteOffset = Builder.CreateMul(
-          SlotDwordOffset,
-          HlslOP->GetU32Const(DWORDsPerResource * BytesPerDWORD),
-          "SlotByteOffset");
-
-      // This will drive an out-of-bounds access slot down to 0
-      slotIndex = Builder.CreateMul(SlotByteOffset, IsInBounds, "slotIndex");
+    
+      EmitAccess(Ctx, HlslOP, Builder, slotIndex, readWrite);
+    
+      return true; // did modify
     }
-
-    EmitAccess(Ctx, HlslOP, Builder, slotIndex, readWrite);
-
-    return true; // did modify
   }
+  else {
+    //todo: output descriptor-heap accees to two UAVs (one for resources, one for samplers)
+  }
+
   return false; // did not modify
 }
 
 DxilResourceAndClass GetResourceFromHandle(Value *resHandle, DxilModule &DM) {
 
-  DxilResourceAndClass ret{nullptr, nullptr, DXIL::ResourceClass::Invalid};
+  DxilResourceAndClass ret{AccessStyle::None};
 
   CallInst *handle = cast<CallInst>(resHandle);
 
-  DXIL::ResourceClass resClass = DXIL::ResourceClass::Invalid;
   unsigned rangeId = -1;
 
   if (hlsl::OP::IsDxilOpFuncCallInst(handle, hlsl::OP::OpCode::CreateHandle))
   {
-      DxilInst_CreateHandle createHandle(handle);
-      ret.index = createHandle.get_index();
+    DxilInst_CreateHandle createHandle(handle);
 
-      // Dynamic rangeId is not supported - skip and let validation report the
-      // error.
-      if (!isa<ConstantInt>(createHandle.get_rangeId()))
+    // Dynamic rangeId is not supported - skip and let validation report the
+    // error.
+    if (isa<ConstantInt>(createHandle.get_rangeId()))
+    {
+        rangeId = cast<ConstantInt>(createHandle.get_rangeId())->getLimitedValue();
+
+        auto resClass = static_cast<DXIL::ResourceClass>(createHandle.get_resourceClass_val());
+
+        DxilResourceBase* resource = nullptr;
+        RegisterType registerType = RegisterType::Invalid;
+        switch (resClass) {
+        case DXIL::ResourceClass::SRV:
+            resource = &DM.GetSRV(rangeId);
+            registerType = RegisterType::SRV;
+            break;
+        case DXIL::ResourceClass::UAV:
+            resource = &DM.GetUAV(rangeId);
+          registerType = RegisterType::UAV;
+          break;
+        case DXIL::ResourceClass::CBuffer:
+            resource = &DM.GetCBuffer(rangeId);
+            registerType = RegisterType::CBV;
+            break;
+        case DXIL::ResourceClass::Sampler:
+            resource = &DM.GetSampler(rangeId);
+            registerType = RegisterType::Sampler;
+            break;
+        }
+        if (resource != nullptr) {
+            ret.index = createHandle.get_index();
+            ret.registerType = registerType;
+            ret.accessStyle = AccessStyle::FromRootSig;
+            ret.RegisterID = resource->GetID();
+            ret.RegisterSpace = resource->GetSpaceID();
+        }
+    }
+  }
+  else if (hlsl::OP::IsDxilOpFuncCallInst(handle, hlsl::OP::OpCode::AnnotateHandle))
+  {
+      DxilInst_AnnotateHandle annotateHandle(handle);
+      auto properties = hlsl::resource_helper::loadPropsFromAnnotateHandle(
+          annotateHandle, nullptr, *DM.GetShaderModel());
+
+      auto* handleCreation = cast<CallInst>(annotateHandle.get_res());
+
+      if (hlsl::OP::IsDxilOpFuncCallInst(handleCreation, hlsl::OP::OpCode::CreateHandleFromBinding))
+      {
+          DxilInst_CreateHandleFromBinding createHandleFromBinding(handleCreation);
+          Constant* B = cast<Constant>(createHandleFromBinding.get_bind());
+          auto binding = hlsl::resource_helper::loadBindingFromConstant(*B);
+          {
+            ret.accessStyle = AccessStyle::FromRootSig;
+            ret.index = createHandleFromBinding.get_index();
+            ret.registerType = RegisterTypeFromResourceClass(
+                static_cast<hlsl::DXIL::ResourceClass>(binding.resourceClass));
+
+            //ret.RegisterID = binding.rangeLowerBound;
+            ret.RegisterSpace = binding.spaceID;
+          }
+      }
+      else if (hlsl::OP::IsDxilOpFuncCallInst(handleCreation, hlsl::OP::OpCode::CreateHandleFromHeap))
+      {
+          DxilInst_CreateHandleFromHeap createHandleFromHeap(handleCreation);
+          ret.accessStyle = createHandleFromHeap.get_samplerHeap_val()
+              ? AccessStyle::SamplerFromDescriptorHeap : AccessStyle::ResourceFromDescriptorHeap;
+          ret.dynamicallyBoundIndex = createHandleFromHeap.get_index();
           return ret;
-
-      rangeId = cast<ConstantInt>(createHandle.get_rangeId())->getLimitedValue();
-
-      resClass = static_cast<DXIL::ResourceClass>(createHandle.get_resourceClass_val());
+      }
+      else
+      {
+          assert(false);
+      }
   }
-  else if (hlsl::OP::IsDxilOpFuncCallInst(handle, hlsl::OP::OpCode::CreateHandleFromBinding))
-  {
-    DxilInst_CreateHandleFromBinding createHandleFromBinding(handle);
-    ret.index = createHandleFromBinding.get_index();
-    Constant *B = cast<Constant>(createHandleFromBinding.get_bind());
-    auto binding = hlsl::resource_helper::loadBindingFromConstant(*B);
-    if (binding.rangeLowerBound == binding.rangeUpperBound)
-    {
-      rangeId = binding.rangeLowerBound;
-      resClass = static_cast<DXIL::ResourceClass>(binding.resourceClass);
-    }
-    else
-    {
-      return ret;
-    }
-  }
-  else
-  {
-    return ret;
-  }
-
-  switch (resClass) {
-  case DXIL::ResourceClass::SRV:
-    ret.resource = &DM.GetSRV(rangeId);
-    break;
-  case DXIL::ResourceClass::UAV:
-    ret.resource = &DM.GetUAV(rangeId);
-    break;
-  case DXIL::ResourceClass::CBuffer:
-    ret.resource = &DM.GetCBuffer(rangeId);
-    break;
-  case DXIL::ResourceClass::Sampler:
-    ret.resource = &DM.GetSampler(rangeId);
-    break;
-  default:
-    DXASSERT(0, "invalid res class");
-    return ret;
-  }
-
-  ret.resClass = resClass;
 
   return ret;
 }
@@ -602,13 +636,12 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
 
         for (unsigned iParam : handleParams) {
           auto res = GetResourceFromHandle(Call->getArgOperand(iParam), DM);
-          // Don't instrument the accesses to the UAV that we just added
-          if (res.resClass == DXIL::ResourceClass::UAV &&
-              res.resource->GetSpaceID() == (unsigned)-2) {
-            break;
+          if (res.accessStyle == AccessStyle::None) {
+            continue;
           }
-          if (res.resource == nullptr) {
-              continue;
+          // Don't instrument the accesses to the UAV that we just added
+          if (res.RegisterSpace  == (unsigned)-2) {
+            break;
           }
           if (EmitResourceAccess(res, Call, HlslOP, Ctx, readWrite)) {
             Modified = true;
