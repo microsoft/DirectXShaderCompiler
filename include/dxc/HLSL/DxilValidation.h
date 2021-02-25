@@ -202,6 +202,7 @@ enum class ValidationRule : unsigned {
   SmCBufferArrayOffsetAlignment, // CBuffer array offset must be aligned to 16-bytes
   SmCBufferElementOverflow, // CBuffer elements must not overflow
   SmCBufferOffsetOverlap, // CBuffer offsets must not overlap
+  SmCBufferSize, // CBuffer size must not exceed 65536 bytes
   SmCBufferTemplateTypeMustBeStruct, // D3D12 constant/texture buffer template element can only be a struct.
   SmCSNoSignatures, // Compute shaders must not have shader signatures.
   SmCompletePosition, // Not all elements of SV_Position were written.
