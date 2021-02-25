@@ -46,10 +46,8 @@ public:
   ///
   /// The lowering is recursive; all the types that the target type depends
   /// on will be created in SpirvContext.
-  const SpirvType *
-  lowerType(QualType type, SpirvLayoutRule, llvm::Optional<bool> isRowMajor,
-            SourceLocation,
-            spv::ImageFormat explicitImageFormat = spv::ImageFormat::Unknown);
+  const SpirvType *lowerType(QualType type, SpirvLayoutRule,
+                             llvm::Optional<bool> isRowMajor, SourceLocation);
 
 private:
   /// Emits error to the diagnostic engine associated with this visitor.
@@ -70,8 +68,7 @@ private:
 
   /// Lowers the given HLSL resource type into its SPIR-V type.
   const SpirvType *lowerResourceType(QualType type, SpirvLayoutRule rule,
-                                     SourceLocation,
-                                     spv::ImageFormat explicitImageFormat);
+                                     SourceLocation);
 
   /// For the given sampled type, returns the corresponding image format
   /// that can be used to create an image object.
