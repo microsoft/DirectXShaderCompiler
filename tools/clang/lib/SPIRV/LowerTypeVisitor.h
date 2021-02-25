@@ -31,7 +31,6 @@ public:
   bool visit(SpirvModule *, Phase) override { return true; }
   bool visit(SpirvFunction *, Phase) override;
   bool visit(SpirvBasicBlock *, Phase) override { return true; }
-  //bool visit(SpirvLoad *, Phase) override;
 
   using Visitor::visit;
 
