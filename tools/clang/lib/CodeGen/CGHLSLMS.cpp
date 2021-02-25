@@ -219,8 +219,6 @@ private:
 
   DenseMap<Function*, ScopeInfo> m_ScopeMap;
   ScopeInfo *GetScopeInfo(Function *F);
-
-  const unsigned m_StoreValIdx = 2;
 public:
   CGMSHLSLRuntime(CodeGenModule &CGM);
 
@@ -4957,45 +4955,54 @@ void CGMSHLSLRuntime::EmitHLSLMatrixStore(CGBuilderTy &Builder, Value *Val,
 bool CGMSHLSLRuntime::NeedHLSLMartrixCastForStoreOp(const clang::Decl* TD,
   llvm::SmallVector<llvm::Value*, 16>& IRCallArgs) {
 
-  if (!TD || !TD->hasAttr<HLSLIntrinsicAttr>())
+  const clang::FunctionDecl* FD = dyn_cast<clang::FunctionDecl>(TD);
+
+  unsigned opcode = 0;
+  StringRef group;
+  if (!hlsl::GetIntrinsicOp(FD, opcode, group))
     return false;
 
-  auto* intAttr = TD->getAttr<HLSLIntrinsicAttr>();
-  bool isStore = intAttr->getOpcode() == (unsigned)hlsl::IntrinsicOp::MOP_Store;
-
-  if (!isStore)
+  if (opcode != (unsigned)hlsl::IntrinsicOp::MOP_Store)
     return false;
 
-  if (m_StoreValIdx >= IRCallArgs.size()) {
-    DXASSERT_NOMSG(m_StoreValIdx < IRCallArgs.size());
+  // Note that the store op is not yet an HL op. It's just a call
+  // to mangled rwbab store function. So adjust the store val position.
+  const unsigned storeValOpIdx = HLOperandIndex::kStoreValOpIdx - 1;
+
+  if (storeValOpIdx >= IRCallArgs.size()) {
+    DXASSERT_NOMSG(storeValOpIdx < IRCallArgs.size());
     return false;
   }
 
-  return HLMatrixType::isa(IRCallArgs[m_StoreValIdx]->getType());
+  return HLMatrixType::isa(IRCallArgs[storeValOpIdx]->getType());
 }
 
 void CGMSHLSLRuntime::EmitHLSLMartrixCastForStoreOp(CodeGenFunction& CGF,
   SmallVector<llvm::Value*, 16>& IRCallArgs,
   llvm::SmallVector<clang::QualType, 16>& ArgTys) {
 
-  if (m_StoreValIdx >= IRCallArgs.size() ||
-    m_StoreValIdx >= ArgTys.size()) {
-    DXASSERT_NOMSG(m_StoreValIdx < IRCallArgs.size());
-    DXASSERT_NOMSG(m_StoreValIdx < ArgTys.size());
+  // Note that the store op is not yet an HL op. It's just a call
+  // to mangled rwbab store function. So adjust the store val position.
+  const unsigned storeValOpIdx = HLOperandIndex::kStoreValOpIdx - 1;
+
+  if (storeValOpIdx >= IRCallArgs.size() ||
+    storeValOpIdx >= ArgTys.size()) {
+    DXASSERT_NOMSG(storeValOpIdx < IRCallArgs.size());
+    DXASSERT_NOMSG(storeValOpIdx < ArgTys.size());
     return;
   }
 
-  if (!hlsl::IsHLSLMatType(ArgTys[m_StoreValIdx]))
+  if (!hlsl::IsHLSLMatType(ArgTys[storeValOpIdx]))
     return;
 
   bool isRowMajor =
-    hlsl::IsHLSLMatRowMajor(ArgTys[m_StoreValIdx], m_pHLModule->GetHLOptions().bDefaultRowMajor);
+    hlsl::IsHLSLMatRowMajor(ArgTys[storeValOpIdx], m_pHLModule->GetHLOptions().bDefaultRowMajor);
 
   if (!isRowMajor) {
-    IRCallArgs[m_StoreValIdx] = EmitHLSLMatrixOperationCallImp(
+    IRCallArgs[storeValOpIdx] = EmitHLSLMatrixOperationCallImp(
       CGF.Builder, HLOpcodeGroup::HLCast,
       static_cast<unsigned>(HLCastOpcode::RowMatrixToColMatrix),
-      IRCallArgs[m_StoreValIdx]->getType(), { IRCallArgs[m_StoreValIdx] }, TheModule);
+      IRCallArgs[storeValOpIdx]->getType(), { IRCallArgs[storeValOpIdx] }, TheModule);
   }
 }
 
