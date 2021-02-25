@@ -764,6 +764,7 @@ public:
       pBindInfo->UpperBound = R->GetUpperBound();
       if (pBindInfo1) {
         pBindInfo1->ResKind = (UINT)R->GetKind();
+        pBindInfo1->ResFlags |= R->HasAtomic64Use()? (UINT)PSVResourceFlag::UsedByAtomic64 : 0;
       }
       uResIndex++;
     }
