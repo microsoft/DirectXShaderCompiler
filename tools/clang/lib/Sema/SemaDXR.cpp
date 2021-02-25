@@ -20,9 +20,9 @@
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/Sema/SemaHLSL.h"
 
-#include "clang/Analysis/CFG.h"
-#include "clang/Analysis/Analyses/ReachableCode.h"
 #include "clang/Analysis/Analyses/Dominators.h"
+#include "clang/Analysis/Analyses/ReachableCode.h"
+#include "clang/Analysis/CFG.h"
 
 #include "llvm/ADT/BitVector.h"
 
@@ -34,20 +34,18 @@ using namespace hlsl;
 
 namespace {
 
-struct MemberUse {
-  MemberUse() = default;
-  MemberUse(const Stmt *S, const MemberExpr *E, const CFGBlock *Parent)
-      : S(S), E(E), Parent(Parent) {}
-  const Stmt *S = nullptr;
-  const MemberExpr *E = nullptr;
-  const CFGBlock *Parent = nullptr;
-};
-
 struct PayloadUse {
   PayloadUse() = default;
-  PayloadUse(const Stmt *S, const CFGBlock *Parent) : S(S), Parent(Parent) {}
+  PayloadUse(const Stmt *S, const CFGBlock *Parent)
+      : S(S), Parent(Parent), Member(nullptr) {}
+  PayloadUse(const Stmt *S, const CFGBlock *Parent, const MemberExpr *Member)
+      : S(S), Parent(Parent), Member(Member) {}
+
+  bool operator<(const PayloadUse &Other) const { return S < Other.S; }
+
   const Stmt *S = nullptr;
   const CFGBlock *Parent = nullptr;
+  const MemberExpr *Member = nullptr;
 };
 
 struct TraceRayCall {
@@ -68,20 +66,23 @@ struct PayloadAccessInfo {
   bool IsLValue = false;
 };
 
-
 struct DxrShaderDiagnoseInfo {
   const FunctionDecl *FunctionDecl;
   const VarDecl *Payload;
   DXIL::PayloadAccessShaderStage Stage;
   std::vector<TraceRayCall> TraceCalls;
-  std::map<const FieldDecl*, std::vector<MemberUse>> WritesPerField;
-  std::map<const FieldDecl*, std::vector<MemberUse>> ReadsPerField;
+  std::map<const FieldDecl *, std::vector<PayloadUse>> WritesPerField;
+  std::map<const FieldDecl *, std::vector<PayloadUse>> ReadsPerField;
   std::vector<PayloadUse> PayloadAsCallArg;
 };
 
-void DiagnosePayloadAccess(Sema &S, DxrShaderDiagnoseInfo &Info, const std::set<const FieldDecl*>& FieldsToIgnoreRead, const std::set<const FieldDecl*>& FieldsToIgnoreWrite, std::set<const FunctionDecl*> VisitedFunctions);
+std::vector<const FieldDecl *>
+DiagnosePayloadAccess(Sema &S, DxrShaderDiagnoseInfo &Info,
+                      const std::set<const FieldDecl *> &FieldsToIgnoreRead,
+                      const std::set<const FieldDecl *> &FieldsToIgnoreWrite,
+                      std::set<const FunctionDecl *> VisitedFunctions);
 
-const Stmt* IgnoreParensAndDecay(const Stmt* S);
+const Stmt *IgnoreParensAndDecay(const Stmt *S);
 
 // Transform the shader stage to string to be used in diagnostics
 StringRef GetStringForShaderStage(DXIL::PayloadAccessShaderStage Stage) {
@@ -140,10 +141,10 @@ const VarDecl *GetPayloadParameterForTraceCall(const CallExpr *Trace) {
   return nullptr;
 }
 
-// Recursively extracts accesses to a payload struct from a Stmt 
+// Recursively extracts accesses to a payload struct from a Stmt
 void GetPayloadAccesses(const Stmt *S, const DxrShaderDiagnoseInfo &Info,
                         std::vector<PayloadAccessInfo> &Accesses, bool IsLValue,
-                        const MemberExpr *Member, const CallExpr* Call) {
+                        const MemberExpr *Member, const CallExpr *Call) {
   for (auto C : S->children()) {
     if (!C)
       continue;
@@ -166,8 +167,9 @@ void GetPayloadAccesses(const Stmt *S, const DxrShaderDiagnoseInfo &Info,
 }
 
 // Collects all reads, writes and calls with participation of the payload.
-void CollectReadsWritesAndCallsForPayload(const Stmt *S, DxrShaderDiagnoseInfo &Info,
-                     const CFGBlock *Block) {
+void CollectReadsWritesAndCallsForPayload(const Stmt *S,
+                                          DxrShaderDiagnoseInfo &Info,
+                                          const CFGBlock *Block) {
   std::vector<PayloadAccessInfo> PayloadAccesses;
   GetPayloadAccesses(S, Info, PayloadAccesses, true, dyn_cast<MemberExpr>(S),
                      dyn_cast<CallExpr>(S));
@@ -176,9 +178,10 @@ void CollectReadsWritesAndCallsForPayload(const Stmt *S, DxrShaderDiagnoseInfo &
     if (Access.Member) {
       FieldDecl *Field = cast<FieldDecl>(Access.Member->getMemberDecl());
       if (Access.IsLValue) {
-        Info.WritesPerField[Field].push_back(MemberUse{S, Access.Member, Block});
+        Info.WritesPerField[Field].push_back(
+            PayloadUse{S, Block, Access.Member});
       } else {
-        Info.ReadsPerField[Field].push_back(MemberUse{S, Access.Member, Block});
+        Info.ReadsPerField[Field].push_back(PayloadUse{S, Block, Access.Member});
       }
     } else if (Access.Call) {
       Info.PayloadAsCallArg.push_back(PayloadUse{S, Block});
@@ -209,14 +212,14 @@ void CollectTraceRayCalls(const Stmt *S, DxrShaderDiagnoseInfo &Info,
 }
 
 // Find the last write to the payload field in the given block.
-MemberUse GetLastWriteInBlock(CFGBlock &Block,
-                                ArrayRef<MemberUse> PayloadWrites) {
-  MemberUse LastWrite;
+PayloadUse GetLastWriteInBlock(CFGBlock &Block,
+                              ArrayRef<PayloadUse> PayloadWrites) {
+  PayloadUse LastWrite;
   for (auto &Element : Block) { // TODO: reverse iterate?
     if (Optional<CFGStmt> S = Element.getAs<CFGStmt>()) {
       auto It =
           std::find_if(PayloadWrites.begin(), PayloadWrites.end(),
-                       [&](const MemberUse &V) { return V.S == S->getStmt(); });
+                       [&](const PayloadUse &V) { return V.S == S->getStmt(); });
       if (It != std::end(PayloadWrites)) {
         LastWrite = *It;
         LastWrite.Parent = &Block;
@@ -227,8 +230,9 @@ MemberUse GetLastWriteInBlock(CFGBlock &Block,
 }
 
 // Travers the CFG until every path has reached a write or the ENTRY.
-void TraverseCFGUntilWrite(CFGBlock &Current, std::vector<MemberUse> &Writes,
-                           ArrayRef<MemberUse> PayloadWrites, std::set<const CFGBlock*>& Visited) {
+void TraverseCFGUntilWrite(CFGBlock &Current, std::vector<PayloadUse> &Writes,
+                           ArrayRef<PayloadUse> PayloadWrites,
+                           std::set<const CFGBlock *> &Visited) {
 
   if (Visited.count(&Current))
     return;
@@ -238,7 +242,7 @@ void TraverseCFGUntilWrite(CFGBlock &Current, std::vector<MemberUse> &Writes,
     CFGBlock *Pred = *I;
     if (!Pred)
       continue;
-    MemberUse WriteInPred = GetLastWriteInBlock(*Pred, PayloadWrites);
+    PayloadUse WriteInPred = GetLastWriteInBlock(*Pred, PayloadWrites);
     if (!WriteInPred.S)
       TraverseCFGUntilWrite(*Pred, Writes, PayloadWrites, Visited);
     else
@@ -246,28 +250,29 @@ void TraverseCFGUntilWrite(CFGBlock &Current, std::vector<MemberUse> &Writes,
   }
 }
 
-// Traverse the CFG from the EXIT backwards and stop as soon as a block has a write 
-// to the payload field.
-std::vector<MemberUse> GetAllWritesReachingExit(CFG& ShaderCFG, ArrayRef<MemberUse> PayloadWrites) {
+// Traverse the CFG from the EXIT backwards and stop as soon as a block has a
+// write to the payload field.
+std::vector<PayloadUse>
+GetAllWritesReachingExit(CFG &ShaderCFG, ArrayRef<PayloadUse> PayloadWrites) {
 
-  std::vector<MemberUse> Writes;
+  std::vector<PayloadUse> Writes;
   CFGBlock &Exit = ShaderCFG.getExit();
 
-  std::set<const CFGBlock*> Visited;
+  std::set<const CFGBlock *> Visited;
   TraverseCFGUntilWrite(Exit, Writes, PayloadWrites, Visited);
 
   return Writes;
 }
 
 // Find the first read to the payload field in the given block.
-MemberUse GetFirstReadInBlock(CFGBlock &Block,
-                                ArrayRef<MemberUse> PayloadReads) {
-  MemberUse FirstRead;
+PayloadUse GetFirstReadInBlock(CFGBlock &Block,
+                              ArrayRef<PayloadUse> PayloadReads) {
+  PayloadUse FirstRead;
   for (auto &Element : Block) {
     if (Optional<CFGStmt> S = Element.getAs<CFGStmt>()) {
-      auto It = std::find_if(PayloadReads.begin(), PayloadReads.end(), 
-          [&](const MemberUse& V) { return V.S == S->getStmt(); }
-        );
+      auto It =
+          std::find_if(PayloadReads.begin(), PayloadReads.end(),
+                       [&](const PayloadUse &V) { return V.S == S->getStmt(); });
       if (It != std::end(PayloadReads)) {
         FirstRead = *It;
         FirstRead.Parent = &Block;
@@ -279,18 +284,19 @@ MemberUse GetFirstReadInBlock(CFGBlock &Block,
 }
 
 // Travers the CFG until every path has reached a read or the EXIT.
-void TraverseCFGUntilRead(CFGBlock &Current, std::vector<MemberUse> &Reads,
-                           ArrayRef<MemberUse> PayloadWrites, std::set<const CFGBlock*>& Visited) {
-   
+void TraverseCFGUntilRead(CFGBlock &Current, std::vector<PayloadUse> &Reads,
+                          ArrayRef<PayloadUse> PayloadWrites,
+                          std::set<const CFGBlock *> &Visited) {
+
   if (Visited.count(&Current))
-      return;
+    return;
   Visited.insert(&Current);
 
   for (auto I = Current.succ_begin(), E = Current.succ_end(); I != E; ++I) {
     CFGBlock *Succ = *I;
     if (!Succ)
       continue;
-    MemberUse ReadInSucc = GetFirstReadInBlock(*Succ, PayloadWrites);
+    PayloadUse ReadInSucc = GetFirstReadInBlock(*Succ, PayloadWrites);
     if (!ReadInSucc.S)
       TraverseCFGUntilRead(*Succ, Reads, PayloadWrites, Visited);
     else
@@ -298,13 +304,14 @@ void TraverseCFGUntilRead(CFGBlock &Current, std::vector<MemberUse> &Reads,
   }
 }
 
-// Traverse the CFG from the ENTRY down and stop as soon as a block has a read 
+// Traverse the CFG from the ENTRY down and stop as soon as a block has a read
 // to the payload field.
-std::vector<MemberUse> GetAllReadsReachedFromEntry(CFG& ShaderCFG, ArrayRef<MemberUse> PayloadReads) {
-  std::vector<MemberUse> Reads;
+std::vector<PayloadUse>
+GetAllReadsReachedFromEntry(CFG &ShaderCFG, ArrayRef<PayloadUse> PayloadReads) {
+  std::vector<PayloadUse> Reads;
   CFGBlock &Entry = ShaderCFG.getEntry();
 
-  std::set<const CFGBlock*> Visited;
+  std::set<const CFGBlock *> Visited;
   TraverseCFGUntilRead(Entry, Reads, PayloadReads, Visited);
 
   return Reads;
@@ -345,9 +352,10 @@ bool IsFieldWriteableInEarlierStage(FieldDecl *Field,
 }
 
 // Emit warnings on payload writes.
-void DiagnosePayloadWrites(Sema &S, CFG &ShaderCFG, DominatorTree& DT,
+void DiagnosePayloadWrites(Sema &S, CFG &ShaderCFG, DominatorTree &DT,
                            const DxrShaderDiagnoseInfo &Info,
-                           ArrayRef<FieldDecl *> NonWriteableFields, RecordDecl *PayloadType) {
+                           ArrayRef<FieldDecl *> NonWriteableFields,
+                           RecordDecl *PayloadType) {
   for (FieldDecl *Field : NonWriteableFields) {
     auto WritesToField = Info.WritesPerField.find(Field);
     if (WritesToField == Info.WritesPerField.end())
@@ -356,18 +364,18 @@ void DiagnosePayloadWrites(Sema &S, CFG &ShaderCFG, DominatorTree& DT,
     const auto &WritesToDiagnose =
         GetAllWritesReachingExit(ShaderCFG, WritesToField->second);
     for (auto &Write : WritesToDiagnose) {
-      FieldDecl *MemField = cast<FieldDecl>(Write.E->getMemberDecl());
+      FieldDecl *MemField = cast<FieldDecl>(Write.Member->getMemberDecl());
       auto Qualifier = GetPayloadQualifierForStage(MemField, Info.Stage);
       if (Qualifier != DXIL::PayloadAccessQualifier::Write &&
           Qualifier != DXIL::PayloadAccessQualifier::ReadWrite) {
-        S.Diag(Write.E->getExprLoc(), diag::warn_hlsl_payload_access_write_loss)
-            << Field->getName()
-            << GetStringForShaderStage(Info.Stage);
+        S.Diag(Write.Member->getExprLoc(), diag::warn_hlsl_payload_access_write_loss)
+            << Field->getName() << GetStringForShaderStage(Info.Stage);
       }
     }
   }
 
-  // Check if a field is not unconditionally written and a write form an earlier stage will be lost.
+  // Check if a field is not unconditionally written and a write form an earlier
+  // stage will be lost.
   for (FieldDecl *Field : PayloadType->fields()) {
     auto Qualifier = GetPayloadQualifierForStage(Field, Info.Stage);
     if (IsFieldWriteableInEarlierStage(Field, Info.Stage) &&
@@ -397,7 +405,8 @@ void DiagnosePayloadWrites(Sema &S, CFG &ShaderCFG, DominatorTree& DT,
 }
 
 // Returns true if A is earlier than B in Parent
-bool IsEarlierStatementAs(const Stmt *A, const Stmt *B, const CFGBlock &Parent) {
+bool IsEarlierStatementAs(const Stmt *A, const Stmt *B,
+                          const CFGBlock &Parent) {
   for (auto Element : Parent) {
     if (auto S = Element.getAs<CFGStmt>()) {
       if (S->getStmt() == A)
@@ -411,8 +420,8 @@ bool IsEarlierStatementAs(const Stmt *A, const Stmt *B, const CFGBlock &Parent) 
 
 // Returns true if the write dominates payload use.
 template <typename T>
-bool WriteDominatesUse(const MemberUse &Write, const T &Use,
-                        DominatorTree &DT) {
+bool WriteDominatesUse(const PayloadUse &Write, const T &Use,
+                       DominatorTree &DT) {
   if (Use.Parent == Write.Parent) {
     // Use and write are in the same Block.
     return IsEarlierStatementAs(Write.S, Use.S, *Use.Parent);
@@ -453,20 +462,19 @@ void DiagnosePayloadReads(Sema &S, CFG &ShaderCFG, DominatorTree &DT,
       if (ReadIsDominatedByWrite)
         continue;
 
-      FieldDecl *MemField = cast<FieldDecl>(Read.E->getMemberDecl());
+      FieldDecl *MemField = cast<FieldDecl>(Read.Member->getMemberDecl());
 
       auto Qualifier = GetPayloadQualifierForStage(MemField, Info.Stage);
       if (Qualifier != DXIL::PayloadAccessQualifier::Read &&
           Qualifier != DXIL::PayloadAccessQualifier::ReadWrite) {
-        S.Diag(Read.E->getExprLoc(), diag::warn_hlsl_payload_access_undef_read)
-            << Field->getName()
-            << GetStringForShaderStage(Info.Stage);
+        S.Diag(Read.Member->getExprLoc(), diag::warn_hlsl_payload_access_undef_read)
+            << Field->getName() << GetStringForShaderStage(Info.Stage);
       }
     }
   }
 }
 
-// Generic CFG traversal that performs PerElementAction on every Stmt in the 
+// Generic CFG traversal that performs PerElementAction on every Stmt in the
 // CFG.
 template <bool Backward, typename Action>
 void TraverseCFG(const CFGBlock &Block, Action PerElementAction,
@@ -475,7 +483,7 @@ void TraverseCFG(const CFGBlock &Block, Action PerElementAction,
     return;
   Visited.insert(&Block);
 
-  for (const auto& Element : Block) {
+  for (const auto &Element : Block) {
     PerElementAction(Block, Element);
   }
 
@@ -500,7 +508,7 @@ void TraverseCFG(const CFGBlock &Block, Action PerElementAction,
 void ForwardTraverseCFGAndCollectTraceCalls(
     const CFGBlock &Block, DxrShaderDiagnoseInfo &Info,
     std::set<const CFGBlock *> &Visited) {
-  auto Action = [&Info](const CFGBlock& Block, const CFGElement &Element) {
+  auto Action = [&Info](const CFGBlock &Block, const CFGElement &Element) {
     if (Optional<CFGStmt> S = Element.getAs<CFGStmt>()) {
       CollectTraceRayCalls(S->getStmt(), Info, &Block);
     }
@@ -513,7 +521,7 @@ void ForwardTraverseCFGAndCollectTraceCalls(
 void ForwardTraverseCFGAndCollectReadsWrites(
     const CFGBlock &StartBlock, DxrShaderDiagnoseInfo &Info,
     std::set<const CFGBlock *> &Visited) {
-  auto Action = [&Info](const CFGBlock& Block, const CFGElement &Element) {
+  auto Action = [&Info](const CFGBlock &Block, const CFGElement &Element) {
     if (Optional<CFGStmt> S = Element.getAs<CFGStmt>()) {
       CollectReadsWritesAndCallsForPayload(S->getStmt(), Info, &Block);
     }
@@ -526,7 +534,7 @@ void ForwardTraverseCFGAndCollectReadsWrites(
 void BackwardTraverseCFGAndCollectReadsWrites(
     const CFGBlock &StartBlock, DxrShaderDiagnoseInfo &Info,
     std::set<const CFGBlock *> &Visited) {
-  auto Action = [&](const CFGBlock& Block, const CFGElement &Element) {
+  auto Action = [&](const CFGBlock &Block, const CFGElement &Element) {
     if (Optional<CFGStmt> S = Element.getAs<CFGStmt>()) {
       CollectReadsWritesAndCallsForPayload(S->getStmt(), Info, &Block);
     }
@@ -536,22 +544,23 @@ void BackwardTraverseCFGAndCollectReadsWrites(
 }
 
 // Returns true if the Stmt uses the Payload.
-bool IsPayloadArg(const Stmt* S, const Decl* Payload) {
-    if (const DeclRefExpr* Ref = dyn_cast<DeclRefExpr>(S)) {
-        const Decl* Decl = Ref->getDecl();
-        if (Decl == Payload)
-            return true;
-    }
+bool IsPayloadArg(const Stmt *S, const Decl *Payload) {
+  if (const DeclRefExpr *Ref = dyn_cast<DeclRefExpr>(S)) {
+    const Decl *Decl = Ref->getDecl();
+    if (Decl == Payload)
+      return true;
+  }
 
-    for (auto C : S->children()) {
-        if (IsPayloadArg(C, Payload))
-            return true;
-    }
-    return false;
+  for (auto C : S->children()) {
+    if (IsPayloadArg(C, Payload))
+      return true;
+  }
+  return false;
 }
 
 bool DiagnoseCallExprForExternal(Sema &S, const FunctionDecl *FD,
-                                 const CallExpr *CE, const ParmVarDecl *Payload);
+                                 const CallExpr *CE,
+                                 const ParmVarDecl *Payload);
 
 // Collects all writes that dominate a PayloadUse in a CallExpr
 // and returns a set of the Fields accessed.
@@ -578,47 +587,50 @@ CollectDominatingWritesForCall(PayloadUse &Use, DxrShaderDiagnoseInfo &Info,
 std::set<const FieldDecl *>
 CollectReachableWritesForCall(PayloadUse &Use,
                               const DxrShaderDiagnoseInfo &Info) {
-    std::set<const FieldDecl*> FieldsToIgnore; 
-    assert(Use.Parent);
-    const CFGBlock* Current = Use.Parent;
+  std::set<const FieldDecl *> FieldsToIgnore;
+  assert(Use.Parent);
+  const CFGBlock *Current = Use.Parent;
 
-    // Traverse the CFG beginning from the block of the call and collect all fields written to after
-    // the call. These fields must not be diagnosed with warnings about lost writes.
-    DxrShaderDiagnoseInfo TempInfo;
-    TempInfo.Payload = Info.Payload;
-    bool foundCall = false;
-    for (auto &Element : *Current) {
-      // Search for the Call in the block
-      if (Optional<CFGStmt> S = Element.getAs<CFGStmt>()) {
-        if (S->getStmt() == Use.S) {
-          foundCall = true;
-          continue;
-        }
-        if (foundCall)
-            CollectReadsWritesAndCallsForPayload(S->getStmt(), TempInfo ,Current);
-      }
-    }
-
-    for (auto I = Current->succ_begin(); I != Current->succ_end(); ++I) {
-      CFGBlock *Succ = *I;
-      if (!Succ)
+  // Traverse the CFG beginning from the block of the call and collect all
+  // fields written to after the call. These fields must not be diagnosed with
+  // warnings about lost writes.
+  DxrShaderDiagnoseInfo TempInfo;
+  TempInfo.Payload = Info.Payload;
+  bool foundCall = false;
+  for (auto &Element : *Current) {
+    // Search for the Call in the block
+    if (Optional<CFGStmt> S = Element.getAs<CFGStmt>()) {
+      if (S->getStmt() == Use.S) {
+        foundCall = true;
         continue;
-      std::set<const CFGBlock*> Visited;
-      ForwardTraverseCFGAndCollectReadsWrites(*Succ, TempInfo, Visited);
+      }
+      if (foundCall)
+        CollectReadsWritesAndCallsForPayload(S->getStmt(), TempInfo, Current);
     }
-    for (auto& p : TempInfo.WritesPerField)
-        FieldsToIgnore.insert(p.first);
+  }
 
-    return FieldsToIgnore;
+  for (auto I = Current->succ_begin(); I != Current->succ_end(); ++I) {
+    CFGBlock *Succ = *I;
+    if (!Succ)
+      continue;
+    std::set<const CFGBlock *> Visited;
+    ForwardTraverseCFGAndCollectReadsWrites(*Succ, TempInfo, Visited);
+  }
+  for (auto &p : TempInfo.WritesPerField)
+    FieldsToIgnore.insert(p.first);
+
+  return FieldsToIgnore;
 }
 
 // Emit diagnostics when the payload is used as an argument
 // in a function call.
-void DiagnosePayloadAsFunctionArg(
+std::map<PayloadUse, std::vector<const FieldDecl *>>
+DiagnosePayloadAsFunctionArg(
     Sema &S, DxrShaderDiagnoseInfo &Info, DominatorTree &DT,
     const std::set<const FieldDecl *> &ParentFieldsToIgnoreRead,
     const std::set<const FieldDecl *> &ParentFieldsToIgnoreWrite,
-   std::set<const FunctionDecl*> VisitedFunctions) {
+    std::set<const FunctionDecl *> VisitedFunctions) {
+  std::map<PayloadUse, std::vector<const FieldDecl *>> WrittenFieldsInCalls;
   for (PayloadUse &Use : Info.PayloadAsCallArg) {
     if (const CallExpr *Call = dyn_cast<CallExpr>(Use.S)) {
       const Decl *Callee = Call->getCalleeDecl();
@@ -628,9 +640,10 @@ void DiagnosePayloadAsFunctionArg(
       const FunctionDecl *CalledFunction = cast<FunctionDecl>(Callee);
 
       // Ignore trace calls here.
-      if (CalledFunction->isImplicit() && CalledFunction->getName() == "TraceRay") {
-          Info.TraceCalls.push_back(TraceRayCall{Call, Use.Parent});
-          continue;
+      if (CalledFunction->isImplicit() &&
+          CalledFunction->getName() == "TraceRay") {
+        Info.TraceCalls.push_back(TraceRayCall{Call, Use.Parent});
+        continue;
       }
 
       // Handle external function calls
@@ -642,7 +655,7 @@ void DiagnosePayloadAsFunctionArg(
       }
 
       if (VisitedFunctions.count(CalledFunction))
-          return;
+        return WrittenFieldsInCalls;
       VisitedFunctions.insert(CalledFunction);
 
       DxrShaderDiagnoseInfo CalleeInfo;
@@ -660,180 +673,192 @@ void DiagnosePayloadAsFunctionArg(
         CalleeInfo.Stage = Info.Stage;
         auto FieldsToIgnoreRead = CollectDominatingWritesForCall(Use, Info, DT);
         auto FieldsToIgnoreWrite = CollectReachableWritesForCall(Use, Info);
-        FieldsToIgnoreRead.insert(ParentFieldsToIgnoreRead.begin(), ParentFieldsToIgnoreRead.end());
-        FieldsToIgnoreWrite.insert(ParentFieldsToIgnoreWrite.begin(), ParentFieldsToIgnoreWrite.end());
-        DiagnosePayloadAccess(S, CalleeInfo, FieldsToIgnoreRead, FieldsToIgnoreWrite, VisitedFunctions);
+        FieldsToIgnoreRead.insert(ParentFieldsToIgnoreRead.begin(),
+                                  ParentFieldsToIgnoreRead.end());
+        FieldsToIgnoreWrite.insert(ParentFieldsToIgnoreWrite.begin(),
+                                   ParentFieldsToIgnoreWrite.end());
+        WrittenFieldsInCalls[Use] =
+            DiagnosePayloadAccess(S, CalleeInfo, FieldsToIgnoreRead,
+                                  FieldsToIgnoreWrite, VisitedFunctions);
       }
     }
   }
+  return WrittenFieldsInCalls;
 }
 
 // Emit diagnostics for a TraceRay call.
 void DiagnoseTraceCall(Sema &S, const VarDecl *Payload,
                        const TraceRayCall &Trace, DominatorTree &DT) {
-    // For each TraceRay call check if write(caller) fields are written. 
-    const DXIL::PayloadAccessShaderStage CallerStage =
-        DXIL::PayloadAccessShaderStage::Caller;
+  // For each TraceRay call check if write(caller) fields are written.
+  const DXIL::PayloadAccessShaderStage CallerStage =
+      DXIL::PayloadAccessShaderStage::Caller;
 
-    std::vector<FieldDecl *> WriteableFields;
-    std::vector<FieldDecl *> NonWriteableFields;
-    std::vector<FieldDecl *> ReadableFields;
-    std::vector<FieldDecl *> NonReadableFields;
+  std::vector<FieldDecl *> WriteableFields;
+  std::vector<FieldDecl *> NonWriteableFields;
+  std::vector<FieldDecl *> ReadableFields;
+  std::vector<FieldDecl *> NonReadableFields;
 
-    RecordDecl *PayloadType = GetPayloadType(Payload);
+  RecordDecl *PayloadType = GetPayloadType(Payload);
 
-    // Check if the payload type used for this trace call is a payload type
-    if (!PayloadType->hasAttr<HLSLRayPayloadAttr>()) {
-      S.Diag(Payload->getLocation(), diag::err_payload_requires_attribute)
-          << PayloadType->getName();
-      return;
+  // Check if the payload type used for this trace call is a payload type
+  if (!PayloadType->hasAttr<HLSLRayPayloadAttr>()) {
+    S.Diag(Payload->getLocation(), diag::err_payload_requires_attribute)
+        << PayloadType->getName();
+    return;
+  }
+
+  for (FieldDecl *Field : PayloadType->fields()) {
+    auto Qualifier = GetPayloadQualifierForStage(Field, CallerStage);
+    if (Qualifier == DXIL::PayloadAccessQualifier::Write ||
+        Qualifier == DXIL::PayloadAccessQualifier::ReadWrite)
+      WriteableFields.push_back(Field);
+    else
+      NonWriteableFields.push_back(Field);
+    if (Qualifier == DXIL::PayloadAccessQualifier::Read ||
+        Qualifier == DXIL::PayloadAccessQualifier::ReadWrite)
+      ReadableFields.push_back(Field);
+    else
+      NonReadableFields.push_back(Field);
+  }
+
+  // Find all writes to Payload that reaches the Trace
+  DxrShaderDiagnoseInfo TraceInfo;
+  TraceInfo.Payload = Payload;
+  std::set<const CFGBlock *> Visited;
+
+  const CFGBlock *Parent = Trace.Parent;
+  Visited.insert(Parent);
+  // Collect payload accesses in the same block until we reach the TraceRay call
+  for (auto Element : *Parent) {
+    if (Optional<CFGStmt> S = Element.getAs<CFGStmt>()) {
+      if (S->getStmt() == Trace.Call)
+        break;
+      CollectReadsWritesAndCallsForPayload(S->getStmt(), TraceInfo, Parent);
     }
+  }
 
-    for (FieldDecl *Field : PayloadType->fields()) {
-      auto Qualifier = GetPayloadQualifierForStage(Field, CallerStage);
-      if (Qualifier == DXIL::PayloadAccessQualifier::Write ||
-          Qualifier == DXIL::PayloadAccessQualifier::ReadWrite)
-        WriteableFields.push_back(Field);
-      else
-        NonWriteableFields.push_back(Field);
-      if (Qualifier == DXIL::PayloadAccessQualifier::Read ||
-          Qualifier == DXIL::PayloadAccessQualifier::ReadWrite)
-        ReadableFields.push_back(Field);
-      else
-        NonReadableFields.push_back(Field);
+  for (auto I = Parent->pred_begin(); I != Parent->pred_end(); ++I) {
+    CFGBlock *Pred = *I;
+    if (!Pred)
+      continue;
+    BackwardTraverseCFGAndCollectReadsWrites(*Pred, TraceInfo, Visited);
+  }
+
+  // Warn if a writeable field has not been written.
+  for (const FieldDecl *Field : WriteableFields) {
+    if (!TraceInfo.WritesPerField.count(Field)) {
+      S.Diag(Trace.Call->getArg(7)->getExprLoc(),
+             diag::warn_hlsl_payload_access_no_write_for_trace_payload)
+          << Field->getName();
     }
+  }
+  // Warn if a written field is not write(caller)
+  for (const FieldDecl *Field : NonWriteableFields) {
+    if (TraceInfo.WritesPerField.count(Field)) {
+      S.Diag(
+          Trace.Call->getArg(7)->getExprLoc(),
+          diag::warn_hlsl_payload_access_write_but_no_write_for_trace_payload)
+          << Field->getName();
+    }
+  }
 
-    // Find all writes to Payload that reaches the Trace
-    DxrShaderDiagnoseInfo TraceInfo;
-    TraceInfo.Payload = Payload;
-    std::set<const CFGBlock*> Visited;
+  // After a trace call, collect all reads that are not dominated by another
+  // write warn if a field is not read(caller) but the value is read (undef
+  // read).
 
-    const CFGBlock* Parent = Trace.Parent;
-    Visited.insert(Parent);
-    // Collect payload accesses in the same block until we reach the TraceRay call
-    for (auto Element : *Parent) {
-      if (Optional<CFGStmt> S = Element.getAs<CFGStmt>()) {
-        if (S->getStmt() == Trace.Call)
-          break;
+  // Discard reads/writes from backward traversal.
+  TraceInfo.ReadsPerField.clear();
+  TraceInfo.WritesPerField.clear();
+  bool CallFound = false;
+  for (auto Element : *Parent) { // TODO: reverse iterate?
+    if (Optional<CFGStmt> S = Element.getAs<CFGStmt>()) {
+      if (S->getStmt() == Trace.Call) {
+        CallFound = true;
+        continue;
+      }
+      if (CallFound)
         CollectReadsWritesAndCallsForPayload(S->getStmt(), TraceInfo, Parent);
-      }
     }
+  }
+  for (auto I = Parent->succ_begin(); I != Parent->succ_end(); ++I) {
+    CFGBlock *Pred = *I;
+    if (!Pred)
+      continue;
+    ForwardTraverseCFGAndCollectReadsWrites(*Pred, TraceInfo, Visited);
+  }
 
-    for (auto I = Parent->pred_begin(); I != Parent->pred_end(); ++I) {
-      CFGBlock *Pred = *I;
-      if (!Pred)
+  for (const FieldDecl *Field : ReadableFields) {
+    if (!TraceInfo.ReadsPerField.count(Field)) {
+      S.Diag(Trace.Call->getArg(7)->getExprLoc(),
+             diag::warn_hlsl_payload_access_read_but_no_read_after_trace)
+          << Field->getName();
+    }
+  }
+
+  for (const FieldDecl *Field : NonReadableFields) {
+    auto WritesToField = TraceInfo.WritesPerField.find(Field);
+    bool FieldHasWrites = WritesToField != TraceInfo.WritesPerField.end();
+    for (auto &Read : TraceInfo.ReadsPerField[Field]) {
+      bool ReadIsDominatedByWrite = false;
+      if (FieldHasWrites) {
+        // We found a read to a field that needs diagnose.
+        // We do not want to warn about fields that read but are dominated by
+        // a write. Find writes that dominate the read. If we found one,
+        // ignore the read.
+        for (auto Write : WritesToField->second) {
+          ReadIsDominatedByWrite = WriteDominatesUse(Write, Read, DT);
+          if (ReadIsDominatedByWrite)
+            break;
+        }
+      }
+
+      if (ReadIsDominatedByWrite)
         continue;
-      BackwardTraverseCFGAndCollectReadsWrites(*Pred, TraceInfo, Visited);
-    }
 
-    // Warn if a writeable field has not been written.
-    for (const FieldDecl *Field : WriteableFields) {
-      if (!TraceInfo.WritesPerField.count(Field)) {
-        S.Diag(Trace.Call->getArg(7)->getExprLoc(),
-               diag::warn_hlsl_payload_access_no_write_for_trace_payload)
-            << Field->getName();
-      }
+      S.Diag(Read.Member->getExprLoc(),
+             diag::warn_hlsl_payload_access_read_of_undef_after_trace)
+          << Field->getName();
     }
-    // Warn if a written field is not write(caller)
-    for (const FieldDecl *Field : NonWriteableFields) {
-      if (TraceInfo.WritesPerField.count(Field)) {
-        S.Diag(Trace.Call->getArg(7)->getExprLoc(),
-               diag::warn_hlsl_payload_access_write_but_no_write_for_trace_payload)
-            << Field->getName();
-      }
-    }
-
-    // After a trace call, collect all reads that are not dominated by another write
-    // warn if a field is not read(caller) but the value is read (undef read). 
-
-    // Discard reads/writes from backward traversal.
-    TraceInfo.ReadsPerField.clear();
-    TraceInfo.WritesPerField.clear();
-    bool CallFound = false;
-    for (auto Element : *Parent) { // TODO: reverse iterate?
-      if (Optional<CFGStmt> S = Element.getAs<CFGStmt>()) {
-        if (S->getStmt() == Trace.Call) {
-          CallFound = true;
-          continue;
-        }
-        if (CallFound)
-            CollectReadsWritesAndCallsForPayload(S->getStmt(), TraceInfo, Parent);
-      }
-    }
-    for (auto I = Parent->succ_begin(); I != Parent->succ_end(); ++I) {
-      CFGBlock *Pred = *I;
-      if (!Pred)
-        continue;
-      ForwardTraverseCFGAndCollectReadsWrites(*Pred, TraceInfo, Visited);
-    }
-
-    for (const FieldDecl* Field : ReadableFields) {
-        if (!TraceInfo.ReadsPerField.count(Field)) {
-            S.Diag(Trace.Call->getArg(7)->getExprLoc(),
-                   diag::warn_hlsl_payload_access_read_but_no_read_after_trace)
-                << Field->getName();
-        }
-    }
-
-    for (const FieldDecl *Field : NonReadableFields) {
-      auto WritesToField = TraceInfo.WritesPerField.find(Field);
-      bool FieldHasWrites = WritesToField != TraceInfo.WritesPerField.end();
-      for (auto &Read : TraceInfo.ReadsPerField[Field]) {
-        bool ReadIsDominatedByWrite = false;
-        if (FieldHasWrites) {
-          // We found a read to a field that needs diagnose.
-          // We do not want to warn about fields that read but are dominated by
-          // a write. Find writes that dominate the read. If we found one,
-          // ignore the read.
-          for (auto Write : WritesToField->second) {
-            ReadIsDominatedByWrite = WriteDominatesUse(Write, Read, DT);
-            if (ReadIsDominatedByWrite)
-              break;
-          }
-        }
-
-        if (ReadIsDominatedByWrite)
-          continue;
-
-        S.Diag(Read.E->getExprLoc(),
-               diag::warn_hlsl_payload_access_read_of_undef_after_trace)
-            << Field->getName();
-      }
-    }
+  }
 }
 
-// Emit diagnostics for all TraceRay calls. 
-void DiagnoseTraceCalls(Sema& S, CFG& ShaderCFG, DominatorTree& DT, DxrShaderDiagnoseInfo& Info) {
-    // Collect TraceRay calls in the shader.
-    std::set<const CFGBlock*> Visited;
-    ForwardTraverseCFGAndCollectTraceCalls(ShaderCFG.getEntry(), Info, Visited);
+// Emit diagnostics for all TraceRay calls.
+void DiagnoseTraceCalls(Sema &S, CFG &ShaderCFG, DominatorTree &DT,
+                        DxrShaderDiagnoseInfo &Info) {
+  // Collect TraceRay calls in the shader.
+  std::set<const CFGBlock *> Visited;
+  ForwardTraverseCFGAndCollectTraceCalls(ShaderCFG.getEntry(), Info, Visited);
 
-    std::set<const CallExpr*> Diagnosed;
+  std::set<const CallExpr *> Diagnosed;
 
-    for (const TraceRayCall& TraceCall : Info.TraceCalls) {
-        if (Diagnosed.count(TraceCall.Call))
-            continue; 
-        Diagnosed.insert(TraceCall.Call);
+  for (const TraceRayCall &TraceCall : Info.TraceCalls) {
+    if (Diagnosed.count(TraceCall.Call))
+      continue;
+    Diagnosed.insert(TraceCall.Call);
 
-        const VarDecl* Payload = GetPayloadParameterForTraceCall(TraceCall.Call);
-        DiagnoseTraceCall(S, Payload, TraceCall, DT);
-    }
+    const VarDecl *Payload = GetPayloadParameterForTraceCall(TraceCall.Call);
+    DiagnoseTraceCall(S, Payload, TraceCall, DT);
+  }
 }
 
 // Emit diagnostics for all access to the payload of a shader,
 // and the input to TraceRay calls.
-void DiagnosePayloadAccess(
-    Sema &S, DxrShaderDiagnoseInfo &Info,
-    const std::set<const FieldDecl *> &FieldsToIgnoreRead,
-    const std::set<const FieldDecl *> &FieldsToIgnoreWrite,
-    std::set<const FunctionDecl *> VisitedFunctions) {
+std::vector<const FieldDecl *>
+DiagnosePayloadAccess(Sema &S, DxrShaderDiagnoseInfo &Info,
+                      const std::set<const FieldDecl *> &FieldsToIgnoreRead,
+                      const std::set<const FieldDecl *> &FieldsToIgnoreWrite,
+                      std::set<const FunctionDecl *> VisitedFunctions) {
   clang::DominatorTree DT;
   AnalysisDeclContextManager AnalysisManager;
   AnalysisDeclContext *AnalysisContext =
       AnalysisManager.getContext(Info.FunctionDecl);
 
-  CFG& TheCFG = *AnalysisContext->getCFG();
+  CFG &TheCFG = *AnalysisContext->getCFG();
   DT.buildDominatorTree(*AnalysisContext);
+
+  // Collect all Fields that gets written to return it back up through the
+  // recursion.
+  std::vector<const FieldDecl *> WrittenFields;
 
   // Skip if we are in a RayGeneration shader without payload.
   if (Info.Payload) {
@@ -841,7 +866,7 @@ void DiagnosePayloadAccess(
     std::vector<FieldDecl *> NonReadableFields;
     RecordDecl *PayloadType = GetPayloadType(Info.Payload);
     if (!PayloadType)
-      return;
+      return WrittenFields;
 
     for (FieldDecl *Field : PayloadType->fields()) {
       auto Qualifier = GetPayloadQualifierForStage(Field, Info.Stage);
@@ -860,44 +885,60 @@ void DiagnosePayloadAccess(
     }
 
     std::set<const CFGBlock *> Visited;
-    ForwardTraverseCFGAndCollectReadsWrites(TheCFG.getEntry(), Info,
-                                            Visited);
+    ForwardTraverseCFGAndCollectReadsWrites(TheCFG.getEntry(), Info, Visited);
 
     if (Info.Payload->hasAttr<HLSLOutAttr>() ||
-        Info.Payload->hasAttr<HLSLInOutAttr>())
-      DiagnosePayloadWrites(S, TheCFG, DT, Info, NonWriteableFields, PayloadType);
+        Info.Payload->hasAttr<HLSLInOutAttr>()) {
+      // If there is copy-out semantic on the payload field,
+      // save the written fields and return it back to the caller for
+      // better diagnostics in higher recursion levels.
+
+      for (auto &p : Info.WritesPerField) {
+        WrittenFields.push_back(p.first);
+      }
+
+      DiagnosePayloadWrites(S, TheCFG, DT, Info, NonWriteableFields,
+                            PayloadType);
+    }
+
+    auto WrittenFieldsInCalls = DiagnosePayloadAsFunctionArg(
+        S, Info, DT, FieldsToIgnoreRead, FieldsToIgnoreWrite, VisitedFunctions);
+
+    // Add calls that write fields as writes to allow the diagnostics on reads
+    // to check if a call that writes the field dominates the read.
+
+    for (auto& P : WrittenFieldsInCalls) {
+        for (const FieldDecl* Field : P.second) {
+            Info.WritesPerField[Field].push_back(P.first);
+      }
+    
+    }
+
     if (Info.Payload->hasAttr<HLSLInAttr>() ||
         Info.Payload->hasAttr<HLSLInOutAttr>())
       DiagnosePayloadReads(S, TheCFG, DT, Info, NonReadableFields);
-
-    DiagnosePayloadAsFunctionArg(S, Info, DT, FieldsToIgnoreRead,
-                                 FieldsToIgnoreWrite, VisitedFunctions);
   }
 
   DiagnoseTraceCalls(S, TheCFG, DT, Info);
+
+  return WrittenFields;
 }
 
-const Stmt* IgnoreParensAndDecay(const Stmt* S)
-{
-  for (;;)
-  {
-    switch (S->getStmtClass())
-    {
+const Stmt *IgnoreParensAndDecay(const Stmt *S) {
+  for (;;) {
+    switch (S->getStmtClass()) {
     case Stmt::ParenExprClass:
       S = cast<ParenExpr>(S)->getSubExpr();
       break;
-    case Stmt::ImplicitCastExprClass:
-      {
-        const ImplicitCastExpr* castExpr = cast<ImplicitCastExpr>(S);
-        if (castExpr->getCastKind() != CK_ArrayToPointerDecay &&
-            castExpr->getCastKind() != CK_NoOp &&
-            castExpr->getCastKind() != CK_LValueToRValue)
-        {
-          return S;
-        }
-        S = castExpr->getSubExpr();
+    case Stmt::ImplicitCastExprClass: {
+      const ImplicitCastExpr *castExpr = cast<ImplicitCastExpr>(S);
+      if (castExpr->getCastKind() != CK_ArrayToPointerDecay &&
+          castExpr->getCastKind() != CK_NoOp &&
+          castExpr->getCastKind() != CK_LValueToRValue) {
+        return S;
       }
-      break;
+      S = castExpr->getSubExpr();
+    } break;
     default:
       return S;
     }
@@ -906,7 +947,8 @@ const Stmt* IgnoreParensAndDecay(const Stmt* S)
 
 // Emit warnings for calls that pass the payload to extern functions.
 bool DiagnoseCallExprForExternal(Sema &S, const FunctionDecl *FD,
-                                 const CallExpr *CE, const ParmVarDecl *Payload) {
+                                 const CallExpr *CE,
+                                 const ParmVarDecl *Payload) {
   // We check if we are passing the entire payload struct to an extern function.
   // Here ends what we can check, so we just issue a warning.
   if (!FD->hasBody()) {
@@ -963,9 +1005,7 @@ class DXRShaderVisitor : public RecursiveASTVisitor<DXRShaderVisitor> {
 public:
   DXRShaderVisitor(Sema &S) : S(S) {}
 
-  void diagnose(TranslationUnitDecl *TU) { 
-      TraverseTranslationUnitDecl(TU); 
-  }
+  void diagnose(TranslationUnitDecl *TU) { TraverseTranslationUnitDecl(TU); }
 
   bool VisitFunctionDecl(FunctionDecl *Decl) {
     auto attr = Decl->getAttr<HLSLShaderAttr>();
@@ -974,11 +1014,12 @@ public:
 
     StringRef shaderStage = attr->getStage();
     if (StringRef("miss,closesthit,anyhit,raygeneration").count(shaderStage)) {
-      ParmVarDecl *Payload = nullptr; 
+      ParmVarDecl *Payload = nullptr;
       if (shaderStage != "raygeneration")
-          Payload = Decl->getParamDecl(0);
+        Payload = Decl->getParamDecl(0);
 
-      DXIL::PayloadAccessShaderStage Stage = DXIL::PayloadAccessShaderStage::Invalid;
+      DXIL::PayloadAccessShaderStage Stage =
+          DXIL::PayloadAccessShaderStage::Invalid;
       if (shaderStage == "closesthit") {
         Stage = DXIL::PayloadAccessShaderStage::Closesthit;
       } else if (shaderStage == "miss") {
@@ -993,23 +1034,23 @@ public:
       DxrShaderDiagnoseInfo Info;
       Info.FunctionDecl = Decl;
       Info.Payload = Payload;
-      Info.Stage = Stage; 
-  
-      std::set<const FunctionDecl*> VisitedFunctions;
+      Info.Stage = Stage;
+
+      std::set<const FunctionDecl *> VisitedFunctions;
       DiagnosePayloadAccess(S, Info, {}, {}, VisitedFunctions);
     }
     return true;
   }
 
 private:
-  Sema& S;
+  Sema &S;
 };
 } // namespace
 
-
 namespace hlsl {
 
-void DiagnoseRaytracingPayloadAccess(clang::Sema &S, clang::TranslationUnitDecl *TU) {
+void DiagnoseRaytracingPayloadAccess(clang::Sema &S,
+                                     clang::TranslationUnitDecl *TU) {
   DXRShaderVisitor visitor(S);
   visitor.diagnose(TU);
 }

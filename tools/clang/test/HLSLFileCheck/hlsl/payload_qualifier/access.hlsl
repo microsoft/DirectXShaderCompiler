@@ -6,7 +6,7 @@
 // RUN: %dxc -T lib_6_6 main %s -enable-payload-qualifiers -D TEST_NUM=5 | FileCheck -check-prefix=CHK5 -input=stderr  %s
 // RUN: %dxc -T lib_6_6 main %s -enable-payload-qualifiers -D TEST_NUM=6 | FileCheck -check-prefix=CHK6 -input=stderr  %s
 // RUN: %dxc -T lib_6_6 main %s -enable-payload-qualifiers -D TEST_NUM=7 | FileCheck -check-prefix=CHK7 -input=stderr  %s
-
+// RUN: %dxc -T lib_6_6 main %s -enable-payload-qualifiers -D TEST_NUM=8 | FileCheck -check-prefix=CHK8 -input=stderr  %s
 
 // CHK0-NOT: -Wpayload-access-
 
@@ -41,6 +41,10 @@
 // CHK6: warning: potential loss of data for payload field 'clobbered'. Field is qualified 'write' in earlier stages and 'write' only for stage 'closesthit' but never unconditionally written.
 
 // CHK7: warning: potential loss of data for payload field 'clobbered'. Field is qualified 'write' in earlier stages and 'write' only for stage 'anyhit' but never unconditionally written.
+
+// CHK8: warning: write will be droped ('noWrite' is not qualified 'write' for shader stage 'closesthit')
+// CHK8: warning: reading undefined value ('noRead2' is not qualified 'read' for shader stage 'closesthit')
+// CHK8-NOT: warning: reading undefined value ('noRead3' is not qualified 'read' for shader stage 'closesthit')
 
 struct [raypayload] Payload
 {
@@ -203,5 +207,26 @@ void ClosestHit0( inout Payload payload, in Attribs attribs )
 [shader("anyhit")]
 void Anyhit0( inout Payload payload, in Attribs attribs  )
 {
+}
+#endif
+
+// Check if a write in a function slience the warning about an undef read in the caller.
+#if TEST_NUM == 8
+void bar(inout Payload payload)
+{
+    payload.noWrite = payload.noRead;
+    bar(payload);
+    payload.noWrite = payload.noRead2;
+    payload.noRead3 = 5;
+}
+
+
+[shader("closesthit")]
+void ClosestHit8( inout Payload payload, in Attribs attribs )
+{
+    payload.noRead = 1;
+    bar(payload);
+    for (int i = 0; i < payload.noRead3; ++i)
+    payload.noWrite = 2;
 }
 #endif
