@@ -5732,6 +5732,43 @@ bool VectorExprEvaluator::VisitCastExpr(const CastExpr* E) {
     }
     return Success(Elts, E);
   }
+  case CK_HLSLCC_IntegralCast: {
+    if (!Visit(SE))
+      return Error(E);
+    SmallVector<APValue, 4> Elts;
+    for (uint32_t i = 0; i < Result.getVectorLength(); ++i) {
+      APValue Elem = Result.getVectorElt(i);
+      APSInt NewElemInt = HandleIntToIntCast(
+        Info, E, hlsl::GetHLSLVecElementType(E->getType()),
+        hlsl::GetHLSLVecElementType(SE->getType()), Elem.getInt());
+      APValue NewElem(NewElemInt);
+      Elts.push_back(NewElem);
+    }
+    return Success(Elts, E);
+  }
+  case CK_HLSLCC_FloatingToBoolean:
+  case CK_HLSLCC_IntegralToBoolean: {
+    if (!Visit(SE))
+      return Error(E);
+    SmallVector<APValue, 4> Elts;
+    for (uint32_t i = 0; i < Result.getVectorLength(); ++i) {
+      APValue Elem = Result.getVectorElt(i);
+      bool Result;
+      HandleConversionToBool(Elem, Result);
+      // Construct an int with bitwidth 1 to represent a boolean
+      APSInt ElemBool(/*BitWidth*/ 1);
+      if (Result) {
+        // If the conversion to bool is true then set the LSB
+        ElemBool.setBit(0);
+      } else {
+        // If the conversion to bool is false then reset the LSB
+        ElemBool.clearAllBits();
+      }
+      APValue NewElem(ElemBool);
+      Elts.push_back(NewElem);
+    }
+    return Success(Elts, E);
+  }
   case CK_HLSLCC_IntegralToFloating: {
     if (!Visit(SE))
       return Error(E);

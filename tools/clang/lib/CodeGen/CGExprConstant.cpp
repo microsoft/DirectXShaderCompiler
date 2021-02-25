@@ -744,8 +744,11 @@ public:
       return nullptr;
     // HLSL Change Begins.
     case CK_HLSLCC_FloatingCast:
+    case CK_HLSLCC_IntegralCast:
+    case CK_HLSLCC_IntegralToBoolean:
     case CK_HLSLCC_IntegralToFloating:
     case CK_HLSLCC_FloatingToIntegral:
+    case CK_HLSLCC_FloatingToBoolean:
       // Since these cast kinds have already been handled in ExprConstant.cpp,
       // we can reuse the logic there.
       return CGM.EmitConstantExpr(E, E->getType(), CGF);
