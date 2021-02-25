@@ -223,7 +223,7 @@ void [[]] ProcessTriTessFactorsMin(in float<3> RawEdgeFactors, in float<1> Insid
 $type1 [[rn]] radians(in float_like<> x);
 $type1 [[rn]] rcp(in any_float<> x) : rcp_approx;
 $type1 [[rn]] reflect(in float_like<c> i, in $type1 n);
-$type1 [[rn]] refract(in float_like<c> i, in $type1 n, in float_like ri);
+$type1 [[rn]] refract(in float_like<c> i, in $type1 n, in $match<3, 1> float_like ri);
 $type1 [[rn]] reversebits(in any_int<> x);
 $type1 [[rn]] round(in float_like<> x);
 $type1 [[rn]] rsqrt(in float_like<> x);
@@ -334,9 +334,9 @@ float<4,3> [[rn]] ObjectToWorld4x3();
 float<4,3> [[rn]] WorldToObject4x3();
 
 // Packed dot products with accumulate:
-$type3 [[rn]] dot4add_u8packed(in uint a, in $type1 b, in uint b);
-$type3 [[rn]] dot4add_i8packed(in uint a, in $type1 b, in int b);
-$type3 [[rn]] dot2add(in float16_t<2> a, in $type1 b, in float b);
+$type3 [[rn]] dot4add_u8packed(in uint a, in $type1 b, in uint c);
+$type3 [[rn]] dot4add_i8packed(in uint a, in $type1 b, in int c);
+$type3 [[rn]] dot2add(in float16_t<2> a, in $type1 b, in float c);
 
 // Unpacking intrinsics
 int16_t<4> [[rn]] unpack_s8s16(in p32i8 pk);

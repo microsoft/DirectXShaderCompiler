@@ -24,38 +24,38 @@ void main(uint i : IN0, TY t : IN1)
   // CHK_TEST4: dx.op.rawBufferStore.f32
 
   // CHK_TEST5: dx.op.rawBufferStore.f32
-  // CHK_TEST5: add i32 %{{.*}}, 1
+  // CHK_TEST5: add i32 %{{.*}}, 16
   // CHK_TEST5: dx.op.rawBufferStore.f32
   
   // CHK_TEST6: dx.op.rawBufferStore.f32
-  // CHK_TEST6: add i32 %{{.*}}, 1
+  // CHK_TEST6: add i32 %{{.*}}, 16
   // CHK_TEST6: dx.op.rawBufferStore.f32
   
   // CHK_TEST7: dx.op.rawBufferStore.f32
-  // CHK_TEST7: add i32 %{{.*}}, 1
+  // CHK_TEST7: add i32 %{{.*}}, 16
   // CHK_TEST7: dx.op.rawBufferStore.f32
-  // CHK_TEST7: add i32 %{{.*}}, 2
+  // CHK_TEST7: add i32 %{{.*}}, 32
   // CHK_TEST7: dx.op.rawBufferStore.f32
   
   // CHK_TEST8: dx.op.rawBufferStore.f32
-  // CHK_TEST8: add i32 %{{.*}}, 1
+  // CHK_TEST8: add i32 %{{.*}}, 16
   // CHK_TEST8: dx.op.rawBufferStore.f32
-  // CHK_TEST8: add i32 %{{.*}}, 2
+  // CHK_TEST8: add i32 %{{.*}}, 32
   // CHK_TEST8: dx.op.rawBufferStore.f32
   
   // CHK_TEST9: dx.op.rawBufferStore.f32
-  // CHK_TEST9: add i32 %{{.*}}, 1
+  // CHK_TEST9: add i32 %{{.*}}, 16
   // CHK_TEST9: dx.op.rawBufferStore.f32
-  // CHK_TEST9: add i32 %{{.*}}, 2
+  // CHK_TEST9: add i32 %{{.*}}, 32
   // CHK_TEST9: dx.op.rawBufferStore.f32
   
   
   // CHK_TEST10: dx.op.rawBufferStore.f32
-  // CHK_TEST10: add i32 %{{.*}}, 1
+  // CHK_TEST10: add i32 %{{.*}}, 16
   // CHK_TEST10: dx.op.rawBufferStore.f32
-  // CHK_TEST10: add i32 %{{.*}}, 2
+  // CHK_TEST10: add i32 %{{.*}}, 32
   // CHK_TEST10: dx.op.rawBufferStore.f32
-  // CHK_TEST10: add i32 %{{.*}}, 3
+  // CHK_TEST10: add i32 %{{.*}}, 48
   // CHK_TEST10: dx.op.rawBufferStore.f32  
 
 	buffer.Store(i, t);
