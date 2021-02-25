@@ -123,6 +123,55 @@ float4 test_scalar_indexing()
   f4 += g_tc[0]; // expected-error {{type 'TextureCube' does not provide a subscript operator}} fxc-error {{X3121: array, matrix, vector, or indexable object type expected in index expression}}
   // fxc  error X3121: array, matrix, vector, or indexable object type expected in index expression
   f4 += g_tca[0]; // expected-error {{type 'TextureCubeArray' does not provide a subscript operator}} fxc-error {{X3121: array, matrix, vector, or indexable object type expected in index expression}}
+
+  g_b[0] = f4;          /* expected-error {{cannot assign to return value because function 'operator[]<const vector<float, 4> &>' returns a const value}} fxc-error {{X3025: l-value specifies const object}} */
+  g_t1d[0] = f4;        /* expected-error {{cannot assign to return value because function 'operator[]<const vector<float, 4> &>' returns a const value}} fxc-error {{X3025: l-value specifies const object}} */
+  g_sb[0] = f4;         /* expected-error {{cannot assign to return value because function 'operator[]<const vector<float, 4> &>' returns a const value}} fxc-error {{X3025: l-value specifies const object}} */
+
+  g_rw_sb[0] = f4;
+  /*verify-ast
+    BinaryOperator <col:3, col:16> 'vector<float, 4>' '='
+    |-CXXOperatorCallExpr <col:3, col:12> 'vector<float, 4>' lvalue
+    | |-ImplicitCastExpr <col:10, col:12> 'vector<float, 4> &(*)(unsigned int) const' <FunctionToPointerDecay>
+    | | `-DeclRefExpr <col:10, col:12> 'vector<float, 4> &(unsigned int) const' lvalue CXXMethod 'operator[]' 'vector<float, 4> &(unsigned int) const'
+    | |-ImplicitCastExpr <col:3> 'const RWStructuredBuffer<vector<float, 4> >' lvalue <NoOp>
+    | | `-DeclRefExpr <col:3> 'RWStructuredBuffer<float4>':'RWStructuredBuffer<vector<float, 4> >' lvalue Var 'g_rw_sb' 'RWStructuredBuffer<float4>':'RWStructuredBuffer<vector<float, 4> >'
+    | `-ImplicitCastExpr <col:11> 'unsigned int' <IntegralCast>
+    |   `-IntegerLiteral <col:11> 'literal int' 0
+    `-ImplicitCastExpr <col:16> 'float4':'vector<float, 4>' <LValueToRValue>
+      `-DeclRefExpr <col:16> 'float4':'vector<float, 4>' lvalue Var 'f4' 'float4':'vector<float, 4>'
+  */
+  g_rw_b[0] = f4;
+  /*verify-ast
+    BinaryOperator <col:3, col:15> 'vector<float, 4>' '='
+    |-CXXOperatorCallExpr <col:3, col:11> 'vector<float, 4>' lvalue
+    | |-ImplicitCastExpr <col:9, col:11> 'vector<float, 4> &(*)(unsigned int) const' <FunctionToPointerDecay>
+    | | `-DeclRefExpr <col:9, col:11> 'vector<float, 4> &(unsigned int) const' lvalue CXXMethod 'operator[]' 'vector<float, 4> &(unsigned int) const'
+    | |-ImplicitCastExpr <col:3> 'const RWBuffer<vector<float, 4> >' lvalue <NoOp>
+    | | `-DeclRefExpr <col:3> 'RWBuffer<float4>':'RWBuffer<vector<float, 4> >' lvalue Var 'g_rw_b' 'RWBuffer<float4>':'RWBuffer<vector<float, 4> >'
+    | `-ImplicitCastExpr <col:10> 'unsigned int' <IntegralCast>
+    |   `-IntegerLiteral <col:10> 'literal int' 0
+    `-ImplicitCastExpr <col:15> 'float4':'vector<float, 4>' <LValueToRValue>
+      `-DeclRefExpr <col:15> 'float4':'vector<float, 4>' lvalue Var 'f4' 'float4':'vector<float, 4>'
+  */
+  g_rw_t1d[0] = f4;
+  /*verify-ast
+    BinaryOperator <col:3, col:17> 'vector<float, 4>' '='
+    |-CXXOperatorCallExpr <col:3, col:13> 'vector<float, 4>' lvalue
+    | |-ImplicitCastExpr <col:11, col:13> 'vector<float, 4> &(*)(unsigned int) const' <FunctionToPointerDecay>
+    | | `-DeclRefExpr <col:11, col:13> 'vector<float, 4> &(unsigned int) const' lvalue CXXMethod 'operator[]' 'vector<float, 4> &(unsigned int) const'
+    | |-ImplicitCastExpr <col:3> 'const RWTexture1D<vector<float, 4> >' lvalue <NoOp>
+    | | `-DeclRefExpr <col:3> 'RWTexture1D<float4>':'RWTexture1D<vector<float, 4> >' lvalue Var 'g_rw_t1d' 'RWTexture1D<float4>':'RWTexture1D<vector<float, 4> >'
+    | `-ImplicitCastExpr <col:12> 'unsigned int' <IntegralCast>
+    |   `-IntegerLiteral <col:12> 'literal int' 0
+    `-ImplicitCastExpr <col:17> 'float4':'vector<float, 4>' <LValueToRValue>
+      `-DeclRefExpr <col:17> 'float4':'vector<float, 4>' lvalue Var 'f4' 'float4':'vector<float, 4>'
+  */
+  g_rw_t1da[0] = f4;    /* expected-error {{no viable overloaded operator[] for type 'RWTexture1DArray<float4>'}} expected-note {{candidate function [with element = vector<float, 4> &] not viable: no known conversion from 'literal int' to 'vector<uint, 2>' for 1st argument}} fxc-error {{X3120: invalid type for index - index must be a scalar, or a vector with the correct number of dimensions}} */
+  g_rw_t2d[0] = f4;     /* expected-error {{no viable overloaded operator[] for type 'RWTexture2D<float4>'}} expected-note {{candidate function [with element = vector<float, 4> &] not viable: no known conversion from 'literal int' to 'vector<uint, 2>' for 1st argument}} fxc-error {{X3120: invalid type for index - index must be a scalar, or a vector with the correct number of dimensions}} */
+  g_rw_t2da[0] = f4;    /* expected-error {{no viable overloaded operator[] for type 'RWTexture2DArray<float4>'}} expected-note {{candidate function [with element = vector<float, 4> &] not viable: no known conversion from 'literal int' to 'vector<uint, 3>' for 1st argument}} fxc-error {{X3120: invalid type for index - index must be a scalar, or a vector with the correct number of dimensions}} */
+  g_rw_t3d[0] = f4;     /* expected-error {{no viable overloaded operator[] for type 'RWTexture3D<float4>'}} expected-note {{candidate function [with element = vector<float, 4> &] not viable: no known conversion from 'literal int' to 'vector<uint, 3>' for 1st argument}} fxc-error {{X3120: invalid type for index - index must be a scalar, or a vector with the correct number of dimensions}} */
+
   return f4;
 }
 
@@ -175,6 +224,45 @@ float4 test_vector2_indexing()
   f4 += g_tc[offset]; // expected-error {{type 'TextureCube' does not provide a subscript operator}} fxc-error {{X3121: array, matrix, vector, or indexable object type expected in index expression}}
   // fxc error X3121: array, matrix, vector, or indexable object type expected in index expression
   f4 += g_tca[offset]; // expected-error {{type 'TextureCubeArray' does not provide a subscript operator}} fxc-error {{X3121: array, matrix, vector, or indexable object type expected in index expression}}
+
+  g_t1da[offset] = f4;    /* expected-error {{cannot assign to return value because function 'operator[]<const vector<float, 4> &>' returns a const value}} fxc-error {{X3025: l-value specifies const object}} */
+  g_t2d[offset] = f4;     /* expected-error {{cannot assign to return value because function 'operator[]<const vector<float, 4> &>' returns a const value}} fxc-error {{X3025: l-value specifies const object}} */
+  g_t2dms[offset] = f4;   /* expected-error {{cannot assign to return value because function 'operator[]<const vector<float, 4> &>' returns a const value}} fxc-error {{X3025: l-value specifies const object}} */
+
+  g_rw_sb[offset] = f4;   /* expected-error {{no viable overloaded operator[] for type 'RWStructuredBuffer<float4>'}} expected-note {{candidate function [with element = vector<float, 4> &] not viable: no known conversion from 'int2' to 'unsigned int' for 1st argument}} fxc-error {{X3120: invalid type for index - index must be a scalar, or a vector with the correct number of dimensions}} */
+  g_rw_b[offset] = f4;    /* expected-error {{no viable overloaded operator[] for type 'RWBuffer<float4>'}} expected-note {{candidate function [with element = vector<float, 4> &] not viable: no known conversion from 'int2' to 'unsigned int' for 1st argument}} fxc-error {{X3120: invalid type for index - index must be a scalar, or a vector with the correct number of dimensions}} */
+  g_rw_t1d[offset] = f4;  /* expected-error {{no viable overloaded operator[] for type 'RWTexture1D<float4>'}} expected-note {{candidate function [with element = vector<float, 4> &] not viable: no known conversion from 'int2' to 'unsigned int' for 1st argument}} fxc-error {{X3120: invalid type for index - index must be a scalar, or a vector with the correct number of dimensions}} */
+  g_rw_t1da[offset] = f4;
+  /*verify-ast
+    BinaryOperator <col:3, col:23> 'vector<float, 4>' '='
+    |-CXXOperatorCallExpr <col:3, col:19> 'vector<float, 4>' lvalue
+    | |-ImplicitCastExpr <col:12, col:19> 'vector<float, 4> &(*)(vector<uint, 2>) const' <FunctionToPointerDecay>
+    | | `-DeclRefExpr <col:12, col:19> 'vector<float, 4> &(vector<uint, 2>) const' lvalue CXXMethod 'operator[]' 'vector<float, 4> &(vector<uint, 2>) const'
+    | |-ImplicitCastExpr <col:3> 'const RWTexture1DArray<vector<float, 4> >' lvalue <NoOp>
+    | | `-DeclRefExpr <col:3> 'RWTexture1DArray<float4>':'RWTexture1DArray<vector<float, 4> >' lvalue Var 'g_rw_t1da' 'RWTexture1DArray<float4>':'RWTexture1DArray<vector<float, 4> >'
+    | `-ImplicitCastExpr <col:13> 'vector<unsigned int, 2>' <HLSLCC_IntegralCast>
+    |   `-ImplicitCastExpr <col:13> 'int2':'vector<int, 2>' <LValueToRValue>
+    |     `-DeclRefExpr <col:13> 'int2':'vector<int, 2>' lvalue Var 'offset' 'int2':'vector<int, 2>'
+    `-ImplicitCastExpr <col:23> 'float4':'vector<float, 4>' <LValueToRValue>
+      `-DeclRefExpr <col:23> 'float4':'vector<float, 4>' lvalue Var 'f4' 'float4':'vector<float, 4>'
+  */
+  g_rw_t2d[offset] = f4;
+  /*verify-ast
+    BinaryOperator <col:3, col:22> 'vector<float, 4>' '='
+    |-CXXOperatorCallExpr <col:3, col:18> 'vector<float, 4>' lvalue
+    | |-ImplicitCastExpr <col:11, col:18> 'vector<float, 4> &(*)(vector<uint, 2>) const' <FunctionToPointerDecay>
+    | | `-DeclRefExpr <col:11, col:18> 'vector<float, 4> &(vector<uint, 2>) const' lvalue CXXMethod 'operator[]' 'vector<float, 4> &(vector<uint, 2>) const'
+    | |-ImplicitCastExpr <col:3> 'const RWTexture2D<vector<float, 4> >' lvalue <NoOp>
+    | | `-DeclRefExpr <col:3> 'RWTexture2D<float4>':'RWTexture2D<vector<float, 4> >' lvalue Var 'g_rw_t2d' 'RWTexture2D<float4>':'RWTexture2D<vector<float, 4> >'
+    | `-ImplicitCastExpr <col:12> 'vector<unsigned int, 2>' <HLSLCC_IntegralCast>
+    |   `-ImplicitCastExpr <col:12> 'int2':'vector<int, 2>' <LValueToRValue>
+    |     `-DeclRefExpr <col:12> 'int2':'vector<int, 2>' lvalue Var 'offset' 'int2':'vector<int, 2>'
+    `-ImplicitCastExpr <col:22> 'float4':'vector<float, 4>' <LValueToRValue>
+      `-DeclRefExpr <col:22> 'float4':'vector<float, 4>' lvalue Var 'f4' 'float4':'vector<float, 4>'
+  */
+  g_rw_t2da[offset] = f4; /* expected-error {{no viable overloaded operator[] for type 'RWTexture2DArray<float4>'}} expected-note {{candidate function [with element = vector<float, 4> &] not viable: no known conversion from 'vector<int, 2>' to 'vector<uint, 3>' for 1st argument}} fxc-error {{X3120: invalid type for index - index must be a scalar, or a vector with the correct number of dimensions}} */
+  g_rw_t3d[offset] = f4;  /* expected-error {{no viable overloaded operator[] for type 'RWTexture3D<float4>'}} expected-note {{candidate function [with element = vector<float, 4> &] not viable: no known conversion from 'vector<int, 2>' to 'vector<uint, 3>' for 1st argument}} fxc-error {{X3120: invalid type for index - index must be a scalar, or a vector with the correct number of dimensions}} */
+
   return f4;
 }
 
@@ -240,6 +328,45 @@ float4 test_vector3_indexing()
   f4 += g_tc[offset]; // expected-error {{type 'TextureCube' does not provide a subscript operator}} fxc-error {{X3121: array, matrix, vector, or indexable object type expected in index expression}}
   // fxc error X3121: array, matrix, vector, or indexable object type expected in index expression
   f4 += g_tca[offset]; // expected-error {{type 'TextureCubeArray' does not provide a subscript operator}} fxc-error {{X3121: array, matrix, vector, or indexable object type expected in index expression}}
+
+  g_t2da[offset] = f4;      /* expected-error {{cannot assign to return value because function 'operator[]<const vector<float, 4> &>' returns a const value}} fxc-error {{X3025: l-value specifies const object}} */
+  g_t2dmsa[offset] = f4;    /* expected-error {{cannot assign to return value because function 'operator[]<const vector<float, 4> &>' returns a const value}} fxc-error {{X3025: l-value specifies const object}} */
+  g_t3d[offset] = f4;       /* expected-error {{cannot assign to return value because function 'operator[]<const vector<float, 4> &>' returns a const value}} fxc-error {{X3025: l-value specifies const object}} */
+
+  g_rw_sb[offset] = f4;     /* expected-error {{no viable overloaded operator[] for type 'RWStructuredBuffer<float4>'}} expected-note {{candidate function [with element = vector<float, 4> &] not viable: no known conversion from 'int3' to 'unsigned int' for 1st argument}} fxc-error {{X3120: invalid type for index - index must be a scalar, or a vector with the correct number of dimensions}} */
+  g_rw_b[offset] = f4;      /* expected-error {{no viable overloaded operator[] for type 'RWBuffer<float4>'}} expected-note {{candidate function [with element = vector<float, 4> &] not viable: no known conversion from 'int3' to 'unsigned int' for 1st argument}} fxc-error {{X3120: invalid type for index - index must be a scalar, or a vector with the correct number of dimensions}} */
+  g_rw_t1d[offset] = f4;    /* expected-error {{no viable overloaded operator[] for type 'RWTexture1D<float4>'}} expected-note {{candidate function [with element = vector<float, 4> &] not viable: no known conversion from 'int3' to 'unsigned int' for 1st argument}} fxc-error {{X3120: invalid type for index - index must be a scalar, or a vector with the correct number of dimensions}} */
+  g_rw_t1da[offset] = f4;   /* expected-error {{no viable overloaded operator[] for type 'RWTexture1DArray<float4>'}} expected-note {{candidate function [with element = vector<float, 4> &] not viable: no known conversion from 'vector<int, 3>' to 'vector<uint, 2>' for 1st argument}} fxc-error {{X3120: invalid type for index - index must be a scalar, or a vector with the correct number of dimensions}} */
+  g_rw_t2d[offset] = f4;    /* expected-error {{no viable overloaded operator[] for type 'RWTexture2D<float4>'}} expected-note {{candidate function [with element = vector<float, 4> &] not viable: no known conversion from 'vector<int, 3>' to 'vector<uint, 2>' for 1st argument}} fxc-error {{X3120: invalid type for index - index must be a scalar, or a vector with the correct number of dimensions}} */
+  g_rw_t2da[offset] = f4;
+  /*verify-ast
+    BinaryOperator <col:3, col:23> 'vector<float, 4>' '='
+    |-CXXOperatorCallExpr <col:3, col:19> 'vector<float, 4>' lvalue
+    | |-ImplicitCastExpr <col:12, col:19> 'vector<float, 4> &(*)(vector<uint, 3>) const' <FunctionToPointerDecay>
+    | | `-DeclRefExpr <col:12, col:19> 'vector<float, 4> &(vector<uint, 3>) const' lvalue CXXMethod 'operator[]' 'vector<float, 4> &(vector<uint, 3>) const'
+    | |-ImplicitCastExpr <col:3> 'const RWTexture2DArray<vector<float, 4> >' lvalue <NoOp>
+    | | `-DeclRefExpr <col:3> 'RWTexture2DArray<float4>':'RWTexture2DArray<vector<float, 4> >' lvalue Var 'g_rw_t2da' 'RWTexture2DArray<float4>':'RWTexture2DArray<vector<float, 4> >'
+    | `-ImplicitCastExpr <col:13> 'vector<unsigned int, 3>' <HLSLCC_IntegralCast>
+    |   `-ImplicitCastExpr <col:13> 'int3':'vector<int, 3>' <LValueToRValue>
+    |     `-DeclRefExpr <col:13> 'int3':'vector<int, 3>' lvalue Var 'offset' 'int3':'vector<int, 3>'
+    `-ImplicitCastExpr <col:23> 'float4':'vector<float, 4>' <LValueToRValue>
+      `-DeclRefExpr <col:23> 'float4':'vector<float, 4>' lvalue Var 'f4' 'float4':'vector<float, 4>'
+  */
+  g_rw_t3d[offset] = f4;
+  /*verify-ast
+    BinaryOperator <col:3, col:22> 'vector<float, 4>' '='
+    |-CXXOperatorCallExpr <col:3, col:18> 'vector<float, 4>' lvalue
+    | |-ImplicitCastExpr <col:11, col:18> 'vector<float, 4> &(*)(vector<uint, 3>) const' <FunctionToPointerDecay>
+    | | `-DeclRefExpr <col:11, col:18> 'vector<float, 4> &(vector<uint, 3>) const' lvalue CXXMethod 'operator[]' 'vector<float, 4> &(vector<uint, 3>) const'
+    | |-ImplicitCastExpr <col:3> 'const RWTexture3D<vector<float, 4> >' lvalue <NoOp>
+    | | `-DeclRefExpr <col:3> 'RWTexture3D<float4>':'RWTexture3D<vector<float, 4> >' lvalue Var 'g_rw_t3d' 'RWTexture3D<float4>':'RWTexture3D<vector<float, 4> >'
+    | `-ImplicitCastExpr <col:12> 'vector<unsigned int, 3>' <HLSLCC_IntegralCast>
+    |   `-ImplicitCastExpr <col:12> 'int3':'vector<int, 3>' <LValueToRValue>
+    |     `-DeclRefExpr <col:12> 'int3':'vector<int, 3>' lvalue Var 'offset' 'int3':'vector<int, 3>'
+    `-ImplicitCastExpr <col:22> 'float4':'vector<float, 4>' <LValueToRValue>
+      `-DeclRefExpr <col:22> 'float4':'vector<float, 4>' lvalue Var 'f4' 'float4':'vector<float, 4>'
+  */
+
   return f4;
 }
 
@@ -270,6 +397,21 @@ float4 test_mips_indexing()
   f4 += g_tc.mips[offset]; // expected-error {{no member named 'mips' in 'TextureCube<vector<float, 4> >'}} fxc-error {{X3018: invalid subscript 'mips'}}
   // fxc error X3018: invalid subscript 'mips'
   f4 += g_tca.mips[offset]; // expected-error {{no member named 'mips' in 'TextureCubeArray<vector<float, 4> >'}} fxc-error {{X3018: invalid subscript 'mips'}}
+
+  g_t1d.mips[offset] = f4;      /* expected-error {{cannot convert from 'float4' to 'Texture1D<vector<float, 4> >::mips_slice_type'}} fxc-error {{X3025: global variables are implicitly constant, enable compatibility mode to allow modification}} */
+  g_t1da.mips[offset] = f4;     /* expected-error {{cannot convert from 'float4' to 'Texture1DArray<vector<float, 4> >::mips_slice_type'}} fxc-error {{X3025: global variables are implicitly constant, enable compatibility mode to allow modification}} */
+  g_t2d.mips[offset] = f4;      /* expected-error {{cannot convert from 'float4' to 'Texture2D<vector<float, 4> >::mips_slice_type'}} fxc-error {{X3025: global variables are implicitly constant, enable compatibility mode to allow modification}} */
+  g_t2da.mips[offset] = f4;     /* expected-error {{cannot convert from 'float4' to 'Texture2DArray<vector<float, 4> >::mips_slice_type'}} fxc-error {{X3025: global variables are implicitly constant, enable compatibility mode to allow modification}} */
+  g_t3d.mips[offset] = f4;      /* expected-error {{cannot convert from 'float4' to 'Texture3D<vector<float, 4> >::mips_slice_type'}} fxc-error {{X3025: global variables are implicitly constant, enable compatibility mode to allow modification}} */
+
+  g_rw_sb.mips[offset] = f4;    /* expected-error {{no member named 'mips' in 'RWStructuredBuffer<vector<float, 4> >'}} fxc-error {{X3018: invalid subscript 'mips'}} */
+  g_rw_b.mips[offset] = f4;     /* expected-error {{no member named 'mips' in 'RWBuffer<vector<float, 4> >'}} fxc-error {{X3018: invalid subscript 'mips'}} */
+  g_rw_t1d.mips[offset] = f4;   /* expected-error {{no member named 'mips' in 'RWTexture1D<vector<float, 4> >'}} fxc-error {{X3018: invalid subscript 'mips'}} */
+  g_rw_t1da.mips[offset] = f4;  /* expected-error {{no member named 'mips' in 'RWTexture1DArray<vector<float, 4> >'}} fxc-error {{X3018: invalid subscript 'mips'}} */
+  g_rw_t2d.mips[offset] = f4;   /* expected-error {{no member named 'mips' in 'RWTexture2D<vector<float, 4> >'}} fxc-error {{X3018: invalid subscript 'mips'}} */
+  g_rw_t2da.mips[offset] = f4;  /* expected-error {{no member named 'mips' in 'RWTexture2DArray<vector<float, 4> >'}} fxc-error {{X3018: invalid subscript 'mips'}} */
+  g_rw_t3d.mips[offset] = f4;   /* expected-error {{no member named 'mips' in 'RWTexture3D<vector<float, 4> >'}} fxc-error {{X3018: invalid subscript 'mips'}} */
+
   return f4;
 }
 
@@ -280,6 +422,7 @@ float4 test_mips_double_indexing()
   uint pos = 1;
   uint2 pos2 = { 1, 2 };
   uint3 pos3 = { 1, 2, 3 };
+  uint4 pos4 = { 1, 2, 3, 4 };
   float4 f4;
   // fxc error X3018: invalid subscript 'mips'
   f4 += g_b.mips[mipSlice][pos]; // expected-error {{no member named 'mips' in 'Buffer<vector<float, 4> >'}} fxc-error {{X3018: invalid subscript 'mips'}}
@@ -291,10 +434,10 @@ float4 test_mips_double_indexing()
       `-CXXOperatorCallExpr <col:9, col:33> 'const vector<float, 4>' lvalue
         |-ImplicitCastExpr <col:29, col:33> 'const vector<float, 4> &(*)(unsigned int) const' <FunctionToPointerDecay>
         | `-DeclRefExpr <col:29, col:33> 'const vector<float, 4> &(unsigned int) const' lvalue CXXMethod 'operator[]' 'const vector<float, 4> &(unsigned int) const'
-        |-ImplicitCastExpr <col:9, col:28> 'const Texture1D<vector<float, 4> >::mips_slice_type' xvalue <NoOp>
-        | `-CXXOperatorCallExpr <col:9, col:28> 'Texture1D<vector<float, 4> >::mips_slice_type' xvalue
-        |   |-ImplicitCastExpr <col:19, col:28> 'Texture1D<vector<float, 4> >::mips_slice_type &&(*)(unsigned int) const' <FunctionToPointerDecay>
-        |   | `-DeclRefExpr <col:19, col:28> 'Texture1D<vector<float, 4> >::mips_slice_type &&(unsigned int) const' lvalue CXXMethod 'operator[]' 'Texture1D<vector<float, 4> >::mips_slice_type &&(unsigned int) const'
+        |-ImplicitCastExpr <col:9, col:28> 'const Texture1D<vector<float, 4> >::mips_slice_type' lvalue <NoOp>
+        | `-CXXOperatorCallExpr <col:9, col:28> 'Texture1D<vector<float, 4> >::mips_slice_type' lvalue
+        |   |-ImplicitCastExpr <col:19, col:28> 'Texture1D<vector<float, 4> >::mips_slice_type &(*)(unsigned int) const' <FunctionToPointerDecay>
+        |   | `-DeclRefExpr <col:19, col:28> 'Texture1D<vector<float, 4> >::mips_slice_type &(unsigned int) const' lvalue CXXMethod 'operator[]' 'Texture1D<vector<float, 4> >::mips_slice_type &(unsigned int) const'
         |   |-ImplicitCastExpr <col:9, col:15> 'const Texture1D<vector<float, 4> >::mips_type' lvalue <NoOp>
         |   | `-MemberExpr <col:9, col:15> 'Texture1D<vector<float, 4> >::mips_type' lvalue .mips
         |   |   `-DeclRefExpr <col:9> 'Texture1D':'Texture1D<vector<float, 4> >' lvalue Var 'g_t1d' 'Texture1D':'Texture1D<vector<float, 4> >'
@@ -303,6 +446,9 @@ float4 test_mips_double_indexing()
         `-ImplicitCastExpr <col:30> 'uint':'unsigned int' <LValueToRValue>
           `-DeclRefExpr <col:30> 'uint':'unsigned int' lvalue Var 'pos' 'uint':'unsigned int'
   */
+  f4 += g_t1d.mips[mipSlice][pos2]; /* expected-error {{no viable overloaded operator[] for type 'Texture1D<vector<float, 4> >::mips_slice_type'}} expected-note {{candidate function [with element = const vector<float, 4> &] not viable: no known conversion from 'uint2' to 'unsigned int' for 1st argument}} fxc-error {{X3120: invalid type for index - index must be a scalar, or a vector with the correct number of dimensions}} */
+  f4 += g_t1d.mips[mipSlice][pos3]; /* expected-error {{no viable overloaded operator[] for type 'Texture1D<vector<float, 4> >::mips_slice_type'}} expected-note {{candidate function [with element = const vector<float, 4> &] not viable: no known conversion from 'uint3' to 'unsigned int' for 1st argument}} fxc-error {{X3120: invalid type for index - index must be a scalar, or a vector with the correct number of dimensions}} */
+  f4 += g_t1d.mips[mipSlice][pos4]; /* expected-error {{no viable overloaded operator[] for type 'Texture1D<vector<float, 4> >::mips_slice_type'}} expected-note {{candidate function [with element = const vector<float, 4> &] not viable: no known conversion from 'uint4' to 'unsigned int' for 1st argument}} fxc-error {{X3120: invalid type for index - index must be a scalar, or a vector with the correct number of dimensions}} */
   // fxc error X3018: invalid subscript 'mips'
   f4 += g_sb.mips[mipSlice][pos]; // expected-error {{no member named 'mips' in 'StructuredBuffer<vector<float, 4> >'}} fxc-error {{X3018: invalid subscript 'mips'}}
   // fxc error X3120: invalid type for index - index must be a scalar, or a vector with the correct number of dimensions
@@ -315,10 +461,10 @@ float4 test_mips_double_indexing()
       `-CXXOperatorCallExpr <col:9, col:35> 'const vector<float, 4>' lvalue
         |-ImplicitCastExpr <col:30, col:35> 'const vector<float, 4> &(*)(vector<uint, 2>) const' <FunctionToPointerDecay>
         | `-DeclRefExpr <col:30, col:35> 'const vector<float, 4> &(vector<uint, 2>) const' lvalue CXXMethod 'operator[]' 'const vector<float, 4> &(vector<uint, 2>) const'
-        |-ImplicitCastExpr <col:9, col:29> 'const Texture1DArray<vector<float, 4> >::mips_slice_type' xvalue <NoOp>
-        | `-CXXOperatorCallExpr <col:9, col:29> 'Texture1DArray<vector<float, 4> >::mips_slice_type' xvalue
-        |   |-ImplicitCastExpr <col:20, col:29> 'Texture1DArray<vector<float, 4> >::mips_slice_type &&(*)(unsigned int) const' <FunctionToPointerDecay>
-        |   | `-DeclRefExpr <col:20, col:29> 'Texture1DArray<vector<float, 4> >::mips_slice_type &&(unsigned int) const' lvalue CXXMethod 'operator[]' 'Texture1DArray<vector<float, 4> >::mips_slice_type &&(unsigned int) const'
+        |-ImplicitCastExpr <col:9, col:29> 'const Texture1DArray<vector<float, 4> >::mips_slice_type' lvalue <NoOp>
+        | `-CXXOperatorCallExpr <col:9, col:29> 'Texture1DArray<vector<float, 4> >::mips_slice_type' lvalue
+        |   |-ImplicitCastExpr <col:20, col:29> 'Texture1DArray<vector<float, 4> >::mips_slice_type &(*)(unsigned int) const' <FunctionToPointerDecay>
+        |   | `-DeclRefExpr <col:20, col:29> 'Texture1DArray<vector<float, 4> >::mips_slice_type &(unsigned int) const' lvalue CXXMethod 'operator[]' 'Texture1DArray<vector<float, 4> >::mips_slice_type &(unsigned int) const'
         |   |-ImplicitCastExpr <col:9, col:16> 'const Texture1DArray<vector<float, 4> >::mips_type' lvalue <NoOp>
         |   | `-MemberExpr <col:9, col:16> 'Texture1DArray<vector<float, 4> >::mips_type' lvalue .mips
         |   |   `-DeclRefExpr <col:9> 'Texture1DArray':'Texture1DArray<vector<float, 4> >' lvalue Var 'g_t1da' 'Texture1DArray':'Texture1DArray<vector<float, 4> >'
@@ -327,6 +473,8 @@ float4 test_mips_double_indexing()
         `-ImplicitCastExpr <col:31> 'uint2':'vector<unsigned int, 2>' <LValueToRValue>
           `-DeclRefExpr <col:31> 'uint2':'vector<unsigned int, 2>' lvalue Var 'pos2' 'uint2':'vector<unsigned int, 2>'
   */
+  f4 += g_t1da.mips[mipSlice][pos3];  /* expected-error {{no viable overloaded operator[] for type 'Texture1DArray<vector<float, 4> >::mips_slice_type'}} expected-note {{candidate function [with element = const vector<float, 4> &] not viable: no known conversion from 'vector<[...], 3>' to 'vector<[...], 2>' for 1st argument}} fxc-error {{X3120: invalid type for index - index must be a scalar, or a vector with the correct number of dimensions}} */
+  f4 += g_t1da.mips[mipSlice][pos4];  /* expected-error {{no viable overloaded operator[] for type 'Texture1DArray<vector<float, 4> >::mips_slice_type'}} expected-note {{candidate function [with element = const vector<float, 4> &] not viable: no known conversion from 'vector<[...], 4>' to 'vector<[...], 2>' for 1st argument}} fxc-error {{X3120: invalid type for index - index must be a scalar, or a vector with the correct number of dimensions}} */
   // fxc error X3120: invalid type for index - index must be a scalar, or a vector with the correct number of dimensions
   f4 += g_t2d.mips[mipSlice][pos]; // expected-error {{no viable overloaded operator[] for type 'Texture2D<vector<float, 4> >::mips_slice_type'}} expected-note {{candidate function [with element = const vector<float, 4> &] not viable: no known conversion from 'uint' to 'vector<uint, 2>' for 1st argument}} fxc-error {{X3120: invalid type for index - index must be a scalar, or a vector with the correct number of dimensions}}
   f4 += g_t2d.mips[mipSlice][pos2];
@@ -337,10 +485,10 @@ float4 test_mips_double_indexing()
       `-CXXOperatorCallExpr <col:9, col:34> 'const vector<float, 4>' lvalue
         |-ImplicitCastExpr <col:29, col:34> 'const vector<float, 4> &(*)(vector<uint, 2>) const' <FunctionToPointerDecay>
         | `-DeclRefExpr <col:29, col:34> 'const vector<float, 4> &(vector<uint, 2>) const' lvalue CXXMethod 'operator[]' 'const vector<float, 4> &(vector<uint, 2>) const'
-        |-ImplicitCastExpr <col:9, col:28> 'const Texture2D<vector<float, 4> >::mips_slice_type' xvalue <NoOp>
-        | `-CXXOperatorCallExpr <col:9, col:28> 'Texture2D<vector<float, 4> >::mips_slice_type' xvalue
-        |   |-ImplicitCastExpr <col:19, col:28> 'Texture2D<vector<float, 4> >::mips_slice_type &&(*)(unsigned int) const' <FunctionToPointerDecay>
-        |   | `-DeclRefExpr <col:19, col:28> 'Texture2D<vector<float, 4> >::mips_slice_type &&(unsigned int) const' lvalue CXXMethod 'operator[]' 'Texture2D<vector<float, 4> >::mips_slice_type &&(unsigned int) const'
+        |-ImplicitCastExpr <col:9, col:28> 'const Texture2D<vector<float, 4> >::mips_slice_type' lvalue <NoOp>
+        | `-CXXOperatorCallExpr <col:9, col:28> 'Texture2D<vector<float, 4> >::mips_slice_type' lvalue
+        |   |-ImplicitCastExpr <col:19, col:28> 'Texture2D<vector<float, 4> >::mips_slice_type &(*)(unsigned int) const' <FunctionToPointerDecay>
+        |   | `-DeclRefExpr <col:19, col:28> 'Texture2D<vector<float, 4> >::mips_slice_type &(unsigned int) const' lvalue CXXMethod 'operator[]' 'Texture2D<vector<float, 4> >::mips_slice_type &(unsigned int) const'
         |   |-ImplicitCastExpr <col:9, col:15> 'const Texture2D<vector<float, 4> >::mips_type' lvalue <NoOp>
         |   | `-MemberExpr <col:9, col:15> 'Texture2D<vector<float, 4> >::mips_type' lvalue .mips
         |   |   `-DeclRefExpr <col:9> 'Texture2D':'Texture2D<vector<float, 4> >' lvalue Var 'g_t2d' 'Texture2D':'Texture2D<vector<float, 4> >'
@@ -351,6 +499,7 @@ float4 test_mips_double_indexing()
   */
   // fxc error X3120: invalid type for index - index must be a scalar, or a vector with the correct number of dimensions
   f4 += g_t2da.mips[mipSlice][pos]; // expected-error {{no viable overloaded operator[] for type 'Texture2DArray<vector<float, 4> >::mips_slice_type'}} expected-note {{candidate function [with element = const vector<float, 4> &] not viable: no known conversion from 'uint' to 'vector<uint, 3>' for 1st argument}} fxc-error {{X3120: invalid type for index - index must be a scalar, or a vector with the correct number of dimensions}}
+  f4 += g_t2da.mips[mipSlice][pos2];  /* expected-error {{no viable overloaded operator[] for type 'Texture2DArray<vector<float, 4> >::mips_slice_type'}} expected-note {{candidate function [with element = const vector<float, 4> &] not viable: no known conversion from 'vector<[...], 2>' to 'vector<[...], 3>' for 1st argument}} fxc-error {{X3120: invalid type for index - index must be a scalar, or a vector with the correct number of dimensions}} */
   f4 += g_t2da.mips[mipSlice][pos3];
   /*verify-ast
     CompoundAssignOperator <col:3, col:35> 'float4':'vector<float, 4>' lvalue '+=' ComputeLHSTy='float4':'vector<float, 4>' ComputeResultTy='float4':'vector<float, 4>'
@@ -359,10 +508,10 @@ float4 test_mips_double_indexing()
       `-CXXOperatorCallExpr <col:9, col:35> 'const vector<float, 4>' lvalue
         |-ImplicitCastExpr <col:30, col:35> 'const vector<float, 4> &(*)(vector<uint, 3>) const' <FunctionToPointerDecay>
         | `-DeclRefExpr <col:30, col:35> 'const vector<float, 4> &(vector<uint, 3>) const' lvalue CXXMethod 'operator[]' 'const vector<float, 4> &(vector<uint, 3>) const'
-        |-ImplicitCastExpr <col:9, col:29> 'const Texture2DArray<vector<float, 4> >::mips_slice_type' xvalue <NoOp>
-        | `-CXXOperatorCallExpr <col:9, col:29> 'Texture2DArray<vector<float, 4> >::mips_slice_type' xvalue
-        |   |-ImplicitCastExpr <col:20, col:29> 'Texture2DArray<vector<float, 4> >::mips_slice_type &&(*)(unsigned int) const' <FunctionToPointerDecay>
-        |   | `-DeclRefExpr <col:20, col:29> 'Texture2DArray<vector<float, 4> >::mips_slice_type &&(unsigned int) const' lvalue CXXMethod 'operator[]' 'Texture2DArray<vector<float, 4> >::mips_slice_type &&(unsigned int) const'
+        |-ImplicitCastExpr <col:9, col:29> 'const Texture2DArray<vector<float, 4> >::mips_slice_type' lvalue <NoOp>
+        | `-CXXOperatorCallExpr <col:9, col:29> 'Texture2DArray<vector<float, 4> >::mips_slice_type' lvalue
+        |   |-ImplicitCastExpr <col:20, col:29> 'Texture2DArray<vector<float, 4> >::mips_slice_type &(*)(unsigned int) const' <FunctionToPointerDecay>
+        |   | `-DeclRefExpr <col:20, col:29> 'Texture2DArray<vector<float, 4> >::mips_slice_type &(unsigned int) const' lvalue CXXMethod 'operator[]' 'Texture2DArray<vector<float, 4> >::mips_slice_type &(unsigned int) const'
         |   |-ImplicitCastExpr <col:9, col:16> 'const Texture2DArray<vector<float, 4> >::mips_type' lvalue <NoOp>
         |   | `-MemberExpr <col:9, col:16> 'Texture2DArray<vector<float, 4> >::mips_type' lvalue .mips
         |   |   `-DeclRefExpr <col:9> 'Texture2DArray':'Texture2DArray<vector<float, 4> >' lvalue Var 'g_t2da' 'Texture2DArray':'Texture2DArray<vector<float, 4> >'
@@ -371,12 +520,14 @@ float4 test_mips_double_indexing()
         `-ImplicitCastExpr <col:31> 'uint3':'vector<unsigned int, 3>' <LValueToRValue>
           `-DeclRefExpr <col:31> 'uint3':'vector<unsigned int, 3>' lvalue Var 'pos3' 'uint3':'vector<unsigned int, 3>'
   */
+  f4 += g_t2da.mips[mipSlice][pos4];  /* expected-error {{no viable overloaded operator[] for type 'Texture2DArray<vector<float, 4> >::mips_slice_type'}} expected-note {{candidate function [with element = const vector<float, 4> &] not viable: no known conversion from 'vector<[...], 4>' to 'vector<[...], 3>' for 1st argument}} fxc-error {{X3120: invalid type for index - index must be a scalar, or a vector with the correct number of dimensions}} */
   // fxc error X3018: invalid subscript 'mips'
   f4 += g_t2dms.mips[mipSlice][pos]; // expected-error {{no member named 'mips' in 'Texture2DMS<vector<float, 4>, 8>'}} fxc-error {{X3018: invalid subscript 'mips'}}
   // fxc error X3018: invalid subscript 'mips'
   f4 += g_t2dmsa.mips[mipSlice][pos]; // expected-error {{no member named 'mips' in 'Texture2DMSArray<vector<float, 4>, 8>'}} fxc-error {{X3018: invalid subscript 'mips'}}
   // fxc error X3120: invalid type for index - index must be a scalar, or a vector with the correct number of dimensions
   f4 += g_t3d.mips[mipSlice][pos]; // expected-error {{no viable overloaded operator[] for type 'Texture3D<vector<float, 4> >::mips_slice_type'}} expected-note {{candidate function [with element = const vector<float, 4> &] not viable: no known conversion from 'uint' to 'vector<uint, 3>' for 1st argument}} fxc-error {{X3120: invalid type for index - index must be a scalar, or a vector with the correct number of dimensions}}
+  f4 += g_t3d.mips[mipSlice][pos2]; // expected-error {{no viable overloaded operator[] for type 'Texture3D<vector<float, 4> >::mips_slice_type'}} expected-note {{candidate function [with element = const vector<float, 4> &] not viable: no known conversion from 'vector<[...], 2>' to 'vector<[...], 3>' for 1st argument}} fxc-error {{X3120: invalid type for index - index must be a scalar, or a vector with the correct number of dimensions}}
   f4 += g_t3d.mips[mipSlice][pos3];
   /*verify-ast
     CompoundAssignOperator <col:3, col:34> 'float4':'vector<float, 4>' lvalue '+=' ComputeLHSTy='float4':'vector<float, 4>' ComputeResultTy='float4':'vector<float, 4>'
@@ -385,10 +536,10 @@ float4 test_mips_double_indexing()
       `-CXXOperatorCallExpr <col:9, col:34> 'const vector<float, 4>' lvalue
         |-ImplicitCastExpr <col:29, col:34> 'const vector<float, 4> &(*)(vector<uint, 3>) const' <FunctionToPointerDecay>
         | `-DeclRefExpr <col:29, col:34> 'const vector<float, 4> &(vector<uint, 3>) const' lvalue CXXMethod 'operator[]' 'const vector<float, 4> &(vector<uint, 3>) const'
-        |-ImplicitCastExpr <col:9, col:28> 'const Texture3D<vector<float, 4> >::mips_slice_type' xvalue <NoOp>
-        | `-CXXOperatorCallExpr <col:9, col:28> 'Texture3D<vector<float, 4> >::mips_slice_type' xvalue
-        |   |-ImplicitCastExpr <col:19, col:28> 'Texture3D<vector<float, 4> >::mips_slice_type &&(*)(unsigned int) const' <FunctionToPointerDecay>
-        |   | `-DeclRefExpr <col:19, col:28> 'Texture3D<vector<float, 4> >::mips_slice_type &&(unsigned int) const' lvalue CXXMethod 'operator[]' 'Texture3D<vector<float, 4> >::mips_slice_type &&(unsigned int) const'
+        |-ImplicitCastExpr <col:9, col:28> 'const Texture3D<vector<float, 4> >::mips_slice_type' lvalue <NoOp>
+        | `-CXXOperatorCallExpr <col:9, col:28> 'Texture3D<vector<float, 4> >::mips_slice_type' lvalue
+        |   |-ImplicitCastExpr <col:19, col:28> 'Texture3D<vector<float, 4> >::mips_slice_type &(*)(unsigned int) const' <FunctionToPointerDecay>
+        |   | `-DeclRefExpr <col:19, col:28> 'Texture3D<vector<float, 4> >::mips_slice_type &(unsigned int) const' lvalue CXXMethod 'operator[]' 'Texture3D<vector<float, 4> >::mips_slice_type &(unsigned int) const'
         |   |-ImplicitCastExpr <col:9, col:15> 'const Texture3D<vector<float, 4> >::mips_type' lvalue <NoOp>
         |   | `-MemberExpr <col:9, col:15> 'Texture3D<vector<float, 4> >::mips_type' lvalue .mips
         |   |   `-DeclRefExpr <col:9> 'Texture3D':'Texture3D<vector<float, 4> >' lvalue Var 'g_t3d' 'Texture3D':'Texture3D<vector<float, 4> >'
@@ -397,10 +548,18 @@ float4 test_mips_double_indexing()
         `-ImplicitCastExpr <col:30> 'uint3':'vector<unsigned int, 3>' <LValueToRValue>
           `-DeclRefExpr <col:30> 'uint3':'vector<unsigned int, 3>' lvalue Var 'pos3' 'uint3':'vector<unsigned int, 3>'
   */
+  f4 += g_t3d.mips[mipSlice][pos4]; // expected-error {{no viable overloaded operator[] for type 'Texture3D<vector<float, 4> >::mips_slice_type'}} expected-note {{candidate function [with element = const vector<float, 4> &] not viable: no known conversion from 'vector<[...], 4>' to 'vector<[...], 3>' for 1st argument}} fxc-error {{X3120: invalid type for index - index must be a scalar, or a vector with the correct number of dimensions}}
   // fxc error X3018: invalid subscript 'mips'
   f4 += g_tc.mips[mipSlice][pos]; // expected-error {{no member named 'mips' in 'TextureCube<vector<float, 4> >'}} fxc-error {{X3018: invalid subscript 'mips'}}
   // fxc error X3018: invalid subscript 'mips'
   f4 += g_tca.mips[mipSlice][pos]; // expected-error {{no member named 'mips' in 'TextureCubeArray<vector<float, 4> >'}} fxc-error {{X3018: invalid subscript 'mips'}}
+
+  g_t1d.mips[mipSlice][pos] = f4;       /* expected-error {{cannot assign to return value because function 'operator[]<const vector<float, 4> &>' returns a const value}} fxc-error {{X3025: l-value specifies const object}} */
+  g_t1da.mips[mipSlice][pos2] = f4;     /* expected-error {{cannot assign to return value because function 'operator[]<const vector<float, 4> &>' returns a const value}} fxc-error {{X3025: l-value specifies const object}} */
+  g_t2d.mips[mipSlice][pos2] = f4;      /* expected-error {{cannot assign to return value because function 'operator[]<const vector<float, 4> &>' returns a const value}} fxc-error {{X3025: l-value specifies const object}} */
+  g_t2da.mips[mipSlice][pos3] = f4;     /* expected-error {{cannot assign to return value because function 'operator[]<const vector<float, 4> &>' returns a const value}} fxc-error {{X3025: l-value specifies const object}} */
+  g_t3d.mips[mipSlice][pos3] = f4;      /* expected-error {{cannot assign to return value because function 'operator[]<const vector<float, 4> &>' returns a const value}} fxc-error {{X3025: l-value specifies const object}} */
+
   return f4;
 }
 
@@ -431,6 +590,10 @@ float4 test_sample_indexing()
   f4 += g_tc.sample[offset]; // expected-error {{no member named 'sample' in 'TextureCube<vector<float, 4> >'}} fxc-error {{X3018: invalid subscript 'sample'}}
   // fxc error X3018: invalid subscript 'sample'
   f4 += g_tca.sample[offset]; // expected-error {{no member named 'sample' in 'TextureCubeArray<vector<float, 4> >'}} fxc-error {{X3018: invalid subscript 'sample'}}
+
+  g_t2dms.sample[offset] = f4;      /* expected-error {{cannot convert from 'float4' to 'Texture2DMS<vector<float, 4>, 8>::sample_slice_type'}} fxc-error {{X3025: global variables are implicitly constant, enable compatibility mode to allow modification}} */
+  g_t2dmsa.sample[offset] = f4;     /* expected-error {{cannot convert from 'float4' to 'Texture2DMSArray<vector<float, 4>, 8>::sample_slice_type'}} fxc-error {{X3025: global variables are implicitly constant, enable compatibility mode to allow modification}} */
+
   return f4;
 }
 
@@ -452,10 +615,10 @@ float4 test_sample_double_indexing()
       `-CXXOperatorCallExpr <col:9, col:41> 'const vector<float, 4>' lvalue
         |-ImplicitCastExpr <col:36, col:41> 'const vector<float, 4> &(*)(vector<uint, 2>) const' <FunctionToPointerDecay>
         | `-DeclRefExpr <col:36, col:41> 'const vector<float, 4> &(vector<uint, 2>) const' lvalue CXXMethod 'operator[]' 'const vector<float, 4> &(vector<uint, 2>) const'
-        |-ImplicitCastExpr <col:9, col:35> 'const Texture2DMS<vector<float, 4>, 8>::sample_slice_type' xvalue <NoOp>
-        | `-CXXOperatorCallExpr <col:9, col:35> 'Texture2DMS<vector<float, 4>, 8>::sample_slice_type' xvalue
-        |   |-ImplicitCastExpr <col:23, col:35> 'Texture2DMS<vector<float, 4>, 8>::sample_slice_type &&(*)(unsigned int) const' <FunctionToPointerDecay>
-        |   | `-DeclRefExpr <col:23, col:35> 'Texture2DMS<vector<float, 4>, 8>::sample_slice_type &&(unsigned int) const' lvalue CXXMethod 'operator[]' 'Texture2DMS<vector<float, 4>, 8>::sample_slice_type &&(unsigned int) const'
+        |-ImplicitCastExpr <col:9, col:35> 'const Texture2DMS<vector<float, 4>, 8>::sample_slice_type' lvalue <NoOp>
+        | `-CXXOperatorCallExpr <col:9, col:35> 'Texture2DMS<vector<float, 4>, 8>::sample_slice_type' lvalue
+        |   |-ImplicitCastExpr <col:23, col:35> 'Texture2DMS<vector<float, 4>, 8>::sample_slice_type &(*)(unsigned int) const' <FunctionToPointerDecay>
+        |   | `-DeclRefExpr <col:23, col:35> 'Texture2DMS<vector<float, 4>, 8>::sample_slice_type &(unsigned int) const' lvalue CXXMethod 'operator[]' 'Texture2DMS<vector<float, 4>, 8>::sample_slice_type &(unsigned int) const'
         |   |-ImplicitCastExpr <col:9, col:17> 'const Texture2DMS<vector<float, 4>, 8>::sample_type' lvalue <NoOp>
         |   | `-MemberExpr <col:9, col:17> 'Texture2DMS<vector<float, 4>, 8>::sample_type' lvalue .sample
         |   |   `-DeclRefExpr <col:9> 'Texture2DMS<float4, 8>':'Texture2DMS<vector<float, 4>, 8>' lvalue Var 'g_t2dms' 'Texture2DMS<float4, 8>':'Texture2DMS<vector<float, 4>, 8>'
@@ -474,10 +637,10 @@ float4 test_sample_double_indexing()
       `-CXXOperatorCallExpr <col:9, col:42> 'const vector<float, 4>' lvalue
         |-ImplicitCastExpr <col:37, col:42> 'const vector<float, 4> &(*)(vector<uint, 3>) const' <FunctionToPointerDecay>
         | `-DeclRefExpr <col:37, col:42> 'const vector<float, 4> &(vector<uint, 3>) const' lvalue CXXMethod 'operator[]' 'const vector<float, 4> &(vector<uint, 3>) const'
-        |-ImplicitCastExpr <col:9, col:36> 'const Texture2DMSArray<vector<float, 4>, 8>::sample_slice_type' xvalue <NoOp>
-        | `-CXXOperatorCallExpr <col:9, col:36> 'Texture2DMSArray<vector<float, 4>, 8>::sample_slice_type' xvalue
-        |   |-ImplicitCastExpr <col:24, col:36> 'Texture2DMSArray<vector<float, 4>, 8>::sample_slice_type &&(*)(unsigned int) const' <FunctionToPointerDecay>
-        |   | `-DeclRefExpr <col:24, col:36> 'Texture2DMSArray<vector<float, 4>, 8>::sample_slice_type &&(unsigned int) const' lvalue CXXMethod 'operator[]' 'Texture2DMSArray<vector<float, 4>, 8>::sample_slice_type &&(unsigned int) const'
+        |-ImplicitCastExpr <col:9, col:36> 'const Texture2DMSArray<vector<float, 4>, 8>::sample_slice_type' lvalue <NoOp>
+        | `-CXXOperatorCallExpr <col:9, col:36> 'Texture2DMSArray<vector<float, 4>, 8>::sample_slice_type' lvalue
+        |   |-ImplicitCastExpr <col:24, col:36> 'Texture2DMSArray<vector<float, 4>, 8>::sample_slice_type &(*)(unsigned int) const' <FunctionToPointerDecay>
+        |   | `-DeclRefExpr <col:24, col:36> 'Texture2DMSArray<vector<float, 4>, 8>::sample_slice_type &(unsigned int) const' lvalue CXXMethod 'operator[]' 'Texture2DMSArray<vector<float, 4>, 8>::sample_slice_type &(unsigned int) const'
         |   |-ImplicitCastExpr <col:9, col:18> 'const Texture2DMSArray<vector<float, 4>, 8>::sample_type' lvalue <NoOp>
         |   | `-MemberExpr <col:9, col:18> 'Texture2DMSArray<vector<float, 4>, 8>::sample_type' lvalue .sample
         |   |   `-DeclRefExpr <col:9> 'Texture2DMSArray<float4, 8>':'Texture2DMSArray<vector<float, 4>, 8>' lvalue Var 'g_t2dmsa' 'Texture2DMSArray<float4, 8>':'Texture2DMSArray<vector<float, 4>, 8>'
@@ -486,6 +649,10 @@ float4 test_sample_double_indexing()
         `-ImplicitCastExpr <col:38> 'uint3':'vector<unsigned int, 3>' <LValueToRValue>
           `-DeclRefExpr <col:38> 'uint3':'vector<unsigned int, 3>' lvalue Var 'pos3' 'uint3':'vector<unsigned int, 3>'
   */
+
+  g_t2dms.sample[sampleSlice][pos2] = f4;  /* expected-error {{cannot assign to return value because function 'operator[]<const vector<float, 4> &>' returns a const value}} fxc-error {{X3025: l-value specifies const object}} */
+  g_t2dmsa.sample[sampleSlice][pos3] = f4; /* expected-error {{cannot assign to return value because function 'operator[]<const vector<float, 4> &>' returns a const value}} fxc-error {{X3025: l-value specifies const object}} */
+
   return f4;
 }
 
