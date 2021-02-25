@@ -3806,10 +3806,13 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
                     Value *offset, IRBuilder<> &Builder, hlsl::OP *OP) {
   Type *Ty = val->getType();
 
+  // This function is no longer used for lowering stores to a
+  // structured buffer.
+  DXASSERT_NOMSG(RK != DxilResource::Kind::StructuredBuffer);
+
   OP::OpCode opcode = OP::OpCode::NumOpCodes;
   switch (RK) {
   case DxilResource::Kind::RawBuffer:
-  case DxilResource::Kind::StructuredBuffer:
     opcode = OP::OpCode::RawBufferStore;
     break;
   case DxilResource::Kind::TypedBuffer:
@@ -3922,8 +3925,7 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
     // For second and subsequent store calls, increment the offset0 (i.e. store index)
     if (j > 0) {
       // Greater than four-components store is not allowed for
-      // TypedBuffer and Textures. Also, StructuredBuffer store
-      // doesn't use this function. So greater than four elements
+      // TypedBuffer and Textures. So greater than four elements
       // scenario should only get hit here for RawBuffer.
       DXASSERT_NOMSG(RK == DxilResource::Kind::RawBuffer);
       unsigned EltSize = OP->GetAllocSizeForType(EltTy);
