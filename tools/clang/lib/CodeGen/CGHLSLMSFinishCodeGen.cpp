@@ -1460,6 +1460,10 @@ typedef APInt(__cdecl *IntBinaryEvalFuncType)(const APInt &, const APInt &);
 typedef float(__cdecl *FloatBinaryEvalFuncType)(float, float);
 typedef double(__cdecl *DoubleBinaryEvalFuncType)(double, double);
 
+typedef APInt(__cdecl *IntTertiaryEvalFuncType)(const APInt &, const APInt &, const APInt &);
+typedef float(__cdecl *FloatTertiaryEvalFuncType)(float, float, float);
+typedef double(__cdecl *DoubleTertiaryEvalFuncType)(double, double, double);
+
 Value *EvalUnaryIntrinsic(ConstantFP *fpV, FloatUnaryEvalFuncType floatEvalFunc,
                           DoubleUnaryEvalFuncType doubleEvalFunc) {
   llvm::Type *Ty = fpV->getType();
@@ -1505,6 +1509,45 @@ Value *EvalBinaryIntrinsic(Constant *cV0, Constant *cV1,
     const APInt &iV0 = ciV0->getValue();
     const APInt &iV1 = ciV1->getValue();
     Value *dResult = ConstantInt::get(Ty, intEvalFunc(iV0, iV1));
+    Result = dResult;
+  }
+  return Result;
+}
+
+Value *EvalTertiaryIntrinsic(Constant *cV0, Constant *cV1, Constant *cV2,
+                             FloatTertiaryEvalFuncType floatEvalFunc,
+                             DoubleTertiaryEvalFuncType doubleEvalFunc,
+                             IntTertiaryEvalFuncType intEvalFunc) {
+  llvm::Type *Ty = cV0->getType();
+  Value *Result = nullptr;
+  if (Ty->isDoubleTy()) {
+    ConstantFP *fpV0 = cast<ConstantFP>(cV0);
+    ConstantFP *fpV1 = cast<ConstantFP>(cV1);
+    ConstantFP *fpV2 = cast<ConstantFP>(cV2);
+    double dV0 = fpV0->getValueAPF().convertToDouble();
+    double dV1 = fpV1->getValueAPF().convertToDouble();
+    double dV2 = fpV2->getValueAPF().convertToDouble();
+    Value *dResult = ConstantFP::get(Ty, doubleEvalFunc(dV0, dV1, dV2));
+    Result = dResult;
+  } else if (Ty->isFloatTy()) {
+    ConstantFP *fpV0 = cast<ConstantFP>(cV0);
+    ConstantFP *fpV1 = cast<ConstantFP>(cV1);
+    ConstantFP *fpV2 = cast<ConstantFP>(cV2);
+    float fV0 = fpV0->getValueAPF().convertToFloat();
+    float fV1 = fpV1->getValueAPF().convertToFloat();
+    float fV2 = fpV2->getValueAPF().convertToFloat();
+    Value *dResult = ConstantFP::get(Ty, floatEvalFunc(fV0, fV1, fV2));
+    Result = dResult;
+  } else {
+    DXASSERT_NOMSG(Ty->isIntegerTy());
+    DXASSERT_NOMSG(intEvalFunc);
+    ConstantInt *ciV0 = cast<ConstantInt>(cV0);
+    ConstantInt *ciV1 = cast<ConstantInt>(cV1);
+    ConstantInt *ciV2 = cast<ConstantInt>(cV2);
+    const APInt &iV0 = ciV0->getValue();
+    const APInt &iV1 = ciV1->getValue();
+    const APInt &iV2 = ciV2->getValue();
+    Value *dResult = ConstantInt::get(Ty, intEvalFunc(iV0, iV1, iV2));
     Result = dResult;
   }
   return Result;
@@ -1556,6 +1599,43 @@ Value *EvalBinaryIntrinsic(CallInst *CI, FloatBinaryEvalFuncType floatEvalFunc,
     Constant *cV0 = cast<Constant>(V0);
     Constant *cV1 = cast<Constant>(V1);
     Result = EvalBinaryIntrinsic(cV0, cV1, floatEvalFunc, doubleEvalFunc,
+                                 intEvalFunc);
+  }
+  CI->replaceAllUsesWith(Result);
+  CI->eraseFromParent();
+  return Result;
+
+  CI->eraseFromParent();
+  return Result;
+}
+
+Value *EvalTertiaryIntrinsic(CallInst *CI, FloatTertiaryEvalFuncType floatEvalFunc,
+                             DoubleTertiaryEvalFuncType doubleEvalFunc,
+                             IntTertiaryEvalFuncType intEvalFunc = nullptr) {
+  Value *V0 = CI->getArgOperand(0);
+  Value *V1 = CI->getArgOperand(1);
+  Value *V2 = CI->getArgOperand(2);
+  llvm::Type *Ty = CI->getType();
+  Value *Result = nullptr;
+  if (llvm::VectorType *VT = dyn_cast<llvm::VectorType>(Ty)) {
+    Result = UndefValue::get(Ty);
+    Constant *CV0 = cast<Constant>(V0);
+    Constant *CV1 = cast<Constant>(V1);
+    Constant *CV2 = cast<Constant>(V2);
+    IRBuilder<> Builder(CI);
+    for (unsigned i = 0; i < VT->getNumElements(); i++) {
+      Constant *cV0 = cast<Constant>(CV0->getAggregateElement(i));
+      Constant *cV1 = cast<Constant>(CV1->getAggregateElement(i));
+      Constant *cV2 = cast<Constant>(CV2->getAggregateElement(i));
+      Value *EltResult = EvalTertiaryIntrinsic(cV0, cV1, cV2, floatEvalFunc,
+                                             doubleEvalFunc, intEvalFunc);
+      Result = Builder.CreateInsertElement(Result, EltResult, i);
+    }
+  } else {
+    Constant *cV0 = cast<Constant>(V0);
+    Constant *cV1 = cast<Constant>(V1);
+    Constant *cV2 = cast<Constant>(V2);
+    Result = EvalTertiaryIntrinsic(cV0, cV1, cV2, floatEvalFunc, doubleEvalFunc,
                                  intEvalFunc);
   }
   CI->replaceAllUsesWith(Result);
@@ -1788,6 +1868,18 @@ Value *TryEvalIntrinsic(CallInst *CI, IntrinsicOp intriOp,
     CI->replaceAllUsesWith(cNan);
     CI->eraseFromParent();
     return cNan;
+  } break;
+  case IntrinsicOp::IOP_clamp: {
+    auto clampF = [](float a, float b, float c) {
+      return a < b ? b : a > c ? c : a;
+    };
+    auto clampD = [](double a, double b, double c) {
+      return a < b ? b : a > c ? c : a;
+    };
+    auto clampI = [](const APInt &a, const APInt &b, const APInt &c) -> APInt {
+      return a.slt(b) ? b : a.sgt(c) ? c : a;
+    };
+    return EvalTertiaryIntrinsic(CI, clampF, clampD, clampI);
   } break;
   default:
     return nullptr;
