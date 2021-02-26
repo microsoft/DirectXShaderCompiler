@@ -11,6 +11,7 @@
 #include "dxc/DXIL/DxilShaderFlags.h"
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilResource.h"
+#include "dxc/DXIL/DxilResourceBinding.h"
 #include "dxc/Support/Global.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Instructions.h"
@@ -54,6 +55,7 @@ ShaderFlags::ShaderFlags():
 , m_bSamplerFeedback(false)
 , m_bAtomicInt64OnTypedResource(false)
 , m_bAtomicInt64OnGroupShared(false)
+, m_bAtomicInt64OnHeapResource(false)
 , m_bDerivativesInMeshAndAmpShaders(false)
 , m_align0(0)
 , m_align1(0)
@@ -109,6 +111,7 @@ uint64_t ShaderFlags::GetFeatureInfo() const {
   Flags |= m_bSamplerFeedback ? hlsl::DXIL::ShaderFeatureInfo_SamplerFeedback : 0;
   Flags |= m_bAtomicInt64OnTypedResource ? hlsl::DXIL::ShaderFeatureInfo_AtomicInt64OnTypedResource : 0;
   Flags |= m_bAtomicInt64OnGroupShared ? hlsl::DXIL::ShaderFeatureInfo_AtomicInt64OnGroupShared : 0;
+  Flags |= m_bAtomicInt64OnHeapResource ? hlsl::DXIL::ShaderFeatureInfo_AtomicInt64OnHeapResource : 0;
   Flags |= m_bDerivativesInMeshAndAmpShaders ? hlsl::DXIL::ShaderFeatureInfo_DerivativesInMeshAndAmpShaders : 0;
 
   return Flags;
@@ -166,6 +169,7 @@ uint64_t ShaderFlags::GetShaderFlagsRawForCollection() {
   Flags.SetSamplerFeedback(true);
   Flags.SetAtomicInt64OnTypedResource(true);
   Flags.SetAtomicInt64OnGroupShared(true);
+  Flags.SetAtomicInt64OnHeapResource(true);
   Flags.SetDerivativesInMeshAndAmpShaders(true);
   return Flags.GetShaderFlagsRaw();
 }
@@ -261,12 +265,58 @@ DxilResourceProperties GetResourcePropertyFromHandleCall(const hlsl::DxilModule 
     }
   } else if (handleOp == DXIL::OpCode::AnnotateHandle) {
     DxilInst_AnnotateHandle annotateHandle(cast<Instruction>(handleCall));
-    Type *ResPropTy = M->GetOP()->GetResourcePropertiesType();
 
-    RP = resource_helper::loadPropsFromAnnotateHandle(annotateHandle, ResPropTy, *M->GetShaderModel());
+    RP = resource_helper::loadPropsFromAnnotateHandle(annotateHandle, *M->GetShaderModel());
   }
 
   return RP;
+}
+
+struct ResourceKey {
+  uint8_t Class;
+  uint32_t Space;
+  uint32_t LowerBound;
+  uint32_t UpperBound;
+};
+
+struct ResKeyEq : public std::binary_function<ResourceKey, ResourceKey, bool> {
+   bool operator()(const ResourceKey& k1, const ResourceKey& k2) const {
+     return k1.Class == k2.Class && k1.Space == k2.Space &&
+       k1.LowerBound == k2.LowerBound && k1.UpperBound == k2.UpperBound;
+   }
+};
+
+struct ResKeyHash : public std::unary_function<ResourceKey, std::size_t> {
+   std::size_t operator()(const ResourceKey& k) const {
+     return std::hash<uint32_t>()(k.LowerBound) ^ (std::hash<uint32_t>()(k.UpperBound)<<1) ^
+       (std::hash<uint32_t>()(k.Space)<<2) ^ (std::hash<uint8_t>()(k.Class)<<3);
+   }
+};
+
+// Limited to retrieving handles created by CreateHandleFromBinding. returns null otherwise
+// map should contain resources indexed by class, lower, and upper bounds
+DxilResource *GetResourceFromAnnotateHandle(CallInst *handleCall,
+                                     std::unordered_map<ResourceKey, DxilResource *, ResKeyHash, ResKeyEq> resMap) {
+  DxilResource *resource = nullptr;
+
+  ConstantInt *HandleOpCodeConst = cast<ConstantInt>(
+      handleCall->getArgOperand(DXIL::OperandIndex::kOpcodeIdx));
+  DXIL::OpCode handleOp = static_cast<DXIL::OpCode>(HandleOpCodeConst->getLimitedValue());
+  if (handleOp == DXIL::OpCode::AnnotateHandle) {
+    DxilInst_AnnotateHandle annotateHandle(cast<Instruction>(handleCall));
+    CallInst *createCall = cast<CallInst>(annotateHandle.get_res());
+    ConstantInt *HandleOpCodeConst = cast<ConstantInt>(
+            createCall->getArgOperand(DXIL::OperandIndex::kOpcodeIdx));
+    DXIL::OpCode handleOp = static_cast<DXIL::OpCode>(HandleOpCodeConst->getLimitedValue());
+    if (handleOp == DXIL::OpCode::CreateHandleFromBinding) {
+      DxilInst_CreateHandleFromBinding fromBind(createCall);
+      DxilResourceBinding B = resource_helper::loadBindingFromConstant(*cast<Constant>(fromBind.get_bind()));
+      ResourceKey key = {B.resourceClass, B.spaceID, B.rangeLowerBound, B.rangeUpperBound};
+      resource = resMap[key];
+    }
+  }
+
+  return resource;
 }
 
 
@@ -298,6 +348,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   bool hasRaytracingTier1_1 = false;
   bool hasAtomicInt64OnTypedResource = false;
   bool hasAtomicInt64OnGroupShared = false;
+  bool hasAtomicInt64OnHeapResource = false;
   bool hasDerivativesInMeshAndAmpShaders = false;
 
   // Try to maintain compatibility with a v1.0 validator if that's what we have.
@@ -308,6 +359,15 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
 
   Type *int16Ty = Type::getInt16Ty(F->getContext());
   Type *int64Ty = Type::getInt64Ty(F->getContext());
+
+
+  // Set up resource to binding handle map for 64-bit atomics usage
+  std::unordered_map<ResourceKey, DxilResource *, ResKeyHash, ResKeyEq> resMap;
+  for (auto &res : M->GetUAVs()) {
+    ResourceKey key = {(uint8_t)res->GetClass(), res->GetSpaceID(),
+                       res->GetLowerBound(), res->GetUpperBound()};
+    resMap.insert({key, res.get()});
+  }
 
   for (const BasicBlock &BB : F->getBasicBlockList()) {
     for (const Instruction &I : BB.getInstList()) {
@@ -420,6 +480,13 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
             DxilResourceProperties RP = GetResourcePropertyFromHandleCall(M, handleCall);
             if (DXIL::IsTyped(RP.getResourceKind()))
                 hasAtomicInt64OnTypedResource = true;
+            // set uses 64-bit flag if relevant
+            if (DxilResource *res = GetResourceFromAnnotateHandle(handleCall, resMap)) {
+              res->SetHasAtomic64Use(true);
+            } else {
+              // assuming CreateHandleFromHeap, which is always dynamic
+              hasAtomicInt64OnHeapResource = true;
+            }
           }
           break;
         case DXIL::OpCode::DerivFineX:
@@ -543,6 +610,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   flag.SetRaytracingTier1_1(hasRaytracingTier1_1);
   flag.SetAtomicInt64OnTypedResource(hasAtomicInt64OnTypedResource);
   flag.SetAtomicInt64OnGroupShared(hasAtomicInt64OnGroupShared);
+  flag.SetAtomicInt64OnHeapResource(hasAtomicInt64OnHeapResource);
   flag.SetDerivativesInMeshAndAmpShaders(hasDerivativesInMeshAndAmpShaders);
 
   return flag;

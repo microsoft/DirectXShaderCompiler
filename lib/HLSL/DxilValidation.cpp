@@ -600,7 +600,6 @@ struct ValidationContext {
         }
       }
     }
-    Type *ResPropTy = hlslOP->GetResourcePropertiesType();
     const ShaderModel &SM = *DxilMod.GetShaderModel();
 
     for (auto &it : hlslOP->GetOpFuncList(DXIL::OpCode::AnnotateHandle)) {
@@ -612,7 +611,7 @@ struct ValidationContext {
         CallInst *CI = cast<CallInst>(U);
         DxilInst_AnnotateHandle hdl(CI);
         DxilResourceProperties RP =
-            resource_helper::loadPropsFromAnnotateHandle(hdl, ResPropTy, SM);
+            resource_helper::loadPropsFromAnnotateHandle(hdl, SM);
         if (RP.getResourceKind() == DXIL::ResourceKind::Invalid) {
           EmitInstrError(CI, ValidationRule::InstrOpConstRange);
           continue;

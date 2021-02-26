@@ -120,6 +120,9 @@ namespace hlsl {
     void SetAtomicInt64OnGroupShared(bool flag) { m_bAtomicInt64OnGroupShared = flag; }
     bool GetAtomicInt64OnGroupShared() const { return m_bAtomicInt64OnGroupShared; }
 
+    void SetAtomicInt64OnHeapResource(bool flag) { m_bAtomicInt64OnHeapResource = flag; }
+    bool GetAtomicInt64OnHeapResource() const { return m_bAtomicInt64OnHeapResource; }
+
     void SetDerivativesInMeshAndAmpShaders(bool flag) { m_bDerivativesInMeshAndAmpShaders = flag; }
     bool GetDerivativesInMeshAndAmpShaders() { return m_bDerivativesInMeshAndAmpShaders; }
 
@@ -162,11 +165,13 @@ namespace hlsl {
     unsigned m_bSamplerFeedback : 1; // SHADER_FEATURE_SAMPLER_FEEDBACK
 
     unsigned m_bAtomicInt64OnTypedResource : 1; // SHADER_FEATURE_ATOMIC_INT64_ON_TYPED_RESOURCE
-    unsigned m_bAtomicInt64OnGroupShared : 1;//SHADER_FEATURE_ATOMIC_INT64_ON_GROUP_SHARED
+    unsigned m_bAtomicInt64OnGroupShared : 1; // SHADER_FEATURE_ATOMIC_INT64_ON_GROUP_SHARED
 
     unsigned m_bDerivativesInMeshAndAmpShaders : 1; //SHADER_FEATURE_DERIVATIVES_IN_MESH_AND_AMPLIFICATION_SHADERS
 
-    unsigned m_align0 : 2;        // align to 32 bit.
+    unsigned m_bAtomicInt64OnHeapResource : 1; // SHADER_FEATURE_ATOMIC_INT64_ON_DESCRIPTOR_HEAP_RESOURCE
+
+    unsigned m_align0 : 1;        // align to 32 bit.
     uint32_t m_align1;            // align to 64 bit.
   };
 
