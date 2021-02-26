@@ -3150,17 +3150,20 @@ TEST_F(ExecutionTest, DerivativesTest) {
 
     float *pPixels = (float *)data.data();;
 
-    // To find roughly the center for compute, divide the height and width in half,
-    // truncate to the previous multiple of 4 to get to the start of the repeating pattern
-    // and then add 2 rows to get to the second row of quads and 2 to get to the first texel
-    // of the second row of that quad row
-    UINT centerRow = ((D.height/2UL) & ~0x3) + 2;
-    UINT centerCol = ((D.width/2UL) & ~0x3) + 2;
-    UINT centerIndex = centerRow * D.width + centerCol;
+    if (D.height == 1) {
+      centerIndex = (((UINT64)(D.width * D.height * D.depth) / 2) & ~0xF) + 10;
+    } else {
+      // To find roughly the center for compute, divide the height and width in half,
+      // truncate to the previous multiple of 4 to get to the start of the repeating pattern
+      // and then add 2 rows to get to the second row of quads and 2 to get to the first texel
+      // of the second row of that quad row
+      UINT centerRow = ((D.height/2UL) & ~0x3) + 2;
+      UINT centerCol = ((D.width/2UL) & ~0x3) + 2;
+      UINT centerIndex = centerRow * D.width + centerCol;
+    }
     UINT offsetCenter = centerIndex * pixelSize;
     LogCommentFmt(L"Verifying derivatives in compute shader results");
     VerifyDerivResults(pPixels, offsetCenter);
-
   }
 
   if (DoesDeviceSupportMeshAmpDerivatives(pDevice)) {

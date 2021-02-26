@@ -235,7 +235,7 @@
           if (DISPATCHY == 1 && DISPATCHZ == 1)
             g_bufMain[ix] = DerivTest(ix);
           else
-            g_bufMain[ix] = DerivTest(id.xy);
+            g_bufMain[convert2Dto1D(id.x, id.y, DISPATCHX)] = DerivTest(id.xy);
         }
 
 #if DISPATCHX * DISPATCHY * DISPATCHZ > 128
@@ -254,7 +254,7 @@
           if (DISPATCHY == 1 && DISPATCHZ == 1)
             g_bufAmp[ix] = DerivTest(ix);
           else
-            g_bufAmp[ix] = DerivTest(id.xy);
+            g_bufAmp[convert2Dto1D(id.x, id.y, DISPATCHX)] = DerivTest(id.xy);
           payload.nothing = 0;
           DispatchMesh(1, 1, 1, payload);
         }
@@ -276,7 +276,7 @@
             if (DISPATCHY == 1 && DISPATCHZ == 1)
               g_bufMesh[ix] = DerivTest(ix);
             else
-              g_bufMesh[ix] = DerivTest(id.xy);
+              g_bufMesh[convert2Dto1D(id.x, id.y, DISPATCHX)] = DerivTest(id.xy);
         }
 
       ]]>
