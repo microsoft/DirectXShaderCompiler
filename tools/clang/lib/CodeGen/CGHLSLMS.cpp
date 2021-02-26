@@ -4970,7 +4970,6 @@ bool CGMSHLSLRuntime::NeedHLSLMartrixCastForStoreOp(const clang::Decl* TD,
   const unsigned storeValOpIdx = HLOperandIndex::kStoreValOpIdx - 1;
 
   if (storeValOpIdx >= IRCallArgs.size()) {
-    DXASSERT_NOMSG(storeValOpIdx < IRCallArgs.size());
     return false;
   }
 
@@ -4987,8 +4986,6 @@ void CGMSHLSLRuntime::EmitHLSLMartrixCastForStoreOp(CodeGenFunction& CGF,
 
   if (storeValOpIdx >= IRCallArgs.size() ||
     storeValOpIdx >= ArgTys.size()) {
-    DXASSERT_NOMSG(storeValOpIdx < IRCallArgs.size());
-    DXASSERT_NOMSG(storeValOpIdx < ArgTys.size());
     return;
   }
 
