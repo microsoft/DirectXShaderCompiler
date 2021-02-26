@@ -3150,6 +3150,7 @@ TEST_F(ExecutionTest, DerivativesTest) {
 
     float *pPixels = (float *)data.data();;
 
+    UINT centerIndex = 0;
     if (D.height == 1) {
       centerIndex = (((UINT64)(D.width * D.height * D.depth) / 2) & ~0xF) + 10;
     } else {
@@ -3159,7 +3160,7 @@ TEST_F(ExecutionTest, DerivativesTest) {
       // of the second row of that quad row
       UINT centerRow = ((D.height/2UL) & ~0x3) + 2;
       UINT centerCol = ((D.width/2UL) & ~0x3) + 2;
-      UINT centerIndex = centerRow * D.width + centerCol;
+      centerIndex = centerRow * D.width + centerCol;
     }
     UINT offsetCenter = centerIndex * pixelSize;
     LogCommentFmt(L"Verifying derivatives in compute shader results");
