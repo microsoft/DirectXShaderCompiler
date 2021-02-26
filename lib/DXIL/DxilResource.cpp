@@ -149,6 +149,14 @@ bool DxilResource::IsFeedbackTexture() const {
   return GetKind() == Kind::FeedbackTexture2D || GetKind() == Kind::FeedbackTexture2DArray;
 }
 
+bool DxilResource::HasAtomic64Use() const {
+  return m_bHasAtomic64Use;
+}
+
+void DxilResource::SetHasAtomic64Use(bool b) {
+  m_bHasAtomic64Use = b;
+}
+
 unsigned DxilResource::GetNumCoords(Kind ResourceKind) {
   const unsigned CoordSizeTab[] = {
       0, // Invalid = 0,
