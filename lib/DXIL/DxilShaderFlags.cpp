@@ -261,12 +261,64 @@ DxilResourceProperties GetResourcePropertyFromHandleCall(const hlsl::DxilModule 
     }
   } else if (handleOp == DXIL::OpCode::AnnotateHandle) {
     DxilInst_AnnotateHandle annotateHandle(cast<Instruction>(handleCall));
-    Type *ResPropTy = M->GetOP()->GetResourcePropertiesType();
 
-    RP = resource_helper::loadPropsFromAnnotateHandle(annotateHandle, ResPropTy, *M->GetShaderModel());
+    RP = resource_helper::loadPropsFromAnnotateHandle(annotateHandle, *M->GetShaderModel());
   }
 
   return RP;
+}
+
+const DxilResource *GetResourceFromHandleCall(const hlsl::DxilModule *M, CallInst *handleCall) {
+
+  const DxilResource *resource;
+
+  ConstantInt *HandleOpCodeConst = cast<ConstantInt>(
+      handleCall->getArgOperand(DXIL::OperandIndex::kOpcodeIdx));
+  DXIL::OpCode handleOp = static_cast<DXIL::OpCode>(HandleOpCodeConst->getLimitedValue());
+  if (handleOp == DXIL::OpCode::CreateHandle) {
+    if (ConstantInt *resClassArg =
+      dyn_cast<ConstantInt>(handleCall->getArgOperand(
+        DXIL::OperandIndex::kCreateHandleResClassOpIdx))) {
+      DXIL::ResourceClass resClass = static_cast<DXIL::ResourceClass>(
+        resClassArg->getLimitedValue());
+      ConstantInt *rangeID = GetArbitraryConstantRangeID(handleCall);
+      if (rangeID) {
+        if (resClass == DXIL::ResourceClass::UAV)
+          resource = &M->GetUAV(rangeID->getLimitedValue());
+        else if (resClass == DXIL::ResourceClass::SRV)
+          resource = &M->GetSRV(rangeID->getLimitedValue());
+      }
+    }
+  }
+  else if (handleOp == DXIL::OpCode::CreateHandleForLib) {
+    // If library handle, find DxilResource by checking the name
+    if (LoadInst *LI = dyn_cast<LoadInst>(handleCall->getArgOperand(
+            DXIL::OperandIndex::kCreateHandleForLibResOpIdx))) {
+      Value *resType = LI->getOperand(0);
+      for (auto &&res : M->GetUAVs()) {
+        if (res->GetGlobalSymbol() == resType) {
+          resource = res.get();
+        }
+      }
+    }
+  } else if (handleOp == DXIL::OpCode::AnnotateHandle) {
+    DxilInst_AnnotateHandle annotateHandle(cast<Instruction>(handleCall));
+    CallInst *createCall = cast<CallInst>(annotateHandle.get_res());
+    ConstantInt *HandleOpCodeConst = cast<ConstantInt>(
+            createCall->getArgOperand(DXIL::OperandIndex::kOpcodeIdx));
+    DXIL::OpCode handleOp = static_cast<DXIL::OpCode>(HandleOpCodeConst->getLimitedValue());
+    if (handleOp == DXIL::OpCode::CreateHandleFromBinding) {
+      DxilInst_CreateHandleFromBinding fromBind(createCall);
+      Constant *ResBind = cast<Constant>(fromBind.get_bind());
+      (void)ResBind;
+      
+    } else {
+      DXASSERT(handleOp == DXIL::OpCode::CreateHandleFromBinding, "unexpected handle creation op");
+      
+    }
+  }
+
+  return resource;
 }
 
 
