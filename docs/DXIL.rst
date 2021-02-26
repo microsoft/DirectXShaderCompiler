@@ -1861,7 +1861,7 @@ The following signature shows the operation syntax::
 
   ; overloads: SM5.1: i32,  SM6.0: i32
   ; returns: original value in memory before the operation
-  declare i32 @dx.op.atomicBinOp.i32(
+  declare i32 @dx.op.atomicCompareExchange.i32(
       i32,                  ; opcode
       %dx.types.Handle,     ; resource handle
       i32,                  ; coordinate c0
