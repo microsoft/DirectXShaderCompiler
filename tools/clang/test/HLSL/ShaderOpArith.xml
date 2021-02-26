@@ -109,7 +109,7 @@
       {32.0f, 64.0f, 128.0f, 256.0f},
       {256.0f, 512.0f, 1024.0f, 2048.0f}
     </Resource>
-    <Resource Name="RTarget" Dimension="TEXTURE2D" Width="32" Height="32" Format="R32G32B32A32_FLOAT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" ReadBack="true" />
+    <Resource Name="RTarget" Dimension="TEXTURE2D" Width="64" Height="64" Format="R32G32B32A32_FLOAT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" ReadBack="true" />
     <Resource Name="U0" Dimension="BUFFER" Width="16384"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="Zero" ReadBack="true" />
@@ -203,17 +203,66 @@
           { 1.0f, 0.0f },
           { 1.0f, 1.0f }};
 
-        [NumThreads(MESHDISPATCHX, MESHDISPATCHY, MESHDISPATCHZ)]
-        void ASMain(uint ix : SV_GroupIndex) {
+        uint convert2Dto1D(uint x, uint y, uint width) {
+          // Convert 2D coords to 1D for testing
+          // All completed rows of quads
+          uint prevRows = (y/2)*2*width;
+          // All previous full quads on this quad row
+          uint prevQuads = (x/2)*4;
+          // index into current quad
+          uint quadIx = (y&1)*2 + (x&1);
+          return prevRows + prevQuads + quadIx;
+        }
+
+        float4 PSMain(PSInput input) : SV_TARGET {
+          // Convert from texcoords into a groupIndex equivalent
+          int width = 64;
+          int height = 64;
+          int2 uv = int2(input.uv.x*width, input.uv.y*height);
+
+          uint ix = convert2Dto1D(uv.x, uv.y, DISPATCHX);
+
+          float4 res = 0.0;
+          if (uv.x < DISPATCHX && uv.y < DISPATCHY) {
+            res = DerivTest(uv);
+            g_bufMain[ix] = res;
+          }
+          return res;
+        }
+
+        [NumThreads(DISPATCHX, DISPATCHY, DISPATCHZ)]
+        void CSMain(uint3 id : SV_GroupThreadID, uint ix : SV_GroupIndex) {
+          if (DISPATCHY == 1 && DISPATCHZ == 1)
+            g_bufMain[ix] = DerivTest(ix);
+          else
+            g_bufMain[convert2Dto1D(id.x, id.y, DISPATCHX)] = DerivTest(id.xy);
+        }
+
+#if DISPATCHX * DISPATCHY * DISPATCHZ > 128
+#undef DISPATCHX
+#undef DISPATCHY
+#undef DISPATCHZ
+
+#define DISPATCHX 1
+#define DISPATCHY 1
+#define DISPATCHZ 1
+#endif
+
+        [NumThreads(DISPATCHX, DISPATCHY, DISPATCHZ)]
+        void ASMain(uint3 id : SV_GroupThreadID, uint ix : SV_GroupIndex) {
           Payload payload;
-          g_bufAmp[ix] = DerivTest(ix);
+          if (DISPATCHY == 1 && DISPATCHZ == 1)
+            g_bufAmp[ix] = DerivTest(ix);
+          else
+            g_bufAmp[convert2Dto1D(id.x, id.y, DISPATCHX)] = DerivTest(id.xy);
           payload.nothing = 0;
           DispatchMesh(1, 1, 1, payload);
         }
 
-        [NumThreads(MESHDISPATCHX, MESHDISPATCHY, MESHDISPATCHZ)]
+        [NumThreads(DISPATCHX, DISPATCHY, DISPATCHZ)]
         [OutputTopology("triangle")]
         void MSMain(
+          uint3 id : SV_GroupThreadID,
           uint ix : SV_GroupIndex,
           in payload Payload payload,
           out vertices PSInput verts[6],
@@ -224,23 +273,12 @@
             verts[ix%6].uv = g_UV[ix%6];
             tris[ix&1] = uint3((ix&1)*3, (ix&1)*3 + 1, (ix&1)*3 + 2);
             g_bufMesh[ix] = DerivTest(ix);
-        }
-        float4 PSMain(PSInput input) : SV_TARGET {
-          // Convert from texcoords into a groupIndex equivalent
-          int width = DISPATCHX;
-          int height = DISPATCHY;
-          int2 uv = int2(input.uv.x*width, input.uv.y*height);
-          uint ix = ((uv.y/4)*(width/4))*16 + (uv.x/4)*16 + (((uv.x & 0x2) << 1) | (uv.x & 0x1) | ((uv.y & 0x2) << 2) | ((uv.y & 0x1) << 1));
-
-          float4 res = DerivTest(ix);
-          g_bufMain[ix] = res;
-          return res;
+            if (DISPATCHY == 1 && DISPATCHZ == 1)
+              g_bufMesh[ix] = DerivTest(ix);
+            else
+              g_bufMesh[convert2Dto1D(id.x, id.y, DISPATCHX)] = DerivTest(id.xy);
         }
 
-        [NumThreads(DISPATCHX, DISPATCHY, DISPATCHZ)]
-        void CSMain(uint ix : SV_GroupIndex) {
-          g_bufMain[ix] = DerivTest(ix);
-        }
       ]]>
     </Shader>
   </ShaderOp>
