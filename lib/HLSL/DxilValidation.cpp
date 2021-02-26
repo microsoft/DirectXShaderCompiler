@@ -687,8 +687,49 @@ struct ValidationContext {
     Failed = true;
   }
 
+  // Use this instead of DxilResourceBase::GetGlobalName
+  std::string GetResourceName(const hlsl::DxilResourceBase *Res) {
+    if (!Res)
+      return "nullptr";
+    std::string resName = Res->GetGlobalName();
+    if (!resName.empty())
+      return resName;
+    if (pDebugModule) {
+      DxilModule &DM = pDebugModule->GetOrCreateDxilModule();
+      switch (Res->GetClass()) {
+      case DXIL::ResourceClass::CBuffer:  return DM.GetCBuffer(Res->GetID()).GetGlobalName();
+      case DXIL::ResourceClass::Sampler:  return DM.GetSampler(Res->GetID()).GetGlobalName();
+      case DXIL::ResourceClass::SRV:      return DM.GetSRV(Res->GetID()).GetGlobalName();
+      case DXIL::ResourceClass::UAV:      return DM.GetUAV(Res->GetID()).GetGlobalName();
+      default: return "Invalid Resource";
+      }
+    }
+    // When names have been stripped, use class and binding location to
+    // identify the resource.  Format is roughly:
+    // Allocated:   (CB|T|U|S)<ID>: <ResourceKind> ((cb|t|u|s)<LB>[<RangeSize>] space<SpaceID>)
+    // Unallocated: (CB|T|U|S)<ID>: <ResourceKind> (no bind location)
+    // Example: U0: TypedBuffer (u5[2] space1)
+    // [<RangeSize>] and space<SpaceID> skipped if 1 and 0 respectively.
+    return (Twine(Res->GetResIDPrefix()) + Twine(Res->GetID()) + ": " +
+            Twine(Res->GetResKindName()) +
+            (Res->IsAllocated()
+                 ? (" (" + Twine(Res->GetResBindPrefix()) +
+                    Twine(Res->GetLowerBound()) +
+                    (Res->IsUnbounded()
+                         ? Twine("[unbounded]")
+                         : (Res->GetRangeSize() != 1)
+                               ? "[" + Twine(Res->GetRangeSize()) + "]"
+                               : Twine()) +
+                    ((Res->GetSpaceID() != 0)
+                         ? " space" + Twine(Res->GetSpaceID())
+                         : Twine()) +
+                    ")")
+                 : Twine(" (no bind location)")))
+        .str();
+  }
+
   void EmitResourceError(const hlsl::DxilResourceBase *Res, ValidationRule rule) {
-    std::string QuotedRes = " '" + Res->GetGlobalName() + "'";
+    std::string QuotedRes = " '" + GetResourceName(Res) + "'";
     dxilutil::EmitErrorOnContext(M.getContext(), GetValidationRuleText(rule) + QuotedRes);
     Failed = true;
   }
@@ -696,7 +737,7 @@ struct ValidationContext {
   void EmitResourceFormatError(const hlsl::DxilResourceBase *Res,
                                ValidationRule rule,
                                ArrayRef<StringRef> args) {
-    std::string QuotedRes = " '" + Res->GetGlobalName() + "'";
+    std::string QuotedRes = " '" + GetResourceName(Res) + "'";
     std::string ruleText = GetValidationRuleText(rule);
     FormatRuleText(ruleText, args);
     dxilutil::EmitErrorOnContext(M.getContext(), ruleText + QuotedRes);
@@ -3984,7 +4025,7 @@ static void ValidateResourceOverlap(
   if (conflictRes) {
     ValCtx.EmitFormatError(
         ValidationRule::SmResourceRangeOverlap,
-        {res.GetGlobalName(), std::to_string(base),
+        {ValCtx.GetResourceName(&res), std::to_string(base),
          std::to_string(size),
          std::to_string(conflictRes->GetLowerBound()),
          std::to_string(conflictRes->GetRangeSize()),
@@ -4190,7 +4231,7 @@ static void ValidateCBuffer(DxilCBuffer &cb, ValidationContext &ValCtx) {
       DXIL::kMaxCBufferSize << 4);
   CollectCBufferRanges(annotation, constAllocator,
                        0, typeSys,
-                       cb.GetGlobalName(), ValCtx);
+                       ValCtx.GetResourceName(&cb), ValCtx);
 }
 
 static void ValidateResources(ValidationContext &ValCtx) {
@@ -4222,7 +4263,7 @@ static void ValidateResources(ValidationContext &ValCtx) {
     if (uav->HasCounter() && uav->IsGloballyCoherent())
       ValCtx.EmitResourceFormatError(uav.get(),
                                      ValidationRule::MetaGlcNotOnAppendConsume,
-                                     {uav.get()->GetGlobalName()});
+                                     {ValCtx.GetResourceName(uav.get())});
 
     ValidateResource(*uav, ValCtx);
     ValidateResourceOverlap(*uav, uavAllocator, ValCtx);
