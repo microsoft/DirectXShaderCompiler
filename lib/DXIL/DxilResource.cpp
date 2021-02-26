@@ -28,7 +28,8 @@ DxilResource::DxilResource()
 , m_SamplerFeedbackType((DXIL::SamplerFeedbackType)0)
 , m_bGloballyCoherent(false)
 , m_bHasCounter(false)
-, m_bROV(false) {
+, m_bROV(false)
+, m_bHasAtomic64Use(false) {
 }
 
 CompType DxilResource::GetCompType() const {
