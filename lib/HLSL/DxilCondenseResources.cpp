@@ -2290,7 +2290,7 @@ bool DxilLowerCreateHandleForLib::PatchDynamicTBuffers(DxilModule &DM) {
     CallInst *CI = cast<CallInst>(U);
     DxilInst_AnnotateHandle annot(CI);
     DxilResourceProperties RP = resource_helper::loadPropsFromAnnotateHandle(
-        annot, hlslOP->GetResourcePropertiesType(), *DM.GetShaderModel());
+        annot, *DM.GetShaderModel());
 
     if (RP.getResourceKind() != DXIL::ResourceKind::TBuffer)
       continue;
