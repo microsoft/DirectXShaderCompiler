@@ -56,12 +56,12 @@ ShaderFlags::ShaderFlags():
 , m_bAtomicInt64OnTypedResource(false)
 , m_bAtomicInt64OnGroupShared(false)
 , m_bDerivativesInMeshAndAmpShaders(false)
+, m_bResourceDescriptorHeapIndexing(false)
+, m_bSamplerDescriptorHeapIndexing(false)
 , m_bAtomicInt64OnHeapResource(false)
-, m_align0(0)
 , m_align1(0)
 {
   // Silence unused field warnings
-  (void)m_align0;
   (void)m_align1;
 }
 
@@ -111,8 +111,10 @@ uint64_t ShaderFlags::GetFeatureInfo() const {
   Flags |= m_bSamplerFeedback ? hlsl::DXIL::ShaderFeatureInfo_SamplerFeedback : 0;
   Flags |= m_bAtomicInt64OnTypedResource ? hlsl::DXIL::ShaderFeatureInfo_AtomicInt64OnTypedResource : 0;
   Flags |= m_bAtomicInt64OnGroupShared ? hlsl::DXIL::ShaderFeatureInfo_AtomicInt64OnGroupShared : 0;
-  Flags |= m_bAtomicInt64OnHeapResource ? hlsl::DXIL::ShaderFeatureInfo_AtomicInt64OnHeapResource : 0;
   Flags |= m_bDerivativesInMeshAndAmpShaders ? hlsl::DXIL::ShaderFeatureInfo_DerivativesInMeshAndAmpShaders : 0;
+  Flags |= m_bResourceDescriptorHeapIndexing ? hlsl::DXIL::ShaderFeatureInfo_ResourceDescriptorHeapIndexing : 0;
+  Flags |= m_bSamplerDescriptorHeapIndexing ? hlsl::DXIL::ShaderFeatureInfo_SamplerDescriptorHeapIndexing : 0;
+  Flags |= m_bAtomicInt64OnHeapResource ? hlsl::DXIL::ShaderFeatureInfo_AtomicInt64OnHeapResource : 0;
 
   return Flags;
 }
@@ -169,8 +171,10 @@ uint64_t ShaderFlags::GetShaderFlagsRawForCollection() {
   Flags.SetSamplerFeedback(true);
   Flags.SetAtomicInt64OnTypedResource(true);
   Flags.SetAtomicInt64OnGroupShared(true);
-  Flags.SetAtomicInt64OnHeapResource(true);
   Flags.SetDerivativesInMeshAndAmpShaders(true);
+  Flags.SetResourceDescriptorHeapIndexing(true);
+  Flags.SetSamplerDescriptorHeapIndexing(true);
+  Flags.SetAtomicInt64OnHeapResource(true);
   return Flags.GetShaderFlagsRaw();
 }
 
@@ -348,8 +352,10 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   bool hasRaytracingTier1_1 = false;
   bool hasAtomicInt64OnTypedResource = false;
   bool hasAtomicInt64OnGroupShared = false;
-  bool hasAtomicInt64OnHeapResource = false;
   bool hasDerivativesInMeshAndAmpShaders = false;
+  bool hasResourceDescriptorHeapIndexing = false;
+  bool hasSamplerDescriptorHeapIndexing = false;
+  bool hasAtomicInt64OnHeapResource = false;
 
   // Try to maintain compatibility with a v1.0 validator if that's what we have.
   uint32_t valMajor, valMinor;
@@ -501,6 +507,14 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
           if (pSM->IsAS() || pSM->IsMS())
             hasDerivativesInMeshAndAmpShaders = true;
         } break;
+        case DXIL::OpCode::CreateHandleFromHeap: {
+          ConstantInt *isSamplerVal = dyn_cast<ConstantInt>(
+                        CI->getArgOperand(DXIL::OperandIndex::kCreateHandleFromHeapSamplerHeapOpIdx));
+          if (isSamplerVal->getLimitedValue())
+            hasSamplerDescriptorHeapIndexing = true;
+          else
+            hasResourceDescriptorHeapIndexing = true;
+        }
         default:
           // Normal opcodes.
           break;
@@ -610,8 +624,10 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   flag.SetRaytracingTier1_1(hasRaytracingTier1_1);
   flag.SetAtomicInt64OnTypedResource(hasAtomicInt64OnTypedResource);
   flag.SetAtomicInt64OnGroupShared(hasAtomicInt64OnGroupShared);
-  flag.SetAtomicInt64OnHeapResource(hasAtomicInt64OnHeapResource);
   flag.SetDerivativesInMeshAndAmpShaders(hasDerivativesInMeshAndAmpShaders);
+  flag.SetResourceDescriptorHeapIndexing(hasResourceDescriptorHeapIndexing);
+  flag.SetSamplerDescriptorHeapIndexing(hasSamplerDescriptorHeapIndexing);
+  flag.SetAtomicInt64OnHeapResource(hasAtomicInt64OnHeapResource);
 
   return flag;
 }
