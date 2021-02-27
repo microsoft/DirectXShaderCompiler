@@ -3,6 +3,9 @@
 // RUN: %dxc -T lib_6_6 -Zi %s | %FileCheck %s -check-prefixes=CHECK,CHECKZI
 // RUN: %dxc -T lib_6_6 -Od -Zi %s | %FileCheck %s -check-prefixes=CHECK,CHECKZI
 
+// CHECK: Note: shader requires additional functionality:
+// CHECK: Resource descriptor heap indexing
+
 // Make sure each entry get 2 createHandleFromHeap.
 // CHECK:define void
 // CHECK:call %dx.types.Handle @dx.op.createHandleFromHeap(i32 218, i32 %{{.*}}, i1 false, i1 false)
