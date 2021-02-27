@@ -1416,8 +1416,9 @@ namespace DXIL {
   const uint64_t ShaderFeatureInfo_AtomicInt64OnTypedResource = 0x400000;
   const uint64_t ShaderFeatureInfo_AtomicInt64OnGroupShared = 0x800000;
   const uint64_t ShaderFeatureInfo_DerivativesInMeshAndAmpShaders = 0x1000000;
+  const uint64_t ShaderFeatureInfo_AtomicInt64OnHeapResource = 0x2000000;
 
-  const unsigned ShaderFeatureInfoCount = 25;
+  const unsigned ShaderFeatureInfoCount = 26;
 
   // DxilSubobjectType must match D3D12_STATE_SUBOBJECT_TYPE, with
   // certain values reserved, since they cannot be used from Dxil.
