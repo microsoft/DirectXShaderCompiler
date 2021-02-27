@@ -55,8 +55,8 @@ ShaderFlags::ShaderFlags():
 , m_bSamplerFeedback(false)
 , m_bAtomicInt64OnTypedResource(false)
 , m_bAtomicInt64OnGroupShared(false)
-, m_bAtomicInt64OnHeapResource(false)
 , m_bDerivativesInMeshAndAmpShaders(false)
+, m_bAtomicInt64OnHeapResource(false)
 , m_align0(0)
 , m_align1(0)
 {
@@ -484,7 +484,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
             if (DxilResource *res = GetResourceFromAnnotateHandle(handleCall, resMap)) {
               res->SetHasAtomic64Use(true);
             } else {
-              // assuming CreateHandleFromHeap, which is always dynamic
+              // Assuming CreateHandleFromHeap, which indicates a descriptor
               hasAtomicInt64OnHeapResource = true;
             }
           }
