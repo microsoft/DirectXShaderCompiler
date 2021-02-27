@@ -283,14 +283,14 @@ struct ResourceKey {
   uint32_t UpperBound;
 };
 
-struct ResKeyEq : public std::binary_function<ResourceKey, ResourceKey, bool> {
+struct ResKeyEq {
    bool operator()(const ResourceKey& k1, const ResourceKey& k2) const {
      return k1.Class == k2.Class && k1.Space == k2.Space &&
        k1.LowerBound == k2.LowerBound && k1.UpperBound == k2.UpperBound;
    }
 };
 
-struct ResKeyHash : public std::unary_function<ResourceKey, std::size_t> {
+struct ResKeyHash {
    std::size_t operator()(const ResourceKey& k) const {
      return std::hash<uint32_t>()(k.LowerBound) ^ (std::hash<uint32_t>()(k.UpperBound)<<1) ^
        (std::hash<uint32_t>()(k.Space)<<2) ^ (std::hash<uint8_t>()(k.Class)<<3);
