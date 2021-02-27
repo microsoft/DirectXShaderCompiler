@@ -1391,34 +1391,37 @@ namespace DXIL {
   const uint64_t
       ShaderFeatureInfo_ComputeShadersPlusRawAndStructuredBuffersViaShader4X =
           0x0002;
-  const uint64_t ShaderFeatureInfo_UAVsAtEveryStage = 0x0004;
-  const uint64_t ShaderFeatureInfo_64UAVs = 0x0008;
-  const uint64_t ShaderFeatureInfo_MinimumPrecision = 0x0010;
-  const uint64_t ShaderFeatureInfo_11_1_DoubleExtensions = 0x0020;
-  const uint64_t ShaderFeatureInfo_11_1_ShaderExtensions = 0x0040;
-  const uint64_t ShaderFeatureInfo_LEVEL9ComparisonFiltering = 0x0080;
-  const uint64_t ShaderFeatureInfo_TiledResources = 0x0100;
-  const uint64_t ShaderFeatureInfo_StencilRef = 0x0200;
-  const uint64_t ShaderFeatureInfo_InnerCoverage = 0x0400;
+  const uint64_t ShaderFeatureInfo_UAVsAtEveryStage              = 0x0004;
+  const uint64_t ShaderFeatureInfo_64UAVs                        = 0x0008;
+  const uint64_t ShaderFeatureInfo_MinimumPrecision              = 0x0010;
+  const uint64_t ShaderFeatureInfo_11_1_DoubleExtensions         = 0x0020;
+  const uint64_t ShaderFeatureInfo_11_1_ShaderExtensions         = 0x0040;
+  const uint64_t ShaderFeatureInfo_LEVEL9ComparisonFiltering     = 0x0080;
+  const uint64_t ShaderFeatureInfo_TiledResources                = 0x0100;
+  const uint64_t ShaderFeatureInfo_StencilRef                    = 0x0200;
+  const uint64_t ShaderFeatureInfo_InnerCoverage                 = 0x0400;
   const uint64_t ShaderFeatureInfo_TypedUAVLoadAdditionalFormats = 0x0800;
-  const uint64_t ShaderFeatureInfo_ROVs = 0x1000;
+  const uint64_t ShaderFeatureInfo_ROVs                          = 0x1000;
   const uint64_t
       ShaderFeatureInfo_ViewportAndRTArrayIndexFromAnyShaderFeedingRasterizer =
           0x2000;
-  const uint64_t ShaderFeatureInfo_WaveOps = 0x4000;
-  const uint64_t ShaderFeatureInfo_Int64Ops = 0x8000;
-  const uint64_t ShaderFeatureInfo_ViewID = 0x10000;
-  const uint64_t ShaderFeatureInfo_Barycentrics = 0x20000;
-  const uint64_t ShaderFeatureInfo_NativeLowPrecision = 0x40000;
-  const uint64_t ShaderFeatureInfo_ShadingRate = 0x80000;
-  const uint64_t ShaderFeatureInfo_Raytracing_Tier_1_1 = 0x100000;
-  const uint64_t ShaderFeatureInfo_SamplerFeedback = 0x200000;
-  const uint64_t ShaderFeatureInfo_AtomicInt64OnTypedResource = 0x400000;
-  const uint64_t ShaderFeatureInfo_AtomicInt64OnGroupShared = 0x800000;
-  const uint64_t ShaderFeatureInfo_DerivativesInMeshAndAmpShaders = 0x1000000;
-  const uint64_t ShaderFeatureInfo_AtomicInt64OnHeapResource = 0x2000000;
+  const uint64_t ShaderFeatureInfo_WaveOps                        =     0x4000;
+  const uint64_t ShaderFeatureInfo_Int64Ops                       =     0x8000;
+  const uint64_t ShaderFeatureInfo_ViewID                         =    0x10000;
+  const uint64_t ShaderFeatureInfo_Barycentrics                   =    0x20000;
+  const uint64_t ShaderFeatureInfo_NativeLowPrecision             =    0x40000;
+  const uint64_t ShaderFeatureInfo_ShadingRate                    =    0x80000;
+  const uint64_t ShaderFeatureInfo_Raytracing_Tier_1_1            =   0x100000;
+  const uint64_t ShaderFeatureInfo_SamplerFeedback                =   0x200000;
+  const uint64_t ShaderFeatureInfo_AtomicInt64OnTypedResource     =   0x400000;
+  const uint64_t ShaderFeatureInfo_AtomicInt64OnGroupShared       =   0x800000;
+  const uint64_t ShaderFeatureInfo_DerivativesInMeshAndAmpShaders =  0x1000000;
+  const uint64_t ShaderFeatureInfo_ResourceDescriptorHeapIndexing =  0x2000000;
+  const uint64_t ShaderFeatureInfo_SamplerDescriptorHeapIndexing  =  0x4000000;
 
-  const unsigned ShaderFeatureInfoCount = 26;
+  const uint64_t ShaderFeatureInfo_AtomicInt64OnHeapResource      = 0x10000000;
+
+  const unsigned ShaderFeatureInfoCount = 29;
 
   // DxilSubobjectType must match D3D12_STATE_SUBOBJECT_TYPE, with
   // certain values reserved, since they cannot be used from Dxil.
