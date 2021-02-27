@@ -5732,6 +5732,23 @@ bool VectorExprEvaluator::VisitCastExpr(const CastExpr* E) {
     }
     return Success(Elts, E);
   }
+  case CK_HLSLVectorTruncationCast: {
+    if (!Visit(SE))
+      return Error(E);
+    unsigned destSize = hlsl::IsHLSLVecType(E->getType()) ? hlsl::GetHLSLVecSize(E->getType()) : 1;
+    unsigned srcSize = Result.getVectorLength();
+    // Given that this is a vector truncation op, dest size must be
+    // less than the source size.
+    if (destSize >= srcSize)
+      return Error(E);
+
+    SmallVector<APValue, 4> Elts;
+    for (uint32_t i = 0; i < destSize; ++i) {
+      APValue Elem = Result.getVectorElt(i);
+      Elts.push_back(Elem);
+    }
+    return Success(Elts, E);
+  }
   case CK_HLSLCC_IntegralCast: {
     if (!Visit(SE))
       return Error(E);
