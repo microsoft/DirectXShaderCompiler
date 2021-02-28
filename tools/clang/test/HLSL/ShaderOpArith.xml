@@ -2058,6 +2058,668 @@
     </Shader>
   </ShaderOp>
 
+  <!-- For explanations of the atomics tests, see comments in and around VerifyAtomicResults in Executiontest.cpp -->
+  <ShaderOp Name="Atomics" PS="PS" VS="VS" CS="CS" AS="AS" MS="MS" TopologyType="TRIANGLE">
+    <RootSignature>
+      RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT),
+      DescriptorTable(UAV(u0), UAV(u1), UAV(u2), UAV(u3), UAV(u4), UAV(u5), UAV(u6), UAV(u7), UAV(u8), UAV(u9), UAV(u10), UAV(u11), UAV(u12), UAV(u13), UAV(u14), UAV(u15), UAV(u16), UAV(u17)),
+      StaticSampler(s0, addressU = TEXTURE_ADDRESS_WRAP, addressV = TEXTURE_ADDRESS_WRAP, filter = FILTER_MIN_MAG_LINEAR_MIP_POINT)
+    </RootSignature>
+    <Resource Name="VBuffer" Dimension="BUFFER" InitialResourceState="COPY_DEST" Init="FromBytes" Topology="TRIANGLELIST">
+      { { -1.0f, 1.0f, 0.0f }, { 0.0f, 0.0f } },
+      { { 1.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
+      { { -1.0f, -1.0f, 0.0f }, { 0.0f, 1.0f } },
+
+      { { -1.0f, -1.0f, 0.0f }, { 0.0f, 1.0f } },
+      { { 1.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
+      { { 1.0f, -1.0f, 0.0f }, { 1.0f, 1.0f } }
+    </Resource>
+    <Resource Name="RTarget" Dimension="TEXTURE2D" Width="64" Height="64" Format="R32G32B32A32_FLOAT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" />
+    <!-- Raw buffers -->
+    <Resource Name="U0" Dimension="BUFFER" Width="576"
+              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+              Init="FromBytes" ReadBack="true" >
+      {
+      0, 0, 0, 0, 0, 0, 0I, 0I, 0I, 0I, 0I, 0I, 0I, 0I, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0I, 0I, 99999999I, 99999999I, 0I, 0I, 99999999I, 99999999I, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0I, 0I, 0I, 0I, 0I, 0I, 0I, 0I, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0I, 0I, -1I, -1I, 0I, 0I, -1I, -1I, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0I, 0I, 0I, 0I, 0I, 0I, 0I, 0I, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0I, 0I, 0I, 0I, 0I, 0I, 0I, 0I, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0I, 0I, 0I, 0I, 0I, 0I, 0I, 0I, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0I, 0I, 0I, 0I, 0I, 0I, 0I, 0I, 0, 0, 0, 0,
+      }
+    </Resource>
+    <Resource Name="U1" Dimension="BUFFER" Width="9216"
+              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+              Init="Zero" ReadBack="true" />
+    <Resource Name="U2" Dimension="BUFFER" Width="256"
+              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+              Init="FromBytes" ReadBack="true">
+      { 0I, 0I, 99999999I, 99999999I, 0I, 0I, -1I, -1I, 0I, 0I, 0I, 0I, 42I, 42I, 42I, 42I }
+    </Resource>
+    <Resource Name="U3" Dimension="BUFFER" Width="1024"
+              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+              Init="Zero" ReadBack="true" />
+    <!-- 32-bit typed resources -->
+    <Resource Name="U4" Dimension="BUFFER" Width="256" Format="R32_UINT"
+              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+              Init="FromBytes" ReadBack="true" >
+      { 0I, 0I, 99999999I, 99999999I, 0I, 0I, -1I, -1I, 0I, 0I, 0I, 0I, 42I, 42I, 42I, 42I }
+    </Resource>
+    <Resource Name="U5" Dimension="BUFFER" Width="256" Format="R32_SINT"
+              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+              Init="FromBytes" ReadBack="true">
+      { 0I, 0I, 99999999I, 99999999I, 0I, 0I, -1I, -1I, 0I, 0I, 0I, 0I, 42I, 42I, 42I, 42I }
+    </Resource>
+    <Resource Name="U6" Dimension="BUFFER" Width="1024" Format="R32_UINT"
+              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+              Init="Zero" ReadBack="true" />
+    <Resource Name="U7" Dimension="TEXTURE1D" Width="16" Format="R32_UINT"
+              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+              Init="FromBytes" ReadBack="true" >
+      { 0I, 0I, 99999999I, 99999999I, 0I, 0I, -1I, -1I, 0I, 0I, 0I, 0I, 42I, 42I, 42I, 42I }
+    </Resource>
+    <Resource Name="U8" Dimension="TEXTURE1D" Width="16" Format="R32_SINT"
+              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+              Init="FromBytes" ReadBack="true">
+      { 0I, 0I, 99999999I, 99999999I, 0I, 0I, -1I, -1I, 0I, 0I, 0I, 0I, 42I, 42I, 42I, 42I }
+    </Resource>
+    <Resource Name="U9" Dimension="TEXTURE1D" Width="128" Format="R32_UINT"
+              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+              Init="Zero" ReadBack="true" />
+    <!-- groupshared output buffers -->
+    <Resource Name="U10" Dimension="BUFFER" Width="256"
+              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+              Init="Zero" ReadBack="true" />
+    <Resource Name="U11" Dimension="BUFFER" Width="1024"
+              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+              Init="Zero" ReadBack="true" />
+    <!-- 64-bit typed resources -->
+    <Resource Name="U12" Dimension="BUFFER" Width="256" Format="R32G32_UINT"
+              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+              Init="FromBytes" ReadBack="true" >
+      { 0I, 0I, 99999999I, 99999999I, 0I, 0I, -1I, -1I, 0I, 0I, 0I, 0I, 42I, 42I, 42I, 42I }
+    </Resource>
+    <Resource Name="U13" Dimension="BUFFER" Width="256" Format="R32G32_SINT"
+              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+              Init="FromBytes" ReadBack="true">
+      { 0I, 0I, 99999999I, 99999999I, 0I, 0I, -1I, -1I, 0I, 0I, 0I, 0I, 42I, 42I, 42I, 42I }
+    </Resource>
+    <Resource Name="U14" Dimension="BUFFER" Width="1024" Format="R32G32_UINT"
+              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+              Init="Zero" ReadBack="true" />
+    <Resource Name="U15" Dimension="TEXTURE1D" Width="16" Format="R32G32_UINT"
+              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+              Init="FromBytes" ReadBack="true" >
+      { 0I, 0I, 99999999I, 99999999I, 0I, 0I, -1I, -1I, 0I, 0I, 0I, 0I, 42I, 42I, 42I, 42I }
+    </Resource>
+    <Resource Name="U16" Dimension="TEXTURE1D" Width="16" Format="R32G32_SINT"
+              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+              Init="FromBytes" ReadBack="true">
+      { 0I, 0I, 99999999I, 99999999I, 0I, 0I, -1I, -1I, 0I, 0I, 0I, 0I, 42I, 42I, 42I, 42I }
+    </Resource>
+    <Resource Name="U17" Dimension="TEXTURE1D" Width="128" Format="R32G32_UINT"
+              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+              Init="Zero" ReadBack="true" />
+    <RootValues>
+      <RootValue HeapName="ResHeap" />
+    </RootValues>
+    <DescriptorHeap Name="ResHeap" Type="CBV_SRV_UAV">
+      <!-- Raw buffers -->
+      <Descriptor Name="U0" Kind="UAV" ResName="U0"
+                  NumElements="8" StructureByteStride="72" />
+      <Descriptor Name="U1" Kind="UAV" ResName="U1"
+                  NumElements="128" StructureByteStride="72" />
+      <Descriptor Name="U2" Kind="UAV" ResName="U2"
+                  NumElements="16" StructureByteStride="8" />
+      <Descriptor Name="U3" Kind="UAV" ResName="U3"
+                  NumElements="128" StructureByteStride="8" />
+      <!-- 32-bit typed resources -->
+      <Descriptor Name="U4" Kind="UAV" ResName="U4" Dimension="BUFFER"
+                  NumElements="16"  Format="R32_UINT" />
+      <Descriptor Name="U5" Kind="UAV" ResName="U5" Dimension="BUFFER"
+                  NumElements="16"  Format="R32_UINT" />
+      <Descriptor Name="U6" Kind="UAV" ResName="U6" Dimension="BUFFER"
+                  NumElements="128"  Format="R32_UINT" />
+      <Descriptor Name="U7" Kind="UAV" ResName="U7" Dimension="TEXTURE1D"
+                  NumElements="16"  Format="R32_UINT" />
+      <Descriptor Name="U8" Kind="UAV" ResName="U8" Dimension="TEXTURE1D"
+                  NumElements="16"  Format="R32_UINT" />
+      <Descriptor Name="U9" Kind="UAV" ResName="U9" Dimension="TEXTURE1D"
+                  NumElements="128"  Format="R32_UINT" />
+      <!-- groupshared output buffers -->
+      <Descriptor Name="U10" Kind="UAV" ResName="U10" Dimension="BUFFER"
+                  NumElements="8" Format="R32G32_UINT" />
+      <Descriptor Name="U11" Kind="UAV" ResName="U11" Dimension="BUFFER"
+                  NumElements="64" Format="R32G32_UINT" />
+      <!-- 64-bit typed resources -->
+      <Descriptor Name="U12" Kind="UAV" ResName="U12" Dimension="BUFFER"
+                  NumElements="16"  Format="R32G32_UINT" />
+      <Descriptor Name="U13" Kind="UAV" ResName="U13" Dimension="BUFFER"
+                  NumElements="16"  Format="R32G32_UINT" />
+      <Descriptor Name="U14" Kind="UAV" ResName="U14" Dimension="BUFFER"
+                  NumElements="128"  Format="R32G32_UINT" />
+      <Descriptor Name="U15" Kind="UAV" ResName="U15" Dimension="TEXTURE1D"
+                  NumElements="16"  Format="R32G32_UINT" />
+      <Descriptor Name="U16" Kind="UAV" ResName="U16" Dimension="TEXTURE1D"
+                  NumElements="16"  Format="R32G32_UINT" />
+      <Descriptor Name="U17" Kind="UAV" ResName="U17" Dimension="TEXTURE1D"
+                  NumElements="128"  Format="R32G32_UINT" />
+    </DescriptorHeap>
+    <DescriptorHeap Name="RtvHeap" NumDescriptors="1" Type="RTV">
+      <Descriptor Name="RTarget" Kind="RTV"/>
+    </DescriptorHeap>
+
+    <InputElements>
+      <InputElement SemanticName="POSITION" Format="R32G32B32_FLOAT" AlignedByteOffset="0" />
+      <InputElement SemanticName="TEXCOORD" Format="R32G32_FLOAT" AlignedByteOffset="12" />
+    </InputElements>
+    <RenderTargets>
+      <RenderTarget Name="RTarget"/>
+    </RenderTargets>
+    <Shader Name="PS64" Target="ps_6_6" EntryPoint="PSMain64" Text="@CS"/>
+    <Shader Name="AS64" Target="as_6_6" EntryPoint="ASMain64" Text="@CS"/>
+    <Shader Name="MS64" Target="ms_6_6" EntryPoint="MSMain64" Text="@CS"/>
+    <Shader Name="VS64" Target="vs_6_6" EntryPoint="VSMain64" Text="@CS"/>
+    <Shader Name="CS64" Target="cs_6_6" EntryPoint="CSMain64" Text="@CS"/>
+    <Shader Name="PSTY64" Target="ps_6_6" EntryPoint="PSMainTyped64" Text="@CS"/>
+    <Shader Name="ASTY64" Target="as_6_6" EntryPoint="ASMainTyped64" Text="@CS"/>
+    <Shader Name="MSTY64" Target="ms_6_6" EntryPoint="MSMainTyped64" Text="@CS"/>
+    <Shader Name="VSTY64" Target="vs_6_6" EntryPoint="VSMainTyped64" Text="@CS"/>
+    <Shader Name="CSTY64" Target="cs_6_6" EntryPoint="CSMainTyped64" Text="@CS"/>
+    <Shader Name="ASSH64" Target="as_6_6" EntryPoint="ASMainShared64" Text="@CS"/>
+    <Shader Name="MSSH64" Target="ms_6_6" EntryPoint="MSMainShared64" Text="@CS"/>
+    <Shader Name="CSSH64" Target="cs_6_6" EntryPoint="CSMainShared64" Text="@CS"/>
+    <Shader Name="AS"   Target="as_6_5" EntryPoint="ASMain"   Text="@CS"/>
+    <Shader Name="MS"   Target="ms_6_5" EntryPoint="MSMain"   Text="@CS"/>
+    <Shader Name="VS"   Target="vs_6_0" EntryPoint="VSMain"   Text="@CS"/>
+    <Shader Name="PS"   Target="ps_6_0" EntryPoint="PSMain"   Text="@CS"/>
+    <Shader Name="CS"   Target="cs_6_0" EntryPoint="CSMain">
+      <![CDATA[
+        struct PSInput {
+          float4 position : SV_POSITION;
+          float2 uv : TEXCOORD;
+        };
+        struct AtomicStuff {
+          float2 prepad[3];
+          uint uintEl[4];
+          int4  sintEl;
+          struct useless {
+            uint3 unused;
+          } postpad;
+          float last;
+        };
+        struct Atomic64Stuff {
+          float2 prepad[3];
+          uint64_t uintEl[2];
+          int64_t2  sintEl;
+          struct useless {
+            uint3 unused;
+          } postpad;
+          float last;
+        };
+        RWStructuredBuffer<AtomicStuff> g_structBuf : register(u0);
+        RWStructuredBuffer<AtomicStuff> g_strXchgBuf : register(u1);
+
+        RWByteAddressBuffer g_rawBuf : register(u2);
+        RWByteAddressBuffer g_rawXchgBuf : register(u3);
+
+        RWBuffer<uint> g_uintBuf : register(u4);
+        RWBuffer<int> g_sintBuf : register(u5);
+        RWBuffer<int> g_xchgBuf : register(u6);
+
+        RWTexture1D<uint> g_utexBuf : register(u7);
+        RWTexture1D<int> g_stexBuf : register(u8);
+        RWTexture1D<int> g_xtexBuf : register(u9);
+
+        RWBuffer<uint2> g_shareBuf : register(u10);
+        RWBuffer<uint2> g_shareXchgBuf : register(u11);
+
+        groupshared uint g_uintShare[12];
+        groupshared int g_sintShare[6];
+        groupshared uint g_xchgShare[128];
+
+        RWStructuredBuffer<Atomic64Stuff> g_struct64Buf : register(u0);
+        RWStructuredBuffer<Atomic64Stuff> g_strXchg64Buf : register(u1);
+
+        RWByteAddressBuffer g_raw64Buf : register(u2);
+        RWByteAddressBuffer g_rawXchg64Buf : register(u3);
+
+        RWBuffer<uint64_t> g_uint64Buf : register(u12);
+        RWBuffer<int64_t> g_sint64Buf : register(u13);
+        RWBuffer<int64_t> g_xchg64Buf : register(u14);
+
+        RWTexture1D<uint64_t> g_utex64Buf : register(u15);
+        RWTexture1D<int64_t> g_stex64Buf : register(u16);
+        RWTexture1D<int64_t> g_xtex64Buf : register(u17);
+
+        RWBuffer<uint64_t> g_share64Buf : register(u10);
+        RWBuffer<uint64_t> g_shareXchg64Buf : register(u11);
+
+        groupshared uint64_t g_uint64Share[6];
+        groupshared int64_t g_sint64Share[3];
+        groupshared uint64_t g_xchg64Share[64];
+
+        #define VEC_CALL(op, uav, ix, val) op(uav[ix*stride], val);
+
+        #define USTRUCT_CALL(op, uav, ix, val) op(uav[ix].uintEl[stride], val);
+        #define SSTRUCT_CALL(op, uav, ix, val) op(uav[ix].sintEl.z, val);
+        #define SSTRUCT64_CALL(op, uav, ix, val) op(uav[ix].sintEl.y, val);
+
+        #define URAW_CALL(op, uav, ix, val) uav.op(8*ix, val);
+        #define SRAW_CALL(op, uav, ix, val) uav.op(8*(5+ix), val); // signed at end. raw buffers don't need separate buffers
+
+        #define OP_TEST(ucall, scall, uuav, suav) \
+          ucall(InterlockedAdd, uuav, 0, addVal); \
+          scall(InterlockedMin, suav, 1, sminMaxVal); \
+          scall(InterlockedMax, suav, 2, sminMaxVal); \
+          ucall(InterlockedMin, uuav, 1, uminMaxVal); \
+          ucall(InterlockedMax, uuav, 2, uminMaxVal); \
+          ucall(InterlockedAnd, uuav, 3, ~value); \
+          ucall(InterlockedOr,  uuav, 4, value); \
+          ucall(InterlockedXor, uuav, 5, xorVal);
+
+        #define VEC_CALL3(op, uav, ix, cmp, val) op(uav[(ix)*stride], cmp, val)
+        #define VEC_CALL4(op, uav, ix, cmp, val, o) op(uav[(ix)*stride], cmp, val, o)
+
+        #define STRUCT_CALL3(op, uav, ix, cmp, val) op(uav[ix].uintEl[stride], cmp, val)
+        #define STRUCT_CALL4(op, uav, ix, cmp, val, o) op(uav[ix].uintEl[stride], cmp, val, o)
+
+        #define RAW_CALL3(op, uav, ix, cmp, val) uav.op(8*(ix), cmp, val)
+        #define RAW_CALL4(op, uav, ix, cmp, val, o) uav.op(8*(ix), cmp, val, o)
+
+        // The first of four to match gets the first and then the winner performs the last two exchanges
+        #define XCHG_TEST(call3, call4, uav) \
+          call3(InterlockedCompareStore,    uav, (ix/3)%64, 0,           xchgVal - 2); \
+          call4(InterlockedCompareExchange, uav, (ix/3)%64, xchgVal - 2, xchgVal - 1, output); \
+          if (output == xchgVal - 2) { call3(InterlockedExchange, uav, (ix/3)%64, xchgVal, output);}
+
+        void AtomicTest(uint ix, uint bitSize) {
+          uint stride = 2;
+          uint value = (ix) | ((ix) << (bitSize/2));
+          uint addVal = ix; // 32 bits isn't enough room to dupliate upper and lower
+          uint uminMaxVal = ~value*(~value&1) + value*(value&1);
+          int sminMaxVal = ~value*(~value&1) + value*(value&1);
+          uint xorVal = 1U << (ix%(bitSize-1));
+          // make higher bits differ while lower bits match
+          uint xchgVal = (ix << (bitSize/2)) | ((ix/3)%64);
+          uint output = 0;
+
+          // structured
+          OP_TEST(USTRUCT_CALL, SSTRUCT_CALL, g_structBuf, g_structBuf)
+          XCHG_TEST(STRUCT_CALL3, STRUCT_CALL4, g_strXchgBuf)
+
+          // raw
+          OP_TEST(URAW_CALL, SRAW_CALL, g_rawBuf, g_rawBuf)
+          XCHG_TEST(RAW_CALL3, RAW_CALL4, g_rawXchgBuf)
+
+          // typed buffer
+          OP_TEST(VEC_CALL, VEC_CALL, g_uintBuf, g_sintBuf)
+          XCHG_TEST(VEC_CALL3, VEC_CALL4, g_xchgBuf)
+
+          // texture
+          OP_TEST(VEC_CALL, VEC_CALL, g_utexBuf, g_stexBuf)
+          XCHG_TEST(VEC_CALL3, VEC_CALL4, g_xtexBuf)
+        }
+
+        void AtomicRaw64Test(uint ix, uint64_t bitSize) {
+          uint64_t lix = ix;
+          uint stride = 1;
+          uint64_t value = (lix) | ((lix) << (bitSize/2));
+          uint64_t addVal = value;
+          uint64_t uminMaxVal = ~value*(~value&1) + value*(value&1);
+          int64_t sminMaxVal = ~value*(~value&1) + value*(value&1);
+          uint64_t xorVal = 1ULL << (lix%(bitSize-1));
+          // make higher bits differ while lower bits match
+          uint64_t xchgVal = (lix << (bitSize/2)) | ((lix/3)%64);
+          uint64_t output = 0;
+
+          OP_TEST(USTRUCT_CALL, SSTRUCT64_CALL, g_struct64Buf, g_struct64Buf)
+          XCHG_TEST(STRUCT_CALL3, STRUCT_CALL4, g_strXchg64Buf)
+
+          // ByteAddressBuffer for 64-bit values are a special case. inlined here
+          URAW_CALL(InterlockedAdd64, g_raw64Buf, 0, addVal);
+          SRAW_CALL(InterlockedMin64, g_raw64Buf, 1, sminMaxVal);
+          SRAW_CALL(InterlockedMax64, g_raw64Buf, 2, sminMaxVal);
+          URAW_CALL(InterlockedMin64, g_raw64Buf, 1, uminMaxVal);
+          URAW_CALL(InterlockedMax64, g_raw64Buf, 2, uminMaxVal);
+          URAW_CALL(InterlockedAnd64, g_raw64Buf, 3, ~value);
+          URAW_CALL(InterlockedOr64,  g_raw64Buf, 4, value);
+          URAW_CALL(InterlockedXor64, g_raw64Buf, 5, xorVal);
+
+          RAW_CALL3(InterlockedCompareStore64,    g_rawXchg64Buf, (ix/3)%64, 0,           xchgVal - 2);
+          RAW_CALL4(InterlockedCompareExchange64, g_rawXchg64Buf, (ix/3)%64, xchgVal - 2, xchgVal - 1, output);
+          if (output == xchgVal - 2) { RAW_CALL3(InterlockedExchange64, g_rawXchg64Buf, (ix/3)%64, xchgVal, output);}
+        }
+
+        void AtomicTyped64Test(uint ix, uint64_t bitSize) {
+          uint64_t lix = ix;
+          uint stride = 1;
+          uint64_t value = (lix) | ((lix) << (bitSize/2));
+          uint64_t addVal = value;
+          uint64_t uminMaxVal = ~value*(~value&1) + value*(value&1);
+          int64_t sminMaxVal = ~value*(~value&1) + value*(value&1);
+          uint64_t xorVal = 1ULL << (lix%(bitSize-1));
+          // make higher bits differ while lower bits match
+          uint64_t xchgVal = (lix << (bitSize/2)) | ((lix/3)%64);
+          uint64_t output = 0;
+
+          OP_TEST(VEC_CALL, VEC_CALL, g_uint64Buf, g_sint64Buf)
+          XCHG_TEST(VEC_CALL3, VEC_CALL4, g_xchg64Buf)
+
+          OP_TEST(VEC_CALL, VEC_CALL, g_utex64Buf, g_stex64Buf)
+          XCHG_TEST(VEC_CALL3, VEC_CALL4, g_xtex64Buf)
+        }
+
+        void InitSharedMem(uint ix) {
+          // Zero-init shared memory, with special cases
+          if (ix < 6)
+            g_uintShare[ix] = ix == 1 ? 99999999 : ix == 3 ? -1 : 0;
+          if (ix < 3)
+            g_sintShare[ix] = ix == 1 ? 99999999 : 0;
+          if (ix < 64)
+            g_xchgShare[ix] = 0;
+
+          GroupMemoryBarrierWithGroupSync();
+        }
+
+        void InitSharedMem64(uint ix) {
+          // Zero-init shared memory, with special cases
+          if (ix < 6)
+            g_uint64Share[ix] = ix == 1 ? 99999999ULL | (99999999ULL << 32) : ix == 3 ? ~0ULL : 0;
+          if (ix < 3)
+            g_sint64Share[ix] = ix == 1 ? 99999999ULL | (99999999ULL << 32) : 0;
+          if (ix < 64)
+            g_xchg64Share[ix] = 0;
+
+          GroupMemoryBarrierWithGroupSync();
+        }
+
+        void AtomicGroupSharedTest(uint ix) {
+          uint stride = 1;
+          uint bitSize = 32;
+          uint value = (ix) | ((ix) << (bitSize/2));
+          uint addVal = ix; // 32 bits isn't enough room to dupliate upper and lower
+          uint uminMaxVal = ~value*(~value&1) + value*(value&1);
+          int sminMaxVal = ~value*(~value&1) + value*(value&1);
+          uint xorVal = 1U << (ix%(bitSize-1));
+          uint xchgVal = (ix << (bitSize/2)) | ((ix/3)%64);
+          uint output = 0;
+
+          OP_TEST(VEC_CALL, VEC_CALL, g_uintShare, g_sintShare)
+          XCHG_TEST(VEC_CALL3, VEC_CALL4, g_xchgShare)
+
+          GroupMemoryBarrierWithGroupSync();
+        }
+
+        void AtomicGroupShared64Test(uint ix) {
+          uint64_t lix = ix;
+          uint stride = 1;
+          uint64_t bitSize = 64;
+          uint64_t value = (lix) | ((lix) << (bitSize/2));
+          uint64_t addVal = value;
+          uint64_t uminMaxVal = ~value*(~value&1) + value*(value&1);
+          int64_t sminMaxVal = ~value*(~value&1) + value*(value&1);
+          uint64_t xorVal = 1ULL << (lix%(bitSize-1));
+          uint64_t xchgVal = (lix << (bitSize/2)) | ((lix/3)%64);
+          uint64_t output = 0;
+
+          OP_TEST(VEC_CALL, VEC_CALL, g_uint64Share, g_sint64Share)
+          XCHG_TEST(VEC_CALL3, VEC_CALL4, g_xchg64Share)
+
+          GroupMemoryBarrierWithGroupSync();
+        }
+
+        // Payloads are used to transport AS test results to MS where they are finalized
+        struct Payload {
+          uint arith[16];
+          uint xchg[64];
+        };
+
+        struct Payload64 {
+          uint64_t arith[16];
+          uint64_t xchg[64];
+        };
+
+        static float4 g_Verts[6] = {
+          { -1.0f,  1.0f, 0.0f, 1.0f },
+          {  1.0f,  1.0f, 0.0f, 1.0f },
+          { -1.0f, -1.0f, 0.0f, 1.0f },
+
+          { -1.0f, -1.0f, 0.0f, 1.0f },
+          {  1.0f,  1.0f, 0.0f, 1.0f },
+          {  1.0f, -1.0f, 0.0f, 1.0f }};
+
+        static float2 g_UV[6] = {
+          { 0.0f, 0.0f },
+          { 1.0f, 0.0f },
+          { 0.0f, 1.0f },
+
+          { 0.0f, 1.0f },
+          { 1.0f, 0.0f },
+          { 1.0f, 1.0f }};
+
+        groupshared Payload payload;
+
+        [NumThreads(8, 8, 2)]
+        void ASMain(uint ix : SV_GroupIndex) {
+          AtomicTest(64*64 + 8*8*2 + ix, 32);
+
+          InitSharedMem(ix);
+          AtomicGroupSharedTest(ix);
+
+          // Copy AS test results to payload and ultimately to MS
+          // More threads than results are possible,
+          // so indices will result in duplicate copies
+          payload.arith[ix%6] = g_uintShare[ix%6];
+          payload.arith[ix%3 + 6] = g_sintShare[ix%3 + 1];
+          payload.xchg[ix%64] = g_xchgShare[ix%64];
+
+          DispatchMesh(1, 1, 1, payload);
+        }
+
+        [NumThreads(8, 8, 2)]
+        [OutputTopology("triangle")]
+        void MSMain(
+          uint ix : SV_GroupIndex,
+          in payload Payload payload,
+          out vertices PSInput verts[6],
+          out indices uint3 tris[2]) {
+            SetMeshOutputCounts(6, 2);
+            // Assign static fullscreen 2 tri quad
+            verts[ix%6].position = g_Verts[ix%6];
+            verts[ix%6].uv = g_UV[ix%6];
+            tris[ix&1] = uint3((ix&1)*3, (ix&1)*3 + 1, (ix&1)*3 + 2);
+
+            AtomicTest(64*64 + ix, 32);
+
+            // Load AS test results from payload
+            // More threads than results are possible,
+            // so indices will result in duplicate copies
+            g_uintShare[ix%6] = payload.arith[ix%6];
+            g_sintShare[ix%3] = payload.arith[ix%3 + 6];
+            g_xchgShare[ix%64] = payload.xchg[ix%64];
+
+            GroupMemoryBarrierWithGroupSync();
+
+            AtomicGroupSharedTest(8*8*2 + ix);
+
+            // Copy final AS + MS results to output UAVs
+            g_shareBuf[ix%6].x = g_uintShare[ix%6];
+            g_shareBuf[ix%3 + 6].x = g_sintShare[ix%3 + 1];
+            g_shareXchgBuf[ix%64].x = g_xchgShare[ix%64];
+        }
+
+        PSInput VSMain(float3 position : POSITION, float2 uv : TEXCOORD, uint ix : SV_VertexID) {
+          PSInput result;
+          result.position = float4(position, 1.0);
+          result.uv = uv;
+          AtomicTest(64*64 + ix, 32);
+          return result;
+        }
+
+        float4 PSMain(PSInput input) : SV_TARGET {
+          uint ix = uint(input.uv.y*64)*64 + input.uv.x*64;
+          AtomicTest(ix, 32);
+          return 1;
+        }
+
+        [NumThreads(32, 32, 1)]
+        void CSMain(uint ix : SV_GroupIndex) {
+          AtomicTest(ix, 32);
+          InitSharedMem(ix);
+          AtomicGroupSharedTest(ix);
+
+          g_shareBuf[ix%6].x = g_uintShare[ix%6];
+          g_shareBuf[ix%3 + 6].x = g_sintShare[ix%3 + 1];
+
+          g_shareXchgBuf[ix%64].x = g_xchgShare[ix%64];
+        }
+
+        [NumThreads(8, 8, 2)]
+        void ASMain64(uint ix : SV_GroupIndex) {
+          AtomicRaw64Test(64*64 + 8*8*2 + ix, 64);
+          DispatchMesh(1, 1, 1, payload);
+        }
+
+        [NumThreads(8, 8, 2)]
+        [OutputTopology("triangle")]
+        void MSMain64(
+          uint ix : SV_GroupIndex,
+          in payload Payload payload,
+          out vertices PSInput verts[6],
+          out indices uint3 tris[2]) {
+            SetMeshOutputCounts(6, 2);
+            // Assign static fullscreen 2 tri quad
+            verts[ix%6].position = g_Verts[ix%6];
+            verts[ix%6].uv = g_UV[ix%6];
+            tris[ix&1] = uint3((ix&1)*3, (ix&1)*3 + 1, (ix&1)*3 + 2);
+            AtomicRaw64Test(64*64 + ix, 64);
+        }
+
+        PSInput VSMain64(float3 position : POSITION, float2 uv : TEXCOORD, uint ix : SV_VertexID) {
+          PSInput result;
+          result.position = float4(position, 1.0);
+          result.uv = uv;
+          AtomicRaw64Test(64*64 + ix, 64);
+          return result;
+        }
+
+        float4 PSMain64(PSInput input) : SV_TARGET {
+          uint ix = uint(input.uv.y*64)*64 + input.uv.x*64;
+          AtomicRaw64Test(ix, 64);
+          return 1;
+        }
+
+        [NumThreads(32, 32, 1)]
+        void CSMain64(uint ix : SV_GroupIndex) {
+          AtomicRaw64Test(ix, 64);
+        }
+
+        [NumThreads(8, 8, 2)]
+        void ASMainTyped64(uint ix : SV_GroupIndex) {
+          AtomicTyped64Test(64*64 + 8*8*2 + ix, 64);
+          DispatchMesh(1, 1, 1, payload);
+        }
+
+        [NumThreads(8, 8, 2)]
+        [OutputTopology("triangle")]
+        void MSMainTyped64(
+          uint ix : SV_GroupIndex,
+          in payload Payload payload,
+          out vertices PSInput verts[6],
+          out indices uint3 tris[2]) {
+            SetMeshOutputCounts(6, 2);
+            // Assign static fullscreen 2 tri quad
+            verts[ix%6].position = g_Verts[ix%6];
+            verts[ix%6].uv = g_UV[ix%6];
+            tris[ix&1] = uint3((ix&1)*3, (ix&1)*3 + 1, (ix&1)*3 + 2);
+            AtomicTyped64Test(64*64 + ix, 64);
+        }
+
+        PSInput VSMainTyped64(float3 position : POSITION, float2 uv : TEXCOORD, uint ix : SV_VertexID) {
+          PSInput result;
+          result.position = float4(position, 1.0);
+          result.uv = uv;
+          AtomicTyped64Test(64*64 + ix, 64);
+          return result;
+        }
+
+        float4 PSMainTyped64(PSInput input) : SV_TARGET {
+          uint ix = uint(input.uv.y*64)*64 + input.uv.x*64;
+          AtomicTyped64Test(ix, 64);
+          return 1;
+        }
+
+        [NumThreads(32, 32, 1)]
+        void CSMainTyped64(uint ix : SV_GroupIndex) {
+          AtomicTyped64Test(ix, 64);
+        }
+
+        groupshared Payload64 payload64;
+
+        [NumThreads(8, 8, 2)]
+        void ASMainShared64(uint ix : SV_GroupIndex) {
+          InitSharedMem64(ix);
+          AtomicGroupShared64Test(ix);
+
+          // Copy AS test results to payload and ultimately to MS
+          // More threads than results are possible,
+          // so indices will result in duplicate copies
+          payload64.arith[ix%6] = g_uint64Share[ix%6];
+          payload64.arith[ix%3 + 6] = g_sint64Share[ix%3 + 1];
+          payload64.xchg[ix%64] = g_xchg64Share[ix%64];
+
+          DispatchMesh(1, 1, 1, payload64);
+        }
+
+        [NumThreads(8, 8, 2)]
+        [OutputTopology("triangle")]
+        void MSMainShared64(
+          uint ix : SV_GroupIndex,
+          in payload Payload64 payload,
+          out vertices PSInput verts[6],
+          out indices uint3 tris[2]) {
+            SetMeshOutputCounts(6, 2);
+            // Assign static fullscreen 2 tri quad
+            verts[ix%6].position = g_Verts[ix%6];
+            verts[ix%6].uv = g_UV[ix%6];
+            tris[ix&1] = uint3((ix&1)*3, (ix&1)*3 + 1, (ix&1)*3 + 2);
+
+            // Load AS test results from payload
+            // More threads than results are possible,
+            // so indices will result in duplicate copies
+            g_uint64Share[ix%6] = payload.arith[ix%6];
+            g_sint64Share[ix%3] = payload.arith[ix%3 + 6];
+            g_xchg64Share[ix%64] = payload.xchg[ix%64];
+
+            GroupMemoryBarrierWithGroupSync();
+
+            AtomicGroupShared64Test(8*8*2 + ix);
+
+            // Copy final AS + MS results to output UAVs
+            g_share64Buf[ix%6] = g_uint64Share[ix%6];
+            g_share64Buf[ix%3 + 6] = g_sint64Share[ix%3 + 1];
+            g_shareXchg64Buf[ix%64] = g_xchg64Share[ix%64];
+
+        }
+
+        [NumThreads(32, 32, 1)]
+        void CSMainShared64(uint ix : SV_GroupIndex) {
+          InitSharedMem64(ix);
+          AtomicGroupShared64Test(ix);
+
+          // Copy final results to output UAVs
+          g_share64Buf[ix%6] = g_uint64Share[ix%6];
+          g_share64Buf[ix%3 + 6] = g_sint64Share[ix%3 + 1];
+          g_shareXchg64Buf[ix%64] = g_xchg64Share[ix%64];
+
+        }
+      ]]>
+    </Shader>
+  </ShaderOp>
+
   <ShaderOp Name="FloatAtomics" PS="PS" VS="VS" CS="CS" AS="AS" MS="MS" TopologyType="TRIANGLE">
     <RootSignature>
       RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT),
