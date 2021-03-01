@@ -198,10 +198,10 @@ public:
     return S_OK;
   }
 
-  virtual HRESULT STDMETHODCALLTYPE GetCustomVersionString(_Outptr_result_z_ char **ppVersionString) {
-    if (!ppVersionString)
+  virtual HRESULT STDMETHODCALLTYPE GetCustomVersionString(_Outptr_result_z_ char **pVersionString) {
+    if (!pVersionString)
       return E_POINTER;
-    IFR(CopyStringToOutStringPtr(m_VersionString, ppVersionString));
+    IFR(CopyStringToOutStringPtr(m_VersionString, pVersionString));
     return S_OK;
   }
 };
