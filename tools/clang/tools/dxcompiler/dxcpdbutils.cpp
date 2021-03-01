@@ -198,10 +198,10 @@ public:
     return S_OK;
   }
 
-  virtual HRESULT STDMETHODCALLTYPE GetCustomVersionString(_Outptr_result_z_ char **ppCommitHash) {
-    if (!ppCommitHash)
+  virtual HRESULT STDMETHODCALLTYPE GetCustomVersionString(_Outptr_result_z_ char **ppVersionString) {
+    if (!ppVersionString)
       return E_POINTER;
-    IFR(CopyStringToOutStringPtr(m_VersionString, ppCommitHash));
+    IFR(CopyStringToOutStringPtr(m_VersionString, ppVersionString));
     return S_OK;
   }
 };
