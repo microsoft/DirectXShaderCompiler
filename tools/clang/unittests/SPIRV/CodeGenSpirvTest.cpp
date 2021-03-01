@@ -1708,6 +1708,14 @@ TEST_F(FileTest, VulkanAttributeShaderRecordEXTInvalidUsages) {
   runFileTest("vk.attribute.shader-record-ext.invalid.hlsl", Expect::Failure);
 }
 
+TEST_F(FileTest, VulkanAttributeImageFormat) {
+  runFileTest("vk.attribute.image-format.hlsl", Expect::Success,
+              /*runValidation*/ false);
+}
+TEST_F(FileTest, VulkanAttributeImageFormatO3) {
+  runFileTest("vk.attribute.image-format.o3.hlsl");
+}
+
 TEST_F(FileTest, VulkanCLOptionInvertYVS) {
   runFileTest("vk.cloption.invert-y.vs.hlsl");
 }

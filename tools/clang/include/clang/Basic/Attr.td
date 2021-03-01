@@ -937,6 +937,32 @@ def ConstantTextureBuffer
                   S->getType()->getAs<RecordType>()->getDecl()->getName() ==
                       "TextureBuffer")}]>;
 
+// Global variable with "RWTexture" type
+def RWTexture
+    : SubsetSubject<
+          Var, [{S->hasGlobalStorage() && S->getType()->getAs<RecordType>() &&
+                 S->getType()->getAs<RecordType>()->getDecl() &&
+                  (S->getType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RWTexture1D" ||
+                  S->getType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RWTexture1DArray" ||
+                  S->getType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RWTexture2D" ||
+                  S->getType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RWTexture2DArray" ||
+                  S->getType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RWTexture3D")}]>;
+
+// Global variable with "[RW]Buffer" type
+def Buffer
+    : SubsetSubject<
+          Var, [{S->hasGlobalStorage() && S->getType()->getAs<RecordType>() &&
+                 S->getType()->getAs<RecordType>()->getDecl() &&
+                 (S->getType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "Buffer" ||
+                  S->getType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RWBuffer")}]>;
+
 def VKBuiltIn : InheritableAttr {
   let Spellings = [CXX11<"vk", "builtin">];
   let Subjects = SubjectList<[Function, ParmVar, Field], ErrorDiag>;
@@ -993,6 +1019,29 @@ def VKOffset : InheritableAttr {
   let Spellings = [CXX11<"vk", "offset">];
   let Subjects = SubjectList<[Field], ErrorDiag, "ExpectedField">;
   let Args = [IntArgument<"Offset">];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+def VKImageFormat : InheritableAttr {
+  let Spellings = [CXX11<"vk", "image_format">];
+  let Subjects = SubjectList<[RWTexture, Buffer],
+                             ErrorDiag, "ExpectedRWTextureOrBuffer">;
+  let Args = [EnumArgument<"ImageFormat", "ImageFormatType",
+                           ["unknown", "rgba32f", "rgba16f", "r32f", "rgba8", "rgba8snorm",
+                           "rg32f", "rg16f", "r11g11b10f", "r16f", "rgba16", "rgb10a2",
+                           "rg16", "rg8", "r16", "r8", "rgba16snorm", "rg16snorm", "rg8snorm",
+                           "r16snorm", "r8snorm", "rgba32i", "rgba16i", "rgba8i", "r32i",
+                           "rg32i", "rg16i", "rg8i", "r16i", "r8i", "rgba32ui", "rgba16ui", "rgba8ui",
+                           "r32ui", "rgb10a2ui", "rg32ui", "rg16ui", "rg8ui", "r16ui",
+                           "r8ui", "r64ui", "r64i"],
+                           ["unknown", "rgba32f", "rgba16f", "r32f", "rgba8", "rgba8snorm",
+                           "rg32f", "rg16f", "r11g11b10f", "r16f", "rgba16", "rgb10a2",
+                           "rg16", "rg8", "r16", "r8", "rgba16snorm", "rg16snorm", "rg8snorm",
+                           "r16snorm", "r8snorm", "rgba32i", "rgba16i", "rgba8i", "r32i",
+                           "rg32i", "rg16i", "rg8i", "r16i", "r8i", "rgba32ui", "rgba16ui", "rgba8ui",
+                           "r32ui", "rgb10a2ui", "rg32ui", "rg16ui", "rg8ui", "r16ui",
+                           "r8ui", "r64ui", "r64i"]>];
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];
 }
