@@ -297,9 +297,9 @@ struct ResKeyHash {
    }
 };
 
-// Limited to retrieving handles created by CreateHandleFromBinding. returns null otherwise
-// map should contain resources indexed by class, lower, and upper bounds
-DxilResource *GetResourceFromAnnotateHandle(CallInst *handleCall,
+// Limited to retrieving handles created by CreateHandleFromBinding and CreateHandleForLib. returns null otherwise
+// map should contain resources indexed by space, class, lower, and upper bounds
+DxilResource *GetResourceFromAnnotateHandle(const hlsl::DxilModule *M, CallInst *handleCall,
                                      std::unordered_map<ResourceKey, DxilResource *, ResKeyHash, ResKeyEq> resMap) {
   DxilResource *resource = nullptr;
 
@@ -317,6 +317,17 @@ DxilResource *GetResourceFromAnnotateHandle(CallInst *handleCall,
       DxilResourceBinding B = resource_helper::loadBindingFromConstant(*cast<Constant>(fromBind.get_bind()));
       ResourceKey key = {B.resourceClass, B.spaceID, B.rangeLowerBound, B.rangeUpperBound};
       resource = resMap[key];
+    } else if (handleOp == DXIL::OpCode::CreateHandleForLib) {
+      // If library handle, find DxilResource by checking the name
+      if (LoadInst *LI = dyn_cast<LoadInst>(createCall->getArgOperand(
+                                              DXIL::OperandIndex::kCreateHandleForLibResOpIdx))) {
+        Value *resType = LI->getOperand(0);
+        for (auto &&res : M->GetUAVs()) {
+          if (res->GetGlobalSymbol() == resType) {
+            return resource = res.get();
+          }
+        }
+      }
     }
   }
 
@@ -487,7 +498,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
             if (DXIL::IsTyped(RP.getResourceKind()))
                 hasAtomicInt64OnTypedResource = true;
             // set uses 64-bit flag if relevant
-            if (DxilResource *res = GetResourceFromAnnotateHandle(handleCall, resMap)) {
+            if (DxilResource *res = GetResourceFromAnnotateHandle(M, handleCall, resMap)) {
               res->SetHasAtomic64Use(true);
             } else {
               // Assuming CreateHandleFromHeap, which indicates a descriptor
