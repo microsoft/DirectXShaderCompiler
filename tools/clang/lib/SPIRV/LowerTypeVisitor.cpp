@@ -121,6 +121,14 @@ bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
       if (var->hasBinding() && var->getHlslUserType().empty()) {
         var->setHlslUserType(getHlslResourceTypeName(var->getAstResultType()));
       }
+
+      auto spvImageFormat = spvContext.getImageFormatForSpirvVariable(var);
+      if (spvImageFormat != spv::ImageFormat::Unknown) {
+        if (const auto *imageType = dyn_cast<ImageType>(resultType)) {
+          resultType = spvContext.getImageType(imageType, spvImageFormat);
+          instr->setResultType(resultType);
+        }
+      }
     }
     const SpirvType *pointerType =
         spvContext.getPointerType(resultType, instr->getStorageClass());
