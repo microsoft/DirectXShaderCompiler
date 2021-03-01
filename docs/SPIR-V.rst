@@ -786,6 +786,73 @@ are translated into SPIR-V ``OpTypeImage``, with parameters:
 The meanings of the headers in the above table is explained in ``OpTypeImage``
 of the SPIR-V spec.
 
+Vulkan specific Image Formats
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Since HLSL lacks the syntax for fully specifying image formats for textures in
+SPIR-V, we introduce ``[[vk::image_format("FORMAT")]]`` attribute for texture types.
+For example,
+
+.. code:: hlsl
+  [[vk::image_format("rgba8")]]
+  RWBuffer<float4> Buf;
+
+  [[vk::image_format("rg16f")]]
+  RWTexture2D<float2> Tex;
+
+  RWTexture2D<float2> Tex2; // Works like before
+
+``rgba8`` means ``Rgba8`` `SPIR-V Image Format <https://www.khronos.org/registry/spir-v/specs/unified1/SPIRV.html#_a_id_image_format_a_image_format>`_.
+The following table lists the mapping between ``FORMAT`` of
+``[[vk::image_format("FORMAT")]]`` and its corresponding SPIR-V Image Format.
+
+======================= ============================================
+       FORMAT                   SPIR-V Image Format
+======================= ============================================
+``unknown``             ``Unknown``
+``rgba32f``             ``Rgba32f``
+``rgba16f``             ``Rgba16f``
+``r32f``                ``R32f``
+``rgba8``               ``Rgba8``
+``rgba8snorm``          ``Rgba8Snorm``
+``rg32f``               ``Rg32f``
+``rg16f``               ``Rg16f``
+``r11g11b10f``          ``R11fG11fB10f``
+``r16f``                ``R16f``
+``rgba16``              ``Rgba16``
+``rgb10a2``             ``Rgb10A2``
+``rg16``                ``Rg16``
+``rg8``                 ``Rg8``
+``r16``                 ``R16``
+``r8``                  ``R8``
+``rgba16snorm``         ``Rgba16Snorm``
+``rg16snorm``           ``Rg16Snorm``
+``rg8snorm``            ``Rg8Snorm``
+``r16snorm``            ``R16Snorm``
+``r8snorm``             ``R8Snorm``
+``rgba32i``             ``Rgba32i``
+``rgba16i``             ``Rgba16i``
+``rgba8i``              ``Rgba8i``
+``r32i``                ``R32i``
+``rg32i``               ``Rg32i``
+``rg16i``               ``Rg16i``
+``rg8i``                ``Rg8i``
+``r16i``                ``R16i``
+``r8i``                 ``R8i``
+``rgba32ui``            ``Rgba32ui``
+``rgba16ui``            ``Rgba16ui``
+``rgba8ui``             ``Rgba8ui``
+``r32ui``               ``R32ui``
+``rgb10a2ui``           ``Rgb10a2ui``
+``rg32ui``              ``Rg32ui``
+``rg16ui``              ``Rg16ui``
+``rg8ui``               ``Rg8ui``
+``r16ui``               ``R16ui``
+``r8ui``                ``R8ui``
+``r64ui``               ``R64ui``
+``r64i``                ``R64i``
+======================= ============================================
+
 Constant/Texture/Structured/Byte Buffers
 ----------------------------------------
 

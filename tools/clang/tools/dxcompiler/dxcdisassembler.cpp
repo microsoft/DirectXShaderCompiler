@@ -342,7 +342,11 @@ PCSTR g_pFeatureInfoNames[] = {
     "Sampler feedback",
     "64-bit Atomics on Typed Resources",
     "64-bit Atomics on Group Shared",
-    "Derivatives in mesh and amplification shaders"
+    "Derivatives in mesh and amplification shaders",
+    "Resource descriptor heap indexing",
+    "Sampler descriptor heap indexing",
+    "<RESERVED>",
+    "64-bit Atomics on Heap Resources",
 };
 static_assert(_countof(g_pFeatureInfoNames) == ShaderFeatureInfoCount, "g_pFeatureInfoNames needs to be updated");
 

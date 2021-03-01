@@ -1,4 +1,10 @@
 // RUN: %dxc -T lib_6_6 %s | %FileCheck %s
+// RUN: %dxc -T lib_6_6 -Od %s | %FileCheck %s
+// RUN: %dxc -T lib_6_6 -Zi %s | %FileCheck %s -check-prefixes=CHECK,CHECKZI
+// RUN: %dxc -T lib_6_6 -Od -Zi %s | %FileCheck %s -check-prefixes=CHECK,CHECKZI
+
+// CHECK: Note: shader requires additional functionality:
+// CHECK: Resource descriptor heap indexing
 
 // Make sure each entry get 2 createHandleFromHeap.
 // CHECK:define void
@@ -42,3 +48,6 @@ void RayGeneration()
 {
   g_result[0] = g_rawBuf.Load<float>(1);
 }
+
+// Exclude quoted source file (see readme)
+// CHECKZI-LABEL: {{!"[^"]*\\0A[^"]*"}}

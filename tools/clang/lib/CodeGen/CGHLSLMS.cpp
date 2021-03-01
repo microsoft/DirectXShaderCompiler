@@ -302,6 +302,11 @@ public:
   void MarkLoopStmt(CodeGenFunction &CGF, BasicBlock *loopContinue,
                      BasicBlock *loopExit) override;
   void MarkScopeEnd(CodeGenFunction &CGF) override;
+  bool NeedHLSLMartrixCastForStoreOp(const clang::Decl* TD,
+    llvm::SmallVector<llvm::Value*, 16>& IRCallArgs) override;
+  void EmitHLSLMartrixCastForStoreOp(CodeGenFunction& CGF,
+    SmallVector<llvm::Value*, 16>& IRCallArgs,
+    llvm::SmallVector<clang::QualType, 16>& ArgTys) override;
   /// Get or add constant to the program
   HLCBuffer &GetOrCreateCBuffer(HLSLBufferDecl *D);
 };
@@ -4945,6 +4950,57 @@ void CGMSHLSLRuntime::EmitHLSLMatrixStore(CGBuilderTy &Builder, Value *Val,
 
   EmitHLSLMatrixOperationCallImp(Builder, HLOpcodeGroup::HLMatLoadStore, opcode,
                                  Val->getType(), {DestPtr, Val}, TheModule);
+}
+
+bool CGMSHLSLRuntime::NeedHLSLMartrixCastForStoreOp(const clang::Decl* TD,
+  llvm::SmallVector<llvm::Value*, 16>& IRCallArgs) {
+
+  const clang::FunctionDecl* FD = dyn_cast<clang::FunctionDecl>(TD);
+
+  unsigned opcode = 0;
+  StringRef group;
+  if (!hlsl::GetIntrinsicOp(FD, opcode, group))
+    return false;
+
+  if (opcode != (unsigned)hlsl::IntrinsicOp::MOP_Store)
+    return false;
+
+  // Note that the store op is not yet an HL op. It's just a call
+  // to mangled rwbab store function. So adjust the store val position.
+  const unsigned storeValOpIdx = HLOperandIndex::kStoreValOpIdx - 1;
+
+  if (storeValOpIdx >= IRCallArgs.size()) {
+    return false;
+  }
+
+  return HLMatrixType::isa(IRCallArgs[storeValOpIdx]->getType());
+}
+
+void CGMSHLSLRuntime::EmitHLSLMartrixCastForStoreOp(CodeGenFunction& CGF,
+  SmallVector<llvm::Value*, 16>& IRCallArgs,
+  llvm::SmallVector<clang::QualType, 16>& ArgTys) {
+
+  // Note that the store op is not yet an HL op. It's just a call
+  // to mangled rwbab store function. So adjust the store val position.
+  const unsigned storeValOpIdx = HLOperandIndex::kStoreValOpIdx - 1;
+
+  if (storeValOpIdx >= IRCallArgs.size() ||
+    storeValOpIdx >= ArgTys.size()) {
+    return;
+  }
+
+  if (!hlsl::IsHLSLMatType(ArgTys[storeValOpIdx]))
+    return;
+
+  bool isRowMajor =
+    hlsl::IsHLSLMatRowMajor(ArgTys[storeValOpIdx], m_pHLModule->GetHLOptions().bDefaultRowMajor);
+
+  if (!isRowMajor) {
+    IRCallArgs[storeValOpIdx] = EmitHLSLMatrixOperationCallImp(
+      CGF.Builder, HLOpcodeGroup::HLCast,
+      static_cast<unsigned>(HLCastOpcode::RowMatrixToColMatrix),
+      IRCallArgs[storeValOpIdx]->getType(), { IRCallArgs[storeValOpIdx] }, TheModule);
+  }
 }
 
 Value *CGMSHLSLRuntime::EmitHLSLMatrixLoad(CodeGenFunction &CGF, Value *Ptr,

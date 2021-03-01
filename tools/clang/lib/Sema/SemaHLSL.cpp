@@ -11137,6 +11137,28 @@ static int ValidateAttributeFloatArg(Sema &S, const AttributeList &Attr,
   return value;
 }
 
+template <typename AttrType, typename EnumType,
+          bool (*ConvertStrToEnumType)(StringRef, EnumType &)>
+static EnumType ValidateAttributeEnumArg(Sema &S, const AttributeList &Attr,
+                                         EnumType defaultValue,
+                                         unsigned index = 0) {
+  EnumType value(defaultValue);
+  StringRef Str = "";
+  SourceLocation ArgLoc;
+
+  if (Attr.getNumArgs() > index) {
+    if (!S.checkStringLiteralArgumentAttr(Attr, 0, Str, &ArgLoc))
+      return value;
+
+    if (!ConvertStrToEnumType(Str, value)) {
+      S.Diag(Attr.getLoc(), diag::warn_attribute_type_not_supported)
+          << Attr.getName() << Str << ArgLoc;
+    }
+    return value;
+  }
+  return value;
+}
+
 static Stmt* IgnoreParensAndDecay(Stmt* S)
 {
   for (;;)
@@ -11683,6 +11705,15 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     declAttr = ::new (S.Context) VKOffsetAttr(A.getRange(), S.Context,
       ValidateAttributeIntArg(S, A), A.getAttributeSpellingListIndex());
     break;
+  case AttributeList::AT_VKImageFormat: {
+    VKImageFormatAttr::ImageFormatType Kind = ValidateAttributeEnumArg<
+        VKImageFormatAttr, VKImageFormatAttr::ImageFormatType,
+        VKImageFormatAttr::ConvertStrToImageFormatType>(
+        S, A, VKImageFormatAttr::ImageFormatType::unknown);
+    declAttr = ::new (S.Context) VKImageFormatAttr(
+        A.getRange(), S.Context, Kind, A.getAttributeSpellingListIndex());
+    break;
+  }
   case AttributeList::AT_VKInputAttachmentIndex:
     declAttr = ::new (S.Context) VKInputAttachmentIndexAttr(
         A.getRange(), S.Context, ValidateAttributeIntArg(S, A),

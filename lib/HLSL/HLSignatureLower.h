@@ -13,6 +13,8 @@
 #include <unordered_set>
 #include <unordered_map>
 #include "dxc/DXIL/DxilConstants.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Argument.h"
 
 namespace llvm {
 class Value;
@@ -53,6 +55,7 @@ private:
   void GenerateDxilPrimOutputs();
   void GenerateDxilInputsOutputs(DXIL::SignatureKind SK);
   void GenerateDxilCSInputs();
+  bool ValidateSemanticType(llvm::Function* F);
   void GenerateDxilPatchConstantLdSt();
   void GenerateDxilPatchConstantFunctionInputs();
   void GenerateClipPlanesForVS(llvm::Value *outPosition);

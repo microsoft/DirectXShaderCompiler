@@ -109,7 +109,7 @@
       {32.0f, 64.0f, 128.0f, 256.0f},
       {256.0f, 512.0f, 1024.0f, 2048.0f}
     </Resource>
-    <Resource Name="RTarget" Dimension="TEXTURE2D" Width="32" Height="32" Format="R32G32B32A32_FLOAT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" ReadBack="true" />
+    <Resource Name="RTarget" Dimension="TEXTURE2D" Width="64" Height="64" Format="R32G32B32A32_FLOAT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" ReadBack="true" />
     <Resource Name="U0" Dimension="BUFFER" Width="16384"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="Zero" ReadBack="true" />
@@ -203,17 +203,66 @@
           { 1.0f, 0.0f },
           { 1.0f, 1.0f }};
 
-        [NumThreads(MESHDISPATCHX, MESHDISPATCHY, MESHDISPATCHZ)]
-        void ASMain(uint ix : SV_GroupIndex) {
+        uint convert2Dto1D(uint x, uint y, uint width) {
+          // Convert 2D coords to 1D for testing
+          // All completed rows of quads
+          uint prevRows = (y/2)*2*width;
+          // All previous full quads on this quad row
+          uint prevQuads = (x/2)*4;
+          // index into current quad
+          uint quadIx = (y&1)*2 + (x&1);
+          return prevRows + prevQuads + quadIx;
+        }
+
+        float4 PSMain(PSInput input) : SV_TARGET {
+          // Convert from texcoords into a groupIndex equivalent
+          int width = 64;
+          int height = 64;
+          int2 uv = int2(input.uv.x*width, input.uv.y*height);
+
+          uint ix = convert2Dto1D(uv.x, uv.y, DISPATCHX);
+
+          float4 res = 0.0;
+          if (uv.x < DISPATCHX && uv.y < DISPATCHY) {
+            res = DerivTest(uv);
+            g_bufMain[ix] = res;
+          }
+          return res;
+        }
+
+        [NumThreads(DISPATCHX, DISPATCHY, DISPATCHZ)]
+        void CSMain(uint3 id : SV_GroupThreadID, uint ix : SV_GroupIndex) {
+          if (DISPATCHY == 1 && DISPATCHZ == 1)
+            g_bufMain[ix] = DerivTest(ix);
+          else
+            g_bufMain[convert2Dto1D(id.x, id.y, DISPATCHX)] = DerivTest(id.xy);
+        }
+
+#if DISPATCHX * DISPATCHY * DISPATCHZ > 128
+#undef DISPATCHX
+#undef DISPATCHY
+#undef DISPATCHZ
+
+#define DISPATCHX 1
+#define DISPATCHY 1
+#define DISPATCHZ 1
+#endif
+
+        [NumThreads(DISPATCHX, DISPATCHY, DISPATCHZ)]
+        void ASMain(uint3 id : SV_GroupThreadID, uint ix : SV_GroupIndex) {
           Payload payload;
-          g_bufAmp[ix] = DerivTest(ix);
+          if (DISPATCHY == 1 && DISPATCHZ == 1)
+            g_bufAmp[ix] = DerivTest(ix);
+          else
+            g_bufAmp[convert2Dto1D(id.x, id.y, DISPATCHX)] = DerivTest(id.xy);
           payload.nothing = 0;
           DispatchMesh(1, 1, 1, payload);
         }
 
-        [NumThreads(MESHDISPATCHX, MESHDISPATCHY, MESHDISPATCHZ)]
+        [NumThreads(DISPATCHX, DISPATCHY, DISPATCHZ)]
         [OutputTopology("triangle")]
         void MSMain(
+          uint3 id : SV_GroupThreadID,
           uint ix : SV_GroupIndex,
           in payload Payload payload,
           out vertices PSInput verts[6],
@@ -224,23 +273,12 @@
             verts[ix%6].uv = g_UV[ix%6];
             tris[ix&1] = uint3((ix&1)*3, (ix&1)*3 + 1, (ix&1)*3 + 2);
             g_bufMesh[ix] = DerivTest(ix);
-        }
-        float4 PSMain(PSInput input) : SV_TARGET {
-          // Convert from texcoords into a groupIndex equivalent
-          int width = DISPATCHX;
-          int height = DISPATCHY;
-          int2 uv = int2(input.uv.x*width, input.uv.y*height);
-          uint ix = ((uv.y/4)*(width/4))*16 + (uv.x/4)*16 + (((uv.x & 0x2) << 1) | (uv.x & 0x1) | ((uv.y & 0x2) << 2) | ((uv.y & 0x1) << 1));
-
-          float4 res = DerivTest(ix);
-          g_bufMain[ix] = res;
-          return res;
+            if (DISPATCHY == 1 && DISPATCHZ == 1)
+              g_bufMesh[ix] = DerivTest(ix);
+            else
+              g_bufMesh[convert2Dto1D(id.x, id.y, DISPATCHX)] = DerivTest(id.xy);
         }
 
-        [NumThreads(DISPATCHX, DISPATCHY, DISPATCHZ)]
-        void CSMain(uint ix : SV_GroupIndex) {
-          g_bufMain[ix] = DerivTest(ix);
-        }
       ]]>
     </Shader>
   </ShaderOp>
@@ -1641,7 +1679,7 @@
           uint addVal = ix; // 32 bits isn't enough room to dupliate upper and lower
           uint uminMaxVal = ~value*(~value&1) + value*(value&1);
           int sminMaxVal = ~value*(~value&1) + value*(value&1);
-          uint xorVal = 1 << (ix%(bitSize-1));
+          uint xorVal = 1U << (ix%(bitSize-1));
           // make higher bits differ while lower bits match
           uint xchgVal = (ix << (bitSize/2)) | ((ix/3)%64);
           uint output = 0;
@@ -1713,30 +1751,27 @@
         }
 
         void InitSharedMem(uint ix) {
-          // Zero-init shared memory
-          g_uintShare[ix%6] = 0;
-          g_sintShare[ix%3] = 0;
-          g_xchgShare[ix%64] = 0;
+          // Zero-init shared memory, with special cases
+          if (ix < 6)
+            g_uintShare[ix] = ix == 1 ? 99999999 : ix == 3 ? -1 : 0;
+          if (ix < 3)
+            g_sintShare[ix] = ix == 1 ? 99999999 : 0;
+          if (ix < 64)
+            g_xchgShare[ix] = 0;
 
           GroupMemoryBarrierWithGroupSync();
-
-          InterlockedCompareStore(g_uintShare[1], 0, 99999999);
-          InterlockedCompareStore(g_uintShare[3], 0, -1);
-          InterlockedCompareStore(g_sintShare[1], 0, 99999999);
         }
 
         void InitSharedMem64(uint ix) {
-          // Zero-init shared memory
-          g_uint64Share[ix%6] = 0;
-          g_sint64Share[ix%3] = 0;
-          g_xchg64Share[ix%64] = 0;
+          // Zero-init shared memory, with special cases
+          if (ix < 6)
+            g_uint64Share[ix] = ix == 1 ? 99999999ULL | (99999999ULL << 32) : ix == 3 ? ~0ULL : 0;
+          if (ix < 3)
+            g_sint64Share[ix] = ix == 1 ? 99999999ULL | (99999999ULL << 32) : 0;
+          if (ix < 64)
+            g_xchg64Share[ix] = 0;
 
           GroupMemoryBarrierWithGroupSync();
-
-          InterlockedCompareStore(g_uint64Share[1], 0, 99999999ULL | (99999999ULL << 32));
-          InterlockedCompareStore(g_uint64Share[3], 0, ~0ULL);
-          InterlockedCompareStore(g_sint64Share[1], 0, 99999999ULL | (99999999ULL << 32));
-
         }
 
         void AtomicGroupSharedTest(uint ix) {
@@ -1746,7 +1781,7 @@
           uint addVal = ix; // 32 bits isn't enough room to dupliate upper and lower
           uint uminMaxVal = ~value*(~value&1) + value*(value&1);
           int sminMaxVal = ~value*(~value&1) + value*(value&1);
-          uint xorVal = 1 << (ix%(bitSize-1));
+          uint xorVal = 1U << (ix%(bitSize-1));
           uint xchgVal = (ix << (bitSize/2)) | ((ix/3)%64);
           uint output = 0;
 

@@ -2244,6 +2244,11 @@ void DxilExtraPropertyHelper::EmitUAVProperties(const DxilResource &UAV, std::ve
     MDVals.emplace_back(DxilMDHelper::Uint32ToConstMD(DxilMDHelper::kDxilSamplerFeedbackKindTag, m_Ctx));
     MDVals.emplace_back(DxilMDHelper::Uint32ToConstMD((unsigned)UAV.GetSamplerFeedbackType(), m_Ctx));
   }
+  // Whether resource is used for 64-bit atomic op
+  if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 6) >= 0 && UAV.HasAtomic64Use()) {
+    MDVals.emplace_back(DxilMDHelper::Uint32ToConstMD(DxilMDHelper::kDxilAtomic64UseTag, m_Ctx));
+    MDVals.emplace_back(DxilMDHelper::Uint32ToConstMD((unsigned)true, m_Ctx));
+  }
 }
 
 void DxilExtraPropertyHelper::LoadUAVProperties(const MDOperand &MDO, DxilResource &UAV) {
@@ -2274,6 +2279,9 @@ void DxilExtraPropertyHelper::LoadUAVProperties(const MDOperand &MDO, DxilResour
     case DxilMDHelper::kDxilSamplerFeedbackKindTag:
       DXASSERT_NOMSG(UAV.IsFeedbackTexture());
       UAV.SetSamplerFeedbackType((DXIL::SamplerFeedbackType)DxilMDHelper::ConstMDToUint32(MDO));
+      break;
+    case DxilMDHelper::kDxilAtomic64UseTag:
+      UAV.SetHasAtomic64Use(DxilMDHelper::ConstMDToBool(MDO));
       break;
     default:
       DXASSERT(false, "Unknown resource record tag");

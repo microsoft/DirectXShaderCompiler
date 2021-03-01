@@ -180,6 +180,10 @@ bool IsAbsoluteOrCurDirRelativeW(LPCWSTR Path) {
   return FALSE;
 }
 
+}
+
+namespace dxcutil {
+
 void MakeAbsoluteOrCurDirRelativeW(LPCWSTR &Path, std::wstring &PathStorage) {
   if (IsAbsoluteOrCurDirRelativeW(Path)) {
     return;
@@ -191,9 +195,6 @@ void MakeAbsoluteOrCurDirRelativeW(LPCWSTR &Path, std::wstring &PathStorage) {
   }
 }
 
-}
-
-namespace dxcutil {
 /// File system based on API arguments. Support being added incrementally.
 ///
 /// DxcArgsFileSystem emulates a file system to clang/llvm based on API
