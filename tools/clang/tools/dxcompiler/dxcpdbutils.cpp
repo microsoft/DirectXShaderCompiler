@@ -264,6 +264,7 @@ private:
   hlsl::DxilCompilerVersion m_VersionInfo;
   std::string m_VersionCommitSha;
   std::string m_VersionString;
+  CComPtr<IDxcResult> m_pCachedRecompileResult;
 
   // NOTE: This is not set to null by Reset() since it doesn't
   // necessarily change across different PDBs.
@@ -293,6 +294,7 @@ private:
     m_VersionCommitSha.clear();
     m_VersionString.clear();
     m_ArgPairs.clear();
+    m_pCachedRecompileResult = nullptr;
   }
 
   bool HasSources() const {
@@ -724,9 +726,8 @@ public:
     if (!m_InputBlob)
       return E_FAIL;
 
-    if (IsFullPDB()) {
-      return E_FAIL;
-    }
+    if (m_pCachedRecompileResult)
+      return m_pCachedRecompileResult.QueryInterface(ppResult);
 
     if (!m_pCompiler)
       IFR(DxcCreateInstance2(m_pMalloc, CLSID_DxcCompiler, IID_PPV_ARGS(&m_pCompiler)));
@@ -767,10 +768,10 @@ public:
     IFR(main_file->GetEncoding(&bEndodingKnown, &source_buf.Encoding));
 
     CComPtr<IDxcResult> pResult;
-    IFR(m_pCompiler->Compile(&source_buf, new_args.data(), new_args.size(), pIncludeHandler, IID_PPV_ARGS(&pResult)));
+    IFR(m_pCompiler->Compile(&source_buf, new_args.data(), new_args.size(), pIncludeHandler, IID_PPV_ARGS(&m_pCachedRecompileResult)));
 
     CComPtr<IDxcOperationResult> pOperationResult;
-    return pResult.QueryInterface(ppResult);
+    return m_pCachedRecompileResult.QueryInterface(ppResult);
   }
 
   virtual HRESULT STDMETHODCALLTYPE GetFullPDB(_COM_Outptr_ IDxcBlob **ppFullPDB) override {
@@ -866,6 +867,7 @@ public:
 
   virtual HRESULT STDMETHODCALLTYPE SetCompiler(_In_ IDxcCompiler3 *pCompiler) override {
     m_pCompiler = pCompiler;
+    m_pCachedRecompileResult = nullptr; // Clear the previously compiled result
     return S_OK;
   }
 };
