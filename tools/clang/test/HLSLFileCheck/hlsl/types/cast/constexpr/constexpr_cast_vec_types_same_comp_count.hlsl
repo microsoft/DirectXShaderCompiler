@@ -1,27 +1,9 @@
-// RUN: %dxc -E main -T vs_6_2 -enable-16bit-types -DVEC1 -DLTV=uint16_t1 -DRTV=uint1 %s | FileCheck %s
-// RUN: %dxc -E main -T vs_6_2 -enable-16bit-types -DVEC2 -DLTV=uint16_t2 -DRTV=uint2 %s | FileCheck %s
-// RUN: %dxc -E main -T vs_6_2 -enable-16bit-types -DVEC3 -DLTV=uint16_t3 -DRTV=uint3 %s | FileCheck %s
-// RUN: %dxc -E main -T vs_6_2 -enable-16bit-types -DVEC4 -DLTV=uint16_t4 -DRTV=uint4 %s | FileCheck %s
+// RUN: %dxc -E main -T vs_6_2 -enable-16bit-types -DVEC1 -DLHS_TY=uint16_t -DRHS_TY=uint %s | FileCheck %s
+// RUN: %dxc -E main -T vs_6_2 -enable-16bit-types -DVEC1 -DLHS_TY=uint -DRHS_TY=uint16_t %s | FileCheck %s
+// RUN: %dxc -E main -T vs_6_2 -enable-16bit-types -DVEC1 -DLHS_TY=bool -DRHS_TY=int %s | FileCheck %s
+// RUN: %dxc -E main -T vs_6_2 -enable-16bit-types -DVEC1 -DLHS_TY=float -DRHS_TY=bool %s | FileCheck %s
+// RUN: %dxc -E main -T vs_6_2 -enable-16bit-types -DVEC1 -DLHS_TY=float -DRHS_TY=float16_t %s | FileCheck %s
 
-// RUN: %dxc -E main -T vs_6_2 -enable-16bit-types -DVEC1 -DLTV=uint1 -DRTV=uint16_t1 %s | FileCheck %s
-// RUN: %dxc -E main -T vs_6_2 -enable-16bit-types -DVEC2 -DLTV=uint2 -DRTV=uint16_t2 %s | FileCheck %s
-// RUN: %dxc -E main -T vs_6_2 -enable-16bit-types -DVEC3 -DLTV=uint3 -DRTV=uint16_t3 %s | FileCheck %s
-// RUN: %dxc -E main -T vs_6_2 -enable-16bit-types -DVEC4 -DLTV=uint4 -DRTV=uint16_t4 %s | FileCheck %s
-
-// RUN: %dxc -E main -T vs_6_2 -enable-16bit-types -DVEC1 -DLTV=bool1 -DRTV=int1 %s | FileCheck %s
-// RUN: %dxc -E main -T vs_6_2 -enable-16bit-types -DVEC2 -DLTV=bool2 -DRTV=int2 %s | FileCheck %s
-// RUN: %dxc -E main -T vs_6_2 -enable-16bit-types -DVEC3 -DLTV=bool3 -DRTV=int3 %s | FileCheck %s
-// RUN: %dxc -E main -T vs_6_2 -enable-16bit-types -DVEC4 -DLTV=bool4 -DRTV=int4 %s | FileCheck %s
-
-// RUN: %dxc -E main -T vs_6_2 -enable-16bit-types -DVEC1 -DLTV=float1 -DRTV=bool1 %s | FileCheck %s
-// RUN: %dxc -E main -T vs_6_2 -enable-16bit-types -DVEC2 -DLTV=float2 -DRTV=bool2 %s | FileCheck %s
-// RUN: %dxc -E main -T vs_6_2 -enable-16bit-types -DVEC3 -DLTV=float3 -DRTV=bool3 %s | FileCheck %s
-// RUN: %dxc -E main -T vs_6_2 -enable-16bit-types -DVEC4 -DLTV=float4 -DRTV=bool4 %s | FileCheck %s
-
-// RUN: %dxc -E main -T vs_6_2 -enable-16bit-types -DVEC1 -DLTV=float1 -DRTV=float16_t1 %s | FileCheck %s
-// RUN: %dxc -E main -T vs_6_2 -enable-16bit-types -DVEC2 -DLTV=float2 -DRTV=float16_t2 %s | FileCheck %s
-// RUN: %dxc -E main -T vs_6_2 -enable-16bit-types -DVEC3 -DLTV=float3 -DRTV=float16_t3 %s | FileCheck %s
-// RUN: %dxc -E main -T vs_6_2 -enable-16bit-types -DVEC4 -DLTV=float4 -DRTV=float16_t4 %s | FileCheck %s
 
 // This file tests cast between two constexpr-vectors having same component count, but different component types.
 
@@ -31,22 +13,15 @@
 RWByteAddressBuffer rwbab;
 
 void main() : OUT {
-
-#ifdef VEC1
- const LTV v = RTV(0);
- rwbab.Store<LTV>(256, v);
+ const vector<LHS_TY, 1> v1 = vector<RHS_TY, 1>(0);
+ rwbab.Store(256, v1);
  
-#elif VEC2 
- const LTV v = RTV(1, 2);
- rwbab.Store<LTV>(512, v);
+ const vector<LHS_TY, 2> v2 = vector<RHS_TY, 2>(1, 2);
+ rwbab.Store(512, v2);
  
-#elif VEC3
- const LTV v = RTV(4, 5, 6);
- rwbab.Store<LTV>(1024, v);
+ const vector<LHS_TY, 3> v3 = vector<RHS_TY, 3>(4, 5, 6);
+ rwbab.Store(1024, v3);
  
-#else
- const LTV v = RTV(7, 8, 9, 10);
- rwbab.Store<LTV>(2048, v);
-#endif
-
+ const vector<LHS_TY, 4> v4 = vector<RHS_TY, 4>(7, 8, 9, 10);
+ rwbab.Store(2048, v4);
 }

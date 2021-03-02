@@ -5770,16 +5770,14 @@ bool VectorExprEvaluator::VisitCastExpr(const CastExpr* E) {
     SmallVector<APValue, 4> Elts;
     for (uint32_t i = 0; i < Result.getVectorLength(); ++i) {
       APValue Elem = Result.getVectorElt(i);
-      bool Result;
-      HandleConversionToBool(Elem, Result);
+      bool ResultBool;
+      if (!HandleConversionToBool(Elem, ResultBool))
+        return Error(E);
       // Construct an int with bitwidth 1 to represent a boolean
       APSInt ElemBool(/*BitWidth*/ 1);
-      if (Result) {
+      if (ResultBool) {
         // If the conversion to bool is true then set the LSB
         ElemBool.setBit(0);
-      } else {
-        // If the conversion to bool is false then reset the LSB
-        ElemBool.clearAllBits();
       }
       APValue NewElem(ElemBool);
       Elts.push_back(NewElem);
