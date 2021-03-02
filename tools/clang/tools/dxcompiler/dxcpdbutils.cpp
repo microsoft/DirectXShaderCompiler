@@ -717,17 +717,15 @@ public:
     return m_pDebugProgramBlob != nullptr;
   }
 
-  virtual HRESULT STDMETHODCALLTYPE GetFullPDB(_COM_Outptr_ IDxcBlob **ppFullPDB) override {
+  virtual HRESULT STDMETHODCALLTYPE CompileForFullPDB(_COM_Outptr_ IDxcResult **ppResult) {
+    if (!ppResult) return E_POINTER;
+    *ppResult = nullptr;
+
     if (!m_InputBlob)
       return E_FAIL;
 
-    if (!ppFullPDB) return E_POINTER;
-
-    *ppFullPDB = nullptr;
-
-    // If we are already a full pdb, just return the input blob
     if (IsFullPDB()) {
-      return m_InputBlob.QueryInterface(ppFullPDB);
+      return E_FAIL;
     }
 
     if (!m_pCompiler)
@@ -770,6 +768,24 @@ public:
 
     CComPtr<IDxcResult> pResult;
     IFR(m_pCompiler->Compile(&source_buf, new_args.data(), new_args.size(), pIncludeHandler, IID_PPV_ARGS(&pResult)));
+
+    CComPtr<IDxcOperationResult> pOperationResult;
+    return pResult.QueryInterface(ppResult);
+  }
+
+  virtual HRESULT STDMETHODCALLTYPE GetFullPDB(_COM_Outptr_ IDxcBlob **ppFullPDB) override {
+    if (!m_InputBlob)
+      return E_FAIL;
+    if (!ppFullPDB) return E_POINTER;
+    *ppFullPDB = nullptr;
+    // If we are already a full pdb, just return the input blob
+    if (IsFullPDB()) {
+      return m_InputBlob.QueryInterface(ppFullPDB);
+    }
+
+    CComPtr<IDxcResult> pResult;
+
+    IFR(CompileForFullPDB(&pResult));
 
     CComPtr<IDxcOperationResult> pOperationResult;
     IFR(pResult.QueryInterface(&pOperationResult));
