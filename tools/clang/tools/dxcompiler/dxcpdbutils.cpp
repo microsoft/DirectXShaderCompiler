@@ -144,7 +144,7 @@ static void ComputeFlagsBasedOnArgs(ArrayRef<std::wstring> args, std::vector<std
   }
 }
 
-struct DxcPdbVersionInfo : public IDxcVersionInfo2 {
+struct DxcPdbVersionInfo : public IDxcVersionInfo3 {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
 
@@ -156,9 +156,22 @@ public:
 
   hlsl::DxilCompilerVersion m_Version = {};
   std::string m_VersionCommitSha = {};
+  std::string m_VersionString = {};
+
+  static HRESULT CopyStringToOutStringPtr(const std::string &Str, _Out_ char **ppOutString) {
+    *ppOutString = nullptr;
+    char *const pString = (char *)CoTaskMemAlloc(Str.size() + 1);
+    if (pString == nullptr)
+      return E_OUTOFMEMORY;
+    std::memcpy(pString, Str.data(), Str.size());
+    pString[Str.size()] = 0;
+
+    *ppOutString = pString;
+    return S_OK;
+  }
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
-    return DoBasicQueryInterface<IDxcVersionInfo, IDxcVersionInfo2>(this, iid, ppvObject);
+    return DoBasicQueryInterface<IDxcVersionInfo, IDxcVersionInfo2, IDxcVersionInfo3>(this, iid, ppvObject);
   }
 
   virtual HRESULT STDMETHODCALLTYPE GetVersion(_Out_ UINT32 *pMajor, _Out_ UINT32 *pMinor) override {
@@ -175,21 +188,20 @@ public:
     return S_OK;
   }
 
-  virtual HRESULT STDMETHODCALLTYPE GetCommitInfo(_Out_ UINT32 *pCommitCount, _Out_ char **pCommitHash) {
+  virtual HRESULT STDMETHODCALLTYPE GetCommitInfo(_Out_ UINT32 *pCommitCount, _Outptr_result_z_ char **pCommitHash) {
     if (!pCommitHash)
       return E_POINTER;
 
-    *pCommitHash = nullptr;
-
-    char *const hash = (char *)CoTaskMemAlloc(m_VersionCommitSha.size() + 1);
-    if (hash == nullptr)
-      return E_OUTOFMEMORY;
-    std::memcpy(hash, m_VersionCommitSha.data(), m_VersionCommitSha.size());
-    hash[m_VersionCommitSha.size()] = 0;
-
-    *pCommitHash = hash;
+    IFR(CopyStringToOutStringPtr(m_VersionCommitSha, pCommitHash));
     *pCommitCount = m_Version.CommitCount;
 
+    return S_OK;
+  }
+
+  virtual HRESULT STDMETHODCALLTYPE GetCustomVersionString(_Outptr_result_z_ char **pVersionString) {
+    if (!pVersionString)
+      return E_POINTER;
+    IFR(CopyStringToOutStringPtr(m_VersionString, pVersionString));
     return S_OK;
   }
 };
@@ -861,6 +873,7 @@ public:
     }
     result->m_Version = m_VersionInfo;
     result->m_VersionCommitSha = m_VersionCommitSha;
+    result->m_VersionString = m_VersionString;
     *ppVersionInfo = result.Detach();
     return S_OK;
   }
