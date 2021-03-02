@@ -7,6 +7,6 @@
 
 double4 g;
 
-float main(int i:I) : SV_Target {
-  return g[i];
+float main(int2 i:I) : SV_Target {
+  return g[i.x]+g[i.y];
 }
