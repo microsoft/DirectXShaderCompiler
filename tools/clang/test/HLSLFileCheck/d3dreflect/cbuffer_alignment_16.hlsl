@@ -5,10 +5,10 @@
 // CHECK: ; cbuffer cbuf
 // CHECK: ; {
 // CHECK: ;
-// CHECK: ;   struct cbuf
+// CHECK: ;   struct dx.alignment.legacy.cbuf
 // CHECK: ;   {
 // CHECK: ;
-// CHECK: ;       struct struct.Agg
+// CHECK: ;       struct dx.alignment.legacy.struct.Agg
 // CHECK: ;       {
 // CHECK: ;
 // CHECK: ;           struct struct.Value

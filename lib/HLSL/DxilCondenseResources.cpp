@@ -553,8 +553,15 @@ public:
     // Make sure no select on resource.
     bChanged |= RemovePhiOnResource();
 
-    if (m_bIsLib || m_bLegalizationFailed)
+    if (m_bLegalizationFailed)
       return bChanged;
+
+    if (m_bIsLib) {
+      if (DM.GetOP()->UseMinPrecision())
+        UpdateStructTypeForLegacyLayout();
+
+      return bChanged;
+    }
 
     bChanged = true;
 
@@ -564,11 +571,6 @@ public:
 
     GenerateDxilResourceHandles();
 
-    // TODO: Update types earlier for libraries and replace users, to
-    //       avoid having to preserve HL struct annotation.
-    // Note 1: Needs to happen after legalize
-    // Note 2: Cannot do this easily/trivially if any functions have
-    //         resource arguments (in offline linking target).
     if (DM.GetOP()->UseMinPrecision())
       UpdateStructTypeForLegacyLayout();
 
@@ -1731,7 +1733,7 @@ StructType *UpdateStructTypeForLegacyLayout(StructType *ST,
   }
 }
 
-void UpdateStructTypeForLegacyLayout(DxilResourceBase &Res,
+void UpdateStructTypeForLegacyLayout(DxilModule &DM, DxilResourceBase &Res,
                                      DxilTypeSystem &TypeSys, Module &M) {
   Constant *Symbol = Res.GetGlobalSymbol();
   Type *ElemTy = Res.GetHLSLType()->getPointerElementType();
@@ -1753,18 +1755,49 @@ void UpdateStructTypeForLegacyLayout(DxilResourceBase &Res,
     GlobalVariable *NewGV = cast<GlobalVariable>(
         M.getOrInsertGlobal(Symbol->getName().str() + "_legacy", UpdatedST));
     Res.SetGlobalSymbol(NewGV);
-    // Delete old GV.
-    for (auto UserIt = Symbol->user_begin(); UserIt != Symbol->user_end();) {
-      Value *User = *(UserIt++);
-      if (Instruction *I = dyn_cast<Instruction>(User)) {
-        if (!User->user_empty())
-          I->replaceAllUsesWith(UndefValue::get(I->getType()));
+    TypeSys.EraseStructAnnotation(ST);
+    OP *hlslOP = DM.GetOP();
 
-        I->eraseFromParent();
-      } else {
-        ConstantExpr *CE = cast<ConstantExpr>(User);
-        if (!CE->user_empty())
-          CE->replaceAllUsesWith(UndefValue::get(CE->getType()));
+    if (DM.GetShaderModel()->IsLib()) {
+      // If it's a library, we need to replace the GV which involves a few replacements
+      Function *NF = hlslOP->GetOpFunc(hlsl::OP::OpCode::CreateHandleForLib, UpdatedST);
+
+      // Replace old GV.
+      for (auto UserIt = Symbol->user_begin(); UserIt != Symbol->user_end();) {
+        Value *User = *(UserIt++);
+
+        if (LoadInst *ldInst = dyn_cast<LoadInst>(User)) {
+          if (!ldInst->user_empty()) {
+            IRBuilder<> Builder = IRBuilder<>(ldInst);
+            LoadInst *newLoad = Builder.CreateLoad(NewGV);
+            ArrayRef<Value *> args = {hlslOP->GetI32Const((unsigned)hlsl::OP::OpCode::CreateHandleForLib), newLoad};
+
+            for (auto user = ldInst->user_begin(); user != ldInst->user_end();) {
+              CallInst *CI = cast<CallInst>(*(user++));
+
+              CallInst *newCI = CallInst::Create(NF, args, "", CI);
+              CI->replaceAllUsesWith(newCI);
+              CI->eraseFromParent();
+            }
+          }
+          ldInst->eraseFromParent();
+        }
+      }
+    } else {
+      // If not a library, the GV should be deleted
+      for (auto UserIt = Symbol->user_begin(); UserIt != Symbol->user_end();) {
+        Value *User = *(UserIt++);
+
+        if (Instruction *I = dyn_cast<Instruction>(User)) {
+          if (!User->user_empty())
+            I->replaceAllUsesWith(UndefValue::get(I->getType()));
+
+          I->eraseFromParent();
+        } else {
+          ConstantExpr *CE = cast<ConstantExpr>(User);
+          if (!CE->user_empty())
+            CE->replaceAllUsesWith(UndefValue::get(CE->getType()));
+        }
       }
     }
     Symbol->removeDeadConstantUsers();
@@ -1778,17 +1811,17 @@ void UpdateStructTypeForLegacyLayoutOnDM(DxilModule &DM) {
   DxilTypeSystem &TypeSys = DM.GetTypeSystem();
   Module &M = *DM.GetModule();
   for (auto &CBuf : DM.GetCBuffers()) {
-    UpdateStructTypeForLegacyLayout(*CBuf.get(), TypeSys, M);
+    UpdateStructTypeForLegacyLayout(DM, *CBuf.get(), TypeSys, M);
   }
 
   for (auto &UAV : DM.GetUAVs()) {
     if (DXIL::IsStructuredBuffer(UAV->GetKind()))
-      UpdateStructTypeForLegacyLayout(*UAV.get(), TypeSys, M);
+      UpdateStructTypeForLegacyLayout(DM, *UAV.get(), TypeSys, M);
   }
 
   for (auto &SRV : DM.GetSRVs()) {
     if (SRV->IsStructuredBuffer() || SRV->IsTBuffer())
-      UpdateStructTypeForLegacyLayout(*SRV.get(), TypeSys, M);
+      UpdateStructTypeForLegacyLayout(DM, *SRV.get(), TypeSys, M);
   }
 }
 

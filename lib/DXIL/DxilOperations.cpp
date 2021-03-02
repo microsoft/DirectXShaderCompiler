@@ -453,6 +453,10 @@ unsigned OP::GetTypeSlot(Type *pType) {
   }
   case Type::PointerTyID: return 9;
   case Type::StructTyID:  return 10;
+  case Type::ArrayTyID:
+    // dx.alignment.legacy types were originally structs
+    if (pType->getStructName().startswith("dx.alignment.legacy"))
+      return 10;
   default:
     break;
   }
