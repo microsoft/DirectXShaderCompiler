@@ -6648,12 +6648,8 @@ void TranslateCBGepLegacy(GetElementPtrInst *GEP, Value *handle,
         }
       } else {
         Type *EltTy = GEPIt->getVectorElementType();
-        unsigned size = DL.getTypeSizeInBits(EltTy);
-        unsigned vecSize = 4;
-        if (size == 64)
-          vecSize = 2;
-        else if (size == 16)
-          vecSize = 8;
+        unsigned vecSize = GEPIt->getVectorNumElements();
+
         // Load the whole register.
         Value *newLd = GenerateCBLoadLegacy(handle, legacyIndex,
                                      /*channelOffset*/ 0, EltTy,
