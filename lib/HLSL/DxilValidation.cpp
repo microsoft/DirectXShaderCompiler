@@ -972,6 +972,9 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   // CreateHandleFromHeap=218, Unpack4x8=219, Pack4x8=220, IsHelperLane=221
   if ((216 <= op && op <= 221))
     return (major > 6 || (major == 6 && minor >= 6));
+  // Instructions: TextureGatherImm=222, TextureGatherCmpImm=223
+  if ((222 <= op && op <= 223))
+    return (major > 6 || (major == 6 && minor >= 999));
   return true;
   // VALOPCODESM-TEXT:END
 }

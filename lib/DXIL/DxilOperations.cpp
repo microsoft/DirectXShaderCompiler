@@ -851,6 +851,11 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     major = 6;  minor = 6;
     return;
   }
+  // Instructions: TextureGatherImm=222, TextureGatherCmpImm=223
+  if ((222 <= op && op <= 223)) {
+    major = 6;  minor = 999;
+    return;
+  }
   // OPCODE-SMMASK:END
 }
 
