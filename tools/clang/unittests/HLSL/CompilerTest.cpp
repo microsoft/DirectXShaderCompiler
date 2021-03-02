@@ -1010,6 +1010,9 @@ static void VerifyPdbUtil(dxc::DxcDllSupport &dllSupport,
     VERIFY_IS_NOT_NULL(pVersion);
     VERIFY_SUCCEEDED(pVersion.QueryInterface(&pVersion2));
 
+    CComPtr<IDxcVersionInfo3> pVersion3;
+    VERIFY_SUCCEEDED(pVersion.QueryInterface(&pVersion3));
+
     CComPtr<IDxcVersionInfo> pCompilerVersion;
     pCompiler->QueryInterface(&pCompilerVersion);
 
@@ -1030,18 +1033,30 @@ static void VerifyPdbUtil(dxc::DxcDllSupport &dllSupport,
       VERIFY_ARE_EQUAL(uMinor, uCompilerMinor);
       VERIFY_ARE_EQUAL(uFlags, uCompilerFlags);
 
+      // IDxcVersionInfo2
+      UINT32 uCommitCount = 0;
+      CComHeapPtr<char> CommitVersionHash;
+      VERIFY_SUCCEEDED(pVersion2->GetCommitInfo(&uCommitCount, &CommitVersionHash));
+
       CComPtr<IDxcVersionInfo2> pCompilerVersion2;
       if (SUCCEEDED(pCompiler->QueryInterface(&pCompilerVersion2))) {
         UINT32 uCompilerCommitCount = 0;
         CComHeapPtr<char> CompilerCommitVersionHash;
         VERIFY_SUCCEEDED(pCompilerVersion2->GetCommitInfo(&uCompilerCommitCount, &CompilerCommitVersionHash));
 
-        UINT32 uCommitCount = 0;
-        CComHeapPtr<char> CommitVersionHash;
-        VERIFY_SUCCEEDED(pVersion2->GetCommitInfo(&uCommitCount, &CommitVersionHash));
-
         VERIFY_IS_TRUE(0 == strcmp(CommitVersionHash, CompilerCommitVersionHash));
         VERIFY_ARE_EQUAL(uCommitCount, uCompilerCommitCount);
+      }
+
+      // IDxcVersionInfo3
+      CComHeapPtr<char> VersionString;
+      VERIFY_SUCCEEDED(pVersion3->GetCustomVersionString(&VersionString));
+
+      CComPtr<IDxcVersionInfo3> pCompilerVersion3;
+      if (SUCCEEDED(pCompiler->QueryInterface(&pCompilerVersion3))) {
+        CComHeapPtr<char> CompilerVersionString;
+        VERIFY_SUCCEEDED(pCompilerVersion3->GetCustomVersionString(&CompilerVersionString));
+        VERIFY_IS_TRUE(0 == strcmp(CompilerVersionString, VersionString));
       }
     }
   }
