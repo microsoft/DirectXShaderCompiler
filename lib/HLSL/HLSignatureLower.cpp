@@ -1210,50 +1210,6 @@ void HLSignatureLower::GenerateDxilInputsOutputs(DXIL::SignatureKind SK) {
   }
 }
 
-bool HLSignatureLower::ValidateSemanticType(llvm::Function* F) {
-  bool result = true;
-  DxilFunctionAnnotation* funcAnnotation = HLM.GetFunctionAnnotation(F);
-  if (!funcAnnotation) {
-    return result;
-  }
-  for (Argument& arg : F->args()) {
-    DxilParameterAnnotation &paramAnnotation =
-      funcAnnotation->GetParameterAnnotation(arg.getArgNo());
-    llvm::StringRef semanticStr = paramAnnotation.GetSemanticString();
-    if (semanticStr.empty()) {
-      continue;
-    }
-    unsigned index;
-    StringRef baseSemanticStr;
-    Semantic::DecomposeNameAndIndex(semanticStr, &baseSemanticStr, &index);
-    const Semantic* semantic = Semantic::GetByName(baseSemanticStr);
-    Type* argTy = arg.getType();
-
-    if (argTy->isPointerTy())
-      argTy = cast<PointerType>(argTy)->getPointerElementType();
-
-    if (argTy->isArrayTy()) {
-      // Array type for arguments with specific qualifiers are expected.
-      // In this case, we do validation on array's element type.
-      DxilParamInputQual inputQual = paramAnnotation.GetParamInputQual();
-      if (inputQual == DxilParamInputQual::InputPatch ||
-        inputQual == DxilParamInputQual::InputPrimitive ||
-        inputQual == DxilParamInputQual::OutIndices ||
-        inputQual == DxilParamInputQual::OutPrimitives ||
-        inputQual == DxilParamInputQual::OutputPatch ||
-        inputQual == DxilParamInputQual::OutVertices) {
-        argTy = cast<ArrayType>(argTy)->getArrayElementType();
-      }
-    }
-
-    if (!semantic->IsSupportedType(argTy)) {
-      dxilutil::EmitErrorOnFunction(F->getContext(), F, "invalid type used for \'"+ semanticStr.str() + "\' semantic.");
-      result = false;
-    }
-  }
-  return result;
-}
-
 void HLSignatureLower::GenerateDxilCSInputs() {
   OP *hlslOP = HLM.GetOP();
 
@@ -1765,12 +1721,6 @@ void HLSignatureLower::GenerateGetMeshPayloadOperation() {
 }
 // Lower signatures.
 void HLSignatureLower::Run() {
-
-  // Generate error and exit if semantic type
-  // is not one of the allowed types
-  if (!ValidateSemanticType(Entry))
-    return;
-
   DxilFunctionProps &props = HLM.GetDxilFunctionProps(Entry);
   if (props.IsGraphics()) {
     if (props.IsMS()) {

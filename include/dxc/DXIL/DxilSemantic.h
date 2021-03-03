@@ -12,7 +12,6 @@
 #pragma once
 
 #include "llvm/ADT/StringRef.h"
-#include "llvm/IR/Type.h"
 
 #include "DxilConstants.h"
 #include "DxilShaderModel.h"
@@ -23,33 +22,6 @@ namespace hlsl {
 class Semantic {
 public:
   using Kind = DXIL::SemanticKind;
-
-  enum class CompTy {
-    BoolTy             = 1 << 0,
-    HalfTy             = 1 << 1,
-    Int16Ty            = 1 << 2,
-    FloatTy            = 1 << 3,
-    Int32Ty            = 1 << 4,
-    DoubleTy           = 1 << 5,
-    Int64Ty            = 1 << 6,
-    HalfOrFloatTy      = HalfTy | FloatTy,
-    BoolOrInt32Ty      = BoolTy | Int32Ty,
-    BoolOrInt16Or32Ty  = BoolTy | Int16Ty | Int32Ty,
-    FloatOrInt32Ty     = FloatTy | Int32Ty,
-    Int16Or32Ty        = Int16Ty | Int32Ty,
-    AnyIntTy           = BoolTy | Int16Ty | Int32Ty | Int64Ty,
-    AnyFloatTy         = HalfTy | FloatTy | DoubleTy,
-    AnyTy              = AnyIntTy | AnyFloatTy,
-  };
-
-  enum class SizeClass {
-    Unknown,
-    Scalar,
-    Vec2,
-    Vec3,
-    Vec4,
-    Other
-  };
 
   static const int kUndefinedRow = -1;
   static const int kUndefinedCol = -1;
@@ -69,19 +41,13 @@ public:
   const char *GetName() const;
   bool IsArbitrary() const;
   bool IsInvalid() const;
-  bool IsSupportedType(llvm::Type *semTy) const;
-  CompTy GetCompType(llvm::Type* ty) const;
-  SizeClass GetCompCount(llvm::Type* ty) const;
 
 private:
   Kind m_Kind;                   // Semantic kind.
-  const char *m_pszName;         // Canonical name (for system semantics).
-  CompTy m_allowedTys;           // Types allowed for the semantic
-  SizeClass m_minCompCount;      // Minimum component count that is allowed for a semantic
-  SizeClass m_maxCompCount;      // Maximum component count that is allowed for a semantic
+  const char *m_pszName;              // Canonical name (for system semantics).
 
   Semantic() = delete;
-  Semantic(Kind Kind, const char *pszName, CompTy allowedTys, SizeClass minCompCount, SizeClass maxCompCount);
+  Semantic(Kind Kind, const char *pszName);
 
   // Table of all semantic properties.
   static const unsigned kNumSemanticRecords = (unsigned)Kind::Invalid + 1;
