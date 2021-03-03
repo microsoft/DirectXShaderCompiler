@@ -300,7 +300,7 @@ class db_dxil(object):
             self.name_idx[i].category = "Resources - gather"
         for i in "TextureGatherImm,TextureGatherCmpImm".split(","):
             self.name_idx[i].category = "Resources - gather"
-            self.name_idx[i].shader_model = 6,999 # Dummy large shader model to prevent accidental inclusion
+            self.name_idx[i].shader_model = 6,15 # Dummy large shader model to prevent accidental inclusion
         for i in "AtomicBinOp,AtomicCompareExchange,Barrier".split(","):
             self.name_idx[i].category = "Synchronization"
         for i in "CalculateLOD,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY".split(","):

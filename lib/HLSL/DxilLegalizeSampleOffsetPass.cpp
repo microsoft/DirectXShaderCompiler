@@ -187,10 +187,10 @@ bool InstLT(const Offset &a, const Offset &b) {
   DebugLoc bLoc = b.call->getDebugLoc();
 
   if (aLoc && bLoc) {
-    auto *aScope = cast<DIScope>(aLoc.getScope());
-    auto *bScope = cast<DIScope>(bLoc.getScope());
-    StringRef aFile = aScope->getFilename();
-    StringRef bFile = bScope->getFilename();
+    DIScope *aScope = cast<DIScope>(aLoc->getRawScope());
+    DIScope *bScope = cast<DIScope>(bLoc->getRawScope());
+    std::string aFile = aScope->getFilename();
+    std::string bFile = bScope->getFilename();
     return aFile < bFile || (aFile == bFile && aLoc.getLine() < bLoc.getLine());
   }
   // No line numbers, just compare pointers so that matching instructions will be adjacent

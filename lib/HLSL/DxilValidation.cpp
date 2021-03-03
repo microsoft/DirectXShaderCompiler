@@ -974,7 +974,7 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
     return (major > 6 || (major == 6 && minor >= 6));
   // Instructions: TextureGatherImm=222, TextureGatherCmpImm=223
   if ((222 <= op && op <= 223))
-    return (major > 6 || (major == 6 && minor >= 999));
+    return (major > 6 || (major == 6 && minor >= 15));
   return true;
   // VALOPCODESM-TEXT:END
 }
