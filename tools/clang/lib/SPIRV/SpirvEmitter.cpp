@@ -718,6 +718,12 @@ void SpirvEmitter::doDecl(const Decl *decl) {
     doRecordDecl(recordDecl);
   } else if (const auto *enumDecl = dyn_cast<EnumDecl>(decl)) {
     doEnumDecl(enumDecl);
+  } else if (const auto *classTemplateDecl =
+                 dyn_cast<ClassTemplateDecl>(decl)) {
+    // nothing to do.
+  } else if (const auto *functionTemplateDecl =
+                 dyn_cast<FunctionTemplateDecl>(decl)) {
+    // nothing to do.
   } else {
     emitError("decl type %0 unimplemented", decl->getLocation())
         << decl->getDeclKindName();
