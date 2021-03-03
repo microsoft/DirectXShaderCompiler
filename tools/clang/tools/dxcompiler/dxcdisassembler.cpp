@@ -1293,7 +1293,9 @@ static const char *OpCodeSignatures[] = {
   "(index,samplerHeap,nonUniformIndex)",  // CreateHandleFromHeap
   "(unpackMode,pk)",  // Unpack4x8
   "(packMode,x,y,z,w)",  // Pack4x8
-  "()"  // IsHelperLane
+  "()",  // IsHelperLane
+  "(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,channel)",  // TextureGatherImm
+  "(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,channel,compareVale)"  // TextureGatherCmpImm
 };
 // OPCODE-SIGS:END
 

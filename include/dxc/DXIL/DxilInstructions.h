@@ -7164,5 +7164,106 @@ struct DxilInst_IsHelperLane {
   // Metadata
   bool requiresUniformInputs() const { return false; }
 };
+
+/// This instruction same as TextureGather, except offsets are limited to immediate values between -8 and 7
+struct DxilInst_TextureGatherImm {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_TextureGatherImm(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::TextureGatherImm);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (10 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_srv = 1,
+    arg_sampler = 2,
+    arg_coord0 = 3,
+    arg_coord1 = 4,
+    arg_coord2 = 5,
+    arg_coord3 = 6,
+    arg_offset0 = 7,
+    arg_offset1 = 8,
+    arg_channel = 9,
+  };
+  // Accessors
+  llvm::Value *get_srv() const { return Instr->getOperand(1); }
+  void set_srv(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_sampler() const { return Instr->getOperand(2); }
+  void set_sampler(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_coord0() const { return Instr->getOperand(3); }
+  void set_coord0(llvm::Value *val) { Instr->setOperand(3, val); }
+  llvm::Value *get_coord1() const { return Instr->getOperand(4); }
+  void set_coord1(llvm::Value *val) { Instr->setOperand(4, val); }
+  llvm::Value *get_coord2() const { return Instr->getOperand(5); }
+  void set_coord2(llvm::Value *val) { Instr->setOperand(5, val); }
+  llvm::Value *get_coord3() const { return Instr->getOperand(6); }
+  void set_coord3(llvm::Value *val) { Instr->setOperand(6, val); }
+  llvm::Value *get_offset0() const { return Instr->getOperand(7); }
+  void set_offset0(llvm::Value *val) { Instr->setOperand(7, val); }
+  llvm::Value *get_offset1() const { return Instr->getOperand(8); }
+  void set_offset1(llvm::Value *val) { Instr->setOperand(8, val); }
+  llvm::Value *get_channel() const { return Instr->getOperand(9); }
+  void set_channel(llvm::Value *val) { Instr->setOperand(9, val); }
+};
+
+/// This instruction same as TextureGatherCmp, except offsets are limited to immediate values between -8 and 7
+struct DxilInst_TextureGatherCmpImm {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_TextureGatherCmpImm(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::TextureGatherCmpImm);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (11 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_srv = 1,
+    arg_sampler = 2,
+    arg_coord0 = 3,
+    arg_coord1 = 4,
+    arg_coord2 = 5,
+    arg_coord3 = 6,
+    arg_offset0 = 7,
+    arg_offset1 = 8,
+    arg_channel = 9,
+    arg_compareVale = 10,
+  };
+  // Accessors
+  llvm::Value *get_srv() const { return Instr->getOperand(1); }
+  void set_srv(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_sampler() const { return Instr->getOperand(2); }
+  void set_sampler(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_coord0() const { return Instr->getOperand(3); }
+  void set_coord0(llvm::Value *val) { Instr->setOperand(3, val); }
+  llvm::Value *get_coord1() const { return Instr->getOperand(4); }
+  void set_coord1(llvm::Value *val) { Instr->setOperand(4, val); }
+  llvm::Value *get_coord2() const { return Instr->getOperand(5); }
+  void set_coord2(llvm::Value *val) { Instr->setOperand(5, val); }
+  llvm::Value *get_coord3() const { return Instr->getOperand(6); }
+  void set_coord3(llvm::Value *val) { Instr->setOperand(6, val); }
+  llvm::Value *get_offset0() const { return Instr->getOperand(7); }
+  void set_offset0(llvm::Value *val) { Instr->setOperand(7, val); }
+  llvm::Value *get_offset1() const { return Instr->getOperand(8); }
+  void set_offset1(llvm::Value *val) { Instr->setOperand(8, val); }
+  llvm::Value *get_channel() const { return Instr->getOperand(9); }
+  void set_channel(llvm::Value *val) { Instr->setOperand(9, val); }
+  llvm::Value *get_compareVale() const { return Instr->getOperand(10); }
+  void set_compareVale(llvm::Value *val) { Instr->setOperand(10, val); }
+};
 // INSTR-HELPER:END
 } // namespace hlsl
