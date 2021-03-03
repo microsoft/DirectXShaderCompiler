@@ -593,6 +593,8 @@ namespace DXIL {
     // Resources - gather
     TextureGather = 73, // gathers the four texels that would be used in a bi-linear filtering operation
     TextureGatherCmp = 74, // same as TextureGather, except this instrution performs comparison on texels, similar to SampleCmp
+    TextureGatherCmpImm = 223, // same as TextureGatherCmp, except offsets are limited to immediate values between -8 and 7
+    TextureGatherImm = 222, // same as TextureGather, except offsets are limited to immediate values between -8 and 7
   
     // Resources - sample
     RenderTargetGetSampleCount = 77, // gets the number of samples for a render target
@@ -718,7 +720,7 @@ namespace DXIL {
     NumOpCodes_Dxil_1_5 = 216,
     NumOpCodes_Dxil_1_6 = 222,
   
-    NumOpCodes = 222 // exclusive last value of enumeration
+    NumOpCodes = 224 // exclusive last value of enumeration
   };
   // OPCODE-ENUM:END
 
@@ -900,6 +902,8 @@ namespace DXIL {
     // Resources - gather
     TextureGather,
     TextureGatherCmp,
+    TextureGatherCmpImm,
+    TextureGatherImm,
   
     // Resources - sample
     RenderTargetGetSampleCount,
@@ -983,7 +987,7 @@ namespace DXIL {
     NumOpClasses_Dxil_1_5 = 143,
     NumOpClasses_Dxil_1_6 = 149,
   
-    NumOpClasses = 149 // exclusive last value of enumeration
+    NumOpClasses = 151 // exclusive last value of enumeration
   };
   // OPCODECLASS-ENUM:END
 
@@ -1073,8 +1077,7 @@ namespace DXIL {
     const unsigned kTextureGatherCoord3OpIdx = 6;
     const unsigned kTextureGatherOffset0OpIdx = 7;
     const unsigned kTextureGatherOffset1OpIdx = 8;
-    const unsigned kTextureGatherOffset2OpIdx = 9;
-    const unsigned kTextureGatherChannelOpIdx = 10;
+    const unsigned kTextureGatherChannelOpIdx = 9;
     // TextureGatherCmp.
     const unsigned kTextureGatherCmpCmpValOpIdx = 11;
 
@@ -1089,6 +1092,11 @@ namespace DXIL {
     const unsigned kTextureSampleOffset1OpIdx = 8;
     const unsigned kTextureSampleOffset2OpIdx = 9;
     const unsigned kTextureSampleClampOpIdx = 10;
+
+    // TextureLoad.
+    const unsigned kTextureLoadOffset0OpIdx = 6;
+    const unsigned kTextureLoadOffset1OpIdx = 8;
+    const unsigned kTextureLoadOffset2OpIdx = 9;
 
     // AtomicBinOp.
     const unsigned kAtomicBinOpHandleOpIdx = 1;
