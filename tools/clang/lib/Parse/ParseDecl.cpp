@@ -1927,7 +1927,7 @@ Parser::DeclGroupPtrTy Parser::ParseDeclaration(unsigned Context,
   switch (Tok.getKind()) {
   case tok::kw_template:
     // HLSL Change Starts
-    if (getLangOpts().HLSL) {
+    if (getLangOpts().HLSL && !getLangOpts().EnableTemplates) {
       Diag(Tok, diag::err_hlsl_reserved_keyword) << Tok.getName();
       SkipMalformedDecl();
       return DeclGroupPtrTy();
@@ -4092,7 +4092,7 @@ HLSLReservedKeyword:
 
     // C++ typename-specifier:
     case tok::kw_typename:
-      if (getLangOpts().HLSL) { goto HLSLReservedKeyword; } // HLSL Change - reserved for HLSL
+      if (getLangOpts().HLSL && !getLangOpts().EnableTemplates) { goto HLSLReservedKeyword; } // HLSL Change - reserved for HLSL
       if (TryAnnotateTypeOrScopeToken()) {
         DS.SetTypeSpecError();
         goto DoneWithDeclSpec;

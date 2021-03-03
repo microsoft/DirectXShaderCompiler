@@ -1250,7 +1250,7 @@ HLSLReservedKeyword:
     if (getLangOpts().HLSL && (
         SavedKind == tok::kw_wchar_t || SavedKind == tok::kw_char || SavedKind == tok::kw_char16_t || SavedKind == tok::kw_char32_t ||
         SavedKind == tok::kw_short || SavedKind == tok::kw_long || SavedKind == tok::kw___int64 || SavedKind == tok::kw___int128 ||
-        SavedKind == tok::kw_typename || SavedKind == tok::kw_typeof)) {
+        (SavedKind == tok::kw_typename && !getLangOpts().EnableTemplates) || SavedKind == tok::kw_typeof)) {
       // the vector/image/sampler/event keywords aren't returned by the lexer for HLSL
       goto HLSLReservedKeyword;
     }
@@ -2775,8 +2775,19 @@ bool Parser::ParseExpressionList(SmallVectorImpl<Expr *> &Exprs,
     } else
       Expr = ParseAssignmentExpression();
 
-    if (Tok.is(tok::ellipsis))
-      Expr = Actions.ActOnPackExpansion(Expr.get(), ConsumeToken());    
+    if (Tok.is(tok::ellipsis)) {
+      // HLSL Change Starts
+      if (getLangOpts().HLSL) {
+        Diag(Tok, diag::err_hlsl_variadic_templates);
+        SkipUntil(tok::r_paren, StopBeforeMatch);
+        Actions.CorrectDelayedTyposInExpr(Expr);
+        Expr = ExprError();
+        SawError = true;
+        break;
+      }
+      // HLSL Change Ends
+      Expr = Actions.ActOnPackExpansion(Expr.get(), ConsumeToken());
+    }
     if (Expr.isInvalid()) {
       SkipUntil(tok::comma, tok::r_paren, StopBeforeMatch);
       SawError = true;

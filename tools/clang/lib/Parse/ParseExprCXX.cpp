@@ -82,7 +82,6 @@ static void FixDigraph(Parser &P, Preprocessor &PP, Token &DigraphToken,
 void Parser::CheckForTemplateAndDigraph(Token &Next, ParsedType ObjectType,
                                         bool EnteringContext,
                                         IdentifierInfo &II, CXXScopeSpec &SS) {
-  assert(!getLangOpts().HLSL && "not supported in HLSL - unreachable"); // HLSL Change
   if (!Next.is(tok::l_square) || Next.getLength() != 2)
     return;
 
@@ -309,7 +308,7 @@ bool Parser::ParseOptionalCXXScopeSpecifier(CXXScopeSpec &SS,
     // 'identifier <' after it.
     if (Tok.is(tok::kw_template)) {
       // HLSL Change Starts - template is reserved
-      if (getLangOpts().HLSL) {
+      if (getLangOpts().HLSL && !getLangOpts().EnableTemplates) {
         Diag(Tok, diag::err_hlsl_reserved_keyword) << Tok.getName();
         ConsumeToken();
         return true;
@@ -332,7 +331,7 @@ bool Parser::ParseOptionalCXXScopeSpecifier(CXXScopeSpec &SS,
         ConsumeToken();
       } else if (Tok.is(tok::kw_operator)) {
         // HLSL Change Starts
-        if (getLangOpts().HLSL) {
+        if (getLangOpts().HLSL && !getLangOpts().EnableTemplates) {
           Diag(Tok, diag::err_hlsl_reserved_keyword) << Tok.getName();
           TPA.Commit();
           return true;
@@ -570,14 +569,14 @@ bool Parser::ParseOptionalCXXScopeSpecifier(CXXScopeSpec &SS,
         continue;
       }
 
-      // HLSL Change: templates aren't really supported in HLSL, so avoid
-      // handling other cases and emitting incorrect diagnostics if
-      // the template lookup fails.
-      if (!nextIsLess && getLangOpts().HLSL) {
+      // HLSL Change: templates aren't really supported in HLSL unless the
+      // EnableTemplates option is enabled, so avoid handling other cases and
+      // emitting incorrect diagnostics if the template lookup fails.
+      if (!nextIsLess && getLangOpts().HLSL && !getLangOpts().EnableTemplates) {
         break;
       }
 
-      if (!getLangOpts().HLSL && // HLSL Change - no template fixup available
+      if (getLangOpts().EnableTemplates && // HLSL Change - template fixup only available when templates enabled
           MemberOfUnknownSpecialization && (ObjectType || SS.isSet()) && 
           (IsTypename || IsTemplateArgumentList(1))) {
         // We have something like t::getAs<T>, where getAs is a 
