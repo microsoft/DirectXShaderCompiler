@@ -261,6 +261,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::SmCSNoSignatures: return "Compute shaders must not have shader signatures.";
     case hlsl::ValidationRule::SmCBufferTemplateTypeMustBeStruct: return "D3D12 constant/texture buffer template element can only be a struct.";
     case hlsl::ValidationRule::SmResourceRangeOverlap: return "Resource %0 with base %1 size %2 overlap with other resource with base %3 size %4 in space %5.";
+    case hlsl::ValidationRule::SmCBufferSize: return "CBuffer size is %0 bytes, exceeding maximum of 65536 bytes.";
     case hlsl::ValidationRule::SmCBufferOffsetOverlap: return "CBuffer %0 has offset overlaps at %1.";
     case hlsl::ValidationRule::SmCBufferElementOverflow: return "CBuffer %0 size insufficient for element at offset %1.";
     case hlsl::ValidationRule::SmCBufferArrayOffsetAlignment: return "CBuffer %0 has unaligned array offset at %1.";
@@ -4174,6 +4175,12 @@ static void ValidateCBuffer(DxilCBuffer &cb, ValidationContext &ValCtx) {
   if (!isa<StructType>(Ty)) {
     ValCtx.EmitResourceError(&cb,
                              ValidationRule::SmCBufferTemplateTypeMustBeStruct);
+    return;
+  }
+  if (cb.GetSize() > (DXIL::kMaxCBufferSize << 4)) {
+    ValCtx.EmitResourceFormatError(&cb,
+                             ValidationRule::SmCBufferSize,
+                             {std::to_string(cb.GetSize())});
     return;
   }
   StructType *ST = cast<StructType>(Ty);

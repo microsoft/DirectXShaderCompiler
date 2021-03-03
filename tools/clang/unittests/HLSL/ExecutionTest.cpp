@@ -303,6 +303,7 @@ public:
   TEST_METHOD(ComputeSampleTest);
   TEST_METHOD(AtomicsTest);
   TEST_METHOD(Atomics64Test);
+  TEST_METHOD(AtomicsRawHeap64Test);
   TEST_METHOD(AtomicsTyped64Test);
   TEST_METHOD(AtomicsShared64Test);
   TEST_METHOD(AtomicsFloatTest);
@@ -1220,6 +1221,18 @@ public:
     if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS9, &O9, sizeof(O9))))
       return false;
     return O9.AtomicInt64OnTypedResourceSupported != FALSE;
+#else
+    UNREFERENCED_PARAMETER(pDevice);
+    return false;
+#endif
+  }
+
+  bool DoesDeviceSupportHeap64Atomics(ID3D12Device *pDevice) {
+#if defined(NTDDI_WIN10_CO) && WDK_NTDDI_VERSION >= NTDDI_WIN10_CO
+    D3D12_FEATURE_DATA_D3D12_OPTIONS11 O11;
+    if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS11, &O11, sizeof(O11))))
+      return false;
+    return O11.AtomicInt64OnDescriptorHeapResourcesSupported != FALSE;
 #else
     UNREFERENCED_PARAMETER(pDevice);
     return false;
@@ -8636,9 +8649,9 @@ void VerifyAtomicsTypedTest(std::shared_ptr<ShaderOpTestResult> test,
 
   // Typed resources can't share between 32 and 64 bits
   if (bitSize == 32) {
-    test->Test->GetReadBackData("U4", &uintData);
-    test->Test->GetReadBackData("U5", &sintData);
-    test->Test->GetReadBackData("U6", &xchgData);
+    test->Test->GetReadBackData("U6", &uintData);
+    test->Test->GetReadBackData("U7", &sintData);
+    test->Test->GetReadBackData("U8", &xchgData);
   } else {
     test->Test->GetReadBackData("U12", &uintData);
     test->Test->GetReadBackData("U13", &sintData);
@@ -8655,9 +8668,9 @@ void VerifyAtomicsTypedTest(std::shared_ptr<ShaderOpTestResult> test,
 
   // Typed resources can't share between 32 and 64 bits
   if (bitSize == 32) {
-    test->Test->GetReadBackData("U7", &uintData);
-    test->Test->GetReadBackData("U8", &sintData);
-    test->Test->GetReadBackData("U9", &xchgData);
+    test->Test->GetReadBackData("U9", &uintData);
+    test->Test->GetReadBackData("U10", &sintData);
+    test->Test->GetReadBackData("U11", &xchgData);
   } else {
     test->Test->GetReadBackData("U15", &uintData);
     test->Test->GetReadBackData("U16", &sintData);
@@ -8682,8 +8695,8 @@ void VerifyAtomicsSharedTest(std::shared_ptr<ShaderOpTestResult> test,
   const BYTE *pUint = nullptr;
   const BYTE *pXchg = nullptr;
 
-  test->Test->GetReadBackData("U10", &uintData);
-  test->Test->GetReadBackData("U11", &xchgData);
+  test->Test->GetReadBackData("U4", &uintData);
+  test->Test->GetReadBackData("U5", &xchgData);
 
   pUint = (BYTE *)uintData.data();
   pXchg = (BYTE *)xchgData.data();
@@ -8712,11 +8725,11 @@ TEST_F(ExecutionTest, AtomicsTest) {
     std::make_shared<st::ShaderOpSet>();
   st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
 
-  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("Atomics");
+  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("AtomicsHeap");
 
   // Test compute shader
   LogCommentFmt(L"Verifying 32-bit integer atomic operations in compute shader");
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap", nullptr, ShaderOpSet);
 
   VerifyAtomicsTest(test, 32*32, 32);
   VerifyAtomicsSharedTest(test, 32*32, 32);
@@ -8725,7 +8738,7 @@ TEST_F(ExecutionTest, AtomicsTest) {
   pShaderOp->CS = nullptr;
   if (DoesDeviceSupportMeshShaders(pDevice)) {
     LogCommentFmt(L"Verifying 32-bit integer atomic operations in amp/mesh/pixel shaders");
-    test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+    test = RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap", nullptr, ShaderOpSet);
     VerifyAtomicsTest(test, 8*8*2 + 8*8*2 + 64*64, 32);
     VerifyAtomicsSharedTest(test, 8*8*2 + 8*8*2, 32);
   }
@@ -8733,7 +8746,7 @@ TEST_F(ExecutionTest, AtomicsTest) {
   // Test Vertex + Pixel shader
   pShaderOp->MS = nullptr;
   LogCommentFmt(L"Verifying 32-bit integer atomic operations in vert/pixel shaders");
-  test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+  test = RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap", nullptr, ShaderOpSet);
   VerifyAtomicsTest(test, 64*64+6, 32);
 }
 
@@ -8746,11 +8759,81 @@ TEST_F(ExecutionTest, Atomics64Test) {
   if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6))
     return;
 
+  if (!DoesDeviceSupportInt64(pDevice)) {
+    WEX::Logging::Log::Comment(L"Device does not support int64 operations.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
   std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
     std::make_shared<st::ShaderOpSet>();
   st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
 
-  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("Atomics");
+  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("AtomicsRoot");
+
+  // Reassign shader stages to 64-bit versions
+  // Collect 64-bit shaders
+  LPCSTR CS64 = nullptr, VS64 = nullptr, PS64 = nullptr;
+  LPCSTR AS64 = nullptr, MS64 = nullptr;
+  for (st::ShaderOpShader &S : pShaderOp->Shaders) {
+    if (!strcmp(S.Name, "CS")) CS64 = S.Name;
+    if (!strcmp(S.Name, "VS")) VS64 = S.Name;
+    if (!strcmp(S.Name, "PS")) PS64 = S.Name;
+    if (!strcmp(S.Name, "AS")) AS64 = S.Name;
+    if (!strcmp(S.Name, "MS")) MS64 = S.Name;
+  }
+  pShaderOp->CS = CS64;
+  pShaderOp->VS = VS64;
+  pShaderOp->PS = PS64;
+  pShaderOp->AS = AS64;
+  pShaderOp->MS = MS64;
+
+  // Test compute shader
+  LogCommentFmt(L"Verifying 64-bit integer atomic operations on raw buffers in compute shader");
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsRoot", nullptr, ShaderOpSet);
+  VerifyAtomicsRawTest(test, 32*32, 64);
+
+  // Test mesh shader if available
+  pShaderOp->CS = nullptr;
+  if (DoesDeviceSupportMeshShaders(pDevice)) {
+    LogCommentFmt(L"Verifying 64-bit integer atomic operations on raw buffers in amp/mesh/pixel shader");
+    test = RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsRoot", nullptr, ShaderOpSet);
+    VerifyAtomicsRawTest(test, 8*8*2 + 8*8*2 + 64*64, 64);
+  }
+
+  // Test Vertex + Pixel shader
+  pShaderOp->MS = nullptr;
+  LogCommentFmt(L"Verifying 64-bit integer atomic operations on raw buffers in vert/pixel shader");
+  test = RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsRoot", nullptr, ShaderOpSet);
+  VerifyAtomicsRawTest(test, 64*64+6, 64);
+}
+
+TEST_F(ExecutionTest, AtomicsRawHeap64Test) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6))
+    return;
+
+  if (!DoesDeviceSupportInt64(pDevice)) {
+    WEX::Logging::Log::Comment(L"Device does not support int64 operations.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
+  if (!DoesDeviceSupportHeap64Atomics(pDevice)) {
+    WEX::Logging::Log::Comment(L"Device does not support 64-bit atomic operations on heap resources.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+    std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+
+  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("AtomicsHeap");
 
   // Reassign shader stages to 64-bit versions
   // Collect 64-bit shaders
@@ -8770,22 +8853,22 @@ TEST_F(ExecutionTest, Atomics64Test) {
   pShaderOp->MS = MS64;
 
   // Test compute shader
-  LogCommentFmt(L"Verifying 64-bit integer atomic operations on raw buffers in compute shader");
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+  LogCommentFmt(L"Verifying 64-bit integer atomic operations on heap raw buffers in compute shader");
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap", nullptr, ShaderOpSet);
   VerifyAtomicsRawTest(test, 32*32, 64);
 
   // Test mesh shader if available
   pShaderOp->CS = nullptr;
   if (DoesDeviceSupportMeshShaders(pDevice)) {
-    LogCommentFmt(L"Verifying 64-bit integer atomic operations on raw buffers in amp/mesh/pixel shader");
-    test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+    LogCommentFmt(L"Verifying 64-bit integer atomic operations on heap raw buffers in amp/mesh/pixel shader");
+    test = RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap", nullptr, ShaderOpSet);
     VerifyAtomicsRawTest(test, 8*8*2 + 8*8*2 + 64*64, 64);
   }
 
   // Test Vertex + Pixel shader
   pShaderOp->MS = nullptr;
-  LogCommentFmt(L"Verifying 64-bit integer atomic operations on raw buffers in vert/pixel shader");
-  test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+  LogCommentFmt(L"Verifying 64-bit integer atomic operations on heap raw buffers in vert/pixel shader");
+  test = RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap", nullptr, ShaderOpSet);
   VerifyAtomicsRawTest(test, 64*64+6, 64);
 }
 
@@ -8814,7 +8897,7 @@ TEST_F(ExecutionTest, AtomicsTyped64Test) {
     std::make_shared<st::ShaderOpSet>();
   st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
 
-  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("Atomics");
+  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("AtomicsHeap");
 
   // Reassign shader stages to 64-bit versions
   // Collect 64-bit shaders
@@ -8835,21 +8918,21 @@ TEST_F(ExecutionTest, AtomicsTyped64Test) {
 
   // Test compute shader
   LogCommentFmt(L"Verifying 64-bit integer atomic operations on typed resources in compute shader");
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap", nullptr, ShaderOpSet);
   VerifyAtomicsTypedTest(test, 32*32, 64);
 
   // Test mesh shader if available
   pShaderOp->CS = nullptr;
   if (DoesDeviceSupportMeshShaders(pDevice)) {
     LogCommentFmt(L"Verifying 64-bit integer atomic operations on typed resources in amp/mesh/pixel shader");
-    test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+    test = RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap", nullptr, ShaderOpSet);
     VerifyAtomicsTypedTest(test, 8*8*2 + 8*8*2 + 64*64, 64);
   }
 
   // Test Vertex + Pixel shader
   pShaderOp->MS = nullptr;
   LogCommentFmt(L"Verifying 64-bit integer atomic operations on typed resources in vert/pixel shader");
-  test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+  test = RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap", nullptr, ShaderOpSet);
   VerifyAtomicsTypedTest(test, 64*64+6, 64);
 }
 
@@ -8878,7 +8961,7 @@ TEST_F(ExecutionTest, AtomicsShared64Test) {
     std::make_shared<st::ShaderOpSet>();
   st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
 
-  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("Atomics");
+  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("AtomicsRoot");
 
   // Reassign shader stages to 64-bit versions
   // Collect 64-bit shaders
@@ -8897,14 +8980,14 @@ TEST_F(ExecutionTest, AtomicsShared64Test) {
   pShaderOp->MS = MS64;
 
   LogCommentFmt(L"Verifying 64-bit integer atomic operations on groupshared variables in compute shader");
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsRoot", nullptr, ShaderOpSet);
   VerifyAtomicsSharedTest(test, 32*32, 64);
 
   // Test mesh shader if available
   pShaderOp->CS = nullptr;
   if (DoesDeviceSupportMeshShaders(pDevice)) {
     LogCommentFmt(L"Verifying 64-bit integer atomic operations on groupshared variables in amp/mesh/pixel shader");
-    test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+    test = RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsRoot", nullptr, ShaderOpSet);
     VerifyAtomicsSharedTest(test, 8*8*2 + 8*8*2, 64);
   }
 }

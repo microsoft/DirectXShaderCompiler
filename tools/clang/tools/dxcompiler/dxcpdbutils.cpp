@@ -144,7 +144,7 @@ static void ComputeFlagsBasedOnArgs(ArrayRef<std::wstring> args, std::vector<std
   }
 }
 
-struct DxcPdbVersionInfo : public IDxcVersionInfo2 {
+struct DxcPdbVersionInfo : public IDxcVersionInfo3 {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
 
@@ -156,9 +156,22 @@ public:
 
   hlsl::DxilCompilerVersion m_Version = {};
   std::string m_VersionCommitSha = {};
+  std::string m_VersionString = {};
+
+  static HRESULT CopyStringToOutStringPtr(const std::string &Str, _Out_ char **ppOutString) {
+    *ppOutString = nullptr;
+    char *const pString = (char *)CoTaskMemAlloc(Str.size() + 1);
+    if (pString == nullptr)
+      return E_OUTOFMEMORY;
+    std::memcpy(pString, Str.data(), Str.size());
+    pString[Str.size()] = 0;
+
+    *ppOutString = pString;
+    return S_OK;
+  }
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
-    return DoBasicQueryInterface<IDxcVersionInfo, IDxcVersionInfo2>(this, iid, ppvObject);
+    return DoBasicQueryInterface<IDxcVersionInfo, IDxcVersionInfo2, IDxcVersionInfo3>(this, iid, ppvObject);
   }
 
   virtual HRESULT STDMETHODCALLTYPE GetVersion(_Out_ UINT32 *pMajor, _Out_ UINT32 *pMinor) override {
@@ -175,21 +188,20 @@ public:
     return S_OK;
   }
 
-  virtual HRESULT STDMETHODCALLTYPE GetCommitInfo(_Out_ UINT32 *pCommitCount, _Out_ char **pCommitHash) {
+  virtual HRESULT STDMETHODCALLTYPE GetCommitInfo(_Out_ UINT32 *pCommitCount, _Outptr_result_z_ char **pCommitHash) {
     if (!pCommitHash)
       return E_POINTER;
 
-    *pCommitHash = nullptr;
-
-    char *const hash = (char *)CoTaskMemAlloc(m_VersionCommitSha.size() + 1);
-    if (hash == nullptr)
-      return E_OUTOFMEMORY;
-    std::memcpy(hash, m_VersionCommitSha.data(), m_VersionCommitSha.size());
-    hash[m_VersionCommitSha.size()] = 0;
-
-    *pCommitHash = hash;
+    IFR(CopyStringToOutStringPtr(m_VersionCommitSha, pCommitHash));
     *pCommitCount = m_Version.CommitCount;
 
+    return S_OK;
+  }
+
+  virtual HRESULT STDMETHODCALLTYPE GetCustomVersionString(_Outptr_result_z_ char **pVersionString) {
+    if (!pVersionString)
+      return E_POINTER;
+    IFR(CopyStringToOutStringPtr(m_VersionString, pVersionString));
     return S_OK;
   }
 };
@@ -264,6 +276,7 @@ private:
   hlsl::DxilCompilerVersion m_VersionInfo;
   std::string m_VersionCommitSha;
   std::string m_VersionString;
+  CComPtr<IDxcResult> m_pCachedRecompileResult;
 
   // NOTE: This is not set to null by Reset() since it doesn't
   // necessarily change across different PDBs.
@@ -293,6 +306,7 @@ private:
     m_VersionCommitSha.clear();
     m_VersionString.clear();
     m_ArgPairs.clear();
+    m_pCachedRecompileResult = nullptr;
   }
 
   bool HasSources() const {
@@ -717,18 +731,15 @@ public:
     return m_pDebugProgramBlob != nullptr;
   }
 
-  virtual HRESULT STDMETHODCALLTYPE GetFullPDB(_COM_Outptr_ IDxcBlob **ppFullPDB) override {
+  virtual HRESULT STDMETHODCALLTYPE CompileForFullPDB(_COM_Outptr_ IDxcResult **ppResult) {
+    if (!ppResult) return E_POINTER;
+    *ppResult = nullptr;
+
     if (!m_InputBlob)
       return E_FAIL;
 
-    if (!ppFullPDB) return E_POINTER;
-
-    *ppFullPDB = nullptr;
-
-    // If we are already a full pdb, just return the input blob
-    if (IsFullPDB()) {
-      return m_InputBlob.QueryInterface(ppFullPDB);
-    }
+    if (m_pCachedRecompileResult)
+      return m_pCachedRecompileResult.QueryInterface(ppResult);
 
     if (!m_pCompiler)
       IFR(DxcCreateInstance2(m_pMalloc, CLSID_DxcCompiler, IID_PPV_ARGS(&m_pCompiler)));
@@ -769,7 +780,25 @@ public:
     IFR(main_file->GetEncoding(&bEndodingKnown, &source_buf.Encoding));
 
     CComPtr<IDxcResult> pResult;
-    IFR(m_pCompiler->Compile(&source_buf, new_args.data(), new_args.size(), pIncludeHandler, IID_PPV_ARGS(&pResult)));
+    IFR(m_pCompiler->Compile(&source_buf, new_args.data(), new_args.size(), pIncludeHandler, IID_PPV_ARGS(&m_pCachedRecompileResult)));
+
+    CComPtr<IDxcOperationResult> pOperationResult;
+    return m_pCachedRecompileResult.QueryInterface(ppResult);
+  }
+
+  virtual HRESULT STDMETHODCALLTYPE GetFullPDB(_COM_Outptr_ IDxcBlob **ppFullPDB) override {
+    if (!m_InputBlob)
+      return E_FAIL;
+    if (!ppFullPDB) return E_POINTER;
+    *ppFullPDB = nullptr;
+    // If we are already a full pdb, just return the input blob
+    if (IsFullPDB()) {
+      return m_InputBlob.QueryInterface(ppFullPDB);
+    }
+
+    CComPtr<IDxcResult> pResult;
+
+    IFR(CompileForFullPDB(&pResult));
 
     CComPtr<IDxcOperationResult> pOperationResult;
     IFR(pResult.QueryInterface(&pOperationResult));
@@ -844,12 +873,14 @@ public:
     }
     result->m_Version = m_VersionInfo;
     result->m_VersionCommitSha = m_VersionCommitSha;
+    result->m_VersionString = m_VersionString;
     *ppVersionInfo = result.Detach();
     return S_OK;
   }
 
   virtual HRESULT STDMETHODCALLTYPE SetCompiler(_In_ IDxcCompiler3 *pCompiler) override {
     m_pCompiler = pCompiler;
+    m_pCachedRecompileResult = nullptr; // Clear the previously compiled result
     return S_OK;
   }
 };
