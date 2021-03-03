@@ -159,7 +159,6 @@ DxilResourceProperties loadPropsFromResourceBase(const DxilResourceBase *Res) {
       break;
     case DXIL::ResourceKind::Texture2DMS:
     case DXIL::ResourceKind::Texture2DMSArray:
-      break;
     case DXIL::ResourceKind::TypedBuffer:
     case DXIL::ResourceKind::Texture1D:
     case DXIL::ResourceKind::Texture2D:
