@@ -3126,6 +3126,7 @@ SM.APPENDANDCONSUMEONSAMEUAV              BufferUpdateCounter inc and dec on a g
 SM.CBUFFERARRAYOFFSETALIGNMENT            CBuffer array offset must be aligned to 16-bytes
 SM.CBUFFERELEMENTOVERFLOW                 CBuffer elements must not overflow
 SM.CBUFFEROFFSETOVERLAP                   CBuffer offsets must not overlap
+SM.CBUFFERSIZE                            CBuffer size must not exceed 65536 bytes
 SM.CBUFFERTEMPLATETYPEMUSTBESTRUCT        D3D12 constant/texture buffer template element can only be a struct.
 SM.COMPLETEPOSITION                       Not all elements of SV_Position were written.
 SM.CONSTANTINTERPMODE                     Interpolation mode must be constant for MS primitive output.
