@@ -478,7 +478,7 @@ void ShaderOpTest::CreatePipelineState() {
     ID3D12Device2 *pDevice2;
     CHECK_HR(m_pDevice->QueryInterface(&pDevice2));
 
-    pDevice2->CreatePipelineState(&PDesc, IID_PPV_ARGS(&m_pPSO));
+    CHECK_HR(pDevice2->CreatePipelineState(&PDesc, IID_PPV_ARGS(&m_pPSO)));
   }
 #endif
   else {
