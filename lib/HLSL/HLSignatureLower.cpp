@@ -248,7 +248,7 @@ void HLSignatureLower::ProcessArgument(Function *func,
   if (sigPoint->GetKind() == DXIL::SigPointKind::MSPOut) {
     if (interpMode != InterpolationMode::Kind::Undefined &&
         interpMode != InterpolationMode::Kind::Constant) {
-      dxilutil::EmitErrorOnFunction(func,
+      dxilutil::EmitErrorOnFunction(HLM.GetModule()->getContext(), func,
         "Mesh shader's primitive outputs' interpolation mode must be constant or undefined.");
     }
     interpMode = InterpolationMode::Kind::Constant;
@@ -270,7 +270,7 @@ void HLSignatureLower::ProcessArgument(Function *func,
 
   llvm::StringRef semanticStr = paramAnnotation.GetSemanticString();
   if (semanticStr.empty()) {
-    dxilutil::EmitErrorOnFunction(func,
+    dxilutil::EmitErrorOnFunction(HLM.GetModule()->getContext(), func,
         "Semantic must be defined for all parameters of an entry function or "
         "patch constant function");
     return;
@@ -302,7 +302,7 @@ void HLSignatureLower::ProcessArgument(Function *func,
       auto &SemanticIndexSet = SemanticUseMap[(unsigned)pSemantic->GetKind()];
       for (unsigned idx : paramAnnotation.GetSemanticIndexVec()) {
         if (SemanticIndexSet.count(idx) > 0) {
-          dxilutil::EmitErrorOnFunction(func, "Parameter with semantic " + semanticStr +
+          dxilutil::EmitErrorOnFunction(HLM.GetModule()->getContext(), func, "Parameter with semantic " + semanticStr +
             " has overlapping semantic index at " + std::to_string(idx) + ".");
           return;
         }
@@ -319,7 +319,7 @@ void HLSignatureLower::ProcessArgument(Function *func,
                0) ||
           (pSemantic->GetKind() == DXIL::SemanticKind::InnerCoverage &&
            SemanticUseMap.count((unsigned)DXIL::SemanticKind::Coverage) > 0)) {
-        dxilutil::EmitErrorOnFunction(func,
+        dxilutil::EmitErrorOnFunction(HLM.GetModule()->getContext(), func,
             "Pixel shader inputs SV_Coverage and SV_InnerCoverage are mutually "
             "exclusive.");
         return;
@@ -332,7 +332,7 @@ void HLSignatureLower::ProcessArgument(Function *func,
   {
     switch (interpretation) {
     case DXIL::SemanticInterpretationKind::NA: {
-      dxilutil::EmitErrorOnFunction(func, Twine("Semantic ") + semanticStr +
+      dxilutil::EmitErrorOnFunction(HLM.GetModule()->getContext(), func, Twine("Semantic ") + semanticStr +
                                     Twine(" is invalid for shader model: ") +
                                     ShaderModel::GetKindName(props.shaderKind));
 
@@ -393,7 +393,7 @@ void HLSignatureLower::ProcessArgument(Function *func,
       pSE = FindArgInSignature(arg, paramAnnotation.GetSemanticString(),
                                interpMode, sigPoint->GetKind(), *pSig);
       if (!pSE) {
-        dxilutil::EmitErrorOnFunction(func, Twine("Signature element ") + semanticStr +
+        dxilutil::EmitErrorOnFunction(HLM.GetModule()->getContext(), func, Twine("Signature element ") + semanticStr +
                                       Twine(", referred to by patch constant function, is not found in "
                                             "corresponding hull shader ") +
                                       (sigKind == DXIL::SignatureKind::Input ? "input." : "output."));
@@ -457,7 +457,7 @@ void HLSignatureLower::CreateDxilSignatures() {
   }
 
   if (bHasClipPlane) {
-    dxilutil::EmitErrorOnFunction(Entry, "Cannot use clipplanes attribute without "
+    dxilutil::EmitErrorOnFunction(HLM.GetModule()->getContext(), Entry, "Cannot use clipplanes attribute without "
                                   "specifying a 4-component SV_Position "
                                   "output");
   }
@@ -467,7 +467,7 @@ void HLSignatureLower::CreateDxilSignatures() {
   if (props.shaderKind == DXIL::ShaderKind::Hull) {
     Function *patchConstantFunc = props.ShaderProps.HS.patchConstantFunc;
     if (patchConstantFunc == nullptr) {
-      dxilutil::EmitErrorOnFunction(Entry,
+      dxilutil::EmitErrorOnFunction(HLM.GetModule()->getContext(), Entry,
           "Patch constant function is not specified.");
     }
 
@@ -496,14 +496,14 @@ void HLSignatureLower::AllocateDxilInputOutputs() {
 
   hlsl::PackDxilSignature(EntrySig.InputSignature, packing);
   if (!EntrySig.InputSignature.IsFullyAllocated()) {
-    dxilutil::EmitErrorOnFunction(Entry,
+    dxilutil::EmitErrorOnFunction(HLM.GetModule()->getContext(), Entry,
         "Failed to allocate all input signature elements in available space.");
   }
 
   if (props.shaderKind != DXIL::ShaderKind::Amplification) {
     hlsl::PackDxilSignature(EntrySig.OutputSignature, packing);
     if (!EntrySig.OutputSignature.IsFullyAllocated()) {
-      dxilutil::EmitErrorOnFunction(Entry,
+      dxilutil::EmitErrorOnFunction(HLM.GetModule()->getContext(), Entry,
           "Failed to allocate all output signature elements in available space.");
     }
   }
@@ -513,7 +513,7 @@ void HLSignatureLower::AllocateDxilInputOutputs() {
       props.shaderKind == DXIL::ShaderKind::Mesh) {
     hlsl::PackDxilSignature(EntrySig.PatchConstOrPrimSignature, packing);
     if (!EntrySig.PatchConstOrPrimSignature.IsFullyAllocated()) {
-      dxilutil::EmitErrorOnFunction(Entry,
+      dxilutil::EmitErrorOnFunction(HLM.GetModule()->getContext(), Entry,
                              "Failed to allocate all patch constant signature "
                              "elements in available space.");
     }
@@ -676,8 +676,11 @@ void replaceMatStWithStOutputs(CallInst *CI, HLMatLoadStoreOpcode matOp,
       for (unsigned r = 0; r < MatTy.getNumRows(); r++) {
         unsigned matIdx = MatTy.getColumnMajorIndex(r, c);
         Value *Elt = LocalBuilder.CreateExtractElement(Val, matIdx);
-        LocalBuilder.CreateCall(ldStFunc,
-                                { OpArg, ID, colIdx, columnConsts[r], Elt });
+
+        SmallVector<Value*, 6> argList = {OpArg, ID, colIdx, columnConsts[r], Elt};
+        if (vertexOrPrimID)
+          argList.emplace_back(vertexOrPrimID);
+        LocalBuilder.CreateCall(ldStFunc, argList);
       }
     }
   } else {
@@ -687,8 +690,11 @@ void replaceMatStWithStOutputs(CallInst *CI, HLMatLoadStoreOpcode matOp,
       for (unsigned c = 0; c < MatTy.getNumColumns(); c++) {
         unsigned matIdx = MatTy.getRowMajorIndex(r, c);
         Value *Elt = LocalBuilder.CreateExtractElement(Val, matIdx);
-        LocalBuilder.CreateCall(ldStFunc,
-                                { OpArg, ID, rowIdx, columnConsts[c], Elt });
+
+        SmallVector<Value*, 6> argList = {OpArg, ID, rowIdx, columnConsts[c], Elt};
+        if (vertexOrPrimID)
+          argList.emplace_back(vertexOrPrimID);
+        LocalBuilder.CreateCall(ldStFunc, argList);
       }
     }
   }
@@ -1146,7 +1152,7 @@ void HLSignatureLower::GenerateDxilInputsOutputs(DXIL::SignatureKind SK) {
       OSS << "(type for " << SE->GetName() << ")";
       OSS << " cannot be used as shader inputs or outputs.";
       OSS.flush();
-      dxilutil::EmitErrorOnFunction(Entry, O);
+      dxilutil::EmitErrorOnFunction(M.getContext(), Entry, O);
       continue;
     }
     Function *dxilFunc = hlslOP->GetOpFunc(opcode, Ty);
@@ -1217,7 +1223,7 @@ void HLSignatureLower::GenerateDxilCSInputs() {
 
     llvm::StringRef semanticStr = paramAnnotation.GetSemanticString();
     if (semanticStr.empty()) {
-      dxilutil::EmitErrorOnFunction(Entry, "Semantic must be defined for all "
+      dxilutil::EmitErrorOnFunction(HLM.GetModule()->getContext(), Entry, "Semantic must be defined for all "
                                     "parameters of an entry function or patch "
                                     "constant function.");
       return;
@@ -1242,7 +1248,7 @@ void HLSignatureLower::GenerateDxilCSInputs() {
     default:
       DXASSERT(semantic->IsInvalid(),
                "else compute shader semantics out-of-date");
-      dxilutil::EmitErrorOnFunction(Entry, "invalid semantic found in CS");
+      dxilutil::EmitErrorOnFunction(HLM.GetModule()->getContext(), Entry, "invalid semantic found in CS");
       return;
     }
 

@@ -235,6 +235,10 @@ public:
                                 ImageType::WithDepth, bool arrayed, bool ms,
                                 ImageType::WithSampler sampled,
                                 spv::ImageFormat);
+  // Get ImageType whose attributes are the same with imageTypeWithUnknownFormat
+  // but it has spv::ImageFormat format.
+  const ImageType *getImageType(const ImageType *imageTypeWithUnknownFormat,
+                                spv::ImageFormat format);
   const SamplerType *getSamplerType() const { return samplerType; }
   const SampledImageType *getSampledImageType(const ImageType *image);
   const HybridSampledImageType *getSampledImageType(QualType image);
@@ -333,6 +337,20 @@ public:
   /// class instance entered.
   SpirvDebugInstruction *getCurrentLexicalScope() {
     return currentLexicalScope;
+  }
+
+  /// Function to add/get the mapping from a SPIR-V OpVariable to its image
+  /// format.
+  void registerImageFormatForSpirvVariable(const SpirvVariable *spvVar,
+                                           spv::ImageFormat format) {
+    assert(spvVar != nullptr);
+    spvVarToImageFormat[spvVar] = format;
+  }
+  spv::ImageFormat getImageFormatForSpirvVariable(const SpirvVariable *spvVar) {
+    auto itr = spvVarToImageFormat.find(spvVar);
+    if (itr == spvVarToImageFormat.end())
+      return spv::ImageFormat::Unknown;
+    return itr->second;
   }
 
   /// Function to add/get the mapping from a SPIR-V type to its Decl for
@@ -442,6 +460,9 @@ private:
   // Mapping from FunctionDecl to SPIR-V debug function.
   llvm::DenseMap<const FunctionDecl *, SpirvDebugFunction *>
       declToDebugFunction;
+
+  // Mapping from SPIR-V OpVariable to SPIR-V image format.
+  llvm::DenseMap<const SpirvVariable *, spv::ImageFormat> spvVarToImageFormat;
 };
 
 } // end namespace spirv

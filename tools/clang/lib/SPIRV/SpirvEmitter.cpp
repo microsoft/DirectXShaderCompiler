@@ -4404,6 +4404,13 @@ SpirvInstruction *SpirvEmitter::createImageSample(
     SpirvInstruction *minLod, SpirvInstruction *residencyCodeId,
     SourceLocation loc) {
 
+  if (varOffset) {
+    emitError("Use constant value for offset (SPIR-V spec does not accept a "
+              "variable offset for OpImage* instructions other than "
+              "OpImage*Gather)", loc);
+    return nullptr;
+  }
+
   // SampleDref* instructions in SPIR-V always return a scalar.
   // They also have the correct type in HLSL.
   if (compareVal) {
@@ -4834,6 +4841,14 @@ SpirvEmitter::processBufferTextureLoad(const CXXMemberCallExpr *expr) {
       // second parameter (index 1).
       if (hasOffsetArg)
         handleOffsetInMethodCall(expr, 1, &constOffset, &varOffset);
+    }
+
+    if (hasOffsetArg && varOffset) {
+      emitError("Use constant value for offset (SPIR-V spec does not accept a "
+                "variable offset for OpImage* instructions other than "
+                "OpImage*Gather)",
+                expr->getArg(textureMS ? 2 : 1)->getExprLoc());
+      return nullptr;
     }
 
     return processBufferTextureLoad(object, coordinate, constOffset, varOffset,

@@ -292,6 +292,8 @@ public:
                           ArrayRef<const Attr *> Attrs) override;
   void MarkRetTemp(CodeGenFunction &CGF, llvm::Value *V,
                   clang::QualType QaulTy) override;
+  void MarkCallArgumentTemp(CodeGenFunction &CGF, llvm::Value *V,
+                  clang::QualType QaulTy) override;
   void FinishAutoVar(CodeGenFunction &CGF, const VarDecl &D, llvm::Value *V) override;
   void MarkIfStmt(CodeGenFunction &CGF, BasicBlock *endIfBB) override;
   void MarkSwitchStmt(CodeGenFunction &CGF, SwitchInst *switchInst,
@@ -300,6 +302,11 @@ public:
   void MarkLoopStmt(CodeGenFunction &CGF, BasicBlock *loopContinue,
                      BasicBlock *loopExit) override;
   void MarkScopeEnd(CodeGenFunction &CGF) override;
+  bool NeedHLSLMartrixCastForStoreOp(const clang::Decl* TD,
+    llvm::SmallVector<llvm::Value*, 16>& IRCallArgs) override;
+  void EmitHLSLMartrixCastForStoreOp(CodeGenFunction& CGF,
+    SmallVector<llvm::Value*, 16>& IRCallArgs,
+    llvm::SmallVector<clang::QualType, 16>& ArgTys) override;
   /// Get or add constant to the program
   HLCBuffer &GetOrCreateCBuffer(HLSLBufferDecl *D);
 };
@@ -2375,6 +2382,15 @@ void CGMSHLSLRuntime::AddControlFlowHint(CodeGenFunction &CGF, const Stmt &S,
 void CGMSHLSLRuntime::MarkRetTemp(CodeGenFunction &CGF, Value *V,
                                  QualType QualTy) {
   // Save object properties for ret temp.
+  AddValToPropertyMap(V, QualTy);
+}
+
+void CGMSHLSLRuntime::MarkCallArgumentTemp(CodeGenFunction &CGF, llvm::Value *V,
+                                           clang::QualType QualTy) {
+  // Save object properties for call arg temp.
+  // Ignore V already in property map.
+  if (objectProperties.GetResource(V).isValid())
+    return;
   AddValToPropertyMap(V, QualTy);
 }
 
@@ -4936,6 +4952,57 @@ void CGMSHLSLRuntime::EmitHLSLMatrixStore(CGBuilderTy &Builder, Value *Val,
                                  Val->getType(), {DestPtr, Val}, TheModule);
 }
 
+bool CGMSHLSLRuntime::NeedHLSLMartrixCastForStoreOp(const clang::Decl* TD,
+  llvm::SmallVector<llvm::Value*, 16>& IRCallArgs) {
+
+  const clang::FunctionDecl* FD = dyn_cast<clang::FunctionDecl>(TD);
+
+  unsigned opcode = 0;
+  StringRef group;
+  if (!hlsl::GetIntrinsicOp(FD, opcode, group))
+    return false;
+
+  if (opcode != (unsigned)hlsl::IntrinsicOp::MOP_Store)
+    return false;
+
+  // Note that the store op is not yet an HL op. It's just a call
+  // to mangled rwbab store function. So adjust the store val position.
+  const unsigned storeValOpIdx = HLOperandIndex::kStoreValOpIdx - 1;
+
+  if (storeValOpIdx >= IRCallArgs.size()) {
+    return false;
+  }
+
+  return HLMatrixType::isa(IRCallArgs[storeValOpIdx]->getType());
+}
+
+void CGMSHLSLRuntime::EmitHLSLMartrixCastForStoreOp(CodeGenFunction& CGF,
+  SmallVector<llvm::Value*, 16>& IRCallArgs,
+  llvm::SmallVector<clang::QualType, 16>& ArgTys) {
+
+  // Note that the store op is not yet an HL op. It's just a call
+  // to mangled rwbab store function. So adjust the store val position.
+  const unsigned storeValOpIdx = HLOperandIndex::kStoreValOpIdx - 1;
+
+  if (storeValOpIdx >= IRCallArgs.size() ||
+    storeValOpIdx >= ArgTys.size()) {
+    return;
+  }
+
+  if (!hlsl::IsHLSLMatType(ArgTys[storeValOpIdx]))
+    return;
+
+  bool isRowMajor =
+    hlsl::IsHLSLMatRowMajor(ArgTys[storeValOpIdx], m_pHLModule->GetHLOptions().bDefaultRowMajor);
+
+  if (!isRowMajor) {
+    IRCallArgs[storeValOpIdx] = EmitHLSLMatrixOperationCallImp(
+      CGF.Builder, HLOpcodeGroup::HLCast,
+      static_cast<unsigned>(HLCastOpcode::RowMatrixToColMatrix),
+      IRCallArgs[storeValOpIdx]->getType(), { IRCallArgs[storeValOpIdx] }, TheModule);
+  }
+}
+
 Value *CGMSHLSLRuntime::EmitHLSLMatrixLoad(CodeGenFunction &CGF, Value *Ptr,
                                            QualType Ty) {
   return EmitHLSLMatrixLoad(CGF.Builder, Ptr, Ty);
@@ -5295,13 +5362,33 @@ static bool IsTypeMatchForMemcpy(llvm::Type *SrcTy, llvm::Type *DestTy) {
   }
 }
 
+static bool IsVec4ArrayToScalarArrayForMemcpy(llvm::Type *SrcTy, llvm::Type *DestTy, const DataLayout &DL) {
+  if (!SrcTy->isArrayTy())
+    return false;
+  llvm::Type *SrcEltTy = dxilutil::GetArrayEltTy(SrcTy);
+  llvm::Type *DestEltTy = dxilutil::GetArrayEltTy(DestTy);
+  if (SrcEltTy == DestEltTy)
+    return true;
+  llvm::VectorType *VT  = dyn_cast<llvm::VectorType>(SrcEltTy);
+  if (!VT)
+    return false;
+
+  if (DL.getTypeSizeInBits(VT) != 128)
+    return false;
+
+  if (DL.getTypeSizeInBits(DestEltTy) < 32)
+    return false;
+
+  return VT->getElementType() == DestEltTy;
+}
+
 void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(CodeGenFunction &CGF, llvm::Value *SrcPtr,
     clang::QualType SrcTy,
     llvm::Value *DestPtr,
     clang::QualType DestTy) {
   llvm::Type *SrcPtrTy = SrcPtr->getType()->getPointerElementType();
   llvm::Type *DestPtrTy = DestPtr->getType()->getPointerElementType();
-
+  const DataLayout &DL = TheModule.getDataLayout();
   bool bDefaultRowMajor = m_pHLModule->GetHLOptions().bDefaultRowMajor;
   if (SrcPtrTy == DestPtrTy) {
     bool bMatArrayRotate = false;
@@ -5315,7 +5402,7 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(CodeGenFunction &CGF, 
     }
     if (!bMatArrayRotate) {
       // Memcpy if type is match.
-      unsigned size = TheModule.getDataLayout().getTypeAllocSize(SrcPtrTy);
+      unsigned size = DL.getTypeAllocSize(SrcPtrTy);
       CGF.Builder.CreateMemCpy(DestPtr, SrcPtr, size, 1);
       return;
     }
@@ -5342,24 +5429,35 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversionAggregateCopy(CodeGenFunction &CGF, 
       Value *Cast = CGF.Builder.CreateBitCast(
           SrcPtr,
           ResultTy->getPointerTo(DestPtr->getType()->getPointerAddressSpace()));
-      unsigned size = TheModule.getDataLayout().getTypeAllocSize(
+      unsigned size = DL.getTypeAllocSize(
           DestPtrTy);
       CGF.Builder.CreateMemCpy(DestPtr, Cast, size, 1);
       return;
     }
   } else if (dxilutil::IsHLSLObjectType(dxilutil::GetArrayEltTy(SrcPtrTy)) &&
              dxilutil::IsHLSLObjectType(dxilutil::GetArrayEltTy(DestPtrTy))) {
-    unsigned sizeSrc = TheModule.getDataLayout().getTypeAllocSize(SrcPtrTy);
-    unsigned sizeDest = TheModule.getDataLayout().getTypeAllocSize(DestPtrTy);
+    unsigned sizeSrc = DL.getTypeAllocSize(SrcPtrTy);
+    unsigned sizeDest = DL.getTypeAllocSize(DestPtrTy);
     CGF.Builder.CreateMemCpy(DestPtr, SrcPtr, std::max(sizeSrc, sizeDest), 1);
     return;
   } else if (GlobalVariable *GV = dyn_cast<GlobalVariable>(DestPtr)) {
     if (GV->isInternalLinkage(GV->getLinkage()) &&
         IsTypeMatchForMemcpy(SrcPtrTy, DestPtrTy)) {
-      unsigned sizeSrc = TheModule.getDataLayout().getTypeAllocSize(SrcPtrTy);
-      unsigned sizeDest = TheModule.getDataLayout().getTypeAllocSize(DestPtrTy);
+      unsigned sizeSrc = DL.getTypeAllocSize(SrcPtrTy);
+      unsigned sizeDest = DL.getTypeAllocSize(DestPtrTy);
       CGF.Builder.CreateMemCpy(DestPtr, SrcPtr, std::min(sizeSrc, sizeDest), 1);
       return;
+    } else if (GlobalVariable *SrcGV = dyn_cast<GlobalVariable>(SrcPtr)) {
+      if (GV->isInternalLinkage(GV->getLinkage()) &&
+          m_ConstVarAnnotationMap.count(SrcGV) &&
+          IsVec4ArrayToScalarArrayForMemcpy(SrcPtrTy, DestPtrTy, DL)) {
+        unsigned sizeSrc = DL.getTypeAllocSize(SrcPtrTy);
+        unsigned sizeDest = DL.getTypeAllocSize(DestPtrTy);
+        if (sizeSrc == sizeDest) {
+          CGF.Builder.CreateMemCpy(DestPtr, SrcPtr, sizeSrc, 1);
+          return;
+        }
+      }
     }
   }
 

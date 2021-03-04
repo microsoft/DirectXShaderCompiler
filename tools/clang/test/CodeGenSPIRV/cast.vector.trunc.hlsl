@@ -1,20 +1,16 @@
 // Run: %dxc -T vs_6_0 -E main
 
-// CHECK: [[v4f32c:%\d+]] = OpConstantComposite %v4float %float_1 %float_2 %float_3 %float_4
-// CHECK: [[v3f32c:%\d+]] = OpConstantComposite %v3float %float_5 %float_6 %float_7
-// CHECK: [[v2f32c:%\d+]] = OpConstantComposite %v2float %float_8 %float_9
+// CHECK: [[v3f32c0:%\d+]] = OpConstantComposite %v3float %float_1 %float_2 %float_3
+// CHECK: [[v3f32c1:%\d+]] = OpConstantComposite %v3float %float_5 %float_6 %float_7
+// CHECK:  [[v2f32c:%\d+]] = OpConstantComposite %v2float %float_8 %float_9
 
 void main() {
 // CHECK-LABEL: %bb_entry = OpLabel
 
     // From constant
-// CHECK:      [[c1:%\d+]] = OpCompositeExtract %float [[v4f32c]] 0
-// CHECK-NEXT: [[c2:%\d+]] = OpCompositeExtract %float [[v4f32c]] 1
-// CHECK-NEXT: [[c3:%\d+]] = OpCompositeExtract %float [[v4f32c]] 2
-// CHECK-NEXT: [[vf3:%\d+]] = OpCompositeConstruct %v3float [[c1]] [[c2]] [[c3]]
-// CHECK-NEXT: OpStore %vf3 [[vf3]]
+// CHECK: OpStore %vf3 [[v3f32c0]]
     float3 vf3 = float4(1, 2, 3, 4);
-// CHECK-NEXT: [[c5:%\d+]] = OpCompositeExtract %float [[v3f32c]] 0
+// CHECK-NEXT: [[c5:%\d+]] = OpCompositeExtract %float [[v3f32c1]] 0
 // CHECK-NEXT: OpStore %vf1 [[c5]]
     float1 vf1;
     vf1 = float3(5, 6, 7);

@@ -404,6 +404,10 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
 
   // Helper Lanes                                                                                                            void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
   {  OC::IsHelperLane,            "IsHelperLane",             OCC::IsHelperLane,             "isHelperLane",              { false, false, false, false,  true, false, false, false, false, false, false}, Attribute::ReadOnly, },
+
+  // Resources - gather                                                                                                      void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::TextureGatherImm,        "TextureGatherImm",         OCC::TextureGatherImm,         "textureGatherImm",          { false,  true,  true, false, false, false,  true,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::TextureGatherCmpImm,     "TextureGatherCmpImm",      OCC::TextureGatherCmpImm,      "textureGatherCmpImm",       { false,  true,  true, false, false, false,  true,  true, false, false, false}, Attribute::ReadOnly, },
 };
 // OPCODE-OLOADS:END
 
@@ -845,6 +849,11 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // CreateHandleFromHeap=218, Unpack4x8=219, Pack4x8=220, IsHelperLane=221
   if ((216 <= op && op <= 221)) {
     major = 6;  minor = 6;
+    return;
+  }
+  // Instructions: TextureGatherImm=222, TextureGatherCmpImm=223
+  if ((222 <= op && op <= 223)) {
+    major = 6;  minor = 15;
     return;
   }
   // OPCODE-SMMASK:END
@@ -1433,6 +1442,10 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
 
     // Helper Lanes
   case OpCode::IsHelperLane:           A(pI1);      A(pI32); break;
+
+    // Resources - gather
+  case OpCode::TextureGatherImm:       RRT(pETy);   A(pI32); A(pRes); A(pRes); A(pF32); A(pF32); A(pF32); A(pF32); A(pI32); A(pI32); A(pI32); break;
+  case OpCode::TextureGatherCmpImm:    RRT(pETy);   A(pI32); A(pRes); A(pRes); A(pF32); A(pF32); A(pF32); A(pF32); A(pI32); A(pI32); A(pI32); A(pF32); break;
   // OPCODE-OLOAD-FUNCS:END
   default: DXASSERT(false, "otherwise unhandled case"); break;
   }
@@ -1705,6 +1718,8 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::TextureGatherCmp:
   case OpCode::RawBufferLoad:
   case OpCode::Unpack4x8:
+  case OpCode::TextureGatherImm:
+  case OpCode::TextureGatherCmpImm:
   {
     StructType *ST = cast<StructType>(Ty);
     return ST->getElementType(0);

@@ -28,6 +28,8 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 
+#include "PixPassHelpers.h"
+
 #define DEBUG_TYPE "dxil-dbg-value-to-dbg-declare"
 
 namespace {
@@ -364,6 +366,10 @@ bool DxilDbgValueToDbgDeclare::runOnModule(
 
     if (auto *DbgValue = llvm::dyn_cast<llvm::DbgValueInst>(User))
     {
+      llvm::Value *V = DbgValue->getValue();
+      if (PIXPassHelpers::IsAllocateRayQueryInstruction(V)) {
+          continue;
+      }
       Changed = true;
       handleDbgValue(M, DbgValue);
       DbgValue->eraseFromParent();

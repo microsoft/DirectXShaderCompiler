@@ -83,6 +83,8 @@ public:
       llvm::SmallVector<LValue, 8> &lifetimeCleanupList) = 0;
   virtual void MarkRetTemp(CodeGenFunction &CGF, llvm::Value *V,
                           clang::QualType QaulTy) = 0;
+  virtual void MarkCallArgumentTemp(CodeGenFunction &CGF, llvm::Value *V,
+                  clang::QualType QaulTy) = 0;
   virtual llvm::Value *EmitHLSLMatrixOperationCall(CodeGenFunction &CGF, const clang::Expr *E, llvm::Type *RetType,
       llvm::ArrayRef<llvm::Value*> paramList) = 0;
   virtual void EmitHLSLDiscard(CodeGenFunction &CGF) = 0;
@@ -143,6 +145,13 @@ public:
                              llvm::BasicBlock *loopExit) = 0;
 
   virtual void MarkScopeEnd(CodeGenFunction &CGF) = 0;
+
+  virtual bool NeedHLSLMartrixCastForStoreOp(const clang::Decl* TD,
+                              llvm::SmallVector<llvm::Value*, 16>& IRCallArgs) = 0;
+
+  virtual void EmitHLSLMartrixCastForStoreOp(CodeGenFunction& CGF,
+                              llvm::SmallVector<llvm::Value*, 16>& IRCallArgs,
+                              llvm::SmallVector<clang::QualType, 16>& ArgTys) = 0;
 };
 
 /// Create an instance of a HLSL runtime class.
