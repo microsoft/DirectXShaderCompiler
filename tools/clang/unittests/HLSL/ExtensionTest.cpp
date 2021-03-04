@@ -145,6 +145,15 @@ static const HLSL_INTRINSIC_ARGUMENT TestMyTexture2DOp[] = {
   { "val", AR_QUAL_IN, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_UINT, 1, 2},
 };
 
+// float = test_overload(float a, uint b, double c)
+static const HLSL_INTRINSIC_ARGUMENT TestOverloadArgs[] = {
+  { "test_overload", AR_QUAL_OUT, 0, LITEMPLATE_SCALAR, 0, LICOMPTYPE_NUMERIC, 1, IA_C },
+  { "a", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT, 1, IA_C },
+  { "b", AR_QUAL_IN, 2, LITEMPLATE_ANY, 2, LICOMPTYPE_UINT, 1, IA_C },
+  { "c", AR_QUAL_IN, 3, LITEMPLATE_SCALAR, 3, LICOMPTYPE_DOUBLE, 1, IA_C },
+};
+
+
 struct Intrinsic {
   LPCWSTR hlslName;
   const char *dxilName;
@@ -175,6 +184,9 @@ Intrinsic Intrinsics[] = {
   // counterpart for testing purposes.
   {L"test_unsigned","test_unsigned",   "n", { static_cast<unsigned>(hlsl::IntrinsicOp::IOP_min), false, true, false, -1, countof(TestUnsigned), TestUnsigned}},
   {L"wave_proc",    DEFAULT_NAME,      "r", { 16, false, true, true, -1, countof(WaveProcArgs), WaveProcArgs }},
+  {L"test_o_1",     "test_o_1.$o:1",   "r", { 18, false, true, true, -1, countof(TestOverloadArgs), TestOverloadArgs }},
+  {L"test_o_2",     "test_o_2.$o:2",   "r", { 19, false, true, true, -1, countof(TestOverloadArgs), TestOverloadArgs }},
+  {L"test_o_3",     "test_o_3.$o:3",   "r", { 20, false, true, true, -1, countof(TestOverloadArgs), TestOverloadArgs }},
 };
 
 Intrinsic BufferIntrinsics[] = {
@@ -530,6 +542,7 @@ public:
   TEST_METHOD(ResourceExtensionIntrinsicCustomLowering1)
   TEST_METHOD(ResourceExtensionIntrinsicCustomLowering2)
   TEST_METHOD(ResourceExtensionIntrinsicCustomLowering3)
+  TEST_METHOD(CustomOverloadArg1)
 };
 
 TEST_F(ExtensionTest, DefineWhenRegisteredThenPreserved) {
@@ -1181,4 +1194,29 @@ TEST_F(ExtensionTest, ResourceExtensionIntrinsicCustomLowering3) {
     "call %dx.types.ResRet.i32 @MyTextureOp\\(i32 17, %dx.types.Handle %.*, i32 1, i32 undef, i32 2, i32 undef, i32 undef\\)",
   };
   CheckMsgs(disassembly.c_str(), disassembly.length(), expected, 1, true);
+}
+
+TEST_F(ExtensionTest, CustomOverloadArg1) {
+  // Test that we pick the overload name based on the first arg.
+  Compiler c(m_dllSupport);
+  c.RegisterIntrinsicTable(new TestIntrinsicTable());
+  auto result = c.Compile(
+    "float main() : SV_Target {\n"
+    "  float o1 = test_o_1(1.0f, 2u, 4.0);\n"
+    "  float o2 = test_o_2(1.0f, 2u, 4.0);\n"
+    "  float o3 = test_o_3(1.0f, 2u, 4.0);\n"
+    "  return o1 + o2 + o3;\n"
+    "}\n",
+    { L"/Vd" }, {}
+  );
+  CheckOperationResultMsgs(result, {}, true, false);
+  std::string disassembly = c.Disassemble();
+
+  // The function name should match the first arg (float)
+  LPCSTR expected[] = {
+    "call float @test_o_1.float(i32 18, float 1.000000e+00, i32 2, double 4.000000e+00)",
+    "call float @test_o_2.i32(i32 18, float 1.000000e+00, i32 2, double 4.000000e+00)",
+    "call float @test_o_3.double(i32 18, float 1.000000e+00, i32 2, double 4.000000e+00)",
+  };
+  CheckMsgs(disassembly.c_str(), disassembly.length(), expected, 1, false);
 }

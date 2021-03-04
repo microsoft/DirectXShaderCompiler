@@ -351,11 +351,23 @@ public:
 
     DxcThreadMalloc TM(m_pMalloc);
     try {
+      CComPtr<IDxcBlob> pPdbContainerBlob;
       const DxilPartHeader *pModulePart = nullptr;
       const DxilPartHeader *pRDATPart = nullptr;
 
+      const DxilContainerHeader *pHeader = IsDxilContainerLike(pData->Ptr, pData->Size);
+      if (!pHeader) {
+        CComPtr<IDxcBlobEncoding> pBlob;
+        IFR(hlsl::DxcCreateBlobWithEncodingFromPinned(pData->Ptr, pData->Size, pData->Size, &pBlob));
+        CComPtr<IStream> pStream;
+        IFR(hlsl::CreateReadOnlyBlobStream(pBlob, &pStream));
+        if (SUCCEEDED(hlsl::pdb::LoadDataFromStream(m_pMalloc, pStream, &pPdbContainerBlob))) {
+          pHeader = IsDxilContainerLike(pPdbContainerBlob->GetBufferPointer(), pPdbContainerBlob->GetBufferSize());
+        }
+      }
+
       // Is this a valid DxilContainer?
-      if (const DxilContainerHeader *pHeader = IsDxilContainerLike(pData->Ptr, pData->Size)) {
+      if (pHeader) {
         if (!IsValidDxilContainer(pHeader, pData->Size))
           return E_INVALIDARG;
 
@@ -389,7 +401,6 @@ public:
         pModulePart = pStatsPart ? pStatsPart : pDebugDXILPart ? pDebugDXILPart : pDXILPart;
         if (nullptr == pModulePart)
           return DXC_E_MISSING_PART;
-
       } else {
         // Not a container, try a statistics part that holds a valid program part.
         // In the future, this will just be the RDAT part.

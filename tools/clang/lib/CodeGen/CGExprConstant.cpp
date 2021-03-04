@@ -744,8 +744,11 @@ public:
       return nullptr;
     // HLSL Change Begins.
     case CK_HLSLCC_FloatingCast:
+    case CK_HLSLCC_IntegralCast:
+    case CK_HLSLCC_IntegralToBoolean:
     case CK_HLSLCC_IntegralToFloating:
     case CK_HLSLCC_FloatingToIntegral:
+    case CK_HLSLCC_FloatingToBoolean:
       // Since these cast kinds have already been handled in ExprConstant.cpp,
       // we can reuse the logic there.
       return CGM.EmitConstantExpr(E, E->getType(), CGF);
@@ -773,18 +776,26 @@ public:
       if (llvm::ConstantDataVector *CDV = dyn_cast<llvm::ConstantDataVector>(C)) {
         for (unsigned i = 0; i < vecSize; i++)
           Elts[i] = CDV->getElementAsConstant(i);
-      } else {
-        llvm::ConstantVector *CV = dyn_cast<llvm::ConstantVector>(C);
+      } else if (llvm::ConstantVector* CV = dyn_cast<llvm::ConstantVector>(C)) {
         for (unsigned i = 0; i < vecSize; i++)
           Elts[i] = CV->getOperand(i);
+      } else {
+        llvm::ConstantAggregateZero* CAZ = cast<llvm::ConstantAggregateZero>(C);
+        for (unsigned i = 0; i < vecSize; i++)
+          Elts[i] = CAZ->getElementValue(i);
       }
       return llvm::ConstantVector::get(Elts);
     }
     case CK_HLSLVectorToScalarCast: {
-      if (llvm::ConstantDataVector *CDV = cast<llvm::ConstantDataVector>(C))
+      if (llvm::ConstantDataVector* CDV = dyn_cast<llvm::ConstantDataVector>(C)) {
         return CDV->getElementAsConstant(0);
-      llvm::ConstantVector *CV = cast<llvm::ConstantVector>(C);
-      return CV->getOperand(0);
+      }
+      else if (llvm::ConstantVector* CV = dyn_cast<llvm::ConstantVector>(C)) {
+        return CV->getOperand(0);
+      } else {
+        llvm::ConstantAggregateZero* CAZ = cast<llvm::ConstantAggregateZero>(C);
+        return CAZ->getElementValue((unsigned)0);
+      }
     }
     case CK_HLSLMatrixTruncationCast: {
       llvm::StructType *ST =

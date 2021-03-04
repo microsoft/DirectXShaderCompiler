@@ -658,6 +658,9 @@ TEST_F(FileTest, SemanticVertexIDVS) {
 TEST_F(FileTest, SemanticInstanceIDVS) {
   runFileTest("semantic.instance-id.vs.hlsl");
 }
+TEST_F(FileTest, SemanticNonzeroBaseInstanceVS) {
+  runFileTest("semantic.nonzero-base-instance.vs.hlsl");
+}
 TEST_F(FileTest, SemanticInstanceIDHS) {
   runFileTest("semantic.instance-id.hs.hlsl");
 }
@@ -865,6 +868,9 @@ TEST_F(FileTest, TextureArraySample) {
 }
 TEST_F(FileTest, TextureLoad) { runFileTest("texture.load.hlsl"); }
 TEST_F(FileTest, TextureArrayLoad) { runFileTest("texture.array.load.hlsl"); }
+TEST_F(FileTest, TextureLoadInvalidOffsetOperand) {
+  runFileTest("texture.load-invalid-offset-operand.hlsl", Expect::Failure);
+}
 TEST_F(FileTest, TextureGetDimensions) {
   runFileTest("texture.get-dimensions.hlsl");
 }
@@ -946,6 +952,9 @@ TEST_F(FileTest, TextureArraySampleCmpLevelZero) {
 }
 TEST_F(FileTest, TextureSampleInvalidImplicitLod) {
   runFileTest("texture.sample-invalid-implicit-lod.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, TextureSampleInvalidOffsetOperand) {
+  runFileTest("texture.sample-invalid-offset-operand.hlsl", Expect::Failure);
 }
 TEST_F(FileTest, TextureInvalidTex2D) {
   runFileTest("texture.sample.invalid.tex2d.hlsl", Expect::Failure);
@@ -1697,6 +1706,14 @@ TEST_F(FileTest, VulkanAttributeShaderRecordNVInvalidUsages) {
 }
 TEST_F(FileTest, VulkanAttributeShaderRecordEXTInvalidUsages) {
   runFileTest("vk.attribute.shader-record-ext.invalid.hlsl", Expect::Failure);
+}
+
+TEST_F(FileTest, VulkanAttributeImageFormat) {
+  runFileTest("vk.attribute.image-format.hlsl", Expect::Success,
+              /*runValidation*/ false);
+}
+TEST_F(FileTest, VulkanAttributeImageFormatO3) {
+  runFileTest("vk.attribute.image-format.o3.hlsl");
 }
 
 TEST_F(FileTest, VulkanCLOptionInvertYVS) {

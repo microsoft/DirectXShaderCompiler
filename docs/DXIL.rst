@@ -1861,7 +1861,7 @@ The following signature shows the operation syntax::
 
   ; overloads: SM5.1: i32,  SM6.0: i32
   ; returns: original value in memory before the operation
-  declare i32 @dx.op.atomicBinOp.i32(
+  declare i32 @dx.op.atomicCompareExchange.i32(
       i32,                  ; opcode
       %dx.types.Handle,     ; resource handle
       i32,                  ; coordinate c0
@@ -2318,6 +2318,8 @@ ID  Name                                                  Description
 219 Unpack4x8                                             unpacks 4 8-bit signed or unsigned values into int32 or int16 vector
 220 Pack4x8                                               packs vector of 4 signed or unsigned values into a packed datatype, drops or clamps unused bits
 221 IsHelperLane                                          returns true on helper lanes in pixel shaders
+222 TextureGatherImm                                      same as TextureGather, except offsets are limited to immediate values between -8 and 7
+223 TextureGatherCmpImm                                   same as TextureGatherCmp, except offsets are limited to immediate values between -8 and 7
 === ===================================================== =======================================================================================================================================================================================================================
 
 
@@ -3126,6 +3128,7 @@ SM.APPENDANDCONSUMEONSAMEUAV              BufferUpdateCounter inc and dec on a g
 SM.CBUFFERARRAYOFFSETALIGNMENT            CBuffer array offset must be aligned to 16-bytes
 SM.CBUFFERELEMENTOVERFLOW                 CBuffer elements must not overflow
 SM.CBUFFEROFFSETOVERLAP                   CBuffer offsets must not overlap
+SM.CBUFFERSIZE                            CBuffer size must not exceed 65536 bytes
 SM.CBUFFERTEMPLATETYPEMUSTBESTRUCT        D3D12 constant/texture buffer template element can only be a struct.
 SM.COMPLETEPOSITION                       Not all elements of SV_Position were written.
 SM.CONSTANTINTERPMODE                     Interpolation mode must be constant for MS primitive output.
@@ -3184,6 +3187,7 @@ SM.SEMANTIC                               Semantic must be defined in target sha
 SM.STREAMINDEXRANGE                       Stream index (%0) must between 0 and %1.
 SM.TESSFACTORFORDOMAIN                    Required TessFactor for domain not found declared anywhere in Patch Constant data.
 SM.TESSFACTORSIZEMATCHDOMAIN              TessFactor rows, columns (%0, %1) invalid for domain %2.  Expected %3 rows and 1 column.
+SM.TGSMUNSUPPORTED                        Thread Group Shared Memory not supported %0.
 SM.THREADGROUPCHANNELRANGE                Declared Thread Group %0 size %1 outside valid range [%2..%3].
 SM.TRIOUTPUTPRIMITIVEMISMATCH             Hull Shader declared with Tri Domain must specify output primitive point, triangle_cw or triangle_ccw. Line output is not compatible with the Tri domain.
 SM.UNDEFINEDOUTPUT                        Not all elements of output %0 were written.

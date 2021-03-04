@@ -179,6 +179,12 @@ enum class PSVResourceKind
   NumEntries
 };
 
+enum class PSVResourceFlag
+{
+  None           = 0x00000000,
+  UsedByAtomic64 = 0x00000001,
+};
+
 // Table of null-terminated strings, overall size aligned to dword boundary, last byte must be null
 struct PSVStringTable {
   const char *Table;
@@ -203,6 +209,7 @@ struct PSVResourceBindInfo0
 struct PSVResourceBindInfo1 : public PSVResourceBindInfo0
 {
   uint32_t ResKind;     // PSVResourceKind
+  uint32_t ResFlags;    // special characteristics of the resource
 };
 
 // Helpers for output dependencies (ViewID and Input-Output tables)

@@ -96,7 +96,7 @@ static bool ShouldBeCopiedIntoPDB(UINT32 FourCC) {
 struct CompilerVersionPartWriter {
   hlsl::DxilCompilerVersion m_Header = {};
   CComHeapPtr<char> m_CommitShaStorage;
-  llvm::StringRef m_CommitSha;
+  llvm::StringRef m_CommitSha = "";
 
   void Init(IDxcVersionInfo *pVersionInfo) {
     m_Header = {};
@@ -160,7 +160,14 @@ struct CompilerVersionPartWriter {
   }
 };
 
-static HRESULT CreateContainerForPDB(IMalloc *pMalloc, IDxcBlob *pOldContainer, IDxcBlob *pDebugBlob, IDxcVersionInfo *pVersionInfo, const hlsl::DxilSourceInfo *pSourceInfo, IDxcBlob **ppNewContaner) {
+static HRESULT CreateContainerForPDB(IMalloc *pMalloc,
+  llvm::Module *pModule,
+  IDxcBlob *pOldContainer,
+  IDxcBlob *pDebugBlob, IDxcVersionInfo *pVersionInfo,
+  const hlsl::DxilSourceInfo *pSourceInfo,
+  AbstractMemoryStream *pReflectionStream, const uint32_t reflectionSizeInBytes,
+  IDxcBlob **ppNewContaner)
+{
   // If the pContainer is not a valid container, give up.
   if (!hlsl::IsValidDxilContainer((hlsl::DxilContainerHeader *)pOldContainer->GetBufferPointer(), pOldContainer->GetBufferSize()))
     return E_FAIL;
@@ -185,12 +192,16 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc, IDxcBlob *pOldContainer, 
   SmallVector<UINT32, 4> OffsetTable;
   SmallVector<Part, 4> PartWriters;
   UINT32 uTotalPartsSize = 0;
+
+  auto AddPart = [&PartWriters, &OffsetTable, &uTotalPartsSize](Part NewPart, UINT32 uSize) {
+    OffsetTable.push_back(uTotalPartsSize);
+    uTotalPartsSize += uSize + sizeof(hlsl::DxilPartHeader);
+    PartWriters.push_back(NewPart);
+  };
+
   for (unsigned i = 0; i < DxilHeader->PartCount; i++) {
     hlsl::DxilPartHeader *PartHeader = GetDxilContainerPart(DxilHeader, i);
     if (ShouldBeCopiedIntoPDB(PartHeader->PartFourCC)) {
-      OffsetTable.push_back(uTotalPartsSize);
-      uTotalPartsSize += PartHeader->PartSize + sizeof(*PartHeader);
-
       UINT32 uSize = PartHeader->PartSize;
       const void *pPartData = PartHeader+1;
       Part NewPart(
@@ -202,7 +213,7 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc, IDxcBlob *pOldContainer, 
           return S_OK;
         }
       );
-      PartWriters.push_back(NewPart);
+      AddPart(NewPart, uSize);
     }
 
     // Could use any of these. We're mostly after the header version and all that.
@@ -219,9 +230,6 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc, IDxcBlob *pOldContainer, 
   if (pSourceInfo) {
     const UINT32 uPartSize = pSourceInfo->AlignedSizeInBytes;
 
-    OffsetTable.push_back(uTotalPartsSize);
-    uTotalPartsSize += uPartSize + sizeof(hlsl::DxilPartHeader);
-
     Part NewPart(
       hlsl::DFCC_ShaderSourceInfo,
       uPartSize,
@@ -231,15 +239,25 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc, IDxcBlob *pOldContainer, 
         return S_OK;
       }
     );
-    PartWriters.push_back(NewPart);
+
+    AddPart(NewPart, uPartSize);
+  }
+
+  if (pReflectionStream) {
+    Part NewPart(
+      hlsl::DFCC_ShaderStatistics,
+      reflectionSizeInBytes,
+      [&pReflectionStream, pModule](IStream *pStream) {
+        hlsl::WriteProgramPart(pModule->GetOrCreateDxilModule().GetShaderModel(), pReflectionStream, pStream);
+        return S_OK;
+      }
+    );
+    AddPart(NewPart, reflectionSizeInBytes);
   }
 
   CompilerVersionPartWriter versionWriter;
   if (pVersionInfo) {
     versionWriter.Init(pVersionInfo);
-
-    OffsetTable.push_back(uTotalPartsSize);
-    uTotalPartsSize += versionWriter.GetSize() + sizeof(hlsl::DxilPartHeader);
 
     Part NewPart(
       hlsl::DFCC_CompilerVersion,
@@ -249,7 +267,7 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc, IDxcBlob *pOldContainer, 
         return S_OK;
       }
     );
-    PartWriters.push_back(NewPart);
+    AddPart(NewPart, versionWriter.GetSize());
   }
 
   if (pDebugBlob) {
@@ -262,9 +280,6 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc, IDxcBlob *pOldContainer, 
 
     UINT32 uPaddingSize = 0;
     UINT32 uPartSize = AlignByDword(sizeof(hlsl::DxilProgramHeader) + pDebugBlob->GetBufferSize(), &uPaddingSize);
-
-    OffsetTable.push_back(uTotalPartsSize);
-    uTotalPartsSize += uPartSize + sizeof(hlsl::DxilPartHeader);
     
     Part NewPart(
       hlsl::DFCC_ShaderDebugInfoDXIL,
@@ -286,7 +301,7 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc, IDxcBlob *pOldContainer, 
         return S_OK;
       }
     );
-    PartWriters.push_back(NewPart);
+    AddPart(NewPart, uPartSize);
   }
 
   // Offset the offset table by the offset table itself
@@ -1036,10 +1051,15 @@ public:
             pSourceInfo = debugSourceInfoWriter.GetPart();
           }
 
+          CComPtr<AbstractMemoryStream> pReflectionStream;
+          uint32_t reflectionSizeInBytes = 0;
+
           CComPtr<IDxcBlob> pDebugProgramBlob;
           // Don't include the debug part if using source only PDB
           if (opts.SourceOnlyDebug) {
             assert(pSourceInfo);
+            hlsl::ReEmitLatestReflectionData(compiledModule.get());
+            hlsl::StripAndCreateReflectionStream(compiledModule.get(), &reflectionSizeInBytes, &pReflectionStream);
           }
           else {
             if (!opts.SourceInDebugModule) {
@@ -1056,8 +1076,11 @@ public:
           }
 
           IFT(CreateContainerForPDB(
-            m_pMalloc, pOutputBlob, pDebugProgramBlob,
+            m_pMalloc,
+            compiledModule.get(),
+            pOutputBlob, pDebugProgramBlob,
             static_cast<IDxcVersionInfo *>(this), pSourceInfo,
+            pReflectionStream, reflectionSizeInBytes,
             &pStrippedContainer));
         }
 

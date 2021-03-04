@@ -21,7 +21,7 @@ RWStructuredBuffer<R> rwsb;
 
 void decr(inout R a, in R b, out R c, R d, const R e);
 
-groupshared R r[5];
+static R r[5];
 
 R getR(uint i);
 
@@ -50,11 +50,11 @@ void foo(in float4 a, out float3 b) {
 
 // CHECK:                     OpLine [[file]] 54 1
 // CHECK-NEXT:      %R_incr = OpFunction %void None
-// CHECK-NEXT:  %param_this = OpFunctionParameter %_ptr_Function_R_0
+// CHECK-NEXT:  %param_this = OpFunctionParameter %_ptr_Function_R
 void R::incr() { ++a; }
 
 // CHECK:                     OpLine [[file]] 60 1
-// CHECK-NEXT:        %getR = OpFunction %R_0 None
+// CHECK-NEXT:        %getR = OpFunction %R None
 // CHECK-NEXT:                OpLine [[file]] 60 13
 // CHECK-NEXT:           %i = OpFunctionParameter %_ptr_Function_uint
 R getR(uint i) { return r[i]; }
@@ -62,9 +62,9 @@ R getR(uint i) { return r[i]; }
 // CHECK:                     OpLine [[file]] 68 1
 // CHECK-NEXT:        %decr = OpFunction %void None
 // CHECK-NEXT:                OpLine [[file]] 68 19
-// CHECK-NEXT:         %a_0 = OpFunctionParameter %_ptr_Function_R_0
+// CHECK-NEXT:         %a_0 = OpFunctionParameter %_ptr_Function_R
 // CHECK-NEXT:                OpLine [[file]] 68 27
-// CHECK-NEXT:         %b_0 = OpFunctionParameter %_ptr_Function_R_0
+// CHECK-NEXT:         %b_0 = OpFunctionParameter %_ptr_Function_R
 void decr(inout R a, in R b, out R c, R d, const R e) { a.a--; }
 
 // CHECK:             OpLine [[file]] 11 1
