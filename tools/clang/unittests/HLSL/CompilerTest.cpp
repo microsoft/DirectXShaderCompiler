@@ -127,6 +127,7 @@ public:
   TEST_METHOD(CompileWhenDebugWorksThenStripDebug)
   TEST_METHOD(CompileWhenWorksThenAddRemovePrivate)
   TEST_METHOD(CompileThenAddCustomDebugName)
+  TEST_METHOD(CompileHsWithCompilerInterface3);
   TEST_METHOD(CompileThenTestPdbUtils)
   TEST_METHOD(CompileThenTestPdbUtilsStripped)
   TEST_METHOD(CompileThenTestPdbUtilsEmptyEntry)
@@ -902,6 +903,40 @@ TEST_F(CompilerTest, CompileWhenWorksThenAddRemovePrivate) {
   pPartHeader = hlsl::GetDxilPartByType(
     pContainerHeader, hlsl::DxilFourCC::DFCC_PrivateData);
   VERIFY_IS_NULL(pPartHeader);
+}
+
+TEST_F(CompilerTest, CompileHsWithCompilerInterface3) {
+  CComPtr<IDxcCompiler3> pCompiler;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
+
+  CComPtr<IDxcBlobEncoding> pSourceBlob;
+  CreateBlobFromFile(L"../CodeGenHLSL/hs_compiler3_regression.hlsl", &pSourceBlob);
+
+  const WCHAR *args[] = {
+    L"-E", L"hs_main",
+    L"-T", L"hs_6_4",
+    L"-all_resources_bound",
+    L"-WX",
+    L"-Zi",
+    L"-Od",
+    L"-D", L"HAS_UV_CHANNEL=1",
+    L"-D", L"HAS_NORMALS=1",
+    L"-D", L"HAS_TANGENTS=1",
+    L"-D", L"HAS_INSTANCE_DATA=1",
+  };
+
+  DxcBuffer buf = {};
+  buf.Encoding = CP_ACP;
+  BOOL bEncodingKnown = false;
+  VERIFY_SUCCEEDED(pSourceBlob->GetEncoding(&bEncodingKnown, &buf.Encoding));
+  buf.Ptr = pSourceBlob->GetBufferPointer();
+  buf.Size = pSourceBlob->GetBufferSize();
+
+  CComPtr<IDxcResult> pResult;
+  VERIFY_SUCCEEDED(pCompiler->Compile(&buf, args, _countof(args), nullptr, IID_PPV_ARGS(&pResult)));
+
+  CComPtr<IDxcBlob> pDxil;
+  VERIFY_SUCCEEDED(pResult->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&pDxil), nullptr));
 }
 
 TEST_F(CompilerTest, CompileThenAddCustomDebugName) {
