@@ -326,6 +326,25 @@ CXXRecordDecl *GetPayloadType(const VarDecl *Payload) {
   return nullptr;
 }
 
+std::vector<FieldDecl*> GetAllPayloadFields(RecordDecl* PayloadType) {
+  std::vector<FieldDecl*> PayloadFields;
+
+  for (FieldDecl *Field : PayloadType->fields()) {
+    QualType FieldType = Field->getType();
+    if (RecordDecl *FieldRecordDecl = FieldType->getAsCXXRecordDecl()) {
+      // Skip nested payload types.
+      if (FieldRecordDecl->hasAttr<HLSLRayPayloadAttr>()) {
+        auto SubTypeFields = GetAllPayloadFields(FieldRecordDecl);
+        PayloadFields.insert(PayloadFields.end(), SubTypeFields.begin(), SubTypeFields.end());
+        continue;
+      }
+    }
+    PayloadFields.push_back(Field);
+  }
+
+  return PayloadFields;
+}
+
 // Returns true if the field is writeable in an earlier shader stage.
 bool IsFieldWriteableInEarlierStage(FieldDecl *Field,
                                     DXIL::PayloadAccessShaderStage ThisStage) {
@@ -376,7 +395,8 @@ void DiagnosePayloadWrites(Sema &S, CFG &ShaderCFG, DominatorTree &DT,
 
   // Check if a field is not unconditionally written and a write form an earlier
   // stage will be lost.
-  for (FieldDecl *Field : PayloadType->fields()) {
+  auto PayloadFields = GetAllPayloadFields(PayloadType);
+  for (FieldDecl *Field : PayloadFields) {
     auto Qualifier = GetPayloadQualifierForStage(Field, Info.Stage);
     if (IsFieldWriteableInEarlierStage(Field, Info.Stage) &&
         Qualifier == DXIL::PayloadAccessQualifier::Write) {
@@ -686,6 +706,68 @@ DiagnosePayloadAsFunctionArg(
   return WrittenFieldsInCalls;
 }
 
+// Collect all fields that cannot be accessed for the given shader stage. 
+// This function recurses into nested payload types.
+void CollectNonAccessableFields(
+    RecordDecl *PayloadType, DXIL::PayloadAccessShaderStage Stage,
+    const std::set<const FieldDecl *> &FieldsToIgnoreRead,
+    const std::set<const FieldDecl *> &FieldsToIgnoreWrite,
+    std::vector<FieldDecl *> &NonWriteableFields,
+    std::vector<FieldDecl *> &NonReadableFields) {
+  for (FieldDecl *Field : PayloadType->fields()) {
+    QualType FieldType = Field->getType();
+    if (RecordDecl *FieldRecordDecl = FieldType->getAsCXXRecordDecl()) {
+      if (FieldRecordDecl->hasAttr<HLSLRayPayloadAttr>()) {
+        CollectNonAccessableFields(FieldRecordDecl, Stage, FieldsToIgnoreRead,
+                                   FieldsToIgnoreWrite, NonWriteableFields,
+                                   NonReadableFields);
+        continue;
+      }
+    }
+
+    auto Qualifier = GetPayloadQualifierForStage(Field, Stage);
+    // Diagnose writes only if they are not written heigher in the call-graph.
+    if (!FieldsToIgnoreWrite.count(Field)) {
+      if (Qualifier != DXIL::PayloadAccessQualifier::Write &&
+          Qualifier != DXIL::PayloadAccessQualifier::ReadWrite)
+        NonWriteableFields.push_back(Field);
+    }
+    // Diagnose reads only if they have no write heigher in the call-graph.
+    if (!FieldsToIgnoreRead.count(Field)) {
+      if (Qualifier != DXIL::PayloadAccessQualifier::Read &&
+          Qualifier != DXIL::PayloadAccessQualifier::ReadWrite)
+        NonReadableFields.push_back(Field);
+    }
+  }
+}
+
+void CollectAccessableFields(RecordDecl *PayloadType,
+                             const std::vector<FieldDecl *> &NonWriteableFields,
+                             const std::vector<FieldDecl *> &NonReadableFields,
+                             std::vector<FieldDecl *> &WriteableFields,
+                             std::vector<FieldDecl *> &ReadableFields) {
+  for (FieldDecl *Field : PayloadType->fields()) {
+    QualType FieldType = Field->getType();
+    if (RecordDecl *FieldRecordDecl = FieldType->getAsCXXRecordDecl()) {
+      // Skip nested payload types.
+      if (FieldRecordDecl->hasAttr<HLSLRayPayloadAttr>()) {
+        CollectAccessableFields(FieldRecordDecl, NonWriteableFields,
+                                NonReadableFields, WriteableFields,
+                                ReadableFields);
+        continue;
+      }
+    }
+
+    if (std::find(NonWriteableFields.begin(), NonWriteableFields.end(),
+                  Field) == NonWriteableFields.end())
+      WriteableFields.push_back(Field);
+
+    if (std::find(NonReadableFields.begin(), NonReadableFields.end(), Field) ==
+        NonReadableFields.end())
+      ReadableFields.push_back(Field);
+  }
+}
+
 // Emit diagnostics for a TraceRay call.
 void DiagnoseTraceCall(Sema &S, const VarDecl *Payload,
                        const TraceRayCall &Trace, DominatorTree &DT) {
@@ -707,19 +789,11 @@ void DiagnoseTraceCall(Sema &S, const VarDecl *Payload,
     return;
   }
 
-  for (FieldDecl *Field : PayloadType->fields()) {
-    auto Qualifier = GetPayloadQualifierForStage(Field, CallerStage);
-    if (Qualifier == DXIL::PayloadAccessQualifier::Write ||
-        Qualifier == DXIL::PayloadAccessQualifier::ReadWrite)
-      WriteableFields.push_back(Field);
-    else
-      NonWriteableFields.push_back(Field);
-    if (Qualifier == DXIL::PayloadAccessQualifier::Read ||
-        Qualifier == DXIL::PayloadAccessQualifier::ReadWrite)
-      ReadableFields.push_back(Field);
-    else
-      NonReadableFields.push_back(Field);
-  }
+  CollectNonAccessableFields(PayloadType, CallerStage, {}, {},
+                             NonWriteableFields, NonReadableFields);
+
+  CollectAccessableFields(PayloadType, NonWriteableFields, NonReadableFields,
+                          WriteableFields, ReadableFields);
 
   // Find all writes to Payload that reaches the Trace
   DxrShaderDiagnoseInfo TraceInfo;
@@ -868,21 +942,9 @@ DiagnosePayloadAccess(Sema &S, DxrShaderDiagnoseInfo &Info,
     if (!PayloadType)
       return WrittenFields;
 
-    for (FieldDecl *Field : PayloadType->fields()) {
-      auto Qualifier = GetPayloadQualifierForStage(Field, Info.Stage);
-      // Diagnose writes only if they are not written heigher in the call-graph.
-      if (!FieldsToIgnoreWrite.count(Field)) {
-        if (Qualifier != DXIL::PayloadAccessQualifier::Write &&
-            Qualifier != DXIL::PayloadAccessQualifier::ReadWrite)
-          NonWriteableFields.push_back(Field);
-      }
-      // Diagnose reads only if they have no write heigher in the call-graph.
-      if (!FieldsToIgnoreRead.count(Field)) {
-        if (Qualifier != DXIL::PayloadAccessQualifier::Read &&
-            Qualifier != DXIL::PayloadAccessQualifier::ReadWrite)
-          NonReadableFields.push_back(Field);
-      }
-    }
+    CollectNonAccessableFields(PayloadType, Info.Stage, FieldsToIgnoreRead,
+                               FieldsToIgnoreWrite, NonWriteableFields,
+                               NonReadableFields);
 
     std::set<const CFGBlock *> Visited;
     ForwardTraverseCFGAndCollectReadsWrites(TheCFG.getEntry(), Info, Visited);
@@ -911,7 +973,6 @@ DiagnosePayloadAccess(Sema &S, DxrShaderDiagnoseInfo &Info,
         for (const FieldDecl* Field : P.second) {
             Info.WritesPerField[Field].push_back(P.first);
       }
-    
     }
 
     if (Info.Payload->hasAttr<HLSLInAttr>() ||
