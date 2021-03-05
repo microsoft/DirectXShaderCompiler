@@ -3167,9 +3167,12 @@ GatherHelper::GatherHelper(
       if (ch != GatherChannel::GatherAll)
         TranslateSampleOffset(CI, HLOperandIndex::kGatherSampleOffsetArgIndex,
                               offsetSize);
-      statusIdx =
-          hasSampleOffsets ? HLOperandIndex::kGatherStatusWithSampleOffsetArgIndex
-                           : HLOperandIndex::kGatherStatusArgIndex;
+      if (hasSampleOffsets) {
+        statusIdx = HLOperandIndex::kGatherStatusWithSampleOffsetArgIndex;
+      } else {
+        opcode = OP::OpCode::TextureGatherImm;
+        statusIdx = HLOperandIndex::kGatherStatusArgIndex;
+      }
     }
     SetStatus(CI, statusIdx);
   } break;
@@ -3185,10 +3188,12 @@ GatherHelper::GatherHelper(
       if (ch != GatherChannel::GatherAll)
         TranslateSampleOffset(CI, HLOperandIndex::kGatherCmpSampleOffsetArgIndex,
                               offsetSize);
-      statusIdx =
-          hasSampleOffsets
-              ? HLOperandIndex::kGatherCmpStatusWithSampleOffsetArgIndex
-              : HLOperandIndex::kGatherCmpStatusArgIndex;
+      if (hasSampleOffsets) {
+        statusIdx = HLOperandIndex::kGatherCmpStatusWithSampleOffsetArgIndex;
+      } else {
+        opcode = OP::OpCode::TextureGatherCmpImm;
+        statusIdx = HLOperandIndex::kGatherCmpStatusArgIndex;
+      }
     }
     SetStatus(CI, statusIdx);
   } break;
@@ -3283,9 +3288,9 @@ Value *TranslateGather(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   }
   Type *Ty = CI->getType();
 
-  Function *F = hlslOP->GetOpFunc(opcode, Ty->getScalarType());
+  Function *F = hlslOP->GetOpFunc(gatherHelper.opcode, Ty->getScalarType());
 
-  Constant *opArg = hlslOP->GetU32Const((unsigned)opcode);
+  Constant *opArg = hlslOP->GetU32Const((unsigned)gatherHelper.opcode);
   Value *channelArg = hlslOP->GetU32Const(gatherHelper.channel);
 
   switch (opcode) {

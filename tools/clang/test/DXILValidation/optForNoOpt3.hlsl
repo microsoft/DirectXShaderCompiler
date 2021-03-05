@@ -1,6 +1,6 @@
 // RUN: %dxc -E main -T ps_6_0 -Od %s | FileCheck %s
 
-// CHECK: Offsets for Sample* must be immediated value
+// CHECK: Offsets to texture access operations must be immediate values
 
 SamplerState samp1 : register(s5);
 Texture2D<float4> text1 : register(t3);

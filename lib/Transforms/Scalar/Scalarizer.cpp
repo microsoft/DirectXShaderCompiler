@@ -316,7 +316,7 @@ Scatterer Scalarizer::scatter(Instruction *Point, Value *V) {
     auto InsertPoint = BB->begin();
     while (InsertPoint != BB->end() && isa<DbgInfoIntrinsic>(InsertPoint))
       InsertPoint++;
-    Scatterer(BB, InsertPoint, V, AllowFolding, &Scattered[V]);
+    return Scatterer(BB, InsertPoint, V, AllowFolding, &Scattered[V]);
     // HLSL Change - End
   }
   if (Instruction *VOp = dyn_cast<Instruction>(V)) {
