@@ -411,7 +411,7 @@ def Qstrip_priv : Flag<["-", "/"], "Qstrip_priv">, Flags<[DriverOption]>, Group<
   HelpText<"Strip private data from shader bytecode  (must be used with /Fo <file>)">;
 def Qsource_in_debug_module : Flag<["-", "/"], "Qsource_in_debug_module">, Flags<[CoreOption, HelpHidden]>, Group<hlslutil_Group>,
   HelpText<"Generate old PDB format.">;
-def Zs : Flag<["-", "/"], "Zs">, Flags<[CoreOption, HelpHidden]>, Group<hlslutil_Group>,
+def Zs : Flag<["-", "/"], "Zs">, Flags<[CoreOption]>, Group<hlslutil_Group>,
   HelpText<"Generate small PDB with just sources and compile options.">;
 def Qpdb_in_private : Flag<["-", "/"], "Qpdb_in_private">, Flags<[CoreOption, HelpHidden]>, Group<hlslutil_Group>,
   HelpText<"Store PDB in private user data.">;

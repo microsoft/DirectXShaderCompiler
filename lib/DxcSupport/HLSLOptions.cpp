@@ -139,7 +139,7 @@ bool DxcOpts::IsLibraryProfile() {
 }
 
 bool DxcOpts::IsDebugInfoEnabled() {
-  return DebugInfo;
+  return DebugInfo || SourceOnlyDebug;
 }
 
 bool DxcOpts::EmbedDebugInfo() {

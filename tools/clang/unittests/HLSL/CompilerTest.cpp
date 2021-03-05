@@ -1288,8 +1288,8 @@ static void VerifyPdbUtil(dxc::DxcDllSupport &dllSupport,
     auto ReplaceDebugFlagPair = [](const std::vector<std::pair<const WCHAR *, const WCHAR *> > &List) -> std::vector<std::pair<const WCHAR *, const WCHAR *> > {
       std::vector<std::pair<const WCHAR *, const WCHAR *> > ret;
       for (unsigned i = 0; i < List.size(); i++) {
-        if (!wcscmp(List[i].first, L"/Qsource_only_debug") || !wcscmp(List[i].first, L"-Qsource_only_debug"))
-          ret.push_back(std::pair<const WCHAR *, const WCHAR *>(L"-Qfull_debug", nullptr));
+        if (!wcscmp(List[i].first, L"/Zs") || !wcscmp(List[i].first, L"-Zs"))
+          ret.push_back(std::pair<const WCHAR *, const WCHAR *>(L"-Zi", nullptr));
         else
           ret.push_back(List[i]);
       }
@@ -1453,7 +1453,6 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bSourceInDebugModule, bool bStr
     }
   };
 
-  AddArg(L"-Zi", nullptr, false);
   AddArg(L"-Od", nullptr, false);
   AddArg(L"-flegacy-macro-expansion", nullptr, false);
 
@@ -1468,7 +1467,10 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bSourceInDebugModule, bool bStr
     AddArg(L"-Qsource_in_debug_module", nullptr, false);
   }
   if (bSlim) {
-    AddArg(L"-Qsource_only_debug", nullptr, false);
+    AddArg(L"-Zs", nullptr, false);
+  }
+  else {
+    AddArg(L"-Zi", nullptr, false);
   }
 
   AddArg(L"-D", L"THIS_IS_A_DEFINE=HELLO", true);
@@ -1543,13 +1545,13 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bSourceInDebugModule, bool bStr
 }
 
 TEST_F(CompilerTest, CompileThenTestPdbUtils) {
+  TestPdbUtils(/*bSlim*/true,  /*bSourceInDebugModule*/false, /*strip*/true);  // Slim PDB, where source info is stored in its own part, and debug module is NOT present
+
   TestPdbUtils(/*bSlim*/false, /*bSourceInDebugModule*/true,  /*strip*/false);  // Old PDB format, where source info is embedded in the module
   TestPdbUtils(/*bSlim*/false, /*bSourceInDebugModule*/false, /*strip*/false);  // Full PDB, where source info is stored in its own part, and a debug module which is present
-  TestPdbUtils(/*bSlim*/true,  /*bSourceInDebugModule*/false, /*strip*/false);  // Slim PDB, where source info is stored in its own part, and a debug module which is NOT present
 
   TestPdbUtils(/*bSlim*/false, /*bSourceInDebugModule*/true,  /*strip*/true);  // Legacy PDB, where source info is embedded in the module
   TestPdbUtils(/*bSlim*/false, /*bSourceInDebugModule*/false, /*strip*/true);  // Full PDB, where source info is stored in its own part, and debug module is present
-  TestPdbUtils(/*bSlim*/true,  /*bSourceInDebugModule*/false, /*strip*/true);  // Slim PDB, where source info is stored in its own part, and debug module is NOT present
 }
 
 TEST_F(CompilerTest, CompileThenTestPdbUtilsRelativePath) {
@@ -1575,8 +1577,7 @@ TEST_F(CompilerTest, CompileThenTestPdbUtilsRelativePath) {
 
   std::vector<const WCHAR *> args;
   args.push_back(L"/Tps_6_0");
-  args.push_back(L"/Zi");
-  args.push_back(L"/Qsource_only_debug");
+  args.push_back(L"/Zs");
   args.push_back(L"shaders/Shader.hlsl");
 
   CComPtr<TestIncludeHandler> pInclude;
