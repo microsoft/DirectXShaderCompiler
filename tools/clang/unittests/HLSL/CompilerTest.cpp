@@ -128,6 +128,7 @@ public:
   TEST_METHOD(CompileWhenWorksThenAddRemovePrivate)
   TEST_METHOD(CompileThenAddCustomDebugName)
   TEST_METHOD(CompileThenTestPdbUtils)
+  TEST_METHOD(CompileThenTestPdbInPrivate)
   TEST_METHOD(CompileThenTestPdbUtilsStripped)
   TEST_METHOD(CompileThenTestPdbUtilsEmptyEntry)
   TEST_METHOD(CompileThenTestPdbUtilsRelativePath)
@@ -1552,6 +1553,58 @@ TEST_F(CompilerTest, CompileThenTestPdbUtils) {
 
   TestPdbUtils(/*bSlim*/false, /*bSourceInDebugModule*/true,  /*strip*/true);  // Legacy PDB, where source info is embedded in the module
   TestPdbUtils(/*bSlim*/false, /*bSourceInDebugModule*/false, /*strip*/true);  // Full PDB, where source info is stored in its own part, and debug module is present
+}
+
+TEST_F(CompilerTest, CompileThenTestPdbInPrivate) {
+  CComPtr<IDxcCompiler> pCompiler;
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+
+  std::string main_source = R"x(
+      cbuffer MyCbuffer : register(b1) {
+        float4 my_cbuf_foo;
+      }
+
+      [RootSignature("CBV(b1)")]
+      float4 main() : SV_Target {
+        return my_cbuf_foo;
+      }
+  )x";
+
+  CComPtr<IDxcUtils> pUtils;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcUtils, &pUtils));
+
+  CComPtr<IDxcBlobEncoding> pSource;
+  VERIFY_SUCCEEDED(pUtils->CreateBlobFromPinned(main_source.c_str(), main_source.size(), CP_UTF8, &pSource));
+
+  const WCHAR *args[] = {
+    L"/Zs",
+    L"/Qpdb_in_private",
+  };
+
+  CComPtr<IDxcOperationResult> pOpResult;
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main", L"ps_6_0", args, _countof(args), nullptr, 0, nullptr, &pOpResult));
+
+  CComPtr<IDxcResult> pResult;
+  VERIFY_SUCCEEDED(pOpResult.QueryInterface(&pResult));
+
+  CComPtr<IDxcBlob> pShader;
+  VERIFY_SUCCEEDED(pResult->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&pShader), nullptr));
+
+  CComPtr<IDxcContainerReflection> pRefl;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pRefl));
+  VERIFY_SUCCEEDED(pRefl->Load(pShader));
+
+  UINT32 uIndex = 0;
+  VERIFY_SUCCEEDED(pRefl->FindFirstPartKind(hlsl::DFCC_PrivateData, &uIndex));
+
+  CComPtr<IDxcBlob> pPdbBlob;
+  VERIFY_SUCCEEDED(pResult->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pPdbBlob), nullptr));
+
+  CComPtr<IDxcBlob> pPrivatePdbBlob;
+  VERIFY_SUCCEEDED(pRefl->GetPartContent(uIndex, &pPrivatePdbBlob));
+
+  VERIFY_ARE_EQUAL(pPdbBlob->GetBufferSize(), pPrivatePdbBlob->GetBufferSize());
+  VERIFY_ARE_EQUAL(0, memcmp(pPdbBlob->GetBufferPointer(), pPrivatePdbBlob->GetBufferPointer(), pPdbBlob->GetBufferSize()));
 }
 
 TEST_F(CompilerTest, CompileThenTestPdbUtilsRelativePath) {

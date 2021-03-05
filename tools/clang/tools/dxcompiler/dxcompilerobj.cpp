@@ -161,7 +161,7 @@ struct CompilerVersionPartWriter {
 };
 
 static HRESULT CreateContainerForPDB(IMalloc *pMalloc,
-  llvm::Module *pModule,
+  std::unique_ptr<llvm::Module> pModule,
   IDxcBlob *pOldContainer,
   IDxcBlob *pDebugBlob, IDxcVersionInfo *pVersionInfo,
   const hlsl::DxilSourceInfo *pSourceInfo,
@@ -247,7 +247,7 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc,
     Part NewPart(
       hlsl::DFCC_ShaderStatistics,
       reflectionSizeInBytes,
-      [&pReflectionStream, pModule](IStream *pStream) {
+      [&pReflectionStream, &pModule](IStream *pStream) {
         hlsl::WriteProgramPart(pModule->GetOrCreateDxilModule().GetShaderModel(), pReflectionStream, pStream);
         return S_OK;
       }
@@ -1035,14 +1035,7 @@ public:
 
       if (!hasErrorOccurred && writePDB) {
         CComPtr<IDxcBlob> pStrippedContainer;
-
         {
-          // Version info to store in the PDB
-          IDxcVersionInfo *pVersionInfo = nullptr;
-          if (opts.IsDebugInfoEnabled()) { // Only put version info if embedding debug
-            pVersionInfo = static_cast<IDxcVersionInfo *>(this);
-          }
-
           // Create the shader source information for PDB
           hlsl::SourceInfoWriter debugSourceInfoWriter;
           const hlsl::DxilSourceInfo *pSourceInfo = nullptr;
@@ -1077,7 +1070,7 @@ public:
 
           IFT(CreateContainerForPDB(
             m_pMalloc,
-            compiledModule.get(),
+            std::move(compiledModule),
             pOutputBlob, pDebugProgramBlob,
             static_cast<IDxcVersionInfo *>(this), pSourceInfo,
             pReflectionStream, reflectionSizeInBytes,
@@ -1088,7 +1081,26 @@ public:
         CComPtr<IDxcBlob> pPdbBlob;
         IFT(hlsl::pdb::WriteDxilPDB(m_pMalloc, pStrippedContainer, ShaderHashContent.Digest, &pPdbBlob));
         IFT(pResult->SetOutputObject(DXC_OUT_PDB, pPdbBlob));
-      }
+
+        // If option Qpdb_in_private given, add the PDB to the DXC_OUT_OBJECT container output as a
+        // DFCC_PrivateData part.
+        if (opts.PdbInPrivate) {
+          CComPtr<IDxcBlobEncoding> pContainerBlob;
+          hlsl::DxcCreateBlobWithEncodingFromPinned(pOutputBlob->GetBufferPointer(), pOutputBlob->GetBufferSize(), CP_ACP, &pContainerBlob);
+
+          CComPtr<IDxcContainerBuilder> pContainerBuilder;
+          DxcCreateInstance2(this->m_pMalloc, CLSID_DxcContainerBuilder, IID_PPV_ARGS(&pContainerBuilder));
+          IFT(pContainerBuilder->Load(pOutputBlob));
+          IFT(pContainerBuilder->AddPart(hlsl::DFCC_PrivateData, pPdbBlob));
+
+          CComPtr<IDxcOperationResult> pReserializeResult;
+          IFT(pContainerBuilder->SerializeContainer(&pReserializeResult));
+
+          CComPtr<IDxcBlob> pNewOutput;
+          IFT(pReserializeResult->GetResult(&pNewOutput));
+          pOutputBlob = pNewOutput;
+        } // PDB in private
+      } // Write PDB
 
       IFT(primaryOutput.SetObject(pOutputBlob, opts.DefaultTextCodePage));
       IFT(pResult->SetOutput(primaryOutput));
