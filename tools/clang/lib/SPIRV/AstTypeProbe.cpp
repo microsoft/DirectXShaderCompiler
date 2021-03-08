@@ -265,6 +265,18 @@ bool isSubpassInputMS(QualType type) {
   return false;
 }
 
+bool isArrayType(QualType type, QualType *elemType, uint32_t *elemCount) {
+  bool isArray = type->isArrayType();
+  if (const auto *arrayType = type->getAsArrayTypeUnsafe()) {
+    if (elemType)
+      *elemType = arrayType->getElementType();
+    if (elemCount)
+      *elemCount = hlsl::GetArraySize(type);
+    return true;
+  }
+  return false;
+}
+
 bool isConstantBuffer(clang::QualType type) {
   // Strip outer arrayness first
   while (type->isArrayType())
@@ -1051,12 +1063,14 @@ bool isRelaxedPrecisionType(QualType type, const SpirvCodeGenOptions &opts) {
         }
   }
 
-  // Vector & Matrix types could use relaxed precision based on their element
-  // type.
+  // Vector, Matrix and Array types could use relaxed precision based on their
+  // element type.
   {
     QualType elemType = {};
-    if (isVectorType(type, &elemType) || isMxNMatrix(type, &elemType))
+    if (isVectorType(type, &elemType) || isMxNMatrix(type, &elemType) ||
+        isArrayType(type, &elemType)) {
       return isRelaxedPrecisionType(elemType, opts);
+    }
   }
 
   // Images with RelaxedPrecision sampled type.
