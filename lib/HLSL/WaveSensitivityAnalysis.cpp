@@ -110,6 +110,12 @@ void WaveSensitivityAnalyzer::Analyze(Function *F) {
             break;
           }
         }
+#ifndef NDEBUG
+        for (User *U : Phi->users()) {
+          Instruction *UI = cast<Instruction>(U);
+          DXASSERT(GetInstState(UI) != KnownSensitive, "Unknown wave-status Phi argument should not be able to be known sensitive");
+        }
+#endif
         if (allPredsVisited)
           UpdateInst(Phi, KnownNotSensitive);
       }
