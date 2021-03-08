@@ -24,6 +24,7 @@
 #include "clang/Frontend/FrontendActions.h"
 #include "clang/CodeGen/CodeGenAction.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h"
@@ -1058,6 +1059,8 @@ public:
           // Don't include the debug part if using source only PDB
           if (opts.SourceOnlyDebug) {
             assert(pSourceInfo);
+            llvm::StripDebugInfo(*compiledModule);
+            compiledModule->GetOrCreateDxilModule().StripDebugRelatedCode(/* bReplaceWithDummyData */ true);
             hlsl::ReEmitLatestReflectionData(compiledModule.get());
             hlsl::StripAndCreateReflectionStream(compiledModule.get(), &reflectionSizeInBytes, &pReflectionStream);
           }

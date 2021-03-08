@@ -1888,8 +1888,8 @@ void DxilModule::StripShaderSourcesAndCompileOptions(bool bReplaceWithDummyData)
   }
 }
 
-void DxilModule::StripDebugRelatedCode() {
-  StripShaderSourcesAndCompileOptions();
+void DxilModule::StripDebugRelatedCode(bool bReplaceWithDummyData) {
+  StripShaderSourcesAndCompileOptions(bReplaceWithDummyData);
   if (NamedMDNode *flags = m_pModule->getModuleFlagsMetadata()) {
     SmallVector<llvm::Module::ModuleFlagEntry, 4> flagEntries;
     m_pModule->getModuleFlagsMetadata(flagEntries);
