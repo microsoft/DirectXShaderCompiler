@@ -8316,6 +8316,15 @@ TEST_F(ExecutionTest, DynamicResourcesTest) {
   if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6))
     return;
 
+  // ResourceDescriptorHeap/SamplerDescriptorHeap requires Resource Binding Tier 3
+  D3D12_FEATURE_DATA_D3D12_OPTIONS devOptions;
+  VERIFY_SUCCEEDED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS, &devOptions, sizeof(devOptions)));
+  if (devOptions.ResourceBindingTier < D3D12_RESOURCE_BINDING_TIER_3) {
+    WEX::Logging::Log::Comment(L"Device does not support Resource Binding Tier 3");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
   RunResourceTest(pDevice, pShader, L"cs_6_6", /*isDynamic*/true);
 }
 
