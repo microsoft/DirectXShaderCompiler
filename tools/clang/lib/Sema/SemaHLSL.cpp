@@ -5262,6 +5262,8 @@ public:
   QualType getCurrentElement() const;
   /// <summary>Get the number of repeated current elements.</summary>
   unsigned int getCurrentElementSize() const;
+  /// <summary>Gets the current element's Iterkind.</summary>
+  FlattenedIterKind getCurrentElementKind() const { return m_typeTrackers.back().IterKind; }
   /// <summary>Checks whether the iterator has a current element type to report.</summary>
   bool hasCurrentElement() const;
   /// <summary>Consumes count elements on this iterator.</summary>
@@ -10996,6 +10998,11 @@ FlattenedTypeIterator::CompareIterators(
       rightIter.replaceExpr(convertedExpr.get());
       advance = 1;
     }
+
+    // If both elements are unbound arrays, break out or we'll never finish
+    if (leftIter.getCurrentElementKind() == FK_IncompleteArray &&
+        rightIter.getCurrentElementKind() == FK_IncompleteArray)
+      break;
 
     leftIter.advanceCurrentElement(advance);
     rightIter.advanceCurrentElement(advance);
