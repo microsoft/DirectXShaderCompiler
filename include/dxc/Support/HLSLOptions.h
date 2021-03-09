@@ -172,7 +172,7 @@ public:
   bool RecompileFromBinary = false; // OPT _Recompile (Recompiling the DXBC binary file not .hlsl file)
   bool StripDebug = false; // OPT Qstrip_debug
   bool EmbedDebug = false; // OPT Qembed_debug
-  bool SourceInDebugModule = false; // OPT Qsource_in_debug_module
+  bool SourceInDebugModule = false; // OPT Zs
   bool SourceOnlyDebug = false; // OPT Qsource_only_debug
   bool PdbInPrivate = false; // OPT Qpdb_in_private
   bool StripRootSignature = false; // OPT_Qstrip_rootsignature
