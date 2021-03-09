@@ -6657,7 +6657,7 @@ void TranslateCBGepLegacy(GetElementPtrInst *GEP, Value *handle,
 
         // Load the whole register.
         Value *newLd = GenerateCBLoadLegacy(handle, legacyIndex,
-                                     /*channelOffset*/ 0, EltTy,
+                                     /*channelOffset*/ channel, EltTy,
                                      /*vecSize*/ vecSize, hlslOP, Builder);
         // Copy to array.
         IRBuilder<> AllocaBuilder(GEP->getParent()->getParent()->getEntryBlock().getFirstInsertionPt());
