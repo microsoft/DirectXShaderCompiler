@@ -113,7 +113,7 @@ void WaveSensitivityAnalyzer::Analyze(Function *F) {
 #ifndef NDEBUG
         for (User *U : Phi->users()) {
           Instruction *UI = cast<Instruction>(U);
-          DXASSERT(GetInstState(UI) != KnownSensitive, "Unknown wave-status Phi argument should not be able to be known sensitive");
+          DXASSERT_LOCALVAR(UI, GetInstState(UI) != KnownSensitive, "Unknown wave-status Phi argument should not be able to be known sensitive");
         }
 #endif
         if (allPredsVisited)
@@ -125,7 +125,7 @@ void WaveSensitivityAnalyzer::Analyze(Function *F) {
 #ifndef NDEBUG
   for (BasicBlock &BB : *F) {
     for (Instruction &I : BB) {
-      DXASSERT(Unknown != GetInstState(&I), "Wave sensitivity analysis exited without finding results for all instructions");
+      DXASSERT_LOCALVAR(I, Unknown != GetInstState(&I), "Wave sensitivity analysis exited without finding results for all instructions");
     }
   }
 #endif
