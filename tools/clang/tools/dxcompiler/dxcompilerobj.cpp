@@ -955,7 +955,7 @@ public:
           std::unique_ptr<llvm::Module> serializeModule( action.takeModule() );
 
           // Clone and save the copy.
-          if (!opts.SourceOnlyDebug) {
+          if (opts.GenerateFullDebugInfo()) {
             debugModule.reset(llvm::CloneModule(serializeModule.get()));
           }
 
