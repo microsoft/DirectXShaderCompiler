@@ -181,6 +181,8 @@ private:
 
   std::vector<DynamicResourceBinding> m_dynamicResourceBindings;
   bool m_CheckForDynamicIndexing = false;
+  int m_DynamicResourceCounterOffset = -1;
+  int m_OutputBufferSize = -1;
   std::map<RegisterTypeAndSpace, SlotRange> m_slotAssignments;
   std::map<llvm::Function *, CallInst *> m_FunctionToUAVHandle;
   std::set<RSRegisterIdentifier> m_DynamicallyIndexedBindPoints;
@@ -277,6 +279,9 @@ void DxilShaderAccessTracking::applyOptions(PassOptions O) {
 
       rt = ParseRegisterType(config);
     }
+    m_DynamicResourceCounterOffset = DeserializeInt(config);
+    ValidateDelimiter(config, ';');
+    m_OutputBufferSize = DeserializeInt(config);
   }
 }
 
@@ -378,13 +383,13 @@ bool DxilShaderAccessTracking::EmitResourceAccess(DxilResourceAndClass &res,
       return true; // did modify
     }
   }
-  else {
+  else if (m_DynamicResourceCounterOffset != -1) {
       if (res.accessStyle == AccessStyle::ResourceFromDescriptorHeap)
       {
           Function* AtomicOpFunc = HlslOP->GetOpFunc(OP::OpCode::AtomicBinOp,
               Type::getInt32Ty(Ctx));
           Constant* DynamicOutputBase =
-              HlslOP->GetU32Const(1024); //todo: get this from parameter from engine
+              HlslOP->GetU32Const(m_DynamicResourceCounterOffset);
           Constant* SizeofDwordIncrement =
               HlslOP->GetU32Const(static_cast<unsigned int>(sizeof(uint32_t)));
           Constant* AtomicBinOpcode =
@@ -407,12 +412,26 @@ bool DxilShaderAccessTracking::EmitResourceAccess(DxilResourceAndClass &res,
                   SizeofDwordIncrement,      // i32); increment value
               },
               "UAVIncResult");
+
           Constant* OffsetIntoDynamicSpace =
-              HlslOP->GetU32Const(1024 + static_cast<unsigned int>(sizeof(uint32_t))); //also todo
+              HlslOP->GetU32Const(m_DynamicResourceCounterOffset + static_cast<unsigned int>(sizeof(uint32_t)));
 
           auto OffsetToNextAvailableSlot = Builder.CreateAdd(
               PreviousValue, OffsetIntoDynamicSpace,
               "OffsetToNextAvailableSlot");
+
+
+          // Branchless limit: compare offset to buffer size, resulting in a value of 0 or 1.
+          // Extend that 0/1 to an integer, and multiply the offset by that value.
+          // Result: expected offset, or 0 if too large.
+          Constant *BufferLimit = HlslOP->GetU32Const(m_OutputBufferSize);
+          auto * LimitBoolean = Builder.CreateICmpULT(OffsetToNextAvailableSlot, BufferLimit);
+          
+          auto * LimitIntegerValue = Builder.CreateCast(
+              Instruction::CastOps::ZExt, LimitBoolean,
+              Type::getInt32Ty(Ctx));
+          
+          auto* LimitedOffset = Builder.CreateMul(OffsetToNextAvailableSlot, LimitIntegerValue);
 
           Constant *ElementMask = HlslOP->GetI8Const(1);
 
@@ -427,7 +446,7 @@ bool DxilShaderAccessTracking::EmitResourceAccess(DxilResourceAndClass &res,
                   m_FunctionToUAVHandle.at(
                       Builder.GetInsertBlock()
                           ->getParent()), // %dx.types.Handle, ; resource handle
-                  OffsetToNextAvailableSlot,        // i32, ; coordinate c0: byte offset
+                  LimitedOffset,        // i32, ; coordinate c0: byte offset
                   UndefArg,            // i32, ; coordinate c1 (unused)
                   res.dynamicallyBoundIndex,             // i32, ; value v0
                   UndefArg,            // i32, ; value v1
