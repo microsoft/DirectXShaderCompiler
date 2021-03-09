@@ -288,6 +288,7 @@
       RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT),
       DescriptorTable(UAV(u0), UAV(u1), UAV(u2))
     </RootSignature>
+    <Resource Name="RTarget" Dimension="TEXTURE2D" Width="64" Height="64" Format="R32G32B32A32_FLOAT" Flags="ALLOW_RENDER_TARGET" InitialResourceState="COPY_DEST" ReadBack="true" />
     <Resource Name="U0" Dimension="BUFFER" Width="16384"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="Zero" ReadBack="true" />
@@ -309,11 +310,17 @@
       <Descriptor Name='U2' Kind='UAV' ResName='U2'
                   NumElements="1024" StructureByteStride="16" />
     </DescriptorHeap>
+    <DescriptorHeap Name="RtvHeap" NumDescriptors="1" Type="RTV">
+      <Descriptor Name="RTarget" Kind="RTV"/>
+    </DescriptorHeap>
 
     <InputElements>
       <InputElement SemanticName="POSITION" Format="R32G32B32_FLOAT" AlignedByteOffset="0" />
       <InputElement SemanticName="TEXCOORD" Format="R32G32_FLOAT" AlignedByteOffset="12" />
     </InputElements>
+    <RenderTargets>
+      <RenderTarget Name="RTarget"/>
+    </RenderTargets>
     <Shader Name="CS" Target="cs_6_0" EntryPoint="CSMain" Text="@PS"/>
     <Shader Name="AS" Target="as_6_6" EntryPoint="ASMain" Text="@PS"/>
     <Shader Name="MS" Target="ms_6_6" EntryPoint="MSMain" Text="@PS"/>
