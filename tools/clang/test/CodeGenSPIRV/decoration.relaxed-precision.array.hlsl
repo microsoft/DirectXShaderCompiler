@@ -24,13 +24,13 @@ groupshared min16float testShared[2];
 
 [numthreads(1, 1, 1)] void main()
 {
+// CHECK: [[compositeConstr2:%\d+]] = OpCompositeConstruct %_arr_v2float_uint_2 {{%\d+}} {{%\d+}}
+    min16float2 test[2] = { float2(1.0, 1.0), float2(1.0, 1.0) };
 // CHECK: [[compositeConstr1:%\d+]] = OpCompositeConstruct %_arr_float_uint_2 %float_1 %float_1
-    min16float test[2] = { 1.0, 1.0 };
-// CHECK: [[compositeConstr2:%\d+]] = OpCompositeConstruct %_arr_float_uint_2 %float_1 %float_1
     ArrayOfMin16Float testTypedef = { 1.0, 1.0 };
     float notMin16[2] = { 1.0, 1.0 };
 // CHECK: [[loadFromTest1:%\d+]] = OpLoad %float {{%\d+}}
-    testShared[0] = test[0];
+    testShared[0] = test[0].x;
 
     min16float a = 1.0;
 // CHECK: [[loadFromTest2:%\d+]] = OpLoad %float {{%\d+}}
@@ -38,7 +38,7 @@ groupshared min16float testShared[2];
 // CHECK: [[multiply1:%\d+]] = OpFMul %float {{%\d+}} {{%\d+}}
 // CHECK: [[loadVariable1:%\d+]] = OpLoad %float %a
 // CHECK: [[multiply2:%\d+]] = OpFMul %float {{%\d+}} {{%\d+}}
-    a *= (test[0] * testTypedef[0]);
+    a *= (test[0].x * testTypedef[0]);
 // CHECK: [[loadFromShared:%\d+]] = OpLoad %float {{%\d+}}
 // CHECK: [[loadVariable2:%\d+]] = OpLoad %float %a
 // CHECK: [[multiply3:%\d+]] = OpFMul %float {{%\d+}} {{%\d+}}
