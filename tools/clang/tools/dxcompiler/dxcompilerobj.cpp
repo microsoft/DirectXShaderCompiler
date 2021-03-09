@@ -961,7 +961,7 @@ public:
 
           dxcutil::AssembleInputs inputs(
                 std::move(serializeModule), pOutputBlob, m_pMalloc, SerializeFlags,
-                pOutputStream, opts.IsDebugInfoEnabled(),
+                pOutputStream, opts.GenerateFullDebugInfo(),
                 opts.GetPDBName(), &compiler.getDiagnostics(),
                 &ShaderHashContent, pReflectionStream, pRootSigStream);
 
@@ -1029,7 +1029,7 @@ public:
 
       bool hasErrorOccurred = compiler.getDiagnostics().hasErrorOccurred();
 
-      bool writePDB = opts.IsDebugInfoEnabled() && produceFullContainer;
+      bool writePDB = opts.GeneratePDB() && produceFullContainer;
 
       // SPIRV change starts
 #if defined(ENABLE_SPIRV_CODEGEN)
@@ -1228,7 +1228,7 @@ public:
 
     compiler.getFrontendOpts().Inputs.push_back(FrontendInputFile(pMainFile, IK_HLSL));
     // Setup debug information.
-    if (Opts.IsDebugInfoEnabled()) {
+    if (Opts.GenerateFullDebugInfo()) {
       CodeGenOptions &CGOpts = compiler.getCodeGenOpts();
       // HLSL Change - begin
       CGOpts.setDebugInfo(CodeGenOptions::FullDebugInfo);

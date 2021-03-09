@@ -138,7 +138,11 @@ bool DxcOpts::IsLibraryProfile() {
   return TargetProfile.startswith("lib_");
 }
 
-bool DxcOpts::IsDebugInfoEnabled() {
+bool DxcOpts::GenerateFullDebugInfo() {
+  return DebugInfo;
+}
+
+bool DxcOpts::GeneratePDB() {
   return DebugInfo || SourceOnlyDebug;
 }
 
@@ -147,7 +151,7 @@ bool DxcOpts::EmbedDebugInfo() {
 }
 
 bool DxcOpts::EmbedPDBName() {
-  return IsDebugInfoEnabled() || !DebugFile.empty();
+  return GeneratePDB() || !DebugFile.empty();
 }
 
 bool DxcOpts::DebugFileIsDirectory() {

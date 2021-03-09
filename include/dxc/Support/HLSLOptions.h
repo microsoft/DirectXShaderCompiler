@@ -210,7 +210,8 @@ public:
   bool IsLibraryProfile();
 
   // Helpers to clarify interpretation of flags for behavior in implementation
-  bool IsDebugInfoEnabled();    // Zi
+  bool GenerateFullDebugInfo(); // Zi
+  bool GeneratePDB();           // Zi or Zs
   bool EmbedDebugInfo();        // Qembed_debug
   bool EmbedPDBName();          // Zi or Fd
   bool DebugFileIsDirectory();  // Fd ends in '\\'
