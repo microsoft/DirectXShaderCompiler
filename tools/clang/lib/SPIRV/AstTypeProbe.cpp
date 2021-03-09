@@ -266,7 +266,6 @@ bool isSubpassInputMS(QualType type) {
 }
 
 bool isArrayType(QualType type, QualType *elemType, uint32_t *elemCount) {
-  bool isArray = type->isArrayType();
   if (const auto *arrayType = type->getAsArrayTypeUnsafe()) {
     if (elemType)
       *elemType = arrayType->getElementType();
