@@ -3424,6 +3424,7 @@ TEST_F(ExecutionTest, ComputeSampleTest) {
   // Test 2D compute shader
   pShaderOp->CS = CS2;
 
+  test.reset();
   test = RunShaderOpTestAfterParse(pDevice, m_support, "ComputeSample", SampleInitFn, ShaderOpSet);
 
   test->Test->GetReadBackData("U0", &data);
