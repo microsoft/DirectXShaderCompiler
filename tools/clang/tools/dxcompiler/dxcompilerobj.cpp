@@ -161,11 +161,10 @@ struct CompilerVersionPartWriter {
 };
 
 static HRESULT CreateContainerForPDB(IMalloc *pMalloc,
-  llvm::Module *pModule,
   IDxcBlob *pOldContainer,
   IDxcBlob *pDebugBlob, IDxcVersionInfo *pVersionInfo,
   const hlsl::DxilSourceInfo *pSourceInfo,
-  AbstractMemoryStream *pReflectionStream, const uint32_t reflectionSizeInBytes,
+  AbstractMemoryStream *pReflectionStream,
   IDxcBlob **ppNewContaner)
 {
   // If the pContainer is not a valid container, give up.
@@ -244,15 +243,18 @@ static HRESULT CreateContainerForPDB(IMalloc *pMalloc,
   }
 
   if (pReflectionStream) {
+    const hlsl::DxilPartHeader *pReflectionPartHeader =
+      (const hlsl::DxilPartHeader *)pReflectionStream->GetPtr();
     Part NewPart(
       hlsl::DFCC_ShaderStatistics,
-      reflectionSizeInBytes,
-      [&pReflectionStream, pModule](IStream *pStream) {
-        hlsl::WriteProgramPart(pModule->GetOrCreateDxilModule().GetShaderModel(), pReflectionStream, pStream);
+      pReflectionPartHeader->PartSize,
+      [pReflectionPartHeader](IStream *pStream) {
+        ULONG uBytesWritten = 0;
+        pStream->Write(pReflectionPartHeader+1, pReflectionPartHeader->PartSize, &uBytesWritten);
         return S_OK;
       }
     );
-    AddPart(NewPart, reflectionSizeInBytes);
+    AddPart(NewPart, pReflectionPartHeader->PartSize);
   }
 
   CompilerVersionPartWriter versionWriter;
@@ -733,7 +735,8 @@ public:
       // Setup a compiler instance.
       raw_stream_ostream outStream(pOutputStream.p);
       llvm::LLVMContext llvmContext; // LLVMContext should outlive CompilerInstance
-      std::unique_ptr<llvm::Module> compiledModule;
+      std::unique_ptr<llvm::Module> debugModule;
+      CComPtr<AbstractMemoryStream> pReflectionStream;
       CompilerInstance compiler;
       std::unique_ptr<TextDiagnosticPrinter> diagPrinter =
           llvm::make_unique<TextDiagnosticPrinter>(w, &compiler.getDiagnosticOpts());
@@ -945,7 +948,6 @@ public:
         // Do not create a container when there is only a a high-level representation in the module.
         if (compileOK && !opts.CodeGenHighLevel) {
           HRESULT valHR = S_OK;
-          CComPtr<AbstractMemoryStream> pReflectionStream;
           CComPtr<AbstractMemoryStream> pRootSigStream;
           IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pReflectionStream));
           IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pRootSigStream));
@@ -953,11 +955,13 @@ public:
           std::unique_ptr<llvm::Module> serializeModule( action.takeModule() );
 
           // Clone and save the copy.
-          compiledModule.reset(llvm::CloneModule(serializeModule.get()));
+          if (opts.GenerateFullDebugInfo()) {
+            debugModule.reset(llvm::CloneModule(serializeModule.get()));
+          }
 
           dxcutil::AssembleInputs inputs(
                 std::move(serializeModule), pOutputBlob, m_pMalloc, SerializeFlags,
-                pOutputStream, opts.IsDebugInfoEnabled(),
+                pOutputStream, opts.GenerateFullDebugInfo(),
                 opts.GetPDBName(), &compiler.getDiagnostics(),
                 &ShaderHashContent, pReflectionStream, pRootSigStream);
 
@@ -1025,7 +1029,7 @@ public:
 
       bool hasErrorOccurred = compiler.getDiagnostics().hasErrorOccurred();
 
-      bool writePDB = opts.IsDebugInfoEnabled() && produceFullContainer;
+      bool writePDB = opts.GeneratePDB() && produceFullContainer;
 
       // SPIRV change starts
 #if defined(ENABLE_SPIRV_CODEGEN)
@@ -1035,14 +1039,7 @@ public:
 
       if (!hasErrorOccurred && writePDB) {
         CComPtr<IDxcBlob> pStrippedContainer;
-
         {
-          // Version info to store in the PDB
-          IDxcVersionInfo *pVersionInfo = nullptr;
-          if (opts.IsDebugInfoEnabled()) { // Only put version info if embedding debug
-            pVersionInfo = static_cast<IDxcVersionInfo *>(this);
-          }
-
           // Create the shader source information for PDB
           hlsl::SourceInfoWriter debugSourceInfoWriter;
           const hlsl::DxilSourceInfo *pSourceInfo = nullptr;
@@ -1051,36 +1048,32 @@ public:
             pSourceInfo = debugSourceInfoWriter.GetPart();
           }
 
-          CComPtr<AbstractMemoryStream> pReflectionStream;
-          uint32_t reflectionSizeInBytes = 0;
-
           CComPtr<IDxcBlob> pDebugProgramBlob;
+          CComPtr<AbstractMemoryStream> pReflectionInPdb;
           // Don't include the debug part if using source only PDB
           if (opts.SourceOnlyDebug) {
             assert(pSourceInfo);
-            hlsl::ReEmitLatestReflectionData(compiledModule.get());
-            hlsl::StripAndCreateReflectionStream(compiledModule.get(), &reflectionSizeInBytes, &pReflectionStream);
+            pReflectionInPdb = pReflectionStream;
           }
           else {
             if (!opts.SourceInDebugModule) {
               // Strip out the source related metadata
-              compiledModule->GetOrCreateDxilModule()
+              debugModule->GetOrCreateDxilModule()
                 .StripShaderSourcesAndCompileOptions(/* bReplaceWithDummyData */ true);
             }
             CComPtr<AbstractMemoryStream> pDebugBlobStorage;
             IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pDebugBlobStorage));
             raw_stream_ostream outStream(pDebugBlobStorage.p);
-            WriteBitcodeToFile(compiledModule.get(), outStream, true);
+            WriteBitcodeToFile(debugModule.get(), outStream, true);
             outStream.flush();
             IFT(pDebugBlobStorage.QueryInterface(&pDebugProgramBlob));
           }
 
           IFT(CreateContainerForPDB(
             m_pMalloc,
-            compiledModule.get(),
             pOutputBlob, pDebugProgramBlob,
             static_cast<IDxcVersionInfo *>(this), pSourceInfo,
-            pReflectionStream, reflectionSizeInBytes,
+            pReflectionInPdb,
             &pStrippedContainer));
         }
 
@@ -1088,7 +1081,26 @@ public:
         CComPtr<IDxcBlob> pPdbBlob;
         IFT(hlsl::pdb::WriteDxilPDB(m_pMalloc, pStrippedContainer, ShaderHashContent.Digest, &pPdbBlob));
         IFT(pResult->SetOutputObject(DXC_OUT_PDB, pPdbBlob));
-      }
+
+        // If option Qpdb_in_private given, add the PDB to the DXC_OUT_OBJECT container output as a
+        // DFCC_PrivateData part.
+        if (opts.PdbInPrivate) {
+          CComPtr<IDxcBlobEncoding> pContainerBlob;
+          hlsl::DxcCreateBlobWithEncodingFromPinned(pOutputBlob->GetBufferPointer(), pOutputBlob->GetBufferSize(), CP_ACP, &pContainerBlob);
+
+          CComPtr<IDxcContainerBuilder> pContainerBuilder;
+          DxcCreateInstance2(this->m_pMalloc, CLSID_DxcContainerBuilder, IID_PPV_ARGS(&pContainerBuilder));
+          IFT(pContainerBuilder->Load(pOutputBlob));
+          IFT(pContainerBuilder->AddPart(hlsl::DFCC_PrivateData, pPdbBlob));
+
+          CComPtr<IDxcOperationResult> pReserializeResult;
+          IFT(pContainerBuilder->SerializeContainer(&pReserializeResult));
+
+          CComPtr<IDxcBlob> pNewOutput;
+          IFT(pReserializeResult->GetResult(&pNewOutput));
+          pOutputBlob = pNewOutput;
+        } // PDB in private
+      } // Write PDB
 
       IFT(primaryOutput.SetObject(pOutputBlob, opts.DefaultTextCodePage));
       IFT(pResult->SetOutput(primaryOutput));
@@ -1216,7 +1228,7 @@ public:
 
     compiler.getFrontendOpts().Inputs.push_back(FrontendInputFile(pMainFile, IK_HLSL));
     // Setup debug information.
-    if (Opts.IsDebugInfoEnabled()) {
+    if (Opts.GenerateFullDebugInfo()) {
       CodeGenOptions &CGOpts = compiler.getCodeGenOpts();
       // HLSL Change - begin
       CGOpts.setDebugInfo(CodeGenOptions::FullDebugInfo);
