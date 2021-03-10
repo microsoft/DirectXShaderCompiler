@@ -748,11 +748,11 @@ public:
 
     std::vector<const WCHAR *> new_args;
     for (unsigned i = 0; i < m_Args.size(); i++) {
-      if (m_Args[i] == L"/Qsource_only_debug" || m_Args[i] == L"-Qsource_only_debug")
+      if (m_Args[i] == L"/Zs" || m_Args[i] == L"-Zs")
         continue;
       new_args.push_back(m_Args[i].c_str());
     }
-    new_args.push_back(L"-Qfull_debug");
+    new_args.push_back(L"-Zi");
 
     assert(m_MainFileName.size());
     if (m_MainFileName.size())

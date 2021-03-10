@@ -138,8 +138,12 @@ bool DxcOpts::IsLibraryProfile() {
   return TargetProfile.startswith("lib_");
 }
 
-bool DxcOpts::IsDebugInfoEnabled() {
+bool DxcOpts::GenerateFullDebugInfo() {
   return DebugInfo;
+}
+
+bool DxcOpts::GeneratePDB() {
+  return DebugInfo || SourceOnlyDebug;
 }
 
 bool DxcOpts::EmbedDebugInfo() {
@@ -147,7 +151,7 @@ bool DxcOpts::EmbedDebugInfo() {
 }
 
 bool DxcOpts::EmbedPDBName() {
-  return IsDebugInfoEnabled() || !DebugFile.empty();
+  return GeneratePDB() || !DebugFile.empty();
 }
 
 bool DxcOpts::DebugFileIsDirectory() {
@@ -626,8 +630,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.StripDebug = Args.hasFlag(OPT_Qstrip_debug, OPT_INVALID, false);
   opts.EmbedDebug = Args.hasFlag(OPT_Qembed_debug, OPT_INVALID, false);
   opts.SourceInDebugModule = Args.hasFlag(OPT_Qsource_in_debug_module, OPT_INVALID, false);
-  opts.SourceOnlyDebug = Args.hasFlag(OPT_Qsource_only_debug, OPT_INVALID, false);
-  opts.FullDebug = Args.hasFlag(OPT_Qfull_debug, OPT_INVALID, false);
+  opts.SourceOnlyDebug = Args.hasFlag(OPT_Zs, OPT_INVALID, false);
+  opts.PdbInPrivate = Args.hasFlag(OPT_Qpdb_in_private, OPT_INVALID, false);
   opts.StripRootSignature = Args.hasFlag(OPT_Qstrip_rootsignature, OPT_INVALID, false);
   opts.StripPrivate = Args.hasFlag(OPT_Qstrip_priv, OPT_INVALID, false);
   opts.StripReflection = Args.hasFlag(OPT_Qstrip_reflect, OPT_INVALID, false);
@@ -922,13 +926,13 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     return 1;
   }
 
-  if (opts.FullDebug && opts.SourceOnlyDebug) {
-    errors << "Cannot specify both /Qfull_debug and /Qsource_only_debug";
+  if (opts.DebugInfo && opts.SourceOnlyDebug) {
+    errors << "Cannot specify both /Zi and /Zs";
     return 1;
   }
 
   if (opts.SourceInDebugModule && opts.SourceOnlyDebug) {
-    errors << "Cannot specify both /Qsource_in_debug_module and /Qsource_only_debug";
+    errors << "Cannot specify both /Qsource_in_debug_module and /Zs";
     return 1;
   }
 
@@ -939,8 +943,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     return 1;
   }
 
-  if (opts.DebugNameForSource && !opts.DebugInfo) {
-    errors << "/Zss requires debug info (/Zi)";
+  if (opts.DebugNameForSource && (!opts.DebugInfo && !opts.SourceOnlyDebug)) {
+    errors << "/Zss requires debug info (/Zi or /Zs)";
     return 1;
   }
 
