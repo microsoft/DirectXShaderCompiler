@@ -86,6 +86,13 @@ bool isMx1Matrix(QualType type, QualType *elemType = nullptr,
 bool isMxNMatrix(QualType type, QualType *elemType = nullptr,
                  uint32_t *rowCount = nullptr, uint32_t *colCount = nullptr);
 
+/// Returns true if the given type will be translated into a SPIR-V array type.
+///
+/// Writes the element type and count into *elementType and *count respectively
+/// if they are not nullptr.
+bool isArrayType(QualType type, QualType *elemType = nullptr,
+                 uint32_t *elemCount = nullptr);
+
 /// \brief Returns true if the given type is a ConstantBuffer or an array of
 /// ConstantBuffers.
 bool isConstantBuffer(QualType);
