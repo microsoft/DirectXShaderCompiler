@@ -298,6 +298,9 @@ class db_dxil(object):
             self.name_idx[i].shader_stages = ("pixel",)
         for i in "TextureGather,TextureGatherCmp".split(","):
             self.name_idx[i].category = "Resources - gather"
+        for i in "TextureGatherImm,TextureGatherCmpImm".split(","):
+            self.name_idx[i].category = "Resources - gather"
+            self.name_idx[i].shader_model = 6,15 # Dummy large shader model to prevent accidental inclusion
         for i in "AtomicBinOp,AtomicCompareExchange,Barrier".split(","):
             self.name_idx[i].category = "Synchronization"
         for i in "CalculateLOD,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY".split(","):
@@ -1869,6 +1872,34 @@ class db_dxil(object):
         self.set_op_count_for_version(1, 6, next_op_idx)
         assert next_op_idx == 222, "222 is expected next operation index but encountered %d and thus opcodes are broken" % next_op_idx
 
+        self.add_dxil_op("TextureGatherImm", next_op_idx, "TextureGatherImm", "same as TextureGather, except offsets are limited to immediate values between -8 and 7", "hfwi", "ro", [
+            db_dxil_param(0, "$r", "", "dimension information for texture"),
+            db_dxil_param(2, "res", "srv", "handle of SRV to sample"),
+            db_dxil_param(3, "res", "sampler", "handle of sampler to use"),
+            db_dxil_param(4, "f", "coord0", "coordinate"),
+            db_dxil_param(5, "f", "coord1", "coordinate, undef for Texture1D"),
+            db_dxil_param(6, "f", "coord2", "coordinate, undef for Texture1D, Texture1DArray or Texture2D"),
+            db_dxil_param(7, "f", "coord3", "coordinate, defined only for TextureCubeArray"),
+            db_dxil_param(8, "i32", "offset0", "optional offset, applicable to Texture1D, Texture1DArray, and as part of offset1"),
+            db_dxil_param(9, "i32", "offset1", "optional offset, applicable to Texture2D, Texture2DArray, and as part of offset2"),
+            db_dxil_param(10, "i32", "channel", "channel to sample")],
+            counters=('tex_norm',))
+        next_op_idx += 1
+        self.add_dxil_op("TextureGatherCmpImm", next_op_idx, "TextureGatherCmpImm", "same as TextureGatherCmp, except offsets are limited to immediate values between -8 and 7", "hfwi", "ro", [
+            db_dxil_param(0, "$r", "", "gathered texels"),
+            db_dxil_param(2, "res", "srv", "handle of SRV to sample"),
+            db_dxil_param(3, "res", "sampler", "handle of sampler to use"),
+            db_dxil_param(4, "f", "coord0", "coordinate"),
+            db_dxil_param(5, "f", "coord1", "coordinate, undef for Texture1D"),
+            db_dxil_param(6, "f", "coord2", "coordinate, undef for Texture1D, Texture1DArray or Texture2D"),
+            db_dxil_param(7, "f", "coord3", "coordinate, defined only for TextureCubeArray"),
+            db_dxil_param(8, "i32", "offset0", "optional offset, applicable to Texture1D, Texture1DArray, and as part of offset1"),
+            db_dxil_param(9, "i32", "offset1", "optional offset, applicable to Texture2D, Texture2DArray, and as part of offset2"),
+            db_dxil_param(10, "i32", "channel", "channel to sample"),
+            db_dxil_param(11, "f", "compareVale", "value to compare with")],
+            counters=('tex_cmp',))
+        next_op_idx += 1
+
         # Set interesting properties.
         self.build_indices()
         for i in "CalculateLOD,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY,Sample,SampleBias,SampleCmp".split(","):
@@ -2584,6 +2615,7 @@ class db_dxil(object):
         self.add_valrule("Sm.ThreadGroupChannelRange", "Declared Thread Group %0 size %1 outside valid range [%2..%3].")
         self.add_valrule("Sm.MaxTheadGroup", "Declared Thread Group Count %0 (X*Y*Z) is beyond the valid maximum of %1.")
         self.add_valrule("Sm.MaxTGSMSize", "Total Thread Group Shared Memory storage is %0, exceeded %1.")
+        self.add_valrule("Sm.TGSMUnsupported", "Thread Group Shared Memory not supported %0.")
         self.add_valrule("Sm.WaveSizeValue", "Declared WaveSize %0 outside valid range [%1..%2], or not a power of 2.")
         self.add_valrule("Sm.WaveSizeNeedsDxil16Plus", "WaveSize is valid only for DXIL version 1.6 and higher.")
         self.add_valrule("Sm.ROVOnlyInPS", "RasterizerOrdered objects are only allowed in 5.0+ pixel shaders.")
@@ -2625,6 +2657,7 @@ class db_dxil(object):
         self.add_valrule("Sm.CSNoSignatures", "Compute shaders must not have shader signatures.")
         self.add_valrule("Sm.CBufferTemplateTypeMustBeStruct", "D3D12 constant/texture buffer template element can only be a struct.")
         self.add_valrule_msg("Sm.ResourceRangeOverlap", "Resource ranges must not overlap", "Resource %0 with base %1 size %2 overlap with other resource with base %3 size %4 in space %5.")
+        self.add_valrule_msg("Sm.CBufferSize", "CBuffer size must not exceed 65536 bytes", "CBuffer size is %0 bytes, exceeding maximum of 65536 bytes.")
         self.add_valrule_msg("Sm.CBufferOffsetOverlap", "CBuffer offsets must not overlap", "CBuffer %0 has offset overlaps at %1.")
         self.add_valrule_msg("Sm.CBufferElementOverflow", "CBuffer elements must not overflow", "CBuffer %0 size insufficient for element at offset %1.")
         self.add_valrule_msg("Sm.CBufferArrayOffsetAlignment", "CBuffer array offset must be aligned to 16-bytes", "CBuffer %0 has unaligned array offset at %1.")

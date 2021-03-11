@@ -320,7 +320,7 @@ struct IDxcCompiler2 : public IDxcCompiler {
     _In_ UINT32 defineCount,                      // Number of defines
     _In_opt_ IDxcIncludeHandler *pIncludeHandler, // user-provided interface to handle #include directives (optional)
     _COM_Outptr_ IDxcOperationResult **ppResult,  // Compiler output status, buffer, and errors
-    _Outptr_opt_result_z_ LPWSTR *ppDebugBlobName,// Suggested file name for debug blob. (Must be HeapFree()'d!)
+    _Outptr_opt_result_z_ LPWSTR *ppDebugBlobName,// Suggested file name for debug blob. (Must be CoTaskMemFree()'d!)
     _COM_Outptr_opt_ IDxcBlob **ppDebugBlob       // Debug blob
   ) = 0;
 };
@@ -569,7 +569,17 @@ struct IDxcVersionInfo : public IUnknown {
 
 CROSS_PLATFORM_UUIDOF(IDxcVersionInfo2, "fb6904c4-42f0-4b62-9c46-983af7da7c83")
 struct IDxcVersionInfo2 : public IDxcVersionInfo {
-  virtual HRESULT STDMETHODCALLTYPE GetCommitInfo(_Out_ UINT32 *pCommitCount, _Out_ char **pCommitHash) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetCommitInfo(
+    _Out_ UINT32 *pCommitCount,           // The total number commits.
+    _Outptr_result_z_ char **pCommitHash  // The SHA of the latest commit. (Must be CoTaskMemFree()'d!)
+  ) = 0;
+};
+
+CROSS_PLATFORM_UUIDOF(IDxcVersionInfo3, "5e13e843-9d25-473c-9ad2-03b2d0b44b1e")
+struct IDxcVersionInfo3 : public IDxcVersionInfo2 {
+  virtual HRESULT STDMETHODCALLTYPE GetCustomVersionString(
+    _Outptr_result_z_ char **pVersionString // Custom version string for compiler. (Must be CoTaskMemFree()'d!)
+  ) = 0;
 };
 
 CROSS_PLATFORM_UUIDOF(IDxcPdbUtils, "E6C9647E-9D6A-4C3B-B94C-524B5A6C343D")
@@ -605,6 +615,7 @@ struct IDxcPdbUtils : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE GetVersionInfo(_COM_Outptr_ IDxcVersionInfo **ppVersionInfo) = 0;
 
   virtual HRESULT STDMETHODCALLTYPE SetCompiler(_In_ IDxcCompiler3 *pCompiler) = 0;
+  virtual HRESULT STDMETHODCALLTYPE CompileForFullPDB(_COM_Outptr_ IDxcResult **ppResult) = 0;
 };
 
 // Note: __declspec(selectany) requires 'extern'

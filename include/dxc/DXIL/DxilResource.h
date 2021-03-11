@@ -66,6 +66,9 @@ public:
   bool IsTBuffer() const;
   bool IsFeedbackTexture() const;
 
+  bool HasAtomic64Use() const;
+  void SetHasAtomic64Use(bool b);
+
   static bool classof(const DxilResourceBase *R) {
     return R->GetClass() == DXIL::ResourceClass::SRV || R->GetClass() == DXIL::ResourceClass::UAV;
   }
@@ -78,6 +81,7 @@ private:
   bool m_bGloballyCoherent;
   bool m_bHasCounter;
   bool m_bROV;
+  bool m_bHasAtomic64Use;
 };
 
 } // namespace hlsl

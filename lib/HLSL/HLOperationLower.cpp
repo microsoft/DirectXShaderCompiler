@@ -3167,9 +3167,12 @@ GatherHelper::GatherHelper(
       if (ch != GatherChannel::GatherAll)
         TranslateSampleOffset(CI, HLOperandIndex::kGatherSampleOffsetArgIndex,
                               offsetSize);
-      statusIdx =
-          hasSampleOffsets ? HLOperandIndex::kGatherStatusWithSampleOffsetArgIndex
-                           : HLOperandIndex::kGatherStatusArgIndex;
+      if (hasSampleOffsets) {
+        statusIdx = HLOperandIndex::kGatherStatusWithSampleOffsetArgIndex;
+      } else {
+        opcode = OP::OpCode::TextureGatherImm;
+        statusIdx = HLOperandIndex::kGatherStatusArgIndex;
+      }
     }
     SetStatus(CI, statusIdx);
   } break;
@@ -3185,10 +3188,12 @@ GatherHelper::GatherHelper(
       if (ch != GatherChannel::GatherAll)
         TranslateSampleOffset(CI, HLOperandIndex::kGatherCmpSampleOffsetArgIndex,
                               offsetSize);
-      statusIdx =
-          hasSampleOffsets
-              ? HLOperandIndex::kGatherCmpStatusWithSampleOffsetArgIndex
-              : HLOperandIndex::kGatherCmpStatusArgIndex;
+      if (hasSampleOffsets) {
+        statusIdx = HLOperandIndex::kGatherCmpStatusWithSampleOffsetArgIndex;
+      } else {
+        opcode = OP::OpCode::TextureGatherCmpImm;
+        statusIdx = HLOperandIndex::kGatherCmpStatusArgIndex;
+      }
     }
     SetStatus(CI, statusIdx);
   } break;
@@ -3283,9 +3288,9 @@ Value *TranslateGather(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   }
   Type *Ty = CI->getType();
 
-  Function *F = hlslOP->GetOpFunc(opcode, Ty->getScalarType());
+  Function *F = hlslOP->GetOpFunc(gatherHelper.opcode, Ty->getScalarType());
 
-  Constant *opArg = hlslOP->GetU32Const((unsigned)opcode);
+  Constant *opArg = hlslOP->GetU32Const((unsigned)gatherHelper.opcode);
   Value *channelArg = hlslOP->GetU32Const(gatherHelper.channel);
 
   switch (opcode) {
@@ -3806,6 +3811,10 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
                     Value *offset, IRBuilder<> &Builder, hlsl::OP *OP) {
   Type *Ty = val->getType();
 
+  // This function is no longer used for lowering stores to a
+  // structured buffer.
+  DXASSERT_NOMSG(RK != DxilResource::Kind::StructuredBuffer);
+
   OP::OpCode opcode = OP::OpCode::NumOpCodes;
   switch (RK) {
   case DxilResource::Kind::RawBuffer:
@@ -3921,9 +3930,15 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
 
     // For second and subsequent store calls, increment the offset0 (i.e. store index)
     if (j > 0) {
-      Value* newOffset = ConstantInt::get(Builder.getInt32Ty(), j);
-      newOffset = Builder.CreateAdd(storeArgsList[0][offset0Idx], newOffset);
-      storeArgsList[j][offset0Idx] = newOffset;
+      // Greater than four-components store is not allowed for
+      // TypedBuffer and Textures. So greater than four elements
+      // scenario should only get hit here for RawBuffer.
+      DXASSERT_NOMSG(RK == DxilResource::Kind::RawBuffer);
+      unsigned EltSize = OP->GetAllocSizeForType(EltTy);
+      unsigned newOffset = EltSize * MaxStoreElemCount * j;
+      Value* newOffsetVal = ConstantInt::get(Builder.getInt32Ty(), newOffset);
+      newOffsetVal = Builder.CreateAdd(storeArgsList[0][offset0Idx], newOffsetVal);
+      storeArgsList[j][offset0Idx] = newOffsetVal;
     }
 
     // values
@@ -6638,15 +6653,11 @@ void TranslateCBGepLegacy(GetElementPtrInst *GEP, Value *handle,
         }
       } else {
         Type *EltTy = GEPIt->getVectorElementType();
-        unsigned size = DL.getTypeSizeInBits(EltTy);
-        unsigned vecSize = 4;
-        if (size == 64)
-          vecSize = 2;
-        else if (size == 16)
-          vecSize = 8;
+        unsigned vecSize = GEPIt->getVectorNumElements();
+
         // Load the whole register.
         Value *newLd = GenerateCBLoadLegacy(handle, legacyIndex,
-                                     /*channelOffset*/ 0, EltTy,
+                                     /*channelOffset*/ channel, EltTy,
                                      /*vecSize*/ vecSize, hlslOP, Builder);
         // Copy to array.
         IRBuilder<> AllocaBuilder(GEP->getParent()->getParent()->getEntryBlock().getFirstInsertionPt());

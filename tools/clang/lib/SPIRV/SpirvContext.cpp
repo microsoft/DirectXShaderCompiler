@@ -184,6 +184,17 @@ const SpirvType *SpirvContext::getMatrixType(const SpirvType *elemType,
   return ptr;
 }
 
+const ImageType *
+SpirvContext::getImageType(const ImageType *imageTypeWithUnknownFormat,
+                           spv::ImageFormat format) {
+  return getImageType(imageTypeWithUnknownFormat->getSampledType(),
+                      imageTypeWithUnknownFormat->getDimension(),
+                      imageTypeWithUnknownFormat->getDepth(),
+                      imageTypeWithUnknownFormat->isArrayedImage(),
+                      imageTypeWithUnknownFormat->isMSImage(),
+                      imageTypeWithUnknownFormat->withSampler(), format);
+}
+
 const ImageType *SpirvContext::getImageType(const SpirvType *sampledType,
                                             spv::Dim dim,
                                             ImageType::WithDepth depth,

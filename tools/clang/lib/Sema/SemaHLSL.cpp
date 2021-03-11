@@ -5262,6 +5262,8 @@ public:
   QualType getCurrentElement() const;
   /// <summary>Get the number of repeated current elements.</summary>
   unsigned int getCurrentElementSize() const;
+  /// <summary>Gets the current element's Iterkind.</summary>
+  FlattenedIterKind getCurrentElementKind() const { return m_typeTrackers.back().IterKind; }
   /// <summary>Checks whether the iterator has a current element type to report.</summary>
   bool hasCurrentElement() const;
   /// <summary>Consumes count elements on this iterator.</summary>
@@ -10997,6 +10999,11 @@ FlattenedTypeIterator::CompareIterators(
       advance = 1;
     }
 
+    // If both elements are unbound arrays, break out or we'll never finish
+    if (leftIter.getCurrentElementKind() == FK_IncompleteArray &&
+        rightIter.getCurrentElementKind() == FK_IncompleteArray)
+      break;
+
     leftIter.advanceCurrentElement(advance);
     rightIter.advanceCurrentElement(advance);
     result.LeftCount += advance;
@@ -11133,6 +11140,28 @@ static int ValidateAttributeFloatArg(Sema &S, const AttributeList &Attr,
       S.Diag(E->getLocStart(), diag::err_hlsl_attribute_expects_float_literal)
           << Attr.getName();
     }
+  }
+  return value;
+}
+
+template <typename AttrType, typename EnumType,
+          bool (*ConvertStrToEnumType)(StringRef, EnumType &)>
+static EnumType ValidateAttributeEnumArg(Sema &S, const AttributeList &Attr,
+                                         EnumType defaultValue,
+                                         unsigned index = 0) {
+  EnumType value(defaultValue);
+  StringRef Str = "";
+  SourceLocation ArgLoc;
+
+  if (Attr.getNumArgs() > index) {
+    if (!S.checkStringLiteralArgumentAttr(Attr, 0, Str, &ArgLoc))
+      return value;
+
+    if (!ConvertStrToEnumType(Str, value)) {
+      S.Diag(Attr.getLoc(), diag::warn_attribute_type_not_supported)
+          << Attr.getName() << Str << ArgLoc;
+    }
+    return value;
   }
   return value;
 }
@@ -11683,6 +11712,15 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     declAttr = ::new (S.Context) VKOffsetAttr(A.getRange(), S.Context,
       ValidateAttributeIntArg(S, A), A.getAttributeSpellingListIndex());
     break;
+  case AttributeList::AT_VKImageFormat: {
+    VKImageFormatAttr::ImageFormatType Kind = ValidateAttributeEnumArg<
+        VKImageFormatAttr, VKImageFormatAttr::ImageFormatType,
+        VKImageFormatAttr::ConvertStrToImageFormatType>(
+        S, A, VKImageFormatAttr::ImageFormatType::unknown);
+    declAttr = ::new (S.Context) VKImageFormatAttr(
+        A.getRange(), S.Context, Kind, A.getAttributeSpellingListIndex());
+    break;
+  }
   case AttributeList::AT_VKInputAttachmentIndex:
     declAttr = ::new (S.Context) VKInputAttachmentIndexAttr(
         A.getRange(), S.Context, ValidateAttributeIntArg(S, A),

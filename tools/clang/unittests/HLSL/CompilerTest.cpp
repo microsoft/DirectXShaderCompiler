@@ -128,6 +128,7 @@ public:
   TEST_METHOD(CompileWhenWorksThenAddRemovePrivate)
   TEST_METHOD(CompileThenAddCustomDebugName)
   TEST_METHOD(CompileThenTestPdbUtils)
+  TEST_METHOD(CompileThenTestPdbInPrivate)
   TEST_METHOD(CompileThenTestPdbUtilsStripped)
   TEST_METHOD(CompileThenTestPdbUtilsEmptyEntry)
   TEST_METHOD(CompileThenTestPdbUtilsRelativePath)
@@ -1010,6 +1011,9 @@ static void VerifyPdbUtil(dxc::DxcDllSupport &dllSupport,
     VERIFY_IS_NOT_NULL(pVersion);
     VERIFY_SUCCEEDED(pVersion.QueryInterface(&pVersion2));
 
+    CComPtr<IDxcVersionInfo3> pVersion3;
+    VERIFY_SUCCEEDED(pVersion.QueryInterface(&pVersion3));
+
     CComPtr<IDxcVersionInfo> pCompilerVersion;
     pCompiler->QueryInterface(&pCompilerVersion);
 
@@ -1030,18 +1034,30 @@ static void VerifyPdbUtil(dxc::DxcDllSupport &dllSupport,
       VERIFY_ARE_EQUAL(uMinor, uCompilerMinor);
       VERIFY_ARE_EQUAL(uFlags, uCompilerFlags);
 
+      // IDxcVersionInfo2
+      UINT32 uCommitCount = 0;
+      CComHeapPtr<char> CommitVersionHash;
+      VERIFY_SUCCEEDED(pVersion2->GetCommitInfo(&uCommitCount, &CommitVersionHash));
+
       CComPtr<IDxcVersionInfo2> pCompilerVersion2;
       if (SUCCEEDED(pCompiler->QueryInterface(&pCompilerVersion2))) {
         UINT32 uCompilerCommitCount = 0;
         CComHeapPtr<char> CompilerCommitVersionHash;
         VERIFY_SUCCEEDED(pCompilerVersion2->GetCommitInfo(&uCompilerCommitCount, &CompilerCommitVersionHash));
 
-        UINT32 uCommitCount = 0;
-        CComHeapPtr<char> CommitVersionHash;
-        VERIFY_SUCCEEDED(pVersion2->GetCommitInfo(&uCommitCount, &CommitVersionHash));
-
         VERIFY_IS_TRUE(0 == strcmp(CommitVersionHash, CompilerCommitVersionHash));
         VERIFY_ARE_EQUAL(uCommitCount, uCompilerCommitCount);
+      }
+
+      // IDxcVersionInfo3
+      CComHeapPtr<char> VersionString;
+      VERIFY_SUCCEEDED(pVersion3->GetCustomVersionString(&VersionString));
+
+      CComPtr<IDxcVersionInfo3> pCompilerVersion3;
+      if (SUCCEEDED(pCompiler->QueryInterface(&pCompilerVersion3))) {
+        CComHeapPtr<char> CompilerVersionString;
+        VERIFY_SUCCEEDED(pCompilerVersion3->GetCustomVersionString(&CompilerVersionString));
+        VERIFY_IS_TRUE(0 == strcmp(CompilerVersionString, VersionString));
       }
     }
   }
@@ -1273,8 +1289,8 @@ static void VerifyPdbUtil(dxc::DxcDllSupport &dllSupport,
     auto ReplaceDebugFlagPair = [](const std::vector<std::pair<const WCHAR *, const WCHAR *> > &List) -> std::vector<std::pair<const WCHAR *, const WCHAR *> > {
       std::vector<std::pair<const WCHAR *, const WCHAR *> > ret;
       for (unsigned i = 0; i < List.size(); i++) {
-        if (!wcscmp(List[i].first, L"/Qsource_only_debug") || !wcscmp(List[i].first, L"-Qsource_only_debug"))
-          ret.push_back(std::pair<const WCHAR *, const WCHAR *>(L"-Qfull_debug", nullptr));
+        if (!wcscmp(List[i].first, L"/Zs") || !wcscmp(List[i].first, L"-Zs"))
+          ret.push_back(std::pair<const WCHAR *, const WCHAR *>(L"-Zi", nullptr));
         else
           ret.push_back(List[i]);
       }
@@ -1438,7 +1454,6 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bSourceInDebugModule, bool bStr
     }
   };
 
-  AddArg(L"-Zi", nullptr, false);
   AddArg(L"-Od", nullptr, false);
   AddArg(L"-flegacy-macro-expansion", nullptr, false);
 
@@ -1453,7 +1468,10 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bSourceInDebugModule, bool bStr
     AddArg(L"-Qsource_in_debug_module", nullptr, false);
   }
   if (bSlim) {
-    AddArg(L"-Qsource_only_debug", nullptr, false);
+    AddArg(L"-Zs", nullptr, false);
+  }
+  else {
+    AddArg(L"-Zi", nullptr, false);
   }
 
   AddArg(L"-D", L"THIS_IS_A_DEFINE=HELLO", true);
@@ -1528,13 +1546,65 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bSourceInDebugModule, bool bStr
 }
 
 TEST_F(CompilerTest, CompileThenTestPdbUtils) {
+  TestPdbUtils(/*bSlim*/true,  /*bSourceInDebugModule*/false, /*strip*/true);  // Slim PDB, where source info is stored in its own part, and debug module is NOT present
+
   TestPdbUtils(/*bSlim*/false, /*bSourceInDebugModule*/true,  /*strip*/false);  // Old PDB format, where source info is embedded in the module
   TestPdbUtils(/*bSlim*/false, /*bSourceInDebugModule*/false, /*strip*/false);  // Full PDB, where source info is stored in its own part, and a debug module which is present
-  TestPdbUtils(/*bSlim*/true,  /*bSourceInDebugModule*/false, /*strip*/false);  // Slim PDB, where source info is stored in its own part, and a debug module which is NOT present
 
   TestPdbUtils(/*bSlim*/false, /*bSourceInDebugModule*/true,  /*strip*/true);  // Legacy PDB, where source info is embedded in the module
   TestPdbUtils(/*bSlim*/false, /*bSourceInDebugModule*/false, /*strip*/true);  // Full PDB, where source info is stored in its own part, and debug module is present
-  TestPdbUtils(/*bSlim*/true,  /*bSourceInDebugModule*/false, /*strip*/true);  // Slim PDB, where source info is stored in its own part, and debug module is NOT present
+}
+
+TEST_F(CompilerTest, CompileThenTestPdbInPrivate) {
+  CComPtr<IDxcCompiler> pCompiler;
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+
+  std::string main_source = R"x(
+      cbuffer MyCbuffer : register(b1) {
+        float4 my_cbuf_foo;
+      }
+
+      [RootSignature("CBV(b1)")]
+      float4 main() : SV_Target {
+        return my_cbuf_foo;
+      }
+  )x";
+
+  CComPtr<IDxcUtils> pUtils;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcUtils, &pUtils));
+
+  CComPtr<IDxcBlobEncoding> pSource;
+  VERIFY_SUCCEEDED(pUtils->CreateBlobFromPinned(main_source.c_str(), main_source.size(), CP_UTF8, &pSource));
+
+  const WCHAR *args[] = {
+    L"/Zs",
+    L"/Qpdb_in_private",
+  };
+
+  CComPtr<IDxcOperationResult> pOpResult;
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main", L"ps_6_0", args, _countof(args), nullptr, 0, nullptr, &pOpResult));
+
+  CComPtr<IDxcResult> pResult;
+  VERIFY_SUCCEEDED(pOpResult.QueryInterface(&pResult));
+
+  CComPtr<IDxcBlob> pShader;
+  VERIFY_SUCCEEDED(pResult->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&pShader), nullptr));
+
+  CComPtr<IDxcContainerReflection> pRefl;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pRefl));
+  VERIFY_SUCCEEDED(pRefl->Load(pShader));
+
+  UINT32 uIndex = 0;
+  VERIFY_SUCCEEDED(pRefl->FindFirstPartKind(hlsl::DFCC_PrivateData, &uIndex));
+
+  CComPtr<IDxcBlob> pPdbBlob;
+  VERIFY_SUCCEEDED(pResult->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pPdbBlob), nullptr));
+
+  CComPtr<IDxcBlob> pPrivatePdbBlob;
+  VERIFY_SUCCEEDED(pRefl->GetPartContent(uIndex, &pPrivatePdbBlob));
+
+  VERIFY_ARE_EQUAL(pPdbBlob->GetBufferSize(), pPrivatePdbBlob->GetBufferSize());
+  VERIFY_ARE_EQUAL(0, memcmp(pPdbBlob->GetBufferPointer(), pPrivatePdbBlob->GetBufferPointer(), pPdbBlob->GetBufferSize()));
 }
 
 TEST_F(CompilerTest, CompileThenTestPdbUtilsRelativePath) {
@@ -1560,8 +1630,7 @@ TEST_F(CompilerTest, CompileThenTestPdbUtilsRelativePath) {
 
   std::vector<const WCHAR *> args;
   args.push_back(L"/Tps_6_0");
-  args.push_back(L"/Zi");
-  args.push_back(L"/Qsource_only_debug");
+  args.push_back(L"/Zs");
   args.push_back(L"shaders/Shader.hlsl");
 
   CComPtr<TestIncludeHandler> pInclude;

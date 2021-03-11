@@ -174,9 +174,9 @@ public:
   bool RecompileFromBinary = false; // OPT _Recompile (Recompiling the DXBC binary file not .hlsl file)
   bool StripDebug = false; // OPT Qstrip_debug
   bool EmbedDebug = false; // OPT Qembed_debug
-  bool SourceInDebugModule = false; // OPT Qsource_in_debug_module
+  bool SourceInDebugModule = false; // OPT Zs
   bool SourceOnlyDebug = false; // OPT Qsource_only_debug
-  bool FullDebug = false; // OPT Qfull_debug
+  bool PdbInPrivate = false; // OPT Qpdb_in_private
   bool StripRootSignature = false; // OPT_Qstrip_rootsignature
   bool StripPrivate = false; // OPT_Qstrip_priv
   bool StripReflection = false; // OPT_Qstrip_reflect
@@ -212,7 +212,8 @@ public:
   bool IsLibraryProfile();
 
   // Helpers to clarify interpretation of flags for behavior in implementation
-  bool IsDebugInfoEnabled();    // Zi
+  bool GenerateFullDebugInfo(); // Zi
+  bool GeneratePDB();           // Zi or Zs
   bool EmbedDebugInfo();        // Qembed_debug
   bool EmbedPDBName();          // Zi or Fd
   bool DebugFileIsDirectory();  // Fd ends in '\\'
