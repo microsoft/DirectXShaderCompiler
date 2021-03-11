@@ -1232,7 +1232,7 @@ public:
     D3D12_FEATURE_DATA_D3D12_OPTIONS11 O11;
     if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS11, &O11, sizeof(O11))))
       return false;
-    return O11.AtomicInt64OnDescriptorHeapResourcesSupported != FALSE;
+    return O11.AtomicInt64OnDescriptorHeapResourceSupported != FALSE;
 #else
     UNREFERENCED_PARAMETER(pDevice);
     return false;
