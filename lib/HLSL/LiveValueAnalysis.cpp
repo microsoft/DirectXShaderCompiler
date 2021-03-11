@@ -48,7 +48,7 @@ namespace llvm {
 
     struct TraceRayCallSite {
       // Trace ray call sites can have identical source locations, but have distinct code flow based on how the shaders call them.
-      // For example having macros and/or helper functions that take different code paths, but eventually call the exact same
+      // For example, having macros and/or helper functions that take different code paths, but eventually call the exact same
       // trace call.  This is hard to represent easily to the user so call sites can be numbered and store string information
       // displaying the call stack to reach the trace ray call.
       // ie:   [shader("raygeneration")]
@@ -134,6 +134,7 @@ namespace llvm {
     void getUseDefinitions(CallInst *CI, SetVector<Instruction *> &LiveValues, SetVector<Value *> &ConditionsKnownFalse, SetVector<Value *> &ConditionsKnownTrue);
     void getUseLocationsForInstruction(Instruction *I, SetVector<DILocation *> &UseLocations);
     bool isLoadRematerializable(CallInst *call);
+    bool isResourceClassRematerializable(DXIL::ResourceClass RC);
     void outputPhiIncomingMetadata(PHINode * Phi, raw_string_ostream &PrettyStr, raw_string_ostream &VSStr);
     void outputSourceLocationsPretty(SetVector<DILocation *> &UseLocations, uint32_t maxPathLength, uint32_t maxFuncLength, raw_string_ostream &PrettyStr);
     void outputSourceLocationsVS(SetVector<DILocation *> &UseLocations, uint32_t maxPathLength, uint32_t maxFuncLength, raw_string_ostream &VSStr);
@@ -194,6 +195,7 @@ bool LiveValueAnalysis::runOnModule(Module &M) {
 
   m_module = &M;
   m_DM = &M.GetDxilModule();
+
   // Find any define for LIVE_VALUE_REPORT_ROOT in order to build absolute path
   // locations in the LVA Visual Studio (VS) console report.
   // Full file paths allows for source linking by double-clicking the
@@ -294,36 +296,49 @@ void LiveValueAnalysis::addUniqueLocation(DILocation *L, SetVector<DILocation *>
   }
 }
 
+bool LiveValueAnalysis::isResourceClassRematerializable(DXIL::ResourceClass RC) {
+  switch (RC) {
+  // Loading from a UAV cannot be rematerialized.
+  case DXIL::ResourceClass::UAV:
+    return false;
+  case DXIL::ResourceClass::CBuffer:
+  case DXIL::ResourceClass::SRV:
+  case DXIL::ResourceClass::Sampler:
+    return true;
+  default:
+    DXASSERT(0, "Unhandled DXIL resource class type.");
+  }
+
+  return false;
+}
+
 // Determine if a load instruction can be rematerialized.
 bool LiveValueAnalysis::isLoadRematerializable(CallInst *Call) {
-  CallInst* createHandle = dyn_cast<CallInst>(Call->getArgOperand(HLOperandIndex::kCreateHandleResourceOpIdx));
-  DXASSERT(createHandle, "Expected a valid CallInst.");
+  Value *ResClass = nullptr;
   DXIL::OpCode DxilOp = OP::GetDxilOpFuncCallInst(Call);
 
-  Value *ResClass = nullptr;
+  if (OP::OpCode::AnnotateHandle == DxilOp) {
+    // Check for UAV resource.
+    Constant *Props = cast<Constant>(Call->getArgOperand(HLOperandIndex::kAnnotateHandleResourcePropertiesOpIdx));
+    DxilResourceProperties RP = resource_helper::loadPropsFromConstant(*Props);
+    return isResourceClassRematerializable(RP.getResourceClass());
+  }
 
   switch (DxilOp) {
-  case OP::OpCode::AnnotateHandle:
-    ResClass = Call->getArgOperand(HLOperandIndex::kAnnotateHandleResourcePropertiesOpIdx);
-    break;
   case OP::OpCode::CreateHandle:
+  case OP::OpCode::CreateHandleForLib:
     ResClass = Call->getArgOperand(HLOperandIndex::kCreateHandleResourceOpIdx);
     break;
   case OP::OpCode::BufferLoad:
   case OP::OpCode::CBufferLoad:
   case OP::OpCode::CBufferLoadLegacy:
-    if (LoadInst *LdRes = dyn_cast<LoadInst>(createHandle->getArgOperand(HLOperandIndex::kCreateHandleResourceOpIdx))) {
-      if (GlobalVariable *GV = dyn_cast<GlobalVariable>(LdRes->getOperand(0)))
-        return true;
-    }
-    break;
   case OP::OpCode::RawBufferLoad:
+  case OP::OpCode::TextureLoad:
     // Check for resource handle.
     if (CallInst *CI = dyn_cast<CallInst>(Call->getArgOperand(HLOperandIndex::kHandleOpIdx))) {
       OP::OpCode HandleOp = static_cast<OP::OpCode>(dyn_cast<ConstantInt>(CI->getArgOperand(0))->getZExtValue());
       if (OP::OpCode::AnnotateHandle == HandleOp) {
-        // Set the resource class and check below.
-        ResClass = CI->getArgOperand(HLOperandIndex::kAnnotateHandleResourcePropertiesOpIdx);
+        return isLoadRematerializable(CI);
       }
       else if (OP::OpCode::CreateHandleForLib == HandleOp) {
         if (LoadInst *LI = dyn_cast<LoadInst>(CI->getArgOperand(DXIL::OperandIndex::kCreateHandleForLibResOpIdx))) {
@@ -341,33 +356,6 @@ bool LiveValueAnalysis::isLoadRematerializable(CallInst *Call) {
       }
     }
     break;
-  case OP::OpCode::TextureLoad:
-    if (CallInst *CI = dyn_cast<CallInst>(createHandle->getArgOperand(HLOperandIndex::kCreateHandleResourceOpIdx))) {
-      if (LoadInst *LI = dyn_cast<LoadInst>(CI->getOperand(HLOperandIndex::kCreateHandleResourceOpIdx))) {
-        Value *resType = LI->getOperand(0);
-
-        for (auto &&res : m_DM->GetUAVs()) {
-          // UAVs cannot be rematerialized.
-          if (res->GetGlobalSymbol() == resType) {
-            return false;
-          }
-        }
-        return true;
-      }
-    }
-    else if (LoadInst *LI = dyn_cast<LoadInst>(createHandle->getArgOperand(DXIL::OperandIndex::kCreateHandleForLibResOpIdx))) {
-      // If library handle, compare with UAVs.
-      Value *resType = LI->getOperand(0);
-
-      for (auto &&res : m_DM->GetUAVs()) {
-        // UAVs cannot be rematerialized.
-        if (res->GetGlobalSymbol() == resType) {
-          return false;
-        }
-      }
-      return true;
-    }
-    break;
   case OP::OpCode::SampleLevel:
     return true;
   default:
@@ -375,19 +363,13 @@ bool LiveValueAnalysis::isLoadRematerializable(CallInst *Call) {
     break;
   }
 
+  DXASSERT(ResClass, "Unabled to determine resource class.");
   ConstantInt* resourceClass = dyn_cast<ConstantInt>(ResClass);
+  DXASSERT(resourceClass, "Unhandled resource class value.");
 
   if (resourceClass) {
     DXIL::ResourceClass dxilClass = static_cast<DXIL::ResourceClass>(resourceClass->getZExtValue());
-    // Loading from a UAV cannot be rematerialized.
-    if (dxilClass == DXIL::ResourceClass::UAV) {
-      return false;
-    }
-    if (dxilClass == DXIL::ResourceClass::CBuffer ||
-      dxilClass == DXIL::ResourceClass::SRV ||
-      dxilClass == DXIL::ResourceClass::Sampler) {
-      return true;
-    }
+    return isResourceClassRematerializable(dxilClass);
   }
 
   // If no evidence was found we assume this load instruction cannot be rematerialized.
@@ -420,7 +402,6 @@ bool LiveValueAnalysis::canRemat(Instruction *I) {
       if (!isLoadRematerializable(CI))
         return false;
     }
-
     return true;
   }
 
@@ -453,23 +434,17 @@ std::string LiveValueAnalysis::formatSourceLocation(const std::string& Location,
 void LiveValueAnalysis::getFormatLengths(SetVector<DILocation *> &UseLocations, uint32_t &maxFuncLength, uint32_t &maxPathLength) {
   for (auto Loc : UseLocations) {
     std::string Path = formatSourceLocation(Loc->getFilename().str(), Loc->getLine());
-    if (Path.length() > maxPathLength)
-      maxPathLength = Path.length();
-    if (Loc->getScope()->getSubprogram()->getName().str().length() > maxFuncLength)
-      maxFuncLength = Loc->getScope()->getSubprogram()->getName().str().length();
+    maxPathLength = std::max(maxPathLength, (uint32_t)Path.length());
+    maxFuncLength = std::max(maxFuncLength, (uint32_t)Loc->getScope()->getSubprogram()->getName().str().length());
     if (DILocation *InLoc = Loc->getInlinedAt()) {
       std::string Path = formatSourceLocation(InLoc->getFilename().str(), InLoc->getLine());
-      if (Path.length() > maxPathLength)
-        maxPathLength = Path.length();
-      if (InLoc->getScope()->getSubprogram()->getName().str().length() > maxFuncLength)
-        maxFuncLength = InLoc->getScope()->getSubprogram()->getName().str().length();
+      maxPathLength = std::max(maxPathLength, (uint32_t)Path.length());
+      maxFuncLength = std::max(maxFuncLength, (uint32_t)InLoc->getScope()->getSubprogram()->getName().str().length());
       while (DILocation *NestedInLoc = InLoc->getInlinedAt()) {
         InLoc = NestedInLoc;
         std::string Path = formatSourceLocation(InLoc->getFilename().str(), InLoc->getLine());
-        if (Path.length() > maxPathLength)
-          maxPathLength = Path.length();
-        if (InLoc->getScope()->getSubprogram()->getName().str().length() > maxFuncLength)
-          maxFuncLength = InLoc->getScope()->getSubprogram()->getName().str().length();
+        maxPathLength = std::max(maxPathLength, (uint32_t)Path.length());
+        maxFuncLength = std::max(maxFuncLength, (uint32_t)InLoc->getScope()->getSubprogram()->getName().str().length());
       }
     }
   }
@@ -504,7 +479,7 @@ std::string LiveValueAnalysis::getCallStackForCallSite(const CallInst *CI) {
   return callStackString;
 }
 
-// Determine the location of instructions connected to a phi's incoming.
+// Determine the location of instructions connected to a phi's incomings.
 void LiveValueAnalysis::getPhiIncomingLocations(PHINode *Phi, SetVector<DILocation *> &PILocations) {
   std::vector<PHINode *> Phis;
   // Track the phis we visit so that we do not duplicate them.
@@ -873,6 +848,7 @@ void LiveValueAnalysis::determineRematSpillSet(CallInst *TraceCall, SetVector<In
           }
 
           BranchInst *branch = dyn_cast<BranchInst>(phi->getIncomingBlock(i)->getTerminator());
+          // Add branch to the worklist if it has not been visited.
           if (branch && branch->isConditional() &&
             isa<Instruction>(branch->getCondition()) &&
             !visited.count(cast<Instruction>(branch->getCondition()))) {
@@ -887,7 +863,8 @@ void LiveValueAnalysis::determineRematSpillSet(CallInst *TraceCall, SetVector<In
         Instruction *use_inst = dyn_cast<Instruction>(inst->getOperand(i));
         if (!use_inst)
           continue;
-
+        
+        // Add operands to the worklist if they have not been visited.
         if (!visited.count(use_inst)) {
           visited.insert(use_inst);
           worklist.push_back(use_inst);
@@ -939,6 +916,7 @@ void LiveValueAnalysis::analyzeCFG() {
 
 void LiveValueAnalysis::determineValueName(DIType *diType, int64_t &BitOffset, std::string &Name) {
   // Find the data member name of a derived type matching the bit offset.
+  // Scan through nested structures and composite types to find the exact bit offset.
   // Note that we are not interested in DIBasicType as it's better to present more interesting type names in the report.
   if (auto* CT = dyn_cast<DICompositeType>(diType))
   {
@@ -1320,7 +1298,7 @@ void LiveValueAnalysis::outputPhiIncomingMetadata(PHINode * Phi, raw_string_ostr
   VSStr << "\n";
 }
 
-// Format and output a list of source locations to the Pretty report.
+// Format a list of source locations to the Pretty report.
 void LiveValueAnalysis::outputSourceLocationsPretty(SetVector<DILocation *> &UseLocations, uint32_t maxPathLength, uint32_t maxFuncLength, raw_string_ostream &PrettyStr) {
   std::ostringstream LocationStr;
   std::string FileName;
@@ -1347,7 +1325,7 @@ void LiveValueAnalysis::outputSourceLocationsPretty(SetVector<DILocation *> &Use
   PrettyStr << LocationStr.str();
 }
 
-// Format and output a list of source locations to the VS report.
+// Format a list of source locations to the VS report.
 void LiveValueAnalysis::outputSourceLocationsVS(SetVector<DILocation *> &UseLocations, uint32_t maxPathLength, uint32_t maxFuncLength, raw_string_ostream &VSStr) {
   std::ostringstream LocationStr;
   std::string FileName;
