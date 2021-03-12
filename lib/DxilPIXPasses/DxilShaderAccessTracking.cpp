@@ -50,6 +50,8 @@ enum class ShaderAccessFlags : uint32_t {
   // attached to the UAV was accessed, but not necessarily the UAV resource.
   Counter = 1 << 2,
 
+  Sampler = 1 << 3,
+
   // Descriptor-only read (if any), but not the resource contents (if any).
   // Used for GetDimensions, samplers, and secondary texture for sampler
   // feedback.
@@ -153,6 +155,16 @@ struct DxilResourceAndClass {
   Value *dynamicallyBoundIndex;
 };
 
+enum class ResourceAccessStyle {
+  None,
+  Sampler,
+  UAVRead,
+  UAVWrite,
+  CBVRead,
+  SRVRead,
+  EndOfEnum
+};
+
 //---------------------------------------------------------------------------------------------------------------------------------
 
 class DxilShaderAccessTracking : public ModulePass {
@@ -177,6 +189,7 @@ private:
   struct DynamicResourceBinding {
     int HeapIndex;
     bool HeapIsSampler; // else resource
+    std::string Name;
   };
 
   std::vector<DynamicResourceBinding> m_dynamicResourceBindings;
@@ -185,6 +198,7 @@ private:
   int m_OutputBufferSize = -1;
   std::map<RegisterTypeAndSpace, SlotRange> m_slotAssignments;
   std::map<llvm::Function *, CallInst *> m_FunctionToUAVHandle;
+  std::map<llvm::Function *, std::map<ResourceAccessStyle, Constant *>> m_FunctionToEncodedAccess;
   std::set<RSRegisterIdentifier> m_DynamicallyIndexedBindPoints;
 };
 
@@ -320,6 +334,34 @@ void DxilShaderAccessTracking::EmitAccess(LLVMContext &Ctx, OP *HlslOP,
       });
 }
 
+static ResourceAccessStyle AccessStyleFromAccessAndType(
+    AccessStyle accessStyle, 
+    RegisterType registerType,
+    ShaderAccessFlags readWrite)
+{
+    switch (accessStyle)
+    {
+    case AccessStyle::ResourceFromDescriptorHeap:
+        switch (registerType)
+        {
+        case RegisterType::CBV:
+          return ResourceAccessStyle::CBVRead;
+        case RegisterType::SRV:
+          return ResourceAccessStyle::SRVRead;
+        case RegisterType::UAV:
+            return readWrite == ShaderAccessFlags::Read ?
+                ResourceAccessStyle::UAVRead :
+                ResourceAccessStyle::UAVWrite;
+        default:
+          return ResourceAccessStyle::None;
+        }
+    case AccessStyle::SamplerFromDescriptorHeap:
+        return ResourceAccessStyle::Sampler;
+    default:
+        return ResourceAccessStyle::None;
+    }
+}
+
 bool DxilShaderAccessTracking::EmitResourceAccess(DxilResourceAndClass &res,
                                                   Instruction *instruction,
                                                   OP *HlslOP, LLVMContext &Ctx,
@@ -384,7 +426,8 @@ bool DxilShaderAccessTracking::EmitResourceAccess(DxilResourceAndClass &res,
     }
   }
   else if (m_DynamicResourceCounterOffset != -1) {
-      if (res.accessStyle == AccessStyle::ResourceFromDescriptorHeap)
+      if (res.accessStyle == AccessStyle::ResourceFromDescriptorHeap ||
+          res.accessStyle == AccessStyle::SamplerFromDescriptorHeap)
       {
           Function* AtomicOpFunc = HlslOP->GetOpFunc(OP::OpCode::AtomicBinOp,
               Type::getInt32Ty(Ctx));
@@ -401,15 +444,15 @@ bool DxilShaderAccessTracking::EmitResourceAccess(DxilResourceAndClass &res,
           auto PreviousValue = Builder.CreateCall(
               AtomicOpFunc,
               {
-                  AtomicBinOpcode,  // i32, ; opcode
+                  AtomicBinOpcode,      // i32, ; opcode
                   m_FunctionToUAVHandle.at(
                       Builder.GetInsertBlock()->getParent()),
-                  AtomicAdd,        // i32, ; binary operation code : EXCHANGE, IADD, AND,
-                                    // OR, XOR, IMIN, IMAX, UMIN, UMAX
-                  DynamicOutputBase,     // i32, ; coordinate c0: index in bytes
-                  UndefArg,         // i32, ; coordinate c1 (unused)
-                  UndefArg,         // i32, ; coordinate c2 (unused)
-                  SizeofDwordIncrement,      // i32); increment value
+                  AtomicAdd,            // i32, ; binary operation code : EXCHANGE, IADD, AND,
+                                        // OR, XOR, IMIN, IMAX, UMIN, UMAX
+                  DynamicOutputBase,    // i32, ; coordinate c0: index in bytes
+                  UndefArg,             // i32, ; coordinate c1 (unused)
+                  UndefArg,             // i32, ; coordinate c2 (unused)
+                  SizeofDwordIncrement, // i32); increment value
               },
               "UAVIncResult");
 
@@ -433,8 +476,18 @@ bool DxilShaderAccessTracking::EmitResourceAccess(DxilResourceAndClass &res,
           
           auto* LimitedOffset = Builder.CreateMul(OffsetToNextAvailableSlot, LimitIntegerValue);
 
-          Constant *ElementMask = HlslOP->GetI8Const(1);
+          ResourceAccessStyle accessStyle = AccessStyleFromAccessAndType(
+              res.accessStyle, 
+              res.registerType,
+              readWrite);
 
+          Constant* EncodedFlags = m_FunctionToEncodedAccess
+                                .at(Builder.GetInsertBlock()->getParent())
+                                .at(accessStyle);
+
+          auto * EncodedAccess = Builder.CreateOr(res.dynamicallyBoundIndex, EncodedFlags);
+
+          Constant *ElementMask = HlslOP->GetI8Const(1);
           Function *StoreFunc =
               HlslOP->GetOpFunc(OP::OpCode::BufferStore, Type::getInt32Ty(Ctx));
           Constant *StoreOpcode =
@@ -442,17 +495,17 @@ bool DxilShaderAccessTracking::EmitResourceAccess(DxilResourceAndClass &res,
           (void)Builder.CreateCall(
               StoreFunc,
               {
-                  StoreOpcode, // i32, ; opcode
+                  StoreOpcode,                  // i32, ; opcode
                   m_FunctionToUAVHandle.at(
                       Builder.GetInsertBlock()
-                          ->getParent()), // %dx.types.Handle, ; resource handle
-                  LimitedOffset,        // i32, ; coordinate c0: byte offset
-                  UndefArg,            // i32, ; coordinate c1 (unused)
-                  res.dynamicallyBoundIndex,             // i32, ; value v0
-                  UndefArg,            // i32, ; value v1
-                  UndefArg,            // i32, ; value v2
-                  UndefArg,            // i32, ; value v3
-                  ElementMask             // i8 ; just the first value is used
+                          ->getParent()),       // %dx.types.Handle, ; resource handle
+                  LimitedOffset,                // i32, ; coordinate c0: byte offset
+                  UndefArg,                     // i32, ; coordinate c1 (unused)
+                  EncodedAccess,                // i32, ; value v0
+                  UndefArg,                     // i32, ; value v1
+                  UndefArg,                     // i32, ; value v2
+                  UndefArg,                     // i32, ; value v3
+                  ElementMask                   // i8 ; just the first value is used
               });
           return true; // did modify
       }
@@ -545,6 +598,7 @@ DxilShaderAccessTracking::GetResourceFromHandle(Value *resHandle,
           DynamicResourceBinding drb{};
           drb.HeapIsSampler = createHandleFromHeap.get_samplerHeap_val();
           drb.HeapIndex = -1;
+          drb.Name = "ShaderNameTodo";
           if (auto * constInt = dyn_cast<ConstantInt>(createHandleFromHeap.get_index()))
           {
               drb.HeapIndex = constInt->getLimitedValue();
@@ -665,6 +719,18 @@ static llvm::CallInst* CreateUAV(DxilModule & DM, IRBuilder<> & Builder, unsigne
     }
 }
 
+static uint32_t EncodeShaderModel(DXIL::ShaderKind kind)
+{
+    assert(static_cast<int>(DXIL::ShaderKind::Invalid) <= 16);
+    return static_cast<uint32_t>(kind) << 28;
+}
+
+static uint32_t EncodeAccess(ResourceAccessStyle access) {
+    uint32_t encoded = static_cast<uint32_t>(access);
+    assert(encoded < 8);
+    return encoded << 24;
+}
+
 bool DxilShaderAccessTracking::runOnModule(Module &M) {
   // This pass adds instrumentation for shader access to resources
 
@@ -715,6 +781,18 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
               static_cast<unsigned int>(DM.GetUAVs().size());
 
           m_FunctionToUAVHandle[&F] = CreateUAV(DM, Builder, UAVResourceHandle, 0, "PIX_CountUAV_Handle");
+          auto const* shaderModel = DM.GetShaderModel();
+          auto shaderKind = shaderModel->GetKind();
+          OP *HlslOP = DM.GetOP();
+          for (int accessStyle = 1;
+              accessStyle < static_cast<int>(ResourceAccessStyle::EndOfEnum);
+              ++accessStyle)
+          {
+              ResourceAccessStyle style = static_cast<ResourceAccessStyle>(accessStyle);
+              m_FunctionToEncodedAccess[&F][style] =
+                  HlslOP->GetU32Const(EncodeShaderModel(shaderKind) |
+                      EncodeAccess(style));
+          }
         }
       }
       DM.ReEmitDxilResources();
