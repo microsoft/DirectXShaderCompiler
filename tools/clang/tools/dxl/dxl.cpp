@@ -47,6 +47,7 @@ static cl::opt<std::string> OutputFilename("Fo",
                                            cl::desc("Override output filename"),
                                            cl::value_desc("filename"));
 
+static cl::opt<bool> ExportShadersOnly("export-shaders-only", cl::desc("Export entry function only"));
 
 class DxlContext {
 
@@ -87,9 +88,12 @@ int DxlContext::Link() {
   }
 
   CComPtr<IDxcOperationResult> pLinkResult;
-
+  std::vector<LPCWSTR> args;
+  if (ExportShadersOnly) {
+    args.emplace_back(L"-export-shaders-only");
+  }
   IFT(pLinker->Link(StringRefUtf16(entry), StringRefUtf16(profile),
-                wpInputFiles.data(), wpInputFiles.size(), nullptr, 0,
+                wpInputFiles.data(), wpInputFiles.size(), args.data(), args.size(),
                 &pLinkResult));
 
   HRESULT status;

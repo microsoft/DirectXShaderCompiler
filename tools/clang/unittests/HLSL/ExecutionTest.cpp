@@ -9324,7 +9324,7 @@ bool VerifyHelperLaneWaveResults(ExecutionTest::D3D_SHADER_MODEL sm, HelperLaneW
     passed &= HelperLaneResultLogAndVerify(L"QuadReadAcross* - lane 0 / pixel (0,0) - IsHelperLane()", quad_tr_exp.is_helper_across_Diag, quad_tr.is_helper_across_Diag);
   }
 
-  if (sm >= D3D_SHADER_MODEL_6_5) {
+  if (sm >= ExecutionTest::D3D_SHADER_MODEL_6_5) {
     HelperLaneWaveTestResult65& tr65 = testResults.sm65;
     HelperLaneWaveTestResult65& tr65exp = expectedResults.sm65;
     
