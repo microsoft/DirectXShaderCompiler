@@ -51,6 +51,7 @@ public:
   TEST_METHOD(RunLinkResRet);
   TEST_METHOD(RunLinkToLib);
   TEST_METHOD(RunLinkToLibExport);
+  TEST_METHOD(RunLinkToLibExportShadersOnly);
   TEST_METHOD(RunLinkFailReDefineGlobal);
   TEST_METHOD(RunLinkFailProfileMismatch);
   TEST_METHOD(RunLinkFailEntryNoProps);
@@ -494,6 +495,28 @@ TEST_F(LinkerTest, RunLinkToLibExport) {
     { "@\"\\01?renamed_test@@","@\"\\01?cloned_test@@","@main" },
     { "@\"\\01?mat_test", "@renamed_test", "@cloned_test" },
     {L"-exports", L"renamed_test,cloned_test=\\01?mat_test@@YA?AV?$vector@M$02@@V?$vector@M$03@@0AIAV?$matrix@M$03$02@@@Z;main"});
+}
+
+TEST_F(LinkerTest, RunLinkToLibExportShadersOnly) {
+  CComPtr<IDxcBlob> pEntryLib;
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_entry2.hlsl",
+             &pEntryLib);
+  CComPtr<IDxcBlob> pLib;
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_cast2.hlsl",
+             &pLib);
+
+  CComPtr<IDxcLinker> pLinker;
+  CreateLinker(&pLinker);
+
+  LPCWSTR libName = L"ps_main";
+  RegisterDxcModule(libName, pEntryLib, pLinker);
+
+  LPCWSTR libName2 = L"test";
+  RegisterDxcModule(libName2, pLib, pLinker);
+  Link(L"", L"lib_6_3", pLinker, {libName, libName2},
+    { "@main" },
+    { "@\"\\01?mat_test" },
+    {L"-export-shaders-only"});
 }
 
 TEST_F(LinkerTest, RunLinkFailSelectRes) {
