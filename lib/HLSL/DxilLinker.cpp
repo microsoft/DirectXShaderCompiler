@@ -1509,8 +1509,10 @@ DxilLinkerImpl::Link(StringRef entry, StringRef profile, dxilutil::ExportMap &ex
         auto *pM = DM.GetModule();
         for (Function &F : pM->functions()) {
           if (!pLib->IsEntry(&F)) {
-            // Set none entry to be internal so they could be removed.
-            F.setLinkage(GlobalValue::LinkageTypes::InternalLinkage);
+            if (!F.isDeclaration()) {
+              // Set none entry to be internal so they could be removed.
+              F.setLinkage(GlobalValue::LinkageTypes::InternalLinkage);
+            }
             continue;
           }
           workList.emplace_back(F.getName());
