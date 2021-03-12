@@ -640,6 +640,25 @@ static DxilResourceProperties MakeResourceProperties(hlsl::DXIL::ResourceKind Ki
   return Ret;
 }
 
+// Given a handle type, find an arbitrary call instructions to create handle
+CallInst *FindCallToCreateHandle(Value *handleType) {
+  Value *curVal = handleType;
+  CallInst *CI = dyn_cast<CallInst>(handleType);
+  while (CI == nullptr) {
+    if (PHINode *PN = dyn_cast<PHINode>(curVal)) {
+      curVal = PN->getIncomingValue(0);
+    }
+    else if (SelectInst *SI = dyn_cast<SelectInst>(curVal)) {
+      curVal = SI->getTrueValue();
+    }
+    else {
+      return nullptr;
+    }
+    CI = dyn_cast<CallInst>(curVal);
+  }
+  return CI;
+}
+
 std::pair<bool, DxilResourceProperties> GetHLSLResourceProperties(llvm::Type *Ty)
 {
    using RetType = std::pair<bool, DxilResourceProperties>;

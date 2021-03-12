@@ -3586,7 +3586,89 @@ Value *GenerateRawBufLd(Value *handle, Value *bufIdx, Value *offset,
 static Value* TranslateRawBufVecLd(Type* VecEltTy, unsigned VecElemCount,
   IRBuilder<>& Builder, Value* handle, hlsl::OP* OP, Value* status,
   Value* bufIdx, Value* baseOffset, const DataLayout& DL,
-  std::vector<Value*>& bufLds, unsigned baseAlign, bool isScalarTy = false);
+  std::vector<Value*> &bufLds, unsigned actualAlign, unsigned baseAlign, bool isScalarTy = false);
+
+
+static DxilResourceProperties GetResourcePropertyFromHandleCall(const hlsl::HLModule *M, CallInst *handleCall) {
+
+  DxilResourceProperties RP;
+
+  Function *F = handleCall->getCalledFunction();
+  hlsl::HLOpcodeGroup group = hlsl::GetHLOpcodeGroup(F);
+  if (group == hlsl::HLOpcodeGroup::HLAnnotateHandle) {
+    if (Constant *constProps = dyn_cast<Constant>(handleCall->getArgOperand(2))) {
+      RP = resource_helper::loadPropsFromConstant(*constProps);
+    }
+  }
+  return RP;
+}
+
+static Constant* GetRawBufLdStAlignmentInfo(IRBuilder<> &Builder, Value *handle, Type *EltTy,
+  Value *index, Value *offset, Constant *alignment) {
+
+  // If we don't have a constant offset for the element, then give up and
+  // return the default alignment -- i.e. element's allocation size in bytes.
+  if (!offset || !isa<ConstantInt>(offset)) {
+    return alignment;
+  }
+
+  CallInst *handleCall = dxilutil::FindCallToCreateHandle(handle);
+  if (!handleCall) {
+    return alignment;
+  }
+  hlsl::HLModule &HM = handleCall->getModule()->GetHLModule();
+  DxilResourceProperties RP = GetResourcePropertyFromHandleCall(&HM, handleCall);
+
+  // Bail out early if resource prop info not available
+  if (!RP.isValid()) {
+    return alignment;
+  }
+
+  // Only support structured buffer and byteaddress buffer for now
+  auto RK = RP.getResourceKind();
+  assert(DXIL::IsStructuredBuffer(RK) || DXIL::IsRawBuffer(RK));
+  if (!DXIL::IsStructuredBuffer(RK) && !DXIL::IsRawBuffer(RK)) {
+    return alignment;
+  }
+
+  constexpr unsigned dwordAlign = 4;
+  const unsigned alignmentVal = cast<ConstantInt>(alignment)->getLimitedValue();
+  unsigned offsetVal = cast<ConstantInt>(offset)->getLimitedValue();
+  if (DXIL::IsStructuredBuffer(RK)) {
+    unsigned structStrides = RP.StructStrideInBytes;
+    if (isa<ConstantInt>(index)) {
+      // If we have constant structure index, then it's possible to calculate
+      // the element address that can help figure out more accurate alignment
+      unsigned indexVal = cast<ConstantInt>(index)->getLimitedValue();
+      unsigned elemAddr = (indexVal * structStrides) + offsetVal;
+      if (elemAddr % dwordAlign == 0 && alignmentVal < dwordAlign) {
+        return ConstantInt::get(Builder.getInt32Ty(), dwordAlign);
+      }
+    }
+    else {
+      // Even if only offset is constant, we can still do a better job
+      // than defaulting to element's size (in bytes).
+      if (structStrides % dwordAlign == 0 && offsetVal % dwordAlign == 0 && alignmentVal < dwordAlign) {
+        return ConstantInt::get(Builder.getInt32Ty(), dwordAlign);
+      }
+    }
+  }
+  else if (DXIL::IsRawBuffer(RK)) {
+    if (offsetVal % dwordAlign == 0 && alignmentVal < dwordAlign) {
+      return ConstantInt::get(Builder.getInt32Ty(), dwordAlign);
+    }
+  }
+  return alignment;
+}
+
+static unsigned GetRawBufLdStAlignmentInfo(IRBuilder<> &Builder, Value *handle, const DataLayout &DL,
+  Type *EltTy, Value *index, Value *offset) {
+
+  // Use allocation size as the default alignment
+  Constant *alignment = ConstantInt::get(Builder.getInt32Ty(), DL.getTypeAllocSize(EltTy));
+  alignment = GetRawBufLdStAlignmentInfo(Builder, handle, EltTy, index, offset, alignment);
+  return cast<ConstantInt>(alignment)->getLimitedValue();
+}
 
 void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
                    IRBuilder<> &Builder, hlsl::OP *OP, const DataLayout &DL) {
@@ -3620,11 +3702,13 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
 
     Value* retValNew = nullptr;
     if (DXIL::IsStructuredBuffer(RK)) {
+      unsigned actualAlign = GetRawBufLdStAlignmentInfo(Builder, helper.handle, DL, MemReprTy, helper.addr, OP->GetU32Const(0));
       retValNew = TranslateRawBufVecLd(MemReprTy, numComponents, Builder, helper.handle, OP, helper.status,
-        helper.addr, OP->GetU32Const(0), DL, bufLds, /*baseAlign (in bytes)*/ 8, isScalarTy);
+        helper.addr, OP->GetU32Const(0), DL, bufLds, actualAlign, /*baseAlign (in bytes)*/ 8, isScalarTy);
     } else {
+      unsigned actualAlign = GetRawBufLdStAlignmentInfo(Builder, helper.handle, DL, MemReprTy, nullptr, helper.addr);
       retValNew = TranslateRawBufVecLd(MemReprTy, numComponents, Builder, helper.handle, OP, helper.status,
-        nullptr, helper.addr, DL, bufLds, /*baseAlign (in bytes)*/ 4, isScalarTy);
+        nullptr, helper.addr, DL, bufLds, actualAlign, /*baseAlign (in bytes)*/ 4, isScalarTy);
     }
 
     DXASSERT_NOMSG(!bufLds.empty());
@@ -3853,6 +3937,11 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
   if (RK == HLResource::Kind::RawBuffer && alignValue > 4)
     alignValue = 4;
   Constant *Alignment = OP->GetI32Const(alignValue);
+  // Get more accurate alignment info if available
+  if (RK == HLResource::Kind::RawBuffer) {
+    Alignment = GetRawBufLdStAlignmentInfo(Builder, handle, EltTy, /*index*/ nullptr, offset, Alignment);
+  }
+
   bool is64 = EltTy == i64Ty || EltTy == doubleTy;
   if (is64 && isTyped) {
     EltTy = i32Ty;
@@ -3938,6 +4027,7 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
       unsigned newOffset = EltSize * MaxStoreElemCount * j;
       Value* newOffsetVal = ConstantInt::get(Builder.getInt32Ty(), newOffset);
       newOffsetVal = Builder.CreateAdd(storeArgsList[0][offset0Idx], newOffsetVal);
+      Alignment = GetRawBufLdStAlignmentInfo(Builder, handle, EltTy, /*index*/ nullptr, newOffsetVal, Alignment);
       storeArgsList[j][offset0Idx] = newOffsetVal;
     }
 
@@ -6887,10 +6977,10 @@ void GenerateStructBufSt(Value *handle, Value *bufIdx, Value *offset,
 static Value* TranslateRawBufVecLd(Type* VecEltTy, unsigned ElemCount,
   IRBuilder<>& Builder, Value* handle, hlsl::OP* OP, Value* status,
   Value* bufIdx, Value* baseOffset, const DataLayout& DL,
-  std::vector<Value*> &bufLds, unsigned baseAlign, bool isScalarTy) {
+  std::vector<Value*> &bufLds, unsigned actualAlign, unsigned baseAlign, bool isScalarTy) {
 
   unsigned  EltSize = DL.getTypeAllocSize(VecEltTy);
-  unsigned alignment = std::min(baseAlign, EltSize);
+  unsigned alignment = std::min(baseAlign, actualAlign);
   Constant* alignmentVal = OP->GetI32Const(alignment);
 
   if (baseOffset == nullptr) {
@@ -6936,8 +7026,9 @@ Value *TranslateStructBufMatLd(Type *matType, IRBuilder<> &Builder,
   Type *EltTy = MatTy.getElementTypeForMem();
   unsigned matSize = MatTy.getNumElements();
   std::vector<Value*> bufLds;
+  unsigned actualAlign = GetRawBufLdStAlignmentInfo(Builder, handle, DL, EltTy, bufIdx, baseOffset);
   Value* Vec = TranslateRawBufVecLd(EltTy, matSize, Builder, handle, OP, status, bufIdx,
-    baseOffset, DL, bufLds, /*baseAlign (in bytes)*/ 8);
+    baseOffset, DL, bufLds, actualAlign, /*baseAlign (in bytes)*/ 8);
   Vec = MatTy.emitLoweredMemToReg(Vec, Builder);
   return Vec;
 }
@@ -6973,6 +7064,7 @@ void TranslateStructBufMatSt(Type *matType, IRBuilder<> &Builder, Value *handle,
       if (elts[i+j] != undefElt)
         mask |= (1<<j);
     }
+    Alignment = GetRawBufLdStAlignmentInfo(Builder, handle, EltTy, bufIdx, offset, Alignment);
     GenerateStructBufSt(handle, bufIdx, offset, EltTy, OP, Builder,
                         {elts[i], elts[i + 1], elts[i + 2], elts[i + 3]}, mask,
                         Alignment);
@@ -7152,12 +7244,14 @@ void TranslateStructBufMatSubscript(CallInst *CI,
         for (unsigned i = 0; i < resultSize; i++) {
           Value *ResultElt;
           // TODO: This can be inefficient for row major matrix load
+          alignment = GetRawBufLdStAlignmentInfo(ldBuilder, handle, resultType->getScalarType(), bufIdx, idxList[i], alignment);
           GenerateRawBufLd(handle, bufIdx, idxList[i],
                               /*status*/ nullptr, EltTy, ResultElt, hlslOP,
                               ldBuilder, 1, alignment);
           ldData = ldBuilder.CreateInsertElement(ldData, ResultElt, i);
         }
       } else {
+        alignment = GetRawBufLdStAlignmentInfo(ldBuilder, handle, resultType->getScalarType(), bufIdx, idxList[0], alignment);
         GenerateRawBufLd(handle, bufIdx, idxList[0], /*status*/ nullptr,
                             EltTy, ldData, hlslOP, ldBuilder, 4, alignment);
       }
@@ -7316,6 +7410,7 @@ void TranslateStructBufSubscriptUser(
         }
         else {
           Value* ResultElts[4];
+          alignment = GetRawBufLdStAlignmentInfo(Builder, handle, pOverloadTy->getScalarType(), bufIdx, offset, alignment);
           GenerateRawBufLd(handle, bufIdx, offset, status, pOverloadTy,
                               ResultElts, OP, Builder, numComponents, alignment);
           return ScalarizeElements(Ty, ResultElts, Builder);
@@ -7354,6 +7449,7 @@ void TranslateStructBufSubscriptUser(
         }
         Constant *alignment =
           OP->GetI32Const(DL.getTypeAllocSize(Ty->getScalarType()));
+        alignment = GetRawBufLdStAlignmentInfo(Builder, handle, pOverloadTy->getScalarType(), bufIdx, offset, alignment);
         GenerateStructBufSt(handle, bufIdx, offset, pOverloadTy, OP, Builder,
                             vals, mask, alignment);
       };

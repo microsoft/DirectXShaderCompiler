@@ -213,25 +213,6 @@ static ConstantInt *GetArbitraryConstantRangeID(CallInst *handleCall) {
   return ConstantRangeID;
 }
 
-// Given a handle type, find an arbitrary call instructions to create handle
-static CallInst *FindCallToCreateHandle(Value *handleType) {
-  Value *curVal = handleType;
-  CallInst *CI = dyn_cast<CallInst>(handleType);
-  while (CI == nullptr) {
-    if (PHINode *PN = dyn_cast<PHINode>(curVal)) {
-      curVal = PN->getIncomingValue(0);
-    }
-    else if (SelectInst *SI = dyn_cast<SelectInst>(curVal)) {
-      curVal = SI->getTrueValue();
-    }
-    else {
-      return nullptr;
-    }
-    CI = dyn_cast<CallInst>(curVal);
-  }
-  return CI;
-}
-
 DxilResourceProperties GetResourcePropertyFromHandleCall(const hlsl::DxilModule *M, CallInst *handleCall) {
 
   DxilResourceProperties RP;
@@ -457,7 +438,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
           if (hasMulticomponentUAVLoads) continue;
           // This is the old-style computation (overestimating requirements).
           Value *resHandle = CI->getArgOperand(DXIL::OperandIndex::kBufferStoreHandleOpIdx);
-          CallInst *handleCall = FindCallToCreateHandle(resHandle);
+          CallInst *handleCall = dxilutil::FindCallToCreateHandle(resHandle);
           // Check if this is a library handle or general create handle
           if (handleCall) {
             DxilResourceProperties RP = GetResourcePropertyFromHandleCall(M, handleCall);
@@ -494,7 +475,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
         case DXIL::OpCode::AtomicCompareExchange:
           if (isInt64) {
             Value *resHandle = CI->getArgOperand(DXIL::OperandIndex::kAtomicBinOpHandleOpIdx);
-            CallInst *handleCall = FindCallToCreateHandle(resHandle);
+            CallInst *handleCall = dxilutil::FindCallToCreateHandle(resHandle);
             DxilResourceProperties RP = GetResourcePropertyFromHandleCall(M, handleCall);
             if (DXIL::IsTyped(RP.getResourceKind()))
                 hasAtomicInt64OnTypedResource = true;
