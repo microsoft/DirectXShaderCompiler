@@ -144,7 +144,10 @@ static void ComputeFlagsBasedOnArgs(ArrayRef<std::wstring> args, std::vector<std
   }
 }
 
-struct DxcPdbVersionInfo : public IDxcVersionInfo3 {
+struct DxcPdbVersionInfo :
+  public IDxcVersionInfo2,
+  public IDxcVersionInfo3
+{
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
 

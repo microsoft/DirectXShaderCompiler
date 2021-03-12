@@ -549,7 +549,10 @@ static void CreateDefineStrings(
 class DxcCompiler : public IDxcCompiler3,
                     public IDxcLangExtensions2,
                     public IDxcContainerEvent,
-                    public IDxcVersionInfo3
+                    public IDxcVersionInfo3,
+#ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
+                    public IDxcVersionInfo2
+#endif // SUPPORT_QUERY_GIT_COMMIT_INFO
 {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
@@ -1415,9 +1418,9 @@ public:
     return S_OK;
   }
 
+#ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
   HRESULT STDMETHODCALLTYPE GetCommitInfo(_Out_ UINT32 *pCommitCount,
                                           _Out_ char **pCommitHash) override {
-#ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
     if (pCommitCount == nullptr || pCommitHash == nullptr)
       return E_INVALIDARG;
 
@@ -1430,10 +1433,9 @@ public:
     *pCommitCount = getGitCommitCount();
 
     return S_OK;
-#else
-    return E_NOTIMPL;
-#endif // SUPPORT_QUERY_GIT_COMMIT_INFO
   }
+#endif // SUPPORT_QUERY_GIT_COMMIT_INFO
+
   HRESULT STDMETHODCALLTYPE GetFlags(_Out_ UINT32 *pFlags) override {
     if (pFlags == nullptr)
       return E_INVALIDARG;
