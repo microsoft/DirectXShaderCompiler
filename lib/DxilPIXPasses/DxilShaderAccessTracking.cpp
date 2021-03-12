@@ -595,6 +595,9 @@ DxilShaderAccessTracking::GetResourceFromHandle(Value *resHandle,
               ? AccessStyle::SamplerFromDescriptorHeap : AccessStyle::ResourceFromDescriptorHeap;
           ret.dynamicallyBoundIndex = createHandleFromHeap.get_index();
 
+          auto props = resource_helper::loadPropsFromConstant(*dyn_cast<Constant>(annotateHandle.get_props()));
+          ret.registerType = RegisterTypeFromResourceClass(props.getResourceClass());
+
           DynamicResourceBinding drb{};
           drb.HeapIsSampler = createHandleFromHeap.get_samplerHeap_val();
           drb.HeapIndex = -1;
