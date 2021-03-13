@@ -532,9 +532,8 @@ bool IsResourceGEP(GetElementPtrInst *I) {
 Value *TranslateNonUniformResourceIndex(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                       HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   Value *V = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
-  CI->replaceAllUsesWith(V);
   Type *hdlTy = helper.hlslOP.GetHandleType();
-  for (User *U : V->users()) {
+  for (User *U : CI->users()) {
     if (GetElementPtrInst *I = dyn_cast<GetElementPtrInst>(U)) {
       // Only mark on GEP which point to resource.
       if (IsResourceGEP(I))
@@ -552,6 +551,7 @@ Value *TranslateNonUniformResourceIndex(CallInst *CI, IntrinsicOp IOP, OP::OpCod
         DxilMDHelper::MarkNonUniform(CI);
     }
   }
+  CI->replaceAllUsesWith(V);
   return nullptr;
 }
 
@@ -3167,9 +3167,12 @@ GatherHelper::GatherHelper(
       if (ch != GatherChannel::GatherAll)
         TranslateSampleOffset(CI, HLOperandIndex::kGatherSampleOffsetArgIndex,
                               offsetSize);
-      statusIdx =
-          hasSampleOffsets ? HLOperandIndex::kGatherStatusWithSampleOffsetArgIndex
-                           : HLOperandIndex::kGatherStatusArgIndex;
+      if (hasSampleOffsets) {
+        statusIdx = HLOperandIndex::kGatherStatusWithSampleOffsetArgIndex;
+      } else {
+        opcode = OP::OpCode::TextureGatherImm;
+        statusIdx = HLOperandIndex::kGatherStatusArgIndex;
+      }
     }
     SetStatus(CI, statusIdx);
   } break;
@@ -3185,10 +3188,12 @@ GatherHelper::GatherHelper(
       if (ch != GatherChannel::GatherAll)
         TranslateSampleOffset(CI, HLOperandIndex::kGatherCmpSampleOffsetArgIndex,
                               offsetSize);
-      statusIdx =
-          hasSampleOffsets
-              ? HLOperandIndex::kGatherCmpStatusWithSampleOffsetArgIndex
-              : HLOperandIndex::kGatherCmpStatusArgIndex;
+      if (hasSampleOffsets) {
+        statusIdx = HLOperandIndex::kGatherCmpStatusWithSampleOffsetArgIndex;
+      } else {
+        opcode = OP::OpCode::TextureGatherCmpImm;
+        statusIdx = HLOperandIndex::kGatherCmpStatusArgIndex;
+      }
     }
     SetStatus(CI, statusIdx);
   } break;
@@ -3283,9 +3288,9 @@ Value *TranslateGather(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   }
   Type *Ty = CI->getType();
 
-  Function *F = hlslOP->GetOpFunc(opcode, Ty->getScalarType());
+  Function *F = hlslOP->GetOpFunc(gatherHelper.opcode, Ty->getScalarType());
 
-  Constant *opArg = hlslOP->GetU32Const((unsigned)opcode);
+  Constant *opArg = hlslOP->GetU32Const((unsigned)gatherHelper.opcode);
   Value *channelArg = hlslOP->GetU32Const(gatherHelper.channel);
 
   switch (opcode) {
@@ -3573,10 +3578,15 @@ static Constant *GetRawBufferMaskForETy(Type *Ty, unsigned NumComponents, hlsl::
   return OP->GetI8Const(mask);
 }
 
-Value *GenerateStructBufLd(Value *handle, Value *bufIdx, Value *offset,
+Value *GenerateRawBufLd(Value *handle, Value *bufIdx, Value *offset,
   Value *status, Type *EltTy,
   MutableArrayRef<Value *> resultElts, hlsl::OP *OP,
   IRBuilder<> &Builder, unsigned NumComponents, Constant *alignment);
+
+static Value* TranslateRawBufVecLd(Type* VecEltTy, unsigned VecElemCount,
+  IRBuilder<>& Builder, Value* handle, hlsl::OP* OP, Value* status,
+  Value* bufIdx, Value* baseOffset, const DataLayout& DL,
+  std::vector<Value*>& bufLds, unsigned baseAlign, bool isScalarTy = false);
 
 void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
                    IRBuilder<> &Builder, hlsl::OP *OP, const DataLayout &DL) {
@@ -3595,24 +3605,36 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
   Type *i64Ty = Builder.getInt64Ty();
   Type *doubleTy = Builder.getDoubleTy();
   Type *EltTy = Ty->getScalarType();
-  // If RawBuffer load of 64-bit value, don't set alignment to 8,
-  // since buffer alignment isn't known to be anything over 4.
-  unsigned alignValue = OP->GetAllocSizeForType(EltTy);
-  if (RK == HLResource::Kind::RawBuffer && alignValue > 4)
-    alignValue = 4;
-  Constant *Alignment = OP->GetI32Const(alignValue);
   unsigned numComponents = 1;
   if (Ty->isVectorTy()) {
     numComponents = Ty->getVectorNumElements();
   }
 
-  if (DXIL::IsStructuredBuffer(RK)) {
-    // Basic type case for StructuredBuffer::Load()
-    Value *ResultElts[4];
-    Value *StructBufLoad = GenerateStructBufLd(helper.handle, helper.addr, OP->GetU32Const(0),
-      helper.status, EltTy, ResultElts, OP, Builder, numComponents, Alignment);
-    dxilutil::MigrateDebugValue(helper.retVal, StructBufLoad);
-    Value *retValNew = ScalarizeElements(Ty, ResultElts, Builder);
+  if (DXIL::IsStructuredBuffer(RK) || DXIL::IsRawBuffer(RK)) {
+    std::vector<Value*> bufLds;
+    const bool isBool = EltTy->isIntegerTy(1);
+
+    // Bool are represented as i32 in memory
+    Type* MemReprTy = isBool ? Builder.getInt32Ty() : EltTy;
+    bool isScalarTy = !Ty->isVectorTy();
+
+    Value* retValNew = nullptr;
+    if (DXIL::IsStructuredBuffer(RK)) {
+      retValNew = TranslateRawBufVecLd(MemReprTy, numComponents, Builder, helper.handle, OP, helper.status,
+        helper.addr, OP->GetU32Const(0), DL, bufLds, /*baseAlign (in bytes)*/ 8, isScalarTy);
+    } else {
+      retValNew = TranslateRawBufVecLd(MemReprTy, numComponents, Builder, helper.handle, OP, helper.status,
+        nullptr, helper.addr, DL, bufLds, /*baseAlign (in bytes)*/ 4, isScalarTy);
+    }
+
+    DXASSERT_NOMSG(!bufLds.empty());
+    dxilutil::MigrateDebugValue(helper.retVal, bufLds.front());
+
+    if (isBool) {
+      // Convert result back to register representation.
+      retValNew = Builder.CreateICmpNE(retValNew, Constant::getNullValue(retValNew->getType()));
+    }
+
     helper.retVal->replaceAllUsesWith(retValNew);
     helper.retVal = retValNew;
     return;
@@ -3689,14 +3711,7 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
   }
 
   // Offset 1
-  if (RK == DxilResource::Kind::RawBuffer) {
-    // elementOffset, mask, alignment
-    loadArgs.emplace_back(undefI);
-    Type *rtnTy = helper.retVal->getType();
-    loadArgs.emplace_back(GetRawBufferMaskForETy(rtnTy, numComponents, OP));
-    loadArgs.emplace_back(Alignment);
-  }
-  else if (RK == DxilResource::Kind::TypedBuffer) {
+  if (RK == DxilResource::Kind::TypedBuffer) {
     loadArgs.emplace_back(undefI);
   }
 
@@ -3796,6 +3811,10 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
                     Value *offset, IRBuilder<> &Builder, hlsl::OP *OP) {
   Type *Ty = val->getType();
 
+  // This function is no longer used for lowering stores to a
+  // structured buffer.
+  DXASSERT_NOMSG(RK != DxilResource::Kind::StructuredBuffer);
+
   OP::OpCode opcode = OP::OpCode::NumOpCodes;
   switch (RK) {
   case DxilResource::Kind::RawBuffer:
@@ -3851,6 +3870,7 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
   storeArgs.emplace_back(opArg);  // opcode
   storeArgs.emplace_back(handle); // resource handle
 
+  unsigned offset0Idx = 0;
   if (RK == DxilResource::Kind::RawBuffer ||
       RK == DxilResource::Kind::TypedBuffer) {
     // Offset 0
@@ -3860,6 +3880,9 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
     } else {
       storeArgs.emplace_back(offset); // offset
     }
+
+    // Store offset0 for later use
+    offset0Idx = storeArgs.size() - 1;
 
     // Offset 1
     storeArgs.emplace_back(undefI);
@@ -3873,6 +3896,9 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
     else
       storeArgs.emplace_back(offset);
 
+    // Store offset0 for later use
+    offset0Idx = storeArgs.size() - 1;
+
     for (unsigned i = 1; i < 3; i++) {
       if (i < coordSize)
         storeArgs.emplace_back(Builder.CreateExtractElement(offset, i));
@@ -3882,76 +3908,113 @@ void TranslateStore(DxilResource::Kind RK, Value *handle, Value *val,
     // TODO: support mip for texture ST
   }
 
-  // values
-  uint8_t mask = 0;
-  if (Ty->isVectorTy()) {
-    unsigned vecSize = Ty->getVectorNumElements();
-    Value *emptyVal = undefVal;
-    if (isTyped) {
-      mask = DXIL::kCompMask_All;
-      emptyVal = Builder.CreateExtractElement(val, (uint64_t)0);
+  constexpr unsigned MaxStoreElemCount = 4;
+  const unsigned CompCount = Ty->isVectorTy() ? Ty->getVectorNumElements() : 1;
+  const unsigned StoreInstCount = (CompCount / MaxStoreElemCount) + (CompCount % MaxStoreElemCount != 0);
+  SmallVector<decltype(storeArgs), 4> storeArgsList;
+
+  // Max number of element to store should be 16 (for a 4x4 matrix)
+  DXASSERT_NOMSG(StoreInstCount >= 1 && StoreInstCount <= 4);
+  
+  // If number of elements to store exceeds the maximum number of elements
+  // that can be stored in a single store call,  make sure to generate enough 
+  // store calls to store all elements
+  for (unsigned j = 0; j < StoreInstCount; j++) {
+    decltype(storeArgs) newStoreArgs;
+    for (Value* storeArg : storeArgs)
+      newStoreArgs.emplace_back(storeArg);
+    storeArgsList.emplace_back(newStoreArgs);
+  }
+
+  for (unsigned j = 0; j < storeArgsList.size(); j++) {
+
+    // For second and subsequent store calls, increment the offset0 (i.e. store index)
+    if (j > 0) {
+      // Greater than four-components store is not allowed for
+      // TypedBuffer and Textures. So greater than four elements
+      // scenario should only get hit here for RawBuffer.
+      DXASSERT_NOMSG(RK == DxilResource::Kind::RawBuffer);
+      unsigned EltSize = OP->GetAllocSizeForType(EltTy);
+      unsigned newOffset = EltSize * MaxStoreElemCount * j;
+      Value* newOffsetVal = ConstantInt::get(Builder.getInt32Ty(), newOffset);
+      newOffsetVal = Builder.CreateAdd(storeArgsList[0][offset0Idx], newOffsetVal);
+      storeArgsList[j][offset0Idx] = newOffsetVal;
     }
 
-    for (unsigned i = 0; i < 4; i++) {
-      if (i < vecSize) {
-        storeArgs.emplace_back(Builder.CreateExtractElement(val, i));
-        mask |= (1<<i);
-      } else {
-        storeArgs.emplace_back(emptyVal);
+    // values
+    uint8_t mask = 0;
+    if (Ty->isVectorTy()) {
+      unsigned vecSize = std::min((j + 1) * MaxStoreElemCount, Ty->getVectorNumElements()) - (j * MaxStoreElemCount);
+      Value* emptyVal = undefVal;
+      if (isTyped) {
+        mask = DXIL::kCompMask_All;
+        emptyVal = Builder.CreateExtractElement(val, (uint64_t)0);
+      }
+
+      for (unsigned i = 0; i < MaxStoreElemCount; i++) {
+        if (i < vecSize) {
+          storeArgsList[j].emplace_back(Builder.CreateExtractElement(val, (j * MaxStoreElemCount) + i));
+          mask |= (1 << i);
+        }
+        else {
+          storeArgsList[j].emplace_back(emptyVal);
+        }
+      }
+
+    }
+    else {
+      if (isTyped) {
+        mask = DXIL::kCompMask_All;
+        storeArgsList[j].emplace_back(val);
+        storeArgsList[j].emplace_back(val);
+        storeArgsList[j].emplace_back(val);
+        storeArgsList[j].emplace_back(val);
+      }
+      else {
+        storeArgsList[j].emplace_back(val);
+        storeArgsList[j].emplace_back(undefVal);
+        storeArgsList[j].emplace_back(undefVal);
+        storeArgsList[j].emplace_back(undefVal);
+        mask = DXIL::kCompMask_X;
       }
     }
 
-  } else {
-    if (isTyped) {
-      mask = DXIL::kCompMask_All;
-      storeArgs.emplace_back(val);
-      storeArgs.emplace_back(val);
-      storeArgs.emplace_back(val);
-      storeArgs.emplace_back(val);
-    } else {
-      storeArgs.emplace_back(val);
-      storeArgs.emplace_back(undefVal);
-      storeArgs.emplace_back(undefVal);
-      storeArgs.emplace_back(undefVal);
-      mask = DXIL::kCompMask_X;
+    if (is64 && isTyped) {
+      unsigned size = 1;
+      if (Ty->isVectorTy()) {
+        size = std::min((j + 1) * MaxStoreElemCount, Ty->getVectorNumElements()) - (j * MaxStoreElemCount);
+      }
+      DXASSERT(size <= 2, "raw/typed buffer only allow 4 dwords");
+      unsigned val0OpIdx = opcode == DXIL::OpCode::TextureStore
+        ? DXIL::OperandIndex::kTextureStoreVal0OpIdx
+        : DXIL::OperandIndex::kBufferStoreVal0OpIdx;
+      Value* V0 = storeArgsList[j][val0OpIdx];
+      Value* V1 = storeArgsList[j][val0OpIdx + 1];
+
+      Value* vals32[4];
+      EltTy = Ty->getScalarType();
+      Split64bitValForStore(EltTy, { V0, V1 }, size, vals32, OP, Builder);
+      // Fill the uninit vals.
+      if (size == 1) {
+        vals32[2] = vals32[0];
+        vals32[3] = vals32[1];
+      }
+      // Change valOp to 32 version.
+      for (unsigned i = 0; i < 4; i++) {
+        storeArgsList[j][val0OpIdx + i] = vals32[i];
+      }
+      // change mask for double
+      if (opcode == DXIL::OpCode::RawBufferStore) {
+        mask = size == 1 ?
+          DXIL::kCompMask_X | DXIL::kCompMask_Y : DXIL::kCompMask_All;
+      }
     }
+
+    storeArgsList[j].emplace_back(OP->GetU8Const(mask)); // mask
+    if (opcode == DXIL::OpCode::RawBufferStore)
+      storeArgsList[j].emplace_back(Alignment); // alignment only for raw buffer
+    Builder.CreateCall(F, storeArgsList[j]);
   }
-
-  if (is64 && isTyped) {
-    unsigned size = 1;
-    if (Ty->isVectorTy()) {
-      size = Ty->getVectorNumElements();
-    }
-    DXASSERT(size <= 2, "raw/typed buffer only allow 4 dwords");
-    unsigned val0OpIdx = opcode == DXIL::OpCode::TextureStore
-                             ? DXIL::OperandIndex::kTextureStoreVal0OpIdx
-                             : DXIL::OperandIndex::kBufferStoreVal0OpIdx;
-    Value *V0 = storeArgs[val0OpIdx];
-    Value *V1 = storeArgs[val0OpIdx+1];
-
-    Value *vals32[4];
-    EltTy = Ty->getScalarType();
-    Split64bitValForStore(EltTy, {V0, V1}, size, vals32, OP, Builder);
-    // Fill the uninit vals.
-    if (size == 1) {
-      vals32[2] = vals32[0];
-      vals32[3] = vals32[1];
-    }
-    // Change valOp to 32 version.
-    for (unsigned i = 0; i < 4; i++) {
-      storeArgs[val0OpIdx + i] = vals32[i];
-    }
-    // change mask for double
-    if (opcode == DXIL::OpCode::RawBufferStore) {
-      mask = size == 1 ?
-        DXIL::kCompMask_X | DXIL::kCompMask_Y : DXIL::kCompMask_All;
-    }
-  }
-
-  storeArgs.emplace_back(OP->GetU8Const(mask)); // mask
-  if (opcode == DXIL::OpCode::RawBufferStore)
-    storeArgs.emplace_back(Alignment); // alignment only for raw buffer
-  Builder.CreateCall(F, storeArgs);
 }
 
 Value *TranslateResourceStore(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
@@ -5340,6 +5403,7 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_InterlockedMin, TranslateIopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_InterlockedOr, TranslateIopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_InterlockedXor, TranslateIopAtomicBinaryOperation, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::IOP_IsHelperLane, TrivialNoArgWithRetOperation, DXIL::OpCode::IsHelperLane},
     {IntrinsicOp::IOP_NonUniformResourceIndex, TranslateNonUniformResourceIndex, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_ObjectRayDirection, TranslateNoArgVectorOperation, DXIL::OpCode::ObjectRayDirection},
     {IntrinsicOp::IOP_ObjectRayOrigin, TranslateNoArgVectorOperation, DXIL::OpCode::ObjectRayOrigin},
@@ -6589,15 +6653,17 @@ void TranslateCBGepLegacy(GetElementPtrInst *GEP, Value *handle,
         }
       } else {
         Type *EltTy = GEPIt->getVectorElementType();
+        unsigned vecSize = GEPIt->getVectorNumElements();
+
         // Load the whole register.
         Value *newLd = GenerateCBLoadLegacy(handle, legacyIndex,
-                                     /*channelOffset*/ 0, EltTy,
-                                     /*vecSize*/ 4, hlslOP, Builder);
+                                     /*channelOffset*/ channel, EltTy,
+                                     /*vecSize*/ vecSize, hlslOP, Builder);
         // Copy to array.
         IRBuilder<> AllocaBuilder(GEP->getParent()->getParent()->getEntryBlock().getFirstInsertionPt());
-        Value *tempArray = AllocaBuilder.CreateAlloca(ArrayType::get(EltTy, 4));
+        Value *tempArray = AllocaBuilder.CreateAlloca(ArrayType::get(EltTy, vecSize));
         Value *zeroIdx = hlslOP->GetU32Const(0);
-        for (unsigned i = 0; i < 4; i++) {
+        for (unsigned i = 0; i < vecSize; i++) {
           Value *Elt = Builder.CreateExtractElement(newLd, i);
           Value *EltGEP = Builder.CreateInBoundsGEP(tempArray, {zeroIdx, hlslOP->GetU32Const(i)});
           Builder.CreateStore(Elt, EltGEP);
@@ -6762,7 +6828,7 @@ static Value* ExtractFromTypedBufferLoad(const ResRetValueArray& ResRet,
   return ScalarizeElements(ResultTy, Elems, Builder);
 }
 
-Value *GenerateStructBufLd(Value *handle, Value *bufIdx, Value *offset,
+Value *GenerateRawBufLd(Value *handle, Value *bufIdx, Value *offset,
                          Value *status, Type *EltTy,
                          MutableArrayRef<Value *> resultElts, hlsl::OP *OP,
                          IRBuilder<> &Builder, unsigned NumComponents, Constant *alignment) {
@@ -6817,44 +6883,61 @@ void GenerateStructBufSt(Value *handle, Value *bufIdx, Value *offset,
   Builder.CreateCall(dxilF, Args);
 }
 
+
+static Value* TranslateRawBufVecLd(Type* VecEltTy, unsigned ElemCount,
+  IRBuilder<>& Builder, Value* handle, hlsl::OP* OP, Value* status,
+  Value* bufIdx, Value* baseOffset, const DataLayout& DL,
+  std::vector<Value*> &bufLds, unsigned baseAlign, bool isScalarTy) {
+
+  unsigned  EltSize = DL.getTypeAllocSize(VecEltTy);
+  unsigned alignment = std::min(baseAlign, EltSize);
+  Constant* alignmentVal = OP->GetI32Const(alignment);
+
+  if (baseOffset == nullptr) {
+    baseOffset = OP->GetU32Const(0);
+  }
+
+  std::vector<Value*> elts(ElemCount);
+  unsigned rest = (ElemCount % 4);
+  for (unsigned i = 0; i < ElemCount - rest; i += 4) {
+    Value* ResultElts[4];
+    Value* bufLd = GenerateRawBufLd(handle, bufIdx, baseOffset, status, VecEltTy, ResultElts, OP, Builder, 4, alignmentVal);
+    bufLds.emplace_back(bufLd);
+    elts[i] = ResultElts[0];
+    elts[i + 1] = ResultElts[1];
+    elts[i + 2] = ResultElts[2];
+    elts[i + 3] = ResultElts[3];
+
+    baseOffset = Builder.CreateAdd(baseOffset, OP->GetU32Const(4 * EltSize));
+  }
+
+  if (rest) {
+    Value* ResultElts[4];
+    Value* bufLd = GenerateRawBufLd(handle, bufIdx, baseOffset, status, VecEltTy, ResultElts, OP, Builder, rest, alignmentVal);
+    bufLds.emplace_back(bufLd);
+    for (unsigned i = 0; i < rest; i++)
+      elts[ElemCount - rest + i] = ResultElts[i];
+  }
+
+  // If the expected return type is scalar then skip building a vector
+  if (isScalarTy) {
+    return elts[0];
+  }
+
+  Value* Vec = HLMatrixLower::BuildVector(VecEltTy, elts, Builder);
+  return Vec;
+}
+
 Value *TranslateStructBufMatLd(Type *matType, IRBuilder<> &Builder,
                                Value *handle, hlsl::OP *OP, Value *status,
                                Value *bufIdx, Value *baseOffset,
                                const DataLayout &DL) {
   HLMatrixType MatTy = HLMatrixType::cast(matType);
   Type *EltTy = MatTy.getElementTypeForMem();
-  unsigned  EltSize = DL.getTypeAllocSize(EltTy);
-  Constant* alignment = OP->GetI32Const(EltSize);
-
-  Value *offset = baseOffset;
-  if (baseOffset == nullptr)
-    offset = OP->GetU32Const(0);
-
   unsigned matSize = MatTy.getNumElements();
-  std::vector<Value *> elts(matSize);
-
-  unsigned rest = (matSize % 4);
-  if (rest) {
-    Value *ResultElts[4];
-    GenerateStructBufLd(handle, bufIdx, offset, status, EltTy, ResultElts, OP, Builder, 3, alignment);
-    for (unsigned i = 0; i < rest; i++)
-      elts[i] = ResultElts[i];
-    offset = Builder.CreateAdd(offset, OP->GetU32Const(EltSize * rest));
-  }
-
-  for (unsigned i = rest; i < matSize; i += 4) {
-    Value *ResultElts[4];
-    GenerateStructBufLd(handle, bufIdx, offset, status, EltTy, ResultElts, OP, Builder, 4, alignment);
-    elts[i] = ResultElts[0];
-    elts[i + 1] = ResultElts[1];
-    elts[i + 2] = ResultElts[2];
-    elts[i + 3] = ResultElts[3];
-
-    // Update offset by 4*4bytes.
-    offset = Builder.CreateAdd(offset, OP->GetU32Const(4 * EltSize));
-  }
-
-  Value *Vec = HLMatrixLower::BuildVector(EltTy, elts, Builder);
+  std::vector<Value*> bufLds;
+  Value* Vec = TranslateRawBufVecLd(EltTy, matSize, Builder, handle, OP, status, bufIdx,
+    baseOffset, DL, bufLds, /*baseAlign (in bytes)*/ 8);
   Vec = MatTy.emitLoweredMemToReg(Vec, Builder);
   return Vec;
 }
@@ -7069,13 +7152,13 @@ void TranslateStructBufMatSubscript(CallInst *CI,
         for (unsigned i = 0; i < resultSize; i++) {
           Value *ResultElt;
           // TODO: This can be inefficient for row major matrix load
-          GenerateStructBufLd(handle, bufIdx, idxList[i],
+          GenerateRawBufLd(handle, bufIdx, idxList[i],
                               /*status*/ nullptr, EltTy, ResultElt, hlslOP,
                               ldBuilder, 1, alignment);
           ldData = ldBuilder.CreateInsertElement(ldData, ResultElt, i);
         }
       } else {
-        GenerateStructBufLd(handle, bufIdx, idxList[0], /*status*/ nullptr,
+        GenerateRawBufLd(handle, bufIdx, idxList[0], /*status*/ nullptr,
                             EltTy, ldData, hlslOP, ldBuilder, 4, alignment);
       }
       ldUser->replaceAllUsesWith(ldData);
@@ -7233,7 +7316,7 @@ void TranslateStructBufSubscriptUser(
         }
         else {
           Value* ResultElts[4];
-          GenerateStructBufLd(handle, bufIdx, offset, status, pOverloadTy,
+          GenerateRawBufLd(handle, bufIdx, offset, status, pOverloadTy,
                               ResultElts, OP, Builder, numComponents, alignment);
           return ScalarizeElements(Ty, ResultElts, Builder);
         }

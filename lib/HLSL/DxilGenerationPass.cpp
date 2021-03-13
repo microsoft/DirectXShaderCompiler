@@ -209,7 +209,7 @@ public:
     if (!SM->IsLib()) {
       Function *EntryFn = m_pHLModule->GetEntryFunction();
       if (!m_pHLModule->HasDxilFunctionProps(EntryFn)) {
-        dxilutil::EmitErrorOnFunction(EntryFn, "Entry function don't have property.");
+        dxilutil::EmitErrorOnFunction(M.getContext(), EntryFn, "Entry function don't have property.");
         return false;
       }
       DxilFunctionProps &props = m_pHLModule->GetDxilFunctionProps(EntryFn);
@@ -261,7 +261,7 @@ public:
           if (F.user_empty()) {
             F.eraseFromParent();
           } else {
-            dxilutil::EmitErrorOnFunction(&F, "Fail to lower createHandle.");
+            dxilutil::EmitErrorOnFunction(M.getContext(), &F, "Fail to lower createHandle.");
           }
         }
       }
@@ -375,7 +375,16 @@ void TranslateHLAnnotateHandle(
         CI->getArgOperand(HLOperandIndex::kAnnotateHandleResourceTypeOpIdx)
             ->getType();
     IRBuilder<> Builder(CI);
-
+    // put annotateHandle near the Handle it annotated.
+    if (Instruction *I = dyn_cast<Instruction>(handle)) {
+      if (isa<PHINode>(I)) {
+        Builder.SetInsertPoint(I->getParent()->getFirstInsertionPt());
+      } else {
+        Builder.SetInsertPoint(I->getNextNode());
+      }
+    } else if (Argument *Arg = dyn_cast<Argument>(handle)) {
+      Builder.SetInsertPoint(Arg->getParent()->getEntryBlock().getFirstInsertionPt());
+    }
     Function *annotateHandle =
         hlslOP.GetOpFunc(DXIL::OpCode::AnnotateHandle, Builder.getVoidTy());
     CallInst *newHandle =

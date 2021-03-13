@@ -189,7 +189,11 @@ bool JumpThreading::runOnFunction(Function &F) {
 
       // If the block is trivially dead, zap it.  This eliminates the successor
       // edges which simplifies the CFG.
-      if (pred_empty(BB) &&
+      if ((pred_empty(BB)
+          // HLSL change begin - delete self loop.
+          || BB->getSinglePredecessor() == BB
+          // HLSL change end.
+          ) &&
           BB != &BB->getParent()->getEntryBlock()) {
         DEBUG(dbgs() << "  JT: Deleting dead block '" << BB->getName()
               << "' with terminator: " << *BB->getTerminator() << '\n');

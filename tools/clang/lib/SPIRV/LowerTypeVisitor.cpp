@@ -42,7 +42,7 @@ bool LowerTypeVisitor::visit(SpirvFunction *fn, Phase phase) {
         lowerType(fn->getAstReturnType(), SpirvLayoutRule::Void,
                   /*isRowMajor*/ llvm::None,
                   /*SourceLocation*/ {});
-    fn->setReturnType(const_cast<SpirvType *>(spirvReturnType));
+    fn->setReturnType(spirvReturnType);
 
     // Lower the function parameter types.
     auto params = fn->getParameters();
@@ -120,6 +120,14 @@ bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
     if (auto *var = dyn_cast<SpirvVariable>(instr)) {
       if (var->hasBinding() && var->getHlslUserType().empty()) {
         var->setHlslUserType(getHlslResourceTypeName(var->getAstResultType()));
+      }
+
+      auto spvImageFormat = spvContext.getImageFormatForSpirvVariable(var);
+      if (spvImageFormat != spv::ImageFormat::Unknown) {
+        if (const auto *imageType = dyn_cast<ImageType>(resultType)) {
+          resultType = spvContext.getImageType(imageType, spvImageFormat);
+          instr->setResultType(resultType);
+        }
       }
     }
     const SpirvType *pointerType =

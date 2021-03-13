@@ -63,6 +63,7 @@ private:
   map<Instruction *, WaveSensitivity> InstState;
   map<BasicBlock *, WaveSensitivity> BBState;
   std::vector<Instruction *> InstWorkList;
+  std::vector<PHINode *> UnknownPhis; // currently unknown phis. Indicate cycles after Analyze
   std::vector<BasicBlock *> BBWorkList;
   bool CheckBBState(BasicBlock *BB, WaveSensitivity WS);
   WaveSensitivity GetInstState(Instruction *I);
@@ -72,6 +73,7 @@ private:
 public:
   WaveSensitivityAnalyzer(PostDominatorTree &PDT) : pPDT(&PDT) {}
   void Analyze(Function *F);
+  void Analyze();
   bool IsWaveSensitive(Instruction *op);
 };
 
@@ -79,8 +81,60 @@ WaveSensitivityAnalysis* WaveSensitivityAnalysis::create(PostDominatorTree &PDT)
   return new WaveSensitivityAnalyzer(PDT);
 }
 
+// Analyze the given function's instructions as wave-sensitive or not
 void WaveSensitivityAnalyzer::Analyze(Function *F) {
-  UpdateBlock(&F->getEntryBlock(), KnownNotSensitive);
+  // Add all blocks but the entry in reverse order so they come out in order
+  auto it = F->getBasicBlockList().end();
+  for ( it-- ; it != F->getBasicBlockList().begin(); it--)
+    BBWorkList.emplace_back(&*it);
+  // Add entry block as non-sensitive
+  UpdateBlock(&*it, KnownNotSensitive);
+
+  // First analysis
+  Analyze();
+
+  // If any phis with explored preds remain unknown
+  // it has to be in a loop that don't include wave sensitivity
+  // Update each as such and redo Analyze to mark the descendents
+  while (!UnknownPhis.empty() || !InstWorkList.empty() || !BBWorkList.empty()) {
+    while (!UnknownPhis.empty()) {
+      PHINode *Phi = UnknownPhis.back();
+      UnknownPhis.pop_back();
+      // UnknownPhis might have actually known phis that were changed. skip them
+      if (Unknown == GetInstState(Phi)) {
+        // If any of the preds have not been visited, we can't assume a cycle yet
+        bool allPredsVisited = true;
+        for (unsigned i = 0; i < Phi->getNumIncomingValues(); i++) {
+          if (!BBState.count(Phi->getIncomingBlock(i))) {
+            allPredsVisited = false;
+            break;
+          }
+        }
+#ifndef NDEBUG
+        for (unsigned i = 0; i < Phi->getNumIncomingValues(); i++) {
+          if (Instruction *IArg = dyn_cast<Instruction>(Phi->getIncomingValue(i))) {
+            DXASSERT_LOCALVAR(IArg, GetInstState(IArg) != KnownSensitive,
+                   "Unknown wave-status Phi argument should not be able to be known sensitive");
+          }
+        }
+#endif
+        if (allPredsVisited)
+          UpdateInst(Phi, KnownNotSensitive);
+      }
+    }
+    Analyze();
+  }
+#ifndef NDEBUG
+  for (BasicBlock &BB : *F) {
+    for (Instruction &I : BB) {
+      DXASSERT_LOCALVAR(I, Unknown != GetInstState(&I), "Wave sensitivity analysis exited without finding results for all instructions");
+    }
+  }
+#endif
+}
+
+// Analyze the member instruction and BBlock worklists
+void WaveSensitivityAnalyzer::Analyze() {
   while (!InstWorkList.empty() || !BBWorkList.empty()) {
     // Process the instruction work list.
     while (!InstWorkList.empty()) {
@@ -94,8 +148,8 @@ void WaveSensitivityAnalyzer::Analyze(Function *F) {
       }
     }
 
-    // Process the basic block work list.
-    while (!BBWorkList.empty()) {
+    // Process one entry of the basic block work list.
+    if (!BBWorkList.empty()) {
       BasicBlock *BB = BBWorkList.back();
       BBWorkList.pop_back();
 
@@ -184,6 +238,8 @@ void WaveSensitivityAnalyzer::VisitInst(Instruction *I) {
       if (WS == KnownSensitive) {
         UpdateInst(I, KnownSensitive);
         return;
+      } else if (Unknown == GetInstState(I)) {
+        UnknownPhis.emplace_back(Phi);
       }
     }
   }
@@ -196,10 +252,8 @@ void WaveSensitivityAnalyzer::VisitInst(Instruction *I) {
       if (WS == KnownSensitive) {
         UpdateInst(I, KnownSensitive);
         return;
-      }
-      if (WS == Unknown) {
+      } else if (WS == Unknown) {
         allKnownNotSensitive = false;
-        return;
       }
     }
   }
@@ -210,7 +264,10 @@ void WaveSensitivityAnalyzer::VisitInst(Instruction *I) {
 
 bool WaveSensitivityAnalyzer::IsWaveSensitive(Instruction *op) {
   auto c = InstState.find(op);
-  DXASSERT(c != InstState.end(), "else analysis didn't complete");
+  if(c == InstState.end()) {
+    DXASSERT(false, "Instruction sensitivity not foud. Analysis didn't complete!");
+    return false;
+  }
   DXASSERT((*c).second != Unknown, "else analysis is missing a case");
   return (*c).second == KnownSensitive;
 }

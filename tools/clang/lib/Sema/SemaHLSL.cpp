@@ -5264,6 +5264,8 @@ public:
   QualType getCurrentElement() const;
   /// <summary>Get the number of repeated current elements.</summary>
   unsigned int getCurrentElementSize() const;
+  /// <summary>Gets the current element's Iterkind.</summary>
+  FlattenedIterKind getCurrentElementKind() const { return m_typeTrackers.back().IterKind; }
   /// <summary>Checks whether the iterator has a current element type to report.</summary>
   bool hasCurrentElement() const;
   /// <summary>Consumes count elements on this iterator.</summary>
@@ -8676,7 +8678,8 @@ bool HLSLExternalSource::CanConvert(
   if ((SourceInfo.EltKind == AR_OBJECT_CONSTANT_BUFFER ||
        SourceInfo.EltKind == AR_OBJECT_TEXTURE_BUFFER) &&
       TargetInfo.ShapeKind == AR_TOBJ_COMPOUND) {
-    standard->Second = ICK_Flat_Conversion;
+    if (standard)
+      standard->Second = ICK_Flat_Conversion;
     return hlsl::GetHLSLResourceResultType(source) == target;
   }
 
@@ -9106,7 +9109,11 @@ void HLSLExternalSource::CheckBinOpForHLSL(
                rightElementKind != AR_BASIC_LITERAL_INT &&
                rightElementKind != AR_BASIC_LITERAL_FLOAT) {
       // For case like 1<<x.
-      resultElementKind = AR_BASIC_UINT32;
+      m_sema->Diag(OpLoc, diag::warn_hlsl_ambiguous_literal_shift);
+      if (rightElementKind == AR_BASIC_UINT32)
+        resultElementKind = AR_BASIC_UINT32;
+      else
+        resultElementKind = AR_BASIC_INT32;
     } else if (resultElementKind == AR_BASIC_BOOL &&
                BinaryOperatorKindRequiresBoolAsNumeric(Opc)) {
       resultElementKind = AR_BASIC_INT32;
@@ -10994,6 +11001,11 @@ FlattenedTypeIterator::CompareIterators(
       advance = 1;
     }
 
+    // If both elements are unbound arrays, break out or we'll never finish
+    if (leftIter.getCurrentElementKind() == FK_IncompleteArray &&
+        rightIter.getCurrentElementKind() == FK_IncompleteArray)
+      break;
+
     leftIter.advanceCurrentElement(advance);
     rightIter.advanceCurrentElement(advance);
     result.LeftCount += advance;
@@ -11130,6 +11142,28 @@ static int ValidateAttributeFloatArg(Sema &S, const AttributeList &Attr,
       S.Diag(E->getLocStart(), diag::err_hlsl_attribute_expects_float_literal)
           << Attr.getName();
     }
+  }
+  return value;
+}
+
+template <typename AttrType, typename EnumType,
+          bool (*ConvertStrToEnumType)(StringRef, EnumType &)>
+static EnumType ValidateAttributeEnumArg(Sema &S, const AttributeList &Attr,
+                                         EnumType defaultValue,
+                                         unsigned index = 0) {
+  EnumType value(defaultValue);
+  StringRef Str = "";
+  SourceLocation ArgLoc;
+
+  if (Attr.getNumArgs() > index) {
+    if (!S.checkStringLiteralArgumentAttr(Attr, 0, Str, &ArgLoc))
+      return value;
+
+    if (!ConvertStrToEnumType(Str, value)) {
+      S.Diag(Attr.getLoc(), diag::warn_attribute_type_not_supported)
+          << Attr.getName() << Str << ArgLoc;
+    }
+    return value;
   }
   return value;
 }
@@ -11680,6 +11714,15 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     declAttr = ::new (S.Context) VKOffsetAttr(A.getRange(), S.Context,
       ValidateAttributeIntArg(S, A), A.getAttributeSpellingListIndex());
     break;
+  case AttributeList::AT_VKImageFormat: {
+    VKImageFormatAttr::ImageFormatType Kind = ValidateAttributeEnumArg<
+        VKImageFormatAttr, VKImageFormatAttr::ImageFormatType,
+        VKImageFormatAttr::ConvertStrToImageFormatType>(
+        S, A, VKImageFormatAttr::ImageFormatType::unknown);
+    declAttr = ::new (S.Context) VKImageFormatAttr(
+        A.getRange(), S.Context, Kind, A.getAttributeSpellingListIndex());
+    break;
+  }
   case AttributeList::AT_VKInputAttachmentIndex:
     declAttr = ::new (S.Context) VKInputAttachmentIndexAttr(
         A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
@@ -11694,6 +11737,9 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     break;
   case AttributeList::AT_VKShaderRecordNV:
     declAttr = ::new (S.Context) VKShaderRecordNVAttr(A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_VKShaderRecordEXT:
+    declAttr = ::new (S.Context) VKShaderRecordEXTAttr(A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
   default:
     Handled = false;
@@ -13085,6 +13131,7 @@ bool hlsl::IsHLSLAttr(clang::attr::Kind AttrKind) {
   case clang::attr::VKOffset:
   case clang::attr::VKPushConstant:
   case clang::attr::VKShaderRecordNV:
+  case clang::attr::VKShaderRecordEXT:
     return true;
   default:
     // Only HLSL/VK Attributes return true. Only used for printPretty(), which doesn't support them.

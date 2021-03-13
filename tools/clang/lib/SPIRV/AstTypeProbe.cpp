@@ -265,6 +265,17 @@ bool isSubpassInputMS(QualType type) {
   return false;
 }
 
+bool isArrayType(QualType type, QualType *elemType, uint32_t *elemCount) {
+  if (const auto *arrayType = type->getAsArrayTypeUnsafe()) {
+    if (elemType)
+      *elemType = arrayType->getElementType();
+    if (elemCount)
+      *elemCount = hlsl::GetArraySize(type);
+    return true;
+  }
+  return false;
+}
+
 bool isConstantBuffer(clang::QualType type) {
   // Strip outer arrayness first
   while (type->isArrayType())
@@ -441,6 +452,8 @@ uint32_t getElementSpirvBitwidth(const ASTContext &astContext, QualType type,
     case BuiltinType::Int8_4Packed:
     case BuiltinType::UInt8_4Packed:
     case BuiltinType::Float:
+    case BuiltinType::Long:
+    case BuiltinType::ULong:
       return 32;
     case BuiltinType::Double:
     case BuiltinType::LongLong:
@@ -1049,12 +1062,14 @@ bool isRelaxedPrecisionType(QualType type, const SpirvCodeGenOptions &opts) {
         }
   }
 
-  // Vector & Matrix types could use relaxed precision based on their element
-  // type.
+  // Vector, Matrix and Array types could use relaxed precision based on their
+  // element type.
   {
     QualType elemType = {};
-    if (isVectorType(type, &elemType) || isMxNMatrix(type, &elemType))
+    if (isVectorType(type, &elemType) || isMxNMatrix(type, &elemType) ||
+        isArrayType(type, &elemType)) {
       return isRelaxedPrecisionType(elemType, opts);
+    }
   }
 
   // Images with RelaxedPrecision sampled type.
@@ -1352,6 +1367,23 @@ bool isStructureContainingAnyKindOfBuffer(QualType type) {
       }
     }
   }
+  return false;
+}
+
+bool isScalarOrNonStructAggregateOfNumericalTypes(QualType type) {
+  // Remove arrayness if present.
+  while (type->isArrayType())
+    type = type->getAsArrayTypeUnsafe()->getElementType();
+
+  QualType elemType = {};
+  if (isScalarType(type, &elemType) || isVectorType(type, &elemType) ||
+      isMxNMatrix(type, &elemType)) {
+    // Return true if the basic elemen type is a float or non-boolean integer
+    // type.
+    return elemType->isFloatingType() ||
+           (elemType->isIntegerType() && !elemType->isBooleanType());
+  }
+
   return false;
 }
 

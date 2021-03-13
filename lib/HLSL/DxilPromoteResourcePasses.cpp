@@ -577,7 +577,6 @@ void DxilMutateResourceToHandle::mutateCandidates(Module &M) {
       continue;
     }
     Type *Ty = V->getType();
-    V->dump();
     Type *MTy = mutateToHandleTy(Ty);
     if (AllocaInst *AI = dyn_cast<AllocaInst>(V)) {
       AI->setAllocatedType(MTy->getPointerElementType());
@@ -618,7 +617,6 @@ void DxilMutateResourceToHandle::mutateCandidates(Module &M) {
       continue;
     }
     V->mutateType(MTy);
-    V->dump();
   }
 
   Function *createHandleForLibOnHandle = nullptr;

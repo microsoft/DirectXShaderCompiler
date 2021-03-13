@@ -275,6 +275,8 @@ def force_zero_store_lifetimes : Flag<["-", "/"], "force-zero-store-lifetimes">,
   HelpText<"Instead of generating lifetime intrinsics (SM >= 6.6) or storing undef (SM < 6.6), force fall back to storing zeroinitializer.">;
 def enable_lifetime_markers : Flag<["-", "/"], "enable-lifetime-markers">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"Enable generation of lifetime markers">;
+def disable_lifetime_markers : Flag<["-", "/"], "disable-lifetime-markers">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
+  HelpText<"Disable generation of lifetime markers where they would be otherwise (6.6+)">;
 
 // Used with API only
 def skip_serialization : Flag<["-", "/"], "skip-serialization">, Group<hlslcore_Group>, Flags<[CoreOption, HelpHidden]>,
@@ -302,6 +304,8 @@ def fvk_invert_y: Flag<["-"], "fvk-invert-y">, Group<spirv_Group>, Flags<[CoreOp
   HelpText<"Negate SV_Position.y before writing to stage output in VS/DS/GS to accommodate Vulkan's coordinate system">;
 def fvk_use_dx_position_w: Flag<["-"], "fvk-use-dx-position-w">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Reciprocate SV_Position.w after reading from stage input in PS to accommodate the difference between Vulkan and DirectX">;
+def fvk_support_nonzero_base_instance: Flag<["-"], "fvk-support-nonzero-base-instance">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Follow Vulkan spec to use gl_BaseInstance as the first vertex instance, which makes SV_InstanceID = gl_InstanceIndex - gl_BaseInstance (without this option, SV_InstanceID = gl_InstanceIndex)">;
 def fvk_use_gl_layout: Flag<["-"], "fvk-use-gl-layout">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Use strict OpenGL std140/std430 memory layout for Vulkan resources">;
 def fvk_use_dx_layout: Flag<["-"], "fvk-use-dx-layout">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
@@ -407,10 +411,10 @@ def Qstrip_priv : Flag<["-", "/"], "Qstrip_priv">, Flags<[DriverOption]>, Group<
   HelpText<"Strip private data from shader bytecode  (must be used with /Fo <file>)">;
 def Qsource_in_debug_module : Flag<["-", "/"], "Qsource_in_debug_module">, Flags<[CoreOption, HelpHidden]>, Group<hlslutil_Group>,
   HelpText<"Generate old PDB format.">;
-def Qsource_only_debug : Flag<["-", "/"], "Qsource_only_debug">, Flags<[CoreOption, HelpHidden]>, Group<hlslutil_Group>,
+def Zs : Flag<["-", "/"], "Zs">, Flags<[CoreOption]>, Group<hlslutil_Group>,
   HelpText<"Generate small PDB with just sources and compile options.">;
-def Qfull_debug : Flag<["-", "/"], "Qfull_debug">, Flags<[CoreOption, HelpHidden]>, Group<hlslutil_Group>,
-  HelpText<"Generate full debug info for PDB.">;
+def Qpdb_in_private : Flag<["-", "/"], "Qpdb_in_private">, Flags<[CoreOption, HelpHidden]>, Group<hlslutil_Group>,
+  HelpText<"Store PDB in private user data.">;
 
 def Qstrip_rootsignature : Flag<["-", "/"], "Qstrip_rootsignature">, Flags<[CoreOption, DriverOption]>, Group<hlslutil_Group>, HelpText<"Strip root signature data from shader bytecode  (must be used with /Fo <file>)">;
 def setrootsignature     : JoinedOrSeparate<["-", "/"], "setrootsignature">,     MetaVarName<"<file>">, Flags<[CoreOption, DriverOption]>, Group<hlslutil_Group>, HelpText<"Attach root signature to shader bytecode">;

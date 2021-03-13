@@ -51,6 +51,12 @@ rem Should have debug name, and debug info should be stripped from module
 call :check_file log find "shader debug name: smoke.hlsl.d" find-not "DICompileUnit"
 if %Failed% neq 0 goto :failed
 
+set testname=/Fd plus /Zs
+call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zs /Fd smoke.hlsl.pdb /Fo smoke.hlsl.Fd.dxo
+call :check_file smoke.hlsl.pdb del
+call :check_file smoke.hlsl.Fd.dxo
+if %Failed% neq 0 goto :failed
+
 rem del .pdb file if exists
 del %CD%\*.pdb 1>nul 2>nul
 

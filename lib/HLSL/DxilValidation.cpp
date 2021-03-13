@@ -16,6 +16,7 @@
 #include "dxc/HLSL/DxilValidation.h"
 #include "dxc/DxilContainer/DxilContainerAssembler.h"
 #include "dxc/DxilContainer/DxilRuntimeReflection.h"
+#include "dxc/DxilContainer/DxilPipelineStateValidation.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilModule.h"
@@ -218,6 +219,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::SmThreadGroupChannelRange: return "Declared Thread Group %0 size %1 outside valid range [%2..%3].";
     case hlsl::ValidationRule::SmMaxTheadGroup: return "Declared Thread Group Count %0 (X*Y*Z) is beyond the valid maximum of %1.";
     case hlsl::ValidationRule::SmMaxTGSMSize: return "Total Thread Group Shared Memory storage is %0, exceeded %1.";
+    case hlsl::ValidationRule::SmTGSMUnsupported: return "Thread Group Shared Memory not supported %0.";
     case hlsl::ValidationRule::SmWaveSizeValue: return "Declared WaveSize %0 outside valid range [%1..%2], or not a power of 2.";
     case hlsl::ValidationRule::SmWaveSizeNeedsDxil16Plus: return "WaveSize is valid only for DXIL version 1.6 and higher.";
     case hlsl::ValidationRule::SmROVOnlyInPS: return "RasterizerOrdered objects are only allowed in 5.0+ pixel shaders.";
@@ -259,6 +261,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::SmCSNoSignatures: return "Compute shaders must not have shader signatures.";
     case hlsl::ValidationRule::SmCBufferTemplateTypeMustBeStruct: return "D3D12 constant/texture buffer template element can only be a struct.";
     case hlsl::ValidationRule::SmResourceRangeOverlap: return "Resource %0 with base %1 size %2 overlap with other resource with base %3 size %4 in space %5.";
+    case hlsl::ValidationRule::SmCBufferSize: return "CBuffer size is %0 bytes, exceeding maximum of 65536 bytes.";
     case hlsl::ValidationRule::SmCBufferOffsetOverlap: return "CBuffer %0 has offset overlaps at %1.";
     case hlsl::ValidationRule::SmCBufferElementOverflow: return "CBuffer %0 size insufficient for element at offset %1.";
     case hlsl::ValidationRule::SmCBufferArrayOffsetAlignment: return "CBuffer %0 has unaligned array offset at %1.";
@@ -598,7 +601,6 @@ struct ValidationContext {
         }
       }
     }
-    Type *ResPropTy = hlslOP->GetResourcePropertiesType();
     const ShaderModel &SM = *DxilMod.GetShaderModel();
 
     for (auto &it : hlslOP->GetOpFuncList(DXIL::OpCode::AnnotateHandle)) {
@@ -610,7 +612,7 @@ struct ValidationContext {
         CallInst *CI = cast<CallInst>(U);
         DxilInst_AnnotateHandle hdl(CI);
         DxilResourceProperties RP =
-            resource_helper::loadPropsFromAnnotateHandle(hdl, ResPropTy, SM);
+            resource_helper::loadPropsFromAnnotateHandle(hdl, SM);
         if (RP.getResourceKind() == DXIL::ResourceKind::Invalid) {
           EmitInstrError(CI, ValidationRule::InstrOpConstRange);
           continue;
@@ -635,7 +637,7 @@ struct ValidationContext {
     FormatRuleText(ruleText, args);
     if (pDebugModule)
       GV = pDebugModule->getGlobalVariable(GV->getName());
-    dxilutil::EmitErrorOnGlobalVariable(GV, ruleText);
+    dxilutil::EmitErrorOnGlobalVariable(M.getContext(), GV, ruleText);
     Failed = true;
   }
 
@@ -804,8 +806,9 @@ struct ValidationContext {
 
   void EmitFnError(Function *F, ValidationRule rule) {
     if (pDebugModule)
-      F = pDebugModule->getFunction(F->getName());
-    dxilutil::EmitErrorOnFunction(F, GetValidationRuleText(rule));
+      if (Function *dbgF = pDebugModule->getFunction(F->getName()))
+        F = dbgF;
+    dxilutil::EmitErrorOnFunction(M.getContext(), F, GetValidationRuleText(rule));
     Failed = true;
   }
 
@@ -813,8 +816,9 @@ struct ValidationContext {
     std::string ruleText = GetValidationRuleText(rule);
     FormatRuleText(ruleText, args);
     if (pDebugModule)
-      F = pDebugModule->getFunction(F->getName());
-    dxilutil::EmitErrorOnFunction(F, ruleText);
+      if (Function *dbgF = pDebugModule->getFunction(F->getName()))
+        F = dbgF;
+    dxilutil::EmitErrorOnFunction(M.getContext(), F, ruleText);
     Failed = true;
   }
 
@@ -968,9 +972,12 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
     return (major > 6 || (major == 6 && minor >= 5))
         && (SK == DXIL::ShaderKind::Mesh);
   // Instructions: AnnotateHandle=216, CreateHandleFromBinding=217,
-  // CreateHandleFromHeap=218, Unpack4x8=219, Pack4x8=220
-  if ((216 <= op && op <= 220))
+  // CreateHandleFromHeap=218, Unpack4x8=219, Pack4x8=220, IsHelperLane=221
+  if ((216 <= op && op <= 221))
     return (major > 6 || (major == 6 && minor >= 6));
+  // Instructions: TextureGatherImm=222, TextureGatherCmpImm=223
+  if ((222 <= op && op <= 223))
+    return (major > 6 || (major == 6 && minor >= 15));
   return true;
   // VALOPCODESM-TEXT:END
 }
@@ -1230,7 +1237,6 @@ static void ValidateCalcLODResourceDimensionCoord(CallInst *CI, DXIL::ResourceKi
 static void ValidateResourceOffset(CallInst *CI, DXIL::ResourceKind resKind,
                                    ArrayRef<Value *> offsets,
                                    ValidationContext &ValCtx) {
-  const unsigned kMaxNumOffsets = 3;
   unsigned numOffsets = DxilResource::GetNumOffsets(resKind);
   bool hasOffset = !isa<UndefValue>(offsets[0]);
 
@@ -1249,7 +1255,7 @@ static void ValidateResourceOffset(CallInst *CI, DXIL::ResourceKind resKind,
     validateOffset(offsets[0]);
   }
 
-  for (unsigned i = 1; i < kMaxNumOffsets; i++) {
+  for (unsigned i = 1; i < offsets.size(); i++) {
     if (i < numOffsets) {
       if (hasOffset) {
         if (isa<UndefValue>(offsets[i]))
@@ -1389,8 +1395,11 @@ static void ValidateGather(CallInst *CI, Value *srvHandle, Value *samplerHandle,
   default:
     // Invalid resource type for gather.
     ValCtx.EmitInstrError(CI, ValidationRule::InstrResourceKindForGather);
-    break;
+    return;
   }
+  if (OP::IsDxilOpFuncCallInst(CI, DXIL::OpCode::TextureGatherImm) ||
+      OP::IsDxilOpFuncCallInst(CI, DXIL::OpCode::TextureGatherCmpImm))
+    ValidateResourceOffset(CI, resKind, offsets, ValCtx);
 }
 
 static unsigned StoreValueToMask(ArrayRef<Value *> vals) {
@@ -1939,6 +1948,7 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
 
     ValidateDerivativeOp(CI, ValCtx);
   } break;
+  case DXIL::OpCode::TextureGatherImm:
   case DXIL::OpCode::TextureGather: {
     DxilInst_TextureGather gather(CI);
     ValidateGather(CI, gather.get_srv(), gather.get_sampler(),
@@ -1947,6 +1957,7 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
                    {gather.get_offset0(), gather.get_offset1()},
                    /*IsSampleC*/ false, ValCtx);
   } break;
+  case DXIL::OpCode::TextureGatherCmpImm:
   case DXIL::OpCode::TextureGatherCmp: {
     DxilInst_TextureGatherCmp gather(CI);
     ValidateGather(CI, gather.get_srv(), gather.get_sampler(),
@@ -2198,8 +2209,11 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
     default:
       ValCtx.EmitInstrError(CI,
                             ValidationRule::InstrResourceKindForTextureLoad);
-      break;
+      return;
     }
+
+    ValidateResourceOffset(CI, resKind, {texLd.get_offset0(), texLd.get_offset1(),
+                                         texLd.get_offset2()}, ValCtx);
   } break;
   case DXIL::OpCode::CBufferLoad: {
     DxilInst_CBufferLoad CBLoad(CI);
@@ -2377,6 +2391,8 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
   case DXIL::OpCode::CalculateLOD:
   case DXIL::OpCode::TextureGather:
   case DXIL::OpCode::TextureGatherCmp:
+  case DXIL::OpCode::TextureGatherImm:
+  case DXIL::OpCode::TextureGatherCmpImm:
   case DXIL::OpCode::Sample:
   case DXIL::OpCode::SampleCmp:
   case DXIL::OpCode::SampleCmpLevelZero:
@@ -3674,6 +3690,14 @@ static void ValidateGlobalVariable(GlobalVariable &GV,
     isRes |= isResourceGlobal(ValCtx.DxilMod.GetSRVs());
     isRes |= isSamplerGlobal(ValCtx.DxilMod.GetSamplers());
     isInternalGV |= isRes;
+
+    // Allow special dx.ishelper for library target
+    if (GV.getName().compare(DXIL::kDxIsHelperGlobalName) == 0) {
+      Type *Ty = GV.getType()->getPointerElementType();
+      if (Ty->isIntegerTy() && Ty->getScalarSizeInBits() == 32) {
+        isInternalGV = true;
+      }
+    }
   }
 
   if (!isInternalGV) {
@@ -3758,12 +3782,33 @@ static void ValidateTGSMRaceCondition(std::vector<StoreInst *> &fixAddrTGSMList,
 static void ValidateGlobalVariables(ValidationContext &ValCtx) {
   DxilModule &M = ValCtx.DxilMod;
 
+  const ShaderModel *pSM = ValCtx.DxilMod.GetShaderModel();
+  bool TGSMAllowed = pSM->IsCS() || pSM->IsAS() || pSM->IsMS() || pSM->IsLib();
+
   unsigned TGSMSize = 0;
   std::vector<StoreInst*> fixAddrTGSMList;
   const DataLayout &DL = M.GetModule()->getDataLayout();
   for (GlobalVariable &GV : M.GetModule()->globals()) {
     ValidateGlobalVariable(GV, ValCtx);
     if (GV.getType()->getAddressSpace() == DXIL::kTGSMAddrSpace) {
+      if (!TGSMAllowed)
+        ValCtx.EmitGlobalVariableFormatError(&GV, ValidationRule::SmTGSMUnsupported,
+                                             { std::string("in Shader Model ") + M.GetShaderModel()->GetName() });
+      // Lib targets need to check the usage to know if it's allowed
+      if (pSM->IsLib()) {
+        for (User *U : GV.users()) {
+          if (Instruction *I = dyn_cast<Instruction>(U)) {
+            llvm::Function *F = I->getParent()->getParent();
+            if (M.HasDxilEntryProps(F)) {
+              DxilFunctionProps &props = M.GetDxilEntryProps(F).props;
+              if (!props.IsCS() && !props.IsAS() && !props.IsMS()) {
+                ValCtx.EmitInstrFormatError(I, ValidationRule::SmTGSMUnsupported,
+                                            { "from non-compute entry points" });
+              }
+            }
+          }
+        }
+      }
       TGSMSize += DL.getTypeAllocSize(GV.getType()->getElementType());
       CollectFixAddressAccess(&GV, fixAddrTGSMList);
     }
@@ -4142,6 +4187,12 @@ static void ValidateCBuffer(DxilCBuffer &cb, ValidationContext &ValCtx) {
   if (!isa<StructType>(Ty)) {
     ValCtx.EmitResourceError(&cb,
                              ValidationRule::SmCBufferTemplateTypeMustBeStruct);
+    return;
+  }
+  if (cb.GetSize() > (DXIL::kMaxCBufferSize << 4)) {
+    ValCtx.EmitResourceFormatError(&cb,
+                             ValidationRule::SmCBufferSize,
+                             {std::to_string(cb.GetSize())});
     return;
   }
   StructType *ST = cast<StructType>(Ty);
@@ -5771,7 +5822,7 @@ bool VerifySignatureMatches(llvm::Module *pModule,
 static void VerifyPSVMatches(_In_ ValidationContext &ValCtx,
                              _In_reads_bytes_(PSVSize) const void *pPSVData,
                              _In_ uint32_t PSVSize) {
-  uint32_t PSVVersion = 1;  // This should be set to the newest version
+  uint32_t PSVVersion = MAX_PSV_VERSION;  // This should be set to the newest version
   unique_ptr<DxilPartWriter> pWriter(NewPSVWriter(ValCtx.DxilMod, PSVVersion));
   // Try each version in case an earlier version matches module
   while (PSVVersion && pWriter->size() != PSVSize) {
@@ -5818,7 +5869,7 @@ static void VerifyRDATMatches(_In_ ValidationContext &ValCtx,
     }
   }
 
-  unique_ptr<DxilPartWriter> pWriter(NewRDATWriter(ValCtx.DxilMod, 0));
+  unique_ptr<DxilPartWriter> pWriter(NewRDATWriter(ValCtx.DxilMod));
   VerifyBlobPartMatches(ValCtx, PartName, pWriter.get(), pRDATData, RDATSize);
 
   // Verify no errors when runtime reflection from RDAT:
@@ -6099,7 +6150,7 @@ HRESULT ValidateDxilBitcode(
   DxilModule &dxilModule = pModule->GetDxilModule();
   auto &SerializedRootSig = dxilModule.GetSerializedRootSignature();
   if (!SerializedRootSig.empty()) {
-    unique_ptr<DxilPartWriter> pWriter(NewPSVWriter(dxilModule, 0));
+    unique_ptr<DxilPartWriter> pWriter(NewPSVWriter(dxilModule));
     DXASSERT_NOMSG(pWriter->size());
     CComPtr<AbstractMemoryStream> pOutputStream;
     IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pOutputStream));

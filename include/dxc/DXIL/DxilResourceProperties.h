@@ -89,8 +89,7 @@ llvm::Constant *getAsConstant(const DxilResourceProperties &, llvm::Type *Ty,
                               const ShaderModel &);
 DxilResourceProperties loadPropsFromConstant(const llvm::Constant &C);
 DxilResourceProperties
-loadPropsFromAnnotateHandle(DxilInst_AnnotateHandle &annotateHandle, llvm::Type *Ty,
-                       const ShaderModel &);
+loadPropsFromAnnotateHandle(DxilInst_AnnotateHandle &annotateHandle, const ShaderModel &);
 DxilResourceProperties loadPropsFromResourceBase(const DxilResourceBase *);
 
 } // namespace resource_helper

@@ -52,6 +52,7 @@
 #include "llvm/Transforms/Utils/SSAUpdater.h"
 #include <vector>
 #include "dxc/DXIL/DxilConstants.h"  // HLSL Change
+#include "dxc/DXIL/DxilOperations.h" // HLSL Change
 using namespace llvm;
 using namespace PatternMatch;
 
@@ -2127,6 +2128,15 @@ bool GVN::propagateEquality(Value *LHS, Value *RHS,
     // LHS always has at least one use that is not dominated by Root, this will
     // never do anything if LHS has only one use.
     if (!LHS->hasOneUse()) {
+      // HLSL Change Begin - Don't replace readfirstlane to help propagate
+      // uniform info.
+      if (CallInst *CI = dyn_cast<CallInst>(LHS)) {
+        if (hlsl::OP::IsDxilOpFuncCallInst(
+                CI, hlsl::DXIL::OpCode::WaveReadLaneFirst)) {
+          continue;
+        }
+      }
+      // HLSL Change End
       unsigned NumReplacements = replaceDominatedUsesWith(LHS, RHS, *DT, Root);
       Changed |= NumReplacements > 0;
       NumGVNEqProp += NumReplacements;

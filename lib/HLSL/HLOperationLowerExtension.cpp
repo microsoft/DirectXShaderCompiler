@@ -1142,13 +1142,21 @@ private:
     return name.size() > 0;
   }
 
+  typedef unsigned OverloadArgIndex;
+  static constexpr OverloadArgIndex DefaultOverloadIndex = std::numeric_limits<OverloadArgIndex>::max();
+
   // Choose the (return value or argument) type that determines the overload type
   // for the intrinsic call.
-  // For now we take the return type as the overload. If the return is void we
-  // take the first (non-opcode) argument as the overload type. We could extend the
-  // $o sytnax in the extension name to explicitly specify the overload slot (e.g.
-  // $o:3 would say the overload type is determined by parameter 3.
-  static Type *SelectOverloadSlot(CallInst *CI) {
+  // If the overload arg index was explicitly specified (see ParseOverloadArgIndex)
+  // then we use that arg to pick the overload name. Otherwise we pick a default
+  // where we take the return type as the overload. If the return is void we
+  // take the first (non-opcode) argument as the overload type.
+  static Type *SelectOverloadSlot(CallInst *CI, OverloadArgIndex ArgIndex) {
+   if (ArgIndex != DefaultOverloadIndex)
+    {
+      return CI->getArgOperand(ArgIndex)->getType();
+    }
+
     Type *ty = CI->getType();
     if (ty->isVoidTy()) {
       if (CI->getNumArgOperands() > 1)
@@ -1158,8 +1166,8 @@ private:
     return ty;
   }
 
-  static Type *GetOverloadType(CallInst *CI) {
-    Type *ty = SelectOverloadSlot(CI);
+  static Type *GetOverloadType(CallInst *CI, OverloadArgIndex ArgIndex) {
+    Type *ty = SelectOverloadSlot(CI, ArgIndex);
     if (ty->isVectorTy())
       ty = ty->getVectorElementType();
 
@@ -1174,19 +1182,77 @@ private:
       return typeName;
   }
 
-  static std::string GetOverloadTypeName(CallInst *CI) {
-    Type *ty = GetOverloadType(CI);
+  static std::string GetOverloadTypeName(CallInst *CI, OverloadArgIndex ArgIndex) {
+    Type *ty = GetOverloadType(CI, ArgIndex);
     return GetTypeName(ty);
+  }
+
+  // Parse the arg index out of the overload marker (if any).
+  //
+  // The function names use a $o to indicate that the function is overloaded
+  // and we should replace $o with the overload type. The extension name can
+  // explicitly set which arg to use for the overload type by adding a colon
+  // and a number after the $o (e.g. $o:3 would say the overload type is
+  // determined by parameter 3).
+  //
+  // If we find an arg index after the overload marker we update the size
+  // of the marker to include the full parsed string size so that it can
+  // be replaced with the selected overload type.
+  //
+  static OverloadArgIndex ParseOverloadArgIndex(
+      const std::string& functionName,
+      size_t OverloadMarkerStartIndex,
+      size_t *pOverloadMarkerSize)
+  {
+      assert(OverloadMarkerStartIndex != std::string::npos);
+      size_t StartIndex = OverloadMarkerStartIndex + *pOverloadMarkerSize;
+
+      // Check if we have anything after the overload marker to parse.
+      if (StartIndex >= functionName.size())
+      {
+          return DefaultOverloadIndex;
+      }
+
+      // Does it start with a ':' ?
+      if (functionName[StartIndex] != ':')
+      {
+          return DefaultOverloadIndex;
+      }
+
+      // Skip past the :
+      ++StartIndex;
+
+      // Collect all the digits.
+      std::string Digits;
+      Digits.reserve(functionName.size() - StartIndex);
+      for (size_t i = StartIndex; i < functionName.size(); ++i)
+      {
+          char c = functionName[i];
+          if (!isdigit(c))
+          {
+              break;
+          }
+          Digits.push_back(c);
+      }
+
+      if (Digits.empty())
+      {
+          return DefaultOverloadIndex;
+      }
+
+      *pOverloadMarkerSize = *pOverloadMarkerSize + std::strlen(":") + Digits.size();
+      return std::stoi(Digits);
   }
 
   // Find the occurence of the overload marker $o and replace it the the overload type name.
   static void ReplaceOverloadMarkerWithTypeName(std::string &functionName, CallInst *CI) {
     const char *OverloadMarker = "$o";
-    const size_t OverloadMarkerLength = 2;
+    size_t OverloadMarkerLength = 2;
 
     size_t pos = functionName.find(OverloadMarker);
     if (pos != std::string::npos) {
-      std::string typeName = GetOverloadTypeName(CI);
+      OverloadArgIndex ArgIndex = ParseOverloadArgIndex(functionName, pos, &OverloadMarkerLength);
+      std::string typeName = GetOverloadTypeName(CI, ArgIndex);
       functionName.replace(pos, OverloadMarkerLength, typeName);
     }
   }

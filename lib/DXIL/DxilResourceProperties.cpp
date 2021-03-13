@@ -130,7 +130,7 @@ DxilResourceProperties loadPropsFromConstant(const Constant &C) {
 
 DxilResourceProperties
 loadPropsFromAnnotateHandle(DxilInst_AnnotateHandle &annotateHandle,
-                            llvm::Type *Ty, const ShaderModel &SM) {
+                            const ShaderModel &SM) {
   Constant *ResProp = cast<Constant>(annotateHandle.get_props());
   return loadPropsFromConstant(*ResProp);
 }
