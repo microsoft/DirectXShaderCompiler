@@ -51,6 +51,7 @@
 #include "dxillib.h"
 #include "dxcshadersourceinfo.h"
 #include "dxcompileradapter.h"
+#include "dxcversion.inc"
 #include <algorithm>
 #include <cfloat>
 
@@ -97,6 +98,8 @@ struct CompilerVersionPartWriter {
   hlsl::DxilCompilerVersion m_Header = {};
   CComHeapPtr<char> m_CommitShaStorage;
   llvm::StringRef m_CommitSha = "";
+  CComHeapPtr<char> m_CustomStringStorage;
+  llvm::StringRef m_CustomString = "";
 
   void Init(IDxcVersionInfo *pVersionInfo) {
     m_Header = {};
@@ -115,7 +118,14 @@ struct CompilerVersionPartWriter {
       IFT(pVersionInfo2->GetCommitInfo(&CommitCount, &m_CommitShaStorage));
       m_CommitSha = llvm::StringRef(m_CommitShaStorage.m_pData, strlen(m_CommitShaStorage.m_pData));
       m_Header.CommitCount = CommitCount;
-      m_Header.VersionStringListSizeInBytes = m_CommitSha.size() + /*null term*/1 + /*another null term for the empty custom string*/1;
+      m_Header.VersionStringListSizeInBytes += m_CommitSha.size() + /*null term*/1;
+    }
+
+    CComPtr<IDxcVersionInfo3> pVersionInfo3;
+    if (SUCCEEDED(pVersionInfo->QueryInterface(&pVersionInfo3))) {
+      IFT(pVersionInfo3->GetCustomVersionString(&m_CustomStringStorage));
+      m_CustomString = llvm::StringRef(m_CustomStringStorage, strlen(m_CustomStringStorage.m_pData));
+      m_Header.VersionStringListSizeInBytes += m_CustomString.size() + /*null term*/1;
     }
   }
 
@@ -150,7 +160,9 @@ struct CompilerVersionPartWriter {
     // Null terminator for the commit sha
     IFT(pStream->Write(&padByte, sizeof(padByte), &cbWritten));
 
-    // Null terminator for the empty version string
+    // Write the custom version string.
+    IFT(pStream->Write(m_CustomString.data(), m_CustomString.size(), &cbWritten));
+    // Null terminator for the custom version string.
     IFT(pStream->Write(&padByte, sizeof(padByte), &cbWritten));
 
     // Write padding
@@ -537,10 +549,9 @@ static void CreateDefineStrings(
 class DxcCompiler : public IDxcCompiler3,
                     public IDxcLangExtensions2,
                     public IDxcContainerEvent,
+                    public IDxcVersionInfo3,
 #ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
                     public IDxcVersionInfo2
-#else
-                    public IDxcVersionInfo
 #endif // SUPPORT_QUERY_GIT_COMMIT_INFO
 {
 private:
@@ -577,6 +588,7 @@ public:
 #ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
       ,IDxcVersionInfo2
 #endif // SUPPORT_QUERY_GIT_COMMIT_INFO
+      ,IDxcVersionInfo3
      >
      (this, iid, ppvObject);
     if (FAILED(hr)) {
@@ -1393,6 +1405,19 @@ public:
     *pMinor = DXIL::kDxilMinor;
     return S_OK;
   }
+  HRESULT STDMETHODCALLTYPE GetCustomVersionString(
+    _Outptr_result_z_ char **pVersionString // Custom version string for compiler. (Must be CoTaskMemFree()'d!)
+  ) override
+  {
+    size_t size = strlen(RC_FILE_VERSION);
+    char *const result = (char *)CoTaskMemAlloc(size + 1);
+    if (result == nullptr)
+      return E_OUTOFMEMORY;
+    std::strcpy(result, RC_FILE_VERSION);
+    *pVersionString = result;
+    return S_OK;
+  }
+
 #ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
   HRESULT STDMETHODCALLTYPE GetCommitInfo(_Out_ UINT32 *pCommitCount,
                                           _Out_ char **pCommitHash) override {
@@ -1410,6 +1435,7 @@ public:
     return S_OK;
   }
 #endif // SUPPORT_QUERY_GIT_COMMIT_INFO
+
   HRESULT STDMETHODCALLTYPE GetFlags(_Out_ UINT32 *pFlags) override {
     if (pFlags == nullptr)
       return E_INVALIDARG;
