@@ -3770,8 +3770,11 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
             if (group == HLOpcodeGroup::HLSubscript) {
               if (isReadOnlyPtr(PtrCI)) {
                 // Ptr from CBuffer/SRV is safe.
-                if (ReplaceMemcpy(V, Src, MC, annotation, typeSys, DL, DT))
-                  return true;
+                if (ReplaceMemcpy(V, Src, MC, annotation, typeSys, DL, DT)) {
+                  if (V->user_empty())
+                    return true;
+                  return LowerMemcpy(V, annotation, typeSys, DL, DT, bAllowReplace);
+                }
               }
             }
           }
@@ -3782,8 +3785,11 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
           hlutil::PointerStatus SrcPS(Src, size, /*bLdStOnly*/ false);
           SrcPS.analyze(typeSys, bStructElt);
           if (SrcPS.storedType != hlutil::PointerStatus::StoredType::Stored) {
-            if (ReplaceMemcpy(V, Src, MC, annotation, typeSys, DL, DT))
-              return true;
+            if (ReplaceMemcpy(V, Src, MC, annotation, typeSys, DL, DT)) {
+              if (V->user_empty())
+                return true;
+              return LowerMemcpy(V, annotation, typeSys, DL, DT, bAllowReplace);
+            }
           }
         }
       }
