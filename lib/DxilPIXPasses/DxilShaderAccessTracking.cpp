@@ -462,17 +462,17 @@ bool DxilShaderAccessTracking::EmitResourceAccess(DxilResourceAndClass &res,
           auto *OffsetToWrite =
               Builder.CreateMul(IndexToWrite, SizeofDwordIncrement);
           
-          //Constant *BufferLimit = HlslOP->GetU32Const(LimitForType);
-          //auto *LimitBoolean =
-          //    Builder.CreateICmpULT(OffsetToWrite, BufferLimit);
-          //
-          //auto * LimitIntegerValue = Builder.CreateCast(
-          //    Instruction::CastOps::ZExt, LimitBoolean,
-          //    Type::getInt32Ty(Ctx));
-          //
-          //auto *LimitedOffset = Builder.CreateMul(OffsetToWrite, LimitIntegerValue);
+          Constant *BufferLimit = HlslOP->GetU32Const(LimitForType);
+          auto *LimitBoolean =
+              Builder.CreateICmpULT(OffsetToWrite, BufferLimit);
           
-          auto* Offset = Builder.CreateAdd(BaseOfRecordsForType, OffsetToWrite);// LimitedOffset);
+          auto * LimitIntegerValue = Builder.CreateCast(
+              Instruction::CastOps::ZExt, LimitBoolean,
+              Type::getInt32Ty(Ctx));
+          
+          auto *LimitedOffset = Builder.CreateMul(OffsetToWrite, LimitIntegerValue);
+          
+          auto* Offset = Builder.CreateAdd(BaseOfRecordsForType, LimitedOffset);
 
           ResourceAccessStyle accessStyle = AccessStyleFromAccessAndType(
               res.accessStyle, 
