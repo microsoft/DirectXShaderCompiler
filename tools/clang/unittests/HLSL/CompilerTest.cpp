@@ -1052,9 +1052,11 @@ static void VerifyPdbUtil(dxc::DxcDllSupport &dllSupport,
       // IDxcVersionInfo3
       CComHeapPtr<char> VersionString;
       VERIFY_SUCCEEDED(pVersion3->GetCustomVersionString(&VersionString));
+      VERIFY_IS_TRUE(VersionString && strlen(VersionString) != 0);
 
-      CComPtr<IDxcVersionInfo3> pCompilerVersion3;
-      if (SUCCEEDED(pCompiler->QueryInterface(&pCompilerVersion3))) {
+      {
+        CComPtr<IDxcVersionInfo3> pCompilerVersion3;
+        VERIFY_SUCCEEDED(pCompiler->QueryInterface(&pCompilerVersion3));
         CComHeapPtr<char> CompilerVersionString;
         VERIFY_SUCCEEDED(pCompilerVersion3->GetCustomVersionString(&CompilerVersionString));
         VERIFY_IS_TRUE(0 == strcmp(CompilerVersionString, VersionString));

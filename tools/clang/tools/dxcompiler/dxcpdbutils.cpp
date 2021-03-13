@@ -144,7 +144,10 @@ static void ComputeFlagsBasedOnArgs(ArrayRef<std::wstring> args, std::vector<std
   }
 }
 
-struct DxcPdbVersionInfo : public IDxcVersionInfo3 {
+struct DxcPdbVersionInfo :
+  public IDxcVersionInfo2,
+  public IDxcVersionInfo3
+{
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
 
@@ -453,30 +456,33 @@ private:
         m_HasVersionInfo = true;
 
         const char *ptr = (const char *)(header+1);
-        unsigned commitShaLength = 0;
         unsigned i = 0;
 
-        const char *commitSha = (const char *)(header+1) + i;
-        for (; i < header->VersionStringListSizeInBytes; i++) {
-          if (ptr[i] == 0) {
-            commitShaLength = i;
-            i++;
-            break;
+        {
+          unsigned commitShaLength = 0;
+          const char *commitSha = (const char *)(header+1) + i;
+          for (; i < header->VersionStringListSizeInBytes; i++) {
+            if (ptr[i] == 0) {
+              i++;
+              break;
+            }
+            commitShaLength++;
           }
+          m_VersionCommitSha.assign(commitSha, commitShaLength);
         }
 
-        const char *versionString = (const char *)(header+1) + i;
-        unsigned versionStringLength = 0;
-        for (; i < header->VersionStringListSizeInBytes; i++) {
-          if (ptr[i] == 0) {
-            commitShaLength = i;
-            i++;
-            break;
+        {
+          const char *versionString = (const char *)(header+1) + i;
+          unsigned versionStringLength = 0;
+          for (; i < header->VersionStringListSizeInBytes; i++) {
+            if (ptr[i] == 0) {
+              i++;
+              break;
+            }
+            versionStringLength++;
           }
+          m_VersionString.assign(versionString, versionStringLength);
         }
-
-        m_VersionCommitSha.assign(commitSha, commitShaLength);
-        m_VersionString.assign(versionString, versionStringLength);
 
       } break;
 
