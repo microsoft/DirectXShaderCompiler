@@ -194,7 +194,8 @@ private:
 
   std::vector<DynamicResourceBinding> m_dynamicResourceBindings;
   bool m_CheckForDynamicIndexing = false;
-  int m_DynamicResourceCounterOffset = -1;
+  int m_DynamicResourceDataOffset = -1;
+  int m_DynamicSamplerDataOffset = -1;
   int m_OutputBufferSize = -1;
   std::map<RegisterTypeAndSpace, SlotRange> m_slotAssignments;
   std::map<llvm::Function *, CallInst *> m_FunctionToUAVHandle;
@@ -293,7 +294,9 @@ void DxilShaderAccessTracking::applyOptions(PassOptions O) {
 
       rt = ParseRegisterType(config);
     }
-    m_DynamicResourceCounterOffset = DeserializeInt(config);
+    m_DynamicResourceDataOffset = DeserializeInt(config);
+    ValidateDelimiter(config, ';');
+    m_DynamicSamplerDataOffset = DeserializeInt(config);
     ValidateDelimiter(config, ';');
     m_OutputBufferSize = DeserializeInt(config);
   }
@@ -425,56 +428,51 @@ bool DxilShaderAccessTracking::EmitResourceAccess(DxilResourceAndClass &res,
       return true; // did modify
     }
   }
-  else if (m_DynamicResourceCounterOffset != -1) {
+  else if (m_DynamicResourceDataOffset != -1) {
       if (res.accessStyle == AccessStyle::ResourceFromDescriptorHeap ||
           res.accessStyle == AccessStyle::SamplerFromDescriptorHeap)
       {
-          Function* AtomicOpFunc = HlslOP->GetOpFunc(OP::OpCode::AtomicBinOp,
-              Type::getInt32Ty(Ctx));
-          Constant* DynamicOutputBase =
-              HlslOP->GetU32Const(m_DynamicResourceCounterOffset);
-          Constant* SizeofDwordIncrement =
-              HlslOP->GetU32Const(static_cast<unsigned int>(sizeof(uint32_t)));
-          Constant* AtomicBinOpcode =
-              HlslOP->GetU32Const((unsigned)OP::OpCode::AtomicBinOp);
-          Constant* AtomicAdd =
-              HlslOP->GetU32Const((unsigned)DXIL::AtomicBinOpCode::Add);
-          UndefValue* UndefArg = UndefValue::get(Type::getInt32Ty(Ctx));
+          Constant* BaseOfRecordsForType;
+          int LimitForType;
+          if (res.accessStyle == AccessStyle::ResourceFromDescriptorHeap)
+          {
+              LimitForType = m_DynamicSamplerDataOffset - m_DynamicResourceDataOffset;
+              BaseOfRecordsForType =
+                  HlslOP->GetU32Const(m_DynamicResourceDataOffset);
+          }
+          else
+          {
+              LimitForType = m_OutputBufferSize - m_DynamicSamplerDataOffset;
+              BaseOfRecordsForType =
+                HlslOP->GetU32Const(m_DynamicSamplerDataOffset);
+          }
 
-          auto PreviousValue = Builder.CreateCall(
-              AtomicOpFunc,
-              {
-                  AtomicBinOpcode,      // i32, ; opcode
-                  m_FunctionToUAVHandle.at(
-                      Builder.GetInsertBlock()->getParent()),
-                  AtomicAdd,            // i32, ; binary operation code : EXCHANGE, IADD, AND,
-                                        // OR, XOR, IMIN, IMAX, UMIN, UMAX
-                  DynamicOutputBase,    // i32, ; coordinate c0: index in bytes
-                  UndefArg,             // i32, ; coordinate c1 (unused)
-                  UndefArg,             // i32, ; coordinate c2 (unused)
-                  SizeofDwordIncrement, // i32); increment value
-              },
-              "UAVIncResult");
-
-          Constant* OffsetIntoDynamicSpace =
-              HlslOP->GetU32Const(m_DynamicResourceCounterOffset + static_cast<unsigned int>(sizeof(uint32_t)));
-
-          auto OffsetToNextAvailableSlot = Builder.CreateAdd(
-              PreviousValue, OffsetIntoDynamicSpace,
-              "OffsetToNextAvailableSlot");
-
-
-          // Branchless limit: compare offset to buffer size, resulting in a value of 0 or 1.
+          // Branchless limit: compare offset to size of data reserved for that type,
+          // resulting in a value of 0 or 1.
           // Extend that 0/1 to an integer, and multiply the offset by that value.
           // Result: expected offset, or 0 if too large.
-          Constant *BufferLimit = HlslOP->GetU32Const(m_OutputBufferSize);
-          auto * LimitBoolean = Builder.CreateICmpULT(OffsetToNextAvailableSlot, BufferLimit);
+
+          // Add 1 to the index in order to skip over the zeroth entry: that's 
+          // reserved for "out of bounds" writes
+          auto *IndexToWrite =
+              Builder.CreateAdd(res.dynamicallyBoundIndex, HlslOP->GetU32Const(1));
+
+          Constant *SizeofDwordIncrement =
+              HlslOP->GetU32Const(static_cast<unsigned int>(sizeof(uint32_t)));
+          auto *OffsetToWrite =
+              Builder.CreateMul(IndexToWrite, SizeofDwordIncrement);
           
-          auto * LimitIntegerValue = Builder.CreateCast(
-              Instruction::CastOps::ZExt, LimitBoolean,
-              Type::getInt32Ty(Ctx));
+          //Constant *BufferLimit = HlslOP->GetU32Const(LimitForType);
+          //auto *LimitBoolean =
+          //    Builder.CreateICmpULT(OffsetToWrite, BufferLimit);
+          //
+          //auto * LimitIntegerValue = Builder.CreateCast(
+          //    Instruction::CastOps::ZExt, LimitBoolean,
+          //    Type::getInt32Ty(Ctx));
+          //
+          //auto *LimitedOffset = Builder.CreateMul(OffsetToWrite, LimitIntegerValue);
           
-          auto* LimitedOffset = Builder.CreateMul(OffsetToNextAvailableSlot, LimitIntegerValue);
+          auto* Offset = Builder.CreateAdd(BaseOfRecordsForType, OffsetToWrite);// LimitedOffset);
 
           ResourceAccessStyle accessStyle = AccessStyleFromAccessAndType(
               res.accessStyle, 
@@ -485,13 +483,12 @@ bool DxilShaderAccessTracking::EmitResourceAccess(DxilResourceAndClass &res,
                                 .at(Builder.GetInsertBlock()->getParent())
                                 .at(accessStyle);
 
-          auto * EncodedAccess = Builder.CreateOr(res.dynamicallyBoundIndex, EncodedFlags);
-
           Constant *ElementMask = HlslOP->GetI8Const(1);
           Function *StoreFunc =
               HlslOP->GetOpFunc(OP::OpCode::BufferStore, Type::getInt32Ty(Ctx));
           Constant *StoreOpcode =
               HlslOP->GetU32Const((unsigned)OP::OpCode::BufferStore);
+          UndefValue *UndefArg = UndefValue::get(Type::getInt32Ty(Ctx));
           (void)Builder.CreateCall(
               StoreFunc,
               {
@@ -499,9 +496,9 @@ bool DxilShaderAccessTracking::EmitResourceAccess(DxilResourceAndClass &res,
                   m_FunctionToUAVHandle.at(
                       Builder.GetInsertBlock()
                           ->getParent()),       // %dx.types.Handle, ; resource handle
-                  LimitedOffset,                // i32, ; coordinate c0: byte offset
+                  Offset,                // i32, ; coordinate c0: byte offset
                   UndefArg,                     // i32, ; coordinate c1 (unused)
-                  EncodedAccess,                // i32, ; value v0
+                  EncodedFlags,                 // i32, ; value v0
                   UndefArg,                     // i32, ; value v1
                   UndefArg,                     // i32, ; value v2
                   UndefArg,                     // i32, ; value v3
@@ -573,22 +570,23 @@ DxilShaderAccessTracking::GetResourceFromHandle(Value *resHandle,
 
       auto* handleCreation = cast<CallInst>(annotateHandle.get_res());
 
-      if (hlsl::OP::IsDxilOpFuncCallInst(handleCreation, hlsl::OP::OpCode::CreateHandleFromBinding))
-      {
-          DxilInst_CreateHandleFromBinding createHandleFromBinding(handleCreation);
-          Constant* B = cast<Constant>(createHandleFromBinding.get_bind());
-          auto binding = hlsl::resource_helper::loadBindingFromConstant(*B);
-          {
-            ret.accessStyle = AccessStyle::FromRootSig;
-            ret.index = createHandleFromBinding.get_index();
-            ret.registerType = RegisterTypeFromResourceClass(
-                static_cast<hlsl::DXIL::ResourceClass>(binding.resourceClass));
+      //if (hlsl::OP::IsDxilOpFuncCallInst(handleCreation, hlsl::OP::OpCode::CreateHandleFromBinding))
+      //{
+      //    DxilInst_CreateHandleFromBinding createHandleFromBinding(handleCreation);
+      //    Constant* B = cast<Constant>(createHandleFromBinding.get_bind());
+      //    auto binding = hlsl::resource_helper::loadBindingFromConstant(*B);
+      //    {
+      //      ret.accessStyle = AccessStyle::FromRootSig;
+      //      ret.index = createHandleFromBinding.get_index();
+      //      ret.registerType = RegisterTypeFromResourceClass(
+      //          static_cast<hlsl::DXIL::ResourceClass>(binding.resourceClass));
 
-            //ret.RegisterID = binding.rangeLowerBound;
-            ret.RegisterSpace = binding.spaceID;
-          }
-      }
-      else if (hlsl::OP::IsDxilOpFuncCallInst(handleCreation, hlsl::OP::OpCode::CreateHandleFromHeap))
+      //      //ret.RegisterID = binding.rangeLowerBound;
+      //      ret.RegisterSpace = binding.spaceID;
+      //    }
+      //}
+      //else
+      if (hlsl::OP::IsDxilOpFuncCallInst(handleCreation, hlsl::OP::OpCode::CreateHandleFromHeap))
       {
           DxilInst_CreateHandleFromHeap createHandleFromHeap(handleCreation);
           ret.accessStyle = createHandleFromHeap.get_samplerHeap_val()
@@ -611,7 +609,7 @@ DxilShaderAccessTracking::GetResourceFromHandle(Value *resHandle,
       }
       else
       {
-          assert(false);
+          //assert(false);
       }
   }
 
