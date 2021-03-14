@@ -1086,7 +1086,7 @@ static bool ValidatePayloadDecl(const RecordDecl *Decl,
   if (!Decl->hasAttr<HLSLRayPayloadAttr>())
     return false;
 
-  // If we have a payload warn about them beeing droped.
+  // If we have a payload warn about them beeing dropped.
   if (!Options.HLSLEnablePayloadAccessQualifiers) {
     Diag.ReportOnce(Decl->getLocation(), diag::warn_hlsl_payload_qualifer_dropped);
     return false;

@@ -10,21 +10,21 @@
 
 // CHK0-NOT: -Wpayload-access-
 
-// CHK1: warning: write will be droped ('noWrite' is not qualified 'write' for shader stage 'closesthit')
+// CHK1: warning: write will be dropped ('noWrite' is not qualified 'write' for shader stage 'closesthit')
 // CHK1: warning: reading undefined value ('noRead' is not qualified 'read' for shader stage 'closesthit')
 
 // CHK2: warning: reading undefined value ('noRead2' is not qualified 'read' for shader stage 'closesthit')
 // CHK2-NOT: warning: reading undefined value ('noRead' is not qualified 'read' for shader stage 'closesthit')
 
-// CHK3: warning: write will be droped ('noWrite' is not qualified 'write' for shader stage 'closesthit')
+// CHK3: warning: write will be dropped ('noWrite' is not qualified 'write' for shader stage 'closesthit')
 // CHK3: warning: reading undefined value ('noRead' is not qualified 'read' for shader stage 'closesthit')
 // CHK3: warning: reading undefined value ('noRead2' is not qualified 'read' for shader stage 'closesthit')
-// CHK3: warning: write will be droped ('noWrite3' is not qualified 'write' for shader stage 'closesthit')
-// CHK3-NOT: warning: write will be droped ('noWrite2' is not qualified 'write' for shader stage 'closesthit')
+// CHK3: warning: write will be dropped ('noWrite3' is not qualified 'write' for shader stage 'closesthit')
+// CHK3-NOT: warning: write will be dropped ('noWrite2' is not qualified 'write' for shader stage 'closesthit')
 // CHK3-NOT: warning: reading undefined value ('noRead3' is not qualified 'read' for shader stage 'closesthit')
 // CHK3-NOT: fooload
 
-// CHK4: warning: write will be droped ('noWrite' is not qualified 'write' for shader stage 'closesthit')
+// CHK4: warning: write will be dropped ('noWrite' is not qualified 'write' for shader stage 'closesthit')
 // CHK4: warning: reading undefined value ('noRead2' is not qualified 'read' for shader stage 'closesthit')
 // CHK4: warning: reading undefined value ('noRead2' is not qualified 'read' for shader stage 'closesthit')
 
@@ -42,7 +42,7 @@
 
 // CHK7: warning: potential loss of data for payload field 'clobbered'. Field is qualified 'write' in earlier stages and 'write' only for stage 'anyhit' but never unconditionally written.
 
-// CHK8: warning: write will be droped ('noWrite' is not qualified 'write' for shader stage 'closesthit')
+// CHK8: warning: write will be dropped ('noWrite' is not qualified 'write' for shader stage 'closesthit')
 // CHK8: warning: reading undefined value ('noRead2' is not qualified 'read' for shader stage 'closesthit')
 // CHK8-NOT: warning: reading undefined value ('noRead3' is not qualified 'read' for shader stage 'closesthit')
 

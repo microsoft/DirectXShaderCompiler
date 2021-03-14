@@ -7554,7 +7554,7 @@ def warn_hlsl_payload_access_data_loss : Warning<
 def warn_hlsl_payload_access_undef_read : Warning<
   "reading undefined value ('%0' is not qualified 'read' for shader stage '%1')">, InGroup<HLSLPayloadAccessQualiferShader>;
 def warn_hlsl_payload_access_write_loss : Warning<
-  "write will be droped ('%0' is not qualified 'write' for shader stage '%1')">, InGroup<HLSLPayloadAccessQualiferShader>;
+  "write will be dropped ('%0' is not qualified 'write' for shader stage '%1')">, InGroup<HLSLPayloadAccessQualiferShader>;
 def warn_hlsl_payload_access_no_write_for_trace_payload : Warning<
   "field '%0' is 'write' for 'caller' stage but field is never written for TraceRay call">, InGroup<HLSLPayloadAccessQualiferTrace>;
 def warn_hlsl_payload_access_write_but_no_write_for_trace_payload : Warning<
