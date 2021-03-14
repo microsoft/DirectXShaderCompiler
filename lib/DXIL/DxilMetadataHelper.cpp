@@ -892,7 +892,42 @@ DxilMDHelper::EmitDxrPayloadStructAnnotation(const DxilPayloadAnnotation &SA) {
   return MDNode::get(m_Ctx, MDVals);
 }
 
-void DxilMDHelper::LoadDXRPayloadFieldAnnoations(const MDOperand &MDO,
+void DxilMDHelper::LoadDxrPayloadAccessQualifiers(const MDOperand &MDO,
+                                               DxilPayloadFieldAnnotation &FA) {
+  unsigned fieldBitmask = ConstMDToInt32(MDO);
+  if (fieldBitmask & ~DXIL::PayloadAccessQualifierValidMask) {
+    DXASSERT(false, "Unknown payload access qualifier bits set");
+    m_bExtraMetadata = true;
+  }
+  fieldBitmask &= DXIL::PayloadAccessQualifierValidMask;
+  FA.SetPayloadFieldQualifierMask(fieldBitmask);
+}
+
+void DxilMDHelper::LoadDxrPayloadFieldAnnoation(
+    const MDOperand &MDO, DxilPayloadFieldAnnotation &FA) {
+  IFTBOOL(MDO.get() != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+  const MDTuple *pTupleMD = dyn_cast<MDTuple>(MDO.get()); // Tag-Value list.
+  IFTBOOL(pTupleMD != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+  IFTBOOL((pTupleMD->getNumOperands() & 0x1) == 0, DXC_E_INCORRECT_DXIL_METADATA);
+
+  for (unsigned i = 0; i < pTupleMD->getNumOperands(); i += 2) {
+    unsigned Tag = ConstMDToUint32(pTupleMD->getOperand(i));
+    const MDOperand &MDO = pTupleMD->getOperand(i + 1);
+    IFTBOOL(MDO.get() != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+
+    switch (Tag) {
+    case kDxilPayloadFieldAnnotationAccessTag:
+      LoadDxrPayloadAccessQualifiers(MDO, FA);
+      break;
+    default:
+      DXASSERT(false, "Unknown payload field annotation tag");
+      m_bExtraMetadata = true;
+      break;
+    }
+  }
+}
+
+void DxilMDHelper::LoadDxrPayloadFieldAnnoations(const MDOperand &MDO,
                                                 DxilPayloadAnnotation &SA) {
   IFTBOOL(MDO.get() != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
   const MDTuple *pTupleMD = dyn_cast<MDTuple>(MDO.get());
@@ -900,43 +935,11 @@ void DxilMDHelper::LoadDXRPayloadFieldAnnoations(const MDOperand &MDO,
   IFTBOOL(pTupleMD->getNumOperands() == SA.GetNumFields(),
           DXC_E_INCORRECT_DXIL_METADATA);
   for (unsigned i = 0; i < SA.GetNumFields(); ++i) {
-    MDNode *fieldNode = dyn_cast<MDNode>(pTupleMD->getOperand(i));
-    IFTBOOL(fieldNode != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
-
-    unsigned Tag = ConstMDToInt32(fieldNode->getOperand(0));
-    IFTBOOL(Tag == kDxilPayloadFieldAnnotationAccessTag, DXC_E_INCORRECT_DXIL_METADATA);
-
-    if (fieldNode->getNumOperands() >= 2) {
-      unsigned fieldBitmask = ConstMDToInt32(fieldNode->getOperand(1));
-
-      const unsigned readWriteMask = static_cast<unsigned>(DXIL::PayloadAccessQualifier::ReadWrite);
-      const unsigned readBit       = static_cast<unsigned>(DXIL::PayloadAccessQualifier::Read);
-      const unsigned writeBit      = static_cast<unsigned>(DXIL::PayloadAccessQualifier::Write);
-
-      const DXIL::PayloadAccessShaderStage stages[] = {
-          DXIL::PayloadAccessShaderStage::Caller,
-          DXIL::PayloadAccessShaderStage::Closesthit,
-          DXIL::PayloadAccessShaderStage::Miss,
-          DXIL::PayloadAccessShaderStage::Anyhit};
-
-      for (DXIL::PayloadAccessShaderStage stage : stages) {
-        const unsigned stageShift =
-            DxilPayloadFieldAnnotation::GetBitOffsetForShaderStage(stage);
-        const unsigned bits = fieldBitmask >> stageShift;
-        if (bits & readWriteMask) {
-          if (bits & readBit)
-            SA.GetFieldAnnotation(i).AddPayloadFieldQualifier(
-                stage, DXIL::PayloadAccessQualifier::Read);
-          if (bits & writeBit)
-            SA.GetFieldAnnotation(i).AddPayloadFieldQualifier(
-                stage, DXIL::PayloadAccessQualifier::Write);
-        }
-      }
-    }
+    LoadDxrPayloadFieldAnnoation(pTupleMD->getOperand(i), SA.GetFieldAnnotation(i));
   }
 }
 
-void DxilMDHelper::LoadDXRPayloadAnnotationNode(const llvm::MDTuple &MDT,
+void DxilMDHelper::LoadDxrPayloadAnnotationNode(const llvm::MDTuple &MDT,
                                                 DxilTypeSystem &TypeSystem) {
   unsigned Tag = ConstMDToUint32(MDT.getOperand(0));
   IFTBOOL(Tag == kDxilPayloadAnnotationStructTag, DXC_E_INCORRECT_DXIL_METADATA)
@@ -950,10 +953,10 @@ void DxilMDHelper::LoadDXRPayloadAnnotationNode(const llvm::MDTuple &MDT,
   // Check if this struct is already part of the DXIL Type System
   DxilPayloadAnnotation *pPA = TypeSystem.AddPayloadAnnotation(pGVType);
 
-  LoadDXRPayloadFieldAnnoations(MDT.getOperand(2), *pPA);
+  LoadDxrPayloadFieldAnnoations(MDT.getOperand(2), *pPA);
 }
 
-void DxilMDHelper::LoadDXRPayloadAnnotations(DxilTypeSystem &TypeSystem) {
+void DxilMDHelper::LoadDxrPayloadAnnotations(DxilTypeSystem &TypeSystem) {
   NamedMDNode *pDxilPayloadAnnotationsMD =
       m_pModule->getNamedMetadata(kDxilDxrPayloadAnnotationsMDName);
   if (pDxilPayloadAnnotationsMD == nullptr)
@@ -968,7 +971,7 @@ void DxilMDHelper::LoadDXRPayloadAnnotations(DxilTypeSystem &TypeSystem) {
     const MDTuple *pTupleMD =
         dyn_cast<MDTuple>(pDxilPayloadAnnotationsMD->getOperand(i));
     IFTBOOL(pTupleMD != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
-    LoadDXRPayloadAnnotationNode(*pTupleMD, TypeSystem);
+    LoadDxrPayloadAnnotationNode(*pTupleMD, TypeSystem);
   }
 }
 

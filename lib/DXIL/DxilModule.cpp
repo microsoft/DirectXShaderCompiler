@@ -1603,7 +1603,6 @@ void DxilModule::LoadDxilMetadata() {
   // Type system is not required for consumption of dxil.
   try {
     m_pMDHelper->LoadDxilTypeSystem(*m_pTypeSystem.get());
-    m_pMDHelper->LoadDXRPayloadAnnotations(*m_pTypeSystem.get());
   } catch (hlsl::Exception &) {
     m_bMetadataErrors = true;
 #ifdef DBG
@@ -1611,6 +1610,17 @@ void DxilModule::LoadDxilMetadata() {
 #endif
     m_pTypeSystem->GetStructAnnotationMap().clear();
     m_pTypeSystem->GetFunctionAnnotationMap().clear();
+  }
+
+  // Payload annotations not required for consumption of dxil.
+  try {
+    m_pMDHelper->LoadDxrPayloadAnnotations(*m_pTypeSystem.get());
+  } catch (hlsl::Exception &) {
+    m_bMetadataErrors = true;
+#ifdef DBG
+    throw;
+#endif
+    m_pTypeSystem->GetPayloadAnnotationMap().clear();
   }
 
   m_pMDHelper->LoadRootSignature(m_SerializedRootSignature);

@@ -154,6 +154,7 @@ public:
   void SetCompType(CompType::Kind kind);
 
   uint32_t GetPayloadFieldQualifierMask() const;
+  void SetPayloadFieldQualifierMask(uint32_t fieldBitmask);
   void AddPayloadFieldQualifier(DXIL::PayloadAccessShaderStage shaderStage, DXIL::PayloadAccessQualifier qualifier);
   DXIL::PayloadAccessQualifier GetPayloadFieldQualifier(DXIL::PayloadAccessShaderStage shaderStage) const;
   bool HasAnnotations() const;

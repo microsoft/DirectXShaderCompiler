@@ -92,22 +92,25 @@ uint32_t DxilPayloadFieldAnnotation::GetPayloadFieldQualifierMask() const {
 }
 
 unsigned DxilPayloadFieldAnnotation::GetBitOffsetForShaderStage(DXIL::PayloadAccessShaderStage shaderStage ) {
-  // Allocate 4 bits per shader stage: 
-  //     bits 0-1 for payload access qualifiers
-  //     bits 2-3 reserved for future use
-
-  const unsigned numBitsPerStage = 4;
-  unsigned bitOffset = static_cast<unsigned>(shaderStage) * numBitsPerStage;
+  unsigned bitOffset = static_cast<unsigned>(shaderStage) *
+                       DXIL::PayloadAccessQualifierBitsPerStage;
   return bitOffset;
 }
+
+void DxilPayloadFieldAnnotation::SetPayloadFieldQualifierMask(uint32_t fieldBitmask) {
+  DXASSERT((fieldBitmask & ~DXIL::PayloadAccessQualifierValidMask) == 0,
+           "Unknown payload access qualifier bits set");
+  m_bitmask = fieldBitmask & DXIL::PayloadAccessQualifierValidMask;
+}
+
 void DxilPayloadFieldAnnotation::AddPayloadFieldQualifier(
     DXIL::PayloadAccessShaderStage shaderStage, DXIL::PayloadAccessQualifier qualifier) {
-
-  int bitOffset = GetBitOffsetForShaderStage(shaderStage);
-
   unsigned accessBits = static_cast<unsigned>(qualifier);
+  DXASSERT((accessBits & ~DXIL::PayloadAccessQualifierValidMaskPerStage) == 0,
+           "Unknown payload access qualifier bits set");
+  accessBits &= DXIL::PayloadAccessQualifierValidMaskPerStage;
 
-  accessBits <<= bitOffset;
+  accessBits <<= GetBitOffsetForShaderStage(shaderStage);
   m_bitmask |= accessBits;
 }
 

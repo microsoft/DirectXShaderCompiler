@@ -225,7 +225,6 @@ public:
 
   // StructAnnotation extended property tags (DXIL 1.5+ only, appended)
   static const unsigned kDxilTemplateArgumentsTag                 = 0;  // Name for name-value list of extended struct properties
-  static const unsigned kDxilExtendedFieldAnnotationsTag          = 1;
   // TemplateArgument tags
   static const unsigned kDxilTemplateArgTypeTag                   = 0;  // Type template argument, followed by undef of type
   static const unsigned kDxilTemplateArgIntegralTag               = 1;  // Integral template argument, followed by i64 value
@@ -428,9 +427,11 @@ public:
   void EmitDxrPayloadAnnotations(DxilTypeSystem &TypeSystem);
   llvm::Metadata *EmitDxrPayloadStructAnnotation(const DxilPayloadAnnotation& SA);
   llvm::Metadata *EmitDxrPayloadFieldAnnotation(const DxilPayloadFieldAnnotation &FA, llvm::Type* fieldType);
-  void LoadDXRPayloadAnnotationNode(const llvm::MDTuple &MDT, DxilTypeSystem &TypeSystem);
-  void LoadDXRPayloadAnnotations(DxilTypeSystem &TypeSystem);
-  void LoadDXRPayloadFieldAnnoations(const llvm::MDOperand& MDO, DxilPayloadAnnotation& SA);
+  void LoadDxrPayloadAnnotationNode(const llvm::MDTuple &MDT, DxilTypeSystem &TypeSystem);
+  void LoadDxrPayloadAnnotations(DxilTypeSystem &TypeSystem);
+  void LoadDxrPayloadFieldAnnoations(const llvm::MDOperand& MDO, DxilPayloadAnnotation& SA);
+  void LoadDxrPayloadFieldAnnoation(const llvm::MDOperand &MDO, DxilPayloadFieldAnnotation &FA);
+  void LoadDxrPayloadAccessQualifiers(const llvm::MDOperand &MDO, DxilPayloadFieldAnnotation &FA);
 
   // Function props.
   llvm::MDTuple *EmitDxilFunctionProps(const hlsl::DxilFunctionProps *props,
