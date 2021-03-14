@@ -130,7 +130,7 @@ target_link_libraries(dxcompiler PRIVATE ${LIBRARIES})
 if (ENABLE_SPIRV_CODEGEN)
   target_link_libraries(dxcompiler PRIVATE clangSPIRV)
 endif (ENABLE_SPIRV_CODEGEN)
-include_directories(AFTER ${LLVM_INCLUDE_DIR}/dxc/Tracing ${DIASDK_INCLUDE_DIRS})
+include_directories(AFTER ${LLVM_INCLUDE_DIR}/dxc/Tracing ${DIASDK_INCLUDE_DIRS} ${HLSL_VERSION_LOCATION})
 
 set_target_properties(dxcompiler
   PROPERTIES
