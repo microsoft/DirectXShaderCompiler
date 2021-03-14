@@ -1,8 +1,8 @@
 // RUN: %dxc -T lib_6_6 %s -enable-payload-qualifiers | FileCheck %s
 
-// CHECK: error: payload field 's1' has no payload access qualifies.
-// CHECK: error: payload field 'p3' is a payload struct. Payload access qualifies are not allowed on payload types.
-// CHECK: error: payload type 'P1' requires that all fields carry payload access qualifies.
+// CHECK: error: payload field 's1' has no payload access qualifiers.
+// CHECK: error: payload field 'p3' is a payload struct. Payload access qualifiers are not allowed on payload types.
+// CHECK: error: payload type 'P1' requires that all fields carry payload access qualifiers.
 
 struct [raypayload] P2 {
     int c2 : write(miss, closesthit, anyhit, caller) : read(miss, closesthit, anyhit, caller);

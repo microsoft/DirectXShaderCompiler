@@ -7566,13 +7566,13 @@ def warn_hlsl_payload_access_read_but_no_read_after_trace : Warning<
 def warn_qualified_payload_passed_to_extern_function : Warning<
   "passing a qualified payload to an extern function can cause undefined behavior if payload qualifiers mismatch">, InGroup<HLSLPayloadAccessQualiferCall>;
 def err_not_all_payload_fields_qualified : Error<
-  "payload type '%0' requires that all fields carry payload access qualifies.">;
+  "payload type '%0' requires that all fields carry payload access qualifiers.">;
 def err_payload_requires_attribute : Error<
   "type '%0' used as payload requires that it is annotated with the [raypayload] attribute">;
 def err_payload_fields_not_qualified : Error<
-  "payload field '%0' has no payload access qualifies.">;
+  "payload field '%0' has no payload access qualifiers.">;
 def err_payload_fields_is_payload_and_overqualified : Error<
-  "payload field '%0' is a payload struct. Payload access qualifies are not allowed on payload types.">;
+  "payload field '%0' is a payload struct. Payload access qualifiers are not allowed on payload types.">;
 def warn_hlsl_payload_qualifer_dropped : Warning<
   "payload access qualifieres are only supported for target lib_6_6 and beyond. You can opt-in for lib_6_6 with the -enable-payload-qualifiers flag. Qualifiers will be dropped.">, InGroup<HLSLPayloadAccessQualifer>;
 def err_hlsl_unsupported_builtin_op: Error<
