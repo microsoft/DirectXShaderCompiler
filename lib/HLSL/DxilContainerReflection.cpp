@@ -1631,7 +1631,9 @@ void DxilModuleReflection::CreateReflectionObjectForResource(DxilResourceBase *R
     if (inputBind.NumSamples == 0) {
       if (R->IsStructuredBuffer()) {
         inputBind.NumSamples = CalcResTypeSize(*m_pDxilModule, *R);
-      } else if (!R->IsRawBuffer() && !R->IsTBuffer()) {
+      } else if (!R->IsRawBuffer() && !R->IsTBuffer() &&
+                 R->GetKind() != DXIL::ResourceKind::Texture2DMS &&
+                 R->GetKind() != DXIL::ResourceKind::Texture2DMSArray) {
         inputBind.NumSamples = 0xFFFFFFFF;
       }
     }
