@@ -1489,6 +1489,28 @@ namespace DXIL {
     CandidateProceduralPrimitive = 1,
   };
 
+  enum class PayloadAccessQualifier : uint32_t {
+    NoAccess = 0,
+    Read = 1,
+    Write = 2,
+    ReadWrite = 3
+  };
+
+  enum class PayloadAccessShaderStage : uint32_t {
+    Caller = 0,
+    Closesthit = 1,
+    Miss = 2,
+    Anyhit = 3, 
+    Invalid = 0xffffffffu
+  }; 
+
+  // Allocate 4 bits per shader stage:
+  //     bits 0-1 for payload access qualifiers
+  //     bits 2-3 reserved for future use
+  const uint32_t PayloadAccessQualifierBitsPerStage = 4;
+  const uint32_t PayloadAccessQualifierValidMaskPerStage = 3;
+  const uint32_t PayloadAccessQualifierValidMask = 0x00003333;
+
   inline bool IsValidHitGroupType(HitGroupType type) {
     return (type >= HitGroupType::Triangle && type < HitGroupType::LastEntry);
   }
