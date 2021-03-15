@@ -158,6 +158,7 @@ public:
                  std::wstring &outputPDBPath, CComPtr<IDxcBlob> &pDebugBlob,
                  IDxcOperationResult **pCompileResult);
   int DumpBinary();
+  int Link();
   void Preprocess();
   void GetCompilerVersionInfo(llvm::raw_string_ostream &OS);
 };
@@ -831,6 +832,61 @@ int DxcContext::Compile() {
   return status;
 }
 
+int DxcContext::Link() {
+  CComPtr<IDxcLinker> pLinker;
+  IFT(CreateInstance(CLSID_DxcLinker, &pLinker));
+  llvm::StringRef InputFiles = m_Opts.InputFile;
+  llvm::StringRef InputFilesRef(InputFiles);
+  llvm::SmallVector<llvm::StringRef, 2> InputFileList;
+  InputFilesRef.split(InputFileList, ";");
+
+  std::vector<std::wstring> wInputFiles;
+  wInputFiles.reserve(InputFileList.size());
+  std::vector<LPCWSTR> wpInputFiles;
+  wpInputFiles.reserve(InputFileList.size());
+  for (auto &file : InputFileList) {
+    wInputFiles.emplace_back(StringRefUtf16(file.str()));
+    wpInputFiles.emplace_back(wInputFiles.back().c_str());
+    CComPtr<IDxcBlobEncoding> pLib;
+    ReadFileIntoBlob(m_dxcSupport, wInputFiles.back().c_str(), &pLib);
+    IFT(pLinker->RegisterLibrary(wInputFiles.back().c_str(), pLib));
+  }
+
+  CComPtr<IDxcOperationResult> pLinkResult;
+
+  std::vector<std::wstring> argStrings;
+  CopyArgsToWStrings(m_Opts.Args, CoreOption, argStrings);
+
+  std::vector<LPCWSTR> args;
+  args.reserve(argStrings.size());
+  for (const std::wstring &a : argStrings)
+    args.push_back(a.data());
+
+  IFT(pLinker->Link(StringRefUtf16(m_Opts.EntryPoint),
+                    StringRefUtf16(m_Opts.TargetProfile), wpInputFiles.data(),
+                    wpInputFiles.size(), args.data(), args.size(),
+                    &pLinkResult));
+
+  HRESULT status;
+  IFT(pLinkResult->GetStatus(&status));
+  if (SUCCEEDED(status)) {
+    CComPtr<IDxcBlob> pContainer;
+    IFT(pLinkResult->GetResult(&pContainer));
+    if (pContainer.p != nullptr) {
+      ActOnBlob(pContainer.p);
+    }
+  } else {
+    CComPtr<IDxcBlobEncoding> pErrors;
+    IFT(pLinkResult->GetErrorBuffer(&pErrors));
+    if (pErrors != nullptr) {
+      printf("Link failed:\n%s",
+             static_cast<char *>(pErrors->GetBufferPointer()));
+    }
+    return 1;
+  }
+  return 0;
+}
+
 int DxcContext::DumpBinary() {
   CComPtr<IDxcBlobEncoding> pSource;
   ReadFileIntoBlob(m_dxcSupport, StringRefUtf16(m_Opts.InputFile), &pSource);
@@ -1237,6 +1293,10 @@ int dxc::main(int argc, const char **argv_) {
     else if (dxcOpts.DumpBin) {
       pStage = "Dumping existing binary";
       retVal = context.DumpBinary();
+    }
+    else if (dxcOpts.Link) {
+      pStage = "Linking";
+      retVal = context.Link();
     }
     else {
       pStage = "Compilation";

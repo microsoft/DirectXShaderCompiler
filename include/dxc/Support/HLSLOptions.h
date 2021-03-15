@@ -141,6 +141,7 @@ public:
   bool DebugNameForBinary = false; // OPT_Zsb
   bool DebugNameForSource = false; // OPT_Zss
   bool DumpBin = false;        // OPT_dumpbin
+  bool Link = false;        // OPT_link
   bool WarningAsError = false; // OPT__SLASH_WX
   bool IEEEStrict = false;     // OPT_Gis
   bool IgnoreLineDirectives = false; // OPT_ignore_line_directives
