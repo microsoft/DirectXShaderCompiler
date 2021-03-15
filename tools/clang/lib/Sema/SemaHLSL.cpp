@@ -2963,6 +2963,8 @@ namespace hlsl {
       return CheckRecursion(CallStack, EntryFnDecl);
     }
 
+    const CallNodes &GetCallGraph() { return m_callNodes; }
+
     void dump() const {
       OutputDebugStringW(L"Call Nodes:\r\n");
       for (auto &node : m_callNodes) {
@@ -10238,6 +10240,20 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
   if (self->getDiagnostics().hasErrorOccurred()) {
     return;
   }
+
+  // Check RT shader if available for their payload use and match payload access 
+  // against availiable payload modifiers. 
+  // We have to do it late because we could have payload access in a called function
+  // and have to check the callgraph if the root shader has the right access
+  // rights to the payload structure. 
+  if (self->getLangOpts().IsHLSLLibrary) {
+    if (self->getLangOpts().EnablePayloadAccessQualifiers) {
+      ASTContext &ctx = self->getASTContext();
+      TranslationUnitDecl *TU = ctx.getTranslationUnitDecl();
+      DiagnoseRaytracingPayloadAccess(*self, TU);
+    }
+  }
+
   // Don't check entry function for library.
   if (self->getLangOpts().IsHLSLLibrary) {
     // TODO: validate no recursion start from every function.
@@ -10350,6 +10366,184 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
   }
 }
 
+void hlsl::DiagnosePayloadAccessQualifierAnnotations(
+    Sema &S, Declarator& D, const QualType& T, const std::vector<hlsl::UnusualAnnotation *>& annotations) {
+
+  auto &&iter = annotations.begin();
+  auto &&end = annotations.end();
+
+  hlsl::PayloadAccessAnnotation *readAnnotation = nullptr;
+  hlsl::PayloadAccessAnnotation *writeAnnotation = nullptr;
+
+  for (; iter != end; ++iter) {
+    switch ((*iter)->getKind()) {
+    case hlsl::UnusualAnnotation::UA_PayloadAccessQualifier: {
+      hlsl::PayloadAccessAnnotation *annotation =
+          cast<hlsl::PayloadAccessAnnotation>(*iter);
+      if (annotation->qualifier == DXIL::PayloadAccessQualifier::Read) {
+        if (!readAnnotation)
+          readAnnotation = annotation;
+        else {
+          S.Diag(annotation->Loc,
+                 diag::err_hlsl_payload_access_qualifier_multiple_defined)
+              << "read";
+          return;
+        }
+      } else if (annotation->qualifier == DXIL::PayloadAccessQualifier::Write) {
+        if (!writeAnnotation)
+          writeAnnotation = annotation;
+        else {
+          S.Diag(annotation->Loc,
+                 diag::err_hlsl_payload_access_qualifier_multiple_defined)
+              << "write";
+          return;
+        }
+      }
+
+      break;
+    }
+    default:
+      // Ignore all other annotations here.
+      break;
+    }
+  }
+
+  struct PayloadAccessQualifierInformation{
+    bool anyhit = false;
+    bool closesthit = false;
+    bool miss = false;
+    bool caller = false;
+  } readQualContains, writeQualContains;
+
+  auto collectInformationAboutShaderStages =
+      [&](hlsl::PayloadAccessAnnotation *annotation,
+          PayloadAccessQualifierInformation &info) {
+        for (auto shaderType : annotation->ShaderStages) {
+          if (shaderType == DXIL::PayloadAccessShaderStage::Anyhit)
+            info.anyhit = true;
+          else if (shaderType == DXIL::PayloadAccessShaderStage::Closesthit)
+            info.closesthit = true;
+          else if (shaderType == DXIL::PayloadAccessShaderStage::Miss)
+            info.miss = true;
+          else if (shaderType == DXIL::PayloadAccessShaderStage::Caller)
+            info.caller = true;
+        }
+        return true;
+      };
+
+  if (readAnnotation) {
+    if (!collectInformationAboutShaderStages(readAnnotation, readQualContains))
+      return;
+  }
+  if (writeAnnotation) {
+    if (!collectInformationAboutShaderStages(writeAnnotation, writeQualContains))
+      return;
+  }
+
+  if (writeAnnotation) {
+    // Note: keep the following two checks separated to diagnose both
+    //       stages (closesthit and miss)
+    // If closesthit/miss writes a value the caller must consume it.
+    if (writeQualContains.miss) {
+      if (!readAnnotation || !readQualContains.caller) {
+         S.Diag(writeAnnotation->Loc,
+               diag::err_hlsl_payload_access_qualifier_invalid_combination)
+            << D.getIdentifier()
+            << "write"
+            << "miss"
+            << "consumer";
+      }
+    }    
+    if (writeQualContains.closesthit) {
+      if (!readAnnotation || !readQualContains.caller) {
+         S.Diag(writeAnnotation->Loc,
+               diag::err_hlsl_payload_access_qualifier_invalid_combination)
+            << D.getIdentifier()
+            << "write"
+            << "closesthit"
+            << "consumer";
+      }
+    }
+
+    // If anyhit writes, we need at least one consumer
+    if (writeQualContains.anyhit && !readAnnotation) {
+         S.Diag(writeAnnotation->Loc,
+               diag::err_hlsl_payload_access_qualifier_invalid_combination)
+            << D.getIdentifier()
+            << "write"
+            << "anyhit"
+            << "consumer";
+    }
+
+    // If the caller writes, we need at least one consumer
+    if (writeQualContains.caller && !readAnnotation) {
+         S.Diag(writeAnnotation->Loc,
+               diag::err_hlsl_payload_access_qualifier_invalid_combination)
+            << D.getIdentifier()
+            << "write"
+            << "caller"
+            << "consumer";
+    }
+  }
+
+  // Validate the read qualifer if present.
+  if (readAnnotation) {
+    // Note: keep the following two checks separated to diagnose both
+    //       stages (closesthit and miss)
+    // If closeshit/miss consume a value we need a producer.
+    // Valid producers are the caller and anyhit.
+    if (readQualContains.miss) {
+      if (!writeAnnotation ||
+          !(writeQualContains.anyhit || writeQualContains.caller)) {
+         S.Diag(readAnnotation->Loc,
+               diag::err_hlsl_payload_access_qualifier_invalid_combination)
+            << D.getIdentifier()
+            << "read"
+            << "miss"
+            << "producer";
+      }
+    }
+
+    // If closeshit/miss consume a value we need a producer.
+    // Valid producers are the caller and anyhit.
+    if (readQualContains.closesthit) {
+      if (!writeAnnotation ||
+          !(writeQualContains.anyhit || writeQualContains.caller)) {
+         S.Diag(readAnnotation->Loc,
+               diag::err_hlsl_payload_access_qualifier_invalid_combination)
+            << D.getIdentifier()
+            << "read"
+            << "closesthit"
+            << "producer";
+      }
+    }    
+
+    // If anyhit consumes the value we need a producer.
+    // Valid producers are the caller and antoher anyhit.
+    if (readQualContains.anyhit) {
+      if (!writeAnnotation ||
+          !(writeQualContains.anyhit || writeQualContains.caller)) {
+        S.Diag(readAnnotation->Loc,
+               diag::err_hlsl_payload_access_qualifier_invalid_combination)
+            << D.getIdentifier()
+            << "read"
+            << "anyhit"
+            << "producer";
+      }
+    }
+
+    // If the caller consumes the value we need a valid producer.
+    if (readQualContains.caller && !writeAnnotation) {
+         S.Diag(readAnnotation->Loc,
+               diag::err_hlsl_payload_access_qualifier_invalid_combination)
+            << D.getIdentifier()
+            << "read"
+            << "caller"
+            << "producer";
+    }
+  }
+}
+
 void hlsl::DiagnoseUnusualAnnotationsForHLSL(
   Sema& S,
   std::vector<hlsl::UnusualAnnotation *>& annotations)
@@ -10406,6 +10600,10 @@ void hlsl::DiagnoseUnusualAnnotationsForHLSL(
     case hlsl::UnusualAnnotation::UA_SemanticDecl: {
       // hlsl::SemanticDecl* semanticDecl = cast<hlsl::SemanticDecl>(*iter);
       // No common validation to be performed.
+      break;
+    }
+    case hlsl::UnusualAnnotation::UA_PayloadAccessQualifier: {
+      // Validation happens sperately
       break;
     }
     }
@@ -11549,6 +11747,10 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     break;
   case AttributeList::AT_HLSLPayload:
     declAttr = ::new (S.Context) HLSLPayloadAttr(
+        A.getRange(), S.Context, A.getAttributeSpellingListIndex());  
+    break;
+  case AttributeList::AT_HLSLRayPayload:
+    declAttr = ::new (S.Context) HLSLRayPayloadAttr(
         A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
 
@@ -11867,6 +12069,11 @@ Decl* Sema::ActOnStartHLSLBuffer(
     }
     case hlsl::UnusualAnnotation::UA_SemanticDecl: {
       // Ignore semantic declarations.
+      break;
+    }
+    case hlsl::UnusualAnnotation::UA_PayloadAccessQualifier: {
+      hlsl::PayloadAccessAnnotation* annotation = cast<hlsl::PayloadAccessAnnotation>(*unusualIter);
+      Diag( annotation->Loc, diag::err_hlsl_unsupported_payload_access_qualifier);
       break;
     }
     }
@@ -12535,6 +12742,9 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
 
   // Validate unusual annotations.
   hlsl::DiagnoseUnusualAnnotationsForHLSL(*this, D.UnusualAnnotations);
+  if (isField)
+    hlsl::DiagnosePayloadAccessQualifierAnnotations(*this, D, qt,
+                                                    D.UnusualAnnotations);
   auto && unusualIter = D.UnusualAnnotations.begin();
   auto && unusualEnd = D.UnusualAnnotations.end();
   for (; unusualIter != unusualEnd; ++unusualIter) {
@@ -12571,6 +12781,13 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
       if (isTypedef || isLocalVar) {
         Diag(semanticDecl->Loc, diag::err_hlsl_varmodifierna)
             << "semantic" << declarationType;
+      }
+      break;    
+    }
+    case hlsl::UnusualAnnotation::UA_PayloadAccessQualifier: {
+      hlsl::PayloadAccessAnnotation *annotation = cast<hlsl::PayloadAccessAnnotation>(*unusualIter);
+      if (!isField) {
+          Diag(annotation->Loc, diag::err_hlsl_unsupported_payload_access_qualifier);
       }
       break;
     }
