@@ -342,7 +342,11 @@ PCSTR g_pFeatureInfoNames[] = {
     "Sampler feedback",
     "64-bit Atomics on Typed Resources",
     "64-bit Atomics on Group Shared",
-    "Derivatives in mesh and amplification shaders"
+    "Derivatives in mesh and amplification shaders",
+    "Resource descriptor heap indexing",
+    "Sampler descriptor heap indexing",
+    "<RESERVED>",
+    "64-bit Atomics on Heap Resources",
 };
 static_assert(_countof(g_pFeatureInfoNames) == ShaderFeatureInfoCount, "g_pFeatureInfoNames needs to be updated");
 
@@ -1289,7 +1293,9 @@ static const char *OpCodeSignatures[] = {
   "(index,samplerHeap,nonUniformIndex)",  // CreateHandleFromHeap
   "(unpackMode,pk)",  // Unpack4x8
   "(packMode,x,y,z,w)",  // Pack4x8
-  "()"  // IsHelperLane
+  "()",  // IsHelperLane
+  "(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,channel)",  // TextureGatherImm
+  "(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,channel,compareVale)"  // TextureGatherCmpImm
 };
 // OPCODE-SIGS:END
 
@@ -1387,16 +1393,13 @@ void PrintResourceProperties(DxilResourceProperties &RP,
   case DXIL::ResourceKind::Texture2DArray:
   case DXIL::ResourceKind::TextureCubeArray:
   case DXIL::ResourceKind::TypedBuffer:
-    OS << GC << RW << ResourceKindToString(RP.getResourceKind());
-    OS << "<" << CompTypeToString(RP.getCompType())
-       << (bUAV && RP.Typed.CompCount > 1 ? "[vec]" : "")
-       << ">";
-    break;
-
   case DXIL::ResourceKind::Texture2DMS:
   case DXIL::ResourceKind::Texture2DMSArray:
-    OS << ResourceKindToString(RP.getResourceKind());
-    OS << "<" << CompTypeToString(RP.getCompType())
+    OS << GC << RW << ResourceKindToString(RP.getResourceKind());
+    OS << "<";
+    if (RP.Typed.CompCount > 1)
+      OS << std::to_string(RP.Typed.CompCount) << "x";
+    OS << CompTypeToString(RP.getCompType())
        << ">";
     break;
 

@@ -119,6 +119,7 @@ public:
     return m_functionNameMap;
   }
   bool IsInitFunc(llvm::Function *F);
+  bool IsEntry(llvm::Function *F);
   bool IsResourceGlobal(const llvm::Constant *GV);
   DxilResourceBase *GetResource(const llvm::Constant *GV);
 
@@ -135,6 +136,7 @@ private:
   DxilModule &m_DM;
   // Map from name to Link info for extern functions.
   llvm::StringMap<std::unique_ptr<DxilFunctionLinkInfo>> m_functionNameMap;
+  llvm::SmallPtrSet<llvm::Function*,4>  m_entrySet;
   // Map from resource link global to resource. MapVector for deterministic iteration.
   llvm::MapVector<const llvm::Constant *, DxilResourceBase *> m_resourceMap;
   // Set of initialize functions for global variable. SetVector for deterministic iteration.
@@ -202,6 +204,8 @@ DxilLib::DxilLib(std::unique_ptr<llvm::Module> pModule)
     }
     m_functionNameMap[F.getName()] =
         llvm::make_unique<DxilFunctionLinkInfo>(&F);
+    if (m_DM.IsEntry(&F))
+      m_entrySet.insert(&F);
   }
 
   // Update internal global name.
@@ -211,6 +215,7 @@ DxilLib::DxilLib(std::unique_ptr<llvm::Module> pModule)
       GV.setName(MID + GV.getName());
     }
   }
+
 }
 
 void DxilLib::FixIntrinsicOverloads() {
@@ -327,6 +332,7 @@ bool DxilLib::HasFunction(std::string &name) {
   return m_functionNameMap.count(name);
 }
 
+bool DxilLib::IsEntry(llvm::Function *F) { return m_entrySet.count(F); }
 bool DxilLib::IsInitFunc(llvm::Function *F) { return m_initFuncSet.count(F); }
 bool DxilLib::IsResourceGlobal(const llvm::Constant *GV) {
   return m_resourceMap.count(GV);
@@ -487,7 +493,7 @@ bool DxilLinkJob::AddResource(DxilResourceBase *res, llvm::GlobalVariable *GV) {
     bool bMatch = IsMatchedType(Ty0, Ty);
     if (!bMatch) {
       // Report error.
-      dxilutil::EmitErrorOnGlobalVariable(dyn_cast<GlobalVariable>(res->GetGlobalSymbol()),
+      dxilutil::EmitErrorOnGlobalVariable(m_ctx, dyn_cast<GlobalVariable>(res->GetGlobalSymbol()),
                                           Twine(kRedefineResource) + res->GetResClassName() + " for " +
                                           res->GetGlobalName());
       return false;
@@ -636,7 +642,7 @@ bool DxilLinkJob::AddGlobals(DxilModule &DM, ValueToValueMapTy &vmap) {
           }
 
           // Redefine of global.
-          dxilutil::EmitErrorOnGlobalVariable(GV, Twine(kRedefineGlobal) + GV->getName());
+          dxilutil::EmitErrorOnGlobalVariable(m_ctx, GV, Twine(kRedefineGlobal) + GV->getName());
           bSuccess = false;
         }
         continue;
@@ -724,7 +730,7 @@ DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
   DxilModule &entryDM = entryLinkPair.second->GetDxilModule();
   if (!entryDM.HasDxilFunctionProps(entryFunc)) {
     // Cannot get function props.
-    dxilutil::EmitErrorOnFunction(entryFunc, Twine(kNoEntryProps) + entryFunc->getName());
+    dxilutil::EmitErrorOnFunction(m_ctx, entryFunc, Twine(kNoEntryProps) + entryFunc->getName());
     return nullptr;
   }
 
@@ -732,7 +738,7 @@ DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
 
   if (pSM->GetKind() != props.shaderKind) {
     // Shader kind mismatch.
-    dxilutil::EmitErrorOnFunction(entryFunc, Twine(kShaderKindMismatch) +
+    dxilutil::EmitErrorOnFunction(m_ctx, entryFunc, Twine(kShaderKindMismatch) +
                                   ShaderModel::GetKindName(pSM->GetKind()) + " and " +
                                   ShaderModel::GetKindName(props.shaderKind));
     return nullptr;
@@ -1331,7 +1337,7 @@ bool DxilLinkerImpl::AttachLib(DxilLib *lib) {
     if (m_functionNameMap.count(name)) {
       // Redefine of function.
       const DxilFunctionLinkInfo *DFLI = it->getValue().get();
-      dxilutil::EmitErrorOnFunction(DFLI->func, Twine(kRedefineFunction) + name);
+      dxilutil::EmitErrorOnFunction(m_ctx, DFLI->func, Twine(kRedefineFunction) + name);
       bSuccess = false;
       continue;
     }
@@ -1466,7 +1472,7 @@ DxilLinkerImpl::Link(StringRef entry, StringRef profile, dxilutil::ExportMap &ex
       return nullptr;
 
   } else {
-    if (exportMap.empty()) {
+    if (exportMap.empty() && !exportMap.isExportShadersOnly()) {
       // Add every function for lib profile.
       for (auto &it : m_functionNameMap) {
         StringRef name = it.getKey();
@@ -1496,6 +1502,28 @@ DxilLinkerImpl::Link(StringRef entry, StringRef profile, dxilutil::ExportMap &ex
           }
         }
       }
+    } else if (exportMap.isExportShadersOnly()) {
+      SmallVector<StringRef, 4> workList;
+      for (auto *pLib : m_attachedLibs) {
+        auto &DM = pLib->GetDxilModule();
+        auto *pM = DM.GetModule();
+        for (Function &F : pM->functions()) {
+          if (!pLib->IsEntry(&F)) {
+            if (!F.isDeclaration()) {
+              // Set none entry to be internal so they could be removed.
+              F.setLinkage(GlobalValue::LinkageTypes::InternalLinkage);
+            }
+            continue;
+          }
+          workList.emplace_back(F.getName());
+        }
+        libSet.insert(pLib);
+      }
+
+      if (!AddFunctions(workList, libSet, addedFunctionSet, linkJob,
+                        /*bLazyLoadDone*/ false,
+                        /*bAllowFuncionDecls*/ false))
+        return nullptr;
     } else {
       SmallVector<StringRef, 4> workList;
 

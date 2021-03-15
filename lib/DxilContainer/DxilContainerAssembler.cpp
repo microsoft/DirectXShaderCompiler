@@ -764,6 +764,7 @@ public:
       pBindInfo->UpperBound = R->GetUpperBound();
       if (pBindInfo1) {
         pBindInfo1->ResKind = (UINT)R->GetKind();
+        pBindInfo1->ResFlags |= R->HasAtomic64Use()? (UINT)PSVResourceFlag::UsedByAtomic64 : 0;
       }
       uResIndex++;
     }
@@ -1110,7 +1111,18 @@ private:
           info.minMinor = minor;
         }
         info.mask &= mask;
+      } else if (const llvm::LoadInst *LI = dyn_cast<LoadInst>(user)) {
+        // If loading a groupshared variable, limit to CS/AS/MS
+#define SFLAG(stage) ((unsigned)1 << (unsigned)DXIL::ShaderKind::stage)
+        if (LI->getPointerAddressSpace() == DXIL::kTGSMAddrSpace) {
+          const llvm::Function *F = cast<const llvm::Function>(CI->getParent()->getParent());
+          ShaderCompatInfo &info = m_FuncToShaderCompat[F];
+          info.mask &= (SFLAG(Compute) | SFLAG(Mesh) | SFLAG(Amplification));
+        }
+#undef SFLAG
+
       }
+
     }
   }
 
@@ -1167,6 +1179,8 @@ private:
         info.Flags |= static_cast<uint32_t>(DxilResourceFlag::UAVGloballyCoherent);
       if (pRes->IsROV())
         info.Flags |= static_cast<uint32_t>(DxilResourceFlag::UAVRasterizerOrderedView);
+      if (pRes->HasAtomic64Use())
+        info.Flags |= static_cast<uint32_t>(DxilResourceFlag::Atomics64Use);
       // TODO: add dynamic index flag
     }
     m_pResourceTable->Insert(info);

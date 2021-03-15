@@ -316,16 +316,14 @@ void DxilModule::CollectShaderFlagsForModule(ShaderFlags &Flags) {
 
   const ShaderModel *SM = GetShaderModel();
 
-  unsigned NumUAVs = m_UAVs.size();
+  unsigned NumUAVs = 0;
   const unsigned kSmallUAVCount = 8;
-  if (NumUAVs > kSmallUAVCount)
-    Flags.Set64UAVs(true);
-  if (NumUAVs && !(SM->IsCS() || SM->IsPS()))
-    Flags.SetUAVsAtEveryStage(true);
 
   bool hasRawAndStructuredBuffer = false;
 
   for (auto &UAV : m_UAVs) {
+    unsigned uavSize = UAV->GetRangeSize();
+    NumUAVs += uavSize > 8U? 9U: uavSize; // avoid overflow
     if (UAV->IsROV())
       Flags.SetROVs(true);
     switch (UAV->GetKind()) {
@@ -338,6 +336,16 @@ void DxilModule::CollectShaderFlagsForModule(ShaderFlags &Flags) {
       break;
     }
   }
+  // Maintain earlier erroneous counting of UAVs for compatibility
+  if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 6) < 0)
+    Flags.Set64UAVs(m_UAVs.size() > kSmallUAVCount);
+  else
+    Flags.Set64UAVs(NumUAVs > kSmallUAVCount);
+
+  if (NumUAVs && !(SM->IsCS() || SM->IsPS()))
+    Flags.SetUAVsAtEveryStage(true);
+
+
   for (auto &SRV : m_SRVs) {
     switch (SRV->GetKind()) {
     case DXIL::ResourceKind::RawBuffer:
@@ -1310,6 +1318,10 @@ DxilTypeSystem &DxilModule::GetTypeSystem() {
   return *m_pTypeSystem;
 }
 
+const DxilTypeSystem &DxilModule::GetTypeSystem() const {
+  return *m_pTypeSystem;
+}
+
 std::vector<unsigned> &DxilModule::GetSerializedViewIdState() {
   return m_SerializedState;
 }
@@ -1445,6 +1457,14 @@ void DxilModule::EmitDxilMetadata() {
        (m_ValMajor > 1 || (m_ValMajor == 1 && m_ValMinor >= 1)))) {
     m_pMDHelper->EmitDxilViewIdState(m_SerializedState);
   }
+
+  // Emit the DXR Payload Annotations only for library Dxil 1.6 and above.
+  if (m_pSM->IsLib()) {
+    if (DXIL::CompareVersions(m_DxilMajor, m_DxilMinor, 1, 6) >= 0) {
+      m_pMDHelper->EmitDxrPayloadAnnotations(GetTypeSystem());
+    }
+  }
+
   EmitLLVMUsed();
   MDTuple *pEntry = m_pMDHelper->EmitDxilEntryPointTuple(GetEntryFunction(), m_EntryName, pMDSignatures, pMDResources, pMDProperties);
   vector<MDNode *> Entries;
@@ -1597,6 +1617,17 @@ void DxilModule::LoadDxilMetadata() {
 #endif
     m_pTypeSystem->GetStructAnnotationMap().clear();
     m_pTypeSystem->GetFunctionAnnotationMap().clear();
+  }
+
+  // Payload annotations not required for consumption of dxil.
+  try {
+    m_pMDHelper->LoadDxrPayloadAnnotations(*m_pTypeSystem.get());
+  } catch (hlsl::Exception &) {
+    m_bMetadataErrors = true;
+#ifdef DBG
+    throw;
+#endif
+    m_pTypeSystem->GetPayloadAnnotationMap().clear();
   }
 
   m_pMDHelper->LoadRootSignature(m_SerializedRootSignature);

@@ -593,6 +593,8 @@ namespace DXIL {
     // Resources - gather
     TextureGather = 73, // gathers the four texels that would be used in a bi-linear filtering operation
     TextureGatherCmp = 74, // same as TextureGather, except this instrution performs comparison on texels, similar to SampleCmp
+    TextureGatherCmpImm = 223, // same as TextureGatherCmp, except offsets are limited to immediate values between -8 and 7
+    TextureGatherImm = 222, // same as TextureGather, except offsets are limited to immediate values between -8 and 7
   
     // Resources - sample
     RenderTargetGetSampleCount = 77, // gets the number of samples for a render target
@@ -718,7 +720,7 @@ namespace DXIL {
     NumOpCodes_Dxil_1_5 = 216,
     NumOpCodes_Dxil_1_6 = 222,
   
-    NumOpCodes = 222 // exclusive last value of enumeration
+    NumOpCodes = 224 // exclusive last value of enumeration
   };
   // OPCODE-ENUM:END
 
@@ -900,6 +902,8 @@ namespace DXIL {
     // Resources - gather
     TextureGather,
     TextureGatherCmp,
+    TextureGatherCmpImm,
+    TextureGatherImm,
   
     // Resources - sample
     RenderTargetGetSampleCount,
@@ -983,7 +987,7 @@ namespace DXIL {
     NumOpClasses_Dxil_1_5 = 143,
     NumOpClasses_Dxil_1_6 = 149,
   
-    NumOpClasses = 149 // exclusive last value of enumeration
+    NumOpClasses = 151 // exclusive last value of enumeration
   };
   // OPCODECLASS-ENUM:END
 
@@ -1073,8 +1077,7 @@ namespace DXIL {
     const unsigned kTextureGatherCoord3OpIdx = 6;
     const unsigned kTextureGatherOffset0OpIdx = 7;
     const unsigned kTextureGatherOffset1OpIdx = 8;
-    const unsigned kTextureGatherOffset2OpIdx = 9;
-    const unsigned kTextureGatherChannelOpIdx = 10;
+    const unsigned kTextureGatherChannelOpIdx = 9;
     // TextureGatherCmp.
     const unsigned kTextureGatherCmpCmpValOpIdx = 11;
 
@@ -1089,6 +1092,11 @@ namespace DXIL {
     const unsigned kTextureSampleOffset1OpIdx = 8;
     const unsigned kTextureSampleOffset2OpIdx = 9;
     const unsigned kTextureSampleClampOpIdx = 10;
+
+    // TextureLoad.
+    const unsigned kTextureLoadOffset0OpIdx = 6;
+    const unsigned kTextureLoadOffset1OpIdx = 8;
+    const unsigned kTextureLoadOffset2OpIdx = 9;
 
     // AtomicBinOp.
     const unsigned kAtomicBinOpHandleOpIdx = 1;
@@ -1109,6 +1117,11 @@ namespace DXIL {
 
     // CreateHandleFromResource
     const unsigned kCreateHandleForLibResOpIdx = 1;
+
+    // CreateHandleFromHeap
+    const unsigned kCreateHandleFromHeapHeapIndexOpIdx = 1;
+    const unsigned kCreateHandleFromHeapSamplerHeapOpIdx = 2;
+    const unsigned kCreateHandleFromHeapNonUniformIndexOpIdx = 3;
 
     // TraceRay
     const unsigned kTraceRayRayDescOpIdx = 7;
@@ -1391,33 +1404,37 @@ namespace DXIL {
   const uint64_t
       ShaderFeatureInfo_ComputeShadersPlusRawAndStructuredBuffersViaShader4X =
           0x0002;
-  const uint64_t ShaderFeatureInfo_UAVsAtEveryStage = 0x0004;
-  const uint64_t ShaderFeatureInfo_64UAVs = 0x0008;
-  const uint64_t ShaderFeatureInfo_MinimumPrecision = 0x0010;
-  const uint64_t ShaderFeatureInfo_11_1_DoubleExtensions = 0x0020;
-  const uint64_t ShaderFeatureInfo_11_1_ShaderExtensions = 0x0040;
-  const uint64_t ShaderFeatureInfo_LEVEL9ComparisonFiltering = 0x0080;
-  const uint64_t ShaderFeatureInfo_TiledResources = 0x0100;
-  const uint64_t ShaderFeatureInfo_StencilRef = 0x0200;
-  const uint64_t ShaderFeatureInfo_InnerCoverage = 0x0400;
+  const uint64_t ShaderFeatureInfo_UAVsAtEveryStage              = 0x0004;
+  const uint64_t ShaderFeatureInfo_64UAVs                        = 0x0008;
+  const uint64_t ShaderFeatureInfo_MinimumPrecision              = 0x0010;
+  const uint64_t ShaderFeatureInfo_11_1_DoubleExtensions         = 0x0020;
+  const uint64_t ShaderFeatureInfo_11_1_ShaderExtensions         = 0x0040;
+  const uint64_t ShaderFeatureInfo_LEVEL9ComparisonFiltering     = 0x0080;
+  const uint64_t ShaderFeatureInfo_TiledResources                = 0x0100;
+  const uint64_t ShaderFeatureInfo_StencilRef                    = 0x0200;
+  const uint64_t ShaderFeatureInfo_InnerCoverage                 = 0x0400;
   const uint64_t ShaderFeatureInfo_TypedUAVLoadAdditionalFormats = 0x0800;
-  const uint64_t ShaderFeatureInfo_ROVs = 0x1000;
+  const uint64_t ShaderFeatureInfo_ROVs                          = 0x1000;
   const uint64_t
       ShaderFeatureInfo_ViewportAndRTArrayIndexFromAnyShaderFeedingRasterizer =
           0x2000;
-  const uint64_t ShaderFeatureInfo_WaveOps = 0x4000;
-  const uint64_t ShaderFeatureInfo_Int64Ops = 0x8000;
-  const uint64_t ShaderFeatureInfo_ViewID = 0x10000;
-  const uint64_t ShaderFeatureInfo_Barycentrics = 0x20000;
-  const uint64_t ShaderFeatureInfo_NativeLowPrecision = 0x40000;
-  const uint64_t ShaderFeatureInfo_ShadingRate = 0x80000;
-  const uint64_t ShaderFeatureInfo_Raytracing_Tier_1_1 = 0x100000;
-  const uint64_t ShaderFeatureInfo_SamplerFeedback = 0x200000;
-  const uint64_t ShaderFeatureInfo_AtomicInt64OnTypedResource = 0x400000;
-  const uint64_t ShaderFeatureInfo_AtomicInt64OnGroupShared = 0x800000;
-  const uint64_t ShaderFeatureInfo_DerivativesInMeshAndAmpShaders = 0x1000000;
+  const uint64_t ShaderFeatureInfo_WaveOps                        =     0x4000;
+  const uint64_t ShaderFeatureInfo_Int64Ops                       =     0x8000;
+  const uint64_t ShaderFeatureInfo_ViewID                         =    0x10000;
+  const uint64_t ShaderFeatureInfo_Barycentrics                   =    0x20000;
+  const uint64_t ShaderFeatureInfo_NativeLowPrecision             =    0x40000;
+  const uint64_t ShaderFeatureInfo_ShadingRate                    =    0x80000;
+  const uint64_t ShaderFeatureInfo_Raytracing_Tier_1_1            =   0x100000;
+  const uint64_t ShaderFeatureInfo_SamplerFeedback                =   0x200000;
+  const uint64_t ShaderFeatureInfo_AtomicInt64OnTypedResource     =   0x400000;
+  const uint64_t ShaderFeatureInfo_AtomicInt64OnGroupShared       =   0x800000;
+  const uint64_t ShaderFeatureInfo_DerivativesInMeshAndAmpShaders =  0x1000000;
+  const uint64_t ShaderFeatureInfo_ResourceDescriptorHeapIndexing =  0x2000000;
+  const uint64_t ShaderFeatureInfo_SamplerDescriptorHeapIndexing  =  0x4000000;
 
-  const unsigned ShaderFeatureInfoCount = 25;
+  const uint64_t ShaderFeatureInfo_AtomicInt64OnHeapResource      = 0x10000000;
+
+  const unsigned ShaderFeatureInfoCount = 29;
 
   // DxilSubobjectType must match D3D12_STATE_SUBOBJECT_TYPE, with
   // certain values reserved, since they cannot be used from Dxil.
@@ -1471,6 +1488,28 @@ namespace DXIL {
     CandidateNonOpaqueTriangle = 0,
     CandidateProceduralPrimitive = 1,
   };
+
+  enum class PayloadAccessQualifier : uint32_t {
+    NoAccess = 0,
+    Read = 1,
+    Write = 2,
+    ReadWrite = 3
+  };
+
+  enum class PayloadAccessShaderStage : uint32_t {
+    Caller = 0,
+    Closesthit = 1,
+    Miss = 2,
+    Anyhit = 3, 
+    Invalid = 0xffffffffu
+  }; 
+
+  // Allocate 4 bits per shader stage:
+  //     bits 0-1 for payload access qualifiers
+  //     bits 2-3 reserved for future use
+  const uint32_t PayloadAccessQualifierBitsPerStage = 4;
+  const uint32_t PayloadAccessQualifierValidMaskPerStage = 3;
+  const uint32_t PayloadAccessQualifierValidMask = 0x00003333;
 
   inline bool IsValidHitGroupType(HitGroupType type) {
     return (type >= HitGroupType::Triangle && type < HitGroupType::LastEntry);

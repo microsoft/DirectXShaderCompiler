@@ -1,10 +1,11 @@
-// RUN: %dxc -T ps_6_6 %s | FileCheck %s
+// RUN: %dxc -T cs_6_6 %s | FileCheck %s
 
 groupshared float   resG[256];
 RWBuffer<float>     resB;
 RWStructuredBuffer<float> resS;
 
-void main( float a : A, int b: B, float c :C) : SV_Target
+[numthreads(1,1,1)]
+void main( float a : A, int b: B, float c :C)
 {
   // Test some disallowed atomic binop intrinsics with floats as both args
 

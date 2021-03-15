@@ -130,7 +130,7 @@ DxilResourceProperties loadPropsFromConstant(const Constant &C) {
 
 DxilResourceProperties
 loadPropsFromAnnotateHandle(DxilInst_AnnotateHandle &annotateHandle,
-                            llvm::Type *Ty, const ShaderModel &SM) {
+                            const ShaderModel &SM) {
   Constant *ResProp = cast<Constant>(annotateHandle.get_props());
   return loadPropsFromConstant(*ResProp);
 }
@@ -159,7 +159,6 @@ DxilResourceProperties loadPropsFromResourceBase(const DxilResourceBase *Res) {
       break;
     case DXIL::ResourceKind::Texture2DMS:
     case DXIL::ResourceKind::Texture2DMSArray:
-      break;
     case DXIL::ResourceKind::TypedBuffer:
     case DXIL::ResourceKind::Texture1D:
     case DXIL::ResourceKind::Texture2D:

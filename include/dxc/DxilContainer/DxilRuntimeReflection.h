@@ -148,6 +148,7 @@ enum class DxilResourceFlag : uint32_t {
   UAVCounter                = 1 << 1,
   UAVRasterizerOrderedView  = 1 << 2,
   DynamicIndexing           = 1 << 3,
+  Atomics64Use              = 1 << 4,
 };
 
 struct RuntimeDataResourceInfo {

@@ -287,9 +287,7 @@ public:
   TEST_METHOD(BasicTriangleTest);
   TEST_METHOD(BasicTriangleOpTest);
 
-  BEGIN_TEST_METHOD(BasicTriangleOpTestHalf)
-    TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.2
-  END_TEST_METHOD()
+  TEST_METHOD(BasicTriangleOpTestHalf);
 
   TEST_METHOD(OutOfBoundsTest);
   TEST_METHOD(SaturateTest);
@@ -305,6 +303,7 @@ public:
   TEST_METHOD(ComputeSampleTest);
   TEST_METHOD(AtomicsTest);
   TEST_METHOD(Atomics64Test);
+  TEST_METHOD(AtomicsRawHeap64Test);
   TEST_METHOD(AtomicsTyped64Test);
   TEST_METHOD(AtomicsShared64Test);
   TEST_METHOD(AtomicsFloatTest);
@@ -316,14 +315,10 @@ public:
   TEST_METHOD(DynamicResourcesTest)
   TEST_METHOD(QuadReadTest)
 
-  BEGIN_TEST_METHOD(CBufferTestHalf)
-    TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.2
-  END_TEST_METHOD()
+  TEST_METHOD(CBufferTestHalf);
 
   TEST_METHOD(BasicShaderModel61);
-  BEGIN_TEST_METHOD(BasicShaderModel63)
-    TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.3
-  END_TEST_METHOD()
+  TEST_METHOD(BasicShaderModel63);
 
   BEGIN_TEST_METHOD(WaveIntrinsicsActiveIntTest)
     TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#WaveIntrinsicsActiveIntTable")
@@ -362,15 +357,12 @@ public:
 
   BEGIN_TEST_METHOD(UnaryHalfOpTest)
     TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#UnaryHalfOpTable")
-    TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.2
   END_TEST_METHOD()
   BEGIN_TEST_METHOD(BinaryHalfOpTest)
     TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#BinaryHalfOpTable")
-    TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.2
   END_TEST_METHOD()
   BEGIN_TEST_METHOD(TertiaryHalfOpTest)
     TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#TertiaryHalfOpTable")
-    TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.2
   END_TEST_METHOD()
 
   BEGIN_TEST_METHOD(UnaryIntOpTest)
@@ -395,28 +387,22 @@ public:
 
   BEGIN_TEST_METHOD(UnaryInt16OpTest)
     TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#UnaryInt16OpTable")
-    TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.2
   END_TEST_METHOD()
   BEGIN_TEST_METHOD(BinaryInt16OpTest)
     TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#BinaryInt16OpTable")
-    TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.2
   END_TEST_METHOD()
   BEGIN_TEST_METHOD(TertiaryInt16OpTest)
     TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#TertiaryInt16OpTable")
-    TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.2
   END_TEST_METHOD()
 
   BEGIN_TEST_METHOD(UnaryUint16OpTest)
     TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#UnaryUint16OpTable")
-    TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.2
   END_TEST_METHOD()
   BEGIN_TEST_METHOD(BinaryUint16OpTest)
     TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#BinaryUint16OpTable")
-    TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.2
   END_TEST_METHOD()
   BEGIN_TEST_METHOD(TertiaryUint16OpTest)
     TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#TertiaryUint16OpTable")
-    TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.2
   END_TEST_METHOD()
 
   BEGIN_TEST_METHOD(DotTest)
@@ -441,12 +427,10 @@ public:
 
   BEGIN_TEST_METHOD(DenormBinaryFloatOpTest)
     TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#DenormBinaryFloatOpTable")
-    TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.2
   END_TEST_METHOD()
 
   BEGIN_TEST_METHOD(DenormTertiaryFloatOpTest)
     TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#DenormTertiaryFloatOpTable")
-    TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.2
   END_TEST_METHOD()
 
   TEST_METHOD(BarycentricsTest);
@@ -454,36 +438,20 @@ public:
   TEST_METHOD(ComputeRawBufferLdStI32);
   TEST_METHOD(ComputeRawBufferLdStFloat);
 
-  BEGIN_TEST_METHOD(ComputeRawBufferLdStI64)
-    TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.3
-  END_TEST_METHOD()
-  BEGIN_TEST_METHOD(ComputeRawBufferLdStDouble)
-    TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.3
-  END_TEST_METHOD()
+  TEST_METHOD(ComputeRawBufferLdStI64);
+  TEST_METHOD(ComputeRawBufferLdStDouble);
     
-  BEGIN_TEST_METHOD(ComputeRawBufferLdStI16)
-    TEST_METHOD_PROPERTY(L"Priority", L"2") // This test is disabled because of a bug in WARP; TODO: enable once the bug is fixed
-  END_TEST_METHOD()
-  BEGIN_TEST_METHOD(ComputeRawBufferLdStHalf)
-    TEST_METHOD_PROPERTY(L"Priority", L"2") // This test is disabled because of a bug in WARP; TODO: enable once the bug is fixed
-  END_TEST_METHOD()
+  TEST_METHOD(ComputeRawBufferLdStI16);
+  TEST_METHOD(ComputeRawBufferLdStHalf);
 
   TEST_METHOD(GraphicsRawBufferLdStI32);
   TEST_METHOD(GraphicsRawBufferLdStFloat);
 
-  BEGIN_TEST_METHOD(GraphicsRawBufferLdStI64)
-    TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.3
-  END_TEST_METHOD()
-  BEGIN_TEST_METHOD(GraphicsRawBufferLdStDouble)
-    TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp supports this feature in Shader Model 6.3
-  END_TEST_METHOD()
+  TEST_METHOD(GraphicsRawBufferLdStI64);
+  TEST_METHOD(GraphicsRawBufferLdStDouble);
 
-  BEGIN_TEST_METHOD(GraphicsRawBufferLdStI16)
-    TEST_METHOD_PROPERTY(L"Priority", L"2") // This test is disabled because of a bug in WARP; TODO: enable once the bug is fixed
-  END_TEST_METHOD()
-  BEGIN_TEST_METHOD(GraphicsRawBufferLdStHalf)
-    TEST_METHOD_PROPERTY(L"Priority", L"2") // This test is disabled because of a bug in WARP; TODO: enable once the bug is fixed
-  END_TEST_METHOD()
+  TEST_METHOD(GraphicsRawBufferLdStI16);
+  TEST_METHOD(GraphicsRawBufferLdStHalf);
 
   BEGIN_TEST_METHOD(PackUnpackTest)
     TEST_METHOD_PROPERTY(L"DataSource", L"Table:ShaderOpArithTable.xml#PackUnpackOpTable")
@@ -1231,11 +1199,9 @@ public:
 #endif
   }
 
-  // Replace with appropriate WDK check when available
-#define SM66_RUNTIME_SUPPORT 0
 
   bool DoesDeviceSupportMeshAmpDerivatives(ID3D12Device *pDevice) {
-#if SM66_RUNTIME_SUPPORT
+#if defined(NTDDI_WIN10_FE) && WDK_NTDDI_VERSION >= NTDDI_WIN10_FE
     D3D12_FEATURE_DATA_D3D12_OPTIONS7 O7;
     D3D12_FEATURE_DATA_D3D12_OPTIONS9 O9;
     if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS7, &O7, sizeof(O7))) ||
@@ -1250,7 +1216,7 @@ public:
   }
 
   bool DoesDeviceSupportTyped64Atomics(ID3D12Device *pDevice) {
-#if SM66_RUNTIME_SUPPORT
+#if defined(NTDDI_WIN10_FE) && WDK_NTDDI_VERSION >= NTDDI_WIN10_FE
     D3D12_FEATURE_DATA_D3D12_OPTIONS9 O9;
     if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS9, &O9, sizeof(O9))))
       return false;
@@ -1261,8 +1227,20 @@ public:
 #endif
   }
 
+  bool DoesDeviceSupportHeap64Atomics(ID3D12Device *pDevice) {
+#if defined(NTDDI_WIN10_CO) && WDK_NTDDI_VERSION >= NTDDI_WIN10_CO
+    D3D12_FEATURE_DATA_D3D12_OPTIONS11 O11;
+    if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS11, &O11, sizeof(O11))))
+      return false;
+    return O11.AtomicInt64OnDescriptorHeapResourceSupported != FALSE;
+#else
+    UNREFERENCED_PARAMETER(pDevice);
+    return false;
+#endif
+  }
+
   bool DoesDeviceSupportShared64Atomics(ID3D12Device *pDevice) {
-#if SM66_RUNTIME_SUPPORT
+#if defined(NTDDI_WIN10_FE) && WDK_NTDDI_VERSION >= NTDDI_WIN10_FE
     D3D12_FEATURE_DATA_D3D12_OPTIONS9 O9;
     if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS9, &O9, sizeof(O9))))
       return false;
@@ -2974,6 +2952,13 @@ void ExecutionTest::BasicTriangleTestSetup(LPCSTR ShaderOpName, LPCWSTR FileName
   if (!CreateDevice(&pDevice, testModel))
     return;
 
+  // As this is used, 6.2 requirement always comes with requiring native 16-bit ops
+  if (testModel == D3D_SHADER_MODEL_6_2 && !DoesDeviceSupportNative16bitOps(pDevice)) {
+    WEX::Logging::Log::Comment(L"Device does not support native 16-bit operations.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
   std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(pDevice, m_support, pStream, ShaderOpName, nullptr);
   MappedData data;
   D3D12_RESOURCE_DESC &D = test->ShaderOp->GetResourceByName("RTarget")->Desc;
@@ -3087,7 +3072,40 @@ TEST_F(ExecutionTest, PartialDerivTest) {
   VerifyDerivResults(pPixels, offsetCenter);
 }
 
+struct Dispatch {
+  int width, height, depth;
+};
+
+std::shared_ptr<st::ShaderOpTest>
+RunDispatch(ID3D12Device *pDevice, dxc::DxcDllSupport &support,
+            st::ShaderOp *pShaderOp, const Dispatch D) {
+  char compilerOptions[256];
+
+  std::shared_ptr<st::ShaderOpTest> test = std::make_shared<st::ShaderOpTest>();
+  test->SetDxcSupport(&support);
+  test->SetInitCallback(nullptr);
+  test->SetDevice(pDevice);
+
+  // format compiler args
+  VERIFY_IS_TRUE(sprintf_s(compilerOptions, sizeof(compilerOptions),
+                           "-D DISPATCHX=%d -D DISPATCHY=%d -D DISPATCHZ=%d ",
+                           D.width, D.height, D.depth));
+
+  for (st::ShaderOpShader &S : pShaderOp->Shaders)
+    S.Arguments = compilerOptions;
+
+  pShaderOp->DispatchX = D.width;
+  pShaderOp->DispatchY = D.height;
+  pShaderOp->DispatchZ = D.depth;
+
+  test->RunShaderOp(pShaderOp);
+
+  return test;
+}
+
 TEST_F(ExecutionTest, DerivativesTest) {
+  const UINT pixelSize = 4; // always float4
+
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
   CComPtr<IStream> pStream;
   ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
@@ -3102,99 +3120,97 @@ TEST_F(ExecutionTest, DerivativesTest) {
 
   st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("Derivatives");
 
-  LPCSTR CS = pShaderOp->CS;
-
-  struct Dispatch {
-    int x, y, z;
-    int mx, my, mz;
-  };
   std::vector<Dispatch> dispatches =
   {
-   {32, 32, 1, 8, 8, 1},
-   {64, 4, 1, 64, 2, 1},
-   {1, 4, 64, 1, 4, 32},
-   {64, 1, 1, 64, 1, 1},
-   {1, 64, 1, 1, 64, 1},
-   {1, 1, 64, 1, 1, 64},
-   {16, 16, 3, 4, 4, 3},
-   {32, 3, 8, 8, 3, 2},
-   {3, 1, 64, 3, 1, 32}
+   {40, 1, 1},
+   {1000, 1, 1},
+   {32, 32, 1},
+   {16, 64, 1},
+   {4, 12, 4},
+   {4, 64, 1},
+   {16, 16, 3},
+   {32, 8, 2}
   };
 
-  char compilerOptions[256];
+  std::vector<Dispatch> meshDispatches =
+  {
+   {60, 1, 1},
+   {128, 1, 1},
+   {8, 8, 1},
+   {32, 8, 1},
+   {8, 16, 4},
+   {8, 64, 1},
+   {8, 8, 3},
+  };
+
+  std::vector<Dispatch> badDispatches =
+  {
+   {16, 3, 1},
+   {2, 16, 1},
+   {33, 1, 1}
+  };
+
+  pShaderOp->UseWarpDevice = GetTestParamUseWARP(true);
+  LPCSTR CS = pShaderOp->CS;
+
+  MappedData data;
+
   for (Dispatch &D : dispatches) {
-
-    UINT width = D.x;
-    UINT height = D.y;
-    UINT depth = D.z;
-
-    UINT mwidth = D.mx;
-    UINT mheight = D.my;
-    UINT mdepth = D.mz;
-    UINT pixelSize = 4; // always float4
-
-    // format compiler args
-    VERIFY_IS_TRUE(sprintf_s(compilerOptions, sizeof(compilerOptions),
-                             "-D DISPATCHX=%d -D DISPATCHY=%d -D DISPATCHZ=%d "
-                             "-D MESHDISPATCHX=%d -D MESHDISPATCHY=%d -D MESHDISPATCHZ=%d",
-                             width, height, depth, mwidth, mheight, mdepth));
-
-    for (st::ShaderOpShader &S : pShaderOp->Shaders)
-      S.Arguments = compilerOptions;
-
-    pShaderOp->DispatchX = width;
-    pShaderOp->DispatchY = height;
-    pShaderOp->DispatchZ = depth;
-
     // Test Compute Shader
-    pShaderOp->CS = CS;
-    std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Derivatives", nullptr, ShaderOpSet);
-    MappedData data;
+    std::shared_ptr<st::ShaderOpTest> test = RunDispatch(pDevice, m_support, pShaderOp, D);
 
-    test->Test->GetReadBackData("U0", &data);
-    const float *pPixels = (float *)data.data();
+    test->GetReadBackData("U0", &data);
 
-    // To find roughly the center for compute, divide the pixel count in half,
-    // truncate to next lowest power of 16 (4x4), which is the repeating period
-    // and then add 10 to reach the point the test expects
-    UINT centerIndex = (((UINT64)(width * height * depth)/2) & ~0xF) + 10;
+    float *pPixels = (float *)data.data();;
+
+    UINT centerIndex = 0;
+    if (D.height == 1) {
+      centerIndex = (((UINT64)(D.width * D.height * D.depth) / 2) & ~0xF) + 10;
+    } else {
+      // To find roughly the center for compute, divide the height and width in half,
+      // truncate to the previous multiple of 4 to get to the start of the repeating pattern
+      // and then add 2 rows to get to the second row of quads and 2 to get to the first texel
+      // of the second row of that quad row
+      UINT centerRow = ((D.height/2UL) & ~0x3) + 2;
+      UINT centerCol = ((D.width/2UL) & ~0x3) + 2;
+      centerIndex = centerRow * D.width + centerCol;
+    }
     UINT offsetCenter = centerIndex * pixelSize;
     LogCommentFmt(L"Verifying derivatives in compute shader results");
     VerifyDerivResults(pPixels, offsetCenter);
+  }
 
-    if (DoesDeviceSupportMeshAmpDerivatives(pDevice)) {
-      // Disable CS so mesh goes forward
-      pShaderOp->CS = nullptr;
-      test = RunShaderOpTestAfterParse(pDevice, m_support, "Derivatives", nullptr, ShaderOpSet);
-      test->Test->GetReadBackData("U1", &data);
-      pPixels = (float *)data.data();
-      centerIndex = (((UINT64)(mwidth * mheight * mdepth)/2) & ~0xF) + 10;
-      offsetCenter = centerIndex * pixelSize;
+  if (DoesDeviceSupportMeshAmpDerivatives(pDevice)) {
+    // Disable CS so mesh goes forward
+    pShaderOp->CS = nullptr;
+
+    for (Dispatch &D : meshDispatches) {
+      std::shared_ptr<st::ShaderOpTest> test = RunDispatch(pDevice, m_support, pShaderOp, D);
+
+      test->GetReadBackData("U1", &data);
+      const float *pPixels = (float *)data.data();
+      UINT centerIndex = (((UINT64)(D.width * D.height * D.depth)/2) & ~0xF) + 10;
+      UINT offsetCenter = centerIndex * pixelSize;
       LogCommentFmt(L"Verifying derivatives in mesh shader results");
       VerifyDerivResults(pPixels, offsetCenter);
 
-      test->Test->GetReadBackData("U2", &data);
+      test->GetReadBackData("U2", &data);
       pPixels = (float *)data.data();
       LogCommentFmt(L"Verifying derivatives in amplification shader results");
       VerifyDerivResults(pPixels, offsetCenter);
     }
   }
 
-  // Final test with not divisible by 4 dispatch size just to make sure it runs
-  for (st::ShaderOpShader &S : pShaderOp->Shaders)
-    S.Arguments = "-D DISPATCHX=3 -D DISPATCHY=3 -D DISPATCHZ=3 "
-                  "-D MESHDISPATCHX=3 -D MESHDISPATCHY=3 -D MESHDISPATCHZ=3";
+  // Final tests with invalid dispatch size just to make sure they run
+  for (Dispatch &D : badDispatches) {
+    // Test Compute Shader
+    pShaderOp->CS = CS;
+    std::shared_ptr<st::ShaderOpTest> test = RunDispatch(pDevice, m_support, pShaderOp, D);
 
-  pShaderOp->DispatchX = 3;
-  pShaderOp->DispatchY = 3;
-  pShaderOp->DispatchZ = 3;
-
-  // Test Compute Shader
-  pShaderOp->CS = CS;
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Derivatives", nullptr, ShaderOpSet);
-  if (DoesDeviceSupportMeshAmpDerivatives(pDevice)) {
-    pShaderOp->CS = nullptr;
-    test = RunShaderOpTestAfterParse(pDevice, m_support, "Derivatives", nullptr, ShaderOpSet);
+    if (DoesDeviceSupportMeshAmpDerivatives(pDevice)) {
+      pShaderOp->CS = nullptr;
+      test = RunDispatch(pDevice, m_support, pShaderOp, D);
+    }
   }
 }
 
@@ -3408,6 +3424,7 @@ TEST_F(ExecutionTest, ComputeSampleTest) {
   // Test 2D compute shader
   pShaderOp->CS = CS2;
 
+  test.reset();
   test = RunShaderOpTestAfterParse(pDevice, m_support, "ComputeSample", SampleInitFn, ShaderOpSet);
 
   test->Test->GetReadBackData("U0", &data);
@@ -7962,6 +7979,12 @@ TEST_F(ExecutionTest, PackUnpackTest) {
     }
 #endif
 
+    if (!DoesDeviceSupportNative16bitOps(pDevice)) {
+        WEX::Logging::Log::Comment(L"Device does not support native 16-bit operations.");
+        WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+        return;
+    }
+
     int tableSize = sizeof(PackUnpackOpParameters) / sizeof(TableParameter);
     TableParameterHandler handler(PackUnpackOpParameters, tableSize);
 
@@ -8293,6 +8316,15 @@ TEST_F(ExecutionTest, DynamicResourcesTest) {
   CComPtr<ID3D12Device> pDevice;
   if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6))
     return;
+
+  // ResourceDescriptorHeap/SamplerDescriptorHeap requires Resource Binding Tier 3
+  D3D12_FEATURE_DATA_D3D12_OPTIONS devOptions;
+  VERIFY_SUCCEEDED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS, &devOptions, sizeof(devOptions)));
+  if (devOptions.ResourceBindingTier < D3D12_RESOURCE_BINDING_TIER_3) {
+    WEX::Logging::Log::Comment(L"Device does not support Resource Binding Tier 3");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
 
   RunResourceTest(pDevice, pShader, L"cs_6_6", /*isDynamic*/true);
 }
@@ -8627,9 +8659,9 @@ void VerifyAtomicsTypedTest(std::shared_ptr<ShaderOpTestResult> test,
 
   // Typed resources can't share between 32 and 64 bits
   if (bitSize == 32) {
-    test->Test->GetReadBackData("U4", &uintData);
-    test->Test->GetReadBackData("U5", &sintData);
-    test->Test->GetReadBackData("U6", &xchgData);
+    test->Test->GetReadBackData("U6", &uintData);
+    test->Test->GetReadBackData("U7", &sintData);
+    test->Test->GetReadBackData("U8", &xchgData);
   } else {
     test->Test->GetReadBackData("U12", &uintData);
     test->Test->GetReadBackData("U13", &sintData);
@@ -8646,9 +8678,9 @@ void VerifyAtomicsTypedTest(std::shared_ptr<ShaderOpTestResult> test,
 
   // Typed resources can't share between 32 and 64 bits
   if (bitSize == 32) {
-    test->Test->GetReadBackData("U7", &uintData);
-    test->Test->GetReadBackData("U8", &sintData);
-    test->Test->GetReadBackData("U9", &xchgData);
+    test->Test->GetReadBackData("U9", &uintData);
+    test->Test->GetReadBackData("U10", &sintData);
+    test->Test->GetReadBackData("U11", &xchgData);
   } else {
     test->Test->GetReadBackData("U15", &uintData);
     test->Test->GetReadBackData("U16", &sintData);
@@ -8673,8 +8705,8 @@ void VerifyAtomicsSharedTest(std::shared_ptr<ShaderOpTestResult> test,
   const BYTE *pUint = nullptr;
   const BYTE *pXchg = nullptr;
 
-  test->Test->GetReadBackData("U10", &uintData);
-  test->Test->GetReadBackData("U11", &xchgData);
+  test->Test->GetReadBackData("U4", &uintData);
+  test->Test->GetReadBackData("U5", &xchgData);
 
   pUint = (BYTE *)uintData.data();
   pXchg = (BYTE *)xchgData.data();
@@ -8703,11 +8735,11 @@ TEST_F(ExecutionTest, AtomicsTest) {
     std::make_shared<st::ShaderOpSet>();
   st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
 
-  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("Atomics");
+  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("AtomicsHeap");
 
   // Test compute shader
   LogCommentFmt(L"Verifying 32-bit integer atomic operations in compute shader");
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap", nullptr, ShaderOpSet);
 
   VerifyAtomicsTest(test, 32*32, 32);
   VerifyAtomicsSharedTest(test, 32*32, 32);
@@ -8716,7 +8748,7 @@ TEST_F(ExecutionTest, AtomicsTest) {
   pShaderOp->CS = nullptr;
   if (DoesDeviceSupportMeshShaders(pDevice)) {
     LogCommentFmt(L"Verifying 32-bit integer atomic operations in amp/mesh/pixel shaders");
-    test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+    test = RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap", nullptr, ShaderOpSet);
     VerifyAtomicsTest(test, 8*8*2 + 8*8*2 + 64*64, 32);
     VerifyAtomicsSharedTest(test, 8*8*2 + 8*8*2, 32);
   }
@@ -8724,7 +8756,7 @@ TEST_F(ExecutionTest, AtomicsTest) {
   // Test Vertex + Pixel shader
   pShaderOp->MS = nullptr;
   LogCommentFmt(L"Verifying 32-bit integer atomic operations in vert/pixel shaders");
-  test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+  test = RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap", nullptr, ShaderOpSet);
   VerifyAtomicsTest(test, 64*64+6, 32);
 }
 
@@ -8737,11 +8769,81 @@ TEST_F(ExecutionTest, Atomics64Test) {
   if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6))
     return;
 
+  if (!DoesDeviceSupportInt64(pDevice)) {
+    WEX::Logging::Log::Comment(L"Device does not support int64 operations.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
   std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
     std::make_shared<st::ShaderOpSet>();
   st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
 
-  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("Atomics");
+  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("AtomicsRoot");
+
+  // Reassign shader stages to 64-bit versions
+  // Collect 64-bit shaders
+  LPCSTR CS64 = nullptr, VS64 = nullptr, PS64 = nullptr;
+  LPCSTR AS64 = nullptr, MS64 = nullptr;
+  for (st::ShaderOpShader &S : pShaderOp->Shaders) {
+    if (!strcmp(S.Name, "CS")) CS64 = S.Name;
+    if (!strcmp(S.Name, "VS")) VS64 = S.Name;
+    if (!strcmp(S.Name, "PS")) PS64 = S.Name;
+    if (!strcmp(S.Name, "AS")) AS64 = S.Name;
+    if (!strcmp(S.Name, "MS")) MS64 = S.Name;
+  }
+  pShaderOp->CS = CS64;
+  pShaderOp->VS = VS64;
+  pShaderOp->PS = PS64;
+  pShaderOp->AS = AS64;
+  pShaderOp->MS = MS64;
+
+  // Test compute shader
+  LogCommentFmt(L"Verifying 64-bit integer atomic operations on raw buffers in compute shader");
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsRoot", nullptr, ShaderOpSet);
+  VerifyAtomicsRawTest(test, 32*32, 64);
+
+  // Test mesh shader if available
+  pShaderOp->CS = nullptr;
+  if (DoesDeviceSupportMeshShaders(pDevice)) {
+    LogCommentFmt(L"Verifying 64-bit integer atomic operations on raw buffers in amp/mesh/pixel shader");
+    test = RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsRoot", nullptr, ShaderOpSet);
+    VerifyAtomicsRawTest(test, 8*8*2 + 8*8*2 + 64*64, 64);
+  }
+
+  // Test Vertex + Pixel shader
+  pShaderOp->MS = nullptr;
+  LogCommentFmt(L"Verifying 64-bit integer atomic operations on raw buffers in vert/pixel shader");
+  test = RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsRoot", nullptr, ShaderOpSet);
+  VerifyAtomicsRawTest(test, 64*64+6, 64);
+}
+
+TEST_F(ExecutionTest, AtomicsRawHeap64Test) {
+  WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+  CComPtr<IStream> pStream;
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6))
+    return;
+
+  if (!DoesDeviceSupportInt64(pDevice)) {
+    WEX::Logging::Log::Comment(L"Device does not support int64 operations.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
+  if (!DoesDeviceSupportHeap64Atomics(pDevice)) {
+    WEX::Logging::Log::Comment(L"Device does not support 64-bit atomic operations on heap resources.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+    std::make_shared<st::ShaderOpSet>();
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+
+  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("AtomicsHeap");
 
   // Reassign shader stages to 64-bit versions
   // Collect 64-bit shaders
@@ -8761,22 +8863,22 @@ TEST_F(ExecutionTest, Atomics64Test) {
   pShaderOp->MS = MS64;
 
   // Test compute shader
-  LogCommentFmt(L"Verifying 64-bit integer atomic operations on raw buffers in compute shader");
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+  LogCommentFmt(L"Verifying 64-bit integer atomic operations on heap raw buffers in compute shader");
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap", nullptr, ShaderOpSet);
   VerifyAtomicsRawTest(test, 32*32, 64);
 
   // Test mesh shader if available
   pShaderOp->CS = nullptr;
   if (DoesDeviceSupportMeshShaders(pDevice)) {
-    LogCommentFmt(L"Verifying 64-bit integer atomic operations on raw buffers in amp/mesh/pixel shader");
-    test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+    LogCommentFmt(L"Verifying 64-bit integer atomic operations on heap raw buffers in amp/mesh/pixel shader");
+    test = RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap", nullptr, ShaderOpSet);
     VerifyAtomicsRawTest(test, 8*8*2 + 8*8*2 + 64*64, 64);
   }
 
   // Test Vertex + Pixel shader
   pShaderOp->MS = nullptr;
-  LogCommentFmt(L"Verifying 64-bit integer atomic operations on raw buffers in vert/pixel shader");
-  test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+  LogCommentFmt(L"Verifying 64-bit integer atomic operations on heap raw buffers in vert/pixel shader");
+  test = RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap", nullptr, ShaderOpSet);
   VerifyAtomicsRawTest(test, 64*64+6, 64);
 }
 
@@ -8805,7 +8907,7 @@ TEST_F(ExecutionTest, AtomicsTyped64Test) {
     std::make_shared<st::ShaderOpSet>();
   st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
 
-  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("Atomics");
+  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("AtomicsHeap");
 
   // Reassign shader stages to 64-bit versions
   // Collect 64-bit shaders
@@ -8826,21 +8928,21 @@ TEST_F(ExecutionTest, AtomicsTyped64Test) {
 
   // Test compute shader
   LogCommentFmt(L"Verifying 64-bit integer atomic operations on typed resources in compute shader");
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap", nullptr, ShaderOpSet);
   VerifyAtomicsTypedTest(test, 32*32, 64);
 
   // Test mesh shader if available
   pShaderOp->CS = nullptr;
   if (DoesDeviceSupportMeshShaders(pDevice)) {
     LogCommentFmt(L"Verifying 64-bit integer atomic operations on typed resources in amp/mesh/pixel shader");
-    test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+    test = RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap", nullptr, ShaderOpSet);
     VerifyAtomicsTypedTest(test, 8*8*2 + 8*8*2 + 64*64, 64);
   }
 
   // Test Vertex + Pixel shader
   pShaderOp->MS = nullptr;
   LogCommentFmt(L"Verifying 64-bit integer atomic operations on typed resources in vert/pixel shader");
-  test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+  test = RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsHeap", nullptr, ShaderOpSet);
   VerifyAtomicsTypedTest(test, 64*64+6, 64);
 }
 
@@ -8869,7 +8971,7 @@ TEST_F(ExecutionTest, AtomicsShared64Test) {
     std::make_shared<st::ShaderOpSet>();
   st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
 
-  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("Atomics");
+  st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("AtomicsRoot");
 
   // Reassign shader stages to 64-bit versions
   // Collect 64-bit shaders
@@ -8888,14 +8990,14 @@ TEST_F(ExecutionTest, AtomicsShared64Test) {
   pShaderOp->MS = MS64;
 
   LogCommentFmt(L"Verifying 64-bit integer atomic operations on groupshared variables in compute shader");
-  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsRoot", nullptr, ShaderOpSet);
   VerifyAtomicsSharedTest(test, 32*32, 64);
 
   // Test mesh shader if available
   pShaderOp->CS = nullptr;
   if (DoesDeviceSupportMeshShaders(pDevice)) {
     LogCommentFmt(L"Verifying 64-bit integer atomic operations on groupshared variables in amp/mesh/pixel shader");
-    test = RunShaderOpTestAfterParse(pDevice, m_support, "Atomics", nullptr, ShaderOpSet);
+    test = RunShaderOpTestAfterParse(pDevice, m_support, "AtomicsRoot", nullptr, ShaderOpSet);
     VerifyAtomicsSharedTest(test, 8*8*2 + 8*8*2, 64);
   }
 }
@@ -9222,7 +9324,7 @@ bool VerifyHelperLaneWaveResults(ExecutionTest::D3D_SHADER_MODEL sm, HelperLaneW
     passed &= HelperLaneResultLogAndVerify(L"QuadReadAcross* - lane 0 / pixel (0,0) - IsHelperLane()", quad_tr_exp.is_helper_across_Diag, quad_tr.is_helper_across_Diag);
   }
 
-  if (sm >= D3D_SHADER_MODEL_6_5) {
+  if (sm >= ExecutionTest::D3D_SHADER_MODEL_6_5) {
     HelperLaneWaveTestResult65& tr65 = testResults.sm65;
     HelperLaneWaveTestResult65& tr65exp = expectedResults.sm65;
     
