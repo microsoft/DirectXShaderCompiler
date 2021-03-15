@@ -3,6 +3,25 @@
 // To test with the classic compiler, run
 // %sdxroot%\tools\x86\fxc.exe /T vs_5_1 indexing-operator.hlsl
 
+/* Expected notes with no locations (implicit built-in):
+  expected-note@? {{function 'operator[]<const vector<float, 4> &>' which returns const-qualified type 'const vector<float, 4> &' declared here}}
+  expected-note@? {{function 'operator[]<const vector<float, 4> &>' which returns const-qualified type 'const vector<float, 4> &' declared here}}
+  expected-note@? {{function 'operator[]<const vector<float, 4> &>' which returns const-qualified type 'const vector<float, 4> &' declared here}}
+  expected-note@? {{function 'operator[]<const vector<float, 4> &>' which returns const-qualified type 'const vector<float, 4> &' declared here}}
+  expected-note@? {{function 'operator[]<const vector<float, 4> &>' which returns const-qualified type 'const vector<float, 4> &' declared here}}
+  expected-note@? {{function 'operator[]<const vector<float, 4> &>' which returns const-qualified type 'const vector<float, 4> &' declared here}}
+  expected-note@? {{function 'operator[]<const vector<float, 4> &>' which returns const-qualified type 'const vector<float, 4> &' declared here}}
+  expected-note@? {{function 'operator[]<const vector<float, 4> &>' which returns const-qualified type 'const vector<float, 4> &' declared here}}
+  expected-note@? {{function 'operator[]<const vector<float, 4> &>' which returns const-qualified type 'const vector<float, 4> &' declared here}}
+  expected-note@? {{function 'operator[]<const vector<float, 4> &>' which returns const-qualified type 'const vector<float, 4> &' declared here}}
+  expected-note@? {{function 'operator[]<const vector<float, 4> &>' which returns const-qualified type 'const vector<float, 4> &' declared here}}
+  expected-note@? {{function 'operator[]<const vector<float, 4> &>' which returns const-qualified type 'const vector<float, 4> &' declared here}}
+  expected-note@? {{function 'operator[]<const vector<float, 4> &>' which returns const-qualified type 'const vector<float, 4> &' declared here}}
+  expected-note@? {{function 'operator[]<const vector<float, 4> &>' which returns const-qualified type 'const vector<float, 4> &' declared here}}
+  expected-note@? {{function 'operator[]<const vector<float, 4> &>' which returns const-qualified type 'const vector<float, 4> &' declared here}}
+  expected-note@? {{function 'operator[]<const vector<float, 4> &>' which returns const-qualified type 'const vector<float, 4> &' declared here}}
+*/
+
 Buffer g_b;
 StructuredBuffer<float4> g_sb;
 Texture1D g_t1d;

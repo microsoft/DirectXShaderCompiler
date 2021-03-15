@@ -109,7 +109,7 @@ fxcExcludedTests = [
     'RunCppErrorsHV2015',
     'RunCXX11Attributes',
     'RunEnums',
-    'RunIncompleteType': 'incomplete-type.hlsl',
+    'RunIncompleteType',
     'RunIntrinsicExamples',
     'RunMatrixSyntaxExactPrecision',
     'RunRayTracings',

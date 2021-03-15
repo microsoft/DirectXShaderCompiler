@@ -8,7 +8,7 @@ struct ObjStruct { Buffer a; };
 void main()
 {
   (Buffer[1])0; /* expected-error {{cannot convert from 'literal int' to 'Buffer [1]'}} fxc-error {{X3017: cannot convert from 'int' to 'Buffer<float4>[1]'}} */
-  (ObjStruct)0; /* expected-error {{cannot convert from 'literal int' to 'ObjStruct'}} /* fxc-error {{X3017: cannot convert from 'int' to 'struct ObjStruct'}} */
+  (ObjStruct)0; /* expected-error {{cannot convert from 'literal int' to 'ObjStruct'}} fxc-error {{X3017: cannot convert from 'int' to 'struct ObjStruct'}} */
   (Buffer[1])(int[1])0; /* expected-error {{cannot convert from 'int [1]' to 'Buffer [1]'}} fxc-error {{X3017: cannot convert from 'const int[1]' to 'Buffer<float4>[1]'}} */
   (ObjStruct)(NumStruct)0; /* expected-error {{cannot convert from 'NumStruct' to 'ObjStruct'}} fxc-error {{X3017: cannot convert from 'const struct NumStruct' to 'struct ObjStruct'}} */
 
