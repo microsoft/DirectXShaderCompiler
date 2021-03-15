@@ -405,6 +405,8 @@ def P : Separate<["-", "/"], "P">, Flags<[CoreOption, DriverOption]>, Group<hlsl
 
 def dumpbin : Flag<["-", "/"], "dumpbin">, Flags<[DriverOption]>, Group<hlslutil_Group>,
   HelpText<"Load a binary file rather than compiling">;
+def link : Flag<["-", "/"], "link">, Flags<[DriverOption]>, Group<hlslutil_Group>,
+  HelpText<"Link list of libraries provided in <inputs> argument separated by ';'">;
 def Qstrip_reflect : Flag<["-", "/"], "Qstrip_reflect">, Flags<[CoreOption, DriverOption]>, Group<hlslutil_Group>,
   HelpText<"Strip reflection data from shader bytecode  (must be used with /Fo <file>)">;
 def Qstrip_debug : Flag<["-", "/"], "Qstrip_debug">, Flags<[CoreOption, DriverOption]>, Group<hlslutil_Group>,
