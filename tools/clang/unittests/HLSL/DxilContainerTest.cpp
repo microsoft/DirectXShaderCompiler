@@ -1799,6 +1799,7 @@ TEST_F(DxilContainerTest, ReflectionMatchesDXBC_CheckIn) {
   ReflectionTest(hlsl_test::GetPathToHlslDataFile(L"..\\HLSLFileCheck\\d3dreflect\\cb_sizes.hlsl").c_str(), false);
   ReflectionTest(hlsl_test::GetPathToHlslDataFile(L"..\\HLSLFileCheck\\d3dreflect\\tbuffer.hlsl").c_str(), false,
     D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY);
+  ReflectionTest(hlsl_test::GetPathToHlslDataFile(L"..\\HLSLFileCheck\\d3dreflect\\texture2dms.hlsl").c_str(), false);
 }
 
 TEST_F(DxilContainerTest, ReflectionMatchesDXBC_Full) {
