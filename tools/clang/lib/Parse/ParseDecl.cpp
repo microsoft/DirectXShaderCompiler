@@ -27,8 +27,10 @@
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringSwitch.h"
-#include "dxc/Support/Global.h"    // HLSL Change
-#include "clang/Sema/SemaHLSL.h"   // HLSL Change
+#include "dxc/Support/Global.h"       // HLSL Change
+#include "clang/Sema/SemaHLSL.h"      // HLSL Change
+#include "dxc/DXIL/DxilShaderModel.h" // HLSL Change
+#include "dxc/DXIL/DxilConstants.h"   // HLSL Change
 
 using namespace clang;
 
@@ -359,7 +361,70 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
       return false;
     }
 
-    if (NextToken().is(tok::kw_register)) {
+    bool identifierIsPayloadAnnotation = false;
+    if (NextToken().is(tok::identifier)) {
+        StringRef identifier = NextToken().getIdentifierInfo()->getName();
+        identifierIsPayloadAnnotation = identifier == "read" || identifier == "write";
+    }
+
+    if (identifierIsPayloadAnnotation) {
+      hlsl::PayloadAccessAnnotation mod;
+
+      if (NextToken().getIdentifierInfo()->getName() == "read")
+          mod.qualifier = hlsl::DXIL::PayloadAccessQualifier::Read;
+      else
+          mod.qualifier = hlsl::DXIL::PayloadAccessQualifier::Write;
+
+      // : read/write ( shader stage *[,shader stage])
+      ConsumeToken(); // consume the colon.
+
+      mod.Loc = Tok.getLocation();
+      ConsumeToken(); // consume the read/write identifier
+      if (ExpectAndConsume(tok::l_paren, diag::err_expected_lparen_after,
+                           "payload access qualifier")) {
+        return true;
+      }
+
+      while(Tok.is(tok::identifier)) {
+        hlsl::DXIL::PayloadAccessShaderStage stage = hlsl::DXIL::PayloadAccessShaderStage::Invalid;
+        const char *stagePtr = Tok.getIdentifierInfo()->getName().data();
+        StringRef shaderStage(stagePtr);
+        if (shaderStage != "caller" && shaderStage != "anyhit" &&
+            shaderStage != "closesthit" && shaderStage != "miss") {
+          Diag(Tok.getLocation(),
+               diag::err_hlsl_payload_access_qualifier_unsupported_shader)
+              << shaderStage;
+          return true;
+        }
+
+        if (shaderStage == "caller") {
+          stage = hlsl::DXIL::PayloadAccessShaderStage::Caller;
+        } else if (shaderStage == "closesthit") {
+          stage = hlsl::DXIL::PayloadAccessShaderStage::Closesthit;
+        } else if (shaderStage == "miss") {
+          stage = hlsl::DXIL::PayloadAccessShaderStage::Miss;
+        } else if (shaderStage == "anyhit") {
+          stage = hlsl::DXIL::PayloadAccessShaderStage::Anyhit;
+        } 
+
+        mod.ShaderStages.push_back(stage);
+        ConsumeToken(); // consume shader type
+
+        if (Tok.is(tok::comma)) // check if we have a list of shader types
+          ConsumeToken();
+
+      } while (Tok.is(tok::identifier));
+
+      if (ExpectAndConsume(tok::r_paren, diag::err_expected_rparen_after,
+                           "payload access qualifier")) {
+        return true;
+      }
+
+      if (mod.ShaderStages.empty())
+          mod.qualifier = hlsl::DXIL::PayloadAccessQualifier::NoAccess;
+
+      target.push_back(new (context) hlsl::PayloadAccessAnnotation(mod));
+    }else if (NextToken().is(tok::kw_register)) {
       hlsl::RegisterAssignment r;
 
       // : register ([shader_profile], Type#[subcomponent] [,spaceX])

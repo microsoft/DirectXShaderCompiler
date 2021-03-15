@@ -166,6 +166,7 @@ public:
 
   // DXIL type system.
   DxilTypeSystem &GetTypeSystem();
+  const DxilTypeSystem &GetTypeSystem() const;
 
   /// Emit llvm.used array to make sure that optimizations do not remove unreferenced globals.
   void EmitLLVMUsed();
@@ -385,6 +386,9 @@ private:
   // properties from HLModule that should not make it to the final DXIL
   uint32_t m_IntermediateFlags;
   uint32_t m_AutoBindingSpace;
+
+  // porperties infered from the DXILTypeSystem
+  bool m_bHasPayloadQualifiers;
 
   std::unique_ptr<DxilSubobjects> m_pSubobjects;
 

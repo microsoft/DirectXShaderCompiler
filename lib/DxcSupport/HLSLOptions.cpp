@@ -652,7 +652,16 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   // Lifetime markers on by default in 6.6 unless disabled explicitly
   opts.EnableLifetimeMarkers = Args.hasFlag(OPT_enable_lifetime_markers, OPT_INVALID,
                                             DXIL::CompareVersions(Major, Minor, 6, 6) >= 0) &&
-                               !Args.hasFlag(OPT_disable_lifetime_markers, OPT_INVALID, false);
+                              !Args.hasFlag(OPT_disable_lifetime_markers, OPT_INVALID, false);
+  opts.EnablePayloadQualifiers = Args.hasFlag(OPT_enable_payload_qualifiers, OPT_INVALID,
+                                            DXIL::CompareVersions(Major, Minor, 6, 7) >= 0); 
+  if (DXIL::CompareVersions(Major, Minor, 6, 8) < 0) {
+     opts.EnablePayloadQualifiers &= !Args.hasFlag(OPT_disable_payload_qualifiers, OPT_INVALID, false);
+  }
+  if (opts.EnablePayloadQualifiers && DXIL::CompareVersions(Major, Minor, 6, 6) < 0) {
+    errors << "Invalid target for payload access qualifiers. Only lib_6_6 and beyond are supported.";
+    return 1;
+  }
 
   if (opts.DefaultColMajor && opts.DefaultRowMajor) {
     errors << "Cannot specify /Zpr and /Zpc together, use /? to get usage information";
