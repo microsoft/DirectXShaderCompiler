@@ -1449,11 +1449,9 @@ void DxilModule::EmitDxilMetadata() {
     m_pMDHelper->EmitDxilViewIdState(m_SerializedState);
   }
 
-  // Emit the DXR Payload Annotations only for lib_6_5+ and only for valver >= 1.5
-  // The front-end has checked if the payload access qualifiers are valid for this target
-  // and DXIL version. We double check and also check the validator version. 
+  // Emit the DXR Payload Annotations only for library Dxil 1.6 and above.
   if (m_pSM->IsLib()) {
-    if (DXIL::CompareVersions(m_pSM->GetMajor(), m_pSM->GetMinor(), 6, 5) >= 0) {
+    if (DXIL::CompareVersions(m_DxilMajor, m_DxilMinor, 1, 6) >= 0) {
       m_pMDHelper->EmitDxrPayloadAnnotations(GetTypeSystem());
     }
   }

@@ -962,9 +962,10 @@ void DxilMDHelper::LoadDxrPayloadAnnotations(DxilTypeSystem &TypeSystem) {
   if (pDxilPayloadAnnotationsMD == nullptr)
     return;
 
-  DXASSERT(
-      DXIL::CompareVersions(m_MinValMajor, m_MinValMinor, 1, 6) >= 0,
-      "otherwise, payload access qualifier emitted for dxil version <= 1.5");
+  if (DXIL::CompareVersions(m_MinValMajor, m_MinValMinor, 1, 6) < 0) {
+    DXASSERT(false, "payload access qualifier emitted for dxil version < 1.6");
+    m_bExtraMetadata = true;
+  }
   DXASSERT(pDxilPayloadAnnotationsMD->getNumOperands() != 0, "empty metadata node?");
 
   for (unsigned i = 0; i < pDxilPayloadAnnotationsMD->getNumOperands(); i++) {
