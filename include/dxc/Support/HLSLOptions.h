@@ -200,6 +200,7 @@ public:
   std::map<std::string, std::string> DxcOptimizationSelects; // OPT_opt_select
 
   bool PrintAfterAll; // OPT_print_after_all
+  bool EnablePayloadQualifiers = false; // OPT_enable_payload_qualifiers
 
   // Rewriter Options
   RewriterOpts RWOpt;

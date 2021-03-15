@@ -16,8 +16,8 @@ export float export_fn() { return 2.0; }
 static float static_fn() { return 1.0; }
 float defaut_fn() { return 3.0; }
 
-struct Payload {
-  float f;
+struct [raypayload] Payload {
+  float f : read(caller, anyhit) : write(caller, anyhit);
 };
 
 [shader("anyhit")]

@@ -994,6 +994,8 @@ void ASTDumper::dumpHLSLUnusualAnnotations(const ArrayRef<hlsl::UnusualAnnotatio
             OS << "RegisterAssignment"; break;
           case hlsl::UnusualAnnotation::UA_SemanticDecl:
             OS << "SemanticDecl"; break;
+          case hlsl::UnusualAnnotation::UA_PayloadAccessQualifier:
+            OS << "PayloadAccessQualifier"; break;
         }
       }
       dumpPointer(It);
@@ -1043,7 +1045,25 @@ void ASTDumper::dumpHLSLUnusualAnnotations(const ArrayRef<hlsl::UnusualAnnotatio
           const hlsl::SemanticDecl* semanticDecl = cast<hlsl::SemanticDecl>(*It);
           OS << " \"" << semanticDecl->SemanticName << "\"";
           break;
+        }      
+      case hlsl::UnusualAnnotation::UA_PayloadAccessQualifier: {
+        const hlsl::PayloadAccessAnnotation *annotation =
+            cast<hlsl::PayloadAccessAnnotation>(*It);
+        OS << " "
+           << (annotation->qualifier == hlsl::DXIL::PayloadAccessQualifier::Read
+                   ? "read"
+                   : "write")
+           << "(";
+        StringRef shaderStageNames[] = {"caller", "closesthit", "miss", "anyhit"};
+        for (unsigned i = 0; i < annotation->ShaderStages.size(); ++i) {
+          OS << shaderStageNames[static_cast<unsigned>(
+              annotation->ShaderStages[i])];
+          if (i < annotation->ShaderStages.size() - 1)
+            OS << ", ";
         }
+        OS << ")";
+        break;
+      }
       }
     });
   }
