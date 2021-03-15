@@ -434,14 +434,11 @@ bool DxilShaderAccessTracking::EmitResourceAccess(DxilResourceAndClass &res,
       {
           Constant* BaseOfRecordsForType;
           int LimitForType;
-          if (res.accessStyle == AccessStyle::ResourceFromDescriptorHeap)
-          {
+          if (res.accessStyle == AccessStyle::ResourceFromDescriptorHeap) {
               LimitForType = m_DynamicSamplerDataOffset - m_DynamicResourceDataOffset;
               BaseOfRecordsForType =
                   HlslOP->GetU32Const(m_DynamicResourceDataOffset);
-          }
-          else
-          {
+          } else {
               LimitForType = m_OutputBufferSize - m_DynamicSamplerDataOffset;
               BaseOfRecordsForType =
                 HlslOP->GetU32Const(m_DynamicSamplerDataOffset);
@@ -527,8 +524,7 @@ DxilShaderAccessTracking::GetResourceFromHandle(Value *resHandle,
 
     // Dynamic rangeId is not supported - skip and let validation report the
     // error.
-    if (isa<ConstantInt>(createHandle.get_rangeId()))
-    {
+    if (isa<ConstantInt>(createHandle.get_rangeId())) {
         rangeId = cast<ConstantInt>(createHandle.get_rangeId())->getLimitedValue();
 
         auto resClass = static_cast<DXIL::ResourceClass>(createHandle.get_resourceClass_val());
@@ -561,33 +557,27 @@ DxilShaderAccessTracking::GetResourceFromHandle(Value *resHandle,
             ret.RegisterSpace = resource->GetSpaceID();
         }
     }
-  }
-  else if (hlsl::OP::IsDxilOpFuncCallInst(handle, hlsl::OP::OpCode::AnnotateHandle))
-  {
+  } else if (hlsl::OP::IsDxilOpFuncCallInst(handle, hlsl::OP::OpCode::AnnotateHandle)) {
       DxilInst_AnnotateHandle annotateHandle(handle);
       auto properties = hlsl::resource_helper::loadPropsFromAnnotateHandle(
           annotateHandle, nullptr, *DM.GetShaderModel());
 
       auto* handleCreation = cast<CallInst>(annotateHandle.get_res());
 
-      //if (hlsl::OP::IsDxilOpFuncCallInst(handleCreation, hlsl::OP::OpCode::CreateHandleFromBinding))
-      //{
-      //    DxilInst_CreateHandleFromBinding createHandleFromBinding(handleCreation);
-      //    Constant* B = cast<Constant>(createHandleFromBinding.get_bind());
-      //    auto binding = hlsl::resource_helper::loadBindingFromConstant(*B);
-      //    {
-      //      ret.accessStyle = AccessStyle::FromRootSig;
-      //      ret.index = createHandleFromBinding.get_index();
-      //      ret.registerType = RegisterTypeFromResourceClass(
-      //          static_cast<hlsl::DXIL::ResourceClass>(binding.resourceClass));
+      if (hlsl::OP::IsDxilOpFuncCallInst(handleCreation, hlsl::OP::OpCode::CreateHandleFromBinding)) {
+          DxilInst_CreateHandleFromBinding createHandleFromBinding(handleCreation);
+          Constant* B = cast<Constant>(createHandleFromBinding.get_bind());
+          auto binding = hlsl::resource_helper::loadBindingFromConstant(*B);
+          {
+            ret.accessStyle = AccessStyle::FromRootSig;
+            ret.index = createHandleFromBinding.get_index();
+            ret.registerType = RegisterTypeFromResourceClass(
+                static_cast<hlsl::DXIL::ResourceClass>(binding.resourceClass));
 
-      //      //ret.RegisterID = binding.rangeLowerBound;
-      //      ret.RegisterSpace = binding.spaceID;
-      //    }
-      //}
-      //else
-      if (hlsl::OP::IsDxilOpFuncCallInst(handleCreation, hlsl::OP::OpCode::CreateHandleFromHeap))
-      {
+            //ret.RegisterID = binding.rangeLowerBound;
+            ret.RegisterSpace = binding.spaceID;
+          }
+      } else if (hlsl::OP::IsDxilOpFuncCallInst(handleCreation, hlsl::OP::OpCode::CreateHandleFromHeap)) {
           DxilInst_CreateHandleFromHeap createHandleFromHeap(handleCreation);
           ret.accessStyle = createHandleFromHeap.get_samplerHeap_val()
               ? AccessStyle::SamplerFromDescriptorHeap : AccessStyle::ResourceFromDescriptorHeap;
@@ -606,10 +596,8 @@ DxilShaderAccessTracking::GetResourceFromHandle(Value *resHandle,
           m_dynamicResourceBindings.emplace_back(std::move(drb));
 
           return ret;
-      }
-      else
-      {
-          //assert(false);
+      } else {
+          assert(false);
       }
   }
 
@@ -658,8 +646,7 @@ static llvm::CallInst* CreateUAV(DxilModule & DM, IRBuilder<> & Builder, unsigne
     }
 
     // Create handle for the newly-added UAV
-    if (IsDynamicResourceShaderModel(DM))
-    {
+    if (IsDynamicResourceShaderModel(DM)) {
       OP *HlslOP = DM.GetOP();
       Function *CreateHandleFromBindingOpFunc =
           HlslOP->GetOpFunc(DXIL::OpCode::CreateHandleFromBinding, Type::getVoidTy(Ctx));
@@ -692,9 +679,7 @@ static llvm::CallInst* CreateUAV(DxilModule & DM, IRBuilder<> & Builder, unsigne
       assert((unsigned)ID == UAVResourceHandle);
 
       return Builder.CreateCall(annotHandleFn, {annotHandleArg, handle, propertiesV});
-    }
-    else
-    {
+    } else {
       unsigned int ID = DM.AddUAV(std::move(pUAV));
       assert((unsigned)ID == UAVResourceHandle);
 
@@ -887,6 +872,7 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
       }
       FOS << ".";
 
+      // todo: this will reflect dynamic resource names when the metadata exists
       FOS << "DynamicallyBoundResources=";
       for (auto const &drb : m_dynamicResourceBindings) {
         FOS << (drb.HeapIsSampler ? 'S' : 'R') << drb.HeapIndex << ';';
