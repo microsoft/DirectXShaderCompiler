@@ -531,8 +531,8 @@ void HLMatrixLowerPass::replaceAllVariableUses(
     }
 
     if (ConstantExpr *CE = dyn_cast<ConstantExpr>(Use.getUser())) {
-      DXASSERT(CE->getOpcode() == Instruction::AddrSpaceCast,
-               "Unexpected constant user");
+      DXASSERT(CE->getOpcode() == Instruction::AddrSpaceCast ||
+        CE->use_empty(), "Unexpected constant user");
       replaceAllVariableUses(GEPIdxStack, CE, LoweredPtr);
       DXASSERT_NOMSG(CE->use_empty());
       CE->destroyConstant();
