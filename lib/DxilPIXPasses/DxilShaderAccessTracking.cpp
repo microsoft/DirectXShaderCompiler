@@ -450,14 +450,23 @@ bool DxilShaderAccessTracking::EmitResourceAccess(DxilResourceAndClass &res,
           // Result: expected offset, or 0 if too large.
 
           // Add 1 to the index in order to skip over the zeroth entry: that's 
-          // reserved for "out of bounds" writes
+          // reserved for "out of bounds" writes. Each record is two dwords:
+          // the first dword is for write access, the second for read.
           auto *IndexToWrite =
               Builder.CreateAdd(res.dynamicallyBoundIndex, HlslOP->GetU32Const(1));
 
-          Constant *SizeofDwordIncrement =
-              HlslOP->GetU32Const(static_cast<unsigned int>(sizeof(uint32_t)));
-          auto *OffsetToWrite =
-              Builder.CreateMul(IndexToWrite, SizeofDwordIncrement);
+          Constant *SizeofRecord =
+              HlslOP->GetU32Const(2 * static_cast<unsigned int>(sizeof(uint32_t)));
+          auto *BaseOfRecord =
+              Builder.CreateMul(IndexToWrite, SizeofRecord);
+          Value* OffsetToWrite;
+          if (readWrite == ShaderAccessFlags::Write) {
+            OffsetToWrite = BaseOfRecord;
+          }
+          else {
+            OffsetToWrite = Builder.CreateAdd(BaseOfRecord, 
+                HlslOP->GetU32Const(static_cast<unsigned int>(sizeof(uint32_t))));
+          }
           
           Constant *BufferLimit = HlslOP->GetU32Const(LimitForType);
           auto *LimitBoolean =
