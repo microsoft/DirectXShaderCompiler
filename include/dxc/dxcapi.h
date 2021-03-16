@@ -582,6 +582,14 @@ struct IDxcVersionInfo3 : public IUnknown {
   ) = 0;
 };
 
+struct DxcPdbUtilsRecompileOptions {
+  UINT64 uSize;
+  const WCHAR **ppArgsToAdd;
+  UINT32 uNumArgsToAdd;
+  const WCHAR **ppArgsToRemove;
+  UINT32 uNumArgsToRemove;
+};
+
 CROSS_PLATFORM_UUIDOF(IDxcPdbUtils, "E6C9647E-9D6A-4C3B-B94C-524B5A6C343D")
 struct IDxcPdbUtils : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE Load(_In_ IDxcBlob *pPdbOrDxil) = 0;
@@ -616,6 +624,7 @@ struct IDxcPdbUtils : public IUnknown {
 
   virtual HRESULT STDMETHODCALLTYPE SetCompiler(_In_ IDxcCompiler3 *pCompiler) = 0;
   virtual HRESULT STDMETHODCALLTYPE CompileForFullPDB(_COM_Outptr_ IDxcResult **ppResult) = 0;
+  virtual HRESULT STDMETHODCALLTYPE CompileForFullPDB2(_In_ DxcPdbUtilsRecompileOptions *pOpts, _COM_Outptr_ IDxcResult **ppResult) = 0;
 };
 
 // Note: __declspec(selectany) requires 'extern'

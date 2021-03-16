@@ -737,7 +737,12 @@ public:
     return m_pDebugProgramBlob != nullptr;
   }
 
-  virtual HRESULT STDMETHODCALLTYPE CompileForFullPDB(_COM_Outptr_ IDxcResult **ppResult) {
+  virtual HRESULT STDMETHODCALLTYPE CompileForFullPDB(_COM_Outptr_ IDxcResult **ppResult) override {
+    DxcPdbUtilsRecompileOptions opts = {};
+    return CompileForFullPDB2(&opts, ppResult);
+  }
+
+  virtual HRESULT STDMETHODCALLTYPE CompileForFullPDB2(_In_ DxcPdbUtilsRecompileOptions *pOpts, _COM_Outptr_ IDxcResult **ppResult) {
     if (!ppResult) return E_POINTER;
     *ppResult = nullptr;
 
@@ -752,13 +757,37 @@ public:
 
     DxcThreadMalloc TM(m_pMalloc);
 
-    std::vector<const WCHAR *> new_args;
-    for (unsigned i = 0; i < m_Args.size(); i++) {
-      if (m_Args[i] == L"/Zs" || m_Args[i] == L"-Zs")
-        continue;
-      new_args.push_back(m_Args[i].c_str());
+    std::unordered_set<std::wstring> ArgsToRemove;
+    std::vector<std::wstring> DefinesPrefixesToRemove;
+    for (unsigned i = 0; i < pOpts->uNumArgsToRemove; i++)
+      ArgsToRemove.insert(pOpts->ppArgsToRemove[i]);
+
+    std::vector<std::wstring> new_args_storage;
+    for (unsigned i = 0; i < m_ArgPairs.size(); i++) {
+      std::wstring name = m_ArgPairs[i].Name;
+      std::wstring value = m_ArgPairs[i].Value;
+
+      if (name == L"Zs") continue;
+      if (name == L"Zi") continue;
+      if (ArgsToRemove.find(name) != ArgsToRemove.end()) continue;
+
+      if (name.size()) {
+        name.insert(name.begin(), L'-');
+        new_args_storage.push_back(std::move(name));
+      }
+      if (value.size()) {
+        new_args_storage.push_back(std::move(value));
+      }
     }
-    new_args.push_back(L"-Zi");
+    new_args_storage.push_back(L"-Zi");
+
+    std::vector<const WCHAR *> new_args;
+    for (std::wstring &arg : new_args_storage) {
+      new_args.push_back(arg.c_str());
+    }
+    for (UINT32 i = 0; i < pOpts->uNumArgsToAdd; i++) {
+      new_args.push_back(pOpts->ppArgsToAdd[i]);
+    }
 
     assert(m_MainFileName.size());
     if (m_MainFileName.size())
