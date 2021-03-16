@@ -139,8 +139,10 @@ FileRunCommandResult FileRunCommandPart::RunFileChecker(const FileRunCommandResu
   auto args = strtok(Arguments);
   for (const std::string& arg : args) {
     if (arg == "%s") hasInputFilename = true;
-    else if (arg == "-input=stderr") t.InputForStdin = Prior->StdErr;
-    else if (strstartswith(arg, checkPrefixStr))
+    else if (arg == "-input=stderr") {
+      t.InputForStdin = Prior->StdErr;
+      t.AllowEmptyInput = true;
+    } else if (strstartswith(arg, checkPrefixStr))
       t.CheckPrefixes.emplace_back(arg.substr(sizeof(checkPrefixStr) - 1));
     else if (strstartswith(arg, checkPrefixesStr)) {
       auto prefixes = strtok(arg.substr(sizeof(checkPrefixesStr) - 1), ", ");
