@@ -52,7 +52,8 @@ set VENDOR=
 set SPIRV=OFF
 set SPV_TEST=OFF
 set DXILCONV=ON
-set DXC_CMAKE_SYSTEM_VERSION=10.0.14393
+set DXC_CMAKE_SYSTEM_VERSION=10.0.14393.0
+set SHOW_CMAKE_LOG=0
 
 if "%1"=="-s" (
   set DO_BUILD=0
@@ -187,6 +188,11 @@ if "%1"=="-dxc-cmake" (
   shift /1
   shift /1
 )
+
+if "%1"=="-show-cmake-log" (
+  set SHOW_CMAKE_LOG=1
+  shift /1
+)  
 
 if "%CMAKE_PATH%"=="" (
   where cmake.exe 1>nul 2>nul
@@ -418,6 +424,11 @@ if "%DO_SETUP%"=="1" (
     rem -DCMAKE_BUILD_TYPE:STRING=%1 is not necessary for multi-config generators like VS
     echo Running "%CMAKE_PATH%" %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% > %3\cmake-log.txt
     "%CMAKE_PATH%" %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
+  )
+  if %SHOW_CMAKE_LOG%==1 (
+    echo ------- Start of %3\cmake-log.txt -------
+    type %3\cmake-log.txt
+    echo -------- End of %3\cmake-log.txt --------
   )
   if errorlevel 1 (
     echo Failed to configure cmake projects.
