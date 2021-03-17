@@ -521,7 +521,13 @@ DxilResourceAndClass
 DxilShaderAccessTracking::GetResourceFromHandle(Value *resHandle,
                                                 DxilModule &DM) {
 
-  DxilResourceAndClass ret{AccessStyle::None};
+  DxilResourceAndClass ret{
+      AccessStyle::None, 
+      RegisterType::Terminator,
+      0,
+      0,
+      nullptr,
+      nullptr};
 
   CallInst *handle = cast<CallInst>(resHandle);
 
@@ -686,30 +692,31 @@ static llvm::CallInst* CreateUAV(DxilModule & DM, IRBuilder<> & Builder, unsigne
 
       unsigned int ID = DM.AddUAV(std::move(pUAV));
       assert((unsigned)ID == UAVResourceHandle);
+      (void)ID;
 
       return Builder.CreateCall(annotHandleFn, {annotHandleArg, handle, propertiesV});
     } else {
       unsigned int ID = DM.AddUAV(std::move(pUAV));
       assert((unsigned)ID == UAVResourceHandle);
 
-        OP* HlslOP = DM.GetOP();
-        Function* CreateHandleOpFunc = HlslOP->GetOpFunc(
-            DXIL::OpCode::CreateHandle, Type::getVoidTy(Ctx));
-        Constant* CreateHandleOpcodeArg =
-            HlslOP->GetU32Const((unsigned)DXIL::OpCode::CreateHandle);
-        Constant* UAVArg = HlslOP->GetI8Const(
-            static_cast<std::underlying_type<DxilResourceBase::Class>::type>(
-                DXIL::ResourceClass::UAV));
-        Constant* MetaDataArg =
-            HlslOP->GetU32Const(ID); // position of the metadata record in the
-                                     // corresponding metadata list
-        Constant* IndexArg = HlslOP->GetU32Const(0); //
-        Constant* FalseArg =
-            HlslOP->GetI1Const(0); // non-uniform resource index: false
-        return Builder.CreateCall(
-            CreateHandleOpFunc,
-            { CreateHandleOpcodeArg, UAVArg, MetaDataArg, IndexArg, FalseArg },
-            name);
+      OP* HlslOP = DM.GetOP();
+      Function* CreateHandleOpFunc = HlslOP->GetOpFunc(
+          DXIL::OpCode::CreateHandle, Type::getVoidTy(Ctx));
+      Constant* CreateHandleOpcodeArg =
+          HlslOP->GetU32Const((unsigned)DXIL::OpCode::CreateHandle);
+      Constant* UAVArg = HlslOP->GetI8Const(
+          static_cast<std::underlying_type<DxilResourceBase::Class>::type>(
+              DXIL::ResourceClass::UAV));
+      Constant* MetaDataArg =
+          HlslOP->GetU32Const(ID); // position of the metadata record in the
+                                   // corresponding metadata list
+      Constant* IndexArg = HlslOP->GetU32Const(0); //
+      Constant* FalseArg =
+          HlslOP->GetI1Const(0); // non-uniform resource index: false
+      return Builder.CreateCall(
+          CreateHandleOpFunc,
+          { CreateHandleOpcodeArg, UAVArg, MetaDataArg, IndexArg, FalseArg },
+          name);
     }
 }
 
@@ -860,7 +867,7 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
             continue;
           }
           // Don't instrument the accesses to the UAV that we just added
-          if (res.RegisterSpace  == (unsigned)-2) {
+          if (res.RegisterSpace  == -2) {
             break;
           }
           if (EmitResourceAccess(res, Call, HlslOP, Ctx, readWrite)) {
