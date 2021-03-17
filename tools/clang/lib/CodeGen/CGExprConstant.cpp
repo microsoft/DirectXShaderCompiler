@@ -844,7 +844,6 @@ public:
           return llvm::Constant::getNullValue(destType);
         }
 
-        assert(isa<llvm::ConstantStruct>(SubExprResult));
         if (llvm::ConstantStruct *srcVal = dyn_cast<llvm::ConstantStruct>(SubExprResult)) {
           llvm::ConstantArray *srcMat = cast<llvm::ConstantArray>(srcVal->getOperand(0));
           llvm::SmallVector<llvm::Constant*, 4> destRowElts;
