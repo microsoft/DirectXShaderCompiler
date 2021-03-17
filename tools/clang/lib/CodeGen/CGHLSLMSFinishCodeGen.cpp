@@ -1460,9 +1460,9 @@ typedef APInt(__cdecl *IntBinaryEvalFuncType)(const APInt &, const APInt &);
 typedef float(__cdecl *FloatBinaryEvalFuncType)(float, float);
 typedef double(__cdecl *DoubleBinaryEvalFuncType)(double, double);
 
-typedef APInt(__cdecl *IntTertiaryEvalFuncType)(const APInt &, const APInt &, const APInt &);
-typedef float(__cdecl *FloatTertiaryEvalFuncType)(float, float, float);
-typedef double(__cdecl *DoubleTertiaryEvalFuncType)(double, double, double);
+typedef APInt(__cdecl *IntTernaryEvalFuncType)(const APInt &, const APInt &, const APInt &);
+typedef float(__cdecl *FloatTernaryEvalFuncType)(float, float, float);
+typedef double(__cdecl *DoubleTernaryEvalFuncType)(double, double, double);
 
 Value *EvalUnaryIntrinsic(ConstantFP *fpV, FloatUnaryEvalFuncType floatEvalFunc,
                           DoubleUnaryEvalFuncType doubleEvalFunc) {
@@ -1514,10 +1514,10 @@ Value *EvalBinaryIntrinsic(Constant *cV0, Constant *cV1,
   return Result;
 }
 
-Value *EvalTertiaryIntrinsic(Constant *cV0, Constant *cV1, Constant *cV2,
-                             FloatTertiaryEvalFuncType floatEvalFunc,
-                             DoubleTertiaryEvalFuncType doubleEvalFunc,
-                             IntTertiaryEvalFuncType intEvalFunc) {
+Value *EvalTernaryIntrinsic(Constant *cV0, Constant *cV1, Constant *cV2,
+                             FloatTernaryEvalFuncType floatEvalFunc,
+                             DoubleTernaryEvalFuncType doubleEvalFunc,
+                             IntTernaryEvalFuncType intEvalFunc) {
   llvm::Type *Ty = cV0->getType();
   Value *Result = nullptr;
   if (Ty->isDoubleTy()) {
@@ -1609,9 +1609,9 @@ Value *EvalBinaryIntrinsic(CallInst *CI, FloatBinaryEvalFuncType floatEvalFunc,
   return Result;
 }
 
-Value *EvalTertiaryIntrinsic(CallInst *CI, FloatTertiaryEvalFuncType floatEvalFunc,
-                             DoubleTertiaryEvalFuncType doubleEvalFunc,
-                             IntTertiaryEvalFuncType intEvalFunc = nullptr) {
+Value *EvalTernaryIntrinsic(CallInst *CI, FloatTernaryEvalFuncType floatEvalFunc,
+                             DoubleTernaryEvalFuncType doubleEvalFunc,
+                             IntTernaryEvalFuncType intEvalFunc = nullptr) {
   Value *V0 = CI->getArgOperand(0);
   Value *V1 = CI->getArgOperand(1);
   Value *V2 = CI->getArgOperand(2);
@@ -1627,7 +1627,7 @@ Value *EvalTertiaryIntrinsic(CallInst *CI, FloatTertiaryEvalFuncType floatEvalFu
       Constant *cV0 = cast<Constant>(CV0->getAggregateElement(i));
       Constant *cV1 = cast<Constant>(CV1->getAggregateElement(i));
       Constant *cV2 = cast<Constant>(CV2->getAggregateElement(i));
-      Value *EltResult = EvalTertiaryIntrinsic(cV0, cV1, cV2, floatEvalFunc,
+      Value *EltResult = EvalTernaryIntrinsic(cV0, cV1, cV2, floatEvalFunc,
                                              doubleEvalFunc, intEvalFunc);
       Result = Builder.CreateInsertElement(Result, EltResult, i);
     }
@@ -1635,7 +1635,7 @@ Value *EvalTertiaryIntrinsic(CallInst *CI, FloatTertiaryEvalFuncType floatEvalFu
     Constant *cV0 = cast<Constant>(V0);
     Constant *cV1 = cast<Constant>(V1);
     Constant *cV2 = cast<Constant>(V2);
-    Result = EvalTertiaryIntrinsic(cV0, cV1, cV2, floatEvalFunc, doubleEvalFunc,
+    Result = EvalTernaryIntrinsic(cV0, cV1, cV2, floatEvalFunc, doubleEvalFunc,
                                  intEvalFunc);
   }
   CI->replaceAllUsesWith(Result);
@@ -1879,7 +1879,7 @@ Value *TryEvalIntrinsic(CallInst *CI, IntrinsicOp intriOp,
     auto clampI = [](const APInt &a, const APInt &b, const APInt &c) -> APInt {
       return a.slt(b) ? b : a.sgt(c) ? c : a;
     };
-    return EvalTertiaryIntrinsic(CI, clampF, clampD, clampI);
+    return EvalTernaryIntrinsic(CI, clampF, clampD, clampI);
   } break;
   default:
     return nullptr;
