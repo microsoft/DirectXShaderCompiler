@@ -685,6 +685,9 @@ public:
       castOp = srcTy->isSignedIntegerType() ? llvm::Instruction::SIToFP : llvm::Instruction::UIToFP;
     }
     else {
+      // Both src and dest should be of integer type here.
+      assert(srcLLVMTy->isIntegerTy() && destLLVMTy->isIntegerTy());
+
       if (srcLLVMTy->getScalarSizeInBits() > destLLVMTy->getScalarSizeInBits()) {
         castOp = llvm::Instruction::Trunc;
       }
@@ -811,8 +814,14 @@ public:
     case CK_HLSLCC_IntegralToBoolean:
     case CK_HLSLCC_IntegralToFloating:
     case CK_HLSLCC_FloatingToIntegral:
-    case CK_HLSLCC_FloatingToBoolean:
-      if (hlsl::IsHLSLMatType(E->getType()) && hlsl::IsHLSLMatType(E->getSubExpr()->getType()) && C) {
+    case CK_HLSLCC_FloatingToBoolean: {
+      bool isMatrixCast = hlsl::IsHLSLMatType(E->getType()) && hlsl::IsHLSLMatType(E->getSubExpr()->getType());
+      if (!isMatrixCast) {
+        // Since these cast kinds have already been handled in ExprConstant.cpp,
+        // we can reuse the logic there.
+        return CGM.EmitConstantExpr(E, E->getType(), CGF);
+      }
+      else {
         // For cast involving matrix type, if the subexperssion has already
         // been successfully evaluated to a constant, then just cast it to
         // match the destination type.
@@ -820,15 +829,6 @@ public:
 
         const clang::Type * srcEltType = hlsl::GetHLSLMatElementType(E->getSubExpr()->getType()).getCanonicalType().getTypePtr();
         const clang::Type * destEltType = hlsl::GetHLSLMatElementType(E->getType()).getCanonicalType().getTypePtr();
-
-        unsigned destRow, destCol;
-        hlsl::GetHLSLMatRowColCount(E->getType(), destRow, destCol);
-
-        unsigned srcRow, srcCol;
-        hlsl::GetHLSLMatRowColCount(E->getSubExpr()->getType(), srcRow, srcCol);
-
-        // Src and Dest matrices must have same order
-        assert(destRow == srcRow && destCol == srcCol);
 
         // If the dest type is same as the src type, then trivially
         // return the result of the subexpression evaluation.
@@ -839,6 +839,15 @@ public:
         if (srcEltLLVMTy == destEltLLVMTy) {
           return SubExprResult;
         }
+
+        unsigned destRow, destCol;
+        hlsl::GetHLSLMatRowColCount(E->getType(), destRow, destCol);
+
+        unsigned srcRow, srcCol;
+        hlsl::GetHLSLMatRowColCount(E->getSubExpr()->getType(), srcRow, srcCol);
+
+        // Src and Dest matrices must have same order
+        assert(destRow == srcRow && destCol == srcCol);
 
         if (llvm::ConstantStruct *srcVal = dyn_cast<llvm::ConstantStruct>(SubExprResult)) {
           llvm::ConstantArray *srcMat = cast<llvm::ConstantArray>(srcVal->getOperand(0));
@@ -860,14 +869,13 @@ public:
             cast<llvm::ArrayType>(destValType->getElementType(0)), destRowElts);
           llvm::Constant* destVal = llvm::ConstantStruct::get(destValType, destMat);
           return destVal;
-        } else if (llvm::ConstantAggregateZero *CAZ = dyn_cast<llvm::ConstantAggregateZero>(SubExprResult)) {
+        }
+        else if (llvm::ConstantAggregateZero *CAZ = dyn_cast<llvm::ConstantAggregateZero>(SubExprResult)) {
           return llvm::Constant::getNullValue(destType);
         }
-      } else {
-        // Since these cast kinds have already been handled in ExprConstant.cpp,
-        // we can reuse the logic there.
-        return CGM.EmitConstantExpr(E, E->getType(), CGF);
       }
+    }
+
     case CK_FlatConversion:
       return nullptr;
     case CK_HLSLVectorSplat: {
@@ -912,11 +920,9 @@ public:
       }
     }
     case CK_HLSLMatrixTruncationCast: {
-      llvm::StructType *ST =
-          cast<llvm::StructType>(CGM.getTypes().ConvertType(E->getType()));
-      unsigned rowCt,colCt;
-      hlsl::GetHLSLMatRowColCount(E->getType(), rowCt, colCt);
       if (llvm::ConstantStruct *CS = dyn_cast<llvm::ConstantStruct>(C)) {
+        unsigned rowCt, colCt;
+        hlsl::GetHLSLMatRowColCount(E->getType(), rowCt, colCt);
         llvm::ConstantArray *CA = dyn_cast<llvm::ConstantArray>(CS->getOperand(0));
         SmallVector<llvm::Constant *, 4> Rows(rowCt);
         for (unsigned i = 0; i < rowCt; i++) {
@@ -924,6 +930,10 @@ public:
           ExtractConstantValueElems(CA->getOperand(i), Elts, colCt);
           Rows[i] = llvm::ConstantVector::get(Elts);
         }
+
+        // Create truncated matrix
+        llvm::StructType *ST =
+          cast<llvm::StructType>(CGM.getTypes().ConvertType(E->getType()));
         llvm::Constant *Mat = llvm::ConstantArray::get(
             cast<llvm::ArrayType>(ST->getElementType(0)), Rows);
         return llvm::ConstantStruct::get(ST, Mat);
