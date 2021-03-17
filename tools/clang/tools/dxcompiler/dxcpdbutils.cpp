@@ -267,9 +267,7 @@ private:
   CComPtr<IDxcBlob> m_pDebugProgramBlob;
   CComPtr<IDxcBlob> m_ContainerBlob;
   std::vector<Source_File> m_SourceFiles;
-  std::vector<std::wstring> m_Defines;
-  std::vector<std::wstring> m_Args;
-  std::vector<std::wstring> m_Flags;
+
   std::wstring m_EntryPoint;
   std::wstring m_TargetProfile;
   std::wstring m_Name;
@@ -290,17 +288,25 @@ private:
     std::wstring Value;
   };
   std::vector<ArgPair> m_ArgPairs;
+  std::vector<std::wstring> m_Defines;
+  std::vector<std::wstring> m_Args;
+  std::vector<std::wstring> m_Flags;
+
+  void ResetAllArgs() {
+    m_ArgPairs.clear();
+    m_TargetProfile.clear();
+    m_Defines.clear();
+    m_Args.clear();
+    m_Flags.clear();
+    m_EntryPoint.clear();
+    m_TargetProfile.clear();
+  }
 
   void Reset() {
     m_pDebugProgramBlob = nullptr;
     m_InputBlob = nullptr;
     m_ContainerBlob = nullptr;
     m_SourceFiles.clear();
-    m_Defines.clear();
-    m_Args.clear();
-    m_Flags.clear();
-    m_EntryPoint.clear();
-    m_TargetProfile.clear();
     m_Name.clear();
     m_MainFileName.clear();
     m_HashBlob = nullptr;
@@ -308,8 +314,8 @@ private:
     m_VersionInfo = {};
     m_VersionCommitSha.clear();
     m_VersionString.clear();
-    m_ArgPairs.clear();
     m_pCachedRecompileResult = nullptr;
+    ResetAllArgs();
   }
 
   bool HasSources() const {
@@ -503,38 +509,7 @@ private:
             newPair.Name = ToWstring(pair.Name);
             newPair.Value = ToWstring(pair.Value);
           }
-
-          bool excludeFromFlags = false;
-          if (newPair.Name == L"E") {
-            m_EntryPoint = newPair.Value;
-            excludeFromFlags = true;
-          }
-          else if (newPair.Name == L"T") {
-            m_TargetProfile = newPair.Value;
-            excludeFromFlags = true;
-          }
-          else if (newPair.Name == L"D") {
-            m_Defines.push_back(newPair.Value);
-            excludeFromFlags = true;
-          }
-
-          std::wstring nameWithDash;
-          if (newPair.Name.size())
-            nameWithDash = std::wstring(L"-") + newPair.Name;
-
-          if (!excludeFromFlags) {
-            if (nameWithDash.size())
-              m_Flags.push_back(nameWithDash);
-            if (newPair.Value.size())
-              m_Flags.push_back(newPair.Value);
-          }
-
-          if (nameWithDash.size())
-            m_Args.push_back(nameWithDash);
-          if (newPair.Value.size())
-            m_Args.push_back(newPair.Value);
-
-          m_ArgPairs.push_back( std::move(newPair) );
+          AddArgPair(std::move(newPair));
         }
 
         // Entry point might have been omitted. Set it to main by default.
@@ -591,6 +566,40 @@ private:
     } // For each part
 
     return S_OK;
+  }
+
+  void AddArgPair(ArgPair &&newPair) {
+    bool excludeFromFlags = false;
+    if (newPair.Name == L"E") {
+      m_EntryPoint = newPair.Value;
+      excludeFromFlags = true;
+    }
+    else if (newPair.Name == L"T") {
+      m_TargetProfile = newPair.Value;
+      excludeFromFlags = true;
+    }
+    else if (newPair.Name == L"D") {
+      m_Defines.push_back(newPair.Value);
+      excludeFromFlags = true;
+    }
+
+    std::wstring nameWithDash;
+    if (newPair.Name.size())
+      nameWithDash = std::wstring(L"-") + newPair.Name;
+
+    if (!excludeFromFlags) {
+      if (nameWithDash.size())
+        m_Flags.push_back(nameWithDash);
+      if (newPair.Value.size())
+        m_Flags.push_back(newPair.Value);
+    }
+
+    if (nameWithDash.size())
+      m_Args.push_back(nameWithDash);
+    if (newPair.Value.size())
+      m_Args.push_back(newPair.Value);
+
+    m_ArgPairs.push_back( std::move(newPair) );
   }
 
 public:
@@ -737,6 +746,54 @@ public:
     return m_pDebugProgramBlob != nullptr;
   }
 
+  virtual HRESULT STDMETHODCALLTYPE SetOverrideArgs(_In_ DxcArgPair *pArgPairs, UINT32 uNumArgPairs) override {
+    try {
+      DxcThreadMalloc TM(m_pMalloc);
+      ResetAllArgs();
+      for (UINT32 i = 0; i < uNumArgPairs; i++) {
+        ArgPair newPair;
+        newPair.Name  = pArgPairs[i].pName;
+        newPair.Value = pArgPairs[i].pValue;
+        AddArgPair(std::move(newPair));
+      }
+    }
+    CATCH_CPP_RETURN_HRESULT()
+
+    return S_OK;
+  }
+
+  virtual HRESULT STDMETHODCALLTYPE SetOverrideRootSignature(_In_ const WCHAR *pRootSignature) override {
+    try {
+      DxcThreadMalloc TM(m_pMalloc);
+
+      std::vector<ArgPair> newArgPairs;
+      for (ArgPair &pair : m_ArgPairs) {
+        if (pair.Name == L"rootsig-define") {
+          continue;
+        }
+        newArgPairs.push_back(pair);
+      }
+
+      ResetAllArgs();
+      for (ArgPair &newArg : newArgPairs) {
+        AddArgPair(std::move(newArg));
+      }
+
+      ArgPair rsPair;
+      rsPair.Name = L"rootsig-define";
+      rsPair.Value = L"__DXC_RS_DEFINE";
+      AddArgPair(std::move(rsPair));
+
+      ArgPair defPair;
+      defPair.Name = L"D";
+      defPair.Value = std::wstring(L"__DXC_RS_DEFINE=") + pRootSignature;
+      AddArgPair(std::move(defPair));
+    }
+    CATCH_CPP_RETURN_HRESULT()
+
+    return S_OK;
+  }
+
   virtual HRESULT STDMETHODCALLTYPE CompileForFullPDB(_COM_Outptr_ IDxcResult **ppResult) {
     if (!ppResult) return E_POINTER;
     *ppResult = nullptr;
@@ -752,13 +809,28 @@ public:
 
     DxcThreadMalloc TM(m_pMalloc);
 
-    std::vector<const WCHAR *> new_args;
-    for (unsigned i = 0; i < m_Args.size(); i++) {
-      if (m_Args[i] == L"/Zs" || m_Args[i] == L"-Zs")
-        continue;
-      new_args.push_back(m_Args[i].c_str());
+    std::vector<std::wstring> new_args_storage;
+    for (unsigned i = 0; i < m_ArgPairs.size(); i++) {
+      std::wstring name  = m_ArgPairs[i].Name;
+      std::wstring value = m_ArgPairs[i].Value;
+
+      if (name == L"Zs") continue;
+      if (name == L"Zi") continue;
+
+      if (name.size()) {
+        name.insert(name.begin(), L'-');
+        new_args_storage.push_back(std::move(name));
+      }
+      if (value.size()) {
+        new_args_storage.push_back(std::move(value));
+      }
     }
-    new_args.push_back(L"-Zi");
+    new_args_storage.push_back(L"-Zi");
+
+    std::vector<const WCHAR *> new_args;
+    for (std::wstring &arg : new_args_storage) {
+      new_args.push_back(arg.c_str());
+    }
 
     assert(m_MainFileName.size());
     if (m_MainFileName.size())
