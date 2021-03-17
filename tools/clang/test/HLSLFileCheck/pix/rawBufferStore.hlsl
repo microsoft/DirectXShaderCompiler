@@ -1,4 +1,4 @@
-// RUN: %dxc -enable-16bit-types -Emain -Tcs_6_3 %s | %opt -S -hlsl-dxil-pix-shader-access-instrumentation,config=U0:2:10i0;.. | %FileCheck %s
+// RUN: %dxc -enable-16bit-types -Emain -Tcs_6_3 %s | %opt -S -hlsl-dxil-pix-shader-access-instrumentation,config=U0:2:10i0;0;00; | %FileCheck %s
 
 // Check that the expected PIX UAV read-tracking is emitted (the atomicBinOp "|= 1") followed by the expected raw read:
 

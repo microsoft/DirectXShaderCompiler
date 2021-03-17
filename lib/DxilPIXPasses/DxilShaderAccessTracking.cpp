@@ -569,7 +569,7 @@ DxilShaderAccessTracking::GetResourceFromHandle(Value *resHandle,
   } else if (hlsl::OP::IsDxilOpFuncCallInst(handle, hlsl::OP::OpCode::AnnotateHandle)) {
       DxilInst_AnnotateHandle annotateHandle(handle);
       auto properties = hlsl::resource_helper::loadPropsFromAnnotateHandle(
-          annotateHandle, nullptr, *DM.GetShaderModel());
+          annotateHandle, *DM.GetShaderModel());
 
       auto* handleCreation = cast<CallInst>(annotateHandle.get_res());
 

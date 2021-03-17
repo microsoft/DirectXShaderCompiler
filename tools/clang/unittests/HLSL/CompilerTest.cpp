@@ -202,6 +202,7 @@ public:
   TEST_METHOD(BatchPasses)
   TEST_METHOD(BatchShaderTargets)
   TEST_METHOD(BatchValidation)
+  TEST_METHOD(BatchPIX)
 
   TEST_METHOD(SubobjectCodeGenErrors)
   BEGIN_TEST_METHOD(ManualFileCheckTest)
@@ -468,10 +469,20 @@ public:
         dumpStr = dumpPath + (wRelPath.m_psz + suitePath.size());
       }
 
-      WEX::Logging::Log::StartGroup(wRelPath);
+      class ScopedLogGroup
+      {
+        LPWSTR m_path;
+
+      public:
+          ScopedLogGroup(LPWSTR path)
+          : m_path(path)
+          { WEX::Logging::Log::StartGroup(m_path); }
+          ~ScopedLogGroup() { WEX::Logging::Log::EndGroup(m_path); }
+      };
+
+      ScopedLogGroup cleanup(wRelPath);
       CodeGenTestCheck(wRelPath, /*implicitDir*/ false,
         dumpStr.empty() ? nullptr : dumpStr.c_str());
-      WEX::Logging::Log::EndGroup(wRelPath);
 
       numTestsRun++;
     }
@@ -3072,6 +3083,10 @@ TEST_F(CompilerTest, BatchShaderTargets) {
 
 TEST_F(CompilerTest, BatchValidation) {
   CodeGenTestCheckBatchDir(L"validation");
+}
+
+TEST_F(CompilerTest, BatchPIX) {
+  CodeGenTestCheckBatchDir(L"PIX");
 }
 
 TEST_F(CompilerTest, BatchSamples) {
