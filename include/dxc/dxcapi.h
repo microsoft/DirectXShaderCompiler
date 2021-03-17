@@ -576,7 +576,7 @@ struct IDxcVersionInfo2 : public IDxcVersionInfo {
 };
 
 CROSS_PLATFORM_UUIDOF(IDxcVersionInfo3, "5e13e843-9d25-473c-9ad2-03b2d0b44b1e")
-struct IDxcVersionInfo3 : public IDxcVersionInfo2 {
+struct IDxcVersionInfo3 : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE GetCustomVersionString(
     _Outptr_result_z_ char **pVersionString // Custom version string for compiler. (Must be CoTaskMemFree()'d!)
   ) = 0;

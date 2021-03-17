@@ -1495,6 +1495,23 @@ void DeclPrinter::VisitHLSLUnusualAnnotation(const hlsl::UnusualAnnotation *UA) 
     Out << ")";
     break;
   }
+  case hlsl::UnusualAnnotation::UA_PayloadAccessQualifier: {
+    const hlsl::PayloadAccessAnnotation *annotation =
+        cast<hlsl::PayloadAccessAnnotation>(UA);
+    Out << " : "
+        << (annotation->qualifier == hlsl::DXIL::PayloadAccessQualifier::Read
+                ? "read"
+                : "write")
+        << "(";
+    StringRef shaderStageNames[] = { "caller", "closesthit", "miss", "anyhit"};
+    for (unsigned i = 0; i < annotation->ShaderStages.size(); ++i) {
+      Out << shaderStageNames[static_cast<unsigned>(annotation->ShaderStages[i])];
+      if (i < annotation->ShaderStages.size() - 1)
+        Out << ", ";
+    }
+    Out << ")";
+    break;
+  }
   }
 }
 

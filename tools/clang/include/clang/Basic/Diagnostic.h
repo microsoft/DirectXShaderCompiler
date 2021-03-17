@@ -23,6 +23,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
 #include "llvm/ADT/iterator_range.h"
+#include "llvm/ADT/SmallVector.h"
 #include <list>
 #include <vector>
 
@@ -674,6 +675,17 @@ public:
 
   void Report(const StoredDiagnostic &storedDiag);
 
+  /// \brief Issue the message to the client but only once.
+  ///
+  /// This actually returns an instance of DiagnosticBuilder which emits the
+  /// diagnostics (through @c ProcessDiag) when it is destroyed.
+  ///
+  /// \param DiagID A member of the @c diag::kind enum.
+  /// \param Loc Represents the source location associated with the diagnostic,
+  /// which can be an invalid location if no position information is available.
+  inline DiagnosticBuilder ReportOnce(unsigned DiagID);
+  inline DiagnosticBuilder ReportOnce(SourceLocation Loc, unsigned DiagID);
+
   /// \brief Determine whethere there is already a diagnostic in flight.
   bool isDiagnosticInFlight() const { return CurDiagID != ~0U; }
 
@@ -725,6 +737,9 @@ private:
   
   /// \brief The location of the current diagnostic that is in flight.
   SourceLocation CurDiagLoc;
+
+  /// \brief Stores Diagnostics that should be onyl remited once.
+  llvm::SmallVector<unsigned, 2> DiagOnceDiagnostics;
 
   /// \brief The ID of the current diagnostic that is in flight.
   ///
@@ -1126,10 +1141,25 @@ inline DiagnosticBuilder DiagnosticsEngine::Report(SourceLocation Loc,
   return DiagnosticBuilder(this);
 }
 
+
 inline DiagnosticBuilder DiagnosticsEngine::Report(unsigned DiagID) {
   return Report(SourceLocation(), DiagID);
 }
 
+
+inline DiagnosticBuilder DiagnosticsEngine::ReportOnce(unsigned DiagID) {
+  return ReportOnce(SourceLocation(), DiagID);
+}
+
+inline DiagnosticBuilder DiagnosticsEngine::ReportOnce(SourceLocation Loc,
+                                                       unsigned DiagID) {
+  if (std::find(DiagOnceDiagnostics.begin(), DiagOnceDiagnostics.end(),
+                DiagID) != DiagOnceDiagnostics.end())
+    return DiagnosticBuilder(this);
+
+  DiagOnceDiagnostics.push_back(DiagID);
+  return Report(Loc, DiagID);
+}
 //===----------------------------------------------------------------------===//
 // Diagnostic
 //                                                                           //
