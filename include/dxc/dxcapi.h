@@ -621,8 +621,8 @@ struct IDxcPdbUtils : public IUnknown {
 
   virtual HRESULT STDMETHODCALLTYPE SetCompiler(_In_ IDxcCompiler3 *pCompiler) = 0;
   virtual HRESULT STDMETHODCALLTYPE CompileForFullPDB(_COM_Outptr_ IDxcResult **ppResult) = 0;
-  virtual HRESULT STDMETHODCALLTYPE SetOverrideArgs(_In_ DxcArgPair *pArgPairs, UINT32 uNumArgPairs) = 0;
-  virtual HRESULT STDMETHODCALLTYPE SetOverrideRootSignature(_In_ const WCHAR *pRootSignature) = 0;
+  virtual HRESULT STDMETHODCALLTYPE OverrideArgs(_In_ DxcArgPair *pArgPairs, UINT32 uNumArgPairs) = 0;
+  virtual HRESULT STDMETHODCALLTYPE OverrideRootSignature(_In_ const WCHAR *pRootSignature) = 0;
 };
 
 // Note: __declspec(selectany) requires 'extern'

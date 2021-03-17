@@ -294,7 +294,6 @@ private:
 
   void ResetAllArgs() {
     m_ArgPairs.clear();
-    m_TargetProfile.clear();
     m_Defines.clear();
     m_Args.clear();
     m_Flags.clear();
@@ -746,7 +745,7 @@ public:
     return m_pDebugProgramBlob != nullptr;
   }
 
-  virtual HRESULT STDMETHODCALLTYPE SetOverrideArgs(_In_ DxcArgPair *pArgPairs, UINT32 uNumArgPairs) override {
+  virtual HRESULT STDMETHODCALLTYPE OverrideArgs(_In_ DxcArgPair *pArgPairs, UINT32 uNumArgPairs) override {
     try {
       DxcThreadMalloc TM(m_pMalloc);
       ResetAllArgs();
@@ -762,7 +761,7 @@ public:
     return S_OK;
   }
 
-  virtual HRESULT STDMETHODCALLTYPE SetOverrideRootSignature(_In_ const WCHAR *pRootSignature) override {
+  virtual HRESULT STDMETHODCALLTYPE OverrideRootSignature(_In_ const WCHAR *pRootSignature) override {
     try {
       DxcThreadMalloc TM(m_pMalloc);
 
