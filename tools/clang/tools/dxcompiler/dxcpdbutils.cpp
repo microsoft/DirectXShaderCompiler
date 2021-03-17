@@ -748,13 +748,18 @@ public:
   virtual HRESULT STDMETHODCALLTYPE OverrideArgs(_In_ DxcArgPair *pArgPairs, UINT32 uNumArgPairs) override {
     try {
       DxcThreadMalloc TM(m_pMalloc);
+
       ResetAllArgs();
+
       for (UINT32 i = 0; i < uNumArgPairs; i++) {
         ArgPair newPair;
-        newPair.Name  = pArgPairs[i].pName;
-        newPair.Value = pArgPairs[i].pValue;
+        newPair.Name  = pArgPairs[i].pName ? pArgPairs[i].pName : L"";
+        newPair.Value = pArgPairs[i].pValue ? pArgPairs[i].pValue : L"";
         AddArgPair(std::move(newPair));
       }
+
+      // Clear the cached compile result
+      m_pCachedRecompileResult = nullptr;
     }
     CATCH_CPP_RETURN_HRESULT()
 
@@ -774,6 +779,7 @@ public:
       }
 
       ResetAllArgs();
+
       for (ArgPair &newArg : newArgPairs) {
         AddArgPair(std::move(newArg));
       }
@@ -787,6 +793,9 @@ public:
       defPair.Name = L"D";
       defPair.Value = std::wstring(L"__DXC_RS_DEFINE=") + pRootSignature;
       AddArgPair(std::move(defPair));
+
+      // Clear the cached compile result
+      m_pCachedRecompileResult = nullptr;
     }
     CATCH_CPP_RETURN_HRESULT()
 
