@@ -840,10 +840,6 @@ public:
           return SubExprResult;
         }
 
-        if (llvm::ConstantAggregateZero *CAZ = dyn_cast<llvm::ConstantAggregateZero>(SubExprResult)) {
-          return llvm::Constant::getNullValue(destType);
-        }
-
         if (llvm::ConstantStruct *srcVal = dyn_cast<llvm::ConstantStruct>(SubExprResult)) {
           llvm::ConstantArray *srcMat = cast<llvm::ConstantArray>(srcVal->getOperand(0));
           llvm::SmallVector<llvm::Constant*, 4> destRowElts;
