@@ -902,6 +902,10 @@ void ShaderOpTest::RunCommandList() {
 
 #if defined(NTDDI_WIN10_VB) && WDK_NTDDI_VERSION >= NTDDI_WIN10_VB
     if (m_pShaderOp->MS) {
+#ifndef NDEBUG
+      D3D12_FEATURE_DATA_D3D12_OPTIONS7 O7;
+      DXASSERT_LOCALVAR(O7, SUCCEEDED(m_pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS7, &O7, sizeof(O7))), "mesh shader test enabled on platform without mesh support");
+#endif
       ID3D12GraphicsCommandList6 *pList6 = m_CommandList.List.p;
       pList6->BeginQuery(m_pQueryHeap, D3D12_QUERY_TYPE_PIPELINE_STATISTICS, 0);
       pList6->DispatchMesh(1, 1, 1);
