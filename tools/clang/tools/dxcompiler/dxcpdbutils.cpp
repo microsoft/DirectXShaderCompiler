@@ -225,10 +225,13 @@ struct PdbRecompilerIncludeHandler : public IDxcIncludeHandler {
     if (it == m_FileMap.end())
       return E_FAIL;
 
-    CComPtr<IDxcBlobEncoding> pEncoding;
-    IFR(m_pPdbUtils->GetSource(it->second, &pEncoding));
+    CComPtr<IDxcBlobEncoding> pSource;
+    IFR(m_pPdbUtils->GetSource(it->second, &pSource));
 
-    return pEncoding.QueryInterface(ppIncludeSource);
+    CComPtr<IDxcBlobEncoding> pOutBlob;
+    IFR(hlsl::DxcCreateBlobEncodingFromBlob(pSource, 0, pSource->GetBufferSize(), /*encoding Known*/true, CP_UTF8, m_pMalloc, &pOutBlob));
+
+    return pOutBlob.QueryInterface(ppIncludeSource);
   }
 };
 
@@ -239,7 +242,7 @@ private:
 
   struct Source_File {
     std::wstring Name;
-    CComPtr<IDxcBlobEncoding> Content;
+    CComPtr<IDxcBlob> Content;
   };
 
   CComPtr<IDxcBlob> m_InputBlob;
@@ -363,11 +366,9 @@ private:
           file.Name = ToWstring(md_name->getString());
 
           // File content
-          IFR(hlsl::DxcCreateBlobWithEncodingOnHeapCopy(
+          IFR(hlsl::DxcCreateBlobOnHeapCopy(
             md_content->getString().data(),
             md_content->getString().size(),
-            CP_ACP, // NOTE: ACP instead of UTF8 because it's possible for compiler implementations to
-                    // inject non-UTF8 data here.
             &file.Content));
 
           m_SourceFiles.push_back(std::move(file));
@@ -498,11 +499,9 @@ private:
 
           Source_File source;
           source.Name = ToWstring(source_data.Name);
-          IFR(hlsl::DxcCreateBlobWithEncodingOnHeapCopy(
+          IFR(hlsl::DxcCreateBlobOnHeapCopy(
             source_data.Content.data(),
             source_data.Content.size(),
-            CP_ACP, // NOTE: ACP instead of UTF8 because it's possible for compiler implementations to
-                    // inject non-UTF8 data here.
             &source.Content));
 
           // First file is the main file
@@ -834,13 +833,12 @@ public:
       pIncludeHandler->m_FileMap.insert(std::pair<std::wstring, unsigned>(NormalizedName, i));
     }
 
-    IDxcBlobEncoding *main_file = m_SourceFiles[0].Content;
+    IDxcBlob *main_file = m_SourceFiles[0].Content;
 
     DxcBuffer source_buf = {};
     source_buf.Ptr = main_file->GetBufferPointer();
     source_buf.Size = main_file->GetBufferSize();
-    BOOL bEndodingKnown = FALSE;
-    IFR(main_file->GetEncoding(&bEndodingKnown, &source_buf.Encoding));
+    source_buf.Encoding = CP_UTF8;
 
     CComPtr<IDxcResult> pResult;
     IFR(m_pCompiler->Compile(&source_buf, new_args.data(), new_args.size(), pIncludeHandler, IID_PPV_ARGS(&m_pCachedRecompileResult)));
