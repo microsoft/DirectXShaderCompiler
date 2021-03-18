@@ -96,52 +96,31 @@ static bool IsBitcode(const void *ptr, size_t size) {
   return !memcmp(ptr, pattern, _countof(pattern));
 }
 
-static void ComputeFlagsBasedOnArgs(ArrayRef<std::wstring> args, std::vector<std::wstring> *outFlags, std::vector<std::wstring> *outDefines, std::wstring *outTargetProfile, std::wstring *outEntryPoint) {
+static std::vector<std::pair<std::wstring, std::wstring> > ComputeArgPairs(ArrayRef<std::string> args) {
+  std::vector<std::pair<std::wstring, std::wstring> > ret;
+
   const llvm::opt::OptTable *optionTable = hlsl::options::getHlslOptTable();
   assert(optionTable);
   if (optionTable) {
-    std::vector<std::string> argUtf8List;
-    for (unsigned i = 0; i < args.size(); i++) {
-      argUtf8List.push_back(ToUtf8String(args[i]));
-    }
-
     std::vector<const char *> argPointerList;
-    for (unsigned i = 0; i < argUtf8List.size(); i++) {
-      argPointerList.push_back(argUtf8List[i].c_str());
+    for (unsigned i = 0; i < args.size(); i++) {
+      argPointerList.push_back(args[i].c_str());
     }
 
     unsigned missingIndex = 0;
     unsigned missingCount = 0;
     llvm::opt::InputArgList argList = optionTable->ParseArgs(argPointerList, missingIndex, missingCount);
     for (llvm::opt::Arg *arg : argList) {
-      if (arg->getOption().matches(hlsl::options::OPT_D)) {
-        std::wstring def = ToWstring(arg->getValue());
-        if (outDefines)
-          outDefines->push_back(def);
-        continue;
-      }
-      else if (arg->getOption().matches(hlsl::options::OPT_target_profile)) {
-        if (outTargetProfile)
-          *outTargetProfile = ToWstring(arg->getValue());
-        continue;
-      }
-      else if (arg->getOption().matches(hlsl::options::OPT_entrypoint)) {
-        if (outEntryPoint)
-          *outEntryPoint = ToWstring(arg->getValue());
-        continue;
+      std::pair<std::wstring, std::wstring> newPair;
+      newPair.first = ToWstring( arg->getOption().getName() );
+      if (arg->getNumValues() > 0) {
+        newPair.second = ToWstring( arg->getValue() );
       }
 
-      if (outFlags) {
-        llvm::StringRef Name = arg->getOption().getName();
-        if (Name.size()) {
-          outFlags->push_back(std::wstring(L"-") + ToWstring(Name));
-        }
-        if (arg->getNumValues() > 0) {
-          outFlags->push_back(ToWstring(arg->getValue()));
-        }
-      }
+      ret.push_back(std::move(newPair));
     }
   }
+  return ret;
 }
 
 struct DxcPdbVersionInfo :
@@ -394,16 +373,6 @@ private:
           m_SourceFiles.push_back(std::move(file));
         }
       }
-      // dx.source.defines
-      else if (node_name == hlsl::DxilMDHelper::kDxilSourceDefinesMDName ||
-               node_name == hlsl::DxilMDHelper::kDxilSourceDefinesOldMDName)
-      {
-        MDTuple *tup = cast<MDTuple>(node.getOperand(0));
-        for (unsigned i = 0; i < tup->getNumOperands(); i++) {
-          StringRef define = cast<MDString>(tup->getOperand(i))->getString();
-          m_Defines.push_back(ToWstring(define));
-        }
-      }
       // dx.source.mainFileName
       else if (node_name == hlsl::DxilMDHelper::kDxilSourceMainFileNameMDName ||
                node_name == hlsl::DxilMDHelper::kDxilSourceMainFileNameOldMDName)
@@ -417,13 +386,20 @@ private:
                node_name == hlsl::DxilMDHelper::kDxilSourceArgsOldMDName)
       {
         MDTuple *tup = cast<MDTuple>(node.getOperand(0));
+        std::vector<std::string> args;
         // Args
         for (unsigned i = 0; i < tup->getNumOperands(); i++) {
           StringRef arg = cast<MDString>(tup->getOperand(i))->getString();
-          m_Args.push_back(ToWstring(arg));
+          args.push_back(arg.str());
         }
 
-        ComputeFlagsBasedOnArgs(m_Args, &m_Flags, nullptr, nullptr, nullptr);
+        std::vector<std::pair<std::wstring, std::wstring> > Pairs = ComputeArgPairs(args);
+        for (std::pair<std::wstring, std::wstring> &p : Pairs) {
+          ArgPair newPair;
+          newPair.Name  = std::move(p.first);
+          newPair.Value = std::move(p.second);
+          AddArgPair(std::move(newPair));
+        }
       }
     }
 
@@ -812,10 +788,14 @@ public:
     if (m_pCachedRecompileResult)
       return m_pCachedRecompileResult.QueryInterface(ppResult);
 
+    DxcThreadMalloc TM(m_pMalloc);
+
+    // Fail early if there are no source files.
+    if (m_SourceFiles.empty())
+      return E_FAIL;
+
     if (!m_pCompiler)
       IFR(DxcCreateInstance2(m_pMalloc, CLSID_DxcCompiler, IID_PPV_ARGS(&m_pCompiler)));
-
-    DxcThreadMalloc TM(m_pMalloc);
 
     std::vector<std::wstring> new_args_storage;
     for (unsigned i = 0; i < m_ArgPairs.size(); i++) {
@@ -843,9 +823,6 @@ public:
     assert(m_MainFileName.size());
     if (m_MainFileName.size())
       new_args.push_back(m_MainFileName.c_str());
-
-    if (m_SourceFiles.empty())
-      return E_FAIL;
 
     CComPtr<PdbRecompilerIncludeHandler> pIncludeHandler = CreateOnMalloc<PdbRecompilerIncludeHandler>(m_pMalloc);
     if (!pIncludeHandler)
