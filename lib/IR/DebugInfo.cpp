@@ -379,6 +379,8 @@ unsigned llvm::getDebugMetadataVersionFromModule(const Module &M) {
   return 0;
 }
 
+bool llvm::hasCompileUnits(const Module &M) { return nullptr != M.getNamedMetadata("llvm.dbg.cu"); } // HLSL Change
+
 DenseMap<const llvm::Function *, DISubprogram *>
 llvm::makeSubprogramMap(const Module &M) {
   DenseMap<const Function *, DISubprogram *> R;

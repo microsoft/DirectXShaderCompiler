@@ -60,6 +60,7 @@ bool stripDebugInfo(Function &F);
 
 /// \brief Return Debug Info Metadata Version by checking module flags.
 unsigned getDebugMetadataVersionFromModule(const Module &M);
+bool hasCompileUnits(const Module &M); // HLSL Change
 
 /// \brief Utility to find all debug info in a module.
 ///

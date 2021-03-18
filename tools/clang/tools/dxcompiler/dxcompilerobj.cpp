@@ -1252,6 +1252,10 @@ public:
       // TODO: consider
       // DebugPass, DebugCompilationDir, DwarfDebugFlags, SplitDwarfFile
     }
+    else {
+      CodeGenOptions &CGOpts = compiler.getCodeGenOpts();
+      CGOpts.setDebugInfo(CodeGenOptions::LocTrackingOnly);
+    }
 
     clang::PreprocessorOptions &PPOpts(compiler.getPreprocessorOpts());
     for (size_t i = 0; i < defines.size(); ++i) {
