@@ -86,24 +86,6 @@ static bool contains(InputIterator b, InputIterator e, const T &val) {
   return e != std::find(b, e, val);
 }
 
-static HRESULT EnableExperimentalShaderModels() {
-  HMODULE hRuntime = LoadLibraryW(L"d3d12.dll");
-  if (hRuntime == NULL) {
-    return HRESULT_FROM_WIN32(GetLastError());
-  }
-
-  D3D12EnableExperimentalFeaturesFn pD3D12EnableExperimentalFeatures =
-    (D3D12EnableExperimentalFeaturesFn)GetProcAddress(hRuntime, "D3D12EnableExperimentalFeatures");
-  if (pD3D12EnableExperimentalFeatures == nullptr) {
-    FreeLibrary(hRuntime);
-    return HRESULT_FROM_WIN32(GetLastError());
-  }
-
-  HRESULT hr = pD3D12EnableExperimentalFeatures(1, &D3D12ExperimentalShaderModelsID, nullptr, nullptr);
-  FreeLibrary(hRuntime);
-  return hr;
-}
-
 static HRESULT ReportLiveObjects() {
   CComPtr<IDXGIDebug1> pDebug;
   IFR(DXGIGetDebugInterface1(0, IID_PPV_ARGS(&pDebug)));
@@ -1284,7 +1266,26 @@ public:
     return hr;
   }
 
-#ifndef _HLK_CONF
+  static HRESULT EnableExperimentalShaderModels() {
+    HMODULE hRuntime = LoadLibraryW(L"d3d12.dll");
+    if (hRuntime == NULL) {
+      return HRESULT_FROM_WIN32(GetLastError());
+    }
+
+    D3D12EnableExperimentalFeaturesFn pD3D12EnableExperimentalFeatures =
+        (D3D12EnableExperimentalFeaturesFn)GetProcAddress(
+            hRuntime, "D3D12EnableExperimentalFeatures");
+    if (pD3D12EnableExperimentalFeatures == nullptr) {
+      FreeLibrary(hRuntime);
+      return HRESULT_FROM_WIN32(GetLastError());
+    }
+
+    HRESULT hr = pD3D12EnableExperimentalFeatures(
+        1, &D3D12ExperimentalShaderModelsID, nullptr, nullptr);
+    FreeLibrary(hRuntime);
+    return hr;
+  }
+
   HRESULT EnableExperimentalMode() {
     if (m_ExperimentalModeEnabled) {
       return S_OK;
@@ -1298,7 +1299,6 @@ public:
     }
     return hr;
   }
-#endif
 
   struct FenceObj {
     HANDLE m_fenceEvent = NULL;
@@ -1436,6 +1436,18 @@ static void SetupComputeValuePattern(std::vector<uint32_t> &values,
 }
 
 bool ExecutionTest::ExecutionTestClassSetup() {
+  HRESULT hr;
+#if !defined(_HLK_CONF) || defined(_HLK_CONF_TEST_EXPERIMENTAL)
+  hr = EnableExperimentalMode();
+  if (FAILED(hr)) {
+    LogCommentFmt(L"Unable to enable shader experimental mode - 0x%08x.", hr);
+  } else if (hr == S_FALSE) {
+    LogCommentFmt(L"Experimental mode not enabled.");
+  } else {
+    LogCommentFmt(L"Experimental mode enabled.");
+  }
+#endif // !defined(_HLK_CONF) || defined(_HLK_CONF_TEST_EXPERIMENTAL)
+
 #ifdef _HLK_CONF
 // TODO: Enabling the D3D driver verifier. Check out the logic in the D3DConf_12_Core test.
     VERIFY_SUCCEEDED(m_support.Initialize());
@@ -1446,16 +1458,6 @@ bool ExecutionTest::ExecutionTestClassSetup() {
     }
     return true;
 #else
-  HRESULT hr = EnableExperimentalMode();
-  if (FAILED(hr)) {
-    LogCommentFmt(L"Unable to enable shader experimental mode - 0x%08x.", hr);
-  }
-  else if (hr == S_FALSE) {
-    LogCommentFmt(L"Experimental mode not enabled.");
-  }
-  else {
-    LogCommentFmt(L"Experimental mode enabled.");
-  }
   hr = EnableDebugLayer();
   if (FAILED(hr)) {
     LogCommentFmt(L"Unable to enable debug layer - 0x%08x.", hr);
@@ -9524,7 +9526,7 @@ static void WriteReadBackDump(st::ShaderOp *pShaderOp, st::ShaderOpTest *pTest,
 // It's exclusive with the use of the DLL as a TAEF target.
 extern "C" {
   __declspec(dllexport) HRESULT WINAPI InitializeOpTests(void *pStrCtx, st::OutputStringFn pOutputStrFn) {
-    HRESULT hr = EnableExperimentalShaderModels();
+    HRESULT hr = ExecutionTest::EnableExperimentalShaderModels();
     if (FAILED(hr)) {
       pOutputStrFn(pStrCtx, L"Unable to enable experimental shader models.\r\n.");
     }
