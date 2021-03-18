@@ -906,7 +906,8 @@ void ShaderOpTest::RunCommandList() {
       D3D12_FEATURE_DATA_D3D12_OPTIONS7 O7;
       DXASSERT_LOCALVAR(O7, SUCCEEDED(m_pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS7, &O7, sizeof(O7))), "mesh shader test enabled on platform without mesh support");
 #endif
-      ID3D12GraphicsCommandList6 *pList6 = m_CommandList.List.p;
+      ID3D12GraphicsCommandList6 *pList6;
+      CHECK_HR(m_CommandList.List.p->QueryInterface(&pList6));
       pList6->BeginQuery(m_pQueryHeap, D3D12_QUERY_TYPE_PIPELINE_STATISTICS, 0);
       pList6->DispatchMesh(1, 1, 1);
       pList6->EndQuery(m_pQueryHeap, D3D12_QUERY_TYPE_PIPELINE_STATISTICS, 0);
