@@ -702,9 +702,9 @@ public:
       const UINT D3D12_FEATURE_SHADER_MODEL = 7;
       D3D12_FEATURE_DATA_SHADER_MODEL SMData;
       SMData.HighestShaderModel = testModel;
-      VERIFY_SUCCEEDED(pDevice->CheckFeatureSupport(
-        (D3D12_FEATURE)D3D12_FEATURE_SHADER_MODEL, &SMData, sizeof(SMData)));
-      if (SMData.HighestShaderModel < testModel) {
+      if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_SHADER_MODEL,
+                                              &SMData, sizeof(SMData))) ||
+          SMData.HighestShaderModel < testModel) {
         UINT minor = (UINT)testModel & 0x0f;
         LogCommentFmt(L"The selected device does not support "
                       L"shader model 6.%1u", minor);
