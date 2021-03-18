@@ -531,8 +531,8 @@ private:
       {
         const hlsl::DxilProgramHeader *program_header = (const hlsl::DxilProgramHeader *)(part+1);
 
-        CComPtr<IDxcBlobEncoding> pProgramHeaderBlob;
-        IFR(hlsl::DxcCreateBlobWithEncodingFromPinned(program_header, program_header->SizeInUint32*sizeof(UINT32), CP_ACP, &pProgramHeaderBlob));
+        CComPtr<IDxcBlob> pProgramHeaderBlob;
+        IFR(hlsl::DxcCreateBlobFromPinned(program_header, program_header->SizeInUint32*sizeof(UINT32), &pProgramHeaderBlob));
         IFR(pProgramHeaderBlob.QueryInterface(ppDebugProgramBlob));
 
       } break; // hlsl::DFCC_ShaderDebugInfoDXIL
@@ -632,10 +632,11 @@ public:
       }
       // DXIL program header or bitcode
       else {
-        CComPtr<IDxcBlobEncoding> pProgramHeaderBlob;
-        IFR(hlsl::DxcCreateBlobWithEncodingFromPinned(
+        CComPtr<IDxcBlob> pProgramHeaderBlob;
+        IFR(hlsl::DxcCreateBlobFromPinned(
           (hlsl::DxilProgramHeader *)pPdbOrDxil->GetBufferPointer(),
-          pPdbOrDxil->GetBufferSize(), CP_ACP, &pProgramHeaderBlob));
+          pPdbOrDxil->GetBufferSize(), &pProgramHeaderBlob));
+
         IFR(pProgramHeaderBlob.QueryInterface(&m_pDebugProgramBlob));
         IFR(PopulateSourcesFromProgramHeaderOrBitcode(m_pDebugProgramBlob));
       }
