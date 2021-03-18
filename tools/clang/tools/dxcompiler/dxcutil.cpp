@@ -20,6 +20,7 @@
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -70,7 +71,6 @@ AssembleInputs::AssembleInputs(std::unique_ptr<llvm::Module> &&pM,
                 IMalloc *pMalloc,
                 hlsl::SerializeDxilFlags SerializeFlags,
                 CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode,
-                bool bDebugInfo,
                 llvm::StringRef DebugName,
                 clang::DiagnosticsEngine *pDiag,
                 hlsl::DxilShaderHash *pShaderHashOut,
@@ -81,7 +81,6 @@ AssembleInputs::AssembleInputs(std::unique_ptr<llvm::Module> &&pM,
     pMalloc(pMalloc),
     SerializeFlags(SerializeFlags),
     pModuleBitcode(pModuleBitcode),
-    bDebugInfo(bDebugInfo),
     DebugName(DebugName),
     pDiag(pDiag),
     pShaderHashOut(pShaderHashOut),
@@ -164,7 +163,7 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
     // SerializeDxilContainerForModule stripping all the debug info. The debug
     // info will be stripped from the orginal module, but preserved in the cloned
     // module.
-    if (inputs.bDebugInfo) {
+    if (llvm::getDebugMetadataVersionFromModule(*inputs.pM) != 0) {
       llvmModuleWithDebugInfo.reset(llvm::CloneModule(inputs.pM.get()));
     }
   }

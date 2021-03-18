@@ -973,7 +973,7 @@ public:
 
           dxcutil::AssembleInputs inputs(
                 std::move(serializeModule), pOutputBlob, m_pMalloc, SerializeFlags,
-                pOutputStream, opts.GenerateFullDebugInfo(),
+                pOutputStream,
                 opts.GetPDBName(), &compiler.getDiagnostics(),
                 &ShaderHashContent, pReflectionStream, pRootSigStream);
 
