@@ -190,6 +190,10 @@ HRESULT DxcCreateBlobWithEncodingFromPinned(
     _In_bytecount_(size) LPCVOID pText, UINT32 size, UINT32 codePage,
     _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) throw();
 
+HRESULT DxcCreateBlobFromPinned(
+    _In_bytecount_(size) LPCVOID pText, UINT32 size,
+    _COM_Outptr_ IDxcBlob **pBlob) throw();
+
 HRESULT
 DxcCreateBlobWithEncodingFromStream(
     IStream *pStream, bool newInstanceAlways, UINT32 codePage,
