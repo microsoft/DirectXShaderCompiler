@@ -1282,6 +1282,20 @@ static void VerifyPdbUtil(dxc::DxcDllSupport &dllSupport,
     CComPtr<IDxcPixDxilDebugInfo> pDebugInfo;
     VERIFY_SUCCEEDED(pFactory->NewDxcPixDxilDebugInfo(&pDebugInfo));
     VERIFY_ARE_NOT_EQUAL(pDebugInfo, nullptr);
+
+    // Recompile when it's a full PDB anyway.
+    {
+      CComPtr<IDxcResult> pResult;
+      VERIFY_SUCCEEDED(pPdbUtils->CompileForFullPDB(&pResult));
+
+      HRESULT compileStatus = S_OK;
+      VERIFY_SUCCEEDED(pResult->GetStatus(&compileStatus));
+      VERIFY_SUCCEEDED(compileStatus);
+
+      CComPtr<IDxcBlob> pRecompiledPdbBlob;
+      VERIFY_SUCCEEDED(pResult->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pRecompiledPdbBlob), nullptr));
+    }
+
   }
   else {
     VERIFY_IS_FALSE(pPdbUtils->IsFullPDB());
