@@ -44,6 +44,8 @@
 #include "dxc.h"
 #include <vector>
 #include <string>
+#include <iostream>
+#include <iomanip>
 
 #include "dxc/dxcapi.h"
 #include "dxc/dxcapi.internal.h"
@@ -1217,6 +1219,36 @@ void DxcContext::GetCompilerVersionInfo(llvm::raw_string_ostream &OS) {
 #endif
 
 #ifdef _WIN32
+// Unhandled exception filter called when an unhandled exception occurs
+// to at least print an generic error message instead of crashing silently.
+// passes exception along to allow crash dumps to be generated
+static LONG CALLBACK ExceptionFilter(PEXCEPTION_POINTERS pExceptionInfo)
+{
+  if (pExceptionInfo && pExceptionInfo->ExceptionRecord) {
+    switch(pExceptionInfo->ExceptionRecord->ExceptionCode) {
+    case EXCEPTION_ACCESS_VIOLATION: {
+      const char *readWrite;
+      if (pExceptionInfo->ExceptionRecord->ExceptionInformation[0])
+        readWrite = "write";
+      else
+        readWrite = "read";
+      std::cerr <<
+        "Internal compiler error: access violation. Attempt to " << readWrite <<
+        " from address 0x" << std::hex << std::setfill('0') << std::setw(16) <<
+        pExceptionInfo->ExceptionRecord->ExceptionInformation[1] << std::endl;
+    } break;
+    case EXCEPTION_STACK_OVERFLOW:
+      std::cerr << "Internal compiler error: stack overflow" << std::endl;
+    }
+  }
+
+  // Continue search to pass along the exception
+  return EXCEPTION_CONTINUE_SEARCH;
+}
+#endif
+
+
+#ifdef _WIN32
 int dxc::main(int argc, const wchar_t **argv_) {
 #else
 int dxc::main(int argc, const char **argv_) {
@@ -1254,6 +1286,12 @@ int dxc::main(int argc, const char **argv_) {
     if (dxcOpts.EntryPoint.empty() && !dxcOpts.RecompileFromBinary) {
       dxcOpts.EntryPoint = "main";
     }
+
+#ifdef _WIN32
+    // Set exception handler if enabled
+    if (dxcOpts.HandleExceptions)
+      SetUnhandledExceptionFilter(ExceptionFilter);
+#endif
 
     // Setup a helper DLL.
     {
