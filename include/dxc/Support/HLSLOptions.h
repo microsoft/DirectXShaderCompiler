@@ -201,6 +201,7 @@ public:
 
   bool PrintAfterAll; // OPT_print_after_all
   bool EnablePayloadQualifiers = false; // OPT_enable_payload_qualifiers
+  bool HandleExceptions = false; // OPT_disable_exception_handling
 
   // Rewriter Options
   RewriterOpts RWOpt;
