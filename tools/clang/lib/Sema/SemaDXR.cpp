@@ -67,7 +67,7 @@ struct PayloadAccessInfo {
 };
 
 struct DxrShaderDiagnoseInfo {
-  const FunctionDecl *FunctionDecl;
+  const FunctionDecl *funcDecl;
   const VarDecl *Payload;
   DXIL::PayloadAccessShaderStage Stage;
   std::vector<TraceRayCall> TraceCalls;
@@ -689,7 +689,7 @@ DiagnosePayloadAsFunctionArg(
       }
 
       if (CalleeInfo.Payload) {
-        CalleeInfo.FunctionDecl = CalledFunction;
+        CalleeInfo.funcDecl = CalledFunction;
         CalleeInfo.Stage = Info.Stage;
         auto FieldsToIgnoreRead = CollectDominatingWritesForCall(Use, Info, DT);
         auto FieldsToIgnoreWrite = CollectReachableWritesForCall(Use, Info);
@@ -925,7 +925,7 @@ DiagnosePayloadAccess(Sema &S, DxrShaderDiagnoseInfo &Info,
   clang::DominatorTree DT;
   AnalysisDeclContextManager AnalysisManager;
   AnalysisDeclContext *AnalysisContext =
-      AnalysisManager.getContext(Info.FunctionDecl);
+      AnalysisManager.getContext(Info.funcDecl);
 
   CFG &TheCFG = *AnalysisContext->getCFG();
   DT.buildDominatorTree(*AnalysisContext);
@@ -1093,7 +1093,7 @@ public:
         DiagnosePayloadParameter(S, Payload, Decl, Stage);
       }
       DxrShaderDiagnoseInfo Info;
-      Info.FunctionDecl = Decl;
+      Info.funcDecl = Decl;
       Info.Payload = Payload;
       Info.Stage = Stage;
 
