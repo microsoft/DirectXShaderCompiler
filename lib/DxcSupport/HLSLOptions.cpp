@@ -664,6 +664,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     return 1;
   }
 
+  opts.HandleExceptions = !Args.hasFlag(OPT_disable_exception_handling, OPT_INVALID, false);
+
   if (opts.DefaultColMajor && opts.DefaultRowMajor) {
     errors << "Cannot specify /Zpr and /Zpc together, use /? to get usage information";
     return 1;

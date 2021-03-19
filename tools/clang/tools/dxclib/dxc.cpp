@@ -1217,6 +1217,59 @@ void DxcContext::GetCompilerVersionInfo(llvm::raw_string_ostream &OS) {
 #endif
 
 #ifdef _WIN32
+// Unhandled exception filter called when an unhandled exception occurs
+// to at least print an generic error message instead of crashing silently.
+// passes exception along to allow crash dumps to be generated
+static LONG CALLBACK ExceptionFilter(PEXCEPTION_POINTERS pExceptionInfo)
+{
+  static char scratch[32];
+
+  fputs("Internal compiler error: " , stderr);
+
+  if (!pExceptionInfo || !pExceptionInfo->ExceptionRecord) {
+    // No information at all, it's not much, but it's the best we can do
+    fputs("Unknown", stderr);
+    return EXCEPTION_CONTINUE_SEARCH;
+  }
+
+  switch(pExceptionInfo->ExceptionRecord->ExceptionCode) {
+    // native exceptions
+  case EXCEPTION_ACCESS_VIOLATION: {
+    fputs("access violation. Attempted to ", stderr);
+    if (pExceptionInfo->ExceptionRecord->ExceptionInformation[0])
+      fputs("write", stderr);
+    else
+      fputs("read", stderr);
+    fputs(" from address ", stderr);
+    sprintf_s(scratch, _countof(scratch), "0x%016llx\n", pExceptionInfo->ExceptionRecord->ExceptionInformation[1]);
+    fputs(scratch, stderr);
+  } break;
+  case EXCEPTION_STACK_OVERFLOW:
+    fputs("stack overflow\n", stderr);
+    break;
+    // LLVM exceptions
+  case STATUS_LLVM_ASSERT:
+    fputs("LLVM Assert\n", stderr);
+    break;
+  case STATUS_LLVM_UNREACHABLE:
+    fputs("LLVM Unreachable\n", stderr);
+    break;
+  case STATUS_LLVM_FATAL:
+    fputs("LLVM Fatal Error\n", stderr);
+    break;
+  default:
+    fputs("Error ", stderr);
+    sprintf_s(scratch, _countof(scratch), "0x%08x\n", pExceptionInfo->ExceptionRecord->ExceptionCode);
+    fputs(scratch, stderr);
+  }
+
+  // Continue search to pass along the exception
+  return EXCEPTION_CONTINUE_SEARCH;
+}
+#endif
+
+
+#ifdef _WIN32
 int dxc::main(int argc, const wchar_t **argv_) {
 #else
 int dxc::main(int argc, const char **argv_) {
@@ -1254,6 +1307,12 @@ int dxc::main(int argc, const char **argv_) {
     if (dxcOpts.EntryPoint.empty() && !dxcOpts.RecompileFromBinary) {
       dxcOpts.EntryPoint = "main";
     }
+
+#ifdef _WIN32
+    // Set exception handler if enabled
+    if (dxcOpts.HandleExceptions)
+      SetUnhandledExceptionFilter(ExceptionFilter);
+#endif
 
     // Setup a helper DLL.
     {
