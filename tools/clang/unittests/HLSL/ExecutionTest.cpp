@@ -1384,10 +1384,10 @@ public:
   }
 
   void RunRWByteBufferComputeTest(ID3D12Device *pDevice, LPCSTR shader, std::vector<uint32_t> &values);
-  void RunLifetimeIntrinsicTest(ID3D12Device *pDevice, LPCSTR shader, D3D_SHADER_MODEL shaderModel, bool useLibTarget, LPCWSTR *pOptions, int numOptions, std::vector<uint32_t> &values);
+  void RunLifetimeIntrinsicTest(ID3D12Device *pDevice, LPCSTR shader, D3D_SHADER_MODEL shaderModel, bool useLibTarget, llvm::ArrayRef<LPCWSTR> options, std::vector<uint32_t> &values);
   void RunLifetimeIntrinsicComputeTest(ID3D12Device *pDevice, LPCSTR pShader, CComPtr<ID3D12DescriptorHeap>& pUavHeap, CComPtr<ID3D12RootSignature>& pRootSignature,
                                        LPCWSTR pTargetProfile, LPCWSTR *pOptions, int numOptions, std::vector<uint32_t> &values);
-  void RunLifetimeIntrinsicLibTest(ID3D12Device5 *pDevice, LPCSTR pShader, CComPtr<ID3D12RootSignature>& pRootSignature,
+  void RunLifetimeIntrinsicLibTest(ID3D12Device *pDevice1, LPCSTR pShader, CComPtr<ID3D12RootSignature>& pRootSignature,
                                    LPCWSTR pTargetProfile, LPCWSTR *pOptions, int numOptions);
 
   void SetDescriptorHeap(ID3D12GraphicsCommandList *pCommandList, ID3D12DescriptorHeap *pHeap) {
@@ -1634,8 +1634,11 @@ void ExecutionTest::RunLifetimeIntrinsicComputeTest(ID3D12Device *pDevice, LPCST
   WaitForSignal(pCommandQueue, FO);
 }
 
-void ExecutionTest::RunLifetimeIntrinsicLibTest(ID3D12Device5 *pDevice, LPCSTR pShader, CComPtr<ID3D12RootSignature>& pRootSignature,
+void ExecutionTest::RunLifetimeIntrinsicLibTest(ID3D12Device *pDevice1, LPCSTR pShader, CComPtr<ID3D12RootSignature>& pRootSignature,
                                                 LPCWSTR pTargetProfile, LPCWSTR *pOptions, int numOptions) {
+  CComPtr<ID3D12Device5> pDevice;
+  VERIFY_SUCCEEDED(pDevice1->QueryInterface(IID_PPV_ARGS(&pDevice)));
+
   // Create command queue.
   CComPtr<ID3D12CommandQueue> pCommandQueue;
   CreateCommandQueue(pDevice, L"RunLifetimeIntrinsicTest Command Queue", &pCommandQueue, D3D12_COMMAND_LIST_TYPE_DIRECT);
@@ -1686,7 +1689,7 @@ void ExecutionTest::RunLifetimeIntrinsicLibTest(ID3D12Device5 *pDevice, LPCSTR p
 }
 
 void ExecutionTest::RunLifetimeIntrinsicTest(ID3D12Device *pDevice, LPCSTR pShader, D3D_SHADER_MODEL shaderModel, bool useLibTarget,
-                                             LPCWSTR *pOptions, int numOptions, std::vector<uint32_t> &values) {
+                                             llvm::ArrayRef<LPCWSTR> options, std::vector<uint32_t> &values) {
   LPCWSTR pTargetProfile;
   switch (shaderModel) {
       default: pTargetProfile = useLibTarget ? L"lib_6_3" : L"cs_6_0"; break; // Default to 6.3 for lib, 6.0 otherwise.
@@ -1722,10 +1725,13 @@ void ExecutionTest::RunLifetimeIntrinsicTest(ID3D12Device *pDevice, LPCSTR pShad
     CreateRootSignatureFromDesc(pDevice, &rootSignatureDesc, &pRootSignature);
   }
 
-  if (useLibTarget)
-    RunLifetimeIntrinsicLibTest(reinterpret_cast<ID3D12Device5*>(pDevice), pShader, pRootSignature, pTargetProfile, pOptions, numOptions);
-  else
-    RunLifetimeIntrinsicComputeTest(pDevice, pShader, pUavHeap, pRootSignature, pTargetProfile, pOptions, numOptions, values);
+  if (useLibTarget) {
+    RunLifetimeIntrinsicLibTest(pDevice, pShader, pRootSignature, pTargetProfile,
+      const_cast<LPCWSTR*>(options.data()), static_cast<int>(options.size()));
+  } else {
+    RunLifetimeIntrinsicComputeTest(pDevice, pShader, pUavHeap, pRootSignature, pTargetProfile,
+      const_cast<LPCWSTR*>(options.data()), static_cast<int>(options.size()), values);
+  }
 }
 
 TEST_F(ExecutionTest, LifetimeIntrinsicTest) {
@@ -1772,59 +1778,88 @@ TEST_F(ExecutionTest, LifetimeIntrinsicTest) {
   static const int ThreadsPerGroup = NumThreadsX * NumThreadsY * NumThreadsZ;
   static const int DispatchGroupCount = 1;
 
-  // TODO: There's probably a lot of things in the rest of this test that could be stripped away.
+  CComPtr<ID3D12Device> pDevice;
+  bool bSM_6_6_Supported = CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6, false, true);
+  bool bSM_6_3_Supported = bSM_6_6_Supported;
+  if (!bSM_6_6_Supported) {
+    // Try 6.3 for downlevel DXR case
+    bSM_6_3_Supported = CreateDevice(&pDevice, D3D_SHADER_MODEL_6_3, false, true);
+  }
+  if (!bSM_6_3_Supported) {
+    // Otherwise, 6.0 better be supported for compute case
+    VERIFY_IS_TRUE(CreateDevice(&pDevice, D3D_SHADER_MODEL_6_0, false, false));
+  }
+  bool bDXRSupported = bSM_6_3_Supported && DoesDeviceSupportRayTracing(pDevice);
 
-  CComPtr<ID3D12Device5> pDevice;
-  if (!CreateDevice(reinterpret_cast<ID3D12Device**>(&pDevice), D3D_SHADER_MODEL_6_6, true, true)) {
-    WEX::Logging::Log::Comment(L"Lifetime test not run pre 6.6");
-    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
-    return;
+  if (!bSM_6_6_Supported) {
+    WEX::Logging::Log::Comment(L"Native lifetime markers skipped, device does not support SM 6.6");
+  }
+  if (!bDXRSupported) {
+    WEX::Logging::Log::Comment(L"DXR lifetime tests skipped, device does not support DXR");
   }
 
   std::vector<uint32_t> values;
   SetupComputeValuePattern(values, ThreadsPerGroup * DispatchGroupCount);
 
   // Run a number of tests for different configurations that will cause
-  // lifetime intrinsics to be placed directly, be replaced by a zeroinitializer
-  // store, or be replaced by an undef store.
-  LPCWSTR pOptions15[] = {L"/validator-version 1.5"};
-  LPCWSTR pOptions16[] = {L"/validator-version 1.6", L"/Vd"};
+  // lifetime intrinsics to be:
+  // - placed directly
+  // - translated to an undef store
+  // - translated to a zeroinitializer store
+  // against compute and DXR targets, downlevel and SM 6.6:
+  // - downlevel: cs_6_0, lib_6_3 (DXR)
+  // - cs_6_6, lib_6_6 (DXR)
 
   VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
 
-  // Test regular shader with zeroinitializer store.
-  RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_0, false, pOptions15, _countof(pOptions15), values);
+  WEX::Logging::Log::Comment(L"==== cs_6_0 with default translation");
+  RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_0, false,
+    {L"-enable-lifetime-markers"}, values);
   VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
 
-  if (DoesDeviceSupportRayTracing(pDevice)) {
-    // Test library with zeroinitializer store.
-    RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_3, true, pOptions15, _countof(pOptions15), values);
+  if (bDXRSupported) {
+    WEX::Logging::Log::Comment(L"==== DXR lib_6_3 with default translation");
+    RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_3, true,
+      {L"-enable-lifetime-markers"}, values);
     VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
   }
 
-  // Testing SM 6.6 and validator version 1.6 requires experimental shaders
-  // being turned on.
-  if (!m_ExperimentalModeEnabled)
-      return;
-
-  // Test regular shader with undef store.
-  RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_0, false, pOptions16, _countof(pOptions16), values);
+  WEX::Logging::Log::Comment(L"==== cs_6_0 with zeroinitializer translation");
+  RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_0, false,
+    {L"-enable-lifetime-markers", L"-force-zero-store-lifetimes"}, values);
   VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
 
-  if (DoesDeviceSupportRayTracing(pDevice)) {
-    // Test library with undef store.
-    RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_3, true, pOptions16, _countof(pOptions16), values);
+  if (bDXRSupported) {
+    WEX::Logging::Log::Comment(L"==== DXR lib_6_3 with zeroinitializer translation");
+    RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_3, true,
+      {L"-enable-lifetime-markers", L"-force-zero-store-lifetimes"}, values);
     VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
   }
 
-  // Test regular shader with lifetime intrinsics.
-  RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_5, false, pOptions16, _countof(pOptions16), values); // TODO: Test 6.6 here!
-  VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
-
-  if (DoesDeviceSupportRayTracing(pDevice)) {
-    // Test library with lifetime intrinsics.
-    RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_5, true, pOptions16, _countof(pOptions16), values); // TODO: Test 6.6 here!
+  if (bSM_6_6_Supported) {
+    WEX::Logging::Log::Comment(L"==== cs_6_6 with zeroinitializer translation");
+    RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_6, false,
+      {L"-enable-lifetime-markers", L"-force-zero-store-lifetimes"}, values);
     VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
+
+    if (bDXRSupported) {
+      WEX::Logging::Log::Comment(L"==== DXR lib_6_6 with zeroinitializer translation");
+      RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_6, true,
+        {L"-enable-lifetime-markers", L"-force-zero-store-lifetimes"}, values);
+      VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
+    }
+
+    WEX::Logging::Log::Comment(L"==== cs_6_6 with native lifetime markers");
+    RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_6, false,
+      {L"-enable-lifetime-markers"}, values);
+    VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
+
+    if (bDXRSupported) {
+      WEX::Logging::Log::Comment(L"==== DXR lib_6_6 with native lifetime markers");
+      RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_6, true,
+        {L"-enable-lifetime-markers"}, values);
+      VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
+    }
   }
 }
 
