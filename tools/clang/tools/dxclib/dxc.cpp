@@ -44,8 +44,6 @@
 #include "dxc.h"
 #include <vector>
 #include <string>
-#include <iostream>
-#include <iomanip>
 
 #include "dxc/dxcapi.h"
 #include "dxc/dxcapi.internal.h"
@@ -1224,22 +1222,45 @@ void DxcContext::GetCompilerVersionInfo(llvm::raw_string_ostream &OS) {
 // passes exception along to allow crash dumps to be generated
 static LONG CALLBACK ExceptionFilter(PEXCEPTION_POINTERS pExceptionInfo)
 {
-  if (pExceptionInfo && pExceptionInfo->ExceptionRecord) {
-    switch(pExceptionInfo->ExceptionRecord->ExceptionCode) {
-    case EXCEPTION_ACCESS_VIOLATION: {
-      const char *readWrite;
-      if (pExceptionInfo->ExceptionRecord->ExceptionInformation[0])
-        readWrite = "write";
-      else
-        readWrite = "read";
-      std::cerr <<
-        "Internal compiler error: access violation. Attempt to " << readWrite <<
-        " from address 0x" << std::hex << std::setfill('0') << std::setw(16) <<
-        pExceptionInfo->ExceptionRecord->ExceptionInformation[1] << std::endl;
-    } break;
-    case EXCEPTION_STACK_OVERFLOW:
-      std::cerr << "Internal compiler error: stack overflow" << std::endl;
-    }
+  char scratch[32];
+
+  fputs("Internal compiler error: " , stderr);
+
+  if (!pExceptionInfo || !pExceptionInfo->ExceptionRecord) {
+    // No information at all, it's not much, but it's the best we can do
+    fputs("Unknown", stderr);
+    return EXCEPTION_CONTINUE_SEARCH;
+  }
+
+  switch(pExceptionInfo->ExceptionRecord->ExceptionCode) {
+    // native exceptions
+  case EXCEPTION_ACCESS_VIOLATION: {
+    fputs("access violation. Attempted to ", stderr);
+    if (pExceptionInfo->ExceptionRecord->ExceptionInformation[0])
+      fputs("write", stderr);
+    else
+      fputs("read", stderr);
+    fputs(" from address ", stderr);
+    sprintf_s(scratch, _countof(scratch), "0x%016llx\n", pExceptionInfo->ExceptionRecord->ExceptionInformation[1]);
+    fputs(scratch, stderr);
+  } break;
+  case EXCEPTION_STACK_OVERFLOW:
+    fputs("stack overflow\n", stderr);
+    break;
+    // LLVM exceptions
+  case STATUS_LLVM_ASSERT:
+    fputs("LLVM Assert\n", stderr);
+    break;
+  case STATUS_LLVM_UNREACHABLE:
+    fputs("LLVM Unreachable\n", stderr);
+    break;
+  case STATUS_LLVM_FATAL:
+    fputs("LLVM Fatal Error\n", stderr);
+    break;
+  default:
+    fputs("Error ", stderr);
+    sprintf_s(scratch, _countof(scratch), "0x%08x\n", pExceptionInfo->ExceptionRecord->ExceptionCode);
+    fputs(scratch, stderr);
   }
 
   // Continue search to pass along the exception
