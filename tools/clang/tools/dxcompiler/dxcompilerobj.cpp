@@ -1255,6 +1255,7 @@ public:
     else {
       CodeGenOptions &CGOpts = compiler.getCodeGenOpts();
       CGOpts.setDebugInfo(CodeGenOptions::LocTrackingOnly);
+      CGOpts.DebugColumnInfo = 1;
     }
 
     clang::PreprocessorOptions &PPOpts(compiler.getPreprocessorOpts());
