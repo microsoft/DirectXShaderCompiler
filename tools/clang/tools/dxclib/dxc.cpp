@@ -1241,7 +1241,7 @@ static LONG CALLBACK ExceptionFilter(PEXCEPTION_POINTERS pExceptionInfo)
     else
       fputs("read", stderr);
     fputs(" from address ", stderr);
-    sprintf_s(scratch, _countof(scratch), "0x%016llx\n", pExceptionInfo->ExceptionRecord->ExceptionInformation[1]);
+    sprintf_s(scratch, _countof(scratch), "0x%p\n", (void*)pExceptionInfo->ExceptionRecord->ExceptionInformation[1]);
     fputs(scratch, stderr);
   } break;
   case EXCEPTION_STACK_OVERFLOW:
