@@ -1222,7 +1222,7 @@ void DxcContext::GetCompilerVersionInfo(llvm::raw_string_ostream &OS) {
 // passes exception along to allow crash dumps to be generated
 static LONG CALLBACK ExceptionFilter(PEXCEPTION_POINTERS pExceptionInfo)
 {
-  char scratch[32];
+  static char scratch[32];
 
   fputs("Internal compiler error: " , stderr);
 
