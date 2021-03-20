@@ -20,6 +20,7 @@
 #include "dxc/Support/Global.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MSFileSystem.h"
+#include "llvm/Support/MemoryBuffer.h"
 #include "dxc/Support/microcom.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/dxcapi.impl.h"
@@ -53,7 +54,7 @@ struct DiagRestore {
   }
 };
 
-class DxcValidator : public IDxcValidator,
+class DxcValidator : public IDxcValidator2,
 #ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
                      public IDxcVersionInfo2
 #else
@@ -79,7 +80,7 @@ public:
   DXC_MICROCOM_TM_CTOR(DxcValidator)
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
-    return DoBasicQueryInterface<IDxcValidator, IDxcVersionInfo>(this, iid, ppvObject);
+    return DoBasicQueryInterface<IDxcValidator, IDxcValidator2, IDxcVersionInfo>(this, iid, ppvObject);
   }
 
   // For internal use only.
@@ -95,6 +96,14 @@ public:
   HRESULT STDMETHODCALLTYPE Validate(
     _In_ IDxcBlob *pShader,                       // Shader to validate.
     _In_ UINT32 Flags,                            // Validation flags.
+    _COM_Outptr_ IDxcOperationResult **ppResult   // Validation output status, buffer, and errors
+    ) override;
+
+  // IDxcValidator2
+  HRESULT STDMETHODCALLTYPE ValidateWithDebug(
+    _In_ IDxcBlob *pShader,                       // Shader to validate.
+    _In_ UINT32 Flags,                            // Validation flags.
+    _In_ DxcBuffer *pDebugModule,                 // Debug module to provide line numbers
     _COM_Outptr_ IDxcOperationResult **ppResult   // Validation output status, buffer, and errors
     ) override;
 
@@ -120,6 +129,32 @@ HRESULT STDMETHODCALLTYPE DxcValidator::Validate(
   if ((Flags & DxcValidatorFlags_ModuleOnly) && (Flags & (DxcValidatorFlags_InPlaceEdit | DxcValidatorFlags_RootSignatureOnly)))
     return E_INVALIDARG;
   return ValidateWithOptModules(pShader, Flags, nullptr, nullptr, ppResult);
+}
+
+HRESULT STDMETHODCALLTYPE DxcValidator::ValidateWithDebug(
+  _In_ IDxcBlob *pShader,                       // Shader to validate.
+  _In_ UINT32 Flags,                            // Validation flags.
+  _In_ DxcBuffer *pDebugModule,                 // Debug module to provide line numbers
+  _COM_Outptr_ IDxcOperationResult **ppResult   // Validation output status, buffer, and errors
+)
+{
+  DxcThreadMalloc TM(m_pMalloc);
+  if (pShader == nullptr || ppResult == nullptr || Flags & ~DxcValidatorFlags_ValidMask)
+    return E_INVALIDARG;
+  if ((Flags & DxcValidatorFlags_ModuleOnly) && (Flags & (DxcValidatorFlags_InPlaceEdit | DxcValidatorFlags_RootSignatureOnly)))
+    return E_INVALIDARG;
+
+  std::unique_ptr<llvm::Module> pM;
+  std::unique_ptr<llvm::MemoryBuffer> pMemBuf;
+  LLVMContext ctx;
+  if (pDebugModule) {
+    pMemBuf = llvm::MemoryBuffer::getMemBuffer(StringRef((char *)pDebugModule->Ptr, pDebugModule->Size), false);
+    llvm::ErrorOr<std::unique_ptr<llvm::Module> > ModuleOrErr = llvm::parseBitcodeFile(pMemBuf->getMemBufferRef(), ctx);
+    if (ModuleOrErr) {
+      pM = std::move(ModuleOrErr.get());
+    }
+  }
+  return ValidateWithOptModules(pShader, Flags, nullptr, pM.get(), ppResult);
 }
 
 HRESULT DxcValidator::ValidateWithOptModules(

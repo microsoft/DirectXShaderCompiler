@@ -150,6 +150,11 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
   bool bInternalValidator = CreateValidator(pValidator);
   // Warning on internal Validator
 
+  CComPtr<IDxcValidator2> pValidator2;
+  if (!bInternalValidator) {
+    pValidator.QueryInterface(&pValidator2);
+  }
+
   if (bInternalValidator) {
     if (inputs.pDiag) {
       unsigned diagID =
@@ -158,11 +163,14 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
                                "signed for use in release environments.\r\n");
       inputs.pDiag->Report(diagID);
     }
-    // If using the internal validator, we'll use the modules directly.
-    // In this case, we'll want to make a clone to avoid
-    // SerializeDxilContainerForModule stripping all the debug info. The debug
-    // info will be stripped from the orginal module, but preserved in the cloned
-    // module.
+  }
+
+  if (bInternalValidator || pValidator2) {
+    // If using the internal validator or external validator supports
+    // IDxcValidator2, we'll use the modules directly. In this case, we'll want
+    // to make a clone to avoid SerializeDxilContainerForModule stripping all
+    // the debug info. The debug info will be stripped from the orginal module,
+    // but preserved in the cloned module.
     if (llvm::getDebugMetadataVersionFromModule(*inputs.pM) != 0) {
       llvmModuleWithDebugInfo.reset(llvm::CloneModule(inputs.pM.get()));
     }
@@ -198,8 +206,26 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
                              llvmModuleWithDebugInfo.get(), inputs.pOutputContainerBlob,
                              DxcValidatorFlags_InPlaceEdit, &pValResult));
   } else {
-    IFT(pValidator->Validate(inputs.pOutputContainerBlob, DxcValidatorFlags_InPlaceEdit,
-                             &pValResult));
+    if (pValidator2) {
+
+      // If metadata was stripped, re-serialize the input module.
+      CComPtr<AbstractMemoryStream> pDebugModuleStream;
+      IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pDebugModuleStream));
+      raw_stream_ostream outStream(pDebugModuleStream.p);
+      WriteBitcodeToFile(llvmModuleWithDebugInfo.get(), outStream, true);
+      outStream.flush();
+
+      DxcBuffer debugModule = {};
+      debugModule.Ptr = pDebugModuleStream->GetPtr();
+      debugModule.Size = pDebugModuleStream->GetPtrSize();
+
+      IFT(pValidator2->ValidateWithDebug(inputs.pOutputContainerBlob, DxcValidatorFlags_InPlaceEdit,
+                                         &debugModule, &pValResult));
+    }
+    else {
+      IFT(pValidator->Validate(inputs.pOutputContainerBlob, DxcValidatorFlags_InPlaceEdit,
+                               &pValResult));
+    }
   }
   IFT(pValResult->GetStatus(&valHR));
   if (inputs.pDiag) {
