@@ -308,9 +308,7 @@ public:
   TEST_METHOD(AtomicsShared64Test);
   TEST_METHOD(AtomicsFloatTest);
   TEST_METHOD(HelperLaneTest);
-  BEGIN_TEST_METHOD(HelperLaneTestWave)
-    TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp handles this
-  END_TEST_METHOD()
+  TEST_METHOD(HelperLaneTestWave);
   TEST_METHOD(SignatureResourcesTest)
   TEST_METHOD(DynamicResourcesTest)
   TEST_METHOD(QuadReadTest)
@@ -1387,7 +1385,7 @@ public:
   void RunLifetimeIntrinsicTest(ID3D12Device *pDevice, LPCSTR shader, D3D_SHADER_MODEL shaderModel, bool useLibTarget, llvm::ArrayRef<LPCWSTR> options, std::vector<uint32_t> &values);
   void RunLifetimeIntrinsicComputeTest(ID3D12Device *pDevice, LPCSTR pShader, CComPtr<ID3D12DescriptorHeap>& pUavHeap, CComPtr<ID3D12RootSignature>& pRootSignature,
                                        LPCWSTR pTargetProfile, LPCWSTR *pOptions, int numOptions, std::vector<uint32_t> &values);
-  void RunLifetimeIntrinsicLibTest(ID3D12Device *pDevice1, LPCSTR pShader, CComPtr<ID3D12RootSignature>& pRootSignature,
+  void RunLifetimeIntrinsicLibTest(ID3D12Device *pDevice0, LPCSTR pShader, CComPtr<ID3D12RootSignature>& pRootSignature,
                                    LPCWSTR pTargetProfile, LPCWSTR *pOptions, int numOptions);
 
   void SetDescriptorHeap(ID3D12GraphicsCommandList *pCommandList, ID3D12DescriptorHeap *pHeap) {
@@ -1634,10 +1632,10 @@ void ExecutionTest::RunLifetimeIntrinsicComputeTest(ID3D12Device *pDevice, LPCST
   WaitForSignal(pCommandQueue, FO);
 }
 
-void ExecutionTest::RunLifetimeIntrinsicLibTest(ID3D12Device *pDevice1, LPCSTR pShader, CComPtr<ID3D12RootSignature>& pRootSignature,
+void ExecutionTest::RunLifetimeIntrinsicLibTest(ID3D12Device *pDevice0, LPCSTR pShader, CComPtr<ID3D12RootSignature>& pRootSignature,
                                                 LPCWSTR pTargetProfile, LPCWSTR *pOptions, int numOptions) {
   CComPtr<ID3D12Device5> pDevice;
-  VERIFY_SUCCEEDED(pDevice1->QueryInterface(IID_PPV_ARGS(&pDevice)));
+  VERIFY_SUCCEEDED(pDevice0->QueryInterface(IID_PPV_ARGS(&pDevice)));
 
   // Create command queue.
   CComPtr<ID3D12CommandQueue> pCommandQueue;
@@ -1790,6 +1788,12 @@ TEST_F(ExecutionTest, LifetimeIntrinsicTest) {
     VERIFY_IS_TRUE(CreateDevice(&pDevice, D3D_SHADER_MODEL_6_0, false, false));
   }
   bool bDXRSupported = bSM_6_3_Supported && DoesDeviceSupportRayTracing(pDevice);
+
+  if (GetTestParamUseWARP(UseWarpByDefault()) || IsDeviceBasicAdapter(pDevice)) {
+    WEX::Logging::Log::Comment(L"WARP has a known issue with LifetimeIntrinsicTest.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
 
   if (!bSM_6_6_Supported) {
     WEX::Logging::Log::Comment(L"Native lifetime markers skipped, device does not support SM 6.6");
@@ -9425,6 +9429,12 @@ TEST_F(ExecutionTest, HelperLaneTestWave) {
     CComPtr<ID3D12Device> pDevice;
     if (!CreateDevice(&pDevice, sm, false /* skipUnsupported */)) {
       continue;
+    }
+
+    if (GetTestParamUseWARP(UseWarpByDefault()) || IsDeviceBasicAdapter(pDevice)) {
+      WEX::Logging::Log::Comment(L"WARP has a known issue with HelperLaneTestWave.");
+      WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+      return;
     }
 
     if (!DoesDeviceSupportWaveOps(pDevice)) {
