@@ -3,7 +3,6 @@
 
 // CHK_DB: 17:7: error: Offsets to texture access operations must be immediate values
 // CHK_NODB: Offsets to texture access operations must be immediate values.
-// CHK_NODB-SAME Use /Zi for source location.
 
 SamplerState samp1 : register(s5);
 Texture2D<float4> text1 : register(t3);

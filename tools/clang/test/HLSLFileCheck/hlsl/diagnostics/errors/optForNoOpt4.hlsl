@@ -5,9 +5,7 @@
 // CHK_DB: 21:10: error: Offsets to texture access operations must be immediate values. Unrolling the loop containing the offset value manually and using -O3 may help in some cases.
 
 // CHK_NODB: error: Offsets to texture access operations must be immediate values. Unrolling the loop containing the offset value manually and using -O3 may help in some cases.
-// CHK_NODB-SAME Use /Zi for source location.
 // CHK_NODB: error: Offsets to texture access operations must be immediate values. Unrolling the loop containing the offset value manually and using -O3 may help in some cases.
-// CHK_NODB-SAME Use /Zi for source location.
 
 SamplerState samp1 : register(s5);
 Texture2D<float4> text1 : register(t3);
