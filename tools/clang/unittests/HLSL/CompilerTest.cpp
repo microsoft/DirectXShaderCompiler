@@ -1419,6 +1419,7 @@ static void VerifyPdbUtil(dxc::DxcDllSupport &dllSupport,
 #ifdef _WIN32
 
 TEST_F(CompilerTest, CompileThenTestPdbUtilsStripped) {
+  if (m_ver.SkipDxilVersion(1, 5)) return;
   CComPtr<TestIncludeHandler> pInclude;
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcBlobEncoding> pSource;
@@ -1610,6 +1611,7 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bSourceInDebugModule, bool bStr
 }
 
 TEST_F(CompilerTest, CompileThenTestPdbUtils) {
+  if (m_ver.SkipDxilVersion(1, 5)) return;
   TestPdbUtils(/*bSlim*/true,  /*bSourceInDebugModule*/false, /*strip*/true);  // Slim PDB, where source info is stored in its own part, and debug module is NOT present
 
   TestPdbUtils(/*bSlim*/false, /*bSourceInDebugModule*/true,  /*strip*/false);  // Old PDB format, where source info is embedded in the module
