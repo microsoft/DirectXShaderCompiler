@@ -1,7 +1,8 @@
-// RUN: %dxilver 1.6 | %dxc -E main -T ps_6_1 -O0 %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_1 -O0 %s | FileCheck %s
+// RUN: %dxilver 1.6 | %dxc -E main -T ps_6_1 -O0 %s | FileCheck %s -check-prefixes=CHECK,CHK16
 
-// CHECK: Note: shader requires additional functionality:
-// CHECK-NEXT: Barycentrics
+// CHK16: Note: shader requires additional functionality:
+// CHK16-NEXT: Barycentrics
 
 // CHECK: call float @dx.op.attributeAtVertex.f32(i32 137, i32 1, i32 0, i8 0, i8 0)
 // CHECK: call float @dx.op.attributeAtVertex.f32(i32 137, i32 1, i32 0, i8 1, i8 0)
