@@ -67,8 +67,8 @@ private:
   HRESULT RunValidation(
     _In_ IDxcBlob *pShader,                       // Shader to validate.
     _In_ UINT32 Flags,                            // Validation flags.
-    _In_ llvm::Module *pModule,                   // Module to validate, if available.
-    _In_ llvm::Module *pDebugModule,              // Debug module to validate, if available
+    _In_opt_ llvm::Module *pModule,               // Module to validate, if available.
+    _In_opt_ llvm::Module *pDebugModule,          // Debug module to validate, if available
     _In_ AbstractMemoryStream *pDiagStream);
 
   HRESULT RunRootSignatureValidation(
@@ -87,8 +87,8 @@ public:
   HRESULT ValidateWithOptModules(
     _In_ IDxcBlob *pShader,                       // Shader to validate.
     _In_ UINT32 Flags,                            // Validation flags.
-    _In_ llvm::Module *pModule,                   // Module to validate, if available.
-    _In_ llvm::Module *pDebugModule,              // Debug module to validate, if available
+    _In_opt_ llvm::Module *pModule,               // Module to validate, if available.
+    _In_opt_ llvm::Module *pDebugModule,          // Debug module to validate, if available
     _COM_Outptr_ IDxcOperationResult **ppResult   // Validation output status, buffer, and errors
   );
 
@@ -103,7 +103,7 @@ public:
   HRESULT STDMETHODCALLTYPE ValidateWithDebug(
     _In_ IDxcBlob *pShader,                       // Shader to validate.
     _In_ UINT32 Flags,                            // Validation flags.
-    _In_ DxcBuffer *pDebugModule,                 // Debug module to provide line numbers
+    _In_opt_ DxcBuffer *pOptDebugBitcode,         // Optional debug module bitcode to provide line numbers
     _COM_Outptr_ IDxcOperationResult **ppResult   // Validation output status, buffer, and errors
     ) override;
 
@@ -124,7 +124,10 @@ HRESULT STDMETHODCALLTYPE DxcValidator::Validate(
   _COM_Outptr_ IDxcOperationResult **ppResult   // Validation output status, buffer, and errors
 ) {
   DxcThreadMalloc TM(m_pMalloc);
-  if (pShader == nullptr || ppResult == nullptr || Flags & ~DxcValidatorFlags_ValidMask)
+  if (ppResult == nullptr)
+    return E_INVALIDARG;
+  *ppResult = nullptr;
+  if (pShader == nullptr || Flags & ~DxcValidatorFlags_ValidMask)
     return E_INVALIDARG;
   if ((Flags & DxcValidatorFlags_ModuleOnly) && (Flags & (DxcValidatorFlags_InPlaceEdit | DxcValidatorFlags_RootSignatureOnly)))
     return E_INVALIDARG;
@@ -134,36 +137,49 @@ HRESULT STDMETHODCALLTYPE DxcValidator::Validate(
 HRESULT STDMETHODCALLTYPE DxcValidator::ValidateWithDebug(
   _In_ IDxcBlob *pShader,                       // Shader to validate.
   _In_ UINT32 Flags,                            // Validation flags.
-  _In_ DxcBuffer *pDebugModule,                 // Debug module to provide line numbers
+  _In_opt_ DxcBuffer *pOptDebugBitcode,         // Optional debug module bitcode to provide line numbers
   _COM_Outptr_ IDxcOperationResult **ppResult   // Validation output status, buffer, and errors
 )
 {
-  DxcThreadMalloc TM(m_pMalloc);
-  if (pShader == nullptr || ppResult == nullptr || Flags & ~DxcValidatorFlags_ValidMask)
+  if (ppResult == nullptr)
+    return E_INVALIDARG;
+  *ppResult = nullptr;
+  if (pShader == nullptr || Flags & ~DxcValidatorFlags_ValidMask)
     return E_INVALIDARG;
   if ((Flags & DxcValidatorFlags_ModuleOnly) && (Flags & (DxcValidatorFlags_InPlaceEdit | DxcValidatorFlags_RootSignatureOnly)))
     return E_INVALIDARG;
-  if (pDebugModule && (pDebugModule->Ptr == nullptr || pDebugModule->Size == 0))
+  if (pOptDebugBitcode && (pOptDebugBitcode->Ptr == nullptr || pOptDebugBitcode->Size == 0 ||
+                           pOptDebugBitcode->Size >= UINT32_MAX))
     return E_INVALIDARG;
 
-  std::unique_ptr<llvm::Module> pM;
-  std::unique_ptr<llvm::MemoryBuffer> pMemBuf;
-  LLVMContext ctx;
-  if (pDebugModule) {
-    pMemBuf = llvm::MemoryBuffer::getMemBuffer(StringRef((char *)pDebugModule->Ptr, pDebugModule->Size), "", false);
-    llvm::ErrorOr<std::unique_ptr<llvm::Module> > ModuleOrErr = llvm::parseBitcodeFile(pMemBuf->getMemBufferRef(), ctx);
-    if (ModuleOrErr) {
-      pM = std::move(ModuleOrErr.get());
+  HRESULT hr = S_OK;
+  DxcThreadMalloc TM(m_pMalloc);
+  try {
+    LLVMContext Ctx;
+    CComPtr<AbstractMemoryStream> pDiagStream;
+    IFT(CreateMemoryStream(m_pMalloc, &pDiagStream));
+    raw_stream_ostream DiagStream(pDiagStream);
+    llvm::DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
+    PrintDiagnosticContext DiagContext(DiagPrinter);
+    Ctx.setDiagnosticHandler(PrintDiagnosticContext::PrintDiagnosticHandler,
+                             &DiagContext, true);
+    std::unique_ptr<llvm::Module> pDebugModule;
+    if (pOptDebugBitcode) {
+      IFT(ValidateLoadModule((const char *)pOptDebugBitcode->Ptr,
+                             (uint32_t)pOptDebugBitcode->Size, pDebugModule,
+                             Ctx, DiagStream, /*bLazyLoad*/ false));
     }
+    return ValidateWithOptModules(pShader, Flags, nullptr, pDebugModule.get(), ppResult);
   }
-  return ValidateWithOptModules(pShader, Flags, nullptr, pM.get(), ppResult);
+  CATCH_CPP_ASSIGN_HRESULT();
+  return hr;
 }
 
 HRESULT DxcValidator::ValidateWithOptModules(
   _In_ IDxcBlob *pShader,                       // Shader to validate.
   _In_ UINT32 Flags,                            // Validation flags.
-  _In_ llvm::Module *pModule,                   // Module to validate, if available.
-  _In_ llvm::Module *pDebugModule,              // Debug module to validate, if available
+  _In_opt_ llvm::Module *pModule,               // Module to validate, if available.
+  _In_opt_ llvm::Module *pDebugModule,          // Debug module to validate, if available
   _COM_Outptr_ IDxcOperationResult **ppResult   // Validation output status, buffer, and errors
 ) {
   *ppResult = nullptr;
@@ -241,8 +257,8 @@ HRESULT STDMETHODCALLTYPE DxcValidator::GetFlags(_Out_ UINT32 *pFlags) {
 HRESULT DxcValidator::RunValidation(
   _In_ IDxcBlob *pShader,
   _In_ UINT32 Flags,                            // Validation flags.
-  _In_ llvm::Module *pModule,                   // Module to validate, if available.
-  _In_ llvm::Module *pDebugModule,              // Debug module to validate, if available
+  _In_opt_ llvm::Module *pModule,               // Module to validate, if available.
+  _In_opt_ llvm::Module *pDebugModule,          // Debug module to validate, if available
   _In_ AbstractMemoryStream *pDiagStream) {
 
   // Run validation may throw, but that indicates an inability to validate,
