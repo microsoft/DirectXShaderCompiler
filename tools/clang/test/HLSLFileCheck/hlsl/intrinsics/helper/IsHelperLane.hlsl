@@ -32,7 +32,7 @@
 // RUN: %dxc -E cs -T cs_6_0 -Od %s | FileCheck %s -check-prefixes=CHECKCONST
 // RUN: %dxc -E as -T as_6_5 -Od %s | FileCheck %s -check-prefixes=CHECKCONST
 // RUN: %dxc -E ms -T ms_6_5 -Od %s | FileCheck %s -check-prefixes=CHECKCONST
-// RUN: %dxilver 1.6 | %dxc -T lib_6_5 %s | FileCheck %s -check-prefixes=CHECKLIBGV
+// RUN: %dxc -T lib_6_5 %s | FileCheck %s -check-prefixes=CHECKLIBGV
 
 
 // Exactly one call
@@ -277,7 +277,7 @@ RWStructuredBuffer<float4> SB;
 void cs(uint gidx : SV_GroupIndex)
 {
   float4 result = a + IsHelperLane();
-  SB[gidx] = result;
+  SB[gidx] = QuadReadAcrossX(result);
 }
 
 /// Amplification Shader

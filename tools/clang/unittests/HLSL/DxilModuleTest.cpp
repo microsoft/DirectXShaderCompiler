@@ -47,7 +47,6 @@ public:
   TEST_CLASS_SETUP(InitSupport);
 
   dxc::DxcDllSupport m_dllSupport;
-  VersionSupportInfo m_ver;
 
   // Basic loading tests.
   TEST_METHOD(LoadDxilModule_1_0)
@@ -82,7 +81,6 @@ public:
 bool DxilModuleTest::InitSupport() {
   if (!m_dllSupport.IsEnabled()) {
     VERIFY_SUCCEEDED(m_dllSupport.Initialize());
-    m_ver.Initialize(m_dllSupport);
   }
   return true;
 }
@@ -584,7 +582,6 @@ TEST_F(DxilModuleTest, SetValidatorVersion) {
 }
 
 TEST_F(DxilModuleTest, PayloadQualifier) {
-  if (m_ver.SkipDxilVersion(1, 6)) return;
   std::vector<LPCWSTR> arguments = { L"-enable-payload-qualifiers" };
   Compiler c(m_dllSupport);
 
