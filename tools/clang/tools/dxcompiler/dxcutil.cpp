@@ -206,7 +206,7 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
                              llvmModuleWithDebugInfo.get(), inputs.pOutputContainerBlob,
                              DxcValidatorFlags_InPlaceEdit, &pValResult));
   } else {
-    if (pValidator2) {
+    if (pValidator2 && llvmModuleWithDebugInfo) {
 
       // If metadata was stripped, re-serialize the input module.
       CComPtr<AbstractMemoryStream> pDebugModuleStream;

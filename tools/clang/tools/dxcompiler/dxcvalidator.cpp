@@ -143,12 +143,14 @@ HRESULT STDMETHODCALLTYPE DxcValidator::ValidateWithDebug(
     return E_INVALIDARG;
   if ((Flags & DxcValidatorFlags_ModuleOnly) && (Flags & (DxcValidatorFlags_InPlaceEdit | DxcValidatorFlags_RootSignatureOnly)))
     return E_INVALIDARG;
+  if (pDebugModule && (pDebugModule->Ptr == nullptr || pDebugModule->Size == 0))
+    return E_INVALIDARG;
 
   std::unique_ptr<llvm::Module> pM;
   std::unique_ptr<llvm::MemoryBuffer> pMemBuf;
   LLVMContext ctx;
   if (pDebugModule) {
-    pMemBuf = llvm::MemoryBuffer::getMemBuffer(StringRef((char *)pDebugModule->Ptr, pDebugModule->Size), false);
+    pMemBuf = llvm::MemoryBuffer::getMemBuffer(StringRef((char *)pDebugModule->Ptr, pDebugModule->Size), "", false);
     llvm::ErrorOr<std::unique_ptr<llvm::Module> > ModuleOrErr = llvm::parseBitcodeFile(pMemBuf->getMemBufferRef(), ctx);
     if (ModuleOrErr) {
       pM = std::move(ModuleOrErr.get());

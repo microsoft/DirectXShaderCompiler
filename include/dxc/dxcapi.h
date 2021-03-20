@@ -517,7 +517,7 @@ struct IDxcValidator2 : public IDxcValidator {
   virtual HRESULT STDMETHODCALLTYPE ValidateWithDebug(
     _In_ IDxcBlob *pShader,                       // Shader to validate.
     _In_ UINT32 Flags,                            // Validation flags.
-    _In_ DxcBuffer *pDebugModule,                 // Debug module to provide line numbers
+    _In_opt_ DxcBuffer *pOptDebugBitcode,         // Optional debug module bitcode to provide line numbers
     _COM_Outptr_ IDxcOperationResult **ppResult   // Validation output status, buffer, and errors
     ) = 0;
 };
