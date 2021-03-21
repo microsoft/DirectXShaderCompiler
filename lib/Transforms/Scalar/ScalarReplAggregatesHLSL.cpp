@@ -3899,7 +3899,7 @@ public:
     const DataLayout &DL = M.getDataLayout();
     // Load up debug information, to cross-reference values and the instructions
     // used to load them.
-    m_HasDbgInfo = getDebugMetadataVersionFromModule(M) != 0;
+    m_HasDbgInfo = nullptr != M.getNamedMetadata("llvm.dbg.cu");
 
     InjectReturnAfterNoReturnPreserveOutput(*m_pHLModule);
 

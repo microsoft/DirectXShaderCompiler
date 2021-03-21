@@ -2,6 +2,8 @@
 
 // Make sure the specified warning gets turned off
 
+// CHECK: 9:1: error: Semantic must be defined
+
 // This function has no output semantic on purpose in order to produce an error,
 // otherwise, the warnings will not be captured in the output for FileCheck.
 float main() {
@@ -14,4 +16,3 @@ float main() {
   return 0;
 }
 
-// CHECK: error: Semantic must be defined
