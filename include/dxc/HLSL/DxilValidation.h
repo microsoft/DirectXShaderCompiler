@@ -347,6 +347,13 @@ HRESULT ValidateDxilContainer(_In_reads_bytes_(ContainerSize) const void *pConta
                               _In_ uint32_t ContainerSize,
                               _In_ llvm::raw_ostream &DiagStream);
 
+// Full container validation, including ValidateDxilModule, with debug module
+HRESULT ValidateDxilContainer(_In_reads_bytes_(ContainerSize) const void *pContainer,
+                              _In_ uint32_t ContainerSize,
+                              const void *pOptDebugBitcode,
+                              uint32_t OptDebugBitcodeSize,
+                              _In_ llvm::raw_ostream &DiagStream);
+
 class PrintDiagnosticContext {
 private:
   llvm::DiagnosticPrinter &m_Printer;
