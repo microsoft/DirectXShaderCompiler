@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_3 -enable-lifetime-markers %s  | FileCheck %s
+// RUN: %dxilver 1.6 | %dxc -T lib_6_3 -enable-lifetime-markers %s  | FileCheck %s
 
 // This file is identical to lifetimes.hlsl except that it tests for
 // undef stores instead of lifetime intrinsics (fallback for earlier
