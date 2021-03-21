@@ -556,10 +556,8 @@ BackendConsumer::DxilDiagHandler(const llvm::DiagnosticInfoDxil &D) {
   }
   FullSourceLoc Loc(DILoc, SourceMgr);
 
-  // If no location information is available, prompt for debug flag
-  // and add function name to give some information
+  // If no location information is available, add function name
   if (Loc.isInvalid()) {
-    Message += " Use /Zi for source location.";
     auto *DiagClient = dynamic_cast<TextDiagnosticPrinter*>(Diags.getClient());
     auto *func = D.getFunction();
     if (DiagClient && func)

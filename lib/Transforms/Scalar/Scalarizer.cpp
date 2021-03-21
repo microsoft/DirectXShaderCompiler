@@ -729,7 +729,7 @@ bool Scalarizer::finish() {
   Module &M = *Gathered.front().first->getModule();
   LLVMContext &Ctx = M.getContext();
   const DataLayout &DL = M.getDataLayout();
-  bool HasDbgInfo = getDebugMetadataVersionFromModule(M) != 0;
+  bool HasDbgInfo = hasDebugInfo(M);
   // Map from an extract element inst to a Value which replaced it.
   DenseMap<Instruction *, Value*> EltMap;
   // HLSL Change Ends.
