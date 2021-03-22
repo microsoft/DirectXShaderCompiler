@@ -1382,7 +1382,7 @@ public:
   }
 
   void RunRWByteBufferComputeTest(ID3D12Device *pDevice, LPCSTR shader, std::vector<uint32_t> &values);
-  void RunLifetimeIntrinsicTest(ID3D12Device *pDevice, LPCSTR shader, D3D_SHADER_MODEL shaderModel, bool useLibTarget, llvm::ArrayRef<LPCWSTR> options, std::vector<uint32_t> &values);
+  void RunLifetimeIntrinsicTest(ID3D12Device *pDevice, LPCSTR shader, D3D_SHADER_MODEL shaderModel, bool useLibTarget, LPCWSTR *pOptions, int numOptions, std::vector<uint32_t> &values);
   void RunLifetimeIntrinsicComputeTest(ID3D12Device *pDevice, LPCSTR pShader, CComPtr<ID3D12DescriptorHeap>& pUavHeap, CComPtr<ID3D12RootSignature>& pRootSignature,
                                        LPCWSTR pTargetProfile, LPCWSTR *pOptions, int numOptions, std::vector<uint32_t> &values);
   void RunLifetimeIntrinsicLibTest(ID3D12Device *pDevice0, LPCSTR pShader, CComPtr<ID3D12RootSignature>& pRootSignature,
@@ -1687,7 +1687,7 @@ void ExecutionTest::RunLifetimeIntrinsicLibTest(ID3D12Device *pDevice0, LPCSTR p
 }
 
 void ExecutionTest::RunLifetimeIntrinsicTest(ID3D12Device *pDevice, LPCSTR pShader, D3D_SHADER_MODEL shaderModel, bool useLibTarget,
-                                             llvm::ArrayRef<LPCWSTR> options, std::vector<uint32_t> &values) {
+                                             LPCWSTR *pOptions, int numOptions, std::vector<uint32_t> &values) {
   LPCWSTR pTargetProfile;
   switch (shaderModel) {
       default: pTargetProfile = useLibTarget ? L"lib_6_3" : L"cs_6_0"; break; // Default to 6.3 for lib, 6.0 otherwise.
@@ -1725,10 +1725,10 @@ void ExecutionTest::RunLifetimeIntrinsicTest(ID3D12Device *pDevice, LPCSTR pShad
 
   if (useLibTarget) {
     RunLifetimeIntrinsicLibTest(pDevice, pShader, pRootSignature, pTargetProfile,
-      const_cast<LPCWSTR*>(options.data()), static_cast<int>(options.size()));
+      pOptions, numOptions);
   } else {
     RunLifetimeIntrinsicComputeTest(pDevice, pShader, pUavHeap, pRootSignature, pTargetProfile,
-      const_cast<LPCWSTR*>(options.data()), static_cast<int>(options.size()), values);
+      pOptions, numOptions, values);
   }
 }
 
@@ -1816,52 +1816,55 @@ TEST_F(ExecutionTest, LifetimeIntrinsicTest) {
 
   VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
 
+  LPCWSTR optsBase[] = {L"-enable-lifetime-markers"};
+  LPCWSTR optsZeroStore[] = {L"-enable-lifetime-markers", L"-force-zero-store-lifetimes"};
+
   WEX::Logging::Log::Comment(L"==== cs_6_0 with default translation");
   RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_0, false,
-    {L"-enable-lifetime-markers"}, values);
+    optsBase, _countof(optsBase), values);
   VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
 
   if (bDXRSupported) {
     WEX::Logging::Log::Comment(L"==== DXR lib_6_3 with default translation");
     RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_3, true,
-      {L"-enable-lifetime-markers"}, values);
+      optsBase, _countof(optsBase), values);
     VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
   }
 
   WEX::Logging::Log::Comment(L"==== cs_6_0 with zeroinitializer translation");
   RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_0, false,
-    {L"-enable-lifetime-markers", L"-force-zero-store-lifetimes"}, values);
+    optsZeroStore, _countof(optsZeroStore), values);
   VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
 
   if (bDXRSupported) {
     WEX::Logging::Log::Comment(L"==== DXR lib_6_3 with zeroinitializer translation");
     RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_3, true,
-      {L"-enable-lifetime-markers", L"-force-zero-store-lifetimes"}, values);
+      optsZeroStore, _countof(optsZeroStore), values);
     VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
   }
 
   if (bSM_6_6_Supported) {
     WEX::Logging::Log::Comment(L"==== cs_6_6 with zeroinitializer translation");
     RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_6, false,
-      {L"-enable-lifetime-markers", L"-force-zero-store-lifetimes"}, values);
+      optsZeroStore, _countof(optsZeroStore), values);
     VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
 
     if (bDXRSupported) {
       WEX::Logging::Log::Comment(L"==== DXR lib_6_6 with zeroinitializer translation");
       RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_6, true,
-        {L"-enable-lifetime-markers", L"-force-zero-store-lifetimes"}, values);
+        optsZeroStore, _countof(optsZeroStore), values);
       VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
     }
 
     WEX::Logging::Log::Comment(L"==== cs_6_6 with native lifetime markers");
     RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_6, false,
-      {L"-enable-lifetime-markers"}, values);
+      optsBase, _countof(optsBase), values);
     VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
 
     if (bDXRSupported) {
       WEX::Logging::Log::Comment(L"==== DXR lib_6_6 with native lifetime markers");
       RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_6, true,
-        {L"-enable-lifetime-markers"}, values);
+        optsBase, _countof(optsBase), values);
       VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
     }
   }
