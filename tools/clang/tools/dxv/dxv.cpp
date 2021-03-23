@@ -19,14 +19,20 @@
 #include "dxc/Support/HLSLOptions.h"
 
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support//MSFileSystem.h"
+#include "llvm/Support/FileSystem.h"
 
 using namespace dxc;
 using namespace llvm;
 using namespace llvm::opt;
 using namespace hlsl::options;
 
+static cl::opt<bool> Help("help", cl::desc("Print help"));
+static cl::alias Help_h("h", cl::aliasopt(Help));
+static cl::alias Help_q("?", cl::aliasopt(Help));
+
 static cl::opt<std::string>
-InputFilename(cl::Positional, cl::desc("<input dxil file>"), cl::init("-"));
+InputFilename(cl::Positional, cl::desc("<input dxil file>"));
 
 class DxvContext {
 private:
@@ -87,11 +93,28 @@ void DxvContext::Validate() {
 
 int __cdecl main(int argc,  _In_reads_z_(argc) const char **argv) {
   const char *pStage = "Operation";
+  if (llvm::sys::fs::SetupPerThreadFileSystem())
+    return 1;
+  llvm::sys::fs::AutoCleanupPerThreadFileSystem auto_cleanup_fs;
+  if (FAILED(DxcInitThreadMalloc())) return 1;
+  DxcSetThreadMallocToDefault();
   try {
+    llvm::sys::fs::MSFileSystem *msfPtr;
+    IFT(CreateMSFileSystemForDisk(&msfPtr));
+    std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
+
+    ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
+    IFTLLVM(pts.error_code());
+
     pStage = "Argument processing";
 
     // Parse command line options.
     cl::ParseCommandLineOptions(argc, argv, "dxil validator\n");
+
+    if (InputFilename == "" || Help) {
+      cl::PrintHelpMessage();
+      return 2;
+    }
 
     DxcDllSupport dxcSupport;
     dxc::EnsureEnabled(dxcSupport);
