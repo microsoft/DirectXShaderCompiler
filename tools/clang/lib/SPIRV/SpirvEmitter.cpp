@@ -6839,7 +6839,12 @@ const Expr *SpirvEmitter::collectArrayStructIndices(
     // The index into an array must be an integer number.
     const auto *idxExpr = indexing->getIdx();
     const auto idxExprType = idxExpr->getType();
-    SpirvInstruction *thisIndex = doExpr(idxExpr);
+    if (idxExpr->isLValue()) {
+      emitError("Index of ArraySubscriptExpr must be rvalue",
+                idxExpr->getExprLoc());
+      return nullptr;
+    }
+    SpirvInstruction *thisIndex = loadIfGLValue(idxExpr);
     if (!idxExprType->isIntegerType() || idxExprType->isBooleanType()) {
       thisIndex = castToInt(thisIndex, idxExprType, astContext.UnsignedIntTy,
                             idxExpr->getExprLoc());
