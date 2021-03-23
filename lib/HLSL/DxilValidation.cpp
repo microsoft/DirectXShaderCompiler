@@ -6287,6 +6287,8 @@ _Use_decl_annotations_ HRESULT ValidateLoadModuleFromContainerLazy(
 _Use_decl_annotations_
 HRESULT ValidateDxilContainer(const void *pContainer,
                               uint32_t ContainerSize,
+                              const void *pOptDebugBitcode,
+                              uint32_t OptDebugBitcodeSize,
                               llvm::raw_ostream &DiagStream) {
   LLVMContext Ctx, DbgCtx;
   std::unique_ptr<llvm::Module> pModule, pDebugModule;
@@ -6301,6 +6303,12 @@ HRESULT ValidateDxilContainer(const void *pContainer,
   IFR(ValidateLoadModuleFromContainer(pContainer, ContainerSize, pModule, pDebugModule,
       Ctx, DbgCtx, DiagStream));
 
+  if (!pDebugModule && pOptDebugBitcode) {
+    // TODO: lazy load for perf
+    IFR(ValidateLoadModule((const char *)pOptDebugBitcode, OptDebugBitcodeSize,
+                           pDebugModule, DbgCtx, DiagStream, /*bLazyLoad*/false));
+  }
+
   // Validate DXIL Module
   IFR(ValidateDxilModule(pModule.get(), pDebugModule.get()));
 
@@ -6312,4 +6320,10 @@ HRESULT ValidateDxilContainer(const void *pContainer,
     IsDxilContainerLike(pContainer, ContainerSize), ContainerSize);
 }
 
+_Use_decl_annotations_
+HRESULT ValidateDxilContainer(const void *pContainer,
+                              uint32_t ContainerSize,
+                              llvm::raw_ostream &DiagStream) {
+  return ValidateDxilContainer(pContainer, ContainerSize, nullptr, 0, DiagStream);
+}
 } // namespace hlsl

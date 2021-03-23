@@ -314,7 +314,7 @@ static void EmitWarningOrErrorOnGlobalVariable(llvm::LLVMContext &Ctx, GlobalVar
 
   if (GV) {
     Module &M = *GV->getParent();
-    if (getDebugMetadataVersionFromModule(M) != 0) {
+    if (hasDebugInfo(M)) {
       DebugInfoFinder FinderObj;
       DebugInfoFinder &Finder = FinderObj;
       // Debug modules have no dxil modules. Use it if you got it.

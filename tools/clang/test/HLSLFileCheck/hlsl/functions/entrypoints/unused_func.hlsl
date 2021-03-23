@@ -2,8 +2,8 @@
 
 // Make sure unused functions are not generated.
 
-// CHECK-NOT: unused
+// CHECK-NOT: unused_function_name
 
-void unused() {}
+void unused_function_name() {}
 void main() {}
 
