@@ -48,13 +48,18 @@ HlslVerifierTestCpp = os.path.expandvars(r'${HLSL_SRC_DIR}\tools\clang\unittests
 HlslDataDir = os.path.expandvars(r'${HLSL_SRC_DIR}\tools\clang\test\HLSL')
 HlslBinDir = os.path.expandvars(r'${HLSL_BLD_DIR}\Debug\bin')
 VerifierTests = {
+    'RunArrayIndexOutOfBounds': 'array-index-out-of-bounds-HV-2016.hlsl',
+    'RunArrayLength': 'array-length.hlsl',
     'RunAttributes': 'attributes.hlsl',
     'RunBadInclude': 'bad-include.hlsl',
     'RunBinopDims': 'binop-dims.hlsl',
+    'RunBuiltinTypesNoInheritance': 'builtin-types-no-inheritance.hlsl',
     'RunCXX11Attributes': 'cxx11-attributes.hlsl',
     'RunConstAssign': 'const-assign.hlsl',
     'RunConstDefault': 'const-default.hlsl',
     'RunConstExpr': 'const-expr.hlsl',
+    'RunConversionsBetweenTypeShapes': 'conversions-between-type-shapes.hlsl',
+    'RunConversionsNonNumericAggregates': 'conversions-non-numeric-aggregates.hlsl',
     'RunCppErrors': 'cpp-errors.hlsl',
     'RunCppErrorsHV2015': 'cpp-errors-hv2015.hlsl',
     'RunDerivedToBaseCasts': 'derived-to-base.hlsl',
@@ -62,12 +67,15 @@ VerifierTests = {
     'RunEnums': 'enums.hlsl',
     'RunFunctions': 'functions.hlsl',
     'RunImplicitCasts': 'implicit-casts.hlsl',
+    'RunIncompleteArray': 'incomp_array_err.hlsl',
+    'RunIncompleteType': 'incomplete-type.hlsl',
     'RunIndexingOperator': 'indexing-operator.hlsl',
     'RunIntrinsicExamples': 'intrinsic-examples.hlsl',
     'RunLiterals': 'literals.hlsl',
     'RunMatrixAssignments': 'matrix-assignments.hlsl',
     'RunMatrixSyntax': 'matrix-syntax.hlsl',
     'RunMatrixSyntaxExactPrecision': 'matrix-syntax-exact-precision.hlsl',
+    'RunMintypesPromotionWarnings': 'mintypes-promotion-warnings.hlsl',
     'RunMoreOperators': 'more-operators.hlsl',
     'RunObjectOperators': 'object-operators.hlsl',
     'RunPackReg': 'packreg.hlsl',
@@ -79,6 +87,7 @@ VerifierTests = {
     'RunScalarOperatorsAssignExactPrecision': 'scalar-operators-assign-exact-precision.hlsl',
     'RunScalarOperatorsExactPrecision': 'scalar-operators-exact-precision.hlsl',
     'RunSemantics': 'semantics.hlsl',
+    'RunSizeof': 'sizeof.hlsl',
     'RunString': 'string.hlsl',
     'RunStructAssignments': 'struct-assignments.hlsl',
     'RunSubobjects': 'subobjects-syntax.hlsl',
@@ -100,6 +109,7 @@ fxcExcludedTests = [
     'RunCppErrorsHV2015',
     'RunCXX11Attributes',
     'RunEnums',
+    'RunIncompleteType',
     'RunIntrinsicExamples',
     'RunMatrixSyntaxExactPrecision',
     'RunRayTracings',
@@ -578,7 +588,7 @@ class File(object):
             result[i] = line, diag_col, expected
 
         with open(result_filename, 'wt') as f:
-            f.write('\n'.join(map(lambda (line, diag_col, expected): line, result)))
+            f.write('\n'.join(map((lambda res: res[0]), result)))
 
     def TryAst(self, result_filename=None):
         temp_filename = os.path.expandvars(r'${TEMP}\%s' % os.path.split(self.filename)[1])
@@ -658,19 +668,19 @@ def ProcessVerifierOutput(lines):
             files[cur_filename] = File(cur_filename)
             state = 'WaitingForCategory'
             continue
-        if state is 'WaitingForFile':
+        if state == 'WaitingForFile':
             m = rxEndGroup.match(line)
             if m and m.group(2) == 'Failed':
                 # This usually happens when compiler crashes
                 print('Fatal Error: test %s failed without verifier results.' % cur_test)
-        if state is 'WaitingForCategory' or state is 'ReadingErrors':
+        if state == 'WaitingForCategory' or state == 'ReadingErrors':
             m = rxExpected.match(line)
             if m:
                 ew = m.group(1)
                 expected = m.group(2) == 'expected but not seen'
                 state = 'ReadingErrors'
                 continue
-        if state is 'ReadingErrors':
+        if state == 'ReadingErrors':
             m = rxDiagReport.match(line)
             if m:
                 line_num = int(m.group(2))

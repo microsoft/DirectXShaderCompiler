@@ -97,8 +97,8 @@ namespace llvm {
 #ifndef NDEBUG
 #define llvm_unreachable(msg) \
   ::llvm::llvm_unreachable_internal(msg, __FILE__, __LINE__)
-#elif defined(LLVM_BUILTIN_UNREACHABLE)
-#define llvm_unreachable(msg) LLVM_BUILTIN_UNREACHABLE
+//#elif defined(LLVM_BUILTIN_UNREACHABLE) // HLSL Change - always throw exception for unreachable
+//#define llvm_unreachable(msg) LLVM_BUILTIN_UNREACHABLE
 #else
 #define llvm_unreachable(msg) ::llvm::llvm_unreachable_internal()
 #endif

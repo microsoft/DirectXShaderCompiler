@@ -1282,11 +1282,73 @@ static void VerifyPdbUtil(dxc::DxcDllSupport &dllSupport,
     CComPtr<IDxcPixDxilDebugInfo> pDebugInfo;
     VERIFY_SUCCEEDED(pFactory->NewDxcPixDxilDebugInfo(&pDebugInfo));
     VERIFY_ARE_NOT_EQUAL(pDebugInfo, nullptr);
+
+    // Recompile when it's a full PDB anyway.
+    {
+      CComPtr<IDxcResult> pResult;
+      VERIFY_SUCCEEDED(pPdbUtils->CompileForFullPDB(&pResult));
+
+      HRESULT compileStatus = S_OK;
+      VERIFY_SUCCEEDED(pResult->GetStatus(&compileStatus));
+      VERIFY_SUCCEEDED(compileStatus);
+
+      CComPtr<IDxcBlob> pRecompiledPdbBlob;
+      VERIFY_SUCCEEDED(pResult->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pRecompiledPdbBlob), nullptr));
+    }
+
   }
   else {
     VERIFY_IS_FALSE(pPdbUtils->IsFullPDB());
     CComPtr<IDxcBlob> pFullPdb;
     VERIFY_SUCCEEDED(pPdbUtils->GetFullPDB(&pFullPdb));
+
+    // Save a copy of the arg pairs
+    std::vector<std::pair< std::wstring, std::wstring> > pairsStorage;
+    UINT32 uNumArgsPairs = 0;
+    VERIFY_SUCCEEDED(pPdbUtils->GetArgPairCount(&uNumArgsPairs));
+    for (UINT32 i = 0; i < uNumArgsPairs; i++) {
+      CComBSTR pName, pValue;
+      VERIFY_SUCCEEDED(pPdbUtils->GetArgPair(i, &pName, &pValue));
+      std::pair< std::wstring, std::wstring> pairStorage;
+      pairStorage.first  = pName  ? pName  : L"";
+      pairStorage.second = pValue ? pValue : L"";
+      pairsStorage.push_back(pairStorage);
+    }
+
+    // Set an obviously wrong RS and verify compilation fails
+    {
+      VERIFY_SUCCEEDED(pPdbUtils->OverrideRootSignature(L""));
+      CComPtr<IDxcResult> pResult;
+      VERIFY_SUCCEEDED(pPdbUtils->CompileForFullPDB(&pResult));
+
+      HRESULT result = S_OK;
+      VERIFY_SUCCEEDED(pResult->GetStatus(&result));
+      VERIFY_FAILED(result);
+
+      CComPtr<IDxcBlobEncoding> pErr;
+      VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&pErr));
+    }
+
+    // Set an obviously wrong set of args and verify compilation fails
+    {
+
+      std::vector<DxcArgPair> pairs;
+      for (auto &p : pairsStorage) {
+        DxcArgPair pair = {};
+        pair.pName = p.first.c_str();
+        pair.pValue = p.second.c_str();
+        pairs.push_back(pair);
+      }
+
+      VERIFY_SUCCEEDED(pPdbUtils->OverrideArgs(pairs.data(), pairs.size()));
+
+      CComPtr<IDxcResult> pResult;
+      VERIFY_SUCCEEDED(pPdbUtils->CompileForFullPDB(&pResult));
+
+      HRESULT result = S_OK;
+      VERIFY_SUCCEEDED(pResult->GetStatus(&result));
+      VERIFY_SUCCEEDED(result);
+    }
 
     auto ReplaceDebugFlagPair = [](const std::vector<std::pair<const WCHAR *, const WCHAR *> > &List) -> std::vector<std::pair<const WCHAR *, const WCHAR *> > {
       std::vector<std::pair<const WCHAR *, const WCHAR *> > ret;
@@ -1357,6 +1419,7 @@ static void VerifyPdbUtil(dxc::DxcDllSupport &dllSupport,
 #ifdef _WIN32
 
 TEST_F(CompilerTest, CompileThenTestPdbUtilsStripped) {
+  if (m_ver.SkipDxilVersion(1, 5)) return;
   CComPtr<TestIncludeHandler> pInclude;
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcBlobEncoding> pSource;
@@ -1548,6 +1611,7 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bSourceInDebugModule, bool bStr
 }
 
 TEST_F(CompilerTest, CompileThenTestPdbUtils) {
+  if (m_ver.SkipDxilVersion(1, 5)) return;
   TestPdbUtils(/*bSlim*/true,  /*bSourceInDebugModule*/false, /*strip*/true);  // Slim PDB, where source info is stored in its own part, and debug module is NOT present
 
   TestPdbUtils(/*bSlim*/false, /*bSourceInDebugModule*/true,  /*strip*/false);  // Old PDB format, where source info is embedded in the module

@@ -96,52 +96,31 @@ static bool IsBitcode(const void *ptr, size_t size) {
   return !memcmp(ptr, pattern, _countof(pattern));
 }
 
-static void ComputeFlagsBasedOnArgs(ArrayRef<std::wstring> args, std::vector<std::wstring> *outFlags, std::vector<std::wstring> *outDefines, std::wstring *outTargetProfile, std::wstring *outEntryPoint) {
+static std::vector<std::pair<std::wstring, std::wstring> > ComputeArgPairs(ArrayRef<std::string> args) {
+  std::vector<std::pair<std::wstring, std::wstring> > ret;
+
   const llvm::opt::OptTable *optionTable = hlsl::options::getHlslOptTable();
   assert(optionTable);
   if (optionTable) {
-    std::vector<std::string> argUtf8List;
-    for (unsigned i = 0; i < args.size(); i++) {
-      argUtf8List.push_back(ToUtf8String(args[i]));
-    }
-
     std::vector<const char *> argPointerList;
-    for (unsigned i = 0; i < argUtf8List.size(); i++) {
-      argPointerList.push_back(argUtf8List[i].c_str());
+    for (unsigned i = 0; i < args.size(); i++) {
+      argPointerList.push_back(args[i].c_str());
     }
 
     unsigned missingIndex = 0;
     unsigned missingCount = 0;
     llvm::opt::InputArgList argList = optionTable->ParseArgs(argPointerList, missingIndex, missingCount);
     for (llvm::opt::Arg *arg : argList) {
-      if (arg->getOption().matches(hlsl::options::OPT_D)) {
-        std::wstring def = ToWstring(arg->getValue());
-        if (outDefines)
-          outDefines->push_back(def);
-        continue;
-      }
-      else if (arg->getOption().matches(hlsl::options::OPT_target_profile)) {
-        if (outTargetProfile)
-          *outTargetProfile = ToWstring(arg->getValue());
-        continue;
-      }
-      else if (arg->getOption().matches(hlsl::options::OPT_entrypoint)) {
-        if (outEntryPoint)
-          *outEntryPoint = ToWstring(arg->getValue());
-        continue;
+      std::pair<std::wstring, std::wstring> newPair;
+      newPair.first = ToWstring( arg->getOption().getName() );
+      if (arg->getNumValues() > 0) {
+        newPair.second = ToWstring( arg->getValue() );
       }
 
-      if (outFlags) {
-        llvm::StringRef Name = arg->getOption().getName();
-        if (Name.size()) {
-          outFlags->push_back(std::wstring(L"-") + ToWstring(Name));
-        }
-        if (arg->getNumValues() > 0) {
-          outFlags->push_back(ToWstring(arg->getValue()));
-        }
-      }
+      ret.push_back(std::move(newPair));
     }
   }
+  return ret;
 }
 
 struct DxcPdbVersionInfo :
@@ -246,10 +225,13 @@ struct PdbRecompilerIncludeHandler : public IDxcIncludeHandler {
     if (it == m_FileMap.end())
       return E_FAIL;
 
-    CComPtr<IDxcBlobEncoding> pEncoding;
-    IFR(m_pPdbUtils->GetSource(it->second, &pEncoding));
+    CComPtr<IDxcBlobEncoding> pSource;
+    IFR(m_pPdbUtils->GetSource(it->second, &pSource));
 
-    return pEncoding.QueryInterface(ppIncludeSource);
+    CComPtr<IDxcBlobEncoding> pOutBlob;
+    IFR(hlsl::DxcCreateBlobEncodingFromBlob(pSource, 0, pSource->GetBufferSize(), /*encoding Known*/true, CP_UTF8, m_pMalloc, &pOutBlob));
+
+    return pOutBlob.QueryInterface(ppIncludeSource);
   }
 };
 
@@ -260,16 +242,14 @@ private:
 
   struct Source_File {
     std::wstring Name;
-    CComPtr<IDxcBlobEncoding> Content;
+    CComPtr<IDxcBlob> Content;
   };
 
   CComPtr<IDxcBlob> m_InputBlob;
   CComPtr<IDxcBlob> m_pDebugProgramBlob;
   CComPtr<IDxcBlob> m_ContainerBlob;
   std::vector<Source_File> m_SourceFiles;
-  std::vector<std::wstring> m_Defines;
-  std::vector<std::wstring> m_Args;
-  std::vector<std::wstring> m_Flags;
+
   std::wstring m_EntryPoint;
   std::wstring m_TargetProfile;
   std::wstring m_Name;
@@ -290,17 +270,24 @@ private:
     std::wstring Value;
   };
   std::vector<ArgPair> m_ArgPairs;
+  std::vector<std::wstring> m_Defines;
+  std::vector<std::wstring> m_Args;
+  std::vector<std::wstring> m_Flags;
+
+  void ResetAllArgs() {
+    m_ArgPairs.clear();
+    m_Defines.clear();
+    m_Args.clear();
+    m_Flags.clear();
+    m_EntryPoint.clear();
+    m_TargetProfile.clear();
+  }
 
   void Reset() {
     m_pDebugProgramBlob = nullptr;
     m_InputBlob = nullptr;
     m_ContainerBlob = nullptr;
     m_SourceFiles.clear();
-    m_Defines.clear();
-    m_Args.clear();
-    m_Flags.clear();
-    m_EntryPoint.clear();
-    m_TargetProfile.clear();
     m_Name.clear();
     m_MainFileName.clear();
     m_HashBlob = nullptr;
@@ -308,8 +295,8 @@ private:
     m_VersionInfo = {};
     m_VersionCommitSha.clear();
     m_VersionString.clear();
-    m_ArgPairs.clear();
     m_pCachedRecompileResult = nullptr;
+    ResetAllArgs();
   }
 
   bool HasSources() const {
@@ -379,24 +366,12 @@ private:
           file.Name = ToWstring(md_name->getString());
 
           // File content
-          IFR(hlsl::DxcCreateBlobWithEncodingOnHeapCopy(
+          IFR(hlsl::DxcCreateBlobOnHeapCopy(
             md_content->getString().data(),
             md_content->getString().size(),
-            CP_ACP, // NOTE: ACP instead of UTF8 because it's possible for compiler implementations to
-                    // inject non-UTF8 data here.
             &file.Content));
 
           m_SourceFiles.push_back(std::move(file));
-        }
-      }
-      // dx.source.defines
-      else if (node_name == hlsl::DxilMDHelper::kDxilSourceDefinesMDName ||
-               node_name == hlsl::DxilMDHelper::kDxilSourceDefinesOldMDName)
-      {
-        MDTuple *tup = cast<MDTuple>(node.getOperand(0));
-        for (unsigned i = 0; i < tup->getNumOperands(); i++) {
-          StringRef define = cast<MDString>(tup->getOperand(i))->getString();
-          m_Defines.push_back(ToWstring(define));
         }
       }
       // dx.source.mainFileName
@@ -412,13 +387,20 @@ private:
                node_name == hlsl::DxilMDHelper::kDxilSourceArgsOldMDName)
       {
         MDTuple *tup = cast<MDTuple>(node.getOperand(0));
+        std::vector<std::string> args;
         // Args
         for (unsigned i = 0; i < tup->getNumOperands(); i++) {
           StringRef arg = cast<MDString>(tup->getOperand(i))->getString();
-          m_Args.push_back(ToWstring(arg));
+          args.push_back(arg.str());
         }
 
-        ComputeFlagsBasedOnArgs(m_Args, &m_Flags, nullptr, nullptr, nullptr);
+        std::vector<std::pair<std::wstring, std::wstring> > Pairs = ComputeArgPairs(args);
+        for (std::pair<std::wstring, std::wstring> &p : Pairs) {
+          ArgPair newPair;
+          newPair.Name  = std::move(p.first);
+          newPair.Value = std::move(p.second);
+          AddArgPair(std::move(newPair));
+        }
       }
     }
 
@@ -503,38 +485,7 @@ private:
             newPair.Name = ToWstring(pair.Name);
             newPair.Value = ToWstring(pair.Value);
           }
-
-          bool excludeFromFlags = false;
-          if (newPair.Name == L"E") {
-            m_EntryPoint = newPair.Value;
-            excludeFromFlags = true;
-          }
-          else if (newPair.Name == L"T") {
-            m_TargetProfile = newPair.Value;
-            excludeFromFlags = true;
-          }
-          else if (newPair.Name == L"D") {
-            m_Defines.push_back(newPair.Value);
-            excludeFromFlags = true;
-          }
-
-          std::wstring nameWithDash;
-          if (newPair.Name.size())
-            nameWithDash = std::wstring(L"-") + newPair.Name;
-
-          if (!excludeFromFlags) {
-            if (nameWithDash.size())
-              m_Flags.push_back(nameWithDash);
-            if (newPair.Value.size())
-              m_Flags.push_back(newPair.Value);
-          }
-
-          if (nameWithDash.size())
-            m_Args.push_back(nameWithDash);
-          if (newPair.Value.size())
-            m_Args.push_back(newPair.Value);
-
-          m_ArgPairs.push_back( std::move(newPair) );
+          AddArgPair(std::move(newPair));
         }
 
         // Entry point might have been omitted. Set it to main by default.
@@ -548,11 +499,9 @@ private:
 
           Source_File source;
           source.Name = ToWstring(source_data.Name);
-          IFR(hlsl::DxcCreateBlobWithEncodingOnHeapCopy(
+          IFR(hlsl::DxcCreateBlobOnHeapCopy(
             source_data.Content.data(),
             source_data.Content.size(),
-            CP_ACP, // NOTE: ACP instead of UTF8 because it's possible for compiler implementations to
-                    // inject non-UTF8 data here.
             &source.Content));
 
           // First file is the main file
@@ -582,8 +531,8 @@ private:
       {
         const hlsl::DxilProgramHeader *program_header = (const hlsl::DxilProgramHeader *)(part+1);
 
-        CComPtr<IDxcBlobEncoding> pProgramHeaderBlob;
-        IFR(hlsl::DxcCreateBlobWithEncodingFromPinned(program_header, program_header->SizeInUint32*sizeof(UINT32), CP_ACP, &pProgramHeaderBlob));
+        CComPtr<IDxcBlob> pProgramHeaderBlob;
+        IFR(hlsl::DxcCreateBlobFromPinned(program_header, program_header->SizeInUint32*sizeof(UINT32), &pProgramHeaderBlob));
         IFR(pProgramHeaderBlob.QueryInterface(ppDebugProgramBlob));
 
       } break; // hlsl::DFCC_ShaderDebugInfoDXIL
@@ -591,6 +540,40 @@ private:
     } // For each part
 
     return S_OK;
+  }
+
+  void AddArgPair(ArgPair &&newPair) {
+    bool excludeFromFlags = false;
+    if (newPair.Name == L"E") {
+      m_EntryPoint = newPair.Value;
+      excludeFromFlags = true;
+    }
+    else if (newPair.Name == L"T") {
+      m_TargetProfile = newPair.Value;
+      excludeFromFlags = true;
+    }
+    else if (newPair.Name == L"D") {
+      m_Defines.push_back(newPair.Value);
+      excludeFromFlags = true;
+    }
+
+    std::wstring nameWithDash;
+    if (newPair.Name.size())
+      nameWithDash = std::wstring(L"-") + newPair.Name;
+
+    if (!excludeFromFlags) {
+      if (nameWithDash.size())
+        m_Flags.push_back(nameWithDash);
+      if (newPair.Value.size())
+        m_Flags.push_back(newPair.Value);
+    }
+
+    if (nameWithDash.size())
+      m_Args.push_back(nameWithDash);
+    if (newPair.Value.size())
+      m_Args.push_back(newPair.Value);
+
+    m_ArgPairs.push_back( std::move(newPair) );
   }
 
 public:
@@ -649,10 +632,11 @@ public:
       }
       // DXIL program header or bitcode
       else {
-        CComPtr<IDxcBlobEncoding> pProgramHeaderBlob;
-        IFR(hlsl::DxcCreateBlobWithEncodingFromPinned(
+        CComPtr<IDxcBlob> pProgramHeaderBlob;
+        IFR(hlsl::DxcCreateBlobFromPinned(
           (hlsl::DxilProgramHeader *)pPdbOrDxil->GetBufferPointer(),
-          pPdbOrDxil->GetBufferSize(), CP_ACP, &pProgramHeaderBlob));
+          pPdbOrDxil->GetBufferSize(), &pProgramHeaderBlob));
+
         IFR(pProgramHeaderBlob.QueryInterface(&m_pDebugProgramBlob));
         IFR(PopulateSourcesFromProgramHeaderOrBitcode(m_pDebugProgramBlob));
       }
@@ -737,6 +721,63 @@ public:
     return m_pDebugProgramBlob != nullptr;
   }
 
+  virtual HRESULT STDMETHODCALLTYPE OverrideArgs(_In_ DxcArgPair *pArgPairs, UINT32 uNumArgPairs) override {
+    try {
+      DxcThreadMalloc TM(m_pMalloc);
+
+      ResetAllArgs();
+
+      for (UINT32 i = 0; i < uNumArgPairs; i++) {
+        ArgPair newPair;
+        newPair.Name  = pArgPairs[i].pName ? pArgPairs[i].pName : L"";
+        newPair.Value = pArgPairs[i].pValue ? pArgPairs[i].pValue : L"";
+        AddArgPair(std::move(newPair));
+      }
+
+      // Clear the cached compile result
+      m_pCachedRecompileResult = nullptr;
+    }
+    CATCH_CPP_RETURN_HRESULT()
+
+    return S_OK;
+  }
+
+  virtual HRESULT STDMETHODCALLTYPE OverrideRootSignature(_In_ const WCHAR *pRootSignature) override {
+    try {
+      DxcThreadMalloc TM(m_pMalloc);
+
+      std::vector<ArgPair> newArgPairs;
+      for (ArgPair &pair : m_ArgPairs) {
+        if (pair.Name == L"rootsig-define") {
+          continue;
+        }
+        newArgPairs.push_back(pair);
+      }
+
+      ResetAllArgs();
+
+      for (ArgPair &newArg : newArgPairs) {
+        AddArgPair(std::move(newArg));
+      }
+
+      ArgPair rsPair;
+      rsPair.Name = L"rootsig-define";
+      rsPair.Value = L"__DXC_RS_DEFINE";
+      AddArgPair(std::move(rsPair));
+
+      ArgPair defPair;
+      defPair.Name = L"D";
+      defPair.Value = std::wstring(L"__DXC_RS_DEFINE=") + pRootSignature;
+      AddArgPair(std::move(defPair));
+
+      // Clear the cached compile result
+      m_pCachedRecompileResult = nullptr;
+    }
+    CATCH_CPP_RETURN_HRESULT()
+
+    return S_OK;
+  }
+
   virtual HRESULT STDMETHODCALLTYPE CompileForFullPDB(_COM_Outptr_ IDxcResult **ppResult) {
     if (!ppResult) return E_POINTER;
     *ppResult = nullptr;
@@ -747,25 +788,41 @@ public:
     if (m_pCachedRecompileResult)
       return m_pCachedRecompileResult.QueryInterface(ppResult);
 
+    DxcThreadMalloc TM(m_pMalloc);
+
+    // Fail early if there are no source files.
+    if (m_SourceFiles.empty())
+      return E_FAIL;
+
     if (!m_pCompiler)
       IFR(DxcCreateInstance2(m_pMalloc, CLSID_DxcCompiler, IID_PPV_ARGS(&m_pCompiler)));
 
-    DxcThreadMalloc TM(m_pMalloc);
+    std::vector<std::wstring> new_args_storage;
+    for (unsigned i = 0; i < m_ArgPairs.size(); i++) {
+      std::wstring name  = m_ArgPairs[i].Name;
+      std::wstring value = m_ArgPairs[i].Value;
+
+      if (name == L"Zs") continue;
+      if (name == L"Zi") continue;
+
+      if (name.size()) {
+        name.insert(name.begin(), L'-');
+        new_args_storage.push_back(std::move(name));
+      }
+      if (value.size()) {
+        new_args_storage.push_back(std::move(value));
+      }
+    }
+    new_args_storage.push_back(L"-Zi");
 
     std::vector<const WCHAR *> new_args;
-    for (unsigned i = 0; i < m_Args.size(); i++) {
-      if (m_Args[i] == L"/Zs" || m_Args[i] == L"-Zs")
-        continue;
-      new_args.push_back(m_Args[i].c_str());
+    for (std::wstring &arg : new_args_storage) {
+      new_args.push_back(arg.c_str());
     }
-    new_args.push_back(L"-Zi");
 
     assert(m_MainFileName.size());
     if (m_MainFileName.size())
       new_args.push_back(m_MainFileName.c_str());
-
-    if (m_SourceFiles.empty())
-      return E_FAIL;
 
     CComPtr<PdbRecompilerIncludeHandler> pIncludeHandler = CreateOnMalloc<PdbRecompilerIncludeHandler>(m_pMalloc);
     if (!pIncludeHandler)
@@ -777,13 +834,12 @@ public:
       pIncludeHandler->m_FileMap.insert(std::pair<std::wstring, unsigned>(NormalizedName, i));
     }
 
-    IDxcBlobEncoding *main_file = m_SourceFiles[0].Content;
+    IDxcBlob *main_file = m_SourceFiles[0].Content;
 
     DxcBuffer source_buf = {};
     source_buf.Ptr = main_file->GetBufferPointer();
     source_buf.Size = main_file->GetBufferSize();
-    BOOL bEndodingKnown = FALSE;
-    IFR(main_file->GetEncoding(&bEndodingKnown, &source_buf.Encoding));
+    source_buf.Encoding = CP_UTF8;
 
     CComPtr<IDxcResult> pResult;
     IFR(m_pCompiler->Compile(&source_buf, new_args.data(), new_args.size(), pIncludeHandler, IID_PPV_ARGS(&m_pCachedRecompileResult)));

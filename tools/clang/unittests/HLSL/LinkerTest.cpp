@@ -793,6 +793,7 @@ TEST_F(LinkerTest, RunLinkToLibWithGlobalCtor) {
 }
 
 TEST_F(LinkerTest, LinkSm63ToSm66) {
+  if (m_ver.SkipDxilVersion(1, 6)) return;
   CComPtr<IDxcBlob> pLib0;
   CompileLib(L"..\\CodeGenHLSL\\linker\\link_to_sm66.hlsl", &pLib0, {}, L"lib_6_3");
 
