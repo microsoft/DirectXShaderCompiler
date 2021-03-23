@@ -74,11 +74,12 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::ContainerPartMissing: return "Missing part '%0' required by module.";
     case hlsl::ValidationRule::ContainerPartInvalid: return "Unknown part '%0' found in DXIL container.";
     case hlsl::ValidationRule::ContainerRootSignatureIncompatible: return "Root Signature in DXIL container is not compatible with shader.";
-    case hlsl::ValidationRule::MetaRequired: return "TODO - Required metadata missing.";
+    case hlsl::ValidationRule::MetaRequired: return "Required metadata missing.";
     case hlsl::ValidationRule::MetaKnown: return "Named metadata '%0' is unknown.";
     case hlsl::ValidationRule::MetaUsed: return "All metadata must be used by dxil.";
     case hlsl::ValidationRule::MetaTarget: return "Unknown target triple '%0'.";
-    case hlsl::ValidationRule::MetaWellFormed: return "TODO - Metadata must be well-formed in operand count and types.";
+    case hlsl::ValidationRule::MetaWellFormed: return "Metadata must be well-formed in operand count and types.";
+    case hlsl::ValidationRule::MetaVersionSupported: return "%0 version in metadata (%1.%2) is not supported; maximum: (%3.%4).";
     case hlsl::ValidationRule::MetaSemanticLen: return "Semantic length must be at least 1 and at most 64.";
     case hlsl::ValidationRule::MetaInterpModeValid: return "Invalid interpolation mode for '%0'.";
     case hlsl::ValidationRule::MetaSemaKindValid: return "Semantic kind for '%0' is invalid.";
@@ -208,7 +209,7 @@ const char *hlsl::GetValidationRuleText(ValidationRule value) {
     case hlsl::ValidationRule::TypesNoPtrToPtr: return "Pointers to pointers, or pointers in structures are not allowed.";
     case hlsl::ValidationRule::TypesI8: return "I8 can only be used as immediate value for intrinsic or as i8* via bitcast by lifetime intrinsics.";
     case hlsl::ValidationRule::SmName: return "Unknown shader model '%0'.";
-    case hlsl::ValidationRule::SmDxilVersion: return "Shader model requires Dxil Version %0,%1.";
+    case hlsl::ValidationRule::SmDxilVersion: return "Shader model requires Dxil Version %0.%1.";
     case hlsl::ValidationRule::SmOpcode: return "Opcode %0 not valid in shader model %1.";
     case hlsl::ValidationRule::SmOperand: return "Operand must be defined in target shader model.";
     case hlsl::ValidationRule::SmSemantic: return "Semantic '%0' is invalid as %1 %2.";
@@ -3899,6 +3900,12 @@ static void ValidateValidatorVersion(ValidationContext &ValCtx) {
         // depending on the degree of compat across versions.
         if (majorVer == curMajor && minorVer <= curMinor) {
           return;
+        } else {
+          ValCtx.EmitFormatError(
+              ValidationRule::MetaVersionSupported,
+              {"Validator", std::to_string(majorVer), std::to_string(minorVer),
+               std::to_string(curMajor), std::to_string(curMinor)});
+          return;
         }
       }
     }
@@ -3920,8 +3927,14 @@ static void ValidateDxilVersion(ValidationContext &ValCtx) {
           GetNodeOperandAsInt(ValCtx, pVerValues, 1, &minorVer)) {
         // This will need to be updated as dxil major/minor versions evolve,
         // depending on the degree of compat across versions.
-        if ((majorVer == 1 && minorVer <= DXIL::kDxilMinor) &&
+        if ((majorVer == DXIL::kDxilMajor && minorVer <= DXIL::kDxilMinor) &&
             (majorVer == ValCtx.m_DxilMajor && minorVer == ValCtx.m_DxilMinor)) {
+          return;
+        } else {
+          ValCtx.EmitFormatError(
+              ValidationRule::MetaVersionSupported,
+              {"Dxil", std::to_string(majorVer), std::to_string(minorVer),
+               std::to_string(DXIL::kDxilMajor), std::to_string(DXIL::kDxilMinor)});
           return;
         }
       }
@@ -3964,6 +3977,9 @@ static void ValidateBitcode(ValidationContext &ValCtx) {
 }
 
 static void ValidateMetadata(ValidationContext &ValCtx) {
+  ValidateValidatorVersion(ValCtx);
+  ValidateDxilVersion(ValCtx);
+
   Module *pModule = &ValCtx.M;
   const std::string &target = pModule->getTargetTriple();
   if (target != "dxil-ms-dx") {
@@ -4011,8 +4027,6 @@ static void ValidateMetadata(ValidationContext &ValCtx) {
     }
   }
 
-  ValidateDxilVersion(ValCtx);
-  ValidateValidatorVersion(ValCtx);
   ValidateTypeAnnotation(ValCtx);
 }
 
