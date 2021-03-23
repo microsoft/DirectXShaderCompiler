@@ -17,6 +17,7 @@
 #include "dxc/dxcapi.internal.h"
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/Support/HLSLOptions.h"
+#include "dxc/DxilContainer/DxilContainer.h"
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support//MSFileSystem.h"
@@ -34,6 +35,10 @@ static cl::alias Help_q("?", cl::aliasopt(Help));
 static cl::opt<std::string>
 InputFilename(cl::Positional, cl::desc("<input dxil file>"));
 
+static cl::opt<std::string> OutputFilename("o",
+                                           cl::desc("Override output filename for signed container"),
+                                           cl::value_desc("filename"));
+
 class DxvContext {
 private:
   DxcDllSupport &m_dxcSupport;
@@ -45,30 +50,45 @@ public:
 };
 
 void DxvContext::Validate() {
-  CComPtr<IDxcOperationResult> pCompileResult;
-
   {
     CComPtr<IDxcBlobEncoding> pSource;
     ReadFileIntoBlob(m_dxcSupport, StringRefUtf16(InputFilename), &pSource);
 
-    CComPtr<IDxcAssembler> pAssembler;
-    CComPtr<IDxcOperationResult> pAsmResult;
+    bool bSourceIsDxilContainer = hlsl::IsValidDxilContainer(
+        hlsl::IsDxilContainerLike(pSource->GetBufferPointer(),
+                                  pSource->GetBufferSize()),
+        pSource->GetBufferSize());
+    bool bSourceIsUnsigned = false;
 
     CComPtr<IDxcBlob> pContainerBlob;
-    HRESULT resultStatus;
+    if (bSourceIsDxilContainer) {
+      pContainerBlob = pSource;
+      const hlsl::DxilContainerHeader *pHeader = hlsl::IsDxilContainerLike(
+          pSource->GetBufferPointer(), pSource->GetBufferSize());
+      hlsl::DxilContainerHash blankHash = {};
+      if (memcmp(&pHeader->Hash, &blankHash, sizeof(hlsl::DxilContainerHash)) == 0) {
+        bSourceIsUnsigned = true;
+      }
+    } else {
+      // Otherwise assume assembly to container is required.
+      CComPtr<IDxcAssembler> pAssembler;
+      CComPtr<IDxcOperationResult> pAsmResult;
 
-    IFT(m_dxcSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
-    IFT(pAssembler->AssembleToContainer(pSource, &pAsmResult));
-    IFT(pAsmResult->GetStatus(&resultStatus));
-    if (FAILED(resultStatus)) {
-      CComPtr<IDxcBlobEncoding> text;
-      IFT(pAsmResult->GetErrorBuffer(&text));
-      const char *pStart = (const char *)text->GetBufferPointer();
-      std::string msg(pStart);
-      IFTMSG(resultStatus, msg);
-      return;
+      HRESULT resultStatus;
+
+      IFT(m_dxcSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
+      IFT(pAssembler->AssembleToContainer(pSource, &pAsmResult));
+      IFT(pAsmResult->GetStatus(&resultStatus));
+      if (FAILED(resultStatus)) {
+        CComPtr<IDxcBlobEncoding> text;
+        IFT(pAsmResult->GetErrorBuffer(&text));
+        const char *pStart = (const char *)text->GetBufferPointer();
+        std::string msg(pStart);
+        IFTMSG(resultStatus, msg);
+        return;
+      }
+      IFT(pAsmResult->GetResult(&pContainerBlob));
     }
-    IFT(pAsmResult->GetResult(&pContainerBlob));
 
     CComPtr<IDxcValidator> pValidator;
     CComPtr<IDxcOperationResult> pResult;
@@ -86,6 +106,20 @@ void DxvContext::Validate() {
       std::string msg(pStart);
       IFTMSG(status, msg);
     } else {
+      // Source was unsigned DxilContainer, write signed container if it's now signed:
+      if (bSourceIsDxilContainer && bSourceIsUnsigned) {
+        const hlsl::DxilContainerHeader *pHeader = hlsl::IsDxilContainerLike(
+            pSource->GetBufferPointer(), pSource->GetBufferSize());
+        hlsl::DxilContainerHash blankHash = {};
+        if (memcmp(&pHeader->Hash, &blankHash,
+                   sizeof(hlsl::DxilContainerHash)) != 0) {
+          if (OutputFilename.empty()) {
+            OutputFilename.assign(InputFilename);
+          }
+          WriteBlobToFile(pSource, StringRefUtf16(OutputFilename), CP_ACP);
+          printf("Signed container written to \"%s\"\n", OutputFilename.c_str());
+        }
+      }
       printf("Validation succeed.");
     }
   }

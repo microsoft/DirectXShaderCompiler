@@ -7,6 +7,7 @@ set( LLVM_LINK_COMPONENTS
   dxcsupport
   Option     # option library
   MSSupport  # for CreateMSFileSystemForDisk
+  dxilcontainer
   )
 
 add_clang_executable(dxv
