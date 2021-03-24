@@ -11,6 +11,9 @@ void Main()
 // check it's 6.6:
 // CHECK: call %dx.types.Handle @dx.op.createHandleFromBinding
 
-// Offset for out-of-bounds should be 256
+// The start of resource records has been passed in as 256. The limit of resource records is 272. 272-256 = 16.
+// 8 bytes per record means we have one record for out-of-bounds (that comes first), and one record for resource index 0.
+// The above HLSL references resource descriptor 1, so is out-of-bounds. Offset for out-of-bounds should thus be 256:
+// The large integer is encoded flags for the ResourceAccessStyle (an enumerated type in lib\DxilPIXPasses\DxilShaderAccessTracking.cpp) for this access
 // CHECK:i32 256, i32 undef, i32 1375731712
 // CHECK:rawBufferLoad

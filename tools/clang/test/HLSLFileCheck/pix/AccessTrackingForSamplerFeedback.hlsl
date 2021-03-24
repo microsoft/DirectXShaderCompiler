@@ -1,4 +1,4 @@
-// RUN: %dxc -Emain -Tcs_6_5 %s | %opt -S -hlsl-dxil-pix-shader-access-instrumentation,config=M0:0:1i0;S0:1:1i0;U0:2:10i0;0;0;0. | %FileCheck %s
+// RUN: %dxc -Emain -Tcs_6_5 %s | %opt -S -hlsl-dxil-pix-shader-access-instrumentation,config=M0:0:1i0;S0:1:1i0;U0:2:10i0;.0;0;0. | %FileCheck %s
 
 // Check we added the UAV:
 // CHECK:  %PIX_CountUAV_Handle = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 1, i32 1, i32 0, i1 false)

@@ -15,10 +15,12 @@ void Main()
 // CHECK: call void @dx.op.bufferStore.i32
 
 // Offset for buffer Load should be 256 + 8 (skip out-of-bounds record) + 8 (it's the 1th resource) + 4 (offset to the "read" field) = 276
+// The large integer is encoded flags for the ResourceAccessStyle (an enumerated type in lib\DxilPIXPasses\DxilShaderAccessTracking.cpp) for this access
 // CHECK:i32 276, i32 undef, i32 1375731712
 // CHECK:rawBufferLoad
 
 // Offset for buffer Store should be 256 + 8 (skip out-of-bounds record) + 8 (it's the 1th resource) + 0 (offset to the "write" field) = 272
+// The large integer is encoded flags for the ResourceAccessStyle (an enumerated type in lib\DxilPIXPasses\DxilShaderAccessTracking.cpp) for this access
 // CHECK:i32 272, i32 undef, i32 1392508928
 // CHECK:rawBufferStore
 

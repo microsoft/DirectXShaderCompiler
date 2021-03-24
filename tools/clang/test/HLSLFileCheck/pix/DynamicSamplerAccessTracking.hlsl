@@ -14,6 +14,8 @@ float4 Main() : SV_Target
 // check it's 6.6:
 // CHECK: call %dx.types.Handle @dx.op.createHandleFromBinding
 
+// The large integers are encoded flags for the ResourceAccessStyle (an enumerated type in lib\DxilPIXPasses\DxilShaderAccessTracking.cpp) for this access
+
 // Check we wrote sampler data to the PIX UAV. We told the pass to output starting at offset 512.
 // Add 8 to skip the "out of bounds" record. Add 4 to point to the "read" field within the next entry = 524
 // CHECK: call void @dx.op.bufferStore.i32(
