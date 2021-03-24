@@ -1763,20 +1763,29 @@ bool DxilModule::StripReflection() {
     // since they have not yet been converted for legacy layout.
     // Keep all structs contained in any we must keep.
     SmallStructSetVector structsToKeep;
-    SmallStructSetVector structsToRemove;
-    for (auto &item : m_pTypeSystem->GetStructAnnotationMap()) {
       SmallStructSetVector containedStructs;
-      if (!ResourceTypeRequiresTranslation(item.first, containedStructs))
-        structsToRemove.insert(item.first);
-      else
-        structsToKeep.insert(containedStructs.begin(), containedStructs.end());
+    for (auto &CBuf : GetCBuffers())
+      if (StructType *ST = dyn_cast<StructType>(CBuf->GetHLSLType()))
+        if (ResourceTypeRequiresTranslation(ST, containedStructs))
+          structsToKeep.insert(containedStructs.begin(), containedStructs.end());
+
+    for (auto &UAV : GetUAVs()) {
+      if (DXIL::IsStructuredBuffer(UAV->GetKind()))
+        if (StructType *ST = dyn_cast<StructType>(UAV->GetHLSLType()))
+          if (ResourceTypeRequiresTranslation(ST, containedStructs))
+            structsToKeep.insert(containedStructs.begin(), containedStructs.end());
     }
 
-    for (auto Ty : structsToKeep)
-      structsToRemove.remove(Ty);
-    for (auto Ty : structsToRemove) {
-      m_pTypeSystem->GetStructAnnotationMap().erase(Ty);
+    for (auto &SRV : GetSRVs()) {
+      if (SRV->IsStructuredBuffer() || SRV->IsTBuffer())
+        if (StructType *ST = dyn_cast<StructType>(SRV->GetHLSLType()))
+          if (ResourceTypeRequiresTranslation(ST, containedStructs))
+            structsToKeep.insert(containedStructs.begin(), containedStructs.end());
     }
+
+    m_pTypeSystem->GetStructAnnotationMap().remove_if([structsToKeep](
+      const std::pair<const StructType *, std::unique_ptr<DxilStructAnnotation>>
+          &I) { return !structsToKeep.count(I.first); });
   } else {
     // Remove struct annotations.
     if (!m_pTypeSystem->GetStructAnnotationMap().empty()) {
