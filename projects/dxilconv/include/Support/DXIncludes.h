@@ -33,7 +33,7 @@
 #include <wincrypt.h>
 
 #ifndef DECODE_D3D10_SB_TOKENIZED_PROGRAM_TYPE
-#include "dxc/d3d12TokenizedProgramFormat.hpp"
+#include "dxc\Support\d3d12TokenizedProgramFormat.hpp"
 #endif
 
 #include "ShaderBinary/ShaderBinary.h"
