@@ -6839,12 +6839,20 @@ const Expr *SpirvEmitter::collectArrayStructIndices(
     // The index into an array must be an integer number.
     const auto *idxExpr = indexing->getIdx();
     const auto idxExprType = idxExpr->getType();
+
     if (idxExpr->isLValue()) {
+      // If the given HLSL code is correct, this case will not happen, because
+      // the correct HLSL code will not use LValue for the index of an array.
       emitError("Index of ArraySubscriptExpr must be rvalue",
                 idxExpr->getExprLoc());
       return nullptr;
     }
+    // Since `doExpr(idxExpr)` can generate LValue SPIR-V instruction for
+    // RValue `idxExpr` (see
+    // https://github.com/microsoft/DirectXShaderCompiler/issues/3620),
+    // we have to use `loadIfGLValue(idxExpr)` instead of `doExpr(idxExpr)`.
     SpirvInstruction *thisIndex = loadIfGLValue(idxExpr);
+
     if (!idxExprType->isIntegerType() || idxExprType->isBooleanType()) {
       thisIndex = castToInt(thisIndex, idxExprType, astContext.UnsignedIntTy,
                             idxExpr->getExprLoc());
