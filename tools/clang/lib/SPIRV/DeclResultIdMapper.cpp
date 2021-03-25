@@ -2143,7 +2143,12 @@ bool DeclResultIdMapper::createStageVars(
   //       should have semantics attached;
   //   * If the current decl is not a struct, it should have semantic attached.
 
+  const auto loc = decl->getLocation();
   auto thisSemantic = getStageVarSemantic(decl);
+  if (thisSemantic.str.equals("VFACE")) {
+    emitError("'VFACE' semantics is no longer supported", loc);
+    return false;
+  }
 
   // Which semantic we should use for this decl
   auto *semanticToUse = &thisSemantic;
@@ -2159,7 +2164,6 @@ bool DeclResultIdMapper::createStageVars(
     semanticToUse = inheritSemantic;
   }
 
-  const auto loc = decl->getLocation();
   if (semanticToUse->isValid() &&
       // Structs with attached semantics will be handled later.
       !type->isStructureType()) {
