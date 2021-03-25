@@ -616,6 +616,10 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
       ConsumeToken(); // consume colon.
 
       StringRef semanticName = Tok.getIdentifierInfo()->getName();
+      if (semanticName.equals("VFACE")) {
+        Diag(Tok.getLocation(), diag::err_hlsl_unsupported_construct) << tok::identifier;
+        return false;
+      }
       hlsl::SemanticDecl *pUA = new (context) hlsl::SemanticDecl(semanticName);
       pUA->Loc = Tok.getLocation();
       ConsumeToken(); // consume semantic
@@ -627,6 +631,7 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
       return false;
     }
   }
+  return true;
 }
 // HLSL Change Ends
 

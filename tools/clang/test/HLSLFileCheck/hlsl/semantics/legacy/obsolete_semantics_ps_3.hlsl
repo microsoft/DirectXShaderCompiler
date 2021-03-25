@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -E main -T ps_6_0 %s -Gec | FileCheck %s
 
 // CHECK: error: identifier is unsupported in HLSL
 
