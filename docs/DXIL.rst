@@ -2969,7 +2969,7 @@ The set of validation rules that are known to hold for a DXIL program is identif
 ========================================= ========================================================================================================================================================================================================================================================================================================
 Rule Code                                 Description
 ========================================= ========================================================================================================================================================================================================================================================================================================
-BITCODE.VALID                             TODO - Module must be bitcode-valid
+BITCODE.VALID                             Module must be bitcode-valid
 CONTAINER.PARTINVALID                     DXIL Container must not contain unknown parts
 CONTAINER.PARTMATCHES                     DXIL Container Parts must match Module
 CONTAINER.PARTMISSING                     DXIL Container requires certain parts, corresponding to module
@@ -3096,7 +3096,7 @@ META.KNOWN                                Named metadata should be known
 META.MAXTESSFACTOR                        Hull Shader MaxTessFactor must be [%0..%1].  %2 specified.
 META.NOENTRYPROPSFORENTRY                 Entry point %0 must have entry properties.
 META.NOSEMANTICOVERLAP                    Semantics must not overlap
-META.REQUIRED                             TODO - Required metadata missing.
+META.REQUIRED                             Required metadata missing.
 META.SEMAKINDMATCHESNAME                  Semantic name must match system value, when defined.
 META.SEMAKINDVALID                        Semantic kind must be valid
 META.SEMANTICCOMPTYPE                     %0 must be %1.
@@ -3120,7 +3120,8 @@ META.TEXTURETYPE                          elements of typed buffers and textures
 META.USED                                 All metadata must be used by dxil.
 META.VALIDSAMPLERMODE                     Invalid sampler mode on sampler .
 META.VALUERANGE                           Metadata value must be within range.
-META.WELLFORMED                           TODO - Metadata must be well-formed in operand count and types.
+META.VERSIONSUPPORTED                     Version in metadata must be supported.
+META.WELLFORMED                           Metadata must be well-formed in operand count and types.
 SM.64BITRAWBUFFERLOADSTORE                i64/f64 rawBufferLoad/Store overloads are allowed after SM 6.3.
 SM.AMPLIFICATIONSHADERPAYLOADSIZE         For amplification shader with entry '%0', payload size %1 is greater than maximum size of %2 bytes.
 SM.AMPLIFICATIONSHADERPAYLOADSIZEDECLARED For amplification shader with entry '%0', payload size %1 is greater than declared size of %2 bytes.

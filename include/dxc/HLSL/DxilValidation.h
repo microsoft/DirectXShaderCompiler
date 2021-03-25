@@ -31,7 +31,7 @@ namespace hlsl {
 // Known validation rules
 enum class ValidationRule : unsigned {
   // Bitcode
-  BitcodeValid, // TODO - Module must be bitcode-valid
+  BitcodeValid, // Module must be bitcode-valid
 
   // Container
   ContainerPartInvalid, // DXIL Container must not contain unknown parts
@@ -162,7 +162,7 @@ enum class ValidationRule : unsigned {
   MetaMaxTessFactor, // Hull Shader MaxTessFactor must be [%0..%1].  %2 specified.
   MetaNoEntryPropsForEntry, // Entry point %0 must have entry properties.
   MetaNoSemanticOverlap, // Semantics must not overlap
-  MetaRequired, // TODO - Required metadata missing.
+  MetaRequired, // Required metadata missing.
   MetaSemaKindMatchesName, // Semantic name must match system value, when defined.
   MetaSemaKindValid, // Semantic kind must be valid
   MetaSemanticCompType, // %0 must be %1.
@@ -186,7 +186,8 @@ enum class ValidationRule : unsigned {
   MetaUsed, // All metadata must be used by dxil.
   MetaValidSamplerMode, // Invalid sampler mode on sampler .
   MetaValueRange, // Metadata value must be within range.
-  MetaWellFormed, // TODO - Metadata must be well-formed in operand count and types.
+  MetaVersionSupported, // Version in metadata must be supported.
+  MetaWellFormed, // Metadata must be well-formed in operand count and types.
 
   // Program flow
   FlowDeadLoop, // Loop must have break.
