@@ -21,6 +21,8 @@
 #include "llvm/IR/PassManager.h"
 #include "llvm/Transforms/Utils/Local.h"
 
+#include "PixPassHelpers.h"
+
 using namespace llvm;
 using namespace hlsl;
 
@@ -102,59 +104,7 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M) {
     IRBuilder<> Builder(
         dxilutil::FirstNonAllocaInsertionPt(DM.GetEntryFunction()));
 
-    unsigned int UAVResourceHandle =
-        static_cast<unsigned int>(DM.GetUAVs().size());
-
-    // Set up a UAV with structure of a single int
-    SmallVector<llvm::Type *, 1> Elements{Type::getInt32Ty(Ctx)};
-    llvm::StructType *UAVStructTy =
-        llvm::StructType::create(Elements, "class.RWStructuredBuffer");
-    std::unique_ptr<DxilResource> pUAV = llvm::make_unique<DxilResource>();
-    pUAV->SetGlobalName("PIX_CountUAVName");
-    pUAV->SetGlobalSymbol(UndefValue::get(UAVStructTy->getPointerTo()));
-    pUAV->SetID(UAVResourceHandle);
-    pUAV->SetSpaceID(
-        (unsigned int)-2); // This is the reserved-for-tools register space
-    pUAV->SetSampleCount(1);
-    pUAV->SetGloballyCoherent(false);
-    pUAV->SetHasCounter(false);
-    pUAV->SetCompType(CompType::getI32());
-    pUAV->SetLowerBound(0);
-    pUAV->SetRangeSize(1);
-    pUAV->SetKind(DXIL::ResourceKind::RawBuffer);
-    pUAV->SetRW(true);
-
-    auto pAnnotation = DM.GetTypeSystem().GetStructAnnotation(UAVStructTy);
-    if (pAnnotation == nullptr) {
-      pAnnotation = DM.GetTypeSystem().AddStructAnnotation(UAVStructTy);
-      pAnnotation->GetFieldAnnotation(0).SetCBufferOffset(0);
-      pAnnotation->GetFieldAnnotation(0).SetCompType(
-          hlsl::DXIL::ComponentType::I32);
-      pAnnotation->GetFieldAnnotation(0).SetFieldName("count");
-    }
-
-    ID = DM.AddUAV(std::move(pUAV));
-
-    assert((unsigned)ID == UAVResourceHandle);
-
-    // Create handle for the newly-added UAV
-    Function *CreateHandleOpFunc =
-        HlslOP->GetOpFunc(DXIL::OpCode::CreateHandle, Type::getVoidTy(Ctx));
-    Constant *CreateHandleOpcodeArg =
-        HlslOP->GetU32Const((unsigned)DXIL::OpCode::CreateHandle);
-    Constant *UAVArg = HlslOP->GetI8Const(
-        static_cast<std::underlying_type<DxilResourceBase::Class>::type>(
-            DXIL::ResourceClass::UAV));
-    Constant *MetaDataArg =
-        HlslOP->GetU32Const(ID); // position of the metadata record in the
-                                 // corresponding metadata list
-    Constant *IndexArg = HlslOP->GetU32Const(0); //
-    Constant *FalseArg =
-        HlslOP->GetI1Const(0); // non-uniform resource index: false
-    HandleForUAV = Builder.CreateCall(
-        CreateHandleOpFunc,
-        {CreateHandleOpcodeArg, UAVArg, MetaDataArg, IndexArg, FalseArg},
-        "PIX_CountUAV_Handle");
+    HandleForUAV = PIXPassHelpers::CreateUAV(DM, Builder, 0, "PIX_CountUAV_Handle");
 
     DM.ReEmitDxilResources();
   }
