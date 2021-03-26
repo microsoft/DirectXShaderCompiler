@@ -615,8 +615,7 @@ public:
   }
 
   bool CreateDevice(_COM_Outptr_ ID3D12Device **ppDevice,
-                    D3D_SHADER_MODEL testModel = D3D_SHADER_MODEL_6_0, bool skipUnsupported = true,
-                    bool enableRayTracing = false) {
+                    D3D_SHADER_MODEL testModel = D3D_SHADER_MODEL_6_0, bool skipUnsupported = true) {
     if (testModel > HIGHEST_SHADER_MODEL) {
       UINT minor = (UINT)testModel & 0x0f;
       LogCommentFmt(L"Installed SDK does not support "
@@ -628,7 +627,6 @@ public:
 
       return false;
     }
-    const D3D_FEATURE_LEVEL FeatureLevelRequired = enableRayTracing ? D3D_FEATURE_LEVEL_12_0 : D3D_FEATURE_LEVEL_11_0;
     CComPtr<IDXGIFactory4> factory;
     CComPtr<ID3D12Device> pDevice;
 
@@ -638,7 +636,7 @@ public:
     if (GetTestParamUseWARP(UseWarpByDefault())) {
       CComPtr<IDXGIAdapter> warpAdapter;
       VERIFY_SUCCEEDED(factory->EnumWarpAdapter(IID_PPV_ARGS(&warpAdapter)));
-      HRESULT createHR = D3D12CreateDevice(warpAdapter, FeatureLevelRequired,
+      HRESULT createHR = D3D12CreateDevice(warpAdapter, D3D_FEATURE_LEVEL_11_0,
                                            IID_PPV_ARGS(&pDevice));
       if (FAILED(createHR)) {
         LogCommentFmt(L"The available version of WARP does not support d3d12.");
@@ -660,7 +658,7 @@ public:
         WEX::Logging::Log::Comment(
             L"Using default hardware adapter with D3D12 support.");
       }
-      VERIFY_SUCCEEDED(D3D12CreateDevice(hardwareAdapter, FeatureLevelRequired,
+      VERIFY_SUCCEEDED(D3D12CreateDevice(hardwareAdapter, D3D_FEATURE_LEVEL_11_0,
                                          IID_PPV_ARGS(&pDevice)));
     }
     // retrieve adapter information
@@ -1779,15 +1777,15 @@ TEST_F(ExecutionTest, LifetimeIntrinsicTest) {
   static const int DispatchGroupCount = 1;
 
   CComPtr<ID3D12Device> pDevice;
-  bool bSM_6_6_Supported = CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6, false, true);
+  bool bSM_6_6_Supported = CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6, false);
   bool bSM_6_3_Supported = bSM_6_6_Supported;
   if (!bSM_6_6_Supported) {
     // Try 6.3 for downlevel DXR case
-    bSM_6_3_Supported = CreateDevice(&pDevice, D3D_SHADER_MODEL_6_3, false, true);
+    bSM_6_3_Supported = CreateDevice(&pDevice, D3D_SHADER_MODEL_6_3, false);
   }
   if (!bSM_6_3_Supported) {
     // Otherwise, 6.0 better be supported for compute case
-    VERIFY_IS_TRUE(CreateDevice(&pDevice, D3D_SHADER_MODEL_6_0, false, false));
+    VERIFY_IS_TRUE(CreateDevice(&pDevice, D3D_SHADER_MODEL_6_0, false));
   }
   bool bDXRSupported = bSM_6_3_Supported && DoesDeviceSupportRayTracing(pDevice);
 
