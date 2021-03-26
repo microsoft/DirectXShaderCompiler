@@ -2567,6 +2567,17 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
       ValCtx.EmitInstrFormatError(CI, ValidationRule::SmOpcodeInInvalidFunction,
                                   {"64-bit atomic operations", "Shader Model 6.6+"});
   } break;
+  case DXIL::OpCode::CreateHandle:
+    if (ValCtx.isLibProfile) {
+      ValCtx.EmitInstrFormatError(CI, ValidationRule::SmOpcodeInInvalidFunction,
+                                  {"CreateHandle", "non-library targets"});
+    }
+    // CreateHandle should not be used in SM 6.6 and above:
+    if (DXIL::CompareVersions(ValCtx.m_DxilMajor, ValCtx.m_DxilMinor, 1, 5) > 0) {
+      ValCtx.EmitInstrFormatError(CI, ValidationRule::SmOpcodeInInvalidFunction,
+                                  {"CreateHandle", "Shader model 6.5 and below"});
+    }
+    break;
   default:
     // TODO: make sure every opcode is checked.
     // Skip opcodes don't need special check.
