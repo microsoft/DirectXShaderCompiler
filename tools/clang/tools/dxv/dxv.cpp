@@ -58,17 +58,15 @@ void DxvContext::Validate() {
         hlsl::IsDxilContainerLike(pSource->GetBufferPointer(),
                                   pSource->GetBufferSize()),
         pSource->GetBufferSize());
-    bool bSourceIsUnsigned = false;
 
+    hlsl::DxilContainerHash origHash = {};
     CComPtr<IDxcBlob> pContainerBlob;
     if (bSourceIsDxilContainer) {
       pContainerBlob = pSource;
       const hlsl::DxilContainerHeader *pHeader = hlsl::IsDxilContainerLike(
           pSource->GetBufferPointer(), pSource->GetBufferSize());
-      hlsl::DxilContainerHash blankHash = {};
-      if (memcmp(&pHeader->Hash, &blankHash, sizeof(hlsl::DxilContainerHash)) == 0) {
-        bSourceIsUnsigned = true;
-      }
+      // Copy hash into origHash
+      memcpy(&origHash, &pHeader->Hash, sizeof(hlsl::DxilContainerHash));
     } else {
       // Otherwise assume assembly to container is required.
       CComPtr<IDxcAssembler> pAssembler;
@@ -107,20 +105,22 @@ void DxvContext::Validate() {
       IFTMSG(status, msg);
     } else {
       // Source was unsigned DxilContainer, write signed container if it's now signed:
-      if (bSourceIsDxilContainer && bSourceIsUnsigned) {
-        const hlsl::DxilContainerHeader *pHeader = hlsl::IsDxilContainerLike(
-            pSource->GetBufferPointer(), pSource->GetBufferSize());
-        hlsl::DxilContainerHash blankHash = {};
-        if (memcmp(&pHeader->Hash, &blankHash,
-                   sizeof(hlsl::DxilContainerHash)) != 0) {
-          if (OutputFilename.empty()) {
-            OutputFilename.assign(InputFilename);
-          }
+      if (!OutputFilename.empty()) {
+        if (bSourceIsDxilContainer) {
+          const hlsl::DxilContainerHeader *pHeader = hlsl::IsDxilContainerLike(
+              pSource->GetBufferPointer(), pSource->GetBufferSize());
           WriteBlobToFile(pSource, StringRefUtf16(OutputFilename), CP_ACP);
-          printf("Signed container written to \"%s\"\n", OutputFilename.c_str());
+          if (memcmp(&pHeader->Hash, &origHash,
+                     sizeof(hlsl::DxilContainerHash)) != 0) {
+            printf("Signed DxilContainer written to \"%s\"\n", OutputFilename.c_str());
+          } else {
+            printf("Unchanged DxilContainer written to \"%s\"\n", OutputFilename.c_str());
+          }
+        } else {
+          printf("Source was not a DxilContainer, no output file written.\n");
         }
       }
-      printf("Validation succeed.");
+      printf("Validation succeeded.");
     }
   }
 }
