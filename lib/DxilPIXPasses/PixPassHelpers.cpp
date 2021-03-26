@@ -62,7 +62,7 @@ llvm::CallInst *CreateHandleForResource(hlsl::DxilModule &DM,
   unsigned int resourceMetaDataId =
       GetNextRegisterIdForClass(DM, resourceClass);
 
-  // Create handle for the newly-added UAV
+  // Create handle for the newly-added resource
   if (IsDynamicResourceShaderModel(DM)) {
     Function *CreateHandleFromBindingOpFunc = HlslOP->GetOpFunc(
         DXIL::OpCode::CreateHandleFromBinding, Type::getVoidTy(Ctx));
@@ -101,7 +101,7 @@ llvm::CallInst *CreateHandleForResource(hlsl::DxilModule &DM,
         HlslOP->GetOpFunc(DXIL::OpCode::CreateHandle, Type::getVoidTy(Ctx));
     Constant *CreateHandleOpcodeArg =
         HlslOP->GetU32Const((unsigned)DXIL::OpCode::CreateHandle);
-    Constant *UAVArg = HlslOP->GetI8Const(
+    Constant *ClassArg = HlslOP->GetI8Const(
         static_cast<std::underlying_type<DxilResourceBase::Class>::type>(
             resourceClass));
     Constant *MetaDataArg = HlslOP->GetU32Const(
@@ -112,7 +112,7 @@ llvm::CallInst *CreateHandleForResource(hlsl::DxilModule &DM,
         HlslOP->GetI1Const(0); // non-uniform resource index: false
     return Builder.CreateCall(
         CreateHandleOpFunc,
-        {CreateHandleOpcodeArg, UAVArg, MetaDataArg, IndexArg, FalseArg}, name);
+        {CreateHandleOpcodeArg, ClassArg, MetaDataArg, IndexArg, FalseArg}, name);
   }
 }
 
