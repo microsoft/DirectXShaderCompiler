@@ -1,5 +1,8 @@
 // RUN: %dxc -E main -T ps_6_0 %s
 
+Buffer<float4> g_buf;
+
+[shader("pixel")]
 float4 main() : SV_Target {
-  return float4(1, 0, 0, 1);
+  return g_buf.Load(0);
 }
