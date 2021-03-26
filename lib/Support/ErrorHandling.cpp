@@ -31,6 +31,7 @@
 
 #ifdef _WIN32
 #include "windows.h"  // HLSL Change
+#include "dxc/Support/exception.h"  // HLSL Change
 #endif
 
 #if defined(HAVE_UNISTD_H)
@@ -87,7 +88,6 @@ void llvm::report_fatal_error(const Twine &Reason, bool GenCrashDiag) {
     handlerData = ErrorHandlerUserData;
   }
 
-#ifndef LLVM_ON_WIN32 // HLSL Change - unwind if necessary, but don't terminate the process
   if (handler) {
     handler(handlerData, Reason.str(), GenCrashDiag);
   } else {
@@ -98,8 +98,12 @@ void llvm::report_fatal_error(const Twine &Reason, bool GenCrashDiag) {
     raw_svector_ostream OS(Buffer);
     OS << "LLVM ERROR: " << Reason << "\n";
     StringRef MessageStr = OS.str();
+#ifndef LLVM_ON_WIN32 // HLSL Change - unwind if necessary, but don't terminate the process
     ssize_t written = ::write(2, MessageStr.data(), MessageStr.size());
     (void)written; // If something went wrong, we deliberately just give up.
+#else
+    throw hlsl::Exception(E_FAIL, std::string(MessageStr.data(), MessageStr.size()));
+#endif
   }
 
   // If we reached here, we are failing ungracefully. Run the interrupt handlers
@@ -108,12 +112,6 @@ void llvm::report_fatal_error(const Twine &Reason, bool GenCrashDiag) {
   sys::RunInterruptHandlers();
 
   exit(1);
-#else
-  if (handler) {
-    handler(handlerData, Reason.str(), GenCrashDiag);
-  }
-  RaiseException(STATUS_LLVM_FATAL, 0, 0, 0);
-#endif
 }
 
 void llvm::llvm_unreachable_internal(const char *msg, const char *file,
@@ -121,16 +119,20 @@ void llvm::llvm_unreachable_internal(const char *msg, const char *file,
   // This code intentionally doesn't call the ErrorHandler callback, because
   // llvm_unreachable is intended to be used to indicate "impossible"
   // situations, and not legitimate runtime errors.
+  // HLSL Change - collect full message in string
+  SmallVector<char, 64> Buffer;
+  raw_svector_ostream OS(Buffer);
   if (msg)
-    dbgs() << msg << "\n";
-  dbgs() << "UNREACHABLE executed";
+    OS << msg << "\n";
+  OS << "UNREACHABLE executed";
   if (file)
-    dbgs() << " at " << file << ":" << line;
-  dbgs() << "!\n";
+    OS << " at " << file << ":" << line;
+  OS << "!\n";
 #ifndef LLVM_ON_WIN32 // HLSL Change - unwind if necessary, but don't terminate the process
+  dbgs() << OS.str();
   abort();
 #else
-  RaiseException(STATUS_LLVM_UNREACHABLE, 0, 0, 0);
+  throw hlsl::Exception(E_FAIL, OS.str());
 #endif
 }
 
