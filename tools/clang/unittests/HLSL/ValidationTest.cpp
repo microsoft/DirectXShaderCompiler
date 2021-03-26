@@ -298,6 +298,7 @@ public:
   TEST_METHOD(ValidatePrintfNotAllowed)
 
   TEST_METHOD(ValidateVersionNotAllowed)
+  TEST_METHOD(CreateHandleNotAllowedSM66)
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
@@ -3857,4 +3858,19 @@ TEST_F(ValidationTest, ValidateVersionNotAllowed) {
     "= !{i32 1, i32 0}",
     ("= !{i32 1, i32 " + higherDxilMinor + "}").c_str(),
     ("error: Dxil version in metadata (1." + higherDxilMinor + ") is not supported; maximum: (1." + maxDxilMinor + ")").c_str());
+}
+
+TEST_F(ValidationTest, CreateHandleNotAllowedSM66) {
+  if (m_ver.SkipDxilVersion(1, 6)) return;
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\basic.hlsl", "ps_6_5",
+    {"= !{i32 1, i32 5}", "= !{!\"ps\", i32 6, i32 5}"},
+    {"= !{i32 1, i32 6}", "= !{!\"ps\", i32 6, i32 6}"},
+    "opcode 'CreateHandle' should only be used in 'Shader model 6.5 and below'");
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\basic.hlsl", "lib_6_5",
+    {"call %dx.types.Handle @\"dx.op.createHandleForLib.class.Buffer<vector<float, 4> >\"\\(i32 160, %\"class.Buffer<vector<float, 4> >\" %[0-9]+\\)",
+     "declare %dx.types.Handle @\"dx.op.createHandleForLib.class.Buffer<vector<float, 4> >\"\\(i32, %\"class.Buffer<vector<float, 4> >\"\\) #1"},
+    {"call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 0, i32 0, i1 false)",
+     "declare %dx.types.Handle @dx.op.createHandle(i32, i8, i32, i32, i1) #1"},
+    "opcode 'CreateHandle' should only be used in 'non-library targets'",
+    true);
 }
