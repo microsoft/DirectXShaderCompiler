@@ -1748,7 +1748,8 @@ bool Parser::TryAnnotateTypeOrScopeTokenAfterScopeSpec(bool EnteringContext,
                                    /*hasTemplateKeyword=*/false, TemplateName,
                                    /*ObjectType=*/ ParsedType(),
                                    EnteringContext,
-                                   Template, MemberOfUnknownSpecialization)) {
+                                   Template, MemberOfUnknownSpecialization,
+                                   /*NextIsLess*/ true)) {  // HLSL Change - additional flag
         // Consume the identifier.
         ConsumeToken();
         if (AnnotateTemplateIdToken(Template, TNK, SS, SourceLocation(),

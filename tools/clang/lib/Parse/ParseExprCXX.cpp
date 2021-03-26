@@ -553,7 +553,8 @@ bool Parser::ParseOptionalCXXScopeSpecifier(CXXScopeSpec &SS,
                                                         ObjectType,
                                                         EnteringContext,
                                                         Template,
-                                              MemberOfUnknownSpecialization)) {
+                                              MemberOfUnknownSpecialization,
+                                                        nextIsLess)) {  // HLSL Change
         // We have found a template name, so annotate this token
         // with a template-id annotation. We do not permit the
         // template-id to be translated into a type annotation,
@@ -569,10 +570,9 @@ bool Parser::ParseOptionalCXXScopeSpecifier(CXXScopeSpec &SS,
         continue;
       }
 
-      // HLSL Change: templates aren't really supported in HLSL unless the
-      // EnableTemplates option is enabled, so avoid handling other cases and
-      // emitting incorrect diagnostics if the template lookup fails.
-      if (!nextIsLess && getLangOpts().HLSL && !getLangOpts().EnableTemplates) {
+      // HLSL Change: avoid handling other cases and emitting incorrect
+      // diagnostics if the template lookup fails.
+      if (!nextIsLess && getLangOpts().HLSL) {
         break;
       }
 
