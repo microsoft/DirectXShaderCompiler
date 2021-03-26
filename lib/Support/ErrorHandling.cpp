@@ -136,6 +136,10 @@ void llvm::llvm_unreachable_internal(const char *msg, const char *file,
 #endif
 }
 
+void llvm::llvm_cast_assert_internal(const char *func) {
+  throw hlsl::Exception(E_FAIL, std::string(func) + "<X>() argument of incompatible type!\n");
+}
+
 static void bindingsErrorHandler(void *user_data, const std::string& reason,
                                  bool gen_crash_diag) {
   LLVMFatalErrorHandler handler =

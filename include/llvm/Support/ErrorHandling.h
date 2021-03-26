@@ -84,6 +84,9 @@ namespace llvm {
   LLVM_ATTRIBUTE_NORETURN void
   llvm_unreachable_internal(const char *msg=nullptr, const char *file=nullptr,
                             unsigned line=0);
+
+  // HLSL Change - throw special exception for cast mismatch
+  void llvm_cast_assert_internal(const char *func);
 }
 
 /// Marks that the current location is not supposed to be reachable.
@@ -102,5 +105,8 @@ namespace llvm {
 #else
 #define llvm_unreachable(msg) ::llvm::llvm_unreachable_internal()
 #endif
+
+// HLSL Change - throw special exception for cast type mismatch
+#define llvm_cast_assert(X, Val) ((void)( (!!(isa<X>(Val))) || (::llvm::llvm_cast_assert_internal(__FUNCTION__), 0) ))
 
 #endif
