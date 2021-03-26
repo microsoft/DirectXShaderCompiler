@@ -88,12 +88,9 @@ void llvm::report_fatal_error(const Twine &Reason, bool GenCrashDiag) {
     handlerData = ErrorHandlerUserData;
   }
 
-#ifndef LLVM_ON_WIN32 // HLSL Change - unwind if necessary, but don't terminate the process
   if (handler) {
     handler(handlerData, Reason.str(), GenCrashDiag);
-  } else
-#endif
-    {
+  } else {
     // Blast the result out to stderr.  We don't try hard to make sure this
     // succeeds (e.g. handling EINTR) and we can't use errs() here because
     // raw ostreams can call report_fatal_error.
@@ -101,7 +98,7 @@ void llvm::report_fatal_error(const Twine &Reason, bool GenCrashDiag) {
     raw_svector_ostream OS(Buffer);
     OS << "LLVM ERROR: " << Reason << "\n";
     StringRef MessageStr = OS.str();
-#ifndef LLVM_ON_WIN32 // HLSL Change - unwind if necessary, but don't terminate the process
+#ifndef LLVM_ON_WIN32 // HLSL Change - throw exception for windows
     ssize_t written = ::write(2, MessageStr.data(), MessageStr.size());
     (void)written; // If something went wrong, we deliberately just give up.
 #else
@@ -109,12 +106,14 @@ void llvm::report_fatal_error(const Twine &Reason, bool GenCrashDiag) {
 #endif
   }
 
+#ifndef LLVM_ON_WIN32 // HLSL Change - unwind if necessary, but don't terminate the process
   // If we reached here, we are failing ungracefully. Run the interrupt handlers
   // to make sure any special cleanups get done, in particular that we remove
   // files registered with RemoveFileOnSignal.
   sys::RunInterruptHandlers();
 
   exit(1);
+#endif
 }
 
 void llvm::llvm_unreachable_internal(const char *msg, const char *file,
