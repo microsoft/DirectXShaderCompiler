@@ -20,6 +20,8 @@
 #include "llvm/Transforms/Utils/Local.h"
 #include <array>
 
+#include "PixPassHelpers.h"
+
 using namespace llvm;
 using namespace hlsl;
 
@@ -166,8 +168,6 @@ bool DxilOutputColorBecomesConstant::runOnModule(Module &M) {
     pCBuf->SetRangeSize(1);
     pCBuf->SetSize(4);
 
-    ID = DM.AddCBuffer(std::move(pCBuf));
-
     Instruction *entryPointInstruction =
         &*(DM.GetEntryFunction()->begin()->begin());
     IRBuilder<> Builder(entryPointInstruction);
@@ -175,23 +175,10 @@ bool DxilOutputColorBecomesConstant::runOnModule(Module &M) {
     // Create handle for the newly-added constant buffer (which is achieved via
     // a function call)
     auto ConstantBufferName = "PIX_Constant_Color_CB_Handle";
-    Function *createHandle =
-        HlslOP->GetOpFunc(DXIL::OpCode::CreateHandle, Type::getVoidTy(Ctx));
-    Constant *CreateHandleOpcodeArg =
-        HlslOP->GetU32Const((unsigned)DXIL::OpCode::CreateHandle);
-    Constant *CBVArg = HlslOP->GetI8Const(
-        static_cast<std::underlying_type<DxilResourceBase::Class>::type>(
-            DXIL::ResourceClass::CBuffer));
-    Constant *MetaDataArg =
-        HlslOP->GetU32Const(ID); // position of the metadata record in the
-                                 // corresponding metadata list
-    Constant *IndexArg = HlslOP->GetU32Const(0); //
-    Constant *FalseArg =
-        HlslOP->GetI1Const(0); // non-uniform resource index: false
-    CallInst *callCreateHandle = Builder.CreateCall(
-        createHandle,
-        {CreateHandleOpcodeArg, CBVArg, MetaDataArg, IndexArg, FalseArg},
-        ConstantBufferName);
+
+    CallInst* callCreateHandle = PIXPassHelpers::CreateHandleForResource(DM, Builder, pCBuf.get(), ConstantBufferName);
+
+    DM.AddCBuffer(std::move(pCBuf));
 
     DM.ReEmitDxilResources();
 
