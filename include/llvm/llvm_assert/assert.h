@@ -19,6 +19,8 @@
 // application should not continue, but can be useful for catching and logging
 // during automated testing.
 #define STATUS_LLVM_ASSERT      0xE0000001
+#define STATUS_LLVM_UNREACHABLE 0xE0000002
+#define STATUS_LLVM_FATAL       0xE0000003
 
 #ifdef  NDEBUG
 

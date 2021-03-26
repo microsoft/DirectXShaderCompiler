@@ -1247,11 +1247,18 @@ static LONG CALLBACK ExceptionFilter(PEXCEPTION_POINTERS pExceptionInfo)
   case EXCEPTION_STACK_OVERFLOW:
     fputs("stack overflow\n", stderr);
     break;
+    // LLVM exceptions
   case STATUS_LLVM_ASSERT:
     fputs("LLVM Assert\n", stderr);
     break;
+  case STATUS_LLVM_UNREACHABLE:
+    fputs("LLVM Unreachable\n", stderr);
+    break;
+  case STATUS_LLVM_FATAL:
+    fputs("LLVM Fatal Error\n", stderr);
+    break;
   default:
-    fputs("Error ", stderr);
+    fputs("Terminal Error ", stderr);
     sprintf_s(scratch, _countof(scratch), "0x%08x\n", pExceptionInfo->ExceptionRecord->ExceptionCode);
     fputs(scratch, stderr);
   }

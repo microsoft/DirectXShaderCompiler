@@ -31,8 +31,8 @@
 
 #ifdef _WIN32
 #include "windows.h"  // HLSL Change
-#include "dxc/Support/exception.h"  // HLSL Change
 #endif
+#include "dxc/Support/exception.h"  // HLSL Change
 
 #if defined(HAVE_UNISTD_H)
 # include <unistd.h>
@@ -88,9 +88,12 @@ void llvm::report_fatal_error(const Twine &Reason, bool GenCrashDiag) {
     handlerData = ErrorHandlerUserData;
   }
 
+#ifndef LLVM_ON_WIN32 // HLSL Change - unwind if necessary, but don't terminate the process
   if (handler) {
     handler(handlerData, Reason.str(), GenCrashDiag);
-  } else {
+  } else
+#endif
+    {
     // Blast the result out to stderr.  We don't try hard to make sure this
     // succeeds (e.g. handling EINTR) and we can't use errs() here because
     // raw ostreams can call report_fatal_error.
@@ -102,7 +105,7 @@ void llvm::report_fatal_error(const Twine &Reason, bool GenCrashDiag) {
     ssize_t written = ::write(2, MessageStr.data(), MessageStr.size());
     (void)written; // If something went wrong, we deliberately just give up.
 #else
-    throw hlsl::Exception(E_FAIL, std::string(MessageStr.data(), MessageStr.size()));
+    throw hlsl::Exception(DXC_E_LLVM_FATAL_ERROR, std::string(MessageStr.data(), MessageStr.size()));
 #endif
   }
 
@@ -132,12 +135,12 @@ void llvm::llvm_unreachable_internal(const char *msg, const char *file,
   dbgs() << OS.str();
   abort();
 #else
-  throw hlsl::Exception(E_FAIL, OS.str());
+  throw hlsl::Exception(DXC_E_LLVM_UNREACHABLE, OS.str());
 #endif
 }
 
 void llvm::llvm_cast_assert_internal(const char *func) {
-  throw hlsl::Exception(E_FAIL, std::string(func) + "<X>() argument of incompatible type!\n");
+  throw hlsl::Exception(DXC_E_LLVM_CAST_ERROR, std::string(func) + "<X>() argument of incompatible type!\n");
 }
 
 static void bindingsErrorHandler(void *user_data, const std::string& reason,
