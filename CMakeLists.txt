@@ -101,7 +101,9 @@ if ( HLSL_SUPPORT_QUERY_GIT_COMMIT_INFO )
   add_definitions(-DSUPPORT_QUERY_GIT_COMMIT_INFO)
 endif()
 # adjust link option to enable debugging from kernel mode; not compatible with incremental linking
-add_link_options(/DEBUGTYPE:CV,FIXUP,PDATA /INCREMENTAL:NO)
+if(NOT CMAKE_VERSION VERSION_LESS "3.13")
+  add_link_options(/DEBUGTYPE:CV,FIXUP,PDATA /INCREMENTAL:NO)
+endif()
 # HLSL Change Ends
 
 # HLSL Change Starts - set flag for Appveyor CI
