@@ -1857,10 +1857,10 @@
       <Descriptor Name="U3" Kind="UAV" ResName="U3"
                   NumElements="128" StructureByteStride="8" />
       <!-- groupshared output buffers -->
-      <Descriptor Name="U4" Kind="UAV" ResName="U4" Dimension="BUFFER"
-                  NumElements="8" Format="R32G32_UINT" />
-      <Descriptor Name="U5" Kind="UAV" ResName="U5" Dimension="BUFFER"
-                  NumElements="64" Format="R32G32_UINT" />
+      <Descriptor Name="U4" Kind="UAV" ResName="U4"
+                  NumElements="8" StructureByteStride="8" />
+      <Descriptor Name="U5" Kind="UAV" ResName="U5"
+                  NumElements="64" StructureByteStride="8" />
       <!-- 32-bit typed resources -->
       <Descriptor Name="U6" Kind="UAV" ResName="U6" Dimension="BUFFER"
                   NumElements="16"  Format="R32_UINT" />
@@ -1943,8 +1943,8 @@
         RWByteAddressBuffer g_rawBuf : register(u2);
         RWByteAddressBuffer g_rawXchgBuf : register(u3);
 
-        RWBuffer<uint2> g_shareBuf : register(u4);
-        RWBuffer<uint2> g_shareXchgBuf : register(u5);
+        RWStructuredBuffer<uint2> g_shareBuf : register(u4);
+        RWStructuredBuffer<uint2> g_shareXchgBuf : register(u5);
 
         RWBuffer<uint> g_uintBuf : register(u6);
         RWBuffer<int> g_sintBuf : register(u7);
