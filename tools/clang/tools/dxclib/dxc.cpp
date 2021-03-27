@@ -1259,9 +1259,14 @@ static LONG CALLBACK ExceptionFilter(PEXCEPTION_POINTERS pExceptionInfo)
     fputs("LLVM Fatal Error\n", stderr);
     break;
   case EXCEPTION_LOAD_LIBRARY_FAILED:
-    fputs("cannot not load ", stderr);
-    fputws((const wchar_t*)pExceptionInfo->ExceptionRecord->ExceptionInformation[0], stderr);
-    fputs(" library.\n", stderr);
+    if (pExceptionInfo->ExceptionRecord->ExceptionInformation[0]) {
+      fputs("cannot not load ", stderr);
+      fputws((const wchar_t*)pExceptionInfo->ExceptionRecord->ExceptionInformation[0], stderr);
+      fputs(" library.\n", stderr);
+    }
+    else{
+      fputs("cannot not load library.\n", stderr);
+    }
     break;
   default:
     fputs("Terminal Error ", stderr);
