@@ -1258,7 +1258,7 @@ static LONG CALLBACK ExceptionFilter(PEXCEPTION_POINTERS pExceptionInfo)
     fputs("LLVM Fatal Error\n", stderr);
     break;
   default:
-    fputs("Error ", stderr);
+    fputs("Terminal Error ", stderr);
     sprintf_s(scratch, _countof(scratch), "0x%08x\n", pExceptionInfo->ExceptionRecord->ExceptionCode);
     fputs(scratch, stderr);
   }
