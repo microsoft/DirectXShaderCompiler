@@ -12,6 +12,10 @@
 #ifndef __DXC_ERRORS__
 #define __DXC_ERRORS__
 
+#ifndef FACILITY_GRAPHICS
+#define FACILITY_GRAPHICS 36
+#endif
+
 #define DXC_EXCEPTION_CODE(name, status)                                 \
     static constexpr DWORD EXCEPTION_##name =                 \
     (0xc0000000u | (FACILITY_GRAPHICS << 16) | (0xff00u | (status & 0xffu)));
