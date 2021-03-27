@@ -41,6 +41,7 @@
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/WinFunctions.h"
+#include "dxc/dxcerrors.h"
 #include "dxc.h"
 #include <vector>
 #include <string>
@@ -1256,6 +1257,16 @@ static LONG CALLBACK ExceptionFilter(PEXCEPTION_POINTERS pExceptionInfo)
     break;
   case STATUS_LLVM_FATAL:
     fputs("LLVM Fatal Error\n", stderr);
+    break;
+  case EXCEPTION_LOAD_LIBRARY_FAILED:
+    if (pExceptionInfo->ExceptionRecord->ExceptionInformation[0]) {
+      fputs("cannot not load ", stderr);
+      fputws((const wchar_t*)pExceptionInfo->ExceptionRecord->ExceptionInformation[0], stderr);
+      fputs(" library.\n", stderr);
+    }
+    else{
+      fputs("cannot not load library.\n", stderr);
+    }
     break;
   default:
     fputs("Terminal Error ", stderr);
