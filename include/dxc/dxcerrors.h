@@ -9,8 +9,8 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#ifndef __DXC_ERROR__
-#define __DXC_ERROR__
+#ifndef __DXC_ERRORS__
+#define __DXC_ERRORS__
 
 #define DXC_EXCEPTION_CODE(name, status)                                 \
     static constexpr DWORD EXCEPTION_##name =                 \
