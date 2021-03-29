@@ -34,7 +34,7 @@ bool hlsl::IsConvergentMarker(Value *V) {
   if (!CI)
     return false;
   Function *F = CI->getCalledFunction();
-  return F->getName().startswith(kConvergentFunctionPrefix);
+  return F && F->getName().startswith(kConvergentFunctionPrefix);
 }
 
 Value *hlsl::GetConvergentSource(Value *V) {
