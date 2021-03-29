@@ -19,6 +19,8 @@
 #include "dxc/DxilContainer/DxilContainer.h"
 
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support//MSFileSystem.h"
+#include "llvm/Support/FileSystem.h"
 #include <dia2.h>
 #include <intsafe.h>
 
@@ -27,9 +29,12 @@ using namespace llvm::opt;
 using namespace dxc;
 using namespace hlsl::options;
 
+static cl::opt<bool> Help("help", cl::desc("Print help"));
+static cl::alias Help_h("h", cl::aliasopt(Help));
+static cl::alias Help_q("?", cl::aliasopt(Help));
+
 static cl::opt<std::string> InputFilename(cl::Positional,
-                                          cl::desc("<input .llvm file>"),
-                                          cl::init("-"));
+                                          cl::desc("<input .llvm file>"));
 
 static cl::opt<std::string> OutputFilename("o",
                                            cl::desc("Override output filename"),
@@ -281,16 +286,32 @@ void DxaContext::ListParts() {
 using namespace hlsl::options;
 
 int __cdecl main(int argc, _In_reads_z_(argc) char **argv) {
+  if (llvm::sys::fs::SetupPerThreadFileSystem())
+    return 1;
+  llvm::sys::fs::AutoCleanupPerThreadFileSystem auto_cleanup_fs;
+  if (FAILED(DxcInitThreadMalloc())) return 1;
+  DxcSetThreadMallocToDefault();
+
   const char *pStage = "Operation";
   try {
+    llvm::sys::fs::MSFileSystem *msfPtr;
+    IFT(CreateMSFileSystemForDisk(&msfPtr));
+    std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
+
+    ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
+    IFTLLVM(pts.error_code());
+
     pStage = "Argument processing";
 
     // Parse command line options.
     cl::ParseCommandLineOptions(argc, argv, "dxil assembly\n");
+
+    if (InputFilename == "" || Help) {
+      cl::PrintHelpMessage();
+      return 2;
+    }
+
     DxcDllSupport dxcSupport;
-
-    // Read options and check errors.
-
     dxc::EnsureEnabled(dxcSupport);
     DxaContext context(dxcSupport);
     if (ListParts) {
