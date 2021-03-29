@@ -25,6 +25,8 @@
 #include "llvm/Transforms/Utils/Local.h"
 #include <deque>
 
+#include "PixPassHelpers.h"
+
 #ifdef _WIN32
 #include <winerror.h>
 #endif
@@ -620,104 +622,6 @@ DxilShaderAccessTracking::GetResourceFromHandle(Value *resHandle,
   return ret;
 }
 
-static bool IsDynamicResourceShaderModel(DxilModule& DM) {
-  return DM.GetShaderModel()->IsSMAtLeast(6, 6);
-}
-
-// Set up a UAV with structure of a single int
-static llvm::CallInst* CreateUAV(DxilModule & DM, IRBuilder<> & Builder, unsigned int UAVResourceHandle, unsigned int bind, const char * name)
-{
-    LLVMContext& Ctx = DM.GetModule()->getContext();
-
-    SmallVector<llvm::Type*, 1> Elements{ Type::getInt32Ty(Ctx) };
-    llvm::StructType* UAVStructTy =
-        llvm::StructType::create(Elements, "class.RWStructuredBuffer");
-    std::unique_ptr<DxilResource> pUAV =
-        llvm::make_unique<DxilResource>();
-    pUAV->SetGlobalName((std::string("PIX_CountUAVName")+ std::to_string(UAVResourceHandle)).c_str());
-    pUAV->SetGlobalSymbol(UndefValue::get(UAVStructTy->getPointerTo()));
-    pUAV->SetID(UAVResourceHandle);
-    pUAV->SetRW(true); //sets UAV class
-    pUAV->SetSpaceID((
-        unsigned int)-2); // This is the reserved-for-tools register space
-    pUAV->SetSampleCount(1);
-    pUAV->SetGloballyCoherent(false);
-    pUAV->SetHasCounter(false);
-    pUAV->SetCompType(CompType::getI32());
-    pUAV->SetLowerBound(0);
-    pUAV->SetRangeSize(1);
-    pUAV->SetKind(DXIL::ResourceKind::RawBuffer);
-
-    auto pAnnotation =
-        DM.GetTypeSystem().GetStructAnnotation(UAVStructTy);
-    if (pAnnotation == nullptr) {
-
-        pAnnotation = DM.GetTypeSystem().AddStructAnnotation(UAVStructTy);
-        pAnnotation->GetFieldAnnotation(0).SetCBufferOffset(0);
-        pAnnotation->GetFieldAnnotation(0).SetCompType(
-            hlsl::DXIL::ComponentType::I32);
-        pAnnotation->GetFieldAnnotation(0).SetFieldName("count");
-    }
-
-    OP *HlslOP = DM.GetOP();
-
-    // Create handle for the newly-added UAV
-    if (IsDynamicResourceShaderModel(DM)) {
-      Function *CreateHandleFromBindingOpFunc =
-          HlslOP->GetOpFunc(DXIL::OpCode::CreateHandleFromBinding, Type::getVoidTy(Ctx));
-      Constant *CreateHandleFromBindingOpcodeArg =
-          HlslOP->GetU32Const((unsigned)DXIL::OpCode::CreateHandleFromBinding);
-      DxilResourceBinding binding =
-          resource_helper::loadBindingFromResourceBase(pUAV.get());
-      Value *bindingV = resource_helper::getAsConstant(
-          binding, HlslOP->GetResourceBindingType(), *DM.GetShaderModel());
-
-      Value *registerIndex = HlslOP->GetU32Const(UAVResourceHandle);
-
-      Value *isUniformRes = HlslOP->GetI1Const(0);
-
-      Value *createHandleFromBindingArgs[] = { CreateHandleFromBindingOpcodeArg, bindingV, registerIndex,
-                                              isUniformRes};
-
-      auto * handle = Builder.CreateCall(
-          CreateHandleFromBindingOpFunc,
-          createHandleFromBindingArgs,
-          name);
-
-      Function *annotHandleFn = HlslOP->GetOpFunc(DXIL::OpCode::AnnotateHandle, Type::getVoidTy(Ctx));
-      Value *annotHandleArg = HlslOP->GetI32Const((unsigned)DXIL::OpCode::AnnotateHandle);
-      DxilResourceProperties RP = resource_helper::loadPropsFromResourceBase(pUAV.get());
-      Type *resPropertyTy = HlslOP->GetResourcePropertiesType();
-      Value *propertiesV = resource_helper::getAsConstant(RP, resPropertyTy, *DM.GetShaderModel());
-
-      unsigned int ID = DM.AddUAV(std::move(pUAV));
-      DXASSERT_LOCALVAR_NOMSG(ID, (unsigned)ID == UAVResourceHandle);
-
-      return Builder.CreateCall(annotHandleFn, {annotHandleArg, handle, propertiesV});
-    } else {
-      unsigned int ID = DM.AddUAV(std::move(pUAV));
-      DXASSERT_NOMSG((unsigned)ID == UAVResourceHandle);
-
-      Function* CreateHandleOpFunc = HlslOP->GetOpFunc(
-          DXIL::OpCode::CreateHandle, Type::getVoidTy(Ctx));
-      Constant* CreateHandleOpcodeArg =
-          HlslOP->GetU32Const((unsigned)DXIL::OpCode::CreateHandle);
-      Constant* UAVArg = HlslOP->GetI8Const(
-          static_cast<std::underlying_type<DxilResourceBase::Class>::type>(
-              DXIL::ResourceClass::UAV));
-      Constant* MetaDataArg =
-          HlslOP->GetU32Const(ID); // position of the metadata record in the
-                                   // corresponding metadata list
-      Constant* IndexArg = HlslOP->GetU32Const(0); //
-      Constant* FalseArg =
-          HlslOP->GetI1Const(0); // non-uniform resource index: false
-      return Builder.CreateCall(
-          CreateHandleOpFunc,
-          { CreateHandleOpcodeArg, UAVArg, MetaDataArg, IndexArg, FalseArg },
-          name);
-    }
-}
-
 static uint32_t EncodeShaderModel(DXIL::ShaderKind kind)
 {
     DXASSERT_NOMSG(static_cast<int>(DXIL::ShaderKind::Invalid) <= 16);
@@ -771,15 +675,12 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
           FOS << "ShouldAssumeDsvAccess";
         }
       }
-
+      int uavRegId = 0;
       for (llvm::Function &F : M.functions()) {
         if (!F.getBasicBlockList().empty()) {
           IRBuilder<> Builder(F.getEntryBlock().getFirstInsertionPt());
 
-          unsigned int UAVResourceHandle =
-              static_cast<unsigned int>(DM.GetUAVs().size());
-
-          m_FunctionToUAVHandle[&F] = CreateUAV(DM, Builder, UAVResourceHandle, 0, "PIX_CountUAV_Handle");
+          m_FunctionToUAVHandle[&F] = PIXPassHelpers::CreateUAV(DM, Builder, uavRegId++, "PIX_CountUAV_Handle");
           auto const* shaderModel = DM.GetShaderModel();
           auto shaderKind = shaderModel->GetKind();
           OP *HlslOP = DM.GetOP();
