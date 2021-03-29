@@ -22,24 +22,13 @@
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/HLSL/HLOperations.h"
 #include "dxc/HLSL/HLModule.h"
-#include "dxc/HLSL/DxilConvergent.h"
 #include "dxc/HlslIntrinsicOp.h"
 #include "dxc/HLSL/DxilConvergentName.h"
 
 using namespace llvm;
 using namespace hlsl;
 
-bool hlsl::IsConvergentMarker(Value *V) {
-  CallInst *CI = dyn_cast<CallInst>(V);
-  if (!CI)
-    return false;
-  Function *F = CI->getCalledFunction();
-  return F && F->getName().startswith(kConvergentFunctionPrefix);
-}
 
-Value *hlsl::GetConvergentSource(Value *V) {
-  return cast<CallInst>(V)->getOperand(0);
-}
 
 ///////////////////////////////////////////////////////////////////////////////
 // DxilConvergent.
