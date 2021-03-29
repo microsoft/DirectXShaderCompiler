@@ -31,16 +31,16 @@ RWStructuredBuffer<MyStruct1> g_sb1: register(u0);
 RWStructuredBuffer<MyStruct2> g_sb2: register(u1);
 
 float4 main() : SV_Target {
-    // CHECK: call void @dx.op.rawBufferStore.f16(i32 140, %dx.types.Handle %[[Handle:[^,]+]], i32 0, i32 0, half 0xH3C00, half 0xH3C00, half 0xH3C00, half undef, i8 7, i32 2)
+    // CHECK: call void @dx.op.rawBufferStore.f16(i32 140, %dx.types.Handle %[[Handle:[^,]+]], i32 0, i32 0, half 0xH3C00, half 0xH3C00, half 0xH3C00, half undef, i8 7, i32 4)
     // CHECK: call void @dx.op.rawBufferStore.i32(i32 140, %dx.types.Handle %[[Handle]], i32 0, i32 8, i32 2, i32 2, i32 2, i32 2, i8 15, i32 4)
-    // CHECK: call void @dx.op.rawBufferStore.f16(i32 140, %dx.types.Handle %[[Handle]], i32 0, i32 24, half 0xH4200, half 0xH4200, half 0xH4200, half undef, i8 7, i32 2)
+    // CHECK: call void @dx.op.rawBufferStore.f16(i32 140, %dx.types.Handle %[[Handle]], i32 0, i32 24, half 0xH4200, half 0xH4200, half 0xH4200, half undef, i8 7, i32 4)
     // CHECK: call void @dx.op.rawBufferStore.f16(i32 140, %dx.types.Handle %[[Handle]], i32 0, i32 30, half 0xH4400, half 0xH4400, half 0xH4400, half 0xH4400, i8 15, i32 2)
     // CHECK: call void @dx.op.rawBufferStore.i32(i32 140, %dx.types.Handle %[[Handle]], i32 0, i32 40, i32 %{{.*}}, i32 %{{.*}}, i32 undef, i32 undef, i8 3, i32 8)
-    // CHECK: call void @dx.op.rawBufferStore.f16(i32 140, %dx.types.Handle %[[Handle]], i32 0, i32 48, half 0xH4600, half undef, half undef, half undef, i8 1, i32 2)
+    // CHECK: call void @dx.op.rawBufferStore.f16(i32 140, %dx.types.Handle %[[Handle]], i32 0, i32 48, half 0xH4600, half undef, half undef, half undef, i8 1, i32 4)
     // CHECK: call void @dx.op.rawBufferStore.f16(i32 140, %dx.types.Handle %[[Handle]], i32 0, i32 50, half 0xH4700, half undef, half undef, half undef, i8 1, i32 2)
-    // CHECK: call void @dx.op.rawBufferStore.f16(i32 140, %dx.types.Handle %[[Handle]], i32 0, i32 52, half 0xH4800, half undef, half undef, half undef, i8 1, i32 2)
+    // CHECK: call void @dx.op.rawBufferStore.f16(i32 140, %dx.types.Handle %[[Handle]], i32 0, i32 52, half 0xH4800, half undef, half undef, half undef, i8 1, i32 4)
     // CHECK: call void @dx.op.rawBufferStore.i32(i32 140, %dx.types.Handle %[[Handle]], i32 0, i32 56, i32 9, i32 undef, i32 undef, i32 undef, i8 1, i32 4)
-    // CHECK: call void @dx.op.rawBufferStore.i16(i32 140, %dx.types.Handle %[[Handle]], i32 0, i32 60, i16 10, i16 undef, i16 undef, i16 undef, i8 1, i32 2)
+    // CHECK: call void @dx.op.rawBufferStore.i16(i32 140, %dx.types.Handle %[[Handle]], i32 0, i32 60, i16 10, i16 undef, i16 undef, i16 undef, i8 1, i32 4)
     // CHECK: call void @dx.op.rawBufferStore.i16(i32 140, %dx.types.Handle %[[Handle]], i32 0, i32 62, i16 11, i16 11, i16 11, i16 11, i8 15, i32 2)
     MyStruct1 myStruct;
     myStruct.m_1 = 1;
@@ -57,11 +57,11 @@ float4 main() : SV_Target {
     g_sb1[0] = myStruct;
 
     // CHECK: call void @dx.op.rawBufferStore.i32(i32 140, %dx.types.Handle %[[Handle2:[^,]+]], i32 0, i32 0, i32 %{{.*}}, i32 %{{.*}}, i32 undef, i32 undef, i8 3, i32 8)
-    // CHECK: call void @dx.op.rawBufferStore.f16(i32 140, %dx.types.Handle %[[Handle2]], i32 0, i32 8, half 0xH4000, half 0xH4000, half 0xH4000, half undef, i8 7, i32 2)
+    // CHECK: call void @dx.op.rawBufferStore.f16(i32 140, %dx.types.Handle %[[Handle2]], i32 0, i32 8, half 0xH4000, half 0xH4000, half 0xH4000, half undef, i8 7, i32 4)
     // CHECK: call void @dx.op.rawBufferStore.i32(i32 140, %dx.types.Handle %[[Handle2]], i32 0, i32 16, i32 3, i32 undef, i32 undef, i32 undef, i8 1, i32 4)
-    // CHECK: call void @dx.op.rawBufferStore.i16(i32 140, %dx.types.Handle %[[Handle2]], i32 0, i32 20, i16 4, i16 undef, i16 undef, i16 undef, i8 1, i32 2)
+    // CHECK: call void @dx.op.rawBufferStore.i16(i32 140, %dx.types.Handle %[[Handle2]], i32 0, i32 20, i16 4, i16 undef, i16 undef, i16 undef, i8 1, i32 4)
     // CHECK: call void @dx.op.rawBufferStore.f32(i32 140, %dx.types.Handle %[[Handle2]], i32 0, i32 24, float 5.000000e+00, float undef, float undef, float undef, i8 1, i32 4)
-    // CHECK: call void @dx.op.rawBufferStore.i16(i32 140, %dx.types.Handle %[[Handle2]], i32 0, i32 28, i16 6, i16 6, i16 6, i16 undef, i8 7, i32 2)
+    // CHECK: call void @dx.op.rawBufferStore.i16(i32 140, %dx.types.Handle %[[Handle2]], i32 0, i32 28, i16 6, i16 6, i16 6, i16 undef, i8 7, i32 4)
     // CHECK: call void @dx.op.rawBufferStore.i32(i32 140, %dx.types.Handle %[[Handle2]], i32 0, i32 40, i32 %{{.*}}, i32 %{{.*}}, i32 undef, i32 undef, i8 3, i32 8)
     MyStruct2 myStruct2;
     myStruct2.m_1 = 1;

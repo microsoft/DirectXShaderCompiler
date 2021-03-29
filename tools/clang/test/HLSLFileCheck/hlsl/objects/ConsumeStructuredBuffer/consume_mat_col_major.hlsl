@@ -27,14 +27,14 @@ TY main() : OUT
 // CHK_MAT2x2: i32 %{{.*}}, i32 0, i8 15, i32 4)
 
 // CHK_MAT2x3: dx.op.rawBufferLoad.i16(i32 139, 
-// CHK_MAT2x3: i32 %{{.*}}, i32 0, i8 15, i32 2)
+// CHK_MAT2x3: i32 %{{.*}}, i32 0, i8 15, i32 4)
 // CHK_MAT2x3: dx.op.rawBufferLoad.i16(i32 139, 
-// CHK_MAT2x3: i32 %{{.*}}, i32 8, i8 3, i32 2)
+// CHK_MAT2x3: i32 %{{.*}}, i32 8, i8 3, i32 4)
 
 // CHK_MAT3x2: dx.op.rawBufferLoad.i16(i32 139, 
-// CHK_MAT3x2: i32 %{{.*}}, i32 0, i8 15, i32 2)
+// CHK_MAT3x2: i32 %{{.*}}, i32 0, i8 15, i32 4)
 // CHK_MAT3x2: dx.op.rawBufferLoad.i16(i32 139, 
-// CHK_MAT3x2: i32 %{{.*}}, i32 8, i8 3, i32 2)
+// CHK_MAT3x2: i32 %{{.*}}, i32 8, i8 3, i32 4)
 
 // CHK_MAT3x3: dx.op.rawBufferLoad.f16(i32 139, 
 // CHK_MAT3x3: i32 %{{.*}}, i32 0, i8 15, i32 2)
