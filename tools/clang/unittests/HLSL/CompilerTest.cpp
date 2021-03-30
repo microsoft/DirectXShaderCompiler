@@ -128,6 +128,7 @@ public:
   TEST_METHOD(CompileWhenWorksThenAddRemovePrivate)
   TEST_METHOD(CompileThenAddCustomDebugName)
   TEST_METHOD(CompileThenTestPdbUtils)
+  TEST_METHOD(CompileThenTestPdbUtilsWarningOpt)
   TEST_METHOD(CompileThenTestPdbInPrivate)
   TEST_METHOD(CompileThenTestPdbUtilsStripped)
   TEST_METHOD(CompileThenTestPdbUtilsEmptyEntry)
@@ -1630,6 +1631,113 @@ TEST_F(CompilerTest, CompileThenTestPdbUtils) {
 
   TestPdbUtils(/*bSlim*/false, /*bSourceInDebugModule*/true,  /*strip*/true);  // Legacy PDB, where source info is embedded in the module
   TestPdbUtils(/*bSlim*/false, /*bSourceInDebugModule*/false, /*strip*/true);  // Full PDB, where source info is stored in its own part, and debug module is present
+}
+
+
+TEST_F(CompilerTest, CompileThenTestPdbUtilsWarningOpt) {
+  CComPtr<IDxcCompiler> pCompiler;
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+
+  std::string main_source = R"x(
+      cbuffer MyCbuffer : register(b1) {
+        float4 my_cbuf_foo;
+      }
+
+      [RootSignature("CBV(b1)")]
+      float4 main() : SV_Target {
+        return my_cbuf_foo;
+      }
+  )x";
+
+  CComPtr<IDxcUtils> pUtils;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcUtils, &pUtils));
+
+
+
+  CComPtr<IDxcCompiler3> pCompiler3;
+  VERIFY_SUCCEEDED(pCompiler.QueryInterface(&pCompiler3));
+
+  const WCHAR *args[] = {
+    L"/Zs",
+    L".\redundant_input",
+    L"-Wno-parentheses-equality",
+    L"hlsl.hlsl",
+    L"/Tps_6_0",
+    L"/Emain",
+  };
+
+  DxcBuffer buf = {};
+  buf.Ptr = main_source.c_str();
+  buf.Size = main_source.size();
+  buf.Encoding = CP_UTF8;
+
+  CComPtr<IDxcResult> pResult;
+  VERIFY_SUCCEEDED(pCompiler3->Compile(&buf, args, _countof(args), nullptr, IID_PPV_ARGS(&pResult)));
+
+  CComPtr<IDxcBlob> pPdb;
+  VERIFY_SUCCEEDED(pResult->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pPdb), nullptr));
+
+  auto TestPdb = [](IDxcPdbUtils *pPdbUtils) {
+    UINT32 uArgsCount = 0;
+    VERIFY_SUCCEEDED(pPdbUtils->GetArgCount(&uArgsCount));
+    bool foundArg = false;
+    for (UINT32 i = 0; i < uArgsCount; i++) {
+      CComBSTR pArg;
+      VERIFY_SUCCEEDED(pPdbUtils->GetArg(i, &pArg));
+      if (pArg) {
+        std::wstring arg(pArg);
+        if (arg == L"-Wno-parentheses-equality" || arg == L"/Wno-parentheses-equality") {
+          foundArg = true;
+        }
+        else {
+          // Make sure arg value "no-parentheses-equality" doesn't show up
+          // as its own argument token.
+          VERIFY_ARE_NOT_EQUAL(arg, L"no-parentheses-equality");
+
+          // Make sure the presence of the argument ".\redundant_input"
+          // doesn't cause "<input>" to show up.
+          VERIFY_ARE_NOT_EQUAL(arg, L"<input>");
+        }
+      }
+    }
+    VERIFY_IS_TRUE(foundArg);
+
+    UINT32 uFlagsCount = 0;
+    VERIFY_SUCCEEDED(pPdbUtils->GetFlagCount(&uFlagsCount));
+    bool foundFlag = false;
+    for (UINT32 i = 0; i < uFlagsCount; i++) {
+      CComBSTR pFlag;
+      VERIFY_SUCCEEDED(pPdbUtils->GetFlag(i, &pFlag));
+      if (pFlag) {
+        std::wstring arg(pFlag);
+        if (arg == L"-Wno-parentheses-equality" || arg == L"/Wno-parentheses-equality") {
+          foundFlag = true;
+        }
+        else {
+          // Make sure arg value "no-parentheses-equality" doesn't show up
+          // as its own flag token.
+          VERIFY_ARE_NOT_EQUAL(arg, L"no-parentheses-equality");
+        }
+      }
+    }
+    VERIFY_IS_TRUE(foundFlag);
+
+    CComBSTR pMainFileName;
+    VERIFY_SUCCEEDED(pPdbUtils->GetMainFileName(&pMainFileName));
+    std::wstring mainFileName = pMainFileName;
+    VERIFY_ARE_EQUAL(mainFileName, L"hlsl.hlsl");
+  };
+
+  CComPtr<IDxcPdbUtils> pPdbUtils;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcPdbUtils, &pPdbUtils));
+
+  VERIFY_SUCCEEDED(pPdbUtils->Load(pPdb));
+  TestPdb(pPdbUtils);
+
+  CComPtr<IDxcBlob> pFullPdb;
+  VERIFY_SUCCEEDED(pPdbUtils->GetFullPDB(&pFullPdb));
+  VERIFY_SUCCEEDED(pPdbUtils->Load(pFullPdb));
+  TestPdb(pPdbUtils);
 }
 
 TEST_F(CompilerTest, CompileThenTestPdbInPrivate) {
