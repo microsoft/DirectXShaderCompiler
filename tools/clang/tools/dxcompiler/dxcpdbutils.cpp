@@ -543,6 +543,29 @@ private:
   }
 
   void AddArgPair(ArgPair &&newPair) {
+    const llvm::opt::OptTable *optTable = hlsl::options::getHlslOptTable();
+
+    if (newPair.Name.size() && newPair.Value.size()) {
+      // Handling case where old positional arguments used to have
+      // <input> written as the option name.
+      if (newPair.Name == L"<input>") {
+        newPair.Name.clear();
+      }
+      // Check if the option and its value must be merged. Newer compiler
+      // pre-merge them before writing them to the PDB, but older PDBs might
+      // have them separated.
+      else {
+        std::string NameUtf8 = ToUtf8String(newPair.Name);
+        llvm::opt::Option opt = optTable->findOption(NameUtf8.c_str());
+        if (opt.isValid()) {
+          if (opt.getKind() == llvm::opt::Option::JoinedClass) {
+            newPair.Name += newPair.Value;
+            newPair.Value.clear();
+          }
+        }
+      }
+    }
+
     bool excludeFromFlags = false;
     if (newPair.Name == L"E") {
       m_EntryPoint = newPair.Value;
