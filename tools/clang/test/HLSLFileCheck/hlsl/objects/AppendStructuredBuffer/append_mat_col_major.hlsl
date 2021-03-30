@@ -67,12 +67,12 @@ void main()
 // CHK_MAT2x2: dx.op.rawBufferStore.i32(i32 140, %dx.types.Handle %{{.*}}, i32 %{{.*}}, i32 0, i32 1, i32 3, i32 2, i32 4, i8 15, i32 4)
 
 // CHK_MAT2x3: dx.op.bufferUpdateCounter
-// CHK_MAT2x3: dx.op.rawBufferStore.i16(i32 140, %dx.types.Handle %{{.*}}, i32 %{{.*}}, i32 0, i16 1, i16 4, i16 2, i16 5, i8 15, i32 2)
-// CHK_MAT2x3: dx.op.rawBufferStore.i16(i32 140, %dx.types.Handle %{{.*}}, i32 %{{.*}}, i32 8, i16 3, i16 6, i16 undef, i16 undef, i8 3, i32 2)
+// CHK_MAT2x3: dx.op.rawBufferStore.i16(i32 140, %dx.types.Handle %{{.*}}, i32 %{{.*}}, i32 0, i16 1, i16 4, i16 2, i16 5, i8 15, i32 4)
+// CHK_MAT2x3: dx.op.rawBufferStore.i16(i32 140, %dx.types.Handle %{{.*}}, i32 %{{.*}}, i32 8, i16 3, i16 6, i16 undef, i16 undef, i8 3, i32 4)
 
 // CHK_MAT3x2: dx.op.bufferUpdateCounter
-// CHK_MAT3x2: dx.op.rawBufferStore.i16(i32 140, %dx.types.Handle %{{.*}}, i32 %{{.*}}, i32 0, i16 1, i16 3, i16 5, i16 2, i8 15, i32 2)
-// CHK_MAT3x2: dx.op.rawBufferStore.i16(i32 140, %dx.types.Handle %{{.*}}, i32 %{{.*}}, i32 8, i16 4, i16 6, i16 undef, i16 undef, i8 3, i32 2)
+// CHK_MAT3x2: dx.op.rawBufferStore.i16(i32 140, %dx.types.Handle %{{.*}}, i32 %{{.*}}, i32 0, i16 1, i16 3, i16 5, i16 2, i8 15, i32 4)
+// CHK_MAT3x2: dx.op.rawBufferStore.i16(i32 140, %dx.types.Handle %{{.*}}, i32 %{{.*}}, i32 8, i16 4, i16 6, i16 undef, i16 undef, i8 3, i32 4)
 
 // CHK_MAT3x3: dx.op.bufferUpdateCounter
 // CHK_MAT3x3: dx.op.rawBufferStore.f16(i32 140, %dx.types.Handle %{{.*}}, i32 %{{.*}}, i32 0, half 0xH3C00, half 0xH4400, half 0xH4700, half 0xH4000, i8 15, i32 2)
