@@ -633,10 +633,7 @@ void RemapObsoleteSemantic(DxilParameterAnnotation &paramInfo, DXIL::SigPointKin
       if (_strnicmp(semName.data(), "COLOR", 5) == 0) {
         RemapSemantic(semName, semFullName, "SV_Target", paramInfo, Context);
       }
-      if (_strnicmp(semName.data(), "VFACE", 5) == 0) {
-        RemapSemantic(semName, semFullName, "SV_IsFrontFace", paramInfo,
-                      Context);
-      } else if (_strnicmp(semName.data(), "DEPTH", 5) == 0) {
+      else if (_strnicmp(semName.data(), "DEPTH", 5) == 0) {
         RemapSemantic(semName, semFullName, "SV_Depth", paramInfo, Context);
       }
     }

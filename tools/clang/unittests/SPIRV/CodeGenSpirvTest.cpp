@@ -209,7 +209,7 @@ TEST_F(FileTest, GlobalsCBufferError) {
 }
 
 TEST_F(FileTest, VarVFACEInterface) {
-  runFileTest("var.vface.interface.hlsl", Expect::Failure);
+  runFileTest("var.vface.interface.hlsl", Expect::Warning);
 }
 
 // For prefix/postfix increment/decrement
