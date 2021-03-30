@@ -426,6 +426,7 @@ void SourceInfoWriter::Write(llvm::StringRef targetProfile, llvm::StringRef entr
     const llvm::opt::OptTable *optTable = hlsl::options::getHlslOptTable();
     llvm::opt::InputArgList argList = optTable->ParseArgs(optPointers, missingIndex, missingCount);
 
+    llvm::SmallString<64> argumentStorage;
     const size_t argumentsOffset = m_Buffer.size();
     for (llvm::opt::Arg *arg : argList) {
       llvm::StringRef name = arg->getOption().getName();
@@ -435,10 +436,21 @@ void SourceInfoWriter::Write(llvm::StringRef targetProfile, llvm::StringRef entr
         value = arg->getValue();
       }
 
+
       // If this is a positional argument, set the name to ""
       // explicitly.
       if (arg->getOption().getKind() == llvm::opt::Option::InputClass) {
         name = "";
+      }
+      // If the argument must be merged (eg. -Wx, where W is the option and x is
+      // the value), merge them right now.
+      else if (arg->getOption().getKind() == llvm::opt::Option::JoinedClass) {
+        argumentStorage.clear();
+        argumentStorage.append(name);
+        argumentStorage.append(value);
+
+        name = argumentStorage;
+        value = nullptr;
       }
 
       // Name
