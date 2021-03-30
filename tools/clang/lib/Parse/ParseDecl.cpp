@@ -617,8 +617,8 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
 
       StringRef semanticName = Tok.getIdentifierInfo()->getName();
       if (semanticName.equals("VFACE")) {
-        Diag(Tok.getLocation(), diag::err_hlsl_unsupported_construct) << tok::identifier;
-        return false;
+        Diag(Tok.getLocation(), diag::warn_unsupported_target_attribute)
+            << semanticName;
       }
       hlsl::SemanticDecl *pUA = new (context) hlsl::SemanticDecl(semanticName);
       pUA->Loc = Tok.getLocation();

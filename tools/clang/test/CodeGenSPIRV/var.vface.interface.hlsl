@@ -1,6 +1,6 @@
 // Run: %dxc -T ps_6_0 -E main
 
-// CHECK: error: identifier is unsupported in HLSL
+// CHECK: warning: Ignoring unsupported 'VFACE' in the target attribute string
 
 float4 main(float4 color : COLOR, float vface : VFACE) : SV_TARGET
 {
