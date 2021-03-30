@@ -266,6 +266,7 @@ private:
   CComPtr<IDxcCompiler3> m_pCompiler;
 
   struct ArgPair {
+    bool shouldBeMerged = false;
     std::wstring Name;
     std::wstring Value;
   };
@@ -543,6 +544,16 @@ private:
   }
 
   void AddArgPair(ArgPair &&newPair) {
+    const llvm::opt::OptTable *optTable = hlsl::options::getHlslOptTable();
+
+    if (newPair.Name.size() && newPair.Value.size()) {
+      std::string NameUtf8 = ToUtf8String(newPair.Name);
+      llvm::opt::Option opt = optTable->findOption(NameUtf8.c_str());
+      if (opt.isValid()) {
+        newPair.shouldBeMerged = opt.getKind() == llvm::opt::Option::JoinedClass;
+      }
+    }
+
     bool excludeFromFlags = false;
     if (newPair.Name == L"E") {
       m_EntryPoint = newPair.Value;
@@ -562,16 +573,27 @@ private:
       nameWithDash = std::wstring(L"-") + newPair.Name;
 
     if (!excludeFromFlags) {
-      if (nameWithDash.size())
-        m_Flags.push_back(nameWithDash);
-      if (newPair.Value.size())
-        m_Flags.push_back(newPair.Value);
+      if (newPair.shouldBeMerged) {
+        m_Flags.push_back(nameWithDash + newPair.Value);
+      }
+      else
+      {
+        if (nameWithDash.size())
+          m_Flags.push_back(nameWithDash);
+        if (newPair.Value.size())
+          m_Flags.push_back(newPair.Value);
+      }
     }
 
-    if (nameWithDash.size())
-      m_Args.push_back(nameWithDash);
-    if (newPair.Value.size())
-      m_Args.push_back(newPair.Value);
+    if (newPair.shouldBeMerged) {
+      m_Args.push_back(nameWithDash + newPair.Value);
+    }
+    else {
+      if (nameWithDash.size())
+        m_Args.push_back(nameWithDash);
+      if (newPair.Value.size())
+        m_Args.push_back(newPair.Value);
+    }
 
     m_ArgPairs.push_back( std::move(newPair) );
   }
@@ -801,16 +823,25 @@ public:
     for (unsigned i = 0; i < m_ArgPairs.size(); i++) {
       std::wstring name  = m_ArgPairs[i].Name;
       std::wstring value = m_ArgPairs[i].Value;
+      bool shouldBeMerged = m_ArgPairs[i].shouldBeMerged;
 
       if (name == L"Zs") continue;
       if (name == L"Zi") continue;
 
-      if (name.size()) {
-        name.insert(name.begin(), L'-');
-        new_args_storage.push_back(std::move(name));
+      if (shouldBeMerged) {
+        std::wstring newArg = L"-";
+        newArg += name;
+        newArg += value;
+        new_args_storage.push_back(std::move(newArg));
       }
-      if (value.size()) {
-        new_args_storage.push_back(std::move(value));
+      else {
+        if (name.size()) {
+          name.insert(name.begin(), L'-');
+          new_args_storage.push_back(std::move(name));
+        }
+        if (value.size()) {
+          new_args_storage.push_back(std::move(value));
+        }
       }
     }
     new_args_storage.push_back(L"-Zi");

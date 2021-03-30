@@ -435,6 +435,12 @@ void SourceInfoWriter::Write(llvm::StringRef targetProfile, llvm::StringRef entr
         value = arg->getValue();
       }
 
+      // If this is a positional argument, set the name to ""
+      // explicitly.
+      if (arg->getOption().getKind() == llvm::opt::Option::InputClass) {
+        name = "";
+      }
+
       // Name
       Append(&m_Buffer, name.data(), name.size());
       Append(&m_Buffer, 0); // Null term
