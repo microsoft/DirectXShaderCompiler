@@ -14,6 +14,7 @@
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilOperations.h"
+#include "dxc/HLSL/DxilConvergentName.h"
 #include "dxc/Support/Global.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/Twine.h"
@@ -1169,6 +1170,26 @@ void ReplaceRawBufferStore64Bit(llvm::Function *F, llvm::Type *ETy, hlsl::OP *hl
       DXASSERT(false, "function can only be used with call instructions.");
     }
   }
+}
+
+bool IsConvergentMarker(const char *Name) {
+  StringRef RName = Name;
+  return RName.startswith(kConvergentFunctionPrefix);
+}
+
+bool IsConvergentMarker(const Function *F) {
+  return F && F->getName().startswith(kConvergentFunctionPrefix);
+}
+
+bool IsConvergentMarker(Value *V) {
+  CallInst *CI = dyn_cast<CallInst>(V);
+  if (!CI)
+    return false;
+  return IsConvergentMarker(CI->getCalledFunction());
+}
+
+Value *GetConvergentSource(Value *V) {
+  return cast<CallInst>(V)->getOperand(0);
 }
 
 }
