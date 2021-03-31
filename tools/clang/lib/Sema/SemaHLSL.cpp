@@ -7870,7 +7870,11 @@ ExprResult HLSLExternalSource::LookupVectorMemberExprForHLSL(
     SourceLocation MemberLoc) {
   QualType BaseType = BaseExpr.getType();
   DXASSERT(!BaseType.isNull(), "otherwise caller should have stopped analysis much earlier");
-  DXASSERT(GetTypeObjectKind(BaseType) == AR_TOBJ_VECTOR, "Should only be called on known vector types");
+
+  if (GetTypeObjectKind(BaseType) != AR_TOBJ_VECTOR) {
+    m_sema->Diag(MemberLoc, diag::err_hlsl_vector_member_not_on_vector);
+    return ExprError();
+  }
 
   QualType elementType;
   UINT colCount = GetHLSLVecSize(BaseType);
