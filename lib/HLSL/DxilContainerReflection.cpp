@@ -171,7 +171,7 @@ public:
       // ID3D11ShaderReflection is identical to ID3D12ShaderReflection, except
       // for some shorter data structures in some out parameters.
       PublicAPI api = IIDToAPI(iid);
-      if (api == m_PublicAPI) {
+      if (api == m_PublicAPI && api != PublicAPI::D3D12) {
         *ppvObject = (ID3D12ShaderReflection *)this;
         this->AddRef();
         hr = S_OK;
