@@ -208,6 +208,10 @@ TEST_F(FileTest, GlobalsCBufferError) {
   runFileTest("var.globals.error.hlsl", Expect::Failure);
 }
 
+TEST_F(FileTest, VarVFACEInterface) {
+  runFileTest("var.vface.interface.hlsl", Expect::Warning);
+}
+
 // For prefix/postfix increment/decrement
 TEST_F(FileTest, UnaryOpPrefixIncrement) {
   runFileTest("unary-op.prefix-inc.hlsl");
