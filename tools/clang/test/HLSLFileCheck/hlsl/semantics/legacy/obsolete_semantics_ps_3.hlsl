@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 %s | FileCheck -input=stderr %s
 
 // CHECK: warning: Ignoring unsupported 'VFACE' in the target attribute string
 
