@@ -2023,6 +2023,9 @@ public:
     DeclarationName Name(&Accessor);
 
     ExprResult ER = hlsl::MaybeConvertMemberAccess(&getSema(), Base);
+    if (ER.isInvalid()) {
+      return ExprError();
+    }
     return hlsl::LookupVectorMemberExprForHLSL(&getSema(), *ER.get(), Name, IsArrowFalse, OpLoc, AccessorLoc);
   }
 
