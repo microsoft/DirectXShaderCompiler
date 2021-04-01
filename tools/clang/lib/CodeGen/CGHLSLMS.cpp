@@ -3194,6 +3194,12 @@ bool CGMSHLSLRuntime::SetUAVSRV(SourceLocation loc,
 
     uint32_t strideInBytes = dataLayout.getTypeAllocSize(retTy);
     hlslRes->SetElementStride(strideInBytes);
+    if (kind == hlsl::DxilResource::Kind::StructuredBuffer) {
+      if (StructType* ST = dyn_cast<StructType>(retTy)) {
+        const StructLayout* SL = dataLayout.getStructLayout(ST);
+        hlslRes->SetBaseAlignLog2(Log2_32(SL->getAlignment()));
+      }
+    }
   }
   if (HasHLSLGloballyCoherent(QualTy)) {
     hlslRes->SetGloballyCoherent(true);

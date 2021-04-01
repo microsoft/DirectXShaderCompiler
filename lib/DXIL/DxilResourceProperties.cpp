@@ -155,8 +155,11 @@ DxilResourceProperties loadPropsFromResourceBase(const DxilResourceBase *Res) {
 
       break;
     case DXIL::ResourceKind::StructuredBuffer:
+    {
       RP.StructStrideInBytes = Res.GetElementStride();
+      RP.Basic.BaseAlignLog2 = Res.GetBaseAlignLog2();
       break;
+    }
     case DXIL::ResourceKind::Texture2DMS:
     case DXIL::ResourceKind::Texture2DMSArray:
     case DXIL::ResourceKind::TypedBuffer:
