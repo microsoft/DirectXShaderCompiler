@@ -963,6 +963,9 @@ TEST_F(FileTest, TextureSampleInvalidOffsetOperand) {
 TEST_F(FileTest, TextureInvalidTex2D) {
   runFileTest("texture.sample.invalid.tex2d.hlsl", Expect::Failure);
 }
+TEST_F(FileTest, TextureSampleOffsetWithLoopUnroll) {
+  runFileTest("texture.sample-offset.with.loop-unroll.hlsl");
+}
 
 // For structured buffer methods
 TEST_F(FileTest, StructuredBufferLoad) {
