@@ -2022,8 +2022,8 @@ public:
     ExprResult result;
     DeclarationName Name(&Accessor);
 
-    return hlsl::LookupVectorMemberExprForHLSL(&getSema(), *Base, Name, IsArrowFalse, OpLoc, AccessorLoc);
-
+    ExprResult ER = hlsl::MaybeConvertMemberAccess(&getSema(), Base);
+    return hlsl::LookupVectorMemberExprForHLSL(&getSema(), *ER.get(), Name, IsArrowFalse, OpLoc, AccessorLoc);
   }
 
   // HLSL Changes End
