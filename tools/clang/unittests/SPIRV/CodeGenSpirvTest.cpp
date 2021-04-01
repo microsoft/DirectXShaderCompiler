@@ -2075,6 +2075,23 @@ TEST_F(FileTest, VulkanLayoutFxcRulesCBuffer) {
   runFileTest("vk.layout.cbuffer.fxc.hlsl");
 }
 
+TEST_F(FileTest, VulkanLayoutFxcRulesCBufferMatrix) {
+  setDxLayout();
+  runFileTest("vk.layout.cbuffer.fxc.matrix.simple.hlsl");
+}
+TEST_F(FileTest, VulkanLayoutFxcRulesCBufferMatrixNxM) {
+  setDxLayout();
+  runFileTest("vk.layout.cbuffer.fxc.matrix.n-by-m.hlsl");
+}
+TEST_F(FileTest, VulkanLayoutFxcRulesCBufferMatrixArray) {
+  setDxLayout();
+  runFileTest("vk.layout.cbuffer.fxc.matrix.array.hlsl");
+}
+TEST_F(FileTest, VulkanLayoutFxcRulesCBufferMatrixStruct) {
+  setDxLayout();
+  runFileTest("vk.layout.cbuffer.fxc.matrix.struct.hlsl");
+}
+
 TEST_F(FileTest, VulkanLayoutFxcRulesCBuffer1) {
   // cbuffer/tbuffer/ConstantBuffer/TextureBuffer with fxc layout rules
   setDxLayout();
