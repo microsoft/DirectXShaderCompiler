@@ -47,7 +47,8 @@ public:
 
   bool runOnModule(Module &M) override {
     if (M.HasHLModule()) {
-      if (!M.GetHLModule().GetShaderModel()->IsPS())
+      const ShaderModel *SM = M.GetHLModule().GetShaderModel();
+      if (!SM->IsPS() && (!SM->IsSM66Plus() || (!SM->IsCS() && !SM->IsMS() && !SM->IsAS())))
         return false;
     }
     bool bUpdated = false;
