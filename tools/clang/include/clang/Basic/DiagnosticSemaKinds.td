@@ -7486,8 +7486,6 @@ def err_hlsl_vector_member_empty: Error<
   "vector swizzle is empty '%0'">;
 def err_hlsl_vector_member_out_of_bounds: Error<
   "vector swizzle '%0' is out of bounds">;
-def err_hlsl_vector_member_not_on_vector: Error<
-  "vector swizzle can be used only on vectors">;
 def err_hlsl_vector_element_index_out_of_bounds: Error<
   "vector element index '%0' is out of bounds">;
 def err_hlsl_vector_member_too_many_positions: Error<
