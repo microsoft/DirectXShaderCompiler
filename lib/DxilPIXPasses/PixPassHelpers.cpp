@@ -24,9 +24,11 @@ using namespace hlsl;
 
 namespace PIXPassHelpers {
 bool IsAllocateRayQueryInstruction(llvm::Value *Val) {
-  if (llvm::Instruction *Inst = llvm::dyn_cast<llvm::Instruction>(Val)) {
-    return hlsl::OP::IsDxilOpFuncCallInst(Inst,
-                                          hlsl::OP::OpCode::AllocateRayQuery);
+  if (Val != nullptr) {
+    if (llvm::Instruction *Inst = llvm::dyn_cast<llvm::Instruction>(Val)) {
+      return hlsl::OP::IsDxilOpFuncCallInst(Inst,
+                                            hlsl::OP::OpCode::AllocateRayQuery);
+    }
   }
   return false;
 }
