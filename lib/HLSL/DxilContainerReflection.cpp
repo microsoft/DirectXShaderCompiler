@@ -1085,7 +1085,7 @@ HRESULT CShaderReflectionType::Initialize(
 
       // Try to "clean" the type name for use in reflection data
       llvm::StringRef name = structType->getName();
-      name = name.ltrim("alignment.legacy.");
+      name = name.ltrim(kHostLayoutTypePrefix);
       name = name.ltrim("struct.");
       m_Name = name;
 

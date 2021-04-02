@@ -1717,7 +1717,7 @@ StructType *UpdateStructTypeForLegacyLayout(StructType *ST,
   if (!bUpdated) {
     return ST;
   } else {
-    std::string legacyName = "alignment.legacy." + ST->getName().str();
+    std::string legacyName = std::string(DXIL::kHostLayoutTypePrefix) + ST->getName().str();
     if (StructType *legacyST = M.getTypeByName(legacyName))
       return legacyST;
 

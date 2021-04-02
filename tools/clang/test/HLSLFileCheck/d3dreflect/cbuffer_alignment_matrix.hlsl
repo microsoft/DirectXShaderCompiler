@@ -5,10 +5,10 @@
 // CHECK: ; cbuffer cbuf
 // CHECK: ; {
 // CHECK: ;
-// CHECK: ;   struct alignment.legacy.cbuf
+// CHECK: ;   struct hostlayout.cbuf
 // CHECK: ;   {
 // CHECK: ;
-// CHECK: ;       struct alignment.legacy.struct.Agg
+// CHECK: ;       struct hostlayout.struct.Agg
 // CHECK: ;       {
 // CHECK: ;
 // CHECK: ;           column_major uint2x2 mat;                 ; Offset:    0
