@@ -1,7 +1,7 @@
 // RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
-// CHECK: %"dx.alignment.legacy.$Globals" = type { float, %dx.alignment.legacy.struct.S, <4 x i32> }
-// CHECK: %dx.alignment.legacy.struct.S = type { i32, i32, i32, <2 x i32>, i32, i32, i32 }
+// CHECK: %"alignment.legacy.$Globals" = type { float, %alignment.legacy.struct.S, <4 x i32> }
+// CHECK: %alignment.legacy.struct.S = type { i32, i32, i32, <2 x i32>, i32, i32, i32 }
 
 RasterizerOrderedBuffer<float4> r;
 

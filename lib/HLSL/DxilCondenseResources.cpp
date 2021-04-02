@@ -560,7 +560,7 @@ public:
       if (DM.GetOP()->UseMinPrecision())
         UpdateStructTypeForLegacyLayout();
 
-      return bChanged;
+      return true;
     }
 
     bChanged = true;
@@ -1717,7 +1717,7 @@ StructType *UpdateStructTypeForLegacyLayout(StructType *ST,
   if (!bUpdated) {
     return ST;
   } else {
-    std::string legacyName = "dx.alignment.legacy." + ST->getName().str();
+    std::string legacyName = "alignment.legacy." + ST->getName().str();
     if (StructType *legacyST = M.getTypeByName(legacyName))
       return legacyST;
 
@@ -1733,8 +1733,9 @@ StructType *UpdateStructTypeForLegacyLayout(StructType *ST,
   }
 }
 
-void UpdateStructTypeForLegacyLayout(DxilModule &DM, DxilResourceBase &Res,
-                                     DxilTypeSystem &TypeSys, Module &M) {
+void UpdateStructTypeForLegacyLayout(DxilResourceBase &Res,
+                                     DxilTypeSystem &TypeSys, DxilModule &DM) {
+  Module &M = *DM.GetModule();
   Constant *Symbol = Res.GetGlobalSymbol();
   Type *ElemTy = Res.GetHLSLType()->getPointerElementType();
   // Support Array of ConstantBuffer/StructuredBuffer.
@@ -1755,10 +1756,10 @@ void UpdateStructTypeForLegacyLayout(DxilModule &DM, DxilResourceBase &Res,
     GlobalVariable *NewGV = cast<GlobalVariable>(
         M.getOrInsertGlobal(Symbol->getName().str() + "_legacy", UpdatedST));
     Res.SetGlobalSymbol(NewGV);
-    TypeSys.EraseStructAnnotation(ST);
     OP *hlslOP = DM.GetOP();
 
     if (DM.GetShaderModel()->IsLib()) {
+      TypeSys.EraseStructAnnotation(ST);
       // If it's a library, we need to replace the GV which involves a few replacements
       Function *NF = hlslOP->GetOpFunc(hlsl::OP::OpCode::CreateHandleForLib, UpdatedST);
 
@@ -1809,19 +1810,18 @@ void UpdateStructTypeForLegacyLayout(DxilModule &DM, DxilResourceBase &Res,
 
 void UpdateStructTypeForLegacyLayoutOnDM(DxilModule &DM) {
   DxilTypeSystem &TypeSys = DM.GetTypeSystem();
-  Module &M = *DM.GetModule();
   for (auto &CBuf : DM.GetCBuffers()) {
-    UpdateStructTypeForLegacyLayout(DM, *CBuf.get(), TypeSys, M);
+    UpdateStructTypeForLegacyLayout(*CBuf.get(), TypeSys, DM);
   }
 
   for (auto &UAV : DM.GetUAVs()) {
     if (DXIL::IsStructuredBuffer(UAV->GetKind()))
-      UpdateStructTypeForLegacyLayout(DM, *UAV.get(), TypeSys, M);
+      UpdateStructTypeForLegacyLayout(*UAV.get(), TypeSys, DM);
   }
 
   for (auto &SRV : DM.GetSRVs()) {
     if (SRV->IsStructuredBuffer() || SRV->IsTBuffer())
-      UpdateStructTypeForLegacyLayout(DM, *SRV.get(), TypeSys, M);
+      UpdateStructTypeForLegacyLayout(*SRV.get(), TypeSys, DM);
   }
 }
 

@@ -985,7 +985,7 @@
 // CHECK-NEXT:            uFlags: (D3D_SVF_USED)
 // CHECK-NEXT:            DefaultValue: <nullptr>
 // CHECK-NEXT:          ID3D12ShaderReflectionType:
-// CHECK-NEXT:            D3D12_SHADER_TYPE_DESC: Name: S1
+// CHECK-NEXT:            D3D12_SHADER_TYPE_DESC: Name: 
 // CHECK-NEXT:              Class: D3D_SVC_STRUCT
 // CHECK-NEXT:              Type: D3D_SVT_VOID
 // CHECK-NEXT:              Elements: 0

@@ -2794,7 +2794,7 @@ static bool ValidateType(Type *Ty, ValidationContext &ValCtx, bool bInner = fals
     StructType *ST = cast<StructType>(Ty);
 
     StringRef Name = ST->getName();
-    if (Name.startswith("dx.") && !Name.startswith("dx.alignment.legacy.")) {
+    if (Name.startswith("dx.")) {
       // Allow handle type.
       if (ValCtx.HandleTy == Ty)
         return true;
