@@ -45,7 +45,7 @@ void MainAS(uint ix : SV_GroupIndex, uint3 id : SV_GroupThreadID) {
 
 
 [shader("mesh")]
-[numthreads(4,4,4)]
+[numthreads(4,1,1)]
 [outputtopology("triangle")]
 void MainMS(uint ix : SV_GroupIndex, uint3 id : SV_GroupThreadID) {
   output[ix] = doit(id.xy, id.z);
