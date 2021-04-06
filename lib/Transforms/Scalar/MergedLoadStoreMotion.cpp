@@ -360,7 +360,7 @@ bool MergedLoadStoreMotion::mergeLoads(BasicBlock *BB) {
   BasicBlock *Succ1 = BI->getSuccessor(1);
   // #Instructions in Succ1 for Compile Time Control
   // int Size1 = Succ1->size(); // HLSL Change
-  int Size1 = Succ1->size_no_dbg(); // HLSL Change
+  int Size1 = Succ1->compute_size_no_dbg(); // HLSL Change
   int NLoads = 0;
   for (BasicBlock::iterator BBI = Succ0->begin(), BBE = Succ0->end();
        BBI != BBE;) {
@@ -531,7 +531,7 @@ bool MergedLoadStoreMotion::mergeStores(BasicBlock *T) {
 
   // #Instructions in Succ1 for Compile Time Control
   // int Size1 = Succ1->size(); // HLSL Change
-  int Size1 = Pred1->size_no_dbg(); // HLSL Change
+  int Size1 = Pred1->compute_size_no_dbg(); // HLSL Change
   int NStores = 0;
 
   for (BasicBlock::reverse_iterator RBI = Pred0->rbegin(), RBE = Pred0->rend();

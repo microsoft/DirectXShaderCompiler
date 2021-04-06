@@ -169,7 +169,7 @@ CallInst *BasicBlock::getTerminatingMustTailCall() {
 }
 
 // HLSL Change - begin
-size_t BasicBlock::size_no_dbg() const {
+size_t BasicBlock::compute_size_no_dbg() const {
   size_t ret = 0;
   for (auto it = InstList.begin(), E = InstList.end(); it != E; it++) {
     if (isa<DbgInfoIntrinsic>(&*it))
