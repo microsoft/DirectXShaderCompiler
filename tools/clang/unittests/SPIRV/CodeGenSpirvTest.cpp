@@ -2374,9 +2374,11 @@ TEST_F(FileTest, VulkanShaderRecordBufferEXTOffset) {
   // Checks the behavior of [[vk::offset]] with [[vk::shader_record_ext]]
   runFileTest("vk.shader-record-ext.offset.hlsl");
 }
-TEST_F(FileTest, VulkanShadingRate) { runFileTest("vk.shading-rate.hlsl"); }
-TEST_F(FileTest, VulkanShadingRateError) {
-  runFileTest("vk.shading-rate.vs-error.hlsl", Expect::Failure);
+TEST_F(FileTest, VulkanShadingRateVs) {
+  runFileTest("vk.shading-rate.vs.hlsl");
+}
+TEST_F(FileTest, VulkanShadingRatePs) {
+  runFileTest("vk.shading-rate.ps.hlsl");
 }
 
 // === MeshShading NV examples ===
