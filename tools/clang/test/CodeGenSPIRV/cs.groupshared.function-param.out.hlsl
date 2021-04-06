@@ -31,7 +31,9 @@ void main() {
   int E;
 
 // CHECK:        [[A:%\d+]] = OpAccessChain %_ptr_Uniform_int %A %int_0 %uint_0
-// CHECK-NEXT:     {{%\d+}} = OpFunctionCall %void %foo [[A]] %B %C %D %E
+// CHECK-NEXT:   [[A0:%\d+]] = OpLoad %int [[A]]
+// CHECK-NEXT:                 OpStore %param_var_x [[A0]]
+// CHECK-NEXT:    {{%\d+}} = OpFunctionCall %void %foo %param_var_x %B %C %D %E
   foo(A[0], B, C, D, E);
   A[0] = A[0] | B | C | D.a | E;
 }

@@ -20,9 +20,7 @@ float main(float val: A) : B {
 // CHECK-NEXT:                OpStore %param_var_a %float_5
 // CHECK-NEXT: [[val:%\d+]] = OpLoad %float %val
 // CHECK-NEXT:                OpStore %param_var_b [[val]]
-
 // CHECK-NEXT: [[ret:%\d+]] = OpFunctionCall %float %fnInOut %param_var_a %param_var_b %m %n %p
-
 // CHECK-NEXT:                OpReturnValue [[ret]]
     return fnInOut(5., val, m, n, p);
 }

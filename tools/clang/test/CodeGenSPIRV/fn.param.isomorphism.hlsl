@@ -61,8 +61,8 @@ void main() {
 // CHECK: OpFunctionCall %void %S_incr %fn
   fn.incr();
 
-// CHECK:      [[rwsb:%\d+]] = OpAccessChain %_ptr_Uniform_R %rwsb %int_0 %uint_0
-// CHECK-NEXT:      {{%\d+}} = OpFunctionCall %void %decr [[rwsb]]
+// CHECK:           OpStore %param_var_foo {{%\d+}}
+// CHECK-NEXT:      {{%\d+}} = OpFunctionCall %void %decr %param_var_foo
   decr(rwsb[0]);
 
 // CHECK: OpFunctionCall %void %decr2 %gs
@@ -87,21 +87,29 @@ void main() {
   fnarr[0].incr();
 
 // CHECK:      [[gsarr:%\d+]] = OpAccessChain %_ptr_Workgroup_S %gsarr %int_0
-// CHECK-NEXT:       {{%\d+}} = OpFunctionCall %void %decr2 [[gsarr]]
+// CHECK-NEXT:   [[val:%\d+]] = OpLoad %S [[gsarr]]
+// CHECK-NEXT:                  OpStore %param_var_foo_0 [[val]]
+// CHECK-NEXT:       {{%\d+}} = OpFunctionCall %void %decr2 %param_var_foo_0
   decr2(gsarr[0]);
 
 // CHECK:      [[starr:%\d+]] = OpAccessChain %_ptr_Private_S %starr %int_0
-// CHECK-NEXT:       {{%\d+}} = OpFunctionCall %void %decr2 [[starr]]
+// CHECK-NEXT:   [[val:%\d+]] = OpLoad %S [[starr]]
+// CHECK-NEXT:                  OpStore %param_var_foo_1 [[val]]
+// CHECK-NEXT:       {{%\d+}} = OpFunctionCall %void %decr2 %param_var_foo_1
   decr2(starr[0]);
 
 // CHECK:      [[fnarr:%\d+]] = OpAccessChain %_ptr_Function_S %fnarr %int_0
-// CHECK-NEXT:       {{%\d+}} = OpFunctionCall %void %decr2 [[fnarr]]
+// CHECK-NEXT:   [[val:%\d+]] = OpLoad %S [[fnarr]]
+// CHECK-NEXT:                  OpStore %param_var_foo_2 [[val]]
+// CHECK-NEXT:       {{%\d+}} = OpFunctionCall %void %decr2 %param_var_foo_2
   decr2(fnarr[0]);
 
 // CHECK:        [[arr:%\d+]] = OpAccessChain %_ptr_Function_int %arr %int_0
 // CHECK-NEXT: [[arr_0:%\d+]] = OpLoad %int [[arr]]
 // CHECK-NEXT: [[arr_0:%\d+]] = OpIAdd %int [[arr_0]] %int_1
 // CHECK-NEXT:                  OpStore [[arr]] [[arr_0]]
-// CHECK-NEXT:       {{%\d+}} = OpFunctionCall %void %int_decr [[arr]]
+// CHECK-NEXT:   [[val:%\d+]] = OpLoad %int [[arr]]
+// CHECK-NEXT:                  OpStore %param_var_foo_3 [[val]]
+// CHECK-NEXT:       {{%\d+}} = OpFunctionCall %void %int_decr %param_var_foo_3
   int_decr(++arr[0]);
 }
