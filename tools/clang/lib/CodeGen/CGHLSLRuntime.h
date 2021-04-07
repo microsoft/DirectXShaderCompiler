@@ -120,9 +120,6 @@ public:
                                    clang::QualType SrcTy,
                                    llvm::Value *DestPtr,
                                    clang::QualType DestTy) = 0;
-  virtual void EmitHLSLRootSignature(CodeGenFunction &CGF,
-                                     clang::HLSLRootSignatureAttr *RSA,
-                                     llvm::Function *Fn) = 0;
   virtual llvm::Value *EmitHLSLLiteralCast(CodeGenFunction &CGF, llvm::Value *Src, clang::QualType SrcType,
                                                clang::QualType DstType) = 0;
 

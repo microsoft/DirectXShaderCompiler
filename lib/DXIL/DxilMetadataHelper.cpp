@@ -56,11 +56,8 @@ void LoadSerializedRootSignature(MDNode *pNode,
   IFTBOOL(pData->getElementType() == Type::getInt8Ty(Ctx),
           DXC_E_INCORRECT_DXIL_METADATA);
 
-  SerializedRootSignature.clear();
-  unsigned size = pData->getRawDataValues().size();
-  SerializedRootSignature.resize(size);
-  memcpy(SerializedRootSignature.data(),
-         (const uint8_t *)pData->getRawDataValues().begin(), size);
+  SerializedRootSignature.assign(pData->getRawDataValues().begin(),
+                                 pData->getRawDataValues().end());
 }
 
 MDNode *

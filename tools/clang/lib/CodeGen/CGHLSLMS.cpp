@@ -179,8 +179,8 @@ private:
                               QualType Type, QualType SrcType,
                               llvm::Type *Ty);
 
-  void EmitHLSLRootSignature(CodeGenFunction &CGF, HLSLRootSignatureAttr *RSA,
-                             llvm::Function *Fn) override;
+  void EmitHLSLRootSignature(HLSLRootSignatureAttr *RSA,
+                             Function *Fn, DxilFunctionProps &props);
 
   void CheckParameterAnnotation(SourceLocation SLoc,
                                 const DxilParameterAnnotation &paramInfo,
@@ -2323,6 +2323,12 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     if (!m_ExportMap.IsExported(name)) {
       isExportedEntry = false;
     }
+  }
+
+  // Only parse root signature for entry function.
+  if (HLSLRootSignatureAttr *RSA = FD->getAttr<HLSLRootSignatureAttr>()) {
+    if (isExportedEntry || isEntry)
+      EmitHLSLRootSignature(RSA, F, *funcProps);
   }
 
   // Only add functionProps when exist.
@@ -5744,15 +5750,11 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversion(CodeGenFunction &CGF,
   }
 }
 
-void CGMSHLSLRuntime::EmitHLSLRootSignature(CodeGenFunction &CGF,
-                                            HLSLRootSignatureAttr *RSA,
-                                            Function *Fn) {
-  // Only parse root signature for entry function.
-  if (Fn != Entry.Func && !m_pHLModule->HasDxilFunctionProps(Fn))
-    return;
-
+void CGMSHLSLRuntime::EmitHLSLRootSignature(HLSLRootSignatureAttr *RSA,
+                                            Function *Fn,
+                                            DxilFunctionProps &props) {
   StringRef StrRef = RSA->getSignatureName();
-  DiagnosticsEngine &Diags = CGF.getContext().getDiagnostics();
+  DiagnosticsEngine &Diags = CGM.getDiags();
   SourceLocation SLoc = RSA->getLocation();
   RootSignatureHandle RootSigHandle;
   clang::CompileRootSignature(
@@ -5765,9 +5767,15 @@ void CGMSHLSLRuntime::EmitHLSLRootSignature(CodeGenFunction &CGF,
           RootSigHandle.GetSerializedBytes(),
           RootSigHandle.GetSerializedSize());
     } else {
-      auto &entryProps = m_pHLModule->GetDxilFunctionProps(Fn);
-      entryProps.SetSerializedRootSignature(RootSigHandle.GetSerializedBytes(),
-                                            RootSigHandle.GetSerializedSize());
+      if (!props.IsRay()) {
+        props.SetSerializedRootSignature(RootSigHandle.GetSerializedBytes(),
+                                         RootSigHandle.GetSerializedSize());
+      } else {
+        unsigned DiagID = Diags.getCustomDiagID(
+            DiagnosticsEngine::Error, "root signature attribute not supported "
+                                      "for raytracing entry functions");
+        Diags.Report(RSA->getLocation(), DiagID);
+      }
     }
   }
 }

@@ -89,9 +89,7 @@ struct DxilFunctionProps {
   // Save root signature for lib profile entry.
   std::vector<uint8_t> serializedRootSignature;
   void SetSerializedRootSignature(const uint8_t *pData, unsigned size) {
-    serializedRootSignature.clear();
-    serializedRootSignature.resize(size);
-    memcpy(serializedRootSignature.data(), pData, size);
+    serializedRootSignature.assign(pData, pData+size);
   }
 
   // TODO: Should we have an unmangled name here for ray tracing shaders?
