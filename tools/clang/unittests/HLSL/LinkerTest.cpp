@@ -854,11 +854,11 @@ TEST_F(LinkerTest, RunLinkWithRootSig) {
   LPCWSTR pEntryName = L"vs_main";
   LPCWSTR pShaderModel = L"vs_6_6";
 
-  ArrayRef<LPCWSTR> libNames = {libName};
+  LPCWSTR libNames[] = {libName};
   CComPtr<IDxcOperationResult> pResult;
 
-  VERIFY_SUCCEEDED(pLinker->Link(pEntryName, pShaderModel, libNames.data(),
-                                 libNames.size(), {}, 0, &pResult));
+  VERIFY_SUCCEEDED(pLinker->Link(pEntryName, pShaderModel, libNames,
+                                 1, {}, 0, &pResult));
   CComPtr<IDxcBlob> pLinkedProgram;
   CheckOperationSucceeded(pResult, &pLinkedProgram);
   VERIFY_IS_TRUE(pLinkedProgram);
