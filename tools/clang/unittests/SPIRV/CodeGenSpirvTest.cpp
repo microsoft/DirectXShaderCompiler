@@ -652,6 +652,10 @@ TEST_F(FileTest, InheritanceLayoutDifferences) {
 TEST_F(FileTest, InheritanceLayoutEmptyStruct) {
   runFileTest("oo.inheritance.layout.empty-struct.hlsl");
 }
+TEST_F(FileTest, InheritanceCallMethodOfBase) {
+  runFileTest("oo.inheritance.call.base.method.hlsl", Expect::Success,
+              /* runValidation */ false);
+}
 
 // For semantics
 // SV_Position, SV_ClipDistance, and SV_CullDistance are covered in
