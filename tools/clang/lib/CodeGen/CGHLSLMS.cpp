@@ -5748,18 +5748,27 @@ void CGMSHLSLRuntime::EmitHLSLRootSignature(CodeGenFunction &CGF,
                                             HLSLRootSignatureAttr *RSA,
                                             Function *Fn) {
   // Only parse root signature for entry function.
-  if (Fn != Entry.Func)
+  if (Fn != Entry.Func && !m_pHLModule->HasDxilFunctionProps(Fn))
     return;
 
   StringRef StrRef = RSA->getSignatureName();
   DiagnosticsEngine &Diags = CGF.getContext().getDiagnostics();
   SourceLocation SLoc = RSA->getLocation();
   RootSignatureHandle RootSigHandle;
-  clang::CompileRootSignature(StrRef, Diags, SLoc, rootSigVer, DxilRootSignatureCompilationFlags::GlobalRootSignature, &RootSigHandle);
+  clang::CompileRootSignature(
+      StrRef, Diags, SLoc, rootSigVer,
+      DxilRootSignatureCompilationFlags::GlobalRootSignature, &RootSigHandle);
   if (!RootSigHandle.IsEmpty()) {
     RootSigHandle.EnsureSerializedAvailable();
-    m_pHLModule->SetSerializedRootSignature(RootSigHandle.GetSerializedBytes(),
+    if (!m_bIsLib) {
+      m_pHLModule->SetSerializedRootSignature(
+          RootSigHandle.GetSerializedBytes(),
+          RootSigHandle.GetSerializedSize());
+    } else {
+      auto &entryProps = m_pHLModule->GetDxilFunctionProps(Fn);
+      entryProps.SetSerializedRootSignature(RootSigHandle.GetSerializedBytes(),
                                             RootSigHandle.GetSerializedSize());
+    }
   }
 }
 
