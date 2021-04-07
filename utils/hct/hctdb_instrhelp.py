@@ -346,13 +346,18 @@ class db_oload_gen:
         instrs = [i for i in self.db.instr if i.is_dxil_op]
         self.instrs = sorted(instrs, key=lambda i : i.dxil_opid)
 
+        # Allow these to be overridden by external scripts.
+        self.OP  = "OP"
+        self.OC  = "OC"
+        self.OCC = "OCC"
+
     def print_content(self):
         self.print_opfunc_props()
         print("...")
         self.print_opfunc_table()
 
     def print_opfunc_props(self):
-        print("const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {")
+        print("const {OP}::OpCodeProperty {OP}::m_OpCodeProps[(unsigned){OP}::OpCode::NumOpCodes] = {{".format(OP=self.OP))
         print("//   OpCode                       OpCode name,                OpCodeClass                    OpCodeClass name,              void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj,  function attribute")
         # Example formatted string:
         #   {  OC::TempRegLoad,             "TempRegLoad",              OCC::TempRegLoad,              "tempRegLoad",                false,  true,  true, false,  true, false,  true,  true, false, Attribute::ReadOnly, },
@@ -372,9 +377,10 @@ class db_oload_gen:
                     print("")
                 print("  // {category:118}  void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute".format(category=i.category))
                 last_category = i.category
-            print("  {{  OC::{name:24} {quotName:27} OCC::{className:25} {classNameQuot:28} {{{v:>6},{h:>6},{f:>6},{d:>6},{b:>6},{e:>6},{w:>6},{i:>6},{l:>6},{u:>6},{o:>6}}}, {attr:20} }},".format(
+            print("  {{  {OC}::{name:24} {quotName:27} {OCC}::{className:25} {classNameQuot:28} {{{v:>6},{h:>6},{f:>6},{d:>6},{b:>6},{e:>6},{w:>6},{i:>6},{l:>6},{u:>6},{o:>6}}}, {attr:20} }},".format(
                 name=i.name+",", quotName='"'+i.name+'",', className=i.dxil_class+",", classNameQuot='"'+lower_fn(i.dxil_class)+'",',
-                v=f(i,"v"), h=f(i,"h"), f=f(i,"f"), d=f(i,"d"), b=f(i,"1"), e=f(i,"8"), w=f(i,"w"), i=f(i,"i"), l=f(i,"l"), u=f(i,"u"), o=f(i,"o"), attr=attr_fn(i)))
+                v=f(i,"v"), h=f(i,"h"), f=f(i,"f"), d=f(i,"d"), b=f(i,"1"), e=f(i,"8"), w=f(i,"w"), i=f(i,"i"), l=f(i,"l"), u=f(i,"u"), o=f(i,"o"), attr=attr_fn(i),
+                OC=self.OC, OCC=self.OCC))
         print("};")
 
     def print_opfunc_table(self):
