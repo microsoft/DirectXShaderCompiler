@@ -788,6 +788,12 @@ DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
     if (newPatchConstantFunc->hasFnAttribute(llvm::Attribute::AlwaysInline))
       newPatchConstantFunc->removeFnAttr(llvm::Attribute::AlwaysInline);
   }
+
+  // Set root sig if exist.
+  if (!props.serializedRootSignature.empty()) {
+    DM.ResetSerializedRootSignature(props.serializedRootSignature);
+    props.serializedRootSignature.clear();
+  }
   // Set EntryProps
   DM.SetShaderProperties(&props);
 

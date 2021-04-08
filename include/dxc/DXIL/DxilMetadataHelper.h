@@ -272,6 +272,7 @@ public:
   static const unsigned kDxilMSStateTag         = 9;
   static const unsigned kDxilASStateTag         = 10;
   static const unsigned kDxilWaveSizeTag        = 11;
+  static const unsigned kDxilEntryRootSigTag    = 12;
 
   // GSState.
   static const unsigned kDxilGSStateNumFields               = 5;

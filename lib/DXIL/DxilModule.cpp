@@ -1309,8 +1309,6 @@ void DxilModule::UpdateValidatorVersionMetadata() {
 }
 
 void DxilModule::ResetSerializedRootSignature(std::vector<uint8_t> &Value) {
-  m_SerializedRootSignature.clear();
-  m_SerializedRootSignature.reserve(Value.size());
   m_SerializedRootSignature.assign(Value.begin(), Value.end());
 }
 
