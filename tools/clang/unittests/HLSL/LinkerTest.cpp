@@ -843,7 +843,7 @@ TEST_F(LinkerTest, LinkSm63ToSm66) {
 TEST_F(LinkerTest, RunLinkWithRootSig) {
   CComPtr<IDxcBlob> pLib0;
   CompileLib(L"..\\CodeGenHLSL\\linker\\link_with_root_sig.hlsl", &pLib0, {},
-             L"lib_6_6");
+             L"lib_6_x");
 
   CComPtr<IDxcLinker> pLinker;
   CreateLinker(&pLinker);

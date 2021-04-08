@@ -1497,9 +1497,11 @@ MDTuple *DxilMDHelper::EmitDxilEntryProperties(uint64_t rawShaderFlag,
         MDNode::get(m_Ctx, {Uint32ToConstMD(autoBindingSpace)}));
   }
 
-  if (!props.serializedRootSignature.empty()) {
+  if (!props.serializedRootSignature.empty() &&
+      DXIL::CompareVersions(m_MinValMajor, m_MinValMinor, 1, 6) > 0) {
     MDVals.emplace_back(Uint32ToConstMD(DxilMDHelper::kDxilEntryRootSigTag));
-    MDVals.emplace_back(EmitSerializedRootSignature(props.serializedRootSignature, m_Ctx));
+    MDVals.emplace_back(
+        EmitSerializedRootSignature(props.serializedRootSignature, m_Ctx));
   }
 
   if (!MDVals.empty())
