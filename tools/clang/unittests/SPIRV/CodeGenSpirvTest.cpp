@@ -656,6 +656,9 @@ TEST_F(FileTest, InheritanceCallMethodOfBase) {
   runFileTest("oo.inheritance.call.base.method.hlsl", Expect::Success,
               /* runValidation */ false);
 }
+TEST_F(FileTest, InheritanceCallMethodWithSameBaseMethodName) {
+  runFileTest("oo.call.method.with.same.base.method.name.hlsl");
+}
 
 // For semantics
 // SV_Position, SV_ClipDistance, and SV_CullDistance are covered in

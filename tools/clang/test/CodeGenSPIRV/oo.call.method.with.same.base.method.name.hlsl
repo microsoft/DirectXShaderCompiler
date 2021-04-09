@@ -11,28 +11,28 @@ struct empty {
 struct bar : empty {
   float4x4 trans;
   float4 value() {
-    return mul(float4(1,1,1,0), trans);
+    return 0;
   }
 };
 
 struct foo : bar {
+  float4 value() {
+    return 1;
+  }
 
-// When foo calls bar::value(), it must use
-// (this's 0th object)->value() instead of this->value()
-// because this's 0th object is the object of the base struct in SPIR-V.
+// When foo calls foo::value(), it must use
+// this->value() instead of (this's 0th object)->value()
 
 // CHECK:     %foo_get = OpFunction
 // CHECK:  %param_this = OpFunctionParameter %_ptr_Function_foo
-// CHECK: [[bar:%\w+]] = OpAccessChain %_ptr_Function_bar %param_this %uint_0
-// CHECK:                OpFunctionCall %v4float %bar_value [[bar]]
+// CHECK:                OpFunctionCall %v4float %foo_value %param_this
 
   float4 get() {
     return value();
   }
 };
 
-void main(out float4 Position : SV_Position)
-{
+void main(out float4 Position : SV_Position) {
   foo x;
   Position = x.get();
 }
