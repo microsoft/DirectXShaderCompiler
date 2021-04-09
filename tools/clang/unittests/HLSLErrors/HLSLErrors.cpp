@@ -2,6 +2,9 @@
 #include "dxc/dxcapi.h"     // Be sure to link with dxcompiler.lib.
 #include <d3d12shader.h>    // Shader reflection.
 
+// Code from https://github.com/microsoft/DirectXShaderCompiler/wiki/Using-dxc.exe-and-dxcompiler.dll
+// Included here to verify compilation success. If this needs to be altered, please update the wiki as well
+
 int filter(unsigned int code, struct _EXCEPTION_POINTERS *pExceptionInfo) {
   if (code == EXCEPTION_ACCESS_VIOLATION) {
     // use pExceptionInfo to document and report error
@@ -16,7 +19,7 @@ int filter(unsigned int code, struct _EXCEPTION_POINTERS *pExceptionInfo) {
 
 
 int Compile(IDxcCompiler3 *pCompiler, DxcBuffer *pSource, LPCWSTR pszArgs[],
-             int argCt, IDxcIncludeHandler *pIncludeHandler, IDxcResult *pResults) {
+             int argCt, IDxcIncludeHandler *pIncludeHandler, IDxcResult **pResults) {
 
     __try {
         pCompiler->Compile(
@@ -24,7 +27,7 @@ int Compile(IDxcCompiler3 *pCompiler, DxcBuffer *pSource, LPCWSTR pszArgs[],
             pszArgs,                // Array of pointers to arguments.
             argCt,                  // Number of arguments.
             pIncludeHandler,        // User-provided interface to handle #include directives (optional).
-            IID_PPV_ARGS(&pResults) // Compiler output status, buffer, and errors.
+            IID_PPV_ARGS(pResults) // Compiler output status, buffer, and errors.
         );
     } __except(filter(GetExceptionCode(), GetExceptionInformation())) {
         // Report unrecoverable internal error
@@ -82,7 +85,7 @@ int main()
     // Compile it with specified arguments.
     //
     CComPtr<IDxcResult> pResults;
-    int res = Compile(pCompiler, &Source, pszArgs, _countof(pszArgs), pIncludeHandler, pResults);
+    int res = Compile(pCompiler, &Source, pszArgs, _countof(pszArgs), pIncludeHandler, &pResults);
     if (res) { return res; }
 
     //
