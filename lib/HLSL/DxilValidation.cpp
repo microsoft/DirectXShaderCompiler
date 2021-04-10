@@ -5759,7 +5759,7 @@ void GetValidationVersion(_Out_ unsigned *pMajor, _Out_ unsigned *pMinor) {
   // - Mesh and Amplification shaders
   // - DXR 1.1 & RayQuery support
   *pMajor = 1;
-  *pMinor = 6;
+  *pMinor = 7;
   // VALRULE-TEXT:END
 }
 
