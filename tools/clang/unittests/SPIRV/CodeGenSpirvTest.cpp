@@ -2091,6 +2091,10 @@ TEST_F(FileTest, VulkanLayoutFxcRulesCBufferMatrixStruct) {
   setDxLayout();
   runFileTest("vk.layout.cbuffer.fxc.matrix.struct.hlsl");
 }
+TEST_F(FileTest, VulkanLayoutFxcRulesCBufferMatrixMajorness) {
+  setDxLayout();
+  runFileTest("vk.layout.cbuffer.fxc.matrix.majorness.hlsl");
+}
 
 TEST_F(FileTest, VulkanLayoutFxcRulesCBuffer1) {
   // cbuffer/tbuffer/ConstantBuffer/TextureBuffer with fxc layout rules

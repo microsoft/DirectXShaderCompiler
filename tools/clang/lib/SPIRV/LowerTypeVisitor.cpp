@@ -378,7 +378,9 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
   if (rule == SpirvLayoutRule::FxcCTBuffer && hlsl::IsHLSLMatType(type)) {
     uint32_t rowCount = 0, colCount = 0;
     hlsl::GetHLSLMatRowColCount(type, rowCount, colCount);
-    if (alignmentCalc.useRowMajor(isRowMajor, type) && rowCount == 1) {
+    if (!alignmentCalc.useRowMajor(isRowMajor, type))
+      std::swap(rowCount, colCount);
+    if (rowCount == 1) {
       auto elemType = hlsl::GetHLSLMatElementType(type);
       uint32_t stride = 0;
       alignmentCalc.getAlignmentAndSize(type, rule, isRowMajor, &stride);

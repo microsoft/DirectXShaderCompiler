@@ -196,7 +196,9 @@ std::pair<uint32_t, uint32_t> AlignmentSizeCalculator::getAlignmentAndSize(
   if (rule == SpirvLayoutRule::FxcCTBuffer && hlsl::IsHLSLMatType(type)) {
     uint32_t rowCount = 0, colCount = 0;
     hlsl::GetHLSLMatRowColCount(type, rowCount, colCount);
-    if (useRowMajor(isRowMajor, type) && colCount > 1) {
+    if (!useRowMajor(isRowMajor, type))
+      std::swap(rowCount, colCount);
+    if (colCount > 1) {
       auto elemType = hlsl::GetHLSLMatElementType(type);
       uint32_t alignment = 0, size = 0;
       std::tie(alignment, size) =
