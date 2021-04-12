@@ -350,10 +350,10 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
                    "SV_Barycentrics", loc);
       break;
     }
-    case spv::BuiltIn::FragSizeEXT: {
-      addExtension(Extension::EXT_fragment_invocation_density, "SV_ShadingRate",
-                   loc);
-      addCapability(spv::Capability::FragmentDensityEXT);
+    case spv::BuiltIn::ShadingRateKHR:
+    case spv::BuiltIn::PrimitiveShadingRateKHR: {
+      addExtension(Extension::KHR_fragment_shading_rate, "SV_ShadingRate", loc);
+      addCapability(spv::Capability::FragmentShadingRateKHR);
       break;
     }
     default:
