@@ -384,7 +384,8 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
       auto elemType = hlsl::GetHLSLMatElementType(type);
       uint32_t stride = 0;
       alignmentCalc.getAlignmentAndSize(type, rule, isRowMajor, &stride);
-      return spvContext.getArrayType(lowerType(elemType, rule, isRowMajor, srcLoc), colCount, stride);
+      return spvContext.getArrayType(
+          lowerType(elemType, rule, isRowMajor, srcLoc), colCount, stride);
     }
   }
 

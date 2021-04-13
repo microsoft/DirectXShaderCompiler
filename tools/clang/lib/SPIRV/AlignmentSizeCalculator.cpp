@@ -203,7 +203,8 @@ std::pair<uint32_t, uint32_t> AlignmentSizeCalculator::getAlignmentAndSize(
       uint32_t alignment = 0, size = 0;
       std::tie(alignment, size) =
           getAlignmentAndSize(elemType, rule, isRowMajor, stride);
-      alignment = roundToPow2(alignment * (rowCount == 3 ? 4 : rowCount), kStd140Vec4Alignment);
+      alignment = roundToPow2(alignment * (rowCount == 3 ? 4 : rowCount),
+                              kStd140Vec4Alignment);
       *stride = alignment;
       return {alignment, 16 * (colCount - 1) + rowCount * size};
     }

@@ -52,7 +52,8 @@ public:
   /// \brief Returns true if we use row-major matrix for type. Otherwise,
   /// returns false.
   bool useRowMajor(llvm::Optional<bool> isRowMajor, clang::QualType type) {
-    return isRowMajor.hasValue() ? isRowMajor.getValue() : isRowMajorMatrix(spvOptions, type);
+    return isRowMajor.hasValue() ? isRowMajor.getValue()
+                                 : isRowMajorMatrix(spvOptions, type);
   }
 
 private:
