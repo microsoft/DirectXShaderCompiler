@@ -443,6 +443,29 @@ public:
 
   const float ClearColor[4] = { 0.0f, 0.2f, 0.4f, 1.0f };
 
+  bool DivergentClassSetup() {
+    HRESULT hr;
+    hr = EnableExperimentalMode();
+    if (FAILED(hr)) {
+      LogCommentFmt(L"Unable to enable shader experimental mode - 0x%08x.", hr);
+    } else if (hr == S_FALSE) {
+      LogCommentFmt(L"Experimental mode not enabled.");
+    } else {
+      LogCommentFmt(L"Experimental mode enabled.");
+    }
+
+    hr = EnableDebugLayer();
+    if (FAILED(hr)) {
+      LogCommentFmt(L"Unable to enable debug layer - 0x%08x.", hr);
+    } else if (hr == S_FALSE) {
+      LogCommentFmt(L"Debug layer not enabled.");
+    } else {
+      LogCommentFmt(L"Debug layer enabled.");
+    }
+
+    return true;
+  }
+
 // Do not remove the following line - it is used by TranslateExecutionTest.py
 // MARKER: ExecutionTest/DxilConf Shared Implementation Start
 
@@ -1432,37 +1455,7 @@ static void SetupComputeValuePattern(std::vector<uint32_t> &values,
 }
 
 bool ExecutionTest::ExecutionTestClassSetup() {
-  HRESULT hr;
-#if !defined(_HLK_CONF) || defined(_HLK_CONF_TEST_EXPERIMENTAL)
-  hr = EnableExperimentalMode();
-  if (FAILED(hr)) {
-    LogCommentFmt(L"Unable to enable shader experimental mode - 0x%08x.", hr);
-  } else if (hr == S_FALSE) {
-    LogCommentFmt(L"Experimental mode not enabled.");
-  } else {
-    LogCommentFmt(L"Experimental mode enabled.");
-  }
-#endif // !defined(_HLK_CONF) || defined(_HLK_CONF_TEST_EXPERIMENTAL)
-
-#ifdef _HLK_CONF
-// TODO: Enabling the D3D driver verifier. Check out the logic in the D3DConf_12_Core test.
-    VERIFY_SUCCEEDED(m_support.Initialize());
-    m_UseWarp = hlsl_test::GetTestParamUseWARP(false);
-    m_EnableDebugLayer = hlsl_test::GetTestParamBool(L"DebugLayer");
-    if (m_EnableDebugLayer) {
-        EnableDebugLayer();
-    }
-    return true;
-#else
-  hr = EnableDebugLayer();
-  if (FAILED(hr)) {
-    LogCommentFmt(L"Unable to enable debug layer - 0x%08x.", hr);
-  }
-  else {
-    LogCommentFmt(L"Debug layer enabled.");
-  }
-  return true;
-#endif
+  return DivergentClassSetup();
 }
 
 void ExecutionTest::RunRWByteBufferComputeTest(ID3D12Device *pDevice, LPCSTR pShader, std::vector<uint32_t> &values) {
