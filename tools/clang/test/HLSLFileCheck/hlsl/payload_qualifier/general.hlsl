@@ -15,12 +15,18 @@
 // check if we get DXIL and the payload type is there 
 // CHK4: Invalid target for payload access qualifiers. Only lib_6_6 and beyond are supported.
 // CHK5: warning: payload access qualifieres are only supported for target lib_6_6 and beyond. You can opt-in for lib_6_6 with the -enable-payload-qualifiers flag. Qualifiers will be dropped.
+// CHK5: struct [raypayload] Payload {
+// CHK5-NOT: struct [raypayload] OtherPayload {
 // CHK6: %struct.Payload = type { i32, i32 }
 
 // CHK7: error: type 'Payload' used as payload requires that it is annotated with the {{\[[a-z]*\]}} attribute
 
 #if TEST_NUM <= 4
 struct [raypayload] Payload {
+    int a : read(closesthit) : write(caller);
+    int b : write(closesthit) : read(caller);
+};
+struct [raypayload] OtherPayload {
     int a : read(closesthit) : write(caller);
     int b : write(closesthit) : read(caller);
 };
