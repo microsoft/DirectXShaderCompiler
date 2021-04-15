@@ -82,6 +82,7 @@ private:
   void doFunctionDecl(const FunctionDecl *decl);
   void doVarDecl(const VarDecl *decl);
   void doRecordDecl(const RecordDecl *decl);
+  void doClassTemplateDecl(const ClassTemplateDecl *classTemplateDecl);
   void doEnumDecl(const EnumDecl *decl);
   void doHLSLBufferDecl(const HLSLBufferDecl *decl);
   void doImplicitDecl(const Decl *decl);
