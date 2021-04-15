@@ -148,6 +148,9 @@ TEST_F(FileTest, TriangleStreamTypes) {
 TEST_F(FileTest, TemplateFunctionInstance) {
   runFileTest("type.template.function.template-instance.hlsl");
 }
+TEST_F(FileTest, TemplateStructInstance) {
+  runFileTest("type.template.struct.template-instance.hlsl");
+}
 
 // For constants
 TEST_F(FileTest, ScalarConstants) { runFileTest("constant.scalar.hlsl"); }

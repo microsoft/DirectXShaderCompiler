@@ -720,7 +720,7 @@ void SpirvEmitter::doDecl(const Decl *decl) {
     doEnumDecl(enumDecl);
   } else if (const auto *classTemplateDecl =
                  dyn_cast<ClassTemplateDecl>(decl)) {
-    // nothing to do.
+    doClassTemplateDecl(classTemplateDecl);
   } else if (const auto *functionTemplateDecl =
                  dyn_cast<FunctionTemplateDecl>(decl)) {
     // nothing to do.
@@ -1359,6 +1359,17 @@ void SpirvEmitter::doHLSLBufferDecl(const HLSLBufferDecl *bufferDecl) {
         DeclResultIdMapper::ContextUsageKind::ShaderRecordBufferEXT);
   } else {
     (void)declIdMapper.createCTBuffer(bufferDecl);
+  }
+}
+
+void SpirvEmitter::doClassTemplateDecl(
+    const ClassTemplateDecl *classTemplateDecl) {
+  for (auto classTemplateSpecializationDeclItr :
+       classTemplateDecl->specializations()) {
+    if (const CXXRecordDecl *recordDecl =
+            dyn_cast<CXXRecordDecl>(&*classTemplateSpecializationDeclItr)) {
+      doRecordDecl(recordDecl);
+    }
   }
 }
 
