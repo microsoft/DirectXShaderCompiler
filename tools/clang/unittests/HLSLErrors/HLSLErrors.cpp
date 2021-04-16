@@ -6,35 +6,47 @@
 // Included here to verify compilation success. If this needs to be altered, please update the wiki as well
 
 int filter(unsigned int code, struct _EXCEPTION_POINTERS *pExceptionInfo) {
+  static char scratch[32];
+  // report all errors with fputs to prevent any allocation
   if (code == EXCEPTION_ACCESS_VIOLATION) {
     // use pExceptionInfo to document and report error
+    fputs("access violation. Attempted to ", stderr);
+    if (pExceptionInfo->ExceptionRecord->ExceptionInformation[0])
+      fputs("write", stderr);
+    else
+      fputs("read", stderr);
+    fputs(" from address ", stderr);
+    sprintf_s(scratch, _countof(scratch), "0x%p\n", (void*)pExceptionInfo->ExceptionRecord->ExceptionInformation[1]);
+    fputs(scratch, stderr);
     return EXCEPTION_EXECUTE_HANDLER;
   }
   if (code == EXCEPTION_STACK_OVERFLOW) {
     // use pExceptionInfo to document and report error
+    fputs("stack overflow\n", stderr);
     return EXCEPTION_EXECUTE_HANDLER;
   }
+  fputs("Unrecoverable Error ", stderr);
+  sprintf_s(scratch, _countof(scratch), "0x%08x\n", code);
+  fputs(scratch, stderr);
   return EXCEPTION_CONTINUE_SEARCH;
 }
 
 
-int Compile(IDxcCompiler3 *pCompiler, DxcBuffer *pSource, LPCWSTR pszArgs[],
+HRESULT Compile(IDxcCompiler3 *pCompiler, DxcBuffer *pSource, LPCWSTR pszArgs[],
              int argCt, IDxcIncludeHandler *pIncludeHandler, IDxcResult **pResults) {
 
-    __try {
-        pCompiler->Compile(
-            pSource,                // Source buffer.
-            pszArgs,                // Array of pointers to arguments.
-            argCt,                  // Number of arguments.
-            pIncludeHandler,        // User-provided interface to handle #include directives (optional).
-            IID_PPV_ARGS(pResults) // Compiler output status, buffer, and errors.
-        );
-    } __except(filter(GetExceptionCode(), GetExceptionInformation())) {
-        // Report unrecoverable internal error
-        return 1;
-    }
-
-  return 0;
+  __try {
+      return pCompiler->Compile(
+               pSource,                // Source buffer.
+               pszArgs,                // Array of pointers to arguments.
+               argCt,                  // Number of arguments.
+               pIncludeHandler,        // User-provided interface to handle #include directives (optional).
+               IID_PPV_ARGS(pResults) // Compiler output status, buffer, and errors.
+      );
+  } __except(filter(GetExceptionCode(), GetExceptionInformation())) {
+    // Report unrecoverable internal error
+    return E_FAIL;
+  }
 }
 
 
@@ -85,25 +97,27 @@ int main()
     // Compile it with specified arguments.
     //
     CComPtr<IDxcResult> pResults;
-    int res = Compile(pCompiler, &Source, pszArgs, _countof(pszArgs), pIncludeHandler, &pResults);
-    if (res) { return res; }
+    if (FAILED(Compile(pCompiler, &Source, pszArgs, _countof(pszArgs), pIncludeHandler, &pResults)))
+    {
+      wprintf(L"Compile Failed\n");
+      return 1;
+    }
 
     //
     // Print errors if present.
     //
     CComPtr<IDxcBlobUtf8> pErrors = nullptr;
-    pResults->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&pErrors), nullptr);
     // Note that d3dcompiler would return null if no errors or warnings are present.
     // IDxcCompiler3::Compile will always return an error buffer, but its length will be zero if there are no warnings or errors.
-    if (pErrors != nullptr && pErrors->GetStringLength() != 0)
+    if (SUCCEEDED(pResults->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&pErrors), nullptr)) &&
+        pErrors != nullptr && pErrors->GetStringLength() != 0)
         wprintf(L"Warnings and Errors:\n%S\n", pErrors->GetStringPointer());
 
     //
     // Quit if the compilation failed.
     //
     HRESULT hrStatus;
-    pResults->GetStatus(&hrStatus);
-    if (FAILED(hrStatus))
+    if (FAILED(pResults->GetStatus(&hrStatus)) || FAILED(hrStatus))
     {
         wprintf(L"Compilation Failed\n");
         return 1;
@@ -114,8 +128,8 @@ int main()
     //
     CComPtr<IDxcBlob> pShader = nullptr;
     CComPtr<IDxcBlobUtf16> pShaderName = nullptr;
-    pResults->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&pShader), &pShaderName);
-    if (pShader != nullptr)
+    if (SUCCEEDED(pResults->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&pShader), &pShaderName)) &&
+        pShader != nullptr)
     {
         FILE* fp = NULL;
 
@@ -129,7 +143,7 @@ int main()
     //
     CComPtr<IDxcBlob> pPDB = nullptr;
     CComPtr<IDxcBlobUtf16> pPDBName = nullptr;
-    pResults->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pPDB), &pPDBName);
+    if(SUCCEEDED(pResults->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pPDB), &pPDBName)))
     {
         FILE* fp = NULL;
 
@@ -143,8 +157,8 @@ int main()
     // Print hash.
     //
     CComPtr<IDxcBlob> pHash = nullptr;
-    pResults->GetOutput(DXC_OUT_SHADER_HASH, IID_PPV_ARGS(&pHash), nullptr);
-    if (pHash != nullptr)
+    if (SUCCEEDED(pResults->GetOutput(DXC_OUT_SHADER_HASH, IID_PPV_ARGS(&pHash), nullptr)) &&
+        pHash != nullptr)
     {
         wprintf(L"Hash: ");
         DxcShaderHash* pHashBuf = (DxcShaderHash*)pHash->GetBufferPointer();
@@ -158,8 +172,8 @@ int main()
     // Get separate reflection.
     //
     CComPtr<IDxcBlob> pReflectionData;
-    pResults->GetOutput(DXC_OUT_REFLECTION, IID_PPV_ARGS(&pReflectionData), nullptr);
-    if (pReflectionData != nullptr)
+    if (SUCCEEDED(pResults->GetOutput(DXC_OUT_REFLECTION, IID_PPV_ARGS(&pReflectionData), nullptr)) &&
+        pReflectionData != nullptr)
     {
         // Optionally, save reflection blob for later here.
 
