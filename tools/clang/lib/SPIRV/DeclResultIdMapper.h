@@ -437,8 +437,10 @@ private:
     /// Default constructor to satisfy DenseMap
     DeclSpirvInfo() : instr(nullptr), indexInCTBuffer(-1) {}
 
-    DeclSpirvInfo(SpirvInstruction *instr_, int index = -1)
-        : instr(instr_), indexInCTBuffer(index) {}
+    DeclSpirvInfo(DeclResultIdMapper *declResultIdMapper,
+                  SpirvInstruction *instr_, int index = -1)
+        : instr(declResultIdMapper->getOrCreateCloneVarForFxcCTBuffer(instr_)),
+          indexInCTBuffer(index) {}
 
     /// Implicit conversion to SpirvInstruction*.
     operator SpirvInstruction *() const { return instr; }
@@ -452,6 +454,12 @@ private:
   /// \brief Returns the SPIR-V information for the given decl.
   /// Returns nullptr if no such decl was previously registered.
   const DeclSpirvInfo *getDeclSpirvInfo(const ValueDecl *decl) const;
+
+  /// \brief Returns the clone of the given var if we already created it.
+  /// Otherwise, creates a clone and returns it. If we do not need to create a
+  /// clone i.e., the AST type of var does not include matrix type1xN in
+  /// CTBuffer with FXC memory layout rule, it just returns var.
+  SpirvInstruction *getOrCreateCloneVarForFxcCTBuffer(SpirvInstruction *var);
 
 public:
   /// \brief Returns the information for the given decl.
@@ -786,6 +794,22 @@ private:
   /// Mapping of all Clang AST decls to their instruction pointers.
   llvm::DenseMap<const ValueDecl *, DeclSpirvInfo> astDecls;
   llvm::DenseMap<const ValueDecl *, SpirvFunction *> astFunctionDecls;
+
+  /// Mapping of SPIR-V instruction for variable Decl to its clone SPIR-V
+  /// OpVariable. We translate a matrix type1xN as a vector typeN, but type1xN
+  /// in CTBuffer with FXC memory layout rule must have a stride 16 bytes
+  /// between elements. We must use a SPIR-V array type[N] with stride 16 bytes
+  /// for it. Since we translate it into a vector typeN for all places, it has
+  /// side effects. We use a clone variable to fix this issue i.e., when we use
+  /// FXC memory layout,
+  ///  1. Use a SPIR-V variable with array type[N] for a variable with matrix
+  ///     type1xN in CTBuffer.
+  ///  2. Create a SPIR-V vector typeN variable with Private storage class.
+  ///  3. Copy the SPIR-V variable with array type[N] to the one with vector
+  ///     typeN.
+  ///  4. Use the SPIR-V vector typeN variable for all places.
+  llvm::DenseMap<SpirvInstruction *, SpirvInstruction *> varToClone;
+
   /// Vector of all defined stage variables.
   llvm::SmallVector<StageVar, 8> stageVars;
   /// Mapping from Clang AST decls to the corresponding stage variables.

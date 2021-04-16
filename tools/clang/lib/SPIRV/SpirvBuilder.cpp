@@ -26,7 +26,8 @@ namespace spirv {
 SpirvBuilder::SpirvBuilder(ASTContext &ac, SpirvContext &ctx,
                            const SpirvCodeGenOptions &opt)
     : astContext(ac), context(ctx), mod(llvm::make_unique<SpirvModule>()),
-      function(nullptr), spirvOptions(opt), builtinVars(), debugNone(nullptr),
+      function(nullptr), moduleInit(nullptr), moduleInitInsertPoint(nullptr),
+      spirvOptions(opt), builtinVars(), debugNone(nullptr),
       nullDebugExpr(nullptr), stringLiterals() {}
 
 SpirvFunction *SpirvBuilder::createSpirvFunction(QualType returnType,
@@ -186,6 +187,18 @@ SpirvVectorShuffle *SpirvBuilder::createVectorShuffle(
   return instruction;
 }
 
+SpirvLoad *SpirvBuilder::createLoadForModuleInit(const SpirvType *resultType,
+                                                 SpirvInstruction *pointer,
+                                                 SourceLocation loc) {
+  auto *instruction = new (context) SpirvLoad(/*QualType*/ {}, loc, pointer);
+  instruction->setResultType(resultType);
+  instruction->setStorageClass(pointer->getStorageClass());
+  instruction->setLayoutRule(pointer->getLayoutRule());
+  instruction->setRValue(true);
+  addModuleInitInstruction(instruction);
+  return instruction;
+}
+
 SpirvLoad *SpirvBuilder::createLoad(QualType resultType,
                                     SpirvInstruction *pointer,
                                     SourceLocation loc) {
@@ -246,6 +259,13 @@ SpirvLoad *SpirvBuilder::createLoad(const SpirvType *resultType,
   return instruction;
 }
 
+void SpirvBuilder::createStoreForModuleInit(SpirvInstruction *address,
+                                            SpirvInstruction *value,
+                                            SourceLocation loc) {
+  auto *instruction = new (context) SpirvStore(loc, address, value);
+  addModuleInitInstruction(instruction);
+}
+
 void SpirvBuilder::createStore(SpirvInstruction *address,
                                SpirvInstruction *value, SourceLocation loc) {
   assert(insertPoint && "null insert point");
@@ -274,6 +294,19 @@ SpirvBuilder::createFunctionCall(QualType returnType, SpirvFunction *func,
   }
 
   insertPoint->addInstruction(instruction);
+  return instruction;
+}
+
+SpirvAccessChain *SpirvBuilder::createAccessChainForModuleInit(
+    const SpirvType *resultType, SpirvInstruction *base,
+    llvm::ArrayRef<SpirvInstruction *> indexes, SourceLocation loc) {
+  auto *instruction =
+      new (context) SpirvAccessChain(/*QualType*/ {}, loc, base, indexes);
+  instruction->setResultType(resultType);
+  instruction->setStorageClass(base->getStorageClass());
+  instruction->setLayoutRule(base->getLayoutRule());
+  instruction->setContainsAliasComponent(base->containsAliasComponent());
+  addModuleInitInstruction(instruction);
   return instruction;
 }
 
@@ -944,6 +977,153 @@ void SpirvBuilder::createRaytracingTerminateKHR(spv::Op opcode,
   assert(insertPoint && "null insert point");
   auto *inst = new (context) SpirvRayTracingTerminateOpKHR(opcode, loc);
   insertPoint->addInstruction(inst);
+}
+
+void SpirvBuilder::createCopyInstructionsForFxcCTBuffer(SpirvInstruction *dst,
+                                                        SpirvInstruction *src) {
+  assert(dst != nullptr && src != nullptr);
+  assert(dst->getResultType() != nullptr && src->getResultType() != nullptr);
+  assert(src->getLayoutRule() == SpirvLayoutRule::FxcCTBuffer &&
+         dst->getLayoutRule() == SpirvLayoutRule::Void);
+
+  auto *dstPtrType = dyn_cast<SpirvPointerType>(dst->getResultType());
+  auto *srcPtrType = dyn_cast<SpirvPointerType>(src->getResultType());
+  assert(dstPtrType != nullptr && srcPtrType != nullptr);
+
+  auto *dstType = dstPtrType->getPointeeType();
+  auto *srcType = srcPtrType->getPointeeType();
+  assert(dstType != nullptr && srcType != nullptr);
+
+  auto loc = src->getSourceLocation();
+  if (srcType->getKind() == SpirvType::TK_Array ||
+      srcType->getKind() == SpirvType::TK_Struct) {
+    const SpirvPointerType *dstElemPtrTy = nullptr;
+    const SpirvPointerType *srcElemPtrTy = nullptr;
+    if (auto *srcArrTy = dyn_cast<ArrayType>(srcType)) {
+      if (auto *dstArrTy = dyn_cast<ArrayType>(dstType)) {
+        assert(srcArrTy->getElementCount() == dstArrTy->getElementCount());
+
+        dstElemPtrTy = context.getPointerType(dstArrTy->getElementType(),
+                                              dst->getStorageClass());
+        srcElemPtrTy = context.getPointerType(srcArrTy->getElementType(),
+                                              src->getStorageClass());
+      } else if (auto *dstVecTy = dyn_cast<VectorType>(dstType)) {
+        // float1xN must be float[N] for CTBuffer data filling but it should be
+        // used as a vector of N floats in SPIR-V instructions.
+        assert(srcArrTy->getElementCount() == dstVecTy->getElementCount());
+
+        dstElemPtrTy = context.getPointerType(dstVecTy->getElementType(),
+                                              dst->getStorageClass());
+        srcElemPtrTy = context.getPointerType(srcArrTy->getElementType(),
+                                              src->getStorageClass());
+      } else {
+        llvm_unreachable("Unexpected destination type");
+      }
+
+      for (uint32_t i = 0; i < srcArrTy->getElementCount(); ++i) {
+        auto *ptrToSrcElem = createAccessChainForModuleInit(
+            srcElemPtrTy, src,
+            {getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, i))},
+            loc);
+        auto *ptrToDstElem = createAccessChainForModuleInit(
+            dstElemPtrTy, dst,
+            {getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, i))},
+            loc);
+        createCopyInstructionsForFxcCTBuffer(ptrToDstElem, ptrToSrcElem);
+      }
+    } else if (auto *srcStructTy = dyn_cast<StructType>(srcType)) {
+      if (auto *dstStructTy = dyn_cast<StructType>(dstType)) {
+        auto srcFields = srcStructTy->getFields();
+        auto dstFields = dstStructTy->getFields();
+        assert(srcFields.size() == dstFields.size());
+
+        for (uint32_t i = 0; i < srcFields.size(); ++i) {
+          auto *srcElemPtrTy =
+              context.getPointerType(srcFields[i].type, src->getStorageClass());
+          auto *ptrToSrcElem = createAccessChainForModuleInit(
+              srcElemPtrTy, src,
+              {getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, i))},
+              loc);
+          auto *dstElemPtrTy =
+              context.getPointerType(dstFields[i].type, dst->getStorageClass());
+          auto *ptrToDstElem = createAccessChainForModuleInit(
+              dstElemPtrTy, dst,
+              {getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, i))},
+              loc);
+          createCopyInstructionsForFxcCTBuffer(ptrToDstElem, ptrToSrcElem);
+        }
+      } else {
+        llvm_unreachable("Unexpected destination type");
+      }
+    }
+  } else if (srcType->getKind() == SpirvType::TK_Bool ||
+             srcType->getKind() == SpirvType::TK_Integer ||
+             srcType->getKind() == SpirvType::TK_Float ||
+             srcType->getKind() == SpirvType::TK_Vector ||
+             srcType->getKind() == SpirvType::TK_Matrix) {
+    auto *load = createLoadForModuleInit(srcType, src, loc);
+    createStoreForModuleInit(dst, load, loc);
+  } else {
+    llvm_unreachable(
+        "We expect only composite types are accessed with indexes");
+  }
+}
+
+void SpirvBuilder::addModuleInitInstruction(SpirvInstruction *inst) {
+  if (moduleInitInsertPoint == nullptr) {
+    moduleInit = createSpirvFunction(astContext.VoidTy, SourceLocation(),
+                                     "module.init", false);
+    moduleInitInsertPoint = new (context) SpirvBasicBlock("module.init.bb");
+    moduleInit->addBasicBlock(moduleInitInsertPoint);
+  }
+  assert(moduleInitInsertPoint && "null module init insert point");
+  moduleInitInsertPoint->addInstruction(inst);
+}
+
+SpirvInstruction *
+SpirvBuilder::createCloneVarForFxcCTBuffer(SpirvInstruction *instr) {
+  assert(instr);
+  if (instr == nullptr)
+    return nullptr;
+  if (instr->getLayoutRule() != SpirvLayoutRule::FxcCTBuffer)
+    return instr;
+  SpirvVariable *var = dyn_cast<SpirvVariable>(instr);
+  if (var == nullptr)
+    return instr;
+
+  auto astType = var->getAstResultType();
+  const auto *spvType = var->getResultType();
+
+  LowerTypeVisitor lowerTypeVisitor(astContext, context, spirvOptions);
+  lowerTypeVisitor.visitInstruction(var);
+  if (!lowerTypeVisitor.useSpvArrayForHlslMat1xN()) {
+    var->setAstResultType(astType);
+    var->setResultType(spvType);
+    return var;
+  }
+
+  SpirvVariable *clone = nullptr;
+  if (astType != QualType({})) {
+    clone =
+        addModuleVar(astType, spv::StorageClass::Private, var->isPrecise(),
+                     var->getDebugName(), llvm::None, var->getSourceLocation());
+  } else {
+    clone =
+        addModuleVar(spvType, spv::StorageClass::Private, var->isPrecise(),
+                     var->getDebugName(), llvm::None, var->getSourceLocation());
+  }
+  clone->setLayoutRule(SpirvLayoutRule::Void);
+
+  lowerTypeVisitor.visitInstruction(clone);
+
+  createCopyInstructionsForFxcCTBuffer(clone, var);
+
+  var->setAstResultType(astType);
+  var->setResultType(spvType);
+  clone->setAstResultType(astType);
+  clone->setResultType(spvType);
+
+  return clone;
 }
 
 void SpirvBuilder::addModuleProcessed(llvm::StringRef process) {

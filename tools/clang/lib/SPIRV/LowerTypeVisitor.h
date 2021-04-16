@@ -25,7 +25,7 @@ public:
   LowerTypeVisitor(ASTContext &astCtx, SpirvContext &spvCtx,
                    const SpirvCodeGenOptions &opts)
       : Visitor(opts, spvCtx), astContext(astCtx), spvContext(spvCtx),
-        alignmentCalc(astCtx, opts) {}
+        alignmentCalc(astCtx, opts), useArrayForMat1xN(false) {}
 
   // Visiting different SPIR-V constructs.
   bool visit(SpirvModule *, Phase) override { return true; }
@@ -47,6 +47,8 @@ public:
   /// on will be created in SpirvContext.
   const SpirvType *lowerType(QualType type, SpirvLayoutRule,
                              llvm::Optional<bool> isRowMajor, SourceLocation);
+
+  bool useSpvArrayForHlslMat1xN() { return useArrayForMat1xN; }
 
 private:
   /// Emits error to the diagnostic engine associated with this visitor.
@@ -87,6 +89,7 @@ private:
   ASTContext &astContext;                /// AST context
   SpirvContext &spvContext;              /// SPIR-V context
   AlignmentSizeCalculator alignmentCalc; /// alignment calculator
+  bool useArrayForMat1xN;                /// SPIR-V array for HLSL Matrix 1xN
 };
 
 } // end namespace spirv

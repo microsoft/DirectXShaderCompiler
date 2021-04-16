@@ -503,6 +503,11 @@ public:
   /// OpIgnoreIntersectionKHR/OpTerminateIntersectionKHR
   void createRaytracingTerminateKHR(spv::Op opcode, SourceLocation loc);
 
+  /// \brief Creates and returns a clone SPIR-V variable for CTBuffer with FXC
+  /// memory layout if some sub-components of instr contain HLSL matrix 1xN
+  /// QualType. Otherwise, returns instr.
+  SpirvInstruction *createCloneVarForFxcCTBuffer(SpirvInstruction *instr);
+
   // === SPIR-V Module Structure ===
   inline void setMemoryModel(spv::AddressingModel, spv::MemoryModel);
 
@@ -666,6 +671,37 @@ private:
       SpirvInstruction *constOffsets, SpirvInstruction *sample,
       SpirvInstruction *minLod);
 
+  /// \brief Creates an access chain instruction to retrieve the element from
+  /// the given base by walking through the given indexes and adds it as a part
+  /// of module initialization. Returns the instruction pointer for the pointer
+  /// to the element.
+  SpirvAccessChain *createAccessChainForModuleInit(
+      const SpirvType *resultType, SpirvInstruction *base,
+      llvm::ArrayRef<SpirvInstruction *> indexes, SourceLocation loc);
+
+  /// \brief Creates a load instruction loading the value of the given
+  /// <result-type> from the given pointer and adds it as a part of module
+  /// initialization. Returns the instruction pointer for the loaded value.
+  SpirvLoad *createLoadForModuleInit(const SpirvType *resultType,
+                                     SpirvInstruction *pointer,
+                                     SourceLocation loc);
+
+  /// \brief Creates a store instruction storing the given value into the given
+  /// address and adds it as a part of module initialization.
+  void createStoreForModuleInit(SpirvInstruction *address,
+                                SpirvInstruction *value, SourceLocation loc);
+
+  /// \brief Creates instructions to copy sub-components of src to dst. This
+  /// method assumes
+  ///   1. src has a pointer to a type with FXC memory layout rule
+  ///   2. dst has a pointer to a type with void memory layout rule
+  void createCopyInstructionsForFxcCTBuffer(SpirvInstruction *dst,
+                                            SpirvInstruction *src);
+
+  /// \brief Adds the given SPIR-V instruction to the module initialization
+  /// function.
+  void addModuleInitInstruction(SpirvInstruction *inst);
+
 private:
   ASTContext &astContext;
   SpirvContext &context; ///< From which we allocate various SPIR-V object
@@ -673,6 +709,11 @@ private:
   std::unique_ptr<SpirvModule> mod; ///< The current module being built
   SpirvFunction *function;          ///< The current function being built
   SpirvBasicBlock *insertPoint;     ///< The current basic block being built
+
+  SpirvFunction *moduleInit;              ///< The module initialization
+                                          ///< function
+  SpirvBasicBlock *moduleInitInsertPoint; ///< The basic block of the module
+                                          ///< initialization function
 
   const SpirvCodeGenOptions &spirvOptions; ///< Command line options.
 

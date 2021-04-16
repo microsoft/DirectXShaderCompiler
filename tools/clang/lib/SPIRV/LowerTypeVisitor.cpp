@@ -381,6 +381,7 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
     if (!alignmentCalc.useRowMajor(isRowMajor, type))
       std::swap(rowCount, colCount);
     if (rowCount == 1) {
+      useArrayForMat1xN = true;
       auto elemType = hlsl::GetHLSLMatElementType(type);
       uint32_t stride = 0;
       alignmentCalc.getAlignmentAndSize(type, rule, isRowMajor, &stride);

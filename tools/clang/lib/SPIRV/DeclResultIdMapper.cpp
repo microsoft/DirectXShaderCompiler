@@ -717,6 +717,17 @@ DeclResultIdMapper::getDeclSpirvInfo(const ValueDecl *decl) const {
   return nullptr;
 }
 
+SpirvInstruction *
+DeclResultIdMapper::getOrCreateCloneVarForFxcCTBuffer(SpirvInstruction *var) {
+  auto varToCloneItr = varToClone.find(var);
+  if (varToCloneItr != varToClone.end()) {
+    return varToCloneItr->second;
+  }
+  auto *clone = spvBuilder.createCloneVarForFxcCTBuffer(var);
+  varToClone[var] = clone;
+  return clone;
+}
+
 SpirvInstruction *DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl,
                                                       SourceLocation loc) {
   const DeclSpirvInfo *info = getDeclSpirvInfo(decl);
@@ -947,7 +958,7 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
   if (spvImageFormat != spv::ImageFormat::Unknown)
     spvContext.registerImageFormatForSpirvVariable(varInstr, spvImageFormat);
 
-  DeclSpirvInfo info(varInstr);
+  DeclSpirvInfo info(this, varInstr);
   astDecls[var] = info;
 
   createDebugGlobalVariable(varInstr, type, loc, name);
@@ -991,7 +1002,7 @@ DeclResultIdMapper::createOrUpdateStringVar(const VarDecl *var) {
   const StringLiteral *stringLiteral =
       dyn_cast<StringLiteral>(var->getInit()->IgnoreParenCasts());
   SpirvString *init = spvBuilder.getString(stringLiteral->getString());
-  DeclSpirvInfo info(init);
+  DeclSpirvInfo info(this, init);
   astDecls[var] = info;
   return init;
 }
@@ -1089,7 +1100,7 @@ void DeclResultIdMapper::createEnumConstant(const EnumConstantDecl *decl) {
   SpirvVariable *varInstr = spvBuilder.addModuleVar(
       astContext.IntTy, spv::StorageClass::Private, /*isPrecise*/ false,
       decl->getName(), enumConstant, decl->getLocation());
-  astDecls[valueDecl] = DeclSpirvInfo(varInstr);
+  astDecls[valueDecl] = DeclSpirvInfo(this, varInstr);
 }
 
 SpirvVariable *DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
@@ -1111,7 +1122,7 @@ SpirvVariable *DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
       continue;
 
     const auto *varDecl = cast<VarDecl>(subDecl);
-    astDecls[varDecl] = DeclSpirvInfo(bufferVar, index++);
+    astDecls[varDecl] = DeclSpirvInfo(this, bufferVar, index++);
   }
   resourceVars.emplace_back(
       bufferVar, decl, decl->getLocation(), getResourceBinding(decl),
@@ -1185,7 +1196,7 @@ SpirvVariable *DeclResultIdMapper::createCTBuffer(const VarDecl *decl) {
       decl->getName());
 
   // We register the VarDecl here.
-  astDecls[decl] = DeclSpirvInfo(bufferVar);
+  astDecls[decl] = DeclSpirvInfo(this, bufferVar);
   resourceVars.emplace_back(
       bufferVar, decl, decl->getLocation(), getResourceBinding(decl),
       decl->getAttr<VKBindingAttr>(), decl->getAttr<VKCounterBindingAttr>());
@@ -1212,7 +1223,7 @@ SpirvVariable *DeclResultIdMapper::createPushConstant(const VarDecl *decl) {
       structName, decl->getName());
 
   // Register the VarDecl
-  astDecls[decl] = DeclSpirvInfo(var);
+  astDecls[decl] = DeclSpirvInfo(this, var);
 
   // Do not push this variable into resourceVars since it does not need
   // descriptor set.
@@ -1241,7 +1252,7 @@ DeclResultIdMapper::createShaderRecordBuffer(const VarDecl *decl,
       kind, structName, decl->getName());
 
   // Register the VarDecl
-  astDecls[decl] = DeclSpirvInfo(var);
+  astDecls[decl] = DeclSpirvInfo(this, var);
 
   // Do not push this variable into resourceVars since it does not need
   // descriptor set.
@@ -1276,7 +1287,7 @@ DeclResultIdMapper::createShaderRecordBuffer(const HLSLBufferDecl *decl,
       continue;
 
     const auto *varDecl = cast<VarDecl>(subDecl);
-    astDecls[varDecl] = DeclSpirvInfo(bufferVar, index++);
+    astDecls[varDecl] = DeclSpirvInfo(this, bufferVar, index++);
   }
   return bufferVar;
 }
@@ -1312,7 +1323,7 @@ void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
         return;
       }
 
-      astDecls[varDecl] = DeclSpirvInfo(globals, index++);
+      astDecls[varDecl] = DeclSpirvInfo(this, globals, index++);
     }
   }
 }
@@ -1385,7 +1396,7 @@ DeclResultIdMapper::getCounterVarFields(const DeclaratorDecl *decl) {
 void DeclResultIdMapper::registerSpecConstant(const VarDecl *decl,
                                               SpirvInstruction *specConstant) {
   specConstant->setRValue();
-  astDecls[decl] = DeclSpirvInfo(specConstant);
+  astDecls[decl] = DeclSpirvInfo(this, specConstant);
 }
 
 void DeclResultIdMapper::createCounterVar(
