@@ -739,6 +739,10 @@ void SpirvBuilder::createConditionalBranch(
   insertPoint->addInstruction(branchConditional);
 }
 
+void SpirvBuilder::createReturnForModuleInit() {
+  addModuleInitInstruction(new (context) SpirvReturn(/* SourceLocation */ {}));
+}
+
 void SpirvBuilder::createReturn(SourceLocation loc) {
   assert(insertPoint && "null insert point");
   insertPoint->addInstruction(new (context) SpirvReturn(loc));
@@ -1410,6 +1414,19 @@ SpirvString *SpirvBuilder::getString(llvm::StringRef str) {
 }
 
 std::vector<uint32_t> SpirvBuilder::takeModule() {
+  if (moduleInit != nullptr) {
+    createReturnForModuleInit();
+    mod->addFunctionToListOfSortedModuleFunctions(moduleInit);
+  }
+
+  for (auto *entry : mod->getEntryPoints()) {
+    auto *instruction = new (context)
+        SpirvFunctionCall(astContext.VoidTy, /* SourceLocation */ {},
+                          moduleInit, /* params */ {});
+    instruction->setRValue(true);
+    entry->getEntryPoint()->addModuleInitCall(instruction);
+  }
+
   // Run necessary visitor passes first
   LiteralTypeVisitor literalTypeVisitor(astContext, context, spirvOptions);
   LowerTypeVisitor lowerTypeVisitor(astContext, context, spirvOptions);

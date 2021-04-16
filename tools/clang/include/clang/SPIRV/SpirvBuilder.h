@@ -691,6 +691,10 @@ private:
   void createStoreForModuleInit(SpirvInstruction *address,
                                 SpirvInstruction *value, SourceLocation loc);
 
+  /// \brief Creates a return instruction and adds it as a part of module
+  /// initialization.
+  void createReturnForModuleInit();
+
   /// \brief Creates instructions to copy sub-components of src to dst. This
   /// method assumes
   ///   1. src has a pointer to a type with FXC memory layout rule
