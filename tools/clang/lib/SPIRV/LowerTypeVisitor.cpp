@@ -57,6 +57,9 @@ bool LowerTypeVisitor::visit(SpirvFunction *fn, Phase phase) {
 }
 
 bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
+  if (spvContext.hasLoweredType(instr))
+    return true;
+
   const QualType astType = instr->getAstResultType();
   const SpirvType *hybridType = instr->getResultType();
 
