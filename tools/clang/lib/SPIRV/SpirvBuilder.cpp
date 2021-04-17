@@ -1413,11 +1413,9 @@ SpirvString *SpirvBuilder::getString(llvm::StringRef str) {
   return instr;
 }
 
-std::vector<uint32_t> SpirvBuilder::takeModule() {
-  if (moduleInit != nullptr) {
-    createReturnForModuleInit();
-    mod->addFunctionToListOfSortedModuleFunctions(moduleInit);
-  }
+void SpirvBuilder::addModuleInitCallToEntryPoints() {
+  if (moduleInit == nullptr)
+    return;
 
   for (auto *entry : mod->getEntryPoints()) {
     auto *instruction = new (context)
@@ -1426,6 +1424,20 @@ std::vector<uint32_t> SpirvBuilder::takeModule() {
     instruction->setRValue(true);
     entry->getEntryPoint()->addModuleInitCall(instruction);
   }
+}
+
+void SpirvBuilder::endModuleInitFunction() {
+  if (moduleInitInsertPoint == nullptr ||
+      moduleInitInsertPoint->hasTerminator()) {
+    return;
+  }
+  createReturnForModuleInit();
+  mod->addFunctionToListOfSortedModuleFunctions(moduleInit);
+}
+
+std::vector<uint32_t> SpirvBuilder::takeModule() {
+  endModuleInitFunction();
+  addModuleInitCallToEntryPoints();
 
   // Run necessary visitor passes first
   LiteralTypeVisitor literalTypeVisitor(astContext, context, spirvOptions);

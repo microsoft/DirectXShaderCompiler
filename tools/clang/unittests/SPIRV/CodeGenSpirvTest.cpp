@@ -2095,6 +2095,14 @@ TEST_F(FileTest, VulkanLayoutFxcRulesCBufferMatrixMajorness) {
   setDxLayout();
   runFileTest("vk.layout.cbuffer.fxc.matrix.majorness.hlsl");
 }
+TEST_F(FileTest, VulkanLayoutFxcRulesCBufferMatrixUseArrayForVertex) {
+  setDxLayout();
+  runFileTest("vk.layout.cbuffer.fxc.matrix.v2arr.conversion.hlsl");
+}
+TEST_F(FileTest, VulkanLayoutFxcRulesCBufferMatrixUseArrayForVertexWithO3) {
+  setDxLayout();
+  runFileTest("vk.layout.cbuffer.fxc.matrix.v2arr.conversion.o3.hlsl");
+}
 
 TEST_F(FileTest, VulkanLayoutFxcRulesCBuffer1) {
   // cbuffer/tbuffer/ConstantBuffer/TextureBuffer with fxc layout rules

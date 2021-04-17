@@ -706,6 +706,13 @@ private:
   /// function.
   void addModuleInitInstruction(SpirvInstruction *inst);
 
+  /// \brief Adds OpFunctionCall instructions for ModuleInit to all entry
+  /// points.
+  void addModuleInitCallToEntryPoints();
+
+  /// \brief Ends building of the module initialization function.
+  void endModuleInitFunction();
+
 private:
   ASTContext &astContext;
   SpirvContext &context; ///< From which we allocate various SPIR-V object

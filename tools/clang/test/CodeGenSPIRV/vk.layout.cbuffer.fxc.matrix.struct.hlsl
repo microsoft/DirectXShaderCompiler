@@ -27,11 +27,6 @@ float4 main(float4 color : COLOR) : SV_TARGET
 {
   color.x += end;
 
-// CHECK: [[ptr_layout:%\w+]] = OpTypePointer Uniform %layout
-// CHECK: [[buffer0_1:%\w+]] = OpAccessChain [[ptr_layout]] %buffer0 %int_1
-// CHECK: [[ptr_foo:%\w+]] = OpAccessChain {{%\w+}} [[buffer0_1]] %int_1
-// CHECK: [[ptr_foo_1:%\w+]] = OpAccessChain {{%\w+}} [[ptr_foo]] %int_1
-// CHECK: OpLoad %float [[ptr_foo_1]]
   color.x += bar.foo._12;
 
   return color;
