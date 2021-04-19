@@ -7,6 +7,13 @@
 
 // CHECK: [[arr_f2]] = OpTypeArray %float %uint_2
 // CHECK: %type_buffer0 = OpTypeStruct %float [[arr_f2]] %float
+// CHECK: %_ptr_Uniform_type_buffer0 = OpTypePointer Uniform %type_buffer0
+
+// CHECK: [[buffer0_clone:%\w+]] = OpTypeStruct %float %v2float %float
+// CHECK: [[ptr_buffer0_clone:%\w+]] = OpTypePointer Private [[buffer0_clone]]
+
+// CHECK: %buffer0 = OpVariable %_ptr_Uniform_type_buffer0 Uniform
+// CHECK:            OpVariable [[ptr_buffer0_clone]] Private
 
 cbuffer buffer0 {
   float dummy0;                      // Offset:    0 Size:     4 [unused]
