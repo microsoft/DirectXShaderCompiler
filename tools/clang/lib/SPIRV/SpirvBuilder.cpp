@@ -1116,6 +1116,15 @@ SpirvBuilder::createCloneVarForFxcCTBuffer(SpirvInstruction *instr) {
         addModuleVar(astType, spv::StorageClass::Private, var->isPrecise(),
                      var->getDebugName(), llvm::None, var->getSourceLocation());
   } else {
+    if (const auto *ty = dyn_cast<StructType>(spvType)) {
+      spvType = context.getStructType(ty->getFields(), ty->getName(),
+                                      ty->isReadOnly(),
+                                      StructInterfaceType::InternalStorage);
+    } else if (const auto *ty = dyn_cast<HybridStructType>(spvType)) {
+      spvType = context.getHybridStructType(
+          ty->getFields(), ty->getName(), ty->isReadOnly(),
+          StructInterfaceType::InternalStorage);
+    }
     clone =
         addModuleVar(spvType, spv::StorageClass::Private, var->isPrecise(),
                      var->getDebugName(), llvm::None, var->getSourceLocation());

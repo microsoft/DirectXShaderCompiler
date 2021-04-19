@@ -6,10 +6,15 @@
 // CHECK: OpMemberDecorate {{%\w+}} 2 Offset 52
 
 // CHECK: [[arr_f3]] = OpTypeArray %float %uint_3
-// CHECK: [[type_buffer0:%\w+]] = OpTypeStruct %float [[arr_f3]] %float
-// CHECK: [[type_ptr_buffer0:%\w+]] = OpTypePointer Uniform [[type_buffer0]]
-// CHECK: [[type_buffer0_clone:%\w+]] = OpTypeStruct %float %v3float %float
-// CHECK: [[buffer0:%\w+]] = OpVariable [[type_ptr_buffer0]] Uniform
+// CHECK: %type_buffer0 = OpTypeStruct %float [[arr_f3]] %float
+// CHECK-NOT: OpTypeStruct
+// CHECK-NOT: OpTypeArray
+
+// Type for `float4 color`
+// CHECK: %v4float = OpTypeVector %float 4
+// CHECK-NOT: OpTypeVector
+
+// CHECK: %buffer0 = OpVariable %_ptr_Uniform_type_buffer0 Uniform
 
 cbuffer buffer0 {
   float dummy0;                      // Offset:    0 Size:     4 [unused]
@@ -19,17 +24,10 @@ cbuffer buffer0 {
 
 float4 main(float4 color : COLOR) : SV_TARGET
 {
-// CHECK: [[buffer0_clone:%\w+]] = {{\w+}} [[type_buffer0_clone]]
-
-// CHECK: [[foo_0:%\w+]] = OpAccessChain %_ptr_Uniform_float [[buffer0]] %uint_1 %uint_0
+// CHECK: [[foo_0:%\w+]] = OpAccessChain %_ptr_Uniform_float %buffer0 %uint_1 %uint_0
 // CHECK: [[foo_0_value:%\w+]] = OpLoad %float [[foo_0]]
-// CHECK: [[buffer0_clone:%\w+]] = OpCompositeInsert [[type_buffer0_clone]] [[foo_0_value]] [[buffer0_clone]] 1 0
-// CHECK: [[foo_1:%\w+]] = OpAccessChain %_ptr_Uniform_float [[buffer0]] %uint_1 %uint_1
-// CHECK: [[foo_1_value:%\w+]] = OpLoad %float [[foo_1]]
-// CHECK: [[buffer0_clone:%\w+]] = OpCompositeInsert [[type_buffer0_clone]] [[foo_1_value]] [[buffer0_clone]] 1 1
-// CHECK: [[foo_2:%\w+]] = OpAccessChain %_ptr_Uniform_float [[buffer0]] %uint_1 %uint_2
-// CHECK: [[foo_2_value:%\w+]] = OpLoad %float [[foo_2]]
-// CHECK: [[buffer0_clone:%\w+]] = OpCompositeInsert [[type_buffer0_clone]] [[foo_2_value]] [[buffer0_clone]] 1 2
+// CHECK:                  OpFAdd %float {{%\w+}} [[foo_0_value]]
+
   float1x2 bar = foo;
   color.x += bar._m00;
   return color;
