@@ -560,7 +560,7 @@ public:
 
     // Load up debug information, to cross-reference values and the instructions
     // used to load them.
-    m_HasDbgInfo = getDebugMetadataVersionFromModule(M) != 0;
+    m_HasDbgInfo = hasDebugInfo(M);
 
     GenerateDxilResourceHandles();
 

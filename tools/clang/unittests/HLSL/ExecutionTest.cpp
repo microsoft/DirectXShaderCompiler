@@ -86,24 +86,6 @@ static bool contains(InputIterator b, InputIterator e, const T &val) {
   return e != std::find(b, e, val);
 }
 
-static HRESULT EnableExperimentalShaderModels() {
-  HMODULE hRuntime = LoadLibraryW(L"d3d12.dll");
-  if (hRuntime == NULL) {
-    return HRESULT_FROM_WIN32(GetLastError());
-  }
-
-  D3D12EnableExperimentalFeaturesFn pD3D12EnableExperimentalFeatures =
-    (D3D12EnableExperimentalFeaturesFn)GetProcAddress(hRuntime, "D3D12EnableExperimentalFeatures");
-  if (pD3D12EnableExperimentalFeatures == nullptr) {
-    FreeLibrary(hRuntime);
-    return HRESULT_FROM_WIN32(GetLastError());
-  }
-
-  HRESULT hr = pD3D12EnableExperimentalFeatures(1, &D3D12ExperimentalShaderModelsID, nullptr, nullptr);
-  FreeLibrary(hRuntime);
-  return hr;
-}
-
 static HRESULT ReportLiveObjects() {
   CComPtr<IDXGIDebug1> pDebug;
   IFR(DXGIGetDebugInterface1(0, IID_PPV_ARGS(&pDebug)));
@@ -308,9 +290,7 @@ public:
   TEST_METHOD(AtomicsShared64Test);
   TEST_METHOD(AtomicsFloatTest);
   TEST_METHOD(HelperLaneTest);
-  BEGIN_TEST_METHOD(HelperLaneTestWave)
-    TEST_METHOD_PROPERTY(L"Priority", L"2") // Remove this line once warp handles this
-  END_TEST_METHOD()
+  TEST_METHOD(HelperLaneTestWave);
   TEST_METHOD(SignatureResourcesTest)
   TEST_METHOD(DynamicResourcesTest)
   TEST_METHOD(QuadReadTest)
@@ -462,6 +442,29 @@ public:
   bool m_ExperimentalModeEnabled = false;
 
   const float ClearColor[4] = { 0.0f, 0.2f, 0.4f, 1.0f };
+
+  bool DivergentClassSetup() {
+    HRESULT hr;
+    hr = EnableExperimentalMode();
+    if (FAILED(hr)) {
+      LogCommentFmt(L"Unable to enable shader experimental mode - 0x%08x.", hr);
+    } else if (hr == S_FALSE) {
+      LogCommentFmt(L"Experimental mode not enabled.");
+    } else {
+      LogCommentFmt(L"Experimental mode enabled.");
+    }
+
+    hr = EnableDebugLayer();
+    if (FAILED(hr)) {
+      LogCommentFmt(L"Unable to enable debug layer - 0x%08x.", hr);
+    } else if (hr == S_FALSE) {
+      LogCommentFmt(L"Debug layer not enabled.");
+    } else {
+      LogCommentFmt(L"Debug layer enabled.");
+    }
+
+    return true;
+  }
 
 // Do not remove the following line - it is used by TranslateExecutionTest.py
 // MARKER: ExecutionTest/DxilConf Shared Implementation Start
@@ -635,8 +638,7 @@ public:
   }
 
   bool CreateDevice(_COM_Outptr_ ID3D12Device **ppDevice,
-                    D3D_SHADER_MODEL testModel = D3D_SHADER_MODEL_6_0, bool skipUnsupported = true,
-                    bool enableRayTracing = false) {
+                    D3D_SHADER_MODEL testModel = D3D_SHADER_MODEL_6_0, bool skipUnsupported = true) {
     if (testModel > HIGHEST_SHADER_MODEL) {
       UINT minor = (UINT)testModel & 0x0f;
       LogCommentFmt(L"Installed SDK does not support "
@@ -648,7 +650,6 @@ public:
 
       return false;
     }
-    const D3D_FEATURE_LEVEL FeatureLevelRequired = enableRayTracing ? D3D_FEATURE_LEVEL_12_0 : D3D_FEATURE_LEVEL_11_0;
     CComPtr<IDXGIFactory4> factory;
     CComPtr<ID3D12Device> pDevice;
 
@@ -658,7 +659,7 @@ public:
     if (GetTestParamUseWARP(UseWarpByDefault())) {
       CComPtr<IDXGIAdapter> warpAdapter;
       VERIFY_SUCCEEDED(factory->EnumWarpAdapter(IID_PPV_ARGS(&warpAdapter)));
-      HRESULT createHR = D3D12CreateDevice(warpAdapter, FeatureLevelRequired,
+      HRESULT createHR = D3D12CreateDevice(warpAdapter, D3D_FEATURE_LEVEL_11_0,
                                            IID_PPV_ARGS(&pDevice));
       if (FAILED(createHR)) {
         LogCommentFmt(L"The available version of WARP does not support d3d12.");
@@ -680,7 +681,7 @@ public:
         WEX::Logging::Log::Comment(
             L"Using default hardware adapter with D3D12 support.");
       }
-      VERIFY_SUCCEEDED(D3D12CreateDevice(hardwareAdapter, FeatureLevelRequired,
+      VERIFY_SUCCEEDED(D3D12CreateDevice(hardwareAdapter, D3D_FEATURE_LEVEL_11_0,
                                          IID_PPV_ARGS(&pDevice)));
     }
     // retrieve adapter information
@@ -702,9 +703,9 @@ public:
       const UINT D3D12_FEATURE_SHADER_MODEL = 7;
       D3D12_FEATURE_DATA_SHADER_MODEL SMData;
       SMData.HighestShaderModel = testModel;
-      VERIFY_SUCCEEDED(pDevice->CheckFeatureSupport(
-        (D3D12_FEATURE)D3D12_FEATURE_SHADER_MODEL, &SMData, sizeof(SMData)));
-      if (SMData.HighestShaderModel < testModel) {
+      if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_SHADER_MODEL,
+                                              &SMData, sizeof(SMData))) ||
+          SMData.HighestShaderModel < testModel) {
         UINT minor = (UINT)testModel & 0x0f;
         LogCommentFmt(L"The selected device does not support "
                       L"shader model 6.%1u", minor);
@@ -1232,7 +1233,7 @@ public:
     D3D12_FEATURE_DATA_D3D12_OPTIONS11 O11;
     if (FAILED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS11, &O11, sizeof(O11))))
       return false;
-    return O11.AtomicInt64OnDescriptorHeapResourcesSupported != FALSE;
+    return O11.AtomicInt64OnDescriptorHeapResourceSupported != FALSE;
 #else
     UNREFERENCED_PARAMETER(pDevice);
     return false;
@@ -1284,7 +1285,26 @@ public:
     return hr;
   }
 
-#ifndef _HLK_CONF
+  static HRESULT EnableExperimentalShaderModels() {
+    HMODULE hRuntime = LoadLibraryW(L"d3d12.dll");
+    if (hRuntime == NULL) {
+      return HRESULT_FROM_WIN32(GetLastError());
+    }
+
+    D3D12EnableExperimentalFeaturesFn pD3D12EnableExperimentalFeatures =
+        (D3D12EnableExperimentalFeaturesFn)GetProcAddress(
+            hRuntime, "D3D12EnableExperimentalFeatures");
+    if (pD3D12EnableExperimentalFeatures == nullptr) {
+      FreeLibrary(hRuntime);
+      return HRESULT_FROM_WIN32(GetLastError());
+    }
+
+    HRESULT hr = pD3D12EnableExperimentalFeatures(
+        1, &D3D12ExperimentalShaderModelsID, nullptr, nullptr);
+    FreeLibrary(hRuntime);
+    return hr;
+  }
+
   HRESULT EnableExperimentalMode() {
     if (m_ExperimentalModeEnabled) {
       return S_OK;
@@ -1298,7 +1318,6 @@ public:
     }
     return hr;
   }
-#endif
 
   struct FenceObj {
     HANDLE m_fenceEvent = NULL;
@@ -1387,7 +1406,7 @@ public:
   void RunLifetimeIntrinsicTest(ID3D12Device *pDevice, LPCSTR shader, D3D_SHADER_MODEL shaderModel, bool useLibTarget, LPCWSTR *pOptions, int numOptions, std::vector<uint32_t> &values);
   void RunLifetimeIntrinsicComputeTest(ID3D12Device *pDevice, LPCSTR pShader, CComPtr<ID3D12DescriptorHeap>& pUavHeap, CComPtr<ID3D12RootSignature>& pRootSignature,
                                        LPCWSTR pTargetProfile, LPCWSTR *pOptions, int numOptions, std::vector<uint32_t> &values);
-  void RunLifetimeIntrinsicLibTest(ID3D12Device5 *pDevice, LPCSTR pShader, CComPtr<ID3D12RootSignature>& pRootSignature,
+  void RunLifetimeIntrinsicLibTest(ID3D12Device *pDevice0, LPCSTR pShader, CComPtr<ID3D12RootSignature>& pRootSignature,
                                    LPCWSTR pTargetProfile, LPCWSTR *pOptions, int numOptions);
 
   void SetDescriptorHeap(ID3D12GraphicsCommandList *pCommandList, ID3D12DescriptorHeap *pHeap) {
@@ -1436,35 +1455,7 @@ static void SetupComputeValuePattern(std::vector<uint32_t> &values,
 }
 
 bool ExecutionTest::ExecutionTestClassSetup() {
-#ifdef _HLK_CONF
-// TODO: Enabling the D3D driver verifier. Check out the logic in the D3DConf_12_Core test.
-    VERIFY_SUCCEEDED(m_support.Initialize());
-    m_UseWarp = hlsl_test::GetTestParamUseWARP(false);
-    m_EnableDebugLayer = hlsl_test::GetTestParamBool(L"DebugLayer");
-    if (m_EnableDebugLayer) {
-        EnableDebugLayer();
-    }
-    return true;
-#else
-  HRESULT hr = EnableExperimentalMode();
-  if (FAILED(hr)) {
-    LogCommentFmt(L"Unable to enable shader experimental mode - 0x%08x.", hr);
-  }
-  else if (hr == S_FALSE) {
-    LogCommentFmt(L"Experimental mode not enabled.");
-  }
-  else {
-    LogCommentFmt(L"Experimental mode enabled.");
-  }
-  hr = EnableDebugLayer();
-  if (FAILED(hr)) {
-    LogCommentFmt(L"Unable to enable debug layer - 0x%08x.", hr);
-  }
-  else {
-    LogCommentFmt(L"Debug layer enabled.");
-  }
-  return true;
-#endif
+  return DivergentClassSetup();
 }
 
 void ExecutionTest::RunRWByteBufferComputeTest(ID3D12Device *pDevice, LPCSTR pShader, std::vector<uint32_t> &values) {
@@ -1634,8 +1625,11 @@ void ExecutionTest::RunLifetimeIntrinsicComputeTest(ID3D12Device *pDevice, LPCST
   WaitForSignal(pCommandQueue, FO);
 }
 
-void ExecutionTest::RunLifetimeIntrinsicLibTest(ID3D12Device5 *pDevice, LPCSTR pShader, CComPtr<ID3D12RootSignature>& pRootSignature,
+void ExecutionTest::RunLifetimeIntrinsicLibTest(ID3D12Device *pDevice0, LPCSTR pShader, CComPtr<ID3D12RootSignature>& pRootSignature,
                                                 LPCWSTR pTargetProfile, LPCWSTR *pOptions, int numOptions) {
+  CComPtr<ID3D12Device5> pDevice;
+  VERIFY_SUCCEEDED(pDevice0->QueryInterface(IID_PPV_ARGS(&pDevice)));
+
   // Create command queue.
   CComPtr<ID3D12CommandQueue> pCommandQueue;
   CreateCommandQueue(pDevice, L"RunLifetimeIntrinsicTest Command Queue", &pCommandQueue, D3D12_COMMAND_LIST_TYPE_DIRECT);
@@ -1722,10 +1716,13 @@ void ExecutionTest::RunLifetimeIntrinsicTest(ID3D12Device *pDevice, LPCSTR pShad
     CreateRootSignatureFromDesc(pDevice, &rootSignatureDesc, &pRootSignature);
   }
 
-  if (useLibTarget)
-    RunLifetimeIntrinsicLibTest(reinterpret_cast<ID3D12Device5*>(pDevice), pShader, pRootSignature, pTargetProfile, pOptions, numOptions);
-  else
-    RunLifetimeIntrinsicComputeTest(pDevice, pShader, pUavHeap, pRootSignature, pTargetProfile, pOptions, numOptions, values);
+  if (useLibTarget) {
+    RunLifetimeIntrinsicLibTest(pDevice, pShader, pRootSignature, pTargetProfile,
+      pOptions, numOptions);
+  } else {
+    RunLifetimeIntrinsicComputeTest(pDevice, pShader, pUavHeap, pRootSignature, pTargetProfile,
+      pOptions, numOptions, values);
+  }
 }
 
 TEST_F(ExecutionTest, LifetimeIntrinsicTest) {
@@ -1772,59 +1769,97 @@ TEST_F(ExecutionTest, LifetimeIntrinsicTest) {
   static const int ThreadsPerGroup = NumThreadsX * NumThreadsY * NumThreadsZ;
   static const int DispatchGroupCount = 1;
 
-  // TODO: There's probably a lot of things in the rest of this test that could be stripped away.
+  CComPtr<ID3D12Device> pDevice;
+  bool bSM_6_6_Supported = CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6, false);
+  bool bSM_6_3_Supported = bSM_6_6_Supported;
+  if (!bSM_6_6_Supported) {
+    // Try 6.3 for downlevel DXR case
+    bSM_6_3_Supported = CreateDevice(&pDevice, D3D_SHADER_MODEL_6_3, false);
+  }
+  if (!bSM_6_3_Supported) {
+    // Otherwise, 6.0 better be supported for compute case
+    VERIFY_IS_TRUE(CreateDevice(&pDevice, D3D_SHADER_MODEL_6_0, false));
+  }
+  bool bDXRSupported = bSM_6_3_Supported && DoesDeviceSupportRayTracing(pDevice);
 
-  CComPtr<ID3D12Device5> pDevice;
-  if (!CreateDevice(reinterpret_cast<ID3D12Device**>(&pDevice), D3D_SHADER_MODEL_6_6, true, true)) {
-    WEX::Logging::Log::Comment(L"Lifetime test not run pre 6.6");
+  if (GetTestParamUseWARP(UseWarpByDefault()) || IsDeviceBasicAdapter(pDevice)) {
+    WEX::Logging::Log::Comment(L"WARP has a known issue with LifetimeIntrinsicTest.");
     WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
     return;
+  }
+
+  if (!bSM_6_6_Supported) {
+    WEX::Logging::Log::Comment(L"Native lifetime markers skipped, device does not support SM 6.6");
+  }
+  if (!bDXRSupported) {
+    WEX::Logging::Log::Comment(L"DXR lifetime tests skipped, device does not support DXR");
   }
 
   std::vector<uint32_t> values;
   SetupComputeValuePattern(values, ThreadsPerGroup * DispatchGroupCount);
 
   // Run a number of tests for different configurations that will cause
-  // lifetime intrinsics to be placed directly, be replaced by a zeroinitializer
-  // store, or be replaced by an undef store.
-  LPCWSTR pOptions15[] = {L"/validator-version 1.5"};
-  LPCWSTR pOptions16[] = {L"/validator-version 1.6", L"/Vd"};
+  // lifetime intrinsics to be:
+  // - placed directly
+  // - translated to an undef store
+  // - translated to a zeroinitializer store
+  // against compute and DXR targets, downlevel and SM 6.6:
+  // - downlevel: cs_6_0, lib_6_3 (DXR)
+  // - cs_6_6, lib_6_6 (DXR)
 
   VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
 
-  // Test regular shader with zeroinitializer store.
-  RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_0, false, pOptions15, _countof(pOptions15), values);
+  LPCWSTR optsBase[] = {L"-enable-lifetime-markers"};
+  LPCWSTR optsZeroStore[] = {L"-enable-lifetime-markers", L"-force-zero-store-lifetimes"};
+
+  WEX::Logging::Log::Comment(L"==== cs_6_0 with default translation");
+  RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_0, false,
+    optsBase, _countof(optsBase), values);
   VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
 
-  if (DoesDeviceSupportRayTracing(pDevice)) {
-    // Test library with zeroinitializer store.
-    RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_3, true, pOptions15, _countof(pOptions15), values);
+  if (bDXRSupported) {
+    WEX::Logging::Log::Comment(L"==== DXR lib_6_3 with default translation");
+    RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_3, true,
+      optsBase, _countof(optsBase), values);
     VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
   }
 
-  // Testing SM 6.6 and validator version 1.6 requires experimental shaders
-  // being turned on.
-  if (!m_ExperimentalModeEnabled)
-      return;
-
-  // Test regular shader with undef store.
-  RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_0, false, pOptions16, _countof(pOptions16), values);
+  WEX::Logging::Log::Comment(L"==== cs_6_0 with zeroinitializer translation");
+  RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_0, false,
+    optsZeroStore, _countof(optsZeroStore), values);
   VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
 
-  if (DoesDeviceSupportRayTracing(pDevice)) {
-    // Test library with undef store.
-    RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_3, true, pOptions16, _countof(pOptions16), values);
+  if (bDXRSupported) {
+    WEX::Logging::Log::Comment(L"==== DXR lib_6_3 with zeroinitializer translation");
+    RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_3, true,
+      optsZeroStore, _countof(optsZeroStore), values);
     VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
   }
 
-  // Test regular shader with lifetime intrinsics.
-  RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_5, false, pOptions16, _countof(pOptions16), values); // TODO: Test 6.6 here!
-  VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
-
-  if (DoesDeviceSupportRayTracing(pDevice)) {
-    // Test library with lifetime intrinsics.
-    RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_5, true, pOptions16, _countof(pOptions16), values); // TODO: Test 6.6 here!
+  if (bSM_6_6_Supported) {
+    WEX::Logging::Log::Comment(L"==== cs_6_6 with zeroinitializer translation");
+    RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_6, false,
+      optsZeroStore, _countof(optsZeroStore), values);
     VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
+
+    if (bDXRSupported) {
+      WEX::Logging::Log::Comment(L"==== DXR lib_6_6 with zeroinitializer translation");
+      RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_6, true,
+        optsZeroStore, _countof(optsZeroStore), values);
+      VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
+    }
+
+    WEX::Logging::Log::Comment(L"==== cs_6_6 with native lifetime markers");
+    RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_6, false,
+      optsBase, _countof(optsBase), values);
+    VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
+
+    if (bDXRSupported) {
+      WEX::Logging::Log::Comment(L"==== DXR lib_6_6 with native lifetime markers");
+      RunLifetimeIntrinsicTest(pDevice, pShader, D3D_SHADER_MODEL_6_6, true,
+        optsBase, _countof(optsBase), values);
+      VERIFY_ARE_EQUAL(values[1], (uint32_t)1);
+    }
   }
 }
 
@@ -3424,6 +3459,7 @@ TEST_F(ExecutionTest, ComputeSampleTest) {
   // Test 2D compute shader
   pShaderOp->CS = CS2;
 
+  test.reset();
   test = RunShaderOpTestAfterParse(pDevice, m_support, "ComputeSample", SampleInitFn, ShaderOpSet);
 
   test->Test->GetReadBackData("U0", &data);
@@ -8316,6 +8352,15 @@ TEST_F(ExecutionTest, DynamicResourcesTest) {
   if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6))
     return;
 
+  // ResourceDescriptorHeap/SamplerDescriptorHeap requires Resource Binding Tier 3
+  D3D12_FEATURE_DATA_D3D12_OPTIONS devOptions;
+  VERIFY_SUCCEEDED(pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS, &devOptions, sizeof(devOptions)));
+  if (devOptions.ResourceBindingTier < D3D12_RESOURCE_BINDING_TIER_3) {
+    WEX::Logging::Log::Comment(L"Device does not support Resource Binding Tier 3");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
   RunResourceTest(pDevice, pShader, L"cs_6_6", /*isDynamic*/true);
 }
 
@@ -9314,7 +9359,7 @@ bool VerifyHelperLaneWaveResults(ExecutionTest::D3D_SHADER_MODEL sm, HelperLaneW
     passed &= HelperLaneResultLogAndVerify(L"QuadReadAcross* - lane 0 / pixel (0,0) - IsHelperLane()", quad_tr_exp.is_helper_across_Diag, quad_tr.is_helper_across_Diag);
   }
 
-  if (sm >= D3D_SHADER_MODEL_6_5) {
+  if (sm >= ExecutionTest::D3D_SHADER_MODEL_6_5) {
     HelperLaneWaveTestResult65& tr65 = testResults.sm65;
     HelperLaneWaveTestResult65& tr65exp = expectedResults.sm65;
     
@@ -9380,6 +9425,12 @@ TEST_F(ExecutionTest, HelperLaneTestWave) {
     CComPtr<ID3D12Device> pDevice;
     if (!CreateDevice(&pDevice, sm, false /* skipUnsupported */)) {
       continue;
+    }
+
+    if (GetTestParamUseWARP(UseWarpByDefault()) || IsDeviceBasicAdapter(pDevice)) {
+      WEX::Logging::Log::Comment(L"WARP has a known issue with HelperLaneTestWave.");
+      WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+      return;
     }
 
     if (!DoesDeviceSupportWaveOps(pDevice)) {
@@ -9514,7 +9565,7 @@ static void WriteReadBackDump(st::ShaderOp *pShaderOp, st::ShaderOpTest *pTest,
 // It's exclusive with the use of the DLL as a TAEF target.
 extern "C" {
   __declspec(dllexport) HRESULT WINAPI InitializeOpTests(void *pStrCtx, st::OutputStringFn pOutputStrFn) {
-    HRESULT hr = EnableExperimentalShaderModels();
+    HRESULT hr = ExecutionTest::EnableExperimentalShaderModels();
     if (FAILED(hr)) {
       pOutputStrFn(pStrCtx, L"Unable to enable experimental shader models.\r\n.");
     }

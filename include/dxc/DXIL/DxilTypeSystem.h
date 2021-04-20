@@ -12,6 +12,7 @@
 #pragma once
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/MapVector.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilCompType.h"
 #include "dxc/DXIL/DxilInterpolationMode.h"
 
@@ -140,6 +141,46 @@ private:
 };
 
 
+/// Use this class to represent type annotation for DXR payload field.
+class DxilPayloadFieldAnnotation {
+public:
+
+  static unsigned GetBitOffsetForShaderStage(DXIL::PayloadAccessShaderStage shaderStage);
+
+  DxilPayloadFieldAnnotation() = default;
+
+  bool HasCompType() const;
+  const CompType &GetCompType() const;
+  void SetCompType(CompType::Kind kind);
+
+  uint32_t GetPayloadFieldQualifierMask() const;
+  void SetPayloadFieldQualifierMask(uint32_t fieldBitmask);
+  void AddPayloadFieldQualifier(DXIL::PayloadAccessShaderStage shaderStage, DXIL::PayloadAccessQualifier qualifier);
+  DXIL::PayloadAccessQualifier GetPayloadFieldQualifier(DXIL::PayloadAccessShaderStage shaderStage) const;
+  bool HasAnnotations() const;
+
+private:
+  CompType m_CompType;
+  unsigned m_bitmask = 0;
+};
+
+/// Use this class to represent DXR payload structures.
+class DxilPayloadAnnotation {
+  friend class DxilTypeSystem;
+
+public:
+  unsigned GetNumFields() const;
+  DxilPayloadFieldAnnotation &GetFieldAnnotation(unsigned FieldIdx);
+  const DxilPayloadFieldAnnotation &GetFieldAnnotation(unsigned FieldIdx) const;
+  const llvm::StructType *GetStructType() const;
+  void SetStructType(const llvm::StructType *Ty);
+
+private:
+  const llvm::StructType *m_pStructType;
+  std::vector<DxilPayloadFieldAnnotation> m_FieldAnnotations;
+};
+
+
 enum class DxilParamInputQual {
   In,
   Out,
@@ -192,6 +233,7 @@ private:
 class DxilTypeSystem {
 public:
   using StructAnnotationMap = llvm::MapVector<const llvm::StructType *, std::unique_ptr<DxilStructAnnotation> >;
+  using PayloadAnnotationMap = llvm::MapVector<const llvm::StructType *, std::unique_ptr<DxilPayloadAnnotation> >;
   using FunctionAnnotationMap = llvm::MapVector<const llvm::Function *, std::unique_ptr<DxilFunctionAnnotation> >;
 
   DxilTypeSystem(llvm::Module *pModule);
@@ -202,6 +244,15 @@ public:
   void EraseStructAnnotation(const llvm::StructType *pStructType);
 
   StructAnnotationMap &GetStructAnnotationMap();
+  const StructAnnotationMap &GetStructAnnotationMap() const;
+
+  DxilPayloadAnnotation *AddPayloadAnnotation(const llvm::StructType *pStructType);
+  DxilPayloadAnnotation *GetPayloadAnnotation(const llvm::StructType *pStructType);
+  const DxilPayloadAnnotation *GetPayloadAnnotation(const llvm::StructType *pStructType) const;
+  void ErasePayloadAnnotation(const llvm::StructType *pStructType);
+
+  PayloadAnnotationMap &GetPayloadAnnotationMap();
+  const PayloadAnnotationMap &GetPayloadAnnotationMap() const;
 
   DxilFunctionAnnotation *AddFunctionAnnotation(const llvm::Function *pFunction);
   DxilFunctionAnnotation *GetFunctionAnnotation(const llvm::Function *pFunction);
@@ -227,6 +278,7 @@ public:
 private:
   llvm::Module *m_pModule;
   StructAnnotationMap m_StructAnnotations;
+  PayloadAnnotationMap m_PayloadAnnotations;
   FunctionAnnotationMap m_FunctionAnnotations;
 
   DXIL::LowPrecisionMode m_LowPrecisionMode;

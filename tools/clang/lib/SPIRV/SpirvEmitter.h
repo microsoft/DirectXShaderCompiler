@@ -976,6 +976,15 @@ private:
                                           SpirvInstruction *sampleIndex,
                                           SourceLocation loc);
 
+  /// \brief Returns OpAccessChain to the struct/class object that defines
+  /// memberFn when the struct/class is a base struct/class of objectType.
+  /// If the struct/class that defines memberFn is not a base of objectType,
+  /// returns nullptr.
+  SpirvInstruction *getBaseOfMemberFunction(QualType objectType,
+                                            SpirvInstruction * objInstr,
+                                            const CXXMethodDecl* memberFn,
+                                       SourceLocation loc);
+
 private:
   /// \brief Takes a vector of size 4, and returns a vector of size 1 or 2 or 3
   /// or 4. Creates a CompositeExtract or VectorShuffle instruction to extract

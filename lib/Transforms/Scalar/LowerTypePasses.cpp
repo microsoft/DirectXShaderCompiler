@@ -130,7 +130,7 @@ bool LowerTypePass::runOnModule(Module &M) {
   initialize(M);
   // Load up debug information, to cross-reference values and the instructions
   // used to load them.
-  bool HasDbgInfo = getDebugMetadataVersionFromModule(M) != 0;
+  bool HasDbgInfo = llvm::hasDebugInfo(M);
   llvm::DebugInfoFinder Finder;
   if (HasDbgInfo) {
     Finder.processModule(M);

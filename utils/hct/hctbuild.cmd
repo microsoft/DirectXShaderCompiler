@@ -52,6 +52,8 @@ set VENDOR=
 set SPIRV=OFF
 set SPV_TEST=OFF
 set DXILCONV=ON
+set DXC_CMAKE_SYSTEM_VERSION=10.0.14393.0
+set SHOW_CMAKE_LOG=0
 
 if "%1"=="-s" (
   set DO_BUILD=0
@@ -187,6 +189,11 @@ if "%1"=="-dxc-cmake" (
   shift /1
 )
 
+if "%1"=="-show-cmake-log" (
+  set SHOW_CMAKE_LOG=1
+  shift /1
+)  
+
 if "%CMAKE_PATH%"=="" (
   where cmake.exe 1>nul 2>nul
   if errorlevel 1 (
@@ -209,6 +216,12 @@ if "%1"=="-spirvtest" (
   shift /1
 )
 rem End SPIRV change
+
+rem Get SDK version from VSDevCmd (needed for ARM64X builds), strip the backslash at the end
+set ENV_SDK_VERSION=%WindowsSDKVersion%
+if "%ENV_SDK_VERSION:~-1%"=="\" (
+  set "ENV_SDK_VERSION=%ENV_SDK_VERSION:~0,-1%"
+)
 
 set BUILD_ARM_CROSSCOMPILING=0
 
@@ -250,7 +263,12 @@ if /i "%BUILD_ARCH%"=="arm64ec" (
   set BUILD_GENERATOR_PLATFORM=ARM64EC
   set BUILD_ARM_CROSSCOMPILING=1
   set VS2019ARCH=-AARM64EC
-  set CMAKE_OPTS=%CMAKE_OPTS% -DCMAKE_SYSTEM_VERSION=10.0.20207.0 -DMSVC_BUILD_AS_X=1
+  if "%ENV_SDK_VERSION%"=="" (
+    set DXC_CMAKE_SYSTEM_VERSION=10.0.21330.0
+  ) else (
+    set DXC_CMAKE_SYSTEM_VERSION=%ENV_SDK_VERSION%
+  )
+  set CMAKE_OPTS=%CMAKE_OPTS% -DMSVC_BUILD_AS_X=1
 )
 
 if "%1"=="-ninja" (
@@ -289,7 +307,7 @@ set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_DEFAULT_TARGET_TRIPLE:STRING=dxil-ms-dx
 set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_BUILD_EXAMPLES:BOOL=OFF
 set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_REQUIRES_RTTI:BOOL=ON
 set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_CL:BOOL=OFF
-set CMAKE_OPTS=%CMAKE_OPTS% -DCMAKE_SYSTEM_VERSION=10.0.14393.0
+set CMAKE_OPTS=%CMAKE_OPTS% -DCMAKE_SYSTEM_VERSION=%DXC_CMAKE_SYSTEM_VERSION%
 set CMAKE_OPTS=%CMAKE_OPTS% -DDXC_BUILD_ARCH=%BUILD_ARCH%
 
 rem ARM cross-compile setup
@@ -406,6 +424,11 @@ if "%DO_SETUP%"=="1" (
     rem -DCMAKE_BUILD_TYPE:STRING=%1 is not necessary for multi-config generators like VS
     echo Running "%CMAKE_PATH%" %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% > %3\cmake-log.txt
     "%CMAKE_PATH%" %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
+  )
+  if %SHOW_CMAKE_LOG%==1 (
+    echo ------- Start of %3\cmake-log.txt -------
+    type %3\cmake-log.txt
+    echo -------- End of %3\cmake-log.txt --------
   )
   if errorlevel 1 (
     echo Failed to configure cmake projects.

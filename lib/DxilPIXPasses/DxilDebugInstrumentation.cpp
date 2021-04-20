@@ -252,7 +252,6 @@ public:
 
 private:
   SystemValueIndices addRequiredSystemValues(BuilderContext &BC);
-  void addUAV(BuilderContext &BC);
   void addInvocationSelectionProlog(BuilderContext &BC,
                                     SystemValueIndices SVIndices);
   Value *addPixelShaderProlog(BuilderContext &BC, SystemValueIndices SVIndices);
@@ -546,52 +545,6 @@ DxilDebugInstrumentation::addPixelShaderProlog(BuilderContext &BC,
   auto ComparePos = BC.Builder.CreateAnd(CompareToX, CompareToY, "ComparePos");
 
   return ComparePos;
-}
-
-void DxilDebugInstrumentation::addUAV(BuilderContext &BC) {
-  // Set up a UAV with structure of a single int
-  unsigned int UAVResourceHandle =
-      static_cast<unsigned int>(BC.DM.GetUAVs().size());
-  SmallVector<llvm::Type *, 1> Elements{Type::getInt32Ty(BC.Ctx)};
-  llvm::StructType *UAVStructTy =
-      llvm::StructType::create(Elements, "PIX_DebugUAV_Type");
-  std::unique_ptr<DxilResource> pUAV = llvm::make_unique<DxilResource>();
-  pUAV->SetGlobalName("PIX_DebugUAVName");
-  pUAV->SetGlobalSymbol(UndefValue::get(UAVStructTy->getPointerTo()));
-  pUAV->SetID(UAVResourceHandle);
-  pUAV->SetSpaceID(
-      (unsigned int)-2); // This is the reserved-for-tools register space
-  pUAV->SetSampleCount(1);
-  pUAV->SetGloballyCoherent(false);
-  pUAV->SetHasCounter(false);
-  pUAV->SetCompType(CompType::getI32());
-  pUAV->SetLowerBound(0);
-  pUAV->SetRangeSize(1);
-  pUAV->SetKind(DXIL::ResourceKind::RawBuffer);
-  pUAV->SetRW(true);
-
-  auto ID = BC.DM.AddUAV(std::move(pUAV));
-  assert(ID == UAVResourceHandle);
-
-  BC.DM.m_ShaderFlags.SetEnableRawAndStructuredBuffers(true);
-
-  // Create handle for the newly-added UAV
-  Function *CreateHandleOpFunc =
-      BC.HlslOP->GetOpFunc(DXIL::OpCode::CreateHandle, Type::getVoidTy(BC.Ctx));
-  Constant *CreateHandleOpcodeArg =
-      BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::CreateHandle);
-  Constant *UAVVArg = BC.HlslOP->GetI8Const(
-      static_cast<std::underlying_type<DxilResourceBase::Class>::type>(
-          DXIL::ResourceClass::UAV));
-  Constant *MetaDataArg = BC.HlslOP->GetU32Const(
-      ID); // position of the metadata record in the corresponding metadata list
-  Constant *IndexArg = BC.HlslOP->GetU32Const(0); //
-  Constant *FalseArg =
-      BC.HlslOP->GetI1Const(0); // non-uniform resource index: false
-  m_HandleForUAV = BC.Builder.CreateCall(
-      CreateHandleOpFunc,
-      {CreateHandleOpcodeArg, UAVVArg, MetaDataArg, IndexArg, FalseArg},
-      "PIX_DebugUAV_Handle");
 }
 
 void DxilDebugInstrumentation::addInvocationSelectionProlog(
@@ -959,7 +912,8 @@ bool DxilDebugInstrumentation::runOnModule(Module &M) {
 
   BuilderContext BC{M, DM, Ctx, HlslOP, Builder};
 
-  addUAV(BC);
+  m_HandleForUAV = PIXPassHelpers::CreateUAV(BC.DM, BC.Builder, 0, "PIX_DebugUAV_Handle");
+
   auto SystemValues = addRequiredSystemValues(BC);
   addInvocationSelectionProlog(BC, SystemValues);
   addInvocationStartMarker(BC);

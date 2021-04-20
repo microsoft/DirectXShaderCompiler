@@ -152,6 +152,9 @@ namespace dxilutil {
 
   void ReplaceRawBufferLoad64Bit(llvm::Function *F, llvm::Type *EltTy, hlsl::OP *hlslOP);
   void ReplaceRawBufferStore64Bit(llvm::Function *F, llvm::Type *ETy, hlsl::OP *hlslOP);
+
+  bool IsConvergentMarker(llvm::Value *V);
+  llvm::Value *GetConvergentSource(llvm::Value *V);
 }
 
 }

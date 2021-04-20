@@ -199,7 +199,8 @@ public:
   enum UnusualAnnotationKind {
     UA_RegisterAssignment,
     UA_ConstantPacking,
-    UA_SemanticDecl
+    UA_SemanticDecl,
+    UA_PayloadAccessQualifier
   };
 private:
   const UnusualAnnotationKind Kind;
@@ -242,6 +243,21 @@ struct RegisterAssignment : public UnusualAnnotation
     return UA->getKind() == UA_RegisterAssignment;
   }
 };
+
+// <summary>Use this structure to capture a ': in/out' definiton.</summary>
+struct PayloadAccessAnnotation: public UnusualAnnotation {
+  /// <summary>Initializes a new PayloadAccessAnnotation in invalid state.</summary>
+  PayloadAccessAnnotation() : UnusualAnnotation(UA_PayloadAccessQualifier){};
+
+  DXIL::PayloadAccessQualifier qualifier = DXIL::PayloadAccessQualifier::NoAccess;
+  
+  llvm::SmallVector<DXIL::PayloadAccessShaderStage, 4> ShaderStages;
+
+  static bool classof(const UnusualAnnotation *UA) {
+    return UA->getKind() == UA_PayloadAccessQualifier;
+  }
+};
+
 
 /// <summary>Use this structure to capture a ': packoffset' definition.</summary>
 struct ConstantPacking : public UnusualAnnotation
