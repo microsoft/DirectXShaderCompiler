@@ -9,9 +9,10 @@
 // CHECK: OpMemberDecorate %type_buffer0 5 Offset 40
 // CHECK: OpMemberDecorate %type_buffer0 6 Offset 48
 // CHECK: OpMemberDecorate %type_buffer0 7 Offset 52
-// CHECK: OpMemberDecorate %type_buffer0 8 Offset 60
+// CHECK: OpMemberDecorate %type_buffer0 8 Offset 64
+// CHECK: OpMemberDecorate %type_buffer0 9 Offset 72
 
-// CHECK: %type_buffer0 = OpTypeStruct %half %_arr_float_uint_1 %half %float %v3half %double %half %v2float %float
+// CHECK: %type_buffer0 = OpTypeStruct %half %_arr_float_uint_1 %half %float %v3half %double %half %v2float %v2float %float
 
 cbuffer buffer0 {
   float16_t a;  // Offset:    0
@@ -22,7 +23,8 @@ cbuffer buffer0 {
   double f;     // Offset:   40
   float16_t g;  // Offset:   48
   float2 h;     // Offset:   52
-  float end;    // Offset:   60
+  float2 i;     // Offset:   64
+  float end;    // Offset:   72
 };
 
 float4 main(float4 color : COLOR) : SV_TARGET
