@@ -215,6 +215,10 @@ TEST_F(FileTest, GlobalsCBufferError) {
   runFileTest("var.globals.error.hlsl", Expect::Failure);
 }
 
+TEST_F(FileTest, VarVFACEInterface) {
+  runFileTest("var.vface.interface.hlsl", Expect::Warning);
+}
+
 // For prefix/postfix increment/decrement
 TEST_F(FileTest, UnaryOpPrefixIncrement) {
   runFileTest("unary-op.prefix-inc.hlsl");
@@ -655,6 +659,13 @@ TEST_F(FileTest, InheritanceLayoutDifferences) {
 TEST_F(FileTest, InheritanceLayoutEmptyStruct) {
   runFileTest("oo.inheritance.layout.empty-struct.hlsl");
 }
+TEST_F(FileTest, InheritanceCallMethodOfBase) {
+  runFileTest("oo.inheritance.call.base.method.hlsl", Expect::Success,
+              /* runValidation */ false);
+}
+TEST_F(FileTest, InheritanceCallMethodWithSameBaseMethodName) {
+  runFileTest("oo.call.method.with.same.base.method.name.hlsl");
+}
 
 // For semantics
 // SV_Position, SV_ClipDistance, and SV_CullDistance are covered in
@@ -875,9 +886,6 @@ TEST_F(FileTest, TextureArraySample) {
 }
 TEST_F(FileTest, TextureLoad) { runFileTest("texture.load.hlsl"); }
 TEST_F(FileTest, TextureArrayLoad) { runFileTest("texture.array.load.hlsl"); }
-TEST_F(FileTest, TextureLoadInvalidOffsetOperand) {
-  runFileTest("texture.load-invalid-offset-operand.hlsl", Expect::Failure);
-}
 TEST_F(FileTest, TextureGetDimensions) {
   runFileTest("texture.get-dimensions.hlsl");
 }
@@ -960,11 +968,11 @@ TEST_F(FileTest, TextureArraySampleCmpLevelZero) {
 TEST_F(FileTest, TextureSampleInvalidImplicitLod) {
   runFileTest("texture.sample-invalid-implicit-lod.hlsl", Expect::Failure);
 }
-TEST_F(FileTest, TextureSampleInvalidOffsetOperand) {
-  runFileTest("texture.sample-invalid-offset-operand.hlsl", Expect::Failure);
-}
 TEST_F(FileTest, TextureInvalidTex2D) {
   runFileTest("texture.sample.invalid.tex2d.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, TextureSampleOffsetWithLoopUnroll) {
+  runFileTest("texture.sample-offset.with.loop-unroll.hlsl");
 }
 
 // For structured buffer methods
@@ -2322,6 +2330,9 @@ TEST_F(FileTest, DecorationRelaxedPrecisionImage) {
 TEST_F(FileTest, DecorationRelaxedPrecisionBool) {
   runFileTest("decoration.relaxed-precision.bool.hlsl");
 }
+TEST_F(FileTest, DecorationRelaxedPrecisionArray) {
+  runFileTest("decoration.relaxed-precision.array.hlsl");
+}
 
 // For NoContraction decorations
 TEST_F(FileTest, DecorationNoContraction) {
@@ -2374,9 +2385,11 @@ TEST_F(FileTest, VulkanShaderRecordBufferEXTOffset) {
   // Checks the behavior of [[vk::offset]] with [[vk::shader_record_ext]]
   runFileTest("vk.shader-record-ext.offset.hlsl");
 }
-TEST_F(FileTest, VulkanShadingRate) { runFileTest("vk.shading-rate.hlsl"); }
-TEST_F(FileTest, VulkanShadingRateError) {
-  runFileTest("vk.shading-rate.vs-error.hlsl", Expect::Failure);
+TEST_F(FileTest, VulkanShadingRateVs) {
+  runFileTest("vk.shading-rate.vs.hlsl");
+}
+TEST_F(FileTest, VulkanShadingRatePs) {
+  runFileTest("vk.shading-rate.ps.hlsl");
 }
 
 // === MeshShading NV examples ===

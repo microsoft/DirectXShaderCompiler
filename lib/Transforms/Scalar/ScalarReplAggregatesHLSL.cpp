@@ -3770,8 +3770,11 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
             if (group == HLOpcodeGroup::HLSubscript) {
               if (isReadOnlyPtr(PtrCI)) {
                 // Ptr from CBuffer/SRV is safe.
-                if (ReplaceMemcpy(V, Src, MC, annotation, typeSys, DL, DT))
-                  return true;
+                if (ReplaceMemcpy(V, Src, MC, annotation, typeSys, DL, DT)) {
+                  if (V->user_empty())
+                    return true;
+                  return LowerMemcpy(V, annotation, typeSys, DL, DT, bAllowReplace);
+                }
               }
             }
           }
@@ -3782,8 +3785,11 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
           hlutil::PointerStatus SrcPS(Src, size, /*bLdStOnly*/ false);
           SrcPS.analyze(typeSys, bStructElt);
           if (SrcPS.storedType != hlutil::PointerStatus::StoredType::Stored) {
-            if (ReplaceMemcpy(V, Src, MC, annotation, typeSys, DL, DT))
-              return true;
+            if (ReplaceMemcpy(V, Src, MC, annotation, typeSys, DL, DT)) {
+              if (V->user_empty())
+                return true;
+              return LowerMemcpy(V, annotation, typeSys, DL, DT, bAllowReplace);
+            }
           }
         }
       }
@@ -3899,7 +3905,7 @@ public:
     const DataLayout &DL = M.getDataLayout();
     // Load up debug information, to cross-reference values and the instructions
     // used to load them.
-    m_HasDbgInfo = getDebugMetadataVersionFromModule(M) != 0;
+    m_HasDbgInfo = nullptr != M.getNamedMetadata("llvm.dbg.cu");
 
     InjectReturnAfterNoReturnPreserveOutput(*m_pHLModule);
 
@@ -5769,8 +5775,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
   if (m_pHLModule->HasDxilFunctionProps(F)) {
     DxilFunctionProps &funcProps = m_pHLModule->GetDxilFunctionProps(F);
     std::unique_ptr<DxilFunctionProps> flatFuncProps = llvm::make_unique<DxilFunctionProps>();
-    flatFuncProps->shaderKind = funcProps.shaderKind;
-    flatFuncProps->ShaderProps = funcProps.ShaderProps;
+    *flatFuncProps = funcProps;
     m_pHLModule->AddDxilFunctionProps(flatF, flatFuncProps);
     if (funcProps.shaderKind == ShaderModel::Kind::Vertex) {
       auto &VS = funcProps.ShaderProps.VS;

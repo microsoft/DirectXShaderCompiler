@@ -516,9 +516,11 @@ public:
     }
   }
 
+  GlobalVariable *GetIsHelperGV(Module &M) {
+    return M.getGlobalVariable(DXIL::kDxIsHelperGlobalName, /*AllowLocal*/ true);
+  }
   GlobalVariable *GetOrCreateIsHelperGV(Module &M, hlsl::OP *hlslOP) {
-    GlobalVariable *GV =
-        M.getGlobalVariable(DXIL::kDxIsHelperGlobalName, /*AllowLocal*/ true);
+    GlobalVariable *GV = GetIsHelperGV(M);
     if (GV)
       return GV;
     DxilModule &DM = M.GetDxilModule();
@@ -593,7 +595,11 @@ public:
       for (auto uit = F->user_begin(); uit != F->user_end();) {
         CallInst *CI = cast<CallInst>(*(uit++));
         if (!GV)
-          GV = GetOrCreateIsHelperGV(*F->getParent(), hlslOP);
+          GV = GetIsHelperGV(*F->getParent());
+        // If we don't already have a global for this,
+        // we didn't have any IsHelper() calls, so no need to add one now.
+        if (!GV)
+          return;
         IRBuilder<> Builder(CI);
         Value *Cond =
             Builder.CreateZExt(DxilInst_Discard(CI).get_condition(), I32Ty);
@@ -618,7 +624,7 @@ public:
       // in an exported function linked to a PS in another library in this case.
       // But it won't pass validation otherwise.
       if (pSM->IsLib() && DXIL::CompareVersions(ValMajor, ValMinor, 1, 6) < 1) {
-        if (GlobalVariable *GV = M.getGlobalVariable(DXIL::kDxIsHelperGlobalName, /*AllowLocal*/ true)) {
+        if (GlobalVariable *GV = GetIsHelperGV(M)) {
           GV->setLinkage(GlobalValue::InternalLinkage);
         }
       }

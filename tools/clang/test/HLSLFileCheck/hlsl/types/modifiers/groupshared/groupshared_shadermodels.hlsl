@@ -1,12 +1,12 @@
-// RUN: %dxc -E PSMain -T ps_6_0 %s | FileCheck %s
-// RUN: %dxc -E VSMain -T vs_6_0 %s | FileCheck %s
-// RUN: %dxc -E GSMain -T gs_6_0 %s | FileCheck %s
-// RUN: %dxc -E HSMain -T hs_6_0 %s | FileCheck %s
-// RUN: %dxc -E DSMain -T ds_6_0 %s | FileCheck %s
-// RUN: %dxc -E CSMain -T lib_6_5 %s | FileCheck %s -check-prefix=LIBCHK
-// RUN: %dxc -E CSMain -T cs_6_0 %s | FileCheck %s -check-prefix=CSCHK
-// RUN: %dxc -E MSMain -T ms_6_5 %s | FileCheck %s -check-prefix=CSCHK
-// RUN: %dxc -E ASMain -T as_6_5 %s | FileCheck %s -check-prefix=CSCHK
+// RUN: %dxilver 1.6 | %dxc -E PSMain -T ps_6_0 %s | FileCheck %s
+// RUN: %dxilver 1.6 | %dxc -E VSMain -T vs_6_0 %s | FileCheck %s
+// RUN: %dxilver 1.6 | %dxc -E GSMain -T gs_6_0 %s | FileCheck %s
+// RUN: %dxilver 1.6 | %dxc -E HSMain -T hs_6_0 %s | FileCheck %s
+// RUN: %dxilver 1.6 | %dxc -E DSMain -T ds_6_0 %s | FileCheck %s
+// RUN: %dxilver 1.6 | %dxc -E CSMain -T lib_6_5 %s | FileCheck %s -check-prefix=LIBCHK
+// RUN: %dxilver 1.6 | %dxc -E CSMain -T cs_6_0 %s | FileCheck %s -check-prefix=CSCHK
+// RUN: %dxilver 1.6 | %dxc -E MSMain -T ms_6_5 %s | FileCheck %s -check-prefix=CSCHK
+// RUN: %dxilver 1.6 | %dxc -E ASMain -T as_6_5 %s | FileCheck %s -check-prefix=CSCHK
 
 // Test that the proper error for groupshared is produced when compiling in non-compute contexts
 // and that everything is fine when we are
