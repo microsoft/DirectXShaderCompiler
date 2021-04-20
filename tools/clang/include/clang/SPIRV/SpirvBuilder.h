@@ -695,12 +695,12 @@ private:
   /// initialization.
   void createReturnForModuleInit();
 
-  /// \brief Creates instructions to copy sub-components of src to dst. This
-  /// method assumes
-  ///   1. src has a pointer to a type with FXC memory layout rule
-  ///   2. dst has a pointer to a type with void memory layout rule
-  void createCopyInstructionsForFxcCTBuffer(SpirvInstruction *dst,
-                                            SpirvInstruction *src);
+  /// \brief Creates instructions to copy sub-components of CTBuffer src to its
+  /// clone dst. This method assumes
+  ///   1. src has a pointer type to a type with FXC memory layout rule
+  ///   2. dst has a pointer type to a type with void memory layout rule
+  void createCopyInstructionsFromFxcCTBufferToClone(SpirvInstruction *dst,
+                                                    SpirvInstruction *src);
 
   /// \brief Adds the given SPIR-V instruction to the module initialization
   /// function.

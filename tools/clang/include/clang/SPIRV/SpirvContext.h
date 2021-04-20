@@ -375,7 +375,7 @@ public:
   }
 
   /// Adds inst to instructionsWithLoweredType.
-  void addToTypeLoweredInstructions(const SpirvInstruction *inst) {
+  void addToInstructionsWithLoweredType(const SpirvInstruction *inst) {
     instructionsWithLoweredType.insert(inst);
   }
 

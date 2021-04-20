@@ -90,10 +90,10 @@ public:
   /// block.
   void addInstruction(SpirvInstruction *inst) { instructions.push_back(inst); }
 
-  /// Adds the given OpFunctionCall instruction as the first instruction
-  /// of this SPIR-V basic block.
-  void addModuleInitCall(SpirvInstruction *fnCall) {
-    instructions.push_front(fnCall);
+  /// Adds the given instruction as the first instruction of this SPIR-V basic
+  /// block.
+  void addFirstInstruction(SpirvInstruction *inst) {
+    instructions.push_front(inst);
   }
 
   /// Return true if instructions is empty. Otherwise, return false.

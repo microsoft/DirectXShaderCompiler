@@ -375,9 +375,10 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
   // handle them via HLSL type inspection functions.
 
   // When the memory layout rule is FxcCTBuffer, typeNxM matrix with M > 1 and
-  // N == 1 is a matrix with M rows of the vector with type and size 1. Since
-  // SPIR-V does not have a vector with size 1, we have to use an array.
-  // We have the same rule for column_major typeNxM and row_major typeMxN.
+  // N == 1 consists of M vectors where each vector has a single element. Since
+  // SPIR-V does not have a vector with single element, we have to use an
+  // OpTypeArray with ArrayStride 16 instead of OpTypeVector. We have the same
+  // rule for column_major typeNxM and row_major typeMxN.
   if (rule == SpirvLayoutRule::FxcCTBuffer && hlsl::IsHLSLMatType(type)) {
     uint32_t rowCount = 0, colCount = 0;
     hlsl::GetHLSLMatRowColCount(type, rowCount, colCount);

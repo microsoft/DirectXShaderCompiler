@@ -91,11 +91,11 @@ public:
   void addVariable(SpirvVariable *);
   void addBasicBlock(SpirvBasicBlock *);
 
-  /// Adds the given OpFunctionCall instruction as the first instruction
-  /// of this SPIR-V function body.
-  void addModuleInitCall(SpirvInstruction *fnCall) {
+  /// Adds the given instruction as the first instruction of this SPIR-V
+  /// function body.
+  void addFirstInstruction(SpirvInstruction *inst) {
     assert(basicBlocks.size() != 0);
-    basicBlocks[0]->addModuleInitCall(fnCall);
+    basicBlocks[0]->addFirstInstruction(inst);
   }
 
   /// Legalization-specific code

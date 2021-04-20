@@ -983,8 +983,8 @@ void SpirvBuilder::createRaytracingTerminateKHR(spv::Op opcode,
   insertPoint->addInstruction(inst);
 }
 
-void SpirvBuilder::createCopyInstructionsForFxcCTBuffer(SpirvInstruction *dst,
-                                                        SpirvInstruction *src) {
+void SpirvBuilder::createCopyInstructionsFromFxcCTBufferToClone(
+    SpirvInstruction *dst, SpirvInstruction *src) {
   assert(dst != nullptr && src != nullptr);
   assert(dst->getResultType() != nullptr && src->getResultType() != nullptr);
   assert(src->getLayoutRule() == SpirvLayoutRule::FxcCTBuffer &&
@@ -1029,13 +1029,14 @@ void SpirvBuilder::createCopyInstructionsForFxcCTBuffer(SpirvInstruction *dst,
             srcElemPtrTy, src,
             {getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, i))},
             loc);
-        context.addToTypeLoweredInstructions(ptrToSrcElem);
+        context.addToInstructionsWithLoweredType(ptrToSrcElem);
         auto *ptrToDstElem = createAccessChainForModuleInit(
             dstElemPtrTy, dst,
             {getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, i))},
             loc);
-        context.addToTypeLoweredInstructions(ptrToDstElem);
-        createCopyInstructionsForFxcCTBuffer(ptrToDstElem, ptrToSrcElem);
+        context.addToInstructionsWithLoweredType(ptrToDstElem);
+        createCopyInstructionsFromFxcCTBufferToClone(ptrToDstElem,
+                                                     ptrToSrcElem);
       }
     } else if (auto *srcStructTy = dyn_cast<StructType>(srcType)) {
       if (auto *dstStructTy = dyn_cast<StructType>(dstType)) {
@@ -1050,15 +1051,16 @@ void SpirvBuilder::createCopyInstructionsForFxcCTBuffer(SpirvInstruction *dst,
               srcElemPtrTy, src,
               {getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, i))},
               loc);
-          context.addToTypeLoweredInstructions(ptrToSrcElem);
+          context.addToInstructionsWithLoweredType(ptrToSrcElem);
           auto *dstElemPtrTy =
               context.getPointerType(dstFields[i].type, dst->getStorageClass());
           auto *ptrToDstElem = createAccessChainForModuleInit(
               dstElemPtrTy, dst,
               {getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, i))},
               loc);
-          context.addToTypeLoweredInstructions(ptrToDstElem);
-          createCopyInstructionsForFxcCTBuffer(ptrToDstElem, ptrToSrcElem);
+          context.addToInstructionsWithLoweredType(ptrToDstElem);
+          createCopyInstructionsFromFxcCTBufferToClone(ptrToDstElem,
+                                                       ptrToSrcElem);
         }
       } else {
         llvm_unreachable("Unexpected destination type");
@@ -1070,7 +1072,7 @@ void SpirvBuilder::createCopyInstructionsForFxcCTBuffer(SpirvInstruction *dst,
              srcType->getKind() == SpirvType::TK_Vector ||
              srcType->getKind() == SpirvType::TK_Matrix) {
     auto *load = createLoadForModuleInit(srcType, src, loc);
-    context.addToTypeLoweredInstructions(load);
+    context.addToInstructionsWithLoweredType(load);
     createStoreForModuleInit(dst, load, loc);
   } else {
     llvm_unreachable(
@@ -1105,7 +1107,7 @@ SpirvBuilder::createCloneVarForFxcCTBuffer(SpirvInstruction *instr) {
 
   LowerTypeVisitor lowerTypeVisitor(astContext, context, spirvOptions);
   lowerTypeVisitor.visitInstruction(var);
-  context.addToTypeLoweredInstructions(instr);
+  context.addToInstructionsWithLoweredType(instr);
   if (!lowerTypeVisitor.useSpvArrayForHlslMat1xN()) {
     return var;
   }
@@ -1132,9 +1134,9 @@ SpirvBuilder::createCloneVarForFxcCTBuffer(SpirvInstruction *instr) {
   clone->setLayoutRule(SpirvLayoutRule::Void);
 
   lowerTypeVisitor.visitInstruction(clone);
-  context.addToTypeLoweredInstructions(clone);
+  context.addToInstructionsWithLoweredType(clone);
 
-  createCopyInstructionsForFxcCTBuffer(clone, var);
+  createCopyInstructionsFromFxcCTBufferToClone(clone, var);
 
   return clone;
 }
@@ -1431,7 +1433,7 @@ void SpirvBuilder::addModuleInitCallToEntryPoints() {
         SpirvFunctionCall(astContext.VoidTy, /* SourceLocation */ {},
                           moduleInit, /* params */ {});
     instruction->setRValue(true);
-    entry->getEntryPoint()->addModuleInitCall(instruction);
+    entry->getEntryPoint()->addFirstInstruction(instruction);
   }
 }
 
