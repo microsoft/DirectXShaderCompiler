@@ -325,6 +325,8 @@ struct DxilVersionedRootSignatureDesc {
   };
 };
 
+void printRootSignature(const DxilVersionedRootSignatureDesc &RS, llvm::raw_ostream &os);
+
 // Use this class to represent a root signature that may be in memory or serialized.
 // There is just enough API surface to help callers not take a dependency on Windows headers.
 class RootSignatureHandle {
