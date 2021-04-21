@@ -359,6 +359,11 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop
 
   BranchInst *exiting_br = cast<BranchInst>(exiting_block->getTerminator());
   Value *exit_cond = exiting_br->getCondition();
+  // When exit_block is false block, use !exit_cond as exit_cond.
+  if (exiting_br->getSuccessor(1) == exit_block) {
+    IRBuilder<> B(exiting_br);
+    exit_cond = B.CreateNot(exit_cond);
+  }
   BasicBlock *new_exiting_block = nullptr;
 
   std::vector<Value_Info> exit_values;
