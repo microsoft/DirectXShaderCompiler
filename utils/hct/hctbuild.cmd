@@ -52,7 +52,7 @@ set VENDOR=
 set SPIRV=OFF
 set SPV_TEST=OFF
 set DXILCONV=ON
-set DXC_CMAKE_SYSTEM_VERSION=10.0.14393.0
+set DXC_CMAKE_SYSTEM_VERSION=
 set SHOW_CMAKE_LOG=0
 
 if "%1"=="-s" (
@@ -189,6 +189,12 @@ if "%1"=="-dxc-cmake" (
   shift /1
 )
 
+if "%1"=="-dxc-cmake-system-version" (
+  set DXC_CMAKE_SYSTEM_VERSION=%~2
+  shift /1
+  shift /1
+)
+
 if "%1"=="-show-cmake-log" (
   set SHOW_CMAKE_LOG=1
   shift /1
@@ -263,10 +269,12 @@ if /i "%BUILD_ARCH%"=="arm64ec" (
   set BUILD_GENERATOR_PLATFORM=ARM64EC
   set BUILD_ARM_CROSSCOMPILING=1
   set VS2019ARCH=-AARM64EC
-  if "%ENV_SDK_VERSION%"=="" (
-    set DXC_CMAKE_SYSTEM_VERSION=10.0.21330.0
-  ) else (
-    set DXC_CMAKE_SYSTEM_VERSION=%ENV_SDK_VERSION%
+  if "%DXC_CMAKE_SYSTEM_VERSION%"=="" (
+    if "%ENV_SDK_VERSION%"=="" (
+      set DXC_CMAKE_SYSTEM_VERSION=10.0.21330.0
+    ) else (
+      set DXC_CMAKE_SYSTEM_VERSION=%ENV_SDK_VERSION%
+    )
   )
   set CMAKE_OPTS=%CMAKE_OPTS% -DMSVC_BUILD_AS_X=1
 )
@@ -274,6 +282,10 @@ if /i "%BUILD_ARCH%"=="arm64ec" (
 if "%1"=="-ninja" (
   set BUILD_GENERATOR=Ninja
   shift /1
+)
+
+if "%DXC_CMAKE_SYSTEM_VERSION%"=="" (
+  set DXC_CMAKE_SYSTEM_VERSION=10.0.14393.0
 )
 
 set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_OPTIONAL_PROJS_IN_DEFAULT:BOOL=%ALL_DEFS%
