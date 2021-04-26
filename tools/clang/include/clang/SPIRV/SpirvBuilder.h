@@ -203,6 +203,10 @@ public:
   createAccessChain(QualType resultType, SpirvInstruction *base,
                     llvm::ArrayRef<SpirvInstruction *> indexes,
                     SourceLocation loc);
+  SpirvAccessChain *
+  createAccessChain(const SpirvType *resultType, SpirvInstruction *base,
+                    llvm::ArrayRef<SpirvInstruction *> indexes,
+                    SourceLocation loc);
 
   /// \brief Creates a unary operation with the given SPIR-V opcode. Returns
   /// the instruction pointer for the result.
@@ -671,30 +675,6 @@ private:
       SpirvInstruction *constOffsets, SpirvInstruction *sample,
       SpirvInstruction *minLod);
 
-  /// \brief Creates an access chain instruction to retrieve the element from
-  /// the given base by walking through the given indexes and adds it as a part
-  /// of module initialization. Returns the instruction pointer for the pointer
-  /// to the element.
-  SpirvAccessChain *createAccessChainForModuleInit(
-      const SpirvType *resultType, SpirvInstruction *base,
-      llvm::ArrayRef<SpirvInstruction *> indexes, SourceLocation loc);
-
-  /// \brief Creates a load instruction loading the value of the given
-  /// <result-type> from the given pointer and adds it as a part of module
-  /// initialization. Returns the instruction pointer for the loaded value.
-  SpirvLoad *createLoadForModuleInit(const SpirvType *resultType,
-                                     SpirvInstruction *pointer,
-                                     SourceLocation loc);
-
-  /// \brief Creates a store instruction storing the given value into the given
-  /// address and adds it as a part of module initialization.
-  void createStoreForModuleInit(SpirvInstruction *address,
-                                SpirvInstruction *value, SourceLocation loc);
-
-  /// \brief Creates a return instruction and adds it as a part of module
-  /// initialization.
-  void createReturnForModuleInit();
-
   /// \brief Creates instructions to copy sub-components of CTBuffer src to its
   /// clone dst. This method assumes
   ///   1. src has a pointer type to a type with FXC memory layout rule
@@ -702,9 +682,8 @@ private:
   void createCopyInstructionsFromFxcCTBufferToClone(SpirvInstruction *dst,
                                                     SpirvInstruction *src);
 
-  /// \brief Adds the given SPIR-V instruction to the module initialization
-  /// function.
-  void addModuleInitInstruction(SpirvInstruction *inst);
+  /// \brief Sets moduleInitInsertPoint as insertPoint.
+  void switchInsertPointToModuleInit();
 
   /// \brief Adds OpFunctionCall instructions for ModuleInit to all entry
   /// points.

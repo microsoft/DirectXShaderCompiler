@@ -187,18 +187,6 @@ SpirvVectorShuffle *SpirvBuilder::createVectorShuffle(
   return instruction;
 }
 
-SpirvLoad *SpirvBuilder::createLoadForModuleInit(const SpirvType *resultType,
-                                                 SpirvInstruction *pointer,
-                                                 SourceLocation loc) {
-  auto *instruction = new (context) SpirvLoad(/*QualType*/ {}, loc, pointer);
-  instruction->setResultType(resultType);
-  instruction->setStorageClass(pointer->getStorageClass());
-  instruction->setLayoutRule(pointer->getLayoutRule());
-  instruction->setRValue(true);
-  addModuleInitInstruction(instruction);
-  return instruction;
-}
-
 SpirvLoad *SpirvBuilder::createLoad(QualType resultType,
                                     SpirvInstruction *pointer,
                                     SourceLocation loc) {
@@ -259,13 +247,6 @@ SpirvLoad *SpirvBuilder::createLoad(const SpirvType *resultType,
   return instruction;
 }
 
-void SpirvBuilder::createStoreForModuleInit(SpirvInstruction *address,
-                                            SpirvInstruction *value,
-                                            SourceLocation loc) {
-  auto *instruction = new (context) SpirvStore(loc, address, value);
-  addModuleInitInstruction(instruction);
-}
-
 void SpirvBuilder::createStore(SpirvInstruction *address,
                                SpirvInstruction *value, SourceLocation loc) {
   assert(insertPoint && "null insert point");
@@ -297,16 +278,24 @@ SpirvBuilder::createFunctionCall(QualType returnType, SpirvFunction *func,
   return instruction;
 }
 
-SpirvAccessChain *SpirvBuilder::createAccessChainForModuleInit(
+SpirvAccessChain *SpirvBuilder::createAccessChain(
     const SpirvType *resultType, SpirvInstruction *base,
     llvm::ArrayRef<SpirvInstruction *> indexes, SourceLocation loc) {
+  assert(insertPoint && "null insert point");
   auto *instruction =
       new (context) SpirvAccessChain(/*QualType*/ {}, loc, base, indexes);
   instruction->setResultType(resultType);
   instruction->setStorageClass(base->getStorageClass());
   instruction->setLayoutRule(base->getLayoutRule());
   instruction->setContainsAliasComponent(base->containsAliasComponent());
-  addModuleInitInstruction(instruction);
+
+  // If doing an access chain into a structured or byte address buffer, make
+  // sure the layout rule is sBufferLayoutRule.
+  if (base->hasAstResultType() &&
+      isAKindOfStructuredOrByteBuffer(base->getAstResultType()))
+    instruction->setLayoutRule(spirvOptions.sBufferLayoutRule);
+
+  insertPoint->addInstruction(instruction);
   return instruction;
 }
 
@@ -739,10 +728,6 @@ void SpirvBuilder::createConditionalBranch(
   insertPoint->addInstruction(branchConditional);
 }
 
-void SpirvBuilder::createReturnForModuleInit() {
-  addModuleInitInstruction(new (context) SpirvReturn(/* SourceLocation */ {}));
-}
-
 void SpirvBuilder::createReturn(SourceLocation loc) {
   assert(insertPoint && "null insert point");
   insertPoint->addInstruction(new (context) SpirvReturn(loc));
@@ -1025,12 +1010,12 @@ void SpirvBuilder::createCopyInstructionsFromFxcCTBufferToClone(
       }
 
       for (uint32_t i = 0; i < srcArrTy->getElementCount(); ++i) {
-        auto *ptrToSrcElem = createAccessChainForModuleInit(
+        auto *ptrToSrcElem = createAccessChain(
             srcElemPtrTy, src,
             {getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, i))},
             loc);
         context.addToInstructionsWithLoweredType(ptrToSrcElem);
-        auto *ptrToDstElem = createAccessChainForModuleInit(
+        auto *ptrToDstElem = createAccessChain(
             dstElemPtrTy, dst,
             {getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, i))},
             loc);
@@ -1047,14 +1032,14 @@ void SpirvBuilder::createCopyInstructionsFromFxcCTBufferToClone(
         for (uint32_t i = 0; i < srcFields.size(); ++i) {
           auto *srcElemPtrTy =
               context.getPointerType(srcFields[i].type, src->getStorageClass());
-          auto *ptrToSrcElem = createAccessChainForModuleInit(
+          auto *ptrToSrcElem = createAccessChain(
               srcElemPtrTy, src,
               {getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, i))},
               loc);
           context.addToInstructionsWithLoweredType(ptrToSrcElem);
           auto *dstElemPtrTy =
               context.getPointerType(dstFields[i].type, dst->getStorageClass());
-          auto *ptrToDstElem = createAccessChainForModuleInit(
+          auto *ptrToDstElem = createAccessChain(
               dstElemPtrTy, dst,
               {getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, i))},
               loc);
@@ -1071,16 +1056,16 @@ void SpirvBuilder::createCopyInstructionsFromFxcCTBufferToClone(
              srcType->getKind() == SpirvType::TK_Float ||
              srcType->getKind() == SpirvType::TK_Vector ||
              srcType->getKind() == SpirvType::TK_Matrix) {
-    auto *load = createLoadForModuleInit(srcType, src, loc);
+    auto *load = createLoad(srcType, src, loc);
     context.addToInstructionsWithLoweredType(load);
-    createStoreForModuleInit(dst, load, loc);
+    createStore(dst, load, loc);
   } else {
     llvm_unreachable(
         "We expect only composite types are accessed with indexes");
   }
 }
 
-void SpirvBuilder::addModuleInitInstruction(SpirvInstruction *inst) {
+void SpirvBuilder::switchInsertPointToModuleInit() {
   if (moduleInitInsertPoint == nullptr) {
     moduleInit = createSpirvFunction(astContext.VoidTy, SourceLocation(),
                                      "module.init", false);
@@ -1088,7 +1073,7 @@ void SpirvBuilder::addModuleInitInstruction(SpirvInstruction *inst) {
     moduleInit->addBasicBlock(moduleInitInsertPoint);
   }
   assert(moduleInitInsertPoint && "null module init insert point");
-  moduleInitInsertPoint->addInstruction(inst);
+  insertPoint = moduleInitInsertPoint;
 }
 
 SpirvVariable *SpirvBuilder::createCloneVarForFxcCTBuffer(
@@ -1137,12 +1122,16 @@ SpirvBuilder::initializeCloneVarForFxcCTBuffer(SpirvInstruction *instr) {
     return var;
   }
 
+  auto *oldInsertPoint = insertPoint;
+  switchInsertPointToModuleInit();
+
   SpirvVariable *clone = createCloneVarForFxcCTBuffer(astType, spvType, var);
   lowerTypeVisitor.visitInstruction(clone);
   context.addToInstructionsWithLoweredType(clone);
 
   createCopyInstructionsFromFxcCTBufferToClone(clone, var);
 
+  insertPoint = oldInsertPoint;
   return clone;
 }
 
@@ -1447,7 +1436,12 @@ void SpirvBuilder::endModuleInitFunction() {
       moduleInitInsertPoint->hasTerminator()) {
     return;
   }
-  createReturnForModuleInit();
+
+  auto *oldInsertPoint = insertPoint;
+  switchInsertPointToModuleInit();
+  createReturn(/* SourceLocation */ {});
+  insertPoint = oldInsertPoint;
+
   mod->addFunctionToListOfSortedModuleFunctions(moduleInit);
 }
 
