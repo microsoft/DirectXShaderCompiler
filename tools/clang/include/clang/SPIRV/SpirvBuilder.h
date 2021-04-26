@@ -503,10 +503,10 @@ public:
   /// OpIgnoreIntersectionKHR/OpTerminateIntersectionKHR
   void createRaytracingTerminateKHR(spv::Op opcode, SourceLocation loc);
 
-  /// \brief Creates and returns a clone SPIR-V variable for CTBuffer with FXC
-  /// memory layout if some sub-components of instr contain HLSL matrix 1xN
-  /// QualType. Otherwise, returns instr.
-  SpirvInstruction *createCloneVarForFxcCTBuffer(SpirvInstruction *instr);
+  /// \brief Returns a clone SPIR-V variable for CTBuffer with FXC memory layout
+  /// if it contains HLSL matrix 1xN. It also creates copy instructions from the
+  /// CTBuffer to the clone variable in module.init. Otherwise, returns instr.
+  SpirvInstruction *initializeCloneVarForFxcCTBuffer(SpirvInstruction *instr);
 
   // === SPIR-V Module Structure ===
   inline void setMemoryModel(spv::AddressingModel, spv::MemoryModel);
@@ -712,6 +712,11 @@ private:
 
   /// \brief Ends building of the module initialization function.
   void endModuleInitFunction();
+
+  /// \brief Creates a clone SPIR-V variable for CTBuffer.
+  SpirvVariable *createCloneVarForFxcCTBuffer(QualType astType,
+                                              const SpirvType *spvType,
+                                              SpirvInstruction *var);
 
 private:
   ASTContext &astContext;

@@ -1091,27 +1091,8 @@ void SpirvBuilder::addModuleInitInstruction(SpirvInstruction *inst) {
   moduleInitInsertPoint->addInstruction(inst);
 }
 
-SpirvInstruction *
-SpirvBuilder::createCloneVarForFxcCTBuffer(SpirvInstruction *instr) {
-  assert(instr);
-  if (instr == nullptr)
-    return nullptr;
-  if (instr->getLayoutRule() != SpirvLayoutRule::FxcCTBuffer)
-    return instr;
-  SpirvVariable *var = dyn_cast<SpirvVariable>(instr);
-  if (var == nullptr)
-    return instr;
-
-  auto astType = var->getAstResultType();
-  const auto *spvType = var->getResultType();
-
-  LowerTypeVisitor lowerTypeVisitor(astContext, context, spirvOptions);
-  lowerTypeVisitor.visitInstruction(var);
-  context.addToInstructionsWithLoweredType(instr);
-  if (!lowerTypeVisitor.useSpvArrayForHlslMat1xN()) {
-    return var;
-  }
-
+SpirvVariable *SpirvBuilder::createCloneVarForFxcCTBuffer(
+    QualType astType, const SpirvType *spvType, SpirvInstruction *var) {
   SpirvVariable *clone = nullptr;
   if (astType != QualType({})) {
     clone =
@@ -1132,7 +1113,31 @@ SpirvBuilder::createCloneVarForFxcCTBuffer(SpirvInstruction *instr) {
                      var->getDebugName(), llvm::None, var->getSourceLocation());
   }
   clone->setLayoutRule(SpirvLayoutRule::Void);
+  return clone;
+}
 
+SpirvInstruction *
+SpirvBuilder::initializeCloneVarForFxcCTBuffer(SpirvInstruction *instr) {
+  assert(instr);
+  if (instr == nullptr)
+    return nullptr;
+  if (instr->getLayoutRule() != SpirvLayoutRule::FxcCTBuffer)
+    return instr;
+  SpirvVariable *var = dyn_cast<SpirvVariable>(instr);
+  if (var == nullptr)
+    return instr;
+
+  auto astType = var->getAstResultType();
+  const auto *spvType = var->getResultType();
+
+  LowerTypeVisitor lowerTypeVisitor(astContext, context, spirvOptions);
+  lowerTypeVisitor.visitInstruction(var);
+  context.addToInstructionsWithLoweredType(instr);
+  if (!lowerTypeVisitor.useSpvArrayForHlslMat1xN()) {
+    return var;
+  }
+
+  SpirvVariable *clone = createCloneVarForFxcCTBuffer(astType, spvType, var);
   lowerTypeVisitor.visitInstruction(clone);
   context.addToInstructionsWithLoweredType(clone);
 

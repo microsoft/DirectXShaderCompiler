@@ -723,7 +723,7 @@ DeclResultIdMapper::getOrCreateCloneVarForFxcCTBuffer(SpirvInstruction *var) {
   if (varToCloneItr != varToClone.end()) {
     return varToCloneItr->second;
   }
-  auto *clone = spvBuilder.createCloneVarForFxcCTBuffer(var);
+  auto *clone = spvBuilder.initializeCloneVarForFxcCTBuffer(var);
   varToClone[var] = clone;
   return clone;
 }
