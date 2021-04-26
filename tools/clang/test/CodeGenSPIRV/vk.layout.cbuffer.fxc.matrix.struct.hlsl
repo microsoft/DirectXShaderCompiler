@@ -32,6 +32,19 @@ cbuffer buffer0 {
   float end;                         // Offset:   56 Size:     4
 };
 
+float4 main(float4 color : COLOR) : SV_TARGET
+{
+// CHECK: %main = OpFunction %void None
+// CHECK:         OpFunctionCall %void %module_init
+// CHECK:         OpFunctionCall %v4float %src_main
+
+  color.x += end;
+
+  color.x += bar.foo._12;
+
+  return color;
+}
+
 // CHECK: %module_init = OpFunction %void
 // CHECK: %module_init_bb = OpLabel
 // CHECK: [[ptr_layout:%\w+]] = OpAccessChain %_ptr_Uniform_layout %buffer0 %uint_1
@@ -47,12 +60,3 @@ cbuffer buffer0 {
 // CHECK: [[ptr_foo_clone_1:%\w+]] = OpAccessChain %_ptr_Private_float [[ptr_foo_clone]] %uint_1
 // CHECK: [[foo_1:%\w+]] = OpLoad %float [[ptr_foo_1]]
 // CHECK: OpStore [[ptr_foo_clone_1]] [[foo_1]]
-
-float4 main(float4 color : COLOR) : SV_TARGET
-{
-  color.x += end;
-
-  color.x += bar.foo._12;
-
-  return color;
-}

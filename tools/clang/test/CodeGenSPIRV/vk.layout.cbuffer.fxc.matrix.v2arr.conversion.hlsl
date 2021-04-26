@@ -16,6 +16,10 @@ cbuffer buffer0 {
 
 float4 main(float4 color : COLOR) : SV_TARGET
 {
+// CHECK: %main = OpFunction %void None
+// CHECK:         OpFunctionCall %void %module_init
+// CHECK:         OpFunctionCall %v4float %src_main
+
   float1x2 bar = foo;
   color.x += bar._m00;
   return color;
