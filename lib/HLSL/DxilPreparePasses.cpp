@@ -388,8 +388,8 @@ public:
       if (!F)
         continue;
       Type *Ty = OP::GetOverloadType(fromOpcode, F);
-      for (auto uit = F->user_begin(); uit != F->user_end(); uit++) {
-        CallInst *CI = cast<CallInst>(*uit);
+      for (auto uit = F->user_begin(), E = F->user_end(); uit != E;) {
+        CallInst *CI = cast<CallInst>(*(uit++));
         IRBuilder<> Builder(CI);
         std::vector<Value*> args;
         args.emplace_back(hlslOp->GetU32Const((unsigned)toOpcode));
