@@ -1063,7 +1063,10 @@ void DxilLinkJob::StripDeadDebugInfo(Module &M) {
         else
           SubprogramChange = true;
       } else {
-        SubprogramChange = true;
+        // Copy it in anyway even if there's no function. When function is inlined
+        // the function reference is gone, but the subprogram is still valid as
+        // scope.
+        LiveSubprograms.push_back(DISP);
       }
     }
 
