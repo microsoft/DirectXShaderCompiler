@@ -1,7 +1,7 @@
 // RUN: %dxc -E amplification -T as_6_5 %s | FileCheck %s
 
-// Make sure we pass groupshared mesh payload directly
-// in to DispatchMesh, with no alloca involved.
+// Make sure we pass groupshared mesh payload directly into DispatchMesh,
+// with correct type, and no alloca involved.
 
 // CHECK: define void @amplification
 // CHECK-NOT: alloca
@@ -13,13 +13,14 @@
 
 struct MeshPayload
 {
+  float arr[3];
   uint4 data;
 };
 
 struct GSStruct
 {
-  uint i;
   MeshPayload pld;
+  MeshPayload pld2;
 };
 
 groupshared GSStruct gs;
@@ -28,8 +29,7 @@ GSStruct cb_gs;
 [numthreads(4,1,1)]
 void amplification(uint gtid : SV_GroupIndex)
 {
-  gs = cb_gs;
-  gs.i = 1;
+//  gs = cb_gs;
   gs.pld.data[gtid] = gtid;
   DispatchMesh(1,1,1,gs.pld);
 }
