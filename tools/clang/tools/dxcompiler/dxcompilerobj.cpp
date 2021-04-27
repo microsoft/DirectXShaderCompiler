@@ -605,7 +605,7 @@ public:
     _In_opt_ IDxcIncludeHandler *pIncludeHandler, // user-provided interface to handle #include directives (optional)
     _In_ REFIID riid, _Out_ LPVOID *ppResult      // IDxcResult: status, buffer, and errors
   ) override {
-    if (pSource == nullptr ||
+    if (pSource == nullptr || ppResult == nullptr ||
         (argCount > 0 && pArguments == nullptr))
       return E_INVALIDARG;
     if (!(IsEqualIID(riid, __uuidof(IDxcResult)) ||

@@ -44,7 +44,8 @@ HRESULT Compile(IDxcCompiler3 *pCompiler, DxcBuffer *pSource, LPCWSTR pszArgs[],
                IID_PPV_ARGS(pResults) // Compiler output status, buffer, and errors.
       );
   } __except(filter(GetExceptionCode(), GetExceptionInformation())) {
-    // Report unrecoverable internal error
+    // UNRECOVERABLE ERROR!
+    // At this point, state could be extremely corrupt. Terminate the process
     return E_FAIL;
   }
 }
@@ -99,7 +100,11 @@ int main()
     CComPtr<IDxcResult> pResults;
     if (FAILED(Compile(pCompiler, &Source, pszArgs, _countof(pszArgs), pIncludeHandler, &pResults)))
     {
-      wprintf(L"Compile Failed\n");
+
+      // Either an unrecoverable error exception was caught or a failing HRESULT was returned
+      // Use fputs to prevent any chance of new allocations
+      // Terminate the process
+      puts("Internal error or API misuse! Compile Failed\n");
       return 1;
     }
 
@@ -119,6 +124,8 @@ int main()
     HRESULT hrStatus;
     if (FAILED(pResults->GetStatus(&hrStatus)) || FAILED(hrStatus))
     {
+        // Compilation failed, but successful HRESULT was returned.
+        // Could reuse the compiler and allocator objects. For simplicity, exit here anyway
         wprintf(L"Compilation Failed\n");
         return 1;
     }
