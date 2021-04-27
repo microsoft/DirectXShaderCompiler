@@ -334,12 +334,12 @@ static unsigned IsPtrUsedByLoweredFn(
             "otherwise, multiple uses in single call");
       }
 
-    } else if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(user)) {
+    } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(user)) {
       // Not what we are looking for if GEP result is not [array of] struct.
       // If use is under struct member, we can still SROA the outer struct.
       if (!dxilutil::StripArrayTypes(GEP->getType()->getPointerElementType())
             ->isStructTy() ||
-          FindFirstStructMemberIdxInGEP(cast<GEPOperator>(GEP)))
+          FindFirstStructMemberIdxInGEP(GEP))
         continue;
       if (IsPtrUsedByLoweredFn(user, CollectedUses))
         bFound = true;
@@ -350,7 +350,7 @@ static unsigned IsPtrUsedByLoweredFn(
 
     } else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(user)) {
       unsigned opcode = CE->getOpcode();
-      if (opcode == Instruction::AddrSpaceCast || opcode == Instruction::GetElementPtr)
+      if (opcode == Instruction::AddrSpaceCast)
         if (IsPtrUsedByLoweredFn(user, CollectedUses))
           bFound = true;
     }
