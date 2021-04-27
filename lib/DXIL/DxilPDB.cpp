@@ -298,12 +298,12 @@ SmallVector<char, 0> WritePdbStream(ArrayRef<BYTE> Hash) {
 
 HRESULT hlsl::pdb::WriteDxilPDB(IMalloc *pMalloc, IDxcBlob *pContainer, ArrayRef<BYTE> HashData, IDxcBlob **ppOutBlob) {
   return hlsl::pdb::WriteDxilPDB(pMalloc,
-    llvm::ArrayRef<BYTE>((BYTE *)pContainer->GetBufferPointer(), pContainer->GetBufferSize()),
+    llvm::ArrayRef<BYTE>((const BYTE *)pContainer->GetBufferPointer(), pContainer->GetBufferSize()),
     HashData, ppOutBlob);
 }
 
 HRESULT hlsl::pdb::WriteDxilPDB(IMalloc *pMalloc, llvm::ArrayRef<BYTE> ContainerData, llvm::ArrayRef<BYTE> HashData, IDxcBlob **ppOutBlob) {
-  if (!hlsl::IsValidDxilContainer((hlsl::DxilContainerHeader *)ContainerData.data(), ContainerData.size()))
+  if (!hlsl::IsValidDxilContainer((const hlsl::DxilContainerHeader *)ContainerData.data(), ContainerData.size()))
     return E_FAIL;
 
   SmallVector<char, 0> PdbStream = WritePdbStream(HashData);
@@ -317,7 +317,7 @@ HRESULT hlsl::pdb::WriteDxilPDB(IMalloc *pMalloc, llvm::ArrayRef<BYTE> Container
   Writer.AddEmptyStream(); // DBI
   Writer.AddEmptyStream(); // IPI
   
-  Writer.AddStream({ (char *)ContainerData.data(), ContainerData.size() }); // Actual data block
+  Writer.AddStream(llvm::ArrayRef<char>((const char *)ContainerData.data(), ContainerData.size() )); // Actual data block
   
   CComPtr<hlsl::AbstractMemoryStream> pStream;
   IFR(hlsl::CreateMemoryStream(pMalloc, &pStream));
