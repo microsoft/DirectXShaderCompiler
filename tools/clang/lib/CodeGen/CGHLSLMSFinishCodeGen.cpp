@@ -1984,6 +1984,10 @@ unsigned AlignCBufferOffset(unsigned offset, unsigned size, llvm::Type *Ty,
                             bool bRowMajor, bool bMinPrecMode,
                             bool &bCurRowIsMinPrec) {
   DXASSERT(!(offset & 1), "otherwise we have an invalid offset.");
+  // resources, empty structure, or structures with only resources have
+  // zero size, and need no alignment.
+  if (size == 0)
+    return offset;
   bool bNeedNewRow = Ty->isArrayTy();
   // In min-precision mode, a new row is needed when
   // going into or out of min-precision component type.
