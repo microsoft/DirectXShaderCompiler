@@ -980,25 +980,13 @@ void HLModule::GetParameterRowsAndCols(Type *Ty, unsigned &rows, unsigned &cols,
   rows *= arraySize;
 }
 
-static Value *ReplaceGEPInstOrConstant(GEPOperator *GEP, Value *SrcPtr,
-                                       ArrayRef<Value *> Indices) {
-  Type *SrcTy = cast<PointerType>(SrcPtr->getType()->getScalarType())->getElementType();
-  Value *newGEP = nullptr;
-  GetElementPtrInst *GEPI = dyn_cast<GetElementPtrInst>(GEP);
-  if (GEPI) {
-    IRBuilder<> Builder(GEPI);
-    newGEP = Builder.CreateInBoundsGEP(SrcTy, SrcPtr, Indices, GEPI->getName());
-  } else {
-    newGEP = ConstantExpr::getInBoundsGetElementPtr(
-        SrcTy, cast<Constant>(SrcPtr), Indices);
-  }
-  GEP->replaceAllUsesWith(newGEP);
-  if (GEPI)
-    GEPI->eraseFromParent();
-  return newGEP;
-}
-
 static Value *MergeGEP(GEPOperator *SrcGEP, GEPOperator *GEP) {
+  IRBuilder<> Builder(GEP->getContext());
+  StringRef Name = "";
+  if (Instruction *I = dyn_cast<Instruction>(GEP)) {
+    Builder.SetInsertPoint(I);
+    Name = GEP->getName();
+  }
   SmallVector<Value *, 8> Indices;
 
   // Find out whether the last index in the source GEP is a sequential idx.
@@ -1026,9 +1014,6 @@ static Value *MergeGEP(GEPOperator *SrcGEP, GEPOperator *GEP) {
       // that before the merge.
       if (!isa<Constant>(GO1) || !isa<Constant>(SO1))
         return nullptr;
-      IRBuilder<> Builder(GEP->getContext());
-      if (Instruction *I = dyn_cast<Instruction>(GEP))
-        Builder.SetInsertPoint(I);
       Sum = Builder.CreateAdd(SO1, GO1);
     }
 
@@ -1048,101 +1033,41 @@ static Value *MergeGEP(GEPOperator *SrcGEP, GEPOperator *GEP) {
     Indices.append(SrcGEP->op_begin() + 1, SrcGEP->op_end());
     Indices.append(GEP->idx_begin() + 1, GEP->idx_end());
   }
-  if (!Indices.empty())
-    return ReplaceGEPInstOrConstant(GEP, SrcGEP->getOperand(0), Indices);
-  else
-    llvm_unreachable("must merge");
-}
 
-// If bitcast is to self or inner base struct, return true and report depth.
-static bool IsBitCastToBaseOrSelf(BitCastOperator *BCO, unsigned &depth) {
-  depth = 0;
-  Type *SrcTy = BCO->getSrcTy()->getPointerElementType();
-  Type *DestTy = BCO->getType()->getPointerElementType();
-  if (SrcTy == DestTy) {
-    return true;
-  } else if (DestTy->isStructTy()) {
-    // Drill into first element recursively to match cast-to-base struct pattern
-    Type *InnerTy = SrcTy;
-    while (InnerTy->isStructTy() && InnerTy != DestTy &&
-           InnerTy->getStructNumElements() > 0) {
-      InnerTy = InnerTy->getStructElementType(0);
-      depth++;
-    }
-    return InnerTy == DestTy;
-  }
-  return false;
-}
-
-static void MergeGepUseImpl(Value *V);
-
-// Given a bitcast-to-base pattern of specified depth, merge into GEP users
-static void MergeBitCastToBaseIntoGepUse(BitCastOperator *BCO, unsigned depth) {
-  Value *SrcPtr = BCO->getOperand(0);
-  if (depth == 0) {
-    DXASSERT_NOMSG(BCO->getSrcTy() == BCO->getDestTy());
-    BCO->replaceAllUsesWith(SrcPtr);
-    return;
-  }
-  for (auto U = BCO->user_begin(); U != BCO->user_end();) {
-    auto Use = U++;
-    if (GEPOperator *GEP = dyn_cast<GEPOperator>(*Use)) {
-      if (GEP->hasIndices() && isa<Constant>(*GEP->idx_begin()) &&
-          cast<Constant>(*GEP->idx_begin())->isNullValue()) {
-        // add zero indices to new GEP
-        Constant *Zero = ConstantInt::get(GEP->getOperand(1)->getType(), (uint64_t)0, false);
-        // add depth zeros plus the initial zero ptr index
-        SmallVector<Value *, 8> Indices (depth + 1, Zero);
-        Indices.append(GEP->idx_begin() + 1, GEP->idx_end());
-        Value *newGEP = ReplaceGEPInstOrConstant(GEP, SrcPtr, Indices);
-        MergeGepUseImpl(newGEP);
-      } else {
-        MergeGepUseImpl(GEP);
-      }
-    } else if (BitCastOperator *InnerBCO = dyn_cast<BitCastOperator>(*Use)) {
-      unsigned innerDepth = 0;
-      if (IsBitCastToBaseOrSelf(InnerBCO, innerDepth)) {
-        // Set inner bitcast src to outer src, add depth and recurse.
-        InnerBCO->setOperand(0, BCO->getOperand(0));
-        MergeBitCastToBaseIntoGepUse(InnerBCO, depth + innerDepth);
-      }
-    }
-  }
-  if (BitCastInst *I = dyn_cast<BitCastInst>(BCO)) {
-    if (I->user_empty()) {
-      I->eraseFromParent();
-    }
-  }
-}
-
-static void MergeGepUseImpl(Value *V) {
-  for (auto U = V->user_begin(); U != V->user_end();) {
-    auto Use = U++;
-
-    if (GEPOperator *GEP = dyn_cast<GEPOperator>(*Use)) {
-      if (GEPOperator *prevGEP = dyn_cast<GEPOperator>(V)) {
-        // merge the 2 GEPs
-        Value *newGEP = MergeGEP(prevGEP, GEP);
-        MergeGepUseImpl(newGEP);
-      } else {
-        MergeGepUseImpl(*Use);
-      }
-    } else if (BitCastOperator *BCO = dyn_cast<BitCastOperator>(*Use)) {
-      unsigned depth = 0;
-      if (IsBitCastToBaseOrSelf(BCO, depth)) {
-        MergeBitCastToBaseIntoGepUse(BCO, depth);
-      }
-    }
-  }
-  if (V->user_empty()) {
-    // Only remove GEP here, root ptr will be removed by DCE.
-    if (GetElementPtrInst *I = dyn_cast<GetElementPtrInst>(V))
-      I->eraseFromParent();
-  }
+  DXASSERT(!Indices.empty(), "must merge");
+  Value *newGEP = Builder.CreateInBoundsGEP(nullptr, SrcGEP->getOperand(0), Indices, Name);
+  GEP->replaceAllUsesWith(newGEP);
+  if (Instruction *I = dyn_cast<Instruction>(GEP))
+    I->eraseFromParent();
+  return newGEP;
 }
 
 void HLModule::MergeGepUse(Value *V) {
-  MergeGepUseImpl(V);
+  SmallVector<Value*, 16> worklist(V->user_begin(), V->user_end());
+  while (worklist.size()) {
+    Value *V = worklist.pop_back_val();
+    if (BitCastOperator *BCO = dyn_cast<BitCastOperator>(V)) {
+      if (Value *NewV = dxilutil::TryReplaceBaseCastWithGep(V)) {
+        worklist.push_back(NewV);
+      } else {
+        // merge any GEP users of the untranslated bitcast
+        worklist.append(V->user_begin(), V->user_end());
+      }
+    } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(V)) {
+      if (GEPOperator *prevGEP = dyn_cast<GEPOperator>(GEP->getPointerOperand())) {
+        // merge the 2 GEPs, returns nullptr if couldn't merge
+        if (Value *newGEP = MergeGEP(prevGEP, GEP)) {
+          worklist.push_back(newGEP);
+          // delete prevGEP if no more users
+          if (prevGEP->user_empty() && isa<GetElementPtrInst>(prevGEP))
+            cast<GetElementPtrInst>(prevGEP)->eraseFromParent();
+        }
+      } else {
+        // nothing to merge yet, add GEP users
+        worklist.append(V->user_begin(), V->user_end());
+      }
+    }
+  }
 }
 
 template

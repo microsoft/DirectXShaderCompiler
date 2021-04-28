@@ -1192,6 +1192,43 @@ Value *GetConvergentSource(Value *V) {
   return cast<CallInst>(V)->getOperand(0);
 }
 
+Value *TryReplaceBaseCastWithGep(Value *V) {
+  if (BitCastOperator *BCO = dyn_cast<BitCastOperator>(V)) {
+    if (!BCO->getSrcTy()->isPointerTy())
+      return nullptr;
+
+    Type *SrcElTy = BCO->getSrcTy()->getPointerElementType();
+    Type *DstElTy = BCO->getDestTy()->getPointerElementType();
+
+    // Adapted from code in InstCombiner::visitBitCast
+    unsigned NumZeros = 0;
+    while (SrcElTy != DstElTy && isa<CompositeType>(SrcElTy) &&
+           !SrcElTy->isPointerTy() &&
+           SrcElTy->getNumContainedTypes() /* not "{}" */) {
+      SrcElTy = cast<CompositeType>(SrcElTy)->getTypeAtIndex(0U);
+      ++NumZeros;
+    }
+
+    // If we found a path from the src to dest, create the getelementptr now.
+    if (SrcElTy == DstElTy) {
+      IRBuilder<> Builder(BCO->getContext());
+      StringRef Name = "";
+      if (Instruction *I = dyn_cast<Instruction>(BCO)) {
+        Builder.SetInsertPoint(I);
+        Name = I->getName();
+      }
+      SmallVector<Value *, 8> Indices(NumZeros + 1, Builder.getInt32(0));
+      Value *newGEP = Builder.CreateInBoundsGEP(nullptr, BCO->getOperand(0), Indices, Name);
+      V->replaceAllUsesWith(newGEP);
+      if (auto *I = dyn_cast<Instruction>(V))
+        I->eraseFromParent();
+      return newGEP;
+    }
+  }
+
+  return nullptr;
+}
+
 }
 }
 

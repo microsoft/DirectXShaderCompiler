@@ -155,6 +155,10 @@ namespace dxilutil {
 
   bool IsConvergentMarker(llvm::Value *V);
   llvm::Value *GetConvergentSource(llvm::Value *V);
+
+  /// If value is a bitcast to base class pattern, this will transform it into
+  /// a GEP with all zero indices and return that instruction.
+  llvm::Value *TryReplaceBaseCastWithGep(llvm::Value *V);
 }
 
 }
