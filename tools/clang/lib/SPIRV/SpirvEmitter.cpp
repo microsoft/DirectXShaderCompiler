@@ -2326,8 +2326,8 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
 
     auto *argInst = doExpr(arg);
 
-    bool useGlobalResourceVarAsArg =
-        argInfo && argInfo->getLayoutRule() != SpirvLayoutRule::Void &&
+    bool isArgGlobalVarWithResourceType =
+        argInfo && argInfo->getStorageClass() != spv::StorageClass::Function &&
         isResourceType(paramType);
 
     // If argInfo is nullptr and argInst is a rvalue, we do not have a proper
@@ -2339,7 +2339,7 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
     // expects are point-to-pointer argument for resources, which will be
     // resolved by legalization.
     if ((argInfo || (argInst && !argInst->isRValue())) &&
-        canActAsOutParmVar(param) && !useGlobalResourceVarAsArg &&
+        canActAsOutParmVar(param) && !isArgGlobalVarWithResourceType &&
         paramTypeMatchesArgType(paramType, arg->getType())) {
       // Based on SPIR-V spec, function parameter must be always Function
       // scope. In addition, we must pass memory object declaration argument

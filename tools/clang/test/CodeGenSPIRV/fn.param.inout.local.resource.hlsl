@@ -1,4 +1,4 @@
-// Run: %dxc -E main -T cs_6_0
+// Run: %dxc -E main -T ps_6_0 -fspv-target-env=vulkan1.2
 
 Texture2D<float4>               r0;
 RWTexture3D<float4>             r1;
