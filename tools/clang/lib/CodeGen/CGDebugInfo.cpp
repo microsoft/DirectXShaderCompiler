@@ -465,12 +465,6 @@ llvm::DIType *CGDebugInfo::CreateType(const BuiltinType *BT) {
   case BuiltinType::OCLSampler:
   case BuiltinType::OCLEvent:
     llvm_unreachable("No ObjC or OpenCL support");
-  case BuiltinType::LitInt:
-    Encoding = llvm::dwarf::DW_ATE_signed;
-    break;
-  case BuiltinType::LitFloat:
-    Encoding = llvm::dwarf::DW_ATE_float;
-    break;
 #endif // HLSL Change - no ObjC or OpenCL support
 
   case BuiltinType::UChar:
@@ -506,6 +500,7 @@ llvm::DIType *CGDebugInfo::CreateType(const BuiltinType *BT) {
   case BuiltinType::Long:
   case BuiltinType::WChar_S:
   case BuiltinType::LongLong:
+  case BuiltinType::LitInt:
     Encoding = llvm::dwarf::DW_ATE_signed;
     break;
   case BuiltinType::Bool:
@@ -520,6 +515,7 @@ llvm::DIType *CGDebugInfo::CreateType(const BuiltinType *BT) {
   case BuiltinType::Float:
   case BuiltinType::LongDouble:
   case BuiltinType::Double:
+  case BuiltinType::LitFloat:
     Encoding = llvm::dwarf::DW_ATE_float;
     break;
   }
