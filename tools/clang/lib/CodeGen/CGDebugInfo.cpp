@@ -466,8 +466,11 @@ llvm::DIType *CGDebugInfo::CreateType(const BuiltinType *BT) {
   case BuiltinType::OCLEvent:
     llvm_unreachable("No ObjC or OpenCL support");
   case BuiltinType::LitInt:
+    Encoding = llvm::dwarf::DW_ATE_signed;
+    break;
   case BuiltinType::LitFloat:
-    llvm_unreachable("Unsupported HLSL types");
+    Encoding = llvm::dwarf::DW_ATE_float;
+    break;
 #endif // HLSL Change - no ObjC or OpenCL support
 
   case BuiltinType::UChar:
