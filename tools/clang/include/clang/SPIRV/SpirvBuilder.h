@@ -690,8 +690,17 @@ private:
   /// clone dst. This method assumes
   ///   1. src has a pointer type to a type with FXC memory layout rule
   ///   2. dst has a pointer type to a type with void memory layout rule
-  void createCopyInstructionsFromFxcCTBufferToClone(SpirvInstruction *dst,
-                                                    SpirvInstruction *src);
+  void
+  createCopyInstructionsFromFxcCTBufferToClone(SpirvInstruction *fxcCTBuffer,
+                                               SpirvInstruction *clone);
+  void createCopyArrayInFxcCTBufferToClone(const ArrayType *fxcCTBufferArrTy,
+                                           SpirvInstruction *fxcCTBuffer,
+                                           const SpirvType *cloneType,
+                                           SpirvInstruction *clone,
+                                           SourceLocation loc);
+  void createCopyStructInFxcCTBufferToClone(
+      const StructType *fxcCTBufferStructTy, SpirvInstruction *fxcCTBuffer,
+      const SpirvType *cloneType, SpirvInstruction *clone, SourceLocation loc);
 
   /// \brief Sets moduleInitInsertPoint as insertPoint.
   void switchInsertPointToModuleInit();

@@ -968,97 +968,109 @@ void SpirvBuilder::createRaytracingTerminateKHR(spv::Op opcode,
   insertPoint->addInstruction(inst);
 }
 
-void SpirvBuilder::createCopyInstructionsFromFxcCTBufferToClone(
-    SpirvInstruction *dst, SpirvInstruction *src) {
-  assert(dst != nullptr && src != nullptr);
-  assert(dst->getResultType() != nullptr && src->getResultType() != nullptr);
-  assert(src->getLayoutRule() == SpirvLayoutRule::FxcCTBuffer &&
-         dst->getLayoutRule() == SpirvLayoutRule::Void);
+void SpirvBuilder::createCopyArrayInFxcCTBufferToClone(
+    const ArrayType *fxcCTBufferArrTy, SpirvInstruction *fxcCTBuffer,
+    const SpirvType *cloneType, SpirvInstruction *clone, SourceLocation loc) {
+  const SpirvPointerType *cloneElemPtrTy = nullptr;
+  const SpirvPointerType *fxcCTBufferElemPtrTy = nullptr;
+  if (auto *cloneArrTy = dyn_cast<ArrayType>(cloneType)) {
+    assert(fxcCTBufferArrTy->getElementCount() ==
+           cloneArrTy->getElementCount());
 
-  auto *dstPtrType = dyn_cast<SpirvPointerType>(dst->getResultType());
-  auto *srcPtrType = dyn_cast<SpirvPointerType>(src->getResultType());
-  assert(dstPtrType != nullptr && srcPtrType != nullptr);
+    cloneElemPtrTy = context.getPointerType(cloneArrTy->getElementType(),
+                                            clone->getStorageClass());
+    fxcCTBufferElemPtrTy = context.getPointerType(
+        fxcCTBufferArrTy->getElementType(), fxcCTBuffer->getStorageClass());
+  } else if (auto *cloneVecTy = dyn_cast<VectorType>(cloneType)) {
+    // float1xN must be float[N] for CTBuffer data filling but it should be
+    // used as a vector of N floats in SPIR-V instructions.
+    assert(fxcCTBufferArrTy->getElementCount() ==
+           cloneVecTy->getElementCount());
 
-  auto *dstType = dstPtrType->getPointeeType();
-  auto *srcType = srcPtrType->getPointeeType();
-  assert(dstType != nullptr && srcType != nullptr);
+    cloneElemPtrTy = context.getPointerType(cloneVecTy->getElementType(),
+                                            clone->getStorageClass());
+    fxcCTBufferElemPtrTy = context.getPointerType(
+        fxcCTBufferArrTy->getElementType(), fxcCTBuffer->getStorageClass());
+  } else {
+    llvm_unreachable("Unexpected destination type");
+  }
 
-  auto loc = src->getSourceLocation();
-  if (srcType->getKind() == SpirvType::TK_Array ||
-      srcType->getKind() == SpirvType::TK_Struct) {
-    const SpirvPointerType *dstElemPtrTy = nullptr;
-    const SpirvPointerType *srcElemPtrTy = nullptr;
-    if (auto *srcArrTy = dyn_cast<ArrayType>(srcType)) {
-      if (auto *dstArrTy = dyn_cast<ArrayType>(dstType)) {
-        assert(srcArrTy->getElementCount() == dstArrTy->getElementCount());
+  for (uint32_t i = 0; i < fxcCTBufferArrTy->getElementCount(); ++i) {
+    auto *ptrToFxcCTBufferElem = createAccessChain(
+        fxcCTBufferElemPtrTy, fxcCTBuffer,
+        {getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, i))}, loc);
+    context.addToInstructionsWithLoweredType(ptrToFxcCTBufferElem);
+    auto *ptrToCloneElem = createAccessChain(
+        cloneElemPtrTy, clone,
+        {getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, i))}, loc);
+    context.addToInstructionsWithLoweredType(ptrToCloneElem);
+    createCopyInstructionsFromFxcCTBufferToClone(ptrToFxcCTBufferElem,
+                                                 ptrToCloneElem);
+  }
+}
 
-        dstElemPtrTy = context.getPointerType(dstArrTy->getElementType(),
-                                              dst->getStorageClass());
-        srcElemPtrTy = context.getPointerType(srcArrTy->getElementType(),
-                                              src->getStorageClass());
-      } else if (auto *dstVecTy = dyn_cast<VectorType>(dstType)) {
-        // float1xN must be float[N] for CTBuffer data filling but it should be
-        // used as a vector of N floats in SPIR-V instructions.
-        assert(srcArrTy->getElementCount() == dstVecTy->getElementCount());
+void SpirvBuilder::createCopyStructInFxcCTBufferToClone(
+    const StructType *fxcCTBufferStructTy, SpirvInstruction *fxcCTBuffer,
+    const SpirvType *cloneType, SpirvInstruction *clone, SourceLocation loc) {
+  if (auto *cloneStructTy = dyn_cast<StructType>(cloneType)) {
+    auto fxcCTBufferFields = fxcCTBufferStructTy->getFields();
+    auto cloneFields = cloneStructTy->getFields();
+    assert(fxcCTBufferFields.size() == cloneFields.size());
 
-        dstElemPtrTy = context.getPointerType(dstVecTy->getElementType(),
-                                              dst->getStorageClass());
-        srcElemPtrTy = context.getPointerType(srcArrTy->getElementType(),
-                                              src->getStorageClass());
-      } else {
-        llvm_unreachable("Unexpected destination type");
-      }
-
-      for (uint32_t i = 0; i < srcArrTy->getElementCount(); ++i) {
-        auto *ptrToSrcElem = createAccessChain(
-            srcElemPtrTy, src,
-            {getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, i))},
-            loc);
-        context.addToInstructionsWithLoweredType(ptrToSrcElem);
-        auto *ptrToDstElem = createAccessChain(
-            dstElemPtrTy, dst,
-            {getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, i))},
-            loc);
-        context.addToInstructionsWithLoweredType(ptrToDstElem);
-        createCopyInstructionsFromFxcCTBufferToClone(ptrToDstElem,
-                                                     ptrToSrcElem);
-      }
-    } else if (auto *srcStructTy = dyn_cast<StructType>(srcType)) {
-      if (auto *dstStructTy = dyn_cast<StructType>(dstType)) {
-        auto srcFields = srcStructTy->getFields();
-        auto dstFields = dstStructTy->getFields();
-        assert(srcFields.size() == dstFields.size());
-
-        for (uint32_t i = 0; i < srcFields.size(); ++i) {
-          auto *srcElemPtrTy =
-              context.getPointerType(srcFields[i].type, src->getStorageClass());
-          auto *ptrToSrcElem = createAccessChain(
-              srcElemPtrTy, src,
-              {getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, i))},
-              loc);
-          context.addToInstructionsWithLoweredType(ptrToSrcElem);
-          auto *dstElemPtrTy =
-              context.getPointerType(dstFields[i].type, dst->getStorageClass());
-          auto *ptrToDstElem = createAccessChain(
-              dstElemPtrTy, dst,
-              {getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, i))},
-              loc);
-          context.addToInstructionsWithLoweredType(ptrToDstElem);
-          createCopyInstructionsFromFxcCTBufferToClone(ptrToDstElem,
-                                                       ptrToSrcElem);
-        }
-      } else {
-        llvm_unreachable("Unexpected destination type");
-      }
+    for (uint32_t i = 0; i < fxcCTBufferFields.size(); ++i) {
+      auto *fxcCTBufferElemPtrTy = context.getPointerType(
+          fxcCTBufferFields[i].type, fxcCTBuffer->getStorageClass());
+      auto *ptrToFxcCTBufferElem = createAccessChain(
+          fxcCTBufferElemPtrTy, fxcCTBuffer,
+          {getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, i))}, loc);
+      context.addToInstructionsWithLoweredType(ptrToFxcCTBufferElem);
+      auto *cloneElemPtrTy =
+          context.getPointerType(cloneFields[i].type, clone->getStorageClass());
+      auto *ptrToCloneElem = createAccessChain(
+          cloneElemPtrTy, clone,
+          {getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, i))}, loc);
+      context.addToInstructionsWithLoweredType(ptrToCloneElem);
+      createCopyInstructionsFromFxcCTBufferToClone(ptrToFxcCTBufferElem,
+                                                   ptrToCloneElem);
     }
-  } else if (srcType->getKind() == SpirvType::TK_Bool ||
-             srcType->getKind() == SpirvType::TK_Integer ||
-             srcType->getKind() == SpirvType::TK_Float ||
-             srcType->getKind() == SpirvType::TK_Vector ||
-             srcType->getKind() == SpirvType::TK_Matrix) {
-    auto *load = createLoad(srcType, src, loc);
+  } else {
+    llvm_unreachable("Unexpected destination type");
+  }
+}
+
+void SpirvBuilder::createCopyInstructionsFromFxcCTBufferToClone(
+    SpirvInstruction *fxcCTBuffer, SpirvInstruction *clone) {
+  assert(clone != nullptr && fxcCTBuffer != nullptr);
+  assert(clone->getResultType() != nullptr &&
+         fxcCTBuffer->getResultType() != nullptr);
+  assert(fxcCTBuffer->getLayoutRule() == SpirvLayoutRule::FxcCTBuffer &&
+         clone->getLayoutRule() == SpirvLayoutRule::Void);
+
+  auto *clonePtrType = dyn_cast<SpirvPointerType>(clone->getResultType());
+  auto *fxcCTBufferPtrType =
+      dyn_cast<SpirvPointerType>(fxcCTBuffer->getResultType());
+  assert(clonePtrType != nullptr && fxcCTBufferPtrType != nullptr);
+
+  auto *cloneType = clonePtrType->getPointeeType();
+  auto *fxcCTBufferType = fxcCTBufferPtrType->getPointeeType();
+  assert(cloneType != nullptr && fxcCTBufferType != nullptr);
+
+  auto loc = fxcCTBuffer->getSourceLocation();
+  if (auto *fxcCTBufferArrTy = dyn_cast<ArrayType>(fxcCTBufferType)) {
+    createCopyArrayInFxcCTBufferToClone(fxcCTBufferArrTy, fxcCTBuffer,
+                                        cloneType, clone, loc);
+  } else if (auto *fxcCTBufferStructTy =
+                 dyn_cast<StructType>(fxcCTBufferType)) {
+    createCopyStructInFxcCTBufferToClone(fxcCTBufferStructTy, fxcCTBuffer,
+                                         cloneType, clone, loc);
+  } else if (fxcCTBufferType->getKind() == SpirvType::TK_Bool ||
+             fxcCTBufferType->getKind() == SpirvType::TK_Integer ||
+             fxcCTBufferType->getKind() == SpirvType::TK_Float ||
+             fxcCTBufferType->getKind() == SpirvType::TK_Vector ||
+             fxcCTBufferType->getKind() == SpirvType::TK_Matrix) {
+    auto *load = createLoad(fxcCTBufferType, fxcCTBuffer, loc);
     context.addToInstructionsWithLoweredType(load);
-    createStore(dst, load, loc);
+    createStore(clone, load, loc);
   } else {
     llvm_unreachable(
         "We expect only composite types are accessed with indexes");
@@ -1134,7 +1146,7 @@ SpirvBuilder::initializeCloneVarForFxcCTBuffer(SpirvInstruction *instr) {
   lowerTypeVisitor.visitInstruction(clone);
   context.addToInstructionsWithLoweredType(clone);
 
-  createCopyInstructionsFromFxcCTBufferToClone(clone, var);
+  createCopyInstructionsFromFxcCTBufferToClone(var, clone);
   fxcCTBufferToClone[var] = clone;
 
   insertPoint = oldInsertPoint;
