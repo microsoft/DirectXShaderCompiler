@@ -508,8 +508,19 @@ public:
   void createRaytracingTerminateKHR(spv::Op opcode, SourceLocation loc);
 
   /// \brief Returns a clone SPIR-V variable for CTBuffer with FXC memory layout
-  /// if it contains HLSL matrix 1xN. It also creates copy instructions from the
-  /// CTBuffer to the clone variable in module.init. Otherwise, returns instr.
+  /// and creates copy instructions from the CTBuffer to the clone variable in
+  /// module.init if it contains HLSL matrix 1xN. Otherwise, returns nullptr.
+  ///
+  /// Motivation for this clone variable:
+  /// We translate a matrix type1xN as a vector typeN in all code generation,
+  /// but type1xN in CTBuffer with FXC memory layout rule must have a stride 16
+  /// bytes between elements. Since we cannot set a stride for a SPIR-V vector,
+  /// we must use a SPIR-V array type[N] with stride 16 bytes for it. Since we
+  /// translate it into a vector typeN for all places, it has side effects. We
+  /// use a clone variable to fix this issue i.e.,
+  ///   1. Use the CTBuffer to receive the data from CPU
+  ///   2. Copy it to the clone variable
+  ///   3. Use the clone variable in all the places
   SpirvInstruction *initializeCloneVarForFxcCTBuffer(SpirvInstruction *instr);
 
   // === SPIR-V Module Structure ===
@@ -731,6 +742,11 @@ private:
   // To avoid generating multiple OpStrings for the same string literal
   // the SpirvBuilder will generate and reuse them.
   llvm::DenseMap<std::string, SpirvString *, StringMapInfo> stringLiterals;
+
+  /// Mapping of CTBuffers including matrix 1xN with FXC memory layout to their
+  /// clone variables. We need it to avoid multiple clone variables for the same
+  /// CTBuffer.
+  llvm::DenseMap<SpirvVariable *, SpirvVariable *> fxcCTBufferToClone;
 };
 
 void SpirvBuilder::requireCapability(spv::Capability cap, SourceLocation loc) {

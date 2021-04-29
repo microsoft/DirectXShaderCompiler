@@ -1107,10 +1107,15 @@ SpirvBuilder::initializeCloneVarForFxcCTBuffer(SpirvInstruction *instr) {
   if (instr == nullptr)
     return nullptr;
   if (instr->getLayoutRule() != SpirvLayoutRule::FxcCTBuffer)
-    return instr;
+    return nullptr;
   SpirvVariable *var = dyn_cast<SpirvVariable>(instr);
   if (var == nullptr)
-    return instr;
+    return nullptr;
+
+  // If we already generated a clone for the given CTBuffer, return it.
+  auto cloneItr = fxcCTBufferToClone.find(var);
+  if (cloneItr != fxcCTBufferToClone.end())
+    return cloneItr->second;
 
   auto astType = var->getAstResultType();
   const auto *spvType = var->getResultType();
@@ -1119,7 +1124,7 @@ SpirvBuilder::initializeCloneVarForFxcCTBuffer(SpirvInstruction *instr) {
   lowerTypeVisitor.visitInstruction(var);
   context.addToInstructionsWithLoweredType(instr);
   if (!lowerTypeVisitor.useSpvArrayForHlslMat1xN()) {
-    return var;
+    return nullptr;
   }
 
   auto *oldInsertPoint = insertPoint;
@@ -1130,6 +1135,7 @@ SpirvBuilder::initializeCloneVarForFxcCTBuffer(SpirvInstruction *instr) {
   context.addToInstructionsWithLoweredType(clone);
 
   createCopyInstructionsFromFxcCTBufferToClone(clone, var);
+  fxcCTBufferToClone[var] = clone;
 
   insertPoint = oldInsertPoint;
   return clone;
