@@ -57,6 +57,9 @@ bool LowerTypeVisitor::visit(SpirvFunction *fn, Phase phase) {
 }
 
 bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
+  if (spvContext.hasLoweredType(instr))
+    return true;
+
   const QualType astType = instr->getAstResultType();
   const SpirvType *hybridType = instr->getResultType();
 
@@ -370,6 +373,26 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
 
   // AST vector/matrix types are TypedefType of TemplateSpecializationType. We
   // handle them via HLSL type inspection functions.
+
+  // When the memory layout rule is FxcCTBuffer, typeNxM matrix with M > 1 and
+  // N == 1 consists of M vectors where each vector has a single element. Since
+  // SPIR-V does not have a vector with single element, we have to use an
+  // OpTypeArray with ArrayStride 16 instead of OpTypeVector. We have the same
+  // rule for column_major typeNxM and row_major typeMxN.
+  if (rule == SpirvLayoutRule::FxcCTBuffer && hlsl::IsHLSLMatType(type)) {
+    uint32_t rowCount = 0, colCount = 0;
+    hlsl::GetHLSLMatRowColCount(type, rowCount, colCount);
+    if (!alignmentCalc.useRowMajor(isRowMajor, type))
+      std::swap(rowCount, colCount);
+    if (rowCount == 1) {
+      useArrayForMat1xN = true;
+      auto elemType = hlsl::GetHLSLMatElementType(type);
+      uint32_t stride = 0;
+      alignmentCalc.getAlignmentAndSize(type, rule, isRowMajor, &stride);
+      return spvContext.getArrayType(
+          lowerType(elemType, rule, isRowMajor, srcLoc), colCount, stride);
+    }
+  }
 
   { // Vector types
     QualType elemType = {};
