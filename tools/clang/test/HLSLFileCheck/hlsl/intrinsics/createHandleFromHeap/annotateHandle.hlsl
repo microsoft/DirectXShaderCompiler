@@ -9,7 +9,7 @@
 // Make sure sampler and texture get correct annotateHandle.
 
 // CHECK-DAG:call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %{{.*}}, %dx.types.ResourceProperties { i32 2, i32 1033 })
-// CHECK-SAME: resource: Texture2D<F32>
+// CHECK-SAME: resource: Texture2D<4xF32>
 // CHECK-DAG:call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %{{.*}}, %dx.types.ResourceProperties { i32 14, i32 0 })
 // CHECK-SAME: resource: SamplerState
 

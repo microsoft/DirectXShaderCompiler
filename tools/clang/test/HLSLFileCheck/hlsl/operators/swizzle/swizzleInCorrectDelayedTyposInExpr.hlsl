@@ -5,6 +5,7 @@
 // It requires a number of conditions to get there.
 
 // CHECK: error: use of undeclared identifier 'some_var_2'; did you mean 'some_var_1'
+// CHECK: error: use of undeclared identifier 'some_var_3'
 
 float3 some_fn(float4 a, float b) { return b; }
 float4 foo(int i) { return i; }
@@ -17,7 +18,7 @@ float3 repro() {
   // to resolve the vector member expression
   // using hlsl::LookupVectorMemberExprForHLSL
   float4 some_var_1;
-  return some_fn(some_var_2, foo(0).xyz);
+  return some_fn(some_var_2, foo(0).xyz) + some_other_fn(1.0.xxxx, 0.0.xxxx, some_var_3);
 }
 float3 main(float4 input : IN) : OUT {
   return repro();

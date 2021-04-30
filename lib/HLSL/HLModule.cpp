@@ -322,9 +322,7 @@ std::vector<uint8_t> &HLModule::GetSerializedRootSignature() {
 }
 
 void HLModule::SetSerializedRootSignature(const uint8_t *pData, unsigned size) {
-  m_SerializedRootSignature.clear();
-  m_SerializedRootSignature.resize(size);
-  memcpy(m_SerializedRootSignature.data(), pData, size);
+  m_SerializedRootSignature.assign(pData, pData+size);
 }
 
 DxilTypeSystem &HLModule::GetTypeSystem() {

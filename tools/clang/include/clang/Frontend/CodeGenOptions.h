@@ -234,6 +234,8 @@ public:
   bool HLSLEnableLifetimeMarkers = false;
   /// Put shader sources and options in the module
   bool HLSLEmbedSourcesInModule = false;
+  /// Enable generation of payload access qualifier metadata. 
+  bool HLSLEnablePayloadAccessQualifiers = false;
   // HLSL Change Ends
 
   // SPIRV Change Starts

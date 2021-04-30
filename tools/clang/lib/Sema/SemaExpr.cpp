@@ -9460,7 +9460,10 @@ bool CheckForModifiableLvalue(Expr *E, SourceLocation Loc, Sema &S) { // HLSL Ch
   assert(!E->hasPlaceholderType(BuiltinType::PseudoObject));
   // HLSL Change Starts - check const for array subscript operator for HLSL vector/matrix
   if (S.Context.getLangOpts().HLSL && E->getStmtClass() == Stmt::CXXOperatorCallExprClass) {
-      // check if it's a vector or matrix
+    // check if it's a vector or matrix
+    const CXXOperatorCallExpr *expr = cast<CXXOperatorCallExpr>(E);
+    QualType qt = expr->getArg(0)->getType();
+    if ((hlsl::IsMatrixType(&S, qt) || hlsl::IsVectorType(&S, qt)))
       return HLSLCheckForModifiableLValue(E, Loc, S);
   }
   // HLSL Change Ends

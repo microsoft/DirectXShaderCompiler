@@ -511,6 +511,17 @@ struct IDxcValidator : public IUnknown {
     ) = 0;
 };
 
+CROSS_PLATFORM_UUIDOF(IDxcValidator2, "458e1fd1-b1b2-4750-a6e1-9c10f03bed92")
+struct IDxcValidator2 : public IDxcValidator {
+  // Validate a shader.
+  virtual HRESULT STDMETHODCALLTYPE ValidateWithDebug(
+    _In_ IDxcBlob *pShader,                       // Shader to validate.
+    _In_ UINT32 Flags,                            // Validation flags.
+    _In_opt_ DxcBuffer *pOptDebugBitcode,         // Optional debug module bitcode to provide line numbers
+    _COM_Outptr_ IDxcOperationResult **ppResult   // Validation output status, buffer, and errors
+    ) = 0;
+};
+
 CROSS_PLATFORM_UUIDOF(IDxcContainerBuilder, "334b1f50-2292-4b35-99a1-25588d8c17fe")
 struct IDxcContainerBuilder : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE Load(_In_ IDxcBlob *pDxilContainerHeader) = 0;                // Loads DxilContainer to the builder
@@ -576,10 +587,15 @@ struct IDxcVersionInfo2 : public IDxcVersionInfo {
 };
 
 CROSS_PLATFORM_UUIDOF(IDxcVersionInfo3, "5e13e843-9d25-473c-9ad2-03b2d0b44b1e")
-struct IDxcVersionInfo3 : public IDxcVersionInfo2 {
+struct IDxcVersionInfo3 : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE GetCustomVersionString(
     _Outptr_result_z_ char **pVersionString // Custom version string for compiler. (Must be CoTaskMemFree()'d!)
   ) = 0;
+};
+
+struct DxcArgPair {
+  const WCHAR *pName;
+  const WCHAR *pValue;
 };
 
 CROSS_PLATFORM_UUIDOF(IDxcPdbUtils, "E6C9647E-9D6A-4C3B-B94C-524B5A6C343D")
@@ -616,6 +632,8 @@ struct IDxcPdbUtils : public IUnknown {
 
   virtual HRESULT STDMETHODCALLTYPE SetCompiler(_In_ IDxcCompiler3 *pCompiler) = 0;
   virtual HRESULT STDMETHODCALLTYPE CompileForFullPDB(_COM_Outptr_ IDxcResult **ppResult) = 0;
+  virtual HRESULT STDMETHODCALLTYPE OverrideArgs(_In_ DxcArgPair *pArgPairs, UINT32 uNumArgPairs) = 0;
+  virtual HRESULT STDMETHODCALLTYPE OverrideRootSignature(_In_ const WCHAR *pRootSignature) = 0;
 };
 
 // Note: __declspec(selectany) requires 'extern'

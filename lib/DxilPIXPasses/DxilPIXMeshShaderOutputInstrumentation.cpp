@@ -28,6 +28,8 @@
 #include <winerror.h>
 #endif
 
+#include "PixPassHelpers.h"
+
 // Keep these in sync with the same-named value in the debugger application's
 // WinPixShaderUtils.h
 
@@ -72,7 +74,6 @@ private:
     IRBuilder<> &Builder;
   };
 
-  CallInst *addUAV(BuilderContext &BC);
   Value *insertInstructionsToCalculateFlattenedGroupIdXandY(BuilderContext &BC);
   Value *insertInstructionsToCalculateGroupIdZ(BuilderContext &BC);
   Value *reserveDebugEntrySpace(BuilderContext &BC, uint32_t SpaceInBytes);
@@ -90,53 +91,6 @@ void DxilPIXMeshShaderOutputInstrumentation::applyOptions(PassOptions O)
 uint32_t DxilPIXMeshShaderOutputInstrumentation::UAVDumpingGroundOffset() 
 {
   return static_cast<uint32_t>(m_UAVSize - DebugBufferDumpingGroundSize);
-}
-
-CallInst *DxilPIXMeshShaderOutputInstrumentation::addUAV(BuilderContext &BC) 
-{
-  // Set up a UAV with structure of a single int
-  unsigned int UAVResourceHandle =
-      static_cast<unsigned int>(BC.DM.GetUAVs().size());
-  SmallVector<llvm::Type *, 1> Elements{Type::getInt32Ty(BC.Ctx)};
-  llvm::StructType *UAVStructTy =
-      llvm::StructType::create(Elements, "PIX_DebugUAV_Type");
-  std::unique_ptr<DxilResource> pUAV = llvm::make_unique<DxilResource>();
-  pUAV->SetGlobalName("PIX_DebugUAVName");
-  pUAV->SetGlobalSymbol(UndefValue::get(UAVStructTy->getPointerTo()));
-  pUAV->SetID(UAVResourceHandle);
-  pUAV->SetSpaceID(
-      (unsigned int)-2); // This is the reserved-for-tools register space
-  pUAV->SetSampleCount(1);
-  pUAV->SetGloballyCoherent(false);
-  pUAV->SetHasCounter(false);
-  pUAV->SetCompType(CompType::getI32());
-  pUAV->SetLowerBound(0);
-  pUAV->SetRangeSize(1);
-  pUAV->SetKind(DXIL::ResourceKind::RawBuffer);
-  pUAV->SetRW(true);
-
-  auto ID = BC.DM.AddUAV(std::move(pUAV));
-  assert(ID == UAVResourceHandle);
-
-  BC.DM.m_ShaderFlags.SetEnableRawAndStructuredBuffers(true);
-
-  // Create handle for the newly-added UAV
-  Function *CreateHandleOpFunc =
-      BC.HlslOP->GetOpFunc(DXIL::OpCode::CreateHandle, Type::getVoidTy(BC.Ctx));
-  Constant *CreateHandleOpcodeArg =
-      BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::CreateHandle);
-  Constant *UAVVArg = BC.HlslOP->GetI8Const(
-      static_cast<std::underlying_type<DxilResourceBase::Class>::type>(
-          DXIL::ResourceClass::UAV));
-  Constant *MetaDataArg = BC.HlslOP->GetU32Const(
-      ID); // position of the metadata record in the corresponding metadata list
-  Constant *IndexArg = BC.HlslOP->GetU32Const(0); //
-  Constant *FalseArg =
-      BC.HlslOP->GetI1Const(0); // non-uniform resource index: false
-  return BC.Builder.CreateCall(
-      CreateHandleOpFunc,
-      {CreateHandleOpcodeArg, UAVVArg, MetaDataArg, IndexArg, FalseArg},
-      "PIX_DebugUAV_Handle");
 }
 
 Value *DxilPIXMeshShaderOutputInstrumentation::
@@ -275,7 +229,7 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M)
 
   m_OffsetMask = BC.HlslOP->GetU32Const(UAVDumpingGroundOffset() - 1);
 
-  m_OutputUAV = addUAV(BC);
+  m_OutputUAV = PIXPassHelpers::CreateUAV(DM, Builder, 0, "PIX_DebugUAV_Handle");
 
   auto GroupIdXandY = insertInstructionsToCalculateFlattenedGroupIdXandY(BC);
   auto GroupIdZ = insertInstructionsToCalculateGroupIdZ(BC);

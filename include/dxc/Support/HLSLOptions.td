@@ -279,6 +279,12 @@ def disable_lifetime_markers : Flag<["-", "/"], "disable-lifetime-markers">, Gro
   HelpText<"Disable generation of lifetime markers where they would be otherwise (6.6+)">;
 def enable_templates: Flag<["-", "/"], "enable-templates">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"Enable template support for HLSL.">;
+def enable_payload_qualifiers : Flag<["-", "/"], "enable-payload-qualifiers">, Group<hlslcomp_Group>, Flags<[CoreOption, RewriteOption, DriverOption]>,
+  HelpText<"Enables support for payload access qualifiers for raytracing payloads in SM 6.6.">;
+def disable_payload_qualifiers : Flag<["-", "/"], "disable-payload-qualifiers">, Group<hlslcomp_Group>, Flags<[CoreOption, RewriteOption, DriverOption]>,
+  HelpText<"Disables support for payload access qualifiers for raytracing payloads in SM 6.7.">;
+def disable_exception_handling : Flag<["-", "/"], "disable-exception-handling">, Group<hlslcomp_Group>, Flags<[DriverOption, HelpHidden]>,
+  HelpText<"Disable dxc handling of exceptions">;
 
 // Used with API only
 def skip_serialization : Flag<["-", "/"], "skip-serialization">, Group<hlslcore_Group>, Flags<[CoreOption, HelpHidden]>,
@@ -340,7 +346,7 @@ def Oconfig : CommaJoined<["-"], "Oconfig=">, Group<spirv_Group>, Flags<[CoreOpt
 def target_profile : JoinedOrSeparate<["-", "/"], "T">, Flags<[CoreOption]>, Group<hlslcomp_Group>, MetaVarName<"<profile>">,
   /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_target_profiles()</py>*/
   // VALRULE-TEXT:BEGIN
-  HelpText<"Set target profile. \n\t<profile>: ps_6_0, ps_6_1, ps_6_2, ps_6_3, ps_6_4, ps_6_5, ps_6_6, \n\t\t vs_6_0, vs_6_1, vs_6_2, vs_6_3, vs_6_4, vs_6_5, vs_6_6, \n\t\t gs_6_0, gs_6_1, gs_6_2, gs_6_3, gs_6_4, gs_6_5, gs_6_6, \n\t\t hs_6_0, hs_6_1, hs_6_2, hs_6_3, hs_6_4, hs_6_5, hs_6_6, \n\t\t ds_6_0, ds_6_1, ds_6_2, ds_6_3, ds_6_4, ds_6_5, ds_6_6, \n\t\t cs_6_0, cs_6_1, cs_6_2, cs_6_3, cs_6_4, cs_6_5, cs_6_6, \n\t\t lib_6_1, lib_6_2, lib_6_3, lib_6_4, lib_6_5, lib_6_6, \n\t\t ms_6_5, ms_6_6, \n\t\t as_6_5, as_6_6, \n\t\t ">;
+  HelpText<"Set target profile. \n\t<profile>: ps_6_0, ps_6_1, ps_6_2, ps_6_3, ps_6_4, ps_6_5, ps_6_6, ps_6_7, \n\t\t vs_6_0, vs_6_1, vs_6_2, vs_6_3, vs_6_4, vs_6_5, vs_6_6, vs_6_7, \n\t\t gs_6_0, gs_6_1, gs_6_2, gs_6_3, gs_6_4, gs_6_5, gs_6_6, gs_6_7, \n\t\t hs_6_0, hs_6_1, hs_6_2, hs_6_3, hs_6_4, hs_6_5, hs_6_6, hs_6_7, \n\t\t ds_6_0, ds_6_1, ds_6_2, ds_6_3, ds_6_4, ds_6_5, ds_6_6, ds_6_7, \n\t\t cs_6_0, cs_6_1, cs_6_2, cs_6_3, cs_6_4, cs_6_5, cs_6_6, cs_6_7, \n\t\t lib_6_1, lib_6_2, lib_6_3, lib_6_4, lib_6_5, lib_6_6, lib_6_7, \n\t\t ms_6_5, ms_6_6, ms_6_7, \n\t\t as_6_5, as_6_6, as_6_7, \n\t\t ">;
   // VALRULE-TEXT:END
 def entrypoint :  JoinedOrSeparate<["-", "/"], "E">, Flags<[CoreOption, RewriteOption]>, Group<hlslcomp_Group>,
   HelpText<"Entry point name">;
@@ -403,6 +409,8 @@ def P : Separate<["-", "/"], "P">, Flags<[CoreOption, DriverOption]>, Group<hlsl
 
 def dumpbin : Flag<["-", "/"], "dumpbin">, Flags<[DriverOption]>, Group<hlslutil_Group>,
   HelpText<"Load a binary file rather than compiling">;
+def link : Flag<["-", "/"], "link">, Flags<[DriverOption]>, Group<hlslutil_Group>,
+  HelpText<"Link list of libraries provided in <inputs> argument separated by ';'">;
 def Qstrip_reflect : Flag<["-", "/"], "Qstrip_reflect">, Flags<[CoreOption, DriverOption]>, Group<hlslutil_Group>,
   HelpText<"Strip reflection data from shader bytecode  (must be used with /Fo <file>)">;
 def Qstrip_debug : Flag<["-", "/"], "Qstrip_debug">, Flags<[CoreOption, DriverOption]>, Group<hlslutil_Group>,
@@ -413,10 +421,10 @@ def Qstrip_priv : Flag<["-", "/"], "Qstrip_priv">, Flags<[DriverOption]>, Group<
   HelpText<"Strip private data from shader bytecode  (must be used with /Fo <file>)">;
 def Qsource_in_debug_module : Flag<["-", "/"], "Qsource_in_debug_module">, Flags<[CoreOption, HelpHidden]>, Group<hlslutil_Group>,
   HelpText<"Generate old PDB format.">;
-def Qsource_only_debug : Flag<["-", "/"], "Qsource_only_debug">, Flags<[CoreOption, HelpHidden]>, Group<hlslutil_Group>,
+def Zs : Flag<["-", "/"], "Zs">, Flags<[CoreOption]>, Group<hlslutil_Group>,
   HelpText<"Generate small PDB with just sources and compile options.">;
-def Qfull_debug : Flag<["-", "/"], "Qfull_debug">, Flags<[CoreOption, HelpHidden]>, Group<hlslutil_Group>,
-  HelpText<"Generate full debug info for PDB.">;
+def Qpdb_in_private : Flag<["-", "/"], "Qpdb_in_private">, Flags<[CoreOption, HelpHidden]>, Group<hlslutil_Group>,
+  HelpText<"Store PDB in private user data.">;
 
 def Qstrip_rootsignature : Flag<["-", "/"], "Qstrip_rootsignature">, Flags<[CoreOption, DriverOption]>, Group<hlslutil_Group>, HelpText<"Strip root signature data from shader bytecode  (must be used with /Fo <file>)">;
 def setrootsignature     : JoinedOrSeparate<["-", "/"], "setrootsignature">,     MetaVarName<"<file>">, Flags<[CoreOption, DriverOption]>, Group<hlslutil_Group>, HelpText<"Attach root signature to shader bytecode">;

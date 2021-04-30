@@ -373,6 +373,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   M->GetValidatorVersion(valMajor, valMinor);
   bool hasMulticomponentUAVLoadsBackCompat = valMajor == 1 && valMinor == 0;
   bool hasViewportOrRTArrayIndexBackCombat = valMajor == 1 && valMinor < 4;
+  bool hasBarycentricsBackCompat = valMajor == 1 && valMinor < 6;
 
   Type *int16Ty = Type::getInt16Ty(F->getContext());
   Type *int64Ty = Type::getInt64Ty(F->getContext());
@@ -630,7 +631,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   flag.SetViewID(hasViewID);
   flag.SetViewportAndRTArrayIndex(hasViewportOrRTArrayIndex);
   flag.SetShadingRate(hasShadingRate);
-  flag.SetBarycentrics(hasBarycentrics);
+  flag.SetBarycentrics(hasBarycentricsBackCompat ? false : hasBarycentrics);
   flag.SetSamplerFeedback(hasSamplerFeedback);
   flag.SetRaytracingTier1_1(hasRaytracingTier1_1);
   flag.SetAtomicInt64OnTypedResource(hasAtomicInt64OnTypedResource);

@@ -379,6 +379,21 @@ unsigned llvm::getDebugMetadataVersionFromModule(const Module &M) {
   return 0;
 }
 
+// HLSL Change - begin
+bool llvm::hasDebugInfo(const Module &M) {
+  // We might just get away with checking if there's "llvm.dbg.cu",
+  // but this is more robust.
+  for (Module::const_named_metadata_iterator NMI = M.named_metadata_begin(),
+                                             NME = M.named_metadata_end();
+       NMI != NME; ++NMI) {
+    if (NMI->getName().startswith("llvm.dbg.")) {
+      return true;
+    }
+  }
+  return false;
+}
+// HLSL Change - end
+
 DenseMap<const llvm::Function *, DISubprogram *>
 llvm::makeSubprogramMap(const Module &M) {
   DenseMap<const Function *, DISubprogram *> R;

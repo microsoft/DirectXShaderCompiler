@@ -2438,7 +2438,7 @@ class db_dxil(object):
         self.interpretation_table = table
 
     def build_valrules(self):
-        self.add_valrule_msg("Bitcode.Valid", "TODO - Module must be bitcode-valid", "Module bitcode is invalid.")
+        self.add_valrule_msg("Bitcode.Valid", "Module must be bitcode-valid", "Module bitcode is invalid.")
 
         self.add_valrule_msg("Container.PartMatches", "DXIL Container Parts must match Module", "Container part '%0' does not match expected for module.")
         self.add_valrule_msg("Container.PartRepeated", "DXIL Container must have only one of each part type", "More than one container part '%0'.")
@@ -2446,11 +2446,12 @@ class db_dxil(object):
         self.add_valrule_msg("Container.PartInvalid", "DXIL Container must not contain unknown parts", "Unknown part '%0' found in DXIL container.")
         self.add_valrule_msg("Container.RootSignatureIncompatible", "Root Signature in DXIL Container must be compatible with shader", "Root Signature in DXIL container is not compatible with shader.")
 
-        self.add_valrule("Meta.Required", "TODO - Required metadata missing.")
+        self.add_valrule("Meta.Required", "Required metadata missing.")
         self.add_valrule_msg("Meta.Known", "Named metadata should be known", "Named metadata '%0' is unknown.")
         self.add_valrule("Meta.Used", "All metadata must be used by dxil.")
         self.add_valrule_msg("Meta.Target", "Target triple must be 'dxil-ms-dx'", "Unknown target triple '%0'.")
-        self.add_valrule("Meta.WellFormed", "TODO - Metadata must be well-formed in operand count and types.")
+        self.add_valrule("Meta.WellFormed", "Metadata must be well-formed in operand count and types.") # TODO: add string arg for what metadata is malformed (this is emitted from a lot of places and provides no context whatsoever)
+        self.add_valrule_msg("Meta.VersionSupported", "Version in metadata must be supported.", "%0 version in metadata (%1.%2) is not supported; maximum: (%3.%4).")
         self.add_valrule("Meta.SemanticLen", "Semantic length must be at least 1 and at most 64.")
         self.add_valrule_msg("Meta.InterpModeValid", "Interpolation mode must be valid", "Invalid interpolation mode for '%0'.")
         self.add_valrule_msg("Meta.SemaKindValid", "Semantic kind must be valid", "Semantic kind for '%0' is invalid.")
@@ -2602,7 +2603,7 @@ class db_dxil(object):
         self.add_valrule("Types.I8", "I8 can only be used as immediate value for intrinsic or as i8* via bitcast by lifetime intrinsics.")
 
         self.add_valrule_msg("Sm.Name", "Target shader model name must be known", "Unknown shader model '%0'.")
-        self.add_valrule_msg("Sm.DxilVersion", "Target shader model requires specific Dxil Version", "Shader model requires Dxil Version %0,%1.")
+        self.add_valrule_msg("Sm.DxilVersion", "Target shader model requires specific Dxil Version", "Shader model requires Dxil Version %0.%1.")
         self.add_valrule_msg("Sm.Opcode", "Opcode must be defined in target shader model", "Opcode %0 not valid in shader model %1.")
         self.add_valrule("Sm.Operand", "Operand must be defined in target shader model.")
         self.add_valrule_msg("Sm.Semantic", "Semantic must be defined in target shader model", "Semantic '%0' is invalid as %1 %2.")

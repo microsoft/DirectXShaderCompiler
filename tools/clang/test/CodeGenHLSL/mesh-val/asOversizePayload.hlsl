@@ -2,7 +2,7 @@
 // RUN: %dxilver 1.6 | %dxc -E main -T as_6_5 %s | FileCheck %s -check-prefix=CHK_NODB
 
 // CHK_DB: 23:5: error: For amplification shader with entry 'main', payload size 16400 is greater than maximum size of 16384 bytes.
-// CHK_NODB: For amplification shader with entry 'main', payload size 16400 is greater than maximum size of 16384 bytes.
+// CHK_NODB: 23:5: error: For amplification shader with entry 'main', payload size 16400 is greater than maximum size of 16384 bytes.
 
 #define NUM_THREADS 32
 

@@ -45,6 +45,9 @@ public:
   unsigned GetElementStride() const;
   void SetElementStride(unsigned ElemStride);
 
+  unsigned GetBaseAlignLog2() const;
+  void SetBaseAlignLog2(unsigned baseAlignLog2);
+
   DXIL::SamplerFeedbackType GetSamplerFeedbackType() const;
   void SetSamplerFeedbackType(DXIL::SamplerFeedbackType Value);
 
@@ -76,6 +79,7 @@ public:
 private:
   unsigned m_SampleCount;
   unsigned m_ElementStride; // in bytes
+  unsigned m_baseAlignLog2 = 0; // worst-case alignment
   CompType m_CompType;
   DXIL::SamplerFeedbackType m_SamplerFeedbackType;
   bool m_bGloballyCoherent;

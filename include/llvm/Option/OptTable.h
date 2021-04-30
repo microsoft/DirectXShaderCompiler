@@ -133,6 +133,8 @@ public:
                    unsigned FlagsToInclude = 0,
                    unsigned FlagsToExclude = 0) const;
 
+  Option findOption(const char *normalizedName, unsigned FlagsToInclude = 0, unsigned FlagsToExclude = 0) const; // HLSL Change
+
   /// \brief Parse an list of arguments into an InputArgList.
   ///
   /// The resulting InputArgList will reference the strings in [\p ArgBegin,

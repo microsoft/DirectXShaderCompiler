@@ -100,7 +100,11 @@ option(HLSL_SUPPORT_QUERY_GIT_COMMIT_INFO "Supports querying Git commit info." O
 if ( HLSL_SUPPORT_QUERY_GIT_COMMIT_INFO )
   add_definitions(-DSUPPORT_QUERY_GIT_COMMIT_INFO)
 endif()
-# HLSL Chnage Ends
+# adjust link option to enable debugging from kernel mode; not compatible with incremental linking
+if(NOT CMAKE_VERSION VERSION_LESS "3.13" AND WIN32)
+  add_link_options(/DEBUGTYPE:CV,FIXUP,PDATA /INCREMENTAL:NO)
+endif()
+# HLSL Change Ends
 
 # HLSL Change Starts - set flag for Appveyor CI
 if ( "$ENV{CI}" AND "$ENV{APPVEYOR}" )

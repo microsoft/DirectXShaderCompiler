@@ -2221,8 +2221,6 @@ bool DeclResultIdMapper::createStageVars(
     // * SV_DispatchThreadID, SV_GroupThreadID, and SV_GroupID are allowed to be
     //   uint, uint2, or uint3, but the corresponding builtins
     //   (GlobalInvocationId, LocalInvocationId, WorkgroupId) must be a uint3.
-    // * SV_ShadingRate is a uint value, but the builtin it corresponds to is a
-    //   int2.
 
     if (glPerVertex.tryToAccess(sigPointKind, semanticKind,
                                 semanticToUse->index, invocationId, value,
@@ -2263,9 +2261,6 @@ bool DeclResultIdMapper::createStageVars(
       evalType = astContext.getExtVectorType(
           hlsl::IsHLSLVecType(type) ? hlsl::GetHLSLVecElementType(type) : type,
           3);
-      break;
-    case hlsl::Semantic::Kind::ShadingRate:
-      evalType = astContext.getExtVectorType(astContext.IntTy, 2);
       break;
     default:
       // Only the semantic kinds mentioned above are handled.
@@ -2504,25 +2499,6 @@ bool DeclResultIdMapper::createStageVars(
           *value = spvBuilder.createVectorShuffle(
               astContext.getExtVectorType(srcVecElemType, 2), *value, *value,
               {0, 1}, thisSemantic.loc);
-      }
-      // Special handling of SV_ShadingRate, which is a bitpacked enum value,
-      // but SPIR-V's FragSizeEXT uses an int2. We build the enum value from
-      // the separate axis values.
-      else if (semanticKind == hlsl::Semantic::Kind::ShadingRate) {
-        // From the D3D12 functional spec for Variable-Rate Shading.
-        // #define D3D12_MAKE_COARSE_SHADING_RATE(x,y) ((x) << 2 | (y))
-        const auto x = spvBuilder.createCompositeExtract(
-            astContext.IntTy, *value, {0}, thisSemantic.loc);
-        const auto y = spvBuilder.createCompositeExtract(
-            astContext.IntTy, *value, {1}, thisSemantic.loc);
-        const auto constTwo =
-            spvBuilder.getConstantInt(astContext.IntTy, llvm::APInt(32, 2));
-        *value = spvBuilder.createBinaryOp(
-            spv::Op::OpBitwiseOr, astContext.UnsignedIntTy,
-            spvBuilder.createBinaryOp(spv::Op::OpShiftLeftLogical,
-                                      astContext.IntTy, x, constTwo,
-                                      thisSemantic.loc),
-            y, thisSemantic.loc);
       }
 
       // Reciprocate SV_Position.w if requested
@@ -3472,16 +3448,30 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   }
   // According to DXIL spec, the ShadingRate SV can only be used by GSOut,
   // VSOut, or PSIn. According to Vulkan spec, the FragSizeEXT BuiltIn can only
-  // be used as PSIn.
+  // be used as VSOut, GSOut, MSOut or PSIn.
   case hlsl::Semantic::Kind::ShadingRate: {
+    QualType checkType = type->getAs<ReferenceType>()
+                             ? type->getAs<ReferenceType>()->getPointeeType()
+                             : type;
+    QualType scalarTy;
+    if (!isScalarType(checkType, &scalarTy) || !scalarTy->isIntegerType()) {
+      emitError("semantic ShadingRate must be interger scalar type", srcLoc);
+    }
+
     switch (sigPointKind) {
     case hlsl::SigPoint::Kind::PSIn:
       stageVar->setIsSpirvBuiltin();
-      return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::FragSizeEXT,
+      return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::ShadingRateKHR,
                                            isPrecise, srcLoc);
+    case hlsl::SigPoint::Kind::VSOut:
+    case hlsl::SigPoint::Kind::GSOut:
+    case hlsl::SigPoint::Kind::MSOut:
+      stageVar->setIsSpirvBuiltin();
+      return spvBuilder.addStageBuiltinVar(
+          type, sc, BuiltIn::PrimitiveShadingRateKHR, isPrecise, srcLoc);
     default:
-      emitError("semantic ShadingRate currently unsupported in non-PS shader"
-                " stages",
+      emitError("semantic ShadingRate must be used only for PSIn, VSOut, "
+                "GSOut, MSOut",
                 srcLoc);
       break;
     }
