@@ -1333,14 +1333,14 @@ int run_main() {
     MemoryBuffer::getMemBuffer(MemoryBufferRef(StringRef(InputForStdin), "-")) :
     MemoryBuffer::getFile(InputFilename);
   if (std::error_code EC = FileOrErr.getError()) {
-    errs() << "Could not open input file '" << InputFilename
+    test_errs << "Could not open input file '" << InputFilename
       << "': " << EC.message() << '\n';
     return 2;
   }
   std::unique_ptr<MemoryBuffer> &File = FileOrErr.get();
 
   if (File->getBufferSize() == 0 && !AllowEmptyInput) {
-    errs() << "FileCheck error: '" << InputFilename << "' is empty.\n";
+    test_errs << "FileCheck error: '" << InputFilename << "' is empty.\n";
     return 2;
   }
 

@@ -25,7 +25,6 @@
 #include "dxc/HLSL/HLOperationLowerExtension.h"
 #include "dxc/HLSL/HLOperations.h"
 #include "dxc/HlslIntrinsicOp.h"
-#include "dxc/HLSL/DxilConvergent.h"
 #include "dxc/DXIL/DxilResourceProperties.h"
 
 #include "llvm/IR/GetElementPtrTypeIterator.h"
@@ -844,8 +843,8 @@ Value *FindScalarSource(Value *src, unsigned vecIdx = 0) {
         vecIdx = (unsigned)cast<ConstantInt>(EE->getIndexOperand())
           ->getUniqueInteger().getLimitedValue();
         src = EE->getVectorOperand();
-      } else if (hlsl::IsConvergentMarker(src)) {
-        src = hlsl::GetConvergentSource(src);
+      } else if (hlsl::dxilutil::IsConvergentMarker(src)) {
+        src = hlsl::dxilutil::GetConvergentSource(src);
       } else {
         break;  // Found it.
       }
@@ -6657,7 +6656,7 @@ void TranslateCBGepLegacy(GetElementPtrInst *GEP, Value *handle,
 
         // Load the whole register.
         Value *newLd = GenerateCBLoadLegacy(handle, legacyIndex,
-                                     /*channelOffset*/ 0, EltTy,
+                                     /*channelOffset*/ channel, EltTy,
                                      /*vecSize*/ vecSize, hlslOP, Builder);
         // Copy to array.
         IRBuilder<> AllocaBuilder(GEP->getParent()->getParent()->getEntryBlock().getFirstInsertionPt());

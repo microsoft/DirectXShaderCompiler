@@ -22,6 +22,7 @@
 #include "dxc/Test/HlslTestUtils.h"
 #include "dxc/Test/DxcTestUtils.h"
 #include "dxc/dxcapi.h"
+#include "dxc/DxilContainer/DxilContainer.h"
 
 using namespace std;
 using namespace hlsl;
@@ -51,6 +52,7 @@ public:
   TEST_METHOD(RunLinkResRet);
   TEST_METHOD(RunLinkToLib);
   TEST_METHOD(RunLinkToLibExport);
+  TEST_METHOD(RunLinkToLibExportShadersOnly);
   TEST_METHOD(RunLinkFailReDefineGlobal);
   TEST_METHOD(RunLinkFailProfileMismatch);
   TEST_METHOD(RunLinkFailEntryNoProps);
@@ -66,6 +68,7 @@ public:
   TEST_METHOD(RunLinkWithTempReg);
   TEST_METHOD(RunLinkToLibWithGlobalCtor);
   TEST_METHOD(LinkSm63ToSm66);
+  TEST_METHOD(RunLinkWithRootSig);
 
 
   dxc::DxcDllSupport m_dllSupport;
@@ -76,9 +79,9 @@ public:
         m_dllSupport.CreateInstance(CLSID_DxcLinker, pResultLinker));
   }
 
-  void CompileLib(LPCWSTR filename, IDxcBlob **pResultBlob,
-                  llvm::ArrayRef<LPCWSTR> pArguments = {},
-                  LPCWSTR pShaderTarget = L"lib_6_x") {
+  void Compile(LPCWSTR filename, IDxcBlob **pResultBlob,
+               llvm::ArrayRef<LPCWSTR> pArguments = {}, LPCWSTR pEntry = L"",
+               LPCWSTR pShaderTarget = L"lib_6_x") {
     std::wstring fullPath = hlsl_test::GetPathToHlslDataFile(filename);
     CComPtr<IDxcBlobEncoding> pSource;
     CComPtr<IDxcLibrary> pLibrary;
@@ -96,11 +99,17 @@ public:
 
     VERIFY_SUCCEEDED(
         m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
-    VERIFY_SUCCEEDED(pCompiler->Compile(pSource, fullPath.c_str(), L"", pShaderTarget,
+    VERIFY_SUCCEEDED(pCompiler->Compile(pSource, fullPath.c_str(), pEntry, pShaderTarget,
                                         const_cast<LPCWSTR*>(pArguments.data()), pArguments.size(),
                                         nullptr, 0,
                                         pIncludeHandler, &pResult));
     CheckOperationSucceeded(pResult, pResultBlob);
+  }
+
+  void CompileLib(LPCWSTR filename, IDxcBlob **pResultBlob,
+                  llvm::ArrayRef<LPCWSTR> pArguments = {},
+                  LPCWSTR pShaderTarget = L"lib_6_x") {
+    Compile(filename, pResultBlob, pArguments, L"", pShaderTarget);
   }
 
   void AssembleLib(LPCWSTR filename, IDxcBlob **pResultBlob) {
@@ -496,6 +505,28 @@ TEST_F(LinkerTest, RunLinkToLibExport) {
     {L"-exports", L"renamed_test,cloned_test=\\01?mat_test@@YA?AV?$vector@M$02@@V?$vector@M$03@@0AIAV?$matrix@M$03$02@@@Z;main"});
 }
 
+TEST_F(LinkerTest, RunLinkToLibExportShadersOnly) {
+  CComPtr<IDxcBlob> pEntryLib;
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_entry2.hlsl",
+             &pEntryLib);
+  CComPtr<IDxcBlob> pLib;
+  CompileLib(L"..\\CodeGenHLSL\\linker\\lib_mat_cast2.hlsl",
+             &pLib);
+
+  CComPtr<IDxcLinker> pLinker;
+  CreateLinker(&pLinker);
+
+  LPCWSTR libName = L"ps_main";
+  RegisterDxcModule(libName, pEntryLib, pLinker);
+
+  LPCWSTR libName2 = L"test";
+  RegisterDxcModule(libName2, pLib, pLinker);
+  Link(L"", L"lib_6_3", pLinker, {libName, libName2},
+    { "@main" },
+    { "@\"\\01?mat_test" },
+    {L"-export-shaders-only"});
+}
+
 TEST_F(LinkerTest, RunLinkFailSelectRes) {
   if (m_ver.SkipDxilVersion(1, 3)) return;
   CComPtr<IDxcBlob> pEntryLib;
@@ -793,6 +824,7 @@ TEST_F(LinkerTest, RunLinkToLibWithGlobalCtor) {
 }
 
 TEST_F(LinkerTest, LinkSm63ToSm66) {
+  if (m_ver.SkipDxilVersion(1, 6)) return;
   CComPtr<IDxcBlob> pLib0;
   CompileLib(L"..\\CodeGenHLSL\\linker\\link_to_sm66.hlsl", &pLib0, {}, L"lib_6_3");
 
@@ -806,4 +838,56 @@ TEST_F(LinkerTest, LinkSm63ToSm66) {
        {"call %dx.types.Handle @dx.op.annotateHandle\\(i32 216, %dx.types.Handle "
         "%(.*), %dx.types.ResourceProperties { i32 13, i32 4 }\\)"},
        {}, {}, true);
+}
+
+TEST_F(LinkerTest, RunLinkWithRootSig) {
+  CComPtr<IDxcBlob> pLib0;
+  CompileLib(L"..\\CodeGenHLSL\\linker\\link_with_root_sig.hlsl", &pLib0, {},
+             L"lib_6_x");
+
+  CComPtr<IDxcLinker> pLinker;
+  CreateLinker(&pLinker);
+
+  LPCWSTR libName = L"foo";
+  RegisterDxcModule(libName, pLib0, pLinker);
+
+  LPCWSTR pEntryName = L"vs_main";
+  LPCWSTR pShaderModel = L"vs_6_6";
+
+  LPCWSTR libNames[] = {libName};
+  CComPtr<IDxcOperationResult> pResult;
+
+  VERIFY_SUCCEEDED(pLinker->Link(pEntryName, pShaderModel, libNames,
+                                 1, {}, 0, &pResult));
+  CComPtr<IDxcBlob> pLinkedProgram;
+  CheckOperationSucceeded(pResult, &pLinkedProgram);
+  VERIFY_IS_TRUE(pLinkedProgram);
+
+  CComPtr<IDxcBlob> pProgram;
+  Compile(L"..\\CodeGenHLSL\\linker\\link_with_root_sig.hlsl", &pProgram, {},
+          pEntryName, pShaderModel);
+  VERIFY_IS_TRUE(pProgram);
+
+  const DxilContainerHeader *pLinkedContainer = IsDxilContainerLike(
+      pLinkedProgram->GetBufferPointer(), pLinkedProgram->GetBufferSize());
+
+  VERIFY_IS_TRUE(pLinkedContainer);
+
+  const DxilContainerHeader *pContainer = IsDxilContainerLike(
+      pProgram->GetBufferPointer(), pProgram->GetBufferSize());
+  VERIFY_IS_TRUE(pContainer);
+
+  const DxilPartHeader *pLinkedRSPart =
+      GetDxilPartByType(pLinkedContainer, DFCC_RootSignature);
+  VERIFY_IS_TRUE(pLinkedRSPart);
+  const DxilPartHeader *pRSPart =
+      GetDxilPartByType(pContainer, DFCC_RootSignature);
+  VERIFY_IS_TRUE(pRSPart);
+  VERIFY_IS_TRUE(pRSPart->PartSize == pLinkedRSPart->PartSize);
+
+  const uint8_t *pRS = (const uint8_t *)GetDxilPartData(pRSPart);
+  const uint8_t *pLinkedRS = (const uint8_t *)GetDxilPartData(pLinkedRSPart);
+  for (unsigned i = 0; i < pLinkedRSPart->PartSize; i++) {
+    VERIFY_IS_TRUE(pRS[i] == pLinkedRS[i]);
+  }
 }

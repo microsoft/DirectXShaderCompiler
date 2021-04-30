@@ -1,5 +1,6 @@
 // RUN: %dxc -E main -T ps_6_0 -enable-templates %s | FileCheck %s
 // RUN: %dxc -E main -T ps_6_0 %s -enable-templates -DCHECK_DIAGNOSTICS | FileCheck %s -check-prefix=DIAG
+// RUN: %dxc -E main -T ps_6_0 -enable-templates %s /Zi | FileCheck %s
 
 template<typename T>
 T test_add(T t0, T t1) {

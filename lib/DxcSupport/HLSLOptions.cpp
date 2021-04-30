@@ -138,8 +138,12 @@ bool DxcOpts::IsLibraryProfile() {
   return TargetProfile.startswith("lib_");
 }
 
-bool DxcOpts::IsDebugInfoEnabled() {
+bool DxcOpts::GenerateFullDebugInfo() {
   return DebugInfo;
+}
+
+bool DxcOpts::GeneratePDB() {
+  return DebugInfo || SourceOnlyDebug;
 }
 
 bool DxcOpts::EmbedDebugInfo() {
@@ -147,7 +151,7 @@ bool DxcOpts::EmbedDebugInfo() {
 }
 
 bool DxcOpts::EmbedPDBName() {
-  return IsDebugInfoEnabled() || !DebugFile.empty();
+  return GeneratePDB() || !DebugFile.empty();
 }
 
 bool DxcOpts::DebugFileIsDirectory() {
@@ -613,6 +617,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.DefaultRowMajor = Args.hasFlag(OPT_Zpr, OPT_INVALID, false);
   opts.DefaultColMajor = Args.hasFlag(OPT_Zpc, OPT_INVALID, false);
   opts.DumpBin = Args.hasFlag(OPT_dumpbin, OPT_INVALID, false);
+  opts.Link = Args.hasFlag(OPT_link, OPT_INVALID, false);
   opts.NotUseLegacyCBufLoad = Args.hasFlag(OPT_no_legacy_cbuf_layout, OPT_INVALID, false);
   opts.NotUseLegacyCBufLoad = Args.hasFlag(OPT_not_use_legacy_cbuf_load_, OPT_INVALID, opts.NotUseLegacyCBufLoad);
   opts.PackPrefixStable = Args.hasFlag(OPT_pack_prefix_stable, OPT_INVALID, false);
@@ -627,8 +632,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.StripDebug = Args.hasFlag(OPT_Qstrip_debug, OPT_INVALID, false);
   opts.EmbedDebug = Args.hasFlag(OPT_Qembed_debug, OPT_INVALID, false);
   opts.SourceInDebugModule = Args.hasFlag(OPT_Qsource_in_debug_module, OPT_INVALID, false);
-  opts.SourceOnlyDebug = Args.hasFlag(OPT_Qsource_only_debug, OPT_INVALID, false);
-  opts.FullDebug = Args.hasFlag(OPT_Qfull_debug, OPT_INVALID, false);
+  opts.SourceOnlyDebug = Args.hasFlag(OPT_Zs, OPT_INVALID, false);
+  opts.PdbInPrivate = Args.hasFlag(OPT_Qpdb_in_private, OPT_INVALID, false);
   opts.StripRootSignature = Args.hasFlag(OPT_Qstrip_rootsignature, OPT_INVALID, false);
   opts.StripPrivate = Args.hasFlag(OPT_Qstrip_priv, OPT_INVALID, false);
   opts.StripReflection = Args.hasFlag(OPT_Qstrip_reflect, OPT_INVALID, false);
@@ -649,7 +654,18 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   // Lifetime markers on by default in 6.6 unless disabled explicitly
   opts.EnableLifetimeMarkers = Args.hasFlag(OPT_enable_lifetime_markers, OPT_INVALID,
                                             DXIL::CompareVersions(Major, Minor, 6, 6) >= 0) &&
-                               !Args.hasFlag(OPT_disable_lifetime_markers, OPT_INVALID, false);
+                              !Args.hasFlag(OPT_disable_lifetime_markers, OPT_INVALID, false);
+  opts.EnablePayloadQualifiers = Args.hasFlag(OPT_enable_payload_qualifiers, OPT_INVALID,
+                                            DXIL::CompareVersions(Major, Minor, 6, 7) >= 0); 
+  if (DXIL::CompareVersions(Major, Minor, 6, 8) < 0) {
+     opts.EnablePayloadQualifiers &= !Args.hasFlag(OPT_disable_payload_qualifiers, OPT_INVALID, false);
+  }
+  if (opts.EnablePayloadQualifiers && DXIL::CompareVersions(Major, Minor, 6, 6) < 0) {
+    errors << "Invalid target for payload access qualifiers. Only lib_6_6 and beyond are supported.";
+    return 1;
+  }
+
+  opts.HandleExceptions = !Args.hasFlag(OPT_disable_exception_handling, OPT_INVALID, false);
 
   if (opts.DefaultColMajor && opts.DefaultRowMajor) {
     errors << "Cannot specify /Zpr and /Zpc together, use /? to get usage information";
@@ -923,13 +939,13 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     return 1;
   }
 
-  if (opts.FullDebug && opts.SourceOnlyDebug) {
-    errors << "Cannot specify both /Qfull_debug and /Qsource_only_debug";
+  if (opts.DebugInfo && opts.SourceOnlyDebug) {
+    errors << "Cannot specify both /Zi and /Zs";
     return 1;
   }
 
   if (opts.SourceInDebugModule && opts.SourceOnlyDebug) {
-    errors << "Cannot specify both /Qsource_in_debug_module and /Qsource_only_debug";
+    errors << "Cannot specify both /Qsource_in_debug_module and /Zs";
     return 1;
   }
 
@@ -940,8 +956,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     return 1;
   }
 
-  if (opts.DebugNameForSource && !opts.DebugInfo) {
-    errors << "/Zss requires debug info (/Zi)";
+  if (opts.DebugNameForSource && (!opts.DebugInfo && !opts.SourceOnlyDebug)) {
+    errors << "/Zss requires debug info (/Zi or /Zs)";
     return 1;
   }
 

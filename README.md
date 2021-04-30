@@ -1,6 +1,6 @@
 # DirectX Shader Compiler
 
-[![Build status](https://ci.appveyor.com/api/projects/status/oaf66n7w30xbrg38/branch/master?svg=true)](https://ci.appveyor.com/project/antiagainst/directxshadercompiler/branch/master)
+[![Build status](https://ci.appveyor.com/api/projects/status/6sx47j66g4dbyem9/branch/master?svg=true)](https://ci.appveyor.com/project/dnovillo/directxshadercompiler/branch/master)
 
 The DirectX Shader Compiler project includes a compiler and related tools used to compile High-Level Shader Language (HLSL) programs into DirectX Intermediate Language (DXIL) representation. Applications that make use of DirectX for graphics, games, and computation can use it to generate shader programs.
 
@@ -10,8 +10,8 @@ For more information, see the [Wiki](https://github.com/microsoft/DirectXShaderC
 You can download the latest successful build's artifacts (built by Appveyor) for the master branch:
 | Downloads |        |
 |-----------|--------|
-| Windows   | [⬇](https://ci.appveyor.com/api/projects/antiagainst/directxshadercompiler/artifacts/build%2FRelease%2Fdxc-artifacts.zip?branch=master&pr=false&job=image%3A%20Visual%20Studio%202017) |
-| Ubuntu    | [⬇](https://ci.appveyor.com/api/projects/antiagainst/directxshadercompiler/artifacts/build%2Fdxc-artifacts.tar.gz?branch=master&pr=false&job=image%3A%20Ubuntu) |
+| Windows   | [⬇](https://ci.appveyor.com/api/projects/dnovillo/directxshadercompiler/artifacts/build%2FRelease%2Fdxc-artifacts.zip?branch=master&pr=false&job=image%3A%20Visual%20Studio%202019) |
+| Ubuntu    | [⬇](https://ci.appveyor.com/api/projects/dnovillo/directxshadercompiler/artifacts/build%2Fdxc-artifacts.tar.gz?branch=master&pr=false&job=image%3A%20Ubuntu) |
 
 ## Features and Goals
 

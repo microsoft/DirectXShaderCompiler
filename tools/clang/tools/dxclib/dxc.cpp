@@ -41,6 +41,7 @@
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/WinFunctions.h"
+#include "dxc/dxcerrors.h"
 #include "dxc.h"
 #include <vector>
 #include <string>
@@ -158,6 +159,7 @@ public:
                  std::wstring &outputPDBPath, CComPtr<IDxcBlob> &pDebugBlob,
                  IDxcOperationResult **pCompileResult);
   int DumpBinary();
+  int Link();
   void Preprocess();
   void GetCompilerVersionInfo(llvm::raw_string_ostream &OS);
 };
@@ -293,9 +295,9 @@ int DxcContext::ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob, LPCWSTR pDebugB
 
   // Extract and write the PDB/debug information.
   if (!m_Opts.DebugFile.empty()) {
-    IFTBOOLMSG(m_Opts.DebugInfo, E_INVALIDARG, "/Fd specified, but no Debug Info was "
+    IFTBOOLMSG(m_Opts.GeneratePDB(), E_INVALIDARG, "/Fd specified, but no Debug Info was "
       "found in the shader, please use the "
-      "/Zi switch to generate debug "
+      "/Zi or /Zs switch to generate debug "
       "information compiling this shader.");
     if (pDebugBlob != nullptr) {
       IFTBOOLMSG(pDebugBlobName && *pDebugBlobName, E_INVALIDARG,
@@ -831,6 +833,61 @@ int DxcContext::Compile() {
   return status;
 }
 
+int DxcContext::Link() {
+  CComPtr<IDxcLinker> pLinker;
+  IFT(CreateInstance(CLSID_DxcLinker, &pLinker));
+  llvm::StringRef InputFiles = m_Opts.InputFile;
+  llvm::StringRef InputFilesRef(InputFiles);
+  llvm::SmallVector<llvm::StringRef, 2> InputFileList;
+  InputFilesRef.split(InputFileList, ";");
+
+  std::vector<std::wstring> wInputFiles;
+  wInputFiles.reserve(InputFileList.size());
+  std::vector<LPCWSTR> wpInputFiles;
+  wpInputFiles.reserve(InputFileList.size());
+  for (auto &file : InputFileList) {
+    wInputFiles.emplace_back(StringRefUtf16(file.str()));
+    wpInputFiles.emplace_back(wInputFiles.back().c_str());
+    CComPtr<IDxcBlobEncoding> pLib;
+    ReadFileIntoBlob(m_dxcSupport, wInputFiles.back().c_str(), &pLib);
+    IFT(pLinker->RegisterLibrary(wInputFiles.back().c_str(), pLib));
+  }
+
+  CComPtr<IDxcOperationResult> pLinkResult;
+
+  std::vector<std::wstring> argStrings;
+  CopyArgsToWStrings(m_Opts.Args, CoreOption, argStrings);
+
+  std::vector<LPCWSTR> args;
+  args.reserve(argStrings.size());
+  for (const std::wstring &a : argStrings)
+    args.push_back(a.data());
+
+  IFT(pLinker->Link(StringRefUtf16(m_Opts.EntryPoint),
+                    StringRefUtf16(m_Opts.TargetProfile), wpInputFiles.data(),
+                    wpInputFiles.size(), args.data(), args.size(),
+                    &pLinkResult));
+
+  HRESULT status;
+  IFT(pLinkResult->GetStatus(&status));
+  if (SUCCEEDED(status)) {
+    CComPtr<IDxcBlob> pContainer;
+    IFT(pLinkResult->GetResult(&pContainer));
+    if (pContainer.p != nullptr) {
+      ActOnBlob(pContainer.p);
+    }
+  } else {
+    CComPtr<IDxcBlobEncoding> pErrors;
+    IFT(pLinkResult->GetErrorBuffer(&pErrors));
+    if (pErrors != nullptr) {
+      printf("Link failed:\n%s",
+             static_cast<char *>(pErrors->GetBufferPointer()));
+    }
+    return 1;
+  }
+  return 0;
+}
+
 int DxcContext::DumpBinary() {
   CComPtr<IDxcBlobEncoding> pSource;
   ReadFileIntoBlob(m_dxcSupport, StringRefUtf16(m_Opts.InputFile), &pSource);
@@ -1161,6 +1218,69 @@ void DxcContext::GetCompilerVersionInfo(llvm::raw_string_ostream &OS) {
 #endif
 
 #ifdef _WIN32
+// Unhandled exception filter called when an unhandled exception occurs
+// to at least print an generic error message instead of crashing silently.
+// passes exception along to allow crash dumps to be generated
+static LONG CALLBACK ExceptionFilter(PEXCEPTION_POINTERS pExceptionInfo)
+{
+  static char scratch[32];
+
+  fputs("Internal compiler error: " , stderr);
+
+  if (!pExceptionInfo || !pExceptionInfo->ExceptionRecord) {
+    // No information at all, it's not much, but it's the best we can do
+    fputs("Unknown", stderr);
+    return EXCEPTION_CONTINUE_SEARCH;
+  }
+
+  switch(pExceptionInfo->ExceptionRecord->ExceptionCode) {
+    // native exceptions
+  case EXCEPTION_ACCESS_VIOLATION: {
+    fputs("access violation. Attempted to ", stderr);
+    if (pExceptionInfo->ExceptionRecord->ExceptionInformation[0])
+      fputs("write", stderr);
+    else
+      fputs("read", stderr);
+    fputs(" from address ", stderr);
+    sprintf_s(scratch, _countof(scratch), "0x%p\n", (void*)pExceptionInfo->ExceptionRecord->ExceptionInformation[1]);
+    fputs(scratch, stderr);
+  } break;
+  case EXCEPTION_STACK_OVERFLOW:
+    fputs("stack overflow\n", stderr);
+    break;
+    // LLVM exceptions
+  case STATUS_LLVM_ASSERT:
+    fputs("LLVM Assert\n", stderr);
+    break;
+  case STATUS_LLVM_UNREACHABLE:
+    fputs("LLVM Unreachable\n", stderr);
+    break;
+  case STATUS_LLVM_FATAL:
+    fputs("LLVM Fatal Error\n", stderr);
+    break;
+  case EXCEPTION_LOAD_LIBRARY_FAILED:
+    if (pExceptionInfo->ExceptionRecord->ExceptionInformation[0]) {
+      fputs("cannot not load ", stderr);
+      fputws((const wchar_t*)pExceptionInfo->ExceptionRecord->ExceptionInformation[0], stderr);
+      fputs(" library.\n", stderr);
+    }
+    else{
+      fputs("cannot not load library.\n", stderr);
+    }
+    break;
+  default:
+    fputs("Terminal Error ", stderr);
+    sprintf_s(scratch, _countof(scratch), "0x%08x\n", pExceptionInfo->ExceptionRecord->ExceptionCode);
+    fputs(scratch, stderr);
+  }
+
+  // Continue search to pass along the exception
+  return EXCEPTION_CONTINUE_SEARCH;
+}
+#endif
+
+
+#ifdef _WIN32
 int dxc::main(int argc, const wchar_t **argv_) {
 #else
 int dxc::main(int argc, const char **argv_) {
@@ -1198,6 +1318,12 @@ int dxc::main(int argc, const char **argv_) {
     if (dxcOpts.EntryPoint.empty() && !dxcOpts.RecompileFromBinary) {
       dxcOpts.EntryPoint = "main";
     }
+
+#ifdef _WIN32
+    // Set exception handler if enabled
+    if (dxcOpts.HandleExceptions)
+      SetUnhandledExceptionFilter(ExceptionFilter);
+#endif
 
     // Setup a helper DLL.
     {
@@ -1237,6 +1363,10 @@ int dxc::main(int argc, const char **argv_) {
     else if (dxcOpts.DumpBin) {
       pStage = "Dumping existing binary";
       retVal = context.DumpBinary();
+    }
+    else if (dxcOpts.Link) {
+      pStage = "Linking";
+      retVal = context.Link();
     }
     else {
       pStage = "Compilation";

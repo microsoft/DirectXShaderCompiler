@@ -128,6 +128,8 @@ public:
   TEST_METHOD(CompileWhenWorksThenAddRemovePrivate)
   TEST_METHOD(CompileThenAddCustomDebugName)
   TEST_METHOD(CompileThenTestPdbUtils)
+  TEST_METHOD(CompileThenTestPdbUtilsWarningOpt)
+  TEST_METHOD(CompileThenTestPdbInPrivate)
   TEST_METHOD(CompileThenTestPdbUtilsStripped)
   TEST_METHOD(CompileThenTestPdbUtilsEmptyEntry)
   TEST_METHOD(CompileThenTestPdbUtilsRelativePath)
@@ -201,6 +203,7 @@ public:
   TEST_METHOD(BatchPasses)
   TEST_METHOD(BatchShaderTargets)
   TEST_METHOD(BatchValidation)
+  TEST_METHOD(BatchPIX)
 
   TEST_METHOD(SubobjectCodeGenErrors)
   BEGIN_TEST_METHOD(ManualFileCheckTest)
@@ -467,10 +470,20 @@ public:
         dumpStr = dumpPath + (wRelPath.m_psz + suitePath.size());
       }
 
-      WEX::Logging::Log::StartGroup(wRelPath);
+      class ScopedLogGroup
+      {
+        LPWSTR m_path;
+
+      public:
+          ScopedLogGroup(LPWSTR path)
+          : m_path(path)
+          { WEX::Logging::Log::StartGroup(m_path); }
+          ~ScopedLogGroup() { WEX::Logging::Log::EndGroup(m_path); }
+      };
+
+      ScopedLogGroup cleanup(wRelPath);
       CodeGenTestCheck(wRelPath, /*implicitDir*/ false,
         dumpStr.empty() ? nullptr : dumpStr.c_str());
-      WEX::Logging::Log::EndGroup(wRelPath);
 
       numTestsRun++;
     }
@@ -1051,9 +1064,11 @@ static void VerifyPdbUtil(dxc::DxcDllSupport &dllSupport,
       // IDxcVersionInfo3
       CComHeapPtr<char> VersionString;
       VERIFY_SUCCEEDED(pVersion3->GetCustomVersionString(&VersionString));
+      VERIFY_IS_TRUE(VersionString && strlen(VersionString) != 0);
 
-      CComPtr<IDxcVersionInfo3> pCompilerVersion3;
-      if (SUCCEEDED(pCompiler->QueryInterface(&pCompilerVersion3))) {
+      {
+        CComPtr<IDxcVersionInfo3> pCompilerVersion3;
+        VERIFY_SUCCEEDED(pCompiler->QueryInterface(&pCompilerVersion3));
         CComHeapPtr<char> CompilerVersionString;
         VERIFY_SUCCEEDED(pCompilerVersion3->GetCustomVersionString(&CompilerVersionString));
         VERIFY_IS_TRUE(0 == strcmp(CompilerVersionString, VersionString));
@@ -1279,17 +1294,79 @@ static void VerifyPdbUtil(dxc::DxcDllSupport &dllSupport,
     CComPtr<IDxcPixDxilDebugInfo> pDebugInfo;
     VERIFY_SUCCEEDED(pFactory->NewDxcPixDxilDebugInfo(&pDebugInfo));
     VERIFY_ARE_NOT_EQUAL(pDebugInfo, nullptr);
+
+    // Recompile when it's a full PDB anyway.
+    {
+      CComPtr<IDxcResult> pResult;
+      VERIFY_SUCCEEDED(pPdbUtils->CompileForFullPDB(&pResult));
+
+      HRESULT compileStatus = S_OK;
+      VERIFY_SUCCEEDED(pResult->GetStatus(&compileStatus));
+      VERIFY_SUCCEEDED(compileStatus);
+
+      CComPtr<IDxcBlob> pRecompiledPdbBlob;
+      VERIFY_SUCCEEDED(pResult->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pRecompiledPdbBlob), nullptr));
+    }
+
   }
   else {
     VERIFY_IS_FALSE(pPdbUtils->IsFullPDB());
     CComPtr<IDxcBlob> pFullPdb;
     VERIFY_SUCCEEDED(pPdbUtils->GetFullPDB(&pFullPdb));
 
+    // Save a copy of the arg pairs
+    std::vector<std::pair< std::wstring, std::wstring> > pairsStorage;
+    UINT32 uNumArgsPairs = 0;
+    VERIFY_SUCCEEDED(pPdbUtils->GetArgPairCount(&uNumArgsPairs));
+    for (UINT32 i = 0; i < uNumArgsPairs; i++) {
+      CComBSTR pName, pValue;
+      VERIFY_SUCCEEDED(pPdbUtils->GetArgPair(i, &pName, &pValue));
+      std::pair< std::wstring, std::wstring> pairStorage;
+      pairStorage.first  = pName  ? pName  : L"";
+      pairStorage.second = pValue ? pValue : L"";
+      pairsStorage.push_back(pairStorage);
+    }
+
+    // Set an obviously wrong RS and verify compilation fails
+    {
+      VERIFY_SUCCEEDED(pPdbUtils->OverrideRootSignature(L""));
+      CComPtr<IDxcResult> pResult;
+      VERIFY_SUCCEEDED(pPdbUtils->CompileForFullPDB(&pResult));
+
+      HRESULT result = S_OK;
+      VERIFY_SUCCEEDED(pResult->GetStatus(&result));
+      VERIFY_FAILED(result);
+
+      CComPtr<IDxcBlobEncoding> pErr;
+      VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&pErr));
+    }
+
+    // Set an obviously wrong set of args and verify compilation fails
+    {
+
+      std::vector<DxcArgPair> pairs;
+      for (auto &p : pairsStorage) {
+        DxcArgPair pair = {};
+        pair.pName = p.first.c_str();
+        pair.pValue = p.second.c_str();
+        pairs.push_back(pair);
+      }
+
+      VERIFY_SUCCEEDED(pPdbUtils->OverrideArgs(pairs.data(), pairs.size()));
+
+      CComPtr<IDxcResult> pResult;
+      VERIFY_SUCCEEDED(pPdbUtils->CompileForFullPDB(&pResult));
+
+      HRESULT result = S_OK;
+      VERIFY_SUCCEEDED(pResult->GetStatus(&result));
+      VERIFY_SUCCEEDED(result);
+    }
+
     auto ReplaceDebugFlagPair = [](const std::vector<std::pair<const WCHAR *, const WCHAR *> > &List) -> std::vector<std::pair<const WCHAR *, const WCHAR *> > {
       std::vector<std::pair<const WCHAR *, const WCHAR *> > ret;
       for (unsigned i = 0; i < List.size(); i++) {
-        if (!wcscmp(List[i].first, L"/Qsource_only_debug") || !wcscmp(List[i].first, L"-Qsource_only_debug"))
-          ret.push_back(std::pair<const WCHAR *, const WCHAR *>(L"-Qfull_debug", nullptr));
+        if (!wcscmp(List[i].first, L"/Zs") || !wcscmp(List[i].first, L"-Zs"))
+          ret.push_back(std::pair<const WCHAR *, const WCHAR *>(L"-Zi", nullptr));
         else
           ret.push_back(List[i]);
       }
@@ -1354,6 +1431,7 @@ static void VerifyPdbUtil(dxc::DxcDllSupport &dllSupport,
 #ifdef _WIN32
 
 TEST_F(CompilerTest, CompileThenTestPdbUtilsStripped) {
+  if (m_ver.SkipDxilVersion(1, 5)) return;
   CComPtr<TestIncludeHandler> pInclude;
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcBlobEncoding> pSource;
@@ -1453,7 +1531,6 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bSourceInDebugModule, bool bStr
     }
   };
 
-  AddArg(L"-Zi", nullptr, false);
   AddArg(L"-Od", nullptr, false);
   AddArg(L"-flegacy-macro-expansion", nullptr, false);
 
@@ -1468,7 +1545,10 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bSourceInDebugModule, bool bStr
     AddArg(L"-Qsource_in_debug_module", nullptr, false);
   }
   if (bSlim) {
-    AddArg(L"-Qsource_only_debug", nullptr, false);
+    AddArg(L"-Zs", nullptr, false);
+  }
+  else {
+    AddArg(L"-Zi", nullptr, false);
   }
 
   AddArg(L"-D", L"THIS_IS_A_DEFINE=HELLO", true);
@@ -1543,13 +1623,173 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bSourceInDebugModule, bool bStr
 }
 
 TEST_F(CompilerTest, CompileThenTestPdbUtils) {
+  if (m_ver.SkipDxilVersion(1, 5)) return;
+  TestPdbUtils(/*bSlim*/true,  /*bSourceInDebugModule*/false, /*strip*/true);  // Slim PDB, where source info is stored in its own part, and debug module is NOT present
+
   TestPdbUtils(/*bSlim*/false, /*bSourceInDebugModule*/true,  /*strip*/false);  // Old PDB format, where source info is embedded in the module
   TestPdbUtils(/*bSlim*/false, /*bSourceInDebugModule*/false, /*strip*/false);  // Full PDB, where source info is stored in its own part, and a debug module which is present
-  TestPdbUtils(/*bSlim*/true,  /*bSourceInDebugModule*/false, /*strip*/false);  // Slim PDB, where source info is stored in its own part, and a debug module which is NOT present
 
   TestPdbUtils(/*bSlim*/false, /*bSourceInDebugModule*/true,  /*strip*/true);  // Legacy PDB, where source info is embedded in the module
   TestPdbUtils(/*bSlim*/false, /*bSourceInDebugModule*/false, /*strip*/true);  // Full PDB, where source info is stored in its own part, and debug module is present
-  TestPdbUtils(/*bSlim*/true,  /*bSourceInDebugModule*/false, /*strip*/true);  // Slim PDB, where source info is stored in its own part, and debug module is NOT present
+}
+
+
+TEST_F(CompilerTest, CompileThenTestPdbUtilsWarningOpt) {
+  CComPtr<IDxcCompiler> pCompiler;
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+
+  std::string main_source = R"x(
+      cbuffer MyCbuffer : register(b1) {
+        float4 my_cbuf_foo;
+      }
+
+      [RootSignature("CBV(b1)")]
+      float4 main() : SV_Target {
+        return my_cbuf_foo;
+      }
+  )x";
+
+  CComPtr<IDxcUtils> pUtils;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcUtils, &pUtils));
+
+
+
+  CComPtr<IDxcCompiler3> pCompiler3;
+  VERIFY_SUCCEEDED(pCompiler.QueryInterface(&pCompiler3));
+
+  const WCHAR *args[] = {
+    L"/Zs",
+    L".\redundant_input",
+    L"-Wno-parentheses-equality",
+    L"hlsl.hlsl",
+    L"/Tps_6_0",
+    L"/Emain",
+  };
+
+  DxcBuffer buf = {};
+  buf.Ptr = main_source.c_str();
+  buf.Size = main_source.size();
+  buf.Encoding = CP_UTF8;
+
+  CComPtr<IDxcResult> pResult;
+  VERIFY_SUCCEEDED(pCompiler3->Compile(&buf, args, _countof(args), nullptr, IID_PPV_ARGS(&pResult)));
+
+  CComPtr<IDxcBlob> pPdb;
+  VERIFY_SUCCEEDED(pResult->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pPdb), nullptr));
+
+  auto TestPdb = [](IDxcPdbUtils *pPdbUtils) {
+    UINT32 uArgsCount = 0;
+    VERIFY_SUCCEEDED(pPdbUtils->GetArgCount(&uArgsCount));
+    bool foundArg = false;
+    for (UINT32 i = 0; i < uArgsCount; i++) {
+      CComBSTR pArg;
+      VERIFY_SUCCEEDED(pPdbUtils->GetArg(i, &pArg));
+      if (pArg) {
+        std::wstring arg(pArg);
+        if (arg == L"-Wno-parentheses-equality" || arg == L"/Wno-parentheses-equality") {
+          foundArg = true;
+        }
+        else {
+          // Make sure arg value "no-parentheses-equality" doesn't show up
+          // as its own argument token.
+          VERIFY_ARE_NOT_EQUAL(arg, L"no-parentheses-equality");
+
+          // Make sure the presence of the argument ".\redundant_input"
+          // doesn't cause "<input>" to show up.
+          VERIFY_ARE_NOT_EQUAL(arg, L"<input>");
+        }
+      }
+    }
+    VERIFY_IS_TRUE(foundArg);
+
+    UINT32 uFlagsCount = 0;
+    VERIFY_SUCCEEDED(pPdbUtils->GetFlagCount(&uFlagsCount));
+    bool foundFlag = false;
+    for (UINT32 i = 0; i < uFlagsCount; i++) {
+      CComBSTR pFlag;
+      VERIFY_SUCCEEDED(pPdbUtils->GetFlag(i, &pFlag));
+      if (pFlag) {
+        std::wstring arg(pFlag);
+        if (arg == L"-Wno-parentheses-equality" || arg == L"/Wno-parentheses-equality") {
+          foundFlag = true;
+        }
+        else {
+          // Make sure arg value "no-parentheses-equality" doesn't show up
+          // as its own flag token.
+          VERIFY_ARE_NOT_EQUAL(arg, L"no-parentheses-equality");
+        }
+      }
+    }
+    VERIFY_IS_TRUE(foundFlag);
+
+    CComBSTR pMainFileName;
+    VERIFY_SUCCEEDED(pPdbUtils->GetMainFileName(&pMainFileName));
+    std::wstring mainFileName = pMainFileName;
+    VERIFY_ARE_EQUAL(mainFileName, L"hlsl.hlsl");
+  };
+
+  CComPtr<IDxcPdbUtils> pPdbUtils;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcPdbUtils, &pPdbUtils));
+
+  VERIFY_SUCCEEDED(pPdbUtils->Load(pPdb));
+  TestPdb(pPdbUtils);
+
+  CComPtr<IDxcBlob> pFullPdb;
+  VERIFY_SUCCEEDED(pPdbUtils->GetFullPDB(&pFullPdb));
+  VERIFY_SUCCEEDED(pPdbUtils->Load(pFullPdb));
+  TestPdb(pPdbUtils);
+}
+
+TEST_F(CompilerTest, CompileThenTestPdbInPrivate) {
+  CComPtr<IDxcCompiler> pCompiler;
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+
+  std::string main_source = R"x(
+      cbuffer MyCbuffer : register(b1) {
+        float4 my_cbuf_foo;
+      }
+
+      [RootSignature("CBV(b1)")]
+      float4 main() : SV_Target {
+        return my_cbuf_foo;
+      }
+  )x";
+
+  CComPtr<IDxcUtils> pUtils;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcUtils, &pUtils));
+
+  CComPtr<IDxcBlobEncoding> pSource;
+  VERIFY_SUCCEEDED(pUtils->CreateBlobFromPinned(main_source.c_str(), main_source.size(), CP_UTF8, &pSource));
+
+  const WCHAR *args[] = {
+    L"/Zs",
+    L"/Qpdb_in_private",
+  };
+
+  CComPtr<IDxcOperationResult> pOpResult;
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main", L"ps_6_0", args, _countof(args), nullptr, 0, nullptr, &pOpResult));
+
+  CComPtr<IDxcResult> pResult;
+  VERIFY_SUCCEEDED(pOpResult.QueryInterface(&pResult));
+
+  CComPtr<IDxcBlob> pShader;
+  VERIFY_SUCCEEDED(pResult->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&pShader), nullptr));
+
+  CComPtr<IDxcContainerReflection> pRefl;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pRefl));
+  VERIFY_SUCCEEDED(pRefl->Load(pShader));
+
+  UINT32 uIndex = 0;
+  VERIFY_SUCCEEDED(pRefl->FindFirstPartKind(hlsl::DFCC_PrivateData, &uIndex));
+
+  CComPtr<IDxcBlob> pPdbBlob;
+  VERIFY_SUCCEEDED(pResult->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pPdbBlob), nullptr));
+
+  CComPtr<IDxcBlob> pPrivatePdbBlob;
+  VERIFY_SUCCEEDED(pRefl->GetPartContent(uIndex, &pPrivatePdbBlob));
+
+  VERIFY_ARE_EQUAL(pPdbBlob->GetBufferSize(), pPrivatePdbBlob->GetBufferSize());
+  VERIFY_ARE_EQUAL(0, memcmp(pPdbBlob->GetBufferPointer(), pPrivatePdbBlob->GetBufferPointer(), pPdbBlob->GetBufferSize()));
 }
 
 TEST_F(CompilerTest, CompileThenTestPdbUtilsRelativePath) {
@@ -1575,8 +1815,7 @@ TEST_F(CompilerTest, CompileThenTestPdbUtilsRelativePath) {
 
   std::vector<const WCHAR *> args;
   args.push_back(L"/Tps_6_0");
-  args.push_back(L"/Zi");
-  args.push_back(L"/Qsource_only_debug");
+  args.push_back(L"/Zs");
   args.push_back(L"shaders/Shader.hlsl");
 
   CComPtr<TestIncludeHandler> pInclude;
@@ -3016,6 +3255,10 @@ TEST_F(CompilerTest, BatchShaderTargets) {
 
 TEST_F(CompilerTest, BatchValidation) {
   CodeGenTestCheckBatchDir(L"validation");
+}
+
+TEST_F(CompilerTest, BatchPIX) {
+  CodeGenTestCheckBatchDir(L"PIX");
 }
 
 TEST_F(CompilerTest, BatchSamples) {

@@ -8,7 +8,6 @@
 RWStructuredBuffer<int64_t> myBuf : register(u0);
 
 [shader("raygeneration")]
-[RootSignature("UAV(u0)")]
 void RGInt64OnDescriptorHeapIndex()
 {
     InterlockedAdd(myBuf[0], 1);

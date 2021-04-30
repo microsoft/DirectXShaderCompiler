@@ -778,6 +778,14 @@ HRESULT DxcCreateBlobWithEncodingFromPinned(LPCVOID pText, UINT32 size,
   return DxcCreateBlob(pText, size, true, false, true, codePage, nullptr, pBlobEncoding);
 }
 
+HRESULT DxcCreateBlobFromPinned(
+    _In_bytecount_(size) LPCVOID pText, UINT32 size,
+    _COM_Outptr_ IDxcBlob **pBlob) throw() {
+  CComPtr<IDxcBlobEncoding> pBlobEncoding;
+  DxcCreateBlob(pText, size, true, false, false, CP_ACP, nullptr, &pBlobEncoding);
+  return pBlobEncoding.QueryInterface(pBlob);
+}
+
 _Use_decl_annotations_
 HRESULT
 DxcCreateBlobWithEncodingFromStream(IStream *pStream, bool newInstanceAlways,

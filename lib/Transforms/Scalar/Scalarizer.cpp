@@ -316,7 +316,7 @@ Scatterer Scalarizer::scatter(Instruction *Point, Value *V) {
     auto InsertPoint = BB->begin();
     while (InsertPoint != BB->end() && isa<DbgInfoIntrinsic>(InsertPoint))
       InsertPoint++;
-    Scatterer(BB, InsertPoint, V, AllowFolding, &Scattered[V]);
+    return Scatterer(BB, InsertPoint, V, AllowFolding, &Scattered[V]);
     // HLSL Change - End
   }
   if (Instruction *VOp = dyn_cast<Instruction>(V)) {
@@ -729,7 +729,7 @@ bool Scalarizer::finish() {
   Module &M = *Gathered.front().first->getModule();
   LLVMContext &Ctx = M.getContext();
   const DataLayout &DL = M.getDataLayout();
-  bool HasDbgInfo = getDebugMetadataVersionFromModule(M) != 0;
+  bool HasDbgInfo = hasDebugInfo(M);
   // Map from an extract element inst to a Value which replaced it.
   DenseMap<Instruction *, Value*> EltMap;
   // HLSL Change Ends.

@@ -1393,16 +1393,13 @@ void PrintResourceProperties(DxilResourceProperties &RP,
   case DXIL::ResourceKind::Texture2DArray:
   case DXIL::ResourceKind::TextureCubeArray:
   case DXIL::ResourceKind::TypedBuffer:
-    OS << GC << RW << ResourceKindToString(RP.getResourceKind());
-    OS << "<" << CompTypeToString(RP.getCompType())
-       << (bUAV && RP.Typed.CompCount > 1 ? "[vec]" : "")
-       << ">";
-    break;
-
   case DXIL::ResourceKind::Texture2DMS:
   case DXIL::ResourceKind::Texture2DMSArray:
-    OS << ResourceKindToString(RP.getResourceKind());
-    OS << "<" << CompTypeToString(RP.getCompType())
+    OS << GC << RW << ResourceKindToString(RP.getResourceKind());
+    OS << "<";
+    if (RP.Typed.CompCount > 1)
+      OS << std::to_string(RP.Typed.CompCount) << "x";
+    OS << CompTypeToString(RP.getCompType())
        << ">";
     break;
 
