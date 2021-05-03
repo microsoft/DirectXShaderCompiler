@@ -545,6 +545,7 @@ public:
 
 
   Metadata *getRawScope() const { return getOperand(1); }
+  void setScope(Metadata *scope) { setOperand(1, scope); } // HLSL Change
   MDString *getRawName() const { return getOperandAs<MDString>(2); }
 
   void setFlags(unsigned NewFlags) {
@@ -1826,6 +1827,7 @@ public:
     return "";
   }
 
+  void setScope(DIScope *scope) { setOperand(0, scope); } // HLSL Change
   Metadata *getRawScope() const { return getOperand(0); }
   MDString *getRawName() const { return getOperandAs<MDString>(1); }
   Metadata *getRawFile() const { return getOperand(2); }
