@@ -1058,12 +1058,14 @@ void DxilLinkJob::StripDeadDebugInfo(Module &M) {
 
       // If the function referenced by DISP is not null, the function is live.
       if (Function *Func = DISP->getFunction()) {
-        if (Func->getParent() == &M)
-          LiveSubprograms.push_back(DISP);
-        else
-          SubprogramChange = true;
+        LiveSubprograms.push_back(DISP);
+        if (Func->getParent() != &M)
+          DISP->replaceFunction(nullptr);
       } else {
-        SubprogramChange = true;
+        // Copy it in anyway even if there's no function. When function is inlined
+        // the function reference is gone, but the subprogram is still valid as
+        // scope.
+        LiveSubprograms.push_back(DISP);
       }
     }
 
