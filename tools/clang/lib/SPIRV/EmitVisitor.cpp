@@ -535,8 +535,9 @@ bool EmitVisitor::visit(SpirvSource *inst) {
   // Chop up the source into multiple segments if it is too long.
   llvm::Optional<llvm::StringRef> firstSnippet = llvm::None;
   llvm::SmallVector<llvm::StringRef, 2> choppedSrcCode;
+  std::string text;
   if (spvOptions.debugInfoSource && inst->hasFile()) {
-    auto text = ReadSourceCode(inst->getFile()->getString());
+    text = ReadSourceCode(inst->getFile()->getString());
     if (!text.empty()) {
       chopString(text, &choppedSrcCode);
       if (!choppedSrcCode.empty()) {
