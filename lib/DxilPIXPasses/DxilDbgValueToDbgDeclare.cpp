@@ -146,13 +146,13 @@ public:
         AlignedOffset);
   }
 
-  OffsetInBits GetPackedOffsetFromAlignedOffset(
+  bool GetPackedOffsetFromAlignedOffset(
       OffsetInBits AlignedOffset,
       OffsetInBits *PackedOffset
   ) const
   {
     return GetOffsetWithMap(
-        m_PackedOffsetToAlignedOffset,
+        m_AlignedOffsetToPackedOffset,
         AlignedOffset,
         PackedOffset);
   }
@@ -417,34 +417,37 @@ void DxilDbgValueToDbgDeclare::handleDbgValue(
 
   const OffsetInBits InitialOffset = PackedOffsetFromVar;
   llvm::IRBuilder<> B(DbgValue->getCalledFunction()->getContext());
-  B.SetInsertPoint(DbgValue);
-  B.SetCurrentDebugLocation(llvm::DebugLoc());
-  auto *Zero = B.getInt32(0);
+  if (auto *instruction = llvm::dyn_cast<llvm::Instruction>(V)) {
+    if (instruction = instruction->getNextNode()) {
+      B.SetInsertPoint(instruction);
 
-  // Now traverse a list of pairs {Scalar Value, InitialOffset + Offset}.
-  // InitialOffset is the offset from DbgValue's expression (i.e., the
-  // offset from the Variable's start), and Offset is the Scalar Value's
-  // packed offset from DbgValue's value. 
-  for (const ValueAndOffset &VO : SplitValue(V, InitialOffset, B))
-  {
-    OffsetInBits AlignedOffset;
-    if (!Offsets.GetAlignedOffsetFromPackedOffset(VO.m_PackedOffset,
-                                                  &AlignedOffset))
-    {
-      continue;
-    }
+      B.SetCurrentDebugLocation(llvm::DebugLoc());
+      auto *Zero = B.getInt32(0);
 
-    auto* AllocaInst = Register->GetRegisterForAlignedOffset(AlignedOffset);
-    if (AllocaInst == nullptr)
-    {
-      assert(!"Failed to find alloca for var[offset]");
-      continue;
-    }
+      // Now traverse a list of pairs {Scalar Value, InitialOffset + Offset}.
+      // InitialOffset is the offset from DbgValue's expression (i.e., the
+      // offset from the Variable's start), and Offset is the Scalar Value's
+      // packed offset from DbgValue's value.
+      for (const ValueAndOffset &VO : SplitValue(V, InitialOffset, B)) {
 
-    if (AllocaInst->getAllocatedType()->getArrayElementType() == VO.m_V->getType())
-    {
-      auto* GEP = B.CreateGEP(AllocaInst, { Zero, Zero });
-      B.CreateStore(VO.m_V, GEP);
+        OffsetInBits AlignedOffset;
+        if (!Offsets.GetAlignedOffsetFromPackedOffset(VO.m_PackedOffset,
+                                                      &AlignedOffset)) {
+          continue;
+        }
+
+        auto *AllocaInst = Register->GetRegisterForAlignedOffset(AlignedOffset);
+        if (AllocaInst == nullptr) {
+          assert(!"Failed to find alloca for var[offset]");
+          continue;
+        }
+
+        if (AllocaInst->getAllocatedType()->getArrayElementType() ==
+            VO.m_V->getType()) {
+          auto *GEP = B.CreateGEP(AllocaInst, {Zero, Zero});
+          B.CreateStore(VO.m_V, GEP);
+        }
+      }
     }
   }
 }
