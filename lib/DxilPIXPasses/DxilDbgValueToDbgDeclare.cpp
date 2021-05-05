@@ -417,8 +417,10 @@ void DxilDbgValueToDbgDeclare::handleDbgValue(
 
   const OffsetInBits InitialOffset = PackedOffsetFromVar;
   llvm::IRBuilder<> B(DbgValue->getCalledFunction()->getContext());
-  if (auto *instruction = llvm::dyn_cast<llvm::Instruction>(V)) {
-    if (instruction = instruction->getNextNode()) {
+  auto* instruction = llvm::dyn_cast<llvm::Instruction>(V);
+  if (instruction != nullptr) {
+    instruction = instruction->getNextNode();
+    if (instruction != nullptr) {
       B.SetInsertPoint(instruction);
 
       B.SetCurrentDebugLocation(llvm::DebugLoc());
