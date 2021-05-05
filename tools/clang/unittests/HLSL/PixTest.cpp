@@ -1887,12 +1887,17 @@ void main()
 
     auto Testables = TestStructAnnotationCase(hlsl, optimization);
 
+    // 2 in unoptimized case (one for each instance of smallPayload)
+    // 1 in optimized case (cuz p2 aliases over p)
     VERIFY_IS_TRUE(Testables.OffsetAndSizes.size() >= 1);
-    VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes[0].countOfMembers);
-    VERIFY_ARE_EQUAL(0, Testables.OffsetAndSizes[0].offset);
-    VERIFY_ARE_EQUAL(32, Testables.OffsetAndSizes[0].size);
 
-    VERIFY_ARE_EQUAL(2, Testables.AllocaWrites.size());
+    for (const auto& os : Testables.OffsetAndSizes) {
+      VERIFY_ARE_EQUAL(1, os.countOfMembers);
+      VERIFY_ARE_EQUAL(0, os.offset);
+      VERIFY_ARE_EQUAL(32, os.size);
+    }
+
+    VERIFY_ARE_EQUAL(1, Testables.AllocaWrites.size());
   }
 }
 
