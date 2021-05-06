@@ -9465,7 +9465,7 @@ SpirvEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
   switch (numArgs) {
   case 1: {
     // Handling Method 1, 2, and 3.
-    auto *argInstr = doExpr(arg0);
+    auto *argInstr = loadIfGLValue(arg0);
     QualType fromElemType = {};
     uint32_t numRows = 0, numCols = 0;
     // For non-matrix arguments (scalar or vector), just do an OpBitCast.
