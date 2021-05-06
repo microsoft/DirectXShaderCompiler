@@ -451,6 +451,9 @@ TEST_F(FileTest, CastFlatConversionArrayToVector) {
 TEST_F(FileTest, CastImplicitFlatConversion) {
   runFileTest("cast.flat-conversion.implicit.hlsl");
 }
+TEST_F(FileTest, CastFlatConversionDeclRef) {
+  runFileTest("cast.flat-conversion.decl-ref.hlsl");
+}
 TEST_F(FileTest, CastFlatConversionStruct) {
   runFileTest("cast.flat-conversion.struct.hlsl");
 }
