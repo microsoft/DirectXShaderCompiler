@@ -360,7 +360,7 @@ std::pair<uint32_t, uint32_t> AlignmentSizeCalculator::getAlignmentAndSize(
 
     if (rule == SpirvLayoutRule::FxcSBuffer ||
         rule == SpirvLayoutRule::Scalar) {
-      *stride = size;
+      *stride = roundToPow2(size, alignment);
       // Use element alignment for fxc structured buffers and
       // VK_EXT_scalar_block_layout
       return {alignment, size * elemCount};

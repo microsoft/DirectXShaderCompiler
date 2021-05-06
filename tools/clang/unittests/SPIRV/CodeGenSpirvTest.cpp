@@ -2112,6 +2112,11 @@ TEST_F(FileTest, VulkanLayoutFxcRulesSBuffer) {
   setDxLayout();
   runFileTest("vk.layout.sbuffer.fxc.hlsl");
 }
+TEST_F(FileTest, VulkanLayoutFxcRulesSBufferCheckStrideWithCorrectAlignment) {
+  // structured buffers with fxc layout rules
+  setDxLayout();
+  runFileTest("vk.layout.sbuffer.fxc.stride.with.correct.alignment.hlsl");
+}
 TEST_F(FileTest, VulkanLayoutFxcRulesCBuffer) {
   // cbuffer/tbuffer/ConstantBuffer/TextureBuffer with fxc layout rules
   setDxLayout();
