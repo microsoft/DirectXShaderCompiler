@@ -7,6 +7,9 @@
 // RUN: %dxc -T lib_6_6 main %s -enable-payload-qualifiers -D TEST_NUM=6 | FileCheck -check-prefix=CHK6 -input=stderr  %s
 // RUN: %dxc -T lib_6_6 main %s -enable-payload-qualifiers -D TEST_NUM=7 | FileCheck -check-prefix=CHK7 -input=stderr  %s
 // RUN: %dxc -T lib_6_6 main %s -enable-payload-qualifiers -D TEST_NUM=8 | FileCheck -check-prefix=CHK8 -input=stderr  %s
+// RUN: %dxc -T lib_6_6 main %s -enable-payload-qualifiers -D TEST_NUM=9 | FileCheck -check-prefix=CHK9 -input=stderr  %s
+// RUN: %dxc -T lib_6_6 main %s -enable-payload-qualifiers -D TEST_NUM=10 | FileCheck -check-prefix=CHK10 -input=stderr  %s
+// RUN: %dxc -T lib_6_6 main %s -enable-payload-qualifiers -D TEST_NUM=11 | FileCheck -check-prefix=CHK11 -input=stderr  %s
 
 // CHK0-NOT: -Wpayload-access-
 
@@ -46,6 +49,16 @@
 // CHK8: warning: reading undefined value ('noRead2' is not qualified 'read' for shader stage 'closesthit')
 // CHK8-NOT: warning: reading undefined value ('noRead3' is not qualified 'read' for shader stage 'closesthit')
 
+// CHK9-NOT: warning: field 'noWrite' is 'write' for 'caller' stage but field is never written for TraceRay call
+// CHK9-NOT: warning: field 'noWrite2' is 'write' for 'caller' stage but field is never written for TraceRay call
+// CHK9-NOT: warning: field 'noWrite3' is 'write' for 'caller' stage but field is never written for TraceRay call
+
+// CHK10-NOT: warning: field 'noWrite' is 'write' for 'caller' stage but field is never written for TraceRay call
+// CHK10-NOT: warning: field 'noWrite2' is 'write' for 'caller' stage but field is never written for TraceRay call
+// CHK10-NOT: warning: field 'noWrite3' is 'write' for 'caller' stage but field is never written for TraceRay call
+
+// CHK11-NOT: warning: 'noRead' is qualified 'read' for 'caller' but the field is never read after TraceCall (possible performance issue)
+
 struct [raypayload] Payload
 {
     float noRead : write(closesthit) : read(caller); 
@@ -65,6 +78,7 @@ struct [raypayload] Payload
 
 struct Attribs { float2 barys; };
 
+RaytracingAccelerationStructure scene : register(t0);
 
 // Check if no warning is produced if no access happens.
 #if TEST_NUM == 0
@@ -172,8 +186,6 @@ void ClosestHit8( inout Payload payload, in Attribs attribs )
 // The noWrite field is used after the trace call but the field is not qualified 'read' for 'caller', 
 // the value will be dropped and the read value is undefined (warn).
 #if TEST_NUM == 5
-RaytracingAccelerationStructure scene : register(t0);
-
 [shader("raygeneration")]
 void RayGen1()
 {
@@ -228,5 +240,42 @@ void ClosestHit8( inout Payload payload, in Attribs attribs )
     bar(payload);
     for (int i = 0; i < payload.noRead3; ++i)
     payload.noWrite = 2;
+}
+#endif
+
+// Check if initializer lists are handle correctly.
+#if TEST_NUM == 9
+[shader("raygeneration")]
+void RayGen2()
+{
+    Payload payload = {0,0,0,0,0,0,0};
+    RayDesc ray;
+    TraceRay( scene, RAY_FLAG_NONE, 0xff, 0, 1, 0, ray, payload );
+}
+#endif
+
+// Check if copy initialization is handles correctly.
+#if TEST_NUM == 10
+[shader("raygeneration")]
+void RayGen3()
+{
+    Payload fooload = {0,0,0,0,0,0,0};
+    Payload payload = fooload;
+    RayDesc ray;
+    TraceRay( scene, RAY_FLAG_NONE, 0xff, 0, 1, 0, ray, payload );
+}
+#endif
+
+// Check if  CompoundAssignOperator Stmts are handled correctly while
+// searching for reads. 
+#if TEST_NUM == 11
+[shader("raygeneration")]
+void RayGen4())
+{
+    Payload payload;
+    TraceRay( scene, RAY_FLAG_NONE, 0xff, 0, 1, 0, ray, payload );
+
+    int a = 0; 
+    a += payload.noRead;
 }
 #endif
