@@ -3149,7 +3149,7 @@ ScopeInfo::ScopeInfo(Function *F) : maxRetLevel(0), bAllReturnsInIf(true) {
 // When all returns is inside if which is not nested, the flow is still
 // structurized even there're more than one return.
 bool ScopeInfo::CanSkipStructurize() {
-  return bAllReturnsInIf && maxRetLevel < 2;
+  return (bAllReturnsInIf && maxRetLevel < 2) || rets.size() < 2;
 }
 
 void ScopeInfo::AddScope(Scope::ScopeKind k, BasicBlock *endScopeBB) {
