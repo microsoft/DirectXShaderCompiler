@@ -741,15 +741,20 @@ LowerTypeVisitor::translateSampledTypeToImageFormat(QualType sampledType,
     if (const auto *builtinType = ty->getAs<BuiltinType>()) {
       switch (builtinType->getKind()) {
       case BuiltinType::Int:
+      case BuiltinType::Min12Int:
+      case BuiltinType::Min16Int:
         return elemCount == 1 ? spv::ImageFormat::R32i
                               : elemCount == 2 ? spv::ImageFormat::Rg32i
                                                : spv::ImageFormat::Rgba32i;
       case BuiltinType::UInt:
+      case BuiltinType::Min16UInt:
         return elemCount == 1 ? spv::ImageFormat::R32ui
                               : elemCount == 2 ? spv::ImageFormat::Rg32ui
                                                : spv::ImageFormat::Rgba32ui;
       case BuiltinType::Float:
       case BuiltinType::HalfFloat:
+      case BuiltinType::Min10Float:
+      case BuiltinType::Min16Float:
         return elemCount == 1 ? spv::ImageFormat::R32f
                               : elemCount == 2 ? spv::ImageFormat::Rg32f
                                                : spv::ImageFormat::Rgba32f;
