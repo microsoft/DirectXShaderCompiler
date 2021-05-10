@@ -6718,5 +6718,5 @@ static const UINT g_uVkSubpassInputMethodsCount = 1;
 
 static const int g_MaxIntrinsicName = 44; // Count of characters for longest intrinsic name - 'CandidateInstanceContributionToHitGroupIndex'
 static const int g_MaxIntrinsicParamName = 48; // Count of characters for longest intrinsic parameter name - 'MultiplierForGeometryContributionToHitGroupIndex'
-static const int g_MaxIntrinsicParamCount = 8; // Count of parameters (without return) for longest intrinsic argument list - 'TraceRay'
+static const int g_MaxIntrinsicParamCount = 29; // Count of parameters (without return) for longest intrinsic argument list - 'MIN_PARAM_COUNT'
 // HLSL-INTRINSIC-STATS:END
