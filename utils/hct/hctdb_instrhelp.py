@@ -673,6 +673,8 @@ def get_hlsl_intrinsic_stats():
         v = db.namespaces[k]
         result += "static const UINT g_u%sCount = %d;\n" % (k, len(v.intrinsics))
     result += "\n"
+    #NOTE:The min limits are needed to support allowing intrinsics in the extension mechanism that use longer values than the builtin hlsl intrisics.
+    #TODO: remove code which dependent on g_MaxIntrinsic*.
     MIN_FUNCTION_NAME_LENTH = 44
     MIN_PARAM_NAME_LENTH = 48
     MIN_PARAM_COUNT = 29
