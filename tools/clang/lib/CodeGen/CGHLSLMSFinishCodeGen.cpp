@@ -654,18 +654,24 @@ void AddOpcodeParamForIntrinsic(
   // Add the opcode param
   llvm::Type *opcodeTy = llvm::Type::getInt32Ty(M.getContext());
   paramTyList.emplace_back(opcodeTy);
-  paramTyList.append(oldFuncTy->param_begin(), oldFuncTy->param_end());
 
-  for (unsigned i = 1; i < paramTyList.size(); i++) {
-    llvm::Type *Ty = paramTyList[i];
+  bool bRetHandle = false;
+  for (unsigned i = 0; i < oldFuncTy->getNumParams(); i++) {
+    llvm::Type *Ty = oldFuncTy->getParamType(i);
     if (Ty->isPointerTy()) {
-      Ty = Ty->getPointerElementType();
-      if (dxilutil::IsHLSLResourceType(Ty)) {
+      llvm::Type *PtrEltTy = Ty->getPointerElementType();
+      if (dxilutil::IsHLSLResourceType(PtrEltTy)) {
+        // Skip for return type.
+        if (i == 0 && F->arg_begin()->hasStructRetAttr()) {
+          bRetHandle = true;
+          continue;
+        }
         // Use handle type for resource type.
         // This will make sure temp object variable only used by createHandle.
-        paramTyList[i] = HandleTy;
+        Ty = HandleTy;
       }
     }
+    paramTyList.emplace_back(Ty);
   }
 
   HLOpcodeGroup group = hlsl::GetHLOpcodeGroup(F);
@@ -694,7 +700,10 @@ void AddOpcodeParamForIntrinsic(
       opcode == static_cast<unsigned>(HLSubscriptOpcode::DoubleSubscript);
 
   llvm::Type *RetTy = oldFuncTy->getReturnType();
-
+  if (bRetHandle) {
+    DXASSERT(RetTy->isVoidTy(), "else invalid return type");
+    RetTy = HandleTy;
+  }
   if (isDoubleSubscriptFunc) {
     CallInst *doubleSub = cast<CallInst>(*F->user_begin());
 
@@ -754,9 +763,16 @@ void AddOpcodeParamForIntrinsic(
     SmallVector<Value *, 4> opcodeParamList;
     Value *opcodeConst = Constant::getIntegerValue(opcodeTy, APInt(32, opcode));
     opcodeParamList.emplace_back(opcodeConst);
-
-    opcodeParamList.append(oldCI->arg_operands().begin(),
-                           oldCI->arg_operands().end());
+    Value *retHandleArg = nullptr;
+    if (!bRetHandle) {
+      opcodeParamList.append(oldCI->arg_operands().begin(),
+                             oldCI->arg_operands().end());
+    } else {
+      auto it = oldCI->arg_operands().begin();
+      retHandleArg = *(it++);
+      opcodeParamList.append(it,
+                             oldCI->arg_operands().end());
+    }
     IRBuilder<> Builder(oldCI);
 
     if (isDoubleSubscriptFunc) {
@@ -812,7 +828,6 @@ void AddOpcodeParamForIntrinsic(
       if (Ty->isPointerTy()) {
         Ty = Ty->getPointerElementType();
         if (dxilutil::IsHLSLResourceType(Ty)) {
-
           DxilResourceProperties RP = GetResourcePropsFromIntrinsicObjectArg(
               arg, HLM, typeSys, objectProperties);
           // Use object type directly, not by pointer.
@@ -837,6 +852,15 @@ void AddOpcodeParamForIntrinsic(
     }
 
     Value *CI = Builder.CreateCall(opFunc, opcodeParamList);
+    if (retHandleArg) {
+      Type *ResTy = retHandleArg->getType()->getPointerElementType();
+      Value *Res = HLM.EmitHLOperationCall(
+          Builder, HLOpcodeGroup::HLCast,
+          (unsigned)HLCastOpcode::HandleToResCast, ResTy, {CI}, M);
+      Builder.CreateStore(Res, retHandleArg);
+      oldCI->eraseFromParent();
+      continue;
+    }
     if (!isDoubleSubscriptFunc) {
       // replace new call and delete the old call
       oldCI->replaceAllUsesWith(CI);
