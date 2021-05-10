@@ -659,8 +659,8 @@ void AddOpcodeParamForIntrinsic(
   for (unsigned i = 0; i < oldFuncTy->getNumParams(); i++) {
     llvm::Type *Ty = oldFuncTy->getParamType(i);
     if (Ty->isPointerTy()) {
-      Ty = Ty->getPointerElementType();
-      if (dxilutil::IsHLSLResourceType(Ty)) {
+      llvm::Type *PtrEltTy = Ty->getPointerElementType();
+      if (dxilutil::IsHLSLResourceType(PtrEltTy)) {
         // Skip for return type.
         if (i == 0 && F->arg_begin()->hasStructRetAttr()) {
           bRetHandle = true;
