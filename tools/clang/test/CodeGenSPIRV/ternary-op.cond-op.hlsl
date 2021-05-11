@@ -62,9 +62,9 @@ void main() {
   w = cond3 ? u : v;
 
   // CHECK:       [[cond:%\d+]] = OpLoad %bool %cond
+  // CHECK-NEXT: [[splat:%\d+]] = OpCompositeConstruct %v3bool [[cond]] [[cond]] [[cond]]
   // CHECK-NEXT:     [[u:%\d+]] = OpLoad %v3int %u
   // CHECK-NEXT:     [[v:%\d+]] = OpLoad %v3int %v
-  // CHECK-NEXT: [[splat:%\d+]] = OpCompositeConstruct %v3bool [[cond]] [[cond]] [[cond]]
   // CHECK-NEXT:       {{%\d+}} = OpSelect %v3int [[splat]] [[u]] [[v]]
   w = cond ? u : v;
 
