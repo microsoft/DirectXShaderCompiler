@@ -1,30 +1,19 @@
-// RUN: %dxc -E GatherRange -T ps_6_0 %s | FileCheck %s -check-prefix=CHK_RANGE
+// RUN: %dxc -E GatherRange -T ps_6_0 %s | FileCheck %s
 
-// RUN: %dxc -E GatherImm -T ps_6_0 -DOFFSETS=argOffsets %s | FileCheck %s -check-prefix=CHK_VAROFF
-// RUN: %dxc -E GatherImm -T ps_6_0 -DOFFSETS=cbufOffsets %s | FileCheck %s -check-prefix=CHK_VAROFF
-// RUN: %dxc -E GatherImm -T ps_6_0 -DOFFSETS=constOffsets %s | FileCheck %s -check-prefix=CHK_VAROFF
-// RUN: %dxc -E GatherImm -T ps_6_0 -DOFFSETS=validOffsets %s | FileCheck %s -check-prefix=CHK_VALID
+// RUN: %dxc -E Gather1 -T ps_6_0 -DOFFSETS=argOffsets %s | FileCheck %s
+// RUN: %dxc -E Gather1 -T ps_6_0 -DOFFSETS=cbufOffsets %s | FileCheck %s
+// RUN: %dxc -E Gather1 -T ps_6_0 -DOFFSETS=constOffsets %s | FileCheck %s
+// RUN: %dxc -E Gather1 -T ps_6_0 -DOFFSETS=validOffsets %s | FileCheck %s
 
 // RUN: %dxc -E Gather4 -T ps_6_0 -DOFFSETS=argOffsets %s | FileCheck %s -check-prefix=CHK_VALID4
 // RUN: %dxc -E Gather4 -T ps_6_0 -DOFFSETS=cbufOffsets %s | FileCheck %s -check-prefix=CHK_VALID4
 // RUN: %dxc -E Gather4 -T ps_6_0 -DOFFSETS=constOffsets %s | FileCheck %s -check-prefix=CHK_VALID4
 // RUN: %dxc -E Gather4 -T ps_6_0 -DOFFSETS=validOffsets %s | FileCheck %s -check-prefix=CHK_VALID4
 
-// CHK_RANGE: error: Offsets to texture access operations must be between -8 and 7.
-// CHK_RANGE: error: Offsets to texture access operations must be between -8 and 7.
-// CHK_RANGE: error: Offsets to texture access operations must be between -8 and 7.
-// CHK_RANGE: error: Offsets to texture access operations must be between -8 and 7.
-
-// CHK_VAROFF: Offsets to texture access operations must be immediate values
-// CHK_VAROFF: Offsets to texture access operations must be immediate values
-// CHK_VAROFF: Offsets to texture access operations must be immediate values
-// CHK_VAROFF: Offsets to texture access operations must be immediate values
-
-
-// CHK_VALID:  @dx.op.textureGather.f32(i32 73, %dx.types.Handle %{{.+}}, %dx.types.Handle %{{.+}}, float %{{.+}}, float %{{.+}}, float undef, float undef, i32 {{%?.+}}, i32 {{%?.+}}, i32 0)
-// CHK_VALID:  @dx.op.textureGather.f32(i32 73, %dx.types.Handle %{{.+}}, %dx.types.Handle %{{.+}}, float %{{.+}}, float %{{.+}}, float undef, float undef, i32 {{%?.+}}, i32 {{%?.+}}, i32 0)
-// CHK_VALID:  @dx.op.textureGatherCmp.f32(i32 74, %dx.types.Handle %{{.+}}, %dx.types.Handle %{{.+}}, float %{{.+}}, float %{{.+}}, float undef, float undef, i32 {{%?.+}}, i32 {{%?.+}}, i32 0,
-// CHK_VALID:  @dx.op.textureGatherCmp.f32(i32 74, %dx.types.Handle %{{.+}}, %dx.types.Handle %{{.+}}, float %{{.+}}, float %{{.+}}, float undef, float undef, i32 {{%?.+}}, i32 {{%?.+}}, i32 0,
+// CHECK:  @dx.op.textureGather.f32(i32 73, %dx.types.Handle %{{.+}}, %dx.types.Handle %{{.+}}, float %{{.+}}, float %{{.+}}, float undef, float undef, i32 {{%?.+}}, i32 {{%?.+}}, i32 0)
+// CHECK:  @dx.op.textureGather.f32(i32 73, %dx.types.Handle %{{.+}}, %dx.types.Handle %{{.+}}, float %{{.+}}, float %{{.+}}, float undef, float undef, i32 {{%?.+}}, i32 {{%?.+}}, i32 0)
+// CHECK:  @dx.op.textureGatherCmp.f32(i32 74, %dx.types.Handle %{{.+}}, %dx.types.Handle %{{.+}}, float %{{.+}}, float %{{.+}}, float undef, float undef, i32 {{%?.+}}, i32 {{%?.+}}, i32 0,
+// CHECK:  @dx.op.textureGatherCmp.f32(i32 74, %dx.types.Handle %{{.+}}, %dx.types.Handle %{{.+}}, float %{{.+}}, float %{{.+}}, float undef, float undef, i32 {{%?.+}}, i32 {{%?.+}}, i32 0,
 
 
 Texture1D t1;
@@ -50,7 +39,7 @@ float4 GatherRange(float3 str : STR) : SV_TARGET
 
 uint3 cbufOffsets[4];
 
-float4 GatherImm(float3 str : STR, uint3 argOffsets[4] : O, uint a : A) : SV_TARGET
+float4 Gather1(float3 str : STR, uint3 argOffsets[4] : O, uint a : A) : SV_TARGET
 {
     uint b = 3 + a;
     uint v = 3;

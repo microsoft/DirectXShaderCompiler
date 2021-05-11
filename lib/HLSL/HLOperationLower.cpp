@@ -3166,12 +3166,9 @@ GatherHelper::GatherHelper(
       if (ch != GatherChannel::GatherAll)
         TranslateSampleOffset(CI, HLOperandIndex::kGatherSampleOffsetArgIndex,
                               offsetSize);
-      if (hasSampleOffsets) {
-        statusIdx = HLOperandIndex::kGatherStatusWithSampleOffsetArgIndex;
-      } else {
-        opcode = OP::OpCode::TextureGatherImm;
-        statusIdx = HLOperandIndex::kGatherStatusArgIndex;
-      }
+      statusIdx =
+          hasSampleOffsets ? HLOperandIndex::kGatherStatusWithSampleOffsetArgIndex
+                           : HLOperandIndex::kGatherStatusArgIndex;
     }
     SetStatus(CI, statusIdx);
   } break;
@@ -3187,12 +3184,10 @@ GatherHelper::GatherHelper(
       if (ch != GatherChannel::GatherAll)
         TranslateSampleOffset(CI, HLOperandIndex::kGatherCmpSampleOffsetArgIndex,
                               offsetSize);
-      if (hasSampleOffsets) {
-        statusIdx = HLOperandIndex::kGatherCmpStatusWithSampleOffsetArgIndex;
-      } else {
-        opcode = OP::OpCode::TextureGatherCmpImm;
-        statusIdx = HLOperandIndex::kGatherCmpStatusArgIndex;
-      }
+      statusIdx =
+          hasSampleOffsets
+              ? HLOperandIndex::kGatherCmpStatusWithSampleOffsetArgIndex
+              : HLOperandIndex::kGatherCmpStatusArgIndex;
     }
     SetStatus(CI, statusIdx);
   } break;
