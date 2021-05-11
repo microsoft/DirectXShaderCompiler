@@ -20,6 +20,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <set>
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h" // HLSL change
 #include "dxc/Support/SPIRVOptions.h" // SPIR-V Change
 
@@ -194,6 +195,12 @@ public:
   bool HLSLAvoidControlFlow = false;
   /// Force [flatten] on every if.
   bool HLSLAllResourcesBound = false;
+  /// Skip adding optional semantics defines except ones which are required for correctness.
+  bool HLSLIgnoreOptSemDefs = false;
+  /// List of semantic defines that must be ignored.
+  std::set<std::string> HLSLIgnoreSemDefs;
+  /// List of semantic defines that must be overridden with user-provided values.
+  std::map<std::string, std::string> HLSLOverrideSemDefs;
   /// Major version of validator to run.
   unsigned HLSLValidatorMajorVer = 0;
   /// Minor version of validator to run.
