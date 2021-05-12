@@ -340,7 +340,7 @@ ParsedSemanticDefineList hlsl::CollectSemanticDefinesParsedByCompiler(
   const llvm::SmallVector<std::string, 2> &defineExclusions =
       helper->GetSemanticDefineExclusions();
 
-  const llvm::SetVector<std::string> &defineInclusions =
+  const llvm::SetVector<std::string> &nonOptDefines =
     helper->GetNonOptSemanticDefines();
 
   std::set<std::string> overridenMacroSemDef;
@@ -399,7 +399,7 @@ ParsedSemanticDefineList hlsl::CollectSemanticDefinesParsedByCompiler(
 
       // ignoring all non-correctness semantic defines takes third precendence
       if (compiler.getCodeGenOpts().HLSLIgnoreOptSemDefs &&
-        !defineInclusions.count(ii->getName().str())) {
+        !nonOptDefines.count(ii->getName().str())) {
         continue;
       }
 
