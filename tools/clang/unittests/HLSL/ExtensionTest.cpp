@@ -494,7 +494,7 @@ public:
 
   dxc::DxcDllSupport &m_dllSupport;
   CComPtr<IDxcCompiler> pCompiler;
-  CComPtr<IDxcLangExtensions2> pLangExtensions;
+  CComPtr<IDxcLangExtensions3> pLangExtensions;
   CComPtr<IDxcBlobEncoding> pCodeBlob;
   CComPtr<IDxcOperationResult> pCompileResult;
   CComPtr<IDxcSemanticDefineValidator> pTestSemanticDefineValidator;
