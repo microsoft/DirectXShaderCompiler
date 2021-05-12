@@ -41,6 +41,7 @@
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/WinFunctions.h"
+#include "dxc/dxcerrors.h"
 #include "dxc.h"
 #include <vector>
 #include <string>
@@ -1201,8 +1202,18 @@ static LONG CALLBACK ExceptionFilter(PEXCEPTION_POINTERS pExceptionInfo)
   case STATUS_LLVM_FATAL:
     fputs("LLVM Fatal Error\n", stderr);
     break;
+  case EXCEPTION_LOAD_LIBRARY_FAILED:
+    if (pExceptionInfo->ExceptionRecord->ExceptionInformation[0]) {
+      fputs("cannot not load ", stderr);
+      fputws((const wchar_t*)pExceptionInfo->ExceptionRecord->ExceptionInformation[0], stderr);
+      fputs(" library.\n", stderr);
+    }
+    else{
+      fputs("cannot not load library.\n", stderr);
+    }
+    break;
   default:
-    fputs("Error ", stderr);
+    fputs("Terminal Error ", stderr);
     sprintf_s(scratch, _countof(scratch), "0x%08x\n", pExceptionInfo->ExceptionRecord->ExceptionCode);
     fputs(scratch, stderr);
   }
@@ -1307,30 +1318,50 @@ int dxc::main(int argc, const char **argv_) {
       Unicode::acp_char printBuffer[128]; // printBuffer is safe to treat as
                                           // UTF-8 because we use ASCII only errors
       if (msg == nullptr || *msg == '\0') {
-        if (hlslException.hr == DXC_E_DUPLICATE_PART) {
+        switch (hlslException.hr) {
+        case DXC_E_DUPLICATE_PART:
           sprintf_s(
               printBuffer, _countof(printBuffer),
               "dxc failed : DXIL container already contains the given part.");
-        } else if (hlslException.hr == DXC_E_MISSING_PART) {
+          break;
+        case DXC_E_MISSING_PART:
           sprintf_s(
               printBuffer, _countof(printBuffer),
               "dxc failed : DXIL container does not contain the given part.");
-        } else if (hlslException.hr == DXC_E_CONTAINER_INVALID) {
+          break;
+        case DXC_E_CONTAINER_INVALID:
           sprintf_s(printBuffer, _countof(printBuffer),
                     "dxc failed : Invalid DXIL container.");
-        } else if (hlslException.hr == DXC_E_CONTAINER_MISSING_DXIL) {
+          break;
+        case DXC_E_CONTAINER_MISSING_DXIL:
           sprintf_s(printBuffer, _countof(printBuffer),
                     "dxc failed : DXIL container is missing DXIL part.");
-        } else if (hlslException.hr == DXC_E_CONTAINER_MISSING_DEBUG) {
+          break;
+        case DXC_E_CONTAINER_MISSING_DEBUG:
           sprintf_s(printBuffer, _countof(printBuffer),
                     "dxc failed : DXIL container is missing Debug Info part.");
-        } else if (hlslException.hr == E_OUTOFMEMORY) {
+          break;
+        case DXC_E_LLVM_FATAL_ERROR:
+          sprintf_s(printBuffer, _countof(printBuffer),
+                    "dxc failed : Internal Compiler Error - LLVM Fatal Error!");
+          break;
+        case DXC_E_LLVM_UNREACHABLE:
+          sprintf_s(printBuffer, _countof(printBuffer),
+                    "dxc failed : Internal Compiler Error - UNREACHABLE executed!");
+          break;
+        case DXC_E_LLVM_CAST_ERROR:
+          sprintf_s(printBuffer, _countof(printBuffer),
+                    "dxc failed : Internal Compiler Error - Cast of incompatible type!");
+          break;
+        case E_OUTOFMEMORY:
           sprintf_s(printBuffer, _countof(printBuffer),
                     "dxc failed : Out of Memory.");
-        } else if (hlslException.hr == E_INVALIDARG) {
+          break;
+        case E_INVALIDARG:
           sprintf_s(printBuffer, _countof(printBuffer),
                     "dxc failed : Invalid argument.");
-        } else {
+          break;
+        default:
           sprintf_s(printBuffer, _countof(printBuffer),
             "dxc failed : error code 0x%08x.\n", hlslException.hr);
         }

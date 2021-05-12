@@ -46,6 +46,32 @@ using SizeInBits = unsigned;
 // operand does not match exactly the Variable operand's type.
 class OffsetManager
 {
+    unsigned DescendTypeToGetAlignMask(llvm::DIType* Ty)
+    {
+      unsigned AlignMask = Ty->getAlignInBits();
+      
+      if (AlignMask == 0) {
+        if (auto *DerivedTy = llvm::dyn_cast<llvm::DIDerivedType>(Ty)) {
+          const llvm::DITypeIdentifierMap EmptyMap;
+          switch (DerivedTy->getTag()) {
+          case llvm::dwarf::DW_TAG_restrict_type:
+          case llvm::dwarf::DW_TAG_reference_type:
+          case llvm::dwarf::DW_TAG_const_type:
+          case llvm::dwarf::DW_TAG_typedef: {
+            llvm::DIType *baseType = DerivedTy->getBaseType().resolve(EmptyMap);
+            if (baseType != nullptr) {
+              if (baseType->getAlignInBits() == 0) {
+                (void)baseType->getAlignInBits();
+              }
+              return DescendTypeToGetAlignMask(baseType);
+            }
+          }
+          }
+        }
+      }
+
+      return AlignMask;
+    }
 public:
   OffsetManager() = default;
 
@@ -54,44 +80,31 @@ public:
       llvm::DIType *Ty
   )
   {
-    // This is some magic arithmetic. Here's an example:
-    //
-    // Assume the natural alignment for Ty is 16 bits. Then
-    //
-    //     AlignMask = 0x0000000f(15)
-    //
-    // If the current aligned offset is 
-    //
-    //     CurrentAlignedOffset = 0x00000048(72)
-    //
-    // Then
-    //
-    //     T = CurrentAlignOffset + AlignMask = 0x00000057(87)
-    //
-    // Which mean
-    //
-    //     T & ~CurrentOffset = 0x00000050(80)
-    //
-    // is the aligned offset where Ty should be placed.
-    unsigned AlignMask = Ty->getAlignInBits();
-
-    if (AlignMask == 0)
-    {
-      if (auto *DerivedTy = llvm::dyn_cast<llvm::DIDerivedType>(Ty)) {
-        const llvm::DITypeIdentifierMap EmptyMap;
-        switch (DerivedTy->getTag()) {
-        case llvm::dwarf::DW_TAG_restrict_type:
-        case llvm::dwarf::DW_TAG_reference_type:
-        case llvm::dwarf::DW_TAG_const_type:
-        case llvm::dwarf::DW_TAG_typedef:
-            AlignMask = DerivedTy->getBaseType().resolve(EmptyMap)->getAlignInBits();
-            assert(AlignMask != 0);
-        }
-      }
+    unsigned AlignMask = DescendTypeToGetAlignMask(Ty);
+    if (AlignMask) {
+      // This is some magic arithmetic. Here's an example:
+      //
+      // Assume the natural alignment for Ty is 16 bits. Then
+      //
+      //     AlignMask = 0x0000000f(15)
+      //
+      // If the current aligned offset is 
+      //
+      //     CurrentAlignedOffset = 0x00000048(72)
+      //
+      // Then
+      //
+      //     T = CurrentAlignOffset + AlignMask = 0x00000057(87)
+      //
+      // Which mean
+      //
+      //     T & ~CurrentOffset = 0x00000050(80)
+      //
+      // is the aligned offset where Ty should be placed.
+      AlignMask = AlignMask - 1;
+      m_CurrentAlignedOffset =
+          (m_CurrentAlignedOffset + AlignMask) & ~AlignMask;
     }
-    AlignMask = AlignMask - 1;
-    m_CurrentAlignedOffset =
-        (m_CurrentAlignedOffset + AlignMask) & ~AlignMask;
   }
 
   // Add is used to "add" an aggregate element (struct field, array element)
@@ -146,13 +159,13 @@ public:
         AlignedOffset);
   }
 
-  OffsetInBits GetPackedOffsetFromAlignedOffset(
+  bool GetPackedOffsetFromAlignedOffset(
       OffsetInBits AlignedOffset,
       OffsetInBits *PackedOffset
   ) const
   {
     return GetOffsetWithMap(
-        m_PackedOffsetToAlignedOffset,
+        m_AlignedOffsetToPackedOffset,
         AlignedOffset,
         PackedOffset);
   }
@@ -417,34 +430,39 @@ void DxilDbgValueToDbgDeclare::handleDbgValue(
 
   const OffsetInBits InitialOffset = PackedOffsetFromVar;
   llvm::IRBuilder<> B(DbgValue->getCalledFunction()->getContext());
-  B.SetInsertPoint(DbgValue);
-  B.SetCurrentDebugLocation(llvm::DebugLoc());
-  auto *Zero = B.getInt32(0);
+  auto* instruction = llvm::dyn_cast<llvm::Instruction>(V);
+  if (instruction != nullptr) {
+    instruction = instruction->getNextNode();
+    if (instruction != nullptr) {
+      B.SetInsertPoint(instruction);
 
-  // Now traverse a list of pairs {Scalar Value, InitialOffset + Offset}.
-  // InitialOffset is the offset from DbgValue's expression (i.e., the
-  // offset from the Variable's start), and Offset is the Scalar Value's
-  // packed offset from DbgValue's value. 
-  for (const ValueAndOffset &VO : SplitValue(V, InitialOffset, B))
-  {
-    OffsetInBits AlignedOffset;
-    if (!Offsets.GetAlignedOffsetFromPackedOffset(VO.m_PackedOffset,
-                                                  &AlignedOffset))
-    {
-      continue;
-    }
+      B.SetCurrentDebugLocation(llvm::DebugLoc());
+      auto *Zero = B.getInt32(0);
 
-    auto* AllocaInst = Register->GetRegisterForAlignedOffset(AlignedOffset);
-    if (AllocaInst == nullptr)
-    {
-      assert(!"Failed to find alloca for var[offset]");
-      continue;
-    }
+      // Now traverse a list of pairs {Scalar Value, InitialOffset + Offset}.
+      // InitialOffset is the offset from DbgValue's expression (i.e., the
+      // offset from the Variable's start), and Offset is the Scalar Value's
+      // packed offset from DbgValue's value.
+      for (const ValueAndOffset &VO : SplitValue(V, InitialOffset, B)) {
 
-    if (AllocaInst->getAllocatedType()->getArrayElementType() == VO.m_V->getType())
-    {
-      auto* GEP = B.CreateGEP(AllocaInst, { Zero, Zero });
-      B.CreateStore(VO.m_V, GEP);
+        OffsetInBits AlignedOffset;
+        if (!Offsets.GetAlignedOffsetFromPackedOffset(VO.m_PackedOffset,
+                                                      &AlignedOffset)) {
+          continue;
+        }
+
+        auto *AllocaInst = Register->GetRegisterForAlignedOffset(AlignedOffset);
+        if (AllocaInst == nullptr) {
+          assert(!"Failed to find alloca for var[offset]");
+          continue;
+        }
+
+        if (AllocaInst->getAllocatedType()->getArrayElementType() ==
+            VO.m_V->getType()) {
+          auto *GEP = B.CreateGEP(AllocaInst, {Zero, Zero});
+          B.CreateStore(VO.m_V, GEP);
+        }
+      }
     }
   }
 }
@@ -511,9 +529,9 @@ void VariableRegisters::PopulateAllocaMap(
     llvm::DIType *Ty
 )
 {
+  const llvm::DITypeIdentifierMap EmptyMap;
   if (auto *DerivedTy = llvm::dyn_cast<llvm::DIDerivedType>(Ty))
   {
-    const llvm::DITypeIdentifierMap EmptyMap;
     switch (DerivedTy->getTag())
     {
     default:
@@ -549,6 +567,10 @@ void VariableRegisters::PopulateAllocaMap(
     case llvm::dwarf::DW_TAG_structure_type:
     case llvm::dwarf::DW_TAG_class_type:
       PopulateAllocaMap_StructType(CompositeTy);
+      return;
+    case llvm::dwarf::DW_TAG_enumeration_type:
+      // enum base type is int:
+      PopulateAllocaMap(CompositeTy->getBaseType().resolve(EmptyMap));
       return;
     }
   }

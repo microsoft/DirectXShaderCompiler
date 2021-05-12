@@ -421,7 +421,7 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop
   assert(new_exit_cond);
 
   // Split the block where we're now exiting from, and branch to latch exit
-  StringRef old_name = new_exiting_block->getName();
+  std::string old_name = new_exiting_block->getName().str();
   BasicBlock *new_not_exiting_block = new_exiting_block->splitBasicBlock(new_exiting_block->getFirstNonPHI());
   new_exiting_block->setName("dx.struct_exit.new_exiting");
   new_not_exiting_block->setName(old_name);

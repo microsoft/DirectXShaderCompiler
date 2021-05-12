@@ -45,9 +45,10 @@ bool DxilLoopDeletion::runOnFunction(Function &F) {
   DeleteLoopPM.add(createLoopDeletionPass());
   bool bUpdated = false;
 
-  legacy::FunctionPassManager SimpilfyPM(F.getParent());
-  SimpilfyPM.add(createCFGSimplificationPass());
-  SimpilfyPM.add(createDeadCodeEliminationPass());
+  legacy::FunctionPassManager SimplifyPM(F.getParent());
+  SimplifyPM.add(createCFGSimplificationPass());
+  SimplifyPM.add(createDeadCodeEliminationPass());
+  SimplifyPM.add(createInstructionCombiningPass());
 
   const unsigned kMaxIteration = 3;
   unsigned i=0;
@@ -55,7 +56,7 @@ bool DxilLoopDeletion::runOnFunction(Function &F) {
     if (!DeleteLoopPM.run(F))
       break;
 
-    SimpilfyPM.run(F);
+    SimplifyPM.run(F);
     i++;
     bUpdated = true;
   }
