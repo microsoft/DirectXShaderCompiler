@@ -201,7 +201,7 @@ public:
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
     return DoBasicQueryInterface<IDxcIntelliSense, IDxcLangExtensions,
-                                 IDxcLangExtensions3>(
+                                 IDxcLangExtensions2, IDxcLangExtensions3>(
         this, iid, ppvObject);
   }
 

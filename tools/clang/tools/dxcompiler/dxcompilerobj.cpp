@@ -582,6 +582,7 @@ public:
     HRESULT hr = DoBasicQueryInterface<
       IDxcCompiler3,
       IDxcLangExtensions,
+      IDxcLangExtensions2,
       IDxcLangExtensions3,
       IDxcContainerEvent,
       IDxcVersionInfo
