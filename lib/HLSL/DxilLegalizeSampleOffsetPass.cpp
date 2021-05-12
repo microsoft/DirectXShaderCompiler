@@ -126,23 +126,13 @@ bool HasIllegalOffsetInLoop(std::vector<Offset> &illegalOffsets, LoopInfo &LI,
 
 void GetOffsetRange(DXIL::OpCode opcode, unsigned &offsetStart, unsigned &offsetEnd)
 {
-  switch(opcode) {
-  case DXIL::OpCode::TextureLoad:
+  if (DXIL::OpCode::TextureLoad == opcode) {
     offsetStart = DXIL::OperandIndex::kTextureLoadOffset0OpIdx;
     offsetEnd = DXIL::OperandIndex::kTextureLoadOffset2OpIdx;
-    break;
-  case DXIL::OpCode::TextureGather:
-  case DXIL::OpCode::TextureGatherCmp:
-  case DXIL::OpCode::TextureGatherImm:
-  case DXIL::OpCode::TextureGatherCmpImm:
-    offsetStart = DXIL::OperandIndex::kTextureGatherOffset0OpIdx;
-    offsetEnd = DXIL::OperandIndex::kTextureGatherOffset1OpIdx;
-    break;
-  default:
-    // everything else are sample variants
+  } else {
+    // assume samples
     offsetStart = DXIL::OperandIndex::kTextureSampleOffset0OpIdx;
     offsetEnd = DXIL::OperandIndex::kTextureSampleOffset2OpIdx;
-    break;
   }
 }
 
@@ -261,8 +251,6 @@ void DxilLegalizeSampleOffsetPass::CollectIllegalOffsets(
   CollectIllegalOffsets(illegalOffsets, CurF, DXIL::OpCode::SampleGrad, hlslOP);
   CollectIllegalOffsets(illegalOffsets, CurF, DXIL::OpCode::SampleLevel,
                         hlslOP);
-  CollectIllegalOffsets(illegalOffsets, CurF, DXIL::OpCode::TextureGatherImm, hlslOP);
-  CollectIllegalOffsets(illegalOffsets, CurF, DXIL::OpCode::TextureGatherCmpImm, hlslOP);
   CollectIllegalOffsets(illegalOffsets, CurF, DXIL::OpCode::TextureLoad, hlslOP);
 }
 
