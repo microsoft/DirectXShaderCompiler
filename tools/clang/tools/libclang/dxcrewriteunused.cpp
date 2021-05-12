@@ -1266,7 +1266,7 @@ HRESULT DoReWriteWithLineDirective(
 }
 } // namespace
 
-class DxcRewriter : public IDxcRewriter2, public IDxcLangExtensions2 {
+class DxcRewriter : public IDxcRewriter2, public IDxcLangExtensions3 {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
   DxcLangExtensionsHelper m_langExtensionsHelper;
@@ -1278,7 +1278,7 @@ public:
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
                                            void **ppvObject) override {
     return DoBasicQueryInterface<IDxcRewriter2, IDxcRewriter,
-                                 IDxcLangExtensions, IDxcLangExtensions2>(
+                                 IDxcLangExtensions, IDxcLangExtensions3>(
         this, iid, ppvObject);
   }
 
