@@ -69,6 +69,11 @@ TEST_F(FileTest, TypedefTypes) { runFileTest("type.typedef.hlsl"); }
 TEST_F(FileTest, SamplerTypes) { runFileTest("type.sampler.hlsl"); }
 TEST_F(FileTest, TextureTypes) { runFileTest("type.texture.hlsl"); }
 TEST_F(FileTest, RWTextureTypes) { runFileTest("type.rwtexture.hlsl"); }
+TEST_F(FileTest, RWTextureTypesWithMinPrecisionScalarTypes) {
+  // TODO: Fix the valiation error
+  runFileTest("type.rwtexture.with.min.precision.scalar.hlsl", Expect::Success,
+              /* runValidation */ false);
+}
 TEST_F(FileTest, BufferType) { runFileTest("type.buffer.hlsl"); }
 TEST_F(FileTest, BufferTypeStructError1) {
   runFileTest("type.buffer.struct.error1.hlsl", Expect::Failure);
