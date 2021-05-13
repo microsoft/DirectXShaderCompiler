@@ -1,4 +1,4 @@
-; ModuleID = 'dxil_cleanup\dxilcleanup4.ll'
+; ModuleID = 'dxil_cleanup/dxilcleanup4.ll'
 
 define void @main() {
 entry:

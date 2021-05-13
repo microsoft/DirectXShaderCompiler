@@ -1,4 +1,4 @@
-; ModuleID = 'dxil_cleanup\dxilcleanup33.ll'
+; ModuleID = 'dxil_cleanup/dxilcleanup33.ll'
 
 %dx.types.Handle = type { i8* }
 %dx.types.CBufRet.i32 = type { i32, i32, i32, i32 }

@@ -1,4 +1,4 @@
-; ModuleID = 'dxil_cleanup\dxilcleanup9.ll'
+; ModuleID = 'dxil_cleanup/dxilcleanup9.ll'
 
 @g1 = external global i1, align 4
 @g2 = external global i1, align 4

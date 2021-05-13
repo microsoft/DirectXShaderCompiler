@@ -1,4 +1,4 @@
-; ModuleID = 'dxil_cleanup\phibug.ll'
+; ModuleID = 'dxil_cleanup/phibug.ll'
 
 %dx.types.Handle = type { i8* }
 %dx.types.ResRet.i32 = type { i32, i32, i32, i32, i32 }

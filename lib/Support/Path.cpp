@@ -36,7 +36,7 @@ namespace {
 
 #ifdef LLVM_ON_WIN32
   const char *separators = "\\/";
-  const char preferred_separator = '\\';
+  const char preferred_separator = '/';
 #else
   const char  separators = '/';
   const char preferred_separator = '/';
