@@ -37,8 +37,6 @@ using namespace PIXPassHelpers;
 
 using namespace llvm;
 
-#define DEBUG_TYPE "dxil-dbg-value-to-dbg-declare"
-
 #define VALUE_TO_DECLARE_LOGGING
 
 #ifdef VALUE_TO_DECLARE_LOGGING
@@ -49,6 +47,8 @@ using namespace llvm;
 #else
 #define VALUE_TO_DECLARE_LOG(...)
 #endif
+
+#define DEBUG_TYPE "dxil-dbg-value-to-dbg-declare"
 
 namespace {
 using OffsetInBits = unsigned;
@@ -407,12 +407,18 @@ bool DxilDbgValueToDbgDeclare::runOnModule(
       llvm::Intrinsic::getDeclaration(&M, llvm::Intrinsic::dbg_value);
 
   bool Changed = false;
-  for (auto it = DbgValueFn->user_begin(); it != DbgValueFn->user_end(); )
+  //int count = 0;
+  for (auto it = DbgValueFn->user_begin(); it != DbgValueFn->user_end();)
   {
     llvm::User *User = *it++;
 
     if (auto *DbgValue = llvm::dyn_cast<llvm::DbgValueInst>(User))
     {
+      //if (count >= 2) {
+      //  break;
+      //}
+      //
+      //count++;
       llvm::Value *V = DbgValue->getValue();
       if (PIXPassHelpers::IsAllocateRayQueryInstruction(V)) {
           continue;
@@ -657,6 +663,7 @@ void DxilDbgValueToDbgDeclare::handleDbgValue(
   if (Ty == nullptr) {
     return;
   }
+  DumpFullType(Ty);
 
   // Members' "base type" is actually the containing aggregate's type.
   // To find the actual type of the variable, we must descend the container's 
