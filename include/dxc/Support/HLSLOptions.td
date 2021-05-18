@@ -271,6 +271,12 @@ def validator_version : Separate<["-", "/"], "validator-version">, Group<hlslcom
   HelpText<"Override validator version for module.  Format: <major.minor> ; Default: DXIL.dll version or current internal version.">;
 def print_after_all : Flag<["-", "/"], "print-after-all">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Print LLVM IR after each pass.">;
+def ignore_opt_semdefs : Flag<["-", "/"], "ignore-opt-semdefs">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
+  HelpText<"Ignore optional semantic defines which are not required to ensure program correctness.">;
+def ignore_semdef : Separate<["-", "/"], "ignore-semdef">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
+  HelpText<"Ignore the semantic define passed as a value to this flag.">;
+def override_semdef : Separate<["-", "/"], "override-semdef">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
+  HelpText<"Override the value of semantic define with the one passed with this flag.">;
 def force_zero_store_lifetimes : Flag<["-", "/"], "force-zero-store-lifetimes">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Instead of generating lifetime intrinsics (SM >= 6.6) or storing undef (SM < 6.6), force fall back to storing zeroinitializer.">;
 def enable_lifetime_markers : Flag<["-", "/"], "enable-lifetime-markers">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
