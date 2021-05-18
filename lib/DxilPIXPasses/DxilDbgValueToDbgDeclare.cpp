@@ -14,7 +14,6 @@
 #include <map>
 #include <unordered_map>
 #include <utility>
-#include <set>
 
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilResourceBase.h"
@@ -26,7 +25,6 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 
