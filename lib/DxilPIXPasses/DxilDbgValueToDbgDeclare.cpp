@@ -577,11 +577,19 @@ static llvm::DIType* FindStructMemberTypeAtOffset(llvm::DICompositeType* Ty,
         return Ty;
     }
 
-    for (auto const& member : SortedMembers) {
+    const llvm::DITypeIdentifierMap EmptyMap;
+
+    for (auto & member : SortedMembers) {
+        // "Inheritance" is a member of a composite type, but has size of zero.
+        // Therefore, we must descend the hierarchy once to find an actual type.
+        llvm::DIType * memberType = member.second;
+        if (memberType->getTag() == llvm::dwarf::DW_TAG_inheritance) {
+          memberType = member.second->getBaseType().resolve(EmptyMap);
+        }
         if (Offset >= member.first &&
-            Offset < member.first + member.second->getSizeInBits()) {
+            Offset < member.first + memberType->getSizeInBits()) {
             uint64_t OffsetIntoThisType = Offset - member.first;
-            return FindMemberTypeAtOffset(member.second, OffsetIntoThisType, Size);
+            return FindMemberTypeAtOffset(memberType, OffsetIntoThisType, Size);
         }
     }
 
