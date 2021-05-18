@@ -30,8 +30,6 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 
-#include "llvm/ADT/SmallVector.h"
-
 #include "PixPassHelpers.h"
 using namespace PIXPassHelpers;
 
@@ -407,18 +405,12 @@ bool DxilDbgValueToDbgDeclare::runOnModule(
       llvm::Intrinsic::getDeclaration(&M, llvm::Intrinsic::dbg_value);
 
   bool Changed = false;
-  //int count = 0;
   for (auto it = DbgValueFn->user_begin(); it != DbgValueFn->user_end();)
   {
     llvm::User *User = *it++;
 
     if (auto *DbgValue = llvm::dyn_cast<llvm::DbgValueInst>(User))
     {
-      //if (count >= 2) {
-      //  break;
-      //}
-      //
-      //count++;
       llvm::Value *V = DbgValue->getValue();
       if (PIXPassHelpers::IsAllocateRayQueryInstruction(V)) {
           continue;
@@ -428,7 +420,6 @@ bool DxilDbgValueToDbgDeclare::runOnModule(
       DbgValue->eraseFromParent();
     }
   }
-
   return Changed;
 }
 
@@ -608,7 +599,6 @@ static llvm::DIType* FindStructMemberTypeAtOffset(llvm::DICompositeType* Ty,
         }
     }
 #ifdef VALUE_TO_DECLARE_LOGGING
-#ifdef PIX_DEBUG_DUMP_HELPER
     VALUE_TO_DECLARE_LOG("Didn't find a member that straddles the sought type. Container:");
     {
         ScopedIndenter indent;
@@ -625,8 +615,7 @@ static llvm::DIType* FindStructMemberTypeAtOffset(llvm::DICompositeType* Ty,
         }
     }
 #endif
-#endif
-    //assert(!"Didn't find a member that straddles the sought type");
+    assert(!"Didn't find a member that straddles the sought type");
     return nullptr;
 }
 
@@ -640,7 +629,6 @@ void DxilDbgValueToDbgDeclare::handleDbgValue(
   if (Variable != nullptr) {
     VALUE_TO_DECLARE_LOG("... DbgValue referred to variable named %s",
         Variable->getName().str().c_str());
-
   } else {
     VALUE_TO_DECLARE_LOG("... variable was null too");
   }
@@ -663,7 +651,6 @@ void DxilDbgValueToDbgDeclare::handleDbgValue(
   if (Ty == nullptr) {
     return;
   }
-  DumpFullType(Ty);
 
   // Members' "base type" is actually the containing aggregate's type.
   // To find the actual type of the variable, we must descend the container's 
@@ -804,8 +791,7 @@ VariableRegisters::VariableRegisters(
   , m_DbgDeclareFn(llvm::Intrinsic::getDeclaration(
       M, llvm::Intrinsic::dbg_declare))
 {
-  PopulateAllocaMap(
-      Ty);
+  PopulateAllocaMap(Ty);
   assert(m_Offsets.GetCurrentPackedOffset() ==
          DITypePeelTypeAlias(Ty)->getSizeInBits());
 }
@@ -855,13 +841,11 @@ void VariableRegisters::PopulateAllocaMap(
       return;
     case llvm::dwarf::DW_TAG_structure_type:
     case llvm::dwarf::DW_TAG_class_type:
-      PopulateAllocaMap_StructType(
-          CompositeTy);
+      PopulateAllocaMap_StructType(CompositeTy);
       return;
     case llvm::dwarf::DW_TAG_enumeration_type:
       // enum base type is int:
-      PopulateAllocaMap(
-          CompositeTy->getBaseType().resolve(EmptyMap));
+      PopulateAllocaMap(CompositeTy->getBaseType().resolve(EmptyMap));
       return;
     }
   }
