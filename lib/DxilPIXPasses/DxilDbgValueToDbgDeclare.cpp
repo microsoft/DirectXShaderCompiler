@@ -37,7 +37,7 @@ using namespace PIXPassHelpers;
 
 using namespace llvm;
 
-#define VALUE_TO_DECLARE_LOGGING
+//#define VALUE_TO_DECLARE_LOGGING
 
 #ifdef VALUE_TO_DECLARE_LOGGING
 #ifndef PIX_DEBUG_DUMP_HELPER
@@ -712,6 +712,12 @@ void DxilDbgValueToDbgDeclare::handleDbgValue(
   if (instruction != nullptr) {
     instruction = instruction->getNextNode();
     if (instruction != nullptr) {
+      // Drivers may crash if phi nodes aren't always at the top of a block,
+      // so we must skip over them before inserting instructions.
+      do {
+        instruction = instruction->getNextNode();
+      } while (instruction != nullptr && llvm::isa<llvm::PHINode>(instruction));
+      
       B.SetInsertPoint(instruction);
 
       B.SetCurrentDebugLocation(llvm::DebugLoc());

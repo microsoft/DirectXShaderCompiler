@@ -9,7 +9,7 @@
 
 #pragma once
 
-#define PIX_DEBUG_DUMP_HELPER
+//#define PIX_DEBUG_DUMP_HELPER
 
 #ifdef PIX_DEBUG_DUMP_HELPER
 #include "dxc/Support/Global.h"
