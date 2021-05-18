@@ -784,26 +784,6 @@ void DxilDebugInstrumentation::addStoreStepDebugEntry(BuilderContext& BC,
 
     addStepDebugEntryValue(BC, InstNum, Inst->getValueOperand(), ValueOrdinalBase,
         ValueOrdinalIndex);
-
-    // If this really is an instruction added by the value-to-declare pass, then this store
-    // will have been preceded by a GetElementPtr to find the address of the fake storage
-    // for this value. The graphics driver doesn't need to see either of these instructions,
-    // and they have served their purpose for showing this pass where to retrieve debug data,
-    // so we can safely delete them. (They're like a bay leaf, I guess.)
-    auto* PreviousInstruction = Inst->getPrevNode();
-    if (auto* GEP = llvm::dyn_cast<GetElementPtrInst>(PreviousInstruction))
-    {
-        Inst->removeFromParent();
-        Inst->dropAllReferences();
-        delete Inst;
-        PreviousInstruction->removeFromParent();
-        PreviousInstruction->dropAllReferences();
-        delete PreviousInstruction;
-    }
-    else
-    {
-        assert(!"Expected GetElementPtr to be the previous instuction");
-    }
 }
 
 void DxilDebugInstrumentation::addStepDebugEntry(BuilderContext &BC,
