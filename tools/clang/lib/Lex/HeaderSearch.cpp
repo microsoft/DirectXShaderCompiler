@@ -644,8 +644,8 @@ const FileEntry *HeaderSearch::LookupFile(
       // FIXME: Portability.  Filename concatenation should be in sys::Path.
       TmpDir = IncluderAndDir.second->getName();
 #if 0 // HLSL change - Use sys::path to append paths
-      //TmpDir.push_back('/');
-      //TmpDir.append(Filename.begin(), Filename.end());
+      TmpDir.push_back('/');
+      TmpDir.append(Filename.begin(), Filename.end());
 // HLSL change - begin
 #else
       llvm::sys::path::append(TmpDir, Filename.begin(), Filename.end());
