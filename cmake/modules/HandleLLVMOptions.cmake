@@ -400,19 +400,31 @@ elseif( LLVM_COMPILER_IS_GCC_COMPATIBLE )
     append_if(USE_NO_UNINITIALIZED "-Wno-uninitialized" CMAKE_CXX_FLAGS)
     append_if(USE_NO_MAYBE_UNINITIALIZED "-Wno-maybe-uninitialized" CMAKE_CXX_FLAGS)
 
-    # Check if -Wnon-virtual-dtor warns even though the class is marked final.
-    # If it does, don't add it. So it won't be added on clang 3.4 and older.
-    # This also catches cases when -Wnon-virtual-dtor isn't supported by
-    # the compiler at all.
-    set(OLD_CMAKE_REQUIRED_FLAGS ${CMAKE_REQUIRED_FLAGS})
-    set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -std=c++11 -Werror=non-virtual-dtor")
-    CHECK_CXX_SOURCE_COMPILES("class base {public: virtual void anchor();protected: ~base();};
-                               class derived final : public base { public: ~derived();};
-                               int main() { return 0; }"
-                              CXX_WONT_WARN_ON_FINAL_NONVIRTUALDTOR)
-    set(CMAKE_REQUIRED_FLAGS ${OLD_CMAKE_REQUIRED_FLAGS})
-    append_if(CXX_WONT_WARN_ON_FINAL_NONVIRTUALDTOR
-              "-Wnon-virtual-dtor" CMAKE_CXX_FLAGS)
+    # HLSL Change Starts
+
+    # Windows' and by extension WinAdapter's non-Windows implementation for IUnknown
+    # use virtual methods without virtual destructor, as that would add two extra
+    # function-pointers to the vtable in turn offsetting those for every subclass,
+    # resulting in ABI mismatches:
+    # https://github.com/microsoft/DirectXShaderCompiler/issues/3783.
+    # The -Wnon-virtual-dtor warning is disabled to allow this, conforming
+    # with MSVC behaviour.
+
+    # # Check if -Wnon-virtual-dtor warns even though the class is marked final.
+    # # If it does, don't add it. So it won't be added on clang 3.4 and older.
+    # # This also catches cases when -Wnon-virtual-dtor isn't supported by
+    # # the compiler at all.
+    # set(OLD_CMAKE_REQUIRED_FLAGS ${CMAKE_REQUIRED_FLAGS})
+    # set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -std=c++11 -Werror=non-virtual-dtor")
+    # CHECK_CXX_SOURCE_COMPILES("class base {public: virtual void anchor();protected: ~base();};
+    #                            class derived final : public base { public: ~derived();};
+    #                            int main() { return 0; }"
+    #                           CXX_WONT_WARN_ON_FINAL_NONVIRTUALDTOR)
+    # set(CMAKE_REQUIRED_FLAGS ${OLD_CMAKE_REQUIRED_FLAGS})
+    # append_if(CXX_WONT_WARN_ON_FINAL_NONVIRTUALDTOR
+    #           "-Wnon-virtual-dtor" CMAKE_CXX_FLAGS)
+
+    # HLSL Change Ends
 
     # Check if -Wcomment is OK with an // comment ending with '\' if the next
     # line is also a // comment.

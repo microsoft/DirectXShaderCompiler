@@ -25,8 +25,6 @@ ULONG IUnknown::Release() {
   }
   return result;
 }
-IUnknown::~IUnknown() {}
-
 //===--------------------------- IMalloc ----------------------------------===//
 
 void *IMalloc::Alloc(size_t size) { return malloc(size); }

@@ -618,7 +618,6 @@ struct IUnknown {
   virtual HRESULT QueryInterface(REFIID riid, void **ppvObject) = 0;
   virtual ULONG AddRef();
   virtual ULONG Release();
-  virtual ~IUnknown();
   template <class Q> HRESULT QueryInterface(Q **pp) {
     return QueryInterface(__uuidof(Q), (void **)pp);
   }
