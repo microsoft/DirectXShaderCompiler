@@ -602,6 +602,13 @@ const FileEntry *HeaderSearch::LookupFile(
     // If this was an #include_next "/absolute/file", fail.
     if (FromDir) return nullptr;
 
+    // HLSL Change - begin
+    // Normalize file name first
+    llvm::SmallString<128> NormalizedFileName = Filename;
+    llvm::sys::path::native(NormalizedFileName);
+    Filename = NormalizedFileName;
+    // HLSL Change - end
+
     if (SearchPath)
       SearchPath->clear();
     if (RelativePath) {
@@ -810,9 +817,15 @@ const FileEntry *HeaderSearch::LookupFile(
     if (IncludingHFI.IndexHeaderMapHeader) {
       SmallString<128> ScratchFilename;
       ScratchFilename += IncludingHFI.Framework;
+#if 0 // HLSL Change - Normalize file name
       ScratchFilename += '/';
       ScratchFilename += Filename;
-
+// HLSL Change - begin
+#else
+      llvm::sys::path::append(ScratchFilename, Filename);
+      llvm::sys::path::native(ScratchFilename);
+#endif
+// HLSL Change - end
       const FileEntry *FE = LookupFile(
           ScratchFilename, IncludeLoc, /*isAngled=*/true, FromDir, CurDir,
           Includers.front(), SearchPath, RelativePath, SuggestedModule);

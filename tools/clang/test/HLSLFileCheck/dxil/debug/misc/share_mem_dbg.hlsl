@@ -7,22 +7,21 @@
 // CHECK: addrspace(3)
 
 // Make sure source info exist.
-// CHECK: !dx.source.contents
-// CHECK: !dx.source.defines
-// CHECK: !dx.source.mainFileName
-// CHECK: !dx.source.args
+// CHECK-DAG: !dx.source.contents = !{!{{[0-9]+}}
+// CHECK-DAG: !dx.source.defines = !{!{{[0-9]+}}
+// CHECK-DAG: !dx.source.mainFileName = !{![[MAIN_FILE:[0-9]+]]}
+// CHECK-DAG: !dx.source.args = !{!{{[0-9]+}}
 
-// CHECK: DIGlobalVariable(name: "dataC"
-// CHECK: DIDerivedType(tag: DW_TAG_member, name: "d"
-// CHECK: DIDerivedType(tag: DW_TAG_member, name: "b"
+// CHECK-DAG: !{{[0-9]+}} = !DIGlobalVariable(name: "dataC"
+// CHECK-DAG: !{{[0-9]+}} = !DIDerivedType(tag: DW_TAG_member, name: "d"
+// CHECK-DAG: !{{[0-9]+}} = !DIDerivedType(tag: DW_TAG_member, name: "b"
 
-// Exclude quoted source file (see readme)
-// CHECK-LABEL: {{!"[^"]*\\0A[^"]*"}}
+// CHECK-DAG: ![[MAIN_FILE]] = !{
+// CHECK-SAME: share_mem_dbg.hlsl"}
 
 // Make sure source info contents exist.
-// CHECK: !{!"DefineA=1", !"DefineB=0"}
-// CHECK: share_mem_dbg.hlsl"}
-// CHECK: !{!"-E", !"main", !"-T", !"cs_6_0", !"-Zi", !"-Od", !"-D", !"DefineA", !"-D", !"DefineB=0", !"-Qstrip_reflect", !"-Qembed_debug"}
+// CHECK: !{{[0-9]+}} = !{!"DefineA=1", !"DefineB=0"}
+// CHECK: !{{[0-9]+}} = !{!"-E", !"main", !"-T", !"cs_6_0", !"-Zi", !"-Od", !"-D", !"DefineA", !"-D", !"DefineB=0", !"-Qstrip_reflect", !"-Qembed_debug"}
 
 
 struct S {

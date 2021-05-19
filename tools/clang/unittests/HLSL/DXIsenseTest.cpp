@@ -249,10 +249,10 @@ TEST_F(DXIntellisenseTest, InclusionWhenValidThenAvailable) {
   const char unsaved_text[] = "#define FOO 1";
   unsigned diagCount;
   unsigned expectedIndex = 0;
-  const char *expectedNames[2] = { "file.hlsl", ".\\inc.h" };
+  const char *expectedNames[2] = { "file.hlsl", "./inc.h" };
   VERIFY_SUCCEEDED(CompilationResult::DefaultHlslSupport->CreateIntellisense(&isense));
   VERIFY_SUCCEEDED(isense->CreateIndex(&index));
-  VERIFY_SUCCEEDED(isense->CreateUnsavedFile(".\\inc.h", unsaved_text, strlen(unsaved_text), &unsaved[0]));
+  VERIFY_SUCCEEDED(isense->CreateUnsavedFile("./inc.h", unsaved_text, strlen(unsaved_text), &unsaved[0]));
   VERIFY_SUCCEEDED(isense->CreateUnsavedFile("file.hlsl", main_text, strlen(main_text), &unsaved[1]));
   VERIFY_SUCCEEDED(index->ParseTranslationUnit("file.hlsl", nullptr, 0, &unsaved[0].p, 2,
     DxcTranslationUnitFlags_UseCallerThread, &TU));

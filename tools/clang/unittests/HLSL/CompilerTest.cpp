@@ -1967,7 +1967,7 @@ TEST_F(CompilerTest, CompileWhenIncludeThenLoadInvoked) {
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
     L"ps_6_0", nullptr, 0, nullptr, 0, pInclude, &pResult));
   VerifyOperationSucceeded(pResult);
-  VERIFY_ARE_EQUAL_WSTR(L".\\helper.h;", pInclude->GetAllFileNames().c_str());
+  VERIFY_ARE_EQUAL_WSTR(L"./helper.h;", pInclude->GetAllFileNames().c_str());
 }
 
 TEST_F(CompilerTest, CompileWhenIncludeThenLoadUsed) {
@@ -1987,7 +1987,7 @@ TEST_F(CompilerTest, CompileWhenIncludeThenLoadUsed) {
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
     L"ps_6_0", nullptr, 0, nullptr, 0, pInclude, &pResult));
   VerifyOperationSucceeded(pResult);
-  VERIFY_ARE_EQUAL_WSTR(L".\\helper.h;", pInclude->GetAllFileNames().c_str());
+  VERIFY_ARE_EQUAL_WSTR(L"./helper.h;", pInclude->GetAllFileNames().c_str());
 }
 
 TEST_F(CompilerTest, CompileWhenIncludeAbsoluteThenLoadAbsolute) {
@@ -2015,7 +2015,7 @@ TEST_F(CompilerTest, CompileWhenIncludeAbsoluteThenLoadAbsolute) {
     L"ps_6_0", nullptr, 0, nullptr, 0, pInclude, &pResult));
   VerifyOperationSucceeded(pResult);
 #ifdef _WIN32 // OS-specific root
-  VERIFY_ARE_EQUAL_WSTR(L"C:\\helper.h;", pInclude->GetAllFileNames().c_str());
+  VERIFY_ARE_EQUAL_WSTR(L"C:/helper.h;", pInclude->GetAllFileNames().c_str());
 #else
   VERIFY_ARE_EQUAL_WSTR(L"/helper.h;", pInclude->GetAllFileNames().c_str());
 #endif
@@ -2039,7 +2039,7 @@ TEST_F(CompilerTest, CompileWhenIncludeLocalThenLoadRelative) {
     L"ps_6_0", nullptr, 0, nullptr, 0, pInclude, &pResult));
   VerifyOperationSucceeded(pResult);
 #ifdef _WIN32 // OS-specific directory dividers
-  VERIFY_ARE_EQUAL_WSTR(L".\\..\\helper.h;", pInclude->GetAllFileNames().c_str());
+  VERIFY_ARE_EQUAL_WSTR(L"./../helper.h;", pInclude->GetAllFileNames().c_str());
 #else
   VERIFY_ARE_EQUAL_WSTR(L"./../helper.h;", pInclude->GetAllFileNames().c_str());
 #endif
@@ -2067,7 +2067,7 @@ TEST_F(CompilerTest, CompileWhenIncludeSystemThenLoadNotRelative) {
     L"ps_6_0", args, _countof(args), nullptr, 0, pInclude, &pResult));
   VerifyOperationSucceeded(pResult);
 #ifdef _WIN32 // OS-specific directory dividers
-  VERIFY_ARE_EQUAL_WSTR(L".\\subdir\\other\\file.h;.\\foo\\helper.h;", pInclude->GetAllFileNames().c_str());
+  VERIFY_ARE_EQUAL_WSTR(L"./subdir/other/file.h;./foo/helper.h;", pInclude->GetAllFileNames().c_str());
 #else
   VERIFY_ARE_EQUAL_WSTR(L"./subdir/other/file.h;./foo/helper.h;", pInclude->GetAllFileNames().c_str());
 #endif
@@ -2092,7 +2092,7 @@ TEST_F(CompilerTest, CompileWhenIncludeSystemMissingThenLoadAttempt) {
     L"ps_6_0", nullptr, 0, nullptr, 0, pInclude, &pResult));
   std::string failLog(VerifyOperationFailed(pResult));
   VERIFY_ARE_NOT_EQUAL(std::string::npos, failLog.find("<angled>")); // error message should prompt to use <angled> rather than "quotes"
-  VERIFY_ARE_EQUAL_WSTR(LR"(.\subdir\other\file.h;.\subdir\other\helper.h;)", pInclude->GetAllFileNames().c_str());
+  VERIFY_ARE_EQUAL_WSTR(LR"(./subdir/other/file.h;./subdir/other/helper.h;)", pInclude->GetAllFileNames().c_str());
 }
 
 TEST_F(CompilerTest, CompileWhenIncludeFlagsThenIncludeUsed) {
@@ -2118,7 +2118,7 @@ TEST_F(CompilerTest, CompileWhenIncludeFlagsThenIncludeUsed) {
     L"ps_6_0", args, _countof(args), nullptr, 0, pInclude, &pResult));
   VerifyOperationSucceeded(pResult);
 #ifdef _WIN32  // OS-specific root
-  VERIFY_ARE_EQUAL_WSTR(L"\\\\server\\share\\helper.h;", pInclude->GetAllFileNames().c_str());
+  VERIFY_ARE_EQUAL_WSTR(L"\\\\server/share/helper.h;", pInclude->GetAllFileNames().c_str());
 #else
   VERIFY_ARE_EQUAL_WSTR(L"/server/share/helper.h;", pInclude->GetAllFileNames().c_str());
 #endif
@@ -2194,7 +2194,7 @@ TEST_F(CompilerTest, CompileWhenIncludeEmptyThenOK) {
                                       L"ps_6_0", nullptr, 0, nullptr, 0,
                                       pInclude, &pResult));
   VerifyOperationSucceeded(pResult);
-  VERIFY_ARE_EQUAL_WSTR(L".\\empty.h;", pInclude->GetAllFileNames().c_str());
+  VERIFY_ARE_EQUAL_WSTR(L"./empty.h;", pInclude->GetAllFileNames().c_str());
 }
 
 static const char EmptyCompute[] = "[numthreads(8,8,1)] void main() { }";

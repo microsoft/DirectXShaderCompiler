@@ -229,6 +229,19 @@ namespace {
               llvm::MDString::get(LLVMCtx, content) });
           pContents->addOperand(pFileInfo);
         };
+
+        llvm::SmallString<128> NormalizedMainFileName = CodeGenOpts.MainFileName;
+        llvm::sys::path::native(NormalizedMainFileName);
+
+        // Add main file name to debug info
+        {
+          llvm::NamedMDNode *pSourceFilename = M->getOrInsertNamedMetadata(
+              hlsl::DxilMDHelper::kDxilSourceMainFileNameMDName);
+          llvm::MDTuple *pFileName = llvm::MDNode::get(
+            LLVMCtx, llvm::MDString::get(LLVMCtx, NormalizedMainFileName));
+          pSourceFilename->addOperand(pFileName);
+        }
+
         std::map<std::string, StringRef> filesMap;
         bool bFoundMainFile = false;
         for (SourceManager::fileinfo_iterator
@@ -240,7 +253,7 @@ namespace {
             // Add the rest to filesMap to sort by name.
             llvm::SmallString<128> NormalizedPath;
             llvm::sys::path::native(it->first->getName(), NormalizedPath);
-            if (CodeGenOpts.MainFileName.compare(it->first->getName()) == 0) {
+            if (NormalizedMainFileName.compare(NormalizedPath) == 0) {
               assert(!bFoundMainFile && "otherwise, more than one file matches main filename");
               AddFile(NormalizedPath, it->second->getRawBuffer()->getBuffer());
               bFoundMainFile = true;
@@ -265,13 +278,6 @@ namespace {
           vecDefines.begin(), [&LLVMCtx](const std::string &str) { return llvm::MDString::get(LLVMCtx, str); });
         llvm::MDTuple *pDefinesInfo = llvm::MDNode::get(LLVMCtx, vecDefines);
         pDefines->addOperand(pDefinesInfo);
-
-        // Add main file name to debug info
-        llvm::NamedMDNode *pSourceFilename = M->getOrInsertNamedMetadata(
-            hlsl::DxilMDHelper::kDxilSourceMainFileNameMDName);
-        llvm::MDTuple *pFileName = llvm::MDNode::get(
-          LLVMCtx, llvm::MDString::get(LLVMCtx, CodeGenOpts.MainFileName));
-        pSourceFilename->addOperand(pFileName);
 
         // Pass in any other arguments to debug info
         llvm::NamedMDNode *pArgs = M->getOrInsertNamedMetadata(

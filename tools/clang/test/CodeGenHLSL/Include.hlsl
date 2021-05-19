@@ -3,7 +3,7 @@
 
 
 // CHECK: Opening file [
-// CHECK: \inc\header.hlsli], stack top [0]
+// CHECK: /inc/header.hlsli], stack top [0]
 
 #include "inc/header.hlsli"
 
