@@ -6377,7 +6377,7 @@ SpirvEmitter::tryToAssignToRWBufferRWTexture(const Expr *lhs,
     auto *baseInfo = doExpr(baseExpr);
     auto *image =
         spvBuilder.createLoad(imageType, baseInfo, baseExpr->getExprLoc());
-    spvBuilder.createImageWrite(image, loc, rhs, lhs->getExprLoc());
+    spvBuilder.createImageWrite(imageType, image, loc, rhs, lhs->getExprLoc());
     return rhs;
   }
   return nullptr;
