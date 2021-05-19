@@ -491,6 +491,32 @@ spv::ImageFormat getSpvImageFormat(const VKImageFormatAttr *imageFormatAttr) {
   return spv::ImageFormat::Unknown;
 }
 
+// Inserts seen semantics for entryPoint to seenSemanticsForEntryPoints. Returns
+// whether it does not already exist in seenSemanticsForEntryPoints.
+bool insertSeenSemanticsForEntryPointIfNotExist(
+    llvm::SmallDenseMap<SpirvFunction *, llvm::StringSet<>>
+        *seenSemanticsForEntryPoints,
+    SpirvFunction *entryPoint, const std::string &semantics) {
+  auto seenSemanticsForEntryPointsItr =
+      seenSemanticsForEntryPoints->find(entryPoint);
+  if (seenSemanticsForEntryPointsItr == seenSemanticsForEntryPoints->end()) {
+    bool insertResult = false;
+    std::tie(seenSemanticsForEntryPointsItr, insertResult) =
+        seenSemanticsForEntryPoints->insert(
+            std::make_pair(entryPoint, llvm::StringSet<>()));
+    assert(insertResult);
+    seenSemanticsForEntryPointsItr->second.insert(semantics);
+    return true;
+  }
+
+  auto &seenSemantics = seenSemanticsForEntryPointsItr->second;
+  if (seenSemantics.count(semantics)) {
+    return false;
+  }
+  seenSemantics.insert(semantics);
+  return true;
+}
+
 } // anonymous namespace
 
 std::string StageVar::getSemanticStr() const {
@@ -1471,7 +1497,11 @@ DeclResultIdMapper::collectStageVars(SpirvFunction *entryPoint) const {
 
   llvm::DenseSet<SpirvInstruction *> seenVars;
   for (const auto &var : stageVars) {
-    if (var.getEntryPoint() != entryPoint)
+    // We must collect stage variables that are included in entryPoint and that
+    // are not included in any specific entryPoint i.e., var.getEntryPoint() is
+    // nullptr, because the stage variables without any specific entry point is
+    // common among all entry points.
+    if (var.getEntryPoint() && var.getEntryPoint() != entryPoint)
       continue;
     auto *instr = var.getSpirvInstr();
     if (seenVars.count(instr) == 0) {
@@ -1608,7 +1638,8 @@ private:
 } // namespace
 
 bool DeclResultIdMapper::checkSemanticDuplication(bool forInput) {
-  llvm::StringSet<> seenSemantics;
+  llvm::SmallDenseMap<SpirvFunction *, llvm::StringSet<>>
+      seenSemanticsForEntryPoints;
   bool success = true;
   for (const auto &var : stageVars) {
     auto s = var.getSemanticStr();
@@ -1628,17 +1659,15 @@ bool DeclResultIdMapper::checkSemanticDuplication(bool forInput) {
       continue;
 
     if (forInput && var.getSigPoint()->IsInput()) {
-      if (seenSemantics.count(s)) {
+      success = insertSeenSemanticsForEntryPointIfNotExist(
+          &seenSemanticsForEntryPoints, var.getEntryPoint(), s);
+      if (!success)
         emitError("input semantic '%0' used more than once", {}) << s;
-        success = false;
-      }
-      seenSemantics.insert(s);
     } else if (!forInput && var.getSigPoint()->IsOutput()) {
-      if (seenSemantics.count(s)) {
+      success = insertSeenSemanticsForEntryPointIfNotExist(
+          &seenSemanticsForEntryPoints, var.getEntryPoint(), s);
+      if (!success)
         emitError("output semantic '%0' used more than once", {}) << s;
-        success = false;
-      }
-      seenSemantics.insert(s);
     }
   }
 
