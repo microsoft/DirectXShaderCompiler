@@ -35,6 +35,7 @@ using namespace llvm;
 
 //#define VALUE_TO_DECLARE_LOGGING
 
+
 #ifdef VALUE_TO_DECLARE_LOGGING
 #ifndef PIX_DEBUG_DUMP_HELPER
 #error Turn on PIX_DEBUG_DUMP_HELPER in PixPassHelpers.h
