@@ -27,6 +27,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/ValueHandle.h"
+#include "llvm/IR/IntrinsicInst.h" // HLSL Change
 #include "llvm/Support/CBindingWrapping.h"
 
 namespace llvm {
@@ -93,7 +94,10 @@ public:
     BB = I->getParent();
     InsertPt = I;
     assert(I != BB->end() && "Can't read debug loc from end()");
-    SetCurrentDebugLocation(I->getDebugLoc());
+    if (!isa<DbgInfoIntrinsic>(I))
+      SetCurrentDebugLocation(I->getDebugLoc());
+    else
+      SetCurrentDebugLocation(nullptr);
   }
 
   /// \brief This specifies that created instructions should be inserted at the
@@ -106,7 +110,13 @@ public:
   }
 
   /// \brief Set location information used by debugging information.
-  void SetCurrentDebugLocation(DebugLoc L) { CurDbgLocation = std::move(L); }
+  void SetCurrentDebugLocation(DebugLoc L) { CurDbgLocation = std::move(L);
+    // HLSL Change - begin
+    // Don't propagate debug locations at line 0
+    if (CurDbgLocation && CurDbgLocation.getLine() == 0)
+      CurDbgLocation = nullptr;
+    // HLSL Change - end
+  }
 
   /// \brief Get location information used by debugging information.
   const DebugLoc &getCurrentDebugLocation() const { return CurDbgLocation; }

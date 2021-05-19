@@ -2894,10 +2894,10 @@ void CGDebugInfo::EmitDeclare(const VarDecl *VD, llvm::dwarf::Tag Tag,
   // Get location information.
   unsigned Line = 0;
   unsigned Column = 0;
-  // if (!Unwritten) { // HLSL Change - Don't create zero line numbers
+  if (!Unwritten) {
     Line = getLineNumber(VD->getLocation());
     Column = getColumnNumber(VD->getLocation());
-  // }
+  }
   SmallVector<int64_t, 9> Expr;
   unsigned Flags = 0;
   if (VD->isImplicit())

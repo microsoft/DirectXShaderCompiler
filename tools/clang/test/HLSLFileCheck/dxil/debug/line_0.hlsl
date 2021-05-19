@@ -1,5 +1,5 @@
 // RUN: %dxc -Zi -E main -T ps_6_0 /Zi /O0 %s | FileCheck %s
-// RUN: %dxc -Zi -E main -T ps_6_0 /Zi /fcgl /O0 %s | FileCheck %s
+
 // CHECK-NOT: !{{[0-9]+}} = !DILocation(line: 0,
 
 // Regression test to make sure debug locations with 0
