@@ -6087,7 +6087,7 @@ void PatchDebugInfo(DebugInfoFinder &DbgFinder, Function *F, GlobalVariable *GV,
   DITypeIdentifierMap EmptyMap;
   DIBuilder DIB(*GV->getParent());
   DIScope *Scope = Subprogram;
-  DebugLoc Loc = DebugLoc::get(0, 0, Scope);
+  DebugLoc Loc = DebugLoc::get(DGV->getLine(), 0, Scope);
 
   // If the variable is a member of another variable, find the offset and size
   bool IsFragment = false;
