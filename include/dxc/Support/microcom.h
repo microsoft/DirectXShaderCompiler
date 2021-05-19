@@ -101,7 +101,7 @@ inline T *CreateOnMalloc(IMalloc * pMalloc, Args&&... args) {
 
 template<typename T>
 void DxcCallDestructor(T *obj) {
-  obj->~T();
+  obj->T::~T();
 }
 
 // The "TM" version keep an IMalloc field that, if not null, indicate

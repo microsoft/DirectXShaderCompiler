@@ -319,7 +319,7 @@ public:
     ULONG result = (ULONG)--m_dwRef;
     if (result == 0) {
       CComPtr<IMalloc> pTmp(m_pMalloc);
-      this->~InternalDxcBlobEncoding_Impl();
+      this->InternalDxcBlobEncoding_Impl::~InternalDxcBlobEncoding_Impl();
       pTmp->Free(this);
     }
     return result;
@@ -1124,7 +1124,7 @@ public:
     ULONG result = (ULONG)--m_dwRef;
     if (result == 0) {
       CComPtr<IMalloc> pTmp(m_pMalloc);
-      this->~MemoryStream();
+      this->MemoryStream::~MemoryStream();
       pTmp->Free(this);
     }
     return result;
