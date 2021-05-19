@@ -1460,7 +1460,8 @@ DeclResultIdMapper::getCTBufferPushConstantType(const DeclContext *decl) {
   return found->second;
 }
 
-std::vector<SpirvVariable *> DeclResultIdMapper::collectStageVars() const {
+std::vector<SpirvVariable *>
+DeclResultIdMapper::collectStageVars(SpirvFunction *entryPoint) const {
   std::vector<SpirvVariable *> vars;
 
   for (auto var : glPerVertex.getStageInVars())
@@ -1470,6 +1471,8 @@ std::vector<SpirvVariable *> DeclResultIdMapper::collectStageVars() const {
 
   llvm::DenseSet<SpirvInstruction *> seenVars;
   for (const auto &var : stageVars) {
+    if (var.getEntryPoint() != entryPoint)
+      continue;
     auto *instr = var.getSpirvInstr();
     if (seenVars.count(instr) == 0) {
       vars.push_back(instr);
@@ -2291,6 +2294,10 @@ bool DeclResultIdMapper::createStageVars(
     stageVar.setSpirvInstr(varInstr);
     stageVar.setLocationAttr(decl->getAttr<VKLocationAttr>());
     stageVar.setIndexAttr(decl->getAttr<VKIndexAttr>());
+    if (stageVar.getStorageClass() == spv::StorageClass::Input ||
+        stageVar.getStorageClass() == spv::StorageClass::Output) {
+      stageVar.setEntryPoint(entryFunction);
+    }
     stageVars.push_back(stageVar);
 
     // Emit OpDecorate* instructions to link this stage variable with the HLSL
@@ -2760,6 +2767,10 @@ bool DeclResultIdMapper::createPayloadStageVars(
     // assignment.
     stageVar.setIsSpirvBuiltin();
     stageVar.setSpirvInstr(varInstr);
+    if (stageVar.getStorageClass() == spv::StorageClass::Input ||
+        stageVar.getStorageClass() == spv::StorageClass::Output) {
+      stageVar.setEntryPoint(entryFunction);
+    }
     stageVars.push_back(stageVar);
 
     // Decorate with PerTaskNV for mesh/amplification shader payload variables.
@@ -3061,6 +3072,10 @@ SpirvVariable *DeclResultIdMapper::createSpirvIntermediateOutputStageVar(
   stageVar.setSpirvInstr(varInstr);
   stageVar.setLocationAttr(decl->getAttr<VKLocationAttr>());
   stageVar.setIndexAttr(decl->getAttr<VKIndexAttr>());
+  if (stageVar.getStorageClass() == spv::StorageClass::Input ||
+      stageVar.getStorageClass() == spv::StorageClass::Output) {
+    stageVar.setEntryPoint(entryFunction);
+  }
   stageVars.push_back(stageVar);
 
   // Emit OpDecorate* instructions to link this stage variable with the HLSL

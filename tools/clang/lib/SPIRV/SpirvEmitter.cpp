@@ -554,6 +554,29 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
   }
 }
 
+std::vector<SpirvVariable *>
+SpirvEmitter::getInterfacesForEntryPoint(SpirvFunction *entryPoint) {
+  auto stageVars = declIdMapper.collectStageVars(entryPoint);
+  if (!featureManager.isTargetEnvVulkan1p2OrAbove())
+    return stageVars;
+
+  // In SPIR-V 1.4 or above, we must include global variables in the 'Interface'
+  // operands of OpEntryPoint. SpirvModule keeps all global variables, but some
+  // of them can be duplicated with stage variables kept by declIdMapper. Since
+  // declIdMapper keeps the mapping between variables with Input or Output
+  // storage class and their storage class, we have to rely on
+  // declIdMapper.collectStageVars() to collect them.
+  llvm::DenseSet<SpirvVariable *> interfaces;
+  interfaces.insert(stageVars.begin(), stageVars.end());
+  for (auto *moduleVar : spvBuilder.getModule()->getVariables()) {
+    if (moduleVar->getStorageClass() != spv::StorageClass::Input &&
+        moduleVar->getStorageClass() != spv::StorageClass::Output) {
+      interfaces.insert(moduleVar);
+    }
+  }
+  return std::vector<SpirvVariable *>(interfaces.begin(), interfaces.end());
+}
+
 void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   // Stop translating if there are errors in previous compilation stages.
   if (context.getDiagnostics().hasErrorOccurred())
@@ -618,9 +641,7 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     spvBuilder.addEntryPoint(
         getSpirvShaderStage(entryInfo->shaderModelKind),
         entryInfo->entryFunction, entryInfo->funcDecl->getName(),
-        featureManager.isTargetEnvVulkan1p2OrAbove()
-            ? spvBuilder.getModule()->getVariables()
-            : llvm::ArrayRef<SpirvVariable *>(declIdMapper.collectStageVars()));
+        getInterfacesForEntryPoint(entryInfo->entryFunction));
   }
 
   // Add Location decorations to stage input/output variables.
