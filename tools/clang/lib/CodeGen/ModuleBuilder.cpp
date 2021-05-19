@@ -230,8 +230,8 @@ namespace {
           pContents->addOperand(pFileInfo);
         };
 
-        llvm::SmallString<128> NormalizedMainFileName = CodeGenOpts.MainFileName;
-        llvm::sys::path::native(NormalizedMainFileName);
+        llvm::SmallString<128> NormalizedMainFileName;
+        llvm::sys::path::native(CodeGenOpts.MainFileName, NormalizedMainFileName);
 
         // Add main file name to debug info
         {
