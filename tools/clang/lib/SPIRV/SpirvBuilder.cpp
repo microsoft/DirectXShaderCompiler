@@ -562,13 +562,13 @@ SpirvInstruction *SpirvBuilder::createImageFetchOrRead(
   return fetchOrReadInst;
 }
 
-void SpirvBuilder::createImageWrite(SpirvInstruction *image,
+void SpirvBuilder::createImageWrite(QualType imageType, SpirvInstruction *image,
                                     SpirvInstruction *coord,
                                     SpirvInstruction *texel,
                                     SourceLocation loc) {
   assert(insertPoint && "null insert point");
   auto *writeInst = new (context) SpirvImageOp(
-      spv::Op::OpImageWrite, /*QualType*/ {}, loc, image, coord,
+      spv::Op::OpImageWrite, imageType, loc, image, coord,
       spv::ImageOperandsMask::MaskNone,
       /*dref*/ nullptr, /*bias*/ nullptr, /*lod*/ nullptr, /*gradDx*/ nullptr,
       /*gradDy*/ nullptr, /*constOffset*/ nullptr, /*varOffset*/ nullptr,
