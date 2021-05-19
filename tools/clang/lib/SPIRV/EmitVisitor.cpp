@@ -305,22 +305,22 @@ void EmitVisitor::initInstruction(SpirvInstruction *inst) {
   if (inst->hasResultType()) {
     const uint32_t resultTypeId = typeHandler.emitType(inst->getResultType());
     inst->setResultTypeId(resultTypeId);
+  }
 
-    // Emit NonUniformEXT decoration (if any).
-    if (inst->isNonUniform()) {
-      typeHandler.emitDecoration(getOrAssignResultId<SpirvInstruction>(inst),
-                                 spv::Decoration::NonUniformEXT, {});
-    }
-    // Emit RelaxedPrecision decoration (if any).
-    if (inst->isRelaxedPrecision()) {
-      typeHandler.emitDecoration(getOrAssignResultId<SpirvInstruction>(inst),
-                                 spv::Decoration::RelaxedPrecision, {});
-    }
-    // Emit NoContraction decoration (if any).
-    if (inst->isPrecise() && inst->isArithmeticInstruction()) {
-      typeHandler.emitDecoration(getOrAssignResultId<SpirvInstruction>(inst),
-                                 spv::Decoration::NoContraction, {});
-    }
+  // Emit NonUniformEXT decoration (if any).
+  if (inst->isNonUniform()) {
+    typeHandler.emitDecoration(getOrAssignResultId<SpirvInstruction>(inst),
+                               spv::Decoration::NonUniformEXT, {});
+  }
+  // Emit RelaxedPrecision decoration (if any).
+  if (inst->isRelaxedPrecision()) {
+    typeHandler.emitDecoration(getOrAssignResultId<SpirvInstruction>(inst),
+                               spv::Decoration::RelaxedPrecision, {});
+  }
+  // Emit NoContraction decoration (if any).
+  if (inst->isPrecise() && inst->isArithmeticInstruction()) {
+    typeHandler.emitDecoration(getOrAssignResultId<SpirvInstruction>(inst),
+                               spv::Decoration::NoContraction, {});
   }
 
   // According to Section 2.4. Logical Layout of a Module in the SPIR-V spec:

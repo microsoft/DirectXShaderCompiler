@@ -314,8 +314,9 @@ public:
       SourceLocation loc);
 
   /// \brief Creates SPIR-V instructions for writing to the given image.
-  void createImageWrite(SpirvInstruction *image, SpirvInstruction *coord,
-                        SpirvInstruction *texel, SourceLocation loc);
+  void createImageWrite(QualType imageType, SpirvInstruction *image,
+                        SpirvInstruction *coord, SpirvInstruction *texel,
+                        SourceLocation loc);
 
   /// \brief Creates SPIR-V instructions for gathering the given image.
   ///

@@ -254,6 +254,11 @@ bool RelaxedPrecisionVisitor::visit(SpirvVariable *inst) {
 }
 
 bool RelaxedPrecisionVisitor::visit(SpirvImageOp *inst) {
+  // Since OpImageWrite does not have result type, it must not be decorated with
+  // the RelaxedPrecision.
+  if (inst->getopcode() == spv::Op::OpImageWrite)
+    return true;
+
   // If the operation result type or the underlying image type is relaxed
   // precision, the instruction can be considered relaxed precision.
   if (isRelaxedPrecisionType(inst->getAstResultType(), spvOptions) ||
