@@ -72,6 +72,9 @@ TEST_F(FileTest, RWTextureTypes) { runFileTest("type.rwtexture.hlsl"); }
 TEST_F(FileTest, RWTextureTypesWithMinPrecisionScalarTypes) {
   runFileTest("type.rwtexture.with.min.precision.scalar.hlsl");
 }
+TEST_F(FileTest, RWTextureTypesWith64bitsScalarTypes) {
+  runFileTest("type.rwtexture.with.64bit.scalar.hlsl");
+}
 TEST_F(FileTest, BufferType) { runFileTest("type.buffer.hlsl"); }
 TEST_F(FileTest, BufferTypeStructError1) {
   runFileTest("type.buffer.struct.error1.hlsl", Expect::Failure);

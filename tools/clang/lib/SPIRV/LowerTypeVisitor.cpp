@@ -758,6 +758,12 @@ LowerTypeVisitor::translateSampledTypeToImageFormat(QualType sampledType,
         return elemCount == 1 ? spv::ImageFormat::R32f
                               : elemCount == 2 ? spv::ImageFormat::Rg32f
                                                : spv::ImageFormat::Rgba32f;
+      case BuiltinType::LongLong:
+        if (elemCount == 1)
+          return spv::ImageFormat::R64i;
+      case BuiltinType::ULongLong:
+        if (elemCount == 1)
+          return spv::ImageFormat::R64ui;
       default:
         // Other sampled types unimplemented or irrelevant.
         break;
