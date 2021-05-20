@@ -1,7 +1,14 @@
 // Run: %dxc -T ps_6_0 -E main -fspv-target-env=vulkan1.2
 
 // CHECK: OpEntryPoint Fragment %main "main"
-// CHECK-SAME: %_Globals %gSampler %gTex %MyCBuffer %gCBuffer %gSPInput %gRWBuffer %out_var_SV_Target
+// CHECK-DAG: %_Globals
+// CHECK-DAG: %gSampler
+// CHECK-DAG: %gTex
+// CHECK-DAG: %MyCBuffer
+// CHECK-DAG: %gCBuffer
+// CHECK-DAG: %gSPInput
+// CHECK-DAG: %gRWBuffer
+// CHECK-DAG: %out_var_SV_Target
 
 int gScalar;
 SamplerState gSampler;

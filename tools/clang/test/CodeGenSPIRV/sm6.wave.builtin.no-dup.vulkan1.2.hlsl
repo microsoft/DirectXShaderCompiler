@@ -6,7 +6,8 @@
 RWStructuredBuffer<uint> values;
 
 // CHECK: OpEntryPoint GLCompute
-// CHECK-SAME: %SubgroupSize %SubgroupLocalInvocationId
+// CHECK-DAG: %SubgroupSize
+// CHECK-DAG: %SubgroupLocalInvocationId
 
 // CHECK: OpDecorate %SubgroupSize BuiltIn SubgroupSize
 // CHECK-NOT: OpDecorate {{%\w+}} BuiltIn SubgroupSize
