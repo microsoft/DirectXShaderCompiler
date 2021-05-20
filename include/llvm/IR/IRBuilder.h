@@ -27,7 +27,6 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/ValueHandle.h"
-#include "llvm/IR/IntrinsicInst.h" // HLSL Change
 #include "llvm/Support/CBindingWrapping.h"
 
 namespace llvm {
@@ -94,10 +93,7 @@ public:
     BB = I->getParent();
     InsertPt = I;
     assert(I != BB->end() && "Can't read debug loc from end()");
-    if (!isa<DbgInfoIntrinsic>(I))
-      SetCurrentDebugLocation(I->getDebugLoc());
-    else
-      SetCurrentDebugLocation(nullptr);
+    SetCurrentDebugLocation(I->getDebugLoc());
   }
 
   /// \brief This specifies that created instructions should be inserted at the
