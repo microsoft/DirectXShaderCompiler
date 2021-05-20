@@ -885,7 +885,7 @@ static void fixupLineNumbers(Function *Fn, Function::iterator FI,
     if (!getDebugMetadataVersionFromModule(*Fn->getParent()))
       return;
     if (DISubprogram *Subprogram = getDISubprogram(Fn)) {
-      TheCallDL = DebugLoc(llvm::DILocation::get(Fn->getContext(), 0, 0, Subprogram));
+      TheCallDL = DebugLoc(llvm::DILocation::get(Fn->getContext(), Subprogram->getLine(), 0, Subprogram));
       TheCall->setDebugLoc(TheCallDL);
     }
     else {
