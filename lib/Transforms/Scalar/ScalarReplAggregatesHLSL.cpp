@@ -3678,27 +3678,43 @@ static bool DominateAllUsers(Instruction *I, Value *V, DominatorTree *DT) {
   }
 }
 
-static bool isReadOnlyPtr(CallInst *PtrCI) {
-  HLSubscriptOpcode opcode =
-      static_cast<HLSubscriptOpcode>(hlsl::GetHLOpcode(PtrCI));
-  if (opcode == HLSubscriptOpcode::CBufferSubscript) {
-    // Ptr from CBuffer is readonly.
-    return true;
-  } else if (opcode == HLSubscriptOpcode::DefaultSubscript) {
-    Value *ptr = PtrCI->getArgOperand(HLOperandIndex::kSubscriptObjectOpIdx);
-    // Resource ptr.
-    if (CallInst *handleCI = dyn_cast<CallInst>(ptr)) {
-      hlsl::HLOpcodeGroup group =
-          hlsl::GetHLOpcodeGroup(handleCI->getCalledFunction());
-      if (group == HLOpcodeGroup::HLAnnotateHandle) {
-        Constant *Props = cast<Constant>(handleCI->getArgOperand(
-                             HLOperandIndex::kAnnotateHandleResourcePropertiesOpIdx));
-        DxilResourceProperties RP = resource_helper::loadPropsFromConstant(*Props);
-        if (RP.getResourceClass() == DXIL::ResourceClass::SRV) {
-          // Ptr from SRV is readonly.
-          return true;
-        }
-      }
+// Return resource properties if handle value is HLAnnotateHandle
+static DxilResourceProperties GetResPropsFromHLAnnotateHandle(Value *handle) {
+  if (CallInst *handleCI = dyn_cast<CallInst>(handle)) {
+    hlsl::HLOpcodeGroup group =
+        hlsl::GetHLOpcodeGroup(handleCI->getCalledFunction());
+    if (group == HLOpcodeGroup::HLAnnotateHandle) {
+      Constant *Props = cast<Constant>(handleCI->getArgOperand(
+                            HLOperandIndex::kAnnotateHandleResourcePropertiesOpIdx));
+      return resource_helper::loadPropsFromConstant(*Props);
+    }
+  }
+  return {};
+}
+
+static bool isReadOnlyResSubscriptOrLoad(CallInst *PtrCI) {
+  hlsl::HLOpcodeGroup group =
+      hlsl::GetHLOpcodeGroup(PtrCI->getCalledFunction());
+  if (group == HLOpcodeGroup::HLSubscript) {
+    HLSubscriptOpcode opcode =
+        static_cast<HLSubscriptOpcode>(hlsl::GetHLOpcode(PtrCI));
+    if (opcode == HLSubscriptOpcode::CBufferSubscript) {
+      // Ptr from CBuffer is readonly.
+      return true;
+    } else if (opcode == HLSubscriptOpcode::DefaultSubscript) {
+      DxilResourceProperties RP = GetResPropsFromHLAnnotateHandle(
+          PtrCI->getArgOperand(HLOperandIndex::kSubscriptObjectOpIdx));
+      if (RP.getResourceClass() == DXIL::ResourceClass::SRV)
+        return true;
+    }
+  } else if (group == HLOpcodeGroup::HLIntrinsic) {
+    IntrinsicOp hlOpcode = (IntrinsicOp)GetHLOpcode(PtrCI);
+    if (hlOpcode == IntrinsicOp::MOP_Load) {
+      // This is templated BAB.Load<UDT>() case.
+      DxilResourceProperties RP = GetResPropsFromHLAnnotateHandle(
+        PtrCI->getArgOperand(HLOperandIndex::kHandleOpIdx));
+      if (RP.getResourceClass() == DXIL::ResourceClass::SRV)
+        return true;
     }
   }
   return false;
@@ -3765,16 +3781,12 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
             Ptr = NestedGEP->getPointerOperand();
 
           if (CallInst *PtrCI = dyn_cast<CallInst>(Ptr)) {
-            hlsl::HLOpcodeGroup group =
-                hlsl::GetHLOpcodeGroup(PtrCI->getCalledFunction());
-            if (group == HLOpcodeGroup::HLSubscript) {
-              if (isReadOnlyPtr(PtrCI)) {
-                // Ptr from CBuffer/SRV is safe.
-                if (ReplaceMemcpy(V, Src, MC, annotation, typeSys, DL, DT)) {
-                  if (V->user_empty())
-                    return true;
-                  return LowerMemcpy(V, annotation, typeSys, DL, DT, bAllowReplace);
-                }
+            if (isReadOnlyResSubscriptOrLoad(PtrCI)) {
+              // Ptr from CBuffer/SRV is safe.
+              if (ReplaceMemcpy(V, Src, MC, annotation, typeSys, DL, DT)) {
+                if (V->user_empty())
+                  return true;
+                return LowerMemcpy(V, annotation, typeSys, DL, DT, bAllowReplace);
               }
             }
           }
