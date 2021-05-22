@@ -3073,17 +3073,17 @@ public:
     m_FailAlloc = index;
   }
 
-  ULONG STDMETHODCALLTYPE AddRef() {
+  ULONG STDMETHODCALLTYPE AddRef() override {
     return ++m_RefCount;
   }
-  ULONG STDMETHODCALLTYPE Release() {
+  ULONG STDMETHODCALLTYPE Release() override {
     if (m_RefCount == 0) VERIFY_FAIL();
     return --m_RefCount;
   }
-  STDMETHODIMP QueryInterface(REFIID iid, void** ppvObject) {
+  STDMETHODIMP QueryInterface(REFIID iid, void** ppvObject) override {
     return DoBasicQueryInterface<IMalloc>(this, iid, ppvObject);
   }
-  virtual void *STDMETHODCALLTYPE Alloc(_In_ SIZE_T cb) {
+  virtual void *STDMETHODCALLTYPE Alloc(_In_ SIZE_T cb) override {
     ++m_AllocCount;
     if (m_FailAlloc && m_AllocCount >= m_FailAlloc) {
       return nullptr; // breakpoint for i failure - m_FailAlloc == 1+VAL
@@ -3107,7 +3107,7 @@ public:
     return P + 1;
   }
 
-  virtual void *STDMETHODCALLTYPE Realloc(_In_opt_ void *pv, _In_ SIZE_T cb) {
+  virtual void *STDMETHODCALLTYPE Realloc(_In_opt_ void *pv, _In_ SIZE_T cb) override {
     SIZE_T priorSize = pv == nullptr ? (SIZE_T)0 : GetSize(pv);
     void *R = Alloc(cb);
     if (!R)
@@ -3118,7 +3118,7 @@ public:
     return R;
   }
 
-  virtual void STDMETHODCALLTYPE Free(_In_opt_ void *pv) {
+  virtual void STDMETHODCALLTYPE Free(_In_opt_ void *pv) override {
     if (!pv)
       return;
     PtrData *P = DataFromPtr(pv);
@@ -3136,18 +3136,18 @@ public:
 
   virtual SIZE_T STDMETHODCALLTYPE GetSize(
     /* [annotation][in] */
-    _In_opt_ _Post_writable_byte_size_(return)  void *pv)
+    _In_opt_ _Post_writable_byte_size_(return)  void *pv) override
   {
     if (pv == nullptr) return 0;
     return DataFromPtr(pv)->Size;
   }
 
   virtual int STDMETHODCALLTYPE DidAlloc(
-      _In_opt_ void *pv) {
+      _In_opt_ void *pv) override {
     return -1; // don't know
   }
 
-  virtual void STDMETHODCALLTYPE HeapMinimize(void) {}
+  virtual void STDMETHODCALLTYPE HeapMinimize(void) override {}
 
   void DumpLeaks() {
     PtrData *ptr = (PtrData*)AllocList.Flink;;

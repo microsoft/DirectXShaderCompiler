@@ -631,6 +631,9 @@ struct IMalloc : public IUnknown {
   virtual void *Alloc(size_t size) = 0;
   virtual void *Realloc(void *ptr, size_t size) = 0;
   virtual void Free(void *ptr) = 0;
+  virtual size_t GetSize(void *pv) = 0;
+  virtual int DidAlloc(void *pv) = 0;
+  virtual void HeapMinimize(void) = 0;
 };
 
 CROSS_PLATFORM_UUIDOF(ISequentialStream, "0C733A30-2A1C-11CE-ADE5-00AA0044773D")

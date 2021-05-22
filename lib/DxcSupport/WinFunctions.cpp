@@ -167,6 +167,9 @@ struct CoMalloc final : public IMalloc {
   void *STDMETHODCALLTYPE Alloc(size_t size) override { return malloc(size); }
   void *STDMETHODCALLTYPE Realloc(void *ptr, size_t size) override { return realloc(ptr, size); }
   void STDMETHODCALLTYPE Free(void *ptr) override { free(ptr); }
+  size_t STDMETHODCALLTYPE GetSize(void *pv) override { return -1; }
+  int STDMETHODCALLTYPE DidAlloc(void *pv) override { return -1; }
+  void STDMETHODCALLTYPE HeapMinimize(void) override {}
 
 private:
   DXC_MICROCOM_REF_FIELD(m_dwRef)
