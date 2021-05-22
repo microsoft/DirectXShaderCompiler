@@ -614,16 +614,13 @@ template <typename T> inline void **IID_PPV_ARGS_Helper(T **pp) {
 
 CROSS_PLATFORM_UUIDOF(IUnknown, "00000000-0000-0000-C000-000000000046")
 struct IUnknown {
-  IUnknown() : m_count(0) {};
+  IUnknown() {};
   virtual HRESULT QueryInterface(REFIID riid, void **ppvObject) = 0;
-  virtual ULONG AddRef();
-  virtual ULONG Release();
+  virtual ULONG AddRef() = 0;
+  virtual ULONG Release() = 0;
   template <class Q> HRESULT QueryInterface(Q **pp) {
     return QueryInterface(__uuidof(Q), (void **)pp);
   }
-
-private:
-  std::atomic<unsigned long> m_count;
 };
 
 CROSS_PLATFORM_UUIDOF(INoMarshal, "ECC8691B-C1DB-4DC0-855E-65F6C551AF49")
@@ -631,10 +628,9 @@ struct INoMarshal : public IUnknown {};
 
 CROSS_PLATFORM_UUIDOF(IMalloc, "00000002-0000-0000-C000-000000000046")
 struct IMalloc : public IUnknown {
-  virtual void *Alloc(size_t size);
-  virtual void *Realloc(void *ptr, size_t size);
-  virtual void Free(void *ptr);
-  virtual HRESULT QueryInterface(REFIID riid, void **ppvObject);
+  virtual void *Alloc(size_t size) = 0;
+  virtual void *Realloc(void *ptr, size_t size) = 0;
+  virtual void Free(void *ptr) = 0;
 };
 
 CROSS_PLATFORM_UUIDOF(ISequentialStream, "0C733A30-2A1C-11CE-ADE5-00AA0044773D")

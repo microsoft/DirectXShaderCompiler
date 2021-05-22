@@ -61,7 +61,7 @@ using namespace std;
 using namespace hlsl_test;
 
 
-class TestIncludeHandler : public IDxcIncludeHandler {
+class TestIncludeHandler final : public IDxcIncludeHandler {
   DXC_MICROCOM_REF_FIELD(m_dwRef)
 public:
   DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)

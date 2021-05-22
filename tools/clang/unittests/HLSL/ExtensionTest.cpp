@@ -291,7 +291,7 @@ private:
   }
 };
 
-class TestIntrinsicTable : public IDxcIntrinsicTable {
+class TestIntrinsicTable final : public IDxcIntrinsicTable {
 private:
   DXC_MICROCOM_REF_FIELD(m_dwRef)
   std::vector<IntrinsicTable> m_tables;
@@ -395,7 +395,7 @@ public:
 // and defines that should cause warnings. A more realistic validator
 // would look at the values and make sure (for example) they are
 // the correct type (integer, string, etc).
-class TestSemanticDefineValidator : public IDxcSemanticDefineValidator {
+class TestSemanticDefineValidator final : public IDxcSemanticDefineValidator {
 private:
   DXC_MICROCOM_REF_FIELD(m_dwRef)
   std::vector<std::string> m_errorDefines;

@@ -49,7 +49,7 @@ inline HRESULT GetFirstChildFromCursor(IDxcCursor *cursor,
   return hr;
 }
 
-class TrivialDxcUnsavedFile : IDxcUnsavedFile
+class TrivialDxcUnsavedFile final : IDxcUnsavedFile
 {
 private:
   volatile std::atomic<llvm::sys::cas_flag> m_dwRef;
