@@ -68,14 +68,14 @@ public:
 
   SIZE_T STDMETHODCALLTYPE GetSize(
     /* [annotation][in] */
-    _In_opt_ _Post_writable_byte_size_(return)  void *pv)
+    _In_opt_ _Post_writable_byte_size_(return)  void *pv) override
   {
     return HeapSize(GetProcessHeap(), 0, pv);
   }
 
   int STDMETHODCALLTYPE DidAlloc(
     /* [annotation][in] */
-    _In_opt_  void *pv)
+    _In_opt_  void *pv) override
   {
     return -1; // don't know
   }
