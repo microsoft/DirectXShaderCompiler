@@ -583,7 +583,7 @@ int DxcContext::VerifyRootSignature() {
   }
 }
 
-class DxcIncludeHandlerForInjectedSources : public IDxcIncludeHandler {
+class DxcIncludeHandlerForInjectedSources final : public IDxcIncludeHandler {
 private:
   DXC_MICROCOM_REF_FIELD(m_dwRef)
 
@@ -686,7 +686,8 @@ void DxcContext::Recompile(IDxcBlob *pSource, IDxcLibrary *pLibrary,
   IFT(pPdbUtils->GetEntryPoint(&pEntryPoint));
 
   CComPtr<IDxcBlobEncoding> pCompileSource;
-  CComPtr<DxcIncludeHandlerForInjectedSources> pIncludeHandler = new DxcIncludeHandlerForInjectedSources();
+  DxcIncludeHandlerForInjectedSources *pIncludeHandlerForInjectedSources = new DxcIncludeHandlerForInjectedSources();
+  CComPtr<IDxcIncludeHandler> pIncludeHandler = pIncludeHandlerForInjectedSources;
   UINT32 uSourceCount = 0;
   IFT(pPdbUtils->GetSourceCount(&uSourceCount));
   for (UINT32 i = 0; i < uSourceCount; i++) {
@@ -694,7 +695,7 @@ void DxcContext::Recompile(IDxcBlob *pSource, IDxcLibrary *pLibrary,
     CComBSTR pFileName;
     IFT(pPdbUtils->GetSource(i, &pSourceFile));
     IFT(pPdbUtils->GetSourceName(i, &pFileName));
-    IFT(pIncludeHandler->insertIncludeFile(pFileName, pSourceFile, 0));
+    IFT(pIncludeHandlerForInjectedSources->insertIncludeFile(pFileName, pSourceFile, 0));
     if (pMainFileName == pFileName) {
       pCompileSource.Attach(pSourceFile);
     }
