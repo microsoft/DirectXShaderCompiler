@@ -32,7 +32,12 @@
 #include <typeinfo>
 #include <vector>
 #endif // __cplusplus
+
+// There is no execinfo.h on Android. However, this is only required for
+// CaptureStackBackTrace which is only used in tests.
+#ifndef __ANDROID__
 #include <execinfo.h>
+#endif
 
 //===----------------------------------------------------------------------===//
 //
