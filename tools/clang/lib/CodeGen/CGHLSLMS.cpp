@@ -291,10 +291,8 @@ public:
   void AddControlFlowHint(CodeGenFunction &CGF, const Stmt &S,
                           llvm::TerminatorInst *TI,
                           ArrayRef<const Attr *> Attrs) override;
-  void MarkRetTemp(CodeGenFunction &CGF, llvm::Value *V,
-                  clang::QualType QaulTy) override;
-  void MarkCallArgumentTemp(CodeGenFunction &CGF, llvm::Value *V,
-                  clang::QualType QaulTy) override;
+  void MarkPotentialResourceTemp(CodeGenFunction &CGF, llvm::Value *V,
+                                 clang::QualType QaulTy) override;
   void FinishAutoVar(CodeGenFunction &CGF, const VarDecl &D, llvm::Value *V) override;
   void MarkIfStmt(CodeGenFunction &CGF, BasicBlock *endIfBB) override;
   void MarkSwitchStmt(CodeGenFunction &CGF, SwitchInst *switchInst,
@@ -320,6 +318,7 @@ public:
 CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
     : CGHLSLRuntime(CGM), Context(CGM.getLLVMContext()),
       TheModule(CGM.getModule()),
+  // FIXME: Can we avoid the need for this fake CBufferType?
       CBufferType(
           llvm::StructType::create(TheModule.getContext(), "ConstantBuffer")),
       dataLayout(CGM.getLangOpts().UseMinPrecision
@@ -2485,16 +2484,10 @@ void CGMSHLSLRuntime::AddControlFlowHint(CodeGenFunction &CGF, const Stmt &S,
   }
 }
 
-void CGMSHLSLRuntime::MarkRetTemp(CodeGenFunction &CGF, Value *V,
-                                 QualType QualTy) {
-  // Save object properties for ret temp.
-  AddValToPropertyMap(V, QualTy);
-}
-
-void CGMSHLSLRuntime::MarkCallArgumentTemp(CodeGenFunction &CGF, llvm::Value *V,
+void CGMSHLSLRuntime::MarkPotentialResourceTemp(CodeGenFunction &CGF, llvm::Value *V,
                                            clang::QualType QualTy) {
-  // Save object properties for call arg temp.
-  // Ignore V already in property map.
+  // Save object properties for temp that may be created for
+  // call args, return value, or agg expr copy.
   if (objectProperties.GetResource(V).isValid())
     return;
   AddValToPropertyMap(V, QualTy);

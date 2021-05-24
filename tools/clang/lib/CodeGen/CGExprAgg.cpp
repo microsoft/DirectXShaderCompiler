@@ -743,6 +743,8 @@ void AggExprEmitter::VisitCastExpr(CastExpr *E) {
           LV = CGF.EmitLValue(SrcDecl);
         else if (ArraySubscriptExpr *ArraySubExpr = dyn_cast<ArraySubscriptExpr>(Src))
           LV = CGF.EmitLValue(ArraySubExpr);
+        else if (ParenExpr *parenExpr = dyn_cast<ParenExpr>(Src))
+          LV = CGF.EmitLValue(parenExpr->getSubExpr());
         else
           LV = CGF.EmitAggExprToLValue(Src);
 
@@ -1505,6 +1507,7 @@ LValue CodeGenFunction::EmitAggExprToLValue(const Expr *E) {
   assert(hasAggregateEvaluationKind(E->getType()) && "Invalid argument!");
   llvm::Value *Temp = CreateMemTemp(E->getType());
   LValue LV = MakeAddrLValue(Temp, E->getType());
+  CGM.getHLSLRuntime().MarkPotentialResourceTemp(*this, Temp, E->getType());
   EmitAggExpr(E, AggValueSlot::forLValue(LV, AggValueSlot::IsNotDestructed,
                                          AggValueSlot::DoesNotNeedGCBarriers,
                                          AggValueSlot::IsNotAliased));
