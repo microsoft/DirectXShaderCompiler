@@ -41,6 +41,37 @@ using std::string;
 using std::vector;
 using std::unique_ptr;
 
+namespace {
+void LoadSerializedRootSignature(MDNode *pNode,
+                                 std::vector<uint8_t> &SerializedRootSignature,
+                                 LLVMContext &Ctx) {
+  IFTBOOL(pNode->getNumOperands() == 1, DXC_E_INCORRECT_DXIL_METADATA);
+  const MDOperand &MDO = pNode->getOperand(0);
+
+  const ConstantAsMetadata *pMetaData = dyn_cast<ConstantAsMetadata>(MDO.get());
+  IFTBOOL(pMetaData != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+  const ConstantDataArray *pData =
+      dyn_cast<ConstantDataArray>(pMetaData->getValue());
+  IFTBOOL(pData != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+  IFTBOOL(pData->getElementType() == Type::getInt8Ty(Ctx),
+          DXC_E_INCORRECT_DXIL_METADATA);
+
+  SerializedRootSignature.assign(pData->getRawDataValues().begin(),
+                                 pData->getRawDataValues().end());
+}
+
+MDNode *
+EmitSerializedRootSignature(const std::vector<uint8_t> &SerializedRootSignature,
+                            LLVMContext &Ctx) {
+  if (SerializedRootSignature.empty())
+    return nullptr;
+  Constant *V = llvm::ConstantDataArray::get(
+      Ctx, llvm::ArrayRef<uint8_t>(SerializedRootSignature.data(),
+                                   SerializedRootSignature.size()));
+  return MDNode::get(Ctx, {ConstantAsMetadata::get(V)});
+}
+
+} // namespace
 
 namespace hlsl {
 
@@ -386,14 +417,12 @@ void DxilMDHelper::EmitRootSignature(
     return;
   }
 
-  Constant *V = llvm::ConstantDataArray::get(
-      m_Ctx, llvm::ArrayRef<uint8_t>(SerializedRootSignature.data(),
-                                     SerializedRootSignature.size()));
+  MDNode *Node = EmitSerializedRootSignature(SerializedRootSignature, m_Ctx);
 
   NamedMDNode *pRootSignatureNamedMD = m_pModule->getNamedMetadata(kDxilRootSignatureMDName);
   IFTBOOL(pRootSignatureNamedMD == nullptr, DXC_E_INCORRECT_DXIL_METADATA);
   pRootSignatureNamedMD = m_pModule->getOrInsertNamedMetadata(kDxilRootSignatureMDName);
-  pRootSignatureNamedMD->addOperand(MDNode::get(m_Ctx, {ConstantAsMetadata::get(V)}));
+  pRootSignatureNamedMD->addOperand(Node);
   return ;
 }
 
@@ -447,22 +476,7 @@ void DxilMDHelper::LoadRootSignature(std::vector<uint8_t> &SerializedRootSignatu
   IFTBOOL(pRootSignatureNamedMD->getNumOperands() == 1, DXC_E_INCORRECT_DXIL_METADATA);
 
   MDNode *pNode = pRootSignatureNamedMD->getOperand(0);
-  IFTBOOL(pNode->getNumOperands() == 1, DXC_E_INCORRECT_DXIL_METADATA);
-  const MDOperand &MDO = pNode->getOperand(0);
-
-  const ConstantAsMetadata *pMetaData = dyn_cast<ConstantAsMetadata>(MDO.get());
-  IFTBOOL(pMetaData != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
-  const ConstantDataArray *pData =
-      dyn_cast<ConstantDataArray>(pMetaData->getValue());
-  IFTBOOL(pData != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
-  IFTBOOL(pData->getElementType() == Type::getInt8Ty(m_Ctx),
-          DXC_E_INCORRECT_DXIL_METADATA);
-
-  SerializedRootSignature.clear();
-  unsigned size = pData->getRawDataValues().size();
-  SerializedRootSignature.resize(size);
-  memcpy(SerializedRootSignature.data(),
-         (const uint8_t *)pData->getRawDataValues().begin(), size);
+  LoadSerializedRootSignature(pNode, SerializedRootSignature, m_Ctx);
 }
 
 static const MDTuple *CastToTupleOrNull(const MDOperand &MDO) {
@@ -1483,6 +1497,13 @@ MDTuple *DxilMDHelper::EmitDxilEntryProperties(uint64_t rawShaderFlag,
         MDNode::get(m_Ctx, {Uint32ToConstMD(autoBindingSpace)}));
   }
 
+  if (!props.serializedRootSignature.empty() &&
+      DXIL::CompareVersions(m_MinValMajor, m_MinValMinor, 1, 6) > 0) {
+    MDVals.emplace_back(Uint32ToConstMD(DxilMDHelper::kDxilEntryRootSigTag));
+    MDVals.emplace_back(
+        EmitSerializedRootSignature(props.serializedRootSignature, m_Ctx));
+  }
+
   if (!MDVals.empty())
     return MDNode::get(m_Ctx, MDVals);
   else
@@ -1605,6 +1626,10 @@ void DxilMDHelper::LoadDxilEntryProperties(const MDOperand &MDO,
       DXASSERT(props.IsCS(), "else invalid shader kind");
       MDNode *pNode = cast<MDNode>(MDO.get());
       props.waveSize = ConstMDToUint32(pNode->getOperand(0));
+    } break;
+    case DxilMDHelper::kDxilEntryRootSigTag: {
+      MDNode *pNode = cast<MDNode>(MDO.get());
+      LoadSerializedRootSignature(pNode, props.serializedRootSignature, m_Ctx);
     } break;
     default:
       DXASSERT(false, "Unknown extended shader properties tag");

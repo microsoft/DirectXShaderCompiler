@@ -788,6 +788,12 @@ DxilLinkJob::Link(std::pair<DxilFunctionLinkInfo *, DxilLib *> &entryLinkPair,
     if (newPatchConstantFunc->hasFnAttribute(llvm::Attribute::AlwaysInline))
       newPatchConstantFunc->removeFnAttr(llvm::Attribute::AlwaysInline);
   }
+
+  // Set root sig if exist.
+  if (!props.serializedRootSignature.empty()) {
+    DM.ResetSerializedRootSignature(props.serializedRootSignature);
+    props.serializedRootSignature.clear();
+  }
   // Set EntryProps
   DM.SetShaderProperties(&props);
 
@@ -1052,12 +1058,14 @@ void DxilLinkJob::StripDeadDebugInfo(Module &M) {
 
       // If the function referenced by DISP is not null, the function is live.
       if (Function *Func = DISP->getFunction()) {
-        if (Func->getParent() == &M)
-          LiveSubprograms.push_back(DISP);
-        else
-          SubprogramChange = true;
+        LiveSubprograms.push_back(DISP);
+        if (Func->getParent() != &M)
+          DISP->replaceFunction(nullptr);
       } else {
-        SubprogramChange = true;
+        // Copy it in anyway even if there's no function. When function is inlined
+        // the function reference is gone, but the subprogram is still valid as
+        // scope.
+        LiveSubprograms.push_back(DISP);
       }
     }
 

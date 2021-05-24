@@ -179,8 +179,8 @@ private:
                               QualType Type, QualType SrcType,
                               llvm::Type *Ty);
 
-  void EmitHLSLRootSignature(CodeGenFunction &CGF, HLSLRootSignatureAttr *RSA,
-                             llvm::Function *Fn) override;
+  void EmitHLSLRootSignature(HLSLRootSignatureAttr *RSA,
+                             Function *Fn, DxilFunctionProps &props);
 
   void CheckParameterAnnotation(SourceLocation SLoc,
                                 const DxilParameterAnnotation &paramInfo,
@@ -291,10 +291,8 @@ public:
   void AddControlFlowHint(CodeGenFunction &CGF, const Stmt &S,
                           llvm::TerminatorInst *TI,
                           ArrayRef<const Attr *> Attrs) override;
-  void MarkRetTemp(CodeGenFunction &CGF, llvm::Value *V,
-                  clang::QualType QaulTy) override;
-  void MarkCallArgumentTemp(CodeGenFunction &CGF, llvm::Value *V,
-                  clang::QualType QaulTy) override;
+  void MarkPotentialResourceTemp(CodeGenFunction &CGF, llvm::Value *V,
+                                 clang::QualType QaulTy) override;
   void FinishAutoVar(CodeGenFunction &CGF, const VarDecl &D, llvm::Value *V) override;
   void MarkIfStmt(CodeGenFunction &CGF, BasicBlock *endIfBB) override;
   void MarkSwitchStmt(CodeGenFunction &CGF, SwitchInst *switchInst,
@@ -320,6 +318,7 @@ public:
 CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
     : CGHLSLRuntime(CGM), Context(CGM.getLLVMContext()),
       TheModule(CGM.getModule()),
+  // FIXME: Can we avoid the need for this fake CBufferType?
       CBufferType(
           llvm::StructType::create(TheModule.getContext(), "ConstantBuffer")),
       dataLayout(CGM.getLangOpts().UseMinPrecision
@@ -2325,6 +2324,12 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     }
   }
 
+  // Only parse root signature for entry function.
+  if (HLSLRootSignatureAttr *RSA = FD->getAttr<HLSLRootSignatureAttr>()) {
+    if (isExportedEntry || isEntry)
+      EmitHLSLRootSignature(RSA, F, *funcProps);
+  }
+
   // Only add functionProps when exist.
   if (isExportedEntry || isEntry)
     m_pHLModule->AddDxilFunctionProps(F, funcProps);
@@ -2479,16 +2484,10 @@ void CGMSHLSLRuntime::AddControlFlowHint(CodeGenFunction &CGF, const Stmt &S,
   }
 }
 
-void CGMSHLSLRuntime::MarkRetTemp(CodeGenFunction &CGF, Value *V,
-                                 QualType QualTy) {
-  // Save object properties for ret temp.
-  AddValToPropertyMap(V, QualTy);
-}
-
-void CGMSHLSLRuntime::MarkCallArgumentTemp(CodeGenFunction &CGF, llvm::Value *V,
+void CGMSHLSLRuntime::MarkPotentialResourceTemp(CodeGenFunction &CGF, llvm::Value *V,
                                            clang::QualType QualTy) {
-  // Save object properties for call arg temp.
-  // Ignore V already in property map.
+  // Save object properties for temp that may be created for
+  // call args, return value, or agg expr copy.
   if (objectProperties.GetResource(V).isValid())
     return;
   AddValToPropertyMap(V, QualTy);
@@ -5744,22 +5743,33 @@ void CGMSHLSLRuntime::EmitHLSLFlatConversion(CodeGenFunction &CGF,
   }
 }
 
-void CGMSHLSLRuntime::EmitHLSLRootSignature(CodeGenFunction &CGF,
-                                            HLSLRootSignatureAttr *RSA,
-                                            Function *Fn) {
-  // Only parse root signature for entry function.
-  if (Fn != Entry.Func)
-    return;
-
+void CGMSHLSLRuntime::EmitHLSLRootSignature(HLSLRootSignatureAttr *RSA,
+                                            Function *Fn,
+                                            DxilFunctionProps &props) {
   StringRef StrRef = RSA->getSignatureName();
-  DiagnosticsEngine &Diags = CGF.getContext().getDiagnostics();
+  DiagnosticsEngine &Diags = CGM.getDiags();
   SourceLocation SLoc = RSA->getLocation();
   RootSignatureHandle RootSigHandle;
-  clang::CompileRootSignature(StrRef, Diags, SLoc, rootSigVer, DxilRootSignatureCompilationFlags::GlobalRootSignature, &RootSigHandle);
+  clang::CompileRootSignature(
+      StrRef, Diags, SLoc, rootSigVer,
+      DxilRootSignatureCompilationFlags::GlobalRootSignature, &RootSigHandle);
   if (!RootSigHandle.IsEmpty()) {
     RootSigHandle.EnsureSerializedAvailable();
-    m_pHLModule->SetSerializedRootSignature(RootSigHandle.GetSerializedBytes(),
-                                            RootSigHandle.GetSerializedSize());
+    if (!m_bIsLib) {
+      m_pHLModule->SetSerializedRootSignature(
+          RootSigHandle.GetSerializedBytes(),
+          RootSigHandle.GetSerializedSize());
+    } else {
+      if (!props.IsRay()) {
+        props.SetSerializedRootSignature(RootSigHandle.GetSerializedBytes(),
+                                         RootSigHandle.GetSerializedSize());
+      } else {
+        unsigned DiagID = Diags.getCustomDiagID(
+            DiagnosticsEngine::Error, "root signature attribute not supported "
+                                      "for raytracing entry functions");
+        Diags.Report(RSA->getLocation(), DiagID);
+      }
+    }
   }
 }
 

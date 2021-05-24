@@ -258,6 +258,18 @@ static void addDiagnosticArgs(ArgList &Args, OptSpecifier Group,
   }
 }
 
+static std::pair<std::string, std::string> ParseDefine(std::string &argVal) {
+  std::pair<std::string, std::string> result = std::make_pair("", "");
+  if (argVal.empty())
+    return result;
+  auto defEndPos = argVal.find('=') == std::string::npos ? argVal.size() : argVal.find('=');
+  result.first = argVal.substr(0, defEndPos);
+  if (!result.first.empty() && defEndPos < argVal.size() - 1) {
+    result.second = argVal.substr(defEndPos + 1, argVal.size() - defEndPos - 1);
+  }
+  return result;
+}
+
 // SPIRV Change Starts
 #ifdef ENABLE_SPIRV_CODEGEN
 /// Checks and collects the arguments for -fvk-{b|s|t|u}-shift into *shifts.
@@ -507,6 +519,23 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     }
   }
 
+  std::vector<std::string> ignoreSemDefs = Args.getAllArgValues(OPT_ignore_semdef);
+  for (std::string &ignoreSemDef : ignoreSemDefs) {
+    opts.IgnoreSemDefs.insert(ignoreSemDef);
+  }
+
+  std::vector<std::string> overrideSemDefs = Args.getAllArgValues(OPT_override_semdef);
+  for (std::string &overrideSemDef : overrideSemDefs) {
+    auto kv = ParseDefine(overrideSemDef);
+    if (kv.first.empty())
+      continue;
+    if (opts.OverrideSemDefs.find(kv.first) == opts.OverrideSemDefs.end()) {
+      opts.OverrideSemDefs.insert(std::make_pair(kv.first, kv.second));
+    } else {
+      opts.OverrideSemDefs[kv.first] = kv.second;
+    }
+  }
+
   std::vector<std::string> optSelects = Args.getAllArgValues(OPT_opt_select);
   for (unsigned i = 0; i + 1 < optSelects.size(); i+=2) {
     std::string optimization = llvm::StringRef(optSelects[i]).lower();
@@ -612,6 +641,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
 
   opts.AllResourcesBound = Args.hasFlag(OPT_all_resources_bound, OPT_INVALID, false);
   opts.AllResourcesBound = Args.hasFlag(OPT_all_resources_bound_, OPT_INVALID, opts.AllResourcesBound);
+  opts.IgnoreOptSemDefs = Args.hasFlag(OPT_ignore_opt_semdefs, OPT_INVALID, false);
   opts.ColorCodeAssembly = Args.hasFlag(OPT_Cc, OPT_INVALID, false);
   opts.DefaultRowMajor = Args.hasFlag(OPT_Zpr, OPT_INVALID, false);
   opts.DefaultColMajor = Args.hasFlag(OPT_Zpc, OPT_INVALID, false);

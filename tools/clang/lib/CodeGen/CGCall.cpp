@@ -2898,8 +2898,8 @@ void CodeGenFunction::EmitCallArgs(CallArgList &Args,
       // HLSL Change begin.
       RValue CallArg = Args.back().RV;
       if (CallArg.isAggregate())
-        CGM.getHLSLRuntime().MarkCallArgumentTemp(*this, CallArg.getAggregateAddr(),
-                                                  ArgTypes[I]);
+        CGM.getHLSLRuntime().MarkPotentialResourceTemp(
+            *this, CallArg.getAggregateAddr(), ArgTypes[I]);
       // HLSL Change end.
       EmitNonNullArgCheck(Args.back().RV, ArgTypes[I], Arg->getExprLoc(),
                           CalleeDecl, ParamsToSkip + I);
@@ -3283,7 +3283,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
       }
     }
     // HLSL Change begin.
-    CGM.getHLSLRuntime().MarkRetTemp(*this, SRetPtr, RetTy);
+    CGM.getHLSLRuntime().MarkPotentialResourceTemp(*this, SRetPtr, RetTy);
     // HLSL Change end.
     if (IRFunctionArgs.hasSRetArg()) {
       IRCallArgs[IRFunctionArgs.getSRetArgNo()] = SRetPtr;

@@ -334,12 +334,12 @@ static unsigned IsPtrUsedByLoweredFn(
             "otherwise, multiple uses in single call");
       }
 
-    } else if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(user)) {
+    } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(user)) {
       // Not what we are looking for if GEP result is not [array of] struct.
       // If use is under struct member, we can still SROA the outer struct.
       if (!dxilutil::StripArrayTypes(GEP->getType()->getPointerElementType())
             ->isStructTy() ||
-          FindFirstStructMemberIdxInGEP(cast<GEPOperator>(GEP)))
+          FindFirstStructMemberIdxInGEP(GEP))
         continue;
       if (IsPtrUsedByLoweredFn(user, CollectedUses))
         bFound = true;
@@ -350,7 +350,7 @@ static unsigned IsPtrUsedByLoweredFn(
 
     } else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(user)) {
       unsigned opcode = CE->getOpcode();
-      if (opcode == Instruction::AddrSpaceCast || opcode == Instruction::GetElementPtr)
+      if (opcode == Instruction::AddrSpaceCast)
         if (IsPtrUsedByLoweredFn(user, CollectedUses))
           bFound = true;
     }
@@ -3678,27 +3678,43 @@ static bool DominateAllUsers(Instruction *I, Value *V, DominatorTree *DT) {
   }
 }
 
-static bool isReadOnlyPtr(CallInst *PtrCI) {
-  HLSubscriptOpcode opcode =
-      static_cast<HLSubscriptOpcode>(hlsl::GetHLOpcode(PtrCI));
-  if (opcode == HLSubscriptOpcode::CBufferSubscript) {
-    // Ptr from CBuffer is readonly.
-    return true;
-  } else if (opcode == HLSubscriptOpcode::DefaultSubscript) {
-    Value *ptr = PtrCI->getArgOperand(HLOperandIndex::kSubscriptObjectOpIdx);
-    // Resource ptr.
-    if (CallInst *handleCI = dyn_cast<CallInst>(ptr)) {
-      hlsl::HLOpcodeGroup group =
-          hlsl::GetHLOpcodeGroup(handleCI->getCalledFunction());
-      if (group == HLOpcodeGroup::HLAnnotateHandle) {
-        Constant *Props = cast<Constant>(handleCI->getArgOperand(
-                             HLOperandIndex::kAnnotateHandleResourcePropertiesOpIdx));
-        DxilResourceProperties RP = resource_helper::loadPropsFromConstant(*Props);
-        if (RP.getResourceClass() == DXIL::ResourceClass::SRV) {
-          // Ptr from SRV is readonly.
-          return true;
-        }
-      }
+// Return resource properties if handle value is HLAnnotateHandle
+static DxilResourceProperties GetResPropsFromHLAnnotateHandle(Value *handle) {
+  if (CallInst *handleCI = dyn_cast<CallInst>(handle)) {
+    hlsl::HLOpcodeGroup group =
+        hlsl::GetHLOpcodeGroup(handleCI->getCalledFunction());
+    if (group == HLOpcodeGroup::HLAnnotateHandle) {
+      Constant *Props = cast<Constant>(handleCI->getArgOperand(
+                            HLOperandIndex::kAnnotateHandleResourcePropertiesOpIdx));
+      return resource_helper::loadPropsFromConstant(*Props);
+    }
+  }
+  return {};
+}
+
+static bool isReadOnlyResSubscriptOrLoad(CallInst *PtrCI) {
+  hlsl::HLOpcodeGroup group =
+      hlsl::GetHLOpcodeGroup(PtrCI->getCalledFunction());
+  if (group == HLOpcodeGroup::HLSubscript) {
+    HLSubscriptOpcode opcode =
+        static_cast<HLSubscriptOpcode>(hlsl::GetHLOpcode(PtrCI));
+    if (opcode == HLSubscriptOpcode::CBufferSubscript) {
+      // Ptr from CBuffer is readonly.
+      return true;
+    } else if (opcode == HLSubscriptOpcode::DefaultSubscript) {
+      DxilResourceProperties RP = GetResPropsFromHLAnnotateHandle(
+          PtrCI->getArgOperand(HLOperandIndex::kSubscriptObjectOpIdx));
+      if (RP.getResourceClass() == DXIL::ResourceClass::SRV)
+        return true;
+    }
+  } else if (group == HLOpcodeGroup::HLIntrinsic) {
+    IntrinsicOp hlOpcode = (IntrinsicOp)GetHLOpcode(PtrCI);
+    if (hlOpcode == IntrinsicOp::MOP_Load) {
+      // This is templated BAB.Load<UDT>() case.
+      DxilResourceProperties RP = GetResPropsFromHLAnnotateHandle(
+        PtrCI->getArgOperand(HLOperandIndex::kHandleOpIdx));
+      if (RP.getResourceClass() == DXIL::ResourceClass::SRV)
+        return true;
     }
   }
   return false;
@@ -3765,16 +3781,12 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
             Ptr = NestedGEP->getPointerOperand();
 
           if (CallInst *PtrCI = dyn_cast<CallInst>(Ptr)) {
-            hlsl::HLOpcodeGroup group =
-                hlsl::GetHLOpcodeGroup(PtrCI->getCalledFunction());
-            if (group == HLOpcodeGroup::HLSubscript) {
-              if (isReadOnlyPtr(PtrCI)) {
-                // Ptr from CBuffer/SRV is safe.
-                if (ReplaceMemcpy(V, Src, MC, annotation, typeSys, DL, DT)) {
-                  if (V->user_empty())
-                    return true;
-                  return LowerMemcpy(V, annotation, typeSys, DL, DT, bAllowReplace);
-                }
+            if (isReadOnlyResSubscriptOrLoad(PtrCI)) {
+              // Ptr from CBuffer/SRV is safe.
+              if (ReplaceMemcpy(V, Src, MC, annotation, typeSys, DL, DT)) {
+                if (V->user_empty())
+                  return true;
+                return LowerMemcpy(V, annotation, typeSys, DL, DT, bAllowReplace);
               }
             }
           }
@@ -5775,8 +5787,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
   if (m_pHLModule->HasDxilFunctionProps(F)) {
     DxilFunctionProps &funcProps = m_pHLModule->GetDxilFunctionProps(F);
     std::unique_ptr<DxilFunctionProps> flatFuncProps = llvm::make_unique<DxilFunctionProps>();
-    flatFuncProps->shaderKind = funcProps.shaderKind;
-    flatFuncProps->ShaderProps = funcProps.ShaderProps;
+    *flatFuncProps = funcProps;
     m_pHLModule->AddDxilFunctionProps(flatF, flatFuncProps);
     if (funcProps.shaderKind == ShaderModel::Kind::Vertex) {
       auto &VS = funcProps.ShaderProps.VS;
@@ -6088,7 +6099,7 @@ void PatchDebugInfo(DebugInfoFinder &DbgFinder, Function *F, GlobalVariable *GV,
   DITypeIdentifierMap EmptyMap;
   DIBuilder DIB(*GV->getParent());
   DIScope *Scope = Subprogram;
-  DebugLoc Loc = DebugLoc::get(0, 0, Scope);
+  DebugLoc Loc = DebugLoc::get(DGV->getLine(), 0, Scope);
 
   // If the variable is a member of another variable, find the offset and size
   bool IsFragment = false;

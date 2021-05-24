@@ -748,6 +748,12 @@ if (NOT LLVM_INSTALL_TOOLCHAIN_ONLY)
   endif()
 endif()
 
+# Disable regeneration target for official builds as they always fun a full clean build.
+# This should eliminate the race-condition issue with "Cannot restore timestamp".
+if (HLSL_OFFICIAL_BUILD)
+  set(CMAKE_SUPPRESS_REGENERATION ON)
+endif (HLSL_OFFICIAL_BUILD)
+
 if (NOT "${DXC_CMAKE_ENDS_INCLUDE}" STREQUAL "")
   include(${DXC_CMAKE_ENDS_INCLUDE})
 endif()

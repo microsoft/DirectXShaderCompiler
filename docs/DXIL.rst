@@ -2318,8 +2318,6 @@ ID  Name                                                  Description
 219 Unpack4x8                                             unpacks 4 8-bit signed or unsigned values into int32 or int16 vector
 220 Pack4x8                                               packs vector of 4 signed or unsigned values into a packed datatype, drops or clamps unused bits
 221 IsHelperLane                                          returns true on helper lanes in pixel shaders
-222 TextureGatherImm                                      same as TextureGather, except offsets are limited to immediate values between -8 and 7
-223 TextureGatherCmpImm                                   same as TextureGatherCmp, except offsets are limited to immediate values between -8 and 7
 === ===================================================== =======================================================================================================================================================================================================================
 
 

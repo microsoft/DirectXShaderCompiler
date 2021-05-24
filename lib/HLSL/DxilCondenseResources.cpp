@@ -2196,9 +2196,13 @@ void PatchTBufferLoad(CallInst *handle, DxilModule &DM,
 
   // Replace corresponding cbuffer loads with typed buffer loads
   for (auto U = handle->user_begin(); U != handle->user_end();) {
-    CallInst *I = cast<CallInst>(*(U++));
-    DXASSERT(I && OP::IsDxilOpFuncCallInst(I),
+    User *user = *(U++);
+    CallInst *I = dyn_cast<CallInst>(user);
+    // Could also be store for out arg in lib.
+    DXASSERT(isa<StoreInst>(user) || (I && OP::IsDxilOpFuncCallInst(I)),
              "otherwise unexpected user of CreateHandle value");
+    if (!I)
+      continue;
     DXIL::OpCode opcode = OP::GetDxilOpFuncCallInst(I);
     if (opcode == DXIL::OpCode::CBufferLoadLegacy) {
       DxilInst_CBufferLoadLegacy cbLoad(I);
@@ -2288,6 +2292,9 @@ void PatchTBufferLoad(CallInst *handle, DxilModule &DM,
       PatchTBufferLoad(cast<CallInst>(I), DM,
                        patchedSet);
       continue;
+    } else if (opcode == DXIL::OpCode::BufferLoad) {
+      // Already translated, skip.
+      continue;
     } else {
       DXASSERT(false, "otherwise unexpected user of CreateHandle value");
     }
@@ -2345,8 +2352,31 @@ bool DxilLowerCreateHandleForLib::PatchDynamicTBuffers(DxilModule &DM) {
 bool DxilLowerCreateHandleForLib::PatchTBuffers(DxilModule &DM) {
   bool bChanged = false;
   // move tbuffer resources to SRVs
-  unsigned offset = DM.GetSRVs().size();
   Module &M = *DM.GetModule();
+  const ShaderModel &SM = *DM.GetShaderModel();
+  DenseSet<Value*> patchedSet;
+
+  // First, patch users of AnnotateHandle calls if we have them.
+  // This will pick up uses in lib_6_x functions that otherwise
+  // would be missed.
+  if (SM.IsSM66Plus()) {
+    for (auto it : DM.GetOP()->GetOpFuncList(DXIL::OpCode::AnnotateHandle)) {
+      Function *F = it.second;
+      for (auto U = F->user_begin(); U != F->user_end(); ) {
+        User *user = *(U++);
+        if (CallInst *CI = dyn_cast<CallInst>(user)) {
+          DxilInst_AnnotateHandle AH(CI);
+          if (AH) {
+            DxilResourceProperties RP = resource_helper::loadPropsFromAnnotateHandle(AH, SM);
+            if (RP.getResourceKind() == DXIL::ResourceKind::TBuffer)
+              PatchTBufferLoad(CI, DM, patchedSet);
+          }
+        }
+      }
+    }
+  }
+
+  unsigned offset = DM.GetSRVs().size();
   for (auto it = DM.GetCBuffers().begin(); it != DM.GetCBuffers().end(); it++) {
     DxilCBuffer *CB = it->get();
     if (CB->GetKind() == DXIL::ResourceKind::TBuffer) {
@@ -2357,7 +2387,6 @@ bool DxilLowerCreateHandleForLib::PatchTBuffers(DxilModule &DM) {
       GlobalVariable *GV = dyn_cast<GlobalVariable>(CB->GetGlobalSymbol());
       if (GV == nullptr)
         continue;
-      DenseSet<Value*> patchedSet;
       PatchTBufferUse(GV, DM, patchedSet);
       // Set global symbol for cbuffer to an unused value so it can be removed
       // in RemoveUnusedResourceSymbols.
@@ -2628,9 +2657,6 @@ INITIALIZE_PASS_END(DxilLowerCreateHandleForLib, "hlsl-dxil-lower-handle-for-lib
 
 
 class DxilAllocateResourcesForLib : public ModulePass {
-private:
-  RemapEntryCollection m_rewrites;
-
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilAllocateResourcesForLib() : ModulePass(ID), m_AutoBindingSpace(UINT_MAX) {}
@@ -2638,7 +2664,7 @@ public:
   void applyOptions(PassOptions O) override {
     GetPassOptionUInt32(O, "auto-binding-space", &m_AutoBindingSpace, UINT_MAX);
   }
-  const char *getPassName() const override { return "DXIL Condense Resources"; }
+  const char *getPassName() const override { return "DXIL Allocate Resources For Library"; }
 
   bool runOnModule(Module &M) override {
     DxilModule &DM = M.GetOrCreateDxilModule();
@@ -2670,3 +2696,58 @@ ModulePass *llvm::createDxilAllocateResourcesForLibPass() {
 }
 
 INITIALIZE_PASS(DxilAllocateResourcesForLib, "hlsl-dxil-allocate-resources-for-lib", "DXIL Allocate Resources For Library", false, false)
+
+
+class DxilCleanupAnnotateHandle : public ModulePass {
+public:
+  static char ID; // Pass identification, replacement for typeid
+  explicit DxilCleanupAnnotateHandle() : ModulePass(ID) {}
+
+  const char *getPassName() const override { return "DXIL Cleanup extra annotate handle calls"; }
+
+  bool runOnModule(Module &M) override {
+    DxilModule &DM = M.GetOrCreateDxilModule();
+
+    // Nothing to do if Dxil ver < 1.6
+    unsigned dxilMajor, dxilMinor;
+    DM.GetShaderModel()->GetDxilVersion(dxilMajor, dxilMinor);
+    if (DXIL::CompareVersions(dxilMajor, dxilMinor, 1, 6) < 0)
+      return false;
+
+    bool bChanged = false;
+
+    // Iterate AnnotateHandle calls and eliminate redundant annotate handle call chains.
+    hlsl::OP *op = DM.GetOP();
+    for (auto it : op->GetOpFuncList(OP::OpCode::AnnotateHandle)) {
+      Function *F = it.second;
+      for (auto U = F->user_begin(); U != F->user_end(); ) {
+        CallInst *CI = dyn_cast<CallInst>(*(U++));
+        if (CI) {
+          DxilInst_AnnotateHandle AH(CI);
+          if (AH) {
+            CallInst *Res = dyn_cast<CallInst>(AH.get_res());
+            DxilInst_AnnotateHandle PrevAH(Res);
+            if (PrevAH) {
+              DXASSERT(AH.get_props() == PrevAH.get_props(), "otherwise, AnnotateHandle chain with inconsistent props");
+              CI->replaceAllUsesWith(Res);
+              CI->eraseFromParent();
+              bChanged = true;
+            }
+          }
+        }
+      }
+    }
+
+    return bChanged;
+  }
+
+private:
+};
+
+char DxilCleanupAnnotateHandle::ID = 0;
+
+ModulePass *llvm::createDxilCleanupAnnotateHandlePass() {
+  return new DxilCleanupAnnotateHandle();
+}
+
+INITIALIZE_PASS(DxilCleanupAnnotateHandle, "hlsl-dxil-cleanup-annotate-handle", "DXIL Cleanup extra annotate handle calls", false, false)

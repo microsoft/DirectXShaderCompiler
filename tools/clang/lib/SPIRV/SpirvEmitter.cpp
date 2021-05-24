@@ -2193,6 +2193,36 @@ SpirvInstruction *SpirvEmitter::doCallExpr(const CallExpr *callExpr) {
   return processCall(callExpr);
 }
 
+SpirvInstruction *SpirvEmitter::getBaseOfMemberFunction(QualType objectType,
+                                             SpirvInstruction * objInstr,
+                                             const CXXMethodDecl* memberFn,
+                                       SourceLocation loc) {
+  // If objectType is different from the parent of memberFn, memberFn should be
+  // defined in a base struct/class of objectType. We create OpAccessChain with
+  // index 0 while iterating bases of objectType until we find the base with
+  // the definition of memberFn.
+  if (const auto *ptrType = objectType->getAs<PointerType>()) {
+    if (const auto *recordType = ptrType->getPointeeType()->getAs<RecordType>()) {
+      const auto *parentDeclOfMemberFn = memberFn->getParent();
+      if (recordType->getDecl() != parentDeclOfMemberFn) {
+        const auto *cxxRecordDecl = dyn_cast<CXXRecordDecl>(recordType->getDecl());
+        auto *zero =
+            spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
+        for (auto baseItr = cxxRecordDecl->bases_begin(), itrEnd = cxxRecordDecl->bases_end();
+             baseItr != itrEnd; baseItr++) {
+          const auto *baseType = baseItr->getType()->getAs<RecordType>();
+          objectType = astContext.getPointerType(baseType->desugar());
+          objInstr = spvBuilder.createAccessChain(objectType,
+                                                  objInstr, {zero},
+                                                  loc);
+          if (baseType->getDecl() == parentDeclOfMemberFn) return objInstr;
+        }
+      }
+    }
+  }
+  return nullptr;
+}
+
 SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
   const FunctionDecl *callee = getCalleeDefinition(callExpr);
 
@@ -2243,6 +2273,10 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
 
       objectType = object->getType();
       objInstr = doExpr(object);
+      if (auto *accessToBaseInstr = getBaseOfMemberFunction(objectType, objInstr, memberFn, memberCall->getExprLoc())) {
+        objInstr = accessToBaseInstr;
+        objectType = accessToBaseInstr->getAstResultType();
+      }
 
       // If not already a variable, we need to create a temporary variable and
       // pass the object pointer to the function. Example:
@@ -2292,6 +2326,10 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
 
     auto *argInst = doExpr(arg);
 
+    bool isArgGlobalVarWithResourceType =
+        argInfo && argInfo->getStorageClass() != spv::StorageClass::Function &&
+        isResourceType(paramType);
+
     // If argInfo is nullptr and argInst is a rvalue, we do not have a proper
     // pointer to pass to the function. we need a temporary variable in that
     // case.
@@ -2301,7 +2339,7 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
     // expects are point-to-pointer argument for resources, which will be
     // resolved by legalization.
     if ((argInfo || (argInst && !argInst->isRValue())) &&
-        canActAsOutParmVar(param) && !isResourceType(paramType) &&
+        canActAsOutParmVar(param) && !isArgGlobalVarWithResourceType &&
         paramTypeMatchesArgType(paramType, arg->getType())) {
       // Based on SPIR-V spec, function parameter must be always Function
       // scope. In addition, we must pass memory object declaration argument
@@ -2727,7 +2765,7 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr) {
     }
 
     if (!subExprInstr)
-      subExprInstr = doExpr(subExpr);
+      subExprInstr = loadIfGLValue(subExpr);
 
     auto *val = processFlatConversion(toType, evalType, subExprInstr,
                                       expr->getExprLoc());
@@ -4398,13 +4436,6 @@ SpirvInstruction *SpirvEmitter::createImageSample(
     SpirvInstruction *minLod, SpirvInstruction *residencyCodeId,
     SourceLocation loc) {
 
-  if (varOffset) {
-    emitError("Use constant value for offset (SPIR-V spec does not accept a "
-              "variable offset for OpImage* instructions other than "
-              "OpImage*Gather)", loc);
-    return nullptr;
-  }
-
   // SampleDref* instructions in SPIR-V always return a scalar.
   // They also have the correct type in HLSL.
   if (compareVal) {
@@ -4835,14 +4866,6 @@ SpirvEmitter::processBufferTextureLoad(const CXXMemberCallExpr *expr) {
       // second parameter (index 1).
       if (hasOffsetArg)
         handleOffsetInMethodCall(expr, 1, &constOffset, &varOffset);
-    }
-
-    if (hasOffsetArg && varOffset) {
-      emitError("Use constant value for offset (SPIR-V spec does not accept a "
-                "variable offset for OpImage* instructions other than "
-                "OpImage*Gather)",
-                expr->getArg(textureMS ? 2 : 1)->getExprLoc());
-      return nullptr;
     }
 
     return processBufferTextureLoad(object, coordinate, constOffset, varOffset,
@@ -9442,7 +9465,7 @@ SpirvEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
   switch (numArgs) {
   case 1: {
     // Handling Method 1, 2, and 3.
-    auto *argInstr = doExpr(arg0);
+    auto *argInstr = loadIfGLValue(arg0);
     QualType fromElemType = {};
     uint32_t numRows = 0, numCols = 0;
     // For non-matrix arguments (scalar or vector), just do an OpBitCast.

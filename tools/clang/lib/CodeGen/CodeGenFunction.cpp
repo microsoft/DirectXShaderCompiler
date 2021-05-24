@@ -866,12 +866,6 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
   FunctionArgList Args;
   QualType ResTy = FD->getReturnType();
 
-  // HLSL Change Start - emit root signature associated with function
-  if (HLSLRootSignatureAttr *RSA = FD->getAttr<HLSLRootSignatureAttr>()) {
-    CGM.getHLSLRuntime().EmitHLSLRootSignature(*this, RSA, Fn);
-  }
-  // HLSL Change Ends - emit root signature associated with function
-
   CurGD = GD;
   const CXXMethodDecl *MD = dyn_cast<CXXMethodDecl>(FD);
   if (MD && MD->isInstance()) {

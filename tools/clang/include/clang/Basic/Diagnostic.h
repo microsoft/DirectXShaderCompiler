@@ -1154,8 +1154,11 @@ inline DiagnosticBuilder DiagnosticsEngine::ReportOnce(unsigned DiagID) {
 inline DiagnosticBuilder DiagnosticsEngine::ReportOnce(SourceLocation Loc,
                                                        unsigned DiagID) {
   if (std::find(DiagOnceDiagnostics.begin(), DiagOnceDiagnostics.end(),
-                DiagID) != DiagOnceDiagnostics.end())
-    return DiagnosticBuilder(this);
+                DiagID) != DiagOnceDiagnostics.end()) {
+    auto DisabledDiag =  DiagnosticBuilder(this);
+    DisabledDiag.IsActive = false;
+    return DisabledDiag;
+  }
 
   DiagOnceDiagnostics.push_back(DiagID);
   return Report(Loc, DiagID);
