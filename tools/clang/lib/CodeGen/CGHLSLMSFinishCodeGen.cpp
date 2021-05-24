@@ -2086,7 +2086,7 @@ struct CleanupIfUnused {
       I = cast<_InstructionT>(V);
   }
   ~CleanupIfUnused() {
-    if (I->user_empty())
+    if (I && I->user_empty())
       I->eraseFromParent();
     I = nullptr;
   }
