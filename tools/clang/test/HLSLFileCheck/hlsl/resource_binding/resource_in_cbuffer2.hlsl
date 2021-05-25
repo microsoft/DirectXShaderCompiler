@@ -2,17 +2,17 @@
 
 // Make sure structures with resources have resource fields removed.
 // CHECK: cbuffer $Globals
-// CHECK:   struct dx.alignment.legacy.$Globals
+// CHECK:   struct hostlayout.$Globals
 // CHECK:       float h;                                      ; Offset:    0
-// CHECK:       struct dx.alignment.legacy.struct.LegacyTex
+// CHECK:       struct hostlayout.struct.LegacyTex
 // CHECK:           float f;                                  ; Offset:   16
 // CHECK:       } tx1;                                        ; Offset:   16
 // CHECK:       float i;                                      ; Offset:   20
 // CHECK:   } $Globals;                                       ; Offset:    0 Size:    24
 // CHECK: cbuffer CB0
-// CHECK:   struct dx.alignment.legacy.CB0
+// CHECK:   struct hostlayout.CB0
 // CHECK:       float f;                                      ; Offset:    0
-// CHECK:       struct dx.alignment.legacy.struct.LegacyTex
+// CHECK:       struct hostlayout.struct.LegacyTex
 // CHECK:           float f;                                  ; Offset:   16
 // CHECK:       } tx0;                                        ; Offset:   16
 // CHECK:       float g;                                      ; Offset:   20

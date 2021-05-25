@@ -3,17 +3,17 @@
 // Make sure structures with only resources have resource fields removed,
 // are considered empty, take no space in CBuffer, and do not force alignment.
 // CHECK: cbuffer $Globals
-// CHECK:   struct dx.alignment.legacy.$Globals
+// CHECK:   struct hostlayout.$Globals
 // CHECK:       float h;                                      ; Offset:    0
-// CHECK:       struct dx.alignment.legacy.struct.LegacyTex
+// CHECK:       struct hostlayout.struct.LegacyTex
 // CHECK:           /* empty struct */
 // CHECK:       } tx1;                                        ; Offset:    4
 // CHECK:       float i;                                      ; Offset:    4
 // CHECK:   } $Globals;                                       ; Offset:    0 Size:     8
 // CHECK: cbuffer CB0
-// CHECK:   struct dx.alignment.legacy.CB0
+// CHECK:   struct hostlayout.CB0
 // CHECK:       float f;                                      ; Offset:    0
-// CHECK:       struct dx.alignment.legacy.struct.LegacyTex
+// CHECK:       struct hostlayout.struct.LegacyTex
 // CHECK:           /* empty struct */
 // CHECK:       } tx0;                                        ; Offset:    4
 // CHECK:       float g;                                      ; Offset:    4
