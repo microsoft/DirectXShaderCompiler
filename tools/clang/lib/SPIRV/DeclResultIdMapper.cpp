@@ -1497,10 +1497,10 @@ DeclResultIdMapper::collectStageVars(SpirvFunction *entryPoint) const {
 
   llvm::DenseSet<SpirvInstruction *> seenVars;
   for (const auto &var : stageVars) {
-    // We must collect stage variables that are included in entryPoint and that
-    // are not included in any specific entryPoint i.e., var.getEntryPoint() is
-    // nullptr, because the stage variables without any specific entry point is
-    // common among all entry points.
+    // We must collect stage variables that are included in entryPoint and stage
+    // variables that are not included in any specific entryPoint i.e.,
+    // var.getEntryPoint() is nullptr. Note that stage variables without any
+    // specific entry point are common stage variables among all entry points.
     if (var.getEntryPoint() && var.getEntryPoint() != entryPoint)
       continue;
     auto *instr = var.getSpirvInstr();
@@ -1638,6 +1638,7 @@ private:
 } // namespace
 
 bool DeclResultIdMapper::checkSemanticDuplication(bool forInput) {
+  // Mapping from entry points to the corresponding set of semantics.
   llvm::SmallDenseMap<SpirvFunction *, llvm::StringSet<>>
       seenSemanticsForEntryPoints;
   bool success = true;
@@ -1659,15 +1660,19 @@ bool DeclResultIdMapper::checkSemanticDuplication(bool forInput) {
       continue;
 
     if (forInput && var.getSigPoint()->IsInput()) {
-      success = insertSeenSemanticsForEntryPointIfNotExist(
+      bool insertionSuccess = insertSeenSemanticsForEntryPointIfNotExist(
           &seenSemanticsForEntryPoints, var.getEntryPoint(), s);
-      if (!success)
+      if (!insertionSuccess) {
         emitError("input semantic '%0' used more than once", {}) << s;
+        success = false;
+      }
     } else if (!forInput && var.getSigPoint()->IsOutput()) {
-      success = insertSeenSemanticsForEntryPointIfNotExist(
+      bool insertionSuccess = insertSeenSemanticsForEntryPointIfNotExist(
           &seenSemanticsForEntryPoints, var.getEntryPoint(), s);
-      if (!success)
+      if (!insertionSuccess) {
         emitError("output semantic '%0' used more than once", {}) << s;
+        success = false;
+      }
     }
   }
 

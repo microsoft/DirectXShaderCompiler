@@ -28,6 +28,11 @@ struct PsIn {
 // CHECK-DAG: %in_var_FOO
 // CHECK-DAG: %in_var_BAR
 // CHECK-DAG: %out_var_SV_Target
+// CHECK-DAG: %bab
+// CHECK-DAG: %rwbab
+// CHECK-DAG: %tb
+// CHECK-DAG: %sb
+// CHECK-DAG: %rwsb
 
 // CHECK: OpEntryPoint Fragment %entry_with_same_interfaces "entry_with_same_interfaces"
 // CHECK-DAG: %gl_ClipDistance
@@ -36,6 +41,11 @@ struct PsIn {
 // CHECK-DAG: %in_var_FOO_0
 // CHECK-DAG: %in_var_BAR_0
 // CHECK-DAG: %out_var_SV_Target_0
+// CHECK-DAG: %bab
+// CHECK-DAG: %rwbab
+// CHECK-DAG: %tb
+// CHECK-DAG: %sb
+// CHECK-DAG: %rwsb
 
 // CHECK: OpEntryPoint Fragment %entry_with_slightly_different_interfaces "entry_with_slightly_different_interfaces"
 // CHECK-DAG: %gl_ClipDistance
@@ -43,6 +53,11 @@ struct PsIn {
 // CHECK-DAG: %gl_FragCoord
 // CHECK-DAG: %in_var_ZOO
 // CHECK-DAG: %out_var_SV_TARGET0
+// CHECK-DAG: %bab
+// CHECK-DAG: %rwbab
+// CHECK-DAG: %tb
+// CHECK-DAG: %sb
+// CHECK-DAG: %rwsb
 
 // CHECK: OpEntryPoint Fragment %entry_with_completely_different_interfaces "entry_with_completely_different_interfaces"
 // CHECK-DAG: %gl_ClipDistance
@@ -52,6 +67,11 @@ struct PsIn {
 // CHECK-DAG: %in_var_Y
 // CHECK-DAG: %in_var_Z
 // CHECK-DAG: %out_var_SV_TARGET1
+// CHECK-DAG: %bab
+// CHECK-DAG: %rwbab
+// CHECK-DAG: %tb
+// CHECK-DAG: %sb
+// CHECK-DAG: %rwsb
 
 [shader("pixel")]
 float4 entry(
