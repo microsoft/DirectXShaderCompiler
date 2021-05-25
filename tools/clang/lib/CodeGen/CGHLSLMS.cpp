@@ -206,10 +206,9 @@ private:
   unsigned ConstructStructAnnotation(DxilStructAnnotation *annotation,
                                      DxilPayloadAnnotation *payloadAnnotation,
                                      const RecordDecl *RD,
-                                     DxilTypeSystem &dxilTypeSys,
-                                     bool &containsResources);
+                                     DxilTypeSystem &dxilTypeSys);
   unsigned AddTypeAnnotation(QualType Ty, DxilTypeSystem &dxilTypeSys,
-                             unsigned &arrayEltSize, bool &containsResources);
+                             unsigned &arrayEltSize);
   MDNode *GetOrAddResTypeMD(QualType resTy, bool bCreate);
   DxilResourceProperties BuildResourceProperty(QualType resTy);
   void ConstructFieldAttributedAnnotation(DxilFieldAnnotation &fieldAnnotation,
@@ -791,8 +790,7 @@ DxilResourceProperties CGMSHLSLRuntime::BuildResourceProperty(QualType resTy) {
     DxilTypeSystem &typeSys = m_pHLModule->GetTypeSystem();
     unsigned arrayEltSize = 0;
     QualType ResultTy = hlsl::GetHLSLResourceResultType(resTy);
-    bool containsResources = false;
-    unsigned Size = AddTypeAnnotation(ResultTy, typeSys, arrayEltSize, containsResources);
+    unsigned Size = AddTypeAnnotation(ResultTy, typeSys, arrayEltSize);
     CB.SetSize(Size);
     RP = resource_helper::loadPropsFromResourceBase(&CB);
   } break;
@@ -928,10 +926,9 @@ static unsigned AlignBaseOffset(QualType Ty, unsigned baseOffset,
 unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annotation,
                                       DxilPayloadAnnotation* payloadAnnotation,
                                       const RecordDecl *RD,
-                                      DxilTypeSystem &dxilTypeSys,
-                                      bool &containsResources) {
+                                      DxilTypeSystem &dxilTypeSys) {
   unsigned fieldIdx = 0;
-  unsigned offset = 0;
+  unsigned CBufferOffset = 0;
   bool bDefaultRowMajor = m_pHLModule->GetHLOptions().bDefaultRowMajor;
   if (const CXXRecordDecl *CXXRD = dyn_cast<CXXRecordDecl>(RD)) {
 
@@ -964,31 +961,35 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
 
         QualType parentTy = QualType(BaseDecl->getTypeForDecl(), 0);
 
-        unsigned arrayEltSize = 0;
         // Process field to make sure the size of field is ready.
-        unsigned size =
-            AddTypeAnnotation(parentTy, dxilTypeSys, arrayEltSize, containsResources);
+        unsigned arrayEltSize = 0;
+        unsigned size = AddTypeAnnotation(parentTy, dxilTypeSys, arrayEltSize);
 
         // Align offset.
         if (size)
-          offset = AlignBaseOffset(parentTy, offset, bDefaultRowMajor, CGM,
+          CBufferOffset = AlignBaseOffset(parentTy, CBufferOffset, bDefaultRowMajor, CGM,
                                    dataLayout);
 
-        unsigned CBufferOffset = offset;
+        llvm::StructType *baseType =
+            cast<llvm::StructType>(CGM.getTypes().ConvertType(parentTy));
+        DxilStructAnnotation *baseAnnotation =
+            dxilTypeSys.GetStructAnnotation(baseType);
 
-        // Update offset.
-        offset += size;
-
-        if (size > 0 || containsResources) {
+        if (size || baseAnnotation && !baseAnnotation->IsEmptyStruct()) {
           DxilFieldAnnotation &fieldAnnotation =
               annotation->GetFieldAnnotation(fieldIdx++);
 
           fieldAnnotation.SetCBufferOffset(CBufferOffset);
           fieldAnnotation.SetFieldName(BaseDecl->getNameAsString());
         }
+
+        // Update offset.
+        CBufferOffset += size;
       }
     }
   }
+
+  unsigned CBufferSize = CBufferOffset;
 
   for (auto fieldDecl : RD->fields()) {
     std::string fieldSemName = "";
@@ -996,15 +997,11 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
     QualType fieldTy = fieldDecl->getType();
     DXASSERT(!fieldDecl->isBitField(), "We should have already ensured we have no bitfields.");
     
-    if (IsHLSLResourceType(fieldTy))
-      containsResources = true;
-
-    unsigned CBufferOffset = 0;
-
     DxilFieldAnnotation &fieldAnnotation = annotation->GetFieldAnnotation(fieldIdx++);
     ConstructFieldAttributedAnnotation(fieldAnnotation, fieldTy, bDefaultRowMajor);
 
     // Try to get info from fieldDecl.
+    const hlsl::ConstantPacking *packOffset = nullptr;
     for (const hlsl::UnusualAnnotation *it :
          fieldDecl->getUnusualAnnotations()) {
       switch (it->getKind()) {
@@ -1013,12 +1010,11 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
         fieldSemName = sd->SemanticName;
       } break;
       case hlsl::UnusualAnnotation::UA_ConstantPacking: {
-        const hlsl::ConstantPacking *cp = cast<hlsl::ConstantPacking>(it);
-        CBufferOffset = cp->Subcomponent << 2;
-        CBufferOffset += cp->ComponentOffset;
+        packOffset = cast<hlsl::ConstantPacking>(it);
+        CBufferOffset = packOffset->Subcomponent << 2;
+        CBufferOffset += packOffset->ComponentOffset;
         // Change to byte.
         CBufferOffset <<= 2;
-        offset = CBufferOffset;
       } break;
       case hlsl::UnusualAnnotation::UA_RegisterAssignment: {
         // register assignment only works on global constant.
@@ -1050,19 +1046,25 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
       }
     }
 
-    unsigned arrayEltSize = 0;
     // Process field to make sure the size of field is ready.
-    unsigned size = AddTypeAnnotation(fieldDecl->getType(), dxilTypeSys, arrayEltSize, containsResources);
+    unsigned arrayEltSize = 0;
+    unsigned size = AddTypeAnnotation(fieldDecl->getType(), dxilTypeSys, arrayEltSize);
 
     // Align offset.
-    if (size)
-      offset = AlignBaseOffset(fieldTy, offset, bDefaultRowMajor, CGM, dataLayout);
+    if (size) {
+      unsigned offset = AlignBaseOffset(fieldTy, CBufferOffset, bDefaultRowMajor, CGM, dataLayout);
+      if (packOffset && CBufferOffset != offset) {
+        // custom offset has an alignment problem, or this code does
+        DiagnosticsEngine &Diags = CGM.getDiags();
+        unsigned DiagID = Diags.getCustomDiagID(
+            DiagnosticsEngine::Error,
+            "custom offset mis-aligned.");
+        Diags.Report(packOffset->Loc, DiagID);
+        return 0;
+      }
+      CBufferOffset = offset;
+    }
 
-    CBufferOffset = offset;
-
-    // Update offset.
-    offset += size;
-    
     ConstructFieldInterpolation(fieldAnnotation, fieldDecl);
     if (fieldDecl->hasAttr<HLSLPreciseAttr>())
       fieldAnnotation.SetPrecise();
@@ -1075,13 +1077,15 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
       if (m_PreciseOutputSet.count(StringRef(fieldSemName).lower()))
         fieldAnnotation.SetPrecise();
     }
+
+    // Update offset.
+    CBufferSize = std::max(CBufferSize, CBufferOffset + size);
+    CBufferOffset = CBufferSize;
   }
 
-  annotation->SetCBufferSize(offset);
-  if (offset == 0 && !containsResources) {
-    annotation->MarkEmptyStruct();
-  }
-  return offset;
+  annotation->SetCBufferSize(CBufferSize);
+  dxilTypeSys.FinishStructAnnotation(*annotation);
+  return CBufferSize;
 }
 
 static bool IsElementInputOutputType(QualType Ty) {
@@ -1161,8 +1165,10 @@ static bool ValidatePayloadDecl(const RecordDecl *Decl,
 // Return the size for constant buffer of each decl.
 unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
                                             DxilTypeSystem &dxilTypeSys,
-                                            unsigned &arrayEltSize,
-                                            bool &containsResources) {
+                                            unsigned &arrayEltSize) {
+  if (Ty.isNull())
+    return 0;
+
   QualType paramTy = Ty.getCanonicalType();
   if (const ReferenceType *RefType = dyn_cast<ReferenceType>(paramTy))
     paramTy = RefType->getPointeeType();
@@ -1182,18 +1188,17 @@ unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
     return size;
   else if (IsHLSLStreamOutputType(Ty)) {
     return AddTypeAnnotation(GetHLSLOutputPatchElementType(Ty), dxilTypeSys,
-                             arrayEltSize, containsResources);
+                             arrayEltSize);
   } else if (IsHLSLInputPatchType(Ty))
     return AddTypeAnnotation(GetHLSLInputPatchElementType(Ty), dxilTypeSys,
-                             arrayEltSize, containsResources);
+                             arrayEltSize);
   else if (IsHLSLOutputPatchType(Ty))
     return AddTypeAnnotation(GetHLSLOutputPatchElementType(Ty), dxilTypeSys,
-                             arrayEltSize, containsResources);
-  else if (IsHLSLResourceType(Ty)) {
+                             arrayEltSize);
+  else if (!IsHLSLStructuredBufferType(Ty) && IsHLSLResourceType(Ty)) {
     // Save result type info.
-    AddTypeAnnotation(GetHLSLResourceResultType(Ty), dxilTypeSys, arrayEltSize, containsResources);
-    containsResources = true;
-    // Resource don't count for cbuffer size.
+    AddTypeAnnotation(GetHLSLResourceResultType(Ty), dxilTypeSys, arrayEltSize);
+    // Resources don't count towards cbuffer size.
     return 0;
   } else if (const RecordType *RT = paramTy->getAsStructureType()) {
     RecordDecl *RD = RT->getDecl();
@@ -1208,7 +1213,9 @@ unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
     DxilPayloadAnnotation *payloadAnnotation = nullptr;
     if (ValidatePayloadDecl(RT->getDecl(), *m_pHLModule->GetShaderModel(), CGM.getDiags(), CGM.getCodeGenOpts()))
       payloadAnnotation = dxilTypeSys.AddPayloadAnnotation(ST);
-    return ConstructStructAnnotation(annotation, payloadAnnotation, RD, dxilTypeSys, containsResources);
+    unsigned size = ConstructStructAnnotation(annotation, payloadAnnotation, RD, dxilTypeSys);
+    // Resources don't count towards cbuffer size.
+    return IsHLSLResourceType(Ty) ? 0 : size;
   } else if (const RecordType *RT = dyn_cast<RecordType>(paramTy)) {
     // For this pointer.
     RecordDecl *RD = RT->getDecl();
@@ -1223,7 +1230,7 @@ unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
     DxilPayloadAnnotation* payloadAnnotation = nullptr;
     if (ValidatePayloadDecl(RT->getDecl(), *m_pHLModule->GetShaderModel(), CGM.getDiags(), CGM.getCodeGenOpts()))
          payloadAnnotation = dxilTypeSys.AddPayloadAnnotation(ST);
-    return ConstructStructAnnotation(annotation, payloadAnnotation, RD, dxilTypeSys, containsResources);
+    return ConstructStructAnnotation(annotation, payloadAnnotation, RD, dxilTypeSys);
   } else if (IsStringType(Ty)) {
     // string won't be included in cbuffer
     return 0;
@@ -1245,7 +1252,7 @@ unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
       DXASSERT(0, "Must array type here");
     }
 
-    unsigned elementSize = AddTypeAnnotation(arrayElementTy, dxilTypeSys, arrayEltSize, containsResources);
+    unsigned elementSize = AddTypeAnnotation(arrayElementTy, dxilTypeSys, arrayEltSize);
     // Only set arrayEltSize once.
     if (arrayEltSize == 0)
       arrayEltSize = elementSize;
@@ -2315,21 +2322,24 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       return;
 
   // Type annotation for parameters and return type.
-  DxilTypeSystem &dxilTypeSys = m_pHLModule->GetTypeSystem();
-  unsigned arrayEltSize = 0;
-  bool containsResources = false;
-  AddTypeAnnotation(FD->getReturnType(), dxilTypeSys, arrayEltSize, containsResources);
+  {
+    DxilTypeSystem &dxilTypeSys = m_pHLModule->GetTypeSystem();
+    unsigned arrayEltSize = 0;
+    AddTypeAnnotation(FD->getReturnType(), dxilTypeSys, arrayEltSize);
 
-  // Type annotation for this pointer.
-  if (const CXXMethodDecl *MFD = dyn_cast<CXXMethodDecl>(FD)) {
-    const CXXRecordDecl *RD = MFD->getParent();
-    QualType Ty = CGM.getContext().getTypeDeclType(RD);
-    AddTypeAnnotation(Ty, dxilTypeSys, arrayEltSize, containsResources);
-  }
+    // Type annotation for this pointer.
+    if (const CXXMethodDecl *MFD = dyn_cast<CXXMethodDecl>(FD)) {
+      const CXXRecordDecl *RD = MFD->getParent();
+      QualType Ty = CGM.getContext().getTypeDeclType(RD);
+      AddTypeAnnotation(Ty, dxilTypeSys, arrayEltSize);
+    }
 
-  for (const ValueDecl *param : FD->params()) {
-    QualType Ty = param->getType();
-    AddTypeAnnotation(Ty, dxilTypeSys, arrayEltSize, containsResources);
+    for (const ValueDecl *param : FD->params()) {
+      QualType Ty = param->getType();
+      AddTypeAnnotation(Ty, dxilTypeSys, arrayEltSize);
+    }
+
+    dxilTypeSys.FinishFunctionAnnotation(*FuncAnnotation);
   }
 
   // clear isExportedEntry if not exporting entry
@@ -2520,8 +2530,7 @@ void CGMSHLSLRuntime::FinishAutoVar(CodeGenFunction &CGF, const VarDecl &D,
   // Add type annotation for local variable.
   DxilTypeSystem &typeSys = m_pHLModule->GetTypeSystem();
   unsigned arrayEltSize = 0;
-  bool containsResources = false;
-  AddTypeAnnotation(D.getType(), typeSys, arrayEltSize, containsResources);
+  AddTypeAnnotation(D.getType(), typeSys, arrayEltSize);
   // Save object properties for local variables.
   AddValToPropertyMap(V, D.getType());
 }
@@ -2627,8 +2636,7 @@ void CGMSHLSLRuntime::addResource(Decl *D) {
       // Add type annotation for static global variable.
       DxilTypeSystem &typeSys = m_pHLModule->GetTypeSystem();
       unsigned arrayEltSize = 0;
-      bool containsResources = false;
-      AddTypeAnnotation(VD->getType(), typeSys, arrayEltSize, containsResources);
+      AddTypeAnnotation(VD->getType(), typeSys, arrayEltSize);
       return;
     }
 
@@ -2636,8 +2644,7 @@ void CGMSHLSLRuntime::addResource(Decl *D) {
       GlobalVariable *GV = cast<GlobalVariable>(CGM.GetAddrOfGlobalVar(VD));
       DxilTypeSystem &dxilTypeSys = m_pHLModule->GetTypeSystem();
       unsigned arraySize = 0;
-      bool containsResources = false;
-      AddTypeAnnotation(VD->getType(), dxilTypeSys, arraySize, containsResources);
+      AddTypeAnnotation(VD->getType(), dxilTypeSys, arraySize);
       m_pHLModule->AddGroupSharedVariable(GV);
       return;
     }
@@ -3110,8 +3117,7 @@ bool CGMSHLSLRuntime::SetUAVSRV(SourceLocation loc,
   // Type annotation for result type of resource.
   DxilTypeSystem &dxilTypeSys = m_pHLModule->GetTypeSystem();
   unsigned arrayEltSize = 0;
-  bool containsResources = false;
-  AddTypeAnnotation(QualType(RD->getTypeForDecl(),0), dxilTypeSys, arrayEltSize, containsResources);
+  AddTypeAnnotation(QualType(RD->getTypeForDecl(),0), dxilTypeSys, arrayEltSize);
 
   if (kind == hlsl::DxilResource::Kind::Texture2DMS ||
       kind == hlsl::DxilResource::Kind::Texture2DMSArray) {
@@ -3315,8 +3321,7 @@ void CGMSHLSLRuntime::AddConstantToCB(GlobalVariable *CV, StringRef Name,
   DxilTypeSystem &dxilTypeSys = m_pHLModule->GetTypeSystem();
 
   unsigned arrayEltSize = 0;
-  bool containsResources = false;
-  unsigned size = AddTypeAnnotation(Ty, dxilTypeSys, arrayEltSize, containsResources);
+  unsigned size = AddTypeAnnotation(Ty, dxilTypeSys, arrayEltSize);
   pHlslConst->SetRangeSize(size);
 
   CB.AddConst(pHlslConst);
@@ -3331,8 +3336,7 @@ void CGMSHLSLRuntime::AddConstant(VarDecl *constDecl, HLCBuffer &CB) {
     // May need it when cast from cbuf.
     DxilTypeSystem &dxilTypeSys = m_pHLModule->GetTypeSystem();
     unsigned arraySize = 0;
-    bool containsResources = false;
-    AddTypeAnnotation(constDecl->getType(), dxilTypeSys, arraySize, containsResources);
+    AddTypeAnnotation(constDecl->getType(), dxilTypeSys, arraySize);
     return;
   }
 

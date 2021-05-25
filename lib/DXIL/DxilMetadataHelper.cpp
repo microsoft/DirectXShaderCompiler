@@ -842,6 +842,7 @@ void DxilMDHelper::LoadDxilTypeSystemNode(const llvm::MDTuple &MDT,
 
       DxilStructAnnotation *pSA = TypeSystem.AddStructAnnotation(pGVType);
       LoadDxilStructAnnotation(MDT.getOperand(i + 1), *pSA);
+      TypeSystem.FinishStructAnnotation(*pSA);
     }
   } else {
     IFTBOOL((MDT.getNumOperands() & 0x1) == 1, DXC_E_INCORRECT_DXIL_METADATA);
@@ -849,6 +850,7 @@ void DxilMDHelper::LoadDxilTypeSystemNode(const llvm::MDTuple &MDT,
       Function *F = dyn_cast<Function>(ValueMDToValue(MDT.getOperand(i)));
       DxilFunctionAnnotation *pFA = TypeSystem.AddFunctionAnnotation(F);
       LoadDxilFunctionAnnotation(MDT.getOperand(i + 1), *pFA);
+      TypeSystem.FinishFunctionAnnotation(*pFA);
     }
   }
 }
