@@ -1573,6 +1573,22 @@ TEST_F(FileTest, SpirvStageIOAliasBuiltIn) {
   runFileTest("spirv.interface.alias-builtin.hlsl");
 }
 
+TEST_F(FileTest, SpirvInterfacesForMultipleEntryPointsSimple) {
+  runFileTest("spirv.interface.multiple.entries.simple.hlsl");
+}
+TEST_F(FileTest, SpirvInterfacesForMultipleEntryPointsBuiltIn) {
+  runFileTest("spirv.interface.multiple.entries.built-in.hlsl");
+}
+TEST_F(FileTest, SpirvInterfacesForMultipleEntryPointsBuiltInVulkan1p2) {
+  runFileTest("spirv.interface.multiple.entries.built-in.vk.1p2.hlsl");
+}
+TEST_F(FileTest, SpirvInterfacesForMultipleEntryPoints) {
+  runFileTest("spirv.interface.multiple.entries.hlsl");
+}
+TEST_F(FileTest, SpirvInterfacesForMultipleEntryPointsVulkan1p2) {
+  runFileTest("spirv.interface.multiple.entries.vk.1p2.hlsl");
+}
+
 // For testing UserSemantic decoration
 TEST_F(FileTest, SpirvUserSemanticVS) {
   runFileTest("spirv.user-semantic.vs.hlsl");

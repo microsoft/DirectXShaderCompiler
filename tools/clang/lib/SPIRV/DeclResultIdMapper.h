@@ -56,7 +56,7 @@ public:
       : sigPoint(sig), semanticInfo(std::move(semaInfo)), builtinAttr(builtin),
         type(astType), value(nullptr), isBuiltin(false),
         storageClass(spv::StorageClass::Max), location(nullptr),
-        locationCount(locCount) {
+        locationCount(locCount), entryPoint(nullptr) {
     isBuiltin = builtinAttr != nullptr;
   }
 
@@ -85,6 +85,9 @@ public:
 
   uint32_t getLocationCount() const { return locationCount; }
 
+  SpirvFunction *getEntryPoint() const { return entryPoint; }
+  void setEntryPoint(SpirvFunction *entry) { entryPoint = entry; }
+
 private:
   /// HLSL SigPoint. It uniquely identifies each set of parameters that may be
   /// input or output for each entry point.
@@ -107,6 +110,9 @@ private:
   const VKIndexAttr *indexAttr;
   /// How many locations this stage variable takes.
   uint32_t locationCount;
+  /// Entry point for this stage variable. If this stage variable is not
+  /// specific for an entry point e.g., built-in, it must be nullptr.
+  SpirvFunction *entryPoint;
 };
 
 class ResourceVar {
@@ -506,9 +512,10 @@ public:
   /// won't attach Block/BufferBlock decoration.
   const SpirvType *getCTBufferPushConstantType(const DeclContext *decl);
 
-  /// \brief Returns all defined stage (builtin/input/ouput) variables in this
-  /// mapper.
-  std::vector<SpirvVariable *> collectStageVars() const;
+  /// \brief Returns all defined stage (builtin/input/ouput) variables for the
+  /// entry point function entryPoint in this mapper.
+  std::vector<SpirvVariable *>
+  collectStageVars(SpirvFunction *entryPoint) const;
 
   /// \brief Writes out the contents in the function parameter for the GS
   /// stream output to the corresponding stage output variables in a recursive

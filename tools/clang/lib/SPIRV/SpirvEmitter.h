@@ -1012,6 +1012,11 @@ private:
                     SpirvInstruction *minLod, SpirvInstruction *residencyCodeId,
                     SourceLocation loc);
 
+  /// \brief Returns OpVariable to be used as 'Interface' operands of
+  /// OpEntryPoint. entryPoint is the SpirvFunction for the OpEntryPoint.
+  std::vector<SpirvVariable *>
+  getInterfacesForEntryPoint(SpirvFunction *entryPoint);
+
 private:
   /// \brief If the given FunctionDecl is not already in the workQueue, creates
   /// a FunctionInfo object for it, and inserts it into the workQueue. It also
