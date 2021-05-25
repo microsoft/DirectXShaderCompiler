@@ -489,9 +489,22 @@ public:
         if (bRegex) {
           llvm::Regex RE(pLookFor);
           std::string reErrors;
+          if (!RE.isValid(reErrors)) {
+            WEX::Logging::Log::Comment(WEX::Common::String().Format(
+                L"Regex errors:\r\n%.*S\r\nWhile compiling expression '%S'",
+                (unsigned)reErrors.size(), reErrors.data(),
+                pLookFor));
+          }
           VERIFY_IS_TRUE(RE.isValid(reErrors));
           std::string replaced = RE.sub(pReplacement, disassembly, &reErrors);
           if (!bOptional) {
+            if (!reErrors.empty()) {
+              WEX::Logging::Log::Comment(WEX::Common::String().Format(
+                  L"Regex errors:\r\n%.*S\r\nWhile searching for '%S' in text:\r\n%.*S",
+                  (unsigned)reErrors.size(), reErrors.data(),
+                  pLookFor,
+                  (unsigned)disassembly.size(), disassembly.data()));
+            }
             VERIFY_ARE_NOT_EQUAL(disassembly, replaced);
             VERIFY_IS_TRUE(reErrors.empty());
           }
@@ -510,6 +523,12 @@ public:
             pos += replaceLen;
           }
           if (!bOptional) {
+            if (!found) {
+              WEX::Logging::Log::Comment(WEX::Common::String().Format(
+                  L"String not found: '%S' in text:\r\n%.*S",
+                  pLookFor,
+                  (unsigned)disassembly.size(), disassembly.data()));
+            }
             VERIFY_IS_TRUE(found);
           }
         }
