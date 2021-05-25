@@ -558,9 +558,9 @@ public:
 
     if (m_bIsLib) {
       if (DM.GetOP()->UseMinPrecision())
-        UpdateStructTypeForLegacyLayout();
+        bChanged |= UpdateStructTypeForLegacyLayout();
 
-      return true;
+      return bChanged;
     }
 
     bChanged = true;
@@ -590,7 +590,7 @@ private:
   void UpdateResourceSymbols();
   void TranslateDxilResourceUses(DxilResourceBase &res);
   void GenerateDxilResourceHandles();
-  void UpdateStructTypeForLegacyLayout();
+  bool UpdateStructTypeForLegacyLayout();
   // Switch CBuffer for SRV for TBuffers.
   bool PatchDynamicTBuffers(DxilModule &DM);
   bool PatchTBuffers(DxilModule &DM);
@@ -1733,7 +1733,7 @@ StructType *UpdateStructTypeForLegacyLayout(StructType *ST,
   }
 }
 
-void UpdateStructTypeForLegacyLayout(DxilResourceBase &Res,
+bool UpdateStructTypeForLegacyLayout(DxilResourceBase &Res,
                                      DxilTypeSystem &TypeSys, DxilModule &DM) {
   Module &M = *DM.GetModule();
   Constant *Symbol = Res.GetGlobalSymbol();
@@ -1745,7 +1745,7 @@ void UpdateStructTypeForLegacyLayout(DxilResourceBase &Res,
   if (ST->isOpaque()) {
     DXASSERT(Res.GetClass() == DxilResourceBase::Class::CBuffer,
              "Only cbuffer can have opaque struct.");
-    return;
+    return false;
   }
 
   Type *UpdatedST =
@@ -1805,24 +1805,31 @@ void UpdateStructTypeForLegacyLayout(DxilResourceBase &Res,
 
     if (GlobalVariable *GV = dyn_cast<GlobalVariable>(Symbol))
       GV->eraseFromParent();
+
+    return true;
   }
+
+  return false;
 }
 
-void UpdateStructTypeForLegacyLayoutOnDM(DxilModule &DM) {
+bool UpdateStructTypeForLegacyLayoutOnDM(DxilModule &DM) {
   DxilTypeSystem &TypeSys = DM.GetTypeSystem();
+  bool bChanged = false;
   for (auto &CBuf : DM.GetCBuffers()) {
-    UpdateStructTypeForLegacyLayout(*CBuf.get(), TypeSys, DM);
+    bChanged |= UpdateStructTypeForLegacyLayout(*CBuf.get(), TypeSys, DM);
   }
 
   for (auto &UAV : DM.GetUAVs()) {
     if (DXIL::IsStructuredBuffer(UAV->GetKind()))
-      UpdateStructTypeForLegacyLayout(*UAV.get(), TypeSys, DM);
+      bChanged |= UpdateStructTypeForLegacyLayout(*UAV.get(), TypeSys, DM);
   }
 
   for (auto &SRV : DM.GetSRVs()) {
     if (SRV->IsStructuredBuffer() || SRV->IsTBuffer())
-      UpdateStructTypeForLegacyLayout(*SRV.get(), TypeSys, DM);
+      bChanged |= UpdateStructTypeForLegacyLayout(*SRV.get(), TypeSys, DM);
   }
+
+  return bChanged;
 }
 
 } // namespace
@@ -1844,8 +1851,8 @@ void DxilLowerCreateHandleForLib::FailOnPoisonResources() {
   }
 }
 
-void DxilLowerCreateHandleForLib::UpdateStructTypeForLegacyLayout() {
-  UpdateStructTypeForLegacyLayoutOnDM(*m_DM);
+bool DxilLowerCreateHandleForLib::UpdateStructTypeForLegacyLayout() {
+  return UpdateStructTypeForLegacyLayoutOnDM(*m_DM);
 }
 
 // Change ResourceSymbol to undef if don't need.
