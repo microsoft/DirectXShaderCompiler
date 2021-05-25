@@ -81,6 +81,8 @@ const char *kDxBreakFuncName = "dx.break";
 const char *kDxBreakCondName = "dx.break.cond";
 const char *kDxBreakMDName = "dx.break.br";
 const char *kDxIsHelperGlobalName = "dx.ishelper";
+
+const char *kHostLayoutTypePrefix = "hostlayout.";
 }
 
 // Avoid dependency on DxilModule from llvm::Module using this:
