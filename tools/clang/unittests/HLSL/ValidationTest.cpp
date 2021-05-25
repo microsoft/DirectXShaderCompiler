@@ -3842,22 +3842,30 @@ TEST_F(ValidationTest, ValidatePrintfNotAllowed) {
 
 TEST_F(ValidationTest, ValidateVersionNotAllowed) {
   if (m_ver.SkipDxilVersion(1, 6)) return;
-  std::string maxValMinor = std::to_string(m_ver.m_ValMinor);
-  std::string higherValMinor = std::to_string(m_ver.m_ValMinor + 1);
-  std::string maxDxilMinor = std::to_string(m_ver.m_DxilMinor);
-  std::string higherDxilMinor = std::to_string(m_ver.m_DxilMinor + 1);
+  // When validator version is < dxil verrsion, compiler has a newer version
+  // than validator.  We are checking the validator, so only use the validator
+  // version.
+  // This will also assume that the versions are tied together.  This has always
+  // been the case, but it's not assumed that it has to be the case.  If the
+  // versions diverged, it would be impossible to tell what DXIL version a
+  // validator supports just from the version returned in the IDxcVersion
+  // interface, without separate knowledge of the supported dxil version based
+  // on the validator version.  If these versions must diverge in the future, we
+  // could rev the IDxcVersion interface to accomodate.
+  std::string maxMinor = std::to_string(m_ver.m_ValMinor);
+  std::string higherMinor = std::to_string(m_ver.m_ValMinor + 1);
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\basic.hlsl", "ps_6_0",
-    ("= !{i32 1, i32 " + maxValMinor + "}").c_str(),
-    ("= !{i32 1, i32 " + higherValMinor + "}").c_str(),
-    ("error: Validator version in metadata (1." + higherValMinor + ") is not supported; maximum: (1." + maxValMinor + ")").c_str());
+    ("= !{i32 1, i32 " + maxMinor + "}").c_str(),
+    ("= !{i32 1, i32 " + higherMinor + "}").c_str(),
+    ("error: Validator version in metadata (1." + higherMinor + ") is not supported; maximum: (1." + maxMinor + ")").c_str());
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\basic.hlsl", "ps_6_0",
     "= !{i32 1, i32 0}",
     "= !{i32 1, i32 1}",
     "error: Shader model requires Dxil Version 1.0");
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\basic.hlsl", "ps_6_0",
     "= !{i32 1, i32 0}",
-    ("= !{i32 1, i32 " + higherDxilMinor + "}").c_str(),
-    ("error: Dxil version in metadata (1." + higherDxilMinor + ") is not supported; maximum: (1." + maxDxilMinor + ")").c_str());
+    ("= !{i32 1, i32 " + higherMinor + "}").c_str(),
+    ("error: Dxil version in metadata (1." + higherMinor + ") is not supported; maximum: (1." + maxMinor + ")").c_str());
 }
 
 TEST_F(ValidationTest, CreateHandleNotAllowedSM66) {
