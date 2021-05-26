@@ -1043,15 +1043,26 @@ static Value *MergeGEP(GEPOperator *SrcGEP, GEPOperator *GEP) {
 }
 
 void HLModule::MergeGepUse(Value *V) {
-  SmallVector<Value*, 16> worklist(V->user_begin(), V->user_end());
+  SmallVector<Value*, 16> worklist;
+  auto addUsersToWorklist = [&worklist](Value *V) {
+    if (!V->user_empty()) {
+      // Add users in reverse to the worklist, so they are processed in order
+      // This makes it equivalent to recursive traversal
+      size_t start = worklist.size();
+      worklist.append(V->user_begin(), V->user_end());
+      size_t end = worklist.size();
+      std::reverse(worklist.data() + start, worklist.data() + end);
+    }
+  };
+  addUsersToWorklist(V);
   while (worklist.size()) {
-    Value *V = worklist.pop_back_val();
+    V = worklist.pop_back_val();
     if (BitCastOperator *BCO = dyn_cast<BitCastOperator>(V)) {
       if (Value *NewV = dxilutil::TryReplaceBaseCastWithGep(V)) {
         worklist.push_back(NewV);
       } else {
         // merge any GEP users of the untranslated bitcast
-        worklist.append(V->user_begin(), V->user_end());
+        addUsersToWorklist(V);
       }
     } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(V)) {
       if (GEPOperator *prevGEP = dyn_cast<GEPOperator>(GEP->getPointerOperand())) {
@@ -1064,7 +1075,7 @@ void HLModule::MergeGepUse(Value *V) {
         }
       } else {
         // nothing to merge yet, add GEP users
-        worklist.append(V->user_begin(), V->user_end());
+        addUsersToWorklist(V);
       }
     }
   }
