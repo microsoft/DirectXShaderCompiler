@@ -574,7 +574,12 @@ SpirvEmitter::getInterfacesForEntryPoint(SpirvFunction *entryPoint) {
       interfaces.insert(moduleVar);
     }
   }
-  return std::vector<SpirvVariable *>(interfaces.begin(), interfaces.end());
+  std::vector<SpirvVariable *> interfacesInVector;
+  interfacesInVector.reserve(interfaces.size());
+  for (auto *interface : interfaces) {
+    interfacesInVector.push_back(interface);
+  }
+  return interfacesInVector;
 }
 
 void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
