@@ -575,6 +575,7 @@ SpirvEmitter::getInterfacesForEntryPoint(SpirvFunction *entryPoint) {
     }
   }
   std::vector<SpirvVariable *> interfacesInVector;
+  interfacesInVector.reserve(interfaces.size());
   for (auto *interface : interfaces) {
     interfacesInVector.push_back(interface);
   }
