@@ -975,7 +975,7 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
         DxilStructAnnotation *baseAnnotation =
             dxilTypeSys.GetStructAnnotation(baseType);
 
-        if (size || baseAnnotation && !baseAnnotation->IsEmptyStruct()) {
+        if (size || (baseAnnotation && !baseAnnotation->IsEmptyStruct())) {
           DxilFieldAnnotation &fieldAnnotation =
               annotation->GetFieldAnnotation(fieldIdx++);
 
