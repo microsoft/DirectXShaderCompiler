@@ -1,7 +1,6 @@
 // RUN: %dxc -auto-binding-space 13 -T lib_6_3 -export-shaders-only %s | FileCheck %s
 
 // CHECK: %struct.Payload
-// CHECK: class.Buffer
 // CHECK-NOT: unused
 // CHECK: define void @"\01?AnyHit
 // CHECK: define void @"\01?Callable
