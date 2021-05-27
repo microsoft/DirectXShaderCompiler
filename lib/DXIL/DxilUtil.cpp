@@ -1192,6 +1192,10 @@ Value *GetConvergentSource(Value *V) {
   return cast<CallInst>(V)->getOperand(0);
 }
 
+/// If value is a bitcast to base class pattern, equivalent
+/// to a getelementptr X, 0, 0, 0...  turn it into the appropriate gep.
+/// This can enhance SROA and other transforms that want type-safe pointers,
+/// and enables merging with other getelementptr's.
 Value *TryReplaceBaseCastWithGep(Value *V) {
   if (BitCastOperator *BCO = dyn_cast<BitCastOperator>(V)) {
     if (!BCO->getSrcTy()->isPointerTy())
