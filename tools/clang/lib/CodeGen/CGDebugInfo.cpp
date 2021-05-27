@@ -526,13 +526,15 @@ llvm::DIType *CGDebugInfo::CreateType(const BuiltinType *BT) {
     BTName = "long int";
     break;
   case BuiltinType::LongLong:
-    BTName = "long long int";
+    // BTName = "long long int"; // HLSL Change
+    BTName = "int64_t"; // HLSL Change
     break;
   case BuiltinType::ULong:
     BTName = "long unsigned int";
     break;
   case BuiltinType::ULongLong:
-    BTName = "long long unsigned int";
+    // BTName = "long long unsigned int"; // HLSL Change
+    BTName = "uint64_t"; // HLSL Change
     break;
   default:
     BTName = BT->getName(CGM.getLangOpts());
