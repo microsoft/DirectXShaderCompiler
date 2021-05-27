@@ -581,6 +581,9 @@ public:
     dxilutil::RemoveUnusedFunctions(M, DM.GetEntryFunction(),
                                     DM.GetPatchConstantFunction(), m_bIsLib);
 
+    // Erase type annotations for structures no longer used
+    DM.GetTypeSystem().EraseUnusedStructAnnotations();
+
     return bChanged;
   }
 
@@ -1620,7 +1623,8 @@ bool DxilLowerCreateHandleForLib::RemovePhiOnResource() {
 namespace {
 
 StructType *UpdateStructTypeForLegacyLayout(StructType *ST,
-                                            DxilTypeSystem &TypeSys, Module &M);
+                                            DxilTypeSystem &TypeSys, Module &M,
+                                            bool includeTopLevelResource=false);
 
 Type *UpdateFieldTypeForLegacyLayout(Type *Ty,
                                      DxilFieldAnnotation &annotation,
@@ -1633,8 +1637,10 @@ Type *UpdateFieldTypeForLegacyLayout(Type *Ty,
         UpdateFieldTypeForLegacyLayout(EltTy, annotation, TypeSys, M);
     if (EltTy == UpdatedTy)
       return Ty;
-    else
+    else if (UpdatedTy)
       return ArrayType::get(UpdatedTy, Ty->getArrayNumElements());
+    else
+      return nullptr;
   } else if (hlsl::HLMatrixType::isa(Ty)) {
     DXASSERT(annotation.HasMatrixAnnotation(), "must a matrix");
     HLMatrixType MatTy = HLMatrixType::cast(Ty);
@@ -1690,11 +1696,16 @@ Type *UpdateFieldTypeForLegacyLayout(Type *Ty,
 
 StructType *UpdateStructTypeForLegacyLayout(StructType *ST,
                                             DxilTypeSystem &TypeSys,
-                                            Module &M) {
+                                            Module &M,
+                                            bool includeTopLevelResource) {
   bool bUpdated = false;
   unsigned fieldsCount = ST->getNumElements();
-  std::vector<Type *> fieldTypes(fieldsCount);
+  std::vector<Type *> fieldTypes;
+  fieldTypes.reserve(fieldsCount);
   DxilStructAnnotation *SA = TypeSys.GetStructAnnotation(ST);
+
+  if (!includeTopLevelResource && dxilutil::IsHLSLResourceType(ST))
+    return nullptr;
 
   // After reflection is stripped from library, this will be null if no update is required.
   if (!SA) {
@@ -1705,11 +1716,20 @@ StructType *UpdateStructTypeForLegacyLayout(StructType *ST,
     return ST;
   }
 
+  // Resource fields must be deleted, since they don't actually
+  // show up in the structure layout.
+  // fieldMap maps from new field index to old field index for porting annotations
+  std::vector<unsigned> fieldMap;
+  fieldMap.reserve(fieldsCount);
+
   for (unsigned i = 0; i < fieldsCount; i++) {
     Type *EltTy = ST->getElementType(i);
     Type *UpdatedTy = UpdateFieldTypeForLegacyLayout(
         EltTy, SA->GetFieldAnnotation(i), TypeSys, M);
-    fieldTypes[i] = UpdatedTy;
+    if (UpdatedTy != nullptr) {
+      fieldMap.push_back(i);
+      fieldTypes.push_back(UpdatedTy);
+    }
     if (EltTy != UpdatedTy)
       bUpdated = true;
   }
@@ -1723,12 +1743,24 @@ StructType *UpdateStructTypeForLegacyLayout(StructType *ST,
 
     StructType *NewST =
         StructType::create(ST->getContext(), fieldTypes, legacyName);
-    DxilStructAnnotation *NewSA = TypeSys.AddStructAnnotation(NewST);
-    // Clone annotation.
-    *NewSA = *SA;
-    // Make sure we set the struct type back to the new one, since the
-    // clone would have clobbered it with the old one.
-    NewSA->SetStructType(NewST);
+
+    // Only add annotation if struct is not empty.
+    if (NewST->getNumElements() > 0) {
+      DxilStructAnnotation *NewSA = TypeSys.AddStructAnnotation(NewST);
+
+      // Clone annotation.
+      NewSA->SetCBufferSize(SA->GetCBufferSize());
+      NewSA->SetNumTemplateArgs(SA->GetNumTemplateArgs());
+      for (unsigned i = 0; i < SA->GetNumTemplateArgs(); i++) {
+        NewSA->GetTemplateArgAnnotation(i) = SA->GetTemplateArgAnnotation(i);
+      }
+      // Remap with deleted resource fields
+      for (unsigned i = 0; i < NewSA->GetNumFields(); i++) {
+        NewSA->GetFieldAnnotation(i) = SA->GetFieldAnnotation(fieldMap[i]);
+      }
+      TypeSys.FinishStructAnnotation(*NewSA);
+    }
+
     return NewST;
   }
 }
@@ -1749,13 +1781,15 @@ bool UpdateStructTypeForLegacyLayout(DxilResourceBase &Res,
   }
 
   Type *UpdatedST =
-      UpdateStructTypeForLegacyLayout(ST, TypeSys, M);
+      UpdateStructTypeForLegacyLayout(ST, TypeSys, M,
+        Res.GetKind() == DXIL::ResourceKind::StructuredBuffer);
   if (ST != UpdatedST) {
     // Support Array of ConstantBuffer/StructuredBuffer.
     UpdatedST = dxilutil::WrapInArrayTypes(UpdatedST, arrayDims);
     GlobalVariable *NewGV = cast<GlobalVariable>(
         M.getOrInsertGlobal(Symbol->getName().str() + "_legacy", UpdatedST));
     Res.SetGlobalSymbol(NewGV);
+    Res.SetHLSLType(NewGV->getType());
     OP *hlslOP = DM.GetOP();
 
     if (DM.GetShaderModel()->IsLib()) {
@@ -1862,6 +1896,8 @@ void DxilLowerCreateHandleForLib::UpdateResourceSymbols() {
       GV->removeDeadConstantUsers();
       DXASSERT(GV->user_empty(), "else resource not lowered");
       res->SetGlobalSymbol(UndefValue::get(GV->getType()));
+      if (GV->user_empty())
+        GV->eraseFromParent();
     }
   };
 

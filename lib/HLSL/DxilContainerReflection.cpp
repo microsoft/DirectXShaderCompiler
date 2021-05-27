@@ -1097,7 +1097,7 @@ HRESULT CShaderReflectionType::Initialize(
 
       // There is no annotation for empty structs
       unsigned int fieldCount = 0;
-      if (structAnnotation)
+      if (structAnnotation && !structAnnotation->IsEmptyBesidesResources())
         fieldCount = type->getStructNumElements();
 
       // The DXBC reflection info computes `Columns` for a
@@ -1127,6 +1127,13 @@ HRESULT CShaderReflectionType::Initialize(
 
         m_MemberTypes.push_back(fieldReflectionType);
         m_MemberNames.push_back(fieldAnnotation.GetFieldName().c_str());
+
+        // Skip structures fields with no real contents, otherwise we expand
+        // the size of this struct by 1 when we treat a zero column size as 1.
+        if (isa<StructType>(fieldType) &&
+            fieldReflectionType->m_Desc.Columns == 0) {
+          continue;
+        }
 
         // Effectively, we want to add one to `Columns` for every scalar nested recursively
         // inside this `struct` type (ignoring objects, which we filtered above). We should
