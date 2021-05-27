@@ -1,5 +1,5 @@
-// RUN: %dxc -T cs_6_5 -enable-16bit-types /Zi /O0 %s | FileCheck %s -check-prefix=OLD_TYPE
-// RUN: %dxc -T cs_6_5 -enable-16bit-types /Zi /O0 %s | FileCheck %s
+// RUN: %dxc -T cs_6_0 /Zi /O0 %s | FileCheck %s -check-prefix=OLD_TYPE
+// RUN: %dxc -T cs_6_0 /Zi /O0 %s | FileCheck %s
 
 // OLD_TYPE-NOT: !{{[0-9]+}} = !DIBasicType({{.+}}long long
 
@@ -11,8 +11,8 @@ RWByteAddressBuffer buf2;
 
 [numthreads(64, 1, 1)]
 void main(int3 tid : SV_DispatchThreadId) {
-  uint64_t v = buf.Load<uint64_t>(tid.y);
-  int64_t w = (int64_t)v;
+  uint64_t v = buf.Load<uint64_t>(tid.y) * 2;
+  int64_t w = (int64_t)v / 3;
   buf2.Store<int64_t>(tid.z, w);
 }
 
