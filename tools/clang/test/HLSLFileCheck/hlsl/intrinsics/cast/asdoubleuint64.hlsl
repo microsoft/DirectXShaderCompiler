@@ -6,10 +6,10 @@
 
 uint64_t i;
 
-uint4 main() : SV_Target
+uint2 main() : SV_Target
 {
   double d = asdouble(i&0xFFFFFFFF, i >> 32);
-  uint4 ret;
-  asuint(d, ret.xy, ret.zw);
+  uint2 ret;
+  asuint(d, ret.x, ret.y);
   return ret;
 }
