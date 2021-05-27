@@ -2179,7 +2179,7 @@
             // More threads than results are possible,
             // so indices will result in duplicate copies
             g_uintShare[ix%6] = payload.arith[ix%6];
-            g_sintShare[ix%3] = payload.arith[ix%3 + 6];
+            g_sintShare[ix%3 + 1] = payload.arith[ix%3 + 6];
             g_xchgShare[ix%64] = payload.xchg[ix%64];
 
             GroupMemoryBarrierWithGroupSync();
