@@ -33,12 +33,6 @@
 #include <vector>
 #endif // __cplusplus
 
-// There is no execinfo.h on Android. However, this is only required for
-// CaptureStackBackTrace which is only used in tests.
-#ifndef __ANDROID__
-#include <execinfo.h>
-#endif
-
 //===----------------------------------------------------------------------===//
 //
 //                             Begin: Macro Definitions
@@ -199,10 +193,6 @@
 
 #define OutputDebugStringA(msg) fputs(msg, stderr)
 #define OutputDebugFormatA(...) fprintf(stderr, __VA_ARGS__)
-
-#define CaptureStackBackTrace(FramesToSkip, FramesToCapture, BackTrace,        \
-                              BackTraceHash)                                   \
-  backtrace(BackTrace, FramesToCapture)
 
 // Event Tracing for Windows (ETW) provides application programmers the ability
 // to start and stop event tracing sessions, instrument an application to
