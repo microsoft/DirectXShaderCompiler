@@ -6171,6 +6171,8 @@ bool LowerStaticGlobalIntoAlloca::lowerStaticGlobalIntoAlloca(
     GlobalVariable *GV, const DataLayout &DL, DxilTypeSystem &typeSys,
     SetVector<Function *> &entryAndInitFunctionSet) {
   GV->removeDeadConstantUsers();
+  bool bIsObjectTy = dxilutil::IsHLSLObjectType(
+      dxilutil::StripArrayTypes(GV->getType()->getElementType()));
   // Create alloca for each entry.
   DenseMap<Function *, AllocaInst *> allocaMap;
   for (Function *F : entryAndInitFunctionSet) {
@@ -6178,7 +6180,8 @@ bool LowerStaticGlobalIntoAlloca::lowerStaticGlobalIntoAlloca(
     AllocaInst *AI = Builder.CreateAlloca(GV->getType()->getElementType());
     allocaMap[F] = AI;
     // Store initializer is exist.
-    if (GV->hasInitializer() && !isa<UndefValue>(GV->getInitializer())) {
+    if (GV->hasInitializer() && !isa<UndefValue>(GV->getInitializer()) &&
+        !bIsObjectTy) { // Do not zerio-initialize object allocas
       Builder.CreateStore(GV->getInitializer(), GV);
     }
   }
