@@ -166,6 +166,12 @@ llvm::CallInst *CreateUAV(DxilModule &DM, IRBuilder<> &Builder,
   return handle;
 }
 
+llvm::Function* GetEntryFunction(hlsl::DxilModule& DM) {
+    if (DM.GetEntryFunction() != nullptr) {
+        return DM.GetEntryFunction();
+    }
+    return DM.GetPatchConstantFunction();
+}
 
 #ifdef PIX_DEBUG_DUMP_HELPER
 

@@ -2137,6 +2137,9 @@ static bool GetUnsignedVal(Value *V, uint32_t *pValue) {
 
 void DxilShaderReflection::MarkUsedSignatureElements() {
   Function *F = m_pDxilModule->GetEntryFunction();
+  if (F == nullptr) {
+    F = m_pDxilModule->GetPatchConstantFunction();
+  }
   DXASSERT(F != nullptr, "else module load should have failed");
   // For every loadInput/storeOutput, update the corresponding ReadWriteMask.
   // F is a pointer to a Function instance

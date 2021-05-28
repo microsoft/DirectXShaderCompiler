@@ -95,14 +95,14 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M) {
     SV_Position_ID = SV_Position->get()->GetID();
   }
 
-  auto EntryPointFunction = DM.GetEntryFunction();
+  auto EntryPointFunction = PIXPassHelpers::GetEntryFunction(DM);
 
   auto &EntryBlock = EntryPointFunction->getEntryBlock();
 
   CallInst *HandleForUAV;
   {
     IRBuilder<> Builder(
-        dxilutil::FirstNonAllocaInsertionPt(DM.GetEntryFunction()));
+        dxilutil::FirstNonAllocaInsertionPt(PIXPassHelpers::GetEntryFunction(DM)));
 
     HandleForUAV = PIXPassHelpers::CreateUAV(DM, Builder, 0, "PIX_CountUAV_Handle");
 

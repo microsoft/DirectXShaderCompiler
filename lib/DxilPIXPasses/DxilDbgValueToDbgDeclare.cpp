@@ -793,7 +793,7 @@ VariableRegisters::VariableRegisters(
     llvm::Module *M)
   : m_dbgLoc(dbgLoc)
   ,m_Variable(Variable)
-  , m_B(M->GetOrCreateDxilModule().GetEntryFunction()->getEntryBlock().begin())
+  , m_B(PIXPassHelpers::GetEntryFunction(M->GetOrCreateDxilModule())->getEntryBlock().begin())
   , m_DbgDeclareFn(llvm::Intrinsic::getDeclaration(
       M, llvm::Intrinsic::dbg_declare))
 {

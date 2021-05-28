@@ -23,7 +23,7 @@ namespace PIXPassHelpers
     llvm::CallInst* CreateHandleForResource(hlsl::DxilModule& DM, llvm::IRBuilder<>& Builder,
         hlsl::DxilResourceBase * resource,
         const char* name);
-
+    llvm::Function* GetEntryFunction(hlsl::DxilModule& DM);
 #ifdef PIX_DEBUG_DUMP_HELPER
     void Log(const char* format, ...);
     void LogPartialLine(const char* format, ...);
