@@ -3587,32 +3587,38 @@ static bool ReplaceUseOfZeroInitEntry(Instruction *I, Value *V) {
   return true;
 }
 
+// If a V user is dominated by memcpy (I),
+//    skip it - memcpy dest can simply alias to src for this user.
+// If the V user is instead post-dominated by memcpy (I),
+//    replace use with zeroinitializer.
+// If neither are true,
+//    return false - memcpy dest cannot simply alias to src.
 static bool ReplaceUseOfZeroInitPostDom(Instruction *I, Value *V,
-                                    PostDominatorTree &PDT) {
+                                        PostDominatorTree &PDT,
+                                        DominatorTree &DT) {
   BasicBlock *BB = I->getParent();
   Function *F = I->getParent()->getParent();
   for (auto U = V->user_begin(); U != V->user_end(); ) {
     Instruction *UI = dyn_cast<Instruction>(*(U++));
-    if (!UI)
+    if (!UI || UI == I)
       continue;
     if (UI->getParent()->getParent() != F)
       continue;
 
+    // Skip properly dominated users
+    if (DT.properlyDominates(BB, UI->getParent()))
+      continue;
+    // If not properly dominated, user not post-dominated by memcpy is not safe
+    // to replace with zeroinitializer.
     if (!PDT.dominates(BB, UI->getParent()))
       return false;
 
+    // Remaining cases are where I post-dominates UI,
+    // either in the same block or in another block.
     if (isa<GetElementPtrInst>(UI) || isa<BitCastInst>(UI)) {
-      if (!ReplaceUseOfZeroInitPostDom(I, UI, PDT))
-        return false;
-      else
+      if (ReplaceUseOfZeroInitPostDom(I, UI, PDT, DT))
         continue;
-    }
-
-    if (BB != UI->getParent() || UI == I)
-      continue;
-    // I is the last inst in the block after split.
-    // Any inst in current block is before I.
-    if (LoadInst *LI = dyn_cast<LoadInst>(UI)) {
+    } else if (LoadInst *LI = dyn_cast<LoadInst>(UI)) {
       LI->replaceAllUsesWith(ConstantAggregateZero::get(LI->getType()));
       LI->eraseFromParent();
       continue;
@@ -3633,10 +3639,11 @@ static bool ReplaceUseOfZeroInitBeforeDef(Instruction *I, GlobalVariable *GV) {
   if (&F->getEntryBlock() == I->getParent()) {
     return ReplaceUseOfZeroInitEntry(I, GV);
   } else {
-    // Post dominator tree.
     PostDominatorTree PDT;
     PDT.runOnFunction(*F);
-    return ReplaceUseOfZeroInitPostDom(I, GV, PDT);
+    DominatorTree DT;
+    DT.recalculate(*F);
+    return ReplaceUseOfZeroInitPostDom(I, GV, PDT, DT);
   }
 }
 
