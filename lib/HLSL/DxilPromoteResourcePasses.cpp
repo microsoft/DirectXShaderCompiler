@@ -43,7 +43,7 @@ using namespace hlsl;
 
 namespace {
 
-static const StringRef kStaticResourceLibErrorMsg = "static global resource use is disallowed in library exports.";
+static const StringRef kStaticResourceLibErrorMsg = "non const static global resource use is disallowed in library exports.";
 
 class DxilPromoteStaticResources : public ModulePass {
 public:
@@ -166,6 +166,7 @@ bool DxilPromoteStaticResources::PromoteStaticGlobalResources(
     //  optimized away for the exported function.
     for (auto &GV : M.globals()) {
       if (GV.getLinkage() == GlobalVariable::LinkageTypes::InternalLinkage &&
+		!GV.isConstant() && 
         dxilutil::IsHLSLObjectType(dxilutil::GetArrayEltTy(GV.getType()))) {
         if (!GV.user_empty()) {
           if (Instruction *I = dyn_cast<Instruction>(*GV.user_begin())) {
