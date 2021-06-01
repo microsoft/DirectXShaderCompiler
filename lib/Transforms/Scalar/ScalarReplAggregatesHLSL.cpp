@@ -49,6 +49,7 @@
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
 #include "llvm/Transforms/Utils/SSAUpdater.h"
 #include "llvm/Transforms/Utils/Local.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "dxc/HLSL/HLOperations.h"
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/HLSL/HLModule.h"
@@ -3633,18 +3634,26 @@ static bool ReplaceUseOfZeroInitBeforeDef(Instruction *I, GlobalVariable *GV) {
   BasicBlock *BB = I->getParent();
   Function *F = I->getParent()->getParent();
   // Make sure I is the last inst for BB.
+  BasicBlock *NewBB = nullptr;
   if (I != BB->getTerminator())
-    BB->splitBasicBlock(I->getNextNode());
+    NewBB = BB->splitBasicBlock(I->getNextNode());
 
+  bool bSuccess = false;
   if (&F->getEntryBlock() == I->getParent()) {
-    return ReplaceUseOfZeroInitEntry(I, GV);
+    bSuccess = ReplaceUseOfZeroInitEntry(I, GV);
   } else {
     PostDominatorTree PDT;
     PDT.runOnFunction(*F);
     DominatorTree DT;
     DT.recalculate(*F);
-    return ReplaceUseOfZeroInitPostDom(I, GV, PDT, DT);
+    bSuccess = ReplaceUseOfZeroInitPostDom(I, GV, PDT, DT);
   }
+
+  // Re-merge basic block to keep things simpler
+  if (NewBB)
+    llvm::MergeBlockIntoPredecessor(NewBB);
+
+  return bSuccess;
 }
 
 // Use `DT` to trace all users and make sure `I`'s BB dominates them all
