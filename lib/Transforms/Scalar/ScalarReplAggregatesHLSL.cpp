@@ -3443,7 +3443,7 @@ static bool ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
   if (V != Src && V->hasOneUse() && Src->hasOneUse())
     return false;
 
-  // If the memcpy doesn't dominate all its users,
+  // If the source of the memcpy (Src) doesn't dominate all users of dest (V),
   // full replacement isn't possible without complicated PHI insertion
   // This will likely replace with ld/st which will be replaced in mem2reg
   if (Instruction *SrcI = dyn_cast<Instruction>(Src))
