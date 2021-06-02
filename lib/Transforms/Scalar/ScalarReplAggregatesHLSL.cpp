@@ -3631,11 +3631,12 @@ static bool ReplaceUseOfZeroInit(Instruction *I, Value *V,
   return true;
 }
 
-// Collect all successors of BB and BB's successors
-static void CollectSuccessors(BasicBlock *BB, SmallPtrSet<BasicBlock*, 8> &Successors) {
+// Recursively collect all successors of BB and BB's successors.
+// BB will not be in set unless it's reachable through its successors.
+static void CollectReachableBBs(BasicBlock *BB, SmallPtrSet<BasicBlock*, 8> &Reachable) {
   for (auto S : successors(BB)) {
-    if (Successors.insert(S).second)
-      CollectSuccessors(S, Successors);
+    if (Reachable.insert(S).second)
+      CollectReachableBBs(S, Reachable);
   }
 }
 
@@ -3655,9 +3656,9 @@ static bool ReplaceUseOfZeroInitBeforeDef(Instruction *I, GlobalVariable *GV) {
   } else {
     DominatorTree DT;
     DT.recalculate(*F);
-    SmallPtrSet<BasicBlock*, 8> Successors;
-    CollectSuccessors(BB, Successors);
-    bSuccess = ReplaceUseOfZeroInit(I, GV, DT, Successors);
+    SmallPtrSet<BasicBlock*, 8> Reachable;
+    CollectReachableBBs(BB, Reachable);
+    bSuccess = ReplaceUseOfZeroInit(I, GV, DT, Reachable);
   }
 
   // Re-merge basic block to keep things simpler
