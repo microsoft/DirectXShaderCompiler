@@ -121,7 +121,8 @@ bool RemoveUnusedFunctions(Module &M, Function *EntryFunc,
   for (auto &F : M.functions()) {
     if (&F == EntryFunc || &F == PatchConstantFunc)
       continue;
-    if (F.isDeclaration() || !IsLib) {
+    if (F.isDeclaration() || !IsLib ||
+        F.hasInternalLinkage()) {
       if (F.user_empty())
         deadList.emplace_back(&F);
     }

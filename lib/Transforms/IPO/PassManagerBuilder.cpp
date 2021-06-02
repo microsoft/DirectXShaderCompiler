@@ -223,6 +223,10 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, bool OnlyWarnOn
     MPM.add(createHLDeadFunctionEliminationPass());
   }
 
+  // Do this before scalarrepl-param-hlsl for opportunities to move things
+  // like resource arrays to alloca, allowing more likely memcpy replacement.
+  MPM.add(createLowerStaticGlobalIntoAlloca());
+
   // Expand buffer store intrinsics before we SROA
   MPM.add(createHLExpandStoreIntrinsicsPass());
 
