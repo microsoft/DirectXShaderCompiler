@@ -3590,13 +3590,13 @@ static bool ReplaceUseOfZeroInitEntry(Instruction *I, Value *V) {
 
 // If a V user is dominated by memcpy (I),
 //    skip it - memcpy dest can simply alias to src for this user.
-// If the V user is instead post-dominated by memcpy (I),
+// If the V user may follow the memcpy (I),
+//    return false - memcpy dest not safe to replace with src.
+// Otherwise,
 //    replace use with zeroinitializer.
-// If neither are true,
-//    return false - memcpy dest cannot simply alias to src.
-static bool ReplaceUseOfZeroInitPostDom(Instruction *I, Value *V,
-                                        PostDominatorTree &PDT,
-                                        DominatorTree &DT) {
+static bool ReplaceUseOfZeroInit(Instruction *I, Value *V,
+                                 DominatorTree &DT,
+                                 SmallPtrSet<BasicBlock*, 8> &Successors) {
   BasicBlock *BB = I->getParent();
   Function *F = I->getParent()->getParent();
   for (auto U = V->user_begin(); U != V->user_end(); ) {
@@ -3609,15 +3609,17 @@ static bool ReplaceUseOfZeroInitPostDom(Instruction *I, Value *V,
     // Skip properly dominated users
     if (DT.properlyDominates(BB, UI->getParent()))
       continue;
-    // If not properly dominated, user not post-dominated by memcpy is not safe
-    // to replace with zeroinitializer.
-    if (!PDT.dominates(BB, UI->getParent()))
+
+    // If user is found in memcpy successor list
+    // then the user is not safe to replace with zeroinitializer.
+    if (Successors.count(UI->getParent()))
       return false;
 
-    // Remaining cases are where I post-dominates UI,
-    // either in the same block or in another block.
+    // Remaining cases are where I:
+    // - is at the end of the same block
+    // - does not precede UI on any path
     if (isa<GetElementPtrInst>(UI) || isa<BitCastInst>(UI)) {
-      if (ReplaceUseOfZeroInitPostDom(I, UI, PDT, DT))
+      if (ReplaceUseOfZeroInit(I, UI, DT, Successors))
         continue;
     } else if (LoadInst *LI = dyn_cast<LoadInst>(UI)) {
       LI->replaceAllUsesWith(ConstantAggregateZero::get(LI->getType()));
@@ -3628,6 +3630,15 @@ static bool ReplaceUseOfZeroInitPostDom(Instruction *I, Value *V,
   }
   return true;
 }
+
+// Collect all successors of BB and BB's successors
+static void CollectSuccessors(BasicBlock *BB, SmallPtrSet<BasicBlock*, 8> &Successors) {
+  for (auto S : successors(BB)) {
+    if (Successors.insert(S).second)
+      CollectSuccessors(S, Successors);
+  }
+}
+
 // When zero initialized GV has only one define, all uses before the def should
 // use zero.
 static bool ReplaceUseOfZeroInitBeforeDef(Instruction *I, GlobalVariable *GV) {
@@ -3642,11 +3653,11 @@ static bool ReplaceUseOfZeroInitBeforeDef(Instruction *I, GlobalVariable *GV) {
   if (&F->getEntryBlock() == I->getParent()) {
     bSuccess = ReplaceUseOfZeroInitEntry(I, GV);
   } else {
-    PostDominatorTree PDT;
-    PDT.runOnFunction(*F);
     DominatorTree DT;
     DT.recalculate(*F);
-    bSuccess = ReplaceUseOfZeroInitPostDom(I, GV, PDT, DT);
+    SmallPtrSet<BasicBlock*, 8> Successors;
+    CollectSuccessors(BB, Successors);
+    bSuccess = ReplaceUseOfZeroInit(I, GV, DT, Successors);
   }
 
   // Re-merge basic block to keep things simpler
