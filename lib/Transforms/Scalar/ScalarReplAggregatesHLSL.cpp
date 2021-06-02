@@ -3596,7 +3596,7 @@ static bool ReplaceUseOfZeroInitEntry(Instruction *I, Value *V) {
 //    replace use with zeroinitializer.
 static bool ReplaceUseOfZeroInit(Instruction *I, Value *V,
                                  DominatorTree &DT,
-                                 SmallPtrSet<BasicBlock*, 8> &Successors) {
+                                 SmallPtrSet<BasicBlock*, 8> &Reachable) {
   BasicBlock *BB = I->getParent();
   Function *F = I->getParent()->getParent();
   for (auto U = V->user_begin(); U != V->user_end(); ) {
@@ -3612,14 +3612,14 @@ static bool ReplaceUseOfZeroInit(Instruction *I, Value *V,
 
     // If user is found in memcpy successor list
     // then the user is not safe to replace with zeroinitializer.
-    if (Successors.count(UI->getParent()))
+    if (Reachable.count(UI->getParent()))
       return false;
 
     // Remaining cases are where I:
     // - is at the end of the same block
     // - does not precede UI on any path
     if (isa<GetElementPtrInst>(UI) || isa<BitCastInst>(UI)) {
-      if (ReplaceUseOfZeroInit(I, UI, DT, Successors))
+      if (ReplaceUseOfZeroInit(I, UI, DT, Reachable))
         continue;
     } else if (LoadInst *LI = dyn_cast<LoadInst>(UI)) {
       LI->replaceAllUsesWith(ConstantAggregateZero::get(LI->getType()));

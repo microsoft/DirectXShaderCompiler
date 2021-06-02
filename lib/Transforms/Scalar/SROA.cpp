@@ -631,7 +631,7 @@ static Value *foldPHINodeOrSelectInst(Instruction &I) {
 // These types should be SROA'd elsewhere as necessary.
 bool SkipHLSLType(Type *Ty, bool SkipHLSLMat) {
   if (Ty->isPointerTy())
-    Ty->getPointerElementType();
+    Ty = Ty->getPointerElementType();
   while (Ty->isArrayTy())
     Ty = Ty->getArrayElementType();
   return (SkipHLSLMat && hlsl::HLMatrixType::isa(Ty)) ||
