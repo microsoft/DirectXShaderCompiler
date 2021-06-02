@@ -2067,6 +2067,10 @@ TEST_F(FileTest, VulkanPushConstantOnConstantBuffer) {
   runFileTest("vk.push-constant.constantbuffer.hlsl");
 }
 
+TEST_F(FileTest, VulkanCombinedImageSampler) {
+  runFileTest("vk.combined-image-sampler.hlsl");
+}
+
 TEST_F(FileTest, VulkanSpecConstantInit) {
   runFileTest("vk.spec-constant.init.hlsl");
 }
