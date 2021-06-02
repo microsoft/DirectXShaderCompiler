@@ -5918,7 +5918,7 @@ public:
         }
       } else {
         for (Function &F : M) {
-          if (!HLM.IsEntry(&F)) {
+          if (F.isDeclaration() || !HLM.IsEntry(&F)) {
             continue;
           }
           entryAndInitFunctionSet.insert(&F);
@@ -5936,7 +5936,7 @@ public:
         }
       } else {
         for (Function &F : M) {
-          if (!DM.IsEntry(&F))
+          if (F.isDeclaration() || !DM.IsEntry(&F))
             continue;
           entryAndInitFunctionSet.insert(&F);
         }
