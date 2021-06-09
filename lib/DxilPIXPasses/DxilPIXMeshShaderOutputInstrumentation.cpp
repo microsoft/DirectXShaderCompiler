@@ -39,11 +39,14 @@ constexpr uint64_t DebugBufferDumpingGroundSize = 64 * 1024;
 constexpr size_t CounterOffsetBeyondUsefulData = DebugBufferDumpingGroundSize / 2;
 
 // Keep these in sync with the same-named values in PIX's MeshShaderOutput.cpp
-constexpr uint32_t triangleIndexIndicator = 1;
-constexpr uint32_t int32ValueIndicator = 2;
-constexpr uint32_t floatValueIndicator = 3;
-constexpr uint32_t int16ValueIndicator = 4;
-constexpr uint32_t float16ValueIndicator = 5;
+// (Note that an earlier version of this list used values without the 0x10
+// bit set. This change is made so that PIX can detect the new (and modified)
+// payload.
+constexpr uint32_t triangleIndexIndicator = 0x11;
+constexpr uint32_t int32ValueIndicator = 0x12;
+constexpr uint32_t floatValueIndicator = 0x13;
+constexpr uint32_t int16ValueIndicator = 0x14;
+constexpr uint32_t float16ValueIndicator = 0x15;
 
 using namespace llvm;
 using namespace hlsl;
@@ -63,6 +66,7 @@ private:
   CallInst *m_OutputUAV = nullptr;
   int m_RemainingReservedSpaceInBytes = 0;
   Constant *m_OffsetMask = nullptr;
+  Value* m_threadUniquifier = nullptr;
 
   uint64_t m_UAVSize = 1024 * 1024;
 
@@ -76,6 +80,7 @@ private:
 
   Value *insertInstructionsToCalculateFlattenedGroupIdXandY(BuilderContext &BC);
   Value *insertInstructionsToCalculateGroupIdZ(BuilderContext &BC);
+  Value* insertInstructionsToCreateDisambiguationValue(BuilderContext& BC);
   Value *reserveDebugEntrySpace(BuilderContext &BC, uint32_t SpaceInBytes);
   uint32_t UAVDumpingGroundOffset();
   Value *writeDwordAndReturnNewOffset(BuilderContext &BC, Value *TheOffset,
@@ -215,6 +220,45 @@ void DxilPIXMeshShaderOutputInstrumentation::Instrument(BuilderContext &BC,
   }
 }
 
+Value *DxilPIXMeshShaderOutputInstrumentation::
+    insertInstructionsToCreateDisambiguationValue(BuilderContext &BC) {
+  // When a mesh shader is called from an amplification shader, all of the
+  // thread id values are relative to the DispatchMesh call made by
+  // that amplification shader. Data about what thread counts were passed
+  // by the CPU to *CommandList::DispatchMesh are not available.
+  // Fortunately all we need is a unique identifier for each thread
+  // so we can stitch the outputs back together again, and this value
+  // is indeed unique per thread across the whole invocation.
+
+  Constant *DisambiguatorCounterOffsetArg =
+      BC.HlslOP->GetU32Const(UAVDumpingGroundOffset() +
+                             CounterOffsetBeyondUsefulData + sizeof(uint32_t));
+  Constant *ConstantOne = BC.HlslOP->GetU32Const(1);
+
+  Function *AtomicOpFunc =
+      BC.HlslOP->GetOpFunc(OP::OpCode::AtomicBinOp, Type::getInt32Ty(BC.Ctx));
+  Constant *AtomicBinOpcode =
+      BC.HlslOP->GetU32Const((unsigned)OP::OpCode::AtomicBinOp);
+  Constant *AtomicAdd =
+      BC.HlslOP->GetU32Const((unsigned)DXIL::AtomicBinOpCode::Add);
+  UndefValue *UndefArg = UndefValue::get(Type::getInt32Ty(BC.Ctx));
+
+  return BC.Builder.CreateCall(
+      AtomicOpFunc,
+      {
+          AtomicBinOpcode, // i32, ; opcode
+          m_OutputUAV,     // %dx.types.Handle, ; resource handle
+          AtomicAdd, // i32, ; binary operation code : EXCHANGE, IADD, AND,
+                     // OR, XOR, IMIN, IMAX, UMIN, UMAX
+          DisambiguatorCounterOffsetArg, // i32, ; coordinate c0: index in
+                                         // bytes
+          UndefArg,                      // i32, ; coordinate c1 (unused)
+          UndefArg,                      // i32, ; coordinate c2 (unused)
+          ConstantOne,                   // i32); increment value
+      },
+      "Disambiguator");
+}
+
 bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M)
 {
   DxilModule &DM = M.GetOrCreateDxilModule();
@@ -233,6 +277,7 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M)
 
   auto GroupIdXandY = insertInstructionsToCalculateFlattenedGroupIdXandY(BC);
   auto GroupIdZ = insertInstructionsToCalculateGroupIdZ(BC);
+  m_threadUniquifier = insertInstructionsToCreateDisambiguationValue(BC);
 
   auto F = HlslOP->GetOpFunc(DXIL::OpCode::EmitIndices, Type::getVoidTy(Ctx));
   auto FunctionUses = F->uses();
@@ -247,7 +292,7 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M)
     BuilderContext BC2{M, DM, Ctx, HlslOP, Builder2};
 
     Instrument(BC2, BC2.HlslOP->GetI32Const(triangleIndexIndicator),
-               GroupIdXandY, GroupIdZ, Call->getOperand(1),
+               m_threadUniquifier, GroupIdXandY, GroupIdZ, Call->getOperand(1),
                Call->getOperand(2), Call->getOperand(3), Call->getOperand(4));
   }
 
@@ -317,6 +362,7 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M)
       Instrument(
         BC2, 
         BC2.HlslOP->GetI32Const(Overload.tag),
+        m_threadUniquifier,
         GroupIdXandY,
         GroupIdZ, 
         Call->getOperand(1),
