@@ -661,6 +661,35 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
       }
     }
 
+    auto CreateHandleFromBindingFn =
+        HlslOP->GetOpFunc(DXIL::OpCode::CreateHandleFromBinding, Type::getVoidTy(Ctx));
+    auto CreateHandleFromBindingUses = CreateHandleFromBindingFn->uses();
+    for (auto FI = CreateHandleFromBindingUses.begin(); FI != CreateHandleFromBindingUses.end();) {
+      auto &FunctionUse = *FI++;
+      auto FunctionUser = FunctionUse.getUser();
+      auto instruction = cast<Instruction>(FunctionUser);
+      Value *index = instruction->getOperand(2);
+      if (!isa<Constant>(index)) {
+        FoundDynamicIndexing = true;
+        break;
+      }
+    }
+
+    auto CreateHandleFromHeapFn = HlslOP->GetOpFunc(
+        DXIL::OpCode::CreateHandleFromHeap, Type::getVoidTy(Ctx));
+    auto CreateHandleFromHeapUses = CreateHandleFromHeapFn->uses();
+    for (auto FI = CreateHandleFromHeapUses.begin();
+         FI != CreateHandleFromHeapUses.end();) {
+      auto &FunctionUse = *FI++;
+      auto FunctionUser = FunctionUse.getUser();
+      auto instruction = cast<Instruction>(FunctionUser);
+      Value *index = instruction->getOperand(1);
+      if (!isa<Constant>(index)) {
+        FoundDynamicIndexing = true;
+        break;
+      }
+    }
+
     if (FoundDynamicIndexing) {
       if (OSOverride != nullptr) {
         formatted_raw_ostream FOS(*OSOverride);
