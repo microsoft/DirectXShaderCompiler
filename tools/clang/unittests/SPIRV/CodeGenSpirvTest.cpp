@@ -980,6 +980,28 @@ TEST_F(FileTest, TextureInvalidTex2D) {
 TEST_F(FileTest, TextureSampleOffsetWithLoopUnroll) {
   runFileTest("texture.sample-offset.with.loop-unroll.hlsl");
 }
+TEST_F(FileTest, TextureSampleVariableOffsetBeforeLegalizeHLSL) {
+  // The shader uses a variable offset for texture sampling, which is illegal.
+  // Since we set needsLegalization as true when we find a variable offset for
+  // texture sampling, `--before-legalize-hlsl` option for spirv-val should be
+  // enabled because of `-fcgl` and the compile must not generate any errors.
+  setBeforeHLSLLegalization();
+  runFileTest("texture.sample.variable-offset.hlsl");
+}
+TEST_F(FileTest, TextureSampleOffsetNeedsLegalization) {
+  // The shader uses a variable offset for texture sampling that is supposed to
+  // be converted to a constant value after the legalization. Since we set
+  // needsLegalization as true when we find a variable offset for texture
+  // sampling, `--before-legalize-hlsl` option for spirv-val should be enabled
+  // because of `-fcgl`.
+  setBeforeHLSLLegalization();
+  runFileTest("texture.sample.offset.needs.legalization.hlsl");
+}
+TEST_F(FileTest, TextureSampleConstOffsetAfterLegalization) {
+  // The shader uses a variable offset for texture sampling that is supposed to
+  // be converted to a constant value after the legalization.
+  runFileTest("texture.sample.offset.needs.legalization.o0.hlsl");
+}
 
 // For structured buffer methods
 TEST_F(FileTest, StructuredBufferLoad) {
