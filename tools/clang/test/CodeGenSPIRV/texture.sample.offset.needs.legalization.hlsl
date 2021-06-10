@@ -3,6 +3,12 @@
 SamplerState      gSampler  : register(s5);
 Texture2D<float4> t         : register(t1);
 
+// This shader uses a variable offset for texture sampling that is supposed to
+// be converted to a constant value after the legalization. Since we set
+// needsLegalization as true when we find a variable offset for texture
+// sampling, `--before-legalize-hlsl` option for spirv-val should be enabled
+// because of `-fcgl`.
+
 // CHECK:      OpImageSparseSampleImplicitLod
 // CHECK-SAME: Offset
 
