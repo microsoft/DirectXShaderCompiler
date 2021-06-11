@@ -4461,6 +4461,9 @@ SpirvInstruction *SpirvEmitter::createImageSample(
     SpirvInstruction *minLod, SpirvInstruction *residencyCodeId,
     SourceLocation loc) {
 
+  if (varOffset)
+    needsLegalization = true;
+
   // SampleDref* instructions in SPIR-V always return a scalar.
   // They also have the correct type in HLSL.
   if (compareVal) {
@@ -4892,6 +4895,9 @@ SpirvEmitter::processBufferTextureLoad(const CXXMemberCallExpr *expr) {
       if (hasOffsetArg)
         handleOffsetInMethodCall(expr, 1, &constOffset, &varOffset);
     }
+
+    if (varOffset)
+      needsLegalization = true;
 
     return processBufferTextureLoad(object, coordinate, constOffset, varOffset,
                                     lod, status, loc);
