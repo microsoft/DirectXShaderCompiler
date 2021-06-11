@@ -1119,6 +1119,9 @@ namespace DXIL {
     const unsigned kCreateHandleFromHeapSamplerHeapOpIdx = 2;
     const unsigned kCreateHandleFromHeapNonUniformIndexOpIdx = 3;
 
+    // CreateHandleFromBinding
+    const unsigned kCreateHandleFromBindingResIndexOpIdx = 2;
+
     // TraceRay
     const unsigned kTraceRayRayDescOpIdx = 7;
     const unsigned kTraceRayPayloadOpIdx = 15;

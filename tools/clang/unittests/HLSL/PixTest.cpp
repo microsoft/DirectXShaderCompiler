@@ -1734,7 +1734,7 @@ TEST_F(PixTest, CheckSATPassFor66_NoDynamicAccess) {
 
 TEST_F(PixTest, CheckSATPassFor66_DynamicFromRootSig) {
 
-  const char *noDynamicAccess = R"x(
+  const char *dynamicTextureAccess = R"x(
 Texture1D<float4> tex[5] : register(t3);
 SamplerState SS[3] : register(s2);
 
@@ -1747,14 +1747,14 @@ float4 main(int i : A, float j : B) : SV_TARGET
 }
   )x";
 
-  auto compiled = Compile(noDynamicAccess, L"ps_6_6");
+  auto compiled = Compile(dynamicTextureAccess, L"ps_6_6");
   auto satResults = RunShaderAccessTrackingPassAndReturnOutputMessages(compiled);
   VERIFY_IS_TRUE(satResults.find("FoundDynamicIndexing") != string::npos);
 }
 
 TEST_F(PixTest, CheckSATPassFor66_DynamicFromHeap) {
 
-  const char *noDynamicAccess = R"(
+  const char *dynamicResourceDecriptorHeapAccess = R"(
 static sampler sampler0 = SamplerDescriptorHeap[0];
 float4 main(int input : INPUT) : SV_Target
 {
@@ -1763,7 +1763,7 @@ float4 main(int input : INPUT) : SV_Target
 }
   )";
 
-  auto compiled = Compile(noDynamicAccess, L"ps_6_6");
+  auto compiled = Compile(dynamicResourceDecriptorHeapAccess, L"ps_6_6");
   auto satResults =
       RunShaderAccessTrackingPassAndReturnOutputMessages(compiled);
   VERIFY_IS_TRUE(satResults.find("FoundDynamicIndexing") != string::npos);
