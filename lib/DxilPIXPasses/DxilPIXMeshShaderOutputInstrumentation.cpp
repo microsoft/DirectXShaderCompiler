@@ -78,8 +78,6 @@ private:
     IRBuilder<> &Builder;
   };
 
-  Value *insertInstructionsToCalculateFlattenedGroupIdXandY(BuilderContext &BC);
-  Value *insertInstructionsToCalculateGroupIdZ(BuilderContext &BC);
   Value* insertInstructionsToCreateDisambiguationValue(BuilderContext& BC);
   Value *reserveDebugEntrySpace(BuilderContext &BC, uint32_t SpaceInBytes);
   uint32_t UAVDumpingGroundOffset();
@@ -96,38 +94,6 @@ void DxilPIXMeshShaderOutputInstrumentation::applyOptions(PassOptions O)
 uint32_t DxilPIXMeshShaderOutputInstrumentation::UAVDumpingGroundOffset() 
 {
   return static_cast<uint32_t>(m_UAVSize - DebugBufferDumpingGroundSize);
-}
-
-Value *DxilPIXMeshShaderOutputInstrumentation::
-    insertInstructionsToCalculateFlattenedGroupIdXandY(BuilderContext &BC)
-{
-  Constant *Zero32Arg = BC.HlslOP->GetU32Const(0);
-  Constant *One32Arg = BC.HlslOP->GetU32Const(1);
-
-  auto GroupIdFunc =
-      BC.HlslOP->GetOpFunc(DXIL::OpCode::GroupId, Type::getInt32Ty(BC.Ctx));
-  Constant *Opcode = BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::GroupId);
-  auto GroupIdX =
-      BC.Builder.CreateCall(GroupIdFunc, {Opcode, Zero32Arg}, "GroupIdX");
-  auto GroupIdY =
-      BC.Builder.CreateCall(GroupIdFunc, {Opcode, One32Arg}, "GroupIdY");
-
-  // Spec requires that no group id index is greater than 64k, so we can 
-  // combine two into one 32-bit value:
-  auto YShifted =
-      BC.Builder.CreateShl(GroupIdY, 16);
-  return BC.Builder.CreateAdd(YShifted, GroupIdX);
-}
-
-Value *DxilPIXMeshShaderOutputInstrumentation::
-    insertInstructionsToCalculateGroupIdZ(BuilderContext &BC) 
-{
-  Constant *Two32Arg = BC.HlslOP->GetU32Const(2);
-  auto GroupIdFunc =
-      BC.HlslOP->GetOpFunc(DXIL::OpCode::GroupId, Type::getInt32Ty(BC.Ctx));
-  Constant *Opcode = BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::GroupId);
-
-  return BC.Builder.CreateCall(GroupIdFunc, {Opcode, Two32Arg}, "GroupIdZ");
 }
 
 Value *DxilPIXMeshShaderOutputInstrumentation::reserveDebugEntrySpace(
@@ -275,8 +241,6 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M)
 
   m_OutputUAV = PIXPassHelpers::CreateUAV(DM, Builder, 0, "PIX_DebugUAV_Handle");
 
-  auto GroupIdXandY = insertInstructionsToCalculateFlattenedGroupIdXandY(BC);
-  auto GroupIdZ = insertInstructionsToCalculateGroupIdZ(BC);
   m_threadUniquifier = insertInstructionsToCreateDisambiguationValue(BC);
 
   auto F = HlslOP->GetOpFunc(DXIL::OpCode::EmitIndices, Type::getVoidTy(Ctx));
@@ -292,7 +256,7 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M)
     BuilderContext BC2{M, DM, Ctx, HlslOP, Builder2};
 
     Instrument(BC2, BC2.HlslOP->GetI32Const(triangleIndexIndicator),
-               m_threadUniquifier, GroupIdXandY, GroupIdZ, Call->getOperand(1),
+               m_threadUniquifier, Call->getOperand(1),
                Call->getOperand(2), Call->getOperand(3), Call->getOperand(4));
   }
 
@@ -363,8 +327,6 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M)
         BC2, 
         BC2.HlslOP->GetI32Const(Overload.tag),
         m_threadUniquifier,
-        GroupIdXandY,
-        GroupIdZ, 
         Call->getOperand(1),
         Call->getOperand(2),
         ColumnIndex,
