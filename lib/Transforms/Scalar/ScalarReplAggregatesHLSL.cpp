@@ -4969,6 +4969,15 @@ void SROA_Parameter_HLSL::flattenArgument(
       const std::string &semantic = annotation.GetSemanticString();
       hlsl::InterpolationMode interpMode = annotation.GetInterpolationMode();
 
+      // Find index of first non-empty field.
+      unsigned firstNonEmptyIx = Elts.size();
+      for (unsigned ri = 0; ri < Elts.size(); ri++) {
+        if (DL.getTypeSizeInBits(Ty->getContainedType(ri)) > 0) {
+          firstNonEmptyIx = ri;
+          break;
+        }
+      }
+
       // Push Elts into workList from right to left to preserve the order.
       for (unsigned ri=0;ri<Elts.size();ri++) {
         unsigned i = Elts.size() - ri - 1;
@@ -4981,10 +4990,12 @@ void SROA_Parameter_HLSL::flattenArgument(
               Twine("semantic '") + eltSem + "' on field overridden by function or enclosing type");
           }
 
-          // Inherit semantic from parent, but only preserve it for the first element.
+          // Inherit semantic from parent, but only preserve it for the first
+          // non-zero-sized element.
           // Subsequent elements are noted with a special value that gets resolved
           // once the argument is completely flattened.
-          EltAnnotation.SetSemanticString(i == 0 ? semantic : ContinuedPseudoSemantic);
+          EltAnnotation.SetSemanticString(
+            i == firstNonEmptyIx ? semantic : ContinuedPseudoSemantic);
         } else if (!eltSem.empty() &&
                  semanticTypeMap.count(eltSem) == 0) {
           Type *EltTy = dxilutil::GetArrayEltTy(Ty);
