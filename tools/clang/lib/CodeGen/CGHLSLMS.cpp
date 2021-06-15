@@ -994,7 +994,6 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
       ASTContext &Context = Types.getContext();
       const ASTRecordLayout &Layout = Context.getASTRecordLayout(RD);
       const llvm::DataLayout &DataLayout = Types.getDataLayout();
-      RecordDecl::field_iterator Start = Field;
       RecordDecl::field_iterator End = Field;
       for (++End; End != FieldEnd && End->isBitField(); ++End);
 
