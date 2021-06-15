@@ -12776,7 +12776,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
   // SPIRV change ends
 
   // Disallow bitfields
-  if (BitWidth) {
+  if (BitWidth && getLangOpts().HLSLVersion <= 2015) {
     Diag(BitWidth->getExprLoc(), diag::err_hlsl_bitfields);
     result = false;
   }
