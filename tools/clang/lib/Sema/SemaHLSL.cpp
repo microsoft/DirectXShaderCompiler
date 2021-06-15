@@ -12775,12 +12775,6 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 
-  // Disallow bitfields
-  if (BitWidth) {
-    Diag(BitWidth->getExprLoc(), diag::err_hlsl_bitfields);
-    result = false;
-  }
-
   // Validate unusual annotations.
   hlsl::DiagnoseUnusualAnnotationsForHLSL(*this, D.UnusualAnnotations);
   if (isField)
