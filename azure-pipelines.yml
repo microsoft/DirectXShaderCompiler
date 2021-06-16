@@ -12,7 +12,7 @@ resources:
 stages:
 - stage: Build
   jobs:
-  job: Linux_clang8
+  - job: Linux_clang8
     pool:
       vmImage: Ubuntu-18.04
 
