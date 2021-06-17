@@ -12,6 +12,7 @@
 
 #include "dxc/Support/SPIRVOptions.h"
 #include "clang/AST/ASTContext.h"
+#include "clang/SPIRV/AstTypeProbe.h"
 
 namespace clang {
 namespace spirv {
@@ -47,6 +48,13 @@ public:
   void alignUsingHLSLRelaxedLayout(QualType fieldType, uint32_t fieldSize,
                                    uint32_t fieldAlignment,
                                    uint32_t *currentOffset);
+
+  /// \brief Returns true if we use row-major matrix for type. Otherwise,
+  /// returns false.
+  bool useRowMajor(llvm::Optional<bool> isRowMajor, clang::QualType type) {
+    return isRowMajor.hasValue() ? isRowMajor.getValue()
+                                 : isRowMajorMatrix(spvOptions, type);
+  }
 
 private:
   /// Emits error to the diagnostic engine associated with this visitor.

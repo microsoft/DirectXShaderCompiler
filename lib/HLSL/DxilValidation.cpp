@@ -1017,9 +1017,6 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   // CreateHandleFromHeap=218, Unpack4x8=219, Pack4x8=220, IsHelperLane=221
   if ((216 <= op && op <= 221))
     return (major > 6 || (major == 6 && minor >= 6));
-  // Instructions: TextureGatherImm=222, TextureGatherCmpImm=223
-  if ((222 <= op && op <= 223))
-    return (major > 6 || (major == 6 && minor >= 15));
   return true;
   // VALOPCODESM-TEXT:END
 }
@@ -1439,9 +1436,6 @@ static void ValidateGather(CallInst *CI, Value *srvHandle, Value *samplerHandle,
     ValCtx.EmitInstrError(CI, ValidationRule::InstrResourceKindForGather);
     return;
   }
-  if (OP::IsDxilOpFuncCallInst(CI, DXIL::OpCode::TextureGatherImm) ||
-      OP::IsDxilOpFuncCallInst(CI, DXIL::OpCode::TextureGatherCmpImm))
-    ValidateResourceOffset(CI, resKind, offsets, ValCtx);
 }
 
 static unsigned StoreValueToMask(ArrayRef<Value *> vals) {
@@ -1990,7 +1984,6 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
 
     ValidateDerivativeOp(CI, ValCtx);
   } break;
-  case DXIL::OpCode::TextureGatherImm:
   case DXIL::OpCode::TextureGather: {
     DxilInst_TextureGather gather(CI);
     ValidateGather(CI, gather.get_srv(), gather.get_sampler(),
@@ -1999,7 +1992,6 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
                    {gather.get_offset0(), gather.get_offset1()},
                    /*IsSampleC*/ false, ValCtx);
   } break;
-  case DXIL::OpCode::TextureGatherCmpImm:
   case DXIL::OpCode::TextureGatherCmp: {
     DxilInst_TextureGatherCmp gather(CI);
     ValidateGather(CI, gather.get_srv(), gather.get_sampler(),
@@ -2433,8 +2425,6 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
   case DXIL::OpCode::CalculateLOD:
   case DXIL::OpCode::TextureGather:
   case DXIL::OpCode::TextureGatherCmp:
-  case DXIL::OpCode::TextureGatherImm:
-  case DXIL::OpCode::TextureGatherCmpImm:
   case DXIL::OpCode::Sample:
   case DXIL::OpCode::SampleCmp:
   case DXIL::OpCode::SampleCmpLevelZero:

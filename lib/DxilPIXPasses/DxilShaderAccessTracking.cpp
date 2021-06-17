@@ -12,6 +12,7 @@
 
 #include "dxc/DXIL/DxilOperations.h"
 
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilResourceBinding.h"
@@ -33,6 +34,7 @@
 
 using namespace llvm;
 using namespace hlsl;
+using namespace hlsl::DXIL::OperandIndex;
 
 void ThrowIf(bool a) {
   if (a) {
@@ -649,12 +651,35 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
 
     auto CreateHandleFn =
         HlslOP->GetOpFunc(DXIL::OpCode::CreateHandle, Type::getVoidTy(Ctx));
-    auto CreateHandleUses = CreateHandleFn->uses();
-    for (auto FI = CreateHandleUses.begin(); FI != CreateHandleUses.end();) {
-      auto &FunctionUse = *FI++;
-      auto FunctionUser = FunctionUse.getUser();
+    for (auto FI = CreateHandleFn->user_begin(); FI != CreateHandleFn->user_end();) {
+      auto *FunctionUser = *FI++;
       auto instruction = cast<Instruction>(FunctionUser);
-      Value *index = instruction->getOperand(3);
+      Value *index = instruction->getOperand(kCreateHandleResIndexOpIdx);
+      if (!isa<Constant>(index)) {
+        FoundDynamicIndexing = true;
+        break;
+      }
+    }
+
+    auto CreateHandleFromBindingFn =
+        HlslOP->GetOpFunc(DXIL::OpCode::CreateHandleFromBinding, Type::getVoidTy(Ctx));
+    for (auto FI = CreateHandleFromBindingFn->user_begin(); FI != CreateHandleFromBindingFn->user_end();) {
+      auto * FunctionUser = *FI++;
+      auto instruction = cast<Instruction>(FunctionUser);
+      Value *index = instruction->getOperand(kCreateHandleFromBindingResIndexOpIdx);
+      if (!isa<Constant>(index)) {
+        FoundDynamicIndexing = true;
+        break;
+      }
+    }
+
+    auto CreateHandleFromHeapFn = HlslOP->GetOpFunc(
+        DXIL::OpCode::CreateHandleFromHeap, Type::getVoidTy(Ctx));
+    for (auto FI = CreateHandleFromHeapFn->user_begin();
+         FI != CreateHandleFromHeapFn->user_end();) {
+      auto *FunctionUser = *FI++;
+      auto instruction = cast<Instruction>(FunctionUser);
+      Value *index = instruction->getOperand(kCreateHandleFromHeapHeapIndexOpIdx);
       if (!isa<Constant>(index)) {
         FoundDynamicIndexing = true;
         break;

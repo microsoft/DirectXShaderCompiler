@@ -29,6 +29,20 @@
 #include "llvm/Pass.h"
 
 #include "PixPassHelpers.h"
+using namespace PIXPassHelpers;
+
+using namespace llvm;
+
+//#define VALUE_TO_DECLARE_LOGGING
+
+#ifdef VALUE_TO_DECLARE_LOGGING
+#ifndef PIX_DEBUG_DUMP_HELPER
+#error Turn on PIX_DEBUG_DUMP_HELPER in PixPassHelpers.h
+#endif
+#define VALUE_TO_DECLARE_LOG Log
+#else
+#define VALUE_TO_DECLARE_LOG(...)
+#endif
 
 #define DEBUG_TYPE "dxil-dbg-value-to-dbg-declare"
 
@@ -46,6 +60,36 @@ using SizeInBits = unsigned;
 // operand does not match exactly the Variable operand's type.
 class OffsetManager
 {
+  unsigned DescendTypeToGetAlignMask(llvm::DIType *Ty) {
+    unsigned AlignMask = Ty->getAlignInBits();
+
+    auto *DerivedTy = llvm::dyn_cast<llvm::DIDerivedType>(Ty);
+    if (DerivedTy != nullptr) {
+      // Working around a bug where byte size is stored instead of bit size
+      if (AlignMask == 4 && Ty->getSizeInBits() == 32) {
+        AlignMask = 32;
+      }
+      if (AlignMask == 0) {
+        const llvm::DITypeIdentifierMap EmptyMap;
+        switch (DerivedTy->getTag()) {
+        case llvm::dwarf::DW_TAG_restrict_type:
+        case llvm::dwarf::DW_TAG_reference_type:
+        case llvm::dwarf::DW_TAG_const_type:
+        case llvm::dwarf::DW_TAG_typedef: {
+          llvm::DIType *baseType = DerivedTy->getBaseType().resolve(EmptyMap);
+          if (baseType != nullptr) {
+            if (baseType->getAlignInBits() == 0) {
+              (void)baseType->getAlignInBits();
+            }
+            return DescendTypeToGetAlignMask(baseType);
+          }
+        }
+        }
+      }
+    }
+    return AlignMask;
+  }
+
 public:
   OffsetManager() = default;
 
@@ -54,44 +98,35 @@ public:
       llvm::DIType *Ty
   )
   {
-    // This is some magic arithmetic. Here's an example:
-    //
-    // Assume the natural alignment for Ty is 16 bits. Then
-    //
-    //     AlignMask = 0x0000000f(15)
-    //
-    // If the current aligned offset is 
-    //
-    //     CurrentAlignedOffset = 0x00000048(72)
-    //
-    // Then
-    //
-    //     T = CurrentAlignOffset + AlignMask = 0x00000057(87)
-    //
-    // Which mean
-    //
-    //     T & ~CurrentOffset = 0x00000050(80)
-    //
-    // is the aligned offset where Ty should be placed.
-    unsigned AlignMask = Ty->getAlignInBits();
-
-    if (AlignMask == 0)
-    {
-      if (auto *DerivedTy = llvm::dyn_cast<llvm::DIDerivedType>(Ty)) {
-        const llvm::DITypeIdentifierMap EmptyMap;
-        switch (DerivedTy->getTag()) {
-        case llvm::dwarf::DW_TAG_restrict_type:
-        case llvm::dwarf::DW_TAG_reference_type:
-        case llvm::dwarf::DW_TAG_const_type:
-        case llvm::dwarf::DW_TAG_typedef:
-            AlignMask = DerivedTy->getBaseType().resolve(EmptyMap)->getAlignInBits();
-            assert(AlignMask != 0);
-        }
-      }
+    unsigned AlignMask = DescendTypeToGetAlignMask(Ty);
+    if (AlignMask) {
+      VALUE_TO_DECLARE_LOG("Aligning to %d", AlignMask);
+      // This is some magic arithmetic. Here's an example:
+      //
+      // Assume the natural alignment for Ty is 16 bits. Then
+      //
+      //     AlignMask = 0x0000000f(15)
+      //
+      // If the current aligned offset is 
+      //
+      //     CurrentAlignedOffset = 0x00000048(72)
+      //
+      // Then
+      //
+      //     T = CurrentAlignOffset + AlignMask = 0x00000057(87)
+      //
+      // Which mean
+      //
+      //     T & ~CurrentOffset = 0x00000050(80)
+      //
+      // is the aligned offset where Ty should be placed.
+      AlignMask = AlignMask - 1;
+      m_CurrentAlignedOffset =
+          (m_CurrentAlignedOffset + AlignMask) & ~AlignMask;
     }
-    AlignMask = AlignMask - 1;
-    m_CurrentAlignedOffset =
-        (m_CurrentAlignedOffset + AlignMask) & ~AlignMask;
+    else {
+      VALUE_TO_DECLARE_LOG("Failed to find alignment");
+    }
   }
 
   // Add is used to "add" an aggregate element (struct field, array element)
@@ -100,6 +135,9 @@ public:
       llvm::DIBasicType *Ty
   )
   {
+    VALUE_TO_DECLARE_LOG("Adding known type at aligned %d / packed %d, size %d",
+        m_CurrentAlignedOffset, m_CurrentPackedOffset, Ty->getSizeInBits());
+
     m_PackedOffsetToAlignedOffset[m_CurrentPackedOffset] = m_CurrentAlignedOffset;
     m_AlignedOffsetToPackedOffset[m_CurrentAlignedOffset] = m_CurrentPackedOffset;
 
@@ -119,6 +157,8 @@ public:
       llvm::DIType *Ty
   )
   {
+      VALUE_TO_DECLARE_LOG("Adding unhandled type at aligned %d / packed %d, size %d",
+        m_CurrentAlignedOffset, m_CurrentPackedOffset, Ty->getSizeInBits());
     AlignTo(Ty);
     m_CurrentPackedOffset += Ty->getSizeInBits();
     m_CurrentAlignedOffset += Ty->getSizeInBits();
@@ -126,6 +166,7 @@ public:
 
   void AddResourceType(llvm::DIType *Ty)
   {
+    VALUE_TO_DECLARE_LOG("Adding resource type at aligned %d / packed %d, size %d", m_CurrentAlignedOffset, m_CurrentPackedOffset, Ty->getSizeInBits());
     m_PackedOffsetToAlignedOffset[m_CurrentPackedOffset] =
         m_CurrentAlignedOffset;
     m_AlignedOffsetToPackedOffset[m_CurrentAlignedOffset] =
@@ -146,13 +187,13 @@ public:
         AlignedOffset);
   }
 
-  OffsetInBits GetPackedOffsetFromAlignedOffset(
+  bool GetPackedOffsetFromAlignedOffset(
       OffsetInBits AlignedOffset,
       OffsetInBits *PackedOffset
   ) const
   {
     return GetOffsetWithMap(
-        m_PackedOffsetToAlignedOffset,
+        m_AlignedOffsetToPackedOffset,
         AlignedOffset,
         PackedOffset);
   }
@@ -201,6 +242,7 @@ public:
   VariableRegisters(
       llvm::DebugLoc const &,
       llvm::DIVariable *Variable,
+      llvm::DIType* Ty,
       llvm::Module *M
   );
 
@@ -224,7 +266,8 @@ private:
   void PopulateAllocaMap_ArrayType(llvm::DICompositeType *Ty
   );
 
-  void PopulateAllocaMap_StructType(llvm::DICompositeType *Ty
+  void PopulateAllocaMap_StructType(
+      llvm::DICompositeType *Ty
   );
 
   llvm::DILocation *GetVariableLocation() const;
@@ -360,7 +403,7 @@ bool DxilDbgValueToDbgDeclare::runOnModule(
       llvm::Intrinsic::getDeclaration(&M, llvm::Intrinsic::dbg_value);
 
   bool Changed = false;
-  for (auto it = DbgValueFn->user_begin(); it != DbgValueFn->user_end(); )
+  for (auto it = DbgValueFn->user_begin(); it != DbgValueFn->user_end();)
   {
     llvm::User *User = *it++;
 
@@ -378,26 +421,267 @@ bool DxilDbgValueToDbgDeclare::runOnModule(
   return Changed;
 }
 
+static llvm::DIType* FindStructMemberTypeAtOffset(
+    llvm::DICompositeType* Ty,
+    uint64_t Offset,
+    uint64_t Size
+);
+
+static llvm::DIType* FindMemberTypeAtOffset(
+    llvm::DIType * Ty,
+    uint64_t Offset,
+    uint64_t Size
+) {
+  VALUE_TO_DECLARE_LOG("PopulateAllocaMap for type tag %d", Ty->getTag());
+  const llvm::DITypeIdentifierMap EmptyMap;
+  if (auto *DerivedTy = llvm::dyn_cast<llvm::DIDerivedType>(Ty)) {
+    switch (DerivedTy->getTag()) {
+    default:
+      assert(!"Unhandled DIDerivedType");
+      return nullptr;
+    case llvm::dwarf::DW_TAG_arg_variable: // "this" pointer
+    case llvm::dwarf::DW_TAG_pointer_type: // "this" pointer
+        //what to do here?
+      return nullptr;
+    case llvm::dwarf::DW_TAG_restrict_type:
+    case llvm::dwarf::DW_TAG_reference_type:
+    case llvm::dwarf::DW_TAG_const_type:
+    case llvm::dwarf::DW_TAG_typedef:
+      return FindMemberTypeAtOffset(
+          DerivedTy->getBaseType().resolve(EmptyMap),
+          Offset,
+          Size);
+    case llvm::dwarf::DW_TAG_member:
+      return FindMemberTypeAtOffset(
+          DerivedTy->getBaseType().resolve(EmptyMap),
+          Offset,
+          Size);
+    case llvm::dwarf::DW_TAG_subroutine_type:
+      // ignore member functions.
+      return nullptr;
+    }
+  } else if (auto *CompositeTy = llvm::dyn_cast<llvm::DICompositeType>(Ty)) {
+    switch (CompositeTy->getTag()) {
+    default:
+      assert(!"Unhandled DICompositeType");
+      return nullptr;
+    case llvm::dwarf::DW_TAG_array_type:
+      return nullptr;
+    case llvm::dwarf::DW_TAG_structure_type:
+    case llvm::dwarf::DW_TAG_class_type:
+        return FindStructMemberTypeAtOffset(
+          CompositeTy, Offset, Size);
+    case llvm::dwarf::DW_TAG_enumeration_type:
+      return nullptr;
+    }
+  }
+  else if (auto* BasicTy = llvm::dyn_cast<llvm::DIBasicType>(Ty)) {
+      if (Offset == 0 && Ty->getSizeInBits() == Size) {
+          return BasicTy;
+      }
+  }
+
+  assert(!"Unhandled DIType");
+  return nullptr;
+}
+
+// SortMembers traverses all of Ty's members and returns them sorted
+// by their offset from Ty's start. Returns true if the function succeeds
+// and false otherwise.
+static bool SortMembers(
+    llvm::DICompositeType* Ty,
+    std::map<OffsetInBits, llvm::DIDerivedType*>* SortedMembers
+)
+{
+    auto Elements = Ty->getElements();
+    if (Elements.begin() == Elements.end())
+    {
+        return false;
+    }
+    for (auto* Element : Elements)
+    {
+        switch (Element->getTag())
+        {
+        case llvm::dwarf::DW_TAG_member: {
+            if (auto* Member = llvm::dyn_cast<llvm::DIDerivedType>(Element))
+            {
+                if (Member->getSizeInBits()) {
+                    auto it = SortedMembers->emplace(std::make_pair(Member->getOffsetInBits(), Member));
+                    (void)it;
+                    assert(it.second &&
+                        "Invalid DIStructType"
+                        " - members with the same offset -- are unions possible?");
+                }
+                break;
+            }
+            assert(!"member is not a Member");
+            return false;
+        }
+        case llvm::dwarf::DW_TAG_subprogram: {
+            if (auto* SubProgram = llvm::dyn_cast<llvm::DISubprogram>(Element)) {
+                continue;
+            }
+            assert(!"DISubprogram not understood");
+            return false;
+        }
+        case llvm::dwarf::DW_TAG_inheritance: {
+            if (auto* Member = llvm::dyn_cast<llvm::DIDerivedType>(Element))
+            {
+                auto it = SortedMembers->emplace(
+                    std::make_pair(Member->getOffsetInBits(), Member));
+                (void)it;
+                assert(it.second &&
+                    "Invalid DIStructType"
+                    " - members with the same offset -- are unions possible?");
+            }
+            continue;
+        }
+        default:
+            assert(!"Unhandled field type in DIStructType");
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool IsResourceObject(llvm::DIDerivedType *DT) {
+  const llvm::DITypeIdentifierMap EmptyMap;
+  auto *BT = DT->getBaseType().resolve(EmptyMap);
+  if (auto *CompositeTy = llvm::dyn_cast<llvm::DICompositeType>(BT)) {
+    // Resource variables (e.g. TextureCube) are composite types but have no
+    // elements:
+    if (CompositeTy->getElements().begin() ==
+        CompositeTy->getElements().end()) {
+      auto name = CompositeTy->getName();
+      auto openTemplateListMarker = name.find_first_of('<');
+      if (openTemplateListMarker != llvm::StringRef::npos) {
+        auto hlslType = name.substr(0, openTemplateListMarker);
+        for (int i = static_cast<int>(hlsl::DXIL::ResourceKind::Invalid) + 1;
+             i < static_cast<int>(hlsl::DXIL::ResourceKind::NumEntries); ++i) {
+          if (hlslType == hlsl::GetResourceKindName(
+                              static_cast<hlsl::DXIL::ResourceKind>(i))) {
+            return true;
+          }
+        }
+      }
+    }
+  }
+  return false;
+}
+
+static llvm::DIType* FindStructMemberTypeAtOffset(llvm::DICompositeType* Ty,
+    uint64_t Offset,
+    uint64_t Size) {
+    std::map<OffsetInBits, llvm::DIDerivedType*> SortedMembers;
+    if (!SortMembers(Ty, &SortedMembers)) {
+        return Ty;
+    }
+
+    const llvm::DITypeIdentifierMap EmptyMap;
+
+    for (auto & member : SortedMembers) {
+        // "Inheritance" is a member of a composite type, but has size of zero.
+        // Therefore, we must descend the hierarchy once to find an actual type.
+        llvm::DIType * memberType = member.second;
+        if (memberType->getTag() == llvm::dwarf::DW_TAG_inheritance) {
+          memberType = member.second->getBaseType().resolve(EmptyMap);
+        }
+        if (Offset >= member.first &&
+            Offset < member.first + memberType->getSizeInBits()) {
+            uint64_t OffsetIntoThisType = Offset - member.first;
+            return FindMemberTypeAtOffset(memberType, OffsetIntoThisType, Size);
+        }
+    }
+
+    // Structure resources are expected to fail this (they have no real meaning in
+    // storage)
+    if (SortedMembers.size() == 1) {
+        switch (SortedMembers.begin()->second->getTag()) {
+        case llvm::dwarf::DW_TAG_structure_type:
+        case llvm::dwarf::DW_TAG_class_type:
+            if (IsResourceObject(SortedMembers.begin()->second)) {
+                return nullptr;
+            }
+        }
+    }
+#ifdef VALUE_TO_DECLARE_LOGGING
+    VALUE_TO_DECLARE_LOG("Didn't find a member that straddles the sought type. Container:");
+    {
+        ScopedIndenter indent;
+        Ty->dump();
+        DumpFullType(Ty);
+    }
+    VALUE_TO_DECLARE_LOG("Sought type is at offset %d size %d. Members and offsets:", Offset, Size);
+    {
+        ScopedIndenter indent;
+        for (auto const& member : SortedMembers) {
+            member.second->dump();
+            LogPartialLine("Offset %d (size %d): ", member.first, member.second->getSizeInBits());
+            DumpFullType(member.second);
+        }
+    }
+#endif
+    assert(!"Didn't find a member that straddles the sought type");
+    return nullptr;
+}
+
 void DxilDbgValueToDbgDeclare::handleDbgValue(
     llvm::Module& M,
     llvm::DbgValueInst* DbgValue)
 {
+  VALUE_TO_DECLARE_LOG("DbgValue named %s", DbgValue->getName().str().c_str());
+
+  llvm::DIVariable *Variable = DbgValue->getVariable();
+  if (Variable != nullptr) {
+    VALUE_TO_DECLARE_LOG("... DbgValue referred to variable named %s",
+        Variable->getName().str().c_str());
+  } else {
+    VALUE_TO_DECLARE_LOG("... variable was null too");
+  }
+
   llvm::Value *V = DbgValue->getValue();
   if (V == nullptr) {
     // The metadata contained a null Value, so we ignore it. This
     // seems to be a dxcompiler bug.
+    VALUE_TO_DECLARE_LOG("...Null value!");
     return;
   }
 
   if (auto *PtrTy = llvm::dyn_cast<llvm::PointerType>(V->getType())) {
+    VALUE_TO_DECLARE_LOG("... variable had null pointer type");
     return;
   }
   
-  llvm::DIVariable *Variable = DbgValue->getVariable();
+  const llvm::DITypeIdentifierMap EmptyMap;
+  llvm::DIType *Ty = Variable->getType().resolve(EmptyMap);
+  if (Ty == nullptr) {
+    return;
+  }
+
+  // Members' "base type" is actually the containing aggregate's type.
+  // To find the actual type of the variable, we must descend the container's 
+  // type hierarchy to find the type at the expected offset/size.
+  if (auto* DerivedTy = llvm::dyn_cast<llvm::DIDerivedType>(Ty)) {
+      const llvm::DITypeIdentifierMap EmptyMap;
+      switch (DerivedTy->getTag()) {
+      case llvm::dwarf::DW_TAG_member: {
+          Ty = FindMemberTypeAtOffset(
+              DerivedTy->getBaseType().resolve(EmptyMap), 
+              DerivedTy->getOffsetInBits(), 
+              DerivedTy->getSizeInBits());
+        if (Ty == nullptr) {
+            return;
+        }
+      }
+      break;
+      }
+  }
+
   auto &Register = m_Registers[Variable];
   if (Register == nullptr)
   {
-    Register.reset(new VariableRegisters(DbgValue->getDebugLoc(), Variable, &M));
+    Register.reset(
+        new VariableRegisters(DbgValue->getDebugLoc(), Variable, Ty, &M));
   }
 
   // Convert the offset from DbgValue's expression to a packed
@@ -417,34 +701,45 @@ void DxilDbgValueToDbgDeclare::handleDbgValue(
 
   const OffsetInBits InitialOffset = PackedOffsetFromVar;
   llvm::IRBuilder<> B(DbgValue->getCalledFunction()->getContext());
-  B.SetInsertPoint(DbgValue);
-  B.SetCurrentDebugLocation(llvm::DebugLoc());
-  auto *Zero = B.getInt32(0);
+  auto* instruction = llvm::dyn_cast<llvm::Instruction>(V);
+  if (instruction != nullptr) {
+    instruction = instruction->getNextNode();
+    if (instruction != nullptr) {
+      // Drivers may crash if phi nodes aren't always at the top of a block,
+      // so we must skip over them before inserting instructions.
+      do {
+        instruction = instruction->getNextNode();
+      } while (instruction != nullptr && llvm::isa<llvm::PHINode>(instruction));
+      
+      B.SetInsertPoint(instruction);
 
-  // Now traverse a list of pairs {Scalar Value, InitialOffset + Offset}.
-  // InitialOffset is the offset from DbgValue's expression (i.e., the
-  // offset from the Variable's start), and Offset is the Scalar Value's
-  // packed offset from DbgValue's value. 
-  for (const ValueAndOffset &VO : SplitValue(V, InitialOffset, B))
-  {
-    OffsetInBits AlignedOffset;
-    if (!Offsets.GetAlignedOffsetFromPackedOffset(VO.m_PackedOffset,
-                                                  &AlignedOffset))
-    {
-      continue;
-    }
+      B.SetCurrentDebugLocation(llvm::DebugLoc());
+      auto *Zero = B.getInt32(0);
 
-    auto* AllocaInst = Register->GetRegisterForAlignedOffset(AlignedOffset);
-    if (AllocaInst == nullptr)
-    {
-      assert(!"Failed to find alloca for var[offset]");
-      continue;
-    }
+      // Now traverse a list of pairs {Scalar Value, InitialOffset + Offset}.
+      // InitialOffset is the offset from DbgValue's expression (i.e., the
+      // offset from the Variable's start), and Offset is the Scalar Value's
+      // packed offset from DbgValue's value.
+      for (const ValueAndOffset &VO : SplitValue(V, InitialOffset, B)) {
 
-    if (AllocaInst->getAllocatedType()->getArrayElementType() == VO.m_V->getType())
-    {
-      auto* GEP = B.CreateGEP(AllocaInst, { Zero, Zero });
-      B.CreateStore(VO.m_V, GEP);
+        OffsetInBits AlignedOffset;
+        if (!Offsets.GetAlignedOffsetFromPackedOffset(VO.m_PackedOffset,
+                                                      &AlignedOffset)) {
+          continue;
+        }
+
+        auto *AllocaInst = Register->GetRegisterForAlignedOffset(AlignedOffset);
+        if (AllocaInst == nullptr) {
+          assert(!"Failed to find alloca for var[offset]");
+          continue;
+        }
+
+        if (AllocaInst->getAllocatedType()->getArrayElementType() ==
+            VO.m_V->getType()) {
+          auto *GEP = B.CreateGEP(AllocaInst, {Zero, Zero});
+          B.CreateStore(VO.m_V, GEP);
+        }
+      }
     }
   }
 }
@@ -479,6 +774,8 @@ static llvm::DIType *DITypePeelTypeAlias(
     case llvm::dwarf::DW_TAG_const_type:
     case llvm::dwarf::DW_TAG_typedef:
     case llvm::dwarf::DW_TAG_pointer_type:
+      return DITypePeelTypeAlias(
+          DerivedTy->getBaseType().resolve(EmptyMap));
     case llvm::dwarf::DW_TAG_member:
       return DITypePeelTypeAlias(
           DerivedTy->getBaseType().resolve(EmptyMap));
@@ -492,16 +789,14 @@ static llvm::DIType *DITypePeelTypeAlias(
 VariableRegisters::VariableRegisters(
     llvm::DebugLoc const & dbgLoc,
     llvm::DIVariable *Variable,
+    llvm::DIType* Ty,
     llvm::Module *M)
   : m_dbgLoc(dbgLoc)
   ,m_Variable(Variable)
-  , m_B(M->GetOrCreateDxilModule().GetEntryFunction()->getEntryBlock().begin())
+  , m_B(PIXPassHelpers::GetEntryFunction(M->GetOrCreateDxilModule())->getEntryBlock().begin())
   , m_DbgDeclareFn(llvm::Intrinsic::getDeclaration(
       M, llvm::Intrinsic::dbg_declare))
 {
-  const llvm::DITypeIdentifierMap EmptyMap;
-  llvm::DIType* Ty = m_Variable->getType().resolve(EmptyMap);
-
   PopulateAllocaMap(Ty);
   assert(m_Offsets.GetCurrentPackedOffset() ==
          DITypePeelTypeAlias(Ty)->getSizeInBits());
@@ -511,9 +806,10 @@ void VariableRegisters::PopulateAllocaMap(
     llvm::DIType *Ty
 )
 {
+  VALUE_TO_DECLARE_LOG("PopulateAllocaMap for type tag %d", Ty->getTag());
+  const llvm::DITypeIdentifierMap EmptyMap;
   if (auto *DerivedTy = llvm::dyn_cast<llvm::DIDerivedType>(Ty))
   {
-    const llvm::DITypeIdentifierMap EmptyMap;
     switch (DerivedTy->getTag())
     {
     default:
@@ -526,6 +822,9 @@ void VariableRegisters::PopulateAllocaMap(
     case llvm::dwarf::DW_TAG_reference_type:
     case llvm::dwarf::DW_TAG_const_type:
     case llvm::dwarf::DW_TAG_typedef:
+      PopulateAllocaMap(
+          DerivedTy->getBaseType().resolve(EmptyMap));
+      return;
     case llvm::dwarf::DW_TAG_member:
       PopulateAllocaMap(
           DerivedTy->getBaseType().resolve(EmptyMap));
@@ -549,6 +848,10 @@ void VariableRegisters::PopulateAllocaMap(
     case llvm::dwarf::DW_TAG_structure_type:
     case llvm::dwarf::DW_TAG_class_type:
       PopulateAllocaMap_StructType(CompositeTy);
+      return;
+    case llvm::dwarf::DW_TAG_enumeration_type:
+      // enum base type is int:
+      PopulateAllocaMap(CompositeTy->getBaseType().resolve(EmptyMap));
       return;
     }
   }
@@ -685,98 +988,17 @@ void VariableRegisters::PopulateAllocaMap_ArrayType(
     // This is only needed if ElementTy's size is not a multiple of
     // its natural alignment.
     m_Offsets.AlignTo(ElementTy);
-    PopulateAllocaMap(ElementTy);
+    PopulateAllocaMap(
+        ElementTy);
   }
-}
-
-// SortMembers traverses all of Ty's members and returns them sorted
-// by their offset from Ty's start. Returns true if the function succeeds
-// and false otherwise.
-static bool SortMembers(
-    llvm::DICompositeType* Ty,
-    std::map<OffsetInBits, llvm::DIDerivedType*> *SortedMembers
-)
-{
-    auto Elements = Ty->getElements();
-    if (Elements.begin() == Elements.end())
-    {
-        return false;
-    }
-    for (auto* Element : Elements)
-    {
-        switch (Element->getTag())
-        {
-        case llvm::dwarf::DW_TAG_member: {
-            if (auto* Member = llvm::dyn_cast<llvm::DIDerivedType>(Element))
-            {
-                if (Member->getSizeInBits()) {
-                    auto it = SortedMembers->emplace(std::make_pair(Member->getOffsetInBits(), Member));
-                    (void)it;
-                    assert(it.second &&
-                        "Invalid DIStructType"
-                        " - members with the same offset -- are unions possible?");
-                }
-                break;
-            }
-            assert(!"member is not a Member");
-            return false;
-        }
-        case llvm::dwarf::DW_TAG_subprogram: {
-            if (auto* SubProgram = llvm::dyn_cast<llvm::DISubprogram>(Element)) {
-                continue;
-            }
-            assert(!"DISubprogram not understood");
-            return false;
-        }
-        case llvm::dwarf::DW_TAG_inheritance: {
-            if (auto* Member = llvm::dyn_cast<llvm::DIDerivedType>(Element))
-            {
-                auto it = SortedMembers->emplace(
-                    std::make_pair(Member->getOffsetInBits(), Member));
-                (void)it;
-                assert(it.second &&
-                    "Invalid DIStructType"
-                    " - members with the same offset -- are unions possible?");
-            }
-            continue;
-        }
-        default:
-            assert(!"Unhandled field type in DIStructType");
-            return false;
-        }
-    }
-  return true;
-}
-
-static bool IsResourceObject(llvm::DIDerivedType *DT) {
-  const llvm::DITypeIdentifierMap EmptyMap;
-  auto *BT = DT->getBaseType().resolve(EmptyMap);
-  if (auto *CompositeTy = llvm::dyn_cast<llvm::DICompositeType>(BT)) {
-    // Resource variables (e.g. TextureCube) are composite types but have no elements:
-    if (CompositeTy->getElements().begin() ==
-        CompositeTy->getElements().end()) {
-      auto name = CompositeTy->getName();
-      auto openTemplateListMarker = name.find_first_of('<');
-      if (openTemplateListMarker != llvm::StringRef::npos) {
-        auto hlslType = name.substr(0, openTemplateListMarker);
-        for (int i = static_cast<int>(hlsl::DXIL::ResourceKind::Invalid) + 1;
-            i < static_cast<int>(hlsl::DXIL::ResourceKind::NumEntries);
-            ++i) {
-          if (hlslType == hlsl::GetResourceKindName(static_cast<hlsl::DXIL::ResourceKind>(i))) {
-            return true;
-          }
-        }
-      }
-    }
-  }
-  return false;
 }
 
 void VariableRegisters::PopulateAllocaMap_StructType(
     llvm::DICompositeType *Ty
 )
 {
-  std::map<OffsetInBits, llvm::DIDerivedType*> SortedMembers;
+  VALUE_TO_DECLARE_LOG("Struct type : %s, size %d", Ty->getName().str().c_str(), Ty->getSizeInBits());
+  std::map<OffsetInBits, llvm::DIDerivedType *> SortedMembers;
   if (!SortMembers(Ty, &SortedMembers))
   {
       m_Offsets.AlignToAndAddUnhandledType(Ty);
@@ -790,6 +1012,7 @@ void VariableRegisters::PopulateAllocaMap_StructType(
 
   for (auto OffsetAndMember : SortedMembers)
   {
+    VALUE_TO_DECLARE_LOG("Member: %s at aligned offset %d", OffsetAndMember.second->getName().str().c_str(), OffsetAndMember.first);
     // Align the offsets to the member's type natural alignment. This
     // should always result in the current aligned offset being the
     // same as the member's offset.

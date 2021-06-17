@@ -43,7 +43,7 @@ HRESULT DxcInitThreadMalloc() throw() {
 void DxcCleanupThreadMalloc() throw() {
   if (g_ThreadMallocTls) {
     DXASSERT(g_pDefaultMalloc, "else DxcInitThreadMalloc didn't work/fail atomically");
-    g_ThreadMallocTls->llvm::sys::ThreadLocal<IMalloc>::~ThreadLocal();
+    g_ThreadMallocTls->~ThreadLocal();
     g_pDefaultMalloc->Free(g_ThreadMallocTls);
     g_ThreadMallocTls = nullptr;
   }

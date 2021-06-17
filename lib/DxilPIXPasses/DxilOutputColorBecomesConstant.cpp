@@ -169,7 +169,7 @@ bool DxilOutputColorBecomesConstant::runOnModule(Module &M) {
     pCBuf->SetSize(4);
 
     Instruction *entryPointInstruction =
-        &*(DM.GetEntryFunction()->begin()->begin());
+        &*(PIXPassHelpers::GetEntryFunction(DM)->begin()->begin());
     IRBuilder<> Builder(entryPointInstruction);
 
     // Create handle for the newly-added constant buffer (which is achieved via

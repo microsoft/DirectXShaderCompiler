@@ -90,6 +90,12 @@ public:
   /// block.
   void addInstruction(SpirvInstruction *inst) { instructions.push_back(inst); }
 
+  /// Adds the given instruction as the first instruction of this SPIR-V basic
+  /// block.
+  void addFirstInstruction(SpirvInstruction *inst) {
+    instructions.push_front(inst);
+  }
+
   /// Return true if instructions is empty. Otherwise, return false.
   bool empty() { return instructions.empty(); }
 

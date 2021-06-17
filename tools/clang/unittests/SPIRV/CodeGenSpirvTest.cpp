@@ -69,6 +69,12 @@ TEST_F(FileTest, TypedefTypes) { runFileTest("type.typedef.hlsl"); }
 TEST_F(FileTest, SamplerTypes) { runFileTest("type.sampler.hlsl"); }
 TEST_F(FileTest, TextureTypes) { runFileTest("type.texture.hlsl"); }
 TEST_F(FileTest, RWTextureTypes) { runFileTest("type.rwtexture.hlsl"); }
+TEST_F(FileTest, RWTextureTypesWithMinPrecisionScalarTypes) {
+  runFileTest("type.rwtexture.with.min.precision.scalar.hlsl");
+}
+TEST_F(FileTest, RWTextureTypesWith64bitsScalarTypes) {
+  runFileTest("type.rwtexture.with.64bit.scalar.hlsl");
+}
 TEST_F(FileTest, BufferType) { runFileTest("type.buffer.hlsl"); }
 TEST_F(FileTest, BufferTypeStructError1) {
   runFileTest("type.buffer.struct.error1.hlsl", Expect::Failure);
@@ -458,6 +464,9 @@ TEST_F(FileTest, CastFlatConversionArrayToVector) {
 TEST_F(FileTest, CastImplicitFlatConversion) {
   runFileTest("cast.flat-conversion.implicit.hlsl");
 }
+TEST_F(FileTest, CastFlatConversionDeclRef) {
+  runFileTest("cast.flat-conversion.decl-ref.hlsl");
+}
 TEST_F(FileTest, CastFlatConversionStruct) {
   runFileTest("cast.flat-conversion.struct.hlsl");
 }
@@ -565,9 +574,13 @@ TEST_F(FileTest, FunctionInOutParamVector) {
   setBeforeHLSLLegalization();
   runFileTest("fn.param.inout.vector.hlsl");
 }
-TEST_F(FileTest, FunctionInOutParamResource) {
+TEST_F(FileTest, FunctionInOutParamGlobalResource) {
   setBeforeHLSLLegalization();
-  runFileTest("fn.param.inout.resource.hlsl");
+  runFileTest("fn.param.inout.global.resource.hlsl");
+}
+TEST_F(FileTest, FunctionInOutParamLocalResource) {
+  setBeforeHLSLLegalization();
+  runFileTest("fn.param.inout.local.resource.hlsl");
 }
 TEST_F(FileTest, FunctionInOutParamDiffStorageClass) {
   setBeforeHLSLLegalization();
@@ -974,6 +987,17 @@ TEST_F(FileTest, TextureInvalidTex2D) {
 TEST_F(FileTest, TextureSampleOffsetWithLoopUnroll) {
   runFileTest("texture.sample-offset.with.loop-unroll.hlsl");
 }
+TEST_F(FileTest, TextureSampleVariableOffsetBeforeLegalizeHLSL) {
+  setBeforeHLSLLegalization();
+  runFileTest("texture.sample.variable-offset.hlsl");
+}
+TEST_F(FileTest, TextureSampleOffsetNeedsLegalization) {
+  setBeforeHLSLLegalization();
+  runFileTest("texture.sample.offset.needs.legalization.hlsl");
+}
+TEST_F(FileTest, TextureSampleConstOffsetAfterLegalization) {
+  runFileTest("texture.sample.offset.needs.legalization.o0.hlsl");
+}
 
 // For structured buffer methods
 TEST_F(FileTest, StructuredBufferLoad) {
@@ -1079,6 +1103,9 @@ TEST_F(FileTest, IntrinsicsAsDouble) {
 TEST_F(FileTest, IntrinsicsAsfloat) { runFileTest("intrinsics.asfloat.hlsl"); }
 TEST_F(FileTest, IntrinsicsAsint) { runFileTest("intrinsics.asint.hlsl"); }
 TEST_F(FileTest, IntrinsicsAsuint) { runFileTest("intrinsics.asuint.hlsl"); }
+TEST_F(FileTest, IntrinsicsAsuintArgumentMustBeRValue) {
+  runFileTest("intrinsics.asuint.rvalue.hlsl");
+}
 TEST_F(FileTest, IntrinsicsRound) { runFileTest("intrinsics.round.hlsl"); }
 TEST_F(FileTest, IntrinsicsAbs) { runFileTest("intrinsics.abs.hlsl"); }
 TEST_F(FileTest, IntrinsicsCross) { runFileTest("intrinsics.cross.hlsl"); }
@@ -1565,6 +1592,22 @@ TEST_F(FileTest, SpirvStageIOInterfacePS) {
 
 TEST_F(FileTest, SpirvStageIOAliasBuiltIn) {
   runFileTest("spirv.interface.alias-builtin.hlsl");
+}
+
+TEST_F(FileTest, SpirvInterfacesForMultipleEntryPointsSimple) {
+  runFileTest("spirv.interface.multiple.entries.simple.hlsl");
+}
+TEST_F(FileTest, SpirvInterfacesForMultipleEntryPointsBuiltIn) {
+  runFileTest("spirv.interface.multiple.entries.built-in.hlsl");
+}
+TEST_F(FileTest, SpirvInterfacesForMultipleEntryPointsBuiltInVulkan1p2) {
+  runFileTest("spirv.interface.multiple.entries.built-in.vk.1p2.hlsl");
+}
+TEST_F(FileTest, SpirvInterfacesForMultipleEntryPoints) {
+  runFileTest("spirv.interface.multiple.entries.hlsl");
+}
+TEST_F(FileTest, SpirvInterfacesForMultipleEntryPointsVulkan1p2) {
+  runFileTest("spirv.interface.multiple.entries.vk.1p2.hlsl");
 }
 
 // For testing UserSemantic decoration
@@ -2080,6 +2123,43 @@ TEST_F(FileTest, VulkanLayoutFxcRulesCBuffer) {
   // cbuffer/tbuffer/ConstantBuffer/TextureBuffer with fxc layout rules
   setDxLayout();
   runFileTest("vk.layout.cbuffer.fxc.hlsl");
+}
+
+TEST_F(FileTest, VulkanLayoutFxcRulesCBufferMatrix) {
+  setDxLayout();
+  runFileTest("vk.layout.cbuffer.fxc.matrix.simple.hlsl");
+}
+TEST_F(FileTest, VulkanLayoutFxcRulesCBufferMatrixNxM) {
+  setDxLayout();
+  runFileTest("vk.layout.cbuffer.fxc.matrix.n-by-m.hlsl");
+}
+TEST_F(FileTest, VulkanLayoutFxcRulesCBufferMatrixArray) {
+  setDxLayout();
+  runFileTest("vk.layout.cbuffer.fxc.matrix.array.hlsl");
+}
+TEST_F(FileTest, VulkanLayoutFxcRulesCBufferMatrixStruct) {
+  setDxLayout();
+  runFileTest("vk.layout.cbuffer.fxc.matrix.struct.hlsl");
+}
+TEST_F(FileTest, VulkanLayoutFxcRulesCBufferMatrixMajorness) {
+  setDxLayout();
+  runFileTest("vk.layout.cbuffer.fxc.matrix.majorness.hlsl");
+}
+TEST_F(FileTest, VulkanLayoutFxcRulesCBufferMatrixUseArrayForVertex) {
+  setDxLayout();
+  runFileTest("vk.layout.cbuffer.fxc.matrix.v2arr.conversion.hlsl");
+}
+TEST_F(FileTest, VulkanLayoutFxcRulesCBufferMatrixUseArrayForVertexWithO3) {
+  setDxLayout();
+  runFileTest("vk.layout.cbuffer.fxc.matrix.v2arr.conversion.o3.hlsl");
+}
+TEST_F(FileTest, VulkanLayoutFxcRulesCBufferOffset) {
+  setDxLayout();
+  runFileTest("vk.layout.cbuffer.fxc.offset.hlsl");
+}
+TEST_F(FileTest, VulkanLayoutFxcRulesCBufferMatrixGlobal) {
+  setDxLayout();
+  runFileTest("vk.layout.cbuffer.fxc.matrix.global.hlsl");
 }
 
 TEST_F(FileTest, VulkanLayoutFxcRulesCBuffer1) {

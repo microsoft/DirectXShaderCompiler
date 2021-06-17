@@ -858,8 +858,8 @@ static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args124[] =
 static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args125[] =
 {
     {"asdouble", AR_QUAL_OUT, 0, LITEMPLATE_ANY, 0, LICOMPTYPE_DOUBLE, IA_R, IA_C},
-    {"x", AR_QUAL_IN, 0, LITEMPLATE_ANY, 1, LICOMPTYPE_UINT_ONLY, IA_R, IA_C},
-    {"y", AR_QUAL_IN, 0, LITEMPLATE_ANY, 2, LICOMPTYPE_UINT_ONLY, IA_R, IA_C},
+    {"x", AR_QUAL_IN, 0, LITEMPLATE_ANY, 1, LICOMPTYPE_UINT, IA_R, IA_C},
+    {"y", AR_QUAL_IN, 0, LITEMPLATE_ANY, 2, LICOMPTYPE_UINT, IA_R, IA_C},
 };
 
 static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args126[] =
@@ -6718,5 +6718,5 @@ static const UINT g_uVkSubpassInputMethodsCount = 1;
 
 static const int g_MaxIntrinsicName = 44; // Count of characters for longest intrinsic name - 'CandidateInstanceContributionToHitGroupIndex'
 static const int g_MaxIntrinsicParamName = 48; // Count of characters for longest intrinsic parameter name - 'MultiplierForGeometryContributionToHitGroupIndex'
-static const int g_MaxIntrinsicParamCount = 8; // Count of parameters (without return) for longest intrinsic argument list - 'TraceRay'
+static const int g_MaxIntrinsicParamCount = 29; // Count of parameters (without return) for longest intrinsic argument list - 'MIN_PARAM_COUNT'
 // HLSL-INTRINSIC-STATS:END

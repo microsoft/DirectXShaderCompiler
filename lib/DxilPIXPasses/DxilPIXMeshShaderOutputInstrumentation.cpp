@@ -222,7 +222,7 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M)
   OP *HlslOP = DM.GetOP();
 
   Instruction *firstInsertionPt =
-      dxilutil::FirstNonAllocaInsertionPt(DM.GetEntryFunction());
+      dxilutil::FirstNonAllocaInsertionPt(PIXPassHelpers::GetEntryFunction(DM));
   IRBuilder<> Builder(firstInsertionPt);
 
   BuilderContext BC{M, DM, Ctx, HlslOP, Builder};

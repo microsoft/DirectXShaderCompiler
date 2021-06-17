@@ -171,7 +171,16 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
     if (imageType->isArrayedImage() && imageType->isMSImage())
       addCapability(spv::Capability::ImageMSArray);
 
-    addCapabilityForType(imageType->getSampledType(), loc, sc);
+    if (const auto *sampledType = imageType->getSampledType()) {
+      addCapabilityForType(sampledType, loc, sc);
+      if (const auto *sampledIntType = dyn_cast<IntegerType>(sampledType)) {
+        if (sampledIntType->getBitwidth() == 64) {
+          addCapability(spv::Capability::Int64ImageEXT);
+          addExtension(Extension::EXT_shader_image_int64,
+                       "64-bit image types in resource", loc);
+        }
+      }
+    }
   }
   // Sampled image type
   else if (const auto *sampledImageType = dyn_cast<SampledImageType>(type)) {
