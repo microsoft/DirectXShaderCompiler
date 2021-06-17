@@ -28,6 +28,7 @@ class DxcLangExtensionsCommonHelper {
 private:
   llvm::SmallVector<std::string, 2> m_semanticDefines;
   llvm::SmallVector<std::string, 2> m_semanticDefineExclusions;
+  llvm::SetVector<std::string> m_nonOptSemanticDefines;
   llvm::SmallVector<std::string, 2> m_defines;
   llvm::SmallVector<CComPtr<IDxcIntrinsicTable>, 2> m_intrinsicTables;
   CComPtr<IDxcSemanticDefineValidator> m_semanticDefineValidator;
@@ -47,9 +48,24 @@ private:
     CATCH_CPP_RETURN_HRESULT();
   }
 
+  HRESULT STDMETHODCALLTYPE RegisterIntoSet(LPCWSTR name, llvm::SetVector<std::string>& here)
+  {
+    try {
+      IFTPTR(name);
+      std::string s;
+      if (!Unicode::UTF16ToUTF8String(name, &s)) {
+        throw ::hlsl::Exception(E_INVALIDARG);
+      }
+      here.insert(s);
+      return S_OK;
+    }
+    CATCH_CPP_RETURN_HRESULT();
+  }
+
 public:
   const llvm::SmallVector<std::string, 2>& GetSemanticDefines() const { return m_semanticDefines; }
   const llvm::SmallVector<std::string, 2>& GetSemanticDefineExclusions() const { return m_semanticDefineExclusions; }
+  const llvm::SetVector<std::string>& GetNonOptSemanticDefines() const { return m_nonOptSemanticDefines; }
   const llvm::SmallVector<std::string, 2>& GetDefines() const { return m_defines; }
   llvm::SmallVector<CComPtr<IDxcIntrinsicTable>, 2>& GetIntrinsicTables(){ return m_intrinsicTables; }
   const std::string &GetSemanticDefineMetadataName() { return m_semanticDefineMetaDataName; }
@@ -63,6 +79,11 @@ public:
   HRESULT STDMETHODCALLTYPE RegisterSemanticDefineExclusion(LPCWSTR name)
   {
     return RegisterIntoVector(name, m_semanticDefineExclusions);
+  }
+
+  HRESULT STDMETHODCALLTYPE RegisterNonOptSemanticDefine(LPCWSTR name)
+  {
+    return RegisterIntoSet(name, m_nonOptSemanticDefines);
   }
 
   HRESULT STDMETHODCALLTYPE RegisterDefine(LPCWSTR name)
@@ -217,6 +238,10 @@ public:
   HRESULT STDMETHODCALLTYPE RegisterSemanticDefineExclusion(LPCWSTR name) override { \
     DxcThreadMalloc TM(m_pMalloc); \
     return (_helper_field_).RegisterSemanticDefineExclusion(name); \
+  } \
+  HRESULT STDMETHODCALLTYPE RegisterNonOptSemanticDefine(LPCWSTR name) override { \
+    DxcThreadMalloc TM(m_pMalloc); \
+    return (_helper_field_).RegisterNonOptSemanticDefine(name); \
   } \
   HRESULT STDMETHODCALLTYPE RegisterDefine(LPCWSTR name) override { \
     DxcThreadMalloc TM(m_pMalloc); \

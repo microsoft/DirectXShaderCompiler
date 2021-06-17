@@ -1085,7 +1085,8 @@ HRESULT CShaderReflectionType::Initialize(
 
       // Try to "clean" the type name for use in reflection data
       llvm::StringRef name = structType->getName();
-      name = name.ltrim("dx.alignment.legacy.");
+      name = name.ltrim("dx.alignment.legacy."); // legacy prefix for legacy types
+      name = name.ltrim(kHostLayoutTypePrefix);
       name = name.ltrim("struct.");
       m_Name = name;
 
@@ -1096,7 +1097,7 @@ HRESULT CShaderReflectionType::Initialize(
 
       // There is no annotation for empty structs
       unsigned int fieldCount = 0;
-      if (structAnnotation)
+      if (structAnnotation && !structAnnotation->IsEmptyBesidesResources())
         fieldCount = type->getStructNumElements();
 
       // The DXBC reflection info computes `Columns` for a
@@ -1126,6 +1127,13 @@ HRESULT CShaderReflectionType::Initialize(
 
         m_MemberTypes.push_back(fieldReflectionType);
         m_MemberNames.push_back(fieldAnnotation.GetFieldName().c_str());
+
+        // Skip structures fields with no real contents, otherwise we expand
+        // the size of this struct by 1 when we treat a zero column size as 1.
+        if (isa<StructType>(fieldType) &&
+            fieldReflectionType->m_Desc.Columns == 0) {
+          continue;
+        }
 
         // Effectively, we want to add one to `Columns` for every scalar nested recursively
         // inside this `struct` type (ignoring objects, which we filtered above). We should
@@ -2129,6 +2137,9 @@ static bool GetUnsignedVal(Value *V, uint32_t *pValue) {
 
 void DxilShaderReflection::MarkUsedSignatureElements() {
   Function *F = m_pDxilModule->GetEntryFunction();
+  if (F == nullptr) {
+    F = m_pDxilModule->GetPatchConstantFunction();
+  }
   DXASSERT(F != nullptr, "else module load should have failed");
   // For every loadInput/storeOutput, update the corresponding ReadWriteMask.
   // F is a pointer to a Function instance

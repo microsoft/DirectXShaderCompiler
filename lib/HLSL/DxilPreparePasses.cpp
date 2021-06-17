@@ -381,29 +381,6 @@ public:
     }
   }
 
-  // Replace all fromOpcode call instructions with toOpcode equivalents
-  void ReplaceIntrinsics(Module &M, hlsl::OP *hlslOp, DXIL::OpCode fromOpcode, DXIL::OpCode toOpcode) {
-    for (auto it : hlslOp->GetOpFuncList(fromOpcode)) {
-      Function *F = it.second;
-      if (!F)
-        continue;
-      Type *Ty = OP::GetOverloadType(fromOpcode, F);
-      for (auto uit = F->user_begin(); uit != F->user_end(); uit++) {
-        CallInst *CI = cast<CallInst>(*uit);
-        IRBuilder<> Builder(CI);
-        std::vector<Value*> args;
-        args.emplace_back(hlslOp->GetU32Const((unsigned)toOpcode));
-        for (unsigned i = 1; i < CI->getNumArgOperands(); i++)
-          args.emplace_back(CI->getOperand(i));
-
-        Function *newF = hlslOp->GetOpFunc(toOpcode, Ty);
-        CallInst *NewCI = Builder.CreateCall(newF, args);
-        CI->replaceAllUsesWith(NewCI);
-        CI->eraseFromParent();
-      }
-    }
-  }
-
   ///////////////////////////////////////////////////
   // IsHelperLane() lowering for SM < 6.6
 
@@ -761,12 +738,6 @@ public:
       if (DXIL::CompareVersions(DxilMajor, DxilMinor, 1, 6) < 0) {
         patchDxil_1_6(M, hlslOP, ValMajor, ValMinor);
       }
-
-      // Patch all existing dxil versions for some future one
-      // that differentiates immediate and programmable gathers
-      ReplaceIntrinsics(M, hlslOP, OP::OpCode::TextureGatherImm, OP::OpCode::TextureGather);
-      ReplaceIntrinsics(M, hlslOP, OP::OpCode::TextureGatherCmpImm, OP::OpCode::TextureGatherCmp);
-
 
       // Remove store undef output.
       RemoveStoreUndefOutput(M, hlslOP);

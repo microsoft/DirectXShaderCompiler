@@ -654,18 +654,24 @@ void AddOpcodeParamForIntrinsic(
   // Add the opcode param
   llvm::Type *opcodeTy = llvm::Type::getInt32Ty(M.getContext());
   paramTyList.emplace_back(opcodeTy);
-  paramTyList.append(oldFuncTy->param_begin(), oldFuncTy->param_end());
 
-  for (unsigned i = 1; i < paramTyList.size(); i++) {
-    llvm::Type *Ty = paramTyList[i];
+  bool bRetHandle = false;
+  for (unsigned i = 0; i < oldFuncTy->getNumParams(); i++) {
+    llvm::Type *Ty = oldFuncTy->getParamType(i);
     if (Ty->isPointerTy()) {
-      Ty = Ty->getPointerElementType();
-      if (dxilutil::IsHLSLResourceType(Ty)) {
+      llvm::Type *PtrEltTy = Ty->getPointerElementType();
+      if (dxilutil::IsHLSLResourceType(PtrEltTy)) {
+        // Skip for return type.
+        if (i == 0 && F->arg_begin()->hasStructRetAttr()) {
+          bRetHandle = true;
+          continue;
+        }
         // Use handle type for resource type.
         // This will make sure temp object variable only used by createHandle.
-        paramTyList[i] = HandleTy;
+        Ty = HandleTy;
       }
     }
+    paramTyList.emplace_back(Ty);
   }
 
   HLOpcodeGroup group = hlsl::GetHLOpcodeGroup(F);
@@ -694,7 +700,10 @@ void AddOpcodeParamForIntrinsic(
       opcode == static_cast<unsigned>(HLSubscriptOpcode::DoubleSubscript);
 
   llvm::Type *RetTy = oldFuncTy->getReturnType();
-
+  if (bRetHandle) {
+    DXASSERT(RetTy->isVoidTy(), "else invalid return type");
+    RetTy = HandleTy;
+  }
   if (isDoubleSubscriptFunc) {
     CallInst *doubleSub = cast<CallInst>(*F->user_begin());
 
@@ -754,9 +763,16 @@ void AddOpcodeParamForIntrinsic(
     SmallVector<Value *, 4> opcodeParamList;
     Value *opcodeConst = Constant::getIntegerValue(opcodeTy, APInt(32, opcode));
     opcodeParamList.emplace_back(opcodeConst);
-
-    opcodeParamList.append(oldCI->arg_operands().begin(),
-                           oldCI->arg_operands().end());
+    Value *retHandleArg = nullptr;
+    if (!bRetHandle) {
+      opcodeParamList.append(oldCI->arg_operands().begin(),
+                             oldCI->arg_operands().end());
+    } else {
+      auto it = oldCI->arg_operands().begin();
+      retHandleArg = *(it++);
+      opcodeParamList.append(it,
+                             oldCI->arg_operands().end());
+    }
     IRBuilder<> Builder(oldCI);
 
     if (isDoubleSubscriptFunc) {
@@ -812,7 +828,6 @@ void AddOpcodeParamForIntrinsic(
       if (Ty->isPointerTy()) {
         Ty = Ty->getPointerElementType();
         if (dxilutil::IsHLSLResourceType(Ty)) {
-
           DxilResourceProperties RP = GetResourcePropsFromIntrinsicObjectArg(
               arg, HLM, typeSys, objectProperties);
           // Use object type directly, not by pointer.
@@ -837,6 +852,15 @@ void AddOpcodeParamForIntrinsic(
     }
 
     Value *CI = Builder.CreateCall(opFunc, opcodeParamList);
+    if (retHandleArg) {
+      Type *ResTy = retHandleArg->getType()->getPointerElementType();
+      Value *Res = HLM.EmitHLOperationCall(
+          Builder, HLOpcodeGroup::HLCast,
+          (unsigned)HLCastOpcode::HandleToResCast, ResTy, {CI}, M);
+      Builder.CreateStore(Res, retHandleArg);
+      oldCI->eraseFromParent();
+      continue;
+    }
     if (!isDoubleSubscriptFunc) {
       // replace new call and delete the old call
       oldCI->replaceAllUsesWith(CI);
@@ -1960,6 +1984,10 @@ unsigned AlignCBufferOffset(unsigned offset, unsigned size, llvm::Type *Ty,
                             bool bRowMajor, bool bMinPrecMode,
                             bool &bCurRowIsMinPrec) {
   DXASSERT(!(offset & 1), "otherwise we have an invalid offset.");
+  // resources, empty structure, or structures with only resources have
+  // zero size, and need no alignment.
+  if (size == 0)
+    return offset;
   bool bNeedNewRow = Ty->isArrayTy();
   // In min-precision mode, a new row is needed when
   // going into or out of min-precision component type.
@@ -2053,8 +2081,67 @@ void AllocateDxilConstantBuffers(
 
 namespace {
 
+// Instruction pointer wrapper that cleans up the instruction if unused
+template<typename _InstructionT>
+struct CleanupIfUnused {
+  _InstructionT *I = nullptr;
+  CleanupIfUnused(Value *V) {
+    if (V)
+      I = cast<_InstructionT>(V);
+  }
+  ~CleanupIfUnused() {
+    if (I && I->user_empty())
+      I->eraseFromParent();
+    I = nullptr;
+  }
+  operator _InstructionT*() { return I; }
+  _InstructionT *operator->() { return I; }
+  operator bool() { return I != nullptr; }
+};
+
+// When replacing CBV use, it's possible for the resource itself to be used,
+// in which case we need to either use a cast from handle back to the resource
+// type, or if it's a pointer, use an alloca where that casted resource is
+// stored.
+// Later we will mutate the original resource type to a handle type,
+// and eliminate this cast.
+// This helper produces the cast and a store to new alloca in case either a
+// value or a pointer to the original resource type is needed, and cleans up any
+// unused instructions afterward.
+// Instructions are only produced if hlResTy is non-null, indicating
+// ConstantBuffer<> object type rather than legacy cbuffer type that has no
+// resource object.
+struct HandleToResHelper {
+  HandleToResHelper(IRBuilder<> &Builder, Type *hlResTy, Value* Handle, Function &F, HLModule &HLM) {
+    if (hlResTy) {
+      Cast = cast<CallInst>(HLM.EmitHLOperationCall(
+          Builder, HLOpcodeGroup::HLCast, (unsigned)HLCastOpcode::HandleToResCast,
+          hlResTy, {Handle}, *HLM.GetModule()));
+      IRBuilder<>  AllocaBuilder(F.getEntryBlock().getFirstInsertionPt());
+      Alloca = AllocaBuilder.CreateAlloca(hlResTy);
+      Store = Builder.CreateStore(Cast, Alloca);
+    }
+  }
+  ~HandleToResHelper() {
+    if (Alloca && Alloca->hasOneUse()) {
+      Store->eraseFromParent();
+      Alloca->eraseFromParent();
+      if (Cast->user_empty())
+        Cast->eraseFromParent();
+    }
+  }
+  operator bool() { return Store != nullptr; }
+
+  StoreInst *Store = nullptr;
+  AllocaInst *Alloca = nullptr;
+  CallInst *Cast = nullptr;
+};
+
 void ReplaceUseInFunction(Value *V, Value *NewV, Function *F,
-                          IRBuilder<> &Builder) {
+                          IRBuilder<> &Builder, HandleToResHelper *pH2ResHelper = nullptr) {
+  Type *VTy = V->getType()->getPointerElementType();
+  bool bIsResourceTy =
+      dxilutil::IsHLSLResourceType(VTy);
   for (auto U = V->user_begin(); U != V->user_end();) {
     User *user = *(U++);
     if (Instruction *I = dyn_cast<Instruction>(user)) {
@@ -2067,7 +2154,27 @@ void ReplaceUseInFunction(Value *V, Value *NewV, Function *F,
             continue;
           }
         }
-        I->replaceUsesOfWith(V, NewV);
+        // Only replace when type matches.
+        if (V->getType() == NewV->getType()) {
+          I->replaceUsesOfWith(V, NewV);
+          continue;
+        }
+        if (pH2ResHelper && *pH2ResHelper && bIsResourceTy) {
+          // This means CBV case, so use casted value or pointer instead.
+          if (LoadInst *LI = dyn_cast<LoadInst>(I)) {
+            Instruction *OrigPtrInst = dyn_cast<Instruction>(LI->getPointerOperand());
+            LI->replaceAllUsesWith(pH2ResHelper->Cast);
+            LI->eraseFromParent();
+            // Clean up original pointer instruction (GEP) if unused.
+            if (OrigPtrInst && OrigPtrInst->user_empty())
+              OrigPtrInst->eraseFromParent();
+            continue;
+          } else {
+            I->replaceUsesOfWith(V, pH2ResHelper->Alloca);
+            continue;
+          }
+        }
+        DXASSERT(false, "otherwise, attempting CB user replacement with mismatching type");
       }
     } else {
       // For constant operator, create local clone which use GEP.
@@ -2078,6 +2185,11 @@ void ReplaceUseInFunction(Value *V, Value *NewV, Function *F,
         ReplaceUseInFunction(GEPOp, NewGEP, F, Builder);
       } else if (GlobalVariable *GV = dyn_cast<GlobalVariable>(user)) {
         // Change the init val into NewV with Store.
+
+        // FIXME: This store needs to be placed in a new init function for
+        // this GV, rather than being placed in whichever function we happen
+        // to be iterating at this point.  Otherwise it may not actually be
+        // initialized when used from another function.
         GV->setInitializer(nullptr);
         Builder.CreateStore(NewV, GV);
       } else {
@@ -2214,6 +2326,14 @@ bool CreateCBufferVariable(HLCBuffer &CB, HLModule &HLM, llvm::Type *HandleTy) {
     MarkUsedFunctionForConst(GV, constUsedFuncList[C->GetID()]);
   }
 
+  // If ConstantBuffer<> style CBV, get resource type used for translating
+  // handles back to resource objects.
+  Type *hlResTy = nullptr;
+  if (CB.IsView()) {
+    hlResTy = CB.GetConstants().front()->GetHLSLType()->getPointerElementType();
+    hlResTy = dxilutil::StripArrayTypes(hlResTy);
+  }
+
   for (Function &F : M.functions()) {
     if (F.isDeclaration())
       continue;
@@ -2225,15 +2345,14 @@ bool CreateCBufferVariable(HLCBuffer &CB, HLModule &HLM, llvm::Type *HandleTy) {
 
     // create HL subscript to make all the use of cbuffer start from it.
     HandleArgs[HLOperandIndex::kCreateHandleResourceOpIdx - 1] = cbGV;
-    CallInst *Handle = HLM.EmitHLOperationCall(
+    CleanupIfUnused<CallInst> OrigHandle = HLM.EmitHLOperationCall(
         Builder, HLOpcodeGroup::HLCreateHandle, 0, HandleTy, HandleArgs, M);
-    CallInst *OrigHandle = Handle;
     DxilResourceProperties RP = resource_helper::loadPropsFromResourceBase(&CB);
-    Handle = CreateAnnotateHandle(HLM, Handle, RP, cbGV->getType()->getElementType(), Builder);
+    CleanupIfUnused<CallInst> Handle = CreateAnnotateHandle(
+        HLM, OrigHandle, RP, cbGV->getType()->getElementType(), Builder);
 
     args[HLOperandIndex::kSubscriptObjectOpIdx] = Handle;
-    Instruction *cbSubscript =
-        cast<Instruction>(Builder.CreateCall(subscriptFunc, {args}));
+    CleanupIfUnused<Instruction> cbSubscript = Builder.CreateCall(subscriptFunc, {args});
 
     // Replace constant var with GEP pGV
     for (const std::unique_ptr<DxilResourceBase> &C : CB.GetConstants()) {
@@ -2243,14 +2362,14 @@ bool CreateCBufferVariable(HLCBuffer &CB, HLModule &HLM, llvm::Type *HandleTy) {
 
       Value *idx = indexArray[C->GetID()];
       if (!isCBArray) {
-        Instruction *GEP = cast<Instruction>(
-            Builder.CreateInBoundsGEP(cbSubscript, {zero, idx}));
+        CleanupIfUnused<Instruction> GEP =
+            Builder.CreateInBoundsGEP(cbSubscript, {zero, idx});
         // TODO: make sure the debug info is synced to GEP.
         // GEP->setDebugLoc(GV);
-        ReplaceUseInFunction(GV, GEP, &F, Builder);
-        // Delete if no use in F.
-        if (GEP->user_empty())
-          GEP->eraseFromParent();
+
+        HandleToResHelper H2ResHelper(Builder, hlResTy, Handle, F, HLM);
+        ReplaceUseInFunction(GV, GEP, &F, Builder, &H2ResHelper);
+
       } else {
         for (auto U = GV->user_begin(); U != GV->user_end();) {
           User *user = *(U++);
@@ -2294,34 +2413,28 @@ bool CreateCBufferVariable(HLCBuffer &CB, HLModule &HLM, llvm::Type *HandleTy) {
           }
 
           HandleArgs[HLOperandIndex::kCreateHandleIndexOpIdx - 1] = arrayIdx;
-          CallInst *Handle =
-
-              HLM.EmitHLOperationCall(*instBuilder,
-                                      HLOpcodeGroup::HLCreateHandle, 0,
-                                      HandleTy, HandleArgs, M);
+          CleanupIfUnused<CallInst> OrigHandle = HLM.EmitHLOperationCall(
+              *instBuilder, HLOpcodeGroup::HLCreateHandle, 0, HandleTy,
+              HandleArgs, M);
 
           DxilResourceProperties RP = resource_helper::loadPropsFromResourceBase(&CB);
-          Handle = CreateAnnotateHandle(HLM, Handle, RP, cbGV->getType()->getElementType(), *instBuilder);
+          CleanupIfUnused<CallInst> Handle = CreateAnnotateHandle(
+              HLM, OrigHandle, RP, cbGV->getType()->getElementType(), *instBuilder);
 
           args[HLOperandIndex::kSubscriptObjectOpIdx] = Handle;
           args[HLOperandIndex::kSubscriptIndexOpIdx] = arrayIdx;
 
-          Instruction *cbSubscript =
-              cast<Instruction>(instBuilder->CreateCall(subscriptFunc, {args}));
+          CleanupIfUnused<Instruction> cbSubscript =
+              instBuilder->CreateCall(subscriptFunc, {args});
+          CleanupIfUnused<Instruction> NewGEP =
+              instBuilder->CreateInBoundsGEP(cbSubscript, idxList);
 
-          Instruction *NewGEP = cast<Instruction>(
-              instBuilder->CreateInBoundsGEP(cbSubscript, idxList));
-
-          ReplaceUseInFunction(GEPOp, NewGEP, &F, *instBuilder);
+          HandleToResHelper H2ResHelper(*instBuilder, hlResTy, Handle, F, HLM);
+          ReplaceUseInFunction(GEPOp, NewGEP, &F, *instBuilder, &H2ResHelper);
         }
       }
     }
-    // Delete if no use in F.
-    if (cbSubscript->user_empty()) {
-      cbSubscript->eraseFromParent();
-      Handle->eraseFromParent();
-      OrigHandle->eraseFromParent();
-    } else {
+    if (!cbSubscript->user_empty()) {
       // merge GEP use for cbSubscript.
       HLModule::MergeGepUse(cbSubscript);
     }
@@ -2368,6 +2481,10 @@ void ConstructCBuffer(
   for (unsigned i = 0; i < HLM.GetCBuffers().size(); i++) {
     HLCBuffer &CB = *static_cast<HLCBuffer *>(&(HLM.GetCBuffer(i)));
     if (CB.GetConstants().size() == 0) {
+
+      // FIXME: Can we avoid creating a fake variable here, since this empty
+      // cbuffer presumably can't be used?
+
       // Create Fake variable for cbuffer which is empty.
       llvm::GlobalVariable *pGV = new llvm::GlobalVariable(
           *HLM.GetModule(), CBufferType, true,
@@ -2378,6 +2495,10 @@ void ConstructCBuffer(
       if (bCreated)
         ConstructCBufferAnnotation(CB, dxilTypeSys, AnnotationMap);
       else {
+
+        // FIXME: Can we avoid creating a fake variable here, since this empty
+        // cbuffer presumably can't be used?
+
         // Create Fake variable for cbuffer which is unused.
         llvm::GlobalVariable *pGV = new llvm::GlobalVariable(
             *HLM.GetModule(), CBufferType, true,
@@ -3149,7 +3270,7 @@ ScopeInfo::ScopeInfo(Function *F) : maxRetLevel(0), bAllReturnsInIf(true) {
 // When all returns is inside if which is not nested, the flow is still
 // structurized even there're more than one return.
 bool ScopeInfo::CanSkipStructurize() {
-  return bAllReturnsInIf && maxRetLevel < 2;
+  return (bAllReturnsInIf && maxRetLevel < 2) || rets.size() < 2;
 }
 
 void ScopeInfo::AddScope(Scope::ScopeKind k, BasicBlock *endScopeBB) {

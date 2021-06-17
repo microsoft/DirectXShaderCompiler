@@ -1,5 +1,6 @@
-// RUN: %dxc -E main -T cs_6_0 %s  | FileCheck %s
+// RUN: %dxc -E main -T cs_6_0 -fcgl %s  | FileCheck %s
 
+// Check unlowered type
 // CHECK: %"class.StructuredBuffer<matrix<float, 4, 4> >" = type { %class.matrix.float.4.4 }
 
 StructuredBuffer<matrix> buf1;
