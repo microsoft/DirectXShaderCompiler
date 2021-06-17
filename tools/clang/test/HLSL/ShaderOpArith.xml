@@ -345,7 +345,7 @@
         [NumThreads(MESHDISPATCHX, MESHDISPATCHY, MESHDISPATCHZ)]
         void ASMain(uint ix : SV_GroupIndex) {
           Payload payload;
-          g_bufAmp[ix] = QuadReadTest(ix);
+          g_bufAmp[ix] = QuadReadTest(WaveGetLaneIndex());
           payload.nothing = 0;
           DispatchMesh(1, 1, 1, payload);
         }
@@ -370,7 +370,7 @@
             // Assign static fullscreen 2 tri quad
             verts[ix%6].position = g_Verts[ix%6];
             tris[ix&1] = uint3((ix&1)*3, (ix&1)*3 + 1, (ix&1)*3 + 2);
-            g_bufMesh[ix] = QuadReadTest(ix);
+            g_bufMesh[ix] = QuadReadTest(WaveGetLaneIndex());
         }
 
         void PSMain(PSInput input) {
@@ -379,7 +379,7 @@
 
         [NumThreads(DISPATCHX, DISPATCHY, DISPATCHZ)]
         void CSMain(uint ix : SV_GroupIndex) {
-          g_bufMain[ix] = QuadReadTest(ix);
+          g_bufMain[ix] = QuadReadTest(WaveGetLaneIndex());
         }
       ]]>
     </Shader>

@@ -6,6 +6,8 @@ The DirectX Shader Compiler project includes a compiler and related tools used t
 
 For more information, see the [Wiki](https://github.com/microsoft/DirectXShaderCompiler/wiki).
 
+Visit the [DirectX Landing Page](https://devblogs.microsoft.com/directx/landing-page/) for more resources for DirectX developers.
+
 ## Downloads
 You can download the latest successful build's artifacts (built by Appveyor) for the master branch:
 | Downloads |        |
