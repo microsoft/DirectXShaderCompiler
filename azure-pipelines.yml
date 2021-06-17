@@ -25,14 +25,9 @@ stages:
       displayName: 'Installing dependencies'
     - bash: git submodule update --init
       displayName: 'Updating submodules'
-    - bash: mkdir build
     - bash: |
-        ls -l
-        ls -l ..
-        ls -l ../..
-        ls -l ../../..
-      displayName: 'trying to figure out where I am'
-    - bash: cmake ../../ --build build -GNinja $(cat ../../utils/cmake-predefined-config-params) -DSPIRV_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=$(configuration)
+        mkdir build
+        cmake --build build -GNinja $(cat utils/cmake-predefined-config-params) -DSPIRV_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=$(configuration)
       displayName: 'Cmake configuration'
     - bash: ninja
       displayName: 'Building'
