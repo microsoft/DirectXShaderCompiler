@@ -27,7 +27,8 @@ stages:
       displayName: 'Updating submodules'
     - bash: |
         mkdir build
-        cmake -G Ninja --build build  $(cat utils/cmake-predefined-config-params) -DSPIRV_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=$(configuration)
+        cd build
+        cmake -G Ninja $(cat utils/cmake-predefined-config-params) -DSPIRV_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=$(configuration)
       displayName: 'Cmake configuration'
     - bash: ninja
       displayName: 'Building'
