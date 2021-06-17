@@ -374,6 +374,17 @@ public:
     return declToDebugFunction[decl];
   }
 
+  /// Adds inst to instructionsWithLoweredType.
+  void addToInstructionsWithLoweredType(const SpirvInstruction *inst) {
+    instructionsWithLoweredType.insert(inst);
+  }
+
+  /// Returns whether inst is in instructionsWithLoweredType or not.
+  bool hasLoweredType(const SpirvInstruction *inst) {
+    return instructionsWithLoweredType.find(inst) !=
+           instructionsWithLoweredType.end();
+  }
+
 private:
   /// \brief The allocator used to create SPIR-V entity objects.
   ///
@@ -463,6 +474,9 @@ private:
 
   // Mapping from SPIR-V OpVariable to SPIR-V image format.
   llvm::DenseMap<const SpirvVariable *, spv::ImageFormat> spvVarToImageFormat;
+
+  // Set of instructions that already have lowered SPIR-V types.
+  llvm::DenseSet<const SpirvInstruction *> instructionsWithLoweredType;
 };
 
 } // end namespace spirv

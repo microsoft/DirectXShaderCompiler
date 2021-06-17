@@ -204,7 +204,13 @@ public:
     std::string baseName(baseDesc.Name);
     if (baseName.compare(0, 4, "half", 4) == 0)
       baseName = baseName.replace(0, 4, "float", 5);
-    VERIFY_ARE_EQUAL_STR(testDesc.Name, baseName.c_str());
+
+    // For anonymous structures, fxc uses "scope::<unnamed>",
+    // dxc uses "anon", and may have additional ".#" for name disambiguation.
+    // Just skip name check if struct is unnamed according to fxc.
+    if (baseName.find("<unnamed>") == std::string::npos) {
+      VERIFY_ARE_EQUAL_STR(testDesc.Name, baseName.c_str());
+    }
 
     for (UINT i = 0; i < baseDesc.Members; ++i) {
       ID3D12ShaderReflectionType* testMemberType = pTest->GetMemberTypeByIndex(i);
@@ -1800,6 +1806,7 @@ TEST_F(DxilContainerTest, ReflectionMatchesDXBC_CheckIn) {
   ReflectionTest(hlsl_test::GetPathToHlslDataFile(L"..\\HLSLFileCheck\\d3dreflect\\tbuffer.hlsl").c_str(), false,
     D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY);
   ReflectionTest(hlsl_test::GetPathToHlslDataFile(L"..\\HLSLFileCheck\\d3dreflect\\texture2dms.hlsl").c_str(), false);
+  ReflectionTest(hlsl_test::GetPathToHlslDataFile(L"..\\HLSLFileCheck\\hlsl\\objects\\StructuredBuffer\\layout.hlsl").c_str(), false);
 }
 
 TEST_F(DxilContainerTest, ReflectionMatchesDXBC_Full) {

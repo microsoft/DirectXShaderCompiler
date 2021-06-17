@@ -43,7 +43,7 @@ using namespace hlsl;
 
 namespace {
 
-static const StringRef kStaticResourceLibErrorMsg = "static global resource use is disallowed in library exports.";
+static const StringRef kStaticResourceLibErrorMsg = "non const static global resource use is disallowed in library exports.";
 
 class DxilPromoteStaticResources : public ModulePass {
 public:
@@ -166,6 +166,7 @@ bool DxilPromoteStaticResources::PromoteStaticGlobalResources(
     //  optimized away for the exported function.
     for (auto &GV : M.globals()) {
       if (GV.getLinkage() == GlobalVariable::LinkageTypes::InternalLinkage &&
+		!GV.isConstant() && 
         dxilutil::IsHLSLObjectType(dxilutil::GetArrayEltTy(GV.getType()))) {
         if (!GV.user_empty()) {
           if (Instruction *I = dyn_cast<Instruction>(*GV.user_begin())) {
@@ -282,7 +283,7 @@ public:
   }
 
 private:
-  Type *mutateToHandleTy(Type *Ty);
+  Type *mutateToHandleTy(Type *Ty, bool bResType = false);
   bool mutateTypesToHandleTy(SmallVector<Type *, 4> &Tys);
 
   void collectGlobalResource(DxilResourceBase *Res,
@@ -302,7 +303,7 @@ private:
 
 char DxilMutateResourceToHandle::ID = 0;
 
-Type *DxilMutateResourceToHandle::mutateToHandleTy(Type *Ty) {
+Type *DxilMutateResourceToHandle::mutateToHandleTy(Type *Ty, bool bResType) {
   auto it = MutateTypeMap.find(Ty);
   if (it != MutateTypeMap.end())
     return it->second;
@@ -315,7 +316,7 @@ Type *DxilMutateResourceToHandle::mutateToHandleTy(Type *Ty) {
       nestedSize.emplace_back(NestAT->getNumElements());
       EltTy = NestAT->getElementType();
     }
-    Type *mutatedTy = mutateToHandleTy(EltTy);
+    Type *mutatedTy = mutateToHandleTy(EltTy, bResType);
     if (mutatedTy == EltTy) {
       ResultTy = Ty;
     } else {
@@ -326,7 +327,7 @@ Type *DxilMutateResourceToHandle::mutateToHandleTy(Type *Ty) {
     }
   } else if (PointerType *PT = dyn_cast<PointerType>(Ty)) {
     Type *EltTy = PT->getElementType();
-    Type *mutatedTy = mutateToHandleTy(EltTy);
+    Type *mutatedTy = mutateToHandleTy(EltTy, bResType);
     if (mutatedTy == EltTy)
       ResultTy = Ty;
     else
@@ -334,7 +335,11 @@ Type *DxilMutateResourceToHandle::mutateToHandleTy(Type *Ty) {
   } else if (dxilutil::IsHLSLResourceType(Ty)) {
     ResultTy = hdlTy;
   } else if (StructType *ST = dyn_cast<StructType>(Ty)) {
-    if (!ST->isOpaque()) {
+    if (bResType) {
+      // For top-level resource GV type, the first struct type is the resource
+      // type to be changed into handle.
+      ResultTy = hdlTy;
+    } else if (!ST->isOpaque()) {
       SmallVector<Type *, 4> Elts(ST->element_begin(), ST->element_end());
       if (!mutateTypesToHandleTy(Elts)) {
         ResultTy = Ty;
@@ -342,6 +347,13 @@ Type *DxilMutateResourceToHandle::mutateToHandleTy(Type *Ty) {
         ResultTy = StructType::create(Elts, ST->getName().str() + ".hdl");
       }
     } else {
+
+      // FIXME: Opaque type "ConstantBuffer" is only used for an empty cbuffer.
+      // We should never use an empty cbuffer, and we should try to get rid of
+      // the need for this type in the first place, like using nullptr for the
+      // DxilResourceBase::m_pSymbol, since this resource should get deleted
+      // before final dxil in all cases.
+
       if (ST->getName() == "ConstantBuffer")
         ResultTy = hdlTy;
       else
@@ -382,7 +394,7 @@ void DxilMutateResourceToHandle::collectGlobalResource(
   Value *GV = Res->GetGlobalSymbol();
   // Save hlsl type before mutate to handle.
   Res->SetHLSLType(GV->getType());
-  mutateToHandleTy(GV->getType());
+  mutateToHandleTy(GV->getType(), /*bResType*/true);
   WorkList.emplace_back(GV);
 }
 void DxilMutateResourceToHandle::collectAlloca(
@@ -407,36 +419,6 @@ SmallVector<Value *, 8>
 DxilMutateResourceToHandle::collectHlslObjects(Module &M) {
   // Add all global/function/argument/alloca has resource type.
   SmallVector<Value *, 8> WorkList;
-
-  // Assume this is after SROA so no struct for global/alloca.
-
-  // Functions.
-  for (Function &F : M) {
-    collectAlloca(F, WorkList);
-    FunctionType *FT = F.getFunctionType();
-    FunctionType *MFT = cast<FunctionType>(mutateToHandleTy(FT));
-    if (FT == MFT)
-      continue;
-    WorkList.emplace_back(&F);
-    // Check args.
-    for (Argument &Arg : F.args()) {
-      Type *Ty = Arg.getType();
-      Type *MTy = mutateToHandleTy(Ty);
-      if (Ty == MTy)
-        continue;
-      WorkList.emplace_back(&Arg);
-    }
-  }
-
-  // Static globals.
-  for (GlobalVariable &GV : M.globals()) {
-    if (!dxilutil::IsStaticGlobal(&GV))
-      continue;
-    Type *Ty = dxilutil::GetArrayEltTy(GV.getValueType());
-    if (!dxilutil::IsHLSLObjectType(Ty))
-      continue;
-    WorkList.emplace_back(&GV);
-  }
 
   // Global resources.
   if (M.HasHLModule()) {
@@ -468,6 +450,37 @@ DxilMutateResourceToHandle::collectHlslObjects(Module &M) {
       collectGlobalResource(Res.get(), WorkList);
     }
   }
+
+  // Assume this is after SROA so no struct for global/alloca.
+
+  // Functions.
+  for (Function &F : M) {
+    collectAlloca(F, WorkList);
+    FunctionType *FT = F.getFunctionType();
+    FunctionType *MFT = cast<FunctionType>(mutateToHandleTy(FT));
+    if (FT == MFT)
+      continue;
+    WorkList.emplace_back(&F);
+    // Check args.
+    for (Argument &Arg : F.args()) {
+      Type *Ty = Arg.getType();
+      Type *MTy = mutateToHandleTy(Ty);
+      if (Ty == MTy)
+        continue;
+      WorkList.emplace_back(&Arg);
+    }
+  }
+
+  // Static globals.
+  for (GlobalVariable &GV : M.globals()) {
+    if (!dxilutil::IsStaticGlobal(&GV))
+      continue;
+    Type *Ty = dxilutil::GetArrayEltTy(GV.getValueType());
+    if (!dxilutil::IsHLSLObjectType(Ty))
+      continue;
+    WorkList.emplace_back(&GV);
+  }
+
   return WorkList;
 }
 
@@ -642,6 +655,16 @@ void DxilMutateResourceToHandle::mutateCandidates(Module &M) {
           }
         }
       }
+    }
+
+    if (hlsl::GetHLOpcodeGroup(F) == HLOpcodeGroup::HLCast) {
+      // Eliminate pass-through cast
+      for (auto it = F->user_begin(); it != F->user_end();) {
+        CallInst *CI = cast<CallInst>(*(it++));
+        CI->replaceAllUsesWith(CI->getArgOperand(1));
+        CI->eraseFromParent();
+      }
+      continue;
     }
 
     if (!MF) {

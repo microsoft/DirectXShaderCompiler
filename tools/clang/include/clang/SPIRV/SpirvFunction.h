@@ -11,6 +11,7 @@
 
 #include <vector>
 
+#include "clang/SPIRV/SpirvBasicBlock.h"
 #include "clang/SPIRV/SpirvInstruction.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
@@ -18,7 +19,6 @@
 namespace clang {
 namespace spirv {
 
-class SpirvBasicBlock;
 class SpirvVisitor;
 
 /// The class representing a SPIR-V function in memory.
@@ -90,6 +90,13 @@ public:
   }
   void addVariable(SpirvVariable *);
   void addBasicBlock(SpirvBasicBlock *);
+
+  /// Adds the given instruction as the first instruction of this SPIR-V
+  /// function body.
+  void addFirstInstruction(SpirvInstruction *inst) {
+    assert(basicBlocks.size() != 0);
+    basicBlocks[0]->addFirstInstruction(inst);
+  }
 
   /// Legalization-specific code
   ///

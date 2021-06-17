@@ -196,6 +196,13 @@ public:
   virtual HRESULT STDMETHODCALLTYPE SetTargetTriple(LPCSTR name) = 0;
 };
 
+CROSS_PLATFORM_UUIDOF(IDxcLangExtensions3, "A1B19880-FB1F-4920-9BC5-50356483BAC1")
+struct IDxcLangExtensions3 : public IDxcLangExtensions2 {
+public:
+  /// Registers a semantic define which cannot be overriden using the flag -override-opt-semdefs
+  virtual HRESULT STDMETHODCALLTYPE RegisterNonOptSemanticDefine(LPCWSTR name) = 0;
+};
+
 CROSS_PLATFORM_UUIDOF(IDxcSystemAccess, "454b764f-3549-475b-958c-a7a6fcd05fbc")
 struct IDxcSystemAccess : public IUnknown
 {

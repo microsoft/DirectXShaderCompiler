@@ -887,8 +887,8 @@ bool DxilDebugInstrumentation::runOnModule(Module &M) {
 
   // First record pointers to all instructions in the function:
   std::vector<Instruction *> AllInstructions;
-  for (inst_iterator I = inst_begin(DM.GetEntryFunction()),
-                     E = inst_end(DM.GetEntryFunction());
+  for (inst_iterator I = inst_begin(PIXPassHelpers::GetEntryFunction(DM)),
+                     E = inst_end(PIXPassHelpers::GetEntryFunction(DM));
        I != E; ++I) {
     AllInstructions.push_back(&*I);
   }
@@ -907,7 +907,7 @@ bool DxilDebugInstrumentation::runOnModule(Module &M) {
   //
 
   Instruction *firstInsertionPt =
-      dxilutil::FirstNonAllocaInsertionPt(DM.GetEntryFunction());
+      dxilutil::FirstNonAllocaInsertionPt(PIXPassHelpers::GetEntryFunction(DM));
   IRBuilder<> Builder(firstInsertionPt);
 
   BuilderContext BC{M, DM, Ctx, HlslOP, Builder};
@@ -921,7 +921,7 @@ bool DxilDebugInstrumentation::runOnModule(Module &M) {
   // Explicitly name new blocks in order to provide stable names for testing purposes
   int NewBlockCounter = 0;
 
-  auto Fn = DM.GetEntryFunction();
+  auto Fn = PIXPassHelpers::GetEntryFunction(DM);
   auto &Blocks = Fn->getBasicBlockList();
   for (auto &CurrentBlock : Blocks) {
     struct ValueAndPhi {

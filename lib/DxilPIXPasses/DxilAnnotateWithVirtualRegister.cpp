@@ -35,6 +35,8 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include "PixPassHelpers.h"
+
 #define DEBUG_TYPE "dxil-annotate-with-virtual-regs"
 
 uint32_t CountStructMembers(llvm::Type const *pType) {
@@ -87,7 +89,7 @@ private:
     m_DM = &M.GetOrCreateDxilModule();
     m_uVReg = 0;
     m_MST.reset(new llvm::ModuleSlotTracker(&M));
-    m_MST->incorporateFunction(*m_DM->GetEntryFunction());
+    m_MST->incorporateFunction(*PIXPassHelpers::GetEntryFunction(*m_DM));
   }
 };
 
@@ -106,7 +108,7 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
   }
 
   std::uint32_t InstNum = 0;
-  for (llvm::Instruction &I : llvm::inst_range(m_DM->GetEntryFunction())) {
+  for (llvm::Instruction &I : llvm::inst_range(PIXPassHelpers::GetEntryFunction(*m_DM))) {
     if (!llvm::isa<llvm::DbgDeclareInst>(&I)) {
       pix_dxil::PixDxilInstNum::AddMD(M.getContext(), &I, InstNum++);
     }
@@ -124,11 +126,11 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
     *OSOverride << "\nBegin - dxil values to virtual register mapping\n";
   }
 
-  for (llvm::Instruction &I : llvm::inst_range(m_DM->GetEntryFunction())) {
+  for (llvm::Instruction &I : llvm::inst_range(PIXPassHelpers::GetEntryFunction(*m_DM))) {
     AnnotateValues(&I);
   }
 
-  for (llvm::Instruction &I : llvm::inst_range(m_DM->GetEntryFunction())) {
+  for (llvm::Instruction &I : llvm::inst_range(PIXPassHelpers::GetEntryFunction(*m_DM))) {
     AnnotateStore(&I);
   }
 

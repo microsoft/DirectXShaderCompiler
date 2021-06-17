@@ -10,6 +10,7 @@ set( LLVM_LINK_COMPONENTS
   ${LLVM_TARGETS_TO_BUILD}
   DXIL
   DxilContainer
+  DxilRootSignature
   HLSL
   dxcsupport
   Option     # option library

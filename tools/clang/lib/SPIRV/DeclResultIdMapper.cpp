@@ -491,6 +491,32 @@ spv::ImageFormat getSpvImageFormat(const VKImageFormatAttr *imageFormatAttr) {
   return spv::ImageFormat::Unknown;
 }
 
+// Inserts seen semantics for entryPoint to seenSemanticsForEntryPoints. Returns
+// whether it does not already exist in seenSemanticsForEntryPoints.
+bool insertSeenSemanticsForEntryPointIfNotExist(
+    llvm::SmallDenseMap<SpirvFunction *, llvm::StringSet<>>
+        *seenSemanticsForEntryPoints,
+    SpirvFunction *entryPoint, const std::string &semantics) {
+  auto seenSemanticsForEntryPointsItr =
+      seenSemanticsForEntryPoints->find(entryPoint);
+  if (seenSemanticsForEntryPointsItr == seenSemanticsForEntryPoints->end()) {
+    bool insertResult = false;
+    std::tie(seenSemanticsForEntryPointsItr, insertResult) =
+        seenSemanticsForEntryPoints->insert(
+            std::make_pair(entryPoint, llvm::StringSet<>()));
+    assert(insertResult);
+    seenSemanticsForEntryPointsItr->second.insert(semantics);
+    return true;
+  }
+
+  auto &seenSemantics = seenSemanticsForEntryPointsItr->second;
+  if (seenSemantics.count(semantics)) {
+    return false;
+  }
+  seenSemantics.insert(semantics);
+  return true;
+}
+
 } // anonymous namespace
 
 std::string StageVar::getSemanticStr() const {
@@ -947,8 +973,7 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
   if (spvImageFormat != spv::ImageFormat::Unknown)
     spvContext.registerImageFormatForSpirvVariable(varInstr, spvImageFormat);
 
-  DeclSpirvInfo info(varInstr);
-  astDecls[var] = info;
+  astDecls[var] = createDeclSpirvInfo(varInstr);
 
   createDebugGlobalVariable(varInstr, type, loc, name);
 
@@ -991,8 +1016,7 @@ DeclResultIdMapper::createOrUpdateStringVar(const VarDecl *var) {
   const StringLiteral *stringLiteral =
       dyn_cast<StringLiteral>(var->getInit()->IgnoreParenCasts());
   SpirvString *init = spvBuilder.getString(stringLiteral->getString());
-  DeclSpirvInfo info(init);
-  astDecls[var] = info;
+  astDecls[var] = createDeclSpirvInfo(init);
   return init;
 }
 
@@ -1089,7 +1113,7 @@ void DeclResultIdMapper::createEnumConstant(const EnumConstantDecl *decl) {
   SpirvVariable *varInstr = spvBuilder.addModuleVar(
       astContext.IntTy, spv::StorageClass::Private, /*isPrecise*/ false,
       decl->getName(), enumConstant, decl->getLocation());
-  astDecls[valueDecl] = DeclSpirvInfo(varInstr);
+  astDecls[valueDecl] = createDeclSpirvInfo(varInstr);
 }
 
 SpirvVariable *DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
@@ -1111,7 +1135,7 @@ SpirvVariable *DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
       continue;
 
     const auto *varDecl = cast<VarDecl>(subDecl);
-    astDecls[varDecl] = DeclSpirvInfo(bufferVar, index++);
+    astDecls[varDecl] = createDeclSpirvInfo(bufferVar, index++);
   }
   resourceVars.emplace_back(
       bufferVar, decl, decl->getLocation(), getResourceBinding(decl),
@@ -1185,7 +1209,7 @@ SpirvVariable *DeclResultIdMapper::createCTBuffer(const VarDecl *decl) {
       decl->getName());
 
   // We register the VarDecl here.
-  astDecls[decl] = DeclSpirvInfo(bufferVar);
+  astDecls[decl] = createDeclSpirvInfo(bufferVar);
   resourceVars.emplace_back(
       bufferVar, decl, decl->getLocation(), getResourceBinding(decl),
       decl->getAttr<VKBindingAttr>(), decl->getAttr<VKCounterBindingAttr>());
@@ -1212,7 +1236,7 @@ SpirvVariable *DeclResultIdMapper::createPushConstant(const VarDecl *decl) {
       structName, decl->getName());
 
   // Register the VarDecl
-  astDecls[decl] = DeclSpirvInfo(var);
+  astDecls[decl] = createDeclSpirvInfo(var);
 
   // Do not push this variable into resourceVars since it does not need
   // descriptor set.
@@ -1241,7 +1265,7 @@ DeclResultIdMapper::createShaderRecordBuffer(const VarDecl *decl,
       kind, structName, decl->getName());
 
   // Register the VarDecl
-  astDecls[decl] = DeclSpirvInfo(var);
+  astDecls[decl] = createDeclSpirvInfo(var);
 
   // Do not push this variable into resourceVars since it does not need
   // descriptor set.
@@ -1276,7 +1300,7 @@ DeclResultIdMapper::createShaderRecordBuffer(const HLSLBufferDecl *decl,
       continue;
 
     const auto *varDecl = cast<VarDecl>(subDecl);
-    astDecls[varDecl] = DeclSpirvInfo(bufferVar, index++);
+    astDecls[varDecl] = createDeclSpirvInfo(bufferVar, index++);
   }
   return bufferVar;
 }
@@ -1312,7 +1336,7 @@ void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
         return;
       }
 
-      astDecls[varDecl] = DeclSpirvInfo(globals, index++);
+      astDecls[varDecl] = createDeclSpirvInfo(globals, index++);
     }
   }
 }
@@ -1385,7 +1409,7 @@ DeclResultIdMapper::getCounterVarFields(const DeclaratorDecl *decl) {
 void DeclResultIdMapper::registerSpecConstant(const VarDecl *decl,
                                               SpirvInstruction *specConstant) {
   specConstant->setRValue();
-  astDecls[decl] = DeclSpirvInfo(specConstant);
+  astDecls[decl] = createDeclSpirvInfo(specConstant);
 }
 
 void DeclResultIdMapper::createCounterVar(
@@ -1462,7 +1486,8 @@ DeclResultIdMapper::getCTBufferPushConstantType(const DeclContext *decl) {
   return found->second;
 }
 
-std::vector<SpirvVariable *> DeclResultIdMapper::collectStageVars() const {
+std::vector<SpirvVariable *>
+DeclResultIdMapper::collectStageVars(SpirvFunction *entryPoint) const {
   std::vector<SpirvVariable *> vars;
 
   for (auto var : glPerVertex.getStageInVars())
@@ -1472,6 +1497,12 @@ std::vector<SpirvVariable *> DeclResultIdMapper::collectStageVars() const {
 
   llvm::DenseSet<SpirvInstruction *> seenVars;
   for (const auto &var : stageVars) {
+    // We must collect stage variables that are included in entryPoint and stage
+    // variables that are not included in any specific entryPoint i.e.,
+    // var.getEntryPoint() is nullptr. Note that stage variables without any
+    // specific entry point are common stage variables among all entry points.
+    if (var.getEntryPoint() && var.getEntryPoint() != entryPoint)
+      continue;
     auto *instr = var.getSpirvInstr();
     if (seenVars.count(instr) == 0) {
       vars.push_back(instr);
@@ -1607,7 +1638,9 @@ private:
 } // namespace
 
 bool DeclResultIdMapper::checkSemanticDuplication(bool forInput) {
-  llvm::StringSet<> seenSemantics;
+  // Mapping from entry points to the corresponding set of semantics.
+  llvm::SmallDenseMap<SpirvFunction *, llvm::StringSet<>>
+      seenSemanticsForEntryPoints;
   bool success = true;
   for (const auto &var : stageVars) {
     auto s = var.getSemanticStr();
@@ -1627,17 +1660,19 @@ bool DeclResultIdMapper::checkSemanticDuplication(bool forInput) {
       continue;
 
     if (forInput && var.getSigPoint()->IsInput()) {
-      if (seenSemantics.count(s)) {
+      bool insertionSuccess = insertSeenSemanticsForEntryPointIfNotExist(
+          &seenSemanticsForEntryPoints, var.getEntryPoint(), s);
+      if (!insertionSuccess) {
         emitError("input semantic '%0' used more than once", {}) << s;
         success = false;
       }
-      seenSemantics.insert(s);
     } else if (!forInput && var.getSigPoint()->IsOutput()) {
-      if (seenSemantics.count(s)) {
+      bool insertionSuccess = insertSeenSemanticsForEntryPointIfNotExist(
+          &seenSemanticsForEntryPoints, var.getEntryPoint(), s);
+      if (!insertionSuccess) {
         emitError("output semantic '%0' used more than once", {}) << s;
         success = false;
       }
-      seenSemantics.insert(s);
     }
   }
 
@@ -2293,6 +2328,10 @@ bool DeclResultIdMapper::createStageVars(
     stageVar.setSpirvInstr(varInstr);
     stageVar.setLocationAttr(decl->getAttr<VKLocationAttr>());
     stageVar.setIndexAttr(decl->getAttr<VKIndexAttr>());
+    if (stageVar.getStorageClass() == spv::StorageClass::Input ||
+        stageVar.getStorageClass() == spv::StorageClass::Output) {
+      stageVar.setEntryPoint(entryFunction);
+    }
     stageVars.push_back(stageVar);
 
     // Emit OpDecorate* instructions to link this stage variable with the HLSL
@@ -2762,6 +2801,10 @@ bool DeclResultIdMapper::createPayloadStageVars(
     // assignment.
     stageVar.setIsSpirvBuiltin();
     stageVar.setSpirvInstr(varInstr);
+    if (stageVar.getStorageClass() == spv::StorageClass::Input ||
+        stageVar.getStorageClass() == spv::StorageClass::Output) {
+      stageVar.setEntryPoint(entryFunction);
+    }
     stageVars.push_back(stageVar);
 
     // Decorate with PerTaskNV for mesh/amplification shader payload variables.
@@ -3063,6 +3106,10 @@ SpirvVariable *DeclResultIdMapper::createSpirvIntermediateOutputStageVar(
   stageVar.setSpirvInstr(varInstr);
   stageVar.setLocationAttr(decl->getAttr<VKLocationAttr>());
   stageVar.setIndexAttr(decl->getAttr<VKIndexAttr>());
+  if (stageVar.getStorageClass() == spv::StorageClass::Input ||
+      stageVar.getStorageClass() == spv::StorageClass::Output) {
+    stageVar.setEntryPoint(entryFunction);
+  }
   stageVars.push_back(stageVar);
 
   // Emit OpDecorate* instructions to link this stage variable with the HLSL
