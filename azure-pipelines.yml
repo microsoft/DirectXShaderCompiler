@@ -30,14 +30,16 @@ stages:
         cd build
         cmake -G Ninja .. $(cat ../utils/cmake-predefined-config-params) -DSPIRV_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=$(configuration)
       displayName: 'Cmake configuration'
-    - bash: ninja
+    - bash: |
+        cd build
+        ninja
       displayName: 'Building'
     - bash: |
-        ./bin/dxc -T ps_6_0 ../tools/clang/test/CodeGenSPIRV/passthru-ps.hlsl2spv
-        ./bin/dxc -T ps_6_0 -Fo passthru-ps.dxil ../tools/clang/test/CodeGenSPIRV/passthru-ps.hlsl2spv
-        ./bin/dxc -T ps_6_0 -Fo passthru-ps.spv ../tools/clang/test/CodeGenSPIRV/passthru-ps.hlsl2spv -spirv
+        ./build/bin/dxc -T ps_6_0 tools/clang/test/CodeGenSPIRV/passthru-ps.hlsl2spv
+        ./build/bin/dxc -T ps_6_0 -Fo passthru-ps.dxil tools/clang/test/CodeGenSPIRV/passthru-ps.hlsl2spv
+        ./build/bin/dxc -T ps_6_0 -Fo passthru-ps.spv tools/clang/test/CodeGenSPIRV/passthru-ps.hlsl2spv -spirv
       displayName: 'Smoke tests'
-    - bash: ./bin/clang-spirv-tests --spirv-test-root ../tools/clang/test/CodeGenSPIRV/
+    - bash: ./build/bin/clang-spirv-tests --spirv-test-root tools/clang/test/CodeGenSPIRV/
       displayName: 'SPIRV tests'
-    - bash: ./bin/clang-hlsl-tests --HlslDataDir $PWD/../tools/clang/test/HLSL/
+    - bash: ./build/bin/clang-hlsl-tests --HlslDataDir $PWD/tools/clang/test/HLSL/
       displayName: 'DXIL tests'
