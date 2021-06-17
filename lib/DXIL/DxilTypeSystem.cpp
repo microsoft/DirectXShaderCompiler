@@ -9,6 +9,7 @@
 
 #include "dxc/DXIL/DxilTypeSystem.h"
 #include "dxc/DXIL/DxilModule.h"
+#include "dxc/DXIL/DxilUtil.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinFunctions.h"
 
@@ -149,7 +150,7 @@ bool DxilPayloadFieldAnnotation::HasAnnotations() const {
 // DxilStructAnnotation class methods.
 //
 DxilTemplateArgAnnotation::DxilTemplateArgAnnotation()
-    : DxilFieldAnnotation(), m_Type(nullptr), m_Integral(0)
+    : m_Type(nullptr), m_Integral(0)
 {}
 
 bool DxilTemplateArgAnnotation::IsType() const { return m_Type != nullptr; }
@@ -182,8 +183,26 @@ void DxilStructAnnotation::SetStructType(const llvm::StructType *Ty) {
 
 unsigned DxilStructAnnotation::GetCBufferSize() const { return m_CBufferSize; }
 void DxilStructAnnotation::SetCBufferSize(unsigned size) { m_CBufferSize = size; }
-void DxilStructAnnotation::MarkEmptyStruct() { m_FieldAnnotations.clear(); }
-bool DxilStructAnnotation::IsEmptyStruct() { return m_FieldAnnotations.empty(); }
+void DxilStructAnnotation::MarkEmptyStruct() {
+  if (m_ResourcesContained == HasResources::True)
+    m_ResourcesContained = HasResources::Only;
+  else
+    m_FieldAnnotations.clear();
+}
+bool DxilStructAnnotation::IsEmptyStruct() {
+  return m_FieldAnnotations.empty();
+}
+bool DxilStructAnnotation::IsEmptyBesidesResources() {
+  return m_ResourcesContained == HasResources::Only ||
+         m_FieldAnnotations.empty();
+}
+
+// ContainsResources is for codegen only, not meant for metadata
+void DxilStructAnnotation::SetContainsResources() {
+  if (m_ResourcesContained == HasResources::False)
+    m_ResourcesContained = HasResources::True;
+}
+bool DxilStructAnnotation::ContainsResources() const { return m_ResourcesContained != HasResources::False; }
 
 // For template args, GetNumTemplateArgs() will return 0 if not a template
 unsigned DxilStructAnnotation::GetNumTemplateArgs() const {
@@ -199,7 +218,6 @@ DxilTemplateArgAnnotation &DxilStructAnnotation::GetTemplateArgAnnotation(unsign
 const DxilTemplateArgAnnotation &DxilStructAnnotation::GetTemplateArgAnnotation(unsigned argIdx) const {
   return m_TemplateAnnotations[argIdx];
 }
-
 
 //------------------------------------------------------------------------------
 //
@@ -297,6 +315,21 @@ DxilStructAnnotation *DxilTypeSystem::AddStructAnnotation(const StructType *pStr
   return pA;
 }
 
+void DxilTypeSystem::FinishStructAnnotation(DxilStructAnnotation &SA) {
+  const llvm::StructType *ST = SA.GetStructType();
+  DXASSERT(SA.GetNumFields() == ST->getNumElements(), "otherwise, mismatched field count.");
+
+  // Update resource containment
+  for (unsigned i = 0; i < SA.GetNumFields() && !SA.ContainsResources(); i++) {
+    if (IsResourceContained(ST->getElementType(i)))
+      SA.SetContainsResources();
+  }
+
+  // Mark if empty
+  if (SA.GetCBufferSize() == 0)
+    SA.MarkEmptyStruct();
+}
+
 DxilStructAnnotation *DxilTypeSystem::GetStructAnnotation(const StructType *pStructType) {
   auto it = m_StructAnnotations.find(pStructType);
   if (it != m_StructAnnotations.end()) {
@@ -321,6 +354,57 @@ void DxilTypeSystem::EraseStructAnnotation(const StructType *pStructType) {
   m_StructAnnotations.remove_if([pStructType](
       const std::pair<const StructType *, std::unique_ptr<DxilStructAnnotation>>
           &I) { return pStructType == I.first; });
+}
+
+// Recurse type, removing any found StructType from the set
+static void RemoveUsedStructsFromSet(Type *Ty, std::unordered_set<const llvm::StructType*> &unused_structs) {
+  if (Ty->isPointerTy())
+    RemoveUsedStructsFromSet(Ty->getPointerElementType(), unused_structs);
+  else if (Ty->isArrayTy())
+    RemoveUsedStructsFromSet(Ty->getArrayElementType(), unused_structs);
+  else if (Ty->isStructTy()) {
+    StructType *ST = cast<StructType>(Ty);
+    // Only recurse first time into this struct
+    if (unused_structs.erase(ST)) {
+      for (auto &ET : ST->elements()) {
+        RemoveUsedStructsFromSet(ET, unused_structs);
+      }
+    }
+  }
+}
+
+void DxilTypeSystem::EraseUnusedStructAnnotations() {
+  // Add all structures with annotations to a set
+  // Iterate globals, resource types, and functions, recursing used structures to
+  // remove matching struct annotations from set
+  std::unordered_set<const llvm::StructType*> unused_structs;
+  for (auto &it : m_StructAnnotations) {
+    unused_structs.insert(it.first);
+  }
+  for (auto &GV : m_pModule->globals()) {
+    RemoveUsedStructsFromSet(GV.getType(), unused_structs);
+  }
+  DxilModule &DM = m_pModule->GetDxilModule();
+  for (auto &&C : DM.GetCBuffers()) {
+    RemoveUsedStructsFromSet(C->GetHLSLType(), unused_structs);
+  }
+  for (auto &&Srv : DM.GetSRVs()) {
+    RemoveUsedStructsFromSet(Srv->GetHLSLType(), unused_structs);
+  }
+  for (auto &&Uav : DM.GetUAVs()) {
+    RemoveUsedStructsFromSet(Uav->GetHLSLType(), unused_structs);
+  }
+  for (auto &F : m_pModule->functions()) {
+    FunctionType *FT = F.getFunctionType();
+    RemoveUsedStructsFromSet(FT->getReturnType(), unused_structs);
+    for (auto &argTy : FT->params()) {
+      RemoveUsedStructsFromSet(argTy, unused_structs);
+    }
+  }
+  // erase remaining structures in set
+  for (auto *ST : unused_structs) {
+    EraseStructAnnotation(ST);
+  }
 }
 
 DxilTypeSystem::StructAnnotationMap &DxilTypeSystem::GetStructAnnotationMap() {
@@ -381,6 +465,18 @@ DxilFunctionAnnotation *DxilTypeSystem::AddFunctionAnnotation(const Function *pF
   pA->m_pFunction = pFunction;
   pA->m_parameterAnnotations.resize(pFunction->getFunctionType()->getNumParams());
   return pA;
+}
+
+void DxilTypeSystem::FinishFunctionAnnotation(DxilFunctionAnnotation &FA) {
+  auto FT = FA.GetFunction()->getFunctionType();
+
+  // Update resource containment
+  if (IsResourceContained(FT->getReturnType()))
+    FA.SetContainsResourceArgs();
+  for (unsigned i = 0; i < FT->getNumParams() && !FA.ContainsResourceArgs(); i++) {
+    if (IsResourceContained(FT->getParamType(i)))
+      FA.SetContainsResourceArgs();
+  }
 }
 
 DxilFunctionAnnotation *DxilTypeSystem::GetFunctionAnnotation(const Function *pFunction) {
@@ -657,6 +753,24 @@ void DxilTypeSystem::SetMinPrecision(bool bMinPrecision) {
            "LowPrecisionMode should only be set once.");
 
   m_LowPrecisionMode = mode;
+}
+
+bool DxilTypeSystem::IsResourceContained(llvm::Type *Ty) {
+  // strip pointer/array
+  if (Ty->isPointerTy())
+    Ty = Ty->getPointerElementType();
+  if (Ty->isArrayTy())
+    Ty = Ty->getArrayElementType();
+
+  if (auto ST = dyn_cast<StructType>(Ty)) {
+    if (dxilutil::IsHLSLResourceType(Ty)) {
+      return true;
+    } else if (auto SA = GetStructAnnotation(ST)) {
+      if (SA->ContainsResources())
+        return true;
+    }
+  }
+  return false;
 }
 
 DxilStructTypeIterator::DxilStructTypeIterator(llvm::StructType *sTy, DxilStructAnnotation *sAnnotation,

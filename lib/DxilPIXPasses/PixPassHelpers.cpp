@@ -19,6 +19,14 @@
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
 
+#include "PixPassHelpers.h"
+
+#ifdef PIX_DEBUG_DUMP_HELPER
+#include <iostream>
+#include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/DebugInfoMetadata.h"
+#endif
+
 using namespace llvm;
 using namespace hlsl;
 
@@ -157,4 +165,199 @@ llvm::CallInst *CreateUAV(DxilModule &DM, IRBuilder<> &Builder,
 
   return handle;
 }
+
+llvm::Function* GetEntryFunction(hlsl::DxilModule& DM) {
+    if (DM.GetEntryFunction() != nullptr) {
+        return DM.GetEntryFunction();
+    }
+    return DM.GetPatchConstantFunction();
+}
+
+#ifdef PIX_DEBUG_DUMP_HELPER
+
+static int g_logIndent = 0;
+void IncreaseLogIndent()
+{
+    g_logIndent++;
+}
+void DecreaseLogIndent()
+{ 
+    --g_logIndent;
+}
+
+void Log(const char* format, ...) {
+  va_list argumentPointer;
+  va_start(argumentPointer, format);
+  char buffer[512];
+  vsnprintf(buffer, _countof(buffer), format, argumentPointer);
+  va_end(argumentPointer);
+  for (int i = 0; i < g_logIndent; ++i) {
+    OutputDebugFormatA("    ");
+  }
+  OutputDebugFormatA(buffer);
+  OutputDebugFormatA("\n");
+}
+
+void LogPartialLine(const char *format, ...) {
+  va_list argumentPointer;
+  va_start(argumentPointer, format);
+  char buffer[512];
+  vsnprintf(buffer, _countof(buffer), format, argumentPointer);
+  va_end(argumentPointer);
+  for (int i = 0; i < g_logIndent; ++i) {
+    OutputDebugFormatA("    ");
+  }
+  OutputDebugFormatA(buffer);
+}
+
+static llvm::DIType const *DITypePeelTypeAlias(llvm::DIType const *Ty) {
+  if (auto *DerivedTy = llvm::dyn_cast<llvm::DIDerivedType>(Ty)) {
+    const llvm::DITypeIdentifierMap EmptyMap;
+    switch (DerivedTy->getTag()) {
+    case llvm::dwarf::DW_TAG_restrict_type:
+    case llvm::dwarf::DW_TAG_reference_type:
+    case llvm::dwarf::DW_TAG_const_type:
+    case llvm::dwarf::DW_TAG_typedef:
+    case llvm::dwarf::DW_TAG_pointer_type:
+    case llvm::dwarf::DW_TAG_member:
+      return DITypePeelTypeAlias(DerivedTy->getBaseType().resolve(EmptyMap));
+    }
+  }
+
+  return Ty;
+}
+
+void DumpArrayType(llvm::DICompositeType const *Ty);
+void DumpStructType(llvm::DICompositeType const *Ty);
+
+void DumpFullType(llvm::DIType const *type) {
+  auto *Ty = DITypePeelTypeAlias(type);
+
+  const llvm::DITypeIdentifierMap EmptyMap;
+  if (auto *DerivedTy = llvm::dyn_cast<llvm::DIDerivedType>(Ty)) {
+    switch (DerivedTy->getTag()) {
+    default:
+      assert(!"Unhandled DIDerivedType");
+      std::abort();
+      return;
+    case llvm::dwarf::DW_TAG_arg_variable: // "this" pointer
+    case llvm::dwarf::DW_TAG_pointer_type: // "this" pointer
+    case llvm::dwarf::DW_TAG_restrict_type:
+    case llvm::dwarf::DW_TAG_reference_type:
+    case llvm::dwarf::DW_TAG_const_type:
+    case llvm::dwarf::DW_TAG_typedef:
+    case llvm::dwarf::DW_TAG_inheritance:
+      DumpFullType(DerivedTy->getBaseType().resolve(EmptyMap));
+      return;
+    case llvm::dwarf::DW_TAG_member:
+    {
+        Log("Member variable");
+        ScopedIndenter indent;
+        DumpFullType(DerivedTy->getBaseType().resolve(EmptyMap));
+    }
+      return;
+    case llvm::dwarf::DW_TAG_subroutine_type:
+      std::abort();
+      return;
+    }
+  } else if (auto *CompositeTy = llvm::dyn_cast<llvm::DICompositeType>(Ty)) {
+    switch (CompositeTy->getTag()) {
+    default:
+      assert(!"Unhandled DICompositeType");
+      std::abort();
+      return;
+    case llvm::dwarf::DW_TAG_array_type:
+      DumpArrayType(CompositeTy);
+      return;
+    case llvm::dwarf::DW_TAG_structure_type:
+    case llvm::dwarf::DW_TAG_class_type:
+      DumpStructType(CompositeTy);
+      return;
+    case llvm::dwarf::DW_TAG_enumeration_type:
+      // enum base type is int:
+      std::abort();
+      return;
+    }
+  } else if (auto *BasicTy = llvm::dyn_cast<llvm::DIBasicType>(Ty)) {
+    Log("%d: %s", BasicTy->getOffsetInBits(), BasicTy->getName().str().c_str());
+    return;
+  } else {
+    std::abort();
+  }
+}
+
+static unsigned NumArrayElements(llvm::DICompositeType const *Array) {
+  if (Array->getElements().size() == 0) {
+    return 0;
+  }
+
+  unsigned NumElements = 1;
+  for (llvm::DINode *N : Array->getElements()) {
+    if (auto *Subrange = llvm::dyn_cast<llvm::DISubrange>(N)) {
+      NumElements *= Subrange->getCount();
+    } else {
+      assert(!"Unhandled array element");
+      return 0;
+    }
+  }
+  return NumElements;
+}
+
+void DumpArrayType(llvm::DICompositeType const *Ty) {
+  unsigned NumElements = NumArrayElements(Ty);
+  Log("Array %s: size: %d", Ty->getName().str().c_str(), NumElements);
+  if (NumElements == 0) {
+    std::abort();
+    return;
+  }
+
+  const llvm::DITypeIdentifierMap EmptyMap;
+  llvm::DIType *ElementTy = Ty->getBaseType().resolve(EmptyMap);
+  ScopedIndenter indent;
+  DumpFullType(ElementTy);
+}
+
+void DumpStructType(llvm::DICompositeType const *Ty) {
+  Log("Struct %s", Ty->getName().str().c_str());
+  ScopedIndenter indent;
+  auto Elements = Ty->getElements();
+  if (Elements.begin() == Elements.end()) {
+    Log("Resource member: size %d", Ty->getSizeInBits());
+    return;
+  }
+  for (auto *Element : Elements) {
+    switch (Element->getTag()) {
+    case llvm::dwarf::DW_TAG_member: {
+      if (auto *Member = llvm::dyn_cast<llvm::DIDerivedType>(Element)) {
+        DumpFullType(Member);
+        break;
+      }
+      assert(!"member is not a Member");
+      std::abort();
+      return;
+    }
+    case llvm::dwarf::DW_TAG_subprogram: {
+      if (auto *SubProgram = llvm::dyn_cast<llvm::DISubprogram>(Element)) {
+        Log("Member function %s", SubProgram->getName().str().c_str());
+        continue;
+      }
+      assert(!"DISubprogram not understood");
+      std::abort();
+      return;
+    }
+    case llvm::dwarf::DW_TAG_inheritance: {
+      if (auto *Member = llvm::dyn_cast<llvm::DIDerivedType>(Element)) {
+        DumpFullType(Member);
+      } else {
+        std::abort();
+      }
+      continue;
+    }
+    default:
+      assert(!"Unhandled field type in DIStructType");
+      std::abort();
+    }
+  }
+}
+#endif
 } // namespace PIXPassHelpers

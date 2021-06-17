@@ -345,7 +345,7 @@
         [NumThreads(MESHDISPATCHX, MESHDISPATCHY, MESHDISPATCHZ)]
         void ASMain(uint ix : SV_GroupIndex) {
           Payload payload;
-          g_bufAmp[ix] = QuadReadTest(ix);
+          g_bufAmp[ix] = QuadReadTest(WaveGetLaneIndex());
           payload.nothing = 0;
           DispatchMesh(1, 1, 1, payload);
         }
@@ -370,7 +370,7 @@
             // Assign static fullscreen 2 tri quad
             verts[ix%6].position = g_Verts[ix%6];
             tris[ix&1] = uint3((ix&1)*3, (ix&1)*3 + 1, (ix&1)*3 + 2);
-            g_bufMesh[ix] = QuadReadTest(ix);
+            g_bufMesh[ix] = QuadReadTest(WaveGetLaneIndex());
         }
 
         void PSMain(PSInput input) {
@@ -379,7 +379,7 @@
 
         [NumThreads(DISPATCHX, DISPATCHY, DISPATCHZ)]
         void CSMain(uint ix : SV_GroupIndex) {
-          g_bufMain[ix] = QuadReadTest(ix);
+          g_bufMain[ix] = QuadReadTest(WaveGetLaneIndex());
         }
       ]]>
     </Shader>
@@ -2179,7 +2179,7 @@
             // More threads than results are possible,
             // so indices will result in duplicate copies
             g_uintShare[ix%6] = payload.arith[ix%6];
-            g_sintShare[ix%3] = payload.arith[ix%3 + 6];
+            g_sintShare[ix%3 + 1] = payload.arith[ix%3 + 6];
             g_xchgShare[ix%64] = payload.xchg[ix%64];
 
             GroupMemoryBarrierWithGroupSync();

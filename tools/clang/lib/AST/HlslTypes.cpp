@@ -562,6 +562,18 @@ bool IsHLSLBufferViewType(clang::QualType type) {
   return false;
 }
 
+bool IsHLSLStructuredBufferType(clang::QualType type) {
+  if (const RecordType *RT = type->getAs<RecordType>()) {
+    StringRef name = RT->getDecl()->getName();
+    if (name == "StructuredBuffer" || name == "RWStructuredBuffer")
+      return true;
+
+    if (name == "AppendStructuredBuffer" || name == "ConsumeStructuredBuffer")
+      return true;
+  }
+  return false;
+}
+
 bool IsHLSLSubobjectType(clang::QualType type) {
   DXIL::SubobjectKind kind;
   DXIL::HitGroupType hgType;

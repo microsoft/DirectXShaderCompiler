@@ -152,7 +152,6 @@ void GetPayloadAccesses(const Stmt *S, const DxrShaderDiagnoseInfo &Info,
       if (Ref->getDecl() == Info.Payload) {
         Accesses.push_back(PayloadAccessInfo{Member, Call, IsLValue});
       }
-      return;
     }
     if (const ImplicitCastExpr *Cast = dyn_cast<ImplicitCastExpr>(C)) {
       if (Cast->getCastKind() == CK_LValueToRValue) {
@@ -768,6 +767,24 @@ void CollectAccessableFields(RecordDecl *PayloadType,
   }
 }
 
+void HandlePayloadInitializer(DxrShaderDiagnoseInfo& Info) {
+    const VarDecl* Payload = Info.Payload;
+
+    const Expr* Init = Payload->getInit(); 
+
+    if (Init) {
+        // If the payload has an initializer, then handle all fields as 
+        // written. Sema will check that the initializer is correct.
+        // We can handle all fields as written.
+
+        RecordDecl* PayloadType = GetPayloadType(Info.Payload);
+        for (FieldDecl* Field : PayloadType->fields()) {
+            Info.WritesPerField[Field].push_back(PayloadUse{Init, nullptr, nullptr});
+        }
+    }
+}
+
+
 // Emit diagnostics for a TraceRay call.
 void DiagnoseTraceCall(Sema &S, const VarDecl *Payload,
                        const TraceRayCall &Trace, DominatorTree &DT) {
@@ -798,6 +815,10 @@ void DiagnoseTraceCall(Sema &S, const VarDecl *Payload,
   // Find all writes to Payload that reaches the Trace
   DxrShaderDiagnoseInfo TraceInfo;
   TraceInfo.Payload = Payload;
+
+  // Handle initializers for the payload struct if any is present.
+  HandlePayloadInitializer(TraceInfo);
+
   std::set<const CFGBlock *> Visited;
 
   const CFGBlock *Parent = Trace.Parent;

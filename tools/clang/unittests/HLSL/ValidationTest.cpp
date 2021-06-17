@@ -489,9 +489,22 @@ public:
         if (bRegex) {
           llvm::Regex RE(pLookFor);
           std::string reErrors;
+          if (!RE.isValid(reErrors)) {
+            WEX::Logging::Log::Comment(WEX::Common::String().Format(
+                L"Regex errors:\r\n%.*S\r\nWhile compiling expression '%S'",
+                (unsigned)reErrors.size(), reErrors.data(),
+                pLookFor));
+          }
           VERIFY_IS_TRUE(RE.isValid(reErrors));
           std::string replaced = RE.sub(pReplacement, disassembly, &reErrors);
           if (!bOptional) {
+            if (!reErrors.empty()) {
+              WEX::Logging::Log::Comment(WEX::Common::String().Format(
+                  L"Regex errors:\r\n%.*S\r\nWhile searching for '%S' in text:\r\n%.*S",
+                  (unsigned)reErrors.size(), reErrors.data(),
+                  pLookFor,
+                  (unsigned)disassembly.size(), disassembly.data()));
+            }
             VERIFY_ARE_NOT_EQUAL(disassembly, replaced);
             VERIFY_IS_TRUE(reErrors.empty());
           }
@@ -510,6 +523,12 @@ public:
             pos += replaceLen;
           }
           if (!bOptional) {
+            if (!found) {
+              WEX::Logging::Log::Comment(WEX::Common::String().Format(
+                  L"String not found: '%S' in text:\r\n%.*S",
+                  pLookFor,
+                  (unsigned)disassembly.size(), disassembly.data()));
+            }
             VERIFY_IS_TRUE(found);
           }
         }
@@ -719,17 +738,17 @@ TEST_F(ValidationTest, BarrierFail) {
       {"dx.op.barrier(i32 80, i32 8)",
         "dx.op.barrier(i32 80, i32 9)",
         "dx.op.barrier(i32 80, i32 11)",
-        "%\"class.RWStructuredBuffer<matrix<float, 2, 2> >\" = type { %class.matrix.float.2.2 }\n",
+        "%\"hostlayout.class.RWStructuredBuffer<matrix<float, 2, 2> >\" = type { [2 x <2 x float>] }\n",
         "call i32 @dx.op.flattenedThreadIdInGroup.i32(i32 96)",
       },
       {"dx.op.barrier(i32 80, i32 15)",
         "dx.op.barrier(i32 80, i32 0)",
         "dx.op.barrier(i32 80, i32 %rem)",
-        "%\"class.RWStructuredBuffer<matrix<float, 2, 2> >\" = type { %class.matrix.float.2.2 }\n"
-        "@dx.typevar.8 = external addrspace(1) constant %\"class.RWStructuredBuffer<matrix<float, 2, 2> >\"\n"
+        "%\"hostlayout.class.RWStructuredBuffer<matrix<float, 2, 2> >\" = type { [2 x <2 x float>] }\n"
+        "@dx.typevar.8 = external addrspace(1) constant %\"hostlayout.class.RWStructuredBuffer<matrix<float, 2, 2> >\"\n"
         "@\"internalGV\" = internal global [64 x <4 x float>] undef\n",
         "call i32 @dx.op.flattenedThreadIdInGroup.i32(i32 96)\n"
-        "%load = load %\"class.RWStructuredBuffer<matrix<float, 2, 2> >\", %\"class.RWStructuredBuffer<matrix<float, 2, 2> >\" addrspace(1)* @dx.typevar.8",
+        "%load = load %\"hostlayout.class.RWStructuredBuffer<matrix<float, 2, 2> >\", %\"hostlayout.class.RWStructuredBuffer<matrix<float, 2, 2> >\" addrspace(1)* @dx.typevar.8",
       },
       {"Internal declaration 'internalGV' is unused",
        "External declaration 'dx.typevar.8' is unused",
@@ -3842,22 +3861,30 @@ TEST_F(ValidationTest, ValidatePrintfNotAllowed) {
 
 TEST_F(ValidationTest, ValidateVersionNotAllowed) {
   if (m_ver.SkipDxilVersion(1, 6)) return;
-  std::string maxValMinor = std::to_string(m_ver.m_ValMinor);
-  std::string higherValMinor = std::to_string(m_ver.m_ValMinor + 1);
-  std::string maxDxilMinor = std::to_string(m_ver.m_DxilMinor);
-  std::string higherDxilMinor = std::to_string(m_ver.m_DxilMinor + 1);
+  // When validator version is < dxil verrsion, compiler has a newer version
+  // than validator.  We are checking the validator, so only use the validator
+  // version.
+  // This will also assume that the versions are tied together.  This has always
+  // been the case, but it's not assumed that it has to be the case.  If the
+  // versions diverged, it would be impossible to tell what DXIL version a
+  // validator supports just from the version returned in the IDxcVersion
+  // interface, without separate knowledge of the supported dxil version based
+  // on the validator version.  If these versions must diverge in the future, we
+  // could rev the IDxcVersion interface to accomodate.
+  std::string maxMinor = std::to_string(m_ver.m_ValMinor);
+  std::string higherMinor = std::to_string(m_ver.m_ValMinor + 1);
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\basic.hlsl", "ps_6_0",
-    ("= !{i32 1, i32 " + maxValMinor + "}").c_str(),
-    ("= !{i32 1, i32 " + higherValMinor + "}").c_str(),
-    ("error: Validator version in metadata (1." + higherValMinor + ") is not supported; maximum: (1." + maxValMinor + ")").c_str());
+    ("= !{i32 1, i32 " + maxMinor + "}").c_str(),
+    ("= !{i32 1, i32 " + higherMinor + "}").c_str(),
+    ("error: Validator version in metadata (1." + higherMinor + ") is not supported; maximum: (1." + maxMinor + ")").c_str());
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\basic.hlsl", "ps_6_0",
     "= !{i32 1, i32 0}",
     "= !{i32 1, i32 1}",
     "error: Shader model requires Dxil Version 1.0");
   RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\basic.hlsl", "ps_6_0",
     "= !{i32 1, i32 0}",
-    ("= !{i32 1, i32 " + higherDxilMinor + "}").c_str(),
-    ("error: Dxil version in metadata (1." + higherDxilMinor + ") is not supported; maximum: (1." + maxDxilMinor + ")").c_str());
+    ("= !{i32 1, i32 " + higherMinor + "}").c_str(),
+    ("error: Dxil version in metadata (1." + higherMinor + ") is not supported; maximum: (1." + maxMinor + ")").c_str());
 }
 
 TEST_F(ValidationTest, CreateHandleNotAllowedSM66) {

@@ -3,7 +3,7 @@
 // CHECK: Minimum-precision data types
 // CHECK: cbuffer Foo
 // CHECK: {
-// CHECK:   struct dx.alignment.legacy.Foo
+// CHECK:   struct hostlayout.Foo
 // CHECK:   {
 // CHECK:       min16float h1;                                ; Offset:    0
 // CHECK:       float3 f3;                                    ; Offset:   16

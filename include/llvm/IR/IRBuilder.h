@@ -106,7 +106,13 @@ public:
   }
 
   /// \brief Set location information used by debugging information.
-  void SetCurrentDebugLocation(DebugLoc L) { CurDbgLocation = std::move(L); }
+  void SetCurrentDebugLocation(DebugLoc L) { CurDbgLocation = std::move(L);
+    // HLSL Change - begin
+    // Don't propagate debug locations at line 0
+    if (CurDbgLocation && CurDbgLocation.getLine() == 0)
+      CurDbgLocation = nullptr;
+    // HLSL Change - end
+  }
 
   /// \brief Get location information used by debugging information.
   const DebugLoc &getCurrentDebugLocation() const { return CurDbgLocation; }

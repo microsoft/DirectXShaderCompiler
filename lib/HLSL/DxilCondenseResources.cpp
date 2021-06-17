@@ -553,8 +553,15 @@ public:
     // Make sure no select on resource.
     bChanged |= RemovePhiOnResource();
 
-    if (m_bIsLib || m_bLegalizationFailed)
+    if (m_bLegalizationFailed)
       return bChanged;
+
+    if (m_bIsLib) {
+      if (DM.GetOP()->UseMinPrecision())
+        bChanged |= UpdateStructTypeForLegacyLayout();
+
+      return bChanged;
+    }
 
     bChanged = true;
 
@@ -564,11 +571,6 @@ public:
 
     GenerateDxilResourceHandles();
 
-    // TODO: Update types earlier for libraries and replace users, to
-    //       avoid having to preserve HL struct annotation.
-    // Note 1: Needs to happen after legalize
-    // Note 2: Cannot do this easily/trivially if any functions have
-    //         resource arguments (in offline linking target).
     if (DM.GetOP()->UseMinPrecision())
       UpdateStructTypeForLegacyLayout();
 
@@ -579,6 +581,9 @@ public:
     dxilutil::RemoveUnusedFunctions(M, DM.GetEntryFunction(),
                                     DM.GetPatchConstantFunction(), m_bIsLib);
 
+    // Erase type annotations for structures no longer used
+    DM.GetTypeSystem().EraseUnusedStructAnnotations();
+
     return bChanged;
   }
 
@@ -588,7 +593,7 @@ private:
   void UpdateResourceSymbols();
   void TranslateDxilResourceUses(DxilResourceBase &res);
   void GenerateDxilResourceHandles();
-  void UpdateStructTypeForLegacyLayout();
+  bool UpdateStructTypeForLegacyLayout();
   // Switch CBuffer for SRV for TBuffers.
   bool PatchDynamicTBuffers(DxilModule &DM);
   bool PatchTBuffers(DxilModule &DM);
@@ -1618,7 +1623,8 @@ bool DxilLowerCreateHandleForLib::RemovePhiOnResource() {
 namespace {
 
 StructType *UpdateStructTypeForLegacyLayout(StructType *ST,
-                                            DxilTypeSystem &TypeSys, Module &M);
+                                            DxilTypeSystem &TypeSys, Module &M,
+                                            bool includeTopLevelResource=false);
 
 Type *UpdateFieldTypeForLegacyLayout(Type *Ty,
                                      DxilFieldAnnotation &annotation,
@@ -1631,8 +1637,10 @@ Type *UpdateFieldTypeForLegacyLayout(Type *Ty,
         UpdateFieldTypeForLegacyLayout(EltTy, annotation, TypeSys, M);
     if (EltTy == UpdatedTy)
       return Ty;
-    else
+    else if (UpdatedTy)
       return ArrayType::get(UpdatedTy, Ty->getArrayNumElements());
+    else
+      return nullptr;
   } else if (hlsl::HLMatrixType::isa(Ty)) {
     DXASSERT(annotation.HasMatrixAnnotation(), "must a matrix");
     HLMatrixType MatTy = HLMatrixType::cast(Ty);
@@ -1688,11 +1696,16 @@ Type *UpdateFieldTypeForLegacyLayout(Type *Ty,
 
 StructType *UpdateStructTypeForLegacyLayout(StructType *ST,
                                             DxilTypeSystem &TypeSys,
-                                            Module &M) {
+                                            Module &M,
+                                            bool includeTopLevelResource) {
   bool bUpdated = false;
   unsigned fieldsCount = ST->getNumElements();
-  std::vector<Type *> fieldTypes(fieldsCount);
+  std::vector<Type *> fieldTypes;
+  fieldTypes.reserve(fieldsCount);
   DxilStructAnnotation *SA = TypeSys.GetStructAnnotation(ST);
+
+  if (!includeTopLevelResource && dxilutil::IsHLSLResourceType(ST))
+    return nullptr;
 
   // After reflection is stripped from library, this will be null if no update is required.
   if (!SA) {
@@ -1703,11 +1716,20 @@ StructType *UpdateStructTypeForLegacyLayout(StructType *ST,
     return ST;
   }
 
+  // Resource fields must be deleted, since they don't actually
+  // show up in the structure layout.
+  // fieldMap maps from new field index to old field index for porting annotations
+  std::vector<unsigned> fieldMap;
+  fieldMap.reserve(fieldsCount);
+
   for (unsigned i = 0; i < fieldsCount; i++) {
     Type *EltTy = ST->getElementType(i);
     Type *UpdatedTy = UpdateFieldTypeForLegacyLayout(
         EltTy, SA->GetFieldAnnotation(i), TypeSys, M);
-    fieldTypes[i] = UpdatedTy;
+    if (UpdatedTy != nullptr) {
+      fieldMap.push_back(i);
+      fieldTypes.push_back(UpdatedTy);
+    }
     if (EltTy != UpdatedTy)
       bUpdated = true;
   }
@@ -1715,24 +1737,37 @@ StructType *UpdateStructTypeForLegacyLayout(StructType *ST,
   if (!bUpdated) {
     return ST;
   } else {
-    std::string legacyName = "dx.alignment.legacy." + ST->getName().str();
+    std::string legacyName = std::string(DXIL::kHostLayoutTypePrefix) + ST->getName().str();
     if (StructType *legacyST = M.getTypeByName(legacyName))
       return legacyST;
 
     StructType *NewST =
         StructType::create(ST->getContext(), fieldTypes, legacyName);
-    DxilStructAnnotation *NewSA = TypeSys.AddStructAnnotation(NewST);
-    // Clone annotation.
-    *NewSA = *SA;
-    // Make sure we set the struct type back to the new one, since the
-    // clone would have clobbered it with the old one.
-    NewSA->SetStructType(NewST);
+
+    // Only add annotation if struct is not empty.
+    if (NewST->getNumElements() > 0) {
+      DxilStructAnnotation *NewSA = TypeSys.AddStructAnnotation(NewST);
+
+      // Clone annotation.
+      NewSA->SetCBufferSize(SA->GetCBufferSize());
+      NewSA->SetNumTemplateArgs(SA->GetNumTemplateArgs());
+      for (unsigned i = 0; i < SA->GetNumTemplateArgs(); i++) {
+        NewSA->GetTemplateArgAnnotation(i) = SA->GetTemplateArgAnnotation(i);
+      }
+      // Remap with deleted resource fields
+      for (unsigned i = 0; i < NewSA->GetNumFields(); i++) {
+        NewSA->GetFieldAnnotation(i) = SA->GetFieldAnnotation(fieldMap[i]);
+      }
+      TypeSys.FinishStructAnnotation(*NewSA);
+    }
+
     return NewST;
   }
 }
 
-void UpdateStructTypeForLegacyLayout(DxilResourceBase &Res,
-                                     DxilTypeSystem &TypeSys, Module &M) {
+bool UpdateStructTypeForLegacyLayout(DxilResourceBase &Res,
+                                     DxilTypeSystem &TypeSys, DxilModule &DM) {
+  Module &M = *DM.GetModule();
   Constant *Symbol = Res.GetGlobalSymbol();
   Type *ElemTy = Res.GetHLSLType()->getPointerElementType();
   // Support Array of ConstantBuffer/StructuredBuffer.
@@ -1742,54 +1777,93 @@ void UpdateStructTypeForLegacyLayout(DxilResourceBase &Res,
   if (ST->isOpaque()) {
     DXASSERT(Res.GetClass() == DxilResourceBase::Class::CBuffer,
              "Only cbuffer can have opaque struct.");
-    return;
+    return false;
   }
 
   Type *UpdatedST =
-      UpdateStructTypeForLegacyLayout(ST, TypeSys, M);
+      UpdateStructTypeForLegacyLayout(ST, TypeSys, M,
+        Res.GetKind() == DXIL::ResourceKind::StructuredBuffer);
   if (ST != UpdatedST) {
     // Support Array of ConstantBuffer/StructuredBuffer.
     UpdatedST = dxilutil::WrapInArrayTypes(UpdatedST, arrayDims);
     GlobalVariable *NewGV = cast<GlobalVariable>(
         M.getOrInsertGlobal(Symbol->getName().str() + "_legacy", UpdatedST));
     Res.SetGlobalSymbol(NewGV);
-    // Delete old GV.
-    for (auto UserIt = Symbol->user_begin(); UserIt != Symbol->user_end();) {
-      Value *User = *(UserIt++);
-      if (Instruction *I = dyn_cast<Instruction>(User)) {
-        if (!User->user_empty())
-          I->replaceAllUsesWith(UndefValue::get(I->getType()));
+    Res.SetHLSLType(NewGV->getType());
+    OP *hlslOP = DM.GetOP();
 
-        I->eraseFromParent();
-      } else {
-        ConstantExpr *CE = cast<ConstantExpr>(User);
-        if (!CE->user_empty())
-          CE->replaceAllUsesWith(UndefValue::get(CE->getType()));
+    if (DM.GetShaderModel()->IsLib()) {
+      TypeSys.EraseStructAnnotation(ST);
+      // If it's a library, we need to replace the GV which involves a few replacements
+      Function *NF = hlslOP->GetOpFunc(hlsl::OP::OpCode::CreateHandleForLib, UpdatedST);
+
+      // Replace old GV.
+      for (auto UserIt = Symbol->user_begin(); UserIt != Symbol->user_end();) {
+        Value *User = *(UserIt++);
+
+        if (LoadInst *ldInst = dyn_cast<LoadInst>(User)) {
+          if (!ldInst->user_empty()) {
+            IRBuilder<> Builder = IRBuilder<>(ldInst);
+            LoadInst *newLoad = Builder.CreateLoad(NewGV);
+            ArrayRef<Value *> args = {hlslOP->GetI32Const((unsigned)hlsl::OP::OpCode::CreateHandleForLib), newLoad};
+
+            for (auto user = ldInst->user_begin(); user != ldInst->user_end();) {
+              CallInst *CI = cast<CallInst>(*(user++));
+
+              CallInst *newCI = CallInst::Create(NF, args, "", CI);
+              CI->replaceAllUsesWith(newCI);
+              CI->eraseFromParent();
+            }
+          }
+          ldInst->eraseFromParent();
+        }
+      }
+    } else {
+      // If not a library, the GV should be deleted
+      for (auto UserIt = Symbol->user_begin(); UserIt != Symbol->user_end();) {
+        Value *User = *(UserIt++);
+
+        if (Instruction *I = dyn_cast<Instruction>(User)) {
+          if (!User->user_empty())
+            I->replaceAllUsesWith(UndefValue::get(I->getType()));
+
+          I->eraseFromParent();
+        } else {
+          ConstantExpr *CE = cast<ConstantExpr>(User);
+          if (!CE->user_empty())
+            CE->replaceAllUsesWith(UndefValue::get(CE->getType()));
+        }
       }
     }
     Symbol->removeDeadConstantUsers();
 
     if (GlobalVariable *GV = dyn_cast<GlobalVariable>(Symbol))
       GV->eraseFromParent();
+
+    return true;
   }
+
+  return false;
 }
 
-void UpdateStructTypeForLegacyLayoutOnDM(DxilModule &DM) {
+bool UpdateStructTypeForLegacyLayoutOnDM(DxilModule &DM) {
   DxilTypeSystem &TypeSys = DM.GetTypeSystem();
-  Module &M = *DM.GetModule();
+  bool bChanged = false;
   for (auto &CBuf : DM.GetCBuffers()) {
-    UpdateStructTypeForLegacyLayout(*CBuf.get(), TypeSys, M);
+    bChanged |= UpdateStructTypeForLegacyLayout(*CBuf.get(), TypeSys, DM);
   }
 
   for (auto &UAV : DM.GetUAVs()) {
     if (DXIL::IsStructuredBuffer(UAV->GetKind()))
-      UpdateStructTypeForLegacyLayout(*UAV.get(), TypeSys, M);
+      bChanged |= UpdateStructTypeForLegacyLayout(*UAV.get(), TypeSys, DM);
   }
 
   for (auto &SRV : DM.GetSRVs()) {
     if (SRV->IsStructuredBuffer() || SRV->IsTBuffer())
-      UpdateStructTypeForLegacyLayout(*SRV.get(), TypeSys, M);
+      bChanged |= UpdateStructTypeForLegacyLayout(*SRV.get(), TypeSys, DM);
   }
+
+  return bChanged;
 }
 
 } // namespace
@@ -1811,8 +1885,8 @@ void DxilLowerCreateHandleForLib::FailOnPoisonResources() {
   }
 }
 
-void DxilLowerCreateHandleForLib::UpdateStructTypeForLegacyLayout() {
-  UpdateStructTypeForLegacyLayoutOnDM(*m_DM);
+bool DxilLowerCreateHandleForLib::UpdateStructTypeForLegacyLayout() {
+  return UpdateStructTypeForLegacyLayoutOnDM(*m_DM);
 }
 
 // Change ResourceSymbol to undef if don't need.
@@ -1822,6 +1896,8 @@ void DxilLowerCreateHandleForLib::UpdateResourceSymbols() {
       GV->removeDeadConstantUsers();
       DXASSERT(GV->user_empty(), "else resource not lowered");
       res->SetGlobalSymbol(UndefValue::get(GV->getType()));
+      if (GV->user_empty())
+        GV->eraseFromParent();
     }
   };
 
@@ -2163,9 +2239,13 @@ void PatchTBufferLoad(CallInst *handle, DxilModule &DM,
 
   // Replace corresponding cbuffer loads with typed buffer loads
   for (auto U = handle->user_begin(); U != handle->user_end();) {
-    CallInst *I = cast<CallInst>(*(U++));
-    DXASSERT(I && OP::IsDxilOpFuncCallInst(I),
+    User *user = *(U++);
+    CallInst *I = dyn_cast<CallInst>(user);
+    // Could also be store for out arg in lib.
+    DXASSERT(isa<StoreInst>(user) || (I && OP::IsDxilOpFuncCallInst(I)),
              "otherwise unexpected user of CreateHandle value");
+    if (!I)
+      continue;
     DXIL::OpCode opcode = OP::GetDxilOpFuncCallInst(I);
     if (opcode == DXIL::OpCode::CBufferLoadLegacy) {
       DxilInst_CBufferLoadLegacy cbLoad(I);
@@ -2255,6 +2335,9 @@ void PatchTBufferLoad(CallInst *handle, DxilModule &DM,
       PatchTBufferLoad(cast<CallInst>(I), DM,
                        patchedSet);
       continue;
+    } else if (opcode == DXIL::OpCode::BufferLoad) {
+      // Already translated, skip.
+      continue;
     } else {
       DXASSERT(false, "otherwise unexpected user of CreateHandle value");
     }
@@ -2312,8 +2395,31 @@ bool DxilLowerCreateHandleForLib::PatchDynamicTBuffers(DxilModule &DM) {
 bool DxilLowerCreateHandleForLib::PatchTBuffers(DxilModule &DM) {
   bool bChanged = false;
   // move tbuffer resources to SRVs
-  unsigned offset = DM.GetSRVs().size();
   Module &M = *DM.GetModule();
+  const ShaderModel &SM = *DM.GetShaderModel();
+  DenseSet<Value*> patchedSet;
+
+  // First, patch users of AnnotateHandle calls if we have them.
+  // This will pick up uses in lib_6_x functions that otherwise
+  // would be missed.
+  if (SM.IsSM66Plus()) {
+    for (auto it : DM.GetOP()->GetOpFuncList(DXIL::OpCode::AnnotateHandle)) {
+      Function *F = it.second;
+      for (auto U = F->user_begin(); U != F->user_end(); ) {
+        User *user = *(U++);
+        if (CallInst *CI = dyn_cast<CallInst>(user)) {
+          DxilInst_AnnotateHandle AH(CI);
+          if (AH) {
+            DxilResourceProperties RP = resource_helper::loadPropsFromAnnotateHandle(AH, SM);
+            if (RP.getResourceKind() == DXIL::ResourceKind::TBuffer)
+              PatchTBufferLoad(CI, DM, patchedSet);
+          }
+        }
+      }
+    }
+  }
+
+  unsigned offset = DM.GetSRVs().size();
   for (auto it = DM.GetCBuffers().begin(); it != DM.GetCBuffers().end(); it++) {
     DxilCBuffer *CB = it->get();
     if (CB->GetKind() == DXIL::ResourceKind::TBuffer) {
@@ -2324,7 +2430,6 @@ bool DxilLowerCreateHandleForLib::PatchTBuffers(DxilModule &DM) {
       GlobalVariable *GV = dyn_cast<GlobalVariable>(CB->GetGlobalSymbol());
       if (GV == nullptr)
         continue;
-      DenseSet<Value*> patchedSet;
       PatchTBufferUse(GV, DM, patchedSet);
       // Set global symbol for cbuffer to an unused value so it can be removed
       // in RemoveUnusedResourceSymbols.
@@ -2595,9 +2700,6 @@ INITIALIZE_PASS_END(DxilLowerCreateHandleForLib, "hlsl-dxil-lower-handle-for-lib
 
 
 class DxilAllocateResourcesForLib : public ModulePass {
-private:
-  RemapEntryCollection m_rewrites;
-
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilAllocateResourcesForLib() : ModulePass(ID), m_AutoBindingSpace(UINT_MAX) {}
@@ -2605,7 +2707,7 @@ public:
   void applyOptions(PassOptions O) override {
     GetPassOptionUInt32(O, "auto-binding-space", &m_AutoBindingSpace, UINT_MAX);
   }
-  const char *getPassName() const override { return "DXIL Condense Resources"; }
+  const char *getPassName() const override { return "DXIL Allocate Resources For Library"; }
 
   bool runOnModule(Module &M) override {
     DxilModule &DM = M.GetOrCreateDxilModule();
@@ -2637,3 +2739,58 @@ ModulePass *llvm::createDxilAllocateResourcesForLibPass() {
 }
 
 INITIALIZE_PASS(DxilAllocateResourcesForLib, "hlsl-dxil-allocate-resources-for-lib", "DXIL Allocate Resources For Library", false, false)
+
+
+class DxilCleanupAnnotateHandle : public ModulePass {
+public:
+  static char ID; // Pass identification, replacement for typeid
+  explicit DxilCleanupAnnotateHandle() : ModulePass(ID) {}
+
+  const char *getPassName() const override { return "DXIL Cleanup extra annotate handle calls"; }
+
+  bool runOnModule(Module &M) override {
+    DxilModule &DM = M.GetOrCreateDxilModule();
+
+    // Nothing to do if Dxil ver < 1.6
+    unsigned dxilMajor, dxilMinor;
+    DM.GetShaderModel()->GetDxilVersion(dxilMajor, dxilMinor);
+    if (DXIL::CompareVersions(dxilMajor, dxilMinor, 1, 6) < 0)
+      return false;
+
+    bool bChanged = false;
+
+    // Iterate AnnotateHandle calls and eliminate redundant annotate handle call chains.
+    hlsl::OP *op = DM.GetOP();
+    for (auto it : op->GetOpFuncList(OP::OpCode::AnnotateHandle)) {
+      Function *F = it.second;
+      for (auto U = F->user_begin(); U != F->user_end(); ) {
+        CallInst *CI = dyn_cast<CallInst>(*(U++));
+        if (CI) {
+          DxilInst_AnnotateHandle AH(CI);
+          if (AH) {
+            CallInst *Res = dyn_cast<CallInst>(AH.get_res());
+            DxilInst_AnnotateHandle PrevAH(Res);
+            if (PrevAH) {
+              DXASSERT(AH.get_props() == PrevAH.get_props(), "otherwise, AnnotateHandle chain with inconsistent props");
+              CI->replaceAllUsesWith(Res);
+              CI->eraseFromParent();
+              bChanged = true;
+            }
+          }
+        }
+      }
+    }
+
+    return bChanged;
+  }
+
+private:
+};
+
+char DxilCleanupAnnotateHandle::ID = 0;
+
+ModulePass *llvm::createDxilCleanupAnnotateHandlePass() {
+  return new DxilCleanupAnnotateHandle();
+}
+
+INITIALIZE_PASS(DxilCleanupAnnotateHandle, "hlsl-dxil-cleanup-annotate-handle", "DXIL Cleanup extra annotate handle calls", false, false)

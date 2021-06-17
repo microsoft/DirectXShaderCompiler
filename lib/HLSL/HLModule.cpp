@@ -980,8 +980,13 @@ void HLModule::GetParameterRowsAndCols(Type *Ty, unsigned &rows, unsigned &cols,
   rows *= arraySize;
 }
 
-static Value *MergeGEP(GEPOperator *SrcGEP, GetElementPtrInst *GEP) {
-  IRBuilder<> Builder(GEP);
+static Value *MergeGEP(GEPOperator *SrcGEP, GEPOperator *GEP) {
+  IRBuilder<> Builder(GEP->getContext());
+  StringRef Name = "";
+  if (Instruction *I = dyn_cast<Instruction>(GEP)) {
+    Builder.SetInsertPoint(I);
+    Name = GEP->getName();
+  }
   SmallVector<Value *, 8> Indices;
 
   // Find out whether the last index in the source GEP is a sequential idx.
@@ -1028,50 +1033,51 @@ static Value *MergeGEP(GEPOperator *SrcGEP, GetElementPtrInst *GEP) {
     Indices.append(SrcGEP->op_begin() + 1, SrcGEP->op_end());
     Indices.append(GEP->idx_begin() + 1, GEP->idx_end());
   }
-  if (!Indices.empty())
-    return Builder.CreateInBoundsGEP(SrcGEP->getSourceElementType(),
-                                     SrcGEP->getOperand(0), Indices,
-                                     GEP->getName());
-  else
-    llvm_unreachable("must merge");
+
+  DXASSERT(!Indices.empty(), "must merge");
+  Value *newGEP = Builder.CreateInBoundsGEP(nullptr, SrcGEP->getOperand(0), Indices, Name);
+  GEP->replaceAllUsesWith(newGEP);
+  if (Instruction *I = dyn_cast<Instruction>(GEP))
+    I->eraseFromParent();
+  return newGEP;
 }
 
 void HLModule::MergeGepUse(Value *V) {
-  for (auto U = V->user_begin(); U != V->user_end();) {
-    auto Use = U++;
-
-    if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(*Use)) {
-      if (GEPOperator *prevGEP = dyn_cast<GEPOperator>(V)) {
-        // merge the 2 GEPs
-        Value *newGEP = MergeGEP(prevGEP, GEP);
-        // Don't need to replace when GEP is updated in place
-        if (newGEP != GEP) {
-          GEP->replaceAllUsesWith(newGEP);
-          GEP->eraseFromParent();
-        }
-        MergeGepUse(newGEP);
+  SmallVector<Value*, 16> worklist;
+  auto addUsersToWorklist = [&worklist](Value *V) {
+    if (!V->user_empty()) {
+      // Add users in reverse to the worklist, so they are processed in order
+      // This makes it equivalent to recursive traversal
+      size_t start = worklist.size();
+      worklist.append(V->user_begin(), V->user_end());
+      size_t end = worklist.size();
+      std::reverse(worklist.data() + start, worklist.data() + end);
+    }
+  };
+  addUsersToWorklist(V);
+  while (worklist.size()) {
+    V = worklist.pop_back_val();
+    if (BitCastOperator *BCO = dyn_cast<BitCastOperator>(V)) {
+      if (Value *NewV = dxilutil::TryReplaceBaseCastWithGep(V)) {
+        worklist.push_back(NewV);
       } else {
-        MergeGepUse(*Use);
+        // merge any GEP users of the untranslated bitcast
+        addUsersToWorklist(V);
       }
-    } else if (dyn_cast<GEPOperator>(*Use)) {
-      if (GEPOperator *prevGEP = dyn_cast<GEPOperator>(V)) {
-        // merge the 2 GEPs
-        Value *newGEP = MergeGEP(prevGEP, GEP);
-        // Don't need to replace when GEP is updated in place
-        if (newGEP != GEP) {
-          GEP->replaceAllUsesWith(newGEP);
-          GEP->eraseFromParent();
+    } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(V)) {
+      if (GEPOperator *prevGEP = dyn_cast<GEPOperator>(GEP->getPointerOperand())) {
+        // merge the 2 GEPs, returns nullptr if couldn't merge
+        if (Value *newGEP = MergeGEP(prevGEP, GEP)) {
+          worklist.push_back(newGEP);
+          // delete prevGEP if no more users
+          if (prevGEP->user_empty() && isa<GetElementPtrInst>(prevGEP))
+            cast<GetElementPtrInst>(prevGEP)->eraseFromParent();
         }
-        MergeGepUse(newGEP);
       } else {
-        MergeGepUse(*Use);
+        // nothing to merge yet, add GEP users
+        addUsersToWorklist(V);
       }
     }
-  }
-  if (V->user_empty()) {
-    // Only remove GEP here, root ptr will be removed by DCE.
-    if (GetElementPtrInst *I = dyn_cast<GetElementPtrInst>(V))
-      I->eraseFromParent();
   }
 }
 

@@ -627,6 +627,17 @@ static Value *foldPHINodeOrSelectInst(Instruction &I) {
   return foldSelectInst(cast<SelectInst>(I));
 }
 
+// HLSL Change - Detect HLSL Object or Matrix [array] type
+// These types should be SROA'd elsewhere as necessary.
+bool SkipHLSLType(Type *Ty, bool SkipHLSLMat) {
+  if (Ty->isPointerTy())
+    Ty = Ty->getPointerElementType();
+  while (Ty->isArrayTy())
+    Ty = Ty->getArrayElementType();
+  return (SkipHLSLMat && hlsl::HLMatrixType::isa(Ty)) ||
+         hlsl::dxilutil::IsHLSLObjectType(Ty);
+}
+
 /// \brief Builder for the alloca slices.
 ///
 /// This class builds a set of alloca slices by recursively visiting the uses
@@ -697,21 +708,10 @@ private:
     if (BC.use_empty())
       return markAsDead(BC);
     // HLSL Change Begin - not sroa matrix type.
-    if (PointerType *PT = dyn_cast<PointerType>(BC.getType())) {
-      Type *EltTy = PT->getElementType();
-      if ((SkipHLSLMat && hlsl::HLMatrixType::isa(EltTy)) ||
-          hlsl::dxilutil::IsHLSLObjectType(EltTy)) {
-        AS.PointerEscapingInstr = &BC;
-        return;
-      }
-      if (PointerType *SrcPT = dyn_cast<PointerType>(BC.getSrcTy())) {
-        Type *SrcEltTy = SrcPT->getElementType();
-        if ((SkipHLSLMat && hlsl::HLMatrixType::isa(SrcEltTy)) ||
-            hlsl::dxilutil::IsHLSLObjectType(SrcEltTy)) {
-          AS.PointerEscapingInstr = &BC;
-          return;
-        }
-      }
+    if (SkipHLSLType(BC.getType(), SkipHLSLMat) ||
+        SkipHLSLType(BC.getSrcTy(), SkipHLSLMat)) {
+      AS.PointerEscapingInstr = &BC;
+      return;
     }
     // HLSL Change End.
     return Base::visitBitCastInst(BC);
@@ -775,8 +775,7 @@ private:
 
   void visitLoadInst(LoadInst &LI) {
     // HLSL Change Begin - not sroa matrix type.
-    if ((SkipHLSLMat && hlsl::HLMatrixType::isa(LI.getType())) ||
-        hlsl::dxilutil::IsHLSLObjectType(LI.getType()))
+    if (SkipHLSLType(LI.getType(), SkipHLSLMat))
       return PI.setEscapedAndAborted(&LI);
     // HLSL Change End.
     assert((!LI.isSimple() || LI.getType()->isSingleValueType()) &&
@@ -796,8 +795,7 @@ private:
     if (ValOp == *U)
       return PI.setEscapedAndAborted(&SI);
     // HLSL Change Begin - not sroa matrix type.
-    if ((SkipHLSLMat && hlsl::HLMatrixType::isa(ValOp->getType())) ||
-        hlsl::dxilutil::IsHLSLObjectType(ValOp->getType()))
+    if (SkipHLSLType(ValOp->getType(), SkipHLSLMat))
       return PI.setEscapedAndAborted(&SI);
     // HLSL Change End.
 
@@ -3366,8 +3364,7 @@ private:
     if (!LI.isSimple() || LI.getType()->isSingleValueType())
       return false;
     // HLSL Change Begin - not sroa matrix type.
-    if ((SkipHLSLMat && hlsl::HLMatrixType::isa(LI.getType())) ||
-        hlsl::dxilutil::IsHLSLObjectType(LI.getType()))
+    if (SkipHLSLType(LI.getType(), SkipHLSLMat))
       return false;
     // HLSL Change End.
 
@@ -3405,8 +3402,7 @@ private:
     if (V->getType()->isSingleValueType())
       return false;
     // HLSL Change Begin - not sroa matrix type.
-    if ((SkipHLSLMat && hlsl::HLMatrixType::isa(V->getType())) ||
-        hlsl::dxilutil::IsHLSLObjectType(V->getType()))
+    if (SkipHLSLType(V->getType(), SkipHLSLMat))
       return false;
     // HLSL Change End.
     // We have an aggregate being stored, split it apart.
@@ -3419,17 +3415,9 @@ private:
 
   bool visitBitCastInst(BitCastInst &BC) {
     // HLSL Change Begin - not sroa matrix type.
-    if (PointerType *PT = dyn_cast<PointerType>(BC.getType())) {
-      Type *EltTy = PT->getElementType();
-      if ((SkipHLSLMat && hlsl::HLMatrixType::isa(EltTy)) ||
-          hlsl::dxilutil::IsHLSLObjectType(EltTy))
-        return false;
-      if (PointerType *SrcPT = dyn_cast<PointerType>(BC.getSrcTy())) {
-        Type *SrcEltTy = SrcPT->getElementType();
-        if ((SkipHLSLMat && hlsl::HLMatrixType::isa(SrcEltTy)) ||
-            hlsl::dxilutil::IsHLSLObjectType(SrcEltTy))
-          return false;
-      }
+    if (SkipHLSLType(BC.getType(), SkipHLSLMat) ||
+        SkipHLSLType(BC.getSrcTy(), SkipHLSLMat)) {
+      return false;
     }
     // HLSL Change End.
     enqueueUsers(BC);
@@ -4420,8 +4408,7 @@ bool SROA::runOnAlloca(AllocaInst &AI) {
       hlsl::dxilutil::IsHLSLObjectType(
           AI.getAllocatedType()) || // HLSL Change - not sroa resource type.
       // HLSL Change Begin - not sroa matrix type.
-      (SkipHLSLMat &&
-       hlsl::HLMatrixType::isa(AI.getAllocatedType())) ||
+      SkipHLSLType(AI.getAllocatedType(), SkipHLSLMat) ||
       // HLSL Change End.
       DL.getTypeAllocSize(AI.getAllocatedType()) == 0)
     return false;

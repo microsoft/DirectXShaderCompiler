@@ -554,6 +554,34 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
   }
 }
 
+std::vector<SpirvVariable *>
+SpirvEmitter::getInterfacesForEntryPoint(SpirvFunction *entryPoint) {
+  auto stageVars = declIdMapper.collectStageVars(entryPoint);
+  if (!featureManager.isTargetEnvVulkan1p2OrAbove())
+    return stageVars;
+
+  // In SPIR-V 1.4 or above, we must include global variables in the 'Interface'
+  // operands of OpEntryPoint. SpirvModule keeps all global variables, but some
+  // of them can be duplicated with stage variables kept by declIdMapper. Since
+  // declIdMapper keeps the mapping between variables with Input or Output
+  // storage class and their storage class, we have to rely on
+  // declIdMapper.collectStageVars() to collect them.
+  llvm::DenseSet<SpirvVariable *> interfaces;
+  interfaces.insert(stageVars.begin(), stageVars.end());
+  for (auto *moduleVar : spvBuilder.getModule()->getVariables()) {
+    if (moduleVar->getStorageClass() != spv::StorageClass::Input &&
+        moduleVar->getStorageClass() != spv::StorageClass::Output) {
+      interfaces.insert(moduleVar);
+    }
+  }
+  std::vector<SpirvVariable *> interfacesInVector;
+  interfacesInVector.reserve(interfaces.size());
+  for (auto *interface : interfaces) {
+    interfacesInVector.push_back(interface);
+  }
+  return interfacesInVector;
+}
+
 void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   // Stop translating if there are errors in previous compilation stages.
   if (context.getDiagnostics().hasErrorOccurred())
@@ -618,9 +646,7 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     spvBuilder.addEntryPoint(
         getSpirvShaderStage(entryInfo->shaderModelKind),
         entryInfo->entryFunction, entryInfo->funcDecl->getName(),
-        featureManager.isTargetEnvVulkan1p2OrAbove()
-            ? spvBuilder.getModule()->getVariables()
-            : llvm::ArrayRef<SpirvVariable *>(declIdMapper.collectStageVars()));
+        getInterfacesForEntryPoint(entryInfo->entryFunction));
   }
 
   // Add Location decorations to stage input/output variables.
@@ -638,14 +664,16 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   // Output the constructed module.
   std::vector<uint32_t> m = spvBuilder.takeModule();
 
-  if (!spirvOptions.codeGenHighLevel) {
-    // In order to flatten composite resources, we must also unroll loops.
-    // Therefore we should run legalization before optimization.
-    needsLegalization = needsLegalization ||
-                        declIdMapper.requiresLegalization() ||
-                        spirvOptions.flattenResourceArrays ||
-                        declIdMapper.requiresFlatteningCompositeResources();
+  // In order to flatten composite resources, we must also unroll loops.
+  // Therefore we should run legalization before optimization.
+  needsLegalization = needsLegalization ||
+                      declIdMapper.requiresLegalization() ||
+                      spirvOptions.flattenResourceArrays ||
+                      declIdMapper.requiresFlatteningCompositeResources();
 
+  if (spirvOptions.codeGenHighLevel) {
+    beforeHlslLegalization = needsLegalization;
+  } else {
     // Run legalization passes
     if (needsLegalization) {
       std::string messages;
@@ -2311,7 +2339,7 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
         // the legalization.
         if (objInstr->getStorageClass() != spv::StorageClass::Function ||
             !isMemoryObjectDeclaration(objInstr))
-          beforeHlslLegalization = true;
+          needsLegalization = true;
 
         args.push_back(objInstr);
       }
@@ -2343,6 +2371,10 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
 
     auto *argInst = doExpr(arg);
 
+    bool isArgGlobalVarWithResourceType =
+        argInfo && argInfo->getStorageClass() != spv::StorageClass::Function &&
+        isResourceType(paramType);
+
     // If argInfo is nullptr and argInst is a rvalue, we do not have a proper
     // pointer to pass to the function. we need a temporary variable in that
     // case.
@@ -2352,14 +2384,14 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
     // expects are point-to-pointer argument for resources, which will be
     // resolved by legalization.
     if ((argInfo || (argInst && !argInst->isRValue())) &&
-        canActAsOutParmVar(param) && !isResourceType(paramType) &&
+        canActAsOutParmVar(param) && !isArgGlobalVarWithResourceType &&
         paramTypeMatchesArgType(paramType, arg->getType())) {
       // Based on SPIR-V spec, function parameter must be always Function
       // scope. In addition, we must pass memory object declaration argument
       // to function. If we pass an argument that is not function scope
       // or not memory object declaration, we need the legalization.
       if (!argInfo || argInfo->getStorageClass() != spv::StorageClass::Function)
-        beforeHlslLegalization = true;
+        needsLegalization = true;
 
       isTempVar.push_back(false);
       args.push_back(argInst);
@@ -2409,9 +2441,6 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
       storeValue(tempVar, rhsVal, paramType, arg->getLocStart());
     }
   }
-
-  if (beforeHlslLegalization)
-    needsLegalization = true;
 
   assert(vars.size() == isTempVar.size());
   assert(vars.size() == args.size());
@@ -2778,7 +2807,7 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr) {
     }
 
     if (!subExprInstr)
-      subExprInstr = doExpr(subExpr);
+      subExprInstr = loadIfGLValue(subExpr);
 
     auto *val = processFlatConversion(toType, evalType, subExprInstr,
                                       expr->getExprLoc());
@@ -4449,6 +4478,9 @@ SpirvInstruction *SpirvEmitter::createImageSample(
     SpirvInstruction *minLod, SpirvInstruction *residencyCodeId,
     SourceLocation loc) {
 
+  if (varOffset)
+    needsLegalization = true;
+
   // SampleDref* instructions in SPIR-V always return a scalar.
   // They also have the correct type in HLSL.
   if (compareVal) {
@@ -4880,6 +4912,9 @@ SpirvEmitter::processBufferTextureLoad(const CXXMemberCallExpr *expr) {
       if (hasOffsetArg)
         handleOffsetInMethodCall(expr, 1, &constOffset, &varOffset);
     }
+
+    if (varOffset)
+      needsLegalization = true;
 
     return processBufferTextureLoad(object, coordinate, constOffset, varOffset,
                                     lod, status, loc);
@@ -9491,7 +9526,7 @@ SpirvEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
   switch (numArgs) {
   case 1: {
     // Handling Method 1, 2, and 3.
-    auto *argInstr = doExpr(arg0);
+    auto *argInstr = loadIfGLValue(arg0);
     QualType fromElemType = {};
     uint32_t numRows = 0, numCols = 0;
     // For non-matrix arguments (scalar or vector), just do an OpBitCast.
@@ -12305,8 +12340,7 @@ bool SpirvEmitter::spirvToolsValidate(std::vector<uint32_t> *mod,
                  const char *message) { *messages += message; });
 
   spvtools::ValidatorOptions options;
-  options.SetBeforeHlslLegalization(needsLegalization ||
-                                    declIdMapper.requiresLegalization());
+  options.SetBeforeHlslLegalization(beforeHlslLegalization);
   // GL: strict block layout rules
   // VK: relaxed block layout rules
   // DX: Skip block layout rules

@@ -318,7 +318,7 @@ protected:
     // use memcpy here. Note that I and E are iterators and thus might be
     // invalid for memcpy if they are equal.
     if (I != E)
-      memcpy(Dest, I, (E - I) * sizeof(T));
+      memcpy(reinterpret_cast<void *>(Dest), I, (E - I) * sizeof(T));
   }
 
   /// Double the size of the allocated memory, guaranteeing space for at
@@ -330,7 +330,7 @@ public:
   void push_back(const T &Elt) {
     if (LLVM_UNLIKELY(this->EndX >= this->CapacityX))
       this->grow();
-    memcpy(this->end(), &Elt, sizeof(T));
+    memcpy(reinterpret_cast<void *>(this->end()), &Elt, sizeof(T));
     this->setEnd(this->end()+1);
   }
 

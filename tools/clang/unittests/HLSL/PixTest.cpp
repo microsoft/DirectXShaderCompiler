@@ -192,6 +192,10 @@ public:
   TEST_METHOD(DiaCompileArgs)
   TEST_METHOD(PixDebugCompileInfo)
 
+  TEST_METHOD(CheckSATPassFor66_NoDynamicAccess)
+  TEST_METHOD(CheckSATPassFor66_DynamicFromRootSig)
+  TEST_METHOD(CheckSATPassFor66_DynamicFromHeap)
+
   TEST_METHOD(PixStructAnnotation_Simple)
   TEST_METHOD(PixStructAnnotation_CopiedStruct)
   TEST_METHOD(PixStructAnnotation_MixedSizes)
@@ -978,7 +982,8 @@ public:
 
   TestableResults TestStructAnnotationCase(const char* hlsl, const wchar_t* optimizationLevel, bool validateCoverage = true);
   void ValidateAllocaWrite(std::vector<AllocaWrite> const& allocaWrites, size_t index, const char* name);
-
+  std::string RunShaderAccessTrackingPassAndReturnOutputMessages(IDxcBlob* blob);
+  CComPtr<IDxcBlob> Compile(const char* hlsl, const wchar_t* profile);
 };
 
 
@@ -1640,6 +1645,130 @@ TEST_F(PixTest, PixDebugCompileInfo) {
   VERIFY_ARE_EQUAL(std::wstring(profile), std::wstring(hlslTarget));
 }
 
+CComPtr<IDxcBlob> PixTest::Compile(const char* hlsl, const wchar_t* profile)
+{
+
+  CComPtr<IDxcLibrary> pLib;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
+
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcCompiler2> pCompiler2;
+
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcBlob> pProgram;
+  CComPtr<IDxcBlob> pPdbBlob;
+  WCHAR *pDebugName = nullptr;
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  VERIFY_SUCCEEDED(pCompiler.QueryInterface(&pCompiler2));
+  CreateBlobFromText(hlsl, &pSource);
+  LPCWSTR args[] = {L"/Zi", L"/Qembed_debug"};
+  VERIFY_SUCCEEDED(pCompiler2->CompileWithDebug(
+      pSource, L"source.hlsl", L"main", profile, args, _countof(args),
+      nullptr, 0, nullptr, &pResult, &pDebugName, &pPdbBlob));
+
+  HRESULT hr;
+  VERIFY_SUCCEEDED(pResult->GetStatus(&hr));
+  if (FAILED(hr))
+  {
+    CComPtr<IDxcBlobEncoding> pErrors;
+    pResult->GetErrorBuffer(&pErrors);
+
+    if (pErrors && pErrors->GetBufferSize() > 0) {
+      auto errorMessages =
+          reinterpret_cast<const char *>(pErrors->GetBufferPointer());
+      std::wstring wideErrrors;
+      wideErrrors.assign(errorMessages,
+                         errorMessages + pErrors->GetBufferSize());
+      WEX::Logging::Log::Comment(L"Compilation failed. Error messages:");
+      WEX::Logging::Log::Comment(wideErrrors.c_str());
+    }
+
+    VERIFY_SUCCEEDED(hr);
+  }
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+
+  return pProgram;
+}
+
+std::string PixTest::RunShaderAccessTrackingPassAndReturnOutputMessages(IDxcBlob* blob)
+{
+  CComPtr<IDxcBlob> dxil = FindModule(DFCC_ShaderDebugInfoDXIL, blob);
+  CComPtr<IDxcOptimizer> pOptimizer;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
+  std::vector<LPCWSTR> Options;
+  Options.push_back(L"-opt-mod-passes");
+  Options.push_back(L"-hlsl-dxil-pix-shader-access-instrumentation,config=,checkForDynamicIndexing=1");
+
+  CComPtr<IDxcBlob> pOptimizedModule;
+  CComPtr<IDxcBlobEncoding> pText;
+  VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
+      dxil, Options.data(), Options.size(), &pOptimizedModule, &pText));
+
+  std::string outputText;
+  if (pText->GetBufferSize() != 0) {
+    outputText = reinterpret_cast<const char *>(pText->GetBufferPointer());
+  }
+
+  return outputText;
+}
+
+TEST_F(PixTest, CheckSATPassFor66_NoDynamicAccess) {
+
+  const char *noDynamicAccess = R"(
+    [RootSignature("")]
+    float main(float pos : A) : SV_Target {
+      float x = abs(pos);
+      float y = sin(pos);
+      float z = x + y;
+      return z;
+    }
+  )";
+
+  auto compiled = Compile(noDynamicAccess, L"ps_6_6");
+  auto satResults = RunShaderAccessTrackingPassAndReturnOutputMessages(compiled);
+  VERIFY_IS_TRUE(satResults.empty());
+}
+
+TEST_F(PixTest, CheckSATPassFor66_DynamicFromRootSig) {
+
+  const char *dynamicTextureAccess = R"x(
+Texture1D<float4> tex[5] : register(t3);
+SamplerState SS[3] : register(s2);
+
+[RootSignature("DescriptorTable(SRV(t3, numDescriptors=5)),\
+                DescriptorTable(Sampler(s2, numDescriptors=3))")]
+float4 main(int i : A, float j : B) : SV_TARGET
+{
+  float4 r = tex[i].Sample(SS[i], i);
+  return r;
+}
+  )x";
+
+  auto compiled = Compile(dynamicTextureAccess, L"ps_6_6");
+  auto satResults = RunShaderAccessTrackingPassAndReturnOutputMessages(compiled);
+  VERIFY_IS_TRUE(satResults.find("FoundDynamicIndexing") != string::npos);
+}
+
+TEST_F(PixTest, CheckSATPassFor66_DynamicFromHeap) {
+
+  const char *dynamicResourceDecriptorHeapAccess = R"(
+static sampler sampler0 = SamplerDescriptorHeap[0];
+float4 main(int input : INPUT) : SV_Target
+{
+    Texture2D texture = ResourceDescriptorHeap[input];
+    return texture.Sample(sampler0, float2(0,0));
+}
+  )";
+
+  auto compiled = Compile(dynamicResourceDecriptorHeapAccess, L"ps_6_6");
+  auto satResults =
+      RunShaderAccessTrackingPassAndReturnOutputMessages(compiled);
+  VERIFY_IS_TRUE(satResults.find("FoundDynamicIndexing") != string::npos);
+}
+
 // This function lives in lib\DxilPIXPasses\DxilAnnotateWithVirtualRegister.cpp
 // Declared here so we can test it.
 uint32_t CountStructMembers(llvm::Type const* pType);
@@ -1887,12 +2016,17 @@ void main()
 
     auto Testables = TestStructAnnotationCase(hlsl, optimization);
 
+    // 2 in unoptimized case (one for each instance of smallPayload)
+    // 1 in optimized case (cuz p2 aliases over p)
     VERIFY_IS_TRUE(Testables.OffsetAndSizes.size() >= 1);
-    VERIFY_ARE_EQUAL(1, Testables.OffsetAndSizes[0].countOfMembers);
-    VERIFY_ARE_EQUAL(0, Testables.OffsetAndSizes[0].offset);
-    VERIFY_ARE_EQUAL(32, Testables.OffsetAndSizes[0].size);
 
-    VERIFY_ARE_EQUAL(2, Testables.AllocaWrites.size());
+    for (const auto& os : Testables.OffsetAndSizes) {
+      VERIFY_ARE_EQUAL(1, os.countOfMembers);
+      VERIFY_ARE_EQUAL(0, os.offset);
+      VERIFY_ARE_EQUAL(32, os.size);
+    }
+
+    VERIFY_ARE_EQUAL(1, Testables.AllocaWrites.size());
   }
 }
 

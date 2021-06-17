@@ -95,7 +95,7 @@ bool [[rn]] all(in any<> x);
 void [[]] AllMemoryBarrier() : syncallmemory_ug;
 void [[]] AllMemoryBarrierWithGroupSync() : syncgroupandallmemory_ug;
 bool [[rn]] any(in any<> x);
-double<> [[rn]] asdouble(in $match<0, 1> uint_only<> x, in $match<0, 2> uint_only<> y) : reinterpret_fuse_double;
+double<> [[rn]] asdouble(in $match<0, 1> uint<> x, in $match<0, 2> uint<> y) : reinterpret_fuse_double;
 float<> [[rn]] asfloat(in $match<0, 1> numeric32_only<> x) : reinterpret_float;
 float16_t<> [[rn]] asfloat16(in $match<0,1> numeric16_only<> x) : reinterpret_float16;
 int16_t<> [[rn]] asint16(in $match<0,1> numeric16_only<> x) : reinterpret_int16;

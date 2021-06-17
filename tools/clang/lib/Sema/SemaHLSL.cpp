@@ -9472,8 +9472,8 @@ clang::QualType HLSLExternalSource::CheckVectorConditional(
     Cond.set(CreateLValueToRValueCast(Cond.get()));
 
   // Convert condition component type to bool, using result component dimensions
-  if (condElementKind != AR_BASIC_BOOL) {
-    QualType boolType = NewSimpleAggregateType(AR_TOBJ_INVALID, AR_BASIC_BOOL, 0, rowCount, colCount)->getCanonicalTypeInternal();
+  QualType boolType = NewSimpleAggregateType(AR_TOBJ_INVALID, AR_BASIC_BOOL, 0, rowCount, colCount)->getCanonicalTypeInternal();
+  if (condElementKind != AR_BASIC_BOOL || condType != boolType) {
     StandardConversionSequence standard;
     if (ValidateCast(SourceLocation(), Cond.get(), boolType, ExplicitConversionFalse, SuppressWarningsFalse, SuppressErrorsFalse, &standard)) {
       if (standard.First != ICK_Identity || !standard.isIdentityConversion())
