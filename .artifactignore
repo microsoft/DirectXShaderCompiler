@@ -1,0 +1,11 @@
+**/*
+!GIT-COMMIT.txt
+!lib/d*.lib
+!lib/libdxcompiler.so*
+!lib/libdxcompiler*.dylib
+!bin/d*.exe
+!bin/d*.dll
+!bin/d*.pdb
+!bin/HLSLHost.exe
+!bin/dxc*
+!include/dxc/*
