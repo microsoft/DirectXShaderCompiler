@@ -2076,11 +2076,75 @@ TEST_F(CompilerTest, CompileWithResourceBindingFileThenOK) {
          "cb",         10,     30,  
     )", L"Invalid resource class");
 
+  // Invalid resource index type 2
+  TestResourceBindingImpl(
+    R"(
+         name,         index,  space  
+         "cb",         e10,    30,  
+    )",
+    L"Invalid resource class.");
+
+  // Index Integer out of bounds
+  TestResourceBindingImpl(
+    R"(
+         name,         index,  space  
+         "cb",         b99999999999999999999999999999999999,    30,  
+    )",
+    L"'99999999999999999999999999999999999' is out of range of an 32-bit unsigned integer.");
+
+  // Empty resource
+  TestResourceBindingImpl(
+    R"(
+         name,         index,  space  
+         "cb",         ,    30,  
+    )",
+    L"Resource index cannot be empty.");
+
+  // Index Integer out of bounds
+  TestResourceBindingImpl(
+    R"(
+         name,         index,  space  
+         "cb",         b,      30,  
+    )",
+    L"'b' is not a valid resource binding.");
+
+  // Integer out of bounds
+  TestResourceBindingImpl(
+    R"(
+         name,         index,  space  
+         "cb",         b10,    99999999999999999999999999999999999,  
+    )",
+    L"'99999999999999999999999999999999999' is out of range of an 32-bit unsigned integer.");
+
+  // Integer out of bounds 2
+  TestResourceBindingImpl(
+    R"(
+         name,         index,  space  
+         "cb",         b10,    0xffffffffffffffffffffffffffffff,  
+    )",
+    L"'0xffffffffffffffffffffffffffffff' is out of range of an 32-bit unsigned integer.");
+
+  // Integer invalid
+  TestResourceBindingImpl(
+    R"(
+         name,         index,  space  
+         "cb",         b10,    abcd,  
+    )",
+    L"'abcd' is not a valid 32-bit unsigned integer.");
+
+  // Integer empty
+  TestResourceBindingImpl(
+    R"(
+         name,         index,  space  
+         "cb",         b10,    ,  
+    )",
+    L"Expected unsigned 32-bit integer, but got empty cell.");
+
   // No Include handler
   TestResourceBindingImpl(
     R"(
          name,         index,  space  
-         "cb",         10,     30,  
+         "cb",         b10,    30,  
     )",
     L"Resource binding file 'binding-file.txt' required, but no include handler was given",
     /* noIncludeHandler */true);

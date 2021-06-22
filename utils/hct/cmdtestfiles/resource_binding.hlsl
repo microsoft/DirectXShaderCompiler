@@ -4,7 +4,6 @@
 //  - Optional trailing commas
 //  - Arbitrary spaces
 //  - Resources with the same names (but different classes)
-//  - Using include handler
 
 cbuffer cb {
   float a;

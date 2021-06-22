@@ -131,8 +131,10 @@ bool hlsl::ParseResourceBindingFile(llvm::StringRef fileName, llvm::StringRef co
           if (hasQuote)
             return Error("Expected end quote '\"'.");
           // Trim the white space at the end of the string
-          while (str->size() && IsWhitespace(str->back())) {
-            str->pop_back();
+          if (str) {
+            while (str->size() && IsWhitespace(str->back())) {
+              str->pop_back();
+            }
           }
           break;
         }
@@ -148,7 +150,9 @@ bool hlsl::ParseResourceBindingFile(llvm::StringRef fileName, llvm::StringRef co
           break;
         }
 
-        str->push_back(Peek());
+        if (str) {
+          str->push_back(Peek());
+        }
         Advance();
       }
 
@@ -230,13 +234,17 @@ bool hlsl::ParseResourceBindingFile(llvm::StringRef fileName, llvm::StringRef co
         break;
       }
 
-      StringRef integer( &str[1], str.size() - 1);
-      if (auto result = ToUnsigned32(integer, outIndex)) {
+      StringRef integerStr;
+      if (str.size() > 1) {
+        integerStr = StringRef( &str[1], str.size() - 1);
+      }
+
+      if (auto result = ToUnsigned32(integerStr, outIndex)) {
         switch (result) {
         case IntegerConversionStatus::OutOfBounds:
-          return Error(loc, Twine() + integer + " is out of bounds of 32-bit integer");
+          return Error(loc, Twine() + "'" + integerStr + "' is out of range of an 32-bit unsigned integer.");
         default:
-          return Error(loc, Twine() + "'" + integer + "' is an invalid 32-bit integer.");
+          return Error(loc, Twine() + "'" + str + "' is not a valid resource binding.");
         }
       }
 
@@ -250,12 +258,12 @@ bool hlsl::ParseResourceBindingFile(llvm::StringRef fileName, llvm::StringRef co
         return false;
 
       if (str.empty()) {
-        return Error(loc, "Expected unsigned integer, but got empty cell.");
+        return Error(loc, "Expected unsigned 32-bit integer, but got empty cell.");
       }
 
       llvm::APInt integer;
       if (llvm::StringRef(str).getAsInteger(0, integer)) {
-        return Error(loc, Twine("'") + str + "' is not a valid unsigned integer.");
+        return Error(loc, Twine("'") + str + "' is not a valid 32-bit unsigned integer.");
       }
 
       if (integer.getBitWidth() > 32) {
@@ -327,7 +335,6 @@ bool hlsl::ParseResourceBindingFile(llvm::StringRef fileName, llvm::StringRef co
 
     SmallString<32> name;
     hlsl::DXIL::ResourceClass cls = hlsl::DXIL::ResourceClass::Invalid;
-    SmallString<32> unknown;
     unsigned index = 0;
     unsigned space = 0;
 
@@ -353,7 +360,7 @@ bool hlsl::ParseResourceBindingFile(llvm::StringRef fileName, llvm::StringRef co
       } break;
       default:
       {
-        if (!P.ParseCell(&unknown))
+        if (!P.ParseCell(nullptr))
           return false;
       } break;
       }
