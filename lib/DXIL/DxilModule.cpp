@@ -1921,7 +1921,7 @@ void DxilModule::StripShaderSourcesAndCompileOptions(bool bReplaceWithDummyData)
     }
   }
   if (NamedMDNode *binding = m_pModule->getNamedMetadata(
-          DxilMDHelper::kDxilResourceBindingMDName)) {
+          DxilMDHelper::kDxilDxcBindingTableMDName)) {
     binding->eraseFromParent();
   }
 }

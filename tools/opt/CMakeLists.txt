@@ -5,7 +5,7 @@ set(LLVM_LINK_COMPONENTS
 #  CodeGen # HLSL Change
   Core
   DXIL # HLSL Change
-  DxilResourceBinding # HLSL Change
+  DxcBindingTable # HLSL Change
   HLSL # HLSL Change
   IPA
   IPO

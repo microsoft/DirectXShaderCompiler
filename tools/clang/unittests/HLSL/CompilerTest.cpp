@@ -1954,7 +1954,7 @@ void CompilerTest::TestResourceBindingImpl(
   CComPtr<IDxcOperationResult> pResult;
 
   const WCHAR *args[] = {
-    L"-resource-binding-file", L"binding-file.txt"
+    L"-import-binding-table", L"binding-file.txt"
   };
 
   VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
@@ -2146,7 +2146,7 @@ TEST_F(CompilerTest, CompileWithResourceBindingFileThenOK) {
          name,         index,  space  
          "cb",         b10,    30,  
     )",
-    L"Resource binding file 'binding-file.txt' required, but no include handler was given",
+    L"Binding table binding file 'binding-file.txt' specified, but no include handler was given",
     /* noIncludeHandler */true);
 }
 

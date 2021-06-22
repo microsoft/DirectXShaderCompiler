@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //                                                                           //
-// DxilResourceBinding.cpp                                                   //
+// DxcBindingTable.cpp                                                       //
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
@@ -13,7 +13,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Constants.h"
 
-#include "dxc/DxilResourceBinding/DxilResourceBinding.h"
+#include "dxc/DxcBindingTable/DxcBindingTable.h"
 #include "dxc/DXIL/DxilMetadataHelper.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilResourceBase.h"
@@ -51,7 +51,7 @@ namespace {
   }
 }
 
-bool hlsl::ParseResourceBindingFile(llvm::StringRef fileName, llvm::StringRef content, llvm::raw_ostream &errors, ResourceBinding *outBinding) {
+bool hlsl::ParseBindingTable(llvm::StringRef fileName, llvm::StringRef content, llvm::raw_ostream &errors, DxcBindingTable *outTable) {
 
   struct Parser {
     StringRef fileName;
@@ -373,11 +373,11 @@ bool hlsl::ParseResourceBindingFile(llvm::StringRef fileName, llvm::StringRef co
       }
     }
 
-    ResourceBinding::Entry entry;
+    DxcBindingTable::Entry entry;
     entry.space = space;
     entry.index = index;
 
-    outBinding->entries[ResourceBinding::Key(name.c_str(), cls)] = entry;
+    outTable->entries[DxcBindingTable::Key(name.c_str(), cls)] = entry;
 
     if (!P.WasJustEndOfLine()) {
       return P.Error("Unexpected cell at the end of row. There should only be "
@@ -398,8 +398,8 @@ static inline void GatherResources(const std::vector<std::unique_ptr<T> > &List,
   }
 }
 
-void hlsl::WriteResourceBindingToMetadata(llvm::Module &M, const ResourceBinding &bindings) {
-  llvm::NamedMDNode *bindingsMD = M.getOrInsertNamedMetadata(hlsl::DxilMDHelper::kDxilResourceBindingMDName);
+void hlsl::WriteResourceBindingToMetadata(llvm::Module &M, const hlsl::DxcBindingTable &table) {
+  llvm::NamedMDNode *bindingsMD = M.getOrInsertNamedMetadata(hlsl::DxilMDHelper::kDxilDxcBindingTableMDName);
   LLVMContext &LLVMCtx = M.getContext();
 
   // Don't add operands repeatedly
@@ -407,17 +407,17 @@ void hlsl::WriteResourceBindingToMetadata(llvm::Module &M, const ResourceBinding
     return;
   }
 
-  for (const std::pair<std::pair<std::string, hlsl::DXIL::ResourceClass>, ResourceBinding::Entry> &binding : bindings.entries) {
+  for (const std::pair<DxcBindingTable::Key, DxcBindingTable::Entry> &binding : table.entries) {
 
     auto GetInt32MD = [&LLVMCtx](uint32_t val) -> llvm::ValueAsMetadata* {
       return llvm::ValueAsMetadata::get(llvm::ConstantInt::get(llvm::Type::getInt32Ty(LLVMCtx), val));
     };
 
     llvm::Metadata *operands[4] = {};
-    operands[hlsl::DxilMDHelper::kDxilResourceBindingName]  = llvm::MDString::get(LLVMCtx, binding.first.first);
-    operands[hlsl::DxilMDHelper::kDxilResourceBindingClass] = GetInt32MD((unsigned)binding.first.second);
-    operands[hlsl::DxilMDHelper::kDxilResourceBindingIndex] = GetInt32MD(binding.second.index);
-    operands[hlsl::DxilMDHelper::kDxilResourceBindingSpace] = GetInt32MD(binding.second.space);
+    operands[hlsl::DxilMDHelper::kDxilDxcBindingTableResourceName]  = llvm::MDString::get(LLVMCtx, binding.first.first);
+    operands[hlsl::DxilMDHelper::kDxilDxcBindingTableResourceClass] = GetInt32MD((unsigned)binding.first.second);
+    operands[hlsl::DxilMDHelper::kDxilDxcBindingTableResourceIndex] = GetInt32MD(binding.second.index);
+    operands[hlsl::DxilMDHelper::kDxilDxcBindingTableResourceSpace] = GetInt32MD(binding.second.space);
 
     llvm::MDTuple *entry = llvm::MDNode::get(LLVMCtx, operands);
     bindingsMD->addOperand(entry);
@@ -426,7 +426,7 @@ void hlsl::WriteResourceBindingToMetadata(llvm::Module &M, const ResourceBinding
 
 void hlsl::ApplyResourceBindingOverridesFromMetadata(DxilModule &DM) {
   Module &M = *DM.GetModule();
-  NamedMDNode *bindings = M.getNamedMetadata(hlsl::DxilMDHelper::kDxilResourceBindingMDName);
+  NamedMDNode *bindings = M.getNamedMetadata(hlsl::DxilMDHelper::kDxilDxcBindingTableMDName);
   if (!bindings)
     return;
 
@@ -438,10 +438,10 @@ void hlsl::ApplyResourceBindingOverridesFromMetadata(DxilModule &DM) {
 
   for (MDNode *mdEntry : bindings->operands()) {
 
-    Metadata *nameMD  = mdEntry->getOperand(DxilMDHelper::kDxilResourceBindingName);
-    Metadata *classMD = mdEntry->getOperand(DxilMDHelper::kDxilResourceBindingClass);
-    Metadata *indexMD = mdEntry->getOperand(DxilMDHelper::kDxilResourceBindingIndex);
-    Metadata *spaceMD = mdEntry->getOperand(DxilMDHelper::kDxilResourceBindingSpace);
+    Metadata *nameMD  = mdEntry->getOperand(DxilMDHelper::kDxilDxcBindingTableResourceName);
+    Metadata *classMD = mdEntry->getOperand(DxilMDHelper::kDxilDxcBindingTableResourceClass);
+    Metadata *indexMD = mdEntry->getOperand(DxilMDHelper::kDxilDxcBindingTableResourceIndex);
+    Metadata *spaceMD = mdEntry->getOperand(DxilMDHelper::kDxilDxcBindingTableResourceSpace);
 
     StringRef name = cast<MDString>(nameMD)->getString();
     hlsl::DXIL::ResourceClass cls =

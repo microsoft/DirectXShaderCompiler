@@ -26,7 +26,7 @@
 #include "llvm/IR/Module.h"
 #include <memory>
 #include "dxc/DXIL/DxilMetadataHelper.h" // HLSL Change - dx source info
-#include "dxc/DxilResourceBinding/DxilResourceBinding.h" // HLSL Change
+#include "dxc/DxcBindingTable/DxcBindingTable.h" // HLSL Change
 #include "llvm/Support/Path.h"
 using namespace clang;
 
@@ -217,7 +217,7 @@ namespace {
       // HLSL Change Begins
 
       // Add resource binding overrides to the metadata.
-      hlsl::WriteResourceBindingToMetadata(*M, CodeGenOpts.HLSLResourceBinding);
+      hlsl::WriteResourceBindingToMetadata(*M, CodeGenOpts.HLSLBindingTable);
 
       // Error may happen in Builder->Release for HLSL
       if (CodeGenOpts.HLSLEmbedSourcesInModule) {

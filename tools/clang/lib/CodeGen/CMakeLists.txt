@@ -7,7 +7,7 @@ set(LLVM_LINK_COMPONENTS
   Core
   DXIL
   DxilRootSignature
-  DxilResourceBinding
+  DxcBindingTable
   IPO
   IRReader
   InstCombine

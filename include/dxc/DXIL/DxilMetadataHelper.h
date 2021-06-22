@@ -116,11 +116,11 @@ public:
   static const char kDxilSourceArgsMDName[];
 
   // Resource binding data
-  static const char kDxilResourceBindingMDName[];
-  static const unsigned kDxilResourceBindingName  = 0;
-  static const unsigned kDxilResourceBindingClass = 1;
-  static const unsigned kDxilResourceBindingIndex = 2;
-  static const unsigned kDxilResourceBindingSpace = 3;
+  static const char kDxilDxcBindingTableMDName[];
+  static const unsigned kDxilDxcBindingTableResourceName  = 0;
+  static const unsigned kDxilDxcBindingTableResourceClass = 1;
+  static const unsigned kDxilDxcBindingTableResourceIndex = 2;
+  static const unsigned kDxilDxcBindingTableResourceSpace = 3;
 
   // Old source info.
   static const char kDxilSourceContentsOldMDName[];

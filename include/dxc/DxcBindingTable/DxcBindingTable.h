@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //                                                                           //
-// DxilResourceBinding.h                                                     //
+// DxcBindingTable.h                                                         //
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
@@ -25,7 +25,7 @@ namespace hlsl {
 }
 
 namespace hlsl {
-struct ResourceBinding {
+struct DxcBindingTable {
   typedef std::pair<std::string, hlsl::DXIL::ResourceClass> Key;
   struct Entry {
     unsigned index = UINT_MAX;
@@ -34,8 +34,8 @@ struct ResourceBinding {
   std::map<Key, Entry> entries;
 };
 
-bool ParseResourceBindingFile(llvm::StringRef fileName, llvm::StringRef content, llvm::raw_ostream &errors, ResourceBinding *outBinding);
-void WriteResourceBindingToMetadata(llvm::Module &M, const ResourceBinding &bindings);
+bool ParseBindingTable(llvm::StringRef fileName, llvm::StringRef content, llvm::raw_ostream &errors, DxcBindingTable *outTable);
+void WriteResourceBindingToMetadata(llvm::Module &M, const DxcBindingTable &table);
 void ApplyResourceBindingOverridesFromMetadata(hlsl::DxilModule &DM);
 void WriteResourceBindingFile(const hlsl::DxilModule &DM, llvm::raw_ostream &os);
 

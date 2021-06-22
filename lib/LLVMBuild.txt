@@ -45,10 +45,10 @@ subdirectories =
  DxilDia
  DxrFallback
  DxilRootSignature
- DxilResourceBinding
+ DxcBindingTable
  Miniz
 
-; HLSL Change: remove LibDriver, LineEditor, add HLSL, DxrtFallback, DXIL, DxilContainer, DxilDia, DxilPIXPasses, DxilRootSignature, DxilResourceBinding
+; HLSL Change: remove LibDriver, LineEditor, add HLSL, DxrtFallback, DXIL, DxilContainer, DxilDia, DxilPIXPasses, DxilRootSignature, DxcBindingTable
 
 [component_0]
 type = Group

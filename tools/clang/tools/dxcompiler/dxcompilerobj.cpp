@@ -35,7 +35,7 @@
 #include "dxc/dxcapi.internal.h"
 #include "dxc/DXIL/DxilPDB.h"
 #include "dxc/DXIL/DxilModule.h"
-#include "dxc/DxilResourceBinding/DxilResourceBinding.h"
+#include "dxc/DxcBindingTable/DxcBindingTable.h"
 
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/Support/Global.h"
@@ -812,21 +812,21 @@ public:
           compiler.getCodeGenOpts().HLSLProfile = opts.TargetProfile;
 
         // Parse and apply 
-        if (opts.ResourceBindingFile.size()) {
-          hlsl::options::StringRefUtf16 wstrRef(opts.ResourceBindingFile);
+        if (opts.ImportBindingTable.size()) {
+          hlsl::options::StringRefUtf16 wstrRef(opts.ImportBindingTable);
           CComPtr<IDxcBlob> pBlob;
           std::string error;
           llvm::raw_string_ostream os(error);
           if (!pIncludeHandler) {
-            os << Twine("Resource binding file '") + opts.ResourceBindingFile + "' required, but no include handler was given.";
+            os << Twine("Binding table binding file '") + opts.ImportBindingTable + "' specified, but no include handler was given.";
             os.flush();
             return ErrorWithString(error, riid, ppResult);
           }
           else if (SUCCEEDED(pIncludeHandler->LoadSource(wstrRef, &pBlob))) {
-            bool succ = hlsl::ParseResourceBindingFile(
-              opts.ResourceBindingFile,
+            bool succ = hlsl::ParseBindingTable(
+              opts.ImportBindingTable,
               StringRef((const char *)pBlob->GetBufferPointer(), pBlob->GetBufferSize()),
-              os, &compiler.getCodeGenOpts().HLSLResourceBinding);
+              os, &compiler.getCodeGenOpts().HLSLBindingTable);
 
             if (!succ) {
               os.flush();
@@ -834,7 +834,7 @@ public:
             }
           }
           else {
-            os << Twine("Could not load resource binding file '") + opts.ResourceBindingFile + "'.";
+            os << Twine("Could not load binding table file '") + opts.ImportBindingTable + "'.";
             os.flush();
             return ErrorWithString(error, riid, ppResult);
           }

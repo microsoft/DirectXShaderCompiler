@@ -23,7 +23,7 @@
 #include <set>
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h" // HLSL change
 #include "dxc/Support/SPIRVOptions.h" // SPIR-V Change
-#include "dxc/DxilResourceBinding/DxilResourceBinding.h" // HLSL chanhge
+#include "dxc/DxcBindingTable/DxcBindingTable.h" // HLSL chanhge
 
 namespace clang {
 
@@ -244,8 +244,8 @@ public:
   bool HLSLEmbedSourcesInModule = false;
   /// Enable generation of payload access qualifier metadata. 
   bool HLSLEnablePayloadAccessQualifiers = false;
-  /// Binding override for HLSL resources
-  hlsl::ResourceBinding HLSLResourceBinding;
+  /// Binding table for HLSL resources
+  hlsl::DxcBindingTable HLSLBindingTable;
   // HLSL Change Ends
 
   // SPIRV Change Starts

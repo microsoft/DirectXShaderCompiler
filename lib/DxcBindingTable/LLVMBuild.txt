@@ -11,7 +11,7 @@
 
 [component_0]
 type = Library
-name = DxilResourceBinding
+name = DxcBindingTable
 parent = Libraries
 required_libraries = Core DxcSupport Support DXIL
 

@@ -22,7 +22,7 @@
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/HLSL/HLMatrixType.h"
 #include "dxc/HLSL/HLModule.h"
-#include "dxc/DxilResourceBinding/DxilResourceBinding.h"
+#include "dxc/DxcBindingTable/DxcBindingTable.h"
 #include "llvm/Analysis/DxilValueCache.h"
 #include "dxc/DXIL/DxilMetadataHelper.h"
 
