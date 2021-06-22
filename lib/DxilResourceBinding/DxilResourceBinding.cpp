@@ -23,6 +23,34 @@
 using namespace llvm;
 using namespace hlsl;
 
+namespace {
+  enum IntegerConversionStatus {
+    Success,
+    OutOfBounds,
+    Invalid,
+    Empty,
+  };
+
+  static IntegerConversionStatus ToUnsigned32(StringRef str, uint32_t *outInteger) {
+    *outInteger = 0;
+
+    if (str.empty())
+      return IntegerConversionStatus::Empty;
+
+    llvm::APInt integer;
+    if (llvm::StringRef(str).getAsInteger(0, integer)) {
+      return IntegerConversionStatus::Invalid;
+    }
+
+    if (integer.getBitWidth() > 32) {
+      return IntegerConversionStatus::OutOfBounds;
+    }
+
+    *outInteger = (uint32_t)integer.getLimitedValue();
+    return IntegerConversionStatus::Success;
+  }
+}
+
 bool hlsl::ParseResourceBindingFile(llvm::StringRef fileName, llvm::StringRef content, llvm::raw_ostream &errors, ResourceBinding *outBinding) {
 
   struct Parser {
@@ -45,7 +73,7 @@ bool hlsl::ParseResourceBindingFile(llvm::StringRef fileName, llvm::StringRef co
     inline static bool IsNewline(char c) {
        return c == '\r' || c == '\n';
     }
-    inline  static bool IsWhitespace(char c) {
+    inline static bool IsWhitespace(char c) {
       return c == ' ' || c == '\t';
     }
     inline Parser(StringRef fileName, StringRef content, llvm::raw_ostream &errors) :
@@ -82,7 +110,7 @@ bool hlsl::ParseResourceBindingFile(llvm::StringRef fileName, llvm::StringRef co
       loc.col = col;
       return loc;
     }
-    inline void Advance() {
+    void Advance() {
       if (ReachedEnd())
         return;
       if (*curr == '\n') {
@@ -113,7 +141,7 @@ bool hlsl::ParseResourceBindingFile(llvm::StringRef fileName, llvm::StringRef co
       return *curr;
     }
 
-    inline bool ParseCell(SmallVectorImpl<char> *str) {
+    bool ParseCell(SmallVectorImpl<char> *str) {
       EatWhitespace();
 
       if (ReachedEnd()) {
@@ -177,32 +205,7 @@ bool hlsl::ParseResourceBindingFile(llvm::StringRef fileName, llvm::StringRef co
       return true;
     }
 
-    enum IntegerConversionStatus {
-      Success,
-      OutOfBounds,
-      Invalid,
-      Empty,
-    };
-    inline static IntegerConversionStatus ToUnsigned32(StringRef str, uint32_t *outInteger) {
-      *outInteger = 0;
-
-      if (str.empty())
-        return IntegerConversionStatus::Empty;
-
-      llvm::APInt integer;
-      if (llvm::StringRef(str).getAsInteger(0, integer)) {
-        return IntegerConversionStatus::Invalid;
-      }
-
-      if (integer.getBitWidth() > 32) {
-        return IntegerConversionStatus::OutOfBounds;
-      }
-
-      *outInteger = (uint32_t)integer.getLimitedValue();
-      return IntegerConversionStatus::Success;
-    }
-
-    inline bool ParseResourceIndex(hlsl::DXIL::ResourceClass *outClass, unsigned *outIndex) {
+    bool ParseResourceIndex(hlsl::DXIL::ResourceClass *outClass, unsigned *outIndex) {
 
       *outClass = hlsl::DXIL::ResourceClass::Invalid;
       *outIndex = UINT_MAX;
