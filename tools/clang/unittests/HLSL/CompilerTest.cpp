@@ -135,6 +135,13 @@ public:
   TEST_METHOD(CompileThenTestPdbUtilsRelativePath)
   TEST_METHOD(CompileWithRootSignatureThenStripRootSignature)
 
+
+  void TestResourceBindingImpl(
+    const char *bindingFileContent,
+    const std::wstring &errors = std::wstring(),
+    bool noIncludeHandler = false);
+  TEST_METHOD(CompileWithResourceBindingFileThenOK)
+
   TEST_METHOD(CompileWhenIncludeThenLoadInvoked)
   TEST_METHOD(CompileWhenIncludeThenLoadUsed)
   TEST_METHOD(CompileWhenIncludeAbsoluteThenLoadAbsolute)
@@ -1886,6 +1893,198 @@ TEST_F(CompilerTest, CompileThenTestPdbUtilsEmptyEntry) {
 }
 
 #endif
+
+void CompilerTest::TestResourceBindingImpl(
+  const char *bindingFileContent,
+  const std::wstring &errors,
+  bool noIncludeHandler) {
+
+  class IncludeHandler : public IDxcIncludeHandler {
+    DXC_MICROCOM_REF_FIELD(m_dwRef)
+  public:
+    DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject) override {
+      return DoBasicQueryInterface<IDxcIncludeHandler>(this,  iid, ppvObject);
+    }
+
+    CComPtr<IDxcBlob> pBindingFileBlob;
+    IncludeHandler() : m_dwRef(0) {}
+
+    HRESULT STDMETHODCALLTYPE LoadSource(
+      _In_ LPCWSTR pFilename,                   // Filename as written in #include statement
+      _COM_Outptr_ IDxcBlob **ppIncludeSource   // Resultant source object for included file
+      ) override {
+
+      if (0 == wcscmp(pFilename, L"binding-file.txt")) {
+        return pBindingFileBlob.QueryInterface(ppIncludeSource);
+      }
+      return E_FAIL;
+    }
+  };
+
+  CComPtr<IDxcBlobEncoding> pBindingFileBlob;
+  CreateBlobFromText(bindingFileContent, &pBindingFileBlob);
+
+  CComPtr<IncludeHandler> pIncludeHandler;
+  if (!noIncludeHandler) {
+    pIncludeHandler = new IncludeHandler();
+    pIncludeHandler->pBindingFileBlob = pBindingFileBlob;
+  }
+
+  const char *source = R"x(
+    cbuffer cb {
+      float a;
+    };
+    cbuffer resource {
+      float b;
+    };
+
+    SamplerState samp0;
+    Texture2D resource;
+    RWTexture1D<float> uav_0;
+
+    [RootSignature("CBV(b10,space=30), CBV(b42,space=999), DescriptorTable(Sampler(s1,space=2)), DescriptorTable(SRV(t1,space=2)), DescriptorTable(UAV(u1,space=2))")]
+    float main(float2 uv : UV, uint i : I) :SV_Target {
+      return a + b + resource.Sample(samp0, uv).r + uav_0[i];
+    }
+  )x";
+
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcOperationResult> pResult;
+
+  const WCHAR *args[] = {
+    L"-resource-binding-file", L"binding-file.txt"
+  };
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+
+  CreateBlobFromText(source, &pSource);
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+                                      L"ps_6_0", args, _countof(args), nullptr,
+                                      0, pIncludeHandler, &pResult));
+
+  HRESULT compileResult = S_OK;
+  VERIFY_SUCCEEDED(pResult->GetStatus(&compileResult));
+
+  if (errors.empty()) {
+    VERIFY_SUCCEEDED(compileResult);
+  }
+  else {
+    VERIFY_FAILED(compileResult);
+    CComPtr<IDxcBlobEncoding> pErrors;
+    VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&pErrors));
+
+    BOOL bEncodingKnown = FALSE;
+    UINT32 uCodePage = 0;
+    VERIFY_SUCCEEDED(pErrors->GetEncoding(&bEncodingKnown, &uCodePage));
+
+    std::wstring actualError = BlobToUtf16(pErrors);
+    if (actualError.find(errors) == std::wstring::npos) {
+      VERIFY_SUCCEEDED(E_FAIL);
+    }
+  }
+}
+
+TEST_F(CompilerTest, CompileWithResourceBindingFileThenOK) {
+  // Normal test
+  // List of things tested in this first test:
+  //  - Arbitrary capitalization of the headers
+  //  - Quotes
+  //  - Optional trailing commas
+  //  - Arbitrary spaces
+  //  - Resources with the same names (but different classes)
+  //  - Using include handler
+  //
+  TestResourceBindingImpl(
+    R"(
+         name,         Index,  spacE  
+         
+         "cb",         b10,    0x1e ,  
+         resource,     b42,    999  ,
+         samp0,        s1,     0x02 ,
+         resource,     t1,     2
+         uav_0,        u1,     2,
+    )");
+
+  // Reordered the columns 1
+  TestResourceBindingImpl(
+    R"(
+         name,         space,   index,
+                     
+         "cb",         0x1e ,   b10,   
+         resource,     999  ,   b42,  
+         samp0,        0x02 ,   s1,   
+         resource,     2,       t1,   
+         uav_0,        2,       u1,   
+    )", std::wstring());
+
+  // Reordered the columns 2
+  TestResourceBindingImpl(
+    R"(
+         space,   index,   name,         
+                                       
+         0x1e ,   b10,     "cb",         
+         999  ,   b42,     resource,         
+         0x02 ,   s1,      samp0,        
+         2,       t1,      resource,    
+         2,       u1,      uav_0,        
+    )");
+
+  // Extra cell at the end of row
+  TestResourceBindingImpl(
+    R"(
+         name,         index,  space  
+         
+         "cb",         b10,    0x1e ,  
+         resource,     b42,    999  ,
+         samp0,        s1,     0x02,    extra_cell
+         resource,     t1,     2
+         uav_0,        u1,     2,
+    )", L"Unexpected cell at the end of row. There should only be 3");
+
+  // Missing cell in row
+  TestResourceBindingImpl(
+    R"(
+         name,         index,  space  
+         
+         "cb",         b10,    0x1e ,  
+         resource,     b42,    999  ,
+         samp0,        s1,
+         resource,     t1,     2
+         uav_0,        u1,     2,
+    )", L"Row ended after just 2 columns. Expected 3.");
+
+  // Missing column
+  TestResourceBindingImpl(
+    R"(
+         name,         index,
+         "cb",         b10,   
+    )", L"Need at least 'Name', 'Index', and 'Space'");
+
+  // Missing column in row
+  TestResourceBindingImpl(
+    R"(
+         name,         index,
+         "cb",         b10,   
+    )", L"Need at least 'Name', 'Index', and 'Space'");
+
+  // Invalid resource index type
+  TestResourceBindingImpl(
+    R"(
+         name,         index,  space  
+         "cb",         10,     30,  
+    )", L"Invalid resource class");
+
+  // No Include handler
+  TestResourceBindingImpl(
+    R"(
+         name,         index,  space  
+         "cb",         10,     30,  
+    )",
+    L"Resource binding file 'binding-file.txt' required, but no include handler was given",
+    /* noIncludeHandler */true);
+}
 
 TEST_F(CompilerTest, CompileWithRootSignatureThenStripRootSignature) {
   CComPtr<IDxcCompiler> pCompiler;

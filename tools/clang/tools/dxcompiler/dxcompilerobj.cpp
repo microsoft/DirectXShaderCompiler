@@ -35,6 +35,7 @@
 #include "dxc/dxcapi.internal.h"
 #include "dxc/DXIL/DxilPDB.h"
 #include "dxc/DXIL/DxilModule.h"
+#include "dxc/DxilResourceBinding/DxilResourceBinding.h"
 
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/Support/Global.h"
@@ -546,6 +547,14 @@ static void CreateDefineStrings(
   }
 }
 
+static HRESULT ErrorWithString(const std::string &error, REFIID riid, void **ppResult) {
+  CComPtr<IDxcResult> pResult;
+  IFT(DxcResult::Create(E_FAIL, DXC_OUT_NONE,
+    { DxcOutputObject::ErrorOutput(CP_UTF8, error.data(), error.size()) }, &pResult));
+  IFT(pResult->QueryInterface(riid, ppResult));
+  return S_OK;
+}
+
 class DxcCompiler : public IDxcCompiler3,
                     public IDxcLangExtensions3,
                     public IDxcContainerEvent,
@@ -801,6 +810,35 @@ public:
           compiler.getCodeGenOpts().HLSLEntryFunction = pUtf8EntryPoint;
         compiler.getLangOpts().HLSLProfile =
           compiler.getCodeGenOpts().HLSLProfile = opts.TargetProfile;
+
+        // Parse and apply 
+        if (opts.ResourceBindingFile.size()) {
+          hlsl::options::StringRefUtf16 wstrRef(opts.ResourceBindingFile);
+          CComPtr<IDxcBlob> pBlob;
+          std::string error;
+          llvm::raw_string_ostream os(error);
+          if (!pIncludeHandler) {
+            os << Twine("Resource binding file '") + opts.ResourceBindingFile + "' required, but no include handler was given.";
+            os.flush();
+            return ErrorWithString(error, riid, ppResult);
+          }
+          else if (SUCCEEDED(pIncludeHandler->LoadSource(wstrRef, &pBlob))) {
+            bool succ = hlsl::ParseResourceBindingFile(
+              opts.ResourceBindingFile,
+              StringRef((const char *)pBlob->GetBufferPointer(), pBlob->GetBufferSize()),
+              os, &compiler.getCodeGenOpts().HLSLResourceBinding);
+
+            if (!succ) {
+              os.flush();
+              return ErrorWithString(error, riid, ppResult);
+            }
+          }
+          else {
+            os << Twine("Could not load resource binding file '") + opts.ResourceBindingFile + "'.";
+            os.flush();
+            return ErrorWithString(error, riid, ppResult);
+          }
+        }
 
         if (compiler.getCodeGenOpts().HLSLProfile == "rootsig_1_1") {
           rootSigMajor = 1;

@@ -41,6 +41,10 @@ call :check_file smoke.rootsig del
 call :check_file smoke.err find "warning: expression result unused" del
 if %Failed% neq 0 goto :failed
 
+set testname=Test resource binding file
+call :run dxc.exe /T ps_6_0 "%testfiles%\resource_binding.hlsl" -resource-binding-file "%testfiles%\resource_binding.txt"
+if %Failed% neq 0 goto :failed
+
 set testname=/Fd implies /Qstrip_debug
 call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Fd smoke.hlsl.d /Fo smoke.hlsl.Fd.dxo
 call :check_file smoke.hlsl.d del

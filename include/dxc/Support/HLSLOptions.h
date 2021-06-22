@@ -131,6 +131,7 @@ public:
   std::vector<std::string> Exports; // OPT_exports
   std::vector<std::string> PreciseOutputs; // OPT_precise_output
   llvm::StringRef DefaultLinkage; // OPT_default_linkage
+  llvm::StringRef ResourceBindingFile;    // OPT_resource_binding_file
   unsigned DefaultTextCodePage = DXC_CP_UTF8; // OPT_encoding
 
   bool AllResourcesBound = false; // OPT_all_resources_bound

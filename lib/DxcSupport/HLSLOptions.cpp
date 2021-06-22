@@ -474,6 +474,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   // OutputLibrary not supported (Fl)
   opts.AssemblyCode = Args.getLastArgValue(OPT_Fc);
   opts.DebugFile = Args.getLastArgValue(OPT_Fd);
+  opts.ResourceBindingFile = Args.getLastArgValue(OPT_resource_binding_file);
   opts.ExtractPrivateFile = Args.getLastArgValue(OPT_getprivate);
   opts.Enable16BitTypes = Args.hasFlag(OPT_enable_16bit_types, OPT_INVALID, false);
   opts.OutputObject = Args.getLastArgValue(OPT_Fo);

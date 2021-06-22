@@ -17,6 +17,7 @@ set(LLVM_LINK_COMPONENTS
   dxrfallback
   dxil
   dxilcontainer
+  dxilresourcebinding
   dxilrootsignature
   hlsl
   instcombine

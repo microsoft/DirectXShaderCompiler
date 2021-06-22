@@ -101,6 +101,8 @@ const char DxilMDHelper::kDxilSourceDefinesMDName[]                   = "dx.sour
 const char DxilMDHelper::kDxilSourceMainFileNameMDName[]              = "dx.source.mainFileName";
 const char DxilMDHelper::kDxilSourceArgsMDName[]                      = "dx.source.args";
 
+const char DxilMDHelper::kDxilResourceBindingMDName[]                 = "dx.resource.binding";
+
 const char DxilMDHelper::kDxilSourceContentsOldMDName[]               = "llvm.dbg.contents";
 const char DxilMDHelper::kDxilSourceDefinesOldMDName[]                = "llvm.dbg.defines";
 const char DxilMDHelper::kDxilSourceMainFileNameOldMDName[]           = "llvm.dbg.mainFileName";
