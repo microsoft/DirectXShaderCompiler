@@ -27,7 +27,7 @@ set(LLVM_LINK_COMPONENTS
 # Support plugins.
 set(LLVM_NO_DEAD_STRIP 1)
 
-set(LLVM_LINK_COMPONENTS ${LLVM_LINK_COMPONENTS} mssupport hlsl)  # HLSL Change
+set(LLVM_LINK_COMPONENTS ${LLVM_LINK_COMPONENTS} mssupport dxcbindingtable hlsl)  # HLSL Change
 
 add_llvm_tool(opt
   AnalysisWrappers.cpp
