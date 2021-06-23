@@ -410,7 +410,7 @@ void hlsl::WriteBindingTableToMetadata(llvm::Module &M, const hlsl::DxcBindingTa
     return;
   }
 
-  for (const std::pair<DxcBindingTable::Key, DxcBindingTable::Entry> &binding : table.entries) {
+  for (std::pair<DxcBindingTable::Key, DxcBindingTable::Entry> const &binding : table.entries) {
 
     auto GetInt32MD = [&LLVMCtx](uint32_t val) -> llvm::ValueAsMetadata* {
       return llvm::ValueAsMetadata::get(llvm::ConstantInt::get(llvm::Type::getInt32Ty(LLVMCtx), val));
