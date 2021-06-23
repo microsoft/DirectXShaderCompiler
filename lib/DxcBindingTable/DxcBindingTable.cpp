@@ -18,7 +18,7 @@
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilResourceBase.h"
 
-#include <unordered_set>
+#include <set>
 
 using namespace llvm;
 using namespace hlsl;
@@ -288,7 +288,7 @@ bool hlsl::ParseBindingTable(llvm::StringRef fileName, llvm::StringRef content, 
   };
 
   llvm::SmallVector<ColumnType, 5> columns;
-  std::unordered_set<ColumnType> columnsSet;
+  std::set<ColumnType> columnsSet;
 
   for (;;) {
     llvm::SmallString<32> column;
@@ -398,7 +398,10 @@ static inline void GatherResources(const std::vector<std::unique_ptr<T> > &List,
   }
 }
 
-void hlsl::WriteResourceBindingToMetadata(llvm::Module &M, const hlsl::DxcBindingTable &table) {
+void hlsl::WriteBindingTableToMetadata(llvm::Module &M, const hlsl::DxcBindingTable &table) {
+  if (table.entries.empty())
+    return;
+
   llvm::NamedMDNode *bindingsMD = M.getOrInsertNamedMetadata(hlsl::DxilMDHelper::kDxilDxcBindingTableMDName);
   LLVMContext &LLVMCtx = M.getContext();
 
@@ -424,7 +427,7 @@ void hlsl::WriteResourceBindingToMetadata(llvm::Module &M, const hlsl::DxcBindin
   }
 }
 
-void hlsl::ApplyResourceBindingOverridesFromMetadata(DxilModule &DM) {
+void hlsl::ApplyBindingTableFromMetadata(DxilModule &DM) {
   Module &M = *DM.GetModule();
   NamedMDNode *bindings = M.getNamedMetadata(hlsl::DxilMDHelper::kDxilDxcBindingTableMDName);
   if (!bindings)

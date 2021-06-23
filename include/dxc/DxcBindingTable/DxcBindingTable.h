@@ -35,8 +35,7 @@ struct DxcBindingTable {
 };
 
 bool ParseBindingTable(llvm::StringRef fileName, llvm::StringRef content, llvm::raw_ostream &errors, DxcBindingTable *outTable);
-void WriteResourceBindingToMetadata(llvm::Module &M, const DxcBindingTable &table);
-void ApplyResourceBindingOverridesFromMetadata(hlsl::DxilModule &DM);
-void WriteResourceBindingFile(const hlsl::DxilModule &DM, llvm::raw_ostream &os);
+void WriteBindingTableToMetadata(llvm::Module &M, const DxcBindingTable &table);
+void ApplyBindingTableFromMetadata(hlsl::DxilModule &DM);
 
 }

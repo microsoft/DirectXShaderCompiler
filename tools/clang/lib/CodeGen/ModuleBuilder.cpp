@@ -217,7 +217,7 @@ namespace {
       // HLSL Change Begins
 
       // Add resource binding overrides to the metadata.
-      hlsl::WriteResourceBindingToMetadata(*M, CodeGenOpts.HLSLBindingTable);
+      hlsl::WriteBindingTableToMetadata(*M, CodeGenOpts.HLSLBindingTable);
 
       // Error may happen in Builder->Release for HLSL
       if (CodeGenOpts.HLSLEmbedSourcesInModule) {

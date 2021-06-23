@@ -525,7 +525,7 @@ public:
       bChanged |= PatchTBuffers(DM);
 
     // Assign resource binding overrides.
-    hlsl::ApplyResourceBindingOverridesFromMetadata(DM);
+    hlsl::ApplyBindingTableFromMetadata(DM);
 
     // Gather reserved resource registers while we still have
     // unused resources that might have explicit register assignments.
