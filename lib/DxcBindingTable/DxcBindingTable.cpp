@@ -68,7 +68,7 @@ bool hlsl::ParseBindingTable(llvm::StringRef fileName, llvm::StringRef content, 
     };
 
     inline static bool IsDelimiter(char c) {
-      return c == ',' || c == '\n' || c == '\r';
+      return c == ',';
     }
     inline static bool IsNewline(char c) {
        return c == '\r' || c == '\n';
@@ -155,9 +155,9 @@ bool hlsl::ParseBindingTable(llvm::StringRef fileName, llvm::StringRef content, 
       }
 
       while (!ReachedEnd()) {
-        if (IsDelimiter(Peek())) {
+        if (IsNewline(Peek()) || (!hasQuote && IsDelimiter(Peek()))) {
           if (hasQuote)
-            return Error("Expected end quote '\"'.");
+            return Error("Unexpected newline inside quotation.");
           // Trim the white space at the end of the string
           if (str) {
             while (str->size() && IsWhitespace(str->back())) {
@@ -172,7 +172,7 @@ bool hlsl::ParseBindingTable(llvm::StringRef fileName, llvm::StringRef content, 
           if (!hasQuote)
             return Error("'\"' not allowed in non-quoted cell.");
           EatWhitespace();
-          if (!IsDelimiter(Peek())) {
+          if (!IsDelimiter(Peek()) && !IsNewline(Peek())) {
             return Error("Unexpected character after quote.");
           }
           break;
@@ -216,7 +216,7 @@ bool hlsl::ParseBindingTable(llvm::StringRef fileName, llvm::StringRef content, 
         return false;
 
       if (str.empty()) {
-        return Error(loc, "Resource index cannot be empty.");
+        return Error(loc, "Resource binding cannot be empty.");
       }
 
       switch (str[0]) {
@@ -300,15 +300,15 @@ bool hlsl::ParseBindingTable(llvm::StringRef fileName, llvm::StringRef content, 
       c = std::tolower(c);
 
     auto loc = P.GetLoc();
-    if (column == "name") {
+    if (column == "resourcename") {
       if (!columnsSet.insert(ColumnType::Name).second) {
-        return P.Error(loc, "Column 'Name' already specified.");
+        return P.Error(loc, "Column 'ResourceName' already specified.");
       }
       columns.push_back(ColumnType::Name);
     }
-    else if (column == "index") {
+    else if (column == "binding") {
       if (!columnsSet.insert(ColumnType::Index).second) {
-        return P.Error(loc, "Column 'Index' already specified.");
+        return P.Error(loc, "Column 'Binding' already specified.");
       }
       columns.push_back(ColumnType::Index);
     }
@@ -331,7 +331,7 @@ bool hlsl::ParseBindingTable(llvm::StringRef fileName, llvm::StringRef content, 
       !columnsSet.count(ColumnType::Index) ||
       !columnsSet.count(ColumnType::Space))
   {
-    return P.Error(Twine() + "Need at least 'Name', 'Index', and 'Space'.");
+    return P.Error(Twine() + "Input format is csv with headings: ResourceName, Binding, Space.");
   }
 
   while (!P.ReachedEnd()) {

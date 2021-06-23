@@ -1998,19 +1998,19 @@ TEST_F(CompilerTest, CompileWithResourceBindingFileThenOK) {
   //
   TestResourceBindingImpl(
     R"(
-         name,         Index,  spacE  
+         ResourceName, binding,  spacE  
          
-         "cb",         b10,    0x1e ,  
-         resource,     b42,    999  ,
-         samp0,        s1,     0x02 ,
-         resource,     t1,     2
-         uav_0,        u1,     2,
+         "cb",         b10,      0x1e ,  
+         resource,     b42,      999  ,
+         samp0,        s1,       0x02 ,
+         resource,     t1,       2
+         uav_0,        u1,       2,
     )");
 
   // Reordered the columns 1
   TestResourceBindingImpl(
     R"(
-         name,         space,   index,
+         ResourceName, space,   Binding,
                      
          "cb",         0x1e ,   b10,   
          resource,     999  ,   b42,  
@@ -2022,7 +2022,7 @@ TEST_F(CompilerTest, CompileWithResourceBindingFileThenOK) {
   // Reordered the columns 2
   TestResourceBindingImpl(
     R"(
-         space,   index,   name,         
+         space,   binding, ResourceName,         
                                        
          0x1e ,   b10,     "cb",         
          999  ,   b42,     resource,         
@@ -2034,60 +2034,57 @@ TEST_F(CompilerTest, CompileWithResourceBindingFileThenOK) {
   // Extra cell at the end of row
   TestResourceBindingImpl(
     R"(
-         name,         index,  space  
+         ResourceName, Binding,  space  
          
-         "cb",         b10,    0x1e ,  
-         resource,     b42,    999  ,
-         samp0,        s1,     0x02,    extra_cell
-         resource,     t1,     2
-         uav_0,        u1,     2,
+         "cb",         b10,      0x1e ,  
+         resource,     b42,      999  ,
+         samp0,        s1,       0x02,    extra_cell
+         resource,     t1,       2
+         uav_0,        u1,       2,
     )", L"Unexpected cell at the end of row. There should only be 3");
 
   // Missing cell in row
   TestResourceBindingImpl(
     R"(
-         name,         index,  space  
+         ResourceName, Binding,  space  
          
-         "cb",         b10,    0x1e ,  
-         resource,     b42,    999  ,
+         "cb",         b10,      0x1e ,  
+         resource,     b42,      999  ,
          samp0,        s1,
-         resource,     t1,     2
-         uav_0,        u1,     2,
+         resource,     t1,       2
+         uav_0,        u1,       2,
     )", L"Row ended after just 2 columns. Expected 3.");
 
   // Missing column
   TestResourceBindingImpl(
     R"(
-         name,         index,
+         ResourceName, Binding,
          "cb",         b10,   
-    )", L"Need at least 'Name', 'Index', and 'Space'");
+    )", L"Input format is csv with headings: ResourceName, Binding, Space.");
 
-  // Missing column in row
+  // Empty file
+  TestResourceBindingImpl(
+    " \r\n  ", L"Unexpected EOF when parsing cell.");
+
+  // Invalid resource binding type
   TestResourceBindingImpl(
     R"(
-         name,         index,
-         "cb",         b10,   
-    )", L"Need at least 'Name', 'Index', and 'Space'");
-
-  // Invalid resource index type
-  TestResourceBindingImpl(
-    R"(
-         name,         index,  space  
-         "cb",         10,     30,  
+         ResourceName, Binding,  space  
+         "cb",         10,       30,  
     )", L"Invalid resource class");
 
-  // Invalid resource index type 2
+  // Invalid resource binding type 2
   TestResourceBindingImpl(
     R"(
-         name,         index,  space  
-         "cb",         e10,    30,  
+         ResourceName, Binding,  space  
+         "cb",         e10,      30,  
     )",
     L"Invalid resource class.");
 
   // Index Integer out of bounds
   TestResourceBindingImpl(
     R"(
-         name,         index,  space  
+         ResourceName, Binding,  space  
          "cb",         b99999999999999999999999999999999999,    30,  
     )",
     L"'99999999999999999999999999999999999' is out of range of an 32-bit unsigned integer.");
@@ -2095,31 +2092,31 @@ TEST_F(CompilerTest, CompileWithResourceBindingFileThenOK) {
   // Empty resource
   TestResourceBindingImpl(
     R"(
-         name,         index,  space  
-         "cb",         ,    30,  
+         ResourceName, Binding,  space  
+         "cb",         ,         30,  
     )",
-    L"Resource index cannot be empty.");
+    L"Resource binding cannot be empty.");
 
   // Index Integer out of bounds
   TestResourceBindingImpl(
     R"(
-         name,         index,  space  
-         "cb",         b,      30,  
+         ResourceName, Binding,  space  
+         "cb",         b,        30,  
     )",
     L"'b' is not a valid resource binding.");
 
   // Integer out of bounds
   TestResourceBindingImpl(
     R"(
-         name,         index,  space  
-         "cb",         b10,    99999999999999999999999999999999999,  
+         ResourceName, Binding,  space  
+         "cb",         b10,      99999999999999999999999999999999999,  
     )",
     L"'99999999999999999999999999999999999' is out of range of an 32-bit unsigned integer.");
 
   // Integer out of bounds 2
   TestResourceBindingImpl(
     R"(
-         name,         index,  space  
+         ResourceName,         Binding,  space  
          "cb",         b10,    0xffffffffffffffffffffffffffffff,  
     )",
     L"'0xffffffffffffffffffffffffffffff' is out of range of an 32-bit unsigned integer.");
@@ -2127,27 +2124,53 @@ TEST_F(CompilerTest, CompileWithResourceBindingFileThenOK) {
   // Integer invalid
   TestResourceBindingImpl(
     R"(
-         name,         index,  space  
-         "cb",         b10,    abcd,  
+         ResourceName, Binding,  space  
+         "cb",         b10,      abcd,  
     )",
     L"'abcd' is not a valid 32-bit unsigned integer.");
 
   // Integer empty
   TestResourceBindingImpl(
     R"(
-         name,         index,  space  
-         "cb",         b10,    ,  
+         ResourceName, Binding, space  
+         "cb",         b10,     ,  
     )",
     L"Expected unsigned 32-bit integer, but got empty cell.");
 
   // No Include handler
   TestResourceBindingImpl(
     R"(
-         name,         index,  space  
-         "cb",         b10,    30,  
+         ResourceName, Binding, space  
+         "cb",         b10,     30,  
     )",
     L"Binding table binding file 'binding-file.txt' specified, but no include handler was given",
     /* noIncludeHandler */true);
+
+  // Comma in a cell
+  TestResourceBindingImpl(
+    R"(
+         ResourceName, Binding,  spacE,  extra_column,
+         
+         "cb",         b10,      0x1e ,  " ,, ,",
+         resource,     b42,      999  ,  " ,, ,",
+         samp0,        s1,       0x02 ,  " ,, ,",
+         resource,     t1,       2,      " ,, ,",
+         uav_0,        u1,       2,      " ,, ,",
+    )");
+
+  // Newline in the middle of a quote
+  TestResourceBindingImpl(
+    R"(
+         ResourceName, Binding,  spacE,  extra_column,
+         
+         "cb",         b10,      0x1e ,  " ,, ,",
+         resource,     b42,      999  ,  " ,, ,",
+         samp0,        s1,       0x02 ,  " ,, ,",
+         resource,     t1,       2,      " ,, ,",
+         uav_0,        u1,       2,      " ,
+
+
+    )", L"Unexpected newline inside quotation.");
 }
 
 TEST_F(CompilerTest, CompileWithRootSignatureThenStripRootSignature) {
