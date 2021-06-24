@@ -120,7 +120,7 @@ public:
 
   void addOption(Option *O) {
     bool HadErrors = false;
-    if (O->ArgStr[0]) {
+    if (O->hasArgStr()) {
       // Add argument to the argument map!
       if (!OptionsMap.insert(std::make_pair(O->ArgStr, O)).second) {
         errs() << ProgramName << ": CommandLine Error: Option '" << O->ArgStr
@@ -153,7 +153,7 @@ public:
   void removeOption(Option *O) {
     SmallVector<const char *, 16> OptionNames;
     O->getExtraOptionNames(OptionNames);
-    if (O->ArgStr[0])
+    if (O->hasArgStr())
       OptionNames.push_back(O->ArgStr);
     for (auto Name : OptionNames)
       OptionsMap.erase(StringRef(Name));
@@ -859,7 +859,17 @@ void CommandLineParser::ParseCommandLineOptions(int argc,
               "error - this positional option will never be matched, "
               "because it does not Require a value, and a "
               "cl::ConsumeAfter option is active!");
-      } else if (UnboundedFound && !Opt->ArgStr[0]) {
+      } else if (UnboundedFound && !Opt->hasArgStr()) {
+        // Print entire command line into error output
+        std::string CmdLine;
+        for (int argi = 0; argi < argc; ++argi) {
+          if (argv[argi] != nullptr) {
+            if (!CmdLine.empty())
+              CmdLine += ' ';
+            CmdLine += argv[argi];
+          }
+        }
+
         // This option does not "require" a value...  Make sure this option is
         // not specified after an option that eats all extra arguments, or this
         // one will never get any!
@@ -868,8 +878,8 @@ void CommandLineParser::ParseCommandLineOptions(int argc,
                                    "another positional argument will match an "
                                    "unbounded number of values, and this option"
                                    " does not require a value!");
-        errs() << ProgramName << ": CommandLine Error: Option '" << Opt->ArgStr
-               << "' is all messed up!\n";
+        errs() << ProgramName << ": CommandLine Error: Command line '"
+               << CmdLine << "' is all messed up!\n";
         errs() << PositionalOpts.size();
       }
       UnboundedFound |= EatsUnboundedNumberOfValues(Opt);
