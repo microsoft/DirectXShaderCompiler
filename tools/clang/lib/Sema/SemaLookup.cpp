@@ -292,20 +292,24 @@ void LookupResult::configure() {
   IDNS = getIDNS(LookupKind, getSema().getLangOpts().CPlusPlus,
                  isForRedeclaration());
 
-  // If we're looking for one of the allocation or deallocation
-  // operators, make sure that the implicitly-declared new and delete
-  // operators can be found.
-  switch (NameInfo.getName().getCXXOverloadedOperator()) {
-  case OO_New:
-  case OO_Delete:
-  case OO_Array_New:
-  case OO_Array_Delete:
-    getSema().DeclareGlobalNewDelete();
-    break;
+  // HLSL Change Starts - do not handle new and delete
+  if (!getSema().getLangOpts().HLSL) {
+    // If we're looking for one of the allocation or deallocation
+    // operators, make sure that the implicitly-declared new and delete
+    // operators can be found.
+    switch (NameInfo.getName().getCXXOverloadedOperator()) {
+    case OO_New:
+    case OO_Delete:
+    case OO_Array_New:
+    case OO_Array_Delete:
+      getSema().DeclareGlobalNewDelete();
+      break;
 
-  default:
-    break;
+    default:
+      break;
+    }
   }
+  // HLSL Change Ends
 
   // Compiler builtins are always visible, regardless of where they end
   // up being declared.

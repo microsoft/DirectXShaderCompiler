@@ -435,7 +435,8 @@ std::string getFnName(const FunctionDecl *fn) {
   if (const auto *memberFn = dyn_cast<CXXMethodDecl>(fn))
     if (const auto *st = dyn_cast<CXXRecordDecl>(memberFn->getDeclContext()))
       classOrStructName = st->getName().str() + ".";
-  return getNamespacePrefix(fn) + classOrStructName + fn->getName().str();
+  return getNamespacePrefix(fn) + classOrStructName +
+         getFunctionOrOperatorName(fn, false);
 }
 
 bool isMemoryObjectDeclaration(SpirvInstruction *inst) {
@@ -2223,8 +2224,18 @@ SpirvInstruction *SpirvEmitter::doBinaryOperator(const BinaryOperator *expr) {
 }
 
 SpirvInstruction *SpirvEmitter::doCallExpr(const CallExpr *callExpr) {
-  if (const auto *operatorCall = dyn_cast<CXXOperatorCallExpr>(callExpr))
+  if (const auto *operatorCall = dyn_cast<CXXOperatorCallExpr>(callExpr)) {
+    if (const auto *cxxMethodDecl =
+            dyn_cast<CXXMethodDecl>(operatorCall->getCalleeDecl())) {
+      QualType parentType =
+          QualType(cxxMethodDecl->getParent()->getTypeForDecl(), 0);
+      if (isUserDefinedRecordType(astContext, parentType)) {
+        // If the parent is a user-defined record type
+        return processCall(callExpr);
+      }
+    }
     return doCXXOperatorCallExpr(operatorCall);
+  }
 
   if (const auto *memberCall = dyn_cast<CXXMemberCallExpr>(callExpr))
     return doCXXMemberCallExpr(memberCall);
@@ -2298,6 +2309,7 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
   bool isNonStaticMemberCall = false;
   QualType objectType = {};             // Type of the object (if exists)
   SpirvInstruction *objInstr = nullptr; // EvalInfo for the object (if exists)
+  const Expr *object;
 
   llvm::SmallVector<SpirvInstruction *, 4> vars; // Variables for function call
   llvm::SmallVector<bool, 4> isTempVar;          // Temporary variable or not
@@ -2310,7 +2322,7 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
     if (isNonStaticMemberCall) {
       // For non-static member calls, evaluate the object and pass it as the
       // first argument.
-      const auto *object = memberCall->getImplicitObjectArgument();
+      object = memberCall->getImplicitObjectArgument();
       object = object->IgnoreParenNoopCasts(astContext);
 
       // Update counter variable associated with the implicit object
@@ -2322,33 +2334,44 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
         objInstr = accessToBaseInstr;
         objectType = accessToBaseInstr->getAstResultType();
       }
-
-      // If not already a variable, we need to create a temporary variable and
-      // pass the object pointer to the function. Example:
-      // getObject().objectMethod();
-      // Also, any parameter passed to the member function must be of Function
-      // storage class.
-      if (objInstr->isRValue()) {
-        args.push_back(createTemporaryVar(
-            objectType, getAstTypeName(objectType),
-            // May need to load to use as initializer
-            loadIfGLValue(object, objInstr), object->getLocStart()));
-      } else {
-        // Based on SPIR-V spec, function parameter must always be in Function
-        // scope. If we pass a non-function scope argument, we need
-        // the legalization.
-        if (objInstr->getStorageClass() != spv::StorageClass::Function ||
-            !isMemoryObjectDeclaration(objInstr))
-          needsLegalization = true;
-
-        args.push_back(objInstr);
-      }
-
-      // We do not need to create a new temporary variable for the this
-      // object. Use the evaluated argument.
-      vars.push_back(args.back());
-      isTempVar.push_back(false);
     }
+  } else if (const auto *operatorCallExpr =
+                 dyn_cast<CXXOperatorCallExpr>(callExpr)) {
+    isNonStaticMemberCall = true;
+    // For overloaded operator calls, the first argument is considered as the
+    // object.
+    object = operatorCallExpr->getArg(0);
+    object = object->IgnoreParenNoopCasts(astContext);
+    objectType = object->getType();
+    objInstr = doExpr(object);
+  }
+
+  if (objInstr != nullptr) {
+    // If not already a variable, we need to create a temporary variable and
+    // pass the object pointer to the function. Example:
+    // getObject().objectMethod();
+    // Also, any parameter passed to the member function must be of Function
+    // storage class.
+    if (objInstr->isRValue()) {
+      args.push_back(createTemporaryVar(
+          objectType, getAstTypeName(objectType),
+          // May need to load to use as initializer
+          loadIfGLValue(object, objInstr), object->getLocStart()));
+    } else {
+      // Based on SPIR-V spec, function parameter must always be in Function
+      // scope. If we pass a non-function scope argument, we need
+      // the legalization.
+      if (objInstr->getStorageClass() != spv::StorageClass::Function ||
+          !isMemoryObjectDeclaration(objInstr))
+        needsLegalization = true;
+
+      args.push_back(objInstr);
+    }
+
+    // We do not need to create a new temporary variable for the this
+    // object. Use the evaluated argument.
+    vars.push_back(args.back());
+    isTempVar.push_back(false);
   }
 
   // Evaluate parameters
@@ -3959,7 +3982,7 @@ SpirvEmitter::getOrCreateDeclForMethodObject(const CXXMethodDecl *method) {
   if (found != thisDecls.end())
     return found->second;
 
-  const std::string name = method->getName().str() + ".this";
+  const std::string name = getFunctionOrOperatorName(method, true) + ".this";
   // Create a new identifier to convey the name
   auto &identifier = astContext.Idents.get(name);
 
@@ -4412,7 +4435,7 @@ SpirvEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
   case IntrinsicOp::MOP_GatherCmpAlpha:
     emitError("no equivalent for %0 intrinsic method in Vulkan",
               expr->getCallee()->getExprLoc())
-        << expr->getMethodDecl()->getName();
+        << getFunctionOrOperatorName(expr->getMethodDecl(), true);
     return nullptr;
   case IntrinsicOp::MOP_TraceRayInline:
     return processTraceRayInline(expr);
@@ -4459,7 +4482,7 @@ SpirvEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
   default:
     emitError("intrinsic '%0' method unimplemented",
               expr->getCallee()->getExprLoc())
-        << expr->getDirectCallee()->getName();
+        << getFunctionOrOperatorName(expr->getDirectCallee(), true);
     return nullptr;
   }
 
@@ -7366,7 +7389,7 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_texCUBElod:
   case hlsl::IntrinsicOp::IOP_texCUBEproj: {
     emitError("deprecated %0 intrinsic function will not be supported", srcLoc)
-        << callee->getName();
+        << getFunctionOrOperatorName(callee, true);
     return nullptr;
   }
   case hlsl::IntrinsicOp::IOP_dot:
@@ -7569,7 +7592,7 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_GetRenderTargetSampleCount:
   case hlsl::IntrinsicOp::IOP_GetRenderTargetSamplePosition: {
     emitError("no equivalent for %0 intrinsic function in Vulkan", srcLoc)
-        << callee->getName();
+        << getFunctionOrOperatorName(callee, true);
     return 0;
   }
   case hlsl::IntrinsicOp::IOP_transpose: {
@@ -7749,7 +7772,7 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     INTRINSIC_OP_CASE(trunc, Trunc, true);
   default:
     emitError("%0 intrinsic function unimplemented", srcLoc)
-        << callee->getName();
+        << getFunctionOrOperatorName(callee, true);
     return 0;
   }
 
@@ -9592,7 +9615,7 @@ SpirvEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
   }
   default:
     emitError("unrecognized signature for %0 intrinsic function", loc)
-        << callExpr->getDirectCallee()->getName();
+        << getFunctionOrOperatorName(callExpr->getDirectCallee(), true);
     return nullptr;
   }
 }
@@ -12296,7 +12319,7 @@ SpirvEmitter::processRayQueryIntrinsics(const CXXMemberCallExpr *expr,
   default:
     emitError("intrinsic '%0' method unimplemented",
               expr->getCallee()->getExprLoc())
-        << expr->getDirectCallee()->getName();
+        << getFunctionOrOperatorName(expr->getDirectCallee(), true);
     return nullptr;
   }
 

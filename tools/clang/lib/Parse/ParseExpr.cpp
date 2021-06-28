@@ -1335,7 +1335,6 @@ HLSLReservedKeyword:
   }
 
   case tok::kw_operator: // [C++] id-expression: operator/conversion-function-id
-    if (getLangOpts().HLSL && SavedKind == tok::kw_operator) goto HLSLReservedKeyword; // HLSL Change - 'operator' is reserved
     Res = ParseCXXIdExpression(isAddressOfOperand);
     break;
 

@@ -1552,6 +1552,38 @@ static ExprResult BuildCookedLiteralOperatorCall(Sema &S, Scope *Scope,
   return S.BuildLiteralOperatorCall(R, OpNameInfo, Args, LitEndLoc);
 }
 
+// HLSL Change Starts
+static bool IsUserDefinedTypeWithOverloadedOperator(QualType type) {
+  // HLSL specific types
+  if (hlsl::IsHLSLResourceType(type) || hlsl::IsHLSLVecMatType(type) ||
+      isa<ExtVectorType>(type.getTypePtr()) || type->isBuiltinType() ||
+      type->isArrayType()) {
+    return false;
+  }
+
+  // SubpassInput or SubpassInputMS type
+  if (const auto *rt = type->getAs<RecordType>()) {
+    if (rt->getDecl()->getName() == "SubpassInput" ||
+        rt->getDecl()->getName() == "SubpassInputMS") {
+      return false;
+    }
+  }
+
+  if (const RecordType *recordType = type->getAs<RecordType>()) {
+    if (const CXXRecordDecl *cxxRecordDecl =
+            dyn_cast<CXXRecordDecl>(recordType->getDecl())) {
+      bool found_overloaded_operator = false;
+      for (const auto *method : cxxRecordDecl->methods()) {
+        if (method->getOverloadedOperator() != OO_None)
+          found_overloaded_operator = true;
+      }
+      return found_overloaded_operator;
+    }
+  }
+  return false;
+}
+// HLSL Change Ends
+
 /// ActOnStringLiteral - The specified tokens were lexed as pasted string
 /// fragments (e.g. "foo" "bar" L"baz").  The result string has to handle string
 /// concatenation ([C99 5.1.1.2, translation phase #6]), so it may come from
@@ -10846,10 +10878,11 @@ ExprResult Sema::BuildBinOp(Scope *S, SourceLocation OpLoc,
     RHSExpr = resolvedRHS.get();
   }
 
-  // HLSL Change: bypass binary operator overload work, which isn't supported in any case;
-  // otherwise more extensive changes need to be done to add HLSL-specific behavior to
-  // be considered when building overload candidate sets
-  if (getLangOpts().CPlusPlus && !getLangOpts().HLSL) {
+  // HLSL Change: allow binary operator overload only when it is a record type
+  // defined by the user and the operator is not assignment.
+  if (getLangOpts().CPlusPlus && Opc != BO_Assign &&
+      IsUserDefinedTypeWithOverloadedOperator(LHSExpr->getType()) &&
+      IsUserDefinedTypeWithOverloadedOperator(RHSExpr->getType())) {
     // If either expression is type-dependent, always build an
     // overloaded op.
     if (LHSExpr->isTypeDependent() || RHSExpr->isTypeDependent())
