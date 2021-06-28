@@ -196,6 +196,8 @@ public:
   TEST_METHOD(CheckSATPassFor66_DynamicFromRootSig)
   TEST_METHOD(CheckSATPassFor66_DynamicFromHeap)
 
+  TEST_METHOD(AddToASPayload)
+
   TEST_METHOD(PixStructAnnotation_Simple)
   TEST_METHOD(PixStructAnnotation_CopiedStruct)
   TEST_METHOD(PixStructAnnotation_MixedSizes)
@@ -983,6 +985,7 @@ public:
   TestableResults TestStructAnnotationCase(const char* hlsl, const wchar_t* optimizationLevel, bool validateCoverage = true);
   void ValidateAllocaWrite(std::vector<AllocaWrite> const& allocaWrites, size_t index, const char* name);
   std::string RunShaderAccessTrackingPassAndReturnOutputMessages(IDxcBlob* blob);
+  std::string RunDxilPIXAddTidToAmplificationShaderPayloadPass(IDxcBlob* blob);
   CComPtr<IDxcBlob> Compile(const char* hlsl, const wchar_t* profile);
 };
 
@@ -1767,6 +1770,51 @@ float4 main(int input : INPUT) : SV_Target
   auto satResults =
       RunShaderAccessTrackingPassAndReturnOutputMessages(compiled);
   VERIFY_IS_TRUE(satResults.find("FoundDynamicIndexing") != string::npos);
+}
+
+std::string
+PixTest::RunDxilPIXAddTidToAmplificationShaderPayloadPass(IDxcBlob *blob) {
+  CComPtr<IDxcBlob> dxil = FindModule(DFCC_ShaderDebugInfoDXIL, blob);
+  CComPtr<IDxcOptimizer> pOptimizer;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
+  std::vector<LPCWSTR> Options;
+  Options.push_back(L"-opt-mod-passes");
+  Options.push_back(L"-hlsl-dxil-PIX-add-tid-to-as-payload");
+
+  CComPtr<IDxcBlob> pOptimizedModule;
+  CComPtr<IDxcBlobEncoding> pText;
+  VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
+      dxil, Options.data(), Options.size(), &pOptimizedModule, &pText));
+
+  std::string outputText;
+  if (pText->GetBufferSize() != 0) {
+    outputText = reinterpret_cast<const char *>(pText->GetBufferPointer());
+  }
+
+  return outputText;
+}
+
+TEST_F(PixTest, AddToASPayload) {
+
+  const char *dynamicResourceDecriptorHeapAccess = R"(
+struct MyPayload
+{
+    uint i;
+};
+
+[numthreads(1, 1, 1)]
+void main(uint gid : SV_GroupID)
+{
+    MyPayload payload;
+    payload.i = gid;
+    DispatchMesh(1, 1, 1, payload);
+}
+
+  )";
+
+  auto compiled = Compile(dynamicResourceDecriptorHeapAccess, L"as_6_6");
+  RunDxilPIXAddTidToAmplificationShaderPayloadPass(compiled);
 }
 
 // This function lives in lib\DxilPIXPasses\DxilAnnotateWithVirtualRegister.cpp

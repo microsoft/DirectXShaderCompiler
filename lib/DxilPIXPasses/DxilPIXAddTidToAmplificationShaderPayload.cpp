@@ -46,8 +46,10 @@ bool DxilPIXAddTidToAmplificationShaderPayload::runOnModule(Module &M) {
   Type* OriginalPayloadStructPointerType = nullptr;
   Type* OriginalPayloadStructType = nullptr;
   Type* ExpandedPayloadStructType = nullptr;
-  for (inst_iterator I = inst_begin(PIXPassHelpers::GetEntryFunction(DM)),
-                     E = inst_end(PIXPassHelpers::GetEntryFunction(DM));
+  Type* ExpandedPayloadStructPtrType = nullptr;
+  llvm::Function* entryFunction = PIXPassHelpers::GetEntryFunction(DM);
+  for (inst_iterator I = inst_begin(entryFunction),
+                     E = inst_end(entryFunction);
        I != E; ++I) {
       if (auto* Instr = llvm::cast<Instruction>(&*I)) {
           if (hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::DispatchMesh))
@@ -55,56 +57,71 @@ bool DxilPIXAddTidToAmplificationShaderPayload::runOnModule(Module &M) {
               DxilInst_DispatchMesh DispatchMesh(Instr);
               OriginalPayloadStructPointerType = DispatchMesh.get_payload()->getType();
               OriginalPayloadStructType = OriginalPayloadStructPointerType->getPointerElementType();
-              auto* PayloadTypeAsStruct = llvm::cast<llvm::StructType>(OriginalPayloadStructType);
+              //auto* PayloadTypeAsStruct = llvm::cast<llvm::StructType>(OriginalPayloadStructType);
               SmallVector<Type*, 16> Elements;
-              for (unsigned int e = 0; e < PayloadTypeAsStruct->getNumElements();
-                  ++e) {
-                  Elements.push_back(PayloadTypeAsStruct->getElementType(e));
-              }
-              // This adds an int432 in order to pass flat thread id to the mesh shader:
+              //for (unsigned int e = 0; e < PayloadTypeAsStruct->getNumElements();
+              //    ++e) {
+              //    Elements.push_back(PayloadTypeAsStruct->getElementType(e));
+              //}
+              Elements.push_back(OriginalPayloadStructType);
+              // This adds an int32 in order to pass flat thread id to the mesh
+              // shader:
               Elements.push_back(Type::getInt32Ty(Ctx));
               ExpandedPayloadStructType = StructType::create(Ctx, Elements, "PIX_AS2MS_Expanded_Type");
+              ExpandedPayloadStructPtrType = ExpandedPayloadStructType->getPointerTo();
           }
       }
   }
 
-    for (inst_iterator I = inst_begin(PIXPassHelpers::GetEntryFunction(DM)),
-                     E = inst_end(PIXPassHelpers::GetEntryFunction(DM));
+  AllocaInst* NewStructAlloca = nullptr;
+    for (inst_iterator I = inst_begin(entryFunction),
+                     E = inst_end(entryFunction);
        I != E; ++I) {
         auto* Inst = &*I;
       if (llvm::isa<AllocaInst>(Inst)) {
           auto* Alloca = llvm::cast<AllocaInst>(Inst);
-          if (Alloca->getType() == OriginalPayloadStructType)
-            {
-          llvm::IRBuilder<> B(Alloca->getContext());
-
-              auto* NewAlloca = B.CreateAlloca(ExpandedPayloadStructType, HlslOP->GetU32Const(1) ,"NewPayload");
-              (void)NewAlloca;
-              NewAlloca->insertAfter(Alloca);
+          if (Alloca->getType() == OriginalPayloadStructPointerType)
+          {
+              llvm::IRBuilder<> B(Alloca->getContext());
+              NewStructAlloca = B.CreateAlloca(ExpandedPayloadStructType, HlslOP->GetU32Const(1), "NewPayload");
+              NewStructAlloca->setAlignment(Alloca->getAlignment());
+              NewStructAlloca->insertAfter(Alloca);
+              //Alloca->removeFromParent();
+              //for (auto user : Alloca->users())
+              //{
+              //    user->dump();
+              //    for(auto )
+              //}
+              //
+              //delete Alloca;
               break;
             }
       }
   }
-#if 0
-  auto F = HlslOP->GetOpFunc(DXIL::OpCode::DispatchMesh, OriginalPayloadStructType);
-  auto FunctionUses = F->uses();
-  for (auto FI = FunctionUses.begin(); FI != FunctionUses.end();) {
-      auto& FunctionUse = *FI++;
-      auto FunctionUser = FunctionUse.getUser();
 
-      DxilInst_DispatchMesh DispatchMesh(llvm::cast<Instruction>(FunctionUser));
+  auto F = HlslOP->GetOpFunc(DXIL::OpCode::DispatchMesh, OriginalPayloadStructPointerType);
+  for (auto FI = F->user_begin(); FI != F->user_end();) {
+      auto* FunctionUser = *FI++;
+      auto * UserInstruction = llvm::cast<Instruction>(FunctionUser);
+      DxilInst_DispatchMesh DispatchMesh(UserInstruction);
 
-      auto * PayloadType = DispatchMesh.get_payload()->getType();
-      auto* PayloadTypeAsStruct = llvm::cast<llvm::StructType>(PayloadType);
-      SmallVector<Type*, 16> Elements;
-      for (unsigned int e = 0; e < PayloadTypeAsStruct->getNumElements(); ++e)
-      {
-          Elements.push_back(PayloadTypeAsStruct->getElementType(e));
-      }
-      Elements.push_back(Type::getInt32Ty(Ctx));
-      PayloadTypeAsStruct->setBody(Elements);
+      llvm::IRBuilder<> B(Ctx);
+      B.SetInsertPoint(UserInstruction);
+
+      SmallVector<Value *, 2> IndexToEmbeddedOriginal;
+      IndexToEmbeddedOriginal.push_back(HlslOP->GetU32Const(0));
+      IndexToEmbeddedOriginal.push_back(HlslOP->GetU32Const(0));
+
+      auto *PointerToContainedOriginal = B.CreateInBoundsGEP(ExpandedPayloadStructType, NewStructAlloca, IndexToEmbeddedOriginal, "PointerToContainedOriginal");
+      //auto Original = B.CreateInBoundsGEP(OriginalPayloadStructType, DispatchMesh.get_payload(), HlslOP->GetU32Const(0), "Original");
+      SmallVector<uint32_t, 1> Index0{ 0 };
+      auto orginalValue = B.CreateExtractValue(DispatchMesh.get_payload(), Index0);
+      B.CreateStore(orginalValue, PointerToContainedOriginal);
+      /*auto* StoreOrignal = */B.CreateInsertValue(PointerToContainedOriginal, DispatchMesh.get_payload(), Index0);
+      SmallVector<uint32_t, 1> Index1{ 0, 1 };
+      /*auto* StoreAppendedValue = */B.CreateInsertValue(HlslOP->GetU32Const(42), PointerToContainedOriginal, Index1);
   }
-#endif
+
   DM.ReEmitDxilResources();
 
   return true;
