@@ -330,6 +330,15 @@ bool Parser::ParseOptionalCXXScopeSpecifier(CXXScopeSpec &SS,
         TemplateName.setIdentifier(Tok.getIdentifierInfo(), Tok.getLocation());
         ConsumeToken();
       } else if (Tok.is(tok::kw_operator)) {
+        // HLSL Change Starts
+        if (getLangOpts().HLSL && !getLangOpts().EnableOperatorOverloading &&
+            !getLangOpts().EnableTemplates) {
+          Diag(Tok, diag::err_hlsl_reserved_keyword) << Tok.getName();
+          TPA.Commit();
+          return true;
+        }
+        // HLSL Change Ends
+
         // We don't need to actually parse the unqualified-id in this case,
         // because a simple-template-id cannot start with 'operator', but
         // go ahead and parse it anyway for consistency with the case where
@@ -2199,6 +2208,8 @@ bool Parser::ParseUnqualifiedIdTemplateId(CXXScopeSpec &SS,
 bool Parser::ParseUnqualifiedIdOperator(CXXScopeSpec &SS, bool EnteringContext,
                                         ParsedType ObjectType,
                                         UnqualifiedId &Result) {
+  assert((!getLangOpts().HLSL || getLangOpts().EnableOperatorOverloading) &&
+         "not supported in HLSL - unreachable"); // HLSL Change
   assert(Tok.is(tok::kw_operator) && "Expected 'operator' keyword");
   
   // Consume the 'operator' keyword.
@@ -2527,6 +2538,13 @@ bool Parser::ParseUnqualifiedId(CXXScopeSpec &SS, bool EnteringContext,
   //   operator-function-id
   //   conversion-function-id
   if (Tok.is(tok::kw_operator)) {
+    // HLSL Change Starts
+    if (getLangOpts().HLSL && !getLangOpts().EnableOperatorOverloading) {
+      Diag(Tok, diag::err_hlsl_reserved_keyword) << Tok.getName();
+      ConsumeToken();
+      return true;
+    }
+    // HLSL Change Ends
     if (ParseUnqualifiedIdOperator(SS, EnteringContext, ObjectType, Result))
       return true;
     

@@ -198,6 +198,7 @@ public:
   bool ForceZeroStoreLifetimes = false; // OPT_force_zero_store_lifetimes
   bool EnableLifetimeMarkers = false; // OPT_enable_lifetime_markers
   bool EnableTemplates = false; // OPT_enable_templates
+  bool EnableOperatorOverloading = false; // OPT_enable_operator_overloading
   bool StrictUDTCasting = false; // OPT_strict_udt_casting
 
   // Experimental option to enable short-circuiting operators

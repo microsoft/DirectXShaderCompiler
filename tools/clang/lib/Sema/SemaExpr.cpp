@@ -10880,7 +10880,9 @@ ExprResult Sema::BuildBinOp(Scope *S, SourceLocation OpLoc,
 
   // HLSL Change: allow binary operator overload only when it is a record type
   // defined by the user and the operator is not assignment.
-  if (getLangOpts().CPlusPlus && Opc != BO_Assign &&
+  if (getLangOpts().CPlusPlus &&
+      (!getLangOpts().HLSL || getLangOpts().EnableOperatorOverloading) &&
+      Opc != BO_Assign &&
       IsUserDefinedTypeWithOverloadedOperator(LHSExpr->getType()) &&
       IsUserDefinedTypeWithOverloadedOperator(RHSExpr->getType())) {
     // If either expression is type-dependent, always build an

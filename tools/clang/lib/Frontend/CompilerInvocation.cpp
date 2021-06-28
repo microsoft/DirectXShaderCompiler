@@ -1749,6 +1749,9 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.UseMinPrecision = !Args.hasArg(options::OPT_enable_16bit_types);
   // Enable template support for HLSL
   Opts.EnableTemplates = Args.hasArg(options::OPT_enable_templates);
+  // Enable operator overloading support for HLSL
+  Opts.EnableOperatorOverloading =
+      Args.hasArg(options::OPT_enable_operator_overloading);
   Opts.StrictUDTCasting = Args.hasArg(options::OPT_strict_udt_casting);
 #endif // #ifdef MS_SUPPORT_VARIABLE_LANGOPTS
 }

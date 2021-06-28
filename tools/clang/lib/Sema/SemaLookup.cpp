@@ -293,7 +293,8 @@ void LookupResult::configure() {
                  isForRedeclaration());
 
   // HLSL Change Starts - do not handle new and delete
-  if (!getSema().getLangOpts().HLSL) {
+  if (!getSema().getLangOpts().HLSL ||
+      !getSema().getLangOpts().EnableOperatorOverloading) {
     // If we're looking for one of the allocation or deallocation
     // operators, make sure that the implicitly-declared new and delete
     // operators can be found.
