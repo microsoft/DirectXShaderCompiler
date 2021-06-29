@@ -349,7 +349,7 @@ public:
 
     CA2W shWide(pShaderModel, CP_UTF8);
 
-    wchar_t *pEntryName = L"main";
+    const wchar_t *pEntryName = L"main";
 
     llvm::StringRef stage;
     unsigned RequiredDxilMajor = 1, RequiredDxilMinor = 0;
