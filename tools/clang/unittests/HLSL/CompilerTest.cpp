@@ -25,12 +25,19 @@
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/dxcapi.h"
-#include "dxc/dxcpix.h"
 #ifdef _WIN32
+#include "dxc/dxcpix.h"
 #include <atlfile.h>
 #include <d3dcompiler.h>
 #include "dia2.h"
-#endif
+#else // _WIN32
+#ifndef __ANDROID__
+#include <execinfo.h>
+#define CaptureStackBackTrace(FramesToSkip, FramesToCapture, BackTrace,        \
+                              BackTraceHash)                                   \
+  backtrace(BackTrace, FramesToCapture)
+#endif // __ANDROID__
+#endif // _WIN32
 
 #include "dxc/Test/HLSLTestData.h"
 #include "dxc/Test/HlslTestUtils.h"
@@ -2835,8 +2842,10 @@ public:
     // breakpoint for i failure on NN alloc - m_FailAlloc == 1+VAL && m_AllocCount == NN
     // breakpoint for happy path for NN alloc - m_AllocCount == NN
     P->AllocAtCount = m_AllocCount;
+#ifndef __ANDROID__
     if (CaptureStacks)
       P->AllocFrameCount = CaptureStackBackTrace(1, StackFrameCount, P->AllocFrames, nullptr);
+#endif // __ANDROID__
     P->Size = cb;
     P->Self = P;
     return P + 1;
@@ -2862,9 +2871,11 @@ public:
     m_Size -= P->Size;
     P->Entry.Flink->Blink = P->Entry.Blink;
     P->Entry.Blink->Flink = P->Entry.Flink;
+#ifndef __ANDROID__
     if (CaptureStacks)
       P->FreeFrameCount =
           CaptureStackBackTrace(1, StackFrameCount, P->FreeFrames, nullptr);
+#endif // __ANDROID__
   }
 
   virtual SIZE_T STDMETHODCALLTYPE GetSize(

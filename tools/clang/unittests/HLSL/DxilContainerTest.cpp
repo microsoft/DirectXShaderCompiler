@@ -122,7 +122,7 @@ public:
                         UINT32 codePage, _Outptr_ IDxcBlobEncoding **ppBlob) {
     CComPtr<IDxcLibrary> library;
     IFT(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &library));
-    IFT(library->CreateBlobWithEncodingFromPinned((LPBYTE)data, size, codePage,
+    IFT(library->CreateBlobWithEncodingFromPinned(data, size, codePage,
                                                   ppBlob));
   }
 
@@ -351,9 +351,7 @@ public:
       VERIFY_ARE_EQUAL(testZ, baseZ);
     }
   }
-#endif // _WIN32 - Reflection unsupported
 
-#ifdef _WIN32  // - Reflection unsupported
   HRESULT CompileFromFile(LPCWSTR path, bool useDXBC,
                           UINT fxcFlags, IDxcBlob **ppBlob) {
     std::vector<FileRunCommandPart> parts;
@@ -837,7 +835,7 @@ TEST_F(DxilContainerTest, CompileAS_CheckPSV0) {
       VERIFY_ARE_EQUAL(PSVShaderKind::Amplification, kind);
       PSVRuntimeInfo0* pInfo = PSV.GetPSVRuntimeInfo0();
       VERIFY_IS_NOT_NULL(pInfo);
-      VERIFY_ARE_EQUAL(12, pInfo->AS.PayloadSizeInBytes);
+      VERIFY_ARE_EQUAL(12U, pInfo->AS.PayloadSizeInBytes);
       break;
     }
   }
@@ -911,7 +909,7 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {
       context.InitFromRDAT((char *)pBlob->GetBufferPointer(), pBlob->GetBufferSize());
       FunctionTableReader *funcTableReader = context.GetFunctionTableReader();
       ResourceTableReader *resTableReader = context.GetResourceTableReader();
-      VERIFY_ARE_EQUAL(funcTableReader->GetNumFunctions(), 4);
+      VERIFY_ARE_EQUAL(funcTableReader->GetNumFunctions(), 4U);
       std::string str("function");
       for (uint32_t j = 0; j < funcTableReader->GetNumFunctions(); ++j) {
         FunctionReader funcReader = funcTableReader->GetItem(j);
@@ -920,7 +918,7 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {
         std::string cur_str = str;
         cur_str.push_back('0' + j);
         if (cur_str.compare("function0") == 0) {
-          VERIFY_ARE_EQUAL(funcReader.GetNumResources(), 1);
+          VERIFY_ARE_EQUAL(funcReader.GetNumResources(), 1U);
           hlsl::ShaderFlags flag;
           flag.SetUAVLoadAdditionalFormats(true);
           flag.SetLowPrecisionPresent(true);
@@ -935,16 +933,16 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {
           flag.SetLowPrecisionPresent(true);
           uint64_t rawFlag = flag.GetFeatureInfo();
           VERIFY_ARE_EQUAL(funcReader.GetFeatureFlag(), rawFlag);
-          VERIFY_ARE_EQUAL(funcReader.GetNumResources(), 3);
+          VERIFY_ARE_EQUAL(funcReader.GetNumResources(), 3U);
         }
         else if (cur_str.compare("function2") == 0) {
-          VERIFY_ARE_EQUAL(funcReader.GetFeatureFlag() & 0xffffffffffffffff, 0);
-          VERIFY_ARE_EQUAL(funcReader.GetNumResources(), 0);
+          VERIFY_ARE_EQUAL(funcReader.GetFeatureFlag() & 0xffffffffffffffff, 0U);
+          VERIFY_ARE_EQUAL(funcReader.GetNumResources(), 0U);
           std::string dependency = funcReader.GetDependency(0);
           VERIFY_IS_TRUE(dependency.find("function_import") != std::string::npos);
         }
         else if (cur_str.compare("function3") == 0) {
-          VERIFY_ARE_EQUAL(funcReader.GetFeatureFlag() & 0xffffffffffffffff, 0);
+          VERIFY_ARE_EQUAL(funcReader.GetFeatureFlag() & 0xffffffffffffffff, 0U);
           VERIFY_ARE_EQUAL(funcReader.GetNumResources(), numResFlagCheck);
           for (unsigned i = 0; i < funcReader.GetNumResources(); ++i) {
             ResourceReader resReader = funcReader.GetResource(0);
@@ -963,12 +961,12 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {
           IFTBOOLMSG(false, E_FAIL, "unknown function name");
         }
       }
-      VERIFY_ARE_EQUAL(resTableReader->GetNumResources(), 8);
+      VERIFY_ARE_EQUAL(resTableReader->GetNumResources(), 8U);
       // This is validation test for DxilRuntimeReflection implemented on DxilRuntimeReflection.inl
       unique_ptr<DxilRuntimeReflection> pReflection(CreateDxilRuntimeReflection());
       VERIFY_IS_TRUE(pReflection->InitFromRDAT(pBlob->GetBufferPointer(), pBlob->GetBufferSize()));
       DxilLibraryDesc lib_reflection = pReflection->GetLibraryReflection();
-      VERIFY_ARE_EQUAL(lib_reflection.NumFunctions, 4);
+      VERIFY_ARE_EQUAL(lib_reflection.NumFunctions, 4U);
       for (uint32_t j = 0; j < 3; ++j) {
         DxilFunctionDesc function = lib_reflection.pFunction[j];
         std::string cur_str = str;
@@ -981,8 +979,8 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {
           uint64_t featureFlag = static_cast<uint64_t>(function.FeatureInfo2) << 32;
           featureFlag |= static_cast<uint64_t>(function.FeatureInfo1);
           VERIFY_ARE_EQUAL(featureFlag, rawFlag);
-          VERIFY_ARE_EQUAL(function.NumResources, 1);
-          VERIFY_ARE_EQUAL(function.NumFunctionDependencies, 0);
+          VERIFY_ARE_EQUAL(function.NumResources, 1U);
+          VERIFY_ARE_EQUAL(function.NumFunctionDependencies, 0U);
           const DxilResourceDesc &resource = *function.Resources[0];
           VERIFY_ARE_EQUAL(resource.Class, (uint32_t)hlsl::DXIL::ResourceClass::UAV);
           VERIFY_ARE_EQUAL(resource.Kind, (uint32_t)hlsl::DXIL::ResourceKind::Texture1D);
@@ -996,8 +994,8 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {
           uint64_t featureFlag = static_cast<uint64_t>(function.FeatureInfo2) << 32;
           featureFlag |= static_cast<uint64_t>(function.FeatureInfo1);
           VERIFY_ARE_EQUAL(featureFlag, rawFlag);
-          VERIFY_ARE_EQUAL(function.NumResources, 3);
-          VERIFY_ARE_EQUAL(function.NumFunctionDependencies, 0);
+          VERIFY_ARE_EQUAL(function.NumResources, 3U);
+          VERIFY_ARE_EQUAL(function.NumFunctionDependencies, 0U);
           std::unordered_set<std::wstring> stringSet = { L"$Globals", L"b_buf", L"tex2" };
           for (uint32_t j = 0; j < 3; ++j) {
             const DxilResourceDesc &resource = *function.Resources[j];
@@ -1006,18 +1004,18 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {
           }
         }
         else if (cur_str.compare("function2") == 0) {
-          VERIFY_ARE_EQUAL(function.FeatureInfo1, 0);
-          VERIFY_ARE_EQUAL(function.FeatureInfo2, 0);
-          VERIFY_ARE_EQUAL(function.NumResources, 0);
-          VERIFY_ARE_EQUAL(function.NumFunctionDependencies, 1);
+          VERIFY_ARE_EQUAL(function.FeatureInfo1, 0U);
+          VERIFY_ARE_EQUAL(function.FeatureInfo2, 0U);
+          VERIFY_ARE_EQUAL(function.NumResources, 0U);
+          VERIFY_ARE_EQUAL(function.NumFunctionDependencies, 1U);
           std::wstring dependency = function.FunctionDependencies[0];
           VERIFY_IS_TRUE(dependency.find(L"function_import") != std::wstring::npos);
         }
         else if (cur_str.compare("function3") == 0) {
-          VERIFY_ARE_EQUAL(function.FeatureInfo1, 0);
-          VERIFY_ARE_EQUAL(function.FeatureInfo2, 0);
+          VERIFY_ARE_EQUAL(function.FeatureInfo1, 0U);
+          VERIFY_ARE_EQUAL(function.FeatureInfo2, 0U);
           VERIFY_ARE_EQUAL(function.NumResources, numResFlagCheck);
-          VERIFY_ARE_EQUAL(function.NumFunctionDependencies, 0);
+          VERIFY_ARE_EQUAL(function.NumFunctionDependencies, 0U);
           for (unsigned i = 0; i < function.NumResources; ++i) {
             const DxilResourceDesc *res = function.Resources[i];
             VERIFY_ARE_EQUAL(res->Class, static_cast<uint32_t>(hlsl::DXIL::ResourceClass::UAV));
@@ -1109,6 +1107,8 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT2) {
 
 static uint32_t EncodedVersion_lib_6_3 = hlsl::EncodeVersion(hlsl::DXIL::ShaderKind::Library, 6, 3);
 static uint32_t EncodedVersion_vs_6_3 = hlsl::EncodeVersion(hlsl::DXIL::ShaderKind::Vertex, 6, 3);
+
+#ifdef _WIN32 // - Reflection unsupported
 
 static void Ref1_CheckCBuffer_Globals(ID3D12ShaderReflectionConstantBuffer *pCBReflection, D3D12_SHADER_BUFFER_DESC &cbDesc) {
   std::string cbName = cbDesc.Name;
@@ -1553,6 +1553,7 @@ TEST_F(DxilContainerTest, DxcUtils_CreateReflection) {
     }
   }
 }
+#endif // _WIN32 - Reflection unsupported
 
 TEST_F(DxilContainerTest, CompileWhenOKThenIncludesFeatureInfo) {
   CComPtr<IDxcCompiler> pCompiler;
