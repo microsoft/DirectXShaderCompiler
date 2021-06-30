@@ -35,6 +35,13 @@ public:
   DxilPIXAddTidToAmplificationShaderPayload() : ModulePass(ID) {}
   const char *getPassName() const override { return "DXIL Add flat thread id to payload from AS to MS"; }
   bool runOnModule(Module &M) override;
+private:
+
+    void EmitInstructionsToCopyStructContents(llvm::IRBuilder<> &B,
+        llvm::Value *NewStructAlloca,
+        llvm::Value*OldStructAlloca);
+
+
 };
 
 bool DxilPIXAddTidToAmplificationShaderPayload::runOnModule(Module &M) {
@@ -73,6 +80,7 @@ bool DxilPIXAddTidToAmplificationShaderPayload::runOnModule(Module &M) {
       }
   }
 
+  AllocaInst* OldStructAlloca = nullptr;
   AllocaInst* NewStructAlloca = nullptr;
     for (inst_iterator I = inst_begin(entryFunction),
                      E = inst_end(entryFunction);
@@ -82,18 +90,46 @@ bool DxilPIXAddTidToAmplificationShaderPayload::runOnModule(Module &M) {
           auto* Alloca = llvm::cast<AllocaInst>(Inst);
           if (Alloca->getType() == OriginalPayloadStructPointerType)
           {
+              OldStructAlloca = Alloca;
               llvm::IRBuilder<> B(Alloca->getContext());
               NewStructAlloca = B.CreateAlloca(ExpandedPayloadStructType, HlslOP->GetU32Const(1), "NewPayload");
               NewStructAlloca->setAlignment(Alloca->getAlignment());
               NewStructAlloca->insertAfter(Alloca);
-              //Alloca->removeFromParent();
-              //for (auto user : Alloca->users())
-              //{
-              //    user->dump();
-              //    for(auto )
-              //}
-              //
-              //delete Alloca;
+              //Alloca->replaceAllUsesWith(NewStructAlloca);
+              std::vector<Value*> users;
+              for (auto u = Alloca->user_begin(); u != Alloca->user_end(); ++u)
+              {
+                  users.push_back(*u);
+              }
+
+              for (auto user : users)
+              {
+                  user->dump();
+                  if (auto* instruction = llvm::cast<Instruction>(user))
+                  {
+                      instruction->dump();
+                      for (unsigned int i = 0; i < instruction->getNumOperands(); ++i)
+                      {
+                          auto* Operand = instruction->getOperand(i);
+                          if (Operand == Alloca)
+                          {
+                              instruction->setOperand(i, NewStructAlloca);
+                          }
+                      }
+                      if (llvm::isa<GetElementPtrInst>(instruction))
+                      {
+                          auto* GEP = llvm::cast<GetElementPtrInst>(instruction);
+                          GEP->setSourceElementType(ExpandedPayloadStructType);
+                      }
+                  }
+              }
+
+              for (auto user : Alloca->users()) {
+                  user->dump();
+              }
+
+              Alloca->removeFromParent();
+              delete Alloca;
               break;
             }
       }
@@ -108,23 +144,56 @@ bool DxilPIXAddTidToAmplificationShaderPayload::runOnModule(Module &M) {
       llvm::IRBuilder<> B(Ctx);
       B.SetInsertPoint(UserInstruction);
 
+      //auto ThreadIdFunc = BC.HlslOP->GetOpFunc(DXIL::OpCode::DispatchMesh,
+      //                                         Type::getInt32Ty(BC.Ctx));
+      //Constant *Opcode =
+      //    BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::ThreadId);
+      //auto ThreadIdX =
+      //    BC.Builder.CreateCall(ThreadIdFunc, {Opcode, Zero32Arg}, "ThreadIdX");
+
+      //B.CreateCall()
+
       SmallVector<Value *, 2> IndexToEmbeddedOriginal;
       IndexToEmbeddedOriginal.push_back(HlslOP->GetU32Const(0));
       IndexToEmbeddedOriginal.push_back(HlslOP->GetU32Const(0));
+      auto *PointerToContainedCopyOfOriginal = B.CreateInBoundsGEP(ExpandedPayloadStructType, NewStructAlloca, IndexToEmbeddedOriginal, "PointerToCopyOfOriginal");
 
-      auto *PointerToContainedOriginal = B.CreateInBoundsGEP(ExpandedPayloadStructType, NewStructAlloca, IndexToEmbeddedOriginal, "PointerToContainedOriginal");
-      //auto Original = B.CreateInBoundsGEP(OriginalPayloadStructType, DispatchMesh.get_payload(), HlslOP->GetU32Const(0), "Original");
-      SmallVector<uint32_t, 1> Index0{ 0 };
-      auto orginalValue = B.CreateExtractValue(DispatchMesh.get_payload(), Index0);
-      B.CreateStore(orginalValue, PointerToContainedOriginal);
-      /*auto* StoreOrignal = */B.CreateInsertValue(PointerToContainedOriginal, DispatchMesh.get_payload(), Index0);
-      SmallVector<uint32_t, 1> Index1{ 0, 1 };
-      /*auto* StoreAppendedValue = */B.CreateInsertValue(HlslOP->GetU32Const(42), PointerToContainedOriginal, Index1);
+      SmallVector<uint32_t, 1> Index1{0, 1};
+      /*auto* StoreAppendedValue = */ B.CreateInsertValue(
+          HlslOP->GetU32Const(42), PointerToContainedCopyOfOriginal, Index1);
+
+      //SmallVector<uint32_t, 1> Index0{0};
+      //auto *PointerToOriginal = B.CreateInBoundsGEP(
+      //    OriginalPayloadStructType, OldStructAlloca, IndexToEmbeddedOriginal,
+      //    "PointerToOriginal");
+      //
+      //EmitInstructionsToCopyStructContents(B, PointerToContainedCopyOfOriginal, PointerToOriginal);
+      //
+      ////auto Original = B.CreateInBoundsGEP(OriginalPayloadStructType, DispatchMesh.get_payload(), HlslOP->GetU32Const(0), "Original");
+      ////auto orginalValue = B.CreateExtractValue(DispatchMesh.get_payload(), Index0);
+      //B.CreateStore(OldStructAlloca, PointerToContainedCopyOfOriginal);
+      ///*auto* StoreOrignal = */B.CreateInsertValue(PointerToContainedCopyOfOriginal, DispatchMesh.get_payload(), Index0);
   }
 
   DM.ReEmitDxilResources();
 
   return true;
+}
+
+void DxilPIXAddTidToAmplificationShaderPayload::EmitInstructionsToCopyStructContents(llvm::IRBuilder<> & B,
+    llvm::Value * NewStructPointer,
+    llvm::Value* OldStruct) {
+    //DXASSERT(NewStruct->getType() == OldStruct->getType());
+    //switch (NewStruct->getType()->getTypeID())
+    //{
+    //case llvm::Type::TypeID::FunctionTyID:
+    //case llvm::Type::TypeID::StructTyID:
+    //case llvm::Type::TypeID::ArrayTyID:
+    //case llvm::Type::TypeID::PointerTyID:
+    //case llvm::Type::TypeID::VectorTyID:
+    //default:
+    //  B.CreateStore(NewStruct, OldStruct);
+    //}
 }
 
 char DxilPIXAddTidToAmplificationShaderPayload::ID = 0;
