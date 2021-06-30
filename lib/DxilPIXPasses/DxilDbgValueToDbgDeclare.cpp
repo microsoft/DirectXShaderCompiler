@@ -704,40 +704,44 @@ void DxilDbgValueToDbgDeclare::handleDbgValue(
   auto* instruction = llvm::dyn_cast<llvm::Instruction>(V);
   if (instruction != nullptr) {
     instruction = instruction->getNextNode();
-    if (instruction != nullptr) {
+    if (instruction != nullptr && !llvm::isa<TerminatorInst>(instruction)) {
       // Drivers may crash if phi nodes aren't always at the top of a block,
       // so we must skip over them before inserting instructions.
       do {
         instruction = instruction->getNextNode();
-      } while (instruction != nullptr && llvm::isa<llvm::PHINode>(instruction));
+      } while (instruction != nullptr && 
+          llvm::isa<llvm::PHINode>(instruction) &&
+          !llvm::isa<TerminatorInst>(instruction));
       
-      B.SetInsertPoint(instruction);
-
-      B.SetCurrentDebugLocation(llvm::DebugLoc());
-      auto *Zero = B.getInt32(0);
-
-      // Now traverse a list of pairs {Scalar Value, InitialOffset + Offset}.
-      // InitialOffset is the offset from DbgValue's expression (i.e., the
-      // offset from the Variable's start), and Offset is the Scalar Value's
-      // packed offset from DbgValue's value.
-      for (const ValueAndOffset &VO : SplitValue(V, InitialOffset, B)) {
-
-        OffsetInBits AlignedOffset;
-        if (!Offsets.GetAlignedOffsetFromPackedOffset(VO.m_PackedOffset,
-                                                      &AlignedOffset)) {
-          continue;
-        }
-
-        auto *AllocaInst = Register->GetRegisterForAlignedOffset(AlignedOffset);
-        if (AllocaInst == nullptr) {
-          assert(!"Failed to find alloca for var[offset]");
-          continue;
-        }
-
-        if (AllocaInst->getAllocatedType()->getArrayElementType() ==
-            VO.m_V->getType()) {
-          auto *GEP = B.CreateGEP(AllocaInst, {Zero, Zero});
-          B.CreateStore(VO.m_V, GEP);
+      if(instruction != nullptr && !llvm::isa<TerminatorInst>(instruction)) {
+        B.SetInsertPoint(instruction);
+        
+        B.SetCurrentDebugLocation(llvm::DebugLoc());
+        auto *Zero = B.getInt32(0);
+        
+        // Now traverse a list of pairs {Scalar Value, InitialOffset + Offset}.
+        // InitialOffset is the offset from DbgValue's expression (i.e., the
+        // offset from the Variable's start), and Offset is the Scalar Value's
+        // packed offset from DbgValue's value.
+        for (const ValueAndOffset &VO : SplitValue(V, InitialOffset, B)) {
+        
+          OffsetInBits AlignedOffset;
+          if (!Offsets.GetAlignedOffsetFromPackedOffset(VO.m_PackedOffset,
+                                                        &AlignedOffset)) {
+            continue;
+          }
+        
+          auto *AllocaInst = Register->GetRegisterForAlignedOffset(AlignedOffset);
+          if (AllocaInst == nullptr) {
+            assert(!"Failed to find alloca for var[offset]");
+            continue;
+          }
+        
+          if (AllocaInst->getAllocatedType()->getArrayElementType() ==
+              VO.m_V->getType()) {
+            auto *GEP = B.CreateGEP(AllocaInst, {Zero, Zero});
+            B.CreateStore(VO.m_V, GEP);
+          }
         }
       }
     }
