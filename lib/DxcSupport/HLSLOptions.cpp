@@ -512,11 +512,14 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     opts.DxcOptimizationToggles[llvm::StringRef(opt).lower()] = false;
 
   for (std::string opt : Args.getAllArgValues(OPT_opt_enable)) {
-    if (!opts.DxcOptimizationToggles.insert ( {llvm::StringRef(opt).lower(), true} ).second) {
+    std::string optimization = llvm::StringRef(opt).lower();
+    if (opts.DxcOptimizationToggles.count(optimization) &&
+        !opts.DxcOptimizationToggles[optimization]) {
       errors << "Contradictory use of -opt-disable and -opt-enable with \""
              << llvm::StringRef(opt).lower() << "\"";
       return 1;
     }
+    opts.DxcOptimizationToggles[optimization] = true;
   }
 
   std::vector<std::string> ignoreSemDefs = Args.getAllArgValues(OPT_ignore_semdef);
