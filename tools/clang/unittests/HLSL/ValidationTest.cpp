@@ -61,6 +61,8 @@ public:
   TEST_METHOD(WhenUnknownBlocksThenFail)
   TEST_METHOD(WhenZeroInputPatchCountWithInputThenFail)
 
+  TEST_METHOD(DisallowedOperatorOverloadingForNewDelete)
+
   TEST_METHOD(Float32DenormModeAttribute)
   TEST_METHOD(LoadOutputControlPointNotInPatchConstantFunction)
   TEST_METHOD(StorePatchControlNotInPatchConstantFunction)
@@ -1676,6 +1678,10 @@ TEST_F(ValidationTest, WhenMetaFlagsUsageThenFail) {
     "uint u; float4 main() : SV_Target { uint64_t n = u; n *= u; return (uint)(n >> 32); }", "ps_6_0",
     "1048576", "0", // remove the int64 flag
     "Flags must match usage");
+}
+
+TEST_F(ValidationTest, DisallowedOperatorOverloadingForNewDelete) {
+  TestCheck(L"..\\CodeGenHLSL\\overload_new_and_delete_operators.hlsl");
 }
 
 TEST_F(ValidationTest, StorePatchControlNotInPatchConstantFunction) {

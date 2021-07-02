@@ -7480,6 +7480,8 @@ def err_hlsl_matrix_member_too_many_positions: Error<
   "more than four positions are referenced in '%0'">;
 def err_hlsl_matrix_member_zero_in_one_based: Error<
   "the digit '0' is used in '%0', but the syntax is for one-based rows and columns">;
+def err_hlsl_overloading_new_delete_operator: Error<
+  "overloading %0 is not allowed">;
 def err_hlsl_vector_member_bad_format: Error<
   "invalid format for vector swizzle '%0'">;
 def err_hlsl_vector_member_empty: Error<
