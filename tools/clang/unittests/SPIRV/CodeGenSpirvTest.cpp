@@ -2112,10 +2112,20 @@ TEST_F(FileTest, VulkanLayoutFxcRulesSBuffer) {
   setDxLayout();
   runFileTest("vk.layout.sbuffer.fxc.hlsl");
 }
-TEST_F(FileTest, VulkanLayoutFxcRulesSBufferCheckStrideWithCorrectAlignment) {
+TEST_F(FileTest, VulkanLayoutFxcRulesSBufferStructSize) {
   // structured buffers with fxc layout rules
   setDxLayout();
-  runFileTest("vk.layout.sbuffer.fxc.stride.with.correct.alignment.hlsl");
+  runFileTest("vk.layout.sbuffer.struct-size.with.fxc.rule.hlsl");
+}
+TEST_F(FileTest, VulkanLayoutFxcRulesSBufferStructSizeNested) {
+  // structured buffers with fxc layout rules
+  setDxLayout();
+  runFileTest("vk.layout.sbuffer.nested-struct-size.with.fxc.rule.hlsl");
+}
+TEST_F(FileTest, VulkanLayoutFxcRulesSBufferVectorAndMatrix) {
+  // structured buffers with fxc layout rules
+  setDxLayout();
+  runFileTest("vk.layout.sbuffer.vector-and-matrix.with.fxc.rule.hlsl");
 }
 TEST_F(FileTest, VulkanLayoutFxcRulesCBuffer) {
   // cbuffer/tbuffer/ConstantBuffer/TextureBuffer with fxc layout rules
