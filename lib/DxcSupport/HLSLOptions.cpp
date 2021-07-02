@@ -470,6 +470,19 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     opts.EnableFXCCompatMode = true;
   }
 
+  // If the HLSL version is 2021, allow the operator overloading by default.
+  // If the HLSL version is 2016 or 2018, allow the operator overloading only
+  // when -enable-operator-overloading option is enabled.
+  // If the HLSL version is 2015, do not allow the operator overloading.
+  opts.EnableOperatorOverloading =
+      opts.HLSLVersion == 2021 ||
+      Args.hasFlag(OPT_enable_operator_overloading, OPT_INVALID, false);
+  if (opts.HLSLVersion <= 2015 && opts.EnableOperatorOverloading) {
+    errors << "/enable-operator-overloading is not supported with HLSL Version "
+           << opts.HLSLVersion;
+    return 1;
+  }
+
   // AssemblyCodeHex not supported (Fx)
   // OutputLibrary not supported (Fl)
   opts.AssemblyCode = Args.getLastArgValue(OPT_Fc);
