@@ -10882,7 +10882,6 @@ ExprResult Sema::BuildBinOp(Scope *S, SourceLocation OpLoc,
   // defined by the user and the operator is not assignment.
   if (getLangOpts().CPlusPlus &&
       (!getLangOpts().HLSL || getLangOpts().EnableOperatorOverloading) &&
-      Opc != BO_Assign &&
       IsUserDefinedTypeWithOverloadedOperator(LHSExpr->getType()) &&
       IsUserDefinedTypeWithOverloadedOperator(RHSExpr->getType())) {
     // If either expression is type-dependent, always build an
