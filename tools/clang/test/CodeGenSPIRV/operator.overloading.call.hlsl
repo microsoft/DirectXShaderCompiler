@@ -1,9 +1,8 @@
 // Run: %dxc -T ps_6_0 -E main -enable-operator-overloading
 
 // CHECK:          %a = OpVariable %_ptr_Function_Number Function
-// CHECK:        %foo = OpVariable %_ptr_Function_int Function
 // CHECK: [[call:%\w+]] = OpFunctionCall %int %Number_operator_Call %a
-// CHECK:               OpStore %foo [[call]]
+// CHECK:               OpReturnValue [[call]]
 
 // CHECK: %Number_operator_Call = OpFunction %int None
 // CHECK: %param_this = OpFunctionParameter %_ptr_Function_Number
@@ -16,7 +15,7 @@ struct Number {
     }
 };
 
-void main() {
-    Number a;
-    int foo = a();
+int main(float4 pos: SV_Position) : SV_Target {
+    Number a = {pos.x};
+    return a();
 }
