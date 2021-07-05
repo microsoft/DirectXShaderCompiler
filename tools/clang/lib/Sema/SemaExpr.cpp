@@ -1553,22 +1553,27 @@ static ExprResult BuildCookedLiteralOperatorCall(Sema &S, Scope *Scope,
 }
 
 // HLSL Change Starts
-static bool IsUserDefinedTypeWithOverloadedOperator(QualType type) {
-  // HLSL specific types
-  if (hlsl::IsHLSLResourceType(type) || hlsl::IsHLSLVecMatType(type) ||
-      isa<ExtVectorType>(type.getTypePtr()) || type->isBuiltinType() ||
-      type->isArrayType()) {
-    return false;
-  }
-
-  // SubpassInput or SubpassInputMS type
+static bool IsUserDefinedRecordType(QualType type) {
   if (const auto *rt = type->getAs<RecordType>()) {
+    // HLSL specific types
+    if (hlsl::IsHLSLResourceType(type) || hlsl::IsHLSLVecMatType(type) ||
+        isa<ExtVectorType>(type.getTypePtr()) || type->isBuiltinType() ||
+        type->isArrayType()) {
+      return false;
+    }
+
+    // SubpassInput or SubpassInputMS type
     if (rt->getDecl()->getName() == "SubpassInput" ||
         rt->getDecl()->getName() == "SubpassInputMS") {
       return false;
     }
+    return true;
   }
 
+  return false;
+}
+
+static bool DoesTypeDefineOverloadedOperator(QualType type) {
   if (const RecordType *recordType = type->getAs<RecordType>()) {
     if (const CXXRecordDecl *cxxRecordDecl =
             dyn_cast<CXXRecordDecl>(recordType->getDecl())) {
@@ -1581,6 +1586,12 @@ static bool IsUserDefinedTypeWithOverloadedOperator(QualType type) {
     }
   }
   return false;
+}
+
+static bool IsUserDefinedRecordTypeWithOverloadedOperator(QualType type) {
+  if (!IsUserDefinedRecordType(type))
+    return false;
+  return DoesTypeDefineOverloadedOperator(type);
 }
 // HLSL Change Ends
 
@@ -10882,8 +10893,8 @@ ExprResult Sema::BuildBinOp(Scope *S, SourceLocation OpLoc,
   // defined by the user and the operator is not assignment.
   if (getLangOpts().CPlusPlus &&
       (!getLangOpts().HLSL || getLangOpts().EnableOperatorOverloading) &&
-      IsUserDefinedTypeWithOverloadedOperator(LHSExpr->getType()) &&
-      IsUserDefinedTypeWithOverloadedOperator(RHSExpr->getType())) {
+      IsUserDefinedRecordTypeWithOverloadedOperator(LHSExpr->getType()) &&
+      IsUserDefinedRecordType(RHSExpr->getType())) {
     // If either expression is type-dependent, always build an
     // overloaded op.
     if (LHSExpr->isTypeDependent() || RHSExpr->isTypeDependent())
