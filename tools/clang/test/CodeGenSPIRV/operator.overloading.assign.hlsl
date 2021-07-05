@@ -3,8 +3,8 @@
 // CHECK:           %a = OpVariable %_ptr_Function_Number Function
 // CHECK:           %b = OpVariable %_ptr_Function_Number Function
 // CHECK: %param_var_x = OpVariable %_ptr_Function_Number Function
-// CHECK:   [[a:%\w+]] = OpLoad %Number %a
-// CHECK:                OpStore %param_var_x [[a]]
+// CHECK:   [[b:%\w+]] = OpLoad %Number %b
+// CHECK:                OpStore %param_var_x [[b]]
 // CHECK:                OpFunctionCall %void %Number_operator_Equal %a %param_var_x
 
 // CHECK: %Number_operator_Equal = OpFunction %void None

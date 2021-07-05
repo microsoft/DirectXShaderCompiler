@@ -2307,6 +2307,7 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
   const auto numParams = callee->getNumParams();
 
   bool isNonStaticMemberCall = false;
+  bool isOperatorOverloading = false;
   QualType objectType = {};             // Type of the object (if exists)
   SpirvInstruction *objInstr = nullptr; // EvalInfo for the object (if exists)
   const Expr *object;
@@ -2337,6 +2338,7 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
     }
   } else if (const auto *operatorCallExpr =
                  dyn_cast<CXXOperatorCallExpr>(callExpr)) {
+    isOperatorOverloading = true;
     isNonStaticMemberCall = true;
     // For overloaded operator calls, the first argument is considered as the
     // object.
@@ -2376,10 +2378,14 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
 
   // Evaluate parameters
   for (uint32_t i = 0; i < numParams; ++i) {
+    // Arguments for the overloaded operator includes the object itself. The
+    // actual argument starts from the second one.
+    const uint32_t argIndex = i + isOperatorOverloading;
+
     // We want the argument variable here so that we can write back to it
     // later. We will do the OpLoad of this argument manually. So ingore
     // the LValueToRValue implicit cast here.
-    auto *arg = callExpr->getArg(i)->IgnoreParenLValueCasts();
+    auto *arg = callExpr->getArg(argIndex)->IgnoreParenLValueCasts();
     const auto *param = callee->getParamDecl(i);
     const auto paramType = param->getType();
 
@@ -2493,7 +2499,11 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
     // the resource.
     if (isTempVar[index] && canActAsOutParmVar(param) &&
         !isResourceType(paramType)) {
-      const auto *arg = callExpr->getArg(i);
+      // Arguments for the overloaded operator includes the object itself. The
+      // actual argument starts from the second one.
+      const uint32_t argIndex = i + isOperatorOverloading;
+
+      const auto *arg = callExpr->getArg(argIndex);
       SpirvInstruction *value =
           spvBuilder.createLoad(paramType, vars[index], arg->getLocStart());
 
