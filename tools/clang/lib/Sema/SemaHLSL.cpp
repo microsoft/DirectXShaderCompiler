@@ -8694,6 +8694,7 @@ bool HLSLExternalSource::CanConvert(
   // Structure cast.
   SourceIsAggregate = SourceInfo.ShapeKind == AR_TOBJ_COMPOUND || SourceInfo.ShapeKind == AR_TOBJ_ARRAY;
   TargetIsAggregate = TargetInfo.ShapeKind == AR_TOBJ_COMPOUND || TargetInfo.ShapeKind == AR_TOBJ_ARRAY;
+  bool TargetUnnamed = false;
   if (SourceIsAggregate || TargetIsAggregate) {
     // For implicit conversions, FXC treats arrays the same as structures
     // and rejects conversions between them and numeric types
@@ -8720,6 +8721,9 @@ bool HLSLExternalSource::CanConvert(
           Second = ICK_HLSL_Derived_To_Base;
           goto lSuccess;
         }
+        // There is no way to cast to anonymous structures.  So we allow legacy
+        // HLSL implicit casts to matching anonymous structure types.
+        TargetUnnamed = !targetRD->hasNameForLinkage();
       }
     }
 
@@ -8748,6 +8752,14 @@ bool HLSLExternalSource::CanConvert(
           break;
         }
       }
+    } else if (m_sema->getLangOpts().StrictUDTCasting &&
+               (SourceInfo.ShapeKind == AR_TOBJ_COMPOUND ||
+                TargetInfo.ShapeKind == AR_TOBJ_COMPOUND) &&
+               !TargetUnnamed) {
+      // Not explicit, either are struct/class, not derived-to-base,
+      // target is named (so explicit cast is possible),
+      // and using strict UDT rules: disallow this implicit cast.
+      return false;
     }
 
     FlattenedTypeIterator::ComparisonResult result =
