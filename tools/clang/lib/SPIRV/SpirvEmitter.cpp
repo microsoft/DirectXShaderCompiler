@@ -4962,8 +4962,9 @@ SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr) {
 
   auto base = loadIfAliasVarRef(baseExpr);
 
-  if (indices.empty())
-    return base; // For indexing into size-1 vectors and 1xN matrices
+  if (base == nullptr ||
+      indices.empty()) // For indexing into size-1 vectors and 1xN matrices
+    return base;
 
   // If we are indexing into a rvalue, to use OpAccessChain, we first need
   // to create a local variable to hold the rvalue.
