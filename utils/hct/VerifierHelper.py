@@ -53,6 +53,7 @@ VerifierTests = {
     'RunAttributes': 'attributes.hlsl',
     'RunBadInclude': 'bad-include.hlsl',
     'RunBinopDims': 'binop-dims.hlsl',
+    'RunBitfields': 'bitfields.hlsl',
     'RunBuiltinTypesNoInheritance': 'builtin-types-no-inheritance.hlsl',
     'RunCXX11Attributes': 'cxx11-attributes.hlsl',
     'RunConstAssign': 'const-assign.hlsl',
@@ -105,6 +106,7 @@ VerifierTests = {
 
 # The following test(s) do not work in fxc mode:
 fxcExcludedTests = [
+    'RunBitfields',
     'RunCppErrors',
     'RunCppErrorsHV2015',
     'RunCXX11Attributes',
