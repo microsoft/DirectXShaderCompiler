@@ -326,52 +326,27 @@ bool GlPerVertex::doGlPerVertexFacts(const DeclaratorDecl *decl,
   if (baseType->isReferenceType())
     baseType = baseType->getPointeeType();
 
-  if (baseType->isFloatingType() || hlsl::IsHLSLVecType(baseType)) {
+  if (baseType->isConstantArrayType()) {
+    const auto *arrayType = astContext.getAsConstantArrayType(baseType);
+
+    // TODO: handle extra large array size?
+    if (*blockArraySize ==
+        static_cast<uint32_t>(arrayType->getSize().getZExtValue())) {
+      const QualType elemType = arrayType->getElementType();
+      if (getNumberOfScalarComponentsInScalarVectorArray(elemType) != 0) {
+        (*typeMap)[semanticIndex] = elemType;
+        return true;
+      }
+    }
+  }
+
+  if (getNumberOfScalarComponentsInScalarVectorArray(baseType) != 0) {
     (*typeMap)[semanticIndex] = baseType;
     return true;
   }
 
-  if (baseType->isConstantArrayType()) {
-    if (spvContext.isHS() || spvContext.isDS() || spvContext.isGS() ||
-        spvContext.isMS()) {
-      // Ignore the outermost arrayness and check the inner type to be
-      // (vector of) floats
-
-      const auto *arrayType = astContext.getAsConstantArrayType(baseType);
-
-      // TODO: handle extra large array size?
-      if (*blockArraySize !=
-          static_cast<uint32_t>(arrayType->getSize().getZExtValue())) {
-        emitError("inconsistent array size for shader %select{output|input}0 "
-                  "variable '%1'",
-                  decl->getLocStart())
-            << asInput << decl->getName();
-        return false;
-      }
-
-      const QualType elemType = arrayType->getElementType();
-
-      if (elemType->isFloatingType() || hlsl::IsHLSLVecType(elemType)) {
-        (*typeMap)[semanticIndex] = elemType;
-        return true;
-      }
-
-      emitError("elements for %select{SV_ClipDistance|SV_CullDistance}0 "
-                "variable '%1' must be (vector of) floats",
-                decl->getLocStart())
-          << isCull << decl->getName();
-      return false;
-    }
-
-    emitError("%select{SV_ClipDistance|SV_CullDistance}0 variable '%1' not "
-              "allowed to be of array type",
-              decl->getLocStart())
-        << isCull << decl->getName();
-    return false;
-  }
-
-  emitError("incorrect type for %select{SV_ClipDistance|SV_CullDistance}0 "
-            "variable '%1'",
+  emitError("type for %select{SV_ClipDistance|SV_CullDistance}0 "
+            "variable '%1' must be a scalar, vector, or array with floats",
             decl->getLocStart())
       << isCull << decl->getName();
   return false;
