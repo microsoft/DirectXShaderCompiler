@@ -48,6 +48,7 @@ add_clang_library(clang-hlsl-tests SHARED
   SystemValueTest.cpp
   ValidationTest.cpp
   VerifierTest.cpp
+  ViewIDValidationTest.cpp
   clang-hlsl-tests.rc
   )
 else (WIN32)
