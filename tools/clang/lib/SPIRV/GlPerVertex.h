@@ -151,6 +151,26 @@ private:
       SourceLocation loc,
       llvm::Optional<uint32_t> arrayIndex = llvm::None) const;
 
+  /// Creates store instruction for clip or cull distance with a scalar type.
+  bool createScalarClipCullDistanceStore(
+      SpirvInstruction *ptr, SpirvInstruction *value, QualType valueType,
+      SpirvInstruction *offset, SourceLocation loc,
+      llvm::Optional<uint32_t> valueOffset,
+      llvm::Optional<SpirvInstruction *> arrayIndex = llvm::None) const;
+  /// Creates store instruction for clip or cull distance with a scalar or
+  /// vector type.
+  bool createScalarOrVectorClipCullDistanceStore(
+      SpirvInstruction *ptr, SpirvInstruction *value, QualType valueType,
+      SpirvInstruction *offset, SourceLocation loc,
+      llvm::Optional<uint32_t> valueOffset,
+      llvm::Optional<SpirvInstruction *> arrayIndex = llvm::None) const;
+  /// Creates store instruction for clip or cull distance with a scalar or
+  /// vector or array type of them.
+  bool createClipCullDistanceStore(
+      SpirvInstruction *ptr, SpirvInstruction *value, QualType valueType,
+      SpirvInstruction *offset, SourceLocation loc,
+      llvm::Optional<SpirvInstruction *> arrayIndex = llvm::None) const;
+
 private:
   using SemanticIndexToTypeMap = llvm::DenseMap<uint32_t, QualType>;
   using SemanticIndexToArrayOffsetMap = llvm::DenseMap<uint32_t, uint32_t>;
