@@ -142,6 +142,83 @@ uint32_t GlPerVertex::getNumberOfScalarComponentsInScalarVectorArray(
   return 0;
 }
 
+SpirvInstruction *GlPerVertex::createScalarClipCullDistanceLoad(
+    SpirvInstruction *ptr, QualType asType, uint32_t offset, SourceLocation loc,
+    llvm::Optional<uint32_t> arrayIndex) const {
+  if (!isScalarType(asType))
+    return nullptr;
+
+  // The ClipDistance/CullDistance is always an float array. We are accessing
+  // it using pointers, which should be of pointer to float type.
+  const QualType f32Type = astContext.FloatTy;
+
+  llvm::SmallVector<SpirvInstruction *, 2> spirvConstants;
+  if (arrayIndex.hasValue()) {
+    spirvConstants.push_back(spvBuilder.getConstantInt(
+        astContext.UnsignedIntTy, llvm::APInt(32, arrayIndex.getValue())));
+  }
+  spirvConstants.push_back(spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                                     llvm::APInt(32, offset)));
+  return spvBuilder.createLoad(
+      f32Type, spvBuilder.createAccessChain(f32Type, ptr, spirvConstants, loc),
+      loc);
+}
+
+SpirvInstruction *GlPerVertex::createScalarOrVectorClipCullDistanceLoad(
+    SpirvInstruction *ptr, QualType asType, uint32_t offset,
+    llvm::SmallVector<SpirvInstruction *, 4> *loadsForComponents,
+    SourceLocation loc, llvm::Optional<uint32_t> arrayIndex) const {
+  if (isScalarType(asType))
+    return createScalarClipCullDistanceLoad(ptr, asType, offset, loc,
+                                            arrayIndex);
+
+  QualType elemType = {};
+  uint32_t count = 0;
+  if (!isVectorType(asType, &elemType, &count))
+    return nullptr;
+
+  // The target SV_ClipDistance/SV_CullDistance variable is of vector
+  // type, then we need to construct a vector out of float array elements.
+  llvm::SmallVector<SpirvInstruction *, 4> elements;
+  llvm::SmallVector<SpirvInstruction *, 4> *loads = &elements;
+  if (loadsForComponents)
+    loads = loadsForComponents;
+  for (uint32_t i = 0; i < count; ++i) {
+    loads->push_back(createScalarClipCullDistanceLoad(ptr, elemType, offset + i,
+                                                      loc, arrayIndex));
+  }
+  if (loadsForComponents)
+    return nullptr;
+  return spvBuilder.createCompositeConstruct(
+      astContext.getExtVectorType(astContext.FloatTy, count), elements, loc);
+}
+
+SpirvInstruction *GlPerVertex::createClipCullDistanceLoad(
+    SpirvInstruction *ptr, QualType asType, uint32_t offset, SourceLocation loc,
+    llvm::Optional<uint32_t> arrayIndex) const {
+  if (asType->isConstantArrayType()) {
+    const auto *arrayType = astContext.getAsConstantArrayType(asType);
+    uint32_t count = static_cast<uint32_t>(arrayType->getSize().getZExtValue());
+    QualType elemType = arrayType->getElementType();
+    uint32_t numberOfScalarsInElement =
+        getNumberOfScalarComponentsInScalarVectorArray(elemType);
+
+    llvm::SmallVector<SpirvInstruction *, 4> elements;
+    for (uint32_t i = 0; i < count; ++i) {
+      elements.push_back(createScalarOrVectorClipCullDistanceLoad(
+          ptr, elemType, offset + i * numberOfScalarsInElement, &elements, loc,
+          arrayIndex));
+    }
+    QualType type = astContext.getConstantArrayType(
+        astContext.FloatTy, llvm::APInt(32, count * numberOfScalarsInElement),
+        clang::ArrayType::Normal, 0);
+    return spvBuilder.createCompositeConstruct(type, elements, loc);
+  }
+
+  return createScalarOrVectorClipCullDistanceLoad(ptr, asType, offset, nullptr,
+                                                  loc, arrayIndex);
+}
+
 bool GlPerVertex::doGlPerVertexFacts(const DeclaratorDecl *decl,
                                      QualType baseType, bool asInput) {
 
@@ -424,38 +501,7 @@ SpirvInstruction *GlPerVertex::readClipCullArrayAsType(
   const QualType f32Type = astContext.FloatTy;
 
   if (inArraySize == 0) {
-    // The input builtin does not have extra arrayness. Only need one index
-    // to locate the array segment for this SV_ClipDistance/SV_CullDistance
-    // variable: the start offset within the float array.
-    QualType elemType = {};
-    uint32_t count = {};
-
-    if (isScalarType(asType)) {
-      auto *spirvConstant = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                                      llvm::APInt(32, offset));
-      auto *ptr = spvBuilder.createAccessChain(f32Type, clipCullVar,
-                                               {spirvConstant}, loc);
-      return spvBuilder.createLoad(f32Type, ptr, loc);
-    }
-
-    if (isVectorType(asType, &elemType, &count)) {
-      // The target SV_ClipDistance/SV_CullDistance variable is of vector
-      // type, then we need to construct a vector out of float array elements.
-      llvm::SmallVector<SpirvInstruction *, 4> elements;
-      for (uint32_t i = 0; i < count; ++i) {
-        // Read elements sequentially from the float array
-        auto *spirvConstant = spvBuilder.getConstantInt(
-            astContext.UnsignedIntTy, llvm::APInt(32, offset + i));
-        auto *ptr = spvBuilder.createAccessChain(f32Type, clipCullVar,
-                                                 {spirvConstant}, loc);
-        elements.push_back(spvBuilder.createLoad(f32Type, ptr, loc));
-      }
-      return spvBuilder.createCompositeConstruct(
-          astContext.getExtVectorType(f32Type, count), elements, loc);
-    }
-
-    llvm_unreachable("SV_ClipDistance/SV_CullDistance not float or vector of "
-                     "float case sneaked in");
+    return createClipCullDistanceLoad(clipCullVar, asType, offset, loc);
   }
 
   // The input builtin block is an array of block, which means we need to
@@ -467,45 +513,27 @@ SpirvInstruction *GlPerVertex::readClipCullArrayAsType(
 
   llvm::SmallVector<SpirvInstruction *, 8> arrayElements;
   QualType elemType = {};
-  uint32_t count = {};
+  uint32_t count = getNumberOfScalarComponentsInScalarVectorArray(asType);
   QualType arrayType = {};
+
+  for (uint32_t i = 0; i < inArraySize; ++i) {
+    arrayElements.push_back(createClipCullDistanceLoad(
+        clipCullVar, asType, offset, loc, llvm::Optional<uint32_t>(i)));
+  }
 
   if (isScalarType(asType)) {
     arrayType = astContext.getConstantArrayType(
         f32Type, llvm::APInt(32, inArraySize), clang::ArrayType::Normal, 0);
-    for (uint32_t i = 0; i < inArraySize; ++i) {
-      auto *ptr = spvBuilder.createAccessChain(
-          f32Type, clipCullVar,
-          {spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                     llvm::APInt(32, i)), // Block array index
-           spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                     llvm::APInt(32, offset))},
-          loc);
-      arrayElements.push_back(spvBuilder.createLoad(f32Type, ptr, loc));
-    }
   } else if (isVectorType(asType, &elemType, &count)) {
     arrayType = astContext.getConstantArrayType(
         astContext.getExtVectorType(f32Type, count),
         llvm::APInt(32, inArraySize), clang::ArrayType::Normal, 0);
-
-    for (uint32_t i = 0; i < inArraySize; ++i) {
-      // For each gl_PerVertex block, we need to read a vector from it.
-      llvm::SmallVector<SpirvInstruction *, 4> vecElements;
-      for (uint32_t j = 0; j < count; ++j) {
-        auto *ptr = spvBuilder.createAccessChain(
-            f32Type, clipCullVar,
-            // Block array index
-            {spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                       llvm::APInt(32, i)),
-             // Read elements sequentially from the float array
-             spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                       llvm::APInt(32, offset + j))},
-            loc);
-        vecElements.push_back(spvBuilder.createLoad(f32Type, ptr, loc));
-      }
-      arrayElements.push_back(spvBuilder.createCompositeConstruct(
-          astContext.getExtVectorType(f32Type, count), vecElements, loc));
-    }
+  } else if (count != 0) {
+    arrayType = astContext.getConstantArrayType(
+        astContext.getConstantArrayType(astContext.FloatTy,
+                                        llvm::APInt(32, count),
+                                        clang::ArrayType::Normal, 0),
+        llvm::APInt(32, inArraySize), clang::ArrayType::Normal, 0);
   } else {
     llvm_unreachable("SV_ClipDistance/SV_CullDistance not float or vector of "
                      "float case sneaked in");

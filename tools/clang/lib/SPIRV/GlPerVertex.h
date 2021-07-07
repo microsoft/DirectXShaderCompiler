@@ -132,6 +132,25 @@ private:
   /// returns 0.
   uint32_t getNumberOfScalarComponentsInScalarVectorArray(QualType type) const;
 
+  /// Creates load instruction for clip or cull distance with a scalar type.
+  SpirvInstruction *createScalarClipCullDistanceLoad(
+      SpirvInstruction *ptr, QualType asType, uint32_t offset,
+      SourceLocation loc,
+      llvm::Optional<uint32_t> arrayIndex = llvm::None) const;
+  /// Creates load instruction for clip or cull distance with a scalar or vector
+  /// type.
+  SpirvInstruction *createScalarOrVectorClipCullDistanceLoad(
+      SpirvInstruction *ptr, QualType asType, uint32_t offset,
+      llvm::SmallVector<SpirvInstruction *, 4> *loadsForComponents,
+      SourceLocation loc,
+      llvm::Optional<uint32_t> arrayIndex = llvm::None) const;
+  /// Creates load instruction for clip or cull distance with a scalar or vector
+  /// or array type of them.
+  SpirvInstruction *createClipCullDistanceLoad(
+      SpirvInstruction *ptr, QualType asType, uint32_t offset,
+      SourceLocation loc,
+      llvm::Optional<uint32_t> arrayIndex = llvm::None) const;
+
 private:
   using SemanticIndexToTypeMap = llvm::DenseMap<uint32_t, QualType>;
   using SemanticIndexToArrayOffsetMap = llvm::DenseMap<uint32_t, uint32_t>;
