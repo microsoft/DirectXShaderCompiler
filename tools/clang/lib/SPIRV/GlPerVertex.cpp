@@ -126,6 +126,22 @@ bool GlPerVertex::recordGlPerVertexDeclFacts(const DeclaratorDecl *decl,
   return doGlPerVertexFacts(decl, type, asInput);
 }
 
+uint32_t GlPerVertex::getNumberOfScalarComponentsInScalarVectorArray(
+    QualType type) const {
+  uint32_t count = 0;
+  if (isScalarType(type)) {
+    return 1;
+  } else if (isVectorType(type, nullptr, &count)) {
+    return count;
+  } else if (type->isConstantArrayType()) {
+    const auto *arrayType = astContext.getAsConstantArrayType(type);
+    count = static_cast<uint32_t>(arrayType->getSize().getZExtValue());
+    return count * getNumberOfScalarComponentsInScalarVectorArray(
+                       arrayType->getElementType());
+  }
+  return 0;
+}
+
 bool GlPerVertex::doGlPerVertexFacts(const DeclaratorDecl *decl,
                                      QualType baseType, bool asInput) {
 
@@ -287,9 +303,10 @@ bool GlPerVertex::doGlPerVertexFacts(const DeclaratorDecl *decl,
 void GlPerVertex::calculateClipCullDistanceArraySize() {
   // Updates the offset map and array size for the given input/output
   // SV_ClipDistance/SV_CullDistance.
-  const auto updateSizeAndOffset = [](const SemanticIndexToTypeMap &typeMap,
-                                      SemanticIndexToArrayOffsetMap *offsetMap,
-                                      uint32_t *totalSize) {
+  const auto updateSizeAndOffset = [this](
+                                       const SemanticIndexToTypeMap &typeMap,
+                                       SemanticIndexToArrayOffsetMap *offsetMap,
+                                       uint32_t *totalSize) {
     // If no usage of SV_ClipDistance/SV_CullDistance was recorded,just
     // return. This will keep the size defaulted to 1.
     if (typeMap.empty())
@@ -305,18 +322,13 @@ void GlPerVertex::calculateClipCullDistanceArraySize() {
 
     for (uint32_t index : indices) {
       const auto type = typeMap.find(index)->second;
-      QualType elemType = {};
-      uint32_t count = 0;
-
-      if (isScalarType(type)) {
-        (*offsetMap)[index] = (*totalSize)++;
-      } else if (isVectorType(type, &elemType, &count)) {
-        (*offsetMap)[index] = *totalSize;
-        *totalSize += count;
-      } else {
+      uint32_t count = getNumberOfScalarComponentsInScalarVectorArray(type);
+      if (count == 0) {
         llvm_unreachable("SV_ClipDistance/SV_CullDistance not float or "
-                         "vector of float case sneaked in");
+                         "vector of float or array of them case sneaked in");
       }
+      (*offsetMap)[index] = *totalSize;
+      *totalSize += count;
     }
   };
 

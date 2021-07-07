@@ -127,6 +127,11 @@ private:
   bool doGlPerVertexFacts(const DeclaratorDecl *decl, QualType type,
                           bool asInput);
 
+  /// Returns the number of all scalar components recursively included in a
+  /// scalar, vector, or array type. If type is not a scalar, vector, or array,
+  /// returns 0.
+  uint32_t getNumberOfScalarComponentsInScalarVectorArray(QualType type) const;
+
 private:
   using SemanticIndexToTypeMap = llvm::DenseMap<uint32_t, QualType>;
   using SemanticIndexToArrayOffsetMap = llvm::DenseMap<uint32_t, uint32_t>;
