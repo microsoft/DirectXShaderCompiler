@@ -664,7 +664,11 @@ void GlPerVertex::writeClipCullArrayFromType(
   }
 
   // Writing to an array only happens in HSCPOut or MSOut.
-  assert(spvContext.isHS() || spvContext.isMS());
+  if (!spvContext.isHS() && !spvContext.isMS()) {
+    llvm_unreachable("Writing to clip/cull distance in hull/mesh shader is "
+                     "not allowed");
+  }
+
   // And we are only writing to the array element with InvocationId as index.
   assert(invocationId.hasValue());
 
