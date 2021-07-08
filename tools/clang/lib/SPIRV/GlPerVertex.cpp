@@ -166,7 +166,6 @@ SpirvInstruction *GlPerVertex::createScalarClipCullDistanceLoad(
 
 SpirvInstruction *GlPerVertex::createScalarOrVectorClipCullDistanceLoad(
     SpirvInstruction *ptr, QualType asType, uint32_t offset,
-    llvm::SmallVector<SpirvInstruction *, 4> *loadsForComponents,
     SourceLocation loc, llvm::Optional<uint32_t> arrayIndex) const {
   if (isScalarType(asType))
     return createScalarClipCullDistanceLoad(ptr, asType, offset, loc,
@@ -180,15 +179,10 @@ SpirvInstruction *GlPerVertex::createScalarOrVectorClipCullDistanceLoad(
   // The target SV_ClipDistance/SV_CullDistance variable is of vector
   // type, then we need to construct a vector out of float array elements.
   llvm::SmallVector<SpirvInstruction *, 4> elements;
-  llvm::SmallVector<SpirvInstruction *, 4> *loads = &elements;
-  if (loadsForComponents)
-    loads = loadsForComponents;
   for (uint32_t i = 0; i < count; ++i) {
-    loads->push_back(createScalarClipCullDistanceLoad(ptr, elemType, offset + i,
-                                                      loc, arrayIndex));
+    elements.push_back(createScalarClipCullDistanceLoad(
+        ptr, elemType, offset + i, loc, arrayIndex));
   }
-  if (loadsForComponents)
-    return nullptr;
   return spvBuilder.createCompositeConstruct(
       astContext.getExtVectorType(astContext.FloatTy, count), elements, loc);
 }
@@ -202,21 +196,20 @@ SpirvInstruction *GlPerVertex::createClipCullDistanceLoad(
     QualType elemType = arrayType->getElementType();
     uint32_t numberOfScalarsInElement =
         getNumberOfScalarComponentsInScalarVectorArray(elemType);
+    if (numberOfScalarsInElement == 0)
+      return nullptr;
 
     llvm::SmallVector<SpirvInstruction *, 4> elements;
     for (uint32_t i = 0; i < count; ++i) {
-      createScalarOrVectorClipCullDistanceLoad(
-          ptr, elemType, offset + i * numberOfScalarsInElement, &elements, loc,
-          arrayIndex);
+      elements.push_back(createScalarOrVectorClipCullDistanceLoad(
+          ptr, elemType, offset + i * numberOfScalarsInElement, loc,
+          arrayIndex));
     }
-    QualType type = astContext.getConstantArrayType(
-        astContext.FloatTy, llvm::APInt(32, count * numberOfScalarsInElement),
-        clang::ArrayType::Normal, 0);
-    return spvBuilder.createCompositeConstruct(type, elements, loc);
+    return spvBuilder.createCompositeConstruct(asType, elements, loc);
   }
 
-  return createScalarOrVectorClipCullDistanceLoad(ptr, asType, offset, nullptr,
-                                                  loc, arrayIndex);
+  return createScalarOrVectorClipCullDistanceLoad(ptr, asType, offset, loc,
+                                                  arrayIndex);
 }
 
 bool GlPerVertex::createScalarClipCullDistanceStore(
@@ -284,6 +277,8 @@ bool GlPerVertex::createClipCullDistanceStore(
     QualType elemType = arrayType->getElementType();
     uint32_t numberOfScalarsInElement =
         getNumberOfScalarComponentsInScalarVectorArray(elemType);
+    if (numberOfScalarsInElement == 0)
+      return false;
 
     for (uint32_t i = 0; i < count; ++i) {
       auto *constant = spvBuilder.getConstantInt(
@@ -569,10 +564,11 @@ bool GlPerVertex::tryToAccess(hlsl::SigPoint::Kind sigPointKind,
 SpirvInstruction *GlPerVertex::readClipCullArrayAsType(
     bool isClip, uint32_t offset, QualType asType, SourceLocation loc) const {
   SpirvVariable *clipCullVar = isClip ? inClipVar : inCullVar;
-
-  // The ClipDistance/CullDistance is always an float array. We are accessing
-  // it using pointers, which should be of pointer to float type.
-  const QualType f32Type = astContext.FloatTy;
+  uint32_t count = getNumberOfScalarComponentsInScalarVectorArray(asType);
+  if (count == 0) {
+    llvm_unreachable("SV_ClipDistance/SV_CullDistance not float or "
+                     "vector of float or array of them case sneaked in");
+  }
 
   if (inArraySize == 0) {
     return createClipCullDistanceLoad(clipCullVar, asType, offset, loc);
@@ -580,39 +576,16 @@ SpirvInstruction *GlPerVertex::readClipCullArrayAsType(
 
   // The input builtin block is an array of block, which means we need to
   // return an array of ClipDistance/CullDistance values from an array of
-  // struct. For this case, we need three indices to locate the element to
-  // read: the first one for indexing into the block array, the second one
-  // for indexing into the gl_PerVertex struct, and the third one for reading
-  // the correct element in the float array for ClipDistance/CullDistance.
+  // struct.
 
   llvm::SmallVector<SpirvInstruction *, 8> arrayElements;
-  QualType elemType = {};
-  uint32_t count = getNumberOfScalarComponentsInScalarVectorArray(asType);
   QualType arrayType = {};
-
   for (uint32_t i = 0; i < inArraySize; ++i) {
     arrayElements.push_back(createClipCullDistanceLoad(
         clipCullVar, asType, offset, loc, llvm::Optional<uint32_t>(i)));
   }
-
-  if (isScalarType(asType)) {
-    arrayType = astContext.getConstantArrayType(
-        f32Type, llvm::APInt(32, inArraySize), clang::ArrayType::Normal, 0);
-  } else if (isVectorType(asType, &elemType, &count)) {
-    arrayType = astContext.getConstantArrayType(
-        astContext.getExtVectorType(f32Type, count),
-        llvm::APInt(32, inArraySize), clang::ArrayType::Normal, 0);
-  } else if (count != 0) {
-    arrayType = astContext.getConstantArrayType(
-        astContext.getConstantArrayType(astContext.FloatTy,
-                                        llvm::APInt(32, count),
-                                        clang::ArrayType::Normal, 0),
-        llvm::APInt(32, inArraySize), clang::ArrayType::Normal, 0);
-  } else {
-    llvm_unreachable("SV_ClipDistance/SV_CullDistance not float or vector of "
-                     "float case sneaked in");
-  }
-
+  arrayType = astContext.getConstantArrayType(
+      asType, llvm::APInt(32, inArraySize), clang::ArrayType::Normal, 0);
   return spvBuilder.createCompositeConstruct(arrayType, arrayElements, loc);
 }
 
@@ -676,10 +649,7 @@ void GlPerVertex::writeClipCullArrayFromType(
 
   // The output builtin block is an array of block, which means we need to
   // write an array of ClipDistance/CullDistance values into an array of
-  // struct. For this case, we need three indices to locate the position to
-  // write: the first one for indexing into the block array, the second one
-  // for indexing into the gl_PerVertex struct, and the third one for the
-  // correct element in the float array for ClipDistance/CullDistance.
+  // struct.
 
   SpirvInstruction *arrayIndex = invocationId.getValue();
   if (createClipCullDistanceStore(

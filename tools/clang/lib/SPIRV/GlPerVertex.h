@@ -144,7 +144,6 @@ private:
   /// type.
   SpirvInstruction *createScalarOrVectorClipCullDistanceLoad(
       SpirvInstruction *ptr, QualType asType, uint32_t offset,
-      llvm::SmallVector<SpirvInstruction *, 4> *loadsForComponents,
       SourceLocation loc,
       llvm::Optional<uint32_t> arrayIndex = llvm::None) const;
   /// Creates load instruction for clip or cull distance with a scalar or vector
