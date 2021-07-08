@@ -1,0 +1,112 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+resources:
+- repo: self
+
+stages:
+- stage: Build
+  jobs:
+  - job: Linux
+    timeoutInMinutes: 90
+
+    pool:
+      vmImage: Ubuntu-18.04
+
+    strategy:
+      matrix:
+        Clang_Release:
+         configuration: Release
+         CC: clang
+         CXX: clang++
+         CXX_FLAGS: -Werror
+        Clang_Debug:
+         configuration: Debug
+         CC: clang
+         CXX: clang++
+         CXX_FLAGS: -Werror
+        Gcc_Release:
+          configuration: Release
+          CC: gcc-7
+          CXX: g++-7
+          CXX_FLAGS:
+        Gcc_Debug:
+          configuration: Debug
+          CC: gcc-7
+          CXX: g++-7
+          CXX_FLAGS:
+
+    steps:
+    - bash: sudo apt-get install ninja-build
+      displayName: 'Installing dependencies'
+    - bash: git submodule update --init
+      displayName: 'Updating submodules'
+    - bash: |
+        mkdir build
+        cd build
+        cmake -G Ninja .. $(cat ../utils/cmake-predefined-config-params) -DSPIRV_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=$(configuration) -DCMAKE_C_COMPILER=${CC} -DCMAKE_CXX_COMPILER=${CXX} -DCMAKE_CXX_FLAGS=${CXX_FLAGS}
+      displayName: 'Cmake configuration'
+    - bash: |
+        cd build
+        ninja
+      displayName: 'Building'
+    - bash: |
+        ./build/bin/dxc -T ps_6_0 tools/clang/test/CodeGenSPIRV/passthru-ps.hlsl2spv
+        ./build/bin/dxc -T ps_6_0 -Fo passthru-ps.dxil tools/clang/test/CodeGenSPIRV/passthru-ps.hlsl2spv
+        ./build/bin/dxc -T ps_6_0 -Fo passthru-ps.spv tools/clang/test/CodeGenSPIRV/passthru-ps.hlsl2spv -spirv
+      displayName: 'Smoke tests'
+    - bash: ./build/bin/clang-spirv-tests --spirv-test-root tools/clang/test/CodeGenSPIRV/
+      displayName: 'SPIRV tests'
+    - bash: ./build/bin/clang-hlsl-tests --HlslDataDir $PWD/tools/clang/test/HLSL/
+      displayName: 'DXIL tests'
+
+  - job: MacOS
+    timeoutInMinutes: 90
+
+    pool:
+      vmImage: macOS-10.14
+
+    variables:
+      configuration: Release
+      CC: clang
+      CXX: clang++
+      CXX_FLAGS: -Werror
+
+    strategy:
+      matrix:
+        Clang_Release:
+         configuration: Release
+        Clang_Debug:
+         configuration: Debug
+
+    steps:
+    - bash: |
+        brew update
+        brew install ninja
+      displayName: 'Installing dependencies'
+    - bash: git submodule update --init
+      displayName: 'Updating submodules'
+    - bash: |
+        mkdir build
+        cd build
+        cmake -G Ninja .. $(cat ../utils/cmake-predefined-config-params) -DSPIRV_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=$(configuration) -DCMAKE_C_COMPILER=${CC} -DCMAKE_CXX_COMPILER=${CXX} -DCMAKE_CXX_FLAGS=${CXX_FLAGS}
+      displayName: 'Cmake configuration'
+    - bash: |
+        cd build
+        ninja
+      displayName: 'Building'
+    - bash: |
+        ./build/bin/dxc -T ps_6_0 tools/clang/test/CodeGenSPIRV/passthru-ps.hlsl2spv
+        ./build/bin/dxc -T ps_6_0 -Fo passthru-ps.dxil tools/clang/test/CodeGenSPIRV/passthru-ps.hlsl2spv
+        ./build/bin/dxc -T ps_6_0 -Fo passthru-ps.spv tools/clang/test/CodeGenSPIRV/passthru-ps.hlsl2spv -spirv
+      displayName: 'Smoke tests'
+    - bash: |
+        ulimit -Sn 1024
+        ./build/bin/clang-spirv-tests --spirv-test-root tools/clang/test/CodeGenSPIRV/
+      displayName: 'SPIRV tests'
+    - bash: |
+        ulimit -Sn 1024
+        ./build/bin/clang-hlsl-tests --HlslDataDir $PWD/tools/clang/test/HLSL/
+      displayName: 'DXIL tests'

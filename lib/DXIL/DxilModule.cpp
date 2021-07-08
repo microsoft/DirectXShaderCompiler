@@ -81,6 +81,8 @@ const char *kDxBreakFuncName = "dx.break";
 const char *kDxBreakCondName = "dx.break.cond";
 const char *kDxBreakMDName = "dx.break.br";
 const char *kDxIsHelperGlobalName = "dx.ishelper";
+
+const char *kHostLayoutTypePrefix = "hostlayout.";
 }
 
 // Avoid dependency on DxilModule from llvm::Module using this:
@@ -1309,8 +1311,6 @@ void DxilModule::UpdateValidatorVersionMetadata() {
 }
 
 void DxilModule::ResetSerializedRootSignature(std::vector<uint8_t> &Value) {
-  m_SerializedRootSignature.clear();
-  m_SerializedRootSignature.reserve(Value.size());
   m_SerializedRootSignature.assign(Value.begin(), Value.end());
 }
 
@@ -1517,7 +1517,6 @@ bool DxilModule::HasMetadataErrors() {
 
 void DxilModule::LoadDxilMetadata() {
   m_bMetadataErrors = false;
-  m_pMDHelper->LoadDxilVersion(m_DxilMajor, m_DxilMinor);
   m_pMDHelper->LoadValidatorVersion(m_ValMajor, m_ValMinor);
   const ShaderModel *loadedSM;
   m_pMDHelper->LoadDxilShaderModel(loadedSM);
@@ -1559,6 +1558,9 @@ void DxilModule::LoadDxilMetadata() {
 
   // Now that we have the UseMinPrecision flag, set shader model:
   SetShaderModel(loadedSM, m_bUseMinPrecision);
+  // SetShaderModel will initialize m_DxilMajor/m_DxilMinor to min for SM,
+  // so, load here after shader model so it matches the metadata.
+  m_pMDHelper->LoadDxilVersion(m_DxilMajor, m_DxilMinor);
 
   if (loadedSM->IsLib()) {
     for (unsigned i = 1; i < pEntries->getNumOperands(); i++) {
@@ -1763,20 +1765,29 @@ bool DxilModule::StripReflection() {
     // since they have not yet been converted for legacy layout.
     // Keep all structs contained in any we must keep.
     SmallStructSetVector structsToKeep;
-    SmallStructSetVector structsToRemove;
-    for (auto &item : m_pTypeSystem->GetStructAnnotationMap()) {
       SmallStructSetVector containedStructs;
-      if (!ResourceTypeRequiresTranslation(item.first, containedStructs))
-        structsToRemove.insert(item.first);
-      else
-        structsToKeep.insert(containedStructs.begin(), containedStructs.end());
+    for (auto &CBuf : GetCBuffers())
+      if (StructType *ST = dyn_cast<StructType>(CBuf->GetHLSLType()))
+        if (ResourceTypeRequiresTranslation(ST, containedStructs))
+          structsToKeep.insert(containedStructs.begin(), containedStructs.end());
+
+    for (auto &UAV : GetUAVs()) {
+      if (DXIL::IsStructuredBuffer(UAV->GetKind()))
+        if (StructType *ST = dyn_cast<StructType>(UAV->GetHLSLType()))
+          if (ResourceTypeRequiresTranslation(ST, containedStructs))
+            structsToKeep.insert(containedStructs.begin(), containedStructs.end());
     }
 
-    for (auto Ty : structsToKeep)
-      structsToRemove.remove(Ty);
-    for (auto Ty : structsToRemove) {
-      m_pTypeSystem->GetStructAnnotationMap().erase(Ty);
+    for (auto &SRV : GetSRVs()) {
+      if (SRV->IsStructuredBuffer() || SRV->IsTBuffer())
+        if (StructType *ST = dyn_cast<StructType>(SRV->GetHLSLType()))
+          if (ResourceTypeRequiresTranslation(ST, containedStructs))
+            structsToKeep.insert(containedStructs.begin(), containedStructs.end());
     }
+
+    m_pTypeSystem->GetStructAnnotationMap().remove_if([structsToKeep](
+      const std::pair<const StructType *, std::unique_ptr<DxilStructAnnotation>>
+          &I) { return !structsToKeep.count(I.first); });
   } else {
     // Remove struct annotations.
     if (!m_pTypeSystem->GetStructAnnotationMap().empty()) {

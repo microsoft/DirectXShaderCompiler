@@ -975,6 +975,15 @@ private:
                                           SpirvInstruction *sampleIndex,
                                           SourceLocation loc);
 
+  /// \brief Returns OpAccessChain to the struct/class object that defines
+  /// memberFn when the struct/class is a base struct/class of objectType.
+  /// If the struct/class that defines memberFn is not a base of objectType,
+  /// returns nullptr.
+  SpirvInstruction *getBaseOfMemberFunction(QualType objectType,
+                                            SpirvInstruction * objInstr,
+                                            const CXXMethodDecl* memberFn,
+                                       SourceLocation loc);
+
 private:
   /// \brief Takes a vector of size 4, and returns a vector of size 1 or 2 or 3
   /// or 4. Creates a CompositeExtract or VectorShuffle instruction to extract
@@ -1002,6 +1011,11 @@ private:
                     SpirvInstruction *constOffsets, SpirvInstruction *sample,
                     SpirvInstruction *minLod, SpirvInstruction *residencyCodeId,
                     SourceLocation loc);
+
+  /// \brief Returns OpVariable to be used as 'Interface' operands of
+  /// OpEntryPoint. entryPoint is the SpirvFunction for the OpEntryPoint.
+  std::vector<SpirvVariable *>
+  getInterfacesForEntryPoint(SpirvFunction *entryPoint);
 
 private:
   /// \brief If the given FunctionDecl is not already in the workQueue, creates

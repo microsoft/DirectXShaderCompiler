@@ -345,7 +345,7 @@
         [NumThreads(MESHDISPATCHX, MESHDISPATCHY, MESHDISPATCHZ)]
         void ASMain(uint ix : SV_GroupIndex) {
           Payload payload;
-          g_bufAmp[ix] = QuadReadTest(ix);
+          g_bufAmp[ix] = QuadReadTest(WaveGetLaneIndex());
           payload.nothing = 0;
           DispatchMesh(1, 1, 1, payload);
         }
@@ -370,7 +370,7 @@
             // Assign static fullscreen 2 tri quad
             verts[ix%6].position = g_Verts[ix%6];
             tris[ix&1] = uint3((ix&1)*3, (ix&1)*3 + 1, (ix&1)*3 + 2);
-            g_bufMesh[ix] = QuadReadTest(ix);
+            g_bufMesh[ix] = QuadReadTest(WaveGetLaneIndex());
         }
 
         void PSMain(PSInput input) {
@@ -379,7 +379,7 @@
 
         [NumThreads(DISPATCHX, DISPATCHY, DISPATCHZ)]
         void CSMain(uint ix : SV_GroupIndex) {
-          g_bufMain[ix] = QuadReadTest(ix);
+          g_bufMain[ix] = QuadReadTest(WaveGetLaneIndex());
         }
       ]]>
     </Shader>
@@ -1774,12 +1774,12 @@
     <Resource Name="U1" Dimension="BUFFER" Width="9216"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="Zero" ReadBack="true" />
-    <Resource Name="U2" Dimension="BUFFER" Width="256"
+    <Resource Name="U2" Dimension="BUFFER" Width="256" Format="R32_TYPELESS"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="FromBytes" ReadBack="true">
       { 0I, 0I, 99999999I, 99999999I, 0I, 0I, -1I, -1I, 0I, 0I, 0I, 0I, 42I, 42I, 42I, 42I }
     </Resource>
-    <Resource Name="U3" Dimension="BUFFER" Width="1024"
+    <Resource Name="U3" Dimension="BUFFER" Width="1024" Format="R32_TYPELESS"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="Zero" ReadBack="true" />
     <!-- groupshared output buffers -->
@@ -1852,15 +1852,15 @@
                   NumElements="8" StructureByteStride="72" />
       <Descriptor Name="U1" Kind="UAV" ResName="U1"
                   NumElements="128" StructureByteStride="72" />
-      <Descriptor Name="U2" Kind="UAV" ResName="U2"
-                  NumElements="16" StructureByteStride="8" />
-      <Descriptor Name="U3" Kind="UAV" ResName="U3"
-                  NumElements="128" StructureByteStride="8" />
+      <Descriptor Name="U2" Kind="UAV" ResName="U2" Flags='RAW' Format="R32_TYPELESS"
+                  NumElements="16" StructureByteStride="0" />
+      <Descriptor Name="U3" Kind="UAV" ResName="U3" Flags='RAW' Format="R32_TYPELESS"
+                  NumElements="128" StructureByteStride="0" />
       <!-- groupshared output buffers -->
-      <Descriptor Name="U4" Kind="UAV" ResName="U4" Dimension="BUFFER"
-                  NumElements="8" Format="R32G32_UINT" />
-      <Descriptor Name="U5" Kind="UAV" ResName="U5" Dimension="BUFFER"
-                  NumElements="64" Format="R32G32_UINT" />
+      <Descriptor Name="U4" Kind="UAV" ResName="U4"
+                  NumElements="8" StructureByteStride="8" />
+      <Descriptor Name="U5" Kind="UAV" ResName="U5"
+                  NumElements="64" StructureByteStride="8" />
       <!-- 32-bit typed resources -->
       <Descriptor Name="U6" Kind="UAV" ResName="U6" Dimension="BUFFER"
                   NumElements="16"  Format="R32_UINT" />
@@ -1943,8 +1943,8 @@
         RWByteAddressBuffer g_rawBuf : register(u2);
         RWByteAddressBuffer g_rawXchgBuf : register(u3);
 
-        RWBuffer<uint2> g_shareBuf : register(u4);
-        RWBuffer<uint2> g_shareXchgBuf : register(u5);
+        RWStructuredBuffer<uint2> g_shareBuf : register(u4);
+        RWStructuredBuffer<uint2> g_shareXchgBuf : register(u5);
 
         RWBuffer<uint> g_uintBuf : register(u6);
         RWBuffer<int> g_sintBuf : register(u7);
@@ -2179,7 +2179,7 @@
             // More threads than results are possible,
             // so indices will result in duplicate copies
             g_uintShare[ix%6] = payload.arith[ix%6];
-            g_sintShare[ix%3] = payload.arith[ix%3 + 6];
+            g_sintShare[ix%3 + 1] = payload.arith[ix%3 + 6];
             g_xchgShare[ix%64] = payload.xchg[ix%64];
 
             GroupMemoryBarrierWithGroupSync();
@@ -2322,7 +2322,7 @@
     <Resource Name="U0" Dimension="BUFFER" Width="2816"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="Zero" ReadBack="true" />
-    <Resource Name="U1" Dimension="BUFFER" Width="256"
+    <Resource Name="U1" Dimension="BUFFER" Width="256" Format="R32_TYPELESS"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="Zero" ReadBack="true" />
     <Resource Name="U2" Dimension="BUFFER" Width="256"
@@ -2340,8 +2340,8 @@
     <DescriptorHeap Name="ResHeap" Type="CBV_SRV_UAV">
       <Descriptor Name="U0" Kind="UAV" ResName="U0"
                   NumElements="64" StructureByteStride="44" />
-      <Descriptor Name="U1" Kind="UAV" ResName="U1"
-                  NumElements="64" StructureByteStride="4" />
+      <Descriptor Name="U1" Kind="UAV" ResName="U1" Flags='RAW' Format="R32_TYPELESS"
+                  NumElements="64" StructureByteStride="0" />
       <Descriptor Name="U2" Kind="UAV" ResName="U2"
                   NumElements="64" Format="R32_FLOAT" />
       <Descriptor Name="U3" Kind="UAV" ResName="U3" Dimension="TEXTURE1D"

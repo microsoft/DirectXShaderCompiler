@@ -29,7 +29,7 @@ namespace DXIL {
   const unsigned kDxilMajor = 1;
   /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_dxil_version_minor()</py>*/
   // VALRULE-TEXT:BEGIN
-  const unsigned kDxilMinor = 6;
+  const unsigned kDxilMinor = 7;
   // VALRULE-TEXT:END
 
   inline unsigned MakeDxilVersion(unsigned DxilMajor, unsigned DxilMinor) {
@@ -593,8 +593,6 @@ namespace DXIL {
     // Resources - gather
     TextureGather = 73, // gathers the four texels that would be used in a bi-linear filtering operation
     TextureGatherCmp = 74, // same as TextureGather, except this instrution performs comparison on texels, similar to SampleCmp
-    TextureGatherCmpImm = 223, // same as TextureGatherCmp, except offsets are limited to immediate values between -8 and 7
-    TextureGatherImm = 222, // same as TextureGather, except offsets are limited to immediate values between -8 and 7
   
     // Resources - sample
     RenderTargetGetSampleCount = 77, // gets the number of samples for a render target
@@ -720,7 +718,7 @@ namespace DXIL {
     NumOpCodes_Dxil_1_5 = 216,
     NumOpCodes_Dxil_1_6 = 222,
   
-    NumOpCodes = 224 // exclusive last value of enumeration
+    NumOpCodes = 222 // exclusive last value of enumeration
   };
   // OPCODE-ENUM:END
 
@@ -902,8 +900,6 @@ namespace DXIL {
     // Resources - gather
     TextureGather,
     TextureGatherCmp,
-    TextureGatherCmpImm,
-    TextureGatherImm,
   
     // Resources - sample
     RenderTargetGetSampleCount,
@@ -987,7 +983,7 @@ namespace DXIL {
     NumOpClasses_Dxil_1_5 = 143,
     NumOpClasses_Dxil_1_6 = 149,
   
-    NumOpClasses = 151 // exclusive last value of enumeration
+    NumOpClasses = 149 // exclusive last value of enumeration
   };
   // OPCODECLASS-ENUM:END
 
@@ -1122,6 +1118,9 @@ namespace DXIL {
     const unsigned kCreateHandleFromHeapHeapIndexOpIdx = 1;
     const unsigned kCreateHandleFromHeapSamplerHeapOpIdx = 2;
     const unsigned kCreateHandleFromHeapNonUniformIndexOpIdx = 3;
+
+    // CreateHandleFromBinding
+    const unsigned kCreateHandleFromBindingResIndexOpIdx = 2;
 
     // TraceRay
     const unsigned kTraceRayRayDescOpIdx = 7;
@@ -1526,6 +1525,8 @@ namespace DXIL {
   extern const char *kDxBreakCondName;
   extern const char *kDxBreakMDName;
   extern const char *kDxIsHelperGlobalName;
+
+  extern const char *kHostLayoutTypePrefix;
 
 } // namespace DXIL
 

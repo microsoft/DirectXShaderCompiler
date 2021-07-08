@@ -2497,13 +2497,13 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
   case Char_S:            return "char";
   case Char_U:            return "char";
   case SChar:             return "signed char";
-  case Short:             return "short";
+  case Short:             return /* "short" */ "int16_t" /* HLSL Change */;
   case Int:               return "int";
   case Long:              return "long";
   case LongLong:          return "long long";
   case Int128:            return "__int128";
   case UChar:             return "unsigned char";
-  case UShort:            return "unsigned short";
+  case UShort:            return /* "unsigned short" */ "uint16_t" /* HLSL Change */;
   case UInt:              return "unsigned int";
   case ULong:             return "unsigned long";
   case ULongLong:         return "unsigned long long";

@@ -67,7 +67,7 @@ struct PayloadAccessInfo {
 };
 
 struct DxrShaderDiagnoseInfo {
-  const FunctionDecl *FunctionDecl;
+  const FunctionDecl *funcDecl;
   const VarDecl *Payload;
   DXIL::PayloadAccessShaderStage Stage;
   std::vector<TraceRayCall> TraceCalls;
@@ -152,7 +152,6 @@ void GetPayloadAccesses(const Stmt *S, const DxrShaderDiagnoseInfo &Info,
       if (Ref->getDecl() == Info.Payload) {
         Accesses.push_back(PayloadAccessInfo{Member, Call, IsLValue});
       }
-      return;
     }
     if (const ImplicitCastExpr *Cast = dyn_cast<ImplicitCastExpr>(C)) {
       if (Cast->getCastKind() == CK_LValueToRValue) {
@@ -689,7 +688,7 @@ DiagnosePayloadAsFunctionArg(
       }
 
       if (CalleeInfo.Payload) {
-        CalleeInfo.FunctionDecl = CalledFunction;
+        CalleeInfo.funcDecl = CalledFunction;
         CalleeInfo.Stage = Info.Stage;
         auto FieldsToIgnoreRead = CollectDominatingWritesForCall(Use, Info, DT);
         auto FieldsToIgnoreWrite = CollectReachableWritesForCall(Use, Info);
@@ -768,6 +767,24 @@ void CollectAccessableFields(RecordDecl *PayloadType,
   }
 }
 
+void HandlePayloadInitializer(DxrShaderDiagnoseInfo& Info) {
+    const VarDecl* Payload = Info.Payload;
+
+    const Expr* Init = Payload->getInit(); 
+
+    if (Init) {
+        // If the payload has an initializer, then handle all fields as 
+        // written. Sema will check that the initializer is correct.
+        // We can handle all fields as written.
+
+        RecordDecl* PayloadType = GetPayloadType(Info.Payload);
+        for (FieldDecl* Field : PayloadType->fields()) {
+            Info.WritesPerField[Field].push_back(PayloadUse{Init, nullptr, nullptr});
+        }
+    }
+}
+
+
 // Emit diagnostics for a TraceRay call.
 void DiagnoseTraceCall(Sema &S, const VarDecl *Payload,
                        const TraceRayCall &Trace, DominatorTree &DT) {
@@ -798,6 +815,10 @@ void DiagnoseTraceCall(Sema &S, const VarDecl *Payload,
   // Find all writes to Payload that reaches the Trace
   DxrShaderDiagnoseInfo TraceInfo;
   TraceInfo.Payload = Payload;
+
+  // Handle initializers for the payload struct if any is present.
+  HandlePayloadInitializer(TraceInfo);
+
   std::set<const CFGBlock *> Visited;
 
   const CFGBlock *Parent = Trace.Parent;
@@ -925,7 +946,7 @@ DiagnosePayloadAccess(Sema &S, DxrShaderDiagnoseInfo &Info,
   clang::DominatorTree DT;
   AnalysisDeclContextManager AnalysisManager;
   AnalysisDeclContext *AnalysisContext =
-      AnalysisManager.getContext(Info.FunctionDecl);
+      AnalysisManager.getContext(Info.funcDecl);
 
   CFG &TheCFG = *AnalysisContext->getCFG();
   DT.buildDominatorTree(*AnalysisContext);
@@ -1093,7 +1114,7 @@ public:
         DiagnosePayloadParameter(S, Payload, Decl, Stage);
       }
       DxrShaderDiagnoseInfo Info;
-      Info.FunctionDecl = Decl;
+      Info.funcDecl = Decl;
       Info.Payload = Payload;
       Info.Stage = Stage;
 

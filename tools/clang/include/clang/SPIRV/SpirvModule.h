@@ -149,6 +149,10 @@ public:
 
   llvm::ArrayRef<SpirvVariable *> getVariables() const { return variables; }
 
+  llvm::ArrayRef<SpirvEntryPoint *> getEntryPoints() const {
+    return entryPoints;
+  }
+
 private:
   // Use a set for storing capabilities. This will ensure there are no duplicate
   // capabilities. Although the set stores pointers, the provided

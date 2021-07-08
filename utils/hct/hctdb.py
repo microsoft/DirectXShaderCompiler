@@ -298,9 +298,6 @@ class db_dxil(object):
             self.name_idx[i].shader_stages = ("pixel",)
         for i in "TextureGather,TextureGatherCmp".split(","):
             self.name_idx[i].category = "Resources - gather"
-        for i in "TextureGatherImm,TextureGatherCmpImm".split(","):
-            self.name_idx[i].category = "Resources - gather"
-            self.name_idx[i].shader_model = 6,15 # Dummy large shader model to prevent accidental inclusion
         for i in "AtomicBinOp,AtomicCompareExchange,Barrier".split(","):
             self.name_idx[i].category = "Synchronization"
         for i in "CalculateLOD,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY".split(","):
@@ -1872,34 +1869,6 @@ class db_dxil(object):
         self.set_op_count_for_version(1, 6, next_op_idx)
         assert next_op_idx == 222, "222 is expected next operation index but encountered %d and thus opcodes are broken" % next_op_idx
 
-        self.add_dxil_op("TextureGatherImm", next_op_idx, "TextureGatherImm", "same as TextureGather, except offsets are limited to immediate values between -8 and 7", "hfwi", "ro", [
-            db_dxil_param(0, "$r", "", "dimension information for texture"),
-            db_dxil_param(2, "res", "srv", "handle of SRV to sample"),
-            db_dxil_param(3, "res", "sampler", "handle of sampler to use"),
-            db_dxil_param(4, "f", "coord0", "coordinate"),
-            db_dxil_param(5, "f", "coord1", "coordinate, undef for Texture1D"),
-            db_dxil_param(6, "f", "coord2", "coordinate, undef for Texture1D, Texture1DArray or Texture2D"),
-            db_dxil_param(7, "f", "coord3", "coordinate, defined only for TextureCubeArray"),
-            db_dxil_param(8, "i32", "offset0", "optional offset, applicable to Texture1D, Texture1DArray, and as part of offset1"),
-            db_dxil_param(9, "i32", "offset1", "optional offset, applicable to Texture2D, Texture2DArray, and as part of offset2"),
-            db_dxil_param(10, "i32", "channel", "channel to sample")],
-            counters=('tex_norm',))
-        next_op_idx += 1
-        self.add_dxil_op("TextureGatherCmpImm", next_op_idx, "TextureGatherCmpImm", "same as TextureGatherCmp, except offsets are limited to immediate values between -8 and 7", "hfwi", "ro", [
-            db_dxil_param(0, "$r", "", "gathered texels"),
-            db_dxil_param(2, "res", "srv", "handle of SRV to sample"),
-            db_dxil_param(3, "res", "sampler", "handle of sampler to use"),
-            db_dxil_param(4, "f", "coord0", "coordinate"),
-            db_dxil_param(5, "f", "coord1", "coordinate, undef for Texture1D"),
-            db_dxil_param(6, "f", "coord2", "coordinate, undef for Texture1D, Texture1DArray or Texture2D"),
-            db_dxil_param(7, "f", "coord3", "coordinate, defined only for TextureCubeArray"),
-            db_dxil_param(8, "i32", "offset0", "optional offset, applicable to Texture1D, Texture1DArray, and as part of offset1"),
-            db_dxil_param(9, "i32", "offset1", "optional offset, applicable to Texture2D, Texture2DArray, and as part of offset2"),
-            db_dxil_param(10, "i32", "channel", "channel to sample"),
-            db_dxil_param(11, "f", "compareVale", "value to compare with")],
-            counters=('tex_cmp',))
-        next_op_idx += 1
-
         # Set interesting properties.
         self.build_indices()
         for i in "CalculateLOD,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY,Sample,SampleBias,SampleCmp".split(","):
@@ -2139,6 +2108,7 @@ class db_dxil(object):
         add_pass('hlsl-passes-pause', 'PausePasses', 'Prepare to pause passes', [])
         add_pass('hlsl-passes-resume', 'ResumePasses', 'Prepare to resume passes', [])
         add_pass('hlsl-dxil-lower-handle-for-lib', 'DxilLowerCreateHandleForLib', 'DXIL Lower createHandleForLib', [])
+        add_pass('hlsl-dxil-cleanup-annotate-handle', 'DxilCleanupAnnotateHandle', 'DXIL Cleanup extra annotate handle calls', [])
         add_pass('hlsl-dxil-allocate-resources-for-lib', 'DxilAllocateResourcesForLib', 'DXIL Allocate Resources For Library', [])
         add_pass('hlsl-dxil-convergent-mark', 'DxilConvergentMark', 'Mark convergent', [])
         add_pass('hlsl-dxil-convergent-clear', 'DxilConvergentClear', 'Clear convergent before dxil emit', [])
@@ -2438,7 +2408,7 @@ class db_dxil(object):
         self.interpretation_table = table
 
     def build_valrules(self):
-        self.add_valrule_msg("Bitcode.Valid", "TODO - Module must be bitcode-valid", "Module bitcode is invalid.")
+        self.add_valrule_msg("Bitcode.Valid", "Module must be bitcode-valid", "Module bitcode is invalid.")
 
         self.add_valrule_msg("Container.PartMatches", "DXIL Container Parts must match Module", "Container part '%0' does not match expected for module.")
         self.add_valrule_msg("Container.PartRepeated", "DXIL Container must have only one of each part type", "More than one container part '%0'.")
@@ -2446,11 +2416,12 @@ class db_dxil(object):
         self.add_valrule_msg("Container.PartInvalid", "DXIL Container must not contain unknown parts", "Unknown part '%0' found in DXIL container.")
         self.add_valrule_msg("Container.RootSignatureIncompatible", "Root Signature in DXIL Container must be compatible with shader", "Root Signature in DXIL container is not compatible with shader.")
 
-        self.add_valrule("Meta.Required", "TODO - Required metadata missing.")
+        self.add_valrule("Meta.Required", "Required metadata missing.")
         self.add_valrule_msg("Meta.Known", "Named metadata should be known", "Named metadata '%0' is unknown.")
         self.add_valrule("Meta.Used", "All metadata must be used by dxil.")
         self.add_valrule_msg("Meta.Target", "Target triple must be 'dxil-ms-dx'", "Unknown target triple '%0'.")
-        self.add_valrule("Meta.WellFormed", "TODO - Metadata must be well-formed in operand count and types.")
+        self.add_valrule("Meta.WellFormed", "Metadata must be well-formed in operand count and types.") # TODO: add string arg for what metadata is malformed (this is emitted from a lot of places and provides no context whatsoever)
+        self.add_valrule_msg("Meta.VersionSupported", "Version in metadata must be supported.", "%0 version in metadata (%1.%2) is not supported; maximum: (%3.%4).")
         self.add_valrule("Meta.SemanticLen", "Semantic length must be at least 1 and at most 64.")
         self.add_valrule_msg("Meta.InterpModeValid", "Interpolation mode must be valid", "Invalid interpolation mode for '%0'.")
         self.add_valrule_msg("Meta.SemaKindValid", "Semantic kind must be valid", "Semantic kind for '%0' is invalid.")
@@ -2602,7 +2573,7 @@ class db_dxil(object):
         self.add_valrule("Types.I8", "I8 can only be used as immediate value for intrinsic or as i8* via bitcast by lifetime intrinsics.")
 
         self.add_valrule_msg("Sm.Name", "Target shader model name must be known", "Unknown shader model '%0'.")
-        self.add_valrule_msg("Sm.DxilVersion", "Target shader model requires specific Dxil Version", "Shader model requires Dxil Version %0,%1.")
+        self.add_valrule_msg("Sm.DxilVersion", "Target shader model requires specific Dxil Version", "Shader model requires Dxil Version %0.%1.")
         self.add_valrule_msg("Sm.Opcode", "Opcode must be defined in target shader model", "Opcode %0 not valid in shader model %1.")
         self.add_valrule("Sm.Operand", "Operand must be defined in target shader model.")
         self.add_valrule_msg("Sm.Semantic", "Semantic must be defined in target shader model", "Semantic '%0' is invalid as %1 %2.")

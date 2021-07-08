@@ -22,6 +22,7 @@
 #include "dxc/Test/HlslTestUtils.h"
 #include "dxc/Test/DxcTestUtils.h"
 #include "dxc/dxcapi.h"
+#include "dxc/DxilContainer/DxilContainer.h"
 
 using namespace std;
 using namespace hlsl;
@@ -67,6 +68,7 @@ public:
   TEST_METHOD(RunLinkWithTempReg);
   TEST_METHOD(RunLinkToLibWithGlobalCtor);
   TEST_METHOD(LinkSm63ToSm66);
+  TEST_METHOD(RunLinkWithRootSig);
 
 
   dxc::DxcDllSupport m_dllSupport;
@@ -77,9 +79,9 @@ public:
         m_dllSupport.CreateInstance(CLSID_DxcLinker, pResultLinker));
   }
 
-  void CompileLib(LPCWSTR filename, IDxcBlob **pResultBlob,
-                  llvm::ArrayRef<LPCWSTR> pArguments = {},
-                  LPCWSTR pShaderTarget = L"lib_6_x") {
+  void Compile(LPCWSTR filename, IDxcBlob **pResultBlob,
+               llvm::ArrayRef<LPCWSTR> pArguments = {}, LPCWSTR pEntry = L"",
+               LPCWSTR pShaderTarget = L"lib_6_x") {
     std::wstring fullPath = hlsl_test::GetPathToHlslDataFile(filename);
     CComPtr<IDxcBlobEncoding> pSource;
     CComPtr<IDxcLibrary> pLibrary;
@@ -97,11 +99,17 @@ public:
 
     VERIFY_SUCCEEDED(
         m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
-    VERIFY_SUCCEEDED(pCompiler->Compile(pSource, fullPath.c_str(), L"", pShaderTarget,
+    VERIFY_SUCCEEDED(pCompiler->Compile(pSource, fullPath.c_str(), pEntry, pShaderTarget,
                                         const_cast<LPCWSTR*>(pArguments.data()), pArguments.size(),
                                         nullptr, 0,
                                         pIncludeHandler, &pResult));
     CheckOperationSucceeded(pResult, pResultBlob);
+  }
+
+  void CompileLib(LPCWSTR filename, IDxcBlob **pResultBlob,
+                  llvm::ArrayRef<LPCWSTR> pArguments = {},
+                  LPCWSTR pShaderTarget = L"lib_6_x") {
+    Compile(filename, pResultBlob, pArguments, L"", pShaderTarget);
   }
 
   void AssembleLib(LPCWSTR filename, IDxcBlob **pResultBlob) {
@@ -816,6 +824,7 @@ TEST_F(LinkerTest, RunLinkToLibWithGlobalCtor) {
 }
 
 TEST_F(LinkerTest, LinkSm63ToSm66) {
+  if (m_ver.SkipDxilVersion(1, 6)) return;
   CComPtr<IDxcBlob> pLib0;
   CompileLib(L"..\\CodeGenHLSL\\linker\\link_to_sm66.hlsl", &pLib0, {}, L"lib_6_3");
 
@@ -829,4 +838,56 @@ TEST_F(LinkerTest, LinkSm63ToSm66) {
        {"call %dx.types.Handle @dx.op.annotateHandle\\(i32 216, %dx.types.Handle "
         "%(.*), %dx.types.ResourceProperties { i32 13, i32 4 }\\)"},
        {}, {}, true);
+}
+
+TEST_F(LinkerTest, RunLinkWithRootSig) {
+  CComPtr<IDxcBlob> pLib0;
+  CompileLib(L"..\\CodeGenHLSL\\linker\\link_with_root_sig.hlsl", &pLib0, {},
+             L"lib_6_x");
+
+  CComPtr<IDxcLinker> pLinker;
+  CreateLinker(&pLinker);
+
+  LPCWSTR libName = L"foo";
+  RegisterDxcModule(libName, pLib0, pLinker);
+
+  LPCWSTR pEntryName = L"vs_main";
+  LPCWSTR pShaderModel = L"vs_6_6";
+
+  LPCWSTR libNames[] = {libName};
+  CComPtr<IDxcOperationResult> pResult;
+
+  VERIFY_SUCCEEDED(pLinker->Link(pEntryName, pShaderModel, libNames,
+                                 1, {}, 0, &pResult));
+  CComPtr<IDxcBlob> pLinkedProgram;
+  CheckOperationSucceeded(pResult, &pLinkedProgram);
+  VERIFY_IS_TRUE(pLinkedProgram);
+
+  CComPtr<IDxcBlob> pProgram;
+  Compile(L"..\\CodeGenHLSL\\linker\\link_with_root_sig.hlsl", &pProgram, {},
+          pEntryName, pShaderModel);
+  VERIFY_IS_TRUE(pProgram);
+
+  const DxilContainerHeader *pLinkedContainer = IsDxilContainerLike(
+      pLinkedProgram->GetBufferPointer(), pLinkedProgram->GetBufferSize());
+
+  VERIFY_IS_TRUE(pLinkedContainer);
+
+  const DxilContainerHeader *pContainer = IsDxilContainerLike(
+      pProgram->GetBufferPointer(), pProgram->GetBufferSize());
+  VERIFY_IS_TRUE(pContainer);
+
+  const DxilPartHeader *pLinkedRSPart =
+      GetDxilPartByType(pLinkedContainer, DFCC_RootSignature);
+  VERIFY_IS_TRUE(pLinkedRSPart);
+  const DxilPartHeader *pRSPart =
+      GetDxilPartByType(pContainer, DFCC_RootSignature);
+  VERIFY_IS_TRUE(pRSPart);
+  VERIFY_IS_TRUE(pRSPart->PartSize == pLinkedRSPart->PartSize);
+
+  const uint8_t *pRS = (const uint8_t *)GetDxilPartData(pRSPart);
+  const uint8_t *pLinkedRS = (const uint8_t *)GetDxilPartData(pLinkedRSPart);
+  for (unsigned i = 0; i < pLinkedRSPart->PartSize; i++) {
+    VERIFY_IS_TRUE(pRS[i] == pLinkedRS[i]);
+  }
 }

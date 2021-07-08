@@ -56,7 +56,7 @@ public:
       : sigPoint(sig), semanticInfo(std::move(semaInfo)), builtinAttr(builtin),
         type(astType), value(nullptr), isBuiltin(false),
         storageClass(spv::StorageClass::Max), location(nullptr),
-        locationCount(locCount) {
+        locationCount(locCount), entryPoint(nullptr) {
     isBuiltin = builtinAttr != nullptr;
   }
 
@@ -85,6 +85,9 @@ public:
 
   uint32_t getLocationCount() const { return locationCount; }
 
+  SpirvFunction *getEntryPoint() const { return entryPoint; }
+  void setEntryPoint(SpirvFunction *entry) { entryPoint = entry; }
+
 private:
   /// HLSL SigPoint. It uniquely identifies each set of parameters that may be
   /// input or output for each entry point.
@@ -107,6 +110,9 @@ private:
   const VKIndexAttr *indexAttr;
   /// How many locations this stage variable takes.
   uint32_t locationCount;
+  /// Entry point for this stage variable. If this stage variable is not
+  /// specific for an entry point e.g., built-in, it must be nullptr.
+  SpirvFunction *entryPoint;
 };
 
 class ResourceVar {
@@ -453,6 +459,16 @@ private:
   /// Returns nullptr if no such decl was previously registered.
   const DeclSpirvInfo *getDeclSpirvInfo(const ValueDecl *decl) const;
 
+  /// \brief Creates DeclSpirvInfo using the given instr and index. It creates a
+  /// clone variable if it is CTBuffer including matrix 1xN with FXC memory
+  /// layout.
+  DeclSpirvInfo createDeclSpirvInfo(SpirvInstruction *instr,
+                                    int index = -1) const {
+    if (auto *clone = spvBuilder.initializeCloneVarForFxcCTBuffer(instr))
+      instr = clone;
+    return DeclSpirvInfo(instr, index);
+  }
+
 public:
   /// \brief Returns the information for the given decl.
   ///
@@ -496,9 +512,10 @@ public:
   /// won't attach Block/BufferBlock decoration.
   const SpirvType *getCTBufferPushConstantType(const DeclContext *decl);
 
-  /// \brief Returns all defined stage (builtin/input/ouput) variables in this
-  /// mapper.
-  std::vector<SpirvVariable *> collectStageVars() const;
+  /// \brief Returns all defined stage (builtin/input/ouput) variables for the
+  /// entry point function entryPoint in this mapper.
+  std::vector<SpirvVariable *>
+  collectStageVars(SpirvFunction *entryPoint) const;
 
   /// \brief Writes out the contents in the function parameter for the GS
   /// stream output to the corresponding stage output variables in a recursive
@@ -786,6 +803,7 @@ private:
   /// Mapping of all Clang AST decls to their instruction pointers.
   llvm::DenseMap<const ValueDecl *, DeclSpirvInfo> astDecls;
   llvm::DenseMap<const ValueDecl *, SpirvFunction *> astFunctionDecls;
+
   /// Vector of all defined stage variables.
   llvm::SmallVector<StageVar, 8> stageVars;
   /// Mapping from Clang AST decls to the corresponding stage variables.

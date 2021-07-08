@@ -77,6 +77,14 @@ void DxilResource::SetElementStride(unsigned ElemStride) {
   m_ElementStride = ElemStride;
 }
 
+unsigned DxilResource::GetBaseAlignLog2() const {
+  return m_baseAlignLog2;
+}
+
+void DxilResource::SetBaseAlignLog2(unsigned baseAlignLog2) {
+  m_baseAlignLog2 = baseAlignLog2;
+}
+
 DXIL::SamplerFeedbackType DxilResource::GetSamplerFeedbackType() const {
   return m_SamplerFeedbackType;
 }
