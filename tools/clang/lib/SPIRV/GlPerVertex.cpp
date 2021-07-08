@@ -301,6 +301,17 @@ bool GlPerVertex::createClipCullDistanceStore(
       ptr, value, valueType, offset, loc, llvm::None, arrayIndex);
 }
 
+bool GlPerVertex::setClipCullDistanceType(SemanticIndexToTypeMap *typeMap,
+                                          uint32_t semanticIndex,
+                                          QualType clipCullDistanceType) const {
+  if (getNumberOfScalarComponentsInScalarVectorArray(clipCullDistanceType) ==
+      0) {
+    return false;
+  }
+  (*typeMap)[semanticIndex] = clipCullDistanceType;
+  return true;
+}
+
 bool GlPerVertex::doGlPerVertexFacts(const DeclaratorDecl *decl,
                                      QualType baseType, bool asInput) {
 
@@ -414,16 +425,21 @@ bool GlPerVertex::doGlPerVertexFacts(const DeclaratorDecl *decl,
     // TODO: handle extra large array size?
     if (*blockArraySize ==
         static_cast<uint32_t>(arrayType->getSize().getZExtValue())) {
-      const QualType elemType = arrayType->getElementType();
-      if (getNumberOfScalarComponentsInScalarVectorArray(elemType) != 0) {
-        (*typeMap)[semanticIndex] = elemType;
+      if (setClipCullDistanceType(typeMap, semanticIndex,
+                                  arrayType->getElementType())) {
         return true;
       }
+
+      emitError("elements for %select{SV_ClipDistance|SV_CullDistance}0 "
+                "variable '%1' must be float or vector of floats or array of "
+                "them",
+                decl->getLocStart())
+          << isCull << decl->getName();
+      return false;
     }
   }
 
-  if (getNumberOfScalarComponentsInScalarVectorArray(baseType) != 0) {
-    (*typeMap)[semanticIndex] = baseType;
+  if (setClipCullDistanceType(typeMap, semanticIndex, baseType)) {
     return true;
   }
 

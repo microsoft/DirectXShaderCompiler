@@ -87,6 +87,9 @@ public:
                    SpirvInstruction *vecComponent, SourceLocation loc);
 
 private:
+  using SemanticIndexToTypeMap = llvm::DenseMap<uint32_t, QualType>;
+  using SemanticIndexToArrayOffsetMap = llvm::DenseMap<uint32_t, uint32_t>;
+
   template <unsigned N>
   DiagnosticBuilder emitError(const char (&message)[N], SourceLocation loc) {
     const auto diagId = astContext.getDiagnostics().getCustomDiagID(
@@ -171,10 +174,14 @@ private:
       SpirvInstruction *offset, SourceLocation loc,
       llvm::Optional<SpirvInstruction *> arrayIndex = llvm::None) const;
 
-private:
-  using SemanticIndexToTypeMap = llvm::DenseMap<uint32_t, QualType>;
-  using SemanticIndexToArrayOffsetMap = llvm::DenseMap<uint32_t, uint32_t>;
+  /// Keeps the mapping semanticIndex to clipCullDistanceType in typeMap and
+  /// returns true if clipCullDistanceType is a valid type for clip/cull
+  /// distance. Otherwise, returns false.
+  bool setClipCullDistanceType(SemanticIndexToTypeMap *typeMap,
+                               uint32_t semanticIndex,
+                               QualType clipCullDistanceType) const;
 
+private:
   ASTContext &astContext;
   SpirvContext &spvContext;
   SpirvBuilder &spvBuilder;
