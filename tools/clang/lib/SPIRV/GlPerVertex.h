@@ -130,6 +130,9 @@ private:
   bool doGlPerVertexFacts(const DeclaratorDecl *decl, QualType type,
                           bool asInput);
 
+  /// Returns whether the type is a scalar, vector, or array only with floats.
+  bool isArrayVectorOrScalarOnlyWithFloats(QualType type) const;
+
   /// Returns the number of all scalar components recursively included in a
   /// scalar, vector, or array type. If type is not a scalar, vector, or array,
   /// returns 0.

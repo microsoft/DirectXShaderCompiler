@@ -126,6 +126,20 @@ bool GlPerVertex::recordGlPerVertexDeclFacts(const DeclaratorDecl *decl,
   return doGlPerVertexFacts(decl, type, asInput);
 }
 
+bool GlPerVertex::isArrayVectorOrScalarOnlyWithFloats(QualType type) const {
+  QualType elemType;
+  if (isScalarType(type, &elemType)) {
+    if (const auto *builtinType = elemType->getAs<BuiltinType>())
+      return builtinType->getKind() == BuiltinType::Float;
+    return false;
+  } else if (isVectorType(type, &elemType, nullptr)) {
+    return isArrayVectorOrScalarOnlyWithFloats(elemType);
+  } else if (const auto *arrayType = astContext.getAsConstantArrayType(type)) {
+    return isArrayVectorOrScalarOnlyWithFloats(arrayType->getElementType());
+  }
+  return false;
+}
+
 uint32_t GlPerVertex::getNumberOfScalarComponentsInScalarVectorArray(
     QualType type) const {
   uint32_t count = 0;
@@ -415,6 +429,15 @@ bool GlPerVertex::doGlPerVertexFacts(const DeclaratorDecl *decl,
   if (baseType->isReferenceType())
     baseType = baseType->getPointeeType();
 
+  // Clip/cull distance must be made up only with floats.
+  if (!isArrayVectorOrScalarOnlyWithFloats(baseType)) {
+    emitError("elements for %select{SV_ClipDistance|SV_CullDistance}0 "
+              "variable '%1' must be scalar, vector, or array with floats",
+              decl->getLocStart())
+        << isCull << decl->getName();
+    return false;
+  }
+
   if (baseType->isConstantArrayType()) {
     const auto *arrayType = astContext.getAsConstantArrayType(baseType);
 
@@ -427,8 +450,7 @@ bool GlPerVertex::doGlPerVertexFacts(const DeclaratorDecl *decl,
       }
 
       emitError("elements for %select{SV_ClipDistance|SV_CullDistance}0 "
-                "variable '%1' must be float or vector of floats or array of "
-                "them",
+                "variable '%1' must be scalar, vector, or array with floats",
                 decl->getLocStart())
           << isCull << decl->getName();
       return false;
@@ -470,8 +492,8 @@ void GlPerVertex::calculateClipCullDistanceArraySize() {
       const auto type = typeMap.find(index)->second;
       uint32_t count = getNumberOfScalarComponentsInScalarVectorArray(type);
       if (count == 0) {
-        llvm_unreachable("SV_ClipDistance/SV_CullDistance not float or "
-                         "vector of float or array of them case sneaked in");
+        llvm_unreachable("SV_ClipDistance/SV_CullDistance not scalar, vector, "
+                         "or array of floats case sneaked in");
       }
       (*offsetMap)[index] = *totalSize;
       *totalSize += count;
@@ -566,8 +588,8 @@ SpirvInstruction *GlPerVertex::readClipCullArrayAsType(
   SpirvVariable *clipCullVar = isClip ? inClipVar : inCullVar;
   uint32_t count = getNumberOfScalarComponentsInScalarVectorArray(asType);
   if (count == 0) {
-    llvm_unreachable("SV_ClipDistance/SV_CullDistance not float or "
-                     "vector of float or array of them case sneaked in");
+    llvm_unreachable("SV_ClipDistance/SV_CullDistance not scalar, vector, "
+                     "or array of floats case sneaked in");
   }
 
   if (inArraySize == 0) {
@@ -636,9 +658,8 @@ void GlPerVertex::writeClipCullArrayFromType(
       return;
     }
 
-    llvm_unreachable("SV_ClipDistance/SV_CullDistance not float or vector of "
-                     "float or const array of float/float-vector case sneaked "
-                     "in");
+    llvm_unreachable("SV_ClipDistance/SV_CullDistance not scalar, vector, "
+                     "or array of floats case sneaked in");
     return;
   }
 
@@ -658,9 +679,8 @@ void GlPerVertex::writeClipCullArrayFromType(
     return;
   }
 
-  llvm_unreachable(
-      "SV_ClipDistance/SV_CullDistance not float or vector of "
-      "float or const array of float/float-vector case sneaked in");
+  llvm_unreachable("SV_ClipDistance/SV_CullDistance not scalar, vector, "
+                   "or array of floats case sneaked in");
 }
 
 bool GlPerVertex::writeField(hlsl::Semantic::Kind semanticKind,
