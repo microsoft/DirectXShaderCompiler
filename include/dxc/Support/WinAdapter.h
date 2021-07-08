@@ -41,9 +41,6 @@
 #define C_ASSERT(expr) static_assert((expr), "")
 #define ATLASSERT assert
 
-#define CoTaskMemAlloc malloc
-#define CoTaskMemFree free
-
 #define ARRAYSIZE(array) (sizeof(array) / sizeof(array[0]))
 
 #define _countof(a) (sizeof(a) / sizeof(*(a)))
@@ -210,6 +207,10 @@
 
 #define UInt32Add UIntAdd
 #define Int32ToUInt32 IntToUInt
+
+#ifndef DXC_API_IMPORT
+#define DXC_API_IMPORT __attribute__((visibility("default")))
+#endif
 
 //===--------------------- HRESULT Related Macros -------------------------===//
 
@@ -930,9 +931,17 @@ public:
 
 //===--------------------------- BSTR Allocation --------------------------===//
 
-void SysFreeString(BSTR bstrString);
+extern "C" DXC_API_IMPORT void __stdcall SysFreeString(BSTR bstrString);
 // Allocate string with length prefix
-BSTR SysAllocStringLen(const OLECHAR *strIn, UINT ui);
+extern "C" DXC_API_IMPORT BSTR __stdcall SysAllocStringLen(const OLECHAR *strIn,
+                                                           UINT ui);
+extern "C" DXC_API_IMPORT UINT __stdcall SysStringByteLen(BSTR bstr);
+extern "C" DXC_API_IMPORT UINT __stdcall SysStringLen(BSTR pbstr);
+
+//===-------------------------- CoTask Allocation -------------------------===//
+
+extern "C" DXC_API_IMPORT LPVOID __stdcall CoTaskMemAlloc(SIZE_T cb);
+extern "C" DXC_API_IMPORT void __stdcall CoTaskMemFree(LPVOID pv);
 
 //===--------------------- UTF-8 Related Types ----------------------------===//
 

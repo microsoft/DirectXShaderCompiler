@@ -47,14 +47,14 @@ void CAllocator::Free(void *p) throw() { free(p); }
 
 //===--------------------------- BSTR Allocation --------------------------===//
 
-void SysFreeString(BSTR bstrString) {
+DXC_API_IMPORT void __stdcall SysFreeString(BSTR bstrString) {
   if (bstrString)
     free((void *)((uintptr_t)bstrString - sizeof(uint32_t)));
 }
 
 // Allocate string with length prefix
 // https://docs.microsoft.com/en-us/previous-versions/windows/desktop/automat/bstr
-BSTR SysAllocStringLen(const OLECHAR *strIn, UINT ui) {
+DXC_API_IMPORT BSTR __stdcall SysAllocStringLen(const OLECHAR *strIn, UINT ui) {
   uint32_t *blobOut =
       (uint32_t *)malloc(sizeof(uint32_t) + (ui + 1) * sizeof(OLECHAR));
 
@@ -74,6 +74,23 @@ BSTR SysAllocStringLen(const OLECHAR *strIn, UINT ui) {
 
   return strOut;
 }
+
+DXC_API_IMPORT UINT __stdcall SysStringByteLen(BSTR bstr) {
+  if (!bstr)
+    return 0;
+
+  return ((UINT *)bstr)[-1];
+}
+
+DXC_API_IMPORT UINT __stdcall SysStringLen(BSTR pbstr) {
+  return SysStringByteLen(pbstr) / 4;
+}
+
+//===-------------------------- CoTask Allocation -------------------------===//
+
+DXC_API_IMPORT LPVOID __stdcall CoTaskMemAlloc(SIZE_T cb) { return malloc(cb); }
+
+DXC_API_IMPORT void __stdcall CoTaskMemFree(LPVOID pv) { free(pv); }
 
 //===---------------------- Char converstion ------------------------------===//
 
