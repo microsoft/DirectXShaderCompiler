@@ -158,7 +158,7 @@ private:
   bool createScalarClipCullDistanceStore(
       SpirvInstruction *ptr, SpirvInstruction *value, QualType valueType,
       SpirvInstruction *offset, SourceLocation loc,
-      llvm::Optional<uint32_t> valueOffset,
+      llvm::ArrayRef<uint32_t> valueIndices,
       llvm::Optional<SpirvInstruction *> arrayIndex = llvm::None) const;
   /// Creates store instruction for clip or cull distance with a scalar or
   /// vector type.

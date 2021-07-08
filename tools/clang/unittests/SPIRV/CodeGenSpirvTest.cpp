@@ -1583,6 +1583,10 @@ TEST_F(FileTest, SpirvStageIOInterfacePS) {
   runFileTest("spirv.interface.ps.hlsl");
 }
 
+TEST_F(FileTest, SpirvStageIOInterfaceVSArraySVClipDistance) {
+  runFileTest("spirv.interface.vs.array.sv_clipdistance.hlsl");
+}
+
 TEST_F(FileTest, SpirvStageIOAliasBuiltIn) {
   runFileTest("spirv.interface.alias-builtin.hlsl");
 }

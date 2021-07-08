@@ -222,7 +222,7 @@ SpirvInstruction *GlPerVertex::createClipCullDistanceLoad(
 bool GlPerVertex::createScalarClipCullDistanceStore(
     SpirvInstruction *ptr, SpirvInstruction *value, QualType valueType,
     SpirvInstruction *offset, SourceLocation loc,
-    llvm::Optional<uint32_t> valueOffset,
+    llvm::ArrayRef<uint32_t> valueIndices,
     llvm::Optional<SpirvInstruction *> arrayIndex) const {
   if (!isScalarType(valueType))
     return false;
@@ -233,9 +233,9 @@ bool GlPerVertex::createScalarClipCullDistanceStore(
   }
   ptrIndices.push_back(offset);
   ptr = spvBuilder.createAccessChain(astContext.FloatTy, ptr, ptrIndices, loc);
-  if (valueOffset.hasValue()) {
+  if (!valueIndices.empty()) {
     value = spvBuilder.createCompositeExtract(astContext.FloatTy, value,
-                                              {valueOffset.getValue()}, loc);
+                                              valueIndices, loc);
   }
   spvBuilder.createStore(ptr, value, loc);
   return true;
@@ -246,18 +246,18 @@ bool GlPerVertex::createScalarOrVectorClipCullDistanceStore(
     SpirvInstruction *offset, SourceLocation loc,
     llvm::Optional<uint32_t> valueOffset,
     llvm::Optional<SpirvInstruction *> arrayIndex) const {
+  llvm::SmallVector<uint32_t, 2> valueIndices;
+  if (valueOffset.hasValue())
+    valueIndices.push_back(valueOffset.getValue());
   if (isScalarType(valueType)) {
     return createScalarClipCullDistanceStore(ptr, value, valueType, offset, loc,
-                                             valueOffset, arrayIndex);
+                                             valueIndices, arrayIndex);
   }
 
   QualType elemType = {};
   uint32_t count = 0;
   if (!isVectorType(valueType, &elemType, &count))
     return false;
-
-  uint32_t valueOffsetInUInt =
-      valueOffset.hasValue() ? valueOffset.getValue() : 0;
 
   // The target SV_ClipDistance/SV_CullDistance variable is of vector
   // type, then we need to construct a vector out of float array elements.
@@ -266,9 +266,10 @@ bool GlPerVertex::createScalarOrVectorClipCullDistanceStore(
         spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, i));
     auto *elemOffset = spvBuilder.createBinaryOp(
         spv::Op::OpIAdd, astContext.UnsignedIntTy, offset, constant, loc);
-    createScalarClipCullDistanceStore(
-        ptr, value, elemType, elemOffset, loc,
-        llvm::Optional<uint32_t>(valueOffsetInUInt + i), arrayIndex);
+    valueIndices.push_back(i);
+    createScalarClipCullDistanceStore(ptr, value, elemType, elemOffset, loc,
+                                      valueIndices, arrayIndex);
+    valueIndices.pop_back();
   }
   return true;
 }
@@ -291,8 +292,8 @@ bool GlPerVertex::createClipCullDistanceStore(
       auto *elemOffset = spvBuilder.createBinaryOp(
           spv::Op::OpIAdd, astContext.UnsignedIntTy, offset, constant, loc);
       createScalarOrVectorClipCullDistanceStore(
-          ptr, value, elemType, elemOffset, loc,
-          llvm::Optional<uint32_t>(i * numberOfScalarsInElement), arrayIndex);
+          ptr, value, elemType, elemOffset, loc, llvm::Optional<uint32_t>(i),
+          arrayIndex);
     }
     return true;
   }
