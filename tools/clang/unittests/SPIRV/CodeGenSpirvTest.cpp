@@ -1287,6 +1287,9 @@ TEST_F(FileTest, IntrinsicsNonUniformResourceIndex) {
 TEST_F(FileTest, IntrinsicsMultiPrefix) {
   runFileTest("intrinsics.multiprefix.hlsl", Expect::Failure);
 }
+TEST_F(FileTest, IntrinsicsGetAttributeAtVertex) {
+  runFileTest("intrinsics.get-attribute-at-vertex.hlsl", Expect::Failure);
+}
 
 // Vulkan-specific intrinsic functions
 TEST_F(FileTest, IntrinsicsVkCrossDeviceScope) {
