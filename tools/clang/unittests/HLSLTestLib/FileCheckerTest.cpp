@@ -18,6 +18,7 @@
 #include <string>
 #include <cctype>
 #include <cassert>
+#include <codecvt>
 #include <algorithm>
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/dxcapi.h"
@@ -795,10 +796,22 @@ void FileRunCommandPart::SubstituteFilenameVarsNoPath(std::string &args) {
   size_t pos;
   size_t posPath;
   std::string baseFileName = CW2A(CommandFileName);
+  std::string testDirStr = "%%";
+  testDirStr.append(FILECHECKTESTDIRPARAM);
+  testDirStr.append("%%");
   if ((pos = baseFileName.find_last_of(".")) != std::string::npos) {
     if ((posPath = baseFileName.find_last_of("\\")) != std::string::npos) {
       baseFileName = baseFileName.substr(posPath + 1, pos);
     }
+  }
+  const char* test_dir = std::getenv(FILECHECKTESTDIRPARAM);
+  if (test_dir) {
+      while ((pos = args.find(testDirStr)) != std::string::npos) {
+          args.replace(pos, std::strlen(testDirStr.c_str()), test_dir);
+      }
+  }
+  else {
+      assert((pos = args.find(testDirStr)) == std::string::npos && "TEST_DIR hct environment variable not set, but an hcttest requires it." );
   }
   while ((pos = args.find("%t")) != std::string::npos) {
     args.replace(pos, 2, baseFileName.c_str());
@@ -814,10 +827,24 @@ void FileRunCommandPart::SubstituteFilenameVarsNoPath(std::wstring &args) {
   size_t pos;
   size_t posPath;
   std::wstring baseFileName = CommandFileName;
+  std::wstring testDirStr = L"%%";
+  testDirStr.append(WFILECHECKTESTDIRPARAM);
+  testDirStr.append(L"%%");
   if ((pos = baseFileName.find_last_of(L".")) != std::wstring::npos) {
     if ((posPath = baseFileName.find_last_of(L"\\")) != std::wstring::npos) {
       baseFileName = baseFileName.substr(posPath + 1, pos);
     }
+  }
+  const char* test_dir = std::getenv(FILECHECKTESTDIRPARAM);
+  if (test_dir) {
+      std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+      std::wstring wTestDir = converter.from_bytes(test_dir, test_dir + std::strlen(test_dir));
+      while ((pos = args.find(testDirStr)) != std::wstring::npos) {
+          args.replace(pos, std::wcslen(testDirStr.c_str()), wTestDir);
+      }
+  }
+  else {
+      assert((pos = args.find(testDirStr)) == std::wstring::npos && "TEST_DIR hct environment variable not set, but an hcttest requires it." );
   }
   while ((pos = args.find(L"%t")) != std::wstring::npos) {
     args.replace(pos, 2, baseFileName.c_str());

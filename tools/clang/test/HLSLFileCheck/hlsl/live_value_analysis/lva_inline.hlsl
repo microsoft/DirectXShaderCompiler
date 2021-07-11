@@ -1,4 +1,4 @@
-// RUN: %dxc -Flv..\hlsl.bin\Debug\test\lvaout-%t.txt -T lib_6_3 -Zi %s | FileCheck --input-file=..\hlsl.bin\Debug\test\lvaout-%t.txt %s
+// RUN: %dxc -Flv%%TEST_DIR%%\lvaout-%t.txt -T lib_6_3 -Zi %s | FileCheck --input-file=%%TEST_DIR%%\lvaout-%t.txt %s
 
 // CHECK: ret
 // CHECK: t

@@ -35,6 +35,16 @@ using namespace std;
 #define FILECHECKDUMPDIRPARAM L"FileCheckDumpDir"
 #endif
 
+// The hcttest environment variable that sets the output folder for test artifacts.
+// Introduced by the Live Value Analysis (LVA) tests in order to compare dxc ouput
+// with file output.
+#ifndef FILECHECKTESTDIRPARAM
+#define FILECHECKTESTDIRPARAM "TEST_DIR"
+#endif
+#ifndef WFILECHECKTESTDIRPARAM
+#define WFILECHECKTESTDIRPARAM L"TEST_DIR"
+#endif
+
 // If TAEF verify macros are available, use them to alias other legacy
 // comparison macros that don't have a direct translation.
 //
