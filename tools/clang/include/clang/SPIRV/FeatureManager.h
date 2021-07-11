@@ -31,6 +31,7 @@ enum class Extension {
   KHR = 0,
   KHR_16bit_storage,
   KHR_device_group,
+  KHR_fragment_shading_rate,
   KHR_non_semantic_info,
   KHR_multiview,
   KHR_shader_draw_parameters,
@@ -50,6 +51,7 @@ enum class Extension {
   NV_ray_tracing,
   NV_mesh_shader,
   KHR_ray_query,
+  EXT_shader_image_int64,
   Unknown,
 };
 

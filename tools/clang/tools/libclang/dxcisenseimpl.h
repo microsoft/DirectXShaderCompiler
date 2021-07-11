@@ -189,7 +189,7 @@ public:
       _Outptr_result_nullonfailure_ IDxcTranslationUnit** pTranslationUnit) override;
 };
 
-class DxcIntelliSense : public IDxcIntelliSense, public IDxcLangExtensions2 {
+class DxcIntelliSense : public IDxcIntelliSense, public IDxcLangExtensions3 {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
   hlsl::DxcLangExtensionsHelper m_langHelper;
@@ -201,7 +201,7 @@ public:
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
     return DoBasicQueryInterface<IDxcIntelliSense, IDxcLangExtensions,
-                                 IDxcLangExtensions2>(
+                                 IDxcLangExtensions2, IDxcLangExtensions3>(
         this, iid, ppvObject);
   }
 

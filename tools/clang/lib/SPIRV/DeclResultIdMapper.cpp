@@ -491,6 +491,32 @@ spv::ImageFormat getSpvImageFormat(const VKImageFormatAttr *imageFormatAttr) {
   return spv::ImageFormat::Unknown;
 }
 
+// Inserts seen semantics for entryPoint to seenSemanticsForEntryPoints. Returns
+// whether it does not already exist in seenSemanticsForEntryPoints.
+bool insertSeenSemanticsForEntryPointIfNotExist(
+    llvm::SmallDenseMap<SpirvFunction *, llvm::StringSet<>>
+        *seenSemanticsForEntryPoints,
+    SpirvFunction *entryPoint, const std::string &semantics) {
+  auto seenSemanticsForEntryPointsItr =
+      seenSemanticsForEntryPoints->find(entryPoint);
+  if (seenSemanticsForEntryPointsItr == seenSemanticsForEntryPoints->end()) {
+    bool insertResult = false;
+    std::tie(seenSemanticsForEntryPointsItr, insertResult) =
+        seenSemanticsForEntryPoints->insert(
+            std::make_pair(entryPoint, llvm::StringSet<>()));
+    assert(insertResult);
+    seenSemanticsForEntryPointsItr->second.insert(semantics);
+    return true;
+  }
+
+  auto &seenSemantics = seenSemanticsForEntryPointsItr->second;
+  if (seenSemantics.count(semantics)) {
+    return false;
+  }
+  seenSemantics.insert(semantics);
+  return true;
+}
+
 } // anonymous namespace
 
 std::string StageVar::getSemanticStr() const {
@@ -947,8 +973,7 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
   if (spvImageFormat != spv::ImageFormat::Unknown)
     spvContext.registerImageFormatForSpirvVariable(varInstr, spvImageFormat);
 
-  DeclSpirvInfo info(varInstr);
-  astDecls[var] = info;
+  astDecls[var] = createDeclSpirvInfo(varInstr);
 
   createDebugGlobalVariable(varInstr, type, loc, name);
 
@@ -991,8 +1016,7 @@ DeclResultIdMapper::createOrUpdateStringVar(const VarDecl *var) {
   const StringLiteral *stringLiteral =
       dyn_cast<StringLiteral>(var->getInit()->IgnoreParenCasts());
   SpirvString *init = spvBuilder.getString(stringLiteral->getString());
-  DeclSpirvInfo info(init);
-  astDecls[var] = info;
+  astDecls[var] = createDeclSpirvInfo(init);
   return init;
 }
 
@@ -1089,7 +1113,7 @@ void DeclResultIdMapper::createEnumConstant(const EnumConstantDecl *decl) {
   SpirvVariable *varInstr = spvBuilder.addModuleVar(
       astContext.IntTy, spv::StorageClass::Private, /*isPrecise*/ false,
       decl->getName(), enumConstant, decl->getLocation());
-  astDecls[valueDecl] = DeclSpirvInfo(varInstr);
+  astDecls[valueDecl] = createDeclSpirvInfo(varInstr);
 }
 
 SpirvVariable *DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
@@ -1111,7 +1135,7 @@ SpirvVariable *DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
       continue;
 
     const auto *varDecl = cast<VarDecl>(subDecl);
-    astDecls[varDecl] = DeclSpirvInfo(bufferVar, index++);
+    astDecls[varDecl] = createDeclSpirvInfo(bufferVar, index++);
   }
   resourceVars.emplace_back(
       bufferVar, decl, decl->getLocation(), getResourceBinding(decl),
@@ -1185,7 +1209,7 @@ SpirvVariable *DeclResultIdMapper::createCTBuffer(const VarDecl *decl) {
       decl->getName());
 
   // We register the VarDecl here.
-  astDecls[decl] = DeclSpirvInfo(bufferVar);
+  astDecls[decl] = createDeclSpirvInfo(bufferVar);
   resourceVars.emplace_back(
       bufferVar, decl, decl->getLocation(), getResourceBinding(decl),
       decl->getAttr<VKBindingAttr>(), decl->getAttr<VKCounterBindingAttr>());
@@ -1212,7 +1236,7 @@ SpirvVariable *DeclResultIdMapper::createPushConstant(const VarDecl *decl) {
       structName, decl->getName());
 
   // Register the VarDecl
-  astDecls[decl] = DeclSpirvInfo(var);
+  astDecls[decl] = createDeclSpirvInfo(var);
 
   // Do not push this variable into resourceVars since it does not need
   // descriptor set.
@@ -1241,7 +1265,7 @@ DeclResultIdMapper::createShaderRecordBuffer(const VarDecl *decl,
       kind, structName, decl->getName());
 
   // Register the VarDecl
-  astDecls[decl] = DeclSpirvInfo(var);
+  astDecls[decl] = createDeclSpirvInfo(var);
 
   // Do not push this variable into resourceVars since it does not need
   // descriptor set.
@@ -1276,7 +1300,7 @@ DeclResultIdMapper::createShaderRecordBuffer(const HLSLBufferDecl *decl,
       continue;
 
     const auto *varDecl = cast<VarDecl>(subDecl);
-    astDecls[varDecl] = DeclSpirvInfo(bufferVar, index++);
+    astDecls[varDecl] = createDeclSpirvInfo(bufferVar, index++);
   }
   return bufferVar;
 }
@@ -1312,7 +1336,7 @@ void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
         return;
       }
 
-      astDecls[varDecl] = DeclSpirvInfo(globals, index++);
+      astDecls[varDecl] = createDeclSpirvInfo(globals, index++);
     }
   }
 }
@@ -1385,7 +1409,7 @@ DeclResultIdMapper::getCounterVarFields(const DeclaratorDecl *decl) {
 void DeclResultIdMapper::registerSpecConstant(const VarDecl *decl,
                                               SpirvInstruction *specConstant) {
   specConstant->setRValue();
-  astDecls[decl] = DeclSpirvInfo(specConstant);
+  astDecls[decl] = createDeclSpirvInfo(specConstant);
 }
 
 void DeclResultIdMapper::createCounterVar(
@@ -1462,7 +1486,8 @@ DeclResultIdMapper::getCTBufferPushConstantType(const DeclContext *decl) {
   return found->second;
 }
 
-std::vector<SpirvVariable *> DeclResultIdMapper::collectStageVars() const {
+std::vector<SpirvVariable *>
+DeclResultIdMapper::collectStageVars(SpirvFunction *entryPoint) const {
   std::vector<SpirvVariable *> vars;
 
   for (auto var : glPerVertex.getStageInVars())
@@ -1472,6 +1497,12 @@ std::vector<SpirvVariable *> DeclResultIdMapper::collectStageVars() const {
 
   llvm::DenseSet<SpirvInstruction *> seenVars;
   for (const auto &var : stageVars) {
+    // We must collect stage variables that are included in entryPoint and stage
+    // variables that are not included in any specific entryPoint i.e.,
+    // var.getEntryPoint() is nullptr. Note that stage variables without any
+    // specific entry point are common stage variables among all entry points.
+    if (var.getEntryPoint() && var.getEntryPoint() != entryPoint)
+      continue;
     auto *instr = var.getSpirvInstr();
     if (seenVars.count(instr) == 0) {
       vars.push_back(instr);
@@ -1607,7 +1638,9 @@ private:
 } // namespace
 
 bool DeclResultIdMapper::checkSemanticDuplication(bool forInput) {
-  llvm::StringSet<> seenSemantics;
+  // Mapping from entry points to the corresponding set of semantics.
+  llvm::SmallDenseMap<SpirvFunction *, llvm::StringSet<>>
+      seenSemanticsForEntryPoints;
   bool success = true;
   for (const auto &var : stageVars) {
     auto s = var.getSemanticStr();
@@ -1627,17 +1660,19 @@ bool DeclResultIdMapper::checkSemanticDuplication(bool forInput) {
       continue;
 
     if (forInput && var.getSigPoint()->IsInput()) {
-      if (seenSemantics.count(s)) {
+      bool insertionSuccess = insertSeenSemanticsForEntryPointIfNotExist(
+          &seenSemanticsForEntryPoints, var.getEntryPoint(), s);
+      if (!insertionSuccess) {
         emitError("input semantic '%0' used more than once", {}) << s;
         success = false;
       }
-      seenSemantics.insert(s);
     } else if (!forInput && var.getSigPoint()->IsOutput()) {
-      if (seenSemantics.count(s)) {
+      bool insertionSuccess = insertSeenSemanticsForEntryPointIfNotExist(
+          &seenSemanticsForEntryPoints, var.getEntryPoint(), s);
+      if (!insertionSuccess) {
         emitError("output semantic '%0' used more than once", {}) << s;
         success = false;
       }
-      seenSemantics.insert(s);
     }
   }
 
@@ -2221,8 +2256,6 @@ bool DeclResultIdMapper::createStageVars(
     // * SV_DispatchThreadID, SV_GroupThreadID, and SV_GroupID are allowed to be
     //   uint, uint2, or uint3, but the corresponding builtins
     //   (GlobalInvocationId, LocalInvocationId, WorkgroupId) must be a uint3.
-    // * SV_ShadingRate is a uint value, but the builtin it corresponds to is a
-    //   int2.
 
     if (glPerVertex.tryToAccess(sigPointKind, semanticKind,
                                 semanticToUse->index, invocationId, value,
@@ -2264,9 +2297,6 @@ bool DeclResultIdMapper::createStageVars(
           hlsl::IsHLSLVecType(type) ? hlsl::GetHLSLVecElementType(type) : type,
           3);
       break;
-    case hlsl::Semantic::Kind::ShadingRate:
-      evalType = astContext.getExtVectorType(astContext.IntTy, 2);
-      break;
     default:
       // Only the semantic kinds mentioned above are handled.
       break;
@@ -2298,6 +2328,10 @@ bool DeclResultIdMapper::createStageVars(
     stageVar.setSpirvInstr(varInstr);
     stageVar.setLocationAttr(decl->getAttr<VKLocationAttr>());
     stageVar.setIndexAttr(decl->getAttr<VKIndexAttr>());
+    if (stageVar.getStorageClass() == spv::StorageClass::Input ||
+        stageVar.getStorageClass() == spv::StorageClass::Output) {
+      stageVar.setEntryPoint(entryFunction);
+    }
     stageVars.push_back(stageVar);
 
     // Emit OpDecorate* instructions to link this stage variable with the HLSL
@@ -2504,25 +2538,6 @@ bool DeclResultIdMapper::createStageVars(
           *value = spvBuilder.createVectorShuffle(
               astContext.getExtVectorType(srcVecElemType, 2), *value, *value,
               {0, 1}, thisSemantic.loc);
-      }
-      // Special handling of SV_ShadingRate, which is a bitpacked enum value,
-      // but SPIR-V's FragSizeEXT uses an int2. We build the enum value from
-      // the separate axis values.
-      else if (semanticKind == hlsl::Semantic::Kind::ShadingRate) {
-        // From the D3D12 functional spec for Variable-Rate Shading.
-        // #define D3D12_MAKE_COARSE_SHADING_RATE(x,y) ((x) << 2 | (y))
-        const auto x = spvBuilder.createCompositeExtract(
-            astContext.IntTy, *value, {0}, thisSemantic.loc);
-        const auto y = spvBuilder.createCompositeExtract(
-            astContext.IntTy, *value, {1}, thisSemantic.loc);
-        const auto constTwo =
-            spvBuilder.getConstantInt(astContext.IntTy, llvm::APInt(32, 2));
-        *value = spvBuilder.createBinaryOp(
-            spv::Op::OpBitwiseOr, astContext.UnsignedIntTy,
-            spvBuilder.createBinaryOp(spv::Op::OpShiftLeftLogical,
-                                      astContext.IntTy, x, constTwo,
-                                      thisSemantic.loc),
-            y, thisSemantic.loc);
       }
 
       // Reciprocate SV_Position.w if requested
@@ -2786,6 +2801,10 @@ bool DeclResultIdMapper::createPayloadStageVars(
     // assignment.
     stageVar.setIsSpirvBuiltin();
     stageVar.setSpirvInstr(varInstr);
+    if (stageVar.getStorageClass() == spv::StorageClass::Input ||
+        stageVar.getStorageClass() == spv::StorageClass::Output) {
+      stageVar.setEntryPoint(entryFunction);
+    }
     stageVars.push_back(stageVar);
 
     // Decorate with PerTaskNV for mesh/amplification shader payload variables.
@@ -3087,6 +3106,10 @@ SpirvVariable *DeclResultIdMapper::createSpirvIntermediateOutputStageVar(
   stageVar.setSpirvInstr(varInstr);
   stageVar.setLocationAttr(decl->getAttr<VKLocationAttr>());
   stageVar.setIndexAttr(decl->getAttr<VKIndexAttr>());
+  if (stageVar.getStorageClass() == spv::StorageClass::Input ||
+      stageVar.getStorageClass() == spv::StorageClass::Output) {
+    stageVar.setEntryPoint(entryFunction);
+  }
   stageVars.push_back(stageVar);
 
   // Emit OpDecorate* instructions to link this stage variable with the HLSL
@@ -3472,16 +3495,30 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   }
   // According to DXIL spec, the ShadingRate SV can only be used by GSOut,
   // VSOut, or PSIn. According to Vulkan spec, the FragSizeEXT BuiltIn can only
-  // be used as PSIn.
+  // be used as VSOut, GSOut, MSOut or PSIn.
   case hlsl::Semantic::Kind::ShadingRate: {
+    QualType checkType = type->getAs<ReferenceType>()
+                             ? type->getAs<ReferenceType>()->getPointeeType()
+                             : type;
+    QualType scalarTy;
+    if (!isScalarType(checkType, &scalarTy) || !scalarTy->isIntegerType()) {
+      emitError("semantic ShadingRate must be interger scalar type", srcLoc);
+    }
+
     switch (sigPointKind) {
     case hlsl::SigPoint::Kind::PSIn:
       stageVar->setIsSpirvBuiltin();
-      return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::FragSizeEXT,
+      return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::ShadingRateKHR,
                                            isPrecise, srcLoc);
+    case hlsl::SigPoint::Kind::VSOut:
+    case hlsl::SigPoint::Kind::GSOut:
+    case hlsl::SigPoint::Kind::MSOut:
+      stageVar->setIsSpirvBuiltin();
+      return spvBuilder.addStageBuiltinVar(
+          type, sc, BuiltIn::PrimitiveShadingRateKHR, isPrecise, srcLoc);
     default:
-      emitError("semantic ShadingRate currently unsupported in non-PS shader"
-                " stages",
+      emitError("semantic ShadingRate must be used only for PSIn, VSOut, "
+                "GSOut, MSOut",
                 srcLoc);
       break;
     }

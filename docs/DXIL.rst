@@ -2318,8 +2318,6 @@ ID  Name                                                  Description
 219 Unpack4x8                                             unpacks 4 8-bit signed or unsigned values into int32 or int16 vector
 220 Pack4x8                                               packs vector of 4 signed or unsigned values into a packed datatype, drops or clamps unused bits
 221 IsHelperLane                                          returns true on helper lanes in pixel shaders
-222 TextureGatherImm                                      same as TextureGather, except offsets are limited to immediate values between -8 and 7
-223 TextureGatherCmpImm                                   same as TextureGatherCmp, except offsets are limited to immediate values between -8 and 7
 === ===================================================== =======================================================================================================================================================================================================================
 
 
@@ -2969,7 +2967,7 @@ The set of validation rules that are known to hold for a DXIL program is identif
 ========================================= ========================================================================================================================================================================================================================================================================================================
 Rule Code                                 Description
 ========================================= ========================================================================================================================================================================================================================================================================================================
-BITCODE.VALID                             TODO - Module must be bitcode-valid
+BITCODE.VALID                             Module must be bitcode-valid
 CONTAINER.PARTINVALID                     DXIL Container must not contain unknown parts
 CONTAINER.PARTMATCHES                     DXIL Container Parts must match Module
 CONTAINER.PARTMISSING                     DXIL Container requires certain parts, corresponding to module
@@ -3096,7 +3094,7 @@ META.KNOWN                                Named metadata should be known
 META.MAXTESSFACTOR                        Hull Shader MaxTessFactor must be [%0..%1].  %2 specified.
 META.NOENTRYPROPSFORENTRY                 Entry point %0 must have entry properties.
 META.NOSEMANTICOVERLAP                    Semantics must not overlap
-META.REQUIRED                             TODO - Required metadata missing.
+META.REQUIRED                             Required metadata missing.
 META.SEMAKINDMATCHESNAME                  Semantic name must match system value, when defined.
 META.SEMAKINDVALID                        Semantic kind must be valid
 META.SEMANTICCOMPTYPE                     %0 must be %1.
@@ -3120,7 +3118,8 @@ META.TEXTURETYPE                          elements of typed buffers and textures
 META.USED                                 All metadata must be used by dxil.
 META.VALIDSAMPLERMODE                     Invalid sampler mode on sampler .
 META.VALUERANGE                           Metadata value must be within range.
-META.WELLFORMED                           TODO - Metadata must be well-formed in operand count and types.
+META.VERSIONSUPPORTED                     Version in metadata must be supported.
+META.WELLFORMED                           Metadata must be well-formed in operand count and types.
 SM.64BITRAWBUFFERLOADSTORE                i64/f64 rawBufferLoad/Store overloads are allowed after SM 6.3.
 SM.AMPLIFICATIONSHADERPAYLOADSIZE         For amplification shader with entry '%0', payload size %1 is greater than maximum size of %2 bytes.
 SM.AMPLIFICATIONSHADERPAYLOADSIZEDECLARED For amplification shader with entry '%0', payload size %1 is greater than declared size of %2 bytes.

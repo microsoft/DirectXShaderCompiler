@@ -1293,9 +1293,7 @@ static const char *OpCodeSignatures[] = {
   "(index,samplerHeap,nonUniformIndex)",  // CreateHandleFromHeap
   "(unpackMode,pk)",  // Unpack4x8
   "(packMode,x,y,z,w)",  // Pack4x8
-  "()",  // IsHelperLane
-  "(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,channel)",  // TextureGatherImm
-  "(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,channel,compareVale)"  // TextureGatherCmpImm
+  "()"  // IsHelperLane
 };
 // OPCODE-SIGS:END
 
@@ -1393,16 +1391,13 @@ void PrintResourceProperties(DxilResourceProperties &RP,
   case DXIL::ResourceKind::Texture2DArray:
   case DXIL::ResourceKind::TextureCubeArray:
   case DXIL::ResourceKind::TypedBuffer:
-    OS << GC << RW << ResourceKindToString(RP.getResourceKind());
-    OS << "<" << CompTypeToString(RP.getCompType())
-       << (bUAV && RP.Typed.CompCount > 1 ? "[vec]" : "")
-       << ">";
-    break;
-
   case DXIL::ResourceKind::Texture2DMS:
   case DXIL::ResourceKind::Texture2DMSArray:
-    OS << ResourceKindToString(RP.getResourceKind());
-    OS << "<" << CompTypeToString(RP.getCompType())
+    OS << GC << RW << ResourceKindToString(RP.getResourceKind());
+    OS << "<";
+    if (RP.Typed.CompCount > 1)
+      OS << std::to_string(RP.Typed.CompCount) << "x";
+    OS << CompTypeToString(RP.getCompType())
        << ">";
     break;
 

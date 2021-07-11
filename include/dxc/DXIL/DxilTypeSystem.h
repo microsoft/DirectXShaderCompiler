@@ -12,6 +12,7 @@
 #pragma once
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/MapVector.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilCompType.h"
 #include "dxc/DXIL/DxilInterpolationMode.h"
 
@@ -26,7 +27,6 @@ class Function;
 class MDNode;
 class Type;
 class StructType;
-class StringRef;
 }
 
 
@@ -94,7 +94,7 @@ private:
   bool m_bCBufferVarUsed; // true if this field represents a top level variable in CB structure, and it is used.
 };
 
-class DxilTemplateArgAnnotation : DxilFieldAnnotation {
+class DxilTemplateArgAnnotation {
 public:
   DxilTemplateArgAnnotation();
 
@@ -125,6 +125,10 @@ public:
   void SetCBufferSize(unsigned size);
   void MarkEmptyStruct();
   bool IsEmptyStruct();
+  // Since resources don't take real space, IsEmptyBesidesResources
+  // determines if the structure is empty or contains only resources.
+  bool IsEmptyBesidesResources();
+  bool ContainsResources() const;
 
   // For template args, GetNumTemplateArgs() will return 0 if not a template
   unsigned GetNumTemplateArgs() const;
@@ -133,10 +137,55 @@ public:
   const DxilTemplateArgAnnotation &GetTemplateArgAnnotation(unsigned argIdx) const;
 
 private:
-  const llvm::StructType *m_pStructType;
+  const llvm::StructType *m_pStructType = nullptr;
   std::vector<DxilFieldAnnotation> m_FieldAnnotations;
-  unsigned m_CBufferSize;  // The size of struct if inside constant buffer.
+  unsigned m_CBufferSize = 0;  // The size of struct if inside constant buffer.
   std::vector<DxilTemplateArgAnnotation> m_TemplateAnnotations;
+
+  // m_ResourcesContained property not stored to metadata
+  void SetContainsResources();
+  // HasResources::Only will be set on MarkEmptyStruct() when HasResources::True
+  enum class HasResources { True, False, Only } m_ResourcesContained = HasResources::False;
+};
+
+
+/// Use this class to represent type annotation for DXR payload field.
+class DxilPayloadFieldAnnotation {
+public:
+
+  static unsigned GetBitOffsetForShaderStage(DXIL::PayloadAccessShaderStage shaderStage);
+
+  DxilPayloadFieldAnnotation() = default;
+
+  bool HasCompType() const;
+  const CompType &GetCompType() const;
+  void SetCompType(CompType::Kind kind);
+
+  uint32_t GetPayloadFieldQualifierMask() const;
+  void SetPayloadFieldQualifierMask(uint32_t fieldBitmask);
+  void AddPayloadFieldQualifier(DXIL::PayloadAccessShaderStage shaderStage, DXIL::PayloadAccessQualifier qualifier);
+  DXIL::PayloadAccessQualifier GetPayloadFieldQualifier(DXIL::PayloadAccessShaderStage shaderStage) const;
+  bool HasAnnotations() const;
+
+private:
+  CompType m_CompType;
+  unsigned m_bitmask = 0;
+};
+
+/// Use this class to represent DXR payload structures.
+class DxilPayloadAnnotation {
+  friend class DxilTypeSystem;
+
+public:
+  unsigned GetNumFields() const;
+  DxilPayloadFieldAnnotation &GetFieldAnnotation(unsigned FieldIdx);
+  const DxilPayloadFieldAnnotation &GetFieldAnnotation(unsigned FieldIdx) const;
+  const llvm::StructType *GetStructType() const;
+  void SetStructType(const llvm::StructType *Ty);
+
+private:
+  const llvm::StructType *m_pStructType;
+  std::vector<DxilPayloadFieldAnnotation> m_FieldAnnotations;
 };
 
 
@@ -182,28 +231,48 @@ public:
   const llvm::Function *GetFunction() const;
   DxilParameterAnnotation &GetRetTypeAnnotation();
   const DxilParameterAnnotation &GetRetTypeAnnotation() const;
+
+  bool ContainsResourceArgs() { return m_bContainsResourceArgs; }
+
 private:
   const llvm::Function *m_pFunction;
   std::vector<DxilParameterAnnotation> m_parameterAnnotations;
   DxilParameterAnnotation m_retTypeAnnotation;
+
+  // m_bContainsResourceArgs property not stored to metadata
+  void SetContainsResourceArgs() { m_bContainsResourceArgs = true; }
+  bool m_bContainsResourceArgs = false;
 };
 
 /// Use this class to represent structure type annotations in HL and DXIL.
 class DxilTypeSystem {
 public:
   using StructAnnotationMap = llvm::MapVector<const llvm::StructType *, std::unique_ptr<DxilStructAnnotation> >;
+  using PayloadAnnotationMap = llvm::MapVector<const llvm::StructType *, std::unique_ptr<DxilPayloadAnnotation> >;
   using FunctionAnnotationMap = llvm::MapVector<const llvm::Function *, std::unique_ptr<DxilFunctionAnnotation> >;
 
   DxilTypeSystem(llvm::Module *pModule);
 
   DxilStructAnnotation *AddStructAnnotation(const llvm::StructType *pStructType, unsigned numTemplateArgs = 0);
+  void FinishStructAnnotation(DxilStructAnnotation &SA);
   DxilStructAnnotation *GetStructAnnotation(const llvm::StructType *pStructType);
   const DxilStructAnnotation *GetStructAnnotation(const llvm::StructType *pStructType) const;
   void EraseStructAnnotation(const llvm::StructType *pStructType);
+  void EraseUnusedStructAnnotations();
 
   StructAnnotationMap &GetStructAnnotationMap();
+  const StructAnnotationMap &GetStructAnnotationMap() const;
+
+  DxilPayloadAnnotation *AddPayloadAnnotation(const llvm::StructType *pStructType);
+  DxilPayloadAnnotation *GetPayloadAnnotation(const llvm::StructType *pStructType);
+  const DxilPayloadAnnotation *GetPayloadAnnotation(const llvm::StructType *pStructType) const;
+  void ErasePayloadAnnotation(const llvm::StructType *pStructType);
+
+  PayloadAnnotationMap &GetPayloadAnnotationMap();
+  const PayloadAnnotationMap &GetPayloadAnnotationMap() const;
 
   DxilFunctionAnnotation *AddFunctionAnnotation(const llvm::Function *pFunction);
+  void FinishFunctionAnnotation(DxilFunctionAnnotation &FA);
   DxilFunctionAnnotation *GetFunctionAnnotation(const llvm::Function *pFunction);
   const DxilFunctionAnnotation *GetFunctionAnnotation(const llvm::Function *pFunction) const;
   void EraseFunctionAnnotation(const llvm::Function *pFunction);
@@ -224,9 +293,13 @@ public:
   bool UseMinPrecision();
   void SetMinPrecision(bool bMinPrecision);
 
+  // Determines whether type is a resource or contains a resource
+  bool IsResourceContained(llvm::Type *Ty);
+
 private:
   llvm::Module *m_pModule;
   StructAnnotationMap m_StructAnnotations;
+  PayloadAnnotationMap m_PayloadAnnotations;
   FunctionAnnotationMap m_FunctionAnnotations;
 
   DXIL::LowPrecisionMode m_LowPrecisionMode;

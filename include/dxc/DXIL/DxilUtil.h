@@ -154,6 +154,15 @@ namespace dxilutil {
 
   void ReplaceRawBufferLoad64Bit(llvm::Function *F, llvm::Type *EltTy, hlsl::OP *hlslOP);
   void ReplaceRawBufferStore64Bit(llvm::Function *F, llvm::Type *ETy, hlsl::OP *hlslOP);
+
+  bool IsConvergentMarker(llvm::Value *V);
+  llvm::Value *GetConvergentSource(llvm::Value *V);
+
+  /// If value is a bitcast to base class pattern, equivalent
+  /// to a getelementptr X, 0, 0, 0...  turn it into the appropriate gep.
+  /// This can enhance SROA and other transforms that want type-safe pointers,
+  /// and enables merging with other getelementptr's.
+  llvm::Value *TryReplaceBaseCastWithGep(llvm::Value *V);
 }
 
 }

@@ -203,6 +203,10 @@ public:
   createAccessChain(QualType resultType, SpirvInstruction *base,
                     llvm::ArrayRef<SpirvInstruction *> indexes,
                     SourceLocation loc);
+  SpirvAccessChain *
+  createAccessChain(const SpirvType *resultType, SpirvInstruction *base,
+                    llvm::ArrayRef<SpirvInstruction *> indexes,
+                    SourceLocation loc);
 
   /// \brief Creates a unary operation with the given SPIR-V opcode. Returns
   /// the instruction pointer for the result.
@@ -503,6 +507,22 @@ public:
   /// OpIgnoreIntersectionKHR/OpTerminateIntersectionKHR
   void createRaytracingTerminateKHR(spv::Op opcode, SourceLocation loc);
 
+  /// \brief Returns a clone SPIR-V variable for CTBuffer with FXC memory layout
+  /// and creates copy instructions from the CTBuffer to the clone variable in
+  /// module.init if it contains HLSL matrix 1xN. Otherwise, returns nullptr.
+  ///
+  /// Motivation for this clone variable:
+  /// We translate a matrix type1xN as a vector typeN in all code generation,
+  /// but type1xN in CTBuffer with FXC memory layout rule must have a stride 16
+  /// bytes between elements. Since we cannot set a stride for a SPIR-V vector,
+  /// we must use a SPIR-V array type[N] with stride 16 bytes for it. Since we
+  /// translate it into a vector typeN for all places, it has side effects. We
+  /// use a clone variable to fix this issue i.e.,
+  ///   1. Use the CTBuffer to receive the data from CPU
+  ///   2. Copy it to the clone variable
+  ///   3. Use the clone variable in all the places
+  SpirvInstruction *initializeCloneVarForFxcCTBuffer(SpirvInstruction *instr);
+
   // === SPIR-V Module Structure ===
   inline void setMemoryModel(spv::AddressingModel, spv::MemoryModel);
 
@@ -666,6 +686,37 @@ private:
       SpirvInstruction *constOffsets, SpirvInstruction *sample,
       SpirvInstruction *minLod);
 
+  /// \brief Creates instructions to copy sub-components of CTBuffer src to its
+  /// clone dst. This method assumes
+  ///   1. src has a pointer type to a type with FXC memory layout rule
+  ///   2. dst has a pointer type to a type with void memory layout rule
+  void
+  createCopyInstructionsFromFxcCTBufferToClone(SpirvInstruction *fxcCTBuffer,
+                                               SpirvInstruction *clone);
+  void createCopyArrayInFxcCTBufferToClone(const ArrayType *fxcCTBufferArrTy,
+                                           SpirvInstruction *fxcCTBuffer,
+                                           const SpirvType *cloneType,
+                                           SpirvInstruction *clone,
+                                           SourceLocation loc);
+  void createCopyStructInFxcCTBufferToClone(
+      const StructType *fxcCTBufferStructTy, SpirvInstruction *fxcCTBuffer,
+      const SpirvType *cloneType, SpirvInstruction *clone, SourceLocation loc);
+
+  /// \brief Sets moduleInitInsertPoint as insertPoint.
+  void switchInsertPointToModuleInit();
+
+  /// \brief Adds OpFunctionCall instructions for ModuleInit to all entry
+  /// points.
+  void addModuleInitCallToEntryPoints();
+
+  /// \brief Ends building of the module initialization function.
+  void endModuleInitFunction();
+
+  /// \brief Creates a clone SPIR-V variable for CTBuffer.
+  SpirvVariable *createCloneVarForFxcCTBuffer(QualType astType,
+                                              const SpirvType *spvType,
+                                              SpirvInstruction *var);
+
 private:
   ASTContext &astContext;
   SpirvContext &context; ///< From which we allocate various SPIR-V object
@@ -673,6 +724,11 @@ private:
   std::unique_ptr<SpirvModule> mod; ///< The current module being built
   SpirvFunction *function;          ///< The current function being built
   SpirvBasicBlock *insertPoint;     ///< The current basic block being built
+
+  SpirvFunction *moduleInit;              ///< The module initialization
+                                          ///< function
+  SpirvBasicBlock *moduleInitInsertPoint; ///< The basic block of the module
+                                          ///< initialization function
 
   const SpirvCodeGenOptions &spirvOptions; ///< Command line options.
 
@@ -695,6 +751,11 @@ private:
   // To avoid generating multiple OpStrings for the same string literal
   // the SpirvBuilder will generate and reuse them.
   llvm::DenseMap<std::string, SpirvString *, StringMapInfo> stringLiterals;
+
+  /// Mapping of CTBuffers including matrix 1xN with FXC memory layout to their
+  /// clone variables. We need it to avoid multiple clone variables for the same
+  /// CTBuffer.
+  llvm::DenseMap<SpirvVariable *, SpirvVariable *> fxcCTBufferToClone;
 };
 
 void SpirvBuilder::requireCapability(spv::Capability cap, SourceLocation loc) {

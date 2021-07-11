@@ -223,6 +223,10 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, bool OnlyWarnOn
     MPM.add(createHLDeadFunctionEliminationPass());
   }
 
+  // Do this before scalarrepl-param-hlsl for opportunities to move things
+  // like resource arrays to alloca, allowing more likely memcpy replacement.
+  MPM.add(createLowerStaticGlobalIntoAlloca());
+
   // Expand buffer store intrinsics before we SROA
   MPM.add(createHLExpandStoreIntrinsicsPass());
 
@@ -377,6 +381,7 @@ void PassManagerBuilder::populateModulePassManager(
       MPM.add(createGlobalDCEPass());
       MPM.add(createDxilMutateResourceToHandlePass());
       MPM.add(createDxilLowerCreateHandleForLibPass());
+      MPM.add(createDxilCleanupAnnotateHandlePass());
       MPM.add(createDxilTranslateRawBuffer());
       MPM.add(createDxilLegalizeSampleOffsetPass());
       MPM.add(createDxilNoOptLegalizePass());
@@ -617,7 +622,7 @@ void PassManagerBuilder::populateModulePassManager(
   addExtensionsToPM(EP_Peephole, MPM);
   MPM.add(createCFGSimplificationPass());
   MPM.add(createDxilLoopDeletionPass()); // HLSL Change - try to delete loop again.
-  MPM.add(createInstructionCombiningPass());
+  //MPM.add(createInstructionCombiningPass()); // HLSL Change - pass is included in above
 
   if (!DisableUnrollLoops) {
     MPM.add(createLoopUnrollPass(/* HLSL Change begin */-1, -1, -1, -1, this->StructurizeLoopExitsForUnroll /* HLSL Change end */));    // Unroll small loops
@@ -679,6 +684,7 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createGlobalDCEPass());
     MPM.add(createDxilMutateResourceToHandlePass());
     MPM.add(createDxilLowerCreateHandleForLibPass());
+    MPM.add(createDxilCleanupAnnotateHandlePass());
     MPM.add(createDxilTranslateRawBuffer());
     // Always try to legalize sample offsets as loop unrolling
     // is not guaranteed for higher opt levels.

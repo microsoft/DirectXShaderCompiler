@@ -1531,15 +1531,10 @@ DxilContainerWriter *hlsl::NewDxilContainerWriter() {
   return new DxilContainerWriter_impl();
 }
 
-static bool HasDebugInfo(const Module &M) {
-  for (Module::const_named_metadata_iterator NMI = M.named_metadata_begin(),
-                                             NME = M.named_metadata_end();
-       NMI != NME; ++NMI) {
-    if (NMI->getName().startswith("llvm.dbg.")) {
-      return true;
-    }
-  }
-  return false;
+static bool HasDebugInfoOrLineNumbers(const Module &M) {
+  return
+    llvm::getDebugMetadataVersionFromModule(M) != 0 ||
+    llvm::hasDebugInfo(M);
 }
 
 static void GetPaddedProgramPartSize(AbstractMemoryStream *pStream,
@@ -1776,8 +1771,7 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   // If we have debug information present, serialize it to a debug part, then use the stripped version as the canonical program version.
   CComPtr<AbstractMemoryStream> pProgramStream = pInputProgramStream;
   bool bModuleStripped = false;
-  bool bHasDebugInfo = HasDebugInfo(*pModule->GetModule());
-  if (bHasDebugInfo) {
+  if (HasDebugInfoOrLineNumbers(*pModule->GetModule())) {
     uint32_t debugInUInt32, debugPaddingBytes;
     GetPaddedProgramPartSize(pInputProgramStream, debugInUInt32, debugPaddingBytes);
     if (Flags & SerializeDxilFlags::IncludeDebugInfoPart) {

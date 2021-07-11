@@ -25,7 +25,6 @@
 #include "dxc/HLSL/HLOperationLowerExtension.h"
 #include "dxc/HLSL/HLOperations.h"
 #include "dxc/HlslIntrinsicOp.h"
-#include "dxc/HLSL/DxilConvergent.h"
 #include "dxc/DXIL/DxilResourceProperties.h"
 
 #include "llvm/IR/GetElementPtrTypeIterator.h"
@@ -844,8 +843,8 @@ Value *FindScalarSource(Value *src, unsigned vecIdx = 0) {
         vecIdx = (unsigned)cast<ConstantInt>(EE->getIndexOperand())
           ->getUniqueInteger().getLimitedValue();
         src = EE->getVectorOperand();
-      } else if (hlsl::IsConvergentMarker(src)) {
-        src = hlsl::GetConvergentSource(src);
+      } else if (hlsl::dxilutil::IsConvergentMarker(src)) {
+        src = hlsl::dxilutil::GetConvergentSource(src);
       } else {
         break;  // Found it.
       }
@@ -3167,12 +3166,9 @@ GatherHelper::GatherHelper(
       if (ch != GatherChannel::GatherAll)
         TranslateSampleOffset(CI, HLOperandIndex::kGatherSampleOffsetArgIndex,
                               offsetSize);
-      if (hasSampleOffsets) {
-        statusIdx = HLOperandIndex::kGatherStatusWithSampleOffsetArgIndex;
-      } else {
-        opcode = OP::OpCode::TextureGatherImm;
-        statusIdx = HLOperandIndex::kGatherStatusArgIndex;
-      }
+      statusIdx =
+          hasSampleOffsets ? HLOperandIndex::kGatherStatusWithSampleOffsetArgIndex
+                           : HLOperandIndex::kGatherStatusArgIndex;
     }
     SetStatus(CI, statusIdx);
   } break;
@@ -3188,12 +3184,10 @@ GatherHelper::GatherHelper(
       if (ch != GatherChannel::GatherAll)
         TranslateSampleOffset(CI, HLOperandIndex::kGatherCmpSampleOffsetArgIndex,
                               offsetSize);
-      if (hasSampleOffsets) {
-        statusIdx = HLOperandIndex::kGatherCmpStatusWithSampleOffsetArgIndex;
-      } else {
-        opcode = OP::OpCode::TextureGatherCmpImm;
-        statusIdx = HLOperandIndex::kGatherCmpStatusArgIndex;
-      }
+      statusIdx =
+          hasSampleOffsets
+              ? HLOperandIndex::kGatherCmpStatusWithSampleOffsetArgIndex
+              : HLOperandIndex::kGatherCmpStatusArgIndex;
     }
     SetStatus(CI, statusIdx);
   } break;

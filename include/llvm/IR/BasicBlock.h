@@ -245,6 +245,8 @@ public:
   inline const Instruction       &back() const { return InstList.back();  }
   inline       Instruction       &back()       { return InstList.back();  }
 
+  size_t compute_size_no_dbg() const; // HLSL Change - Get the size of the block without the debug insts
+
   /// \brief Return the underlying instruction list container.
   ///
   /// Currently you need to access the underlying instruction list container

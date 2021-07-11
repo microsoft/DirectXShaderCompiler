@@ -236,6 +236,9 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
     dxilutil::ExportMap exportMap;
     bSuccess = exportMap.ParseExports(opts.Exports, DiagStream);
 
+    if (opts.ExportShadersOnly)
+      exportMap.setExportShadersOnly(true);
+
     bool hasErrorOccurred = !bSuccess;
     if (bSuccess) {
       std::unique_ptr<Module> pM = m_pLinker->Link(
@@ -271,7 +274,7 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
         dxcutil::AssembleInputs inputs(
           std::move(pM), pOutputBlob, pMalloc, SerializeFlags,
           pOutputStream,
-          opts.DebugInfo, opts.DebugFile, &Diag);
+          opts.DebugFile, &Diag);
         if (needsValidation) {
           valHR = dxcutil::ValidateAndAssembleToContainer(inputs);
         } else {

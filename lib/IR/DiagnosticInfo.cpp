@@ -246,15 +246,12 @@ void DiagnosticInfoDxil::print(DiagnosticPrinter &DP) const {
     DP << "Function: " << Func->getName() << ": ";
   }
 
-  bool ZiPrompt = true;
   switch (getSeverity()) {
-  case DiagnosticSeverity::DS_Note:    DP << "note: "; ZiPrompt = false; break;
-  case DiagnosticSeverity::DS_Remark:  DP << "remark: "; ZiPrompt = false; break;
+  case DiagnosticSeverity::DS_Note:    DP << "note: "; break;
+  case DiagnosticSeverity::DS_Remark:  DP << "remark: "; break;
   case DiagnosticSeverity::DS_Warning: DP << "warning: "; break;
   case DiagnosticSeverity::DS_Error:   DP << "error: "; break;
   }
   DP << getMsgStr();
-  if (!DLoc && ZiPrompt)
-    DP << " Use /Zi for source location.";
 }
 // HLSL Change end - Dxil Diagnostic Info reporter
