@@ -22,24 +22,13 @@
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/HLSL/HLOperations.h"
 #include "dxc/HLSL/HLModule.h"
-#include "dxc/HLSL/DxilConvergent.h"
 #include "dxc/HlslIntrinsicOp.h"
 #include "dxc/HLSL/DxilConvergentName.h"
 
 using namespace llvm;
 using namespace hlsl;
 
-bool hlsl::IsConvergentMarker(Value *V) {
-  CallInst *CI = dyn_cast<CallInst>(V);
-  if (!CI)
-    return false;
-  Function *F = CI->getCalledFunction();
-  return F->getName().startswith(kConvergentFunctionPrefix);
-}
 
-Value *hlsl::GetConvergentSource(Value *V) {
-  return cast<CallInst>(V)->getOperand(0);
-}
 
 ///////////////////////////////////////////////////////////////////////////////
 // DxilConvergent.
@@ -58,7 +47,8 @@ public:
 
   bool runOnModule(Module &M) override {
     if (M.HasHLModule()) {
-      if (!M.GetHLModule().GetShaderModel()->IsPS())
+      const ShaderModel *SM = M.GetHLModule().GetShaderModel();
+      if (!SM->IsPS() && !SM->IsLib() && (!SM->IsSM66Plus() || (!SM->IsCS() && !SM->IsMS() && !SM->IsAS())))
         return false;
     }
     bool bUpdated = false;

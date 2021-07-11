@@ -32,6 +32,7 @@
 #ifdef _WIN32
 #include "windows.h"  // HLSL Change
 #endif
+#include "dxc/Support/exception.h"  // HLSL Change
 
 #if defined(HAVE_UNISTD_H)
 # include <unistd.h>
@@ -112,7 +113,8 @@ void llvm::report_fatal_error(const Twine &Reason, bool GenCrashDiag) {
   if (handler) {
     handler(handlerData, Reason.str(), GenCrashDiag);
   }
-  RaiseException(STATUS_LLVM_FATAL, 0, 0, 0);
+
+  throw hlsl::Exception(DXC_E_LLVM_FATAL_ERROR, std::string("LLVM ERROR: ") + Reason.str() + "\n");
 #endif
 }
 
@@ -121,17 +123,25 @@ void llvm::llvm_unreachable_internal(const char *msg, const char *file,
   // This code intentionally doesn't call the ErrorHandler callback, because
   // llvm_unreachable is intended to be used to indicate "impossible"
   // situations, and not legitimate runtime errors.
+  // HLSL Change - collect full message in string
+  SmallVector<char, 64> Buffer;
+  raw_svector_ostream OS(Buffer);
   if (msg)
-    dbgs() << msg << "\n";
-  dbgs() << "UNREACHABLE executed";
+    OS << msg << "\n";
+  OS << "UNREACHABLE executed";
   if (file)
-    dbgs() << " at " << file << ":" << line;
-  dbgs() << "!\n";
+    OS << " at " << file << ":" << line;
+  OS << "!\n";
 #ifndef LLVM_ON_WIN32 // HLSL Change - unwind if necessary, but don't terminate the process
+  dbgs() << OS.str();
   abort();
 #else
-  RaiseException(STATUS_LLVM_UNREACHABLE, 0, 0, 0);
+  throw hlsl::Exception(DXC_E_LLVM_UNREACHABLE, OS.str());
 #endif
+}
+
+void llvm::llvm_cast_assert_internal(const char *func) {
+  throw hlsl::Exception(DXC_E_LLVM_CAST_ERROR, std::string(func) + "<X>() argument of incompatible type!\n");
 }
 
 static void bindingsErrorHandler(void *user_data, const std::string& reason,

@@ -51,6 +51,7 @@
 #include "dxillib.h"
 #include "dxcshadersourceinfo.h"
 #include "dxcompileradapter.h"
+#include "dxcversion.inc"
 #include <algorithm>
 #include <cfloat>
 
@@ -97,6 +98,8 @@ struct CompilerVersionPartWriter {
   hlsl::DxilCompilerVersion m_Header = {};
   CComHeapPtr<char> m_CommitShaStorage;
   llvm::StringRef m_CommitSha = "";
+  CComHeapPtr<char> m_CustomStringStorage;
+  llvm::StringRef m_CustomString = "";
 
   void Init(IDxcVersionInfo *pVersionInfo) {
     m_Header = {};
@@ -115,7 +118,14 @@ struct CompilerVersionPartWriter {
       IFT(pVersionInfo2->GetCommitInfo(&CommitCount, &m_CommitShaStorage));
       m_CommitSha = llvm::StringRef(m_CommitShaStorage.m_pData, strlen(m_CommitShaStorage.m_pData));
       m_Header.CommitCount = CommitCount;
-      m_Header.VersionStringListSizeInBytes = m_CommitSha.size() + /*null term*/1 + /*another null term for the empty custom string*/1;
+      m_Header.VersionStringListSizeInBytes += m_CommitSha.size() + /*null term*/1;
+    }
+
+    CComPtr<IDxcVersionInfo3> pVersionInfo3;
+    if (SUCCEEDED(pVersionInfo->QueryInterface(&pVersionInfo3))) {
+      IFT(pVersionInfo3->GetCustomVersionString(&m_CustomStringStorage));
+      m_CustomString = llvm::StringRef(m_CustomStringStorage, strlen(m_CustomStringStorage.m_pData));
+      m_Header.VersionStringListSizeInBytes += m_CustomString.size() + /*null term*/1;
     }
   }
 
@@ -150,7 +160,9 @@ struct CompilerVersionPartWriter {
     // Null terminator for the commit sha
     IFT(pStream->Write(&padByte, sizeof(padByte), &cbWritten));
 
-    // Null terminator for the empty version string
+    // Write the custom version string.
+    IFT(pStream->Write(m_CustomString.data(), m_CustomString.size(), &cbWritten));
+    // Null terminator for the custom version string.
     IFT(pStream->Write(&padByte, sizeof(padByte), &cbWritten));
 
     // Write padding
@@ -535,12 +547,11 @@ static void CreateDefineStrings(
 }
 
 class DxcCompiler : public IDxcCompiler3,
-                    public IDxcLangExtensions2,
+                    public IDxcLangExtensions3,
                     public IDxcContainerEvent,
+                    public IDxcVersionInfo3,
 #ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
                     public IDxcVersionInfo2
-#else
-                    public IDxcVersionInfo
 #endif // SUPPORT_QUERY_GIT_COMMIT_INFO
 {
 private:
@@ -572,11 +583,13 @@ public:
       IDxcCompiler3,
       IDxcLangExtensions,
       IDxcLangExtensions2,
+      IDxcLangExtensions3,
       IDxcContainerEvent,
       IDxcVersionInfo
 #ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
       ,IDxcVersionInfo2
 #endif // SUPPORT_QUERY_GIT_COMMIT_INFO
+      ,IDxcVersionInfo3
      >
      (this, iid, ppvObject);
     if (FAILED(hr)) {
@@ -593,7 +606,7 @@ public:
     _In_opt_ IDxcIncludeHandler *pIncludeHandler, // user-provided interface to handle #include directives (optional)
     _In_ REFIID riid, _Out_ LPVOID *ppResult      // IDxcResult: status, buffer, and errors
   ) override {
-    if (pSource == nullptr ||
+    if (pSource == nullptr || ppResult == nullptr ||
         (argCount > 0 && pArguments == nullptr))
       return E_INVALIDARG;
     if (!(IsEqualIID(riid, __uuidof(IDxcResult)) ||
@@ -961,7 +974,7 @@ public:
 
           dxcutil::AssembleInputs inputs(
                 std::move(serializeModule), pOutputBlob, m_pMalloc, SerializeFlags,
-                pOutputStream, opts.GenerateFullDebugInfo(),
+                pOutputStream,
                 opts.GetPDBName(), &compiler.getDiagnostics(),
                 &ShaderHashContent, pReflectionStream, pRootSigStream);
 
@@ -1114,9 +1127,11 @@ public:
       _Analysis_assume_(DXC_FAILED(e.hr));
       CComPtr<IDxcResult> pResult;
       hr = e.hr;
+      std::string msg("Internal Compiler error: ");
+      msg += e.msg;
       if (SUCCEEDED(DxcResult::Create(e.hr, DXC_OUT_NONE, {
               DxcOutputObject::ErrorOutput(CP_UTF8,
-                e.msg.c_str(), e.msg.size())
+                msg.c_str(), msg.size())
             }, &pResult)) &&
           SUCCEEDED(pResult->QueryInterface(riid, ppResult))) {
         hr = S_OK;
@@ -1240,6 +1255,11 @@ public:
       // TODO: consider
       // DebugPass, DebugCompilationDir, DwarfDebugFlags, SplitDwarfFile
     }
+    else {
+      CodeGenOptions &CGOpts = compiler.getCodeGenOpts();
+      CGOpts.setDebugInfo(CodeGenOptions::LocTrackingOnly);
+      CGOpts.DebugColumnInfo = 1;
+    }
 
     clang::PreprocessorOptions &PPOpts(compiler.getPreprocessorOpts());
     for (size_t i = 0; i < defines.size(); ++i) {
@@ -1285,6 +1305,8 @@ public:
 
     compiler.getLangOpts().UseMinPrecision = !Opts.Enable16BitTypes;
 
+    compiler.getLangOpts().EnablePayloadAccessQualifiers = Opts.EnablePayloadQualifiers;
+
 // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
     compiler.getLangOpts().SPIRV = Opts.GenSPIRV;
@@ -1328,6 +1350,9 @@ public:
     compiler.getCodeGenOpts().HLSLOptimizationToggles = Opts.DxcOptimizationToggles;
     compiler.getCodeGenOpts().HLSLOptimizationSelects = Opts.DxcOptimizationSelects;
     compiler.getCodeGenOpts().HLSLAllResourcesBound = Opts.AllResourcesBound;
+    compiler.getCodeGenOpts().HLSLIgnoreOptSemDefs = Opts.IgnoreOptSemDefs;
+    compiler.getCodeGenOpts().HLSLIgnoreSemDefs = Opts.IgnoreSemDefs;
+    compiler.getCodeGenOpts().HLSLOverrideSemDefs = Opts.OverrideSemDefs;
     compiler.getCodeGenOpts().HLSLDefaultRowMajor = Opts.DefaultRowMajor;
     compiler.getCodeGenOpts().HLSLPreferControlFlow = Opts.PreferFlowControl;
     compiler.getCodeGenOpts().HLSLAvoidControlFlow = Opts.AvoidFlowControl;
@@ -1339,6 +1364,7 @@ public:
     compiler.getCodeGenOpts().HLSLPrintAfterAll = Opts.PrintAfterAll;
     compiler.getCodeGenOpts().HLSLForceZeroStoreLifetimes = Opts.ForceZeroStoreLifetimes;
     compiler.getCodeGenOpts().HLSLEnableLifetimeMarkers = Opts.EnableLifetimeMarkers;
+    compiler.getCodeGenOpts().HLSLEnablePayloadAccessQualifiers = Opts.EnablePayloadQualifiers;
 
     // Translate signature packing options
     if (Opts.PackPrefixStable)
@@ -1395,6 +1421,19 @@ public:
     *pMinor = DXIL::kDxilMinor;
     return S_OK;
   }
+  HRESULT STDMETHODCALLTYPE GetCustomVersionString(
+    _Outptr_result_z_ char **pVersionString // Custom version string for compiler. (Must be CoTaskMemFree()'d!)
+  ) override
+  {
+    size_t size = strlen(RC_FILE_VERSION);
+    char *const result = (char *)CoTaskMemAlloc(size + 1);
+    if (result == nullptr)
+      return E_OUTOFMEMORY;
+    std::strcpy(result, RC_FILE_VERSION);
+    *pVersionString = result;
+    return S_OK;
+  }
+
 #ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
   HRESULT STDMETHODCALLTYPE GetCommitInfo(_Out_ UINT32 *pCommitCount,
                                           _Out_ char **pCommitHash) override {
@@ -1412,6 +1451,7 @@ public:
     return S_OK;
   }
 #endif // SUPPORT_QUERY_GIT_COMMIT_INFO
+
   HRESULT STDMETHODCALLTYPE GetFlags(_Out_ UINT32 *pFlags) override {
     if (pFlags == nullptr)
       return E_INVALIDARG;

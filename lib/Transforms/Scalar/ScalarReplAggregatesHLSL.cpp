@@ -49,6 +49,7 @@
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
 #include "llvm/Transforms/Utils/SSAUpdater.h"
 #include "llvm/Transforms/Utils/Local.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "dxc/HLSL/HLOperations.h"
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/HLSL/HLModule.h"
@@ -334,12 +335,12 @@ static unsigned IsPtrUsedByLoweredFn(
             "otherwise, multiple uses in single call");
       }
 
-    } else if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(user)) {
+    } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(user)) {
       // Not what we are looking for if GEP result is not [array of] struct.
       // If use is under struct member, we can still SROA the outer struct.
       if (!dxilutil::StripArrayTypes(GEP->getType()->getPointerElementType())
             ->isStructTy() ||
-          FindFirstStructMemberIdxInGEP(cast<GEPOperator>(GEP)))
+          FindFirstStructMemberIdxInGEP(GEP))
         continue;
       if (IsPtrUsedByLoweredFn(user, CollectedUses))
         bFound = true;
@@ -350,7 +351,7 @@ static unsigned IsPtrUsedByLoweredFn(
 
     } else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(user)) {
       unsigned opcode = CE->getOpcode();
-      if (opcode == Instruction::AddrSpaceCast || opcode == Instruction::GetElementPtr)
+      if (opcode == Instruction::AddrSpaceCast)
         if (IsPtrUsedByLoweredFn(user, CollectedUses))
           bFound = true;
     }
@@ -3443,7 +3444,7 @@ static bool ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
   if (V != Src && V->hasOneUse() && Src->hasOneUse())
     return false;
 
-  // If the memcpy doesn't dominate all its users,
+  // If the source of the memcpy (Src) doesn't dominate all users of dest (V),
   // full replacement isn't possible without complicated PHI insertion
   // This will likely replace with ld/st which will be replaced in mem2reg
   if (Instruction *SrcI = dyn_cast<Instruction>(Src))
@@ -3587,32 +3588,40 @@ static bool ReplaceUseOfZeroInitEntry(Instruction *I, Value *V) {
   return true;
 }
 
-static bool ReplaceUseOfZeroInitPostDom(Instruction *I, Value *V,
-                                    PostDominatorTree &PDT) {
+// If a V user is dominated by memcpy (I),
+//    skip it - memcpy dest can simply alias to src for this user.
+// If the V user may follow the memcpy (I),
+//    return false - memcpy dest not safe to replace with src.
+// Otherwise,
+//    replace use with zeroinitializer.
+static bool ReplaceUseOfZeroInit(Instruction *I, Value *V,
+                                 DominatorTree &DT,
+                                 SmallPtrSet<BasicBlock*, 8> &Reachable) {
   BasicBlock *BB = I->getParent();
   Function *F = I->getParent()->getParent();
   for (auto U = V->user_begin(); U != V->user_end(); ) {
     Instruction *UI = dyn_cast<Instruction>(*(U++));
-    if (!UI)
+    if (!UI || UI == I)
       continue;
     if (UI->getParent()->getParent() != F)
       continue;
 
-    if (!PDT.dominates(BB, UI->getParent()))
+    // Skip properly dominated users
+    if (DT.properlyDominates(BB, UI->getParent()))
+      continue;
+
+    // If user is found in memcpy successor list
+    // then the user is not safe to replace with zeroinitializer.
+    if (Reachable.count(UI->getParent()))
       return false;
 
+    // Remaining cases are where I:
+    // - is at the end of the same block
+    // - does not precede UI on any path
     if (isa<GetElementPtrInst>(UI) || isa<BitCastInst>(UI)) {
-      if (!ReplaceUseOfZeroInitPostDom(I, UI, PDT))
-        return false;
-      else
+      if (ReplaceUseOfZeroInit(I, UI, DT, Reachable))
         continue;
-    }
-
-    if (BB != UI->getParent() || UI == I)
-      continue;
-    // I is the last inst in the block after split.
-    // Any inst in current block is before I.
-    if (LoadInst *LI = dyn_cast<LoadInst>(UI)) {
+    } else if (LoadInst *LI = dyn_cast<LoadInst>(UI)) {
       LI->replaceAllUsesWith(ConstantAggregateZero::get(LI->getType()));
       LI->eraseFromParent();
       continue;
@@ -3621,23 +3630,42 @@ static bool ReplaceUseOfZeroInitPostDom(Instruction *I, Value *V,
   }
   return true;
 }
+
+// Recursively collect all successors of BB and BB's successors.
+// BB will not be in set unless it's reachable through its successors.
+static void CollectReachableBBs(BasicBlock *BB, SmallPtrSet<BasicBlock*, 8> &Reachable) {
+  for (auto S : successors(BB)) {
+    if (Reachable.insert(S).second)
+      CollectReachableBBs(S, Reachable);
+  }
+}
+
 // When zero initialized GV has only one define, all uses before the def should
 // use zero.
 static bool ReplaceUseOfZeroInitBeforeDef(Instruction *I, GlobalVariable *GV) {
   BasicBlock *BB = I->getParent();
   Function *F = I->getParent()->getParent();
   // Make sure I is the last inst for BB.
+  BasicBlock *NewBB = nullptr;
   if (I != BB->getTerminator())
-    BB->splitBasicBlock(I->getNextNode());
+    NewBB = BB->splitBasicBlock(I->getNextNode());
 
+  bool bSuccess = false;
   if (&F->getEntryBlock() == I->getParent()) {
-    return ReplaceUseOfZeroInitEntry(I, GV);
+    bSuccess = ReplaceUseOfZeroInitEntry(I, GV);
   } else {
-    // Post dominator tree.
-    PostDominatorTree PDT;
-    PDT.runOnFunction(*F);
-    return ReplaceUseOfZeroInitPostDom(I, GV, PDT);
+    DominatorTree DT;
+    DT.recalculate(*F);
+    SmallPtrSet<BasicBlock*, 8> Reachable;
+    CollectReachableBBs(BB, Reachable);
+    bSuccess = ReplaceUseOfZeroInit(I, GV, DT, Reachable);
   }
+
+  // Re-merge basic block to keep things simpler
+  if (NewBB)
+    llvm::MergeBlockIntoPredecessor(NewBB);
+
+  return bSuccess;
 }
 
 // Use `DT` to trace all users and make sure `I`'s BB dominates them all
@@ -3678,27 +3706,43 @@ static bool DominateAllUsers(Instruction *I, Value *V, DominatorTree *DT) {
   }
 }
 
-static bool isReadOnlyPtr(CallInst *PtrCI) {
-  HLSubscriptOpcode opcode =
-      static_cast<HLSubscriptOpcode>(hlsl::GetHLOpcode(PtrCI));
-  if (opcode == HLSubscriptOpcode::CBufferSubscript) {
-    // Ptr from CBuffer is readonly.
-    return true;
-  } else if (opcode == HLSubscriptOpcode::DefaultSubscript) {
-    Value *ptr = PtrCI->getArgOperand(HLOperandIndex::kSubscriptObjectOpIdx);
-    // Resource ptr.
-    if (CallInst *handleCI = dyn_cast<CallInst>(ptr)) {
-      hlsl::HLOpcodeGroup group =
-          hlsl::GetHLOpcodeGroup(handleCI->getCalledFunction());
-      if (group == HLOpcodeGroup::HLAnnotateHandle) {
-        Constant *Props = cast<Constant>(handleCI->getArgOperand(
-                             HLOperandIndex::kAnnotateHandleResourcePropertiesOpIdx));
-        DxilResourceProperties RP = resource_helper::loadPropsFromConstant(*Props);
-        if (RP.getResourceClass() == DXIL::ResourceClass::SRV) {
-          // Ptr from SRV is readonly.
-          return true;
-        }
-      }
+// Return resource properties if handle value is HLAnnotateHandle
+static DxilResourceProperties GetResPropsFromHLAnnotateHandle(Value *handle) {
+  if (CallInst *handleCI = dyn_cast<CallInst>(handle)) {
+    hlsl::HLOpcodeGroup group =
+        hlsl::GetHLOpcodeGroup(handleCI->getCalledFunction());
+    if (group == HLOpcodeGroup::HLAnnotateHandle) {
+      Constant *Props = cast<Constant>(handleCI->getArgOperand(
+                            HLOperandIndex::kAnnotateHandleResourcePropertiesOpIdx));
+      return resource_helper::loadPropsFromConstant(*Props);
+    }
+  }
+  return {};
+}
+
+static bool isReadOnlyResSubscriptOrLoad(CallInst *PtrCI) {
+  hlsl::HLOpcodeGroup group =
+      hlsl::GetHLOpcodeGroup(PtrCI->getCalledFunction());
+  if (group == HLOpcodeGroup::HLSubscript) {
+    HLSubscriptOpcode opcode =
+        static_cast<HLSubscriptOpcode>(hlsl::GetHLOpcode(PtrCI));
+    if (opcode == HLSubscriptOpcode::CBufferSubscript) {
+      // Ptr from CBuffer is readonly.
+      return true;
+    } else if (opcode == HLSubscriptOpcode::DefaultSubscript) {
+      DxilResourceProperties RP = GetResPropsFromHLAnnotateHandle(
+          PtrCI->getArgOperand(HLOperandIndex::kSubscriptObjectOpIdx));
+      if (RP.getResourceClass() == DXIL::ResourceClass::SRV)
+        return true;
+    }
+  } else if (group == HLOpcodeGroup::HLIntrinsic) {
+    IntrinsicOp hlOpcode = (IntrinsicOp)GetHLOpcode(PtrCI);
+    if (hlOpcode == IntrinsicOp::MOP_Load) {
+      // This is templated BAB.Load<UDT>() case.
+      DxilResourceProperties RP = GetResPropsFromHLAnnotateHandle(
+        PtrCI->getArgOperand(HLOperandIndex::kHandleOpIdx));
+      if (RP.getResourceClass() == DXIL::ResourceClass::SRV)
+        return true;
     }
   }
   return false;
@@ -3765,13 +3809,12 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
             Ptr = NestedGEP->getPointerOperand();
 
           if (CallInst *PtrCI = dyn_cast<CallInst>(Ptr)) {
-            hlsl::HLOpcodeGroup group =
-                hlsl::GetHLOpcodeGroup(PtrCI->getCalledFunction());
-            if (group == HLOpcodeGroup::HLSubscript) {
-              if (isReadOnlyPtr(PtrCI)) {
-                // Ptr from CBuffer/SRV is safe.
-                if (ReplaceMemcpy(V, Src, MC, annotation, typeSys, DL, DT))
+            if (isReadOnlyResSubscriptOrLoad(PtrCI)) {
+              // Ptr from CBuffer/SRV is safe.
+              if (ReplaceMemcpy(V, Src, MC, annotation, typeSys, DL, DT)) {
+                if (V->user_empty())
                   return true;
+                return LowerMemcpy(V, annotation, typeSys, DL, DT, bAllowReplace);
               }
             }
           }
@@ -3782,8 +3825,11 @@ bool SROA_Helper::LowerMemcpy(Value *V, DxilFieldAnnotation *annotation,
           hlutil::PointerStatus SrcPS(Src, size, /*bLdStOnly*/ false);
           SrcPS.analyze(typeSys, bStructElt);
           if (SrcPS.storedType != hlutil::PointerStatus::StoredType::Stored) {
-            if (ReplaceMemcpy(V, Src, MC, annotation, typeSys, DL, DT))
-              return true;
+            if (ReplaceMemcpy(V, Src, MC, annotation, typeSys, DL, DT)) {
+              if (V->user_empty())
+                return true;
+              return LowerMemcpy(V, annotation, typeSys, DL, DT, bAllowReplace);
+            }
           }
         }
       }
@@ -3899,7 +3945,7 @@ public:
     const DataLayout &DL = M.getDataLayout();
     // Load up debug information, to cross-reference values and the instructions
     // used to load them.
-    m_HasDbgInfo = getDebugMetadataVersionFromModule(M) != 0;
+    m_HasDbgInfo = nullptr != M.getNamedMetadata("llvm.dbg.cu");
 
     InjectReturnAfterNoReturnPreserveOutput(*m_pHLModule);
 
@@ -4923,6 +4969,15 @@ void SROA_Parameter_HLSL::flattenArgument(
       const std::string &semantic = annotation.GetSemanticString();
       hlsl::InterpolationMode interpMode = annotation.GetInterpolationMode();
 
+      // Find index of first non-empty field.
+      unsigned firstNonEmptyIx = Elts.size();
+      for (unsigned ri = 0; ri < Elts.size(); ri++) {
+        if (DL.getTypeSizeInBits(Ty->getContainedType(ri)) > 0) {
+          firstNonEmptyIx = ri;
+          break;
+        }
+      }
+
       // Push Elts into workList from right to left to preserve the order.
       for (unsigned ri=0;ri<Elts.size();ri++) {
         unsigned i = Elts.size() - ri - 1;
@@ -4935,10 +4990,12 @@ void SROA_Parameter_HLSL::flattenArgument(
               Twine("semantic '") + eltSem + "' on field overridden by function or enclosing type");
           }
 
-          // Inherit semantic from parent, but only preserve it for the first element.
+          // Inherit semantic from parent, but only preserve it for the first
+          // non-zero-sized element.
           // Subsequent elements are noted with a special value that gets resolved
           // once the argument is completely flattened.
-          EltAnnotation.SetSemanticString(i == 0 ? semantic : ContinuedPseudoSemantic);
+          EltAnnotation.SetSemanticString(
+            i == firstNonEmptyIx ? semantic : ContinuedPseudoSemantic);
         } else if (!eltSem.empty() &&
                  semanticTypeMap.count(eltSem) == 0) {
           Type *EltTy = dxilutil::GetArrayEltTy(Ty);
@@ -5396,6 +5453,7 @@ static void LegalizeDxilInputOutputs(Function *F,
   // Map from output to the temp created for it.
   MapVector<Argument *, Value*> outputTempMap; // Need deterministic order of iteration
   for (Argument &arg : F->args()) {
+    HLModule::MergeGepUse(&arg);
     Type *Ty = arg.getType();
 
     DxilParameterAnnotation &paramAnnotation = EntryAnnotation->GetParameterAnnotation(arg.getArgNo());
@@ -5769,8 +5827,7 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
   if (m_pHLModule->HasDxilFunctionProps(F)) {
     DxilFunctionProps &funcProps = m_pHLModule->GetDxilFunctionProps(F);
     std::unique_ptr<DxilFunctionProps> flatFuncProps = llvm::make_unique<DxilFunctionProps>();
-    flatFuncProps->shaderKind = funcProps.shaderKind;
-    flatFuncProps->ShaderProps = funcProps.ShaderProps;
+    *flatFuncProps = funcProps;
     m_pHLModule->AddDxilFunctionProps(flatF, flatFuncProps);
     if (funcProps.shaderKind == ShaderModel::Kind::Vertex) {
       auto &VS = funcProps.ShaderProps.VS;
@@ -5901,7 +5958,7 @@ public:
         }
       } else {
         for (Function &F : M) {
-          if (!HLM.IsEntry(&F)) {
+          if (F.isDeclaration() || !HLM.IsEntry(&F)) {
             continue;
           }
           entryAndInitFunctionSet.insert(&F);
@@ -5919,7 +5976,7 @@ public:
         }
       } else {
         for (Function &F : M) {
-          if (!DM.IsEntry(&F))
+          if (F.isDeclaration() || !DM.IsEntry(&F))
             continue;
           entryAndInitFunctionSet.insert(&F);
         }
@@ -6082,7 +6139,7 @@ void PatchDebugInfo(DebugInfoFinder &DbgFinder, Function *F, GlobalVariable *GV,
   DITypeIdentifierMap EmptyMap;
   DIBuilder DIB(*GV->getParent());
   DIScope *Scope = Subprogram;
-  DebugLoc Loc = DebugLoc::get(0, 0, Scope);
+  DebugLoc Loc = DebugLoc::get(DGV->getLine(), 0, Scope);
 
   // If the variable is a member of another variable, find the offset and size
   bool IsFragment = false;
@@ -6154,6 +6211,8 @@ bool LowerStaticGlobalIntoAlloca::lowerStaticGlobalIntoAlloca(
     GlobalVariable *GV, const DataLayout &DL, DxilTypeSystem &typeSys,
     SetVector<Function *> &entryAndInitFunctionSet) {
   GV->removeDeadConstantUsers();
+  bool bIsObjectTy = dxilutil::IsHLSLObjectType(
+      dxilutil::StripArrayTypes(GV->getType()->getElementType()));
   // Create alloca for each entry.
   DenseMap<Function *, AllocaInst *> allocaMap;
   for (Function *F : entryAndInitFunctionSet) {
@@ -6161,7 +6220,8 @@ bool LowerStaticGlobalIntoAlloca::lowerStaticGlobalIntoAlloca(
     AllocaInst *AI = Builder.CreateAlloca(GV->getType()->getElementType());
     allocaMap[F] = AI;
     // Store initializer is exist.
-    if (GV->hasInitializer() && !isa<UndefValue>(GV->getInitializer())) {
+    if (GV->hasInitializer() && !isa<UndefValue>(GV->getInitializer()) &&
+        !bIsObjectTy) { // Do not zerio-initialize object allocas
       Builder.CreateStore(GV->getInitializer(), GV);
     }
   }

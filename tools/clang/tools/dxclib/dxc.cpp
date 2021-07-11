@@ -41,6 +41,7 @@
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/WinFunctions.h"
+#include "dxc/dxcerrors.h"
 #include "dxc.h"
 #include <vector>
 #include <string>
@@ -158,6 +159,7 @@ public:
                  std::wstring &outputPDBPath, CComPtr<IDxcBlob> &pDebugBlob,
                  IDxcOperationResult **pCompileResult);
   int DumpBinary();
+  int Link();
   void Preprocess();
   void GetCompilerVersionInfo(llvm::raw_string_ostream &OS);
 };
@@ -831,6 +833,61 @@ int DxcContext::Compile() {
   return status;
 }
 
+int DxcContext::Link() {
+  CComPtr<IDxcLinker> pLinker;
+  IFT(CreateInstance(CLSID_DxcLinker, &pLinker));
+  llvm::StringRef InputFiles = m_Opts.InputFile;
+  llvm::StringRef InputFilesRef(InputFiles);
+  llvm::SmallVector<llvm::StringRef, 2> InputFileList;
+  InputFilesRef.split(InputFileList, ";");
+
+  std::vector<std::wstring> wInputFiles;
+  wInputFiles.reserve(InputFileList.size());
+  std::vector<LPCWSTR> wpInputFiles;
+  wpInputFiles.reserve(InputFileList.size());
+  for (auto &file : InputFileList) {
+    wInputFiles.emplace_back(StringRefUtf16(file.str()));
+    wpInputFiles.emplace_back(wInputFiles.back().c_str());
+    CComPtr<IDxcBlobEncoding> pLib;
+    ReadFileIntoBlob(m_dxcSupport, wInputFiles.back().c_str(), &pLib);
+    IFT(pLinker->RegisterLibrary(wInputFiles.back().c_str(), pLib));
+  }
+
+  CComPtr<IDxcOperationResult> pLinkResult;
+
+  std::vector<std::wstring> argStrings;
+  CopyArgsToWStrings(m_Opts.Args, CoreOption, argStrings);
+
+  std::vector<LPCWSTR> args;
+  args.reserve(argStrings.size());
+  for (const std::wstring &a : argStrings)
+    args.push_back(a.data());
+
+  IFT(pLinker->Link(StringRefUtf16(m_Opts.EntryPoint),
+                    StringRefUtf16(m_Opts.TargetProfile), wpInputFiles.data(),
+                    wpInputFiles.size(), args.data(), args.size(),
+                    &pLinkResult));
+
+  HRESULT status;
+  IFT(pLinkResult->GetStatus(&status));
+  if (SUCCEEDED(status)) {
+    CComPtr<IDxcBlob> pContainer;
+    IFT(pLinkResult->GetResult(&pContainer));
+    if (pContainer.p != nullptr) {
+      ActOnBlob(pContainer.p);
+    }
+  } else {
+    CComPtr<IDxcBlobEncoding> pErrors;
+    IFT(pLinkResult->GetErrorBuffer(&pErrors));
+    if (pErrors != nullptr) {
+      printf("Link failed:\n%s",
+             static_cast<char *>(pErrors->GetBufferPointer()));
+    }
+    return 1;
+  }
+  return 0;
+}
+
 int DxcContext::DumpBinary() {
   CComPtr<IDxcBlobEncoding> pSource;
   ReadFileIntoBlob(m_dxcSupport, StringRefUtf16(m_Opts.InputFile), &pSource);
@@ -1161,6 +1218,69 @@ void DxcContext::GetCompilerVersionInfo(llvm::raw_string_ostream &OS) {
 #endif
 
 #ifdef _WIN32
+// Unhandled exception filter called when an unhandled exception occurs
+// to at least print an generic error message instead of crashing silently.
+// passes exception along to allow crash dumps to be generated
+static LONG CALLBACK ExceptionFilter(PEXCEPTION_POINTERS pExceptionInfo)
+{
+  static char scratch[32];
+
+  fputs("Internal compiler error: " , stderr);
+
+  if (!pExceptionInfo || !pExceptionInfo->ExceptionRecord) {
+    // No information at all, it's not much, but it's the best we can do
+    fputs("Unknown", stderr);
+    return EXCEPTION_CONTINUE_SEARCH;
+  }
+
+  switch(pExceptionInfo->ExceptionRecord->ExceptionCode) {
+    // native exceptions
+  case EXCEPTION_ACCESS_VIOLATION: {
+    fputs("access violation. Attempted to ", stderr);
+    if (pExceptionInfo->ExceptionRecord->ExceptionInformation[0])
+      fputs("write", stderr);
+    else
+      fputs("read", stderr);
+    fputs(" from address ", stderr);
+    sprintf_s(scratch, _countof(scratch), "0x%p\n", (void*)pExceptionInfo->ExceptionRecord->ExceptionInformation[1]);
+    fputs(scratch, stderr);
+  } break;
+  case EXCEPTION_STACK_OVERFLOW:
+    fputs("stack overflow\n", stderr);
+    break;
+    // LLVM exceptions
+  case STATUS_LLVM_ASSERT:
+    fputs("LLVM Assert\n", stderr);
+    break;
+  case STATUS_LLVM_UNREACHABLE:
+    fputs("LLVM Unreachable\n", stderr);
+    break;
+  case STATUS_LLVM_FATAL:
+    fputs("LLVM Fatal Error\n", stderr);
+    break;
+  case EXCEPTION_LOAD_LIBRARY_FAILED:
+    if (pExceptionInfo->ExceptionRecord->ExceptionInformation[0]) {
+      fputs("cannot not load ", stderr);
+      fputws((const wchar_t*)pExceptionInfo->ExceptionRecord->ExceptionInformation[0], stderr);
+      fputs(" library.\n", stderr);
+    }
+    else{
+      fputs("cannot not load library.\n", stderr);
+    }
+    break;
+  default:
+    fputs("Terminal Error ", stderr);
+    sprintf_s(scratch, _countof(scratch), "0x%08x\n", pExceptionInfo->ExceptionRecord->ExceptionCode);
+    fputs(scratch, stderr);
+  }
+
+  // Continue search to pass along the exception
+  return EXCEPTION_CONTINUE_SEARCH;
+}
+#endif
+
+
+#ifdef _WIN32
 int dxc::main(int argc, const wchar_t **argv_) {
 #else
 int dxc::main(int argc, const char **argv_) {
@@ -1198,6 +1318,12 @@ int dxc::main(int argc, const char **argv_) {
     if (dxcOpts.EntryPoint.empty() && !dxcOpts.RecompileFromBinary) {
       dxcOpts.EntryPoint = "main";
     }
+
+#ifdef _WIN32
+    // Set exception handler if enabled
+    if (dxcOpts.HandleExceptions)
+      SetUnhandledExceptionFilter(ExceptionFilter);
+#endif
 
     // Setup a helper DLL.
     {
@@ -1238,6 +1364,10 @@ int dxc::main(int argc, const char **argv_) {
       pStage = "Dumping existing binary";
       retVal = context.DumpBinary();
     }
+    else if (dxcOpts.Link) {
+      pStage = "Linking";
+      retVal = context.Link();
+    }
     else {
       pStage = "Compilation";
       retVal = context.Compile();
@@ -1248,30 +1378,50 @@ int dxc::main(int argc, const char **argv_) {
       Unicode::acp_char printBuffer[128]; // printBuffer is safe to treat as
                                           // UTF-8 because we use ASCII only errors
       if (msg == nullptr || *msg == '\0') {
-        if (hlslException.hr == DXC_E_DUPLICATE_PART) {
+        switch (hlslException.hr) {
+        case DXC_E_DUPLICATE_PART:
           sprintf_s(
               printBuffer, _countof(printBuffer),
               "dxc failed : DXIL container already contains the given part.");
-        } else if (hlslException.hr == DXC_E_MISSING_PART) {
+          break;
+        case DXC_E_MISSING_PART:
           sprintf_s(
               printBuffer, _countof(printBuffer),
               "dxc failed : DXIL container does not contain the given part.");
-        } else if (hlslException.hr == DXC_E_CONTAINER_INVALID) {
+          break;
+        case DXC_E_CONTAINER_INVALID:
           sprintf_s(printBuffer, _countof(printBuffer),
                     "dxc failed : Invalid DXIL container.");
-        } else if (hlslException.hr == DXC_E_CONTAINER_MISSING_DXIL) {
+          break;
+        case DXC_E_CONTAINER_MISSING_DXIL:
           sprintf_s(printBuffer, _countof(printBuffer),
                     "dxc failed : DXIL container is missing DXIL part.");
-        } else if (hlslException.hr == DXC_E_CONTAINER_MISSING_DEBUG) {
+          break;
+        case DXC_E_CONTAINER_MISSING_DEBUG:
           sprintf_s(printBuffer, _countof(printBuffer),
                     "dxc failed : DXIL container is missing Debug Info part.");
-        } else if (hlslException.hr == E_OUTOFMEMORY) {
+          break;
+        case DXC_E_LLVM_FATAL_ERROR:
+          sprintf_s(printBuffer, _countof(printBuffer),
+                    "dxc failed : Internal Compiler Error - LLVM Fatal Error!");
+          break;
+        case DXC_E_LLVM_UNREACHABLE:
+          sprintf_s(printBuffer, _countof(printBuffer),
+                    "dxc failed : Internal Compiler Error - UNREACHABLE executed!");
+          break;
+        case DXC_E_LLVM_CAST_ERROR:
+          sprintf_s(printBuffer, _countof(printBuffer),
+                    "dxc failed : Internal Compiler Error - Cast of incompatible type!");
+          break;
+        case E_OUTOFMEMORY:
           sprintf_s(printBuffer, _countof(printBuffer),
                     "dxc failed : Out of Memory.");
-        } else if (hlslException.hr == E_INVALIDARG) {
+          break;
+        case E_INVALIDARG:
           sprintf_s(printBuffer, _countof(printBuffer),
                     "dxc failed : Invalid argument.");
-        } else {
+          break;
+        default:
           sprintf_s(printBuffer, _countof(printBuffer),
             "dxc failed : error code 0x%08x.\n", hlslException.hr);
         }

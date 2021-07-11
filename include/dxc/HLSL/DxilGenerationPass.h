@@ -46,6 +46,7 @@ namespace llvm {
 /// Note that this pass is designed for use with the legacy pass manager.
 ModulePass *createDxilLowerCreateHandleForLibPass();
 ModulePass *createDxilAllocateResourcesForLibPass();
+ModulePass *createDxilCleanupAnnotateHandlePass();
 ModulePass *createDxilEliminateOutputDynamicIndexingPass();
 ModulePass *createDxilGenerationPass(bool NotOptimized, hlsl::HLSLExtensionsCodegenHelper *extensionsHelper);
 ModulePass *createHLEmitMetadataPass();
@@ -79,6 +80,7 @@ ModulePass *createLiveValueAnalysisPass( StringRef LiveValueAnalysisOutputFile )
 
 void initializeDxilLowerCreateHandleForLibPass(llvm::PassRegistry&);
 void initializeDxilAllocateResourcesForLibPass(llvm::PassRegistry&);
+void initializeDxilCleanupAnnotateHandlePass(llvm::PassRegistry&);
 void initializeDxilEliminateOutputDynamicIndexingPass(llvm::PassRegistry&);
 void initializeDxilGenerationPassPass(llvm::PassRegistry&);
 void initializeHLEnsureMetadataPass(llvm::PassRegistry&);

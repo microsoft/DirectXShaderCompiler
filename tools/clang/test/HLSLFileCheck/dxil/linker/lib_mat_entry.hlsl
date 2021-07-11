@@ -1,13 +1,13 @@
 // RUN: %dxc -T lib_6_3  %s | FileCheck %s
 
 
-// CHECK: @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %A, i32 2)
-// CHECK: @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %A, i32 3)
-// CHECK: @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %A, i32 4)
+// CHECK: @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle [[H:%.*]], i32 2)
+// CHECK: @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle [[H]], i32 3)
+// CHECK: @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle [[H]], i32 4)
 
-// CHECK: @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %A, i32 5)
-// CHECK: @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %A, i32 6)
-// CHECK: @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle %A, i32 7)
+// CHECK: @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle [[H]], i32 5)
+// CHECK: @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle [[H]], i32 6)
+// CHECK: @dx.op.cbufferLoadLegacy.f32(i32 59, %dx.types.Handle [[H]], i32 7)
 
 
 // CHECK: [[BCI:%.*]] = bitcast [24 x float]* {{.*}} to [2 x %class.matrix.float.4.3]*
