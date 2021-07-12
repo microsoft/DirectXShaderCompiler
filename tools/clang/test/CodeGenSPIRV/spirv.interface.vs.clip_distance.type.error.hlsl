@@ -1,6 +1,6 @@
 // Run: %dxc -T vs_6_0 -E main
 
-// CHECK: error: elements for SV_ClipDistance variable 'foo' must be scalar, vector, or array with floats
+// CHECK: error: elements for SV_ClipDistance variable 'foo' must be scalar, vector, or array with float type
 
 struct VS_OUTPUT {
     int3 foo[2] : SV_ClipDistance0;
