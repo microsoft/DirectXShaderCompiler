@@ -1586,6 +1586,23 @@ TEST_F(FileTest, SpirvStageIOInterfacePS) {
   runFileTest("spirv.interface.ps.hlsl");
 }
 
+TEST_F(FileTest, SpirvStageIOInterfaceVSArraySVClipDistance) {
+  runFileTest("spirv.interface.vs.array.sv_clipdistance.hlsl");
+}
+TEST_F(FileTest, SpirvStageIOInterfacePSArraySVClipDistance) {
+  runFileTest("spirv.interface.ps.array.sv_clipdistance.hlsl");
+}
+TEST_F(FileTest, SpirvStageIOInterfaceVSMultipleArraySVClipDistance) {
+  runFileTest("spirv.interface.vs.multiple.array.sv_clipdistance.hlsl");
+}
+TEST_F(FileTest, SpirvStageIOInterfacePSMultipleArraySVClipDistance) {
+  runFileTest("spirv.interface.ps.multiple.array.sv_clipdistance.hlsl");
+}
+TEST_F(FileTest, SpirvStageIOInterfaceVSClipDistanceInvalidType) {
+  runFileTest("spirv.interface.vs.clip_distance.type.error.hlsl",
+              Expect::Failure);
+}
+
 TEST_F(FileTest, SpirvStageIOAliasBuiltIn) {
   runFileTest("spirv.interface.alias-builtin.hlsl");
 }
