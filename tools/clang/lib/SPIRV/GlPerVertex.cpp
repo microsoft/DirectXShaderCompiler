@@ -126,16 +126,16 @@ bool GlPerVertex::recordGlPerVertexDeclFacts(const DeclaratorDecl *decl,
   return doGlPerVertexFacts(decl, type, asInput);
 }
 
-bool GlPerVertex::isArrayVectorOrScalarOnlyWithFloats(QualType type) const {
+bool GlPerVertex::containOnlyFloatType(QualType type) const {
   QualType elemType;
   if (isScalarType(type, &elemType)) {
     if (const auto *builtinType = elemType->getAs<BuiltinType>())
       return builtinType->getKind() == BuiltinType::Float;
     return false;
   } else if (isVectorType(type, &elemType, nullptr)) {
-    return isArrayVectorOrScalarOnlyWithFloats(elemType);
+    return containOnlyFloatType(elemType);
   } else if (const auto *arrayType = astContext.getAsConstantArrayType(type)) {
-    return isArrayVectorOrScalarOnlyWithFloats(arrayType->getElementType());
+    return containOnlyFloatType(arrayType->getElementType());
   }
   return false;
 }
@@ -179,8 +179,8 @@ SpirvInstruction *GlPerVertex::createScalarClipCullDistanceLoad(
 }
 
 SpirvInstruction *GlPerVertex::createScalarOrVectorClipCullDistanceLoad(
-    SpirvInstruction *ptr, QualType asType, uint32_t offset,
-    SourceLocation loc, llvm::Optional<uint32_t> arrayIndex) const {
+    SpirvInstruction *ptr, QualType asType, uint32_t offset, SourceLocation loc,
+    llvm::Optional<uint32_t> arrayIndex) const {
   if (isScalarType(asType))
     return createScalarClipCullDistanceLoad(ptr, asType, offset, loc,
                                             arrayIndex);
@@ -430,7 +430,7 @@ bool GlPerVertex::doGlPerVertexFacts(const DeclaratorDecl *decl,
     baseType = baseType->getPointeeType();
 
   // Clip/cull distance must be made up only with floats.
-  if (!isArrayVectorOrScalarOnlyWithFloats(baseType)) {
+  if (!containOnlyFloatType(baseType)) {
     emitError("elements for %select{SV_ClipDistance|SV_CullDistance}0 "
               "variable '%1' must be scalar, vector, or array with floats",
               decl->getLocStart())
