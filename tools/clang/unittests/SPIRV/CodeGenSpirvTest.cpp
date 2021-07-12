@@ -2776,4 +2776,71 @@ float4 PSMain(PSInput input) : SV_TARGET
   runCodeTest(code, Expect::Failure);
 }
 
+std::string getVertexPositionTypeTestShader(const std::string &subType,
+                                            const std::string &positionType,
+                                            const std::string &check) {
+  const std::string command(R"(// Run: %dxc -T vs_6_0 -E main)");
+  const std::string code = command + subType + R"(
+struct output {
+)" + positionType + R"(
+};
+
+output main() : SV_Position
+{
+    output result;
+    return result;
+}
+)" + check;
+  return code;
+}
+
+const char *kInvalidPositionTypeForVSErrorMessage =
+    "// CHECK: error: semantic Position must be float4 or a composite type "
+    "recursively including only float4";
+
+TEST_F(FileTest, PositionInVSWithArrayType) {
+  runCodeTest(getVertexPositionTypeTestShader(
+                  "", "float x[4];", kInvalidPositionTypeForVSErrorMessage),
+              Expect::Failure);
+}
+TEST_F(FileTest, PositionInVSWithDoubleType) {
+  runCodeTest(getVertexPositionTypeTestShader(
+                  "", "double4 x;", kInvalidPositionTypeForVSErrorMessage),
+              Expect::Failure);
+}
+TEST_F(FileTest, PositionInVSWithIntType) {
+  runCodeTest(getVertexPositionTypeTestShader(
+                  "", "int4 x;", kInvalidPositionTypeForVSErrorMessage),
+              Expect::Failure);
+}
+TEST_F(FileTest, PositionInVSWithMatrixType) {
+  runCodeTest(getVertexPositionTypeTestShader(
+                  "", "float1x4 x;", kInvalidPositionTypeForVSErrorMessage),
+              Expect::Failure);
+}
+TEST_F(FileTest, PositionInVSWithInvalidFloatVectorType) {
+  runCodeTest(getVertexPositionTypeTestShader(
+                  "", "float3 x;", kInvalidPositionTypeForVSErrorMessage),
+              Expect::Failure);
+}
+TEST_F(FileTest, PositionInVSWithInvalidInnerStructType) {
+  runCodeTest(getVertexPositionTypeTestShader(
+                  R"(
+struct InvalidType {
+  float3 x;
+};)",
+                  "InvalidType x;", kInvalidPositionTypeForVSErrorMessage),
+              Expect::Failure);
+}
+TEST_F(FileTest, PositionInVSWithValidInnerStructType) {
+  runCodeTest(getVertexPositionTypeTestShader(R"(
+struct validType {
+  float4 x;
+};)",
+                                              "validType x;", R"(
+// CHECK: %validType = OpTypeStruct %v4float
+// CHECK:    %output = OpTypeStruct %validType
+)"));
+}
+
 } // namespace
