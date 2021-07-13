@@ -87,6 +87,9 @@ public:
                    SpirvInstruction *vecComponent, SourceLocation loc);
 
 private:
+  using SemanticIndexToTypeMap = llvm::DenseMap<uint32_t, QualType>;
+  using SemanticIndexToArrayOffsetMap = llvm::DenseMap<uint32_t, uint32_t>;
+
   template <unsigned N>
   DiagnosticBuilder emitError(const char (&message)[N], SourceLocation loc) {
     const auto diagId = astContext.getDiagnostics().getCustomDiagID(
@@ -127,10 +130,61 @@ private:
   bool doGlPerVertexFacts(const DeclaratorDecl *decl, QualType type,
                           bool asInput);
 
-private:
-  using SemanticIndexToTypeMap = llvm::DenseMap<uint32_t, QualType>;
-  using SemanticIndexToArrayOffsetMap = llvm::DenseMap<uint32_t, uint32_t>;
+  /// Returns whether the type is a scalar, vector, or array that contains
+  /// only scalars with float type.
+  bool containOnlyFloatType(QualType type) const;
 
+  /// Returns the number of all scalar components recursively included in a
+  /// scalar, vector, or array type. If type is not a scalar, vector, or array,
+  /// returns 0.
+  uint32_t getNumberOfScalarComponentsInScalarVectorArray(QualType type) const;
+
+  /// Creates load instruction for clip or cull distance with a scalar type.
+  SpirvInstruction *createScalarClipCullDistanceLoad(
+      SpirvInstruction *ptr, QualType asType, uint32_t offset,
+      SourceLocation loc,
+      llvm::Optional<uint32_t> arrayIndex = llvm::None) const;
+  /// Creates load instruction for clip or cull distance with a scalar or vector
+  /// type.
+  SpirvInstruction *createScalarOrVectorClipCullDistanceLoad(
+      SpirvInstruction *ptr, QualType asType, uint32_t offset,
+      SourceLocation loc,
+      llvm::Optional<uint32_t> arrayIndex = llvm::None) const;
+  /// Creates load instruction for clip or cull distance with a scalar or vector
+  /// or array type of them.
+  SpirvInstruction *createClipCullDistanceLoad(
+      SpirvInstruction *ptr, QualType asType, uint32_t offset,
+      SourceLocation loc,
+      llvm::Optional<uint32_t> arrayIndex = llvm::None) const;
+
+  /// Creates store instruction for clip or cull distance with a scalar type.
+  bool createScalarClipCullDistanceStore(
+      SpirvInstruction *ptr, SpirvInstruction *value, QualType valueType,
+      SpirvInstruction *offset, SourceLocation loc,
+      llvm::ArrayRef<uint32_t> valueIndices,
+      llvm::Optional<SpirvInstruction *> arrayIndex = llvm::None) const;
+  /// Creates store instruction for clip or cull distance with a scalar or
+  /// vector type.
+  bool createScalarOrVectorClipCullDistanceStore(
+      SpirvInstruction *ptr, SpirvInstruction *value, QualType valueType,
+      SpirvInstruction *offset, SourceLocation loc,
+      llvm::Optional<uint32_t> valueOffset,
+      llvm::Optional<SpirvInstruction *> arrayIndex = llvm::None) const;
+  /// Creates store instruction for clip or cull distance with a scalar or
+  /// vector or array type of them.
+  bool createClipCullDistanceStore(
+      SpirvInstruction *ptr, SpirvInstruction *value, QualType valueType,
+      SpirvInstruction *offset, SourceLocation loc,
+      llvm::Optional<SpirvInstruction *> arrayIndex = llvm::None) const;
+
+  /// Keeps the mapping semanticIndex to clipCullDistanceType in typeMap and
+  /// returns true if clipCullDistanceType is a valid type for clip/cull
+  /// distance. Otherwise, returns false.
+  bool setClipCullDistanceType(SemanticIndexToTypeMap *typeMap,
+                               uint32_t semanticIndex,
+                               QualType clipCullDistanceType) const;
+
+private:
   ASTContext &astContext;
   SpirvContext &spvContext;
   SpirvBuilder &spvBuilder;
