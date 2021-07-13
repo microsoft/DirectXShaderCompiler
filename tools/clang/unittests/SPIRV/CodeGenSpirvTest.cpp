@@ -2744,4 +2744,36 @@ TEST_F(FileTest, RichDebugInfoTypeStructuredBuffer) {
               /*runValidation*/ false);
 }
 
+TEST_F(FileTest, InlinedCodeTest) {
+  const std::string command(R"(// Run: %dxc -T ps_6_0 -E PSMain)");
+  const std::string code = command + R"(
+struct PSInput
+{
+        float4 color : COLOR;
+};
+
+// CHECK: OpFunctionCall %v4float %src_PSMain
+float4 PSMain(PSInput input) : SV_TARGET
+{
+        return input.color;
+})";
+  runCodeTest(code);
+}
+
+TEST_F(FileTest, InlinedCodeWithErrorTest) {
+  const std::string command(R"(// Run: %dxc -T ps_6_0 -E PSMain)");
+  const std::string code = command + R"(
+struct PSInput
+{
+        float4 color : COLOR;
+};
+
+// CHECK: error: cannot initialize return object of type 'float4' with an lvalue of type 'PSInput'
+float4 PSMain(PSInput input) : SV_TARGET
+{
+        return input;
+})";
+  runCodeTest(code, Expect::Failure);
+}
+
 } // namespace
