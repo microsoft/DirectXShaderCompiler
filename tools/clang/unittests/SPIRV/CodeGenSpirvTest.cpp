@@ -1290,6 +1290,9 @@ TEST_F(FileTest, IntrinsicsMultiPrefix) {
 TEST_F(FileTest, IntrinsicsGetAttributeAtVertex) {
   runFileTest("intrinsics.get-attribute-at-vertex.hlsl", Expect::Failure);
 }
+TEST_F(FileTest, IntrinsicsDot4Add) {
+  runFileTest("intrinsics.dot4add.hlsl", Expect::Failure);
+}
 
 // Vulkan-specific intrinsic functions
 TEST_F(FileTest, IntrinsicsVkCrossDeviceScope) {

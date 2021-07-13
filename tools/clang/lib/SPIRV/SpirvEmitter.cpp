@@ -5794,6 +5794,9 @@ SpirvInstruction *SpirvEmitter::processBinaryOp(
   case BO_OrAssign:
   case BO_XorAssign: {
 
+    if (lhsVal == nullptr || rhsVal == nullptr)
+      return nullptr;
+
     // To evaluate this expression as an OpSpecConstantOp, we need to make sure
     // both operands are constant and at least one of them is a spec constant.
     if (SpirvConstant *lhsValConstant = dyn_cast<SpirvConstant>(lhsVal)) {
