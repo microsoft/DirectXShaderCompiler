@@ -412,6 +412,7 @@ class db_oload_gen:
             "fouri32": "A(p4I32);",
             "fourf32": "A(p4F32);",
             "fouri16": "A(p4I16);",
+            "fourf16": "A(p4F16);",
             "u32": "A(pI32);",
             "u64": "A(pI64);",
             "u8": "A(pI8);",
