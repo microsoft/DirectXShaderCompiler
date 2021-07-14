@@ -94,7 +94,7 @@ void WholeFileTest::runWholeFileTest(llvm::StringRef filename,
   std::string errorMessages;
 
   // Feed the HLSL source into the Compiler.
-  ASSERT_TRUE(utils::runCompilerWithSpirvGeneration(
+  ASSERT_TRUE(utils::compileFileWithSpirvGeneration(
       inputFilePath, entryPoint, targetProfile, restArgs, &generatedBinary,
       &errorMessages));
 

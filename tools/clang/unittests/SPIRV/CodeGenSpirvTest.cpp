@@ -1290,6 +1290,9 @@ TEST_F(FileTest, IntrinsicsMultiPrefix) {
 TEST_F(FileTest, IntrinsicsGetAttributeAtVertex) {
   runFileTest("intrinsics.get-attribute-at-vertex.hlsl", Expect::Failure);
 }
+TEST_F(FileTest, IntrinsicsDot4Add) {
+  runFileTest("intrinsics.dot4add.hlsl", Expect::Failure);
+}
 
 // Vulkan-specific intrinsic functions
 TEST_F(FileTest, IntrinsicsVkCrossDeviceScope) {
@@ -2742,6 +2745,38 @@ TEST_F(FileTest, RichDebugInfoScopeAfterCompoundStatement) {
 TEST_F(FileTest, RichDebugInfoTypeStructuredBuffer) {
   runFileTest("rich.debug.structured-buffer.hlsl", Expect::Success,
               /*runValidation*/ false);
+}
+
+TEST_F(FileTest, InlinedCodeTest) {
+  const std::string command(R"(// Run: %dxc -T ps_6_0 -E PSMain)");
+  const std::string code = command + R"(
+struct PSInput
+{
+        float4 color : COLOR;
+};
+
+// CHECK: OpFunctionCall %v4float %src_PSMain
+float4 PSMain(PSInput input) : SV_TARGET
+{
+        return input.color;
+})";
+  runCodeTest(code);
+}
+
+TEST_F(FileTest, InlinedCodeWithErrorTest) {
+  const std::string command(R"(// Run: %dxc -T ps_6_0 -E PSMain)");
+  const std::string code = command + R"(
+struct PSInput
+{
+        float4 color : COLOR;
+};
+
+// CHECK: error: cannot initialize return object of type 'float4' with an lvalue of type 'PSInput'
+float4 PSMain(PSInput input) : SV_TARGET
+{
+        return input;
+})";
+  runCodeTest(code, Expect::Failure);
 }
 
 } // namespace

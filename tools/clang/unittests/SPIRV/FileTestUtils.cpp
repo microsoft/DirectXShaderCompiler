@@ -141,13 +141,37 @@ std::string getAbsPathOfInputDataFile(const llvm::StringRef filename) {
   return path;
 }
 
-bool runCompilerWithSpirvGeneration(const llvm::StringRef inputFilePath,
+bool compileFileWithSpirvGeneration(const llvm::StringRef inputFilePath,
                                     const llvm::StringRef entryPoint,
                                     const llvm::StringRef targetProfile,
                                     const std::vector<std::string> &restArgs,
                                     std::vector<uint32_t> *generatedBinary,
                                     std::string *errorMessages) {
-  std::wstring srcFile(inputFilePath.begin(), inputFilePath.end());
+  return compileWithSpirvGeneration({inputFilePath, ""}, entryPoint,
+                                    targetProfile, restArgs, generatedBinary,
+                                    errorMessages);
+}
+
+bool compileCodeWithSpirvGeneration(const llvm::StringRef inputFilePath,
+                                    const llvm::StringRef code,
+                                    const llvm::StringRef entryPoint,
+                                    const llvm::StringRef targetProfile,
+                                    const std::vector<std::string> &restArgs,
+                                    std::vector<uint32_t> *generatedBinary,
+                                    std::string *errorMessages) {
+  return compileWithSpirvGeneration({inputFilePath, code}, entryPoint,
+                                    targetProfile, restArgs, generatedBinary,
+                                    errorMessages);
+}
+
+bool compileWithSpirvGeneration(const SourceCodeInfo &srcInfo,
+                                const llvm::StringRef entryPoint,
+                                const llvm::StringRef targetProfile,
+                                const std::vector<std::string> &restArgs,
+                                std::vector<uint32_t> *generatedBinary,
+                                std::string *errorMessages) {
+  std::wstring srcFile(srcInfo.inputFilePath.begin(),
+                       srcInfo.inputFilePath.end());
   std::wstring entry(entryPoint.begin(), entryPoint.end());
   std::wstring profile(targetProfile.begin(), targetProfile.end());
 
@@ -167,7 +191,6 @@ bool runCompilerWithSpirvGeneration(const llvm::StringRef inputFilePath,
     CComPtr<IDxcLibrary> pLibrary;
     CComPtr<IDxcCompiler> pCompiler;
     CComPtr<IDxcOperationResult> pResult;
-    CComPtr<IDxcBlobEncoding> pSource;
     CComPtr<IDxcBlobEncoding> pErrorBuffer;
     CComPtr<IDxcBlob> pCompiledBlob;
     CComPtr<IDxcIncludeHandler> pIncludeHandler;
@@ -197,7 +220,16 @@ bool runCompilerWithSpirvGeneration(const llvm::StringRef inputFilePath,
       flags.push_back(arg.c_str());
 
     IFT(dllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
-    IFT(pLibrary->CreateBlobFromFile(srcFile.c_str(), nullptr, &pSource));
+
+    CComPtr<IDxcBlobEncoding> pSource;
+    if (srcInfo.code.empty()) {
+      IFT(pLibrary->CreateBlobFromFile(srcFile.c_str(), nullptr, &pSource));
+    } else {
+      IFT(pLibrary->CreateBlobWithEncodingOnHeapCopy(
+          srcInfo.code.data(), static_cast<uint32_t>(srcInfo.code.size()),
+          CP_UTF8, &pSource));
+    }
+
     IFT(pLibrary->CreateIncludeHandler(&pIncludeHandler));
     IFT(dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
     IFT(pCompiler->Compile(pSource, srcFile.c_str(), entry.c_str(),
