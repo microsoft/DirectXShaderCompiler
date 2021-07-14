@@ -517,6 +517,46 @@ bool insertSeenSemanticsForEntryPointIfNotExist(
   return true;
 }
 
+// Returns whether the type is float4 or a composite type recursively including
+// only float4 e.g., float4, float4[1], struct S { float4 foo[1]; }.
+bool containOnlyVecWithFourFloats(QualType type) {
+  if (type->isReferenceType())
+    type = type->getPointeeType();
+
+  if (is1xNMatrix(type, nullptr, nullptr))
+    return false;
+
+  uint32_t elemCount = 0;
+  if (type->isConstantArrayType()) {
+    const ConstantArrayType *arrayType =
+        (const ConstantArrayType *)type->getAsArrayTypeUnsafe();
+    elemCount = hlsl::GetArraySize(type);
+    return elemCount == 1 &&
+           containOnlyVecWithFourFloats(arrayType->getElementType());
+  }
+
+  if (const auto *structType = type->getAs<RecordType>()) {
+    uint32_t fieldCount = 0;
+    for (const auto *field : structType->getDecl()->fields()) {
+      if (fieldCount != 0)
+        return false;
+      if (!containOnlyVecWithFourFloats(field->getType()))
+        return false;
+      ++fieldCount;
+    }
+    return fieldCount == 1;
+  }
+
+  QualType elemType = {};
+  if (isVectorType(type, &elemType, &elemCount)) {
+    if (const auto *builtinType = elemType->getAs<BuiltinType>()) {
+      return elemCount == 4 && builtinType->getKind() == BuiltinType::Float;
+    }
+    return false;
+  }
+  return false;
+}
+
 } // anonymous namespace
 
 std::string StageVar::getSemanticStr() const {
@@ -3166,6 +3206,13 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   // According to Vulkan spec, the Position BuiltIn can only be used
   // by VSOut, HS/DS/GS In/Out, MSOut.
   case hlsl::Semantic::Kind::Position: {
+    if (sigPointKind == hlsl::SigPoint::Kind::VSOut &&
+        !containOnlyVecWithFourFloats(type)) {
+      emitError("semantic Position must be float4 or a composite type "
+                "recursively including only float4",
+                srcLoc);
+    }
+
     switch (sigPointKind) {
     case hlsl::SigPoint::Kind::VSIn:
     case hlsl::SigPoint::Kind::PCOut:
