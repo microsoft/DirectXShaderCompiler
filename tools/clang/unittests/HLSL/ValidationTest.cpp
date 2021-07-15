@@ -336,7 +336,7 @@ public:
     CComPtr<IDxcLibrary> pLibrary;
     CComPtr<IDxcBlobEncoding> pBlobEncoding; // Encoding doesn't actually matter, it's binary.
     VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
-    VERIFY_SUCCEEDED(pLibrary->CreateBlobWithEncodingFromPinned(pBlob, blobSize, CP_UTF8, &pBlobEncoding));
+    VERIFY_SUCCEEDED(pLibrary->CreateBlobWithEncodingFromPinned(pBlob, blobSize, DXC_CP_ACP, &pBlobEncoding));
     CheckValidationMsgs(pBlobEncoding, pErrorMsgs, bRegex, Flags);
   }
 

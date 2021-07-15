@@ -421,6 +421,12 @@ if %Failed% neq 0 goto :failed
 call :run dxc.exe -P include-main.hlsl.pp -I inc subfolder\include-main.hlsl
 if %Failed% neq 0 goto :failed
 
+set testname=Byte Order Markers
+call :run dxc.exe /T ps_6_0 "%testfiles%\bom-main-ascii.hlsl"
+call :run dxc.exe /T ps_6_0 "%testfiles%\bom-main-utf8.hlsl"
+call :run dxc.exe /T ps_6_0 "%testfiles%\bom-main-utf16le.hlsl"
+if %Failed% neq 0 goto :failed
+
 rem SPIR-V Change Starts
 echo Smoke test for SPIR-V CodeGen ...
 set spirv_smoke_success=0
@@ -599,5 +605,5 @@ rem ============================================
 rem Cleanup and return failure
 :failed
 call :cleanup 2>nul
-if %Failed%=="0" set Failed=1
+if %Failed% eq 0 set Failed=1
 exit /b %Failed%
