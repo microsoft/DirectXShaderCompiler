@@ -128,7 +128,7 @@ struct StageVariableLocationInfo {
     return {nullptr, spv::StorageClass::Max, 0, 0};
   }
   static inline StageVariableLocationInfo getTombstoneKey() {
-    return {nullptr, spv::StorageClass::Max, -1, -1};
+    return {nullptr, spv::StorageClass::Max, 0xffffffff, 0xffffffff};
   }
   static unsigned getHashValue(const StageVariableLocationInfo &Val) {
     return llvm::hash_combine(Val.entryPoint) ^
