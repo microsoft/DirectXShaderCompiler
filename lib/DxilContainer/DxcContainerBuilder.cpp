@@ -40,8 +40,8 @@ HRESULT STDMETHODCALLTYPE DxcContainerBuilder::Load(_In_ IDxcBlob *pSource) {
     const DxilContainerHeader *pHeader = (DxilContainerHeader *)pSource->GetBufferPointer();
     for (DxilPartIterator it = begin(pHeader), itEnd = end(pHeader); it != itEnd; ++it) {
       const DxilPartHeader *pPartHeader = *it;
-      CComPtr<IDxcBlobEncoding> pBlob;
-      IFT(DxcCreateBlobWithEncodingFromPinned((const void *)(pPartHeader + 1), pPartHeader->PartSize, CP_UTF8, &pBlob));
+      CComPtr<IDxcBlob> pBlob;
+      IFT(DxcCreateBlobFromPinned((const void *)(pPartHeader + 1), pPartHeader->PartSize, &pBlob));
       PartList::iterator itPartList = std::find_if(m_parts.begin(), m_parts.end(), [&](DxilPart part) {
         return part.m_fourCC == pPartHeader->PartFourCC;
       });
