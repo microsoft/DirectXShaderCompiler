@@ -146,19 +146,23 @@ UINT32 DxcCodePageFromBytes(const char *bytes, size_t byteLen) throw() {
     // Now try to use the BOM to check for Unicode encodings
     char bom[4] = { bytes[0], bytes[1], bytes[2], bytes[3] };
 
-    if (strncmp(bom, "\xef\xbb\xbf", 3) == 0) {
+    if (memcmp(bom, "\xef\xbb\xbf", 3) == 0) {
       codePage = CP_UTF8;
     }
-    else if (strncmp(bom, "\xff\xfe\x00\x00", 4) == 0) {
+    else if (byteLen > 4 && memcmp(bom, "\xff\xfe\x00\x00", 4) == 0) {
+      // byteLen > 4 to avoid mistaking empty UTF-16 LE BOM + null-terminator
+      // for UTF-32 LE BOM without null-terminator.
+      // If it's an empty UTF-32 LE with no null-termination,
+      // it's harmless to interpret as empty UTF-16 LE with null-termination.
       codePage = 12000; //UTF-32 LE
     }
-    else if (strncmp(bom, "\x00\x00\xfe\xff", 4) == 0) {
+    else if (memcmp(bom, "\x00\x00\xfe\xff", 4) == 0) {
       codePage = 12001; //UTF-32 BE
     }
-    else if (strncmp(bom, "\xff\xfe", 2) == 0) {
+    else if (memcmp(bom, "\xff\xfe", 2) == 0) {
       codePage = 1200; //UTF-16 LE
     }
-    else if (strncmp(bom, "\xfe\xff", 2) == 0) {
+    else if (memcmp(bom, "\xfe\xff", 2) == 0) {
       codePage = 1201; //UTF-16 BE
     }
     else {
@@ -169,6 +173,38 @@ UINT32 DxcCodePageFromBytes(const char *bytes, size_t byteLen) throw() {
     codePage = CP_ACP;
   }
   return codePage;
+}
+
+unsigned GetBomLengthFromCodePage(UINT32 codePage) {
+  switch(codePage) {
+    case CP_UTF8:
+      return 3;   // UTF-8
+    case 12000:
+    case 12001:
+      return 4;   // UTF-32
+    case 1200:
+    case 1201:
+      return 2;   // UTF-16
+    default:
+      return 0;
+  }
+}
+
+static unsigned CharSizeFromCodePage(UINT32 codePage) {
+  switch (codePage) {
+    case 12000:
+    case 12001:
+      return 4;  // UTF-32
+    case 1200:
+    case 1201:
+      return 2;  // UTF-16
+    default:
+      return 1;
+  }
+}
+
+unsigned GetBomLengthFromBytes(const char *bytes, size_t byteLen) throw() {
+  return GetBomLengthFromCodePage(DxcCodePageFromBytes(bytes, byteLen));
 }
 
 #define IsSizeWcharAligned(size) (((size) & (sizeof(wchar_t) - 1)) == 0)
@@ -409,7 +445,6 @@ static HRESULT CodePageBufferToUtf8(UINT32 codePage, LPCVOID bufferPointer,
                                     CDxcMallocHeapPtr<char> &utf8NewCopy,
                                     _Out_ UINT32 *pConvertedCharCount) {
   *pConvertedCharCount = 0;
-
   CDxcMallocHeapPtr<WCHAR> utf16NewCopy(pMalloc);
   UINT32 utf16CharCount = 0;
   const WCHAR *utf16Chars = nullptr;
@@ -509,7 +544,6 @@ static bool TryCreateBlobUtfFromBlob(
   return false;
 }
 
-
 HRESULT DxcCreateBlob(
     LPCVOID pPtr, SIZE_T size, bool bPinned, bool bCopy,
     bool encodingKnown, UINT32 codePage,
@@ -520,17 +554,40 @@ HRESULT DxcCreateBlob(
   *ppBlobEncoding = nullptr;
 
   bool bNullTerminated = encodingKnown ? IsBufferNullTerminated(pPtr, size, codePage) : false;
+  unsigned bomSize = (encodingKnown && codePage != CP_ACP)
+                         ? GetBomLengthFromBytes((const char *)pPtr, size)
+                         : 0;
+  if (bomSize) {
+    // Adjust pPtr and size to skip BOM.
+    // When !encodingKnown or codePage == CP_ACP, BOM will be skipped when
+    // interpreting as text and translating to unicode, since at this point,
+    // the buffer could be an arbitrary binary blob.
+
+    // There is an odd corner case with BOM detection where an empty
+    // non-null-terminated UTF-32 LE buffer with BOM would be interpreted
+    // as an empty null-terminated UTF-16 LE buffer with a BOM.
+    // This won't matter in the end, since both cases are empty buffers, and
+    // will map to the empty buffer case with the desired codePage setting.
+    pPtr = (const char *)pPtr + bomSize;
+    size -= bomSize;
+  }
+  bool emptyString = !pPtr || !size;
+  if (bNullTerminated) {
+    DXASSERT_NOMSG(pPtr && size && encodingKnown);
+    emptyString = size == CharSizeFromCodePage(codePage);
+  }
 
   if (!pMalloc)
     pMalloc = DxcGetThreadMallocNoRef();
 
   // Handle empty blob
-  if (!pPtr || !size) {
+  if (emptyString) {
     if (encodingKnown && TryCreateEmptyBlobUtf(codePage, pMalloc, ppBlobEncoding))
       return S_OK;
     InternalDxcBlobEncoding *pInternalEncoding;
     IFR(InternalDxcBlobEncoding::CreateFromMalloc(nullptr, pMalloc, 0, encodingKnown, codePage, &pInternalEncoding));
     *ppBlobEncoding = pInternalEncoding;
+    return S_OK;
   }
 
   if (bPinned) {
@@ -856,9 +913,17 @@ HRESULT DxcGetBlobAsUtf8(IDxcBlob *pBlob, IMalloc *pMalloc, IDxcBlobUtf8 **pBlob
       return hr;
   }
 
+  const char *bufferPointer = (const char *)pBlob->GetBufferPointer();
   SIZE_T blobLen = pBlob->GetBufferSize();
-  if (!known) {
-    codePage = DxcCodePageFromBytes((char *)pBlob->GetBufferPointer(), blobLen);
+  unsigned bomSize = 0;
+  if (!known || codePage == CP_ACP) {
+    // Try to determine encoding from BOM.
+    // If encoding was known, any BOM should have been stripped already.
+    codePage = DxcCodePageFromBytes(bufferPointer, blobLen);
+    bomSize = GetBomLengthFromCodePage(codePage);
+    // BOM exists, adjust pointer and size to strip.
+    bufferPointer += bomSize;
+    blobLen -= bomSize;
   }
 
   if (!pMalloc)
@@ -870,11 +935,14 @@ HRESULT DxcGetBlobAsUtf8(IDxcBlob *pBlob, IMalloc *pMalloc, IDxcBlobUtf8 **pBlob
   // Reuse or copy the underlying blob depending on null-termination
   if (codePage == CP_UTF8) {
     utf8CharCount = blobLen;
-    if (IsBufferNullTerminated(pBlob->GetBufferPointer(), blobLen, CP_UTF8)) {
+    if (IsBufferNullTerminated(bufferPointer, blobLen, CP_UTF8)) {
       // Already null-terminated, reference other blob's memory
       InternalDxcBlobUtf8* internalEncoding;
       hr = InternalDxcBlobUtf8::CreateFromBlob(pBlob, pMalloc, true, CP_UTF8, &internalEncoding);
       if (SUCCEEDED(hr)) {
+        // Adjust if buffer has BOM; blobLen is already adjusted.
+        if (bomSize)
+          internalEncoding->AdjustPtrAndSize(bomSize, blobLen);
         *pBlobEncoding = internalEncoding;
       }
       return hr;
@@ -882,13 +950,13 @@ HRESULT DxcGetBlobAsUtf8(IDxcBlob *pBlob, IMalloc *pMalloc, IDxcBlobUtf8 **pBlob
       // Copy to new buffer and null-terminate
       if(!utf8NewCopy.Allocate(utf8CharCount + 1))
         return E_OUTOFMEMORY;
-      memcpy(utf8NewCopy.m_pData, pBlob->GetBufferPointer(), blobLen);
+      memcpy(utf8NewCopy.m_pData, bufferPointer, utf8CharCount);
       utf8NewCopy.m_pData[utf8CharCount++] = 0;
     }
   } else {
     // Convert and create a blob that owns the encoding.
     if (FAILED(
-      hr = CodePageBufferToUtf8(codePage, pBlob->GetBufferPointer(), blobLen,
+      hr = CodePageBufferToUtf8(codePage, bufferPointer, blobLen,
                                  pMalloc, utf8NewCopy, &utf8CharCount))) {
       return hr;
     }
@@ -942,9 +1010,18 @@ HRESULT DxcGetBlobAsUtf16(IDxcBlob *pBlob, IMalloc *pMalloc, IDxcBlobUtf16 **pBl
       return hr;
   }
 
+  // Look for BOM and adjust pointer and size to skip if necessary.
+  const char *bufferPointer = (const char *)pBlob->GetBufferPointer();
   SIZE_T blobLen = pBlob->GetBufferSize();
-  if (!known) {
-    codePage = DxcCodePageFromBytes((char *)pBlob->GetBufferPointer(), blobLen);
+  unsigned bomSize = 0;
+  if (!known || codePage == CP_ACP) {
+    // Try to determine encoding from BOM.
+    // If encoding was known, any BOM should have been stripped already.
+    codePage = DxcCodePageFromBytes(bufferPointer, blobLen);
+    bomSize = GetBomLengthFromCodePage(codePage);
+    // BOM exists, adjust pointer and size to strip.
+    bufferPointer += bomSize;
+    blobLen -= bomSize;
   }
 
   if (!pMalloc)
@@ -958,11 +1035,14 @@ HRESULT DxcGetBlobAsUtf16(IDxcBlob *pBlob, IMalloc *pMalloc, IDxcBlobUtf16 **pBl
     DXASSERT(IsSizeWcharAligned(blobLen),
              "otherwise, UTF-16 blob size not evenly divisible by 2");
     utf16CharCount = blobLen / sizeof(wchar_t);
-    if (IsBufferNullTerminated(pBlob->GetBufferPointer(), blobLen, CP_UTF16)) {
+    if (IsBufferNullTerminated(bufferPointer, blobLen, CP_UTF16)) {
       // Already null-terminated, reference other blob's memory
       InternalDxcBlobUtf16* internalEncoding;
       hr = InternalDxcBlobUtf16::CreateFromBlob(pBlob, pMalloc, true, CP_UTF16, &internalEncoding);
       if (SUCCEEDED(hr)) {
+        // Adjust if buffer has BOM; blobLen is already adjusted.
+        if (bomSize)
+          internalEncoding->AdjustPtrAndSize(bomSize, blobLen);
         *pBlobEncoding = internalEncoding;
       }
       return hr;
@@ -970,13 +1050,13 @@ HRESULT DxcGetBlobAsUtf16(IDxcBlob *pBlob, IMalloc *pMalloc, IDxcBlobUtf16 **pBl
       // Copy to new buffer and null-terminate
       if(!utf16NewCopy.Allocate(utf16CharCount + 1))
         return E_OUTOFMEMORY;
-      memcpy(utf16NewCopy.m_pData, pBlob->GetBufferPointer(), blobLen);
+      memcpy(utf16NewCopy.m_pData, bufferPointer, blobLen);
       utf16NewCopy.m_pData[utf16CharCount++] = 0;
     }
   } else {
     // Convert and create a blob that owns the encoding.
     if (FAILED(
-      hr = CodePageBufferToUtf16(codePage, pBlob->GetBufferPointer(), blobLen,
+      hr = CodePageBufferToUtf16(codePage, bufferPointer, blobLen,
                                  utf16NewCopy, &utf16CharCount))) {
       return hr;
     }
