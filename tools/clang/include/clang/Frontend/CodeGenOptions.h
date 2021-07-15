@@ -181,6 +181,10 @@ public:
   bool HLSLHighLevel = false;
   /// Whether we allow preserve intermediate values
   bool HLSLAllowPreserveValues = false;
+  /// Whether to run the Live Value Analysis for DXR pass and output source linking navigation to debug console.
+  bool HLSLLiveValueAnalysisDump = false;
+  /// Output file to receive the Live Value Analysis report.
+  std::string HLSLLiveValueAnalysisOutputFile;
   /// Whether we fail compilation if loop fails to unroll
   bool HLSLOnlyWarnOnUnrollFail = false;
   /// Whether use row major as default matrix major.

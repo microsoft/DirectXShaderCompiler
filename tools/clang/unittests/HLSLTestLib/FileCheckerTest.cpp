@@ -18,6 +18,7 @@
 #include <string>
 #include <cctype>
 #include <cassert>
+#include <codecvt>
 #include <algorithm>
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/dxcapi.h"
@@ -139,10 +140,25 @@ FileRunCommandResult FileRunCommandPart::RunFileChecker(const FileRunCommandResu
   auto args = strtok(Arguments);
   for (const std::string& arg : args) {
     if (arg == "%s") hasInputFilename = true;
-    else if (arg == "-input=stderr") {
-      t.InputForStdin = Prior->StdErr;
-      t.AllowEmptyInput = true;
-    } else if (strstartswith(arg, checkPrefixStr))
+    else if (arg == "-input=stderr") t.InputForStdin = Prior ? Prior->StdErr : "";
+    else if (strstartswith(arg, "--input-file=") || strstartswith(arg, "-input-file=")) {
+      // strip leading and trailing spaces and split
+      size_t pos = arg.find_first_of('=');
+      std::string fileName = arg.substr(pos+1, arg.length());
+
+      // replace %t and %b with the command file name without extension and keep its current path
+      SubstituteFilenameVarsNoPath(fileName);
+
+      // read file content and compare
+      CA2W fileNameW(fileName.c_str());
+      std::ifstream ifs(fileName, std::ifstream::in);
+      if (ifs.fail()) {
+        hlsl_test::LogCommentFmt(L"Failed to open %s", fileNameW.m_psz);
+        return FileRunCommandResult::Error("Failed to open input-file");
+      }
+      t.InputForStdin = std::string((std::istreambuf_iterator<char>(ifs)), (std::istreambuf_iterator<char>()));
+    }
+    else if (strstartswith(arg, checkPrefixStr))
       t.CheckPrefixes.emplace_back(arg.substr(sizeof(checkPrefixStr) - 1));
     else if (strstartswith(arg, checkPrefixesStr)) {
       auto prefixes = strtok(arg.substr(sizeof(checkPrefixesStr) - 1), ", ");
@@ -542,6 +558,20 @@ FileRunCommandResult FileRunCommandPart::RunDxc(dxc::DxcDllSupport &DllSupport, 
 
   std::vector<std::wstring> argWStrings;
   CopyArgsToWStrings(opts.Args, hlsl::options::CoreOption, argWStrings);
+
+  // Check args for -Flv and replace the hlsl filename for LiveValueAnalysis output.
+  bool isFlv = false;
+  for (std::wstring &a : argWStrings) {
+    if (isFlv) {
+      // The filename immediately follows the -Flv flag.
+      SubstituteFilenameVarsNoPath(a);
+      break;
+    }
+    else if (!wcscmp(a.c_str(), L"-Flv")) {
+      isFlv = true;
+    }
+  }
+
   for (const std::wstring &a : argWStrings)
     flags.push_back(a.data());
 
@@ -938,6 +968,70 @@ void FileRunCommandPart::SubstituteFilenameVars(std::string &args) {
     args.replace(pos, 2, baseFileName.c_str());
   }
   while ((pos = args.find("%b")) != std::string::npos) {
+    args.replace(pos, 2, baseFileName.c_str());
+  }
+}
+
+void FileRunCommandPart::SubstituteFilenameVarsNoPath(std::string &args) {
+  // Substitute the filename vars without using the full path.
+  // This allows the filename to use its original path.
+  size_t pos;
+  size_t posPath;
+  std::string baseFileName = CW2A(CommandFileName);
+  std::string testDirStr = "%%";
+  testDirStr.append(FILECHECKTESTDIRPARAM);
+  testDirStr.append("%%");
+  if ((pos = baseFileName.find_last_of(".")) != std::string::npos) {
+    if ((posPath = baseFileName.find_last_of("\\")) != std::string::npos) {
+      baseFileName = baseFileName.substr(posPath + 1, pos);
+    }
+  }
+  const char* test_dir = std::getenv(FILECHECKTESTDIRPARAM);
+  if (test_dir) {
+      while ((pos = args.find(testDirStr)) != std::string::npos) {
+          args.replace(pos, std::strlen(testDirStr.c_str()), test_dir);
+      }
+  }
+  else {
+      assert((pos = args.find(testDirStr)) == std::string::npos && "TEST_DIR hct environment variable not set, but an hcttest requires it." );
+  }
+  while ((pos = args.find("%t")) != std::string::npos) {
+    args.replace(pos, 2, baseFileName.c_str());
+  }
+  while ((pos = args.find("%b")) != std::string::npos) {
+    args.replace(pos, 2, baseFileName.c_str());
+  }
+}
+
+void FileRunCommandPart::SubstituteFilenameVarsNoPath(std::wstring &args) {
+  // Substitute the filename vars without using the full path.
+  // This allows the filename to use its original path.
+  size_t pos;
+  size_t posPath;
+  std::wstring baseFileName = CommandFileName;
+  std::wstring testDirStr = L"%%";
+  testDirStr.append(WFILECHECKTESTDIRPARAM);
+  testDirStr.append(L"%%");
+  if ((pos = baseFileName.find_last_of(L".")) != std::wstring::npos) {
+    if ((posPath = baseFileName.find_last_of(L"\\")) != std::wstring::npos) {
+      baseFileName = baseFileName.substr(posPath + 1, pos);
+    }
+  }
+  const char* test_dir = std::getenv(FILECHECKTESTDIRPARAM);
+  if (test_dir) {
+      std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+      std::wstring wTestDir = converter.from_bytes(test_dir, test_dir + std::strlen(test_dir));
+      while ((pos = args.find(testDirStr)) != std::wstring::npos) {
+          args.replace(pos, std::wcslen(testDirStr.c_str()), wTestDir);
+      }
+  }
+  else {
+      assert((pos = args.find(testDirStr)) == std::wstring::npos && "TEST_DIR hct environment variable not set, but an hcttest requires it." );
+  }
+  while ((pos = args.find(L"%t")) != std::wstring::npos) {
+    args.replace(pos, 2, baseFileName.c_str());
+  }
+  while ((pos = args.find(L"%b")) != std::wstring::npos) {
     args.replace(pos, 2, baseFileName.c_str());
   }
 }

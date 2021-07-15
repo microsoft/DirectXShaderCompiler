@@ -15,6 +15,7 @@
 #ifndef LLVM_TRANSFORMS_IPO_PASSMANAGERBUILDER_H
 #define LLVM_TRANSFORMS_IPO_PASSMANAGERBUILDER_H
 
+#include "llvm/ADT/StringRef.h" // HLSL Change
 #include <vector>
 
 namespace hlsl {
@@ -131,6 +132,8 @@ public:
   bool HLSLOnlyWarnOnUnrollFail = false; // HLSL Change
   hlsl::HLSLExtensionsCodegenHelper *HLSLExtensionsCodeGen = nullptr; // HLSL Change
   bool HLSLResMayAlias = false; // HLSL Change
+  bool HLSLLiveValueAnalysisDump = false; // HLSL Change
+  StringRef HLSLLiveValueAnalysisOutputFile; // HLSL Change
   unsigned ScanLimit = 0; // HLSL Change
   bool EnableGVN = true; // HLSL Change
   bool StructurizeLoopExitsForUnroll = false; // HLSL Change

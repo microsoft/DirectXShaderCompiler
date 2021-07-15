@@ -51,6 +51,7 @@ add_llvm_library(LLVMHLSL
   HLPreprocess.cpp
   HLResource.cpp
   HLSignatureLower.cpp
+  LiveValueAnalysis.cpp
   HLUtil.cpp
   PauseResumePasses.cpp
   WaveSensitivityAnalysis.cpp

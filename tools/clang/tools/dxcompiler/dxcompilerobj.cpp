@@ -1340,6 +1340,8 @@ public:
     if (Opts.OptLevel >= 3)
       compiler.getCodeGenOpts().UnrollLoops = true;
 
+    compiler.getCodeGenOpts().HLSLLiveValueAnalysisDump = Opts.LVADump;
+    compiler.getCodeGenOpts().HLSLLiveValueAnalysisOutputFile = Opts.OutputLiveValueFile;
     compiler.getCodeGenOpts().HLSLHighLevel = Opts.CodeGenHighLevel;
     compiler.getCodeGenOpts().HLSLAllowPreserveValues = Opts.AllowPreserveValues;
     compiler.getCodeGenOpts().HLSLOnlyWarnOnUnrollFail = Opts.EnableFXCCompatMode;
