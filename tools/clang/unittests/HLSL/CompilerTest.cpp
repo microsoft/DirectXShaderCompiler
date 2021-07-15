@@ -954,7 +954,7 @@ TEST_F(CompilerTest, CompileThenAddCustomDebugName) {
 
   CComPtr<IDxcBlobEncoding> pDebugName;
 
-  CreateBlobPinned(pNameBlobContent, allocatedSize, CP_UTF8, &pDebugName);
+  CreateBlobPinned(pNameBlobContent, allocatedSize, DXC_CP_ACP, &pDebugName);
 
 
   VERIFY_SUCCEEDED(pBuilder->Load(pProgram));
@@ -2939,7 +2939,7 @@ TEST_F(CompilerTest, LibGVStore) {
   unsigned bitcode_size = hlsl::GetDxilBitcodeSize((hlsl::DxilProgramHeader *)pBitcode->GetBufferPointer());
 
   CComPtr<IDxcBlobEncoding> pBitcodeBlob;
-  CreateBlobPinned(bitcode, bitcode_size, CP_UTF8, &pBitcodeBlob);
+  CreateBlobPinned(bitcode, bitcode_size, DXC_CP_ACP, &pBitcodeBlob);
 
   CComPtr<IDxcBlob> pReassembled;
   CComPtr<IDxcOperationResult> pReassembleResult;
