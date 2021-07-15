@@ -24,7 +24,18 @@
 #include <intsafe.h>
 #endif
 
-#define CP_UTF16 1200
+// CP_UTF8 is defined in WinNls.h, but others we use are not defined there.
+// See matching value definitions here:
+// https://docs.microsoft.com/en-us/windows/win32/intl/code-page-identifiers
+
+// We detect all these through BOM.
+#define CP_UTF16LE 1200
+#define CP_UTF16BE 1201
+#define CP_UTF32LE 12000
+#define CP_UTF32BE 12001
+
+// Alias for CP_UTF16LE, which is the only one we actually handle.
+#define CP_UTF16 CP_UTF16LE
 
 struct HeapMalloc : public IMalloc {
 public:
@@ -154,16 +165,16 @@ UINT32 DxcCodePageFromBytes(const char *bytes, size_t byteLen) throw() {
       // for UTF-32 LE BOM without null-terminator.
       // If it's an empty UTF-32 LE with no null-termination,
       // it's harmless to interpret as empty UTF-16 LE with null-termination.
-      codePage = 12000; //UTF-32 LE
+      codePage = CP_UTF32LE;
     }
     else if (memcmp(bom, "\x00\x00\xfe\xff", 4) == 0) {
-      codePage = 12001; //UTF-32 BE
+      codePage = CP_UTF32BE;
     }
     else if (memcmp(bom, "\xff\xfe", 2) == 0) {
-      codePage = 1200; //UTF-16 LE
+      codePage = CP_UTF16LE;
     }
     else if (memcmp(bom, "\xfe\xff", 2) == 0) {
-      codePage = 1201; //UTF-16 BE
+      codePage = CP_UTF16BE;
     }
     else {
       codePage = CP_ACP;
@@ -178,13 +189,13 @@ UINT32 DxcCodePageFromBytes(const char *bytes, size_t byteLen) throw() {
 unsigned GetBomLengthFromCodePage(UINT32 codePage) {
   switch(codePage) {
     case CP_UTF8:
-      return 3;   // UTF-8
-    case 12000:
-    case 12001:
-      return 4;   // UTF-32
-    case 1200:
-    case 1201:
-      return 2;   // UTF-16
+      return 3;
+    case CP_UTF32LE:
+    case CP_UTF32BE:
+      return 4;
+    case CP_UTF16LE:
+    case CP_UTF16BE:
+      return 2;
     default:
       return 0;
   }
@@ -192,15 +203,26 @@ unsigned GetBomLengthFromCodePage(UINT32 codePage) {
 
 static unsigned CharSizeFromCodePage(UINT32 codePage) {
   switch (codePage) {
-    case 12000:
-    case 12001:
-      return 4;  // UTF-32
-    case 1200:
-    case 1201:
-      return 2;  // UTF-16
+    case CP_UTF32LE:
+    case CP_UTF32BE:
+      return 4;
+    case CP_UTF16LE:
+    case CP_UTF16BE:
+      return 2;
     default:
       return 1;
   }
+}
+
+// We do not handle translation from these code page values.
+static bool IsUnsupportedUtfCodePage(UINT32 codePage) {
+  switch (codePage) {
+    case CP_UTF32LE:
+    case CP_UTF32BE:
+    case CP_UTF16BE:
+      return true;
+  }
+  return false;
 }
 
 unsigned GetBomLengthFromBytes(const char *bytes, size_t byteLen) throw() {
@@ -399,6 +421,9 @@ static HRESULT CodePageBufferToUtf16(UINT32 codePage, LPCVOID bufferPointer,
     DXASSERT(*pConvertedCharCount == 0, "else didn't init properly");
     return S_OK;
   }
+
+  if (IsUnsupportedUtfCodePage(codePage))
+    return DXC_E_STRING_ENCODING_FAILED;
 
   // Calculate the length of the buffer in wchar_t elements.
   int numToConvertUTF16 =
