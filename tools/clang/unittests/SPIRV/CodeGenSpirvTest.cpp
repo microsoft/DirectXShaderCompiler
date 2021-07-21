@@ -1821,11 +1821,69 @@ TEST_F(FileTest, VulkanLocationCompositeTypes) {
 TEST_F(FileTest, VulkanLocationTooLarge) {
   runFileTest("vk.location.large.hlsl", Expect::Failure);
 }
-TEST_F(FileTest, VulkanLocationReassigned) {
-  runFileTest("vk.location.reassign.hlsl", Expect::Failure);
-}
 TEST_F(FileTest, VulkanLocationPartiallyAssigned) {
   runFileTest("vk.location.mixed.hlsl", Expect::Failure);
+}
+
+std::string getStageLocationReassignTestShader(const std::string &typeDef,
+                                               const std::string &stageVar,
+                                               const std::string &check) {
+  const std::string command(R"(// Run: %dxc -T vs_6_0 -E main)");
+  const std::string shader = command + typeDef + R"(
+[[vk::location(3)]]                   // first use
+float main(
+    [[vk::location(3)]]     float m : M,  // first use
+)" + stageVar + R"(
+) : R {
+    return 1.0;
+}
+)" + check;
+  return shader;
+}
+
+TEST_F(FileTest, VulkanLocationReassigned) {
+  runCodeTest(getStageLocationReassignTestShader(R"()",
+                                                 R"(
+    [[vk::location(3)]]     float n : N,  // error
+    [[vk::location(3)]] out float x : X   // error
+)",
+                                                 R"(
+// CHECK: error: stage input location #3 already assigned
+// CHECK: error: stage output location #3 already assigned
+)"),
+              Expect::Failure);
+}
+
+TEST_F(FileTest, VulkanLocationReassignedForInputVar) {
+  runCodeTest(
+      getStageLocationReassignTestShader(
+          R"(
+struct S {
+    [[vk::location(3)]] float a : A;  // error
+    [[vk::location(3)]] float b : B;  // error
+};
+)",
+          R"(S s)",
+          R"(// CHECK: error: stage input location #3 already assigned)"),
+      Expect::Failure);
+}
+
+TEST_F(FileTest, VulkanLocationReassignedForOutputVar) {
+  runCodeTest(getStageLocationReassignTestShader(
+                  R"(
+struct T {
+    [[vk::location(3)]] float i : A;  // error
+    [[vk::location(3)]] float j : B;  // error
+};
+)",
+                  R"(out T t)",
+                  R"(
+// CHECK: error: stage output location #3 already assigned
+)"),
+              Expect::Failure);
+}
+TEST_F(FileTest, StageVariableDuplicatedLocation) {
+  runFileTest("semantic.duplicated-location.hlsl", Expect::Failure);
 }
 
 TEST_F(FileTest, VulkanExplicitBinding) {

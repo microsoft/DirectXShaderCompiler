@@ -1719,6 +1719,23 @@ bool DeclResultIdMapper::checkSemanticDuplication(bool forInput) {
   return success;
 }
 
+bool DeclResultIdMapper::isDuplicatedStageVarLocation(
+    llvm::DenseSet<StageVariableLocationInfo, StageVariableLocationInfo>
+        *stageVariableLocationInfo,
+    const StageVar &var, uint32_t location, uint32_t index) {
+  if (!stageVariableLocationInfo
+           ->insert({var.getEntryPoint(),
+                     var.getSpirvInstr()->getStorageClass(), location, index})
+           .second) {
+    emitError("Multiple stage variables have a duplicated pair of "
+              "location and index at %0 / %1",
+              var.getSpirvInstr()->getSourceLocation())
+        << location << index;
+    return false;
+  }
+  return true;
+}
+
 bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
   if (!checkSemanticDuplication(forInput))
     return false;
@@ -1732,6 +1749,11 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
     // For the ones we don't care, treat as assigned.
     return true;
   };
+
+  /// Set of locations of assigned stage variables used to correctly report
+  /// duplicated stage variable locations.
+  llvm::DenseSet<StageVariableLocationInfo, StageVariableLocationInfo>
+      stageVariableLocationInfo;
 
   // If we have explicit location specified for all input/output variables,
   // use them instead assign by ourselves.
@@ -1769,6 +1791,11 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
       if (var.getIndexAttr())
         spvBuilder.decorateIndex(var.getSpirvInstr(), idx,
                                  var.getSemanticInfo().loc);
+
+      if (!isDuplicatedStageVarLocation(&stageVariableLocationInfo, var, loc,
+                                        idx)) {
+        return false;
+      }
     }
 
     return noError;
@@ -1798,6 +1825,11 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
     if (semaInfo.isTarget()) {
       spvBuilder.decorateLocation(var.getSpirvInstr(), semaInfo.index);
       locSet.useLoc(semaInfo.index);
+
+      if (!isDuplicatedStageVarLocation(&stageVariableLocationInfo, var,
+                                        semaInfo.index, 0)) {
+        return false;
+      }
     } else {
       vars.push_back(&var);
     }
@@ -1817,9 +1849,15 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
               });
   }
 
-  for (const auto *var : vars)
-    spvBuilder.decorateLocation(var->getSpirvInstr(),
-                                locSet.useNextLocs(var->getLocationCount()));
+  for (const auto *var : vars) {
+    uint32_t location = locSet.useNextLocs(var->getLocationCount());
+    spvBuilder.decorateLocation(var->getSpirvInstr(), location);
+
+    if (!isDuplicatedStageVarLocation(&stageVariableLocationInfo, *var,
+                                      location, 0)) {
+      return false;
+    }
+  }
 
   return true;
 }
