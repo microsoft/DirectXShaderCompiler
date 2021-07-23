@@ -564,8 +564,7 @@
         }
 
         float4 PSMain(PSInput input) : SV_TARGET {
-          uint ix = convert2Dto1D(input.uv.x, input.uv.y, 84);
-          g_bufMain[ix] = DerivTest(ix, 84*4*3);
+          // Dummy PS to satisfy pipeline creation requirements
           return 1;
         }
         [NumThreads(336, 1, 1)]
