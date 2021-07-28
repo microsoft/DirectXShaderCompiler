@@ -1022,6 +1022,9 @@ def warn_hlsl_effect_state_block : Warning <
 def warn_hlsl_effect_technique : Warning <
   "effect technique ignored - effect syntax is deprecated">,
   InGroup< HLSLEffectsSyntax >;
+def warn_hlsl_semantic_identifier_collision : Warning <
+  "'%0' interpreted as semantic; previous definition(s) ignored">,
+  InGroup< HLSLSemanticIdentifierCollision >;
 def err_hlsl_enum : Error<
   "enum is unsupported in HLSL before 2017">;
 
