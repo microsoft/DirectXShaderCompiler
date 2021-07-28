@@ -156,11 +156,16 @@ bool DxilPIXAddTidToAmplificationShaderPayload::runOnModule(Module &M) {
       SmallVector<Value *, 2> IndexToEmbeddedOriginal;
       IndexToEmbeddedOriginal.push_back(HlslOP->GetU32Const(0));
       IndexToEmbeddedOriginal.push_back(HlslOP->GetU32Const(0));
-      auto *PointerToContainedCopyOfOriginal = B.CreateInBoundsGEP(ExpandedPayloadStructType, NewStructAlloca, IndexToEmbeddedOriginal, "PointerToCopyOfOriginal");
+      //auto *PointerToContainedCopyOfOriginal = B.CreateInBoundsGEP(ExpandedPayloadStructType, NewStructAlloca, IndexToEmbeddedOriginal, "PointerToCopyOfOriginal");
 
-      SmallVector<uint32_t, 1> Index1{0, 1};
-      /*auto* StoreAppendedValue = */ B.CreateInsertValue(
-          HlslOP->GetU32Const(42), PointerToContainedCopyOfOriginal, Index1);
+      SmallVector<uint32_t, 1> Index0{0}; // , 1
+      Value *Insert = B.CreateLoad(DispatchMesh.get_payload(), "ExpandedValue");
+
+      SmallVector<uint32_t, 1> Index1{ 1 };// , 1
+      auto * StoreAppendedValue = B.CreateInsertValue(
+          Insert, HlslOP->GetU32Const(42), Index1);
+
+      UserInstruction->replaceUsesOfWith(NewStructAlloca, StoreAppendedValue);
 
       //SmallVector<uint32_t, 1> Index0{0};
       //auto *PointerToOriginal = B.CreateInBoundsGEP(
