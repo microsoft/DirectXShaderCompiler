@@ -25,6 +25,7 @@
 #include "dxc/DxilContainer/DxilContainerAssembler.h"
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/DXIL/DxilFunctionProps.h"
+#include "dxc/DXIL/DxilEntryProps.h"
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/Support/Global.h"
@@ -920,13 +921,30 @@ public:
 template <class T>
 class RDATTable : public RDATPart {
 protected:
+  // m_map is map of records to their index.
+  // Used to alias identical records.
+  std::unordered_map<std::string, uint32_t> m_map;
   std::vector<T> m_rows;
 public:
-  virtual void Insert(T *data) {}
   virtual ~RDATTable() {}
 
-  void Insert(const T &data) {
-    m_rows.push_back(data);
+  uint32_t Count() {
+    size_t count = m_rows.size();
+    return (count < UINT32_MAX) ? count : 0;
+  }
+  uint32_t Insert(const T &data) {
+    size_t count = m_rows.size();
+    if (count < (UINT32_MAX - 1)) {
+      const char *pData = (const char*)(const void *)&data;
+      auto result = m_map.insert(std::make_pair(std::string(pData, pData + sizeof(T)), count));
+      if (result.second) {
+        m_rows.push_back(data);
+        return count;
+      } else {
+        return result.first->second;
+      }
+    }
+    return RDAT_NULL_REF;
   }
 
   void Write(void *ptr) {
@@ -945,17 +963,23 @@ public:
   }
 };
 
-// Resource table will contain a list of RuntimeDataResourceInfo in order of
-// CBuffer, Sampler, SRV, and UAV resource classes.
-class ResourceTable : public RDATTable<RuntimeDataResourceInfo> {
-public:
-  RuntimeDataPartType GetType() const { return RuntimeDataPartType::ResourceTable; }
-};
+#define DEF_RDAT_TYPES DEF_RDAT_CLEAR
+#include "dxc/DxilContainer/RDAT_Macros.inl"
 
-class FunctionTable : public RDATTable<RuntimeDataFunctionInfo> {
-public:
-  RuntimeDataPartType GetType() const { return RuntimeDataPartType::FunctionTable; }
-};
+// Once per table.
+#undef RDAT_STRUCT_TABLE_DERIVED
+#define RDAT_STRUCT_TABLE_DERIVED(type, base, table)
+#undef RDAT_STRUCT_TABLE
+#define RDAT_STRUCT_TABLE(type, table)                                         \
+  class table : public RDATTable<                                              \
+                    RDAT::RecordDerivedTrait<RDAT::type>::LastDerivedType> {   \
+    RuntimeDataPartType GetType() const { return RuntimeDataPartType::table; } \
+  };
+
+#include "dxc/DxilContainer/RDAT_LibraryTypes.inl"
+#include "dxc/DxilContainer/RDAT_SubobjectTypes.inl"
+#undef DEF_RDAT_TYPES
+#include "dxc/DxilContainer/RDAT_Macros.inl"
 
 class StringBufferPart : public RDATPart {
 private:
@@ -1061,11 +1085,6 @@ public:
   RuntimeDataPartType GetType() const { return RuntimeDataPartType::RawBytes; }
   uint32_t GetPartSize() const { return m_DataBuffer.size(); }
   void Write(void *ptr) { memcpy(ptr, m_DataBuffer.data(), m_DataBuffer.size()); }
-};
-
-class SubobjectTable : public RDATTable<RuntimeDataSubobjectInfo> {
-public:
-  RuntimeDataPartType GetType() const { return RuntimeDataPartType::SubobjectTable; }
 };
 
 using namespace DXIL;
@@ -1218,6 +1237,143 @@ private:
     }
   }
 
+  uint32_t AddSigElements(const DxilSignature &sig, uint32_t &shaderFlags,
+                          uint8_t *pOutputStreamMask = nullptr) {
+    shaderFlags = 0;  // Fresh flags each call
+    SmallVector<uint32_t, 16> rdatElements;
+    for (auto &&E : sig.GetElements()) {
+      RDAT::SignatureElement e = {};
+      e.SemanticName = m_pStringBufferPart->Insert(E->GetSemanticName());
+      e.SemanticIndices = m_pIndexArraysPart->AddIndex(
+          E->GetSemanticIndexVec().begin(), E->GetSemanticIndexVec().end());
+      e.SemanticKind = (uint8_t)E->GetKind();
+      e.ComponentType = (uint8_t)E->GetCompType().GetKind();
+      e.InterpolationMode = (uint8_t)E->GetInterpolationMode()->GetKind();
+      e.StartRow = E->IsAllocated() ? E->GetStartRow() : 0xFF;
+      e.SetCols(E->GetCols());
+      e.SetStartCol(E->GetStartCol());
+      e.SetOutputStream(E->GetOutputStream());
+      e.SetUsageMask(E->GetUsageMask());
+      e.SetDynamicIndexMask(E->GetDynIdxCompMask());
+      rdatElements.push_back(m_pSignatureElementTable->Insert(e));
+
+      if (E->GetKind() == DXIL::SemanticKind::Position)
+        shaderFlags |= (uint32_t)DxilShaderFlags::OutputPositionPresent;
+      if (E->GetInterpolationMode()->IsAnySample() ||
+          E->GetKind() == Semantic::Kind::SampleIndex)
+        shaderFlags |= (uint32_t)DxilShaderFlags::SampleFrequency;
+      if (E->IsAnyDepth())
+        shaderFlags |= (uint32_t)DxilShaderFlags::DepthOutput;
+
+      if (pOutputStreamMask)
+        *pOutputStreamMask |= 1 << E->GetOutputStream();
+    }
+    return m_pIndexArraysPart->AddIndex(rdatElements.begin(), rdatElements.end());
+  }
+
+  uint32_t AddShaderInfo(llvm::Function &function,
+                         const DxilEntryProps &entryProps,
+                         RuntimeDataFunctionInfo2 &funcInfo,
+                         const ShaderFlags &flags) {
+    const DxilFunctionProps &props = entryProps.props;
+    const DxilEntrySignature &sig = entryProps.sig;
+    if (props.waveSize) {
+      funcInfo.MinimumExpectedWaveLaneCount = props.waveSize;
+      funcInfo.MaximumExpectedWaveLaneCount = props.waveSize;
+    }
+    funcInfo.ShaderFlags = 0;
+    if (flags.GetViewID())
+      funcInfo.ShaderFlags |= (uint16_t)DxilShaderFlags::UsesViewID;
+    uint32_t shaderFlags = 0;
+    switch (props.shaderKind) {
+    case ShaderKind::Pixel: {
+      RDAT::PSInfo info = {};
+      info.SigInputElements = AddSigElements(sig.InputSignature, shaderFlags);
+      funcInfo.ShaderFlags |= (uint16_t)(shaderFlags & (uint16_t)DxilShaderFlags::SampleFrequency);
+      info.SigOutputElements = AddSigElements(sig.OutputSignature, shaderFlags);
+      funcInfo.ShaderFlags |= (uint16_t)(shaderFlags & (uint16_t)DxilShaderFlags::DepthOutput);
+      return m_pPSInfoTable->Insert(info);
+    } break;
+    case ShaderKind::Vertex: {
+      RDAT::VSInfo info = {};
+      info.SigInputElements = AddSigElements(sig.InputSignature, shaderFlags);
+      info.SigOutputElements = AddSigElements(sig.OutputSignature, shaderFlags);
+      funcInfo.ShaderFlags |= (uint16_t)(shaderFlags & (uint16_t)DxilShaderFlags::OutputPositionPresent);
+      // TODO: Fill in ViewID related masks
+      return m_pVSInfoTable->Insert(info);
+    } break;
+    case ShaderKind::Geometry: {
+      RDAT::GSInfo info = {};
+      info.SigInputElements = AddSigElements(sig.InputSignature, shaderFlags);
+      shaderFlags = 0;
+      info.SigOutputElements = AddSigElements(sig.OutputSignature, shaderFlags, &info.OutputStreamMask);
+      funcInfo.ShaderFlags |= (uint16_t)(shaderFlags & (uint16_t)DxilShaderFlags::OutputPositionPresent);
+      // TODO: Fill in ViewID related masks
+      info.InputPrimitive = (uint8_t)props.ShaderProps.GS.inputPrimitive;
+      info.OutputTopology = (uint8_t)props.ShaderProps.GS.streamPrimitiveTopologies[0];
+      info.MaxVertexCount = (uint8_t)props.ShaderProps.GS.maxVertexCount;
+      return m_pGSInfoTable->Insert(info);
+    } break;
+    case ShaderKind::Hull: {
+      RDAT::HSInfo info = {};
+      info.SigInputElements = AddSigElements(sig.InputSignature, shaderFlags);
+      info.SigOutputElements = AddSigElements(sig.OutputSignature, shaderFlags);
+      info.SigPatchConstOutputElements = AddSigElements(sig.PatchConstOrPrimSignature, shaderFlags);
+      // TODO: Fill in ViewID related masks
+      info.InputControlPointCount = (uint8_t)props.ShaderProps.HS.inputControlPoints;
+      info.OutputControlPointCount = (uint8_t)props.ShaderProps.HS.outputControlPoints;
+      info.TessellatorDomain = (uint8_t)props.ShaderProps.HS.domain;
+      info.TessellatorOutputPrimitive = (uint8_t)props.ShaderProps.HS.outputPrimitive;
+      return m_pHSInfoTable->Insert(info);
+    } break;
+    case ShaderKind::Domain: {
+      RDAT::DSInfo info = {};
+      info.SigInputElements = AddSigElements(sig.InputSignature, shaderFlags);
+      info.SigOutputElements = AddSigElements(sig.OutputSignature, shaderFlags);
+      funcInfo.ShaderFlags |= (uint16_t)(shaderFlags & (uint16_t)DxilShaderFlags::OutputPositionPresent);
+      info.SigPatchConstInputElements = AddSigElements(sig.PatchConstOrPrimSignature, shaderFlags);
+      // TODO: Fill in ViewID related masks
+      info.InputControlPointCount = (uint8_t)props.ShaderProps.DS.inputControlPoints;
+      info.TessellatorDomain = (uint8_t)props.ShaderProps.DS.domain;
+      return m_pDSInfoTable->Insert(info);
+    } break;
+    case ShaderKind::Compute: {
+      RDAT::CSInfo info = {};
+      info.NumThreads =
+          m_pIndexArraysPart->AddIndex(&props.ShaderProps.CS.numThreads[0],
+                                       &props.ShaderProps.CS.numThreads[0] + 3);
+      return m_pCSInfoTable->Insert(info);
+    } break;
+    case ShaderKind::Mesh: {
+      RDAT::MSInfo info = {};
+      info.SigOutputElements = AddSigElements(sig.OutputSignature, shaderFlags);
+      funcInfo.ShaderFlags |= (uint16_t)(shaderFlags & (uint16_t)DxilShaderFlags::OutputPositionPresent);
+      info.SigPrimOutputElements = AddSigElements(sig.PatchConstOrPrimSignature, shaderFlags);
+      // TODO: Fill in ViewID related masks
+      info.NumThreads =
+          m_pIndexArraysPart->AddIndex(&props.ShaderProps.MS.numThreads[0],
+                                       &props.ShaderProps.MS.numThreads[0] + 3);
+      info.GroupSharedBytesUsed = (uint32_t)0xFFFFFFFF; // TODO: fill this in by walking functions and groupshared global usage
+      info.GroupSharedBytesDependentOnViewID = (uint32_t)0; // TODO: same thing (note: this isn't filled in for PSV!)
+      info.PayloadSizeInBytes = (uint32_t)props.ShaderProps.MS.payloadSizeInBytes;
+      info.MaxOutputVertices = (uint16_t)props.ShaderProps.MS.maxVertexCount;
+      info.MaxOutputPrimitives = (uint16_t)props.ShaderProps.MS.maxPrimitiveCount;
+      info.MeshOutputTopology = (uint8_t)props.ShaderProps.MS.outputTopology;
+      return m_pMSInfoTable->Insert(info);
+    } break;
+    case ShaderKind::Amplification: {
+      RDAT::ASInfo info = {};
+      info.NumThreads =
+          m_pIndexArraysPart->AddIndex(&props.ShaderProps.AS.numThreads[0],
+                                       &props.ShaderProps.AS.numThreads[0] + 3);
+      info.GroupSharedBytesUsed = (uint32_t)0xFFFFFFFF; // TODO: fill this in by walking functions and groupshared global usage
+      info.PayloadSizeInBytes = (uint32_t)props.ShaderProps.AS.payloadSizeInBytes;
+      return m_pASInfoTable->Insert(info);
+    } break;
+    }
+    return RDAT_NULL_REF;
+  }
+
   void UpdateFunctionInfo(const DxilModule &DM) {
     // We must select the appropriate shader mask for the validator version,
     // so we don't set any bits the validator doesn't recognize.
@@ -1226,7 +1382,8 @@ private:
       ValidShaderMask = (1 << ((unsigned)DXIL::ShaderKind::Callable + 1)) - 1;
     }
     for (auto &function : DM.GetModule()->getFunctionList()) {
-      if (function.isDeclaration() && !function.isIntrinsic()) {
+      if (function.isDeclaration() && !function.isIntrinsic() &&
+          function.getLinkage() == llvm::GlobalValue::LinkageTypes::ExternalLinkage) {
         if (OP::IsDxilOpFunc(&function)) {
           // update min shader model and shader stage mask per function
           UpdateFunctionToShaderCompat(&function);
@@ -1243,11 +1400,12 @@ private:
         uint32_t mangledIndex = m_pStringBufferPart->Insert(mangled);
         uint32_t unmangledIndex = m_pStringBufferPart->Insert(unmangled);
         // Update resource Index
-        uint32_t resourceIndex = UINT_MAX;
-        uint32_t functionDependencies = UINT_MAX;
+        uint32_t resourceIndex = RDAT_NULL_REF;
+        uint32_t functionDependencies = RDAT_NULL_REF;
         uint32_t payloadSizeInBytes = 0;
         uint32_t attrSizeInBytes = 0;
         uint32_t shaderKind = static_cast<uint32_t>(DXIL::ShaderKind::Library);
+        uint32_t shaderInfo = RDAT_NULL_REF;
 
         if (m_FuncToResNameOffset.find(&function) != m_FuncToResNameOffset.end())
           resourceIndex =
@@ -1257,8 +1415,10 @@ private:
           functionDependencies =
               m_pIndexArraysPart->AddIndex(m_FuncToDependencies[&function].begin(),
                                   m_FuncToDependencies[&function].end());
+        RuntimeDataFunctionInfo2 info = {};
+        ShaderFlags flags = ShaderFlags::CollectShaderFlags(&function, &DM);
         if (DM.HasDxilFunctionProps(&function)) {
-          auto props = DM.GetDxilFunctionProps(&function);
+          const auto &props = DM.GetDxilFunctionProps(&function);
           if (props.IsClosestHit() || props.IsAnyHit()) {
             payloadSizeInBytes = props.ShaderProps.Ray.payloadSizeInBytes;
             attrSizeInBytes = props.ShaderProps.Ray.attributeSizeInBytes;
@@ -1270,19 +1430,20 @@ private:
             payloadSizeInBytes = props.ShaderProps.Ray.paramSizeInBytes;
           }
           shaderKind = (uint32_t)props.shaderKind;
+          if (DM.HasDxilEntryProps(&function)) {
+            const auto &entryProps = DM.GetDxilEntryProps(&function);
+            shaderInfo = AddShaderInfo(function, entryProps, info, flags);
+          }
         }
-        ShaderFlags flags = ShaderFlags::CollectShaderFlags(&function, &DM);
-        RuntimeDataFunctionInfo info = {};
         info.Name = mangledIndex;
         info.UnmangledName = unmangledIndex;
         info.ShaderKind = shaderKind;
+        info.RawShaderRef = shaderInfo;
         info.Resources = resourceIndex;
         info.FunctionDependencies = functionDependencies;
         info.PayloadSizeInBytes = payloadSizeInBytes;
         info.AttributeSizeInBytes = attrSizeInBytes;
-        uint64_t featureFlags = flags.GetFeatureInfo();
-        info.FeatureInfo1 = featureFlags & 0xffffffff;
-        info.FeatureInfo2 = (featureFlags >> 32) & 0xffffffff;
+        info.SetFeatureFlags(flags.GetFeatureInfo());
         // Init min target 6.0
         unsigned minMajor = 6, minMinor = 0;
         // Increase min target based on feature flags:
@@ -1333,9 +1494,9 @@ private:
         __fallthrough;
       case DXIL::SubobjectKind::GlobalRootSignature: {
         const void *Data;
-        obj.GetRootSignature(bLocalRS, Data, info.RootSignature.SizeInBytes);
-        info.RootSignature.RawBytesOffset =
-          m_pRawBytesPart->Insert(Data, info.RootSignature.SizeInBytes);
+        obj.GetRootSignature(bLocalRS, Data, info.RootSignature.Data.Size);
+        info.RootSignature.Data.Offset =
+          m_pRawBytesPart->Insert(Data, info.RootSignature.Data.Size);
         break;
       }
       case DXIL::SubobjectKind::SubobjectToExportsAssociation: {
@@ -1397,15 +1558,35 @@ private:
     ADD_PART(IndexArraysPart);
     ADD_PART(RawBytesPart);
     ADD_PART(SubobjectTable);
+    ADD_PART(SignatureElementTable);
+    ADD_PART(VSInfoTable)
+    ADD_PART(PSInfoTable)
+    ADD_PART(HSInfoTable)
+    ADD_PART(DSInfoTable)
+    ADD_PART(GSInfoTable)
+    ADD_PART(CSInfoTable)
+    ADD_PART(MSInfoTable)
+    ADD_PART(ASInfoTable)
 #undef ADD_PART
   }
 
   StringBufferPart *m_pStringBufferPart;
   IndexArraysPart *m_pIndexArraysPart;
   RawBytesPart *m_pRawBytesPart;
-  FunctionTable *m_pFunctionTable;
-  ResourceTable *m_pResourceTable;
-  SubobjectTable *m_pSubobjectTable;
+
+#define DEF_RDAT_TYPES DEF_RDAT_CLEAR
+#include "dxc/DxilContainer/RDAT_Macros.inl"
+
+// Once per table.
+#undef RDAT_STRUCT_TABLE_DERIVED
+#define RDAT_STRUCT_TABLE_DERIVED(type, base, table)
+#undef RDAT_STRUCT_TABLE
+#define RDAT_STRUCT_TABLE(type, table) table *m_p##table;
+
+#include "dxc/DxilContainer/RDAT_LibraryTypes.inl"
+#include "dxc/DxilContainer/RDAT_SubobjectTypes.inl"
+#undef DEF_RDAT_TYPES
+#include "dxc/DxilContainer/RDAT_Macros.inl"
 
 public:
   DxilRDATWriter(const DxilModule &mod)

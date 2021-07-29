@@ -343,65 +343,66 @@ DxilSubobject &DxilSubobjects::CreateSubobject(Kind kind, llvm::StringRef Name) 
   return ref;
 }
 
-bool LoadSubobjectsFromRDAT(DxilSubobjects &subobjects, RDAT::SubobjectTableReader *pSubobjectTableReader) {
-  if (!pSubobjectTableReader)
+bool LoadSubobjectsFromRDAT(DxilSubobjects &subobjects, const RDAT::DxilRuntimeData &rdat) {
+  auto table = rdat.GetSubobjectTable();
+  if (!table)
     return false;
   bool result = true;
-  for (unsigned i = 0; i < pSubobjectTableReader->GetCount(); ++i) {
+  for (unsigned i = 0; i < table.Count(); ++i) {
     try {
-      auto reader = pSubobjectTableReader->GetItem(i);
-      DXIL::SubobjectKind kind = reader.GetKind();
+      auto reader = table[i];
+      DXIL::SubobjectKind kind = reader.getKind();
       bool bLocalRS = false;
       switch (kind) {
       case DXIL::SubobjectKind::StateObjectConfig:
-        subobjects.CreateStateObjectConfig(reader.GetName(),
-          reader.GetStateObjectConfig_Flags());
+        subobjects.CreateStateObjectConfig(reader.getName(),
+          reader.getStateObjectConfig().getFlags());
         break;
       case DXIL::SubobjectKind::LocalRootSignature:
         bLocalRS = true;
-      case DXIL::SubobjectKind::GlobalRootSignature: {
-        const void *pOutBytes;
-        uint32_t OutSizeInBytes;
-        if (!reader.GetRootSignature(&pOutBytes, &OutSizeInBytes)) {
+      case DXIL::SubobjectKind::GlobalRootSignature:
+        if (!reader.getRootSignature()) {
           result = false;
           continue;
         }
-        subobjects.CreateRootSignature(reader.GetName(), bLocalRS, pOutBytes, OutSizeInBytes);
+        subobjects.CreateRootSignature(reader.getName(), bLocalRS,
+                                       reader.getRootSignature().getData(),
+                                       reader.getRootSignature().sizeData());
         break;
-      }
       case DXIL::SubobjectKind::SubobjectToExportsAssociation: {
-        uint32_t NumExports = reader.GetSubobjectToExportsAssociation_NumExports();
+        auto association = reader.getSubobjectToExportsAssociation();
+        auto exports = association.getExports();
+        uint32_t NumExports = exports.Count();
         std::vector<llvm::StringRef> Exports;
         Exports.resize(NumExports);
         for (unsigned i = 0; i < NumExports; ++i) {
-          Exports[i] = reader.GetSubobjectToExportsAssociation_Export(i);
+          Exports[i] = exports[i];
         }
-        subobjects.CreateSubobjectToExportsAssociation(reader.GetName(),
-          reader.GetSubobjectToExportsAssociation_Subobject(),
-          Exports.data(), NumExports);
+        subobjects.CreateSubobjectToExportsAssociation(reader.getName(),
+          association.getSubobject(), Exports.data(), NumExports);
         break;
       }
       case DXIL::SubobjectKind::RaytracingShaderConfig:
-        subobjects.CreateRaytracingShaderConfig(reader.GetName(),
-          reader.GetRaytracingShaderConfig_MaxPayloadSizeInBytes(),
-          reader.GetRaytracingShaderConfig_MaxAttributeSizeInBytes());
+        subobjects.CreateRaytracingShaderConfig(reader.getName(),
+          reader.getRaytracingShaderConfig().getMaxPayloadSizeInBytes(),
+          reader.getRaytracingShaderConfig().getMaxAttributeSizeInBytes());
         break;
       case DXIL::SubobjectKind::RaytracingPipelineConfig:
-        subobjects.CreateRaytracingPipelineConfig(reader.GetName(),
-          reader.GetRaytracingPipelineConfig_MaxTraceRecursionDepth());
+        subobjects.CreateRaytracingPipelineConfig(reader.getName(),
+          reader.getRaytracingPipelineConfig().getMaxTraceRecursionDepth());
         break;
       case DXIL::SubobjectKind::HitGroup:
-        subobjects.CreateHitGroup(reader.GetName(),
-          reader.GetHitGroup_Type(),
-          reader.GetHitGroup_AnyHit(),
-          reader.GetHitGroup_ClosestHit(),
-          reader.GetHitGroup_Intersection());
+        subobjects.CreateHitGroup(reader.getName(),
+          reader.getHitGroup().getType(),
+          reader.getHitGroup().getAnyHit(),
+          reader.getHitGroup().getClosestHit(),
+          reader.getHitGroup().getIntersection());
         break;
       case DXIL::SubobjectKind::RaytracingPipelineConfig1:
         subobjects.CreateRaytracingPipelineConfig1(
-          reader.GetName(),
-          reader.GetRaytracingPipelineConfig1_MaxTraceRecursionDepth(),
-          reader.GetRaytracingPipelineConfig1_Flags());
+          reader.getName(),
+          reader.getRaytracingPipelineConfig1().getMaxTraceRecursionDepth(),
+          reader.getRaytracingPipelineConfig1().getFlags());
         break;
       }
     }

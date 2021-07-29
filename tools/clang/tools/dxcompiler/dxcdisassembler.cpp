@@ -1920,10 +1920,9 @@ HRESULT Disassemble(IDxcBlob *pProgram, raw_string_ostream &Stream) {
     if (pRDATPart) {
       RDAT::DxilRuntimeData runtimeData(GetDxilPartData(pRDATPart), pRDATPart->PartSize);
       // TODO: Print the rest of the RDAT info
-      if (RDAT::SubobjectTableReader *pSubobjectTableReader =
-        runtimeData.GetSubobjectTableReader()) {
+      if (runtimeData.GetSubobjectTable()) {
         dxilModule.ResetSubobjects(new DxilSubobjects());
-        if (!LoadSubobjectsFromRDAT(*dxilModule.GetSubobjects(), pSubobjectTableReader)) {
+        if (!LoadSubobjectsFromRDAT(*dxilModule.GetSubobjects(), runtimeData)) {
           Stream << "; error occurred while loading Subobjects from RDAT.\n";
         }
       }

@@ -26,6 +26,140 @@ void RayGen() {
   U0.Store(idx.y * dim.x * 4 + idx.x * 4, idx.x ^ idx.y);
 }
 
+// CHECK: DxilRuntimeData (size = 596 bytes):
+// CHECK:   StringBuffer (size = 148 bytes)
+// CHECK:   IndexTable (size = 16 bytes)
+// CHECK:   RawBytes (size = 0 bytes)
+// CHECK:   RecordTable (stride = 32 bytes) ResourceTable[2] = {
+// CHECK:     <0:RuntimeDataResourceInfo> = {
+// CHECK:       Class: SRV
+// CHECK:       Kind: Texture2D
+// CHECK:       ID: 0
+// CHECK:       Space: 13
+// CHECK:       LowerBound: 0
+// CHECK:       UpperBound: 0
+// CHECK:       Name: "T1"
+// CHECK:       Flags: 0 (None)
+// CHECK:     }
+// CHECK:     <1:RuntimeDataResourceInfo> = {
+// CHECK:       Class: UAV
+// CHECK:       Kind: RawBuffer
+// CHECK:       ID: 0
+// CHECK:       Space: 13
+// CHECK:       LowerBound: 0
+// CHECK:       UpperBound: 0
+// CHECK:       Name: "U0"
+// CHECK:       Flags: 0 (None)
+// CHECK:     }
+// CHECK:   }
+// CHECK:   RecordTable (stride = 52 bytes) FunctionTable[4] = {
+// CHECK:     <0:RuntimeDataFunctionInfo2> = {
+// CHECK:       Name: "\01?RayGen1@@YAXXZ"
+// CHECK:       UnmangledName: "RayGen1"
+// CHECK:       Resources: <0:RecordArrayRef<RuntimeDataResourceInfo>[1]>  = {
+// CHECK:         [0]: <1:RuntimeDataResourceInfo>
+// CHECK:       }
+// CHECK:       FunctionDependencies: <string[0]> = {}
+// CHECK:       ShaderKind: RayGeneration
+// CHECK:       PayloadSizeInBytes: 0
+// CHECK:       AttributeSizeInBytes: 0
+// CHECK:       FeatureInfo1: 0
+// CHECK:       FeatureInfo2: 0
+// CHECK:       ShaderStageFlag: 128
+// CHECK:       MinShaderTarget: 458851
+// CHECK:       MinimumExpectedWaveLaneCount: 0
+// CHECK:       MaximumExpectedWaveLaneCount: 0
+// CHECK:       ShaderFlags: 0 (None)
+// CHECK:     }
+// CHECK:     <1:RuntimeDataFunctionInfo2> = {
+// CHECK:       Name: "\01?VS_RENAMED@@YA?AV?$vector@M$03@@V?$vector@H$02@@@Z"
+// CHECK:       UnmangledName: "VS_RENAMED"
+// CHECK:       Resources: <2:RecordArrayRef<RuntimeDataResourceInfo>[1]>  = {
+// CHECK:         [0]: <0:RuntimeDataResourceInfo>
+// CHECK:       }
+// CHECK:       FunctionDependencies: <string[0]> = {}
+// CHECK:       ShaderKind: Library
+// CHECK:       PayloadSizeInBytes: 0
+// CHECK:       AttributeSizeInBytes: 0
+// CHECK:       FeatureInfo1: 0
+// CHECK:       FeatureInfo2: 0
+// CHECK:       ShaderStageFlag: 32767
+// CHECK:       MinShaderTarget: 393312
+// CHECK:       MinimumExpectedWaveLaneCount: 0
+// CHECK:       MaximumExpectedWaveLaneCount: 0
+// CHECK:       ShaderFlags: 0 (None)
+// CHECK:     }
+// CHECK:     <2:RuntimeDataFunctionInfo2> = {
+// CHECK:       Name: "\01?RayGen2@@YAXXZ"
+// CHECK:       UnmangledName: "RayGen2"
+// CHECK:       Resources: <0:RecordArrayRef<RuntimeDataResourceInfo>[1]>  = {
+// CHECK:         [0]: <1:RuntimeDataResourceInfo>
+// CHECK:       }
+// CHECK:       FunctionDependencies: <string[0]> = {}
+// CHECK:       ShaderKind: RayGeneration
+// CHECK:       PayloadSizeInBytes: 0
+// CHECK:       AttributeSizeInBytes: 0
+// CHECK:       FeatureInfo1: 0
+// CHECK:       FeatureInfo2: 0
+// CHECK:       ShaderStageFlag: 128
+// CHECK:       MinShaderTarget: 458851
+// CHECK:       MinimumExpectedWaveLaneCount: 0
+// CHECK:       MaximumExpectedWaveLaneCount: 0
+// CHECK:       ShaderFlags: 0 (None)
+// CHECK:     }
+// CHECK:     <3:RuntimeDataFunctionInfo2> = {
+// CHECK:       Name: "VSMain"
+// CHECK:       UnmangledName: "VSMain"
+// CHECK:       Resources: <2:RecordArrayRef<RuntimeDataResourceInfo>[1]>  = {
+// CHECK:         [0]: <0:RuntimeDataResourceInfo>
+// CHECK:       }
+// CHECK:       FunctionDependencies: <string[0]> = {}
+// CHECK:       ShaderKind: Vertex
+// CHECK:       PayloadSizeInBytes: 0
+// CHECK:       AttributeSizeInBytes: 0
+// CHECK:       FeatureInfo1: 0
+// CHECK:       FeatureInfo2: 0
+// CHECK:       ShaderStageFlag: 2
+// CHECK:       MinShaderTarget: 65632
+// CHECK:       MinimumExpectedWaveLaneCount: 0
+// CHECK:       MaximumExpectedWaveLaneCount: 0
+// CHECK:       ShaderFlags: (OutputPositionPresent)
+// CHECK:       VS: <0:VSInfo>
+// CHECK:     }
+// CHECK:   }
+// CHECK:   RecordTable (stride = 16 bytes) SignatureElementTable[2] = {
+// CHECK:     <0:SignatureElement> = {
+// CHECK:       SemanticName: "COORD"
+// CHECK:       SemanticIndices: <2:array[1]> = { 0 }
+// CHECK:       SemanticKind: Arbitrary
+// CHECK:       ComponentType: I32
+// CHECK:       InterpolationMode: Undefined
+// CHECK:       StartRow: 0
+// CHECK:       ColsAndStream: 2
+// CHECK:       UsageAndDynIndexMasks: 0
+// CHECK:     }
+// CHECK:     <1:SignatureElement> = {
+// CHECK:       SemanticName: "SV_Position"
+// CHECK:       SemanticIndices: <2:array[1]> = { 0 }
+// CHECK:       SemanticKind: Position
+// CHECK:       ComponentType: F32
+// CHECK:       InterpolationMode: LinearNoperspective
+// CHECK:       StartRow: 0
+// CHECK:       ColsAndStream: 3
+// CHECK:       UsageAndDynIndexMasks: 0
+// CHECK:     }
+// CHECK:   }
+// CHECK:   RecordTable (stride = 16 bytes) VSInfoTable[1] = {
+// CHECK:     <0:VSInfo> = {
+// CHECK:       SigInputElements: <2:RecordArrayRef<SignatureElement>[1]>  = {
+// CHECK:         [0]: <0:SignatureElement>
+// CHECK:       }
+// CHECK:       SigOutputElements: <0:RecordArrayRef<SignatureElement>[1]>  = {
+// CHECK:         [0]: <1:SignatureElement>
+// CHECK:       }
+// CHECK:       ViewIDOutputMask: <0:bytes[0]>
+// CHECK:     }
+// CHECK:   }
 
 // CHECK: ID3D12LibraryReflection:
 // CHECK:   D3D12_LIBRARY_DESC:

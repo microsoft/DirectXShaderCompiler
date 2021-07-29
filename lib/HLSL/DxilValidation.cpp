@@ -5915,10 +5915,10 @@ static void VerifyRDATMatches(_In_ ValidationContext &ValCtx,
   // otherwise, load subobject into DxilModule to generate reference RDAT.
   if (!ValCtx.DxilMod.GetSubobjects()) {
     RDAT::DxilRuntimeData rdat(pRDATData, RDATSize);
-    auto *pSubobjReader = rdat.GetSubobjectTableReader();
-    if (pSubobjReader && pSubobjReader->GetCount() > 0) {
+    auto table = rdat.GetSubobjectTable();
+    if (table && table.Count() > 0) {
       ValCtx.DxilMod.ResetSubobjects(new DxilSubobjects());
-      if (!LoadSubobjectsFromRDAT(*ValCtx.DxilMod.GetSubobjects(), pSubobjReader)) {
+      if (!LoadSubobjectsFromRDAT(*ValCtx.DxilMod.GetSubobjects(), rdat)) {
         ValCtx.EmitFormatError(ValidationRule::ContainerPartMatches, { PartName });
         return;
       }
@@ -6056,6 +6056,10 @@ HRESULT ValidateDxilContainerParts(llvm::Module *pModule,
     // Runtime Data (RDAT) for libraries
     case DFCC_RuntimeData:
       if (ValCtx.isLibProfile) {
+        // TODO: validate without exact binary comparison of serialized data
+        //  - support earlier versions
+        //  - verify no newer record versions than known here (size no larger than newest version)
+        //  - verify all data makes sense and matches expectations based on module
         VerifyRDATMatches(ValCtx, GetDxilPartData(pPart), pPart->PartSize);
       } else {
         ValCtx.EmitFormatError(ValidationRule::ContainerPartInvalid, { szFourCC });
