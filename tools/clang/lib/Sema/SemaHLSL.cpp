@@ -8631,6 +8631,7 @@ bool HLSLExternalSource::CanConvert(
     && sourceExpr->getStmtClass() != Expr::StringLiteralClass;
 
   bool targetRef = target->isReferenceType();
+  bool TargetUnnamed = false;
 
   // Initialize the output standard sequence if available.
   if (standard != nullptr) {
@@ -8694,7 +8695,6 @@ bool HLSLExternalSource::CanConvert(
   // Structure cast.
   SourceIsAggregate = SourceInfo.ShapeKind == AR_TOBJ_COMPOUND || SourceInfo.ShapeKind == AR_TOBJ_ARRAY;
   TargetIsAggregate = TargetInfo.ShapeKind == AR_TOBJ_COMPOUND || TargetInfo.ShapeKind == AR_TOBJ_ARRAY;
-  bool TargetUnnamed = false;
   if (SourceIsAggregate || TargetIsAggregate) {
     // For implicit conversions, FXC treats arrays the same as structures
     // and rejects conversions between them and numeric types
