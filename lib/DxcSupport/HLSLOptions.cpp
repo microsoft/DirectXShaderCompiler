@@ -687,6 +687,10 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
                               !Args.hasFlag(OPT_disable_lifetime_markers, OPT_INVALID, false);
   opts.EnablePayloadQualifiers = Args.hasFlag(OPT_enable_payload_qualifiers, OPT_INVALID,
                                             DXIL::CompareVersions(Major, Minor, 6, 7) >= 0); 
+
+  // Experimental option to enable short-circuiting operators
+  opts.EnableShortCircuit = Args.hasFlag(OPT_enable_short_circuit, OPT_INVALID, false);
+
   if (DXIL::CompareVersions(Major, Minor, 6, 8) < 0) {
      opts.EnablePayloadQualifiers &= !Args.hasFlag(OPT_disable_payload_qualifiers, OPT_INVALID, false);
   }

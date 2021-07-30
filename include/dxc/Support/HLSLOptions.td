@@ -447,6 +447,9 @@ def Qstrip_reflect_from_dxil : Flag<["-", "/"], "Qstrip_reflect_from_dxil">,
   Flags<[CoreOption, HelpHidden]>, Group<hlslutil_Group>,
   HelpText<"Strip reflection data from shader bytecode  (must be used with /Fo <file>)">;
 
+def enable_short_circuit : Flag<["-", "/"], "enable-short-circuit">, Flags<[CoreOption, HelpHidden]>, Group<hlslcomp_Group>,
+  HelpText<"Operators '&&', '||', and '?:' will short circuit, only accepting scalar LHS/RHS expressions with '&&' and '||', and scalar conditional with '?:'">;
+
 /*
 def shtemplate : JoinedOrSeparate<["-", "/"], "shtemplate">, MetaVarName<"<file>">, Group<hlslcomp_Group>,
   HelpText<"Template shader file for merging/matching resources">;

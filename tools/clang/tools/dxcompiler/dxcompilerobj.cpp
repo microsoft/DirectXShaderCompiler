@@ -1307,6 +1307,7 @@ public:
     compiler.getLangOpts().UseMinPrecision = !Opts.Enable16BitTypes;
 
     compiler.getLangOpts().EnablePayloadAccessQualifiers = Opts.EnablePayloadQualifiers;
+    compiler.getLangOpts().EnableShortCircuit = Opts.EnableShortCircuit;
 
 // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
