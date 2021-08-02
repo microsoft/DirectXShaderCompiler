@@ -4521,6 +4521,17 @@ public:
         pIntrinsic->uNumArgs <= g_MaxIntrinsicParamCount + 1,
         "otherwise g_MaxIntrinsicParamCount needs to be updated for wider signatures");
 
+      // Some intrinsics only optionally exist in later language versions.
+      // To prevent collisions with existing functions or templates, exclude
+      // intrinsics when they aren't enabled.
+      if (!m_sema->getLangOpts().EnableShortCircuit) {
+        if (pIntrinsic->Op == (UINT)IntrinsicOp::IOP_and ||
+            pIntrinsic->Op == (UINT)IntrinsicOp::IOP_or ||
+            pIntrinsic->Op == (UINT)IntrinsicOp::IOP_select) {
+          continue;
+        }
+      }
+
       std::vector<QualType> functionArgTypes;
       size_t badArgIdx;
       bool argsMatch = MatchArguments(pIntrinsic, QualType(), QualType(), Args, &functionArgTypes, badArgIdx);
