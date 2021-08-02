@@ -1,5 +1,5 @@
-// RUN: %dxc -E main -T ps_6_0 -enable-templates %s 2>&1 | FileCheck %s
-// RUN: %dxc -E main -T ps_6_0 -enable-templates %s -DCHECK_DIAGNOSTICS | FileCheck %s -check-prefix=DIAG
+// RUN: %dxc -E main -T ps_6_0 -enable-templates -enable-short-circuit %s 2>&1 | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 -enable-templates -enable-short-circuit %s -DCHECK_DIAGNOSTICS | FileCheck %s -check-prefix=DIAG
 
 // Check that HLSL bitwise operators deal with dependent types
 
