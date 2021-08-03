@@ -8631,7 +8631,7 @@ bool HLSLExternalSource::CanConvert(
     && sourceExpr->getStmtClass() != Expr::StringLiteralClass;
 
   bool targetRef = target->isReferenceType();
-  bool TargetUnnamed = false;
+  bool TargetIsAnonymous = false;
 
   // Initialize the output standard sequence if available.
   if (standard != nullptr) {
@@ -8723,7 +8723,7 @@ bool HLSLExternalSource::CanConvert(
         }
         // There is no way to cast to anonymous structures.  So we allow legacy
         // HLSL implicit casts to matching anonymous structure types.
-        TargetUnnamed = !targetRD->hasNameForLinkage();
+        TargetIsAnonymous = !targetRD->hasNameForLinkage();
       }
     }
 
@@ -8755,7 +8755,7 @@ bool HLSLExternalSource::CanConvert(
     } else if (m_sema->getLangOpts().StrictUDTCasting &&
                (SourceInfo.ShapeKind == AR_TOBJ_COMPOUND ||
                 TargetInfo.ShapeKind == AR_TOBJ_COMPOUND) &&
-               !TargetUnnamed) {
+               !TargetIsAnonymous) {
       // Not explicit, either are struct/class, not derived-to-base,
       // target is named (so explicit cast is possible),
       // and using strict UDT rules: disallow this implicit cast.
