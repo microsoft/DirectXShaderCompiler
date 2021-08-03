@@ -682,6 +682,8 @@ def enable_16bit_types: Flag<["-", "/"], "enable-16bit-types">, Flags<[CoreOptio
   HelpText<"Enable 16bit types and disable min precision types.">; // HLSL Change - mimic the HLSLOptions.td flag
 def enable_templates: Flag<["-", "/"], "enable-templates">, Flags<[CoreOption, DriverOption, HelpHidden]>,
   HelpText<"Enable template support for HLSL.">; // HLSL Change
+def strict_udt_casting: Flag<["-", "/"], "strict-udt-casting">, Flags<[CoreOption, DriverOption, HelpHidden]>,
+  HelpText<"Require explicit casts between different structure types with compatible layouts.">;
 def fms_compatibility_version
     : Joined<["-"], "fms-compatibility-version=">,
       Group<f_Group>,
