@@ -159,6 +159,7 @@ public:
   bool EnableDX9CompatMode;
   bool EnableFXCCompatMode;
   bool EnableTemplates;
+  bool StrictUDTCasting = false;
   bool EnablePayloadAccessQualifiers;
   // HLSL Change Ends
 

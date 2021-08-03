@@ -60,6 +60,7 @@ VerifierTests = {
     'RunConstDefault': 'const-default.hlsl',
     'RunConstExpr': 'const-expr.hlsl',
     'RunConversionsBetweenTypeShapes': 'conversions-between-type-shapes.hlsl',
+    'RunConversionsBetweenTypeShapesStrictUDT': 'conversions-between-type-shapes-strictudt.hlsl',
     'RunConversionsNonNumericAggregates': 'conversions-non-numeric-aggregates.hlsl',
     'RunCppErrors': 'cpp-errors.hlsl',
     'RunCppErrorsHV2015': 'cpp-errors-hv2015.hlsl',
