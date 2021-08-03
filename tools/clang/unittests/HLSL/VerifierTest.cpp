@@ -42,6 +42,7 @@ public:
   TEST_METHOD(RunConstAssign)
   TEST_METHOD(RunConstDefault)
   TEST_METHOD(RunConversionsBetweenTypeShapes)
+  TEST_METHOD(RunConversionsBetweenTypeShapesStrictUDT)
   TEST_METHOD(RunConversionsNonNumericAggregates)
   TEST_METHOD(RunCppErrors)
   TEST_METHOD(RunCppErrorsHV2015)
@@ -173,6 +174,10 @@ TEST_F(VerifierTest, RunConstDefault) {
 
 TEST_F(VerifierTest, RunConversionsBetweenTypeShapes) {
   CheckVerifiesHLSL(L"conversions-between-type-shapes.hlsl");
+}
+
+TEST_F(VerifierTest, RunConversionsBetweenTypeShapesStrictUDT) {
+  CheckVerifiesHLSL(L"conversions-between-type-shapes-strictudt.hlsl");
 }
 
 TEST_F(VerifierTest, RunConversionsNonNumericAggregates) {

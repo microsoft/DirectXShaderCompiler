@@ -8642,6 +8642,7 @@ bool HLSLExternalSource::CanConvert(
     && sourceExpr->getStmtClass() != Expr::StringLiteralClass;
 
   bool targetRef = target->isReferenceType();
+  bool TargetIsAnonymous = false;
 
   // Initialize the output standard sequence if available.
   if (standard != nullptr) {
@@ -8731,6 +8732,9 @@ bool HLSLExternalSource::CanConvert(
           Second = ICK_HLSL_Derived_To_Base;
           goto lSuccess;
         }
+        // There is no way to cast to anonymous structures.  So we allow legacy
+        // HLSL implicit casts to matching anonymous structure types.
+        TargetIsAnonymous = !targetRD->hasNameForLinkage();
       }
     }
 
@@ -8759,6 +8763,14 @@ bool HLSLExternalSource::CanConvert(
           break;
         }
       }
+    } else if (m_sema->getLangOpts().StrictUDTCasting &&
+               (SourceInfo.ShapeKind == AR_TOBJ_COMPOUND ||
+                TargetInfo.ShapeKind == AR_TOBJ_COMPOUND) &&
+               !TargetIsAnonymous) {
+      // Not explicit, either are struct/class, not derived-to-base,
+      // target is named (so explicit cast is possible),
+      // and using strict UDT rules: disallow this implicit cast.
+      return false;
     }
 
     FlattenedTypeIterator::ComparisonResult result =
