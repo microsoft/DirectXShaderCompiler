@@ -14,6 +14,11 @@
 #include <functional>
 #include <llvm/ADT/SmallVector.h> // HLSL Change
 
+namespace CGHLSLMSHelper
+{
+    struct Scope;
+}
+
 namespace llvm {
 class Function;
 class Value;
@@ -139,7 +144,7 @@ public:
                              llvm::BasicBlock *loopContinue,
                              llvm::BasicBlock *loopExit) = 0;
 
-  virtual void MarkScopeEnd(CodeGenFunction &CGF) = 0;
+  virtual CGHLSLMSHelper::Scope *MarkScopeEnd(CodeGenFunction &CGF) = 0;
 
   virtual bool NeedHLSLMartrixCastForStoreOp(const clang::Decl* TD,
                               llvm::SmallVector<llvm::Value*, 16>& IRCallArgs) = 0;
