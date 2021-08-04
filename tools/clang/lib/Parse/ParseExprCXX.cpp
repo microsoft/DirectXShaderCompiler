@@ -331,8 +331,7 @@ bool Parser::ParseOptionalCXXScopeSpecifier(CXXScopeSpec &SS,
         ConsumeToken();
       } else if (Tok.is(tok::kw_operator)) {
         // HLSL Change Starts
-        if (getLangOpts().HLSL && !getLangOpts().EnableOperatorOverloading &&
-            !getLangOpts().EnableTemplates) {
+        if (getLangOpts().HLSL && !getLangOpts().EnableOperatorOverloading) {
           Diag(Tok, diag::err_hlsl_reserved_keyword) << Tok.getName();
           TPA.Commit();
           return true;

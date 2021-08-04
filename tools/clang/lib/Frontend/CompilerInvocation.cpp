@@ -1756,7 +1756,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   // when -enable-operator-overloading option is enabled.
   // If the HLSL version is 2015, do not allow the operator overloading.
   Opts.EnableOperatorOverloading =
-      Opts.HLSLVersion == 2021 ||
+      Opts.HLSLVersion >= 2021 ||
       Args.hasArg(options::OPT_enable_operator_overloading);
   Opts.StrictUDTCasting = Args.hasArg(options::OPT_strict_udt_casting);
   if (Opts.HLSLVersion <= 2015 && Opts.EnableOperatorOverloading) {

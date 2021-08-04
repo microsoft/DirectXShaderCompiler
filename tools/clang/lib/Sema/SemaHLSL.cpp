@@ -13511,10 +13511,6 @@ bool IsTypeNumeric(_In_ clang::Sema* self, _In_ clang::QualType &type) {
 void Sema::CheckHLSLArrayAccess(const Expr *expr) {
   DXASSERT_NOMSG(isa<CXXOperatorCallExpr>(expr));
   const CXXOperatorCallExpr *OperatorCallExpr = cast<CXXOperatorCallExpr>(expr);
-  if (getLangOpts().EnableOperatorOverloading &&
-      OperatorCallExpr->getOperator() != OverloadedOperatorKind::OO_Subscript) {
-    return;
-  }
   DXASSERT_NOMSG(OperatorCallExpr->getOperator() == OverloadedOperatorKind::OO_Subscript);
 
   const Expr *RHS = OperatorCallExpr->getArg(1); // first subscript expression
@@ -13528,7 +13524,11 @@ void Sema::CheckHLSLArrayAccess(const Expr *expr) {
           // we also have to check the first subscript oprator by recursively calling
           // this funciton for the first CXXOperatorCallExpr
           if (isa<CXXOperatorCallExpr>(OperatorCallExpr->getArg(0))) {
-              CheckHLSLArrayAccess(cast<CXXOperatorCallExpr>(OperatorCallExpr->getArg(0)));
+            const CXXOperatorCallExpr *object =
+                cast<CXXOperatorCallExpr>(OperatorCallExpr->getArg(0));
+            if (object->getOperator() == OverloadedOperatorKind::OO_Subscript) {
+              CheckHLSLArrayAccess(object);
+            }
           }
           if (intIndex < 0 || (uint32_t)intIndex >= vectorSize) {
               Diag(RHS->getExprLoc(),

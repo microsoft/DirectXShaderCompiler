@@ -475,7 +475,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   // when -enable-operator-overloading option is enabled.
   // If the HLSL version is 2015, do not allow the operator overloading.
   opts.EnableOperatorOverloading =
-      opts.HLSLVersion == 2021 ||
+      opts.HLSLVersion >= 2021 ||
       Args.hasFlag(OPT_enable_operator_overloading, OPT_INVALID, false);
   if (opts.HLSLVersion <= 2015 && opts.EnableOperatorOverloading) {
     errors << "/enable-operator-overloading is not supported with HLSL Version "
