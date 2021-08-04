@@ -13319,6 +13319,7 @@ bool hlsl::IsHLSLAttr(clang::attr::Kind AttrKind) {
   case clang::attr::HLSLRowMajor:
   case clang::attr::HLSLSample:
   case clang::attr::HLSLSemantic:
+  case clang::attr::HLSLShader:
   case clang::attr::HLSLShared:
   case clang::attr::HLSLSnorm:
   case clang::attr::HLSLUniform:
