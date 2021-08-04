@@ -69,6 +69,7 @@ private:
   Value* m_threadUniquifier = nullptr;
 
   uint64_t m_UAVSize = 1024 * 1024;
+  bool m_ExpandPayload = false;
 
   struct BuilderContext {
     Module &M;
@@ -89,6 +90,7 @@ private:
 void DxilPIXMeshShaderOutputInstrumentation::applyOptions(PassOptions O) 
 {
   GetPassOptionUInt64(O, "UAVSize", &m_UAVSize, 1024 * 1024);
+  GetPassOptionBool(O, "expand-payload", &m_ExpandPayload, 0);
 }
 
 uint32_t DxilPIXMeshShaderOutputInstrumentation::UAVDumpingGroundOffset() 
@@ -99,7 +101,6 @@ uint32_t DxilPIXMeshShaderOutputInstrumentation::UAVDumpingGroundOffset()
 Value *DxilPIXMeshShaderOutputInstrumentation::reserveDebugEntrySpace(
     BuilderContext &BC, uint32_t SpaceInBytes) 
 {
-  
   // Check the previous caller didn't reserve too much space:
   assert(m_RemainingReservedSpaceInBytes == 0);
   
@@ -230,6 +231,10 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M)
   DxilModule &DM = M.GetOrCreateDxilModule();
   LLVMContext &Ctx = M.getContext();
   OP *HlslOP = DM.GetOP();
+
+  if (m_ExpandPayload) {
+    ExpandPayload(DM, Ctx, HlslOP);
+  }
 
   Instruction *firstInsertionPt =
       dxilutil::FirstNonAllocaInsertionPt(PIXPassHelpers::GetEntryFunction(DM));

@@ -210,7 +210,7 @@ static ArrayRef<LPCSTR> GetPassArgNames(LPCSTR passName) {
   static const LPCSTR DxilInsertPreservesArgs[] = { "AllowPreserves" };
   static const LPCSTR DxilLoopUnrollArgs[] = { "MaxIterationAttempt", "OnlyWarnOnFail" };
   static const LPCSTR DxilOutputColorBecomesConstantArgs[] = { "mod-mode", "constant-red", "constant-green", "constant-blue", "constant-alpha" };
-  static const LPCSTR DxilPIXMeshShaderOutputInstrumentationArgs[] = { "UAVSize" };
+  static const LPCSTR DxilPIXMeshShaderOutputInstrumentationArgs[] = { "expand-payload", "UAVSize" };
   static const LPCSTR DxilRenameResourcesArgs[] = { "prefix", "from-binding", "keep-name" };
   static const LPCSTR DxilShaderAccessTrackingArgs[] = { "config", "checkForDynamicIndexing" };
   static const LPCSTR DynamicIndexingVectorToArrayArgs[] = { "ReplaceAllVectors" };
@@ -293,7 +293,7 @@ static ArrayRef<LPCSTR> GetPassArgDescriptions(LPCSTR passName) {
   static const LPCSTR DxilInsertPreservesArgs[] = { "None" };
   static const LPCSTR DxilLoopUnrollArgs[] = { "Maximum number of iterations to attempt when iteratively unrolling.", "Whether to just warn when unrolling fails." };
   static const LPCSTR DxilOutputColorBecomesConstantArgs[] = { "None", "None", "None", "None", "None" };
-  static const LPCSTR DxilPIXMeshShaderOutputInstrumentationArgs[] = { "None" };
+  static const LPCSTR DxilPIXMeshShaderOutputInstrumentationArgs[] = { "None", "None" };
   static const LPCSTR DxilRenameResourcesArgs[] = { "Prefix to add to resource names", "Append binding to name when bound", "Keep name when appending binding" };
   static const LPCSTR DxilShaderAccessTrackingArgs[] = { "None", "None" };
   static const LPCSTR DynamicIndexingVectorToArrayArgs[] = { "None" };
@@ -403,6 +403,7 @@ static bool IsPassOptionName(StringRef S) {
     ||  S.equals("enable-pre")
     ||  S.equals("enable-scoped-noalias")
     ||  S.equals("enable-tbaa")
+    ||  S.equals("expand-payload")
     ||  S.equals("float2int-max-integer-bw")
     ||  S.equals("force-early-z")
     ||  S.equals("force-ssa-updater")

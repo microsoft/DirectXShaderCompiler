@@ -44,6 +44,24 @@ private:
 
 };
 
+struct ExpandedStruct
+{
+  Type *ExpandedPayloadStructType = nullptr;
+  Type *ExpandedPayloadStructPtrType = nullptr;
+};
+
+ExpandedStruct ExpandStructType(LLVMContext& Ctx, Type* OriginalPayloadStructType)
+{
+  SmallVector<Type *, 16> Elements;
+  Elements.push_back(OriginalPayloadStructType);
+  Elements.push_back(Type::getInt32Ty(Ctx));
+  ExpandedStruct ret;
+  ret.ExpandedPayloadStructType =
+      StructType::create(Ctx, Elements, "PIX_AS2MS_Expanded_Type");
+  ret.ExpandedPayloadStructPtrType = ret.ExpandedPayloadStructType->getPointerTo();
+  return ret;
+}
+
 bool DxilPIXAddTidToAmplificationShaderPayload::runOnModule(Module &M) {
 
   DxilModule &DM = M.GetOrCreateDxilModule();
@@ -52,8 +70,7 @@ bool DxilPIXAddTidToAmplificationShaderPayload::runOnModule(Module &M) {
 
   Type* OriginalPayloadStructPointerType = nullptr;
   Type* OriginalPayloadStructType = nullptr;
-  Type* ExpandedPayloadStructType = nullptr;
-  Type* ExpandedPayloadStructPtrType = nullptr;
+  ExpandedStruct expanded;
   llvm::Function* entryFunction = PIXPassHelpers::GetEntryFunction(DM);
   for (inst_iterator I = inst_begin(entryFunction),
                      E = inst_end(entryFunction);
@@ -64,18 +81,7 @@ bool DxilPIXAddTidToAmplificationShaderPayload::runOnModule(Module &M) {
               DxilInst_DispatchMesh DispatchMesh(Instr);
               OriginalPayloadStructPointerType = DispatchMesh.get_payload()->getType();
               OriginalPayloadStructType = OriginalPayloadStructPointerType->getPointerElementType();
-              //auto* PayloadTypeAsStruct = llvm::cast<llvm::StructType>(OriginalPayloadStructType);
-              SmallVector<Type*, 16> Elements;
-              //for (unsigned int e = 0; e < PayloadTypeAsStruct->getNumElements();
-              //    ++e) {
-              //    Elements.push_back(PayloadTypeAsStruct->getElementType(e));
-              //}
-              Elements.push_back(OriginalPayloadStructType);
-              // This adds an int32 in order to pass flat thread id to the mesh
-              // shader:
-              Elements.push_back(Type::getInt32Ty(Ctx));
-              ExpandedPayloadStructType = StructType::create(Ctx, Elements, "PIX_AS2MS_Expanded_Type");
-              ExpandedPayloadStructPtrType = ExpandedPayloadStructType->getPointerTo();
+              expanded = ExpandStructType(Ctx, OriginalPayloadStructType);
           }
       }
   }
@@ -92,7 +98,7 @@ bool DxilPIXAddTidToAmplificationShaderPayload::runOnModule(Module &M) {
           {
               OldStructAlloca = Alloca;
               llvm::IRBuilder<> B(Alloca->getContext());
-              NewStructAlloca = B.CreateAlloca(ExpandedPayloadStructType, HlslOP->GetU32Const(1), "NewPayload");
+              NewStructAlloca = B.CreateAlloca(expanded.ExpandedPayloadStructType, HlslOP->GetU32Const(1), "NewPayload");
               NewStructAlloca->setAlignment(Alloca->getAlignment());
               NewStructAlloca->insertAfter(Alloca);
               //Alloca->replaceAllUsesWith(NewStructAlloca);
@@ -119,7 +125,7 @@ bool DxilPIXAddTidToAmplificationShaderPayload::runOnModule(Module &M) {
                       if (llvm::isa<GetElementPtrInst>(instruction))
                       {
                           auto* GEP = llvm::cast<GetElementPtrInst>(instruction);
-                          GEP->setSourceElementType(ExpandedPayloadStructType);
+                          GEP->setSourceElementType(expanded.ExpandedPayloadStructType);
                       }
                   }
               }
