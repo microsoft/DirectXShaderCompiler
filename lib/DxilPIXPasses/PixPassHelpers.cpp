@@ -173,6 +173,19 @@ llvm::Function* GetEntryFunction(hlsl::DxilModule& DM) {
     return DM.GetPatchConstantFunction();
 }
 
+ExpandedStruct ExpandStructType(LLVMContext &Ctx,
+                                Type *OriginalPayloadStructType) {
+  SmallVector<Type *, 16> Elements;
+  Elements.push_back(OriginalPayloadStructType);
+  Elements.push_back(Type::getInt32Ty(Ctx));
+  ExpandedStruct ret;
+  ret.ExpandedPayloadStructType =
+      StructType::create(Ctx, Elements, "PIX_AS2MS_Expanded_Type");
+  ret.ExpandedPayloadStructPtrType =
+      ret.ExpandedPayloadStructType->getPointerTo();
+  return ret;
+}
+
 #ifdef PIX_DEBUG_DUMP_HELPER
 
 static int g_logIndent = 0;

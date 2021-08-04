@@ -615,11 +615,12 @@ public:
     *ppDiaSource = pDiaSource.Detach();
     return S_OK;
   }
-  
-  CComPtr<IDxcOperationResult> Compile(
+
+  CComPtr<IDxcBlob> Compile(
     const char* hlsl,
     const wchar_t* target,
-    std::vector<const wchar_t *> extraArgs)
+      std::vector<const wchar_t*> extraArgs = {},
+    const wchar_t* entry = L"main")
   {
     CComPtr<IDxcCompiler> pCompiler;
     CComPtr<IDxcOperationResult> pResult;
@@ -673,7 +674,10 @@ public:
     }
 #endif
 
-    return pResult;
+    CComPtr<IDxcBlob> pProgram;
+    VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+
+    return pProgram;
   }
 
   CComPtr<IDxcBlob> ExtractDxilPart(IDxcBlob *pProgram) {
@@ -986,7 +990,6 @@ public:
   void ValidateAllocaWrite(std::vector<AllocaWrite> const& allocaWrites, size_t index, const char* name);
   std::string RunShaderAccessTrackingPassAndReturnOutputMessages(IDxcBlob* blob);
   std::string RunDxilPIXAddTidToAmplificationShaderPayloadPass(IDxcBlob* blob);
-  CComPtr<IDxcBlob> Compile(const char* hlsl, const wchar_t* profile);
 };
 
 
@@ -1648,53 +1651,6 @@ TEST_F(PixTest, PixDebugCompileInfo) {
   VERIFY_ARE_EQUAL(std::wstring(profile), std::wstring(hlslTarget));
 }
 
-CComPtr<IDxcBlob> PixTest::Compile(const char* hlsl, const wchar_t* profile)
-{
-
-  CComPtr<IDxcLibrary> pLib;
-  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
-
-  CComPtr<IDxcCompiler> pCompiler;
-  CComPtr<IDxcCompiler2> pCompiler2;
-
-  CComPtr<IDxcOperationResult> pResult;
-  CComPtr<IDxcBlobEncoding> pSource;
-  CComPtr<IDxcBlob> pProgram;
-  CComPtr<IDxcBlob> pPdbBlob;
-  WCHAR *pDebugName = nullptr;
-
-  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
-  VERIFY_SUCCEEDED(pCompiler.QueryInterface(&pCompiler2));
-  CreateBlobFromText(hlsl, &pSource);
-  LPCWSTR args[] = {L"/Zi", L"/Qembed_debug"};
-  VERIFY_SUCCEEDED(pCompiler2->CompileWithDebug(
-      pSource, L"source.hlsl", L"main", profile, args, _countof(args),
-      nullptr, 0, nullptr, &pResult, &pDebugName, &pPdbBlob));
-
-  HRESULT hr;
-  VERIFY_SUCCEEDED(pResult->GetStatus(&hr));
-  if (FAILED(hr))
-  {
-    CComPtr<IDxcBlobEncoding> pErrors;
-    pResult->GetErrorBuffer(&pErrors);
-
-    if (pErrors && pErrors->GetBufferSize() > 0) {
-      auto errorMessages =
-          reinterpret_cast<const char *>(pErrors->GetBufferPointer());
-      std::wstring wideErrrors;
-      wideErrrors.assign(errorMessages,
-                         errorMessages + pErrors->GetBufferSize());
-      WEX::Logging::Log::Comment(L"Compilation failed. Error messages:");
-      WEX::Logging::Log::Comment(wideErrrors.c_str());
-    }
-
-    VERIFY_SUCCEEDED(hr);
-  }
-  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
-
-  return pProgram;
-}
-
 std::string PixTest::RunShaderAccessTrackingPassAndReturnOutputMessages(IDxcBlob* blob)
 {
   CComPtr<IDxcBlob> dxil = FindModule(DFCC_ShaderDebugInfoDXIL, blob);
@@ -1826,9 +1782,7 @@ PixTest::TestableResults PixTest::TestStructAnnotationCase(
     const wchar_t * optimizationLevel,
     bool validateCoverage)
 {
-    auto pOperationResult = Compile(hlsl, L"as_6_5", { optimizationLevel } );
-  CComPtr<IDxcBlob> pBlob;
-  CheckOperationSucceeded(pOperationResult, &pBlob);
+  CComPtr<IDxcBlob> pBlob = Compile(hlsl, L"as_6_5", {optimizationLevel});
 
   CComPtr<IDxcBlob> pDxil = FindModule(DFCC_ShaderDebugInfoDXIL, pBlob);
 

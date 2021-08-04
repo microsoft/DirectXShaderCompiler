@@ -27,6 +27,7 @@
 
 using namespace llvm;
 using namespace hlsl;
+using namespace PIXPassHelpers;
 
 class DxilPIXAddTidToAmplificationShaderPayload : public ModulePass {
 
@@ -43,24 +44,6 @@ private:
 
 
 };
-
-struct ExpandedStruct
-{
-  Type *ExpandedPayloadStructType = nullptr;
-  Type *ExpandedPayloadStructPtrType = nullptr;
-};
-
-ExpandedStruct ExpandStructType(LLVMContext& Ctx, Type* OriginalPayloadStructType)
-{
-  SmallVector<Type *, 16> Elements;
-  Elements.push_back(OriginalPayloadStructType);
-  Elements.push_back(Type::getInt32Ty(Ctx));
-  ExpandedStruct ret;
-  ret.ExpandedPayloadStructType =
-      StructType::create(Ctx, Elements, "PIX_AS2MS_Expanded_Type");
-  ret.ExpandedPayloadStructPtrType = ret.ExpandedPayloadStructType->getPointerTo();
-  return ret;
-}
 
 bool DxilPIXAddTidToAmplificationShaderPayload::runOnModule(Module &M) {
 

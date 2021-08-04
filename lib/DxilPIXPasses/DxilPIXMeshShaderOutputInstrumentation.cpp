@@ -50,6 +50,7 @@ constexpr uint32_t float16ValueIndicator = 0x15;
 
 using namespace llvm;
 using namespace hlsl;
+using namespace PIXPassHelpers;
 
 class DxilPIXMeshShaderOutputInstrumentation : public ModulePass 
 {
@@ -232,19 +233,20 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M)
   LLVMContext &Ctx = M.getContext();
   OP *HlslOP = DM.GetOP();
 
-  if (m_ExpandPayload) {
-    ExpandPayload(DM, Ctx, HlslOP);
-  }
-
+  //ExpandedStruct expandedStruct = {};
+  //if (m_ExpandPayload) {
+  //    expandedStruct = ExpandStructType(Ctx);
+  //}
+  //
   Instruction *firstInsertionPt =
-      dxilutil::FirstNonAllocaInsertionPt(PIXPassHelpers::GetEntryFunction(DM));
+      dxilutil::FirstNonAllocaInsertionPt(GetEntryFunction(DM));
   IRBuilder<> Builder(firstInsertionPt);
 
   BuilderContext BC{M, DM, Ctx, HlslOP, Builder};
 
   m_OffsetMask = BC.HlslOP->GetU32Const(UAVDumpingGroundOffset() - 1);
 
-  m_OutputUAV = PIXPassHelpers::CreateUAV(DM, Builder, 0, "PIX_DebugUAV_Handle");
+  m_OutputUAV = CreateUAV(DM, Builder, 0, "PIX_DebugUAV_Handle");
 
   m_threadUniquifier = insertInstructionsToCreateDisambiguationValue(BC);
 
