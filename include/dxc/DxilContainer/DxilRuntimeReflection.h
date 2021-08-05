@@ -480,7 +480,7 @@ protected:
   _FieldRecordReader GetField_RecordValue(const void *pField) const {
     if (*this) {
       return _FieldRecordReader(BaseRecordReader(
-          m_pContext, pField, RecordTraits<_FieldRecordReader::RecordType>::RecordSize()));
+          m_pContext, pField, (uint32_t)RecordTraits<_FieldRecordReader::RecordType>::RecordSize()));
     }
     return {};
   }
@@ -556,7 +556,7 @@ public:
     return m_pContext->Table<_RecordReader::RecordType>().Count();
   }
   uint32_t size() const { return Count(); }
-  _RecordReader operator[](uint32_t index) { return Row(index); }
+  const _RecordReader operator[](uint32_t index) const { return Row(index); }
   operator bool() { return m_pContext && Count(); }
 };
 

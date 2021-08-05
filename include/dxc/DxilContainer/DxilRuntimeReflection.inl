@@ -270,7 +270,7 @@ public:
   }
   // Specialized for base type to recurse into derived
   template<typename _RecordType>
-  bool ValidateDerived(const _RecordType *pRecord) const { return true; }
+  bool ValidateDerived(const _RecordType *) const { return true; }
 };
 
 template<typename _RecordType>
