@@ -255,6 +255,8 @@ public:
     return m_Offsets;
   }
 
+  static SizeInBits GetVariableSizeInbits(DIVariable *Var);
+
 private:
   void PopulateAllocaMap(
       llvm::DIType *Ty
@@ -276,7 +278,8 @@ private:
   ) const;
   llvm::DIExpression *GetDIExpression(
       llvm::DIType *Ty,
-      OffsetInBits Offset
+      OffsetInBits Offset,
+      SizeInBits ParentSize
   ) const;
 
   llvm::DebugLoc const &m_dbgLoc;
@@ -748,6 +751,20 @@ void DxilDbgValueToDbgDeclare::handleDbgValue(
   }
 }
 
+SizeInBits VariableRegisters::GetVariableSizeInbits(DIVariable *Var) {
+  const llvm::DITypeIdentifierMap EmptyMap;
+  DIType *Ty = Var->getType().resolve(EmptyMap);
+  DIDerivedType *DerivedTy = nullptr;
+  while (Ty && (Ty->getSizeInBits() == 0 && (DerivedTy = dyn_cast<DIDerivedType>(Ty)))) {
+    Ty = DerivedTy->getBaseType().resolve(EmptyMap);
+  }
+
+  if (!Ty) {
+    assert(false && "Unexpected inability to resolve base type with a real size.");
+    return 0;
+  }
+  return Ty->getSizeInBits();
+}
 
 llvm::AllocaInst *VariableRegisters::GetRegisterForAlignedOffset(
     OffsetInBits Offset
@@ -930,7 +947,7 @@ void VariableRegisters::PopulateAllocaMap_BasicType(
 
   auto *Storage = GetMetadataAsValue(llvm::ValueAsMetadata::get(Alloca));
   auto *Variable = GetMetadataAsValue(m_Variable);
-  auto *Expression = GetMetadataAsValue(GetDIExpression(Ty, AlignedOffset));
+  auto *Expression = GetMetadataAsValue(GetDIExpression(Ty, AlignedOffset, GetVariableSizeInbits(m_Variable)));
   auto *DbgDeclare = m_B.CreateCall(
       m_DbgDeclareFn,
       {Storage, Variable, Expression});
@@ -1052,11 +1069,12 @@ llvm::Value *VariableRegisters::GetMetadataAsValue(
 
 llvm::DIExpression *VariableRegisters::GetDIExpression(
     llvm::DIType *Ty,
-    OffsetInBits Offset
+    OffsetInBits Offset,
+    SizeInBits ParentSize
 ) const
 {
   llvm::SmallVector<uint64_t, 3> ExpElements;
-  if (Offset != 0)
+  if (Offset != 0 || Ty->getSizeInBits() != ParentSize)
   {
     ExpElements.emplace_back(llvm::dwarf::DW_OP_bit_piece);
     ExpElements.emplace_back(Offset);
