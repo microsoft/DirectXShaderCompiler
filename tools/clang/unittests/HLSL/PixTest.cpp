@@ -630,7 +630,7 @@ public:
     CreateBlobFromText(hlsl, &pSource);
     std::vector<const wchar_t*>  args = { L"/Zi", L"-enable-16bit-types", L"/Qembed_debug" };
     args.insert(args.end(), extraArgs.begin(), extraArgs.end());
-    VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+    VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", entry,
       target, args.data(), static_cast<UINT32>(args.size()), nullptr, 0, nullptr, &pResult));
 
     HRESULT compilationStatus;
@@ -641,9 +641,10 @@ public:
       VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&pErrros));
       CA2W errorTextW(static_cast<const char*>(pErrros->GetBufferPointer()), CP_UTF8);
       WEX::Logging::Log::Error(errorTextW);
+      return {};
     }
 
-#if 0 //handy for debugging
+#if 1 //handy for debugging
     {
       CComPtr<IDxcBlob> pProgram;
       CheckOperationSucceeded(pResult, &pProgram);
@@ -990,6 +991,7 @@ public:
   void ValidateAllocaWrite(std::vector<AllocaWrite> const& allocaWrites, size_t index, const char* name);
   std::string RunShaderAccessTrackingPassAndReturnOutputMessages(IDxcBlob* blob);
   std::string RunDxilPIXAddTidToAmplificationShaderPayloadPass(IDxcBlob* blob);
+  CComPtr<IDxcBlob> RunDxilPIXMeshShaderOutputPass(IDxcBlob* blob);
 };
 
 
@@ -1728,6 +1730,28 @@ float4 main(int input : INPUT) : SV_Target
   VERIFY_IS_TRUE(satResults.find("FoundDynamicIndexing") != string::npos);
 }
 
+CComPtr<IDxcBlob> PixTest::RunDxilPIXMeshShaderOutputPass(IDxcBlob *blob) {
+  CComPtr<IDxcBlob> dxil = FindModule(DFCC_ShaderDebugInfoDXIL, blob);
+  CComPtr<IDxcOptimizer> pOptimizer;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
+  std::vector<LPCWSTR> Options;
+  Options.push_back(L"-opt-mod-passes");
+  Options.push_back(L"-hlsl-dxil-pix-meshshader-output-instrumentation,expand-payload=1");
+
+  CComPtr<IDxcBlob> pOptimizedModule;
+  CComPtr<IDxcBlobEncoding> pText;
+  VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
+      dxil, Options.data(), Options.size(), &pOptimizedModule, &pText));
+
+  std::string outputText;
+  if (pText->GetBufferSize() != 0) {
+    outputText = reinterpret_cast<const char *>(pText->GetBufferPointer());
+  }
+
+  return pOptimizedModule;
+}
+
 std::string
 PixTest::RunDxilPIXAddTidToAmplificationShaderPayloadPass(IDxcBlob *blob) {
   CComPtr<IDxcBlob> dxil = FindModule(DFCC_ShaderDebugInfoDXIL, blob);
@@ -1756,21 +1780,51 @@ TEST_F(PixTest, AddToASPayload) {
   const char *dynamicResourceDecriptorHeapAccess = R"(
 struct MyPayload
 {
-    uint i;
+    float f;
 };
 
 [numthreads(1, 1, 1)]
-void main(uint gid : SV_GroupID)
+void ASMain(uint gid : SV_GroupID)
 {
     MyPayload payload;
-    payload.i = gid;
+    payload.f = (float)gid / 4.f;
     DispatchMesh(1, 1, 1, payload);
+}
+
+struct PSInput
+{
+    float4 position : SV_POSITION;
+};
+
+
+[outputtopology("triangle")]
+[numthreads(3,1,1)]
+void MSMain(
+    in payload MyPayload small,
+    in uint tid : SV_GroupThreadID,
+    in uint3 dtid : SV_DispatchThreadID,
+    out vertices PSInput verts[3],
+    out indices uint3 triangles[1])
+{
+    SetMeshOutputCounts(3, 1);
+    verts[tid].position = float4(small.f, 0, 0, 0);
+    triangles[0] = uint3(0, 1, 2);
 }
 
   )";
 
-  auto compiled = Compile(dynamicResourceDecriptorHeapAccess, L"as_6_6");
-  RunDxilPIXAddTidToAmplificationShaderPayloadPass(compiled);
+  auto as = Compile(dynamicResourceDecriptorHeapAccess, L"as_6_6", {}, L"ASMain");
+  RunDxilPIXAddTidToAmplificationShaderPayloadPass(as);
+ 
+  auto ms = Compile(dynamicResourceDecriptorHeapAccess, L"ms_6_6", {}, L"MSMain");
+  auto modifiedMs = RunDxilPIXMeshShaderOutputPass(ms);
+
+  //CComPtr<IDxcBlob> pAnnotatedContainer;
+  //ReplaceDxilBlobPart(ms->GetBufferPointer(), ms->GetBufferSize(),
+  //    modifiedMs, &pAnnotatedContainer);
+  //
+  //std::wstring disasm = Disassemble(pAnnotatedContainer);
+
 }
 
 // This function lives in lib\DxilPIXPasses\DxilAnnotateWithVirtualRegister.cpp

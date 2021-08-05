@@ -71,57 +71,29 @@ bool DxilPIXAddTidToAmplificationShaderPayload::runOnModule(Module &M) {
 
   AllocaInst* OldStructAlloca = nullptr;
   AllocaInst* NewStructAlloca = nullptr;
-    for (inst_iterator I = inst_begin(entryFunction),
-                     E = inst_end(entryFunction);
-       I != E; ++I) {
-        auto* Inst = &*I;
+  std::vector<AllocaInst*> allocasOfPayloadType;
+  for (inst_iterator I = inst_begin(entryFunction),
+      E = inst_end(entryFunction);
+      I != E; ++I) {
+      auto* Inst = &*I;
       if (llvm::isa<AllocaInst>(Inst)) {
           auto* Alloca = llvm::cast<AllocaInst>(Inst);
           if (Alloca->getType() == OriginalPayloadStructPointerType)
           {
-              OldStructAlloca = Alloca;
-              llvm::IRBuilder<> B(Alloca->getContext());
-              NewStructAlloca = B.CreateAlloca(expanded.ExpandedPayloadStructType, HlslOP->GetU32Const(1), "NewPayload");
-              NewStructAlloca->setAlignment(Alloca->getAlignment());
-              NewStructAlloca->insertAfter(Alloca);
-              //Alloca->replaceAllUsesWith(NewStructAlloca);
-              std::vector<Value*> users;
-              for (auto u = Alloca->user_begin(); u != Alloca->user_end(); ++u)
-              {
-                  users.push_back(*u);
-              }
-
-              for (auto user : users)
-              {
-                  user->dump();
-                  if (auto* instruction = llvm::cast<Instruction>(user))
-                  {
-                      instruction->dump();
-                      for (unsigned int i = 0; i < instruction->getNumOperands(); ++i)
-                      {
-                          auto* Operand = instruction->getOperand(i);
-                          if (Operand == Alloca)
-                          {
-                              instruction->setOperand(i, NewStructAlloca);
-                          }
-                      }
-                      if (llvm::isa<GetElementPtrInst>(instruction))
-                      {
-                          auto* GEP = llvm::cast<GetElementPtrInst>(instruction);
-                          GEP->setSourceElementType(expanded.ExpandedPayloadStructType);
-                      }
-                  }
-              }
-
-              for (auto user : Alloca->users()) {
-                  user->dump();
-              }
-
-              Alloca->removeFromParent();
-              delete Alloca;
-              break;
-            }
+            allocasOfPayloadType.push_back(Alloca);
+          }
       }
+  }
+  for (auto& Alloca : allocasOfPayloadType) {
+    OldStructAlloca = Alloca;
+    llvm::IRBuilder<> B(Alloca->getContext());
+    NewStructAlloca = B.CreateAlloca(expanded.ExpandedPayloadStructType,
+                                     HlslOP->GetU32Const(1), "NewPayload");
+    NewStructAlloca->setAlignment(Alloca->getAlignment());
+    NewStructAlloca->insertAfter(Alloca);
+
+    ReplaceAllUsesOfInstructionWithNewValueAndDeleteInstruction(
+        Alloca, NewStructAlloca, expanded.ExpandedPayloadStructType);
   }
 
   auto F = HlslOP->GetOpFunc(DXIL::OpCode::DispatchMesh, OriginalPayloadStructPointerType);

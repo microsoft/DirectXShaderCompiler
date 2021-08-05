@@ -186,6 +186,35 @@ ExpandedStruct ExpandStructType(LLVMContext &Ctx,
   return ret;
 }
 
+void ReplaceAllUsesOfInstructionWithNewValueAndDeleteInstruction(
+    Instruction *Instr, Value *newValue, Type *newType) {
+  std::vector<Value *> users;
+  for (auto u = Instr->user_begin(); u != Instr->user_end(); ++u) {
+    users.push_back(*u);
+  }
+
+  for (auto user : users) {
+    user->dump();
+    if (auto *instruction = llvm::cast<Instruction>(user)) {
+      instruction->dump();
+      for (unsigned int i = 0; i < instruction->getNumOperands(); ++i) {
+        auto *Operand = instruction->getOperand(i);
+        if (Operand == Instr) {
+          instruction->setOperand(i, newValue);
+        }
+      }
+      if (llvm::isa<GetElementPtrInst>(instruction)) {
+        auto *GEP = llvm::cast<GetElementPtrInst>(instruction);
+        GEP->setSourceElementType(newType);
+      }
+    }
+  }
+
+  Instr->removeFromParent();
+  delete Instr;
+}
+
+
 #ifdef PIX_DEBUG_DUMP_HELPER
 
 static int g_logIndent = 0;

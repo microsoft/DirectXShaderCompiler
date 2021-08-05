@@ -19,6 +19,7 @@
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/HLSL/DxilSpanAllocator.h"
 
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Transforms/Utils/Local.h"
@@ -233,11 +234,44 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M)
   LLVMContext &Ctx = M.getContext();
   OP *HlslOP = DM.GetOP();
 
-  //ExpandedStruct expandedStruct = {};
-  //if (m_ExpandPayload) {
-  //    expandedStruct = ExpandStructType(Ctx);
-  //}
-  //
+  Type *OriginalPayloadStructPointerType = nullptr;
+  Type *OriginalPayloadStructType = nullptr;
+  ExpandedStruct expanded = {};
+  if (m_ExpandPayload) {
+    std::vector<Instruction*> getMeshPayloadInstructions;
+    llvm::Function *entryFunction = PIXPassHelpers::GetEntryFunction(DM);
+    for (inst_iterator I = inst_begin(entryFunction),
+        E = inst_end(entryFunction);
+        I != E; ++I) {
+        if (auto* Instr = llvm::cast<Instruction>(&*I)) {
+            if (hlsl::OP::IsDxilOpFuncCallInst(Instr,
+                hlsl::OP::OpCode::GetMeshPayload)) {
+                getMeshPayloadInstructions.push_back(Instr);
+            }
+        }
+    }
+
+    if (expanded.ExpandedPayloadStructPtrType == nullptr) {
+      expanded = ExpandStructType(Ctx, OriginalPayloadStructType);
+    }
+
+    for (auto& Instr : getMeshPayloadInstructions) {
+        DxilInst_GetMeshPayload GetMeshPayload(Instr);
+        OriginalPayloadStructPointerType =
+            GetMeshPayload.Instr->getType();
+        OriginalPayloadStructType =
+            OriginalPayloadStructPointerType->getPointerElementType();
+
+        Function* DxilFunc = HlslOP->GetOpFunc(OP::OpCode::GetMeshPayload, expanded.ExpandedPayloadStructPtrType);
+        Constant* opArg = HlslOP->GetU32Const((unsigned)OP::OpCode::GetMeshPayload);
+        IRBuilder<> Builder(Instr);
+        Value* args[] = { opArg };
+        Value* payload = Builder.CreateCall(DxilFunc, args);
+
+        ReplaceAllUsesOfInstructionWithNewValueAndDeleteInstruction(Instr, payload, expanded.ExpandedPayloadStructType);
+    }
+  }
+  
   Instruction *firstInsertionPt =
       dxilutil::FirstNonAllocaInsertionPt(GetEntryFunction(DM));
   IRBuilder<> Builder(firstInsertionPt);
