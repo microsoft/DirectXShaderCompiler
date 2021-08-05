@@ -2,7 +2,6 @@
 // RUN: %dxc -Od -Zi -E main -T vs_6_0 %s | FileCheck %s -check-prefix=POSY
 // RUN: %dxc -Od -Zi -E main -T vs_6_0 %s | FileCheck %s -check-prefix=UV0X
 // RUN: %dxc -Od -Zi -E main -T vs_6_0 %s | FileCheck %s -check-prefix=UV1X
-
 struct MyInput {
     float4 pos : POSITION0;
     float3 uv0 : TEXCOORD0;
