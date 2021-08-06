@@ -1,20 +1,20 @@
-// RUN: %dxc -E main -T ps_6_0 -enable-templates %s 2>&1 | FileCheck %s
-// RUN: %dxc -E main -T ps_6_0 -enable-templates %s -DCHECK_DIAGNOSTICS | FileCheck %s -check-prefix=DIAG
+// RUN: %dxc -E main -T ps_6_0 -enable-templates -enable-short-circuit %s 2>&1 | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 -enable-templates -enable-short-circuit %s -DCHECK_DIAGNOSTICS | FileCheck %s -check-prefix=DIAG
 
 // Check that HLSL bitwise operators deal with dependent types
 
 template<typename T>
-T not(T t) {
+T Not(T t) {
   return ~t;
 }
 
 template<typename T>
-T and(T t0, T t1) {
+T And(T t0, T t1) {
   return t0 & t1;
 }
 
 template<typename T>
-T or(T t0, T t1) {
+T Or(T t0, T t1) {
   return t0 | t1;
 }
 
@@ -59,9 +59,9 @@ int4 main(int4 a:A) : SV_Target {
   // DIAG: function cannot return array type
   // DIAG: function cannot return array type
   // DIAG: function cannot return array type
-  not(iarr);
-  and(iarr,iarr);
-  or(iarr,iarr);
+  Not(iarr);
+  And(iarr,iarr);
+  Or(iarr,iarr);
   lshift(iarr,i);
   rshift(iarr,i);
 
@@ -70,9 +70,9 @@ int4 main(int4 a:A) : SV_Target {
   // DIAG: error: scalar, vector, or matrix expected
   // DIAG: error: scalar, vector, or matrix expected
   // DIAG: error: scalar, vector, or matrix expected
-  not(s);
-  and(s,s);
-  or(s,s);
+  Not(s);
+  And(s,s);
+  Or(s,s);
   lshift(s,i);
   rshift(s,i);
 
@@ -83,9 +83,9 @@ int4 main(int4 a:A) : SV_Target {
   // DIAG: error: int or unsigned int type required
   // DIAG: error: int or unsigned int type required
   // DIAG: error: int or unsigned int type required
-  not(x);
-  and(x,x);
-  or(x,x);
+  Not(x);
+  And(x,x);
+  Or(x,x);
   lshift(x,i);
   lshift(i,x);
   rshift(x,i);
@@ -99,18 +99,18 @@ int4 main(int4 a:A) : SV_Target {
 #else
 
 // CHECK: define void @main
-  int r1 = not(i);
-  int r2 = not(i1);
-  int4 r3 = not(i4);
-  int3x3 r4 = not(i3x3);
-  int r5 = not(iarr[5]);
-  int r6 = not(i4.w);
-  int4 r7 = not(s.a);
-  bool3 b3b = not(b3);
-  not(ui);
-  not(b);
-  and(b,b);
-  or(b,b);
+  int r1 = Not(i);
+  int r2 = Not(i1);
+  int4 r3 = Not(i4);
+  int3x3 r4 = Not(i3x3);
+  int r5 = Not(iarr[5]);
+  int r6 = Not(i4.w);
+  int4 r7 = Not(s.a);
+  bool3 b3b = Not(b3);
+  Not(ui);
+  Not(b);
+  And(b,b);
+  Or(b,b);
 
   // Note that << and >> allow bool LHS operands, but <<= and >>= give "error: operator cannot be used with a bool lvalue"
   lshift(b,i);
