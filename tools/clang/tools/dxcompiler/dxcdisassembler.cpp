@@ -1446,6 +1446,9 @@ public:
         if (Var && Expr) {
           OS << " ; var:\"" << Var->getName() << "\"" << " ";
           Expr->printAsBody(OS);
+          if (DISubprogram *SubP = findFunctionScope(Var)) {
+            OS << " func:\"" << SubP->getName() << "\"";
+          }
         }
       }
       else {
@@ -1494,6 +1497,14 @@ public:
     default:
       break;
     }
+  }
+
+  static DISubprogram *findFunctionScope(DILocalVariable *var) {
+    auto scope = var->getScope();
+    if (scope) {
+      return scope->getSubprogram();
+    }
+    return nullptr;
   }
 };
 
