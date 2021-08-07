@@ -3421,8 +3421,8 @@ Value *ScalarExprEmitter::VisitBinLAnd(const BinaryOperator *E) {
     // 0 && RHS: If it is safe, just elide the RHS, and return 0/false.
     if (!CGF.ContainsLabel(E->getRHS())) {
       // HLSL Change Begins.
-      if (CGF.getLangOpts().HLSL) {
-        // HLSL does not short circuit.
+      if (CGF.getLangOpts().HLSL && !CGF.getLangOpts().EnableShortCircuit) {
+        // HLSL does not short circuit by default.
         Visit(E->getRHS());
       }
       // HLSL Change Ends.
@@ -3431,8 +3431,8 @@ Value *ScalarExprEmitter::VisitBinLAnd(const BinaryOperator *E) {
   }
 
   // HLSL Change Begins.
-  if (CGF.getLangOpts().HLSL) {
-    // HLSL does not short circuit.
+  if (CGF.getLangOpts().HLSL && !CGF.getLangOpts().EnableShortCircuit) {
+    // HLSL does not short circuit by default.
     Value *LHS = Visit(E->getLHS());
     Value *RHS = Visit(E->getRHS());
     if (ResTy->isVectorTy()) {
@@ -3526,8 +3526,8 @@ Value *ScalarExprEmitter::VisitBinLOr(const BinaryOperator *E) {
     // 1 || RHS: If it is safe, just elide the RHS, and return 1/true.
     if (!CGF.ContainsLabel(E->getRHS())) {
       // HLSL Change Begins.
-      if (CGF.getLangOpts().HLSL) {
-        // HLSL does not short circuit.
+      if (CGF.getLangOpts().HLSL && !CGF.getLangOpts().EnableShortCircuit) {
+        // HLSL does not short circuit by default.
         Visit(E->getRHS());
       }
       // HLSL Change Ends.
@@ -3536,8 +3536,8 @@ Value *ScalarExprEmitter::VisitBinLOr(const BinaryOperator *E) {
   }
 
   // HLSL Change Begins.
-  if (CGF.getLangOpts().HLSL) {
-    // HLSL does not short circuit.
+  if (CGF.getLangOpts().HLSL && !CGF.getLangOpts().EnableShortCircuit) {
+    // HLSL does not short circuit by default.
     Value *LHS = Visit(E->getLHS());
     Value *RHS = Visit(E->getRHS());
     if (ResTy->isVectorTy()) {
@@ -3701,32 +3701,34 @@ VisitAbstractConditionalOperator(const AbstractConditionalOperator *E) {
     return tmp5;
   }
   // HLSL Change Starts
-  if (CGF.getLangOpts().HLSL &&
-      (hlsl::IsHLSLVecType(E->getType()) || E->getType()->isArithmeticType())) {
-    llvm::Value *CondV = CGF.EmitScalarExpr(condExpr);
-    llvm::Value *LHS = Visit(lhsExpr);
-    llvm::Value *RHS = Visit(rhsExpr);
-    if (llvm::VectorType *VT = dyn_cast<llvm::VectorType>(CondV->getType())) {
-      llvm::VectorType *ResultVT = cast<llvm::VectorType>(LHS->getType());
-      llvm::Value *result = llvm::UndefValue::get(ResultVT);
-      for (unsigned i = 0; i < VT->getNumElements(); i++) {
-        llvm::Value *EltCond = Builder.CreateExtractElement(CondV, i);
-        llvm::Value *EltL = Builder.CreateExtractElement(LHS, i);
-        llvm::Value *EltR = Builder.CreateExtractElement(RHS, i);
-        llvm::Value *EltSelect = Builder.CreateSelect(EltCond, EltL, EltR);
-        result = Builder.CreateInsertElement(result, EltSelect, i);
+  if (CGF.getLangOpts().HLSL && !CGF.getLangOpts().EnableShortCircuit) {
+    // HLSL does not short circuit by default.
+    if (hlsl::IsHLSLVecType(E->getType()) || E->getType()->isArithmeticType()) {
+      llvm::Value *CondV = CGF.EmitScalarExpr(condExpr);
+      llvm::Value *LHS = Visit(lhsExpr);
+      llvm::Value *RHS = Visit(rhsExpr);
+      if (llvm::VectorType *VT = dyn_cast<llvm::VectorType>(CondV->getType())) {
+        llvm::VectorType *ResultVT = cast<llvm::VectorType>(LHS->getType());
+        llvm::Value *result = llvm::UndefValue::get(ResultVT);
+        for (unsigned i = 0; i < VT->getNumElements(); i++) {
+          llvm::Value *EltCond = Builder.CreateExtractElement(CondV, i);
+          llvm::Value *EltL = Builder.CreateExtractElement(LHS, i);
+          llvm::Value *EltR = Builder.CreateExtractElement(RHS, i);
+          llvm::Value *EltSelect = Builder.CreateSelect(EltCond, EltL, EltR);
+          result = Builder.CreateInsertElement(result, EltSelect, i);
+        }
+        return result;
+      } else {
+        return Builder.CreateSelect(CondV, LHS, RHS);
       }
-      return result;
-    } else {
-      return Builder.CreateSelect(CondV, LHS, RHS);
     }
-  }
-  if (CGF.getLangOpts().HLSL && hlsl::IsHLSLMatType(E->getType())) {
-    llvm::Value *Cond = CGF.EmitScalarExpr(condExpr);
-    llvm::Value *LHS = Visit(lhsExpr);
-    llvm::Value *RHS = Visit(rhsExpr);
-    return CGF.CGM.getHLSLRuntime().EmitHLSLMatrixOperationCall(
-        CGF, E, LHS->getType(), {Cond, LHS, RHS});
+    if (hlsl::IsHLSLMatType(E->getType())) {
+      llvm::Value *Cond = CGF.EmitScalarExpr(condExpr);
+      llvm::Value *LHS = Visit(lhsExpr);
+      llvm::Value *RHS = Visit(rhsExpr);
+      return CGF.CGM.getHLSLRuntime().EmitHLSLMatrixOperationCall(
+          CGF, E, LHS->getType(), {Cond, LHS, RHS});
+    }
   }
   // HLSL Change Ends
 
