@@ -4521,6 +4521,17 @@ public:
         pIntrinsic->uNumArgs <= g_MaxIntrinsicParamCount + 1,
         "otherwise g_MaxIntrinsicParamCount needs to be updated for wider signatures");
 
+      // Some intrinsics only optionally exist in later language versions.
+      // To prevent collisions with existing functions or templates, exclude
+      // intrinsics when they aren't enabled.
+      if (!m_sema->getLangOpts().EnableShortCircuit) {
+        if (pIntrinsic->Op == (UINT)IntrinsicOp::IOP_and ||
+            pIntrinsic->Op == (UINT)IntrinsicOp::IOP_or ||
+            pIntrinsic->Op == (UINT)IntrinsicOp::IOP_select) {
+          continue;
+        }
+      }
+
       std::vector<QualType> functionArgTypes;
       size_t badArgIdx;
       bool argsMatch = MatchArguments(pIntrinsic, QualType(), QualType(), Args, &functionArgTypes, badArgIdx);
@@ -9133,6 +9144,14 @@ void HLSLExternalSource::CheckBinOpForHLSL(
   ArBasicKind resultElementKind = leftElementKind;
   {
     if (BinaryOperatorKindIsLogical(Opc)) {
+      if (m_sema->getLangOpts().EnableShortCircuit) {
+        // Only allow scalar types for logical operators &&, ||
+        if (leftObjectKind != ArTypeObjectKind::AR_TOBJ_BASIC ||
+            rightObjectKind != ArTypeObjectKind::AR_TOBJ_BASIC) {
+          m_sema->Diag(OpLoc, diag::err_hlsl_logical_binop_scalar);
+          return;
+        }
+      }
       resultElementKind = AR_BASIC_BOOL;
     } else if (!BinaryOperatorKindIsBitwiseShift(Opc) && leftElementKind != rightElementKind) {
       if (!CombineBasicTypes(leftElementKind, rightElementKind, &resultElementKind)) {
@@ -9412,6 +9431,14 @@ clang::QualType HLSLExternalSource::CheckVectorConditional(
 
   QualType ResultTy = leftType;
 
+  if (m_sema->getLangOpts().EnableShortCircuit) {
+    // Only allow scalar.
+    if (condObjectKind == AR_TOBJ_VECTOR || condObjectKind == AR_TOBJ_MATRIX) {
+      m_sema->Diag(QuestionLoc, diag::err_hlsl_ternary_scalar);
+      return QualType();
+    }
+  }
+
   bool condIsSimple = condObjectKind == AR_TOBJ_BASIC || condObjectKind == AR_TOBJ_VECTOR || condObjectKind == AR_TOBJ_MATRIX;
   if (!condIsSimple) {
     m_sema->Diag(QuestionLoc, diag::err_hlsl_conditional_cond_typecheck);
@@ -9484,7 +9511,13 @@ clang::QualType HLSLExternalSource::CheckVectorConditional(
     Cond.set(CreateLValueToRValueCast(Cond.get()));
 
   // Convert condition component type to bool, using result component dimensions
-  QualType boolType = NewSimpleAggregateType(AR_TOBJ_INVALID, AR_BASIC_BOOL, 0, rowCount, colCount)->getCanonicalTypeInternal();
+  QualType boolType;
+  // If short-circuiting, condition must be scalar.
+  if (m_sema->getLangOpts().EnableShortCircuit)
+    boolType = NewSimpleAggregateType(AR_TOBJ_INVALID, AR_BASIC_BOOL, 0, 1, 1)->getCanonicalTypeInternal();
+  else
+    boolType = NewSimpleAggregateType(AR_TOBJ_INVALID, AR_BASIC_BOOL, 0, rowCount, colCount)->getCanonicalTypeInternal();
+
   if (condElementKind != AR_BASIC_BOOL || condType != boolType) {
     StandardConversionSequence standard;
     if (ValidateCast(SourceLocation(), Cond.get(), boolType, ExplicitConversionFalse, SuppressWarningsFalse, SuppressErrorsFalse, &standard)) {
