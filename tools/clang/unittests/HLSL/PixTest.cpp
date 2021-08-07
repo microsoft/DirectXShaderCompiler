@@ -1780,14 +1780,16 @@ TEST_F(PixTest, AddToASPayload) {
   const char *dynamicResourceDecriptorHeapAccess = R"(
 struct MyPayload
 {
-    float f;
+    float f1;
+    float f2;
 };
 
 [numthreads(1, 1, 1)]
 void ASMain(uint gid : SV_GroupID)
 {
     MyPayload payload;
-    payload.f = (float)gid / 4.f;
+    payload.f1 = (float)gid / 4.f;
+    payload.f2 = (float)gid * 4.f;
     DispatchMesh(1, 1, 1, payload);
 }
 
@@ -1807,7 +1809,7 @@ void MSMain(
     out indices uint3 triangles[1])
 {
     SetMeshOutputCounts(3, 1);
-    verts[tid].position = float4(small.f, 0, 0, 0);
+    verts[tid].position = float4(small.f1, small.f2, 0, 0);
     triangles[0] = uint3(0, 1, 2);
 }
 

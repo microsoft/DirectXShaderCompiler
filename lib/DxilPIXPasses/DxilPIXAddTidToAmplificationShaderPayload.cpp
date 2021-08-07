@@ -96,7 +96,7 @@ bool DxilPIXAddTidToAmplificationShaderPayload::runOnModule(Module &M) {
         Alloca, NewStructAlloca, expanded.ExpandedPayloadStructType);
   }
 
-  auto F = HlslOP->GetOpFunc(DXIL::OpCode::DispatchMesh, OriginalPayloadStructPointerType);
+  auto F = HlslOP->GetOpFunc(DXIL::OpCode::DispatchMesh, expanded.ExpandedPayloadStructPtrType);
   for (auto FI = F->user_begin(); FI != F->user_end();) {
       auto* FunctionUser = *FI++;
       auto * UserInstruction = llvm::cast<Instruction>(FunctionUser);
@@ -114,19 +114,37 @@ bool DxilPIXAddTidToAmplificationShaderPayload::runOnModule(Module &M) {
 
       //B.CreateCall()
 
-      SmallVector<Value *, 2> IndexToEmbeddedOriginal;
-      IndexToEmbeddedOriginal.push_back(HlslOP->GetU32Const(0));
-      IndexToEmbeddedOriginal.push_back(HlslOP->GetU32Const(0));
-      //auto *PointerToContainedCopyOfOriginal = B.CreateInBoundsGEP(ExpandedPayloadStructType, NewStructAlloca, IndexToEmbeddedOriginal, "PointerToCopyOfOriginal");
+      auto ThreadIdFunc = HlslOP->GetOpFunc(DXIL::OpCode::ThreadId,
+                                               Type::getInt32Ty(Ctx));
+      Constant *Opcode =
+          HlslOP->GetU32Const((unsigned)DXIL::OpCode::ThreadId);
+      Constant *Zero32Arg = HlslOP->GetU32Const(0);
+      //Constant *One32Arg = HlslOP->GetU32Const(1);
+      //Constant *Two32Arg = HlslOP->GetU32Const(2);
 
-      SmallVector<uint32_t, 1> Index0{0}; // , 1
-      Value *Insert = B.CreateLoad(DispatchMesh.get_payload(), "ExpandedValue");
+      auto ThreadIdX =
+          B.CreateCall(ThreadIdFunc, {Opcode, Zero32Arg}, "ThreadIdX");
+      //auto ThreadIdY =
+      //    B.CreateCall(ThreadIdFunc, {Opcode, One32Arg}, "ThreadIdY");
+      //auto ThreadIdZ =
+      //    B.CreateCall(ThreadIdFunc, {Opcode, Two32Arg}, "ThreadIdZ");
 
-      SmallVector<uint32_t, 1> Index1{ 1 };// , 1
-      auto * StoreAppendedValue = B.CreateInsertValue(
-          Insert, HlslOP->GetU32Const(42), Index1);
 
-      UserInstruction->replaceUsesOfWith(NewStructAlloca, StoreAppendedValue);
+
+      SmallVector<Value *, 2> IndexToAppendedValue;
+      IndexToAppendedValue.push_back(Zero32Arg);
+      IndexToAppendedValue.push_back(HlslOP->GetU32Const(OriginalPayloadStructType->getStructNumElements()));
+      auto *PointerToEmbeddedNewValue = B.CreateInBoundsGEP(expanded.ExpandedPayloadStructType, NewStructAlloca, IndexToAppendedValue, "PointerToEmbeddedNewValue");
+      B.CreateStore(ThreadIdX, PointerToEmbeddedNewValue);
+
+      //SmallVector<uint32_t, 1> Index0{0}; // , 1
+      //Value *Insert = B.CreateLoad(DispatchMesh.get_payload(), "ExpandedValue");
+      //
+      //SmallVector<uint32_t, 1> Index1{ 1 };// , 1
+      //auto * StoreAppendedValue = B.CreateInsertValue(
+      //    Insert, HlslOP->GetU32Const(42), Index1);
+
+      //UserInstruction->replaceUsesOfWith(NewStructAlloca, StoreAppendedValue);
 
       //SmallVector<uint32_t, 1> Index0{0};
       //auto *PointerToOriginal = B.CreateInBoundsGEP(

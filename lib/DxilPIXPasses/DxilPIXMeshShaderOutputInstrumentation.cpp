@@ -81,7 +81,7 @@ private:
     IRBuilder<> &Builder;
   };
 
-  Value* insertInstructionsToCreateDisambiguationValue(BuilderContext& BC);
+  Value* insertInstructionsToCreateDisambiguationValue(StructType * originalPayloadStructType, Instruction * firstGetPayload);
   Value *reserveDebugEntrySpace(BuilderContext &BC, uint32_t SpaceInBytes);
   uint32_t UAVDumpingGroundOffset();
   Value *writeDwordAndReturnNewOffset(BuilderContext &BC, Value *TheOffset,
@@ -190,42 +190,19 @@ void DxilPIXMeshShaderOutputInstrumentation::Instrument(BuilderContext &BC,
 }
 
 Value *DxilPIXMeshShaderOutputInstrumentation::
-    insertInstructionsToCreateDisambiguationValue(BuilderContext &BC) {
-  // When a mesh shader is called from an amplification shader, all of the
-  // thread id values are relative to the DispatchMesh call made by
-  // that amplification shader. Data about what thread counts were passed
-  // by the CPU to *CommandList::DispatchMesh are not available.
-  // Fortunately all we need is a unique identifier for each thread
-  // so we can stitch the outputs back together again, and this value
-  // is indeed unique per thread across the whole invocation.
+    insertInstructionsToCreateDisambiguationValue(StructType* originalPayloadStructType, Instruction* firstGetPayload) {
 
-  Constant *DisambiguatorCounterOffsetArg =
-      BC.HlslOP->GetU32Const(UAVDumpingGroundOffset() +
-                             CounterOffsetBeyondUsefulData + sizeof(uint32_t));
-  Constant *ConstantOne = BC.HlslOP->GetU32Const(1);
+    // When a mesh shader is called from an amplification shader, all of the
+    // thread id values are relative to the DispatchMesh call made by
+    // that amplification shader. Data about what thread counts were passed
+    // by the CPU to *CommandList::DispatchMesh are not available, but we
+    // will have added that value to the AS->MS payload...
 
-  Function *AtomicOpFunc =
-      BC.HlslOP->GetOpFunc(OP::OpCode::AtomicBinOp, Type::getInt32Ty(BC.Ctx));
-  Constant *AtomicBinOpcode =
-      BC.HlslOP->GetU32Const((unsigned)OP::OpCode::AtomicBinOp);
-  Constant *AtomicAdd =
-      BC.HlslOP->GetU32Const((unsigned)DXIL::AtomicBinOpCode::Add);
-  UndefValue *UndefArg = UndefValue::get(Type::getInt32Ty(BC.Ctx));
-
-  return BC.Builder.CreateCall(
-      AtomicOpFunc,
-      {
-          AtomicBinOpcode, // i32, ; opcode
-          m_OutputUAV,     // %dx.types.Handle, ; resource handle
-          AtomicAdd, // i32, ; binary operation code : EXCHANGE, IADD, AND,
-                     // OR, XOR, IMIN, IMAX, UMIN, UMAX
-          DisambiguatorCounterOffsetArg, // i32, ; coordinate c0: index in
-                                         // bytes
-          UndefArg,                      // i32, ; coordinate c1 (unused)
-          UndefArg,                      // i32, ; coordinate c2 (unused)
-          ConstantOne,                   // i32); increment value
-      },
-      "Disambiguator");
+    IRBuilder<> Builder(firstGetPayload->getNextNode());
+    auto *DerefPointer = Builder.getInt32(0);
+    auto *OffsetToExpandedData = Builder.getInt32(originalPayloadStructType->getStructNumElements());
+    auto *GEP = Builder.CreateGEP(cast<PointerType>(firstGetPayload->getType()->getScalarType())->getElementType(), firstGetPayload, {DerefPointer, OffsetToExpandedData});
+    return Builder.CreateLoad(GEP, "Disambiguator");
 }
 
 bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M)
@@ -234,19 +211,21 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M)
   LLVMContext &Ctx = M.getContext();
   OP *HlslOP = DM.GetOP();
 
-  Type *OriginalPayloadStructPointerType = nullptr;
   Type *OriginalPayloadStructType = nullptr;
   ExpandedStruct expanded = {};
+  Instruction* FirstNewStructGetMeshPayload = nullptr;
   if (m_ExpandPayload) {
-    std::vector<Instruction*> getMeshPayloadInstructions;
+    std::vector<Instruction *> getMeshPayloadInstructions;
     llvm::Function *entryFunction = PIXPassHelpers::GetEntryFunction(DM);
     for (inst_iterator I = inst_begin(entryFunction),
         E = inst_end(entryFunction);
         I != E; ++I) {
         if (auto* Instr = llvm::cast<Instruction>(&*I)) {
             if (hlsl::OP::IsDxilOpFuncCallInst(Instr,
-                hlsl::OP::OpCode::GetMeshPayload)) {
-                getMeshPayloadInstructions.push_back(Instr);
+              hlsl::OP::OpCode::GetMeshPayload)) {
+              getMeshPayloadInstructions.push_back(Instr);
+              Type *OriginalPayloadStructPointerType = Instr->getType();
+              OriginalPayloadStructType = OriginalPayloadStructPointerType->getPointerElementType();
             }
         }
     }
@@ -256,17 +235,16 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M)
     }
 
     for (auto& Instr : getMeshPayloadInstructions) {
-        DxilInst_GetMeshPayload GetMeshPayload(Instr);
-        OriginalPayloadStructPointerType =
-            GetMeshPayload.Instr->getType();
-        OriginalPayloadStructType =
-            OriginalPayloadStructPointerType->getPointerElementType();
 
         Function* DxilFunc = HlslOP->GetOpFunc(OP::OpCode::GetMeshPayload, expanded.ExpandedPayloadStructPtrType);
         Constant* opArg = HlslOP->GetU32Const((unsigned)OP::OpCode::GetMeshPayload);
         IRBuilder<> Builder(Instr);
         Value* args[] = { opArg };
-        Value* payload = Builder.CreateCall(DxilFunc, args);
+        Instruction* payload = Builder.CreateCall(DxilFunc, args);
+
+        if (FirstNewStructGetMeshPayload == nullptr) {
+            FirstNewStructGetMeshPayload = payload;
+        }
 
         ReplaceAllUsesOfInstructionWithNewValueAndDeleteInstruction(Instr, payload, expanded.ExpandedPayloadStructType);
     }
@@ -282,7 +260,13 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M)
 
   m_OutputUAV = CreateUAV(DM, Builder, 0, "PIX_DebugUAV_Handle");
 
-  m_threadUniquifier = insertInstructionsToCreateDisambiguationValue(BC);
+  if (FirstNewStructGetMeshPayload == nullptr) {
+      m_threadUniquifier = BC.HlslOP->GetU32Const(0);
+  }
+  else {
+    // There should be only one anyway, but any GetMeshPayload instruction will do:
+    m_threadUniquifier = insertInstructionsToCreateDisambiguationValue(cast<StructType>(OriginalPayloadStructType), FirstNewStructGetMeshPayload);
+  }
 
   auto F = HlslOP->GetOpFunc(DXIL::OpCode::EmitIndices, Type::getVoidTy(Ctx));
   auto FunctionUses = F->uses();
