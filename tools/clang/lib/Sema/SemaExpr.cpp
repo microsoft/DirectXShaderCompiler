@@ -10889,8 +10889,14 @@ ExprResult Sema::BuildBinOp(Scope *S, SourceLocation OpLoc,
     RHSExpr = resolvedRHS.get();
   }
 
-  // HLSL Change: allow binary operator overload only when it is a record type
-  // defined by the user and the operator is not assignment.
+  // HLSL Change: The condition of this if-statement must be false for the
+  // binary operator overloading for HLSL-specific resource types because they
+  // must be handled by the following CreateBuiltinBinOp(). If it is a
+  // user-defined type with operator overloading methods, we know it is not a
+  // binary operator overloading for a HLSL-specific resource type. This
+  // if-statement condition does not perfectly checks all the cases, but it
+  // simply checks whether it is a user-defined type with operator overloading
+  // methods or not.
   if (getLangOpts().CPlusPlus &&
       (!getLangOpts().HLSL || getLangOpts().EnableOperatorOverloading) &&
       IsUserDefinedRecordTypeWithOverloadedOperator(LHSExpr->getType()) &&
