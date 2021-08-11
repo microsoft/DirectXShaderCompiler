@@ -206,20 +206,14 @@ SmallVector<Value*, 2> DxilPIXMeshShaderOutputInstrumentation::
     ret.push_back(Builder.CreateLoad(GEP, "Disambiguator0"));
 
     Constant *Zero32Arg = HlslOP->GetU32Const(0);
-    //Constant *One32Arg = HlslOP->GetU32Const(1);
-    //Constant *Two32Arg = HlslOP->GetU32Const(2);
 
-    auto ThreadIdFunc =
+    auto GroupIdFunc =
         HlslOP->GetOpFunc(DXIL::OpCode::GroupId, Type::getInt32Ty(Ctx));
     Constant *Opcode = HlslOP->GetU32Const((unsigned)DXIL::OpCode::GroupId);
-    auto * ThreadIdX =
-        Builder.CreateCall(ThreadIdFunc, {Opcode, Zero32Arg}, "ThreadIdX");
-    //auto ThreadIdY =
-    //    Builder.CreateCall(ThreadIdFunc, {Opcode, One32Arg}, "ThreadIdY");
-    //auto ThreadIdZ =
-    //    Builder.CreateCall(ThreadIdFunc, {Opcode, Two32Arg}, "ThreadIdZ");
+    auto * GroupId =
+        Builder.CreateCall(GroupIdFunc, {Opcode, Zero32Arg}, "ThreadIdX");
 
-    ret.push_back(ThreadIdX);
+    ret.push_back(GroupId);
 
     return ret;
 }
