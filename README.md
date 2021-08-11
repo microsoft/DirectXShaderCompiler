@@ -6,6 +6,8 @@ The DirectX Shader Compiler project includes a compiler and related tools used t
 
 For more information, see the [Wiki](https://github.com/microsoft/DirectXShaderCompiler/wiki).
 
+Visit the [DirectX Landing Page](https://devblogs.microsoft.com/directx/landing-page/) for more resources for DirectX developers.
+
 ## Downloads
 You can download the latest successful build's artifacts (built by Appveyor) for the master branch:
 | Downloads |        |
@@ -46,7 +48,7 @@ Before you build, you will need to have some additional software installed. This
 
 * [Git](http://git-scm.com/downloads).
 * [Python](https://www.python.org/downloads/) - version 3.x is required
-* [Visual Studio 2017](https://www.visualstudio.com/downloads) - select the following workloads: 
+* [Visual Studio 2019](https://www.visualstudio.com/downloads) - select the following workloads: 
     * Universal Windows Platform Development
     * Desktop Development with C++
 * [Windows SDK](https://developer.microsoft.com/en-US/windows/downloads/windows-10-sdk) - version 10.0.18362.0 or newer

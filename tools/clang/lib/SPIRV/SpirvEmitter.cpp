@@ -4962,8 +4962,9 @@ SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr) {
 
   auto base = loadIfAliasVarRef(baseExpr);
 
-  if (indices.empty())
-    return base; // For indexing into size-1 vectors and 1xN matrices
+  if (base == nullptr ||
+      indices.empty()) // For indexing into size-1 vectors and 1xN matrices
+    return base;
 
   // If we are indexing into a rvalue, to use OpAccessChain, we first need
   // to create a local variable to hold the rvalue.
@@ -5792,6 +5793,9 @@ SpirvInstruction *SpirvEmitter::processBinaryOp(
   case BO_AndAssign:
   case BO_OrAssign:
   case BO_XorAssign: {
+
+    if (lhsVal == nullptr || rhsVal == nullptr)
+      return nullptr;
 
     // To evaluate this expression as an OpSpecConstantOp, we need to make sure
     // both operands are constant and at least one of them is a spec constant.

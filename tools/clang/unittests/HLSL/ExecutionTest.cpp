@@ -3253,10 +3253,10 @@ TEST_F(ExecutionTest, DerivativesTest) {
 void VerifyQuadReadResults(const UINT *pPixels, UINT quadIndex) {
   for (UINT i = 0; i < 4; i++) {
     UINT ix = quadIndex + i;
-    VERIFY_ARE_EQUAL(pPixels[4*ix + 0], ix); // ReadLaneAt own quad index
-    VERIFY_ARE_EQUAL(pPixels[4*ix + 1], (ix^1));// ReadAcrossX
-    VERIFY_ARE_EQUAL(pPixels[4*ix + 2], (ix^2));// ReadAcrossY
-    VERIFY_ARE_EQUAL(pPixels[4*ix + 3], (ix^3));// ReadAcrossDiagonal
+    UINT lix = pPixels[4*ix];
+    VERIFY_ARE_EQUAL(pPixels[4*ix + 1], (lix^1));// ReadAcrossX
+    VERIFY_ARE_EQUAL(pPixels[4*ix + 2], (lix^2));// ReadAcrossY
+    VERIFY_ARE_EQUAL(pPixels[4*ix + 3], (lix^3));// ReadAcrossDiagonal
   }
 }
 
@@ -3276,6 +3276,11 @@ TEST_F(ExecutionTest, QuadReadTest) {
     return;
   }
 
+  if (!DoesDeviceSupportWaveOps(pDevice)) {
+    WEX::Logging::Log::Comment(L"Device does not support wave operations.");
+    return;
+  }
+
   std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
     std::make_shared<st::ShaderOpSet>();
   st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
@@ -3292,13 +3297,8 @@ TEST_F(ExecutionTest, QuadReadTest) {
   {
    {32, 32, 1, 8, 8, 1},
    {64, 4, 1, 64, 2, 1},
-   {1, 4, 64, 1, 4, 32},
    {64, 1, 1, 64, 1, 1},
-   {1, 64, 1, 1, 64, 1},
-   {1, 1, 64, 1, 1, 64},
    {16, 16, 3, 4, 4, 3},
-   {32, 3, 8, 8, 3, 2},
-   {3, 1, 64, 3, 1, 32}
   };
 
   for (Dispatch &D : dispatches) {

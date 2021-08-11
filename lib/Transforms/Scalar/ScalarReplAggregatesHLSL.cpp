@@ -152,111 +152,116 @@ static void addDebugInfoForElements(Value *ParentVal,
 
   // Extract the data we need from the parent value,
   // depending on whether it is an alloca, argument or global variable.
-  Type *ParentTy;
-  unsigned ParentBitPieceOffset = 0;
-  std::vector<DxilDIArrayDim> DIArrayDims;
-  DIVariable *ParentDbgVariable;
-  DIExpression *ParentDbgExpr;
-  DILocation *ParentDbgLocation;
-  Instruction *DbgDeclareInsertPt = nullptr;
+
   if (isa<GlobalVariable>(ParentVal)) {
     llvm_unreachable("Not implemented: sroa debug info propagation for global vars.");
   }
   else {
+    Type *ParentTy = nullptr;
+
     if (AllocaInst *ParentAlloca = dyn_cast<AllocaInst>(ParentVal))
       ParentTy = ParentAlloca->getAllocatedType();
     else
       ParentTy = cast<Argument>(ParentVal)->getType();
 
-    DbgDeclareInst *ParentDbgDeclare = llvm::FindAllocaDbgDeclare(ParentVal);
-    if (ParentDbgDeclare == nullptr) return;
+    SmallVector<DbgDeclareInst *, 4> Declares;
+    llvm::FindAllocaDbgDeclare(ParentVal, Declares);
 
-    // Get the bit piece offset
-    if ((ParentDbgExpr = ParentDbgDeclare->getExpression())) {
-      if (ParentDbgExpr->isBitPiece()) {
-        ParentBitPieceOffset = ParentDbgExpr->getBitPieceOffset();
+    for (DbgDeclareInst *ParentDbgDeclare : Declares) {
+      unsigned ParentBitPieceOffset = 0;
+      DIVariable *ParentDbgVariable = nullptr;
+      DIExpression *ParentDbgExpr = nullptr;
+      DILocation *ParentDbgLocation = nullptr;
+      Instruction *DbgDeclareInsertPt = nullptr;
+
+      std::vector<DxilDIArrayDim> DIArrayDims;
+      // Get the bit piece offset
+      if ((ParentDbgExpr = ParentDbgDeclare->getExpression())) {
+        if (ParentDbgExpr->isBitPiece()) {
+          ParentBitPieceOffset = ParentDbgExpr->getBitPieceOffset();
+        }
       }
-    }
-    
-    ParentDbgVariable = ParentDbgDeclare->getVariable();
-    ParentDbgLocation = ParentDbgDeclare->getDebugLoc();
-    DbgDeclareInsertPt = ParentDbgDeclare;
+      
+      ParentDbgVariable = ParentDbgDeclare->getVariable();
+      ParentDbgLocation = ParentDbgDeclare->getDebugLoc();
+      DbgDeclareInsertPt = ParentDbgDeclare;
 
-    // Read the extra layout metadata, if any
-    unsigned ParentBitPieceOffsetFromMD = 0;
-    if (DxilMDHelper::GetVariableDebugLayout(ParentDbgDeclare, ParentBitPieceOffsetFromMD, DIArrayDims)) {
-      // The offset is redundant for local variables and only necessary for global variables.
-      DXASSERT(ParentBitPieceOffsetFromMD == ParentBitPieceOffset,
-        "Bit piece offset mismatch between llvm.dbg.declare and DXIL metadata.");
-    }
-  }
+      // Read the extra layout metadata, if any
+      unsigned ParentBitPieceOffsetFromMD = 0;
+      if (DxilMDHelper::GetVariableDebugLayout(ParentDbgDeclare, ParentBitPieceOffsetFromMD, DIArrayDims)) {
+        // The offset is redundant for local variables and only necessary for global variables.
+        DXASSERT(ParentBitPieceOffsetFromMD == ParentBitPieceOffset,
+          "Bit piece offset mismatch between llvm.dbg.declare and DXIL metadata.");
+      }
 
-  // If the type that was broken up is nested in arrays,
-  // then each element will also be an array,
-  // but the continuity between successive elements of the original aggregate
-  // will have been broken, such that we must store the stride to rebuild it.
-  // For example: [2 x {i32, float}] => [2 x i32], [2 x float], each with stride 64 bits
-  if (NumInstances > 1 && Elems.size() > 1) {
-    // Existing dimensions already account for part of the stride
-    uint64_t NewDimNumElements = NumInstances;
-    for (const DxilDIArrayDim& ArrayDim : DIArrayDims) {
-      DXASSERT(NewDimNumElements % ArrayDim.NumElements == 0,
-        "Debug array stride is inconsistent with the number of elements.");
-      NewDimNumElements /= ArrayDim.NumElements;
-    }
+      // If the type that was broken up is nested in arrays,
+      // then each element will also be an array,
+      // but the continuity between successive elements of the original aggregate
+      // will have been broken, such that we must store the stride to rebuild it.
+      // For example: [2 x {i32, float}] => [2 x i32], [2 x float], each with stride 64 bits
+      if (NumInstances > 1 && Elems.size() > 1) {
+        // Existing dimensions already account for part of the stride
+        uint64_t NewDimNumElements = NumInstances;
+        for (const DxilDIArrayDim& ArrayDim : DIArrayDims) {
+          DXASSERT(NewDimNumElements % ArrayDim.NumElements == 0,
+            "Debug array stride is inconsistent with the number of elements.");
+          NewDimNumElements /= ArrayDim.NumElements;
+        }
 
-    // Add a stride dimension
-    DxilDIArrayDim NewDIArrayDim = {};
-    NewDIArrayDim.StrideInBits = (unsigned)DatLayout.getTypeAllocSizeInBits(BrokenUpTy);
-    NewDIArrayDim.NumElements = (unsigned)NewDimNumElements;
-    DIArrayDims.emplace_back(NewDIArrayDim);
-  }
-  else {
-    DIArrayDims.clear();
-  }
-
-  // Create the debug info for each element
-  for (unsigned ElemIdx = 0; ElemIdx < Elems.size(); ++ElemIdx) {
-    // Figure out the offset of the element in the broken up type
-    unsigned ElemBitPieceOffset = ParentBitPieceOffset;
-    if (StructType *ParentStructTy = dyn_cast<StructType>(BrokenUpTy)) {
-      DXASSERT_NOMSG(Elems.size() == ParentStructTy->getNumElements());
-      ElemBitPieceOffset += (unsigned)DatLayout.getStructLayout(ParentStructTy)->getElementOffsetInBits(ElemIdx);
-    }
-    else if (VectorType *ParentVecTy = dyn_cast<VectorType>(BrokenUpTy)) {
-      DXASSERT_NOMSG(Elems.size() == ParentVecTy->getNumElements());
-      ElemBitPieceOffset += (unsigned)DatLayout.getTypeStoreSizeInBits(ParentVecTy->getElementType()) * ElemIdx;
-    }
-    else if (ArrayType *ParentArrayTy = dyn_cast<ArrayType>(BrokenUpTy)) {
-      DXASSERT_NOMSG(Elems.size() == ParentArrayTy->getNumElements());
-      ElemBitPieceOffset += (unsigned)DatLayout.getTypeStoreSizeInBits(ParentArrayTy->getElementType()) * ElemIdx;
-    }
-
-    // The bit_piece can only represent the leading contiguous bytes.
-    // If strides are involved, we'll need additional metadata.
-    Type *ElemTy = Elems[ElemIdx]->getType()->getPointerElementType();
-    unsigned ElemBitPieceSize = (unsigned)DatLayout.getTypeStoreSizeInBits(ElemTy);
-    for (const DxilDIArrayDim& ArrayDim : DIArrayDims)
-      ElemBitPieceSize /= ArrayDim.NumElements;
-
-    if (AllocaInst *ElemAlloca = dyn_cast<AllocaInst>(Elems[ElemIdx])) {
-      // Local variables get an @llvm.dbg.declare plus optional metadata for layout stride information.
-      DIExpression *ElemDbgExpr = nullptr;
-      if (ElemBitPieceOffset == 0 && DatLayout.getTypeAllocSizeInBits(ParentTy) == ElemBitPieceSize) {
-        ElemDbgExpr = DbgBuilder->createExpression();
+        // Add a stride dimension
+        DxilDIArrayDim NewDIArrayDim = {};
+        NewDIArrayDim.StrideInBits = (unsigned)DatLayout.getTypeAllocSizeInBits(BrokenUpTy);
+        NewDIArrayDim.NumElements = (unsigned)NewDimNumElements;
+        DIArrayDims.emplace_back(NewDIArrayDim);
       }
       else {
-        ElemDbgExpr = DbgBuilder->createBitPieceExpression(ElemBitPieceOffset, ElemBitPieceSize);
+        DIArrayDims.clear();
       }
 
-      DXASSERT_NOMSG(DbgBuilder != nullptr);
-      DbgDeclareInst *EltDDI = cast<DbgDeclareInst>(DbgBuilder->insertDeclare(
-        ElemAlloca, cast<DILocalVariable>(ParentDbgVariable), ElemDbgExpr, ParentDbgLocation, DbgDeclareInsertPt));
+      // Create the debug info for each element
+      for (unsigned ElemIdx = 0; ElemIdx < Elems.size(); ++ElemIdx) {
+        // Figure out the offset of the element in the broken up type
+        unsigned ElemBitPieceOffset = ParentBitPieceOffset;
+        if (StructType *ParentStructTy = dyn_cast<StructType>(BrokenUpTy)) {
+          DXASSERT_NOMSG(Elems.size() == ParentStructTy->getNumElements());
+          ElemBitPieceOffset += (unsigned)DatLayout.getStructLayout(ParentStructTy)->getElementOffsetInBits(ElemIdx);
+        }
+        else if (VectorType *ParentVecTy = dyn_cast<VectorType>(BrokenUpTy)) {
+          DXASSERT_NOMSG(Elems.size() == ParentVecTy->getNumElements());
+          ElemBitPieceOffset += (unsigned)DatLayout.getTypeStoreSizeInBits(ParentVecTy->getElementType()) * ElemIdx;
+        }
+        else if (ArrayType *ParentArrayTy = dyn_cast<ArrayType>(BrokenUpTy)) {
+          DXASSERT_NOMSG(Elems.size() == ParentArrayTy->getNumElements());
+          ElemBitPieceOffset += (unsigned)DatLayout.getTypeStoreSizeInBits(ParentArrayTy->getElementType()) * ElemIdx;
+        }
 
-      if (!DIArrayDims.empty()) DxilMDHelper::SetVariableDebugLayout(EltDDI, ElemBitPieceOffset, DIArrayDims);
-    }
-    else {
-      llvm_unreachable("Non-AllocaInst SROA'd elements.");
+        // The bit_piece can only represent the leading contiguous bytes.
+        // If strides are involved, we'll need additional metadata.
+        Type *ElemTy = Elems[ElemIdx]->getType()->getPointerElementType();
+        unsigned ElemBitPieceSize = (unsigned)DatLayout.getTypeStoreSizeInBits(ElemTy);
+        for (const DxilDIArrayDim& ArrayDim : DIArrayDims)
+          ElemBitPieceSize /= ArrayDim.NumElements;
+
+        if (AllocaInst *ElemAlloca = dyn_cast<AllocaInst>(Elems[ElemIdx])) {
+          // Local variables get an @llvm.dbg.declare plus optional metadata for layout stride information.
+          DIExpression *ElemDbgExpr = nullptr;
+          if (ElemBitPieceOffset == 0 && DatLayout.getTypeAllocSizeInBits(ParentTy) == ElemBitPieceSize) {
+            ElemDbgExpr = DbgBuilder->createExpression();
+          }
+          else {
+            ElemDbgExpr = DbgBuilder->createBitPieceExpression(ElemBitPieceOffset, ElemBitPieceSize);
+          }
+
+          DXASSERT_NOMSG(DbgBuilder != nullptr);
+          DbgDeclareInst *EltDDI = cast<DbgDeclareInst>(DbgBuilder->insertDeclare(
+            ElemAlloca, cast<DILocalVariable>(ParentDbgVariable), ElemDbgExpr, ParentDbgLocation, DbgDeclareInsertPt));
+
+          if (!DIArrayDims.empty()) DxilMDHelper::SetVariableDebugLayout(EltDDI, ElemBitPieceOffset, DIArrayDims);
+        }
+        else {
+          llvm_unreachable("Non-AllocaInst SROA'd elements.");
+        }
+      }
     }
   }
 }
@@ -1817,7 +1822,10 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
         if (NewV != AI) {
           DXASSERT(AI->getNumUses() == 0, "must have zero users.");
           // Update debug declare.
-          if (DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(AI)) {
+
+          SmallVector<DbgDeclareInst *, 4> dbgDecls;
+          llvm::FindAllocaDbgDeclare(AI, dbgDecls);
+          for (DbgDeclareInst *DDI : dbgDecls) {
             DDI->setArgOperand(0, MetadataAsValue::get(NewV->getContext(), ValueAsMetadata::get(NewV)));
           }
           AI->eraseFromParent();
@@ -4065,7 +4073,7 @@ private:
                   DxilParameterAnnotation &paramAnnotation,
                   std::vector<Value *> &FlatParamList,
                   std::vector<DxilParameterAnnotation> &FlatRetAnnotationList,
-                  BasicBlock *EntryBlock, DbgDeclareInst *DDI);
+                  BasicBlock *EntryBlock, ArrayRef<DbgDeclareInst *> DDIs);
   Value *castResourceArgIfRequired(Value *V, Type *Ty, bool bOut,
                                    DxilParamInputQual inputQual,
                                    IRBuilder<> &Builder);
@@ -4640,7 +4648,9 @@ void SROA_Parameter_HLSL::replaceCastParameter(
     Builder.SetInsertPoint(I->getNextNode());
   }
 
-  if (DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(OldParam)) {
+  SmallVector<DbgDeclareInst *, 4> dbgDecls;
+  llvm::FindAllocaDbgDeclare(OldParam, dbgDecls);
+  for (DbgDeclareInst *DDI : dbgDecls) {
     // Add debug info to new param.
     DIBuilder DIB(*F.getParent(), /*AllowUnresolved*/ false);
     DIExpression *DDIExp = DDI->getExpression();
@@ -4880,7 +4890,7 @@ void SROA_Parameter_HLSL::flattenArgument(
     DxilParameterAnnotation &paramAnnotation,
     std::vector<Value *> &FlatParamList,
     std::vector<DxilParameterAnnotation> &FlatAnnotationList,
-    BasicBlock *EntryBlock, DbgDeclareInst *DDI) {
+    BasicBlock *EntryBlock, ArrayRef<DbgDeclareInst *> DDIs) {
   std::deque<AnnotatedValue> WorkList;
   WorkList.push_back({ Arg, paramAnnotation });
 
@@ -4969,6 +4979,15 @@ void SROA_Parameter_HLSL::flattenArgument(
       const std::string &semantic = annotation.GetSemanticString();
       hlsl::InterpolationMode interpMode = annotation.GetInterpolationMode();
 
+      // Find index of first non-empty field.
+      unsigned firstNonEmptyIx = Elts.size();
+      for (unsigned ri = 0; ri < Elts.size(); ri++) {
+        if (DL.getTypeSizeInBits(Ty->getContainedType(ri)) > 0) {
+          firstNonEmptyIx = ri;
+          break;
+        }
+      }
+
       // Push Elts into workList from right to left to preserve the order.
       for (unsigned ri=0;ri<Elts.size();ri++) {
         unsigned i = Elts.size() - ri - 1;
@@ -4981,10 +5000,12 @@ void SROA_Parameter_HLSL::flattenArgument(
               Twine("semantic '") + eltSem + "' on field overridden by function or enclosing type");
           }
 
-          // Inherit semantic from parent, but only preserve it for the first element.
+          // Inherit semantic from parent, but only preserve it for the first
+          // non-zero-sized element.
           // Subsequent elements are noted with a special value that gets resolved
           // once the argument is completely flattened.
-          EltAnnotation.SetSemanticString(i == 0 ? semantic : ContinuedPseudoSemantic);
+          EltAnnotation.SetSemanticString(
+            i == firstNonEmptyIx ? semantic : ContinuedPseudoSemantic);
         } else if (!eltSem.empty() &&
                  semanticTypeMap.count(eltSem) == 0) {
           Type *EltTy = dxilutil::GetArrayEltTy(Ty);
@@ -5098,7 +5119,7 @@ void SROA_Parameter_HLSL::flattenArgument(
       flatParamAnnotation.SetResourceAttribute(annotation.GetResourceAttribute());
 
       // Add debug info.
-      if (DDI && V != Arg) {
+      if (DDIs.size() && V != Arg) {
         Value *TmpV = V;
         // If V is casted, add debug into to original V.
         if (castParamMap.count(V)) {
@@ -5128,8 +5149,10 @@ void SROA_Parameter_HLSL::flattenArgument(
         }
 #endif // HLSL Change
         debugOffset += size;
-        DIB.insertDeclare(TmpV, DDI->getVariable(), DDIExp, DDI->getDebugLoc(),
-                          Builder.GetInsertPoint());
+        for (DbgDeclareInst *DDI : DDIs) {
+          DIB.insertDeclare(TmpV, DDI->getVariable(), DDIExp, DDI->getDebugLoc(),
+            Builder.GetInsertPoint());
+        }
       }
 
       // Flatten stream out.
@@ -5442,6 +5465,7 @@ static void LegalizeDxilInputOutputs(Function *F,
   // Map from output to the temp created for it.
   MapVector<Argument *, Value*> outputTempMap; // Need deterministic order of iteration
   for (Argument &arg : F->args()) {
+    HLModule::MergeGepUse(&arg);
     Type *Ty = arg.getType();
 
     DxilParameterAnnotation &paramAnnotation = EntryAnnotation->GetParameterAnnotation(arg.getArgNo());
@@ -5617,9 +5641,10 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
 
     DxilParameterAnnotation &paramAnnotation =
         funcAnnotation->GetParameterAnnotation(Arg.getArgNo());
-    DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(&Arg);
+    SmallVector<DbgDeclareInst *, 4> DDIs;
+    llvm::FindAllocaDbgDeclare(&Arg, DDIs);
     flattenArgument(F, &Arg, bForParamTrue, paramAnnotation, FlatParamList,
-                    FlatParamAnnotationList, EntryBlock, DDI);
+                    FlatParamAnnotationList, EntryBlock, DDIs);
 
     unsigned newFlatParamCount = FlatParamList.size() - prevFlatParamCount;
     for (unsigned i = 0; i < newFlatParamCount; i++) {
@@ -5686,10 +5711,11 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
       Builder.CreateStore(UndefValue::get(retType), retValAddr);
     }
 
-    DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(retValAddr);
+    SmallVector<DbgDeclareInst *, 4> DDIs;
+    llvm::FindAllocaDbgDeclare(retValAddr, DDIs);
     flattenArgument(F, retValAddr, bForParamTrue,
                     funcAnnotation->GetRetTypeAnnotation(), FlatRetList,
-                    FlatRetAnnotationList, EntryBlock, DDI);
+                    FlatRetAnnotationList, EntryBlock, DDIs);
 
     const int kRetArgNo = -1;
     for (unsigned i = 0; i < FlatRetList.size(); i++) {
@@ -5861,8 +5887,10 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
       }
 
       // Update arg debug info.
-      DbgDeclareInst *DDI = llvm::FindAllocaDbgDeclare(flatArg);
-      if (DDI) {
+      SmallVector<DbgDeclareInst *, 4> DDIs;
+      llvm::FindAllocaDbgDeclare(flatArg, DDIs);
+      if (DDIs.size()) {
+        Value *VMD = nullptr;
         if (!flatArg->getType()->isPointerTy()) {
           // Create alloca to hold the debug info.
           Value *allocaArg = nullptr;
@@ -5876,10 +5904,11 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
             flatArg->replaceAllUsesWith(ldArg);
             initArg->setOperand(0, flatArg);
           }
-          Value *VMD = MetadataAsValue::get(Context, ValueAsMetadata::get(allocaArg));
-          DDI->setArgOperand(0, VMD);
+          VMD = MetadataAsValue::get(Context, ValueAsMetadata::get(allocaArg));
         } else {
-          Value *VMD = MetadataAsValue::get(Context, ValueAsMetadata::get(Arg));
+          VMD = MetadataAsValue::get(Context, ValueAsMetadata::get(Arg));
+        }
+        for (DbgDeclareInst *DDI : DDIs) {
           DDI->setArgOperand(0, VMD);
         }
       }

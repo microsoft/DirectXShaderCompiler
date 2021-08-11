@@ -1287,6 +1287,12 @@ TEST_F(FileTest, IntrinsicsNonUniformResourceIndex) {
 TEST_F(FileTest, IntrinsicsMultiPrefix) {
   runFileTest("intrinsics.multiprefix.hlsl", Expect::Failure);
 }
+TEST_F(FileTest, IntrinsicsGetAttributeAtVertex) {
+  runFileTest("intrinsics.get-attribute-at-vertex.hlsl", Expect::Failure);
+}
+TEST_F(FileTest, IntrinsicsDot4Add) {
+  runFileTest("intrinsics.dot4add.hlsl", Expect::Failure);
+}
 
 // Vulkan-specific intrinsic functions
 TEST_F(FileTest, IntrinsicsVkCrossDeviceScope) {
@@ -1583,6 +1589,23 @@ TEST_F(FileTest, SpirvStageIOInterfacePS) {
   runFileTest("spirv.interface.ps.hlsl");
 }
 
+TEST_F(FileTest, SpirvStageIOInterfaceVSArraySVClipDistance) {
+  runFileTest("spirv.interface.vs.array.sv_clipdistance.hlsl");
+}
+TEST_F(FileTest, SpirvStageIOInterfacePSArraySVClipDistance) {
+  runFileTest("spirv.interface.ps.array.sv_clipdistance.hlsl");
+}
+TEST_F(FileTest, SpirvStageIOInterfaceVSMultipleArraySVClipDistance) {
+  runFileTest("spirv.interface.vs.multiple.array.sv_clipdistance.hlsl");
+}
+TEST_F(FileTest, SpirvStageIOInterfacePSMultipleArraySVClipDistance) {
+  runFileTest("spirv.interface.ps.multiple.array.sv_clipdistance.hlsl");
+}
+TEST_F(FileTest, SpirvStageIOInterfaceVSClipDistanceInvalidType) {
+  runFileTest("spirv.interface.vs.clip_distance.type.error.hlsl",
+              Expect::Failure);
+}
+
 TEST_F(FileTest, SpirvStageIOAliasBuiltIn) {
   runFileTest("spirv.interface.alias-builtin.hlsl");
 }
@@ -1798,11 +1821,69 @@ TEST_F(FileTest, VulkanLocationCompositeTypes) {
 TEST_F(FileTest, VulkanLocationTooLarge) {
   runFileTest("vk.location.large.hlsl", Expect::Failure);
 }
-TEST_F(FileTest, VulkanLocationReassigned) {
-  runFileTest("vk.location.reassign.hlsl", Expect::Failure);
-}
 TEST_F(FileTest, VulkanLocationPartiallyAssigned) {
   runFileTest("vk.location.mixed.hlsl", Expect::Failure);
+}
+
+std::string getStageLocationReassignTestShader(const std::string &typeDef,
+                                               const std::string &stageVar,
+                                               const std::string &check) {
+  const std::string command(R"(// Run: %dxc -T vs_6_0 -E main)");
+  const std::string shader = command + typeDef + R"(
+[[vk::location(3)]]                   // first use
+float main(
+    [[vk::location(3)]]     float m : M,  // first use
+)" + stageVar + R"(
+) : R {
+    return 1.0;
+}
+)" + check;
+  return shader;
+}
+
+TEST_F(FileTest, VulkanLocationReassigned) {
+  runCodeTest(getStageLocationReassignTestShader(R"()",
+                                                 R"(
+    [[vk::location(3)]]     float n : N,  // error
+    [[vk::location(3)]] out float x : X   // error
+)",
+                                                 R"(
+// CHECK: error: stage input location #3 already assigned
+// CHECK: error: stage output location #3 already assigned
+)"),
+              Expect::Failure);
+}
+
+TEST_F(FileTest, VulkanLocationReassignedForInputVar) {
+  runCodeTest(
+      getStageLocationReassignTestShader(
+          R"(
+struct S {
+    [[vk::location(3)]] float a : A;  // error
+    [[vk::location(3)]] float b : B;  // error
+};
+)",
+          R"(S s)",
+          R"(// CHECK: error: stage input location #3 already assigned)"),
+      Expect::Failure);
+}
+
+TEST_F(FileTest, VulkanLocationReassignedForOutputVar) {
+  runCodeTest(getStageLocationReassignTestShader(
+                  R"(
+struct T {
+    [[vk::location(3)]] float i : A;  // error
+    [[vk::location(3)]] float j : B;  // error
+};
+)",
+                  R"(out T t)",
+                  R"(
+// CHECK: error: stage output location #3 already assigned
+)"),
+              Expect::Failure);
+}
+TEST_F(FileTest, StageVariableDuplicatedLocation) {
+  runFileTest("semantic.duplicated-location.hlsl", Expect::Failure);
 }
 
 TEST_F(FileTest, VulkanExplicitBinding) {
@@ -2111,6 +2192,21 @@ TEST_F(FileTest, VulkanLayoutFxcRulesSBuffer) {
   // structured buffers with fxc layout rules
   setDxLayout();
   runFileTest("vk.layout.sbuffer.fxc.hlsl");
+}
+TEST_F(FileTest, VulkanLayoutFxcRulesSBufferStructSize) {
+  // structured buffers with fxc layout rules
+  setDxLayout();
+  runFileTest("vk.layout.sbuffer.struct-size.with.fxc.rule.hlsl");
+}
+TEST_F(FileTest, VulkanLayoutFxcRulesSBufferStructSizeNested) {
+  // structured buffers with fxc layout rules
+  setDxLayout();
+  runFileTest("vk.layout.sbuffer.nested-struct-size.with.fxc.rule.hlsl");
+}
+TEST_F(FileTest, VulkanLayoutFxcRulesSBufferVectorAndMatrix) {
+  // structured buffers with fxc layout rules
+  setDxLayout();
+  runFileTest("vk.layout.sbuffer.vector-and-matrix.with.fxc.rule.hlsl");
 }
 TEST_F(FileTest, VulkanLayoutFxcRulesCBuffer) {
   // cbuffer/tbuffer/ConstantBuffer/TextureBuffer with fxc layout rules
@@ -2707,6 +2803,105 @@ TEST_F(FileTest, RichDebugInfoScopeAfterCompoundStatement) {
 TEST_F(FileTest, RichDebugInfoTypeStructuredBuffer) {
   runFileTest("rich.debug.structured-buffer.hlsl", Expect::Success,
               /*runValidation*/ false);
+}
+
+TEST_F(FileTest, InlinedCodeTest) {
+  const std::string command(R"(// Run: %dxc -T ps_6_0 -E PSMain)");
+  const std::string code = command + R"(
+struct PSInput
+{
+        float4 color : COLOR;
+};
+
+// CHECK: OpFunctionCall %v4float %src_PSMain
+float4 PSMain(PSInput input) : SV_TARGET
+{
+        return input.color;
+})";
+  runCodeTest(code);
+}
+
+TEST_F(FileTest, InlinedCodeWithErrorTest) {
+  const std::string command(R"(// Run: %dxc -T ps_6_0 -E PSMain)");
+  const std::string code = command + R"(
+struct PSInput
+{
+        float4 color : COLOR;
+};
+
+// CHECK: error: cannot initialize return object of type 'float4' with an lvalue of type 'PSInput'
+float4 PSMain(PSInput input) : SV_TARGET
+{
+        return input;
+})";
+  runCodeTest(code, Expect::Failure);
+}
+
+std::string getVertexPositionTypeTestShader(const std::string &subType,
+                                            const std::string &positionType,
+                                            const std::string &check) {
+  const std::string command(R"(// Run: %dxc -T vs_6_0 -E main)");
+  const std::string code = command + subType + R"(
+struct output {
+)" + positionType + R"(
+};
+
+output main() : SV_Position
+{
+    output result;
+    return result;
+}
+)" + check;
+  return code;
+}
+
+const char *kInvalidPositionTypeForVSErrorMessage =
+    "// CHECK: error: semantic Position must be float4 or a composite type "
+    "recursively including only float4";
+
+TEST_F(FileTest, PositionInVSWithArrayType) {
+  runCodeTest(getVertexPositionTypeTestShader(
+                  "", "float x[4];", kInvalidPositionTypeForVSErrorMessage),
+              Expect::Failure);
+}
+TEST_F(FileTest, PositionInVSWithDoubleType) {
+  runCodeTest(getVertexPositionTypeTestShader(
+                  "", "double4 x;", kInvalidPositionTypeForVSErrorMessage),
+              Expect::Failure);
+}
+TEST_F(FileTest, PositionInVSWithIntType) {
+  runCodeTest(getVertexPositionTypeTestShader(
+                  "", "int4 x;", kInvalidPositionTypeForVSErrorMessage),
+              Expect::Failure);
+}
+TEST_F(FileTest, PositionInVSWithMatrixType) {
+  runCodeTest(getVertexPositionTypeTestShader(
+                  "", "float1x4 x;", kInvalidPositionTypeForVSErrorMessage),
+              Expect::Failure);
+}
+TEST_F(FileTest, PositionInVSWithInvalidFloatVectorType) {
+  runCodeTest(getVertexPositionTypeTestShader(
+                  "", "float3 x;", kInvalidPositionTypeForVSErrorMessage),
+              Expect::Failure);
+}
+TEST_F(FileTest, PositionInVSWithInvalidInnerStructType) {
+  runCodeTest(getVertexPositionTypeTestShader(
+                  R"(
+struct InvalidType {
+  float3 x;
+};)",
+                  "InvalidType x;", kInvalidPositionTypeForVSErrorMessage),
+              Expect::Failure);
+}
+TEST_F(FileTest, PositionInVSWithValidInnerStructType) {
+  runCodeTest(getVertexPositionTypeTestShader(R"(
+struct validType {
+  float4 x;
+};)",
+                                              "validType x;", R"(
+// CHECK: %validType = OpTypeStruct %v4float
+// CHECK:    %output = OpTypeStruct %validType
+)"));
 }
 
 } // namespace

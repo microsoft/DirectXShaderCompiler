@@ -517,6 +517,46 @@ bool insertSeenSemanticsForEntryPointIfNotExist(
   return true;
 }
 
+// Returns whether the type is float4 or a composite type recursively including
+// only float4 e.g., float4, float4[1], struct S { float4 foo[1]; }.
+bool containOnlyVecWithFourFloats(QualType type) {
+  if (type->isReferenceType())
+    type = type->getPointeeType();
+
+  if (is1xNMatrix(type, nullptr, nullptr))
+    return false;
+
+  uint32_t elemCount = 0;
+  if (type->isConstantArrayType()) {
+    const ConstantArrayType *arrayType =
+        (const ConstantArrayType *)type->getAsArrayTypeUnsafe();
+    elemCount = hlsl::GetArraySize(type);
+    return elemCount == 1 &&
+           containOnlyVecWithFourFloats(arrayType->getElementType());
+  }
+
+  if (const auto *structType = type->getAs<RecordType>()) {
+    uint32_t fieldCount = 0;
+    for (const auto *field : structType->getDecl()->fields()) {
+      if (fieldCount != 0)
+        return false;
+      if (!containOnlyVecWithFourFloats(field->getType()))
+        return false;
+      ++fieldCount;
+    }
+    return fieldCount == 1;
+  }
+
+  QualType elemType = {};
+  if (isVectorType(type, &elemType, &elemCount)) {
+    if (const auto *builtinType = elemType->getAs<BuiltinType>()) {
+      return elemCount == 4 && builtinType->getKind() == BuiltinType::Float;
+    }
+    return false;
+  }
+  return false;
+}
+
 } // anonymous namespace
 
 std::string StageVar::getSemanticStr() const {
@@ -1679,6 +1719,23 @@ bool DeclResultIdMapper::checkSemanticDuplication(bool forInput) {
   return success;
 }
 
+bool DeclResultIdMapper::isDuplicatedStageVarLocation(
+    llvm::DenseSet<StageVariableLocationInfo, StageVariableLocationInfo>
+        *stageVariableLocationInfo,
+    const StageVar &var, uint32_t location, uint32_t index) {
+  if (!stageVariableLocationInfo
+           ->insert({var.getEntryPoint(),
+                     var.getSpirvInstr()->getStorageClass(), location, index})
+           .second) {
+    emitError("Multiple stage variables have a duplicated pair of "
+              "location and index at %0 / %1",
+              var.getSpirvInstr()->getSourceLocation())
+        << location << index;
+    return false;
+  }
+  return true;
+}
+
 bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
   if (!checkSemanticDuplication(forInput))
     return false;
@@ -1692,6 +1749,11 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
     // For the ones we don't care, treat as assigned.
     return true;
   };
+
+  /// Set of locations of assigned stage variables used to correctly report
+  /// duplicated stage variable locations.
+  llvm::DenseSet<StageVariableLocationInfo, StageVariableLocationInfo>
+      stageVariableLocationInfo;
 
   // If we have explicit location specified for all input/output variables,
   // use them instead assign by ourselves.
@@ -1729,6 +1791,11 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
       if (var.getIndexAttr())
         spvBuilder.decorateIndex(var.getSpirvInstr(), idx,
                                  var.getSemanticInfo().loc);
+
+      if (!isDuplicatedStageVarLocation(&stageVariableLocationInfo, var, loc,
+                                        idx)) {
+        return false;
+      }
     }
 
     return noError;
@@ -1758,6 +1825,11 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
     if (semaInfo.isTarget()) {
       spvBuilder.decorateLocation(var.getSpirvInstr(), semaInfo.index);
       locSet.useLoc(semaInfo.index);
+
+      if (!isDuplicatedStageVarLocation(&stageVariableLocationInfo, var,
+                                        semaInfo.index, 0)) {
+        return false;
+      }
     } else {
       vars.push_back(&var);
     }
@@ -1777,9 +1849,15 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
               });
   }
 
-  for (const auto *var : vars)
-    spvBuilder.decorateLocation(var->getSpirvInstr(),
-                                locSet.useNextLocs(var->getLocationCount()));
+  for (const auto *var : vars) {
+    uint32_t location = locSet.useNextLocs(var->getLocationCount());
+    spvBuilder.decorateLocation(var->getSpirvInstr(), location);
+
+    if (!isDuplicatedStageVarLocation(&stageVariableLocationInfo, *var,
+                                      location, 0)) {
+      return false;
+    }
+  }
 
   return true;
 }
@@ -3166,6 +3244,13 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   // According to Vulkan spec, the Position BuiltIn can only be used
   // by VSOut, HS/DS/GS In/Out, MSOut.
   case hlsl::Semantic::Kind::Position: {
+    if (sigPointKind == hlsl::SigPoint::Kind::VSOut &&
+        !containOnlyVecWithFourFloats(type)) {
+      emitError("semantic Position must be float4 or a composite type "
+                "recursively including only float4",
+                srcLoc);
+    }
+
     switch (sigPointKind) {
     case hlsl::SigPoint::Kind::VSIn:
     case hlsl::SigPoint::Kind::PCOut:

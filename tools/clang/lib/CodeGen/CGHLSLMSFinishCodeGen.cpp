@@ -3331,13 +3331,14 @@ void ScopeInfo::AddRet(BasicBlock *bbWithRet) {
   // Don't need to put retScope to stack since it cannot nested other scopes.
 }
 
-void ScopeInfo::EndScope(bool bScopeFinishedWithRet) {
+Scope& ScopeInfo::EndScope(bool bScopeFinishedWithRet) {
   unsigned idx = scopeStack.pop_back_val();
   Scope &Scope = GetScope(idx);
   // If whole stmt is finished and end scope bb has not used(nothing branch to
   // it). Then the whole scope is returned.
   Scope.bWholeScopeReturned =
       bScopeFinishedWithRet && Scope.EndScopeBB->user_empty();
+  return Scope;
 }
 
 Scope &ScopeInfo::GetScope(unsigned i) { return scopes[i]; }
