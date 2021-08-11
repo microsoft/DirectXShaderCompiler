@@ -211,6 +211,7 @@ static ArrayRef<LPCSTR> GetPassArgNames(LPCSTR passName) {
   static const LPCSTR DxilInsertPreservesArgs[] = { "AllowPreserves" };
   static const LPCSTR DxilLoopUnrollArgs[] = { "MaxIterationAttempt", "OnlyWarnOnFail" };
   static const LPCSTR DxilOutputColorBecomesConstantArgs[] = { "mod-mode", "constant-red", "constant-green", "constant-blue", "constant-alpha" };
+  static const LPCSTR DxilPIXAddTidToAmplificationShaderPayloadArgs[] = { "dispatchArgY", "dispatchArgZ" };
   static const LPCSTR DxilPIXMeshShaderOutputInstrumentationArgs[] = { "expand-payload", "UAVSize" };
   static const LPCSTR DxilRenameResourcesArgs[] = { "prefix", "from-binding", "keep-name" };
   static const LPCSTR DxilShaderAccessTrackingArgs[] = { "config", "checkForDynamicIndexing" };
@@ -249,6 +250,7 @@ static ArrayRef<LPCSTR> GetPassArgNames(LPCSTR passName) {
   if (strcmp(passName, "dxil-insert-preserves") == 0) return ArrayRef<LPCSTR>(DxilInsertPreservesArgs, _countof(DxilInsertPreservesArgs));
   if (strcmp(passName, "dxil-loop-unroll") == 0) return ArrayRef<LPCSTR>(DxilLoopUnrollArgs, _countof(DxilLoopUnrollArgs));
   if (strcmp(passName, "hlsl-dxil-constantColor") == 0) return ArrayRef<LPCSTR>(DxilOutputColorBecomesConstantArgs, _countof(DxilOutputColorBecomesConstantArgs));
+  if (strcmp(passName, "hlsl-dxil-PIX-add-tid-to-as-payload") == 0) return ArrayRef<LPCSTR>(DxilPIXAddTidToAmplificationShaderPayloadArgs, _countof(DxilPIXAddTidToAmplificationShaderPayloadArgs));
   if (strcmp(passName, "hlsl-dxil-pix-meshshader-output-instrumentation") == 0) return ArrayRef<LPCSTR>(DxilPIXMeshShaderOutputInstrumentationArgs, _countof(DxilPIXMeshShaderOutputInstrumentationArgs));
   if (strcmp(passName, "dxil-rename-resources") == 0) return ArrayRef<LPCSTR>(DxilRenameResourcesArgs, _countof(DxilRenameResourcesArgs));
   if (strcmp(passName, "hlsl-dxil-pix-shader-access-instrumentation") == 0) return ArrayRef<LPCSTR>(DxilShaderAccessTrackingArgs, _countof(DxilShaderAccessTrackingArgs));
@@ -294,6 +296,7 @@ static ArrayRef<LPCSTR> GetPassArgDescriptions(LPCSTR passName) {
   static const LPCSTR DxilInsertPreservesArgs[] = { "None" };
   static const LPCSTR DxilLoopUnrollArgs[] = { "Maximum number of iterations to attempt when iteratively unrolling.", "Whether to just warn when unrolling fails." };
   static const LPCSTR DxilOutputColorBecomesConstantArgs[] = { "None", "None", "None", "None", "None" };
+  static const LPCSTR DxilPIXAddTidToAmplificationShaderPayloadArgs[] = { "None", "None" };
   static const LPCSTR DxilPIXMeshShaderOutputInstrumentationArgs[] = { "None", "None" };
   static const LPCSTR DxilRenameResourcesArgs[] = { "Prefix to add to resource names", "Append binding to name when bound", "Keep name when appending binding" };
   static const LPCSTR DxilShaderAccessTrackingArgs[] = { "None", "None" };
@@ -332,6 +335,7 @@ static ArrayRef<LPCSTR> GetPassArgDescriptions(LPCSTR passName) {
   if (strcmp(passName, "dxil-insert-preserves") == 0) return ArrayRef<LPCSTR>(DxilInsertPreservesArgs, _countof(DxilInsertPreservesArgs));
   if (strcmp(passName, "dxil-loop-unroll") == 0) return ArrayRef<LPCSTR>(DxilLoopUnrollArgs, _countof(DxilLoopUnrollArgs));
   if (strcmp(passName, "hlsl-dxil-constantColor") == 0) return ArrayRef<LPCSTR>(DxilOutputColorBecomesConstantArgs, _countof(DxilOutputColorBecomesConstantArgs));
+  if (strcmp(passName, "hlsl-dxil-PIX-add-tid-to-as-payload") == 0) return ArrayRef<LPCSTR>(DxilPIXAddTidToAmplificationShaderPayloadArgs, _countof(DxilPIXAddTidToAmplificationShaderPayloadArgs));
   if (strcmp(passName, "hlsl-dxil-pix-meshshader-output-instrumentation") == 0) return ArrayRef<LPCSTR>(DxilPIXMeshShaderOutputInstrumentationArgs, _countof(DxilPIXMeshShaderOutputInstrumentationArgs));
   if (strcmp(passName, "dxil-rename-resources") == 0) return ArrayRef<LPCSTR>(DxilRenameResourcesArgs, _countof(DxilRenameResourcesArgs));
   if (strcmp(passName, "hlsl-dxil-pix-shader-access-instrumentation") == 0) return ArrayRef<LPCSTR>(DxilShaderAccessTrackingArgs, _countof(DxilShaderAccessTrackingArgs));
@@ -400,6 +404,8 @@ static bool IsPassOptionName(StringRef S) {
     ||  S.equals("constant-green")
     ||  S.equals("constant-red")
     ||  S.equals("disable-licm-promotion")
+    ||  S.equals("dispatchArgY")
+    ||  S.equals("dispatchArgZ")
     ||  S.equals("enable-load-pre")
     ||  S.equals("enable-pre")
     ||  S.equals("enable-scoped-noalias")

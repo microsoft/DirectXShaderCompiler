@@ -30,20 +30,27 @@ using namespace hlsl;
 using namespace PIXPassHelpers;
 
 class DxilPIXAddTidToAmplificationShaderPayload : public ModulePass {
+  uint32_t m_DispatchArgumentY = 1;
+  uint32_t m_DispatchArgumentZ = 1;
 
 public:
   static char ID; // Pass identification, replacement for typeid
   DxilPIXAddTidToAmplificationShaderPayload() : ModulePass(ID) {}
   const char *getPassName() const override { return "DXIL Add flat thread id to payload from AS to MS"; }
   bool runOnModule(Module &M) override;
+  void applyOptions(PassOptions O) override;
+
 private:
 
     void EmitInstructionsToCopyStructContents(llvm::IRBuilder<> &B,
         llvm::Value *NewStructAlloca,
         llvm::Value*OldStructAlloca);
-
-
 };
+
+void DxilPIXAddTidToAmplificationShaderPayload::applyOptions(PassOptions O) {
+  GetPassOptionUInt32(O, "dispatchArgY", &m_DispatchArgumentY, 1);
+  GetPassOptionUInt32(O, "dispatchArgZ", &m_DispatchArgumentZ, 1);
+}
 
 bool DxilPIXAddTidToAmplificationShaderPayload::runOnModule(Module &M) {
 
@@ -110,16 +117,27 @@ bool DxilPIXAddTidToAmplificationShaderPayload::runOnModule(Module &M) {
       Constant *Opcode =
           HlslOP->GetU32Const((unsigned)DXIL::OpCode::ThreadId);
       Constant *Zero32Arg = HlslOP->GetU32Const(0);
+      Constant *One32Arg = HlslOP->GetU32Const(1);
+      Constant *Two32Arg = HlslOP->GetU32Const(2);
 
       auto ThreadIdX =
           B.CreateCall(ThreadIdFunc, {Opcode, Zero32Arg}, "ThreadIdX");
+      auto ThreadIdY =
+          B.CreateCall(ThreadIdFunc, {Opcode, One32Arg }, "ThreadIdY");
+      auto ThreadIdZ =
+          B.CreateCall(ThreadIdFunc, {Opcode, Two32Arg }, "ThreadIdZ");
+
+      auto * XxY = B.CreateMul(ThreadIdX, HlslOP->GetU32Const(m_DispatchArgumentY));
+      auto * XandY = B.CreateAdd(ThreadIdY, XxY);
+      auto * XYxZ = B.CreateMul(XandY, HlslOP->GetU32Const(m_DispatchArgumentZ));
+      auto * XYZ = B.CreateAdd(ThreadIdZ, XYxZ);
 
 
       SmallVector<Value *, 2> IndexToAppendedValue;
       IndexToAppendedValue.push_back(Zero32Arg);
       IndexToAppendedValue.push_back(HlslOP->GetU32Const(OriginalPayloadStructType->getStructNumElements()));
       auto *PointerToEmbeddedNewValue = B.CreateInBoundsGEP(expanded.ExpandedPayloadStructType, NewStructAlloca, IndexToAppendedValue, "PointerToEmbeddedNewValue");
-      B.CreateStore(ThreadIdX, PointerToEmbeddedNewValue);
+      B.CreateStore(XYZ, PointerToEmbeddedNewValue);
   }
 
   DM.ReEmitDxilResources();

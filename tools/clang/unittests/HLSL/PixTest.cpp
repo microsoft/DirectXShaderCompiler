@@ -1737,7 +1737,7 @@ CComPtr<IDxcBlob> PixTest::RunDxilPIXMeshShaderOutputPass(IDxcBlob *blob) {
       m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
   std::vector<LPCWSTR> Options;
   Options.push_back(L"-opt-mod-passes");
-  Options.push_back(L"-hlsl-dxil-pix-meshshader-output-instrumentation,expand-payload=1");
+  Options.push_back(L"-hlsl-dxil-pix-meshshader-output-instrumentation,expand-payload=1,UAVSize=8192");
 
   CComPtr<IDxcBlob> pOptimizedModule;
   CComPtr<IDxcBlobEncoding> pText;
@@ -1760,7 +1760,7 @@ PixTest::RunDxilPIXAddTidToAmplificationShaderPayloadPass(IDxcBlob *blob) {
       m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
   std::vector<LPCWSTR> Options;
   Options.push_back(L"-opt-mod-passes");
-  Options.push_back(L"-hlsl-dxil-PIX-add-tid-to-as-payload");
+  Options.push_back(L"-hlsl-dxil-PIX-add-tid-to-as-payload,dispatchArgY=1,dispatchArgZ=2");
 
   CComPtr<IDxcBlob> pOptimizedModule;
   CComPtr<IDxcBlobEncoding> pText;
@@ -1819,13 +1819,7 @@ void MSMain(
   RunDxilPIXAddTidToAmplificationShaderPayloadPass(as);
  
   auto ms = Compile(dynamicResourceDecriptorHeapAccess, L"ms_6_6", {}, L"MSMain");
-  auto modifiedMs = RunDxilPIXMeshShaderOutputPass(ms);
-
-  //CComPtr<IDxcBlob> pAnnotatedContainer;
-  //ReplaceDxilBlobPart(ms->GetBufferPointer(), ms->GetBufferSize(),
-  //    modifiedMs, &pAnnotatedContainer);
-  //
-  //std::wstring disasm = Disassemble(pAnnotatedContainer);
+  RunDxilPIXMeshShaderOutputPass(ms);
 
 }
 

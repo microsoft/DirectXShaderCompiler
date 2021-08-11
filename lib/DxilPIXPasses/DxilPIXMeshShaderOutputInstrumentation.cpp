@@ -43,11 +43,11 @@ constexpr size_t CounterOffsetBeyondUsefulData = DebugBufferDumpingGroundSize / 
 // (Note that an earlier version of this list used values without the 0x10
 // bit set. This change is made so that PIX can detect the new (and modified)
 // payload.
-constexpr uint32_t triangleIndexIndicator = 0x11;
-constexpr uint32_t int32ValueIndicator = 0x12;
-constexpr uint32_t floatValueIndicator = 0x13;
-constexpr uint32_t int16ValueIndicator = 0x14;
-constexpr uint32_t float16ValueIndicator = 0x15;
+constexpr uint32_t triangleIndexIndicator = 0x1;
+constexpr uint32_t int32ValueIndicator = 0x2;
+constexpr uint32_t floatValueIndicator = 0x3;
+constexpr uint32_t int16ValueIndicator = 0x4;
+constexpr uint32_t float16ValueIndicator = 0x5;
 
 using namespace llvm;
 using namespace hlsl;
@@ -241,6 +241,12 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M)
               OriginalPayloadStructType = OriginalPayloadStructPointerType->getPointerElementType();
             }
         }
+    }
+    
+    if (OriginalPayloadStructType == nullptr) {
+        // If the application used no payload, then we won't attempt to add one.
+        // TODO: Is there a credible use case with no AS->MS payload?
+        return false;
     }
 
     if (expanded.ExpandedPayloadStructPtrType == nullptr) {

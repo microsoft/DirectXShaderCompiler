@@ -2078,7 +2078,9 @@ class db_dxil(object):
         add_pass('dxil-annotate-with-virtual-regs', 'DxilAnnotateWithVirtualRegister', 'Annotates each instruction in the DXIL module with a virtual register number', [])
         add_pass('dxil-dbg-value-to-dbg-declare', 'DxilDbgValueToDbgDeclare', 'Converts llvm.dbg.value uses to llvm.dbg.declare.', [])
         add_pass('hlsl-dxil-reduce-msaa-to-single', 'DxilReduceMSAAToSingleSample', 'HLSL DXIL Reduce all MSAA reads to single-sample reads', [])
-        add_pass('hlsl-dxil-PIX-add-tid-to-as-payload', 'DxilPIXAddTidToAmplificationShaderPayload', 'HLSL DXIL Add flat thread id to payload from AS to MS', [])
+        add_pass('hlsl-dxil-PIX-add-tid-to-as-payload', 'DxilPIXAddTidToAmplificationShaderPayload', 'HLSL DXIL Add flat thread id to payload from AS to MS', [
+            {'n':'dispatchArgY','t':'int','c':1},
+            {'n':'dispatchArgZ','t':'int','c':1}])
 
         category_lib="dxil_gen"
 
