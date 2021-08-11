@@ -68,7 +68,7 @@ private:
   CallInst *m_OutputUAV = nullptr;
   int m_RemainingReservedSpaceInBytes = 0;
   Constant *m_OffsetMask = nullptr;
-  Value* m_threadUniquifier = nullptr;
+  SmallVector<Value*,2> m_threadUniquifier;
 
   uint64_t m_UAVSize = 1024 * 1024;
   bool m_ExpandPayload = false;
@@ -81,7 +81,7 @@ private:
     IRBuilder<> &Builder;
   };
 
-  Value* insertInstructionsToCreateDisambiguationValue(StructType * originalPayloadStructType, Instruction * firstGetPayload);
+  SmallVector<Value*, 2> insertInstructionsToCreateDisambiguationValue(OP* HlslOP, LLVMContext& Ctx, StructType * originalPayloadStructType, Instruction * firstGetPayload);
   Value *reserveDebugEntrySpace(BuilderContext &BC, uint32_t SpaceInBytes);
   uint32_t UAVDumpingGroundOffset();
   Value *writeDwordAndReturnNewOffset(BuilderContext &BC, Value *TheOffset,
@@ -189,8 +189,8 @@ void DxilPIXMeshShaderOutputInstrumentation::Instrument(BuilderContext &BC,
   }
 }
 
-Value *DxilPIXMeshShaderOutputInstrumentation::
-    insertInstructionsToCreateDisambiguationValue(StructType* originalPayloadStructType, Instruction* firstGetPayload) {
+SmallVector<Value*, 2> DxilPIXMeshShaderOutputInstrumentation::
+    insertInstructionsToCreateDisambiguationValue(OP* HlslOP, LLVMContext& Ctx, StructType* originalPayloadStructType, Instruction* firstGetPayload) {
 
     // When a mesh shader is called from an amplification shader, all of the
     // thread id values are relative to the DispatchMesh call made by
@@ -202,7 +202,26 @@ Value *DxilPIXMeshShaderOutputInstrumentation::
     auto *DerefPointer = Builder.getInt32(0);
     auto *OffsetToExpandedData = Builder.getInt32(originalPayloadStructType->getStructNumElements());
     auto *GEP = Builder.CreateGEP(cast<PointerType>(firstGetPayload->getType()->getScalarType())->getElementType(), firstGetPayload, {DerefPointer, OffsetToExpandedData});
-    return Builder.CreateLoad(GEP, "Disambiguator");
+    SmallVector<Value*, 2> ret;
+    ret.push_back(Builder.CreateLoad(GEP, "Disambiguator0"));
+
+    Constant *Zero32Arg = HlslOP->GetU32Const(0);
+    //Constant *One32Arg = HlslOP->GetU32Const(1);
+    //Constant *Two32Arg = HlslOP->GetU32Const(2);
+
+    auto ThreadIdFunc =
+        HlslOP->GetOpFunc(DXIL::OpCode::GroupId, Type::getInt32Ty(Ctx));
+    Constant *Opcode = HlslOP->GetU32Const((unsigned)DXIL::OpCode::GroupId);
+    auto * ThreadIdX =
+        Builder.CreateCall(ThreadIdFunc, {Opcode, Zero32Arg}, "ThreadIdX");
+    //auto ThreadIdY =
+    //    Builder.CreateCall(ThreadIdFunc, {Opcode, One32Arg}, "ThreadIdY");
+    //auto ThreadIdZ =
+    //    Builder.CreateCall(ThreadIdFunc, {Opcode, Two32Arg}, "ThreadIdZ");
+
+    ret.push_back(ThreadIdX);
+
+    return ret;
 }
 
 bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M)
@@ -261,11 +280,11 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M)
   m_OutputUAV = CreateUAV(DM, Builder, 0, "PIX_DebugUAV_Handle");
 
   if (FirstNewStructGetMeshPayload == nullptr) {
-      m_threadUniquifier = BC.HlslOP->GetU32Const(0);
+    m_threadUniquifier.push_back(BC.HlslOP->GetU32Const(0));
+    m_threadUniquifier.push_back(BC.HlslOP->GetU32Const(0));
   }
   else {
-    // There should be only one anyway, but any GetMeshPayload instruction will do:
-    m_threadUniquifier = insertInstructionsToCreateDisambiguationValue(cast<StructType>(OriginalPayloadStructType), FirstNewStructGetMeshPayload);
+    m_threadUniquifier = insertInstructionsToCreateDisambiguationValue(HlslOP, Ctx, cast<StructType>(OriginalPayloadStructType), FirstNewStructGetMeshPayload);
   }
 
   auto F = HlslOP->GetOpFunc(DXIL::OpCode::EmitIndices, Type::getVoidTy(Ctx));
@@ -281,7 +300,7 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M)
     BuilderContext BC2{M, DM, Ctx, HlslOP, Builder2};
 
     Instrument(BC2, BC2.HlslOP->GetI32Const(triangleIndexIndicator),
-               m_threadUniquifier, Call->getOperand(1),
+               m_threadUniquifier[0], m_threadUniquifier[1], Call->getOperand(1),
                Call->getOperand(2), Call->getOperand(3), Call->getOperand(4));
   }
 
@@ -351,7 +370,7 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M)
       Instrument(
         BC2, 
         BC2.HlslOP->GetI32Const(Overload.tag),
-        m_threadUniquifier,
+        m_threadUniquifier[0], m_threadUniquifier[1], 
         Call->getOperand(1),
         Call->getOperand(2),
         ColumnIndex,
