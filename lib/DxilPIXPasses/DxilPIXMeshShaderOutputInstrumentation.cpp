@@ -225,7 +225,7 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M)
   ExpandedStruct expanded = {};
   Instruction* FirstNewStructGetMeshPayload = nullptr;
   if (m_ExpandPayload) {
-    std::vector<Instruction *> getMeshPayloadInstructions;
+    Instruction * getMeshPayloadInstructions = nullptr;
     llvm::Function *entryFunction = PIXPassHelpers::GetEntryFunction(DM);
     for (inst_iterator I = inst_begin(entryFunction),
         E = inst_end(entryFunction);
@@ -233,9 +233,11 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M)
         if (auto* Instr = llvm::cast<Instruction>(&*I)) {
             if (hlsl::OP::IsDxilOpFuncCallInst(Instr,
               hlsl::OP::OpCode::GetMeshPayload)) {
-              getMeshPayloadInstructions.push_back(Instr);
+              getMeshPayloadInstructions = Instr;
               Type *OriginalPayloadStructPointerType = Instr->getType();
               OriginalPayloadStructType = OriginalPayloadStructPointerType->getPointerElementType();
+              // The validator assures that there is only one call to GetMeshPayload...
+              break;
             }
         }
     }
@@ -251,11 +253,11 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M)
       expanded = ExpandStructType(Ctx, OriginalPayloadStructType);
     }
 
-    for (auto& Instr : getMeshPayloadInstructions) {
+    if (getMeshPayloadInstructions != nullptr) {
 
         Function* DxilFunc = HlslOP->GetOpFunc(OP::OpCode::GetMeshPayload, expanded.ExpandedPayloadStructPtrType);
         Constant* opArg = HlslOP->GetU32Const((unsigned)OP::OpCode::GetMeshPayload);
-        IRBuilder<> Builder(Instr);
+        IRBuilder<> Builder(getMeshPayloadInstructions);
         Value* args[] = { opArg };
         Instruction* payload = Builder.CreateCall(DxilFunc, args);
 
@@ -263,7 +265,7 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M)
             FirstNewStructGetMeshPayload = payload;
         }
 
-        ReplaceAllUsesOfInstructionWithNewValueAndDeleteInstruction(Instr, payload, expanded.ExpandedPayloadStructType);
+        ReplaceAllUsesOfInstructionWithNewValueAndDeleteInstruction(getMeshPayloadInstructions, payload, expanded.ExpandedPayloadStructType);
     }
   }
   
