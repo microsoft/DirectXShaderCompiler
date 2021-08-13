@@ -644,7 +644,7 @@ public:
       return {};
     }
 
-#if 1 //handy for debugging
+#if 0 //handy for debugging
     {
       CComPtr<IDxcBlob> pProgram;
       CheckOperationSucceeded(pResult, &pProgram);

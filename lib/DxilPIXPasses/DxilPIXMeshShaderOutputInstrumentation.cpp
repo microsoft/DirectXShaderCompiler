@@ -40,9 +40,6 @@ constexpr uint64_t DebugBufferDumpingGroundSize = 64 * 1024;
 constexpr size_t CounterOffsetBeyondUsefulData = DebugBufferDumpingGroundSize / 2;
 
 // Keep these in sync with the same-named values in PIX's MeshShaderOutput.cpp
-// (Note that an earlier version of this list used values without the 0x10
-// bit set. This change is made so that PIX can detect the new (and modified)
-// payload.
 constexpr uint32_t triangleIndexIndicator = 0x1;
 constexpr uint32_t int32ValueIndicator = 0x2;
 constexpr uint32_t floatValueIndicator = 0x3;
@@ -246,6 +243,7 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M)
     if (OriginalPayloadStructType == nullptr) {
         // If the application used no payload, then we won't attempt to add one.
         // TODO: Is there a credible use case with no AS->MS payload?
+        // PIX bug #35288335
         return false;
     }
 

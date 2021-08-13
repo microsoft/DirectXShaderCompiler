@@ -1,11 +1,9 @@
 ///////////////////////////////////////////////////////////////////////////////
 //                                                                           //
-// DxilOutputColorBecomesConstant.cpp                                        //
+// DxilPIXAddTidToAmplificationShaderPayload.cpp                             //
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
-//                                                                           //
-// Provides a pass to turn on the early-z flag                               //
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -15,8 +13,6 @@
 #include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DxilPIXPasses/DxilPIXPasses.h"
-#include "dxc/HLSL/DxilGenerationPass.h"
-#include "dxc/HLSL/DxilSpanAllocator.h"
 
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/PassManager.h"
@@ -109,8 +105,7 @@ bool DxilPIXAddTidToAmplificationShaderPayload::runOnModule(Module &M) {
       auto * UserInstruction = llvm::cast<Instruction>(FunctionUser);
       DxilInst_DispatchMesh DispatchMesh(UserInstruction);
 
-      llvm::IRBuilder<> B(Ctx);
-      B.SetInsertPoint(UserInstruction);
+      llvm::IRBuilder<> B(UserInstruction);
 
       auto ThreadIdFunc = HlslOP->GetOpFunc(DXIL::OpCode::ThreadId,
                                                Type::getInt32Ty(Ctx));
