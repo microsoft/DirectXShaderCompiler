@@ -35,6 +35,7 @@ HRESULT SetupRegistryPassForPIX() {
     initializeDxilDebugInstrumentationPass(Registry);
     initializeDxilForceEarlyZPass(Registry);
     initializeDxilOutputColorBecomesConstantPass(Registry);
+    initializeDxilPIXAddTidToAmplificationShaderPayloadPass(Registry);
     initializeDxilPIXMeshShaderOutputInstrumentationPass(Registry);
     initializeDxilReduceMSAAToSingleSamplePass(Registry);
     initializeDxilRemoveDiscardsPass(Registry);
