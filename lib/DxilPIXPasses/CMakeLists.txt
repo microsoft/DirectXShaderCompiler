@@ -14,6 +14,7 @@ add_llvm_library(LLVMDxilPIXPasses
   DxilPIXPasses.cpp
   DxilPIXVirtualRegisters.cpp
   PixPassHelpers.cpp
+  DxilPIXAddTidToAmplificationShaderPayload.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/IR
