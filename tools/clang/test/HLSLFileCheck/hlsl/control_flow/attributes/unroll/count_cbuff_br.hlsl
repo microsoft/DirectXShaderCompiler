@@ -3,9 +3,7 @@
 // Identical to count_cbuff.hlsl, except checks for number of br's
 
 // entry
-// CHECK: br
 // loop iteration
-// CHECK: call float @dx.op.dot3
 // CHECK: br
 // loop iteration
 // CHECK: call float @dx.op.dot3

@@ -4,7 +4,7 @@
 // CHECK: threadId
 // CHECK: flattenedThreadIdInGroup
 // CHECK: textureLoad
-// CHECK: dot4
+// CHECK: dot3
 // CHECK: addrspace(3)
 // CHECK: barrier
 // CHECK: addrspace(3)
