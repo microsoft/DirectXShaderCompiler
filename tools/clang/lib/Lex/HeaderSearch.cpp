@@ -295,6 +295,7 @@ const FileEntry *DirectoryLookup::LookupFile(
     // Concatenate the requested file onto the directory.
     TmpDir = getDir()->getName();
     llvm::sys::path::append(TmpDir, Filename);
+    llvm::sys::path::native(TmpDir); // HLSL Change
     if (SearchPath) {
       StringRef SearchPathRef(getDir()->getName());
       SearchPath->clear();
@@ -601,6 +602,13 @@ const FileEntry *HeaderSearch::LookupFile(
     // If this was an #include_next "/absolute/file", fail.
     if (FromDir) return nullptr;
 
+    // HLSL Change - begin
+    // Normalize file name first
+    llvm::SmallString<128> NormalizedFileName = Filename;
+    llvm::sys::path::native(NormalizedFileName);
+    Filename = NormalizedFileName;
+    // HLSL Change - end
+
     if (SearchPath)
       SearchPath->clear();
     if (RelativePath) {
@@ -635,8 +643,15 @@ const FileEntry *HeaderSearch::LookupFile(
       // Concatenate the requested file onto the directory.
       // FIXME: Portability.  Filename concatenation should be in sys::Path.
       TmpDir = IncluderAndDir.second->getName();
+#if 0 // HLSL change - Use sys::path to append paths
       TmpDir.push_back('/');
       TmpDir.append(Filename.begin(), Filename.end());
+// HLSL change - begin
+#else
+      llvm::sys::path::append(TmpDir, Filename.begin(), Filename.end());
+      llvm::sys::path::native(TmpDir);
+#endif
+// HLSL change - end
 
       // FIXME: We don't cache the result of getFileInfo across the call to
       // getFileAndSuggestModule, because it's a reference to an element of
@@ -802,9 +817,15 @@ const FileEntry *HeaderSearch::LookupFile(
     if (IncludingHFI.IndexHeaderMapHeader) {
       SmallString<128> ScratchFilename;
       ScratchFilename += IncludingHFI.Framework;
+#if 0 // HLSL Change - Normalize file name
       ScratchFilename += '/';
       ScratchFilename += Filename;
-
+// HLSL Change - begin
+#else
+      llvm::sys::path::append(ScratchFilename, Filename);
+      llvm::sys::path::native(ScratchFilename);
+#endif
+// HLSL Change - end
       const FileEntry *FE = LookupFile(
           ScratchFilename, IncludeLoc, /*isAngled=*/true, FromDir, CurDir,
           Includers.front(), SearchPath, RelativePath, SuggestedModule);

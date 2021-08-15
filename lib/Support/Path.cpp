@@ -36,7 +36,7 @@ namespace {
 
 #ifdef LLVM_ON_WIN32
   const char *separators = "\\/";
-  const char preferred_separator = '\\';
+  const char preferred_separator = '/';
 #else
   const char  separators = '/';
   const char preferred_separator = '/';
@@ -530,7 +530,8 @@ void native(const Twine &path, SmallVectorImpl<char> &result) {
 }
 
 void native(SmallVectorImpl<char> &Path) {
-#ifdef LLVM_ON_WIN32
+// #ifdef LLVM_ON_WIN32 // HLSL Change
+#if 0 // HLSL Change - Also use forward slash on windows
   std::replace(Path.begin(), Path.end(), '/', '\\');
 #else
   for (auto PI = Path.begin(), PE = Path.end(); PI < PE; ++PI) {
