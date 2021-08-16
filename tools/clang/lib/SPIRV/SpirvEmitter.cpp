@@ -2567,9 +2567,9 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr) {
     return doExpr(subExpr);
   }
   case CastKind::CK_HLSLVectorToMatrixCast: {
-    // If target type is already an 1xN matrix type, we just return the
+    // If target type is already an 1xN or Mx1 matrix type, we just return the
     // underlying vector.
-    if (is1xNMatrix(toType))
+    if (is1xNMatrix(toType) || isMx1Matrix(toType))
       return doExpr(subExpr);
 
     // A vector can have no more than 4 elements. The only remaining case
