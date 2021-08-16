@@ -2877,6 +2877,14 @@ TEST_F(CompilerTest, CodeGenWaveSize) {
   CodeGenTestCheck(L"attributes_wavesize.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenVectorIsnan) {
+  CodeGenTestCheck(L"isnan_vector_argument.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenVectorAtan2) {
+  CodeGenTestCheck(L"atan2_vector_argument.hlsl");
+}
+
 TEST_F(CompilerTest, LibGVStore) {
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcOperationResult> pResult;
