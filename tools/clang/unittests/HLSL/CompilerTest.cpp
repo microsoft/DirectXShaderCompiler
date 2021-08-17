@@ -188,6 +188,8 @@ public:
   TEST_METHOD(CodeGenRootSigProfile2)
   TEST_METHOD(CodeGenRootSigProfile5)
   TEST_METHOD(CodeGenWaveSize)
+  TEST_METHOD(CodeGenVectorIsnan)
+  TEST_METHOD(CodeGenVectorAtan2)
   TEST_METHOD(PreprocessWhenValidThenOK)
   TEST_METHOD(LibGVStore)
   TEST_METHOD(PreprocessWhenExpandTokenPastingOperandThenAccept)
@@ -2875,6 +2877,14 @@ TEST_F(CompilerTest, CodeGenRootSigProfile5) {
 
 TEST_F(CompilerTest, CodeGenWaveSize) {
   CodeGenTestCheck(L"attributes_wavesize.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenVectorIsnan) {
+  CodeGenTestCheck(L"isnan_vector_argument.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenVectorAtan2) {
+  CodeGenTestCheck(L"atan2_vector_argument.hlsl");
 }
 
 TEST_F(CompilerTest, LibGVStore) {
