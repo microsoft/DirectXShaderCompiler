@@ -188,6 +188,8 @@ public:
   TEST_METHOD(CodeGenRootSigProfile2)
   TEST_METHOD(CodeGenRootSigProfile5)
   TEST_METHOD(CodeGenWaveSize)
+  TEST_METHOD(CodeGenVectorIsnan)
+  TEST_METHOD(CodeGenVectorAtan2)
   TEST_METHOD(PreprocessWhenValidThenOK)
   TEST_METHOD(LibGVStore)
   TEST_METHOD(PreprocessWhenExpandTokenPastingOperandThenAccept)
