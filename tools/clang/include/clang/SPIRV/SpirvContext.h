@@ -132,6 +132,33 @@ struct FunctionTypeMapInfo {
   }
 };
 
+// Vulkan specific image features for a variable with an image type.
+struct VkImageFeatures {
+  // True if it is a Vulkan "Combined Image Sampler".
+  bool isCombinedImageSampler;
+  spv::ImageFormat format; // SPIR-V image format.
+};
+
+// A struct that contains descriptor set and binding numbers.
+struct DescriptorSetAndBinding {
+  uint32_t descriptorSet;
+  uint32_t binding;
+};
+
+// Provides DenseMapInfo for DescriptorSetAndBinding so we can create a
+// DenseSet of DescriptorSetAndBinding.
+struct DescriptorSetAndBindingMapInfo {
+  static inline DescriptorSetAndBinding getEmptyKey() { return {-1, -1}; }
+  static inline DescriptorSetAndBinding getTombstoneKey() { return {-1, -1}; }
+  static unsigned getHashValue(const DescriptorSetAndBinding &Val) {
+    return llvm::hash_combine(Val.descriptorSet, Val.binding);
+  }
+  static bool isEqual(const DescriptorSetAndBinding &LHS,
+                      const DescriptorSetAndBinding &RHS) {
+    return LHS.descriptorSet == RHS.descriptorSet && LHS.binding == RHS.binding;
+  }
+};
+
 /// The class owning various SPIR-V entities allocated in memory during CodeGen.
 ///
 /// All entities should be allocated from an object of this class using
@@ -339,18 +366,34 @@ public:
     return currentLexicalScope;
   }
 
-  /// Function to add/get the mapping from a SPIR-V OpVariable to its image
-  /// format.
-  void registerImageFormatForSpirvVariable(const SpirvVariable *spvVar,
-                                           spv::ImageFormat format) {
+  /// Function to register/get the mapping from a SPIR-V OpVariable to its
+  /// Vulkan specific image feature.
+  void registerVkImageFeaturesForSpvVariable(const SpirvVariable *spvVar,
+                                             VkImageFeatures features) {
     assert(spvVar != nullptr);
-    spvVarToImageFormat[spvVar] = format;
+    spvVarToVkImageFeatures[spvVar] = features;
   }
-  spv::ImageFormat getImageFormatForSpirvVariable(const SpirvVariable *spvVar) {
-    auto itr = spvVarToImageFormat.find(spvVar);
-    if (itr == spvVarToImageFormat.end())
-      return spv::ImageFormat::Unknown;
+  VkImageFeatures
+  getVkImageFeaturesForSpirvVariable(const SpirvVariable *spvVar) {
+    auto itr = spvVarToVkImageFeatures.find(spvVar);
+    if (itr == spvVarToVkImageFeatures.end())
+      return {false, spv::ImageFormat::Unknown};
     return itr->second;
+  }
+
+  /// Function to register/get the set of descriptor set and binding pairs to
+  /// combine images and samplers.
+  void registerDSetBindingForSampledImage(
+      const DescriptorSetAndBinding &descriptorSetAndBinding) {
+    dsetBindingsToCombineImageSampler.insert(descriptorSetAndBinding);
+  }
+  llvm::SmallVector<DescriptorSetAndBinding, 4>
+  getDSetBindingForSampledImage() {
+    llvm::SmallVector<DescriptorSetAndBinding, 4> dsetBindings;
+    for (const auto &dsetBinding : dsetBindingsToCombineImageSampler) {
+      dsetBindings.push_back(dsetBinding);
+    }
+    return dsetBindings;
   }
 
   /// Function to add/get the mapping from a SPIR-V type to its Decl for
@@ -472,8 +515,26 @@ private:
   llvm::DenseMap<const FunctionDecl *, SpirvDebugFunction *>
       declToDebugFunction;
 
-  // Mapping from SPIR-V OpVariable to SPIR-V image format.
-  llvm::DenseMap<const SpirvVariable *, spv::ImageFormat> spvVarToImageFormat;
+  // Mapping from SPIR-V OpVariable to Vulkan image features.
+  llvm::DenseMap<const SpirvVariable *, VkImageFeatures>
+      spvVarToVkImageFeatures;
+
+  // Set of descriptor set and binding pairs that we have to combine images and
+  // samplers.
+  //
+  // When we have the following texture and sampler with
+  // [[vk::combinedImageSampler]] attributes:
+  //
+  //   [[vk::combinedImageSampler]] [[vk::binding(2, 3)]]
+  //   SamplerState sam;
+  //   [[vk::combinedImageSampler]] [[vk::binding(2, 3)]]
+  //   Texture2D<float4> tex;
+  //
+  // we will generate a combined image sampler by combining sam and tex.
+  // dsetBindingsToCombineImageSampler will keep descriptor set and binding
+  // pairs to combine samplers and textures.
+  llvm::DenseSet<DescriptorSetAndBinding, DescriptorSetAndBindingMapInfo>
+      dsetBindingsToCombineImageSampler;
 
   // Set of instructions that already have lowered SPIR-V types.
   llvm::DenseSet<const SpirvInstruction *> instructionsWithLoweredType;
