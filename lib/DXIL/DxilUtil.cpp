@@ -16,6 +16,7 @@
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/HLSL/DxilConvergentName.h"
 #include "dxc/Support/Global.h"
+#include "dxc/HLSL/HLOperations.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/Bitcode/ReaderWriter.h"
@@ -586,6 +587,138 @@ static bool ConsumePrefix(StringRef &Str, StringRef Prefix) {
   if (!Str.startswith(Prefix)) return false;
   Str = Str.substr(Prefix.size());
   return true;
+}
+
+// Used by Live Value Analysis to determine load instrinsics that may be considered for rematerialization.
+bool IsLoadIntrinsic(CallInst *CI) {
+  StringRef name = CI->getCalledFunction()->getName();
+
+  if (name.startswith("dx.op."))
+  {
+    if (name.startswith("dx.op.bufferLoad") ||
+      name.startswith("dx.op.cbufferLoadLegacy") ||
+      name.startswith("dx.op.rawBufferLoad") ||
+      name.startswith("dx.op.sampleLevel") ||
+      name.startswith("dx.op.textureLoad")) {
+      // This is a load intrinsic that could be considered for rematerialization.
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+// Used by Live Value Analysis to determine trivial rematerialization where possible.
+// No consideration is given for rematerialization cost and this is intentional.
+// Returns true if it is possible to rematerialize the instruction.
+bool IsRematerializable(Instruction *I) {
+
+  const unsigned int opc = I->getOpcode();
+  switch (opc)
+  {
+  case Instruction::Add:
+  case Instruction::FAdd:
+  case Instruction::Sub:
+  case Instruction::FSub:
+  case Instruction::Mul:
+  case Instruction::FMul:
+  case Instruction::ICmp:
+  case Instruction::FCmp:
+  case Instruction::UDiv:
+  case Instruction::SDiv:
+  case Instruction::URem:
+  case Instruction::SRem:
+  case Instruction::FDiv:
+  case Instruction::FRem:
+  case Instruction::Shl:
+  case Instruction::LShr:
+  case Instruction::AShr:
+  case Instruction::And:
+  case Instruction::Or:
+  case Instruction::Xor:
+  case Instruction::ShuffleVector:
+  case Instruction::Select:
+
+  case Instruction::ExtractValue:
+  case Instruction::ExtractElement:
+  case Instruction::InsertValue:
+  case Instruction::InsertElement:
+  
+  // Cast operators
+  case Instruction::ZExt:
+  case Instruction::SExt:
+  case Instruction::FPToUI:
+  case Instruction::FPToSI:
+  case Instruction::FPExt:
+  case Instruction::PtrToInt:
+  case Instruction::IntToPtr:
+  case Instruction::SIToFP:
+  case Instruction::UIToFP:
+  case Instruction::Trunc:
+  case Instruction::FPTrunc:
+  case Instruction::BitCast:
+  case Instruction::AddrSpaceCast:
+    return true;
+
+  case Instruction::Call:
+  {
+    const CallInst *CI = cast<CallInst>(I);
+    const Function *F = CI->getCalledFunction();
+    if (!F)
+      return false;
+
+    switch (GetHLOpcodeGroupByName(F)) {
+    case HLOpcodeGroup::HLCast:
+    case HLOpcodeGroup::HLBinOp:
+    case HLOpcodeGroup::HLUnOp:
+      return true;
+    }
+
+    if (OP::IsDxilOpFunc(F)) {
+      DXIL::OpCode DxilOp = OP::GetDxilOpFuncCallInst(CI);
+      switch (DxilOp) {
+      case OP::OpCode::DispatchRaysDimensions:
+      case OP::OpCode::DispatchRaysIndex:
+      case OP::OpCode::PrimitiveIndex:
+      case OP::OpCode::WorldRayDirection:
+      case OP::OpCode::WorldRayOrigin:
+        return true;
+      default:
+        break;
+      }
+    }
+
+    if (F->getName().startswith("dx.op.")) {
+      OP::OpCodeClass opClass;
+      F->getParent()->GetDxilModule().GetOP()->GetOpCodeClass(F, opClass);
+      switch (opClass) {
+      case OP::OpCodeClass::Dot2:
+      case OP::OpCodeClass::Dot3:
+      case OP::OpCodeClass::Dot4:
+      case OP::OpCodeClass::Unary:
+      case OP::OpCodeClass::Binary:
+      case OP::OpCodeClass::Tertiary:
+      case OP::OpCodeClass::LegacyF16ToF32:
+      case OP::OpCodeClass::LegacyF32ToF16:
+      case OP::OpCodeClass::LegacyDoubleToFloat:
+      case OP::OpCodeClass::LegacyDoubleToSInt32:
+      case OP::OpCodeClass::LegacyDoubleToUInt32:
+      case OP::OpCodeClass::CBufferLoad:
+      case OP::OpCodeClass::CBufferLoadLegacy:
+      case OP::OpCodeClass::CreateHandleForLib:
+      case OP::OpCodeClass::CreateHandleFromHeap:
+      case OP::OpCodeClass::RawBufferLoad:
+        return true;
+      default:
+        break;
+      }
+    }
+  }
+
+  default:
+    break;
+  }
+  return false;
 }
 
 bool IsResourceSingleComponent(Type *Ty) {

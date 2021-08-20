@@ -19,6 +19,7 @@ set TEST_EXTRAS=0
 set TEST_EXEC_REQUIRED=0
 set TEST_CLANG_FILTER= /select: "@Priority<1"
 set TEST_EXEC_FILTER=ExecutionTest::*
+set TEST_LVA=0
 set LOG_FILTER=/logOutput:LowWithConsoleBuffering
 set TEST_COMPAT_SUITE=0
 set MANUAL_FILE_CHECK_PATH=
@@ -335,6 +336,10 @@ if "%TEST_DXILCONV%"=="1" (
   set RES_DXILCONV=!ERRORLEVEL!
 )
 
+if "%TEST_LVA%"=="1" (
+  call :runte clang-hlsl-tests.dll /p:"HlslDataDir=%HLSL_SRC_DIR%\tools\clang\test\HLSLFileCheck\hlsl\live_value_analysis" /name:CompilerTest::ManualFileCheckTest /runIgnoredTests /p:"InputPath=%MANUAL_FILE_CHECK_PATH%"
+  set RES_EXEC=!ERRORLEVEL!
+)
 
 if exist "%HCT_EXTRAS%\hcttest-after.cmd" (
   call "%HCT_EXTRAS%\hcttest-after.cmd" %TEST_DIR%

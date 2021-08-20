@@ -120,6 +120,7 @@ public:
   llvm::StringRef OutputReflectionFile; // OPT_Fre
   llvm::StringRef OutputRootSigFile; // OPT_Frs
   llvm::StringRef OutputShaderHashFile; // OPT_Fsh
+  llvm::StringRef OutputLiveValueFile; // OPT_Flv
   llvm::StringRef Preprocess; // OPT_P
   llvm::StringRef TargetProfile; // OPT_target_profile
   llvm::StringRef VariableName; // OPT_Vn
@@ -142,6 +143,7 @@ public:
   bool DebugInfo = false; // OPT__SLASH_Zi
   bool DebugNameForBinary = false; // OPT_Zsb
   bool DebugNameForSource = false; // OPT_Zss
+  bool LVADump = false; // OPT_lva_dump
   bool DumpBin = false;        // OPT_dumpbin
   bool Link = false;        // OPT_link
   bool WarningAsError = false; // OPT__SLASH_WX

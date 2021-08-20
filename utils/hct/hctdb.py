@@ -2111,6 +2111,8 @@ class db_dxil(object):
         add_pass('hlsl-passes-nopause', 'NoPausePasses', 'Clears metadata used for pause and resume', [])
         add_pass('hlsl-passes-pause', 'PausePasses', 'Prepare to pause passes', [])
         add_pass('hlsl-passes-resume', 'ResumePasses', 'Prepare to resume passes', [])
+        add_pass('hlsl-lva', 'LiveValueAnalysis', 'Live Value Analysis for DXR live state', [
+            {'n':"lva-dump", 'i':'LVADump', 't':'bool', 'd':'Use to report DXR live state source link navigation to debug console'}])
         add_pass('hlsl-dxil-lower-handle-for-lib', 'DxilLowerCreateHandleForLib', 'DXIL Lower createHandleForLib', [])
         add_pass('hlsl-dxil-cleanup-annotate-handle', 'DxilCleanupAnnotateHandle', 'DXIL Cleanup extra annotate handle calls', [])
         add_pass('hlsl-dxil-allocate-resources-for-lib', 'DxilAllocateResourcesForLib', 'DXIL Allocate Resources For Library', [])

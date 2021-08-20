@@ -479,6 +479,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.OutputObject = Args.getLastArgValue(OPT_Fo);
   opts.OutputHeader = Args.getLastArgValue(OPT_Fh);
   opts.OutputWarningsFile = Args.getLastArgValue(OPT_Fe);
+  opts.OutputLiveValueFile = Args.getLastArgValue(OPT_Flv);
   opts.OutputReflectionFile = Args.getLastArgValue(OPT_Fre);
   opts.OutputRootSigFile = Args.getLastArgValue(OPT_Frs);
   opts.OutputShaderHashFile = Args.getLastArgValue(OPT_Fsh);
@@ -489,6 +490,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.UseHexLiterals = Args.hasFlag(OPT_Lx, OPT_INVALID, false);
   opts.Preprocess = Args.getLastArgValue(OPT_P);
   opts.AstDump = Args.hasFlag(OPT_ast_dump, OPT_INVALID, false);
+  opts.LVADump = Args.hasFlag(OPT_lva_dump, OPT_INVALID, false);
   opts.CodeGenHighLevel = Args.hasFlag(OPT_fcgl, OPT_INVALID, false);
   opts.AllowPreserveValues = Args.hasFlag(OPT_preserve_intermediate_values, OPT_INVALID, false);
   opts.DebugInfo = Args.hasFlag(OPT__SLASH_Zi, OPT_INVALID, false);
@@ -736,6 +738,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
        !opts.OutputWarnings || !opts.OutputWarningsFile.empty() ||
        !opts.OutputReflectionFile.empty() ||
        !opts.OutputRootSigFile.empty() ||
+       !opts.OutputLiveValueFile.empty() ||
        !opts.OutputShaderHashFile.empty())) {
     opts.OutputHeader = "";
     opts.OutputObject = "";
@@ -743,6 +746,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     opts.OutputWarningsFile = "";
     opts.OutputReflectionFile = "";
     opts.OutputRootSigFile = "";
+    opts.OutputLiveValueFile = "";
     opts.OutputShaderHashFile = "";
     errors << "Warning: compiler options ignored with Preprocess.";
   }
