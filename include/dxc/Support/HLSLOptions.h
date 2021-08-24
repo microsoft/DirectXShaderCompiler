@@ -164,6 +164,7 @@ public:
   bool ShowHelp = false;  // OPT_help
   bool ShowHelpHidden = false; // OPT__help_hidden
   bool ShowOptionNames = false; // OPT_fdiagnostics_show_option
+  bool ShowVersion = false; // OPT_version
   bool UseColor = false; // OPT_Cc
   bool UseHexLiterals = false; // OPT_Lx
   bool UseInstructionByteOffsets = false; // OPT_No
