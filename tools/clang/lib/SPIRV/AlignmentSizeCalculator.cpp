@@ -374,6 +374,8 @@ std::pair<uint32_t, uint32_t> AlignmentSizeCalculator::getAlignmentAndSize(
       // of a single array element, according to rules 1, 2, and 3, and rounded
       // up to the base alignment of a vec4.
       alignment = roundToPow2(alignment, kStd140Vec4Alignment);
+      if (size == 0)
+        size = alignment;
     }
     if (rule == SpirvLayoutRule::FxcCTBuffer) {
       // In fxc cbuffer/tbuffer packing rules, arrays does not affect the data
