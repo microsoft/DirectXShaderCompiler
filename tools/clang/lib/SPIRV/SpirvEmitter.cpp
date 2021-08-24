@@ -33,6 +33,18 @@ const char *getGitCommitHash() { return "<unknown-hash>"; }
 } // namespace clang
 #endif // SUPPORT_QUERY_GIT_COMMIT_INFO
 
+namespace spvtools {
+namespace opt {
+
+// A struct for a pair of descriptor set and binding.
+struct DescriptorSetAndBinding {
+  uint32_t descriptor_set;
+  uint32_t binding;
+};
+
+} // namespace opt
+} // namespace spvtools
+
 namespace clang {
 namespace spirv {
 
@@ -664,12 +676,16 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   // Output the constructed module.
   std::vector<uint32_t> m = spvBuilder.takeModule();
 
+  auto dsetbindingsToCombineImageSampler =
+      spvContext.getDSetBindingForSampledImage();
+
   // In order to flatten composite resources, we must also unroll loops.
   // Therefore we should run legalization before optimization.
   needsLegalization = needsLegalization ||
                       declIdMapper.requiresLegalization() ||
                       spirvOptions.flattenResourceArrays ||
-                      declIdMapper.requiresFlatteningCompositeResources();
+                      declIdMapper.requiresFlatteningCompositeResources() ||
+                      !dsetbindingsToCombineImageSampler.empty();
 
   if (spirvOptions.codeGenHighLevel) {
     beforeHlslLegalization = needsLegalization;
@@ -677,7 +693,8 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     // Run legalization passes
     if (needsLegalization) {
       std::string messages;
-      if (!spirvToolsLegalize(&m, &messages)) {
+      if (!spirvToolsLegalize(&m, &messages,
+                              &dsetbindingsToCombineImageSampler)) {
         emitFatalError("failed to legalize SPIR-V: %0", {}) << messages;
         emitNote("please file a bug report on "
                  "https://github.com/Microsoft/DirectXShaderCompiler/issues "
@@ -12360,8 +12377,10 @@ bool SpirvEmitter::spirvToolsOptimize(std::vector<uint32_t> *mod,
   return optimizer.Run(mod->data(), mod->size(), mod, options);
 }
 
-bool SpirvEmitter::spirvToolsLegalize(std::vector<uint32_t> *mod,
-                                      std::string *messages) {
+bool SpirvEmitter::spirvToolsLegalize(
+    std::vector<uint32_t> *mod, std::string *messages,
+    const llvm::SmallVectorImpl<DescriptorSetAndBinding>
+        *dsetbindingsToCombineImageSampler) {
   spvtools::Optimizer optimizer(featureManager.getTargetEnv());
   optimizer.SetMessageConsumer(
       [messages](spv_message_level_t /*level*/, const char * /*source*/,
@@ -12377,6 +12396,20 @@ bool SpirvEmitter::spirvToolsLegalize(std::vector<uint32_t> *mod,
     optimizer.RegisterPass(spvtools::CreateDescriptorScalarReplacementPass());
     // ADCE should be run after desc_sroa in order to remove potentially
     // illegal types such as structures containing opaque types.
+    optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass());
+  }
+  if (dsetbindingsToCombineImageSampler &&
+      !dsetbindingsToCombineImageSampler->empty()) {
+    std::vector<spvtools::opt::DescriptorSetAndBinding> dsetBindingPairs;
+    for (const auto dsetBinding : *dsetbindingsToCombineImageSampler) {
+      dsetBindingPairs.push_back(
+          {dsetBinding.descriptorSet, dsetBinding.binding});
+    }
+    optimizer.RegisterPass(
+        spvtools::CreateConvertToSampledImagePass(dsetBindingPairs));
+    // ADCE should be run after combining images and samplers in order to
+    // remove potentially illegal types such as structures containing opaque
+    // types.
     optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass());
   }
   optimizer.RegisterPass(spvtools::CreateReplaceInvalidOpcodePass());

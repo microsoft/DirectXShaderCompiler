@@ -1033,9 +1033,13 @@ private:
 
   /// \brief Helper function to run SPIRV-Tools optimizer's legalization passes.
   /// Runs the SPIRV-Tools legalization on the given SPIR-V module |mod|, and
-  /// gets the info/warning/error messages via |messages|.
+  /// gets the info/warning/error messages via |messages|. If
+  /// |dsetbindingsToCombineImageSampler| is not empty, runs
+  /// --convert-to-sampled-image pass.
   /// Returns true on success and false otherwise.
-  bool spirvToolsLegalize(std::vector<uint32_t> *mod, std::string *messages);
+  bool spirvToolsLegalize(std::vector<uint32_t> *mod, std::string *messages,
+                          const llvm::SmallVectorImpl<DescriptorSetAndBinding>
+                              *dsetbindingsToCombineImageSampler);
 
   /// \brief Helper function to run the SPIRV-Tools validator.
   /// Runs the SPIRV-Tools validator on the given SPIR-V module |mod|, and
