@@ -51,7 +51,7 @@ HRESULT CreateDxcIntelliSense(_In_ REFIID riid, _Out_ LPVOID* ppv) throw()
 
 // This is exposed as a helper class, but the implementation works on
 // interfaces; we expect callers should be able to use their own.
-class DxcBasicUnsavedFile : public IDxcUnsavedFile
+class DxcBasicUnsavedFile final : public IDxcUnsavedFile
 {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
