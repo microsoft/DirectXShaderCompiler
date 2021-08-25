@@ -251,6 +251,12 @@ bool isRWTexture(QualType);
 /// \brief Returns true if the given type is an HLSL sampler type.
 bool isSampler(QualType);
 
+/// \brief Returns true if the given type is InputPatch.
+bool isInputPatch(QualType type);
+
+/// \brief Returns true if the given type is OutputPatch.
+bool isOutputPatch(QualType type);
+
 /// \brief Returns true if the given type is SubpassInput.
 bool isSubpassInput(QualType);
 

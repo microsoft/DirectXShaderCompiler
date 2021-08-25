@@ -237,6 +237,9 @@ TEST_F(FileTest, OperatorOverloadingStar) {
 TEST_F(FileTest, OperatorOverloadingMatrixMultiplication) {
   runFileTest("operator.overloading.mat.mul.hlsl");
 }
+TEST_F(FileTest, OperatorOverloadingCorrectnessOfResourceTypeCheck) {
+  runFileTest("operator.overloading.resource.type.check.hlsl");
+}
 
 // For prefix/postfix increment/decrement
 TEST_F(FileTest, UnaryOpPrefixIncrement) {

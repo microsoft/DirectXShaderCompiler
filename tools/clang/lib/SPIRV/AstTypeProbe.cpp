@@ -277,6 +277,20 @@ bool isMxNMatrix(QualType type, QualType *elemType, uint32_t *numRows,
   return false;
 }
 
+bool isInputPatch(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>())
+    return rt->getDecl()->getName() == "InputPatch";
+
+  return false;
+}
+
+bool isOutputPatch(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>())
+    return rt->getDecl()->getName() == "OutputPatch";
+
+  return false;
+}
+
 bool isSubpassInput(QualType type) {
   if (const auto *rt = type->getAs<RecordType>())
     return rt->getDecl()->getName() == "SubpassInput";
@@ -334,7 +348,8 @@ bool isResourceType(QualType type) {
     type = type->getAsArrayTypeUnsafe()->getElementType();
   }
 
-  if (isSubpassInput(type) || isSubpassInputMS(type))
+  if (isSubpassInput(type) || isSubpassInputMS(type) || isInputPatch(type) ||
+      isOutputPatch(type))
     return true;
 
   return hlsl::IsHLSLResourceType(type);
