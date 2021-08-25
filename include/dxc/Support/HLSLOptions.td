@@ -216,6 +216,8 @@ def working_directory_EQ : Joined<["-"], "working-directory=">, Flags<[CoreOptio
 def _all_warnings : Flag<["--"], "all-warnings">, Flags<[CoreOption]>, Alias<Wall>;
 def _help_hidden : Flag<["--"], "help-hidden">, Flags<[DriverOption]>;
 def _help_question : Flag<["-", "/"], "?">, Flags<[DriverOption]>, Alias<help>;
+def _version : Flag<["--"], "version">, Group<hlslcore_Group>, Flags<[DriverOption]>,
+  HelpText<"Display compiler version information">;
 
 //////////////////////////////////////////////////////////////////////////////
 // New HLSL-specific flags.

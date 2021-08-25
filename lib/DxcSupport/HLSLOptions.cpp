@@ -377,6 +377,11 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     return 0;
   }
 
+  opts.ShowVersion = Args.hasFlag(OPT__version, OPT_INVALID, false);
+  if (opts.ShowVersion) {
+    return 0;
+  }
+
   if (missingArgCount) {
     errors << "Argument to '" << Args.getArgString(missingArgIndex)
       << "' is missing.";
