@@ -99,7 +99,9 @@ public:
   }
 
   bool NoOpt = false;
-  explicit DxilConditionalMem2Reg(bool NoOpt=false) : FunctionPass(ID), NoOpt(NoOpt)
+  bool SkipExported = false;  // if true, don't process entry and other exported functions
+  explicit DxilConditionalMem2Reg(bool NoOpt=false, bool SkipExported=false)
+      : FunctionPass(ID), NoOpt(NoOpt), SkipExported(SkipExported)
   {
     initializeDxilConditionalMem2RegPass(*PassRegistry::getPassRegistry());
   }
@@ -132,7 +134,7 @@ public:
           WorkList.push_back(UI);
         }
         else if (MemCpyInst *MC = dyn_cast<MemCpyInst>(UI)) {
-          if (MC->getSource() == I) { // MC reads from our alloca
+          if (MC->getRawSource() == I) { // MC reads from our alloca
             return false;
           }
           WorkList.push_back(UI);
@@ -409,10 +411,39 @@ public:
     return Changed;
   }
 
+  // markPrecise - To save the precise attribute on alloca inst which might be
+  // removed by RemoveAllUnusedAllocas or Mem2Reg, mark precise attribute with
+  // function call on alloca inst stores.
+  bool markPrecise(Function &F) {
+      bool Changed = false;
+      BasicBlock &BB = F.getEntryBlock();
+      for (BasicBlock::iterator I = BB.begin(), E = BB.end(); I != E; ++I)
+          if (AllocaInst *A = dyn_cast<AllocaInst>(I)) {
+              // TODO: Only do this on basic types.
+              if (HLModule::HasPreciseAttributeWithMetadata(A)) {
+                  HLModule::MarkPreciseAttributeOnPtrWithFunctionCall(A,
+                      *(F.getParent()));
+                  Changed = true;
+              }
+          }
+      return Changed;
+  }
+
   bool runOnFunction(Function &F) override {
+    if (SkipExported) {
+      HLModule *hlmodule = &F.getParent()->GetOrCreateHLModule();
+      if (hlmodule->GetEntryFunction() == &F || hlmodule->HasDxilFunctionProps(&F))
+        return false;
+    }
+
     DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
     AssumptionCache *AC = &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
     bool Changed = false;
+
+    // if SkipExported is true, SROA_Parameter_HLSL has not been called yet, which would
+    // propagate the precise attributes. Do it now, before they are lost
+    if (SkipExported)
+        Changed |= markPrecise(F);
 
     Changed |= RewriteOutputArgsDebugInfo(F);
     Changed |= RemoveAllUnusedAllocas(F);
@@ -424,8 +455,8 @@ public:
 };
 char DxilConditionalMem2Reg::ID;
 
-Pass *llvm::createDxilConditionalMem2RegPass(bool NoOpt) {
-  return new DxilConditionalMem2Reg(NoOpt);
+Pass *llvm::createDxilConditionalMem2RegPass(bool NoOpt, bool SkipExported) {
+  return new DxilConditionalMem2Reg(NoOpt, SkipExported);
 }
 
 INITIALIZE_PASS_BEGIN(DxilConditionalMem2Reg, "dxil-cond-mem2reg", "Dxil Conditional Mem2Reg", false, false)

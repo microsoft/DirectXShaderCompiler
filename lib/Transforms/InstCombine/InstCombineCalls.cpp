@@ -390,6 +390,7 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
         return EraseInstFromFunction(CI);
     }
 
+#if 0 // HLSL Change - Don't convert MemTransfer or MemSet instructions to i1/2/4/8 load/stores
     // If we can determine a pointer alignment that is bigger than currently
     // set, update the alignment.
     if (isa<MemTransferInst>(MI)) {
@@ -399,6 +400,7 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
       if (Instruction *I = SimplifyMemSet(MSI))
         return I;
     }
+#endif // HLSL Change - Don't convert MemTransfer or MemSet instructions to i1/2/4/8 load/stores
 
     if (Changed) return II;
   }

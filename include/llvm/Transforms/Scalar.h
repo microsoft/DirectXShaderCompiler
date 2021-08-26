@@ -126,7 +126,7 @@ void initializeSROA_Parameter_HLSLPass(PassRegistry&);
 Pass *createDxilFixConstArrayInitializerPass();
 void initializeDxilFixConstArrayInitializerPass(PassRegistry&);
 
-Pass *createDxilConditionalMem2RegPass(bool NoOpt);
+Pass *createDxilConditionalMem2RegPass(bool NoOpt, bool SkipExported = false);
 void initializeDxilConditionalMem2RegPass(PassRegistry&);
 
 Pass *createDxilLoopUnrollPass(unsigned MaxIterationAttempt, bool OnlyWarnOnFail, bool StructurizeLoopExits);
@@ -213,7 +213,7 @@ Pass *createIndVarSimplifyPass();
 // into:
 //    %Z = add int 2, %X
 //
-FunctionPass *createInstructionCombiningPass();
+FunctionPass *createInstructionCombiningPass(bool SkipExported = false);  // HLSL Change - add SkipExported parameter
 
 //===----------------------------------------------------------------------===//
 //
