@@ -285,6 +285,8 @@ def disable_lifetime_markers : Flag<["-", "/"], "disable-lifetime-markers">, Gro
   HelpText<"Disable generation of lifetime markers where they would be otherwise (6.6+)">;
 def enable_templates: Flag<["-", "/"], "enable-templates">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"Enable template support for HLSL.">;
+def enable_operator_overloading: Flag<["-", "/"], "enable-operator-overloading">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
+  HelpText<"Enable operator overloading support for HLSL.">;
 def strict_udt_casting: Flag<["-", "/"], "strict-udt-casting">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Require explicit casts between different structure types with compatible layouts.">;
 def enable_payload_qualifiers : Flag<["-", "/"], "enable-payload-qualifiers">, Group<hlslcomp_Group>, Flags<[CoreOption, RewriteOption, DriverOption]>,

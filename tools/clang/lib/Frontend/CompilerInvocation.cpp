@@ -1749,7 +1749,19 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.UseMinPrecision = !Args.hasArg(options::OPT_enable_16bit_types);
   // Enable template support for HLSL
   Opts.EnableTemplates = Args.hasArg(options::OPT_enable_templates);
+
+  // Enable operator overloading support for HLSL
+  // If the HLSL version is 2021, allow the operator overloading by default.
+  // If the HLSL version is 2016 or 2018, allow the operator overloading only
+  // when -enable-operator-overloading option is enabled.
+  // If the HLSL version is 2015, do not allow the operator overloading.
+  Opts.EnableOperatorOverloading =
+      Opts.HLSLVersion >= 2021 ||
+      Args.hasArg(options::OPT_enable_operator_overloading);
   Opts.StrictUDTCasting = Args.hasArg(options::OPT_strict_udt_casting);
+  if (Opts.HLSLVersion <= 2015 && Opts.EnableOperatorOverloading) {
+    Diags.Report(diag::err_hlsl_invalid_drv_for_operator_overloading) << ver;
+  }
 #endif // #ifdef MS_SUPPORT_VARIABLE_LANGOPTS
 }
 

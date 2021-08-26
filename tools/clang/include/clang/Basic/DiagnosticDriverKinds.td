@@ -192,4 +192,8 @@ def warn_target_unsupported_nan2008 : Warning<
 def warn_target_unsupported_nanlegacy : Warning<
   "ignoring '-mnan=legacy' option because the '%0' architecture does not support it">,
   InGroup<UnsupportedNan>;
+
+// HLSL Change Starts
+def err_hlsl_invalid_drv_for_operator_overloading : Error<"/enable-operator-overloading is not supported with HLSL Version '%0'">;
+// HLSL Change Ends
 }

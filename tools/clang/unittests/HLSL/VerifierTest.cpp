@@ -46,6 +46,7 @@ public:
   TEST_METHOD(RunConversionsNonNumericAggregates)
   TEST_METHOD(RunCppErrors)
   TEST_METHOD(RunCppErrorsHV2015)
+  TEST_METHOD(RunOperatorOverloadingForNewDelete)
   TEST_METHOD(RunCXX11Attributes)
   TEST_METHOD(RunEnums)
   TEST_METHOD(RunFunctions)
@@ -190,6 +191,10 @@ TEST_F(VerifierTest, RunCppErrors) {
 
 TEST_F(VerifierTest, RunCppErrorsHV2015) {
   CheckVerifiesHLSL(L"cpp-errors-hv2015.hlsl");
+}
+
+TEST_F(VerifierTest, RunOperatorOverloadingForNewDelete) {
+  CheckVerifiesHLSL(L"overloading-new-delete-errors.hlsl");
 }
 
 TEST_F(VerifierTest, RunCXX11Attributes) {

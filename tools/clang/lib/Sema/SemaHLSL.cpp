@@ -13524,7 +13524,11 @@ void Sema::CheckHLSLArrayAccess(const Expr *expr) {
           // we also have to check the first subscript oprator by recursively calling
           // this funciton for the first CXXOperatorCallExpr
           if (isa<CXXOperatorCallExpr>(OperatorCallExpr->getArg(0))) {
-              CheckHLSLArrayAccess(cast<CXXOperatorCallExpr>(OperatorCallExpr->getArg(0)));
+            const CXXOperatorCallExpr *object =
+                cast<CXXOperatorCallExpr>(OperatorCallExpr->getArg(0));
+            if (object->getOperator() == OverloadedOperatorKind::OO_Subscript) {
+              CheckHLSLArrayAccess(object);
+            }
           }
           if (intIndex < 0 || (uint32_t)intIndex >= vectorSize) {
               Diag(RHS->getExprLoc(),

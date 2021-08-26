@@ -1552,6 +1552,49 @@ static ExprResult BuildCookedLiteralOperatorCall(Sema &S, Scope *Scope,
   return S.BuildLiteralOperatorCall(R, OpNameInfo, Args, LitEndLoc);
 }
 
+// HLSL Change Starts
+static bool IsUserDefinedRecordType(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>()) {
+    // HLSL specific types
+    if (hlsl::IsHLSLResourceType(type) || hlsl::IsHLSLVecMatType(type) ||
+        isa<ExtVectorType>(type.getTypePtr()) || type->isBuiltinType() ||
+        type->isArrayType()) {
+      return false;
+    }
+
+    // SubpassInput or SubpassInputMS type
+    if (rt->getDecl()->getName() == "SubpassInput" ||
+        rt->getDecl()->getName() == "SubpassInputMS") {
+      return false;
+    }
+    return true;
+  }
+
+  return false;
+}
+
+static bool DoesTypeDefineOverloadedOperator(QualType type) {
+  if (const RecordType *recordType = type->getAs<RecordType>()) {
+    if (const CXXRecordDecl *cxxRecordDecl =
+            dyn_cast<CXXRecordDecl>(recordType->getDecl())) {
+      bool found_overloaded_operator = false;
+      for (const auto *method : cxxRecordDecl->methods()) {
+        if (method->getOverloadedOperator() != OO_None)
+          found_overloaded_operator = true;
+      }
+      return found_overloaded_operator;
+    }
+  }
+  return false;
+}
+
+static bool IsUserDefinedRecordTypeWithOverloadedOperator(QualType type) {
+  if (!IsUserDefinedRecordType(type))
+    return false;
+  return DoesTypeDefineOverloadedOperator(type);
+}
+// HLSL Change Ends
+
 /// ActOnStringLiteral - The specified tokens were lexed as pasted string
 /// fragments (e.g. "foo" "bar" L"baz").  The result string has to handle string
 /// concatenation ([C99 5.1.1.2, translation phase #6]), so it may come from
@@ -10846,10 +10889,18 @@ ExprResult Sema::BuildBinOp(Scope *S, SourceLocation OpLoc,
     RHSExpr = resolvedRHS.get();
   }
 
-  // HLSL Change: bypass binary operator overload work, which isn't supported in any case;
-  // otherwise more extensive changes need to be done to add HLSL-specific behavior to
-  // be considered when building overload candidate sets
-  if (getLangOpts().CPlusPlus && !getLangOpts().HLSL) {
+  // HLSL Change: The condition of this if-statement must be false for the
+  // binary operator overloading for HLSL-specific resource types because they
+  // must be handled by the following CreateBuiltinBinOp(). If it is a
+  // user-defined type with operator overloading methods, we know it is not a
+  // binary operator overloading for a HLSL-specific resource type. This
+  // if-statement condition does not perfectly checks all the cases, but it
+  // simply checks whether it is a user-defined type with operator overloading
+  // methods or not.
+  if (getLangOpts().CPlusPlus &&
+      (!getLangOpts().HLSL || getLangOpts().EnableOperatorOverloading) &&
+      IsUserDefinedRecordTypeWithOverloadedOperator(LHSExpr->getType()) &&
+      IsUserDefinedRecordType(RHSExpr->getType())) {
     // If either expression is type-dependent, always build an
     // overloaded op.
     if (LHSExpr->isTypeDependent() || RHSExpr->isTypeDependent())

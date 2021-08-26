@@ -331,7 +331,7 @@ bool Parser::ParseOptionalCXXScopeSpecifier(CXXScopeSpec &SS,
         ConsumeToken();
       } else if (Tok.is(tok::kw_operator)) {
         // HLSL Change Starts
-        if (getLangOpts().HLSL && !getLangOpts().EnableTemplates) {
+        if (getLangOpts().HLSL && !getLangOpts().EnableOperatorOverloading) {
           Diag(Tok, diag::err_hlsl_reserved_keyword) << Tok.getName();
           TPA.Commit();
           return true;
@@ -2207,7 +2207,8 @@ bool Parser::ParseUnqualifiedIdTemplateId(CXXScopeSpec &SS,
 bool Parser::ParseUnqualifiedIdOperator(CXXScopeSpec &SS, bool EnteringContext,
                                         ParsedType ObjectType,
                                         UnqualifiedId &Result) {
-  assert(!getLangOpts().HLSL && "not supported in HLSL - unreachable"); // HLSL Change
+  assert((!getLangOpts().HLSL || getLangOpts().EnableOperatorOverloading) &&
+         "not supported in HLSL - unreachable"); // HLSL Change
   assert(Tok.is(tok::kw_operator) && "Expected 'operator' keyword");
   
   // Consume the 'operator' keyword.
@@ -2537,7 +2538,7 @@ bool Parser::ParseUnqualifiedId(CXXScopeSpec &SS, bool EnteringContext,
   //   conversion-function-id
   if (Tok.is(tok::kw_operator)) {
     // HLSL Change Starts
-    if (getLangOpts().HLSL) {
+    if (getLangOpts().HLSL && !getLangOpts().EnableOperatorOverloading) {
       Diag(Tok, diag::err_hlsl_reserved_keyword) << Tok.getName();
       ConsumeToken();
       return true;
