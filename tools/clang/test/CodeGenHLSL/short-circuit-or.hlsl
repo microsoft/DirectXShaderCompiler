@@ -14,7 +14,7 @@
 // CHECK: br i1 %[[foo_cmp]], label %[[true_label:.+]], label %[[false_label:.+]],
 
 // For OR, if first operand is FALSE, goes to evaluate the second operand
-// CHECK: [[false_label]]
+// CHECK: [[false_label]]:
 
 // Second side effect
 // CHECK: call void @dx.op.bufferStore.f32(i32 69, %dx.types.Handle %[[uav_bar]]
