@@ -128,6 +128,9 @@ def fno_diagnostics_show_option : Flag<["-"], "fno-diagnostics-show-option">, Gr
 def fdiagnostics_show_category_EQ : Joined<["-"], "fdiagnostics-show-category=">, Group<hlslcomp_Group>;
 def ferror_limit_EQ : Joined<["-"], "ferror-limit=">, Group<hlslcomp_Group>, Flags<[CoreOption]>;
 
+def import_binding_table : JoinedOrSeparate<["-", "/"], "import-binding-table">, Group<hlsloptz_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
+  HelpText<"Import a binding table to specify resource bindings.">;
+
 def funsafe_math_optimizations : Flag<["-"], "funsafe-math-optimizations">,
   Group<hlsloptz_Group>;
 def fno_unsafe_math_optimizations : Flag<["-"], "fno-unsafe-math-optimizations">,
