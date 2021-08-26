@@ -18,6 +18,7 @@
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilResourceBase.h"
 
+#include <ctype.h>
 #include <set>
 
 using namespace llvm;
@@ -42,7 +43,7 @@ namespace {
       return IntegerConversionStatus::Invalid;
     }
 
-    if (integer.getBitWidth() > 32) {
+    if (integer != 0 && integer.getBitWidth() > 32) {
       return IntegerConversionStatus::OutOfBounds;
     }
 
@@ -254,26 +255,25 @@ bool hlsl::ParseBindingTable(llvm::StringRef fileName, llvm::StringRef content, 
       return true;
     }
 
-    inline bool ParseUnsignedCell(unsigned *outResult) {
+    inline bool ParseReourceSpace(unsigned *outResult) {
       auto loc = GetLoc();
       SmallString<32> str;
       if (!ParseCell(&str))
         return false;
 
       if (str.empty()) {
-        return Error(loc, "Expected unsigned 32-bit integer, but got empty cell.");
+        return Error(loc, "Expected unsigned 32-bit integer for resource space, but got empty cell.");
       }
 
-      llvm::APInt integer;
-      if (llvm::StringRef(str).getAsInteger(0, integer)) {
-        return Error(loc, Twine("'") + str + "' is not a valid 32-bit unsigned integer.");
+      if (auto result = ToUnsigned32(str, outResult)) {
+        switch (result) {
+        case IntegerConversionStatus::OutOfBounds:
+          return Error(loc, Twine() + "'" + str + "' is out of range of an 32-bit unsigned integer.");
+        default:
+          return Error(loc, Twine() + "'" + str + "' is not a valid 32-bit unsigned integer.");
+        }
       }
 
-      if (integer.getBitWidth() > 32) {
-        return Error(loc, Twine() + "'" + str + "' is out of range of an 32-bit unsigned integer.");
-      }
-
-      *outResult = (uint32_t)integer.getLimitedValue();
       return true;
     }
   };
@@ -297,7 +297,7 @@ bool hlsl::ParseBindingTable(llvm::StringRef fileName, llvm::StringRef content, 
     }
 
     for (char &c : column)
-      c = std::tolower(c);
+      c = tolower(c);
 
     auto loc = P.GetLoc();
     if (column == "resourcename") {
@@ -358,7 +358,7 @@ bool hlsl::ParseBindingTable(llvm::StringRef fileName, llvm::StringRef content, 
 
       case ColumnType::Space:
       {
-        if (!P.ParseUnsignedCell(&space))
+        if (!P.ParseReourceSpace(&space))
           return false;
       } break;
       default:

@@ -1943,7 +1943,7 @@ void CompilerTest::TestResourceBindingImpl(
     Texture2D resource;
     RWTexture1D<float> uav_0;
 
-    [RootSignature("CBV(b10,space=30), CBV(b42,space=999), DescriptorTable(Sampler(s1,space=2)), DescriptorTable(SRV(t1,space=2)), DescriptorTable(UAV(u1,space=2))")]
+    [RootSignature("CBV(b10,space=30), CBV(b42,space=999), DescriptorTable(Sampler(s1,space=2)), DescriptorTable(SRV(t1,space=2)), DescriptorTable(UAV(u0,space=0))")]
     float main(float2 uv : UV, uint i : I) :SV_Target {
       return a + b + resource.Sample(samp0, uv).r + uav_0[i];
     }
@@ -2004,7 +2004,7 @@ TEST_F(CompilerTest, CompileWithResourceBindingFileThenOK) {
          resource,     b42,      999  ,
          samp0,        s1,       0x02 ,
          resource,     t1,       2
-         uav_0,        u1,       2,
+         uav_0,        u0,       0,
     )");
 
   // Reordered the columns 1
@@ -2016,7 +2016,7 @@ TEST_F(CompilerTest, CompileWithResourceBindingFileThenOK) {
          resource,     999  ,   b42,  
          samp0,        0x02 ,   s1,   
          resource,     2,       t1,   
-         uav_0,        2,       u1,   
+         uav_0,        0,       u0,   
     )", std::wstring());
 
   // Reordered the columns 2
@@ -2028,7 +2028,7 @@ TEST_F(CompilerTest, CompileWithResourceBindingFileThenOK) {
          999  ,   b42,     resource,         
          0x02 ,   s1,      samp0,        
          2,       t1,      resource,    
-         2,       u1,      uav_0,        
+         0,       u0,      uav_0,        
     )");
 
   // Extra cell at the end of row
@@ -2040,7 +2040,7 @@ TEST_F(CompilerTest, CompileWithResourceBindingFileThenOK) {
          resource,     b42,      999  ,
          samp0,        s1,       0x02,    extra_cell
          resource,     t1,       2
-         uav_0,        u1,       2,
+         uav_0,        u0,       0,
     )", L"Unexpected cell at the end of row. There should only be 3");
 
   // Missing cell in row
@@ -2052,7 +2052,7 @@ TEST_F(CompilerTest, CompileWithResourceBindingFileThenOK) {
          resource,     b42,      999  ,
          samp0,        s1,
          resource,     t1,       2
-         uav_0,        u1,       2,
+         uav_0,        u0,       0,
     )", L"Row ended after just 2 columns. Expected 3.");
 
   // Missing column
@@ -2088,6 +2088,7 @@ TEST_F(CompilerTest, CompileWithResourceBindingFileThenOK) {
          "cb",         b99999999999999999999999999999999999,    30,  
     )",
     L"'99999999999999999999999999999999999' is out of range of an 32-bit unsigned integer.");
+
 
   // Empty resource
   TestResourceBindingImpl(
@@ -2135,7 +2136,7 @@ TEST_F(CompilerTest, CompileWithResourceBindingFileThenOK) {
          ResourceName, Binding, space  
          "cb",         b10,     ,  
     )",
-    L"Expected unsigned 32-bit integer, but got empty cell.");
+    L"Expected unsigned 32-bit integer for resource space, but got empty cell.");
 
   // No Include handler
   TestResourceBindingImpl(
@@ -2155,7 +2156,7 @@ TEST_F(CompilerTest, CompileWithResourceBindingFileThenOK) {
          resource,     b42,      999  ,  " ,, ,",
          samp0,        s1,       0x02 ,  " ,, ,",
          resource,     t1,       2,      " ,, ,",
-         uav_0,        u1,       2,      " ,, ,",
+         uav_0,        u0,       0,      " ,, ,",
     )");
 
   // Newline in the middle of a quote
@@ -2167,7 +2168,7 @@ TEST_F(CompilerTest, CompileWithResourceBindingFileThenOK) {
          resource,     b42,      999  ,  " ,, ,",
          samp0,        s1,       0x02 ,  " ,, ,",
          resource,     t1,       2,      " ,, ,",
-         uav_0,        u1,       2,      " ,
+         uav_0,        u0,       0,      " ,
 
 
     )", L"Unexpected newline inside quotation.");
