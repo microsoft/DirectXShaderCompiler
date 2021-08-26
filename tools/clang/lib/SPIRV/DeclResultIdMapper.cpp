@@ -1285,7 +1285,7 @@ SpirvVariable *DeclResultIdMapper::createPushConstant(const VarDecl *decl) {
 }
 
 SpirvVariable *
-DeclResultIdMapper::createShaderRecordBuffer(const VarDecl *decl, 
+DeclResultIdMapper::createShaderRecordBuffer(const VarDecl *decl,
                                                 ContextUsageKind kind) {
   const auto *recordType =
       hlsl::GetHLSLResourceResultType(decl->getType())->getAs<RecordType>();
@@ -1401,6 +1401,10 @@ SpirvFunction *DeclResultIdMapper::getOrRegisterFn(const FunctionDecl *fn) {
   SpirvFunction *spirvFunction =
       spvBuilder.createSpirvFunction(fn->getReturnType(), fn->getLocation(),
                                      fn->getName(), isPrecise, isNoInline);
+
+  if (fn->getAttr<HLSLExportAttr>())
+    spvBuilder.decorateLinkage(nullptr, spirvFunction, fn->getName(),
+                               spv::LinkageType::Export, fn->getLocation());
 
   // No need to dereference to get the pointer. Function returns that are
   // stand-alone aliases are already pointers to values. All other cases should
