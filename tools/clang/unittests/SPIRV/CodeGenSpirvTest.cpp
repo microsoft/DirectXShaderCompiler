@@ -225,6 +225,22 @@ TEST_F(FileTest, VarVFACEInterface) {
   runFileTest("var.vface.interface.hlsl", Expect::Warning);
 }
 
+TEST_F(FileTest, OperatorOverloadingAssign) {
+  runFileTest("operator.overloading.assign.hlsl");
+}
+TEST_F(FileTest, OperatorOverloadingCall) {
+  runFileTest("operator.overloading.call.hlsl");
+}
+TEST_F(FileTest, OperatorOverloadingStar) {
+  runFileTest("operator.overloading.star.hlsl");
+}
+TEST_F(FileTest, OperatorOverloadingMatrixMultiplication) {
+  runFileTest("operator.overloading.mat.mul.hlsl");
+}
+TEST_F(FileTest, OperatorOverloadingCorrectnessOfResourceTypeCheck) {
+  runFileTest("operator.overloading.resource.type.check.hlsl");
+}
+
 // For prefix/postfix increment/decrement
 TEST_F(FileTest, UnaryOpPrefixIncrement) {
   runFileTest("unary-op.prefix-inc.hlsl");

@@ -159,6 +159,7 @@ public:
   bool EnableDX9CompatMode = false;
   bool EnableFXCCompatMode = false;
   bool EnableTemplates = false;
+  bool EnableOperatorOverloading = false;
   bool StrictUDTCasting = false;
   bool EnablePayloadAccessQualifiers = false;
   bool EnableShortCircuit = false;
