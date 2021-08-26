@@ -26,6 +26,7 @@
 #include "llvm/IR/Module.h"
 #include <memory>
 #include "dxc/DXIL/DxilMetadataHelper.h" // HLSL Change - dx source info
+#include "dxc/DxcBindingTable/DxcBindingTable.h" // HLSL Change
 #include "llvm/Support/Path.h"
 using namespace clang;
 
@@ -212,12 +213,17 @@ namespace {
       }
       if (Builder)
         Builder->Release();
+
       // HLSL Change Begins
+
+      // Add resource binding overrides to the metadata.
+      hlsl::WriteBindingTableToMetadata(*M, CodeGenOpts.HLSLBindingTable);
+
       // Error may happen in Builder->Release for HLSL
       if (CodeGenOpts.HLSLEmbedSourcesInModule) {
+        llvm::LLVMContext &LLVMCtx = M->getContext();
         // Add all file contents in a list of filename/content pairs.
         llvm::NamedMDNode *pContents = nullptr;
-        llvm::LLVMContext &LLVMCtx = M->getContext();
         auto AddFile = [&](StringRef name, StringRef content) {
           if (pContents == nullptr) {
             pContents = M->getOrInsertNamedMetadata(
