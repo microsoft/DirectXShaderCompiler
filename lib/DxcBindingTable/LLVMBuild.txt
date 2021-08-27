@@ -11,6 +11,7 @@
 
 [component_0]
 type = Library
-name = HLSL
+name = DxcBindingTable
 parent = Libraries
-required_libraries = BitReader Core DxcSupport DxilContainer IPA Support DXIL DxcBindingTable
+required_libraries = Core DxcSupport Support DXIL
+

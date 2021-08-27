@@ -22,6 +22,7 @@
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/HLSL/HLMatrixType.h"
 #include "dxc/HLSL/HLModule.h"
+#include "dxc/DxcBindingTable/DxcBindingTable.h"
 #include "llvm/Analysis/DxilValueCache.h"
 #include "dxc/DXIL/DxilMetadataHelper.h"
 
@@ -380,6 +381,14 @@ static bool LegalizeResourceArrays(Module &M, DxilValueCache *DVC) {
   return Changed;
 }
 
+typedef std::unordered_map<std::string, DxilResourceBase *> ResourceMap;
+template<typename T>
+static inline void GatherResources(const std::vector<std::unique_ptr<T> > &List, ResourceMap *Map) {
+  for (const std::unique_ptr<T> &ptr : List) {
+    (*Map)[ptr->GetGlobalName()] = ptr.get();
+  }
+}
+
 static bool LegalizeResources(Module &M, DxilValueCache *DVC) {
 
   bool Changed = false;
@@ -515,7 +524,8 @@ public:
     if (DM.GetCBuffers().size())
       bChanged |= PatchTBuffers(DM);
 
-
+    // Assign resource binding overrides.
+    hlsl::ApplyBindingTableFromMetadata(DM);
 
     // Gather reserved resource registers while we still have
     // unused resources that might have explicit register assignments.
