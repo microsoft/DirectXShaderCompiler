@@ -27,7 +27,7 @@
 
 // Just check there's no branches.
 // NO_SHORT_CIRCUIT-NOT: br i1 %{{.+}}
-// NO_SHORT_CIRCUIT-NOT: br lable %{{.+}}
+// NO_SHORT_CIRCUIT-NOT: br label %{{.+}}
 
 RWBuffer<float> buf_foo : register(u128);
 RWBuffer<float> buf_bar : register(u256);
