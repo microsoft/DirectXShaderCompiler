@@ -19,6 +19,7 @@
 #include "RemoveBufferBlockVisitor.h"
 #include "SortDebugInfoVisitor.h"
 #include "clang/SPIRV/AstTypeProbe.h"
+#include "clang/SPIRV/String.h"
 
 namespace clang {
 namespace spirv {
@@ -1376,6 +1377,22 @@ void SpirvBuilder::decorateCoherent(SpirvInstruction *target,
                                     SourceLocation srcLoc) {
   auto *decor =
       new (context) SpirvDecoration(srcLoc, target, spv::Decoration::Coherent);
+  mod->addDecoration(decor);
+}
+
+void SpirvBuilder::decorateLinkage(SpirvInstruction *targetInst,
+                                   SpirvFunction *targetFunc,
+                                   llvm::StringRef name,
+                                   spv::LinkageType linkageType,
+                                   SourceLocation srcLoc) {
+  SmallVector<uint32_t, 4> operands;
+  const auto &stringWords = string::encodeSPIRVString(name);
+  operands.insert(operands.end(), stringWords.begin(), stringWords.end());
+  operands.push_back(static_cast<uint32_t>(linkageType));
+
+  auto *decor = new (context)
+      SpirvDecoration(srcLoc, targetInst, targetFunc,
+                      spv::Decoration::LinkageAttributes, operands);
   mod->addDecoration(decor);
 }
 

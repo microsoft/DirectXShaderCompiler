@@ -470,6 +470,11 @@ public:
                   spv::Decoration decor,
                   llvm::ArrayRef<SpirvInstruction *> params);
 
+  SpirvDecoration(SourceLocation loc, SpirvInstruction *target,
+                  SpirvFunction *targetFunc, spv::Decoration decor,
+                  llvm::ArrayRef<uint32_t> params = {},
+                  llvm::Optional<uint32_t> index = llvm::None);
+
   DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvDecoration)
 
   // For LLVM-style RTTI
@@ -483,7 +488,7 @@ public:
 
   // Returns the instruction that is the target of the decoration.
   SpirvInstruction *getTarget() const { return target; }
-
+  SpirvFunction *getTargetFunc() const { return targetFunction; }
   spv::Decoration getDecoration() const { return decoration; }
   llvm::ArrayRef<uint32_t> getParams() const { return params; }
   llvm::ArrayRef<SpirvInstruction *> getIdParams() const { return idParams; }
@@ -496,6 +501,7 @@ private:
 
 private:
   SpirvInstruction *target;
+  SpirvFunction *targetFunction;
   spv::Decoration decoration;
   llvm::Optional<uint32_t> index;
   llvm::SmallVector<uint32_t, 4> params;

@@ -640,6 +640,11 @@ public:
   /// \brief Decorates the given target with Coherent
   void decorateCoherent(SpirvInstruction *target, SourceLocation);
 
+  /// \brief Decorates the given target with LinkageAttributes
+  void decorateLinkage(SpirvInstruction *targetInst, SpirvFunction *targetFunc,
+                       llvm::StringRef name, spv::LinkageType linkageType,
+                       SourceLocation);
+
   /// --- Constants ---
   /// Each of these methods can acquire a unique constant from the SpirvContext,
   /// and add the context to the list of constants in the module.
