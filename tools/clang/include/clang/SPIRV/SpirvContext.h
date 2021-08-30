@@ -10,6 +10,7 @@
 #define LLVM_CLANG_SPIRV_SPIRVCONTEXT_H
 
 #include <array>
+#include <limits>
 
 #include "dxc/DXIL/DxilShaderModel.h"
 #include "clang/AST/DeclTemplate.h"
@@ -148,8 +149,14 @@ struct DescriptorSetAndBinding {
 // Provides DenseMapInfo for DescriptorSetAndBinding so we can create a
 // DenseSet of DescriptorSetAndBinding.
 struct DescriptorSetAndBindingMapInfo {
-  static inline DescriptorSetAndBinding getEmptyKey() { return {-1, -1}; }
-  static inline DescriptorSetAndBinding getTombstoneKey() { return {-1, -1}; }
+  static inline DescriptorSetAndBinding getEmptyKey() {
+    return {std::numeric_limits<uint32_t>::max(),
+            std::numeric_limits<uint32_t>::max()};
+  }
+  static inline DescriptorSetAndBinding getTombstoneKey() {
+    return {std::numeric_limits<uint32_t>::max(),
+            std::numeric_limits<uint32_t>::max()};
+  }
   static unsigned getHashValue(const DescriptorSetAndBinding &Val) {
     return llvm::hash_combine(Val.descriptorSet, Val.binding);
   }
