@@ -591,7 +591,14 @@ bool EmitVisitor::visit(SpirvModuleProcessed *inst) {
 
 bool EmitVisitor::visit(SpirvDecoration *inst) {
   initInstruction(inst);
-  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getTarget()));
+  if (inst->getTarget()) {
+    curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getTarget()));
+  } else {
+    assert(inst->getTargetFunc() != nullptr);
+    curInst.push_back(
+        getOrAssignResultId<SpirvFunction>(inst->getTargetFunc()));
+  }
+
   if (inst->isMemberDecoration())
     curInst.push_back(inst->getMemberIndex());
   curInst.push_back(static_cast<uint32_t>(inst->getDecoration()));
