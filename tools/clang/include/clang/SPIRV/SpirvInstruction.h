@@ -470,10 +470,8 @@ public:
                   spv::Decoration decor,
                   llvm::ArrayRef<SpirvInstruction *> params);
 
-  SpirvDecoration(SourceLocation loc, SpirvInstruction *target,
-                  SpirvFunction *targetFunc, spv::Decoration decor,
-                  llvm::ArrayRef<uint32_t> params = {},
-                  llvm::Optional<uint32_t> index = llvm::None);
+  SpirvDecoration(SourceLocation loc, SpirvFunction *targetFunc,
+                  spv::Decoration decor, llvm::ArrayRef<uint32_t> params);
 
   DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvDecoration)
 

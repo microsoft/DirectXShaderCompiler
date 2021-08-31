@@ -1402,9 +1402,10 @@ SpirvFunction *DeclResultIdMapper::getOrRegisterFn(const FunctionDecl *fn) {
       spvBuilder.createSpirvFunction(fn->getReturnType(), fn->getLocation(),
                                      fn->getName(), isPrecise, isNoInline);
 
-  if (fn->getAttr<HLSLExportAttr>())
+  if (fn->getAttr<HLSLExportAttr>()) {
     spvBuilder.decorateLinkage(nullptr, spirvFunction, fn->getName(),
                                spv::LinkageType::Export, fn->getLocation());
+  }
 
   // No need to dereference to get the pointer. Function returns that are
   // stand-alone aliases are already pointers to values. All other cases should

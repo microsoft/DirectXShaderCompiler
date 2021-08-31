@@ -1385,14 +1385,22 @@ void SpirvBuilder::decorateLinkage(SpirvInstruction *targetInst,
                                    llvm::StringRef name,
                                    spv::LinkageType linkageType,
                                    SourceLocation srcLoc) {
+  // We have to set a decoration for the linkage of a global variable or a
+  // function, but we cannot set them at the same time.
+  assert((targetInst == nullptr) != (targetFunc == nullptr));
   SmallVector<uint32_t, 4> operands;
   const auto &stringWords = string::encodeSPIRVString(name);
   operands.insert(operands.end(), stringWords.begin(), stringWords.end());
   operands.push_back(static_cast<uint32_t>(linkageType));
-
-  auto *decor = new (context)
-      SpirvDecoration(srcLoc, targetInst, targetFunc,
-                      spv::Decoration::LinkageAttributes, operands);
+  SpirvDecoration *decor = nullptr;
+  if (targetInst) {
+    decor = new (context) SpirvDecoration(
+        srcLoc, targetInst, spv::Decoration::LinkageAttributes, operands);
+  } else {
+    decor = new (context) SpirvDecoration(
+        srcLoc, targetFunc, spv::Decoration::LinkageAttributes, operands);
+  }
+  assert(decor != nullptr);
   mod->addDecoration(decor);
 }
 

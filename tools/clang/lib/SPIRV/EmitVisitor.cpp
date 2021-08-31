@@ -591,9 +591,9 @@ bool EmitVisitor::visit(SpirvModuleProcessed *inst) {
 
 bool EmitVisitor::visit(SpirvDecoration *inst) {
   initInstruction(inst);
-  if (inst->getTarget())
+  if (inst->getTarget()) {
     curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getTarget()));
-  else {
+  } else {
     assert(inst->getTargetFunc() != nullptr);
     curInst.push_back(
         getOrAssignResultId<SpirvFunction>(inst->getTargetFunc()));

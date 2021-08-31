@@ -641,6 +641,10 @@ public:
   void decorateCoherent(SpirvInstruction *target, SourceLocation);
 
   /// \brief Decorates the given target with LinkageAttributes
+  /// We have to set targetInst as nullptr when it is an imported or exported
+  /// function.
+  /// We have to set targetFunc as nullptr when it is an imported or
+  /// exported global variable.
   void decorateLinkage(SpirvInstruction *targetInst, SpirvFunction *targetFunc,
                        llvm::StringRef name, spv::LinkageType linkageType,
                        SourceLocation);

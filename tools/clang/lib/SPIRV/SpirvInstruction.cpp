@@ -250,16 +250,13 @@ SpirvDecoration::SpirvDecoration(SourceLocation loc,
       target(targetInst), targetFunction(nullptr), decoration(decor), index(llvm::None), params(),
       idParams(ids.begin(), ids.end()) {}
 
-SpirvDecoration::SpirvDecoration(SourceLocation loc,
-                                 SpirvInstruction *targetInst,
-                                 SpirvFunction *targetFunc,
+SpirvDecoration::SpirvDecoration(SourceLocation loc, SpirvFunction *targetFunc,
                                  spv::Decoration decor,
-                                 llvm::ArrayRef<uint32_t> p,
-                                 llvm::Optional<uint32_t> idx)
-    : SpirvInstruction(IK_Decoration, getDecorateOpcode(decor, idx),
+                                 llvm::ArrayRef<uint32_t> p)
+    : SpirvInstruction(IK_Decoration, spv::Op::OpDecorate,
                        /*type*/ {}, loc),
-      target(targetInst), targetFunction(targetFunc), decoration(decor),
-      index(idx), params(p.begin(), p.end()), idParams() {}
+      target(nullptr), targetFunction(targetFunc), decoration(decor),
+      index(llvm::None), params(p.begin(), p.end()), idParams() {}
 
 spv::Op SpirvDecoration::getDecorateOpcode(
     spv::Decoration decoration, const llvm::Optional<uint32_t> &memberIndex) {
