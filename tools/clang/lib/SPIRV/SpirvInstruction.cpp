@@ -225,7 +225,7 @@ SpirvDecoration::SpirvDecoration(SourceLocation loc,
                                  llvm::Optional<uint32_t> idx)
     : SpirvInstruction(IK_Decoration, getDecorateOpcode(decor, idx),
                        /*type*/ {}, loc),
-      target(targetInst), decoration(decor), index(idx),
+      target(targetInst), targetFunction(nullptr), decoration(decor), index(idx),
       params(p.begin(), p.end()), idParams() {}
 
 SpirvDecoration::SpirvDecoration(SourceLocation loc,
@@ -235,7 +235,8 @@ SpirvDecoration::SpirvDecoration(SourceLocation loc,
                                  llvm::Optional<uint32_t> idx)
     : SpirvInstruction(IK_Decoration, getDecorateOpcode(decor, idx),
                        /*type*/ {}, loc),
-      target(targetInst), decoration(decor), index(idx), params(), idParams() {
+      target(targetInst), targetFunction(nullptr), decoration(decor), index(idx),
+      params(), idParams() {
   const auto &stringWords = string::encodeSPIRVString(strParam);
   params.insert(params.end(), stringWords.begin(), stringWords.end());
 }
@@ -246,8 +247,16 @@ SpirvDecoration::SpirvDecoration(SourceLocation loc,
                                  llvm::ArrayRef<SpirvInstruction *> ids)
     : SpirvInstruction(IK_Decoration, spv::Op::OpDecorateId,
                        /*type*/ {}, loc),
-      target(targetInst), decoration(decor), index(llvm::None), params(),
+      target(targetInst), targetFunction(nullptr), decoration(decor), index(llvm::None), params(),
       idParams(ids.begin(), ids.end()) {}
+
+SpirvDecoration::SpirvDecoration(SourceLocation loc, SpirvFunction *targetFunc,
+                                 spv::Decoration decor,
+                                 llvm::ArrayRef<uint32_t> p)
+    : SpirvInstruction(IK_Decoration, spv::Op::OpDecorate,
+                       /*type*/ {}, loc),
+      target(nullptr), targetFunction(targetFunc), decoration(decor),
+      index(llvm::None), params(p.begin(), p.end()), idParams() {}
 
 spv::Op SpirvDecoration::getDecorateOpcode(
     spv::Decoration decoration, const llvm::Optional<uint32_t> &memberIndex) {
