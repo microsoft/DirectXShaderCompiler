@@ -105,16 +105,26 @@ FileRunCommandResult FileRunCommandPart::Run(dxc::DxcDllSupport &DllSupport, con
   else if (0 == _stricmp(Command.c_str(), "%opt")) {
     return RunOpt(DllSupport, Prior);
   }
-#ifdef _WIN32
   else if (0 == _stricmp(Command.c_str(), "%D3DReflect")) {
+#ifdef _WIN32
     return RunD3DReflect(DllSupport, Prior);
-  }
+#else
+    FileRunCommandResult result = FileRunCommandResult::Success("Can't run D3DReflect on non-windows, so just assuming success");
+    result.AbortPipeline = true;
+    return result;
 #endif
+  }
   else if (0 == _stricmp(Command.c_str(), "%dxr")) {
     return RunDxr(DllSupport, Prior);
   }
   else if (0 == _stricmp(Command.c_str(), "%dxl")) {
+#ifdef _WIN32
     return RunLink(DllSupport, Prior);
+#else
+    FileRunCommandResult result = FileRunCommandResult::Success("Can't run dxl on non-windows, so just assuming success");
+    result.AbortPipeline = true;
+    return result;
+#endif
   }
   else if (pPluginToolsPaths != nullptr) {
     auto it = pPluginToolsPaths->find(Command.c_str());

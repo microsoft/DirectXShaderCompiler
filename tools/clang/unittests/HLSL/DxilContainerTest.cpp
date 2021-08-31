@@ -791,6 +791,7 @@ TEST_F(DxilContainerTest, CompileWhenSigSquareThenIncludeSplit) {
 #endif
 }
 
+#ifdef _WIN32 // - Reflection unsupported
 TEST_F(DxilContainerTest, CompileAS_CheckPSV0) {
   if (m_ver.SkipDxilVersion(1, 5)) return;
   const char asSource[] =
@@ -1107,8 +1108,6 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT2) {
 
 static uint32_t EncodedVersion_lib_6_3 = hlsl::EncodeVersion(hlsl::DXIL::ShaderKind::Library, 6, 3);
 static uint32_t EncodedVersion_vs_6_3 = hlsl::EncodeVersion(hlsl::DXIL::ShaderKind::Vertex, 6, 3);
-
-#ifdef _WIN32 // - Reflection unsupported
 
 static void Ref1_CheckCBuffer_Globals(ID3D12ShaderReflectionConstantBuffer *pCBReflection, D3D12_SHADER_BUFFER_DESC &cbDesc) {
   std::string cbName = cbDesc.Name;
