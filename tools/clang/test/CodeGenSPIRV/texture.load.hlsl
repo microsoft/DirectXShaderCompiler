@@ -12,11 +12,16 @@ Texture3D        <uint3> t6 : register(t6);
 Texture2DMS     <float>  t7 : register(t7);
 Texture2DMSArray<float3> t8 : register(t8);
 
+Texture1D       <bool>   t9 : register(t9);
+Texture2D       <bool>  t10 : register(t10);
+Texture2D       <bool3> t11 : register(t11);
+
 // CHECK: OpCapability SparseResidency
 
 // CHECK: [[v2ic:%\d+]] = OpConstantComposite %v2int %int_1 %int_2
 // CHECK: [[v4ic:%\d+]] = OpConstantComposite %v4int %int_1 %int_2 %int_3 %int_4
 // CHECK: [[v3ic:%\d+]] = OpConstantComposite %v3int %int_3 %int_3 %int_3
+// CHECK: [[v3uint000:%\d+]] = OpConstantComposite %v3uint %uint_0 %uint_0 %uint_0
 
 // CHECK: %SparseResidencyStruct = OpTypeStruct %uint %v4float
 // CHECK: %SparseResidencyStruct_0 = OpTypeStruct %uint %v4int
@@ -58,6 +63,8 @@ float4 main(int3 location: A, int offset: B) : SV_Target {
 
     float val7;
     float3 val8;
+    bool val9;
+    bool3 val10;
     int sampleIndex = 7;
     int2 pos2 = int2(2, 3);
     int3 pos3 = int3(2, 3, 4);
@@ -90,6 +97,36 @@ float4 main(int3 location: A, int offset: B) : SV_Target {
 // CHECK-NEXT: [[f81:%\d+]] = OpImageFetch %v4float [[t81]] [[pos3]] ConstOffset|Sample [[v2ic]] [[si3]]
 // CHECK-NEXT:     {{%\d+}} = OpVectorShuffle %v3float [[f81]] [[f81]] 0 1 2
     val8 = t8.Load(pos3, sampleIndex, int2(1,2));
+
+// CHECK:       [[v0:%\d+]] = OpLoad %v2int %pos2
+// CHECK-NEXT:  [[v1:%\d+]] = OpCompositeExtract %int [[v0]] 0
+// CHECK-NEXT:  [[v2:%\d+]] = OpCompositeExtract %int [[v0]] 1
+// CHECK-NEXT:  [[v3:%\d+]] = OpLoad %type_1d_image_0 %t9
+// CHECK-NEXT:  [[v4:%\d+]] = OpImageFetch %v4uint [[v3]] [[v1]] Lod [[v2]]
+// CHECK-NEXT:  [[v5:%\d+]] = OpCompositeExtract %uint [[v4]] 0
+// CHECK-NEXT:  [[v6:%\d+]] = OpINotEqual %bool [[v5]] %uint_0
+// CHECK-NEXT:                OpStore %val9 [[v6]]
+    val9 = t9.Load(pos2);
+
+// CHECK-NEXT:  [[v10:%\d+]] = OpLoad %v3int %pos3
+// CHECK-NEXT:  [[v11:%\d+]] = OpVectorShuffle %v2int [[v10]] [[v10]] 0 1
+// CHECK-NEXT:  [[v12:%\d+]] = OpCompositeExtract %int [[v10]] 2
+// CHECK-NEXT:  [[v13:%\d+]] = OpLoad %type_2d_image_2 %t10
+// CHECK-NEXT:  [[v14:%\d+]] = OpImageFetch %v4uint [[v13]] [[v11]] Lod [[v12]]
+// CHECK-NEXT:  [[v15:%\d+]] = OpCompositeExtract %uint [[v14]] 0
+// CHECK-NEXT:  [[v16:%\d+]] = OpINotEqual %bool [[v15]] %uint_0
+// CHECK-NEXT:                 OpStore %val9 [[v16]]
+    val9 = t10.Load(pos3);
+
+// CHECK-NEXT:  [[v20:%\d+]] = OpLoad %v3int %pos3
+// CHECK-NEXT:  [[v21:%\d+]] = OpVectorShuffle %v2int [[v20]] [[v20]] 0 1
+// CHECK-NEXT:  [[v22:%\d+]] = OpCompositeExtract %int [[v20]] 2
+// CHECK-NEXT:  [[v23:%\d+]] = OpLoad %type_2d_image_2 %t11
+// CHECK-NEXT:  [[v24:%\d+]] = OpImageFetch %v4uint [[v23]] [[v21]] Lod [[v22]]
+// CHECK-NEXT:  [[v25:%\d+]] = OpVectorShuffle %v3uint [[v24]] [[v24]] 0 1 2
+// CHECK-NEXT:  [[v26:%\d+]] = OpINotEqual %v3bool [[v25]] [[v3uint000]]
+// CHECK-NEXT:                 OpStore %val10 [[v26]]
+    val10 = t11.Load(pos3);
 
 /////////////////////////////////
 /// Using the Status argument ///

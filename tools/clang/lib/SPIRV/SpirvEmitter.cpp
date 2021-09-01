@@ -3652,6 +3652,7 @@ SpirvInstruction *SpirvEmitter::processBufferTextureLoad(
   QualType elemType = sampledType;
   uint32_t elemCount = 1;
   bool isTemplateOverStruct = false;
+  bool isTemplateTypeBool = false;
 
   // Check whether the template type is a vector type or struct type.
   if (!isVectorType(sampledType, &elemType, &elemCount)) {
@@ -3664,6 +3665,13 @@ SpirvInstruction *SpirvEmitter::processBufferTextureLoad(
                                  &elemCount))
         return nullptr;
     }
+  }
+
+  // Check whether template type is bool.
+  if (elemType->isBooleanType()) {
+      isTemplateTypeBool = true;
+      // Replace with unsigned int, and cast back to bool later.
+      elemType = astContext.getUIntPtrType();
   }
 
   {
@@ -3698,6 +3706,12 @@ SpirvInstruction *SpirvEmitter::processBufferTextureLoad(
   if (isTemplateOverStruct) {
     // Convert to the struct so that we are consistent with types in the AST.
     retVal = convertVectorToStruct(sampledType, elemType, retVal, loc);
+  }
+
+  // If the result type is a bool, after loading the uint, convert it to boolean.
+  if (isTemplateTypeBool) {
+    const QualType toType = elemCount > 1 ? astContext.getExtVectorType(elemType, elemCount) : elemType;
+    retVal = castToBool(retVal, toType, sampledType, loc);
   }
   retVal->setRValue();
   return retVal;
