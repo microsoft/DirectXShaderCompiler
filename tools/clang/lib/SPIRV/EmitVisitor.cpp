@@ -1714,6 +1714,10 @@ uint32_t EmitTypeHandler::getOrCreateConstantBool(SpirvConstantBoolean *inst) {
   if (!isSpecConst && emittedConstantBools[index]) {
     // Already emitted this constant. Reuse.
     inst->setResultId(emittedConstantBools[index]->getResultId());
+  } else if (isSpecConst && emittedSpecConstantInstructions.find(inst) !=
+                                emittedSpecConstantInstructions.end()) {
+    // We've already emitted this SpecConstant. Reuse.
+    return inst->getResultId();
   } else {
     // Constant wasn't emitted in the past.
     const uint32_t typeId = emitType(inst->getResultType());
@@ -1722,8 +1726,11 @@ uint32_t EmitTypeHandler::getOrCreateConstantBool(SpirvConstantBoolean *inst) {
     curTypeInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
     finalizeTypeInstruction();
     // Remember this constant for the future (if not a spec constant)
-    if (!isSpecConst)
+    if (isSpecConst) {
+      emittedSpecConstantInstructions.insert(inst);
+    } else {
       emittedConstantBools[index] = inst;
+    }
   }
 
   return inst->getResultId();
@@ -1792,7 +1799,7 @@ uint32_t EmitTypeHandler::getOrCreateConstantFloat(SpirvConstantFloat *inst) {
 
   // SpecConstant instructions are not unique, so we should not re-use existing
   // spec constants.
-  if (!isSpecConst) {
+  if (!isSpecConstant) {
     // If this constant has already been emitted, return its result-id.
     auto foundResultId = emittedConstantFloats.find(valueTypePair);
     if (foundResultId != emittedConstantFloats.end()) {
@@ -1800,6 +1807,9 @@ uint32_t EmitTypeHandler::getOrCreateConstantFloat(SpirvConstantFloat *inst) {
       inst->setResultId(existingConstantResultId);
       return existingConstantResultId;
     }
+  } else if (emittedSpecConstantInstructions.find(inst) !=
+             emittedSpecConstantInstructions.end()) {
+    return inst->getResultId();
   }
 
   // Start constructing the instruction
@@ -1837,8 +1847,11 @@ uint32_t EmitTypeHandler::getOrCreateConstantFloat(SpirvConstantFloat *inst) {
   finalizeTypeInstruction();
 
   // Remember this constant for future (if not a SpecConstant)
-  if (!isSpecConst)
+  if (isSpecConst) {
+    emittedSpecConstantInstructions.insert(inst);
+  } else {
     emittedConstantFloats[valueTypePair] = constantResultId;
+  }
 
   return constantResultId;
 }
@@ -1861,6 +1874,9 @@ EmitTypeHandler::getOrCreateConstantInt(llvm::APInt value,
         constantInstruction->setResultId(existingConstantResultId);
       return existingConstantResultId;
     }
+  } else if (emittedSpecConstantInstructions.find(constantInstruction) !=
+             emittedSpecConstantInstructions.end()) {
+    return constantInstruction->getResultId();
   }
 
   assert(isa<IntegerType>(type));
@@ -1912,8 +1928,10 @@ EmitTypeHandler::getOrCreateConstantInt(llvm::APInt value,
 
   finalizeTypeInstruction();
 
-  // Remember this constant for future (not needed for SpecConstants)
-  if (!isSpecConst)
+  // Remember this constant for future
+  if (isSpecConst)
+    emittedSpecConstantInstructions.insert(constantInstruction);
+  else
     emittedConstantInts[valueTypePair] = constantResultId;
 
   return constantResultId;
@@ -1946,6 +1964,9 @@ EmitTypeHandler::getOrCreateConstantComposite(SpirvConstantComposite *inst) {
               return false;
           return true;
         });
+  } else if (emittedSpecConstantInstructions.find(inst) !=
+             emittedSpecConstantInstructions.end()) {
+    return inst->getResultId();
   }
 
   if (!isSpecConst && found != emittedConstantComposites.end()) {
@@ -1961,9 +1982,12 @@ EmitTypeHandler::getOrCreateConstantComposite(SpirvConstantComposite *inst) {
       curTypeInst.push_back(getOrAssignResultId<SpirvInstruction>(constituent));
     finalizeTypeInstruction();
 
-    // Remember this constant for the future (if not a spec constant)
-    if (!isSpecConst)
+    // Remember this constant for the future
+    if (isSpecConst) {
+      emittedSpecConstantInstructions.insert(inst);
+    } else {
       emittedConstantComposites.push_back(inst);
+    }
   }
 
   return inst->getResultId();
