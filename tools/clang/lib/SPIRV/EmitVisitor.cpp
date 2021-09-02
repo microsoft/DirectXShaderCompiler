@@ -1929,10 +1929,11 @@ EmitTypeHandler::getOrCreateConstantInt(llvm::APInt value,
   finalizeTypeInstruction();
 
   // Remember this constant for future
-  if (isSpecConst)
+  if (isSpecConst) {
     emittedSpecConstantInstructions.insert(constantInstruction);
-  else
+  } else {
     emittedConstantInts[valueTypePair] = constantResultId;
+  }
 
   return constantResultId;
 }
