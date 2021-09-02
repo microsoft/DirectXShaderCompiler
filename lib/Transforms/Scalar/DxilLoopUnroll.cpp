@@ -732,13 +732,13 @@ static void RemapDebugInsts(BasicBlock *ClonedBB, ValueToValueMapTy &VarMap, Set
     if (!DV)
       continue;
 
-    Instruction *I = dyn_cast_or_null<Instruction>(DV->getValue());
-    if (!I)
+    Instruction *ValI = dyn_cast_or_null<Instruction>(DV->getValue());
+    if (!ValI)
       continue;
 
     // If this instruction is in the original cloned set, remap the debug insts
-    if (ClonedFrom.count(I->getParent())) {
-      auto it = VarMap.find(I);
+    if (ClonedFrom.count(ValI->getParent())) {
+      auto it = VarMap.find(ValI);
       if (it != VarMap.end()) {
         DV->setArgOperand(0, MetadataAsValue::get(Ctx, ValueAsMetadata::get(it->second)));
       }
