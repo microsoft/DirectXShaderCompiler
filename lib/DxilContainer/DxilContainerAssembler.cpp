@@ -918,27 +918,41 @@ public:
 // Most RDAT parts are tables each containing a list of structures of same type.
 // Exceptions are string table and index table because each string or list of
 // indicies can be of different sizes.
-template <class T>
 class RDATTable : public RDATPart {
 protected:
   // m_map is map of records to their index.
   // Used to alias identical records.
   std::unordered_map<std::string, uint32_t> m_map;
-  std::vector<T> m_rows;
+  std::vector<StringRef> m_rows;
+  size_t m_RecordStride = 0;
+  bool m_bDeduplicationEnabled = false;
+  RuntimeDataPartType m_Type = RuntimeDataPartType::Invalid;
 public:
   virtual ~RDATTable() {}
+
+  void SetType(RuntimeDataPartType type) { m_Type = type; }
+  RuntimeDataPartType GetType() const { return m_Type; }
+  void SetRecordStride(size_t RecordStride) {
+    DXASSERT(m_rows.empty(), "record stride is fixed for the entire table");
+    m_RecordStride = RecordStride;
+  }
+  size_t GetRecordStride() const { return m_RecordStride; }
+  void SetDeduplication(bool bEnabled = true) { m_bDeduplicationEnabled = bEnabled; }
 
   uint32_t Count() {
     size_t count = m_rows.size();
     return (count < UINT32_MAX) ? count : 0;
   }
-  uint32_t Insert(const T &data) {
+
+  template<typename RecordType>
+  uint32_t Insert(const RecordType &data) {
+    IFTBOOL(m_RecordStride <= sizeof(RecordType), DXC_E_GENERAL_INTERNAL_ERROR);
     size_t count = m_rows.size();
     if (count < (UINT32_MAX - 1)) {
       const char *pData = (const char*)(const void *)&data;
-      auto result = m_map.insert(std::make_pair(std::string(pData, pData + sizeof(T)), count));
-      if (result.second) {
-        m_rows.push_back(data);
+      auto result = m_map.insert(std::make_pair(std::string(pData, pData + m_RecordStride), count));
+      if (!m_bDeduplicationEnabled || result.second) {
+        m_rows.emplace_back(result.first->first);
         return count;
       } else {
         return result.first->second;
@@ -951,35 +965,21 @@ public:
     char *pCur = (char*)ptr;
     RuntimeDataTableHeader &header = *reinterpret_cast<RuntimeDataTableHeader*>(pCur);
     header.RecordCount = m_rows.size();
-    header.RecordStride = sizeof(T);
+    header.RecordStride = m_RecordStride;
     pCur += sizeof(RuntimeDataTableHeader);
-    memcpy(pCur, m_rows.data(), header.RecordCount * header.RecordStride);
+    for (auto &record : m_rows) {
+      DXASSERT_NOMSG(record.size() == m_RecordStride);
+      memcpy(pCur, record.data(), m_RecordStride);
+      pCur += m_RecordStride;
+    }
   };
 
   uint32_t GetPartSize() const {
     if (m_rows.empty())
       return 0;
-    return sizeof(RuntimeDataTableHeader) + m_rows.size() * sizeof(T);
+    return sizeof(RuntimeDataTableHeader) + m_rows.size() * m_RecordStride;
   }
 };
-
-#define DEF_RDAT_TYPES DEF_RDAT_CLEAR
-#include "dxc/DxilContainer/RDAT_Macros.inl"
-
-// Once per table.
-#undef RDAT_STRUCT_TABLE_DERIVED
-#define RDAT_STRUCT_TABLE_DERIVED(type, base, table)
-#undef RDAT_STRUCT_TABLE
-#define RDAT_STRUCT_TABLE(type, table)                                         \
-  class table : public RDATTable<                                              \
-                    RDAT::RecordDerivedTrait<RDAT::type>::LastDerivedType> {   \
-    RuntimeDataPartType GetType() const { return RuntimeDataPartType::table; } \
-  };
-
-#include "dxc/DxilContainer/RDAT_LibraryTypes.inl"
-#include "dxc/DxilContainer/RDAT_SubobjectTypes.inl"
-#undef DEF_RDAT_TYPES
-#include "dxc/DxilContainer/RDAT_Macros.inl"
 
 class StringBufferPart : public RDATPart {
 private:
@@ -1393,6 +1393,9 @@ private:
         }
       }
     }
+    if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 7) >= 0) {
+      m_pFunctionTable->SetRecordStride(sizeof(RuntimeDataFunctionInfo2));
+    }
     for (auto &function : DM.GetModule()->getFunctionList()) {
       if (!function.isDeclaration()) {
         StringRef mangled = function.getName();
@@ -1415,7 +1418,12 @@ private:
           functionDependencies =
               m_pIndexArraysPart->AddIndex(m_FuncToDependencies[&function].begin(),
                                   m_FuncToDependencies[&function].end());
-        RuntimeDataFunctionInfo2 info = {};
+        RuntimeDataFunctionInfo2 info_latest = {};
+        RuntimeDataFunctionInfo &info = info_latest;
+        RuntimeDataFunctionInfo2 *pInfo2 = (sizeof(RuntimeDataFunctionInfo2) <=
+                                            m_pFunctionTable->GetRecordStride())
+                                               ? &info_latest
+                                               : nullptr;
         ShaderFlags flags = ShaderFlags::CollectShaderFlags(&function, &DM);
         if (DM.HasDxilFunctionProps(&function)) {
           const auto &props = DM.GetDxilFunctionProps(&function);
@@ -1430,15 +1438,16 @@ private:
             payloadSizeInBytes = props.ShaderProps.Ray.paramSizeInBytes;
           }
           shaderKind = (uint32_t)props.shaderKind;
-          if (DM.HasDxilEntryProps(&function)) {
+          if (pInfo2 && DM.HasDxilEntryProps(&function)) {
             const auto &entryProps = DM.GetDxilEntryProps(&function);
-            shaderInfo = AddShaderInfo(function, entryProps, info, flags);
+            shaderInfo = AddShaderInfo(function, entryProps, *pInfo2, flags);
           }
         }
         info.Name = mangledIndex;
         info.UnmangledName = unmangledIndex;
         info.ShaderKind = shaderKind;
-        info.RawShaderRef = shaderInfo;
+        if (pInfo2)
+          pInfo2->RawShaderRef = shaderInfo;
         info.Resources = resourceIndex;
         info.FunctionDependencies = functionDependencies;
         info.PayloadSizeInBytes = payloadSizeInBytes;
@@ -1471,7 +1480,7 @@ private:
           info.ShaderStageFlag &= compatInfo.mask;
         }
         info.MinShaderTarget = EncodeVersion((DXIL::ShaderKind)shaderKind, minMajor, minMinor);
-        m_pFunctionTable->Insert(info);
+        m_pFunctionTable->Insert(info_latest);
       }
     }
   }
@@ -1549,43 +1558,49 @@ private:
   }
 
   void CreateParts() {
-#define ADD_PART(type) \
-    m_Parts.emplace_back(llvm::make_unique<type>()); \
-    m_p##type = reinterpret_cast<type*>(m_Parts.back().get());
+    bool bRecordDeduplicationEnabled = DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 7) >= 0;
+    RuntimeDataPartType maxPartID = RDAT::MaxPartTypeForValVer(m_ValMajor, m_ValMinor);
+
+#define ADD_PART(type)                                                         \
+    m_Parts.emplace_back(llvm::make_unique<type>());                           \
+    m_p##type = reinterpret_cast<type *>(m_Parts.back().get());
+
+#define ADD_TABLE(type, table)                                                 \
+    if (RuntimeDataPartType::table <= maxPartID) {                             \
+      m_Parts.emplace_back(llvm::make_unique<RDATTable>());                    \
+      m_p##table = reinterpret_cast<RDATTable *>(m_Parts.back().get());        \
+      m_p##table->SetRecordStride(sizeof(type));                               \
+      m_p##table->SetType(RuntimeDataPartType::table);                         \
+      m_p##table->SetDeduplication(bRecordDeduplicationEnabled);               \
+    }
+
     ADD_PART(StringBufferPart);
-    ADD_PART(ResourceTable);
-    ADD_PART(FunctionTable);
+    ADD_TABLE(RuntimeDataResourceInfo, ResourceTable);
+    ADD_TABLE(RuntimeDataFunctionInfo, FunctionTable);
     ADD_PART(IndexArraysPart);
     ADD_PART(RawBytesPart);
-    ADD_PART(SubobjectTable);
-    ADD_PART(SignatureElementTable);
-    ADD_PART(VSInfoTable)
-    ADD_PART(PSInfoTable)
-    ADD_PART(HSInfoTable)
-    ADD_PART(DSInfoTable)
-    ADD_PART(GSInfoTable)
-    ADD_PART(CSInfoTable)
-    ADD_PART(MSInfoTable)
-    ADD_PART(ASInfoTable)
+    ADD_TABLE(RuntimeDataSubobjectInfo, SubobjectTable);
+    ADD_TABLE(RDAT::SignatureElement, SignatureElementTable);
+    ADD_TABLE(RDAT::VSInfo, VSInfoTable)
+    ADD_TABLE(RDAT::PSInfo, PSInfoTable)
+    ADD_TABLE(RDAT::HSInfo, HSInfoTable)
+    ADD_TABLE(RDAT::DSInfo, DSInfoTable)
+    ADD_TABLE(RDAT::GSInfo, GSInfoTable)
+    ADD_TABLE(RDAT::CSInfo, CSInfoTable)
+    ADD_TABLE(RDAT::MSInfo, MSInfoTable)
+    ADD_TABLE(RDAT::ASInfo, ASInfoTable)
+
 #undef ADD_PART
+#undef ADD_TABLE
   }
 
   StringBufferPart *m_pStringBufferPart;
   IndexArraysPart *m_pIndexArraysPart;
   RawBytesPart *m_pRawBytesPart;
 
-#define DEF_RDAT_TYPES DEF_RDAT_CLEAR
-#include "dxc/DxilContainer/RDAT_Macros.inl"
-
 // Once per table.
-#undef RDAT_STRUCT_TABLE_DERIVED
-#define RDAT_STRUCT_TABLE_DERIVED(type, base, table)
-#undef RDAT_STRUCT_TABLE
-#define RDAT_STRUCT_TABLE(type, table) table *m_p##table;
-
-#include "dxc/DxilContainer/RDAT_LibraryTypes.inl"
-#include "dxc/DxilContainer/RDAT_SubobjectTypes.inl"
-#undef DEF_RDAT_TYPES
+#define RDAT_STRUCT_TABLE(type, table) RDATTable *m_p##table = nullptr;
+#define DEF_RDAT_TYPES DEF_RDAT_DEFAULTS
 #include "dxc/DxilContainer/RDAT_Macros.inl"
 
 public:
@@ -1597,7 +1612,8 @@ public:
     CreateParts();
     UpdateResourceInfo(mod);
     UpdateFunctionInfo(mod);
-    UpdateSubobjectInfo(mod);
+    if (m_pSubobjectTable)
+      UpdateSubobjectInfo(mod);
 
     // Delete any empty parts:
     std::vector<std::unique_ptr<RDATPart>>::iterator it = m_Parts.begin();

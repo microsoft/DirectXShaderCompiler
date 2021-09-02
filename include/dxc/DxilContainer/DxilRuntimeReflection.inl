@@ -20,9 +20,6 @@ namespace RDAT {
 
 #define DEF_RDAT_TYPES DEF_RDAT_READER_IMPL
 #include "dxc/DxilContainer/RDAT_Macros.inl"
-#include "dxc/DxilContainer/RDAT_LibraryTypes.inl"
-#include "dxc/DxilContainer/RDAT_SubobjectTypes.inl"
-#undef DEF_RDAT_TYPES
 
 struct ResourceKey {
   uint32_t Class, ID;
@@ -140,18 +137,9 @@ bool DxilRuntimeData::InitFromRDAT(const void *pRDAT, size_t size) {
           break;
         }
 
-#define DEF_RDAT_TYPES DEF_RDAT_CLEAR
-#include "dxc/DxilContainer/RDAT_Macros.inl"
-
 // Once per table.
-#undef RDAT_STRUCT_TABLE_DERIVED
-#define RDAT_STRUCT_TABLE_DERIVED(type, base, table)
-#undef RDAT_STRUCT_TABLE
 #define RDAT_STRUCT_TABLE(type, table) case RuntimeDataPartType::table: InitTable(m_Context, PR, RecordTableIndex::table); break;
-
-#include "dxc/DxilContainer/RDAT_LibraryTypes.inl"
-#include "dxc/DxilContainer/RDAT_SubobjectTypes.inl"
-#undef DEF_RDAT_TYPES
+#define DEF_RDAT_TYPES DEF_RDAT_DEFAULTS
 #include "dxc/DxilContainer/RDAT_Macros.inl"
 
         default:
@@ -244,11 +232,7 @@ bool ValidateRecord(const RDATContext &ctx, const _RecordType *pRecord) {
   return false;
 }
 
-#define DEF_RDAT_TYPES DEF_RDAT_VALIDATION_IMPL
-#include "dxc/DxilContainer/RDAT_Macros.inl"
-#include "dxc/DxilContainer/RDAT_LibraryTypes.inl"
-#include "dxc/DxilContainer/RDAT_SubobjectTypes.inl"
-#undef DEF_RDAT_TYPES
+#define DEF_RDAT_TYPES DEF_RDAT_STRUCT_VALIDATION
 #include "dxc/DxilContainer/RDAT_Macros.inl"
 
 // This class ensures that all versions of record to latest one supported by
@@ -289,26 +273,16 @@ bool DxilRuntimeData::Validate() {
     if (m_Context.StringBuffer.Data()[m_Context.StringBuffer.Size() - 1] != 0)
       return false;
   }
-#define DEF_RDAT_TYPES DEF_RDAT_CLEAR
-#include "dxc/DxilContainer/RDAT_Macros.inl"
 
-// Once per table.
-#undef RDAT_STRUCT_TABLE_DERIVED
-#define RDAT_STRUCT_TABLE_DERIVED(type, base, table)
-#undef RDAT_STRUCT_TABLE
+  // Once per table.
 #define RDAT_STRUCT_TABLE(type, table) ValidateRecordTable<type>(m_Context, RecordTableIndex::table);
-
-#undef RDAT_STRUCT_TABLE_DERIVED
   // As an assumption of the way record types are versioned, derived record
   // types must always be larger than base record types.
-#define RDAT_STRUCT_TABLE_DERIVED(type, base, table)                           \
+#define RDAT_STRUCT_DERIVED(type, base)                                        \
   static_assert(sizeof(type) > sizeof(base),                                   \
                 "otherwise, derived record type " #type                        \
                 " is not larger than base record type " #base ".");
-
-#include "dxc/DxilContainer/RDAT_LibraryTypes.inl"
-#include "dxc/DxilContainer/RDAT_SubobjectTypes.inl"
-#undef DEF_RDAT_TYPES
+#define DEF_RDAT_TYPES DEF_RDAT_DEFAULTS
 #include "dxc/DxilContainer/RDAT_Macros.inl"
   return true;
 }
@@ -338,13 +312,26 @@ private:
   typedef std::vector<DxilResourceDesc *> ResourceRefList;
   typedef std::vector<DxilFunctionDesc> FunctionList;
   typedef std::vector<DxilSubobjectDesc> SubobjectList;
+  typedef std::vector<DxilSignatureElementDesc> SigElementList;
+  typedef std::vector<DxilSignatureElementDesc*> SigElementPtrList;
 
   DxilRuntimeData m_RuntimeData;
   StringMap m_StringMap;
   BytesMap m_BytesMap;
+  std::vector<uint32_t> m_IndexData;
   ResourceList m_Resources;
   FunctionList m_Functions;
   SubobjectList m_Subobjects;
+  SigElementList m_SigElements;
+  std::vector<SigElementPtrList> m_SigDescs;
+  std::vector<DxilVSDesc> m_VSDescs;
+  std::vector<DxilPSDesc> m_PSDescs;
+  std::vector<DxilHSDesc> m_HSDescs;
+  std::vector<DxilDSDesc> m_DSDescs;
+  std::vector<DxilGSDesc> m_GSDescs;
+  std::vector<DxilCSDesc> m_CSDescs;
+  std::vector<DxilMSDesc> m_MSDescs;
+  std::vector<DxilASDesc> m_ASDescs;
   std::unordered_map<ResourceKey, DxilResourceDesc *> m_ResourceMap;
   std::unordered_map<DxilFunctionDesc *, ResourceRefList> m_FuncToResMap;
   std::unordered_map<DxilFunctionDesc *, WStringList> m_FuncToDependenciesMap;
@@ -360,10 +347,20 @@ private:
   const wchar_t **GetDependenciesForFunction(DxilFunctionDesc &function,
                              const RuntimeDataFunctionInfo_Reader &functionReader);
   const wchar_t **GetExportsForAssociation(DxilSubobjectDesc &subobject,
-                             const RuntimeDataSubobjectInfo_Reader &subobjectReader);
-  DxilResourceDesc *AddResource(const RuntimeDataResourceInfo_Reader &resourceReader);
-  DxilFunctionDesc *AddFunction(const RuntimeDataFunctionInfo_Reader &functionReader);
-  DxilSubobjectDesc *AddSubobject(const RuntimeDataSubobjectInfo_Reader &subobjectReader);
+                             const RuntimeDataSubobjectInfo_Reader &reader);
+  void AddResources();
+  void AddFunctions();
+  void AddSubobjects();
+  void AddSignatureElements();
+  void AddSignature(DxilSignatureDesc &desc, const RecordArrayRef<SignatureElement> &arrayRef);
+  void AddVS();
+  void AddPS();
+  void AddHS();
+  void AddDS();
+  void AddGS();
+  void AddCS();
+  void AddMS();
+  void AddAS();
 
 public:
   // TODO: Implement pipeline state validation with runtime data
@@ -399,6 +396,9 @@ const wchar_t *DxilRuntimeReflection_impl::GetWideString(const char *ptr) {
 }
 
 const void *DxilRuntimeReflection_impl::GetBytes(const void *ptr, size_t size) {
+  if (!ptr || !size)
+    return nullptr;
+
   auto it = m_BytesMap.find(ptr);
   if (it != m_BytesMap.end())
     return it->second.get();
@@ -422,65 +422,56 @@ bool DxilRuntimeReflection_impl::InitFromRDAT(const void *pRDAT, size_t size) {
 const DxilLibraryDesc DxilRuntimeReflection_impl::GetLibraryReflection() {
   DxilLibraryDesc reflection = {};
   if (m_initialized) {
-    reflection.NumResources =
-        m_RuntimeData.GetResourceTable().Count();
+    reflection.NumResources = m_Resources.size();
     reflection.pResource = m_Resources.data();
-    reflection.NumFunctions =
-        m_RuntimeData.GetFunctionTable().Count();
+    reflection.NumFunctions = m_Functions.size();
     reflection.pFunction = m_Functions.data();
-    reflection.NumSubobjects =
-        m_RuntimeData.GetSubobjectTable().Count();
+    reflection.NumSubobjects = m_Subobjects.size();
     reflection.pSubobjects = m_Subobjects.data();
   }
   return reflection;
 }
 
 void DxilRuntimeReflection_impl::InitializeReflection() {
+  auto indexTable = m_RuntimeData.GetContext().IndexTable;
+  m_IndexData.assign(indexTable.Data(), indexTable.Data() + indexTable.Count());
+
+  // Add signature elements before pointers used by entry descs
+  AddSignatureElements();
+
+  AddVS();
+  AddPS();
+  AddHS();
+  AddDS();
+  AddGS();
+  AddCS();
+  AddMS();
+  AddAS();
+
   // First need to reserve spaces for resources because functions will need to
   // reference them via pointers.
-  auto resourceTable = m_RuntimeData.GetResourceTable();
-  m_Resources.reserve(resourceTable.Count());
-  for (uint32_t i = 0; i < resourceTable.Count(); ++i) {
-    auto resource = resourceTable.Row(i);
-    AddString(resource.getName());
-    DxilResourceDesc *pResource = AddResource(resource);
-    if (pResource) {
-      ResourceKey key(pResource->Class, pResource->ID);
-      m_ResourceMap[key] = pResource;
-    }
-  }
-  auto functionTable = m_RuntimeData.GetFunctionTable();
-  m_Functions.reserve(functionTable.Count());
-  for (uint32_t i = 0; i < functionTable.Count(); ++i) {
-    auto function = functionTable.Row(i);
-    AddString(function.getName());
-    AddFunction(function);
-  }
-  auto subobjectTable = m_RuntimeData.GetSubobjectTable();
-  m_Subobjects.reserve(subobjectTable.Count());
-  for (uint32_t i = 0; i < subobjectTable.Count(); ++i) {
-    auto subobject = subobjectTable.Row(i);
-    AddString(subobject.getName());
-    AddSubobject(subobject);
-  }
+  AddResources();
+  AddFunctions();
+  AddSubobjects();
 }
 
-DxilResourceDesc *
-DxilRuntimeReflection_impl::AddResource(const RuntimeDataResourceInfo_Reader &resourceReader) {
-  assert(m_Resources.size() < m_Resources.capacity() && "Otherwise, number of resources was incorrect");
-  if (!(m_Resources.size() < m_Resources.capacity()))
-    return nullptr;
-  m_Resources.emplace_back(DxilResourceDesc({}));
-  DxilResourceDesc &resource = m_Resources.back();
-  resource.Class = (uint32_t)resourceReader.getClass();
-  resource.Kind = (uint32_t)resourceReader.getKind();
-  resource.Space = resourceReader.getSpace();
-  resource.LowerBound = resourceReader.getLowerBound();
-  resource.UpperBound = resourceReader.getUpperBound();
-  resource.ID = resourceReader.getID();
-  resource.Flags = resourceReader.getFlags();
-  resource.Name = GetWideString(resourceReader.getName());
-  return &resource;
+void DxilRuntimeReflection_impl::AddResources() {
+  auto table = m_RuntimeData.GetResourceTable();
+  m_Resources.assign(table.Count(), {});
+  for (uint32_t i = 0; i < table.Count(); ++i) {
+    auto reader = table[i];
+    DxilResourceDesc &desc = m_Resources[i];
+    desc.Class = (uint32_t)reader.getClass();
+    desc.Kind = (uint32_t)reader.getKind();
+    desc.Space = reader.getSpace();
+    desc.LowerBound = reader.getLowerBound();
+    desc.UpperBound = reader.getUpperBound();
+    desc.ID = reader.getID();
+    desc.Flags = reader.getFlags();
+    desc.Name = GetWideString(reader.getName());
+    ResourceKey key(desc.Class, desc.ID);
+    m_ResourceMap[key] = &desc;
+  }
 }
 
 const DxilResourceDesc * const*DxilRuntimeReflection_impl::GetResourcesForFunction(
@@ -515,35 +506,53 @@ const wchar_t **DxilRuntimeReflection_impl::GetDependenciesForFunction(
   return wStringList.empty() ? nullptr : wStringList.data();
 }
 
-DxilFunctionDesc *
-DxilRuntimeReflection_impl::AddFunction(const RuntimeDataFunctionInfo_Reader &functionReader) {
-  assert(m_Functions.size() < m_Functions.capacity() && "Otherwise, number of functions was incorrect");
-  if (!(m_Functions.size() < m_Functions.capacity()))
-    return nullptr;
-  m_Functions.emplace_back(DxilFunctionDesc({}));
-  DxilFunctionDesc &function = m_Functions.back();
-  function.Name = GetWideString(functionReader.getName());
-  function.UnmangledName = GetWideString(functionReader.getUnmangledName());
-  function.NumResources = functionReader.getResources().Count();
-  function.Resources = GetResourcesForFunction(function, functionReader);
-  function.NumFunctionDependencies = functionReader.getFunctionDependencies().Count();
-  function.FunctionDependencies =
-      GetDependenciesForFunction(function, functionReader);
-  function.ShaderKind = (uint32_t)functionReader.getShaderKind();
-  function.PayloadSizeInBytes = functionReader.getPayloadSizeInBytes();
-  function.AttributeSizeInBytes = functionReader.getAttributeSizeInBytes();
-  function.FeatureInfo1 = functionReader.getFeatureInfo1();
-  function.FeatureInfo2 = functionReader.getFeatureInfo2();
-  function.ShaderStageFlag = functionReader.getShaderStageFlag();
-  function.MinShaderTarget = functionReader.getMinShaderTarget();
-  return &function;
+void DxilRuntimeReflection_impl::AddFunctions() {
+  auto table = m_RuntimeData.GetFunctionTable();
+  m_Functions.assign(table.Count(), {});
+  for (uint32_t i = 0; i < table.Count(); ++i) {
+    auto reader = table[i];
+    auto &desc = m_Functions[i];
+    desc.Name = GetWideString(reader.getName());
+    desc.UnmangledName = GetWideString(reader.getUnmangledName());
+    desc.NumResources = reader.getResources().Count();
+    desc.Resources = GetResourcesForFunction(desc, reader);
+    desc.NumFunctionDependencies = reader.getFunctionDependencies().Count();
+    desc.FunctionDependencies = GetDependenciesForFunction(desc, reader);
+    desc.ShaderKind = reader.getShaderKind();
+    desc.PayloadSizeInBytes = reader.getPayloadSizeInBytes();
+    desc.AttributeSizeInBytes = reader.getAttributeSizeInBytes();
+    desc.FeatureInfo1 = reader.getFeatureInfo1();
+    desc.FeatureInfo2 = reader.getFeatureInfo2();
+    desc.ShaderStageFlag = reader.getShaderStageFlag();
+    desc.MinShaderTarget = reader.getMinShaderTarget();
+
+    const RuntimeDataFunctionInfo2_Reader reader2(reader);
+    if (reader2) {
+      desc.MinimumExpectedWaveLaneCount = reader2.getMinimumExpectedWaveLaneCount();
+      desc.MaximumExpectedWaveLaneCount = reader2.getMaximumExpectedWaveLaneCount();
+      desc.ShaderFlags = reader2.getShaderFlags();
+
+      // Should this translate to old value style?
+      //if (desc.MaximumExpectedWaveLaneCount == 0)
+      //  desc.MaximumExpectedWaveLaneCount = UINT_MAX;
+
+      if (reader2.hasVS()) { desc.VS = &m_VSDescs[reader2->VS.Index]; }
+      else if (reader2.hasPS()) { desc.PS = &m_PSDescs[reader2->PS.Index]; }
+      else if (reader2.hasHS()) { desc.HS = &m_HSDescs[reader2->HS.Index]; }
+      else if (reader2.hasDS()) { desc.DS = &m_DSDescs[reader2->DS.Index]; }
+      else if (reader2.hasGS()) { desc.GS = &m_GSDescs[reader2->GS.Index]; }
+      else if (reader2.hasCS()) { desc.CS = &m_CSDescs[reader2->CS.Index]; }
+      else if (reader2.hasMS()) { desc.MS = &m_MSDescs[reader2->MS.Index]; }
+      else if (reader2.hasAS()) { desc.AS = &m_ASDescs[reader2->AS.Index]; }
+    }
+  }
 }
 
 const wchar_t **DxilRuntimeReflection_impl::GetExportsForAssociation(
-  DxilSubobjectDesc &subobject, const RuntimeDataSubobjectInfo_Reader &subobjectReader) {
+  DxilSubobjectDesc &subobject, const RuntimeDataSubobjectInfo_Reader &reader) {
   auto it = m_SubobjectToExportsMap.insert(std::make_pair(&subobject, WStringList()));
   assert(it.second && "otherwise, collision");
-  auto exports = subobjectReader.getSubobjectToExportsAssociation().getExports();
+  auto exports = reader.getSubobjectToExportsAssociation().getExports();
   WStringList &wStringList = it.first->second;
   for (uint32_t i = 0; i < exports.Count(); ++i) {
     wStringList.emplace_back(GetWideString(exports[i]));
@@ -551,54 +560,195 @@ const wchar_t **DxilRuntimeReflection_impl::GetExportsForAssociation(
   return wStringList.empty() ? nullptr : wStringList.data();
 }
 
-DxilSubobjectDesc *DxilRuntimeReflection_impl::AddSubobject(const RuntimeDataSubobjectInfo_Reader &subobjectReader) {
-  assert(m_Subobjects.size() < m_Subobjects.capacity() && "Otherwise, number of subobjects was incorrect");
-  if (!(m_Subobjects.size() < m_Subobjects.capacity()))
-    return nullptr;
-  m_Subobjects.emplace_back(DxilSubobjectDesc({}));
-  DxilSubobjectDesc &subobject = m_Subobjects.back();
-  subobject.Name = GetWideString(subobjectReader.getName());
-  subobject.Kind = (uint32_t)subobjectReader.getKind();
-  switch (subobjectReader.getKind()) {
-  case DXIL::SubobjectKind::StateObjectConfig:
-    subobject.StateObjectConfig.Flags = subobjectReader.getStateObjectConfig().getFlags();
-    break;
-  case DXIL::SubobjectKind::GlobalRootSignature:
-  case DXIL::SubobjectKind::LocalRootSignature:
-    if (!subobjectReader.getRootSignature())
-      return nullptr;
-    subobject.RootSignature.pSerializedSignature = subobjectReader.getRootSignature().getData();
-    subobject.RootSignature.SizeInBytes = subobjectReader.getRootSignature().sizeData();
-    subobject.RootSignature.pSerializedSignature = GetBytes(subobject.RootSignature.pSerializedSignature, subobject.RootSignature.SizeInBytes);
-    break;
-  case DXIL::SubobjectKind::SubobjectToExportsAssociation:
-    subobject.SubobjectToExportsAssociation.Subobject =
-      GetWideString(subobjectReader.getSubobjectToExportsAssociation().getSubobject());
-    subobject.SubobjectToExportsAssociation.NumExports = subobjectReader.getSubobjectToExportsAssociation().getExports().Count();
-    subobject.SubobjectToExportsAssociation.Exports = GetExportsForAssociation(subobject, subobjectReader);
-    break;
-  case DXIL::SubobjectKind::RaytracingShaderConfig:
-    subobject.RaytracingShaderConfig.MaxPayloadSizeInBytes = subobjectReader.getRaytracingShaderConfig().getMaxPayloadSizeInBytes();
-    subobject.RaytracingShaderConfig.MaxAttributeSizeInBytes = subobjectReader.getRaytracingShaderConfig().getMaxAttributeSizeInBytes();
-    break;
-  case DXIL::SubobjectKind::RaytracingPipelineConfig:
-    subobject.RaytracingPipelineConfig.MaxTraceRecursionDepth = subobjectReader.getRaytracingPipelineConfig().getMaxTraceRecursionDepth();
-    break;
-  case DXIL::SubobjectKind::HitGroup:
-    subobject.HitGroup.Type = (uint32_t)subobjectReader.getHitGroup().getType();
-    subobject.HitGroup.Intersection = GetWideString(subobjectReader.getHitGroup().getIntersection());
-    subobject.HitGroup.AnyHit = GetWideString(subobjectReader.getHitGroup().getAnyHit());
-    subobject.HitGroup.ClosestHit = GetWideString(subobjectReader.getHitGroup().getClosestHit());
-    break;
-  case DXIL::SubobjectKind::RaytracingPipelineConfig1:
-    subobject.RaytracingPipelineConfig1.MaxTraceRecursionDepth = subobjectReader.getRaytracingPipelineConfig1().getMaxTraceRecursionDepth();
-    subobject.RaytracingPipelineConfig1.Flags = subobjectReader.getRaytracingPipelineConfig1().getFlags();
-    break;
-  default:
-    // Ignore contents of unrecognized subobject type (forward-compat)
-    break;
+void DxilRuntimeReflection_impl::AddSubobjects() {
+  auto table = m_RuntimeData.GetSubobjectTable();
+  m_Subobjects.assign(table.Count(), {});
+  for (uint32_t i = 0; i < table.Count(); ++i) {
+    auto reader = table[i];
+    auto &desc = m_Subobjects[i];
+    desc.Name = GetWideString(reader.getName());
+    desc.Kind = reader.getKind();
+    switch (reader.getKind()) {
+    case DXIL::SubobjectKind::StateObjectConfig:
+      desc.StateObjectConfig.Flags = reader.getStateObjectConfig().getFlags();
+      break;
+    case DXIL::SubobjectKind::GlobalRootSignature:
+    case DXIL::SubobjectKind::LocalRootSignature:
+      desc.RootSignature.SizeInBytes = reader.getRootSignature().sizeData();
+      desc.RootSignature.pSerializedSignature = GetBytes(reader.getRootSignature().getData(), desc.RootSignature.SizeInBytes);
+      break;
+    case DXIL::SubobjectKind::SubobjectToExportsAssociation:
+      desc.SubobjectToExportsAssociation.Subobject =
+        GetWideString(reader.getSubobjectToExportsAssociation().getSubobject());
+      desc.SubobjectToExportsAssociation.NumExports = reader.getSubobjectToExportsAssociation().getExports().Count();
+      desc.SubobjectToExportsAssociation.Exports = GetExportsForAssociation(desc, reader);
+      break;
+    case DXIL::SubobjectKind::RaytracingShaderConfig:
+      desc.RaytracingShaderConfig.MaxPayloadSizeInBytes = reader.getRaytracingShaderConfig().getMaxPayloadSizeInBytes();
+      desc.RaytracingShaderConfig.MaxAttributeSizeInBytes = reader.getRaytracingShaderConfig().getMaxAttributeSizeInBytes();
+      break;
+    case DXIL::SubobjectKind::RaytracingPipelineConfig:
+      desc.RaytracingPipelineConfig.MaxTraceRecursionDepth = reader.getRaytracingPipelineConfig().getMaxTraceRecursionDepth();
+      break;
+    case DXIL::SubobjectKind::HitGroup:
+      desc.HitGroup.Type = reader.getHitGroup().getType();
+      desc.HitGroup.Intersection = GetWideString(reader.getHitGroup().getIntersection());
+      desc.HitGroup.AnyHit = GetWideString(reader.getHitGroup().getAnyHit());
+      desc.HitGroup.ClosestHit = GetWideString(reader.getHitGroup().getClosestHit());
+      break;
+    case DXIL::SubobjectKind::RaytracingPipelineConfig1:
+      desc.RaytracingPipelineConfig1.MaxTraceRecursionDepth = reader.getRaytracingPipelineConfig1().getMaxTraceRecursionDepth();
+      desc.RaytracingPipelineConfig1.Flags = reader.getRaytracingPipelineConfig1().getFlags();
+      break;
+    default:
+      // Ignore contents of unrecognized subobject type (forward-compat)
+      break;
+    }
   }
-  return &subobject;
+}
+
+void DxilRuntimeReflection_impl::AddSignatureElements() {
+  auto table = m_RuntimeData.GetSignatureElementTable();
+  m_SigElements.assign(table.Count(), {});
+  for (uint32_t i = 0; i < table.Count(); ++i) {
+    DxilSignatureElementDesc &desc = m_SigElements[i];
+    auto reader = table[i];
+    desc.SemanticName = GetWideString(reader.getSemanticName());
+    desc.SemanticIndices = m_IndexData.data() + reader->SemanticIndices + 1;
+    desc.SemanticKind = reader.getSemanticKind();
+    desc.ComponentType = reader.getComponentType();
+    desc.Rows = (uint8_t)reader.getSemanticIndices().Count();
+    desc.Cols = reader->GetCols();
+    desc.StartRow = reader.getStartRow();
+    desc.StartCol = reader->GetStartCol();
+    desc.OutputStream = reader->GetOutputStream();
+    desc.UsageMask = reader->GetUsageMask();
+    desc.DynamicIndexMask = reader->GetDynamicIndexMask();
+  }
+}
+
+void DxilRuntimeReflection_impl::AddSignature(DxilSignatureDesc &desc, const RecordArrayRef<SignatureElement> &arrayRef) {
+  auto row = m_RuntimeData.GetContext().IndexTable.getRow(arrayRef.Index);
+  desc.NumElements = row.Count();
+  m_SigDescs.push_back({});
+  auto &elements = m_SigDescs.back();
+  elements.assign(desc.NumElements, nullptr);
+  for (uint32_t i = 0; i < desc.NumElements; ++i) {
+    elements[i] = &m_SigElements[row[i]];
+  }
+  // Relies on moving contents as m_SigDescs grows
+  desc.Elements = elements.data();
+}
+
+void DxilRuntimeReflection_impl::AddVS() {
+  auto table = m_RuntimeData.GetVSInfoTable();
+  m_VSDescs.assign(table.Count(), {});
+  for (uint32_t i = 0; i < table.Count(); ++i) {
+    DxilVSDesc &desc = m_VSDescs[i];
+    auto reader = table[i];
+    AddSignature(desc.InputSignature, reader->SigInputElements);
+    AddSignature(desc.OutputSignature, reader->SigOutputElements);
+    // TODO: ViewID data
+  }
+}
+void DxilRuntimeReflection_impl::AddPS() {
+  auto table = m_RuntimeData.GetPSInfoTable();
+  m_PSDescs.assign(table.Count(), {});
+  for (uint32_t i = 0; i < table.Count(); ++i) {
+    DxilPSDesc &desc = m_PSDescs[i];
+    auto reader = table[i];
+    AddSignature(desc.InputSignature, reader->SigInputElements);
+    AddSignature(desc.OutputSignature, reader->SigOutputElements);
+  }
+}
+void DxilRuntimeReflection_impl::AddHS() {
+  auto table = m_RuntimeData.GetHSInfoTable();
+  m_HSDescs.assign(table.Count(), {});
+  for (uint32_t i = 0; i < table.Count(); ++i) {
+    DxilHSDesc &desc = m_HSDescs[i];
+    auto reader = table[i];
+    AddSignature(desc.InputSignature, reader->SigInputElements);
+    AddSignature(desc.OutputSignature, reader->SigOutputElements);
+    AddSignature(desc.OutputPatchConstantSignature, reader->SigPatchConstOutputElements);
+    desc.InputControlPointCount = reader.getInputControlPointCount();
+    desc.OutputControlPointCount = reader.getOutputControlPointCount();
+    desc.TessellatorDomain = (DXIL::TessellatorDomain)reader.getTessellatorDomain();
+    desc.TessellatorOutputPrimitive = (DXIL::TessellatorOutputPrimitive)reader.getTessellatorOutputPrimitive();
+    // TODO: ViewID data
+  }
+}
+void DxilRuntimeReflection_impl::AddDS() {
+  auto table = m_RuntimeData.GetDSInfoTable();
+  m_DSDescs.assign(table.Count(), {});
+  for (uint32_t i = 0; i < table.Count(); ++i) {
+    DxilDSDesc &desc = m_DSDescs[i];
+    auto reader = table[i];
+    AddSignature(desc.InputSignature, reader->SigInputElements);
+    AddSignature(desc.OutputSignature, reader->SigOutputElements);
+    AddSignature(desc.InputPatchConstantSignature, reader->SigPatchConstInputElements);
+    desc.InputControlPointCount = reader.getInputControlPointCount();
+    desc.TessellatorDomain = (DXIL::TessellatorDomain)reader.getTessellatorDomain();
+    // TODO: ViewID data
+  }
+}
+void DxilRuntimeReflection_impl::AddGS() {
+  auto table = m_RuntimeData.GetGSInfoTable();
+  m_GSDescs.assign(table.Count(), {});
+  for (uint32_t i = 0; i < table.Count(); ++i) {
+    DxilGSDesc &desc = m_GSDescs[i];
+    auto reader = table[i];
+    AddSignature(desc.InputSignature, reader->SigInputElements);
+    AddSignature(desc.OutputSignature, reader->SigOutputElements);
+    desc.InputPrimitive = (DXIL::InputPrimitive)reader.getInputPrimitive();
+    desc.OutputTopology = (DXIL::PrimitiveTopology)reader.getOutputTopology();
+    desc.MaxOutputVertices = reader.getMaxVertexCount();
+    desc.OutputStreamMask = reader.getOutputStreamMask();
+    // TODO: ViewID data
+  }
+}
+void DxilRuntimeReflection_impl::AddCS() {
+  auto table = m_RuntimeData.GetCSInfoTable();
+  m_CSDescs.assign(table.Count(), {});
+  for (uint32_t i = 0; i < table.Count(); ++i) {
+    DxilCSDesc &desc = m_CSDescs[i];
+    auto reader = table[i];
+    auto numThreads = reader.getNumThreads();
+    for (unsigned i = 0; i < 3; ++i)
+      desc.NumThreads[i] = i < numThreads.Count() ? numThreads[i] : 1;
+  }
+}
+void DxilRuntimeReflection_impl::AddMS() {
+  auto table = m_RuntimeData.GetMSInfoTable();
+  m_MSDescs.assign(table.Count(), {});
+  for (uint32_t i = 0; i < table.Count(); ++i) {
+    DxilMSDesc &desc = m_MSDescs[i];
+    auto reader = table[i];
+    AddSignature(desc.OutputSignature, reader->SigOutputElements);
+    AddSignature(desc.OutputPrimitiveSignature, reader->SigPrimOutputElements);
+    auto numThreads = reader.getNumThreads();
+    for (unsigned i = 0; i < 3; ++i)
+      desc.NumThreads[i] = i < numThreads.Count() ? numThreads[i] : 1;
+    desc.GroupSharedBytesUsed = reader.getGroupSharedBytesUsed();
+    desc.GroupSharedBytesDependentOnViewID = reader.getGroupSharedBytesDependentOnViewID();
+    desc.PayloadSizeInBytes = reader.getPayloadSizeInBytes();
+    desc.MaxOutputVertices = reader.getMaxOutputVertices();
+    desc.MaxOutputPrimitives = reader.getMaxOutputPrimitives();
+    desc.MeshOutputTopology = (DXIL::MeshOutputTopology)reader.getMeshOutputTopology();
+    // TODO: ViewID data
+  }
+}
+void DxilRuntimeReflection_impl::AddAS() {
+  auto table = m_RuntimeData.GetASInfoTable();
+  m_ASDescs.assign(table.Count(), {});
+  for (uint32_t i = 0; i < table.Count(); ++i) {
+    DxilASDesc &desc = m_ASDescs[i];
+    auto reader = table[i];
+    auto numThreads = reader.getNumThreads();
+    for (unsigned i = 0; i < 3; ++i)
+      desc.NumThreads[i] = i < numThreads.Count() ? numThreads[i] : 1;
+    desc.GroupSharedBytesUsed = reader.getGroupSharedBytesUsed();
+    desc.PayloadSizeInBytes = reader.getPayloadSizeInBytes();
+  }
 }
 
 } // namespace anon

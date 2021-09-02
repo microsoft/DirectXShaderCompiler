@@ -27,18 +27,9 @@ void DumpRuntimeData(const RDAT::DxilRuntimeData &RDAT, DumpContext &d) {
   d.WriteLn("IndexTable (size = ", ctx.IndexTable.Count() * 4, " bytes)");
   d.WriteLn("RawBytes (size = ", ctx.RawBytes.Size(), " bytes)");
 
-#define DEF_RDAT_TYPES DEF_RDAT_CLEAR
-#include "dxc/DxilContainer/RDAT_Macros.inl"
-
 // Once per table.
-#undef RDAT_STRUCT_TABLE_DERIVED
-#define RDAT_STRUCT_TABLE_DERIVED(type, base, table)
-#undef RDAT_STRUCT_TABLE
-#define RDAT_STRUCT_TABLE(type, table) DumpRecordTable<RecordDerivedTrait<type>::LastDerivedType>(ctx, d, #table, ctx.Table(RecordTableIndex::table));
-
-#include "dxc/DxilContainer/RDAT_LibraryTypes.inl"
-#include "dxc/DxilContainer/RDAT_SubobjectTypes.inl"
-#undef DEF_RDAT_TYPES
+#define RDAT_STRUCT_TABLE(type, table) DumpRecordTable<type>(ctx, d, #table, ctx.Table(RecordTableIndex::table));
+#define DEF_RDAT_TYPES DEF_RDAT_DEFAULTS
 #include "dxc/DxilContainer/RDAT_Macros.inl"
 
   d.Dedent();
@@ -67,7 +58,7 @@ void DumpRecordTableEntry(const RDAT::RDATContext &ctx, DumpContext &d,
   d.VisitReset();
 
   // RecordRefDumper handles derived types.
-  RecordRefDumper<RecordBaseTrait<RecordType>::FirstBaseType> rrDumper(i);
+  RecordRefDumper<RecordType> rrDumper(i);
 
   d.WriteLn("<", i, ":", rrDumper.TypeName(ctx), "> = {");
   rrDumper.Dump(ctx, d);
@@ -86,7 +77,7 @@ template<typename _T>
 void DumpRecordRef(const hlsl::RDAT::RDATContext &ctx, DumpContext &d,
                    const char *tyName, const char *memberName,
                    hlsl::RDAT::RecordRef<_T> rr) {
-  RecordRefDumper<RecordBaseTrait<_T>::FirstBaseType> rrDumper(rr.Index);
+  RecordRefDumper<_T> rrDumper(rr.Index);
   const char *storedTypeName = rrDumper.TypeName(ctx);
   if (nullptr == storedTypeName)
     storedTypeName = tyName;
@@ -109,7 +100,7 @@ void DumpRecordArrayRef(const hlsl::RDAT::RDATContext &ctx, DumpContext &d,
     d.WriteLn(memberName, ": <", rar.Index, ":RecordArrayRef<", tyName, ">[", row.Count(), "]>  = {");
     d.Indent();
     for (uint32_t i = 0; i < row.Count(); ++i) {
-      RecordRefDumper<RecordBaseTrait<_T>::FirstBaseType> rrDumper(row.At(i));
+      RecordRefDumper<_T> rrDumper(row.At(i));
       if (rrDumper.Get(ctx)) {
         if (d.Visit(rrDumper.Get(ctx))) {
           d.WriteLn("[", i, "]: <", rrDumper.Index, ":", rrDumper.TypeName(ctx), "> = {");
@@ -190,14 +181,6 @@ void DumpValueArray(DumpContext &d, const char *memberName,
 #define DEF_RDAT_TYPES DEF_RDAT_DUMP_IMPL
 #define DEF_RDAT_ENUMS DEF_RDAT_DUMP_IMPL
 #define DEF_DXIL_ENUMS DEF_RDAT_DUMP_IMPL
-#include "dxc/DxilContainer/RDAT_Macros.inl"
-#include "dxc/DxilContainer/RDAT_LibraryTypes.inl"
-#include "dxc/DxilContainer/RDAT_SubobjectTypes.inl"
-#undef DEF_RDAT_TYPES
-#undef DEF_RDAT_ENUMS
-#undef DEF_DXIL_ENUMS
-
-// Clear macros
 #include "dxc/DxilContainer/RDAT_Macros.inl"
 
 } // namespace dump

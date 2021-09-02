@@ -256,11 +256,11 @@ RDAT_STRUCT_TABLE(SignatureElement, SignatureElementTable)
   RDAT_VALUE(uint8_t, ColsAndStream)            // 0:2 = (Cols-1) (0-3), 2:4 = StartCol (0-3), 4:6 = OutputStream (0-3)
   RDAT_VALUE(uint8_t, UsageAndDynIndexMasks)    // 0:4 = UsageMask, 4:8 = DynamicIndexMask
 #if DEF_RDAT_TYPES == DEF_RDAT_TYPES_USE_HELPERS
-  uint8_t GetCols() { return (ColsAndStream & 3) + 1; }
-  uint8_t GetStartCol() { return (ColsAndStream >> 2) & 3; }
-  uint8_t GetOutputStream() { return (ColsAndStream >> 4) & 3; }
-  uint8_t GetUsageMask() { return UsageAndDynIndexMasks & 0xF; }
-  uint8_t GetDynamicIndexMask() { return (UsageAndDynIndexMasks >> 4) & 0xF; }
+  uint8_t GetCols() const { return (ColsAndStream & 3) + 1; }
+  uint8_t GetStartCol() const { return (ColsAndStream >> 2) & 3; }
+  uint8_t GetOutputStream() const { return (ColsAndStream >> 4) & 3; }
+  uint8_t GetUsageMask() const { return UsageAndDynIndexMasks & 0xF; }
+  uint8_t GetDynamicIndexMask() const { return (UsageAndDynIndexMasks >> 4) & 0xF; }
   void SetCols(unsigned cols) { ColsAndStream &= ~3; ColsAndStream |= (cols - 1) & 3; }
   void SetStartCol(unsigned col) { ColsAndStream &= ~(3 << 2); ColsAndStream |= (col & 3) << 2; }
   void SetOutputStream(unsigned stream) { ColsAndStream &= ~(3 << 4); ColsAndStream |= (stream & 3) << 4; }

@@ -101,13 +101,6 @@ void DumpValueArray(DumpContext &d, const char *memberName,
 #define DEF_RDAT_ENUMS DEF_RDAT_DUMP_DECL
 #define DEF_DXIL_ENUMS DEF_RDAT_DUMP_DECL
 #include "dxc/DxilContainer/RDAT_Macros.inl"
-#include "dxc/DxilContainer/RDAT_LibraryTypes.inl"
-#include "dxc/DxilContainer/RDAT_SubobjectTypes.inl"
-#undef DEF_RDAT_ENUMS
-#undef DEF_DXIL_ENUMS
-
-// Clear macros
-#include "dxc/DxilContainer/RDAT_Macros.inl"
 
 } // namespace dump
 } // namespace hlsl

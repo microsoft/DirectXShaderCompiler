@@ -5925,6 +5925,7 @@ static void VerifyRDATMatches(_In_ ValidationContext &ValCtx,
     }
   }
 
+  // TODO: Implement deep validation, instead of binary comparison before 1.7 release.
   unique_ptr<DxilPartWriter> pWriter(NewRDATWriter(ValCtx.DxilMod));
   VerifyBlobPartMatches(ValCtx, PartName, pWriter.get(), pRDATData, RDATSize);
 

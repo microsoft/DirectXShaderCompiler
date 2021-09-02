@@ -47,7 +47,8 @@ enum class RuntimeDataPartType : uint32_t {
   RawBytes            = 5,
   SubobjectTable      = 6,
   Last_1_4 = SubobjectTable,
-  SignatureElementTable = 8,
+  // TODO: assign values explicitly to all enums before release
+  SignatureElementTable,
   VSInfoTable,
   PSInfoTable,
   HSInfoTable,
@@ -56,8 +57,23 @@ enum class RuntimeDataPartType : uint32_t {
   CSInfoTable,
   MSInfoTable,
   ASInfoTable,
-  // Last_1_7 = TBD,
+  Last_1_7 = ASInfoTable, // TODO: change to last necessary 1.7 part before release.
+  LastPlus1,
+  LastExperimental = LastPlus1 - 1,
 };
+
+inline
+RuntimeDataPartType MaxPartTypeForValVer(unsigned Major, unsigned Minor) {
+  return DXIL::CompareVersions(Major, Minor, 1, 3) < 0
+             ? RuntimeDataPartType::Invalid // No RDAT before 1.3
+         : DXIL::CompareVersions(Major, Minor, 1, 4) < 0
+             ? RuntimeDataPartType::Last_1_3
+         : DXIL::CompareVersions(Major, Minor, 1, 7) < 0
+             ? RuntimeDataPartType::Last_1_4
+         : DXIL::CompareVersions(Major, Minor, 1, 7) == 0
+             ? RuntimeDataPartType::Last_1_7
+             : RuntimeDataPartType::LastExperimental;
+}
 
 enum class RecordTableIndex : unsigned {
   ResourceTable,
@@ -230,12 +246,6 @@ public:
   // RecordSize() is defined in order to allow for use of forward decl type in RecordRef
   static constexpr size_t RecordSize() { /*static_assert(false, "");*/ return sizeof(_T); }
 };
-
-// Specialized for derived records
-template<typename _T>
-struct RecordBaseTrait { typedef _T FirstBaseType; };
-template<typename _T>
-struct RecordDerivedTrait { typedef _T LastDerivedType; };
 
 ///////////////////////////////////////
 // RDATContext
@@ -564,50 +574,17 @@ public:
 /////////////////////////////
 // All RDAT enums and types
 
-// These are the modes set to DEF_RDAT_TYPES and/or DEF_RDAT_ENUMS
-// that drive macro expansion for types and enums which define the
-// necessary declarations and code.
-#define DEF_RDAT_CLEAR 1                // DEF_RDAT_TYPES and DEF_RDAT_ENUMS - define empty macros
-#define DEF_RDAT_TYPES_BASIC_STRUCT 2   // DEF_RDAT_TYPES - define structs with basic types, matching RDAT format
-#define DEF_RDAT_TYPES_USE_HELPERS 3    // DEF_RDAT_TYPES - define structs using helpers, matching RDAT format
-#define DEF_RDAT_DUMP_DECL 4            // DEF_RDAT_TYPES and DEF_RDAT_ENUMS - write dump declarations
-#define DEF_RDAT_DUMP_IMPL 5            // DEF_RDAT_TYPES and DEF_RDAT_ENUMS - write dump implementation
-#define DEF_RDAT_TYPES_USE_POINTERS 6   // DEF_RDAT_TYPES - define deserialized version using pointers instead of offsets
-#define DEF_RDAT_ENUM_CLASS 7           // DEF_RDAT_ENUMS - declare enums with enum class
-#define DEF_RDAT_TRAITS 8               // DEF_RDAT_TYPES - define type traits
-#define DEF_RDAT_TYPES_FORWARD_DECL 9   // DEF_RDAT_TYPES - forward declare type struct/class
-#define DEF_RDAT_READER_DECL 10         // DEF_RDAT_TYPES and DEF_RDAT_ENUMS - write reader classes
-#define DEF_RDAT_READER_IMPL 11         // DEF_RDAT_TYPES and DEF_RDAT_ENUMS - write reader classes
-#define DEF_RDAT_VALIDATION_DECL 12     // DEF_RDAT_TYPES and DEF_RDAT_ENUMS - define validation declarations/specializations
-#define DEF_RDAT_VALIDATION_IMPL 13     // DEF_RDAT_TYPES and DEF_RDAT_ENUMS - define validation implementation
-
 #define DEF_RDAT_ENUMS DEF_RDAT_ENUM_CLASS
 #define DEF_RDAT_TYPES DEF_RDAT_TYPES_FORWARD_DECL
 #include "dxc/DxilContainer/RDAT_Macros.inl"
-#include "dxc/DxilContainer/RDAT_LibraryTypes.inl"
-#include "dxc/DxilContainer/RDAT_SubobjectTypes.inl"
-#undef DEF_RDAT_ENUMS
-#undef DEF_RDAT_TYPES
 
 #define DEF_RDAT_TYPES DEF_RDAT_TYPES_USE_HELPERS
 #include "dxc/DxilContainer/RDAT_Macros.inl"
-#include "dxc/DxilContainer/RDAT_LibraryTypes.inl"
-#include "dxc/DxilContainer/RDAT_SubobjectTypes.inl"
-#undef DEF_RDAT_TYPES
 
 #define DEF_RDAT_TYPES DEF_RDAT_TRAITS
 #include "dxc/DxilContainer/RDAT_Macros.inl"
-#include "dxc/DxilContainer/RDAT_LibraryTypes.inl"
-#include "dxc/DxilContainer/RDAT_SubobjectTypes.inl"
-#undef DEF_RDAT_TYPES
 
 #define DEF_RDAT_TYPES DEF_RDAT_READER_DECL
-#include "dxc/DxilContainer/RDAT_Macros.inl"
-#include "dxc/DxilContainer/RDAT_LibraryTypes.inl"
-#include "dxc/DxilContainer/RDAT_SubobjectTypes.inl"
-#undef DEF_RDAT_TYPES
-
-// Clear macros
 #include "dxc/DxilContainer/RDAT_Macros.inl"
 
 /////////////////////////////
@@ -632,18 +609,13 @@ public:
   RDATContext &GetContext() { return m_Context; }
   const RDATContext &GetContext() const { return m_Context; }
 
-  RecordTableReader<RuntimeDataFunctionInfo_Reader>
-  GetFunctionTable() const {
-    return RecordTableReader<RuntimeDataFunctionInfo_Reader>(&m_Context);
+#define RDAT_STRUCT_TABLE(type, table)                                         \
+  RecordTableReader<type##_Reader> Get##table() const {                        \
+    return RecordTableReader<type##_Reader>(&m_Context);                       \
   }
-  RecordTableReader<RuntimeDataResourceInfo_Reader>
-  GetResourceTable() const {
-    return RecordTableReader<RuntimeDataResourceInfo_Reader>(&m_Context);
-  }
-  RecordTableReader<RuntimeDataSubobjectInfo_Reader>
-  GetSubobjectTable() const {
-    return RecordTableReader<RuntimeDataSubobjectInfo_Reader>(&m_Context);
-  }
+#define DEF_RDAT_TYPES DEF_RDAT_DEFAULTS
+#include "dxc/DxilContainer/RDAT_Macros.inl"
+
 };
 
 
@@ -661,14 +633,100 @@ struct DxilResourceDesc {
   uint32_t Flags; // hlsl::RDAT::DxilResourceFlag
 };
 
+struct DxilSignatureElementDesc {
+  LPCWSTR SemanticName;
+  uint32_t *SemanticIndices;                  // array size is Rows
+  DXIL::SemanticKind SemanticKind;
+  DXIL::ComponentType ComponentType;
+  DXIL::InterpolationMode InterpolationMode;
+  uint8_t Rows;
+  uint8_t Cols;
+  uint8_t StartRow;
+  uint8_t StartCol;
+  uint8_t OutputStream;
+  uint8_t UsageMask;
+  uint8_t DynamicIndexMask;
+};
+
+struct DxilSignatureDesc {
+  const DxilSignatureElementDesc *const *Elements;
+  uint32_t NumElements;
+};
+
+struct DxilVSDesc {
+  DxilSignatureDesc InputSignature;
+  DxilSignatureDesc OutputSignature;
+  // TODO: ViewID data
+};
+
+struct DxilPSDesc {
+  DxilSignatureDesc InputSignature;
+  DxilSignatureDesc OutputSignature;
+};
+
+struct DxilHSDesc {
+  DxilSignatureDesc InputSignature;
+  DxilSignatureDesc OutputSignature;
+  DxilSignatureDesc OutputPatchConstantSignature;
+  uint32_t InputControlPointCount;
+  uint32_t OutputControlPointCount;
+  DXIL::TessellatorDomain TessellatorDomain;
+  DXIL::TessellatorOutputPrimitive TessellatorOutputPrimitive;
+  // TODO: ViewID data
+};
+
+struct DxilDSDesc {
+  DxilSignatureDesc InputSignature;
+  DxilSignatureDesc OutputSignature;
+  DxilSignatureDesc InputPatchConstantSignature;
+  uint32_t InputControlPointCount;
+  DXIL::TessellatorDomain TessellatorDomain;
+  // TODO: ViewID data
+};
+
+struct DxilGSDesc {
+  DxilSignatureDesc InputSignature;
+  DxilSignatureDesc OutputSignature;
+  DXIL::InputPrimitive InputPrimitive;
+  DXIL::PrimitiveTopology OutputTopology;
+  uint32_t MaxOutputVertices;
+  uint32_t OutputStreamMask;            // max streams == 4
+  // TODO: ViewID data
+};
+
+struct DxilCSDesc {
+  uint32_t NumThreads[3];
+};
+
+struct DxilMSDesc {
+  DxilSignatureDesc OutputSignature;
+  DxilSignatureDesc OutputPrimitiveSignature;
+  uint32_t NumThreads[3];
+  uint32_t GroupSharedBytesUsed;
+  uint32_t GroupSharedBytesDependentOnViewID;
+  uint32_t PayloadSizeInBytes;
+  uint32_t MaxOutputVertices;
+  uint32_t MaxOutputPrimitives;
+  DXIL::MeshOutputTopology MeshOutputTopology;
+  // TODO: ViewID data
+};
+
+struct DxilASDesc {
+  uint32_t NumThreads[3];
+  uint32_t GroupSharedBytesUsed;
+  uint32_t PayloadSizeInBytes;
+};
+
+typedef const DxilResourceDesc *const *DxilResourceDescPtrArray;
+
 struct DxilFunctionDesc {
   LPCWSTR Name;
   LPCWSTR UnmangledName;
   uint32_t NumResources;
-  const DxilResourceDesc * const*Resources;
   uint32_t NumFunctionDependencies;
+  DxilResourceDescPtrArray Resources;
   const LPCWSTR *FunctionDependencies;
-  uint32_t ShaderKind;
+  DXIL::ShaderKind ShaderKind;
   uint32_t PayloadSizeInBytes;   // 1) hit, miss, or closest shader: payload count
                                  // 2) call shader: parameter size
   uint32_t AttributeSizeInBytes; // attribute size for closest hit and any hit
@@ -676,11 +734,27 @@ struct DxilFunctionDesc {
   uint32_t FeatureInfo2;         // second 32 bits of feature flag
   uint32_t ShaderStageFlag;      // valid shader stage flag.
   uint32_t MinShaderTarget;      // minimum shader target.
+
+  // 1.7+
+  uint32_t MinimumExpectedWaveLaneCount;
+  uint32_t MaximumExpectedWaveLaneCount;
+  uint32_t ShaderFlags;          // RDAT::DxilShaderFlags
+
+  union {
+    DxilVSDesc *VS;
+    DxilPSDesc *PS;
+    DxilHSDesc *HS;
+    DxilDSDesc *DS;
+    DxilGSDesc *GS;
+    DxilCSDesc *CS;
+    DxilMSDesc *MS;
+    DxilASDesc *AS;
+  };
 };
 
 struct DxilSubobjectDesc {
   LPCWSTR Name;
-  uint32_t Kind;        // DXIL::SubobjectKind / D3D12_STATE_SUBOBJECT_TYPE
+  DXIL::SubobjectKind Kind;         // D3D12_STATE_SUBOBJECT_TYPE
 
   struct StateObjectConfig_t {
     uint32_t Flags;   // DXIL::StateObjectFlags / D3D12_STATE_OBJECT_FLAGS
@@ -702,7 +776,7 @@ struct DxilSubobjectDesc {
     uint32_t MaxTraceRecursionDepth;
   };
   struct HitGroup_t {
-    uint32_t Type;  // DXIL::HitGroupType / D3D12_HIT_GROUP_TYPE
+    DXIL::HitGroupType Type;        // D3D12_HIT_GROUP_TYPE
     LPCWSTR AnyHit;
     LPCWSTR ClosestHit;
     LPCWSTR Intersection;
