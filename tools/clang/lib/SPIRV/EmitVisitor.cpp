@@ -1799,7 +1799,7 @@ uint32_t EmitTypeHandler::getOrCreateConstantFloat(SpirvConstantFloat *inst) {
 
   // SpecConstant instructions are not unique, so we should not re-use existing
   // spec constants.
-  if (!isSpecConstant) {
+  if (!isSpecConst) {
     // If this constant has already been emitted, return its result-id.
     auto foundResultId = emittedConstantFloats.find(valueTypePair);
     if (foundResultId != emittedConstantFloats.end()) {
