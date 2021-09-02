@@ -79,6 +79,7 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
+#include "llvm/IR/DebugInfo.h"
 
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/DXIL/DxilOperations.h"
@@ -724,6 +725,27 @@ void DxilLoopUnroll::RecursivelyRecreateSubLoopForIteration(LPPassManager &LPM, 
   }
 }
 
+static void RemapDebugInsts(BasicBlock *ClonedBB, ValueToValueMapTy &VarMap, SetVector<BasicBlock *> &ClonedFrom) {
+  LLVMContext &Ctx = ClonedBB->getContext();
+  for (Instruction &I : *ClonedBB) {
+    DbgValueInst *DV = dyn_cast<DbgValueInst>(&I);
+    if (!DV)
+      continue;
+
+    Instruction *I = dyn_cast_or_null<Instruction>(DV->getValue());
+    if (!I)
+      continue;
+
+    // If this instruction is in the original cloned set, remap the debug insts
+    if (ClonedFrom.count(I->getParent())) {
+      auto it = VarMap.find(I);
+      if (it != VarMap.end()) {
+        DV->setArgOperand(0, MetadataAsValue::get(Ctx, ValueAsMetadata::get(it->second)));
+      }
+    }
+  }
+}
+
 bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
 
   DebugLoc LoopLoc = L->getStartLoc(); // Debug location for the start of the loop.
@@ -770,6 +792,7 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
   AssumptionCache *AC =
     &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(*F);
   LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+  const bool HasDebugInfo = llvm::hasDebugInfo(*F->getParent());
 
   Loop *OuterL = L->getParentLoop();
   BasicBlock *Latch = L->getLoopLatch();
@@ -918,14 +941,14 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
     // Clone the blocks.
     for (BasicBlock *BB : ToBeCloned) {
 
-      BasicBlock *ClonedBB = CloneBasicBlock(BB, CurIteration.VarMap);
+      BasicBlock *ClonedBB = llvm::CloneBasicBlock(BB, CurIteration.VarMap);
       CurIteration.VarMap[BB] = ClonedBB;
       ClonedBB->insertInto(F, Header);
 
+      CurIteration.Body.push_back(ClonedBB);
+
       if (ExitBlockSet.count(BB))
         CurIteration.Extended.insert(ClonedBB);
-
-      CurIteration.Body.push_back(ClonedBB);
 
       // Identify the special blocks.
       if (BB == Latch) {
@@ -933,6 +956,13 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       }
       if (BB == Header) {
         CurIteration.Header = ClonedBB;
+      }
+    }
+
+    // Remap the debug instructions
+    if (HasDebugInfo) {
+      for (BasicBlock *BB : CurIteration.Body) {
+        RemapDebugInsts(BB, CurIteration.VarMap, ToBeCloned);
       }
     }
 
