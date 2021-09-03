@@ -860,7 +860,7 @@ enum AttributeDeclKind {
   ExpectedScalarGlobalVar,
   ExpectedStructGlobalVar,
   ExpectedGlobalVarOrCTBuffer,
-  ExpectedTexture2DOrSamplerState,
+  ExpectedTextureOrSamplerState,
   ExpectedRWTextureOrBuffer,
   ExpectedCounterStructuredBuffer,
   ExpectedSubpassInput,
