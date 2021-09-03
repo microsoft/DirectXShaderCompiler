@@ -2073,6 +2073,9 @@ TEST_F(FileTest, VulkanCombinedImageSampler) {
 TEST_F(FileTest, VulkanCombinedImageSamplerTextureArray) {
   runFileTest("vk.combined-image-sampler.texture-array.hlsl");
 }
+TEST_F(FileTest, VulkanCombinedImageSamplerError) {
+  runFileTest("vk.combined-image-sampler.error.hlsl", Expect::Failure);
+}
 
 TEST_F(FileTest, VulkanSpecConstantInit) {
   runFileTest("vk.spec-constant.init.hlsl");

@@ -1280,7 +1280,8 @@ void SpirvBuilder::decorateDSetBinding(SpirvVariable *target,
   // --convert-to-sampled-image pass.
   if (context.getVkImageFeaturesForSpirvVariable(target)
           .isCombinedImageSampler) {
-    context.registerDSetBindingForSampledImage({setNumber, bindingNumber});
+    context.registerTypeAndDSetBindingForSampledImage(
+        target->getAstResultType(), {setNumber, bindingNumber});
   }
 
   mod->addDecoration(binding);

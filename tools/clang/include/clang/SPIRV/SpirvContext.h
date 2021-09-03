@@ -14,6 +14,7 @@
 
 #include "dxc/DXIL/DxilShaderModel.h"
 #include "clang/AST/DeclTemplate.h"
+#include "clang/AST/TypeOrdering.h"
 #include "clang/Frontend/FrontendAction.h"
 #include "clang/SPIRV/SpirvInstruction.h"
 #include "clang/SPIRV/SpirvType.h"
@@ -388,19 +389,19 @@ public:
     return itr->second;
   }
 
-  /// Function to register/get the set of descriptor set and binding pairs to
-  /// combine images and samplers.
-  void registerDSetBindingForSampledImage(
-      const DescriptorSetAndBinding &descriptorSetAndBinding) {
-    dsetBindingsToCombineImageSampler.insert(descriptorSetAndBinding);
+  /// Function to register the QualType, the descriptor set, and the binding
+  /// to combine images and samplers.
+  void registerTypeAndDSetBindingForSampledImage(
+      QualType type, const DescriptorSetAndBinding &descriptorSetAndBinding) {
+    typeAndDSetBindingsForSampledImage.push_back(
+        std::make_pair(type, descriptorSetAndBinding));
   }
-  llvm::SmallVector<DescriptorSetAndBinding, 4>
-  getDSetBindingForSampledImage() {
-    llvm::SmallVector<DescriptorSetAndBinding, 4> dsetBindings;
-    for (const auto &dsetBinding : dsetBindingsToCombineImageSampler) {
-      dsetBindings.push_back(dsetBinding);
-    }
-    return dsetBindings;
+
+  /// Function to get all the QualType, the descriptor set, and the binding
+  /// to combine images and samplers.
+  llvm::SmallVector<std::pair<QualType, DescriptorSetAndBinding>, 4>
+  getTypeAndDSetBindingForSampledImages() {
+    return typeAndDSetBindingsForSampledImage;
   }
 
   /// Function to add/get the mapping from a SPIR-V type to its Decl for
@@ -526,22 +527,10 @@ private:
   llvm::DenseMap<const SpirvVariable *, VkImageFeatures>
       spvVarToVkImageFeatures;
 
-  // Set of descriptor set and binding pairs that we have to combine images and
-  // samplers.
-  //
-  // When we have the following texture and sampler with
-  // [[vk::combinedImageSampler]] attributes:
-  //
-  //   [[vk::combinedImageSampler]] [[vk::binding(2, 3)]]
-  //   SamplerState sam;
-  //   [[vk::combinedImageSampler]] [[vk::binding(2, 3)]]
-  //   Texture2D<float4> tex;
-  //
-  // we will generate a combined image sampler by combining sam and tex.
-  // dsetBindingsToCombineImageSampler will keep descriptor set and binding
-  // pairs to combine samplers and textures.
-  llvm::DenseSet<DescriptorSetAndBinding, DescriptorSetAndBindingMapInfo>
-      dsetBindingsToCombineImageSampler;
+  // Vector of QualType, descriptor set, and binding of resources that we have
+  // to combine images and samplers.
+  llvm::SmallVector<std::pair<QualType, DescriptorSetAndBinding>, 4>
+      typeAndDSetBindingsForSampledImage;
 
   // Set of instructions that already have lowered SPIR-V types.
   llvm::DenseSet<const SpirvInstruction *> instructionsWithLoweredType;

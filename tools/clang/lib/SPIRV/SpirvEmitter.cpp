@@ -454,6 +454,61 @@ bool isMemoryObjectDeclaration(SpirvInstruction *inst) {
   return isa<SpirvVariable>(inst) || isa<SpirvFunctionParameter>(inst);
 }
 
+// Returns a pair of the descriptor set and the binding that does not have
+// bound Texture or Sampler.
+DescriptorSetAndBinding getDSetBindingWithoutTextureOrSampler(
+    const llvm::SmallVector<std::pair<QualType, DescriptorSetAndBinding>, 4>
+        &typeAndDSetBindings) {
+  const DescriptorSetAndBinding kNotFound = {
+      std::numeric_limits<uint32_t>::max(),
+      std::numeric_limits<uint32_t>::max()};
+  if (typeAndDSetBindings.empty()) {
+    return kNotFound;
+  }
+
+  typedef uint8_t TextureAndSamplerExistExistance;
+  const TextureAndSamplerExistExistance kTextureConfirmed = 1 << 0;
+  const TextureAndSamplerExistExistance kSamplerConfirmed = 1 << 1;
+  llvm::DenseMap<std::pair<uint32_t, uint32_t>, TextureAndSamplerExistExistance>
+      dsetBindingsToTextureSamplerExistance;
+  for (const auto &itr : typeAndDSetBindings) {
+    auto dsetBinding =
+        std::make_pair(itr.second.descriptorSet, itr.second.binding);
+
+    TextureAndSamplerExistExistance status = 0;
+    if (isTexture(itr.first))
+      status = kTextureConfirmed;
+    if (isSampler(itr.first))
+      status = kSamplerConfirmed;
+
+    auto existanceItr = dsetBindingsToTextureSamplerExistance.find(dsetBinding);
+    if (existanceItr == dsetBindingsToTextureSamplerExistance.end()) {
+      dsetBindingsToTextureSamplerExistance[dsetBinding] = status;
+    } else {
+      existanceItr->second = existanceItr->second | status;
+    }
+  }
+
+  for (const auto &itr : dsetBindingsToTextureSamplerExistance) {
+    if (itr.second != (kTextureConfirmed | kSamplerConfirmed))
+      return {itr.first.first, itr.first.second};
+  }
+  return kNotFound;
+}
+
+// Collects pairs of the descriptor set and the binding to combine
+// corresponding Texture and Sampler into the sampled image.
+llvm::SmallVector<DescriptorSetAndBinding, 4>
+collectDSetBindingsToCombineSampledImage(
+    const llvm::SmallVector<std::pair<QualType, DescriptorSetAndBinding>, 4>
+        &typeAndDSetBindings) {
+  llvm::SmallVector<DescriptorSetAndBinding, 4> dsetBindings;
+  for (const auto &itr : typeAndDSetBindings) {
+    dsetBindings.push_back(itr.second);
+  }
+  return dsetBindings;
+}
+
 } // namespace
 
 SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
@@ -676,8 +731,25 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   // Output the constructed module.
   std::vector<uint32_t> m = spvBuilder.takeModule();
 
+  // Check the existance of Texture and Sampler with
+  // [[vk::combinedImageSampler]] for the same descriptor set and binding.
+  auto typeAndDSetbindingsForSampledImage =
+      spvContext.getTypeAndDSetBindingForSampledImages();
+  auto dsetBindingWithoutTextureOrSampler =
+      getDSetBindingWithoutTextureOrSampler(typeAndDSetbindingsForSampledImage);
+  if (dsetBindingWithoutTextureOrSampler.descriptorSet !=
+      std::numeric_limits<uint32_t>::max()) {
+    emitFatalError(
+        "Texture or Sampler with [[vk::combinedImageSampler]] attribute is "
+        "missing for descriptor set and binding: %0, %1",
+        {})
+        << dsetBindingWithoutTextureOrSampler.descriptorSet
+        << dsetBindingWithoutTextureOrSampler.binding;
+    return;
+  }
   auto dsetbindingsToCombineImageSampler =
-      spvContext.getDSetBindingForSampledImage();
+      collectDSetBindingsToCombineSampledImage(
+          typeAndDSetbindingsForSampledImage);
 
   // In order to flatten composite resources, we must also unroll loops.
   // Therefore we should run legalization before optimization.
