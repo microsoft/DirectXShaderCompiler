@@ -141,30 +141,12 @@ struct VkImageFeatures {
   spv::ImageFormat format; // SPIR-V image format.
 };
 
-// A struct that contains descriptor set and binding numbers.
-struct DescriptorSetAndBinding {
+// A struct that contains the information of a resource that will be used to
+// combine an image and a sampler to a sampled image.
+struct ResourceInfoToCombineSampledImage {
+  QualType type;
   uint32_t descriptorSet;
   uint32_t binding;
-};
-
-// Provides DenseMapInfo for DescriptorSetAndBinding so we can create a
-// DenseSet of DescriptorSetAndBinding.
-struct DescriptorSetAndBindingMapInfo {
-  static inline DescriptorSetAndBinding getEmptyKey() {
-    return {std::numeric_limits<uint32_t>::max(),
-            std::numeric_limits<uint32_t>::max()};
-  }
-  static inline DescriptorSetAndBinding getTombstoneKey() {
-    return {std::numeric_limits<uint32_t>::max(),
-            std::numeric_limits<uint32_t>::max()};
-  }
-  static unsigned getHashValue(const DescriptorSetAndBinding &Val) {
-    return llvm::hash_combine(Val.descriptorSet, Val.binding);
-  }
-  static bool isEqual(const DescriptorSetAndBinding &LHS,
-                      const DescriptorSetAndBinding &RHS) {
-    return LHS.descriptorSet == RHS.descriptorSet && LHS.binding == RHS.binding;
-  }
 };
 
 /// The class owning various SPIR-V entities allocated in memory during CodeGen.
@@ -389,19 +371,19 @@ public:
     return itr->second;
   }
 
-  /// Function to register the QualType, the descriptor set, and the binding
-  /// to combine images and samplers.
-  void registerTypeAndDSetBindingForSampledImage(
-      QualType type, const DescriptorSetAndBinding &descriptorSetAndBinding) {
-    typeAndDSetBindingsForSampledImage.push_back(
-        std::make_pair(type, descriptorSetAndBinding));
+  /// Function to register the resource information (QualType, descriptor set,
+  /// and binding) to combine images and samplers.
+  void registerResourceInfoForSampledImage(QualType type,
+                                           uint32_t descriptorSet,
+                                           uint32_t binding) {
+    resourceInfoForSampledImages.push_back({type, descriptorSet, binding});
   }
 
-  /// Function to get all the QualType, the descriptor set, and the binding
-  /// to combine images and samplers.
-  llvm::SmallVector<std::pair<QualType, DescriptorSetAndBinding>, 4>
-  getTypeAndDSetBindingForSampledImages() {
-    return typeAndDSetBindingsForSampledImage;
+  /// Function to get all the resource information (QualType, descriptor set,
+  /// and binding) to combine images and samplers.
+  llvm::SmallVector<ResourceInfoToCombineSampledImage, 4>
+  getResourceInfoForSampledImages() {
+    return resourceInfoForSampledImages;
   }
 
   /// Function to add/get the mapping from a SPIR-V type to its Decl for
@@ -527,10 +509,9 @@ private:
   llvm::DenseMap<const SpirvVariable *, VkImageFeatures>
       spvVarToVkImageFeatures;
 
-  // Vector of QualType, descriptor set, and binding of resources that we have
-  // to combine images and samplers.
-  llvm::SmallVector<std::pair<QualType, DescriptorSetAndBinding>, 4>
-      typeAndDSetBindingsForSampledImage;
+  // Vector of resource information to be used to combine images and samplers.
+  llvm::SmallVector<ResourceInfoToCombineSampledImage, 4>
+      resourceInfoForSampledImages;
 
   // Set of instructions that already have lowered SPIR-V types.
   llvm::DenseSet<const SpirvInstruction *> instructionsWithLoweredType;

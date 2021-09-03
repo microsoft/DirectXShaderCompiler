@@ -33,20 +33,10 @@ const char *getGitCommitHash() { return "<unknown-hash>"; }
 } // namespace clang
 #endif // SUPPORT_QUERY_GIT_COMMIT_INFO
 
-namespace spvtools {
-namespace opt {
-
-// A struct for a pair of descriptor set and binding.
-struct DescriptorSetAndBinding {
-  uint32_t descriptor_set;
-  uint32_t binding;
-};
-
-} // namespace opt
-} // namespace spvtools
-
 namespace clang {
 namespace spirv {
+
+using spvtools::opt::DescriptorSetAndBinding;
 
 namespace {
 
@@ -457,12 +447,12 @@ bool isMemoryObjectDeclaration(SpirvInstruction *inst) {
 // Returns a pair of the descriptor set and the binding that does not have
 // bound Texture or Sampler.
 DescriptorSetAndBinding getDSetBindingWithoutTextureOrSampler(
-    const llvm::SmallVector<std::pair<QualType, DescriptorSetAndBinding>, 4>
-        &typeAndDSetBindings) {
+    const llvm::SmallVectorImpl<ResourceInfoToCombineSampledImage>
+        &resourceInfoForSampledImages) {
   const DescriptorSetAndBinding kNotFound = {
       std::numeric_limits<uint32_t>::max(),
       std::numeric_limits<uint32_t>::max()};
-  if (typeAndDSetBindings.empty()) {
+  if (resourceInfoForSampledImages.empty()) {
     return kNotFound;
   }
 
@@ -471,14 +461,13 @@ DescriptorSetAndBinding getDSetBindingWithoutTextureOrSampler(
   const TextureAndSamplerExistExistance kSamplerConfirmed = 1 << 1;
   llvm::DenseMap<std::pair<uint32_t, uint32_t>, TextureAndSamplerExistExistance>
       dsetBindingsToTextureSamplerExistance;
-  for (const auto &itr : typeAndDSetBindings) {
-    auto dsetBinding =
-        std::make_pair(itr.second.descriptorSet, itr.second.binding);
+  for (const auto &itr : resourceInfoForSampledImages) {
+    auto dsetBinding = std::make_pair(itr.descriptorSet, itr.binding);
 
     TextureAndSamplerExistExistance status = 0;
-    if (isTexture(itr.first))
+    if (isTexture(itr.type))
       status = kTextureConfirmed;
-    if (isSampler(itr.first))
+    if (isSampler(itr.type))
       status = kSamplerConfirmed;
 
     auto existanceItr = dsetBindingsToTextureSamplerExistance.find(dsetBinding);
@@ -498,13 +487,12 @@ DescriptorSetAndBinding getDSetBindingWithoutTextureOrSampler(
 
 // Collects pairs of the descriptor set and the binding to combine
 // corresponding Texture and Sampler into the sampled image.
-llvm::SmallVector<DescriptorSetAndBinding, 4>
-collectDSetBindingsToCombineSampledImage(
-    const llvm::SmallVector<std::pair<QualType, DescriptorSetAndBinding>, 4>
-        &typeAndDSetBindings) {
-  llvm::SmallVector<DescriptorSetAndBinding, 4> dsetBindings;
-  for (const auto &itr : typeAndDSetBindings) {
-    dsetBindings.push_back(itr.second);
+std::vector<DescriptorSetAndBinding> collectDSetBindingsToCombineSampledImage(
+    const llvm::SmallVectorImpl<ResourceInfoToCombineSampledImage>
+        &resourceInfoForSampledImages) {
+  std::vector<DescriptorSetAndBinding> dsetBindings;
+  for (const auto &itr : resourceInfoForSampledImages) {
+    dsetBindings.push_back({itr.descriptorSet, itr.binding});
   }
   return dsetBindings;
 }
@@ -733,23 +721,22 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
 
   // Check the existance of Texture and Sampler with
   // [[vk::combinedImageSampler]] for the same descriptor set and binding.
-  auto typeAndDSetbindingsForSampledImage =
-      spvContext.getTypeAndDSetBindingForSampledImages();
+  auto resourceInfoForSampledImages =
+      spvContext.getResourceInfoForSampledImages();
   auto dsetBindingWithoutTextureOrSampler =
-      getDSetBindingWithoutTextureOrSampler(typeAndDSetbindingsForSampledImage);
-  if (dsetBindingWithoutTextureOrSampler.descriptorSet !=
+      getDSetBindingWithoutTextureOrSampler(resourceInfoForSampledImages);
+  if (dsetBindingWithoutTextureOrSampler.descriptor_set !=
       std::numeric_limits<uint32_t>::max()) {
     emitFatalError(
         "Texture or Sampler with [[vk::combinedImageSampler]] attribute is "
         "missing for descriptor set and binding: %0, %1",
         {})
-        << dsetBindingWithoutTextureOrSampler.descriptorSet
+        << dsetBindingWithoutTextureOrSampler.descriptor_set
         << dsetBindingWithoutTextureOrSampler.binding;
     return;
   }
   auto dsetbindingsToCombineImageSampler =
-      collectDSetBindingsToCombineSampledImage(
-          typeAndDSetbindingsForSampledImage);
+      collectDSetBindingsToCombineSampledImage(resourceInfoForSampledImages);
 
   // In order to flatten composite resources, we must also unroll loops.
   // Therefore we should run legalization before optimization.
@@ -12449,10 +12436,10 @@ bool SpirvEmitter::spirvToolsOptimize(std::vector<uint32_t> *mod,
   return optimizer.Run(mod->data(), mod->size(), mod, options);
 }
 
-bool SpirvEmitter::spirvToolsLegalize(
-    std::vector<uint32_t> *mod, std::string *messages,
-    const llvm::SmallVectorImpl<DescriptorSetAndBinding>
-        *dsetbindingsToCombineImageSampler) {
+bool SpirvEmitter::spirvToolsLegalize(std::vector<uint32_t> *mod,
+                                      std::string *messages,
+                                      const std::vector<DescriptorSetAndBinding>
+                                          *dsetbindingsToCombineImageSampler) {
   spvtools::Optimizer optimizer(featureManager.getTargetEnv());
   optimizer.SetMessageConsumer(
       [messages](spv_message_level_t /*level*/, const char * /*source*/,
@@ -12472,13 +12459,8 @@ bool SpirvEmitter::spirvToolsLegalize(
   }
   if (dsetbindingsToCombineImageSampler &&
       !dsetbindingsToCombineImageSampler->empty()) {
-    std::vector<spvtools::opt::DescriptorSetAndBinding> dsetBindingPairs;
-    for (const auto dsetBinding : *dsetbindingsToCombineImageSampler) {
-      dsetBindingPairs.push_back(
-          {dsetBinding.descriptorSet, dsetBinding.binding});
-    }
-    optimizer.RegisterPass(
-        spvtools::CreateConvertToSampledImagePass(dsetBindingPairs));
+    optimizer.RegisterPass(spvtools::CreateConvertToSampledImagePass(
+        *dsetbindingsToCombineImageSampler));
     // ADCE should be run after combining images and samplers in order to
     // remove potentially illegal types such as structures containing opaque
     // types.

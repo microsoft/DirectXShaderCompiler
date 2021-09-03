@@ -35,6 +35,18 @@
 
 #include "DeclResultIdMapper.h"
 
+namespace spvtools {
+namespace opt {
+
+// A struct for a pair of descriptor set and binding.
+struct DescriptorSetAndBinding {
+  uint32_t descriptor_set;
+  uint32_t binding;
+};
+
+} // namespace opt
+} // namespace spvtools
+
 namespace clang {
 namespace spirv {
 
@@ -1037,9 +1049,10 @@ private:
   /// |dsetbindingsToCombineImageSampler| is not empty, runs
   /// --convert-to-sampled-image pass.
   /// Returns true on success and false otherwise.
-  bool spirvToolsLegalize(std::vector<uint32_t> *mod, std::string *messages,
-                          const llvm::SmallVectorImpl<DescriptorSetAndBinding>
-                              *dsetbindingsToCombineImageSampler);
+  bool
+  spirvToolsLegalize(std::vector<uint32_t> *mod, std::string *messages,
+                     const std::vector<spvtools::opt::DescriptorSetAndBinding>
+                         *dsetbindingsToCombineImageSampler);
 
   /// \brief Helper function to run the SPIRV-Tools validator.
   /// Runs the SPIRV-Tools validator on the given SPIR-V module |mod|, and
