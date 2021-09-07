@@ -1274,6 +1274,16 @@ void SpirvBuilder::decorateDSetBinding(SpirvVariable *target,
   target->setDescriptorSetNo(setNumber);
   target->setBindingNo(bindingNumber);
 
+  // If the variable has the [[vk::combinedImageSampler]] attribute, we keep
+  // setNumber and bindingNumber pair to combine the image and the sampler with
+  // with the pair. The combining process will be conducted by spirv-opt
+  // --convert-to-sampled-image pass.
+  if (context.getVkImageFeaturesForSpirvVariable(target)
+          .isCombinedImageSampler) {
+    context.registerResourceInfoForSampledImage(target->getAstResultType(),
+                                                setNumber, bindingNumber);
+  }
+
   mod->addDecoration(binding);
 }
 

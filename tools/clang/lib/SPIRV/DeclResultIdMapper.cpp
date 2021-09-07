@@ -1007,11 +1007,16 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
       loc);
   varInstr->setLayoutRule(rule);
 
-  // If this variable has [[vk::image_format("..")]] attribute, we have to keep
-  // it in the SpirvContext and use it when we lower the QualType to SpirvType.
-  auto spvImageFormat = getSpvImageFormat(var->getAttr<VKImageFormatAttr>());
-  if (spvImageFormat != spv::ImageFormat::Unknown)
-    spvContext.registerImageFormatForSpirvVariable(varInstr, spvImageFormat);
+  // If this variable has [[vk::combinedImageSampler]] and/or
+  // [[vk::image_format("..")]] attributes, we have to keep the information in
+  // the SpirvContext and use it when we lower the QualType to SpirvType.
+  VkImageFeatures vkImgFeatures = {
+      var->getAttr<VKCombinedImageSamplerAttr>() != nullptr,
+      getSpvImageFormat(var->getAttr<VKImageFormatAttr>())};
+  if (vkImgFeatures.isCombinedImageSampler ||
+      vkImgFeatures.format != spv::ImageFormat::Unknown) {
+    spvContext.registerVkImageFeaturesForSpvVariable(varInstr, vkImgFeatures);
+  }
 
   astDecls[var] = createDeclSpirvInfo(varInstr);
 
