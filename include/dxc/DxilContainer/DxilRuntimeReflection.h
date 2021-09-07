@@ -47,7 +47,7 @@ enum class RuntimeDataPartType : uint32_t {
   RawBytes            = 5,
   SubobjectTable      = 6,
   Last_1_4 = SubobjectTable,
-  // TODO: assign values explicitly to all enums before release
+  // PRERELEASE-TODO: assign values explicitly to all enums before release
   SignatureElementTable,
   VSInfoTable,
   PSInfoTable,
@@ -57,7 +57,8 @@ enum class RuntimeDataPartType : uint32_t {
   CSInfoTable,
   MSInfoTable,
   ASInfoTable,
-  Last_1_7 = ASInfoTable, // TODO: change to last necessary 1.7 part before release.
+  Last_1_7 = ASInfoTable, // PRERELEASE-TODO: change to last necessary 1.7 part before release.
+  // Insert experimental here.
   LastPlus1,
   LastExperimental = LastPlus1 - 1,
 };
@@ -656,7 +657,7 @@ struct DxilSignatureDesc {
 struct DxilVSDesc {
   DxilSignatureDesc InputSignature;
   DxilSignatureDesc OutputSignature;
-  // TODO: ViewID data
+  // PRERELEASE-TODO: ViewID data
 };
 
 struct DxilPSDesc {
@@ -672,7 +673,7 @@ struct DxilHSDesc {
   uint32_t OutputControlPointCount;
   DXIL::TessellatorDomain TessellatorDomain;
   DXIL::TessellatorOutputPrimitive TessellatorOutputPrimitive;
-  // TODO: ViewID data
+  // PRERELEASE-TODO: ViewID data
 };
 
 struct DxilDSDesc {
@@ -681,7 +682,7 @@ struct DxilDSDesc {
   DxilSignatureDesc InputPatchConstantSignature;
   uint32_t InputControlPointCount;
   DXIL::TessellatorDomain TessellatorDomain;
-  // TODO: ViewID data
+  // PRERELEASE-TODO: ViewID data
 };
 
 struct DxilGSDesc {
@@ -691,7 +692,7 @@ struct DxilGSDesc {
   DXIL::PrimitiveTopology OutputTopology;
   uint32_t MaxOutputVertices;
   uint32_t OutputStreamMask;            // max streams == 4
-  // TODO: ViewID data
+  // PRERELEASE-TODO: ViewID data
 };
 
 struct DxilCSDesc {
@@ -708,7 +709,7 @@ struct DxilMSDesc {
   uint32_t MaxOutputVertices;
   uint32_t MaxOutputPrimitives;
   DXIL::MeshOutputTopology MeshOutputTopology;
-  // TODO: ViewID data
+  // PRERELEASE-TODO: ViewID data
 };
 
 struct DxilASDesc {

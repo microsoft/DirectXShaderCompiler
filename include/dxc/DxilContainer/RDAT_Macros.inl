@@ -30,7 +30,7 @@
 #define DEF_RDAT_READER_DECL 10         // DEF_RDAT_TYPES and DEF_RDAT_ENUMS - write reader classes
 #define DEF_RDAT_READER_IMPL 11         // DEF_RDAT_TYPES and DEF_RDAT_ENUMS - write reader classes
 #define DEF_RDAT_STRUCT_VALIDATION 13   // DEF_RDAT_TYPES and DEF_RDAT_ENUMS - define structural validation
-// TODO: deeper validation for DxilValidation (limiting enum values and other such things)
+// PRERELEASE-TODO: deeper validation for DxilValidation (limiting enum values and other such things)
 
 #define GLUE2(a, b) a##b
 #define GLUE(a, b) GLUE2(a, b)

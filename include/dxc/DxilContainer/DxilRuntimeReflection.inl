@@ -161,10 +161,10 @@ bool DxilRuntimeData::InitFromRDAT(const void *pRDAT, size_t size) {
   return false;
 }
 
-// TODO: Incorporate field names and report errors in error stream
+// PRERELEASE-TODO: Incorporate field names and report errors in error stream
 
-// TODO: Low-pri: Check other things like that all the index, string, and binary
-// buffer space is actually used.
+// PRERELEASE-TODO: Low-pri: Check other things like that all the index, string,
+// and binary buffer space is actually used.
 
 template<typename _RecordType>
 static bool ValidateRecordRef(const RDATContext &ctx, uint32_t id) {
@@ -648,7 +648,7 @@ void DxilRuntimeReflection_impl::AddVS() {
     auto reader = table[i];
     AddSignature(desc.InputSignature, reader->SigInputElements);
     AddSignature(desc.OutputSignature, reader->SigOutputElements);
-    // TODO: ViewID data
+    // PRERELEASE-TODO: ViewID data
   }
 }
 void DxilRuntimeReflection_impl::AddPS() {
@@ -674,7 +674,7 @@ void DxilRuntimeReflection_impl::AddHS() {
     desc.OutputControlPointCount = reader.getOutputControlPointCount();
     desc.TessellatorDomain = (DXIL::TessellatorDomain)reader.getTessellatorDomain();
     desc.TessellatorOutputPrimitive = (DXIL::TessellatorOutputPrimitive)reader.getTessellatorOutputPrimitive();
-    // TODO: ViewID data
+    // PRERELEASE-TODO: ViewID data
   }
 }
 void DxilRuntimeReflection_impl::AddDS() {
@@ -688,7 +688,7 @@ void DxilRuntimeReflection_impl::AddDS() {
     AddSignature(desc.InputPatchConstantSignature, reader->SigPatchConstInputElements);
     desc.InputControlPointCount = reader.getInputControlPointCount();
     desc.TessellatorDomain = (DXIL::TessellatorDomain)reader.getTessellatorDomain();
-    // TODO: ViewID data
+    // PRERELEASE-TODO: ViewID data
   }
 }
 void DxilRuntimeReflection_impl::AddGS() {
@@ -703,7 +703,7 @@ void DxilRuntimeReflection_impl::AddGS() {
     desc.OutputTopology = (DXIL::PrimitiveTopology)reader.getOutputTopology();
     desc.MaxOutputVertices = reader.getMaxVertexCount();
     desc.OutputStreamMask = reader.getOutputStreamMask();
-    // TODO: ViewID data
+    // PRERELEASE-TODO: ViewID data
   }
 }
 void DxilRuntimeReflection_impl::AddCS() {
@@ -734,7 +734,7 @@ void DxilRuntimeReflection_impl::AddMS() {
     desc.MaxOutputVertices = reader.getMaxOutputVertices();
     desc.MaxOutputPrimitives = reader.getMaxOutputPrimitives();
     desc.MeshOutputTopology = (DXIL::MeshOutputTopology)reader.getMeshOutputTopology();
-    // TODO: ViewID data
+    // PRERELEASE-TODO: ViewID data
   }
 }
 void DxilRuntimeReflection_impl::AddAS() {
