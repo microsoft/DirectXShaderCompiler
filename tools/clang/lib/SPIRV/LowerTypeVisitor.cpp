@@ -125,10 +125,10 @@ bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
         var->setHlslUserType(getHlslResourceTypeName(var->getAstResultType()));
       }
 
-      auto spvImageFormat = spvContext.getImageFormatForSpirvVariable(var);
-      if (spvImageFormat != spv::ImageFormat::Unknown) {
+      auto vkImgFeatures = spvContext.getVkImageFeaturesForSpirvVariable(var);
+      if (vkImgFeatures.format != spv::ImageFormat::Unknown) {
         if (const auto *imageType = dyn_cast<ImageType>(resultType)) {
-          resultType = spvContext.getImageType(imageType, spvImageFormat);
+          resultType = spvContext.getImageType(imageType, vkImgFeatures.format);
           instr->setResultType(resultType);
         }
       }
