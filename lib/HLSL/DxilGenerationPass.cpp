@@ -241,15 +241,17 @@ public:
       }
     }
 
-    std::unordered_set<LoadInst *> UpdateCounterSet;
+    std::unordered_set<Instruction *> UpdateCounterSet;
 
     GenerateDxilOperations(M, UpdateCounterSet);
 
     GenerateDxilCBufferHandles();
-    MarkUpdateCounter(UpdateCounterSet);
 
     std::unordered_map<CallInst *, Type*> HandleToResTypeMap;
     LowerHLCreateHandle(HandleToResTypeMap);
+
+    MarkUpdateCounter(UpdateCounterSet);
+
 
     // LowerHLCreateHandle() should have translated HLCreateHandle to CreateHandleForLib.
     // Clean up HLCreateHandle functions.
@@ -299,14 +301,14 @@ public:
   }
 
 private:
-  void MarkUpdateCounter(std::unordered_set<LoadInst *> &UpdateCounterSet);
+  void MarkUpdateCounter(std::unordered_set<Instruction *> &UpdateCounterSet);
   // Generate DXIL cbuffer handles.
   void
   GenerateDxilCBufferHandles();
 
   // change built-in funtion into DXIL operations
   void GenerateDxilOperations(Module &M,
-                              std::unordered_set<LoadInst *> &UpdateCounterSet);
+                         std::unordered_set<Instruction *> &UpdateCounterSet);
   void LowerHLCreateHandle(
       std::unordered_map<CallInst *, Type *> &HandleToResTypeMap);
 
@@ -338,6 +340,7 @@ void TranslateHLCreateHandle(Function *F, hlsl::OP &hlslOP) {
     // must be call inst
     CallInst *CI = cast<CallInst>(user);
     Value *res = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
+
     Value *newHandle = nullptr;
     IRBuilder<> Builder(CI);
     // Res could be ld/phi/select. Will be removed in
@@ -464,7 +467,7 @@ void DxilGenerationPass::LowerHLCreateHandle(
 static void
 MarkUavUpdateCounter(Value* LoadOrGEP,
                      DxilResource &res,
-                     std::unordered_set<LoadInst *> &UpdateCounterSet) {
+                     std::unordered_set<Instruction *> &UpdateCounterSet) {
   if (LoadInst *ldInst = dyn_cast<LoadInst>(LoadOrGEP)) {
     if (UpdateCounterSet.count(ldInst)) {
       DXASSERT_NOMSG(res.GetClass() == DXIL::ResourceClass::UAV);
@@ -482,7 +485,7 @@ MarkUavUpdateCounter(Value* LoadOrGEP,
 }
 static void
 MarkUavUpdateCounter(DxilResource &res,
-                     std::unordered_set<LoadInst *> &UpdateCounterSet) {
+                     std::unordered_set<Instruction *> &UpdateCounterSet) {
   Value *V = res.GetGlobalSymbol();
   for (auto U = V->user_begin(), E = V->user_end(); U != E;) {
     User *user = *(U++);
@@ -493,11 +496,42 @@ MarkUavUpdateCounter(DxilResource &res,
   }
 }
 
+static void MarkUavUpdateCounterForDynamicResource(CallInst &createHdlFromHeap,
+                                                   const ShaderModel &SM) {
+  for (User *U : createHdlFromHeap.users()) {
+    CallInst *CI = dyn_cast<CallInst>(U);
+    if (!CI)
+      continue;
+    DxilInst_AnnotateHandle annotHdl(CI);
+    if (!annotHdl)
+      continue;
+    auto RP = hlsl::resource_helper::loadPropsFromAnnotateHandle(annotHdl, SM);
+    RP.Basic.SamplerCmpOrHasCounter = true;
+    Value *originRP = annotHdl.get_props();
+    Value *updatedRP =
+        hlsl::resource_helper::getAsConstant(RP, originRP->getType(), SM);
+    annotHdl.set_props(updatedRP);
+  }
+}
+
 void DxilGenerationPass::MarkUpdateCounter(
-    std::unordered_set<LoadInst *> &UpdateCounterSet) {
+    std::unordered_set<Instruction *> &UpdateCounterSet) {
   for (size_t i = 0; i < m_pHLModule->GetUAVs().size(); i++) {
     HLResource &UAV = m_pHLModule->GetUAV(i);
     MarkUavUpdateCounter(UAV, UpdateCounterSet);
+  }
+  auto *hlslOP = m_pHLModule->GetOP();
+  if (hlslOP->IsDxilOpUsed(DXIL::OpCode::CreateHandleFromHeap)) {
+    const ShaderModel *pSM = m_pHLModule->GetShaderModel();
+    Function *hdlFromHeap =
+        hlslOP->GetOpFunc(DXIL::OpCode::CreateHandleFromHeap,
+                          Type::getVoidTy(m_pHLModule->GetCtx()));
+    for (User *U : hdlFromHeap->users()) {
+      CallInst *CI = cast<CallInst>(U);
+      if (UpdateCounterSet.count(CI) == 0)
+        continue;
+      MarkUavUpdateCounterForDynamicResource(*CI, *pSM);
+    }
   }
 }
 
@@ -580,7 +614,7 @@ void DxilGenerationPass::GenerateDxilCBufferHandles() {
 }
 
 void DxilGenerationPass::GenerateDxilOperations(
-    Module &M, std::unordered_set<LoadInst *> &UpdateCounterSet) {
+    Module &M, std::unordered_set<Instruction *> &UpdateCounterSet) {
   // remove all functions except entry function
   Function *entry = m_pHLModule->GetEntryFunction();
   const ShaderModel *pSM = m_pHLModule->GetShaderModel();

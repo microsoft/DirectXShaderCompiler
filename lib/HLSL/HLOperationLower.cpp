@@ -81,7 +81,7 @@ private:
     Type *ResourceType;
   };
   std::unordered_map<Value *, ResAttribute> HandleMetaMap;
-  std::unordered_set<LoadInst *> &UpdateCounterSet;
+  std::unordered_set<Instruction *> &UpdateCounterSet;
   // Map from pointer of cbuffer to pointer of resource.
   // For cbuffer like this:
   //   cbuffer A {
@@ -93,7 +93,7 @@ private:
 
 public:
   HLObjectOperationLowerHelper(HLModule &HLM,
-                               std::unordered_set<LoadInst *> &UpdateCounter)
+                               std::unordered_set<Instruction *> &UpdateCounter)
       : HLM(HLM), UpdateCounterSet(UpdateCounter) {}
   DXIL::ResourceClass GetRC(Value *Handle) {
     ResAttribute &Res = FindCreateHandleResourceBase(Handle);
@@ -249,11 +249,25 @@ private:
       Value *Res =
           CI->getArgOperand(HLOperandIndex::kCreateHandleResourceOpIdx);
       LoadInst *LdRes = dyn_cast<LoadInst>(Res);
-      if (!LdRes) {
-        dxilutil::EmitErrorOnInstruction(CI, "cannot map resource to handle.");
+      if (LdRes) {
+        UpdateCounterSet.insert(LdRes);
         return;
       }
-      UpdateCounterSet.insert(LdRes);
+      if (CallInst *CallRes = dyn_cast<CallInst>(Res)) {
+        hlsl::HLOpcodeGroup group =
+            hlsl::GetHLOpcodeGroup(CallRes->getCalledFunction());
+        if (group == HLOpcodeGroup::HLCast) {
+          HLCastOpcode opcode =
+              static_cast<HLCastOpcode>(hlsl::GetHLOpcode(CallRes));
+          if (opcode == HLCastOpcode::HandleToResCast) {
+            if (Instruction *Hdl = dyn_cast<Instruction>(
+                    CallRes->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx)))
+              UpdateCounterSet.insert(Hdl);
+            return;
+          }
+        }
+      }
+      dxilutil::EmitErrorOnInstruction(CI, "cannot map resource to handle.");
       return;
     }
     if (SelectInst *Sel = dyn_cast<SelectInst>(handle)) {
@@ -8043,7 +8057,7 @@ namespace hlsl {
 
 void TranslateBuiltinOperations(
     HLModule &HLM, HLSLExtensionsCodegenHelper *extCodegenHelper,
-    std::unordered_set<LoadInst *> &UpdateCounterSet) {
+    std::unordered_set<Instruction *> &UpdateCounterSet) {
   HLOperationLowerHelper helper(HLM);
 
   HLObjectOperationLowerHelper objHelper = {HLM, UpdateCounterSet};
