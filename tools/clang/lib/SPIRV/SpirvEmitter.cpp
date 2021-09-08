@@ -740,11 +740,11 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
 
   // In order to flatten composite resources, we must also unroll loops.
   // Therefore we should run legalization before optimization.
-  needsLegalization = needsLegalization ||
-                      declIdMapper.requiresLegalization() ||
-                      spirvOptions.flattenResourceArrays ||
-                      declIdMapper.requiresFlatteningCompositeResources() ||
-                      !dsetbindingsToCombineImageSampler.empty();
+  needsLegalization =
+      needsLegalization || declIdMapper.requiresLegalization() ||
+      spirvOptions.flattenResourceArrays || spirvOptions.reduceLoadSize ||
+      declIdMapper.requiresFlatteningCompositeResources() ||
+      !dsetbindingsToCombineImageSampler.empty();
 
   if (spirvOptions.codeGenHighLevel) {
     beforeHlslLegalization = needsLegalization;
@@ -12464,6 +12464,13 @@ bool SpirvEmitter::spirvToolsLegalize(std::vector<uint32_t> *mod,
     // ADCE should be run after combining images and samplers in order to
     // remove potentially illegal types such as structures containing opaque
     // types.
+    optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass());
+  }
+  if (spirvOptions.reduceLoadSize) {
+    // The threshold must be bigger than 1.0 to reduce all possible loads.
+    optimizer.RegisterPass(spvtools::CreateReduceLoadSizePass(1.1));
+    // ADCE should be run after reduce-load-size pass in order to remove
+    // dead instructions.
     optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass());
   }
   optimizer.RegisterPass(spvtools::CreateReplaceInvalidOpcodePass());

@@ -2656,6 +2656,8 @@ TEST_F(FileTest, MeshShadingNVAmplificationError4) {
   runFileTest("meshshading.nv.error3.amplification.hlsl", Expect::Failure);
 }
 
+TEST_F(FileTest, ReduceLoadSize) { runFileTest("reduce.load.size.hlsl"); }
+
 // Test OpEntryPoint in the Vulkan1.2 target environment
 TEST_F(FileTest, Vk1p2EntryPoint) {
   runFileTest("vk.1p2.entry-point.hlsl");
