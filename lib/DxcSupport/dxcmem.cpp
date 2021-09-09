@@ -45,6 +45,7 @@ void DxcCleanupThreadMalloc() throw() {
     DXASSERT(g_pDefaultMalloc, "else DxcInitThreadMalloc didn't work/fail atomically");
     g_ThreadMallocTls->~ThreadLocal();
     g_pDefaultMalloc->Free(g_ThreadMallocTls);
+    g_pDefaultMalloc = nullptr;
     g_ThreadMallocTls = nullptr;
   }
 }
