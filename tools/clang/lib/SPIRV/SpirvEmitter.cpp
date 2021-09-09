@@ -740,11 +740,11 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
 
   // In order to flatten composite resources, we must also unroll loops.
   // Therefore we should run legalization before optimization.
-  needsLegalization = needsLegalization ||
-                      declIdMapper.requiresLegalization() ||
-                      spirvOptions.flattenResourceArrays ||
-                      declIdMapper.requiresFlatteningCompositeResources() ||
-                      !dsetbindingsToCombineImageSampler.empty();
+  needsLegalization =
+      needsLegalization || declIdMapper.requiresLegalization() ||
+      spirvOptions.flattenResourceArrays || spirvOptions.reduceLoadSize ||
+      declIdMapper.requiresFlatteningCompositeResources() ||
+      !dsetbindingsToCombineImageSampler.empty();
 
   if (spirvOptions.codeGenHighLevel) {
     beforeHlslLegalization = needsLegalization;
@@ -5601,21 +5601,19 @@ void SpirvEmitter::storeValue(SpirvInstruction *lhsPtr,
     // parameters/returns/variables of type T. And ConstantBuffer<T> is not
     // represented differently as struct T.
   } else if (isOpaqueArrayType(lhsValType)) {
+    // SPIRV-Tools can handle legalization of the store in these cases.
+    if (!lhsValType->isConstantArrayType() || rhsVal->isRValue()) {
+      spvBuilder.createStore(lhsPtr, rhsVal, loc);
+      needsLegalization = true;
+      return;
+    }
+
     // For opaque array types, we cannot perform OpLoad on the whole array and
     // then write out as a whole; instead, we need to OpLoad each element
     // using access chains. This is to influence later SPIR-V transformations
     // to use access chains to access each opaque object; if we do array
     // wholesale handling here, they will be in the final transformed code.
     // Drivers don't like that.
-    // TODO: consider moving this hack into SPIRV-Tools as a transformation.
-    assert(!rhsVal->isRValue());
-
-    if (!lhsValType->isConstantArrayType()) {
-      spvBuilder.createStore(lhsPtr, rhsVal, loc);
-      needsLegalization = true;
-      return;
-    }
-
     const auto *arrayType = astContext.getAsConstantArrayType(lhsValType);
     const auto elemType = arrayType->getElementType();
     const auto arraySize =
@@ -12464,6 +12462,13 @@ bool SpirvEmitter::spirvToolsLegalize(std::vector<uint32_t> *mod,
     // ADCE should be run after combining images and samplers in order to
     // remove potentially illegal types such as structures containing opaque
     // types.
+    optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass());
+  }
+  if (spirvOptions.reduceLoadSize) {
+    // The threshold must be bigger than 1.0 to reduce all possible loads.
+    optimizer.RegisterPass(spvtools::CreateReduceLoadSizePass(1.1));
+    // ADCE should be run after reduce-load-size pass in order to remove
+    // dead instructions.
     optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass());
   }
   optimizer.RegisterPass(spvtools::CreateReplaceInvalidOpcodePass());
