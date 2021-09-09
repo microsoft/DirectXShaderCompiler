@@ -719,11 +719,6 @@ public:
         if (DXIL::CompareVersions(ValMajor, ValMinor, 1, 1) <= 0) {
           patchValidation_1_1(M);
         }
-
-        // Set used masks for signature elements
-        MarkUsedSignatureElements(DM.GetEntryFunction(), DM);
-        if (DM.GetShaderModel()->IsHS())
-          MarkUsedSignatureElements(DM.GetPatchConstantFunction(), DM);
       }
 
       // Replace lifetime intrinsics if requested or necessary.
@@ -741,6 +736,29 @@ public:
 
       // Remove store undef output.
       RemoveStoreUndefOutput(M, hlslOP);
+
+      if (!IsLib) {
+        // Set used masks for signature elements
+        MarkUsedSignatureElements(DM.GetEntryFunction(), DM);
+        if (DM.GetShaderModel()->IsHS())
+          MarkUsedSignatureElements(DM.GetPatchConstantFunction(), DM);
+      }
+
+      // Adding warning for pixel shader with unassigned target
+      if (DM.GetShaderModel()->IsPS()) {
+        DxilSignature &sig = DM.GetOutputSignature();
+        for (auto &Elt : sig.GetElements()) {
+          if (Elt->GetKind() == Semantic::Kind::Target) {
+            if (Elt->GetUsageMask() != Elt->GetColsAsMask()) {
+              dxilutil::EmitWarningOnContext(
+                  M.getContext(),
+                  "Declared output " + llvm::Twine(Elt->GetName()) +
+                      llvm::Twine(Elt->GetSemanticStartIndex()) +
+                      " not fully written in shader.");
+            }
+          }
+        }
+      }
 
       // Turn dx.break() conditional into global
       LowerDxBreak(M);
