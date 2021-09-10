@@ -189,6 +189,7 @@ protected:
     copyAttribute(Attribute::AttrKind::ReadOnly);
     copyAttribute(Attribute::AttrKind::ReadNone);
     copyAttribute(Attribute::AttrKind::ArgMemOnly);
+    copyAttribute(Attribute::AttrKind::NoUnwind);
 
     return attributes;
   }
