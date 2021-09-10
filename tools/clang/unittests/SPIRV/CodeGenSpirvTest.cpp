@@ -2083,6 +2083,9 @@ TEST_F(FileTest, VulkanSpecConstantInit) {
 TEST_F(FileTest, VulkanSpecConstantUsage) {
   runFileTest("vk.spec-constant.usage.hlsl");
 }
+TEST_F(FileTest, VulkanSpecConstantReuse) {
+  runFileTest("vk.spec-constant.reuse.hlsl");
+}
 TEST_F(FileTest, VulkanSpecConstantError1) {
   runFileTest("vk.spec-constant.error1.hlsl", Expect::Failure);
 }
