@@ -1131,8 +1131,8 @@ TEST_F(ExtensionTest, EvalAttributeCollision) {
     std::string disassembly = c.Disassemble();
 
     auto match1 = Match(disassembly, std::string("%([0-9.a-zA-Z]*) = call float @collide_proc\\(i32 ") + std::to_string(Intrinsic.hlsl.Op));
-    VERIFY_ARE_EQUAL(match1.size(), 2);
-    VERIFY_ARE_NOT_EQUAL(Match(disassembly, std::string("call void @dx.op.storeOutput.f32\\(i32 5, i32 0, i32 0, i8 0, float %") + match1[1]).size(), 0);
+    VERIFY_IS_TRUE(match1.size() == 2U);
+    VERIFY_IS_TRUE(Match(disassembly, std::string("call void @dx.op.storeOutput.f32\\(i32 5, i32 0, i32 0, i8 0, float %") + match1[1]).size() != 0U);
   }
 }
 
@@ -1161,8 +1161,8 @@ TEST_F(ExtensionTest, NoUnwind) {
   *   attributes #1 = { nounwind }
   */
   auto m1 = Match(disassembly, std::string("declare float @test_proc\\(i32, float\\) #([0-9]*)"));
-  VERIFY_ARE_EQUAL(m1.size(), 2);
-  VERIFY_ARE_NOT_EQUAL(Match(disassembly, std::string("attributes #") + m1[1] + " = { nounwind").size(), 0);
+  VERIFY_IS_TRUE(m1.size() == 2U);
+  VERIFY_IS_TRUE(Match(disassembly, std::string("attributes #") + m1[1] + " = { nounwind").size() != 0U);
 }
 
 // Regression test for extension function calls not getting DCE'ed becuase they had no 'nounwind' attribute
