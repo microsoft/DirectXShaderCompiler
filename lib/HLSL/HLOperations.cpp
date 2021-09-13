@@ -421,6 +421,8 @@ HLBinaryOpcode GetUnsignedOpcode(HLBinaryOpcode opcode) {
 
 static void SetHLFunctionAttribute(Function *F, HLOpcodeGroup group,
                                        unsigned opcode) {
+  F->addFnAttr(Attribute::NoUnwind);
+
   switch (group) {
   case HLOpcodeGroup::HLUnOp:
   case HLOpcodeGroup::HLBinOp:
@@ -428,14 +430,12 @@ static void SetHLFunctionAttribute(Function *F, HLOpcodeGroup group,
   case HLOpcodeGroup::HLSubscript:
     if (!F->hasFnAttribute(Attribute::ReadNone)) {
       F->addFnAttr(Attribute::ReadNone);
-      F->addFnAttr(Attribute::NoUnwind);
     }
     break;
   case HLOpcodeGroup::HLInit:
     if (!F->hasFnAttribute(Attribute::ReadNone))
       if (!F->getReturnType()->isVoidTy()) {
         F->addFnAttr(Attribute::ReadNone);
-        F->addFnAttr(Attribute::NoUnwind);
       }
     break;
   case HLOpcodeGroup::HLMatLoadStore: {
@@ -444,16 +444,13 @@ static void SetHLFunctionAttribute(Function *F, HLOpcodeGroup group,
         matOp == HLMatLoadStoreOpcode::RowMatLoad)
       if (!F->hasFnAttribute(Attribute::ReadOnly)) {
         F->addFnAttr(Attribute::ReadOnly);
-        F->addFnAttr(Attribute::NoUnwind);
       }
   } break;
   case HLOpcodeGroup::HLCreateHandle: {
     F->addFnAttr(Attribute::ReadNone);
-    F->addFnAttr(Attribute::NoUnwind);
   } break;
   case HLOpcodeGroup::HLAnnotateHandle: {
     F->addFnAttr(Attribute::ReadNone);
-    F->addFnAttr(Attribute::NoUnwind);
   } break;
   case HLOpcodeGroup::HLIntrinsic: {
     IntrinsicOp intrinsicOp = static_cast<IntrinsicOp>(opcode);

@@ -2067,11 +2067,24 @@ TEST_F(FileTest, VulkanPushConstantOnConstantBuffer) {
   runFileTest("vk.push-constant.constantbuffer.hlsl");
 }
 
+TEST_F(FileTest, VulkanCombinedImageSampler) {
+  runFileTest("vk.combined-image-sampler.hlsl");
+}
+TEST_F(FileTest, VulkanCombinedImageSamplerTextureArray) {
+  runFileTest("vk.combined-image-sampler.texture-array.hlsl");
+}
+TEST_F(FileTest, VulkanCombinedImageSamplerError) {
+  runFileTest("vk.combined-image-sampler.error.hlsl", Expect::Failure);
+}
+
 TEST_F(FileTest, VulkanSpecConstantInit) {
   runFileTest("vk.spec-constant.init.hlsl");
 }
 TEST_F(FileTest, VulkanSpecConstantUsage) {
   runFileTest("vk.spec-constant.usage.hlsl");
+}
+TEST_F(FileTest, VulkanSpecConstantReuse) {
+  runFileTest("vk.spec-constant.reuse.hlsl");
 }
 TEST_F(FileTest, VulkanSpecConstantError1) {
   runFileTest("vk.spec-constant.error1.hlsl", Expect::Failure);
@@ -2645,6 +2658,8 @@ TEST_F(FileTest, MeshShadingNVAmplificationError3) {
 TEST_F(FileTest, MeshShadingNVAmplificationError4) {
   runFileTest("meshshading.nv.error3.amplification.hlsl", Expect::Failure);
 }
+
+TEST_F(FileTest, ReduceLoadSize) { runFileTest("reduce.load.size.hlsl"); }
 
 // Test OpEntryPoint in the Vulkan1.2 target environment
 TEST_F(FileTest, Vk1p2EntryPoint) {
