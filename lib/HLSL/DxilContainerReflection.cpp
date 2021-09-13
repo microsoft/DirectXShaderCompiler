@@ -119,7 +119,6 @@ public:
   void CreateReflectionObjectForResource(DxilResourceBase *R);
 
   HRESULT LoadRDAT(const DxilPartHeader *pPart);
-  HRESULT LoadModule(const DxilPartHeader *pPart);
   HRESULT LoadProgramHeader(const DxilProgramHeader *pProgramHeader);
 
   // Common code
@@ -181,7 +180,6 @@ public:
     return hr;
   }
 
-  HRESULT Load(const DxilPartHeader *pModulePart, const DxilPartHeader *pRDATPart);
   HRESULT Load(const DxilProgramHeader *pProgramHeader, const DxilPartHeader *pRDATPart);
 
   // ID3D12ShaderReflection
@@ -247,7 +245,6 @@ public:
     return DoBasicQueryInterface<ID3D12LibraryReflection>(this, iid, ppvObject);
   }
 
-  HRESULT Load(const DxilPartHeader *pModulePart, const DxilPartHeader *pDXILPart);
   HRESULT Load(const DxilProgramHeader *pProgramHeader, const DxilPartHeader *pRDATPart);
 
   // ID3D12LibraryReflection
@@ -2123,41 +2120,6 @@ HRESULT DxilModuleReflection::LoadProgramHeader(const DxilProgramHeader *pProgra
   CATCH_CPP_RETURN_HRESULT();
 }
 
-HRESULT DxilModuleReflection::LoadModule(const DxilPartHeader *pShaderPart) {
-  if (pShaderPart == nullptr)
-    return E_INVALIDARG;
-  const char *pData = GetDxilPartData(pShaderPart);
-  const hlsl::DxilProgramHeader *pProgramHeader = (const DxilProgramHeader *)pData;
-  if (!hlsl::IsValidDxilProgramHeader(pProgramHeader, pShaderPart->PartSize)) {
-    return E_INVALIDARG;
-  }
-  return LoadProgramHeader(pProgramHeader);
-};
-
-HRESULT DxilShaderReflection::Load(const DxilPartHeader *pModulePart,
-                                   const DxilPartHeader *pRDATPart) {
-  IFR(LoadRDAT(pRDATPart));
-  IFR(LoadModule(pModulePart));
-
-  try {
-    // Set cbuf usage.
-    if (!m_bUsageInMetadata)
-      SetCBufferUsage();
-
-    // Populate input/output/patch constant signatures.
-    CreateReflectionObjectsForSignature(m_pDxilModule->GetInputSignature(), m_InputSignature);
-    CreateReflectionObjectsForSignature(m_pDxilModule->GetOutputSignature(), m_OutputSignature);
-    CreateReflectionObjectsForSignature(m_pDxilModule->GetPatchConstOrPrimSignature(), m_PatchConstantSignature);
-    if (!m_bUsageInMetadata)
-      MarkUsedSignatureElements();
-
-    InitDesc();
-
-    return S_OK;
-  }
-  CATCH_CPP_RETURN_HRESULT();
-}
-
 HRESULT DxilShaderReflection::Load(const DxilProgramHeader *pProgramHeader, const DxilPartHeader *pRDATPart) {
   IFR(LoadRDAT(pRDATPart));
   IFR(LoadProgramHeader(pProgramHeader));
@@ -2805,20 +2767,6 @@ void DxilLibraryReflection::SetCBufferUsage() {
 
 
 // ID3D12LibraryReflection
-
-HRESULT DxilLibraryReflection::Load(const DxilPartHeader *pModulePart,
-                                    const DxilPartHeader *pRDATPart) {
-  IFR(LoadRDAT(pRDATPart));
-  IFR(LoadModule(pModulePart));
-
-  try {
-    AddResourceDependencies();
-    if (!m_bUsageInMetadata)
-      SetCBufferUsage();
-    return S_OK;
-  }
-  CATCH_CPP_RETURN_HRESULT();
-}
 
 HRESULT DxilLibraryReflection::Load(const DxilProgramHeader *pProgramHeader, const DxilPartHeader *pRDATPart) {
   IFR(LoadRDAT(pRDATPart));
