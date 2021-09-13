@@ -120,6 +120,7 @@ public:
 
   HRESULT LoadRDAT(const DxilPartHeader *pPart);
   HRESULT LoadModule(const DxilPartHeader *pPart);
+  HRESULT LoadProgramHeader(const DxilProgramHeader *pProgramHeader);
 
   // Common code
   ID3D12ShaderReflectionConstantBuffer* _GetConstantBufferByIndex(UINT Index);
@@ -181,6 +182,7 @@ public:
   }
 
   HRESULT Load(const DxilPartHeader *pModulePart, const DxilPartHeader *pRDATPart);
+  HRESULT Load(const DxilProgramHeader *pProgramHeader, const DxilPartHeader *pRDATPart);
 
   // ID3D12ShaderReflection
   STDMETHODIMP GetDesc(THIS_ _Out_ D3D12_SHADER_DESC *pDesc);
@@ -246,6 +248,7 @@ public:
   }
 
   HRESULT Load(const DxilPartHeader *pModulePart, const DxilPartHeader *pDXILPart);
+  HRESULT Load(const DxilProgramHeader *pProgramHeader, const DxilPartHeader *pRDATPart);
 
   // ID3D12LibraryReflection
   STDMETHOD(GetDesc)(THIS_ _Out_ D3D12_LIBRARY_DESC * pDesc);
@@ -254,7 +257,8 @@ public:
 };
 
 namespace hlsl {
-HRESULT CreateDxilShaderReflection(const DxilPartHeader *pModulePart, const DxilPartHeader *pRDATPart, REFIID iid, void **ppvObject) {
+
+HRESULT CreateDxilShaderReflection(const DxilProgramHeader *pProgramHeader, const DxilPartHeader *pRDATPart, REFIID iid, void **ppvObject) {
   if (!ppvObject)
     return E_INVALIDARG;
   CComPtr<DxilShaderReflection> pReflection = DxilShaderReflection::Alloc(DxcGetThreadMallocNoRef());
@@ -262,20 +266,60 @@ HRESULT CreateDxilShaderReflection(const DxilPartHeader *pModulePart, const Dxil
   PublicAPI api = DxilShaderReflection::IIDToAPI(iid);
   pReflection->SetPublicAPI(api);
   // pRDATPart to be used for transition.
-  IFR(pReflection->Load(pModulePart, pRDATPart));
+  IFR(pReflection->Load(pProgramHeader, pRDATPart));
   IFR(pReflection.p->QueryInterface(iid, ppvObject));
   return S_OK;
 }
-HRESULT CreateDxilLibraryReflection(const DxilPartHeader *pModulePart, const DxilPartHeader *pRDATPart, REFIID iid, void **ppvObject) {
+
+HRESULT CreateDxilLibraryReflection(const DxilProgramHeader *pProgramHeader, const DxilPartHeader *pRDATPart, REFIID iid, void **ppvObject) {
   if (!ppvObject)
     return E_INVALIDARG;
   CComPtr<DxilLibraryReflection> pReflection = DxilLibraryReflection::Alloc(DxcGetThreadMallocNoRef());
   IFROOM(pReflection.p);
   // pRDATPart used for resource usage per-function.
-  IFR(pReflection->Load(pModulePart, pRDATPart));
+  IFR(pReflection->Load(pProgramHeader, pRDATPart));
   IFR(pReflection.p->QueryInterface(iid, ppvObject));
   return S_OK;
 }
+
+HRESULT CreateDxilShaderOrLibraryReflectionFromProgramHeader(const DxilProgramHeader *pProgramHeader, const DxilPartHeader *pRDATPart, REFIID iid, void **ppvObject) {
+  // Detect whether library, or if unrecognized program version.
+  DXIL::ShaderKind SK = GetVersionShaderType(pProgramHeader->ProgramVersion);
+  if (!(SK < DXIL::ShaderKind::Invalid))
+    return E_INVALIDARG;
+  bool bIsLibrary = DXIL::ShaderKind::Library == SK;
+
+  if (bIsLibrary) {
+    IFR(hlsl::CreateDxilLibraryReflection(pProgramHeader, pRDATPart, iid, ppvObject));
+  } else {
+    IFR(hlsl::CreateDxilShaderReflection(pProgramHeader, pRDATPart, iid, ppvObject));
+  }
+  return S_OK;
+}
+
+bool IsValidReflectionModulePart(DxilFourCC fourCC) {
+  return fourCC == DFCC_DXIL || fourCC == DFCC_ShaderDebugInfoDXIL || fourCC == DFCC_ShaderStatistics;
+}
+
+HRESULT CreateDxilShaderOrLibraryReflectionFromModulePart(const DxilPartHeader *pModulePart, const DxilPartHeader *pRDATPart, REFIID iid, void **ppvObject) {
+  if (!pModulePart)
+    return E_INVALIDARG;
+
+  if (!IsValidReflectionModulePart((DxilFourCC)pModulePart->PartFourCC))
+    return E_INVALIDARG;
+
+  const DxilProgramHeader *pProgramHeader =
+    reinterpret_cast<const DxilProgramHeader*>(GetDxilPartData(pModulePart));
+  if (!IsValidDxilProgramHeader(pProgramHeader, pModulePart->PartSize))
+    return E_INVALIDARG;
+
+  // If bitcode is too small, it's probably been stripped, and we cannot create reflection with it.
+  if (pModulePart->PartSize - pProgramHeader->BitcodeHeader.BitcodeOffset < 4)
+    return DXC_E_MISSING_PART;
+
+  return CreateDxilShaderOrLibraryReflectionFromProgramHeader(pProgramHeader, pRDATPart, iid, ppvObject);
+}
+
 }
 
 _Use_decl_annotations_
@@ -366,10 +410,8 @@ HRESULT DxilContainerReflection::GetPartReflection(UINT32 idx, REFIID iid, void 
   if (!IsLoaded()) return E_NOT_VALID_STATE;
   if (idx >= m_pHeader->PartCount) return E_BOUNDS;
   const DxilPartHeader *pPart = GetDxilContainerPart(m_pHeader, idx);
-  if (pPart->PartFourCC != DFCC_DXIL && pPart->PartFourCC != DFCC_ShaderDebugInfoDXIL &&
-      pPart->PartFourCC != DFCC_ShaderStatistics) {
+  if (!hlsl::IsValidReflectionModulePart((hlsl::DxilFourCC)pPart->PartFourCC))
     return E_NOTIMPL;
-  }
 
   // Use DFCC_ShaderStatistics for reflection instead of DXIL part, until switch
   // to using RDAT for reflection instead of module.
@@ -391,21 +433,10 @@ HRESULT DxilContainerReflection::GetPartReflection(UINT32 idx, REFIID iid, void 
     }
   }
 
-  const DxilProgramHeader *pProgramHeader =
-    reinterpret_cast<const DxilProgramHeader*>(GetDxilPartData(pPart));
-  if (!IsValidDxilProgramHeader(pProgramHeader, pPart->PartSize)) {
-    return E_INVALIDARG;
-  }
-
   DxcThreadMalloc TM(m_pMalloc);
   HRESULT hr = S_OK;
 
-  DXIL::ShaderKind SK = GetVersionShaderType(pProgramHeader->ProgramVersion);
-  if (SK == DXIL::ShaderKind::Library) {
-    IFC(hlsl::CreateDxilLibraryReflection(pPart, pRDATPart, iid, ppvObject));
-  } else {
-    IFC(hlsl::CreateDxilShaderReflection(pPart, pRDATPart, iid, ppvObject));
-  }
+  IFC(hlsl::CreateDxilShaderOrLibraryReflectionFromModulePart(pPart, pRDATPart, iid, ppvObject));
 
 Cleanup:
   return hr;
@@ -2058,14 +2089,11 @@ HRESULT DxilModuleReflection::LoadRDAT(const DxilPartHeader *pPart) {
   return S_OK;
 }
 
-HRESULT DxilModuleReflection::LoadModule(const DxilPartHeader *pShaderPart) {
-  if (pShaderPart == nullptr)
-    return E_INVALIDARG;
-  const char *pData = GetDxilPartData(pShaderPart);
+HRESULT DxilModuleReflection::LoadProgramHeader(const DxilProgramHeader *pProgramHeader) {
   try {
     const char *pBitcode;
     uint32_t bitcodeLength;
-    GetDxilProgramBitcode((DxilProgramHeader *)pData, &pBitcode, &bitcodeLength);
+    GetDxilProgramBitcode((DxilProgramHeader *)pProgramHeader, &pBitcode, &bitcodeLength);
     std::unique_ptr<MemoryBuffer> pMemBuffer =
         MemoryBuffer::getMemBufferCopy(StringRef(pBitcode, bitcodeLength));
     bool bBitcodeLoadError = false;
@@ -2093,12 +2121,46 @@ HRESULT DxilModuleReflection::LoadModule(const DxilPartHeader *pShaderPart) {
     return S_OK;
   }
   CATCH_CPP_RETURN_HRESULT();
+}
+
+HRESULT DxilModuleReflection::LoadModule(const DxilPartHeader *pShaderPart) {
+  if (pShaderPart == nullptr)
+    return E_INVALIDARG;
+  const char *pData = GetDxilPartData(pShaderPart);
+  const hlsl::DxilProgramHeader *pProgramHeader = (const DxilProgramHeader *)pData;
+  if (!hlsl::IsValidDxilProgramHeader(pProgramHeader, pShaderPart->PartSize)) {
+    return E_INVALIDARG;
+  }
+  return LoadProgramHeader(pProgramHeader);
 };
 
 HRESULT DxilShaderReflection::Load(const DxilPartHeader *pModulePart,
                                    const DxilPartHeader *pRDATPart) {
   IFR(LoadRDAT(pRDATPart));
   IFR(LoadModule(pModulePart));
+
+  try {
+    // Set cbuf usage.
+    if (!m_bUsageInMetadata)
+      SetCBufferUsage();
+
+    // Populate input/output/patch constant signatures.
+    CreateReflectionObjectsForSignature(m_pDxilModule->GetInputSignature(), m_InputSignature);
+    CreateReflectionObjectsForSignature(m_pDxilModule->GetOutputSignature(), m_OutputSignature);
+    CreateReflectionObjectsForSignature(m_pDxilModule->GetPatchConstOrPrimSignature(), m_PatchConstantSignature);
+    if (!m_bUsageInMetadata)
+      MarkUsedSignatureElements();
+
+    InitDesc();
+
+    return S_OK;
+  }
+  CATCH_CPP_RETURN_HRESULT();
+}
+
+HRESULT DxilShaderReflection::Load(const DxilProgramHeader *pProgramHeader, const DxilPartHeader *pRDATPart) {
+  IFR(LoadRDAT(pRDATPart));
+  IFR(LoadProgramHeader(pProgramHeader));
 
   try {
     // Set cbuf usage.
@@ -2748,6 +2810,19 @@ HRESULT DxilLibraryReflection::Load(const DxilPartHeader *pModulePart,
                                     const DxilPartHeader *pRDATPart) {
   IFR(LoadRDAT(pRDATPart));
   IFR(LoadModule(pModulePart));
+
+  try {
+    AddResourceDependencies();
+    if (!m_bUsageInMetadata)
+      SetCBufferUsage();
+    return S_OK;
+  }
+  CATCH_CPP_RETURN_HRESULT();
+}
+
+HRESULT DxilLibraryReflection::Load(const DxilProgramHeader *pProgramHeader, const DxilPartHeader *pRDATPart) {
+  IFR(LoadRDAT(pRDATPart));
+  IFR(LoadProgramHeader(pProgramHeader));
 
   try {
     AddResourceDependencies();
