@@ -1,6 +1,6 @@
 // RUN: %dxc -T lib_6_3 -auto-binding-space 11 %s | FileCheck %s
 
-// CHECK: call i64 @dx.op.waveActiveOp.i64(i32 119, i64 8, i8 0, i8 0)
+// CHECK: call i32 @dx.op.waveActiveOp.i32(i32 119, i32 8, i8 0, i8 0)
 
 struct MyPayload {
   float4 color;

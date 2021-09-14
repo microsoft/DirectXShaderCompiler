@@ -121,11 +121,16 @@ struct HLSL_INTRINSIC_ARGUMENT {
   BYTE uCols;                 // Required number of cols, or one of IA_R/IA_C/IA_R2/IA_C2 for matching input constraints.
 };
 
+static const UINT INTRIN_FLAG_READ_ONLY = 1UL << 0;
+static const UINT INTRIN_FLAG_READ_NONE = 1UL << 1;
+static const UINT INTRIN_FLAG_IS_WAVE = 1UL << 2;
+static const UINT INTRIN_FLAG_LITERAL_EVAL = 1UL << 3;
+static const UINT INTRIN_FLAG_EXT_VALID_MASK = INTRIN_FLAG_READ_ONLY|INTRIN_FLAG_READ_NONE|INTRIN_FLAG_IS_WAVE;
+static const UINT INTRIN_FLAG_VALID_MASK = INTRIN_FLAG_EXT_VALID_MASK|INTRIN_FLAG_LITERAL_EVAL;
+
 struct HLSL_INTRINSIC {
   UINT Op;                              // Intrinsic Op ID
-  BOOL bReadOnly;                       // Only read memory
-  BOOL bReadNone;                       // Not read memory
-  BOOL bIsWave;                         // Is a wave-sensitive op
+  UINT Flags;                           // INTRIN_FLAG_*
   INT  iOverloadParamIndex;             // Parameter decide the overload type, -1 means ret type
   UINT uNumArgs;                        // Count of arguments in pArgs.
   const HLSL_INTRINSIC_ARGUMENT* pArgs; // Pointer to first argument.

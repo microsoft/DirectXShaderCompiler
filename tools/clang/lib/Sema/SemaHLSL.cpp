@@ -1894,11 +1894,11 @@ static void AddHLSLIntrinsicAttr(FunctionDecl *FD, ASTContext &context,
     }
   }
   FD->addAttr(HLSLIntrinsicAttr::CreateImplicit(context, tableName, lowering, opcode));
-  if (pIntrinsic->bReadNone)
+  if (pIntrinsic->Flags & INTRIN_FLAG_READ_NONE)
     FD->addAttr(ConstAttr::CreateImplicit(context));
-  if (pIntrinsic->bReadOnly)
+  if (pIntrinsic->Flags & INTRIN_FLAG_READ_ONLY)
     FD->addAttr(PureAttr::CreateImplicit(context));
-  if (pIntrinsic->bIsWave)
+  if (pIntrinsic->Flags & INTRIN_FLAG_IS_WAVE)
     FD->addAttr(HLSLWaveSensitiveAttr::CreateImplicit(context));
 }
 
@@ -5542,6 +5542,11 @@ static ArBasicKind LiteralToConcrete(Expr *litExpr,
       else
         return ArBasicKind::AR_BASIC_INT64;
     } else {
+      // If positive literal value fits in signed INT32, it's better to preserve
+      // signed int than force unsigned, since combining signed & unsigned
+      // promotes to unsigned.
+      if (width <= 31)
+        return ArBasicKind::AR_BASIC_INT32;
       // Unsigned.
       if (width <= 32)
         return ArBasicKind::AR_BASIC_UINT32;
@@ -5705,6 +5710,8 @@ bool HLSLExternalSource::MatchArguments(
   const unsigned retArgIdx = 0;
   unsigned retTypeIdx = pIntrinsic->pArgs[retArgIdx].uComponentTypeId;
 
+  llvm::SmallVector<std::pair<size_t, Expr*>, 4> LiteralArgsToConvert;
+
   // Populate the template for each argument.
   ArrayRef<Expr*>::iterator iterArg = Args.begin();
   ArrayRef<Expr*>::iterator end = Args.end();
@@ -5795,9 +5802,9 @@ bool HLSLExternalSource::MatchArguments(
       //   TryEvalIntrinsic in CGHLSLMS.cpp will take care of cases
       //     where all argumentss are literal.
       //   CombineBasicTypes will cover the rest cases.
-      if (!affectRetType) {
-        TypeInfoEltKind = ConcreteLiteralType(
-            pCallArg, TypeInfoEltKind, pIntrinsicArg->uLegalComponentTypes, this);
+      // Only preserve literal types for operations where constant evaluation is supported.
+      if (!(pIntrinsic->Flags & INTRIN_FLAG_LITERAL_EVAL) || !affectRetType) {
+        LiteralArgsToConvert.emplace_back(iArg, pCallArg);
       }
     }
 
@@ -5907,6 +5914,33 @@ bool HLSLExternalSource::MatchArguments(
 
   DXASSERT(isVariadic || iterArg == end,
            "otherwise the argument list wasn't fully processed");
+
+  // Second pass replaces literal types when not supported for constant eval,
+  // and they haven't been resolved by other arguments.
+  for (auto arg : LiteralArgsToConvert) {
+    size_t iArg = arg.first;
+    Expr* pCallArg = arg.second;
+    const HLSL_INTRINSIC_ARGUMENT *pIntrinsicArg = &pIntrinsic->pArgs[iArg];
+
+    QualType pType = pCallArg->getType();
+    ArBasicKind TypeInfoEltKind = GetTypeElementKind(pType);
+
+    TypeInfoEltKind = ConcreteLiteralType(
+        pCallArg, TypeInfoEltKind, pIntrinsicArg->uLegalComponentTypes, this);
+
+    // Merge ComponentTypes
+    if (AR_BASIC_UNKNOWN == ComponentType[pIntrinsicArg->uComponentTypeId]) {
+      ComponentType[pIntrinsicArg->uComponentTypeId] = TypeInfoEltKind;
+    }
+    else {
+      if (!CombineBasicTypes(
+            ComponentType[pIntrinsicArg->uComponentTypeId],
+            TypeInfoEltKind,
+            &ComponentType[pIntrinsicArg->uComponentTypeId])) {
+        badArgIdx = std::min(badArgIdx, (size_t)iArg);
+      }
+    }
+  }
 
   // Default template and component type for return value
   if (pIntrinsic->pArgs[0].qwUsage
