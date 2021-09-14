@@ -19,8 +19,8 @@ uint64_t ReadClock(uint scope);
 float4 spv_sin(float4 v);
 
 // CHECK: OpCapability ShaderClockKHR
-// CHECK-NEXT: OpExtension "SPV_KHR_shader_clock"
-// CHECK-NEXT: {{%\d+}} = OpExtInstImport "GLSL.std.450"
+// CHECK: OpExtension "SPV_KHR_shader_clock"
+// CHECK: {{%\d+}} = OpExtInstImport "GLSL.std.450"
 
 float4 main(const VS_INPUT v) : SV_Position {
 	SInstanceData	I = v.InstanceData;
