@@ -106,6 +106,7 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugTypeTemplateParameter)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvRayQueryOpKHR)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvReadClock)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvRayTracingTerminateOpKHR)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvIntrinsicInstruction)
 
 #undef DEFINE_INVOKE_VISITOR_FOR_CLASS
 
@@ -1003,6 +1004,18 @@ SpirvRayTracingTerminateOpKHR::SpirvRayTracingTerminateOpKHR(spv::Op opcode,
   assert(opcode == spv::Op::OpTerminateRayKHR ||
          opcode == spv::Op::OpIgnoreIntersectionKHR);
 }
+
+SpirvIntrinsicInstruction::SpirvIntrinsicInstruction(
+    QualType resultType, uint32_t opcode,
+    llvm::ArrayRef<SpirvInstruction *> vecOperands, llvm::StringRef ext,
+    SpirvExtInstImport *set, llvm::ArrayRef<uint32_t> capts, SourceLocation loc)
+    : SpirvInstruction(IK_SpirvIntrinsicInstruction,
+                       set != nullptr ? spv::Op::OpExtInst
+                                      : static_cast<spv::Op>(opcode),
+                       resultType, loc),
+      instruction(opcode), operands(vecOperands.begin(), vecOperands.end()),
+      capabilities(capts.begin(), capts.end()), extension(ext.data()),
+      instructionSet(set) {}
 
 } // namespace spirv
 } // namespace clang

@@ -127,6 +127,7 @@ public:
     IK_Store,                     // OpStore
     IK_UnaryOp,                   // Unary operations
     IK_VectorShuffle,             // OpVectorShuffle
+    IK_SpirvIntrinsicInstruction, // Spirv Instructions for no particular op
 
     // For DebugInfo instructions defined in OpenCL.DebugInfo.100
     IK_DebugInfoNone,
@@ -1997,6 +1998,36 @@ public:
   }
 
   bool invokeVisitor(Visitor *v) override;
+};
+
+class SpirvIntrinsicInstruction : public SpirvInstruction {
+public:
+  SpirvIntrinsicInstruction(QualType resultType, uint32_t opcode,
+                            llvm::ArrayRef<SpirvInstruction *> operands,
+                            llvm::StringRef ext, SpirvExtInstImport *set,
+                            llvm::ArrayRef<uint32_t> capts, SourceLocation loc);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvIntrinsicInstruction)
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_SpirvIntrinsicInstruction;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  llvm::ArrayRef<SpirvInstruction *> getOperands() const { return operands; }
+  llvm::ArrayRef<uint32_t> getCapabilities() const { return capabilities; }
+  llvm::StringRef getExtension() const { return extension; }
+  SpirvExtInstImport *getInstructionSet() const { return instructionSet; }
+  uint32_t getInstruction() const { return instruction; }
+
+private:
+  uint32_t instruction;
+  llvm::SmallVector<SpirvInstruction *, 4> operands;
+  llvm::SmallVector<uint32_t, 4> capabilities;
+  std::string extension;
+  SpirvExtInstImport *instructionSet;
 };
 
 /// \breif Base class for all OpenCL.DebugInfo.100 extension instructions.
