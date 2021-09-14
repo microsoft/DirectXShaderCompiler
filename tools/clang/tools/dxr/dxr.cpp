@@ -176,6 +176,21 @@ int __cdecl wmain(int argc, const wchar_t **argv_) {
       return 0;
     }
 
+    if (dxcOpts.ShowVersion) {
+      std::string version;
+      llvm::raw_string_ostream versionStream(version);
+      WriteDxCompilerVersionInfo(
+          versionStream,
+          dxcOpts.ExternalLib.empty() ? (LPCSTR) nullptr
+                                      : dxcOpts.ExternalLib.data(),
+          dxcOpts.ExternalFn.empty() ? (LPCSTR) nullptr
+                                     : dxcOpts.ExternalFn.data(),
+          dxcSupport);
+      versionStream.flush();
+      WriteUtf8ToConsoleSizeT(version.data(), version.size());
+      return 0;
+    }
+
     CComPtr<IDxcRewriter2> pRewriter;
     CComPtr<IDxcOperationResult> pRewriteResult;
     CComPtr<IDxcBlobEncoding> pSource;

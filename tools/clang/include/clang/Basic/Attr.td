@@ -968,6 +968,15 @@ def Buffer
                   S->getType()->getAs<RecordType>()->getDecl()->getName() ==
                       "RWBuffer")}]>;
 
+// Global variable with "Texture" or "SamplerState" type
+def TextureOrSampler
+    : SubsetSubject<
+          Var, [{S->hasGlobalStorage() && S->getType()->getAs<RecordType>() &&
+                 S->getType()->getAs<RecordType>()->getDecl() &&
+                 (S->getType()->getAs<RecordType>()->getDecl()->getName().startswith("Texture") ||
+                  S->getType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "SamplerState")}]>;
+
 def VKBuiltIn : InheritableAttr {
   let Spellings = [CXX11<"vk", "builtin">];
   let Subjects = SubjectList<[Function, ParmVar, Field], ErrorDiag>;
@@ -1024,6 +1033,15 @@ def VKOffset : InheritableAttr {
   let Spellings = [CXX11<"vk", "offset">];
   let Subjects = SubjectList<[Field], ErrorDiag, "ExpectedField">;
   let Args = [IntArgument<"Offset">];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+def VKCombinedImageSampler : InheritableAttr {
+  let Spellings = [CXX11<"vk", "combinedImageSampler">];
+  let Subjects = SubjectList<[TextureOrSampler],
+                             ErrorDiag, "ExpectedTextureOrSamplerState">;
+  let Args = [];
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];
 }

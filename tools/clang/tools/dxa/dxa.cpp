@@ -115,7 +115,7 @@ void DxaContext::Assemble() {
         }
       }
 
-      WriteBlobToFile(pContainer, StringRefUtf16(OutputFilename), DXC_CP_UTF8); // TODO: Support DefaultTextCodePage
+      WriteBlobToFile(pContainer, StringRefUtf16(OutputFilename), DXC_CP_ACP);
       printf("Output written to \"%s\"\n", OutputFilename.c_str());
     }
   } else {

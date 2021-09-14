@@ -897,6 +897,67 @@ void AddOpcodeParamForIntrinsics(
   }
 }
 
+// Returns whether the first argument of CI is NaN or not. If the argument is
+// a vector, returns a vector of boolean values.
+Constant *IsNaN(CallInst *CI) {
+  Value *V = CI->getArgOperand(0);
+  llvm::Type *Ty = V->getType();
+  if (llvm::VectorType *VT = dyn_cast<llvm::VectorType>(Ty)) {
+    Constant *CV = cast<Constant>(V);
+    SmallVector<Constant *, 4> ConstVec;
+    llvm::Type *CIElemTy =
+        cast<llvm::VectorType>(CI->getType())->getElementType();
+    for (unsigned i = 0; i < VT->getNumElements(); i++) {
+      ConstantFP *fpV = cast<ConstantFP>(CV->getAggregateElement(i));
+      bool isNan = fpV->getValueAPF().isNaN();
+      ConstVec.push_back(ConstantInt::get(CIElemTy, isNan ? 1 : 0));
+    }
+    return ConstantVector::get(ConstVec);
+  } else {
+    ConstantFP *fV = cast<ConstantFP>(V);
+    bool isNan = fV->getValueAPF().isNaN();
+    return ConstantInt::get(CI->getType(), isNan ? 1 : 0);
+  }
+}
+
+// Returns a constant for atan2() intrinsic function for scalars.
+Constant *Atan2ForScalar(llvm::Type *ResultTy, ConstantFP *fpV0,
+                         ConstantFP *fpV1) {
+  if (ResultTy->isDoubleTy()) {
+    double dV0 = fpV0->getValueAPF().convertToDouble();
+    double dV1 = fpV1->getValueAPF().convertToDouble();
+    return ConstantFP::get(ResultTy, atan2(dV0, dV1));
+  } else {
+    DXASSERT_NOMSG(ResultTy->isFloatTy());
+    float fV0 = fpV0->getValueAPF().convertToFloat();
+    float fV1 = fpV1->getValueAPF().convertToFloat();
+    return ConstantFP::get(ResultTy, atan2f(fV0, fV1));
+  }
+}
+
+// Returns Value for atan2() intrinsic function. If the argument of CI has
+// a vector type, it returns the vector value of atan2().
+Value *Atan2(CallInst *CI) {
+  Value *V0 = CI->getArgOperand(0);
+  Value *V1 = CI->getArgOperand(1);
+  if (llvm::VectorType *VT = dyn_cast<llvm::VectorType>(V0->getType())) {
+    Constant *CV0 = cast<Constant>(V0);
+    Constant *CV1 = cast<Constant>(V1);
+    SmallVector<Constant *, 4> ConstVec;
+    llvm::Type *CIElemTy =
+        cast<llvm::VectorType>(CI->getType())->getElementType();
+    for (unsigned i = 0; i < VT->getNumElements(); i++) {
+      ConstantFP *fpV0 = cast<ConstantFP>(CV0->getAggregateElement(i));
+      ConstantFP *fpV1 = cast<ConstantFP>(CV1->getAggregateElement(i));
+      ConstVec.push_back(Atan2ForScalar(CIElemTy, fpV0, fpV1));
+    }
+    return ConstantVector::get(ConstVec);
+  } else {
+    ConstantFP *fpV0 = cast<ConstantFP>(V0);
+    ConstantFP *fpV1 = cast<ConstantFP>(V1);
+    return Atan2ForScalar(CI->getType(), fpV0, fpV1);
+  }
+}
 } // namespace
 
 namespace {
@@ -1760,30 +1821,10 @@ Value *TryEvalIntrinsic(CallInst *CI, IntrinsicOp intriOp,
     return EvalUnaryIntrinsic(CI, atanf, atan);
   } break;
   case IntrinsicOp::IOP_atan2: {
-    Value *V0 = CI->getArgOperand(0);
-    ConstantFP *fpV0 = cast<ConstantFP>(V0);
-
-    Value *V1 = CI->getArgOperand(1);
-    ConstantFP *fpV1 = cast<ConstantFP>(V1);
-
-    llvm::Type *Ty = CI->getType();
-    Value *Result = nullptr;
-    if (Ty->isDoubleTy()) {
-      double dV0 = fpV0->getValueAPF().convertToDouble();
-      double dV1 = fpV1->getValueAPF().convertToDouble();
-      Value *atanV = ConstantFP::get(CI->getType(), atan2(dV0, dV1));
-      CI->replaceAllUsesWith(atanV);
-      Result = atanV;
-    } else {
-      DXASSERT_NOMSG(Ty->isFloatTy());
-      float fV0 = fpV0->getValueAPF().convertToFloat();
-      float fV1 = fpV1->getValueAPF().convertToFloat();
-      Value *atanV = ConstantFP::get(CI->getType(), atan2f(fV0, fV1));
-      CI->replaceAllUsesWith(atanV);
-      Result = atanV;
-    }
+    Value *atanV = Atan2(CI);
+    CI->replaceAllUsesWith(atanV);
     CI->eraseFromParent();
-    return Result;
+    return atanV;
   } break;
   case IntrinsicOp::IOP_sqrt: {
     return EvalUnaryIntrinsic(CI, sqrtf, sqrt);
@@ -1885,10 +1926,7 @@ Value *TryEvalIntrinsic(CallInst *CI, IntrinsicOp intriOp,
     return EvalUnaryIntrinsic(CI, fracF, fracD);
   } break;
   case IntrinsicOp::IOP_isnan: {
-    Value *V = CI->getArgOperand(0);
-    ConstantFP *fV = cast<ConstantFP>(V);
-    bool isNan = fV->getValueAPF().isNaN();
-    Constant *cNan = ConstantInt::get(CI->getType(), isNan ? 1 : 0);
+    Constant *cNan = IsNaN(CI);
     CI->replaceAllUsesWith(cNan);
     CI->eraseFromParent();
     return cNan;
@@ -3331,13 +3369,14 @@ void ScopeInfo::AddRet(BasicBlock *bbWithRet) {
   // Don't need to put retScope to stack since it cannot nested other scopes.
 }
 
-void ScopeInfo::EndScope(bool bScopeFinishedWithRet) {
+Scope& ScopeInfo::EndScope(bool bScopeFinishedWithRet) {
   unsigned idx = scopeStack.pop_back_val();
   Scope &Scope = GetScope(idx);
   // If whole stmt is finished and end scope bb has not used(nothing branch to
   // it). Then the whole scope is returned.
   Scope.bWholeScopeReturned =
       bScopeFinishedWithRet && Scope.EndScopeBB->user_empty();
+  return Scope;
 }
 
 Scope &ScopeInfo::GetScope(unsigned i) { return scopes[i]; }

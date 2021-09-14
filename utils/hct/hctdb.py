@@ -2065,6 +2065,7 @@ class db_dxil(object):
         add_pass('hlsl-dxil-remove-discards', 'DxilRemoveDiscards', 'HLSL DXIL Remove all discard instructions', [])
         add_pass('hlsl-dxil-force-early-z', 'DxilForceEarlyZ', 'HLSL DXIL Force the early Z global flag, if shader has no discard calls', [])
         add_pass('hlsl-dxil-pix-meshshader-output-instrumentation', 'DxilPIXMeshShaderOutputInstrumentation', 'DXIL mesh shader output instrumentation for PIX', [
+            {'n':'expand-payload','t':'int','c':1},
             {'n':'UAVSize','t':'int','c':1}])
         add_pass('hlsl-dxil-pix-shader-access-instrumentation', 'DxilShaderAccessTracking', 'HLSL DXIL shader access tracking for PIX', [
             {'n':'config','t':'int','c':1},
@@ -2077,6 +2078,9 @@ class db_dxil(object):
         add_pass('dxil-annotate-with-virtual-regs', 'DxilAnnotateWithVirtualRegister', 'Annotates each instruction in the DXIL module with a virtual register number', [])
         add_pass('dxil-dbg-value-to-dbg-declare', 'DxilDbgValueToDbgDeclare', 'Converts llvm.dbg.value uses to llvm.dbg.declare.', [])
         add_pass('hlsl-dxil-reduce-msaa-to-single', 'DxilReduceMSAAToSingleSample', 'HLSL DXIL Reduce all MSAA reads to single-sample reads', [])
+        add_pass('hlsl-dxil-PIX-add-tid-to-as-payload', 'DxilPIXAddTidToAmplificationShaderPayload', 'HLSL DXIL Add flat thread id to payload from AS to MS', [
+            {'n':'dispatchArgY','t':'int','c':1},
+            {'n':'dispatchArgZ','t':'int','c':1}])
 
         category_lib="dxil_gen"
 

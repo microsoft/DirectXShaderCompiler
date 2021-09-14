@@ -17,6 +17,7 @@ set(LLVM_LINK_COMPONENTS
   dxilcontainer
   dxilpixpasses # for DxcOptimizerPass
   dxilrootsignature
+  dxcbindingtable
   hlsl
   instcombine
   ipa

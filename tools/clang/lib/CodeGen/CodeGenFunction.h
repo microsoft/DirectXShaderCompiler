@@ -36,6 +36,11 @@
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/Support/Debug.h"
 
+namespace CGHLSLMSHelper
+{
+struct Scope;
+};
+
 namespace llvm {
 class BasicBlock;
 class LLVMContext;
@@ -1485,7 +1490,10 @@ public:
   /// SimplifyForwardingBlocks - If the given basic block is only a branch to
   /// another basic block, simplify it. This assumes that no other code could
   /// potentially reference the basic block.
-  void SimplifyForwardingBlocks(llvm::BasicBlock *BB);
+  ///
+  /// HLSL CHANGE: Pass the loop scope to update the simplified block pointer.
+  ///
+  void SimplifyForwardingBlocks(llvm::BasicBlock *BB, CGHLSLMSHelper::Scope *LoopScope);
 
   /// EmitBlock - Emit the given block \arg BB and set it as the insert point,
   /// adding a fall-through branch from the current insert block if

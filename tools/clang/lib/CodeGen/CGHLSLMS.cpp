@@ -300,7 +300,7 @@ public:
   void MarkReturnStmt(CodeGenFunction &CGF, BasicBlock *bbWithRet) override;
   void MarkLoopStmt(CodeGenFunction &CGF, BasicBlock *loopContinue,
                      BasicBlock *loopExit) override;
-  void MarkScopeEnd(CodeGenFunction &CGF) override;
+  CGHLSLMSHelper::Scope* MarkScopeEnd(CodeGenFunction &CGF) override;
   bool NeedHLSLMartrixCastForStoreOp(const clang::Decl* TD,
     llvm::SmallVector<llvm::Value*, 16>& IRCallArgs) override;
   void EmitHLSLMartrixCastForStoreOp(CodeGenFunction& CGF,
@@ -6147,12 +6147,14 @@ void CGMSHLSLRuntime::MarkLoopStmt(CodeGenFunction &CGF,
     Scope->AddLoop(loopContinue, loopExit);
 }
 
-void CGMSHLSLRuntime::MarkScopeEnd(CodeGenFunction &CGF) {
+Scope *CGMSHLSLRuntime::MarkScopeEnd(CodeGenFunction &CGF) {
   if (ScopeInfo *Scope = GetScopeInfo(CGF.CurFn)) {
     llvm::BasicBlock *CurBB = CGF.Builder.GetInsertBlock();
     bool bScopeFinishedWithRet = !CurBB || CurBB->getTerminator();
-    Scope->EndScope(bScopeFinishedWithRet);
+    return &Scope->EndScope(bScopeFinishedWithRet);
   }
+
+  return nullptr;
 }
 
 CGHLSLRuntime *CodeGen::CreateMSHLSLRuntime(CodeGenModule &CGM) {
