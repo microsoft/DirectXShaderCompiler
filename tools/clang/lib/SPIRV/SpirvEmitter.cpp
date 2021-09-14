@@ -2316,9 +2316,14 @@ SpirvInstruction *SpirvEmitter::doCallExpr(const CallExpr *callExpr) {
   if (const auto *memberCall = dyn_cast<CXXMemberCallExpr>(callExpr))
     return doCXXMemberCallExpr(memberCall);
 
+  auto funcDecl = callExpr->getDirectCallee();
   // Intrinsic functions such as 'dot' or 'mul'
-  if (hlsl::IsIntrinsicOp(callExpr->getDirectCallee())) {
+  if (hlsl::IsIntrinsicOp(funcDecl)) {
     return processIntrinsicCallExpr(callExpr);
+  }
+
+  if (funcDecl && funcDecl->hasAttr<VKInstructionExtAttr>()) {
+    return processSpvIntrinsicCallExpr(callExpr);
   }
 
   // Normal standalone functions
@@ -12450,6 +12455,42 @@ SpirvEmitter::processRayQueryIntrinsics(const CXXMemberCallExpr *expr,
     retVal = spvBuilder.createUnaryOp(spv::Op::OpLogicalNot, expr->getType(),
                                       retVal, loc);
   }
+
+  retVal->setRValue();
+  return retVal;
+}
+
+SpirvInstruction *
+SpirvEmitter::processSpvIntrinsicCallExpr(const CallExpr *expr) {
+  auto funcDecl = expr->getDirectCallee();
+  auto &attrs = funcDecl->getAttrs();
+  QualType retType = funcDecl->getReturnType();
+  llvm::SmallVector<uint32_t, 8> capbilities;
+  llvm::StringRef extExtension = "";
+  llvm::StringRef instSet = "";
+  uint32_t op = 0;
+  for (auto &attr : attrs) {
+    if (auto capAttr = dyn_cast<VKCapabilityExtAttr>(attr)) {
+      capbilities.push_back(capAttr->getCapability());
+    } else if (auto extAttr = dyn_cast<VKExtensionExtAttr>(attr)) {
+      extExtension = extAttr->getName();
+    } else if (auto instAttr = dyn_cast<VKInstructionExtAttr>(attr)) {
+      op = instAttr->getOpcode();
+      instSet = instAttr->getInstruction_set();
+    }
+  }
+
+  llvm::SmallVector<SpirvInstruction *, 8> spvArgs;
+
+  const auto args = expr->getArgs();
+  for (uint32_t i = 0; i < expr->getNumArgs(); ++i) {
+    spvArgs.push_back(doExpr(args[i]));
+  }
+
+  const auto loc = expr->getExprLoc();
+
+  SpirvInstruction *retVal = spvBuilder.createSpirvIntrInstExt(
+      op, retType, spvArgs, extExtension, instSet, capbilities, loc);
 
   retVal->setRValue();
   return retVal;
