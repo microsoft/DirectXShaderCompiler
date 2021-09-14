@@ -748,14 +748,13 @@ public:
       if (DM.GetShaderModel()->IsPS()) {
         DxilSignature &sig = DM.GetOutputSignature();
         for (auto &Elt : sig.GetElements()) {
-          if (Elt->GetKind() == Semantic::Kind::Target) {
-            if (Elt->GetUsageMask() != Elt->GetColsAsMask()) {
-              dxilutil::EmitWarningOnContext(
-                  M.getContext(),
-                  "Declared output " + llvm::Twine(Elt->GetName()) +
-                      llvm::Twine(Elt->GetSemanticStartIndex()) +
-                      " not fully written in shader.");
-            }
+          if (Elt->GetKind() == Semantic::Kind::Target &&
+              Elt->GetUsageMask() != Elt->GetColsAsMask()) {
+            dxilutil::EmitWarningOnContext(
+                M.getContext(),
+                "Declared output " + llvm::Twine(Elt->GetName()) +
+                    llvm::Twine(Elt->GetSemanticStartIndex()) +
+                    " not fully written in shader.");
           }
         }
       }
