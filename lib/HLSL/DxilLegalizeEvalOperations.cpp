@@ -42,7 +42,7 @@ public:
   bool runOnModule(Module &M) override {
     for (Function &F : M.getFunctionList()) {
       hlsl::HLOpcodeGroup group = hlsl::GetHLOpcodeGroup(&F);
-      if (group != HLOpcodeGroup::NotHL) {
+      if (group == HLOpcodeGroup::HLIntrinsic) {
         std::vector<CallInst *> EvalFunctionCalls;
         // Find all EvaluateAttribute calls
         for (User *U : F.users()) {
