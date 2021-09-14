@@ -1,5 +1,8 @@
 // Run: %dxc -T vs_6_0 -E main
 
+// CHECK: OpCapability ShaderClockKHR
+// CHECK: {{%\d+}} = OpExtInstImport "GLSL.std.450"
+
 struct SInstanceData {
   float4x3 VisualToWorld;
   float4 Output;
@@ -17,10 +20,6 @@ uint64_t ReadClock(uint scope);
 
 [[vk::ext_instruction(/* Sin*/ 13, "GLSL.std.450")]]
 float4 spv_sin(float4 v);
-
-// CHECK: OpCapability ShaderClockKHR
-// CHECK-NEXT: OpExtension "SPV_KHR_shader_clock"
-// CHECK-NEXT: {{%\d+}} = OpExtInstImport "GLSL.std.450"
 
 float4 main(const VS_INPUT v) : SV_Position {
 	SInstanceData	I = v.InstanceData;
