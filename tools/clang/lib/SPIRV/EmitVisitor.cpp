@@ -1659,6 +1659,23 @@ bool EmitVisitor::visit(SpirvRayTracingTerminateOpKHR *inst) {
   return true;
 }
 
+bool EmitVisitor::visit(SpirvIntrinsicInstruction *inst) {
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  if (inst->getInstructionSet()) {
+    curInst.push_back(
+        getOrAssignResultId<SpirvInstruction>(inst->getInstructionSet()));
+    curInst.push_back(inst->getInstruction());
+  }
+
+  for (const auto operand : inst->getOperands())
+    curInst.push_back(getOrAssignResultId<SpirvInstruction>(operand));
+
+  finalizeInstruction(&mainBinary);
+  return true;
+}
+
 // EmitTypeHandler ------
 
 void EmitTypeHandler::initTypeInstruction(spv::Op op) {

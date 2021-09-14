@@ -590,6 +590,8 @@ private:
   /// Process ray query intrinsics
   SpirvInstruction *processRayQueryIntrinsics(const CXXMemberCallExpr *expr,
                                               hlsl::IntrinsicOp opcode);
+  /// Process spirv intrinsic instruction
+  SpirvInstruction *processSpvIntrinsicCallExpr(const CallExpr *expr);
 
 private:
   /// Returns the <result-id> for constant value 0 of the given type.

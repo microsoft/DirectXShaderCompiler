@@ -962,6 +962,23 @@ SpirvInstruction *SpirvBuilder::createReadClock(SpirvInstruction *scope,
   return inst;
 }
 
+SpirvInstruction *SpirvBuilder::createSpirvIntrInstExt(
+    uint32_t opcode, QualType retType,
+    llvm::ArrayRef<SpirvInstruction *> operands, llvm::StringRef ext,
+    llvm::StringRef instSet, llvm::ArrayRef<uint32_t> capts,
+    SourceLocation loc) {
+  assert(insertPoint && "null insert point");
+
+  SpirvExtInstImport *set =
+      (instSet.size() == 0) ? nullptr : getExtInstSet(instSet);
+
+  auto *inst = new (context) SpirvIntrinsicInstruction(
+      retType, opcode, operands, ext, set, capts, loc);
+
+  insertPoint->addInstruction(inst);
+  return inst;
+}
+
 void SpirvBuilder::createRaytracingTerminateKHR(spv::Op opcode,
                                                 SourceLocation loc) {
   assert(insertPoint && "null insert point");
