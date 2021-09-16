@@ -2289,13 +2289,12 @@ SpirvInstruction *SpirvEmitter::doCallExpr(const CallExpr *callExpr) {
     return doCXXMemberCallExpr(memberCall);
 
   auto funcDecl = callExpr->getDirectCallee();
+  if (funcDecl && funcDecl->hasAttr<VKInstructionExtAttr>()) {
+    return processSpvIntrinsicCallExpr(callExpr);
+  }
   // Intrinsic functions such as 'dot' or 'mul'
   if (hlsl::IsIntrinsicOp(funcDecl)) {
     return processIntrinsicCallExpr(callExpr);
-  }
-
-  if (funcDecl && funcDecl->hasAttr<VKInstructionExtAttr>()) {
-    return processSpvIntrinsicCallExpr(callExpr);
   }
 
   // Normal standalone functions
