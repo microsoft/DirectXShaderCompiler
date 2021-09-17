@@ -128,6 +128,9 @@ def fno_diagnostics_show_option : Flag<["-"], "fno-diagnostics-show-option">, Gr
 def fdiagnostics_show_category_EQ : Joined<["-"], "fdiagnostics-show-category=">, Group<hlslcomp_Group>;
 def ferror_limit_EQ : Joined<["-"], "ferror-limit=">, Group<hlslcomp_Group>, Flags<[CoreOption]>;
 
+def import_binding_table : JoinedOrSeparate<["-", "/"], "import-binding-table">, Group<hlsloptz_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
+  HelpText<"Import a binding table to specify resource bindings.">;
+
 def funsafe_math_optimizations : Flag<["-"], "funsafe-math-optimizations">,
   Group<hlsloptz_Group>;
 def fno_unsafe_math_optimizations : Flag<["-"], "fno-unsafe-math-optimizations">,
@@ -216,6 +219,8 @@ def working_directory_EQ : Joined<["-"], "working-directory=">, Flags<[CoreOptio
 def _all_warnings : Flag<["--"], "all-warnings">, Flags<[CoreOption]>, Alias<Wall>;
 def _help_hidden : Flag<["--"], "help-hidden">, Flags<[DriverOption]>;
 def _help_question : Flag<["-", "/"], "?">, Flags<[DriverOption]>, Alias<help>;
+def _version : Flag<["--"], "version">, Group<hlslcore_Group>, Flags<[DriverOption]>,
+  HelpText<"Display compiler version information">;
 
 //////////////////////////////////////////////////////////////////////////////
 // New HLSL-specific flags.
@@ -340,6 +345,8 @@ def fspv_target_env_EQ : Joined<["-"], "fspv-target-env=">, Group<spirv_Group>, 
   HelpText<"Specify the target environment: vulkan1.0 (default) or vulkan1.1">;
 def fspv_flatten_resource_arrays: Flag<["-"], "fspv-flatten-resource-arrays">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Flatten arrays of resources so each array element takes one binding number">;
+def fspv_reduce_load_size: Flag<["-"], "fspv-reduce-load-size">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Replaces loads of composite objects to reduce memory pressure for the loads">;
 def fvk_auto_shift_bindings: Flag<["-"], "fvk-auto-shift-bindings">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Apply fvk-*-shift to resources without an explicit register assignment.">;
 def Wno_vk_ignored_features : Joined<["-"], "Wno-vk-ignored-features">, Group<spirv_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,

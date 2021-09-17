@@ -54,6 +54,9 @@ Texture2DMS      <int3>   t8 : register(t8);
 // CHECK: %t9 = OpVariable %_ptr_UniformConstant_type_2d_image_array_0 UniformConstant
 Texture2DMSArray <uint4>  t9 : register(t9);
 
+// CHECK: %t10 = OpVariable %_ptr_UniformConstant_type_2d_image_1 UniformConstant
+Texture2D   <bool>   t10 : register(t10);
+
 struct S {
     float a;
     float b;

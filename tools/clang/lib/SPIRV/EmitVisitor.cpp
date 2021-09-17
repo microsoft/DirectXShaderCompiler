@@ -591,7 +591,14 @@ bool EmitVisitor::visit(SpirvModuleProcessed *inst) {
 
 bool EmitVisitor::visit(SpirvDecoration *inst) {
   initInstruction(inst);
-  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getTarget()));
+  if (inst->getTarget()) {
+    curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getTarget()));
+  } else {
+    assert(inst->getTargetFunc() != nullptr);
+    curInst.push_back(
+        getOrAssignResultId<SpirvFunction>(inst->getTargetFunc()));
+  }
+
   if (inst->isMemberDecoration())
     curInst.push_back(inst->getMemberIndex());
   curInst.push_back(static_cast<uint32_t>(inst->getDecoration()));
@@ -1702,11 +1709,15 @@ uint32_t EmitTypeHandler::getOrCreateConstantBool(SpirvConstantBoolean *inst) {
   const auto index = static_cast<uint32_t>(inst->getValue());
   const bool isSpecConst = inst->isSpecConstant();
 
-  // SpecConstants are not unique. We should not reuse them. e.g. it is possible
-  // to have multiple OpSpecConstantTrue instructions.
+  // The values of special constants are not unique. We should not reuse their
+  // values.
   if (!isSpecConst && emittedConstantBools[index]) {
-    // Already emitted this constant. Reuse.
+    // Already emitted this constant value. Reuse.
     inst->setResultId(emittedConstantBools[index]->getResultId());
+  } else if (isSpecConst && emittedSpecConstantInstructions.find(inst) !=
+                                emittedSpecConstantInstructions.end()) {
+    // We've already emitted this SpecConstant. Reuse.
+    return inst->getResultId();
   } else {
     // Constant wasn't emitted in the past.
     const uint32_t typeId = emitType(inst->getResultType());
@@ -1715,8 +1726,11 @@ uint32_t EmitTypeHandler::getOrCreateConstantBool(SpirvConstantBoolean *inst) {
     curTypeInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
     finalizeTypeInstruction();
     // Remember this constant for the future (if not a spec constant)
-    if (!isSpecConst)
+    if (isSpecConst) {
+      emittedSpecConstantInstructions.insert(inst);
+    } else {
       emittedConstantBools[index] = inst;
+    }
   }
 
   return inst->getResultId();
@@ -1783,8 +1797,8 @@ uint32_t EmitTypeHandler::getOrCreateConstantFloat(SpirvConstantFloat *inst) {
   auto valueTypePair = std::pair<uint64_t, const SpirvType *>(
       valueToUse.bitcastToAPInt().getZExtValue(), type);
 
-  // SpecConstant instructions are not unique, so we should not re-use existing
-  // spec constants.
+  // The values of special constants are not unique. We should not reuse their
+  // values.
   if (!isSpecConst) {
     // If this constant has already been emitted, return its result-id.
     auto foundResultId = emittedConstantFloats.find(valueTypePair);
@@ -1793,6 +1807,10 @@ uint32_t EmitTypeHandler::getOrCreateConstantFloat(SpirvConstantFloat *inst) {
       inst->setResultId(existingConstantResultId);
       return existingConstantResultId;
     }
+  } else if (emittedSpecConstantInstructions.find(inst) !=
+             emittedSpecConstantInstructions.end()) {
+    // We've already emitted this SpecConstant. Reuse.
+    return inst->getResultId();
   }
 
   // Start constructing the instruction
@@ -1830,8 +1848,11 @@ uint32_t EmitTypeHandler::getOrCreateConstantFloat(SpirvConstantFloat *inst) {
   finalizeTypeInstruction();
 
   // Remember this constant for future (if not a SpecConstant)
-  if (!isSpecConst)
+  if (isSpecConst) {
+    emittedSpecConstantInstructions.insert(inst);
+  } else {
     emittedConstantFloats[valueTypePair] = constantResultId;
+  }
 
   return constantResultId;
 }
@@ -1843,8 +1864,8 @@ EmitTypeHandler::getOrCreateConstantInt(llvm::APInt value,
   auto valueTypePair =
       std::pair<uint64_t, const SpirvType *>(value.getZExtValue(), type);
 
-  // SpecConstant instructions are not unique, so we should not re-use existing
-  // spec constants.
+  // The values of special constants are not unique. We should not reuse their
+  // values.
   if (!isSpecConst) {
     // If this constant has already been emitted, return its result-id.
     auto foundResultId = emittedConstantInts.find(valueTypePair);
@@ -1854,6 +1875,10 @@ EmitTypeHandler::getOrCreateConstantInt(llvm::APInt value,
         constantInstruction->setResultId(existingConstantResultId);
       return existingConstantResultId;
     }
+  } else if (emittedSpecConstantInstructions.find(constantInstruction) !=
+             emittedSpecConstantInstructions.end()) {
+    // We've already emitted this SpecConstant. Reuse.
+    return constantInstruction->getResultId();
   }
 
   assert(isa<IntegerType>(type));
@@ -1905,9 +1930,12 @@ EmitTypeHandler::getOrCreateConstantInt(llvm::APInt value,
 
   finalizeTypeInstruction();
 
-  // Remember this constant for future (not needed for SpecConstants)
-  if (!isSpecConst)
+  // Remember this constant for future
+  if (isSpecConst) {
+    emittedSpecConstantInstructions.insert(constantInstruction);
+  } else {
     emittedConstantInts[valueTypePair] = constantResultId;
+  }
 
   return constantResultId;
 }
@@ -1939,11 +1967,18 @@ EmitTypeHandler::getOrCreateConstantComposite(SpirvConstantComposite *inst) {
               return false;
           return true;
         });
+  } else if (emittedSpecConstantInstructions.find(inst) !=
+             emittedSpecConstantInstructions.end()) {
+    return inst->getResultId();
   }
 
   if (!isSpecConst && found != emittedConstantComposites.end()) {
     // We have already emitted this constant. Reuse.
     inst->setResultId((*found)->getResultId());
+  } else if (isSpecConst && emittedSpecConstantInstructions.find(inst) !=
+                                emittedSpecConstantInstructions.end()) {
+    // We've already emitted this SpecConstant. Reuse.
+    return inst->getResultId();
   } else {
     // Constant wasn't emitted in the past.
     const uint32_t typeId = emitType(inst->getResultType());
@@ -1954,9 +1989,12 @@ EmitTypeHandler::getOrCreateConstantComposite(SpirvConstantComposite *inst) {
       curTypeInst.push_back(getOrAssignResultId<SpirvInstruction>(constituent));
     finalizeTypeInstruction();
 
-    // Remember this constant for the future (if not a spec constant)
-    if (!isSpecConst)
+    // Remember this constant for the future
+    if (isSpecConst) {
+      emittedSpecConstantInstructions.insert(inst);
+    } else {
       emittedConstantComposites.push_back(inst);
+    }
   }
 
   return inst->getResultId();

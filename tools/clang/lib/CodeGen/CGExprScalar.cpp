@@ -204,17 +204,16 @@ public:
     if (BinaryOperator *BinOp = dyn_cast<BinaryOperator>(E)) {
       if (hlsl::IsHLSLMatType(E->getType()) ||
           hlsl::IsHLSLMatType(BinOp->getLHS()->getType())) {
-          if (BinOp->getOpcode() != BO_Assign) {
-              llvm::Value *LHS = CGF.EmitScalarExpr(BinOp->getLHS());
-              llvm::Value *RHS = CGF.EmitScalarExpr(BinOp->getRHS());
-              return CGF.CGM.getHLSLRuntime().EmitHLSLMatrixOperationCall(
-                  CGF, E, ConvertType(E->getType()), { LHS, RHS });
-          }
-          else {
+          if (BinOp->getOpcode() == BO_Assign) {
               LValue LHS = CGF.EmitLValue(BinOp->getLHS());
               llvm::Value *RHS = CGF.EmitScalarExpr(BinOp->getRHS());
               CGF.CGM.getHLSLRuntime().EmitHLSLMatrixStore(CGF, RHS, LHS.getAddress(), BinOp->getLHS()->getType());
               return RHS;
+          } else if (BinOp->getOpcode() != BO_Comma) { // comma handled by standard Visit below
+              llvm::Value *LHS = CGF.EmitScalarExpr(BinOp->getLHS());
+              llvm::Value *RHS = CGF.EmitScalarExpr(BinOp->getRHS());
+              return CGF.CGM.getHLSLRuntime().EmitHLSLMatrixOperationCall(
+                  CGF, E, ConvertType(E->getType()), { LHS, RHS });
           }
       }
     } else if (UnaryOperator *UnOp = dyn_cast<UnaryOperator>(E)) {
