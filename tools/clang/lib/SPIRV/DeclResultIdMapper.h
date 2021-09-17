@@ -115,6 +115,33 @@ private:
   SpirvFunction *entryPoint;
 };
 
+/// \brief The struct containing information of stage variable's location and
+/// index. This information will be used to check the duplication of stage
+/// variable's location and index.
+struct StageVariableLocationInfo {
+  SpirvFunction *entryPoint;
+  spv::StorageClass sc;
+  uint32_t location;
+  uint32_t index;
+
+  static inline StageVariableLocationInfo getEmptyKey() {
+    return {nullptr, spv::StorageClass::Max, 0, 0};
+  }
+  static inline StageVariableLocationInfo getTombstoneKey() {
+    return {nullptr, spv::StorageClass::Max, 0xffffffff, 0xffffffff};
+  }
+  static unsigned getHashValue(const StageVariableLocationInfo &Val) {
+    return llvm::hash_combine(Val.entryPoint) ^
+           llvm::hash_combine(Val.location) ^ llvm::hash_combine(Val.index) ^
+           llvm::hash_combine(static_cast<uint32_t>(Val.sc));
+  }
+  static bool isEqual(const StageVariableLocationInfo &LHS,
+                      const StageVariableLocationInfo &RHS) {
+    return LHS.entryPoint == RHS.entryPoint && LHS.sc == RHS.sc &&
+           LHS.location == RHS.location && LHS.index == RHS.index;
+  }
+};
+
 class ResourceVar {
 public:
   ResourceVar(SpirvVariable *var, const Decl *decl, SourceLocation loc,
@@ -618,6 +645,13 @@ private:
   /// \brief Checks whether some semantic is used more than once and returns
   /// true if no such cases. Returns false otherwise.
   bool checkSemanticDuplication(bool forInput);
+
+  /// \brief Checks whether some location/index is used more than once and
+  /// returns true if no such cases. Returns false otherwise.
+  bool isDuplicatedStageVarLocation(
+      llvm::DenseSet<StageVariableLocationInfo, StageVariableLocationInfo>
+          *stageVariableLocationInfo,
+      const StageVar &var, uint32_t location, uint32_t index);
 
   /// \brief Decorates all stage input (if forInput is true) or output (if
   /// forInput is false) variables with proper location and returns true on

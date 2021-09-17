@@ -55,6 +55,7 @@ struct SpirvCodeGenOptions {
   bool useGlLayout;
   bool useScalarLayout;
   bool flattenResourceArrays;
+  bool reduceLoadSize;
   bool autoShiftBindings;
   bool supportNonzeroBaseInstance;
   SpirvLayoutRule cBufferLayoutRule;

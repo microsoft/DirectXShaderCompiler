@@ -43,4 +43,14 @@ namespace PIXPassHelpers
         ScopedIndenter() { IncreaseLogIndent(); }
         ~ScopedIndenter() { DecreaseLogIndent(); }
     };
-    }
+
+    struct ExpandedStruct {
+      llvm::Type *ExpandedPayloadStructType = nullptr;
+      llvm::Type *ExpandedPayloadStructPtrType = nullptr;
+    };
+
+    ExpandedStruct ExpandStructType(llvm::LLVMContext& Ctx,
+        llvm::Type* OriginalPayloadStructType);
+    void ReplaceAllUsesOfInstructionWithNewValueAndDeleteInstruction(
+        llvm::Instruction* Instr, llvm::Value* newValue, llvm::Type* newType);
+}
