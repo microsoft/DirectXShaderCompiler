@@ -2980,7 +2980,7 @@ class db_hlsl(object):
                     assert idx != 1, "Can't use $type on the first argument"
                     assert template_id != "0", "Can't match an input to the return type"
                     done_idx = int(template_id) - 1
-                    assert done_idx <= len(args) + 1, "$type must refer to a processed arg"
+                    assert done_idx <= len(done_args) + 1, "$type must refer to a processed arg"
                     done_arg = done_args[done_idx]
                     type_name = done_arg.type_name
             # Determine matrix/vector/any/scalar type names.
