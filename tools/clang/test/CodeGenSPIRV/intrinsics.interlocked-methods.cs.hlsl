@@ -36,8 +36,7 @@ void main()
 // CHECK-NEXT:                  OpStore %original_u_val [[and28]]
   InterlockedAnd(dest_u, 10,  original_u_val);
 
-// CHECK:       [[uint10:%\d+]] = OpBitcast %int %uint_10
-// CHECK-NEXT: [[asmax29:%\d+]] = OpAtomicSMax %int %dest_i %uint_1 %uint_0 [[uint10]]
+// CHECK:      [[asmax29:%\d+]] = OpAtomicSMax %int %dest_i %uint_1 %uint_0 %int_10
 // CHECK-NEXT:                    OpStore %original_i_val [[asmax29]]
   InterlockedMax(dest_i, 10,  original_i_val);
 
