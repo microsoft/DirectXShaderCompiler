@@ -136,9 +136,11 @@ std::pair<uint32_t, uint32_t> AlignmentSizeCalculator::getAlignmentAndSize(
   // FxcSBuffer:
   // - Vector/matrix/array base alignment is set as its element type's base
   //   alignment.
-  // - Arrays/structs do not need to have padding at the end; arrays/structs do
-  //   not affect the base offset of the member following them.
-  // - Struct base alignment does not need to be rounded up to a multiple of 16.
+  // - Struct base alignment is set as the maximum of its component's
+  //   alignment.
+  // - Size of vector/matrix/array is set as the number of its elements times
+  //   the size of its element.
+  // - Size of struct must be aligned to its alignment.
 
   const auto desugaredType = desugarType(type, &isRowMajor);
   if (desugaredType != type) {
@@ -342,10 +344,9 @@ std::pair<uint32_t, uint32_t> AlignmentSizeCalculator::getAlignmentAndSize(
       maxAlignment = roundToPow2(maxAlignment, kStd140Vec4Alignment);
     }
 
-    if (rule != SpirvLayoutRule::FxcCTBuffer &&
-        rule != SpirvLayoutRule::FxcSBuffer) {
-      // The base offset of the member following the sub-structure is rounded up
-      // to the next multiple of the base alignment of the structure.
+    if (rule != SpirvLayoutRule::FxcCTBuffer) {
+      // The base offset of the member following the sub-structure is rounded
+      // up to the next multiple of the base alignment of the structure.
       structSize = roundToPow2(structSize, maxAlignment);
     }
     return {maxAlignment, structSize};

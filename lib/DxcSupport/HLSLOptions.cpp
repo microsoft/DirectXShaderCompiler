@@ -377,6 +377,11 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     return 0;
   }
 
+  opts.ShowVersion = Args.hasFlag(OPT__version, OPT_INVALID, false);
+  if (opts.ShowVersion) {
+    return 0;
+  }
+
   if (missingArgCount) {
     errors << "Argument to '" << Args.getArgString(missingArgIndex)
       << "' is missing.";
@@ -487,6 +492,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   // OutputLibrary not supported (Fl)
   opts.AssemblyCode = Args.getLastArgValue(OPT_Fc);
   opts.DebugFile = Args.getLastArgValue(OPT_Fd);
+  opts.ImportBindingTable = Args.getLastArgValue(OPT_import_binding_table);
   opts.ExtractPrivateFile = Args.getLastArgValue(OPT_getprivate);
   opts.Enable16BitTypes = Args.hasFlag(OPT_enable_16bit_types, OPT_INVALID, false);
   opts.EnableTemplates = Args.hasFlag(OPT_enable_templates, OPT_INVALID, false);
@@ -529,11 +535,14 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     opts.DxcOptimizationToggles[llvm::StringRef(opt).lower()] = false;
 
   for (std::string opt : Args.getAllArgValues(OPT_opt_enable)) {
-    if (!opts.DxcOptimizationToggles.insert ( {llvm::StringRef(opt).lower(), true} ).second) {
+    std::string optimization = llvm::StringRef(opt).lower();
+    if (opts.DxcOptimizationToggles.count(optimization) &&
+        !opts.DxcOptimizationToggles[optimization]) {
       errors << "Contradictory use of -opt-disable and -opt-enable with \""
              << llvm::StringRef(opt).lower() << "\"";
       return 1;
     }
+    opts.DxcOptimizationToggles[optimization] = true;
   }
 
   std::vector<std::string> ignoreSemDefs = Args.getAllArgValues(OPT_ignore_semdef);
@@ -871,6 +880,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.SpirvOptions.noWarnEmulatedFeatures = Args.hasFlag(OPT_Wno_vk_emulated_features, OPT_INVALID, false);
   opts.SpirvOptions.flattenResourceArrays =
       Args.hasFlag(OPT_fspv_flatten_resource_arrays, OPT_INVALID, false);
+  opts.SpirvOptions.reduceLoadSize =
+      Args.hasFlag(OPT_fspv_reduce_load_size, OPT_INVALID, false);
   opts.SpirvOptions.autoShiftBindings = Args.hasFlag(OPT_fvk_auto_shift_bindings, OPT_INVALID, false);
 
   if (!handleVkShiftArgs(Args, OPT_fvk_b_shift, "b", &opts.SpirvOptions.bShift, errors) ||
@@ -959,6 +970,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       Args.hasFlag(OPT_fvk_use_dx_layout, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fvk_use_scalar_layout, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fspv_flatten_resource_arrays, OPT_INVALID, false) ||
+      Args.hasFlag(OPT_fspv_reduce_load_size, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fspv_reflect, OPT_INVALID, false) ||
       Args.hasFlag(OPT_Wno_vk_ignored_features, OPT_INVALID, false) ||
       Args.hasFlag(OPT_Wno_vk_emulated_features, OPT_INVALID, false) ||

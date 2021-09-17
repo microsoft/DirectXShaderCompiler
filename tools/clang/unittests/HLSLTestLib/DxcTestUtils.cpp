@@ -48,6 +48,12 @@ bool TestModuleCleanup() {
   ::llvm::llvm_shutdown();
   DxcClearThreadMalloc();
   DxcCleanupThreadMalloc();
+
+  // Make sure we can run init/cleanup mulitple times.
+  if (FAILED(DxcInitThreadMalloc()))
+    return false;
+  DxcCleanupThreadMalloc();
+
   llvm::sys::fs::CleanupPerThreadFileSystem();
   return true;
 }

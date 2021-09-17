@@ -264,21 +264,28 @@ public:
       if (!HLM.GetShaderModel()->IsSM66Plus())
         return false;
 
-      hdlTy = HLM.GetOP()->GetHandleType();
+      hlslOP = HLM.GetOP();
       pTypeSys = &HLM.GetTypeSystem();
     } else if (M.HasDxilModule()) {
       auto &DM = M.GetDxilModule();
       if (!DM.GetShaderModel()->IsSM66Plus())
         return false;
 
-      hdlTy = DM.GetOP()->GetHandleType();
+      hlslOP = DM.GetOP();
       pTypeSys = &DM.GetTypeSystem();
     } else {
       return false;
     }
+
+    hdlTy = hlslOP->GetHandleType();
+    if (hlslOP->IsDxilOpUsed(DXIL::OpCode::CreateHandleForLib)) {
+      createHandleForLibOnHandle =
+          hlslOP->GetOpFunc(DXIL::OpCode::CreateHandleForLib, hdlTy);
+    }
+
     collectCandidates(M);
     mutateCandidates(M);
-    // Remvoe cast to handle.
+    // Remove cast to handle.
     return !MutateValSet.empty();
   }
 
@@ -295,7 +302,9 @@ private:
   void collectCandidates(Module &M);
   void mutateCandidates(Module &M);
 
-  Type *hdlTy;
+  Type *hdlTy = nullptr;
+  hlsl::OP *hlslOP = nullptr;
+  Function *createHandleForLibOnHandle = nullptr;
   DxilTypeSystem *pTypeSys;
   DenseSet<Value *> MutateValSet;
   DenseMap<Type *, Type *> MutateTypeMap;
@@ -392,10 +401,18 @@ bool DxilMutateResourceToHandle::mutateTypesToHandleTy(
 void DxilMutateResourceToHandle::collectGlobalResource(
     DxilResourceBase *Res, SmallVector<Value *, 8> &WorkList) {
   Value *GV = Res->GetGlobalSymbol();
-  // Save hlsl type before mutate to handle.
-  Res->SetHLSLType(GV->getType());
-  mutateToHandleTy(GV->getType(), /*bResType*/true);
-  WorkList.emplace_back(GV);
+  // If already handle, don't overwrite HLSL type.
+  // It's still posible that load users have a wrong type (invalid IR) due to
+  // linking mixed targets.  But in that case, we need to start at the
+  // non-handle overloads of CreateHandleForLib and mutate/rewrite from there.
+  // That's because we may have an already translated GV, but some load and
+  // CreateHandleForLib calls use the wrong type from linked code.
+  Type *MTy = mutateToHandleTy(GV->getType(), /*bResType*/true);
+  if (GV->getType() != MTy) {
+    // Save hlsl type before mutate to handle.
+    Res->SetHLSLType(GV->getType());
+    WorkList.emplace_back(GV);
+  }
 }
 void DxilMutateResourceToHandle::collectAlloca(
     Function &F, SmallVector<Value *, 8> &WorkList) {
@@ -455,6 +472,18 @@ DxilMutateResourceToHandle::collectHlslObjects(Module &M) {
 
   // Functions.
   for (Function &F : M) {
+    if (hlslOP && hlslOP->IsDxilOpFunc(&F)) {
+      DXIL::OpCodeClass OpcodeClass;
+      if (hlslOP->GetOpCodeClass(&F, OpcodeClass)) {
+        if (OpcodeClass == DXIL::OpCodeClass::CreateHandleForLib &&
+            &F != createHandleForLibOnHandle) {
+          WorkList.emplace_back(&F);
+          MutateTypeMap[F.getFunctionType()->getFunctionParamType(1)] = hdlTy;
+          continue;
+        }
+      }
+    }
+
     collectAlloca(F, WorkList);
     FunctionType *FT = F.getFunctionType();
     FunctionType *MFT = cast<FunctionType>(mutateToHandleTy(FT));
@@ -630,17 +659,6 @@ void DxilMutateResourceToHandle::mutateCandidates(Module &M) {
       continue;
     }
     V->mutateType(MTy);
-  }
-
-  Function *createHandleForLibOnHandle = nullptr;
-  hlsl::OP *hlslOP = nullptr;
-  if (M.HasDxilModule()) {
-    auto &DM = M.GetDxilModule();
-    hlslOP = DM.GetOP();
-    if (hlslOP->IsDxilOpUsed(DXIL::OpCode::CreateHandleForLib)) {
-      createHandleForLibOnHandle =
-          hlslOP->GetOpFunc(DXIL::OpCode::CreateHandleForLib, hdlTy);
-    }
   }
 
   // Mutate functions.

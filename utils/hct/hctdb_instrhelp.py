@@ -412,6 +412,7 @@ class db_oload_gen:
             "fouri32": "A(p4I32);",
             "fourf32": "A(p4F32);",
             "fouri16": "A(p4I16);",
+            "fourf16": "A(p4F16);",
             "u32": "A(pI32);",
             "u64": "A(pI64);",
             "u8": "A(pI8);",
@@ -1463,10 +1464,10 @@ if __name__ == "__main__":
         pj = lambda *parts: os.path.abspath(os.path.join(*parts))
         files = [
             'docs/DXIL.rst',
-            'lib/DXIL/DXILOperations.cpp',
-            'lib/DXIL/DXILShaderModel.cpp',
-            'include/dxc/DXIL/DXILConstants.h',
-            'include/dxc/DXIL/DXILShaderModel.h',
+            'lib/DXIL/DxilOperations.cpp',
+            'lib/DXIL/DxilShaderModel.cpp',
+            'include/dxc/DXIL/DxilConstants.h',
+            'include/dxc/DXIL/DxilShaderModel.h',
             'include/dxc/HLSL/DxilValidation.h',
             'include/dxc/Support/HLSLOptions.td',
             'include/dxc/DXIL/DxilInstructions.h',

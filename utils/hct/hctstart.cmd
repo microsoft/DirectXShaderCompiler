@@ -50,7 +50,7 @@ if not exist "%~f1\utils\hct\hctstart.cmd" (
 set HLSL_SRC_DIR=%~f1
 set HLSL_BLD_DIR=%~f2
 echo HLSL source directory set to HLSL_SRC_DIR=%HLSL_SRC_DIR%
-echo HLSL source directory set to HLSL_BLD_DIR=%HLSL_BLD_DIR%
+echo HLSL build directory set to HLSL_BLD_DIR=%HLSL_BLD_DIR%
 echo.
 echo You can recreate the environment with this command.
 echo %0 %*
@@ -172,7 +172,7 @@ goto :eof
 
 :checksdk 
 setlocal
-set min_sdk_ver=14393
+set min_sdk_ver=17763
 
 set REG_QUERY=REG QUERY "HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Microsoft SDKs\Windows\v10.0"
 set kit_root=

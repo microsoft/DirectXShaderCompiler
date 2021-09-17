@@ -89,8 +89,8 @@ void RootSignatureHandle::Deserialize() {
 void RootSignatureHandle::LoadSerialized(const uint8_t *pData,
                                          unsigned length) {
   DXASSERT_NOMSG(IsEmpty());
-  IDxcBlobEncoding *pCreated;
-  IFT(DxcCreateBlobWithEncodingOnHeapCopy(pData, length, CP_UTF8, &pCreated));
+  IDxcBlob *pCreated;
+  IFT(DxcCreateBlobOnHeapCopy(pData, length, &pCreated));
   m_pSerialized = pCreated;
 }
 

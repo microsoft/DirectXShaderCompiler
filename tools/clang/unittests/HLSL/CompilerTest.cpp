@@ -127,6 +127,7 @@ public:
   TEST_METHOD(CompileWhenDebugWorksThenStripDebug)
   TEST_METHOD(CompileWhenWorksThenAddRemovePrivate)
   TEST_METHOD(CompileThenAddCustomDebugName)
+  TEST_METHOD(CompileThenTestReflectionWithProgramHeader)
   TEST_METHOD(CompileThenTestPdbUtils)
   TEST_METHOD(CompileThenTestPdbUtilsWarningOpt)
   TEST_METHOD(CompileThenTestPdbInPrivate)
@@ -134,6 +135,13 @@ public:
   TEST_METHOD(CompileThenTestPdbUtilsEmptyEntry)
   TEST_METHOD(CompileThenTestPdbUtilsRelativePath)
   TEST_METHOD(CompileWithRootSignatureThenStripRootSignature)
+
+
+  void TestResourceBindingImpl(
+    const char *bindingFileContent,
+    const std::wstring &errors = std::wstring(),
+    bool noIncludeHandler = false);
+  TEST_METHOD(CompileWithResourceBindingFileThenOK)
 
   TEST_METHOD(CompileWhenIncludeThenLoadInvoked)
   TEST_METHOD(CompileWhenIncludeThenLoadUsed)
@@ -188,6 +196,8 @@ public:
   TEST_METHOD(CodeGenRootSigProfile2)
   TEST_METHOD(CodeGenRootSigProfile5)
   TEST_METHOD(CodeGenWaveSize)
+  TEST_METHOD(CodeGenVectorIsnan)
+  TEST_METHOD(CodeGenVectorAtan2)
   TEST_METHOD(PreprocessWhenValidThenOK)
   TEST_METHOD(LibGVStore)
   TEST_METHOD(PreprocessWhenExpandTokenPastingOperandThenAccept)
@@ -954,7 +964,7 @@ TEST_F(CompilerTest, CompileThenAddCustomDebugName) {
 
   CComPtr<IDxcBlobEncoding> pDebugName;
 
-  CreateBlobPinned(pNameBlobContent, allocatedSize, CP_UTF8, &pDebugName);
+  CreateBlobPinned(pNameBlobContent, allocatedSize, DXC_CP_ACP, &pDebugName);
 
 
   VERIFY_SUCCEEDED(pBuilder->Load(pProgram));
@@ -1622,6 +1632,66 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bSourceInDebugModule, bool bStr
   }
 }
 
+TEST_F(CompilerTest, CompileThenTestReflectionWithProgramHeader) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcOperationResult> pOperationResult;
+
+  const char* source = R"x(
+      cbuffer cb : register(b1) {
+        float foo;
+      };
+      [RootSignature("CBV(b1)")]
+      float4 main(float a : A) : SV_Target {
+        return a + foo;
+      }
+  )x";
+  std::string included_File = "#define ZERO 0";
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText(source, &pSource);
+
+  const WCHAR * args[] = {
+    L"-Zi",
+  };
+
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+    L"ps_6_0", args, _countof(args), nullptr, 0, nullptr, &pOperationResult));
+
+  HRESULT CompileStatus = S_OK;
+  VERIFY_SUCCEEDED(pOperationResult->GetStatus(&CompileStatus));
+  VERIFY_SUCCEEDED(CompileStatus);
+
+  CComPtr<IDxcResult> pResult;
+  VERIFY_SUCCEEDED(pOperationResult.QueryInterface(&pResult));
+
+  CComPtr<IDxcBlob> pPdbBlob;
+  VERIFY_SUCCEEDED(pResult->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pPdbBlob), nullptr));
+
+  CComPtr<IDxcContainerReflection> pContainerReflection;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pContainerReflection));
+
+  VERIFY_SUCCEEDED(pContainerReflection->Load(pPdbBlob));
+  UINT32 index = 0;
+  VERIFY_SUCCEEDED(pContainerReflection->FindFirstPartKind(hlsl::DFCC_ShaderDebugInfoDXIL, &index));
+
+  CComPtr<IDxcBlob> pDebugDxilBlob;
+  VERIFY_SUCCEEDED(pContainerReflection->GetPartContent(index, &pDebugDxilBlob));
+
+  CComPtr<IDxcUtils> pUtils;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcUtils, &pUtils));
+
+  DxcBuffer buf = {};
+  buf.Ptr = pDebugDxilBlob->GetBufferPointer();
+  buf.Size = pDebugDxilBlob->GetBufferSize();
+
+  CComPtr<ID3D12ShaderReflection> pReflection;
+  VERIFY_SUCCEEDED(pUtils->CreateReflection(&buf, IID_PPV_ARGS(&pReflection)));
+
+  ID3D12ShaderReflectionConstantBuffer *cb = pReflection->GetConstantBufferByName("cb");
+  VERIFY_IS_TRUE(cb != nullptr);
+}
+
 TEST_F(CompilerTest, CompileThenTestPdbUtils) {
   if (m_ver.SkipDxilVersion(1, 5)) return;
   TestPdbUtils(/*bSlim*/true,  /*bSourceInDebugModule*/false, /*strip*/true);  // Slim PDB, where source info is stored in its own part, and debug module is NOT present
@@ -1886,6 +1956,286 @@ TEST_F(CompilerTest, CompileThenTestPdbUtilsEmptyEntry) {
 }
 
 #endif
+
+void CompilerTest::TestResourceBindingImpl(
+  const char *bindingFileContent,
+  const std::wstring &errors,
+  bool noIncludeHandler) {
+
+  class IncludeHandler : public IDxcIncludeHandler {
+    DXC_MICROCOM_REF_FIELD(m_dwRef)
+  public:
+    DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject) override {
+      return DoBasicQueryInterface<IDxcIncludeHandler>(this,  iid, ppvObject);
+    }
+
+    CComPtr<IDxcBlob> pBindingFileBlob;
+    IncludeHandler() : m_dwRef(0) {}
+
+    HRESULT STDMETHODCALLTYPE LoadSource(
+      _In_ LPCWSTR pFilename,                   // Filename as written in #include statement
+      _COM_Outptr_ IDxcBlob **ppIncludeSource   // Resultant source object for included file
+      ) override {
+
+      if (0 == wcscmp(pFilename, L"binding-file.txt")) {
+        return pBindingFileBlob.QueryInterface(ppIncludeSource);
+      }
+      return E_FAIL;
+    }
+  };
+
+  CComPtr<IDxcBlobEncoding> pBindingFileBlob;
+  CreateBlobFromText(bindingFileContent, &pBindingFileBlob);
+
+  CComPtr<IncludeHandler> pIncludeHandler;
+  if (!noIncludeHandler) {
+    pIncludeHandler = new IncludeHandler();
+    pIncludeHandler->pBindingFileBlob = pBindingFileBlob;
+  }
+
+  const char *source = R"x(
+    cbuffer cb {
+      float a;
+    };
+    cbuffer resource {
+      float b;
+    };
+
+    SamplerState samp0;
+    Texture2D resource;
+    RWTexture1D<float> uav_0;
+
+    [RootSignature("CBV(b10,space=30), CBV(b42,space=999), DescriptorTable(Sampler(s1,space=2)), DescriptorTable(SRV(t1,space=2)), DescriptorTable(UAV(u0,space=0))")]
+    float main(float2 uv : UV, uint i : I) :SV_Target {
+      return a + b + resource.Sample(samp0, uv).r + uav_0[i];
+    }
+  )x";
+
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcOperationResult> pResult;
+
+  const WCHAR *args[] = {
+    L"-import-binding-table", L"binding-file.txt"
+  };
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+
+  CreateBlobFromText(source, &pSource);
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+                                      L"ps_6_0", args, _countof(args), nullptr,
+                                      0, pIncludeHandler, &pResult));
+
+  HRESULT compileResult = S_OK;
+  VERIFY_SUCCEEDED(pResult->GetStatus(&compileResult));
+
+  if (errors.empty()) {
+    VERIFY_SUCCEEDED(compileResult);
+  }
+  else {
+    VERIFY_FAILED(compileResult);
+    CComPtr<IDxcBlobEncoding> pErrors;
+    VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&pErrors));
+
+    BOOL bEncodingKnown = FALSE;
+    UINT32 uCodePage = 0;
+    VERIFY_SUCCEEDED(pErrors->GetEncoding(&bEncodingKnown, &uCodePage));
+
+    std::wstring actualError = BlobToUtf16(pErrors);
+    if (actualError.find(errors) == std::wstring::npos) {
+      VERIFY_SUCCEEDED(E_FAIL);
+    }
+  }
+}
+
+TEST_F(CompilerTest, CompileWithResourceBindingFileThenOK) {
+  // Normal test
+  // List of things tested in this first test:
+  //  - Arbitrary capitalization of the headers
+  //  - Quotes
+  //  - Optional trailing commas
+  //  - Arbitrary spaces
+  //  - Resources with the same names (but different classes)
+  //  - Using include handler
+  //
+  TestResourceBindingImpl(
+    R"(
+         ResourceName, binding,  spacE  
+         
+         "cb",         b10,      0x1e ,  
+         resource,     b42,      999  ,
+         samp0,        s1,       0x02 ,
+         resource,     t1,       2
+         uav_0,        u0,       0,
+    )");
+
+  // Reordered the columns 1
+  TestResourceBindingImpl(
+    R"(
+         ResourceName, space,   Binding,
+                     
+         "cb",         0x1e ,   b10,   
+         resource,     999  ,   b42,  
+         samp0,        0x02 ,   s1,   
+         resource,     2,       t1,   
+         uav_0,        0,       u0,   
+    )", std::wstring());
+
+  // Reordered the columns 2
+  TestResourceBindingImpl(
+    R"(
+         space,   binding, ResourceName,         
+                                       
+         0x1e ,   b10,     "cb",         
+         999  ,   b42,     resource,         
+         0x02 ,   s1,      samp0,        
+         2,       t1,      resource,    
+         0,       u0,      uav_0,        
+    )");
+
+  // Extra cell at the end of row
+  TestResourceBindingImpl(
+    R"(
+         ResourceName, Binding,  space  
+         
+         "cb",         b10,      0x1e ,  
+         resource,     b42,      999  ,
+         samp0,        s1,       0x02,    extra_cell
+         resource,     t1,       2
+         uav_0,        u0,       0,
+    )", L"Unexpected cell at the end of row. There should only be 3");
+
+  // Missing cell in row
+  TestResourceBindingImpl(
+    R"(
+         ResourceName, Binding,  space  
+         
+         "cb",         b10,      0x1e ,  
+         resource,     b42,      999  ,
+         samp0,        s1,
+         resource,     t1,       2
+         uav_0,        u0,       0,
+    )", L"Row ended after just 2 columns. Expected 3.");
+
+  // Missing column
+  TestResourceBindingImpl(
+    R"(
+         ResourceName, Binding,
+         "cb",         b10,   
+    )", L"Input format is csv with headings: ResourceName, Binding, Space.");
+
+  // Empty file
+  TestResourceBindingImpl(
+    " \r\n  ", L"Unexpected EOF when parsing cell.");
+
+  // Invalid resource binding type
+  TestResourceBindingImpl(
+    R"(
+         ResourceName, Binding,  space  
+         "cb",         10,       30,  
+    )", L"Invalid resource class");
+
+  // Invalid resource binding type 2
+  TestResourceBindingImpl(
+    R"(
+         ResourceName, Binding,  space  
+         "cb",         e10,      30,  
+    )",
+    L"Invalid resource class.");
+
+  // Index Integer out of bounds
+  TestResourceBindingImpl(
+    R"(
+         ResourceName, Binding,  space  
+         "cb",         b99999999999999999999999999999999999,    30,  
+    )",
+    L"'99999999999999999999999999999999999' is out of range of an 32-bit unsigned integer.");
+
+
+  // Empty resource
+  TestResourceBindingImpl(
+    R"(
+         ResourceName, Binding,  space  
+         "cb",         ,         30,  
+    )",
+    L"Resource binding cannot be empty.");
+
+  // Index Integer out of bounds
+  TestResourceBindingImpl(
+    R"(
+         ResourceName, Binding,  space  
+         "cb",         b,        30,  
+    )",
+    L"'b' is not a valid resource binding.");
+
+  // Integer out of bounds
+  TestResourceBindingImpl(
+    R"(
+         ResourceName, Binding,  space  
+         "cb",         b10,      99999999999999999999999999999999999,  
+    )",
+    L"'99999999999999999999999999999999999' is out of range of an 32-bit unsigned integer.");
+
+  // Integer out of bounds 2
+  TestResourceBindingImpl(
+    R"(
+         ResourceName,         Binding,  space  
+         "cb",         b10,    0xffffffffffffffffffffffffffffff,  
+    )",
+    L"'0xffffffffffffffffffffffffffffff' is out of range of an 32-bit unsigned integer.");
+
+  // Integer invalid
+  TestResourceBindingImpl(
+    R"(
+         ResourceName, Binding,  space  
+         "cb",         b10,      abcd,  
+    )",
+    L"'abcd' is not a valid 32-bit unsigned integer.");
+
+  // Integer empty
+  TestResourceBindingImpl(
+    R"(
+         ResourceName, Binding, space  
+         "cb",         b10,     ,  
+    )",
+    L"Expected unsigned 32-bit integer for resource space, but got empty cell.");
+
+  // No Include handler
+  TestResourceBindingImpl(
+    R"(
+         ResourceName, Binding, space  
+         "cb",         b10,     30,  
+    )",
+    L"Binding table binding file 'binding-file.txt' specified, but no include handler was given",
+    /* noIncludeHandler */true);
+
+  // Comma in a cell
+  TestResourceBindingImpl(
+    R"(
+         ResourceName, Binding,  spacE,  extra_column,
+         
+         "cb",         b10,      0x1e ,  " ,, ,",
+         resource,     b42,      999  ,  " ,, ,",
+         samp0,        s1,       0x02 ,  " ,, ,",
+         resource,     t1,       2,      " ,, ,",
+         uav_0,        u0,       0,      " ,, ,",
+    )");
+
+  // Newline in the middle of a quote
+  TestResourceBindingImpl(
+    R"(
+         ResourceName, Binding,  spacE,  extra_column,
+         
+         "cb",         b10,      0x1e ,  " ,, ,",
+         resource,     b42,      999  ,  " ,, ,",
+         samp0,        s1,       0x02 ,  " ,, ,",
+         resource,     t1,       2,      " ,, ,",
+         uav_0,        u0,       0,      " ,
+
+
+    )", L"Unexpected newline inside quotation.");
+}
 
 TEST_F(CompilerTest, CompileWithRootSignatureThenStripRootSignature) {
   CComPtr<IDxcCompiler> pCompiler;
@@ -2877,6 +3227,14 @@ TEST_F(CompilerTest, CodeGenWaveSize) {
   CodeGenTestCheck(L"attributes_wavesize.hlsl");
 }
 
+TEST_F(CompilerTest, CodeGenVectorIsnan) {
+  CodeGenTestCheck(L"isnan_vector_argument.hlsl");
+}
+
+TEST_F(CompilerTest, CodeGenVectorAtan2) {
+  CodeGenTestCheck(L"atan2_vector_argument.hlsl");
+}
+
 TEST_F(CompilerTest, LibGVStore) {
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcOperationResult> pResult;
@@ -2939,7 +3297,7 @@ TEST_F(CompilerTest, LibGVStore) {
   unsigned bitcode_size = hlsl::GetDxilBitcodeSize((hlsl::DxilProgramHeader *)pBitcode->GetBufferPointer());
 
   CComPtr<IDxcBlobEncoding> pBitcodeBlob;
-  CreateBlobPinned(bitcode, bitcode_size, CP_UTF8, &pBitcodeBlob);
+  CreateBlobPinned(bitcode, bitcode_size, DXC_CP_ACP, &pBitcodeBlob);
 
   CComPtr<IDxcBlob> pReassembled;
   CComPtr<IDxcOperationResult> pReassembleResult;

@@ -36,6 +36,8 @@ const char *getGitCommitHash() { return "<unknown-hash>"; }
 namespace clang {
 namespace spirv {
 
+using spvtools::opt::DescriptorSetAndBinding;
+
 namespace {
 
 // Returns true if the given decl is an implicit variable declaration inside the
@@ -443,6 +445,59 @@ bool isMemoryObjectDeclaration(SpirvInstruction *inst) {
   return isa<SpirvVariable>(inst) || isa<SpirvFunctionParameter>(inst);
 }
 
+// Returns a pair of the descriptor set and the binding that does not have
+// bound Texture or Sampler.
+DescriptorSetAndBinding getDSetBindingWithoutTextureOrSampler(
+    const llvm::SmallVectorImpl<ResourceInfoToCombineSampledImage>
+        &resourceInfoForSampledImages) {
+  const DescriptorSetAndBinding kNotFound = {
+      std::numeric_limits<uint32_t>::max(),
+      std::numeric_limits<uint32_t>::max()};
+  if (resourceInfoForSampledImages.empty()) {
+    return kNotFound;
+  }
+
+  typedef uint8_t TextureAndSamplerExistExistance;
+  const TextureAndSamplerExistExistance kTextureConfirmed = 1 << 0;
+  const TextureAndSamplerExistExistance kSamplerConfirmed = 1 << 1;
+  llvm::DenseMap<std::pair<uint32_t, uint32_t>, TextureAndSamplerExistExistance>
+      dsetBindingsToTextureSamplerExistance;
+  for (const auto &itr : resourceInfoForSampledImages) {
+    auto dsetBinding = std::make_pair(itr.descriptorSet, itr.binding);
+
+    TextureAndSamplerExistExistance status = 0;
+    if (isTexture(itr.type))
+      status = kTextureConfirmed;
+    if (isSampler(itr.type))
+      status = kSamplerConfirmed;
+
+    auto existanceItr = dsetBindingsToTextureSamplerExistance.find(dsetBinding);
+    if (existanceItr == dsetBindingsToTextureSamplerExistance.end()) {
+      dsetBindingsToTextureSamplerExistance[dsetBinding] = status;
+    } else {
+      existanceItr->second = existanceItr->second | status;
+    }
+  }
+
+  for (const auto &itr : dsetBindingsToTextureSamplerExistance) {
+    if (itr.second != (kTextureConfirmed | kSamplerConfirmed))
+      return {itr.first.first, itr.first.second};
+  }
+  return kNotFound;
+}
+
+// Collects pairs of the descriptor set and the binding to combine
+// corresponding Texture and Sampler into the sampled image.
+std::vector<DescriptorSetAndBinding> collectDSetBindingsToCombineSampledImage(
+    const llvm::SmallVectorImpl<ResourceInfoToCombineSampledImage>
+        &resourceInfoForSampledImages) {
+  std::vector<DescriptorSetAndBinding> dsetBindings;
+  for (const auto &itr : resourceInfoForSampledImages) {
+    dsetBindings.push_back({itr.descriptorSet, itr.binding});
+  }
+  return dsetBindings;
+}
+
 } // namespace
 
 SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
@@ -665,12 +720,32 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   // Output the constructed module.
   std::vector<uint32_t> m = spvBuilder.takeModule();
 
+  // Check the existance of Texture and Sampler with
+  // [[vk::combinedImageSampler]] for the same descriptor set and binding.
+  auto resourceInfoForSampledImages =
+      spvContext.getResourceInfoForSampledImages();
+  auto dsetBindingWithoutTextureOrSampler =
+      getDSetBindingWithoutTextureOrSampler(resourceInfoForSampledImages);
+  if (dsetBindingWithoutTextureOrSampler.descriptor_set !=
+      std::numeric_limits<uint32_t>::max()) {
+    emitFatalError(
+        "Texture or Sampler with [[vk::combinedImageSampler]] attribute is "
+        "missing for descriptor set and binding: %0, %1",
+        {})
+        << dsetBindingWithoutTextureOrSampler.descriptor_set
+        << dsetBindingWithoutTextureOrSampler.binding;
+    return;
+  }
+  auto dsetbindingsToCombineImageSampler =
+      collectDSetBindingsToCombineSampledImage(resourceInfoForSampledImages);
+
   // In order to flatten composite resources, we must also unroll loops.
   // Therefore we should run legalization before optimization.
-  needsLegalization = needsLegalization ||
-                      declIdMapper.requiresLegalization() ||
-                      spirvOptions.flattenResourceArrays ||
-                      declIdMapper.requiresFlatteningCompositeResources();
+  needsLegalization =
+      needsLegalization || declIdMapper.requiresLegalization() ||
+      spirvOptions.flattenResourceArrays || spirvOptions.reduceLoadSize ||
+      declIdMapper.requiresFlatteningCompositeResources() ||
+      !dsetbindingsToCombineImageSampler.empty();
 
   if (spirvOptions.codeGenHighLevel) {
     beforeHlslLegalization = needsLegalization;
@@ -678,7 +753,8 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     // Run legalization passes
     if (needsLegalization) {
       std::string messages;
-      if (!spirvToolsLegalize(&m, &messages)) {
+      if (!spirvToolsLegalize(&m, &messages,
+                              &dsetbindingsToCombineImageSampler)) {
         emitFatalError("failed to legalize SPIR-V: %0", {}) << messages;
         emitNote("please file a bug report on "
                  "https://github.com/Microsoft/DirectXShaderCompiler/issues "
@@ -2617,9 +2693,9 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr) {
     return doExpr(subExpr);
   }
   case CastKind::CK_HLSLVectorToMatrixCast: {
-    // If target type is already an 1xN matrix type, we just return the
+    // If target type is already an 1xN or Mx1 matrix type, we just return the
     // underlying vector.
-    if (is1xNMatrix(toType))
+    if (is1xNMatrix(toType) || isMx1Matrix(toType))
       return doExpr(subExpr);
 
     // A vector can have no more than 4 elements. The only remaining case
@@ -3626,6 +3702,7 @@ SpirvInstruction *SpirvEmitter::processBufferTextureLoad(
   QualType elemType = sampledType;
   uint32_t elemCount = 1;
   bool isTemplateOverStruct = false;
+  bool isTemplateTypeBool = false;
 
   // Check whether the template type is a vector type or struct type.
   if (!isVectorType(sampledType, &elemType, &elemCount)) {
@@ -3638,6 +3715,13 @@ SpirvInstruction *SpirvEmitter::processBufferTextureLoad(
                                  &elemCount))
         return nullptr;
     }
+  }
+
+  // Check whether template type is bool.
+  if (elemType->isBooleanType()) {
+      isTemplateTypeBool = true;
+      // Replace with unsigned int, and cast back to bool later.
+      elemType = astContext.getUIntPtrType();
   }
 
   {
@@ -3672,6 +3756,12 @@ SpirvInstruction *SpirvEmitter::processBufferTextureLoad(
   if (isTemplateOverStruct) {
     // Convert to the struct so that we are consistent with types in the AST.
     retVal = convertVectorToStruct(sampledType, elemType, retVal, loc);
+  }
+
+  // If the result type is a bool, after loading the uint, convert it to boolean.
+  if (isTemplateTypeBool) {
+    const QualType toType = elemCount > 1 ? astContext.getExtVectorType(elemType, elemCount) : elemType;
+    retVal = castToBool(retVal, toType, sampledType, loc);
   }
   retVal->setRValue();
   return retVal;
@@ -5012,8 +5102,9 @@ SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr) {
 
   auto base = loadIfAliasVarRef(baseExpr);
 
-  if (indices.empty())
-    return base; // For indexing into size-1 vectors and 1xN matrices
+  if (base == nullptr ||
+      indices.empty()) // For indexing into size-1 vectors and 1xN matrices
+    return base;
 
   // If we are indexing into a rvalue, to use OpAccessChain, we first need
   // to create a local variable to hold the rvalue.
@@ -5574,21 +5665,19 @@ void SpirvEmitter::storeValue(SpirvInstruction *lhsPtr,
     // parameters/returns/variables of type T. And ConstantBuffer<T> is not
     // represented differently as struct T.
   } else if (isOpaqueArrayType(lhsValType)) {
+    // SPIRV-Tools can handle legalization of the store in these cases.
+    if (!lhsValType->isConstantArrayType() || rhsVal->isRValue()) {
+      spvBuilder.createStore(lhsPtr, rhsVal, loc);
+      needsLegalization = true;
+      return;
+    }
+
     // For opaque array types, we cannot perform OpLoad on the whole array and
     // then write out as a whole; instead, we need to OpLoad each element
     // using access chains. This is to influence later SPIR-V transformations
     // to use access chains to access each opaque object; if we do array
     // wholesale handling here, they will be in the final transformed code.
     // Drivers don't like that.
-    // TODO: consider moving this hack into SPIRV-Tools as a transformation.
-    assert(!rhsVal->isRValue());
-
-    if (!lhsValType->isConstantArrayType()) {
-      spvBuilder.createStore(lhsPtr, rhsVal, loc);
-      needsLegalization = true;
-      return;
-    }
-
     const auto *arrayType = astContext.getAsConstantArrayType(lhsValType);
     const auto elemType = arrayType->getElementType();
     const auto arraySize =
@@ -5842,6 +5931,9 @@ SpirvInstruction *SpirvEmitter::processBinaryOp(
   case BO_AndAssign:
   case BO_OrAssign:
   case BO_XorAssign: {
+
+    if (lhsVal == nullptr || rhsVal == nullptr)
+      return nullptr;
 
     // To evaluate this expression as an OpSpecConstantOp, we need to make sure
     // both operands are constant and at least one of them is a spec constant.
@@ -12420,7 +12512,9 @@ bool SpirvEmitter::spirvToolsOptimize(std::vector<uint32_t> *mod,
 }
 
 bool SpirvEmitter::spirvToolsLegalize(std::vector<uint32_t> *mod,
-                                      std::string *messages) {
+                                      std::string *messages,
+                                      const std::vector<DescriptorSetAndBinding>
+                                          *dsetbindingsToCombineImageSampler) {
   spvtools::Optimizer optimizer(featureManager.getTargetEnv());
   optimizer.SetMessageConsumer(
       [messages](spv_message_level_t /*level*/, const char * /*source*/,
@@ -12436,6 +12530,22 @@ bool SpirvEmitter::spirvToolsLegalize(std::vector<uint32_t> *mod,
     optimizer.RegisterPass(spvtools::CreateDescriptorScalarReplacementPass());
     // ADCE should be run after desc_sroa in order to remove potentially
     // illegal types such as structures containing opaque types.
+    optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass());
+  }
+  if (dsetbindingsToCombineImageSampler &&
+      !dsetbindingsToCombineImageSampler->empty()) {
+    optimizer.RegisterPass(spvtools::CreateConvertToSampledImagePass(
+        *dsetbindingsToCombineImageSampler));
+    // ADCE should be run after combining images and samplers in order to
+    // remove potentially illegal types such as structures containing opaque
+    // types.
+    optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass());
+  }
+  if (spirvOptions.reduceLoadSize) {
+    // The threshold must be bigger than 1.0 to reduce all possible loads.
+    optimizer.RegisterPass(spvtools::CreateReduceLoadSizePass(1.1));
+    // ADCE should be run after reduce-load-size pass in order to remove
+    // dead instructions.
     optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass());
   }
   optimizer.RegisterPass(spvtools::CreateReplaceInvalidOpcodePass());

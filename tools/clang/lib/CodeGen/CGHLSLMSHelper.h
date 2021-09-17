@@ -124,7 +124,7 @@ public:
   void AddSwitch(llvm::BasicBlock *endSwitchBB);
   void AddLoop(llvm::BasicBlock *loopContinue, llvm::BasicBlock *endLoopBB);
   void AddRet(llvm::BasicBlock *bbWithRet);
-  void EndScope(bool bScopeFinishedWithRet);
+  Scope &EndScope(bool bScopeFinishedWithRet);
   Scope &GetScope(unsigned i);
   const llvm::SmallVector<unsigned, 2> &GetRetScopes() { return rets; }
   void LegalizeWholeReturnedScope();
