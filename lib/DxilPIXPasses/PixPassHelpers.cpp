@@ -173,6 +173,66 @@ llvm::Function* GetEntryFunction(hlsl::DxilModule& DM) {
     return DM.GetPatchConstantFunction();
 }
 
+ExpandedStruct ExpandStructType(LLVMContext &Ctx,
+                                Type *OriginalPayloadStructType) {
+  SmallVector<Type *, 16> Elements;
+  for (unsigned int i = 0; i < OriginalPayloadStructType->getStructNumElements(); ++i) {
+      Elements.push_back(OriginalPayloadStructType->getStructElementType(i));
+  }
+  Elements.push_back(Type::getInt32Ty(Ctx));
+  ExpandedStruct ret;
+  ret.ExpandedPayloadStructType =
+      StructType::create(Ctx, Elements, "PIX_AS2MS_Expanded_Type");
+  ret.ExpandedPayloadStructPtrType =
+      ret.ExpandedPayloadStructType->getPointerTo();
+  return ret;
+}
+
+void ReplaceAllUsesOfInstructionWithNewValueAndDeleteInstruction(
+    Instruction *Instr, Value *newValue, Type *newType) {
+  std::vector<Value *> users;
+  for (auto u = Instr->user_begin(); u != Instr->user_end(); ++u) {
+    users.push_back(*u);
+  }
+
+  for (auto user : users) {
+    if (auto *instruction = llvm::cast<Instruction>(user)) {
+      for (unsigned int i = 0; i < instruction->getNumOperands(); ++i) {
+        auto *Operand = instruction->getOperand(i);
+        if (Operand == Instr) {
+          instruction->setOperand(i, newValue);
+        }
+      }
+      if (llvm::isa<GetElementPtrInst>(instruction)) {
+        auto *GEP = llvm::cast<GetElementPtrInst>(instruction);
+        GEP->setSourceElementType(newType);
+      }
+      else if (hlsl::OP::IsDxilOpFuncCallInst(instruction, hlsl::OP::OpCode::DispatchMesh)) {
+        DxilModule &DM = instruction->getModule()->GetOrCreateDxilModule();
+        OP *HlslOP = DM.GetOP();
+
+        DxilInst_DispatchMesh DispatchMesh(instruction);
+        IRBuilder<> B(instruction);
+        SmallVector<Value*, 5> args;
+        args.push_back( HlslOP->GetU32Const((unsigned)hlsl::OP::OpCode::DispatchMesh));
+        args.push_back( DispatchMesh.get_threadGroupCountX());
+        args.push_back( DispatchMesh.get_threadGroupCountY());
+        args.push_back( DispatchMesh.get_threadGroupCountZ());
+        args.push_back( newValue );
+
+        B.CreateCall(HlslOP->GetOpFunc(DXIL::OpCode::DispatchMesh, newType->getPointerTo()), args);
+
+        instruction->removeFromParent();
+        delete instruction;
+      }
+    }
+  }
+
+  Instr->removeFromParent();
+  delete Instr;
+}
+
+
 #ifdef PIX_DEBUG_DUMP_HELPER
 
 static int g_logIndent = 0;

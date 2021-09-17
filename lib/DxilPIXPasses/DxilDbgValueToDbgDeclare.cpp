@@ -255,6 +255,8 @@ public:
     return m_Offsets;
   }
 
+  static SizeInBits GetVariableSizeInbits(DIVariable *Var);
+
 private:
   void PopulateAllocaMap(
       llvm::DIType *Ty
@@ -276,7 +278,8 @@ private:
   ) const;
   llvm::DIExpression *GetDIExpression(
       llvm::DIType *Ty,
-      OffsetInBits Offset
+      OffsetInBits Offset,
+      SizeInBits ParentSize
   ) const;
 
   llvm::DebugLoc const &m_dbgLoc;
@@ -704,46 +707,64 @@ void DxilDbgValueToDbgDeclare::handleDbgValue(
   auto* instruction = llvm::dyn_cast<llvm::Instruction>(V);
   if (instruction != nullptr) {
     instruction = instruction->getNextNode();
-    if (instruction != nullptr) {
+    if (instruction != nullptr && !llvm::isa<TerminatorInst>(instruction)) {
       // Drivers may crash if phi nodes aren't always at the top of a block,
       // so we must skip over them before inserting instructions.
       do {
         instruction = instruction->getNextNode();
-      } while (instruction != nullptr && llvm::isa<llvm::PHINode>(instruction));
+      } while (instruction != nullptr && 
+          llvm::isa<llvm::PHINode>(instruction) &&
+          !llvm::isa<TerminatorInst>(instruction));
       
-      B.SetInsertPoint(instruction);
-
-      B.SetCurrentDebugLocation(llvm::DebugLoc());
-      auto *Zero = B.getInt32(0);
-
-      // Now traverse a list of pairs {Scalar Value, InitialOffset + Offset}.
-      // InitialOffset is the offset from DbgValue's expression (i.e., the
-      // offset from the Variable's start), and Offset is the Scalar Value's
-      // packed offset from DbgValue's value.
-      for (const ValueAndOffset &VO : SplitValue(V, InitialOffset, B)) {
-
-        OffsetInBits AlignedOffset;
-        if (!Offsets.GetAlignedOffsetFromPackedOffset(VO.m_PackedOffset,
-                                                      &AlignedOffset)) {
-          continue;
-        }
-
-        auto *AllocaInst = Register->GetRegisterForAlignedOffset(AlignedOffset);
-        if (AllocaInst == nullptr) {
-          assert(!"Failed to find alloca for var[offset]");
-          continue;
-        }
-
-        if (AllocaInst->getAllocatedType()->getArrayElementType() ==
-            VO.m_V->getType()) {
-          auto *GEP = B.CreateGEP(AllocaInst, {Zero, Zero});
-          B.CreateStore(VO.m_V, GEP);
+      if(instruction != nullptr && !llvm::isa<TerminatorInst>(instruction)) {
+        B.SetInsertPoint(instruction);
+        
+        B.SetCurrentDebugLocation(llvm::DebugLoc());
+        auto *Zero = B.getInt32(0);
+        
+        // Now traverse a list of pairs {Scalar Value, InitialOffset + Offset}.
+        // InitialOffset is the offset from DbgValue's expression (i.e., the
+        // offset from the Variable's start), and Offset is the Scalar Value's
+        // packed offset from DbgValue's value.
+        for (const ValueAndOffset &VO : SplitValue(V, InitialOffset, B)) {
+        
+          OffsetInBits AlignedOffset;
+          if (!Offsets.GetAlignedOffsetFromPackedOffset(VO.m_PackedOffset,
+                                                        &AlignedOffset)) {
+            continue;
+          }
+        
+          auto *AllocaInst = Register->GetRegisterForAlignedOffset(AlignedOffset);
+          if (AllocaInst == nullptr) {
+            assert(!"Failed to find alloca for var[offset]");
+            continue;
+          }
+        
+          if (AllocaInst->getAllocatedType()->getArrayElementType() ==
+              VO.m_V->getType()) {
+            auto *GEP = B.CreateGEP(AllocaInst, {Zero, Zero});
+            B.CreateStore(VO.m_V, GEP);
+          }
         }
       }
     }
   }
 }
 
+SizeInBits VariableRegisters::GetVariableSizeInbits(DIVariable *Var) {
+  const llvm::DITypeIdentifierMap EmptyMap;
+  DIType *Ty = Var->getType().resolve(EmptyMap);
+  DIDerivedType *DerivedTy = nullptr;
+  while (Ty && (Ty->getSizeInBits() == 0 && (DerivedTy = dyn_cast<DIDerivedType>(Ty)))) {
+    Ty = DerivedTy->getBaseType().resolve(EmptyMap);
+  }
+
+  if (!Ty) {
+    assert(false && "Unexpected inability to resolve base type with a real size.");
+    return 0;
+  }
+  return Ty->getSizeInBits();
+}
 
 llvm::AllocaInst *VariableRegisters::GetRegisterForAlignedOffset(
     OffsetInBits Offset
@@ -926,7 +947,7 @@ void VariableRegisters::PopulateAllocaMap_BasicType(
 
   auto *Storage = GetMetadataAsValue(llvm::ValueAsMetadata::get(Alloca));
   auto *Variable = GetMetadataAsValue(m_Variable);
-  auto *Expression = GetMetadataAsValue(GetDIExpression(Ty, AlignedOffset));
+  auto *Expression = GetMetadataAsValue(GetDIExpression(Ty, AlignedOffset, GetVariableSizeInbits(m_Variable)));
   auto *DbgDeclare = m_B.CreateCall(
       m_DbgDeclareFn,
       {Storage, Variable, Expression});
@@ -1048,11 +1069,12 @@ llvm::Value *VariableRegisters::GetMetadataAsValue(
 
 llvm::DIExpression *VariableRegisters::GetDIExpression(
     llvm::DIType *Ty,
-    OffsetInBits Offset
+    OffsetInBits Offset,
+    SizeInBits ParentSize
 ) const
 {
   llvm::SmallVector<uint64_t, 3> ExpElements;
-  if (Offset != 0)
+  if (Offset != 0 || Ty->getSizeInBits() != ParentSize)
   {
     ExpElements.emplace_back(llvm::dwarf::DW_OP_bit_piece);
     ExpElements.emplace_back(Offset);

@@ -1920,6 +1920,10 @@ void DxilModule::StripShaderSourcesAndCompileOptions(bool bReplaceWithDummyData)
       newNamedMD->addOperand(llvm::MDTuple::get(context, llvm::ArrayRef<llvm::Metadata *>()));
     }
   }
+  if (NamedMDNode *binding = m_pModule->getNamedMetadata(
+          DxilMDHelper::kDxilDxcBindingTableMDName)) {
+    binding->eraseFromParent();
+  }
 }
 
 void DxilModule::StripDebugRelatedCode() {

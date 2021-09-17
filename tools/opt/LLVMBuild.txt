@@ -24,6 +24,7 @@ required_libraries =
  BitReader
  BitWriter
  HLSL
+ DxcBindingTable
  IRReader
  IPO
  Scalar

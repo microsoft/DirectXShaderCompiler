@@ -125,10 +125,10 @@ bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
         var->setHlslUserType(getHlslResourceTypeName(var->getAstResultType()));
       }
 
-      auto spvImageFormat = spvContext.getImageFormatForSpirvVariable(var);
-      if (spvImageFormat != spv::ImageFormat::Unknown) {
+      auto vkImgFeatures = spvContext.getVkImageFeaturesForSpirvVariable(var);
+      if (vkImgFeatures.format != spv::ImageFormat::Unknown) {
         if (const auto *imageType = dyn_cast<ImageType>(resultType)) {
-          resultType = spvContext.getImageType(imageType, spvImageFormat);
+          resultType = spvContext.getImageType(imageType, vkImgFeatures.format);
           instr->setResultType(resultType);
         }
       }
@@ -552,10 +552,14 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
         (dim = spv::Dim::Cube, isArray = true, name == "TextureCubeArray")) {
       const bool isMS = (name == "Texture2DMS" || name == "Texture2DMSArray");
       const auto sampledType = hlsl::GetHLSLResourceResultType(type);
+      auto loweredType = lowerType(getElementType(astContext, sampledType), rule,
+                    /*isRowMajor*/ llvm::None, srcLoc);
+      // Treat bool textures as uint for compatibility with OpTypeImage.
+      if (loweredType == spvContext.getBoolType()) {
+        loweredType = spvContext.getUIntType(32);
+      }
       return spvContext.getImageType(
-          lowerType(getElementType(astContext, sampledType), rule,
-                    /*isRowMajor*/ llvm::None, srcLoc),
-          dim, ImageType::WithDepth::Unknown, isArray, isMS,
+          loweredType, dim, ImageType::WithDepth::Unknown, isArray, isMS,
           ImageType::WithSampler::Yes, spv::ImageFormat::Unknown);
     }
 

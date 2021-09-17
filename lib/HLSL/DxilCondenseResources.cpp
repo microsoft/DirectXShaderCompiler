@@ -22,6 +22,7 @@
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/HLSL/HLMatrixType.h"
 #include "dxc/HLSL/HLModule.h"
+#include "dxc/DxcBindingTable/DxcBindingTable.h"
 #include "llvm/Analysis/DxilValueCache.h"
 #include "dxc/DXIL/DxilMetadataHelper.h"
 
@@ -380,6 +381,14 @@ static bool LegalizeResourceArrays(Module &M, DxilValueCache *DVC) {
   return Changed;
 }
 
+typedef std::unordered_map<std::string, DxilResourceBase *> ResourceMap;
+template<typename T>
+static inline void GatherResources(const std::vector<std::unique_ptr<T> > &List, ResourceMap *Map) {
+  for (const std::unique_ptr<T> &ptr : List) {
+    (*Map)[ptr->GetGlobalName()] = ptr.get();
+  }
+}
+
 static bool LegalizeResources(Module &M, DxilValueCache *DVC) {
 
   bool Changed = false;
@@ -507,15 +516,19 @@ public:
     unsigned numResources = DM.GetCBuffers().size() + DM.GetUAVs().size() +
                             DM.GetSRVs().size() + DM.GetSamplers().size();
 
-    if (!numResources)
+    if (!numResources) {
+      // Remove createHandleFromHandle when not a lib
+      if (!m_bIsLib)
+        RemoveCreateHandleFromHandle(DM);
       return false;
-
+    }
     // Switch tbuffers to SRVs, as they have been treated as cbuffers up to this
     // point.
     if (DM.GetCBuffers().size())
       bChanged |= PatchTBuffers(DM);
 
-
+    // Assign resource binding overrides.
+    hlsl::ApplyBindingTableFromMetadata(DM);
 
     // Gather reserved resource registers while we still have
     // unused resources that might have explicit register assignments.
@@ -577,6 +590,9 @@ public:
     // Change resource symbol into undef.
     UpdateResourceSymbols();
 
+    // Remove createHandleFromHandle when not a lib.
+    RemoveCreateHandleFromHandle(DM);
+
     // Remove unused createHandleForLib functions.
     dxilutil::RemoveUnusedFunctions(M, DM.GetEntryFunction(),
                                     DM.GetPatchConstantFunction(), m_bIsLib);
@@ -600,6 +616,7 @@ private:
   void PatchTBufferUse(Value *V, DxilModule &DM, DenseSet<Value *> &patchedSet);
   void UpdateCBufferUsage();
   void SetNonUniformIndexForDynamicResource(DxilModule &DM);
+  void RemoveCreateHandleFromHandle(DxilModule &DM);
 };
 
 } // namespace
@@ -1050,7 +1067,7 @@ public:
       if (hlslOP->IsDxilOpFunc(F)) {
         hlsl::OP::OpCodeClass opClass;
         if (hlslOP->GetOpCodeClass(F, opClass) &&
-            opClass == DXIL::OpCodeClass::CreateHandleForLib) {
+            (opClass == DXIL::OpCodeClass::CreateHandleForLib)) {
           Handles.insert(CI);
           if (bNonUniform)
             NonUniformSet.insert(CI);
@@ -2688,6 +2705,28 @@ void DxilLowerCreateHandleForLib::SetNonUniformIndexForDynamicResource(
   }
 }
 
+// Remove createHandleFromHandle when not a lib
+void DxilLowerCreateHandleForLib::RemoveCreateHandleFromHandle(DxilModule &DM) {
+  hlsl::OP *hlslOP = DM.GetOP();
+  Type *HdlTy = hlslOP->GetHandleType();
+  for (auto it : hlslOP->GetOpFuncList(DXIL::OpCode::CreateHandleForLib)) {
+    Function *F = it.second;
+    if (!F)
+      continue;
+    if (it.first != HdlTy)
+      continue;
+    for (auto it = F->users().begin(); it != F->users().end();) {
+      User *U = *(it++);
+      CallInst *CI = cast<CallInst>(U);
+      DxilInst_CreateHandleForLib Hdl(CI);
+      Value *Res = Hdl.get_Resource();
+      CI->replaceAllUsesWith(Res);
+      CI->eraseFromParent();
+    }
+    break;
+  }
+}
+
 char DxilLowerCreateHandleForLib::ID = 0;
 
 ModulePass *llvm::createDxilLowerCreateHandleForLibPass() {
@@ -2768,8 +2807,12 @@ public:
         if (CI) {
           DxilInst_AnnotateHandle AH(CI);
           if (AH) {
-            CallInst *Res = dyn_cast<CallInst>(AH.get_res());
-            DxilInst_AnnotateHandle PrevAH(Res);
+            Value *Res = AH.get_res();
+            // Skip handle from load global res.
+            if (isa<LoadInst>(Res))
+              continue;
+            CallInst *CRes = dyn_cast<CallInst>(Res);
+            DxilInst_AnnotateHandle PrevAH(CRes);
             if (PrevAH) {
               DXASSERT(AH.get_props() == PrevAH.get_props(), "otherwise, AnnotateHandle chain with inconsistent props");
               CI->replaceAllUsesWith(Res);

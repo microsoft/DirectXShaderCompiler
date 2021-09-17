@@ -12002,6 +12002,10 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     declAttr = ::new (S.Context) VKOffsetAttr(A.getRange(), S.Context,
       ValidateAttributeIntArg(S, A), A.getAttributeSpellingListIndex());
     break;
+  case AttributeList::AT_VKCombinedImageSampler:
+    declAttr = ::new (S.Context) VKCombinedImageSamplerAttr(
+        A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
   case AttributeList::AT_VKImageFormat: {
     VKImageFormatAttr::ImageFormatType Kind = ValidateAttributeEnumArg<
         VKImageFormatAttr, VKImageFormatAttr::ImageFormatType,
@@ -13405,6 +13409,7 @@ bool hlsl::IsHLSLAttr(clang::attr::Kind AttrKind) {
   case clang::attr::HLSLRowMajor:
   case clang::attr::HLSLSample:
   case clang::attr::HLSLSemantic:
+  case clang::attr::HLSLShader:
   case clang::attr::HLSLShared:
   case clang::attr::HLSLSnorm:
   case clang::attr::HLSLUniform:
