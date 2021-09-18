@@ -454,8 +454,9 @@ bool CapabilityVisitor::visitInstruction(SpirvInstruction *instr) {
     for (auto &cap : pSpvInst->getCapabilities()) {
       addCapability(static_cast<spv::Capability>(cap));
     }
-    if (pSpvInst->getExtension().size() > 0)
-      spvBuilder.requireExtension(pSpvInst->getExtension(), loc);
+    for (auto ext : pSpvInst->getExtensions()) {
+      spvBuilder.requireExtension(ext, loc);
+    }
   }
 
   // Add opcode-specific capabilities

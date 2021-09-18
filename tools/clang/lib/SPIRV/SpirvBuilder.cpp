@@ -964,17 +964,17 @@ SpirvInstruction *SpirvBuilder::createReadClock(SpirvInstruction *scope,
 
 SpirvInstruction *SpirvBuilder::createSpirvIntrInstExt(
     uint32_t opcode, QualType retType,
-    llvm::ArrayRef<SpirvInstruction *> operands, llvm::StringRef ext,
-    llvm::StringRef instSet, llvm::ArrayRef<uint32_t> capts,
-    SourceLocation loc) {
+    llvm::ArrayRef<SpirvInstruction *> operands,
+    llvm::ArrayRef<llvm::StringRef> extensions, llvm::StringRef instSet,
+    llvm::ArrayRef<uint32_t> capablities, SourceLocation loc) {
   assert(insertPoint && "null insert point");
 
   SpirvExtInstImport *set =
       (instSet.size() == 0) ? nullptr : getExtInstSet(instSet);
 
   auto *inst = new (context) SpirvIntrinsicInstruction(
-      retType, opcode, operands, ext, set, capts, loc);
-
+      retType->isVoidType() ? QualType() : retType, opcode, operands,
+      extensions, set, capablities, loc);
   insertPoint->addInstruction(inst);
   return inst;
 }

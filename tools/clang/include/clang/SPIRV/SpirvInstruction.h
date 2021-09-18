@@ -127,7 +127,7 @@ public:
     IK_Store,                     // OpStore
     IK_UnaryOp,                   // Unary operations
     IK_VectorShuffle,             // OpVectorShuffle
-    IK_SpirvIntrinsicInstruction, // Spirv Instructions for no particular op
+    IK_SpirvIntrinsicInstruction, // Spirv Intrinsic Instructions
 
     // For DebugInfo instructions defined in OpenCL.DebugInfo.100
     IK_DebugInfoNone,
@@ -1126,7 +1126,7 @@ private:
 class SpirvConstantInteger : public SpirvConstant {
 public:
   SpirvConstantInteger(QualType type, llvm::APInt value,
-                       bool isSpecConst = false);
+                       bool isSpecConst = false, bool literal = false);
 
   DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvConstantInteger)
 
@@ -1140,9 +1140,12 @@ public:
   bool invokeVisitor(Visitor *v) override;
 
   llvm::APInt getValue() const { return value; }
+  void setLiteral(bool l = true) { isLiteral = l; }
+  bool getLiteral() { return isLiteral; }
 
 private:
   llvm::APInt value;
+  bool isLiteral;
 };
 
 class SpirvConstantFloat : public SpirvConstant {
@@ -2000,12 +2003,20 @@ public:
   bool invokeVisitor(Visitor *v) override;
 };
 
+// A class keeping information of [[vk::ext_instruction(uint opcode,
+// string extended_instruction_set)]] attribute. The attribute allows users to
+// emit an arbitrary SPIR-V instruction by adding it to a function declaration.
+// Note that this class does not represent an actual specific SPIR-V
+// instruction. It is used to keep the information of the arbitrary SPIR-V
+// instruction.
 class SpirvIntrinsicInstruction : public SpirvInstruction {
 public:
   SpirvIntrinsicInstruction(QualType resultType, uint32_t opcode,
                             llvm::ArrayRef<SpirvInstruction *> operands,
-                            llvm::StringRef ext, SpirvExtInstImport *set,
-                            llvm::ArrayRef<uint32_t> capts, SourceLocation loc);
+                            llvm::ArrayRef<llvm::StringRef> extensions,
+                            SpirvExtInstImport *set,
+                            llvm::ArrayRef<uint32_t> capabilities,
+                            SourceLocation loc);
 
   DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvIntrinsicInstruction)
 
@@ -2018,7 +2029,7 @@ public:
 
   llvm::ArrayRef<SpirvInstruction *> getOperands() const { return operands; }
   llvm::ArrayRef<uint32_t> getCapabilities() const { return capabilities; }
-  llvm::StringRef getExtension() const { return extension; }
+  llvm::ArrayRef<std::string> getExtensions() const { return extensions; }
   SpirvExtInstImport *getInstructionSet() const { return instructionSet; }
   uint32_t getInstruction() const { return instruction; }
 
@@ -2026,7 +2037,7 @@ private:
   uint32_t instruction;
   llvm::SmallVector<SpirvInstruction *, 4> operands;
   llvm::SmallVector<uint32_t, 4> capabilities;
-  std::string extension;
+  llvm::SmallVector<std::string, 4> extensions;
   SpirvExtInstImport *instructionSet;
 };
 

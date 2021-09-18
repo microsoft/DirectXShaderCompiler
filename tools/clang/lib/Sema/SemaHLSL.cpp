@@ -12054,6 +12054,14 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
         ValidateAttributeStringArg(S, A, nullptr, 1),
         A.getAttributeSpellingListIndex());
     break;
+  case AttributeList::AT_VKLiteralExt:
+    declAttr = ::new (S.Context) VKLiteralExtAttr(
+        A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_VKReferenceExt:
+    declAttr = ::new (S.Context) VKReferenceExtAttr(
+        A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
   default:
     Handled = false;
     return;

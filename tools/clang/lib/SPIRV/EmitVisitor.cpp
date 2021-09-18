@@ -1661,16 +1661,24 @@ bool EmitVisitor::visit(SpirvRayTracingTerminateOpKHR *inst) {
 
 bool EmitVisitor::visit(SpirvIntrinsicInstruction *inst) {
   initInstruction(inst);
-  curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  if (inst->hasResultType()) {
+    curInst.push_back(inst->getResultTypeId());
+    curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  }
   if (inst->getInstructionSet()) {
     curInst.push_back(
         getOrAssignResultId<SpirvInstruction>(inst->getInstructionSet()));
     curInst.push_back(inst->getInstruction());
   }
 
-  for (const auto operand : inst->getOperands())
-    curInst.push_back(getOrAssignResultId<SpirvInstruction>(operand));
+  for (const auto operand : inst->getOperands()) {
+    auto literalOperand = dyn_cast<SpirvConstantInteger>(operand);
+    if (literalOperand && literalOperand->getLiteral()) {
+        curInst.push_back(literalOperand->getValue().getZExtValue());
+    } else {
+      curInst.push_back(getOrAssignResultId<SpirvInstruction>(operand));
+    }
+  }
 
   finalizeInstruction(&mainBinary);
   return true;
