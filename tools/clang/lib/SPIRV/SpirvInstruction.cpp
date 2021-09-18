@@ -500,11 +500,11 @@ bool SpirvConstantBoolean::operator==(const SpirvConstantBoolean &that) const {
 }
 
 SpirvConstantInteger::SpirvConstantInteger(QualType type, llvm::APInt val,
-                                           bool isSpecConst)
+                                           bool isSpecConst, bool literal)
     : SpirvConstant(IK_ConstantInteger,
                     isSpecConst ? spv::Op::OpSpecConstant : spv::Op::OpConstant,
                     type),
-      value(val) {
+      value(val), isLiteral(literal) {
   assert(type->isIntegerType());
 }
 
@@ -1007,15 +1007,16 @@ SpirvRayTracingTerminateOpKHR::SpirvRayTracingTerminateOpKHR(spv::Op opcode,
 
 SpirvIntrinsicInstruction::SpirvIntrinsicInstruction(
     QualType resultType, uint32_t opcode,
-    llvm::ArrayRef<SpirvInstruction *> vecOperands, llvm::StringRef ext,
-    SpirvExtInstImport *set, llvm::ArrayRef<uint32_t> capts, SourceLocation loc)
+    llvm::ArrayRef<SpirvInstruction *> vecOperands,
+    llvm::ArrayRef<llvm::StringRef> exts, SpirvExtInstImport *set,
+    llvm::ArrayRef<uint32_t> capts, SourceLocation loc)
     : SpirvInstruction(IK_SpirvIntrinsicInstruction,
                        set != nullptr ? spv::Op::OpExtInst
                                       : static_cast<spv::Op>(opcode),
                        resultType, loc),
       instruction(opcode), operands(vecOperands.begin(), vecOperands.end()),
-      capabilities(capts.begin(), capts.end()), extension(ext.data()),
-      instructionSet(set) {}
+      capabilities(capts.begin(), capts.end()),
+      extensions(exts.begin(), exts.end()), instructionSet(set) {}
 
 } // namespace spirv
 } // namespace clang
