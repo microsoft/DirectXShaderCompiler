@@ -51,6 +51,11 @@ public:
   ULONG STDMETHODCALLTYPE Release() override;
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override;
 
+  void SetDxcCompiler(IDxcCompiler3* pCompilerImpl)
+  {
+      m_pCompilerImpl = pCompilerImpl;
+  }
+
   // ================ IDxcCompiler ================
 
   // Compile a single entry point to the target shader model

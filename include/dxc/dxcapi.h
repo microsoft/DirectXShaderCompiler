@@ -495,6 +495,29 @@ struct IDxcCompiler3 : public IUnknown {
     ) = 0;
 };
 
+//
+// The IDxcCompilerAdapter interface is here to enable an implementation
+// to support all of the IDxcCompiler* interfaces by only implementing the
+// latest interface.
+//
+// The implementation will create an instance of IDxcCompilerAdapter and call
+// SetDxcCompiler() passing itself as the pCompiler pointer. For any compiler
+// interface not directly supported by the implementation it can call
+// QueryInterface on the adapter to get an instance of the requested compiler
+// interface that will call back into the original implementation to do the
+// actual compilation.
+// 
+// Currently we only support passing an instance of IDxcCompiler3 to SetDxcCompiler.
+// This will enable the adapter to support the IDxcCompiler and IDxcCompiler2
+// interfaces.
+//
+CROSS_PLATFORM_UUIDOF(IDxcCompilerAdapter, "DC9153FA-12E0-403E-80D3-29F36CBA536E")
+struct IDxcCompilerAdapter : public IUnknown {
+    virtual HRESULT STDMETHODCALLTYPE SetDxcCompiler(
+        _In_ IUnknown* pCompiler
+    ) = 0;
+};
+
 static const UINT32 DxcValidatorFlags_Default = 0;
 static const UINT32 DxcValidatorFlags_InPlaceEdit = 1;  // Validator is allowed to update shader blob in-place.
 static const UINT32 DxcValidatorFlags_RootSignatureOnly = 2;
@@ -649,6 +672,13 @@ CLSID_SCOPE const CLSID CLSID_DxcCompiler = {
     0xe6ce,
     0x47f3,
     {0xb5, 0xbf, 0xf0, 0x66, 0x4f, 0x39, 0xc1, 0xb0}};
+
+// {619B969E-5E43-4669-AF49-229EF88BE09E}
+CLSID_SCOPE const CLSID CLSID_DxcCompilerAdapter = {
+    0x619b969e,
+    0x5e43,
+    0x4669,
+    { 0xaf, 0x49, 0x22, 0x9e, 0xf8, 0x8b, 0xe0, 0x9e }};
 
 // {EF6A8087-B0EA-4D56-9E45-D07E1A8B7806}
 CLSID_SCOPE const GUID CLSID_DxcLinker = {

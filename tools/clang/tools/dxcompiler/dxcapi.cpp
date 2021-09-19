@@ -28,6 +28,7 @@
 #include <memory>
 
 HRESULT CreateDxcCompiler(_In_ REFIID riid, _Out_ LPVOID *ppv);
+HRESULT CreateDxcCompilerAdapter(_In_ REFIID riid, _Out_ LPVOID *ppv);
 HRESULT CreateDxcDiaDataSource(_In_ REFIID riid, _Out_ LPVOID *ppv);
 HRESULT CreateDxcIntelliSense(_In_ REFIID riid, _Out_ LPVOID *ppv);
 HRESULT CreateDxcCompilerArgs(_In_ REFIID riid, _Out_ LPVOID *ppv);
@@ -82,6 +83,9 @@ static HRESULT ThreadMallocDxcCreateInstance(
   *ppv = nullptr;
   if (IsEqualCLSID(rclsid, CLSID_DxcCompiler)) {
     hr = CreateDxcCompiler(riid, ppv);
+  }
+  else if (IsEqualCLSID(rclsid, CLSID_DxcCompilerAdapter)) {
+    hr = CreateDxcCompilerAdapter(riid, ppv);
   }
   else if (IsEqualCLSID(rclsid, CLSID_DxcCompilerArgs)) {
     hr = CreateDxcCompilerArgs(riid, ppv);

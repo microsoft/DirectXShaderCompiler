@@ -135,6 +135,7 @@ public:
   TEST_METHOD(CompileThenTestPdbUtilsEmptyEntry)
   TEST_METHOD(CompileThenTestPdbUtilsRelativePath)
   TEST_METHOD(CompileWithRootSignatureThenStripRootSignature)
+  TEST_METHOD(CompileWithAdapter)
 
 
   void TestResourceBindingImpl(
@@ -829,6 +830,43 @@ TEST_F(CompilerTest, CompileWhenWorksThenDisassembleWorks) {
 }
 
 #ifdef _WIN32 // Container builder unsupported
+
+// Make sure we can compile with an IDxcCompiler interface created
+// from an IDxcCompilerAdapter interface.
+TEST_F(CompilerTest, CompileWithAdapter) {
+  std::string main_source = R"x(
+      [RootSignature("")]
+      float main() : SV_Target {
+        return 1.0;
+      }
+  )x";
+
+  CComPtr<IDxcCompiler3> pCompiler3;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler3));
+  
+  CComPtr<IDxcCompilerAdapter> pCompilerAdapter;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcCompilerAdapter, &pCompilerAdapter));
+  VERIFY_SUCCEEDED(pCompilerAdapter->SetDxcCompiler(pCompiler3));
+  
+  CComPtr<IDxcCompiler> pCompiler;
+  VERIFY_SUCCEEDED(pCompilerAdapter.QueryInterface(&pCompiler));
+
+  CComPtr<IDxcBlobEncoding> pSource;
+  CreateBlobFromText("float main(float4 pos : SV_Position) : SV_Target {\r\n"
+                     "  return 1.0;\r\n"
+                     "}",
+                     &pSource);
+
+  LPCWSTR args[] = { L"-Wno-parentheses-equality" };
+
+  CComPtr<IDxcOperationResult> pResult;
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+                                      L"ps_6_0", args, _countof(args), nullptr,
+                                      0, nullptr, &pResult));
+  HRESULT hr = E_FAIL;
+  VERIFY_SUCCEEDED(pResult->GetStatus(&hr));
+  VERIFY_SUCCEEDED(hr);
+}
 
 TEST_F(CompilerTest, CompileWhenDebugWorksThenStripDebug) {
   CComPtr<IDxcCompiler> pCompiler;

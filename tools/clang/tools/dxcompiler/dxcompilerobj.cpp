@@ -1749,6 +1749,95 @@ HRESULT DxcCompilerAdapter::WrapCompile(
 }
 //////////////////////////////////////////////////////////////
 
+namespace
+{
+class DxcCompilerAdapterInterface : public IDxcCompilerAdapter, public IDxcCompiler3
+{
+private:
+  DXC_MICROCOM_TM_REF_FIELDS()
+  CComPtr<IDxcCompiler3> m_pDxcCompiler3;
+  DxcCompilerAdapter m_DxcCompilerAdapter;
+
+public:
+  DxcCompilerAdapterInterface(IMalloc *pMalloc)
+      : m_dwRef(0)
+      , m_pMalloc(pMalloc)
+      , m_pDxcCompiler3(nullptr)
+      , m_DxcCompilerAdapter(this, pMalloc) 
+  {
+  }
+  
+  DXC_MICROCOM_TM_ALLOC(DxcCompilerAdapterInterface)
+  
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
+    HRESULT hr = DoBasicQueryInterface<IDxcCompilerAdapter, IDxcCompiler3>(this, iid, ppvObject);
+    if (FAILED(hr)) {
+        return DoBasicQueryInterface<IDxcCompiler, IDxcCompiler2>(&m_DxcCompilerAdapter, iid, ppvObject);
+    }
+    return hr;
+  }
+
+  HRESULT SetDxcCompiler(IUnknown *pCompiler)
+  {
+      HRESULT hr = pCompiler->QueryInterface(IID_PPV_ARGS(&m_pDxcCompiler3));
+      if (SUCCEEDED(hr))
+      {
+          m_DxcCompilerAdapter.SetDxcCompiler(m_pDxcCompiler3);
+      }
+      return hr;
+  }
+  
+  virtual HRESULT STDMETHODCALLTYPE Compile(
+      _In_ const DxcBuffer* pSource,                // Source text to compile
+      _In_opt_count_(argCount) LPCWSTR* pArguments, // Array of pointers to arguments
+      _In_ UINT32 argCount,                         // Number of arguments
+      _In_opt_ IDxcIncludeHandler* pIncludeHandler, // user-provided interface to handle #include directives (optional)
+      _In_ REFIID riid, _Out_ LPVOID* ppResult      // IDxcResult: status, buffer, and errors
+  ) override
+  {
+      try
+      {
+          if (!m_pDxcCompiler3)
+          {
+              return E_POINTER;
+          }
+
+          return m_pDxcCompiler3->Compile(pSource, pArguments, argCount, pIncludeHandler, riid, ppResult);
+      }
+      CATCH_CPP_RETURN_HRESULT()
+  }
+
+  // Disassemble a program.
+  virtual HRESULT STDMETHODCALLTYPE Disassemble(
+      _In_ const DxcBuffer* pObject,                // Program to disassemble: dxil container or bitcode.
+      _In_ REFIID riid, _Out_ LPVOID* ppResult      // IDxcResult: status, disassembly text, and errors
+  ) override
+  {
+      try
+      {
+          if (!m_pDxcCompiler3)
+          {
+              return E_POINTER;
+          }
+
+          return m_pDxcCompiler3->Disassemble(pObject, riid, ppResult);
+      }
+      CATCH_CPP_RETURN_HRESULT()
+  }
+
+  DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
+};
+}
+
+HRESULT CreateDxcCompilerAdapter(_In_ REFIID riid, _Out_ LPVOID* ppv) {
+  *ppv = nullptr;
+  try {
+    CComPtr<DxcCompilerAdapterInterface> result(DxcCompilerAdapterInterface::Alloc(DxcGetThreadMallocNoRef()));
+    IFROOM(result.p);
+    return result.p->QueryInterface(riid, ppv);
+  }
+  CATCH_CPP_RETURN_HRESULT();
+}
 
 HRESULT CreateDxcCompiler(_In_ REFIID riid, _Out_ LPVOID* ppv) {
   *ppv = nullptr;
