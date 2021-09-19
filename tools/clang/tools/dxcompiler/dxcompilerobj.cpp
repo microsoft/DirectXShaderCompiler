@@ -1777,7 +1777,7 @@ public:
     return hr;
   }
 
-  HRESULT SetDxcCompiler(IUnknown *pCompiler)
+  HRESULT SetDxcCompiler(IUnknown *pCompiler) override
   {
       HRESULT hr = pCompiler->QueryInterface(IID_PPV_ARGS(&m_pDxcCompiler3));
       if (SUCCEEDED(hr))
