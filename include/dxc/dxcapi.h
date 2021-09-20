@@ -511,10 +511,15 @@ struct IDxcCompiler3 : public IUnknown {
 // This will enable the adapter to support the IDxcCompiler and IDxcCompiler2
 // interfaces.
 //
+// The compiler passed to SetDxcCompiler is not retained by the adapter interface
+// to avoid creating a cyclic AddRef between the adapter and compiler classes.
+// It is the callers responsibility to ensure the compiler is valid during
+// the lifetime of the compiler adapter interface.
+//
 CROSS_PLATFORM_UUIDOF(IDxcCompilerAdapter, "DC9153FA-12E0-403E-80D3-29F36CBA536E")
 struct IDxcCompilerAdapter : public IUnknown {
     virtual HRESULT STDMETHODCALLTYPE SetDxcCompiler(
-        _In_ IUnknown* pCompiler
+        _In_ IDxcCompiler3 * pCompiler
     ) = 0;
 };
 

@@ -1755,7 +1755,7 @@ class DxcCompilerAdapterInterface : public IDxcCompilerAdapter, public IDxcCompi
 {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
-  CComPtr<IDxcCompiler3> m_pDxcCompiler3;
+  IDxcCompiler3 *m_pDxcCompiler3;
   DxcCompilerAdapter m_DxcCompilerAdapter;
 
 public:
@@ -1779,12 +1779,8 @@ public:
 
   HRESULT SetDxcCompiler(IUnknown *pCompiler) override
   {
-      HRESULT hr = pCompiler->QueryInterface(IID_PPV_ARGS(&m_pDxcCompiler3));
-      if (SUCCEEDED(hr))
-      {
-          m_DxcCompilerAdapter.SetDxcCompiler(m_pDxcCompiler3);
-      }
-      return hr;
+      m_pDxcCompiler3 = pCompiler;
+      return S_OK;
   }
   
   virtual HRESULT STDMETHODCALLTYPE Compile(
