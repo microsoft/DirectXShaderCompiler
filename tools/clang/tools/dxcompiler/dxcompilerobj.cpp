@@ -1777,7 +1777,7 @@ public:
     return hr;
   }
 
-  HRESULT SetDxcCompiler(IUnknown *pCompiler) override
+  HRESULT SetDxcCompiler(IDxcCompiler3 *pCompiler) override
   {
       m_pDxcCompiler3 = pCompiler;
       return S_OK;
