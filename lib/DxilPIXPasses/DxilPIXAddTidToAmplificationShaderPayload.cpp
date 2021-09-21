@@ -128,8 +128,8 @@ bool DxilPIXAddTidToAmplificationShaderPayload::runOnModule(Module &M) {
           B.CreateCall(ThreadIdFunc, {Opcode, Two32Arg }, "ThreadIdZ");
 
       auto * XxY = B.CreateMul(ThreadIdX, HlslOP->GetU32Const(m_DispatchArgumentY));
-      auto * XandY = B.CreateAdd(ThreadIdY, XxY);
-      auto * XYxZ = B.CreateMul(XandY, HlslOP->GetU32Const(m_DispatchArgumentZ));
+      auto * XplusY = B.CreateAdd(ThreadIdY, XxY);
+      auto * XYxZ = B.CreateMul(XplusY, HlslOP->GetU32Const(m_DispatchArgumentZ));
       auto * XYZ = B.CreateAdd(ThreadIdZ, XYxZ);
 
       AddValueToExpandedPayload(

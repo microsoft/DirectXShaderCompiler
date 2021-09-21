@@ -227,8 +227,8 @@ SmallVector<Value*, 2> DxilPIXMeshShaderOutputInstrumentation::
 
     auto *XxY =
       Builder.CreateMul(GroupIdX, ASDispatchMeshYCount);
-    auto *XandY = Builder.CreateAdd(GroupIdY, XxY);
-    auto *XYxZ = Builder.CreateMul(XandY, ASDispatchMeshZCount);
+    auto *XplusY = Builder.CreateAdd(GroupIdY, XxY);
+    auto *XYxZ = Builder.CreateMul(XplusY, ASDispatchMeshZCount);
     auto *XYZ = Builder.CreateAdd(GroupIdZ, XYxZ);
 
     SmallVector<Value *, 2> ret;
