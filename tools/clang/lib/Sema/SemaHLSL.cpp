@@ -4524,7 +4524,7 @@ public:
       // Some intrinsics only optionally exist in later language versions.
       // To prevent collisions with existing functions or templates, exclude
       // intrinsics when they aren't enabled.
-      if (!m_sema->getLangOpts().EnableShortCircuit) {
+      if (IsBuiltinTable(tableName) && !m_sema->getLangOpts().EnableShortCircuit) {
         if (pIntrinsic->Op == (UINT)IntrinsicOp::IOP_and ||
             pIntrinsic->Op == (UINT)IntrinsicOp::IOP_or ||
             pIntrinsic->Op == (UINT)IntrinsicOp::IOP_select) {
