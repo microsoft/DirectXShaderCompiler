@@ -29,6 +29,7 @@
 #include "llvm/ADT/StringSwitch.h"
 #include "dxc/Support/Global.h"       // HLSL Change
 #include "clang/Sema/SemaHLSL.h"      // HLSL Change
+#include "clang/AST/UnresolvedSet.h"  // HLSL Change
 #include "dxc/DXIL/DxilShaderModel.h" // HLSL Change
 #include "dxc/DXIL/DxilConstants.h"   // HLSL Change
 
@@ -619,6 +620,22 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
       if (semanticName.equals("VFACE")) {
         Diag(Tok.getLocation(), diag::warn_unsupported_target_attribute)
             << semanticName;
+      } else {
+        LookupResult R(Actions, Tok.getIdentifierInfo(), Tok.getLocation(),
+                       Sema::LookupOrdinaryName);
+        if (Actions.LookupName(R, getCurScope())) {
+          for (UnresolvedSetIterator I = R.begin(), E = R.end(); I != E; ++I) {
+            NamedDecl *D = (*I)->getUnderlyingDecl();
+            if (D->getKind() == Decl::Kind::Var) {
+              VarDecl *VD = static_cast<VarDecl *>(D);
+              if (VD->getType()->isIntegralOrEnumerationType()) {
+                Diag(Tok.getLocation(), diag::warn_hlsl_semantic_identifier_collision)
+                    << semanticName;
+                break;
+              }
+            }
+          }
+        }
       }
       hlsl::SemanticDecl *pUA = new (context) hlsl::SemanticDecl(semanticName);
       pUA->Loc = Tok.getLocation();
@@ -1997,7 +2014,7 @@ Parser::DeclGroupPtrTy Parser::ParseDeclaration(unsigned Context,
   switch (Tok.getKind()) {
   case tok::kw_template:
     // HLSL Change Starts
-    if (getLangOpts().HLSL) {
+    if (getLangOpts().HLSL && !getLangOpts().EnableTemplates) {
       Diag(Tok, diag::err_hlsl_reserved_keyword) << Tok.getName();
       SkipMalformedDecl();
       return DeclGroupPtrTy();
@@ -4162,7 +4179,7 @@ HLSLReservedKeyword:
 
     // C++ typename-specifier:
     case tok::kw_typename:
-      if (getLangOpts().HLSL) { goto HLSLReservedKeyword; } // HLSL Change - reserved for HLSL
+      if (getLangOpts().HLSL && !getLangOpts().EnableTemplates) { goto HLSLReservedKeyword; } // HLSL Change - reserved for HLSL
       if (TryAnnotateTypeOrScopeToken()) {
         DS.SetTypeSpecError();
         goto DoneWithDeclSpec;

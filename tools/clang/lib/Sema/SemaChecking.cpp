@@ -8562,7 +8562,12 @@ void Sema::CheckArrayAccess(const Expr *expr) {
       // HLSL Change Starts : Access checking for HLSL vector and matrix array subscript
       case Stmt::CXXOperatorCallExprClass : {
         if (getLangOpts().HLSL) {
+          const CXXOperatorCallExpr *OperatorCallExpr =
+              cast<CXXOperatorCallExpr>(expr);
+          if (OperatorCallExpr->getOperator() ==
+              OverloadedOperatorKind::OO_Subscript) {
             CheckHLSLArrayAccess(expr);
+          }
         }
         return;
       }

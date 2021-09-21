@@ -5338,6 +5338,72 @@ Value *TranslateGetHandleFromHeap(CallInst *CI, IntrinsicOp IOP,
 }
 }
 
+// Translate and/or/select intrinsics
+namespace {
+Value *TranslateAnd(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+                     HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
+  Value *x = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
+  Value *y = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
+  Type *Ty = CI->getType();
+  Type *EltTy = Ty->getScalarType();
+  IRBuilder<> Builder(CI);
+
+  if (Ty != EltTy) {
+    Value *Result = UndefValue::get(Ty);
+    for (unsigned i = 0; i < Ty->getVectorNumElements(); i++) {
+      Value *EltX = Builder.CreateExtractElement(x, i);
+      Value *EltY = Builder.CreateExtractElement(y, i);
+      Value *tmp = Builder.CreateAnd(EltX, EltY);
+      Result = Builder.CreateInsertElement(Result, tmp, i);
+    }
+    return Result;
+  }
+  return Builder.CreateAnd(x, y);
+}
+Value *TranslateOr(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+                     HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
+  Value *x = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
+  Value *y = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
+  Type *Ty = CI->getType();
+  Type *EltTy = Ty->getScalarType();
+  IRBuilder<> Builder(CI);
+
+  if (Ty != EltTy) {
+    Value *Result = UndefValue::get(Ty);
+    for (unsigned i = 0; i < Ty->getVectorNumElements(); i++) {
+      Value *EltX = Builder.CreateExtractElement(x, i);
+      Value *EltY = Builder.CreateExtractElement(y, i);
+      Value *tmp = Builder.CreateOr(EltX, EltY);
+      Result = Builder.CreateInsertElement(Result, tmp, i);
+    }
+    return Result;
+  }
+  return Builder.CreateOr(x, y);
+}
+Value *TranslateSelect(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+                     HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
+  Value *cond = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc0Idx);
+  Value *t = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc1Idx);
+  Value *f = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc2Idx);
+  Type *Ty = CI->getType();
+  Type *EltTy = Ty->getScalarType();
+  IRBuilder<> Builder(CI);
+
+  if (Ty != EltTy) {
+    Value *Result = UndefValue::get(Ty);
+    for (unsigned i = 0; i < Ty->getVectorNumElements(); i++) {
+      Value *EltCond = Builder.CreateExtractElement(cond, i);
+      Value *EltTrue = Builder.CreateExtractElement(t, i);
+      Value *EltFalse = Builder.CreateExtractElement(f, i);
+      Value *tmp = Builder.CreateSelect(EltCond, EltTrue, EltFalse);
+      Result = Builder.CreateInsertElement(Result, tmp, i);
+    }
+    return Result;
+  }
+  return Builder.CreateSelect(cond, t, f);
+}
+}
+
 // Lower table.
 namespace {
 
@@ -5475,6 +5541,7 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_abs, TranslateAbs, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_acos, TrivialUnaryOperation, DXIL::OpCode::Acos},
     {IntrinsicOp::IOP_all, TranslateAll, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::IOP_and, TranslateAnd, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_any, TranslateAny, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_asdouble, TranslateAsDouble, DXIL::OpCode::MakeDouble},
     {IntrinsicOp::IOP_asfloat, TranslateBitcast, DXIL::OpCode::NumOpCodes},
@@ -5537,6 +5604,7 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_msad4, TranslateMSad4, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_mul, TranslateMul, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_normalize, TranslateNormalize, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::IOP_or, TranslateOr, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_pack_clamp_s8, TranslatePack, DXIL::OpCode::Pack4x8 },
     {IntrinsicOp::IOP_pack_clamp_u8, TranslatePack, DXIL::OpCode::Pack4x8 },
     {IntrinsicOp::IOP_pack_s8, TranslatePack, DXIL::OpCode::Pack4x8 },
@@ -5551,6 +5619,7 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_round, TrivialUnaryOperation, DXIL::OpCode::Round_ne},
     {IntrinsicOp::IOP_rsqrt, TrivialUnaryOperation, DXIL::OpCode::Rsqrt},
     {IntrinsicOp::IOP_saturate, TrivialUnaryOperation, DXIL::OpCode::Saturate},
+    {IntrinsicOp::IOP_select, TranslateSelect, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_sign, TranslateSign, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_sin, TrivialUnaryOperation, DXIL::OpCode::Sin},
     {IntrinsicOp::IOP_sincos, EmptyLower, DXIL::OpCode::NumOpCodes},
