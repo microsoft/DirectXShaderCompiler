@@ -54,13 +54,13 @@ float4 function2(float4 x : POSITION) : SV_Position { return x + cbval1 + cbval3
 // CHECK:             CBuffer: MyCB
 // CHECK:         }
 // CHECK:     Bound Resources:
-// CHECK:       D3D12_SHADER_BUFFER_DESC: Name: MyCB
+// CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: MyCB
 // CHECK:         Type: D3D_SIT_CBUFFER
 // CHECK:         uID: 1
 // CHECK:         BindPoint: 11
 // CHECK:         Space: 2
 // CHECK:         Dimension: D3D_SRV_DIMENSION_UNKNOWN
-// CHECK:       D3D12_SHADER_BUFFER_DESC: Name: tex
+// CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: tex
 // CHECK:         Type: D3D_SIT_UAV_RWTYPED
 // CHECK:         uID: 0
 // CHECK:         BindPoint: 5
@@ -92,23 +92,23 @@ float4 function2(float4 x : POSITION) : SV_Position { return x + cbval1 + cbval3
 // CHECK:             CBuffer: $Globals
 // CHECK:         }
 // CHECK:     Bound Resources:
-// CHECK:       D3D12_SHADER_BUFFER_DESC: Name: $Globals
+// CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: $Globals
 // CHECK:         Type: D3D_SIT_CBUFFER
 // CHECK:         uID: 0
 // CHECK:         Dimension: D3D_SRV_DIMENSION_UNKNOWN
-// CHECK:       D3D12_SHADER_BUFFER_DESC: Name: samp
+// CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: samp
 // CHECK:         Type: D3D_SIT_SAMPLER
 // CHECK:         uID: 0
 // CHECK:         BindPoint: 7
 // CHECK:         Dimension: D3D_SRV_DIMENSION_UNKNOWN
-// CHECK:       D3D12_SHADER_BUFFER_DESC: Name: tex2
+// CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: tex2
 // CHECK:         Type: D3D_SIT_TEXTURE
 // CHECK:         uID: 0
 // CHECK:         BindPoint: 0
 // CHECK:         ReturnType: D3D_RETURN_TYPE_FLOAT
 // CHECK:         Dimension: D3D_SRV_DIMENSION_TEXTURE1D
 // CHECK:         uFlags: (D3D_SIF_TEXTURE_COMPONENT_0 | D3D_SIF_TEXTURE_COMPONENT_1)
-// CHECK:       D3D12_SHADER_BUFFER_DESC: Name: b_buf
+// CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: b_buf
 // CHECK:         Type: D3D_SIT_UAV_RWBYTEADDRESS
 // CHECK:         uID: 1
 // CHECK:         ReturnType: D3D_RETURN_TYPE_MIXED
@@ -168,11 +168,11 @@ float4 function2(float4 x : POSITION) : SV_Position { return x + cbval1 + cbval3
 // CHECK:             CBuffer: MyCB
 // CHECK:         }
 // CHECK:     Bound Resources:
-// CHECK:       D3D12_SHADER_BUFFER_DESC: Name: $Globals
+// CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: $Globals
 // CHECK:         Type: D3D_SIT_CBUFFER
 // CHECK:         uID: 0
 // CHECK:         Dimension: D3D_SRV_DIMENSION_UNKNOWN
-// CHECK:       D3D12_SHADER_BUFFER_DESC: Name: MyCB
+// CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: MyCB
 // CHECK:         Type: D3D_SIT_CBUFFER
 // CHECK:         uID: 1
 // CHECK:         BindPoint: 11

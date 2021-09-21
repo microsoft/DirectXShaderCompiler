@@ -24,7 +24,7 @@ float4 main(uint4 color : COLOR) : SV_TARGET
 
 // CHECK: ID3D12ShaderReflection:
 // CHECK:   Bound Resources:
-// CHECK:    D3D12_SHADER_BUFFER_DESC: Name: msTexture
+// CHECK:    D3D12_SHADER_INPUT_BIND_DESC: Name: msTexture
 // CHECK-NEXT:      Type: D3D_SIT_TEXTURE
 // CHECK-NEXT:      uID: 0
 // CHECK-NEXT:      BindCount: 1
@@ -34,7 +34,7 @@ float4 main(uint4 color : COLOR) : SV_TARGET
 // CHECK-NEXT:      Dimension: D3D_SRV_DIMENSION_TEXTURE2DMS
 // CHECK-NEXT:      NumSamples (or stride): 0
 // CHECK-NEXT:      uFlags: (D3D_SIF_TEXTURE_COMPONENT_0 | D3D_SIF_TEXTURE_COMPONENT_1)
-// CHECK:    D3D12_SHADER_BUFFER_DESC: Name: msTextureArray
+// CHECK:    D3D12_SHADER_INPUT_BIND_DESC: Name: msTextureArray
 // CHECK-NEXT:      Type: D3D_SIT_TEXTURE
 // CHECK-NEXT:      uID: 1
 // CHECK-NEXT:      BindCount: 1
@@ -44,7 +44,7 @@ float4 main(uint4 color : COLOR) : SV_TARGET
 // CHECK-NEXT:      Dimension: D3D_SRV_DIMENSION_TEXTURE2DMSARRAY
 // CHECK-NEXT:      NumSamples (or stride): 0
 // CHECK-NEXT:      uFlags: (D3D_SIF_TEXTURE_COMPONENT_0 | D3D_SIF_TEXTURE_COMPONENT_1)
-// CHECK:    D3D12_SHADER_BUFFER_DESC: Name: msTexture1
+// CHECK:    D3D12_SHADER_INPUT_BIND_DESC: Name: msTexture1
 // CHECK-NEXT:      Type: D3D_SIT_TEXTURE
 // CHECK-NEXT:      uID: 2
 // CHECK-NEXT:      BindCount: 1
@@ -54,7 +54,7 @@ float4 main(uint4 color : COLOR) : SV_TARGET
 // CHECK-NEXT:      Dimension: D3D_SRV_DIMENSION_TEXTURE2DMS
 // CHECK-NEXT:      NumSamples (or stride): 4294967295
 // CHECK-NEXT:      uFlags: (D3D_SIF_TEXTURE_COMPONENT_0 | D3D_SIF_TEXTURE_COMPONENT_1)
-// CHECK:    D3D12_SHADER_BUFFER_DESC: Name: msTextureArray1
+// CHECK:    D3D12_SHADER_INPUT_BIND_DESC: Name: msTextureArray1
 // CHECK-NEXT:      Type: D3D_SIT_TEXTURE
 // CHECK-NEXT:      uID: 3
 // CHECK-NEXT:      BindCount: 1
@@ -64,7 +64,7 @@ float4 main(uint4 color : COLOR) : SV_TARGET
 // CHECK-NEXT:      Dimension: D3D_SRV_DIMENSION_TEXTURE2DMSARRAY
 // CHECK-NEXT:      NumSamples (or stride): 4294967295
 // CHECK-NEXT:      uFlags: (D3D_SIF_TEXTURE_COMPONENT_0 | D3D_SIF_TEXTURE_COMPONENT_1)
-// CHECK:    D3D12_SHADER_BUFFER_DESC: Name: msTexture2
+// CHECK:    D3D12_SHADER_INPUT_BIND_DESC: Name: msTexture2
 // CHECK-NEXT:      Type: D3D_SIT_TEXTURE
 // CHECK-NEXT:      uID: 4
 // CHECK-NEXT:      BindCount: 1
@@ -74,7 +74,7 @@ float4 main(uint4 color : COLOR) : SV_TARGET
 // CHECK-NEXT:      Dimension: D3D_SRV_DIMENSION_TEXTURE2DMS
 // CHECK-NEXT:      NumSamples (or stride): 8
 // CHECK-NEXT:      uFlags: (D3D_SIF_TEXTURE_COMPONENT_0 | D3D_SIF_TEXTURE_COMPONENT_1)
-// CHECK:    D3D12_SHADER_BUFFER_DESC: Name: msTextureArray2
+// CHECK:    D3D12_SHADER_INPUT_BIND_DESC: Name: msTextureArray2
 // CHECK-NEXT:      Type: D3D_SIT_TEXTURE
 // CHECK-NEXT:      uID: 5
 // CHECK-NEXT:      BindCount: 1

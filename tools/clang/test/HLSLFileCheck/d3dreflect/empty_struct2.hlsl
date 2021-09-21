@@ -26,7 +26,7 @@ float4 main(float4 pos : POSITION) : SV_POSITION { return foo + bar; }
 
 
 // CHECK: ID3D12ShaderReflection:
-// CHECK:   D3D12_SHADER_BUFFER_DESC:
+// CHECK:   D3D12_SHADER_DESC:
 // CHECK:     Shader Version: Vertex 6.0
 // CHECK:     ConstantBuffers: 2
 // CHECK:     BoundResources: 2
@@ -100,7 +100,7 @@ float4 main(float4 pos : POSITION) : SV_POSITION { return foo + bar; }
 // CHECK:          CBuffer: Params_cbuffer2
 // CHECK:      }
 // CHECK:   Bound Resources:
-// CHECK:     D3D12_SHADER_BUFFER_DESC: Name: Params_cbuffer
+// CHECK:     D3D12_SHADER_INPUT_BIND_DESC: Name: Params_cbuffer
 // CHECK:       Type: D3D_SIT_CBUFFER
 // CHECK:       uID: 0
 // CHECK:       BindPoint: 0
