@@ -4524,7 +4524,7 @@ public:
       // Some intrinsics only optionally exist in later language versions.
       // To prevent collisions with existing functions or templates, exclude
       // intrinsics when they aren't enabled.
-      if (!m_sema->getLangOpts().EnableShortCircuit) {
+      if (IsBuiltinTable(tableName) && !m_sema->getLangOpts().EnableShortCircuit) {
         if (pIntrinsic->Op == (UINT)IntrinsicOp::IOP_and ||
             pIntrinsic->Op == (UINT)IntrinsicOp::IOP_or ||
             pIntrinsic->Op == (UINT)IntrinsicOp::IOP_select) {
@@ -5118,7 +5118,7 @@ public:
 
     IntrinsicOp intrinOp = static_cast<IntrinsicOp>(intrinsic->Op);
 
-    if (intrinOp == IntrinsicOp::MOP_SampleBias) {
+    if (IsBuiltinTable(tableName) && intrinOp == IntrinsicOp::MOP_SampleBias) {
       // Remove this when update intrinsic table not affect other things.
       // Change vector<float,1> into float for bias.
       const unsigned biasOperandID = 3; // return type, sampler, coord, bias.
@@ -9698,6 +9698,7 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
       continue;
     }
 
+    LPCSTR tableName = cursor.GetTableName();
     // Currently only intrinsic we allow for explicit template arguments are
     // for Load/Store for ByteAddressBuffer/RWByteAddressBuffer
 
@@ -9708,8 +9709,12 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
     bool IsBAB =
         objectName == g_ArBasicTypeNames[AR_OBJECT_BYTEADDRESS_BUFFER] ||
         objectName == g_ArBasicTypeNames[AR_OBJECT_RWBYTEADDRESS_BUFFER];
-    bool IsBABLoad = IsBAB && intrinsicOp == (UINT)IntrinsicOp::MOP_Load;
-    bool IsBABStore = IsBAB && intrinsicOp == (UINT)IntrinsicOp::MOP_Store;
+    bool IsBABLoad = false;
+    bool IsBABStore = false;
+    if (IsBuiltinTable(tableName) &&  IsBAB) {
+      IsBABLoad = intrinsicOp == (UINT)IntrinsicOp::MOP_Load;
+      IsBABStore = intrinsicOp == (UINT)IntrinsicOp::MOP_Store;
+    }
     if (ExplicitTemplateArgs && ExplicitTemplateArgs->size() > 0) {
       bool isLegalTemplate = false;
       SourceLocation Loc = ExplicitTemplateArgs->getLAngleLoc();
@@ -9744,11 +9749,11 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
             32, /*signed*/ false);
       }
     }
-    Specialization = AddHLSLIntrinsicMethod(cursor.GetTableName(), cursor.GetLoweringStrategy(), *cursor, FunctionTemplate, Args, argTypes.data(), argTypes.size());
+    Specialization = AddHLSLIntrinsicMethod(tableName, cursor.GetLoweringStrategy(), *cursor, FunctionTemplate, Args, argTypes.data(), argTypes.size());
     DXASSERT_NOMSG(Specialization->getPrimaryTemplate()->getCanonicalDecl() ==
       FunctionTemplate->getCanonicalDecl());
 
-    if (!IsValidateObjectElement(*cursor, objectElement)) {
+    if (IsBuiltinTable(tableName) && !IsValidateObjectElement(*cursor, objectElement)) {
       m_sema->Diag(Args[0]->getExprLoc(), diag::err_hlsl_invalid_resource_type_on_intrinsic) <<
           nameIdentifier << g_ArBasicTypeNames[GetTypeElementKind(objectElement)];
     }
