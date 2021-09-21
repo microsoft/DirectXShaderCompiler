@@ -140,7 +140,7 @@
 // CHECK-NEXT:             CBuffer: X
 // CHECK-NEXT:         }
 // CHECK-NEXT:     Bound Resources:
-// CHECK-NEXT:       D3D12_SHADER_BUFFER_DESC: Name: X
+// CHECK-NEXT:       D3D12_SHADER_INPUT_BIND_DESC: Name: X
 // CHECK-NEXT:         Type: D3D_SIT_CBUFFER
 // CHECK-NEXT:         uID: 0
 // CHECK-NEXT:         BindCount: 1
@@ -150,7 +150,7 @@
 // CHECK-NEXT:         Dimension: D3D_SRV_DIMENSION_UNKNOWN
 // CHECK-NEXT:         NumSamples (or stride): 0
 // CHECK-NEXT:         uFlags: (D3D_SIF_USERPACKED)
-// CHECK-NEXT:       D3D12_SHADER_BUFFER_DESC: Name: X
+// CHECK-NEXT:       D3D12_SHADER_INPUT_BIND_DESC: Name: X
 // CHECK-NEXT:         Type: D3D_SIT_STRUCTURED
 // CHECK-NEXT:         uID: 1
 // CHECK-NEXT:         BindCount: 1
@@ -290,7 +290,7 @@
 // CHECK-NEXT:             CBuffer: X
 // CHECK-NEXT:         }
 // CHECK-NEXT:     Bound Resources:
-// CHECK-NEXT:       D3D12_SHADER_BUFFER_DESC: Name: X
+// CHECK-NEXT:       D3D12_SHADER_INPUT_BIND_DESC: Name: X
 // CHECK-NEXT:               Type: D3D_SIT_CBUFFER
 // CHECK-NEXT:               uID: 0
 // CHECK-NEXT:               BindCount: 1
@@ -300,7 +300,7 @@
 // CHECK-NEXT:               Dimension: D3D_SRV_DIMENSION_UNKNOWN
 // CHECK-NEXT:               NumSamples (or stride): 0
 // CHECK-NEXT:               uFlags: (D3D_SIF_USERPACKED)
-// CHECK-NEXT:       D3D12_SHADER_BUFFER_DESC: Name: g_samLinear
+// CHECK-NEXT:       D3D12_SHADER_INPUT_BIND_DESC: Name: g_samLinear
 // CHECK-NEXT:         Type: D3D_SIT_SAMPLER
 // CHECK-NEXT:         uID: 0
 // CHECK-NEXT:         BindCount: 1
@@ -310,7 +310,7 @@
 // CHECK-NEXT:         Dimension: D3D_SRV_DIMENSION_UNKNOWN
 // CHECK-NEXT:         NumSamples (or stride): 0
 // CHECK-NEXT:         uFlags: 0
-// CHECK-NEXT:       D3D12_SHADER_BUFFER_DESC: Name: g_txDiffuse
+// CHECK-NEXT:       D3D12_SHADER_INPUT_BIND_DESC: Name: g_txDiffuse
 // CHECK-NEXT:         Type: D3D_SIT_TEXTURE
 // CHECK-NEXT:         uID: 0
 // CHECK-NEXT:         BindCount: 1
@@ -320,7 +320,7 @@
 // CHECK-NEXT:         Dimension: D3D_SRV_DIMENSION_TEXTURE2D
 // CHECK-NEXT:         NumSamples (or stride): 4294967295
 // CHECK-NEXT:         uFlags: (D3D_SIF_TEXTURE_COMPONENT_0 | D3D_SIF_TEXTURE_COMPONENT_1)
-// CHECK-NEXT:       D3D12_SHADER_BUFFER_DESC: Name: X
+// CHECK-NEXT:       D3D12_SHADER_INPUT_BIND_DESC: Name: X
 // CHECK-NEXT:         Type: D3D_SIT_STRUCTURED
 // CHECK-NEXT:         uID: 1
 // CHECK-NEXT:         BindCount: 1
