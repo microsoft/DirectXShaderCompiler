@@ -20,7 +20,7 @@ uint UseBuf(int2 idx) {
 // CHECK:       Shader Version: Library 6.3
 // CHECK:       BoundResources: 1
 // CHECK:     Bound Resources:
-// CHECK:       D3D12_SHADER_BUFFER_DESC: Name: g_buffer
+// CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: g_buffer
 // CHECK:         Type: D3D_SIT_UAV_RWSTRUCTURED
 // CHECK:         uID: 0
 // CHECK:         BindCount: 2

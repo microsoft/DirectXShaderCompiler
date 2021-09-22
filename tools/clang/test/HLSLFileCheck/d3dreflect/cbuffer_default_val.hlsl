@@ -9,7 +9,7 @@ float main() : SV_TARGET
 
 // Default value unsupported for now:
 // CHECK: ID3D12ShaderReflection:
-// CHECK:   D3D12_SHADER_BUFFER_DESC:
+// CHECK:   D3D12_SHADER_DESC:
 // CHECK:     Shader Version: Pixel 6.0
 // CHECK:     ConstantBuffers: 1
 // CHECK:     BoundResources: 1
@@ -35,7 +35,7 @@ float main() : SV_TARGET
 // CHECK:           CBuffer: $Globals
 // CHECK:       }
 // CHECK:   Bound Resources:
-// CHECK:     D3D12_SHADER_BUFFER_DESC: Name: $Globals
+// CHECK:     D3D12_SHADER_INPUT_BIND_DESC: Name: $Globals
 // CHECK:       Type: D3D_SIT_CBUFFER
 // CHECK:       uID: 0
 // CHECK:       BindPoint: 0

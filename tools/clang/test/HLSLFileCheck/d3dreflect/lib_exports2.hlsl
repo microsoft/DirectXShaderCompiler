@@ -169,7 +169,7 @@ void RayGen() {
 // CHECK:       Shader Version: RayGeneration 6.3
 // CHECK:       BoundResources: 1
 // CHECK:     Bound Resources:
-// CHECK:       D3D12_SHADER_BUFFER_DESC: Name: U0
+// CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: U0
 // CHECK:         Type: D3D_SIT_UAV_RWBYTEADDRESS
 // CHECK:         uID: 0
 // CHECK:         BindCount: 1
@@ -184,7 +184,7 @@ void RayGen() {
 // CHECK:       Shader Version: RayGeneration 6.3
 // CHECK:       BoundResources: 1
 // CHECK:     Bound Resources:
-// CHECK:       D3D12_SHADER_BUFFER_DESC: Name: U0
+// CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: U0
 // CHECK:         Type: D3D_SIT_UAV_RWBYTEADDRESS
 // CHECK:         uID: 0
 // CHECK:         BindCount: 1
@@ -199,7 +199,7 @@ void RayGen() {
 // CHECK:       Shader Version: Library 6.3
 // CHECK:       BoundResources: 1
 // CHECK:     Bound Resources:
-// CHECK:       D3D12_SHADER_BUFFER_DESC: Name: T1
+// CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: T1
 // CHECK:         Type: D3D_SIT_TEXTURE
 // CHECK:         uID: 0
 // CHECK:         BindCount: 1
@@ -214,7 +214,7 @@ void RayGen() {
 // CHECK:       Shader Version: Vertex 6.3
 // CHECK:       BoundResources: 1
 // CHECK:     Bound Resources:
-// CHECK:       D3D12_SHADER_BUFFER_DESC: Name: T1
+// CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: T1
 // CHECK:         Type: D3D_SIT_TEXTURE
 // CHECK:         uID: 0
 // CHECK:         BindCount: 1
