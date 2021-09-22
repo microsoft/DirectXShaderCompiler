@@ -34,6 +34,10 @@ LPCSTR ToString(D3D_SHADER_VARIABLE_FLAGS Flag);
 LPCSTR ToString(D3D_SHADER_INPUT_FLAGS Flag);
 LPCSTR ToString(D3D_SHADER_CBUFFER_FLAGS Flag);
 LPCSTR ToString(D3D_PARAMETER_FLAGS Flag);
+LPCSTR ToString(D3D_NAME Name);
+LPCSTR ToString(D3D_REGISTER_COMPONENT_TYPE CompTy);
+LPCSTR ToString(D3D_MIN_PRECISION MinPrec);
+LPCSTR CompMaskToString(unsigned CompMask);
 
 class D3DReflectionDumper : public DumpContext {
 private:
@@ -52,6 +56,7 @@ public:
   void Dump(D3D12_SHADER_VARIABLE_DESC &varDesc);
   void Dump(D3D12_SHADER_BUFFER_DESC &Desc);
   void Dump(D3D12_SHADER_INPUT_BIND_DESC &resDesc);
+  void Dump(D3D12_SIGNATURE_PARAMETER_DESC &elDesc);
   void Dump(D3D12_SHADER_DESC &Desc);
   void Dump(D3D12_FUNCTION_DESC &Desc);
   void Dump(D3D12_LIBRARY_DESC &Desc);

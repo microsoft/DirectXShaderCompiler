@@ -1208,7 +1208,7 @@
 // CHECK-NEXT:          CBuffer: StructuredBufferUnbounded[0]
 // CHECK-NEXT:      }
 // CHECK-NEXT:  Bound Resources:
-// CHECK-NEXT:    D3D12_SHADER_BUFFER_DESC: Name: CB
+// CHECK-NEXT:    D3D12_SHADER_INPUT_BIND_DESC: Name: CB
 // CHECK-NEXT:      Type: D3D_SIT_CBUFFER
 // CHECK-NEXT:      uID: 0
 // CHECK-NEXT:      BindCount: 1
@@ -1218,7 +1218,7 @@
 // CHECK-NEXT:      Dimension: D3D_SRV_DIMENSION_UNKNOWN
 // CHECK-NEXT:      NumSamples (or stride): 0
 // CHECK-NEXT:      uFlags: (D3D_SIF_USERPACKED)
-// CHECK-NEXT:    D3D12_SHADER_BUFFER_DESC: Name: CBuffer
+// CHECK-NEXT:    D3D12_SHADER_INPUT_BIND_DESC: Name: CBuffer
 // CHECK-NEXT:      Type: D3D_SIT_CBUFFER
 // CHECK-NEXT:      uID: 1
 // CHECK-NEXT:      BindCount: 1
@@ -1228,7 +1228,7 @@
 // CHECK-NEXT:      Dimension: D3D_SRV_DIMENSION_UNKNOWN
 // CHECK-NEXT:      NumSamples (or stride): 0
 // CHECK-NEXT:      uFlags: (D3D_SIF_USERPACKED)
-// CHECK-NEXT:    D3D12_SHADER_BUFFER_DESC: Name: ConstantBufferArray
+// CHECK-NEXT:    D3D12_SHADER_INPUT_BIND_DESC: Name: ConstantBufferArray
 // CHECK-NEXT:      Type: D3D_SIT_CBUFFER
 // CHECK-NEXT:      uID: 2
 // CHECK-NEXT:      BindCount: 6
@@ -1238,7 +1238,7 @@
 // CHECK-NEXT:      Dimension: D3D_SRV_DIMENSION_UNKNOWN
 // CHECK-NEXT:      NumSamples (or stride): 0
 // CHECK-NEXT:      uFlags: (D3D_SIF_USERPACKED)
-// CHECK-NEXT:    D3D12_SHADER_BUFFER_DESC: Name: ConstantBufferA1
+// CHECK-NEXT:    D3D12_SHADER_INPUT_BIND_DESC: Name: ConstantBufferA1
 // CHECK-NEXT:      Type: D3D_SIT_CBUFFER
 // CHECK-NEXT:      uID: 3
 // CHECK-NEXT:      BindCount: 1
@@ -1248,7 +1248,7 @@
 // CHECK-NEXT:      Dimension: D3D_SRV_DIMENSION_UNKNOWN
 // CHECK-NEXT:      NumSamples (or stride): 0
 // CHECK-NEXT:      uFlags: (D3D_SIF_USERPACKED)
-// CHECK-NEXT:    D3D12_SHADER_BUFFER_DESC: Name: ConstantBufferUnbounded
+// CHECK-NEXT:    D3D12_SHADER_INPUT_BIND_DESC: Name: ConstantBufferUnbounded
 // CHECK-NEXT:      Type: D3D_SIT_CBUFFER
 // CHECK-NEXT:      uID: 4
 // CHECK-NEXT:      BindCount: 4294967295
@@ -1258,7 +1258,7 @@
 // CHECK-NEXT:      Dimension: D3D_SRV_DIMENSION_UNKNOWN
 // CHECK-NEXT:      NumSamples (or stride): 0
 // CHECK-NEXT:      uFlags: (D3D_SIF_USERPACKED)
-// CHECK-NEXT:    D3D12_SHADER_BUFFER_DESC: Name: SamplerUnbounded
+// CHECK-NEXT:    D3D12_SHADER_INPUT_BIND_DESC: Name: SamplerUnbounded
 // CHECK-NEXT:      Type: D3D_SIT_SAMPLER
 // CHECK-NEXT:      uID: 0
 // CHECK-NEXT:      BindCount: 0
@@ -1268,7 +1268,7 @@
 // CHECK-NEXT:      Dimension: D3D_SRV_DIMENSION_UNKNOWN
 // CHECK-NEXT:      NumSamples (or stride): 0
 // CHECK-NEXT:      uFlags: 0
-// CHECK-NEXT:    D3D12_SHADER_BUFFER_DESC: Name: SB
+// CHECK-NEXT:    D3D12_SHADER_INPUT_BIND_DESC: Name: SB
 // CHECK-NEXT:      Type: D3D_SIT_STRUCTURED
 // CHECK-NEXT:      uID: 0
 // CHECK-NEXT:      BindCount: 1
@@ -1278,7 +1278,7 @@
 // CHECK-NEXT:      Dimension: D3D_SRV_DIMENSION_BUFFER
 // CHECK-NEXT:      NumSamples (or stride): 64
 // CHECK-NEXT:      uFlags: 0
-// CHECK-NEXT:    D3D12_SHADER_BUFFER_DESC: Name: StructuredBufferArray
+// CHECK-NEXT:    D3D12_SHADER_INPUT_BIND_DESC: Name: StructuredBufferArray
 // CHECK-NEXT:      Type: D3D_SIT_STRUCTURED
 // CHECK-NEXT:      uID: 1
 // CHECK-NEXT:      BindCount: 6
@@ -1288,7 +1288,7 @@
 // CHECK-NEXT:      Dimension: D3D_SRV_DIMENSION_BUFFER
 // CHECK-NEXT:      NumSamples (or stride): 128
 // CHECK-NEXT:      uFlags: 0
-// CHECK-NEXT:    D3D12_SHADER_BUFFER_DESC: Name: StructuredBufferA1
+// CHECK-NEXT:    D3D12_SHADER_INPUT_BIND_DESC: Name: StructuredBufferA1
 // CHECK-NEXT:      Type: D3D_SIT_STRUCTURED
 // CHECK-NEXT:      uID: 2
 // CHECK-NEXT:      BindCount: 1
@@ -1298,7 +1298,7 @@
 // CHECK-NEXT:      Dimension: D3D_SRV_DIMENSION_BUFFER
 // CHECK-NEXT:      NumSamples (or stride): 64
 // CHECK-NEXT:      uFlags: 0
-// CHECK-NEXT:    D3D12_SHADER_BUFFER_DESC: Name: StructuredBufferUnbounded
+// CHECK-NEXT:    D3D12_SHADER_INPUT_BIND_DESC: Name: StructuredBufferUnbounded
 // CHECK-NEXT:      Type: D3D_SIT_STRUCTURED
 // CHECK-NEXT:      uID: 3
 // CHECK-NEXT:      BindCount: 0
@@ -1308,7 +1308,7 @@
 // CHECK-NEXT:      Dimension: D3D_SRV_DIMENSION_BUFFER
 // CHECK-NEXT:      NumSamples (or stride): 64
 // CHECK-NEXT:      uFlags: 0
-// CHECK-NEXT:    D3D12_SHADER_BUFFER_DESC: Name: Texture2DUnbounded
+// CHECK-NEXT:    D3D12_SHADER_INPUT_BIND_DESC: Name: Texture2DUnbounded
 // CHECK-NEXT:      Type: D3D_SIT_TEXTURE
 // CHECK-NEXT:      uID: 4
 // CHECK-NEXT:      BindCount: 0
@@ -1318,7 +1318,7 @@
 // CHECK-NEXT:      Dimension: D3D_SRV_DIMENSION_TEXTURE2D
 // CHECK-NEXT:      NumSamples (or stride): 4294967295
 // CHECK-NEXT:      uFlags: 0
-// CHECK-NEXT:    D3D12_SHADER_BUFFER_DESC: Name: RWBufferUnbounded
+// CHECK-NEXT:    D3D12_SHADER_INPUT_BIND_DESC: Name: RWBufferUnbounded
 // CHECK-NEXT:      Type: D3D_SIT_UAV_RWTYPED
 // CHECK-NEXT:      uID: 0
 // CHECK-NEXT:      BindCount: 0
