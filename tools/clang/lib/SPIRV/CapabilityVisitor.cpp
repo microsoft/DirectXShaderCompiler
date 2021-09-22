@@ -454,7 +454,7 @@ bool CapabilityVisitor::visitInstruction(SpirvInstruction *instr) {
     for (auto &cap : pSpvInst->getCapabilities()) {
       addCapability(static_cast<spv::Capability>(cap));
     }
-    for (auto ext : pSpvInst->getExtensions()) {
+    for (const auto &ext : pSpvInst->getExtensions()) {
       spvBuilder.requireExtension(ext, loc);
     }
   }

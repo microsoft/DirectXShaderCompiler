@@ -12402,7 +12402,7 @@ SpirvEmitter::processSpvIntrinsicCallExpr(const CallExpr *expr) {
   auto &attrs = funcDecl->getAttrs();
   QualType retType = funcDecl->getReturnType();
   llvm::SmallVector<uint32_t, 8> capbilities;
-  llvm::SmallVector<llvm::StringRef, 8> extensions;
+  llvm::SmallVector<llvm::StringRef, 2> extensions;
   llvm::StringRef instSet = "";
   uint32_t op = 0;
   for (auto &attr : attrs) {
@@ -12424,6 +12424,10 @@ SpirvEmitter::processSpvIntrinsicCallExpr(const CallExpr *expr) {
     const Expr *arg = args[i]->IgnoreParenLValueCasts();
     SpirvInstruction *argInst = doExpr(arg);
     if (param->hasAttr<VKReferenceExtAttr>()) {
+      if (argInst->isRValue()) {
+        emitError("argument must be a reference", arg->getExprLoc());
+        return nullptr;
+      }
       spvArgs.push_back(argInst);
     } else if (param->hasAttr<VKLiteralExtAttr>()) {
       auto constArg = dyn_cast<SpirvConstantInteger>(argInst);

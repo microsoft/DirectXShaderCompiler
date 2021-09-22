@@ -1672,6 +1672,7 @@ bool EmitVisitor::visit(SpirvIntrinsicInstruction *inst) {
   }
 
   for (const auto operand : inst->getOperands()) {
+    // TODO: Handle Literals with other types.
     auto literalOperand = dyn_cast<SpirvConstantInteger>(operand);
     if (literalOperand && literalOperand->getLiteral()) {
         curInst.push_back(literalOperand->getValue().getZExtValue());
