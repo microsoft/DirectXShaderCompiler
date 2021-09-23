@@ -1,4 +1,5 @@
 // RUN: %dxc -E main -T ps_6_0 %s | %D3DReflect %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_6 %s | %D3DReflect %s | FileCheck %s
 
 float t = 0.5;
 
@@ -10,7 +11,7 @@ float main() : SV_TARGET
 // Default value unsupported for now:
 // CHECK: ID3D12ShaderReflection:
 // CHECK:   D3D12_SHADER_DESC:
-// CHECK:     Shader Version: Pixel 6.0
+// CHECK:     Shader Version: Pixel
 // CHECK:     ConstantBuffers: 1
 // CHECK:     BoundResources: 1
 // CHECK:     OutputParameters: 1

@@ -1,4 +1,5 @@
 // RUN: %dxc -T lib_6_3 -auto-binding-space 11 -default-linkage external -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
+// RUN: %dxc -T lib_6_6 -auto-binding-space 11 -default-linkage external -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
 
 float cbval1;
 cbuffer MyCB : register(b11, space2) { int4 cbval2, cbval3; }
@@ -19,7 +20,7 @@ float4 function2(float4 x : POSITION) : SV_Position { return x + cbval1 + cbval3
 // CHECK:     FunctionCount: 3
 // CHECK:   ID3D12FunctionReflection:
 // CHECK:     D3D12_FUNCTION_DESC: Name: \01?function0@@YAM$min16f@@Z
-// CHECK:       Shader Version: Library 6.3
+// CHECK:       Shader Version: Library
 // CHECK:       ConstantBuffers: 1
 // CHECK:       BoundResources: 2
 // CHECK:     Constant Buffers:
@@ -69,7 +70,7 @@ float4 function2(float4 x : POSITION) : SV_Position { return x + cbval1 + cbval3
 // CHECK:         uFlags: (D3D_SIF_TEXTURE_COMPONENT_0 | D3D_SIF_TEXTURE_COMPONENT_1)
 // CHECK:   ID3D12FunctionReflection:
 // CHECK:     D3D12_FUNCTION_DESC: Name: \01?function1@@YAMM$min12i@@Z
-// CHECK:       Shader Version: Library 6.3
+// CHECK:       Shader Version: Library
 // CHECK:       ConstantBuffers: 1
 // CHECK:       BoundResources: 4
 // CHECK:     Constant Buffers:
@@ -115,7 +116,7 @@ float4 function2(float4 x : POSITION) : SV_Position { return x + cbval1 + cbval3
 // CHECK:         Dimension: D3D_SRV_DIMENSION_BUFFER
 // CHECK:   ID3D12FunctionReflection:
 // CHECK:     D3D12_FUNCTION_DESC: Name: function2
-// CHECK:       Shader Version: Vertex 6.3
+// CHECK:       Shader Version: Vertex
 // CHECK:       ConstantBuffers: 2
 // CHECK:       BoundResources: 2
 // CHECK:     Constant Buffers:
