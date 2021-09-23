@@ -5507,7 +5507,8 @@ public:
 
   void LookupTemplateName(LookupResult &R, Scope *S, CXXScopeSpec &SS,
                           QualType ObjectType, bool EnteringContext,
-                          bool &MemberOfUnknownSpecialization);
+                          bool &MemberOfUnknownSpecialization,
+                          bool NextIsLess = false); // HLSL Change - additional special case flag
 
   TemplateNameKind isTemplateName(Scope *S,
                                   CXXScopeSpec &SS,
@@ -5516,7 +5517,8 @@ public:
                                   ParsedType ObjectType,
                                   bool EnteringContext,
                                   TemplateTy &Template,
-                                  bool &MemberOfUnknownSpecialization);
+                                  bool &MemberOfUnknownSpecialization,
+                                  bool NextIsLess = false); // HLSL Change - additional special case flag
 
   bool DiagnoseUnknownTemplateName(const IdentifierInfo &II,
                                    SourceLocation IILoc,

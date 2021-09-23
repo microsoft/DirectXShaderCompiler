@@ -23,6 +23,7 @@
 #include "dxc/DXIL/DxilTypeSystem.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/HlslTypes.h"
+#include "clang/AST/RecordLayout.h"
 #include "clang/Frontend/CodeGenOptions.h"
 #include "clang/Lex/HLSLMacroExpander.h"
 #include "clang/Sema/SemaDiagnostic.h"
@@ -991,12 +992,69 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
 
   unsigned CBufferSize = CBufferOffset;
 
-  for (auto fieldDecl : RD->fields()) {
+  for (RecordDecl::field_iterator Field = RD->field_begin(),
+                                  FieldEnd = RD->field_end();
+       Field != FieldEnd;) {
+    if (Field->isBitField()) {
+      // TODO(?): Consider refactoring, as this branch duplicates much
+      // of the logic of CGRecordLowering::accumulateBitFields().
+      DXASSERT(CGM.getLangOpts().HLSLVersion > 2015, "We should have already ensured we have no bitfields.");
+      CodeGenTypes &Types = CGM.getTypes();
+      ASTContext &Context = Types.getContext();
+      const ASTRecordLayout &Layout = Context.getASTRecordLayout(RD);
+      const llvm::DataLayout &DataLayout = Types.getDataLayout();
+      RecordDecl::field_iterator End = Field;
+      for (++End; End != FieldEnd && End->isBitField(); ++End);
+
+      RecordDecl::field_iterator Run = End;
+      uint64_t StartBitOffset, Tail = 0;
+      for (; Field != End; ++Field) {
+        uint64_t BitOffset = Layout.getFieldOffset(Field->getFieldIndex());
+        // Zero-width bitfields end runs.
+        if (Field->getBitWidthValue(Context) == 0) {
+          Run = End;
+          continue;
+        }
+        llvm::Type *Type = Types.ConvertTypeForMem(Field->getType());
+        // If we don't have a run yet, or don't live within the previous run's
+        // allocated storage then we allocate some storage and start a new run.
+        if (Run == End || BitOffset >= Tail) {
+          Run = Field;
+          StartBitOffset = BitOffset;
+          Tail = StartBitOffset + DataLayout.getTypeAllocSizeInBits(Type);
+
+          QualType fieldTy = Field->getType();
+
+          // Align offset.
+          CBufferOffset = AlignBaseOffset(fieldTy, CBufferOffset, bDefaultRowMajor, CGM, dataLayout);
+
+          DxilFieldAnnotation &fieldAnnotation =
+              annotation->GetFieldAnnotation(fieldIdx++);
+          ConstructFieldAttributedAnnotation(fieldAnnotation, fieldTy,
+                                             bDefaultRowMajor);
+          fieldAnnotation.SetCBufferOffset(CBufferOffset);
+
+          unsigned arrayEltSize = 0;
+          // Process field to make sure the size of field is ready.
+          unsigned size = AddTypeAnnotation(fieldTy, dxilTypeSys,
+                                            arrayEltSize);
+          // Update offset.
+          CBufferOffset += size;
+        }
+      }
+
+      CBufferSize = CBufferOffset;
+      continue;  // Field has already been advanced past bitfields
+    }
+
+    FieldDecl *fieldDecl = *Field;
     std::string fieldSemName = "";
 
     QualType fieldTy = fieldDecl->getType();
-    DXASSERT(!fieldDecl->isBitField(), "We should have already ensured we have no bitfields.");
-    
+
+    // Align offset.
+    CBufferOffset = AlignBaseOffset(fieldTy, CBufferOffset, bDefaultRowMajor, CGM, dataLayout);
+
     DxilFieldAnnotation &fieldAnnotation = annotation->GetFieldAnnotation(fieldIdx++);
     ConstructFieldAttributedAnnotation(fieldAnnotation, fieldTy, bDefaultRowMajor);
 
@@ -1081,6 +1139,8 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
     // Update offset.
     CBufferSize = std::max(CBufferSize, CBufferOffset + size);
     CBufferOffset = CBufferSize;
+
+    ++Field;
   }
 
   annotation->SetCBufferSize(CBufferSize);
