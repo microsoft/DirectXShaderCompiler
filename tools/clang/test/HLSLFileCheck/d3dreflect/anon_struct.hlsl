@@ -1,4 +1,5 @@
 // RUN: %dxc -T ps_6_0 -E main %s | %D3DReflect %s | FileCheck %s
+// RUN: %dxc -T ps_6_6 -E main %s | %D3DReflect %s | FileCheck %s
 
 struct {
     int X;
@@ -10,7 +11,7 @@ float main(int N : A, int C : B) : SV_TARGET {
 
 // CHECK: ID3D12ShaderReflection:
 // CHECK:   D3D12_SHADER_DESC:
-// CHECK:     Shader Version: Pixel 6.0
+// CHECK:     Shader Version: Pixel
 // CHECK:     ConstantBuffers: 1
 // CHECK:     BoundResources: 1
 // CHECK:     InputParameters: 2

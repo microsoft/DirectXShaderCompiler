@@ -2636,7 +2636,7 @@ void DxilLowerCreateHandleForLib::UpdateCBufferUsage() {
   const auto &CBuffers = m_DM->GetCBuffers();
   OffsetForValueMap visited;
 
-  SmallVector<GlobalVariable*, 4> CBufferVars;
+  SmallVector<std::pair<GlobalVariable*, Type*>, 4> CBufferVars;
 
   // Collect cbuffers
   for (auto it = CBuffers.begin(); it != CBuffers.end(); it++) {
@@ -2644,7 +2644,7 @@ void DxilLowerCreateHandleForLib::UpdateCBufferUsage() {
     GlobalVariable *GV = dyn_cast<GlobalVariable>(CB->GetGlobalSymbol());
     if (GV == nullptr)
       continue;
-    CBufferVars.push_back(GV);
+    CBufferVars.emplace_back(GV, CB->GetHLSLType());
   }
 
   // Collect tbuffers
@@ -2654,11 +2654,12 @@ void DxilLowerCreateHandleForLib::UpdateCBufferUsage() {
     GlobalVariable *GV = dyn_cast<GlobalVariable>(it->GetGlobalSymbol());
     if (GV == nullptr)
       continue;
-    CBufferVars.push_back(GV);
+    CBufferVars.emplace_back(GV, it->GetHLSLType());
   }
 
-  for (auto GV : CBufferVars) {
-    Type *ElemTy = GV->getType()->getPointerElementType();
+  for (auto GV_Ty : CBufferVars) {
+    auto GV = GV_Ty.first;
+    Type *ElemTy = GV_Ty.second->getPointerElementType();
     ElemTy = dxilutil::StripArrayTypes(ElemTy, nullptr);
     StructType *ST = cast<StructType>(ElemTy);
     DxilStructAnnotation *SA = TypeSys.GetStructAnnotation(ST);

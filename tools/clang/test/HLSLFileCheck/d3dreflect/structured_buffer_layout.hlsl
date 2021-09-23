@@ -1,4 +1,5 @@
 // RUN: %dxc -E main -T vs_6_0 -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
+// RUN: %dxc -E main -T vs_6_6 -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
 
 // Verify SB type description does not follow the CB offseting alignment
 // even when structure is shared with a ConstantBuffer.

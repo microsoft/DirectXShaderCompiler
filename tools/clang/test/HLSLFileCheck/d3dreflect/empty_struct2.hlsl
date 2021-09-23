@@ -1,4 +1,5 @@
 // RUN: %dxc -E main -T vs_6_0 -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
+// RUN: %dxc -E main -T vs_6_6 -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
 
 // Make sure nest empty struct works.
 
@@ -27,7 +28,7 @@ float4 main(float4 pos : POSITION) : SV_POSITION { return foo + bar; }
 
 // CHECK: ID3D12ShaderReflection:
 // CHECK:   D3D12_SHADER_DESC:
-// CHECK:     Shader Version: Vertex 6.0
+// CHECK:     Shader Version: Vertex
 // CHECK:     ConstantBuffers: 2
 // CHECK:     BoundResources: 2
 // CHECK:     InputParameters: 1
