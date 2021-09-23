@@ -288,7 +288,7 @@ static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args41[] =
     {"InterlockedExchange", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
     {"result", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_INT64_ONLY, 1, 1},
     {"value", AR_QUAL_IN, 2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_ANY_INT64, 1, 1},
-    {"original", AR_QUAL_OUT, 3, LITEMPLATE_SCALAR, 3, LICOMPTYPE_ANY_INT64, 1, 1},
+    {"original", AR_QUAL_OUT, 2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_ANY_INT64, 1, 1},
 };
 
 static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args42[] =
@@ -326,7 +326,7 @@ static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args46[] =
     {"InterlockedMax", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
     {"result", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_INT64_ONLY, 1, 1},
     {"value", AR_QUAL_IN, 2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_ANY_INT64, 1, 1},
-    {"original", AR_QUAL_OUT, 3, LITEMPLATE_SCALAR, 3, LICOMPTYPE_ANY_INT64, 1, 1},
+    {"original", AR_QUAL_OUT, 2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_ANY_INT64, 1, 1},
 };
 
 static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args47[] =
@@ -334,7 +334,7 @@ static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args47[] =
     {"InterlockedMax", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
     {"result", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_INT32_ONLY, 1, 1},
     {"value", AR_QUAL_IN, 2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_ANY_INT32, 1, 1},
-    {"original", AR_QUAL_OUT, 3, LITEMPLATE_SCALAR, 3, LICOMPTYPE_ANY_INT32, 1, 1},
+    {"original", AR_QUAL_OUT, 2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_ANY_INT32, 1, 1},
 };
 
 static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args48[] =
@@ -356,7 +356,7 @@ static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args50[] =
     {"InterlockedMin", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
     {"result", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_INT64_ONLY, 1, 1},
     {"value", AR_QUAL_IN, 2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_ANY_INT64, 1, 1},
-    {"original", AR_QUAL_OUT, 3, LITEMPLATE_SCALAR, 3, LICOMPTYPE_ANY_INT64, 1, 1},
+    {"original", AR_QUAL_OUT, 2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_ANY_INT64, 1, 1},
 };
 
 static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args51[] =
@@ -364,7 +364,7 @@ static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args51[] =
     {"InterlockedMin", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
     {"result", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_INT32_ONLY, 1, 1},
     {"value", AR_QUAL_IN, 2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_ANY_INT32, 1, 1},
-    {"original", AR_QUAL_OUT, 3, LITEMPLATE_SCALAR, 3, LICOMPTYPE_ANY_INT32, 1, 1},
+    {"original", AR_QUAL_OUT, 2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_ANY_INT32, 1, 1},
 };
 
 static const HLSL_INTRINSIC_ARGUMENT g_Intrinsics_Args52[] =
@@ -5875,7 +5875,7 @@ static const HLSL_INTRINSIC_ARGUMENT g_RWByteAddressBufferMethods_Args16[] =
     {"InterlockedExchange64", 0, 0, LITEMPLATE_VOID, 0, LICOMPTYPE_VOID, 0, 0},
     {"byteOffset", AR_QUAL_IN, 1, LITEMPLATE_SCALAR, 1, LICOMPTYPE_UINT, 1, 1},
     {"value", AR_QUAL_IN, 2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_ANY_INT64, 1, 1},
-    {"original", AR_QUAL_OUT, 3, LITEMPLATE_SCALAR, 3, LICOMPTYPE_ANY_INT64, 1, 1},
+    {"original", AR_QUAL_OUT, 2, LITEMPLATE_SCALAR, 2, LICOMPTYPE_ANY_INT64, 1, 1},
 };
 
 static const HLSL_INTRINSIC_ARGUMENT g_RWByteAddressBufferMethods_Args17[] =

@@ -153,9 +153,9 @@ void [[]] GroupMemoryBarrierWithGroupSync() : syncgroupandsharedmemory;
 void [[]] InterlockedAdd(in int64_only result, in u64 value);
 void [[]] InterlockedAdd(in int64_only result, in u64 value, out any_int64 original) : interlockedadd_immediate;
 void [[unsigned_op=InterlockedUMin,overload=0]] InterlockedMin(in int64_only result, in any_int64 value) : interlockedmin;
-void [[unsigned_op=InterlockedUMin,overload=0]] InterlockedMin(in int64_only result, in any_int64 value, out any_int64 original) : interlockedmin_immediate;
+void [[unsigned_op=InterlockedUMin,overload=0]] InterlockedMin(in int64_only result, in any_int64 value, out $type2 original) : interlockedmin_immediate;
 void [[unsigned_op=InterlockedUMax,overload=0]] InterlockedMax(in int64_only result, in any_int64 value) : interlockedmax;
-void [[unsigned_op=InterlockedUMax,overload=0]] InterlockedMax(in int64_only result, in any_int64 value, out any_int64 original) : interlockedmax_immediate;
+void [[unsigned_op=InterlockedUMax,overload=0]] InterlockedMax(in int64_only result, in any_int64 value, out $type2 original) : interlockedmax_immediate;
 void [[]] InterlockedAnd(in int64_only result, in u64 value);
 void [[]] InterlockedAnd(in int64_only result, in u64 value, out any_int64 original) : interlockedand_immediate;
 void [[]] InterlockedOr(in int64_only result, in u64 value);
@@ -163,7 +163,7 @@ void [[]] InterlockedOr(in int64_only result, in u64 value, out any_int64 origin
 void [[]] InterlockedXor(in int64_only result, in u64 value);
 void [[]] InterlockedXor(in int64_only result, in u64 value, out any_int64 original) : interlockedxor_immediate;
 void [[]] InterlockedCompareStore(in int64_only result, in u64 compare, in u64 value);
-void [[]] InterlockedExchange(in int64_only result, in any_int64 value, out any_int64 original);
+void [[]] InterlockedExchange(in int64_only result, in any_int64 value, out $type2 original);
 void [[]] InterlockedCompareExchange(in int64_only result, in u64 compare, in u64 value, out any_int64 original);
 // floating point interlocks
 void [[]] InterlockedExchange(in float32_only result, in float value, out float original);
@@ -173,9 +173,9 @@ void [[]] InterlockedCompareExchangeFloatBitwise(in float32_only result, in floa
 void [[]] InterlockedAdd(in int32_only result, in uint value);
 void [[]] InterlockedAdd(in int32_only result, in uint value, out any_int32 original) : interlockedadd_immediate;
 void [[unsigned_op=InterlockedUMin,overload=0]] InterlockedMin(in int32_only result, in any_int32 value) : interlockedmin;
-void [[unsigned_op=InterlockedUMin,overload=0]] InterlockedMin(in int32_only result, in any_int32 value, out any_int32 original) : interlockedmin_immediate;
+void [[unsigned_op=InterlockedUMin,overload=0]] InterlockedMin(in int32_only result, in any_int32 value, out $type2 original) : interlockedmin_immediate;
 void [[unsigned_op=InterlockedUMax,overload=0]] InterlockedMax(in int32_only result, in any_int32 value) : interlockedmax;
-void [[unsigned_op=InterlockedUMax,overload=0]] InterlockedMax(in int32_only result, in any_int32 value, out any_int32  original) : interlockedmax_immediate;
+void [[unsigned_op=InterlockedUMax,overload=0]] InterlockedMax(in int32_only result, in any_int32 value, out $type2  original) : interlockedmax_immediate;
 void [[]] InterlockedAnd(in int32_only result, in uint value);
 void [[]] InterlockedAnd(in int32_only result, in uint value, out any_int32 original) : interlockedand_immediate;
 void [[]] InterlockedOr(in int32_only result, in uint value);
@@ -866,7 +866,7 @@ void [[]] InterlockedOr64(in uint byteOffset, in u64 value, out any_int64 origin
 void [[]] InterlockedXor64(in uint byteOffset, in u64 value);
 void [[]] InterlockedXor64(in uint byteOffset, in u64 value, out any_int64 original) : interlockedxor_immediate;
 void [[]] InterlockedCompareStore64(in uint byteOffset, in u64 compare, in u64 value);
-void [[]] InterlockedExchange64(in uint byteOffset, in any_int64 value, out any_int64 original);
+void [[]] InterlockedExchange64(in uint byteOffset, in any_int64 value, out $type2 original);
 void [[]] InterlockedCompareExchange64(in uint byteOffset, in u64 compare, in u64 value, out any_int64 original);
 // floating point interlocks
 void [[]] InterlockedExchangeFloat(in uint byteOffest, in float value, out float original);
