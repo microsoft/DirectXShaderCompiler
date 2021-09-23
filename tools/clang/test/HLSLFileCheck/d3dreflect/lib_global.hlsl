@@ -1,4 +1,5 @@
 // RUN: %dxc -T lib_6_3 -enable-16bit-types -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
+// RUN: %dxc -T lib_6_6 -enable-16bit-types -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
 
 // Note: validator version 1.5 is required because these tests use
 // module disassembly -> reassembly between steps, and type annotations
@@ -12,7 +13,7 @@
 // CHECK-NEXT:     FunctionCount: 2
 // CHECK-NEXT:   ID3D12FunctionReflection:
 // CHECK-NEXT:     D3D12_FUNCTION_DESC: Name: _GLOBAL__sub_I_lib_global.hlsl
-// CHECK-NEXT:       Shader Version: Library 6.3
+// CHECK-NEXT:       Shader Version: Library
 // CHECK:       Flags: 0
 // CHECK-NEXT:       ConstantBuffers: 2
 // CHECK-NEXT:       BoundResources: 2
@@ -162,7 +163,7 @@
 // CHECK-NEXT:         uFlags: 0
 // CHECK-NEXT:   ID3D12FunctionReflection:
 // CHECK-NEXT:     D3D12_FUNCTION_DESC: Name: test
-// CHECK-NEXT:       Shader Version: Pixel 6.3
+// CHECK-NEXT:       Shader Version: Pixel
 // CHECK:       Flags: 0
 // CHECK-NEXT:       ConstantBuffers: 2
 // CHECK-NEXT:       BoundResources: 4

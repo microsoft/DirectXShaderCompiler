@@ -1,4 +1,5 @@
 // RUN: %dxc -T ps_6_5 -E main -Vd -validator-version 1.5 %s | %D3DReflect %s | FileCheck %s
+// RUN: %dxc -T ps_6_6 -E main -Vd -validator-version 1.6 %s | %D3DReflect %s | FileCheck %s
 // Flags needed to ensure usage flags are preserved in reflection with -Qkeep_reflect_in_dxil (implied):
 //   -T ps_6_5 -Vd -validator-version 1.5
 
