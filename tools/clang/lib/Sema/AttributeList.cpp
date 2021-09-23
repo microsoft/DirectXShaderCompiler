@@ -138,7 +138,6 @@ AttributeList::Kind AttributeList::getKind(const IdentifierInfo *Name,
     std::string lower = FullName.str().lower();
     Result = ::getAttrKind(StringRef(lower), SyntaxUsed);
   }
-  assert (static_cast<unsigned>(Result) < 65536);
   return Result;
 #else
   return ::getAttrKind(FullName, SyntaxUsed);
