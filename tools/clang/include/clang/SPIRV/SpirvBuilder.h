@@ -507,6 +507,13 @@ public:
   /// OpIgnoreIntersectionKHR/OpTerminateIntersectionKHR
   void createRaytracingTerminateKHR(spv::Op opcode, SourceLocation loc);
 
+  /// \brief Create spirv intrinsic instructions
+  SpirvInstruction *createSpirvIntrInstExt(
+      uint32_t opcode, QualType retType,
+      llvm::ArrayRef<SpirvInstruction *> operands,
+      llvm::ArrayRef<llvm::StringRef> extensions, llvm::StringRef instSet,
+      llvm::ArrayRef<uint32_t> capablities, SourceLocation loc);
+
   /// \brief Returns a clone SPIR-V variable for CTBuffer with FXC memory layout
   /// and creates copy instructions from the CTBuffer to the clone variable in
   /// module.init if it contains HLSL matrix 1xN. Otherwise, returns nullptr.

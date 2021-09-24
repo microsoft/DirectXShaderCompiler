@@ -289,6 +289,7 @@ public:
   bool visit(SpirvDebugTypeMember *) override;
   bool visit(SpirvDebugTypeTemplate *) override;
   bool visit(SpirvDebugTypeTemplateParameter *) override;
+  bool visit(SpirvIntrinsicInstruction *) override;
 
   using Visitor::visit;
 

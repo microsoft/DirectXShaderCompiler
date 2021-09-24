@@ -2316,8 +2316,12 @@ SpirvInstruction *SpirvEmitter::doCallExpr(const CallExpr *callExpr) {
   if (const auto *memberCall = dyn_cast<CXXMemberCallExpr>(callExpr))
     return doCXXMemberCallExpr(memberCall);
 
+  auto funcDecl = callExpr->getDirectCallee();
+  if (funcDecl && funcDecl->hasAttr<VKInstructionExtAttr>()) {
+    return processSpvIntrinsicCallExpr(callExpr);
+  }
   // Intrinsic functions such as 'dot' or 'mul'
-  if (hlsl::IsIntrinsicOp(callExpr->getDirectCallee())) {
+  if (hlsl::IsIntrinsicOp(funcDecl)) {
     return processIntrinsicCallExpr(callExpr);
   }
 
@@ -12451,6 +12455,62 @@ SpirvEmitter::processRayQueryIntrinsics(const CXXMemberCallExpr *expr,
                                       retVal, loc);
   }
 
+  retVal->setRValue();
+  return retVal;
+}
+
+SpirvInstruction *
+SpirvEmitter::processSpvIntrinsicCallExpr(const CallExpr *expr) {
+  auto funcDecl = expr->getDirectCallee();
+  auto &attrs = funcDecl->getAttrs();
+  QualType retType = funcDecl->getReturnType();
+
+  llvm::SmallVector<uint32_t, 2> capbilities;
+  llvm::SmallVector<llvm::StringRef, 2> extensions;
+  llvm::StringRef instSet = "";
+  uint32_t op = 0;
+  for (auto &attr : attrs) {
+    if (auto capAttr = dyn_cast<VKCapabilityExtAttr>(attr)) {
+      capbilities.push_back(capAttr->getCapability());
+    } else if (auto extAttr = dyn_cast<VKExtensionExtAttr>(attr)) {
+      extensions.push_back(extAttr->getName());
+    } else if (auto instAttr = dyn_cast<VKInstructionExtAttr>(attr)) {
+      op = instAttr->getOpcode();
+      instSet = instAttr->getInstruction_set();
+    }
+  }
+
+  llvm::SmallVector<SpirvInstruction *, 8> spvArgs;
+
+  const auto args = expr->getArgs();
+  for (uint32_t i = 0; i < expr->getNumArgs(); ++i) {
+    auto param = funcDecl->getParamDecl(i);
+    const Expr *arg = args[i]->IgnoreParenLValueCasts();
+    SpirvInstruction *argInst = doExpr(arg);
+    if (param->hasAttr<VKReferenceExtAttr>()) {
+      if (argInst->isRValue()) {
+        emitError("argument for a parameter with vk::ext_reference attribute "
+                  "must be a reference",
+                  arg->getExprLoc());
+        return nullptr;
+      }
+      spvArgs.push_back(argInst);
+    } else if (param->hasAttr<VKLiteralExtAttr>()) {
+      auto constArg = dyn_cast<SpirvConstantInteger>(argInst);
+      assert(constArg != nullptr);
+      constArg->setLiteral();
+      spvArgs.push_back(argInst);
+    } else {
+      spvArgs.push_back(loadIfGLValue(arg, argInst));
+    }
+  }
+
+  const auto loc = expr->getExprLoc();
+
+  SpirvInstruction *retVal = spvBuilder.createSpirvIntrInstExt(
+      op, retType, spvArgs, extensions, instSet, capbilities, loc);
+
+  // TODO: Revisit this r-value setting when handling vk::ext_result_id<T> ?
   retVal->setRValue();
   return retVal;
 }
