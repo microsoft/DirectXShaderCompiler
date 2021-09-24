@@ -18,6 +18,13 @@
 namespace clang {
 namespace spirv {
 
+/// Returns a string name for the function if |fn| is not an overloaded
+/// operator. Otherwise, returns the name of the operator. If
+/// |addClassNameWithOperator| is true, adds the name of RecordType that
+/// defines the overloaded operator in front of the operator name.
+std::string getFunctionOrOperatorName(const FunctionDecl *fn,
+                                      bool addClassNameWithOperator);
+
 /// Returns a string name for the given type.
 std::string getAstTypeName(QualType type);
 
@@ -113,6 +120,10 @@ bool isConstantTextureBuffer(QualType);
 /// * (RW)ByteAddressBuffer
 /// * SubpassInput(MS)
 bool isResourceType(QualType);
+
+/// \brief Returns true if the given type is a user-defined struct or class
+/// type (not HLSL built-in type).
+bool isUserDefinedRecordType(const ASTContext &, QualType);
 
 /// Returns true if the given type is or contains a 16-bit type.
 /// The caller must also specify whether 16-bit types have been enabled via
@@ -239,6 +250,12 @@ bool isRWTexture(QualType);
 
 /// \brief Returns true if the given type is an HLSL sampler type.
 bool isSampler(QualType);
+
+/// \brief Returns true if the given type is InputPatch.
+bool isInputPatch(QualType type);
+
+/// \brief Returns true if the given type is OutputPatch.
+bool isOutputPatch(QualType type);
 
 /// \brief Returns true if the given type is SubpassInput.
 bool isSubpassInput(QualType);

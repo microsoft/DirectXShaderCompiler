@@ -475,6 +475,19 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     opts.EnableFXCCompatMode = true;
   }
 
+  // If the HLSL version is 2021, allow the operator overloading by default.
+  // If the HLSL version is 2016 or 2018, allow the operator overloading only
+  // when -enable-operator-overloading option is enabled.
+  // If the HLSL version is 2015, do not allow the operator overloading.
+  opts.EnableOperatorOverloading =
+      opts.HLSLVersion >= 2021 ||
+      Args.hasFlag(OPT_enable_operator_overloading, OPT_INVALID, false);
+  if (opts.HLSLVersion <= 2015 && opts.EnableOperatorOverloading) {
+    errors << "/enable-operator-overloading is not supported with HLSL Version "
+           << opts.HLSLVersion;
+    return 1;
+  }
+
   // AssemblyCodeHex not supported (Fx)
   // OutputLibrary not supported (Fl)
   opts.AssemblyCode = Args.getLastArgValue(OPT_Fc);
@@ -482,6 +495,10 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.ImportBindingTable = Args.getLastArgValue(OPT_import_binding_table);
   opts.ExtractPrivateFile = Args.getLastArgValue(OPT_getprivate);
   opts.Enable16BitTypes = Args.hasFlag(OPT_enable_16bit_types, OPT_INVALID, false);
+  opts.EnableTemplates = Args.hasFlag(OPT_enable_templates, OPT_INVALID, false);
+  opts.EnableOperatorOverloading =
+      Args.hasFlag(OPT_enable_operator_overloading, OPT_INVALID, false);
+  opts.StrictUDTCasting = Args.hasFlag(OPT_strict_udt_casting, OPT_INVALID, false);
   opts.OutputObject = Args.getLastArgValue(OPT_Fo);
   opts.OutputHeader = Args.getLastArgValue(OPT_Fh);
   opts.OutputWarningsFile = Args.getLastArgValue(OPT_Fe);
@@ -695,6 +712,10 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
                               !Args.hasFlag(OPT_disable_lifetime_markers, OPT_INVALID, false);
   opts.EnablePayloadQualifiers = Args.hasFlag(OPT_enable_payload_qualifiers, OPT_INVALID,
                                             DXIL::CompareVersions(Major, Minor, 6, 7) >= 0); 
+
+  // Experimental option to enable short-circuiting operators
+  opts.EnableShortCircuit = Args.hasFlag(OPT_enable_short_circuit, OPT_INVALID, false);
+
   if (DXIL::CompareVersions(Major, Minor, 6, 8) < 0) {
      opts.EnablePayloadQualifiers &= !Args.hasFlag(OPT_disable_payload_qualifiers, OPT_INVALID, false);
   }

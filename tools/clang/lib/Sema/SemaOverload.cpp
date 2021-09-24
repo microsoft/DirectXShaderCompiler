@@ -11493,6 +11493,11 @@ Sema::CreateOverloadedBinOp(SourceLocation OpLoc,
       if (Opc == BO_Comma)
         break;
 
+      // HLSL Change Starts
+      if (getLangOpts().HLSL)
+        return CreateBuiltinBinOp(OpLoc, Opc, Args[0], Args[1]);
+      // HLSL Change Ends
+
       // For class as left operand for assignment or compound assigment
       // operator do not fall through to handling in built-in, but report that
       // no overloaded assignment operator found
@@ -11528,6 +11533,11 @@ Sema::CreateOverloadedBinOp(SourceLocation OpLoc,
     }
 
     case OR_Ambiguous:
+      // HLSL Change Starts
+      if (getLangOpts().HLSL)
+        return CreateBuiltinBinOp(OpLoc, Opc, Args[0], Args[1]);
+      // HLSL Change Ends
+
       Diag(OpLoc,  diag::err_ovl_ambiguous_oper_binary)
           << BinaryOperator::getOpcodeStr(Opc)
           << Args[0]->getType() << Args[1]->getType()

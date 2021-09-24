@@ -680,6 +680,12 @@ def hlsl_version : Separate<["-", "/"], "HV">, Group<f_Group>, Flags<[DriverOpti
   HelpText<"HLSL version (2015, 2016, 2017)">; // HLSL Change - mimic the HLSLOptions.td flag
 def enable_16bit_types: Flag<["-", "/"], "enable-16bit-types">, Flags<[CoreOption, DriverOption, HelpHidden]>,
   HelpText<"Enable 16bit types and disable min precision types.">; // HLSL Change - mimic the HLSLOptions.td flag
+def enable_templates: Flag<["-", "/"], "enable-templates">, Flags<[CoreOption, DriverOption, HelpHidden]>,
+  HelpText<"Enable template support for HLSL.">; // HLSL Change
+def enable_operator_overloading: Flag<["-", "/"], "enable-operator-overloading">, Flags<[CoreOption, DriverOption, HelpHidden]>,
+  HelpText<"Enable operator overloading support for HLSL.">; // HLSL Change
+def strict_udt_casting: Flag<["-", "/"], "strict-udt-casting">, Flags<[CoreOption, DriverOption, HelpHidden]>,
+  HelpText<"Require explicit casts between different structure types with compatible layouts.">;
 def fms_compatibility_version
     : Joined<["-"], "fms-compatibility-version=">,
       Group<f_Group>,

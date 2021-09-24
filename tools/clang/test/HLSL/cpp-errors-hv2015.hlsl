@@ -499,7 +499,7 @@ my_label: local_i = 1; // expected-error {{label is unsupported in HLSL}}
   // for without initialization
   for (int j;;) { break; }
   // ranged for is disallowed
-  for (int n : local_i) { // expected-error {{expected ';' in 'for' statement specifier}} expected-error {{expected ';' in 'for' statement specifier}} expected-error {{semantic is not a valid modifier for a local variable}}
+  for (int n : local_i) { // expected-error {{expected ';' in 'for' statement specifier}} expected-error {{expected ';' in 'for' statement specifier}} expected-warning {{'local_i' interpreted as semantic; previous definition(s) ignored}} expected-error {{semantic is not a valid modifier for a local variable}}
     break;
   }
   for (int n_again in local_i) { // expected-error {{expected ';' in 'for' statement specifier}} expected-error {{expected unqualified-id}} expected-error {{unknown type name 'local_i'}} expected-error {{variable declaration in condition must have an initializer}}

@@ -797,4 +797,5 @@ def HLSLPayloadAccessQualifer: DiagGroup<"payload-access-qualifier", [
      HLSLPayloadAccessQualiferPerf,
      HLSLPayloadAccessQualiferCall
   ]>;
+def HLSLSemanticIdentifierCollision : DiagGroup<"semantic-identifier-collision">;
 // HLSL Change Ends

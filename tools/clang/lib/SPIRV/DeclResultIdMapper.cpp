@@ -1403,9 +1403,9 @@ SpirvFunction *DeclResultIdMapper::getOrRegisterFn(const FunctionDecl *fn) {
   // definition is seen, the parameter types will be set properly and take into
   // account whether the function is a member function of a class/struct (in
   // which case a 'this' parameter is added at the beginnig).
-  SpirvFunction *spirvFunction =
-      spvBuilder.createSpirvFunction(fn->getReturnType(), fn->getLocation(),
-                                     fn->getName(), isPrecise, isNoInline);
+  SpirvFunction *spirvFunction = spvBuilder.createSpirvFunction(
+      fn->getReturnType(), fn->getLocation(),
+      getFunctionOrOperatorName(fn, true), isPrecise, isNoInline);
 
   if (fn->getAttr<HLSLExportAttr>()) {
     spvBuilder.decorateLinkage(nullptr, spirvFunction, fn->getName(),
