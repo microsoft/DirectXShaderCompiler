@@ -1339,10 +1339,14 @@ TEST_F(FileTest, IntrinsicsVkInvocationScope) {
 TEST_F(FileTest, IntrinsicsVkQueueFamilyScope) {
   runFileTest("intrinsics.vkqueuefamilyscope.hlsl");
 }
+TEST_F(FileTest, IntrinsicsSpirv) {
+  runFileTest("spv.intrinsicInstruction.hlsl");
+  runFileTest("spv.intrinsicLiteral.hlsl");
+  runFileTest("spv.intrinsic.reference.error.hlsl", Expect::Failure);
+}
 TEST_F(FileTest, IntrinsicsVkReadClock) {
   runFileTest("intrinsics.vkreadclock.hlsl");
 }
-
 // Intrinsics added in SM 6.6
 TEST_F(FileTest, IntrinsicsSM66PackU8S8) {
   runFileTest("intrinsics.sm6_6.pack_s8u8.hlsl");
