@@ -33,6 +33,7 @@ add_clang_library(clang-hlsl-tests SHARED
   CompilerTest.cpp
   DxilContainerTest.cpp
   DxilModuleTest.cpp
+  DxilResourceTests.cpp
   DXIsenseTest.cpp
   ExecutionTest.cpp
   ExtensionTest.cpp
@@ -66,6 +67,7 @@ set(HLSL_IGNORE_SOURCES
 add_clang_unittest(clang-hlsl-tests
   AllocatorTest.cpp
   DxilModuleTest.cpp
+  DxilResourceTests.cpp
   DXIsenseTest.cpp
   ExtensionTest.cpp
   FunctionTest.cpp
