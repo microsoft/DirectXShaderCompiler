@@ -3427,7 +3427,7 @@ void Scope::dump() {
 
 void ScopeInfo::dump() {
   auto &OS = llvm::dbgs();
-  for (int i = 0; i < scopes.size(); ++i) {
+  for (unsigned i = 0; i < scopes.size(); ++i) {
     Scope &scope = scopes[i];
     OS << "Scope:" << i << "\n";
     scope.dump();
