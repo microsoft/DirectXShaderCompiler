@@ -310,9 +310,7 @@ void EmitWarningOnFunction(llvm::LLVMContext &Ctx, Function *F, Twine Msg) {
 
 static void EmitWarningOrErrorOnGlobalVariable(llvm::LLVMContext &Ctx, GlobalVariable *GV,
                                                Twine Msg, DiagnosticSeverity severity) {
-  DIVariable *DIV = nullptr;
-
-  DILocation *DLoc = nullptr;
+  DIGlobalVariable *DIV = nullptr;
 
   if (GV) {
     Module &M = *GV->getParent();
@@ -325,13 +323,10 @@ static void EmitWarningOrErrorOnGlobalVariable(llvm::LLVMContext &Ctx, GlobalVar
       else
         Finder.processModule(M);
       DIV = FindGlobalVariableDebugInfo(GV, Finder);
-      if (DIV)
-        DLoc = DILocation::get(GV->getContext(), DIV->getLine(), 0,
-                               DIV->getScope(), nullptr /*InlinedAt*/);
     }
   }
 
-  Ctx.diagnose(DiagnosticInfoDxil(nullptr /*Function*/, DLoc, Msg, severity));
+  Ctx.diagnose(DiagnosticInfoDxil(nullptr /*Function*/, DIV, Msg, severity));
 }
 
 void EmitErrorOnGlobalVariable(llvm::LLVMContext &Ctx, GlobalVariable *GV, Twine Msg) {
@@ -350,8 +345,7 @@ void EmitResMappingError(Instruction *Res) {
 
 // Mostly just a locationless diagnostic output
 static void EmitWarningOrErrorOnContext(LLVMContext &Ctx, Twine Msg, DiagnosticSeverity severity) {
-  Ctx.diagnose(DiagnosticInfoDxil(nullptr /*Func*/, nullptr /*DLoc*/,
-                                  Msg, severity));
+  Ctx.diagnose(DiagnosticInfoDxil(nullptr /*Func*/, Msg, severity));
 }
 
 void EmitErrorOnContext(LLVMContext &Ctx, Twine Msg) {

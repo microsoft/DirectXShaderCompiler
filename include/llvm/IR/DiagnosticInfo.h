@@ -484,22 +484,33 @@ private:
   // Function
   const Function *Func;
 
-  // Location information
-  const DILocation *DLoc;
+  bool HasLocation = false;
+  unsigned Line = 0;
+  unsigned Column = 0;
+  StringRef FileName;
 
   /// Message to be reported.
   const Twine &MsgStr;
 
+
 public:
   /// This class does not copy \p MsgStr, therefore the reference must be valid
   /// for the whole life time of the Diagnostic.
+  /// 
+  DiagnosticInfoDxil(const Function *F, const Twine &MsgStr, DiagnosticSeverity Severity) :
+    DiagnosticInfo(DK_DXIL, Severity), Func(F), MsgStr(MsgStr)
+  {}
   DiagnosticInfoDxil(const Function *F, const DILocation *Loc, const Twine &MsgStr,
-                     DiagnosticSeverity Severity = DS_Error)
-    : DiagnosticInfo(DK_DXIL, Severity), Func(F), DLoc(Loc), MsgStr(MsgStr) {}
+                      DiagnosticSeverity Severity = DS_Error);
+  DiagnosticInfoDxil(const Function *F, const DIGlobalVariable *DGV, const Twine &MsgStr,
+                      DiagnosticSeverity Severity = DS_Error);
 
   const Function *getFunction() const { return Func; }
-  const DILocation *getLocation() const { return DLoc; }
   const Twine &getMsgStr() const { return MsgStr; }
+  bool hasLocation() const { return HasLocation; }
+  unsigned getLine() const { return Line; }
+  unsigned getColumn() const { return Column; }
+  StringRef getFileName() const { return FileName; }
 
   /// \see DiagnosticInfo::print.
   void print(DiagnosticPrinter &DP) const override;
