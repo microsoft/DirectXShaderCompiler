@@ -1353,6 +1353,7 @@ public:
 
     compiler.getLangOpts().EnablePayloadAccessQualifiers = Opts.EnablePayloadQualifiers;
     compiler.getLangOpts().EnableShortCircuit = Opts.EnableShortCircuit;
+    compiler.getLangOpts().EnableBitfields = Opts.EnableBitfields;
 
 // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN

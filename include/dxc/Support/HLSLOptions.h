@@ -206,6 +206,8 @@ public:
   // Experimental option to enable short-circuiting operators
   bool EnableShortCircuit = false; // OPT_enable_short_circuit
 
+  bool EnableBitfields = false; // OPT_enable_bitfields
+
   // Optimization pass enables, disables and selects
   std::map<std::string, bool> DxcOptimizationToggles; // OPT_opt_enable & OPT_opt_disable
   std::map<std::string, std::string> DxcOptimizationSelects; // OPT_opt_select

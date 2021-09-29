@@ -1,4 +1,5 @@
 // RUN: %dxc /Tvs_6_0 /Emain -strict-udt-casting %s | FileCheck %s
+// RUN: %dxc /Tvs_6_0 /Emain -HV 2021 %s | FileCheck %s
 // Test explicit cast between structs of identical layout where
 // the destination struct is marked as out param.
 

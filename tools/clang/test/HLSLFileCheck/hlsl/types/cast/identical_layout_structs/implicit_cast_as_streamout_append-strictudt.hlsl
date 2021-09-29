@@ -1,4 +1,5 @@
 // RUN: %dxc /Tgs_6_0 /Emain -strict-udt-casting %s | FileCheck %s
+// RUN: %dxc /Tgs_6_0 /Emain -HV 2021 %s | FileCheck %s
 // github issue #1560
 
 // CHECK: main

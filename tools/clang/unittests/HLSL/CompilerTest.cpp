@@ -179,7 +179,7 @@ public:
   TEST_METHOD(CompileHlsl2016ThenOK)
   TEST_METHOD(CompileHlsl2017ThenOK)
   TEST_METHOD(CompileHlsl2018ThenOK)
-  TEST_METHOD(CompileHlsl2019ThenFail)
+  TEST_METHOD(CompileHlsl2022ThenFail)
 
   TEST_METHOD(CodeGenFloatingPointEnvironment)
   TEST_METHOD(CodeGenInclude)
@@ -3064,7 +3064,7 @@ TEST_F(CompilerTest, CompileHlsl2018ThenOK) {
   VERIFY_SUCCEEDED(status);
 }
 
-TEST_F(CompilerTest, CompileHlsl2019ThenFail) {
+TEST_F(CompilerTest, CompileHlsl2022ThenFail) {
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcOperationResult> pResult;
   CComPtr<IDxcBlobEncoding> pSource;
@@ -3073,7 +3073,7 @@ TEST_F(CompilerTest, CompileHlsl2019ThenFail) {
   VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
   CreateBlobFromText("float4 main(float4 pos : SV_Position) : SV_Target { return pos; }", &pSource);
 
-  LPCWSTR args[2] = { L"-HV", L"2019" };
+  LPCWSTR args[2] = { L"-HV", L"2022" };
 
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
     L"ps_6_0", args, 2, nullptr, 0, nullptr, &pResult));

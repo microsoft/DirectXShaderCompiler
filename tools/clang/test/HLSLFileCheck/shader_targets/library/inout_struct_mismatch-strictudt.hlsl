@@ -1,4 +1,5 @@
 // RUN: %dxc -T lib_6_x -default-linkage external -strict-udt-casting %s | FileCheck %s
+// RUN: %dxc -T lib_6_x -default-linkage external -HV 2021 %s | FileCheck %s
 
 // CHECK: define <4 x float>
 // CHECK-SAME: main

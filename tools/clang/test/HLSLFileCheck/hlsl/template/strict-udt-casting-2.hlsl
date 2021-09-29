@@ -1,4 +1,5 @@
 // RUN: %dxc -E main -T ps_6_0 -enable-templates -strict-udt-casting %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 -HV 2021 %s | FileCheck %s
 
 // Based on GitHub issue #3564
 
