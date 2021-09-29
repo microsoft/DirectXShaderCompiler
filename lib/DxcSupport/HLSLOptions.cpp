@@ -521,7 +521,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       if (opts.EnableBitfields)
         errors << "/enable-bitfields is not supported with HLSL Version " << opts.HLSLVersion;
 
-        return 1;
+      return 1;
     }
   }
 
