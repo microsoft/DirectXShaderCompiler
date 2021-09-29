@@ -446,8 +446,15 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   } else {
     try {
       opts.HLSLVersion = std::stoul(std::string(ver));
-      if (opts.HLSLVersion < 2015 || opts.HLSLVersion > 2021) {
-        errors << "Unknown HLSL version: " << opts.HLSLVersion;
+      switch (opts.HLSLVersion) {
+      case 2015:
+      case 2016:
+      case 2017:
+      case 2018:
+      case 2021:
+        break;
+      default:
+        errors << "Unknown HLSL version: " << opts.HLSLVersion << ". Valid versions: 2016, 2017, 2018, 2021";
         return 1;
       }
     }
