@@ -1126,18 +1126,19 @@ private:
     }
   }
 
-  const llvm::Function *FindUsingFunction(const llvm::Value *User) {
+  void
+  FindUsingFunction(const llvm::Value *User,
+                    llvm::SmallVectorImpl<const llvm::Function *> &functions) {
     if (const llvm::Instruction *I = dyn_cast<const llvm::Instruction>(User)) {
       // Instruction should be inside a basic block, which is in a function
-      return cast<const llvm::Function>(I->getParent()->getParent());
+      functions.push_back(cast<const llvm::Function>(I->getParent()->getParent()));
+      return;
     }
     // User can be either instruction, constant, or operator. But User is an
     // operator only if constant is a scalar value, not resource pointer.
     const llvm::Constant *CU = cast<const llvm::Constant>(User);
-    if (!CU->user_empty())
-      return FindUsingFunction(*CU->user_begin());
-    else
-      return nullptr;
+    for (auto U : CU->users())
+      FindUsingFunction(U, functions);
   }
 
   void UpdateFunctionToResourceInfo(const DxilResourceBase *resource,
@@ -1145,14 +1146,15 @@ private:
     Constant *var = resource->GetGlobalSymbol();
     if (var) {
       for (auto user : var->users()) {
-        // Find the function.
-        const llvm::Function *F = FindUsingFunction(user);
-        if (!F)
-          continue;
-        if (m_FuncToResNameOffset.find(F) == m_FuncToResNameOffset.end()) {
-          m_FuncToResNameOffset[F] = Indices();
+        // Find the function(s).
+        llvm::SmallVector<const llvm::Function*, 8> functions;
+        FindUsingFunction(user, functions);
+        for (const llvm::Function *F : functions) {
+          if (m_FuncToResNameOffset.find(F) == m_FuncToResNameOffset.end()) {
+            m_FuncToResNameOffset[F] = Indices();
+          }
+          m_FuncToResNameOffset[F].insert(offset);
         }
-        m_FuncToResNameOffset[F].insert(offset);
       }
     }
   }
@@ -1207,14 +1209,17 @@ private:
 
   void UpdateFunctionDependency(llvm::Function *F) {
     for (const auto &user : F->users()) {
-      const llvm::Function *userFunction = FindUsingFunction(user);
-      uint32_t index = m_pStringBufferPart->Insert(F->getName());
-      if (m_FuncToDependencies.find(userFunction) ==
-          m_FuncToDependencies.end()) {
-        m_FuncToDependencies[userFunction] =
-            Indices();
+      llvm::SmallVector<const llvm::Function*, 8> functions;
+      FindUsingFunction(user, functions);
+      for (const llvm::Function *userFunction : functions) {
+        uint32_t index = m_pStringBufferPart->Insert(F->getName());
+        if (m_FuncToDependencies.find(userFunction) ==
+            m_FuncToDependencies.end()) {
+          m_FuncToDependencies[userFunction] =
+              Indices();
+        }
+        m_FuncToDependencies[userFunction].insert(index);
       }
-      m_FuncToDependencies[userFunction].insert(index);
     }
   }
 
