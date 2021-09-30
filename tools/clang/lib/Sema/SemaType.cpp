@@ -4254,6 +4254,12 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
       // Note: core issue 778 clarifies that, if there are any unexpanded
       // parameter packs in the type of the non-type template parameter, then
       // it expands those parameter packs.
+      // HLSL Change Starts
+      if (LangOpts.HLSL) {
+        S.Diag(D.getEllipsisLoc(), diag::err_hlsl_variadic_templates);
+        break;
+      }
+      // HLSL Change Ends
       if (T->containsUnexpandedParameterPack())
         T = Context.getPackExpansionType(T, None);
       else

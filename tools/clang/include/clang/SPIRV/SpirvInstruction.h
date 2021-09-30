@@ -127,6 +127,7 @@ public:
     IK_Store,                     // OpStore
     IK_UnaryOp,                   // Unary operations
     IK_VectorShuffle,             // OpVectorShuffle
+    IK_SpirvIntrinsicInstruction, // Spirv Intrinsic Instructions
 
     // For DebugInfo instructions defined in OpenCL.DebugInfo.100
     IK_DebugInfoNone,
@@ -470,6 +471,9 @@ public:
                   spv::Decoration decor,
                   llvm::ArrayRef<SpirvInstruction *> params);
 
+  SpirvDecoration(SourceLocation loc, SpirvFunction *targetFunc,
+                  spv::Decoration decor, llvm::ArrayRef<uint32_t> params);
+
   DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvDecoration)
 
   // For LLVM-style RTTI
@@ -483,7 +487,7 @@ public:
 
   // Returns the instruction that is the target of the decoration.
   SpirvInstruction *getTarget() const { return target; }
-
+  SpirvFunction *getTargetFunc() const { return targetFunction; }
   spv::Decoration getDecoration() const { return decoration; }
   llvm::ArrayRef<uint32_t> getParams() const { return params; }
   llvm::ArrayRef<SpirvInstruction *> getIdParams() const { return idParams; }
@@ -496,6 +500,7 @@ private:
 
 private:
   SpirvInstruction *target;
+  SpirvFunction *targetFunction;
   spv::Decoration decoration;
   llvm::Optional<uint32_t> index;
   llvm::SmallVector<uint32_t, 4> params;
@@ -1121,7 +1126,7 @@ private:
 class SpirvConstantInteger : public SpirvConstant {
 public:
   SpirvConstantInteger(QualType type, llvm::APInt value,
-                       bool isSpecConst = false);
+                       bool isSpecConst = false, bool literal = false);
 
   DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvConstantInteger)
 
@@ -1135,9 +1140,12 @@ public:
   bool invokeVisitor(Visitor *v) override;
 
   llvm::APInt getValue() const { return value; }
+  void setLiteral(bool l = true) { isLiteral = l; }
+  bool getLiteral() { return isLiteral; }
 
 private:
   llvm::APInt value;
+  bool isLiteral;
 };
 
 class SpirvConstantFloat : public SpirvConstant {
@@ -1993,6 +2001,44 @@ public:
   }
 
   bool invokeVisitor(Visitor *v) override;
+};
+
+// A class keeping information of [[vk::ext_instruction(uint opcode,
+// string extended_instruction_set)]] attribute. The attribute allows users to
+// emit an arbitrary SPIR-V instruction by adding it to a function declaration.
+// Note that this class does not represent an actual specific SPIR-V
+// instruction. It is used to keep the information of the arbitrary SPIR-V
+// instruction.
+class SpirvIntrinsicInstruction : public SpirvInstruction {
+public:
+  SpirvIntrinsicInstruction(QualType resultType, uint32_t opcode,
+                            llvm::ArrayRef<SpirvInstruction *> operands,
+                            llvm::ArrayRef<llvm::StringRef> extensions,
+                            SpirvExtInstImport *set,
+                            llvm::ArrayRef<uint32_t> capabilities,
+                            SourceLocation loc);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvIntrinsicInstruction)
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_SpirvIntrinsicInstruction;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  llvm::ArrayRef<SpirvInstruction *> getOperands() const { return operands; }
+  llvm::ArrayRef<uint32_t> getCapabilities() const { return capabilities; }
+  llvm::ArrayRef<std::string> getExtensions() const { return extensions; }
+  SpirvExtInstImport *getInstructionSet() const { return instructionSet; }
+  uint32_t getInstruction() const { return instruction; }
+
+private:
+  uint32_t instruction;
+  llvm::SmallVector<SpirvInstruction *, 4> operands;
+  llvm::SmallVector<uint32_t, 4> capabilities;
+  llvm::SmallVector<std::string, 4> extensions;
+  SpirvExtInstImport *instructionSet;
 };
 
 /// \breif Base class for all OpenCL.DebugInfo.100 extension instructions.

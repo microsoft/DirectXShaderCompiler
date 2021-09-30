@@ -448,6 +448,17 @@ bool CapabilityVisitor::visitInstruction(SpirvInstruction *instr) {
     addCapability(getNonUniformCapability(resultType));
   }
 
+  if (instr->getKind() == SpirvInstruction::IK_SpirvIntrinsicInstruction) {
+    SpirvIntrinsicInstruction *pSpvInst =
+        dyn_cast<SpirvIntrinsicInstruction>(instr);
+    for (auto &cap : pSpvInst->getCapabilities()) {
+      addCapability(static_cast<spv::Capability>(cap));
+    }
+    for (const auto &ext : pSpvInst->getExtensions()) {
+      spvBuilder.requireExtension(ext, loc);
+    }
+  }
+
   // Add opcode-specific capabilities
   switch (opcode) {
   case spv::Op::OpDPdxCoarse:

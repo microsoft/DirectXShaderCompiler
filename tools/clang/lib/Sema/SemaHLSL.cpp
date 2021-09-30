@@ -78,7 +78,7 @@ enum ArBasicKind {
   AR_BASIC_NONE,
   AR_BASIC_UNKNOWN,
   AR_BASIC_NOCAST,
-
+  AR_BASIC_DEPENDENT,
   //
   // The following pseudo-entries represent higher-level
   // object types that are treated as units.
@@ -378,6 +378,7 @@ const UINT g_uBasicKindProps[] =
   0,            // AR_BASIC_NONE
   BPROP_OTHER,  // AR_BASIC_UNKNOWN
   BPROP_OTHER,  // AR_BASIC_NOCAST
+  0,            // AR_BASIC_DEPENDENT
 
   //
   // The following pseudo-entries represent higher-level
@@ -589,6 +590,7 @@ enum ArTypeObjectKind {
   AR_TOBJ_INNER_OBJ, // Represents a built-in inner object, such as an 
                      // indexer object used to implement .mips[1].
   AR_TOBJ_STRING,    // Represents a string
+  AR_TOBJ_DEPENDENT, // Dependent type for template.
 };
 
 enum TYPE_CONVERSION_FLAGS
@@ -1627,6 +1629,7 @@ const char* g_ArBasicTypeNames[] =
   "<none>",
   "<unknown>",
   "<nocast>",
+  "<dependent>",
   "<pointer>",
   "enum class",
 
@@ -3910,7 +3913,7 @@ public:
 
   /// <summary>
   /// Determines whether the specify record type is a matrix, another HLSL object, or a user-defined structure.
-  /// </sumary>
+  /// </summary>
   ArTypeObjectKind ClassifyRecordType(const RecordType* type)
   {
     DXASSERT_NOMSG(type != nullptr);
@@ -3923,7 +3926,8 @@ public:
         return AR_TOBJ_MATRIX;
       else if (decl == m_vectorTemplateDecl)
         return AR_TOBJ_VECTOR;
-      DXASSERT(decl->isImplicit(), "otherwise object template decl is not set to implicit");
+      else if (!decl->isImplicit())
+        return AR_TOBJ_COMPOUND;
       return AR_TOBJ_OBJECT;
     }
 
@@ -3990,6 +3994,9 @@ public:
     }
     if (type->isPointerType()) {
       return hlsl::IsPointerStringType(type) ? AR_TOBJ_STRING : AR_TOBJ_POINTER;
+    }
+    if (type->isDependentType()) {
+      return AR_TOBJ_DEPENDENT;
     }
     if (type->isStructureOrClassType()) {
       const RecordType* recordType = type->getAs<RecordType>();
@@ -4124,6 +4131,7 @@ public:
       case BuiltinType::LitInt: return AR_BASIC_LITERAL_INT;
       case BuiltinType::Int8_4Packed: return AR_BASIC_INT8_4PACKED;
       case BuiltinType::UInt8_4Packed: return AR_BASIC_UINT8_4PACKED;
+      case BuiltinType::Dependent: return AR_BASIC_DEPENDENT;
       default:
         // Only builtin types that have basickind equivalents.
         break;
@@ -4512,6 +4520,17 @@ public:
       DXASSERT(
         pIntrinsic->uNumArgs <= g_MaxIntrinsicParamCount + 1,
         "otherwise g_MaxIntrinsicParamCount needs to be updated for wider signatures");
+
+      // Some intrinsics only optionally exist in later language versions.
+      // To prevent collisions with existing functions or templates, exclude
+      // intrinsics when they aren't enabled.
+      if (IsBuiltinTable(tableName) && !m_sema->getLangOpts().EnableShortCircuit) {
+        if (pIntrinsic->Op == (UINT)IntrinsicOp::IOP_and ||
+            pIntrinsic->Op == (UINT)IntrinsicOp::IOP_or ||
+            pIntrinsic->Op == (UINT)IntrinsicOp::IOP_select) {
+          continue;
+        }
+      }
 
       std::vector<QualType> functionArgTypes;
       size_t badArgIdx;
@@ -5099,7 +5118,7 @@ public:
 
     IntrinsicOp intrinOp = static_cast<IntrinsicOp>(intrinsic->Op);
 
-    if (intrinOp == IntrinsicOp::MOP_SampleBias) {
+    if (IsBuiltinTable(tableName) && intrinOp == IntrinsicOp::MOP_SampleBias) {
       // Remove this when update intrinsic table not affect other things.
       // Change vector<float,1> into float for bias.
       const unsigned biasOperandID = 3; // return type, sampler, coord, bias.
@@ -8082,7 +8101,7 @@ clang::Expr *HLSLExternalSource::HLSLImpCastToScalar(
   if (AR_TOBJ_VECTOR == FromShape)
     CK = CK_HLSLVectorToScalarCast;
   if (CK_Invalid != CK) {
-    return self->ImpCastExprToType(From, 
+    return self->ImpCastExprToType(From,
       NewSimpleAggregateType(AR_TOBJ_BASIC, EltKind, 0, 1, 1), CK, From->getValueKind()).get();
   }
   return From;
@@ -8623,6 +8642,7 @@ bool HLSLExternalSource::CanConvert(
     && sourceExpr->getStmtClass() != Expr::StringLiteralClass;
 
   bool targetRef = target->isReferenceType();
+  bool TargetIsAnonymous = false;
 
   // Initialize the output standard sequence if available.
   if (standard != nullptr) {
@@ -8712,6 +8732,9 @@ bool HLSLExternalSource::CanConvert(
           Second = ICK_HLSL_Derived_To_Base;
           goto lSuccess;
         }
+        // There is no way to cast to anonymous structures.  So we allow legacy
+        // HLSL implicit casts to matching anonymous structure types.
+        TargetIsAnonymous = !targetRD->hasNameForLinkage();
       }
     }
 
@@ -8740,6 +8763,14 @@ bool HLSLExternalSource::CanConvert(
           break;
         }
       }
+    } else if (m_sema->getLangOpts().StrictUDTCasting &&
+               (SourceInfo.ShapeKind == AR_TOBJ_COMPOUND ||
+                TargetInfo.ShapeKind == AR_TOBJ_COMPOUND) &&
+               !TargetIsAnonymous) {
+      // Not explicit, either are struct/class, not derived-to-base,
+      // target is named (so explicit cast is possible),
+      // and using strict UDT rules: disallow this implicit cast.
+      return false;
     }
 
     FlattenedTypeIterator::ComparisonResult result =
@@ -8873,6 +8904,11 @@ bool HLSLExternalSource::ValidateTypeRequirements(
   bool requiresIntegrals,
   bool requiresNumerics)
 {
+  if (objectKind == AR_TOBJ_DEPENDENT)
+    return true;
+  if (elementKind == AR_BASIC_DEPENDENT)
+    return true;
+
   if (requiresIntegrals || requiresNumerics)
   {
     if (!IsObjectKindPrimitiveAggregate(objectKind))
@@ -8971,6 +9007,17 @@ void HLSLExternalSource::CheckBinOpForHLSL(
 
   // If either expression is invalid to begin with, propagate that.
   if (LHS.isInvalid() || RHS.isInvalid()) {
+    return;
+  }
+
+  // If there is a dependent type we will use that as the result type
+  if (LHS.get()->getType()->isDependentType() || RHS.get()->getType()->isDependentType()) {
+    if (LHS.get()->getType()->isDependentType())
+      ResultTy = LHS.get()->getType();
+    else
+      ResultTy = RHS.get()->getType();
+    if (BinaryOperatorKindIsCompoundAssignment(Opc))
+      CompResultTy = ResultTy;
     return;
   }
 
@@ -9097,6 +9144,14 @@ void HLSLExternalSource::CheckBinOpForHLSL(
   ArBasicKind resultElementKind = leftElementKind;
   {
     if (BinaryOperatorKindIsLogical(Opc)) {
+      if (m_sema->getLangOpts().EnableShortCircuit) {
+        // Only allow scalar types for logical operators &&, ||
+        if (leftObjectKind != ArTypeObjectKind::AR_TOBJ_BASIC ||
+            rightObjectKind != ArTypeObjectKind::AR_TOBJ_BASIC) {
+          m_sema->Diag(OpLoc, diag::err_hlsl_logical_binop_scalar);
+          return;
+        }
+      }
       resultElementKind = AR_BASIC_BOOL;
     } else if (!BinaryOperatorKindIsBitwiseShift(Opc) && leftElementKind != rightElementKind) {
       if (!CombineBasicTypes(leftElementKind, rightElementKind, &resultElementKind)) {
@@ -9151,8 +9206,11 @@ void HLSLExternalSource::CheckBinOpForHLSL(
     StandardConversionSequence standard;
     // Suppress type narrowing or truncation warnings for RHS on bitwise shift, since we only care about the LHS type.
     bool bSuppressWarnings = BinaryOperatorKindIsBitwiseShift(Opc);
-    // Suppress errors on compound assignment, since we will vaildate the cast to the final type later.
+    // Suppress errors on compound assignment, since we will validate the cast to the final type later.
     bool bSuppressErrors = isCompoundAssignment;
+    // Suppress errors if either operand has a dependent type.
+    if (RHS.get()->getType()->isDependentType() || ResultTy->isDependentType())
+      bSuppressErrors = true;
     // If compound assignment, suppress errors until later, but report warning (vector truncation/type narrowing) here.
     if (ValidateCast(SourceLocation(), RHS.get(), ResultTy, ExplicitConversionFalse, bSuppressWarnings, bSuppressErrors, &standard)) {
       if (standard.First != ICK_Identity || !standard.isIdentityConversion())
@@ -9355,6 +9413,15 @@ clang::QualType HLSLExternalSource::CheckVectorConditional(
   QualType condType = GetStructuralForm(Cond.get()->getType());
   QualType leftType = GetStructuralForm(LHS.get()->getType());
   QualType rightType = GetStructuralForm(RHS.get()->getType());
+
+  // If any type is dependent, we will use that as the type to return.
+  if (leftType->isDependentType())
+    return leftType;
+  if (rightType->isDependentType())
+    return rightType;
+  if (condType->isDependentType())
+    return condType;
+
   ArBasicKind condElementKind = GetTypeElementKind(condType);
   ArBasicKind leftElementKind = GetTypeElementKind(leftType);
   ArBasicKind rightElementKind = GetTypeElementKind(rightType);
@@ -9363,6 +9430,14 @@ clang::QualType HLSLExternalSource::CheckVectorConditional(
   ArTypeObjectKind rightObjectKind = GetTypeObjectKind(rightType);
 
   QualType ResultTy = leftType;
+
+  if (m_sema->getLangOpts().EnableShortCircuit) {
+    // Only allow scalar.
+    if (condObjectKind == AR_TOBJ_VECTOR || condObjectKind == AR_TOBJ_MATRIX) {
+      m_sema->Diag(QuestionLoc, diag::err_hlsl_ternary_scalar);
+      return QualType();
+    }
+  }
 
   bool condIsSimple = condObjectKind == AR_TOBJ_BASIC || condObjectKind == AR_TOBJ_VECTOR || condObjectKind == AR_TOBJ_MATRIX;
   if (!condIsSimple) {
@@ -9436,7 +9511,13 @@ clang::QualType HLSLExternalSource::CheckVectorConditional(
     Cond.set(CreateLValueToRValueCast(Cond.get()));
 
   // Convert condition component type to bool, using result component dimensions
-  QualType boolType = NewSimpleAggregateType(AR_TOBJ_INVALID, AR_BASIC_BOOL, 0, rowCount, colCount)->getCanonicalTypeInternal();
+  QualType boolType;
+  // If short-circuiting, condition must be scalar.
+  if (m_sema->getLangOpts().EnableShortCircuit)
+    boolType = NewSimpleAggregateType(AR_TOBJ_INVALID, AR_BASIC_BOOL, 0, 1, 1)->getCanonicalTypeInternal();
+  else
+    boolType = NewSimpleAggregateType(AR_TOBJ_INVALID, AR_BASIC_BOOL, 0, rowCount, colCount)->getCanonicalTypeInternal();
+
   if (condElementKind != AR_BASIC_BOOL || condType != boolType) {
     StandardConversionSequence standard;
     if (ValidateCast(SourceLocation(), Cond.get(), boolType, ExplicitConversionFalse, SuppressWarningsFalse, SuppressErrorsFalse, &standard)) {
@@ -9531,8 +9612,10 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
 
   // Get information about the function we have.
   CXXMethodDecl* functionMethod = dyn_cast<CXXMethodDecl>(FunctionTemplate->getTemplatedDecl());
-  DXASSERT(functionMethod != nullptr,
-    "otherwise this is standalone function rather than a method, which isn't supported in the HLSL object model");
+  if (!functionMethod) {
+    // standalone function.
+    return Sema::TemplateDeductionResult::TDK_Invalid;
+  }
   CXXRecordDecl* functionParentRecord = functionMethod->getParent();
   DXASSERT(functionParentRecord != nullptr, "otherwise function is orphaned");
   QualType objectElement = GetFirstElementTypeFromDecl(functionParentRecord);
@@ -9590,6 +9673,11 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
   size_t intrinsicCount = 0;
   const char* objectName = nullptr;
   FindIntrinsicTable(FunctionTemplate->getDeclContext(), &objectName, &intrinsics, &intrinsicCount);
+  // user-defined template object.
+  if (objectName == nullptr && intrinsics == nullptr) {
+    return Sema::TemplateDeductionResult::TDK_Invalid;
+  }
+
   DXASSERT(objectName != nullptr &&
     (intrinsics != nullptr || m_intrinsicTables.size() > 0),
     "otherwise FindIntrinsicTable failed to lookup a valid object, "
@@ -9610,6 +9698,7 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
       continue;
     }
 
+    LPCSTR tableName = cursor.GetTableName();
     // Currently only intrinsic we allow for explicit template arguments are
     // for Load/Store for ByteAddressBuffer/RWByteAddressBuffer
 
@@ -9620,8 +9709,12 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
     bool IsBAB =
         objectName == g_ArBasicTypeNames[AR_OBJECT_BYTEADDRESS_BUFFER] ||
         objectName == g_ArBasicTypeNames[AR_OBJECT_RWBYTEADDRESS_BUFFER];
-    bool IsBABLoad = IsBAB && intrinsicOp == (UINT)IntrinsicOp::MOP_Load;
-    bool IsBABStore = IsBAB && intrinsicOp == (UINT)IntrinsicOp::MOP_Store;
+    bool IsBABLoad = false;
+    bool IsBABStore = false;
+    if (IsBuiltinTable(tableName) &&  IsBAB) {
+      IsBABLoad = intrinsicOp == (UINT)IntrinsicOp::MOP_Load;
+      IsBABStore = intrinsicOp == (UINT)IntrinsicOp::MOP_Store;
+    }
     if (ExplicitTemplateArgs && ExplicitTemplateArgs->size() > 0) {
       bool isLegalTemplate = false;
       SourceLocation Loc = ExplicitTemplateArgs->getLAngleLoc();
@@ -9656,11 +9749,11 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
             32, /*signed*/ false);
       }
     }
-    Specialization = AddHLSLIntrinsicMethod(cursor.GetTableName(), cursor.GetLoweringStrategy(), *cursor, FunctionTemplate, Args, argTypes.data(), argTypes.size());
+    Specialization = AddHLSLIntrinsicMethod(tableName, cursor.GetLoweringStrategy(), *cursor, FunctionTemplate, Args, argTypes.data(), argTypes.size());
     DXASSERT_NOMSG(Specialization->getPrimaryTemplate()->getCanonicalDecl() ==
       FunctionTemplate->getCanonicalDecl());
 
-    if (!IsValidateObjectElement(*cursor, objectElement)) {
+    if (IsBuiltinTable(tableName) && !IsValidateObjectElement(*cursor, objectElement)) {
       m_sema->Diag(Args[0]->getExprLoc(), diag::err_hlsl_invalid_resource_type_on_intrinsic) <<
           nameIdentifier << g_ArBasicTypeNames[GetTypeElementKind(objectElement)];
     }
@@ -11914,6 +12007,10 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     declAttr = ::new (S.Context) VKOffsetAttr(A.getRange(), S.Context,
       ValidateAttributeIntArg(S, A), A.getAttributeSpellingListIndex());
     break;
+  case AttributeList::AT_VKCombinedImageSampler:
+    declAttr = ::new (S.Context) VKCombinedImageSamplerAttr(
+        A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
   case AttributeList::AT_VKImageFormat: {
     VKImageFormatAttr::ImageFormatType Kind = ValidateAttributeEnumArg<
         VKImageFormatAttr, VKImageFormatAttr::ImageFormatType,
@@ -11940,6 +12037,30 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     break;
   case AttributeList::AT_VKShaderRecordEXT:
     declAttr = ::new (S.Context) VKShaderRecordEXTAttr(A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_VKCapabilityExt:
+    declAttr = ::new (S.Context) VKCapabilityExtAttr(
+        A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
+        A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_VKExtensionExt:
+    declAttr = ::new (S.Context) VKExtensionExtAttr(
+        A.getRange(), S.Context, ValidateAttributeStringArg(S, A, nullptr),
+        A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_VKInstructionExt:
+    declAttr = ::new (S.Context) VKInstructionExtAttr(
+        A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
+        ValidateAttributeStringArg(S, A, nullptr, 1),
+        A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_VKLiteralExt:
+    declAttr = ::new (S.Context) VKLiteralExtAttr(
+        A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_VKReferenceExt:
+    declAttr = ::new (S.Context) VKReferenceExtAttr(
+        A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
   default:
     Handled = false;
@@ -12732,8 +12853,8 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 
-  // Disallow bitfields
-  if (BitWidth) {
+  // Disallow bitfields where not enabled explicitly or by HV
+  if (BitWidth && !getLangOpts().EnableBitfields) {
     Diag(BitWidth->getExprLoc(), diag::err_hlsl_bitfields);
     result = false;
   }
@@ -13437,7 +13558,11 @@ void Sema::CheckHLSLArrayAccess(const Expr *expr) {
           // we also have to check the first subscript oprator by recursively calling
           // this funciton for the first CXXOperatorCallExpr
           if (isa<CXXOperatorCallExpr>(OperatorCallExpr->getArg(0))) {
-              CheckHLSLArrayAccess(cast<CXXOperatorCallExpr>(OperatorCallExpr->getArg(0)));
+            const CXXOperatorCallExpr *object =
+                cast<CXXOperatorCallExpr>(OperatorCallExpr->getArg(0));
+            if (object->getOperator() == OverloadedOperatorKind::OO_Subscript) {
+              CheckHLSLArrayAccess(object);
+            }
           }
           if (intIndex < 0 || (uint32_t)intIndex >= vectorSize) {
               Diag(RHS->getExprLoc(),

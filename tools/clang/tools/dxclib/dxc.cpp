@@ -229,10 +229,10 @@ static void WriteDxcExtraOuputs(IDxcResult *pResult) {
     CComPtr<IDxcBlobUtf16> pFileName;
     CComPtr<IDxcBlobUtf16> pType;
     CComPtr<IDxcBlob> pBlob;
-    IFT(pOutputs->GetOutput(i, IID_PPV_ARGS(&pBlob), &pType, &pFileName));
+    HRESULT hr = pOutputs->GetOutput(i, IID_PPV_ARGS(&pBlob), &pType, &pFileName);
 
     // Not a blob
-    if (!pBlob)
+    if (FAILED(hr))
       continue;
 
     UINT32 uCodePage = CP_ACP;
@@ -1352,6 +1352,15 @@ int dxc::main(int argc, const char **argv_) {
                              dxcOpts.ShowHelpHidden);
       helpStream.flush();
       WriteUtf8ToConsoleSizeT(helpString.data(), helpString.size());
+      return 0;
+    } 
+
+    if (dxcOpts.ShowVersion) {
+      std::string version;
+      llvm::raw_string_ostream versionStream(version);
+      context.GetCompilerVersionInfo(versionStream);
+      versionStream.flush();
+      WriteUtf8ToConsoleSizeT(version.data(), version.size());
       return 0;
     }
 

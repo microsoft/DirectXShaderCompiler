@@ -507,6 +507,13 @@ public:
   /// OpIgnoreIntersectionKHR/OpTerminateIntersectionKHR
   void createRaytracingTerminateKHR(spv::Op opcode, SourceLocation loc);
 
+  /// \brief Create spirv intrinsic instructions
+  SpirvInstruction *createSpirvIntrInstExt(
+      uint32_t opcode, QualType retType,
+      llvm::ArrayRef<SpirvInstruction *> operands,
+      llvm::ArrayRef<llvm::StringRef> extensions, llvm::StringRef instSet,
+      llvm::ArrayRef<uint32_t> capablities, SourceLocation loc);
+
   /// \brief Returns a clone SPIR-V variable for CTBuffer with FXC memory layout
   /// and creates copy instructions from the CTBuffer to the clone variable in
   /// module.init if it contains HLSL matrix 1xN. Otherwise, returns nullptr.
@@ -639,6 +646,15 @@ public:
 
   /// \brief Decorates the given target with Coherent
   void decorateCoherent(SpirvInstruction *target, SourceLocation);
+
+  /// \brief Decorates the given target with LinkageAttributes
+  /// We have to set targetInst as nullptr when it is an imported or exported
+  /// function.
+  /// We have to set targetFunc as nullptr when it is an imported or
+  /// exported global variable.
+  void decorateLinkage(SpirvInstruction *targetInst, SpirvFunction *targetFunc,
+                       llvm::StringRef name, spv::LinkageType linkageType,
+                       SourceLocation);
 
   /// --- Constants ---
   /// Each of these methods can acquire a unique constant from the SpirvContext,

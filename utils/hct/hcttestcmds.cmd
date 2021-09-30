@@ -41,6 +41,10 @@ call :check_file smoke.rootsig del
 call :check_file smoke.err find "warning: expression result unused" del
 if %Failed% neq 0 goto :failed
 
+set testname=Test importing resource binding table
+call :run dxc.exe /T ps_6_0 "%testfiles%\binding_table.hlsl" -import-binding-table "%testfiles%\binding_table.txt"
+if %Failed% neq 0 goto :failed
+
 set testname=/Fd implies /Qstrip_debug
 call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Fd smoke.hlsl.d /Fo smoke.hlsl.Fd.dxo
 call :check_file smoke.hlsl.d del

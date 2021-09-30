@@ -10,6 +10,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/Support/Global.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/test/D3DReflectionDumper.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include <sstream>
@@ -347,6 +348,96 @@ LPCSTR ToString(D3D_PARAMETER_FLAGS Flag) {
   return nullptr;
 }
 
+#ifndef D3D_NAME_SHADINGRATE
+#define D3D_NAME_SHADINGRATE ((D3D_NAME)hlsl::DxilProgramSigSemantic::ShadingRate)
+#endif
+#ifndef D3D_NAME_CULLPRIMITIVE
+#define D3D_NAME_CULLPRIMITIVE ((D3D_NAME)hlsl::DxilProgramSigSemantic::CullPrimitive)
+#endif
+
+LPCSTR ToString(D3D_NAME Name) {
+  switch (Name) {
+  case D3D_NAME_UNDEFINED: return "D3D_NAME_UNDEFINED";
+  case D3D_NAME_POSITION: return "D3D_NAME_POSITION";
+  case D3D_NAME_CLIP_DISTANCE: return "D3D_NAME_CLIP_DISTANCE";
+  case D3D_NAME_CULL_DISTANCE: return "D3D_NAME_CULL_DISTANCE";
+  case D3D_NAME_RENDER_TARGET_ARRAY_INDEX: return "D3D_NAME_RENDER_TARGET_ARRAY_INDEX";
+  case D3D_NAME_VIEWPORT_ARRAY_INDEX: return "D3D_NAME_VIEWPORT_ARRAY_INDEX";
+  case D3D_NAME_VERTEX_ID: return "D3D_NAME_VERTEX_ID";
+  case D3D_NAME_PRIMITIVE_ID: return "D3D_NAME_PRIMITIVE_ID";
+  case D3D_NAME_INSTANCE_ID: return "D3D_NAME_INSTANCE_ID";
+  case D3D_NAME_IS_FRONT_FACE: return "D3D_NAME_IS_FRONT_FACE";
+  case D3D_NAME_SAMPLE_INDEX: return "D3D_NAME_SAMPLE_INDEX";
+  case D3D_NAME_FINAL_QUAD_EDGE_TESSFACTOR: return "D3D_NAME_FINAL_QUAD_EDGE_TESSFACTOR";
+  case D3D_NAME_FINAL_QUAD_INSIDE_TESSFACTOR: return "D3D_NAME_FINAL_QUAD_INSIDE_TESSFACTOR";
+  case D3D_NAME_FINAL_TRI_EDGE_TESSFACTOR: return "D3D_NAME_FINAL_TRI_EDGE_TESSFACTOR";
+  case D3D_NAME_FINAL_TRI_INSIDE_TESSFACTOR: return "D3D_NAME_FINAL_TRI_INSIDE_TESSFACTOR";
+  case D3D_NAME_FINAL_LINE_DETAIL_TESSFACTOR: return "D3D_NAME_FINAL_LINE_DETAIL_TESSFACTOR";
+  case D3D_NAME_FINAL_LINE_DENSITY_TESSFACTOR: return "D3D_NAME_FINAL_LINE_DENSITY_TESSFACTOR";
+  case D3D_NAME_BARYCENTRICS: return "D3D_NAME_BARYCENTRICS";
+  case D3D_NAME_TARGET: return "D3D_NAME_TARGET";
+  case D3D_NAME_DEPTH: return "D3D_NAME_DEPTH";
+  case D3D_NAME_COVERAGE: return "D3D_NAME_COVERAGE";
+  case D3D_NAME_DEPTH_GREATER_EQUAL: return "D3D_NAME_DEPTH_GREATER_EQUAL";
+  case D3D_NAME_DEPTH_LESS_EQUAL: return "D3D_NAME_DEPTH_LESS_EQUAL";
+  case D3D_NAME_STENCIL_REF: return "D3D_NAME_STENCIL_REF";
+  case D3D_NAME_INNER_COVERAGE: return "D3D_NAME_INNER_COVERAGE";
+  case D3D_NAME_SHADINGRATE: return "D3D_NAME_SHADINGRATE";
+  case D3D_NAME_CULLPRIMITIVE: return "D3D_NAME_CULLPRIMITIVE";
+  }
+  return nullptr;
+}
+
+LPCSTR ToString(D3D_REGISTER_COMPONENT_TYPE CompTy) {
+  switch (CompTy) {
+  case D3D_REGISTER_COMPONENT_UNKNOWN: return "D3D_REGISTER_COMPONENT_UNKNOWN";
+  case D3D_REGISTER_COMPONENT_UINT32: return "D3D_REGISTER_COMPONENT_UINT32";
+  case D3D_REGISTER_COMPONENT_SINT32: return "D3D_REGISTER_COMPONENT_SINT32";
+  case D3D_REGISTER_COMPONENT_FLOAT32: return "D3D_REGISTER_COMPONENT_FLOAT32";
+  }
+  return nullptr;
+}
+
+LPCSTR ToString(D3D_MIN_PRECISION MinPrec) {
+  switch (MinPrec) {
+  case D3D_MIN_PRECISION_DEFAULT: return "D3D_MIN_PRECISION_DEFAULT";
+  case D3D_MIN_PRECISION_FLOAT_16: return "D3D_MIN_PRECISION_FLOAT_16";
+  case D3D_MIN_PRECISION_FLOAT_2_8: return "D3D_MIN_PRECISION_FLOAT_2_8";
+  case D3D_MIN_PRECISION_RESERVED: return "D3D_MIN_PRECISION_RESERVED";
+  case D3D_MIN_PRECISION_SINT_16: return "D3D_MIN_PRECISION_SINT_16";
+  case D3D_MIN_PRECISION_UINT_16: return "D3D_MIN_PRECISION_UINT_16";
+  case D3D_MIN_PRECISION_ANY_16: return "D3D_MIN_PRECISION_ANY_16";
+  case D3D_MIN_PRECISION_ANY_10: return "D3D_MIN_PRECISION_ANY_10";
+  }
+  return nullptr;
+}
+
+LPCSTR CompMaskToString(unsigned CompMask) {
+  static const LPCSTR masks[16] = {
+    "----",
+    "x---",
+    "-y--",
+    "xy--",
+    "--z-",
+    "x-z-",
+    "-yz-",
+    "xyz-",
+    "---w",
+    "x--w",
+    "-y-w",
+    "xy-w",
+    "--zw",
+    "x-zw",
+    "-yzw",
+    "xyzw"
+  };
+  if (CompMask < 16) {
+    return masks[CompMask];
+  }
+  return "<invalid mask>";
+}
+
+
 void D3DReflectionDumper::DumpDefaultValue(LPCVOID pDefaultValue, UINT Size) {
   WriteLn("DefaultValue: ", pDefaultValue ? "<present>" : "<nullptr>");    // TODO: Dump DefaultValue
 }
@@ -411,7 +502,7 @@ void D3DReflectionDumper::Dump(D3D12_SHADER_BUFFER_DESC &Desc) {
 }
 void D3DReflectionDumper::Dump(D3D12_SHADER_INPUT_BIND_DESC &resDesc) {
   SetLastName(resDesc.Name);
-  WriteLn("D3D12_SHADER_BUFFER_DESC: Name: ", m_LastName);
+  WriteLn("D3D12_SHADER_INPUT_BIND_DESC: Name: ", m_LastName);
   Indent();
   DumpEnum("Type", resDesc.Type);
   WriteLn("uID: ", resDesc.uID);
@@ -424,8 +515,20 @@ void D3DReflectionDumper::Dump(D3D12_SHADER_INPUT_BIND_DESC &resDesc) {
   WriteLn("uFlags: ", FlagsValue<D3D_SHADER_INPUT_FLAGS>(resDesc.uFlags));
   Dedent();
 }
+void D3DReflectionDumper::Dump(D3D12_SIGNATURE_PARAMETER_DESC &elDesc) {
+  WriteLn("D3D12_SIGNATURE_PARAMETER_DESC: SemanticName: ", elDesc.SemanticName, " SemanticIndex: ", elDesc.SemanticIndex);
+  Indent();
+  WriteLn("Register: ", elDesc.Register);
+  DumpEnum("SystemValueType", elDesc.SystemValueType);
+  DumpEnum("ComponentType", elDesc.ComponentType);
+  WriteLn("Mask: ", CompMaskToString(elDesc.Mask), " (", (UINT)elDesc.Mask, ")");
+  WriteLn("ReadWriteMask: ", CompMaskToString(elDesc.ReadWriteMask), " (", (UINT)elDesc.ReadWriteMask, ") (AlwaysReads/NeverWrites)");
+  WriteLn("Stream: ", elDesc.Stream);
+  DumpEnum("MinPrecision", elDesc.MinPrecision);
+  Dedent();
+}
 void D3DReflectionDumper::Dump(D3D12_SHADER_DESC &Desc) {
-  WriteLn("D3D12_SHADER_BUFFER_DESC:");
+  WriteLn("D3D12_SHADER_DESC:");
   Indent();
   DumpShaderVersion(Desc.Version);
   WriteLn("Creator: ", Desc.Creator ? Desc.Creator : "<nullptr>");
@@ -453,6 +556,9 @@ void D3DReflectionDumper::Dump(D3D12_SHADER_DESC &Desc) {
     WriteLn("PatchConstantParameters: ", Desc.PatchConstantParameters);
     WriteLn("cControlPoints: ", Desc.cControlPoints);
     DumpEnum("TessellatorDomain", Desc.TessellatorDomain);
+  }
+  if (ShaderKind == hlsl::DXIL::ShaderKind::Mesh) {
+    WriteLn("PatchConstantParameters: ", Desc.PatchConstantParameters, " (output primitive parameters for mesh shader)");
   }
   // Instruction Counts
   WriteLn("InstructionCount: ", Desc.InstructionCount);
@@ -582,12 +688,57 @@ void D3DReflectionDumper::Dump(ID3D12ShaderReflection *pShaderReflection) {
     return;
   }
   Dump(Desc);
+
+  if (Desc.InputParameters) {
+    WriteLn("InputParameter Elements: ", Desc.InputParameters);
+    Indent();
+    for (UINT i = 0; i < Desc.InputParameters; ++i) {
+      D3D12_SIGNATURE_PARAMETER_DESC elDesc;
+      if(FAILED(pShaderReflection->GetInputParameterDesc(i, &elDesc))) {
+        Failure("GetInputParameterDesc ", i);
+        continue;
+      }
+      Dump(elDesc);
+    }
+    Dedent();
+  }
+  if (Desc.OutputParameters) {
+    WriteLn("OutputParameter Elements: ", Desc.OutputParameters);
+    Indent();
+    for (UINT i = 0; i < Desc.OutputParameters; ++i) {
+      D3D12_SIGNATURE_PARAMETER_DESC elDesc;
+      if(FAILED(pShaderReflection->GetOutputParameterDesc(i, &elDesc))) {
+        Failure("GetOutputParameterDesc ", i);
+        continue;
+      }
+      Dump(elDesc);
+    }
+    Dedent();
+  }
+  if (Desc.PatchConstantParameters) {
+    WriteLn("PatchConstantParameter Elements: ", Desc.PatchConstantParameters);
+    Indent();
+    for (UINT i = 0; i < Desc.PatchConstantParameters; ++i) {
+      D3D12_SIGNATURE_PARAMETER_DESC elDesc;
+      if(FAILED(pShaderReflection->GetPatchConstantParameterDesc(i, &elDesc))) {
+        Failure("GetPatchConstantParameterDesc ", i);
+        continue;
+      }
+      Dump(elDesc);
+    }
+    Dedent();
+  }
+
   if (Desc.ConstantBuffers) {
     WriteLn("Constant Buffers:");
     Indent();
     bool bCheckByNameFailed = false;
     for (UINT uCB = 0; uCB < Desc.ConstantBuffers; uCB++) {
       ID3D12ShaderReflectionConstantBuffer *pCB = pShaderReflection->GetConstantBufferByIndex(uCB);
+      if (!pCB) {
+        Failure("GetConstantBufferByIndex ", uCB);
+        continue;
+      }
       Dump(pCB);
       if (m_bCheckByName && m_LastName) {
         if (pShaderReflection->GetConstantBufferByName(m_LastName) != pCB) {
@@ -608,6 +759,8 @@ void D3DReflectionDumper::Dump(ID3D12ShaderReflection *pShaderReflection) {
     for (UINT uRes = 0; uRes < Desc.BoundResources; uRes++) {
       D3D12_SHADER_INPUT_BIND_DESC bindDesc;
       if (FAILED(pShaderReflection->GetResourceBindingDesc(uRes, &bindDesc))) {
+        Failure("GetResourceBindingDesc ", uRes);
+        continue;
       }
       Dump(bindDesc);
       if (m_bCheckByName && bindDesc.Name) {

@@ -81,7 +81,7 @@ private:
     Type *ResourceType;
   };
   std::unordered_map<Value *, ResAttribute> HandleMetaMap;
-  std::unordered_set<LoadInst *> &UpdateCounterSet;
+  std::unordered_set<Instruction *> &UpdateCounterSet;
   // Map from pointer of cbuffer to pointer of resource.
   // For cbuffer like this:
   //   cbuffer A {
@@ -93,7 +93,7 @@ private:
 
 public:
   HLObjectOperationLowerHelper(HLModule &HLM,
-                               std::unordered_set<LoadInst *> &UpdateCounter)
+                               std::unordered_set<Instruction *> &UpdateCounter)
       : HLM(HLM), UpdateCounterSet(UpdateCounter) {}
   DXIL::ResourceClass GetRC(Value *Handle) {
     ResAttribute &Res = FindCreateHandleResourceBase(Handle);
@@ -249,11 +249,25 @@ private:
       Value *Res =
           CI->getArgOperand(HLOperandIndex::kCreateHandleResourceOpIdx);
       LoadInst *LdRes = dyn_cast<LoadInst>(Res);
-      if (!LdRes) {
-        dxilutil::EmitErrorOnInstruction(CI, "cannot map resource to handle.");
+      if (LdRes) {
+        UpdateCounterSet.insert(LdRes);
         return;
       }
-      UpdateCounterSet.insert(LdRes);
+      if (CallInst *CallRes = dyn_cast<CallInst>(Res)) {
+        hlsl::HLOpcodeGroup group =
+            hlsl::GetHLOpcodeGroup(CallRes->getCalledFunction());
+        if (group == HLOpcodeGroup::HLCast) {
+          HLCastOpcode opcode =
+              static_cast<HLCastOpcode>(hlsl::GetHLOpcode(CallRes));
+          if (opcode == HLCastOpcode::HandleToResCast) {
+            if (Instruction *Hdl = dyn_cast<Instruction>(
+                    CallRes->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx)))
+              UpdateCounterSet.insert(Hdl);
+            return;
+          }
+        }
+      }
+      dxilutil::EmitErrorOnInstruction(CI, "cannot map resource to handle.");
       return;
     }
     if (SelectInst *Sel = dyn_cast<SelectInst>(handle)) {
@@ -5324,6 +5338,72 @@ Value *TranslateGetHandleFromHeap(CallInst *CI, IntrinsicOp IOP,
 }
 }
 
+// Translate and/or/select intrinsics
+namespace {
+Value *TranslateAnd(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+                     HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
+  Value *x = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
+  Value *y = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
+  Type *Ty = CI->getType();
+  Type *EltTy = Ty->getScalarType();
+  IRBuilder<> Builder(CI);
+
+  if (Ty != EltTy) {
+    Value *Result = UndefValue::get(Ty);
+    for (unsigned i = 0; i < Ty->getVectorNumElements(); i++) {
+      Value *EltX = Builder.CreateExtractElement(x, i);
+      Value *EltY = Builder.CreateExtractElement(y, i);
+      Value *tmp = Builder.CreateAnd(EltX, EltY);
+      Result = Builder.CreateInsertElement(Result, tmp, i);
+    }
+    return Result;
+  }
+  return Builder.CreateAnd(x, y);
+}
+Value *TranslateOr(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+                     HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
+  Value *x = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
+  Value *y = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
+  Type *Ty = CI->getType();
+  Type *EltTy = Ty->getScalarType();
+  IRBuilder<> Builder(CI);
+
+  if (Ty != EltTy) {
+    Value *Result = UndefValue::get(Ty);
+    for (unsigned i = 0; i < Ty->getVectorNumElements(); i++) {
+      Value *EltX = Builder.CreateExtractElement(x, i);
+      Value *EltY = Builder.CreateExtractElement(y, i);
+      Value *tmp = Builder.CreateOr(EltX, EltY);
+      Result = Builder.CreateInsertElement(Result, tmp, i);
+    }
+    return Result;
+  }
+  return Builder.CreateOr(x, y);
+}
+Value *TranslateSelect(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+                     HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
+  Value *cond = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc0Idx);
+  Value *t = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc1Idx);
+  Value *f = CI->getArgOperand(HLOperandIndex::kTrinaryOpSrc2Idx);
+  Type *Ty = CI->getType();
+  Type *EltTy = Ty->getScalarType();
+  IRBuilder<> Builder(CI);
+
+  if (Ty != EltTy) {
+    Value *Result = UndefValue::get(Ty);
+    for (unsigned i = 0; i < Ty->getVectorNumElements(); i++) {
+      Value *EltCond = Builder.CreateExtractElement(cond, i);
+      Value *EltTrue = Builder.CreateExtractElement(t, i);
+      Value *EltFalse = Builder.CreateExtractElement(f, i);
+      Value *tmp = Builder.CreateSelect(EltCond, EltTrue, EltFalse);
+      Result = Builder.CreateInsertElement(Result, tmp, i);
+    }
+    return Result;
+  }
+  return Builder.CreateSelect(cond, t, f);
+}
+}
+
 // Lower table.
 namespace {
 
@@ -5461,6 +5541,7 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_abs, TranslateAbs, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_acos, TrivialUnaryOperation, DXIL::OpCode::Acos},
     {IntrinsicOp::IOP_all, TranslateAll, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::IOP_and, TranslateAnd, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_any, TranslateAny, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_asdouble, TranslateAsDouble, DXIL::OpCode::MakeDouble},
     {IntrinsicOp::IOP_asfloat, TranslateBitcast, DXIL::OpCode::NumOpCodes},
@@ -5523,6 +5604,7 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_msad4, TranslateMSad4, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_mul, TranslateMul, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_normalize, TranslateNormalize, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::IOP_or, TranslateOr, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_pack_clamp_s8, TranslatePack, DXIL::OpCode::Pack4x8 },
     {IntrinsicOp::IOP_pack_clamp_u8, TranslatePack, DXIL::OpCode::Pack4x8 },
     {IntrinsicOp::IOP_pack_s8, TranslatePack, DXIL::OpCode::Pack4x8 },
@@ -5537,6 +5619,7 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_round, TrivialUnaryOperation, DXIL::OpCode::Round_ne},
     {IntrinsicOp::IOP_rsqrt, TrivialUnaryOperation, DXIL::OpCode::Rsqrt},
     {IntrinsicOp::IOP_saturate, TrivialUnaryOperation, DXIL::OpCode::Saturate},
+    {IntrinsicOp::IOP_select, TranslateSelect, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_sign, TranslateSign, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_sin, TrivialUnaryOperation, DXIL::OpCode::Sin},
     {IntrinsicOp::IOP_sincos, EmptyLower, DXIL::OpCode::NumOpCodes},
@@ -8043,7 +8126,7 @@ namespace hlsl {
 
 void TranslateBuiltinOperations(
     HLModule &HLM, HLSLExtensionsCodegenHelper *extCodegenHelper,
-    std::unordered_set<LoadInst *> &UpdateCounterSet) {
+    std::unordered_set<Instruction *> &UpdateCounterSet) {
   HLOperationLowerHelper helper(HLM);
 
   HLObjectOperationLowerHelper objHelper = {HLM, UpdateCounterSet};

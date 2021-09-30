@@ -35,6 +35,7 @@
 #include "dxc/dxcapi.internal.h"
 #include "dxc/DXIL/DxilPDB.h"
 #include "dxc/DXIL/DxilModule.h"
+#include "dxc/DxcBindingTable/DxcBindingTable.h"
 
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/Support/Global.h"
@@ -118,15 +119,17 @@ struct CompilerVersionPartWriter {
       IFT(pVersionInfo2->GetCommitInfo(&CommitCount, &m_CommitShaStorage));
       m_CommitSha = llvm::StringRef(m_CommitShaStorage.m_pData, strlen(m_CommitShaStorage.m_pData));
       m_Header.CommitCount = CommitCount;
-      m_Header.VersionStringListSizeInBytes += m_CommitSha.size() + /*null term*/1;
+      m_Header.VersionStringListSizeInBytes += m_CommitSha.size();
     }
+    m_Header.VersionStringListSizeInBytes += /*null term*/ 1;
 
     CComPtr<IDxcVersionInfo3> pVersionInfo3;
     if (SUCCEEDED(pVersionInfo->QueryInterface(&pVersionInfo3))) {
       IFT(pVersionInfo3->GetCustomVersionString(&m_CustomStringStorage));
       m_CustomString = llvm::StringRef(m_CustomStringStorage, strlen(m_CustomStringStorage.m_pData));
-      m_Header.VersionStringListSizeInBytes += m_CustomString.size() + /*null term*/1;
+      m_Header.VersionStringListSizeInBytes += m_CustomString.size();
     }
+    m_Header.VersionStringListSizeInBytes += /*null term*/ 1;
   }
 
   static uint32_t PadToDword(uint32_t size, uint32_t *outNumPadding=nullptr) {
@@ -546,12 +549,22 @@ static void CreateDefineStrings(
   }
 }
 
+static HRESULT ErrorWithString(const std::string &error, REFIID riid, void **ppResult) {
+  CComPtr<IDxcResult> pResult;
+  IFT(DxcResult::Create(E_FAIL, DXC_OUT_NONE,
+    { DxcOutputObject::ErrorOutput(CP_UTF8, error.data(), error.size()) }, &pResult));
+  IFT(pResult->QueryInterface(riid, ppResult));
+  return S_OK;
+}
+
 class DxcCompiler : public IDxcCompiler3,
                     public IDxcLangExtensions3,
                     public IDxcContainerEvent,
                     public IDxcVersionInfo3,
 #ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
                     public IDxcVersionInfo2
+#else
+                    public IDxcVersionInfo
 #endif // SUPPORT_QUERY_GIT_COMMIT_INFO
 {
 private:
@@ -801,6 +814,35 @@ public:
           compiler.getCodeGenOpts().HLSLEntryFunction = pUtf8EntryPoint;
         compiler.getLangOpts().HLSLProfile =
           compiler.getCodeGenOpts().HLSLProfile = opts.TargetProfile;
+
+        // Parse and apply 
+        if (opts.ImportBindingTable.size()) {
+          hlsl::options::StringRefUtf16 wstrRef(opts.ImportBindingTable);
+          CComPtr<IDxcBlob> pBlob;
+          std::string error;
+          llvm::raw_string_ostream os(error);
+          if (!pIncludeHandler) {
+            os << Twine("Binding table binding file '") + opts.ImportBindingTable + "' specified, but no include handler was given.";
+            os.flush();
+            return ErrorWithString(error, riid, ppResult);
+          }
+          else if (SUCCEEDED(pIncludeHandler->LoadSource(wstrRef, &pBlob))) {
+            bool succ = hlsl::ParseBindingTable(
+              opts.ImportBindingTable,
+              StringRef((const char *)pBlob->GetBufferPointer(), pBlob->GetBufferSize()),
+              os, &compiler.getCodeGenOpts().HLSLBindingTable);
+
+            if (!succ) {
+              os.flush();
+              return ErrorWithString(error, riid, ppResult);
+            }
+          }
+          else {
+            os << Twine("Could not load binding table file '") + opts.ImportBindingTable + "'.";
+            os.flush();
+            return ErrorWithString(error, riid, ppResult);
+          }
+        }
 
         if (compiler.getCodeGenOpts().HLSLProfile == "rootsig_1_1") {
           rootSigMajor = 1;
@@ -1302,10 +1344,16 @@ public:
     compiler.getLangOpts().HLSLVersion = (unsigned) Opts.HLSLVersion;
     compiler.getLangOpts().EnableDX9CompatMode = Opts.EnableDX9CompatMode;
     compiler.getLangOpts().EnableFXCCompatMode = Opts.EnableFXCCompatMode;
+    compiler.getLangOpts().EnableTemplates = Opts.EnableTemplates;
+    compiler.getLangOpts().EnableOperatorOverloading =
+        Opts.EnableOperatorOverloading;
+    compiler.getLangOpts().StrictUDTCasting = Opts.StrictUDTCasting;
 
     compiler.getLangOpts().UseMinPrecision = !Opts.Enable16BitTypes;
 
     compiler.getLangOpts().EnablePayloadAccessQualifiers = Opts.EnablePayloadQualifiers;
+    compiler.getLangOpts().EnableShortCircuit = Opts.EnableShortCircuit;
+    compiler.getLangOpts().EnableBitfields = Opts.EnableBitfields;
 
 // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN

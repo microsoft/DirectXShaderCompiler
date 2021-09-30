@@ -1,4 +1,5 @@
 // RUN: %dxc -T lib_6_5 %s | %D3DReflect %s | FileCheck %s
+// RUN: %dxc -T lib_6_6 %s | %D3DReflect %s | FileCheck %s
 
 cbuffer SomeBuffer : register(b0)
 {
@@ -25,7 +26,7 @@ void RayGenShader()
 // CHECK:     FunctionCount: 1
 // CHECK-NEXT:   ID3D12FunctionReflection:
 // CHECK-NEXT:     D3D12_FUNCTION_DESC: Name: \01?RayGenShader@@YAXXZ
-// CHECK-NEXT:       Shader Version: RayGeneration 6.5
+// CHECK-NEXT:       Shader Version: RayGeneration
 // CHECK:       ConstantBuffers: 1
 // CHECK-NEXT:       BoundResources: 2
 // CHECK-NEXT:       FunctionParameterCount: 0

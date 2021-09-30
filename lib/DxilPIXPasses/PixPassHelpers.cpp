@@ -218,6 +218,8 @@ ExpandedStruct ExpandStructType(LLVMContext &Ctx,
       Elements.push_back(OriginalPayloadStructType->getStructElementType(i));
   }
   Elements.push_back(Type::getInt32Ty(Ctx));
+  Elements.push_back(Type::getInt32Ty(Ctx));
+  Elements.push_back(Type::getInt32Ty(Ctx));
   ExpandedStruct ret;
   ret.ExpandedPayloadStructType =
       StructType::create(Ctx, Elements, "PIX_AS2MS_Expanded_Type");

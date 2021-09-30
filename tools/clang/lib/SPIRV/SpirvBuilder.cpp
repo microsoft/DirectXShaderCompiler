@@ -19,6 +19,7 @@
 #include "RemoveBufferBlockVisitor.h"
 #include "SortDebugInfoVisitor.h"
 #include "clang/SPIRV/AstTypeProbe.h"
+#include "clang/SPIRV/String.h"
 
 namespace clang {
 namespace spirv {
@@ -961,6 +962,23 @@ SpirvInstruction *SpirvBuilder::createReadClock(SpirvInstruction *scope,
   return inst;
 }
 
+SpirvInstruction *SpirvBuilder::createSpirvIntrInstExt(
+    uint32_t opcode, QualType retType,
+    llvm::ArrayRef<SpirvInstruction *> operands,
+    llvm::ArrayRef<llvm::StringRef> extensions, llvm::StringRef instSet,
+    llvm::ArrayRef<uint32_t> capablities, SourceLocation loc) {
+  assert(insertPoint && "null insert point");
+
+  SpirvExtInstImport *set =
+      (instSet.size() == 0) ? nullptr : getExtInstSet(instSet);
+
+  auto *inst = new (context) SpirvIntrinsicInstruction(
+      retType->isVoidType() ? QualType() : retType, opcode, operands,
+      extensions, set, capablities, loc);
+  insertPoint->addInstruction(inst);
+  return inst;
+}
+
 void SpirvBuilder::createRaytracingTerminateKHR(spv::Op opcode,
                                                 SourceLocation loc) {
   assert(insertPoint && "null insert point");
@@ -1273,6 +1291,16 @@ void SpirvBuilder::decorateDSetBinding(SpirvVariable *target,
   target->setDescriptorSetNo(setNumber);
   target->setBindingNo(bindingNumber);
 
+  // If the variable has the [[vk::combinedImageSampler]] attribute, we keep
+  // setNumber and bindingNumber pair to combine the image and the sampler with
+  // with the pair. The combining process will be conducted by spirv-opt
+  // --convert-to-sampled-image pass.
+  if (context.getVkImageFeaturesForSpirvVariable(target)
+          .isCombinedImageSampler) {
+    context.registerResourceInfoForSampledImage(target->getAstResultType(),
+                                                setNumber, bindingNumber);
+  }
+
   mod->addDecoration(binding);
 }
 
@@ -1376,6 +1404,30 @@ void SpirvBuilder::decorateCoherent(SpirvInstruction *target,
                                     SourceLocation srcLoc) {
   auto *decor =
       new (context) SpirvDecoration(srcLoc, target, spv::Decoration::Coherent);
+  mod->addDecoration(decor);
+}
+
+void SpirvBuilder::decorateLinkage(SpirvInstruction *targetInst,
+                                   SpirvFunction *targetFunc,
+                                   llvm::StringRef name,
+                                   spv::LinkageType linkageType,
+                                   SourceLocation srcLoc) {
+  // We have to set a decoration for the linkage of a global variable or a
+  // function, but we cannot set them at the same time.
+  assert((targetInst == nullptr) != (targetFunc == nullptr));
+  SmallVector<uint32_t, 4> operands;
+  const auto &stringWords = string::encodeSPIRVString(name);
+  operands.insert(operands.end(), stringWords.begin(), stringWords.end());
+  operands.push_back(static_cast<uint32_t>(linkageType));
+  SpirvDecoration *decor = nullptr;
+  if (targetInst) {
+    decor = new (context) SpirvDecoration(
+        srcLoc, targetInst, spv::Decoration::LinkageAttributes, operands);
+  } else {
+    decor = new (context) SpirvDecoration(
+        srcLoc, targetFunc, spv::Decoration::LinkageAttributes, operands);
+  }
+  assert(decor != nullptr);
   mod->addDecoration(decor);
 }
 

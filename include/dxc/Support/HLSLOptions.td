@@ -128,6 +128,9 @@ def fno_diagnostics_show_option : Flag<["-"], "fno-diagnostics-show-option">, Gr
 def fdiagnostics_show_category_EQ : Joined<["-"], "fdiagnostics-show-category=">, Group<hlslcomp_Group>;
 def ferror_limit_EQ : Joined<["-"], "ferror-limit=">, Group<hlslcomp_Group>, Flags<[CoreOption]>;
 
+def import_binding_table : JoinedOrSeparate<["-", "/"], "import-binding-table">, Group<hlsloptz_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
+  HelpText<"Import a binding table to specify resource bindings.">;
+
 def funsafe_math_optimizations : Flag<["-"], "funsafe-math-optimizations">,
   Group<hlsloptz_Group>;
 def fno_unsafe_math_optimizations : Flag<["-"], "fno-unsafe-math-optimizations">,
@@ -216,6 +219,8 @@ def working_directory_EQ : Joined<["-"], "working-directory=">, Flags<[CoreOptio
 def _all_warnings : Flag<["--"], "all-warnings">, Flags<[CoreOption]>, Alias<Wall>;
 def _help_hidden : Flag<["--"], "help-hidden">, Flags<[DriverOption]>;
 def _help_question : Flag<["-", "/"], "?">, Flags<[DriverOption]>, Alias<help>;
+def _version : Flag<["--"], "version">, Group<hlslcore_Group>, Flags<[DriverOption]>,
+  HelpText<"Display compiler version information">;
 
 //////////////////////////////////////////////////////////////////////////////
 // New HLSL-specific flags.
@@ -247,7 +252,7 @@ def pack_optimized : Flag<["-", "/"], "pack-optimized">, Group<hlslcomp_Group>, 
 def pack_optimized_ : Flag<["-", "/"], "pack_optimized">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Optimize signature packing assuming identical signature provided for each connecting stage">;
 def hlsl_version : Separate<["-", "/"], "HV">, Group<hlslcomp_Group>, Flags<[CoreOption, RewriteOption]>,
-  HelpText<"HLSL version (2016, 2017, 2018). Default is 2018">;
+  HelpText<"HLSL version (2016, 2017, 2018, 2021). Default is 2018">;
 def no_warnings : Flag<["-", "/"], "no-warnings">, Group<hlslcomp_Group>, Flags<[CoreOption, RewriteOption]>,
   HelpText<"Suppress warnings">;
 def rootsig_define : Separate<["-", "/"], "rootsig-define">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
@@ -283,6 +288,12 @@ def enable_lifetime_markers : Flag<["-", "/"], "enable-lifetime-markers">, Group
   HelpText<"Enable generation of lifetime markers">;
 def disable_lifetime_markers : Flag<["-", "/"], "disable-lifetime-markers">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Disable generation of lifetime markers where they would be otherwise (6.6+)">;
+def enable_templates: Flag<["-", "/"], "enable-templates">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
+  HelpText<"Enable template support for HLSL.">;
+def enable_operator_overloading: Flag<["-", "/"], "enable-operator-overloading">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
+  HelpText<"Enable operator overloading support for HLSL.">;
+def strict_udt_casting: Flag<["-", "/"], "strict-udt-casting">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
+  HelpText<"Require explicit casts between different structure types with compatible layouts.">;
 def enable_payload_qualifiers : Flag<["-", "/"], "enable-payload-qualifiers">, Group<hlslcomp_Group>, Flags<[CoreOption, RewriteOption, DriverOption]>,
   HelpText<"Enables support for payload access qualifiers for raytracing payloads in SM 6.6.">;
 def disable_payload_qualifiers : Flag<["-", "/"], "disable-payload-qualifiers">, Group<hlslcomp_Group>, Flags<[CoreOption, RewriteOption, DriverOption]>,
@@ -334,6 +345,8 @@ def fspv_target_env_EQ : Joined<["-"], "fspv-target-env=">, Group<spirv_Group>, 
   HelpText<"Specify the target environment: vulkan1.0 (default) or vulkan1.1">;
 def fspv_flatten_resource_arrays: Flag<["-"], "fspv-flatten-resource-arrays">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Flatten arrays of resources so each array element takes one binding number">;
+def fspv_reduce_load_size: Flag<["-"], "fspv-reduce-load-size">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Replaces loads of composite objects to reduce memory pressure for the loads">;
 def fvk_auto_shift_bindings: Flag<["-"], "fvk-auto-shift-bindings">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Apply fvk-*-shift to resources without an explicit register assignment.">;
 def Wno_vk_ignored_features : Joined<["-"], "Wno-vk-ignored-features">, Group<spirv_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
@@ -444,6 +457,12 @@ def Qkeep_reflect_in_dxil : Flag<["-", "/"], "Qkeep_reflect_in_dxil">,
 def Qstrip_reflect_from_dxil : Flag<["-", "/"], "Qstrip_reflect_from_dxil">,
   Flags<[CoreOption, HelpHidden]>, Group<hlslutil_Group>,
   HelpText<"Strip reflection data from shader bytecode  (must be used with /Fo <file>)">;
+
+def enable_short_circuit : Flag<["-", "/"], "enable-short-circuit">, Flags<[CoreOption, HelpHidden]>, Group<hlslcomp_Group>,
+  HelpText<"Operators '&&', '||', and '?:' will short circuit, only accepting scalar inputs.  Use and(), or(), and select() intrinsics in place of non-short-circuiting vector operators.">;
+
+def enable_bitfields : Flag<["-", "/"], "enable-bitfields">, Flags<[CoreOption, HelpHidden]>, Group<hlslcomp_Group>,
+  HelpText<"Enables bitfields on struct members">;
 
 /*
 def shtemplate : JoinedOrSeparate<["-", "/"], "shtemplate">, MetaVarName<"<file>">, Group<hlslcomp_Group>,

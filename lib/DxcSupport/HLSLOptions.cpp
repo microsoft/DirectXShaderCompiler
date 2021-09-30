@@ -377,6 +377,11 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     return 0;
   }
 
+  opts.ShowVersion = Args.hasFlag(OPT__version, OPT_INVALID, false);
+  if (opts.ShowVersion) {
+    return 0;
+  }
+
   if (missingArgCount) {
     errors << "Argument to '" << Args.getArgString(missingArgIndex)
       << "' is missing.";
@@ -441,8 +446,15 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   } else {
     try {
       opts.HLSLVersion = std::stoul(std::string(ver));
-      if (opts.HLSLVersion < 2015 || opts.HLSLVersion > 2018) {
-        errors << "Unknown HLSL version: " << opts.HLSLVersion;
+      switch (opts.HLSLVersion) {
+      case 2015:
+      case 2016:
+      case 2017:
+      case 2018:
+      case 2021:
+        break;
+      default:
+        errors << "Unknown HLSL version: " << opts.HLSLVersion << ". Valid versions: 2016, 2017, 2018, 2021";
         return 1;
       }
     }
@@ -470,10 +482,54 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     opts.EnableFXCCompatMode = true;
   }
 
+  // If the HLSL version is 2021, allow the 2021 features by default.
+  // If the HLSL version is 2016 or 2018, allow them only
+  // when the individual option is enabled.
+  // If the HLSL version is 2015, dissallow these features
+  if (opts.HLSLVersion >= 2021) {
+    // Enable operator overloading in structs
+    opts.EnableOperatorOverloading = true;
+    // Enable template support
+    opts.EnableTemplates = true;
+    // Determine overload matching based on UDT names, not just types
+    opts.StrictUDTCasting = true;
+    // Experimental option to enable short-circuiting operators
+    opts.EnableShortCircuit = true;
+    // Enable bitfield support
+    opts.EnableBitfields = true;
+
+  } else {
+    opts.EnableOperatorOverloading = Args.hasFlag(OPT_enable_operator_overloading, OPT_INVALID, false);
+    opts.EnableTemplates = Args.hasFlag(OPT_enable_templates, OPT_INVALID, false);
+    opts.StrictUDTCasting = Args.hasFlag(OPT_strict_udt_casting, OPT_INVALID, false);
+    opts.EnableShortCircuit = Args.hasFlag(OPT_enable_short_circuit, OPT_INVALID, false);
+    opts.EnableBitfields = Args.hasFlag(OPT_enable_bitfields, OPT_INVALID, false);
+
+    if (opts.HLSLVersion <= 2015) {
+
+      if (opts.EnableOperatorOverloading)
+        errors << "/enable-operator-overloading is not supported with HLSL Version " << opts.HLSLVersion;
+      if (opts.EnableTemplates)
+        errors << "/enable-templates is not supported with HLSL Version " << opts.HLSLVersion;
+
+      if (opts.StrictUDTCasting)
+        errors << "/enable-udt-casting is not supported with HLSL Version " << opts.HLSLVersion;
+
+      if (opts.EnableShortCircuit)
+        errors << "/enable-short-circuit is not supported with HLSL Version " << opts.HLSLVersion;
+
+      if (opts.EnableBitfields)
+        errors << "/enable-bitfields is not supported with HLSL Version " << opts.HLSLVersion;
+
+      return 1;
+    }
+  }
+
   // AssemblyCodeHex not supported (Fx)
   // OutputLibrary not supported (Fl)
   opts.AssemblyCode = Args.getLastArgValue(OPT_Fc);
   opts.DebugFile = Args.getLastArgValue(OPT_Fd);
+  opts.ImportBindingTable = Args.getLastArgValue(OPT_import_binding_table);
   opts.ExtractPrivateFile = Args.getLastArgValue(OPT_getprivate);
   opts.Enable16BitTypes = Args.hasFlag(OPT_enable_16bit_types, OPT_INVALID, false);
   opts.OutputObject = Args.getLastArgValue(OPT_Fo);
@@ -689,6 +745,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
                               !Args.hasFlag(OPT_disable_lifetime_markers, OPT_INVALID, false);
   opts.EnablePayloadQualifiers = Args.hasFlag(OPT_enable_payload_qualifiers, OPT_INVALID,
                                             DXIL::CompareVersions(Major, Minor, 6, 7) >= 0); 
+
   if (DXIL::CompareVersions(Major, Minor, 6, 8) < 0) {
      opts.EnablePayloadQualifiers &= !Args.hasFlag(OPT_disable_payload_qualifiers, OPT_INVALID, false);
   }
@@ -853,6 +910,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.SpirvOptions.noWarnEmulatedFeatures = Args.hasFlag(OPT_Wno_vk_emulated_features, OPT_INVALID, false);
   opts.SpirvOptions.flattenResourceArrays =
       Args.hasFlag(OPT_fspv_flatten_resource_arrays, OPT_INVALID, false);
+  opts.SpirvOptions.reduceLoadSize =
+      Args.hasFlag(OPT_fspv_reduce_load_size, OPT_INVALID, false);
   opts.SpirvOptions.autoShiftBindings = Args.hasFlag(OPT_fvk_auto_shift_bindings, OPT_INVALID, false);
 
   if (!handleVkShiftArgs(Args, OPT_fvk_b_shift, "b", &opts.SpirvOptions.bShift, errors) ||
@@ -941,6 +1000,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       Args.hasFlag(OPT_fvk_use_dx_layout, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fvk_use_scalar_layout, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fspv_flatten_resource_arrays, OPT_INVALID, false) ||
+      Args.hasFlag(OPT_fspv_reduce_load_size, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fspv_reflect, OPT_INVALID, false) ||
       Args.hasFlag(OPT_Wno_vk_ignored_features, OPT_INVALID, false) ||
       Args.hasFlag(OPT_Wno_vk_emulated_features, OPT_INVALID, false) ||

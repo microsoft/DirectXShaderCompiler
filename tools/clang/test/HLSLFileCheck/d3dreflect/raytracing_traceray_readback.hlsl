@@ -52,7 +52,7 @@ void RayGenTestMain()
 // CHECK:           uFlags: 0
 // CHECK:           Num Variables: 3
 // CHECK:     Bound Resources:
-// CHECK:       D3D12_SHADER_BUFFER_DESC: Name: scene
+// CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: scene
 // CHECK:         Type: D3D_SIT_RTACCELERATIONSTRUCTURE
 // CHECK:         uID: 0
 // CHECK:         BindCount: 1

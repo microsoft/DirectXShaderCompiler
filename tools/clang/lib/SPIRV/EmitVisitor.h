@@ -12,6 +12,7 @@
 #include "clang/SPIRV/SpirvContext.h"
 #include "clang/SPIRV/SpirvVisitor.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/StringMap.h"
 
 #include <functional>
@@ -165,6 +166,7 @@ private:
   llvm::SmallVector<SpirvConstantComposite *, 8> emittedConstantComposites;
   llvm::SmallVector<SpirvConstantNull *, 8> emittedConstantNulls;
   SpirvConstantBoolean *emittedConstantBools[2];
+  llvm::DenseSet<const SpirvInstruction *> emittedSpecConstantInstructions;
 
   // emittedTypes is a map that caches the result-id of types in order to avoid
   // emitting an identical type multiple times.
@@ -287,6 +289,7 @@ public:
   bool visit(SpirvDebugTypeMember *) override;
   bool visit(SpirvDebugTypeTemplate *) override;
   bool visit(SpirvDebugTypeTemplateParameter *) override;
+  bool visit(SpirvIntrinsicInstruction *) override;
 
   using Visitor::visit;
 

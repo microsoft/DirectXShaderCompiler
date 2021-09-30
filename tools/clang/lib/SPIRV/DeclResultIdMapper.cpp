@@ -1007,11 +1007,16 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
       loc);
   varInstr->setLayoutRule(rule);
 
-  // If this variable has [[vk::image_format("..")]] attribute, we have to keep
-  // it in the SpirvContext and use it when we lower the QualType to SpirvType.
-  auto spvImageFormat = getSpvImageFormat(var->getAttr<VKImageFormatAttr>());
-  if (spvImageFormat != spv::ImageFormat::Unknown)
-    spvContext.registerImageFormatForSpirvVariable(varInstr, spvImageFormat);
+  // If this variable has [[vk::combinedImageSampler]] and/or
+  // [[vk::image_format("..")]] attributes, we have to keep the information in
+  // the SpirvContext and use it when we lower the QualType to SpirvType.
+  VkImageFeatures vkImgFeatures = {
+      var->getAttr<VKCombinedImageSamplerAttr>() != nullptr,
+      getSpvImageFormat(var->getAttr<VKImageFormatAttr>())};
+  if (vkImgFeatures.isCombinedImageSampler ||
+      vkImgFeatures.format != spv::ImageFormat::Unknown) {
+    spvContext.registerVkImageFeaturesForSpvVariable(varInstr, vkImgFeatures);
+  }
 
   astDecls[var] = createDeclSpirvInfo(varInstr);
 
@@ -1285,7 +1290,7 @@ SpirvVariable *DeclResultIdMapper::createPushConstant(const VarDecl *decl) {
 }
 
 SpirvVariable *
-DeclResultIdMapper::createShaderRecordBuffer(const VarDecl *decl, 
+DeclResultIdMapper::createShaderRecordBuffer(const VarDecl *decl,
                                                 ContextUsageKind kind) {
   const auto *recordType =
       hlsl::GetHLSLResourceResultType(decl->getType())->getAs<RecordType>();
@@ -1398,9 +1403,14 @@ SpirvFunction *DeclResultIdMapper::getOrRegisterFn(const FunctionDecl *fn) {
   // definition is seen, the parameter types will be set properly and take into
   // account whether the function is a member function of a class/struct (in
   // which case a 'this' parameter is added at the beginnig).
-  SpirvFunction *spirvFunction =
-      spvBuilder.createSpirvFunction(fn->getReturnType(), fn->getLocation(),
-                                     fn->getName(), isPrecise, isNoInline);
+  SpirvFunction *spirvFunction = spvBuilder.createSpirvFunction(
+      fn->getReturnType(), fn->getLocation(),
+      getFunctionOrOperatorName(fn, true), isPrecise, isNoInline);
+
+  if (fn->getAttr<HLSLExportAttr>()) {
+    spvBuilder.decorateLinkage(nullptr, spirvFunction, fn->getName(),
+                               spv::LinkageType::Export, fn->getLocation());
+  }
 
   // No need to dereference to get the pointer. Function returns that are
   // stand-alone aliases are already pointers to values. All other cases should

@@ -35,6 +35,18 @@
 
 #include "DeclResultIdMapper.h"
 
+namespace spvtools {
+namespace opt {
+
+// A struct for a pair of descriptor set and binding.
+struct DescriptorSetAndBinding {
+  uint32_t descriptor_set;
+  uint32_t binding;
+};
+
+} // namespace opt
+} // namespace spvtools
+
 namespace clang {
 namespace spirv {
 
@@ -82,6 +94,7 @@ private:
   void doFunctionDecl(const FunctionDecl *decl);
   void doVarDecl(const VarDecl *decl);
   void doRecordDecl(const RecordDecl *decl);
+  void doClassTemplateDecl(const ClassTemplateDecl *classTemplateDecl);
   void doEnumDecl(const EnumDecl *decl);
   void doHLSLBufferDecl(const HLSLBufferDecl *decl);
   void doImplicitDecl(const Decl *decl);
@@ -578,6 +591,8 @@ private:
   /// Process ray query intrinsics
   SpirvInstruction *processRayQueryIntrinsics(const CXXMemberCallExpr *expr,
                                               hlsl::IntrinsicOp opcode);
+  /// Process spirv intrinsic instruction
+  SpirvInstruction *processSpvIntrinsicCallExpr(const CallExpr *expr);
 
 private:
   /// Returns the <result-id> for constant value 0 of the given type.
@@ -1033,9 +1048,14 @@ private:
 
   /// \brief Helper function to run SPIRV-Tools optimizer's legalization passes.
   /// Runs the SPIRV-Tools legalization on the given SPIR-V module |mod|, and
-  /// gets the info/warning/error messages via |messages|.
+  /// gets the info/warning/error messages via |messages|. If
+  /// |dsetbindingsToCombineImageSampler| is not empty, runs
+  /// --convert-to-sampled-image pass.
   /// Returns true on success and false otherwise.
-  bool spirvToolsLegalize(std::vector<uint32_t> *mod, std::string *messages);
+  bool
+  spirvToolsLegalize(std::vector<uint32_t> *mod, std::string *messages,
+                     const std::vector<spvtools::opt::DescriptorSetAndBinding>
+                         *dsetbindingsToCombineImageSampler);
 
   /// \brief Helper function to run the SPIRV-Tools validator.
   /// Runs the SPIRV-Tools validator on the given SPIR-V module |mod|, and

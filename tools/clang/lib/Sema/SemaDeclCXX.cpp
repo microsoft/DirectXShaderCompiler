@@ -11638,6 +11638,17 @@ bool Sema::CheckOverloadedOperatorDeclaration(FunctionDecl *FnDecl) {
 
   OverloadedOperatorKind Op = FnDecl->getOverloadedOperator();
 
+  // HLSL Change Starts
+  if (LangOpts.HLSL) {
+    if (Op == OO_Delete || Op == OO_Array_Delete || Op == OO_New ||
+        Op == OO_Array_New) {
+      return Diag(FnDecl->getLocation(),
+                  diag::err_hlsl_overloading_new_delete_operator)
+             << FnDecl->getDeclName();
+    }
+  }
+  // HLSL Change Ends
+
   // C++ [over.oper]p5:
   //   The allocation and deallocation functions, operator new,
   //   operator new[], operator delete and operator delete[], are

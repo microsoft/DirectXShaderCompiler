@@ -42,7 +42,7 @@ stages:
     timeoutInMinutes: 90
 
     variables:
-      macOS: macOS-10.14
+      macOS: macOS-11
       linux: Ubuntu-18.04
 
     strategy:
@@ -90,6 +90,10 @@ stages:
       vmImage: $(image)
 
     steps:
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '3.x'
+
     - bash: sudo apt-get install ninja-build
       displayName: 'Installing dependencies'
       condition: eq(variables['image'], variables['linux'])
