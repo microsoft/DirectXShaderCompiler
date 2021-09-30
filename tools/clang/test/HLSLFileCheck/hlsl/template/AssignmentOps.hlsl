@@ -1,5 +1,7 @@
 // RUN: %dxc -E main -T ps_6_0 -enable-templates %s | FileCheck %s
 // RUN: %dxc -E main -T ps_6_0 %s -enable-templates -DCHECK_DIAGNOSTICS | FileCheck %s -check-prefix=DIAG
+// RUN: %dxc -E main -T ps_6_0 -HV 2021 %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 %s -HV 2021 -DCHECK_DIAGNOSTICS | FileCheck %s -check-prefix=DIAG
 
 template<typename T0, typename T1>
 void assign(inout T0 t0, T1 t1) {

@@ -685,7 +685,9 @@ def enable_templates: Flag<["-", "/"], "enable-templates">, Flags<[CoreOption, D
 def enable_operator_overloading: Flag<["-", "/"], "enable-operator-overloading">, Flags<[CoreOption, DriverOption, HelpHidden]>,
   HelpText<"Enable operator overloading support for HLSL.">; // HLSL Change
 def strict_udt_casting: Flag<["-", "/"], "strict-udt-casting">, Flags<[CoreOption, DriverOption, HelpHidden]>,
-  HelpText<"Require explicit casts between different structure types with compatible layouts.">;
+  HelpText<"Require explicit casts between different structure types with compatible layouts.">; // HLSL Change
+def enable_bitfields : Flag<["-", "/"], "enable-bitfields">, Flags<[CoreOption, DriverOption, HelpHidden]>,
+  HelpText<"Enables bitfields on struct members">; // HLSL Change
 def fms_compatibility_version
     : Joined<["-"], "fms-compatibility-version=">,
       Group<f_Group>,

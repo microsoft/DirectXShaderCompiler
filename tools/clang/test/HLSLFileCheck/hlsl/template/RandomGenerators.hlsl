@@ -1,4 +1,5 @@
 // RUN: %dxc -E main -T ps_6_0 -enable-templates %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 -HV 2021 %s | FileCheck %s
 // CHECK: call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0, float 0x404FD93640000000)
 // CHECK: call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 1, float 0x4047269780000000)
 // CHECK: call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 2, float 0x4045A83E40000000)

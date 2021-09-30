@@ -1,5 +1,7 @@
 // RUN: %dxc -DTEMPLATE= -T ps_6_0 -enable-templates %s | FileCheck %s -check-prefix=CHK_FAIL
 // RUN: %dxc -DTEMPLATE=template -T ps_6_0 -enable-templates %s | FileCheck %s -check-prefix=CHK_PASS
+// RUN: %dxc -DTEMPLATE= -T ps_6_0 -HV 2021 %s | FileCheck %s -check-prefix=CHK_FAIL
+// RUN: %dxc -DTEMPLATE=template -T ps_6_0 -HV 2021 %s | FileCheck %s -check-prefix=CHK_PASS
 
 // CHK_PASS:define void @main
 

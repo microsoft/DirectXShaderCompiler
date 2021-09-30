@@ -1,4 +1,5 @@
 // RUN: %dxc -E main -T ps_6_0 -enable-templates %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 -HV 2021 %s | FileCheck %s
 // CHECK: error: variadic templates are not supported in HLSL
 
 template<typename T>

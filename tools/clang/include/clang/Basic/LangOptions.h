@@ -163,6 +163,7 @@ public:
   bool StrictUDTCasting = false;
   bool EnablePayloadAccessQualifiers = false;
   bool EnableShortCircuit = false;
+  bool EnableBitfields = false;
   // HLSL Change Ends
 
   bool SPIRV = false;  // SPIRV Change

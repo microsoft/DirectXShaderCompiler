@@ -1,4 +1,5 @@
 // RUN: %dxc -E main -T ps_6_0 -enable-templates %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 -HV 2021 %s | FileCheck %s
 // CHECK: error: 'a3' declared as an array with a negative size
 
 template<int N>

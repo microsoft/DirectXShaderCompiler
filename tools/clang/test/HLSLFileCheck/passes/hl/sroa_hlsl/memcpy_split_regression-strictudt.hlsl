@@ -1,4 +1,5 @@
 // RUN: %dxc -E main -T ps_6_0 -Od -strict-udt-casting %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 -Od -HV 2021 %s | FileCheck %s
 
 //
 // CHECK: @main
