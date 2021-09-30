@@ -1,5 +1,7 @@
 // RUN: %dxc -T vs_6_0 -E VSMain -enable-templates -DTYPENAME= %s | FileCheck %s -check-prefix=MISSING
 // RUN: %dxc -T vs_6_0 -E VSMain -enable-templates -DTYPENAME=typename %s | FileCheck %s -check-prefix=PRESENT
+// RUN: %dxc -T vs_6_0 -E VSMain -HV 2021 -DTYPENAME= %s | FileCheck %s -check-prefix=MISSING
+// RUN: %dxc -T vs_6_0 -E VSMain -HV 2021 -DTYPENAME=typename %s | FileCheck %s -check-prefix=PRESENT
 
 // MISSING: error: missing 'typename' prior to dependent type name 'TVec::value_type'
 // PRESENT: define void @VSMain() {

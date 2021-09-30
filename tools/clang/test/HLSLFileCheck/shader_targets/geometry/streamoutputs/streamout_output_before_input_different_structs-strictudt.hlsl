@@ -1,4 +1,5 @@
 // RUN: %dxc -E main -T gs_6_0 -strict-udt-casting %s | FileCheck %s
+// RUN: %dxc -E main -T gs_6_0 -HV 2021 %s | FileCheck %s
 
 // Regression test for an SROA bug where the flattening the output stream argument
 // would not handle the case where its input had already been SROA'd.

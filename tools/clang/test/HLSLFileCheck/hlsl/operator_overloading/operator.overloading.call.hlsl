@@ -1,4 +1,5 @@
 // RUN: %dxc -E main -T ps_6_0 -enable-operator-overloading %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 -HV 2021 %s | FileCheck %s
 
 // CHECK: define void @main()
 // CHECK: %[[pos:[^ ]+]] = call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 0, i32 undef)

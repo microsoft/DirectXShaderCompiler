@@ -1,4 +1,5 @@
-// RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify %s
+// RUN: %clang_cc1 -enable-bitfields -fsyntax-only -ffreestanding -verify %s
+// RUN: %clang_cc1 -HV 2021 -fsyntax-only -ffreestanding -verify %s
 
 typedef int T : 1; /* expected-error {{expected unqualified-id}} expected-error {{expected ';' after top level declarator}} */
 static int sb : 1; /* expected-error {{expected unqualified-id}} expected-error {{expected ';' after top level declarator}} */

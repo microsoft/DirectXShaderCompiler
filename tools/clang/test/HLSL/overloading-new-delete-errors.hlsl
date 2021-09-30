@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -fsyntax-only -Wno-unused-value -ffreestanding -verify -enable-operator-overloading %s
+// RUN: %clang_cc1 -fsyntax-only -Wno-unused-value -ffreestanding -verify -HV 2021 %s
 
 // This test checks that when we overload new or delete operator
 // dxcompiler generates error and no crashes are observed.

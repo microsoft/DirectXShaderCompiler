@@ -1,4 +1,5 @@
 // RUN: %dxc -T ps_6_0 -enable-templates %s 2>&1| FileCheck %s
+// RUN: %dxc -T ps_6_0 -HV 2021 %s 2>&1| FileCheck %s
 // CHECK: error: use of 'X' with tag type that does not match previous declaration
 // CHECK: note: in instantiation of template class 'PR6915::D<PR6915::D2>' requested here
 // CHECK: note: previous use is here

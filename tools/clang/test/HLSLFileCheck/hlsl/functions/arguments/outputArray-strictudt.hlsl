@@ -1,4 +1,5 @@
 // RUN: %dxc -E main -T vs_6_0 -strict-udt-casting %s | FileCheck %s
+// RUN: %dxc -E main -T vs_6_0 -HV 2021 %s | FileCheck %s
 
 // CHECK: switch
 

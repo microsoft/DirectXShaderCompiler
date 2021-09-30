@@ -194,6 +194,6 @@ def warn_target_unsupported_nanlegacy : Warning<
   InGroup<UnsupportedNan>;
 
 // HLSL Change Starts
-def err_hlsl_invalid_drv_for_operator_overloading : Error<"/enable-operator-overloading is not supported with HLSL Version '%0'">;
+def err_hlsl_invalid_drv_for_feature : Error<"%0 is not supported with HLSL Version '%1'">;
 // HLSL Change Ends
 }
