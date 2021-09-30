@@ -1093,6 +1093,7 @@ private:
   FunctionShaderCompatMap m_FuncToShaderCompat;
 
   void UpdateFunctionToShaderCompat(const llvm::Function* dxilFunc) {
+#define SFLAG(stage) ((unsigned)1 << (unsigned)DXIL::ShaderKind::stage)
     for (const auto &user : dxilFunc->users()) {
       if (const llvm::CallInst *CI = dyn_cast<const llvm::CallInst>(user)) {
         // Find calling function
@@ -1113,17 +1114,22 @@ private:
         info.mask &= mask;
       } else if (const llvm::LoadInst *LI = dyn_cast<LoadInst>(user)) {
         // If loading a groupshared variable, limit to CS/AS/MS
-#define SFLAG(stage) ((unsigned)1 << (unsigned)DXIL::ShaderKind::stage)
         if (LI->getPointerAddressSpace() == DXIL::kTGSMAddrSpace) {
-          const llvm::Function *F = cast<const llvm::Function>(CI->getParent()->getParent());
+          const llvm::Function *F = cast<const llvm::Function>(LI->getParent()->getParent());
           ShaderCompatInfo &info = m_FuncToShaderCompat[F];
           info.mask &= (SFLAG(Compute) | SFLAG(Mesh) | SFLAG(Amplification));
         }
-#undef SFLAG
-
+      } else if (const llvm::StoreInst *SI = dyn_cast<StoreInst>(user)) {
+        // If storing to a groupshared variable, limit to CS/AS/MS
+        if (SI->getPointerAddressSpace() == DXIL::kTGSMAddrSpace) {
+          const llvm::Function *F = cast<const llvm::Function>(SI->getParent()->getParent());
+          ShaderCompatInfo &info = m_FuncToShaderCompat[F];
+          info.mask &= (SFLAG(Compute) | SFLAG(Mesh) | SFLAG(Amplification));
+        }
       }
 
     }
+#undef SFLAG
   }
 
   void
