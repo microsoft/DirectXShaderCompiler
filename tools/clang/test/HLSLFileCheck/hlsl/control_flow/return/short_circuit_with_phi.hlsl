@@ -8,13 +8,14 @@ float main(uint x : X, uint y : Y, uint z : Z) : SV_Target {
   // CHECK: store i1 false, i1* %[[bReturned]]
 
   // CHECK-NOT: ret float
-  // CHECK: [[label:.+]]: ; preds =
+  // CHECK: [[label:.+]] ; preds =
   if (x) {
 
-    // CHECK: [[label2:.+]]: ; preds =
+    // CHECK: [[label2:.+]] ; preds =
     if (y) {
       // CHECK: store float 1.000000e+00
       // CHECK: store i1 true, i1* %[[bReturned]]
+      // CHECK: br
       return 1;
 
       // CHECK: [[label_bRet_cmp_false:.+]]: ; preds =
@@ -23,23 +24,25 @@ float main(uint x : X, uint y : Y, uint z : Z) : SV_Target {
       // CHECK: br i1 %[[NRET]],
     }
 
-    // CHECK: [[if_end:.+]]: ; preds =
+    // CHECK: [[if_end:.+]] ; preds =
+    // CHECK: load i32
     // CHECK: %[[x_to_bool:.+]] = icmp
     // CHECK: br i1 %[[x_to_bool]],
-    // CHECK-SAME: %land.rhs
 
-    // CHECK: land.rhs: ; preds = %[[if_end]]
+    // CHECK: [[land_rhs:.+]] ; preds =
+    // CHECK: load i32
+    // CHECK: icmp
+    // CHECK: br
     bool cond = x && y;
 
-    // CHECK: land.end: ; preds =
+    // CHECK: [[land_end:.+]] ; preds =
     // CHECK-NOT: phi.+ %[[label_bRet_cmp_false]]
     // CHECK: phi
-    // CHECK-SAME: %[[if_end]]
 
     // CHECK: icmp
     // CHECK: br i1
     if (cond) {
-      // CHECK: [[then2:.+]]: ; preds =
+      // CHECK: [[then2:.+]] ; preds =
       // store float 2.000000e+00
       // CHECK: store i1 true, i1* %[[bReturned]]
       return 2;
