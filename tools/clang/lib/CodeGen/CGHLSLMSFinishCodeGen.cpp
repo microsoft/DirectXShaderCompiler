@@ -3494,6 +3494,14 @@ void InitRetValue(BasicBlock *exitBB) {
   }
 }
 
+static void ChangePredBranch(BasicBlock *BB, BasicBlock *NewBB) {
+  for (auto predIt = pred_begin(BB); predIt != pred_end(BB);) {
+    BasicBlock *Pred = *(predIt++);
+    TerminatorInst *TI = Pred->getTerminator();
+    TI->replaceUsesOfWith(BB, NewBB);
+  }
+}
+
 // For functions has multiple returns like
 // float foo(float a, float b, float c) {
 //   float r = c;
@@ -3529,6 +3537,7 @@ void InitRetValue(BasicBlock *exitBB) {
 void StructurizeMultiRetFunction(Function *F, ScopeInfo &ScopeInfo,
                                  bool bWaveEnabledStage,
                                  SmallVector<BranchInst *, 16> &DxBreaks) {
+
   if (ScopeInfo.CanSkipStructurize())
     return;
   // Get bbWithRets.
@@ -3621,8 +3630,10 @@ void StructurizeMultiRetFunction(Function *F, ScopeInfo &ScopeInfo,
           BasicBlock *CmpBB = BasicBlock::Create(BB->getContext(),
                                                  "bReturned.cmp.false", F, BB);
 
-          // Make BB preds go to cmpBB.
-          BB->replaceAllUsesWith(CmpBB);
+          // Make BB preds go to cmpBB. Do this instead of replaceAllUsesWith
+          // because BB could have PHI nodes that reference it.
+          ChangePredBranch(BB, CmpBB);
+
           // Update endscopeBB to CmpBB for scopes which has BB as endscope.
           updateEndScope(ScopeInfo, EndBBToScopeIndexMap, BB, CmpBB);
 
@@ -3641,7 +3652,8 @@ void StructurizeMultiRetFunction(Function *F, ScopeInfo &ScopeInfo,
               BasicBlock::Create(BB->getContext(), "bReturned.cmp.true", F, BB);
           BasicBlock *BreakBB =
               BasicBlock::Create(BB->getContext(), "bReturned.break", F, BB);
-          BB->replaceAllUsesWith(CmpBB);
+          ChangePredBranch(BB, CmpBB);
+
           // Update endscopeBB to CmpBB for scopes which has BB as endscope.
           updateEndScope(ScopeInfo, EndBBToScopeIndexMap, BB, CmpBB);
 
