@@ -14,9 +14,12 @@
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/Operator.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Analysis/DxilValueCache.h"
+#include "llvm/Support/raw_ostream.h"
 
 #include "dxc/DXIL/DxilMetadataHelper.h"
 #include "dxc/DXIL/DxilUtil.h"
@@ -35,18 +38,108 @@ static void RemoveIncomingValueFrom(BasicBlock *SuccBB, BasicBlock *BB) {
   }
 }
 
-static bool EraseDeadBlocks(Function &F, DxilValueCache *DVC) {
+// Finds all allocas that only have stores and delete them.
+// These allocas hold on to values that do not contribute to the
+// shader's results, 
+static bool DeleteDeadAllocas(Function &F) {
+  if (F.empty())
+    return false;
+
+  struct AllocaDeleter {
+    SmallVector<Value *, 10> WorkList;
+    std::unordered_set<Value *> Seen;
+
+    void Add(Value *V) {
+      if (!Seen.count(V)) {
+        Seen.insert(V);
+        WorkList.push_back(V);
+      }
+    }
+
+    bool TryDeleteUnusedAlloca(AllocaInst *AI) {
+      Seen.clear();
+      WorkList.clear();
+
+      Add(AI);
+      while (WorkList.size()) {
+        Value *V = WorkList.pop_back_val();
+        if (isa<LoadInst>(V)) {
+          return false;
+        }
+        else if (isa<GEPOperator>(V) ||
+                 isa<BitCastOperator>(V) ||
+                 isa<AllocaInst>(V) ||
+                 isa<StoreInst>(V))
+        {
+          for (User *U : V->users())
+            Add(U);
+        }
+        else {
+          return false;
+        }
+      }
+
+      if (!Seen.size())
+        return false;
+
+      for (Value *V : Seen) {
+        Instruction *I = dyn_cast<Instruction>(V);
+        if (I) {
+          I->dropAllReferences();
+        }
+      }
+
+      for (Value *V : Seen) {
+        Instruction *I = dyn_cast<Instruction>(V);
+        if (I) {
+          I->eraseFromParent();
+        }
+      }
+
+      return true;
+    }
+  };
+
+  AllocaDeleter Deleter;
+  BasicBlock &Entry = *F.begin();
+  bool Changed = false;
+
+  while (1) {
+    bool LocalChanged = false;
+    for (auto it = Entry.begin(), end = Entry.end(); it != end;) {
+      AllocaInst *AI = dyn_cast<AllocaInst>(&*(it++));
+      if (!AI)
+        continue;
+      LocalChanged |= Deleter.TryDeleteUnusedAlloca(AI);
+    }
+    Changed |= LocalChanged;
+    if (!LocalChanged)
+      break;
+  }
+
+  return Changed;
+}
+
+struct DeadBlockDeleter {
+  bool Run(Function &F, DxilValueCache *DVC);
+
+private:
   std::unordered_set<BasicBlock *> Seen;
   std::vector<BasicBlock *> WorkList;
 
-  bool Changed = false;
-
-  auto Add = [&WorkList, &Seen](BasicBlock *BB) {
+  void Add(BasicBlock *BB) {
     if (!Seen.count(BB)) {
       WorkList.push_back(BB);
       Seen.insert(BB);
     }
-  };
+  }
+};
+
+bool DeadBlockDeleter::Run(Function &F, DxilValueCache *DVC) {
+  Seen.clear();
+  WorkList.clear();
+
+  bool Changed = false;
 
   Add(&F.getEntryBlock());
 
@@ -175,6 +268,91 @@ static bool EraseDeadBlocks(Function &F, DxilValueCache *DVC) {
   return true;
 }
 
+static bool DeleteDeadBlocks(Function &F, DxilValueCache *DVC) {
+  DeadBlockDeleter Deleter;
+  bool Changed = false;
+  constexpr unsigned MaxIteration = 10;
+  for (unsigned i = 0; i < MaxIteration; i++) {
+    bool LocalChanged = Deleter.Run(F, DVC);
+    Changed |= LocalChanged;
+    if (!LocalChanged)
+      break;
+  }
+  return Changed;
+}
+
+// Iteratively and aggressively delete instructions that don't
+// contribute to the shader's output.
+// 
+// Find all things that could impact the program's output, including:
+//   - terminator insts (branches, switches, returns)
+//   - anything with side effect
+// Recursively find all the instructions they reference
+// Delete all the rest
+// 
+// Also replace any values that the value cache determined can be
+// replaced by a constant.
+//
+static bool DeleteNonContributingValues(Function &F, DxilValueCache *DVC) {
+
+  struct ValueDeleter {
+    std::unordered_set<Value *> Seen;
+    std::vector<Value *> WorkList;
+    void Add(Value *V) {
+      if (!Seen.count(V)) {
+        Seen.insert(V);
+        WorkList.push_back(V);
+      }
+    }
+    bool Run(Function &F, DxilValueCache *DVC) {
+      for (BasicBlock &BB : F) {
+        for (Instruction &I : BB) {
+          if (I.mayHaveSideEffects())
+            Add(&I);
+          else if (I.isTerminator())
+            Add(&I);
+        }
+      }
+
+      while (WorkList.size()) {
+        Value *V = WorkList.back();
+        WorkList.pop_back();
+        Instruction *I = dyn_cast<Instruction>(V);
+        if (I) {
+          for (Value * op : I->operands()) {
+            if (Instruction *OpI = dyn_cast<Instruction>(op))
+              Add(OpI);
+          }
+        }
+      }
+
+      bool Changed = false;
+      for (auto bb_it = F.getBasicBlockList().rbegin(), bb_end = F.getBasicBlockList().rend(); bb_it != bb_end; bb_it++) {
+        BasicBlock *BB = &*bb_it;
+        for (auto it = BB->begin(), end = BB->end(); it != end;) {
+          Instruction *I = &*(it++);
+          if (isa<DbgInfoIntrinsic>(I)) continue;
+          if (!Seen.count(I)) {
+            if (!I->user_empty())
+              I->replaceAllUsesWith(UndefValue::get(I->getType()));
+            I->eraseFromParent();
+            Changed = true;
+          }
+          else if (Constant *C = DVC->GetConstValue(I)) {
+            I->replaceAllUsesWith(C);
+            I->eraseFromParent();
+            Changed = true;
+          }
+        }
+      }
+      return Changed;
+    } // Run
+  };
+
+  ValueDeleter Deleter;
+  return Deleter.Run(F, DVC);
+}
+
 namespace {
 
 struct DxilRemoveDeadBlocks : public FunctionPass {
@@ -187,7 +365,11 @@ struct DxilRemoveDeadBlocks : public FunctionPass {
   }
   bool runOnFunction(Function &F) override {
     DxilValueCache *DVC = &getAnalysis<DxilValueCache>();
-    return EraseDeadBlocks(F, DVC);
+    bool Changed = false;
+    Changed |= DeleteDeadAllocas(F);
+    Changed |= DeleteDeadBlocks(F, DVC);
+    Changed |= DeleteNonContributingValues(F, DVC);
+    return Changed;
   }
 };
 

@@ -21,4 +21,5 @@ static const llvm::StringRef kNothingName = "dx.nothing.a";
 static const llvm::StringRef kPreserveName = "dx.preserve.value.a";
 
 bool IsPreserve(llvm::Instruction *S);
+bool IsNop(llvm::Instruction *I);
 }

@@ -229,6 +229,15 @@ static Value *GetOrCreatePreserveCond(Function *F) {
   return B.CreateTrunc(Load, B.getInt1Ty());
 }
 
+bool hlsl::IsNop(llvm::Instruction *I) {
+  CallInst *CI = dyn_cast<CallInst>(I);
+  if (!CI)
+    return false;
+
+  Function *F = CI->getCalledFunction();
+  return F && F->getName() == hlsl::kNoopName;
+}
+
 bool hlsl::IsPreserve(llvm::Instruction *I) {
   SelectInst *S = dyn_cast<SelectInst>(I);
   if (!S)
