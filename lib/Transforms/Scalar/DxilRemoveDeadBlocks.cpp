@@ -23,6 +23,7 @@
 
 #include "dxc/DXIL/DxilMetadataHelper.h"
 #include "dxc/DXIL/DxilUtil.h"
+#include "dxc/HLSL/DxilNoops.h"
 
 #include <unordered_set>
 
@@ -281,6 +282,13 @@ static bool DeleteDeadBlocks(Function &F, DxilValueCache *DVC) {
   return Changed;
 }
 
+static bool IsDxBreak(Instruction *I) {
+  CallInst *CI = dyn_cast<CallInst>(I);
+  if (!CI) return false;
+  Function *CalledFunction = CI->getCalledFunction();
+  return CalledFunction && CalledFunction->getName() == hlsl::DXIL::kDxBreakFuncName;
+}
+
 // Iteratively and aggressively delete instructions that don't
 // contribute to the shader's output.
 // 
@@ -332,6 +340,7 @@ static bool DeleteNonContributingValues(Function &F, DxilValueCache *DVC) {
         for (auto it = BB->begin(), end = BB->end(); it != end;) {
           Instruction *I = &*(it++);
           if (isa<DbgInfoIntrinsic>(I)) continue;
+          if (IsDxBreak(I)) continue;
           if (!Seen.count(I)) {
             if (!I->user_empty())
               I->replaceAllUsesWith(UndefValue::get(I->getType()));
@@ -339,6 +348,8 @@ static bool DeleteNonContributingValues(Function &F, DxilValueCache *DVC) {
             Changed = true;
           }
           else if (Constant *C = DVC->GetConstValue(I)) {
+            if (hlsl::IsPreserveRelatedValue(I))
+              continue;
             I->replaceAllUsesWith(C);
             I->eraseFromParent();
             Changed = true;
