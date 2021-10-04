@@ -72,8 +72,21 @@ llvm::CallInst *CreateHandleForResource(hlsl::DxilModule &DM,
   unsigned int resourceMetaDataId =
       GetNextRegisterIdForClass(DM, resourceClass);
 
-  // Create handle for the newly-added resource
-  if (IsDynamicResourceShaderModel(DM)) {
+  auto const * shaderModel = DM.GetShaderModel();
+  if (shaderModel->IsLib())
+  {
+    llvm::Constant *object = resource->GetGlobalSymbol();
+    auto * load = Builder.CreateLoad(object);
+    Function *CreateHandleFromBindingOpFunc = HlslOP->GetOpFunc(
+        DXIL::OpCode::CreateHandleForLib, resource->GetHLSLType()->getVectorElementType());
+    Constant *CreateHandleFromBindingOpcodeArg =
+        HlslOP->GetU32Const((unsigned)DXIL::OpCode::CreateHandleForLib);
+    auto *handle =
+        Builder.CreateCall(CreateHandleFromBindingOpFunc,
+        {CreateHandleFromBindingOpcodeArg, load });
+    return handle;
+  }
+  else if (IsDynamicResourceShaderModel(DM)) {
     Function *CreateHandleFromBindingOpFunc = HlslOP->GetOpFunc(
         DXIL::OpCode::CreateHandleFromBinding, Type::getVoidTy(Ctx));
     Constant *CreateHandleFromBindingOpcodeArg =
@@ -134,9 +147,22 @@ llvm::CallInst *CreateUAV(DxilModule &DM, IRBuilder<> &Builder,
   SmallVector<llvm::Type *, 1> Elements{Type::getInt32Ty(Ctx)};
   llvm::StructType *UAVStructTy =
       llvm::StructType::create(Elements, "class.RWStructuredBuffer");
+
   std::unique_ptr<DxilResource> pUAV = llvm::make_unique<DxilResource>();
+
+  auto const *shaderModel = DM.GetShaderModel();
+  if (shaderModel->IsLib()) {
+    GlobalVariable *NewGV = cast<GlobalVariable>(
+        DM.GetModule()->getOrInsertGlobal("PIXUAV", UAVStructTy));
+    NewGV->setConstant(false);
+    NewGV->setLinkage(GlobalValue::ExternalLinkage);
+    NewGV->setThreadLocal(false);
+    pUAV->SetGlobalSymbol(NewGV);
+  }
+  else {
+    pUAV->SetGlobalSymbol(UndefValue::get(UAVStructTy->getPointerTo()));
+  }
   pUAV->SetGlobalName(name);
-  pUAV->SetGlobalSymbol(UndefValue::get(UAVStructTy->getPointerTo()));
   pUAV->SetID(GetNextRegisterIdForClass(DM, DXIL::ResourceClass::UAV));
   pUAV->SetRW(true); // sets UAV class
   pUAV->SetSpaceID(
@@ -171,6 +197,18 @@ llvm::Function* GetEntryFunction(hlsl::DxilModule& DM) {
         return DM.GetEntryFunction();
     }
     return DM.GetPatchConstantFunction();
+}
+
+std::vector<llvm::BasicBlock*> GetAllBlocks(hlsl::DxilModule& DM) {
+    std::vector<llvm::BasicBlock*> ret;
+    auto entryPoints = DM.GetExportedFunctions();
+    for (auto& fn : entryPoints) {
+        auto & blocks = fn->getBasicBlockList();
+        for (auto & block : blocks) {
+            ret.push_back(&block);
+        }
+    }
+    return ret;
 }
 
 ExpandedStruct ExpandStructType(LLVMContext &Ctx,
