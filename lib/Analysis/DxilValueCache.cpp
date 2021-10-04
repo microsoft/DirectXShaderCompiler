@@ -61,7 +61,7 @@ void DxilValueCache::MarkUnreachable(BasicBlock *BB) {
 }
 
 bool DxilValueCache::IsAlwaysReachable_(BasicBlock *BB) {
-  if (Value *V = ValueMap.Get(BB))
+  if (Value *V = GetImpl(BB))
     if (IsConstantTrue(V))
       return true;
   return false;
@@ -82,7 +82,7 @@ bool DxilValueCache::MayBranchTo(BasicBlock *A, BasicBlock *B) {
 }
 
 bool DxilValueCache::IsUnreachable_(BasicBlock *BB) {
-  if (Value *V = ValueMap.Get(BB))
+  if (Value *V = GetImpl(BB))
     if (IsConstantFalse(V))
       return true;
   return false;
@@ -144,7 +144,7 @@ Value *DxilValueCache::ProcessAndSimplify_PHI(Instruction *I, DominatorTree *DT)
   // that were computed previously.
   if (!Simplified) {
     if (SimplifiedNotDominating)
-      if (Value *CachedV = ValueMap.Get(SimplifiedNotDominating))
+      if (Value *CachedV = GetImpl(SimplifiedNotDominating))
         Simplified = CachedV;
   }
 
@@ -377,6 +377,10 @@ Value *DxilValueCache::WeakValueMap::GetSentinel(LLVMContext &Ctx) {
   return Sentinel.get();
 }
 
+void DxilValueCache::WeakValueMap::ResetAll() {
+  Map.clear();
+}
+
 void DxilValueCache::WeakValueMap::ResetUnknowns() {
   if (!Sentinel)
     return;
@@ -420,10 +424,16 @@ void DxilValueCache::WeakValueMap::Set(Value *Key, Value *V) {
   Map[Key].Set(Key, V);
 }
 
+Value *DxilValueCache::GetImpl(Value *V) {
+  if (ShouldSkipCallback && ShouldSkipCallback(V))
+    return nullptr;
+  return ValueMap.Get(V);
+}
+
 // If there's a cached value, return it. Otherwise, return
 // the value itself.
 Value *DxilValueCache::TryGetCachedValue(Value *V) {
-  if (Value *Simplified = ValueMap.Get(V))
+  if (Value *Simplified = GetImpl(V))
     return Simplified;
   return V;
 }
@@ -439,28 +449,10 @@ const char *DxilValueCache::getPassName() const {
 Value *DxilValueCache::GetValue(Value *V, DominatorTree *DT) {
   if (dyn_cast<Constant>(V))
     return V;
-  if (Value *NewV = ValueMap.Get(V))
+  if (Value *NewV = GetImpl(V))
     return NewV;
 
-  Value *Ret = ProcessValue(V, DT);
-
-  // Repeatedly try to re-process the result if the result
-  // is not a constant, because non-constant results don't
-  // get cached, but might be able to be simplified further.
-  while (1) {
-    if (Ret && !isa<Constant>(Ret) && Ret != V) {
-      Value *NewRet = ProcessValue(Ret, DT);
-      if (!NewRet)
-        break;
-
-      Ret = NewRet;
-    }
-    else {
-      break;
-    }
-  }
-
-  return Ret;
+  return ProcessValue(V, DT);
 }
 
 Constant *DxilValueCache::GetConstValue(Value *V, DominatorTree *DT) {
@@ -496,6 +488,9 @@ void DxilValueCache::getAnalysisUsage(AnalysisUsage &AU) const {
 
 Value *DxilValueCache::ProcessValue(Value *NewV, DominatorTree *DT) {
   if (NewV->getType()->isVoidTy())
+    return nullptr;
+
+  if (ShouldSkipCallback && ShouldSkipCallback(NewV))
     return nullptr;
 
   Value *Result = nullptr;

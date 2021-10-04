@@ -17,17 +17,22 @@
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/CFG.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Analysis/DxilValueCache.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/ADT/SetVector.h"
 
 #include "dxc/DXIL/DxilMetadataHelper.h"
+#include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilUtil.h"
+#include "dxc/DXIL/DxilModule.h"
 #include "dxc/HLSL/DxilNoops.h"
 
 #include <unordered_set>
 
 using namespace llvm;
+using namespace hlsl;
 
 static void RemoveIncomingValueFrom(BasicBlock *SuccBB, BasicBlock *BB) {
   for (auto inst_it = SuccBB->begin(); inst_it != SuccBB->end();) {
@@ -41,7 +46,7 @@ static void RemoveIncomingValueFrom(BasicBlock *SuccBB, BasicBlock *BB) {
 
 // Finds all allocas that only have stores and delete them.
 // These allocas hold on to values that do not contribute to the
-// shader's results, 
+// shader's results.
 static bool DeleteDeadAllocas(Function &F) {
   if (F.empty())
     return false;
@@ -289,6 +294,21 @@ static bool IsDxBreak(Instruction *I) {
   return CalledFunction && CalledFunction->getName() == hlsl::DXIL::kDxBreakFuncName;
 }
 
+static bool IsIsHelperLane(Instruction *I) {
+  CallInst *CI = dyn_cast<CallInst>(I);
+  if (!CI) return false;
+  Function *CalledFunction = CI->getCalledFunction();
+  if (hlsl::OP::IsDxilOpFunc(CalledFunction)) {
+    return hlsl::OP::GetDxilOpFuncCallInst(CI) == hlsl::DXIL::OpCode::IsHelperLane;
+  }
+  return false;
+}
+
+static bool ShouldNotReplaceValue(Value *V) {
+  Instruction *I = dyn_cast<Instruction>(V);
+  return I && (IsPreserveRelatedValue(I) || IsDxBreak(I) || IsIsHelperLane(I));
+}
+
 // Iteratively and aggressively delete instructions that don't
 // contribute to the shader's output.
 // 
@@ -347,15 +367,11 @@ static bool DeleteNonContributingValues(Function &F, DxilValueCache *DVC) {
             I->eraseFromParent();
             Changed = true;
           }
-#if 0
           else if (Constant *C = DVC->GetConstValue(I)) {
-            if (hlsl::IsPreserveRelatedValue(I))
-              continue;
             I->replaceAllUsesWith(C);
             I->eraseFromParent();
             Changed = true;
           }
-#endif
         }
       }
       return Changed;
@@ -363,7 +379,45 @@ static bool DeleteNonContributingValues(Function &F, DxilValueCache *DVC) {
   };
 
   ValueDeleter Deleter;
-  return Deleter.Run(F, DVC);
+
+  DVC->ResetAll();
+  DVC->SetShouldSkipCallback(ShouldNotReplaceValue);
+  bool Changed = Deleter.Run(F, DVC);
+  DVC->SetShouldSkipCallback(nullptr);
+  return Changed;
+}
+
+static bool DeleteResourceRelatedCompulations(Function &F, DxilValueCache *DVC) {
+  Module &M = *F.getParent();
+
+  SetVector<Value *> WorkList;
+  for (GlobalVariable &GV : M.globals()) {
+    if (hlsl::dxilutil::IsHLSLResourceType(GV.getType()->getPointerElementType())) {
+      for (User *U : GV.users()) {
+        WorkList.insert(U);
+      }
+    }
+  }
+
+  bool Changed = false;
+  while (!WorkList.empty()) {
+    Value *V = WorkList.pop_back_val();
+    if (Constant *C = DVC->GetConstValue(V)) {
+      if (V != C) {
+        V->replaceAllUsesWith(C);
+        if (Instruction *I = dyn_cast<Instruction>(V))
+          I->eraseFromParent();
+        Changed = true;
+      }
+    }
+    else {
+      for (User *U : V->users()) {
+        WorkList.insert(U);
+      }
+    }
+  }
+
+  return Changed;
 }
 
 namespace {
@@ -382,6 +436,7 @@ struct DxilRemoveDeadBlocks : public FunctionPass {
     Changed |= DeleteDeadAllocas(F);
     Changed |= DeleteDeadBlocks(F, DVC);
     Changed |= DeleteNonContributingValues(F, DVC);
+    //Changed |= DeleteResourceRelatedCompulations(F, DVC);
     return Changed;
   }
 };
