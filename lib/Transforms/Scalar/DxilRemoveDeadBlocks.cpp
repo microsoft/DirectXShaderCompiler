@@ -387,39 +387,6 @@ static bool DeleteNonContributingValues(Function &F, DxilValueCache *DVC) {
   return Changed;
 }
 
-static bool DeleteResourceRelatedCompulations(Function &F, DxilValueCache *DVC) {
-  Module &M = *F.getParent();
-
-  SetVector<Value *> WorkList;
-  for (GlobalVariable &GV : M.globals()) {
-    if (hlsl::dxilutil::IsHLSLResourceType(GV.getType()->getPointerElementType())) {
-      for (User *U : GV.users()) {
-        WorkList.insert(U);
-      }
-    }
-  }
-
-  bool Changed = false;
-  while (!WorkList.empty()) {
-    Value *V = WorkList.pop_back_val();
-    if (Constant *C = DVC->GetConstValue(V)) {
-      if (V != C) {
-        V->replaceAllUsesWith(C);
-        if (Instruction *I = dyn_cast<Instruction>(V))
-          I->eraseFromParent();
-        Changed = true;
-      }
-    }
-    else {
-      for (User *U : V->users()) {
-        WorkList.insert(U);
-      }
-    }
-  }
-
-  return Changed;
-}
-
 namespace {
 
 struct DxilRemoveDeadBlocks : public FunctionPass {
@@ -436,7 +403,6 @@ struct DxilRemoveDeadBlocks : public FunctionPass {
     Changed |= DeleteDeadAllocas(F);
     Changed |= DeleteDeadBlocks(F, DVC);
     Changed |= DeleteNonContributingValues(F, DVC);
-    //Changed |= DeleteResourceRelatedCompulations(F, DVC);
     return Changed;
   }
 };
