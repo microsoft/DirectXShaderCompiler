@@ -347,6 +347,7 @@ static bool DeleteNonContributingValues(Function &F, DxilValueCache *DVC) {
             I->eraseFromParent();
             Changed = true;
           }
+#if 0
           else if (Constant *C = DVC->GetConstValue(I)) {
             if (hlsl::IsPreserveRelatedValue(I))
               continue;
@@ -354,6 +355,7 @@ static bool DeleteNonContributingValues(Function &F, DxilValueCache *DVC) {
             I->eraseFromParent();
             Changed = true;
           }
+#endif
         }
       }
       return Changed;

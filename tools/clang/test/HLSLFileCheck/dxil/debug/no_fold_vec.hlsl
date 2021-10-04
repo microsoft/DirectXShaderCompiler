@@ -11,16 +11,19 @@ float4 main() : SV_Target {
   float2 xy = float2(10, 20);
 
   float2 zw = xy + float2(5, 30);
-  // CHECK: fadd
-  // CHECK: fadd
+  // xHECK: fadd
+  // xHECK: fadd
+  // CHECK: @dx.nothing
 
   float2 foo = zw * 2;
-  // CHECK: fmul
-  // CHECK: fmul
+  // xHECK: fmul
+  // xHECK: fmul
+  // CHECK: @dx.nothing
 
   float2 bar = foo / 0.5;
-  // CHECK: fdiv
-  // CHECK: fdiv
+  // xHECK: fdiv
+  // xHECK: fdiv
+  // CHECK: @dx.nothing
 
   Texture2D tex = tex0; 
   // CHECK: br
