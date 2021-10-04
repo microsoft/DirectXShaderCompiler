@@ -80,6 +80,9 @@ const char* kFP32DenormValueFtzString      = "ftz";
 const char *kDxBreakFuncName = "dx.break";
 const char *kDxBreakCondName = "dx.break.cond";
 const char *kDxBreakMDName = "dx.break.br";
+const char *kDxIsHelperGlobalName = "dx.ishelper";
+
+const char *kHostLayoutTypePrefix = "hostlayout.";
 }
 
 // Avoid dependency on DxilModule from llvm::Module using this:
@@ -113,6 +116,7 @@ DxilModule::DxilModule(Module *pModule)
 , m_DxilMinor(DXIL::kDxilMinor)
 , m_ValMajor(1)
 , m_ValMinor(0)
+, m_ForceZeroStoreLifetimes(false)
 , m_pOP(llvm::make_unique<OP>(pModule->getContext(), pModule))
 , m_pTypeSystem(llvm::make_unique<DxilTypeSystem>(pModule))
 , m_bDisableOptimizations(false)
@@ -182,6 +186,10 @@ void DxilModule::SetValidatorVersion(unsigned ValMajor, unsigned ValMinor) {
   m_ValMinor = ValMinor;
 }
 
+void DxilModule::SetForceZeroStoreLifetimes(bool ForceZeroStoreLifetimes) {
+  m_ForceZeroStoreLifetimes = ForceZeroStoreLifetimes;
+}
+
 bool DxilModule::UpgradeValidatorVersion(unsigned ValMajor, unsigned ValMinor) {
   // Don't upgrade if validation was disabled.
   if (m_ValMajor == 0 && m_ValMinor == 0) {
@@ -198,6 +206,10 @@ bool DxilModule::UpgradeValidatorVersion(unsigned ValMajor, unsigned ValMinor) {
 void DxilModule::GetValidatorVersion(unsigned &ValMajor, unsigned &ValMinor) const {
   ValMajor = m_ValMajor;
   ValMinor = m_ValMinor;
+}
+
+bool DxilModule::GetForceZeroStoreLifetimes() const {
+  return m_ForceZeroStoreLifetimes;
 }
 
 bool DxilModule::GetMinValidatorVersion(unsigned &ValMajor, unsigned &ValMinor) const {
@@ -306,22 +318,19 @@ void DxilModule::CollectShaderFlagsForModule(ShaderFlags &Flags) {
 
   const ShaderModel *SM = GetShaderModel();
 
-  unsigned NumUAVs = m_UAVs.size();
+  unsigned NumUAVs = 0;
   const unsigned kSmallUAVCount = 8;
-  if (NumUAVs > kSmallUAVCount)
-    Flags.Set64UAVs(true);
-  if (NumUAVs && !(SM->IsCS() || SM->IsPS()))
-    Flags.SetUAVsAtEveryStage(true);
 
   bool hasRawAndStructuredBuffer = false;
 
   for (auto &UAV : m_UAVs) {
+    unsigned uavSize = UAV->GetRangeSize();
+    NumUAVs += uavSize > 8U? 9U: uavSize; // avoid overflow
     if (UAV->IsROV())
       Flags.SetROVs(true);
     switch (UAV->GetKind()) {
     case DXIL::ResourceKind::RawBuffer:
     case DXIL::ResourceKind::StructuredBuffer:
-    case DXIL::ResourceKind::StructuredBufferWithCounter:
       hasRawAndStructuredBuffer = true;
       break;
     default:
@@ -329,6 +338,16 @@ void DxilModule::CollectShaderFlagsForModule(ShaderFlags &Flags) {
       break;
     }
   }
+  // Maintain earlier erroneous counting of UAVs for compatibility
+  if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 6) < 0)
+    Flags.Set64UAVs(m_UAVs.size() > kSmallUAVCount);
+  else
+    Flags.Set64UAVs(NumUAVs > kSmallUAVCount);
+
+  if (NumUAVs && !(SM->IsCS() || SM->IsPS()))
+    Flags.SetUAVsAtEveryStage(true);
+
+
   for (auto &SRV : m_SRVs) {
     switch (SRV->GetKind()) {
     case DXIL::ResourceKind::RawBuffer:
@@ -398,6 +417,24 @@ unsigned DxilModule::GetNumThreads(unsigned idx) const {
   const unsigned *numThreads = props.IsCS() ? props.ShaderProps.CS.numThreads :
     props.IsMS() ? props.ShaderProps.MS.numThreads : props.ShaderProps.AS.numThreads;
   return numThreads[idx];
+}
+
+void DxilModule::SetWaveSize(unsigned size) {
+  DXASSERT(m_DxilEntryPropsMap.size() == 1 && m_pSM->IsCS(),
+    "only works for CS profile");
+  DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT_NOMSG(m_pSM->GetKind() == props.shaderKind);
+  props.waveSize = size;
+}
+
+unsigned DxilModule::GetWaveSize() const {
+  DXASSERT(m_DxilEntryPropsMap.size() == 1 && m_pSM->IsCS(),
+    "only works for CS profiles");
+  if (!m_pSM->IsCS())
+    return 0;
+  const DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT_NOMSG(m_pSM->GetKind() == props.shaderKind);
+  return props.waveSize;
 }
 
 DXIL::InputPrimitive DxilModule::GetInputPrimitive() const {
@@ -1227,6 +1264,16 @@ bool DxilModule::IsEntryThatUsesSignatures(const llvm::Function *F) const {
   // Otherwise, return true if patch constant function
   return IsPatchConstantShader(F);
 }
+bool DxilModule::IsEntry(const llvm::Function *F) const {
+  auto propIter = m_DxilEntryPropsMap.find(F);
+  if (propIter != m_DxilEntryPropsMap.end()) {
+    DXASSERT(propIter->second->props.shaderKind != DXIL::ShaderKind::Invalid,
+             "invalid entry props");
+    return true;
+  }
+  // Otherwise, return true if patch constant function
+  return IsPatchConstantShader(F);
+}
 
 bool DxilModule::StripRootSignatureFromMetadata() {
   NamedMDNode *pRootSignatureNamedMD = GetModule()->getNamedMetadata(DxilMDHelper::kDxilRootSignatureMDName);
@@ -1264,12 +1311,14 @@ void DxilModule::UpdateValidatorVersionMetadata() {
 }
 
 void DxilModule::ResetSerializedRootSignature(std::vector<uint8_t> &Value) {
-  m_SerializedRootSignature.clear();
-  m_SerializedRootSignature.reserve(Value.size());
   m_SerializedRootSignature.assign(Value.begin(), Value.end());
 }
 
 DxilTypeSystem &DxilModule::GetTypeSystem() {
+  return *m_pTypeSystem;
+}
+
+const DxilTypeSystem &DxilModule::GetTypeSystem() const {
   return *m_pTypeSystem;
 }
 
@@ -1408,6 +1457,14 @@ void DxilModule::EmitDxilMetadata() {
        (m_ValMajor > 1 || (m_ValMajor == 1 && m_ValMinor >= 1)))) {
     m_pMDHelper->EmitDxilViewIdState(m_SerializedState);
   }
+
+  // Emit the DXR Payload Annotations only for library Dxil 1.6 and above.
+  if (m_pSM->IsLib()) {
+    if (DXIL::CompareVersions(m_DxilMajor, m_DxilMinor, 1, 6) >= 0) {
+      m_pMDHelper->EmitDxrPayloadAnnotations(GetTypeSystem());
+    }
+  }
+
   EmitLLVMUsed();
   MDTuple *pEntry = m_pMDHelper->EmitDxilEntryPointTuple(GetEntryFunction(), m_EntryName, pMDSignatures, pMDResources, pMDProperties);
   vector<MDNode *> Entries;
@@ -1460,7 +1517,6 @@ bool DxilModule::HasMetadataErrors() {
 
 void DxilModule::LoadDxilMetadata() {
   m_bMetadataErrors = false;
-  m_pMDHelper->LoadDxilVersion(m_DxilMajor, m_DxilMinor);
   m_pMDHelper->LoadValidatorVersion(m_ValMajor, m_ValMinor);
   const ShaderModel *loadedSM;
   m_pMDHelper->LoadDxilShaderModel(loadedSM);
@@ -1502,6 +1558,9 @@ void DxilModule::LoadDxilMetadata() {
 
   // Now that we have the UseMinPrecision flag, set shader model:
   SetShaderModel(loadedSM, m_bUseMinPrecision);
+  // SetShaderModel will initialize m_DxilMajor/m_DxilMinor to min for SM,
+  // so, load here after shader model so it matches the metadata.
+  m_pMDHelper->LoadDxilVersion(m_DxilMajor, m_DxilMinor);
 
   if (loadedSM->IsLib()) {
     for (unsigned i = 1; i < pEntries->getNumOperands(); i++) {
@@ -1560,6 +1619,17 @@ void DxilModule::LoadDxilMetadata() {
 #endif
     m_pTypeSystem->GetStructAnnotationMap().clear();
     m_pTypeSystem->GetFunctionAnnotationMap().clear();
+  }
+
+  // Payload annotations not required for consumption of dxil.
+  try {
+    m_pMDHelper->LoadDxrPayloadAnnotations(*m_pTypeSystem.get());
+  } catch (hlsl::Exception &) {
+    m_bMetadataErrors = true;
+#ifdef DBG
+    throw;
+#endif
+    m_pTypeSystem->GetPayloadAnnotationMap().clear();
   }
 
   m_pMDHelper->LoadRootSignature(m_SerializedRootSignature);
@@ -1695,20 +1765,29 @@ bool DxilModule::StripReflection() {
     // since they have not yet been converted for legacy layout.
     // Keep all structs contained in any we must keep.
     SmallStructSetVector structsToKeep;
-    SmallStructSetVector structsToRemove;
-    for (auto &item : m_pTypeSystem->GetStructAnnotationMap()) {
       SmallStructSetVector containedStructs;
-      if (!ResourceTypeRequiresTranslation(item.first, containedStructs))
-        structsToRemove.insert(item.first);
-      else
-        structsToKeep.insert(containedStructs.begin(), containedStructs.end());
+    for (auto &CBuf : GetCBuffers())
+      if (StructType *ST = dyn_cast<StructType>(CBuf->GetHLSLType()))
+        if (ResourceTypeRequiresTranslation(ST, containedStructs))
+          structsToKeep.insert(containedStructs.begin(), containedStructs.end());
+
+    for (auto &UAV : GetUAVs()) {
+      if (DXIL::IsStructuredBuffer(UAV->GetKind()))
+        if (StructType *ST = dyn_cast<StructType>(UAV->GetHLSLType()))
+          if (ResourceTypeRequiresTranslation(ST, containedStructs))
+            structsToKeep.insert(containedStructs.begin(), containedStructs.end());
     }
 
-    for (auto Ty : structsToKeep)
-      structsToRemove.remove(Ty);
-    for (auto Ty : structsToRemove) {
-      m_pTypeSystem->GetStructAnnotationMap().erase(Ty);
+    for (auto &SRV : GetSRVs()) {
+      if (SRV->IsStructuredBuffer() || SRV->IsTBuffer())
+        if (StructType *ST = dyn_cast<StructType>(SRV->GetHLSLType()))
+          if (ResourceTypeRequiresTranslation(ST, containedStructs))
+            structsToKeep.insert(containedStructs.begin(), containedStructs.end());
     }
+
+    m_pTypeSystem->GetStructAnnotationMap().remove_if([structsToKeep](
+      const std::pair<const StructType *, std::unique_ptr<DxilStructAnnotation>>
+          &I) { return !structsToKeep.count(I.first); });
   } else {
     // Remove struct annotations.
     if (!m_pTypeSystem->GetStructAnnotationMap().empty()) {
@@ -1799,25 +1878,56 @@ void DxilModule::LoadDxilResources(const llvm::MDOperand &MDO) {
   }
 }
 
-void DxilModule::StripDebugRelatedCode() {
+void DxilModule::StripShaderSourcesAndCompileOptions(bool bReplaceWithDummyData) {
   // Remove dx.source metadata.
   if (NamedMDNode *contents = m_pModule->getNamedMetadata(
           DxilMDHelper::kDxilSourceContentsMDName)) {
     contents->eraseFromParent();
+    if (bReplaceWithDummyData) {
+      // Insert an empty source and content
+      llvm::LLVMContext &context = m_pModule->getContext();
+      llvm::NamedMDNode *newNamedMD = m_pModule->getOrInsertNamedMetadata(DxilMDHelper::kDxilSourceContentsMDName);
+      llvm::Metadata *operands[2] = { llvm::MDString::get(context, ""), llvm::MDString::get(context, "") };
+      newNamedMD->addOperand(llvm::MDTuple::get(context, operands));
+    }
   }
   if (NamedMDNode *defines =
           m_pModule->getNamedMetadata(DxilMDHelper::kDxilSourceDefinesMDName)) {
     defines->eraseFromParent();
+    if (bReplaceWithDummyData) {
+      llvm::LLVMContext &context = m_pModule->getContext();
+      llvm::NamedMDNode *newNamedMD = m_pModule->getOrInsertNamedMetadata(DxilMDHelper::kDxilSourceDefinesMDName);
+      newNamedMD->addOperand(llvm::MDTuple::get(context, llvm::ArrayRef<llvm::Metadata *>()));
+    }
   }
   if (NamedMDNode *mainFileName = m_pModule->getNamedMetadata(
           DxilMDHelper::kDxilSourceMainFileNameMDName)) {
     mainFileName->eraseFromParent();
+    if (bReplaceWithDummyData) {
+      // Insert an empty file name
+      llvm::LLVMContext &context = m_pModule->getContext();
+      llvm::NamedMDNode *newNamedMD = m_pModule->getOrInsertNamedMetadata(DxilMDHelper::kDxilSourceMainFileNameMDName);
+      llvm::Metadata *operands[1] = { llvm::MDString::get(context, "") };
+      newNamedMD->addOperand(llvm::MDTuple::get(context, operands));
+    }
   }
   if (NamedMDNode *arguments =
           m_pModule->getNamedMetadata(DxilMDHelper::kDxilSourceArgsMDName)) {
     arguments->eraseFromParent();
+    if (bReplaceWithDummyData) {
+      llvm::LLVMContext &context = m_pModule->getContext();
+      llvm::NamedMDNode *newNamedMD = m_pModule->getOrInsertNamedMetadata(DxilMDHelper::kDxilSourceArgsMDName);
+      newNamedMD->addOperand(llvm::MDTuple::get(context, llvm::ArrayRef<llvm::Metadata *>()));
+    }
   }
+  if (NamedMDNode *binding = m_pModule->getNamedMetadata(
+          DxilMDHelper::kDxilDxcBindingTableMDName)) {
+    binding->eraseFromParent();
+  }
+}
 
+void DxilModule::StripDebugRelatedCode() {
+  StripShaderSourcesAndCompileOptions();
   if (NamedMDNode *flags = m_pModule->getModuleFlagsMetadata()) {
     SmallVector<llvm::Module::ModuleFlagEntry, 4> flagEntries;
     m_pModule->getModuleFlagsMetadata(flagEntries);

@@ -5,6 +5,7 @@
 #include "clang/Basic/SourceLocation.h"
 
 #include "llvm/ADT/StringMap.h"
+#include "llvm/ADT/MapVector.h"
 
 #include "dxc/DXIL/DxilCBuffer.h"
 
@@ -113,6 +114,7 @@ struct Scope {
  // Anything after it is unreachable.
  bool bWholeScopeReturned;
  unsigned parentScopeIndex;
+ void dump();
 };
 
 class ScopeInfo {
@@ -123,12 +125,13 @@ public:
   void AddSwitch(llvm::BasicBlock *endSwitchBB);
   void AddLoop(llvm::BasicBlock *loopContinue, llvm::BasicBlock *endLoopBB);
   void AddRet(llvm::BasicBlock *bbWithRet);
-  void EndScope(bool bScopeFinishedWithRet);
+  Scope &EndScope(bool bScopeFinishedWithRet);
   Scope &GetScope(unsigned i);
   const llvm::SmallVector<unsigned, 2> &GetRetScopes() { return rets; }
   void LegalizeWholeReturnedScope();
   llvm::SmallVector<Scope, 16> &GetScopes() { return scopes; }
   bool CanSkipStructurize();
+  void dump();
 
 private:
   void AddScope(Scope::ScopeKind k, llvm::BasicBlock *endScopeBB);
@@ -138,6 +141,18 @@ private:
   llvm::SmallVector<unsigned, 8> scopeStack;
   // save all scopes.
   llvm::SmallVector<Scope, 16> scopes;
+};
+
+// Map from value to resource properties.
+// This only collect object variables(global/local/parameter), not object fields inside struct.
+// Object fields inside struct is saved by TypeAnnotation.
+struct DxilObjectProperties {
+  bool AddResource(llvm::Value *V, const hlsl::DxilResourceProperties &RP);
+  bool IsResource(llvm::Value *V);
+  hlsl::DxilResourceProperties GetResource(llvm::Value *V);
+
+  // MapVector for deterministic iteration order.
+  llvm::MapVector<llvm::Value *, hlsl::DxilResourceProperties> resMap;
 };
 
 // Align cbuffer offset in legacy mode (16 bytes per row).
@@ -157,9 +172,9 @@ void FinishEntries(hlsl::HLModule &HLM, const EntryFunctionInfo &Entry,
                        &patchConstantFunctionPropsMap);
 
 void FinishIntrinsics(
-    hlsl::HLModule &HLM, std::vector<std::pair<llvm::Function *, unsigned>> &intrinsicMap,
-    llvm::DenseMap<llvm::Value *, hlsl::DxilResourceProperties>
-        &valToResPropertiesMap);
+    hlsl::HLModule &HLM,
+    std::vector<std::pair<llvm::Function *, unsigned>> &intrinsicMap,
+    DxilObjectProperties &valToResPropertiesMap);
 
 void AddDxBreak(llvm::Module &M, const llvm::SmallVector<llvm::BranchInst*, 16> &DxBreaks);
 
@@ -183,8 +198,14 @@ void FinishCBuffer(
     std::unordered_map<llvm::Constant *, hlsl::DxilFieldAnnotation>
         &AnnotationMap);
 
-void ProcessCtorFunctions(llvm::Module &M, llvm::StringRef globalName,
-                          llvm::Instruction *InsertPt, bool bRemoveGlobal);
+void ProcessCtorFunctions(llvm::Module &M,
+                          llvm::SmallVector<llvm::Function *, 2> &Ctors,
+                          llvm::Function *Entry,
+                          llvm::Function *PatchConstantFn);
+
+void CollectCtorFunctions(llvm::Module &M, llvm::StringRef globalName,
+                          llvm::SmallVector<llvm::Function *, 2> &Ctors,
+                          clang::CodeGen::CodeGenModule &CGM);
 
 void TranslateRayQueryConstructor(hlsl::HLModule &HLM);
 

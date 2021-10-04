@@ -32,7 +32,7 @@ bool WholeFileTest::parseInputFile() {
       if (line.find(hlslStartLabel) != std::string::npos) {
         foundRunCommand = true;
         if (!utils::processRunCommandArgs(line, &targetProfile, &entryPoint,
-                                          &restArgs)) {
+                                          &targetEnv, &restArgs)) {
           // An error has occured when parsing the Run command.
           return false;
         }
@@ -94,7 +94,7 @@ void WholeFileTest::runWholeFileTest(llvm::StringRef filename,
   std::string errorMessages;
 
   // Feed the HLSL source into the Compiler.
-  ASSERT_TRUE(utils::runCompilerWithSpirvGeneration(
+  ASSERT_TRUE(utils::compileFileWithSpirvGeneration(
       inputFilePath, entryPoint, targetProfile, restArgs, &generatedBinary,
       &errorMessages));
 

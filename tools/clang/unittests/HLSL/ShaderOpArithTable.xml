@@ -7275,4 +7275,253 @@
             <Parameter Name="ShaderOp.Arguments">-denorm ftz</Parameter>
         </Row>
     </Table>
+    <Table Id="PackUnpackOpTable">
+        <ParameterTypes>
+            <ParameterType Name="ShaderOp.Text">String</ParameterType>
+            <ParameterType Name="Validation.Type">String</ParameterType>
+            <ParameterType Name="Validation.Tolerance">uint</ParameterType>
+            <ParameterType Array="true" Name="Validation.Input">String</ParameterType>
+        </ParameterTypes>
+        <Row Name="PackUnpack">
+            <Parameter Name="Validation.Type">ulp</Parameter>
+            <Parameter Name="Validation.Tolerance">0</Parameter>
+            <Parameter Name="ShaderOp.Text">
+                <![CDATA[
+
+                struct SPackUnpackOpIn {
+                   uint32_t4 inputUint;
+                };
+
+                struct SPackUnpackOpOutPacked
+                {
+                    uint32_t packedUint32;
+                    uint32_t packedInt32;
+                    uint32_t packedUint16;
+                    uint32_t packedInt16;
+
+                    uint32_t packedClampedUint32;
+                    uint32_t packedClampedInt32;
+                    uint32_t packedClampedUint16;
+                    uint32_t packedClampedInt16;
+                };
+
+                struct SPackUnpackOpOutPackedUnpacked {
+                   uint32_t4 outputUint32;
+                   int32_t4 outputInt32;
+                   uint16_t4 outputUint16;
+                   int16_t4 outputInt16;
+
+                   uint32_t4 outputClampedUint32;
+                   int32_t4 outputClampedInt32;
+                   uint16_t4 outputClampedUint16;
+                   int16_t4 outputClampedInt16;
+                };
+
+                #ifdef PACKUNPACK_PLACEHOLDER
+                    #define CALL(x) p##x
+
+
+                uint32_t ppack_u8(uint16_t4 unpackedVal)
+                {
+                    uint32_t dst = 0;
+                    for (uint32_t i = 0; i < 4; ++i)
+                    {
+                        dst |= ((uint32_t)unpackedVal[i] & 0xFF) << (i * 8);
+                    }
+
+                    return dst;
+                }
+
+                uint32_t ppack_s8(int16_t4 unpackedVal)
+                {
+                    uint32_t dst = 0;
+                    for (uint32_t i = 0; i < 4; ++i)
+                    {
+                        dst |= ((uint32_t)unpackedVal[i] & 0xFF) << (i * 8);
+                    }
+
+                    return dst;
+                }
+
+
+                uint32_t ppack_u8(uint32_t4 unpackedVal)
+                {
+                    uint32_t dst = 0;
+                    for (uint32_t i = 0; i < 4; ++i)
+                    {
+                        dst |= ((uint32_t)unpackedVal[i] & 0xFF) << (i * 8);
+                    }
+
+                    return dst;
+                }
+
+                uint32_t ppack_s8(int32_t4 unpackedVal)
+                {
+                    uint32_t dst = 0;
+                    for (uint32_t i = 0; i < 4; ++i)
+                    {
+                        dst |= ((uint32_t)unpackedVal[i] & 0xFF) << (i * 8);
+                    }
+
+                    return dst;
+                }
+
+                uint32_t ppack_clamp_u8(int32_t4 unpackedVal)
+                {
+                    int32_t clamp_min = 0;
+                    int32_t clamp_max = 255;
+
+                    uint32_t dst = 0;
+                    for (uint i = 0; i < 4; ++i)
+                    {
+                        dst |= (uint32_t)clamp(unpackedVal[i], clamp_min, clamp_max) << (i * 8);
+                    }
+
+                    return dst;
+                }
+
+                uint32_t ppack_clamp_s8(int32_t4 unpackedVal)
+                {
+                    int32_t clamp_min = -128;
+                    int32_t clamp_max = 127;
+
+                    uint32_t dst = 0;
+                    for (uint i = 0; i < 4; ++i)
+                    {
+                        dst |= (uint32_t)(clamp(unpackedVal[i], clamp_min, clamp_max) & 0xFF) << (i * 8);
+                    }
+
+                    return dst;
+                }
+
+                int32_t signExtend8BitValue(int32_t val)
+                {
+                    // check sign bit
+                    if ((val & 0x80) == 0)
+                    {
+                        return val;
+                    }
+                    else
+                    {
+                        return val | 0xFFFFFF00;
+                    }
+                }
+
+                int16_t4 punpack_s8s16(uint32_t packedVal)
+                {
+                    int16_t4 ret;
+                    ret[0] = (int16_t)signExtend8BitValue((packedVal & 0x000000FF) >> 0);
+                    ret[1] = (int16_t)signExtend8BitValue((packedVal & 0x0000FF00) >> 8);
+                    ret[2] = (int16_t)signExtend8BitValue((packedVal & 0x00FF0000) >> 16);
+                    ret[3] = (int16_t)signExtend8BitValue((packedVal & 0xFF000000) >> 24);
+                
+                    return ret;
+                }
+                  
+                uint16_t4 punpack_u8u16(uint32_t packedVal)
+                {
+                    uint16_t4 ret;
+                    ret[0] = (uint16_t)((packedVal & 0x000000FF) >> 0);
+                    ret[1] = (uint16_t)((packedVal & 0x0000FF00) >> 8);
+                    ret[2] = (uint16_t)((packedVal & 0x00FF0000) >> 16);
+                    ret[3] = (uint16_t)((packedVal & 0xFF000000) >> 24);
+                
+                    return ret;
+                }
+                  
+                int32_t4 punpack_s8s32(uint32_t packedVal)
+                {
+                    int32_t4 ret;
+                    ret[0] = signExtend8BitValue((packedVal & 0x000000FF) >> 0);
+                    ret[1] = signExtend8BitValue((packedVal & 0x0000FF00) >> 8);
+                    ret[2] = signExtend8BitValue((packedVal & 0x00FF0000) >> 16);
+                    ret[3] = signExtend8BitValue((packedVal & 0xFF000000) >> 24);
+                
+                    return ret;
+                }
+                  
+                uint32_t4 punpack_u8u32(uint32_t packedVal)
+                {
+                    uint32_t4 ret;
+                    ret[0] = (packedVal & 0x000000FF) >> 0;
+                    ret[1] = (packedVal & 0x0000FF00) >> 8;
+                    ret[2] = (packedVal & 0x00FF0000) >> 16;
+                    ret[3] = (packedVal & 0xFF000000) >> 24;
+                
+                    return ret;
+                }
+                #else
+                    #define CALL(x) x
+                #endif
+
+                RWStructuredBuffer<SPackUnpackOpIn> g_bufIn : register(u0);
+                RWStructuredBuffer<SPackUnpackOpOutPacked> g_bufOutPacked : register(u1);
+                RWStructuredBuffer<SPackUnpackOpOutPackedUnpacked> g_bufOutPackedUnpacked : register(u2);
+
+                [numthreads(6,1,1)]
+                void main(uint GI : SV_GroupIndex) {
+                    SPackUnpackOpIn input = g_bufIn[GI];
+
+                    uint32_t4 inputUint32 = input.inputUint;
+                    int32_t4 inputInt32 = (int32_t4)inputUint32;
+                    uint16_t4 inputUint16 = inputUint32;
+                    int16_t4 inputInt16 = inputInt32;
+
+                    // First pack without clamp
+                    g_bufOutPacked[GI].packedUint32 = CALL(pack_u8(inputUint32));
+                    g_bufOutPacked[GI].packedInt32  = CALL(pack_s8(inputInt32));
+                    g_bufOutPacked[GI].packedUint16 = CALL(pack_u8(inputUint16));
+                    g_bufOutPacked[GI].packedInt16  = CALL(pack_s8(inputInt16));
+
+                    // Then pack with clamp
+                    g_bufOutPacked[GI].packedClampedUint32 = CALL(pack_clamp_u8(inputInt32));
+                    g_bufOutPacked[GI].packedClampedInt32  = CALL(pack_clamp_s8(inputInt32));
+                    g_bufOutPacked[GI].packedClampedUint16 = CALL(pack_clamp_u8(inputInt16));
+                    g_bufOutPacked[GI].packedClampedInt16  = CALL(pack_clamp_s8(inputInt16));
+
+                    // Then unpack
+                    g_bufOutPackedUnpacked[GI].outputUint32 = CALL(unpack_u8u32(g_bufOutPacked[GI].packedUint32));
+                    g_bufOutPackedUnpacked[GI].outputInt32  = CALL(unpack_s8s32(g_bufOutPacked[GI].packedInt32));
+                    g_bufOutPackedUnpacked[GI].outputUint16 = CALL(unpack_u8u16(g_bufOutPacked[GI].packedUint16));
+                    g_bufOutPackedUnpacked[GI].outputInt16  = CALL(unpack_s8s16(g_bufOutPacked[GI].packedInt16));
+                    g_bufOutPackedUnpacked[GI].outputClampedUint32 = CALL(unpack_u8u32(g_bufOutPacked[GI].packedClampedUint32));
+                    g_bufOutPackedUnpacked[GI].outputClampedInt32  = CALL(unpack_s8s32(g_bufOutPacked[GI].packedClampedInt32));
+                    g_bufOutPackedUnpacked[GI].outputClampedUint16 = CALL(unpack_u8u16(g_bufOutPacked[GI].packedClampedUint16));
+                    g_bufOutPackedUnpacked[GI].outputClampedInt16  = CALL(unpack_s8s16(g_bufOutPacked[GI].packedClampedInt16));
+                };
+                ]]>
+            </Parameter>
+            <Parameter Name="Validation.Input">
+                <Value>0</Value>
+                <Value>1</Value>
+                <Value>-1</Value>
+                <Value>-2</Value>
+
+                <Value>-50</Value>
+                <Value>55</Value>
+                <Value>254</Value>
+                <Value>255</Value>
+
+                <Value>256</Value>
+                <Value>126</Value>
+                <Value>127</Value>
+                <Value>128</Value>
+
+                <Value>-127</Value>
+                <Value>-128</Value>
+                <Value>-129</Value>
+                <Value>-254</Value>
+
+                <Value>-255</Value>
+                <Value>-256</Value>
+                <Value>65535</Value>
+                <Value>-32768</Value>
+
+                <Value>32767</Value>
+                <Value>2147483647</Value>
+                <Value>-2147483648</Value>
+                <Value>4294967295</Value>
+            </Parameter>
+        </Row>
+    </Table>
 </Data>

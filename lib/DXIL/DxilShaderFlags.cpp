@@ -11,6 +11,7 @@
 #include "dxc/DXIL/DxilShaderFlags.h"
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilResource.h"
+#include "dxc/DXIL/DxilResourceBinding.h"
 #include "dxc/Support/Global.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Instructions.h"
@@ -52,11 +53,15 @@ ShaderFlags::ShaderFlags():
 , m_bShadingRate(false)
 , m_bRaytracingTier1_1(false)
 , m_bSamplerFeedback(false)
-, m_align0(0)
+, m_bAtomicInt64OnTypedResource(false)
+, m_bAtomicInt64OnGroupShared(false)
+, m_bDerivativesInMeshAndAmpShaders(false)
+, m_bResourceDescriptorHeapIndexing(false)
+, m_bSamplerDescriptorHeapIndexing(false)
+, m_bAtomicInt64OnHeapResource(false)
 , m_align1(0)
 {
   // Silence unused field warnings
-  (void)m_align0;
   (void)m_align1;
 }
 
@@ -104,6 +109,12 @@ uint64_t ShaderFlags::GetFeatureInfo() const {
   Flags |= m_bShadingRate ? hlsl::DXIL::ShaderFeatureInfo_ShadingRate : 0;
   Flags |= m_bRaytracingTier1_1 ? hlsl::DXIL::ShaderFeatureInfo_Raytracing_Tier_1_1 : 0;
   Flags |= m_bSamplerFeedback ? hlsl::DXIL::ShaderFeatureInfo_SamplerFeedback : 0;
+  Flags |= m_bAtomicInt64OnTypedResource ? hlsl::DXIL::ShaderFeatureInfo_AtomicInt64OnTypedResource : 0;
+  Flags |= m_bAtomicInt64OnGroupShared ? hlsl::DXIL::ShaderFeatureInfo_AtomicInt64OnGroupShared : 0;
+  Flags |= m_bDerivativesInMeshAndAmpShaders ? hlsl::DXIL::ShaderFeatureInfo_DerivativesInMeshAndAmpShaders : 0;
+  Flags |= m_bResourceDescriptorHeapIndexing ? hlsl::DXIL::ShaderFeatureInfo_ResourceDescriptorHeapIndexing : 0;
+  Flags |= m_bSamplerDescriptorHeapIndexing ? hlsl::DXIL::ShaderFeatureInfo_SamplerDescriptorHeapIndexing : 0;
+  Flags |= m_bAtomicInt64OnHeapResource ? hlsl::DXIL::ShaderFeatureInfo_AtomicInt64OnHeapResource : 0;
 
   return Flags;
 }
@@ -158,6 +169,12 @@ uint64_t ShaderFlags::GetShaderFlagsRawForCollection() {
   Flags.SetShadingRate(true);
   Flags.SetRaytracingTier1_1(true);
   Flags.SetSamplerFeedback(true);
+  Flags.SetAtomicInt64OnTypedResource(true);
+  Flags.SetAtomicInt64OnGroupShared(true);
+  Flags.SetDerivativesInMeshAndAmpShaders(true);
+  Flags.SetResourceDescriptorHeapIndexing(true);
+  Flags.SetSamplerDescriptorHeapIndexing(true);
+  Flags.SetAtomicInt64OnHeapResource(true);
   return Flags.GetShaderFlagsRaw();
 }
 
@@ -217,9 +234,7 @@ static CallInst *FindCallToCreateHandle(Value *handleType) {
 
 DxilResourceProperties GetResourcePropertyFromHandleCall(const hlsl::DxilModule *M, CallInst *handleCall) {
 
-  DxilResourceProperties RP = {};
-  RP.Class = DXIL::ResourceClass::Invalid;
-  RP.Kind = DXIL::ResourceKind::Invalid;
+  DxilResourceProperties RP;
 
   ConstantInt *HandleOpCodeConst = cast<ConstantInt>(
       handleCall->getArgOperand(DXIL::OperandIndex::kOpcodeIdx));
@@ -237,7 +252,7 @@ DxilResourceProperties GetResourcePropertyFromHandleCall(const hlsl::DxilModule 
           resource = M->GetUAV(rangeID->getLimitedValue());
         else if (resClass == DXIL::ResourceClass::SRV)
           resource = M->GetSRV(rangeID->getLimitedValue());
-        RP = resource_helper::loadFromResourceBase(&resource);
+        RP = resource_helper::loadPropsFromResourceBase(&resource);
       }
     }
   }
@@ -248,18 +263,75 @@ DxilResourceProperties GetResourcePropertyFromHandleCall(const hlsl::DxilModule 
       Value *resType = LI->getOperand(0);
       for (auto &&res : M->GetUAVs()) {
         if (res->GetGlobalSymbol() == resType) {
-          RP = resource_helper::loadFromResourceBase(res.get());
+          RP = resource_helper::loadPropsFromResourceBase(res.get());
         }
       }
     }
   } else if (handleOp == DXIL::OpCode::AnnotateHandle) {
     DxilInst_AnnotateHandle annotateHandle(cast<Instruction>(handleCall));
-    Type *ResPropTy = M->GetOP()->GetResourcePropertiesType();
 
-    RP = resource_helper::loadFromAnnotateHandle(annotateHandle, ResPropTy, *M->GetShaderModel());
+    RP = resource_helper::loadPropsFromAnnotateHandle(annotateHandle, *M->GetShaderModel());
   }
 
   return RP;
+}
+
+struct ResourceKey {
+  uint8_t Class;
+  uint32_t Space;
+  uint32_t LowerBound;
+  uint32_t UpperBound;
+};
+
+struct ResKeyEq {
+   bool operator()(const ResourceKey& k1, const ResourceKey& k2) const {
+     return k1.Class == k2.Class && k1.Space == k2.Space &&
+       k1.LowerBound == k2.LowerBound && k1.UpperBound == k2.UpperBound;
+   }
+};
+
+struct ResKeyHash {
+   std::size_t operator()(const ResourceKey& k) const {
+     return std::hash<uint32_t>()(k.LowerBound) ^ (std::hash<uint32_t>()(k.UpperBound)<<1) ^
+       (std::hash<uint32_t>()(k.Space)<<2) ^ (std::hash<uint8_t>()(k.Class)<<3);
+   }
+};
+
+// Limited to retrieving handles created by CreateHandleFromBinding and CreateHandleForLib. returns null otherwise
+// map should contain resources indexed by space, class, lower, and upper bounds
+DxilResource *GetResourceFromAnnotateHandle(const hlsl::DxilModule *M, CallInst *handleCall,
+                                     std::unordered_map<ResourceKey, DxilResource *, ResKeyHash, ResKeyEq> resMap) {
+  DxilResource *resource = nullptr;
+
+  ConstantInt *HandleOpCodeConst = cast<ConstantInt>(
+      handleCall->getArgOperand(DXIL::OperandIndex::kOpcodeIdx));
+  DXIL::OpCode handleOp = static_cast<DXIL::OpCode>(HandleOpCodeConst->getLimitedValue());
+  if (handleOp == DXIL::OpCode::AnnotateHandle) {
+    DxilInst_AnnotateHandle annotateHandle(cast<Instruction>(handleCall));
+    CallInst *createCall = cast<CallInst>(annotateHandle.get_res());
+    ConstantInt *HandleOpCodeConst = cast<ConstantInt>(
+            createCall->getArgOperand(DXIL::OperandIndex::kOpcodeIdx));
+    DXIL::OpCode handleOp = static_cast<DXIL::OpCode>(HandleOpCodeConst->getLimitedValue());
+    if (handleOp == DXIL::OpCode::CreateHandleFromBinding) {
+      DxilInst_CreateHandleFromBinding fromBind(createCall);
+      DxilResourceBinding B = resource_helper::loadBindingFromConstant(*cast<Constant>(fromBind.get_bind()));
+      ResourceKey key = {B.resourceClass, B.spaceID, B.rangeLowerBound, B.rangeUpperBound};
+      resource = resMap[key];
+    } else if (handleOp == DXIL::OpCode::CreateHandleForLib) {
+      // If library handle, find DxilResource by checking the name
+      if (LoadInst *LI = dyn_cast<LoadInst>(createCall->getArgOperand(
+                                              DXIL::OperandIndex::kCreateHandleForLibResOpIdx))) {
+        Value *resType = LI->getOperand(0);
+        for (auto &&res : M->GetUAVs()) {
+          if (res->GetGlobalSymbol() == resType) {
+            return resource = res.get();
+          }
+        }
+      }
+    }
+  }
+
+  return resource;
 }
 
 
@@ -286,17 +358,34 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   bool hasMulticomponentUAVLoads = false;
   bool hasViewportOrRTArrayIndex = false;
   bool hasShadingRate = false;
+  bool hasBarycentrics = false;
   bool hasSamplerFeedback = false;
   bool hasRaytracingTier1_1 = false;
+  bool hasAtomicInt64OnTypedResource = false;
+  bool hasAtomicInt64OnGroupShared = false;
+  bool hasDerivativesInMeshAndAmpShaders = false;
+  bool hasResourceDescriptorHeapIndexing = false;
+  bool hasSamplerDescriptorHeapIndexing = false;
+  bool hasAtomicInt64OnHeapResource = false;
 
   // Try to maintain compatibility with a v1.0 validator if that's what we have.
   uint32_t valMajor, valMinor;
   M->GetValidatorVersion(valMajor, valMinor);
   bool hasMulticomponentUAVLoadsBackCompat = valMajor == 1 && valMinor == 0;
   bool hasViewportOrRTArrayIndexBackCombat = valMajor == 1 && valMinor < 4;
+  bool hasBarycentricsBackCompat = valMajor == 1 && valMinor < 6;
 
   Type *int16Ty = Type::getInt16Ty(F->getContext());
   Type *int64Ty = Type::getInt64Ty(F->getContext());
+
+
+  // Set up resource to binding handle map for 64-bit atomics usage
+  std::unordered_map<ResourceKey, DxilResource *, ResKeyHash, ResKeyEq> resMap;
+  for (auto &res : M->GetUAVs()) {
+    ResourceKey key = {(uint8_t)res->GetClass(), res->GetSpaceID(),
+                       res->GetLowerBound(), res->GetUpperBound()};
+    resMap.insert({key, res.get()});
+  }
 
   for (const BasicBlock &BB : F->getBasicBlockList()) {
     for (const Instruction &I : BB.getInstList()) {
@@ -320,22 +409,30 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
         isInt16 |= Ty == int16Ty;
         isInt64 |= Ty == int64Ty;
       }
-        if (isDouble) {
-          hasDouble = true;
-          switch (I.getOpcode()) {
-          case Instruction::FDiv:
-          case Instruction::UIToFP:
-          case Instruction::SIToFP:
-          case Instruction::FPToUI:
-          case Instruction::FPToSI:
-            hasDoubleExtension = true;
-            break;
-          }
+      if (isDouble) {
+        hasDouble = true;
+        switch (I.getOpcode()) {
+        case Instruction::FDiv:
+        case Instruction::UIToFP:
+        case Instruction::SIToFP:
+        case Instruction::FPToUI:
+        case Instruction::FPToSI:
+          hasDoubleExtension = true;
+          break;
         }
+      }
+      if (isInt64) {
+        has64Int = true;
+        switch (I.getOpcode()) {
+        case Instruction::AtomicCmpXchg:
+        case Instruction::AtomicRMW:
+          hasAtomicInt64OnGroupShared = true;
+          break;
+        }
+      }
 
       has16 |= isHalf;
       has16 |= isInt16;
-      has64Int |= isInt64;
       if (const CallInst *CI = dyn_cast<CallInst>(&I)) {
         if (!OP::IsDxilOpFunc(CI->getCalledFunction()))
           continue;
@@ -364,13 +461,14 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
           // Check if this is a library handle or general create handle
           if (handleCall) {
             DxilResourceProperties RP = GetResourcePropertyFromHandleCall(M, handleCall);
-            if (RP.Class == DXIL::ResourceClass::UAV) {
+            if (RP.isUAV()) {
               // Validator 1.0 assumes that all uav load is multi component load.
               if (hasMulticomponentUAVLoadsBackCompat) {
                 hasMulticomponentUAVLoads = true;
                 continue;
               } else {
-                if (DXIL::IsTyped(RP.Kind) && !RP.Typed.SingleComponent)
+                if (DXIL::IsTyped(RP.getResourceKind()) &&
+                    RP.Typed.CompCount > 1)
                   hasMulticomponentUAVLoads = true;
               }
             }
@@ -389,6 +487,46 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
         case DXIL::OpCode::GeometryIndex:
           hasRaytracingTier1_1 = true;
           break;
+        case DXIL::OpCode::AttributeAtVertex:
+          hasBarycentrics = true;
+        break;
+        case DXIL::OpCode::AtomicBinOp:
+        case DXIL::OpCode::AtomicCompareExchange:
+          if (isInt64) {
+            Value *resHandle = CI->getArgOperand(DXIL::OperandIndex::kAtomicBinOpHandleOpIdx);
+            CallInst *handleCall = FindCallToCreateHandle(resHandle);
+            DxilResourceProperties RP = GetResourcePropertyFromHandleCall(M, handleCall);
+            if (DXIL::IsTyped(RP.getResourceKind()))
+                hasAtomicInt64OnTypedResource = true;
+            // set uses 64-bit flag if relevant
+            if (DxilResource *res = GetResourceFromAnnotateHandle(M, handleCall, resMap)) {
+              res->SetHasAtomic64Use(true);
+            } else {
+              // Assuming CreateHandleFromHeap, which indicates a descriptor
+              hasAtomicInt64OnHeapResource = true;
+            }
+          }
+          break;
+        case DXIL::OpCode::DerivFineX:
+        case DXIL::OpCode::DerivFineY:
+        case DXIL::OpCode::DerivCoarseX:
+        case DXIL::OpCode::DerivCoarseY:
+        case DXIL::OpCode::CalculateLOD:
+        case DXIL::OpCode::Sample:
+        case DXIL::OpCode::SampleBias:
+        case DXIL::OpCode::SampleCmp: {
+          const ShaderModel *pSM = M->GetShaderModel();
+          if (pSM->IsAS() || pSM->IsMS())
+            hasDerivativesInMeshAndAmpShaders = true;
+        } break;
+        case DXIL::OpCode::CreateHandleFromHeap: {
+          ConstantInt *isSamplerVal = dyn_cast<ConstantInt>(
+                        CI->getArgOperand(DXIL::OperandIndex::kCreateHandleFromHeapSamplerHeapOpIdx));
+          if (isSamplerVal->getLimitedValue())
+            hasSamplerDescriptorHeapIndexing = true;
+          else
+            hasResourceDescriptorHeapIndexing = true;
+        }
         default:
           // Normal opcodes.
           break;
@@ -425,6 +563,9 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
         break;
       case Semantic::Kind::ShadingRate:
         hasShadingRate = true;
+        break;
+      case Semantic::Kind::Barycentrics:
+        hasBarycentrics = true;
         break;
       default:
         break;
@@ -490,8 +631,15 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   flag.SetViewID(hasViewID);
   flag.SetViewportAndRTArrayIndex(hasViewportOrRTArrayIndex);
   flag.SetShadingRate(hasShadingRate);
+  flag.SetBarycentrics(hasBarycentricsBackCompat ? false : hasBarycentrics);
   flag.SetSamplerFeedback(hasSamplerFeedback);
   flag.SetRaytracingTier1_1(hasRaytracingTier1_1);
+  flag.SetAtomicInt64OnTypedResource(hasAtomicInt64OnTypedResource);
+  flag.SetAtomicInt64OnGroupShared(hasAtomicInt64OnGroupShared);
+  flag.SetDerivativesInMeshAndAmpShaders(hasDerivativesInMeshAndAmpShaders);
+  flag.SetResourceDescriptorHeapIndexing(hasResourceDescriptorHeapIndexing);
+  flag.SetSamplerDescriptorHeapIndexing(hasSamplerDescriptorHeapIndexing);
+  flag.SetAtomicInt64OnHeapResource(hasAtomicInt64OnHeapResource);
 
   return flag;
 }

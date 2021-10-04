@@ -19,6 +19,7 @@
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/HLSL/DxilSpanAllocator.h"
 
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Transforms/Utils/Local.h"
@@ -27,6 +28,8 @@
 #ifdef _WIN32
 #include <winerror.h>
 #endif
+
+#include "PixPassHelpers.h"
 
 // Keep these in sync with the same-named value in the debugger application's
 // WinPixShaderUtils.h
@@ -37,14 +40,15 @@ constexpr uint64_t DebugBufferDumpingGroundSize = 64 * 1024;
 constexpr size_t CounterOffsetBeyondUsefulData = DebugBufferDumpingGroundSize / 2;
 
 // Keep these in sync with the same-named values in PIX's MeshShaderOutput.cpp
-constexpr uint32_t triangleIndexIndicator = 1;
-constexpr uint32_t int32ValueIndicator = 2;
-constexpr uint32_t floatValueIndicator = 3;
-constexpr uint32_t int16ValueIndicator = 4;
-constexpr uint32_t float16ValueIndicator = 5;
+constexpr uint32_t triangleIndexIndicator = 0x1;
+constexpr uint32_t int32ValueIndicator = 0x2;
+constexpr uint32_t floatValueIndicator = 0x3;
+constexpr uint32_t int16ValueIndicator = 0x4;
+constexpr uint32_t float16ValueIndicator = 0x5;
 
 using namespace llvm;
 using namespace hlsl;
+using namespace PIXPassHelpers;
 
 class DxilPIXMeshShaderOutputInstrumentation : public ModulePass 
 {
@@ -61,8 +65,10 @@ private:
   CallInst *m_OutputUAV = nullptr;
   int m_RemainingReservedSpaceInBytes = 0;
   Constant *m_OffsetMask = nullptr;
+  SmallVector<Value*,2> m_threadUniquifier;
 
   uint64_t m_UAVSize = 1024 * 1024;
+  bool m_ExpandPayload = false;
 
   struct BuilderContext {
     Module &M;
@@ -72,9 +78,7 @@ private:
     IRBuilder<> &Builder;
   };
 
-  CallInst *addUAV(BuilderContext &BC);
-  Value *insertInstructionsToCalculateFlattenedGroupIdXandY(BuilderContext &BC);
-  Value *insertInstructionsToCalculateGroupIdZ(BuilderContext &BC);
+  SmallVector<Value*, 2> insertInstructionsToCreateDisambiguationValue(OP* HlslOP, LLVMContext& Ctx, StructType * originalPayloadStructType, Instruction * firstGetPayload);
   Value *reserveDebugEntrySpace(BuilderContext &BC, uint32_t SpaceInBytes);
   uint32_t UAVDumpingGroundOffset();
   Value *writeDwordAndReturnNewOffset(BuilderContext &BC, Value *TheOffset,
@@ -85,6 +89,7 @@ private:
 void DxilPIXMeshShaderOutputInstrumentation::applyOptions(PassOptions O) 
 {
   GetPassOptionUInt64(O, "UAVSize", &m_UAVSize, 1024 * 1024);
+  GetPassOptionBool(O, "expand-payload", &m_ExpandPayload, 0);
 }
 
 uint32_t DxilPIXMeshShaderOutputInstrumentation::UAVDumpingGroundOffset() 
@@ -92,89 +97,9 @@ uint32_t DxilPIXMeshShaderOutputInstrumentation::UAVDumpingGroundOffset()
   return static_cast<uint32_t>(m_UAVSize - DebugBufferDumpingGroundSize);
 }
 
-CallInst *DxilPIXMeshShaderOutputInstrumentation::addUAV(BuilderContext &BC) 
-{
-  // Set up a UAV with structure of a single int
-  unsigned int UAVResourceHandle =
-      static_cast<unsigned int>(BC.DM.GetUAVs().size());
-  SmallVector<llvm::Type *, 1> Elements{Type::getInt32Ty(BC.Ctx)};
-  llvm::StructType *UAVStructTy =
-      llvm::StructType::create(Elements, "PIX_DebugUAV_Type");
-  std::unique_ptr<DxilResource> pUAV = llvm::make_unique<DxilResource>();
-  pUAV->SetGlobalName("PIX_DebugUAVName");
-  pUAV->SetGlobalSymbol(UndefValue::get(UAVStructTy->getPointerTo()));
-  pUAV->SetID(UAVResourceHandle);
-  pUAV->SetSpaceID(
-      (unsigned int)-2); // This is the reserved-for-tools register space
-  pUAV->SetSampleCount(1);
-  pUAV->SetGloballyCoherent(false);
-  pUAV->SetHasCounter(false);
-  pUAV->SetCompType(CompType::getI32());
-  pUAV->SetLowerBound(0);
-  pUAV->SetRangeSize(1);
-  pUAV->SetKind(DXIL::ResourceKind::RawBuffer);
-  pUAV->SetRW(true);
-
-  auto ID = BC.DM.AddUAV(std::move(pUAV));
-  assert(ID == UAVResourceHandle);
-
-  BC.DM.m_ShaderFlags.SetEnableRawAndStructuredBuffers(true);
-
-  // Create handle for the newly-added UAV
-  Function *CreateHandleOpFunc =
-      BC.HlslOP->GetOpFunc(DXIL::OpCode::CreateHandle, Type::getVoidTy(BC.Ctx));
-  Constant *CreateHandleOpcodeArg =
-      BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::CreateHandle);
-  Constant *UAVVArg = BC.HlslOP->GetI8Const(
-      static_cast<std::underlying_type<DxilResourceBase::Class>::type>(
-          DXIL::ResourceClass::UAV));
-  Constant *MetaDataArg = BC.HlslOP->GetU32Const(
-      ID); // position of the metadata record in the corresponding metadata list
-  Constant *IndexArg = BC.HlslOP->GetU32Const(0); //
-  Constant *FalseArg =
-      BC.HlslOP->GetI1Const(0); // non-uniform resource index: false
-  return BC.Builder.CreateCall(
-      CreateHandleOpFunc,
-      {CreateHandleOpcodeArg, UAVVArg, MetaDataArg, IndexArg, FalseArg},
-      "PIX_DebugUAV_Handle");
-}
-
-Value *DxilPIXMeshShaderOutputInstrumentation::
-    insertInstructionsToCalculateFlattenedGroupIdXandY(BuilderContext &BC)
-{
-  Constant *Zero32Arg = BC.HlslOP->GetU32Const(0);
-  Constant *One32Arg = BC.HlslOP->GetU32Const(1);
-
-  auto GroupIdFunc =
-      BC.HlslOP->GetOpFunc(DXIL::OpCode::GroupId, Type::getInt32Ty(BC.Ctx));
-  Constant *Opcode = BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::GroupId);
-  auto GroupIdX =
-      BC.Builder.CreateCall(GroupIdFunc, {Opcode, Zero32Arg}, "GroupIdX");
-  auto GroupIdY =
-      BC.Builder.CreateCall(GroupIdFunc, {Opcode, One32Arg}, "GroupIdY");
-
-  // Spec requires that no group id index is greater than 64k, so we can 
-  // combine two into one 32-bit value:
-  auto YShifted =
-      BC.Builder.CreateShl(GroupIdY, 16);
-  return BC.Builder.CreateAdd(YShifted, GroupIdX);
-}
-
-Value *DxilPIXMeshShaderOutputInstrumentation::
-    insertInstructionsToCalculateGroupIdZ(BuilderContext &BC) 
-{
-  Constant *Two32Arg = BC.HlslOP->GetU32Const(2);
-  auto GroupIdFunc =
-      BC.HlslOP->GetOpFunc(DXIL::OpCode::GroupId, Type::getInt32Ty(BC.Ctx));
-  Constant *Opcode = BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::GroupId);
-
-  return BC.Builder.CreateCall(GroupIdFunc, {Opcode, Two32Arg}, "GroupIdZ");
-}
-
 Value *DxilPIXMeshShaderOutputInstrumentation::reserveDebugEntrySpace(
     BuilderContext &BC, uint32_t SpaceInBytes) 
 {
-  
   // Check the previous caller didn't reserve too much space:
   assert(m_RemainingReservedSpaceInBytes == 0);
   
@@ -261,24 +186,129 @@ void DxilPIXMeshShaderOutputInstrumentation::Instrument(BuilderContext &BC,
   }
 }
 
+Value* GetValueFromExpandedPayload(IRBuilder<> &Builder, StructType* originalPayloadStructType, Instruction* firstGetPayload, unsigned int offset, const char * name) {
+  auto *DerefPointer = Builder.getInt32(0);
+  auto *OffsetToExpandedData = Builder.getInt32(offset);
+  auto *GEP = Builder.CreateGEP(
+      cast<PointerType>(firstGetPayload->getType()->getScalarType())
+          ->getElementType(),
+      firstGetPayload, {DerefPointer, OffsetToExpandedData});
+  return Builder.CreateLoad(GEP, name);
+}
+
+SmallVector<Value*, 2> DxilPIXMeshShaderOutputInstrumentation::
+    insertInstructionsToCreateDisambiguationValue(OP* HlslOP, LLVMContext& Ctx, StructType* originalPayloadStructType, Instruction* firstGetPayload) {
+
+    // When a mesh shader is called from an amplification shader, all of the
+    // thread id values are relative to the DispatchMesh call made by
+    // that amplification shader. Data about what thread counts were passed
+    // by the CPU to *CommandList::DispatchMesh are not available, but we
+    // will have added that value to the AS->MS payload...
+
+    IRBuilder<> Builder(firstGetPayload->getNextNode());
+
+    auto * ASThreadId = GetValueFromExpandedPayload(Builder, originalPayloadStructType, firstGetPayload, originalPayloadStructType->getStructNumElements(), "ASThreadId");
+    auto * ASDispatchMeshYCount = GetValueFromExpandedPayload(Builder, originalPayloadStructType, firstGetPayload, originalPayloadStructType->getStructNumElements() + 1, "ASDispatchMeshYCount");
+    auto * ASDispatchMeshZCount = GetValueFromExpandedPayload(Builder, originalPayloadStructType, firstGetPayload, originalPayloadStructType->getStructNumElements() + 2, "ASDispatchMeshZCount");
+
+    Constant *Zero32Arg = HlslOP->GetU32Const(0);
+    Constant *One32Arg = HlslOP->GetU32Const(1);
+    Constant *Two32Arg = HlslOP->GetU32Const(2);
+
+    auto GroupIdFunc =
+        HlslOP->GetOpFunc(DXIL::OpCode::GroupId, Type::getInt32Ty(Ctx));
+    Constant *Opcode = HlslOP->GetU32Const((unsigned)DXIL::OpCode::GroupId);
+    auto * GroupIdX =
+        Builder.CreateCall(GroupIdFunc, {Opcode, Zero32Arg}, "GroupIdX");
+    auto * GroupIdY =
+        Builder.CreateCall(GroupIdFunc, {Opcode, One32Arg}, "GroupIdY");
+    auto * GroupIdZ =
+        Builder.CreateCall(GroupIdFunc, {Opcode, Two32Arg}, "GroupIdZ");
+
+    auto *XxY =
+      Builder.CreateMul(GroupIdX, ASDispatchMeshYCount);
+    auto *XplusY = Builder.CreateAdd(GroupIdY, XxY);
+    auto *XYxZ = Builder.CreateMul(XplusY, ASDispatchMeshZCount);
+    auto *XYZ = Builder.CreateAdd(GroupIdZ, XYxZ);
+
+    SmallVector<Value *, 2> ret;
+    ret.push_back(ASThreadId);
+    ret.push_back(XYZ);
+
+    return ret;
+}
+
 bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M)
 {
   DxilModule &DM = M.GetOrCreateDxilModule();
   LLVMContext &Ctx = M.getContext();
   OP *HlslOP = DM.GetOP();
 
+  Type *OriginalPayloadStructType = nullptr;
+  ExpandedStruct expanded = {};
+  Instruction* FirstNewStructGetMeshPayload = nullptr;
+  if (m_ExpandPayload) {
+    Instruction * getMeshPayloadInstructions = nullptr;
+    llvm::Function *entryFunction = PIXPassHelpers::GetEntryFunction(DM);
+    for (inst_iterator I = inst_begin(entryFunction),
+        E = inst_end(entryFunction);
+        I != E; ++I) {
+        if (auto* Instr = llvm::cast<Instruction>(&*I)) {
+            if (hlsl::OP::IsDxilOpFuncCallInst(Instr,
+              hlsl::OP::OpCode::GetMeshPayload)) {
+              getMeshPayloadInstructions = Instr;
+              Type *OriginalPayloadStructPointerType = Instr->getType();
+              OriginalPayloadStructType = OriginalPayloadStructPointerType->getPointerElementType();
+              // The validator assures that there is only one call to GetMeshPayload...
+              break;
+            }
+        }
+    }
+    
+    if (OriginalPayloadStructType == nullptr) {
+        // If the application used no payload, then we won't attempt to add one.
+        // TODO: Is there a credible use case with no AS->MS payload?
+        // PIX bug #35288335
+        return false;
+    }
+
+    if (expanded.ExpandedPayloadStructPtrType == nullptr) {
+      expanded = ExpandStructType(Ctx, OriginalPayloadStructType);
+    }
+
+    if (getMeshPayloadInstructions != nullptr) {
+
+        Function* DxilFunc = HlslOP->GetOpFunc(OP::OpCode::GetMeshPayload, expanded.ExpandedPayloadStructPtrType);
+        Constant* opArg = HlslOP->GetU32Const((unsigned)OP::OpCode::GetMeshPayload);
+        IRBuilder<> Builder(getMeshPayloadInstructions);
+        Value* args[] = { opArg };
+        Instruction* payload = Builder.CreateCall(DxilFunc, args);
+
+        if (FirstNewStructGetMeshPayload == nullptr) {
+            FirstNewStructGetMeshPayload = payload;
+        }
+
+        ReplaceAllUsesOfInstructionWithNewValueAndDeleteInstruction(getMeshPayloadInstructions, payload, expanded.ExpandedPayloadStructType);
+    }
+  }
+  
   Instruction *firstInsertionPt =
-      dxilutil::FirstNonAllocaInsertionPt(DM.GetEntryFunction());
+      dxilutil::FirstNonAllocaInsertionPt(GetEntryFunction(DM));
   IRBuilder<> Builder(firstInsertionPt);
 
   BuilderContext BC{M, DM, Ctx, HlslOP, Builder};
 
   m_OffsetMask = BC.HlslOP->GetU32Const(UAVDumpingGroundOffset() - 1);
 
-  m_OutputUAV = addUAV(BC);
+  m_OutputUAV = CreateUAV(DM, Builder, 0, "PIX_DebugUAV_Handle");
 
-  auto GroupIdXandY = insertInstructionsToCalculateFlattenedGroupIdXandY(BC);
-  auto GroupIdZ = insertInstructionsToCalculateGroupIdZ(BC);
+  if (FirstNewStructGetMeshPayload == nullptr) {
+    m_threadUniquifier.push_back(BC.HlslOP->GetU32Const(0));
+    m_threadUniquifier.push_back(BC.HlslOP->GetU32Const(0));
+  }
+  else {
+    m_threadUniquifier = insertInstructionsToCreateDisambiguationValue(HlslOP, Ctx, cast<StructType>(OriginalPayloadStructType), FirstNewStructGetMeshPayload);
+  }
 
   auto F = HlslOP->GetOpFunc(DXIL::OpCode::EmitIndices, Type::getVoidTy(Ctx));
   auto FunctionUses = F->uses();
@@ -293,7 +323,7 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M)
     BuilderContext BC2{M, DM, Ctx, HlslOP, Builder2};
 
     Instrument(BC2, BC2.HlslOP->GetI32Const(triangleIndexIndicator),
-               GroupIdXandY, GroupIdZ, Call->getOperand(1),
+               m_threadUniquifier[0], m_threadUniquifier[1], Call->getOperand(1),
                Call->getOperand(2), Call->getOperand(3), Call->getOperand(4));
   }
 
@@ -363,8 +393,7 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M)
       Instrument(
         BC2, 
         BC2.HlslOP->GetI32Const(Overload.tag),
-        GroupIdXandY,
-        GroupIdZ, 
+        m_threadUniquifier[0], m_threadUniquifier[1], 
         Call->getOperand(1),
         Call->getOperand(2),
         ColumnIndex,

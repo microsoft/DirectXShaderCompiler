@@ -18,6 +18,7 @@
 #include "dxc/Support/dxcapi.use.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/StringMap.h"
 
 namespace hlsl {
 namespace options {
@@ -46,6 +47,9 @@ public:
   /// checks that some error message does not occur, for example.
   bool AllowEmptyInput;
 
+  /// VariableTable - This holds all the current filecheck variables.
+  llvm::StringMap<std::string> VariableTable;
+
   /// String to read in place of standard input.
   std::string InputForStdin;
   /// Output stream.
@@ -55,6 +59,9 @@ public:
 
   int Run();
 };
+
+// wstring because most uses need UTF-16: IDxcResult output names, include handler
+typedef std::map<std::wstring, CComPtr<IDxcBlob>> FileMap;
 
 // The result of running a single command in a run pipeline
 struct FileRunCommandResult {
@@ -105,6 +112,7 @@ public:
   std::string Command;      // Command to run, eg %dxc
   std::string Arguments;    // Arguments to command
   LPCWSTR CommandFileName;  // File name replacement for %s
+  FileMap *pVFS = nullptr;  // Files in virtual file system
 
 private:
   FileRunCommandResult RunFileChecker(const FileRunCommandResult *Prior, LPCWSTR dumpName = nullptr);
@@ -113,6 +121,7 @@ private:
   FileRunCommandResult RunOpt(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior);
   FileRunCommandResult RunD3DReflect(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior);
   FileRunCommandResult RunDxr(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior);
+  FileRunCommandResult RunLink(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior);
   FileRunCommandResult RunTee(const FileRunCommandResult *Prior);
   FileRunCommandResult RunXFail(const FileRunCommandResult *Prior);
   FileRunCommandResult RunDxilVer(dxc::DxcDllSupport& DllSupport, const FileRunCommandResult* Prior);

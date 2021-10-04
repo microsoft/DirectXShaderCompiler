@@ -2048,6 +2048,8 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
   case BuiltinType::Min16Int: Out << "min16_int"; break;
   case BuiltinType::Min16UInt: Out << "min16_uint"; break;
   case BuiltinType::HalfFloat: Out << "half_float"; break;
+  case BuiltinType::Int8_4Packed: Out << "int8_t4_packed"; break;
+  case BuiltinType::UInt8_4Packed: Out << "uint8_t4_packed"; break;
     // HLSL Change ends
   }
 }

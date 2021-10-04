@@ -1,4 +1,4 @@
-// RUN: %dxc %s -T ps_6_0 -Od | FileCheck %s
+// RUN: %dxc %s -T cs_6_0 -Od | FileCheck %s
 
 // Regression test for validation failure in O0 due to
 // storing structure with uninitialized member.
@@ -39,11 +39,10 @@ float bar(Foo f) {
   return f.e;
 }
 
-float main(uint3 off : OFF) : SV_Target {
+RWStructuredBuffer<float> output;
+
+[numthreads(1,1,1)]
+void main() {
   foo(1, 2, 0);
-  return bar(foos[3]);
+  output[0] = bar(foos[3]);
 }
-
-
-
-

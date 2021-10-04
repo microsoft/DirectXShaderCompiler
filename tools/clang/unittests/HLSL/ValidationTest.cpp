@@ -292,9 +292,13 @@ public:
   TEST_METHOD(AmplificationLessThanMinZ)
   TEST_METHOD(AmplificationGreaterThanMaxZ)
   TEST_METHOD(AmplificationGreaterThanMaxXYZ)
+  TEST_METHOD(WaveSizeValid)
 
   TEST_METHOD(ValidateRootSigContainer)
   TEST_METHOD(ValidatePrintfNotAllowed)
+
+  TEST_METHOD(ValidateVersionNotAllowed)
+  TEST_METHOD(CreateHandleNotAllowedSM66)
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
@@ -332,7 +336,7 @@ public:
     CComPtr<IDxcLibrary> pLibrary;
     CComPtr<IDxcBlobEncoding> pBlobEncoding; // Encoding doesn't actually matter, it's binary.
     VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
-    VERIFY_SUCCEEDED(pLibrary->CreateBlobWithEncodingFromPinned(pBlob, blobSize, CP_UTF8, &pBlobEncoding));
+    VERIFY_SUCCEEDED(pLibrary->CreateBlobWithEncodingFromPinned(pBlob, blobSize, DXC_CP_ACP, &pBlobEncoding));
     CheckValidationMsgs(pBlobEncoding, pErrorMsgs, bRegex, Flags);
   }
 
@@ -485,9 +489,22 @@ public:
         if (bRegex) {
           llvm::Regex RE(pLookFor);
           std::string reErrors;
+          if (!RE.isValid(reErrors)) {
+            WEX::Logging::Log::Comment(WEX::Common::String().Format(
+                L"Regex errors:\r\n%.*S\r\nWhile compiling expression '%S'",
+                (unsigned)reErrors.size(), reErrors.data(),
+                pLookFor));
+          }
           VERIFY_IS_TRUE(RE.isValid(reErrors));
           std::string replaced = RE.sub(pReplacement, disassembly, &reErrors);
           if (!bOptional) {
+            if (!reErrors.empty()) {
+              WEX::Logging::Log::Comment(WEX::Common::String().Format(
+                  L"Regex errors:\r\n%.*S\r\nWhile searching for '%S' in text:\r\n%.*S",
+                  (unsigned)reErrors.size(), reErrors.data(),
+                  pLookFor,
+                  (unsigned)disassembly.size(), disassembly.data()));
+            }
             VERIFY_ARE_NOT_EQUAL(disassembly, replaced);
             VERIFY_IS_TRUE(reErrors.empty());
           }
@@ -506,6 +523,12 @@ public:
             pos += replaceLen;
           }
           if (!bOptional) {
+            if (!found) {
+              WEX::Logging::Log::Comment(WEX::Common::String().Format(
+                  L"String not found: '%S' in text:\r\n%.*S",
+                  pLookFor,
+                  (unsigned)disassembly.size(), disassembly.data()));
+            }
             VERIFY_IS_TRUE(found);
           }
         }
@@ -715,17 +738,17 @@ TEST_F(ValidationTest, BarrierFail) {
       {"dx.op.barrier(i32 80, i32 8)",
         "dx.op.barrier(i32 80, i32 9)",
         "dx.op.barrier(i32 80, i32 11)",
-        "%\"class.RWStructuredBuffer<matrix<float, 2, 2> >\" = type { %class.matrix.float.2.2 }\n",
+        "%\"hostlayout.class.RWStructuredBuffer<matrix<float, 2, 2> >\" = type { [2 x <2 x float>] }\n",
         "call i32 @dx.op.flattenedThreadIdInGroup.i32(i32 96)",
       },
       {"dx.op.barrier(i32 80, i32 15)",
         "dx.op.barrier(i32 80, i32 0)",
         "dx.op.barrier(i32 80, i32 %rem)",
-        "%\"class.RWStructuredBuffer<matrix<float, 2, 2> >\" = type { %class.matrix.float.2.2 }\n"
-        "@dx.typevar.8 = external addrspace(1) constant %\"class.RWStructuredBuffer<matrix<float, 2, 2> >\"\n"
+        "%\"hostlayout.class.RWStructuredBuffer<matrix<float, 2, 2> >\" = type { [2 x <2 x float>] }\n"
+        "@dx.typevar.8 = external addrspace(1) constant %\"hostlayout.class.RWStructuredBuffer<matrix<float, 2, 2> >\"\n"
         "@\"internalGV\" = internal global [64 x <4 x float>] undef\n",
         "call i32 @dx.op.flattenedThreadIdInGroup.i32(i32 96)\n"
-        "%load = load %\"class.RWStructuredBuffer<matrix<float, 2, 2> >\", %\"class.RWStructuredBuffer<matrix<float, 2, 2> >\" addrspace(1)* @dx.typevar.8",
+        "%load = load %\"hostlayout.class.RWStructuredBuffer<matrix<float, 2, 2> >\", %\"hostlayout.class.RWStructuredBuffer<matrix<float, 2, 2> >\" addrspace(1)* @dx.typevar.8",
       },
       {"Internal declaration 'internalGV' is unused",
        "External declaration 'dx.typevar.8' is unused",
@@ -1584,11 +1607,11 @@ TEST_F(ValidationTest, SimpleGs10) {
 }
 
 TEST_F(ValidationTest, IllegalSampleOffset3) {
-  TestCheck(L"..\\CodeGenHLSL\\optForNoOpt3.hlsl");
+  TestCheck(L"..\\DXILValidation\\optForNoOpt3.hlsl");
 }
 
 TEST_F(ValidationTest, IllegalSampleOffset4) {
-  TestCheck(L"..\\CodeGenHLSL\\optForNoOpt4.hlsl");
+  TestCheck(L"..\\DXILValidation\\optForNoOpt4.hlsl");
 }
 
 TEST_F(ValidationTest, NoFunctionParam) {
@@ -3808,6 +3831,13 @@ TEST_F(ValidationTest, AmplificationGreaterThanMaxXYZ) {
                           "Declared Thread Group Count 256 (X*Y*Z) is beyond the valid maximum of 128");
 }
 
+TEST_F(ValidationTest, WaveSizeValid) {
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\attributes_wavesize.hlsl", "cs_6_6",
+    "= !{i32 32}",
+    "= !{i32 3}",
+    "Declared WaveSize 3 outside valid range [4..128], or not a power of 2");
+}
+
 TEST_F(ValidationTest, ValidateRootSigContainer) {
   // Validation of root signature-only container not supported until 1.5
   if (m_ver.SkipDxilVersion(1, 5)) return;
@@ -3829,3 +3859,45 @@ TEST_F(ValidationTest, ValidatePrintfNotAllowed) {
   TestCheck(L"..\\CodeGenHLSL\\printf.hlsl");
 }
 
+TEST_F(ValidationTest, ValidateVersionNotAllowed) {
+  if (m_ver.SkipDxilVersion(1, 6)) return;
+  // When validator version is < dxil verrsion, compiler has a newer version
+  // than validator.  We are checking the validator, so only use the validator
+  // version.
+  // This will also assume that the versions are tied together.  This has always
+  // been the case, but it's not assumed that it has to be the case.  If the
+  // versions diverged, it would be impossible to tell what DXIL version a
+  // validator supports just from the version returned in the IDxcVersion
+  // interface, without separate knowledge of the supported dxil version based
+  // on the validator version.  If these versions must diverge in the future, we
+  // could rev the IDxcVersion interface to accomodate.
+  std::string maxMinor = std::to_string(m_ver.m_ValMinor);
+  std::string higherMinor = std::to_string(m_ver.m_ValMinor + 1);
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\basic.hlsl", "ps_6_0",
+    ("= !{i32 1, i32 " + maxMinor + "}").c_str(),
+    ("= !{i32 1, i32 " + higherMinor + "}").c_str(),
+    ("error: Validator version in metadata (1." + higherMinor + ") is not supported; maximum: (1." + maxMinor + ")").c_str());
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\basic.hlsl", "ps_6_0",
+    "= !{i32 1, i32 0}",
+    "= !{i32 1, i32 1}",
+    "error: Shader model requires Dxil Version 1.0");
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\basic.hlsl", "ps_6_0",
+    "= !{i32 1, i32 0}",
+    ("= !{i32 1, i32 " + higherMinor + "}").c_str(),
+    ("error: Dxil version in metadata (1." + higherMinor + ") is not supported; maximum: (1." + maxMinor + ")").c_str());
+}
+
+TEST_F(ValidationTest, CreateHandleNotAllowedSM66) {
+  if (m_ver.SkipDxilVersion(1, 6)) return;
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\basic.hlsl", "ps_6_5",
+    {"= !{i32 1, i32 5}", "= !{!\"ps\", i32 6, i32 5}"},
+    {"= !{i32 1, i32 6}", "= !{!\"ps\", i32 6, i32 6}"},
+    "opcode 'CreateHandle' should only be used in 'Shader model 6.5 and below'");
+  RewriteAssemblyCheckMsg(L"..\\CodeGenHLSL\\basic.hlsl", "lib_6_5",
+    {"call %dx.types.Handle @\"dx.op.createHandleForLib.class.Buffer<vector<float, 4> >\"\\(i32 160, %\"class.Buffer<vector<float, 4> >\" %[0-9]+\\)",
+     "declare %dx.types.Handle @\"dx.op.createHandleForLib.class.Buffer<vector<float, 4> >\"\\(i32, %\"class.Buffer<vector<float, 4> >\"\\) #1"},
+    {"call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 0, i32 0, i1 false)",
+     "declare %dx.types.Handle @dx.op.createHandle(i32, i8, i32, i32, i1) #1"},
+    "opcode 'CreateHandle' should only be used in 'non-library targets'",
+    true);
+}

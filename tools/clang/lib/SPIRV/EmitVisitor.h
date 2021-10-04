@@ -8,9 +8,11 @@
 #ifndef LLVM_CLANG_SPIRV_EMITVISITOR_H
 #define LLVM_CLANG_SPIRV_EMITVISITOR_H
 
+#include "clang/SPIRV/FeatureManager.h"
 #include "clang/SPIRV/SpirvContext.h"
 #include "clang/SPIRV/SpirvVisitor.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/StringMap.h"
 
 #include <functional>
@@ -50,7 +52,8 @@ public:
                   std::vector<uint32_t> *decVec,
                   std::vector<uint32_t> *typesVec,
                   const std::function<uint32_t()> &takeNextIdFn)
-      : astContext(astCtx), context(spvContext), spvOptions(opts),
+      : astContext(astCtx), context(spvContext),
+        featureManager(astCtx.getDiagnostics(), opts),
         debugVariableBinary(debugVec), annotationsBinary(decVec),
         typeConstantBinary(typesVec), takeNextIdFunction(takeNextIdFn),
         emittedConstantInts({}), emittedConstantFloats({}),
@@ -145,7 +148,7 @@ private:
 private:
   ASTContext &astContext;
   SpirvContext &context;
-  const SpirvCodeGenOptions &spvOptions;
+  FeatureManager featureManager;
   std::vector<uint32_t> curTypeInst;
   std::vector<uint32_t> curDecorationInst;
   std::vector<uint32_t> *debugVariableBinary;
@@ -163,6 +166,7 @@ private:
   llvm::SmallVector<SpirvConstantComposite *, 8> emittedConstantComposites;
   llvm::SmallVector<SpirvConstantNull *, 8> emittedConstantNulls;
   SpirvConstantBoolean *emittedConstantBools[2];
+  llvm::DenseSet<const SpirvInstruction *> emittedSpecConstantInstructions;
 
   // emittedTypes is a map that caches the result-id of types in order to avoid
   // emitting an identical type multiple times.
@@ -264,7 +268,8 @@ public:
   bool visit(SpirvRayTracingOpNV *) override;
   bool visit(SpirvDemoteToHelperInvocationEXT *) override;
   bool visit(SpirvRayQueryOpKHR *) override;
-
+  bool visit(SpirvReadClock *) override;
+  bool visit(SpirvRayTracingTerminateOpKHR *) override;
   bool visit(SpirvDebugInfoNone *) override;
   bool visit(SpirvDebugSource *) override;
   bool visit(SpirvDebugCompilationUnit *) override;
@@ -284,6 +289,7 @@ public:
   bool visit(SpirvDebugTypeMember *) override;
   bool visit(SpirvDebugTypeTemplate *) override;
   bool visit(SpirvDebugTypeTemplateParameter *) override;
+  bool visit(SpirvIntrinsicInstruction *) override;
 
   using Visitor::visit;
 

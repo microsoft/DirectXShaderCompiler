@@ -109,8 +109,10 @@ enum class DxilRootSignatureFlags : uint32_t {
   LocalRootSignature = 0x80,
   DenyAmplificationShaderRootAccess = 0x100,
   DenyMeshShaderRootAccess = 0x200,
+  CBVSRVUAVHeapDirectlyIndexed = 0x400,
+  SamplerHeapDirectlyIndexed = 0x800,
   AllowLowTierReservedHwCbLimit = 0x80000000,
-  ValidFlags = 0x800003ff
+  ValidFlags = 0x80000fff
 };
 enum class DxilRootParameterType {
   DescriptorTable = 0,
@@ -322,6 +324,8 @@ struct DxilVersionedRootSignatureDesc {
     DxilRootSignatureDesc1 Desc_1_1;
   };
 };
+
+void printRootSignature(const DxilVersionedRootSignatureDesc &RS, llvm::raw_ostream &os);
 
 // Use this class to represent a root signature that may be in memory or serialized.
 // There is just enough API surface to help callers not take a dependency on Windows headers.

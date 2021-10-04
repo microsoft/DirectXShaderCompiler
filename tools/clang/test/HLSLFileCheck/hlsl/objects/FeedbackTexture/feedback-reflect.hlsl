@@ -31,7 +31,7 @@ float main() : SV_Target
 }
 
 // CHECK: ID3D12ShaderReflection:
-// CHECK-NEXT:   D3D12_SHADER_BUFFER_DESC:
+// CHECK-NEXT:   D3D12_SHADER_DESC:
 // CHECK-NEXT:     Shader Version: Pixel 6.5
 // CHECK:     Flags: 0
 // CHECK-NEXT:     ConstantBuffers: 0
@@ -39,7 +39,7 @@ float main() : SV_Target
 // CHECK-NEXT:     InputParameters: 0
 // CHECK-NEXT:     OutputParameters: 1
 // CHECK:   Bound Resources:
-// CHECK-NEXT:     D3D12_SHADER_BUFFER_DESC: Name: samp
+// CHECK-NEXT:     D3D12_SHADER_INPUT_BIND_DESC: Name: samp
 // CHECK-NEXT:       Type: D3D_SIT_SAMPLER
 // CHECK-NEXT:       uID: 0
 // CHECK-NEXT:       BindCount: 1
@@ -49,7 +49,7 @@ float main() : SV_Target
 // CHECK-NEXT:       Dimension: D3D_SRV_DIMENSION_UNKNOWN
 // CHECK-NEXT:       NumSamples (or stride): 0
 // CHECK-NEXT:       uFlags: 0
-// CHECK-NEXT:     D3D12_SHADER_BUFFER_DESC: Name: texture2D
+// CHECK-NEXT:     D3D12_SHADER_INPUT_BIND_DESC: Name: texture2D
 // CHECK-NEXT:       Type: D3D_SIT_TEXTURE
 // CHECK-NEXT:       uID: 0
 // CHECK-NEXT:       BindCount: 1
@@ -59,7 +59,7 @@ float main() : SV_Target
 // CHECK-NEXT:       Dimension: D3D_SRV_DIMENSION_TEXTURE2D
 // CHECK-NEXT:       NumSamples (or stride): 4294967295
 // CHECK-NEXT:       uFlags: 0
-// CHECK-NEXT:     D3D12_SHADER_BUFFER_DESC: Name: texture2DArray
+// CHECK-NEXT:     D3D12_SHADER_INPUT_BIND_DESC: Name: texture2DArray
 // CHECK-NEXT:       Type: D3D_SIT_TEXTURE
 // CHECK-NEXT:       uID: 1
 // CHECK-NEXT:       BindCount: 1
@@ -69,7 +69,7 @@ float main() : SV_Target
 // CHECK-NEXT:       Dimension: D3D_SRV_DIMENSION_TEXTURE2DARRAY
 // CHECK-NEXT:       NumSamples (or stride): 4294967295
 // CHECK-NEXT:       uFlags: 0
-// CHECK-NEXT:     D3D12_SHADER_BUFFER_DESC: Name: feedbackMinMip
+// CHECK-NEXT:     D3D12_SHADER_INPUT_BIND_DESC: Name: feedbackMinMip
 // CHECK-NEXT:       Type: D3D_SIT_UAV_FEEDBACKTEXTURE
 // CHECK-NEXT:       uID: 0
 // CHECK-NEXT:       BindCount: 1
@@ -79,7 +79,7 @@ float main() : SV_Target
 // CHECK-NEXT:       Dimension: D3D_SRV_DIMENSION_TEXTURE2D
 // CHECK-NEXT:       NumSamples (or stride): 4294967295
 // CHECK-NEXT:       uFlags: 0
-// CHECK-NEXT:     D3D12_SHADER_BUFFER_DESC: Name: feedbackMipRegionUsed
+// CHECK-NEXT:     D3D12_SHADER_INPUT_BIND_DESC: Name: feedbackMipRegionUsed
 // CHECK-NEXT:       Type: D3D_SIT_UAV_FEEDBACKTEXTURE
 // CHECK-NEXT:       uID: 1
 // CHECK-NEXT:       BindCount: 1
@@ -89,7 +89,7 @@ float main() : SV_Target
 // CHECK-NEXT:       Dimension: D3D_SRV_DIMENSION_TEXTURE2D
 // CHECK-NEXT:       NumSamples (or stride): 4294967295
 // CHECK-NEXT:       uFlags: 0
-// CHECK-NEXT:     D3D12_SHADER_BUFFER_DESC: Name: feedbackMinMipArray
+// CHECK-NEXT:     D3D12_SHADER_INPUT_BIND_DESC: Name: feedbackMinMipArray
 // CHECK-NEXT:       Type: D3D_SIT_UAV_FEEDBACKTEXTURE
 // CHECK-NEXT:       uID: 2
 // CHECK-NEXT:       BindCount: 1
@@ -99,7 +99,7 @@ float main() : SV_Target
 // CHECK-NEXT:       Dimension: D3D_SRV_DIMENSION_TEXTURE2DARRAY
 // CHECK-NEXT:       NumSamples (or stride): 4294967295
 // CHECK-NEXT:       uFlags: 0
-// CHECK-NEXT:     D3D12_SHADER_BUFFER_DESC: Name: feebackMipRegionUsedArray
+// CHECK-NEXT:     D3D12_SHADER_INPUT_BIND_DESC: Name: feebackMipRegionUsedArray
 // CHECK-NEXT:       Type: D3D_SIT_UAV_FEEDBACKTEXTURE
 // CHECK-NEXT:       uID: 3
 // CHECK-NEXT:       BindCount: 1

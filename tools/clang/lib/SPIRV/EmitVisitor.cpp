@@ -89,16 +89,9 @@ bool isOpLineLegalForOp(spv::Op op) {
 uint32_t getHeaderVersion(llvm::StringRef env) {
   if (env == "vulkan1.1")
     return 0x00010300u;
-  if (env == "vulkan1.2")
+  if (env == "vulkan1.2" || env == "universal1.5")
     return 0x00010500u;
   return 0x00010000u;
-}
-
-// Returns true if the BufferBlock decoration is deprecated for the target
-// Vulkan environment.
-bool isBufferBlockDecorationDeprecated(
-    const clang::spirv::SpirvCodeGenOptions &opts) {
-  return opts.targetEnv.compare("vulkan1.2") >= 0;
 }
 
 // Read the file in |filePath| and returns its contents as a string.
@@ -542,8 +535,9 @@ bool EmitVisitor::visit(SpirvSource *inst) {
   // Chop up the source into multiple segments if it is too long.
   llvm::Optional<llvm::StringRef> firstSnippet = llvm::None;
   llvm::SmallVector<llvm::StringRef, 2> choppedSrcCode;
+  std::string text;
   if (spvOptions.debugInfoSource && inst->hasFile()) {
-    auto text = ReadSourceCode(inst->getFile()->getString());
+    text = ReadSourceCode(inst->getFile()->getString());
     if (!text.empty()) {
       chopString(text, &choppedSrcCode);
       if (!choppedSrcCode.empty()) {
@@ -597,7 +591,14 @@ bool EmitVisitor::visit(SpirvModuleProcessed *inst) {
 
 bool EmitVisitor::visit(SpirvDecoration *inst) {
   initInstruction(inst);
-  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getTarget()));
+  if (inst->getTarget()) {
+    curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getTarget()));
+  } else {
+    assert(inst->getTargetFunc() != nullptr);
+    curInst.push_back(
+        getOrAssignResultId<SpirvFunction>(inst->getTargetFunc()));
+  }
+
   if (inst->isMemberDecoration())
     curInst.push_back(inst->getMemberIndex());
   curInst.push_back(static_cast<uint32_t>(inst->getDecoration()));
@@ -1641,6 +1642,49 @@ bool EmitVisitor::visit(SpirvRayQueryOpKHR *inst) {
   return true;
 }
 
+bool EmitVisitor::visit(SpirvReadClock *inst) {
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getScope()));
+  finalizeInstruction(&mainBinary);
+  emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
+  return true;
+}
+
+bool EmitVisitor::visit(SpirvRayTracingTerminateOpKHR *inst) {
+  initInstruction(inst);
+  finalizeInstruction(&mainBinary);
+  return true;
+}
+
+bool EmitVisitor::visit(SpirvIntrinsicInstruction *inst) {
+  initInstruction(inst);
+  if (inst->hasResultType()) {
+    curInst.push_back(inst->getResultTypeId());
+    curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  }
+  if (inst->getInstructionSet()) {
+    curInst.push_back(
+        getOrAssignResultId<SpirvInstruction>(inst->getInstructionSet()));
+    curInst.push_back(inst->getInstruction());
+  }
+
+  for (const auto operand : inst->getOperands()) {
+    // TODO: Handle Literals with other types.
+    auto literalOperand = dyn_cast<SpirvConstantInteger>(operand);
+    if (literalOperand && literalOperand->getLiteral()) {
+        curInst.push_back(literalOperand->getValue().getZExtValue());
+    } else {
+      curInst.push_back(getOrAssignResultId<SpirvInstruction>(operand));
+    }
+  }
+
+  finalizeInstruction(&mainBinary);
+  return true;
+}
+
 // EmitTypeHandler ------
 
 void EmitTypeHandler::initTypeInstruction(spv::Op op) {
@@ -1691,11 +1735,15 @@ uint32_t EmitTypeHandler::getOrCreateConstantBool(SpirvConstantBoolean *inst) {
   const auto index = static_cast<uint32_t>(inst->getValue());
   const bool isSpecConst = inst->isSpecConstant();
 
-  // SpecConstants are not unique. We should not reuse them. e.g. it is possible
-  // to have multiple OpSpecConstantTrue instructions.
+  // The values of special constants are not unique. We should not reuse their
+  // values.
   if (!isSpecConst && emittedConstantBools[index]) {
-    // Already emitted this constant. Reuse.
+    // Already emitted this constant value. Reuse.
     inst->setResultId(emittedConstantBools[index]->getResultId());
+  } else if (isSpecConst && emittedSpecConstantInstructions.find(inst) !=
+                                emittedSpecConstantInstructions.end()) {
+    // We've already emitted this SpecConstant. Reuse.
+    return inst->getResultId();
   } else {
     // Constant wasn't emitted in the past.
     const uint32_t typeId = emitType(inst->getResultType());
@@ -1704,8 +1752,11 @@ uint32_t EmitTypeHandler::getOrCreateConstantBool(SpirvConstantBoolean *inst) {
     curTypeInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
     finalizeTypeInstruction();
     // Remember this constant for the future (if not a spec constant)
-    if (!isSpecConst)
+    if (isSpecConst) {
+      emittedSpecConstantInstructions.insert(inst);
+    } else {
       emittedConstantBools[index] = inst;
+    }
   }
 
   return inst->getResultId();
@@ -1772,8 +1823,8 @@ uint32_t EmitTypeHandler::getOrCreateConstantFloat(SpirvConstantFloat *inst) {
   auto valueTypePair = std::pair<uint64_t, const SpirvType *>(
       valueToUse.bitcastToAPInt().getZExtValue(), type);
 
-  // SpecConstant instructions are not unique, so we should not re-use existing
-  // spec constants.
+  // The values of special constants are not unique. We should not reuse their
+  // values.
   if (!isSpecConst) {
     // If this constant has already been emitted, return its result-id.
     auto foundResultId = emittedConstantFloats.find(valueTypePair);
@@ -1782,6 +1833,10 @@ uint32_t EmitTypeHandler::getOrCreateConstantFloat(SpirvConstantFloat *inst) {
       inst->setResultId(existingConstantResultId);
       return existingConstantResultId;
     }
+  } else if (emittedSpecConstantInstructions.find(inst) !=
+             emittedSpecConstantInstructions.end()) {
+    // We've already emitted this SpecConstant. Reuse.
+    return inst->getResultId();
   }
 
   // Start constructing the instruction
@@ -1819,8 +1874,11 @@ uint32_t EmitTypeHandler::getOrCreateConstantFloat(SpirvConstantFloat *inst) {
   finalizeTypeInstruction();
 
   // Remember this constant for future (if not a SpecConstant)
-  if (!isSpecConst)
+  if (isSpecConst) {
+    emittedSpecConstantInstructions.insert(inst);
+  } else {
     emittedConstantFloats[valueTypePair] = constantResultId;
+  }
 
   return constantResultId;
 }
@@ -1832,8 +1890,8 @@ EmitTypeHandler::getOrCreateConstantInt(llvm::APInt value,
   auto valueTypePair =
       std::pair<uint64_t, const SpirvType *>(value.getZExtValue(), type);
 
-  // SpecConstant instructions are not unique, so we should not re-use existing
-  // spec constants.
+  // The values of special constants are not unique. We should not reuse their
+  // values.
   if (!isSpecConst) {
     // If this constant has already been emitted, return its result-id.
     auto foundResultId = emittedConstantInts.find(valueTypePair);
@@ -1843,6 +1901,10 @@ EmitTypeHandler::getOrCreateConstantInt(llvm::APInt value,
         constantInstruction->setResultId(existingConstantResultId);
       return existingConstantResultId;
     }
+  } else if (emittedSpecConstantInstructions.find(constantInstruction) !=
+             emittedSpecConstantInstructions.end()) {
+    // We've already emitted this SpecConstant. Reuse.
+    return constantInstruction->getResultId();
   }
 
   assert(isa<IntegerType>(type));
@@ -1894,9 +1956,12 @@ EmitTypeHandler::getOrCreateConstantInt(llvm::APInt value,
 
   finalizeTypeInstruction();
 
-  // Remember this constant for future (not needed for SpecConstants)
-  if (!isSpecConst)
+  // Remember this constant for future
+  if (isSpecConst) {
+    emittedSpecConstantInstructions.insert(constantInstruction);
+  } else {
     emittedConstantInts[valueTypePair] = constantResultId;
+  }
 
   return constantResultId;
 }
@@ -1928,11 +1993,18 @@ EmitTypeHandler::getOrCreateConstantComposite(SpirvConstantComposite *inst) {
               return false;
           return true;
         });
+  } else if (emittedSpecConstantInstructions.find(inst) !=
+             emittedSpecConstantInstructions.end()) {
+    return inst->getResultId();
   }
 
   if (!isSpecConst && found != emittedConstantComposites.end()) {
     // We have already emitted this constant. Reuse.
     inst->setResultId((*found)->getResultId());
+  } else if (isSpecConst && emittedSpecConstantInstructions.find(inst) !=
+                                emittedSpecConstantInstructions.end()) {
+    // We've already emitted this SpecConstant. Reuse.
+    return inst->getResultId();
   } else {
     // Constant wasn't emitted in the past.
     const uint32_t typeId = emitType(inst->getResultType());
@@ -1943,9 +2015,12 @@ EmitTypeHandler::getOrCreateConstantComposite(SpirvConstantComposite *inst) {
       curTypeInst.push_back(getOrAssignResultId<SpirvInstruction>(constituent));
     finalizeTypeInstruction();
 
-    // Remember this constant for the future (if not a spec constant)
-    if (!isSpecConst)
+    // Remember this constant for the future
+    if (isSpecConst) {
+      emittedSpecConstantInstructions.insert(inst);
+    } else {
       emittedConstantComposites.push_back(inst);
+    }
   }
 
   return inst->getResultId();
@@ -2115,8 +2190,9 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
     // Emit Block or BufferBlock decorations if necessary.
     auto interfaceType = structType->getInterfaceType();
     if (interfaceType == StructInterfaceType::StorageBuffer)
+      // BufferBlock decoration is deprecated in Vulkan 1.2 and later.
       emitDecoration(id,
-                     isBufferBlockDecorationDeprecated(spvOptions)
+                     featureManager.isTargetEnvVulkan1p2OrAbove()
                          ? spv::Decoration::Block
                          : spv::Decoration::BufferBlock,
                      {});
@@ -2158,10 +2234,10 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
     curTypeInst.push_back(id);
     finalizeTypeInstruction();
   }
-  // RayQueryProvisionalType KHR type
+  // RayQueryType KHR type
   else if (const auto *rayQueryType =
-               dyn_cast<RayQueryProvisionalTypeKHR>(type)) {
-    initTypeInstruction(spv::Op::OpTypeRayQueryProvisionalKHR);
+               dyn_cast<RayQueryTypeKHR>(type)) {
+    initTypeInstruction(spv::Op::OpTypeRayQueryKHR);
     curTypeInst.push_back(id);
     finalizeTypeInstruction();
   }

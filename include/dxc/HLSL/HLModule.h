@@ -53,7 +53,7 @@ struct HLOptions {
   HLOptions()
       : bDefaultRowMajor(false), bIEEEStrict(false), bAllResourcesBound(false), bDisableOptimizations(false),
         bLegacyCBufferLoad(false), PackingStrategy(0), bUseMinPrecision(false), bDX9CompatMode(false),
-        bFXCCompatMode(false), bLegacyResourceReservation(false), unused(0) {
+        bFXCCompatMode(false), bLegacyResourceReservation(false), bForceZeroStoreLifetimes(false), unused(0) {
   }
   uint32_t GetHLOptionsRaw() const;
   void SetHLOptionsRaw(uint32_t data);
@@ -68,7 +68,8 @@ struct HLOptions {
   unsigned bDX9CompatMode          : 1;
   unsigned bFXCCompatMode          : 1;
   unsigned bLegacyResourceReservation : 1;
-  unsigned unused                  : 21;
+  unsigned bForceZeroStoreLifetimes : 1;
+  unsigned unused                  : 20;
 };
 
 typedef std::unordered_map<const llvm::Function *, std::unique_ptr<DxilFunctionProps>> DxilFunctionPropsMap;
@@ -87,6 +88,8 @@ public:
   const ShaderModel *GetShaderModel() const;
   void SetValidatorVersion(unsigned ValMajor, unsigned ValMinor);
   void GetValidatorVersion(unsigned &ValMajor, unsigned &ValMinor) const;
+  void SetForceZeroStoreLifetimes(bool ForceZeroStoreLifetimes);
+  bool GetForceZeroStoreLifetimes() const;
 
   // HLOptions
   void SetHLOptions(HLOptions &opts);
@@ -150,6 +153,9 @@ public:
   // Is an entry function that uses input/output signature conventions?
   // Includes: vs/hs/ds/gs/ps/cs as well as the patch constant function.
   bool IsEntryThatUsesSignatures(llvm::Function *F);
+  // Is F an entry?
+  // Includes: IsEntryThatUsesSignatures and all ray tracing shaders.
+  bool IsEntry(llvm::Function *F);
 
   DxilFunctionAnnotation *GetFunctionAnnotation(llvm::Function *F);
   DxilFunctionAnnotation *AddFunctionAnnotation(llvm::Function *F);

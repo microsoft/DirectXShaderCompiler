@@ -137,6 +137,9 @@ public:
   DEFINE_VISIT_METHOD(SpirvDebugTypeTemplateParameter)
 
   DEFINE_VISIT_METHOD(SpirvRayQueryOpKHR)
+  DEFINE_VISIT_METHOD(SpirvReadClock)
+  DEFINE_VISIT_METHOD(SpirvRayTracingTerminateOpKHR)
+  DEFINE_VISIT_METHOD(SpirvIntrinsicInstruction)
 #undef DEFINE_VISIT_METHOD
 
 protected:

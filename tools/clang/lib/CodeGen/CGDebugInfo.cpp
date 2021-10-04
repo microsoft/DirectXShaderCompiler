@@ -465,9 +465,6 @@ llvm::DIType *CGDebugInfo::CreateType(const BuiltinType *BT) {
   case BuiltinType::OCLSampler:
   case BuiltinType::OCLEvent:
     llvm_unreachable("No ObjC or OpenCL support");
-  case BuiltinType::LitInt:
-  case BuiltinType::LitFloat:
-    llvm_unreachable("Unsupported HLSL types");
 #endif // HLSL Change - no ObjC or OpenCL support
 
   case BuiltinType::UChar:
@@ -483,7 +480,9 @@ llvm::DIType *CGDebugInfo::CreateType(const BuiltinType *BT) {
     Encoding = llvm::dwarf::DW_ATE_UTF;
     break;
   case BuiltinType::UShort:
-  case BuiltinType::Min16UInt: // HLSL Change
+  case BuiltinType::Min16UInt:      // HLSL Change
+  case BuiltinType::Int8_4Packed:   // HLSL Change
+  case BuiltinType::UInt8_4Packed:  // HLSL Change
   case BuiltinType::UInt:
   case BuiltinType::UInt128:
   case BuiltinType::ULong:
@@ -501,6 +500,7 @@ llvm::DIType *CGDebugInfo::CreateType(const BuiltinType *BT) {
   case BuiltinType::Long:
   case BuiltinType::WChar_S:
   case BuiltinType::LongLong:
+  case BuiltinType::LitInt:
     Encoding = llvm::dwarf::DW_ATE_signed;
     break;
   case BuiltinType::Bool:
@@ -515,6 +515,7 @@ llvm::DIType *CGDebugInfo::CreateType(const BuiltinType *BT) {
   case BuiltinType::Float:
   case BuiltinType::LongDouble:
   case BuiltinType::Double:
+  case BuiltinType::LitFloat:
     Encoding = llvm::dwarf::DW_ATE_float;
     break;
   }
@@ -524,13 +525,15 @@ llvm::DIType *CGDebugInfo::CreateType(const BuiltinType *BT) {
     BTName = "long int";
     break;
   case BuiltinType::LongLong:
-    BTName = "long long int";
+    // BTName = "long long int"; // HLSL Change
+    BTName = "int64_t"; // HLSL Change
     break;
   case BuiltinType::ULong:
     BTName = "long unsigned int";
     break;
   case BuiltinType::ULongLong:
-    BTName = "long long unsigned int";
+    // BTName = "long long unsigned int"; // HLSL Change
+    BTName = "uint64_t"; // HLSL Change
     break;
   default:
     BTName = BT->getName(CGM.getLangOpts());

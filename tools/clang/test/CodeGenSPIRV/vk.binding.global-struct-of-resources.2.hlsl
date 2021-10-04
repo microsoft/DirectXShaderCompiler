@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -fspv-flatten-resource-arrays
+// Run: %dxc -T ps_6_0 -E main
 
 // globalS[0][0].t should take binding #0.
 // globalS[0][0].s should take binding #1.

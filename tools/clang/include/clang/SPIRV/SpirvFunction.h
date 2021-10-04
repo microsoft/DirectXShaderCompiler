@@ -11,6 +11,7 @@
 
 #include <vector>
 
+#include "clang/SPIRV/SpirvBasicBlock.h"
 #include "clang/SPIRV/SpirvInstruction.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
@@ -18,7 +19,6 @@
 namespace clang {
 namespace spirv {
 
-class SpirvBasicBlock;
 class SpirvVisitor;
 
 /// The class representing a SPIR-V function in memory.
@@ -45,9 +45,9 @@ public:
   void setResultId(uint32_t id) { functionId = id; }
 
   // Sets the lowered (SPIR-V) return type.
-  void setReturnType(SpirvType *type) { returnType = type; }
+  void setReturnType(const SpirvType *type) { returnType = type; }
   // Returns the lowered (SPIR-V) return type.
-  SpirvType *getReturnType() const { return returnType; }
+  const SpirvType *getReturnType() const { return returnType; }
 
   // Sets the function AST return type
   void setAstReturnType(QualType type) { astReturnType = type; }
@@ -91,6 +91,13 @@ public:
   void addVariable(SpirvVariable *);
   void addBasicBlock(SpirvBasicBlock *);
 
+  /// Adds the given instruction as the first instruction of this SPIR-V
+  /// function body.
+  void addFirstInstruction(SpirvInstruction *inst) {
+    assert(basicBlocks.size() != 0);
+    basicBlocks[0]->addFirstInstruction(inst);
+  }
+
   /// Legalization-specific code
   ///
   /// Note: the following methods are used for properly handling aliasing.
@@ -116,13 +123,13 @@ public:
   }
 
 private:
-  uint32_t functionId;    ///< This function's <result-id>
-  QualType astReturnType; ///< The return type
-  SpirvType *returnType;  ///< The lowered return type
-  SpirvType *fnType;      ///< The SPIR-V function type
-  bool relaxedPrecision;  ///< Whether the return type is at relaxed precision
-  bool precise;           ///< Whether the return value is 'precise'
-  bool noInline;          ///< The function is marked as no inline
+  uint32_t functionId;         ///< This function's <result-id>
+  QualType astReturnType;      ///< The return type
+  const SpirvType *returnType; ///< The lowered return type
+  SpirvType *fnType;           ///< The SPIR-V function type
+  bool relaxedPrecision; ///< Whether the return type is at relaxed precision
+  bool precise;          ///< Whether the return value is 'precise'
+  bool noInline;         ///< The function is marked as no inline
 
   /// Legalization-specific code
   ///

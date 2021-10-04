@@ -866,12 +866,6 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
   FunctionArgList Args;
   QualType ResTy = FD->getReturnType();
 
-  // HLSL Change Start - emit root signature associated with function
-  if (HLSLRootSignatureAttr *RSA = FD->getAttr<HLSLRootSignatureAttr>()) {
-    CGM.getHLSLRuntime().EmitHLSLRootSignature(*this, RSA, Fn);
-  }
-  // HLSL Change Ends - emit root signature associated with function
-
   CurGD = GD;
   const CXXMethodDecl *MD = dyn_cast<CXXMethodDecl>(FD);
   if (MD && MD->isInstance()) {
@@ -1094,8 +1088,8 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
       }
 
       // HLSL Change Begins.
-      if (getLangOpts().HLSL) {
-        // HLSL don't short circuit.
+      if (getLangOpts().HLSL && !getLangOpts().EnableShortCircuit) {
+        // HLSL does not short circuit by default.
         // Emit the code with the fully general case.
         llvm::Value *CondV;
         {
@@ -1154,8 +1148,8 @@ void CodeGenFunction::EmitBranchOnBoolExpr(const Expr *Cond,
       }
 
       // HLSL Change Begins.
-      if (getLangOpts().HLSL) {
-        // HLSL don't short circuit.
+      if (getLangOpts().HLSL && !getLangOpts().EnableShortCircuit) {
+        // HLSL does not short circuit by default.
         // Emit the code with the fully general case.
         llvm::Value *CondV;
         {

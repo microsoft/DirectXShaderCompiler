@@ -895,9 +895,20 @@ def HLSLPayload : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def HLSLRayPayload : InheritableAttr {
+  let Spellings = [CXX11<"", "raypayload", 2015>];
+  let Documentation = [Undocumented];
+}
+
 def HLSLWaveSensitive : InheritableAttr {
   let Spellings = [CXX11<"", "wavesensitive", 2015>];
   let Subjects = SubjectList<[ParmVar]>;
+  let Documentation = [Undocumented];
+}
+
+def HLSLWaveSize : InheritableAttr {
+  let Spellings = [CXX11<"", "wavesize", 2017>];
+  let Args = [IntArgument<"Size">];
   let Documentation = [Undocumented];
 }
 
@@ -930,6 +941,41 @@ def ConstantTextureBuffer
                       "ConstantBuffer" ||
                   S->getType()->getAs<RecordType>()->getDecl()->getName() ==
                       "TextureBuffer")}]>;
+
+// Global variable with "RWTexture" type
+def RWTexture
+    : SubsetSubject<
+          Var, [{S->hasGlobalStorage() && S->getType()->getAs<RecordType>() &&
+                 S->getType()->getAs<RecordType>()->getDecl() &&
+                  (S->getType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RWTexture1D" ||
+                  S->getType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RWTexture1DArray" ||
+                  S->getType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RWTexture2D" ||
+                  S->getType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RWTexture2DArray" ||
+                  S->getType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RWTexture3D")}]>;
+
+// Global variable with "[RW]Buffer" type
+def Buffer
+    : SubsetSubject<
+          Var, [{S->hasGlobalStorage() && S->getType()->getAs<RecordType>() &&
+                 S->getType()->getAs<RecordType>()->getDecl() &&
+                 (S->getType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "Buffer" ||
+                  S->getType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RWBuffer")}]>;
+
+// Global variable with "Texture" or "SamplerState" type
+def TextureOrSampler
+    : SubsetSubject<
+          Var, [{S->hasGlobalStorage() && S->getType()->getAs<RecordType>() &&
+                 S->getType()->getAs<RecordType>()->getDecl() &&
+                 (S->getType()->getAs<RecordType>()->getDecl()->getName().startswith("Texture") ||
+                  S->getType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "SamplerState")}]>;
 
 def VKBuiltIn : InheritableAttr {
   let Spellings = [CXX11<"vk", "builtin">];
@@ -964,10 +1010,26 @@ def VKBinding : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def VKCapabilityExt : InheritableAttr {
+  let Spellings = [CXX11<"vk", "ext_capability">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Args = [IntArgument<"capability">];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
 def VKCounterBinding : InheritableAttr {
   let Spellings = [CXX11<"vk", "counter_binding">];
   let Subjects = SubjectList<[CounterStructuredBuffer], ErrorDiag, "ExpectedCounterStructuredBuffer">;
   let Args = [IntArgument<"Binding">];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+def VKExtensionExt : InheritableAttr {
+  let Spellings = [CXX11<"vk", "ext_extension">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Args = [StringArgument<"name">];
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];
 }
@@ -991,6 +1053,38 @@ def VKOffset : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def VKCombinedImageSampler : InheritableAttr {
+  let Spellings = [CXX11<"vk", "combinedImageSampler">];
+  let Subjects = SubjectList<[TextureOrSampler],
+                             ErrorDiag, "ExpectedTextureOrSamplerState">;
+  let Args = [];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+def VKImageFormat : InheritableAttr {
+  let Spellings = [CXX11<"vk", "image_format">];
+  let Subjects = SubjectList<[RWTexture, Buffer],
+                             ErrorDiag, "ExpectedRWTextureOrBuffer">;
+  let Args = [EnumArgument<"ImageFormat", "ImageFormatType",
+                           ["unknown", "rgba32f", "rgba16f", "r32f", "rgba8", "rgba8snorm",
+                           "rg32f", "rg16f", "r11g11b10f", "r16f", "rgba16", "rgb10a2",
+                           "rg16", "rg8", "r16", "r8", "rgba16snorm", "rg16snorm", "rg8snorm",
+                           "r16snorm", "r8snorm", "rgba32i", "rgba16i", "rgba8i", "r32i",
+                           "rg32i", "rg16i", "rg8i", "r16i", "r8i", "rgba32ui", "rgba16ui", "rgba8ui",
+                           "r32ui", "rgb10a2ui", "rg32ui", "rg16ui", "rg8ui", "r16ui",
+                           "r8ui", "r64ui", "r64i"],
+                           ["unknown", "rgba32f", "rgba16f", "r32f", "rgba8", "rgba8snorm",
+                           "rg32f", "rg16f", "r11g11b10f", "r16f", "rgba16", "rgb10a2",
+                           "rg16", "rg8", "r16", "r8", "rgba16snorm", "rg16snorm", "rg8snorm",
+                           "r16snorm", "r8snorm", "rgba32i", "rgba16i", "rgba8i", "r32i",
+                           "rg32i", "rg16i", "rg8i", "r16i", "r8i", "rgba32ui", "rgba16ui", "rgba8ui",
+                           "r32ui", "rgb10a2ui", "rg32ui", "rg16ui", "rg8ui", "r16ui",
+                           "r8ui", "r64ui", "r64i"]>];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
 def SubpassInput : SubsetSubject<
     Var,
     [{S->hasGlobalStorage() && S->getType()->getAs<RecordType>() &&
@@ -1001,6 +1095,28 @@ def VKInputAttachmentIndex : InheritableAttr {
   let Spellings = [CXX11<"vk", "input_attachment_index">];
   let Subjects = SubjectList<[SubpassInput], ErrorDiag, "ExpectedSubpassInput">;
   let Args = [IntArgument<"index">];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+def VKInstructionExt : InheritableAttr {
+  let Spellings = [CXX11<"vk", "ext_instruction">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Args = [IntArgument<"opcode">, StringArgument<"instruction_set", 1>];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+def VKLiteralExt : InheritableAttr {
+  let Spellings = [CXX11<"vk", "ext_literal">];
+  let Subjects = SubjectList<[ParmVar], ErrorDiag>;
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+def VKReferenceExt : InheritableAttr {
+  let Spellings = [CXX11<"vk", "ext_reference">];
+  let Subjects = SubjectList<[ParmVar], ErrorDiag>;
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];
 }
@@ -1025,6 +1141,15 @@ def VKPostDepthCoverage : InheritableAttr {
 
 def VKShaderRecordNV : InheritableAttr {
   let Spellings = [CXX11<"vk", "shader_record_nv">];
+  let Subjects = SubjectList<[StructGlobalVar, HLSLBuffer, ConstantBuffer],
+                             ErrorDiag, "ExpectedCTBuffer">;
+  let Args = [];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+def VKShaderRecordEXT : InheritableAttr {
+  let Spellings = [CXX11<"vk", "shader_record_ext">];
   let Subjects = SubjectList<[StructGlobalVar, HLSLBuffer, ConstantBuffer],
                              ErrorDiag, "ExpectedCTBuffer">;
   let Args = [];

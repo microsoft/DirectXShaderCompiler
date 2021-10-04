@@ -31,7 +31,7 @@ namespace hlsl {
 // Known validation rules
 enum class ValidationRule : unsigned {
   // Bitcode
-  BitcodeValid, // TODO - Module must be bitcode-valid
+  BitcodeValid, // Module must be bitcode-valid
 
   // Container
   ContainerPartInvalid, // DXIL Container must not contain unknown parts
@@ -162,7 +162,7 @@ enum class ValidationRule : unsigned {
   MetaMaxTessFactor, // Hull Shader MaxTessFactor must be [%0..%1].  %2 specified.
   MetaNoEntryPropsForEntry, // Entry point %0 must have entry properties.
   MetaNoSemanticOverlap, // Semantics must not overlap
-  MetaRequired, // TODO - Required metadata missing.
+  MetaRequired, // Required metadata missing.
   MetaSemaKindMatchesName, // Semantic name must match system value, when defined.
   MetaSemaKindValid, // Semantic kind must be valid
   MetaSemanticCompType, // %0 must be %1.
@@ -186,7 +186,8 @@ enum class ValidationRule : unsigned {
   MetaUsed, // All metadata must be used by dxil.
   MetaValidSamplerMode, // Invalid sampler mode on sampler .
   MetaValueRange, // Metadata value must be within range.
-  MetaWellFormed, // TODO - Metadata must be well-formed in operand count and types.
+  MetaVersionSupported, // Version in metadata must be supported.
+  MetaWellFormed, // Metadata must be well-formed in operand count and types.
 
   // Program flow
   FlowDeadLoop, // Loop must have break.
@@ -202,6 +203,7 @@ enum class ValidationRule : unsigned {
   SmCBufferArrayOffsetAlignment, // CBuffer array offset must be aligned to 16-bytes
   SmCBufferElementOverflow, // CBuffer elements must not overflow
   SmCBufferOffsetOverlap, // CBuffer offsets must not overlap
+  SmCBufferSize, // CBuffer size must not exceed 65536 bytes
   SmCBufferTemplateTypeMustBeStruct, // D3D12 constant/texture buffer template element can only be a struct.
   SmCSNoSignatures, // Compute shaders must not have shader signatures.
   SmCompletePosition, // Not all elements of SV_Position were written.
@@ -258,6 +260,7 @@ enum class ValidationRule : unsigned {
   SmSampleCountOnlyOn2DMS, // Only Texture2DMS/2DMSArray could has sample count.
   SmSemantic, // Semantic must be defined in target shader model
   SmStreamIndexRange, // Stream index (%0) must between 0 and %1.
+  SmTGSMUnsupported, // Thread Group Shared Memory not supported %0.
   SmTessFactorForDomain, // Required TessFactor for domain not found declared anywhere in Patch Constant data.
   SmTessFactorSizeMatchDomain, // TessFactor rows, columns (%0, %1) invalid for domain %2.  Expected %3 rows and 1 column.
   SmThreadGroupChannelRange, // Declared Thread Group %0 size %1 outside valid range [%2..%3].
@@ -265,11 +268,13 @@ enum class ValidationRule : unsigned {
   SmUndefinedOutput, // Not all elements of output %0 were written.
   SmValidDomain, // Invalid Tessellator Domain specified. Must be isoline, tri or quad.
   SmViewIDNeedsSlot, // ViewID requires compatible space in pixel shader input signature
+  SmWaveSizeNeedsDxil16Plus, // WaveSize is valid only for DXIL version 1.6 and higher.
+  SmWaveSizeValue, // Declared WaveSize %0 outside valid range [%1..%2], or not a power of 2.
   SmZeroHSInputControlPointWithInput, // When HS input control point count is 0, no input signature should exist.
 
   // Type system
   TypesDefined, // Type must be defined based on DXIL primitives
-  TypesI8, // I8 can only be used as immediate value for intrinsic.
+  TypesI8, // I8 can only be used as immediate value for intrinsic or as i8* via bitcast by lifetime intrinsics.
   TypesIntWidth, // Int type must be of valid width
   TypesNoMultiDim, // Only one dimension allowed for array type.
   TypesNoPtrToPtr, // Pointers to pointers, or pointers in structures are not allowed.
@@ -341,6 +346,13 @@ HRESULT ValidateDxilBitcode(_In_reads_bytes_(ILLength) const char *pIL,
 // Full container validation, including ValidateDxilModule
 HRESULT ValidateDxilContainer(_In_reads_bytes_(ContainerSize) const void *pContainer,
                               _In_ uint32_t ContainerSize,
+                              _In_ llvm::raw_ostream &DiagStream);
+
+// Full container validation, including ValidateDxilModule, with debug module
+HRESULT ValidateDxilContainer(_In_reads_bytes_(ContainerSize) const void *pContainer,
+                              _In_ uint32_t ContainerSize,
+                              const void *pOptDebugBitcode,
+                              uint32_t OptDebugBitcodeSize,
                               _In_ llvm::raw_ostream &DiagStream);
 
 class PrintDiagnosticContext {

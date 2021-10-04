@@ -1,18 +1,19 @@
 # DirectX Shader Compiler
 
-[![Build status](https://ci.appveyor.com/api/projects/status/oaf66n7w30xbrg38/branch/master?svg=true)](https://ci.appveyor.com/project/antiagainst/directxshadercompiler/branch/master)
-[![Build Status](https://travis-ci.org/microsoft/DirectXShaderCompiler.svg?branch=master)](https://travis-ci.org/microsoft/DirectXShaderCompiler)
+[![Build status](https://ci.appveyor.com/api/projects/status/6sx47j66g4dbyem9/branch/master?svg=true)](https://ci.appveyor.com/project/dnovillo/directxshadercompiler/branch/master)
 
 The DirectX Shader Compiler project includes a compiler and related tools used to compile High-Level Shader Language (HLSL) programs into DirectX Intermediate Language (DXIL) representation. Applications that make use of DirectX for graphics, games, and computation can use it to generate shader programs.
 
 For more information, see the [Wiki](https://github.com/microsoft/DirectXShaderCompiler/wiki).
 
+Visit the [DirectX Landing Page](https://devblogs.microsoft.com/directx/landing-page/) for more resources for DirectX developers.
+
 ## Downloads
 You can download the latest successful build's artifacts (built by Appveyor) for the master branch:
 | Downloads |        |
 |-----------|--------|
-| Windows   | [⬇](https://ci.appveyor.com/api/projects/antiagainst/directxshadercompiler/artifacts/build%2FRelease%2Fdxc-artifacts.zip?branch=master&pr=false&job=image%3A%20Visual%20Studio%202017) |
-| Ubuntu    | [⬇](https://ci.appveyor.com/api/projects/antiagainst/directxshadercompiler/artifacts/build%2Fdxc-artifacts.tar.gz?branch=master&pr=false&job=image%3A%20Ubuntu) |
+| Windows   | [⬇](https://ci.appveyor.com/api/projects/dnovillo/directxshadercompiler/artifacts/build%2FRelease%2Fdxc-artifacts.zip?branch=master&pr=false&job=image%3A%20Visual%20Studio%202019) |
+| Ubuntu    | [⬇](https://ci.appveyor.com/api/projects/dnovillo/directxshadercompiler/artifacts/build%2Fdxc-artifacts.tar.gz?branch=master&pr=false&job=image%3A%20Ubuntu) |
 
 ## Features and Goals
 
@@ -47,7 +48,7 @@ Before you build, you will need to have some additional software installed. This
 
 * [Git](http://git-scm.com/downloads).
 * [Python](https://www.python.org/downloads/) - version 3.x is required
-* [Visual Studio 2017](https://www.visualstudio.com/downloads) - select the following workloads: 
+* [Visual Studio 2019](https://www.visualstudio.com/downloads) - select the following workloads: 
     * Universal Windows Platform Development
     * Desktop Development with C++
 * [Windows SDK](https://developer.microsoft.com/en-US/windows/downloads/windows-10-sdk) - version 10.0.18362.0 or newer

@@ -15,11 +15,18 @@
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "llvm/ADT/StringRef.h"
 
+struct IStream;
+
+namespace llvm {
+class Module;
+}
+
 namespace hlsl {
 
 class AbstractMemoryStream;
 class DxilModule;
 class RootSignatureHandle;
+class ShaderModel;
 namespace DXIL {
 enum class SignatureKind;
 }
@@ -41,10 +48,20 @@ public:
 DxilPartWriter *NewProgramSignatureWriter(const DxilModule &M, DXIL::SignatureKind Kind);
 DxilPartWriter *NewRootSignatureWriter(const RootSignatureHandle &S);
 DxilPartWriter *NewFeatureInfoWriter(const DxilModule &M);
-DxilPartWriter *NewPSVWriter(const DxilModule &M, uint32_t PSVVersion = 0);
-DxilPartWriter *NewRDATWriter(const DxilModule &M, uint32_t InfoVersion = 0);
+DxilPartWriter *NewPSVWriter(const DxilModule &M, uint32_t PSVVersion = UINT_MAX);
+DxilPartWriter *NewRDATWriter(const DxilModule &M);
 
 DxilContainerWriter *NewDxilContainerWriter();
+
+// Set validator version to 0,0 (not validated) then re-emit as much reflection metadata as possible.
+void ReEmitLatestReflectionData(llvm::Module *pReflectionM);
+
+// Strip functions and serialize module.
+void StripAndCreateReflectionStream(llvm::Module *pReflectionM, uint32_t *pReflectionPartSizeInBytes, AbstractMemoryStream **ppReflectionStreamOut);
+
+void WriteProgramPart(const hlsl::ShaderModel *pModel,
+                      AbstractMemoryStream *pModuleBitcode,
+                      IStream *pStream);
 
 void SerializeDxilContainerForModule(hlsl::DxilModule *pModule,
                                      AbstractMemoryStream *pModuleBitcode,

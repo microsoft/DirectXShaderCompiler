@@ -18,6 +18,13 @@
 namespace clang {
 namespace spirv {
 
+/// Returns a string name for the function if |fn| is not an overloaded
+/// operator. Otherwise, returns the name of the operator. If
+/// |addClassNameWithOperator| is true, adds the name of RecordType that
+/// defines the overloaded operator in front of the operator name.
+std::string getFunctionOrOperatorName(const FunctionDecl *fn,
+                                      bool addClassNameWithOperator);
+
 /// Returns a string name for the given type.
 std::string getAstTypeName(QualType type);
 
@@ -86,6 +93,13 @@ bool isMx1Matrix(QualType type, QualType *elemType = nullptr,
 bool isMxNMatrix(QualType type, QualType *elemType = nullptr,
                  uint32_t *rowCount = nullptr, uint32_t *colCount = nullptr);
 
+/// Returns true if the given type will be translated into a SPIR-V array type.
+///
+/// Writes the element type and count into *elementType and *count respectively
+/// if they are not nullptr.
+bool isArrayType(QualType type, QualType *elemType = nullptr,
+                 uint32_t *elemCount = nullptr);
+
 /// \brief Returns true if the given type is a ConstantBuffer or an array of
 /// ConstantBuffers.
 bool isConstantBuffer(QualType);
@@ -98,14 +112,18 @@ bool isTextureBuffer(QualType);
 /// or an array of ConstantBuffers/TextureBuffers.
 bool isConstantTextureBuffer(QualType);
 
-/// \brief Returns true if the decl will have a SPIR-V resource type.
+/// \brief Returns true if the given type will have a SPIR-V resource type.
 ///
 /// Note that this function covers the following HLSL types:
 /// * ConstantBuffer/TextureBuffer
 /// * Various structured buffers
 /// * (RW)ByteAddressBuffer
 /// * SubpassInput(MS)
-bool isResourceType(const ValueDecl *decl);
+bool isResourceType(QualType);
+
+/// \brief Returns true if the given type is a user-defined struct or class
+/// type (not HLSL built-in type).
+bool isUserDefinedRecordType(const ASTContext &, QualType);
 
 /// Returns true if the given type is or contains a 16-bit type.
 /// The caller must also specify whether 16-bit types have been enabled via
@@ -233,6 +251,12 @@ bool isRWTexture(QualType);
 /// \brief Returns true if the given type is an HLSL sampler type.
 bool isSampler(QualType);
 
+/// \brief Returns true if the given type is InputPatch.
+bool isInputPatch(QualType type);
+
+/// \brief Returns true if the given type is OutputPatch.
+bool isOutputPatch(QualType type);
+
 /// \brief Returns true if the given type is SubpassInput.
 bool isSubpassInput(QualType);
 
@@ -342,6 +366,10 @@ bool isStructureContainingMixOfResourcesAndNonResources(QualType type);
 /// of buffer: cbuffer, tbuffer, (RW)ByteAddressBuffer, or
 /// (RW|Append|Consume)StructuredBuffer.
 bool isStructureContainingAnyKindOfBuffer(QualType type);
+
+/// Returns true if the given type is a scalar, vector, or matrix of numeric
+/// types, or it's an array of scalar, vector, or matrix of numeric types.
+bool isScalarOrNonStructAggregateOfNumericalTypes(QualType type);
 
 } // namespace spirv
 } // namespace clang

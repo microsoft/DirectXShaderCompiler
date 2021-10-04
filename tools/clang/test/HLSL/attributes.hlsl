@@ -20,13 +20,13 @@ int loop_before_return() {
 }
 
 int loop_before_if(int a) {
-  [loop] // expected-warning {{attribute 'loop' can only be applied to 'for', 'while' and 'do' loop statements}}
+  [loop] // expected-warning {{attribute 'loop' can only be applied to 'for', 'while' and 'do' loop statements}} fxc-pass {{}}
   if (a > 0) return -a;
   return a;
 }
 
 int loop_before_switch(int a) {
-  [loop] // expected-warning {{attribute 'loop' can only be applied to 'for', 'while' and 'do' loop statements}}
+  [loop] // expected-warning {{attribute 'loop' can only be applied to 'for', 'while' and 'do' loop statements}} fxc-pass {{}}
   switch (a) {
     case 0:
       return 1;
@@ -36,13 +36,13 @@ int loop_before_switch(int a) {
 }
 
 int fastopt_before_if(int a) {
-  [fastopt] // expected-warning {{attribute 'fastopt' can only be applied to 'for', 'while' and 'do' loop statements}}
+  [fastopt] // expected-warning {{attribute 'fastopt' can only be applied to 'for', 'while' and 'do' loop statements}} fxc-pass {{}}
   if (a > 0) return -a;
   return a;
 }
 
 int fastopt_before_switch(int a) {
-  [fastopt] // expected-warning {{attribute 'fastopt' can only be applied to 'for', 'while' and 'do' loop statements}}
+  [fastopt] // expected-warning {{attribute 'fastopt' can only be applied to 'for', 'while' and 'do' loop statements}} fxc-pass {{}}
   switch (a) {
     case 0:
       return 1;
@@ -52,13 +52,13 @@ int fastopt_before_switch(int a) {
 }
 
 int unroll_before_if(int a) {
-  [unroll] // expected-warning {{attribute 'unroll' can only be applied to 'for', 'while' and 'do' loop statements}}
+  [unroll] // expected-warning {{attribute 'unroll' can only be applied to 'for', 'while' and 'do' loop statements}} fxc-pass {{}}
   if (a > 0) return -a;
   return a;
 }
 
 int unroll_before_switch(int a) {
-  [unroll] // expected-warning {{attribute 'unroll' can only be applied to 'for', 'while' and 'do' loop statements}}
+  [unroll] // expected-warning {{attribute 'unroll' can only be applied to 'for', 'while' and 'do' loop statements}} fxc-pass {{}}
   switch (a) {
     case 0:
       return 1;
@@ -68,13 +68,13 @@ int unroll_before_switch(int a) {
 }
 
 int allow_uav_condition_before_if(int a) {
-  [allow_uav_condition] // expected-warning {{attribute 'allow_uav_condition' can only be applied to 'for', 'while' and 'do' loop statements}}
+  [allow_uav_condition] // expected-warning {{attribute 'allow_uav_condition' can only be applied to 'for', 'while' and 'do' loop statements}} fxc-pass {{}}
   if (a > 0) return -a;
   return a;
 }
 
 int allow_uav_condition_before_switch(int a) {
-  [allow_uav_condition] // expected-warning {{attribute 'allow_uav_condition' can only be applied to 'for', 'while' and 'do' loop statements}}
+  [allow_uav_condition] // expected-warning {{attribute 'allow_uav_condition' can only be applied to 'for', 'while' and 'do' loop statements}} fxc-pass {{}}
   switch (a) {
     case 0:
       return 1;
@@ -85,7 +85,7 @@ int allow_uav_condition_before_switch(int a) {
 
 int branch_before_for() {
   int result = 0;
-  [branch] // expected-warning {{attribute 'branch' can only be applied to 'if' and 'switch' statements}}
+  [branch] // expected-warning {{attribute 'branch' can only be applied to 'if' and 'switch' statements}} fxc-pass {{}}
   for (int i = 0; i < 10; i++) result++;
   return result;
 }
@@ -93,7 +93,7 @@ int branch_before_for() {
 int branch_before_while() {
   int result = 0;
   int i = 0;
-  [branch] // expected-warning {{attribute 'branch' can only be applied to 'if' and 'switch' statements}}
+  [branch] // expected-warning {{attribute 'branch' can only be applied to 'if' and 'switch' statements}} fxc-pass {{}}
   while(i < 10) {
     result++;
     i++;
@@ -104,7 +104,7 @@ int branch_before_while() {
 int branch_before_do() {
   int result = 0;
   int i = 0;
-  [branch] // expected-warning {{attribute 'branch' can only be applied to 'if' and 'switch' statements}}
+  [branch] // expected-warning {{attribute 'branch' can only be applied to 'if' and 'switch' statements}} fxc-pass {{}}
   do {
     result++;
     i++;
@@ -114,7 +114,7 @@ int branch_before_do() {
 
 int flatten_before_for() {
   int result = 0;
-  [flatten] // expected-warning {{attribute 'flatten' can only be applied to 'if' and 'switch' statements}}
+  [flatten] // expected-warning {{attribute 'flatten' can only be applied to 'if' and 'switch' statements}} fxc-pass {{}}
   for (int i = 0; i < 10; i++) result++;
   return result;
 }
@@ -122,7 +122,7 @@ int flatten_before_for() {
 int flatten_before_while() {
   int result = 0;
   int i = 0;
-  [flatten] // expected-warning {{attribute 'flatten' can only be applied to 'if' and 'switch' statements}}
+  [flatten] // expected-warning {{attribute 'flatten' can only be applied to 'if' and 'switch' statements}} fxc-pass {{}}
   while(i < 10) {
     result++;
     i++;
@@ -133,7 +133,7 @@ int flatten_before_while() {
 int flatten_before_do() {
   int result = 0;
   int i = 0;
-  [flatten] // expected-warning {{attribute 'flatten' can only be applied to 'if' and 'switch' statements}}
+  [flatten] // expected-warning {{attribute 'flatten' can only be applied to 'if' and 'switch' statements}} fxc-pass {{}}
   do {
     result++;
     i++;
@@ -143,7 +143,7 @@ int flatten_before_do() {
 
 int forcecase_before_for() {
   int result = 0;
-  [forcecase] // expected-warning {{attribute 'forcecase' can only be applied to 'switch' statements}}
+  [forcecase] // expected-warning {{attribute 'forcecase' can only be applied to 'switch' statements}} fxc-pass {{}}
   for (int i = 0; i < 10; i++) result++;
   return result;
 }
@@ -151,7 +151,7 @@ int forcecase_before_for() {
 int forcecase_before_while() {
   int result = 0;
   int i = 0;
-  [forcecase] // expected-warning {{attribute 'forcecase' can only be applied to 'switch' statements}}
+  [forcecase] // expected-warning {{attribute 'forcecase' can only be applied to 'switch' statements}} fxc-pass {{}}
   while(i < 10) {
     result++;
     i++;
@@ -162,7 +162,7 @@ int forcecase_before_while() {
 int forcecase_before_do() {
   int result = 0;
   int i = 0;
-  [forcecase] // expected-warning {{attribute 'forcecase' can only be applied to 'switch' statements}}
+  [forcecase] // expected-warning {{attribute 'forcecase' can only be applied to 'switch' statements}} fxc-pass {{}}
   do {
     result++;
     i++;
@@ -171,14 +171,14 @@ int forcecase_before_do() {
 }
 
 int forcecase_before_if(int a) {
-  [forcecase] // expected-warning {{attribute 'forcecase' can only be applied to 'switch' statements}}
+  [forcecase] // expected-warning {{attribute 'forcecase' can only be applied to 'switch' statements}} fxc-pass {{}}
   if (a > 0) return -a;
   return a;
 }
 
 int call_before_for() {
   int result = 0;
-  [call] // expected-warning {{attribute 'call' can only be applied to 'switch' statements}}
+  [call] // expected-warning {{attribute 'call' can only be applied to 'switch' statements}} fxc-pass {{}}
   for (int i = 0; i < 10; i++) result++;
   return result;
 }
@@ -186,7 +186,7 @@ int call_before_for() {
 int call_before_while() {
   int result = 0;
   int i = 0;
-  [call] // expected-warning {{attribute 'call' can only be applied to 'switch' statements}}
+  [call] // expected-warning {{attribute 'call' can only be applied to 'switch' statements}} fxc-pass {{}}
   while(i < 10) {
     result++;
     i++;
@@ -197,7 +197,7 @@ int call_before_while() {
 int call_before_do() {
   int result = 0;
   int i = 0;
-  [call] // expected-warning {{attribute 'call' can only be applied to 'switch' statements}}
+  [call] // expected-warning {{attribute 'call' can only be applied to 'switch' statements}} fxc-pass {{}}
   do {
     result++;
     i++;
@@ -206,7 +206,7 @@ int call_before_do() {
 }
 
 int call_before_if(int a) {
-  [call] // expected-warning {{attribute 'call' can only be applied to 'switch' statements}}
+  [call] // expected-warning {{attribute 'call' can only be applied to 'switch' statements}} fxc-pass {{}}
   if (a > 0) return -a;
   return a;
 }
@@ -256,9 +256,9 @@ int neg_unroll() {
   // fxc error X3084: cannot match attribute unroll, non-uint parameters found
   [unroll(-1)] // expected-warning {{attribute 'unroll' must have a uint literal argument}} fxc-error {{X3084: cannot match attribute unroll, non-uint parameters found}}
   /*verify-ast
-    AttributedStmt <col:3, line:85:39>
+    AttributedStmt <col:3, line:277:39>
     |-HLSLUnrollAttr <col:4, col:13> -1
-    `-ForStmt <line:85:3, col:39>
+    `-ForStmt <line:277:3, col:39>
       |-DeclStmt <col:8, col:17>
       | `-VarDecl <col:8, col:16> col:12 used i 'int' cinit
       |   `-ImplicitCastExpr <col:16> 'int' <IntegralCast>
@@ -286,9 +286,9 @@ int flt_unroll() {
   // fxc warning X3554: unknown attribute unroll, or attribute invalid for this statement, valid attributes are: loop, fastopt, unroll, allow_uav_condition
   [unroll(1.5)] // expected-warning {{attribute 'unroll' must have a uint literal argument}} fxc-warning {{X3554: cannot match attribute unroll, parameter 1 is expected to be of type int}} fxc-warning {{X3554: unknown attribute unroll, or attribute invalid for this statement, valid attributes are: loop, fastopt, unroll, allow_uav_condition}}
   /*verify-ast
-    AttributedStmt <col:3, line:115:39>
+    AttributedStmt <col:3, line:307:39>
     |-HLSLUnrollAttr <col:4, col:14> 0
-    `-ForStmt <line:115:3, col:39>
+    `-ForStmt <line:307:3, col:39>
       |-DeclStmt <col:8, col:17>
       | `-VarDecl <col:8, col:16> col:12 used i 'int' cinit
       |   `-ImplicitCastExpr <col:16> 'int' <IntegralCast>
@@ -327,9 +327,9 @@ int uav() {
   uint i;
   [allow_uav_condition]
   /*verify-ast
-    AttributedStmt <col:3, line:156:3>
+    AttributedStmt <col:3, line:348:3>
     |-HLSLAllowUAVConditionAttr <col:4>
-    `-ForStmt <line:155:3, line:156:3>
+    `-ForStmt <line:347:3, line:348:3>
       |-BinaryOperator <col:8, col:12> 'uint':'unsigned int' '='
       | |-DeclRefExpr <col:8> 'uint':'unsigned int' lvalue Var 'i' 'uint':'unsigned int'
       | `-ImplicitCastExpr <col:12> 'uint':'unsigned int' <LValueToRValue>
@@ -342,7 +342,7 @@ int uav() {
       |   `-DeclRefExpr <col:38> 'const uint':'const unsigned int' lvalue Var 'g_dealiasTableSize' 'const uint':'const unsigned int'
       |-UnaryOperator <col:58, col:60> 'uint':'unsigned int' lvalue prefix '++'
       | `-DeclRefExpr <col:60> 'uint':'unsigned int' lvalue Var 'i' 'uint':'unsigned int'
-      `-CompoundStmt <col:63, line:156:3>
+      `-CompoundStmt <col:63, line:348:3>
   */
   for (i = g_dealiasTableOffset; i < g_dealiasTableSize; ++i) {
   }
@@ -393,16 +393,16 @@ void all_wrong() { }
 [patchconstantfunc("PatchFoo")]
 HSFoo HSMain( InputPatch<HSFoo, 16> p,
 /*verify-ast
-  FunctionDecl <col:1, line:276:1> line:202:7 HSMain 'HSFoo (InputPatch<HSFoo, 16>, uint, uint)'
+  FunctionDecl <col:1, line:468:1> line:394:7 HSMain 'HSFoo (InputPatch<HSFoo, 16>, uint, uint)'
   |-ParmVarDecl <col:15, col:37> col:37 used p 'InputPatch<HSFoo, 16>':'InputPatch<HSFoo, 16>'
-  |-ParmVarDecl <line:268:15, col:20> col:20 used i 'uint':'unsigned int'
+  |-ParmVarDecl <line:460:15, col:20> col:20 used i 'uint':'unsigned int'
   | `-SemanticDecl <col:24> "SV_OutputControlPointID"
-  |-ParmVarDecl <line:269:15, col:20> col:20 used PatchID 'uint':'unsigned int'
+  |-ParmVarDecl <line:461:15, col:20> col:20 used PatchID 'uint':'unsigned int'
   | `-SemanticDecl <col:30> "SV_PrimitiveID"
-  |-CompoundStmt <line:270:1, line:276:1>
-  | |-DeclStmt <line:271:5, col:17>
+  |-CompoundStmt <line:462:1, line:468:1>
+  | |-DeclStmt <line:463:5, col:17>
   | | `-VarDecl <col:5, col:11> col:11 used output 'HSFoo' nrvo
-  | |-DeclStmt <line:272:5, col:41>
+  | |-DeclStmt <line:464:5, col:41>
   | | `-VarDecl <col:5, col:40> col:12 used r 'float4':'vector<float, 4>' cinit
   | |   `-CXXFunctionalCastExpr <col:16, col:40> 'float4':'vector<float, 4>' functional cast to float4 <NoOp>
   | |     `-InitListExpr <col:23, col:39> 'float4':'vector<float, 4>'
@@ -417,7 +417,7 @@ HSFoo HSMain( InputPatch<HSFoo, 16> p,
   | |       |       `-DeclRefExpr <col:25> 'uint':'unsigned int' lvalue ParmVar 'PatchID' 'uint':'unsigned int'
   | |       `-ImplicitCastExpr <col:39> 'float' <IntegralToFloating>
   | |         `-IntegerLiteral <col:39> 'literal int' 1
-  | |-CompoundAssignOperator <line:273:5, col:30> 'float4':'vector<float, 4>' lvalue '+=' ComputeLHSTy='float4':'vector<float, 4>' ComputeResultTy='float4':'vector<float, 4>'
+  | |-CompoundAssignOperator <line:465:5, col:30> 'float4':'vector<float, 4>' lvalue '+=' ComputeLHSTy='float4':'vector<float, 4>' ComputeResultTy='float4':'vector<float, 4>'
   | | |-DeclRefExpr <col:5> 'float4':'vector<float, 4>' lvalue Var 'r' 'float4':'vector<float, 4>'
   | | `-CXXMemberCallExpr <col:10, col:30> 'vector<float, 4>'
   | |   |-MemberExpr <col:10, col:20> '<bound member function type>' .Load
@@ -432,7 +432,7 @@ HSFoo HSMain( InputPatch<HSFoo, 16> p,
   | |     `-ImplicitCastExpr <col:25, col:27> 'vector<float, 3>':'vector<float, 3>' <LValueToRValue>
   | |       `-HLSLVectorElementExpr <col:25, col:27> 'vector<float, 3>':'vector<float, 3>' lvalue vectorcomponent xyz
   | |         `-DeclRefExpr <col:25> 'float4':'vector<float, 4>' lvalue Var 'r' 'float4':'vector<float, 4>'
-  | |-BinaryOperator <line:274:5, col:31> 'float3':'vector<float, 3>' '='
+  | |-BinaryOperator <line:466:5, col:31> 'float3':'vector<float, 3>' '='
   | | |-MemberExpr <col:5, col:12> 'float3':'vector<float, 3>' lvalue .pos
   | | | `-DeclRefExpr <col:5> 'HSFoo' lvalue Var 'output' 'HSFoo'
   | | `-BinaryOperator <col:18, col:31> 'float3':'vector<float, 3>' '+'
@@ -448,14 +448,14 @@ HSFoo HSMain( InputPatch<HSFoo, 16> p,
   | |   `-ImplicitCastExpr <col:29, col:31> 'vector<float, 3>':'vector<float, 3>' <LValueToRValue>
   | |     `-HLSLVectorElementExpr <col:29, col:31> 'vector<float, 3>':'vector<float, 3>' lvalue vectorcomponent xyz
   | |       `-DeclRefExpr <col:29> 'float4':'vector<float, 4>' lvalue Var 'r' 'float4':'vector<float, 4>'
-  | `-ReturnStmt <line:275:5, col:12>
+  | `-ReturnStmt <line:467:5, col:12>
   |   `-ImplicitCastExpr <col:12> 'HSFoo' <LValueToRValue>
   |     `-DeclRefExpr <col:12> 'HSFoo' lvalue Var 'output' 'HSFoo'
-  |-HLSLPatchConstantFuncAttr <line:201:2, col:30> "PatchFoo"
-  |-HLSLOutputControlPointsAttr <line:200:2, col:24> 16
-  |-HLSLOutputTopologyAttr <line:199:2, col:30> "triangle_cw"
-  |-HLSLPartitioningAttr <line:198:2, col:24> "integer"
-  `-HLSLDomainAttr <line:194:2, col:15> "quad"
+  |-HLSLPatchConstantFuncAttr <line:393:2, col:30> "PatchFoo"
+  |-HLSLOutputControlPointsAttr <line:392:2, col:24> 16
+  |-HLSLOutputTopologyAttr <line:391:2, col:30> "triangle_cw"
+  |-HLSLPartitioningAttr <line:390:2, col:24> "integer"
+  `-HLSLDomainAttr <line:386:2, col:15> "quad"
 */
               uint i : SV_OutputControlPointID,
               uint PatchID : SV_PrimitiveID )
@@ -561,13 +561,13 @@ void clipplanes_bad_scalar_swizzle();
 
 [clipplanes(
 /*verify-ast
-  HLSLClipPlanesAttr <col:2, line:390:3>
-  |-DeclRefExpr <line:387:3> 'const float4':'const vector<float, 4>' lvalue Var 'f4' 'const float4':'const vector<float, 4>'
-  |-ArraySubscriptExpr <line:388:3, col:8> 'const float4':'const vector<float, 4>' lvalue
+  HLSLClipPlanesAttr <col:2, line:582:3>
+  |-DeclRefExpr <line:579:3> 'const float4':'const vector<float, 4>' lvalue Var 'f4' 'const float4':'const vector<float, 4>'
+  |-ArraySubscriptExpr <line:580:3, col:8> 'const float4':'const vector<float, 4>' lvalue
   | |-ImplicitCastExpr <col:3> 'const float4 [2]' <LValueToRValue>
   | | `-DeclRefExpr <col:3> 'const float4 [2]' lvalue Var 'cp4' 'const float4 [2]'
   | `-IntegerLiteral <col:7> 'literal int' 0
-  |-ArraySubscriptExpr <line:389:3, col:11> 'float4':'vector<float, 4>' lvalue
+  |-ArraySubscriptExpr <line:581:3, col:11> 'float4':'vector<float, 4>' lvalue
   | |-ImplicitCastExpr <col:3, col:6> 'float4 [5]' <LValueToRValue>
   | | `-MemberExpr <col:3, col:6> 'float4 const[5]' lvalue .cp5
   | |   `-DeclRefExpr <col:3> 'const global_struct' lvalue Var 'gs' 'const global_struct'
@@ -585,21 +585,21 @@ float4 clipplanes_good();
 
 [clipplanes(
 /*verify-ast
-  HLSLClipPlanesAttr <col:2, line:424:3>
-  |-ParenExpr <line:420:3, col:6> 'const float4':'const vector<float, 4>' lvalue
+  HLSLClipPlanesAttr <col:2, line:616:3>
+  |-ParenExpr <line:612:3, col:6> 'const float4':'const vector<float, 4>' lvalue
   | `-DeclRefExpr <col:4> 'const float4':'const vector<float, 4>' lvalue Var 'f4' 'const float4':'const vector<float, 4>'
-  |-ArraySubscriptExpr <line:421:3, col:10> 'const float4':'const vector<float, 4>' lvalue
+  |-ArraySubscriptExpr <line:613:3, col:10> 'const float4':'const vector<float, 4>' lvalue
   | |-ImplicitCastExpr <col:3> 'const float4 [2]' <LValueToRValue>
   | | `-DeclRefExpr <col:3> 'const float4 [2]' lvalue Var 'cp4' 'const float4 [2]'
   | `-ParenExpr <col:7, col:9> 'literal int'
   |   `-IntegerLiteral <col:8> 'literal int' 0
-  |-ArraySubscriptExpr <line:422:3, col:13> 'float4':'vector<float, 4>' lvalue
+  |-ArraySubscriptExpr <line:614:3, col:13> 'float4':'vector<float, 4>' lvalue
   | |-ImplicitCastExpr <col:3, col:8> 'float4 [5]' <LValueToRValue>
   | | `-MemberExpr <col:3, col:8> 'float4 const[5]' lvalue .cp5
   | |   `-ParenExpr <col:3, col:6> 'const global_struct' lvalue
   | |     `-DeclRefExpr <col:4> 'const global_struct' lvalue Var 'gs' 'const global_struct'
   | `-IntegerLiteral <col:12> 'literal int' 2
-  |-ParenExpr <line:423:3, col:15> 'float4':'vector<float, 4>' lvalue
+  |-ParenExpr <line:615:3, col:15> 'float4':'vector<float, 4>' lvalue
   | `-ArraySubscriptExpr <col:4, col:14> 'float4':'vector<float, 4>' lvalue
   |   |-ImplicitCastExpr <col:4, col:9> 'float4 [5]' <LValueToRValue>
   |   | `-MemberExpr <col:4, col:9> 'float4 const[5]' lvalue .cp5

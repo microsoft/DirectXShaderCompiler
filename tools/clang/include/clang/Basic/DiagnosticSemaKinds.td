@@ -2332,6 +2332,8 @@ def warn_attribute_wrong_decl_type : Warning<
   "global variables of scalar type|"
   "global variables of struct type|"
   "global variables, cbuffers, and tbuffers|"
+  "Textures (e.g., Texture2D) and SamplerState|"
+  "RWTextures, Buffers and RWBuffers|"
   "RWStructuredBuffers, AppendStructuredBuffers, and ConsumeStructuredBuffers|"
   "SubpassInput, SubpassInputMS|"
   "cbuffer or ConstantBuffer|"
@@ -7479,6 +7481,8 @@ def err_hlsl_matrix_member_too_many_positions: Error<
   "more than four positions are referenced in '%0'">;
 def err_hlsl_matrix_member_zero_in_one_based: Error<
   "the digit '0' is used in '%0', but the syntax is for one-based rows and columns">;
+def err_hlsl_overloading_new_delete_operator: Error<
+  "overloading %0 is not allowed">;
 def err_hlsl_vector_member_bad_format: Error<
   "invalid format for vector swizzle '%0'">;
 def err_hlsl_vector_member_empty: Error<
@@ -7539,6 +7543,42 @@ def err_hlsl_unsupported_buffer_packoffset : Error<
   "packoffset is only allowed within a constant buffer, not on the constant buffer declaration">;
 def err_hlsl_unsupported_buffer_slot_target_specific : Error<
   "user defined constant buffer slots cannot be target specific">;
+def err_hlsl_unsupported_payload_access_qualifier : Error<
+  "payload access qualifiers are only allowed for member variables of a payload structure">;
+def err_hlsl_unsupported_payload_access_qualifier_struct : Error<
+  "payload access qualifiers are not supported on struct types.">;
+def err_hlsl_payload_access_qualifier_unsupported_shader : Error<
+  "payload access qualifiers are only defined for raytracing shader stages closesthit, miss, anyhit and for special keyword: caller. '%0' is not supported">;
+def err_hlsl_payload_access_qualifier_invalid_combination : Error<
+  "field %0 is qualified '%1' for shader stage '%2' but has no valid %3">;
+def err_hlsl_payload_access_qualifier_multiple_defined : Error<
+  "payload access qualifier '%0' has already been defined">;
+def warn_hlsl_payload_access_data_loss : Warning<
+  "potential loss of data for payload field '%0'. Field is qualified 'write' in earlier stages and 'write' only for stage '%1' but never unconditionally written.">, InGroup<HLSLPayloadAccessQualiferShader>;
+def warn_hlsl_payload_access_undef_read : Warning<
+  "reading undefined value ('%0' is not qualified 'read' for shader stage '%1')">, InGroup<HLSLPayloadAccessQualiferShader>;
+def warn_hlsl_payload_access_write_loss : Warning<
+  "write will be dropped ('%0' is not qualified 'write' for shader stage '%1')">, InGroup<HLSLPayloadAccessQualiferShader>;
+def warn_hlsl_payload_access_no_write_for_trace_payload : Warning<
+  "field '%0' is 'write' for 'caller' stage but field is never written for TraceRay call">, InGroup<HLSLPayloadAccessQualiferTrace>;
+def warn_hlsl_payload_access_write_but_no_write_for_trace_payload : Warning<
+  "value will be undefined inside TraceRay ('%0' is not qualified 'write' for 'caller')">, InGroup<HLSLPayloadAccessQualiferTrace>;
+def warn_hlsl_payload_access_read_of_undef_after_trace : Warning<
+  "reading undefined value ('%0' is returned from TraceRay but not qualified 'read' for 'caller')">, InGroup<HLSLPayloadAccessQualiferTrace>;
+def warn_hlsl_payload_access_read_but_no_read_after_trace : Warning<
+  "'%0' is qualified 'read' for 'caller' but the field is never read after TraceCall (possible performance issue)">, InGroup<HLSLPayloadAccessQualiferPerf>;
+def warn_qualified_payload_passed_to_extern_function : Warning<
+  "passing a qualified payload to an extern function can cause undefined behavior if payload qualifiers mismatch">, InGroup<HLSLPayloadAccessQualiferCall>;
+def err_not_all_payload_fields_qualified : Error<
+  "payload type '%0' requires that all fields carry payload access qualifiers.">;
+def err_payload_requires_attribute : Error<
+  "type '%0' used as payload requires that it is annotated with the [raypayload] attribute">;
+def err_payload_fields_not_qualified : Error<
+  "payload field '%0' has no payload access qualifiers.">;
+def err_payload_fields_is_payload_and_overqualified : Error<
+  "payload field '%0' is a payload struct. Payload access qualifiers are not allowed on payload types.">;
+def warn_hlsl_payload_qualifer_dropped : Warning<
+  "payload access qualifieres are only supported for target lib_6_6 and beyond. You can opt-in for lib_6_6 with the -enable-payload-qualifiers flag. Qualifiers will be dropped.">, InGroup<HLSLPayloadAccessQualifer>;
 def err_hlsl_unsupported_builtin_op: Error<
   "operator cannot be used with built-in type %0">;
 def err_hlsl_unsupported_char_literal : Error<
@@ -7624,6 +7664,9 @@ def warn_hlsl_narrowing : Warning<
 def warn_hlsl_sema_minprecision_promotion : Warning <
   "%0 is promoted to %1">,
   InGroup<Conversion>, DefaultWarn;
+def warn_hlsl_ambiguous_literal_shift : Warning <
+  "ambiguous type for bit shift; use a type suffix on literal values, like 'L' or 'U', or a cast">,
+  InGroup<HLSLAmbigLitShift>, DefaultWarn;
 def warn_hlsl_implicit_vector_truncation  : Warning<
   "implicit truncation of vector type">,
   InGroup<Conversion>, DefaultWarn;
@@ -7705,6 +7748,10 @@ def err_hlsl_load_from_mesh_out_arrays: Error<
    "output arrays of a mesh shader can not be read from">;
 def err_hlsl_out_indices_array_incorrect_access: Error<
    "a vector in out indices array must be accessed as a whole">;
+def err_hlsl_logical_binop_scalar : Error<
+   "operands for short-circuiting logical binary operator must be scalar">;
+def err_hlsl_ternary_scalar : Error<
+   "condition for short-circuiting ternary operator must be scalar">;
 // HLSL Change Ends
 
 // SPIRV Change Starts

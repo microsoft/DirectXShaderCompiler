@@ -145,6 +145,15 @@ static const HLSL_INTRINSIC_ARGUMENT TestMyTexture2DOp[] = {
   { "val", AR_QUAL_IN, 1, LITEMPLATE_VECTOR, 1, LICOMPTYPE_UINT, 1, 2},
 };
 
+// float = test_overload(float a, uint b, double c)
+static const HLSL_INTRINSIC_ARGUMENT TestOverloadArgs[] = {
+  { "test_overload", AR_QUAL_OUT, 0, LITEMPLATE_SCALAR, 0, LICOMPTYPE_NUMERIC, 1, IA_C },
+  { "a", AR_QUAL_IN, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_FLOAT, 1, IA_C },
+  { "b", AR_QUAL_IN, 2, LITEMPLATE_ANY, 2, LICOMPTYPE_UINT, 1, IA_C },
+  { "c", AR_QUAL_IN, 3, LITEMPLATE_SCALAR, 3, LICOMPTYPE_DOUBLE, 1, IA_C },
+};
+
+
 struct Intrinsic {
   LPCWSTR hlslName;
   const char *dxilName;
@@ -175,6 +184,9 @@ Intrinsic Intrinsics[] = {
   // counterpart for testing purposes.
   {L"test_unsigned","test_unsigned",   "n", { static_cast<unsigned>(hlsl::IntrinsicOp::IOP_min), false, true, false, -1, countof(TestUnsigned), TestUnsigned}},
   {L"wave_proc",    DEFAULT_NAME,      "r", { 16, false, true, true, -1, countof(WaveProcArgs), WaveProcArgs }},
+  {L"test_o_1",     "test_o_1.$o:1",   "r", { 18, false, true, true, -1, countof(TestOverloadArgs), TestOverloadArgs }},
+  {L"test_o_2",     "test_o_2.$o:2",   "r", { 19, false, true, true, -1, countof(TestOverloadArgs), TestOverloadArgs }},
+  {L"test_o_3",     "test_o_3.$o:3",   "r", { 20, false, true, true, -1, countof(TestOverloadArgs), TestOverloadArgs }},
 };
 
 Intrinsic BufferIntrinsics[] = {
@@ -284,13 +296,16 @@ private:
   DXC_MICROCOM_REF_FIELD(m_dwRef)
   std::vector<IntrinsicTable> m_tables;
 public:
-  TestIntrinsicTable() : m_dwRef(0) { 
-    m_tables.push_back(IntrinsicTable(L"",       std::begin(Intrinsics), std::end(Intrinsics)));
+  TestIntrinsicTable(Intrinsic *Intrinsics, unsigned IntrinsicsCount) : m_dwRef(0) { 
+    m_tables.push_back(IntrinsicTable(L"",       Intrinsics, Intrinsics+IntrinsicsCount));
     m_tables.push_back(IntrinsicTable(L"Buffer", std::begin(BufferIntrinsics), std::end(BufferIntrinsics)));
     m_tables.push_back(IntrinsicTable(L"SamplerState", std::begin(SamplerIntrinsics), std::end(SamplerIntrinsics)));
     m_tables.push_back(IntrinsicTable(L"Texture1D", std::begin(Texture1DIntrinsics), std::end(Texture1DIntrinsics)));
     m_tables.push_back(IntrinsicTable(L"Texture2D", std::begin(Texture2DIntrinsics), std::end(Texture2DIntrinsics)));
   }
+
+  TestIntrinsicTable() : TestIntrinsicTable(::Intrinsics, _countof(::Intrinsics)) {}
+
   DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject) override {
     return DoBasicQueryInterface<IDxcIntrinsicTable>(this, iid, ppvObject);
@@ -482,7 +497,7 @@ public:
 
   dxc::DxcDllSupport &m_dllSupport;
   CComPtr<IDxcCompiler> pCompiler;
-  CComPtr<IDxcLangExtensions2> pLangExtensions;
+  CComPtr<IDxcLangExtensions3> pLangExtensions;
   CComPtr<IDxcBlobEncoding> pCodeBlob;
   CComPtr<IDxcOperationResult> pCompileResult;
   CComPtr<IDxcSemanticDefineValidator> pTestSemanticDefineValidator;
@@ -505,6 +520,9 @@ public:
 
   dxc::DxcDllSupport m_dllSupport;
 
+  TEST_METHOD(EvalAttributeCollision)
+  TEST_METHOD(NoUnwind)
+  TEST_METHOD(DCE)
   TEST_METHOD(DefineWhenRegisteredThenPreserved)
   TEST_METHOD(DefineValidationError)
   TEST_METHOD(DefineValidationWarning)
@@ -530,6 +548,7 @@ public:
   TEST_METHOD(ResourceExtensionIntrinsicCustomLowering1)
   TEST_METHOD(ResourceExtensionIntrinsicCustomLowering2)
   TEST_METHOD(ResourceExtensionIntrinsicCustomLowering3)
+  TEST_METHOD(CustomOverloadArg1)
 };
 
 TEST_F(ExtensionTest, DefineWhenRegisteredThenPreserved) {
@@ -1063,6 +1082,114 @@ TEST_F(ExtensionTest, SamplerExtensionIntrinsic) {
   CheckMsgs(disassembly.c_str(), disassembly.length(), expected, 1, true);
 }
 
+// Takes a string to match, and a regex pattern string, returns the first match at index [0],
+// as well as sub expressions starting at index [1]
+static std::vector<std::string> Match(const std::string &str, const std::string pattern) {
+  std::vector<std::string> ret;
+  llvm::Regex regex(pattern);
+  std::string err;
+  VERIFY_IS_TRUE(regex.isValid(err));
+  llvm::SmallVector<llvm::StringRef, 4> matches;
+  if (!regex.match(str, &matches))
+    return ret;
+  ret.assign(matches.begin(), matches.end());
+  return ret;
+}
+
+//
+// Regression test for extension functions having the same opcode as the following
+// HLSL intrinsics, and triggering DxilLegalizeEvalOperations to make incorrect
+// assumptions about allocas associated with it, causing them to be removed.
+//
+TEST_F(ExtensionTest, EvalAttributeCollision) {
+  static const HLSL_INTRINSIC_ARGUMENT Args[] = {
+    { "collide_proc",  AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, 1, IA_C },
+    { "value",         AR_QUAL_IN,  1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, 1, IA_C }
+  };
+
+  hlsl::IntrinsicOp ops[] ={
+    hlsl::IntrinsicOp::IOP_GetAttributeAtVertex,
+    hlsl::IntrinsicOp::IOP_EvaluateAttributeSnapped,
+    hlsl::IntrinsicOp::IOP_EvaluateAttributeCentroid,
+    hlsl::IntrinsicOp::IOP_EvaluateAttributeAtSample,
+  };
+
+  for (hlsl::IntrinsicOp op : ops) {
+    Intrinsic Intrinsic = {L"collide_proc", "collide_proc",     "r", { static_cast<unsigned>(op),      true,false,false,-1, countof(Args), Args }};
+    Compiler c(m_dllSupport);
+    c.RegisterIntrinsicTable(new TestIntrinsicTable(&Intrinsic, 1));
+    c.Compile(R"(
+        float2 main(float2 a  : A, float2 b : B) : SV_Target {
+            float2 ret = b;
+            ret.x = collide_proc(ret.x);
+            return ret;
+        }
+      )",
+      {L"/Vd", L"/Od"}, {}
+    );
+
+    std::string disassembly = c.Disassemble();
+
+    auto match1 = Match(disassembly, std::string("%([0-9.a-zA-Z]*) = call float @collide_proc\\(i32 ") + std::to_string(Intrinsic.hlsl.Op));
+    VERIFY_IS_TRUE(match1.size() == 2U);
+    VERIFY_IS_TRUE(Match(disassembly, std::string("call void @dx.op.storeOutput.f32\\(i32 5, i32 0, i32 0, i8 0, float %") + match1[1]).size() != 0U);
+  }
+}
+
+// Regression test for extension functions having no 'nounwind' attribute
+TEST_F(ExtensionTest, NoUnwind) {
+  static const HLSL_INTRINSIC_ARGUMENT Args[] = {
+    { "test_proc",  AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, 1, IA_C },
+    { "value",      AR_QUAL_IN,  1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, 1, IA_C }
+  };
+
+  Intrinsic Intrinsic = {L"test_proc", "test_proc",     "r", { 1,      false,false,false,-1, countof(Args), Args }};
+  Compiler c(m_dllSupport);
+  c.RegisterIntrinsicTable(new TestIntrinsicTable(&Intrinsic, 1));
+  c.Compile(R"(
+      float main(float a : A) : SV_Target {
+          return test_proc(a);
+      }
+    )",
+    {L"/Vd", L"/Od"}, {});
+
+  std::string disassembly = c.Disassemble();
+
+  /*
+  * We're looking for this:
+  *   declare float @test_proc(i32, float) #1
+  *   attributes #1 = { nounwind }
+  */
+  auto m1 = Match(disassembly, std::string("declare float @test_proc\\(i32, float\\) #([0-9]*)"));
+  VERIFY_IS_TRUE(m1.size() == 2U);
+  VERIFY_IS_TRUE(Match(disassembly, std::string("attributes #") + m1[1] + " = { nounwind").size() != 0U);
+}
+
+// Regression test for extension function calls not getting DCE'ed becuase they had no 'nounwind' attribute
+TEST_F(ExtensionTest, DCE) {
+  static const HLSL_INTRINSIC_ARGUMENT Args[] = {
+    { "test_proc",  AR_QUAL_OUT, 1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, 1, IA_C },
+    { "value",      AR_QUAL_IN,  1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, 1, IA_C }
+  };
+
+  Intrinsic Intrinsic = {L"test_proc", "test_proc",     "r", { 1,      true,true,false,-1, countof(Args), Args }};
+  Compiler c(m_dllSupport);
+  c.RegisterIntrinsicTable(new TestIntrinsicTable(&Intrinsic, 1));
+  c.Compile(R"(
+      float main(float a : A) : SV_Target {
+          float dce = test_proc(a);
+          return 0;
+      }
+    )",
+    {L"/Vd", L"/Od"}, {});
+
+  std::string disassembly = c.Disassemble();
+
+  VERIFY_IS_TRUE(
+    disassembly.npos ==
+    disassembly.find("call float @test_proc"));
+}
+
 TEST_F(ExtensionTest, WaveIntrinsic) {
   // Test wave-sensitive intrinsic in breaked loop
   Compiler c(m_dllSupport);
@@ -1181,4 +1308,29 @@ TEST_F(ExtensionTest, ResourceExtensionIntrinsicCustomLowering3) {
     "call %dx.types.ResRet.i32 @MyTextureOp\\(i32 17, %dx.types.Handle %.*, i32 1, i32 undef, i32 2, i32 undef, i32 undef\\)",
   };
   CheckMsgs(disassembly.c_str(), disassembly.length(), expected, 1, true);
+}
+
+TEST_F(ExtensionTest, CustomOverloadArg1) {
+  // Test that we pick the overload name based on the first arg.
+  Compiler c(m_dllSupport);
+  c.RegisterIntrinsicTable(new TestIntrinsicTable());
+  auto result = c.Compile(
+    "float main() : SV_Target {\n"
+    "  float o1 = test_o_1(1.0f, 2u, 4.0);\n"
+    "  float o2 = test_o_2(1.0f, 2u, 4.0);\n"
+    "  float o3 = test_o_3(1.0f, 2u, 4.0);\n"
+    "  return o1 + o2 + o3;\n"
+    "}\n",
+    { L"/Vd" }, {}
+  );
+  CheckOperationResultMsgs(result, {}, true, false);
+  std::string disassembly = c.Disassemble();
+
+  // The function name should match the first arg (float)
+  LPCSTR expected[] = {
+    "call float @test_o_1.float(i32 18, float 1.000000e+00, i32 2, double 4.000000e+00)",
+    "call float @test_o_2.i32(i32 18, float 1.000000e+00, i32 2, double 4.000000e+00)",
+    "call float @test_o_3.double(i32 18, float 1.000000e+00, i32 2, double 4.000000e+00)",
+  };
+  CheckMsgs(disassembly.c_str(), disassembly.length(), expected, 1, false);
 }

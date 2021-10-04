@@ -29,6 +29,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Metadata.h"
+#include "llvm/IR/DebugInfoMetadata.h" // HLSL Change
 
 namespace llvm {
   /// IntrinsicInst - A useful wrapper class for inspecting calls to intrinsic
@@ -89,6 +90,8 @@ namespace llvm {
       return cast<DIExpression>(getRawExpression());
     }
 
+    void setVariable(DIVariable *v) { setArgOperand(1, MetadataAsValue::get(getContext(), v)); } // HLSL Change
+
     Metadata *getRawVariable() const {
       return cast<MetadataAsValue>(getArgOperand(1))->getMetadata();
     }
@@ -121,6 +124,8 @@ namespace llvm {
     DIExpression *getExpression() const {
       return cast<DIExpression>(getRawExpression());
     }
+
+    void setVariable(DIVariable *v) { setArgOperand(2, MetadataAsValue::get(getContext(), v)); } // HLSL Change
 
     Metadata *getRawVariable() const {
       return cast<MetadataAsValue>(getArgOperand(2))->getMetadata();

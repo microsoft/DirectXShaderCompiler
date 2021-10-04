@@ -25,7 +25,7 @@ SpirvContext::SpirvContext()
   boolType = new (this) BoolType;
   samplerType = new (this) SamplerType;
   accelerationStructureTypeNV = new (this) AccelerationStructureTypeNV;
-  rayQueryProvisionalTypeKHR = new (this) RayQueryProvisionalTypeKHR;
+  rayQueryTypeKHR = new (this) RayQueryTypeKHR;
 }
 
 SpirvContext::~SpirvContext() {
@@ -33,7 +33,7 @@ SpirvContext::~SpirvContext() {
   boolType->~BoolType();
   samplerType->~SamplerType();
   accelerationStructureTypeNV->~AccelerationStructureTypeNV();
-  rayQueryProvisionalTypeKHR->~RayQueryProvisionalTypeKHR();
+  rayQueryTypeKHR->~RayQueryTypeKHR();
 
   for (auto *sintType : sintTypes)
     if (sintType) // sintTypes may contain nullptr
@@ -98,7 +98,7 @@ SpirvContext::~SpirvContext() {
 }
 
 inline uint32_t log2ForBitwidth(uint32_t bitwidth) {
-  assert(bitwidth >= 16 && bitwidth <= 64 && llvm::isPowerOf2_32(bitwidth));
+  assert(bitwidth >= 8 && bitwidth <= 64 && llvm::isPowerOf2_32(bitwidth));
 
   return llvm::Log2_32(bitwidth);
 }
@@ -182,6 +182,17 @@ const SpirvType *SpirvContext::getMatrixType(const SpirvType *elemType,
   matTypes[vecType].push_back(ptr);
 
   return ptr;
+}
+
+const ImageType *
+SpirvContext::getImageType(const ImageType *imageTypeWithUnknownFormat,
+                           spv::ImageFormat format) {
+  return getImageType(imageTypeWithUnknownFormat->getSampledType(),
+                      imageTypeWithUnknownFormat->getDimension(),
+                      imageTypeWithUnknownFormat->getDepth(),
+                      imageTypeWithUnknownFormat->isArrayedImage(),
+                      imageTypeWithUnknownFormat->isMSImage(),
+                      imageTypeWithUnknownFormat->withSampler(), format);
 }
 
 const ImageType *SpirvContext::getImageType(const SpirvType *sampledType,

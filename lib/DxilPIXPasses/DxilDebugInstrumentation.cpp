@@ -22,6 +22,8 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Module.h"
 
+#include "PixPassHelpers.h"
+
 using namespace llvm;
 using namespace hlsl;
 
@@ -250,7 +252,6 @@ public:
 
 private:
   SystemValueIndices addRequiredSystemValues(BuilderContext &BC);
-  void addUAV(BuilderContext &BC);
   void addInvocationSelectionProlog(BuilderContext &BC,
                                     SystemValueIndices SVIndices);
   Value *addPixelShaderProlog(BuilderContext &BC, SystemValueIndices SVIndices);
@@ -263,7 +264,7 @@ private:
   void addInvocationStartMarker(BuilderContext &BC);
   void reserveDebugEntrySpace(BuilderContext &BC, uint32_t SpaceInDwords);
   void addStoreStepDebugEntry(BuilderContext &BC, StoreInst *Inst);
-  void addStepDebugEntry(BuilderContext &BC, Instruction *Inst);
+  void addStepDebugEntry(BuilderContext& BC, Instruction* Inst);
   void addStepDebugEntryValue(BuilderContext &BC, std::uint32_t InstNum,
                               Value *V, std::uint32_t ValueOrdinal,
                               Value *ValueOrdinalIndex);
@@ -546,52 +547,6 @@ DxilDebugInstrumentation::addPixelShaderProlog(BuilderContext &BC,
   return ComparePos;
 }
 
-void DxilDebugInstrumentation::addUAV(BuilderContext &BC) {
-  // Set up a UAV with structure of a single int
-  unsigned int UAVResourceHandle =
-      static_cast<unsigned int>(BC.DM.GetUAVs().size());
-  SmallVector<llvm::Type *, 1> Elements{Type::getInt32Ty(BC.Ctx)};
-  llvm::StructType *UAVStructTy =
-      llvm::StructType::create(Elements, "PIX_DebugUAV_Type");
-  std::unique_ptr<DxilResource> pUAV = llvm::make_unique<DxilResource>();
-  pUAV->SetGlobalName("PIX_DebugUAVName");
-  pUAV->SetGlobalSymbol(UndefValue::get(UAVStructTy->getPointerTo()));
-  pUAV->SetID(UAVResourceHandle);
-  pUAV->SetSpaceID(
-      (unsigned int)-2); // This is the reserved-for-tools register space
-  pUAV->SetSampleCount(1);
-  pUAV->SetGloballyCoherent(false);
-  pUAV->SetHasCounter(false);
-  pUAV->SetCompType(CompType::getI32());
-  pUAV->SetLowerBound(0);
-  pUAV->SetRangeSize(1);
-  pUAV->SetKind(DXIL::ResourceKind::RawBuffer);
-  pUAV->SetRW(true);
-
-  auto ID = BC.DM.AddUAV(std::move(pUAV));
-  assert(ID == UAVResourceHandle);
-
-  BC.DM.m_ShaderFlags.SetEnableRawAndStructuredBuffers(true);
-
-  // Create handle for the newly-added UAV
-  Function *CreateHandleOpFunc =
-      BC.HlslOP->GetOpFunc(DXIL::OpCode::CreateHandle, Type::getVoidTy(BC.Ctx));
-  Constant *CreateHandleOpcodeArg =
-      BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::CreateHandle);
-  Constant *UAVVArg = BC.HlslOP->GetI8Const(
-      static_cast<std::underlying_type<DxilResourceBase::Class>::type>(
-          DXIL::ResourceClass::UAV));
-  Constant *MetaDataArg = BC.HlslOP->GetU32Const(
-      ID); // position of the metadata record in the corresponding metadata list
-  Constant *IndexArg = BC.HlslOP->GetU32Const(0); //
-  Constant *FalseArg =
-      BC.HlslOP->GetI1Const(0); // non-uniform resource index: false
-  m_HandleForUAV = BC.Builder.CreateCall(
-      CreateHandleOpFunc,
-      {CreateHandleOpcodeArg, UAVVArg, MetaDataArg, IndexArg, FalseArg},
-      "PIX_DebugUAV_Handle");
-}
-
 void DxilDebugInstrumentation::addInvocationSelectionProlog(
     BuilderContext &BC, SystemValueIndices SVIndices) {
   auto ShaderModel = BC.DM.GetShaderModel();
@@ -807,24 +762,28 @@ void DxilDebugInstrumentation::addStepEntryForType(
   }
 }
 
-void DxilDebugInstrumentation::addStoreStepDebugEntry(BuilderContext &BC,
-                                                      StoreInst *Inst) {
-  std::uint32_t ValueOrdinalBase;
-  std::uint32_t UnusedValueOrdinalSize;
-  llvm::Value *ValueOrdinalIndex;
-  if (!pix_dxil::PixAllocaRegWrite::FromInst(Inst, &ValueOrdinalBase,
-                                             &UnusedValueOrdinalSize,
-                                             &ValueOrdinalIndex)) {
-    return;
-  }
+void DxilDebugInstrumentation::addStoreStepDebugEntry(BuilderContext& BC,
+    StoreInst* Inst) {
+    std::uint32_t ValueOrdinalBase;
+    std::uint32_t UnusedValueOrdinalSize;
+    llvm::Value* ValueOrdinalIndex;
+    if (!pix_dxil::PixAllocaRegWrite::FromInst(Inst, &ValueOrdinalBase,
+        &UnusedValueOrdinalSize,
+        &ValueOrdinalIndex)) {
+        return;
+    }
 
-  std::uint32_t InstNum;
-  if (!pix_dxil::PixDxilInstNum::FromInst(Inst, &InstNum)) {
-    return;
-  }
+    std::uint32_t InstNum;
+    if (!pix_dxil::PixDxilInstNum::FromInst(Inst, &InstNum)) {
+        return;
+    }
 
-  addStepDebugEntryValue(BC, InstNum, Inst->getValueOperand(), ValueOrdinalBase,
-                         ValueOrdinalIndex);
+    if (PIXPassHelpers::IsAllocateRayQueryInstruction(Inst->getValueOperand())) {
+        return;
+    }
+
+    addStepDebugEntryValue(BC, InstNum, Inst->getValueOperand(), ValueOrdinalBase,
+        ValueOrdinalIndex);
 }
 
 void DxilDebugInstrumentation::addStepDebugEntry(BuilderContext &BC,
@@ -832,17 +791,8 @@ void DxilDebugInstrumentation::addStepDebugEntry(BuilderContext &BC,
   if (Inst->getOpcode() == Instruction::OtherOps::PHI) {
     return;
   }
-
-  if (Inst->getOpcode() == Instruction::OtherOps::Call) {
-    if (Inst->getNumOperands() > 0) {
-      if (auto *asInt =
-              llvm::cast_or_null<llvm::ConstantInt>(Inst->getOperand(0))) {
-        if (asInt->getZExtValue() == (uint64_t)DXIL::OpCode::AllocateRayQuery) {
-          // Ray query handles should not be stored in the debug trace UAV
-          return;
-        }
-      }
-    }
+  if (PIXPassHelpers::IsAllocateRayQueryInstruction(Inst)) {
+      return;
   }
 
   if (auto *St = llvm::dyn_cast<llvm::StoreInst>(Inst)) {
@@ -937,8 +887,8 @@ bool DxilDebugInstrumentation::runOnModule(Module &M) {
 
   // First record pointers to all instructions in the function:
   std::vector<Instruction *> AllInstructions;
-  for (inst_iterator I = inst_begin(DM.GetEntryFunction()),
-                     E = inst_end(DM.GetEntryFunction());
+  for (inst_iterator I = inst_begin(PIXPassHelpers::GetEntryFunction(DM)),
+                     E = inst_end(PIXPassHelpers::GetEntryFunction(DM));
        I != E; ++I) {
     AllInstructions.push_back(&*I);
   }
@@ -957,12 +907,13 @@ bool DxilDebugInstrumentation::runOnModule(Module &M) {
   //
 
   Instruction *firstInsertionPt =
-      dxilutil::FirstNonAllocaInsertionPt(DM.GetEntryFunction());
+      dxilutil::FirstNonAllocaInsertionPt(PIXPassHelpers::GetEntryFunction(DM));
   IRBuilder<> Builder(firstInsertionPt);
 
   BuilderContext BC{M, DM, Ctx, HlslOP, Builder};
 
-  addUAV(BC);
+  m_HandleForUAV = PIXPassHelpers::CreateUAV(BC.DM, BC.Builder, 0, "PIX_DebugUAV_Handle");
+
   auto SystemValues = addRequiredSystemValues(BC);
   addInvocationSelectionProlog(BC, SystemValues);
   addInvocationStartMarker(BC);
@@ -970,7 +921,7 @@ bool DxilDebugInstrumentation::runOnModule(Module &M) {
   // Explicitly name new blocks in order to provide stable names for testing purposes
   int NewBlockCounter = 0;
 
-  auto Fn = DM.GetEntryFunction();
+  auto Fn = PIXPassHelpers::GetEntryFunction(DM);
   auto &Blocks = Fn->getBasicBlockList();
   for (auto &CurrentBlock : Blocks) {
     struct ValueAndPhi {
@@ -980,7 +931,6 @@ bool DxilDebugInstrumentation::runOnModule(Module &M) {
     };
 
     std::map<BasicBlock *, std::vector<ValueAndPhi>> InsertableEdges;
-
     auto &Is = CurrentBlock.getInstList();
     for (auto &Inst : Is) {
       if (Inst.getOpcode() != Instruction::OtherOps::PHI) {

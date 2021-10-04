@@ -81,9 +81,12 @@ enum class SpecialValue {
   Source = 3,
   Output = 4
 };
+
+// We use 10 bits for Offset to support MaxIncludedFiles include files,
+// and we use 16 bits for Length to support nearly arbitrary path length.
 struct HandleBits {
-  unsigned Offset : 8;
-  unsigned Length : 8;
+  unsigned Offset : 10;
+  unsigned Length : 16;
   unsigned Kind : 4;
 };
 struct DxcArgsHandle {
@@ -180,6 +183,10 @@ bool IsAbsoluteOrCurDirRelativeW(LPCWSTR Path) {
   return FALSE;
 }
 
+}
+
+namespace dxcutil {
+
 void MakeAbsoluteOrCurDirRelativeW(LPCWSTR &Path, std::wstring &PathStorage) {
   if (IsAbsoluteOrCurDirRelativeW(Path)) {
     return;
@@ -191,9 +198,6 @@ void MakeAbsoluteOrCurDirRelativeW(LPCWSTR &Path, std::wstring &PathStorage) {
   }
 }
 
-}
-
-namespace dxcutil {
 /// File system based on API arguments. Support being added incrementally.
 ///
 /// DxcArgsFileSystem emulates a file system to clang/llvm based on API

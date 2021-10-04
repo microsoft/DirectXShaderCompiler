@@ -41,6 +41,10 @@ call :check_file smoke.rootsig del
 call :check_file smoke.err find "warning: expression result unused" del
 if %Failed% neq 0 goto :failed
 
+set testname=Test importing resource binding table
+call :run dxc.exe /T ps_6_0 "%testfiles%\binding_table.hlsl" -import-binding-table "%testfiles%\binding_table.txt"
+if %Failed% neq 0 goto :failed
+
 set testname=/Fd implies /Qstrip_debug
 call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Fd smoke.hlsl.d /Fo smoke.hlsl.Fd.dxo
 call :check_file smoke.hlsl.d del
@@ -49,6 +53,12 @@ if %Failed% neq 0 goto :failed
 call :run dxc.exe -dumpbin smoke.hlsl.Fd.dxo
 rem Should have debug name, and debug info should be stripped from module
 call :check_file log find "shader debug name: smoke.hlsl.d" find-not "DICompileUnit"
+if %Failed% neq 0 goto :failed
+
+set testname=/Fd plus /Zs
+call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zs /Fd smoke.hlsl.pdb /Fo smoke.hlsl.Fd.dxo
+call :check_file smoke.hlsl.pdb del
+call :check_file smoke.hlsl.Fd.dxo
 if %Failed% neq 0 goto :failed
 
 rem del .pdb file if exists
@@ -174,6 +184,19 @@ call :run dxc.exe smoke.cso /recompile
 if %Failed% neq 0 goto :failed
 call :run dxc.exe smoke.cso /recompile /T ps_6_0 /E main
 if %Failed% neq 0 goto :failed
+
+set testname=Strip Debug, Recompile PDB
+call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /Zi /Fd smoke.pdb 1> nul
+call :check_file smoke.pdb
+if %Failed% neq 0 goto :failed
+call :run dxc.exe -dumpbin smoke.pdb
+call :check_file log find "DICompileUnit"
+if %Failed% neq 0 goto :failed
+call :run dxc.exe smoke.pdb /recompile > smoke.pdb.ll
+if %Failed% neq 0 goto :failed
+call :run dxc.exe smoke.pdb /recompile /T ps_6_0 /E main
+if %Failed% neq 0 goto :failed
+call :check_file smoke.pdb del
 
 rem Note: this smoke.cso is used for a lot of other tests, and they rely on options set here
 set testname=Command-line Defines, Recompile
@@ -402,6 +425,12 @@ if %Failed% neq 0 goto :failed
 call :run dxc.exe -P include-main.hlsl.pp -I inc subfolder\include-main.hlsl
 if %Failed% neq 0 goto :failed
 
+set testname=Byte Order Markers
+call :run dxc.exe /T ps_6_0 "%testfiles%\bom-main-ascii.hlsl"
+call :run dxc.exe /T ps_6_0 "%testfiles%\bom-main-utf8.hlsl"
+call :run dxc.exe /T ps_6_0 "%testfiles%\bom-main-utf16le.hlsl"
+if %Failed% neq 0 goto :failed
+
 rem SPIR-V Change Starts
 echo Smoke test for SPIR-V CodeGen ...
 set spirv_smoke_success=0
@@ -580,5 +609,5 @@ rem ============================================
 rem Cleanup and return failure
 :failed
 call :cleanup 2>nul
-if %Failed%=="0" set Failed=1
+if %Failed% eq 0 set Failed=1
 exit /b %Failed%

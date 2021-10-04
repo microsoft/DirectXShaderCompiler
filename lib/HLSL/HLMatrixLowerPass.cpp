@@ -29,6 +29,7 @@
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Analysis/ValueTracking.h"
 #include <unordered_set>
 #include <vector>
 
@@ -196,7 +197,7 @@ bool HLMatrixLowerPass::runOnModule(Module &M) {
   m_pHLModule = &m_pModule->GetOrCreateHLModule();
   // Load up debug information, to cross-reference values and the instructions
   // used to load them.
-  m_HasDbgInfo = getDebugMetadataVersionFromModule(M) != 0;
+  m_HasDbgInfo = hasDebugInfo(M);
   m_matToVecStubs = &matToVecStubs;
   m_vecToMatStubs = &vecToMatStubs;
 
@@ -290,6 +291,11 @@ void HLMatrixLowerPass::getMatrixAllocasAndOtherInsts(Function &Func,
       // Don't lower GEPs directly, we'll handle them as we lower the root pointer,
       // typically a global variable or alloca.
       if (isa<GetElementPtrInst>(&Inst)) continue;
+
+      // Don't lower lifetime intrinsics here, we'll handle them as we lower the alloca.
+      IntrinsicInst *Intrin = dyn_cast<IntrinsicInst>(&Inst);
+      if (Intrin && Intrin->getIntrinsicID() == Intrinsic::lifetime_start) continue;
+      if (Intrin && Intrin->getIntrinsicID() == Intrinsic::lifetime_end) continue;
 
       if (AllocaInst *Alloca = dyn_cast<AllocaInst>(&Inst)) {
         if (HLMatrixType::isMatrixOrPtrOrArrayPtr(Alloca->getType())) {
@@ -525,8 +531,8 @@ void HLMatrixLowerPass::replaceAllVariableUses(
     }
 
     if (ConstantExpr *CE = dyn_cast<ConstantExpr>(Use.getUser())) {
-      DXASSERT(CE->getOpcode() == Instruction::AddrSpaceCast,
-               "Unexpected constant user");
+      DXASSERT(CE->getOpcode() == Instruction::AddrSpaceCast ||
+        CE->use_empty(), "Unexpected constant user");
       replaceAllVariableUses(GEPIdxStack, CE, LoweredPtr);
       DXASSERT_NOMSG(CE->use_empty());
       CE->destroyConstant();
@@ -538,6 +544,22 @@ void HLMatrixLowerPass::replaceAllVariableUses(
       Use.set(UndefValue::get(Use->getType()));
       addToDeadInsts(CI);
       continue;
+    }
+
+    if (BitCastInst *BCI = dyn_cast<BitCastInst>(Use.getUser())) {
+      // Replace bitcasts to i8* for lifetime intrinsics.
+      if (BCI->getType()->isPointerTy() && BCI->getType()->getPointerElementType()->isIntegerTy(8))
+      {
+        DXASSERT(onlyUsedByLifetimeMarkers(BCI),
+                 "bitcast to i8* must only be used by lifetime intrinsics");
+        Value *NewBCI = IRBuilder<>(BCI).CreateBitCast(LoweredPtr, BCI->getType());
+        // Replace all uses of the use.
+        BCI->replaceAllUsesWith(NewBCI);
+        // Remove the current use to end iteration.
+        Use.set(UndefValue::get(Use->getType()));
+        addToDeadInsts(BCI);
+        continue;
+      }
     }
 
     // Recreate the same GEP sequence, if any, on the lowered pointer

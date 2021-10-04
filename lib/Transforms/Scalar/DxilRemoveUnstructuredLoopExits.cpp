@@ -276,6 +276,16 @@ static bool IsNoop(Instruction *inst) {
   return false;
 }
 
+static Value* GetDefaultValue(Type *type) {
+  if (type->isIntegerTy()) {
+    return ConstantInt::get(type, 0);
+  }
+  else if (type->isFloatingPointTy()) {
+    return ConstantFP::get(type, 0);
+  }
+  return UndefValue::get(type);
+}
+
 static BasicBlock *GetExitBlockForExitingBlock(Loop *L, BasicBlock *exiting_block) {
   BranchInst *br = dyn_cast<BranchInst>(exiting_block->getTerminator());
   assert(L->contains(exiting_block));
@@ -300,18 +310,18 @@ static void SkipBlockWithBranch(BasicBlock *bb, Value *cond, Loop *L, LoopInfo *
   for (Instruction &inst : *body) {
     PHINode *phi = nullptr;
 
-    for (User *user : inst.users()) {
-      Instruction *user_inst = dyn_cast<Instruction>(user);
-      if (!user_inst)
+    // For each user that's outside of 'body', replace its use of 'inst' with a phi created
+    // in 'end'
+    for (auto it = inst.user_begin(); it != inst.user_end();) {
+      Instruction *user_inst = cast<Instruction>(*(it++));
+      if (user_inst == phi)
         continue;
-
       if (user_inst->getParent() != body) {
         if (!phi) {
           phi = PHINode::Create(inst.getType(), 2, "", &*end->begin());
-          phi->addIncoming(UndefValue::get(inst.getType()), bb);
+          phi->addIncoming(GetDefaultValue(inst.getType()), bb);
           phi->addIncoming(&inst, body);
         }
-
         user_inst->replaceUsesOfWith(&inst, phi);
       }
     } // For each user of inst of body
@@ -349,6 +359,11 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop
 
   BranchInst *exiting_br = cast<BranchInst>(exiting_block->getTerminator());
   Value *exit_cond = exiting_br->getCondition();
+  // When exit_block is false block, use !exit_cond as exit_cond.
+  if (exiting_br->getSuccessor(1) == exit_block) {
+    IRBuilder<> B(exiting_br);
+    exit_cond = B.CreateNot(exit_cond);
+  }
   BasicBlock *new_exiting_block = nullptr;
 
   std::vector<Value_Info> exit_values;
@@ -369,7 +384,7 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop
           exit_cond_has_phi = true;
         }
         else {
-          false_value = UndefValue::get(value->getType());
+          false_value = GetDefaultValue(value->getType());
         }
         exit_values.push_back({ value, false_value, phi });
       }
@@ -411,7 +426,7 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop
   assert(new_exit_cond);
 
   // Split the block where we're now exiting from, and branch to latch exit
-  StringRef old_name = new_exiting_block->getName();
+  std::string old_name = new_exiting_block->getName().str();
   BasicBlock *new_not_exiting_block = new_exiting_block->splitBasicBlock(new_exiting_block->getFirstNonPHI());
   new_exiting_block->setName("dx.struct_exit.new_exiting");
   new_not_exiting_block->setName(old_name);
@@ -462,7 +477,7 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block, Loop
       PHINode *phi = dyn_cast<PHINode>(&inst);
       if (!phi)
         break;
-      phi->addIncoming(UndefValue::get(phi->getType()), new_exiting_block);
+      phi->addIncoming(GetDefaultValue(phi->getType()), new_exiting_block);
     }
 
 

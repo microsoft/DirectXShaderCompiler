@@ -32,6 +32,7 @@ class MDNode;
 class NamedMDNode;
 class GlobalVariable;
 class StringRef;
+class Type;
 }
 
 namespace hlsl {
@@ -48,6 +49,8 @@ class DxilSampler;
 class DxilTypeSystem;
 class DxilStructAnnotation;
 class DxilFieldAnnotation;
+class DxilPayloadAnnotation;
+class DxilPayloadFieldAnnotation;
 class DxilTemplateArgAnnotation;
 class DxilFunctionAnnotation;
 class DxilParameterAnnotation;
@@ -111,6 +114,19 @@ public:
   static const char kDxilSourceDefinesMDName[];
   static const char kDxilSourceMainFileNameMDName[];
   static const char kDxilSourceArgsMDName[];
+
+  // Resource binding data
+  static const char kDxilDxcBindingTableMDName[];
+  static const unsigned kDxilDxcBindingTableResourceName  = 0;
+  static const unsigned kDxilDxcBindingTableResourceClass = 1;
+  static const unsigned kDxilDxcBindingTableResourceIndex = 2;
+  static const unsigned kDxilDxcBindingTableResourceSpace = 3;
+
+  // Old source info.
+  static const char kDxilSourceContentsOldMDName[];
+  static const char kDxilSourceDefinesOldMDName[];
+  static const char kDxilSourceMainFileNameOldMDName[];
+  static const char kDxilSourceArgsOldMDName[];
 
   static const unsigned kDxilEntryPointNumFields  = 5;
   static const unsigned kDxilEntryPointFunction   = 0;  // Entry point function symbol.
@@ -193,6 +209,7 @@ public:
   static const unsigned kDxilTypedBufferElementTypeTag            = 0;
   static const unsigned kDxilStructuredBufferElementStrideTag     = 1;
   static const unsigned kDxilSamplerFeedbackKindTag               = 2;
+  static const unsigned kDxilAtomic64UseTag                       = 3;
 
   // Type system.
   static const char kDxilTypeSystemMDName[];
@@ -209,6 +226,10 @@ public:
   static const unsigned kDxilFieldAnnotationCompTypeTag           = 7;
   static const unsigned kDxilFieldAnnotationPreciseTag            = 8;
   static const unsigned kDxilFieldAnnotationCBUsedTag             = 9;
+
+  // DXR Payload Annotations
+  static const unsigned kDxilPayloadAnnotationStructTag           = 0;
+  static const unsigned kDxilPayloadFieldAnnotationAccessTag      = 0;
 
   // StructAnnotation extended property tags (DXIL 1.5+ only, appended)
   static const unsigned kDxilTemplateArgumentsTag                 = 0;  // Name for name-value list of extended struct properties
@@ -242,6 +263,9 @@ public:
   static const char kDxilValidatorVersionMDName[];
   // Validator version uses the same constants for fields as kDxilVersion*
 
+  // DXR Payload Annotations metadata.
+  static const char kDxilDxrPayloadAnnotationsMDName[];
+
   // Extended shader property tags.
   static const unsigned kDxilShaderFlagsTag     = 0;
   static const unsigned kDxilGSStateTag         = 1;
@@ -254,6 +278,8 @@ public:
   static const unsigned kDxilShaderKindTag      = 8;
   static const unsigned kDxilMSStateTag         = 9;
   static const unsigned kDxilASStateTag         = 10;
+  static const unsigned kDxilWaveSizeTag        = 11;
+  static const unsigned kDxilEntryRootSigTag    = 12;
 
   // GSState.
   static const unsigned kDxilGSStateNumFields               = 5;
@@ -405,6 +431,16 @@ public:
   void LoadDxilParamAnnotations(const llvm::MDOperand &MDO, DxilFunctionAnnotation &FA);
   llvm::Metadata *EmitDxilTemplateArgAnnotation(const DxilTemplateArgAnnotation &annotation);
   void LoadDxilTemplateArgAnnotation(const llvm::MDOperand &MDO, DxilTemplateArgAnnotation &annotation);
+
+  // DXR Payload Annotations 
+  void EmitDxrPayloadAnnotations(DxilTypeSystem &TypeSystem);
+  llvm::Metadata *EmitDxrPayloadStructAnnotation(const DxilPayloadAnnotation& SA);
+  llvm::Metadata *EmitDxrPayloadFieldAnnotation(const DxilPayloadFieldAnnotation &FA, llvm::Type* fieldType);
+  void LoadDxrPayloadAnnotationNode(const llvm::MDTuple &MDT, DxilTypeSystem &TypeSystem);
+  void LoadDxrPayloadAnnotations(DxilTypeSystem &TypeSystem);
+  void LoadDxrPayloadFieldAnnoations(const llvm::MDOperand& MDO, DxilPayloadAnnotation& SA);
+  void LoadDxrPayloadFieldAnnoation(const llvm::MDOperand &MDO, DxilPayloadFieldAnnotation &FA);
+  void LoadDxrPayloadAccessQualifiers(const llvm::MDOperand &MDO, DxilPayloadFieldAnnotation &FA);
 
   // Function props.
   llvm::MDTuple *EmitDxilFunctionProps(const hlsl::DxilFunctionProps *props,

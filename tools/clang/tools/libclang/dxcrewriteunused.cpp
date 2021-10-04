@@ -340,6 +340,11 @@ ParsedSemanticDefineList hlsl::CollectSemanticDefinesParsedByCompiler(
   const llvm::SmallVector<std::string, 2> &defineExclusions =
       helper->GetSemanticDefineExclusions();
 
+  const llvm::SetVector<std::string> &nonOptDefines =
+    helper->GetNonOptSemanticDefines();
+
+  std::set<std::string> overridenMacroSemDef;
+
   // This is very inefficient in general, but in practice we either have
   // no semantic defines, or we have a star define for a some reserved prefix.
   // These will be sorted so rewrites are stable.
@@ -374,7 +379,42 @@ ParsedSemanticDefineList hlsl::CollectSemanticDefinesParsedByCompiler(
         continue;
       }
 
+      // overriding a semantic define takes the first precedence
+      if (compiler.getCodeGenOpts().HLSLOverrideSemDefs.size() > 0 &&
+        compiler.getCodeGenOpts().HLSLOverrideSemDefs.find(ii->getName().str()) !=
+        compiler.getCodeGenOpts().HLSLOverrideSemDefs.end()) {
+        std::string defName = ii->getName().str();
+        std::string defValue = compiler.getCodeGenOpts().HLSLOverrideSemDefs[defName];
+        overridenMacroSemDef.insert(defName);
+        parsedDefines.emplace_back(ParsedSemanticDefine{ defName, defValue, 0 });
+        continue;
+      }
+
+      // ignoring a specific semantic define takes second precedence
+      if (compiler.getCodeGenOpts().HLSLIgnoreSemDefs.size() > 0 &&
+        compiler.getCodeGenOpts().HLSLIgnoreSemDefs.find(ii->getName().str()) !=
+        compiler.getCodeGenOpts().HLSLIgnoreSemDefs.end()) {
+        continue;
+      }
+
+      // ignoring all non-correctness semantic defines takes third precendence
+      if (compiler.getCodeGenOpts().HLSLIgnoreOptSemDefs &&
+        !nonOptDefines.count(ii->getName().str())) {
+        continue;
+      }
+
       macros.push_back(std::pair<const IdentifierInfo *, MacroInfo *>(ii, mi));
+    }
+  }
+
+  // If there are semantic defines which are passed using -override-semdef flag,
+  // but we don't have that semantic define present in source or arglist, then 
+  // we just add the semantic define.
+  for (auto &kv : compiler.getCodeGenOpts().HLSLOverrideSemDefs) {
+    std::string overrideDefName = kv.first;
+    std::string overrideDefVal = kv.second;
+    if (overridenMacroSemDef.find(overrideDefName) == overridenMacroSemDef.end()) {
+      parsedDefines.emplace_back(ParsedSemanticDefine{ overrideDefName, overrideDefVal, 0 });
     }
   }
 
@@ -420,6 +460,7 @@ void SetupCompilerCommon(CompilerInstance &compiler,
     compiler.getDiagnostics().setWarningsAsErrors(true);
   compiler.getDiagnostics().setIgnoreAllWarnings(!opts.OutputWarnings);
   compiler.getLangOpts().HLSLVersion = (unsigned)opts.HLSLVersion;
+  compiler.getLangOpts().StrictUDTCasting = opts.StrictUDTCasting;
   compiler.getLangOpts().UseMinPrecision = !opts.Enable16BitTypes;
   compiler.getLangOpts().EnableDX9CompatMode = opts.EnableDX9CompatMode;
   compiler.getLangOpts().EnableFXCCompatMode = opts.EnableFXCCompatMode;
@@ -1226,7 +1267,7 @@ HRESULT DoReWriteWithLineDirective(
 }
 } // namespace
 
-class DxcRewriter : public IDxcRewriter2, public IDxcLangExtensions2 {
+class DxcRewriter : public IDxcRewriter2, public IDxcLangExtensions3 {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
   DxcLangExtensionsHelper m_langExtensionsHelper;
@@ -1238,7 +1279,7 @@ public:
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
                                            void **ppvObject) override {
     return DoBasicQueryInterface<IDxcRewriter2, IDxcRewriter,
-                                 IDxcLangExtensions, IDxcLangExtensions2>(
+                                 IDxcLangExtensions, IDxcLangExtensions2, IDxcLangExtensions3>(
         this, iid, ppvObject);
   }
 

@@ -1108,6 +1108,9 @@ public:
   /// checks that some error message does not occur, for example.
   bool AllowEmptyInput;
 
+  /// VariableTable - This holds all the current filecheck variables.
+  StringMap<StringRef> VariableTable;
+
   /// String to read in place of standard input.
   std::string InputForStdin;
   /// Output stream.
@@ -1330,14 +1333,14 @@ int run_main() {
     MemoryBuffer::getMemBuffer(MemoryBufferRef(StringRef(InputForStdin), "-")) :
     MemoryBuffer::getFile(InputFilename);
   if (std::error_code EC = FileOrErr.getError()) {
-    errs() << "Could not open input file '" << InputFilename
+    test_errs << "Could not open input file '" << InputFilename
       << "': " << EC.message() << '\n';
     return 2;
   }
   std::unique_ptr<MemoryBuffer> &File = FileOrErr.get();
 
   if (File->getBufferSize() == 0 && !AllowEmptyInput) {
-    errs() << "FileCheck error: '" << InputFilename << "' is empty.\n";
+    test_errs << "FileCheck error: '" << InputFilename << "' is empty.\n";
     return 2;
   }
 
@@ -1351,9 +1354,6 @@ int run_main() {
   StringRef Buffer = F->getBuffer();
 
   SM.AddNewSourceBuffer(std::move(F), SMLoc());
-
-  /// VariableTable - This holds all the current filecheck variables.
-  StringMap<StringRef> VariableTable;
 
   bool hasError = false;
 
@@ -1426,6 +1426,9 @@ int FileCheckForTest::Run() {
   I.ImplicitCheckNot = ImplicitCheckNot;
   I.AllowEmptyInput = AllowEmptyInput;
   I.InputForStdin = InputForStdin;
+  for (auto &it : VariableTable) {
+    I.VariableTable[it.getKey()] = it.getValue();
+  }
   int result = I.run_main();
   test_outs = I.test_outs.str();
   test_errs = I.test_errs.str();

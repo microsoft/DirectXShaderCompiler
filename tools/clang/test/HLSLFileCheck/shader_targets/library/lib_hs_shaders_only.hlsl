@@ -1,6 +1,5 @@
 // RUN: %dxc -auto-binding-space 13 -T lib_6_3 -export-shaders-only %s | FileCheck %s
 
-// CHECK: class.Buffer
 // CHECK-NOT: unused
 // CHECK-NOT: @"\01?HSPerPatchFunc1@@YA?AUHSPerPatchData@@V?$InputPatch@UPSSceneIn@@$0BA@@@@Z"
 // CHECK: define void @"\01?HSPerPatchFunc2

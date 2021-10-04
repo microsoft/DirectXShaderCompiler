@@ -1783,10 +1783,13 @@ Sema::CheckDerivedToBaseConversion(QualType Derived, QualType Base,
   // explore multiple paths to determine if there is an ambiguity.
   CXXBasePaths Paths(/*FindAmbiguities=*/true, /*RecordPaths=*/true,
                      /*DetectVirtual=*/false);
+
   bool DerivationOkay = IsDerivedFrom(Derived, Base, Paths);
-  assert(DerivationOkay &&
-         "Can only be used with a derived-to-base conversion");
-  (void)DerivationOkay;
+  // HLSL Change Begin - fix crash when Paths is empty.
+  // Merged from upstream.
+  if (!DerivationOkay)
+    return true;
+  // HLSL Change End.
   
   if (!Paths.isAmbiguous(Context.getCanonicalType(Base).getUnqualifiedType())) {
     if (InaccessibleBaseID) {
@@ -11634,6 +11637,17 @@ bool Sema::CheckOverloadedOperatorDeclaration(FunctionDecl *FnDecl) {
          "Expected an overloaded operator declaration");
 
   OverloadedOperatorKind Op = FnDecl->getOverloadedOperator();
+
+  // HLSL Change Starts
+  if (LangOpts.HLSL) {
+    if (Op == OO_Delete || Op == OO_Array_Delete || Op == OO_New ||
+        Op == OO_Array_New) {
+      return Diag(FnDecl->getLocation(),
+                  diag::err_hlsl_overloading_new_delete_operator)
+             << FnDecl->getDeclName();
+    }
+  }
+  // HLSL Change Ends
 
   // C++ [over.oper]p5:
   //   The allocation and deallocation functions, operator new,

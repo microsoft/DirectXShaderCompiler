@@ -35,8 +35,11 @@ public:
       Function *EntryFunc = HLM.GetEntryFunction();
       Function *PatchConstantFunc = HLM.GetPatchConstantFunction();
 
-      return dxilutil::RemoveUnusedFunctions(M, EntryFunc, PatchConstantFunc,
-                                             IsLib);
+      bool bChanged = false;
+      while (dxilutil::RemoveUnusedFunctions(M, EntryFunc, PatchConstantFunc,
+                                             IsLib))
+        bChanged = true;
+      return bChanged;
     }
 
     return false;

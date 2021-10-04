@@ -1,4 +1,8 @@
-// RUN: %dxilver 1.1 | %dxc -E main -T ps_6_1 %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_1 %s | FileCheck %s
+// RUN: %dxilver 1.6 | %dxc -E main -T ps_6_1 %s | FileCheck %s -check-prefixes=CHECK,CHK16
+
+// CHK16: Note: shader requires additional functionality:
+// CHK16-NEXT: Barycentrics
 
 // CHECK: ; SV_Barycentrics
 // CHECK: ; SV_Barycentrics

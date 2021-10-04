@@ -10,9 +10,11 @@
 #define LLVM_CLANG_SPIRV_SPIRVCONTEXT_H
 
 #include <array>
+#include <limits>
 
 #include "dxc/DXIL/DxilShaderModel.h"
 #include "clang/AST/DeclTemplate.h"
+#include "clang/AST/TypeOrdering.h"
 #include "clang/Frontend/FrontendAction.h"
 #include "clang/SPIRV/SpirvInstruction.h"
 #include "clang/SPIRV/SpirvType.h"
@@ -132,6 +134,21 @@ struct FunctionTypeMapInfo {
   }
 };
 
+// Vulkan specific image features for a variable with an image type.
+struct VkImageFeatures {
+  // True if it is a Vulkan "Combined Image Sampler".
+  bool isCombinedImageSampler;
+  spv::ImageFormat format; // SPIR-V image format.
+};
+
+// A struct that contains the information of a resource that will be used to
+// combine an image and a sampler to a sampled image.
+struct ResourceInfoToCombineSampledImage {
+  QualType type;
+  uint32_t descriptorSet;
+  uint32_t binding;
+};
+
 /// The class owning various SPIR-V entities allocated in memory during CodeGen.
 ///
 /// All entities should be allocated from an object of this class using
@@ -235,6 +252,10 @@ public:
                                 ImageType::WithDepth, bool arrayed, bool ms,
                                 ImageType::WithSampler sampled,
                                 spv::ImageFormat);
+  // Get ImageType whose attributes are the same with imageTypeWithUnknownFormat
+  // but it has spv::ImageFormat format.
+  const ImageType *getImageType(const ImageType *imageTypeWithUnknownFormat,
+                                spv::ImageFormat format);
   const SamplerType *getSamplerType() const { return samplerType; }
   const SampledImageType *getSampledImageType(const ImageType *image);
   const HybridSampledImageType *getSampledImageType(QualType image);
@@ -263,8 +284,8 @@ public:
     return accelerationStructureTypeNV;
   }
 
-  const RayQueryProvisionalTypeKHR *getRayQueryProvisionalTypeKHR() const {
-    return rayQueryProvisionalTypeKHR;
+  const RayQueryTypeKHR *getRayQueryTypeKHR() const {
+    return rayQueryTypeKHR;
   }
 
   /// --- Hybrid type getter functions ---
@@ -335,6 +356,36 @@ public:
     return currentLexicalScope;
   }
 
+  /// Function to register/get the mapping from a SPIR-V OpVariable to its
+  /// Vulkan specific image feature.
+  void registerVkImageFeaturesForSpvVariable(const SpirvVariable *spvVar,
+                                             VkImageFeatures features) {
+    assert(spvVar != nullptr);
+    spvVarToVkImageFeatures[spvVar] = features;
+  }
+  VkImageFeatures
+  getVkImageFeaturesForSpirvVariable(const SpirvVariable *spvVar) {
+    auto itr = spvVarToVkImageFeatures.find(spvVar);
+    if (itr == spvVarToVkImageFeatures.end())
+      return {false, spv::ImageFormat::Unknown};
+    return itr->second;
+  }
+
+  /// Function to register the resource information (QualType, descriptor set,
+  /// and binding) to combine images and samplers.
+  void registerResourceInfoForSampledImage(QualType type,
+                                           uint32_t descriptorSet,
+                                           uint32_t binding) {
+    resourceInfoForSampledImages.push_back({type, descriptorSet, binding});
+  }
+
+  /// Function to get all the resource information (QualType, descriptor set,
+  /// and binding) to combine images and samplers.
+  llvm::SmallVector<ResourceInfoToCombineSampledImage, 4>
+  getResourceInfoForSampledImages() {
+    return resourceInfoForSampledImages;
+  }
+
   /// Function to add/get the mapping from a SPIR-V type to its Decl for
   /// a struct type.
   void registerStructDeclForSpirvType(const SpirvType *spvTy,
@@ -354,6 +405,17 @@ public:
   }
   SpirvDebugFunction *getDebugFunctionForDecl(const FunctionDecl *decl) {
     return declToDebugFunction[decl];
+  }
+
+  /// Adds inst to instructionsWithLoweredType.
+  void addToInstructionsWithLoweredType(const SpirvInstruction *inst) {
+    instructionsWithLoweredType.insert(inst);
+  }
+
+  /// Returns whether inst is in instructionsWithLoweredType or not.
+  bool hasLoweredType(const SpirvInstruction *inst) {
+    return instructionsWithLoweredType.find(inst) !=
+           instructionsWithLoweredType.end();
   }
 
 private:
@@ -406,7 +468,7 @@ private:
   llvm::SmallVector<const HybridPointerType *, 8> hybridPointerTypes;
   llvm::DenseSet<FunctionType *, FunctionTypeMapInfo> functionTypes;
   const AccelerationStructureTypeNV *accelerationStructureTypeNV;
-  const RayQueryProvisionalTypeKHR *rayQueryProvisionalTypeKHR;
+  const RayQueryTypeKHR *rayQueryTypeKHR;
 
   // Current ShaderModelKind for entry point.
   ShaderModelKind curShaderModelKind;
@@ -442,6 +504,17 @@ private:
   // Mapping from FunctionDecl to SPIR-V debug function.
   llvm::DenseMap<const FunctionDecl *, SpirvDebugFunction *>
       declToDebugFunction;
+
+  // Mapping from SPIR-V OpVariable to Vulkan image features.
+  llvm::DenseMap<const SpirvVariable *, VkImageFeatures>
+      spvVarToVkImageFeatures;
+
+  // Vector of resource information to be used to combine images and samplers.
+  llvm::SmallVector<ResourceInfoToCombineSampledImage, 4>
+      resourceInfoForSampledImages;
+
+  // Set of instructions that already have lowered SPIR-V types.
+  llvm::DenseSet<const SpirvInstruction *> instructionsWithLoweredType;
 };
 
 } // end namespace spirv

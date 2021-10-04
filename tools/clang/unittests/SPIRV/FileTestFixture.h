@@ -31,20 +31,39 @@ public:
       : targetEnv(SPV_ENV_VULKAN_1_0), beforeHLSLLegalization(false),
         glLayout(false), dxLayout(false) {}
 
-  void useVulkan1p1() { targetEnv = SPV_ENV_VULKAN_1_1; }
-  void useVulkan1p2() { targetEnv = SPV_ENV_VULKAN_1_2; }
   void setBeforeHLSLLegalization() { beforeHLSLLegalization = true; }
   void setGlLayout() { glLayout = true; }
   void setDxLayout() { dxLayout = true; }
   void setScalarLayout() { scalarLayout = true; }
 
-  /// \brief Runs a File Test! (See class description for more info)
+  /// \brief Runs a test with the given input HLSL file.
+  ///
+  /// The first line of HLSL code must start with "// Run:" and following DXC
+  /// arguments to run the test. Next lines must be proper HLSL code for the
+  /// test. It uses file check style output check e.g., "// CHECK: ...".
   void runFileTest(llvm::StringRef path, Expect expect = Expect::Success,
                    bool runValidation = true);
 
+  /// \brief Runs a test with the given HLSL code.
+  ///
+  /// The first line of code must start with "// Run:" and following DXC
+  /// arguments to run the test. Next lines must be proper HLSL code for the
+  /// test. It uses file check style output check e.g., "// CHECK: ...".
+  void runCodeTest(llvm::StringRef code, Expect expect = Expect::Success,
+                   bool runValidation = true);
+
 private:
-  /// \brief Reads in the given input file.
+  /// \brief Reads in the given input file and parses the command to get
+  /// arguments to run DXC.
   bool parseInputFile();
+  /// \brief Parses the command and gets arguments to run DXC.
+  bool parseCommand();
+  /// \brief Checks the compile result. Reports whether the expected compile
+  /// result matches the actual result and  whether the expected validation
+  /// result matches the actual one or not.
+  void checkTestResult(llvm::StringRef filename, const bool compileOk,
+                       const std::string &errorMessages, Expect expect,
+                       bool runValidation);
 
   std::string targetProfile;             ///< Target profile (argument of -T)
   std::string entryPoint;                ///< Entry point name (argument of -E)

@@ -26,6 +26,7 @@
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/Intrinsics.h"
 #include "CGHLSLRuntime.h"    // HLSL Change
+#include "CGHLSLMSHelper.h"    // HLSL Change
 using namespace clang;
 using namespace CodeGen;
 
@@ -334,7 +335,7 @@ CodeGenFunction::EmitCompoundStmtWithoutScope(const CompoundStmt &S,
   return RetAlloca;
 }
 
-void CodeGenFunction::SimplifyForwardingBlocks(llvm::BasicBlock *BB) {
+void CodeGenFunction::SimplifyForwardingBlocks(llvm::BasicBlock *BB, CGHLSLMSHelper::Scope *LoopScope) {
   llvm::BranchInst *BI = dyn_cast<llvm::BranchInst>(BB->getTerminator());
 
   // If there is a cleanup stack, then we it isn't worth trying to
@@ -351,6 +352,14 @@ void CodeGenFunction::SimplifyForwardingBlocks(llvm::BasicBlock *BB) {
   if (BI != BB->begin())
     return;
 
+  // HLSL CHANGE
+  // Need to update the loop scope block when we forward the
+  // branch to the new bb. Otherwise we keep a pointer to
+  // the old deleted block.
+  assert(!LoopScope || LoopScope->loopContinueBB == BB);
+  if (LoopScope)
+    LoopScope->loopContinueBB = BI->getSuccessor(0);
+  // HLSL CHANGE
   BB->replaceAllUsesWith(BI->getSuccessor(0));
   BI->eraseFromParent();
   BB->eraseFromParent();
@@ -821,7 +830,7 @@ void CodeGenFunction::EmitWhileStmt(const WhileStmt &S,
   LoopStack.pop();
 
   // HLSL Change Begin.
-  CGM.getHLSLRuntime().MarkScopeEnd(*this);
+  CGHLSLMSHelper::Scope *LoopScope = CGM.getHLSLRuntime().MarkScopeEnd(*this);
   // HLSL Change End.
 
   // Emit the exit block.
@@ -830,7 +839,7 @@ void CodeGenFunction::EmitWhileStmt(const WhileStmt &S,
   // The LoopHeader typically is just a branch if we skipped emitting
   // a branch, try to erase it.
   if (!EmitBoolCondBranch)
-    SimplifyForwardingBlocks(LoopHeader.getBlock());
+    SimplifyForwardingBlocks(LoopHeader.getBlock(), LoopScope);
 }
 
 void CodeGenFunction::EmitDoStmt(const DoStmt &S,
@@ -891,7 +900,7 @@ void CodeGenFunction::EmitDoStmt(const DoStmt &S,
   LoopStack.pop();
 
   // HLSL Change Begin.
-  CGM.getHLSLRuntime().MarkScopeEnd(*this);
+  CGHLSLMSHelper::Scope *LoopScope = CGM.getHLSLRuntime().MarkScopeEnd(*this);
   // HLSL Change End.
 
   // Emit the exit block.
@@ -900,7 +909,7 @@ void CodeGenFunction::EmitDoStmt(const DoStmt &S,
   // The DoCond block typically is just a branch if we skipped
   // emitting a branch, try to erase it.
   if (!EmitBoolCondBranch)
-    SimplifyForwardingBlocks(LoopCond.getBlock());
+    SimplifyForwardingBlocks(LoopCond.getBlock(), LoopScope);
 }
 
 void CodeGenFunction::EmitForStmt(const ForStmt &S,
@@ -1202,11 +1211,19 @@ void CodeGenFunction::EmitBreakStmt(const BreakStmt &S) {
 
   // HLSL Change Begin - incorporate unconditional branch blocks into loops
   // If it has a continue location, it's a loop
-  if (BreakContinueStack.back().ContinueBlock.getBlock() && (BreakContinueStack.size() < 2 ||
-      BreakContinueStack.back().ContinueBlock.getBlock() != BreakContinueStack.end()[-2].ContinueBlock.getBlock())) {
-    assert(EHStack.getInnermostActiveNormalCleanup() == EHStack.stable_end() && "HLSL Shouldn't need cleanups");
-    CGM.getHLSLRuntime().EmitHLSLCondBreak(*this, CurFn, BreakContinueStack.back().BreakBlock.getBlock(),
-                                           BreakContinueStack.back().ContinueBlock.getBlock());
+  llvm::BasicBlock *lastContinueBlock = BreakContinueStack.back().ContinueBlock.getBlock();
+  if (lastContinueBlock && (BreakContinueStack.size() < 2 ||
+      lastContinueBlock != BreakContinueStack.end()[-2].ContinueBlock.getBlock())) {
+    // We execute this if
+    // - we are in an unnested loop, or
+    // - we are in a nested control construct but the continue block of the enclosing loop is different from the current continue block.
+    // The second condition can happen for switch statements inside loops, which share the same continue block.
+    llvm::BasicBlock *lastBreakBlock = BreakContinueStack.back().BreakBlock.getBlock();
+    llvm::BranchInst *condBr = CGM.getHLSLRuntime().EmitHLSLCondBreak(*this, CurFn, lastBreakBlock, lastContinueBlock);
+
+    // Insertion of lifetime.start/end intrinsics may require a cleanup, so we
+    // pass the branch that we already generated into the handler.
+    EmitBranchThroughCleanup(BreakContinueStack.back().BreakBlock, condBr);
     Builder.ClearInsertionPoint();
   } else
   // HLSL Change End - incorporate unconditional branch blocks into loops

@@ -231,14 +231,35 @@ void llvm::emitLoopInterleaveWarning(LLVMContext &Ctx, const Function &Fn,
 }
 
 // HLSL Change start - Dxil Diagnostic Info reporter
+DiagnosticInfoDxil::DiagnosticInfoDxil(const Function *F, const DILocation *Loc, const Twine &MsgStr,
+                                       DiagnosticSeverity Severity)
+  : DiagnosticInfoDxil(F, MsgStr, Severity)
+{
+  if (Loc) {
+    HasLocation = true;
+    FileName = Loc->getFilename();
+    Line     = Loc->getLine();
+    Column   = Loc->getColumn();
+  }
+}
+
+DiagnosticInfoDxil::DiagnosticInfoDxil(const Function *F, const DIGlobalVariable *DGV, const Twine &MsgStr,
+                   DiagnosticSeverity Severity)
+  : DiagnosticInfoDxil(F, MsgStr, Severity)
+{
+  if (DGV) {
+    HasLocation = true;
+    FileName = DGV->getFilename();
+    Line     = DGV->getLine();
+    Column   = 0;
+  }
+}
 
 // Slapdash printing of diagnostic information as a last resort
 // Used by validation and linker errors. Doesn't include source snippets.
 void DiagnosticInfoDxil::print(DiagnosticPrinter &DP) const {
-  if (DLoc) {
-    DIScope *scope = cast<DIScope>(DLoc->getRawScope());
-    DP << scope->getFilename() << ":" << DLoc->getLine() << ":";
-    unsigned Column = DLoc->getColumn();
+  if (HasLocation) {
+    DP << FileName << ":" << Line << ":";
     if (Column > 0)
       DP << Column << ":";
     DP << " ";
@@ -246,15 +267,12 @@ void DiagnosticInfoDxil::print(DiagnosticPrinter &DP) const {
     DP << "Function: " << Func->getName() << ": ";
   }
 
-  bool ZiPrompt = true;
   switch (getSeverity()) {
-  case DiagnosticSeverity::DS_Note:    DP << "note: "; ZiPrompt = false; break;
-  case DiagnosticSeverity::DS_Remark:  DP << "remark: "; ZiPrompt = false; break;
+  case DiagnosticSeverity::DS_Note:    DP << "note: "; break;
+  case DiagnosticSeverity::DS_Remark:  DP << "remark: "; break;
   case DiagnosticSeverity::DS_Warning: DP << "warning: "; break;
   case DiagnosticSeverity::DS_Error:   DP << "error: "; break;
   }
   DP << getMsgStr();
-  if (!DLoc && ZiPrompt)
-    DP << " Use /Zi for source location.";
 }
 // HLSL Change end - Dxil Diagnostic Info reporter

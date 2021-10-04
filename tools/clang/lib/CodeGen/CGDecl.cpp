@@ -142,10 +142,11 @@ void CodeGenFunction::EmitVarDecl(const VarDecl &D) {
   }
   // HLSL Change Begin - treat local constant as static.
   // Global variable will be generated instead of alloca.
-  if (D.getType().isConstQualified() && D.isLocalVarDecl()) {
-    llvm::Constant *Init = CGM.EmitConstantInit(D, this);
+  if (D.getType().isConstQualified() &&
+      (D.isLocalVarDecl() && D.getKind() != Decl::ParmVar &&
+       !D.isNRVOVariable())) {
     // Only create global when has constant init.
-    if (Init) {
+    if (!isTrivialInitializer(D.getInit()) && CGM.EmitConstantInit(D, this)) {
       llvm::GlobalValue::LinkageTypes Linkage =
           CGM.getLLVMLinkageVarDefinition(&D, /*isConstant=*/false);
       return EmitStaticVarDecl(D, Linkage);
@@ -873,11 +874,10 @@ llvm::Value *CodeGenFunction::EmitLifetimeStart(uint64_t Size,
   // For now, only in optimized builds.
   if (CGM.getCodeGenOpts().OptimizationLevel == 0)
     return nullptr;
+
   // HLSL Change Begins
-  // Don't emit the intrinsic for hlsl for now.
-  // Enable this will require SROA_HLSL to support the intrinsic.
-  // Will do it later when support lifetime marker in HLSL.
-  if (CGM.getLangOpts().HLSL)
+  // Don't emit the intrinsic for hlsl for now unless it is explicitly enabled
+  if (!CGM.getCodeGenOpts().HLSLEnableLifetimeMarkers)
     return nullptr;
   // HLSL Change Ends
 

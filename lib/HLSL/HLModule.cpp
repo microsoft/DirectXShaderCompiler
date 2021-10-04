@@ -28,6 +28,7 @@
 #include "llvm/IR/DIBuilder.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
+#include "llvm/Analysis/ValueTracking.h"
 
 using namespace llvm;
 using std::string;
@@ -321,9 +322,7 @@ std::vector<uint8_t> &HLModule::GetSerializedRootSignature() {
 }
 
 void HLModule::SetSerializedRootSignature(const uint8_t *pData, unsigned size) {
-  m_SerializedRootSignature.clear();
-  m_SerializedRootSignature.resize(size);
-  memcpy(m_SerializedRootSignature.data(), pData, size);
+  m_SerializedRootSignature.assign(pData, pData+size);
 }
 
 DxilTypeSystem &HLModule::GetTypeSystem() {
@@ -403,6 +402,16 @@ bool HLModule::IsEntryThatUsesSignatures(llvm::Function *F) {
   if (propIter != m_DxilFunctionPropsMap.end()) {
     DxilFunctionProps &props = *(propIter->second);
     return props.IsGraphics() || props.IsCS();
+  }
+  // Otherwise, return true if patch constant function
+  return IsPatchConstantShader(F);
+}
+bool HLModule::IsEntry(llvm::Function *F) {
+  auto propIter = m_DxilFunctionPropsMap.find(F);
+  if (propIter != m_DxilFunctionPropsMap.end()) {
+    DXASSERT(propIter->second->shaderKind != DXIL::ShaderKind::Invalid,
+             "invalid entry props");
+    return true;
   }
   // Otherwise, return true if patch constant function
   return IsPatchConstantShader(F);
@@ -697,8 +706,8 @@ void HLModule::LoadDxilSamplerFromMDNode(llvm::MDNode *MD, DxilSampler &S) {
 DxilResourceBase *
 HLModule::AddResourceWithGlobalVariableAndProps(llvm::Constant *GV,
                                                  DxilResourceProperties &RP) {
-  DxilResource::Class RC = RP.Class;
-
+  DxilResource::Class RC = RP.getResourceClass();
+  DxilResource::Kind RK = RP.getResourceKind();
   unsigned rangeSize = 1;
   Type *Ty = GV->getType()->getPointerElementType();
   if (ArrayType *AT = dyn_cast<ArrayType>(Ty))
@@ -707,11 +716,11 @@ HLModule::AddResourceWithGlobalVariableAndProps(llvm::Constant *GV,
   switch (RC) {
   case DxilResource::Class::Sampler: {
     std::unique_ptr<DxilSampler> S = llvm::make_unique<DxilSampler>();
-    if (RP.Kind == DXIL::ResourceKind::SamplerComparison)
+    if (RP.Basic.SamplerCmpOrHasCounter)
       S->SetSamplerKind(DxilSampler::SamplerKind::Comparison);
     else
       S->SetSamplerKind(DxilSampler::SamplerKind::Default);
-    S->SetKind(RP.Kind);
+    S->SetKind(RK);
     S->SetGlobalSymbol(GV);
     S->SetGlobalName(GV->getName());
     S->SetRangeSize(rangeSize);
@@ -720,16 +729,13 @@ HLModule::AddResourceWithGlobalVariableAndProps(llvm::Constant *GV,
   } break;
   case DxilResource::Class::SRV: {
     std::unique_ptr<HLResource> Res = llvm::make_unique<HLResource>();
-    if (DXIL::IsTyped(RP.Kind)) {
+    if (DXIL::IsTyped(RP.getResourceKind())) {
       Res->SetCompType(RP.Typed.CompType);
-      if (RP.Kind == DXIL::ResourceKind::Texture2DMS ||
-          RP.Kind == DXIL::ResourceKind::Texture2DMSArray)
-        Res->SetSampleCount(RP.getSampleCount());
-    } else if (DXIL::IsStructuredBuffer(RP.Kind)) {
-      Res->SetElementStride(RP.ElementStride);
+    } else if (DXIL::IsStructuredBuffer(RK)) {
+      Res->SetElementStride(RP.StructStrideInBytes);
     }
     Res->SetRW(false);
-    Res->SetKind(RP.Kind);
+    Res->SetKind(RK);
     Res->SetGlobalSymbol(GV);
     Res->SetGlobalName(GV->getName());
     Res->SetRangeSize(rangeSize);
@@ -738,19 +744,17 @@ HLModule::AddResourceWithGlobalVariableAndProps(llvm::Constant *GV,
   } break;
   case DxilResource::Class::UAV: {
     std::unique_ptr<HLResource> Res = llvm::make_unique<HLResource>();
-    if (DXIL::IsTyped(RP.Kind)) {
+    if (DXIL::IsTyped(RK)) {
       Res->SetCompType(RP.Typed.CompType);
-      Res->SetSampleCount(RP.getSampleCount());
-    } else if (DXIL::IsStructuredBuffer(RP.Kind)) {
-      Res->SetElementStride(RP.ElementStride);
+    } else if (DXIL::IsStructuredBuffer(RK)) {
+      Res->SetElementStride(RP.StructStrideInBytes);
     }
 
     Res->SetRW(true);
-    Res->SetROV(RP.UAV.bROV);
-    Res->SetGloballyCoherent(RP.UAV.bGloballyCoherent);
-    if (RP.Kind == DXIL::ResourceKind::StructuredBufferWithCounter)
-      Res->SetHasCounter(true);
-    Res->SetKind(RP.Kind);
+    Res->SetROV(RP.Basic.IsROV);
+    Res->SetGloballyCoherent(RP.Basic.IsGloballyCoherent);
+    Res->SetHasCounter(RP.Basic.SamplerCmpOrHasCounter);
+    Res->SetKind(RK);
     Res->SetGlobalSymbol(GV);
     Res->SetGlobalName(GV->getName());
     Res->SetRangeSize(rangeSize);
@@ -790,10 +794,10 @@ DXIL::ResourceClass GetRCFromType(StructType *ST, Module &M) {
     if (Ty != ST)
       continue;
     CallInst *CI = cast<CallInst>(F.user_back());
-    return (DXIL::ResourceClass)cast<ConstantInt>(
-               CI->getArgOperand(
-                   HLOperandIndex::kAnnotateHandleResourceClassOpIdx))
-        ->getLimitedValue();
+    Constant *Props = cast<Constant>(CI->getArgOperand(
+        HLOperandIndex::kAnnotateHandleResourcePropertiesOpIdx));
+    DxilResourceProperties RP = resource_helper::loadPropsFromConstant(*Props);
+    return RP.getResourceClass();
   }
   return DXIL::ResourceClass::Invalid;
 }
@@ -976,8 +980,13 @@ void HLModule::GetParameterRowsAndCols(Type *Ty, unsigned &rows, unsigned &cols,
   rows *= arraySize;
 }
 
-static Value *MergeGEP(GEPOperator *SrcGEP, GetElementPtrInst *GEP) {
-  IRBuilder<> Builder(GEP);
+static Value *MergeGEP(GEPOperator *SrcGEP, GEPOperator *GEP) {
+  IRBuilder<> Builder(GEP->getContext());
+  StringRef Name = "";
+  if (Instruction *I = dyn_cast<Instruction>(GEP)) {
+    Builder.SetInsertPoint(I);
+    Name = GEP->getName();
+  }
   SmallVector<Value *, 8> Indices;
 
   // Find out whether the last index in the source GEP is a sequential idx.
@@ -1024,50 +1033,51 @@ static Value *MergeGEP(GEPOperator *SrcGEP, GetElementPtrInst *GEP) {
     Indices.append(SrcGEP->op_begin() + 1, SrcGEP->op_end());
     Indices.append(GEP->idx_begin() + 1, GEP->idx_end());
   }
-  if (!Indices.empty())
-    return Builder.CreateInBoundsGEP(SrcGEP->getSourceElementType(),
-                                     SrcGEP->getOperand(0), Indices,
-                                     GEP->getName());
-  else
-    llvm_unreachable("must merge");
+
+  DXASSERT(!Indices.empty(), "must merge");
+  Value *newGEP = Builder.CreateInBoundsGEP(nullptr, SrcGEP->getOperand(0), Indices, Name);
+  GEP->replaceAllUsesWith(newGEP);
+  if (Instruction *I = dyn_cast<Instruction>(GEP))
+    I->eraseFromParent();
+  return newGEP;
 }
 
 void HLModule::MergeGepUse(Value *V) {
-  for (auto U = V->user_begin(); U != V->user_end();) {
-    auto Use = U++;
-
-    if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(*Use)) {
-      if (GEPOperator *prevGEP = dyn_cast<GEPOperator>(V)) {
-        // merge the 2 GEPs
-        Value *newGEP = MergeGEP(prevGEP, GEP);
-        // Don't need to replace when GEP is updated in place
-        if (newGEP != GEP) {
-          GEP->replaceAllUsesWith(newGEP);
-          GEP->eraseFromParent();
-        }
-        MergeGepUse(newGEP);
+  SmallVector<Value*, 16> worklist;
+  auto addUsersToWorklist = [&worklist](Value *V) {
+    if (!V->user_empty()) {
+      // Add users in reverse to the worklist, so they are processed in order
+      // This makes it equivalent to recursive traversal
+      size_t start = worklist.size();
+      worklist.append(V->user_begin(), V->user_end());
+      size_t end = worklist.size();
+      std::reverse(worklist.data() + start, worklist.data() + end);
+    }
+  };
+  addUsersToWorklist(V);
+  while (worklist.size()) {
+    V = worklist.pop_back_val();
+    if (BitCastOperator *BCO = dyn_cast<BitCastOperator>(V)) {
+      if (Value *NewV = dxilutil::TryReplaceBaseCastWithGep(V)) {
+        worklist.push_back(NewV);
       } else {
-        MergeGepUse(*Use);
+        // merge any GEP users of the untranslated bitcast
+        addUsersToWorklist(V);
       }
-    } else if (dyn_cast<GEPOperator>(*Use)) {
-      if (GEPOperator *prevGEP = dyn_cast<GEPOperator>(V)) {
-        // merge the 2 GEPs
-        Value *newGEP = MergeGEP(prevGEP, GEP);
-        // Don't need to replace when GEP is updated in place
-        if (newGEP != GEP) {
-          GEP->replaceAllUsesWith(newGEP);
-          GEP->eraseFromParent();
+    } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(V)) {
+      if (GEPOperator *prevGEP = dyn_cast<GEPOperator>(GEP->getPointerOperand())) {
+        // merge the 2 GEPs, returns nullptr if couldn't merge
+        if (Value *newGEP = MergeGEP(prevGEP, GEP)) {
+          worklist.push_back(newGEP);
+          // delete prevGEP if no more users
+          if (prevGEP->user_empty() && isa<GetElementPtrInst>(prevGEP))
+            cast<GetElementPtrInst>(prevGEP)->eraseFromParent();
         }
-        MergeGepUse(newGEP);
       } else {
-        MergeGepUse(*Use);
+        // nothing to merge yet, add GEP users
+        addUsersToWorklist(V);
       }
     }
-  }
-  if (V->user_empty()) {
-    // Only remove GEP here, root ptr will be removed by DCE.
-    if (GetElementPtrInst *I = dyn_cast<GetElementPtrInst>(V))
-      I->eraseFromParent();
   }
 }
 
@@ -1220,6 +1230,10 @@ void HLModule::MarkPreciseAttributeOnPtrWithFunctionCall(llvm::Value *Ptr,
           MarkPreciseAttributeOnValWithFunctionCall(CI, Builder, M);
         }
       }
+    } else if (BitCastInst *BCI = dyn_cast<BitCastInst>(U)) {
+      // Do not mark bitcasts. We only expect them here due to lifetime intrinsics.
+      DXASSERT(onlyUsedByLifetimeMarkers(BCI),
+               "expected bitcast to only be used by lifetime intrinsics");
     } else {
       // Must be GEP here.
       GetElementPtrInst *GEP = cast<GetElementPtrInst>(U);

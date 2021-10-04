@@ -1,6 +1,6 @@
 // RUN: %dxc -E main -T ps_6_0 %s -Od | FileCheck %s
 
-// CHECK: Offsets for Sample* must be immediated value
+// CHECK: Offsets to texture access operations must be immediate values
 
 // Regression test that DxilValueCache (DVC) isn't so over-zealous.
 

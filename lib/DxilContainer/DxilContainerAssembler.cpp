@@ -485,18 +485,18 @@ private:
   }
 
 public:
-  DxilPSVWriter(const DxilModule &mod, uint32_t PSVVersion = 0)
+  DxilPSVWriter(const DxilModule &mod, uint32_t PSVVersion = UINT_MAX)
   : m_Module(mod),
     m_PSVInitInfo(PSVVersion)
   {
     m_Module.GetValidatorVersion(m_ValMajor, m_ValMinor);
-    // Allow PSVVersion to be upgraded
-    if (m_ValMajor == 0 && m_ValMinor == 0) {
-      // Validation disabled upgrades to maximum PSVVersion
-      m_PSVInitInfo.PSVVersion = MAX_PSV_VERSION;
-    } else if (m_PSVInitInfo.PSVVersion < 1 && (m_ValMajor > 1 || (m_ValMajor == 1 && m_ValMinor >= 1))) {
+    // Constraint PSVVersion based on validator version
+    if (PSVVersion > 0 && DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 1) < 0)
+      m_PSVInitInfo.PSVVersion = 0;
+    else if (PSVVersion > 1 && DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 6) < 0)
       m_PSVInitInfo.PSVVersion = 1;
-    }
+    else if (PSVVersion > MAX_PSV_VERSION)
+      m_PSVInitInfo.PSVVersion = MAX_PSV_VERSION;
 
     const ShaderModel *SM = m_Module.GetShaderModel();
     UINT uCBuffers = m_Module.GetCBuffers().size();
@@ -558,9 +558,10 @@ public:
     }
     DXASSERT_NOMSG(m_PSVBuffer.size() == m_PSVBufferSize);
 
-    // Set DxilRuntimInfo
+    // Set DxilRuntimeInfo
     PSVRuntimeInfo0* pInfo = m_PSV.GetPSVRuntimeInfo0();
     PSVRuntimeInfo1* pInfo1 = m_PSV.GetPSVRuntimeInfo1();
+    PSVRuntimeInfo2* pInfo2 = m_PSV.GetPSVRuntimeInfo2();
     const ShaderModel* SM = m_Module.GetShaderModel();
     pInfo->MinimumExpectedWaveLaneCount = 0;
     pInfo->MaximumExpectedWaveLaneCount = (UINT)-1;
@@ -645,34 +646,52 @@ public:
         }
         break;
       }
-    case ShaderModel::Kind::Compute:
-    case ShaderModel::Kind::Library:
-    case ShaderModel::Kind::Invalid:
-      // Compute, Library, and Invalid not relevant to PSVRuntimeInfo0
-      break;
-    case ShaderModel::Kind::Mesh: {
-      pInfo->MS.MaxOutputVertices = (UINT)m_Module.GetMaxOutputVertices();
-      pInfo->MS.MaxOutputPrimitives = (UINT)m_Module.GetMaxOutputPrimitives();
-      pInfo1->MS1.MeshOutputTopology = (UINT)m_Module.GetMeshOutputTopology();
-      Module *mod = m_Module.GetModule();
-      const DataLayout &DL = mod->getDataLayout();
-      unsigned totalByteSize = 0;
-      for (GlobalVariable &GV : mod->globals()) {
-        PointerType *gvPtrType = cast<PointerType>(GV.getType());
-        if (gvPtrType->getAddressSpace() == hlsl::DXIL::kTGSMAddrSpace) {
-          Type *gvType = gvPtrType->getPointerElementType();
-          unsigned byteSize = DL.getTypeAllocSize(gvType);
-          totalByteSize += byteSize;
+      case ShaderModel::Kind::Compute: {
+        UINT waveSize = (UINT)m_Module.GetWaveSize();
+        if (waveSize != 0) {
+          pInfo->MinimumExpectedWaveLaneCount = waveSize;
+          pInfo->MaximumExpectedWaveLaneCount = waveSize;
         }
+        break;
       }
-      pInfo->MS.GroupSharedBytesUsed = totalByteSize;
-      pInfo->MS.PayloadSizeInBytes = m_Module.GetPayloadSizeInBytes();
-      break;
+      case ShaderModel::Kind::Library:
+      case ShaderModel::Kind::Invalid:
+        // Library and Invalid not relevant to PSVRuntimeInfo0
+        break;
+      case ShaderModel::Kind::Mesh: {
+        pInfo->MS.MaxOutputVertices = (UINT)m_Module.GetMaxOutputVertices();
+        pInfo->MS.MaxOutputPrimitives = (UINT)m_Module.GetMaxOutputPrimitives();
+        pInfo1->MS1.MeshOutputTopology = (UINT)m_Module.GetMeshOutputTopology();
+        Module *mod = m_Module.GetModule();
+        const DataLayout &DL = mod->getDataLayout();
+        unsigned totalByteSize = 0;
+        for (GlobalVariable &GV : mod->globals()) {
+          PointerType *gvPtrType = cast<PointerType>(GV.getType());
+          if (gvPtrType->getAddressSpace() == hlsl::DXIL::kTGSMAddrSpace) {
+            Type *gvType = gvPtrType->getPointerElementType();
+            unsigned byteSize = DL.getTypeAllocSize(gvType);
+            totalByteSize += byteSize;
+          }
+        }
+        pInfo->MS.GroupSharedBytesUsed = totalByteSize;
+        pInfo->MS.PayloadSizeInBytes = m_Module.GetPayloadSizeInBytes();
+        break;
+      }
+      case ShaderModel::Kind::Amplification: {
+        pInfo->AS.PayloadSizeInBytes = m_Module.GetPayloadSizeInBytes();
+        break;
+      }
     }
-    case ShaderModel::Kind::Amplification: {
-      pInfo->AS.PayloadSizeInBytes = m_Module.GetPayloadSizeInBytes();
-      break;
-    }
+    if (pInfo2) {
+      switch (SM->GetKind()) {
+      case ShaderModel::Kind::Compute:
+      case ShaderModel::Kind::Mesh:
+      case ShaderModel::Kind::Amplification:
+        pInfo2->NumThreadsX = m_Module.GetNumThreads(0);
+        pInfo2->NumThreadsY = m_Module.GetNumThreads(1);
+        pInfo2->NumThreadsZ = m_Module.GetNumThreads(2);
+        break;
+      }
     }
 
     // Set resource binding information
@@ -680,26 +699,35 @@ public:
     for (auto &&R : m_Module.GetCBuffers()) {
       DXASSERT_NOMSG(uResIndex < m_PSVInitInfo.ResourceCount);
       PSVResourceBindInfo0* pBindInfo = m_PSV.GetPSVResourceBindInfo0(uResIndex);
+      PSVResourceBindInfo1* pBindInfo1 = m_PSV.GetPSVResourceBindInfo1(uResIndex);
       DXASSERT_NOMSG(pBindInfo);
       pBindInfo->ResType = (UINT)PSVResourceType::CBV;
       pBindInfo->Space = R->GetSpaceID();
       pBindInfo->LowerBound = R->GetLowerBound();
       pBindInfo->UpperBound = R->GetUpperBound();
+      if (pBindInfo1) {
+        pBindInfo1->ResKind = (UINT)R->GetKind();
+      }
       uResIndex++;
     }
     for (auto &&R : m_Module.GetSamplers()) {
       DXASSERT_NOMSG(uResIndex < m_PSVInitInfo.ResourceCount);
       PSVResourceBindInfo0* pBindInfo = m_PSV.GetPSVResourceBindInfo0(uResIndex);
+      PSVResourceBindInfo1* pBindInfo1 = m_PSV.GetPSVResourceBindInfo1(uResIndex);
       DXASSERT_NOMSG(pBindInfo);
       pBindInfo->ResType = (UINT)PSVResourceType::Sampler;
       pBindInfo->Space = R->GetSpaceID();
       pBindInfo->LowerBound = R->GetLowerBound();
       pBindInfo->UpperBound = R->GetUpperBound();
+      if (pBindInfo1) {
+        pBindInfo1->ResKind = (UINT)R->GetKind();
+      }
       uResIndex++;
     }
     for (auto &&R : m_Module.GetSRVs()) {
       DXASSERT_NOMSG(uResIndex < m_PSVInitInfo.ResourceCount);
       PSVResourceBindInfo0* pBindInfo = m_PSV.GetPSVResourceBindInfo0(uResIndex);
+      PSVResourceBindInfo1* pBindInfo1 = m_PSV.GetPSVResourceBindInfo1(uResIndex);
       DXASSERT_NOMSG(pBindInfo);
       if (R->IsStructuredBuffer()) {
         pBindInfo->ResType = (UINT)PSVResourceType::SRVStructured;
@@ -711,11 +739,15 @@ public:
       pBindInfo->Space = R->GetSpaceID();
       pBindInfo->LowerBound = R->GetLowerBound();
       pBindInfo->UpperBound = R->GetUpperBound();
+      if (pBindInfo1) {
+        pBindInfo1->ResKind = (UINT)R->GetKind();
+      }
       uResIndex++;
     }
     for (auto &&R : m_Module.GetUAVs()) {
       DXASSERT_NOMSG(uResIndex < m_PSVInitInfo.ResourceCount);
       PSVResourceBindInfo0* pBindInfo = m_PSV.GetPSVResourceBindInfo0(uResIndex);
+      PSVResourceBindInfo1* pBindInfo1 = m_PSV.GetPSVResourceBindInfo1(uResIndex);
       DXASSERT_NOMSG(pBindInfo);
       if (R->IsStructuredBuffer()) {
         if (R->HasCounter())
@@ -730,6 +762,10 @@ public:
       pBindInfo->Space = R->GetSpaceID();
       pBindInfo->LowerBound = R->GetLowerBound();
       pBindInfo->UpperBound = R->GetUpperBound();
+      if (pBindInfo1) {
+        pBindInfo1->ResKind = (UINT)R->GetKind();
+        pBindInfo1->ResFlags |= R->HasAtomic64Use()? (UINT)PSVResourceFlag::UsedByAtomic64 : 0;
+      }
       uResIndex++;
     }
     DXASSERT_NOMSG(uResIndex == m_PSVInitInfo.ResourceCount);
@@ -1057,6 +1093,7 @@ private:
   FunctionShaderCompatMap m_FuncToShaderCompat;
 
   void UpdateFunctionToShaderCompat(const llvm::Function* dxilFunc) {
+#define SFLAG(stage) ((unsigned)1 << (unsigned)DXIL::ShaderKind::stage)
     for (const auto &user : dxilFunc->users()) {
       if (const llvm::CallInst *CI = dyn_cast<const llvm::CallInst>(user)) {
         // Find calling function
@@ -1075,22 +1112,39 @@ private:
           info.minMinor = minor;
         }
         info.mask &= mask;
+      } else if (const llvm::LoadInst *LI = dyn_cast<LoadInst>(user)) {
+        // If loading a groupshared variable, limit to CS/AS/MS
+        if (LI->getPointerAddressSpace() == DXIL::kTGSMAddrSpace) {
+          const llvm::Function *F = cast<const llvm::Function>(LI->getParent()->getParent());
+          ShaderCompatInfo &info = m_FuncToShaderCompat[F];
+          info.mask &= (SFLAG(Compute) | SFLAG(Mesh) | SFLAG(Amplification));
+        }
+      } else if (const llvm::StoreInst *SI = dyn_cast<StoreInst>(user)) {
+        // If storing to a groupshared variable, limit to CS/AS/MS
+        if (SI->getPointerAddressSpace() == DXIL::kTGSMAddrSpace) {
+          const llvm::Function *F = cast<const llvm::Function>(SI->getParent()->getParent());
+          ShaderCompatInfo &info = m_FuncToShaderCompat[F];
+          info.mask &= (SFLAG(Compute) | SFLAG(Mesh) | SFLAG(Amplification));
+        }
       }
+
     }
+#undef SFLAG
   }
 
-  const llvm::Function *FindUsingFunction(const llvm::Value *User) {
+  void
+  FindUsingFunctions(const llvm::Value *User,
+                    llvm::SmallVectorImpl<const llvm::Function *> &functions) {
     if (const llvm::Instruction *I = dyn_cast<const llvm::Instruction>(User)) {
       // Instruction should be inside a basic block, which is in a function
-      return cast<const llvm::Function>(I->getParent()->getParent());
+      functions.push_back(cast<const llvm::Function>(I->getParent()->getParent()));
+      return;
     }
     // User can be either instruction, constant, or operator. But User is an
     // operator only if constant is a scalar value, not resource pointer.
     const llvm::Constant *CU = cast<const llvm::Constant>(User);
-    if (!CU->user_empty())
-      return FindUsingFunction(*CU->user_begin());
-    else
-      return nullptr;
+    for (auto U : CU->users())
+      FindUsingFunctions(U, functions);
   }
 
   void UpdateFunctionToResourceInfo(const DxilResourceBase *resource,
@@ -1098,14 +1152,15 @@ private:
     Constant *var = resource->GetGlobalSymbol();
     if (var) {
       for (auto user : var->users()) {
-        // Find the function.
-        const llvm::Function *F = FindUsingFunction(user);
-        if (!F)
-          continue;
-        if (m_FuncToResNameOffset.find(F) == m_FuncToResNameOffset.end()) {
-          m_FuncToResNameOffset[F] = Indices();
+        // Find the function(s).
+        llvm::SmallVector<const llvm::Function*, 8> functions;
+        FindUsingFunctions(user, functions);
+        for (const llvm::Function *F : functions) {
+          if (m_FuncToResNameOffset.find(F) == m_FuncToResNameOffset.end()) {
+            m_FuncToResNameOffset[F] = Indices();
+          }
+          m_FuncToResNameOffset[F].insert(offset);
         }
-        m_FuncToResNameOffset[F].insert(offset);
       }
     }
   }
@@ -1132,6 +1187,8 @@ private:
         info.Flags |= static_cast<uint32_t>(DxilResourceFlag::UAVGloballyCoherent);
       if (pRes->IsROV())
         info.Flags |= static_cast<uint32_t>(DxilResourceFlag::UAVRasterizerOrderedView);
+      if (pRes->HasAtomic64Use())
+        info.Flags |= static_cast<uint32_t>(DxilResourceFlag::Atomics64Use);
       // TODO: add dynamic index flag
     }
     m_pResourceTable->Insert(info);
@@ -1158,14 +1215,17 @@ private:
 
   void UpdateFunctionDependency(llvm::Function *F) {
     for (const auto &user : F->users()) {
-      const llvm::Function *userFunction = FindUsingFunction(user);
-      uint32_t index = m_pStringBufferPart->Insert(F->getName());
-      if (m_FuncToDependencies.find(userFunction) ==
-          m_FuncToDependencies.end()) {
-        m_FuncToDependencies[userFunction] =
-            Indices();
+      llvm::SmallVector<const llvm::Function*, 8> functions;
+      FindUsingFunctions(user, functions);
+      for (const llvm::Function *userFunction : functions) {
+        uint32_t index = m_pStringBufferPart->Insert(F->getName());
+        if (m_FuncToDependencies.find(userFunction) ==
+            m_FuncToDependencies.end()) {
+          m_FuncToDependencies[userFunction] =
+              Indices();
+        }
+        m_FuncToDependencies[userFunction].insert(index);
       }
-      m_FuncToDependencies[userFunction].insert(index);
     }
   }
 
@@ -1359,7 +1419,7 @@ private:
   SubobjectTable *m_pSubobjectTable;
 
 public:
-  DxilRDATWriter(const DxilModule &mod, uint32_t InfoVersion = 0)
+  DxilRDATWriter(const DxilModule &mod)
       : m_RDATBuffer(), m_Parts(), m_FuncToResNameOffset() {
     // Keep track of validator version so we can make a compatible RDAT
     mod.GetValidatorVersion(m_ValMajor, m_ValMinor);
@@ -1425,8 +1485,8 @@ DxilPartWriter *hlsl::NewPSVWriter(const DxilModule &M, uint32_t PSVVersion) {
   return new DxilPSVWriter(M, PSVVersion);
 }
 
-DxilPartWriter *hlsl::NewRDATWriter(const DxilModule &M, uint32_t InfoVersion) {
-  return new DxilRDATWriter(M, InfoVersion);
+DxilPartWriter *hlsl::NewRDATWriter(const DxilModule &M) {
+  return new DxilRDATWriter(M);
 }
 
 class DxilContainerWriter_impl : public DxilContainerWriter  {
@@ -1482,15 +1542,10 @@ DxilContainerWriter *hlsl::NewDxilContainerWriter() {
   return new DxilContainerWriter_impl();
 }
 
-static bool HasDebugInfo(const Module &M) {
-  for (Module::const_named_metadata_iterator NMI = M.named_metadata_begin(),
-                                             NME = M.named_metadata_end();
-       NMI != NME; ++NMI) {
-    if (NMI->getName().startswith("llvm.dbg.")) {
-      return true;
-    }
-  }
-  return false;
+static bool HasDebugInfoOrLineNumbers(const Module &M) {
+  return
+    llvm::getDebugMetadataVersionFromModule(M) != 0 ||
+    llvm::hasDebugInfo(M);
 }
 
 static void GetPaddedProgramPartSize(AbstractMemoryStream *pStream,
@@ -1501,9 +1556,9 @@ static void GetPaddedProgramPartSize(AbstractMemoryStream *pStream,
   bitcodeInUInt32 = (bitcodeInUInt32 / 4) + (bitcodePaddingBytes ? 1 : 0);
 }
 
-static void WriteProgramPart(const ShaderModel *pModel,
+void hlsl::WriteProgramPart(const ShaderModel *pModel,
                              AbstractMemoryStream *pModuleBitcode,
-                             AbstractMemoryStream *pStream) {
+                             IStream *pStream) {
   DXASSERT(pModel != nullptr, "else generation should have failed");
   DxilProgramHeader programHeader;
   uint32_t shaderVersion =
@@ -1543,6 +1598,60 @@ public:
 };
 
 } // namespace
+
+
+void hlsl::ReEmitLatestReflectionData(llvm::Module *pM) {
+  // Retain usage information in metadata for reflection by:
+  // Upgrade validator version, re-emit metadata
+  // 0,0 = Not meant to be validated, support latest
+
+  DxilModule &DM = pM->GetOrCreateDxilModule();
+
+  DM.SetValidatorVersion(0, 0);
+  DM.ReEmitDxilResources();
+  DM.EmitDxilCounters();
+}
+
+static std::unique_ptr<Module> CloneModuleForReflection(Module *pM) {
+  DxilModule &DM = pM->GetOrCreateDxilModule();
+
+  unsigned ValMajor = 0, ValMinor = 0;
+  DM.GetValidatorVersion(ValMajor, ValMinor);
+
+  // Emit the latest reflection metadata
+  hlsl::ReEmitLatestReflectionData(pM);
+
+  // Clone module
+  std::unique_ptr<Module> reflectionModule( llvm::CloneModule(pM) );
+
+  // Now restore validator version on main module and re-emit metadata.
+  DM.SetValidatorVersion(ValMajor, ValMinor);
+  DM.ReEmitDxilResources();
+
+  return reflectionModule;
+}
+
+void hlsl::StripAndCreateReflectionStream(Module *pReflectionM, uint32_t *pReflectionPartSizeInBytes, AbstractMemoryStream **ppReflectionStreamOut) {
+  for (Function &F : pReflectionM->functions()) {
+    if (!F.isDeclaration()) {
+      F.deleteBody();
+    }
+  }
+
+  uint32_t reflectPartSizeInBytes = 0;
+  CComPtr<AbstractMemoryStream> pReflectionBitcodeStream;
+
+  IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pReflectionBitcodeStream));
+  raw_stream_ostream outStream(pReflectionBitcodeStream.p);
+  WriteBitcodeToFile(pReflectionM, outStream, false);
+  outStream.flush();
+  uint32_t reflectInUInt32 = 0, reflectPaddingBytes = 0;
+  GetPaddedProgramPartSize(pReflectionBitcodeStream, reflectInUInt32, reflectPaddingBytes);
+  reflectPartSizeInBytes = reflectInUInt32 * sizeof(uint32_t) + sizeof(DxilProgramHeader);
+
+  *pReflectionPartSizeInBytes = reflectPartSizeInBytes;
+  *ppReflectionStreamOut = pReflectionBitcodeStream.Detach();
+}
 
 void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
                                            AbstractMemoryStream *pModuleBitcode,
@@ -1673,13 +1782,12 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   // If we have debug information present, serialize it to a debug part, then use the stripped version as the canonical program version.
   CComPtr<AbstractMemoryStream> pProgramStream = pInputProgramStream;
   bool bModuleStripped = false;
-  bool bHasDebugInfo = HasDebugInfo(*pModule->GetModule());
-  if (bHasDebugInfo) {
+  if (HasDebugInfoOrLineNumbers(*pModule->GetModule())) {
     uint32_t debugInUInt32, debugPaddingBytes;
     GetPaddedProgramPartSize(pInputProgramStream, debugInUInt32, debugPaddingBytes);
     if (Flags & SerializeDxilFlags::IncludeDebugInfoPart) {
       writer.AddPart(DFCC_ShaderDebugInfoDXIL, debugInUInt32 * sizeof(uint32_t) + sizeof(DxilProgramHeader), [&](AbstractMemoryStream *pStream) {
-        WriteProgramPart(pModule->GetShaderModel(), pInputProgramStream, pStream);
+        hlsl::WriteProgramPart(pModule->GetShaderModel(), pInputProgramStream, pStream);
       });
     }
 
@@ -1692,43 +1800,13 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
     Flags &= ~SerializeDxilFlags::DebugNameDependOnSource;
   }
 
-  // Clone module for reflection, strip function defs
-  std::unique_ptr<Module> reflectionModule;
-  if (bEmitReflection) {
-    // Retain usage information in metadata for reflection by:
-    // Upgrade validator version, re-emit metadata, then clone module for reflection.
-    // 0,0 = Not meant to be validated, support latest
-    pModule->SetValidatorVersion(0, 0);
-    pModule->ReEmitDxilResources();
-    pModule->EmitDxilCounters();
-
-    reflectionModule.reset(llvm::CloneModule(pModule->GetModule()));
-
-    // Now restore validator version on main module and re-emit metadata.
-    pModule->SetValidatorVersion(ValMajor, ValMinor);
-    pModule->ReEmitDxilResources();
-
-    for (Function &F : reflectionModule->functions()) {
-      if (!F.isDeclaration()) {
-        F.deleteBody();
-      }
-    }
-    // Just make sure this doesn't crash/assert on debug build:
-    DXASSERT_NOMSG(&reflectionModule->GetOrCreateDxilModule());
-  }
-
+  uint32_t reflectPartSizeInBytes = 0;
   CComPtr<AbstractMemoryStream> pReflectionBitcodeStream;
 
-  uint32_t reflectPartSizeInBytes = 0;
-  if (bEmitReflection)
-  {
-    IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pReflectionBitcodeStream));
-    raw_stream_ostream outStream(pReflectionBitcodeStream.p);
-    WriteBitcodeToFile(reflectionModule.get(), outStream, false);
-    outStream.flush();
-    uint32_t reflectInUInt32 = 0, reflectPaddingBytes = 0;
-    GetPaddedProgramPartSize(pReflectionBitcodeStream, reflectInUInt32, reflectPaddingBytes);
-    reflectPartSizeInBytes = reflectInUInt32 * sizeof(uint32_t) + sizeof(DxilProgramHeader);
+  if (bEmitReflection) {
+    // Clone module for reflection
+    std::unique_ptr<Module> reflectionModule = CloneModuleForReflection(pModule->GetModule());
+    hlsl::StripAndCreateReflectionStream(reflectionModule.get(), &reflectPartSizeInBytes, &pReflectionBitcodeStream);
   }
 
   if (pReflectionStreamOut) {

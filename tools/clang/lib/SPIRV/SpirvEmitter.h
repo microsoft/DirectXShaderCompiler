@@ -35,6 +35,18 @@
 
 #include "DeclResultIdMapper.h"
 
+namespace spvtools {
+namespace opt {
+
+// A struct for a pair of descriptor set and binding.
+struct DescriptorSetAndBinding {
+  uint32_t descriptor_set;
+  uint32_t binding;
+};
+
+} // namespace opt
+} // namespace spvtools
+
 namespace clang {
 namespace spirv {
 
@@ -82,6 +94,7 @@ private:
   void doFunctionDecl(const FunctionDecl *decl);
   void doVarDecl(const VarDecl *decl);
   void doRecordDecl(const RecordDecl *decl);
+  void doClassTemplateDecl(const ClassTemplateDecl *classTemplateDecl);
   void doEnumDecl(const EnumDecl *decl);
   void doHLSLBufferDecl(const HLSLBufferDecl *decl);
   void doImplicitDecl(const Decl *decl);
@@ -488,6 +501,9 @@ private:
   /// Processes the 'rcp' intrinsic function.
   SpirvInstruction *processIntrinsicRcp(const CallExpr *);
 
+  /// Processes the 'ReadClock' intrinsic function.
+  SpirvInstruction *processIntrinsicReadClock(const CallExpr *);
+
   /// Processes the 'sign' intrinsic function for float types.
   /// The FSign instruction in the GLSL instruction set returns a floating point
   /// result. The HLSL sign function, however, returns an integer. An extra
@@ -546,6 +562,15 @@ private:
   /// Processes the NonUniformResourceIndex intrinsic function.
   SpirvInstruction *processIntrinsicNonUniformResourceIndex(const CallExpr *);
 
+  /// Processes the SM 6.6 pack_{s|u}8 and pack_clamp_{s|u}8 intrinsic
+  /// functions.
+  SpirvInstruction *processIntrinsic8BitPack(const CallExpr *,
+                                             hlsl::IntrinsicOp);
+
+  /// Processes the SM 6.6 unpack_{s|u}8{s|u}{16|32} intrinsic functions.
+  SpirvInstruction *processIntrinsic8BitUnpack(const CallExpr *,
+                                               hlsl::IntrinsicOp);
+
   /// Process builtins specific to raytracing.
   SpirvInstruction *processRayBuiltins(const CallExpr *, hlsl::IntrinsicOp op);
 
@@ -566,6 +591,8 @@ private:
   /// Process ray query intrinsics
   SpirvInstruction *processRayQueryIntrinsics(const CXXMemberCallExpr *expr,
                                               hlsl::IntrinsicOp opcode);
+  /// Process spirv intrinsic instruction
+  SpirvInstruction *processSpvIntrinsicCallExpr(const CallExpr *expr);
 
 private:
   /// Returns the <result-id> for constant value 0 of the given type.
@@ -700,6 +727,7 @@ private:
   /// variables for some cases.
   bool emitEntryFunctionWrapperForRayTracing(const FunctionDecl *entryFunction,
                                              SpirvFunction *entryFuncId);
+
   /// \brief Performs the following operations for the Hull shader:
   /// * Creates an output variable which is an Array containing results for all
   /// control points.
@@ -962,6 +990,15 @@ private:
                                           SpirvInstruction *sampleIndex,
                                           SourceLocation loc);
 
+  /// \brief Returns OpAccessChain to the struct/class object that defines
+  /// memberFn when the struct/class is a base struct/class of objectType.
+  /// If the struct/class that defines memberFn is not a base of objectType,
+  /// returns nullptr.
+  SpirvInstruction *getBaseOfMemberFunction(QualType objectType,
+                                            SpirvInstruction * objInstr,
+                                            const CXXMethodDecl* memberFn,
+                                       SourceLocation loc);
+
 private:
   /// \brief Takes a vector of size 4, and returns a vector of size 1 or 2 or 3
   /// or 4. Creates a CompositeExtract or VectorShuffle instruction to extract
@@ -990,6 +1027,11 @@ private:
                     SpirvInstruction *minLod, SpirvInstruction *residencyCodeId,
                     SourceLocation loc);
 
+  /// \brief Returns OpVariable to be used as 'Interface' operands of
+  /// OpEntryPoint. entryPoint is the SpirvFunction for the OpEntryPoint.
+  std::vector<SpirvVariable *>
+  getInterfacesForEntryPoint(SpirvFunction *entryPoint);
+
 private:
   /// \brief If the given FunctionDecl is not already in the workQueue, creates
   /// a FunctionInfo object for it, and inserts it into the workQueue. It also
@@ -1006,9 +1048,14 @@ private:
 
   /// \brief Helper function to run SPIRV-Tools optimizer's legalization passes.
   /// Runs the SPIRV-Tools legalization on the given SPIR-V module |mod|, and
-  /// gets the info/warning/error messages via |messages|.
+  /// gets the info/warning/error messages via |messages|. If
+  /// |dsetbindingsToCombineImageSampler| is not empty, runs
+  /// --convert-to-sampled-image pass.
   /// Returns true on success and false otherwise.
-  bool spirvToolsLegalize(std::vector<uint32_t> *mod, std::string *messages);
+  bool
+  spirvToolsLegalize(std::vector<uint32_t> *mod, std::string *messages,
+                     const std::vector<spvtools::opt::DescriptorSetAndBinding>
+                         *dsetbindingsToCombineImageSampler);
 
   /// \brief Helper function to run the SPIRV-Tools validator.
   /// Runs the SPIRV-Tools validator on the given SPIR-V module |mod|, and

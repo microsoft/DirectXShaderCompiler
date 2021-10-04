@@ -350,6 +350,9 @@ protected:
   map<unsigned, unsigned> m_CBufferRangeMap;
   map<unsigned, unsigned> m_SamplerRangeMap;
 
+  // Cached handles for SM 5.0 or below, key: (Class, LowerBound).
+  map<std::pair<unsigned, unsigned>, Value*> m_HandleMap;
+
   // Immediate constant buffer.
   GlobalVariable *m_pIcbGV;
 
@@ -600,6 +603,8 @@ protected:
 
   void SetShaderGlobalFlags(unsigned GlobalFlags);
   Value *CreateHandle(DxilResourceBase::Class Class, unsigned RangeID, Value *pIndex, bool bNonUniformIndex);
+  void SetCachedHandle(const DxilResourceBase &R);
+  Value *GetCachedHandle(const DxilResourceBase &R);
 
   void Optimize();
 

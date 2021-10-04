@@ -173,6 +173,16 @@ Value *SimplifyDxilCall(llvm::Function *F, ArrayRef<Value *> Args,
     }
     return nullptr;
   } break;
+  case DXIL::OpCode::UMax: {
+    Value *op0 = Args[DXIL::OperandIndex::kBinarySrc0OpIdx];
+    Value *op1 = Args[DXIL::OperandIndex::kBinarySrc1OpIdx];
+    Constant *zero = ConstantInt::get(op0->getType(), 0);
+    if (op0 == zero)
+      return op1;
+    if (op1 == zero)
+      return op0;
+    return nullptr;
+  } break;
   }
 }
 

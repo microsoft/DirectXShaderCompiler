@@ -509,6 +509,14 @@ void DxilViewIdStateBuilder::CollectValuesContributingToOutputRec(EntryInfo &Ent
     return;
   }
 
+  BasicBlock *pBB = pContributingInst->getParent();
+  Function *F = pBB->getParent();
+  auto FuncInfoIt = m_FuncInfo.find(F);
+  DXASSERT_NOMSG(FuncInfoIt != m_FuncInfo.end());
+  if (FuncInfoIt == m_FuncInfo.end()) {
+    return;
+  }
+
   auto itInst = ContributingInstructions.emplace(pContributingInst);
   // Already visited instruction.
   if (!itInst.second) return;
@@ -552,9 +560,7 @@ void DxilViewIdStateBuilder::CollectValuesContributingToOutputRec(EntryInfo &Ent
   }
 
   // Handle control dependence of this instruction BB.
-  BasicBlock *pBB = pContributingInst->getParent();
-  Function *F = pBB->getParent();
-  FuncInfo *pFuncInfo = m_FuncInfo[F].get();
+  FuncInfo *pFuncInfo = FuncInfoIt->second.get();
   const BasicBlockSet &CtrlDepSet = pFuncInfo->CtrlDep.GetCDBlocks(pBB);
   for (BasicBlock *B : CtrlDepSet) {
     CollectValuesContributingToOutputRec(Entry, B->getTerminator(), ContributingInstructions);
@@ -687,6 +693,8 @@ void DxilViewIdStateBuilder::CollectReachingDeclsRec(Value *pValue, ValueSetType
   } else if (isa<ConstantExpr>(pValue) && cast<ConstantExpr>(pValue)->getOpcode() == Instruction::AddrSpaceCast) {
     CollectReachingDeclsRec(cast<ConstantExpr>(pValue)->getOperand(0), ReachingDecls, Visited);
   } else if (AddrSpaceCastInst *pCI = dyn_cast<AddrSpaceCastInst>(pValue)) {
+    CollectReachingDeclsRec(pCI->getOperand(0), ReachingDecls, Visited);
+  } else if (BitCastInst *pCI = dyn_cast<BitCastInst>(pValue)) {
     CollectReachingDeclsRec(pCI->getOperand(0), ReachingDecls, Visited);
   } else if (dyn_cast<AllocaInst>(pValue)) {
     ReachingDecls.emplace(pValue);

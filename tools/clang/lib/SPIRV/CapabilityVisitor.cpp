@@ -38,6 +38,10 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
   // Integer-related capabilities
   if (const auto *intType = dyn_cast<IntegerType>(type)) {
     switch (intType->getBitwidth()) {
+    case 8: {
+      addCapability(spv::Capability::Int8);
+      break;
+    }
     case 16: {
       // Usage of a 16-bit integer type.
       addCapability(spv::Capability::Int16);
@@ -167,7 +171,16 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
     if (imageType->isArrayedImage() && imageType->isMSImage())
       addCapability(spv::Capability::ImageMSArray);
 
-    addCapabilityForType(imageType->getSampledType(), loc, sc);
+    if (const auto *sampledType = imageType->getSampledType()) {
+      addCapabilityForType(sampledType, loc, sc);
+      if (const auto *sampledIntType = dyn_cast<IntegerType>(sampledType)) {
+        if (sampledIntType->getBitwidth() == 64) {
+          addCapability(spv::Capability::Int64ImageEXT);
+          addExtension(Extension::EXT_shader_image_int64,
+                       "64-bit image types in resource", loc);
+        }
+      }
+    }
   }
   // Sampled image type
   else if (const auto *sampledImageType = dyn_cast<SampledImageType>(type)) {
@@ -201,15 +214,17 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
       addCapability(spv::Capability::RayTracingNV);
       addExtension(Extension::NV_ray_tracing, "SPV_NV_ray_tracing", {});
     } else {
-      // KHR_ray_tracing extension requires SPIR-V 1.4/Vulkan 1.2
-      featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_2, "Raytracing", {});
-      addCapability(spv::Capability::RayTracingProvisionalKHR);
+      // KHR_ray_tracing extension requires Vulkan 1.1 with VK_KHR_spirv_1_4
+      // extention or Vulkan 1.2.
+      featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1_SPIRV_1_4,
+                                      "Raytracing", {});
+      addCapability(spv::Capability::RayTracingKHR);
       addExtension(Extension::KHR_ray_tracing, "SPV_KHR_ray_tracing", {});
     }
   }
-  // RayQueryProvisionalTypeKHR type
-  else if (isa<RayQueryProvisionalTypeKHR>(type)) {
-    addCapability(spv::Capability::RayQueryProvisionalKHR);
+  // RayQueryTypeKHR type
+  else if (isa<RayQueryTypeKHR>(type)) {
+    addCapability(spv::Capability::RayQueryKHR);
     addExtension(Extension::KHR_ray_query, "SPV_KHR_ray_query", {});
   }
 }
@@ -344,10 +359,10 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
                    "SV_Barycentrics", loc);
       break;
     }
-    case spv::BuiltIn::FragSizeEXT: {
-      addExtension(Extension::EXT_fragment_invocation_density, "SV_ShadingRate",
-                   loc);
-      addCapability(spv::Capability::FragmentDensityEXT);
+    case spv::BuiltIn::ShadingRateKHR:
+    case spv::BuiltIn::PrimitiveShadingRateKHR: {
+      addExtension(Extension::KHR_fragment_shading_rate, "SV_ShadingRate", loc);
+      addCapability(spv::Capability::FragmentShadingRateKHR);
       break;
     }
     default:
@@ -433,6 +448,17 @@ bool CapabilityVisitor::visitInstruction(SpirvInstruction *instr) {
     addCapability(getNonUniformCapability(resultType));
   }
 
+  if (instr->getKind() == SpirvInstruction::IK_SpirvIntrinsicInstruction) {
+    SpirvIntrinsicInstruction *pSpvInst =
+        dyn_cast<SpirvIntrinsicInstruction>(instr);
+    for (auto &cap : pSpvInst->getCapabilities()) {
+      addCapability(static_cast<spv::Capability>(cap));
+    }
+    for (const auto &ext : pSpvInst->getExtensions()) {
+      spvBuilder.requireExtension(ext, loc);
+    }
+  }
+
   // Add opcode-specific capabilities
   switch (opcode) {
   case spv::Op::OpDPdxCoarse:
@@ -500,7 +526,7 @@ bool CapabilityVisitor::visitInstruction(SpirvInstruction *instr) {
     auto rayQueryInst = dyn_cast<SpirvRayQueryOpKHR>(instr);
     if (rayQueryInst->hasCullFlags()) {
       addCapability(
-          spv::Capability::RayTraversalPrimitiveCullingProvisionalKHR);
+          spv::Capability::RayTraversalPrimitiveCullingKHR);
     }
 
     break;
@@ -538,9 +564,11 @@ bool CapabilityVisitor::visit(SpirvEntryPoint *entryPoint) {
       addCapability(spv::Capability::RayTracingNV);
       addExtension(Extension::NV_ray_tracing, "SPV_NV_ray_tracing", {});
     } else {
-      // KHR_ray_tracing extension requires SPIR-V 1.4/Vulkan 1.2
-      featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_2, "Raytracing", {});
-      addCapability(spv::Capability::RayTracingProvisionalKHR);
+      // KHR_ray_tracing extension requires Vulkan 1.1 with VK_KHR_spirv_1_4
+      // extention or Vulkan 1.2.
+      featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1_SPIRV_1_4,
+                                      "Raytracing", {});
+      addCapability(spv::Capability::RayTracingKHR);
       addExtension(Extension::KHR_ray_tracing, "SPV_KHR_ray_tracing", {});
     }
     break;
@@ -593,11 +621,42 @@ bool CapabilityVisitor::visit(SpirvExtInst *instr) {
   return visitInstruction(instr);
 }
 
+bool CapabilityVisitor::visit(SpirvAtomic *instr) {
+  if (instr->hasValue() && SpirvType::isOrContainsType<IntegerType, 64>(
+                               instr->getValue()->getResultType())) {
+    addCapability(spv::Capability::Int64Atomics, instr->getSourceLocation());
+  }
+  return true;
+}
+
 bool CapabilityVisitor::visit(SpirvDemoteToHelperInvocationEXT *inst) {
   addCapability(spv::Capability::DemoteToHelperInvocationEXT,
                 inst->getSourceLocation());
   addExtension(Extension::EXT_demote_to_helper_invocation, "discard",
                inst->getSourceLocation());
+  return true;
+}
+
+bool CapabilityVisitor::visit(SpirvReadClock *inst) {
+  auto loc = inst->getSourceLocation();
+  addCapabilityForType(inst->getResultType(), loc, inst->getStorageClass());
+  addCapability(spv::Capability::ShaderClockKHR, loc);
+  addExtension(Extension::KHR_shader_clock, "ReadClock", loc);
+  return true;
+}
+
+bool CapabilityVisitor::visit(SpirvModule *, Visitor::Phase phase) {
+  // If there are no entry-points in the module (hence shaderModel is not set),
+  // add the Linkage capability. This allows library shader models to use
+  // 'export' attribute on functions, and generate an "incomplete/partial"
+  // SPIR-V binary.
+  // ExecutionModel::Max means that no entrypoints exist, therefore we should
+  // add the Linkage Capability.
+  if (phase == Visitor::Phase::Done &&
+      shaderModel == spv::ExecutionModel::Max) {
+    addCapability(spv::Capability::Shader);
+    addCapability(spv::Capability::Linkage);
+  }
   return true;
 }
 

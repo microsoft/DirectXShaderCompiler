@@ -61,6 +61,7 @@ bool validateSpirvBinary(spv_target_env env, std::vector<uint32_t> &binary,
 
 bool processRunCommandArgs(const llvm::StringRef runCommandLine,
                            std::string *targetProfile, std::string *entryPoint,
+                           spv_target_env *targetEnv,
                            std::vector<std::string> *restArgs) {
   std::istringstream buf(runCommandLine);
   std::istream_iterator<std::string> start(buf), end;
@@ -74,12 +75,30 @@ bool processRunCommandArgs(const llvm::StringRef runCommandLine,
 
   std::ostringstream rest;
   for (uint32_t i = 3; i < tokens.size(); ++i) {
-    if (tokens[i] == "-T" && (++i) < tokens.size())
+    if (tokens[i] == "-T" && (++i) < tokens.size()) {
       *targetProfile = tokens[i];
-    else if (tokens[i] == "-E" && (++i) < tokens.size())
+    } else if (tokens[i] == "-E" && (++i) < tokens.size()) {
       *entryPoint = tokens[i];
-    else
+    } else if (tokens[i].substr(0, 17) == "-fspv-target-env=") {
+      std::string targetEnvStr = tokens[i].substr(17);
+      if (targetEnvStr == "vulkan1.0")
+        *targetEnv = SPV_ENV_VULKAN_1_0;
+      else if (targetEnvStr == "vulkan1.1")
+        *targetEnv = SPV_ENV_VULKAN_1_1;
+      else if (targetEnvStr == "vulkan1.2")
+        *targetEnv = SPV_ENV_VULKAN_1_2;
+      else if (targetEnvStr == "universal1.5")
+        *targetEnv = SPV_ENV_UNIVERSAL_1_5;
+      else {
+        fprintf(stderr, "Error: Found unknown target environment.\n");
+        return false;
+      }
+      // Also push target environment to restArgs so that it gets passed to the
+      // compile command.
       restArgs->push_back(tokens[i]);
+    } else {
+      restArgs->push_back(tokens[i]);
+    }
   }
 
   if (targetProfile->empty()) {
@@ -122,13 +141,37 @@ std::string getAbsPathOfInputDataFile(const llvm::StringRef filename) {
   return path;
 }
 
-bool runCompilerWithSpirvGeneration(const llvm::StringRef inputFilePath,
+bool compileFileWithSpirvGeneration(const llvm::StringRef inputFilePath,
                                     const llvm::StringRef entryPoint,
                                     const llvm::StringRef targetProfile,
                                     const std::vector<std::string> &restArgs,
                                     std::vector<uint32_t> *generatedBinary,
                                     std::string *errorMessages) {
-  std::wstring srcFile(inputFilePath.begin(), inputFilePath.end());
+  return compileWithSpirvGeneration({inputFilePath, ""}, entryPoint,
+                                    targetProfile, restArgs, generatedBinary,
+                                    errorMessages);
+}
+
+bool compileCodeWithSpirvGeneration(const llvm::StringRef inputFilePath,
+                                    const llvm::StringRef code,
+                                    const llvm::StringRef entryPoint,
+                                    const llvm::StringRef targetProfile,
+                                    const std::vector<std::string> &restArgs,
+                                    std::vector<uint32_t> *generatedBinary,
+                                    std::string *errorMessages) {
+  return compileWithSpirvGeneration({inputFilePath, code}, entryPoint,
+                                    targetProfile, restArgs, generatedBinary,
+                                    errorMessages);
+}
+
+bool compileWithSpirvGeneration(const SourceCodeInfo &srcInfo,
+                                const llvm::StringRef entryPoint,
+                                const llvm::StringRef targetProfile,
+                                const std::vector<std::string> &restArgs,
+                                std::vector<uint32_t> *generatedBinary,
+                                std::string *errorMessages) {
+  std::wstring srcFile(srcInfo.inputFilePath.begin(),
+                       srcInfo.inputFilePath.end());
   std::wstring entry(entryPoint.begin(), entryPoint.end());
   std::wstring profile(targetProfile.begin(), targetProfile.end());
 
@@ -148,7 +191,6 @@ bool runCompilerWithSpirvGeneration(const llvm::StringRef inputFilePath,
     CComPtr<IDxcLibrary> pLibrary;
     CComPtr<IDxcCompiler> pCompiler;
     CComPtr<IDxcOperationResult> pResult;
-    CComPtr<IDxcBlobEncoding> pSource;
     CComPtr<IDxcBlobEncoding> pErrorBuffer;
     CComPtr<IDxcBlob> pCompiledBlob;
     CComPtr<IDxcIncludeHandler> pIncludeHandler;
@@ -156,7 +198,7 @@ bool runCompilerWithSpirvGeneration(const llvm::StringRef inputFilePath,
 
     bool requires_opt = false;
     for (const auto &arg : rest)
-      if (arg == L"-O3" || arg.substr(0, 8) == L"-Oconfig")
+      if (arg == L"-O3" || arg == L"-O0" || arg.substr(0, 8) == L"-Oconfig")
         requires_opt = true;
 
     std::vector<LPCWSTR> flags;
@@ -178,7 +220,16 @@ bool runCompilerWithSpirvGeneration(const llvm::StringRef inputFilePath,
       flags.push_back(arg.c_str());
 
     IFT(dllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
-    IFT(pLibrary->CreateBlobFromFile(srcFile.c_str(), nullptr, &pSource));
+
+    CComPtr<IDxcBlobEncoding> pSource;
+    if (srcInfo.code.empty()) {
+      IFT(pLibrary->CreateBlobFromFile(srcFile.c_str(), nullptr, &pSource));
+    } else {
+      IFT(pLibrary->CreateBlobWithEncodingOnHeapCopy(
+          srcInfo.code.data(), static_cast<uint32_t>(srcInfo.code.size()),
+          CP_UTF8, &pSource));
+    }
+
     IFT(pLibrary->CreateIncludeHandler(&pIncludeHandler));
     IFT(dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
     IFT(pCompiler->Compile(pSource, srcFile.c_str(), entry.c_str(),

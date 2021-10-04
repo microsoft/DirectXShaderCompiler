@@ -544,7 +544,12 @@ bool Sema::CheckParameterPacksForExpansion(
   RetainExpansion = false;
   std::pair<IdentifierInfo *, SourceLocation> FirstPack;
   bool HaveFirstPack = false;
-  
+
+  if (getLangOpts().HLSL) {
+    Diag(EllipsisLoc, diag::err_hlsl_variadic_templates);
+    return true;
+  }
+
   for (ArrayRef<UnexpandedParameterPack>::iterator i = Unexpanded.begin(),
                                                  end = Unexpanded.end();
                                                   i != end; ++i) {
@@ -747,6 +752,8 @@ bool Sema::containsUnexpandedParameterPacks(Declarator &D) {
   case TST_min16uint:
   case TST_min10float:
   case TST_min12int:
+  case TST_int8_4packed:
+  case TST_uint8_4packed:
   // HLSL Change End
     break;
   }

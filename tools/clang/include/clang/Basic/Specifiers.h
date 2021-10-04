@@ -52,6 +52,8 @@ namespace clang {
     TST_min16uint,
     TST_min10float,
     TST_min12int,
+    TST_int8_4packed,
+    TST_uint8_4packed,
     // HLSL Changes end
     TST_half,         // OpenCL half, ARM NEON __fp16
     TST_halffloat, // HLSL Change

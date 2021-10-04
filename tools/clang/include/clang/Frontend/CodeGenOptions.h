@@ -20,8 +20,10 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <set>
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h" // HLSL change
 #include "dxc/Support/SPIRVOptions.h" // SPIR-V Change
+#include "dxc/DxcBindingTable/DxcBindingTable.h" // HLSL chanhge
 
 namespace clang {
 
@@ -194,6 +196,12 @@ public:
   bool HLSLAvoidControlFlow = false;
   /// Force [flatten] on every if.
   bool HLSLAllResourcesBound = false;
+  /// Skip adding optional semantics defines except ones which are required for correctness.
+  bool HLSLIgnoreOptSemDefs = false;
+  /// List of semantic defines that must be ignored.
+  std::set<std::string> HLSLIgnoreSemDefs;
+  /// List of semantic defines that must be overridden with user-provided values.
+  std::map<std::string, std::string> HLSLOverrideSemDefs;
   /// Major version of validator to run.
   unsigned HLSLValidatorMajorVer = 0;
   /// Minor version of validator to run.
@@ -228,6 +236,16 @@ public:
   std::map<std::string, std::string> HLSLOptimizationSelects;
   /// Debug option to print IR after every pass
   bool HLSLPrintAfterAll = false;
+  /// Force-replace lifetime intrinsics by zeroinitializer stores.
+  bool HLSLForceZeroStoreLifetimes = false;
+  /// Enable lifetime marker generation
+  bool HLSLEnableLifetimeMarkers = false;
+  /// Put shader sources and options in the module
+  bool HLSLEmbedSourcesInModule = false;
+  /// Enable generation of payload access qualifier metadata. 
+  bool HLSLEnablePayloadAccessQualifiers = false;
+  /// Binding table for HLSL resources
+  hlsl::DxcBindingTable HLSLBindingTable;
   // HLSL Change Ends
 
   // SPIRV Change Starts
