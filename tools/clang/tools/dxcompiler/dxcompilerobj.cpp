@@ -119,15 +119,17 @@ struct CompilerVersionPartWriter {
       IFT(pVersionInfo2->GetCommitInfo(&CommitCount, &m_CommitShaStorage));
       m_CommitSha = llvm::StringRef(m_CommitShaStorage.m_pData, strlen(m_CommitShaStorage.m_pData));
       m_Header.CommitCount = CommitCount;
-      m_Header.VersionStringListSizeInBytes += m_CommitSha.size() + /*null term*/1;
+      m_Header.VersionStringListSizeInBytes += m_CommitSha.size();
     }
+    m_Header.VersionStringListSizeInBytes += /*null term*/ 1;
 
     CComPtr<IDxcVersionInfo3> pVersionInfo3;
     if (SUCCEEDED(pVersionInfo->QueryInterface(&pVersionInfo3))) {
       IFT(pVersionInfo3->GetCustomVersionString(&m_CustomStringStorage));
       m_CustomString = llvm::StringRef(m_CustomStringStorage, strlen(m_CustomStringStorage.m_pData));
-      m_Header.VersionStringListSizeInBytes += m_CustomString.size() + /*null term*/1;
+      m_Header.VersionStringListSizeInBytes += m_CustomString.size();
     }
+    m_Header.VersionStringListSizeInBytes += /*null term*/ 1;
   }
 
   static uint32_t PadToDword(uint32_t size, uint32_t *outNumPadding=nullptr) {
@@ -561,6 +563,8 @@ class DxcCompiler : public IDxcCompiler3,
                     public IDxcVersionInfo3,
 #ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
                     public IDxcVersionInfo2
+#else
+                    public IDxcVersionInfo
 #endif // SUPPORT_QUERY_GIT_COMMIT_INFO
 {
 private:
@@ -1340,10 +1344,16 @@ public:
     compiler.getLangOpts().HLSLVersion = (unsigned) Opts.HLSLVersion;
     compiler.getLangOpts().EnableDX9CompatMode = Opts.EnableDX9CompatMode;
     compiler.getLangOpts().EnableFXCCompatMode = Opts.EnableFXCCompatMode;
+    compiler.getLangOpts().EnableTemplates = Opts.EnableTemplates;
+    compiler.getLangOpts().EnableOperatorOverloading =
+        Opts.EnableOperatorOverloading;
+    compiler.getLangOpts().StrictUDTCasting = Opts.StrictUDTCasting;
 
     compiler.getLangOpts().UseMinPrecision = !Opts.Enable16BitTypes;
 
     compiler.getLangOpts().EnablePayloadAccessQualifiers = Opts.EnablePayloadQualifiers;
+    compiler.getLangOpts().EnableShortCircuit = Opts.EnableShortCircuit;
+    compiler.getLangOpts().EnableBitfields = Opts.EnableBitfields;
 
 // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN

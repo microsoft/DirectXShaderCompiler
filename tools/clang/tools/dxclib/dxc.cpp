@@ -229,10 +229,10 @@ static void WriteDxcExtraOuputs(IDxcResult *pResult) {
     CComPtr<IDxcBlobUtf16> pFileName;
     CComPtr<IDxcBlobUtf16> pType;
     CComPtr<IDxcBlob> pBlob;
-    IFT(pOutputs->GetOutput(i, IID_PPV_ARGS(&pBlob), &pType, &pFileName));
+    HRESULT hr = pOutputs->GetOutput(i, IID_PPV_ARGS(&pBlob), &pType, &pFileName);
 
     // Not a blob
-    if (!pBlob)
+    if (FAILED(hr))
       continue;
 
     UINT32 uCodePage = CP_ACP;

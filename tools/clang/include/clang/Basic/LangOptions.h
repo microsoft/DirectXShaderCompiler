@@ -149,16 +149,21 @@ public:
 #endif
 
   // HLSL Change Starts
-  unsigned HLSLVersion; 
+  unsigned HLSLVersion = 2018;
   std::string HLSLEntryFunction;
   std::string HLSLProfile;
-  unsigned RootSigMajor;
-  unsigned RootSigMinor;
-  bool IsHLSLLibrary;
-  bool UseMinPrecision; // use min precision, not native precision.
-  bool EnableDX9CompatMode;
-  bool EnableFXCCompatMode;
-  bool EnablePayloadAccessQualifiers;
+  unsigned RootSigMajor = 1;
+  unsigned RootSigMinor = 1;
+  bool IsHLSLLibrary = false;
+  bool UseMinPrecision = true; // use min precision, not native precision.
+  bool EnableDX9CompatMode = false;
+  bool EnableFXCCompatMode = false;
+  bool EnableTemplates = false;
+  bool EnableOperatorOverloading = false;
+  bool StrictUDTCasting = false;
+  bool EnablePayloadAccessQualifiers = false;
+  bool EnableShortCircuit = false;
+  bool EnableBitfields = false;
   // HLSL Change Ends
 
   bool SPIRV = false;  // SPIRV Change

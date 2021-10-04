@@ -3142,12 +3142,12 @@ static bool AdjustFunctionParmAndArgTypesForDeduction(Sema &S,
     //   - If A is an array type, the pointer type produced by the
     //     array-to-pointer standard conversion (4.2) is used in place of
     //     A for type deduction; otherwise,
-    if (ArgType->isArrayType())
-      ArgType = S.Context.getArrayDecayedType(ArgType);
+    //if (ArgType->isArrayType()) // HLSL Change
+    //  ArgType = S.Context.getArrayDecayedType(ArgType);
     //   - If A is a function type, the pointer type produced by the
     //     function-to-pointer standard conversion (4.3) is used in place
     //     of A for type deduction; otherwise,
-    else if (ArgType->isFunctionType())
+    if (ArgType->isFunctionType())
       ArgType = S.Context.getPointerType(ArgType);
     else {
       // - If A is a cv-qualified type, the top level cv-qualifiers of A's

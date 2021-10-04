@@ -23,6 +23,7 @@
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
+#include "llvm/Support/Debug.h"
 
 #include "CodeGenModule.h"
 #include "clang/Basic/LangOptions.h"
@@ -3394,6 +3395,45 @@ void ScopeInfo::LegalizeWholeReturnedScope() {
   }
 }
 
+void Scope::dump() {
+  auto &OS = llvm::dbgs();
+  switch (kind) {
+  case ScopeKind::IfScope:
+    OS << "If\n";
+    break;
+  case ScopeKind::LoopScope:
+    OS << "Loop\n";
+    break;
+  case ScopeKind::ReturnScope:
+    OS << "Return\n";
+    break;
+  case ScopeKind::SwitchScope:
+    OS << "Switch\n";
+    break;
+  case ScopeKind::FunctionScope:
+    OS << "Function\n";
+    break;
+  }
+  if (kind == ScopeKind::FunctionScope)
+    return;
+
+  OS << "parent:" << parentScopeIndex << "\n";
+  if (bWholeScopeReturned)
+    OS << "whole scope returned\n";
+  OS << "endBB:";
+  EndScopeBB->printAsOperand(OS);
+  OS << "\n";
+}
+
+void ScopeInfo::dump() {
+  auto &OS = llvm::dbgs();
+  for (unsigned i = 0; i < scopes.size(); ++i) {
+    Scope &scope = scopes[i];
+    OS << "Scope:" << i << "\n";
+    scope.dump();
+  }
+}
+
 } // namespace CGHLSLMSHelper
 
 namespace {
@@ -3406,9 +3446,12 @@ void updateEndScope(
   DXASSERT(it != EndBBToScopeIndexMap.end(),
            "fail to find endScopeBB in EndBBToScopeIndexMap");
   SmallVector<unsigned, 2> &scopeList = it->second;
-  // Don't need to update when not share endBB with other scope.
-  if (scopeList.size() < 2)
-    return;
+  // Update even when not share endBB with other scope.
+  // The endBB might be used by nested returns like the return 1 in
+  //if (b == 77)
+  //  return 0;
+  //else if (b != 3)
+  //  return 1;
   for (unsigned i : scopeList) {
     Scope &S = ScopeInfo.GetScope(i);
     // Don't update return endBB, because that is the Block has return branch.
@@ -3451,6 +3494,14 @@ void InitRetValue(BasicBlock *exitBB) {
   }
 }
 
+static void ChangePredBranch(BasicBlock *BB, BasicBlock *NewBB) {
+  for (auto predIt = pred_begin(BB); predIt != pred_end(BB);) {
+    BasicBlock *Pred = *(predIt++);
+    TerminatorInst *TI = Pred->getTerminator();
+    TI->replaceUsesOfWith(BB, NewBB);
+  }
+}
+
 // For functions has multiple returns like
 // float foo(float a, float b, float c) {
 //   float r = c;
@@ -3486,6 +3537,7 @@ void InitRetValue(BasicBlock *exitBB) {
 void StructurizeMultiRetFunction(Function *F, ScopeInfo &ScopeInfo,
                                  bool bWaveEnabledStage,
                                  SmallVector<BranchInst *, 16> &DxBreaks) {
+
   if (ScopeInfo.CanSkipStructurize())
     return;
   // Get bbWithRets.
@@ -3578,8 +3630,10 @@ void StructurizeMultiRetFunction(Function *F, ScopeInfo &ScopeInfo,
           BasicBlock *CmpBB = BasicBlock::Create(BB->getContext(),
                                                  "bReturned.cmp.false", F, BB);
 
-          // Make BB preds go to cmpBB.
-          BB->replaceAllUsesWith(CmpBB);
+          // Make BB preds go to cmpBB. Do this instead of replaceAllUsesWith
+          // because BB could have PHI nodes that reference it.
+          ChangePredBranch(BB, CmpBB);
+
           // Update endscopeBB to CmpBB for scopes which has BB as endscope.
           updateEndScope(ScopeInfo, EndBBToScopeIndexMap, BB, CmpBB);
 
@@ -3598,7 +3652,8 @@ void StructurizeMultiRetFunction(Function *F, ScopeInfo &ScopeInfo,
               BasicBlock::Create(BB->getContext(), "bReturned.cmp.true", F, BB);
           BasicBlock *BreakBB =
               BasicBlock::Create(BB->getContext(), "bReturned.break", F, BB);
-          BB->replaceAllUsesWith(CmpBB);
+          ChangePredBranch(BB, CmpBB);
+
           // Update endscopeBB to CmpBB for scopes which has BB as endscope.
           updateEndScope(ScopeInfo, EndBBToScopeIndexMap, BB, CmpBB);
 

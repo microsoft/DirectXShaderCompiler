@@ -186,6 +186,16 @@ void DxilPIXMeshShaderOutputInstrumentation::Instrument(BuilderContext &BC,
   }
 }
 
+Value* GetValueFromExpandedPayload(IRBuilder<> &Builder, StructType* originalPayloadStructType, Instruction* firstGetPayload, unsigned int offset, const char * name) {
+  auto *DerefPointer = Builder.getInt32(0);
+  auto *OffsetToExpandedData = Builder.getInt32(offset);
+  auto *GEP = Builder.CreateGEP(
+      cast<PointerType>(firstGetPayload->getType()->getScalarType())
+          ->getElementType(),
+      firstGetPayload, {DerefPointer, OffsetToExpandedData});
+  return Builder.CreateLoad(GEP, name);
+}
+
 SmallVector<Value*, 2> DxilPIXMeshShaderOutputInstrumentation::
     insertInstructionsToCreateDisambiguationValue(OP* HlslOP, LLVMContext& Ctx, StructType* originalPayloadStructType, Instruction* firstGetPayload) {
 
@@ -196,21 +206,34 @@ SmallVector<Value*, 2> DxilPIXMeshShaderOutputInstrumentation::
     // will have added that value to the AS->MS payload...
 
     IRBuilder<> Builder(firstGetPayload->getNextNode());
-    auto *DerefPointer = Builder.getInt32(0);
-    auto *OffsetToExpandedData = Builder.getInt32(originalPayloadStructType->getStructNumElements());
-    auto *GEP = Builder.CreateGEP(cast<PointerType>(firstGetPayload->getType()->getScalarType())->getElementType(), firstGetPayload, {DerefPointer, OffsetToExpandedData});
-    SmallVector<Value*, 2> ret;
-    ret.push_back(Builder.CreateLoad(GEP, "Disambiguator0"));
+
+    auto * ASThreadId = GetValueFromExpandedPayload(Builder, originalPayloadStructType, firstGetPayload, originalPayloadStructType->getStructNumElements(), "ASThreadId");
+    auto * ASDispatchMeshYCount = GetValueFromExpandedPayload(Builder, originalPayloadStructType, firstGetPayload, originalPayloadStructType->getStructNumElements() + 1, "ASDispatchMeshYCount");
+    auto * ASDispatchMeshZCount = GetValueFromExpandedPayload(Builder, originalPayloadStructType, firstGetPayload, originalPayloadStructType->getStructNumElements() + 2, "ASDispatchMeshZCount");
 
     Constant *Zero32Arg = HlslOP->GetU32Const(0);
+    Constant *One32Arg = HlslOP->GetU32Const(1);
+    Constant *Two32Arg = HlslOP->GetU32Const(2);
 
     auto GroupIdFunc =
         HlslOP->GetOpFunc(DXIL::OpCode::GroupId, Type::getInt32Ty(Ctx));
     Constant *Opcode = HlslOP->GetU32Const((unsigned)DXIL::OpCode::GroupId);
-    auto * GroupId =
-        Builder.CreateCall(GroupIdFunc, {Opcode, Zero32Arg}, "ThreadIdX");
+    auto * GroupIdX =
+        Builder.CreateCall(GroupIdFunc, {Opcode, Zero32Arg}, "GroupIdX");
+    auto * GroupIdY =
+        Builder.CreateCall(GroupIdFunc, {Opcode, One32Arg}, "GroupIdY");
+    auto * GroupIdZ =
+        Builder.CreateCall(GroupIdFunc, {Opcode, Two32Arg}, "GroupIdZ");
 
-    ret.push_back(GroupId);
+    auto *XxY =
+      Builder.CreateMul(GroupIdX, ASDispatchMeshYCount);
+    auto *XplusY = Builder.CreateAdd(GroupIdY, XxY);
+    auto *XYxZ = Builder.CreateMul(XplusY, ASDispatchMeshZCount);
+    auto *XYZ = Builder.CreateAdd(GroupIdZ, XYxZ);
+
+    SmallVector<Value *, 2> ret;
+    ret.push_back(ASThreadId);
+    ret.push_back(XYZ);
 
     return ret;
 }

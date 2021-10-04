@@ -26,7 +26,7 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:       Shader Version: Library 6.3
 // CHECK:       BoundResources: 1
 // CHECK:     Bound Resources:
-// CHECK:       D3D12_SHADER_BUFFER_DESC: Name: T1
+// CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: T1
 // CHECK:         Type: D3D_SIT_TEXTURE
 // CHECK:         uID: 1
 // CHECK:         BindCount: 1
@@ -41,7 +41,7 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:       Shader Version: Library 6.3
 // CHECK:       BoundResources: 2
 // CHECK:     Bound Resources:
-// CHECK:       D3D12_SHADER_BUFFER_DESC: Name: T0
+// CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: T0
 // CHECK:         Type: D3D_SIT_TEXTURE
 // CHECK:         uID: 0
 // CHECK:         BindCount: 1
@@ -51,7 +51,7 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:         Dimension: D3D_SRV_DIMENSION_BUFFER
 // CHECK:         NumSamples (or stride): 4294967295
 // CHECK:         uFlags: 0
-// CHECK:       D3D12_SHADER_BUFFER_DESC: Name: T2
+// CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: T2
 // CHECK:         Type: D3D_SIT_STRUCTURED
 // CHECK:         uID: 2
 // CHECK:         BindCount: 1
@@ -66,7 +66,7 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:       Shader Version: Vertex 6.3
 // CHECK:       BoundResources: 1
 // CHECK:     Bound Resources:
-// CHECK:       D3D12_SHADER_BUFFER_DESC: Name: T1
+// CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: T1
 // CHECK:         Type: D3D_SIT_TEXTURE
 // CHECK:         uID: 1
 // CHECK:         BindCount: 1
@@ -81,7 +81,7 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:       Shader Version: Pixel 6.3
 // CHECK:       BoundResources: 2
 // CHECK:     Bound Resources:
-// CHECK:       D3D12_SHADER_BUFFER_DESC: Name: T0
+// CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: T0
 // CHECK:         Type: D3D_SIT_TEXTURE
 // CHECK:         uID: 0
 // CHECK:         BindCount: 1
@@ -91,7 +91,7 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:         Dimension: D3D_SRV_DIMENSION_BUFFER
 // CHECK:         NumSamples (or stride): 4294967295
 // CHECK:         uFlags: 0
-// CHECK:       D3D12_SHADER_BUFFER_DESC: Name: T2
+// CHECK:       D3D12_SHADER_INPUT_BIND_DESC: Name: T2
 // CHECK:         Type: D3D_SIT_STRUCTURED
 // CHECK:         uID: 2
 // CHECK:         BindCount: 1

@@ -1983,6 +1983,8 @@ D3D_NAME SemanticToSystemValueType(const Semantic *S, DXIL::TessellatorDomain do
     default:
     return D3D_NAME_UNDEFINED;
     }
+  case Semantic::Kind::Barycentrics:
+    return (D3D_NAME)DxilProgramSigSemantic::Barycentrics;
   case Semantic::Kind::ShadingRate:
     return (D3D_NAME)DxilProgramSigSemantic::ShadingRate;
   case Semantic::Kind::CullPrimitive:
@@ -2047,6 +2049,8 @@ void DxilShaderReflection::CreateReflectionObjectsForSignature(
           Desc.SemanticIndex == 1)
         Desc.SystemValueType = D3D_NAME_FINAL_LINE_DETAIL_TESSFACTOR;
       Descs.push_back(Desc);
+      // When indexVec.size() > 1, subsequent indices need incremented register index
+      Desc.Register += 1;
     }
   }
 }

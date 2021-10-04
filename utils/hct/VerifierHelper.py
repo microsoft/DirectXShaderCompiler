@@ -53,12 +53,14 @@ VerifierTests = {
     'RunAttributes': 'attributes.hlsl',
     'RunBadInclude': 'bad-include.hlsl',
     'RunBinopDims': 'binop-dims.hlsl',
+    'RunBitfields': 'bitfields.hlsl',
     'RunBuiltinTypesNoInheritance': 'builtin-types-no-inheritance.hlsl',
     'RunCXX11Attributes': 'cxx11-attributes.hlsl',
     'RunConstAssign': 'const-assign.hlsl',
     'RunConstDefault': 'const-default.hlsl',
     'RunConstExpr': 'const-expr.hlsl',
     'RunConversionsBetweenTypeShapes': 'conversions-between-type-shapes.hlsl',
+    'RunConversionsBetweenTypeShapesStrictUDT': 'conversions-between-type-shapes-strictudt.hlsl',
     'RunConversionsNonNumericAggregates': 'conversions-non-numeric-aggregates.hlsl',
     'RunCppErrors': 'cpp-errors.hlsl',
     'RunCppErrorsHV2015': 'cpp-errors-hv2015.hlsl',
@@ -105,6 +107,7 @@ VerifierTests = {
 
 # The following test(s) do not work in fxc mode:
 fxcExcludedTests = [
+    'RunBitfields',
     'RunCppErrors',
     'RunCppErrorsHV2015',
     'RunCXX11Attributes',

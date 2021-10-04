@@ -1456,7 +1456,7 @@ public:
       if (F.isDeclaration())
         continue;
 
-      DenseSet<Instruction *> localGradientArgs;
+      SetVector<Instruction *> localGradientArgs;
       for (CallInst *CI : gradientOps) {
         if (CI->getParent()->getParent() == &F) {
           for (Value *V : CI->arg_operands()) {

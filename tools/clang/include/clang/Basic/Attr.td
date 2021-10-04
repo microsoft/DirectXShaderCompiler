@@ -1010,10 +1010,26 @@ def VKBinding : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def VKCapabilityExt : InheritableAttr {
+  let Spellings = [CXX11<"vk", "ext_capability">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Args = [IntArgument<"capability">];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
 def VKCounterBinding : InheritableAttr {
   let Spellings = [CXX11<"vk", "counter_binding">];
   let Subjects = SubjectList<[CounterStructuredBuffer], ErrorDiag, "ExpectedCounterStructuredBuffer">;
   let Args = [IntArgument<"Binding">];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+def VKExtensionExt : InheritableAttr {
+  let Spellings = [CXX11<"vk", "ext_extension">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Args = [StringArgument<"name">];
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];
 }
@@ -1079,6 +1095,28 @@ def VKInputAttachmentIndex : InheritableAttr {
   let Spellings = [CXX11<"vk", "input_attachment_index">];
   let Subjects = SubjectList<[SubpassInput], ErrorDiag, "ExpectedSubpassInput">;
   let Args = [IntArgument<"index">];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+def VKInstructionExt : InheritableAttr {
+  let Spellings = [CXX11<"vk", "ext_instruction">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Args = [IntArgument<"opcode">, StringArgument<"instruction_set", 1>];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+def VKLiteralExt : InheritableAttr {
+  let Spellings = [CXX11<"vk", "ext_literal">];
+  let Subjects = SubjectList<[ParmVar], ErrorDiag>;
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+def VKReferenceExt : InheritableAttr {
+  let Spellings = [CXX11<"vk", "ext_reference">];
+  let Subjects = SubjectList<[ParmVar], ErrorDiag>;
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];
 }

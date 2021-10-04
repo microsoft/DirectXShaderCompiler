@@ -1,4 +1,5 @@
 // RUN: %dxc -E main -T ps_6_0 -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_6 -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
 
 // -Vd -validator-version 0.0 is used to keep the reflection information
 // in the actual module containing the cbuffer/tbuffer usage info.
@@ -47,14 +48,14 @@ float main(int i : A) : SV_TARGET
 }
 
 // CHECK: ID3D12ShaderReflection:
-// CHECK-NEXT:   D3D12_SHADER_BUFFER_DESC:
-// CHECK-NEXT:     Shader Version: Pixel 6.0
+// CHECK-NEXT:   D3D12_SHADER_DESC:
+// CHECK-NEXT:     Shader Version: Pixel
 // CHECK:     Flags: 0
 // CHECK-NEXT:     ConstantBuffers: 1
 // CHECK-NEXT:     BoundResources: 1
 // CHECK-NEXT:     InputParameters: 1
 // CHECK-NEXT:     OutputParameters: 1
-// CHECK-NEXT:     InstructionCount: 26
+// CHECK-NEXT:     InstructionCount: 2{{[67]}}
 // CHECK-NEXT:     TempArrayCount: 0
 // CHECK-NEXT:     DynamicFlowControlCount: 0
 // CHECK-NEXT:     ArrayInstructionCount: 0
@@ -71,7 +72,7 @@ float main(int i : A) : SV_TARGET
 // CHECK-NEXT:     cBarrierInstructions: 0
 // CHECK-NEXT:     cInterlockedInstructions: 0
 // CHECK-NEXT:     cTextureStoreInstructions: 0
-// CHECK-NEXT:   Constant Buffers:
+// CHECK:   Constant Buffers:
 // CHECK-NEXT:     ID3D12ShaderReflectionConstantBuffer:
 // CHECK-NEXT:       D3D12_SHADER_BUFFER_DESC: Name: tb
 // CHECK-NEXT:         Type: D3D_CT_TBUFFER
@@ -241,7 +242,7 @@ float main(int i : A) : SV_TARGET
 // CHECK-NEXT:           CBuffer: tb
 // CHECK-NEXT:       }
 // CHECK-NEXT:   Bound Resources:
-// CHECK-NEXT:     D3D12_SHADER_BUFFER_DESC: Name: tb
+// CHECK-NEXT:     D3D12_SHADER_INPUT_BIND_DESC: Name: tb
 // CHECK-NEXT:       Type: D3D_SIT_TBUFFER
 // CHECK-NEXT:       uID: 0
 // CHECK-NEXT:       BindCount: 1
