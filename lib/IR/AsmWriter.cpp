@@ -3363,41 +3363,6 @@ void MDNode::printAsBody(raw_ostream &OS, ModuleSlotTracker &MST, const Module *
     TypePrinter.incorporateTypes(*M);
   WriteMDNodeBodyInternal(OS, this, &TypePrinter, MST.getMachine(), M);
 }
-
-LLVM_DUMP_METHOD
-void Value::dumpToFile(const char *path) const {
-  FILE *f = nullptr;
-  fopen_s(&f, path, "wb");
-  if (!f) {
-    fprintf(stderr, "Failed to open file '%s' to write.", path);
-    return;
-  }
-  std::string str;
-  llvm::raw_string_ostream os(str);
-  print(os);
-  os.flush();
-
-  fwrite(str.c_str(), 1, str.size(), f);
-  fclose(f);
-}
-
-LLVM_DUMP_METHOD
-void Module::dumpToFile(const char *path) const {
-  FILE *f = nullptr;
-  fopen_s(&f, path, "wb");
-  if (!f) {
-    fprintf(stderr, "Failed to open file '%s' to write.", path);
-    return;
-  }
-  std::string str;
-  llvm::raw_string_ostream os(str);
-  print(os, nullptr);
-  os.flush();
-
-  fwrite(str.c_str(), 1, str.size(), f);
-  fclose(f);
-}
-
 // HLSL Change end
 
 // Value::dump - allow easy printing of Values from the debugger.
