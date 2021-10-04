@@ -3,15 +3,18 @@
 
 // Just check that the selection prolog was added:
 
-// CHECK:  %RayX = call i32 @dx.op.dispatchRaysIndex.i32(i32 145, i8 0)
-// CHECK:  %RayY = call i32 @dx.op.dispatchRaysIndex.i32(i32 145, i8 1)
-// CHECK:  %RayZ = call i32 @dx.op.dispatchRaysIndex.i32(i32 145, i8 2)
+// CHECK: call i32 @dx.op.dispatchRaysIndex.i32(i32 145, i8 0)
+// CHECK: call i32 @dx.op.dispatchRaysIndex.i32(i32 145, i8 1)
+// CHECK: call i32 @dx.op.dispatchRaysIndex.i32(i32 145, i8 2)
 
-// CHECK: %CompareToThreadIdX
-// CHECK: %CompareToThreadIdY
-// CHECK: %CompareToThreadIdZ
-// CHECK: %CompareXAndY
-// CHECK: %CompareAll
+// There must be three compares:
+// CHECK: = icmp eq i32
+// CHECK: = icmp eq i32
+// CHECK: = icmp eq i32
+
+// Two ANDs of these bools:
+// CHECK: and i1
+// CHECK: and i1
 
 
 
