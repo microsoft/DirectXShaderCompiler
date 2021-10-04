@@ -69,17 +69,18 @@ static bool DeleteDeadAllocas(Function &F) {
       Add(AI);
       while (WorkList.size()) {
         Value *V = WorkList.pop_back_val();
-        if (isa<LoadInst>(V)) {
-          return false;
-        }
-        else if (isa<GEPOperator>(V) ||
-                 isa<BitCastOperator>(V) ||
-                 isa<AllocaInst>(V) ||
-                 isa<StoreInst>(V))
+        // Keep adding users if we encounter one of these.
+        // None of them imply the alloca is being read.
+        if (isa<GEPOperator>(V) ||
+            isa<BitCastOperator>(V) ||
+            isa<AllocaInst>(V) ||
+            isa<StoreInst>(V))
         {
           for (User *U : V->users())
             Add(U);
         }
+        // If it's anything else, we'll assume it's reading the
+        // alloca. Give up.
         else {
           return false;
         }
@@ -88,13 +89,14 @@ static bool DeleteDeadAllocas(Function &F) {
       if (!Seen.size())
         return false;
 
+      // Delete all the instructions associated with the
+      // alloca.
       for (Value *V : Seen) {
         Instruction *I = dyn_cast<Instruction>(V);
         if (I) {
           I->dropAllReferences();
         }
       }
-
       for (Value *V : Seen) {
         Instruction *I = dyn_cast<Instruction>(V);
         if (I) {
@@ -319,7 +321,8 @@ static bool ShouldNotReplaceValue(Value *V) {
 // Delete all the rest
 // 
 // Also replace any values that the value cache determined can be
-// replaced by a constant.
+// replaced by a constant, with the exception of a few intrinsics that
+// we expect to see in the output.
 //
 static bool DeleteNonContributingValues(Function &F, DxilValueCache *DVC) {
 
