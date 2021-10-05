@@ -4,9 +4,8 @@
 // loop values that just move around in a loop but
 // don't actually contribute.
 
-// Notes: This test relies on root signature validation.
-
 // CHECK: @main
+// CHECK-NOT: createHandle
 
 Texture2D t0 : register(t0); // Unbound resource
 
