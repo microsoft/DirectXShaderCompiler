@@ -43,20 +43,20 @@ float main() : SV_Target {
   // CHECK: load i32, i32*
   // CHECK: @dx.nothing
   bar(s);
-    // CHECK: fmul
-    // CHECK: fmul
+    // xHECK: fmul
+    // xHECK: fmul
     // CHECK: load i32, i32*
     // CHECK: @dx.nothing
 
   // CHECK: load i32, i32*
   // CHECK: @dx.nothing
   baz(s.x, s.y);
-    // CHECK: fmul
-    // CHECK: fmul
+    // xHECK: fmul
+    // xHECK: fmul
     // CHECK: load i32, i32*
     // CHECK: @dx.nothing
 
-  // CHECK: fadd
+  // xHECK: fadd
   return s.x + s.y;
 }
 

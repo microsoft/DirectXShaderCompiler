@@ -33,7 +33,7 @@ float4 main(float2 uv : TEXCOORD) : SV_Target {
   // CHECK: dx.nothing
 
   int e = d + b;
-  // CHECK: %[[add:.+]] = add
+  // xHECK: %[[add:.+]] = add
 
   // CHECK: call %dx.types.ResRet.f32 @dx.op.sample.f32(i32 60, 
   // CHECK-SAME: i32 7, i32 -8
