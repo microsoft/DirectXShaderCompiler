@@ -297,13 +297,7 @@ static bool IsDxBreak(Instruction *I) {
 }
 
 static bool IsIsHelperLane(Instruction *I) {
-  CallInst *CI = dyn_cast<CallInst>(I);
-  if (!CI) return false;
-  Function *CalledFunction = CI->getCalledFunction();
-  if (hlsl::OP::IsDxilOpFunc(CalledFunction)) {
-    return hlsl::OP::GetDxilOpFuncCallInst(CI) == hlsl::DXIL::OpCode::IsHelperLane;
-  }
-  return false;
+  return hlsl::OP::IsDxilOpFuncCallInst(I, hlsl::DXIL::OpCode::IsHelperLane);
 }
 
 static bool ShouldNotReplaceValue(Value *V) {
