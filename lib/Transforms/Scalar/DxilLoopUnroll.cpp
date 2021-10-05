@@ -1164,6 +1164,8 @@ bool DxilLoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM) {
       FailLoopUnroll(false, F, LoopLoc, "Could not unroll loop due to out of bound array access.");
     }
 
+    DVC->ResetUnknowns();
+
     return true;
   }
 
