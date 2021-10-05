@@ -306,7 +306,7 @@ static bool IsIsHelperLane(Instruction *I) {
 
 static bool ShouldNotReplaceValue(Value *V) {
   Instruction *I = dyn_cast<Instruction>(V);
-  return I && (IsPreserveRelatedValue(I) || IsDxBreak(I) || IsIsHelperLane(I));
+  return I && (IsDxBreak(I) || IsIsHelperLane(I));
 }
 
 namespace {
