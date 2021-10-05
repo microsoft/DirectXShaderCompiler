@@ -44,7 +44,8 @@ using namespace hlsl;
 namespace {
 
 struct MiniDCE {
-  // Use a set vector because we need to
+  // Use a set vector because the same value could be added more than once, which
+  // could lead to double free.
   SetVector<Instruction *> Worklist;
   void EraseAndProcessOperands(Instruction *TopI);
 };
