@@ -11,11 +11,15 @@ struct Payload {
     float color[2];
 };
 
+cbuffer cb : register(b0) {
+  float foo;
+};
+
 [numthreads(NUM_THREADS, 1, 1)]
 void main(uint3 gid : SV_GroupThreadID)
 {
     Payload pld;
-    float x = gid.x;
+    float x = foo;
 #if defined(__SHADER_TARGET_STAGE) && __SHADER_TARGET_STAGE == __SHADER_STAGE_AMPLIFICATION
     x += 1;
 #else
