@@ -44,69 +44,73 @@ static void RemoveIncomingValueFrom(BasicBlock *SuccBB, BasicBlock *BB) {
   }
 }
 
+namespace {
+
+struct AllocaDeleter {
+  SmallVector<Value *, 10> WorkList;
+  std::unordered_set<Value *> Seen;
+
+  void Add(Value *V) {
+    if (!Seen.count(V)) {
+      Seen.insert(V);
+      WorkList.push_back(V);
+    }
+  }
+
+  bool TryDeleteUnusedAlloca(AllocaInst *AI) {
+    Seen.clear();
+    WorkList.clear();
+
+    Add(AI);
+    while (WorkList.size()) {
+      Value *V = WorkList.pop_back_val();
+      // Keep adding users if we encounter one of these.
+      // None of them imply the alloca is being read.
+      if (isa<GEPOperator>(V) ||
+          isa<BitCastOperator>(V) ||
+          isa<AllocaInst>(V) ||
+          isa<StoreInst>(V))
+      {
+        for (User *U : V->users())
+          Add(U);
+      }
+      // If it's anything else, we'll assume it's reading the
+      // alloca. Give up.
+      else {
+        return false;
+      }
+    }
+
+    if (!Seen.size())
+      return false;
+
+    // Delete all the instructions associated with the
+    // alloca.
+    for (Value *V : Seen) {
+      Instruction *I = dyn_cast<Instruction>(V);
+      if (I) {
+        I->dropAllReferences();
+      }
+    }
+    for (Value *V : Seen) {
+      Instruction *I = dyn_cast<Instruction>(V);
+      if (I) {
+        I->eraseFromParent();
+      }
+    }
+
+    return true;
+  }
+};
+
+}
+
 // Finds all allocas that only have stores and delete them.
 // These allocas hold on to values that do not contribute to the
 // shader's results.
 static bool DeleteDeadAllocas(Function &F) {
   if (F.empty())
     return false;
-
-  struct AllocaDeleter {
-    SmallVector<Value *, 10> WorkList;
-    std::unordered_set<Value *> Seen;
-
-    void Add(Value *V) {
-      if (!Seen.count(V)) {
-        Seen.insert(V);
-        WorkList.push_back(V);
-      }
-    }
-
-    bool TryDeleteUnusedAlloca(AllocaInst *AI) {
-      Seen.clear();
-      WorkList.clear();
-
-      Add(AI);
-      while (WorkList.size()) {
-        Value *V = WorkList.pop_back_val();
-        // Keep adding users if we encounter one of these.
-        // None of them imply the alloca is being read.
-        if (isa<GEPOperator>(V) ||
-            isa<BitCastOperator>(V) ||
-            isa<AllocaInst>(V) ||
-            isa<StoreInst>(V))
-        {
-          for (User *U : V->users())
-            Add(U);
-        }
-        // If it's anything else, we'll assume it's reading the
-        // alloca. Give up.
-        else {
-          return false;
-        }
-      }
-
-      if (!Seen.size())
-        return false;
-
-      // Delete all the instructions associated with the
-      // alloca.
-      for (Value *V : Seen) {
-        Instruction *I = dyn_cast<Instruction>(V);
-        if (I) {
-          I->dropAllReferences();
-        }
-      }
-      for (Value *V : Seen) {
-        Instruction *I = dyn_cast<Instruction>(V);
-        if (I) {
-          I->eraseFromParent();
-        }
-      }
-
-      return true;
-    }
-  };
 
   AllocaDeleter Deleter;
   BasicBlock &Entry = *F.begin();
@@ -305,6 +309,65 @@ static bool ShouldNotReplaceValue(Value *V) {
   return I && (IsPreserveRelatedValue(I) || IsDxBreak(I) || IsIsHelperLane(I));
 }
 
+namespace {
+
+struct ValueDeleter {
+  std::unordered_set<Value *> Seen;
+  std::vector<Value *> WorkList;
+  void Add(Value *V) {
+    if (!Seen.count(V)) {
+      Seen.insert(V);
+      WorkList.push_back(V);
+    }
+  }
+  bool Run(Function &F, DxilValueCache *DVC) {
+    for (BasicBlock &BB : F) {
+      for (Instruction &I : BB) {
+        if (I.mayHaveSideEffects())
+          Add(&I);
+        else if (I.isTerminator())
+          Add(&I);
+      }
+    }
+
+    while (WorkList.size()) {
+      Value *V = WorkList.back();
+      WorkList.pop_back();
+      Instruction *I = dyn_cast<Instruction>(V);
+      if (I) {
+        for (Value * op : I->operands()) {
+          if (Instruction *OpI = dyn_cast<Instruction>(op))
+            Add(OpI);
+        }
+      }
+    }
+
+    bool Changed = false;
+    for (auto bb_it = F.getBasicBlockList().rbegin(), bb_end = F.getBasicBlockList().rend(); bb_it != bb_end; bb_it++) {
+      BasicBlock *BB = &*bb_it;
+      for (auto it = BB->begin(), end = BB->end(); it != end;) {
+        Instruction *I = &*(it++);
+        if (isa<DbgInfoIntrinsic>(I)) continue;
+        if (IsDxBreak(I)) continue;
+        if (!Seen.count(I)) {
+          if (!I->user_empty())
+            I->replaceAllUsesWith(UndefValue::get(I->getType()));
+          I->eraseFromParent();
+          Changed = true;
+        }
+        else if (Constant *C = DVC->GetConstValue(I)) {
+          I->replaceAllUsesWith(C);
+          I->eraseFromParent();
+          Changed = true;
+        }
+      }
+    }
+    return Changed;
+  } // Run
+};
+
+}
+
 // Iteratively and aggressively delete instructions that don't
 // contribute to the shader's output.
 // 
@@ -319,61 +382,6 @@ static bool ShouldNotReplaceValue(Value *V) {
 // we expect to see in the output.
 //
 static bool DeleteNonContributingValues(Function &F, DxilValueCache *DVC) {
-
-  struct ValueDeleter {
-    std::unordered_set<Value *> Seen;
-    std::vector<Value *> WorkList;
-    void Add(Value *V) {
-      if (!Seen.count(V)) {
-        Seen.insert(V);
-        WorkList.push_back(V);
-      }
-    }
-    bool Run(Function &F, DxilValueCache *DVC) {
-      for (BasicBlock &BB : F) {
-        for (Instruction &I : BB) {
-          if (I.mayHaveSideEffects())
-            Add(&I);
-          else if (I.isTerminator())
-            Add(&I);
-        }
-      }
-
-      while (WorkList.size()) {
-        Value *V = WorkList.back();
-        WorkList.pop_back();
-        Instruction *I = dyn_cast<Instruction>(V);
-        if (I) {
-          for (Value * op : I->operands()) {
-            if (Instruction *OpI = dyn_cast<Instruction>(op))
-              Add(OpI);
-          }
-        }
-      }
-
-      bool Changed = false;
-      for (auto bb_it = F.getBasicBlockList().rbegin(), bb_end = F.getBasicBlockList().rend(); bb_it != bb_end; bb_it++) {
-        BasicBlock *BB = &*bb_it;
-        for (auto it = BB->begin(), end = BB->end(); it != end;) {
-          Instruction *I = &*(it++);
-          if (isa<DbgInfoIntrinsic>(I)) continue;
-          if (IsDxBreak(I)) continue;
-          if (!Seen.count(I)) {
-            if (!I->user_empty())
-              I->replaceAllUsesWith(UndefValue::get(I->getType()));
-            I->eraseFromParent();
-            Changed = true;
-          }
-          else if (Constant *C = DVC->GetConstValue(I)) {
-            I->replaceAllUsesWith(C);
-            I->eraseFromParent();
-            Changed = true;
-          }
-        }
-      }
-      return Changed;
-    } // Run
-  };
 
   ValueDeleter Deleter;
 
