@@ -198,7 +198,7 @@ TEST_F(OptionsTest, ReadOptionsWhenInvalidThenFail) {
   const wchar_t *ArgsNoArg[] = {L"exe.exe", L"hlsl.hlsl", L"/E", L"main",
                                 L"/T"};
   const wchar_t *ArgsUnknown[] = { L"exe.exe", L"hlsl.hlsl", L"/E", L"main",
-    L"/T" L"ps_6_0", L"--unknown"};
+    (L"/T" L"ps_6_0"), L"--unknown"};
   const wchar_t *ArgsUnknownButIgnore[] = { L"exe.exe", L"hlsl.hlsl", L"/E", L"main",
     L"/T", L"ps_6_0", L"--unknown", L"-Qunused-arguments" };
   MainArgsArr ArgsNoTargetArr(ArgsNoTarget),
