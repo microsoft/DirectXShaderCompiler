@@ -3,6 +3,8 @@
 // Regression check for when resources are used by
 // arithmetic that can be trivially replaced by constants.
 
+// Notes: This test relies on root signature validation.
+
 // CHECK: @main
 
 Texture2D t0 : register(t0); // Unbound resource
