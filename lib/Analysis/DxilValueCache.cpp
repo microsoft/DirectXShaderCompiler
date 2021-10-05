@@ -61,7 +61,7 @@ void DxilValueCache::MarkUnreachable(BasicBlock *BB) {
 }
 
 bool DxilValueCache::IsAlwaysReachable_(BasicBlock *BB) {
-  if (Value *V = GetImpl(BB))
+  if (Value *V = ValueMap.Get(BB))
     if (IsConstantTrue(V))
       return true;
   return false;
@@ -82,7 +82,7 @@ bool DxilValueCache::MayBranchTo(BasicBlock *A, BasicBlock *B) {
 }
 
 bool DxilValueCache::IsUnreachable_(BasicBlock *BB) {
-  if (Value *V = GetImpl(BB))
+  if (Value *V = ValueMap.Get(BB))
     if (IsConstantFalse(V))
       return true;
   return false;
@@ -144,15 +144,14 @@ Value *DxilValueCache::ProcessAndSimplify_PHI(Instruction *I, DominatorTree *DT)
   // that were computed previously.
   if (!Simplified) {
     if (SimplifiedNotDominating)
-      if (Value *CachedV = GetImpl(SimplifiedNotDominating))
+      if (Value *CachedV = ValueMap.Get(SimplifiedNotDominating))
         Simplified = CachedV;
   }
 
   // If we coulnd't deduce it, run the LLVM stock simplification to see
   // if we could do anything.
-  if (!Simplified) {
+  if (!Simplified)
     Simplified = llvm::SimplifyInstruction(I, I->getModule()->getDataLayout());
-  }
 
   // One last step, to check if we have anything cached for whatever we
   // simplified to.
@@ -170,7 +169,6 @@ Value *DxilValueCache::ProcessAndSimplify_Br(Instruction *I, DominatorTree *DT) 
 
   BranchInst *Br = cast<BranchInst>(I);
   BasicBlock *BB = Br->getParent();
-
   if (Br->isConditional()) {
 
     BasicBlock *TrueSucc = Br->getSuccessor(0);
@@ -221,6 +219,9 @@ Value *DxilValueCache::ProcessAndSimplify_Load(Instruction *I, DominatorTree *DT
 }
 
 Value *DxilValueCache::SimplifyAndCacheResult(Instruction *I, DominatorTree *DT) {
+
+  if (ShouldSkipCallback && ShouldSkipCallback(I))
+    return nullptr;
 
   const DataLayout &DL = I->getModule()->getDataLayout();
 
@@ -424,16 +425,10 @@ void DxilValueCache::WeakValueMap::Set(Value *Key, Value *V) {
   Map[Key].Set(Key, V);
 }
 
-Value *DxilValueCache::GetImpl(Value *V) {
-  if (ShouldSkipCallback && ShouldSkipCallback(V))
-    return nullptr;
-  return ValueMap.Get(V);
-}
-
 // If there's a cached value, return it. Otherwise, return
 // the value itself.
 Value *DxilValueCache::TryGetCachedValue(Value *V) {
-  if (Value *Simplified = GetImpl(V))
+  if (Value *Simplified = ValueMap.Get(V))
     return Simplified;
   return V;
 }
@@ -449,7 +444,7 @@ const char *DxilValueCache::getPassName() const {
 Value *DxilValueCache::GetValue(Value *V, DominatorTree *DT) {
   if (dyn_cast<Constant>(V))
     return V;
-  if (Value *NewV = GetImpl(V))
+  if (Value *NewV = ValueMap.Get(V))
     return NewV;
 
   return ProcessValue(V, DT);
@@ -488,9 +483,6 @@ void DxilValueCache::getAnalysisUsage(AnalysisUsage &AU) const {
 
 Value *DxilValueCache::ProcessValue(Value *NewV, DominatorTree *DT) {
   if (NewV->getType()->isVoidTy())
-    return nullptr;
-
-  if (ShouldSkipCallback && ShouldSkipCallback(NewV))
     return nullptr;
 
   Value *Result = nullptr;
@@ -581,9 +573,8 @@ Value *DxilValueCache::ProcessValue(Value *NewV, DominatorTree *DT) {
               break;
             }
           }
-          if (AllNeverReachable) {
+          if (AllNeverReachable)
             MarkUnreachable(BB);
-          }
         }
 
       }

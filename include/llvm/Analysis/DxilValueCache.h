@@ -59,7 +59,6 @@ private:
   bool IsAlwaysReachable_(BasicBlock *BB);
   bool IsUnreachable_(BasicBlock *BB);
   bool MayBranchTo(BasicBlock *A, BasicBlock *B);
-  Value *GetImpl(Value *V);
   Value *TryGetCachedValue(Value *V);
   Value *ProcessValue(Value *V, DominatorTree *DT);
 
