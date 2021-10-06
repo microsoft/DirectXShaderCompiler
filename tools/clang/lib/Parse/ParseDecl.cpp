@@ -208,11 +208,10 @@ AfterAttributeParsing: // HLSL Change - skip attribute parsing
 }
 
 // HLSL Change Starts: Implementation for Semantic, Register, packoffset semantics.
-static void ParseRegisterNumberForHLSL(_In_z_ const char *name,
+static void ParseRegisterNumberForHLSL(_In_ const StringRef name,
                                        _Out_ char *registerType,
                                        _Out_ unsigned *registerNumber,
                                        _Out_ unsigned *diagId) {
-  DXASSERT_NOMSG(name != nullptr);
   DXASSERT_NOMSG(registerType != nullptr);
   DXASSERT_NOMSG(registerNumber != nullptr);
   DXASSERT_NOMSG(diagId != nullptr);
@@ -229,16 +228,14 @@ static void ParseRegisterNumberForHLSL(_In_z_ const char *name,
     return;
   }
 
-  *registerType = *name;
-  ++name;
+  *registerType = name[0];
 
   // It's valid to omit the register number.
-  if (*name) {
-    char *nameEnd;
+  if (name.size() > 1) {
+    StringRef numName = name.substr(1);
     unsigned long num;
     errno = 0;
-    num = strtoul(name, &nameEnd, 10);
-    if (*nameEnd != '\0' || errno == ERANGE || num > UINT32_MAX) {
+    if (numName.getAsInteger(10, num)) {
       *diagId = diag::err_hlsl_unsupported_register_number;
       return;
     }
@@ -251,9 +248,8 @@ static void ParseRegisterNumberForHLSL(_In_z_ const char *name,
 }
 
 static
-void ParsePackSubcomponent(_In_z_ const char* name, _Out_ unsigned* subcomponent, _Out_ unsigned* diagId)
+void ParsePackSubcomponent(_In_ const StringRef name, _Out_ unsigned* subcomponent, _Out_ unsigned* diagId)
 {
-  DXASSERT_NOMSG(name != nullptr);
   DXASSERT_NOMSG(subcomponent != nullptr);
   DXASSERT_NOMSG(diagId != nullptr);
 
@@ -268,13 +264,13 @@ void ParsePackSubcomponent(_In_z_ const char* name, _Out_ unsigned* subcomponent
 
 static
 void ParsePackComponent(
-  _In_z_ const char* name,
+  _In_ const StringRef name,
   _Inout_ hlsl::ConstantPacking* cp,
   _Out_ unsigned* diagId)
 {
-  DXASSERT(*name, "otherwise an empty string was parsed as an identifier");
+  DXASSERT(name.size(), "otherwise an empty string was parsed as an identifier");
   *diagId = 0;
-  if (name[0] == '\0' || name[1] != '\0') {
+  if (name.size() != 1) {
     *diagId = diag::err_hlsl_unsupported_packoffset_component;
         return;
   }
@@ -291,59 +287,55 @@ void ParsePackComponent(
 }
 
 static
-bool IsShaderProfileShort(_In_z_ const char* profile)
+bool IsShaderProfileShort(_In_ const StringRef profile)
 {
   // Look for vs, ps, gs, hs, cs.
-  if (strlen(profile) != 2) return false;
+  if (profile.size() != 2) return false;
   if (profile[1] != 's') {
     return false;
   }
-  char profileChar = *profile;
+  char profileChar = profile[0];
   return profileChar == 'v' || profileChar == 'p' || profileChar == 'g' || profileChar == 'g' || profileChar == 'c';
 }
 
 static
-bool IsShaderProfileLike(_In_z_ const char* profile)
+bool IsShaderProfileLike(_In_ const StringRef profile)
 {
   bool foundUnderscore = false;
   bool foundDigit = false;
   bool foundLetter = false;
 
-  while (*profile) {
-    if ('0' <= *profile && *profile <= '9') foundDigit = true;
-    else if ('a' <= *profile && *profile <= 'z') foundLetter = true;
-    else if (*profile == '_') foundUnderscore = true;
+  for (auto ch : profile) {
+    if ('0' <= ch && ch <= '9') foundDigit = true;
+    else if ('a' <= ch && ch <= 'z') foundLetter = true;
+    else if (ch == '_') foundUnderscore = true;
     else return false;
-    ++profile;
   }
 
   return foundUnderscore && foundDigit && foundLetter;
 }
 
-static void ParseSpaceForHLSL(_In_z_ const char *name,
+static void ParseSpaceForHLSL(_In_ const StringRef name,
                               _Out_ unsigned *spaceValue,
                               _Out_ unsigned *diagId) {
-  DXASSERT_NOMSG(name != nullptr);
   DXASSERT_NOMSG(spaceValue != nullptr);
   DXASSERT_NOMSG(diagId != nullptr);
 
   *diagId = 0;
   *spaceValue = 0;
 
-  if (strncmp(name, "space", strlen("space")) != 0) {
+  if (!name.substr(0, sizeof("space")-1).equals("space")) {
     *diagId = diag::err_hlsl_expected_space;
     return;
   }
 
   // Otherwise, strncmp above would have been != 0.
-  _Analysis_assume_(strlen(name) > sizeof("space"));
+  _Analysis_assume_(name.size() > sizeof("space"));
 
-  name += sizeof("space") - 1;
-  char *nameEnd;
-  errno = 0;
-  *spaceValue = strtoul(name, &nameEnd, 10);
+  StringRef numName = name.substr(sizeof("space")-1);
+
   // Disallow missing space names.
-  if (*name == '\0' || *nameEnd != '\0' || errno == ERANGE) {
+  if (numName.getAsInteger(10, *spaceValue)) {
     *diagId = diag::err_hlsl_unsupported_space_number;
     return;
   }
@@ -388,8 +380,7 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
 
       while(Tok.is(tok::identifier)) {
         hlsl::DXIL::PayloadAccessShaderStage stage = hlsl::DXIL::PayloadAccessShaderStage::Invalid;
-        const char *stagePtr = Tok.getIdentifierInfo()->getName().data();
-        StringRef shaderStage(stagePtr);
+        StringRef shaderStage = Tok.getIdentifierInfo()->getName();
         if (shaderStage != "caller" && shaderStage != "anyhit" &&
             shaderStage != "closesthit" && shaderStage != "miss") {
           Diag(Tok.getLocation(),
@@ -443,7 +434,7 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
         return true;
       }
 
-      const char* identifierText = Tok.getIdentifierInfo()->getName().data();
+      StringRef identifierText = Tok.getIdentifierInfo()->getName();
       if (IsShaderProfileLike(identifierText) || IsShaderProfileShort(identifierText)) {
         r.ShaderProfile = Tok.getIdentifierInfo()->getName();
         ConsumeToken(); // consume shader model
@@ -463,12 +454,12 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
       unsigned diagId;
 
       bool hasOnlySpace = false;
-      identifierText = Tok.getIdentifierInfo()->getName().data();
-      if (strncmp(identifierText, "space", strlen("space")) == 0) {
+      identifierText = Tok.getIdentifierInfo()->getName();
+      if (identifierText.substr(0, sizeof("space")-1).equals("space")) {
         hasOnlySpace = true;
       } else {
         ParseRegisterNumberForHLSL(
-          Tok.getIdentifierInfo()->getName().data(), &r.RegisterType, &r.RegisterNumber, &diagId);
+          Tok.getIdentifierInfo()->getName(), &r.RegisterType, &r.RegisterNumber, &diagId);
         if (diagId == 0) {
           r.setIsValid(true);
         } else {
@@ -524,7 +515,7 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
       }
       if (hasOnlySpace) {
         unsigned RegisterSpaceValue = 0;
-        ParseSpaceForHLSL(Tok.getIdentifierInfo()->getName().data(), &RegisterSpaceValue, &diagId);
+        ParseSpaceForHLSL(Tok.getIdentifierInfo()->getName(), &RegisterSpaceValue, &diagId);
         if (diagId != 0) {
           Diag(Tok.getLocation(), diagId);
           r.setIsValid(false);
@@ -542,7 +533,7 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
             return true;
           }
           unsigned RegisterSpaceVal = 0;
-          ParseSpaceForHLSL(Tok.getIdentifierInfo()->getName().data(), &RegisterSpaceVal, &diagId);
+          ParseSpaceForHLSL(Tok.getIdentifierInfo()->getName(), &RegisterSpaceVal, &diagId);
           if (diagId != 0) {
             Diag(Tok.getLocation(), diagId);
             r.setIsValid(false);
@@ -580,7 +571,7 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
       }
 
       unsigned diagId;
-      ParsePackSubcomponent(Tok.getIdentifierInfo()->getName().data(), &cp.Subcomponent, &diagId);
+      ParsePackSubcomponent(Tok.getIdentifierInfo()->getName(), &cp.Subcomponent, &diagId);
       if (diagId != 0) {
         cp.setIsValid(false);
         Diag(Tok.getLocation(), diagId);
@@ -596,7 +587,7 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
           SkipUntil(tok::r_paren, StopAtSemi); // skip through )
           return true;
         }
-        ParsePackComponent(Tok.getIdentifierInfo()->getName().data(), &cp, &diagId);
+        ParsePackComponent(Tok.getIdentifierInfo()->getName(), &cp, &diagId);
         if (diagId != 0) {
           cp.setIsValid(false);
           Diag(Tok.getLocation(), diagId);
