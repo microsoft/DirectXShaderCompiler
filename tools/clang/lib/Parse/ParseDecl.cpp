@@ -233,7 +233,7 @@ static void ParseRegisterNumberForHLSL(_In_ const StringRef name,
   // It's valid to omit the register number.
   if (name.size() > 1) {
     StringRef numName = name.substr(1);
-    unsigned long num;
+    uint32_t num;
     errno = 0;
     if (numName.getAsInteger(10, num)) {
       *diagId = diag::err_hlsl_unsupported_register_number;
@@ -316,7 +316,7 @@ bool IsShaderProfileLike(_In_ const StringRef profile)
 }
 
 static void ParseSpaceForHLSL(_In_ const StringRef name,
-                              _Out_ unsigned *spaceValue,
+                              _Out_ uint32_t *spaceValue,
                               _Out_ unsigned *diagId) {
   DXASSERT_NOMSG(spaceValue != nullptr);
   DXASSERT_NOMSG(diagId != nullptr);
@@ -514,7 +514,7 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
         }
       }
       if (hasOnlySpace) {
-        unsigned RegisterSpaceValue = 0;
+        uint32_t RegisterSpaceValue = 0;
         ParseSpaceForHLSL(Tok.getIdentifierInfo()->getName(), &RegisterSpaceValue, &diagId);
         if (diagId != 0) {
           Diag(Tok.getLocation(), diagId);
