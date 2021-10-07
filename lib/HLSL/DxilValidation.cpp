@@ -2906,7 +2906,11 @@ static void ValidateMsIntrinsics(Function *F,
       CallInst *CI = dyn_cast<CallInst>(&I);
       if (CI) {
         Function *FCalled = CI->getCalledFunction();
-        if (FCalled && FCalled->isDeclaration()) {
+        if (!FCalled) {
+          ValCtx.EmitInstrError(&I, ValidationRule::InstrAllowed);
+          continue;
+        }
+        if (FCalled->isDeclaration()) {
           // External function validation will diagnose.
           if (!IsDxilFunction(FCalled)) {
             continue;
