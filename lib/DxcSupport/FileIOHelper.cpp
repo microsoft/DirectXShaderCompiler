@@ -921,7 +921,7 @@ DxcCreateBlobWithEncodingOnMallocCopy(IMalloc *pIMalloc, LPCVOID pText, UINT32 s
 }
 
 _Use_decl_annotations_
-HRESULT DxcGetBlobAsUtf8(IDxcBlob *pBlob, IMalloc *pMalloc, IDxcBlobUtf8 **pBlobEncoding) throw() {
+HRESULT DxcGetBlobAsUtf8(IDxcBlob *pBlob, IMalloc *pMalloc, IDxcBlobUtf8 **pBlobEncoding, UINT32 defaultCodePage) throw() {
   IFRBOOL(pBlob, E_POINTER);
   IFRBOOL(pBlobEncoding, E_POINTER);
   *pBlobEncoding = nullptr;
@@ -949,6 +949,11 @@ HRESULT DxcGetBlobAsUtf8(IDxcBlob *pBlob, IMalloc *pMalloc, IDxcBlobUtf8 **pBlob
     // BOM exists, adjust pointer and size to strip.
     bufferPointer += bomSize;
     blobLen -= bomSize;
+    // This is checking if the codePage is still default AND the defaulCodePage is NOT default(CP_ACP) and Has been specified
+    // THEN set the codePage to te default from the flag
+    if (codePage == CP_ACP && defaultCodePage != CP_ACP) {
+      codePage = defaultCodePage;
+    }
   }
 
   if (!pMalloc)

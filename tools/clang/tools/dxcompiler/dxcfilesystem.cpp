@@ -233,6 +233,7 @@ private:
   CComPtr<IDxcIncludeHandler> m_includeLoader;
   std::vector<std::wstring> m_searchEntries;
   bool m_bDisplayIncludeProcess;
+  UINT32 m_DefaultCodePage;
 
   // Some constraints of the current design: opening the same file twice
   // will return the same handle/structure, and thus the same file pointer.
@@ -299,7 +300,7 @@ private:
       }
       if (fileBlob.p != nullptr) {
         CComPtr<IDxcBlobUtf8> fileBlobUtf8;
-        if (FAILED(hlsl::DxcGetBlobAsUtf8(fileBlob, DxcGetThreadMallocNoRef(), &fileBlobUtf8))) {
+        if (FAILED(hlsl::DxcGetBlobAsUtf8(fileBlob, DxcGetThreadMallocNoRef(), &fileBlobUtf8, m_DefaultCodePage))) {
           return ERROR_UNHANDLED_EXCEPTION;
         }
         CComPtr<IStream> fileStream;
@@ -338,9 +339,9 @@ private:
   }
 
 public:
-  DxcArgsFileSystemImpl(_In_ IDxcBlobUtf8 *pSource, LPCWSTR pSourceName, _In_opt_ IDxcIncludeHandler* pHandler)
+  DxcArgsFileSystemImpl(_In_ IDxcBlobUtf8 *pSource, LPCWSTR pSourceName, _In_opt_ IDxcIncludeHandler* pHandler, _In_opt_ UINT32 defaultCodePage)
       : m_pSource(pSource), m_pSourceName(pSourceName), m_pOutputStreamName(nullptr),
-        m_includeLoader(pHandler), m_bDisplayIncludeProcess(false) {
+        m_includeLoader(pHandler), m_bDisplayIncludeProcess(false), m_DefaultCodePage(defaultCodePage) {
     MakeAbsoluteOrCurDirRelativeW(m_pSourceName, m_pAbsSourceName);
     IFT(CreateReadOnlyBlobStream(m_pSource, &m_pSourceStream));
     m_includedFiles.push_back(IncludedFile(std::wstring(m_pSourceName), m_pSource, m_pSourceStream));
@@ -821,8 +822,9 @@ namespace dxcutil {
 DxcArgsFileSystem *
 CreateDxcArgsFileSystem(
     _In_ IDxcBlobUtf8 *pSource, _In_ LPCWSTR pSourceName,
-    _In_opt_ IDxcIncludeHandler *pIncludeHandler) {
-  return new DxcArgsFileSystemImpl(pSource, pSourceName, pIncludeHandler);
+    _In_opt_ IDxcIncludeHandler *pIncludeHandler,
+    _In_opt_ UINT32 defaultCodePage) {
+  return new DxcArgsFileSystemImpl(pSource, pSourceName, pIncludeHandler, defaultCodePage);
 }
 
 } // namespace dxcutil
