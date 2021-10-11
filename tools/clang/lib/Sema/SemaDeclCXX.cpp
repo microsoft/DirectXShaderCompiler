@@ -1783,13 +1783,10 @@ Sema::CheckDerivedToBaseConversion(QualType Derived, QualType Base,
   // explore multiple paths to determine if there is an ambiguity.
   CXXBasePaths Paths(/*FindAmbiguities=*/true, /*RecordPaths=*/true,
                      /*DetectVirtual=*/false);
-
   bool DerivationOkay = IsDerivedFrom(Derived, Base, Paths);
-  // HLSL Change Begin - fix crash when Paths is empty.
-  // Merged from upstream.
-  if (!DerivationOkay)
-    return true;
-  // HLSL Change End.
+  assert(DerivationOkay &&
+         "Can only be used with a derived-to-base conversion");
+  (void)DerivationOkay;
   
   if (!Paths.isAmbiguous(Context.getCanonicalType(Base).getUnqualifiedType())) {
     if (InaccessibleBaseID) {
