@@ -40,6 +40,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/IR/ModuleSlotTracker.h"
 #include "llvm/ADT/BitVector.h"
@@ -746,8 +747,7 @@ struct ValidationContext {
   }
 
   bool IsDebugFunctionCall(Instruction *I) {
-    CallInst *CI = dyn_cast<CallInst>(I);
-    return CI && CI->getCalledFunction()->getName().startswith("llvm.dbg.");
+    return isa<DbgInfoIntrinsic>(I);
   }
 
   Instruction *GetDebugInstr(Instruction *I) {
