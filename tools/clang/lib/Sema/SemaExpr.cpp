@@ -11,6 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "clang/AST/OperationKinds.h"
 #include "clang/Sema/SemaInternal.h"
 #include "TreeTransform.h"
 #include "clang/AST/ASTConsumer.h"
@@ -2765,6 +2766,27 @@ Sema::PerformObjectMemberConversion(Expr *From,
   }
 
   CXXCastPath BasePath;
+  // HLSL Change Begin
+  // When converting ConstantBuffer or TextureBuffers to 
+  // TextureBuffer
+  if (getLangOpts().HLSL) {
+    if (auto TSTy = dyn_cast<TemplateSpecializationType>(FromRecordType)) {
+      if (TSTy->getTemplateName().getAsTemplateDecl()->getName() ==
+              "ConstantBuffer" ||
+          TSTy->getTemplateName().getAsTemplateDecl()->getName() ==
+              "TextureBuffer") {
+        auto FirstArg = TSTy->getArgs()[0];
+        if (FirstArg.getKind() == TemplateArgument::Type &&
+            FirstArg.getAsType() == DestRecordType) {
+          return ImpCastExprToType(From, DestType, CK_FlatConversion, VK,
+                                   &BasePath);
+        }
+      }
+    }
+  }
+
+  // HLSL Change End.
+  
   if (CheckDerivedToBaseConversion(FromRecordType, DestRecordType,
                                    FromLoc, FromRange, &BasePath,
                                    IgnoreAccess))
