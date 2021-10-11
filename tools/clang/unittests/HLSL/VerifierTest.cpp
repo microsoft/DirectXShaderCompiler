@@ -73,6 +73,7 @@ public:
   TEST_METHOD(RunSubobjects)
   TEST_METHOD(RunIncompleteArray)
   TEST_METHOD(RunTemplateChecks)
+  TEST_METHOD(RunTemplateLiteralSubstitutionFailure)
   TEST_METHOD(RunVarmodsSyntax)
   TEST_METHOD(RunVectorAssignments)
   TEST_METHOD(RunVectorSyntaxMix)
@@ -299,6 +300,10 @@ TEST_F(VerifierTest, RunIncompleteArray) {
 
 TEST_F(VerifierTest, RunTemplateChecks) {
   CheckVerifiesHLSL(L"template-checks.hlsl");
+}
+
+TEST_F(VerifierTest, RunTemplateLiteralSubstitutionFailure) {
+  CheckVerifiesHLSL(L"template-literal-substitution-failure.hlsl");
 }
 
 TEST_F(VerifierTest, RunVarmodsSyntax) {
