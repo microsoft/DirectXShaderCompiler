@@ -377,7 +377,9 @@ def _SLASH_WX : Flag<["-", "/"], "WX">, Flags<[CoreOption]>, Group<hlslcomp_Grou
 def VD : Flag<["-", "/"], "Vd">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
   HelpText<"Disable validation">;
 def _SLASH_Zi : Flag<["-", "/"], "Zi">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
-  HelpText<"Enable debug information">;
+  HelpText<"Enable debug information. Cannot be used together with -Zs">;
+def Zs : Flag<["-", "/"], "Zs">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
+  HelpText<"Generate small PDB with just sources and compile options. Cannot be used together with -Zi">;
 def recompile : Flag<["-", "/"], "recompile">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
   HelpText<"recompile from DXIL container with Debug Info or Debug Info bitcode file">;
 def Zpr : Flag<["-", "/"], "Zpr">, Flags<[CoreOption]>, Group<hlslcomp_Group>,
@@ -438,8 +440,6 @@ def Qstrip_priv : Flag<["-", "/"], "Qstrip_priv">, Flags<[DriverOption]>, Group<
   HelpText<"Strip private data from shader bytecode  (must be used with /Fo <file>)">;
 def Qsource_in_debug_module : Flag<["-", "/"], "Qsource_in_debug_module">, Flags<[CoreOption, HelpHidden]>, Group<hlslutil_Group>,
   HelpText<"Generate old PDB format.">;
-def Zs : Flag<["-", "/"], "Zs">, Flags<[CoreOption]>, Group<hlslutil_Group>,
-  HelpText<"Generate small PDB with just sources and compile options.">;
 def Qpdb_in_private : Flag<["-", "/"], "Qpdb_in_private">, Flags<[CoreOption, HelpHidden]>, Group<hlslutil_Group>,
   HelpText<"Store PDB in private user data.">;
 
