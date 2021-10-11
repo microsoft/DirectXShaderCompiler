@@ -2318,6 +2318,10 @@ ID  Name                                                  Description
 219 Unpack4x8                                             unpacks 4 8-bit signed or unsigned values into int32 or int16 vector
 220 Pack4x8                                               packs vector of 4 signed or unsigned values into a packed datatype, drops or clamps unused bits
 221 IsHelperLane                                          returns true on helper lanes in pixel shaders
+222 QuadVote                                              compares boolean accross a quad
+223 TextureGatherRaw                                      Gather raw elements from 4 texels with no type conversions (SRV type is constrained)
+224 SampleCmpLevel                                        samples a texture and compares a single component against the specified comparison value
+225 TextureStoreSample                                    stores texel data at specified sample index
 === ===================================================== =======================================================================================================================================================================================================================
 
 

@@ -1293,7 +1293,11 @@ static const char *OpCodeSignatures[] = {
   "(index,samplerHeap,nonUniformIndex)",  // CreateHandleFromHeap
   "(unpackMode,pk)",  // Unpack4x8
   "(packMode,x,y,z,w)",  // Pack4x8
-  "()"  // IsHelperLane
+  "()",  // IsHelperLane
+  "(cond,op)",  // QuadVote
+  "(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1)",  // TextureGatherRaw
+  "(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,compareValue,lod)",  // SampleCmpLevel
+  "(srv,coord0,coord1,coord2,value0,value1,value2,value3,mask,sampleIdx)"  // TextureStoreSample
 };
 // OPCODE-SIGS:END
 

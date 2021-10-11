@@ -404,6 +404,18 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
 
   // Helper Lanes                                                                                                            void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
   {  OC::IsHelperLane,            "IsHelperLane",             OCC::IsHelperLane,             "isHelperLane",              { false, false, false, false,  true, false, false, false, false, false, false}, Attribute::ReadOnly, },
+
+  // Quad Wave Ops                                                                                                           void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::QuadVote,                "QuadVote",                 OCC::QuadVote,                 "quadVote",                  { false, false, false, false,  true, false, false, false, false, false, false}, Attribute::None,     },
+
+  // Resources - gather                                                                                                      void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::TextureGatherRaw,        "TextureGatherRaw",         OCC::TextureGatherRaw,         "textureGatherRaw",          { false, false, false, false, false, false,  true,  true,  true, false, false}, Attribute::ReadOnly, },
+
+  // Resources - sample                                                                                                      void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::SampleCmpLevel,          "SampleCmpLevel",           OCC::SampleCmpLevel,           "sampleCmpLevel",            { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+
+  // Resources                                                                                                               void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::TextureStoreSample,      "TextureStoreSample",       OCC::TextureStoreSample,       "textureStoreSample",        { false,  true,  true, false, false, false,  true,  true, false, false, false}, Attribute::None,     },
 };
 // OPCODE-OLOADS:END
 
@@ -604,8 +616,8 @@ bool OP::IsDxilOpWave(OpCode C) {
   // WaveReadLaneFirst=118, WaveActiveOp=119, WaveActiveBit=120,
   // WavePrefixOp=121, QuadReadLaneAt=122, QuadOp=123, WaveAllBitCount=135,
   // WavePrefixBitCount=136, WaveMatch=165, WaveMultiPrefixOp=166,
-  // WaveMultiPrefixBitCount=167
-  return (110 <= op && op <= 123) || (135 <= op && op <= 136) || (165 <= op && op <= 167);
+  // WaveMultiPrefixBitCount=167, QuadVote=222
+  return (110 <= op && op <= 123) || (135 <= op && op <= 136) || (165 <= op && op <= 167) || op == 222;
   // OPCODE-WAVE:END
 }
 
@@ -615,8 +627,8 @@ bool OP::IsDxilOpGradient(OpCode C) {
   // OPCODE-GRADIENT:BEGIN
   // Instructions: Sample=60, SampleBias=61, SampleCmp=64, CalculateLOD=81,
   // DerivCoarseX=83, DerivCoarseY=84, DerivFineX=85, DerivFineY=86,
-  // WriteSamplerFeedback=174, WriteSamplerFeedbackBias=175
-  return (60 <= op && op <= 61) || op == 64 || op == 81 || (83 <= op && op <= 86) || (174 <= op && op <= 175);
+  // WriteSamplerFeedback=174, WriteSamplerFeedbackBias=175, SampleCmpLevel=224
+  return (60 <= op && op <= 61) || op == 64 || op == 81 || (83 <= op && op <= 86) || (174 <= op && op <= 175) || op == 224;
   // OPCODE-GRADIENT:END
 }
 
@@ -845,6 +857,23 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // CreateHandleFromHeap=218, Unpack4x8=219, Pack4x8=220, IsHelperLane=221
   if ((216 <= op && op <= 221)) {
     major = 6;  minor = 6;
+    return;
+  }
+  // Instructions: TextureGatherRaw=223, TextureStoreSample=225
+  if (op == 223 || op == 225) {
+    major = 6;  minor = 7;
+    return;
+  }
+  // Instructions: QuadVote=222
+  if (op == 222) {
+    major = 6;  minor = 7;
+    mask = SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Pixel);
+    return;
+  }
+  // Instructions: SampleCmpLevel=224
+  if (op == 224) {
+    major = 6;  minor = 7;
+    mask = SFLAG(Library) | SFLAG(Pixel) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh);
     return;
   }
   // OPCODE-SMMASK:END
@@ -1433,6 +1462,18 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
 
     // Helper Lanes
   case OpCode::IsHelperLane:           A(pI1);      A(pI32); break;
+
+    // Quad Wave Ops
+  case OpCode::QuadVote:               A(pI1);      A(pI32); A(pI1);  A(pI8);  break;
+
+    // Resources - gather
+  case OpCode::TextureGatherRaw:       RRT(pETy);   A(pI32); A(pRes); A(pRes); A(pF32); A(pF32); A(pF32); A(pF32); A(pI32); A(pI32); break;
+
+    // Resources - sample
+  case OpCode::SampleCmpLevel:         RRT(pETy);   A(pI32); A(pRes); A(pRes); A(pF32); A(pF32); A(pF32); A(pF32); A(pI32); A(pI32); A(pI32); A(pF32); A(pF32); break;
+
+    // Resources
+  case OpCode::TextureStoreSample:     A(pV);       A(pI32); A(pRes); A(pI32); A(pI32); A(pI32); A(pETy); A(pETy); A(pETy); A(pETy); A(pI8);  A(pI32); break;
   // OPCODE-OLOAD-FUNCS:END
   default: DXASSERT(false, "otherwise unhandled case"); break;
   }
@@ -1564,6 +1605,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
     DXASSERT_NOMSG(FT->getNumParams() > 1);
     return FT->getParamType(1);
   case OpCode::TextureStore:
+  case OpCode::TextureStoreSample:
     DXASSERT_NOMSG(FT->getNumParams() > 5);
     return FT->getParamType(5);
   case OpCode::TraceRay:
@@ -1691,6 +1733,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::RayQuery_CandidateTriangleFrontFace:
   case OpCode::RayQuery_CommittedTriangleFrontFace:
   case OpCode::IsHelperLane:
+  case OpCode::QuadVote:
     return IntegerType::get(Ctx, 1);
   case OpCode::CBufferLoadLegacy:
   case OpCode::Sample:
@@ -1705,6 +1748,8 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::TextureGatherCmp:
   case OpCode::RawBufferLoad:
   case OpCode::Unpack4x8:
+  case OpCode::TextureGatherRaw:
+  case OpCode::SampleCmpLevel:
   {
     StructType *ST = cast<StructType>(Ty);
     return ST->getElementType(0);
