@@ -12,8 +12,6 @@
 #ifndef LLVM_SUPPORT_MSFILESYSTEM_H
 #define LLVM_SUPPORT_MSFILESYSTEM_H
 
-#include "dxc/Support/WinIncludes.h"
-
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // MSFileSystem interface.
 struct stat;
