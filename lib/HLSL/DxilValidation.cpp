@@ -1017,17 +1017,14 @@ static bool ValidateOpcodeInProfile(DXIL::OpCode opcode,
   // CreateHandleFromHeap=218, Unpack4x8=219, Pack4x8=220, IsHelperLane=221
   if ((216 <= op && op <= 221))
     return (major > 6 || (major == 6 && minor >= 6));
-  // Instructions: TextureGatherRaw=223, TextureStoreSample=225
-  if (op == 223 || op == 225)
+  // Instructions: TextureGatherRaw=223, SampleCmpLevel=224,
+  // TextureStoreSample=225
+  if ((223 <= op && op <= 225))
     return (major > 6 || (major == 6 && minor >= 7));
   // Instructions: QuadVote=222
   if (op == 222)
     return (major > 6 || (major == 6 && minor >= 7))
         && (SK == DXIL::ShaderKind::Library || SK == DXIL::ShaderKind::Compute || SK == DXIL::ShaderKind::Amplification || SK == DXIL::ShaderKind::Mesh || SK == DXIL::ShaderKind::Pixel);
-  // Instructions: SampleCmpLevel=224
-  if (op == 224)
-    return (major > 6 || (major == 6 && minor >= 7))
-        && (SK == DXIL::ShaderKind::Library || SK == DXIL::ShaderKind::Pixel || SK == DXIL::ShaderKind::Compute || SK == DXIL::ShaderKind::Amplification || SK == DXIL::ShaderKind::Mesh);
   return true;
   // VALOPCODESM-TEXT:END
 }

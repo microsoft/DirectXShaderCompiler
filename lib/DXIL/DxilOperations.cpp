@@ -859,8 +859,9 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     major = 6;  minor = 6;
     return;
   }
-  // Instructions: TextureGatherRaw=223, TextureStoreSample=225
-  if (op == 223 || op == 225) {
+  // Instructions: TextureGatherRaw=223, SampleCmpLevel=224,
+  // TextureStoreSample=225
+  if ((223 <= op && op <= 225)) {
     major = 6;  minor = 7;
     return;
   }
@@ -868,12 +869,6 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   if (op == 222) {
     major = 6;  minor = 7;
     mask = SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Pixel);
-    return;
-  }
-  // Instructions: SampleCmpLevel=224
-  if (op == 224) {
-    major = 6;  minor = 7;
-    mask = SFLAG(Library) | SFLAG(Pixel) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh);
     return;
   }
   // OPCODE-SMMASK:END
