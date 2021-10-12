@@ -1368,7 +1368,7 @@ void printWithNamespace(DT *VD, raw_string_ostream &OS, PrintingPolicy &p) {
 
   VD->print(OS, p);
   OS << ";\n";
-  for (auto it : namespaceList) {
+  for (unsigned i = 0; i < namespaceList.size(); ++i) {
     OS << "}\n";
   }
 }
