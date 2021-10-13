@@ -18,7 +18,7 @@ add_llvm_tool_subdirectory(opt) # HLSL Change
 endif()
 
 # add_llvm_tool_subdirectory(llvm-as) # HLSL Change
-# add_llvm_tool_subdirectory(llvm-dis) # HLSL Change
+add_llvm_tool_subdirectory(llvm-dis) # HLSL Change
 # add_llvm_tool_subdirectory(llvm-mc) # HLSL Change
 
 # HLSL Change Begins
