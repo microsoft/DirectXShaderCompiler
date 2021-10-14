@@ -47,21 +47,6 @@ if (${ENABLE_SPIRV_CODEGEN})
     set_property(TARGET ${target} PROPERTY FOLDER "External dependencies")
   endforeach()
 
-  # We need GoogleTest for unit and SPIR-V codegen testing.
-  if (${SPIRV_BUILD_TESTS})
-    set(DXC_GTEST_DIR "${DXC_EXTERNAL_ROOT_DIR}/googletest"
-        CACHE STRING "Location of GoogleTest source")
-    if (NOT TARGET gtest)
-      if (IS_DIRECTORY ${DXC_GTEST_DIR})
-        # Configure googletest
-        include(GTestConfig.cmake)
-      endif()
-      if (NOT TARGET gtest)
-        message(FATAL_ERROR "GoogleTest was not found - required for SPIR-V codegen")
-      endif()
-    endif()
-  endif()
-
   # We need Effcee for SPIR-V codegen testing.
   if (${SPIRV_BUILD_TESTS})
     # re2 is needed since it's required by effcee.
