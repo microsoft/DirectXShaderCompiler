@@ -682,11 +682,12 @@ void DeclPrinter::VisitFunctionDecl(FunctionDecl *D) {
 
     if (D->getBody())
       // HLSL Change Begin - only print decl.
-      if (Policy.HLSLOnlyDecl)
+      if (Policy.HLSLOnlyDecl) {
         Out << ";";
-      else
-      // HLSL Change end.
-      D->getBody()->printPretty(Out, nullptr, SubPolicy, Indentation);
+      } else {
+        // HLSL Change end.
+        D->getBody()->printPretty(Out, nullptr, SubPolicy, Indentation);
+      }
     Out << '\n';
   }
 }
