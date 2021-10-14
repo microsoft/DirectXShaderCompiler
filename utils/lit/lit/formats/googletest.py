@@ -40,7 +40,19 @@ class GoogleTest(TestFormat):
 
         nested_tests = []
         for ln in lines:
-            if not ln.strip():
+            # The test name list includes trailing comments beginning with
+            # a '#' on some lines, so skip those. We don't support test names
+            # that use escaping to embed '#' into their name as the names come
+            # from C++ class and method names where such things are hard and
+            # uninteresting to support.
+            ln = ln.split('#', 1)[0].rstrip()
+            if not ln.lstrip():
+                continue
+
+            if 'Running main() from gtest_main.cc' in ln:
+                # Upstream googletest prints this to stdout prior to running
+                # tests. LLVM removed that print statement in r61540, but we
+                # handle it here in case upstream googletest is being used.
                 continue
 
             prefix = ''
