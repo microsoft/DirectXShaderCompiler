@@ -3508,6 +3508,8 @@ private:
     TypeSourceInfo *float4TypeSourceInfo = m_context->getTrivialTypeSourceInfo(float4Type, NoLoc);
     m_objectTypeLazyInitMask = 0;
     unsigned effectKindIndex = 0;
+    const auto *SM =
+        hlsl::ShaderModel::GetByName(m_sema->getLangOpts().HLSLProfile.c_str());
     for (unsigned i = 0; i < _countof(g_ArBasicKindsAsTypes); i++)
     {
       ArBasicKind kind = g_ArBasicKindsAsTypes[i];
@@ -3566,14 +3568,18 @@ private:
         recordDecl = DeclareRayQueryType(*m_context);
       } else if (kind == AR_OBJECT_HEAP_RESOURCE) {
         recordDecl = DeclareResourceType(*m_context, /*bSampler*/false);
-        // create Resource ResourceDescriptorHeap;
-        DeclareBuiltinGlobal("ResourceDescriptorHeap",
-                             m_context->getRecordType(recordDecl), *m_context);
+        if (SM->IsSM66Plus()) {
+          // create Resource ResourceDescriptorHeap;
+          DeclareBuiltinGlobal("ResourceDescriptorHeap",
+                               m_context->getRecordType(recordDecl), *m_context);
+        }
       } else if (kind == AR_OBJECT_HEAP_SAMPLER) {
         recordDecl = DeclareResourceType(*m_context, /*bSampler*/true);
-        // create Resource SamplerDescriptorHeap;
-        DeclareBuiltinGlobal("SamplerDescriptorHeap",
-                             m_context->getRecordType(recordDecl), *m_context);
+        if (SM->IsSM66Plus()) {
+          // create Resource SamplerDescriptorHeap;
+          DeclareBuiltinGlobal("SamplerDescriptorHeap",
+                               m_context->getRecordType(recordDecl), *m_context);
+        }
 
       }
       else if (kind == AR_OBJECT_FEEDBACKTEXTURE2D) {
