@@ -1373,6 +1373,57 @@ void printWithNamespace(DT *VD, raw_string_ostream &OS, PrintingPolicy &p) {
   }
 }
 
+void printTypeWithoutMethodBody(const TypeDecl *TD, raw_string_ostream &OS,
+                                PrintingPolicy &p) {
+  PrintingPolicy declP(p);
+  declP.HLSLOnlyDecl = true;
+  printWithNamespace(TD, OS, declP);
+}
+
+class MethodsVisitor : public DeclVisitor<MethodsVisitor> {
+public:
+  MethodsVisitor(raw_string_ostream &o, PrintingPolicy &p)
+      : OS(o), declP(p) {
+    declP.HLSLNoinlineMethod = true;
+  }
+
+  void VisitFunctionDecl(FunctionDecl *f) {
+    // Don't need to do namespace, the location is not change.
+    f->print(OS, declP);
+    return;
+  }
+  void VisitDeclContext(DeclContext *DC) {
+    SmallVector<Decl *, 2> Decls;
+    for (DeclContext::decl_iterator D = DC->decls_begin(),
+                                    DEnd = DC->decls_end();
+         D != DEnd; ++D) {
+
+      // Don't print ObjCIvarDecls, as they are printed when visiting the
+      // containing ObjCInterfaceDecl.
+      if (isa<ObjCIvarDecl>(*D))
+        continue;
+
+      // Skip over implicit declarations in pretty-printing mode.
+      if (D->isImplicit())
+        continue;
+
+      Visit(*D);
+
+    }
+  }
+  void VisitCXXRecordDecl(CXXRecordDecl *D) {
+
+    if (D->isCompleteDefinition()) {
+      VisitDeclContext(D);
+    }
+  }
+
+private:
+  raw_string_ostream &OS;
+  PrintingPolicy declP;
+};
+
+
 HRESULT DoRewriteGlobalCB(_In_ DxcLangExtensionsHelper *pExtHelper,
                           _In_ LPCSTR pFileName,
                           _In_ ASTUnit::RemappedFile *pRemap,
@@ -1450,8 +1501,14 @@ HRESULT DoRewriteGlobalCB(_In_ DxcLangExtensionsHelper *pExtHelper,
 
   // Move all type decl to top of tu.
   for (const TypeDecl *TD : sortedGlobalConstantTypes) {
-    printWithNamespace(TD, OS, p);
-    R.RemoveText(TD->getSourceRange());
+    printTypeWithoutMethodBody(TD, OS, p);
+
+    std::string methodsStr;
+    raw_string_ostream methodsOS(methodsStr);
+    MethodsVisitor Visitor(methodsOS, p);
+    Visitor.Visit(const_cast<TypeDecl*>(TD));
+    methodsOS.flush();
+    R.ReplaceText(TD->getSourceRange(), methodsStr);
     // TODO: remove ; for type decl.
   }
 

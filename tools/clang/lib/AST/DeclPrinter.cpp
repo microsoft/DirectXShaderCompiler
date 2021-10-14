@@ -492,6 +492,9 @@ void DeclPrinter::VisitFunctionDecl(FunctionDecl *D) {
     NamespaceDecl* ns = (NamespaceDecl*)Namespace;
     Proto = ns->getName().str() + "::" + Proto;
   }
+  if (Policy.HLSLNoinlineMethod) {
+    Proto = D->getQualifiedNameAsString();
+  }
   // HLSL Change End
 
   QualType Ty = D->getType();
@@ -678,6 +681,11 @@ void DeclPrinter::VisitFunctionDecl(FunctionDecl *D) {
       Out << ' ';
 
     if (D->getBody())
+      // HLSL Change Begin - only print decl.
+      if (Policy.HLSLOnlyDecl)
+        Out << ";";
+      else
+      // HLSL Change end.
       D->getBody()->printPretty(Out, nullptr, SubPolicy, Indentation);
     Out << '\n';
   }
