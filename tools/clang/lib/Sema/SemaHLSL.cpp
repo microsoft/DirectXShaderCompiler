@@ -1894,11 +1894,11 @@ static void AddHLSLIntrinsicAttr(FunctionDecl *FD, ASTContext &context,
     }
   }
   FD->addAttr(HLSLIntrinsicAttr::CreateImplicit(context, tableName, lowering, opcode));
-  if (pIntrinsic->bReadNone)
+  if (pIntrinsic->Flags & INTRIN_FLAG_READ_NONE)
     FD->addAttr(ConstAttr::CreateImplicit(context));
-  if (pIntrinsic->bReadOnly)
+  if (pIntrinsic->Flags & INTRIN_FLAG_READ_ONLY)
     FD->addAttr(PureAttr::CreateImplicit(context));
-  if (pIntrinsic->bIsWave)
+  if (pIntrinsic->Flags & INTRIN_FLAG_IS_WAVE)
     FD->addAttr(HLSLWaveSensitiveAttr::CreateImplicit(context));
 }
 
@@ -5548,6 +5548,11 @@ static ArBasicKind LiteralToConcrete(Expr *litExpr,
       else
         return ArBasicKind::AR_BASIC_INT64;
     } else {
+      // If positive literal value fits in signed INT32, it's better to preserve
+      // signed int than force unsigned, since combining signed & unsigned
+      // promotes to unsigned.
+      if (width <= 31)
+        return ArBasicKind::AR_BASIC_INT32;
       // Unsigned.
       if (width <= 32)
         return ArBasicKind::AR_BASIC_UINT32;
@@ -5711,6 +5716,8 @@ bool HLSLExternalSource::MatchArguments(
   const unsigned retArgIdx = 0;
   unsigned retTypeIdx = pIntrinsic->pArgs[retArgIdx].uComponentTypeId;
 
+  llvm::SmallVector<std::pair<size_t, Expr*>, 4> LiteralArgsToConvert;
+
   // Populate the template for each argument.
   ArrayRef<Expr*>::iterator iterArg = Args.begin();
   ArrayRef<Expr*>::iterator end = Args.end();
@@ -5801,9 +5808,9 @@ bool HLSLExternalSource::MatchArguments(
       //   TryEvalIntrinsic in CGHLSLMS.cpp will take care of cases
       //     where all argumentss are literal.
       //   CombineBasicTypes will cover the rest cases.
-      if (!affectRetType) {
-        TypeInfoEltKind = ConcreteLiteralType(
-            pCallArg, TypeInfoEltKind, pIntrinsicArg->uLegalComponentTypes, this);
+      // Only preserve literal types for operations where constant evaluation is supported.
+      if (!(pIntrinsic->Flags & INTRIN_FLAG_LITERAL_EVAL) || !affectRetType) {
+        LiteralArgsToConvert.emplace_back(iArg, pCallArg);
       }
     }
 
@@ -5913,6 +5920,51 @@ bool HLSLExternalSource::MatchArguments(
 
   DXASSERT(isVariadic || iterArg == end,
            "otherwise the argument list wasn't fully processed");
+
+  // Tracks literal args to combine multiple converted arguments
+  ArBasicKind LiteralComponentType[MaxIntrinsicArgs];
+  std::fill(LiteralComponentType, LiteralComponentType + _countof(LiteralComponentType), AR_BASIC_UNKNOWN);
+
+  // Second pass replaces/combines literal types when not supported for const
+  // eval, and they haven't been resolved by combining with other arguments.
+  for (auto arg : LiteralArgsToConvert) {
+    size_t iArg = arg.first;
+    Expr* pCallArg = arg.second;
+    const HLSL_INTRINSIC_ARGUMENT *pIntrinsicArg = &pIntrinsic->pArgs[iArg];
+    auto typeId = pIntrinsicArg->uComponentTypeId;
+
+    ArBasicKind TypeInfoEltKind = ComponentType[typeId];
+    DXASSERT(AR_BASIC_UNKNOWN != TypeInfoEltKind,
+             "otherwise, previous argument loop left component type unknown.");
+
+    bool isCTLiteral = TypeInfoEltKind == AR_BASIC_LITERAL_INT ||
+                       TypeInfoEltKind == AR_BASIC_LITERAL_FLOAT;
+    bool isCombiningLiterals = AR_BASIC_UNKNOWN != LiteralComponentType[typeId];
+    DXASSERT(!(isCTLiteral && isCombiningLiterals),
+             "otherwise, first hit failed to set concrete type.");
+
+    // If niether of these are true, there's nothing to do after all.
+    if (!isCTLiteral && !isCombiningLiterals)
+      continue;
+
+    ArBasicKind ConvertedEltKind = ConcreteLiteralType(
+        pCallArg, TypeInfoEltKind, pIntrinsicArg->uLegalComponentTypes, this);
+
+    // If it's still literal, convert to non-literal type.
+    if (isCTLiteral) {
+      // Set LiteralComponentType on first hit to indicate no original concrete
+      // types so we know to combine converted types.
+      LiteralComponentType[typeId] = TypeInfoEltKind;
+      ComponentType[typeId] = ConvertedEltKind;
+    } else if (isCombiningLiterals) {
+      // Argument is being combined between converted literals.
+      if (!CombineBasicTypes(ComponentType[typeId],
+                             ConvertedEltKind,
+                             &ComponentType[typeId])) {
+        badArgIdx = std::min(badArgIdx, (size_t)iArg);
+      }
+    }
+  }
 
   // Default template and component type for return value
   if (pIntrinsic->pArgs[0].qwUsage

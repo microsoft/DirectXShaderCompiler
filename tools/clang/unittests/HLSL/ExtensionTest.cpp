@@ -167,35 +167,36 @@ template <class T, std::size_t N>
 UINT countof(T(&)[N]) { return static_cast<UINT>(N); }
 
 Intrinsic Intrinsics[] = {
-  {L"test_fn",      DEFAULT_NAME,      "r", {  1, false, true, false, -1, countof(TestFnArgs), TestFnArgs }},
-  {L"test_proc",    DEFAULT_NAME,      "r", {  2, false, false, false,-1, countof(TestProcArgs), TestProcArgs }},
-  {L"test_poly",    "test_poly.$o",    "r", {  3, false, true, false, -1, countof(TestFnCustomArgs), TestFnCustomArgs }},
-  {L"test_int",     "test_int",        "r", {  4, false, true, false, -1, countof(TestFnIntArgs), TestFnIntArgs}},
-  {L"test_nolower", "test_nolower.$o", "n", {  5, false, true, false, -1, countof(TestFnNoLowerArgs), TestFnNoLowerArgs}},
-  {L"test_pack_0",  "test_pack_0.$o",  "p", {  6, false, false, false,-1, countof(TestFnPack0), TestFnPack0}},
-  {L"test_pack_1",  "test_pack_1.$o",  "p", {  7, false, true, false, -1, countof(TestFnPack1), TestFnPack1}},
-  {L"test_pack_2",  "test_pack_2.$o",  "p", {  8, false, true, false, -1, countof(TestFnPack2), TestFnPack2}},
-  {L"test_pack_3",  "test_pack_3.$o",  "p", {  9, false, true, false, -1, countof(TestFnPack3), TestFnPack3}},
-  {L"test_pack_4",  "test_pack_4.$o",  "p", { 10, false, false, false,-1, countof(TestFnPack4), TestFnPack4}},
-  {L"test_rand",    "test_rand",       "r", { 11, false, false, false,-1, countof(TestRand), TestRand}},
-  {L"test_isinf",   "test_isinf",      "d", { 13, true,  true, false, -1, countof(TestIsInf), TestIsInf}},
-  {L"test_ibfe",    "test_ibfe",       "d", { 14, true,  true, false, -1, countof(TestIBFE), TestIBFE}},
+  // Available Flags: INTRIN_FLAG_READ_ONLY|INTRIN_FLAG_READ_NONE|INTRIN_FLAG_IS_WAVE|INTRIN_FLAG_LITERAL_EVAL
+  {L"test_fn",      DEFAULT_NAME,      "r", {  1, INTRIN_FLAG_READ_NONE, -1, countof(TestFnArgs), TestFnArgs }},
+  {L"test_proc",    DEFAULT_NAME,      "r", {  2, 0, -1, countof(TestProcArgs), TestProcArgs }},
+  {L"test_poly",    "test_poly.$o",    "r", {  3, INTRIN_FLAG_READ_NONE, -1, countof(TestFnCustomArgs), TestFnCustomArgs }},
+  {L"test_int",     "test_int",        "r", {  4, INTRIN_FLAG_READ_NONE, -1, countof(TestFnIntArgs), TestFnIntArgs}},
+  {L"test_nolower", "test_nolower.$o", "n", {  5, INTRIN_FLAG_READ_NONE, -1, countof(TestFnNoLowerArgs), TestFnNoLowerArgs}},
+  {L"test_pack_0",  "test_pack_0.$o",  "p", {  6, 0, -1, countof(TestFnPack0), TestFnPack0}},
+  {L"test_pack_1",  "test_pack_1.$o",  "p", {  7, INTRIN_FLAG_READ_NONE, -1, countof(TestFnPack1), TestFnPack1}},
+  {L"test_pack_2",  "test_pack_2.$o",  "p", {  8, INTRIN_FLAG_READ_NONE, -1, countof(TestFnPack2), TestFnPack2}},
+  {L"test_pack_3",  "test_pack_3.$o",  "p", {  9, INTRIN_FLAG_READ_NONE, -1, countof(TestFnPack3), TestFnPack3}},
+  {L"test_pack_4",  "test_pack_4.$o",  "p", { 10, 0, -1, countof(TestFnPack4), TestFnPack4}},
+  {L"test_rand",    "test_rand",       "r", { 11, 0, -1, countof(TestRand), TestRand}},
+  {L"test_isinf",   "test_isinf",      "d", { 13, INTRIN_FLAG_READ_ONLY|INTRIN_FLAG_READ_NONE, -1, countof(TestIsInf), TestIsInf}},
+  {L"test_ibfe",    "test_ibfe",       "d", { 14, INTRIN_FLAG_READ_ONLY|INTRIN_FLAG_READ_NONE, -1, countof(TestIBFE), TestIBFE}},
   // Make this intrinsic have the same opcode as an hlsl intrinsic with an unsigned
   // counterpart for testing purposes.
-  {L"test_unsigned","test_unsigned",   "n", { static_cast<unsigned>(hlsl::IntrinsicOp::IOP_min), false, true, false, -1, countof(TestUnsigned), TestUnsigned}},
-  {L"wave_proc",    DEFAULT_NAME,      "r", { 16, false, true, true, -1, countof(WaveProcArgs), WaveProcArgs }},
-  {L"test_o_1",     "test_o_1.$o:1",   "r", { 18, false, true, true, -1, countof(TestOverloadArgs), TestOverloadArgs }},
-  {L"test_o_2",     "test_o_2.$o:2",   "r", { 19, false, true, true, -1, countof(TestOverloadArgs), TestOverloadArgs }},
-  {L"test_o_3",     "test_o_3.$o:3",   "r", { 20, false, true, true, -1, countof(TestOverloadArgs), TestOverloadArgs }},
+  {L"test_unsigned","test_unsigned",   "n", { static_cast<unsigned>(hlsl::IntrinsicOp::IOP_min), INTRIN_FLAG_READ_NONE, -1, countof(TestUnsigned), TestUnsigned}},
+  {L"wave_proc",    DEFAULT_NAME,      "r", { 16, INTRIN_FLAG_READ_NONE|INTRIN_FLAG_IS_WAVE, -1, countof(WaveProcArgs), WaveProcArgs }},
+  {L"test_o_1",     "test_o_1.$o:1",   "r", { 18, INTRIN_FLAG_READ_NONE|INTRIN_FLAG_IS_WAVE, -1, countof(TestOverloadArgs), TestOverloadArgs }},
+  {L"test_o_2",     "test_o_2.$o:2",   "r", { 19, INTRIN_FLAG_READ_NONE|INTRIN_FLAG_IS_WAVE, -1, countof(TestOverloadArgs), TestOverloadArgs }},
+  {L"test_o_3",     "test_o_3.$o:3",   "r", { 20, INTRIN_FLAG_READ_NONE|INTRIN_FLAG_IS_WAVE, -1, countof(TestOverloadArgs), TestOverloadArgs }},
 };
 
 Intrinsic BufferIntrinsics[] = {
-  {L"MyBufferOp",   "MyBufferOp",      "m", { 12, false, true, false, -1, countof(TestMyBufferOp), TestMyBufferOp}},
+  {L"MyBufferOp",   "MyBufferOp",      "m", { 12, INTRIN_FLAG_READ_NONE, -1, countof(TestMyBufferOp), TestMyBufferOp}},
 };
 
 // Test adding a method to an object that normally has no methods (SamplerState will do).
 Intrinsic SamplerIntrinsics[] = {
-  {L"MySamplerOp",   "MySamplerOp",    "m", { 15, false, true, false, -1, countof(TestMySamplerOp), TestMySamplerOp}},
+  {L"MySamplerOp",   "MySamplerOp",    "m", { 15, INTRIN_FLAG_READ_NONE, -1, countof(TestMySamplerOp), TestMySamplerOp}},
 };
 
 // Define a lowering string to target a common dxil extension operation defined like this:
@@ -222,12 +223,12 @@ static const char *MyTextureOp_LoweringInfo =
         "\"Texture2D\" : \"0,1,2.0,2.1,-1:?i32,3.0,3.1\""
     "}";
 Intrinsic Texture1DIntrinsics[] = {
-  {L"MyTextureOp",   "MyTextureOp", MyTextureOp_LoweringInfo, { 17, false, true, false, -1, countof(TestMyTexture1DOp_0), TestMyTexture1DOp_0}},
-  {L"MyTextureOp",   "MyTextureOp", MyTextureOp_LoweringInfo, { 17, false, true, false, -1, countof(TestMyTexture1DOp_1), TestMyTexture1DOp_1}},
+  {L"MyTextureOp",   "MyTextureOp", MyTextureOp_LoweringInfo, { 17, INTRIN_FLAG_READ_NONE, -1, countof(TestMyTexture1DOp_0), TestMyTexture1DOp_0}},
+  {L"MyTextureOp",   "MyTextureOp", MyTextureOp_LoweringInfo, { 17, INTRIN_FLAG_READ_NONE, -1, countof(TestMyTexture1DOp_1), TestMyTexture1DOp_1}},
 };
 
 Intrinsic Texture2DIntrinsics[] = {
-  {L"MyTextureOp",   "MyTextureOp", MyTextureOp_LoweringInfo, { 17, false, true, false, -1, countof(TestMyTexture2DOp), TestMyTexture2DOp}},
+  {L"MyTextureOp",   "MyTextureOp", MyTextureOp_LoweringInfo, { 17, INTRIN_FLAG_READ_NONE, -1, countof(TestMyTexture2DOp), TestMyTexture2DOp}},
 };
 
 
@@ -1115,7 +1116,7 @@ TEST_F(ExtensionTest, EvalAttributeCollision) {
   };
 
   for (hlsl::IntrinsicOp op : ops) {
-    Intrinsic Intrinsic = {L"collide_proc", "collide_proc",     "r", { static_cast<unsigned>(op),      true,false,false,-1, countof(Args), Args }};
+    Intrinsic Intrinsic = {L"collide_proc", "collide_proc",     "r", { static_cast<unsigned>(op), INTRIN_FLAG_READ_ONLY, -1, countof(Args), Args }};
     Compiler c(m_dllSupport);
     c.RegisterIntrinsicTable(new TestIntrinsicTable(&Intrinsic, 1));
     c.Compile(R"(
@@ -1143,7 +1144,7 @@ TEST_F(ExtensionTest, NoUnwind) {
     { "value",      AR_QUAL_IN,  1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, 1, IA_C }
   };
 
-  Intrinsic Intrinsic = {L"test_proc", "test_proc",     "r", { 1,      false,false,false,-1, countof(Args), Args }};
+  Intrinsic Intrinsic = {L"test_proc", "test_proc",     "r", { 1, 0, -1, countof(Args), Args }};
   Compiler c(m_dllSupport);
   c.RegisterIntrinsicTable(new TestIntrinsicTable(&Intrinsic, 1));
   c.Compile(R"(
@@ -1172,7 +1173,7 @@ TEST_F(ExtensionTest, DCE) {
     { "value",      AR_QUAL_IN,  1, LITEMPLATE_ANY, 1, LICOMPTYPE_NUMERIC, 1, IA_C }
   };
 
-  Intrinsic Intrinsic = {L"test_proc", "test_proc",     "r", { 1,      true,true,false,-1, countof(Args), Args }};
+  Intrinsic Intrinsic = {L"test_proc", "test_proc",     "r", { 1, INTRIN_FLAG_READ_ONLY|INTRIN_FLAG_READ_NONE, -1, countof(Args), Args }};
   Compiler c(m_dllSupport);
   c.RegisterIntrinsicTable(new TestIntrinsicTable(&Intrinsic, 1));
   c.Compile(R"(

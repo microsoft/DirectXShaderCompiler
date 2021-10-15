@@ -52,7 +52,7 @@ float4 main() : SV_Target
 // CHECK:      [[offset:%\d+]] = OpShiftRightLogical %uint %uint_16 %uint_2
 // CHECK-NEXT:    [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %myBuffer %uint_0 [[offset]]
 // CHECK-NEXT:        {{%\d+}} = OpAtomicUMax %uint [[ptr]] %uint_1 %uint_0 %uint_42
-    myBuffer.InterlockedMax(16, 42);
+    myBuffer.InterlockedMax(16, 42U);
 // CHECK:      [[offset:%\d+]] = OpShiftRightLogical %uint %uint_16 %uint_2
 // CHECK-NEXT:    [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %myBuffer %uint_0 [[offset]]
 // CHECK-NEXT:    [[val:%\d+]] = OpAtomicUMax %uint [[ptr]] %uint_1 %uint_0 %uint_42
@@ -62,7 +62,7 @@ float4 main() : SV_Target
 // CHECK:      [[offset:%\d+]] = OpShiftRightLogical %uint %uint_16 %uint_2
 // CHECK-NEXT:    [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %myBuffer %uint_0 [[offset]]
 // CHECK-NEXT:        {{%\d+}} = OpAtomicUMax %uint [[ptr]] %uint_1 %uint_0 %uint_42
-    myBuffer.InterlockedMax(16, 42);
+    myBuffer.InterlockedMax(16, 42U);
 // CHECK:      [[offset:%\d+]] = OpShiftRightLogical %uint %uint_16 %uint_2
 // CHECK-NEXT:    [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %myBuffer %uint_0 [[offset]]
 // CHECK-NEXT:    [[val:%\d+]] = OpAtomicUMax %uint [[ptr]] %uint_1 %uint_0 %uint_42
@@ -72,7 +72,7 @@ float4 main() : SV_Target
 // CHECK:      [[offset:%\d+]] = OpShiftRightLogical %uint %uint_16 %uint_2
 // CHECK-NEXT:    [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %myBuffer %uint_0 [[offset]]
 // CHECK-NEXT:        {{%\d+}} = OpAtomicUMin %uint [[ptr]] %uint_1 %uint_0 %uint_42
-    myBuffer.InterlockedMin(16, 42);
+    myBuffer.InterlockedMin(16, 42U);
 // CHECK:      [[offset:%\d+]] = OpShiftRightLogical %uint %uint_16 %uint_2
 // CHECK-NEXT:    [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %myBuffer %uint_0 [[offset]]
 // CHECK-NEXT:    [[val:%\d+]] = OpAtomicUMin %uint [[ptr]] %uint_1 %uint_0 %uint_42
@@ -82,7 +82,7 @@ float4 main() : SV_Target
 // CHECK:      [[offset:%\d+]] = OpShiftRightLogical %uint %uint_16 %uint_2
 // CHECK-NEXT:    [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %myBuffer %uint_0 [[offset]]
 // CHECK-NEXT:        {{%\d+}} = OpAtomicUMin %uint [[ptr]] %uint_1 %uint_0 %uint_42
-    myBuffer.InterlockedMin(16, 42);
+    myBuffer.InterlockedMin(16, 42U);
 // CHECK:      [[offset:%\d+]] = OpShiftRightLogical %uint %uint_16 %uint_2
 // CHECK-NEXT:    [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_uint %myBuffer %uint_0 [[offset]]
 // CHECK-NEXT:    [[val:%\d+]] = OpAtomicUMin %uint [[ptr]] %uint_1 %uint_0 %uint_42
