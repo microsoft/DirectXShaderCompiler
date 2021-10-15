@@ -488,7 +488,8 @@ void DeclPrinter::VisitFunctionDecl(FunctionDecl *D) {
   // HLSL Change Begin
   DeclContext *Namespace = D->getEnclosingNamespaceContext();
   DeclContext *Enclosing = D->getLexicalParent();
-  if (!Enclosing->isNamespace() && Namespace->isNamespace()) {
+  if (!Enclosing->isNamespace() && Namespace->isNamespace() &&
+      !Policy.HLSLOnlyDecl) {
     NamespaceDecl* ns = (NamespaceDecl*)Namespace;
     Proto = ns->getName().str() + "::" + Proto;
   }

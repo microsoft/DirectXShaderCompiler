@@ -1414,10 +1414,10 @@ void NamedDecl::printQualifiedName(raw_ostream &OS,
         OS << "(anonymous namespace)";
       else
         OS << *ND;
-      // HLSL Change Begin - not add cbuffer name to qualified name.
+    // HLSL Change Begin - not add cbuffer name to qualified name.
     } else if (isa<HLSLBufferDecl>(*I)) {
       continue;
-      // HLSL Change End.
+    // HLSL Change End.
     } else if (const RecordDecl *RD = dyn_cast<RecordDecl>(*I)) {
       if (!RD->getIdentifier())
         OS << "(anonymous " << RD->getKindName() << ')';
