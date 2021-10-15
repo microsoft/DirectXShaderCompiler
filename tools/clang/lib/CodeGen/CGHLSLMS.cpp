@@ -111,6 +111,7 @@ private:
   bool SetUAVSRV(SourceLocation loc, hlsl::DxilResourceBase::Class resClass,
                  DxilResource *hlslRes, QualType QualTy);
   uint32_t AddCBuffer(HLSLBufferDecl *D);
+  void AddCBufferDecls(DeclContext *DC, HLCBuffer *CB);
   uint32_t AddConstantBufferView(VarDecl *D);
   hlsl::DxilResourceBase::Class TypeToClass(clang::QualType Ty);
 
@@ -3478,7 +3479,7 @@ void CGMSHLSLRuntime::AddConstant(VarDecl *constDecl, HLCBuffer &CB) {
   }
   
   unsigned LowerBound = userOffset ? offset : UINT_MAX;
-  AddConstantToCB(cast<llvm::GlobalVariable>(constVal), constDecl->getName(),
+  AddConstantToCB(cast<llvm::GlobalVariable>(constVal), constDecl->getQualifiedNameAsString(),
                   constDecl->getType(), LowerBound, CB);
 
   // Save fieldAnnotation for the const var.
@@ -3516,28 +3517,40 @@ unique_ptr<HLCBuffer> CreateHLCBuf(NamedDecl *D, bool bIsView, bool bIsTBuf) {
 
 } // namespace
 
+void CGMSHLSLRuntime::AddCBufferDecls(DeclContext *DC, HLCBuffer *CB) {
+  for (Decl *it : DC->decls()) {
+    if (VarDecl *constDecl = dyn_cast<VarDecl>(it)) {
+      AddConstant(constDecl, *CB);
+    } else if (isa<EmptyDecl>(*it)) {
+      // Nothing to do for this declaration.
+    } else if (isa<CXXRecordDecl>(it)) {
+      // Nothing to do for this declaration.
+    } else if (isa<FunctionDecl>(it)) {
+      // A function within an cbuffer is effectively a top-level function,
+      // as it only refers to globally scoped declarations.
+      CGM.EmitTopLevelDecl(it);
+    } else if (NamespaceDecl *ND = dyn_cast<NamespaceDecl>(it)) {
+      AddCBufferDecls(ND, CB);
+    } else {
+      HLSLBufferDecl *inner = dyn_cast<HLSLBufferDecl>(it);
+      if (!inner) {
+        DiagnosticsEngine &Diags = CGM.getDiags();
+        unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
+                                                "invalid decl inside cbuffer");
+        Diags.Report(it->getLocation(), DiagID);
+        return;
+      }
+      GetOrCreateCBuffer(inner);
+    }
+  }
+}
+
 uint32_t CGMSHLSLRuntime::AddCBuffer(HLSLBufferDecl *D) {
   unique_ptr<HLCBuffer> CB = CreateHLCBuf(D, false, !D->isCBuffer());
 
   // Add constant
-  auto declsEnds = D->decls_end();
   CB->SetRangeSize(1);
-  for (auto it = D->decls_begin(); it != declsEnds; it++) {
-    if (VarDecl *constDecl = dyn_cast<VarDecl>(*it)) {
-      AddConstant(constDecl, *CB.get());
-    } else if (isa<EmptyDecl>(*it)) {
-      // Nothing to do for this declaration.
-    } else if (isa<CXXRecordDecl>(*it)) {
-      // Nothing to do for this declaration.
-    } else if (isa<FunctionDecl>(*it)) {
-      // A function within an cbuffer is effectively a top-level function,
-      // as it only refers to globally scoped declarations.
-      this->CGM.EmitTopLevelDecl(*it);
-    } else {
-      HLSLBufferDecl *inner = cast<HLSLBufferDecl>(*it);
-      GetOrCreateCBuffer(inner);
-    }
-  }
+  AddCBufferDecls(D, CB.get());
 
   CB->SetID(m_pHLModule->GetCBuffers().size());
   return m_pHLModule->AddCBuffer(std::move(CB));
