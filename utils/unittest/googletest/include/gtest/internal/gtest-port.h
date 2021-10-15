@@ -325,7 +325,8 @@
 // -std={c,gnu}++{0x,11} is passed.  The C++11 standard specifies a
 // value for __cplusplus, and recent versions of clang, gcc, and
 // probably other compilers set that too in C++11 mode.
-# if __GXX_EXPERIMENTAL_CXX0X__ || __cplusplus >= 201103L
+// HLSL Change - Add MSC_VER 1900
+# if __GXX_EXPERIMENTAL_CXX0X__ || __cplusplus >= 201103L || _MSC_VER >= 1900
 // Compiling in at least C++11 mode.
 #  define GTEST_LANG_CXX11 1
 # else
@@ -679,6 +680,7 @@ struct _RTL_CRITICAL_SECTION;
 #if GTEST_HAS_STD_TUPLE_
 # include <tuple>  // IWYU pragma: export
 # define GTEST_TUPLE_NAMESPACE_ ::std
+# undef GTEST_HAS_TR1_TUPLE // HLSL Change - For modern VS compat, don't use tr1
 #endif  // GTEST_HAS_STD_TUPLE_
 
 // We include tr1::tuple even if std::tuple is available to define printers for

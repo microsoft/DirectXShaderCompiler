@@ -101,8 +101,6 @@ if ( HLSL_SUPPORT_QUERY_GIT_COMMIT_INFO )
   add_definitions(-DSUPPORT_QUERY_GIT_COMMIT_INFO)
 endif()
 
-# Googletest uses tr1 namespace tuples, so we need to silence this warning
-add_definitions(-D_SILENCE_TR1_NAMESPACE_DEPRECATION_WARNING)
 # adjust link option to enable debugging from kernel mode; not compatible with incremental linking
 if(NOT CMAKE_VERSION VERSION_LESS "3.13" AND WIN32)
   add_link_options(/DEBUGTYPE:CV,FIXUP,PDATA /INCREMENTAL:NO)
