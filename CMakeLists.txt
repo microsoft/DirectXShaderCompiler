@@ -651,7 +651,7 @@ else()
   endif()
 endif()
 
-if(LLVM_INCLUDE_TESTS)
+if(LLVM_INCLUDE_TESTS OR HLSL_INCLUDE_TESTS OR SPIRV_BUILD_TESTS) # HLSL Change
   add_subdirectory(utils/unittest)
 endif()
 
