@@ -644,10 +644,10 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
 // HLSL Change Ends
 
 /// \brief Normalizes an attribute name by dropping prefixed and suffixed __.
-static StringRef normalizeAttrName(StringRef Name) {
+static std::string normalizeAttrName(StringRef Name) {  // HLSL Change: return std::string
   if (Name.size() >= 4 && Name.startswith("__") && Name.endswith("__"))
     Name = Name.drop_front(2).drop_back(2);
-  return Name;
+  return Name.lower();  // HLSL Change: make lowercase
 }
 
 /// \brief Determine whether the given attribute has an identifier argument.
