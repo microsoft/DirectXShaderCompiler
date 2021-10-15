@@ -417,6 +417,12 @@ public:
     return S_OK;
   }
 
+  HRESULT UnRegisterOutputStream() override {
+    m_pOutputStream.Detach();
+    m_pOutputStream = nullptr;
+    return S_OK;
+  }
+
   ~DxcArgsFileSystemImpl() override { };
   BOOL FindNextFileW(
     _In_   HANDLE hFindFile,
