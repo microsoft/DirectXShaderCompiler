@@ -2,6 +2,11 @@
 set(DXC_EXTERNAL_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}"
     CACHE STRING "Root location of all external projects")
 
+# We need to match this setting across everything we link together
+if (NOT HLSL_ENABLE_DEBUG_ITERATORS)
+  add_definitions(/D_ITERATOR_DEBUG_LEVEL=0)
+endif (NOT HLSL_ENABLE_DEBUG_ITERATORS)
+
 # Enabling SPIR-V codegen requires SPIRV-Headers for spirv.hpp and
 # SPIRV-Tools for SPIR-V disassembling functionality.
 if (${ENABLE_SPIRV_CODEGEN})
