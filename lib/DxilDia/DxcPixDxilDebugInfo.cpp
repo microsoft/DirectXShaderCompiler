@@ -106,7 +106,7 @@ llvm::Instruction* dxil_debug_info::DxcPixDxilDebugInfo::FindInstruction(
     DWORD InstructionOffset
 ) const
 {
-  const auto Instructions = m_pSession->InstructionsRef();
+  const auto & Instructions = m_pSession->InstructionsRef();
   auto it = Instructions.find(InstructionOffset);
   if (it == Instructions.end())
   {
