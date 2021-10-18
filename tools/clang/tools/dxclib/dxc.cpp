@@ -115,6 +115,8 @@ inline bool wcseq(LPCWSTR a, LPCWSTR b) {
   return (a == nullptr && b == nullptr) || (a != nullptr && b != nullptr && wcscmp(a, b) == 0);
 }
 
+static const char kNoOutputObjectSpecified[] = "(no specified output file)";
+
 using namespace dxc;
 using namespace llvm::opt;
 using namespace hlsl::options;
@@ -273,7 +275,7 @@ int DxcContext::ActOnBlob(IDxcBlob *pBlob) {
 int DxcContext::ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob, LPCWSTR pDebugBlobName) {
   int retVal = 0;
   // Text output.
-  if (m_Opts.AstDump || m_Opts.OptDump) {
+  if (m_Opts.AstDump || m_Opts.OptDump || m_Opts.DumpDependencies) {
     WriteBlobToConsole(pBlob);
     return retVal;
   }
@@ -814,7 +816,8 @@ int DxcContext::Compile() {
 
   HRESULT status;
   IFT(pCompileResult->GetStatus(&status));
-  if (SUCCEEDED(status) || m_Opts.AstDump || m_Opts.OptDump) {
+  if (SUCCEEDED(status) || m_Opts.AstDump || m_Opts.OptDump ||
+      m_Opts.DumpDependencies) {
     CComPtr<IDxcBlob> pProgram;
     IFT(pCompileResult->GetResult(&pProgram));
     if (pProgram.p != nullptr) {

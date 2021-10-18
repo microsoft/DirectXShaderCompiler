@@ -738,7 +738,7 @@ public:
       IFT(pOutputStream.QueryInterface(&pOutputBlob));
 
       primaryOutput.kind = DXC_OUT_OBJECT;
-      if (opts.AstDump || opts.OptDump)
+      if (opts.AstDump || opts.OptDump || opts.DumpDependencies)
         primaryOutput.kind = DXC_OUT_TEXT;
       else if (isPreprocessing)
         primaryOutput.kind = DXC_OUT_HLSL;
@@ -897,7 +897,9 @@ public:
 
         // NOTE: this calls the validation component from dxil.dll; the built-in
         // validator can be used as a fallback.
-        produceFullContainer = !opts.CodeGenHighLevel && !opts.AstDump && !opts.OptDump && rootSigMajor == 0;
+        produceFullContainer = !opts.CodeGenHighLevel && !opts.AstDump &&
+                               !opts.OptDump && rootSigMajor == 0 &&
+                               !opts.DumpDependencies;
         needsValidation = produceFullContainer && !opts.DisableValidation;
 
         if (compiler.getCodeGenOpts().HLSLProfile == "lib_6_x") {
@@ -931,16 +933,28 @@ public:
         dumpAction.Execute();
         dumpAction.EndSourceFile();
         outStream.flush();
-      }
-      else if (opts.OptDump) {
+      } else if (opts.DumpDependencies) {
+        auto dependencyCollector = std::make_shared<DependencyCollector>();
+        compiler.addDependencyCollector(dependencyCollector);
+        compiler.createPreprocessor(clang::TranslationUnitKind::TU_Complete);
+
+        clang::PreprocessOnlyAction preprocessAction;
+        FrontendInputFile file(pUtf8SourceName, IK_HLSL);
+        preprocessAction.BeginSourceFile(compiler, file);
+        preprocessAction.Execute();
+        preprocessAction.EndSourceFile();
+
+        for (auto &dependency : dependencyCollector->getDependencies())
+          outStream << dependency << "\n";
+        outStream.flush();
+      } else if (opts.OptDump) {
         EmitOptDumpAction action(&llvmContext);
         FrontendInputFile file(pUtf8SourceName, IK_HLSL);
         action.BeginSourceFile(compiler, file);
         action.Execute();
         action.EndSourceFile();
         outStream.flush();
-      }
-      else if (rootSigMajor) {
+      } else if (rootSigMajor) {
         HLSLRootSignatureAction action(
             compiler.getCodeGenOpts().HLSLEntryFunction, rootSigMajor,
             rootSigMinor);

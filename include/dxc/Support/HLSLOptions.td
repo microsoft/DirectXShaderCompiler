@@ -229,6 +229,8 @@ def _version : Flag<["--"], "version">, Group<hlslcore_Group>, Flags<[DriverOpti
 
 def ast_dump : Flag<["-", "/"], "ast-dump">, Flags<[CoreOption, DriverOption, HelpHidden]>,
   HelpText<"Dumps the parsed Abstract Syntax Tree.">; // should not be core, but handy workaround until explicit API written
+def dump_dependencies : Flag<["-", "/"], "dump-dependencies">, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Dumps the dependencies of the compilation target.">;
 def external_lib : Separate<["-", "/"], "external">, Group<hlslcore_Group>, Flags<[DriverOption, RewriteOption, HelpHidden]>,
   HelpText<"External DLL name to load for compiler support">;
 def external_fn : Separate<["-", "/"], "external-fn">, Group<hlslcore_Group>, Flags<[DriverOption, RewriteOption, HelpHidden]>,
