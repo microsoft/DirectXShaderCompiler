@@ -15,13 +15,13 @@ add_subdirectory(ADT)
 add_subdirectory(Analysis)
 add_subdirectory(AsmParser)
 add_subdirectory(Bitcode)
-add_subdirectory(CodeGen)
-add_subdirectory(DebugInfo)
+# add_subdirectory(CodeGen) - HLSL doesn't codegen...
+# add_subdirectory(DebugInfo) - HLSL doesn't generate dwarf
 # add_subdirectory(ExecutionEngine) - HLSL Change - removed
 add_subdirectory(IR)
-add_subdirectory(LineEditor)
+# add_subdirectory(LineEditor) - HLSL Change - removed
 add_subdirectory(Linker)
-add_subdirectory(MC)
+# add_subdirectory(MC) - HLSL doesn't codegen...
 add_subdirectory(Option)
 add_subdirectory(ProfileData)
 add_subdirectory(Support)
