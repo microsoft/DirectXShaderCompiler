@@ -38,12 +38,12 @@ const char TestProgram[] =
     "};                             "
     "EmitCXXGlobalInitFunc test;    ";
 
-TEST(BufferSourceTest, EmitCXXGlobalInitFunc) {
+TEST(BufferSourceTest, DISABLED_EmitCXXGlobalInitFunc) { // HLSL - Disabled
     CompilerInstance compiler;
 
     compiler.createDiagnostics();
-    compiler.getLangOpts().CPlusPlus = 1;
-    compiler.getLangOpts().CPlusPlus11 = 1;
+    //compiler.getLangOpts().CPlusPlus = 1;   // HLSL Change - hardcoded
+    //compiler.getLangOpts().CPlusPlus11 = 1; // HLSL Change - hardcoded
 
     compiler.getTargetOpts().Triple = llvm::Triple::normalize(
         llvm::sys::getProcessTriple());

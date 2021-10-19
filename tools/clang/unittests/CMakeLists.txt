@@ -13,22 +13,22 @@ if ( CLANG_INCLUDE_TESTS ) # HLSL Change
 
 add_subdirectory(Basic)
 add_subdirectory(Lex)
-add_subdirectory(Driver)
+#add_subdirectory(Driver) # HLSL Disabled :(
 if(CLANG_ENABLE_STATIC_ANALYZER)
   add_subdirectory(StaticAnalyzer)
   add_subdirectory(Frontend)
 endif()
-add_subdirectory(ASTMatchers)
-add_subdirectory(AST)
-add_subdirectory(Tooling)
+#add_subdirectory(ASTMatchers) # HLSL Disabled :(
+#add_subdirectory(AST) # HLSL Disabled :(
+#add_subdirectory(Tooling) # HLSL Disabled :(
 add_subdirectory(Format)
 add_subdirectory(Rewrite)
-add_subdirectory(Sema)
+#add_subdirectory(Sema) # HLSL Disabled :(
 add_subdirectory(CodeGen)
 # FIXME: libclang unit tests are disabled on Windows due
 # to failures, mostly in libclang.VirtualFileOverlay_*.
 if(NOT WIN32)
-  add_subdirectory(libclang)
+  #add_subdirectory(libclang) # HLSL Disabled :(
 endif()
 
 endif (CLANG_INCLUDE_TESTS) # HLSL Change
