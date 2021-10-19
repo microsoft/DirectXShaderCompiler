@@ -2,6 +2,11 @@
 set(DXC_EXTERNAL_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}"
     CACHE STRING "Root location of all external projects")
 
+# We need to match this setting across everything we link together
+if (NOT HLSL_ENABLE_DEBUG_ITERATORS)
+  add_definitions(/D_ITERATOR_DEBUG_LEVEL=0)
+endif (NOT HLSL_ENABLE_DEBUG_ITERATORS)
+
 # Enabling SPIR-V codegen requires SPIRV-Headers for spirv.hpp and
 # SPIRV-Tools for SPIR-V disassembling functionality.
 if (${ENABLE_SPIRV_CODEGEN})
@@ -46,21 +51,6 @@ if (${ENABLE_SPIRV_CODEGEN})
   foreach(target ${SPIRV_DEP_TARGETS})
     set_property(TARGET ${target} PROPERTY FOLDER "External dependencies")
   endforeach()
-
-  # We need GoogleTest for unit and SPIR-V codegen testing.
-  if (${SPIRV_BUILD_TESTS})
-    set(DXC_GTEST_DIR "${DXC_EXTERNAL_ROOT_DIR}/googletest"
-        CACHE STRING "Location of GoogleTest source")
-    if (NOT TARGET gtest)
-      if (IS_DIRECTORY ${DXC_GTEST_DIR})
-        # Configure googletest
-        include(GTestConfig.cmake)
-      endif()
-      if (NOT TARGET gtest)
-        message(FATAL_ERROR "GoogleTest was not found - required for SPIR-V codegen")
-      endif()
-    endif()
-  endif()
 
   # We need Effcee for SPIR-V codegen testing.
   if (${SPIRV_BUILD_TESTS})
