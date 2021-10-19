@@ -104,7 +104,7 @@ public:
   /// for the basic block. On failure, returns zero.
   SpirvBasicBlock *createBasicBlock(llvm::StringRef name = "");
 
-  /// \brief Creates a SPIR-V DebugScope (OpenCL.DebugInfo.100 instruction).
+  /// \brief Creates a SPIR-V rich DebugInfo DebugScope instruction.
   /// On success, returns the <id> of DebugScope. On failure, returns nullptr.
   SpirvDebugScope *createDebugScope(SpirvDebugInstruction *scope);
 
@@ -495,6 +495,9 @@ public:
                       llvm::StringRef linkageName, uint32_t flags,
                       uint32_t scopeLine, SpirvFunction *fn);
 
+  SpirvDebugFunctionDefinition *
+  createDebugFunctionDef(SpirvDebugFunction *function, SpirvFunction *fn);
+
   /// \brief Create SPIR-V instructions for KHR RayQuery ops
   SpirvInstruction *
   createRayQueryOpsKHR(spv::Op opcode, QualType resultType,
@@ -554,9 +557,10 @@ public:
   void addModuleProcessed(llvm::StringRef process);
 
   /// \brief If not added already, adds an OpExtInstImport (import of extended
-  /// instruction set) of the OpenCL.DebugInfo.100 instruction set. Returns the
-  /// imported instruction set.
-  SpirvExtInstImport *getOpenCLDebugInfoExtInstSet();
+  /// instruction set) of the rich DebugInfo instruction set, either OpenCL or
+  /// Vulkan.
+  /// Returns the imported instruction set.
+  SpirvExtInstImport *getDebugInfoExtInstSet(bool vulkanDebugInfo);
 
   /// \brief Adds a stage input/ouput variable whose value is of the given type.
   ///

@@ -88,6 +88,7 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugSource)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugCompilationUnit)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugFunctionDeclaration)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugFunction)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugFunctionDefinition)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugLocalVariable)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugGlobalVariable)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugOperation)
@@ -866,6 +867,11 @@ SpirvDebugFunctionDeclaration::SpirvDebugFunctionDeclaration(
       flags(flags_) {
   debugName = name;
 }
+
+SpirvDebugFunctionDefinition::SpirvDebugFunctionDefinition(
+    SpirvDebugFunction *function_, SpirvFunction *fn_)
+    : SpirvDebugInstruction(IK_DebugFunctionDef, /*opcode*/ 101u),
+      function(function_), fn(fn_) {}
 
 SpirvDebugLocalVariable::SpirvDebugLocalVariable(
     QualType debugQualType_, llvm::StringRef varName, SpirvDebugSource *src,

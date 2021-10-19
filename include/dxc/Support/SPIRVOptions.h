@@ -43,6 +43,9 @@ struct SpirvCodeGenOptions {
   bool debugInfoSource;
   bool debugInfoTool;
   bool debugInfoRich;
+  /// Use NonSemantic.Vulkan.DebugInfo.100 debug info instead of
+  /// OpenCL.DebugInfo.100
+  bool debugInfoVulkan;
   bool defaultRowMajor;
   bool disableValidation;
   bool enable16BitTypes;

@@ -7,6 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+// Do not change the inclusion order between "dxc/Support/*" files.
+// clang-format off
 #include "EmitVisitor.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
@@ -19,6 +21,7 @@
 #include "clang/SPIRV/SpirvInstruction.h"
 #include "clang/SPIRV/SpirvType.h"
 #include "clang/SPIRV/String.h"
+// clang-format on
 
 namespace {
 
@@ -179,6 +182,15 @@ uint32_t EmitVisitor::getOrCreateOpStringId(llvm::StringRef str) {
   return getOrAssignResultId<SpirvInstruction>(opString);
 }
 
+uint32_t EmitVisitor::getLiteralEncodedForDebugInfo(uint32_t val) {
+  if (spvOptions.debugInfoVulkan) {
+    return typeHandler.getOrCreateConstantInt(
+        llvm::APInt(32, val), context.getUIntType(32), /*isSpecConst */ false);
+  } else {
+    return val;
+  }
+}
+
 void EmitVisitor::emitDebugNameForInstruction(uint32_t resultId,
                                               llvm::StringRef debugName) {
   // Most instructions do not have a debug name associated with them.
@@ -223,10 +235,10 @@ void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc,
   if (!isOpLineLegalForOp(op))
     return;
 
-  // DebugGlobalVariable and DebugLocalVariable of OpenCL.DebugInfo.100 already
-  // has the line and the column information. We do not want to emit OpLine
-  // for global variables and local variables. Instead, we want to emit OpLine
-  // for their initialization if exists.
+  // DebugGlobalVariable and DebugLocalVariable of rich DebugInfo already has
+  // the line and the column information. We do not want to emit OpLine for
+  // global variables and local variables. Instead, we want to emit OpLine for
+  // their initialization if exists.
   if (op == spv::Op::OpVariable)
     return;
 
@@ -398,9 +410,10 @@ bool EmitVisitor::visit(SpirvFunction *fn, Phase phase) {
     initInstruction(spv::Op::OpFunction, fn->getSourceLocation());
     curInst.push_back(returnTypeId);
     curInst.push_back(getOrAssignResultId<SpirvFunction>(fn));
-    curInst.push_back(fn->isNoInline() ?
-        static_cast<uint32_t>(spv::FunctionControlMask::DontInline) :
-        static_cast<uint32_t>(spv::FunctionControlMask::MaskNone));
+    curInst.push_back(
+        fn->isNoInline()
+            ? static_cast<uint32_t>(spv::FunctionControlMask::DontInline)
+            : static_cast<uint32_t>(spv::FunctionControlMask::MaskNone));
     curInst.push_back(functionTypeId);
     finalizeInstruction(&mainBinary);
     emitDebugNameForInstruction(getOrAssignResultId<SpirvFunction>(fn),
@@ -1279,11 +1292,12 @@ bool EmitVisitor::visit(SpirvDebugCompilationUnit *inst) {
   curInst.push_back(
       getOrAssignResultId<SpirvInstruction>(inst->getInstructionSet()));
   curInst.push_back(inst->getDebugOpcode());
-  curInst.push_back(inst->getSpirvVersion());
-  curInst.push_back(inst->getDwarfVersion());
+  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getSpirvVersion()));
+  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getDwarfVersion()));
   curInst.push_back(
       getOrAssignResultId<SpirvInstruction>(inst->getDebugSource()));
-  curInst.push_back(static_cast<uint32_t>(inst->getLanguage()));
+  curInst.push_back(getLiteralEncodedForDebugInfo(
+      static_cast<uint32_t>(inst->getLanguage())));
   finalizeInstruction(&richDebugInfo);
   return true;
 }
@@ -1296,8 +1310,8 @@ bool EmitVisitor::visit(SpirvDebugLexicalBlock *inst) {
       getOrAssignResultId<SpirvInstruction>(inst->getInstructionSet()));
   curInst.push_back(inst->getDebugOpcode());
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getSource()));
-  curInst.push_back(inst->getLine());
-  curInst.push_back(inst->getColumn());
+  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getLine()));
+  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getColumn()));
   curInst.push_back(
       getOrAssignResultId<SpirvInstruction>(inst->getParentScope()));
   finalizeInstruction(&richDebugInfo);
@@ -1335,12 +1349,12 @@ bool EmitVisitor::visit(SpirvDebugFunctionDeclaration *inst) {
   curInst.push_back(
       getOrAssignResultId<SpirvInstruction>(inst->getDebugType()));
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getSource()));
-  curInst.push_back(inst->getLine());
-  curInst.push_back(inst->getColumn());
+  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getLine()));
+  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getColumn()));
   curInst.push_back(
       getOrAssignResultId<SpirvInstruction>(inst->getParentScope()));
   curInst.push_back(linkageNameId);
-  curInst.push_back(inst->getFlags());
+  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getFlags()));
   finalizeInstruction(&richDebugInfo);
   return true;
 }
@@ -1358,21 +1372,39 @@ bool EmitVisitor::visit(SpirvDebugFunction *inst) {
   curInst.push_back(
       getOrAssignResultId<SpirvInstruction>(inst->getDebugType()));
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getSource()));
-  curInst.push_back(inst->getLine());
-  curInst.push_back(inst->getColumn());
+  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getLine()));
+  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getColumn()));
   curInst.push_back(
       getOrAssignResultId<SpirvInstruction>(inst->getParentScope()));
   curInst.push_back(linkageNameId);
-  curInst.push_back(inst->getFlags());
-  curInst.push_back(inst->getScopeLine());
-  auto *fn = inst->getSpirvFunction();
-  if (fn) {
-    curInst.push_back(getOrAssignResultId<SpirvFunction>(fn));
-  } else {
-    curInst.push_back(
-        getOrAssignResultId<SpirvInstruction>(inst->getDebugInfoNone()));
+  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getFlags()));
+  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getScopeLine()));
+  /// Only emit the function Id for OpenCL debug info, Vulkan debug info
+  /// disallows forward references
+  if (!spvOptions.debugInfoVulkan) {
+    auto *fn = inst->getSpirvFunction();
+    if (fn) {
+      curInst.push_back(getOrAssignResultId<SpirvFunction>(fn));
+    } else {
+      curInst.push_back(
+          getOrAssignResultId<SpirvInstruction>(inst->getDebugInfoNone()));
+    }
   }
   finalizeInstruction(&richDebugInfo);
+  return true;
+}
+
+bool EmitVisitor::visit(SpirvDebugFunctionDefinition *inst) {
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getInstructionSet()));
+  curInst.push_back(inst->getDebugOpcode());
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getDebugFunction()));
+  curInst.push_back(getOrAssignResultId<SpirvFunction>(inst->getFunction()));
+  finalizeInstruction(&mainBinary);
   return true;
 }
 
@@ -1386,7 +1418,10 @@ bool EmitVisitor::visit(SpirvDebugTypeBasic *inst) {
   curInst.push_back(inst->getDebugOpcode());
   curInst.push_back(typeNameId);
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getSize()));
-  curInst.push_back(inst->getEncoding());
+  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getEncoding()));
+  // Vulkan needs flag operand. TODO(greg-lunarg): Set flag correctly.
+  if (spvOptions.debugInfoVulkan)
+    curInst.push_back(getLiteralEncodedForDebugInfo(0));
   finalizeInstruction(&richDebugInfo);
   return true;
 }
@@ -1400,7 +1435,7 @@ bool EmitVisitor::visit(SpirvDebugTypeVector *inst) {
   curInst.push_back(inst->getDebugOpcode());
   curInst.push_back(
       getOrAssignResultId<SpirvInstruction>(inst->getElementType()));
-  curInst.push_back(inst->getElementCount());
+  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getElementCount()));
   finalizeInstruction(&richDebugInfo);
   return true;
 }
@@ -1435,7 +1470,7 @@ bool EmitVisitor::visit(SpirvDebugTypeFunction *inst) {
   curInst.push_back(
       getOrAssignResultId<SpirvInstruction>(inst->getInstructionSet()));
   curInst.push_back(inst->getDebugOpcode());
-  curInst.push_back(inst->getDebugFlags());
+  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getDebugFlags()));
   if (inst->getReturnType()) {
     curInst.push_back(
         getOrAssignResultId<SpirvInstruction>(inst->getReturnType()));
@@ -1463,10 +1498,10 @@ bool EmitVisitor::visit(SpirvDebugTypeComposite *inst) {
       getOrAssignResultId<SpirvInstruction>(inst->getInstructionSet()));
   curInst.push_back(inst->getDebugOpcode());
   curInst.push_back(typeNameId);
-  curInst.push_back(inst->getTag());
+  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getTag()));
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getSource()));
-  curInst.push_back(inst->getLine());
-  curInst.push_back(inst->getColumn());
+  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getLine()));
+  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getColumn()));
   curInst.push_back(
       getOrAssignResultId<SpirvInstruction>(inst->getParentScope()));
   curInst.push_back(linkageNameId);
@@ -1476,7 +1511,7 @@ bool EmitVisitor::visit(SpirvDebugTypeComposite *inst) {
   } else {
     curInst.push_back(size);
   }
-  curInst.push_back(inst->getDebugFlags());
+  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getDebugFlags()));
   for (auto *member : inst->getMembers()) {
     curInst.push_back(getOrAssignResultId<SpirvInstruction>(member));
   }
@@ -1502,13 +1537,18 @@ bool EmitVisitor::visit(SpirvDebugTypeMember *inst) {
   curInst.push_back(
       getOrAssignResultId<SpirvInstruction>(inst->getDebugType()));
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getSource()));
-  curInst.push_back(inst->getLine());
-  curInst.push_back(inst->getColumn());
-  curInst.push_back(
-      getOrAssignResultId<SpirvInstruction>(inst->getParentScope()));
+  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getLine()));
+  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getColumn()));
+  /// Only emit the parent reference for OpenCL debug info. Vulkan debug info
+  /// breaks reference cycle between DebugTypeComposite and DebugTypeMember,
+  /// with only the composite referencing its members and not the reverse.
+  if (!spvOptions.debugInfoVulkan) {
+    curInst.push_back(
+        getOrAssignResultId<SpirvInstruction>(inst->getParentScope()));
+  }
   curInst.push_back(offset);
   curInst.push_back(size);
-  curInst.push_back(inst->getDebugFlags());
+  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getDebugFlags()));
   finalizeInstruction(&richDebugInfo);
   return true;
 }
@@ -1541,8 +1581,8 @@ bool EmitVisitor::visit(SpirvDebugTypeTemplateParameter *inst) {
       getOrAssignResultId<SpirvInstruction>(inst->getActualType()));
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getValue()));
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getSource()));
-  curInst.push_back(inst->getLine());
-  curInst.push_back(inst->getColumn());
+  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getLine()));
+  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getColumn()));
   finalizeInstruction(&richDebugInfo);
   return true;
 }
@@ -1559,14 +1599,15 @@ bool EmitVisitor::visit(SpirvDebugLocalVariable *inst) {
   curInst.push_back(
       getOrAssignResultId<SpirvInstruction>(inst->getDebugType()));
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getSource()));
-  curInst.push_back(inst->getLine());
-  curInst.push_back(inst->getColumn());
+  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getLine()));
+  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getColumn()));
   curInst.push_back(
       getOrAssignResultId<SpirvInstruction>(inst->getParentScope()));
-  curInst.push_back(inst->getFlags());
-  if (inst->getArgNumber().hasValue())
-    curInst.push_back(inst->getArgNumber().getValue());
-
+  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getFlags()));
+  if (inst->getArgNumber().hasValue()) {
+    curInst.push_back(
+        getLiteralEncodedForDebugInfo(inst->getArgNumber().getValue()));
+  }
   finalizeInstruction(&richDebugInfo);
   return true;
 }
@@ -1600,13 +1641,13 @@ bool EmitVisitor::visit(SpirvDebugGlobalVariable *inst) {
   curInst.push_back(
       getOrAssignResultId<SpirvInstruction>(inst->getDebugType()));
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getSource()));
-  curInst.push_back(inst->getLine());
-  curInst.push_back(inst->getColumn());
+  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getLine()));
+  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getColumn()));
   curInst.push_back(
       getOrAssignResultId<SpirvInstruction>(inst->getParentScope()));
   curInst.push_back(linkageNameId);
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getVariable()));
-  curInst.push_back(inst->getFlags());
+  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getFlags()));
   if (inst->getStaticMemberDebugDecl().hasValue())
     curInst.push_back(getOrAssignResultId<SpirvInstruction>(
         inst->getStaticMemberDebugDecl().getValue()));
@@ -1675,7 +1716,7 @@ bool EmitVisitor::visit(SpirvIntrinsicInstruction *inst) {
     // TODO: Handle Literals with other types.
     auto literalOperand = dyn_cast<SpirvConstantInteger>(operand);
     if (literalOperand && literalOperand->getLiteral()) {
-        curInst.push_back(literalOperand->getValue().getZExtValue());
+      curInst.push_back(literalOperand->getValue().getZExtValue());
     } else {
       curInst.push_back(getOrAssignResultId<SpirvInstruction>(operand));
     }
@@ -2235,8 +2276,7 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
     finalizeTypeInstruction();
   }
   // RayQueryType KHR type
-  else if (const auto *rayQueryType =
-               dyn_cast<RayQueryTypeKHR>(type)) {
+  else if (const auto *rayQueryType = dyn_cast<RayQueryTypeKHR>(type)) {
     initTypeInstruction(spv::Op::OpTypeRayQueryKHR);
     curTypeInst.push_back(id);
     finalizeTypeInstruction();

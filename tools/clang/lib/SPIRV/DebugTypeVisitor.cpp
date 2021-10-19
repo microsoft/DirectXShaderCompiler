@@ -32,7 +32,8 @@ void addTemplateTypeAndItsParamsToModule(SpirvModule *module,
 void DebugTypeVisitor::setDefaultDebugInfo(SpirvDebugInstruction *instr) {
   instr->setAstResultType(astContext.VoidTy);
   instr->setResultType(context.getVoidType());
-  instr->setInstructionSet(spvBuilder.getOpenCLDebugInfoExtInstSet());
+  instr->setInstructionSet(
+      spvBuilder.getDebugInfoExtInstSet(spvOptions.debugInfoVulkan));
 }
 
 SpirvDebugInfoNone *DebugTypeVisitor::getDebugInfoNone() {
