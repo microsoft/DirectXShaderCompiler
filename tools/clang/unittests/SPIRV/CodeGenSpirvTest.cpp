@@ -2954,5 +2954,11 @@ struct validType {
 // CHECK:    %output = OpTypeStruct %validType
 )"));
 }
+TEST_F(FileTest, ShaderDebugInfoFunction) {
+  runFileTest("shader.debug.function.hlsl");
+}
+TEST_F(FileTest, ShaderDebugInfoDebugLexicalBlock) {
+  runFileTest("shader.debug.debuglexicalblock.hlsl");
+}
 
 } // namespace
