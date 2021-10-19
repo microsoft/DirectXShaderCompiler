@@ -115,8 +115,6 @@ inline bool wcseq(LPCWSTR a, LPCWSTR b) {
   return (a == nullptr && b == nullptr) || (a != nullptr && b != nullptr && wcscmp(a, b) == 0);
 }
 
-static const char kNoOutputObjectSpecified[] = "(no specified output file)";
-
 using namespace dxc;
 using namespace llvm::opt;
 using namespace hlsl::options;
