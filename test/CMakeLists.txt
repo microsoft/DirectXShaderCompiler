@@ -109,6 +109,17 @@ add_lit_testsuites(LLVM ${CMAKE_CURRENT_SOURCE_DIR}
   DEPENDS ${LLVM_TEST_DEPENDS}
   )
 
+# HLSL Change Begin - When building IDE configurations, generate the unit test config
+if (CMAKE_CONFIGURATION_TYPES)
+add_lit_target(check-llvm-unit "Running lit suite llvm-unit"
+          ${CMAKE_CURRENT_BINARY_DIR}/Unit
+            PARAMS llvm_site_config=${CMAKE_CURRENT_BINARY_DIR}/lit.site.cfg
+                   llvm_unit_site_config=${CMAKE_CURRENT_BINARY_DIR}/Unit/lit.site.cfg
+         DEPENDS UnitTests
+       )
+endif()
+# HLSL Change End - Add a separate target for clang unit tests
+
 # Setup a legacy alias for 'check-llvm'. This will likely change to be an
 # alias for 'check-all' at some point in the future.
 add_custom_target(check)

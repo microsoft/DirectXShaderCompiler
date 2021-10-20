@@ -2,6 +2,7 @@ set(LLVM_LINK_COMPONENTS
   Analysis
   AsmParser
   Core
+  DXIL  # HLSL Change
   IPA
   Support
   )
