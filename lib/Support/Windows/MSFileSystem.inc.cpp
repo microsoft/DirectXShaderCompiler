@@ -307,6 +307,12 @@ namespace path {
     // Just use the caller's original path.
     return UTF8ToUTF16(Path8Str, Path16);
   }
+
+bool home_directory(SmallVectorImpl<char> &result) {
+  assert("HLSL Unimplemented!");
+  return false;
+}
+
 } // end namespace path
 
 namespace fs {
@@ -1038,6 +1044,15 @@ error_code openFileForWrite(const Twine &Name, int &ResultFD,
 
   ResultFD = FD;
   return error_code();
+}
+
+std::error_code resize_file(int FD, uint64_t Size) {
+#ifdef HAVE__CHSIZE_S
+  errno_t error = ::_chsize_s(FD, Size);
+#else
+  errno_t error = ::_chsize(FD, Size);
+#endif
+  return std::error_code(error, std::generic_category());
 }
 
 } // end namespace fs

@@ -621,6 +621,10 @@ if( MINGW )
   llvm_replace_compiler_option(CMAKE_CXX_FLAGS_RELEASE "-O3" "-O2")
 endif()
 
+if(LLVM_INCLUDE_TESTS AND WIN32)
+  add_definitions(/DMSFT_SUPPORTS_CHILD_PROCESSES)
+endif()
+
 # Put this before tblgen. Else we have a circular dependence.
 add_subdirectory(lib/Support)
 add_subdirectory(lib/MSSupport) # HLSL Change
@@ -683,7 +687,7 @@ if( LLVM_INCLUDE_EXAMPLES AND 0 ) # HLSL Change - never build examples
   add_subdirectory(examples)
 endif()
 
-if( LLVM_INCLUDE_TESTS AND 0 ) # HLSL Change - never build tests/unittests
+if( LLVM_INCLUDE_TESTS )
   add_subdirectory(test)
   add_subdirectory(unittests)
   if (MSVC)
