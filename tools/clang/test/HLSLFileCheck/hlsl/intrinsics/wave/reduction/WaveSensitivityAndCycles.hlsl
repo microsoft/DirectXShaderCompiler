@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_3 %s | FileCheck %s -input=stderr
+// RUN: %dxc -T lib_6_3 %s | FileCheck %s -input-file=stderr
 
 // CHECK: 18:19: warning: Gradient operations are not affected by wave-sensitive data or control flow
 // CHECK: 37:19: warning: Gradient operations are not affected by wave-sensitive data or control flow
