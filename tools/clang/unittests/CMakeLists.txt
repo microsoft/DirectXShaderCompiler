@@ -21,7 +21,7 @@ endif()
 #add_subdirectory(ASTMatchers) # HLSL Disabled :(
 #add_subdirectory(AST) # HLSL Disabled :(
 #add_subdirectory(Tooling) # HLSL Disabled :(
-add_subdirectory(Format)
+#add_subdirectory(Format) # HLSL Disabled :(
 add_subdirectory(Rewrite)
 #add_subdirectory(Sema) # HLSL Disabled :(
 add_subdirectory(CodeGen)
