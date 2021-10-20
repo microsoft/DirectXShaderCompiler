@@ -318,8 +318,10 @@ endif()
 
 # By default, we target the host, but this can be overridden at CMake
 # invocation time.
+if (NOT LLVM_HOST_TRIPLE)
 include(GetHostTriple)
 get_host_triple(LLVM_INFERRED_HOST_TRIPLE)
+endif()
 
 set(LLVM_HOST_TRIPLE "${LLVM_INFERRED_HOST_TRIPLE}" CACHE STRING
     "Host on which LLVM binaries will run")

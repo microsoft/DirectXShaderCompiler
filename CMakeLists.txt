@@ -642,7 +642,7 @@ if (HLSL_EMBED_VERSION)
   add_subdirectory(utils/version)
 endif()
 
-if( LLVM_INCLUDE_UTILS )
+if(LLVM_INCLUDE_UTILS AND LLVM_INCLUDE_TESTS) # HLSL Change - only when testing
   add_subdirectory(utils/FileCheck)
   # add_subdirectory(utils/FileUpdate) # HLSL Change
   add_subdirectory(utils/count)

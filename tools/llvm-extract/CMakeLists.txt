@@ -1,7 +1,6 @@
 set(LLVM_LINK_COMPONENTS
   BitWriter
   Core
-  DXIL
   IPO
   IRReader
   Support

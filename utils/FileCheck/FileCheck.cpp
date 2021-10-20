@@ -36,7 +36,6 @@
 using namespace llvm;
 
 // HLSL Change
-#define NOMINMAX
 #include "dxc/Support/WinIncludes.h"
 #include "llvm/Support/MSFileSystem.h"
 #include "llvm/Support/FileSystem.h"
