@@ -44,9 +44,7 @@ set DXC_CMAKE_SYSTEM_VERSION=
 set SHOW_CMAKE_LOG=0
 
 :parse_args
-echo parsing arg "%1"
 if "%1"=="" (
-   echo done parsing args
     goto :done_parsing_args
 ) 
 if "%1"=="-buildoutdir" (
@@ -95,36 +93,42 @@ if "%1"=="-cv" (
   shift /1 & goto :parse_args
 )
 if "%1"=="-rel" (
+  echo Building Release
   set BUILD_CONFIG=Release
   shift /1 & goto :parse_args
 )
 if "%1"=="-x86" (
+  echo Building for x86
   set BUILD_ARCH=Win32
   shift /1 & goto :parse_args
 )
 if "%1"=="-x64" (
-  echo Set arch to x64
+  echo Building for x64
   set BUILD_ARCH=x64
   shift /1 & goto :parse_args
 )
 if /i "%1"=="-arm" (
+  echo Building for Arm
   set BUILD_ARCH=ARM
   shift /1 & goto :parse_args
 )
 if /i "%1"=="-arm64" (
+  echo Building for Arm64
   set BUILD_ARCH=ARM64
   shift /1 & goto :parse_args
 )
 if /i "%1"=="-arm64ec" (
+  echo Building for Arm64EC
   set BUILD_ARCH=ARM64EC
   shift /1 & goto :parse_args
 )
 if /i "%1"=="-Debug" (
+  echo Building Debug
   set BUILD_CONFIG=Debug
   shift /1 & goto :parse_args
 )
 if /i "%1"=="-Release" (
-  echo Set config to Release
+  echo Building Release
   set BUILD_CONFIG=Release
   shift /1 & goto :parse_args
 )
@@ -187,7 +191,6 @@ if "%1"=="-dxc-cmake-system-version" (
 )
 
 if "%1"=="-show-cmake-log" (
-   echo enable show cmake log
   set SHOW_CMAKE_LOG=1
   shift /1 & goto :parse_args
 )  
