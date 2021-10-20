@@ -93,6 +93,7 @@ if "%1"=="-cv" (
   shift /1 & goto :parse_args
 )
 if "%1"=="-rel" (
+  echo Set config to Release
   set BUILD_CONFIG=Release
   shift /1 & goto :parse_args
 )
@@ -101,6 +102,7 @@ if "%1"=="-x86" (
   shift /1 & goto :parse_args
 )
 if "%1"=="-x64" (
+  echo Set arch to x64
   set BUILD_ARCH=x64
   shift /1 & goto :parse_args
 )
