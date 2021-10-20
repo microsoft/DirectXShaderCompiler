@@ -44,7 +44,9 @@ set DXC_CMAKE_SYSTEM_VERSION=
 set SHOW_CMAKE_LOG=0
 
 :parse_args
+echo parsing arg "%1"
 if "%1"=="" (
+   echo done parsing args
     goto :done_parsing_args
 ) 
 if "%1"=="-buildoutdir" (
@@ -93,7 +95,6 @@ if "%1"=="-cv" (
   shift /1 & goto :parse_args
 )
 if "%1"=="-rel" (
-  echo Set config to Release
   set BUILD_CONFIG=Release
   shift /1 & goto :parse_args
 )
@@ -123,6 +124,7 @@ if /i "%1"=="-Debug" (
   shift /1 & goto :parse_args
 )
 if /i "%1"=="-Release" (
+  echo Set config to Release
   set BUILD_CONFIG=Release
   shift /1 & goto :parse_args
 )
@@ -185,6 +187,7 @@ if "%1"=="-dxc-cmake-system-version" (
 )
 
 if "%1"=="-show-cmake-log" (
+   echo enable show cmake log
   set SHOW_CMAKE_LOG=1
   shift /1 & goto :parse_args
 )  
