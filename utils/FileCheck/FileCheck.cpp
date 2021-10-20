@@ -37,8 +37,9 @@ using namespace llvm;
 
 // HLSL Change
 #define NOMINMAX
-#include <windows.h>
+#include "dxc/Support/WinIncludes.h"
 #include "llvm/Support/MSFileSystem.h"
+#include "llvm/Support/FileSystem.h"
 // End HLSL Change
 
 static cl::opt<std::string>
