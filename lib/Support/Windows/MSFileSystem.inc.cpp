@@ -11,7 +11,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "llvm/ADT/STLExtras.h"
-#define NOMINMAX
 #include "WindowsSupport.h"
 #include <fcntl.h>
 #ifdef _WIN32

@@ -1070,6 +1070,7 @@ std::error_code directory_entry::status(file_status &result) const {
 // HLSL Change begin - Create implicit filesystem
 #ifdef MS_IMPLICIT_DISK_FILESYSTEM
 
+#include "dxc/Support/WinIncludes.h"
 #include "llvm/Support/MSFileSystem.h"
 
 struct ImplicitFilesystem {
