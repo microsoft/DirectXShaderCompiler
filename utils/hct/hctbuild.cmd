@@ -1,6 +1,5 @@
 @echo off
 
-
 if "%1"=="/?" goto :showhelp
 if "%1"=="-?" goto :showhelp
 if "%1"=="-h" goto :showhelp
