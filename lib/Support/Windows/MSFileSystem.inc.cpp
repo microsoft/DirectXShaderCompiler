@@ -120,6 +120,11 @@ void CleanupPerThreadFileSystem() throw() {
 }
 
 MSFileSystemRef GetCurrentThreadFileSystem() throw() {
+#ifdef MS_IMPLICIT_DISK_FILESYSTEM
+  if (!g_PerThreadSystem)
+    getImplicitFilesystem();
+#endif
+
   assert(g_PerThreadSystem && "otherwise, TLS not initialized");
   return g_PerThreadSystem.GetValue();
 }
