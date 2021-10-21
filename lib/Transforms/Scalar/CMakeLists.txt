@@ -67,3 +67,5 @@ add_llvm_library(LLVMScalarOpts
   )
 
 add_dependencies(LLVMScalarOpts intrinsics_gen)
+
+target_link_libraries(LLVMScalarOpts PUBLIC LLVMDXIL) # HLSL Change

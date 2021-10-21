@@ -1,3 +1,4 @@
+add_llvm_tool_subdirectory(llvm-config)
 
 # Build polly before the tools: the tools link against polly when
 # LINK_POLLY_INTO_TOOLS is set.
@@ -13,11 +14,9 @@ else()
   ignore_llvm_tool_subdirectory(llvm-shlib)
 endif()
 
-if (HLSL_BUILD_DXILCONV) # HLSL Change
 add_llvm_tool_subdirectory(opt) # HLSL Change
-endif()
 
-# add_llvm_tool_subdirectory(llvm-as) # HLSL Change
+add_llvm_tool_subdirectory(llvm-as) # HLSL Change
 add_llvm_tool_subdirectory(llvm-dis) # HLSL Change
 # add_llvm_tool_subdirectory(llvm-mc) # HLSL Change
 
@@ -35,11 +34,11 @@ endif (WIN32)
 
 # add_llvm_tool_subdirectory(llvm-cov) # HLSL Change
 # add_llvm_tool_subdirectory(llvm-profdata) # HLSL Change
-# add_llvm_tool_subdirectory(llvm-link) # HLSL Change
+add_llvm_tool_subdirectory(llvm-link) # HLSL Change
 # add_llvm_tool_subdirectory(lli) # HLSL Change
 
-# add_llvm_tool_subdirectory(llvm-extract) # HLSL Change
-# add_llvm_tool_subdirectory(llvm-diff) # HLSL Change
+add_llvm_tool_subdirectory(llvm-extract) # HLSL Change
+add_llvm_tool_subdirectory(llvm-diff) # HLSL Change
 # add_llvm_tool_subdirectory(macho-dump) # HLSL Change
 # add_llvm_tool_subdirectory(llvm-objdump) # HLSL Change
 # add_llvm_tool_subdirectory(llvm-readobj) # HLSL Change
@@ -51,11 +50,11 @@ endif (WIN32)
 
 # add_llvm_tool_subdirectory(bugpoint) # HLSL Change
 # add_llvm_tool_subdirectory(bugpoint-passes) # HLSL Change
-# add_llvm_tool_subdirectory(llvm-bcanalyzer) # HLSL Change
-# add_llvm_tool_subdirectory(llvm-stress) # HLSL Change
+add_llvm_tool_subdirectory(llvm-bcanalyzer) # HLSL Change
+add_llvm_tool_subdirectory(llvm-stress) # HLSL Change
 # add_llvm_tool_subdirectory(llvm-mcmarkup) # HLSL Change
 
-# add_llvm_tool_subdirectory(verify-uselistorder) # HLSL Change
+add_llvm_tool_subdirectory(verify-uselistorder) # HLSL Change
 
 # add_llvm_tool_subdirectory(llvm-symbolizer) # HLSL Change
 
