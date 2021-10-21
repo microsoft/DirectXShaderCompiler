@@ -944,8 +944,18 @@ public:
         preprocessAction.Execute();
         preprocessAction.EndSourceFile();
 
-        for (auto &dependency : dependencyCollector->getDependencies())
-          outStream << dependency << "\n";
+        outStream << (opts.OutputObject.empty() ? opts.InputFile
+                                                : opts.OutputObject);
+        bool firstDependency = true;
+        for (auto &dependency : dependencyCollector->getDependencies()) {
+          if (firstDependency) {
+            outStream << ": " << dependency;
+            firstDependency = false;
+            continue;
+          }
+          outStream << " \\\n " << dependency;
+        }
+        outStream << "\n";
         outStream.flush();
       } else if (opts.OptDump) {
         EmitOptDumpAction action(&llvmContext);
