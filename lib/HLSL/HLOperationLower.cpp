@@ -557,6 +557,9 @@ Value *TranslateNonUniformResourceIndex(CallInst *CI, IntrinsicOp IOP, OP::OpCod
           // Only mark on GEP which point to resource.
           if (IsResourceGEP(I))
             DxilMDHelper::MarkNonUniform(I);
+        } else if (CallInst *CI = dyn_cast<CallInst>(castU)) {
+          if (CI->getType() == hdlTy)
+            DxilMDHelper::MarkNonUniform(CI);
         }
       }
     } else if (CallInst *CI = dyn_cast<CallInst>(U)) {
