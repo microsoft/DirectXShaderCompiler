@@ -3319,9 +3319,7 @@ void DxbcConverter::ConvertInstructions(D3D10ShaderBinary::CShaderCodeParser &Pa
     case D3D10_1_SB_OPCODE_GATHER4:
     case D3DWDDM1_3_SB_OPCODE_GATHER4_FEEDBACK: {
       OP::OpCode OpCode = OP::OpCode::TextureGather;
-      bool bHasFeedback = DXBC::HasFeedback(Inst.OpCode());
       const unsigned uOpOutput = 0;
-      const unsigned uOpCoord = uOpOutput + 1 + (bHasFeedback ? 1 : 0);
       const unsigned uOpSRV = DXBC::GetResourceSlot(Inst.OpCode());
       const unsigned uOpSampler = uOpSRV + 1;
       const DxilResource &R = GetSRVFromOperand(Inst, uOpSRV);
@@ -3355,9 +3353,7 @@ void DxbcConverter::ConvertInstructions(D3D10ShaderBinary::CShaderCodeParser &Pa
     case D3D11_SB_OPCODE_GATHER4_C:
     case D3DWDDM1_3_SB_OPCODE_GATHER4_C_FEEDBACK: {
       OP::OpCode OpCode = OP::OpCode::TextureGatherCmp;
-      bool bHasFeedback = DXBC::HasFeedback(Inst.OpCode());
       const unsigned uOpOutput = 0;
-      const unsigned uOpCoord = uOpOutput + 1 + (bHasFeedback ? 1 : 0);
       const unsigned uOpSRV = DXBC::GetResourceSlot(Inst.OpCode());
       const unsigned uOpSampler = uOpSRV + 1;
       const unsigned uOpCmp = uOpSampler + 1;
@@ -5347,7 +5343,6 @@ void DxbcConverter::ConvertFromDouble(const CompType &DstElementType, D3D10Shade
 
 void DxbcConverter::LoadCommonSampleInputs(D3D10ShaderBinary::CInstruction &Inst, Value *pArgs[], bool bSetOffsets) {
   bool bHasFeedback = DXBC::HasFeedback(Inst.OpCode());
-  const unsigned uOpOutput = 0;
   const unsigned uOpStatus = 1;
   const unsigned uOpCoord = uOpStatus + (bHasFeedback ? 1 : 0);
   const unsigned uOpSRV = DXBC::GetResourceSlot(Inst.OpCode());

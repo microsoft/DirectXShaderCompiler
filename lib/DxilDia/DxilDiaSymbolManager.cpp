@@ -738,7 +738,6 @@ STDMETHODIMP dxil_dia::hlsl_symbols::TypeSymbol::get_baseType(
   *pRetVal = btNoType;
 
   if (auto *BT = llvm::dyn_cast<llvm::DIBasicType>(m_pNode)) {
-    const DWORD SizeInBits = BT->getSizeInBits();
     switch (BT->getEncoding()) {
     case llvm::dwarf::DW_ATE_boolean:
       *pRetVal = btBool; break;
@@ -1750,7 +1749,6 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateLocalVariable(DWORD dwP
   for (llvm::DIType *Ty : Tys) {
     TypeInfo *TI;
     IFR(GetTypeInfo(Ty, &TI));
-    const DWORD dwTypeID = TI->GetTypeID();
     DWORD dwNewLVID;
     newVars.emplace_back(std::make_shared<symbol_factory::LocalVarInfo>());
     std::shared_ptr<symbol_factory::LocalVarInfo> VI = newVars.back();

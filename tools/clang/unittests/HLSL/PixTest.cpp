@@ -1233,7 +1233,6 @@ TEST_F(PixTest, DiaLoadRelocatedBitcode) {
 
   CompileAndGetDebugPart(m_dllSupport, source, L"ps_6_0", &pPart);
   const char *pPartData = (char *)pPart->GetBufferPointer();
-  const size_t uPartSize = pPart->GetBufferSize();
 
   // Get program header
   const hlsl::DxilProgramHeader *programHeader = (hlsl::DxilProgramHeader *)pPartData;
@@ -1479,7 +1478,6 @@ TEST_F(PixTest, DiaLoadBitcodePlusExtraData) {
 
   CompileAndGetDebugPart(m_dllSupport, source, L"ps_6_0", &pPart);
   const char *pPartData = (char *)pPart->GetBufferPointer();
-  const size_t uPartSize = pPart->GetBufferSize();
 
   // Get program header
   const hlsl::DxilProgramHeader *programHeader = (hlsl::DxilProgramHeader *)pPartData;
