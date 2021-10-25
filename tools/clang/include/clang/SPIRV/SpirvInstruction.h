@@ -461,9 +461,12 @@ private:
 /// \brief OpDecorate(Id) and OpMemberDecorate instructions
 class SpirvDecoration : public SpirvInstruction {
 public:
+  // OpDecorate/OpMemberDecorate
   SpirvDecoration(SourceLocation loc, SpirvInstruction *target,
                   spv::Decoration decor, llvm::ArrayRef<uint32_t> params = {},
                   llvm::Optional<uint32_t> index = llvm::None);
+
+  // OpDecorateString/OpMemberDecorateString
   SpirvDecoration(SourceLocation loc, SpirvInstruction *target,
                   spv::Decoration decor, llvm::StringRef stringParam,
                   llvm::Optional<uint32_t> index = llvm::None);
@@ -497,7 +500,7 @@ public:
   uint32_t getMemberIndex() const { return index.getValue(); }
 
 private:
-  spv::Op getDecorateOpcode(spv::Decoration,
+  spv::Op getDecorateOpcode(bool isString,
                             const llvm::Optional<uint32_t> &memberIndex);
 
 private:

@@ -2420,6 +2420,26 @@ bool DeclResultIdMapper::createStageVars(
         stageVar.getStorageClass() == spv::StorageClass::Output) {
       stageVar.setEntryPoint(entryFunction);
     }
+
+    if (decl->hasAttr<VKDecorateExtAttr>()) {
+      bool isBuiltin = false;
+      bool isLocation = false;
+      auto lamda = [&stageVar, &isBuiltin, &isLocation](VKDecorateExtAttr *decoAttr) {
+        auto decorate = static_cast<spv::Decoration>(decoAttr->getDecorate());
+        if (!isBuiltin && decorate == spv::Decoration::BuiltIn) {
+          stageVar.setIsSpirvBuiltin();
+          isBuiltin = true;
+        }
+
+        if (!isLocation && decorate == spv::Decoration::Location) {
+          // Set as builtIn as avoid later location decoration
+          stageVar.setIsSpirvBuiltin();
+          isLocation = true;
+        }
+      };
+      decorateWithIntrinsicAttrs(decl, varInstr, lamda);
+    }
+
     stageVars.push_back(stageVar);
 
     // Emit OpDecorate* instructions to link this stage variable with the HLSL
@@ -2429,6 +2449,8 @@ bool DeclResultIdMapper::createStageVars(
     // We have semantics attached to this decl, which means it must be a
     // function/parameter/variable. All are DeclaratorDecls.
     stageVarInstructions[cast<DeclaratorDecl>(decl)] = varInstr;
+
+
 
     // Special case: The DX12 SV_InstanceID always counts from 0, even if the
     // StartInstanceLocation parameter is non-zero. gl_InstanceIndex, however,
@@ -3960,6 +3982,31 @@ DeclResultIdMapper::createHullMainOutputPatch(const ParmVarDecl *param,
   assert(astDecls[param].instr == nullptr);
   astDecls[param].instr = hullMainOutputPatch;
   return hullMainOutputPatch;
+}
+
+template <typename Functor>
+void DeclResultIdMapper::decorateWithIntrinsicAttrs(const NamedDecl *decl,
+                                                    SpirvVariable *varInst,
+                                                    Functor func) {
+  if (!decl->hasAttrs())
+    return;
+
+  for (auto &attr : decl->getAttrs()) {
+    if (auto decoAttr = dyn_cast<VKDecorateExtAttr>(attr)) {
+      func(decoAttr);
+      spvBuilder.decorateInst(
+          varInst, decoAttr->getDecorate(), decoAttr->literal_begin(),
+          decoAttr->literal_size(), varInst->getSourceLocation());
+    } else if (auto decoAttr = dyn_cast<VKDecorateStringExtAttr>(attr)) {
+      spvBuilder.decorateString(varInst, decoAttr->getDecorate(),
+                                decoAttr->getLiterals());
+    }
+  }
+}
+
+void DeclResultIdMapper::decorateVariableWithIntrinsicAttrs(
+    const NamedDecl *decl, SpirvVariable *varInst) {
+  decorateWithIntrinsicAttrs(decl, varInst, [](VKDecorateExtAttr *) {});
 }
 
 } // end namespace spirv

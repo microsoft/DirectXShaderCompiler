@@ -1342,6 +1342,7 @@ TEST_F(FileTest, IntrinsicsVkQueueFamilyScope) {
 TEST_F(FileTest, IntrinsicsSpirv) {
   runFileTest("spv.intrinsicInstruction.hlsl");
   runFileTest("spv.intrinsicLiteral.hlsl");
+  runFileTest("spv.intrinsicDecorate.hlsl", Expect::Success, false);
   runFileTest("spv.intrinsic.reference.error.hlsl", Expect::Failure);
 }
 TEST_F(FileTest, IntrinsicsVkReadClock) {

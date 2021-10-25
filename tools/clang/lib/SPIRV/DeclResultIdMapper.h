@@ -604,6 +604,9 @@ public:
     return value;
   }
 
+  void decorateVariableWithIntrinsicAttrs(const NamedDecl *decl,
+                                          SpirvVariable *varInst);
+
 private:
   /// \brief Wrapper method to create a fatal error message and report it
   /// in the diagnostic engine associated with this consumer.
@@ -824,6 +827,10 @@ private:
   ///    CONSTANTBUFFER
   bool getImplicitRegisterType(const ResourceVar &var,
                                char *registerTypeOut) const;
+
+  template <typename Functor>
+  void decorateWithIntrinsicAttrs(const NamedDecl *decl, SpirvVariable *varInst,
+                                  Functor func);
 
 private:
   SpirvBuilder &spvBuilder;

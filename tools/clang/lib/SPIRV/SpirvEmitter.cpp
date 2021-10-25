@@ -1654,6 +1654,10 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
       needsLegalization = true;
   }
 
+  if (var != nullptr) {
+    declIdMapper.decorateVariableWithIntrinsicAttrs(decl, var);
+  }
+
   // All variables that are of opaque struct types should request legalization.
   if (!needsLegalization && isOpaqueStructType(decl->getType()))
     needsLegalization = true;

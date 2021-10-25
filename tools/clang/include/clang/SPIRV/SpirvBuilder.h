@@ -660,6 +660,15 @@ public:
                        llvm::StringRef name, spv::LinkageType linkageType,
                        SourceLocation);
 
+  /// \brief Decorates the given target with information from VKDecorateExt
+  void decorateInst(SpirvInstruction *targetInst, unsigned decorate,
+                    unsigned *literal, unsigned literalSize, SourceLocation);
+                    
+/// \brief Decorates the given target with the given string.
+  void decorateString(SpirvInstruction *target, unsigned decorate,
+                      llvm::StringRef strLiteral,
+                      llvm::Optional<uint32_t> memberIdx = llvm::None);                    
+
   /// --- Constants ---
   /// Each of these methods can acquire a unique constant from the SpirvContext,
   /// and add the context to the list of constants in the module.
