@@ -53,5 +53,3 @@ add_llvm_library(LLVMCore
   )
 
 add_dependencies(LLVMCore intrinsics_gen)
-
-target_link_libraries(LLVMCore PUBLIC LLVMDXIL) # HLSL Change
