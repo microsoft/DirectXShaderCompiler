@@ -296,7 +296,9 @@ void initializePollyPasses(llvm::PassRegistry &Registry);
 #endif
 
 // HLSL Change Start
+#ifdef HAS_DXILCONV
 void __cdecl initializeDxilConvPasses(llvm::PassRegistry &);
+#endif
 // HLSL Change End
 
 //===----------------------------------------------------------------------===//
@@ -354,7 +356,7 @@ int __cdecl main(int argc, char **argv) {
   //initializeSjLjEHPreparePass(Registry);  // HLSL Change: remove EH passes
   // HLSL Change Starts
   initializeReducibilityAnalysisPass(Registry);
-#ifdef _WIN32
+#ifdef HAS_DXILCONV
   initializeDxilConvPasses(Registry);
 #endif
   // HLSL Change Ends
