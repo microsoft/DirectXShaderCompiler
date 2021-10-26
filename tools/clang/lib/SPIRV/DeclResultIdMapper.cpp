@@ -1093,6 +1093,13 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
     // HLSLBufferDecls).
     assert(isa<VarDecl>(subDecl) || isa<FieldDecl>(subDecl));
     const auto *declDecl = cast<DeclaratorDecl>(subDecl);
+    auto varType = declDecl->getType();
+    if (const auto *fieldVar = dyn_cast<VarDecl>(subDecl)) {
+      if (isResourceType(varType)) {
+        createExternVar(fieldVar);
+        continue;
+      }
+    }
 
     // In case 'register(c#)' annotation is placed on a global variable.
     const hlsl::RegisterAssignment *registerC =
@@ -1100,7 +1107,6 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
 
     // All fields are qualified with const. It will affect the debug name.
     // We don't need it here.
-    auto varType = declDecl->getType();
     varType.removeLocalConst();
     HybridStructType::FieldInfo info(varType, declDecl->getName(),
                                      declDecl->getAttr<VKOffsetAttr>(),
@@ -1179,7 +1185,12 @@ SpirvVariable *DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
     if (shouldSkipInStructLayout(subDecl))
       continue;
 
+    // If subDecl is a variable with resource type, we already added a separate
+    // OpVariable for it in createStructOrStructArrayVarOfExplicitLayout().
     const auto *varDecl = cast<VarDecl>(subDecl);
+    if (isResourceType(varDecl->getType()))
+      continue;
+
     astDecls[varDecl] = createDeclSpirvInfo(bufferVar, index++);
   }
   resourceVars.emplace_back(
@@ -1344,7 +1355,12 @@ DeclResultIdMapper::createShaderRecordBuffer(const HLSLBufferDecl *decl,
     if (shouldSkipInStructLayout(subDecl))
       continue;
 
+    // If subDecl is a variable with resource type, we already added a separate
+    // OpVariable for it in createStructOrStructArrayVarOfExplicitLayout().
     const auto *varDecl = cast<VarDecl>(subDecl);
+    if (isResourceType(varDecl->getType()))
+      continue;
+
     astDecls[varDecl] = createDeclSpirvInfo(bufferVar, index++);
   }
   return bufferVar;
@@ -1380,6 +1396,12 @@ void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
             << var->getName();
         return;
       }
+
+      // If subDecl is a variable with resource type, we already added a
+      // separate OpVariable for it in
+      // createStructOrStructArrayVarOfExplicitLayout().
+      if (isResourceType(varDecl->getType()))
+        continue;
 
       astDecls[varDecl] = createDeclSpirvInfo(globals, index++);
     }

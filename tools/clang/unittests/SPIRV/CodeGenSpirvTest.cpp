@@ -92,6 +92,9 @@ TEST_F(FileTest, RWBufferTypeStructError) {
   runFileTest("type.rwbuffer.struct.error.hlsl", Expect::Failure);
 }
 TEST_F(FileTest, CBufferType) { runFileTest("type.cbuffer.hlsl"); }
+TEST_F(FileTest, TypeCBufferIncludingResource) {
+  runFileTest("type.cbuffer.including.resource.hlsl");
+}
 TEST_F(FileTest, ConstantBufferType) {
   runFileTest("type.constant-buffer.hlsl");
 }
