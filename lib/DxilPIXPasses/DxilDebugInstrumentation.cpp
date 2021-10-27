@@ -894,14 +894,11 @@ void DxilDebugInstrumentation::addStepDebugEntryValue(
     addStepEntryForType<float>(DebugShaderModifierRecordTypeDXILStepFloat, BC,
                                InstNum, V, ValueOrdinal, ValueOrdinalIndex);
     break;
-  case Type::TypeID::PointerTyID:
-    // Skip pointer calculation instructions. They aren't particularly
-    // meaningful to the user (being a mere implementation detail for lookup
-    // tables, etc.), and their type is problematic from a UI point of view. The
-    // subsequent instructions that dereference the pointer will be properly
-    // instrumented and show the (meaningful) retrieved value.
-    break;
   case Type::TypeID::VectorTyID:
+  case Type::TypeID::PointerTyID: // pointer types, while not meaningful to a
+                                  // user of the shader debugger, frequently map
+                                  // to HLSL, so we need to instrument them to
+                                  // make breakpoints bind properly
     // Shows up in "insertelement" in raygen shader?
     break;
   case Type::TypeID::FP128TyID:
