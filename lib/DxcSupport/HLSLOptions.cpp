@@ -530,6 +530,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.AssemblyCode = Args.getLastArgValue(OPT_Fc);
   opts.DebugFile = Args.getLastArgValue(OPT_Fd);
   opts.ImportBindingTable = Args.getLastArgValue(OPT_import_binding_table);
+  opts.BindingTableDefine = Args.getLastArgValue(OPT_binding_table_define);
   opts.ExtractPrivateFile = Args.getLastArgValue(OPT_getprivate);
   opts.Enable16BitTypes = Args.hasFlag(OPT_enable_16bit_types, OPT_INVALID, false);
   opts.OutputObject = Args.getLastArgValue(OPT_Fo);
