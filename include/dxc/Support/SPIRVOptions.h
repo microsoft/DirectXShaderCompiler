@@ -61,6 +61,15 @@ struct SpirvCodeGenOptions {
   bool reduceLoadSize;
   bool autoShiftBindings;
   bool supportNonzeroBaseInstance;
+  /// Maximum length in words for the OpString literal containing the shader
+  /// source for DebugSource and DebugSourceContinued. If the source code length
+  /// is larger than this number, we will use DebugSourceContinued instructions
+  /// for follow-up source code after the first DebugSource instruction. Note
+  /// that this number must be less than or equal to 0xFFFDu because of the
+  /// limitation of a single SPIR-V instruction size (0xFFFF) - 2 operand words
+  /// for OpString. Currently a smaller value is only used to test
+  /// DebugSourceContinued generation.
+  uint32_t debugSourceLen;
   SpirvLayoutRule cBufferLayoutRule;
   SpirvLayoutRule sBufferLayoutRule;
   SpirvLayoutRule tBufferLayoutRule;
