@@ -110,7 +110,7 @@ include_directories(${LLVM_MAIN_INCLUDE_DIR}/dxc/Test)
 endif(WIN32)
 
 # Add includes to directly reference intrinsic tables.
-include_directories(../../lib/Sema)
+include_directories(${CLANG_BINARY_DIR}/lib/Sema)
 
 add_dependencies(clang-hlsl-tests dxcompiler)
 

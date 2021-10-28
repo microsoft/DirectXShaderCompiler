@@ -41,6 +41,7 @@ if is_py3:
     basestring = (str,bytes)   
 
 import re
+import hctdb_instrhelp
 
 def SelectTaggedLines(tag, start, doc=None):
     "Select lines between tag:BEGIN and tag:END"
