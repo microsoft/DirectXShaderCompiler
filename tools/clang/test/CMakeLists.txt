@@ -62,6 +62,12 @@ if( NOT CLANG_BUILT_STANDALONE )
     )
 endif()
 
+# HLSL Change Begin
+# Explicitly overriding check-clang dependencies for HLSL
+set(CLANG_TEST_DEPS clang opt FileCheck count not)
+# HLSL Change End
+
+
 add_lit_testsuite(check-clang "Running the Clang regression tests"
   ${CMAKE_CURRENT_BINARY_DIR}
   #LIT ${LLVM_LIT}
