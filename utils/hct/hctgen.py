@@ -100,6 +100,7 @@ def writeDxcOptimizer(args):
   out = openOutput(args)
   printHeader(out, "DxcOptimizer.inc")
   out.write('\n'.join([
+    'namespace hlsl {',
     'HRESULT SetupRegistryPassForHLSL() {',
     '  try {',
     '    PassRegistry &Registry = *PassRegistry::getPassRegistry();\n']))
@@ -110,7 +111,8 @@ def writeDxcOptimizer(args):
     '  }',
     '  CATCH_CPP_RETURN_HRESULT();',
     '  return S_OK;',
-    '}\n}',
+    '}',
+    '} // namespace hlsl\n',
     'static ArrayRef<LPCSTR> GetPassArgNames(LPCSTR passName) {',
   ]))
   out.write(get_pass_arg_names())

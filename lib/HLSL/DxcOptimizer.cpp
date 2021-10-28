@@ -58,8 +58,6 @@ inline static bool wcsstartswith(LPCWSTR value, LPCWSTR prefix) {
   return *prefix == L'\0';
 }
 
-namespace hlsl {
-
 #include "DxcOptimizer.inc"
 
 static void FatalErrorHandlerStreamWrite(void *user_data, const std::string& reason, bool gen_crash_diag) {
