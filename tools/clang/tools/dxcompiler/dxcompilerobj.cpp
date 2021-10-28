@@ -818,7 +818,6 @@ public:
         // Parse and apply 
         if (opts.BindingTableDefine.size()) {
           // Just pas the define for now because preprocessor is not available yet.
-          //compiler.getCodeGenOpts().BindingTableDefine = opts.BindingTableDefine;
           struct BindingTableParserImpl : public CodeGenOptions::BindingTableParserType {
             CompilerInstance &compiler;
             std::string define;
