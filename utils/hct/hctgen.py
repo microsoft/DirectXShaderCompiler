@@ -155,6 +155,11 @@ def writeDxilValidation(args):
   out.write('}\n}\n')
   return 0
 
+def writeDxilPIXPasses(args):
+  out = openOutput(args)
+  printHeader(out, "DxilPIXPasses.inc")
+  return 0
+
 args = parser.parse_args()
 writeFnName = 'write%s' % args.mode
 if writeFnName in locals():
