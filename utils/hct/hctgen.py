@@ -160,6 +160,8 @@ def writeDxilValidation(args):
 def writeDxilPIXPasses(args):
   out = openOutput(args)
   printHeader(out, "DxilPIXPasses.inc")
+  out.write(get_init_passes(set(["pix"])))
+  out.write('\n')
   return 0
 
 args = parser.parse_args()
