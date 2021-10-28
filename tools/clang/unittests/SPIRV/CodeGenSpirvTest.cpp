@@ -1994,6 +1994,9 @@ TEST_F(FileTest, FlattenResourceArrayBindings2Optimized) {
 TEST_F(FileTest, FlattenResourceArrayBindings3) {
   runFileTest("vk.binding.cl.flatten-arrays.example3.hlsl");
 }
+TEST_F(FileTest, FlattenResourceArrayAccessedByVarIndex) {
+  runFileTest("vk.binding.flatten-arrays.var-index.hlsl");
+}
 
 // For testing the "-auto-binding-space" command line option which specifies the
 // "default space" for resources.
