@@ -1444,7 +1444,7 @@ void SpirvBuilder::decorateLinkage(SpirvInstruction *targetInst,
 void SpirvBuilder::decorateInst(SpirvInstruction *targetInst, unsigned decorate,
                                 unsigned *literal, unsigned literalSize,
                                 SourceLocation srcLoc) {
-  SmallVector<uint32_t, 4> operands;
+  SmallVector<uint32_t, 2> operands;
   unsigned *literEnd = literal + literalSize;
   operands.insert(operands.end(), literal, literEnd);
   SpirvDecoration *decor = new (context) SpirvDecoration(

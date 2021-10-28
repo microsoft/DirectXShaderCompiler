@@ -225,20 +225,20 @@ SpirvDecoration::SpirvDecoration(SourceLocation loc,
                                  spv::Decoration decor,
                                  llvm::ArrayRef<uint32_t> p,
                                  llvm::Optional<uint32_t> idx)
-    : SpirvInstruction(IK_Decoration, getDecorateOpcode(false, idx),
+    : SpirvInstruction(IK_Decoration, getDecorateOpcode(decor, idx),
                        /*type*/ {}, loc),
-      target(targetInst), targetFunction(nullptr), decoration(decor), index(idx),
-      params(p.begin(), p.end()), idParams() {}
+      target(targetInst), targetFunction(nullptr), decoration(decor),
+      index(idx), params(p.begin(), p.end()), idParams() {}
 
 SpirvDecoration::SpirvDecoration(SourceLocation loc,
                                  SpirvInstruction *targetInst,
                                  spv::Decoration decor,
                                  llvm::StringRef strParam,
                                  llvm::Optional<uint32_t> idx)
-    : SpirvInstruction(IK_Decoration, getDecorateOpcode(true, idx),
+    : SpirvInstruction(IK_Decoration, getDecorateStringOpcode(idx.hasValue()),
                        /*type*/ {}, loc),
-      target(targetInst), targetFunction(nullptr), decoration(decor), index(idx),
-      params(), idParams() {
+      target(targetInst), targetFunction(nullptr), decoration(decor),
+      index(idx), params(), idParams() {
   const auto &stringWords = string::encodeSPIRVString(strParam);
   params.insert(params.end(), stringWords.begin(), stringWords.end());
 }
@@ -261,11 +261,18 @@ SpirvDecoration::SpirvDecoration(SourceLocation loc, SpirvFunction *targetFunc,
       index(llvm::None), params(p.begin(), p.end()), idParams() {}
 
 spv::Op SpirvDecoration::getDecorateOpcode(
-    bool isString, const llvm::Optional<uint32_t> &memberIndex) {
-  return (isString) ? (memberIndex.hasValue() ? spv::Op::OpMemberDecorateString
-                                              : spv::Op::OpDecorateString)
-                    : (memberIndex.hasValue() ? spv::Op::OpMemberDecorate
-                                              : spv::Op::OpDecorate);
+    spv::Decoration decoration, const llvm::Optional<uint32_t> &memberIndex) {
+  if (decoration == spv::Decoration::HlslSemanticGOOGLE ||
+      decoration == spv::Decoration::UserTypeGOOGLE)
+    return memberIndex.hasValue() ? spv::Op::OpMemberDecorateStringGOOGLE
+                                  : spv::Op::OpDecorateStringGOOGLE;
+  return memberIndex.hasValue() ? spv::Op::OpMemberDecorate
+                                : spv::Op::OpDecorate;
+}
+
+spv::Op SpirvDecoration::getDecorateStringOpcode(bool isMemberDecoration) {
+  return isMemberDecoration ? spv::Op::OpMemberDecorateString
+                            : spv::Op::OpDecorateString;
 }
 
 bool SpirvDecoration::operator==(const SpirvDecoration &that) const {

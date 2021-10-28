@@ -1773,7 +1773,8 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
 
     for (const auto &var : stageVars) {
       // Skip builtins & those stage variables we are not handling for this call
-      if (var.isSpirvBuitin() || forInput != isInputStorageClass(var))
+      if (var.isSpirvBuitin() || var.hasVkExtDecorateAttr() ||
+          forInput != isInputStorageClass(var))
         continue;
 
       const auto *attr = var.getLocationAttr();
@@ -1815,7 +1816,8 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
   LocationSet locSet;
 
   for (const auto &var : stageVars) {
-    if (var.isSpirvBuitin() || forInput != isInputStorageClass(var))
+    if (var.isSpirvBuitin() || var.hasVkExtDecorateAttr() ||
+        forInput != isInputStorageClass(var))
       continue;
 
     if (var.getLocationAttr()) {
@@ -2422,22 +2424,8 @@ bool DeclResultIdMapper::createStageVars(
     }
 
     if (decl->hasAttr<VKDecorateExtAttr>()) {
-      bool isBuiltin = false;
-      bool isLocation = false;
-      auto lamda = [&stageVar, &isBuiltin, &isLocation](VKDecorateExtAttr *decoAttr) {
-        auto decorate = static_cast<spv::Decoration>(decoAttr->getDecorate());
-        if (!isBuiltin && decorate == spv::Decoration::BuiltIn) {
-          stageVar.setIsSpirvBuiltin();
-          isBuiltin = true;
-        }
-
-        if (!isLocation && decorate == spv::Decoration::Location) {
-          // Set as builtIn as avoid later location decoration
-          stageVar.setIsSpirvBuiltin();
-          isLocation = true;
-        }
-      };
-      decorateWithIntrinsicAttrs(decl, varInstr, lamda);
+      stageVar.setVkExtDecorateAttrUsed();
+      decorateVariableWithIntrinsicAttrs(decl, varInstr);
     }
 
     stageVars.push_back(stageVar);
@@ -2449,8 +2437,6 @@ bool DeclResultIdMapper::createStageVars(
     // We have semantics attached to this decl, which means it must be a
     // function/parameter/variable. All are DeclaratorDecls.
     stageVarInstructions[cast<DeclaratorDecl>(decl)] = varInstr;
-
-
 
     // Special case: The DX12 SV_InstanceID always counts from 0, even if the
     // StartInstanceLocation parameter is non-zero. gl_InstanceIndex, however,
@@ -3984,16 +3970,13 @@ DeclResultIdMapper::createHullMainOutputPatch(const ParmVarDecl *param,
   return hullMainOutputPatch;
 }
 
-template <typename Functor>
-void DeclResultIdMapper::decorateWithIntrinsicAttrs(const NamedDecl *decl,
-                                                    SpirvVariable *varInst,
-                                                    Functor func) {
+void DeclResultIdMapper::decorateVariableWithIntrinsicAttrs(
+    const NamedDecl *decl, SpirvVariable *varInst) {
   if (!decl->hasAttrs())
     return;
 
   for (auto &attr : decl->getAttrs()) {
     if (auto decoAttr = dyn_cast<VKDecorateExtAttr>(attr)) {
-      func(decoAttr);
       spvBuilder.decorateInst(
           varInst, decoAttr->getDecorate(), decoAttr->literal_begin(),
           decoAttr->literal_size(), varInst->getSourceLocation());
@@ -4002,11 +3985,6 @@ void DeclResultIdMapper::decorateWithIntrinsicAttrs(const NamedDecl *decl,
                                 decoAttr->getLiterals());
     }
   }
-}
-
-void DeclResultIdMapper::decorateVariableWithIntrinsicAttrs(
-    const NamedDecl *decl, SpirvVariable *varInst) {
-  decorateWithIntrinsicAttrs(decl, varInst, [](VKDecorateExtAttr *) {});
 }
 
 } // end namespace spirv

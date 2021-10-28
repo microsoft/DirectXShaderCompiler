@@ -56,7 +56,8 @@ public:
       : sigPoint(sig), semanticInfo(std::move(semaInfo)), builtinAttr(builtin),
         type(astType), value(nullptr), isBuiltin(false),
         storageClass(spv::StorageClass::Max), location(nullptr),
-        locationCount(locCount), entryPoint(nullptr) {
+        locationCount(locCount), entryPoint(nullptr),
+        hasExtDecorateAttr(false) {
     isBuiltin = builtinAttr != nullptr;
   }
 
@@ -87,6 +88,8 @@ public:
 
   SpirvFunction *getEntryPoint() const { return entryPoint; }
   void setEntryPoint(SpirvFunction *entry) { entryPoint = entry; }
+  bool hasVkExtDecorateAttr() const { return hasExtDecorateAttr; }
+  void setVkExtDecorateAttrUsed() { hasExtDecorateAttr = true; }
 
 private:
   /// HLSL SigPoint. It uniquely identifies each set of parameters that may be
@@ -113,6 +116,7 @@ private:
   /// Entry point for this stage variable. If this stage variable is not
   /// specific for an entry point e.g., built-in, it must be nullptr.
   SpirvFunction *entryPoint;
+  bool hasExtDecorateAttr;
 };
 
 /// \brief The struct containing information of stage variable's location and
@@ -604,6 +608,7 @@ public:
     return value;
   }
 
+  /// \brief Decorate variable with spirv intrinsic attributes
   void decorateVariableWithIntrinsicAttrs(const NamedDecl *decl,
                                           SpirvVariable *varInst);
 
@@ -827,11 +832,6 @@ private:
   ///    CONSTANTBUFFER
   bool getImplicitRegisterType(const ResourceVar &var,
                                char *registerTypeOut) const;
-
-  template <typename Functor>
-  void decorateWithIntrinsicAttrs(const NamedDecl *decl, SpirvVariable *varInst,
-                                  Functor func);
-
 private:
   SpirvBuilder &spvBuilder;
   SpirvEmitter &theEmitter;
