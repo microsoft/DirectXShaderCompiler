@@ -596,6 +596,9 @@ private:
                                               hlsl::IntrinsicOp opcode);
   /// Process spirv intrinsic instruction
   SpirvInstruction *processSpvIntrinsicCallExpr(const CallExpr *expr);
+  
+  /// Process spirv intrinsic type definition
+  SpirvInstruction *processSpvIntrinsicTypeDef(const CallExpr *expr);
 
   /// Custom intrinsic to support basic buffer_reference use case
   SpirvInstruction *processRawBufferLoad(const CallExpr *callExpr);

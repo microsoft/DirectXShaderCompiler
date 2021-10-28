@@ -1348,6 +1348,8 @@ TEST_F(FileTest, IntrinsicsSpirv) {
   runFileTest("spv.intrinsicDecorate.hlsl", Expect::Success, false);
   runFileTest("spv.intrinsicExecutionMode.hlsl", Expect::Success, false);
   runFileTest("spv.intrinsicStorageClass.hlsl", Expect::Success, false);
+  runFileTest("spv.intrinsicTypeInteger.hlsl");
+  runFileTest("spv.intrinsicTypeRayquery.hlsl", Expect::Success, false);
   runFileTest("spv.intrinsic.reference.error.hlsl", Expect::Failure);
 }
 TEST_F(FileTest, IntrinsicsVkReadClock) {

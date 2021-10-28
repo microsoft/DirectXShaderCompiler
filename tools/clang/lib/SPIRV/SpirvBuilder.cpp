@@ -1001,10 +1001,13 @@ SpirvInstruction *SpirvBuilder::createSpirvIntrInstExt(
 
   SpirvExtInstImport *set =
       (instSet.size() == 0) ? nullptr : getExtInstSet(instSet);
+      
+  if (retType != QualType() && retType->isVoidType()) {
+    retType = QualType();
+  }
 
   auto *inst = new (context) SpirvIntrinsicInstruction(
-      retType->isVoidType() ? QualType() : retType, opcode, operands,
-      extensions, set, capablities, loc);
+      retType, opcode, operands, extensions, set, capablities, loc);
   insertPoint->addInstruction(inst);
   return inst;
 }

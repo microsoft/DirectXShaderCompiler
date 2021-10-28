@@ -109,6 +109,8 @@ public:
   uint32_t getOrCreateConstantComposite(SpirvConstantComposite *);
   uint32_t getOrCreateConstantNull(SpirvConstantNull *);
   uint32_t getOrCreateConstantBool(SpirvConstantBoolean *);
+  template <typename vecType>
+  void emitLiteral(const SpirvConstant *, vecType &outInst);
 
 private:
   void initTypeInstruction(spv::Op op);

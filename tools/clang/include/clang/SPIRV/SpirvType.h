@@ -49,6 +49,7 @@ public:
     TK_Function,
     TK_AccelerationStructureNV,
     TK_RayQueryKHR,
+    TK_SpirvIntrinsicType,
     // Order matters: all the following are hybrid types
     TK_HybridStruct,
     TK_HybridPointer,
@@ -410,6 +411,24 @@ public:
   static bool classof(const SpirvType *t) {
     return t->getKind() == TK_RayQueryKHR;
   }
+};
+
+class SpirvConstant;
+class SpirvIntrinsicType : public SpirvType {
+public:
+  SpirvIntrinsicType(unsigned typeOp, llvm::ArrayRef<SpirvConstant *> constants,
+                     SpirvIntrinsicType *elementTy);
+  static bool classof(const SpirvType *t) {
+    return t->getKind() == TK_SpirvIntrinsicType;
+  }
+  unsigned getOpCode() const { return typeOpCode; }
+  llvm::ArrayRef<SpirvConstant *> getLiterals() const { return literals; }
+  SpirvIntrinsicType *getElemType() const { return elementType; }
+
+private:
+  unsigned typeOpCode;
+  llvm::SmallVector<SpirvConstant *, 3> literals;
+  SpirvIntrinsicType *elementType;
 };
 
 class HybridType : public SpirvType {

@@ -1145,6 +1145,14 @@ def VKReferenceExt : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def VKTypeDefExt : InheritableAttr {
+  let Spellings = [CXX11<"vk", "ext_type_def">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Args = [UnsignedArgument<"id">, UnsignedArgument<"opcode">];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
 // Global variables that are of scalar type
 def ScalarGlobalVar : SubsetSubject<Var, [{S->hasGlobalStorage() && S->getType()->isScalarType()}]>;
 

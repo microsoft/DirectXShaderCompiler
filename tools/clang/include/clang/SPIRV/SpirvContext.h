@@ -288,6 +288,13 @@ public:
     return rayQueryTypeKHR;
   }
 
+  const SpirvIntrinsicType *
+  getSpirvIntrinsicType(unsigned typeId, unsigned typeOpCode,
+                        llvm::ArrayRef<SpirvConstant *> constants,
+                        SpirvIntrinsicType *elementTy);
+
+  SpirvIntrinsicType *getCreatedSpirvIntrinsicType(unsigned typeId);
+
   /// --- Hybrid type getter functions ---
   ///
   /// Concrete SpirvType objects represent a SPIR-V type completely. Hybrid
@@ -467,6 +474,7 @@ private:
   llvm::DenseMap<const SpirvType *, SCToPtrTyMap> pointerTypes;
   llvm::SmallVector<const HybridPointerType *, 8> hybridPointerTypes;
   llvm::DenseSet<FunctionType *, FunctionTypeMapInfo> functionTypes;
+  llvm::DenseMap<unsigned, SpirvIntrinsicType*> spirvIntrinsicTypes;
   const AccelerationStructureTypeNV *accelerationStructureTypeNV;
   const RayQueryTypeKHR *rayQueryTypeKHR;
 

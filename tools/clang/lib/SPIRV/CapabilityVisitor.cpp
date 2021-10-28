@@ -529,8 +529,9 @@ bool CapabilityVisitor::visitInstruction(SpirvInstruction *instr) {
   }
   case spv::Op::OpRayQueryInitializeKHR: {
     auto rayQueryInst = dyn_cast<SpirvRayQueryOpKHR>(instr);
-    if (rayQueryInst->hasCullFlags()) {
-      addCapability(spv::Capability::RayTraversalPrimitiveCullingKHR);
+    if (rayQueryInst && rayQueryInst->hasCullFlags()) {
+      addCapability(
+          spv::Capability::RayTraversalPrimitiveCullingKHR);
     }
 
     break;
