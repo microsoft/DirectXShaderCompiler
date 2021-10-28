@@ -1013,6 +1013,12 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
   VkImageFeatures vkImgFeatures = {
       var->getAttr<VKCombinedImageSamplerAttr>() != nullptr,
       getSpvImageFormat(var->getAttr<VKImageFormatAttr>())};
+  if (vkImgFeatures.format != spv::ImageFormat::Unknown) {
+    // Legalization is needed to propagate the correct image type for 
+    // instructions in addition to cases where the resource is assigned to
+    // another variable or function parameter
+    needsLegalization = true;
+  }
   if (vkImgFeatures.isCombinedImageSampler ||
       vkImgFeatures.format != spv::ImageFormat::Unknown) {
     spvContext.registerVkImageFeaturesForSpvVariable(varInstr, vkImgFeatures);
