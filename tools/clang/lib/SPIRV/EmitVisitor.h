@@ -277,6 +277,7 @@ public:
   bool visit(SpirvDebugScope *) override;
   bool visit(SpirvDebugFunctionDeclaration *) override;
   bool visit(SpirvDebugFunction *) override;
+  bool visit(SpirvDebugFunctionDefinition *) override;
   bool visit(SpirvDebugLocalVariable *) override;
   bool visit(SpirvDebugDeclare *) override;
   bool visit(SpirvDebugGlobalVariable *) override;
@@ -314,6 +315,23 @@ private:
   /// If we already created OpString for str, just return the id of the created
   /// one. Otherwise, create it, keep it in stringIdMap, and return its id.
   uint32_t getOrCreateOpStringId(llvm::StringRef str);
+
+  // Generate DebugSource for inst
+  void generateDebugSource(uint32_t fileId, uint32_t textId,
+                           SpirvDebugSource *inst);
+
+  // Generate DebugSourceContinued for inst
+  void generateDebugSourceContinued(uint32_t textId, SpirvDebugSource *inst);
+
+  /// Generate DebugSource and DebugSourceContinue for inst using previously
+  /// generated fileId, chopping source into pieces as needed.
+  void generateChoppedSource(uint32_t fileId, SpirvDebugSource *inst);
+
+  /// In the OpenCL.DebugInfo.100 spec some parameters are literals, where in
+  /// the NonSemantic.Shader.DebugInfo.100 spec they are encoded as constant
+  /// operands. This function takes care of checking which version we are
+  /// emitting and either returning the literal directly or a constant.
+  uint32_t getLiteralEncodedForDebugInfo(uint32_t val);
 
   // Emits an OpLine instruction for the given operation into the given binary
   // section.

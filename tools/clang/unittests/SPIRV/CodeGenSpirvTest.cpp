@@ -1994,6 +1994,9 @@ TEST_F(FileTest, FlattenResourceArrayBindings2Optimized) {
 TEST_F(FileTest, FlattenResourceArrayBindings3) {
   runFileTest("vk.binding.cl.flatten-arrays.example3.hlsl");
 }
+TEST_F(FileTest, FlattenResourceArrayAccessedByVarIndex) {
+  runFileTest("vk.binding.flatten-arrays.var-index.hlsl");
+}
 
 // For testing the "-auto-binding-space" command line option which specifies the
 // "default space" for resources.
@@ -2953,6 +2956,18 @@ struct validType {
 // CHECK: %validType = OpTypeStruct %v4float
 // CHECK:    %output = OpTypeStruct %validType
 )"));
+}
+TEST_F(FileTest, ShaderDebugInfoFunction) {
+  runFileTest("shader.debug.function.hlsl");
+}
+TEST_F(FileTest, ShaderDebugInfoDebugLexicalBlock) {
+  runFileTest("shader.debug.debuglexicalblock.hlsl");
+}
+TEST_F(FileTest, ShaderDebugInfoSource) {
+  runFileTest("shader.debug.source.hlsl");
+}
+TEST_F(FileTest, ShaderDebugInfoSourceContinued) {
+  runFileTest("shader.debug.sourcecontinued.hlsl");
 }
 
 } // namespace

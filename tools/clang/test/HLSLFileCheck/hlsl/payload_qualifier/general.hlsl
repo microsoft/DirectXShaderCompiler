@@ -2,8 +2,8 @@
 // RUN: %dxc -T lib_6_x -D TEST_NUM=1 %s | FileCheck -check-prefix=CHK1 %s
 // RUN: %dxc -T lib_6_x -D TEST_NUM=2 %s | FileCheck -check-prefix=CHK2 %s
 // RUN: %dxc -T lib_6_x -D TEST_NUM=3 %s | FileCheck -check-prefix=CHK3 %s
-// RUN: %dxc -T lib_6_5 -D TEST_NUM=4 %s -enable-payload-qualifiers | FileCheck -input=stderr -check-prefix=CHK4 %s
-// RUN: %dxc -T lib_6_6 -D TEST_NUM=4 %s | FileCheck -input=stderr -check-prefix=CHK5 %s
+// RUN: %dxc -T lib_6_5 -D TEST_NUM=4 %s -enable-payload-qualifiers | FileCheck -input-file=stderr -check-prefix=CHK4 %s
+// RUN: %dxc -T lib_6_6 -D TEST_NUM=4 %s | FileCheck -input-file=stderr -check-prefix=CHK5 %s
 // RUN: %dxc -T lib_6_6 -D TEST_NUM=4 %s -enable-payload-qualifiers | FileCheck -check-prefix=CHK6 %s
 // RUN: %dxc -T lib_6_6 -D TEST_NUM=5 %s -enable-payload-qualifiers | FileCheck -check-prefix=CHK7 %s
 

@@ -129,12 +129,14 @@ public:
     IK_VectorShuffle,             // OpVectorShuffle
     IK_SpirvIntrinsicInstruction, // Spirv Intrinsic Instructions
 
-    // For DebugInfo instructions defined in OpenCL.DebugInfo.100
+    // For DebugInfo instructions defined in
+    // OpenCL.DebugInfo.100 and NonSemantic.Shader.DebugInfo.100
     IK_DebugInfoNone,
     IK_DebugCompilationUnit,
     IK_DebugSource,
     IK_DebugFunctionDecl,
     IK_DebugFunction,
+    IK_DebugFunctionDef,
     IK_DebugLocalVariable,
     IK_DebugGlobalVariable,
     IK_DebugOperation,
@@ -2041,7 +2043,7 @@ private:
   SpirvExtInstImport *instructionSet;
 };
 
-/// \breif Base class for all OpenCL.DebugInfo.100 extension instructions.
+/// \brief Base class for all rich DebugInfo extension instructions.
 /// Note that all of these instructions should be added to the SPIR-V module as
 /// an OpExtInst instructions. So, all of these instructions must:
 /// 1) contain the result-id of the extended instruction set
@@ -2243,6 +2245,26 @@ private:
   clang::spirv::FunctionType *fnType;
 };
 
+class SpirvDebugFunctionDefinition : public SpirvDebugInstruction {
+public:
+  SpirvDebugFunctionDefinition(SpirvDebugFunction *function, SpirvFunction *fn);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvDebugFunctionDefinition)
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugFunctionDef;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  SpirvDebugFunction *getDebugFunction() const { return function; }
+  SpirvFunction *getFunction() const { return fn; }
+
+private:
+  SpirvDebugFunction *function;
+  SpirvFunction *fn;
+};
+
 class SpirvDebugLocalVariable : public SpirvDebugInstruction {
 public:
   SpirvDebugLocalVariable(QualType debugQualType, llvm::StringRef varName,
@@ -2424,8 +2446,8 @@ private:
   SpirvDebugInstruction *scope;
 };
 
-/// The following classes represent debug types defined in the
-/// OpenCL.DebugInfo.100 spec.
+/// The following classes represent debug types defined in the rich DebugInfo
+/// spec.
 ///
 /// Note: While debug type and SPIR-V type are very similar, they are not quite
 /// identical. For example: the debug type contains the HLL string name of the

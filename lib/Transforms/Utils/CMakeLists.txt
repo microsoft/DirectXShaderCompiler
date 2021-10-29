@@ -46,3 +46,5 @@ add_llvm_library(LLVMTransformUtils
   )
 
 add_dependencies(LLVMTransformUtils intrinsics_gen)
+
+target_link_libraries(LLVMTransformUtils PUBLIC LLVMDXIL) # HLSL Change

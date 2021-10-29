@@ -44,7 +44,11 @@ struct PrintingPolicy {
       Half(LO.HLSL || LO.Half), // HLSL Change - always print 'half' for HLSL
       MSWChar(LO.MicrosoftExt && !LO.WChar),
       IncludeNewlines(true),
-      HLSLSuppressUniformParameters(false) { }
+      // HLSL Change Begin - hlsl print policy.
+      HLSLSuppressUniformParameters(false), HLSLOnlyDecl(false),
+      HLSLNoinlineMethod(false)
+      // HLSL Change End.
+      {}
 
   /// \brief What language we're printing.
   LangOptions LangOpts;
@@ -169,6 +173,10 @@ struct PrintingPolicy {
   // HLSL Change Begin
   /// \brief When true, exclude uniform function parameters
   unsigned HLSLSuppressUniformParameters : 1;
+  /// \brief When true, only print function decl without function body.
+  unsigned HLSLOnlyDecl : 1;
+  /// \brief When true, print inline method define as outside struct scope define.
+  unsigned HLSLNoinlineMethod : 1;
   // HLSL Change Ends
 };
 

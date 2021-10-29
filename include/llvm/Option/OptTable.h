@@ -170,7 +170,7 @@ public:
                  unsigned FlagsToInclude, unsigned FlagsToExclude) const;
 
   void PrintHelp(raw_ostream &OS, const char *Name, const char *Title,
-                 /* HLSL Change - version info */ const char *VersionInfo,
+                 /* HLSL Change - version info */ const char *VersionInfo = "",
                  bool ShowHidden = false) const;
 };
 } // end namespace opt

@@ -557,6 +557,9 @@ Value *TranslateNonUniformResourceIndex(CallInst *CI, IntrinsicOp IOP, OP::OpCod
           // Only mark on GEP which point to resource.
           if (IsResourceGEP(I))
             DxilMDHelper::MarkNonUniform(I);
+        } else if (CallInst *CI = dyn_cast<CallInst>(castU)) {
+          if (CI->getType() == hdlTy)
+            DxilMDHelper::MarkNonUniform(CI);
         }
       }
     } else if (CallInst *CI = dyn_cast<CallInst>(U)) {
@@ -2147,7 +2150,7 @@ Value *TranslateReflect(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
   unsigned vecSize = VT->getNumElements();
   Value *dot = TranslateFDot(i, n, vecSize, hlslOP, Builder);
   // 2 * dot (i, n).
-  dot = Builder.CreateFMul(hlslOP->GetFloatConst(2), dot);
+  dot = Builder.CreateFMul(ConstantFP::get(dot->getType(), 2.0), dot);
   // 2 * n * dot(i, n).
   Value *vecDot = Builder.CreateVectorSplat(vecSize, dot);
   Value *nMulDot = Builder.CreateFMul(vecDot, n);

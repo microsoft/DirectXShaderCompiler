@@ -576,7 +576,7 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
                                              spvContext.getMinorVersion(),
                                              fileNames, source);
 
-  // OpenCL.DebugInfo.100 DebugSource
+  // Rich DebugInfo DebugSource
   if (spirvOptions.debugInfoRich) {
     auto *dbgSrc = spvBuilder.createDebugSource(mainSourceFile->getString());
     // spvContext.getDebugInfo().insert() inserts {string key, RichDebugInfo}
@@ -1196,6 +1196,7 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
 
   auto loc = decl->getLocStart();
   RichDebugInfo *info = nullptr;
+  SpirvDebugFunction *debugFunction = nullptr;
   const auto &sm = astContext.getSourceManager();
   if (spirvOptions.debugInfoRich && decl->hasBody()) {
     const uint32_t line = sm.getPresumedLineNumber(loc);
@@ -1211,7 +1212,7 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
     uint32_t flags = 3u;
     // The line number in the source program at which the function scope begins.
     auto scopeLine = sm.getPresumedLineNumber(decl->getBody()->getLocStart());
-    SpirvDebugFunction *debugFunction = spvBuilder.createDebugFunction(
+    debugFunction = spvBuilder.createDebugFunction(
         decl, debugFuncName, source, line, column, parentScope, "", flags,
         scopeLine, func);
     func->setDebugScope(new (spvContext) SpirvDebugScope(debugFunction));
@@ -1271,6 +1272,11 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
     // The entry basic block.
     auto *entryLabel = spvBuilder.createBasicBlock("bb.entry");
     spvBuilder.setInsertPoint(entryLabel);
+
+    // Add DebugFunctionDefinition if we are emitting
+    // NonSemantic.Shader.DebugInfo.100 debug info
+    if (spirvOptions.debugInfoVulkan && debugFunction)
+      spvBuilder.createDebugFunctionDef(debugFunction, func);
 
     // Process all statments in the body.
     doStmt(decl->getBody());
@@ -12587,6 +12593,9 @@ bool SpirvEmitter::spirvToolsLegalize(std::vector<uint32_t> *mod,
   // Add flattening of resources if needed.
   if (spirvOptions.flattenResourceArrays ||
       declIdMapper.requiresFlatteningCompositeResources()) {
+    optimizer.RegisterPass(
+        spvtools::CreateReplaceDescArrayAccessUsingVarIndexPass());
+    optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass());
     optimizer.RegisterPass(spvtools::CreateDescriptorScalarReplacementPass());
     // ADCE should be run after desc_sroa in order to remove potentially
     // illegal types such as structures containing opaque types.

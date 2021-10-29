@@ -21,8 +21,11 @@ namespace spirv {
 class SpirvFunction;
 class SpirvBasicBlock;
 
-/// The class responsible to sort OpenCL.DebugInfo.100 instructions in a
-/// valid order without any invalid forward reference.
+/// The class responsible to sort rich DebugInfo instructions in a valid order
+/// without any invalid forward references.
+///
+/// Since NonSemantic.Shader.DebugInfo.100 has no valid forward references, the
+/// result will have no forward references at all.
 class SortDebugInfoVisitor : public Visitor {
 public:
   SortDebugInfoVisitor(SpirvContext &spvCtx, const SpirvCodeGenOptions &opts)

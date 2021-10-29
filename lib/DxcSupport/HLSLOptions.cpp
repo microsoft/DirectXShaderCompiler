@@ -320,6 +320,14 @@ static bool handleVkShiftArgs(const InputArgList &args, OptSpecifier id,
   }
   return true;
 }
+
+namespace {
+
+/// Maximum size of OpString instruction minus two operands
+static const uint32_t kDefaultMaximumSourceLength = 0xFFFDu;
+static const uint32_t kTestingMaximumSourceLength = 13u;
+
+}
 #endif
 // SPIRV Change Ends
 
@@ -936,6 +944,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.SpirvOptions.debugInfoFile = opts.SpirvOptions.debugInfoSource = false;
   opts.SpirvOptions.debugInfoLine = opts.SpirvOptions.debugInfoTool = false;
   opts.SpirvOptions.debugInfoRich = false;
+  opts.SpirvOptions.debugInfoVulkan = false;
+  opts.SpirvOptions.debugSourceLen = kDefaultMaximumSourceLength;
   if (Args.hasArg(OPT_fspv_debug_EQ)) {
     opts.DebugInfo = true;
     for (const Arg *A : Args.filtered(OPT_fspv_debug_EQ)) {
@@ -961,6 +971,26 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
         opts.SpirvOptions.debugInfoSource = true;
         opts.SpirvOptions.debugInfoLine = true;
         opts.SpirvOptions.debugInfoRich = true;
+      } else if (v == "vulkan") {
+        opts.SpirvOptions.debugInfoFile = true;
+        opts.SpirvOptions.debugInfoSource = false;
+        opts.SpirvOptions.debugInfoLine = true;
+        opts.SpirvOptions.debugInfoRich = true;
+        opts.SpirvOptions.debugInfoVulkan = true;
+      } else if (v == "vulkan-with-source") {
+        opts.SpirvOptions.debugInfoFile = true;
+        opts.SpirvOptions.debugInfoSource = true;
+        opts.SpirvOptions.debugInfoLine = true;
+        opts.SpirvOptions.debugInfoRich = true;
+        opts.SpirvOptions.debugInfoVulkan = true;
+      } else if (v == "vulkan-with-source-test") {
+        // For test purposes only
+        opts.SpirvOptions.debugInfoFile = true;
+        opts.SpirvOptions.debugInfoSource = true;
+        opts.SpirvOptions.debugInfoLine = true;
+        opts.SpirvOptions.debugInfoRich = true;
+        opts.SpirvOptions.debugInfoVulkan = true;
+        opts.SpirvOptions.debugSourceLen = kTestingMaximumSourceLength;
       } else {
         errors << "unknown SPIR-V debug info control parameter: " << v;
         return 1;
@@ -1064,6 +1094,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     opts.RWOpt.RemoveUnusedGlobals = Args.hasFlag(OPT_rw_remove_unused_globals, OPT_INVALID, false);
     opts.RWOpt.RemoveUnusedFunctions = Args.hasFlag(OPT_rw_remove_unused_functions, OPT_INVALID, false);
     opts.RWOpt.WithLineDirective = Args.hasFlag(OPT_rw_line_directive, OPT_INVALID, false);
+    opts.RWOpt.DeclGlobalCB =
+        Args.hasFlag(OPT_rw_decl_global_cb, OPT_INVALID, false);
     if (opts.EntryPoint.empty() &&
         (opts.RWOpt.RemoveUnusedGlobals || opts.RWOpt.ExtractEntryUniforms ||
          opts.RWOpt.RemoveUnusedFunctions)) {
