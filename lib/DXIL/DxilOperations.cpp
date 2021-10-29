@@ -672,11 +672,6 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     mask = SFLAG(Hull);
     return;
   }
-  // Instructions: QuadReadLaneAt=122, QuadOp=123
-  if ((122 <= op && op <= 123)) {
-    mask = SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Pixel);
-    return;
-  }
   // Instructions: WaveIsFirstLane=110, WaveGetLaneIndex=111,
   // WaveGetLaneCount=112, WaveAnyTrue=113, WaveAllTrue=114,
   // WaveActiveAllEqual=115, WaveActiveBallot=116, WaveReadLaneAt=117,
@@ -687,8 +682,9 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     return;
   }
   // Instructions: Sample=60, SampleBias=61, SampleCmp=64, CalculateLOD=81,
-  // DerivCoarseX=83, DerivCoarseY=84, DerivFineX=85, DerivFineY=86
-  if ((60 <= op && op <= 61) || op == 64 || op == 81 || (83 <= op && op <= 86)) {
+  // DerivCoarseX=83, DerivCoarseY=84, DerivFineX=85, DerivFineY=86,
+  // QuadReadLaneAt=122, QuadOp=123
+  if ((60 <= op && op <= 61) || op == 64 || op == 81 || (83 <= op && op <= 86) || (122 <= op && op <= 123)) {
     mask = SFLAG(Library) | SFLAG(Pixel) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh);
     return;
   }
@@ -831,7 +827,7 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // Instructions: WriteSamplerFeedback=174, WriteSamplerFeedbackBias=175
   if ((174 <= op && op <= 175)) {
     major = 6;  minor = 5;
-    mask = SFLAG(Library) | SFLAG(Pixel);
+    mask = SFLAG(Library) | SFLAG(Pixel) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh);
     return;
   }
   // Instructions: SetMeshOutputCounts=168, EmitIndices=169, GetMeshPayload=170,
@@ -841,10 +837,19 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     mask = SFLAG(Mesh);
     return;
   }
-  // Instructions: AnnotateHandle=216, CreateHandleFromBinding=217,
-  // CreateHandleFromHeap=218, Unpack4x8=219, Pack4x8=220, IsHelperLane=221
-  if ((216 <= op && op <= 221)) {
+  // Instructions: CreateHandleFromHeap=218, Unpack4x8=219, Pack4x8=220,
+  // IsHelperLane=221
+  if ((218 <= op && op <= 221)) {
     major = 6;  minor = 6;
+    return;
+  }
+  // Instructions: AnnotateHandle=216, CreateHandleFromBinding=217
+  if ((216 <= op && op <= 217)) {
+    if (bWithTranslation) {
+      major = 6;  minor = 0;
+    } else {
+      major = 6;  minor = 6;
+    }
     return;
   }
   // OPCODE-SMMASK:END
@@ -868,7 +873,9 @@ void OP::GetMinShaderModelAndMask(const llvm::CallInst *CI, bool bWithTranslatio
   // for runtime linking.
   // Instructions: Sample=60, SampleBias=61, SampleCmp=64, CalculateLOD=81,
   // DerivCoarseX=83, DerivCoarseY=84, DerivFineX=85, DerivFineY=86
-  if ((60 <= op && op <= 61) || op == 64 || op == 81 || (83 <= op && op <= 86)) {
+  // Instructions: WriteSamplerFeedback=174, WriteSamplerFeedbackBias=175
+  if ((60 <= op && op <= 61) || op == 64 || op == 81 || (83 <= op && op <= 86) ||
+      (174 <= op && op <= 175)) {
     mask &= ~(SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh));
     return;
   }
@@ -904,6 +911,18 @@ void OP::GetMinShaderModelAndMask(const llvm::CallInst *CI, bool bWithTranslatio
       minor = 6;
     }
   }
+
+  // AnnotateHandle and CreateHandleFromBinding can be translated down to
+  // SM 6.0, but this wasn't set properly in validator version 6.6, so make it
+  // match when using that version.
+  else if (bWithTranslation &&
+           DXIL::CompareVersions(valMajor, valMinor, 1, 6) == 0 &&
+           (opcode == DXIL::OpCode::AnnotateHandle ||
+            opcode == DXIL::OpCode::CreateHandleFromBinding)) {
+    major = 6;
+    minor = 6;
+  }
+
 }
 #undef SFLAG
 

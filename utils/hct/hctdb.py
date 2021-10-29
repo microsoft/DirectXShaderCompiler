@@ -344,7 +344,7 @@ class db_dxil(object):
             elif i.name.startswith("Quad"):
                 i.category = "Quad Wave Ops"
                 i.is_wave = True
-                i.shader_stages = ("library", "compute", "amplification", "mesh", "pixel")
+                i.shader_stages = ("library", "pixel", "compute", "amplification", "mesh")
             elif i.name.startswith("Bitcast"):
                 i.category = "Bitcasts with different sizes"
         for i in "ViewID,AttributeAtVertex".split(","):
@@ -411,6 +411,8 @@ class db_dxil(object):
         for i in "AnnotateHandle,CreateHandleFromBinding,CreateHandleFromHeap".split(","):
             self.name_idx[i].category = "Get handle from heap"
             self.name_idx[i].shader_model = 6,6
+        for i in "AnnotateHandle,CreateHandleFromBinding".split(","):
+            self.name_idx[i].shader_model_translated = 6,0
         for i in "Dot4AddU8Packed,Dot4AddI8Packed,Dot2AddHalf".split(","):
             self.name_idx[i].category = "Dot product with accumulate"
             self.name_idx[i].shader_model = 6,4
@@ -430,7 +432,7 @@ class db_dxil(object):
             self.name_idx[i].is_feedback = True
             self.name_idx[i].is_gradient = True
             self.name_idx[i].shader_model = 6,5
-            self.name_idx[i].shader_stages = ("library", "pixel",)
+            self.name_idx[i].shader_stages = ("library", "pixel", "compute", "amplification", "mesh")
         for i in "WriteSamplerFeedbackLevel,WriteSamplerFeedbackGrad".split(","):
             self.name_idx[i].category = "Sampler Feedback"
             self.name_idx[i].is_feedback = True
@@ -825,7 +827,7 @@ class db_dxil(object):
             counters=('tex_grad',))
         next_op_idx += 1
         self.add_dxil_op("SampleCmp", next_op_idx, "SampleCmp", "samples a texture and compares a single component against the specified comparison value", "hf", "ro", [
-            db_dxil_param(0, "$r", "", "the value for the constant buffer variable"),
+            db_dxil_param(0, "$r", "", "the result of the filtered comparisons"),
             db_dxil_param(2, "res", "srv", "handle of SRV to sample"),
             db_dxil_param(3, "res", "sampler", "handle of sampler to use"),
             db_dxil_param(4, "f", "coord0", "coordinate"),
@@ -840,7 +842,7 @@ class db_dxil(object):
             counters=('tex_cmp',))
         next_op_idx += 1
         self.add_dxil_op("SampleCmpLevelZero", next_op_idx, "SampleCmpLevelZero", "samples a texture and compares a single component against the specified comparison value", "hf", "ro", [
-            db_dxil_param(0, "$r", "", "the value for the constant buffer variable"),
+            db_dxil_param(0, "$r", "", "the result of the filtered comparisons"),
             db_dxil_param(2, "res", "srv", "handle of SRV to sample"),
             db_dxil_param(3, "res", "sampler", "handle of sampler to use"),
             db_dxil_param(4, "f", "coord0", "coordinate"),
