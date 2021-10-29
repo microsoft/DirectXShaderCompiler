@@ -1026,6 +1026,22 @@ def VKCounterBinding : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def VKDecorateExt : InheritableAttr {
+  let Spellings = [CXX11<"vk", "ext_decorate">];
+  let Subjects = SubjectList<[Function, Var, ParmVar, Field, TypedefName], ErrorDiag>;
+  let Args = [UnsignedArgument<"decorate">, VariadicUnsignedArgument<"literal">];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+def VKDecorateStringExt : InheritableAttr {
+  let Spellings = [CXX11<"vk", "ext_decorate_string">];
+  let Subjects = SubjectList<[Function, Var, ParmVar, Field, TypedefName], ErrorDiag>;
+  let Args = [UnsignedArgument<"decorate">, StringArgument<"literals">];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
 def VKExtensionExt : InheritableAttr {
   let Spellings = [CXX11<"vk", "ext_extension">];
   let Subjects = SubjectList<[Function], ErrorDiag>;
