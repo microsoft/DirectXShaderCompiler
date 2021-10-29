@@ -247,7 +247,7 @@ TYPED_TEST(DenseMapTest, AssignmentTest) {
   EXPECT_EQ(this->getValue(), copyMap[this->getKey()]);
 
   // test self-assignment.
-  copyMap = copyMap;
+  copyMap = static_cast<TypeParam>(copyMap); // HLSL - silence warning
   EXPECT_EQ(1u, copyMap.size());
   EXPECT_EQ(this->getValue(), copyMap[this->getKey()]);
 }
