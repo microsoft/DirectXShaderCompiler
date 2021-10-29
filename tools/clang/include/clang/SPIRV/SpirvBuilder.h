@@ -661,10 +661,11 @@ public:
                        SourceLocation);
 
   /// \brief Decorates the given target with information from VKDecorateExt
-  void decorateInst(SpirvInstruction *targetInst, unsigned decorate,
-                    unsigned *literal, unsigned literalSize, SourceLocation);
-                    
-/// \brief Decorates the given target with the given string.
+  void decorateLiterals(SpirvInstruction *targetInst, unsigned decorate,
+                        unsigned *literal, unsigned literalSize,
+                        SourceLocation);
+
+  /// \brief Decorates the given target with the given string.
   void decorateString(SpirvInstruction *target, unsigned decorate,
                       llvm::StringRef strLiteral,
                       llvm::Optional<uint32_t> memberIdx = llvm::None);                    

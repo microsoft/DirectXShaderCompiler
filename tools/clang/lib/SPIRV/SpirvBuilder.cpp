@@ -1441,12 +1441,11 @@ void SpirvBuilder::decorateLinkage(SpirvInstruction *targetInst,
   mod->addDecoration(decor);
 }
 
-void SpirvBuilder::decorateInst(SpirvInstruction *targetInst, unsigned decorate,
-                                unsigned *literal, unsigned literalSize,
-                                SourceLocation srcLoc) {
-  SmallVector<uint32_t, 2> operands;
-  unsigned *literEnd = literal + literalSize;
-  operands.insert(operands.end(), literal, literEnd);
+void SpirvBuilder::decorateLiterals(SpirvInstruction *targetInst,
+                                    unsigned decorate, unsigned *literal,
+                                    unsigned literalSize,
+                                    SourceLocation srcLoc) {
+  SmallVector<uint32_t, 2> operands(literal, literal + literalSize);
   SpirvDecoration *decor = new (context) SpirvDecoration(
       srcLoc, targetInst, static_cast<spv::Decoration>(decorate), operands);
   assert(decor != nullptr);

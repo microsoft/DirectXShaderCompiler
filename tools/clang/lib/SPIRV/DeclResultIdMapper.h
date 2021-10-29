@@ -57,7 +57,7 @@ public:
         type(astType), value(nullptr), isBuiltin(false),
         storageClass(spv::StorageClass::Max), location(nullptr),
         locationCount(locCount), entryPoint(nullptr),
-        hasExtDecorateAttr(false) {
+        locOrBuiltinDecorateAttr(false) {
     isBuiltin = builtinAttr != nullptr;
   }
 
@@ -88,8 +88,8 @@ public:
 
   SpirvFunction *getEntryPoint() const { return entryPoint; }
   void setEntryPoint(SpirvFunction *entry) { entryPoint = entry; }
-  bool hasVkExtDecorateAttr() const { return hasExtDecorateAttr; }
-  void setVkExtDecorateAttrUsed() { hasExtDecorateAttr = true; }
+  bool hasLocOrBuiltinDecorateAttr() const { return locOrBuiltinDecorateAttr; }
+  void setIsLocOrBuiltinDecorateAttr() { locOrBuiltinDecorateAttr = true; }
 
 private:
   /// HLSL SigPoint. It uniquely identifies each set of parameters that may be
@@ -116,7 +116,7 @@ private:
   /// Entry point for this stage variable. If this stage variable is not
   /// specific for an entry point e.g., built-in, it must be nullptr.
   SpirvFunction *entryPoint;
-  bool hasExtDecorateAttr;
+  bool locOrBuiltinDecorateAttr;
 };
 
 /// \brief The struct containing information of stage variable's location and
@@ -832,6 +832,13 @@ private:
   ///    CONSTANTBUFFER
   bool getImplicitRegisterType(const ResourceVar &var,
                                char *registerTypeOut) const;
+
+  /// Decorate with spirv intrinsic attributes with lamda function variable
+  /// check
+  template <typename Functor>
+  void decorateWithIntrinsicAttrs(const NamedDecl *decl, SpirvVariable *varInst,
+                                  Functor func);
+
 private:
   SpirvBuilder &spvBuilder;
   SpirvEmitter &theEmitter;
