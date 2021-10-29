@@ -12068,6 +12068,28 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     declAttr = ::new (S.Context) VKReferenceExtAttr(
         A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
+  case AttributeList::AT_VKDecorateExt: {
+    // Note that `llvm::SmallVector<unsigned, 3> args` will be destroyed at
+    // the end of this function. However, VKDecorateExtAttr() constructor
+    // allocate a new integer array internally for literal and passing
+    // `&args[1]` is used just once for the initialization. It does not
+    // create a dangling pointer.
+    llvm::SmallVector<unsigned, 3> args;
+    auto argNum = A.getNumArgs();
+    for (unsigned i = 0; i < argNum; ++i) {
+      args.push_back(unsigned(ValidateAttributeIntArg(S, A, i)));
+    }
+    unsigned *literal = (argNum > 1) ? &args[1] : nullptr;
+    declAttr = ::new (S.Context)
+        VKDecorateExtAttr(A.getRange(), S.Context, args[0], literal, argNum - 1,
+                          A.getAttributeSpellingListIndex());
+  } break;
+  case AttributeList::AT_VKDecorateStringExt:
+    declAttr = ::new (S.Context) VKDecorateStringExtAttr(
+        A.getRange(), S.Context, unsigned(ValidateAttributeIntArg(S, A)),
+        ValidateAttributeStringArg(S, A, nullptr, 1),
+        A.getAttributeSpellingListIndex());
+    break;
   default:
     Handled = false;
     return;
