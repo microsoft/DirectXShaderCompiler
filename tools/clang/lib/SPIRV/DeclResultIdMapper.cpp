@@ -1193,9 +1193,13 @@ SpirvVariable *DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
 
     astDecls[varDecl] = createDeclSpirvInfo(bufferVar, index++);
   }
-  resourceVars.emplace_back(
-      bufferVar, decl, decl->getLocation(), getResourceBinding(decl),
-      decl->getAttr<VKBindingAttr>(), decl->getAttr<VKCounterBindingAttr>());
+  // If it does not contains a member with non-resource type, we do not want to
+  // set a dedicated binding number.
+  if (index != 0) {
+    resourceVars.emplace_back(
+        bufferVar, decl, decl->getLocation(), getResourceBinding(decl),
+        decl->getAttr<VKBindingAttr>(), decl->getAttr<VKCounterBindingAttr>());
+  }
 
   auto *dbgGlobalVar = createDebugGlobalVariable(
       bufferVar, QualType(), decl->getLocation(), decl->getName());
@@ -1375,10 +1379,6 @@ void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
       context, /*arraySize*/ 0, ContextUsageKind::Globals, "type.$Globals",
       "$Globals");
 
-  resourceVars.emplace_back(globals, /*decl*/ nullptr, SourceLocation(),
-                            nullptr, nullptr, nullptr, /*isCounterVar*/ false,
-                            /*isGlobalsCBuffer*/ true);
-
   uint32_t index = 0;
   for (const auto *decl : collectDeclsInDeclContext(context)) {
     if (const auto *varDecl = dyn_cast<VarDecl>(decl)) {
@@ -1405,6 +1405,14 @@ void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
 
       astDecls[varDecl] = createDeclSpirvInfo(globals, index++);
     }
+  }
+
+  // If it does not contains a member with non-resource type, we do not want to
+  // set a dedicated binding number.
+  if (index != 0) {
+    resourceVars.emplace_back(globals, /*decl*/ nullptr, SourceLocation(),
+                              nullptr, nullptr, nullptr, /*isCounterVar*/ false,
+                              /*isGlobalsCBuffer*/ true);
   }
 }
 

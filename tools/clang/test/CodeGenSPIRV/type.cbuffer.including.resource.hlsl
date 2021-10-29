@@ -1,38 +1,48 @@
 // Run: %dxc -T ps_6_0 -E main
 
-// CHECK: OpDecorate %MyCbuffer DescriptorSet 0
-// CHECK: OpDecorate %MyCbuffer Binding 1
-// CHECK: OpDecorate %AnotherCBuffer DescriptorSet 0
-// CHECK: OpDecorate %AnotherCBuffer Binding 2
+// CHECK-NOT: OpDecorate %buf3
+
+// CHECK: OpDecorate %buf0 DescriptorSet 0
+// CHECK: OpDecorate %buf0 Binding 0
+// CHECK: OpDecorate %buf1 DescriptorSet 0
+// CHECK: OpDecorate %buf1 Binding 4
 // CHECK: OpDecorate %y DescriptorSet 0
-// CHECK: OpDecorate %y Binding 0
+// CHECK: OpDecorate %y Binding 1
 // CHECK: OpDecorate %z DescriptorSet 0
-// CHECK: OpDecorate %z Binding 3
+// CHECK: OpDecorate %z Binding 2
+// CHECK: OpDecorate %buf2 DescriptorSet 0
+// CHECK: OpDecorate %buf2 Binding 3
 // CHECK: OpDecorate %w DescriptorSet 0
-// CHECK: OpDecorate %w Binding 4
-// CHECK: OpMemberDecorate %type_MyCbuffer 0 Offset 0
+// CHECK: OpDecorate %w Binding 5
 
-// CHECK: %type_MyCbuffer = OpTypeStruct %v4float
-// CHECK: %type_AnotherCBuffer = OpTypeStruct
+// CHECK: %type_buf0 = OpTypeStruct %v4float
+cbuffer buf0 : register(b0) {
+  float4 foo;
+};
 
-// CHECK:           %y = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
-// CHECK:           %z = OpVariable %_ptr_UniformConstant_type_sampler UniformConstant
-// CHECK:   %MyCbuffer = OpVariable %_ptr_Uniform_type_MyCbuffer Uniform
-// CHECK:           %w = OpVariable %_ptr_UniformConstant_type_sampler UniformConstant
-// CHECK: %AnotherCBuffer = OpVariable %_ptr_Uniform_type_AnotherCBuffer Uniform
+// CHECK: %type_buf1 = OpTypeStruct %v4float
+cbuffer buf1 : register(b4) {
+  float4 bar;
+};
 
-cbuffer MyCbuffer : register(b1) {
+// CHECK: %type_buf2 = OpTypeStruct %v4float
+// CHECK: %type_buf3 = OpTypeStruct
+
+// CHECK: %y = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
+// CHECK: %z = OpVariable %_ptr_UniformConstant_type_sampler UniformConstant
+cbuffer buf2 {
   float4 x;
   Texture2D y;
   SamplerState z;
 };
 
-cbuffer AnotherCBuffer : register(b2) {
+// CHECK: %w = OpVariable %_ptr_UniformConstant_type_sampler UniformConstant
+cbuffer buf3 : register(b2) {
   SamplerState w;
 }
 
 float4 main(float2 uv : TEXCOORD) : SV_TARGET {
-// CHECK: [[ptr_x:%\d+]] = OpAccessChain %_ptr_Uniform_v4float %MyCbuffer %int_0
+// CHECK: [[ptr_x:%\d+]] = OpAccessChain %_ptr_Uniform_v4float %buf2 %int_0
 // CHECK: [[x:%\d+]] = OpLoad %v4float [[ptr_x]]
 
 // CHECK: [[y:%\d+]] = OpLoad %type_2d_image %y
