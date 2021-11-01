@@ -474,7 +474,8 @@ static HRESULT CodePageBufferToUtf8(UINT32 codePage, LPCVOID bufferPointer,
   UINT32 utf16CharCount = 0;
   const WCHAR *utf16Chars = nullptr;
   if (codePage == CP_UTF16) {
-    DXASSERT(IsSizeWcharAligned(bufferSize), "otherwise, odd buffer size with UTF-16");
+    if (!IsSizeWcharAligned(bufferSize))
+      throw hlsl::Exception(DXC_E_STRING_ENCODING_FAILED, "Error in encoding argument specified");
     utf16Chars = (const WCHAR*)bufferPointer;
     utf16CharCount = bufferSize / sizeof(wchar_t);
   } else if (bufferSize) {
@@ -1062,8 +1063,9 @@ HRESULT DxcGetBlobAsUtf16(IDxcBlob *pBlob, IMalloc *pMalloc, IDxcBlobUtf16 **pBl
 
   // Reuse or copy the underlying blob depending on null-termination
   if (codePage == CP_UTF16) {
-    DXASSERT(IsSizeWcharAligned(blobLen),
-             "otherwise, UTF-16 blob size not evenly divisible by 2");
+    if (!IsSizeWcharAligned(blobLen))
+       return DXC_E_STRING_ENCODING_FAILED;
+
     utf16CharCount = blobLen / sizeof(wchar_t);
     if (IsBufferNullTerminated(bufferPointer, blobLen, CP_UTF16)) {
       // Already null-terminated, reference other blob's memory

@@ -83,6 +83,9 @@ public:
     UINT32 codePage;
     LoadSourceCallResult() : hr(E_FAIL), codePage(0) { }
     LoadSourceCallResult(const char *pSource, UINT32 codePage = CP_UTF8) : hr(S_OK), source(pSource), codePage(codePage) { }
+    LoadSourceCallResult(const void *pSource, size_t size,
+                         UINT32 codePage = CP_ACP)
+        : hr(S_OK), source((const char *)pSource, size), codePage(codePage) {}
   };
   std::vector<LoadSourceCallResult> CallResults;
   size_t callIndex;
@@ -157,6 +160,17 @@ public:
   TEST_METHOD(CompileWhenODumpThenPassConfig)
   TEST_METHOD(CompileWhenODumpThenOptimizerMatch)
   TEST_METHOD(CompileWhenVdThenProducesDxilContainer)
+
+  void TestEncodingImpl(
+      const void *sourceData,
+      size_t sourceSize,
+      UINT32 codePage,
+      const void *includedData,
+      size_t includedSize,
+      bool succ,
+      const WCHAR *encoding = nullptr
+  );
+  TEST_METHOD(CompileWithEncodeFlagTestSource)
 
 #if _ITERATOR_DEBUG_LEVEL==0 
   // CompileWhenNoMemThenOOM can properly detect leaks only when debug iterators are disabled
@@ -2589,6 +2603,80 @@ TEST_F(CompilerTest, CompileWhenVdThenProducesDxilContainer) {
   VERIFY_IS_TRUE(hlsl::IsValidDxilContainer(reinterpret_cast<hlsl::DxilContainerHeader *>(pResultBlob->GetBufferPointer()), pResultBlob->GetBufferSize()));
 }
 
+void CompilerTest::TestEncodingImpl(const void *sourceData, size_t sourceSize, UINT32 codePage, const void *includedData, size_t includedSize, bool succ,
+                                    const WCHAR *encoding) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<TestIncludeHandler> pInclude;
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobPinned((const char *)sourceData, sourceSize, codePage,
+                   &pSource);
+  pInclude = new TestIncludeHandler(m_dllSupport);
+  pInclude->CallResults.emplace_back(includedData, includedSize, 0);
+
+  const WCHAR *pArgs[] = {L"-encoding",
+                          encoding};
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+                                      L"ps_6_0", pArgs, _countof(pArgs),
+                                      nullptr, 0, pInclude, &pResult));
+  HRESULT status;
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+
+  if (succ) {
+    VERIFY_SUCCEEDED(status);
+  } else {
+    CComPtr<IDxcBlobEncoding> pErrors;
+    VERIFY_ARE_EQUAL(status, DXC_E_STRING_ENCODING_FAILED);
+    VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&pErrors));
+    std::string textUtf8 = BlobToUtf8(pErrors);
+    LPCSTR pErrorMsg = "Error in encoding argument specified";
+    CheckOperationResultMsgs(pResult, &pErrorMsg, 1, false,
+                             false);
+  }
+}
+
+TEST_F(CompilerTest, CompileWithEncodeFlagTestSource) {
+  // Testing for utf8 encoded files
+  std::string sourceUtf8 = "#include \"include.hlsl\"\r\n"
+                             "float4 main() : SV_Target { return 0; }";
+  std::string includeUtf8 = "// Comment\n";
+  std::string utf8BOM = "\xEF" "\xBB" "\xBF"; // UTF-8 BOM
+  std::string includeUtf8BOM = utf8BOM + includeUtf8;
+
+  TestEncodingImpl(sourceUtf8.data(), sourceUtf8.size(), DXC_CP_UTF8,
+                   includeUtf8BOM.data(), includeUtf8BOM.size(),
+                   true, L"utf16");
+
+  TestEncodingImpl(sourceUtf8.data(), sourceUtf8.size(), DXC_CP_UTF8,
+                   includeUtf8.data(), includeUtf8.size(), false, L"utf16");
+
+  TestEncodingImpl(sourceUtf8.data(), sourceUtf8.size(), DXC_CP_UTF8,
+                   includeUtf8.data(), includeUtf8.size(), true, L"utf8");
+
+  // Testing for utf16 encoded files
+  std::wstring sourceUtf16 = L"#include \"include.hlsl\"\r\n"
+                             L"float4 main() : SV_Target { return 0; }";
+  std::wstring includeUtf16 = L"// Comments\n";
+  std::wstring utf16BOM = L"\xFEFF"; // UTF-16 LE BOM
+  std::wstring includeUtf16BOM = utf16BOM + includeUtf16;
+
+  TestEncodingImpl(sourceUtf16.data(), sourceUtf16.size() * sizeof(L'A'),
+                   DXC_CP_UTF16,
+                   includeUtf16BOM.data(), includeUtf16BOM.size() * sizeof(L'A'), true, L"utf8");
+
+   //TO-DO: not hitting a custom error here, need to add a test that checks if a file specified
+   //as utf8 is actually utf encoded earlier in compilation
+  //TestEncodingImpl(sourceUtf16.data(), sourceUtf16.size() * sizeof(L'A'),
+  //                 DXC_CP_UTF16,
+  //                 includeUtf16.data(), includeUtf16.size() * sizeof(L'A'), false, L"utf8");
+
+  TestEncodingImpl(sourceUtf16.data(), sourceUtf16.size() * sizeof(L'A'),
+                   DXC_CP_UTF16,
+                   includeUtf16.data(), includeUtf16.size() * sizeof(L'A'),
+                   true, L"utf16");
+}
+
 TEST_F(CompilerTest, CompileWhenODumpThenOptimizerMatch) {
   LPCWSTR OptLevels[] = { L"/Od", L"/O1", L"/O2" };
   CComPtr<IDxcCompiler> pCompiler;
@@ -3007,7 +3095,7 @@ TEST_F(CompilerTest, CompileHlsl2015ThenFail) {
   VERIFY_ARE_EQUAL(status, E_INVALIDARG);
   VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&pErrors));
   LPCSTR pErrorMsg = "HLSL Version 2015 is only supported for language services";
-  CheckOperationResultMsgs(pResult, &pErrorMsg, 1, false, false);
+  CheckOperationResultMsgs(pResult, &pErrorMsg, 1, false, false); /// use this for the failing cases
 }
 
 TEST_F(CompilerTest, CompileHlsl2016ThenOK) {
