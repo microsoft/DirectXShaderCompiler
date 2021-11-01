@@ -138,8 +138,19 @@ private:
 #endif
 };
 
+class TestRequirement {
+public:
+  TestRequirement(std::string F, bool R) : Feature(F), Required(R) {}
+  bool IsSupported(dxc::DxcDllSupport &Support) const;
+private:
+  std::string Feature;
+  bool Required;
+};
+
 void ParseCommandParts(LPCSTR commands, LPCWSTR fileName, std::vector<FileRunCommandPart> &parts);
 void ParseCommandPartsFromFile(LPCWSTR fileName, std::vector<FileRunCommandPart> &parts);
+bool ParseRequires(LPCSTR input, LPCWSTR fileName,
+                   std::vector<TestRequirement> &parts);
 
 class FileRunTestResult {
 public:

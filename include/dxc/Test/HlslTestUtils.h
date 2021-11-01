@@ -191,14 +191,15 @@ inline bool PathLooksAbsolute(LPCWSTR name) {
 #endif
 }
 
-static bool HasRunLine(std::string &line) {
+static bool HasDirectiveLine(std::string &line) {
   const char *delimiters = " ;/";
   auto lineelems = strtok(line, delimiters);
-  return !lineelems.empty() &&
-    lineelems.front().compare("RUN:") == 0;
+  return !lineelems.empty() && (lineelems.front().compare("RUN:") == 0 ||
+                                lineelems.front().compare("REQUIRES:") == 0 ||
+                                lineelems.front().compare("UNSUPPORTED:") == 0);
 }
 
-inline std::vector<std::string> GetRunLines(const LPCWSTR name) {
+inline std::vector<std::string> GetLITDirectives(const LPCWSTR name) {
   const std::wstring path = PathLooksAbsolute(name)
     ? std::wstring(name)
     : hlsl_test::GetPathToHlslDataFile(name);
@@ -218,7 +219,7 @@ inline std::vector<std::string> GetRunLines(const LPCWSTR name) {
   std::string line;
   constexpr size_t runlinesize = 300;
   while (std::getline(infile, line)) {
-    if (!HasRunLine(line))
+    if (!HasDirectiveLine(line))
       continue;
     char runline[runlinesize];
     memset(runline, 0, runlinesize);

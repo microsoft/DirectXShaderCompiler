@@ -90,9 +90,6 @@ FileRunCommandResult FileRunCommandPart::Run(dxc::DxcDllSupport &DllSupport, con
   else if (0 == _stricmp(Command.c_str(), "fc")) {
     return RunFileCompareText(Prior);
   }
-  else if (0 == _stricmp(Command.c_str(), "%dxilver")) {
-    return RunDxilVer(DllSupport, Prior);
-  }
   else if (0 == _stricmp(Command.c_str(), "%dxc")) {
     return RunDxc(DllSupport, Prior);
   }
@@ -1192,15 +1189,33 @@ class FileRunTestResultImpl : public FileRunTestResult {
   }
 
 public:
-  FileRunTestResultImpl(dxc::DxcDllSupport &support, PluginToolsPaths *pPluginToolsPaths = nullptr,
+  FileRunTestResultImpl(dxc::DxcDllSupport &support,
+                        PluginToolsPaths *pPluginToolsPaths = nullptr,
                         LPCWSTR dumpName = nullptr)
-    : m_support(support), m_pPluginToolsPaths(pPluginToolsPaths), m_dumpName(dumpName) {}
+      : m_support(support), m_pPluginToolsPaths(pPluginToolsPaths),
+        m_dumpName(dumpName) {}
+
   void RunFileCheckFromFileCommands(LPCWSTR fileName) {
     // Assume UTF-8 files.
-    auto cmds = GetRunLines(fileName);
+    auto cmds = GetLITDirectives(fileName);
+    // Iterate over the lit commands to process test requirements first
+    // Iterate over all RUN lines
+    std::vector<TestRequirement> Requirements;
+    std::vector<std::string> RunCmds;
+    for (auto &cmd : cmds) {
+      if (!ParseRequires(cmd.c_str(), fileName, Requirements))
+        RunCmds.push_back(cmd);
+    }
+    
+    // If any of the requirements are not met, bail
+    for (auto &Req : Requirements) {
+      if (!Req.IsSupported(m_support))
+        return;
+    }
+
     // Iterate over all RUN lines
     unsigned runIdx = 0;
-    for (auto &cmd : cmds) {
+    for (auto &cmd : RunCmds) {
       std::wstring dumpStr;
       std::wstringstream os;
       LPCWSTR dumpName = nullptr;
@@ -1285,4 +1300,62 @@ void ParseCommandPartsFromFile(LPCWSTR fileName,
   // Assume UTF-8 files.
   std::string commands(GetFirstLine(fileName));
   ParseCommandParts(commands.c_str(), fileName, parts);
+}
+
+void ParseFeatures(LPCSTR features, std::vector<TestRequirement> &parts,
+                   bool Requires) {
+  LPCSTR endFeatures = strchr(features, '\0');
+  while (features != endFeatures) {
+    LPCSTR nextStart;
+    LPCSTR thisEnd = strchr(features, ',');
+    if (!thisEnd) {
+      nextStart = thisEnd = endFeatures;
+    } else {
+      nextStart = thisEnd + 2;
+    }
+    parts.emplace_back(std::string(features, thisEnd), Requires);
+    features = nextStart;
+  }
+}
+
+bool ParseRequires(LPCSTR input, LPCWSTR fileName,
+                   std::vector<TestRequirement> &parts) {
+  LPCSTR feature = strstr(input, "REQUIRES: ");
+  if (feature) {
+    feature += strlen("REQUIRES: ");
+    ParseFeatures(feature, parts, true);
+    return true;
+  }
+
+  feature = strstr(input, "UNSUPPORTED: ");
+  if (feature) {
+    feature += strlen("UNSUPPORTED: ");
+    ParseFeatures(feature, parts, false);
+    return true;
+  }
+  return false;
+}
+
+bool TestRequirement::IsSupported(dxc::DxcDllSupport &Support) const {
+  if (Feature == "system-windows") {
+#if _WIN32
+    return Required;
+#else
+    return !Required;
+#endif
+  }
+
+  if (Feature == "HLSL") {
+    return Required;
+  }
+
+  auto versionComponents = strtok(Feature, "-");
+  if (versionComponents.front() == "dxilver") {
+    unsigned RequiredDxilMajor = versionComponents[1][0] - '0';
+    unsigned RequiredDxilMinor = versionComponents[1][2] - '0';
+    auto Result = CheckDxilVer(Support, RequiredDxilMajor, RequiredDxilMinor);
+    return Required ? !Result.AbortPipeline : Result.AbortPipeline;
+  }
+
+  return Required;
 }
