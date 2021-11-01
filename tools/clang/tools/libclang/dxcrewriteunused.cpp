@@ -226,6 +226,83 @@ public:
   }
 };
 
+// Collect all global constants.
+class GlobalCBVisitor : public RecursiveASTVisitor<GlobalCBVisitor> {
+private:
+  SmallVectorImpl<VarDecl *> &globalConstants;
+
+public:
+  GlobalCBVisitor(SmallVectorImpl<VarDecl *> &globals)
+      : globalConstants(globals) {}
+
+  bool VisitVarDecl(VarDecl *vd) {
+    // Skip local var.
+    if (!vd->getDeclContext()->isTranslationUnit()) {
+      auto *DclContext = vd->getDeclContext();
+      while (NamespaceDecl *ND = dyn_cast<NamespaceDecl>(DclContext))
+        DclContext = ND->getDeclContext();
+      if (!DclContext->isTranslationUnit())
+        return true;
+    }
+    // Skip group shared.
+    if (vd->hasAttr<HLSLGroupSharedAttr>())
+      return true;
+    // Skip static global.
+    if (!vd->hasExternalFormalLinkage())
+      return true;
+    // Skip resource.
+    if (DXIL::ResourceClass::Invalid !=
+        hlsl::GetResourceClassForType(vd->getASTContext(), vd->getType()))
+      return true;
+
+    globalConstants.emplace_back(vd);
+    return true;
+  }
+};
+// Collect types used by a record decl.
+// TODO: template support.
+class TypeVisitor : public RecursiveASTVisitor<TypeVisitor> {
+private:
+  MapVector<const TypeDecl *, DenseSet<const TypeDecl *>> &m_typeDepMap;
+
+public:
+  TypeVisitor(
+      MapVector<const TypeDecl *, DenseSet<const TypeDecl *>> &typeDepMap)
+      : m_typeDepMap(typeDepMap) {}
+
+  bool VisitRecordType(const RecordType *RT) {
+    RecordDecl *RD = RT->getDecl();
+    if (m_typeDepMap.count(RD))
+      return true;
+    // Create empty dep set.
+    m_typeDepMap[RD];
+    if (const CXXRecordDecl *CXXRD = dyn_cast<CXXRecordDecl>(RD)) {
+      for (const auto &I : CXXRD->bases()) {
+        const CXXRecordDecl *BaseDecl =
+            cast<CXXRecordDecl>(I.getType()->castAs<RecordType>()->getDecl());
+        if (BaseDecl->field_empty())
+          continue;
+        QualType baseTy = QualType(BaseDecl->getTypeForDecl(), 0);
+        TraverseType(baseTy);
+        m_typeDepMap[RD].insert(BaseDecl);
+      }
+    }
+
+    for (auto *field : RD->fields()) {
+      QualType Ty = field->getType();
+      if (hlsl::IsHLSLResourceType(Ty))
+        continue;
+      if (hlsl::IsHLSLVecMatType(Ty))
+        continue;
+
+      TraverseType(Ty);
+      const clang::Type *TyPtr = Ty.getTypePtr();
+      m_typeDepMap[RD].insert(TyPtr->getAsTagDecl());
+    }
+    return true;
+  }
+};
+
 // Macro related.
 namespace {
 
@@ -441,8 +518,7 @@ void SetupCompilerCommon(CompilerInstance &compiler,
                          _In_ LPCSTR pMainFile,
                          _In_ TextDiagnosticPrinter *diagPrinter,
                          _In_opt_ ASTUnit::RemappedFile *rewrite,
-                         _In_ hlsl::options::DxcOpts &opts,
-                         _In_opt_ dxcutil::DxcArgsFileSystem *msfPtr) {
+                         _In_ hlsl::options::DxcOpts &opts) {
   // Setup a compiler instance.
   std::shared_ptr<TargetOptions> targetOptions(new TargetOptions);
   targetOptions->Triple = llvm::sys::getDefaultTargetTriple();
@@ -460,6 +536,7 @@ void SetupCompilerCommon(CompilerInstance &compiler,
     compiler.getDiagnostics().setWarningsAsErrors(true);
   compiler.getDiagnostics().setIgnoreAllWarnings(!opts.OutputWarnings);
   compiler.getLangOpts().HLSLVersion = (unsigned)opts.HLSLVersion;
+  compiler.getLangOpts().StrictUDTCasting = opts.StrictUDTCasting;
   compiler.getLangOpts().UseMinPrecision = !opts.Enable16BitTypes;
   compiler.getLangOpts().EnableDX9CompatMode = opts.EnableDX9CompatMode;
   compiler.getLangOpts().EnableFXCCompatMode = opts.EnableFXCCompatMode;
@@ -503,8 +580,7 @@ void SetupCompilerForRewrite(
     _In_opt_ ASTUnit::RemappedFile *rewrite, _In_ hlsl::options::DxcOpts &opts,
     _In_opt_ LPCSTR pDefines, _In_opt_ dxcutil::DxcArgsFileSystem *msfPtr) {
 
-  SetupCompilerCommon(compiler, helper, pMainFile, diagPrinter, rewrite, opts,
-                      msfPtr);
+  SetupCompilerCommon(compiler, helper, pMainFile, diagPrinter, rewrite, opts);
 
   if (msfPtr) {
     msfPtr->SetupForCompilerInstance(compiler);
@@ -540,8 +616,7 @@ void SetupCompilerForPreprocess(
     _In_ DxcDefine *pDefines, _In_ UINT32 defineCount,
     _In_opt_ dxcutil::DxcArgsFileSystem *msfPtr) {
 
-  SetupCompilerCommon(compiler, helper, pMainFile, diagPrinter, rewrite, opts,
-                      msfPtr);
+  SetupCompilerCommon(compiler, helper, pMainFile, diagPrinter, rewrite, opts);
 
   if (pDefines) {
     PreprocessorOptions &PPOpts = compiler.getPreprocessorOpts();
@@ -580,6 +655,8 @@ HRESULT GenerateAST(DxcLangExtensionsHelper *pExtHelper, LPCSTR pFileName,
                     dxcutil::DxcArgsFileSystem *msfPtr, raw_ostream &w) {
   // Setup a compiler instance.
   CompilerInstance &compiler = astHelper.compiler;
+  compiler.getLangOpts().EnableTemplates = opts.EnableTemplates;
+
   std::unique_ptr<TextDiagnosticPrinter> diagPrinter =
       llvm::make_unique<TextDiagnosticPrinter>(w,
                                                &compiler.getDiagnosticOpts());
@@ -1145,6 +1222,72 @@ private:
   bool bNeedLineInfo;
 };
 
+// Preprocess rewritten files.
+HRESULT preprocessRewrittenFiles(
+    _In_ DxcLangExtensionsHelper *pExtHelper, Rewriter &R,
+    _In_ LPCSTR pFileName, _In_ ASTUnit::RemappedFile *pRemap,
+    _In_ hlsl::options::DxcOpts &opts, _In_ DxcDefine *pDefines,
+    _In_ UINT32 defineCount, raw_string_ostream &w, raw_string_ostream &o,
+    _In_opt_ dxcutil::DxcArgsFileSystem *msfPtr, IMalloc *pMalloc) {
+
+  CComPtr<AbstractMemoryStream> pOutputStream;
+  IFT(CreateMemoryStream(pMalloc, &pOutputStream));
+
+  raw_stream_ostream outStream(pOutputStream.p);
+  // TODO: how to reuse msfPtr when ReigsterOutputStream.
+  IFT(msfPtr->RegisterOutputStream(L"output.bc", pOutputStream));
+
+  llvm::MemoryBuffer *pMemBuf = pRemap->second;
+  std::unique_ptr<llvm::MemoryBuffer> pBuffer(
+      llvm::MemoryBuffer::getMemBufferCopy(pMemBuf->getBuffer(), pFileName));
+
+  std::unique_ptr<ASTUnit::RemappedFile> pPreprocessRemap(
+      new ASTUnit::RemappedFile(pFileName, pBuffer.release()));
+  // Need another compiler instance for preprocess because
+  // PrintPreprocessedAction will createPreprocessor.
+  CompilerInstance compiler;
+  std::unique_ptr<TextDiagnosticPrinter> diagPrinter =
+      llvm::make_unique<TextDiagnosticPrinter>(w,
+                                               &compiler.getDiagnosticOpts());
+  SetupCompilerForPreprocess(compiler, pExtHelper, pFileName, diagPrinter.get(),
+                             pPreprocessRemap.get(), opts, pDefines,
+                             defineCount, msfPtr);
+
+  auto &sourceManager = R.getSourceMgr();
+  auto &preprocessorOpts = compiler.getPreprocessorOpts();
+  // Map rewrite buf to source manager of preprocessor compiler.
+  for (auto it = R.buffer_begin(); it != R.buffer_end(); it++) {
+    RewriteBuffer &buf = it->second;
+    const FileEntry *Entry = sourceManager.getFileEntryForID(it->first);
+    std::string lineStr;
+    raw_string_ostream o(lineStr);
+    buf.write(o);
+    o.flush();
+    StringRef fileName = Entry->getName();
+    std::unique_ptr<llvm::MemoryBuffer> rewriteBuf =
+        MemoryBuffer::getMemBufferCopy(lineStr, fileName);
+    preprocessorOpts.addRemappedFile(fileName, rewriteBuf.release());
+  }
+
+  compiler.getFrontendOpts().OutputFile = "output.bc";
+  compiler.WriteDefaultOutputDirectly = true;
+  compiler.setOutStream(&outStream);
+  try {
+    PreprocessResult(compiler, pFileName);
+    StringRef out((char *)pOutputStream.p->GetPtr(),
+                  pOutputStream.p->GetPtrSize());
+    o << out;
+    compiler.setSourceManager(nullptr);
+    msfPtr->UnRegisterOutputStream();
+  } catch (Exception &exp) {
+    w << exp.msg;
+    return E_FAIL;
+  } catch (...) {
+    return E_FAIL;
+  }
+  return S_OK;
+}
+
 HRESULT DoReWriteWithLineDirective(
     _In_ DxcLangExtensionsHelper *pExtHelper, _In_ LPCSTR pFileName,
     _In_ ASTUnit::RemappedFile *pRemap, _In_ hlsl::options::DxcOpts &opts,
@@ -1197,62 +1340,8 @@ HRESULT DoReWriteWithLineDirective(
 
   }
   // Preprocess rewritten files.
-  {
-    CComPtr<AbstractMemoryStream> pOutputStream;
-    IFT(CreateMemoryStream(pMalloc, &pOutputStream));
-
-    raw_stream_ostream outStream(pOutputStream.p);
-
-    IFT(msfPtr->RegisterOutputStream(L"output.bc", pOutputStream));
-
-    llvm::MemoryBuffer *pMemBuf = pRemap->second;
-    std::unique_ptr<llvm::MemoryBuffer> pBuffer(
-        llvm::MemoryBuffer::getMemBufferCopy(pMemBuf->getBuffer(), pFileName));
-
-    std::unique_ptr<ASTUnit::RemappedFile> pPreprocessRemap(
-        new ASTUnit::RemappedFile(pFileName, pBuffer.release()));
-    // Need another compiler instance for preprocess because
-    // PrintPreprocessedAction will createPreprocessor.
-    CompilerInstance compiler;
-    std::unique_ptr<TextDiagnosticPrinter> diagPrinter =
-        llvm::make_unique<TextDiagnosticPrinter>(w,
-                                                 &compiler.getDiagnosticOpts());
-    SetupCompilerForPreprocess(compiler, pExtHelper, pFileName,
-                               diagPrinter.get(), pPreprocessRemap.get(), opts,
-                               pDefines, defineCount, msfPtr);
-
-    auto &sourceManager = rewriter.getSourceMgr();
-    auto &preprocessorOpts = compiler.getPreprocessorOpts();
-    // Map rewrite buf to source manager of preprocessor compiler.
-    for (auto it = rewriter.buffer_begin(); it != rewriter.buffer_end(); it++) {
-      RewriteBuffer &buf = it->second;
-      const FileEntry *Entry = sourceManager.getFileEntryForID(it->first);
-      std::string lineStr;
-      raw_string_ostream o(lineStr);
-      buf.write(o);
-      o.flush();
-      StringRef fileName = Entry->getName();
-      std::unique_ptr<llvm::MemoryBuffer> rewriteBuf =
-          MemoryBuffer::getMemBufferCopy(lineStr, fileName);
-      preprocessorOpts.addRemappedFile(fileName, rewriteBuf.release());
-    }
-
-    compiler.getFrontendOpts().OutputFile = "output.bc";
-    compiler.WriteDefaultOutputDirectly = true;
-    compiler.setOutStream(&outStream);
-    try {
-      PreprocessResult(compiler, pFileName);
-      StringRef out((char *)pOutputStream.p->GetPtr(),
-                    pOutputStream.p->GetPtrSize());
-      o << out;
-      compiler.setSourceManager(nullptr);
-    } catch (Exception &exp) {
-      w << exp.msg;
-      return E_FAIL;
-    } catch (...) {
-      return E_FAIL;
-    }
-  }
+  preprocessRewrittenFiles(pExtHelper, rewriter, pFileName, pRemap, opts,
+                           pDefines, defineCount, w, o, msfPtr, pMalloc);
 
   WriteMacroDefines(astHelper.semanticMacros, o);
   if (opts.RWOpt.KeepUserMacro)
@@ -1264,6 +1353,196 @@ HRESULT DoReWriteWithLineDirective(
 
   return S_OK;
 }
+
+template<typename DT>
+void printWithNamespace(DT *VD, raw_string_ostream &OS, PrintingPolicy &p) {
+  SmallVector<StringRef, 2> namespaceList;
+  auto const *Context = VD->getDeclContext();
+  while (const NamespaceDecl *ND = dyn_cast<NamespaceDecl>(Context)) {
+    namespaceList.emplace_back(ND->getName());
+    Context = ND->getDeclContext();
+  }
+  for (auto it = namespaceList.rbegin(); it != namespaceList.rend(); ++it) {
+    OS << "namespace " << *it << " {\n";
+  }
+
+  VD->print(OS, p);
+  OS << ";\n";
+  for (unsigned i = 0; i < namespaceList.size(); ++i) {
+    OS << "}\n";
+  }
+}
+
+void printTypeWithoutMethodBody(const TypeDecl *TD, raw_string_ostream &OS,
+                                PrintingPolicy &p) {
+  PrintingPolicy declP(p);
+  declP.HLSLOnlyDecl = true;
+  printWithNamespace(TD, OS, declP);
+}
+
+class MethodsVisitor : public DeclVisitor<MethodsVisitor> {
+public:
+  MethodsVisitor(raw_string_ostream &o, PrintingPolicy &p)
+      : OS(o), declP(p) {
+    declP.HLSLNoinlineMethod = true;
+  }
+
+  void VisitFunctionDecl(FunctionDecl *f) {
+    // Don't need to do namespace, the location is not change.
+    f->print(OS, declP);
+    return;
+  }
+  void VisitDeclContext(DeclContext *DC) {
+    SmallVector<Decl *, 2> Decls;
+    for (DeclContext::decl_iterator D = DC->decls_begin(),
+                                    DEnd = DC->decls_end();
+         D != DEnd; ++D) {
+
+      // Don't print ObjCIvarDecls, as they are printed when visiting the
+      // containing ObjCInterfaceDecl.
+      if (isa<ObjCIvarDecl>(*D))
+        continue;
+
+      // Skip over implicit declarations in pretty-printing mode.
+      if (D->isImplicit())
+        continue;
+
+      Visit(*D);
+
+    }
+  }
+  void VisitCXXRecordDecl(CXXRecordDecl *D) {
+
+    if (D->isCompleteDefinition()) {
+      VisitDeclContext(D);
+    }
+  }
+
+private:
+  raw_string_ostream &OS;
+  PrintingPolicy declP;
+};
+
+
+HRESULT DoRewriteGlobalCB(_In_ DxcLangExtensionsHelper *pExtHelper,
+                          _In_ LPCSTR pFileName,
+                          _In_ ASTUnit::RemappedFile *pRemap,
+                          _In_ hlsl::options::DxcOpts &opts,
+                          _In_ DxcDefine *pDefines, _In_ UINT32 defineCount,
+                          std::string &warnings, std::string &result,
+                          _In_opt_ dxcutil::DxcArgsFileSystem *msfPtr,
+                          IMalloc *pMalloc) {
+  raw_string_ostream o(result);
+  raw_string_ostream w(warnings);
+
+  ASTHelper astHelper;
+  GenerateAST(pExtHelper, pFileName, pRemap, pDefines, defineCount, astHelper,
+              opts, msfPtr, w);
+
+  if (astHelper.bHasErrors)
+    return E_FAIL;
+
+  TranslationUnitDecl *tu = astHelper.tu;
+  // Collect global constants.
+  SmallVector<VarDecl *, 128> globalConstants;
+  GlobalCBVisitor visitor(globalConstants);
+  visitor.TraverseDecl(tu);
+
+  // Collect types for global constants.
+  MapVector<const TypeDecl *, DenseSet<const TypeDecl *>> typeDepMap;
+  TypeVisitor tyVisitor(typeDepMap);
+
+  for (VarDecl *VD : globalConstants) {
+    QualType Type = VD->getType();
+    tyVisitor.TraverseType(Type);
+  }
+
+  ASTContext &C = tu->getASTContext();
+  Rewriter R(C.getSourceManager(), C.getLangOpts());
+
+  std::string globalCBStr;
+  raw_string_ostream OS(globalCBStr);
+
+  PrintingPolicy p = PrintingPolicy(C.getPrintingPolicy());
+
+  // Sort types with typeDepMap.
+  SmallVector<const TypeDecl *, 32> sortedGlobalConstantTypes;
+  while (!typeDepMap.empty()) {
+
+    SmallSet<const TypeDecl *, 4> noDepTypes;
+
+    for (auto it : typeDepMap) {
+      const TypeDecl *TD = it.first;
+      auto &dep = it.second;
+      if (dep.empty()) {
+        sortedGlobalConstantTypes.emplace_back(TD);
+        noDepTypes.insert(TD);
+      } else {
+        for (auto *depDecl : dep) {
+          if (typeDepMap.count(depDecl) == 0) {
+            noDepTypes.insert(depDecl);
+          }
+        }
+
+        for (auto *noDepDecl : noDepTypes) {
+          if (dep.count(noDepDecl))
+            dep.erase(noDepDecl);
+        }
+        if (dep.empty()) {
+          sortedGlobalConstantTypes.emplace_back(TD);
+          noDepTypes.insert(TD);
+        }
+      }
+    }
+
+    for (auto *noDepDecl : noDepTypes)
+      typeDepMap.erase(noDepDecl);
+  }
+
+  // Move all type decl to top of tu.
+  for (const TypeDecl *TD : sortedGlobalConstantTypes) {
+    printTypeWithoutMethodBody(TD, OS, p);
+
+    std::string methodsStr;
+    raw_string_ostream methodsOS(methodsStr);
+    MethodsVisitor Visitor(methodsOS, p);
+    Visitor.Visit(const_cast<TypeDecl*>(TD));
+    methodsOS.flush();
+    R.ReplaceText(TD->getSourceRange(), methodsStr);
+    // TODO: remove ; for type decl.
+  }
+
+  OS << "cbuffer GlobalCB {\n";
+  // Create HLSLBufferDecl after the types.
+  for (VarDecl *VD : globalConstants) {
+    printWithNamespace(VD, OS, p);
+    R.RemoveText(VD->getSourceRange());
+    // TODO: remove ; for var decl.
+  }
+  OS << "}\n";
+
+  OS.flush();
+
+  // Cannot find begin of tu, just write first when output.
+  // R.InsertTextBefore(tu->decls_begin()->getLocation(), globalCBStr);
+  o << globalCBStr;
+
+  // Preprocess rewritten files.
+  preprocessRewrittenFiles(pExtHelper, R, pFileName, pRemap, opts, pDefines,
+                           defineCount, w, o, msfPtr, pMalloc);
+
+  WriteMacroDefines(astHelper.semanticMacros, o);
+  if (opts.RWOpt.KeepUserMacro)
+    WriteMacroDefines(astHelper.userMacros, o);
+
+  // Flush and return results.
+  o.flush();
+  w.flush();
+
+  return S_OK;
+}
+
+
 } // namespace
 
 class DxcRewriter : public IDxcRewriter2, public IDxcLangExtensions3 {
@@ -1477,6 +1756,7 @@ public:
           new ASTUnit::RemappedFile(fName, pBuffer.release()));
 
       hlsl::options::MainArgs mainArgs(argCount, pArguments, 0);
+
       hlsl::options::DxcOpts opts;
       IFR(ReadOptsAndValidate(mainArgs, opts, ppResult));
       HRESULT hr;
@@ -1485,6 +1765,20 @@ public:
         return S_OK;
       }
 
+      if (opts.RWOpt.DeclGlobalCB) {
+        std::string errors;
+        std::string rewrite;
+        HRESULT status = S_OK;
+        status = DoRewriteGlobalCB(&m_langExtensionsHelper, fName, pRemap.get(),
+                                   opts, pDefines, defineCount, errors, rewrite,
+                                   msfPtr, m_pMalloc);
+        if (status != S_OK) {
+          return S_OK;
+        }
+
+        pBuffer = llvm::MemoryBuffer::getMemBufferCopy(rewrite, fName);
+        pRemap.reset(new ASTUnit::RemappedFile(fName, pBuffer.release()));
+      }
       std::string errors;
       std::string rewrite;
       HRESULT status = S_OK;

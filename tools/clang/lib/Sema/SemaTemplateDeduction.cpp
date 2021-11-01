@@ -2727,6 +2727,18 @@ CheckOriginalCallArgDeduction(Sema &S, Sema::OriginalCallArg OriginalArg,
     }
   }
   
+  /// HLSL Change Begin
+  // resolve literal types to 32-bit types for template argument types.
+  if (LangOptions().HLSL) {
+    if (auto BT = dyn_cast<BuiltinType>(A)) {
+      if (BT->getKind() == BuiltinType::LitFloat)
+        A = Context.FloatTy;
+      else if (BT->getKind() == BuiltinType::LitInt)
+        A = Context.IntTy;
+    }
+  }
+  /// HLSL Change End
+  
   if (Context.hasSameUnqualifiedType(A, DeducedA))
     return false;
   
@@ -2899,6 +2911,28 @@ Sema::FinishTemplateArgumentDeduction(FunctionTemplateDecl *FunctionTemplate,
 
     // If we get here, we successfully used the default template argument.
   }
+
+  /// HLSL Change Begin
+
+  // In HLSL for user-supplied templates we translate any `literal <type>`
+  // arguments into the appropriate 32-bit type. For builtins we preserve the
+  // `literal` types as long as possible so that constant folding can operate on
+  // the highest precision type.
+  if (LangOptions().HLSL) {
+    for (auto &Arg : Builder) {
+      if (Arg.getKind() != TemplateArgument::Type)
+        continue;
+      QualType QT = Arg.getAsType();
+      if (auto BT = dyn_cast<BuiltinType>(QT)) {
+        if (BT->getKind() == BuiltinType::LitFloat) {
+          Arg = TemplateArgument(Context.FloatTy);
+        } else if (BT->getKind() == BuiltinType::LitInt) {
+          Arg = TemplateArgument(Context.IntTy);
+        }
+      }
+    }
+  }
+  /// HLSL Change End
 
   // Form the template argument list from the deduced template arguments.
   TemplateArgumentList *DeducedArgumentList
@@ -3142,12 +3176,12 @@ static bool AdjustFunctionParmAndArgTypesForDeduction(Sema &S,
     //   - If A is an array type, the pointer type produced by the
     //     array-to-pointer standard conversion (4.2) is used in place of
     //     A for type deduction; otherwise,
-    if (ArgType->isArrayType())
-      ArgType = S.Context.getArrayDecayedType(ArgType);
+    //if (ArgType->isArrayType()) // HLSL Change
+    //  ArgType = S.Context.getArrayDecayedType(ArgType);
     //   - If A is a function type, the pointer type produced by the
     //     function-to-pointer standard conversion (4.3) is used in place
     //     of A for type deduction; otherwise,
-    else if (ArgType->isFunctionType())
+    if (ArgType->isFunctionType())
       ArgType = S.Context.getPointerType(ArgType);
     else {
       // - If A is a cv-qualified type, the top level cv-qualifiers of A's

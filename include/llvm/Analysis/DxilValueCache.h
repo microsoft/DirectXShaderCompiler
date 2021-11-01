@@ -42,6 +42,7 @@ struct DxilValueCache : public ImmutablePass {
     bool Seen(Value *v);
     void SetSentinel(Value *V);
     void ResetUnknowns();
+    void ResetAll();
     void dump() const;
   private:
     Value *GetSentinel(LLVMContext &Ctx);
@@ -51,6 +52,7 @@ struct DxilValueCache : public ImmutablePass {
 private:
 
   WeakValueMap ValueMap;
+  bool (*ShouldSkipCallback)(Value *V) = nullptr;
 
   void MarkAlwaysReachable(BasicBlock *BB);
   void MarkUnreachable(BasicBlock *BB);
@@ -76,8 +78,10 @@ public:
   Constant *GetConstValue(Value *V, DominatorTree *DT = nullptr);
   ConstantInt *GetConstInt(Value *V, DominatorTree *DT = nullptr);
   void ResetUnknowns() { ValueMap.ResetUnknowns(); }
+  void ResetAll() { ValueMap.ResetAll(); }
   bool IsAlwaysReachable(BasicBlock *BB, DominatorTree *DT=nullptr);
   bool IsUnreachable(BasicBlock *BB, DominatorTree *DT=nullptr);
+  void SetShouldSkipCallback(bool (*Callback)(Value *V)) { ShouldSkipCallback = Callback; };
 };
 
 void initializeDxilValueCachePass(class llvm::PassRegistry &);

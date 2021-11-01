@@ -244,6 +244,14 @@ const Function *DxilModule::GetEntryFunction() const {
   return m_pEntryFunc;
 }
 
+llvm::SmallVector<llvm::Function *, 64> DxilModule::GetExportedFunctions() const {
+    llvm::SmallVector<llvm::Function *, 64> ret;
+    for (auto const& fn : m_DxilEntryPropsMap) {
+        ret.push_back(const_cast<llvm::Function*>(fn.first));
+    }
+    return ret;
+}
+
 void DxilModule::SetEntryFunction(Function *pEntryFunc) {
   if (m_pSM->IsLib()) {
     DXASSERT(pEntryFunc == nullptr,

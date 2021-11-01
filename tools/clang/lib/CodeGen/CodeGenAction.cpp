@@ -541,14 +541,13 @@ BackendConsumer::DxilDiagHandler(const llvm::DiagnosticInfoDxil &D) {
   SourceManager &SourceMgr = Context->getSourceManager();
   SourceLocation DILoc;
   std::string Message = D.getMsgStr().str();
-  const DILocation *DLoc = D.getLocation();
 
   // Convert Filename/Line/Column triplet into SourceLocation
-  if (DLoc) {
+  if (D.hasLocation()) {
     FileManager &FileMgr = SourceMgr.getFileManager();
-    StringRef Filename = DLoc->getFilename();
-    unsigned Line = DLoc->getLine();
-    unsigned Column = DLoc->getColumn();
+    StringRef Filename = D.getFileName();
+    unsigned Line = D.getLine();
+    unsigned Column = D.getColumn();
     const FileEntry *FE = FileMgr.getFile(Filename);
     if (FE && Line > 0) {
       DILoc = SourceMgr.translateFileLineCol(FE, Line, Column ? Column : 1);

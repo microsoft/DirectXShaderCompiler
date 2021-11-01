@@ -196,7 +196,7 @@ private:
   // vector is not in any particular order, and may contain unused functions.
   llvm::SetVector<SpirvFunction *> allFunctions;
 
-  // Keep all OpenCL.DebugInfo.100 instructions.
+  // Keep all rich DebugInfo instructions.
   llvm::SmallVector<SpirvDebugInstruction *, 32> debugInstructions;
 };
 

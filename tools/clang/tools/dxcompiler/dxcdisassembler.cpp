@@ -330,8 +330,8 @@ PCSTR g_pFeatureInfoNames[] = {
     "PS Inner Coverage",
     "Typed UAV Load Additional Formats",
     "Raster Ordered UAVs",
-    "SV_RenderTargetArrayIndex or SV_ViewportArrayIndex from any shader "
-    "feeding rasterizer",
+    ("SV_RenderTargetArrayIndex or SV_ViewportArrayIndex from any shader "
+    "feeding rasterizer"),
     "Wave level operations",
     "64-Bit integer",
     "View Instancing",

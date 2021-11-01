@@ -1142,15 +1142,24 @@ Constant *llvm::ConstantFoldBinaryInstruction(unsigned Opcode,
       case Instruction::Shl:
         if (C2V.ult(C1V.getBitWidth()))
           return ConstantInt::get(CI1->getContext(), C1V.shl(C2V));
-        return UndefValue::get(C1->getType()); // too big shift is undef
+        // HLSL Change Begins: Shift only uses bottom bitwidth-1 bits
+        return ConstantInt::get(CI1->getContext(), C1V.shl(C2V & APInt(C2V.getBitWidth(), (uint64_t)(C1V.getBitWidth() - 1))));
+        //return UndefValue::get(C1->getType()); // too big shift is undef
+        // HLSL Change Ends
       case Instruction::LShr:
         if (C2V.ult(C1V.getBitWidth()))
           return ConstantInt::get(CI1->getContext(), C1V.lshr(C2V));
-        return UndefValue::get(C1->getType()); // too big shift is undef
+        // HLSL Change Begins: Shift only uses bottom bitwidth-1 bits
+        return ConstantInt::get(CI1->getContext(), C1V.lshr(C2V & APInt(C2V.getBitWidth(), (uint64_t)(C1V.getBitWidth() - 1))));
+        //return UndefValue::get(C1->getType()); // too big shift is undef
+        // HLSL Change Ends
       case Instruction::AShr:
         if (C2V.ult(C1V.getBitWidth()))
           return ConstantInt::get(CI1->getContext(), C1V.ashr(C2V));
-        return UndefValue::get(C1->getType()); // too big shift is undef
+        // HLSL Change Begins: Shift only uses bottom bitwidth-1 bits
+        return ConstantInt::get(CI1->getContext(), C1V.ashr(C2V & APInt(C2V.getBitWidth(), (uint64_t)(C1V.getBitWidth() - 1))));
+        //return UndefValue::get(C1->getType()); // too big shift is undef
+        // HLSL Change Ends
       }
     }
 

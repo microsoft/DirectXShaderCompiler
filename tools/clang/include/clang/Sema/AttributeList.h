@@ -121,8 +121,10 @@ private:
 
   /// True if this has a ParsedType
   unsigned HasParsedType : 1;
+  
+  unsigned padding : 8;
 
-  unsigned AttrKind : 8;
+  unsigned AttrKind;
 
   /// \brief The location of the 'unavailable' keyword in an
   /// availability attribute.

@@ -1112,6 +1112,7 @@ private:
   FunctionShaderCompatMap m_FuncToShaderCompat;
 
   void UpdateFunctionToShaderCompat(const llvm::Function* dxilFunc) {
+#define SFLAG(stage) ((unsigned)1 << (unsigned)DXIL::ShaderKind::stage)
     for (const auto &user : dxilFunc->users()) {
       if (const llvm::CallInst *CI = dyn_cast<const llvm::CallInst>(user)) {
         // Find calling function
@@ -1132,31 +1133,37 @@ private:
         info.mask &= mask;
       } else if (const llvm::LoadInst *LI = dyn_cast<LoadInst>(user)) {
         // If loading a groupshared variable, limit to CS/AS/MS
-#define SFLAG(stage) ((unsigned)1 << (unsigned)DXIL::ShaderKind::stage)
         if (LI->getPointerAddressSpace() == DXIL::kTGSMAddrSpace) {
-          const llvm::Function *F = cast<const llvm::Function>(CI->getParent()->getParent());
+          const llvm::Function *F = cast<const llvm::Function>(LI->getParent()->getParent());
           ShaderCompatInfo &info = m_FuncToShaderCompat[F];
           info.mask &= (SFLAG(Compute) | SFLAG(Mesh) | SFLAG(Amplification));
         }
-#undef SFLAG
-
+      } else if (const llvm::StoreInst *SI = dyn_cast<StoreInst>(user)) {
+        // If storing to a groupshared variable, limit to CS/AS/MS
+        if (SI->getPointerAddressSpace() == DXIL::kTGSMAddrSpace) {
+          const llvm::Function *F = cast<const llvm::Function>(SI->getParent()->getParent());
+          ShaderCompatInfo &info = m_FuncToShaderCompat[F];
+          info.mask &= (SFLAG(Compute) | SFLAG(Mesh) | SFLAG(Amplification));
+        }
       }
 
     }
+#undef SFLAG
   }
 
-  const llvm::Function *FindUsingFunction(const llvm::Value *User) {
+  void
+  FindUsingFunctions(const llvm::Value *User,
+                    llvm::SmallVectorImpl<const llvm::Function *> &functions) {
     if (const llvm::Instruction *I = dyn_cast<const llvm::Instruction>(User)) {
       // Instruction should be inside a basic block, which is in a function
-      return cast<const llvm::Function>(I->getParent()->getParent());
+      functions.push_back(cast<const llvm::Function>(I->getParent()->getParent()));
+      return;
     }
     // User can be either instruction, constant, or operator. But User is an
     // operator only if constant is a scalar value, not resource pointer.
     const llvm::Constant *CU = cast<const llvm::Constant>(User);
-    if (!CU->user_empty())
-      return FindUsingFunction(*CU->user_begin());
-    else
-      return nullptr;
+    for (auto U : CU->users())
+      FindUsingFunctions(U, functions);
   }
 
   void UpdateFunctionToResourceInfo(const DxilResourceBase *resource,
@@ -1164,14 +1171,15 @@ private:
     Constant *var = resource->GetGlobalSymbol();
     if (var) {
       for (auto user : var->users()) {
-        // Find the function.
-        const llvm::Function *F = FindUsingFunction(user);
-        if (!F)
-          continue;
-        if (m_FuncToResNameOffset.find(F) == m_FuncToResNameOffset.end()) {
-          m_FuncToResNameOffset[F] = Indices();
+        // Find the function(s).
+        llvm::SmallVector<const llvm::Function*, 8> functions;
+        FindUsingFunctions(user, functions);
+        for (const llvm::Function *F : functions) {
+          if (m_FuncToResNameOffset.find(F) == m_FuncToResNameOffset.end()) {
+            m_FuncToResNameOffset[F] = Indices();
+          }
+          m_FuncToResNameOffset[F].insert(offset);
         }
-        m_FuncToResNameOffset[F].insert(offset);
       }
     }
   }
@@ -1226,14 +1234,17 @@ private:
 
   void UpdateFunctionDependency(llvm::Function *F) {
     for (const auto &user : F->users()) {
-      const llvm::Function *userFunction = FindUsingFunction(user);
-      uint32_t index = m_pStringBufferPart->Insert(F->getName());
-      if (m_FuncToDependencies.find(userFunction) ==
-          m_FuncToDependencies.end()) {
-        m_FuncToDependencies[userFunction] =
-            Indices();
+      llvm::SmallVector<const llvm::Function*, 8> functions;
+      FindUsingFunctions(user, functions);
+      for (const llvm::Function *userFunction : functions) {
+        uint32_t index = m_pStringBufferPart->Insert(F->getName());
+        if (m_FuncToDependencies.find(userFunction) ==
+            m_FuncToDependencies.end()) {
+          m_FuncToDependencies[userFunction] =
+              Indices();
+        }
+        m_FuncToDependencies[userFunction].insert(index);
       }
-      m_FuncToDependencies[userFunction].insert(index);
     }
   }
 

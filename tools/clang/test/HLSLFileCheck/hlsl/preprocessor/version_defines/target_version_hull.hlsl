@@ -24,6 +24,10 @@ struct HSPerPatchData
 	float	inside		: SV_InsideTessFactor;
 };
 
+cbuffer cb : register(b0) {
+  float foo;
+};
+
 HSPerPatchData HSPerPatchFunc( const InputPatch< PSSceneIn, 3 > points,  OutputPatch<HSPerVertexData, 3> outp )
 {
     HSPerPatchData d;
@@ -47,7 +51,7 @@ HSPerVertexData main( const uint id : SV_OutputControlPointID,
     HSPerVertexData v;
     v.v = points[ id ];
 
-    float x = 0;
+    float x = foo;
 
 #if defined(__SHADER_TARGET_STAGE) && __SHADER_TARGET_STAGE == __SHADER_STAGE_HULL
     x += 1;

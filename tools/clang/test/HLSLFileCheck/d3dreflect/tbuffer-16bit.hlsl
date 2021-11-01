@@ -1,4 +1,5 @@
 // RUN: %dxc -enable-16bit-types -E main -T ps_6_2 -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
+// RUN: %dxc -enable-16bit-types -E main -T ps_6_6 -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
 
 // -Vd -validator-version 0.0 is used to keep the reflection information
 // in the actual module containing the cbuffer/tbuffer usage info.
@@ -36,13 +37,13 @@ float main(int i : A) : SV_TARGET
 
 // CHECK: ID3D12ShaderReflection:
 // CHECK-NEXT:   D3D12_SHADER_DESC:
-// CHECK-NEXT:     Shader Version: Pixel 6.2
+// CHECK-NEXT:     Shader Version: Pixel
 // CHECK:     Flags: 0
 // CHECK-NEXT:     ConstantBuffers: 1
 // CHECK-NEXT:     BoundResources: 1
 // CHECK-NEXT:     InputParameters: 1
 // CHECK-NEXT:     OutputParameters: 1
-// CHECK-NEXT:     InstructionCount: 49
+// CHECK-NEXT:     InstructionCount: {{49|50}}
 // CHECK-NEXT:     TempArrayCount: 0
 // CHECK-NEXT:     DynamicFlowControlCount: 0
 // CHECK-NEXT:     ArrayInstructionCount: 0

@@ -132,6 +132,11 @@ if "%1"=="-vs2017" (
 if "%1"=="-vs2019" (
   shift /1 & goto :parse_args
 )
+if "%1"=="-vs2022" (
+  set BUILD_GENERATOR=Visual Studio 17 2022
+  set BUILD_VS_VER=2022
+  shift /1 & goto :parse_args
+)
 if "%1"=="-tblgen" (
   if "%~2" == "" (
     echo Missing path argument after -tblgen.
@@ -186,6 +191,11 @@ if "%1"=="-show-cmake-log" (
   set SHOW_CMAKE_LOG=1
   shift /1 & goto :parse_args
 )  
+if "%1"=="-enable-lit" (
+  echo Enable LIT testing
+  set ENABLE_LIT=On
+  shift /1 & goto :parse_args
+)
 rem Begin SPIRV change
 if "%1"=="-spirv" (
   echo SPIR-V codegen is enabled.
@@ -232,14 +242,14 @@ if "%ENV_SDK_VERSION:~-1%"=="\" (
 set BUILD_ARM_CROSSCOMPILING=0
 
 if /i "%BUILD_ARCH%"=="Win32" (
-  if "%BUILD_VS_VER%"=="2019" (
+  if "%BUILD_VS_VER%" NEQ "2017" (
     set VS2019ARCH=-AWin32
   )
 )
 
 if /i "%BUILD_ARCH%"=="x64" (
   set BUILD_GENERATOR=%BUILD_GENERATOR% %BUILD_ARCH:x64=Win64%
-  if "%BUILD_VS_VER%"=="2019" (
+  if "%BUILD_VS_VER%" NEQ "2017" (
     set BUILD_GENERATOR=%BUILD_GENERATOR%
     set VS2019ARCH=-Ax64
   )
@@ -248,7 +258,7 @@ if /i "%BUILD_ARCH%"=="x64" (
 if /i "%BUILD_ARCH%"=="arm" (
   set BUILD_GENERATOR_PLATFORM=ARM
   set BUILD_ARM_CROSSCOMPILING=1
-  if "%BUILD_VS_VER%"=="2019" (
+  if "%BUILD_VS_VER%" NEQ "2017" (
     set VS2019ARCH=-AARM
   )
 )
@@ -256,13 +266,13 @@ if /i "%BUILD_ARCH%"=="arm" (
 if /i "%BUILD_ARCH%"=="arm64" (
   set BUILD_GENERATOR_PLATFORM=ARM64
   set BUILD_ARM_CROSSCOMPILING=1
-  if "%BUILD_VS_VER%"=="2019" (
+  if "%BUILD_VS_VER%" NEQ "2017" (
     set VS2019ARCH=-AARM64
   )
 )
 
 if /i "%BUILD_ARCH%"=="arm64ec" (
-  if "%BUILD_VS_VER%" NEQ "2019" (
+  if "%BUILD_VS_VER%"=="2017" (
     echo "ARM64EC platform is not supported on VS2017."    
     exit /b 1
   )
@@ -283,6 +293,10 @@ if "%DXC_CMAKE_SYSTEM_VERSION%"=="" (
   set DXC_CMAKE_SYSTEM_VERSION=10.0.17763.0
 )
 
+if "%ENABLE_LIT%"=="" (
+  set ENABLE_LIT=Off
+)
+
 set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_OPTIONAL_PROJS_IN_DEFAULT:BOOL=%ALL_DEFS%
 set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_ENABLE_ANALYZE:BOOL=%ANALYZE%
 set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_OFFICIAL_BUILD:BOOL=%OFFICIAL%
@@ -294,7 +308,7 @@ set CMAKE_OPTS=%CMAKE_OPTS% -DENABLE_SPIRV_CODEGEN:BOOL=%SPIRV%
 set CMAKE_OPTS=%CMAKE_OPTS% -DSPIRV_BUILD_TESTS:BOOL=%SPV_TEST%
 set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_ENABLE_ARCMT:BOOL=OFF
 set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_ENABLE_STATIC_ANALYZER:BOOL=OFF
-set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_INCLUDE_TESTS:BOOL=OFF -DLLVM_INCLUDE_TESTS:BOOL=OFF
+set CMAKE_OPTS=%CMAKE_OPTS% -DCLANG_INCLUDE_TESTS:BOOL=%ENABLE_LIT% -DLLVM_INCLUDE_TESTS:BOOL=%ENABLE_LIT%
 set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_INCLUDE_TESTS:BOOL=ON
 set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_TARGETS_TO_BUILD:STRING=None
 set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_INCLUDE_DOCS:BOOL=OFF -DLLVM_INCLUDE_EXAMPLES:BOOL=OFF
@@ -382,6 +396,7 @@ echo   -no-parallel   disables parallel build
 echo   -no-dxilconv   disables build of DXBC to DXIL converter and tools
 echo   -vs2017        uses Visual Studio 2017 to build
 echo   -vs2019        uses Visual Studio 2019 to build
+echo   -vs2022        uses Visual Studio 2022 to build
 echo.
 echo current BUILD_ARCH=%BUILD_ARCH%.  Override with:
 echo   -x86 targets an x86 build (aka. Win32)

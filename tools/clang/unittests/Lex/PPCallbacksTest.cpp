@@ -190,7 +190,7 @@ protected:
   PragmaOpenCLExtensionCallbacks::CallbackParameters 
   PragmaOpenCLExtensionCall(const char* SourceText) {
     LangOptions OpenCLLangOpts;
-    OpenCLLangOpts.OpenCL = 1;
+    // OpenCLLangOpts.OpenCL = 1; HLSL Change - This is hard set
 
     std::unique_ptr<llvm::MemoryBuffer> SourceBuf =
         llvm::MemoryBuffer::getMemBuffer(SourceText, "test.cl");
@@ -322,7 +322,7 @@ TEST_F(PPCallbacksTest, TrigraphInMacro) {
   ASSERT_EQ("\"tri\?\?-graph.h\"", GetSourceString(Range));
 }
 
-TEST_F(PPCallbacksTest, OpenCLExtensionPragmaEnabled) {
+TEST_F(PPCallbacksTest, DISABLED_OpenCLExtensionPragmaEnabled) { // HLSL Change
   const char* Source =
     "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n";
 
@@ -334,7 +334,7 @@ TEST_F(PPCallbacksTest, OpenCLExtensionPragmaEnabled) {
   ASSERT_EQ(ExpectedState, Parameters.State);
 }
 
-TEST_F(PPCallbacksTest, OpenCLExtensionPragmaDisabled) {
+TEST_F(PPCallbacksTest, DISABLED_OpenCLExtensionPragmaDisabled) { // HLSL Change
   const char* Source =
     "#pragma OPENCL EXTENSION cl_khr_fp16 : disable\n";
 

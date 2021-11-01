@@ -8,6 +8,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/DXIL/DxilResource.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/Support/Global.h"
 #include "dxc/DXIL/DxilResourceBase.h"
 #include "llvm/IR/Constant.h"
@@ -134,8 +135,31 @@ bool DxilResource::IsAnyTexture() const {
 }
 
 bool DxilResource::IsAnyTexture(Kind ResourceKind) {
-  return Kind::Texture1D <= ResourceKind &&
-         ResourceKind <= Kind::TextureCubeArray;
+  return DXIL::IsAnyTexture(ResourceKind);
+}
+
+bool DxilResource::IsAnyArrayTexture() const {
+  return IsAnyArrayTexture(GetKind());
+}
+
+bool DxilResource::IsAnyArrayTexture(Kind ResourceKind) {
+  return DXIL::IsAnyArrayTexture(ResourceKind);
+}
+
+bool DxilResource::IsAnyTextureCube() const {
+  return IsAnyTextureCube(GetKind());
+}
+
+bool DxilResource::IsAnyTextureCube(Kind ResourceKind) {
+  return DXIL::IsAnyTextureCube(ResourceKind);
+}
+
+bool DxilResource::IsArrayKind() const {
+  return IsArrayKind(GetKind());
+}
+
+bool DxilResource::IsArrayKind(Kind ResourceKind) {
+  return DXIL::IsArrayKind(ResourceKind);
 }
 
 bool DxilResource::IsStructuredBuffer() const {
@@ -155,7 +179,11 @@ bool DxilResource::IsTBuffer() const {
 }
 
 bool DxilResource::IsFeedbackTexture() const {
-  return GetKind() == Kind::FeedbackTexture2D || GetKind() == Kind::FeedbackTexture2DArray;
+  return IsFeedbackTexture(GetKind());
+}
+
+bool DxilResource::IsFeedbackTexture(Kind ResourceKind) {
+  return DXIL::IsFeedbackTexture(ResourceKind);
 }
 
 bool DxilResource::HasAtomic64Use() const {

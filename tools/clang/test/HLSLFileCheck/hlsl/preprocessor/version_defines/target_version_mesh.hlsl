@@ -3,6 +3,10 @@
 // CHECK: fadd
 // CHECK: fadd
 
+cbuffer cb : register(b0) {
+  float foo;
+};
+
 struct Vertex { float4 pos : SV_Position; };
 
 [outputtopology("point")]
@@ -13,7 +17,7 @@ void main(
 {
     verts = (Vertex[1])0;
 
-    float x = 0;
+    float x = foo;
 #if defined(__SHADER_TARGET_STAGE) && __SHADER_TARGET_STAGE == __SHADER_STAGE_MESH
     x += 1;
 #else

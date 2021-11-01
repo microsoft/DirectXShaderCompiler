@@ -448,6 +448,17 @@ bool CapabilityVisitor::visitInstruction(SpirvInstruction *instr) {
     addCapability(getNonUniformCapability(resultType));
   }
 
+  if (instr->getKind() == SpirvInstruction::IK_SpirvIntrinsicInstruction) {
+    SpirvIntrinsicInstruction *pSpvInst =
+        dyn_cast<SpirvIntrinsicInstruction>(instr);
+    for (auto &cap : pSpvInst->getCapabilities()) {
+      addCapability(static_cast<spv::Capability>(cap));
+    }
+    for (const auto &ext : pSpvInst->getExtensions()) {
+      spvBuilder.requireExtension(ext, loc);
+    }
+  }
+
   // Add opcode-specific capabilities
   switch (opcode) {
   case spv::Op::OpDPdxCoarse:
@@ -584,9 +595,14 @@ bool CapabilityVisitor::visit(SpirvExecutionMode *execMode) {
 }
 
 bool CapabilityVisitor::visit(SpirvExtInstImport *instr) {
-  if (instr->getExtendedInstSetName() == "NonSemantic.DebugPrintf")
+  if (instr->getExtendedInstSetName() == "NonSemantic.DebugPrintf") {
     addExtension(Extension::KHR_non_semantic_info, "DebugPrintf",
                  /*SourceLocation*/ {});
+  } else if (instr->getExtendedInstSetName() ==
+             "NonSemantic.Shader.DebugInfo.100") {
+    addExtension(Extension::KHR_non_semantic_info, "Shader.DebugInfo.100",
+                 /*SourceLocation*/ {});
+  }
   return true;
 }
 

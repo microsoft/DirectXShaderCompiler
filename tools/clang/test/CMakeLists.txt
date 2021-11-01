@@ -62,6 +62,12 @@ if( NOT CLANG_BUILT_STANDALONE )
     )
 endif()
 
+# HLSL Change Begin
+# Explicitly overriding check-clang dependencies for HLSL
+set(CLANG_TEST_DEPS clang opt FileCheck count not)
+# HLSL Change End
+
+
 add_lit_testsuite(check-clang "Running the Clang regression tests"
   ${CMAKE_CURRENT_BINARY_DIR}
   #LIT ${LLVM_LIT}
@@ -75,3 +81,14 @@ set_target_properties(check-clang PROPERTIES FOLDER "Clang tests")
 add_custom_target(clang-test)
 add_dependencies(clang-test check-clang)
 set_target_properties(clang-test PROPERTIES FOLDER "Clang tests")
+
+
+# HLSL Change Begin - Add a separate target for clang unit tests
+add_lit_target("check-clang-unit" "Running lit suite clang-unit"
+          ${CMAKE_CURRENT_SOURCE_DIR}/Unit
+          PARAMS ${CLANG_TEST_PARAMS}
+                 clang_unit_site_config=${CMAKE_CURRENT_BINARY_DIR}/Unit/lit.site.cfg
+          DEPENDS ClangUnitTests
+          ARGS ${CLANG_TEST_EXTRA_ARGS}
+        )
+# HLSL Change End - Add a separate target for clang unit tests

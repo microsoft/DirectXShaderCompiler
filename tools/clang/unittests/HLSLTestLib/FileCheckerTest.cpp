@@ -141,7 +141,7 @@ FileRunCommandResult FileRunCommandPart::RunFileChecker(const FileRunCommandResu
   auto args = strtok(Arguments);
   for (const std::string& arg : args) {
     if (arg == "%s") hasInputFilename = true;
-    else if (arg == "-input=stderr") {
+    else if (arg == "-input-file=stderr") {
       t.InputForStdin = Prior->StdErr;
       t.AllowEmptyInput = true;
     } else if (strstartswith(arg, checkPrefixStr))

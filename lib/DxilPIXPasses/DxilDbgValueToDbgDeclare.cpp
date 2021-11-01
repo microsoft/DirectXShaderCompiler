@@ -240,7 +240,7 @@ class VariableRegisters
 {
 public:
   VariableRegisters(
-      llvm::DebugLoc const &,
+      llvm::DbgValueInst* DbgValue,
       llvm::DIVariable *Variable,
       llvm::DIType* Ty,
       llvm::Module *M
@@ -684,7 +684,7 @@ void DxilDbgValueToDbgDeclare::handleDbgValue(
   if (Register == nullptr)
   {
     Register.reset(
-        new VariableRegisters(DbgValue->getDebugLoc(), Variable, Ty, &M));
+        new VariableRegisters(DbgValue, Variable, Ty, &M));
   }
 
   // Convert the offset from DbgValue's expression to a packed
@@ -808,13 +808,13 @@ static llvm::DIType *DITypePeelTypeAlias(
 #endif // NDEBUG
 
 VariableRegisters::VariableRegisters(
-    llvm::DebugLoc const & dbgLoc,
+    llvm::DbgValueInst *DbgValue,
     llvm::DIVariable *Variable,
     llvm::DIType* Ty,
     llvm::Module *M)
-  : m_dbgLoc(dbgLoc)
-  ,m_Variable(Variable)
-  , m_B(PIXPassHelpers::GetEntryFunction(M->GetOrCreateDxilModule())->getEntryBlock().begin())
+  : m_dbgLoc(DbgValue->getDebugLoc())
+  , m_Variable(Variable)
+  , m_B(DbgValue)
   , m_DbgDeclareFn(llvm::Intrinsic::getDeclaration(
       M, llvm::Intrinsic::dbg_declare))
 {

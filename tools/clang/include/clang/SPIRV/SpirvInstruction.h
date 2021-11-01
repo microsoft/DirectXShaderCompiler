@@ -127,13 +127,16 @@ public:
     IK_Store,                     // OpStore
     IK_UnaryOp,                   // Unary operations
     IK_VectorShuffle,             // OpVectorShuffle
+    IK_SpirvIntrinsicInstruction, // Spirv Intrinsic Instructions
 
-    // For DebugInfo instructions defined in OpenCL.DebugInfo.100
+    // For DebugInfo instructions defined in
+    // OpenCL.DebugInfo.100 and NonSemantic.Shader.DebugInfo.100
     IK_DebugInfoNone,
     IK_DebugCompilationUnit,
     IK_DebugSource,
     IK_DebugFunctionDecl,
     IK_DebugFunction,
+    IK_DebugFunctionDef,
     IK_DebugLocalVariable,
     IK_DebugGlobalVariable,
     IK_DebugOperation,
@@ -458,9 +461,12 @@ private:
 /// \brief OpDecorate(Id) and OpMemberDecorate instructions
 class SpirvDecoration : public SpirvInstruction {
 public:
+  // OpDecorate/OpMemberDecorate
   SpirvDecoration(SourceLocation loc, SpirvInstruction *target,
                   spv::Decoration decor, llvm::ArrayRef<uint32_t> params = {},
                   llvm::Optional<uint32_t> index = llvm::None);
+
+  // OpDecorateString/OpMemberDecorateString
   SpirvDecoration(SourceLocation loc, SpirvInstruction *target,
                   spv::Decoration decor, llvm::StringRef stringParam,
                   llvm::Optional<uint32_t> index = llvm::None);
@@ -496,6 +502,7 @@ public:
 private:
   spv::Op getDecorateOpcode(spv::Decoration,
                             const llvm::Optional<uint32_t> &memberIndex);
+  spv::Op getDecorateStringOpcode(bool isMemberDecoration);
 
 private:
   SpirvInstruction *target;
@@ -1125,7 +1132,7 @@ private:
 class SpirvConstantInteger : public SpirvConstant {
 public:
   SpirvConstantInteger(QualType type, llvm::APInt value,
-                       bool isSpecConst = false);
+                       bool isSpecConst = false, bool literal = false);
 
   DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvConstantInteger)
 
@@ -1139,9 +1146,12 @@ public:
   bool invokeVisitor(Visitor *v) override;
 
   llvm::APInt getValue() const { return value; }
+  void setLiteral(bool l = true) { isLiteral = l; }
+  bool getLiteral() { return isLiteral; }
 
 private:
   llvm::APInt value;
+  bool isLiteral;
 };
 
 class SpirvConstantFloat : public SpirvConstant {
@@ -1999,7 +2009,45 @@ public:
   bool invokeVisitor(Visitor *v) override;
 };
 
-/// \breif Base class for all OpenCL.DebugInfo.100 extension instructions.
+// A class keeping information of [[vk::ext_instruction(uint opcode,
+// string extended_instruction_set)]] attribute. The attribute allows users to
+// emit an arbitrary SPIR-V instruction by adding it to a function declaration.
+// Note that this class does not represent an actual specific SPIR-V
+// instruction. It is used to keep the information of the arbitrary SPIR-V
+// instruction.
+class SpirvIntrinsicInstruction : public SpirvInstruction {
+public:
+  SpirvIntrinsicInstruction(QualType resultType, uint32_t opcode,
+                            llvm::ArrayRef<SpirvInstruction *> operands,
+                            llvm::ArrayRef<llvm::StringRef> extensions,
+                            SpirvExtInstImport *set,
+                            llvm::ArrayRef<uint32_t> capabilities,
+                            SourceLocation loc);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvIntrinsicInstruction)
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_SpirvIntrinsicInstruction;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  llvm::ArrayRef<SpirvInstruction *> getOperands() const { return operands; }
+  llvm::ArrayRef<uint32_t> getCapabilities() const { return capabilities; }
+  llvm::ArrayRef<std::string> getExtensions() const { return extensions; }
+  SpirvExtInstImport *getInstructionSet() const { return instructionSet; }
+  uint32_t getInstruction() const { return instruction; }
+
+private:
+  uint32_t instruction;
+  llvm::SmallVector<SpirvInstruction *, 4> operands;
+  llvm::SmallVector<uint32_t, 4> capabilities;
+  llvm::SmallVector<std::string, 4> extensions;
+  SpirvExtInstImport *instructionSet;
+};
+
+/// \brief Base class for all rich DebugInfo extension instructions.
 /// Note that all of these instructions should be added to the SPIR-V module as
 /// an OpExtInst instructions. So, all of these instructions must:
 /// 1) contain the result-id of the extended instruction set
@@ -2201,6 +2249,26 @@ private:
   clang::spirv::FunctionType *fnType;
 };
 
+class SpirvDebugFunctionDefinition : public SpirvDebugInstruction {
+public:
+  SpirvDebugFunctionDefinition(SpirvDebugFunction *function, SpirvFunction *fn);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvDebugFunctionDefinition)
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugFunctionDef;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  SpirvDebugFunction *getDebugFunction() const { return function; }
+  SpirvFunction *getFunction() const { return fn; }
+
+private:
+  SpirvDebugFunction *function;
+  SpirvFunction *fn;
+};
+
 class SpirvDebugLocalVariable : public SpirvDebugInstruction {
 public:
   SpirvDebugLocalVariable(QualType debugQualType, llvm::StringRef varName,
@@ -2382,8 +2450,8 @@ private:
   SpirvDebugInstruction *scope;
 };
 
-/// The following classes represent debug types defined in the
-/// OpenCL.DebugInfo.100 spec.
+/// The following classes represent debug types defined in the rich DebugInfo
+/// spec.
 ///
 /// Note: While debug type and SPIR-V type are very similar, they are not quite
 /// identical. For example: the debug type contains the HLL string name of the

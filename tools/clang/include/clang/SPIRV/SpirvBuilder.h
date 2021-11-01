@@ -104,7 +104,7 @@ public:
   /// for the basic block. On failure, returns zero.
   SpirvBasicBlock *createBasicBlock(llvm::StringRef name = "");
 
-  /// \brief Creates a SPIR-V DebugScope (OpenCL.DebugInfo.100 instruction).
+  /// \brief Creates a SPIR-V rich DebugInfo DebugScope instruction.
   /// On success, returns the <id> of DebugScope. On failure, returns nullptr.
   SpirvDebugScope *createDebugScope(SpirvDebugInstruction *scope);
 
@@ -495,6 +495,9 @@ public:
                       llvm::StringRef linkageName, uint32_t flags,
                       uint32_t scopeLine, SpirvFunction *fn);
 
+  SpirvDebugFunctionDefinition *
+  createDebugFunctionDef(SpirvDebugFunction *function, SpirvFunction *fn);
+
   /// \brief Create SPIR-V instructions for KHR RayQuery ops
   SpirvInstruction *
   createRayQueryOpsKHR(spv::Op opcode, QualType resultType,
@@ -506,6 +509,13 @@ public:
   /// \brief Create Raytracing terminate Ops
   /// OpIgnoreIntersectionKHR/OpTerminateIntersectionKHR
   void createRaytracingTerminateKHR(spv::Op opcode, SourceLocation loc);
+
+  /// \brief Create spirv intrinsic instructions
+  SpirvInstruction *createSpirvIntrInstExt(
+      uint32_t opcode, QualType retType,
+      llvm::ArrayRef<SpirvInstruction *> operands,
+      llvm::ArrayRef<llvm::StringRef> extensions, llvm::StringRef instSet,
+      llvm::ArrayRef<uint32_t> capablities, SourceLocation loc);
 
   /// \brief Returns a clone SPIR-V variable for CTBuffer with FXC memory layout
   /// and creates copy instructions from the CTBuffer to the clone variable in
@@ -547,9 +557,10 @@ public:
   void addModuleProcessed(llvm::StringRef process);
 
   /// \brief If not added already, adds an OpExtInstImport (import of extended
-  /// instruction set) of the OpenCL.DebugInfo.100 instruction set. Returns the
-  /// imported instruction set.
-  SpirvExtInstImport *getOpenCLDebugInfoExtInstSet();
+  /// instruction set) of the rich DebugInfo instruction set, either OpenCL or
+  /// Vulkan.
+  /// Returns the imported instruction set.
+  SpirvExtInstImport *getDebugInfoExtInstSet(bool vulkanDebugInfo);
 
   /// \brief Adds a stage input/ouput variable whose value is of the given type.
   ///
@@ -648,6 +659,16 @@ public:
   void decorateLinkage(SpirvInstruction *targetInst, SpirvFunction *targetFunc,
                        llvm::StringRef name, spv::LinkageType linkageType,
                        SourceLocation);
+
+  /// \brief Decorates the given target with information from VKDecorateExt
+  void decorateLiterals(SpirvInstruction *targetInst, unsigned decorate,
+                        unsigned *literal, unsigned literalSize,
+                        SourceLocation);
+
+  /// \brief Decorates the given target with the given string.
+  void decorateString(SpirvInstruction *target, unsigned decorate,
+                      llvm::StringRef strLiteral,
+                      llvm::Optional<uint32_t> memberIdx = llvm::None);                    
 
   /// --- Constants ---
   /// Each of these methods can acquire a unique constant from the SpirvContext,

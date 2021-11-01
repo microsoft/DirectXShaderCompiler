@@ -229,16 +229,17 @@ static Value *GetOrCreatePreserveCond(Function *F) {
   return B.CreateTrunc(Load, B.getInt1Ty());
 }
 
-bool hlsl::IsPreserve(llvm::Instruction *I) {
-  SelectInst *S = dyn_cast<SelectInst>(I);
-  if (!S)
+bool hlsl::IsNop(llvm::Instruction *I) {
+  CallInst *CI = dyn_cast<CallInst>(I);
+  if (!CI)
     return false;
 
-  TruncInst *Trunc = dyn_cast<TruncInst>(S->getCondition());
-  if (!Trunc)
-    return false;
+  Function *F = CI->getCalledFunction();
+  return F && F->getName() == hlsl::kNoopName;
+}
 
-  LoadInst *Load = dyn_cast<LoadInst>(Trunc->getOperand(0));
+static bool IsPreserveLoad(llvm::Instruction *I) {
+  LoadInst *Load = dyn_cast<LoadInst>(I);
   if (!Load)
     return false;
 
@@ -248,9 +249,34 @@ bool hlsl::IsPreserve(llvm::Instruction *I) {
 
   GlobalVariable *GV = dyn_cast<GlobalVariable>(GEP->getPointerOperand());
 
-  return GV && GV->getLinkage() == GlobalVariable::LinkageTypes::InternalLinkage && GV->getName() == kPreserveName;
+  return GV && GV->getLinkage() == GlobalVariable::LinkageTypes::InternalLinkage && GV->getName() == hlsl::kPreserveName;
 }
 
+static bool IsPreserveTrunc(llvm::Instruction *I) {
+  TruncInst *Trunc = dyn_cast<TruncInst>(I);
+  if (!Trunc)
+    return false;
+
+  Instruction *Load = dyn_cast<Instruction>(Trunc->getOperand(0));
+  if (!Load)
+    return false;
+  return IsPreserveLoad(Load);
+}
+
+bool hlsl::IsPreserve(llvm::Instruction *I) {
+  SelectInst *S = dyn_cast<SelectInst>(I);
+  if (!S)
+    return false;
+
+  Instruction *Trunc = dyn_cast<Instruction>(S->getCondition());
+  if (!Trunc)
+    return false;
+  return IsPreserveTrunc(Trunc);
+}
+
+bool hlsl::IsPreserveRelatedValue(llvm::Instruction *I) {
+  return IsPreserveLoad(I) || IsPreserveTrunc(I) || hlsl::IsPreserve(I);
+}
 
 static Function *GetOrCreatePreserveF(Module *M, Type *Ty) {
   std::string str = hlsl::kPreservePrefix;

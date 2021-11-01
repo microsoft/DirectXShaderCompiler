@@ -23,6 +23,7 @@
 #include "dxc/DXIL/DxilTypeSystem.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/HlslTypes.h"
+#include "clang/AST/RecordLayout.h"
 #include "clang/Frontend/CodeGenOptions.h"
 #include "clang/Lex/HLSLMacroExpander.h"
 #include "clang/Sema/SemaDiagnostic.h"
@@ -110,6 +111,7 @@ private:
   bool SetUAVSRV(SourceLocation loc, hlsl::DxilResourceBase::Class resClass,
                  DxilResource *hlslRes, QualType QualTy);
   uint32_t AddCBuffer(HLSLBufferDecl *D);
+  void AddCBufferDecls(DeclContext *DC, HLCBuffer *CB);
   uint32_t AddConstantBufferView(VarDecl *D);
   hlsl::DxilResourceBase::Class TypeToClass(clang::QualType Ty);
 
@@ -991,12 +993,69 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
 
   unsigned CBufferSize = CBufferOffset;
 
-  for (auto fieldDecl : RD->fields()) {
+  for (RecordDecl::field_iterator Field = RD->field_begin(),
+                                  FieldEnd = RD->field_end();
+       Field != FieldEnd;) {
+    if (Field->isBitField()) {
+      // TODO(?): Consider refactoring, as this branch duplicates much
+      // of the logic of CGRecordLowering::accumulateBitFields().
+      DXASSERT(CGM.getLangOpts().HLSLVersion > 2015, "We should have already ensured we have no bitfields.");
+      CodeGenTypes &Types = CGM.getTypes();
+      ASTContext &Context = Types.getContext();
+      const ASTRecordLayout &Layout = Context.getASTRecordLayout(RD);
+      const llvm::DataLayout &DataLayout = Types.getDataLayout();
+      RecordDecl::field_iterator End = Field;
+      for (++End; End != FieldEnd && End->isBitField(); ++End);
+
+      RecordDecl::field_iterator Run = End;
+      uint64_t StartBitOffset, Tail = 0;
+      for (; Field != End; ++Field) {
+        uint64_t BitOffset = Layout.getFieldOffset(Field->getFieldIndex());
+        // Zero-width bitfields end runs.
+        if (Field->getBitWidthValue(Context) == 0) {
+          Run = End;
+          continue;
+        }
+        llvm::Type *Type = Types.ConvertTypeForMem(Field->getType());
+        // If we don't have a run yet, or don't live within the previous run's
+        // allocated storage then we allocate some storage and start a new run.
+        if (Run == End || BitOffset >= Tail) {
+          Run = Field;
+          StartBitOffset = BitOffset;
+          Tail = StartBitOffset + DataLayout.getTypeAllocSizeInBits(Type);
+
+          QualType fieldTy = Field->getType();
+
+          // Align offset.
+          CBufferOffset = AlignBaseOffset(fieldTy, CBufferOffset, bDefaultRowMajor, CGM, dataLayout);
+
+          DxilFieldAnnotation &fieldAnnotation =
+              annotation->GetFieldAnnotation(fieldIdx++);
+          ConstructFieldAttributedAnnotation(fieldAnnotation, fieldTy,
+                                             bDefaultRowMajor);
+          fieldAnnotation.SetCBufferOffset(CBufferOffset);
+
+          unsigned arrayEltSize = 0;
+          // Process field to make sure the size of field is ready.
+          unsigned size = AddTypeAnnotation(fieldTy, dxilTypeSys,
+                                            arrayEltSize);
+          // Update offset.
+          CBufferOffset += size;
+        }
+      }
+
+      CBufferSize = CBufferOffset;
+      continue;  // Field has already been advanced past bitfields
+    }
+
+    FieldDecl *fieldDecl = *Field;
     std::string fieldSemName = "";
 
     QualType fieldTy = fieldDecl->getType();
-    DXASSERT(!fieldDecl->isBitField(), "We should have already ensured we have no bitfields.");
-    
+
+    // Align offset.
+    CBufferOffset = AlignBaseOffset(fieldTy, CBufferOffset, bDefaultRowMajor, CGM, dataLayout);
+
     DxilFieldAnnotation &fieldAnnotation = annotation->GetFieldAnnotation(fieldIdx++);
     ConstructFieldAttributedAnnotation(fieldAnnotation, fieldTy, bDefaultRowMajor);
 
@@ -1081,6 +1140,8 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
     // Update offset.
     CBufferSize = std::max(CBufferSize, CBufferOffset + size);
     CBufferOffset = CBufferSize;
+
+    ++Field;
   }
 
   annotation->SetCBufferSize(CBufferSize);
@@ -3418,7 +3479,7 @@ void CGMSHLSLRuntime::AddConstant(VarDecl *constDecl, HLCBuffer &CB) {
   }
   
   unsigned LowerBound = userOffset ? offset : UINT_MAX;
-  AddConstantToCB(cast<llvm::GlobalVariable>(constVal), constDecl->getName(),
+  AddConstantToCB(cast<llvm::GlobalVariable>(constVal), constDecl->getQualifiedNameAsString(),
                   constDecl->getType(), LowerBound, CB);
 
   // Save fieldAnnotation for the const var.
@@ -3456,28 +3517,40 @@ unique_ptr<HLCBuffer> CreateHLCBuf(NamedDecl *D, bool bIsView, bool bIsTBuf) {
 
 } // namespace
 
+void CGMSHLSLRuntime::AddCBufferDecls(DeclContext *DC, HLCBuffer *CB) {
+  for (Decl *it : DC->decls()) {
+    if (VarDecl *constDecl = dyn_cast<VarDecl>(it)) {
+      AddConstant(constDecl, *CB);
+    } else if (isa<EmptyDecl>(*it)) {
+      // Nothing to do for this declaration.
+    } else if (isa<CXXRecordDecl>(it)) {
+      // Nothing to do for this declaration.
+    } else if (isa<FunctionDecl>(it)) {
+      // A function within an cbuffer is effectively a top-level function,
+      // as it only refers to globally scoped declarations.
+      CGM.EmitTopLevelDecl(it);
+    } else if (NamespaceDecl *ND = dyn_cast<NamespaceDecl>(it)) {
+      AddCBufferDecls(ND, CB);
+    } else {
+      HLSLBufferDecl *inner = dyn_cast<HLSLBufferDecl>(it);
+      if (!inner) {
+        DiagnosticsEngine &Diags = CGM.getDiags();
+        unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
+                                                "invalid decl inside cbuffer");
+        Diags.Report(it->getLocation(), DiagID);
+        return;
+      }
+      GetOrCreateCBuffer(inner);
+    }
+  }
+}
+
 uint32_t CGMSHLSLRuntime::AddCBuffer(HLSLBufferDecl *D) {
   unique_ptr<HLCBuffer> CB = CreateHLCBuf(D, false, !D->isCBuffer());
 
   // Add constant
-  auto declsEnds = D->decls_end();
   CB->SetRangeSize(1);
-  for (auto it = D->decls_begin(); it != declsEnds; it++) {
-    if (VarDecl *constDecl = dyn_cast<VarDecl>(*it)) {
-      AddConstant(constDecl, *CB.get());
-    } else if (isa<EmptyDecl>(*it)) {
-      // Nothing to do for this declaration.
-    } else if (isa<CXXRecordDecl>(*it)) {
-      // Nothing to do for this declaration.
-    } else if (isa<FunctionDecl>(*it)) {
-      // A function within an cbuffer is effectively a top-level function,
-      // as it only refers to globally scoped declarations.
-      this->CGM.EmitTopLevelDecl(*it);
-    } else {
-      HLSLBufferDecl *inner = cast<HLSLBufferDecl>(*it);
-      GetOrCreateCBuffer(inner);
-    }
-  }
+  AddCBufferDecls(D, CB.get());
 
   CB->SetID(m_pHLModule->GetCBuffers().size());
   return m_pHLModule->AddCBuffer(std::move(CB));

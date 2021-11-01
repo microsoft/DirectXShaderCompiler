@@ -48,6 +48,13 @@ void SortDebugInfoVisitor::whileEachOperandOfDebugInstruction(
     if (!visitor(inst->getDebugInfoNone()))
       break;
   } break;
+  case SpirvInstruction::IK_DebugFunctionDef: {
+    SpirvDebugFunctionDefinition *inst =
+        dyn_cast<SpirvDebugFunctionDefinition>(di);
+    assert(inst != nullptr);
+    if (!visitor(inst->getDebugFunction()))
+      break;
+  } break;
   case SpirvInstruction::IK_DebugLocalVariable: {
     SpirvDebugLocalVariable *inst = dyn_cast<SpirvDebugLocalVariable>(di);
     assert(inst != nullptr);
@@ -97,10 +104,6 @@ void SortDebugInfoVisitor::whileEachOperandOfDebugInstruction(
   case SpirvInstruction::IK_DebugTypeComposite: {
     SpirvDebugTypeComposite *inst = dyn_cast<SpirvDebugTypeComposite>(di);
     assert(inst != nullptr);
-    // Note that DebugTypeComposite always has forward references to
-    // members. Therefore, the edge direction in DAG must be from
-    // DebugTypeMember to DebugTypeComposite. DO NOT visit members here.
-
     // In terms of DebugTypeTemplate used for a HLSL resource, it has
     // to reference DebugTypeComposite but DebugTypeComposite does not
     // reference DebugTypeTemplate. DO NOT visit DebugTypeTemplate here.
@@ -109,6 +112,20 @@ void SortDebugInfoVisitor::whileEachOperandOfDebugInstruction(
       break;
     if (!visitor(inst->getDebugInfoNone()))
       break;
+
+    // Note that in OpenCL.DebugInfo.100 DebugTypeComposite always has forward
+    // references to members. Therefore, the edge direction in DAG must be from
+    // DebugTypeMember to DebugTypeComposite. DO NOT visit members here.
+    //
+    // By comparison, NonSemantic.Shader.DebugInfo.100 bans forward references,
+    // leaving only the reference from composite to members and not the
+    // back-reference from member to composite parent. That means we DO want to
+    // visit members here.
+    if (spvOptions.debugInfoVulkan) {
+      for (auto *member : inst->getMembers())
+        if (!visitor(member))
+          break;
+    }
   } break;
   case SpirvInstruction::IK_DebugTypeMember: {
     SpirvDebugTypeMember *inst = dyn_cast<SpirvDebugTypeMember>(di);
