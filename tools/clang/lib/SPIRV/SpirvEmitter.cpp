@@ -437,7 +437,8 @@ std::string getFnName(const FunctionDecl *fn) {
   if (const auto *memberFn = dyn_cast<CXXMethodDecl>(fn))
     if (const auto *st = dyn_cast<CXXRecordDecl>(memberFn->getDeclContext()))
       classOrStructName = st->getName().str() + ".";
-  return getNamespacePrefix(fn) + classOrStructName + fn->getName().str();
+  return getNamespacePrefix(fn) + classOrStructName +
+         getFunctionOrOperatorName(fn, false);
 }
 
 bool isMemoryObjectDeclaration(SpirvInstruction *inst) {
@@ -575,7 +576,7 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
                                              spvContext.getMinorVersion(),
                                              fileNames, source);
 
-  // OpenCL.DebugInfo.100 DebugSource
+  // Rich DebugInfo DebugSource
   if (spirvOptions.debugInfoRich) {
     auto *dbgSrc = spvBuilder.createDebugSource(mainSourceFile->getString());
     // spvContext.getDebugInfo().insert() inserts {string key, RichDebugInfo}
@@ -822,6 +823,12 @@ void SpirvEmitter::doDecl(const Decl *decl) {
     doRecordDecl(recordDecl);
   } else if (const auto *enumDecl = dyn_cast<EnumDecl>(decl)) {
     doEnumDecl(enumDecl);
+  } else if (const auto *classTemplateDecl =
+                 dyn_cast<ClassTemplateDecl>(decl)) {
+    doClassTemplateDecl(classTemplateDecl);
+  } else if (const auto *functionTemplateDecl =
+                 dyn_cast<FunctionTemplateDecl>(decl)) {
+    // nothing to do.
   } else {
     emitError("decl type %0 unimplemented", decl->getLocation())
         << decl->getDeclKindName();
@@ -1189,6 +1196,7 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
 
   auto loc = decl->getLocStart();
   RichDebugInfo *info = nullptr;
+  SpirvDebugFunction *debugFunction = nullptr;
   const auto &sm = astContext.getSourceManager();
   if (spirvOptions.debugInfoRich && decl->hasBody()) {
     const uint32_t line = sm.getPresumedLineNumber(loc);
@@ -1204,7 +1212,7 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
     uint32_t flags = 3u;
     // The line number in the source program at which the function scope begins.
     auto scopeLine = sm.getPresumedLineNumber(decl->getBody()->getLocStart());
-    SpirvDebugFunction *debugFunction = spvBuilder.createDebugFunction(
+    debugFunction = spvBuilder.createDebugFunction(
         decl, debugFuncName, source, line, column, parentScope, "", flags,
         scopeLine, func);
     func->setDebugScope(new (spvContext) SpirvDebugScope(debugFunction));
@@ -1264,6 +1272,11 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
     // The entry basic block.
     auto *entryLabel = spvBuilder.createBasicBlock("bb.entry");
     spvBuilder.setInsertPoint(entryLabel);
+
+    // Add DebugFunctionDefinition if we are emitting
+    // NonSemantic.Shader.DebugInfo.100 debug info
+    if (spirvOptions.debugInfoVulkan && debugFunction)
+      spvBuilder.createDebugFunctionDef(debugFunction, func);
 
     // Process all statments in the body.
     doStmt(decl->getBody());
@@ -1460,6 +1473,17 @@ void SpirvEmitter::doHLSLBufferDecl(const HLSLBufferDecl *bufferDecl) {
   }
 }
 
+void SpirvEmitter::doClassTemplateDecl(
+    const ClassTemplateDecl *classTemplateDecl) {
+  for (auto classTemplateSpecializationDeclItr :
+       classTemplateDecl->specializations()) {
+    if (const CXXRecordDecl *recordDecl =
+            dyn_cast<CXXRecordDecl>(&*classTemplateSpecializationDeclItr)) {
+      doRecordDecl(recordDecl);
+    }
+  }
+}
+
 void SpirvEmitter::doRecordDecl(const RecordDecl *recordDecl) {
   // Ignore implict records
   // Somehow we'll have implicit records with:
@@ -1628,6 +1652,10 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
     // request legalization.
     if (!needsLegalization && isOpaqueType(decl->getType()))
       needsLegalization = true;
+  }
+
+  if (var != nullptr) {
+    declIdMapper.decorateVariableWithIntrinsicAttrs(decl, var);
   }
 
   // All variables that are of opaque struct types should request legalization.
@@ -2282,14 +2310,28 @@ SpirvInstruction *SpirvEmitter::doBinaryOperator(const BinaryOperator *expr) {
 }
 
 SpirvInstruction *SpirvEmitter::doCallExpr(const CallExpr *callExpr) {
-  if (const auto *operatorCall = dyn_cast<CXXOperatorCallExpr>(callExpr))
+  if (const auto *operatorCall = dyn_cast<CXXOperatorCallExpr>(callExpr)) {
+    if (const auto *cxxMethodDecl =
+            dyn_cast<CXXMethodDecl>(operatorCall->getCalleeDecl())) {
+      QualType parentType =
+          QualType(cxxMethodDecl->getParent()->getTypeForDecl(), 0);
+      if (isUserDefinedRecordType(astContext, parentType)) {
+        // If the parent is a user-defined record type
+        return processCall(callExpr);
+      }
+    }
     return doCXXOperatorCallExpr(operatorCall);
+  }
 
   if (const auto *memberCall = dyn_cast<CXXMemberCallExpr>(callExpr))
     return doCXXMemberCallExpr(memberCall);
 
+  auto funcDecl = callExpr->getDirectCallee();
+  if (funcDecl && funcDecl->hasAttr<VKInstructionExtAttr>()) {
+    return processSpvIntrinsicCallExpr(callExpr);
+  }
   // Intrinsic functions such as 'dot' or 'mul'
-  if (hlsl::IsIntrinsicOp(callExpr->getDirectCallee())) {
+  if (hlsl::IsIntrinsicOp(funcDecl)) {
     return processIntrinsicCallExpr(callExpr);
   }
 
@@ -2355,8 +2397,10 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
   const auto numParams = callee->getNumParams();
 
   bool isNonStaticMemberCall = false;
+  bool isOperatorOverloading = false;
   QualType objectType = {};             // Type of the object (if exists)
   SpirvInstruction *objInstr = nullptr; // EvalInfo for the object (if exists)
+  const Expr *object;
 
   llvm::SmallVector<SpirvInstruction *, 4> vars; // Variables for function call
   llvm::SmallVector<bool, 4> isTempVar;          // Temporary variable or not
@@ -2369,7 +2413,7 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
     if (isNonStaticMemberCall) {
       // For non-static member calls, evaluate the object and pass it as the
       // first argument.
-      const auto *object = memberCall->getImplicitObjectArgument();
+      object = memberCall->getImplicitObjectArgument();
       object = object->IgnoreParenNoopCasts(astContext);
 
       // Update counter variable associated with the implicit object
@@ -2381,41 +2425,57 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
         objInstr = accessToBaseInstr;
         objectType = accessToBaseInstr->getAstResultType();
       }
-
-      // If not already a variable, we need to create a temporary variable and
-      // pass the object pointer to the function. Example:
-      // getObject().objectMethod();
-      // Also, any parameter passed to the member function must be of Function
-      // storage class.
-      if (objInstr->isRValue()) {
-        args.push_back(createTemporaryVar(
-            objectType, getAstTypeName(objectType),
-            // May need to load to use as initializer
-            loadIfGLValue(object, objInstr), object->getLocStart()));
-      } else {
-        // Based on SPIR-V spec, function parameter must always be in Function
-        // scope. If we pass a non-function scope argument, we need
-        // the legalization.
-        if (objInstr->getStorageClass() != spv::StorageClass::Function ||
-            !isMemoryObjectDeclaration(objInstr))
-          needsLegalization = true;
-
-        args.push_back(objInstr);
-      }
-
-      // We do not need to create a new temporary variable for the this
-      // object. Use the evaluated argument.
-      vars.push_back(args.back());
-      isTempVar.push_back(false);
     }
+  } else if (const auto *operatorCallExpr =
+                 dyn_cast<CXXOperatorCallExpr>(callExpr)) {
+    isOperatorOverloading = true;
+    isNonStaticMemberCall = true;
+    // For overloaded operator calls, the first argument is considered as the
+    // object.
+    object = operatorCallExpr->getArg(0);
+    object = object->IgnoreParenNoopCasts(astContext);
+    objectType = object->getType();
+    objInstr = doExpr(object);
+  }
+
+  if (objInstr != nullptr) {
+    // If not already a variable, we need to create a temporary variable and
+    // pass the object pointer to the function. Example:
+    // getObject().objectMethod();
+    // Also, any parameter passed to the member function must be of Function
+    // storage class.
+    if (objInstr->isRValue()) {
+      args.push_back(createTemporaryVar(
+          objectType, getAstTypeName(objectType),
+          // May need to load to use as initializer
+          loadIfGLValue(object, objInstr), object->getLocStart()));
+    } else {
+      // Based on SPIR-V spec, function parameter must always be in Function
+      // scope. If we pass a non-function scope argument, we need
+      // the legalization.
+      if (objInstr->getStorageClass() != spv::StorageClass::Function ||
+          !isMemoryObjectDeclaration(objInstr))
+        needsLegalization = true;
+
+      args.push_back(objInstr);
+    }
+
+    // We do not need to create a new temporary variable for the this
+    // object. Use the evaluated argument.
+    vars.push_back(args.back());
+    isTempVar.push_back(false);
   }
 
   // Evaluate parameters
   for (uint32_t i = 0; i < numParams; ++i) {
+    // Arguments for the overloaded operator includes the object itself. The
+    // actual argument starts from the second one.
+    const uint32_t argIndex = i + isOperatorOverloading;
+
     // We want the argument variable here so that we can write back to it
     // later. We will do the OpLoad of this argument manually. So ingore
     // the LValueToRValue implicit cast here.
-    auto *arg = callExpr->getArg(i)->IgnoreParenLValueCasts();
+    auto *arg = callExpr->getArg(argIndex)->IgnoreParenLValueCasts();
     const auto *param = callee->getParamDecl(i);
     const auto paramType = param->getType();
 
@@ -2529,7 +2589,11 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
     // the resource.
     if (isTempVar[index] && canActAsOutParmVar(param) &&
         !isResourceType(paramType)) {
-      const auto *arg = callExpr->getArg(i);
+      // Arguments for the overloaded operator includes the object itself. The
+      // actual argument starts from the second one.
+      const uint32_t argIndex = i + isOperatorOverloading;
+
+      const auto *arg = callExpr->getArg(argIndex);
       SpirvInstruction *value =
           spvBuilder.createLoad(paramType, vars[index], arg->getLocStart());
 
@@ -4032,7 +4096,7 @@ SpirvEmitter::getOrCreateDeclForMethodObject(const CXXMethodDecl *method) {
   if (found != thisDecls.end())
     return found->second;
 
-  const std::string name = method->getName().str() + ".this";
+  const std::string name = getFunctionOrOperatorName(method, true) + ".this";
   // Create a new identifier to convey the name
   auto &identifier = astContext.Idents.get(name);
 
@@ -4485,7 +4549,7 @@ SpirvEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
   case IntrinsicOp::MOP_GatherCmpAlpha:
     emitError("no equivalent for %0 intrinsic method in Vulkan",
               expr->getCallee()->getExprLoc())
-        << expr->getMethodDecl()->getName();
+        << getFunctionOrOperatorName(expr->getMethodDecl(), true);
     return nullptr;
   case IntrinsicOp::MOP_TraceRayInline:
     return processTraceRayInline(expr);
@@ -4532,7 +4596,7 @@ SpirvEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
   default:
     emitError("intrinsic '%0' method unimplemented",
               expr->getCallee()->getExprLoc())
-        << expr->getDirectCallee()->getName();
+        << getFunctionOrOperatorName(expr->getDirectCallee(), true);
     return nullptr;
   }
 
@@ -6979,7 +7043,20 @@ const Expr *SpirvEmitter::collectArrayStructIndices(
     // The index into an array must be an integer number.
     const auto *idxExpr = indexing->getIdx();
     const auto idxExprType = idxExpr->getType();
-    SpirvInstruction *thisIndex = doExpr(idxExpr);
+
+    if (idxExpr->isLValue()) {
+      // If the given HLSL code is correct, this case will not happen, because
+      // the correct HLSL code will not use LValue for the index of an array.
+      emitError("Index of ArraySubscriptExpr must be rvalue",
+                idxExpr->getExprLoc());
+      return nullptr;
+    }
+    // Since `doExpr(idxExpr)` can generate LValue SPIR-V instruction for
+    // RValue `idxExpr` (see
+    // https://github.com/microsoft/DirectXShaderCompiler/issues/3620),
+    // we have to use `loadIfGLValue(idxExpr)` instead of `doExpr(idxExpr)`.
+    SpirvInstruction *thisIndex = loadIfGLValue(idxExpr);
+
     if (!idxExprType->isIntegerType() || idxExprType->isBooleanType()) {
       thisIndex = castToInt(thisIndex, idxExprType, astContext.UnsignedIntTy,
                             idxExpr->getExprLoc());
@@ -7428,7 +7505,7 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_texCUBElod:
   case hlsl::IntrinsicOp::IOP_texCUBEproj: {
     emitError("deprecated %0 intrinsic function will not be supported", srcLoc)
-        << callee->getName();
+        << getFunctionOrOperatorName(callee, true);
     return nullptr;
   }
   case hlsl::IntrinsicOp::IOP_dot:
@@ -7631,7 +7708,7 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_GetRenderTargetSampleCount:
   case hlsl::IntrinsicOp::IOP_GetRenderTargetSamplePosition: {
     emitError("no equivalent for %0 intrinsic function in Vulkan", srcLoc)
-        << callee->getName();
+        << getFunctionOrOperatorName(callee, true);
     return 0;
   }
   case hlsl::IntrinsicOp::IOP_transpose: {
@@ -7811,7 +7888,7 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     INTRINSIC_OP_CASE(trunc, Trunc, true);
   default:
     emitError("%0 intrinsic function unimplemented", srcLoc)
-        << callee->getName();
+        << getFunctionOrOperatorName(callee, true);
     return 0;
   }
 
@@ -9654,7 +9731,7 @@ SpirvEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
   }
   default:
     emitError("unrecognized signature for %0 intrinsic function", loc)
-        << callExpr->getDirectCallee()->getName();
+        << getFunctionOrOperatorName(callExpr->getDirectCallee(), true);
     return nullptr;
   }
 }
@@ -12358,7 +12435,7 @@ SpirvEmitter::processRayQueryIntrinsics(const CXXMemberCallExpr *expr,
   default:
     emitError("intrinsic '%0' method unimplemented",
               expr->getCallee()->getExprLoc())
-        << expr->getDirectCallee()->getName();
+        << getFunctionOrOperatorName(expr->getDirectCallee(), true);
     return nullptr;
   }
 
@@ -12388,6 +12465,62 @@ SpirvEmitter::processRayQueryIntrinsics(const CXXMemberCallExpr *expr,
                                       retVal, loc);
   }
 
+  retVal->setRValue();
+  return retVal;
+}
+
+SpirvInstruction *
+SpirvEmitter::processSpvIntrinsicCallExpr(const CallExpr *expr) {
+  auto funcDecl = expr->getDirectCallee();
+  auto &attrs = funcDecl->getAttrs();
+  QualType retType = funcDecl->getReturnType();
+
+  llvm::SmallVector<uint32_t, 2> capbilities;
+  llvm::SmallVector<llvm::StringRef, 2> extensions;
+  llvm::StringRef instSet = "";
+  uint32_t op = 0;
+  for (auto &attr : attrs) {
+    if (auto capAttr = dyn_cast<VKCapabilityExtAttr>(attr)) {
+      capbilities.push_back(capAttr->getCapability());
+    } else if (auto extAttr = dyn_cast<VKExtensionExtAttr>(attr)) {
+      extensions.push_back(extAttr->getName());
+    } else if (auto instAttr = dyn_cast<VKInstructionExtAttr>(attr)) {
+      op = instAttr->getOpcode();
+      instSet = instAttr->getInstruction_set();
+    }
+  }
+
+  llvm::SmallVector<SpirvInstruction *, 8> spvArgs;
+
+  const auto args = expr->getArgs();
+  for (uint32_t i = 0; i < expr->getNumArgs(); ++i) {
+    auto param = funcDecl->getParamDecl(i);
+    const Expr *arg = args[i]->IgnoreParenLValueCasts();
+    SpirvInstruction *argInst = doExpr(arg);
+    if (param->hasAttr<VKReferenceExtAttr>()) {
+      if (argInst->isRValue()) {
+        emitError("argument for a parameter with vk::ext_reference attribute "
+                  "must be a reference",
+                  arg->getExprLoc());
+        return nullptr;
+      }
+      spvArgs.push_back(argInst);
+    } else if (param->hasAttr<VKLiteralExtAttr>()) {
+      auto constArg = dyn_cast<SpirvConstantInteger>(argInst);
+      assert(constArg != nullptr);
+      constArg->setLiteral();
+      spvArgs.push_back(argInst);
+    } else {
+      spvArgs.push_back(loadIfGLValue(arg, argInst));
+    }
+  }
+
+  const auto loc = expr->getExprLoc();
+
+  SpirvInstruction *retVal = spvBuilder.createSpirvIntrInstExt(
+      op, retType, spvArgs, extensions, instSet, capbilities, loc);
+
+  // TODO: Revisit this r-value setting when handling vk::ext_result_id<T> ?
   retVal->setRValue();
   return retVal;
 }
@@ -12464,6 +12597,9 @@ bool SpirvEmitter::spirvToolsLegalize(std::vector<uint32_t> *mod,
   // Add flattening of resources if needed.
   if (spirvOptions.flattenResourceArrays ||
       declIdMapper.requiresFlatteningCompositeResources()) {
+    optimizer.RegisterPass(
+        spvtools::CreateReplaceDescArrayAccessUsingVarIndexPass());
+    optimizer.RegisterPass(spvtools::CreateAggressiveDCEPass());
     optimizer.RegisterPass(spvtools::CreateDescriptorScalarReplacementPass());
     // ADCE should be run after desc_sroa in order to remove potentially
     // illegal types such as structures containing opaque types.

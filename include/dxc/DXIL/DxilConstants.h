@@ -336,9 +336,31 @@ namespace DXIL {
     NumEntries,
   };
 
+  /// Whether the resource kind is a texture. This does not include
+  /// FeedbackTextures.
   inline bool IsAnyTexture(DXIL::ResourceKind ResourceKind) {
     return DXIL::ResourceKind::Texture1D <= ResourceKind &&
            ResourceKind <= DXIL::ResourceKind::TextureCubeArray;
+  }
+
+  /// Whether the resource kind is an array of textures. This does not include
+  /// FeedbackTextures.
+  inline bool IsAnyArrayTexture(DXIL::ResourceKind ResourceKind) {
+    return DXIL::ResourceKind::Texture1DArray <= ResourceKind &&
+           ResourceKind <= DXIL::ResourceKind::TextureCubeArray;
+  }
+
+  /// Whether the resource kind is a Texture or FeedbackTexture with array
+  /// dimension.
+  inline bool IsArrayKind(DXIL::ResourceKind ResourceKind) {
+    return IsAnyArrayTexture(ResourceKind) ||
+           ResourceKind == DXIL::ResourceKind::FeedbackTexture2DArray;
+  }
+
+  /// Whether the resource kind is a TextureCube or TextureCubeArray.
+  inline bool IsAnyTextureCube(DXIL::ResourceKind ResourceKind) {
+    return DXIL::ResourceKind::TextureCube == ResourceKind || 
+           DXIL::ResourceKind::TextureCubeArray == ResourceKind;
   }
 
   inline bool IsStructuredBuffer(DXIL::ResourceKind ResourceKind) {
@@ -361,6 +383,7 @@ namespace DXIL {
     return ResourceKind == DXIL::ResourceKind::TBuffer;
   }
 
+  /// Whether the resource kind is a FeedbackTexture.
   inline bool IsFeedbackTexture(DXIL::ResourceKind ResourceKind) {
     return ResourceKind == DXIL::ResourceKind::FeedbackTexture2D ||
            ResourceKind == DXIL::ResourceKind::FeedbackTexture2DArray;

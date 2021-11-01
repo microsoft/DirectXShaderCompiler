@@ -1,12 +1,12 @@
-// RUN: %dxc -T lib_6_6 main %s -enable-payload-qualifiers -D TEST_NUM=0 | FileCheck -check-prefix=CHK0 -input=stderr  %s
-// RUN: %dxc -T lib_6_6 main %s -enable-payload-qualifiers -D TEST_NUM=1 | FileCheck -check-prefix=CHK1 -input=stderr  %s
-// RUN: %dxc -T lib_6_6 main %s -enable-payload-qualifiers -D TEST_NUM=2 | FileCheck -check-prefix=CHK2 -input=stderr  %s
-// RUN: %dxc -T lib_6_6 main %s -enable-payload-qualifiers -D TEST_NUM=3 | FileCheck -check-prefix=CHK3 -input=stderr  %s
-// RUN: %dxc -T lib_6_6 main %s -enable-payload-qualifiers -D TEST_NUM=4 | FileCheck -check-prefix=CHK4 -input=stderr  %s
-// RUN: %dxc -T lib_6_6 main %s -enable-payload-qualifiers -D TEST_NUM=5 | FileCheck -check-prefix=CHK5 -input=stderr  %s
-// RUN: %dxc -T lib_6_6 main %s -enable-payload-qualifiers -D TEST_NUM=6 | FileCheck -check-prefix=CHK6 -input=stderr  %s
-// RUN: %dxc -T lib_6_6 main %s -enable-payload-qualifiers -D TEST_NUM=7 | FileCheck -check-prefix=CHK7 -input=stderr  %s
-// RUN: %dxc -T lib_6_6 main %s -enable-payload-qualifiers -D TEST_NUM=8 | FileCheck -check-prefix=CHK8 -input=stderr  %s
+// RUN: %dxc -T lib_6_6 main %s -enable-payload-qualifiers -D TEST_NUM=0 | FileCheck -check-prefix=CHK0 -input-file=stderr  %s
+// RUN: %dxc -T lib_6_6 main %s -enable-payload-qualifiers -D TEST_NUM=1 | FileCheck -check-prefix=CHK1 -input-file=stderr  %s
+// RUN: %dxc -T lib_6_6 main %s -enable-payload-qualifiers -D TEST_NUM=2 | FileCheck -check-prefix=CHK2 -input-file=stderr  %s
+// RUN: %dxc -T lib_6_6 main %s -enable-payload-qualifiers -D TEST_NUM=3 | FileCheck -check-prefix=CHK3 -input-file=stderr  %s
+// RUN: %dxc -T lib_6_6 main %s -enable-payload-qualifiers -D TEST_NUM=4 | FileCheck -check-prefix=CHK4 -input-file=stderr  %s
+// RUN: %dxc -T lib_6_6 main %s -enable-payload-qualifiers -D TEST_NUM=5 | FileCheck -check-prefix=CHK5 -input-file=stderr  %s
+// RUN: %dxc -T lib_6_6 main %s -enable-payload-qualifiers -D TEST_NUM=6 | FileCheck -check-prefix=CHK6 -input-file=stderr  %s
+// RUN: %dxc -T lib_6_6 main %s -enable-payload-qualifiers -D TEST_NUM=7 | FileCheck -check-prefix=CHK7 -input-file=stderr  %s
+// RUN: %dxc -T lib_6_6 main %s -enable-payload-qualifiers -D TEST_NUM=8 | FileCheck -check-prefix=CHK8 -input-file=stderr  %s
 
 // CHK0-NOT: -Wpayload-access-
 

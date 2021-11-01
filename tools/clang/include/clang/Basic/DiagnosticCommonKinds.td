@@ -66,6 +66,9 @@ def warn_method_param_declaration : Warning<"redeclaration of method parameter %
 def err_invalid_storage_class_in_func_decl : Error<
   "invalid storage class specifier in function declarator">;
 def err_expected_namespace_name : Error<"expected namespace name">;
+// HLSL Change Starts
+def err_hlsl_variadic_templates : Error<"variadic templates are not supported in HLSL">;
+// HLSL Change Ends
 def ext_variadic_templates : ExtWarn<
   "variadic templates are a C++11 extension">, InGroup<CXX11>;
 def warn_cxx98_compat_variadic_templates :

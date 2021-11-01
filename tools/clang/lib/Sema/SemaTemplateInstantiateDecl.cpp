@@ -296,6 +296,14 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
         New->addAttr(NewAttr);
     }
   }
+
+  // HLSL Change - Begin
+  // When instantiating a NamedDecl, we need to carry over the HLSL annotations
+  if (auto Decl = dyn_cast<NamedDecl>(Tmpl)) {
+    auto NDecl = cast<NamedDecl>(New);
+    NDecl->setUnusualAnnotations(Decl->getUnusualAnnotations());
+  }
+  // HLSL Change - End
 }
 
 /// Get the previous declaration of a declaration for the purposes of template

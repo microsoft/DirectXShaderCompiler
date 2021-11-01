@@ -98,6 +98,7 @@ struct RewriterOpts {
   bool RemoveUnusedGlobals = false;         // OPT_rw_remove_unused_globals
   bool RemoveUnusedFunctions = false;         // OPT_rw_remove_unused_functions
   bool WithLineDirective = false;       // OPT_rw_line_directive
+  bool DeclGlobalCB = false;          // OPT_rw_decl_global_cb
 };
 
 /// Use this class to capture all options.
@@ -199,6 +200,14 @@ public:
   unsigned ScanLimit = 0; // OPT_memdep_block_scan_limit
   bool ForceZeroStoreLifetimes = false; // OPT_force_zero_store_lifetimes
   bool EnableLifetimeMarkers = false; // OPT_enable_lifetime_markers
+  bool EnableTemplates = false; // OPT_enable_templates
+  bool EnableOperatorOverloading = false; // OPT_enable_operator_overloading
+  bool StrictUDTCasting = false; // OPT_strict_udt_casting
+
+  // Experimental option to enable short-circuiting operators
+  bool EnableShortCircuit = false; // OPT_enable_short_circuit
+
+  bool EnableBitfields = false; // OPT_enable_bitfields
 
   // Optimization pass enables, disables and selects
   std::map<std::string, bool> DxcOptimizationToggles; // OPT_opt_enable & OPT_opt_disable

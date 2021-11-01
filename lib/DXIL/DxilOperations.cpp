@@ -853,10 +853,19 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     mask = SFLAG(Mesh);
     return;
   }
-  // Instructions: AnnotateHandle=216, CreateHandleFromBinding=217,
-  // CreateHandleFromHeap=218, Unpack4x8=219, Pack4x8=220, IsHelperLane=221
-  if ((216 <= op && op <= 221)) {
+  // Instructions: CreateHandleFromHeap=218, Unpack4x8=219, Pack4x8=220,
+  // IsHelperLane=221
+  if ((218 <= op && op <= 221)) {
     major = 6;  minor = 6;
+    return;
+  }
+  // Instructions: AnnotateHandle=216, CreateHandleFromBinding=217
+  if ((216 <= op && op <= 217)) {
+    if (bWithTranslation) {
+      major = 6;  minor = 0;
+    } else {
+      major = 6;  minor = 6;
+    }
     return;
   }
   // Instructions: TextureGatherRaw=223, SampleCmpLevel=224,
@@ -927,6 +936,17 @@ void OP::GetMinShaderModelAndMask(const llvm::CallInst *CI, bool bWithTranslatio
       major = 6;
       minor = 6;
     }
+  }
+
+  // AnnotateHandle and CreateHandleFromBinding can be translated down to
+  // SM 6.0, but this wasn't set properly in validator version 6.6, so make it
+  // match when using that version.
+  else if (bWithTranslation &&
+           DXIL::CompareVersions(valMajor, valMinor, 1, 6) == 0 &&
+           (opcode == DXIL::OpCode::AnnotateHandle ||
+            opcode == DXIL::OpCode::CreateHandleFromBinding)) {
+    major = 6;
+    minor = 6;
   }
 }
 #undef SFLAG

@@ -88,6 +88,7 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugSource)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugCompilationUnit)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugFunctionDeclaration)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugFunction)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugFunctionDefinition)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugLocalVariable)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugGlobalVariable)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugOperation)
@@ -106,6 +107,7 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugTypeTemplateParameter)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvRayQueryOpKHR)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvReadClock)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvRayTracingTerminateOpKHR)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvIntrinsicInstruction)
 
 #undef DEFINE_INVOKE_VISITOR_FOR_CLASS
 
@@ -225,18 +227,18 @@ SpirvDecoration::SpirvDecoration(SourceLocation loc,
                                  llvm::Optional<uint32_t> idx)
     : SpirvInstruction(IK_Decoration, getDecorateOpcode(decor, idx),
                        /*type*/ {}, loc),
-      target(targetInst), targetFunction(nullptr), decoration(decor), index(idx),
-      params(p.begin(), p.end()), idParams() {}
+      target(targetInst), targetFunction(nullptr), decoration(decor),
+      index(idx), params(p.begin(), p.end()), idParams() {}
 
 SpirvDecoration::SpirvDecoration(SourceLocation loc,
                                  SpirvInstruction *targetInst,
                                  spv::Decoration decor,
                                  llvm::StringRef strParam,
                                  llvm::Optional<uint32_t> idx)
-    : SpirvInstruction(IK_Decoration, getDecorateOpcode(decor, idx),
+    : SpirvInstruction(IK_Decoration, getDecorateStringOpcode(idx.hasValue()),
                        /*type*/ {}, loc),
-      target(targetInst), targetFunction(nullptr), decoration(decor), index(idx),
-      params(), idParams() {
+      target(targetInst), targetFunction(nullptr), decoration(decor),
+      index(idx), params(), idParams() {
   const auto &stringWords = string::encodeSPIRVString(strParam);
   params.insert(params.end(), stringWords.begin(), stringWords.end());
 }
@@ -264,9 +266,13 @@ spv::Op SpirvDecoration::getDecorateOpcode(
       decoration == spv::Decoration::UserTypeGOOGLE)
     return memberIndex.hasValue() ? spv::Op::OpMemberDecorateStringGOOGLE
                                   : spv::Op::OpDecorateStringGOOGLE;
-
   return memberIndex.hasValue() ? spv::Op::OpMemberDecorate
                                 : spv::Op::OpDecorate;
+}
+
+spv::Op SpirvDecoration::getDecorateStringOpcode(bool isMemberDecoration) {
+  return isMemberDecoration ? spv::Op::OpMemberDecorateString
+                            : spv::Op::OpDecorateString;
 }
 
 bool SpirvDecoration::operator==(const SpirvDecoration &that) const {
@@ -499,11 +505,11 @@ bool SpirvConstantBoolean::operator==(const SpirvConstantBoolean &that) const {
 }
 
 SpirvConstantInteger::SpirvConstantInteger(QualType type, llvm::APInt val,
-                                           bool isSpecConst)
+                                           bool isSpecConst, bool literal)
     : SpirvConstant(IK_ConstantInteger,
                     isSpecConst ? spv::Op::OpSpecConstant : spv::Op::OpConstant,
                     type),
-      value(val) {
+      value(val), isLiteral(literal) {
   assert(type->isIntegerType());
 }
 
@@ -866,6 +872,11 @@ SpirvDebugFunctionDeclaration::SpirvDebugFunctionDeclaration(
   debugName = name;
 }
 
+SpirvDebugFunctionDefinition::SpirvDebugFunctionDefinition(
+    SpirvDebugFunction *function_, SpirvFunction *fn_)
+    : SpirvDebugInstruction(IK_DebugFunctionDef, /*opcode*/ 101u),
+      function(function_), fn(fn_) {}
+
 SpirvDebugLocalVariable::SpirvDebugLocalVariable(
     QualType debugQualType_, llvm::StringRef varName, SpirvDebugSource *src,
     uint32_t lineNumber, uint32_t colNumber, SpirvDebugInstruction *parent,
@@ -1003,6 +1014,19 @@ SpirvRayTracingTerminateOpKHR::SpirvRayTracingTerminateOpKHR(spv::Op opcode,
   assert(opcode == spv::Op::OpTerminateRayKHR ||
          opcode == spv::Op::OpIgnoreIntersectionKHR);
 }
+
+SpirvIntrinsicInstruction::SpirvIntrinsicInstruction(
+    QualType resultType, uint32_t opcode,
+    llvm::ArrayRef<SpirvInstruction *> vecOperands,
+    llvm::ArrayRef<llvm::StringRef> exts, SpirvExtInstImport *set,
+    llvm::ArrayRef<uint32_t> capts, SourceLocation loc)
+    : SpirvInstruction(IK_SpirvIntrinsicInstruction,
+                       set != nullptr ? spv::Op::OpExtInst
+                                      : static_cast<spv::Op>(opcode),
+                       resultType, loc),
+      instruction(opcode), operands(vecOperands.begin(), vecOperands.end()),
+      capabilities(capts.begin(), capts.end()),
+      extensions(exts.begin(), exts.end()), instructionSet(set) {}
 
 } // namespace spirv
 } // namespace clang

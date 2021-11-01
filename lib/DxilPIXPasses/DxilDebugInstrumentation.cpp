@@ -9,6 +9,9 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <vector>
+
+#include "dxc/DXIL/DxilFunctionProps.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilUtil.h"
@@ -250,15 +253,20 @@ public:
   void applyOptions(PassOptions O) override;
   bool runOnModule(Module &M) override;
 
+  bool RunOnFunction(Module& M, DxilModule& DM, 
+    llvm::Function *function);
+
 private:
-  SystemValueIndices addRequiredSystemValues(BuilderContext &BC);
+  SystemValueIndices addRequiredSystemValues(BuilderContext &BC, DXIL::ShaderKind shaderKind);
   void addInvocationSelectionProlog(BuilderContext &BC,
-                                    SystemValueIndices SVIndices);
+                                    SystemValueIndices SVIndices,
+                                    DXIL::ShaderKind shaderKind);
   Value *addPixelShaderProlog(BuilderContext &BC, SystemValueIndices SVIndices);
   Value *addGeometryShaderProlog(BuilderContext &BC,
                                  SystemValueIndices SVIndices);
   Value *addDispatchedShaderProlog(BuilderContext &BC);
-  Value *addVertexShaderProlog(BuilderContext &BC,
+  Value* addRaygenShaderProlog(BuilderContext& BC);
+  Value* addVertexShaderProlog(BuilderContext& BC,
                                SystemValueIndices SVIndices);
   void addDebugEntryValue(BuilderContext &BC, Value *TheValue);
   void addInvocationStartMarker(BuilderContext &BC);
@@ -287,22 +295,23 @@ uint32_t DxilDebugInstrumentation::UAVDumpingGroundOffset() {
   return static_cast<uint32_t>(m_UAVSize - DebugBufferDumpingGroundSize);
 }
 
-DxilDebugInstrumentation::SystemValueIndices
-DxilDebugInstrumentation::addRequiredSystemValues(BuilderContext &BC) {
+DxilDebugInstrumentation::SystemValueIndices DxilDebugInstrumentation::addRequiredSystemValues(BuilderContext &BC, DXIL::ShaderKind shaderKind) {
   SystemValueIndices SVIndices{};
 
-  hlsl::DxilSignature &InputSignature = BC.DM.GetInputSignature();
-
-  auto &InputElements = InputSignature.GetElements();
-
-  auto ShaderModel = BC.DM.GetShaderModel();
-  switch (ShaderModel->GetKind()) {
+  switch (shaderKind) {
   case DXIL::ShaderKind::Amplification:
   case DXIL::ShaderKind::Mesh:
   case DXIL::ShaderKind::Compute:
+  case DXIL::ShaderKind::RayGeneration:
+  //case DXIL::ShaderKind::Intersection:
+  //case DXIL::ShaderKind::AnyHit:
+  //case DXIL::ShaderKind::ClosestHit:
+  //case DXIL::ShaderKind::Miss:
     // Dispatch* thread Id is not in the input signature
     break;
   case DXIL::ShaderKind::Vertex: {
+    hlsl::DxilSignature &InputSignature = BC.DM.GetInputSignature();
+    auto &InputElements = InputSignature.GetElements();
     {
       auto Existing_SV_VertexId = std::find_if(
           InputElements.begin(), InputElements.end(),
@@ -358,6 +367,9 @@ DxilDebugInstrumentation::addRequiredSystemValues(BuilderContext &BC) {
     // GS Instance Id and Primitive Id are not in the input signature
     break;
   case DXIL::ShaderKind::Pixel: {
+    hlsl::DxilSignature &InputSignature = BC.DM.GetInputSignature();
+    auto &InputElements = InputSignature.GetElements();
+
     auto Existing_SV_Position =
         std::find_if(InputElements.begin(), InputElements.end(),
                      [](const std::unique_ptr<DxilSignatureElement> &Element) {
@@ -423,6 +435,36 @@ Value *DxilDebugInstrumentation::addDispatchedShaderProlog(BuilderContext &BC) {
   auto CompareAll =
       BC.Builder.CreateAnd(CompareXAndY, CompareToZ, "CompareAll");
 
+  return CompareAll;
+}
+
+Value *DxilDebugInstrumentation::addRaygenShaderProlog(BuilderContext &BC) {
+  auto DispatchRaysIndexOpFunc =
+      BC.HlslOP->GetOpFunc(DXIL::OpCode::DispatchRaysIndex, Type::getInt32Ty(BC.Ctx));
+  Constant *DispatchRaysIndexOpcode =
+      BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::DispatchRaysIndex);
+  auto RayX =
+      BC.Builder.CreateCall(DispatchRaysIndexOpFunc, {DispatchRaysIndexOpcode, BC.HlslOP->GetI8Const(0) }, "RayX");
+  auto RayY =
+      BC.Builder.CreateCall(DispatchRaysIndexOpFunc, {DispatchRaysIndexOpcode, BC.HlslOP->GetI8Const(1) }, "RayY");
+  auto RayZ =
+      BC.Builder.CreateCall(DispatchRaysIndexOpFunc, {DispatchRaysIndexOpcode, BC.HlslOP->GetI8Const(2) }, "RayZ");
+
+  auto CompareToX = BC.Builder.CreateICmpEQ(
+      RayX, BC.HlslOP->GetU32Const(m_Parameters.ComputeShader.ThreadIdX),
+      "CompareToThreadIdX");
+  auto CompareToY = BC.Builder.CreateICmpEQ(
+      RayY, BC.HlslOP->GetU32Const(m_Parameters.ComputeShader.ThreadIdY),
+      "CompareToThreadIdY");
+  auto CompareToZ = BC.Builder.CreateICmpEQ(
+      RayZ, BC.HlslOP->GetU32Const(m_Parameters.ComputeShader.ThreadIdZ),
+      "CompareToThreadIdZ");
+
+  auto CompareXAndY =
+      BC.Builder.CreateAnd(CompareToX, CompareToY, "CompareXAndY");
+
+  auto CompareAll =
+      BC.Builder.CreateAnd(CompareXAndY, CompareToZ, "CompareAll");
   return CompareAll;
 }
 
@@ -548,14 +590,19 @@ DxilDebugInstrumentation::addPixelShaderProlog(BuilderContext &BC,
 }
 
 void DxilDebugInstrumentation::addInvocationSelectionProlog(
-    BuilderContext &BC, SystemValueIndices SVIndices) {
-  auto ShaderModel = BC.DM.GetShaderModel();
-
+    BuilderContext &BC, SystemValueIndices SVIndices, DXIL::ShaderKind shaderKind) {
   Value *ParameterTestResult = nullptr;
-  switch (ShaderModel->GetKind()) {
+  switch (shaderKind) {
+  case DXIL::ShaderKind::RayGeneration:
+    ParameterTestResult = addRaygenShaderProlog(BC);
+    break;
   case DXIL::ShaderKind::Compute:
   case DXIL::ShaderKind::Amplification:
   case DXIL::ShaderKind::Mesh:
+  //case DXIL::ShaderKind::Intersection:
+  //case DXIL::ShaderKind::AnyHit:
+  //case DXIL::ShaderKind::ClosestHit:
+  //case DXIL::ShaderKind::Miss:
     ParameterTestResult = addDispatchedShaderProlog(BC);
     break;
   case DXIL::ShaderKind::Geometry:
@@ -854,12 +901,14 @@ void DxilDebugInstrumentation::addStepDebugEntryValue(
     // subsequent instructions that dereference the pointer will be properly
     // instrumented and show the (meaningful) retrieved value.
     break;
+  case Type::TypeID::VectorTyID:
+    // Shows up in "insertelement" in raygen shader?
+    break;
   case Type::TypeID::FP128TyID:
   case Type::TypeID::LabelTyID:
   case Type::TypeID::MetadataTyID:
   case Type::TypeID::FunctionTyID:
   case Type::TypeID::ArrayTyID:
-  case Type::TypeID::VectorTyID:
   case Type::TypeID::X86_FP80TyID:
   case Type::TypeID::X86_MMXTyID:
   case Type::TypeID::PPC_FP128TyID:
@@ -869,26 +918,58 @@ void DxilDebugInstrumentation::addStepDebugEntryValue(
 
 bool DxilDebugInstrumentation::runOnModule(Module &M) {
   DxilModule &DM = M.GetOrCreateDxilModule();
-  LLVMContext &Ctx = M.getContext();
-  OP *HlslOP = DM.GetOP();
 
   auto ShaderModel = DM.GetShaderModel();
-  switch (ShaderModel->GetKind()) {
+  auto shaderKind = ShaderModel->GetKind();
+
+  bool modified = false;
+  if (shaderKind == DXIL::ShaderKind::Library) {
+    for (llvm::Function& F : M.functions()) {
+      modified = modified | RunOnFunction(M, DM, &F); 
+      return modified;
+    }
+  }
+  else {
+    llvm::Function *entryFunction = PIXPassHelpers::GetEntryFunction(DM);
+    modified = RunOnFunction(M, DM, entryFunction);
+  }
+  return modified;
+}
+
+bool DxilDebugInstrumentation::RunOnFunction(
+  Module &M, 
+  DxilModule &DM,
+  llvm::Function * entryFunction) 
+{
+  if (!DM.HasDxilFunctionProps(entryFunction)) {
+    return false;
+  }
+
+  hlsl::DxilFunctionProps const &props = DM.GetDxilFunctionProps(entryFunction);
+  DXIL::ShaderKind shaderKind = props.shaderKind;
+
+  switch (shaderKind) {
   case DXIL::ShaderKind::Amplification:
   case DXIL::ShaderKind::Mesh:
   case DXIL::ShaderKind::Vertex:
   case DXIL::ShaderKind::Geometry:
   case DXIL::ShaderKind::Pixel:
   case DXIL::ShaderKind::Compute:
+  case DXIL::ShaderKind::RayGeneration:
     break;
+    //todo:
+  case DXIL::ShaderKind::Intersection:
+  case DXIL::ShaderKind::AnyHit:
+  case DXIL::ShaderKind::ClosestHit:
+  case DXIL::ShaderKind::Miss:
   default:
     return false;
   }
 
   // First record pointers to all instructions in the function:
   std::vector<Instruction *> AllInstructions;
-  for (inst_iterator I = inst_begin(PIXPassHelpers::GetEntryFunction(DM)),
-                     E = inst_end(PIXPassHelpers::GetEntryFunction(DM));
+  for (inst_iterator I = inst_begin(entryFunction),
+                     E = inst_end(entryFunction);
        I != E; ++I) {
     AllInstructions.push_back(&*I);
   }
@@ -907,22 +988,26 @@ bool DxilDebugInstrumentation::runOnModule(Module &M) {
   //
 
   Instruction *firstInsertionPt =
-      dxilutil::FirstNonAllocaInsertionPt(PIXPassHelpers::GetEntryFunction(DM));
+      dxilutil::FirstNonAllocaInsertionPt(entryFunction);
   IRBuilder<> Builder(firstInsertionPt);
+
+  LLVMContext &Ctx = M.getContext();
+  OP *HlslOP = DM.GetOP();
 
   BuilderContext BC{M, DM, Ctx, HlslOP, Builder};
 
-  m_HandleForUAV = PIXPassHelpers::CreateUAV(BC.DM, BC.Builder, 0, "PIX_DebugUAV_Handle");
+  m_HandleForUAV =
+      PIXPassHelpers::CreateUAV(BC.DM, BC.Builder, 0, "PIX_DebugUAV_Handle");
 
-  auto SystemValues = addRequiredSystemValues(BC);
-  addInvocationSelectionProlog(BC, SystemValues);
+  auto SystemValues = addRequiredSystemValues(BC, shaderKind);
+  addInvocationSelectionProlog(BC, SystemValues, shaderKind);
   addInvocationStartMarker(BC);
 
-  // Explicitly name new blocks in order to provide stable names for testing purposes
+  // Explicitly name new blocks in order to provide stable names for testing
+  // purposes
   int NewBlockCounter = 0;
 
-  auto Fn = PIXPassHelpers::GetEntryFunction(DM);
-  auto &Blocks = Fn->getBasicBlockList();
+  auto &Blocks = entryFunction->getBasicBlockList();
   for (auto &CurrentBlock : Blocks) {
     struct ValueAndPhi {
       Value *Val;
@@ -945,8 +1030,9 @@ bool DxilDebugInstrumentation::runOnModule(Module &M) {
     }
 
     for (auto &InsertableEdge : InsertableEdges) {
-      auto *NewBlock = BasicBlock::Create(Ctx, "PIXDebug" + std::to_string(NewBlockCounter++),
-                                          InsertableEdge.first->getParent());
+      auto *NewBlock = BasicBlock::Create(
+          Ctx, "PIXDebug" + std::to_string(NewBlockCounter++),
+          InsertableEdge.first->getParent());
       IRBuilder<> Builder(NewBlock);
 
       auto *PreviousBlock = InsertableEdge.first;

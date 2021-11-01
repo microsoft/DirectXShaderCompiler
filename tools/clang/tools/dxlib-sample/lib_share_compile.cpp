@@ -136,8 +136,6 @@ HRESULT CompileFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
       }
 
       for (const llvm::opt::Arg *A : opts.Args.filtered(options::OPT_I)) {
-        const bool IsFrameworkFalse = false;
-        const bool IgnoreSysRoot = true;
         if (dxcutil::IsAbsoluteOrCurDirRelative(A->getValue())) {
           preprocessor->AddIncPath(A->getValue());
         } else {
@@ -157,7 +155,6 @@ HRESULT CompileFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
     IFR(CreateLinker(&linker));
     IDxcIncludeHandler * const kNoIncHandler = nullptr;
     const auto &snippets = preprocessor->GetSnippets();
-    const bool bLazyLoad = true;
     std::string processedHeader = "";
     std::vector<std::wstring> hashStrList;
     std::vector<LPCWSTR> hashList;

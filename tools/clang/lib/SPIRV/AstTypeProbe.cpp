@@ -28,6 +28,32 @@ clang::DiagnosticBuilder emitError(const clang::ASTContext &astContext,
 namespace clang {
 namespace spirv {
 
+std::string getFunctionOrOperatorName(const FunctionDecl *fn,
+                                      bool addClassNameWithOperator) {
+  auto operatorKind = fn->getOverloadedOperator();
+  if (operatorKind == OO_None)
+    return fn->getNameAsString();
+
+  if (const auto *cxxMethodDecl = dyn_cast<CXXMethodDecl>(fn)) {
+    std::string prefix =
+        addClassNameWithOperator
+            ? cxxMethodDecl->getParent()->getNameAsString() + "."
+            : "";
+    switch (operatorKind) {
+#ifdef OVERLOADED_OPERATOR
+#undef OVERLOADED_OPERATOR
+#endif
+#define OVERLOADED_OPERATOR(Name, Spelling, Token, Unary, Binary, MemberOnly)  \
+  case OO_##Name:                                                              \
+    return prefix + "operator." #Name;
+#include "clang/Basic/OperatorKinds.def"
+    default:
+      break;
+    }
+  }
+  llvm_unreachable("unknown overloaded operator type");
+}
+
 std::string getAstTypeName(QualType type) {
   {
     QualType ty = {};
@@ -251,6 +277,20 @@ bool isMxNMatrix(QualType type, QualType *elemType, uint32_t *numRows,
   return false;
 }
 
+bool isInputPatch(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>())
+    return rt->getDecl()->getName() == "InputPatch";
+
+  return false;
+}
+
+bool isOutputPatch(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>())
+    return rt->getDecl()->getName() == "OutputPatch";
+
+  return false;
+}
+
 bool isSubpassInput(QualType type) {
   if (const auto *rt = type->getAs<RecordType>())
     return rt->getDecl()->getName() == "SubpassInput";
@@ -308,10 +348,24 @@ bool isResourceType(QualType type) {
     type = type->getAsArrayTypeUnsafe()->getElementType();
   }
 
-  if (isSubpassInput(type) || isSubpassInputMS(type))
+  if (isSubpassInput(type) || isSubpassInputMS(type) || isInputPatch(type) ||
+      isOutputPatch(type))
     return true;
 
   return hlsl::IsHLSLResourceType(type);
+}
+
+bool isUserDefinedRecordType(const ASTContext &astContext, QualType type) {
+  if (const auto *rt = type->getAs<RecordType>()) {
+    if (rt->getDecl()->getName() == "mips_slice_type" ||
+        rt->getDecl()->getName() == "sample_slice_type") {
+      return false;
+    }
+  }
+  return type->getAs<RecordType>() != nullptr && !isResourceType(type) &&
+         !isMatrixOrArrayOfMatrix(astContext, type) &&
+         !isScalarOrVectorType(type, nullptr, nullptr) &&
+         !isArrayType(type, nullptr, nullptr);
 }
 
 bool isOrContains16BitType(QualType type, bool enable16BitTypesOption) {

@@ -941,6 +941,15 @@ SpirvDebugFunction *SpirvBuilder::createDebugFunction(
   return inst;
 }
 
+SpirvDebugFunctionDefinition *
+SpirvBuilder::createDebugFunctionDef(SpirvDebugFunction *function,
+                                     SpirvFunction *fn) {
+  auto *inst = new (context) SpirvDebugFunctionDefinition(function, fn);
+  assert(insertPoint && "null insert point");
+  insertPoint->addInstruction(inst);
+  return inst;
+}
+
 SpirvInstruction *
 SpirvBuilder::createRayQueryOpsKHR(spv::Op opcode, QualType resultType,
                                    ArrayRef<SpirvInstruction *> operands,
@@ -958,6 +967,23 @@ SpirvInstruction *SpirvBuilder::createReadClock(SpirvInstruction *scope,
   assert(scope->getAstResultType()->isIntegerType());
   auto *inst =
       new (context) SpirvReadClock(astContext.UnsignedLongLongTy, scope, loc);
+  insertPoint->addInstruction(inst);
+  return inst;
+}
+
+SpirvInstruction *SpirvBuilder::createSpirvIntrInstExt(
+    uint32_t opcode, QualType retType,
+    llvm::ArrayRef<SpirvInstruction *> operands,
+    llvm::ArrayRef<llvm::StringRef> extensions, llvm::StringRef instSet,
+    llvm::ArrayRef<uint32_t> capablities, SourceLocation loc) {
+  assert(insertPoint && "null insert point");
+
+  SpirvExtInstImport *set =
+      (instSet.size() == 0) ? nullptr : getExtInstSet(instSet);
+
+  auto *inst = new (context) SpirvIntrinsicInstruction(
+      retType->isVoidType() ? QualType() : retType, opcode, operands,
+      extensions, set, capablities, loc);
   insertPoint->addInstruction(inst);
   return inst;
 }
@@ -1169,8 +1195,9 @@ SpirvExtInstImport *SpirvBuilder::getExtInstSet(llvm::StringRef extName) {
   return set;
 }
 
-SpirvExtInstImport *SpirvBuilder::getOpenCLDebugInfoExtInstSet() {
-  return getExtInstSet("OpenCL.DebugInfo.100");
+SpirvExtInstImport *SpirvBuilder::getDebugInfoExtInstSet(bool vulkanDebugInfo) {
+  return getExtInstSet(vulkanDebugInfo ? "NonSemantic.Shader.DebugInfo.100"
+                                       : "OpenCL.DebugInfo.100");
 }
 
 SpirvVariable *SpirvBuilder::addStageIOVar(QualType type,
@@ -1411,6 +1438,27 @@ void SpirvBuilder::decorateLinkage(SpirvInstruction *targetInst,
         srcLoc, targetFunc, spv::Decoration::LinkageAttributes, operands);
   }
   assert(decor != nullptr);
+  mod->addDecoration(decor);
+}
+
+void SpirvBuilder::decorateLiterals(SpirvInstruction *targetInst,
+                                    unsigned decorate, unsigned *literal,
+                                    unsigned literalSize,
+                                    SourceLocation srcLoc) {
+  SmallVector<uint32_t, 2> operands(literal, literal + literalSize);
+  SpirvDecoration *decor = new (context) SpirvDecoration(
+      srcLoc, targetInst, static_cast<spv::Decoration>(decorate), operands);
+  assert(decor != nullptr);
+  mod->addDecoration(decor);
+}
+
+void SpirvBuilder::decorateString(SpirvInstruction *target, unsigned decorate,
+                                  llvm::StringRef strLiteral,
+                                  llvm::Optional<uint32_t> memberIdx) {
+
+  auto *decor = new (context) SpirvDecoration(
+      target->getSourceLocation(), target,
+      static_cast<spv::Decoration>(decorate), strLiteral, memberIdx);
   mod->addDecoration(decor);
 }
 

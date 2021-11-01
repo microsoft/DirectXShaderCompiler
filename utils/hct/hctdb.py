@@ -411,6 +411,8 @@ class db_dxil(object):
         for i in "AnnotateHandle,CreateHandleFromBinding,CreateHandleFromHeap".split(","):
             self.name_idx[i].category = "Get handle from heap"
             self.name_idx[i].shader_model = 6,6
+        for i in "AnnotateHandle,CreateHandleFromBinding".split(","):
+            self.name_idx[i].shader_model_translated = 6,0
         for i in "Dot4AddU8Packed,Dot4AddI8Packed,Dot2AddHalf".split(","):
             self.name_idx[i].category = "Dot product with accumulate"
             self.name_idx[i].shader_model = 6,4

@@ -89,7 +89,10 @@ private:
     m_DM = &M.GetOrCreateDxilModule();
     m_uVReg = 0;
     m_MST.reset(new llvm::ModuleSlotTracker(&M));
-    m_MST->incorporateFunction(*PIXPassHelpers::GetEntryFunction(*m_DM));
+    auto functions = m_DM->GetExportedFunctions();
+    for (auto& fn : functions) {
+      m_MST->incorporateFunction(*fn);
+    }
   }
 };
 
@@ -108,9 +111,12 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
   }
 
   std::uint32_t InstNum = 0;
-  for (llvm::Instruction &I : llvm::inst_range(PIXPassHelpers::GetEntryFunction(*m_DM))) {
-    if (!llvm::isa<llvm::DbgDeclareInst>(&I)) {
-      pix_dxil::PixDxilInstNum::AddMD(M.getContext(), &I, InstNum++);
+  auto blocks = PIXPassHelpers::GetAllBlocks(*m_DM);
+  for(auto * block : blocks) {
+    for (llvm::Instruction& I : block->getInstList()) {
+      if (!llvm::isa<llvm::DbgDeclareInst>(&I)) {
+        pix_dxil::PixDxilInstNum::AddMD(M.getContext(), &I, InstNum++);
+      }
     }
   }
 
@@ -126,12 +132,16 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
     *OSOverride << "\nBegin - dxil values to virtual register mapping\n";
   }
 
-  for (llvm::Instruction &I : llvm::inst_range(PIXPassHelpers::GetEntryFunction(*m_DM))) {
-    AnnotateValues(&I);
+  for (auto* block : blocks) {
+    for (llvm::Instruction& I : block->getInstList()) {
+      AnnotateValues(&I);
+    }
   }
 
-  for (llvm::Instruction &I : llvm::inst_range(PIXPassHelpers::GetEntryFunction(*m_DM))) {
-    AnnotateStore(&I);
+  for (auto* block : blocks) {
+    for (llvm::Instruction& I : block->getInstList()) {
+      AnnotateStore(&I);
+    }
   }
 
   if (OSOverride != nullptr) {

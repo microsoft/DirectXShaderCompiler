@@ -432,7 +432,7 @@ static Triple::OSType parseOS(StringRef OSName) {
     .StartsWith("cuda", Triple::CUDA)
     .StartsWith("nvcl", Triple::NVCL)
     .StartsWith("amdhsa", Triple::AMDHSA)
-    .StartsWith("dx", Triple::DirectX)    // HLSL Change
+    .Case("dx", Triple::DirectX)    // HLSL Change - For DirectX this must match
     .StartsWith("ps4", Triple::PS4)
     .Default(Triple::UnknownOS);
 }

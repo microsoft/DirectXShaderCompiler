@@ -320,6 +320,14 @@ static bool handleVkShiftArgs(const InputArgList &args, OptSpecifier id,
   }
   return true;
 }
+
+namespace {
+
+/// Maximum size of OpString instruction minus two operands
+static const uint32_t kDefaultMaximumSourceLength = 0xFFFDu;
+static const uint32_t kTestingMaximumSourceLength = 13u;
+
+}
 #endif
 // SPIRV Change Ends
 
@@ -446,8 +454,15 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   } else {
     try {
       opts.HLSLVersion = std::stoul(std::string(ver));
-      if (opts.HLSLVersion < 2015 || opts.HLSLVersion > 2018) {
-        errors << "Unknown HLSL version: " << opts.HLSLVersion;
+      switch (opts.HLSLVersion) {
+      case 2015:
+      case 2016:
+      case 2017:
+      case 2018:
+      case 2021:
+        break;
+      default:
+        errors << "Unknown HLSL version: " << opts.HLSLVersion << ". Valid versions: 2016, 2017, 2018, 2021";
         return 1;
       }
     }
@@ -473,6 +488,49 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
 
   if (opts.HLSLVersion <= 2016) {
     opts.EnableFXCCompatMode = true;
+  }
+
+  // If the HLSL version is 2021, allow the 2021 features by default.
+  // If the HLSL version is 2016 or 2018, allow them only
+  // when the individual option is enabled.
+  // If the HLSL version is 2015, dissallow these features
+  if (opts.HLSLVersion >= 2021) {
+    // Enable operator overloading in structs
+    opts.EnableOperatorOverloading = true;
+    // Enable template support
+    opts.EnableTemplates = true;
+    // Determine overload matching based on UDT names, not just types
+    opts.StrictUDTCasting = true;
+    // Experimental option to enable short-circuiting operators
+    opts.EnableShortCircuit = true;
+    // Enable bitfield support
+    opts.EnableBitfields = true;
+
+  } else {
+    opts.EnableOperatorOverloading = Args.hasFlag(OPT_enable_operator_overloading, OPT_INVALID, false);
+    opts.EnableTemplates = Args.hasFlag(OPT_enable_templates, OPT_INVALID, false);
+    opts.StrictUDTCasting = Args.hasFlag(OPT_strict_udt_casting, OPT_INVALID, false);
+    opts.EnableShortCircuit = Args.hasFlag(OPT_enable_short_circuit, OPT_INVALID, false);
+    opts.EnableBitfields = Args.hasFlag(OPT_enable_bitfields, OPT_INVALID, false);
+
+    if (opts.HLSLVersion <= 2015) {
+
+      if (opts.EnableOperatorOverloading)
+        errors << "/enable-operator-overloading is not supported with HLSL Version " << opts.HLSLVersion;
+      if (opts.EnableTemplates)
+        errors << "/enable-templates is not supported with HLSL Version " << opts.HLSLVersion;
+
+      if (opts.StrictUDTCasting)
+        errors << "/enable-udt-casting is not supported with HLSL Version " << opts.HLSLVersion;
+
+      if (opts.EnableShortCircuit)
+        errors << "/enable-short-circuit is not supported with HLSL Version " << opts.HLSLVersion;
+
+      if (opts.EnableBitfields)
+        errors << "/enable-bitfields is not supported with HLSL Version " << opts.HLSLVersion;
+
+      return 1;
+    }
   }
 
   // AssemblyCodeHex not supported (Fx)
@@ -695,6 +753,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
                               !Args.hasFlag(OPT_disable_lifetime_markers, OPT_INVALID, false);
   opts.EnablePayloadQualifiers = Args.hasFlag(OPT_enable_payload_qualifiers, OPT_INVALID,
                                             DXIL::CompareVersions(Major, Minor, 6, 7) >= 0); 
+
   if (DXIL::CompareVersions(Major, Minor, 6, 8) < 0) {
      opts.EnablePayloadQualifiers &= !Args.hasFlag(OPT_disable_payload_qualifiers, OPT_INVALID, false);
   }
@@ -885,6 +944,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.SpirvOptions.debugInfoFile = opts.SpirvOptions.debugInfoSource = false;
   opts.SpirvOptions.debugInfoLine = opts.SpirvOptions.debugInfoTool = false;
   opts.SpirvOptions.debugInfoRich = false;
+  opts.SpirvOptions.debugInfoVulkan = false;
+  opts.SpirvOptions.debugSourceLen = kDefaultMaximumSourceLength;
   if (Args.hasArg(OPT_fspv_debug_EQ)) {
     opts.DebugInfo = true;
     for (const Arg *A : Args.filtered(OPT_fspv_debug_EQ)) {
@@ -910,6 +971,26 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
         opts.SpirvOptions.debugInfoSource = true;
         opts.SpirvOptions.debugInfoLine = true;
         opts.SpirvOptions.debugInfoRich = true;
+      } else if (v == "vulkan") {
+        opts.SpirvOptions.debugInfoFile = true;
+        opts.SpirvOptions.debugInfoSource = false;
+        opts.SpirvOptions.debugInfoLine = true;
+        opts.SpirvOptions.debugInfoRich = true;
+        opts.SpirvOptions.debugInfoVulkan = true;
+      } else if (v == "vulkan-with-source") {
+        opts.SpirvOptions.debugInfoFile = true;
+        opts.SpirvOptions.debugInfoSource = true;
+        opts.SpirvOptions.debugInfoLine = true;
+        opts.SpirvOptions.debugInfoRich = true;
+        opts.SpirvOptions.debugInfoVulkan = true;
+      } else if (v == "vulkan-with-source-test") {
+        // For test purposes only
+        opts.SpirvOptions.debugInfoFile = true;
+        opts.SpirvOptions.debugInfoSource = true;
+        opts.SpirvOptions.debugInfoLine = true;
+        opts.SpirvOptions.debugInfoRich = true;
+        opts.SpirvOptions.debugInfoVulkan = true;
+        opts.SpirvOptions.debugSourceLen = kTestingMaximumSourceLength;
       } else {
         errors << "unknown SPIR-V debug info control parameter: " << v;
         return 1;
@@ -1013,6 +1094,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     opts.RWOpt.RemoveUnusedGlobals = Args.hasFlag(OPT_rw_remove_unused_globals, OPT_INVALID, false);
     opts.RWOpt.RemoveUnusedFunctions = Args.hasFlag(OPT_rw_remove_unused_functions, OPT_INVALID, false);
     opts.RWOpt.WithLineDirective = Args.hasFlag(OPT_rw_line_directive, OPT_INVALID, false);
+    opts.RWOpt.DeclGlobalCB =
+        Args.hasFlag(OPT_rw_decl_global_cb, OPT_INVALID, false);
     if (opts.EntryPoint.empty() &&
         (opts.RWOpt.RemoveUnusedGlobals || opts.RWOpt.ExtractEntryUniforms ||
          opts.RWOpt.RemoveUnusedFunctions)) {

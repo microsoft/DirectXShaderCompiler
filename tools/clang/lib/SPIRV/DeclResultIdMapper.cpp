@@ -1013,6 +1013,12 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
   VkImageFeatures vkImgFeatures = {
       var->getAttr<VKCombinedImageSamplerAttr>() != nullptr,
       getSpvImageFormat(var->getAttr<VKImageFormatAttr>())};
+  if (vkImgFeatures.format != spv::ImageFormat::Unknown) {
+    // Legalization is needed to propagate the correct image type for 
+    // instructions in addition to cases where the resource is assigned to
+    // another variable or function parameter
+    needsLegalization = true;
+  }
   if (vkImgFeatures.isCombinedImageSampler ||
       vkImgFeatures.format != spv::ImageFormat::Unknown) {
     spvContext.registerVkImageFeaturesForSpvVariable(varInstr, vkImgFeatures);
@@ -1403,9 +1409,9 @@ SpirvFunction *DeclResultIdMapper::getOrRegisterFn(const FunctionDecl *fn) {
   // definition is seen, the parameter types will be set properly and take into
   // account whether the function is a member function of a class/struct (in
   // which case a 'this' parameter is added at the beginnig).
-  SpirvFunction *spirvFunction =
-      spvBuilder.createSpirvFunction(fn->getReturnType(), fn->getLocation(),
-                                     fn->getName(), isPrecise, isNoInline);
+  SpirvFunction *spirvFunction = spvBuilder.createSpirvFunction(
+      fn->getReturnType(), fn->getLocation(),
+      getFunctionOrOperatorName(fn, true), isPrecise, isNoInline);
 
   if (fn->getAttr<HLSLExportAttr>()) {
     spvBuilder.decorateLinkage(nullptr, spirvFunction, fn->getName(),
@@ -1753,9 +1759,11 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
   // Returns false if the given StageVar is an input/output variable without
   // explicit location assignment. Otherwise, returns true.
   const auto locAssigned = [forInput, this](const StageVar &v) {
-    if (forInput == isInputStorageClass(v))
+    if (forInput == isInputStorageClass(v)) {
       // No need to assign location for builtins. Treat as assigned.
-      return v.isSpirvBuitin() || v.getLocationAttr() != nullptr;
+      return v.isSpirvBuitin() || v.hasLocOrBuiltinDecorateAttr() ||
+             v.getLocationAttr() != nullptr;
+    }
     // For the ones we don't care, treat as assigned.
     return true;
   };
@@ -1773,8 +1781,10 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
 
     for (const auto &var : stageVars) {
       // Skip builtins & those stage variables we are not handling for this call
-      if (var.isSpirvBuitin() || forInput != isInputStorageClass(var))
+      if (var.isSpirvBuitin() || var.hasLocOrBuiltinDecorateAttr() ||
+          forInput != isInputStorageClass(var)) {
         continue;
+      }
 
       const auto *attr = var.getLocationAttr();
       const auto loc = attr->getNumber();
@@ -1815,8 +1825,10 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
   LocationSet locSet;
 
   for (const auto &var : stageVars) {
-    if (var.isSpirvBuitin() || forInput != isInputStorageClass(var))
+    if (var.isSpirvBuitin() || var.hasLocOrBuiltinDecorateAttr() ||
+        forInput != isInputStorageClass(var)) {
       continue;
+    }
 
     if (var.getLocationAttr()) {
       // We have checked that not all of the stage variables have explicit
@@ -2419,6 +2431,23 @@ bool DeclResultIdMapper::createStageVars(
     if (stageVar.getStorageClass() == spv::StorageClass::Input ||
         stageVar.getStorageClass() == spv::StorageClass::Output) {
       stageVar.setEntryPoint(entryFunction);
+    }
+
+    if (decl->hasAttr<VKDecorateExtAttr>()) {
+      auto checkBuiltInLocationDecoration =
+          [&stageVar](const VKDecorateExtAttr *decoAttr) {
+            auto decorate =
+                static_cast<spv::Decoration>(decoAttr->getDecorate());
+            if (decorate == spv::Decoration::BuiltIn ||
+                decorate == spv::Decoration::Location) {
+              // This information will be used to avoid
+              // assigning multiple location decorations
+              // in finalizeStageIOLocations()
+              stageVar.setIsLocOrBuiltinDecorateAttr();
+            }
+          };
+      decorateWithIntrinsicAttrs(decl, varInstr,
+                                 checkBuiltInLocationDecoration);
     }
     stageVars.push_back(stageVar);
 
@@ -3960,6 +3989,32 @@ DeclResultIdMapper::createHullMainOutputPatch(const ParmVarDecl *param,
   assert(astDecls[param].instr == nullptr);
   astDecls[param].instr = hullMainOutputPatch;
   return hullMainOutputPatch;
+}
+
+
+template <typename Functor>
+void DeclResultIdMapper::decorateWithIntrinsicAttrs(const NamedDecl *decl,
+                                                    SpirvVariable *varInst,
+                                                    Functor func) {
+  if (!decl->hasAttrs())
+    return;
+
+  for (auto &attr : decl->getAttrs()) {
+    if (auto decoAttr = dyn_cast<VKDecorateExtAttr>(attr)) {
+      func(decoAttr);
+      spvBuilder.decorateLiterals(
+          varInst, decoAttr->getDecorate(), decoAttr->literal_begin(),
+          decoAttr->literal_size(), varInst->getSourceLocation());
+    } else if (auto decoAttr = dyn_cast<VKDecorateStringExtAttr>(attr)) {
+      spvBuilder.decorateString(varInst, decoAttr->getDecorate(),
+                                decoAttr->getLiterals());
+    }
+  }
+}
+
+void DeclResultIdMapper::decorateVariableWithIntrinsicAttrs(
+    const NamedDecl *decl, SpirvVariable *varInst) {
+  decorateWithIntrinsicAttrs(decl, varInst, [](VKDecorateExtAttr *) {});
 }
 
 } // end namespace spirv

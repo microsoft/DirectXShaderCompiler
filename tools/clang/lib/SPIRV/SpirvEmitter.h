@@ -94,6 +94,7 @@ private:
   void doFunctionDecl(const FunctionDecl *decl);
   void doVarDecl(const VarDecl *decl);
   void doRecordDecl(const RecordDecl *decl);
+  void doClassTemplateDecl(const ClassTemplateDecl *classTemplateDecl);
   void doEnumDecl(const EnumDecl *decl);
   void doHLSLBufferDecl(const HLSLBufferDecl *decl);
   void doImplicitDecl(const Decl *decl);
@@ -590,6 +591,8 @@ private:
   /// Process ray query intrinsics
   SpirvInstruction *processRayQueryIntrinsics(const CXXMemberCallExpr *expr,
                                               hlsl::IntrinsicOp opcode);
+  /// Process spirv intrinsic instruction
+  SpirvInstruction *processSpvIntrinsicCallExpr(const CallExpr *expr);
 
 private:
   /// Returns the <result-id> for constant value 0 of the given type.

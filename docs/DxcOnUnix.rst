@@ -87,11 +87,12 @@ You can follow these steps to build DXC on Linux/macOS:
 .. code:: sh
 
   cd <dxc-build-dir>
-  cmake <dxc-src-dir> -GNinja -DCMAKE_BUILD_TYPE=Release $(cat <dxc-src-dir>/utils/cmake-predefined-config-params)
+  cmake <dxc-src-dir> -GNinja -DCMAKE_BUILD_TYPE=Release -C <dxc-src-dir>/cmake/caches/PredefinedParams.cmake
   ninja
 
-Note that ``cmake-predefined-config-params`` file contains several cmake
-configurations that are needed for successful compilation. You can further
+Note that ``PredefinedParams.cmake`` is a cache script, which will execute
+before the main ``CMakeLists.txt`` file and initialize several cmake options
+that are needed for successful configuration and compilation. You can further
 customize your build by adding configurations at the end of the cmake command
 above.
 
@@ -128,7 +129,7 @@ You can follow these steps to build and run the tests:
   cd <dxc-build-dir>
   # Use SPIRV_BUILD_TESTS flag to enable building these tests.
   cmake <dxc-src-dir> \
-    $(cat <dxc-src-dir>/utils/cmake-predefined-config-params) \
+    -C <dxc-src-dir>/cmake/caches/PredefinedParams.cmake \
     -DCMAKE_BUILD_TYPE=Release -DSPIRV_BUILD_TESTS=ON \
     -GNinja
   # Build all targets. Includes 'dxc' and tests.

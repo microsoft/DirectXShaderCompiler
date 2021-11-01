@@ -151,6 +151,13 @@ TEST_F(FileTest, TriangleStreamTypes) {
   runFileTest("type.triangle-stream.hlsl");
 }
 
+TEST_F(FileTest, TemplateFunctionInstance) {
+  runFileTest("type.template.function.template-instance.hlsl");
+}
+TEST_F(FileTest, TemplateStructInstance) {
+  runFileTest("type.template.struct.template-instance.hlsl");
+}
+
 // For constants
 TEST_F(FileTest, ScalarConstants) { runFileTest("constant.scalar.hlsl"); }
 TEST_F(FileTest, 16BitDisabledScalarConstants) {
@@ -216,6 +223,22 @@ TEST_F(FileTest, GlobalsCBufferError) {
 
 TEST_F(FileTest, VarVFACEInterface) {
   runFileTest("var.vface.interface.hlsl", Expect::Warning);
+}
+
+TEST_F(FileTest, OperatorOverloadingAssign) {
+  runFileTest("operator.overloading.assign.hlsl");
+}
+TEST_F(FileTest, OperatorOverloadingCall) {
+  runFileTest("operator.overloading.call.hlsl");
+}
+TEST_F(FileTest, OperatorOverloadingStar) {
+  runFileTest("operator.overloading.star.hlsl");
+}
+TEST_F(FileTest, OperatorOverloadingMatrixMultiplication) {
+  runFileTest("operator.overloading.mat.mul.hlsl");
+}
+TEST_F(FileTest, OperatorOverloadingCorrectnessOfResourceTypeCheck) {
+  runFileTest("operator.overloading.resource.type.check.hlsl");
 }
 
 // For prefix/postfix increment/decrement
@@ -1316,10 +1339,15 @@ TEST_F(FileTest, IntrinsicsVkInvocationScope) {
 TEST_F(FileTest, IntrinsicsVkQueueFamilyScope) {
   runFileTest("intrinsics.vkqueuefamilyscope.hlsl");
 }
+TEST_F(FileTest, IntrinsicsSpirv) {
+  runFileTest("spv.intrinsicInstruction.hlsl");
+  runFileTest("spv.intrinsicLiteral.hlsl");
+  runFileTest("spv.intrinsicDecorate.hlsl", Expect::Success, false);
+  runFileTest("spv.intrinsic.reference.error.hlsl", Expect::Failure);
+}
 TEST_F(FileTest, IntrinsicsVkReadClock) {
   runFileTest("intrinsics.vkreadclock.hlsl");
 }
-
 // Intrinsics added in SM 6.6
 TEST_F(FileTest, IntrinsicsSM66PackU8S8) {
   runFileTest("intrinsics.sm6_6.pack_s8u8.hlsl");
@@ -1792,6 +1820,9 @@ TEST_F(FileTest, VulkanAttributeImageFormat) {
 TEST_F(FileTest, VulkanAttributeImageFormatO3) {
   runFileTest("vk.attribute.image-format.o3.hlsl");
 }
+TEST_F(FileTest, VulkanAttributeImageFormatSimple) {
+  runFileTest("vk.attribute.image-format.simple.hlsl", Expect::Success);
+}
 
 TEST_F(FileTest, VulkanCLOptionInvertYVS) {
   runFileTest("vk.cloption.invert-y.vs.hlsl");
@@ -1966,6 +1997,9 @@ TEST_F(FileTest, FlattenResourceArrayBindings2Optimized) {
 }
 TEST_F(FileTest, FlattenResourceArrayBindings3) {
   runFileTest("vk.binding.cl.flatten-arrays.example3.hlsl");
+}
+TEST_F(FileTest, FlattenResourceArrayAccessedByVarIndex) {
+  runFileTest("vk.binding.flatten-arrays.var-index.hlsl");
 }
 
 // For testing the "-auto-binding-space" command line option which specifies the
@@ -2659,6 +2693,12 @@ TEST_F(FileTest, MeshShadingNVAmplificationError4) {
   runFileTest("meshshading.nv.error3.amplification.hlsl", Expect::Failure);
 }
 
+TEST_F(FileTest, UseRValueForMemberExprOfArraySubscriptExpr) {
+  runFileTest("use.rvalue.for.member-expr.of.array-subscript.hlsl",
+              Expect::Success,
+              /* runValidation */ false);
+}
+
 TEST_F(FileTest, ReduceLoadSize) { runFileTest("reduce.load.size.hlsl"); }
 
 // Test OpEntryPoint in the Vulkan1.2 target environment
@@ -2920,6 +2960,18 @@ struct validType {
 // CHECK: %validType = OpTypeStruct %v4float
 // CHECK:    %output = OpTypeStruct %validType
 )"));
+}
+TEST_F(FileTest, ShaderDebugInfoFunction) {
+  runFileTest("shader.debug.function.hlsl");
+}
+TEST_F(FileTest, ShaderDebugInfoDebugLexicalBlock) {
+  runFileTest("shader.debug.debuglexicalblock.hlsl");
+}
+TEST_F(FileTest, ShaderDebugInfoSource) {
+  runFileTest("shader.debug.source.hlsl");
+}
+TEST_F(FileTest, ShaderDebugInfoSourceContinued) {
+  runFileTest("shader.debug.sourcecontinued.hlsl");
 }
 
 } // namespace
