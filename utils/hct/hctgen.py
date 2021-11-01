@@ -38,8 +38,8 @@ def writeCodeTag(args):
     eprint('Writing %s requires --input' % args.mode)
     return 1
 
-  args = [args.input, args.output]
-  result = CodeTags.main(args)
+  argsList = [args.input, args.output]
+  result = CodeTags.main(argsList, args.force_lf)
   return 0
   
 def openOutput(args):
