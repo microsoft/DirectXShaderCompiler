@@ -1,4 +1,4 @@
-// Run: %dxc -T cs_6_0 -E main -Zi
+// RUN: %dxc -T cs_6_0 -E main -Zi
 
 #include "DoesntExist.hlsl"
 

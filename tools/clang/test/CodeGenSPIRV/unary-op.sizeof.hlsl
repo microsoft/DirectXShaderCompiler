@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_2 -E main -HV 2018 -enable-16bit-types
+// RUN: %dxc -T ps_6_2 -E main -HV 2018 -enable-16bit-types
 
 struct PSInput
 {

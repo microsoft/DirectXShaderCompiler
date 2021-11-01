@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 // CHECK: [[v2int_1_0:%\d+]] = OpConstantComposite %v2int %int_1 %int_0
 // CHECK: [[v3int_0_2_n3:%\d+]] = OpConstantComposite %v3int %int_0 %int_2 %int_n3

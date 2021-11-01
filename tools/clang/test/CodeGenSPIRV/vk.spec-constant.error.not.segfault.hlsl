@@ -1,4 +1,4 @@
-// Run: %dxc -T cs_6_0 -E main
+// RUN: %dxc -T cs_6_0 -E main
 
 [[vk::binding(0)]] RWByteAddressBuffer src;
 #define LOCAL_SIZE 32

@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main
 
 struct S {
     [[vk::location(2)]] int    a: A; // In nested struct --- A -> 2

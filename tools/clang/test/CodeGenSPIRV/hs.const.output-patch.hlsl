@@ -1,4 +1,4 @@
-// Run: %dxc -T hs_6_0 -E main
+// RUN: %dxc -T hs_6_0 -E main
 
 struct HSCtrlPt {
   float4 ctrlPt : CONTROLPOINT;

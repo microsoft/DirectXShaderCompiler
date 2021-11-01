@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main
 
 // CHECK:      OpCapability ShaderViewportIndexLayerEXT
 // CHECK:      OpExtension "SPV_EXT_shader_viewport_index_layer"

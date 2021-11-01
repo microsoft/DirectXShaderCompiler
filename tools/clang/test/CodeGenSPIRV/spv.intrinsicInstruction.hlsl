@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main
 
 // CHECK: OpCapability ShaderClockKHR
 // CHECK: {{%\d+}} = OpExtInstImport "GLSL.std.450"

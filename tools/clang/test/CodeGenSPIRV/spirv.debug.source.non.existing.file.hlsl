@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -Zi
+// RUN: %dxc -T ps_6_0 -E main -Zi
 
 // CHECK: OpString "non_existing_file.txt"
 

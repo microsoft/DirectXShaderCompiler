@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main
 
 // CHECK: %counter_var_rw = OpVariable %_ptr_Uniform_type_ACSBuffer_counter Uniform
 // CHECK: %counter_var_t_1_0 = OpVariable %_ptr_Private__ptr_Uniform_type_ACSBuffer_counter Private

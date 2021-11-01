@@ -1,4 +1,4 @@
-// Run: %dxc -T cs_6_2 -E main -enable-16bit-types
+// RUN: %dxc -T cs_6_2 -E main -enable-16bit-types
 
 void foo(float16_t2x3 param[3]) {}
 

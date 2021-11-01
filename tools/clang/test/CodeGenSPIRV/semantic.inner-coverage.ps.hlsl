@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 // CHECK:      OpCapability FragmentFullyCoveredEXT
 // CHECK:      OpExtension "SPV_EXT_fragment_fully_covered"

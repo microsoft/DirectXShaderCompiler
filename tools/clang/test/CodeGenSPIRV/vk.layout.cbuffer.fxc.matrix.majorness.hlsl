@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -fvk-use-dx-layout
+// RUN: %dxc -T ps_6_0 -E main -fvk-use-dx-layout
 
 // CHECK: OpDecorate [[type_of_foo:%\w+]] ArrayStride 16
 // CHECK: OpDecorate %_arr_mat2v3float_uint_7 ArrayStride 48

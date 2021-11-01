@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main
 
 [[vk::location(5), vk::builtin("HelperInvocation")]]
 int main() : A
