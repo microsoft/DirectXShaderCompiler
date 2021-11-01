@@ -1862,7 +1862,7 @@ TEST_F(FileTest, VulkanLocationPartiallyAssigned) {
 std::string getStageLocationReassignTestShader(const std::string &typeDef,
                                                const std::string &stageVar,
                                                const std::string &check) {
-  const std::string command(R"(// Run: %dxc -T vs_6_0 -E main)");
+  const std::string command(R"(// RUN: %dxc -T vs_6_0 -E main)");
   const std::string shader = command + typeDef + R"(
 [[vk::location(3)]]                   // first use
 float main(
@@ -2864,7 +2864,7 @@ TEST_F(FileTest, RichDebugInfoTypeStructuredBuffer) {
 }
 
 TEST_F(FileTest, InlinedCodeTest) {
-  const std::string command(R"(// Run: %dxc -T ps_6_0 -E PSMain)");
+  const std::string command(R"(// RUN: %dxc -T ps_6_0 -E PSMain)");
   const std::string code = command + R"(
 struct PSInput
 {
@@ -2880,7 +2880,7 @@ float4 PSMain(PSInput input) : SV_TARGET
 }
 
 TEST_F(FileTest, InlinedCodeWithErrorTest) {
-  const std::string command(R"(// Run: %dxc -T ps_6_0 -E PSMain)");
+  const std::string command(R"(// RUN: %dxc -T ps_6_0 -E PSMain)");
   const std::string code = command + R"(
 struct PSInput
 {
@@ -2898,7 +2898,7 @@ float4 PSMain(PSInput input) : SV_TARGET
 std::string getVertexPositionTypeTestShader(const std::string &subType,
                                             const std::string &positionType,
                                             const std::string &check) {
-  const std::string command(R"(// Run: %dxc -T vs_6_0 -E main)");
+  const std::string command(R"(// RUN: %dxc -T vs_6_0 -E main)");
   const std::string code = command + subType + R"(
 struct output {
 )" + positionType + R"(

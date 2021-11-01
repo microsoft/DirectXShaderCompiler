@@ -16,7 +16,7 @@ namespace clang {
 namespace spirv {
 
 namespace {
-const char hlslStartLabel[] = "// Run:";
+const char hlslStartLabel[] = "// RUN:";
 const char spirvStartLabel[] = "// CHECK-WHOLE-SPIR-V:";
 } // namespace
 
@@ -64,7 +64,7 @@ bool WholeFileTest::parseInputFile() {
   }
 
   if (!foundRunCommand) {
-    fprintf(stderr, "Error: Missing \"Run:\" command.\n");
+    fprintf(stderr, "Error: Missing \"RUN:\" command.\n");
     return false;
   }
   if (!parseSpirv) {
