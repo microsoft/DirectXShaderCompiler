@@ -382,14 +382,15 @@ void PassManagerBuilder::populateModulePassManager(
       MPM.add(createDeadCodeEliminationPass());
       MPM.add(createGlobalDCEPass());
       MPM.add(createDxilMutateResourceToHandlePass());
-      MPM.add(createDxilLowerCreateHandleForLibPass());
       MPM.add(createDxilCleanupAnnotateHandlePass());
+      MPM.add(createDxilLowerCreateHandleForLibPass());
       MPM.add(createDxilTranslateRawBuffer());
       MPM.add(createDxilLegalizeSampleOffsetPass());
       MPM.add(createDxilNoOptLegalizePass());
       MPM.add(createDxilFinalizePreservesPass());
       MPM.add(createDxilFinalizeModulePass());
       MPM.add(createComputeViewIdStatePass());
+      MPM.add(createDeadCodeEliminationPass());
       MPM.add(createDxilDeadFunctionEliminationPass());
       MPM.add(createNoPausePassesPass());
       MPM.add(createDxilEmitMetadataPass());
@@ -683,9 +684,10 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createDeadCodeEliminationPass());
     MPM.add(createGlobalDCEPass());
     MPM.add(createDxilMutateResourceToHandlePass());
-    MPM.add(createDxilLowerCreateHandleForLibPass());
     MPM.add(createDxilCleanupAnnotateHandlePass());
+    MPM.add(createDxilLowerCreateHandleForLibPass());
     MPM.add(createDxilTranslateRawBuffer());
+    MPM.add(createDeadCodeEliminationPass());
     // Always try to legalize sample offsets as loop unrolling
     // is not guaranteed for higher opt levels.
     MPM.add(createDxilLegalizeSampleOffsetPass());
