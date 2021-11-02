@@ -1643,6 +1643,53 @@ automatically be applied according to ``-fvk-*shift N M``.
       CBUFFER
       CONSTANTBUFFER
 
+Binding number assignment for resources in cbuffer
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Basically, we use the same binding assignment rule described above for a
+cbuffer, but when a cbuffer contains one or more resources, it is inevitable
+to use multiple binding numbers for a single cbuffer. For this type of
+cbuffers, we first assign the next available binding number to the resources.
+Based the order of the appearance in the cbuffer, a resource that appears early
+uses a smaller (earlier available) binding number than a resource that appears
+later. After assigning binding numbers to all resource members, if the cbuffer
+contains one or more members with non-resource types, it creates a struct for
+the remaining members and assign the next available binding number to the
+variable with the struct type.
+
+For example, the binding numbers for the following resources and cbuffers
+
+.. code:: hlsl
+  cbuffer buf0 : register(b0) {
+    float4 non_resource0;
+  };
+  cbuffer buf1 : register(b4) {
+    float4 non_resource1;
+  };
+  cbuffer buf2 {
+    float4 non_resource2;
+    Texture2D resource0;
+    SamplerState resource1;
+  };
+  cbuffer buf3 : register(b2) {
+    SamplerState resource2;
+  }
+
+will be
+
+- ``buf0``: 0 because of ``register(b0)``
+
+- ``buf1``: 4 because of ``register(b4)``
+
+- ``resource2``: 2 because of ``register(b2)``. Note that ``buf3`` is empty
+  without ``resource2``. We do not assign a binding number to an empty struct.
+
+- ``resource0``: 1 because it is the next available binding number.
+
+- ``resource1``: 3 because it is the next available binding number.
+
+- ``buf2`` including only ``non_resource2``: 5 because it is the next available
+  binding number.
 
 Summary
 ~~~~~~~
