@@ -38,6 +38,7 @@
 #include "llvm/Support/Compiler.h"
 #include "dxc/Support/WinIncludes.h"
 #include <system_error>
+#include <synchapi.h>
 #include <wincrypt.h>
 #include <cassert>
 #include <string>
