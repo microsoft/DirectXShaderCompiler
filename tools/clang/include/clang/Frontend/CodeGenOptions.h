@@ -246,6 +246,12 @@ public:
   bool HLSLEnablePayloadAccessQualifiers = false;
   /// Binding table for HLSL resources
   hlsl::DxcBindingTable HLSLBindingTable;
+  /// Binding table #define
+  struct BindingTableParserType {
+    virtual ~BindingTableParserType() {};
+    virtual bool Parse(llvm::raw_ostream &os, hlsl::DxcBindingTable *outBindingTable) = 0;
+  };
+  std::shared_ptr<BindingTableParserType> BindingTableParser;
   // HLSL Change Ends
 
   // SPIRV Change Starts
