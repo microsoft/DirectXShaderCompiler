@@ -14,6 +14,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/Operator.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Support/MD5.h"
 #include "llvm/ADT/STLExtras.h"
@@ -1285,7 +1286,8 @@ private:
   uint32_t AddShaderInfo(llvm::Function &function,
                          const DxilEntryProps &entryProps,
                          RuntimeDataFunctionInfo2 &funcInfo,
-                         const ShaderFlags &flags) {
+                         const ShaderFlags &flags,
+                         uint32_t tgsmSizeInBytes) {
     const DxilFunctionProps &props = entryProps.props;
     const DxilEntrySignature &sig = entryProps.sig;
     if (props.waveSize) {
@@ -1353,6 +1355,7 @@ private:
       info.NumThreads =
           m_pIndexArraysPart->AddIndex(&props.ShaderProps.CS.numThreads[0],
                                        &props.ShaderProps.CS.numThreads[0] + 3);
+      info.GroupSharedBytesUsed = tgsmSizeInBytes;
       return m_pCSInfoTable->Insert(info);
     } break;
     case ShaderKind::Mesh: {
@@ -1364,7 +1367,7 @@ private:
       info.NumThreads =
           m_pIndexArraysPart->AddIndex(&props.ShaderProps.MS.numThreads[0],
                                        &props.ShaderProps.MS.numThreads[0] + 3);
-      info.GroupSharedBytesUsed = (uint32_t)0xFFFFFFFF; // TODO: fill this in by walking functions and groupshared global usage
+      info.GroupSharedBytesUsed = tgsmSizeInBytes;
       info.GroupSharedBytesDependentOnViewID = (uint32_t)0; // TODO: same thing (note: this isn't filled in for PSV!)
       info.PayloadSizeInBytes = (uint32_t)props.ShaderProps.MS.payloadSizeInBytes;
       info.MaxOutputVertices = (uint16_t)props.ShaderProps.MS.maxVertexCount;
@@ -1377,7 +1380,7 @@ private:
       info.NumThreads =
           m_pIndexArraysPart->AddIndex(&props.ShaderProps.AS.numThreads[0],
                                        &props.ShaderProps.AS.numThreads[0] + 3);
-      info.GroupSharedBytesUsed = (uint32_t)0xFFFFFFFF; // TODO: fill this in by walking functions and groupshared global usage
+      info.GroupSharedBytesUsed = tgsmSizeInBytes;
       info.PayloadSizeInBytes = (uint32_t)props.ShaderProps.AS.payloadSizeInBytes;
       return m_pASInfoTable->Insert(info);
     } break;
@@ -1386,13 +1389,14 @@ private:
   }
 
   void UpdateFunctionInfo(const DxilModule &DM) {
+    llvm::Module *M = DM.GetModule();
     // We must select the appropriate shader mask for the validator version,
     // so we don't set any bits the validator doesn't recognize.
     unsigned ValidShaderMask = (1 << ((unsigned)DXIL::ShaderKind::Amplification + 1)) - 1;
     if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 5) < 0) {
       ValidShaderMask = (1 << ((unsigned)DXIL::ShaderKind::Callable + 1)) - 1;
     }
-    for (auto &function : DM.GetModule()->getFunctionList()) {
+    for (auto &function : M->getFunctionList()) {
       if (function.isDeclaration() && !function.isIntrinsic() &&
           function.getLinkage() == llvm::GlobalValue::LinkageTypes::ExternalLinkage) {
         if (OP::IsDxilOpFunc(&function)) {
@@ -1407,7 +1411,45 @@ private:
     if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 7) >= 0) {
       m_pFunctionTable->SetRecordStride(sizeof(RuntimeDataFunctionInfo2));
     }
-    for (auto &function : DM.GetModule()->getFunctionList()) {
+
+    // Collect total groupshared memory potentially used by every function
+    const DataLayout &DL = M->getDataLayout();
+    ValueMap<const Function *, uint32_t> TGSMInFunc;
+    // Initialize all function TGSM usage to zero
+    for (auto &function : M->getFunctionList()) {
+      TGSMInFunc[&function] = 0;
+    }
+    for (GlobalVariable &GV : M->globals()) {
+      if (GV.getType()->getAddressSpace() == DXIL::kTGSMAddrSpace) {
+        SmallPtrSet<llvm::Function *, 8> completeFuncs;
+        SmallVector<User *, 16> WorkList;
+        uint32_t gvSize = DL.getTypeAllocSize(GV.getType()->getElementType());
+
+        WorkList.append(GV.user_begin(), GV.user_end());
+
+        while (!WorkList.empty()) {
+          User *U = WorkList.pop_back_val();
+          // If const, keep going until we find something we can use
+          if (isa<Constant>(U)) {
+            WorkList.append(U->user_begin(), U->user_end());
+            continue;
+          }
+
+          if (Instruction *I = dyn_cast<Instruction>(U)) {
+            llvm::Function *F = I->getParent()->getParent();
+            if (completeFuncs.insert(F).second) {
+              // If function is new, process it and its users
+              // Add users to the worklist
+              WorkList.append(F->user_begin(), F->user_end());
+              // Add groupshared size to function's total
+              TGSMInFunc[F] += gvSize;
+            }
+          }
+        }
+      }
+    }
+
+    for (auto &function : M->getFunctionList()) {
       if (!function.isDeclaration()) {
         StringRef mangled = function.getName();
         StringRef unmangled = hlsl::dxilutil::DemangleFunctionName(function.getName());
@@ -1451,7 +1493,7 @@ private:
           shaderKind = (uint32_t)props.shaderKind;
           if (pInfo2 && DM.HasDxilEntryProps(&function)) {
             const auto &entryProps = DM.GetDxilEntryProps(&function);
-            shaderInfo = AddShaderInfo(function, entryProps, *pInfo2, flags);
+            shaderInfo = AddShaderInfo(function, entryProps, *pInfo2, flags, TGSMInFunc[&function]);
           }
         }
         info.Name = mangledIndex;

@@ -330,6 +330,7 @@ RDAT_STRUCT_END()
 #define RECORD_TYPE CSInfo
 RDAT_STRUCT_TABLE(CSInfo, CSInfoTable)
   RDAT_INDEX_ARRAY_REF(NumThreads)  // ref to array of X, Y, Z.  If < 3 elements, default value is 1
+  RDAT_VALUE(uint32_t, GroupSharedBytesUsed)
 RDAT_STRUCT_END()
 #undef RECORD_TYPE
 
