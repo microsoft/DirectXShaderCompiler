@@ -216,8 +216,25 @@ namespace {
 
       // HLSL Change Begins
 
-      // Add resource binding overrides to the metadata.
-      hlsl::WriteBindingTableToMetadata(*M, CodeGenOpts.HLSLBindingTable);
+      if (CodeGenOpts.BindingTableParser) {
+        hlsl::DxcBindingTable bindingTable;
+        std::string errors;
+        llvm::raw_string_ostream os(errors);
+
+        if (!CodeGenOpts.BindingTableParser->Parse(os, &bindingTable)) {
+          os.flush();
+          unsigned DiagID = Diags.getCustomDiagID(
+                DiagnosticsEngine::Error, "%0");
+          Diags.Report(DiagID) << errors;
+        }
+        else {
+          hlsl::WriteBindingTableToMetadata(*M, bindingTable);
+        }
+      }
+      else {
+        // Add resource binding overrides to the metadata.
+        hlsl::WriteBindingTableToMetadata(*M, CodeGenOpts.HLSLBindingTable);
+      }
 
       // Error may happen in Builder->Release for HLSL
       if (CodeGenOpts.HLSLEmbedSourcesInModule) {
