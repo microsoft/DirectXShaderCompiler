@@ -28,6 +28,9 @@ namespace {
 static const uint32_t kMaximumCharOpSource = 0xFFFA;
 static const uint32_t kMaximumCharOpSourceContinued = 0xFFFD;
 
+// Since OpSource does not have a result id, this is used to mark it was emitted
+static const uint32_t kEmittedSourceForOpSource = 1; 
+
 /// Chops the given original string into multiple smaller ones to make sure they
 /// can be encoded in a sequence of OpSourceContinued instructions following an
 /// OpSource instruction.
@@ -83,6 +86,23 @@ bool isOpLineLegalForOp(spv::Op op) {
   case spv::Op::OpDecorationGroup:
   case spv::Op::OpDecorateStringGOOGLE:
   case spv::Op::OpMemberDecorateStringGOOGLE:
+    return false;
+  default:
+    return true;
+  }
+}
+
+/// Returns true if DebugLine instruction can be emitted for the given OpCode.
+/// As a nonsemantic OpExtInst, there are several more ops that it cannot appear
+/// before than an OpLine. Assumes illegal ops for OpLine have already been
+/// eliminated.
+bool isDebugLineLegalForOp(spv::Op op) {
+  switch (op) {
+  case spv::Op::OpFunction:
+  case spv::Op::OpFunctionParameter:
+  case spv::Op::OpLabel:
+  case spv::Op::OpVariable:
+  case spv::Op::OpPhi:
     return false;
   default:
     return true;
@@ -236,6 +256,11 @@ void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc,
   if (!isOpLineLegalForOp(op))
     return;
 
+  // If emitting Debug[No]Line, since it is an nonsemantic OpExtInst, it can
+  // only appear in blocks after any OpPhi or OpVariable.
+  if (spvOptions.debugInfoVulkan && !isDebugLineLegalForOp(op))
+    return;
+
   // DebugGlobalVariable and DebugLocalVariable of rich DebugInfo already has
   // the line and the column information. We do not want to emit OpLine for
   // global variables and local variables. Instead, we want to emit OpLine for
@@ -248,7 +273,15 @@ void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc,
   if (loc == SourceLocation()) {
     if (!isDebugScope && (debugLine != 0 || debugColumn != 0)) {
       curInst.clear();
-      curInst.push_back(static_cast<uint32_t>(spv::Op::OpNoLine));
+      if (spvOptions.debugInfoVulkan) {
+        curInst.push_back(static_cast<uint32_t>(spv::Op::OpExtInst));
+        curInst.push_back(typeHandler.emitType(context.getVoidType()));
+        curInst.push_back(takeNextId());
+        curInst.push_back(debugInfoExtInstId);
+        curInst.push_back(104u); // DebugNoLine
+      } else {
+        curInst.push_back(static_cast<uint32_t>(spv::Op::OpNoLine));
+      }
       curInst[0] |= static_cast<uint32_t>(curInst.size()) << 16;
       section->insert(section->end(), curInst.begin(), curInst.end());
     }
@@ -291,26 +324,47 @@ void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc,
     debugColumn = column;
   }
 
+  if (emittedSource[fileId] == 0) {
+    if (!spvOptions.debugInfoVulkan) {
+      SpirvString *fileNameInst =
+          new (context) SpirvString(/*SourceLocation*/ {}, fileName);
+      visit(fileNameInst);
+      SpirvSource *src = new (context)
+          SpirvSource(/*SourceLocation*/ {}, spv::SourceLanguage::HLSL,
+                      hlslVersion, fileNameInst, "");
+      visit(src);
+      spvInstructions.push_back(src);
+      spvInstructions.push_back(fileNameInst);
+    } else {
+      SpirvDebugSource *src = new (context) SpirvDebugSource(fileName, "");
+      visit(src);
+      spvInstructions.push_back(src);
+    }
+  }
+
   curInst.clear();
-  curInst.push_back(static_cast<uint32_t>(spv::Op::OpLine));
-  curInst.push_back(fileId);
-  curInst.push_back(line);
-  curInst.push_back(column);
+  if (!spvOptions.debugInfoVulkan) {
+    curInst.push_back(static_cast<uint32_t>(spv::Op::OpLine));
+    curInst.push_back(fileId);
+    curInst.push_back(line);
+    curInst.push_back(column);
+  } else {
+    curInst.push_back(static_cast<uint32_t>(spv::Op::OpExtInst));
+    curInst.push_back(typeHandler.emitType(context.getVoidType()));
+    curInst.push_back(takeNextId());
+    curInst.push_back(debugInfoExtInstId);
+    curInst.push_back(103u); // DebugLine
+    curInst.push_back(emittedSource[fileId]);
+	// TODO(greg-lunarg): Emit true last line and column
+    uint32_t lineEncode = getLiteralEncodedForDebugInfo(line);
+    curInst.push_back(lineEncode);
+    curInst.push_back(lineEncode); // Last line
+    uint32_t columnEncode = getLiteralEncodedForDebugInfo(column);
+    curInst.push_back(columnEncode);
+    curInst.push_back(columnEncode); // Last column
+  }
   curInst[0] |= static_cast<uint32_t>(curInst.size()) << 16;
   section->insert(section->end(), curInst.begin(), curInst.end());
-
-  if (dumpedFiles.count(fileId) == 0) {
-    SpirvString *fileNameInst =
-        new (context) SpirvString(/*SourceLocation*/ {}, fileName);
-    visit(fileNameInst);
-    SpirvSource *src = new (context)
-        SpirvSource(/*SourceLocation*/ {}, spv::SourceLanguage::HLSL,
-                    hlslVersion, fileNameInst, "");
-    visit(src);
-    spvInstructions.push_back(fileNameInst);
-    spvInstructions.push_back(src);
-    dumpedFiles.insert(fileId);
-  }
 }
 
 void EmitVisitor::initInstruction(SpirvInstruction *inst) {
@@ -471,9 +525,16 @@ bool EmitVisitor::visit(SpirvExtension *ext) {
 
 bool EmitVisitor::visit(SpirvExtInstImport *inst) {
   initInstruction(inst);
-  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
-  encodeString(inst->getExtendedInstSetName());
+  uint32_t resultId = getOrAssignResultId<SpirvInstruction>(inst);
+  curInst.push_back(resultId);
+  StringRef setName = inst->getExtendedInstSetName();
+  encodeString(setName);
   finalizeInstruction(&preambleBinary);
+  // Remember id if needed later for DebugLine
+  if ((spvOptions.debugInfoVulkan &&
+       setName.equals("NonSemantic.Shader.DebugInfo.100")) ||
+      (!spvOptions.debugInfoVulkan && setName.equals("OpenCL.DebugInfo.100")))
+    debugInfoExtInstId = resultId;
   return true;
 }
 
@@ -534,9 +595,12 @@ bool EmitVisitor::visit(SpirvSource *inst) {
       debugMainFileId = fileId;
   }
 
-  if (dumpedFiles.count(fileId) != 0)
+  if (emittedSource[fileId] != 0)
     return true;
-  dumpedFiles.insert(fileId);
+
+  // If generating OpSource, no result id is generated so just need to
+  // remember it was emitted.
+  emittedSource[fileId] = kEmittedSourceForOpSource;
 
   initInstruction(inst);
   curInst.push_back(static_cast<uint32_t>(inst->getSourceLanguage()));
@@ -1267,15 +1331,16 @@ bool EmitVisitor::visit(SpirvDebugInfoNone *inst) {
 void EmitVisitor::generateDebugSource(uint32_t fileId, uint32_t textId,
                                       SpirvDebugSource *inst) {
   initInstruction(inst);
-  curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
-  curInst.push_back(
-      getOrAssignResultId<SpirvInstruction>(inst->getInstructionSet()));
+  curInst.push_back(typeHandler.emitType(context.getVoidType()));
+  uint32_t resultId = getOrAssignResultId<SpirvInstruction>(inst);
+  curInst.push_back(resultId);
+  curInst.push_back(debugInfoExtInstId);
   curInst.push_back(inst->getDebugOpcode());
   curInst.push_back(fileId);
   if (textId)
     curInst.push_back(textId);
   finalizeInstruction(&richDebugInfo);
+  emittedSource[fileId] = resultId;
 }
 
 void EmitVisitor::generateDebugSourceContinued(uint32_t textId,
@@ -1326,9 +1391,8 @@ bool EmitVisitor::visit(SpirvDebugSource *inst) {
   if (!debugMainFileId)
     debugMainFileId = fileId;
 
-  if (dumpedFiles.count(fileId) != 0)
+  if (emittedSource[fileId] != 0)
     return true;
-  dumpedFiles.insert(fileId);
 
   if (spvOptions.debugInfoVulkan) {
     generateChoppedSource(fileId, inst);
@@ -1348,7 +1412,8 @@ bool EmitVisitor::visit(SpirvDebugSource *inst) {
   }
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  uint32_t resultId = getOrAssignResultId<SpirvInstruction>(inst);
+  curInst.push_back(resultId);
   curInst.push_back(
       getOrAssignResultId<SpirvInstruction>(inst->getInstructionSet()));
   curInst.push_back(inst->getDebugOpcode());
@@ -1356,6 +1421,7 @@ bool EmitVisitor::visit(SpirvDebugSource *inst) {
   if (textId)
     curInst.push_back(textId);
   finalizeInstruction(&richDebugInfo);
+  emittedSource[fileId] = resultId;
   return true;
 }
 
