@@ -633,8 +633,13 @@ add_subdirectory(lib/TableGen)
 add_subdirectory(utils/TableGen)
 
 add_subdirectory(include/llvm)
-add_subdirectory(include/dxc/Support) # HLSL Change
-add_subdirectory(include/dxc/Tracing) # HLSL Change
+# HLSL - Change Start
+add_subdirectory(include/dxc)
+
+# This over-specifies the dependency graph, but since generating these doesn't
+# really depend on anything else in the build it is safe.
+list(APPEND LLVM_COMMON_DEPENDS HCTGen) 
+# HLSL - Change End
 
 add_subdirectory(lib)
 
@@ -714,6 +719,8 @@ endif()
 if (LLVM_INCLUDE_DOCS)
   add_subdirectory(docs)
 endif()
+
+add_hlsl_hctgen(DxilDocs OUTPUT docs/DXIL.rst CODE_TAG) # HLSL Change
 
 add_subdirectory(cmake/modules)
 
