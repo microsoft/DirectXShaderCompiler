@@ -3,6 +3,12 @@ set(LLVM_LINK_COMPONENTS
   Support
   )
 
+# HLSL Change Begin
+add_hlsl_hctgen(DxilIntrinsicTables BUILD_DIR OUTPUT gen_intrin_main_tables_15.h)
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
+list(APPEND LLVM_COMMON_DEPENDS DxilIntrinsicTables)
+# HLSL Change End
+
 add_clang_library(clangSema
   AnalysisBasedWarnings.cpp
   AttributeList.cpp

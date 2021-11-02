@@ -1177,6 +1177,9 @@ static const unsigned kHighestMinor = %d;"""%(highest_major, highest_minor)
 def get_dxil_version_minor():
     return "const unsigned kDxilMinor = %d;"%highest_minor
 
+def get_dxil_version_minor_int():
+    return highest_minor
+
 def get_is_shader_model_plus():
     result = ""
 
