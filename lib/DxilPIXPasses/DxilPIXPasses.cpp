@@ -27,20 +27,7 @@ namespace hlsl {
 HRESULT SetupRegistryPassForPIX() {
   try {
     PassRegistry &Registry = *PassRegistry::getPassRegistry();
-    /* <py::lines('INIT-PASSES')>hctdb_instrhelp.get_init_passes(set(["pix"]))</py>*/
-    // INIT-PASSES:BEGIN
-    initializeDxilAddPixelHitInstrumentationPass(Registry);
-    initializeDxilAnnotateWithVirtualRegisterPass(Registry);
-    initializeDxilDbgValueToDbgDeclarePass(Registry);
-    initializeDxilDebugInstrumentationPass(Registry);
-    initializeDxilForceEarlyZPass(Registry);
-    initializeDxilOutputColorBecomesConstantPass(Registry);
-    initializeDxilPIXAddTidToAmplificationShaderPayloadPass(Registry);
-    initializeDxilPIXMeshShaderOutputInstrumentationPass(Registry);
-    initializeDxilReduceMSAAToSingleSamplePass(Registry);
-    initializeDxilRemoveDiscardsPass(Registry);
-    initializeDxilShaderAccessTrackingPass(Registry);
-    // INIT-PASSES:END
+#include "DxilPIXPasses.inc"
   }
   CATCH_CPP_RETURN_HRESULT();
   return S_OK;
