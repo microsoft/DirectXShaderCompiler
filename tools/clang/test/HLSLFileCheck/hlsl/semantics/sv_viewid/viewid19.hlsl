@@ -1,4 +1,5 @@
-// RUN: %dxilver 1.1 | %dxc -E main -T vs_6_1 %s | FileCheck %s
+// RUN: %dxc -E main -T vs_6_1 %s | FileCheck %s
+// REQUIRES: dxilver-1.1
 
 // CHECK: Number of inputs: 7, outputs: 7
 // CHECK: Outputs dependent on ViewId: { 4, 5, 6 }

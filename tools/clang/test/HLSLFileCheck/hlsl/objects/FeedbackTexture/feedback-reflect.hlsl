@@ -1,4 +1,5 @@
 // RUN: %dxc -E main -T ps_6_5 %s | %D3DReflect %s | FileCheck %s
+// REQUIRES: system-windows
 
 // Test reflection for FeedbackTexture2D[Array]
 

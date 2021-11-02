@@ -1,4 +1,5 @@
-// RUN: %dxilver 1.2 | %dxc -E main -T ps_6_2 %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_2 %s | FileCheck %s
+// REQUIRES: dxilver-1.2
 
 // CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32
 // CHECK: trunc i32 %{{[a-zA-Z0-9]+}} to i16

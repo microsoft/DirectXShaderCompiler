@@ -1,4 +1,5 @@
-// RUN: %dxilver 1.2 | %dxc -E main -T ps_6_2 -enable-16bit-types %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_2 -enable-16bit-types %s | FileCheck %s
+// REQUIRES: dxilver-1.2
 
 // CHECK: Use native low precision
 // CHECK:   struct struct.Foo

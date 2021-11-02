@@ -1,4 +1,5 @@
-// RUN: %dxilver 1.2 | %dxc -E main -T ps_6_1 -HV 2017 %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_1 -HV 2017 %s | FileCheck %s
+// REQUIRES: dxilver-1.2
 
 // CHECK: dx.op.attributeAtVertex
 

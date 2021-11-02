@@ -1,4 +1,5 @@
 // RUN: %dxc -E VSMain -T vs_6_0 %s | %D3DReflect %s | FileCheck %s
+// REQUIRES: system-windows
 
 // CHECK: ID3D12ShaderReflection:
 // CHECK:   D3D12_SHADER_DESC:

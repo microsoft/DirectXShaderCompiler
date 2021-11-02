@@ -1,4 +1,6 @@
-// RUN: %dxilver 1.5 | %dxc -E RS -T rootsig_1_0 %s
+// RUN: %dxc -E RS -T rootsig_1_0 %s
+// REQUIRES: dxilver-1.5
+// TODO: No check lines found, we should update this
 // Test root signature compilation from expanded macro.
 
 #define YYY "DescriptorTable" "(SRV(t3))"

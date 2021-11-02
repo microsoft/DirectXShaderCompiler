@@ -1,4 +1,5 @@
-// RUN: %dxilver 1.2 | %dxc -enable-16bit-types -E test -T vs_6_2 %s | FileCheck %s
+// RUN: %dxc -enable-16bit-types -E test -T vs_6_2 %s | FileCheck %s
+// REQUIRES: dxilver-1.2
 
 // CHECK: @test
 

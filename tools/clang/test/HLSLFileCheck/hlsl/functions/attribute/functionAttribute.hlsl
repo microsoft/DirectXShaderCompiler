@@ -1,4 +1,5 @@
-// RUN: %dxilver 1.2 | %dxc -E main -T ps_6_2 -denorm ftz %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_2 -denorm ftz %s | FileCheck %s
+// REQUIRES: dxilver-1.2
 
 // CHECK: @main
 // CHECK: attributes #{{.*}} = { "fp32-denorm-mode"="ftz" }

@@ -1,4 +1,5 @@
-// RUN: %dxilver 1.1 | %dxc -E main -T ps_6_1 %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_1 %s | FileCheck %s
+// REQUIRES: dxilver-1.1
 
 // CHECK: There can only be up to two input attributes of SV_Barycentrics with different perspective interpolation mode.
 

@@ -1,4 +1,5 @@
 // RUN: %dxc -E main -T cs_6_2 %s | FileCheck %s
+// TODO: No check lines found, we should update this
 
 // Repro of GitHub #2299
 

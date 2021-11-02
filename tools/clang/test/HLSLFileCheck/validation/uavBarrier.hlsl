@@ -1,6 +1,6 @@
 // RUN: %dxc -E main -T ps_6_0 %s
 
-// CHECK: 
+// TODO: No check lines found, we should update this
 //at 0x1f56df38678 inside block entry of function main.flat Opcode must be defined in target shader model
 //at 0x1f56df384b8 inside block entry of function main.flat Opcode must be defined in target shader model
 //at 0x1f56df39478 inside block entry of function main.flat Opcode must be defined in target shader model

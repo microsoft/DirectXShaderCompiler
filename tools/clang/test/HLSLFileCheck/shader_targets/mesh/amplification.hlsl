@@ -1,5 +1,6 @@
 // RUN: %dxc -E main -T as_6_5 %s | FileCheck %s
 // RUN: %dxc -E main -T as_6_5 %s | %D3DReflect %s | FileCheck -check-prefix=REFL %s
+// REQUIRES: system-windows
 
 // CHECK: dx.op.dispatchMesh.struct.Payload
 

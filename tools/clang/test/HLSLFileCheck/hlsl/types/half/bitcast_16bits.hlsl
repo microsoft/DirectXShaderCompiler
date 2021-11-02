@@ -1,4 +1,5 @@
-// RUN: %dxilver 1.2 | %dxc -E main -T ps_6_2 -HV 2018 -enable-16bit-types %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_2 -HV 2018 -enable-16bit-types %s | FileCheck %s
+// REQUIRES: dxilver-1.2
 
 // CHECK: bitcast half %{{.*}} to i16
 // CHECK: bitcast i16 %{{.*}} to half

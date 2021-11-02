@@ -1,9 +1,10 @@
 // RUN: %dxc -DSTAGE=1 -T cs_6_6 %s | FileCheck %s
 // RUN: %dxc -DSTAGE=2 -T as_6_6 %s | FileCheck %s -check-prefixes=CHECK,ASMSCHECK
 // RUN: %dxc -DSTAGE=3 -T ms_6_6 %s | FileCheck %s -check-prefixes=CHECK,ASMSCHECK
-// RUN: %dxilver 1.6 | %dxc -DSTAGE=1 -T cs_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
-// RUN: %dxilver 1.6 | %dxc -DSTAGE=2 -T as_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
-// RUN: %dxilver 1.6 | %dxc -DSTAGE=3 -T ms_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
+// RUN: %dxc -DSTAGE=1 -T cs_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
+// RUN: %dxc -DSTAGE=2 -T as_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
+// RUN: %dxc -DSTAGE=3 -T ms_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
+// REQUIRES: dxilver-1.6
 
 #define CS 1
 #define AS 2

@@ -1,4 +1,5 @@
 // RUN: %dxc -auto-binding-space 13 -exports PSMain,PSMain_Clone1,PSMain_Clone2=PSMain -T lib_6_3 %s | %D3DReflect %s | FileCheck %s
+// REQUIRES: system-windows
 
 Buffer<int> T0;
 

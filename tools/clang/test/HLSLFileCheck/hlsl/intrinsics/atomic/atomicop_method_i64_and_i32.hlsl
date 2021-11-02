@@ -12,12 +12,13 @@
 // RUN: %dxc -DINTRIN=InterlockedOr64 -T ps_6_6 %s | FileCheck %s -check-prefix=CHECK64
 // RUN: %dxc -DINTRIN=InterlockedXor64 -T ps_6_6 %s | FileCheck %s -check-prefix=CHECK64
 
-// RUN: %dxilver 1.6 | %dxc -DINTRIN=InterlockedAdd64 -T ps_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
-// RUN: %dxilver 1.6 | %dxc -DINTRIN=InterlockedMin64 -T ps_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
-// RUN: %dxilver 1.6 | %dxc -DINTRIN=InterlockedMax64 -T ps_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
-// RUN: %dxilver 1.6 | %dxc -DINTRIN=InterlockedAnd64 -T ps_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
-// RUN: %dxilver 1.6 | %dxc -DINTRIN=InterlockedOr64 -T ps_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
-// RUN: %dxilver 1.6 | %dxc -DINTRIN=InterlockedXor64 -T ps_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
+// RUN: %dxc -DINTRIN=InterlockedAdd64 -T ps_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
+// RUN: %dxc -DINTRIN=InterlockedMin64 -T ps_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
+// RUN: %dxc -DINTRIN=InterlockedMax64 -T ps_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
+// RUN: %dxc -DINTRIN=InterlockedAnd64 -T ps_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
+// RUN: %dxc -DINTRIN=InterlockedOr64 -T ps_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
+// RUN: %dxc -DINTRIN=InterlockedXor64 -T ps_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
+// REQUIRES: dxilver-1.6
 
 // Verify that the first arg determines the overload and the others can be what they will
 

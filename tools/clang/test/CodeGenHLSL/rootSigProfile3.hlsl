@@ -1,4 +1,5 @@
-// RUN: %dxilver 1.5 | %dxc -E main -T rootsig_1_0  %s | FileCheck %s
+// RUN: %dxc -E main -T rootsig_1_0  %s | FileCheck %s
+// REQUIRES: dxilver-1.5
 
 // CHECK: root signature error - undeclared identifier main
 

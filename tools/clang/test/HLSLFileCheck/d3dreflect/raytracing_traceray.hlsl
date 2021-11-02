@@ -1,4 +1,5 @@
 // RUN: %dxc -T lib_6_3 -auto-binding-space 11 -default-linkage external %s | %D3DReflect %s | FileCheck %s
+// REQUIRES: system-windows
 
 struct Payload {
    float2 t;

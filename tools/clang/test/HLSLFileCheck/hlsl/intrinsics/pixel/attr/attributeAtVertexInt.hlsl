@@ -1,4 +1,5 @@
-// RUN: %dxilver 1.6 | %dxc -E main -T ps_6_2 -HV 2018 -enable-16bit-types %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_2 -HV 2018 -enable-16bit-types %s | FileCheck %s
+// REQUIRES: dxilver-1.6
 
 
 // CHECK: Note: shader requires additional functionality:

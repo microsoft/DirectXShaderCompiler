@@ -1,4 +1,5 @@
 // RUN: %dxc -auto-binding-space 13 -exports VS_RENAMED=\01?VSMain@@YA?AV?$vector@M$03@@V?$vector@H$02@@@Z;PS_RENAMED=PSMain -T lib_6_3 %s | %D3DReflect %s | FileCheck %s
+// REQUIRES: system-windows
 
 Buffer<float> T_unused;
 

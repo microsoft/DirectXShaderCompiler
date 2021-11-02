@@ -1,4 +1,5 @@
 // RUN: %dxc -E main -T ps_6_0 %s
+// TODO: No check lines found, we should update this
 
 Buffer<float4> g_buf;
 

@@ -1,4 +1,5 @@
 // RUN: %dxc -E main -T cs_6_0 %s
+// TODO: No check lines found, we should update this
 
 groupshared float b;
 groupshared float a;

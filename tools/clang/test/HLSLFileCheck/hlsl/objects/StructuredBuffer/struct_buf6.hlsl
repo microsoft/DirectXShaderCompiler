@@ -1,4 +1,5 @@
-// RUN: %dxilver 1.2 | %dxc -E main -T ps_6_2 %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_2 %s | FileCheck %s
+// REQUIRES: dxilver-1.2
 
 // CHECK-NOT: @dx.op.bufferLoad
 // CHECK-NOT: @dx.op.bufferStore

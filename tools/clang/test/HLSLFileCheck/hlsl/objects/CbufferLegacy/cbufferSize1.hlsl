@@ -1,4 +1,5 @@
-// RUN: %dxilver 1.6 | %dxc -E main -T ps_6_0 %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
+// REQUIRES: dxilver-1.6
 
 // CHECK: error: CBuffer size is 65552 bytes, exceeding maximum of 65536 bytes.
 

@@ -1,4 +1,5 @@
 // RUN: %dxc -T ps_6_0 -E main %s | %D3DReflect %s | FileCheck %s
+// REQUIRES: system-windows
 
 Texture2DMS<float4> msTexture;
 Texture2DMSArray<float4> msTextureArray : register(t2, space2);

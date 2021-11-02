@@ -1,5 +1,6 @@
 // RUN: %dxc -T lib_6_5 %s | %D3DReflect %s | FileCheck %s
 // RUN: %dxc -T lib_6_6 %s | %D3DReflect %s | FileCheck %s
+// REQUIRES: system-windows
 
 cbuffer SomeBuffer : register(b0)
 {

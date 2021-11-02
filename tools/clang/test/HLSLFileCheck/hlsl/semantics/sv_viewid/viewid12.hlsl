@@ -1,4 +1,5 @@
-// RUN: %dxilver 1.1 | %dxc -E main -T gs_6_1 %s | FileCheck %s
+// RUN: %dxc -E main -T gs_6_1 %s | FileCheck %s
+// REQUIRES: dxilver-1.1
 
 // CHECK: Number of inputs: 12, outputs per stream: { 4, 4, 0, 0 }
 // CHECK: Outputs for Stream 0 dependent on ViewId: { 1, 2, 3 }

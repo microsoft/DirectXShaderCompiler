@@ -1,5 +1,6 @@
 // RUN: %dxc -T ps_6_0 -E main %s | %D3DReflect %s | FileCheck %s
 // RUN: %dxc -T ps_6_6 -E main %s | %D3DReflect %s | FileCheck %s
+// REQUIRES: system-windows
 
 struct {
     int X;

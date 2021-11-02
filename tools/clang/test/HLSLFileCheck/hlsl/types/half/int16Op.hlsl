@@ -1,4 +1,5 @@
-// RUN: %dxilver 1.2 | %dxc -E main -T cs_6_2 -enable-16bit-types %s | FileCheck %s
+// RUN: %dxc -E main -T cs_6_2 -enable-16bit-types %s | FileCheck %s
+// REQUIRES: dxilver-1.2
 
 // CHECK: @dx.op.binary.i16
 // CHECK: @dx.op.unaryBits.i16

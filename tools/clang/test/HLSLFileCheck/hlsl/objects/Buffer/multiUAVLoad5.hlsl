@@ -1,4 +1,5 @@
-// RUN: %dxilver 1.1 | %dxc -E main -T cs_6_0 %s | FileCheck %s
+// RUN: %dxc -E main -T cs_6_0 %s | FileCheck %s
+// REQUIRES: dxilver-1.1
 
 // CHECK-NOT: Typed UAV Load Additional Formats
 

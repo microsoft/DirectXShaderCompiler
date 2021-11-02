@@ -1,4 +1,5 @@
 // RUN: %dxc -E main -T vs_6_0 -O0 %s
+// TODO: No check lines found, we should update this
 
 // Regression test for compiler crashes in complex bool cases
 

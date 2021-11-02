@@ -1,5 +1,6 @@
 // RUN: %dxc -E main -T vs_6_0 -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
 // RUN: %dxc -E main -T vs_6_6 -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
+// REQUIRES: system-windows
 
 // Make sure nest empty struct works.
 

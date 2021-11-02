@@ -1,4 +1,5 @@
 // RUN: %dxc -auto-binding-space 13 -exports Foo=VSMain;Foo=\01?VSMain@@YA?AV?$vector@M$03@@V?$vector@H$02@@@Z;Foo=RayGen;fn1=fn2 -T lib_6_3 %s | %D3DReflect %s | FileCheck %s
+// REQUIRES: system-windows
 
 Buffer<int> T0;
 

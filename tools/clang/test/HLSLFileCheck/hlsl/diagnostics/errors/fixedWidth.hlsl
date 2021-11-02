@@ -1,4 +1,5 @@
-// RUN: %dxilver 1.2 | %dxc -E main -T ps_6_2 -HV 2017 %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_2 -HV 2017 %s | FileCheck %s
+// REQUIRES: dxilver-1.2
 
 // CHECK: error: unknown type name 'int16_t'
 // CHECK: error: unknown type name 'int32_t'

@@ -1,4 +1,5 @@
 // RUN: %dxc -E MainVp -T vs_6_0 %s | %D3DReflect %s | FileCheck %s
+// REQUIRES: system-windows
 
 // CHECK: ID3D12ShaderReflection:
 // CHECK: OutputParameters: 2

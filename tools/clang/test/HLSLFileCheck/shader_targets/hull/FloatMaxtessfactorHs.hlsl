@@ -1,5 +1,6 @@
 // RUN: %dxc -E main -T hs_6_0 %s | FileCheck %s
 // RUN: %dxc -E main -T hs_6_0 %s | %D3DReflect %s | FileCheck -check-prefix=REFL %s
+// REQUIRES: system-windows
 
 // CHECK: float 3.000000e+00}
 

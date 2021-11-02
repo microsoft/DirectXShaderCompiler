@@ -1,4 +1,5 @@
 // RUN: %dxc -auto-binding-space 13 -T lib_6_3 -exports HSMain1;HSMain2;HSMain3 %s | %D3DReflect %s | FileCheck %s
+// REQUIRES: system-windows
 
 // This version of HSPerPatchFunc1 should not be exported
 // CHECK: ID3D12FunctionReflection:

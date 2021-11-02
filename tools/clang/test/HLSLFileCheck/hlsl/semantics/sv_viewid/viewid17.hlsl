@@ -1,4 +1,5 @@
-// RUN: %dxilver 1.1 | %dxc -E main -T hs_6_1 %s | FileCheck %s
+// RUN: %dxc -E main -T hs_6_1 %s | FileCheck %s
+// REQUIRES: dxilver-1.1
 
 // CHECK: Number of inputs: 4, outputs: 4, patchconst: 28
 // CHECK: Outputs dependent on ViewId: { 2 }

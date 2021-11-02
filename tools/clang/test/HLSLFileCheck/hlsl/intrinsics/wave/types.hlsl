@@ -1,4 +1,4 @@
-// RUN: %dxilver 1.6 | %dxc -T ps_6_5 -DTYPE=double  %s | %FileCheck %s
+// RUN: %dxc -T ps_6_5 -DTYPE=double  %s | %FileCheck %s
 // RUN: %dxc -T ps_6_5 -DTYPE=float  %s | %FileCheck %s
 // RUN: %dxc -T ps_6_5 -DTYPE=int  %s | %FileCheck %s
 // RUN: %dxc -T ps_6_5 -DTYPE=uint  %s | %FileCheck %s
@@ -8,6 +8,7 @@
 // RUN: %dxc -T ps_6_5 -DTYPE=bool  %s | %FileCheck %s
 // RUN: %dxc -T ps_6_5 -DTYPE=int64_t  %s | %FileCheck %s
 // RUN: %dxc -T ps_6_5 -DTYPE=uint64_t  %s | %FileCheck %s
+// REQUIRES: dxilver-1.6
 
 // Verify that all appropriate types can be passed to Wave and QuadRead ops
 

@@ -1,4 +1,5 @@
 // RUN: %dxc -auto-binding-space 13 -exports VSMain=PSMain;PSMain=VSMain -T lib_6_3 %s | %D3DReflect %s | FileCheck %s
+// REQUIRES: system-windows
 
 Buffer<int> T0;
 

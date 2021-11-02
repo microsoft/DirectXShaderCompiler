@@ -1,5 +1,6 @@
 // RUN: %dxc -enable-16bit-types -E main -T ps_6_2 -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
 // RUN: %dxc -enable-16bit-types -E main -T ps_6_6 -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
+// REQUIRES: system-windows
 
 // -Vd -validator-version 0.0 is used to keep the reflection information
 // in the actual module containing the cbuffer/tbuffer usage info.

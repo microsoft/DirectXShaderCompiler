@@ -19,19 +19,20 @@
 // RUN: %dxc -DMEMTYPE=RWStructuredBuffer -DINTRIN=InterlockedOr -T ps_6_6 %s | FileCheck %s -check-prefix=CHECK
 // RUN: %dxc -DMEMTYPE=RWStructuredBuffer -DINTRIN=InterlockedXor -T ps_6_6 %s | FileCheck %s -check-prefix=CHECK
 
-// RUN: %dxilver 1.6 | %dxc -DMEMTYPE=RWBuffer -DINTRIN=InterlockedAdd -T ps_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
-// RUN: %dxilver 1.6 | %dxc -DMEMTYPE=RWBuffer -DINTRIN=InterlockedMin -T ps_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
-// RUN: %dxilver 1.6 | %dxc -DMEMTYPE=RWBuffer -DINTRIN=InterlockedMax -T ps_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
-// RUN: %dxilver 1.6 | %dxc -DMEMTYPE=RWBuffer -DINTRIN=InterlockedAnd -T ps_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
-// RUN: %dxilver 1.6 | %dxc -DMEMTYPE=RWBuffer -DINTRIN=InterlockedOr -T ps_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
-// RUN: %dxilver 1.6 | %dxc -DMEMTYPE=RWBuffer -DINTRIN=InterlockedXor -T ps_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
+// RUN: %dxc -DMEMTYPE=RWBuffer -DINTRIN=InterlockedAdd -T ps_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
+// RUN: %dxc -DMEMTYPE=RWBuffer -DINTRIN=InterlockedMin -T ps_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
+// RUN: %dxc -DMEMTYPE=RWBuffer -DINTRIN=InterlockedMax -T ps_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
+// RUN: %dxc -DMEMTYPE=RWBuffer -DINTRIN=InterlockedAnd -T ps_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
+// RUN: %dxc -DMEMTYPE=RWBuffer -DINTRIN=InterlockedOr -T ps_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
+// RUN: %dxc -DMEMTYPE=RWBuffer -DINTRIN=InterlockedXor -T ps_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
 
-// RUN: %dxilver 1.6 | %dxc -DINTRIN=InterlockedAdd -E CSMain -T cs_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
-// RUN: %dxilver 1.6 | %dxc -DINTRIN=InterlockedMin -E CSMain -T cs_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
-// RUN: %dxilver 1.6 | %dxc -DINTRIN=InterlockedMax -E CSMain -T cs_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
-// RUN: %dxilver 1.6 | %dxc -DINTRIN=InterlockedAnd -E CSMain -T cs_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
-// RUN: %dxilver 1.6 | %dxc -DINTRIN=InterlockedOr -E CSMain -T cs_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
-// RUN: %dxilver 1.6 | %dxc -DINTRIN=InterlockedXor -E CSMain -T cs_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
+// RUN: %dxc -DINTRIN=InterlockedAdd -E CSMain -T cs_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
+// RUN: %dxc -DINTRIN=InterlockedMin -E CSMain -T cs_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
+// RUN: %dxc -DINTRIN=InterlockedMax -E CSMain -T cs_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
+// RUN: %dxc -DINTRIN=InterlockedAnd -E CSMain -T cs_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
+// RUN: %dxc -DINTRIN=InterlockedOr -E CSMain -T cs_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
+// RUN: %dxc -DINTRIN=InterlockedXor -E CSMain -T cs_6_5 %s | FileCheck %s -check-prefix=ERRCHECK
+// REQUIRES: dxilver-1.6
 
 // Verify that the first arg determines the overload and the others can be what they will
 

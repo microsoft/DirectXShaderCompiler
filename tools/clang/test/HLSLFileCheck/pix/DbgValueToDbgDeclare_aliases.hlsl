@@ -1,4 +1,5 @@
 // RUN: %dxc -Tps_6_0 /Od /Zi %s | %opt -S -dxil-dbg-value-to-dbg-declare
+// TODO: No check lines found, we should update this
 
 void foo(inout float2 v) {
   v.x *= 2;

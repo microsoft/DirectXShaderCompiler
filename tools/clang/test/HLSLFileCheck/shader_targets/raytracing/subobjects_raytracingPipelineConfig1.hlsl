@@ -1,4 +1,5 @@
-// RUN: %dxilver 1.5 | %dxc -T lib_6_3 %s | FileCheck %s
+// RUN: %dxc -T lib_6_3 %s | FileCheck %s
+// REQUIRES: dxilver-1.5
 
 // CHECK: ; GlobalRootSignature grs = { <48 bytes> };
 // CHECK: ; StateObjectConfig soc = { STATE_OBJECT_FLAG_ALLOW_LOCAL_DEPENDENCIES_ON_EXTERNAL_DEFINITIONS | STATE_OBJECT_FLAG_ALLOW_STATE_OBJECT_ADDITIONS };

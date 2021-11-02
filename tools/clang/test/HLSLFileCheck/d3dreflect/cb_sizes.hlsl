@@ -1,5 +1,6 @@
 // RUN: %dxc -E main -T vs_6_0 -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
 // RUN: %dxc -E main -T vs_6_6 -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
+// REQUIRES: system-windows
 
 // Verify CB variable sizes align with expectations.
 // This also tests some matrix, struct, and array cases that may

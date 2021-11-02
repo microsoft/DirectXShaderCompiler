@@ -32,7 +32,8 @@
 // RUN: %dxc -E cs -T cs_6_0 -Od %s | FileCheck %s -check-prefixes=CHECKCONST
 // RUN: %dxc -E as -T as_6_5 -Od %s | FileCheck %s -check-prefixes=CHECKCONST
 // RUN: %dxc -E ms -T ms_6_5 -Od %s | FileCheck %s -check-prefixes=CHECKCONST
-// RUN: %dxilver 1.6 | %dxc -T lib_6_5 %s | FileCheck %s -check-prefixes=CHECKLIBGV
+// RUN: %dxc -T lib_6_5 %s | FileCheck %s -check-prefixes=CHECKLIBGV
+// REQUIRES: dxilver-1.6
 
 
 // Exactly one call

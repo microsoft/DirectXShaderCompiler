@@ -1,4 +1,5 @@
-// RUN: %dxilver 1.5 | %dxc -E main -T ps_6_0 %s -Qstrip_reflect | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 %s -Qstrip_reflect | FileCheck %s
+// REQUIRES: dxilver-1.5
 
 // Make sure there are no type annotations
 // CHECK-NOT: !dx.typeAnnotations

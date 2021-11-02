@@ -1,4 +1,5 @@
 // RUN: %dxc -E main -T ps_6_2 -enable-16bit-types %s
+// TODO: No check lines found, we should update this
 
 Texture2D<half> tex_f16;
 Texture2D<int16_t> tex_i16;

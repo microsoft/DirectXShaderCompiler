@@ -1,8 +1,9 @@
-// RUN: %dxilver 1.6 | %dxc -Zi -E main -T cs_6_0 %s | FileCheck %s -check-prefix=CHECK -check-prefix=CHK_DB
-// RUN: %dxilver 1.6 | %dxc -E main -T cs_6_0 %s | FileCheck %s -check-prefix=CHECK -check-prefix=CHK_NODB
+// RUN: %dxc -Zi -E main -T cs_6_0 %s | FileCheck %s -check-prefix=CHK_DB
+// RUN: %dxc -E main -T cs_6_0 %s | FileCheck %s -check-prefix=CHK_NODB
+// REQUIRES: dxilver-1.6
 
-// CHK_DB: 18:17: error: Assignment of undefined values to UAV.
-// CHK_NODB: 18:17: error: Assignment of undefined values to UAV.
+// CHK_DB: 19:17: error: Assignment of undefined values to UAV.
+// CHK_NODB: 19:17: error: Assignment of undefined values to UAV.
 
 RWBuffer<uint> output;
 

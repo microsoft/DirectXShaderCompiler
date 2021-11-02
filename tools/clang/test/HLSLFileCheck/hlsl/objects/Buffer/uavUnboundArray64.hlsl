@@ -1,4 +1,5 @@
-// RUN: %dxilver 1.6 | %dxc -E main -T cs_6_0 %s | FileCheck %s
+// RUN: %dxc -E main -T cs_6_0 %s | FileCheck %s
+// REQUIRES: dxilver-1.6
 
 // Verify that an unbounded array will add the 64Uav shader flag
 

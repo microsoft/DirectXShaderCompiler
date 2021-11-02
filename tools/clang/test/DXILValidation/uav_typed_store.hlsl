@@ -1,4 +1,5 @@
 // RUN: %dxc -E main -T ps_6_0 %s
+// TODO: No check lines found, we should update this
 
 RWTexture1D<float4> uav1 : register(u3);
 RWBuffer<float4> uav2;

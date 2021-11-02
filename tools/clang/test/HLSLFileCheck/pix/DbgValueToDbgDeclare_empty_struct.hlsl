@@ -1,4 +1,5 @@
 // RUN: %dxc -Tps_6_0 /Od /Zi %s | %opt -S -dxil-dbg-value-to-dbg-declare
+// TODO: No check lines found, we should update this
 
 struct Empty {
 };

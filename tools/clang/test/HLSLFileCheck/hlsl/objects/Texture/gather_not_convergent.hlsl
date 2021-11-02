@@ -1,4 +1,5 @@
-// RUN: %dxilver 1.5 | %dxc -E main -T ps_6_0 %s  | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 %s  | FileCheck %s
+// REQUIRES: dxilver-1.5
 // Test failure expected when run with 19041 SDK DXIL.dll
 
 SamplerState samp1 : register(s5);

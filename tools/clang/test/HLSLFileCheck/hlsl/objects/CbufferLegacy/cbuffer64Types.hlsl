@@ -1,4 +1,5 @@
-// RUN: %dxilver 1.2 | %dxc -E main -T ps_6_2 %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_2 %s | FileCheck %s
+// REQUIRES: dxilver-1.2
 
 // CHECK: %dx.types.CBufRet.f64 = type { double, double }
 // CHECK: %dx.types.CBufRet.i64 = type { i64, i64 }
