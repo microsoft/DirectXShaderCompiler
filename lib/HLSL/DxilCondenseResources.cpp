@@ -671,7 +671,8 @@ public:
     // Unsupported without SUPPORT_SELECT_ON_ALLOCA:
     // alloca (-> gep)? -> phi/select -> ...
     AllocaUserDisallowed,
-
+    MismatchHandleAnnotation,
+    MixDynamicResourceWithBindingResource,
 #ifdef SUPPORT_SELECT_ON_ALLOCA
     // Conflict in select/phi between GV pointer and alloca pointer.  This
     // algorithm can't handle this case.
@@ -687,7 +688,9 @@ public:
     "exported library functions cannot have resource parameters or return value.",
     "internal error: unexpected instruction type when looking for alloca from store.",
     "internal error: cycles detected in value remapping.",
-    "phi/select disallowed on pointers to local resources."
+    "phi/select disallowed on pointers to local resources.",
+    "mismatch handle annotation",
+    "possible mixing dynamic resource and binding resource",
 #ifdef SUPPORT_SELECT_ON_ALLOCA
     ,"unable to resolve merge of global and local resource pointers."
 #endif
@@ -2794,6 +2797,7 @@ public:
   ValueToValueMap HandleSelToIdxSel;
   // Value sets we can use to iterate
   ValueSetVector HandleSelects;
+  ResourceUseErrors Errors;
 
   void CreateSelectsForHandleSelects() {
     if (HandleSelects.empty())
@@ -2833,12 +2837,12 @@ public:
       DxilInst_CreateHandleFromHeap createHdl(CI);
       if (createHdl)
         return CI;
-      DxilInst_AnnotateHandle annotHdl(CI);
-      if (annotHdl)
-        return getDynamicResourceIndex(annotHdl.get_res());
+      Errors.ReportError(ResourceUseErrors::ErrorCode::MixDynamicResourceWithBindingResource,
+                         CI);
       return nullptr;
     } else {
-      DXASSERT(false, "otherwise, non-select/phi in HandleSelects set");
+      Errors.ReportError(ResourceUseErrors::ErrorCode::MixDynamicResourceWithBindingResource,
+                         Hdl);
       return nullptr;
     }
   }
@@ -2904,6 +2908,7 @@ public:
         }
 
         IRBuilder<> B(Phi->getParent()->getFirstNonPHI());
+        B.SetCurrentDebugLocation(Phi->getDebugLoc());
         // TODO: check uniform analysis to decide isNonUniform.
         Value *isNonUniform = hlslOP->GetI1Const(true);
         CallInst *newCI =
@@ -2928,6 +2933,7 @@ public:
         }
 
         IRBuilder<> B(newSel->getNextNode());
+        B.SetCurrentDebugLocation(newSel->getDebugLoc());
         // TODO: check uniform analysis to decide isNonUniform.
         Value *isNonUniform = hlslOP->GetI1Const(true);
         CallInst *newCI =
@@ -2941,20 +2947,7 @@ public:
     }
   }
 
-  // Fix resource global variable properties to external constant
-  bool SetExternalConstant(GlobalVariable *GV) {
-    if (GV->hasInitializer() || !GV->isConstant() ||
-        GV->getLinkage() != GlobalVariable::LinkageTypes::ExternalLinkage) {
-      GV->setInitializer(nullptr);
-      GV->setConstant(true);
-      GV->setLinkage(GlobalVariable::LinkageTypes::ExternalLinkage);
-      return true;
-    }
-    return false;
-  }
-
-  bool CollectResources(DxilModule &DM) {
-    bool bChanged = false;
+  void CollectResources(DxilModule &DM) {
     hlsl::OP *hlslOP = DM.GetOP();
     if (hlslOP->IsDxilOpUsed(DXIL::OpCode::CreateHandleFromHeap)) {
       Function *F = hlslOP->GetOpFunc(DXIL::OpCode::CreateHandleFromHeap,
@@ -2963,12 +2956,10 @@ public:
         for (User *HdlU : U->users()) {
           if (isa<PHINode>(HdlU) || isa<SelectInst>(HdlU)) {
             HandleSelects.insert(HdlU);
-            bChanged = true;
           }
         }
       }
     }
-    return bChanged;
   }
 
   void DoTransform(hlsl::OP *hlslOP) {
@@ -2980,11 +2971,11 @@ public:
     DxilModule &DM = M.GetOrCreateDxilModule();
     hlsl::OP *hlslOP = DM.GetOP();
 
-    bool bChanged = CollectResources(DM);
+    CollectResources(DM);
 
     // If no selects or allocas are involved, there isn't anything to do
     if (HandleSelects.empty())
-      return bChanged;
+      return false;
 
     DoTransform(hlslOP);
 
@@ -3024,6 +3015,8 @@ bool sinkAnnotateHandleAfterSelect(DxilModule &DM, Module &M) {
   Type *propsTy = op->GetResourcePropertiesType();
   Value *OpArg =
       op->GetI32Const(static_cast<unsigned>(DXIL::OpCode::AnnotateHandle));
+  ResourceUseErrors Errors;
+  Value *undefHdl = UndefValue::get(op->GetHandleType());
   // Sink annotateHandle after phi.
   for (Instruction *Hdl : selectAnnotHdls) {
     if (PHINode *phi = dyn_cast<PHINode>(Hdl)) {
@@ -3041,7 +3034,10 @@ bool sinkAnnotateHandleAfterSelect(DxilModule &DM, Module &M) {
                   cast<Constant>(props), cast<Constant>(annot.get_props()),
                   propsTy, *pSM);
               if (props == nullptr) {
-                DXASSERT(false, "mismatch handle annotation");
+                Errors.ReportError(
+                    ResourceUseErrors::ErrorCode::MismatchHandleAnnotation,
+                    phi);
+                props = annot.get_props();
               }
             }
 
@@ -3052,7 +3048,7 @@ bool sinkAnnotateHandleAfterSelect(DxilModule &DM, Module &M) {
       }
       // Insert after phi.
       IRBuilder<> B(phi->getParent()->getFirstNonPHI());
-      CallInst *annotCI = B.CreateCall(annotHdlFn, {OpArg, phi, props});
+      CallInst *annotCI = B.CreateCall(annotHdlFn, {OpArg, undefHdl, props});
       phi->replaceAllUsesWith(annotCI);
       annotCI->setArgOperand(DxilInst_AnnotateHandle::arg_res, phi);
     } else {
@@ -3078,7 +3074,9 @@ bool sinkAnnotateHandleAfterSelect(DxilModule &DM, Module &M) {
                 cast<Constant>(props), cast<Constant>(annot.get_props()),
                 propsTy, *pSM);
             if (props == nullptr) {
-              DXASSERT(false, "mismatch handle annotation");
+              Errors.ReportError(
+                  ResourceUseErrors::ErrorCode::MismatchHandleAnnotation, sel);
+              props = annot.get_props();
             }
           }
 
@@ -3089,7 +3087,7 @@ bool sinkAnnotateHandleAfterSelect(DxilModule &DM, Module &M) {
 
       // Insert after sel.
       IRBuilder<> B(sel->getNextNode());
-      CallInst *annotCI = B.CreateCall(annotHdlFn, {OpArg, sel, props});
+      CallInst *annotCI = B.CreateCall(annotHdlFn, {OpArg, undefHdl, props});
       sel->replaceAllUsesWith(annotCI);
       annotCI->setArgOperand(DxilInst_AnnotateHandle::arg_res, sel);
     }
@@ -3123,6 +3121,8 @@ public:
     bChanged |= helper.runOnModule(M);
 
     hlsl::OP *op = DM.GetOP();
+    const ShaderModel *pSM = DM.GetShaderModel();
+    Type *propsTy = op->GetResourcePropertiesType();
     // Iterate AnnotateHandle calls and eliminate redundant annotate handle call
     // chains.
     for (auto it : op->GetOpFuncList(OP::OpCode::AnnotateHandle)) {
@@ -3143,9 +3143,15 @@ public:
               continue;
             DxilInst_AnnotateHandle PrevAH(CRes);
             if (PrevAH) {
-              DXASSERT(
-                  AH.get_props() == PrevAH.get_props(),
-                  "otherwise, AnnotateHandle chain with inconsistent props");
+              Value *mergedProps = resource_helper::tryMergeProps(
+                  cast<Constant>(AH.get_props()), cast<Constant>(PrevAH.get_props()), propsTy, *pSM);
+              if (mergedProps == nullptr) {
+                ResourceUseErrors Errors;
+                Errors.ReportError(
+                    ResourceUseErrors::ErrorCode::MismatchHandleAnnotation, CI);
+              } else if (mergedProps != PrevAH.get_props()) {
+                PrevAH.set_props(mergedProps);
+              }
               CI->replaceAllUsesWith(Res);
               CI->eraseFromParent();
               bChanged = true;
