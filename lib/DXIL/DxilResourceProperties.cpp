@@ -209,5 +209,46 @@ DxilResourceProperties loadPropsFromResourceBase(const DxilResourceBase *Res) {
   return RP;
 }
 
+Constant* tryMergeProps(const Constant* a, const Constant* b,
+    Type* Ty, const ShaderModel& SM) {
+  if (a == b)
+    return const_cast<Constant*>(a);
+
+  DxilResourceProperties propsA = loadPropsFromConstant(*a);
+  DxilResourceProperties propsB = loadPropsFromConstant(*b);
+  if (propsA.Basic.ResourceKind != propsB.Basic.ResourceKind) {
+    return nullptr;
+  }
+
+  if (propsA.Basic.IsUAV != propsB.Basic.IsUAV)
+    return nullptr;
+
+  if (propsA.Basic.IsUAV) {
+    // Or hasCounter.
+    if (propsA.Basic.SamplerCmpOrHasCounter !=
+        propsB.Basic.SamplerCmpOrHasCounter) {
+      propsA.Basic.SamplerCmpOrHasCounter = true;
+      propsB.Basic.SamplerCmpOrHasCounter = true;
+    }
+  }
+
+  if (propsA.Basic.ResourceKind == (uint8_t)DXIL::ResourceKind::CBuffer) {
+    // use max cbuffer size.
+    if (propsA.CBufferSizeInBytes != propsB.CBufferSizeInBytes) {
+      propsA.CBufferSizeInBytes =
+          std::max(propsA.CBufferSizeInBytes, propsB.CBufferSizeInBytes);
+      propsB.CBufferSizeInBytes = propsA.CBufferSizeInBytes;
+    }
+  }
+
+  // If still not match after merge.
+  // return null.
+  if (propsA.RawDword0 != propsB.RawDword0 ||
+      propsA.RawDword1 != propsB.RawDword1)
+    return nullptr;
+
+  return getAsConstant(propsA, Ty, SM);
+}
+
 } // namespace resource_helper
 } // namespace hlsl
