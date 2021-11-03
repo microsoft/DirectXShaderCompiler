@@ -209,19 +209,15 @@ DxilResourceProperties loadPropsFromResourceBase(const DxilResourceBase *Res) {
   return RP;
 }
 
-Constant* tryMergeProps(const Constant* a, const Constant* b,
-    Type* Ty, const ShaderModel& SM) {
-  if (a == b)
-    return const_cast<Constant*>(a);
-
-  DxilResourceProperties propsA = loadPropsFromConstant(*a);
-  DxilResourceProperties propsB = loadPropsFromConstant(*b);
+DxilResourceProperties tryMergeProps(DxilResourceProperties propsA,
+                                     DxilResourceProperties propsB) {
+  DxilResourceProperties props;
   if (propsA.Basic.ResourceKind != propsB.Basic.ResourceKind) {
-    return nullptr;
+    return props;
   }
 
   if (propsA.Basic.IsUAV != propsB.Basic.IsUAV)
-    return nullptr;
+    return props;
 
   if (propsA.Basic.IsUAV) {
     // Or hasCounter.
@@ -245,9 +241,25 @@ Constant* tryMergeProps(const Constant* a, const Constant* b,
   // return null.
   if (propsA.RawDword0 != propsB.RawDword0 ||
       propsA.RawDword1 != propsB.RawDword1)
-    return nullptr;
+    return props;
+  return propsA;
+}
 
-  return getAsConstant(propsA, Ty, SM);
+Constant *tryMergeProps(const Constant *a, const Constant *b, Type *Ty,
+                        const ShaderModel &SM) {
+  if (a == b)
+    return const_cast<Constant *>(a);
+
+  DxilResourceProperties propsA = loadPropsFromConstant(*a);
+  DxilResourceProperties propsB = loadPropsFromConstant(*b);
+
+  DxilResourceProperties props = tryMergeProps(propsA, propsB);
+
+  if (!props.isValid()) {
+    return nullptr;
+  }
+
+  return getAsConstant(props, Ty, SM);
 }
 
 } // namespace resource_helper
