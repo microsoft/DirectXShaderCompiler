@@ -130,6 +130,8 @@ def ferror_limit_EQ : Joined<["-"], "ferror-limit=">, Group<hlslcomp_Group>, Fla
 
 def import_binding_table : JoinedOrSeparate<["-", "/"], "import-binding-table">, Group<hlsloptz_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
   HelpText<"Import a binding table to specify resource bindings.">;
+def binding_table_define : Separate<["-", "/"], "binding-table-define">, Group<hlsloptz_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
+  HelpText<"Import a binding table from a define to specify resource bindings.">;
 
 def funsafe_math_optimizations : Flag<["-"], "funsafe-math-optimizations">,
   Group<hlsloptz_Group>;
