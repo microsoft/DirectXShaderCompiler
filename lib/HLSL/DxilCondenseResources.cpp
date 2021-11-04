@@ -2892,10 +2892,11 @@ public:
           mergeHeapArgs(Phi, newPhi, Phi->incoming_values());
         } else if (SelectInst *Sel = dyn_cast<SelectInst>(Select)) {
           Value *newSel = HandleSelToIdxSel[Sel];
+          User::op_range range = User::op_range(Sel->getOperandList() + 1,
+                                                Sel->getOperandList() + 3);
           mergeHeapArgs(
               Sel, newSel,
-              User::op_range::iterator_range(Sel->getOperandList() + 1,
-                                             Sel->getOperandList() + 3));
+              range);
         } else {
           DXASSERT(false, "otherwise, non-select/phi in Selects set");
         }
