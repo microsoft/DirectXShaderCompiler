@@ -673,6 +673,7 @@ public:
     AllocaUserDisallowed,
     MismatchHandleAnnotation,
     MixDynamicResourceWithBindingResource,
+    MismatchIsSampler,
 #ifdef SUPPORT_SELECT_ON_ALLOCA
     // Conflict in select/phi between GV pointer and alloca pointer.  This
     // algorithm can't handle this case.
@@ -691,6 +692,7 @@ public:
     "phi/select disallowed on pointers to local resources.",
     "mismatch handle annotation",
     "possible mixing dynamic resource and binding resource",
+    "merging sampler handle and resource handle",
 #ifdef SUPPORT_SELECT_ON_ALLOCA
     ,"unable to resolve merge of global and local resource pointers."
 #endif
@@ -2786,6 +2788,24 @@ ModulePass *llvm::createDxilAllocateResourcesForLibPass() {
 INITIALIZE_PASS(DxilAllocateResourcesForLib, "hlsl-dxil-allocate-resources-for-lib", "DXIL Allocate Resources For Library", false, false)
 
 
+namespace {
+struct CreateHandleFromHeapArgs {
+  Value *Index;
+  bool isSampler;
+  bool isNonUniform;
+  void merge(CreateHandleFromHeapArgs &args, ResourceUseErrors &Errors,
+             Value *mergeHdl) {
+    if (args.isSampler != isSampler) {
+      // Report error.
+      Errors.ReportError(ResourceUseErrors::ErrorCode::MismatchIsSampler,
+                         mergeHdl);
+    }
+    args.isNonUniform |= isNonUniform;
+  }
+};
+
+} // namespace
+
 // Helper class for legalizing dynamic resource use
 // Convert select/phi on resources to select/phi on index.
 // TODO: support case when save dynamic resource as local array element.
@@ -2794,10 +2814,30 @@ class LegalizeDynamicResourceUseHelper {
 
 public:
   ResourceUseErrors m_Errors;
-  ValueToValueMap HandleSelToIdxSel;
+  ValueToValueMap  HandleSelToIdxSel;
+  DenseMap<Value *, CreateHandleFromHeapArgs> HandleToArgs;
   // Value sets we can use to iterate
   ValueSetVector HandleSelects;
   ResourceUseErrors Errors;
+
+  void mergeHeapArgs(Value *SelHdl, Value *SelIdx, User::op_range Hdls) {
+    CreateHandleFromHeapArgs args = {nullptr, false, false};
+
+    for (Value *V : Hdls) {
+      auto it = HandleToArgs.find(V);
+      // keep invalid when V is not createHandleFromHeap.
+      if (it == HandleToArgs.end())
+        continue;
+      if (args.Index != nullptr) {
+        args.merge(it->second, Errors, SelHdl);
+      } else {
+        args.Index = SelIdx;
+        args.isNonUniform = it->second.isNonUniform;
+        args.isSampler = it->second.isSampler;
+      }
+    }
+    HandleToArgs[SelHdl] = args;
+  }
 
   void CreateSelectsForHandleSelects() {
     if (HandleSelects.empty())
@@ -2817,61 +2857,56 @@ public:
           newPhi->addIncoming(UndefValue, Phi->getIncomingBlock(j));
         }
         HandleSelToIdxSel[Phi] = newPhi;
+        mergeHeapArgs(Phi, newPhi, Phi->incoming_values());
       } else if (SelectInst *Sel = dyn_cast<SelectInst>(Select)) {
         IRBuilder<> B(Sel);
         Value *newSel =
             B.CreateSelect(Sel->getCondition(), UndefValue, UndefValue);
         HandleSelToIdxSel[Sel] = newSel;
+        mergeHeapArgs(
+            Sel, newSel,
+            User::op_range::iterator_range(Sel->getOperandList() + 1,
+                                           Sel->getOperandList() + 3));
       } else {
         DXASSERT(false, "otherwise, non-select/phi in Selects set");
       }
     }
   }
-
-  Value *getDynamicResourceIndex(Value *Hdl) {
-    if (isa<PHINode>(Hdl) || isa<SelectInst>(Hdl)) {
-      return HandleSelToIdxSel[Hdl];
-    } else if (CallInst *CI = dyn_cast<CallInst>(Hdl)) {
-      if (!hlsl::OP::IsDxilOpFuncCallInst(CI))
-        return nullptr;
-      DxilInst_CreateHandleFromHeap createHdl(CI);
-      if (createHdl)
-        return CI;
-      Errors.ReportError(ResourceUseErrors::ErrorCode::MixDynamicResourceWithBindingResource,
-                         CI);
-      return nullptr;
-    } else {
-      Errors.ReportError(ResourceUseErrors::ErrorCode::MixDynamicResourceWithBindingResource,
-                         Hdl);
-      return nullptr;
+  // propagate CreateHandleFromHeapArgs for HandleSel which all operands are
+  // other HandleSel.
+  void PropagateHeapArgs() {
+    SmallVector<Value *, 4> Candidates;
+    for (auto &Select : HandleSelects) {
+      CreateHandleFromHeapArgs &args = HandleToArgs[Select];
+      if (args.Index)
+        continue;
+      Candidates.emplace_back(Select);
     }
-  }
 
-  Value *getIsSampler(Value *Hdl) {
-    if (PHINode *Phi = dyn_cast<PHINode>(Hdl)) {
-      for (Value *V : Phi->incoming_values()) {
-        if (isa<PHINode>(V))
+    while (1) {
+      SmallVector<Value *, 4> Candidates2;
+      for (auto &Select : Candidates) {
+        if (PHINode *Phi = dyn_cast<PHINode>(Select)) {
+          Value *newPhi = HandleSelToIdxSel[Phi];
+          mergeHeapArgs(Phi, newPhi, Phi->incoming_values());
+        } else if (SelectInst *Sel = dyn_cast<SelectInst>(Select)) {
+          Value *newSel = HandleSelToIdxSel[Sel];
+          mergeHeapArgs(
+              Sel, newSel,
+              User::op_range::iterator_range(Sel->getOperandList() + 1,
+                                             Sel->getOperandList() + 3));
+        } else {
+          DXASSERT(false, "otherwise, non-select/phi in Selects set");
+        }
+        CreateHandleFromHeapArgs &args = HandleToArgs[Select];
+        if (args.Index)
           continue;
-        return getIsSampler(V);
+        Candidates2.emplace_back(Select);
       }
-
-      DXASSERT(false, "fail to find createHandleFromHeap");
-      return nullptr;
-    } else if (SelectInst *Sel = dyn_cast<SelectInst>(Hdl)) {
-      return getIsSampler(Sel->getTrueValue());
-    } else if (CallInst *CI = dyn_cast<CallInst>(Hdl)) {
-      if (!hlsl::OP::IsDxilOpFuncCallInst(CI))
-        return nullptr;
-      DxilInst_CreateHandleFromHeap createHdl(CI);
-      if (createHdl)
-        return createHdl.get_samplerHeap();
-      DxilInst_AnnotateHandle annotHdl(CI);
-      if (annotHdl)
-        return getDynamicResourceIndex(annotHdl.get_res());
-      return nullptr;
-    } else {
-      DXASSERT(false, "otherwise, non-select/phi in HandleSelects set");
-      return nullptr;
+      // Some node cannot be reached.
+      if (Candidates2.size() == Candidates.size())
+        return;
+      Candidates = Candidates2;
     }
   }
 
@@ -2890,27 +2925,33 @@ public:
       if (PHINode *Phi = dyn_cast<PHINode>(Select)) {
         unsigned numIncoming = Phi->getNumIncomingValues();
         PHINode *newPhi = cast<PHINode>(HandleSelToIdxSel[Phi]);
-        Value *isSampler = nullptr;
+        CreateHandleFromHeapArgs &args = HandleToArgs[Phi];
+
         for (unsigned j = 0; j < numIncoming; j++) {
           // Set incoming values to undef until next pass
           Value *V = Phi->getIncomingValue(j);
-          Value *IdxV = getDynamicResourceIndex(V);
-          if (CallInst *CI = dyn_cast<CallInst>(IdxV)) {
-            DxilInst_CreateHandleFromHeap createHdl(CI);
-            IdxV = createHdl.get_index();
-            isSampler = createHdl.get_samplerHeap();
+          auto it = HandleToArgs.find(V);
+          if (it == HandleToArgs.end()) {
+            Errors.ReportError(ResourceUseErrors::ErrorCode::
+                                   MixDynamicResourceWithBindingResource,
+                               Phi);
+            continue;
           }
-          newPhi->setIncomingValue(j, IdxV);
+          CreateHandleFromHeapArgs &itArgs = it->second;
+          if (itArgs.Index == nullptr) {
+            Errors.ReportError(ResourceUseErrors::ErrorCode::
+                                   MixDynamicResourceWithBindingResource,
+                               Phi);
+            continue;
+          }
+          args.merge(itArgs, Errors, Phi);
+          newPhi->setIncomingValue(j, itArgs.Index);
         }
-
-        if (isSampler == nullptr) {
-          isSampler = getIsSampler(Phi);
-        }
-
         IRBuilder<> B(Phi->getParent()->getFirstNonPHI());
         B.SetCurrentDebugLocation(Phi->getDebugLoc());
-        // TODO: check uniform analysis to decide isNonUniform.
-        Value *isNonUniform = hlslOP->GetI1Const(true);
+        Value *isSampler = hlslOP->GetI1Const(args.isSampler);
+        // TODO: or args.IsNonUniform with !isUniform(Phi).
+        Value *isNonUniform = hlslOP->GetI1Const(args.isNonUniform);
         CallInst *newCI =
             B.CreateCall(createHdlFromHeap,
                          {hdlFromHeapOP, newPhi, isSampler, isNonUniform});
@@ -2918,24 +2959,32 @@ public:
         Phi->eraseFromParent();
       } else if (SelectInst *Sel = dyn_cast<SelectInst>(Select)) {
         SelectInst *newSel = cast<SelectInst>(HandleSelToIdxSel[Sel]);
-        Value *isSampler = nullptr;
+        CreateHandleFromHeapArgs &args = HandleToArgs[Sel];
         for (unsigned j = 1; j < 3; ++j) {
           Value *V = Sel->getOperand(j);
-          Value *IdxV = getDynamicResourceIndex(V);
-          if (CallInst *CI = dyn_cast<CallInst>(IdxV)) {
-            DxilInst_CreateHandleFromHeap createHdl(CI);
-            IdxV = createHdl.get_index();
-            isSampler = createHdl.get_samplerHeap();
+          auto it = HandleToArgs.find(V);
+          if (it == HandleToArgs.end()) {
+            Errors.ReportError(ResourceUseErrors::ErrorCode::
+                                   MixDynamicResourceWithBindingResource,
+                               Phi);
+            continue;
           }
-        }
-        if (isSampler == nullptr) {
-          isSampler = getIsSampler(Phi);
+          CreateHandleFromHeapArgs &itArgs = it->second;
+          if (itArgs.Index == nullptr) {
+            Errors.ReportError(ResourceUseErrors::ErrorCode::
+                                   MixDynamicResourceWithBindingResource,
+                               Phi);
+            continue;
+          }
+          args.merge(itArgs, Errors, Phi);
+          newSel->setOperand(j, itArgs.Index);
         }
 
         IRBuilder<> B(newSel->getNextNode());
         B.SetCurrentDebugLocation(newSel->getDebugLoc());
-        // TODO: check uniform analysis to decide isNonUniform.
-        Value *isNonUniform = hlslOP->GetI1Const(true);
+        Value *isSampler = hlslOP->GetI1Const(args.isSampler);
+        // TODO: or args.IsNonUniform with !isUniform(Phi).
+        Value *isNonUniform = hlslOP->GetI1Const(args.isNonUniform);
         CallInst *newCI =
             B.CreateCall(createHdlFromHeap,
                          {hdlFromHeapOP, newSel, isSampler, isNonUniform});
@@ -2953,6 +3002,9 @@ public:
       Function *F = hlslOP->GetOpFunc(DXIL::OpCode::CreateHandleFromHeap,
                                       Type::getVoidTy(DM.GetCtx()));
       for (User *U : F->users()) {
+        DxilInst_CreateHandleFromHeap Hdl(cast<CallInst>(U));
+        HandleToArgs[U] = {Hdl.get_index(), Hdl.get_samplerHeap_val(),
+                           Hdl.get_nonUniformIndex_val()};
         for (User *HdlU : U->users()) {
           if (isa<PHINode>(HdlU) || isa<SelectInst>(HdlU)) {
             HandleSelects.insert(HdlU);
@@ -2964,6 +3016,7 @@ public:
 
   void DoTransform(hlsl::OP *hlslOP) {
     CreateSelectsForHandleSelects();
+    PropagateHeapArgs();
     UpdateSelectsForHandleSelect(hlslOP);
   }
 
