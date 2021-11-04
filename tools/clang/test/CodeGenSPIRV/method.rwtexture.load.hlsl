@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 RWTexture1D<int> intbuf;
 RWTexture2D<uint2> uint2buf;

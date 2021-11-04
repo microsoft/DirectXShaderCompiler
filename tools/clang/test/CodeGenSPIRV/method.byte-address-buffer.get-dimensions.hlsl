@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 ByteAddressBuffer   b1;
 RWByteAddressBuffer b2;

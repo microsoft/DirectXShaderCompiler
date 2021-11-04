@@ -1,4 +1,4 @@
-// Run: %dxc -E main -T cs_6_2
+// RUN: %dxc -E main -T cs_6_2
 
 
 struct StructA

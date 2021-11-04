@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -fspv-debug=rich
+// RUN: %dxc -T ps_6_0 -E main -fspv-debug=rich
 
 // CHECK: %i = OpFunctionParameter %_ptr_Function_PS_INPUT
 // CHECK: DebugDeclare {{%\d+}} %i

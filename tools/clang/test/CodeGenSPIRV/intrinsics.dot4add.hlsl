@@ -1,4 +1,4 @@
-// Run: %dxc -E frag -T ps_6_4 -fspv-target-env=vulkan1.1
+// RUN: %dxc -E frag -T ps_6_4 -fspv-target-env=vulkan1.1
 
 uint frag(float4 vertex
           : SV_POSITION) : SV_Target {

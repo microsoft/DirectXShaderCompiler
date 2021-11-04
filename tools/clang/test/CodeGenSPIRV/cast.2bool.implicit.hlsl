@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 // CHECK: [[v2bool_1_0:%\d+]] = OpConstantComposite %v2bool %true %false
 // CHECK: [[v3bool_0_1_1:%\d+]] = OpConstantComposite %v3bool %false %true %true

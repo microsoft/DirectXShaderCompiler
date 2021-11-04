@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main -Zpr
+// RUN: %dxc -T vs_6_0 -E main -Zpr
 
 // CHECK: OpDecorate %_arr_mat2v3float_uint_5 ArrayStride 32
 // CHECK: OpDecorate %_arr_mat2v3float_uint_5_0 ArrayStride 48

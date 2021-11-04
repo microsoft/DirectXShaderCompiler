@@ -12,6 +12,14 @@
 
 #ifdef _MSC_VER
 
+// mingw-w64 tends to define it as 0x0502 in its headers.
+#undef _WIN32_WINNT
+#undef _WIN32_IE
+
+// Require at least Windows 7 (Updated from XP)
+#define _WIN32_WINNT 0x0601
+#define _WIN32_IE    0x0800 // MinGW at it again.
+
 #define NOATOM 1
 #define NOGDICAPMASKS 1
 #define NOMETAFILE 1

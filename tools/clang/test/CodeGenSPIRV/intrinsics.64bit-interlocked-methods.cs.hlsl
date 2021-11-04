@@ -1,4 +1,4 @@
-// Run: %dxc -T cs_6_0 -E main
+// RUN: %dxc -T cs_6_0 -E main
 
 groupshared int64_t dest_i;
 groupshared uint64_t dest_u;

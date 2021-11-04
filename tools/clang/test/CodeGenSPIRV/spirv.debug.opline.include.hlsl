@@ -1,8 +1,8 @@
-// Run: %dxc -T ps_6_0 -E main -Zi
+// RUN: %dxc -T ps_6_0 -E main -Zi
 
 // CHECK:      [[main:%\d+]] = OpString
 // CHECK-SAME: spirv.debug.opline.include.hlsl
-// CHECK-NEXT: OpSource HLSL 600 [[main]] "// Run: %dxc -T ps_6_0 -E main -Zi
+// CHECK-NEXT: OpSource HLSL 600 [[main]] "// RUN: %dxc -T ps_6_0 -E main -Zi
 // CHECK:      [[file1:%\d+]] = OpString
 // CHECK-SAME: spirv.debug.opline.include-file-1.hlsl
 // CHECK-NEXT: OpSource HLSL 600 [[file1]] "int function1() {

@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main
 
 [[vk::ext_instruction(/* OpLoad */ 61)]]
 float4 load([[vk::ext_reference]] float4 pointer, [[vk::ext_literal]] int memoryOperands);

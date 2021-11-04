@@ -43,7 +43,7 @@ bool FileTest::parseCommand() {
   // Effcee skips any input line which doesn't have a CHECK directive, therefore
   // we can pass the entire input to effcee. This way, any warning/error message
   // provided by effcee also reflects the correct line number in the input file.
-  const char hlslStartLabel[] = "// Run:";
+  const char hlslStartLabel[] = "// RUN:";
   const auto runCmdStartPos = checkCommands.find(hlslStartLabel);
   if (runCmdStartPos != std::string::npos) {
     const auto runCmdEndPos = checkCommands.find('\n', runCmdStartPos);
@@ -54,7 +54,7 @@ bool FileTest::parseCommand() {
       return false;
     }
   } else {
-    fprintf(stderr, "Error: Missing \"Run:\" command.\n");
+    fprintf(stderr, "Error: Missing \"RUN:\" command.\n");
     return false;
   }
 
