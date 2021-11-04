@@ -1,4 +1,4 @@
-// Run: %dxc -T cs_6_0 -E main
+// RUN: %dxc -T cs_6_0 -E main
 
 // CHECK: OpEntryPoint GLCompute %main "main" %gl_GlobalInvocationID
 // CHECK: OpDecorate %gl_GlobalInvocationID BuiltIn GlobalInvocationId

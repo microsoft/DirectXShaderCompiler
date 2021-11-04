@@ -1,4 +1,4 @@
-// Run: %dxc -T cs_6_0 -E main -enable-templates
+// RUN: %dxc -T cs_6_0 -E main -enable-templates
 
 // Tests that a rvalue is used for the index of ArraySubscriptExpr. The newly
 // introduced template support generates a template instance of

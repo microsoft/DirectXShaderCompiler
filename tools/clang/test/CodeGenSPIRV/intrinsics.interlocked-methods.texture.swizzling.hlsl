@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main
 
 // CHECK: %type_3d_image = OpTypeImage %uint 3D 2 0 0 2 R32ui
 // CHECK:        %target = OpVariable %_ptr_UniformConstant_type_3d_image UniformConstant

@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main
 
 void main (
 // CHECK:  %in_var_A = OpVariable %_ptr_Input_v3float Input

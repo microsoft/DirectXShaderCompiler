@@ -1,4 +1,4 @@
-// Run: %dxc -T gs_6_0 -E main
+// RUN: %dxc -T gs_6_0 -E main
 
 struct Empty { };
 

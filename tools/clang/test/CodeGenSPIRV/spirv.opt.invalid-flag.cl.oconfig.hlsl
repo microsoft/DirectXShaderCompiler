@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -Oconfig=--test-unknown-flag
+// RUN: %dxc -T ps_6_0 -E main -Oconfig=--test-unknown-flag
 
 void main() {}
 

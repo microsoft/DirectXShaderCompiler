@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main
 
 // CHECK: OpDecorate %_arr_float_uint_2 ArrayStride 4
 // CHECK: OpDecorate %_arr_v3float_uint_2 ArrayStride 16

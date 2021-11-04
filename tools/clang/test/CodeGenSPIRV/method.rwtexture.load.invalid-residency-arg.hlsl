@@ -1,4 +1,4 @@
-// Run: %dxc -T cs_6_0 -E main
+// RUN: %dxc -T cs_6_0 -E main
 
 RWStructuredBuffer<uint> g_output : register(u1, space0);
 RWTexture2D<uint> g_rwtexture2d : register(u1, space3);

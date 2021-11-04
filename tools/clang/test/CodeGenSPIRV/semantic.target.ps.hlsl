@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 // CHECK:      OpEntryPoint Fragment %main "main" %in_var_A %out_var_SV_Target2 %out_var_SV_Target %out_var_SV_Target1 %out_var_SV_Target3
 

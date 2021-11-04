@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main
 
 // The signature for 'lit' intrinsic function is as follows:
 // float4 lit(float n_dot_l, float n_dot_h, float m)

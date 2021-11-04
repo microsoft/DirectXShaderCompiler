@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main
 
 // CHECK: %_arr_uint_uint_4 = OpTypeArray %uint %uint_4
 

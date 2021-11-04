@@ -1,4 +1,4 @@
-// Run: %dxc -T lib_6_6
+// RUN: %dxc -T lib_6_6
 
 // CHECK: OpEntryPoint Fragment %x "x" %out_var_SV_TARGET
 // CHECK: OpEntryPoint Fragment %y "y" %out_var_SV_TARGET_0

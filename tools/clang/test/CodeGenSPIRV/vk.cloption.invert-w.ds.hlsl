@@ -1,4 +1,4 @@
-// Run: %dxc -T ds_6_0 -E main -fvk-use-dx-position-w
+// RUN: %dxc -T ds_6_0 -E main -fvk-use-dx-position-w
 
 // HS PCF output
 struct HsPcfOut {
