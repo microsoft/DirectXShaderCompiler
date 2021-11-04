@@ -409,10 +409,7 @@ CodeTags.py <input file> [<output file>]
 """)
     return 1
 
-def main(argv, force_lf=False):
-    newline=None
-    if force_lf:
-      newline='\n'
+def main(argv, newline=None):
     trace = False
     test = False
     args = []

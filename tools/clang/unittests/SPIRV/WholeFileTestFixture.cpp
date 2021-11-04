@@ -50,6 +50,8 @@ bool WholeFileTest::parseInputFile() {
         if (found != std::string::npos) {
           line = line.substr(found);
         }
+        if (line[line.size()-1] == '\r')
+          line =  line.substr(0, line.size()-1);
         outString << line << std::endl;
       }
     }
