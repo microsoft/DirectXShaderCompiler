@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E MainPs -fspv-debug=vulkan
+// RUN: %dxc -T ps_6_0 -E MainPs -fspv-debug=vulkan
 
 // CHECK:      [[ext:%\d+]] = OpExtInstImport "NonSemantic.Shader.DebugInfo.100"
 // CHECK:      [[src:%\d+]] = OpExtInst %void [[ext]] DebugSource {{%\d+}}
