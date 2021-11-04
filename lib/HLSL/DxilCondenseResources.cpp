@@ -2863,10 +2863,11 @@ public:
         Value *newSel =
             B.CreateSelect(Sel->getCondition(), UndefValue, UndefValue);
         HandleSelToIdxSel[Sel] = newSel;
+        User::op_range range = User::op_range(Sel->getOperandList() + 1,
+                                       Sel->getOperandList() + 3);
         mergeHeapArgs(
             Sel, newSel,
-            User::op_range::iterator_range(Sel->getOperandList() + 1,
-                                           Sel->getOperandList() + 3));
+            range);
       } else {
         DXASSERT(false, "otherwise, non-select/phi in Selects set");
       }
@@ -2926,70 +2927,70 @@ public:
         unsigned numIncoming = Phi->getNumIncomingValues();
         PHINode *newPhi = cast<PHINode>(HandleSelToIdxSel[Phi]);
         CreateHandleFromHeapArgs &args = HandleToArgs[Phi];
-
+        bool bAllIndexResolved = true;
         for (unsigned j = 0; j < numIncoming; j++) {
           // Set incoming values to undef until next pass
           Value *V = Phi->getIncomingValue(j);
           auto it = HandleToArgs.find(V);
           if (it == HandleToArgs.end()) {
-            Errors.ReportError(ResourceUseErrors::ErrorCode::
-                                   MixDynamicResourceWithBindingResource,
-                               Phi);
-            continue;
+            bAllIndexResolved = false;
+            break;
           }
           CreateHandleFromHeapArgs &itArgs = it->second;
           if (itArgs.Index == nullptr) {
-            Errors.ReportError(ResourceUseErrors::ErrorCode::
-                                   MixDynamicResourceWithBindingResource,
-                               Phi);
-            continue;
+            bAllIndexResolved = false;
+            break;
           }
           args.merge(itArgs, Errors, Phi);
           newPhi->setIncomingValue(j, itArgs.Index);
         }
-        IRBuilder<> B(Phi->getParent()->getFirstNonPHI());
-        B.SetCurrentDebugLocation(Phi->getDebugLoc());
-        Value *isSampler = hlslOP->GetI1Const(args.isSampler);
-        // TODO: or args.IsNonUniform with !isUniform(Phi).
-        Value *isNonUniform = hlslOP->GetI1Const(args.isNonUniform);
-        CallInst *newCI =
-            B.CreateCall(createHdlFromHeap,
-                         {hdlFromHeapOP, newPhi, isSampler, isNonUniform});
-        Phi->replaceAllUsesWith(newCI);
-        Phi->eraseFromParent();
+        if (bAllIndexResolved) {
+          IRBuilder<> B(Phi->getParent()->getFirstNonPHI());
+          B.SetCurrentDebugLocation(Phi->getDebugLoc());
+          Value *isSampler = hlslOP->GetI1Const(args.isSampler);
+          // TODO: or args.IsNonUniform with !isUniform(Phi).
+          Value *isNonUniform = hlslOP->GetI1Const(args.isNonUniform);
+          CallInst *newCI =
+              B.CreateCall(createHdlFromHeap,
+                           {hdlFromHeapOP, newPhi, isSampler, isNonUniform});
+          Phi->replaceAllUsesWith(newCI);
+          Phi->eraseFromParent();
+        } else {
+          newPhi->eraseFromParent();
+        }
       } else if (SelectInst *Sel = dyn_cast<SelectInst>(Select)) {
         SelectInst *newSel = cast<SelectInst>(HandleSelToIdxSel[Sel]);
         CreateHandleFromHeapArgs &args = HandleToArgs[Sel];
+        bool bAllIndexResolved = true;
         for (unsigned j = 1; j < 3; ++j) {
           Value *V = Sel->getOperand(j);
           auto it = HandleToArgs.find(V);
           if (it == HandleToArgs.end()) {
-            Errors.ReportError(ResourceUseErrors::ErrorCode::
-                                   MixDynamicResourceWithBindingResource,
-                               Phi);
-            continue;
+            bAllIndexResolved = false;
+            break;
           }
           CreateHandleFromHeapArgs &itArgs = it->second;
           if (itArgs.Index == nullptr) {
-            Errors.ReportError(ResourceUseErrors::ErrorCode::
-                                   MixDynamicResourceWithBindingResource,
-                               Phi);
-            continue;
+            bAllIndexResolved = false;
+            break;
           }
           args.merge(itArgs, Errors, Phi);
           newSel->setOperand(j, itArgs.Index);
         }
-
-        IRBuilder<> B(newSel->getNextNode());
-        B.SetCurrentDebugLocation(newSel->getDebugLoc());
-        Value *isSampler = hlslOP->GetI1Const(args.isSampler);
-        // TODO: or args.IsNonUniform with !isUniform(Phi).
-        Value *isNonUniform = hlslOP->GetI1Const(args.isNonUniform);
-        CallInst *newCI =
-            B.CreateCall(createHdlFromHeap,
-                         {hdlFromHeapOP, newSel, isSampler, isNonUniform});
-        Sel->replaceAllUsesWith(newCI);
-        Sel->eraseFromParent();
+        if (bAllIndexResolved) {
+          IRBuilder<> B(newSel->getNextNode());
+          B.SetCurrentDebugLocation(newSel->getDebugLoc());
+          Value *isSampler = hlslOP->GetI1Const(args.isSampler);
+          // TODO: or args.IsNonUniform with !isUniform(Phi).
+          Value *isNonUniform = hlslOP->GetI1Const(args.isNonUniform);
+          CallInst *newCI =
+              B.CreateCall(createHdlFromHeap,
+                           {hdlFromHeapOP, newSel, isSampler, isNonUniform});
+          Sel->replaceAllUsesWith(newCI);
+          Sel->eraseFromParent();
+        } else {
+          newSel->eraseFromParent();
+        }
       } else {
         DXASSERT(false, "otherwise, non-select/phi in HandleSelects set");
       }
