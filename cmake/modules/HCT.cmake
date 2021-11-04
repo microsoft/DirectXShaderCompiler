@@ -48,6 +48,12 @@ function(add_hlsl_hctgen mode)
 
   if(ARG_CODE_TAG)
     set(input_flag --input ${full_output})
+    if (UNIX)
+      execute_process(COMMAND file ${full_output} OUTPUT_VARIABLE output)
+      if (output MATCHES ".*, with CRLF line terminators")
+        set(force_lf "--force-crlf")
+      endif()
+    endif()
   endif()
 
   # If we're not copying the sources, set the output for the target as the temp
