@@ -265,11 +265,7 @@ static void WriteDxcExtraOuputs(IDxcResult *pResult) {
 }
 
 std::string getDependencyOutputFileName(llvm::StringRef inputFileName) {
-  size_t extensionOffset = inputFileName.rfind('.');
-  if (extensionOffset == llvm::StringRef::npos)
-    return inputFileName;
-  std::string dependencyOutputFileName(inputFileName.data(), extensionOffset);
-  return dependencyOutputFileName + ".d";
+  return inputFileName.substr(0, inputFileName.rfind('.')).str() + ".d";
 }
 
 // This function is called either after the compilation is done or /dumpbin option is provided
