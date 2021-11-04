@@ -2793,6 +2793,10 @@ struct CreateHandleFromHeapArgs {
   Value *Index;
   bool isSampler;
   bool isNonUniform;
+  // All incoming handle args are confirmed.
+  // If not resolved, some of the incoming handle is not from createHandleFromHeap.
+  // Might be resolved after linking for lib.
+  bool isResolved;
   void merge(CreateHandleFromHeapArgs &args, ResourceUseErrors &Errors,
              Value *mergeHdl) {
     if (args.isSampler != isSampler) {
@@ -2814,28 +2818,38 @@ class LegalizeDynamicResourceUseHelper {
 
 public:
   ResourceUseErrors m_Errors;
-  ValueToValueMap  HandleSelToIdxSel;
   DenseMap<Value *, CreateHandleFromHeapArgs> HandleToArgs;
   // Value sets we can use to iterate
   ValueSetVector HandleSelects;
   ResourceUseErrors Errors;
 
   void mergeHeapArgs(Value *SelHdl, Value *SelIdx, User::op_range Hdls) {
-    CreateHandleFromHeapArgs args = {nullptr, false, false};
+    CreateHandleFromHeapArgs args = {nullptr, false, false, true};
 
     for (Value *V : Hdls) {
       auto it = HandleToArgs.find(V);
       // keep invalid when V is not createHandleFromHeap.
-      if (it == HandleToArgs.end())
+      if (it == HandleToArgs.end()) {
+        args.isResolved = false;
         continue;
+      }
+      CreateHandleFromHeapArgs &itArgs = it->second;
+      if (!itArgs.isResolved) {
+        args.isResolved = false;
+        continue;
+      }
+
       if (args.Index != nullptr) {
-        args.merge(it->second, Errors, SelHdl);
+        args.merge(itArgs, Errors, SelHdl);
       } else {
         args.Index = SelIdx;
-        args.isNonUniform = it->second.isNonUniform;
-        args.isSampler = it->second.isSampler;
+        args.isNonUniform = itArgs.isNonUniform;
+        args.isSampler = itArgs.isSampler;
       }
     }
+    // set Index when all incoming Hdls cannot be resolved.
+    if (args.Index == nullptr)
+      args.Index = SelIdx;
     HandleToArgs[SelHdl] = args;
   }
 
@@ -2856,13 +2870,11 @@ public:
           // Set incoming values to undef until next pass
           newPhi->addIncoming(UndefValue, Phi->getIncomingBlock(j));
         }
-        HandleSelToIdxSel[Phi] = newPhi;
         mergeHeapArgs(Phi, newPhi, Phi->incoming_values());
       } else if (SelectInst *Sel = dyn_cast<SelectInst>(Select)) {
         IRBuilder<> B(Sel);
         Value *newSel =
             B.CreateSelect(Sel->getCondition(), UndefValue, UndefValue);
-        HandleSelToIdxSel[Sel] = newSel;
         User::op_range range = User::op_range(Sel->getOperandList() + 1,
                                        Sel->getOperandList() + 3);
         mergeHeapArgs(
@@ -2879,7 +2891,7 @@ public:
     SmallVector<Value *, 4> Candidates;
     for (auto &Select : HandleSelects) {
       CreateHandleFromHeapArgs &args = HandleToArgs[Select];
-      if (args.Index)
+      if (args.isResolved)
         continue;
       Candidates.emplace_back(Select);
     }
@@ -2887,21 +2899,21 @@ public:
     while (1) {
       SmallVector<Value *, 4> Candidates2;
       for (auto &Select : Candidates) {
+        CreateHandleFromHeapArgs &args = HandleToArgs[Select];
         if (PHINode *Phi = dyn_cast<PHINode>(Select)) {
-          Value *newPhi = HandleSelToIdxSel[Phi];
-          mergeHeapArgs(Phi, newPhi, Phi->incoming_values());
+          mergeHeapArgs(Phi, args.Index, Phi->incoming_values());
         } else if (SelectInst *Sel = dyn_cast<SelectInst>(Select)) {
-          Value *newSel = HandleSelToIdxSel[Sel];
           User::op_range range = User::op_range(Sel->getOperandList() + 1,
                                                 Sel->getOperandList() + 3);
           mergeHeapArgs(
-              Sel, newSel,
+              Sel, args.Index,
               range);
         } else {
           DXASSERT(false, "otherwise, non-select/phi in Selects set");
         }
-        CreateHandleFromHeapArgs &args = HandleToArgs[Select];
-        if (args.Index)
+        // Reload args incase it is changed in mergeHeapArgs.
+        args = HandleToArgs[Select];
+        if (args.isResolved)
           continue;
         Candidates2.emplace_back(Select);
       }
@@ -2926,8 +2938,8 @@ public:
     for (auto &Select : HandleSelects) {
       if (PHINode *Phi = dyn_cast<PHINode>(Select)) {
         unsigned numIncoming = Phi->getNumIncomingValues();
-        PHINode *newPhi = cast<PHINode>(HandleSelToIdxSel[Phi]);
         CreateHandleFromHeapArgs &args = HandleToArgs[Phi];
+        PHINode *newPhi = cast<PHINode>(args.Index);
         bool bAllIndexResolved = true;
         for (unsigned j = 0; j < numIncoming; j++) {
           // Set incoming values to undef until next pass
@@ -2938,7 +2950,7 @@ public:
             break;
           }
           CreateHandleFromHeapArgs &itArgs = it->second;
-          if (itArgs.Index == nullptr) {
+          if (!itArgs.isResolved) {
             bAllIndexResolved = false;
             break;
           }
@@ -2956,12 +2968,14 @@ public:
                            {hdlFromHeapOP, newPhi, isSampler, isNonUniform});
           Phi->replaceAllUsesWith(newCI);
           Phi->eraseFromParent();
+          // put newCI in HandleToArgs.
+          HandleToArgs[newCI] = args;
         } else {
           newPhi->eraseFromParent();
         }
       } else if (SelectInst *Sel = dyn_cast<SelectInst>(Select)) {
-        SelectInst *newSel = cast<SelectInst>(HandleSelToIdxSel[Sel]);
         CreateHandleFromHeapArgs &args = HandleToArgs[Sel];
+        SelectInst *newSel = cast<SelectInst>(args.Index);
         bool bAllIndexResolved = true;
         for (unsigned j = 1; j < 3; ++j) {
           Value *V = Sel->getOperand(j);
@@ -2971,7 +2985,7 @@ public:
             break;
           }
           CreateHandleFromHeapArgs &itArgs = it->second;
-          if (itArgs.Index == nullptr) {
+          if (!itArgs.isResolved) {
             bAllIndexResolved = false;
             break;
           }
@@ -2989,6 +3003,8 @@ public:
                            {hdlFromHeapOP, newSel, isSampler, isNonUniform});
           Sel->replaceAllUsesWith(newCI);
           Sel->eraseFromParent();
+          // put newCI in HandleToArgs.
+          HandleToArgs[newCI] = args;
         } else {
           newSel->eraseFromParent();
         }
@@ -2999,6 +3015,7 @@ public:
   }
 
   void CollectResources(DxilModule &DM) {
+    ValueSetVector tmpHandleSelects;
     hlsl::OP *hlslOP = DM.GetOP();
     if (hlslOP->IsDxilOpUsed(DXIL::OpCode::CreateHandleFromHeap)) {
       Function *F = hlslOP->GetOpFunc(DXIL::OpCode::CreateHandleFromHeap,
@@ -3006,13 +3023,28 @@ public:
       for (User *U : F->users()) {
         DxilInst_CreateHandleFromHeap Hdl(cast<CallInst>(U));
         HandleToArgs[U] = {Hdl.get_index(), Hdl.get_samplerHeap_val(),
-                           Hdl.get_nonUniformIndex_val()};
+                           Hdl.get_nonUniformIndex_val(), true};
         for (User *HdlU : U->users()) {
           if (isa<PHINode>(HdlU) || isa<SelectInst>(HdlU)) {
-            HandleSelects.insert(HdlU);
+            tmpHandleSelects.insert(HdlU);
           }
         }
       }
+    }
+    // Collect phi/sel of other phi/sel selected handles.
+    while (!tmpHandleSelects.empty()) {
+      HandleSelects.insert(tmpHandleSelects.begin(), tmpHandleSelects.end());
+      ValueSetVector newHandleSelects;
+      for (Value *Hdl : tmpHandleSelects) {
+        for (User *HdlU : Hdl->users()) {
+          if (HandleSelects.count(HdlU))
+            continue;
+          if (isa<PHINode>(HdlU) || isa<SelectInst>(HdlU)) {
+            newHandleSelects.insert(HdlU);
+          }
+        }
+      }
+      tmpHandleSelects = newHandleSelects;
     }
   }
 
