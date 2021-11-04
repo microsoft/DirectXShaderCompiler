@@ -580,6 +580,40 @@ bool IsHLSLSubobjectType(clang::QualType type) {
   return GetHLSLSubobjectKind(type, kind, hgType);
 }
 
+bool IsUserDefinedRecordType(clang::QualType type) {
+  if (const auto *rt = type->getAs<RecordType>()) {
+    // HLSL specific types
+    if (hlsl::IsHLSLResourceType(type) || hlsl::IsHLSLVecMatType(type) ||
+        isa<ExtVectorType>(type.getTypePtr()) || type->isBuiltinType() ||
+        type->isArrayType()) {
+      return false;
+    }
+
+    // SubpassInput or SubpassInputMS type
+    if (rt->getDecl()->getName() == "SubpassInput" ||
+        rt->getDecl()->getName() == "SubpassInputMS") {
+      return false;
+    }
+    return true;
+  }
+
+  return false;
+}
+
+bool DoesTypeDefineOverloadedOperator(clang::QualType type,
+                                      clang::OverloadedOperatorKind opc) {
+  if (const RecordType *recordType = type->getAs<RecordType>()) {
+    if (const CXXRecordDecl *cxxRecordDecl =
+            dyn_cast<CXXRecordDecl>(recordType->getDecl())) {
+      for (const auto *method : cxxRecordDecl->methods()) {
+        if (method->getOverloadedOperator() == opc)
+          return true;
+      }
+    }
+  }
+  return false;
+}
+
 bool GetHLSLSubobjectKind(clang::QualType type, DXIL::SubobjectKind &subobjectKind, DXIL::HitGroupType &hgType) {
   hgType = (DXIL::HitGroupType)(-1);
   type = type.getCanonicalType();
