@@ -3714,6 +3714,7 @@ implicit ``vk`` namepsace.
     const uint QueueFamilyScope = 5;
   
     uint64_t ReadClock(in uint scope);
+    uint     RawBufferLoad(in uint64_t deviceAddress);
   } // end namespace
 
 
@@ -3751,6 +3752,35 @@ For example:
 
   uint64_t clock = vk::ReadClock(vk::SubgroupScope);
 
+RawBufferLoad
+~~~~~~~~~~~~~
+This intrinsic funcion has the following signature:
+
+.. code:: hlsl
+
+  uint RawBufferLoad(in uint64_t deviceAddress);
+
+This exposes a subset of the `VK_KHR_buffer_device_address <https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VK_KHR_buffer_device_address.html>`_
+and `SPV_KHR_physical_storage_buffer <https://github.com/KhronosGroup/SPIRV-Registry/blob/main/extensions/KHR/SPV_KHR_physical_storage_buffer.asciidoc>`_ 
+functionality to HLSL. 
+
+It allows the shader program to load a single 32 bit value from a GPU
+accessible memory at given address, similar to ``ByteAddressBuffer.Load()``.
+Like ``ByteAddressBuffer``, this intrinsic requires a 4 byte aligned address.
+
+Using this intrinsic adds ``PhysicalStorageBufferAddresses`` capability and 
+``SPV_KHR_physical_storage_buffer`` extension requirements as well as changing 
+the addressing model to ``PhysicalStorageBuffer64``.
+
+Example:
+
+.. code:: hlsl
+
+  uint64_t Address;
+  float4 main() : SV_Target0 {
+    uint Value = vk::RawBufferLoad(Address);
+    return asfloat(Value);
+  }
 
 Supported Command-line Options
 ==============================

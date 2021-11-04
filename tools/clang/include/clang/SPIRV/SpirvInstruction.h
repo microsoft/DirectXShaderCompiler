@@ -330,6 +330,9 @@ public:
 
   spv::AddressingModel getAddressingModel() const { return addressModel; }
   spv::MemoryModel getMemoryModel() const { return memoryModel; }
+  void setAddressingModel(spv::AddressingModel addrModel) {
+    addressModel = addrModel;
+  }
 
 private:
   spv::AddressingModel addressModel;
@@ -1664,9 +1667,14 @@ public:
     return memoryAccess.getValue();
   }
 
+  void setAlignment(uint32_t alignment);
+  bool hasAlignment() const { return memoryAlignment.hasValue(); }
+  uint32_t getAlignment() const { return memoryAlignment.getValue(); }
+
 private:
   SpirvInstruction *pointer;
   llvm::Optional<spv::MemoryAccessMask> memoryAccess;
+  llvm::Optional<uint32_t> memoryAlignment;
 };
 
 /// \brief OpCopyObject instruction
@@ -1860,6 +1868,9 @@ private:
 class SpirvUnaryOp : public SpirvInstruction {
 public:
   SpirvUnaryOp(spv::Op opcode, QualType resultType, SourceLocation loc,
+               SpirvInstruction *op);
+
+  SpirvUnaryOp(spv::Op opcode, const SpirvType *resultType, SourceLocation loc,
                SpirvInstruction *op);
 
   DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvUnaryOp)

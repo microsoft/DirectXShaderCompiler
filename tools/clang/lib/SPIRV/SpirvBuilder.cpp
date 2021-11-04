@@ -330,6 +330,16 @@ SpirvUnaryOp *SpirvBuilder::createUnaryOp(spv::Op op, QualType resultType,
   return instruction;
 }
 
+SpirvUnaryOp *SpirvBuilder::createUnaryOp(spv::Op op,
+                                          const SpirvType *resultType,
+                                          SpirvInstruction *operand,
+                                          SourceLocation loc) {
+  assert(insertPoint && "null insert point");
+  auto *instruction = new (context) SpirvUnaryOp(op, resultType, loc, operand);
+  insertPoint->addInstruction(instruction);
+  return instruction;
+}
+
 SpirvBinaryOp *SpirvBuilder::createBinaryOp(spv::Op op, QualType resultType,
                                             SpirvInstruction *lhs,
                                             SpirvInstruction *rhs,
@@ -1517,6 +1527,18 @@ SpirvString *SpirvBuilder::getString(llvm::StringRef str) {
   stringLiterals[str.str()] = instr;
   mod->addString(instr);
   return instr;
+}
+
+const HybridPointerType *
+SpirvBuilder::getPhysicalStorageBufferType(QualType pointee) {
+  return context.getPointerType(pointee,
+                                spv::StorageClass::PhysicalStorageBuffer);
+}
+
+const SpirvPointerType *
+SpirvBuilder::getPhysicalStorageBufferType(const SpirvType *pointee) {
+  return context.getPointerType(pointee,
+                                spv::StorageClass::PhysicalStorageBuffer);
 }
 
 void SpirvBuilder::addModuleInitCallToEntryPoints() {

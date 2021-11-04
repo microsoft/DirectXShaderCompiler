@@ -750,6 +750,18 @@ SpirvLoad::SpirvLoad(QualType resultType, SourceLocation loc,
     : SpirvInstruction(IK_Load, spv::Op::OpLoad, resultType, loc),
       pointer(pointerInst), memoryAccess(mask) {}
 
+void SpirvLoad::setAlignment(uint32_t alignment) {
+  assert(alignment != 0);
+  assert(llvm::isPowerOf2_32(alignment));
+  if (!memoryAccess.hasValue()) {
+    memoryAccess = spv::MemoryAccessMask::Aligned;
+  } else {
+    memoryAccess.getValue() =
+        memoryAccess.getValue() | spv::MemoryAccessMask::Aligned;
+  }
+  memoryAlignment = alignment;
+}
+
 SpirvCopyObject::SpirvCopyObject(QualType resultType, SourceLocation loc,
                                  SpirvInstruction *pointerInst)
     : SpirvInstruction(IK_CopyObject, spv::Op::OpCopyObject, resultType, loc),
@@ -794,6 +806,12 @@ SpirvStore::SpirvStore(SourceLocation loc, SpirvInstruction *pointerInst,
 SpirvUnaryOp::SpirvUnaryOp(spv::Op opcode, QualType resultType,
                            SourceLocation loc, SpirvInstruction *op)
     : SpirvInstruction(IK_UnaryOp, opcode, resultType, loc), operand(op) {}
+
+SpirvUnaryOp::SpirvUnaryOp(spv::Op opcode, const SpirvType *resultType,
+                           SourceLocation loc, SpirvInstruction *op)
+    : SpirvInstruction(IK_UnaryOp, opcode, QualType(), loc), operand(op) {
+  setResultType(resultType);
+}
 
 bool SpirvUnaryOp::isConversionOp() const {
   return opcode == spv::Op::OpConvertFToU || opcode == spv::Op::OpConvertFToS ||
