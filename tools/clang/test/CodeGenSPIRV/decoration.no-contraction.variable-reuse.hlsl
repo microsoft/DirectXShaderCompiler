@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 // The purpose of this test is to make sure non-precise computations are *not*
 // decorated with NoContraction.

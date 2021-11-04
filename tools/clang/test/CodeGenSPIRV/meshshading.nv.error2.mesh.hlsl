@@ -1,4 +1,4 @@
-// Run: %dxc -T ms_6_5 -E main
+// RUN: %dxc -T ms_6_5 -E main
 
 // CHECK: 14:6: error: MS entry point must have the numthreads attribute
 

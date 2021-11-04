@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_2 -E main -fspv-debug=rich -enable-16bit-types
+// RUN: %dxc -T ps_6_2 -E main -fspv-debug=rich -enable-16bit-types
 
 // CHECK:        [[set:%\d+]] = OpExtInstImport "OpenCL.DebugInfo.100"
 // CHECK: [[uint64Name:%\d+]] = OpString "uint64_t"

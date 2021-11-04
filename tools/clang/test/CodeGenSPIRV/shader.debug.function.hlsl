@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -fspv-debug=vulkan
+// RUN: %dxc -T ps_6_0 -E main -fspv-debug=vulkan
 
 // TODO: FlagIsPublic is shown as FlagIsProtected|FlagIsPrivate.
 

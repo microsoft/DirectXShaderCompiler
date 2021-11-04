@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -enable-templates
+// RUN: %dxc -T ps_6_0 -E main -enable-templates
 
 template <typename T>
 T square(T number) {

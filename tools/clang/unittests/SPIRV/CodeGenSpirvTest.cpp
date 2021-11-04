@@ -92,6 +92,9 @@ TEST_F(FileTest, RWBufferTypeStructError) {
   runFileTest("type.rwbuffer.struct.error.hlsl", Expect::Failure);
 }
 TEST_F(FileTest, CBufferType) { runFileTest("type.cbuffer.hlsl"); }
+TEST_F(FileTest, TypeCBufferIncludingResource) {
+  runFileTest("type.cbuffer.including.resource.hlsl");
+}
 TEST_F(FileTest, ConstantBufferType) {
   runFileTest("type.constant-buffer.hlsl");
 }
@@ -1342,6 +1345,7 @@ TEST_F(FileTest, IntrinsicsVkQueueFamilyScope) {
 TEST_F(FileTest, IntrinsicsSpirv) {
   runFileTest("spv.intrinsicInstruction.hlsl");
   runFileTest("spv.intrinsicLiteral.hlsl");
+  runFileTest("spv.intrinsicDecorate.hlsl", Expect::Success, false);
   runFileTest("spv.intrinsic.reference.error.hlsl", Expect::Failure);
 }
 TEST_F(FileTest, IntrinsicsVkReadClock) {
@@ -1819,6 +1823,9 @@ TEST_F(FileTest, VulkanAttributeImageFormat) {
 TEST_F(FileTest, VulkanAttributeImageFormatO3) {
   runFileTest("vk.attribute.image-format.o3.hlsl");
 }
+TEST_F(FileTest, VulkanAttributeImageFormatSimple) {
+  runFileTest("vk.attribute.image-format.simple.hlsl", Expect::Success);
+}
 
 TEST_F(FileTest, VulkanCLOptionInvertYVS) {
   runFileTest("vk.cloption.invert-y.vs.hlsl");
@@ -1858,7 +1865,7 @@ TEST_F(FileTest, VulkanLocationPartiallyAssigned) {
 std::string getStageLocationReassignTestShader(const std::string &typeDef,
                                                const std::string &stageVar,
                                                const std::string &check) {
-  const std::string command(R"(// Run: %dxc -T vs_6_0 -E main)");
+  const std::string command(R"(// RUN: %dxc -T vs_6_0 -E main)");
   const std::string shader = command + typeDef + R"(
 [[vk::location(3)]]                   // first use
 float main(
@@ -2860,7 +2867,7 @@ TEST_F(FileTest, RichDebugInfoTypeStructuredBuffer) {
 }
 
 TEST_F(FileTest, InlinedCodeTest) {
-  const std::string command(R"(// Run: %dxc -T ps_6_0 -E PSMain)");
+  const std::string command(R"(// RUN: %dxc -T ps_6_0 -E PSMain)");
   const std::string code = command + R"(
 struct PSInput
 {
@@ -2876,7 +2883,7 @@ float4 PSMain(PSInput input) : SV_TARGET
 }
 
 TEST_F(FileTest, InlinedCodeWithErrorTest) {
-  const std::string command(R"(// Run: %dxc -T ps_6_0 -E PSMain)");
+  const std::string command(R"(// RUN: %dxc -T ps_6_0 -E PSMain)");
   const std::string code = command + R"(
 struct PSInput
 {
@@ -2894,7 +2901,7 @@ float4 PSMain(PSInput input) : SV_TARGET
 std::string getVertexPositionTypeTestShader(const std::string &subType,
                                             const std::string &positionType,
                                             const std::string &check) {
-  const std::string command(R"(// Run: %dxc -T vs_6_0 -E main)");
+  const std::string command(R"(// RUN: %dxc -T vs_6_0 -E main)");
   const std::string code = command + subType + R"(
 struct output {
 )" + positionType + R"(
@@ -2968,6 +2975,9 @@ TEST_F(FileTest, ShaderDebugInfoSource) {
 }
 TEST_F(FileTest, ShaderDebugInfoSourceContinued) {
   runFileTest("shader.debug.sourcecontinued.hlsl");
+}
+TEST_F(FileTest, ShaderDebugInfoLine) {
+  runFileTest("shader.debug.line.hlsl");
 }
 
 } // namespace

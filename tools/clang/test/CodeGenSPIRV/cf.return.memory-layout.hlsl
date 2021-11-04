@@ -1,4 +1,4 @@
-// Run: %dxc -T cs_6_5 -E main -fvk-use-gl-layout -Zpr -WX -enable-16bit-types -Zi
+// RUN: %dxc -T cs_6_5 -E main -fvk-use-gl-layout -Zpr -WX -enable-16bit-types -Zi
 
 struct Data
 {

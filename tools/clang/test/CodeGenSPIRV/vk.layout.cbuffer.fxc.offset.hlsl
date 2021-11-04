@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_2 -E main -fvk-use-dx-layout -enable-16bit-types
+// RUN: %dxc -T ps_6_2 -E main -fvk-use-dx-layout -enable-16bit-types
 
 // CHECK: OpDecorate %_arr_float_uint_1 ArrayStride 16
 // CHECK: OpMemberDecorate %type_buffer0 0 Offset 0

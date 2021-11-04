@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main -fspv-debug=rich
+// RUN: %dxc -T vs_6_0 -E main -fspv-debug=rich
 
 // CHECK: [[set:%\d+]] = OpExtInstImport "OpenCL.DebugInfo.100"
 // CHECK: [[out:%\d+]] = OpString "VS_OUTPUT"

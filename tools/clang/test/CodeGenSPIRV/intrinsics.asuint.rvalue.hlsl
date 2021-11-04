@@ -1,4 +1,4 @@
-// Run: %dxc -T cs_6_0 -E main
+// RUN: %dxc -T cs_6_0 -E main
 
 StructuredBuffer<float4> input0;
 StructuredBuffer<float4x3> input1;

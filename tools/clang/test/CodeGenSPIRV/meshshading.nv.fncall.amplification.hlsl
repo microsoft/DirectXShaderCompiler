@@ -1,4 +1,4 @@
-// Run: %dxc -T as_6_5 -E main -fspv-target-env=vulkan1.1
+// RUN: %dxc -T as_6_5 -E main -fspv-target-env=vulkan1.1
 
 // CHECK:  OpCapability MeshShadingNV
 // CHECK:  OpExtension "SPV_NV_mesh_shader"

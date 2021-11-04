@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E MainPs -fspv-debug=vulkan-with-source-test
+// RUN: %dxc -T ps_6_0 -E MainPs -fspv-debug=vulkan-with-source-test
 
 // CHECK:             DebugSource {{%\d+}} {{%\d+}}
 // CHECK:             DebugSourceContinued {{%\d+}}

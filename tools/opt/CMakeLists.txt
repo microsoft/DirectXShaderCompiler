@@ -45,7 +45,7 @@ if(WIN32 AND HLSL_BUILD_DXILCONV)
   target_link_libraries(opt DxilConvPasses
 )
 add_dependencies(opt DxilConvPasses)
-endif(WIN32)
+endif(WIN32 AND HLSL_BUILD_DXILCONV)
 
 export_executable_symbols(opt)
 

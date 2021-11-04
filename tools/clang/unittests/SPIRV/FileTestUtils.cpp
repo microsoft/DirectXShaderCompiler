@@ -66,9 +66,9 @@ bool processRunCommandArgs(const llvm::StringRef runCommandLine,
   std::istringstream buf(runCommandLine);
   std::istream_iterator<std::string> start(buf), end;
   std::vector<std::string> tokens(start, end);
-  if (tokens.size() < 3 || tokens[1].find("Run") == std::string::npos ||
+  if (tokens.size() < 3 || tokens[1].find("RUN") == std::string::npos ||
       tokens[2].find("%dxc") == std::string::npos) {
-    fprintf(stderr, "The only supported format is: \"// Run: %%dxc -T "
+    fprintf(stderr, "The only supported format is: \"// RUN: %%dxc -T "
                     "<profile> -E <entry>\"\n");
     return false;
   }

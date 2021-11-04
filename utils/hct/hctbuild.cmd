@@ -212,6 +212,10 @@ if "%1"=="-ninja" (
   set BUILD_GENERATOR=Ninja
   shift /1 & goto :parse_args
 )
+if "%1"=="-update-generated-sources" (
+  set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_COPY_GENERATED_SOURCES=1
+  shift /1 & goto :parse_args
+)
 if "%1" NEQ "" ( 
     echo Unrecognized argument: %1
     exit /b 1
@@ -380,7 +384,7 @@ exit /b 0
 echo Builds HLSL solutions and the product and test binaries for the current
 echo flavor and architecture.
 echo.
-echo hctbuild [-s or -b] [-alldef] [-analyze] [-official] [-fv] [-fvloc <path>] [-rel] [-arm or -arm64 or -x86 or -x64] [-Release] [-Debug] [-vs2017] [-vs2019] [-ninja] [-tblgen path] [-speak-up] [-no-parallel] [-no-dxilconv]
+echo hctbuild [-s or -b] [-alldef] [-analyze] [-official] [-fv] [-fvloc <path>] [-rel] [-arm or -arm64 or -x86 or -x64] [-Release] [-Debug] [-vs2017] [-vs2019] [-ninja] [-tblgen path] [-speak-up] [-no-parallel] [-no-dxilconv] [-update-generated-soures]
 echo.
 echo   -s   creates the projects only, without building
 echo   -b   builds the existing project
@@ -397,6 +401,8 @@ echo   -no-dxilconv   disables build of DXBC to DXIL converter and tools
 echo   -vs2017        uses Visual Studio 2017 to build
 echo   -vs2019        uses Visual Studio 2019 to build
 echo   -vs2022        uses Visual Studio 2022 to build
+echo
+echo   -update-generated-soures   Updates generated soures in the source tree
 echo.
 echo current BUILD_ARCH=%BUILD_ARCH%.  Override with:
 echo   -x86 targets an x86 build (aka. Win32)

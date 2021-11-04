@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main -fspv-debug=rich
+// RUN: %dxc -T vs_6_0 -E main -fspv-debug=rich
 
 //CHECK: [[name_2d_arr:%\d+]] = OpString "@type.2d.image.array"
 //CHECK: [[name_2d:%\d+]] = OpString "@type.2d.image"

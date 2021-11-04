@@ -1,4 +1,4 @@
-// Run: %dxc -T hs_6_0 -E SubDToBezierHS
+// RUN: %dxc -T hs_6_0 -E SubDToBezierHS
 
 #include "bezier_common_hull.hlsl"
 

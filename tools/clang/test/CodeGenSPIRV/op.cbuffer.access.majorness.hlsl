@@ -1,4 +1,4 @@
-// Run: %dxc -T cs_6_0 -E main -Zpr
+// RUN: %dxc -T cs_6_0 -E main -Zpr
 
 // CHECK: %SData = OpTypeStruct %_arr_mat3v4float_uint_2 %_arr_mat3v4float_uint_2_0
 struct SData {

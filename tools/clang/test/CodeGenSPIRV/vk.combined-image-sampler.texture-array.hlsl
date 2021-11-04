@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -O0
+// RUN: %dxc -T ps_6_0 -E main -O0
 
 // CHECK:         [[img:%\w+]] = OpTypeImage %float 2D 2 1 0 1 Unknown
 // CHECK: [[sampled_img:%\w+]] = OpTypeSampledImage [[img]]

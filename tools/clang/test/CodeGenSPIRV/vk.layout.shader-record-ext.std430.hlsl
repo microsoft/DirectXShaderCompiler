@@ -1,4 +1,4 @@
-// Run: %dxc -T lib_6_3 -fspv-target-env=vulkan1.2
+// RUN: %dxc -T lib_6_3 -fspv-target-env=vulkan1.2
 
 // CHECK: OpDecorate %_arr_v2float_uint_3 ArrayStride 8
 // CHECK: OpDecorate %_arr_mat3v2float_uint_2 ArrayStride 32

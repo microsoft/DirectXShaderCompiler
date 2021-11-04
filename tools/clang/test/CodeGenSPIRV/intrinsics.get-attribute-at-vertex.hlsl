@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_1 -E main
+// RUN: %dxc -T ps_6_1 -E main
 
 struct PSInput {
   float4 position : SV_POSITION;

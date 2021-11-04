@@ -1,4 +1,4 @@
-// Run: %dxc -T gs_6_0 -E main -fspv-reflect
+// RUN: %dxc -T gs_6_0 -E main -fspv-reflect
 
 // CHECK: OpCapability Geometry
 // CHECK: OpCapability ClipDistance

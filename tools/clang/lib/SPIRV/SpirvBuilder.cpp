@@ -1441,6 +1441,27 @@ void SpirvBuilder::decorateLinkage(SpirvInstruction *targetInst,
   mod->addDecoration(decor);
 }
 
+void SpirvBuilder::decorateLiterals(SpirvInstruction *targetInst,
+                                    unsigned decorate, unsigned *literal,
+                                    unsigned literalSize,
+                                    SourceLocation srcLoc) {
+  SmallVector<uint32_t, 2> operands(literal, literal + literalSize);
+  SpirvDecoration *decor = new (context) SpirvDecoration(
+      srcLoc, targetInst, static_cast<spv::Decoration>(decorate), operands);
+  assert(decor != nullptr);
+  mod->addDecoration(decor);
+}
+
+void SpirvBuilder::decorateString(SpirvInstruction *target, unsigned decorate,
+                                  llvm::StringRef strLiteral,
+                                  llvm::Optional<uint32_t> memberIdx) {
+
+  auto *decor = new (context) SpirvDecoration(
+      target->getSourceLocation(), target,
+      static_cast<spv::Decoration>(decorate), strLiteral, memberIdx);
+  mod->addDecoration(decor);
+}
+
 SpirvConstant *SpirvBuilder::getConstantInt(QualType type, llvm::APInt value,
                                             bool specConst) {
   // We do not reuse existing constant integers. Just create a new one.
