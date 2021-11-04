@@ -1,4 +1,4 @@
-// Run: %dxc -T gs_6_0 -E main -fvk-invert-y
+// RUN: %dxc -T gs_6_0 -E main -fvk-invert-y
 
 // GS per-vertex input
 struct GsVIn {

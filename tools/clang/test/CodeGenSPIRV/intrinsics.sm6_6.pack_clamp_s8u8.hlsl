@@ -1,4 +1,4 @@
-// Run: %dxc -E main -T ps_6_6 -enable-16bit-types
+// RUN: %dxc -E main -T ps_6_6 -enable-16bit-types
 
 float4 main(int16_t4 input1 : Inputs1, int16_t4 input2 : Inputs2) : SV_Target {
   int16_t4 v4int16_var;

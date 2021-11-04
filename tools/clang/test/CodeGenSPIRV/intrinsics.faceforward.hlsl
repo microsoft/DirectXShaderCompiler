@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 // faceforward only takes vector of floats, and returns a vector of the same size.
 

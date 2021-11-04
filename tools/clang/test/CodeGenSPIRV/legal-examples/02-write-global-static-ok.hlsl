@@ -1,4 +1,4 @@
-// Run: %dxc -T cs_6_0 -E main -O3
+// RUN: %dxc -T cs_6_0 -E main -O3
 
 // CHECK:      [[val:%\d+]] = OpConstantComposite %v4float %float_0 %float_0 %float_0 %float_0
 // CHECK:      [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_v4float %gRWSBuffer

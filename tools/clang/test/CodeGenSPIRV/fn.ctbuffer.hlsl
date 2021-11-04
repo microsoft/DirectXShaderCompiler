@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 // %S  : generated from struct S, with    layout decorations
 // %S_0: generated from struct S, without layout decorations

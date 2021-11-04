@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main
 
 // CHECK: %type_sampler = OpTypeSampler
 // CHECK: %_ptr_UniformConstant_type_sampler = OpTypePointer UniformConstant %type_sampler

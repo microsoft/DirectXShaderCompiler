@@ -1,4 +1,4 @@
-// Run: %dxc -T lib_6_6
+// RUN: %dxc -T lib_6_6
 
 // CHECK: OpEntryPoint GLCompute %bar "bar" %gl_GlobalInvocationID
 // CHECK: OpEntryPoint GLCompute %foo "foo" %gl_GlobalInvocationID

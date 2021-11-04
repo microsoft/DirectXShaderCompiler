@@ -1,4 +1,4 @@
-// Run: %dxc -T cs_6_0 -E main -O3
+// RUN: %dxc -T cs_6_0 -E main -O3
 
 // CHECK:      [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_S %gSBuffer1
 // CHECK-NEXT: [[val:%\d+]] = OpLoad %S [[ptr]]

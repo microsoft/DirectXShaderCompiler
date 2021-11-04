@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main
 
 // Signatures:
 // double  asdouble(uint lowbits, uint highbits)

@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 // %type_ConstantBuffer_S is the type for myCBuffer. With layout decoration.
 // %S is the type for myASBuffer elements. With layout decoration.

@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 [[vk::builtin("DeviceIndex")]]
 float4 main(float a : A) : SV_Target {

@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main
 
 // CHECK: [[glsl:%\d+]] = OpExtInstImport "GLSL.std.450"
 // CHECK: [[v4f0:%\d+]] = OpConstantComposite %v4float %float_0 %float_0 %float_0 %float_0

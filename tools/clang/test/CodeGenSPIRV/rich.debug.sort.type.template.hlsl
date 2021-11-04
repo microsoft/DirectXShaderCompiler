@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -fspv-debug=rich
+// RUN: %dxc -T ps_6_0 -E main -fspv-debug=rich
 
 // CHECK: [[dbg_info_none:%\d+]] = OpExtInst %void [[ext:%\d+]] DebugInfoNone
 // CHECK: [[ty:%\d+]] = OpExtInst %void [[ext]] DebugTypeComposite {{%\d+}} Class {{%\d+}} 0 0 {{%\d+}} {{%\d+}} [[dbg_info_none]]

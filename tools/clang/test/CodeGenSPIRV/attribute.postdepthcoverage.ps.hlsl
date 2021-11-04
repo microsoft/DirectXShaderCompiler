@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 // CHECK: OpCapability SampleMaskPostDepthCoverage
 // CHECK: OpExtension "SPV_KHR_post_depth_coverage"

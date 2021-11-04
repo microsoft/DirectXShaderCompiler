@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -enable-templates
+// RUN: %dxc -T ps_6_0 -E main -enable-templates
 
 // The SPIR-V backend correctly handles the template instance `Foo<int>`.
 // The created template instance is ClassTemplateSpecializationDecl in AST.

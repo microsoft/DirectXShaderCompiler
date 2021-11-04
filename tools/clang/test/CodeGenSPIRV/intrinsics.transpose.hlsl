@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 void main() {
   float2x3 m = { {1,2,3} , {4,5,6} };

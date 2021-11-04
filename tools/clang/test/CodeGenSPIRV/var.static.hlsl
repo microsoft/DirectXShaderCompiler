@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main
 
 // CHECK: [[v3b0:%\d+]] = OpConstantNull %v3bool
 // CHECK: [[v4f0:%\d+]] = OpConstantNull %v4float

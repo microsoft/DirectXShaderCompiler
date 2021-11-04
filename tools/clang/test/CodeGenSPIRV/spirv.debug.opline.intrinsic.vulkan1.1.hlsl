@@ -1,4 +1,4 @@
-// Run: %dxc -T cs_6_0 -E main -Zi -fspv-target-env=vulkan1.1
+// RUN: %dxc -T cs_6_0 -E main -Zi -fspv-target-env=vulkan1.1
 
 // CHECK:      [[file:%\d+]] = OpString
 // CHECK-SAME: spirv.debug.opline.intrinsic.vulkan1.1.hlsl

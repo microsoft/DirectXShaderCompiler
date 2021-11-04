@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 // TODO: optimize to generate constant composite for suitable initializers
 // TODO: decompose matrix in initializer

@@ -1,4 +1,4 @@
-// Run: %dxc -T as_6_5 -E main
+// RUN: %dxc -T as_6_5 -E main
 
 // CHECK:  16:19: error: invalid usage of semantic 'USER_OUT' in shader profile as
 

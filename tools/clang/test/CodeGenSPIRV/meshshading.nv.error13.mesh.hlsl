@@ -1,4 +1,4 @@
-// Run: %dxc -T ms_6_5 -E main
+// RUN: %dxc -T ms_6_5 -E main
 
 // CHECK:  18:19: error: invalid usage of semantic 'USER_IN' in shader profile ms
 
