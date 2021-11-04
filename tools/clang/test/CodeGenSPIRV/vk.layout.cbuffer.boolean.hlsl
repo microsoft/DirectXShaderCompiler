@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 // CHECK: OpDecorate %_arr_v3uint_uint_2 ArrayStride 16
 // CHECK: OpMemberDecorate %FrameConstants 0 Offset 0

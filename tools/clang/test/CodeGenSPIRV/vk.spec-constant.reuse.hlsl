@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 // CHECK: OpDecorate %y SpecId 0
 [[vk::constant_id(0)]] const bool y = false;

@@ -1,4 +1,4 @@
-// Run: %dxc -T cs_6_0 -E main
+// RUN: %dxc -T cs_6_0 -E main
 
 //CHECK: OpTypeImage %float Buffer 2 0 0 2 Rgba16f
 [[vk::image_format("rgba16f")]]

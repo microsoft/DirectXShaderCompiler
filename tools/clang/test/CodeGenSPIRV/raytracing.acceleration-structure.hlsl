@@ -1,4 +1,4 @@
-// Run: %dxc -E main -T cs_6_4 -fspv-target-env=vulkan1.2
+// RUN: %dxc -E main -T cs_6_4 -fspv-target-env=vulkan1.2
 
 // CHECK: OpCapability RayTracingKHR
 

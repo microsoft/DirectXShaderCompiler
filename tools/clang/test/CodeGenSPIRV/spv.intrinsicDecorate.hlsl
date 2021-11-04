@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -fcgl -Vd -spirv
+// RUN: %dxc -T ps_6_0 -E main -fcgl -Vd -spirv
 
 [[vk::ext_decorate(1, 0)]]
 bool b0;

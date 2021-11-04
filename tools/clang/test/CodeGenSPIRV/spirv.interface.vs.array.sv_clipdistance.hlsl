@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main
 
 struct VS_OUTPUT {
     float4 clips[2] : SV_ClipDistance;

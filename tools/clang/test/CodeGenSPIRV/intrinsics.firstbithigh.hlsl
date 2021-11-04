@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 // Note: Even though the HLSL documentation contains a version of "firstbithigh" that 
 // takes signed integer(s) and returns signed integer(s), the frontend always generates

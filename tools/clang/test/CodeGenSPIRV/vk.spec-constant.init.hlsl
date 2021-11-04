@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main
 
 // CHECK: OpDecorate %b0 SpecId 0
 // CHECK: OpDecorate %b1 SpecId 1

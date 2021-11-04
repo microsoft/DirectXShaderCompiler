@@ -1,4 +1,4 @@
-// Run: %dxc -T cs_6_0 -E main
+// RUN: %dxc -T cs_6_0 -E main
 
 // CHECK: 4:8: error: Found uninitialized string variable.
 string first;

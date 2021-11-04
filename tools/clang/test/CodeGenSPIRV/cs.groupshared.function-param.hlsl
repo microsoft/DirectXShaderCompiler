@@ -1,4 +1,4 @@
-// Run: %dxc -T cs_6_0 -E main
+// RUN: %dxc -T cs_6_0 -E main
 
 // CHECK: %A = OpVariable %_ptr_Uniform_type_RWStructuredBuffer_int Uniform
 RWStructuredBuffer<int> A;

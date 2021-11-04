@@ -1,4 +1,4 @@
-// Run: %dxc -T cs_6_0 -E main
+// RUN: %dxc -T cs_6_0 -E main
 RWBuffer<int> buffer1 : register(u1);
 RWByteAddressBuffer buffer2 : register(u2);
 

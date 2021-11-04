@@ -1,4 +1,4 @@
-// Run: %dxc -T lib_6_3 -fspv-target-env=vulkan1.2
+// RUN: %dxc -T lib_6_3 -fspv-target-env=vulkan1.2
 
 struct T {
     float2 val[3];

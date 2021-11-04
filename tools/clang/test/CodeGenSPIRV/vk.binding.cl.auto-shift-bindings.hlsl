@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -fvk-b-shift 100 0 -fvk-t-shift 200 0 -fvk-t-shift 300 1 -fvk-s-shift 500 0 -fvk-u-shift 700 0 -fvk-auto-shift-bindings -fspv-flatten-resource-arrays
+// RUN: %dxc -T ps_6_0 -E main -fvk-b-shift 100 0 -fvk-t-shift 200 0 -fvk-t-shift 300 1 -fvk-s-shift 500 0 -fvk-u-shift 700 0 -fvk-auto-shift-bindings -fspv-flatten-resource-arrays
 
 // Tests that we can set shift for more than one sets of the same register type
 // Tests that we can override shift for the same set

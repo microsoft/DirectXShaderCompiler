@@ -1,4 +1,4 @@
-// Run: %dxc -T lib_6_3
+// RUN: %dxc -T lib_6_3
 
 // CHECK: error: Vulkan 1.2 is required for Raytracing but not permitted to use
 

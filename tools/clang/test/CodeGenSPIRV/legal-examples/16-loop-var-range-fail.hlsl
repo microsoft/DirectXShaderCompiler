@@ -1,4 +1,4 @@
-// Run: %dxc -T cs_6_0 -E main -O3
+// RUN: %dxc -T cs_6_0 -E main -O3
 
 // CHECK: Using pointers with OpSelect requires capability
 

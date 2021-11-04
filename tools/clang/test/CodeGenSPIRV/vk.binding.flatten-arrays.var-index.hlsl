@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -fspv-flatten-resource-arrays -O3
+// RUN: %dxc -T ps_6_0 -E main -fspv-flatten-resource-arrays -O3
 
 // CHECK: OpName %x_0_ "x[0]"
 // CHECK: OpName %x_1_ "x[1]"

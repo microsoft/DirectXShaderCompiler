@@ -1,4 +1,4 @@
-// Run: %dxc -T ds_6_0 -E main -fvk-invert-y
+// RUN: %dxc -T ds_6_0 -E main -fvk-invert-y
 
 // HS PCF output
 struct HsPcfOut {
