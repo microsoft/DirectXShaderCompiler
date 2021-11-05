@@ -764,6 +764,32 @@ unsigned CountArrayDimensions(Type* Ty,
   return dim;
 }
 
+// Delete unused CleanupInsts, restarting when changed
+// Return true if something was deleted
+bool CleanupUnusedValues(std::unordered_set<Instruction *> &CleanupInsts) {
+  //  - delete unused CleanupInsts, restarting when changed
+  bool bAnyChanges = false;
+  bool bChanged = false;
+  do {
+    bChanged = false;
+    for (auto it = CleanupInsts.begin(); it != CleanupInsts.end();) {
+      Instruction *I = *(it++);
+      if (I->user_empty()) {
+        // Add instructions operands CleanupInsts
+        for (unsigned iOp = 0; iOp < I->getNumOperands(); iOp++) {
+          if (Instruction *opI = dyn_cast<Instruction>(I->getOperand(iOp)))
+            CleanupInsts.insert(opI);
+        }
+        I->eraseFromParent();
+        CleanupInsts.erase(I);
+        bChanged = true;
+      }
+    }
+    if (bChanged)
+      bAnyChanges = true;
+  } while (bChanged);
+  return bAnyChanges;
+}
 
 // Helper class for legalizing resource use
 // Convert select/phi on resources to select/phi on index to GEP on GV.
@@ -1431,33 +1457,6 @@ public:
     }
   }
 
-  // Delete unused CleanupInsts, restarting when changed
-  // Return true if something was deleted
-  bool CleanupUnusedValues() {
-    //  - delete unused CleanupInsts, restarting when changed
-    bool bAnyChanges = false;
-    bool bChanged = false;
-    do {
-      bChanged = false;
-      for (auto it = CleanupInsts.begin(); it != CleanupInsts.end();) {
-        Instruction *I = *(it++);
-        if (I->user_empty()) {
-          // Add instructions operands CleanupInsts
-          for (unsigned iOp = 0; iOp < I->getNumOperands(); iOp++) {
-            if (Instruction *opI = dyn_cast<Instruction>(I->getOperand(iOp)))
-              CleanupInsts.insert(opI);
-          }
-          I->eraseFromParent();
-          CleanupInsts.erase(I);
-          bChanged = true;
-        }
-      }
-      if (bChanged)
-        bAnyChanges = true;
-    } while (bChanged);
-    return bAnyChanges;
-  }
-
   void SimplifyMerges() {
     // Loop if changed
     bool bChanged = false;
@@ -1489,7 +1488,7 @@ public:
         CleanupInsts.insert(I);
       SI->eraseFromParent();
     }
-    CleanupUnusedValues();
+    CleanupUnusedValues(CleanupInsts);
   }
 
   void VerifyComplete(DxilModule &DM) {
@@ -2822,6 +2821,7 @@ public:
   // Value sets we can use to iterate
   ValueSetVector HandleSelects;
   ResourceUseErrors Errors;
+  std::unordered_set<Instruction *> CleanupInsts;
 
   void mergeHeapArgs(Value *SelHdl, Value *SelIdx, User::op_range Hdls) {
     CreateHandleFromHeapArgs args = {nullptr, false, false, true};
@@ -2897,7 +2897,7 @@ public:
     }
 
     while (1) {
-      SmallVector<Value *, 4> Candidates2;
+      SmallVector<Value *, 4> NextPass;
       for (auto &Select : Candidates) {
         CreateHandleFromHeapArgs &args = HandleToArgs[Select];
         if (PHINode *Phi = dyn_cast<PHINode>(Select)) {
@@ -2915,12 +2915,12 @@ public:
         args = HandleToArgs[Select];
         if (args.isResolved)
           continue;
-        Candidates2.emplace_back(Select);
+        NextPass.emplace_back(Select);
       }
       // Some node cannot be reached.
-      if (Candidates2.size() == Candidates.size())
+      if (NextPass.size() == Candidates.size())
         return;
-      Candidates = Candidates2;
+      Candidates = NextPass;
     }
   }
 
@@ -2940,24 +2940,17 @@ public:
         unsigned numIncoming = Phi->getNumIncomingValues();
         CreateHandleFromHeapArgs &args = HandleToArgs[Phi];
         PHINode *newPhi = cast<PHINode>(args.Index);
-        bool bAllIndexResolved = true;
-        for (unsigned j = 0; j < numIncoming; j++) {
-          // Set incoming values to undef until next pass
-          Value *V = Phi->getIncomingValue(j);
-          auto it = HandleToArgs.find(V);
-          if (it == HandleToArgs.end()) {
-            bAllIndexResolved = false;
-            break;
+        if (args.isResolved) {
+          for (unsigned j = 0; j < numIncoming; j++) {
+            // Set incoming values to undef until next pass
+            Value *V = Phi->getIncomingValue(j);
+            auto it = HandleToArgs.find(V);
+            DXASSERT(it != HandleToArgs.end(),
+                     "args.isResolved should be false");
+            CreateHandleFromHeapArgs &itArgs = it->second;
+            newPhi->setIncomingValue(j, itArgs.Index);
           }
-          CreateHandleFromHeapArgs &itArgs = it->second;
-          if (!itArgs.isResolved) {
-            bAllIndexResolved = false;
-            break;
-          }
-          args.merge(itArgs, Errors, Phi);
-          newPhi->setIncomingValue(j, itArgs.Index);
-        }
-        if (bAllIndexResolved) {
+
           IRBuilder<> B(Phi->getParent()->getFirstNonPHI());
           B.SetCurrentDebugLocation(Phi->getDebugLoc());
           Value *isSampler = hlslOP->GetI1Const(args.isSampler);
@@ -2967,7 +2960,7 @@ public:
               B.CreateCall(createHdlFromHeap,
                            {hdlFromHeapOP, newPhi, isSampler, isNonUniform});
           Phi->replaceAllUsesWith(newCI);
-          Phi->eraseFromParent();
+          CleanupInsts.insert(Phi);
           // put newCI in HandleToArgs.
           HandleToArgs[newCI] = args;
         } else {
@@ -2976,23 +2969,16 @@ public:
       } else if (SelectInst *Sel = dyn_cast<SelectInst>(Select)) {
         CreateHandleFromHeapArgs &args = HandleToArgs[Sel];
         SelectInst *newSel = cast<SelectInst>(args.Index);
-        bool bAllIndexResolved = true;
-        for (unsigned j = 1; j < 3; ++j) {
-          Value *V = Sel->getOperand(j);
-          auto it = HandleToArgs.find(V);
-          if (it == HandleToArgs.end()) {
-            bAllIndexResolved = false;
-            break;
+        if (args.isResolved) {
+          for (unsigned j = 1; j < 3; ++j) {
+            Value *V = Sel->getOperand(j);
+            auto it = HandleToArgs.find(V);
+            DXASSERT(it != HandleToArgs.end(),
+                     "args.isResolved should be false");
+            CreateHandleFromHeapArgs &itArgs = it->second;
+            newSel->setOperand(j, itArgs.Index);
           }
-          CreateHandleFromHeapArgs &itArgs = it->second;
-          if (!itArgs.isResolved) {
-            bAllIndexResolved = false;
-            break;
-          }
-          args.merge(itArgs, Errors, Phi);
-          newSel->setOperand(j, itArgs.Index);
-        }
-        if (bAllIndexResolved) {
+
           IRBuilder<> B(newSel->getNextNode());
           B.SetCurrentDebugLocation(newSel->getDebugLoc());
           Value *isSampler = hlslOP->GetI1Const(args.isSampler);
@@ -3002,7 +2988,7 @@ public:
               B.CreateCall(createHdlFromHeap,
                            {hdlFromHeapOP, newSel, isSampler, isNonUniform});
           Sel->replaceAllUsesWith(newCI);
-          Sel->eraseFromParent();
+          CleanupInsts.insert(Sel);
           // put newCI in HandleToArgs.
           HandleToArgs[newCI] = args;
         } else {
@@ -3052,6 +3038,7 @@ public:
     CreateSelectsForHandleSelects();
     PropagateHeapArgs();
     UpdateSelectsForHandleSelect(hlslOP);
+    CleanupUnusedValues(CleanupInsts);
   }
 
   bool runOnModule(llvm::Module &M) {
