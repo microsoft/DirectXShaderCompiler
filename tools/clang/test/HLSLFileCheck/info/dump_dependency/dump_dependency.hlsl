@@ -1,5 +1,5 @@
 // RUN: %dxc -E main -T ps_6_0 -M %s | FileCheck %s
-// RUN: %dxc -E main -T ps_6_0 -MF%s.d %s && cat %s.d | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 -MF%s.deps %s && cat %s.deps | FileCheck %s
 // RUN: %dxc -E main -T ps_6_0 -MD %s && cat %S/dump_dependency.d | FileCheck %s
 
 // CHECK:      dump_dependency.hlsl
