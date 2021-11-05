@@ -2911,8 +2911,7 @@ public:
         } else {
           DXASSERT(false, "otherwise, non-select/phi in Selects set");
         }
-        // Reload args incase it is changed in mergeHeapArgs.
-        args = HandleToArgs[Select];
+
         if (args.isResolved)
           continue;
         NextPass.emplace_back(Select);
@@ -2929,7 +2928,7 @@ public:
       return;
     LLVMContext &Ctx = HandleSelects[0]->getContext();
     Type *pVoidTy = Type::getVoidTy(Ctx);
-    // NOTE: currently phi of createHandleFromHeap and createHandleFromBinding
+    // NOTE: phi of createHandleFromHeap and createHandleFromBinding
     // is not supported.
     Function *createHdlFromHeap =
         hlslOP->GetOpFunc(DXIL::OpCode::CreateHandleFromHeap, pVoidTy);
@@ -2942,7 +2941,6 @@ public:
         PHINode *newPhi = cast<PHINode>(args.Index);
         if (args.isResolved) {
           for (unsigned j = 0; j < numIncoming; j++) {
-            // Set incoming values to undef until next pass
             Value *V = Phi->getIncomingValue(j);
             auto it = HandleToArgs.find(V);
             DXASSERT(it != HandleToArgs.end(),
@@ -2954,7 +2952,8 @@ public:
           IRBuilder<> B(Phi->getParent()->getFirstNonPHI());
           B.SetCurrentDebugLocation(Phi->getDebugLoc());
           Value *isSampler = hlslOP->GetI1Const(args.isSampler);
-          // TODO: or args.IsNonUniform with !isUniform(Phi).
+          // TODO: or args.IsNonUniform with !isUniform(Phi) with uniform
+          // analysis.
           Value *isNonUniform = hlslOP->GetI1Const(args.isNonUniform);
           CallInst *newCI =
               B.CreateCall(createHdlFromHeap,
@@ -3078,7 +3077,7 @@ bool sinkAnnotateHandleAfterSelect(DxilModule &DM, Module &M) {
   if (annotHdls.empty())
     return false;
 
-  DenseSet<Instruction *> selectAnnotHdls;
+  SetVector<Instruction *> selectAnnotHdls;
   for (CallInst *CI : annotHdls) {
     for (User *U : CI->users()) {
       if (isa<PHINode>(U) || isa<SelectInst>(U))
