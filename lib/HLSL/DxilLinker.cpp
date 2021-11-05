@@ -1267,7 +1267,7 @@ void DxilLinkJob::RunPreparePass(Module &M) {
 
   if (pSM->IsSM66Plus() && pSM->IsLib())
     PM.add(createDxilMutateResourceToHandlePass());
-
+  PM.add(createDxilCleanupDynamicResourceHandlePass());
   PM.add(createDxilLowerCreateHandleForLibPass());
   PM.add(createDxilTranslateRawBuffer());
   PM.add(createDxilFinalizeModulePass());
