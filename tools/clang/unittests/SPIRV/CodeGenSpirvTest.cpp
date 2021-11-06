@@ -2555,6 +2555,9 @@ TEST_F(FileTest, DecorationRelaxedPrecisionBool) {
 TEST_F(FileTest, DecorationRelaxedPrecisionArray) {
   runFileTest("decoration.relaxed-precision.array.hlsl");
 }
+TEST_F(FileTest, DecorationRelaxedPrecisionResourceInStruct) {
+  runFileTest("decoration.relaxed-precision.resource.in.struct.hlsl");
+}
 
 // For NoContraction decorations
 TEST_F(FileTest, DecorationNoContraction) {
