@@ -91,7 +91,11 @@ DxilResourceProperties loadPropsFromConstant(const llvm::Constant &C);
 DxilResourceProperties
 loadPropsFromAnnotateHandle(DxilInst_AnnotateHandle &annotateHandle, const ShaderModel &);
 DxilResourceProperties loadPropsFromResourceBase(const DxilResourceBase *);
+DxilResourceProperties tryMergeProps(DxilResourceProperties,
+                                     DxilResourceProperties);
 
+llvm::Constant *tryMergeProps(const llvm::Constant *, const llvm::Constant *,
+                              llvm::Type *Ty, const ShaderModel &);
 } // namespace resource_helper
 
 } // namespace hlsl
