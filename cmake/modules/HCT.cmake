@@ -11,9 +11,13 @@ if (WIN32 AND NOT DEFINED HLSL_AUTOCRLF)
                   OUTPUT_VARIABLE output
                   OUTPUT_STRIP_TRAILING_WHITESPACE)
   if( result EQUAL 0 )
-    set(val Off)
-    if (output STREQUAL "true")
-      set(val On)
+    # This is a little counterintuitive... Because the repo's gitattributes set
+    # text=auto, autocrlf behavior will be enabled for autocrlf true or false.
+    # For reasons unknown to me, autocrlf=input overrides the gitattributes, so
+    # that is the case we need special handling for.
+    set(val On)
+    if (output STREQUAL "input")
+      set(val Off)
     endif()
     set(HLSL_AUTOCRLF ${val} CACHE BOOL "Is core.autocrlf enabled in this clone")
     message(STATUS "Git checkout autocrlf: ${HLSL_AUTOCRLF}")
