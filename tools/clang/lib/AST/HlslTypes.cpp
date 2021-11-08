@@ -600,12 +600,17 @@ bool IsUserDefinedRecordType(clang::QualType type) {
   return false;
 }
 
-bool DoesTypeDefineOverloadedOperator(clang::QualType type,
-                                      clang::OverloadedOperatorKind opc) {
-  if (const RecordType *recordType = type->getAs<RecordType>()) {
+bool DoesTypeDefineOverloadedOperator(clang::QualType typeWithOperator,
+                                      clang::OverloadedOperatorKind opc,
+                                      clang::QualType paramType) {
+  if (const RecordType *recordType = typeWithOperator->getAs<RecordType>()) {
     if (const CXXRecordDecl *cxxRecordDecl =
             dyn_cast<CXXRecordDecl>(recordType->getDecl())) {
       for (const auto *method : cxxRecordDecl->methods()) {
+        if (!method->isUserProvided() || method->getNumParams() != 1)
+          continue;
+        if (method->getParamDecl(0)->getOriginalType() != paramType)
+          continue;
         if (method->getOverloadedOperator() == opc)
           return true;
       }

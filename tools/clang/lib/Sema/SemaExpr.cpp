@@ -10880,8 +10880,8 @@ ExprResult Sema::BuildBinOp(Scope *S, SourceLocation OpLoc,
       (!getLangOpts().HLSL || getLangOpts().EnableOperatorOverloading) &&
       hlsl::IsUserDefinedRecordType(LHSExpr->getType()) &&
       hlsl::DoesTypeDefineOverloadedOperator(
-          LHSExpr->getType(),
-          clang::BinaryOperator::getOverloadedOperator(Opc)) &&
+          LHSExpr->getType(), clang::BinaryOperator::getOverloadedOperator(Opc),
+          RHSExpr->getType()) &&
       hlsl::IsUserDefinedRecordType(RHSExpr->getType())) {
     // If either expression is type-dependent, always build an
     // overloaded op.
