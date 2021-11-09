@@ -609,8 +609,12 @@ bool DoesTypeDefineOverloadedOperator(clang::QualType typeWithOperator,
       for (const auto *method : cxxRecordDecl->methods()) {
         if (!method->isUserProvided() || method->getNumParams() != 1)
           continue;
-        if (method->getParamDecl(0)->getOriginalType() != paramType)
+        // It must be an implicit assignment.
+        if (opc == OO_Equal &&
+            typeWithOperator != method->getParamDecl(0)->getOriginalType() &&
+            typeWithOperator == paramType) {
           continue;
+        }
         if (method->getOverloadedOperator() == opc)
           return true;
       }

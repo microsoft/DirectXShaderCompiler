@@ -10392,7 +10392,9 @@ ExprResult Sema::CreateBuiltinBinOp(SourceLocation OpLoc,
 
   // HLSL Change Starts
   // Handle HLSL binary operands differently
-  if (getLangOpts().HLSL) {
+  if (getLangOpts().HLSL &&
+      (!getLangOpts().EnableOperatorOverloading ||
+       !hlsl::IsUserDefinedRecordType(LHSExpr->getType()))) {
     hlsl::CheckBinOpForHLSL(*this, OpLoc, Opc, LHS, RHS, ResultTy, CompLHSTy, CompResultTy);
     if (!ResultTy.isNull() && Opc == BO_Comma) {
       // In C/C++, the RHS value kind should propagate. In HLSL, it should yield an r-value.
@@ -10881,8 +10883,7 @@ ExprResult Sema::BuildBinOp(Scope *S, SourceLocation OpLoc,
       hlsl::IsUserDefinedRecordType(LHSExpr->getType()) &&
       hlsl::DoesTypeDefineOverloadedOperator(
           LHSExpr->getType(), clang::BinaryOperator::getOverloadedOperator(Opc),
-          RHSExpr->getType()) &&
-      hlsl::IsUserDefinedRecordType(RHSExpr->getType())) {
+          RHSExpr->getType())) {
     // If either expression is type-dependent, always build an
     // overloaded op.
     if (LHSExpr->isTypeDependent() || RHSExpr->isTypeDependent())
