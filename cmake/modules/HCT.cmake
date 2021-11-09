@@ -69,7 +69,7 @@ function(add_hlsl_hctgen mode)
       # source copying is enabled for CODE_TAG sources. That means we need to
       # create an extra temporary to key the copy step on.
       set(output ${temp_output}.2)
-      set(secomd_copy COMMAND ${CMAKE_COMMAND} -E copy_if_different ${temp_output} ${temp_output}.2)
+      set(second_copy COMMAND ${CMAKE_COMMAND} -E copy_if_different ${temp_output} ${temp_output}.2)
     endif()
   endif()
 
@@ -94,7 +94,7 @@ function(add_hlsl_hctgen mode)
     add_custom_command(OUTPUT ${output}
                       COMMAND ${CMAKE_COMMAND} -E copy_if_different
                               ${temp_output} ${full_output}
-                      ${secomd_copy}
+                      ${second_copy}
                       DEPENDS ${temp_output}
                       COMMENT "Updating ${ARG_OUTPUT}..."
                       )
