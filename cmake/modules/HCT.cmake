@@ -44,6 +44,10 @@ function(add_hlsl_hctgen mode)
   set(hctdb ${LLVM_SOURCE_DIR}/utils/hct/hctdb.py)
   set(hctdb_helper ${LLVM_SOURCE_DIR}/utils/hct/hctdb_instrhelp.py)
   set(output ${full_output})
+  set(hct_dependencies ${LLVM_SOURCE_DIR}/utils/hct/gen_intrin_main.txt
+                       ${hctgen}
+                       ${hctdb}
+                       ${hctdb_helper})
 
   set(copy_sources Off)
   if(ARG_BUILD_DIR OR HLSL_COPY_GENERATED_SOURCES)
@@ -58,6 +62,15 @@ function(add_hlsl_hctgen mode)
         set(force_lf "--force-crlf")
       endif()
     endif()
+
+    list(APPEND hct_dependencies ${full_output})
+    if (HLSL_COPY_GENERATED_SOURCES)
+      # The generation command both depends on and produces the final output if
+      # source copying is enabled for CODE_TAG sources. That means we need to
+      # create an extra temporary to key the copy step on.
+      set(output ${temp_output}.2)
+      set(second_copy COMMAND ${CMAKE_COMMAND} -E copy_if_different ${temp_output} ${temp_output}.2)
+    endif()
   endif()
 
   # If we're not copying the sources, set the output for the target as the temp
@@ -69,10 +82,7 @@ function(add_hlsl_hctgen mode)
   if(WIN32 AND NOT HLSL_AUTOCRLF)
     set(force_lf "--force-lf")
   endif()
-  set(hct_dependencies ${LLVM_SOURCE_DIR}/utils/hct/gen_intrin_main.txt
-                       ${hctgen}
-                       ${hctdb}
-                       ${hctdb_helper})
+
   add_custom_command(OUTPUT ${temp_output}
                      COMMAND ${PYTHON_EXECUTABLE}
                              ${hctgen} ${force_lf}
@@ -81,9 +91,10 @@ function(add_hlsl_hctgen mode)
                      DEPENDS ${hct_dependencies}
                      )
   if(copy_sources)
-    add_custom_command(OUTPUT ${full_output}
+    add_custom_command(OUTPUT ${output}
                       COMMAND ${CMAKE_COMMAND} -E copy_if_different
                               ${temp_output} ${full_output}
+                      ${second_copy}
                       DEPENDS ${temp_output}
                       COMMENT "Updating ${ARG_OUTPUT}..."
                       )
