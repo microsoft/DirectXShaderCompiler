@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_6_0 -enable-operator-overloading %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 -fcgl -enable-operator-overloading %s | FileCheck %s
 
 // CHECK: define internal void {{.*}}(%struct.MyArray* %this, %struct.MyArray* noalias sret %agg.result, %struct.MyArray* %RHS)
 
