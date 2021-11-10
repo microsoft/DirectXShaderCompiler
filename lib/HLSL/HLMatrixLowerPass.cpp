@@ -94,7 +94,7 @@ bool TempOverloadPool::contains(Function *Func) const {
 void TempOverloadPool::clear() {
   for (auto Entry : Funcs) {
     DXASSERT(Entry.second->use_empty(), "Temporary function still used during pool destruction.");
-    Entry.second->removeFromParent();
+    Entry.second->eraseFromParent();
   }
   Funcs.clear();
 }
