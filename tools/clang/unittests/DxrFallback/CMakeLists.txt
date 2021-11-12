@@ -15,7 +15,7 @@ set(LLVM_LINK_COMPONENTS
   ipo
   irreader
   linker
-  lto
+#  lto
   mssupport
   option
   profiledata
