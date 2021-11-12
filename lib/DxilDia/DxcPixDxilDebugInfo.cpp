@@ -164,40 +164,32 @@ static bool CompareFilenames(const wchar_t * l, const char * r)
 }
 
 dxil_debug_info::DxcPixDxilInstructionOffsets::DxcPixDxilInstructionOffsets(
-  IMalloc *pMalloc,
-  dxil_dia::Session *pSession,
-  const wchar_t *FileName,
+  IMalloc* pMalloc,
+  dxil_dia::Session* pSession,
+  const wchar_t* FileName,
   DWORD SourceLine,
-  DWORD SourceColumn) 
+  DWORD SourceColumn)
 {
   assert(SourceColumn == 0);
   (void)SourceColumn;
-
-  auto files = pSession->Contents()->operands();
-  for (const auto& file : files)
-  {
-    auto candidateFilename = llvm::dyn_cast<llvm::MDString>(file->getOperand(0))
-        ->getString();
-
-    if (CompareFilenames(FileName, candidateFilename.str().c_str()))
-    {
-
-      auto Fn = pSession->DxilModuleRef().GetEntryFunction();
-      auto &Blocks = Fn->getBasicBlockList();
-      for (auto& CurrentBlock : Blocks) {
-        auto& Is = CurrentBlock.getInstList();
-        for (auto& Inst : Is) {
-          auto & debugLoc = Inst.getDebugLoc();
-          if (debugLoc)
+  auto Fn = pSession->DxilModuleRef().GetEntryFunction();
+  auto& Blocks = Fn->getBasicBlockList();
+  for (auto& CurrentBlock : Blocks) {
+    auto& Is = CurrentBlock.getInstList();
+    for (auto& Inst : Is) {
+      auto& debugLoc = Inst.getDebugLoc();
+      if (debugLoc)
+      {
+        unsigned line = debugLoc.getLine();
+        if (line == SourceLine)
+        {
+          auto file = debugLoc.get()->getFilename();
+          if (CompareFilenames(FileName, file.str().c_str()))
           {
-            unsigned line = debugLoc.getLine();
-            if (line == SourceLine)
+            std::uint32_t InstructionNumber;
+            if (pix_dxil::PixDxilInstNum::FromInst(&Inst, &InstructionNumber))
             {
-              std::uint32_t InstructionNumber;
-              if (pix_dxil::PixDxilInstNum::FromInst(&Inst, &InstructionNumber))
-              {
-                m_offsets.push_back(InstructionNumber);
-              }
+              m_offsets.push_back(InstructionNumber);
             }
           }
         }
