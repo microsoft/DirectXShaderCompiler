@@ -164,20 +164,20 @@ static bool CompareFilenames(const wchar_t * l, const char * r)
 }
 
 dxil_debug_info::DxcPixDxilInstructionOffsets::DxcPixDxilInstructionOffsets(
-  IMalloc* pMalloc,
-  dxil_dia::Session* pSession,
-  const wchar_t* FileName,
+  IMalloc *pMalloc,
+  dxil_dia::Session *pSession,
+  const wchar_t *FileName,
   DWORD SourceLine,
-  DWORD SourceColumn)
+  DWORD SourceColumn) 
 {
   assert(SourceColumn == 0);
   (void)SourceColumn;
   auto Fn = pSession->DxilModuleRef().GetEntryFunction();
-  auto& Blocks = Fn->getBasicBlockList();
+  auto &Blocks = Fn->getBasicBlockList();
   for (auto& CurrentBlock : Blocks) {
     auto& Is = CurrentBlock.getInstList();
     for (auto& Inst : Is) {
-      auto& debugLoc = Inst.getDebugLoc();
+      auto & debugLoc = Inst.getDebugLoc();
       if (debugLoc)
       {
         unsigned line = debugLoc.getLine();
