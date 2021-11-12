@@ -172,24 +172,32 @@ dxil_debug_info::DxcPixDxilInstructionOffsets::DxcPixDxilInstructionOffsets(
 {
   assert(SourceColumn == 0);
   (void)SourceColumn;
-  auto Fn = pSession->DxilModuleRef().GetEntryFunction();
-  auto &Blocks = Fn->getBasicBlockList();
-  for (auto& CurrentBlock : Blocks) {
-    auto& Is = CurrentBlock.getInstList();
-    for (auto& Inst : Is) {
-      auto & debugLoc = Inst.getDebugLoc();
-      if (debugLoc)
-      {
-        unsigned line = debugLoc.getLine();
-        if (line == SourceLine)
-        {
-          auto file = debugLoc.get()->getFilename();
-          if (CompareFilenames(FileName, file.str().c_str()))
+
+  auto files = pSession->Contents()->operands();
+  for (const auto& file : files)
+  {
+    auto candidateFilename = llvm::dyn_cast<llvm::MDString>(file->getOperand(0))
+        ->getString();
+
+    if (CompareFilenames(FileName, candidateFilename.str().c_str()))
+    {
+
+      auto Fn = pSession->DxilModuleRef().GetEntryFunction();
+      auto &Blocks = Fn->getBasicBlockList();
+      for (auto& CurrentBlock : Blocks) {
+        auto& Is = CurrentBlock.getInstList();
+        for (auto& Inst : Is) {
+          auto & debugLoc = Inst.getDebugLoc();
+          if (debugLoc)
           {
-            std::uint32_t InstructionNumber;
-            if (pix_dxil::PixDxilInstNum::FromInst(&Inst, &InstructionNumber))
+            unsigned line = debugLoc.getLine();
+            if (line == SourceLine)
             {
-              m_offsets.push_back(InstructionNumber);
+              std::uint32_t InstructionNumber;
+              if (pix_dxil::PixDxilInstNum::FromInst(&Inst, &InstructionNumber))
+              {
+                m_offsets.push_back(InstructionNumber);
+              }
             }
           }
         }
