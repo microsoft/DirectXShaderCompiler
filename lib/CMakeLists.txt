@@ -7,7 +7,7 @@ add_subdirectory(Bitcode)
 add_subdirectory(Transforms)
 add_subdirectory(Linker)
 add_subdirectory(Analysis)
-add_subdirectory(LTO)
+# add_subdirectory(LTO) # HLSL Change
 # add_subdirectory(MC) # HLSL Change
 # add_subdirectory(Object) # HLSL Change
 add_subdirectory(Option)

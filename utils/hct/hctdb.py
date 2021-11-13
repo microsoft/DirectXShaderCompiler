@@ -2158,8 +2158,8 @@ class db_dxil(object):
         add_pass('instcombine', 'InstructionCombiningPass', 'Combine redundant instructions', [])
         add_pass('prune-eh', 'PruneEH', 'Remove unused exception handling info', [])
         add_pass('functionattrs', 'FunctionAttrs', 'Deduce function attributes', [])
-        add_pass('argpromotion', 'ArgPromotion', "Promote 'by reference' arguments to scalars", [
-            {'n':'maxElements', 't':'unsigned', 'c':1}])
+        # add_pass('argpromotion', 'ArgPromotion', "Promote 'by reference' arguments to scalars", [
+        #     {'n':'maxElements', 't':'unsigned', 'c':1}])
         add_pass('jump-threading', 'JumpThreading', 'Jump Threading', [
             {'n':'Threshold', 't':'int', 'c':1},
             {'n':'jump-threading-threshold', 'i':'BBDuplicateThreshold', 't':'unsigned', 'd':'Max block size to duplicate for jump threading'}])
