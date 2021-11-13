@@ -1,5 +1,5 @@
+set(HLSL_IGNORE_SOURCES ArgumentPromotion.cpp)
 add_llvm_library(LLVMipo
-  ArgumentPromotion.cpp
   BarrierNoopPass.cpp
   ConstantMerge.cpp
   DeadArgumentElimination.cpp
