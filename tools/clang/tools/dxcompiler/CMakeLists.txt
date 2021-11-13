@@ -29,7 +29,7 @@ set(LLVM_LINK_COMPONENTS
 #  libdriver
 #  lineeditor
   linker
-  lto
+#  lto
 #  mirparser # no support for LLVM codegen
   mssupport
 #  object # no support for object files (coff, elf)
