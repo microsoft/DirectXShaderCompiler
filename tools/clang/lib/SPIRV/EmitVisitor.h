@@ -199,9 +199,10 @@ public:
         typeHandler(astCtx, spvCtx, opts, &debugVariableBinary,
                     &annotationsBinary, &typeConstantBinary,
                     [this]() -> uint32_t { return takeNextId(); }),
-        debugMainFileId(0), debugInfoExtInstId(0), debugLine(0),
-	    debugColumn(0), lastOpWasMergeInst(false),
-	    inEntryFunctionWrapper(false), hlslVersion(0) {}
+        debugMainFileId(0), debugInfoExtInstId(0), debugLineStart(0),
+        debugLineEnd(0), debugColumnStart(0), debugColumnEnd(0),
+        lastOpWasMergeInst(false), inEntryFunctionWrapper(false),
+        hlslVersion(0) {}
 
   ~EmitVisitor();
 
@@ -336,7 +337,8 @@ private:
   // Emits an OpLine instruction for the given operation into the given binary
   // section.
   void emitDebugLine(spv::Op op, const SourceLocation &loc,
-                     std::vector<uint32_t> *section, bool isDebugScope = false);
+                     const SourceRange &range, std::vector<uint32_t> *section,
+                     bool isDebugScope = false);
 
   // Initiates the creation of a new instruction with the given Opcode.
   void initInstruction(spv::Op, const SourceLocation &);
@@ -405,16 +407,18 @@ private:
   llvm::StringMap<uint32_t> stringIdMap;
   // Main file information for debugging that will be used by OpLine.
   uint32_t debugMainFileId;
-  // Id for Vulkan DebugInfo extended instruction set. Used when generating Debug[No]Line
+  // Id for Vulkan DebugInfo extended instruction set. Used when generating
+  // Debug[No]Line
   uint32_t debugInfoExtInstId;
-  // One HLSL source line may result in several SPIR-V instructions. In order to
-  // avoid emitting many OpLine instructions with identical line and column
-  // numbers, we record the last line and column number that was used by OpLine,
-  // and only emit a new OpLine when a new line/column in the source is
-  // discovered. The last debug line number information emitted by OpLine.
-  uint32_t debugLine;
-  // The last debug column number information emitted by OpLine.
-  uint32_t debugColumn;
+  // One HLSL source line may result in several SPIR-V instructions. In order
+  // to avoid emitting debug line instructions with identical line and column
+  // numbers, we record the last line and column numbers that were used in a
+  // debug line op, and only emit a new debug line op when a new line/column
+  // in the source is discovered.
+  uint32_t debugLineStart;
+  uint32_t debugLineEnd;
+  uint32_t debugColumnStart;
+  uint32_t debugColumnEnd;
   // True if the last emitted instruction was OpSelectionMerge or OpLoopMerge.
   bool lastOpWasMergeInst;
   // True if currently it enters an entry function wrapper.
