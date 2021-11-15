@@ -231,9 +231,9 @@ def ast_dump : Flag<["-", "/"], "ast-dump">, Flags<[CoreOption, DriverOption, He
   HelpText<"Dumps the parsed Abstract Syntax Tree.">; // should not be core, but handy workaround until explicit API written
 def dump_dependencies : Flag<["-", "/"], "M">, Flags<[CoreOption, DriverOption]>,
   HelpText<"Dumps the list of the compilation target dependencies.">;
-def write_dependencies : Flag<["-", "/"], "MD">, Flags<[CoreOption, DriverOption]>,
+def write_dependencies : Flag<["-", "/"], "MD">, Flags<[DriverOption]>,
   HelpText<"Write a file with .d extension that will contain the list of the compilation target dependencies.">;
-def write_dependencies_to : JoinedOrSeparate<["-", "/"], "MF">, MetaVarName<"<file>">, Flags<[CoreOption, DriverOption]>,
+def write_dependencies_to : JoinedOrSeparate<["-", "/"], "MF">, MetaVarName<"<file>">, Flags<[DriverOption]>,
   HelpText<"Write the specfied file that will contain the list of the compilation target dependencies.">;
 def external_lib : Separate<["-", "/"], "external">, Group<hlslcore_Group>, Flags<[DriverOption, RewriteOption, HelpHidden]>,
   HelpText<"External DLL name to load for compiler support">;
