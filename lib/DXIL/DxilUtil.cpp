@@ -362,7 +362,7 @@ bool IsResourceSingleComponent(Type *Ty) {
     if (vectorType->getNumElements() > 1) {
       return false;
     }
-    return IsResourceSingleComponent(vectorType->getVectorElementType());
+    return IsResourceSingleComponent(vectorType->getElementType());
   }
   return true;
 }
@@ -950,6 +950,10 @@ Value *GetConvergentSource(Value *V) {
   return cast<CallInst>(V)->getOperand(0);
 }
 
+bool isCompositeType(Type *Ty) {
+  return isa<ArrayType>(Ty) || isa<StructType>(Ty) || isa<VectorType>(Ty);
+}
+
 /// If value is a bitcast to base class pattern, equivalent
 /// to a getelementptr X, 0, 0, 0...  turn it into the appropriate gep.
 /// This can enhance SROA and other transforms that want type-safe pointers,
@@ -964,10 +968,9 @@ Value *TryReplaceBaseCastWithGep(Value *V) {
 
     // Adapted from code in InstCombiner::visitBitCast
     unsigned NumZeros = 0;
-    while (SrcElTy != DstElTy && isa<CompositeType>(SrcElTy) &&
-           !SrcElTy->isPointerTy() &&
+    while (SrcElTy != DstElTy && isCompositeType(SrcElTy) &&
            SrcElTy->getNumContainedTypes() /* not "{}" */) {
-      SrcElTy = cast<CompositeType>(SrcElTy)->getTypeAtIndex(0U);
+      SrcElTy = SrcElTy->getContainedType(0);
       ++NumZeros;
     }
 

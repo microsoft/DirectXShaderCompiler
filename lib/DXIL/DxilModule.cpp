@@ -1716,6 +1716,10 @@ StripResourcesReflection(std::vector<std::unique_ptr<TResource>> &vec) {
   return bChanged;
 }
 
+bool isSequentialType(Type *Ty) {
+  return isa<ArrayType>(Ty) || isa<VectorType>(Ty) || isa<PointerType>(Ty);
+}
+
 // Return true if any members or components of struct <Ty> contain
 // scalars of less than 32 bits or are matrices, in which case translation is required
 typedef llvm::SmallSetVector<const StructType*, 4> SmallStructSetVector;
@@ -1726,9 +1730,8 @@ static bool ResourceTypeRequiresTranslation(const StructType * Ty, SmallStructSe
   containedStructs.insert(Ty);
   for (auto eTy : Ty->elements()) {
     // Skip past all levels of sequential types to test their elements
-    SequentialType *seqTy;
-    while ((seqTy = dyn_cast<SequentialType>(eTy))) {
-      eTy = seqTy->getElementType();
+    while ((isSequentialType(eTy))) {
+      eTy = eTy->getContainedType(0);
     }
     // Recursively call this function again to process internal structs
     if (StructType *structTy = dyn_cast<StructType>(eTy)) {

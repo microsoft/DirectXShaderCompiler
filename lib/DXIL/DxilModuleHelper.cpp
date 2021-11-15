@@ -35,6 +35,13 @@
 #include "llvm/ADT/SetVector.h"
 #include <unordered_set>
 
+#ifndef _WIN32
+using llvm::make_unique;
+#else
+using std::make_unique;
+#endif
+
+
 using namespace llvm;
 using std::string;
 using std::vector;
@@ -114,7 +121,7 @@ namespace llvm {
 hlsl::DxilModule &Module::GetOrCreateDxilModule(bool skipInit) {
   std::unique_ptr<hlsl::DxilModule> M;
   if (!HasDxilModule()) {
-    M = std::make_unique<hlsl::DxilModule>(this);
+    M = make_unique<hlsl::DxilModule>(this);
     if (!skipInit) {
       M->LoadDxilMetadata();
     }
