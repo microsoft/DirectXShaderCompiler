@@ -1553,49 +1553,6 @@ static ExprResult BuildCookedLiteralOperatorCall(Sema &S, Scope *Scope,
   return S.BuildLiteralOperatorCall(R, OpNameInfo, Args, LitEndLoc);
 }
 
-// HLSL Change Starts
-static bool IsUserDefinedRecordType(QualType type) {
-  if (const auto *rt = type->getAs<RecordType>()) {
-    // HLSL specific types
-    if (hlsl::IsHLSLResourceType(type) || hlsl::IsHLSLVecMatType(type) ||
-        isa<ExtVectorType>(type.getTypePtr()) || type->isBuiltinType() ||
-        type->isArrayType()) {
-      return false;
-    }
-
-    // SubpassInput or SubpassInputMS type
-    if (rt->getDecl()->getName() == "SubpassInput" ||
-        rt->getDecl()->getName() == "SubpassInputMS") {
-      return false;
-    }
-    return true;
-  }
-
-  return false;
-}
-
-static bool DoesTypeDefineOverloadedOperator(QualType type) {
-  if (const RecordType *recordType = type->getAs<RecordType>()) {
-    if (const CXXRecordDecl *cxxRecordDecl =
-            dyn_cast<CXXRecordDecl>(recordType->getDecl())) {
-      bool found_overloaded_operator = false;
-      for (const auto *method : cxxRecordDecl->methods()) {
-        if (method->getOverloadedOperator() != OO_None)
-          found_overloaded_operator = true;
-      }
-      return found_overloaded_operator;
-    }
-  }
-  return false;
-}
-
-static bool IsUserDefinedRecordTypeWithOverloadedOperator(QualType type) {
-  if (!IsUserDefinedRecordType(type))
-    return false;
-  return DoesTypeDefineOverloadedOperator(type);
-}
-// HLSL Change Ends
-
 /// ActOnStringLiteral - The specified tokens were lexed as pasted string
 /// fragments (e.g. "foo" "bar" L"baz").  The result string has to handle string
 /// concatenation ([C99 5.1.1.2, translation phase #6]), so it may come from
@@ -10435,7 +10392,12 @@ ExprResult Sema::CreateBuiltinBinOp(SourceLocation OpLoc,
 
   // HLSL Change Starts
   // Handle HLSL binary operands differently
-  if (getLangOpts().HLSL) {
+  if (getLangOpts().HLSL &&
+          (!getLangOpts().EnableOperatorOverloading ||
+           !hlsl::IsUserDefinedRecordType(LHSExpr->getType())) ||
+      !hlsl::DoesTypeDefineOverloadedOperator(
+          LHSExpr->getType(), clang::BinaryOperator::getOverloadedOperator(Opc),
+          RHSExpr->getType())) {
     hlsl::CheckBinOpForHLSL(*this, OpLoc, Opc, LHS, RHS, ResultTy, CompLHSTy, CompResultTy);
     if (!ResultTy.isNull() && Opc == BO_Comma) {
       // In C/C++, the RHS value kind should propagate. In HLSL, it should yield an r-value.
@@ -10921,8 +10883,10 @@ ExprResult Sema::BuildBinOp(Scope *S, SourceLocation OpLoc,
   // methods or not.
   if (getLangOpts().CPlusPlus &&
       (!getLangOpts().HLSL || getLangOpts().EnableOperatorOverloading) &&
-      IsUserDefinedRecordTypeWithOverloadedOperator(LHSExpr->getType()) &&
-      IsUserDefinedRecordType(RHSExpr->getType())) {
+      hlsl::IsUserDefinedRecordType(LHSExpr->getType()) &&
+      hlsl::DoesTypeDefineOverloadedOperator(
+          LHSExpr->getType(), clang::BinaryOperator::getOverloadedOperator(Opc),
+          RHSExpr->getType())) {
     // If either expression is type-dependent, always build an
     // overloaded op.
     if (LHSExpr->isTypeDependent() || RHSExpr->isTypeDependent())
