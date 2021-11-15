@@ -85,18 +85,8 @@ const char *kDxIsHelperGlobalName = "dx.ishelper";
 const char *kHostLayoutTypePrefix = "hostlayout.";
 }
 
-// Avoid dependency on DxilModule from llvm::Module using this:
-void DxilModule_RemoveGlobal(llvm::Module* M, llvm::GlobalObject* G) {
-  if (M && G && M->HasDxilModule()) {
-    if (llvm::Function *F = dyn_cast<llvm::Function>(G))
-      M->GetDxilModule().RemoveFunction(F);
-  }
-}
-void DxilModule_ResetModule(llvm::Module* M) {
-  if (M && M->HasDxilModule())
-    delete &M->GetDxilModule();
-  M->SetDxilModule(nullptr);
-}
+void SetDxilHook(Module &M);
+void ClearDxilHook(Module &M);
 
 //------------------------------------------------------------------------------
 //
@@ -109,7 +99,7 @@ DxilModule::DxilModule(Module *pModule)
 , m_pModule(pModule)
 , m_pEntryFunc(nullptr)
 , m_EntryName("")
-, m_pMDHelper(llvm::make_unique<DxilMDHelper>(pModule, llvm::make_unique<DxilExtraPropertyHelper>(pModule)))
+, m_pMDHelper(std::make_unique<DxilMDHelper>(pModule, std::make_unique<DxilExtraPropertyHelper>(pModule)))
 , m_pDebugInfoFinder(nullptr)
 , m_pSM(nullptr)
 , m_DxilMajor(DXIL::kDxilMajor)
@@ -117,8 +107,8 @@ DxilModule::DxilModule(Module *pModule)
 , m_ValMajor(1)
 , m_ValMinor(0)
 , m_ForceZeroStoreLifetimes(false)
-, m_pOP(llvm::make_unique<OP>(pModule->getContext(), pModule))
-, m_pTypeSystem(llvm::make_unique<DxilTypeSystem>(pModule))
+, m_pOP(std::make_unique<OP>(pModule->getContext(), pModule))
+, m_pTypeSystem(std::make_unique<DxilTypeSystem>(pModule))
 , m_bDisableOptimizations(false)
 , m_bUseMinPrecision(true) // use min precision by default
 , m_bAllResourcesBound(false)
@@ -129,8 +119,7 @@ DxilModule::DxilModule(Module *pModule)
 {
 
   DXASSERT_NOMSG(m_pModule != nullptr);
-  m_pModule->pfnRemoveGlobal = &DxilModule_RemoveGlobal;
-  m_pModule->pfnResetDxilModule = &DxilModule_ResetModule;
+  SetDxilHook(*m_pModule);
 
 #if defined(_DEBUG) || defined(DBG)
   // Pin LLVM dump methods.
@@ -142,10 +131,7 @@ DxilModule::DxilModule(Module *pModule)
 #endif
 }
 
-DxilModule::~DxilModule() {
-  if (m_pModule->pfnRemoveGlobal == &DxilModule_RemoveGlobal)
-    m_pModule->pfnRemoveGlobal = nullptr;
-}
+DxilModule::~DxilModule() { ClearDxilHook(*m_pModule); }
 
 LLVMContext &DxilModule::GetCtx() const { return m_Ctx; }
 Module *DxilModule::GetModule() const { return m_pModule; }
@@ -167,7 +153,7 @@ void DxilModule::SetShaderModel(const ShaderModel *pSM, bool bUseMinPrecision) {
     DxilFunctionProps props;
     props.shaderKind = m_pSM->GetKind();
     m_DxilEntryPropsMap[nullptr] =
-      llvm::make_unique<DxilEntryProps>(props, m_bUseMinPrecision);
+      std::make_unique<DxilEntryProps>(props, m_bUseMinPrecision);
   }
   m_SerializedRootSignature.clear();
 }
@@ -1209,7 +1195,7 @@ void DxilModule::ReplaceDxilEntryProps(llvm::Function *F,
 void DxilModule::CloneDxilEntryProps(llvm::Function *F, llvm::Function *NewF) {
   DXASSERT(m_DxilEntryPropsMap.count(F) != 0, "cannot find F in map");
   std::unique_ptr<DxilEntryProps> Props =
-      llvm::make_unique<DxilEntryProps>(*m_DxilEntryPropsMap[F]);
+      std::make_unique<DxilEntryProps>(*m_DxilEntryPropsMap[F]);
   m_DxilEntryPropsMap[NewF] = std::move(Props);
 }
 
@@ -1497,7 +1483,7 @@ void DxilModule::EmitDxilMetadata() {
       MDTuple *pSig = m_pMDHelper->EmitDxilSignatures(entryProps->sig);
 
       MDTuple *pSubEntry = m_pMDHelper->EmitDxilEntryPointTuple(
-          const_cast<Function *>(F), F->getName(), pSig, nullptr, pProps);
+          const_cast<Function *>(F), F->getName().str(), pSig, nullptr, pProps);
 
       Entries.emplace_back(pSubEntry);
     }
@@ -1589,7 +1575,7 @@ void DxilModule::LoadDxilMetadata() {
       }
 
       std::unique_ptr<DxilEntryProps> pEntryProps =
-          llvm::make_unique<DxilEntryProps>(props, m_bUseMinPrecision);
+          std::make_unique<DxilEntryProps>(props, m_bUseMinPrecision);
       m_pMDHelper->LoadDxilSignatures(*pSignatures, pEntryProps->sig);
 
       m_DxilEntryPropsMap[pFunc] = std::move(pEntryProps);
@@ -1603,7 +1589,7 @@ void DxilModule::LoadDxilMetadata() {
     }
   } else {
     std::unique_ptr<DxilEntryProps> pEntryProps =
-        llvm::make_unique<DxilEntryProps>(entryFuncProps, m_bUseMinPrecision);
+        std::make_unique<DxilEntryProps>(entryFuncProps, m_bUseMinPrecision);
     DxilFunctionProps *pFuncProps = &pEntryProps->props;
     m_pMDHelper->LoadDxilSignatures(*pEntrySignatures, pEntryProps->sig);
 
@@ -1954,37 +1940,10 @@ void DxilModule::StripDebugRelatedCode() {
 }
 DebugInfoFinder &DxilModule::GetOrCreateDebugInfoFinder() {
   if (m_pDebugInfoFinder == nullptr) {
-    m_pDebugInfoFinder = llvm::make_unique<llvm::DebugInfoFinder>();
+    m_pDebugInfoFinder = std::make_unique<llvm::DebugInfoFinder>();
     m_pDebugInfoFinder->processModule(*m_pModule);
   }
   return *m_pDebugInfoFinder;
-}
-
-hlsl::DxilModule *hlsl::DxilModule::TryGetDxilModule(llvm::Module *pModule) {
-  LLVMContext &Ctx = pModule->getContext();
-  std::string diagStr;
-  raw_string_ostream diagStream(diagStr);
-
-  hlsl::DxilModule *pDxilModule = nullptr;
-  // TODO: add detail error in DxilMDHelper.
-  try {
-    pDxilModule = &pModule->GetOrCreateDxilModule();
-  } catch (const ::hlsl::Exception &hlslException) {
-    diagStream << "load dxil metadata failed -";
-    try {
-      const char *msg = hlslException.what();
-      if (msg == nullptr || *msg == '\0')
-        diagStream << " error code " << hlslException.hr << "\n";
-      else
-        diagStream << msg;
-    } catch (...) {
-      diagStream << " unable to retrieve error message.\n";
-    }
-    Ctx.diagnose(DxilErrorDiagnosticInfo(diagStream.str().c_str()));
-  } catch (...) {
-    Ctx.diagnose(DxilErrorDiagnosticInfo("load dxil metadata failed - unknown error.\n"));
-  }
-  return pDxilModule;
 }
 
 // Check if the instruction has fast math flags configured to indicate
@@ -2028,18 +1987,3 @@ bool DxilModule::IsPrecise(const Instruction *inst) const {
 }
 
 } // namespace hlsl
-
-namespace llvm {
-hlsl::DxilModule &Module::GetOrCreateDxilModule(bool skipInit) {
-  std::unique_ptr<hlsl::DxilModule> M;
-  if (!HasDxilModule()) {
-    M = llvm::make_unique<hlsl::DxilModule>(this);
-    if (!skipInit) {
-      M->LoadDxilMetadata();
-    }
-    SetDxilModule(M.release());
-  }
-  return GetDxilModule();
-}
-
-}

@@ -13,6 +13,7 @@ add_llvm_library(LLVMDXIL
   DxilInterpolationMode.cpp
   DxilMetadataHelper.cpp
   DxilModule.cpp
+  DxilModuleHelper.cpp
   DxilOperations.cpp
   DxilResource.cpp
   DxilResourceBase.cpp
@@ -27,6 +28,7 @@ add_llvm_library(LLVMDXIL
   DxilSubobject.cpp
   DxilTypeSystem.cpp
   DxilUtil.cpp
+  DxilUtilDbgInfoAndMisc.cpp
   DxilPDB.cpp
 
   ADDITIONAL_HEADER_DIRS
