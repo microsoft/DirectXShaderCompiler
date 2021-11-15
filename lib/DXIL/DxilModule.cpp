@@ -31,9 +31,17 @@
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/Support/raw_ostream.h"
+#ifndef _WIN32
 #include "llvm/ADT/STLExtras.h"
+#endif
 #include "llvm/ADT/SetVector.h"
 #include <unordered_set>
+
+#ifndef _WIN32
+using llvm::make_unique;
+#else
+using std::make_unique;
+#endif
 
 using namespace llvm;
 using std::string;
@@ -99,7 +107,7 @@ DxilModule::DxilModule(Module *pModule)
 , m_pModule(pModule)
 , m_pEntryFunc(nullptr)
 , m_EntryName("")
-, m_pMDHelper(std::make_unique<DxilMDHelper>(pModule, std::make_unique<DxilExtraPropertyHelper>(pModule)))
+, m_pMDHelper(make_unique<DxilMDHelper>(pModule, make_unique<DxilExtraPropertyHelper>(pModule)))
 , m_pDebugInfoFinder(nullptr)
 , m_pSM(nullptr)
 , m_DxilMajor(DXIL::kDxilMajor)
@@ -107,8 +115,8 @@ DxilModule::DxilModule(Module *pModule)
 , m_ValMajor(1)
 , m_ValMinor(0)
 , m_ForceZeroStoreLifetimes(false)
-, m_pOP(std::make_unique<OP>(pModule->getContext(), pModule))
-, m_pTypeSystem(std::make_unique<DxilTypeSystem>(pModule))
+, m_pOP(make_unique<OP>(pModule->getContext(), pModule))
+, m_pTypeSystem(make_unique<DxilTypeSystem>(pModule))
 , m_bDisableOptimizations(false)
 , m_bUseMinPrecision(true) // use min precision by default
 , m_bAllResourcesBound(false)
@@ -153,7 +161,7 @@ void DxilModule::SetShaderModel(const ShaderModel *pSM, bool bUseMinPrecision) {
     DxilFunctionProps props;
     props.shaderKind = m_pSM->GetKind();
     m_DxilEntryPropsMap[nullptr] =
-      std::make_unique<DxilEntryProps>(props, m_bUseMinPrecision);
+      make_unique<DxilEntryProps>(props, m_bUseMinPrecision);
   }
   m_SerializedRootSignature.clear();
 }
@@ -1195,7 +1203,7 @@ void DxilModule::ReplaceDxilEntryProps(llvm::Function *F,
 void DxilModule::CloneDxilEntryProps(llvm::Function *F, llvm::Function *NewF) {
   DXASSERT(m_DxilEntryPropsMap.count(F) != 0, "cannot find F in map");
   std::unique_ptr<DxilEntryProps> Props =
-      std::make_unique<DxilEntryProps>(*m_DxilEntryPropsMap[F]);
+      make_unique<DxilEntryProps>(*m_DxilEntryPropsMap[F]);
   m_DxilEntryPropsMap[NewF] = std::move(Props);
 }
 
@@ -1575,7 +1583,7 @@ void DxilModule::LoadDxilMetadata() {
       }
 
       std::unique_ptr<DxilEntryProps> pEntryProps =
-          std::make_unique<DxilEntryProps>(props, m_bUseMinPrecision);
+          make_unique<DxilEntryProps>(props, m_bUseMinPrecision);
       m_pMDHelper->LoadDxilSignatures(*pSignatures, pEntryProps->sig);
 
       m_DxilEntryPropsMap[pFunc] = std::move(pEntryProps);
@@ -1589,7 +1597,7 @@ void DxilModule::LoadDxilMetadata() {
     }
   } else {
     std::unique_ptr<DxilEntryProps> pEntryProps =
-        std::make_unique<DxilEntryProps>(entryFuncProps, m_bUseMinPrecision);
+        make_unique<DxilEntryProps>(entryFuncProps, m_bUseMinPrecision);
     DxilFunctionProps *pFuncProps = &pEntryProps->props;
     m_pMDHelper->LoadDxilSignatures(*pEntrySignatures, pEntryProps->sig);
 
@@ -1940,7 +1948,7 @@ void DxilModule::StripDebugRelatedCode() {
 }
 DebugInfoFinder &DxilModule::GetOrCreateDebugInfoFinder() {
   if (m_pDebugInfoFinder == nullptr) {
-    m_pDebugInfoFinder = std::make_unique<llvm::DebugInfoFinder>();
+    m_pDebugInfoFinder = make_unique<llvm::DebugInfoFinder>();
     m_pDebugInfoFinder->processModule(*m_pModule);
   }
   return *m_pDebugInfoFinder;
