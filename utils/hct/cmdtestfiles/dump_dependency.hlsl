@@ -11,8 +11,8 @@
 // CHECK-DAG:  dependency4.h
 // CHECK-DAG:  dependency5.h
 
-#include "dependency0.h"
-#include "dependency2.h"
+#include "include/dependency0.h"
+#include "include/dependency2.h"
 
 float4 main() : SV_Target
 {

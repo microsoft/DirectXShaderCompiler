@@ -225,7 +225,6 @@ public:
   TEST_METHOD(BatchD3DReflect)
   TEST_METHOD(BatchDxil)
   TEST_METHOD(BatchHLSL)
-  TEST_METHOD(BatchInfo)
   TEST_METHOD(BatchInfra)
   TEST_METHOD(BatchPasses)
   TEST_METHOD(BatchShaderTargets)
@@ -3754,10 +3753,6 @@ TEST_F(CompilerTest, BatchDxil) {
 
 TEST_F(CompilerTest, BatchHLSL) {
   CodeGenTestCheckBatchDir(L"hlsl");
-}
-
-TEST_F(CompilerTest, BatchInfo) {
-  CodeGenTestCheckBatchDir(L"info");
 }
 
 TEST_F(CompilerTest, BatchInfra) {
