@@ -431,6 +431,11 @@ bool GetIntrinsicOp(const clang::FunctionDecl *FD, unsigned &opcode,
                     llvm::StringRef &group);
 bool GetIntrinsicLowering(const clang::FunctionDecl *FD, llvm::StringRef &S);
 
+bool IsUserDefinedRecordType(clang::QualType type);
+bool DoesTypeDefineOverloadedOperator(clang::QualType typeWithOperator,
+                                      clang::OverloadedOperatorKind opc,
+                                      clang::QualType paramType);
+
 /// <summary>Adds a function declaration to the specified class record.</summary>
 /// <param name="context">ASTContext that owns declarations.</param>
 /// <param name="recordDecl">Record declaration in which to add function.</param>
