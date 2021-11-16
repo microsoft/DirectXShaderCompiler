@@ -173,9 +173,9 @@ public:
   /// <result-type> from the given pointer. Returns the instruction pointer for
   /// the loaded value.
   SpirvLoad *createLoad(QualType resultType, SpirvInstruction *pointer,
-                        SourceLocation loc);
+                        SourceLocation loc, SourceRange range = {});
   SpirvLoad *createLoad(const SpirvType *resultType, SpirvInstruction *pointer,
-                        SourceLocation loc);
+                        SourceLocation loc, SourceRange range = {});
 
   /// \brief Creates an OpCopyObject instruction from the given pointer.
   SpirvCopyObject *createCopyObject(QualType resultType,
@@ -184,7 +184,7 @@ public:
   /// \brief Creates a store instruction storing the given value into the given
   /// address.
   void createStore(SpirvInstruction *address, SpirvInstruction *value,
-                   SourceLocation loc);
+                   SourceLocation loc, SourceRange range = {});
 
   /// \brief Creates a function call instruction and returns the instruction
   /// pointer for the return value.
@@ -202,7 +202,7 @@ public:
   SpirvAccessChain *
   createAccessChain(QualType resultType, SpirvInstruction *base,
                     llvm::ArrayRef<SpirvInstruction *> indexes,
-                    SourceLocation loc);
+                    SourceLocation loc, SourceRange range = {});
   SpirvAccessChain *
   createAccessChain(const SpirvType *resultType, SpirvInstruction *base,
                     llvm::ArrayRef<SpirvInstruction *> indexes,
@@ -217,7 +217,7 @@ public:
   /// the instruction pointer for the result.
   SpirvBinaryOp *createBinaryOp(spv::Op op, QualType resultType,
                                 SpirvInstruction *lhs, SpirvInstruction *rhs,
-                                SourceLocation loc);
+                                SourceLocation loc, SourceRange range = {});
 
   SpirvSpecConstantBinaryOp *createSpecConstantBinaryOp(spv::Op op,
                                                         QualType resultType,
@@ -257,7 +257,8 @@ public:
   /// decorations for the given parameters.
   SpirvSampledImage *createSampledImage(QualType, SpirvInstruction *image,
                                         SpirvInstruction *sampler,
-                                        SourceLocation);
+                                        SourceLocation loc,
+                                        SourceRange range = {});
 
   /// \brief Creates an OpImageTexelPointer SPIR-V instruction with the given
   /// parameters.
@@ -295,7 +296,7 @@ public:
                     SpirvInstruction *constOffset, SpirvInstruction *varOffset,
                     SpirvInstruction *constOffsets, SpirvInstruction *sample,
                     SpirvInstruction *minLod, SpirvInstruction *residencyCodeId,
-                    SourceLocation loc);
+                    SourceLocation loc, SourceRange range = {});
 
   /// \brief Creates SPIR-V instructions for reading a texel from an image. If
   /// doImageFetch is true, OpImageFetch is used. OpImageRead is used otherwise.
@@ -335,7 +336,7 @@ public:
                     SpirvInstruction *compareVal, SpirvInstruction *constOffset,
                     SpirvInstruction *varOffset, SpirvInstruction *constOffsets,
                     SpirvInstruction *sample, SpirvInstruction *residencyCode,
-                    SourceLocation);
+                    SourceLocation loc, SourceRange range = {});
 
   /// \brief Creates an OpImageSparseTexelsResident SPIR-V instruction for the
   /// given Resident Code and returns the instruction pointer.
@@ -393,9 +394,10 @@ public:
       spv::LoopControlMask loopControl = spv::LoopControlMask::MaskNone);
 
   /// \brief Creates a return instruction.
-  void createReturn(SourceLocation);
+  void createReturn(SourceLocation, SourceRange range = {});
   /// \brief Creates a return value instruction.
-  void createReturnValue(SpirvInstruction *value, SourceLocation);
+  void createReturnValue(SpirvInstruction *value, SourceLocation,
+                         SourceRange range = {});
 
   /// \brief Creates an OpExtInst instruction for the GLSL extended instruction
   /// set, with the given instruction number, and operands. Returns the
@@ -486,6 +488,7 @@ public:
 
   SpirvDebugDeclare *createDebugDeclare(
       SpirvDebugLocalVariable *dbgVar, SpirvInstruction *var,
+      SourceLocation loc = {}, SourceRange range = {},
       llvm::Optional<SpirvDebugExpression *> dbgExpr = llvm::None);
 
   SpirvDebugFunction *
@@ -668,7 +671,7 @@ public:
   /// \brief Decorates the given target with the given string.
   void decorateString(SpirvInstruction *target, unsigned decorate,
                       llvm::StringRef strLiteral,
-                      llvm::Optional<uint32_t> memberIdx = llvm::None);                    
+                      llvm::Optional<uint32_t> memberIdx = llvm::None);
 
   /// --- Constants ---
   /// Each of these methods can acquire a unique constant from the SpirvContext,
