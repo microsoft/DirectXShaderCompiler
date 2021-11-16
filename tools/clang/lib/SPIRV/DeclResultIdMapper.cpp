@@ -840,6 +840,7 @@ DeclResultIdMapper::createFnParam(const ParmVarDecl *param,
                                   uint32_t dbgArgNumber) {
   const auto type = getTypeOrFnRetType(param);
   const auto loc = param->getLocation();
+  const auto range = param->getSourceRange();
   const auto name = param->getName();
   SpirvFunctionParameter *fnParamInstr = spvBuilder.addFnParam(
       type, param->hasAttr<HLSLPreciseAttr>(), loc, param->getName());
@@ -861,7 +862,7 @@ DeclResultIdMapper::createFnParam(const ParmVarDecl *param,
     auto *debugLocalVar = spvBuilder.createDebugLocalVariable(
         type, name, info->source, line, column, info->scopeStack.back(), flags,
         dbgArgNumber);
-    spvBuilder.createDebugDeclare(debugLocalVar, fnParamInstr);
+    spvBuilder.createDebugDeclare(debugLocalVar, fnParamInstr, loc, range);
   }
 
   return fnParamInstr;

@@ -112,9 +112,9 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvIntrinsicInstruction)
 #undef DEFINE_INVOKE_VISITOR_FOR_CLASS
 
 SpirvInstruction::SpirvInstruction(Kind k, spv::Op op, QualType astType,
-                                   SourceLocation loc)
+                                   SourceLocation loc, SourceRange range)
     : kind(k), opcode(op), astResultType(astType), resultId(0), srcLoc(loc),
-      debugName(), resultType(nullptr), resultTypeId(0),
+      srcRange(range), debugName(), resultType(nullptr), resultTypeId(0),
       layoutRule(SpirvLayoutRule::Void), containsAlias(false),
       storageClass(spv::StorageClass::Function), isRValue_(false),
       isRelaxedPrecision_(false), isNonUniform_(false), isPrecise_(false) {}
@@ -336,8 +336,9 @@ SpirvSelectionMerge::SpirvSelectionMerge(SourceLocation loc,
     : SpirvMerge(IK_SelectionMerge, spv::Op::OpSelectionMerge, loc, mergeBlock),
       selControlMask(mask) {}
 
-SpirvTerminator::SpirvTerminator(Kind kind, spv::Op op, SourceLocation loc)
-    : SpirvInstruction(kind, op, QualType(), loc) {}
+SpirvTerminator::SpirvTerminator(Kind kind, spv::Op op, SourceLocation loc,
+                                 SourceRange range)
+    : SpirvInstruction(kind, op, QualType(), loc, range) {}
 
 SpirvBranching::SpirvBranching(Kind kind, spv::Op op, SourceLocation loc)
     : SpirvTerminator(kind, op, loc) {}
@@ -355,9 +356,11 @@ SpirvBranchConditional::SpirvBranchConditional(SourceLocation loc,
 SpirvKill::SpirvKill(SourceLocation loc)
     : SpirvTerminator(IK_Kill, spv::Op::OpKill, loc) {}
 
-SpirvReturn::SpirvReturn(SourceLocation loc, SpirvInstruction *retVal)
+SpirvReturn::SpirvReturn(SourceLocation loc, SpirvInstruction *retVal,
+                         SourceRange range)
     : SpirvTerminator(IK_Return,
-                      retVal ? spv::Op::OpReturnValue : spv::Op::OpReturn, loc),
+                      retVal ? spv::Op::OpReturnValue : spv::Op::OpReturn, loc,
+                      range),
       returnValue(retVal) {}
 
 SpirvSwitch::SpirvSwitch(
@@ -388,8 +391,9 @@ SpirvUnreachable::SpirvUnreachable(SourceLocation loc)
 
 SpirvAccessChain::SpirvAccessChain(QualType resultType, SourceLocation loc,
                                    SpirvInstruction *baseInst,
-                                   llvm::ArrayRef<SpirvInstruction *> indexVec)
-    : SpirvInstruction(IK_AccessChain, spv::Op::OpAccessChain, resultType, loc),
+                                   llvm::ArrayRef<SpirvInstruction *> indexVec,
+                                   SourceRange range)
+    : SpirvInstruction(IK_AccessChain, spv::Op::OpAccessChain, resultType, loc, range),
       base(baseInst), indices(indexVec.begin(), indexVec.end()) {}
 
 SpirvAtomic::SpirvAtomic(spv::Op op, QualType resultType, SourceLocation loc,
@@ -436,9 +440,9 @@ SpirvBarrier::SpirvBarrier(SourceLocation loc, spv::Scope memScope,
 
 SpirvBinaryOp::SpirvBinaryOp(spv::Op opcode, QualType resultType,
                              SourceLocation loc, SpirvInstruction *op1,
-                             SpirvInstruction *op2)
-    : SpirvInstruction(IK_BinaryOp, opcode, resultType, loc), operand1(op1),
-      operand2(op2) {}
+                             SpirvInstruction *op2, SourceRange range)
+    : SpirvInstruction(IK_BinaryOp, opcode, resultType, loc, range),
+	  operand1(op1), operand2(op2) {}
 
 SpirvBitField::SpirvBitField(Kind kind, spv::Op op, QualType resultType,
                              SourceLocation loc, SpirvInstruction *baseInst,
@@ -658,11 +662,12 @@ SpirvImageOp::SpirvImageOp(
     SpirvInstruction *constOffsetInst, SpirvInstruction *offsetInst,
     SpirvInstruction *constOffsetsInst, SpirvInstruction *sampleInst,
     SpirvInstruction *minLodInst, SpirvInstruction *componentInst,
-    SpirvInstruction *texelToWriteInst)
-    : SpirvInstruction(IK_ImageOp, op, resultType, loc), image(imageInst),
-      coordinate(coordinateInst), dref(drefInst), bias(biasInst), lod(lodInst),
-      gradDx(gradDxInst), gradDy(gradDyInst), constOffset(constOffsetInst),
-      offset(offsetInst), constOffsets(constOffsetsInst), sample(sampleInst),
+    SpirvInstruction *texelToWriteInst, SourceRange range)
+    : SpirvInstruction(IK_ImageOp, op, resultType, loc, range),
+      image(imageInst), coordinate(coordinateInst), dref(drefInst),
+      bias(biasInst), lod(lodInst), gradDx(gradDxInst), gradDy(gradDyInst),
+      constOffset(constOffsetInst), offset(offsetInst),
+      constOffsets(constOffsetsInst), sample(sampleInst),
       minLod(minLodInst), component(componentInst),
       texelToWrite(texelToWriteInst), operandsMask(mask) {
   assert(op == spv::Op::OpImageSampleImplicitLod ||
@@ -745,9 +750,9 @@ SpirvImageTexelPointer::SpirvImageTexelPointer(QualType resultType,
       image(imageInst), coordinate(coordinateInst), sample(sampleInst) {}
 
 SpirvLoad::SpirvLoad(QualType resultType, SourceLocation loc,
-                     SpirvInstruction *pointerInst,
+                     SpirvInstruction *pointerInst, SourceRange range,
                      llvm::Optional<spv::MemoryAccessMask> mask)
-    : SpirvInstruction(IK_Load, spv::Op::OpLoad, resultType, loc),
+    : SpirvInstruction(IK_Load, spv::Op::OpLoad, resultType, loc, range),
       pointer(pointerInst), memoryAccess(mask) {}
 
 SpirvCopyObject::SpirvCopyObject(QualType resultType, SourceLocation loc,
@@ -757,9 +762,10 @@ SpirvCopyObject::SpirvCopyObject(QualType resultType, SourceLocation loc,
 
 SpirvSampledImage::SpirvSampledImage(QualType resultType, SourceLocation loc,
                                      SpirvInstruction *imageInst,
-                                     SpirvInstruction *samplerInst)
+                                     SpirvInstruction *samplerInst,
+                                     SourceRange range)
     : SpirvInstruction(IK_SampledImage, spv::Op::OpSampledImage, resultType,
-                       loc),
+                       loc, range),
       image(imageInst), sampler(samplerInst) {}
 
 SpirvSelect::SpirvSelect(QualType resultType, SourceLocation loc,
@@ -787,8 +793,9 @@ SpirvSpecConstantUnaryOp::SpirvSpecConstantUnaryOp(spv::Op specConstantOp,
 
 SpirvStore::SpirvStore(SourceLocation loc, SpirvInstruction *pointerInst,
                        SpirvInstruction *objectInst,
-                       llvm::Optional<spv::MemoryAccessMask> mask)
-    : SpirvInstruction(IK_Store, spv::Op::OpStore, QualType(), loc),
+                       llvm::Optional<spv::MemoryAccessMask> mask,
+                       SourceRange range)
+    : SpirvInstruction(IK_Store, spv::Op::OpStore, QualType(), loc, range),
       pointer(pointerInst), object(objectInst), memoryAccess(mask) {}
 
 SpirvUnaryOp::SpirvUnaryOp(spv::Op opcode, QualType resultType,
@@ -915,9 +922,14 @@ SpirvDebugExpression::SpirvDebugExpression(
 
 SpirvDebugDeclare::SpirvDebugDeclare(SpirvDebugLocalVariable *debugVar_,
                                      SpirvInstruction *var_,
-                                     SpirvDebugExpression *expr)
+                                     SpirvDebugExpression *expr,
+	                                 SourceLocation loc,
+	                                 SourceRange range)
     : SpirvDebugInstruction(IK_DebugDeclare, /*opcode*/ 28u),
-      debugVar(debugVar_), var(var_), expression(expr) {}
+      debugVar(debugVar_), var(var_), expression(expr) {
+  srcLoc = loc;
+  srcRange = range;
+}
 
 SpirvDebugLexicalBlock::SpirvDebugLexicalBlock(SpirvDebugSource *source_,
                                                uint32_t line_, uint32_t column_,

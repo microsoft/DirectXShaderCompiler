@@ -580,6 +580,49 @@ bool IsHLSLSubobjectType(clang::QualType type) {
   return GetHLSLSubobjectKind(type, kind, hgType);
 }
 
+bool IsUserDefinedRecordType(clang::QualType type) {
+  if (const auto *rt = type->getAs<RecordType>()) {
+    // HLSL specific types
+    if (hlsl::IsHLSLResourceType(type) || hlsl::IsHLSLVecMatType(type) ||
+        isa<ExtVectorType>(type.getTypePtr()) || type->isBuiltinType() ||
+        type->isArrayType()) {
+      return false;
+    }
+
+    // SubpassInput or SubpassInputMS type
+    if (rt->getDecl()->getName() == "SubpassInput" ||
+        rt->getDecl()->getName() == "SubpassInputMS") {
+      return false;
+    }
+    return true;
+  }
+
+  return false;
+}
+
+bool DoesTypeDefineOverloadedOperator(clang::QualType typeWithOperator,
+                                      clang::OverloadedOperatorKind opc,
+                                      clang::QualType paramType) {
+  if (const RecordType *recordType = typeWithOperator->getAs<RecordType>()) {
+    if (const CXXRecordDecl *cxxRecordDecl =
+            dyn_cast<CXXRecordDecl>(recordType->getDecl())) {
+      for (const auto *method : cxxRecordDecl->methods()) {
+        if (!method->isUserProvided() || method->getNumParams() != 1)
+          continue;
+        // It must be an implicit assignment.
+        if (opc == OO_Equal &&
+            typeWithOperator != method->getParamDecl(0)->getOriginalType() &&
+            typeWithOperator == paramType) {
+          continue;
+        }
+        if (method->getOverloadedOperator() == opc)
+          return true;
+      }
+    }
+  }
+  return false;
+}
+
 bool GetHLSLSubobjectKind(clang::QualType type, DXIL::SubobjectKind &subobjectKind, DXIL::HitGroupType &hgType) {
   hgType = (DXIL::HitGroupType)(-1);
   type = type.getCanonicalType();
