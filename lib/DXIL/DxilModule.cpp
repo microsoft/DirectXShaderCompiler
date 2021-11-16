@@ -31,17 +31,10 @@
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/Support/raw_ostream.h"
-#ifndef _WIN32
-#include "llvm/ADT/STLExtras.h"
-#endif
 #include "llvm/ADT/SetVector.h"
 #include <unordered_set>
 
-#ifndef _WIN32
-using llvm::make_unique;
-#else
 using std::make_unique;
-#endif
 
 using namespace llvm;
 using std::string;
