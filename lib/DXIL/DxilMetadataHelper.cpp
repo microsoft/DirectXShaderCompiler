@@ -264,7 +264,7 @@ void DxilMDHelper::LoadDxilShaderModel(const ShaderModel *&pSM) {
   IFTBOOL(pShaderTypeMD != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
   unsigned Major = ConstMDToUint32(pShaderModelMD->getOperand(kDxilShaderModelMajorIdx));
   unsigned Minor = ConstMDToUint32(pShaderModelMD->getOperand(kDxilShaderModelMinorIdx));
-  string ShaderModelName = pShaderTypeMD->getString();
+  string ShaderModelName = pShaderTypeMD->getString().str();
   ShaderModelName += "_" + std::to_string(Major) + "_" +
     (Minor == ShaderModel::kOfflineMinor ? "x" : std::to_string(Minor));
   pSM = ShaderModel::GetByName(ShaderModelName.c_str());
@@ -384,7 +384,7 @@ void DxilMDHelper::GetDxilEntryPoint(const MDNode *MDO, Function *&pFunc, string
   IFTBOOL(MDOName.get() != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
   MDString *pMDName = dyn_cast<MDString>(MDOName);
   IFTBOOL(pMDName != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
-  Name = pMDName->getString();
+  Name = pMDName->getString().str();
 
   pSignatures = &pTupleMD->getOperand(kDxilEntryPointSignatures);
   pResources  = &pTupleMD->getOperand(kDxilEntryPointResources );
@@ -2580,20 +2580,14 @@ bool DxilMDHelper::IsKnownMetadataID(LLVMContext &Ctx, unsigned ID)
 
 void DxilMDHelper::GetKnownMetadataIDs(LLVMContext &Ctx, SmallVectorImpl<unsigned> *pIDs)
 {
-  auto AddIdIfExists = [&Ctx, &pIDs](StringRef Name) {
-    unsigned ID = 0;
-    if (Ctx.findMDKindID(hlsl::DxilMDHelper::kDxilPreciseAttributeMDName,
-                         &ID)) {
-      pIDs->push_back(ID);
+  SmallVector<StringRef, 4> Names;
+  Ctx.getMDKindNames(Names);
+  for (auto Name : Names) {
+    if (Name == hlsl::DxilMDHelper::kDxilPreciseAttributeMDName ||
+        Name == hlsl::DxilMDHelper::kDxilNonUniformAttributeMDName) {
+      pIDs->push_back(Ctx.getMDKindID(Name));
     }
-    if (Ctx.findMDKindID(hlsl::DxilMDHelper::kDxilNonUniformAttributeMDName,
-                         &ID)) {
-      pIDs->push_back(ID);
-    }
-  };
-
-  AddIdIfExists(hlsl::DxilMDHelper::kDxilPreciseAttributeMDName);
-  AddIdIfExists(hlsl::DxilMDHelper::kDxilNonUniformAttributeMDName);
+  }
 }
 
 void DxilMDHelper::combineDxilMetadata(llvm::Instruction *K,
@@ -2689,7 +2683,7 @@ float DxilMDHelper::ConstMDToFloat(const MDOperand &MDO) {
 string DxilMDHelper::StringMDToString(const MDOperand &MDO) {
   MDString *pMDString = dyn_cast<MDString>(MDO.get());
   IFTBOOL(pMDString != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
-  return pMDString->getString();
+  return pMDString->getString().str();
 }
 
 StringRef DxilMDHelper::StringMDToStringRef(const MDOperand &MDO) {
