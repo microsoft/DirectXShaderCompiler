@@ -76,7 +76,7 @@ GetLegacyCBufferFieldElementSize(DxilFieldAnnotation &fieldAnnotation,
   unsigned compSize = compType.Is64Bit() ? 8 : compType.Is16Bit() && !typeSys.UseMinPrecision() ? 2 : 4;
   unsigned fieldSize = compSize;
   if (Ty->isVectorTy()) {
-    fieldSize *= Ty->getVectorNumElements();
+    fieldSize *= cast<FixedVectorType>(Ty)->getNumElements();
   } else if (StructType *ST = dyn_cast<StructType>(Ty)) {
     DxilStructAnnotation *EltAnnotation = typeSys.GetStructAnnotation(ST);
     if (EltAnnotation) {
@@ -357,8 +357,8 @@ bool IsResourceSingleComponent(Type *Ty) {
       return false;
     }
     return IsResourceSingleComponent(structType->getStructElementType(0));
-  } else if (llvm::VectorType *vectorType =
-                 llvm::dyn_cast<llvm::VectorType>(Ty)) {
+  } else if (llvm::FixedVectorType *vectorType =
+                 llvm::dyn_cast<llvm::FixedVectorType>(Ty)) {
     if (vectorType->getNumElements() > 1) {
       return false;
     }
@@ -379,8 +379,8 @@ uint8_t GetResourceComponentCount(llvm::Type *Ty) {
     }
     DXASSERT(Count <= 4, "Component Count out of bound.");
     return Count;
-  } else if (llvm::VectorType *vectorType =
-                 llvm::dyn_cast<llvm::VectorType>(Ty)) {
+  } else if (llvm::FixedVectorType *vectorType =
+                 llvm::dyn_cast<llvm::FixedVectorType>(Ty)) {
     return vectorType->getNumElements();
   }
   return 1;
