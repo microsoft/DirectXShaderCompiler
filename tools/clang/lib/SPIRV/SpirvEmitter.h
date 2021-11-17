@@ -597,6 +597,9 @@ private:
   /// Process spirv intrinsic instruction
   SpirvInstruction *processSpvIntrinsicCallExpr(const CallExpr *expr);
 
+  /// Custom intrinsic to support basic buffer_reference use case
+  SpirvInstruction *processRawBufferLoad(const CallExpr *callExpr);
+
 private:
   /// Returns the <result-id> for constant value 0 of the given type.
   SpirvConstant *getValueZero(QualType type);

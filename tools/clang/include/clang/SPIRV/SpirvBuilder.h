@@ -212,6 +212,8 @@ public:
   /// the instruction pointer for the result.
   SpirvUnaryOp *createUnaryOp(spv::Op op, QualType resultType,
                               SpirvInstruction *operand, SourceLocation loc);
+  SpirvUnaryOp *createUnaryOp(spv::Op op, const SpirvType *resultType,
+                              SpirvInstruction *operand, SourceLocation loc);
 
   /// \brief Creates a binary operation with the given SPIR-V opcode. Returns
   /// the instruction pointer for the result.
@@ -689,6 +691,10 @@ public:
 
   SpirvString *getString(llvm::StringRef str);
 
+  const HybridPointerType *getPhysicalStorageBufferType(QualType pointee);
+  const SpirvPointerType *
+  getPhysicalStorageBufferType(const SpirvType *pointee);
+
 public:
   std::vector<uint32_t> takeModule();
 
@@ -793,8 +799,14 @@ private:
 
 void SpirvBuilder::requireCapability(spv::Capability cap, SourceLocation loc) {
   auto *capability = new (context) SpirvCapability(loc, cap);
-  if (!mod->addCapability(capability))
+  if (mod->addCapability(capability)) {
+    if (cap == spv::Capability::PhysicalStorageBufferAddresses) {
+      mod->promoteAddressingModel(
+          spv::AddressingModel::PhysicalStorageBuffer64);
+    }
+  } else {
     capability->releaseMemory();
+  }
 }
 
 void SpirvBuilder::requireExtension(llvm::StringRef ext, SourceLocation loc) {

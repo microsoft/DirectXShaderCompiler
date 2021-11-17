@@ -1201,8 +1201,15 @@ bool EmitVisitor::visit(SpirvLoad *inst) {
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getPointer()));
-  if (inst->hasMemoryAccessSemantics())
-    curInst.push_back(static_cast<uint32_t>(inst->getMemoryAccess()));
+  if (inst->hasMemoryAccessSemantics()) {
+    spv::MemoryAccessMask memoryAccess = inst->getMemoryAccess();
+    curInst.push_back(static_cast<uint32_t>(memoryAccess));
+    if (inst->hasAlignment()) {
+      assert(static_cast<uint32_t>(memoryAccess) &
+             static_cast<uint32_t>(spv::MemoryAccessMask::Aligned));
+      curInst.push_back(inst->getAlignment());
+    }
+  }
   finalizeInstruction(&mainBinary);
   emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
                               inst->getDebugName());
