@@ -1050,6 +1050,14 @@ def VKExtensionExt : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def VKStorageClassExt : InheritableAttr {
+  let Spellings = [CXX11<"vk", "ext_storage_class">];
+  let Subjects = SubjectList<[Var, ParmVar], ErrorDiag>;
+  let Args = [UnsignedArgument<"stclass">];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
 // Global variables that are of struct type
 def StructGlobalVar : SubsetSubject<Var, [{S->hasGlobalStorage() && S->getType()->isStructureType()}]>;
 

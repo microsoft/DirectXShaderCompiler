@@ -1659,8 +1659,11 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
       needsLegalization = true;
   }
 
-  if (var != nullptr) {
+  if (var != nullptr && decl->hasAttrs()) {
     declIdMapper.decorateVariableWithIntrinsicAttrs(decl, var);
+    if (auto attr = decl->getAttr<VKStorageClassExtAttr>()) {
+      var->setStorageClass(static_cast<spv::StorageClass>(attr->getStclass()));
+    }
   }
 
   // All variables that are of opaque struct types should request legalization.
@@ -7634,8 +7637,13 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_VkReadClock:
     retVal = processIntrinsicReadClock(callExpr);
     break;
+<<<<<<< HEAD
   case hlsl::IntrinsicOp::IOP_VkRawBufferLoad:
     retVal = processRawBufferLoad(callExpr);
+=======
+  case hlsl::IntrinsicOp::IOP_Vkext_execution_mode:
+    retVal = processIntrinsicExecutionMode(callExpr);
+>>>>>>> daae8b9c0 ([SPIRV] Add support vk::ext_execution_mode)
     break;
   case hlsl::IntrinsicOp::IOP_saturate:
     retVal = processIntrinsicSaturate(callExpr);
@@ -12567,6 +12575,27 @@ SpirvInstruction *SpirvEmitter::processRawBufferLoad(const CallExpr *callExpr) {
   loadInst->setAlignment(4);
 
   return loadInst;
+SpirvInstruction *
+SpirvEmitter::processIntrinsicExecutionMode(const CallExpr *expr) {
+  llvm::SmallVector<uint32_t, 2> execModesParams;
+  uint32_t exeMode = 0;
+  const auto args = expr->getArgs();
+  for (uint32_t i = 0; i < expr->getNumArgs(); ++i) {
+    SpirvConstantInteger *argInst =
+        dyn_cast<SpirvConstantInteger>(doExpr(args[i]));
+    assert(argInst != nullptr);
+    unsigned argInteger = argInst->getValue().getZExtValue();
+    if (i > 0)
+      execModesParams.push_back(argInteger);
+    else
+      exeMode = argInteger;
+  }
+  assert(entryFunction != nullptr);
+  assert(exeMode != 0);
+
+  return spvBuilder.addExecutionMode(entryFunction,
+                                     static_cast<spv::ExecutionMode>(exeMode),
+                                     execModesParams, expr->getExprLoc());
 }
 
 bool SpirvEmitter::spirvToolsValidate(std::vector<uint32_t> *mod,
