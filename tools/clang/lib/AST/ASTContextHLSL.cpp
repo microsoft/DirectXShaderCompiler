@@ -840,8 +840,15 @@ CXXMethodDecl* hlsl::CreateObjectFunctionDeclarationWithParams(
 
 CXXRecordDecl* hlsl::DeclareUIntTemplatedTypeWithHandle(
   ASTContext& context, StringRef typeName, StringRef templateParamName) {
+  return DeclareUIntTemplatedTypeWithHandleInDeclContext(
+      context, context.getTranslationUnitDecl(), typeName, templateParamName);
+}
+
+CXXRecordDecl *hlsl::DeclareUIntTemplatedTypeWithHandleInDeclContext(
+    ASTContext &context, DeclContext *declContext, StringRef typeName,
+    StringRef templateParamName) {
   // template<uint kind> FeedbackTexture2D[Array] { ... }
-  BuiltinTypeDeclBuilder typeDeclBuilder(context.getTranslationUnitDecl(), typeName);
+  BuiltinTypeDeclBuilder typeDeclBuilder(declContext, typeName);
   typeDeclBuilder.addIntegerTemplateParam(templateParamName, context.UnsignedIntTy);
   typeDeclBuilder.startDefinition();
   typeDeclBuilder.addField("h", context.UnsignedIntTy); // Add an 'h' field to hold the handle.

@@ -3596,7 +3596,9 @@ private:
       }
 #ifdef ENABLE_SPIRV_CODEGEN
       else if (kind == AR_OBJECT_VK_SPV_INTRINSIC_TYPE) {
-        recordDecl = DeclareUIntTemplatedTypeWithHandle(*m_context, "ext_type", "id");
+        recordDecl = DeclareUIntTemplatedTypeWithHandleInDeclContext(
+            *m_context, m_vkNSDecl, typeName, "id");
+        recordDecl->setImplicit(true);
       }
 #endif
       else if (templateArgCount == 0) {
@@ -3721,12 +3723,6 @@ public:
     m_sema = &S;
     S.addExternalSource(this);
 
-    AddObjectTypes();
-    AddStdIsEqualImplementation(context, S);
-    for (auto && intrinsic : m_intrinsicTables) {
-      AddIntrinsicTableMethods(intrinsic);
-    }
-
 #ifdef ENABLE_SPIRV_CODEGEN
     if (m_sema->getLangOpts().SPIRV) {
       // Create the "vk" namespace which contains Vulkan-specific intrinsics.
@@ -3736,7 +3732,17 @@ public:
                                 SourceLocation(), &context.Idents.get("vk"),
                                 /*PrevDecl*/ nullptr);
       context.getTranslationUnitDecl()->addDecl(m_vkNSDecl);
+    }
+#endif // ENABLE_SPIRV_CODEGEN
 
+    AddObjectTypes();
+    AddStdIsEqualImplementation(context, S);
+    for (auto &&intrinsic : m_intrinsicTables) {
+      AddIntrinsicTableMethods(intrinsic);
+    }
+
+#ifdef ENABLE_SPIRV_CODEGEN
+    if (m_sema->getLangOpts().SPIRV) {
       // Add Vulkan-specific intrinsics.
       AddVkIntrinsicFunctions();
       AddVkIntrinsicConstants();
