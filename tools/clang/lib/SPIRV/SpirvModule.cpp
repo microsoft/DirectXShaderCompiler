@@ -241,6 +241,34 @@ void SpirvModule::setMemoryModel(SpirvMemoryModel *model) {
   memoryModel = model;
 }
 
+bool SpirvModule::promoteAddressingModel(spv::AddressingModel addrModel) {
+  assert(memoryModel && "base memory model must be set first");
+  auto getPriority = [](spv::AddressingModel am) -> int {
+    switch (am) {
+    default:
+      assert(false && "unknown addressing model");
+    case spv::AddressingModel::Logical:
+      return 0;
+    case spv::AddressingModel::Physical32:
+      return 1;
+    case spv::AddressingModel::Physical64:
+      return 2;
+    case spv::AddressingModel::PhysicalStorageBuffer64:
+      return 3;
+    }
+  };
+
+  int current = getPriority(memoryModel->getAddressingModel());
+  int pending = getPriority(addrModel);
+
+  if (pending > current) {
+    memoryModel->setAddressingModel(addrModel);
+    return true;
+  } else {
+    return false;
+  }
+}
+
 void SpirvModule::addEntryPoint(SpirvEntryPoint *ep) {
   assert(ep && "cannot add null as an entry point");
   entryPoints.push_back(ep);
