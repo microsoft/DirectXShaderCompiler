@@ -105,6 +105,12 @@ public:
   // Set the memory model of the module.
   void setMemoryModel(SpirvMemoryModel *model);
 
+  // Increases addressing model requirement for the module:
+  // Logical -> Physical32 -> Physical64 -> PhysicalStorageBuffer64.
+  // Requires setMemoryModel() to be called first to set the base memory model.
+  // Returns true if addressing model was changed.
+  bool promoteAddressingModel(spv::AddressingModel addrModel);
+
   // Add an entry point to the module.
   void addEntryPoint(SpirvEntryPoint *);
 

@@ -189,6 +189,11 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
   // Pointer type
   else if (const auto *ptrType = dyn_cast<SpirvPointerType>(type)) {
     addCapabilityForType(ptrType->getPointeeType(), loc, sc);
+    if (sc == spv::StorageClass::PhysicalStorageBuffer) {
+      addExtension(Extension::KHR_physical_storage_buffer,
+                   "SPV_KHR_physical_storage_buffer", loc);
+      addCapability(spv::Capability::PhysicalStorageBufferAddresses);
+    }
   }
   // Struct type
   else if (const auto *structType = dyn_cast<StructType>(type)) {
@@ -525,8 +530,7 @@ bool CapabilityVisitor::visitInstruction(SpirvInstruction *instr) {
   case spv::Op::OpRayQueryInitializeKHR: {
     auto rayQueryInst = dyn_cast<SpirvRayQueryOpKHR>(instr);
     if (rayQueryInst->hasCullFlags()) {
-      addCapability(
-          spv::Capability::RayTraversalPrimitiveCullingKHR);
+      addCapability(spv::Capability::RayTraversalPrimitiveCullingKHR);
     }
 
     break;
@@ -581,6 +585,7 @@ bool CapabilityVisitor::visit(SpirvEntryPoint *entryPoint) {
     llvm_unreachable("found unknown shader model");
     break;
   }
+
   return true;
 }
 
