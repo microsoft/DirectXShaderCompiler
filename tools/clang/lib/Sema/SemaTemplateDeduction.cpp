@@ -2605,10 +2605,12 @@ Sema::SubstituteExplicitTemplateArguments(
     return TDK_SubstitutionFailure;
 
   if (FunctionType) {
-    *FunctionType = BuildFunctionType(ResultType, ParamTypes,
-                                      Function->getLocation(),
-                                      Function->getDeclName(),
-                                      Proto->getExtProtoInfo());
+    // HLSL Change - FIX - We should move param mods to parameter QualTypes
+    *FunctionType = BuildFunctionType(
+        ResultType, ParamTypes, Function->getLocation(),
+        Function->getDeclName(), Proto->getExtProtoInfo(),
+        cast<FunctionProtoType>(Function->getType())->getParamMods());
+    // HLSL Change - End
     if (FunctionType->isNull() || Trap.hasErrorOccurred())
       return TDK_SubstitutionFailure;
   }
