@@ -203,10 +203,12 @@ std::vector<llvm::BasicBlock*> GetAllBlocks(hlsl::DxilModule& DM) {
     std::vector<llvm::BasicBlock*> ret;
     auto entryPoints = DM.GetExportedFunctions();
     for (auto& fn : entryPoints) {
-        auto & blocks = fn->getBasicBlockList();
-        for (auto & block : blocks) {
-            ret.push_back(&block);
+      if (fn != nullptr) {
+        auto& blocks = fn->getBasicBlockList();
+        for (auto& block : blocks) {
+          ret.push_back(&block);
         }
+      }
     }
     return ret;
 }
