@@ -3042,7 +3042,7 @@ struct DxilInst_TextureGatherCmp {
     arg_offset0 = 7,
     arg_offset1 = 8,
     arg_channel = 9,
-    arg_compareVale = 10,
+    arg_compareValue = 10,
   };
   // Accessors
   llvm::Value *get_srv() const { return Instr->getOperand(1); }
@@ -3063,8 +3063,8 @@ struct DxilInst_TextureGatherCmp {
   void set_offset1(llvm::Value *val) { Instr->setOperand(8, val); }
   llvm::Value *get_channel() const { return Instr->getOperand(9); }
   void set_channel(llvm::Value *val) { Instr->setOperand(9, val); }
-  llvm::Value *get_compareVale() const { return Instr->getOperand(10); }
-  void set_compareVale(llvm::Value *val) { Instr->setOperand(10, val); }
+  llvm::Value *get_compareValue() const { return Instr->getOperand(10); }
+  void set_compareValue(llvm::Value *val) { Instr->setOperand(10, val); }
 };
 
 /// This instruction gets the position of the specified sample
