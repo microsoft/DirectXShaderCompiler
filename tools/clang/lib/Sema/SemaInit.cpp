@@ -6183,7 +6183,11 @@ InitializationSequence::Perform(Sema &S,
             CK_LValueToRValue, Args[i], /*BasePath=*/0, VK_RValue);
         }
       }
-      CurInit = new (S.getASTContext())InitListExpr(S.getASTContext(), SourceLocation(), Args, SourceLocation());
+      InitListExpr *castInit = new (S.getASTContext())
+          InitListExpr(S.getASTContext(), Kind.getParenRange().getBegin(), Args,
+                       Kind.getParenRange().getEnd());
+      castInit->sawVectorInitWithCXXFunctionalCastExpr(true);
+      CurInit = castInit;
     }
     break;
   }
