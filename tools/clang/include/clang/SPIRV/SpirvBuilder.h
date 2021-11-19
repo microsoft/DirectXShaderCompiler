@@ -554,8 +554,10 @@ public:
                                      llvm::StringRef content = "");
 
   /// \brief Adds an execution mode to the module under construction.
-  inline void addExecutionMode(SpirvFunction *entryPoint, spv::ExecutionMode em,
-                               llvm::ArrayRef<uint32_t> params, SourceLocation);
+  inline SpirvInstruction *addExecutionMode(SpirvFunction *entryPoint,
+                                            spv::ExecutionMode em,
+                                            llvm::ArrayRef<uint32_t> params,
+                                            SourceLocation);
 
   /// \brief Adds an OpModuleProcessed instruction to the module under
   /// construction.
@@ -854,12 +856,15 @@ SpirvBuilder::setDebugSource(uint32_t major, uint32_t minor,
   return mainSource->getFile();
 }
 
-void SpirvBuilder::addExecutionMode(SpirvFunction *entryPoint,
-                                    spv::ExecutionMode em,
-                                    llvm::ArrayRef<uint32_t> params,
-                                    SourceLocation loc) {
-  mod->addExecutionMode(
-      new (context) SpirvExecutionMode(loc, entryPoint, em, params, false));
+SpirvInstruction *
+SpirvBuilder::addExecutionMode(SpirvFunction *entryPoint, spv::ExecutionMode em,
+                               llvm::ArrayRef<uint32_t> params,
+                               SourceLocation loc) {
+  auto mode =
+      new (context) SpirvExecutionMode(loc, entryPoint, em, params, false);
+  mod->addExecutionMode(mode);
+
+  return mode;
 }
 
 } // end namespace spirv

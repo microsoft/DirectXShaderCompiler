@@ -12092,6 +12092,11 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
         ValidateAttributeStringArg(S, A, nullptr, 1),
         A.getAttributeSpellingListIndex());
     break;
+  case AttributeList::AT_VKStorageClassExt:
+    declAttr = ::new (S.Context) VKStorageClassExtAttr(
+        A.getRange(), S.Context, unsigned(ValidateAttributeIntArg(S, A)),
+        A.getAttributeSpellingListIndex());
+    break;
   default:
     Handled = false;
     return;

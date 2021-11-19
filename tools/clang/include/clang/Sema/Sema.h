@@ -1254,10 +1254,12 @@ public:
   /// \returns A suitable function type, if there are no errors. The
   /// unqualified type will always be a FunctionProtoType.
   /// Otherwise, returns a NULL type.
-  QualType BuildFunctionType(QualType T,
-                             MutableArrayRef<QualType> ParamTypes,
+  // HLSL Change - FIX - We should move param mods to parameter QualTypes
+  QualType BuildFunctionType(QualType T, MutableArrayRef<QualType> ParamTypes,
                              SourceLocation Loc, DeclarationName Entity,
-                             const FunctionProtoType::ExtProtoInfo &EPI);
+                             const FunctionProtoType::ExtProtoInfo &EPI,
+                             ArrayRef<hlsl::ParameterModifier> ParamMods);
+  // HLSL Change - End
 
   QualType BuildMemberPointerType(QualType T, QualType Class,
                                   SourceLocation Loc,
