@@ -12608,7 +12608,6 @@ SpirvInstruction *
 SpirvEmitter::processSpvIntrinsicTypeDef(const CallExpr *expr) {
   auto funcDecl = expr->getDirectCallee();
   auto typeDefAttr = funcDecl->getAttr<VKTypeDefExtAttr>();
-  SpirvIntrinsicType *elementType = nullptr;
   llvm::SmallVector<uint32_t, 2> capbilities;
   llvm::SmallVector<llvm::StringRef, 2> extensions;
 
@@ -12649,7 +12648,6 @@ SpirvEmitter::processSpvIntrinsicTypeDef(const CallExpr *expr) {
 
   // Emit dummy OpNop with no semantic meaning, with possible extension and
   // capabilities
-
   SpirvInstruction *retVal = spvBuilder.createSpirvIntrInstExt(
       static_cast<unsigned>(spv::Op::OpNop), QualType(), {}, extensions, {},
       capbilities, expr->getExprLoc());
