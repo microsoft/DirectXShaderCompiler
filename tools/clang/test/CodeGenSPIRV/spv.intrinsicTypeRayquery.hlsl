@@ -12,16 +12,16 @@ void createAcceleStructureType();
 
 [[vk::ext_instruction(/* OpRayQueryTerminateKHR */ 4474)]]
 void rayQueryTerminateEXT(
-       [[vk::ext_reference]] ext_type<2> rq);
+       [[vk::ext_reference]] vk::ext_type<2> rq);
 
-ext_type<3> as : register(t0);
+vk::ext_type<3> as : register(t0);
 
 [[vk::ext_instruction(/* OpRayQueryInitializeKHR */  4473)]]
-void rayQueryInitializeEXT([[vk::ext_reference]] ext_type<2>  rayQuery, ext_type<3> as, uint rayFlags, uint cullMask, float3 origin, float tMin, float3 direction, float tMax);
+void rayQueryInitializeEXT([[vk::ext_reference]] vk::ext_type<2>  rayQuery, vk::ext_type<3> as, uint rayFlags, uint cullMask, float3 origin, float tMin, float3 direction, float tMax);
 
 [[vk::ext_instruction(/* OpRayQueryTerminateKHR */ 4474)]]
 void rayQueryTerminateEXT(
-       [[vk::ext_reference]] ext_type<2> rq );
+       [[vk::ext_reference]] vk::ext_type<2> rq );
 
 //CHECK: %spirvIntrinsicType = OpTypeAccelerationStructureKHR
 //CHECK: %spirvIntrinsicType_0 = OpTypeRayQueryKHR
@@ -34,7 +34,7 @@ void main()
 {
     createTypeRayQueryKHR();
     createAcceleStructureType();
-    ext_type<2> rq;
+    vk::ext_type<2> rq;
     rayQueryInitializeEXT(rq, as, 0, 0, float3(0, 0, 0), 0.0, float3(1,1,1), 1.0);
     rayQueryTerminateEXT(rq);
 }

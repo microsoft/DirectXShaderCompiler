@@ -3595,7 +3595,7 @@ private:
         recordDecl = DeclareUIntTemplatedTypeWithHandle(*m_context, "FeedbackTexture2DArray", "kind");
       }
 #ifdef ENABLE_SPIRV_CODEGEN
-      else if (kind == AR_OBJECT_VK_SPV_INTRINSIC_TYPE) {
+      else if (kind == AR_OBJECT_VK_SPV_INTRINSIC_TYPE && m_vkNSDecl) {
         recordDecl = DeclareUIntTemplatedTypeWithHandleInDeclContext(
             *m_context, m_vkNSDecl, typeName, "id");
         recordDecl->setImplicit(true);
