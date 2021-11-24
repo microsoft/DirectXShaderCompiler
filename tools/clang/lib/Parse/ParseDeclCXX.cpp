@@ -1580,7 +1580,9 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
 
   if (!Name && !TemplateId && (DS.getTypeSpecType() == DeclSpec::TST_error ||
                                TUK != Sema::TUK_Definition)) {
-    if (DS.getTypeSpecType() != DeclSpec::TST_error) {
+    if (getLangOpts().HLSL && TagTokKind == tok::kw_union) {
+      Diag(Tok, diag::err_anonymous_unions);
+    } else if (DS.getTypeSpecType() != DeclSpec::TST_error) {
       // We have a declaration or reference to an anonymous class.
       Diag(StartLoc, diag::err_anon_type_definition)
         << DeclSpec::getSpecifierName(TagType, Policy);

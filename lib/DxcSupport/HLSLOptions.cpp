@@ -499,6 +499,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     opts.EnableOperatorOverloading = true;
     // Enable template support
     opts.EnableTemplates = true;
+    // Enable Unions support
+    opts.EnableUnions = true;
     // Determine overload matching based on UDT names, not just types
     opts.StrictUDTCasting = true;
     // Experimental option to enable short-circuiting operators
@@ -509,6 +511,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   } else {
     opts.EnableOperatorOverloading = Args.hasFlag(OPT_enable_operator_overloading, OPT_INVALID, false);
     opts.EnableTemplates = Args.hasFlag(OPT_enable_templates, OPT_INVALID, false);
+    opts.EnableUnions = Args.hasFlag(OPT_enable_unions, OPT_INVALID, false);
     opts.StrictUDTCasting = Args.hasFlag(OPT_strict_udt_casting, OPT_INVALID, false);
     opts.EnableShortCircuit = Args.hasFlag(OPT_enable_short_circuit, OPT_INVALID, false);
     opts.EnableBitfields = Args.hasFlag(OPT_enable_bitfields, OPT_INVALID, false);
@@ -517,8 +520,12 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
 
       if (opts.EnableOperatorOverloading)
         errors << "/enable-operator-overloading is not supported with HLSL Version " << opts.HLSLVersion;
+
       if (opts.EnableTemplates)
         errors << "/enable-templates is not supported with HLSL Version " << opts.HLSLVersion;
+
+      if (opts.EnableUnions)
+        errors << "/enable-unions is not supported with HLSL Version " << opts.HLSLVersion;
 
       if (opts.StrictUDTCasting)
         errors << "/enable-udt-casting is not supported with HLSL Version " << opts.HLSLVersion;

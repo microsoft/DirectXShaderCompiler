@@ -65,6 +65,7 @@ def warn_method_param_declaration : Warning<"redeclaration of method parameter %
   InGroup<DuplicateArgDecl>, DefaultIgnore;
 def err_invalid_storage_class_in_func_decl : Error<
   "invalid storage class specifier in function declarator">;
+def err_anonymous_unions : Error<"anonymous unions are not supported in HLSL">;
 def err_expected_namespace_name : Error<"expected namespace name">;
 // HLSL Change Starts
 def err_hlsl_variadic_templates : Error<"variadic templates are not supported in HLSL">;

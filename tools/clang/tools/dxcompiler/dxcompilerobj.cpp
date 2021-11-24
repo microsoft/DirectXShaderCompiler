@@ -1379,6 +1379,7 @@ public:
     compiler.getLangOpts().EnableDX9CompatMode = Opts.EnableDX9CompatMode;
     compiler.getLangOpts().EnableFXCCompatMode = Opts.EnableFXCCompatMode;
     compiler.getLangOpts().EnableTemplates = Opts.EnableTemplates;
+    compiler.getLangOpts().EnableUnions = Opts.EnableUnions;
     compiler.getLangOpts().EnableOperatorOverloading =
         Opts.EnableOperatorOverloading;
     compiler.getLangOpts().StrictUDTCasting = Opts.StrictUDTCasting;

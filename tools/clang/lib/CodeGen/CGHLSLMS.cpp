@@ -1137,6 +1137,9 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
         fieldAnnotation.SetPrecise();
     }
 
+    if (RD->isUnion())
+      break;
+
     // Update offset.
     CBufferSize = std::max(CBufferSize, CBufferOffset + size);
     CBufferOffset = CBufferSize;
@@ -1277,6 +1280,17 @@ unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
     unsigned size = ConstructStructAnnotation(annotation, payloadAnnotation, RD, dxilTypeSys);
     // Resources don't count towards cbuffer size.
     return IsHLSLResourceType(Ty) ? 0 : size;
+  } else if (const RecordType *RT = paramTy->getAsUnionType()) {
+    RecordDecl *RD = RT->getDecl();
+    llvm::StructType *ST = CGM.getTypes().ConvertRecordDeclType(RD);
+    DxilStructAnnotation *annotation = dxilTypeSys.AddStructAnnotation(
+        ST, GetNumTemplateArgsForRecordDecl(RT->getDecl()), true);
+    DxilPayloadAnnotation *payloadAnnotation = nullptr;
+    if (ValidatePayloadDecl(RT->getDecl(), *m_pHLModule->GetShaderModel(),
+                            CGM.getDiags(), CGM.getCodeGenOpts()))
+      payloadAnnotation = dxilTypeSys.AddPayloadAnnotation(ST);
+    return ConstructStructAnnotation(annotation, payloadAnnotation, RD,
+                                     dxilTypeSys);
   } else if (const RecordType *RT = dyn_cast<RecordType>(paramTy)) {
     // For this pointer.
     RecordDecl *RD = RT->getDecl();

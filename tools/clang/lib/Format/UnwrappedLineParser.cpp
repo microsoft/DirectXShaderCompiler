@@ -1525,7 +1525,8 @@ void UnwrappedLineParser::parseEnum() {
     nextToken();
 
   // Eat up enum class ...
-  if (FormatTok->Tok.is(tok::kw_class) || FormatTok->Tok.is(tok::kw_struct))
+  if (FormatTok->Tok.is(tok::kw_class) || FormatTok->Tok.is(tok::kw_struct) ||
+      FormatTok->Tok.is(tok::kw_union))
     nextToken();
 
   while (FormatTok->Tok.getIdentifierInfo() ||

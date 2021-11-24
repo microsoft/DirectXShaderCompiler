@@ -5820,7 +5820,7 @@ Sema::ActOnVariableDeclarator(Scope *S, Declarator &D, DeclContext *DC,
 
         // C++98 [class.union]p1: If a union contains a static data member,
         // the program is ill-formed. C++11 drops this restriction.
-        if (RD->isUnion())
+        if (RD->isUnion() && !getLangOpts().HLSL)
           Diag(D.getIdentifierLoc(),
                getLangOpts().CPlusPlus11
                  ? diag::warn_cxx98_compat_static_data_member_in_union

@@ -305,12 +305,15 @@ DxilTypeSystem::DxilTypeSystem(Module *pModule)
     : m_pModule(pModule),
       m_LowPrecisionMode(DXIL::LowPrecisionMode::Undefined) {}
 
-DxilStructAnnotation *DxilTypeSystem::AddStructAnnotation(const StructType *pStructType, unsigned numTemplateArgs) {
-  DXASSERT_NOMSG(m_StructAnnotations.find(pStructType) == m_StructAnnotations.end());
+DxilStructAnnotation *
+DxilTypeSystem::AddStructAnnotation(const StructType *pStructType,
+                                    unsigned numTemplateArgs, bool isunion) {
+  DXASSERT_NOMSG(m_StructAnnotations.find(pStructType) ==
+                 m_StructAnnotations.end());
   DxilStructAnnotation *pA = new DxilStructAnnotation();
   m_StructAnnotations[pStructType] = unique_ptr<DxilStructAnnotation>(pA);
   pA->m_pStructType = pStructType;
-  pA->m_FieldAnnotations.resize(pStructType->getNumElements());
+  pA->m_FieldAnnotations.resize(isunion ? 1 : pStructType->getNumElements());
   pA->SetNumTemplateArgs(numTemplateArgs);
   return pA;
 }

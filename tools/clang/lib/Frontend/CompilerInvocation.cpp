@@ -1757,6 +1757,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
     Opts.EnableOperatorOverloading = true;
     // Enable template support
     Opts.EnableTemplates = true;
+    // Enable Unions support
+    Opts.EnableUnions = true;
     // Determine overload matching based on UDT names, not just types
     Opts.StrictUDTCasting = true;
     // Enable bitfield support
@@ -1765,6 +1767,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   } else {
     Opts.EnableOperatorOverloading = Args.hasArg(OPT_enable_operator_overloading);
     Opts.EnableTemplates = Args.hasArg(OPT_enable_templates);
+    Opts.EnableUnions = Args.hasArg(OPT_enable_unions);
     Opts.StrictUDTCasting = Args.hasArg(OPT_strict_udt_casting);
     Opts.EnableBitfields = Args.hasArg(OPT_enable_bitfields);
 
@@ -1773,6 +1776,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
         Diags.Report(diag::err_hlsl_invalid_drv_for_feature) << "/enable-operator-overloading" << ver;
       if (Opts.EnableTemplates)
         Diags.Report(diag::err_hlsl_invalid_drv_for_feature) << "/enable-templates" << ver;
+      if (Opts.EnableUnions)
+        Diags.Report(diag::err_hlsl_invalid_drv_for_feature) << "/enable-unions" << ver;
       if (Opts.StrictUDTCasting)
         Diags.Report(diag::err_hlsl_invalid_drv_for_feature) << "/enable-udt-casting" << ver;
       if (Opts.EnableBitfields)
