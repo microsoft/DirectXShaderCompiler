@@ -1142,6 +1142,14 @@ bool isRelaxedPrecisionType(QualType type, const SpirvCodeGenOptions &opts) {
     }
   }
 
+  // Reference types
+  if (const auto *refType = type->getAs<ReferenceType>())
+    return isRelaxedPrecisionType(refType->getPointeeType(), opts);
+
+  // Pointer types
+  if (const auto *ptrType = type->getAs<PointerType>())
+    return isRelaxedPrecisionType(ptrType->getPointeeType(), opts);
+
   return false;
 }
 
