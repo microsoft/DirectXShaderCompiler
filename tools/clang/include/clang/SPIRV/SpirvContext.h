@@ -290,8 +290,7 @@ public:
 
   const SpirvIntrinsicType *
   getSpirvIntrinsicType(unsigned typeId, unsigned typeOpCode,
-                        llvm::ArrayRef<SpirvConstant *> constants,
-                        SpirvIntrinsicType *elementTy);
+                        llvm::ArrayRef<SpvIntrinsicTypeOperand> operands);
 
   SpirvIntrinsicType *getCreatedSpirvIntrinsicType(unsigned typeId);
 

@@ -527,13 +527,12 @@ void SpirvContext::moveDebugTypesToModule(SpirvModule *module) {
   typeTemplateParams.clear();
 }
 
-const SpirvIntrinsicType *
-SpirvContext::getSpirvIntrinsicType(unsigned typeId, unsigned typeOpCode,
-                                    llvm::ArrayRef<SpirvConstant *> constants,
-                                    SpirvIntrinsicType *elementTy) {
+const SpirvIntrinsicType *SpirvContext::getSpirvIntrinsicType(
+    unsigned typeId, unsigned typeOpCode,
+    llvm::ArrayRef<SpvIntrinsicTypeOperand> operands) {
   if (spirvIntrinsicTypes[typeId] == nullptr) {
     spirvIntrinsicTypes[typeId] =
-        new (this) SpirvIntrinsicType(typeOpCode, constants, elementTy);
+        new (this) SpirvIntrinsicType(typeOpCode, operands);
   }
   return spirvIntrinsicTypes[typeId];
 }

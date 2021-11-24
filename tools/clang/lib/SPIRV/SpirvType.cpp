@@ -168,11 +168,9 @@ bool RuntimeArrayType::operator==(const RuntimeArrayType &that) const {
 }
 
 SpirvIntrinsicType::SpirvIntrinsicType(
-    unsigned typeOp, llvm::ArrayRef<SpirvConstant *> constants,
-    SpirvIntrinsicType *eleTy)
+    unsigned typeOp, llvm::ArrayRef<SpvIntrinsicTypeOperand> inOps)
     : SpirvType(TK_SpirvIntrinsicType, "spirvIntrinsicType"),
-      typeOpCode(typeOp), literals(constants.begin(), constants.end()),
-      elementType(eleTy) {}
+      typeOpCode(typeOp), operands(inOps.begin(), inOps.end()) {}
 
 StructType::StructType(llvm::ArrayRef<StructType::FieldInfo> fieldsVec,
                        llvm::StringRef name, bool isReadOnly,

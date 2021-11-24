@@ -413,22 +413,35 @@ public:
   }
 };
 
-class SpirvConstant;
+class SpirvInstruction;
+struct SpvIntrinsicTypeOperand {
+  SpvIntrinsicTypeOperand(SpirvType *type_operand)
+      : operand_as_type(type_operand), isTypeOperand(true) {}
+  SpvIntrinsicTypeOperand(SpirvInstruction *inst_operand)
+      : operand_as_inst(inst_operand), isTypeOperand(false) {}
+  union {
+    SpirvType *operand_as_type;
+    SpirvInstruction *operand_as_inst;
+  };
+  bool isTypeOperand;
+};
+
 class SpirvIntrinsicType : public SpirvType {
 public:
-  SpirvIntrinsicType(unsigned typeOp, llvm::ArrayRef<SpirvConstant *> constants,
-                     SpirvIntrinsicType *elementTy);
+  SpirvIntrinsicType(unsigned typeOp,
+                     llvm::ArrayRef<SpvIntrinsicTypeOperand> inOps);
+
   static bool classof(const SpirvType *t) {
     return t->getKind() == TK_SpirvIntrinsicType;
   }
   unsigned getOpCode() const { return typeOpCode; }
-  llvm::ArrayRef<SpirvConstant *> getLiterals() const { return literals; }
-  SpirvIntrinsicType *getElemType() const { return elementType; }
+  llvm::ArrayRef<SpvIntrinsicTypeOperand> getOperands() const {
+    return operands;
+  }
 
 private:
   unsigned typeOpCode;
-  llvm::SmallVector<SpirvConstant *, 3> literals;
-  SpirvIntrinsicType *elementType;
+  llvm::SmallVector<SpvIntrinsicTypeOperand, 3> operands;
 };
 
 class HybridType : public SpirvType {

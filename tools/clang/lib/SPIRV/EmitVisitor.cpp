@@ -2450,15 +2450,22 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
     initTypeInstruction(spv::Op::OpTypeRayQueryKHR);
     curTypeInst.push_back(id);
     finalizeTypeInstruction();
-  }
-  else if (const auto *spvIntrinsicType = dyn_cast<SpirvIntrinsicType>(type)) {
+  } else if (const auto *spvIntrinsicType =
+                 dyn_cast<SpirvIntrinsicType>(type)) {
     initTypeInstruction(static_cast<spv::Op>(spvIntrinsicType->getOpCode()));
     curTypeInst.push_back(id);
-    if (spvIntrinsicType->getElemType()) {
-      curTypeInst.push_back(emitType(spvIntrinsicType->getElemType()));
-    }
-    for (auto& literal : spvIntrinsicType->getLiterals()) {
-      emitLiteral(literal, curTypeInst);
+    for (const SpvIntrinsicTypeOperand &operand :
+         spvIntrinsicType->getOperands()) {
+      if (operand.isTypeOperand) {
+        curTypeInst.push_back(emitType(operand.operand_as_type));
+      } else {
+        auto *literal = dyn_cast<SpirvConstant>(operand.operand_as_inst);
+        if (literal && literal->isLiteral()) {
+          emitLiteral(literal, curTypeInst);
+        } else {
+          curTypeInst.push_back(getOrAssignResultId(operand.operand_as_inst));
+        }
+      }
     }
     finalizeTypeInstruction();
   }
@@ -2477,36 +2484,47 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
   return id;
 }
 
+template <typename vecType>
+void EmitTypeHandler::emitIntLiteral(const SpirvConstantInteger *intLiteral,
+                                     vecType &outInst) {
+  const auto &literalVal = intLiteral->getValue();
+  bool positive = !literalVal.isNegative();
+  if (literalVal.getBitWidth() <= 32) {
+    outInst.push_back(positive ? literalVal.getZExtValue()
+                               : literalVal.getSExtValue());
+  } else {
+    assert(literalVal.getBitWidth() == 64);
+    uint64_t val =
+        positive ? literalVal.getZExtValue() : literalVal.getSExtValue();
+    outInst.push_back(static_cast<unsigned>(val));
+    outInst.push_back(static_cast<unsigned>(val >> 32));
+  }
+}
+
+template <typename vecType>
+void EmitTypeHandler::emitFloatLiteral(const SpirvConstantFloat *fLiteral,
+                                       vecType &outInst) {
+  const auto &literalVal = fLiteral->getValue();
+  const auto bitwidth = llvm::APFloat::getSizeInBits(literalVal.getSemantics());
+  if (bitwidth <= 32) {
+    outInst.push_back(literalVal.bitcastToAPInt().getZExtValue());
+  } else {
+    assert(bitwidth == 64);
+    uint64_t val = literalVal.bitcastToAPInt().getZExtValue();
+    outInst.push_back(static_cast<unsigned>(val));
+    outInst.push_back(static_cast<unsigned>(val >> 32));
+  }
+}
+
 template <typename VecType>
 void EmitTypeHandler::emitLiteral(const SpirvConstant *literal,
                                   VecType &outInst) {
   if (auto boolLiteral = dyn_cast<SpirvConstantBoolean>(literal)) {
     outInst.push_back(static_cast<unsigned>(boolLiteral->getValue()));
   } else if (auto intLiteral = dyn_cast<SpirvConstantInteger>(literal)) {
-    const auto &literalVal = intLiteral->getValue();
-    bool positive = !literalVal.isNegative();
-    if (literalVal.getBitWidth() <= 32) {
-      outInst.push_back(positive ? literalVal.getZExtValue()
-                                 : literalVal.getSExtValue());
-    } else {
-      assert(literalVal.getBitWidth() == 64);
-      uint64_t val =
-          positive ? literalVal.getZExtValue() : literalVal.getSExtValue();
-      outInst.push_back(static_cast<unsigned>(val));
-      outInst.push_back(static_cast<unsigned>(val >> 32));
-    }
+    emitIntLiteral(intLiteral, outInst);
   } else if (auto fLiteral = dyn_cast<SpirvConstantFloat>(literal)) {
-    const auto &literalVal = fLiteral->getValue();
-    const auto bitwidth =
-        llvm::APFloat::getSizeInBits(literalVal.getSemantics());
-    if (bitwidth <= 32) {
-      outInst.push_back(literalVal.bitcastToAPInt().getZExtValue());
-    } else {
-      assert(bitwidth == 64);
-      uint64_t val = literalVal.bitcastToAPInt().getZExtValue();
-      outInst.push_back(static_cast<unsigned>(val));
-      outInst.push_back(static_cast<unsigned>(val >> 32));
-    }
+    emitFloatLiteral(fLiteral, outInst);
   }
 }
 

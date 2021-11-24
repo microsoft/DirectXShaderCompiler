@@ -12609,7 +12609,6 @@ SpirvEmitter::processSpvIntrinsicTypeDef(const CallExpr *expr) {
   auto funcDecl = expr->getDirectCallee();
   auto typeDefAttr = funcDecl->getAttr<VKTypeDefExtAttr>();
   SpirvIntrinsicType *elementType = nullptr;
-  SmallVector<SpirvConstant *, 3> constants;
   llvm::SmallVector<uint32_t, 2> capbilities;
   llvm::SmallVector<llvm::StringRef, 2> extensions;
 
@@ -12621,23 +12620,32 @@ SpirvEmitter::processSpvIntrinsicTypeDef(const CallExpr *expr) {
     }
   }
 
+  SmallVector<SpvIntrinsicTypeOperand, 3> operands;
   const auto args = expr->getArgs();
   for (uint32_t i = 0; i < expr->getNumArgs(); ++i) {
     auto param = funcDecl->getParamDecl(i);
     const Expr *arg = args[i]->IgnoreParenLValueCasts();
     if (param->hasAttr<VKReferenceExtAttr>()) {
-      auto typeId = hlsl::GetHLSLResourceTemplateUInt(arg->getType());
-      elementType = spvContext.getCreatedSpirvIntrinsicType(typeId);
+      auto *recType = param->getType()->getAs<RecordType>();
+      if (recType && recType->getDecl()->getName() == "ext_type") {
+        auto typeId = hlsl::GetHLSLResourceTemplateUInt(arg->getType());
+        auto *typeArg = spvContext.getCreatedSpirvIntrinsicType(typeId);
+        operands.emplace_back(typeArg);
+      } else {
+        operands.emplace_back(doExpr(arg));
+      }
     } else if (param->hasAttr<VKLiteralExtAttr>()) {
       SpirvInstruction *argInst = doExpr(arg);
       auto constArg = dyn_cast<SpirvConstant>(argInst);
       assert(constArg != nullptr);
       constArg->setLiteral();
-      constants.push_back(constArg);
+      operands.emplace_back(constArg);
+    } else {
+      operands.emplace_back(loadIfGLValue(arg));
     }
   }
-  spvContext.getSpirvIntrinsicType(
-      typeDefAttr->getId(), typeDefAttr->getOpcode(), constants, elementType);
+  spvContext.getSpirvIntrinsicType(typeDefAttr->getId(),
+                                   typeDefAttr->getOpcode(), operands);
 
   // Emit dummy OpNop with no semantic meaning, with possible extension and
   // capabilities
