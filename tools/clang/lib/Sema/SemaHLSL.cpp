@@ -4832,6 +4832,17 @@ public:
               << argType;
           return true;
         }
+        if (auto *TST = dyn_cast<TemplateSpecializationType>(argType)) {
+          // This is a bit of a special case we need to handle. Because the
+          // buffer types don't use their template parameter in a way that would
+          // force instantiation, we need to force specialization here.
+          GetOrCreateTemplateSpecialization(
+              *m_context, *m_sema,
+              cast<ClassTemplateDecl>(
+                  TST->getTemplateName().getAsTemplateDecl()),
+              llvm::ArrayRef<TemplateArgument>(TST->getArgs(),
+                                               TST->getNumArgs()));
+        }
         if (const RecordType* recordType = argType->getAsStructureType()) {
           if (!recordType->getDecl()->isCompleteDefinition()) {
             m_sema->Diag(argSrcLoc, diag::err_typecheck_decl_incomplete_type)

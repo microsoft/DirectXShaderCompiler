@@ -9393,7 +9393,8 @@ static bool EvaluateCPlusPlus11IntegralConstantExpr(const ASTContext &Ctx,
 
 bool Expr::isIntegerConstantExpr(const ASTContext &Ctx,
                                  SourceLocation *Loc) const {
-  if (Ctx.getLangOpts().CPlusPlus11)
+  // HLSL Change - if templates are enabled we need to act like C++11 here
+  if (Ctx.getLangOpts().CPlusPlus11 || Ctx.getLangOpts().EnableTemplates)
     return EvaluateCPlusPlus11IntegralConstantExpr(Ctx, this, nullptr, Loc);
 
   ICEDiag D = CheckICE(this, Ctx);
@@ -9406,7 +9407,8 @@ bool Expr::isIntegerConstantExpr(const ASTContext &Ctx,
 
 bool Expr::isIntegerConstantExpr(llvm::APSInt &Value, const ASTContext &Ctx,
                                  SourceLocation *Loc, bool isEvaluated) const {
-  if (Ctx.getLangOpts().CPlusPlus11)
+  // HLSL Change - if templates are enabled we need to act like C++11 here
+  if (Ctx.getLangOpts().CPlusPlus11 || Ctx.getLangOpts().EnableTemplates)
     return EvaluateCPlusPlus11IntegralConstantExpr(Ctx, this, &Value, Loc);
 
   if (!isIntegerConstantExpr(Ctx, Loc))
