@@ -1536,7 +1536,7 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
               loc);
   }
 
-  // Reject arrays of RW/append/consume structured buffers. They have assoicated
+  // Reject arrays of append/consume structured buffers. They have assoicated
   // counters, which are quite nasty to handle.
   if (decl->getType()->isArrayType()) {
     auto type = decl->getType();
@@ -1544,8 +1544,8 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
       type = type->getAsArrayTypeUnsafe()->getElementType();
     } while (type->isArrayType());
 
-    if (isRWAppendConsumeSBuffer(type)) {
-      emitError("arrays of RW/append/consume structured buffers unsupported",
+    if (isAppendStructuredBuffer(type) || isConsumeStructuredBuffer(type)) {
+      emitError("arrays of append/consume structured buffers unsupported",
                 loc);
       return;
     }
