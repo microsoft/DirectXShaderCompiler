@@ -16,6 +16,9 @@
 // CHECK: OpDecorate %out_var_D Location 7
 // CHECK: OpDecorate %out_var_E Location 8
 
+// CHECK: %half = OpTypeFloat 16
+// CHECK-NOT: %float = OpTypeFloat 32
+
 // CHECK:  %in_var_A = OpVariable %_ptr_Input__arr_v2half_uint_4 Input
 // CHECK:  %in_var_B = OpVariable %_ptr_Input__arr_v3ushort_uint_2 Input
 // CHECK:  %in_var_C = OpVariable %_ptr_Input_short Input
