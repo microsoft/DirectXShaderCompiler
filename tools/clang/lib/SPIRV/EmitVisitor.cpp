@@ -703,17 +703,27 @@ bool EmitVisitor::visit(SpirvModuleProcessed *inst) {
 }
 
 bool EmitVisitor::visit(SpirvDecoration *inst) {
+  SpirvInstruction *target = inst->getTarget();
   initInstruction(inst);
-  if (inst->getTarget()) {
-    curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getTarget()));
+  if (inst->isMemberDecoration()) {
+    // OpMemberDecorate must have a 'Struct Type' operand instead of an
+    // instruction operand. We have to use the result type of the target.
+    if (target == nullptr)
+      return false;
+    const SpirvPointerType *ptrTy =
+        dyn_cast<SpirvPointerType>(target->getResultType());
+    if (ptrTy == nullptr)
+      return false;
+    curInst.push_back(typeHandler.emitType(ptrTy->getPointeeType()));
+    curInst.push_back(inst->getMemberIndex());
+  } else if (target) {
+    curInst.push_back(getOrAssignResultId<SpirvInstruction>(target));
   } else {
     assert(inst->getTargetFunc() != nullptr);
     curInst.push_back(
         getOrAssignResultId<SpirvFunction>(inst->getTargetFunc()));
   }
 
-  if (inst->isMemberDecoration())
-    curInst.push_back(inst->getMemberIndex());
   curInst.push_back(static_cast<uint32_t>(inst->getDecoration()));
   if (!inst->getParams().empty()) {
     curInst.insert(curInst.end(), inst->getParams().begin(),

@@ -106,12 +106,13 @@ QualType getUintTypeWithSourceComponents(const ASTContext &astContext,
                    "getUintTypeWithSourceComponents");
 }
 
-uint32_t getLocationCount(const ASTContext &astContext, QualType type) {
+LocationAndComponent getLocationAndComponentCount(const ASTContext &astContext,
+                                                  QualType type) {
   // See Vulkan spec 14.1.4. Location Assignment for the complete set of rules.
 
   const auto canonicalType = type.getCanonicalType();
   if (canonicalType != type)
-    return getLocationCount(astContext, canonicalType);
+    return getLocationAndComponentCount(astContext, canonicalType);
 
   // Inputs and outputs of the following types consume a single interface
   // location:
@@ -123,8 +124,20 @@ uint32_t getLocationCount(const ASTContext &astContext, QualType type) {
   // locations.
 
   // Primitive types
-  if (isScalarType(type))
-    return 1;
+  if (isScalarType(type)) {
+    const auto *builtinType = type->getAs<BuiltinType>();
+    if (builtinType != nullptr) {
+      switch (builtinType->getKind()) {
+      case BuiltinType::Double:
+      case BuiltinType::LongLong:
+      case BuiltinType::ULongLong:
+        return {1, 2};
+      default:
+        return {1, 1};
+      }
+    }
+    return {1, 1};
+  }
 
   // Vector types
   {
@@ -135,14 +148,16 @@ uint32_t getLocationCount(const ASTContext &astContext, QualType type) {
       switch (builtinType->getKind()) {
       case BuiltinType::Double:
       case BuiltinType::LongLong:
-      case BuiltinType::ULongLong:
+      case BuiltinType::ULongLong: {
         if (elemCount >= 3)
-          return 2;
+          return {2, 4};
+        return {1, 2 * elemCount};
+      }
       default:
         // Filter switch only interested in types occupying 2 locations.
         break;
       }
-      return 1;
+      return {1, elemCount};
     }
   }
 
@@ -155,42 +170,49 @@ uint32_t getLocationCount(const ASTContext &astContext, QualType type) {
   {
     QualType elemType = {};
     uint32_t rowCount = 0, colCount = 0;
-    if (isMxNMatrix(type, &elemType, &rowCount, &colCount))
-      return getLocationCount(astContext,
-                              astContext.getExtVectorType(elemType, colCount)) *
-             rowCount;
+    if (isMxNMatrix(type, &elemType, &rowCount, &colCount)) {
+      auto locComponentCount = getLocationAndComponentCount(
+          astContext, astContext.getExtVectorType(elemType, colCount));
+      return {locComponentCount.location * rowCount,
+              locComponentCount.component};
+    }
   }
 
   // Typedefs
   if (const auto *typedefType = type->getAs<TypedefType>())
-    return getLocationCount(astContext, typedefType->desugar());
+    return getLocationAndComponentCount(astContext, typedefType->desugar());
 
   // Reference types
   if (const auto *refType = type->getAs<ReferenceType>())
-    return getLocationCount(astContext, refType->getPointeeType());
+    return getLocationAndComponentCount(astContext, refType->getPointeeType());
 
   // Pointer types
   if (const auto *ptrType = type->getAs<PointerType>())
-    return getLocationCount(astContext, ptrType->getPointeeType());
+    return getLocationAndComponentCount(astContext, ptrType->getPointeeType());
 
   // If a declared input or output is an array of size n and each element takes
   // m locations, it will be assigned m * n consecutive locations starting with
   // the location specified.
 
   // Array types
-  if (const auto *arrayType = astContext.getAsConstantArrayType(type))
-    return getLocationCount(astContext, arrayType->getElementType()) *
-           static_cast<uint32_t>(arrayType->getSize().getZExtValue());
+  if (const auto *arrayType = astContext.getAsConstantArrayType(type)) {
+    auto locComponentCount =
+        getLocationAndComponentCount(astContext, arrayType->getElementType());
+    uint32_t arrayLength =
+        static_cast<uint32_t>(arrayType->getSize().getZExtValue());
+    return {locComponentCount.location * arrayLength,
+            locComponentCount.component};
+  }
 
   // Struct type
   if (type->getAs<RecordType>()) {
     assert(false && "all structs should already be flattened");
-    return 0;
+    return {0, 0};
   }
 
   llvm_unreachable(
       "calculating number of occupied locations for type unimplemented");
-  return 0;
+  return {0, 0};
 }
 
 bool shouldSkipInStructLayout(const Decl *decl) {
@@ -1691,6 +1713,92 @@ private:
   uint32_t nextLoc[kMaxIndex];              ///< Next available location
 };
 
+/// A class for managing stage input/output packed locations to avoid duplicate
+/// uses of the same location and component.
+class PackedLocationAndComponentSet {
+public:
+  PackedLocationAndComponentSet(
+      SpirvBuilder &spirvBuilder,
+      llvm::function_ref<uint32_t(uint32_t)> nextLocs,
+      llvm::function_ref<bool(const StageVar &, uint32_t)>
+          checkDuplicatedStageVarLocation_)
+      : spvBuilder(spirvBuilder), assignLocs(nextLocs),
+        checkDuplicatedStageVarLocation(checkDuplicatedStageVarLocation_) {}
+
+  bool assignLocAndComponent(const StageVar *var) {
+    // If we reuse already assigned locations for matrix, spirv-val reports an
+    // error. We want to assign new locations for matrix.
+    if (!isMxNMatrix(var->getAstType()) && tryReuseLocations(var)) {
+      return true;
+    }
+    return assignNewLocations(var);
+  }
+
+private:
+  // Try to pack signature of |var| into unused component slots of already
+  // assigned locations. Returns whether it succeeds or not.
+  bool tryReuseLocations(const StageVar *var) {
+    auto requiredLocsAndComponents = var->getLocationAndComponentCount();
+    for (size_t startLoc = 0; startLoc < nextUnusedComponent.size();
+         startLoc++) {
+      bool canAssign = true;
+      for (uint32_t i = 0; i < requiredLocsAndComponents.location; ++i) {
+        if (nextUnusedComponent[startLoc + i] +
+                requiredLocsAndComponents.component >
+            4) {
+          canAssign = false;
+          break;
+        }
+      }
+      if (canAssign) {
+        // Based on Vulkan spec "15.1.5. Component Assignment", a scalar or
+        // two-component 64-bit data type must not specify a Component
+        // decoration of 1 or 3.
+        if (requiredLocsAndComponents.component == 2) {
+          reuseLocations(var, startLoc, 2);
+        } else {
+          reuseLocations(var, startLoc, nextUnusedComponent[startLoc]);
+        }
+        return true;
+      }
+    }
+    return false;
+  }
+
+  void reuseLocations(const StageVar *var, uint32_t startLoc,
+                      uint32_t componentStart) {
+    auto requiredLocsAndComponents = var->getLocationAndComponentCount();
+    spvBuilder.decorateLocation(var->getSpirvInstr(), assignedLocs[startLoc]);
+    spvBuilder.decorateComponent(var->getSpirvInstr(), componentStart);
+    for (uint32_t i = 0; i < requiredLocsAndComponents.location; ++i) {
+      nextUnusedComponent[startLoc + i] += requiredLocsAndComponents.component;
+    }
+  }
+
+  // Pack signature of |var| into new unified stage variables.
+  bool assignNewLocations(const StageVar *var) {
+    auto requiredLocsAndComponents = var->getLocationAndComponentCount();
+    uint32_t loc = assignLocs(requiredLocsAndComponents.location);
+    if (!checkDuplicatedStageVarLocation(*var, loc))
+      return false;
+    spvBuilder.decorateLocation(var->getSpirvInstr(), loc);
+    spvBuilder.decorateComponent(var->getSpirvInstr(), 0);
+    for (uint32_t i = 0; i < requiredLocsAndComponents.location; ++i) {
+      assignedLocs.push_back(loc + i);
+      nextUnusedComponent.push_back(requiredLocsAndComponents.component);
+    }
+    return true;
+  }
+
+private:
+  SpirvBuilder &spvBuilder; ///< SPIR-V builder
+  llvm::function_ref<uint32_t(uint32_t)> assignLocs;
+  llvm::function_ref<bool(const StageVar &, uint32_t)>
+      checkDuplicatedStageVarLocation;
+  llvm::SmallVector<uint32_t, 8> assignedLocs;
+  llvm::SmallVector<uint32_t, 8> nextUnusedComponent;
+};
+
 /// A class for managing resource bindings to avoid duplicate uses of the same
 /// set and binding number.
 class BindingSet {
@@ -1820,6 +1928,84 @@ bool DeclResultIdMapper::isDuplicatedStageVarLocation(
   return true;
 }
 
+bool DeclResultIdMapper::packSignature(
+    const std::vector<const StageVar *> &vars,
+    llvm::function_ref<uint32_t(uint32_t)> nextLocs,
+    llvm::DenseSet<StageVariableLocationInfo, StageVariableLocationInfo>
+        *stageVariableLocationInfo,
+    bool forInput) {
+  auto checkDuplicatedStageVarLocation =
+      [this, stageVariableLocationInfo](const StageVar &var,
+                                        uint32_t location) {
+        return this->isDuplicatedStageVarLocation(stageVariableLocationInfo,
+                                                  var, location, 0);
+      };
+  PackedLocationAndComponentSet packedLocSet(spvBuilder, nextLocs,
+                                             checkDuplicatedStageVarLocation);
+  for (const auto *var : vars) {
+    auto sigPointKind = var->getSigPoint()->GetKind();
+    // HS has two types of outputs, one from the shader itself and another from
+    // patch control function. They have HSCPOut and PCOut SigPointKind,
+    // respectively. Since we do not know which one comes first at this moment,
+    // we handle PCOut first. Likewise, DS has DSIn and DSCPIn as its inputs. We
+    // handle DSIn first.
+    if (sigPointKind != hlsl::SigPoint::Kind::PCOut &&
+        sigPointKind != hlsl::SigPoint::Kind::DSIn) {
+      continue;
+    }
+    if (!packedLocSet.assignLocAndComponent(var))
+      return false;
+  }
+
+  for (const auto *var : vars) {
+    auto sigPointKind = var->getSigPoint()->GetKind();
+    if (sigPointKind == hlsl::SigPoint::Kind::PCOut ||
+        sigPointKind == hlsl::SigPoint::Kind::DSIn) {
+      continue;
+    }
+    if (!packedLocSet.assignLocAndComponent(var))
+      return false;
+  }
+  return true;
+}
+
+bool DeclResultIdMapper::assignLocations(
+    const std::vector<const StageVar *> &vars,
+    llvm::function_ref<uint32_t(uint32_t)> nextLocs,
+    llvm::DenseSet<StageVariableLocationInfo, StageVariableLocationInfo>
+        *stageVariableLocationInfo,
+    bool forPC) {
+  for (const auto *var : vars) {
+    auto sigPointKind = var->getSigPoint()->GetKind();
+    // HS has two types of outputs, one from the shader itself and another from
+    // patch control function. They have HSCPOut and PCOut SigPointKind,
+    // respectively. Since we do not know which one comes first at this moment,
+    // we handle PCOut first. Likewise, DS has DSIn and DSCPIn as its inputs. We
+    // handle DSIn first.
+    if (forPC) {
+      if (sigPointKind != hlsl::SigPoint::Kind::PCOut &&
+          sigPointKind != hlsl::SigPoint::Kind::DSIn) {
+        continue;
+      }
+    } else {
+      if (sigPointKind == hlsl::SigPoint::Kind::PCOut ||
+          sigPointKind == hlsl::SigPoint::Kind::DSIn) {
+        continue;
+      }
+    }
+
+    auto locCount = var->getLocationCount();
+    uint32_t location = nextLocs(locCount);
+    spvBuilder.decorateLocation(var->getSpirvInstr(), location);
+
+    if (!isDuplicatedStageVarLocation(stageVariableLocationInfo, *var, location,
+                                      0)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
   if (!checkSemanticDuplication(forInput))
     return false;
@@ -1925,31 +2111,34 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
     }
   }
 
+  if (vars.empty())
+    return true;
+
+  auto nextLocs = [&locSet](uint32_t locCount) {
+    return locSet.useNextLocs(locCount);
+  };
+
   // If alphabetical ordering was requested, sort by semantic string.
-  // Since HS includes 2 sets of outputs (patch-constant output and
-  // OutputPatch), running into location mismatches between HS and DS is very
-  // likely. In order to avoid location mismatches between HS and DS, use
-  // alphabetical ordering.
-  if (spirvOptions.stageIoOrder == "alpha" ||
-      (!forInput && spvContext.isHS()) || (forInput && spvContext.isDS())) {
+  if (spirvOptions.stageIoOrder == "alpha") {
     // Sort stage input/output variables alphabetically
     std::sort(vars.begin(), vars.end(),
               [](const StageVar *a, const StageVar *b) {
                 return a->getSemanticStr() < b->getSemanticStr();
               });
+    return assignLocations(vars, nextLocs, &stageVariableLocationInfo, true) &&
+           assignLocations(vars, nextLocs, &stageVariableLocationInfo, false);
   }
 
-  for (const auto *var : vars) {
-    uint32_t location = locSet.useNextLocs(var->getLocationCount());
-    spvBuilder.decorateLocation(var->getSpirvInstr(), location);
-
-    if (!isDuplicatedStageVarLocation(&stageVariableLocationInfo, *var,
-                                      location, 0)) {
-      return false;
-    }
+  // Vertext shader input and pixel shader output are special. We have to
+  // preserve the given signature. Otherwise, they will mismatch the signature
+  // specified by API.
+  auto sigPointKind = vars[0]->getSigPoint()->GetKind();
+  if (signaturePacking && sigPointKind != hlsl::SigPoint::Kind::VSIn &&
+      sigPointKind != hlsl::SigPoint::Kind::PSOut) {
+    return packSignature(vars, nextLocs, &stageVariableLocationInfo, forInput);
   }
-
-  return true;
+  return assignLocations(vars, nextLocs, &stageVariableLocationInfo, true) &&
+         assignLocations(vars, nextLocs, &stageVariableLocationInfo, false);
 }
 
 namespace {
@@ -2493,7 +2682,7 @@ bool DeclResultIdMapper::createStageVars(
     StageVar stageVar(
         sigPoint, *semanticToUse, builtinAttr, evalType,
         // For HS/DS/GS, we have already stripped the outmost arrayness on type.
-        getLocationCount(astContext, type));
+        getLocationAndComponentCount(astContext, type));
     const auto name = namePrefix.str() + "." + stageVar.getSemanticStr();
     SpirvVariable *varInstr =
         createSpirvStageVar(&stageVar, decl, name, semanticToUse->loc);
@@ -2554,7 +2743,7 @@ bool DeclResultIdMapper::createStageVars(
           type, spv::StorageClass::Input, spv::BuiltIn::BaseInstance,
           decl->hasAttr<HLSLPreciseAttr>(), semanticToUse->loc);
       StageVar stageVar2(sigPoint, *semanticToUse, builtinAttr, evalType,
-                         getLocationCount(astContext, type));
+                         getLocationAndComponentCount(astContext, type));
       stageVar2.setSpirvInstr(baseInstanceVar);
       stageVar2.setLocationAttr(decl->getAttr<VKLocationAttr>());
       stageVar2.setIndexAttr(decl->getAttr<VKIndexAttr>());
@@ -2965,7 +3154,7 @@ bool DeclResultIdMapper::createPayloadStageVars(
   const auto loc = decl->getLocation();
   if (!type->isStructureType()) {
     StageVar stageVar(sigPoint, /*semaInfo=*/{}, /*builtinAttr=*/nullptr, type,
-                      getLocationCount(astContext, type));
+                      getLocationAndComponentCount(astContext, type));
     const auto name = namePrefix.str() + "." + decl->getNameAsString();
     SpirvVariable *varInstr =
         spvBuilder.addStageIOVar(type, sc, name, /*isPrecise=*/false, loc);
@@ -3256,7 +3445,7 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
           /*isPatchConstant=*/false));
 
   StageVar stageVar(sigPoint, /*semaInfo=*/{}, /*builtinAttr=*/nullptr, type,
-                    /*locCount=*/0);
+                    /*locAndComponentCount=*/{0, 0});
 
   stageVar.setIsSpirvBuiltin();
   stageVar.setSpirvInstr(var);
@@ -3265,6 +3454,43 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
   // Store in map for re-use
   builtinToVarMap[spvBuiltinId] = var;
   return var;
+}
+
+SpirvVariable *DeclResultIdMapper::createSpirvIntermediateOutputStageVar(
+    const NamedDecl *decl, const llvm::StringRef name, QualType type) {
+  const auto *semantic = hlsl::Semantic::GetByName(name);
+  SemanticInfo thisSemantic{name, semantic, name, 0, decl->getLocation()};
+
+  const auto *sigPoint =
+      deduceSigPoint(cast<DeclaratorDecl>(decl), /*asInput=*/false,
+                     spvContext.getCurrentShaderModelKind(), /*forPCF=*/false);
+
+  StageVar stageVar(sigPoint, thisSemantic, decl->getAttr<VKBuiltInAttr>(),
+                    type, /*locAndComponentCount=*/{0, 0});
+  SpirvVariable *varInstr =
+      createSpirvStageVar(&stageVar, decl, name, thisSemantic.loc);
+
+  if (!varInstr)
+    return nullptr;
+
+  stageVar.setSpirvInstr(varInstr);
+  stageVar.setLocationAttr(decl->getAttr<VKLocationAttr>());
+  stageVar.setIndexAttr(decl->getAttr<VKIndexAttr>());
+  if (stageVar.getStorageClass() == spv::StorageClass::Input ||
+      stageVar.getStorageClass() == spv::StorageClass::Output) {
+    stageVar.setEntryPoint(entryFunction);
+  }
+  stageVars.push_back(stageVar);
+
+  // Emit OpDecorate* instructions to link this stage variable with the HLSL
+  // semantic it is created for.
+  spvBuilder.decorateHlslSemantic(varInstr, stageVar.getSemanticStr());
+
+  // We have semantics attached to this decl, which means it must be a
+  // function/parameter/variable. All are DeclaratorDecls.
+  stageVarInstructions[cast<DeclaratorDecl>(decl)] = varInstr;
+
+  return varInstr;
 }
 
 SpirvVariable *DeclResultIdMapper::createSpirvStageVar(

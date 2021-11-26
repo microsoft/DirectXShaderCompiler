@@ -510,7 +510,8 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
       featureManager(diags, spirvOptions),
       spvBuilder(astContext, spvContext, spirvOptions, featureManager),
       declIdMapper(astContext, spvContext, spvBuilder, *this, featureManager,
-                   spirvOptions),
+                   spirvOptions,
+                   ci.getCodeGenOpts().HLSLSignaturePackingStrategy),
       entryFunction(nullptr), curFunction(nullptr), curThis(nullptr),
       seenPushConstantAt(), isSpecConstantMode(false), needsLegalization(false),
       beforeHlslLegalization(false), mainSourceFile(nullptr) {

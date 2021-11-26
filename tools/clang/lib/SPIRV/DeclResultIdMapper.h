@@ -46,17 +46,23 @@ struct SemanticInfo {
   inline bool isTarget() const;
 };
 
+// A struct containing information about location and component decorations.
+struct LocationAndComponent {
+  uint32_t location;
+  uint32_t component;
+};
+
 /// \brief The class containing HLSL and SPIR-V information about a Vulkan stage
 /// (builtin/input/output) variable.
 class StageVar {
 public:
   inline StageVar(const hlsl::SigPoint *sig, SemanticInfo semaInfo,
                   const VKBuiltInAttr *builtin, QualType astType,
-                  uint32_t locCount)
+                  LocationAndComponent locAndComponentCount)
       : sigPoint(sig), semanticInfo(std::move(semaInfo)), builtinAttr(builtin),
         type(astType), value(nullptr), isBuiltin(false),
         storageClass(spv::StorageClass::Max), location(nullptr),
-        locationCount(locCount), entryPoint(nullptr),
+        locationAndComponentCount(locAndComponentCount), entryPoint(nullptr),
         locOrBuiltinDecorateAttr(false) {
     isBuiltin = builtinAttr != nullptr;
   }
@@ -84,7 +90,12 @@ public:
   const VKIndexAttr *getIndexAttr() const { return indexAttr; }
   void setIndexAttr(const VKIndexAttr *idx) { indexAttr = idx; }
 
-  uint32_t getLocationCount() const { return locationCount; }
+  uint32_t getLocationCount() const {
+    return locationAndComponentCount.location;
+  }
+  LocationAndComponent getLocationAndComponentCount() const {
+    return locationAndComponentCount;
+  }
 
   SpirvFunction *getEntryPoint() const { return entryPoint; }
   void setEntryPoint(SpirvFunction *entry) { entryPoint = entry; }
@@ -111,8 +122,8 @@ private:
   const VKLocationAttr *location;
   /// Index assignment if PS output variable
   const VKIndexAttr *indexAttr;
-  /// How many locations this stage variable takes.
-  uint32_t locationCount;
+  /// How many locations and components this stage variable takes.
+  LocationAndComponent locationAndComponentCount;
   /// Entry point for this stage variable. If this stage variable is not
   /// specific for an entry point e.g., built-in, it must be nullptr.
   SpirvFunction *entryPoint;
@@ -303,7 +314,8 @@ public:
   inline DeclResultIdMapper(ASTContext &context, SpirvContext &spirvContext,
                             SpirvBuilder &spirvBuilder, SpirvEmitter &emitter,
                             FeatureManager &features,
-                            const SpirvCodeGenOptions &spirvOptions);
+                            const SpirvCodeGenOptions &spirvOptions,
+                            uint32_t sigPackingStrategy);
 
   /// \brief Returns the SPIR-V builtin variable.
   SpirvVariable *getBuiltinVar(spv::BuiltIn builtIn, QualType type,
@@ -692,6 +704,32 @@ private:
           *stageVariableLocationInfo,
       const StageVar &var, uint32_t location, uint32_t index);
 
+  /// \brief Creates unified stage variables to pack the signature. The unified
+  /// stage variables will be clones of existing stage variables. Decorates
+  /// unified stage variables with locations using nextLocs. Copies the unified
+  /// stage variables to the existing input stage variables before calling the
+  /// entry function and copies the existing output stage variables to the
+  /// unified stage variables after calling the entry function.
+  /// stageVariableLocationInfo will be used to check the duplication of stage
+  /// variable locations.
+  bool packSignature(
+      const std::vector<const StageVar *> &vars,
+      llvm::function_ref<uint32_t(uint32_t)> nextLocs,
+      llvm::DenseSet<StageVariableLocationInfo, StageVariableLocationInfo>
+          *stageVariableLocationInfo,
+      bool forInput);
+
+  /// \brief Decorates vars with locations assigned by nextLocs.
+  /// stageVariableLocationInfo will be used to check the duplication of stage
+  /// variable locations. If forPC is true, handles stage vars with PCOut or
+  /// DSIn SigPointKind.
+  bool assignLocations(
+      const std::vector<const StageVar *> &vars,
+      llvm::function_ref<uint32_t(uint32_t)> nextLocs,
+      llvm::DenseSet<StageVariableLocationInfo, StageVariableLocationInfo>
+          *stageVariableLocationInfo,
+      bool forPC);
+
   /// \brief Decorates all stage input (if forInput is true) or output (if
   /// forInput is false) variables with proper location and returns true on
   /// success.
@@ -876,6 +914,8 @@ private:
   DiagnosticsEngine &diags;
   SpirvFunction *entryFunction;
 
+  bool signaturePacking; ///< Whether signature packing is enabled or not
+
   /// Mapping of all Clang AST decls to their instruction pointers.
   llvm::DenseMap<const ValueDecl *, DeclSpirvInfo> astDecls;
   llvm::DenseMap<const ValueDecl *, SpirvFunction *> astFunctionDecls;
@@ -995,11 +1035,13 @@ DeclResultIdMapper::DeclResultIdMapper(ASTContext &context,
                                        SpirvBuilder &spirvBuilder,
                                        SpirvEmitter &emitter,
                                        FeatureManager &features,
-                                       const SpirvCodeGenOptions &options)
+                                       const SpirvCodeGenOptions &options,
+                                       uint32_t sigPackingStrategy)
     : spvBuilder(spirvBuilder), theEmitter(emitter), featureManager(features),
       spirvOptions(options), astContext(context), spvContext(spirvContext),
       diags(context.getDiagnostics()), entryFunction(nullptr),
-      needsLegalization(false), needsFlatteningCompositeResources(false),
+      signaturePacking(sigPackingStrategy != 0), needsLegalization(false),
+      needsFlatteningCompositeResources(false),
       glPerVertex(context, spirvContext, spirvBuilder) {}
 
 bool DeclResultIdMapper::decorateStageIOLocations() {

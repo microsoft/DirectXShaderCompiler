@@ -252,8 +252,8 @@ SpirvDecoration::SpirvDecoration(SourceLocation loc,
                                  llvm::ArrayRef<SpirvInstruction *> ids)
     : SpirvInstruction(IK_Decoration, spv::Op::OpDecorateId,
                        /*type*/ {}, loc),
-      target(targetInst), targetFunction(nullptr), decoration(decor), index(llvm::None), params(),
-      idParams(ids.begin(), ids.end()) {}
+      target(targetInst), targetFunction(nullptr), decoration(decor),
+      index(llvm::None), params(), idParams(ids.begin(), ids.end()) {}
 
 SpirvDecoration::SpirvDecoration(SourceLocation loc, SpirvFunction *targetFunc,
                                  spv::Decoration decor,

@@ -1392,6 +1392,14 @@ void SpirvBuilder::decorateLocation(SpirvInstruction *target,
   mod->addDecoration(decor);
 }
 
+void SpirvBuilder::decorateComponent(SpirvInstruction *target,
+                                     uint32_t component) {
+  auto *decor =
+      new (context) SpirvDecoration(target->getSourceLocation(), target,
+                                    spv::Decoration::Component, {component});
+  mod->addDecoration(decor);
+}
+
 void SpirvBuilder::decorateIndex(SpirvInstruction *target, uint32_t index,
                                  SourceLocation srcLoc) {
   auto *decor = new (context)
