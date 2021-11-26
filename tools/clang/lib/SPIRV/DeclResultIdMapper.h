@@ -721,14 +721,12 @@ private:
 
   /// \brief Decorates vars with locations assigned by nextLocs.
   /// stageVariableLocationInfo will be used to check the duplication of stage
-  /// variable locations. If forPC is true, handles stage vars with PCOut or
-  /// DSIn SigPointKind.
+  /// variable locations.
   bool assignLocations(
       const std::vector<const StageVar *> &vars,
       llvm::function_ref<uint32_t(uint32_t)> nextLocs,
       llvm::DenseSet<StageVariableLocationInfo, StageVariableLocationInfo>
-          *stageVariableLocationInfo,
-      bool forPC);
+          *stageVariableLocationInfo);
 
   /// \brief Decorates all stage input (if forInput is true) or output (if
   /// forInput is false) variables with proper location and returns true on

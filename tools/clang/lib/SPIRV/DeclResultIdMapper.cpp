@@ -1973,27 +1973,8 @@ bool DeclResultIdMapper::assignLocations(
     const std::vector<const StageVar *> &vars,
     llvm::function_ref<uint32_t(uint32_t)> nextLocs,
     llvm::DenseSet<StageVariableLocationInfo, StageVariableLocationInfo>
-        *stageVariableLocationInfo,
-    bool forPC) {
+        *stageVariableLocationInfo) {
   for (const auto *var : vars) {
-    auto sigPointKind = var->getSigPoint()->GetKind();
-    // HS has two types of outputs, one from the shader itself and another from
-    // patch control function. They have HSCPOut and PCOut SigPointKind,
-    // respectively. Since we do not know which one comes first at this moment,
-    // we handle PCOut first. Likewise, DS has DSIn and DSCPIn as its inputs. We
-    // handle DSIn first.
-    if (forPC) {
-      if (sigPointKind != hlsl::SigPoint::Kind::PCOut &&
-          sigPointKind != hlsl::SigPoint::Kind::DSIn) {
-        continue;
-      }
-    } else {
-      if (sigPointKind == hlsl::SigPoint::Kind::PCOut ||
-          sigPointKind == hlsl::SigPoint::Kind::DSIn) {
-        continue;
-      }
-    }
-
     auto locCount = var->getLocationCount();
     uint32_t location = nextLocs(locCount);
     spvBuilder.decorateLocation(var->getSpirvInstr(), location);
@@ -2125,20 +2106,29 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
               [](const StageVar *a, const StageVar *b) {
                 return a->getSemanticStr() < b->getSemanticStr();
               });
-    return assignLocations(vars, nextLocs, &stageVariableLocationInfo, true) &&
-           assignLocations(vars, nextLocs, &stageVariableLocationInfo, false);
+    return assignLocations(vars, nextLocs, &stageVariableLocationInfo);
   }
 
-  // Vertext shader input and pixel shader output are special. We have to
-  // preserve the given signature. Otherwise, they will mismatch the signature
-  // specified by API.
+  // Pack signature if signaturePacking is enabled. Vertext shader input and
+  // pixel shader output are special. We have to preserve the given signature.
   auto sigPointKind = vars[0]->getSigPoint()->GetKind();
   if (signaturePacking && sigPointKind != hlsl::SigPoint::Kind::VSIn &&
       sigPointKind != hlsl::SigPoint::Kind::PSOut) {
     return packSignature(vars, nextLocs, &stageVariableLocationInfo, forInput);
   }
-  return assignLocations(vars, nextLocs, &stageVariableLocationInfo, true) &&
-         assignLocations(vars, nextLocs, &stageVariableLocationInfo, false);
+
+  // Since HS includes 2 sets of outputs (patch-constant output and
+  // OutputPatch), running into location mismatches between HS and DS is very
+  // likely. In order to avoid location mismatches between HS and DS, use
+  // alphabetical ordering.
+  if ((!forInput && spvContext.isHS()) || (forInput && spvContext.isDS())) {
+    // Sort stage input/output variables alphabetically
+    std::sort(vars.begin(), vars.end(),
+              [](const StageVar *a, const StageVar *b) {
+                return a->getSemanticStr() < b->getSemanticStr();
+              });
+  }
+  return assignLocations(vars, nextLocs, &stageVariableLocationInfo);
 }
 
 namespace {
