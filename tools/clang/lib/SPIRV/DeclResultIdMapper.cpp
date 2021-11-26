@@ -1728,7 +1728,8 @@ public:
   bool assignLocAndComponent(const StageVar *var) {
     // Only scalar or vector or array of them can be decorated with
     // Component.
-    if (isScalarOrVec(var->getAstType()) && tryReuseLocations(var)) {
+    if (isScalarOrVecOrArrayOfScalarOrVec(var->getAstType()) &&
+        tryReuseLocations(var)) {
       return true;
     }
     return assignNewLocations(var);
@@ -1792,7 +1793,10 @@ private:
     return true;
   }
 
-  bool isScalarOrVec(QualType type) {
+  bool isScalarOrVecOrArrayOfScalarOrVec(QualType type) {
+    QualType elemType;
+    if (isArrayType(type, &elemType))
+      return isScalarOrVecOrArrayOfScalarOrVec(elemType);
     return isScalarType(type) || isVectorType(type);
   }
 
