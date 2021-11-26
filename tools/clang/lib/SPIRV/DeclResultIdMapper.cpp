@@ -1726,9 +1726,9 @@ public:
         checkDuplicatedStageVarLocation(checkDuplicatedStageVarLocation_) {}
 
   bool assignLocAndComponent(const StageVar *var) {
-    // If we reuse already assigned locations for matrix, spirv-val reports an
-    // error. We want to assign new locations for matrix.
-    if (!isMxNMatrix(var->getAstType()) && tryReuseLocations(var)) {
+    // Only scalar or vector or array of them can be decorated with
+    // Component.
+    if (isScalarOrVec(var->getAstType()) && tryReuseLocations(var)) {
       return true;
     }
     return assignNewLocations(var);
@@ -1743,9 +1743,10 @@ private:
          startLoc++) {
       bool canAssign = true;
       for (uint32_t i = 0; i < requiredLocsAndComponents.location; ++i) {
-        if (nextUnusedComponent[startLoc + i] +
-                requiredLocsAndComponents.component >
-            4) {
+        if (startLoc + i >= nextUnusedComponent.size() ||
+            nextUnusedComponent[startLoc + i] +
+                    requiredLocsAndComponents.component >
+                4) {
           canAssign = false;
           break;
         }
@@ -1771,7 +1772,8 @@ private:
     spvBuilder.decorateLocation(var->getSpirvInstr(), assignedLocs[startLoc]);
     spvBuilder.decorateComponent(var->getSpirvInstr(), componentStart);
     for (uint32_t i = 0; i < requiredLocsAndComponents.location; ++i) {
-      nextUnusedComponent[startLoc + i] += requiredLocsAndComponents.component;
+      nextUnusedComponent[startLoc + i] =
+          componentStart + requiredLocsAndComponents.component;
     }
   }
 
@@ -1782,12 +1784,16 @@ private:
     if (!checkDuplicatedStageVarLocation(*var, loc))
       return false;
     spvBuilder.decorateLocation(var->getSpirvInstr(), loc);
-    spvBuilder.decorateComponent(var->getSpirvInstr(), 0);
+
     for (uint32_t i = 0; i < requiredLocsAndComponents.location; ++i) {
       assignedLocs.push_back(loc + i);
       nextUnusedComponent.push_back(requiredLocsAndComponents.component);
     }
     return true;
+  }
+
+  bool isScalarOrVec(QualType type) {
+    return isScalarType(type) || isVectorType(type);
   }
 
 private:
