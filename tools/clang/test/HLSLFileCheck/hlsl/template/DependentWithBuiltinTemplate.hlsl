@@ -12,6 +12,10 @@
 // BUFFER: %CB0 = type { %"struct.Wrapper<Foo>" }
 // BUFFER: %"struct.Wrapper<Foo>" = type { %struct.Foo }
 
+
+// TODO: It is a bug that this global is being generated. Since the WrappedCB 
+//       struct only contains a buffer object that is lifted out, the global
+//       here is just an empty struct. We should just not emit it.
 // WRAPPER: %"hostlayout.$Globals" = type { %"hostlayout.struct.WrappedCB<Foo>" }
 // WRAPPER: %"hostlayout.struct.WrappedCB<Foo>" = type {}
 
