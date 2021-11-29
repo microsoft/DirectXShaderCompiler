@@ -83,6 +83,9 @@ public:
     UINT32 codePage;
     LoadSourceCallResult() : hr(E_FAIL), codePage(0) { }
     LoadSourceCallResult(const char *pSource, UINT32 codePage = CP_UTF8) : hr(S_OK), source(pSource), codePage(codePage) { }
+    LoadSourceCallResult(const void *pSource, size_t size,
+                         UINT32 codePage = CP_ACP)
+        : hr(S_OK), source((const char *)pSource, size), codePage(codePage) {}
   };
   std::vector<LoadSourceCallResult> CallResults;
   size_t callIndex;
@@ -157,6 +160,16 @@ public:
   TEST_METHOD(CompileWhenODumpThenPassConfig)
   TEST_METHOD(CompileWhenODumpThenOptimizerMatch)
   TEST_METHOD(CompileWhenVdThenProducesDxilContainer)
+
+  void TestEncodingImpl(
+      const void *sourceData,
+      size_t sourceSize,
+      UINT32 codePage,
+      const void *includedData,
+      size_t includedSize,
+      const WCHAR *encoding = nullptr
+  );
+  TEST_METHOD(CompileWithEncodeFlagTestSource)
 
 #if _ITERATOR_DEBUG_LEVEL==0 
   // CompileWhenNoMemThenOOM can properly detect leaks only when debug iterators are disabled
@@ -2587,6 +2600,79 @@ TEST_F(CompilerTest, CompileWhenVdThenProducesDxilContainer) {
   CComPtr<IDxcBlob> pResultBlob;
   VERIFY_SUCCEEDED(pResult->GetResult(&pResultBlob));
   VERIFY_IS_TRUE(hlsl::IsValidDxilContainer(reinterpret_cast<hlsl::DxilContainerHeader *>(pResultBlob->GetBufferPointer()), pResultBlob->GetBufferSize()));
+}
+
+void CompilerTest::TestEncodingImpl(const void *sourceData, size_t sourceSize, UINT32 codePage, const void *includedData, size_t includedSize,
+                                    const WCHAR *encoding) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<TestIncludeHandler> pInclude;
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobPinned((const char *)sourceData, sourceSize, codePage,
+                   &pSource);
+  pInclude = new TestIncludeHandler(m_dllSupport);
+  pInclude->CallResults.emplace_back(includedData, includedSize, 0);
+
+  const WCHAR *pArgs[] = {L"-encoding",
+                          encoding};
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+                                      L"ps_6_0", pArgs, _countof(pArgs),
+                                      nullptr, 0, pInclude, &pResult));
+  HRESULT status;
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+}
+
+TEST_F(CompilerTest, CompileWithEncodeFlagTestSource) {
+
+  std::string sourceUtf8 = "#include \"include.hlsl\"\r\n"
+                           "float4 main() : SV_Target { return 0; }";
+  std::string includeUtf8 = "// Comment\n";
+  std::string utf8BOM = "\xEF"
+                        "\xBB"
+                        "\xBF"; // UTF-8 BOM
+  std::string includeUtf8BOM = utf8BOM + includeUtf8;
+
+  std::wstring sourceUtf16 = L"#include \"include.hlsl\"\r\n"
+                             L"float4 main() : SV_Target { return 0; }";
+  std::wstring includeUtf16 = L"// Comments\n";
+  std::wstring utf16BOM = L"\xFEFF"; // UTF-16 LE BOM
+  std::wstring includeUtf16BOM = utf16BOM + includeUtf16;
+
+  // Included files interpreted with encoding option if no BOM
+  TestEncodingImpl(sourceUtf8.data(), sourceUtf8.size(), DXC_CP_UTF8,
+                   includeUtf8.data(), includeUtf8.size(), L"utf8");
+
+  TestEncodingImpl(sourceUtf16.data(), sourceUtf16.size() * sizeof(L'A'),
+                   DXC_CP_UTF16, includeUtf16.data(),
+                   includeUtf16.size() * sizeof(L'A'), L"utf16");
+
+  // Encoding option ignored if BOM present
+  TestEncodingImpl(sourceUtf8.data(), sourceUtf8.size(), DXC_CP_UTF8,
+                   includeUtf8BOM.data(), includeUtf8BOM.size(), L"utf16");
+
+  TestEncodingImpl(sourceUtf16.data(), sourceUtf16.size() * sizeof(L'A'),
+                   DXC_CP_UTF16, includeUtf16BOM.data(),
+                   includeUtf16BOM.size() * sizeof(L'A'), L"utf8");
+
+  // Source file interpreted according to DxcBuffer encoding if not CP_ACP
+  // Included files interpreted with encoding option if no BOM
+  TestEncodingImpl(sourceUtf8.data(), sourceUtf8.size(), DXC_CP_UTF8,
+                   includeUtf16.data(), includeUtf16.size() * sizeof(L'A'),
+                   L"utf16");
+
+  TestEncodingImpl(sourceUtf16.data(), sourceUtf16.size() * sizeof(L'A'),
+                   DXC_CP_UTF16, includeUtf8.data(), includeUtf8.size(),
+                   L"utf8");
+
+  // Source file interpreted by encoding option if source DxcBuffer encoding = CP_ACP (default)
+  TestEncodingImpl(sourceUtf8.data(), sourceUtf8.size(), DXC_CP_ACP,
+                   includeUtf8.data(), includeUtf8.size(), L"utf8");
+
+  TestEncodingImpl(sourceUtf16.data(), sourceUtf16.size() * sizeof(L'A'),
+                   DXC_CP_ACP, includeUtf16.data(),
+                   includeUtf16.size() * sizeof(L'A'), L"utf16");
 }
 
 TEST_F(CompilerTest, CompileWhenODumpThenOptimizerMatch) {
