@@ -19,6 +19,7 @@
 #include "spirv-tools/optimizer.hpp"
 #include "clang/SPIRV/AstTypeProbe.h"
 #include "clang/Sema/Sema.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/StringExtras.h"
 
 #include "InitListHandler.h"
@@ -622,8 +623,8 @@ SpirvEmitter::getInterfacesForEntryPoint(SpirvFunction *entryPoint) {
   // declIdMapper keeps the mapping between variables with Input or Output
   // storage class and their storage class, we have to rely on
   // declIdMapper.collectStageVars() to collect them.
-  llvm::DenseSet<SpirvVariable *> interfaces;
-  interfaces.insert(stageVars.begin(), stageVars.end());
+  llvm::SetVector<SpirvVariable *> interfaces(stageVars.begin(),
+                                              stageVars.end());
   for (auto *moduleVar : spvBuilder.getModule()->getVariables()) {
     if (moduleVar->getStorageClass() != spv::StorageClass::Input &&
         moduleVar->getStorageClass() != spv::StorageClass::Output) {
