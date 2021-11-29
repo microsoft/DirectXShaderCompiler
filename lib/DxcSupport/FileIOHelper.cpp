@@ -926,7 +926,7 @@ DxcCreateBlobWithEncodingOnMallocCopy(IMalloc *pIMalloc, LPCVOID pText, UINT32 s
   return DxcCreateBlob(pText, size, false, true, true, codePage, pIMalloc, ppBlobEncoding);
 }
 
-_Use_decl_annotations_ 
+_Use_decl_annotations_
 HRESULT
 DxcGetBlobAsUtf8(IDxcBlob *pBlob, IMalloc *pMalloc,
                  IDxcBlobUtf8 **pBlobEncoding, UINT32 defaultCodePage) throw() {
