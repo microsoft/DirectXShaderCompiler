@@ -187,7 +187,7 @@ bool SourceInfoReader::Init(const hlsl::DxilSourceInfo *SourceInfo, unsigned sou
           m_Sources[i].Content = content;
 
           // Mark the file as binary only if explicitly flagged as binary
-          if (entry->Flags & (uint32_t)hlsl::DxilSourceInfo_SourceContentsEntryFlags::Encoding_Binary) {
+          if (entry->Flags & (uint32_t)hlsl::DxilSourceInfo_SourceContentsEntryFlags::Binary) {
             m_Sources[i].IsBinary = true;
           }
         }

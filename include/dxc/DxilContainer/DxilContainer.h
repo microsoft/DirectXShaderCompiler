@@ -371,7 +371,7 @@ struct DxilSourceInfo_SourceContents {
 };
 
 enum class DxilSourceInfo_SourceContentsEntryFlags : uint32_t {
-  Encoding_Binary  = 0x1, // All sources are assumed to be UTF8, unless this flag is set.
+  Binary  = 0x1, // Content is binary data, instead of UTF8 encoded text.
 };
 
 struct DxilSourceInfo_SourceContentsEntry {
