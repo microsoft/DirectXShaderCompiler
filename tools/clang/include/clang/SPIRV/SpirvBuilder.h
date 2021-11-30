@@ -584,6 +584,12 @@ public:
                             llvm::StringRef targetName,
                             llvm::ArrayRef<SpirvVariable *> interfaces);
 
+  /// \brief Replaces target in the interface of OpEntryPoint instructions with
+  /// newInterface.
+  void replaceEntryPointInterface(
+      SpirvVariable *target,
+      const llvm::SmallVectorImpl<SpirvVariable *> &newInterface);
+
   /// \brief Sets the shader model version, source file name, and source file
   /// content. Returns the SpirvString instruction of the file name.
   inline SpirvString *setDebugSource(uint32_t major, uint32_t minor,
@@ -643,6 +649,18 @@ public:
                bool isPrecise, llvm::StringRef name = "",
                llvm::Optional<SpirvInstruction *> init = llvm::None,
                SourceLocation loc = {});
+
+  /// \brief Creates instructions to copy the flattened stage variable to
+  /// indices th (recursive) component of var.
+  void copyFromFlattenedStageVar(SpirvInstruction *var,
+                                 SpirvVariable *flattenedStageVar,
+                                 llvm::ArrayRef<uint32_t> indices);
+
+  /// \brief Creates instructions to copy the indices th (recursive) component
+  /// of var to flattenedStageVar.
+  void copyToFlattenedStageVar(SpirvInstruction *var,
+                               SpirvVariable *flattenedStageVar,
+                               llvm::ArrayRef<uint32_t> indices);
 
   /// \brief Decorates the given target with the given location.
   void decorateLocation(SpirvInstruction *target, uint32_t location);
@@ -805,6 +823,16 @@ private:
   /// \brief Ends building of the module initialization function.
   void endModuleInitFunction();
 
+  /// \brief Sets moduleFinishInsertPoint as insertPoint.
+  void switchInsertPointToModuleFinish();
+
+  /// \brief Adds OpFunctionCall instructions for ModuleFinish to all entry
+  /// points.
+  void addModuleFinishCallToEntryPoints();
+
+  /// \brief Ends building of the module finalization function.
+  void endModuleFinishFunction();
+
   /// \brief Creates a clone SPIR-V variable for CTBuffer.
   SpirvVariable *createCloneVarForFxcCTBuffer(QualType astType,
                                               const SpirvType *spvType,
@@ -823,6 +851,11 @@ private:
                                           ///< function
   SpirvBasicBlock *moduleInitInsertPoint; ///< The basic block of the module
                                           ///< initialization function
+
+  SpirvFunction *moduleFinish;              ///< The module finalization
+                                            ///< function
+  SpirvBasicBlock *moduleFinishInsertPoint; ///< The basic block of the module
+                                            ///< finalization function
 
   const SpirvCodeGenOptions &spirvOptions; ///< Command line options.
 

@@ -96,6 +96,15 @@ public:
     instructions.push_front(inst);
   }
 
+  /// Adds an instruction at the end before the termination instruction.
+  void addInstructionBeforeTermination(SpirvInstruction *inst) {
+    if (!hasTerminator())
+      addInstruction(inst);
+    auto insertionPoint = instructions.end();
+    --insertionPoint;
+    instructions.insert(insertionPoint, inst);
+  }
+
   /// Return true if instructions is empty. Otherwise, return false.
   bool empty() { return instructions.empty(); }
 

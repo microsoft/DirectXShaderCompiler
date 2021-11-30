@@ -50,6 +50,7 @@ struct SemanticInfo {
 struct LocationAndComponent {
   uint32_t location;
   uint32_t component;
+  bool componentAlignment;
 };
 
 /// \brief The class containing HLSL and SPIR-V information about a Vulkan stage
@@ -58,12 +59,14 @@ class StageVar {
 public:
   inline StageVar(const hlsl::SigPoint *sig, SemanticInfo semaInfo,
                   const VKBuiltInAttr *builtin, QualType astType,
-                  LocationAndComponent locAndComponentCount)
+                  LocationAndComponent locAndComponentCount,
+                  bool extraArrayness = false)
       : sigPoint(sig), semanticInfo(std::move(semaInfo)), builtinAttr(builtin),
         type(astType), value(nullptr), isBuiltin(false),
         storageClass(spv::StorageClass::Max), location(nullptr),
         locationAndComponentCount(locAndComponentCount), entryPoint(nullptr),
-        locOrBuiltinDecorateAttr(false) {
+        locOrBuiltinDecorateAttr(false),
+        typeWithExtraArrayness(extraArrayness) {
     isBuiltin = builtinAttr != nullptr;
   }
 
@@ -97,6 +100,8 @@ public:
     return locationAndComponentCount;
   }
 
+  bool hasExtraArrayness() const { return typeWithExtraArrayness; }
+
   SpirvFunction *getEntryPoint() const { return entryPoint; }
   void setEntryPoint(SpirvFunction *entry) { entryPoint = entry; }
   bool hasLocOrBuiltinDecorateAttr() const { return locOrBuiltinDecorateAttr; }
@@ -128,6 +133,8 @@ private:
   /// specific for an entry point e.g., built-in, it must be nullptr.
   SpirvFunction *entryPoint;
   bool locOrBuiltinDecorateAttr;
+  /// True if the AST type kept by this struct is an array of the initial type.
+  bool typeWithExtraArrayness;
 };
 
 /// \brief The struct containing information of stage variable's location and
@@ -718,6 +725,17 @@ private:
       llvm::DenseSet<StageVariableLocationInfo, StageVariableLocationInfo>
           *stageVariableLocationInfo,
       bool forInput);
+  bool packSignatureInternal(
+      const std::vector<const StageVar *> &vars,
+      llvm::function_ref<bool(const StageVar *)> assignLocAndComponent,
+      bool forInput, bool forPCF);
+
+  /// \brief Flattens var into vectors or scalars if it is an array or matrix.
+  llvm::SmallVector<StageVar, 4>
+  flattenArrayOrMatrix(QualType type, uint32_t locationCount,
+                       uint32_t componentCount, bool componentAlignment,
+                       SpirvVariable *var, llvm::ArrayRef<uint32_t> indexes,
+                       bool forInput);
 
   /// \brief Decorates vars with locations assigned by nextLocs.
   /// stageVariableLocationInfo will be used to check the duplication of stage
