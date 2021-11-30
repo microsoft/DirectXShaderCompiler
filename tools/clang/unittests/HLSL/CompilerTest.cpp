@@ -1145,6 +1145,15 @@ static void VerifyPdbUtil(dxc::DxcDllSupport &dllSupport,
       else {
         VERIFY_IS_TRUE(0 == std::memcmp(pFileContent->GetBufferPointer(), IncludedFile.data(), IncludedFile.size()));
       }
+
+      // Make sure encoding is what we expect
+      {
+        BOOL bEncodingKnown = false;
+        UINT32 CodePage = CP_ACP;
+        VERIFY_SUCCEEDED(pFileContent->GetEncoding(&bEncodingKnown, &CodePage));
+        VERIFY_IS_TRUE(bEncodingKnown);
+        VERIFY_ARE_EQUAL(CodePage, CP_UTF8);
+      }
     }
   }
 

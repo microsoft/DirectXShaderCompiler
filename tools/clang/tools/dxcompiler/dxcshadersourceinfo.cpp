@@ -185,6 +185,11 @@ bool SourceInfoReader::Init(const hlsl::DxilSourceInfo *SourceInfo, unsigned sou
             return false;
           llvm::StringRef content = { (const char *)ptr, entry->ContentSizeInBytes-1, };
           m_Sources[i].Content = content;
+
+          // Mark the file as binary only if explicitly flagged as binary
+          if (entry->Flags & (uint32_t)hlsl::DxilSourceInfo_SourceContentsEntryFlags::Encoding_Binary) {
+            m_Sources[i].IsBinary = true;
+          }
         }
 
         entry = (const hlsl::DxilSourceInfo_SourceContentsEntry *)((const uint8_t *)entry + entry->AlignedSizeInBytes);
@@ -333,7 +338,7 @@ void SourceInfoWriter::Write(llvm::StringRef targetProfile, llvm::StringRef entr
       const size_t entryOffset = m_Buffer.size();
 
       // Write the header
-      hlsl::DxilSourceInfo_SourceNamesEntry entryHeader = {};
+      hlsl::DxilSourceInfo_SourceNamesEntry entryHeader ={};
       entryHeader.NameSizeInBytes = file.Name.size()+1;
       entryHeader.ContentSizeInBytes = file.Content.size()+1;
       entryHeader.AlignedSizeInBytes = PadToFourBytes(sizeof(entryHeader) + file.Name.size() + 1);
