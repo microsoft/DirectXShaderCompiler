@@ -18,9 +18,9 @@
 #include "dxc/HlslIntrinsicOp.h"
 #include "spirv-tools/optimizer.hpp"
 #include "clang/SPIRV/AstTypeProbe.h"
+#include "clang/SPIRV/String.h"
 #include "clang/Sema/Sema.h"
 #include "llvm/ADT/StringExtras.h"
-
 #include "InitListHandler.h"
 #include "dxc/DXIL/DxilConstants.h"
 
@@ -2337,8 +2337,11 @@ SpirvInstruction *SpirvEmitter::doCallExpr(const CallExpr *callExpr) {
     return doCXXMemberCallExpr(memberCall);
 
   auto funcDecl = callExpr->getDirectCallee();
-  if (funcDecl && funcDecl->hasAttr<VKInstructionExtAttr>()) {
-    return processSpvIntrinsicCallExpr(callExpr);
+  if (funcDecl) {
+    if (funcDecl->hasAttr<VKInstructionExtAttr>())
+      return processSpvIntrinsicCallExpr(callExpr);
+    else if(funcDecl->hasAttr<VKTypeDefExtAttr>())
+      return processSpvIntrinsicTypeDef(callExpr);
   }
   // Intrinsic functions such as 'dot' or 'mul'
   if (hlsl::IsIntrinsicOp(funcDecl)) {
@@ -12530,7 +12533,7 @@ SpirvEmitter::processSpvIntrinsicCallExpr(const CallExpr *expr) {
       }
       spvArgs.push_back(argInst);
     } else if (param->hasAttr<VKLiteralExtAttr>()) {
-      auto constArg = dyn_cast<SpirvConstantInteger>(argInst);
+      auto constArg = dyn_cast<SpirvConstant>(argInst);
       assert(constArg != nullptr);
       constArg->setLiteral();
       spvArgs.push_back(argInst);
@@ -12599,6 +12602,58 @@ SpirvEmitter::processIntrinsicExecutionMode(const CallExpr *expr) {
   return spvBuilder.addExecutionMode(entryFunction,
                                      static_cast<spv::ExecutionMode>(exeMode),
                                      execModesParams, expr->getExprLoc());
+}
+
+SpirvInstruction *
+SpirvEmitter::processSpvIntrinsicTypeDef(const CallExpr *expr) {
+  auto funcDecl = expr->getDirectCallee();
+  auto typeDefAttr = funcDecl->getAttr<VKTypeDefExtAttr>();
+  llvm::SmallVector<uint32_t, 2> capbilities;
+  llvm::SmallVector<llvm::StringRef, 2> extensions;
+
+  for (auto &attr : funcDecl->getAttrs()) {
+    if (auto capAttr = dyn_cast<VKCapabilityExtAttr>(attr)) {
+      capbilities.push_back(capAttr->getCapability());
+    } else if (auto extAttr = dyn_cast<VKExtensionExtAttr>(attr)) {
+      extensions.push_back(extAttr->getName());
+    }
+  }
+
+  SmallVector<SpvIntrinsicTypeOperand, 3> operands;
+  const auto args = expr->getArgs();
+  for (uint32_t i = 0; i < expr->getNumArgs(); ++i) {
+    auto param = funcDecl->getParamDecl(i);
+    const Expr *arg = args[i]->IgnoreParenLValueCasts();
+    if (param->hasAttr<VKReferenceExtAttr>()) {
+      auto *recType = param->getType()->getAs<RecordType>();
+      if (recType && recType->getDecl()->getName() == "ext_type") {
+        auto typeId = hlsl::GetHLSLResourceTemplateUInt(arg->getType());
+        auto *typeArg = spvContext.getCreatedSpirvIntrinsicType(typeId);
+        operands.emplace_back(typeArg);
+      } else {
+        operands.emplace_back(doExpr(arg));
+      }
+    } else if (param->hasAttr<VKLiteralExtAttr>()) {
+      SpirvInstruction *argInst = doExpr(arg);
+      auto constArg = dyn_cast<SpirvConstant>(argInst);
+      assert(constArg != nullptr);
+      constArg->setLiteral();
+      operands.emplace_back(constArg);
+    } else {
+      operands.emplace_back(loadIfGLValue(arg));
+    }
+  }
+  spvContext.getSpirvIntrinsicType(typeDefAttr->getId(),
+                                   typeDefAttr->getOpcode(), operands);
+
+  // Emit dummy OpNop with no semantic meaning, with possible extension and
+  // capabilities
+  SpirvInstruction *retVal = spvBuilder.createSpirvIntrInstExt(
+      static_cast<unsigned>(spv::Op::OpNop), QualType(), {}, extensions, {},
+      capbilities, expr->getExprLoc());
+  retVal->setRValue();
+
+  return retVal;
 }
 
 bool SpirvEmitter::spirvToolsValidate(std::vector<uint32_t> *mod,

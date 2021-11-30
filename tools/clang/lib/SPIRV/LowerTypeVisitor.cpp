@@ -593,6 +593,11 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
   if (name == "RayQuery")
     return spvContext.getRayQueryTypeKHR();
 
+  if (name == "ext_type") {
+    auto typeId = hlsl::GetHLSLResourceTemplateUInt(type);
+    return spvContext.getCreatedSpirvIntrinsicType(typeId);
+  }
+
   if (name == "StructuredBuffer" || name == "RWStructuredBuffer" ||
       name == "AppendStructuredBuffer" || name == "ConsumeStructuredBuffer") {
     // StructureBuffer<S> will be translated into an OpTypeStruct with one
