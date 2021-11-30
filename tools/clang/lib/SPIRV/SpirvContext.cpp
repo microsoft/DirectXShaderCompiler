@@ -95,6 +95,11 @@ SpirvContext::~SpirvContext() {
 
   for (auto &typePair : typeTemplateParams)
     typePair.second->releaseMemory();
+
+  for (auto &pair : spirvIntrinsicTypes) {
+    assert(pair.second);
+    pair.second->~SpirvIntrinsicType();
+  }
 }
 
 inline uint32_t log2ForBitwidth(uint32_t bitwidth) {
@@ -525,6 +530,24 @@ void SpirvContext::moveDebugTypesToModule(SpirvModule *module) {
   debugTypes.clear();
   typeTemplates.clear();
   typeTemplateParams.clear();
+}
+
+const SpirvIntrinsicType *SpirvContext::getSpirvIntrinsicType(
+    unsigned typeId, unsigned typeOpCode,
+    llvm::ArrayRef<SpvIntrinsicTypeOperand> operands) {
+  if (spirvIntrinsicTypes[typeId] == nullptr) {
+    spirvIntrinsicTypes[typeId] =
+        new (this) SpirvIntrinsicType(typeOpCode, operands);
+  }
+  return spirvIntrinsicTypes[typeId];
+}
+
+SpirvIntrinsicType *
+SpirvContext::getCreatedSpirvIntrinsicType(unsigned typeId) {
+  if (spirvIntrinsicTypes.find(typeId) == spirvIntrinsicTypes.end()){
+    return nullptr;
+  }  
+  return spirvIntrinsicTypes[typeId];
 }
 
 } // end namespace spirv

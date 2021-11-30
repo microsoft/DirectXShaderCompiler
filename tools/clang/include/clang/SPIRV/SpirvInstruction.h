@@ -1110,10 +1110,13 @@ public:
   }
 
   bool isSpecConstant() const;
+  void setLiteral(bool literal = true) { literalConstant = literal; }
+  bool isLiteral() { return literalConstant; }
 
 protected:
-  SpirvConstant(Kind, spv::Op, const SpirvType *);
-  SpirvConstant(Kind, spv::Op, QualType);
+  SpirvConstant(Kind, spv::Op, const SpirvType *, bool literal = false);
+  SpirvConstant(Kind, spv::Op, QualType, bool literal = false);
+  bool literalConstant;
 };
 
 class SpirvConstantBoolean : public SpirvConstant {
@@ -1141,7 +1144,7 @@ private:
 class SpirvConstantInteger : public SpirvConstant {
 public:
   SpirvConstantInteger(QualType type, llvm::APInt value,
-                       bool isSpecConst = false, bool literal = false);
+                       bool isSpecConst = false);
 
   DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvConstantInteger)
 
@@ -1155,12 +1158,9 @@ public:
   bool invokeVisitor(Visitor *v) override;
 
   llvm::APInt getValue() const { return value; }
-  void setLiteral(bool l = true) { isLiteral = l; }
-  bool getLiteral() { return isLiteral; }
 
 private:
   llvm::APInt value;
-  bool isLiteral;
 };
 
 class SpirvConstantFloat : public SpirvConstant {

@@ -476,15 +476,19 @@ SpirvCompositeConstruct::SpirvCompositeConstruct(
                        resultType, loc),
       consituents(constituentsVec.begin(), constituentsVec.end()) {}
 
-SpirvConstant::SpirvConstant(Kind kind, spv::Op op, const SpirvType *spvType)
+SpirvConstant::SpirvConstant(Kind kind, spv::Op op, const SpirvType *spvType,
+                             bool literal)
     : SpirvInstruction(kind, op, QualType(),
-                       /*SourceLocation*/ {}) {
+                       /*SourceLocation*/ {}),
+      literalConstant(literal) {
   setResultType(spvType);
 }
 
-SpirvConstant::SpirvConstant(Kind kind, spv::Op op, QualType resultType)
+SpirvConstant::SpirvConstant(Kind kind, spv::Op op, QualType resultType,
+                             bool literal)
     : SpirvInstruction(kind, op, resultType,
-                       /*SourceLocation*/ {}) {}
+                       /*SourceLocation*/ {}),
+      literalConstant(literal) {}
 
 bool SpirvConstant::isSpecConstant() const {
   return opcode == spv::Op::OpSpecConstant ||
@@ -509,11 +513,11 @@ bool SpirvConstantBoolean::operator==(const SpirvConstantBoolean &that) const {
 }
 
 SpirvConstantInteger::SpirvConstantInteger(QualType type, llvm::APInt val,
-                                           bool isSpecConst, bool literal)
+                                           bool isSpecConst)
     : SpirvConstant(IK_ConstantInteger,
                     isSpecConst ? spv::Op::OpSpecConstant : spv::Op::OpConstant,
                     type),
-      value(val), isLiteral(literal) {
+      value(val) {
   assert(type->isIntegerType());
 }
 
