@@ -756,7 +756,7 @@ HRESULT DxcCreateBlobEncodingFromBlob(
     }
     if (encodingKnown) {
       if (TryCreateBlobUtfFromBlob(pFromBlob, codePage, pMalloc,
-                                   +ppBlobEncoding)) {
+                                   ppBlobEncoding)) {
         return S_OK;
       }
       IFR(InternalDxcBlobEncoding::CreateFromBlob(

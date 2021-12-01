@@ -2612,7 +2612,7 @@ void CompilerTest::TestEncodingImpl(const void *sourceData, size_t sourceSize, U
   CreateBlobPinned((const char *)sourceData, sourceSize, codePage,
                    &pSource);
   pInclude = new TestIncludeHandler(m_dllSupport);
-  pInclude->CallResults.emplace_back(includedData, includedSize, 0);
+  pInclude->CallResults.emplace_back(includedData, includedSize, CP_ACP);
 
   const WCHAR *pArgs[] = {L"-encoding",
                           encoding};
