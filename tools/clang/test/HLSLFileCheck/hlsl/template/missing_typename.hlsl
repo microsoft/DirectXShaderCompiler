@@ -1,10 +1,7 @@
-// RUN: %dxc -T vs_6_0 -E VSMain -enable-templates -DTYPENAME= %s | FileCheck %s -check-prefix=MISSING
-// RUN: %dxc -T vs_6_0 -E VSMain -enable-templates -DTYPENAME=typename %s | FileCheck %s -check-prefix=PRESENT
-// RUN: %dxc -T vs_6_0 -E VSMain -HV 2021 -DTYPENAME= %s | FileCheck %s -check-prefix=MISSING
-// RUN: %dxc -T vs_6_0 -E VSMain -HV 2021 -DTYPENAME=typename %s | FileCheck %s -check-prefix=PRESENT
+// RUN: %dxc -T vs_6_0 -E VSMain -enable-templates %s | FileCheck %s
+// RUN: %dxc -T vs_6_0 -E VSMain -HV 2021 %s | FileCheck %s
 
-// MISSING: error: missing 'typename' prior to dependent type name 'TVec::value_type'
-// PRESENT: define void @VSMain() {
+// CHECK: error: nested typedefs are not supported in HLSL
 
 template <typename T>
 struct Vec2 {
@@ -16,7 +13,7 @@ struct Vec2 {
 };
 
 template <typename TVec>
-TYPENAME TVec::value_type Length(TVec v) { // <-- Must be "typename TVec::value_type"
+TVec::value_type Length(TVec v) { // <-- Must be "typename TVec::value_type"
     return v.Length();
 }
 
