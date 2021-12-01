@@ -1138,24 +1138,18 @@ static void VerifyPdbUtil(dxc::DxcDllSupport &dllSupport,
       CComPtr<IDxcBlobEncoding> pFileContent;
       VERIFY_SUCCEEDED(pPdbUtils->GetSourceName(i, &pFileName));
       VERIFY_SUCCEEDED(pPdbUtils->GetSource(i, &pFileContent));
+
+      CComPtr<IDxcBlobUtf8> pFileContentUtf8;
+      VERIFY_SUCCEEDED(pFileContent.QueryInterface(&pFileContentUtf8));
+      llvm::StringRef FileContentRef((const char *)pFileContentUtf8->GetBufferPointer(), pFileContentUtf8->GetBufferSize());
+      // Trim the null terminator.
+      if (FileContentRef.size() && FileContentRef.back() == '\0')
+        FileContentRef = llvm::StringRef(FileContentRef.data(), FileContentRef.size()-1);
       if (0 == wcscmp(pFileName, pMainFileName)) {
-        llvm::StringRef FileContentRef((const char *)pFileContent->GetBufferPointer(), pFileContent->GetBufferSize());
-        // Trim the null terminator.
-        if (FileContentRef.size() && FileContentRef.back() == '\0')
-          FileContentRef = llvm::StringRef(FileContentRef.data(), FileContentRef.size()-1);
         VERIFY_ARE_EQUAL(FileContentRef, MainSource);
       }
       else {
-        VERIFY_IS_TRUE(0 == std::memcmp(pFileContent->GetBufferPointer(), IncludedFile.data(), IncludedFile.size()));
-      }
-
-      // Make sure encoding is what we expect
-      {
-        BOOL bEncodingKnown = false;
-        UINT32 CodePage = CP_ACP;
-        VERIFY_SUCCEEDED(pFileContent->GetEncoding(&bEncodingKnown, &CodePage));
-        VERIFY_IS_TRUE(bEncodingKnown);
-        VERIFY_ARE_EQUAL(CodePage, CP_UTF8);
+        VERIFY_ARE_EQUAL(FileContentRef, IncludedFile);
       }
     }
   }
