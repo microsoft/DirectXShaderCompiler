@@ -370,13 +370,9 @@ struct DxilSourceInfo_SourceContents {
   // Followed by (compressed) `Count` data entries with the header DxilSourceInfo_SourceContentsEntry
 };
 
-enum class DxilSourceInfo_SourceContentsEntryFlags : uint32_t {
-  Binary  = 0x1, // Content is binary data, instead of UTF8 encoded text.
-};
-
 struct DxilSourceInfo_SourceContentsEntry {
   uint32_t AlignedSizeInBytes;                             // Size of the entry including this header and padding. Aligned to 4-byte boundary.
-  uint32_t Flags;                                          // One or more of DxilSourceInfo_SourceContentsEntryFlags's values
+  uint32_t Flags;                                          // Reserved, must be set to 0.
   uint32_t ContentSizeInBytes;                             // Size of the data following this header, *including* the null terminator
   // Followed by ContentSizeInBytes bytes of the UTF-8-encoded content (including null terminator).
   // Followed by [0-3] zero bytes to align to a 4-byte boundary.

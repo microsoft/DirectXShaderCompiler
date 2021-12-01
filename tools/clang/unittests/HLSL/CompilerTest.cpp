@@ -1139,8 +1139,11 @@ static void VerifyPdbUtil(dxc::DxcDllSupport &dllSupport,
       VERIFY_SUCCEEDED(pPdbUtils->GetSourceName(i, &pFileName));
       VERIFY_SUCCEEDED(pPdbUtils->GetSource(i, &pFileContent));
       if (0 == wcscmp(pFileName, pMainFileName)) {
-        VERIFY_IS_TRUE(pFileContent->GetBufferSize() == MainSource.size());
-        VERIFY_IS_TRUE(0 == std::memcmp(pFileContent->GetBufferPointer(), MainSource.data(), MainSource.size()));
+        llvm::StringRef FileContentRef((const char *)pFileContent->GetBufferPointer(), pFileContent->GetBufferSize());
+        // Trim the null terminator.
+        if (FileContentRef.size() && FileContentRef.back() == '\0')
+          FileContentRef = llvm::StringRef(FileContentRef.data(), FileContentRef.size()-1);
+        VERIFY_ARE_EQUAL(FileContentRef, MainSource);
       }
       else {
         VERIFY_IS_TRUE(0 == std::memcmp(pFileContent->GetBufferPointer(), IncludedFile.data(), IncludedFile.size()));

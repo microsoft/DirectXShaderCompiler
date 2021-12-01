@@ -365,16 +365,10 @@ private:
           Source_File file;
           file.Name = ToWstring(md_name->getString());
 
-          CComPtr<IDxcBlob> pContentBlobCopy;
-          IFR(hlsl::DxcCreateBlobOnHeapCopy(
-            md_content->getString().data(),
-            md_content->getString().size(),
-            &pContentBlobCopy));
-
-          // File content
-          IFR(hlsl::DxcCreateBlobEncodingFromBlob(
-            pContentBlobCopy, 0, pContentBlobCopy->GetBufferSize(),
-            true /* encoding known */, CP_UTF8, // Assume to be UTF8
+          IFR(hlsl::DxcCreateBlob(
+            md_content->getString().data(), md_content->getString().size(),
+            /*bPinned*/false, /*bCopy*/true,
+            /*encodingKnown*/true, CP_UTF8,
             m_pMalloc, &file.Content));
 
           m_SourceFiles.push_back(std::move(file));
@@ -505,18 +499,10 @@ private:
 
           Source_File source;
           source.Name = ToWstring(source_data.Name);
-          const UINT32 codePage      = source_data.IsBinary ? CP_ACP : CP_UTF8;
-          const bool   encodingKnown = !source_data.IsBinary;
-
-          CComPtr<IDxcBlob> pContentBlobCopy;
-          IFR(hlsl::DxcCreateBlobOnHeapCopy(
-            source_data.Content.data(),
-            source_data.Content.size(),
-            &pContentBlobCopy));
-
-          IFR(hlsl::DxcCreateBlobEncodingFromBlob(
-            pContentBlobCopy, 0, pContentBlobCopy->GetBufferSize(),
-            encodingKnown /* encoding known */, codePage, // Assume to be UTF8
+          IFR(hlsl::DxcCreateBlob(
+            source_data.Content.data(), source_data.Content.size(),
+            /*bPinned*/false, /*bCopy*/true,
+            /*encodingKnown*/true, CP_UTF8,
             m_pMalloc, &source.Content));
 
           // First file is the main file

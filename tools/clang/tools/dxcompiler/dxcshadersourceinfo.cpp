@@ -185,11 +185,6 @@ bool SourceInfoReader::Init(const hlsl::DxilSourceInfo *SourceInfo, unsigned sou
             return false;
           llvm::StringRef content = { (const char *)ptr, entry->ContentSizeInBytes-1, };
           m_Sources[i].Content = content;
-
-          // Mark the file as binary only if explicitly flagged as binary
-          if (entry->Flags & (uint32_t)hlsl::DxilSourceInfo_SourceContentsEntryFlags::Binary) {
-            m_Sources[i].IsBinary = true;
-          }
         }
 
         entry = (const hlsl::DxilSourceInfo_SourceContentsEntry *)((const uint8_t *)entry + entry->AlignedSizeInBytes);

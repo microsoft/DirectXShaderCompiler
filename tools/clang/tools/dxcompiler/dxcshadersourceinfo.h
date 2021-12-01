@@ -30,7 +30,6 @@ struct SourceInfoReader {
   struct Source {
     llvm::StringRef Name;
     llvm::StringRef Content;
-    bool IsBinary = false; // As opposed to UTF8
   };
 
   struct ArgPair {
