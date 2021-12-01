@@ -5325,31 +5325,6 @@ static void ValidateUninitializedOutput(ValidationContext &ValCtx) {
   }
 }
 
-void GetValidationVersion(_Out_ unsigned *pMajor, _Out_ unsigned *pMinor) {
-  /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_validation_version()</py>*/
-  // VALRULE-TEXT:BEGIN
-  // 1.0 is the first validator.
-  // 1.1 adds:
-  // - ILDN container part support
-  // 1.2 adds:
-  // - Metadata for floating point denorm mode
-  // 1.3 adds:
-  // - Library support
-  // - Raytracing support
-  // - i64/f64 overloads for rawBufferLoad/Store
-  // 1.4 adds:
-  // - packed u8x4/i8x4 dot with accumulate to i32
-  // - half dot2 with accumulate to float
-  // 1.5 adds:
-  // - WaveMatch, WaveMultiPrefixOp, WaveMultiPrefixBitCount
-  // - HASH container part support
-  // - Mesh and Amplification shaders
-  // - DXR 1.1 & RayQuery support
-  *pMajor = 1;
-  *pMinor = 7;
-  // VALRULE-TEXT:END
-}
-
 _Use_decl_annotations_ HRESULT ValidateDxilModule(
     llvm::Module *pModule,
     llvm::Module *pDebugModule) {
