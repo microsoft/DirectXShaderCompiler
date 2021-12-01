@@ -1141,10 +1141,8 @@ static void VerifyPdbUtil(dxc::DxcDllSupport &dllSupport,
 
       CComPtr<IDxcBlobUtf8> pFileContentUtf8;
       VERIFY_SUCCEEDED(pFileContent.QueryInterface(&pFileContentUtf8));
-      llvm::StringRef FileContentRef((const char *)pFileContentUtf8->GetBufferPointer(), pFileContentUtf8->GetBufferSize());
-      // Trim the null terminator.
-      if (FileContentRef.size() && FileContentRef.back() == '\0')
-        FileContentRef = llvm::StringRef(FileContentRef.data(), FileContentRef.size()-1);
+      llvm::StringRef FileContentRef(pFileContentUtf8->GetStringPointer(), pFileContentUtf8->GetStringLength());
+
       if (0 == wcscmp(pFileName, pMainFileName)) {
         VERIFY_ARE_EQUAL(FileContentRef, MainSource);
       }
