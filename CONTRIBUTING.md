@@ -51,7 +51,7 @@ Summary of the changes (Less than 80 chars)
  - Detail 1
  - Detail 2
 
-Addresses #bugnumber (in this specific format)
+Fixes #bugnumber (in this specific format)
 ```
 
 Your pull request should:
@@ -59,6 +59,8 @@ Your pull request should:
 * Include a description of what your change intends to do
   * The title of your PR should be a very brief description of the change, and
     can use tags to allow for speedy categorization.
+    * Titles under 76 characters print nicely in unix terminals under `git log`.
+      This is not a hard requirement, but is good guidance.
     * Title tags are generally one word or acronym enclosed in square brackets.
       Limiting to one or two tags is ideal to keep titles short. Some examples
       of common tags are:
@@ -75,6 +77,8 @@ Your pull request should:
     an explanation for the motivation of the change, and links to any relevant
     Issues. This does not need to be a dissertation, but should leave
     breadcrumbs for the next person debugging your code (who might be you).
+  * Using the words `Fixes`, `Fixed`, `Closes`, `Closed`, or `Close` followed by
+    `#<issuenumber>`, will auto close an issue after the PR is merged.
 * Be a child commit of a reasonably recent commit in the master branch
 * Pass all unit tests
 * Ensure that the title and description are fully up to date before merging
