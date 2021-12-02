@@ -374,7 +374,7 @@ struct DxilSourceInfo_SourceContentsEntry {
   uint32_t AlignedSizeInBytes;                             // Size of the entry including this header and padding. Aligned to 4-byte boundary.
   uint32_t Flags;                                          // Reserved, must be set to 0.
   uint32_t ContentSizeInBytes;                             // Size of the data following this header, *including* the null terminator
-  // Followed by NameSizeInBytes bytes of the UTF-8-encoded content (including null terminator).
+  // Followed by ContentSizeInBytes bytes of the UTF-8-encoded content (including null terminator).
   // Followed by [0-3] zero bytes to align to a 4-byte boundary.
 };
 
