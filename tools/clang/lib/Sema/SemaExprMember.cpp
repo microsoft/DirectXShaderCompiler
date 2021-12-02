@@ -1049,7 +1049,13 @@ Sema::BuildMemberReferenceExpr(Expr *BaseExpr, QualType BaseExprType,
     if (SS.getRange().isValid())
       Loc = SS.getRange().getBegin();
     CheckCXXThisCapture(Loc);
-    BaseExpr = new (Context) CXXThisExpr(Loc, BaseExprType,/*isImplicit=*/true);
+
+    // HLSL Change Starts - adjust this from T* to T&-like
+    if (getLangOpts().HLSL && BaseExprType->isPointerType())
+      BaseExpr = genereateHLSLThis(Loc, BaseExprType, /*isImplicit=*/true);
+    else
+      BaseExpr = new (Context) CXXThisExpr(Loc, BaseExprType,/*isImplicit=*/true);
+    // HLSL Change Ends
   }
 
   bool ShouldCheckUse = true;
@@ -1762,12 +1768,17 @@ Sema::BuildImplicitMemberExpr(const CXXScopeSpec &SS,
     if (SS.getRange().isValid())
       Loc = SS.getRange().getBegin();
     CheckCXXThisCapture(Loc);
-    baseExpr = new (Context) CXXThisExpr(loc, ThisTy, /*isImplicit=*/true);
+    if (getLangOpts().HLSL && ThisTy->isPointerType()) {
+      baseExpr = genereateHLSLThis(Loc, ThisTy, /*isImplicit=*/true);
+      ThisTy = ThisTy->getAs<PointerType>()->getPointeeType();
+    } else
+      baseExpr = new (Context) CXXThisExpr(loc, ThisTy, /*isImplicit=*/true);
   }
 
   return BuildMemberReferenceExpr(baseExpr, ThisTy,
                                   /*OpLoc*/ SourceLocation(),
-                                  /*IsArrow*/ true,
+                                  // HLSL Change - this is a reference
+                                  /*IsArrow*/ !getLangOpts().HLSL,
                                   SS, TemplateKWLoc,
                                   /*FirstQualifierInScope*/ nullptr,
                                   R, TemplateArgs);
