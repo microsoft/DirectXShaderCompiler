@@ -2343,6 +2343,10 @@ public:
                                 QualType ThisType,
                                 bool isImplicit) {
     getSema().CheckCXXThisCapture(ThisLoc);
+    // HLSL Change Begin - adjust this from T* to T&-like
+    if (getSema().getLangOpts().HLSL && ThisType.getTypePtr()->isPointerType())
+      return getSema().genereateHLSLThis(ThisLoc, ThisType, isImplicit);
+    // HLSL Change End - adjust this from T* to T&-like
     return new (getSema().Context) CXXThisExpr(ThisLoc, ThisType, isImplicit);
   }
 
