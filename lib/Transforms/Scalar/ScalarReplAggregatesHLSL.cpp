@@ -1888,6 +1888,14 @@ bool SROAGlobalAndAllocas(HLModule &HLM, bool bHasDbgInfo) {
       }
     } else {
       GlobalVariable *GV = cast<GlobalVariable>(V);
+      // Handle dead GVs trivially. These can be formed by RAUWing one GV
+      // with another, leaving the original in the worklist
+      if (GV->use_empty()) {
+        GV->eraseFromParent();
+        Changed = true;
+        continue;
+      }
+
       if (staticGVs.count(GV)) {
         Type *Ty = GV->getType()->getPointerElementType();
         // Skip basic types.
