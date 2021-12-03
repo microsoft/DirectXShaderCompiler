@@ -5,23 +5,38 @@
 // Test: PCF takes the output (OutputPatch) of the main entry point function.
 
 
-// CHECK:             %_arr_BEZIER_CONTROL_POINT_uint_16 = OpTypeArray %BEZIER_CONTROL_POINT %uint_16
-// CHECK: %_ptr_Output__arr_BEZIER_CONTROL_POINT_uint_16 = OpTypePointer Output %_arr_BEZIER_CONTROL_POINT_uint_16
+// CHECK:             %_arr_BEZIER_CONTROL_POINT_uint_3 = OpTypeArray %BEZIER_CONTROL_POINT %uint_3
+// CHECK: %_ptr_Function__arr_BEZIER_CONTROL_POINT_uint_3 = OpTypePointer Function %_arr_BEZIER_CONTROL_POINT_uint_3
 // CHECK:                                 [[fType:%\d+]] = OpTypeFunction %HS_CONSTANT_DATA_OUTPUT
-// CHECK: %temp_var_hullMainRetVal = OpVariable %_ptr_Output__arr_BEZIER_CONTROL_POINT_uint_16 Output
 
 // CHECK:                    %main = OpFunction %void None {{%\d+}}
+// CHECK: %temp_var_hullMainRetVal = OpVariable %_ptr_Function__arr_BEZIER_CONTROL_POINT_uint_3 Function
 
-// CHECK:              [[id:%\d+]] = OpLoad %uint %gl_InvocationID
 // CHECK:      [[mainResult:%\d+]] = OpFunctionCall %BEZIER_CONTROL_POINT %src_main %param_var_ip %param_var_i %param_var_PatchID
-// CHECK:             [[loc:%\d+]] = OpAccessChain %_ptr_Output_BEZIER_CONTROL_POINT %temp_var_hullMainRetVal [[id]]
-// CHECK:                            OpStore [[loc]] [[mainResult]]
 
-// CHECK:                 {{%\d+}} = OpFunctionCall %HS_CONSTANT_DATA_OUTPUT %PCF
+// CHECK:      [[output_patch_0:%\d+]] = OpAccessChain %_ptr_Function_BEZIER_CONTROL_POINT %temp_var_hullMainRetVal %uint_0
+// CHECK:    [[output_patch_0_0:%\d+]] = OpAccessChain %_ptr_Function_v3float [[output_patch_0]] %uint_0
+// CHECK: [[out_var_BEZIERPOS_0:%\d+]] = OpAccessChain %_ptr_Output_v3float %out_var_BEZIERPOS %uint_0
+// CHECK:         [[BEZIERPOS_0:%\d+]] = OpLoad %v3float [[out_var_BEZIERPOS_0]]
+// CHECK:                                OpStore [[output_patch_0_0]] [[BEZIERPOS_0]]
+
+// CHECK:      [[output_patch_1:%\d+]] = OpAccessChain %_ptr_Function_BEZIER_CONTROL_POINT %temp_var_hullMainRetVal %uint_1
+// CHECK:    [[output_patch_1_0:%\d+]] = OpAccessChain %_ptr_Function_v3float [[output_patch_1]] %uint_0
+// CHECK: [[out_var_BEZIERPOS_1:%\d+]] = OpAccessChain %_ptr_Output_v3float %out_var_BEZIERPOS %uint_1
+// CHECK:         [[BEZIERPOS_1:%\d+]] = OpLoad %v3float [[out_var_BEZIERPOS_1]]
+// CHECK:                                OpStore [[output_patch_1_0]] [[BEZIERPOS_1]]
+
+// CHECK:      [[output_patch_2:%\d+]] = OpAccessChain %_ptr_Function_BEZIER_CONTROL_POINT %temp_var_hullMainRetVal %uint_2
+// CHECK:    [[output_patch_2_0:%\d+]] = OpAccessChain %_ptr_Function_v3float [[output_patch_2]] %uint_0
+// CHECK: [[out_var_BEZIERPOS_2:%\d+]] = OpAccessChain %_ptr_Output_v3float %out_var_BEZIERPOS %uint_2
+// CHECK:         [[BEZIERPOS_2:%\d+]] = OpLoad %v3float [[out_var_BEZIERPOS_2]]
+// CHECK:                                OpStore [[output_patch_2_0]] [[BEZIERPOS_2]]
+
+// CHECK:                 {{%\d+}} = OpFunctionCall %HS_CONSTANT_DATA_OUTPUT %PCF %temp_var_hullMainRetVal
 
 // CHECK:      %PCF = OpFunction %HS_CONSTANT_DATA_OUTPUT None [[fType]]
 
-HS_CONSTANT_DATA_OUTPUT PCF(OutputPatch<BEZIER_CONTROL_POINT, MAX_POINTS> op) {
+HS_CONSTANT_DATA_OUTPUT PCF(OutputPatch<BEZIER_CONTROL_POINT, 3> op) {
   HS_CONSTANT_DATA_OUTPUT Output;
   // Must initialize Edges and Inside; otherwise HLSL validation will fail.
   Output.Edges[0]  = 1.0;
@@ -36,9 +51,9 @@ HS_CONSTANT_DATA_OUTPUT PCF(OutputPatch<BEZIER_CONTROL_POINT, MAX_POINTS> op) {
 [domain("isoline")]
 [partitioning("fractional_odd")]
 [outputtopology("line")]
-[outputcontrolpoints(16)]
+[outputcontrolpoints(3)]
 [patchconstantfunc("PCF")]
-BEZIER_CONTROL_POINT main(InputPatch<VS_CONTROL_POINT_OUTPUT, MAX_POINTS> ip, uint i : SV_OutputControlPointID, uint PatchID : SV_PrimitiveID) {
+BEZIER_CONTROL_POINT main(InputPatch<VS_CONTROL_POINT_OUTPUT, 3> ip, uint i : SV_OutputControlPointID, uint PatchID : SV_PrimitiveID) {
   VS_CONTROL_POINT_OUTPUT vsOutput;
   BEZIER_CONTROL_POINT result;
   result.vPosition = vsOutput.vPosition;
