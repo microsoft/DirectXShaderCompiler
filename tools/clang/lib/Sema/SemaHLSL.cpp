@@ -12425,12 +12425,11 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
   assert(getLangOpts().HLSL &&
          "otherwise this is called without checking language first");
 
-  // NOTE: some tests may declare templates.
-  if (DC->isDependentContext()) return true;
+  // If we have a template declaration but haven't enabled templates, error.
+  if (DC->isDependentContext() && !getLangOpts().EnableTemplates) return false;
 
   DeclSpec::SCS storage = D.getDeclSpec().getStorageClassSpec();
   assert(!DC->isClosure() && "otherwise parser accepted closure syntax instead of failing with a syntax error");
-  assert(!DC->isDependentContext() && "otherwise parser accepted a template instead of failing with a syntax error");
 
   bool result = true;
   bool isTypedef = storage == DeclSpec::SCS_typedef;
