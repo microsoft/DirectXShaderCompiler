@@ -982,8 +982,10 @@ CXXThisExpr *Sema::genereateHLSLThis(SourceLocation Loc, QualType ThisType,
                                    bool isImplicit) {
   // Expressions cannot be of reference type - instead, they yield
   // an lvalue on the underlying type.
-  CXXThisExpr *ResultExpr = new (Context)
-      CXXThisExpr(Loc, ThisType.getTypePtr()->getPointeeType(), isImplicit);
+  const Type *TypePtr = ThisType.getTypePtr();
+  CXXThisExpr *ResultExpr = new (Context) CXXThisExpr(
+      Loc, TypePtr->isPointerType() ? TypePtr->getPointeeType() : ThisType,
+      isImplicit);
   ResultExpr->setValueKind(ExprValueKind::VK_LValue);
   return ResultExpr;
 }
