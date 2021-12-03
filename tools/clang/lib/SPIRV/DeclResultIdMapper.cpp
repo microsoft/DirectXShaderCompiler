@@ -3234,43 +3234,6 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
   return var;
 }
 
-SpirvVariable *DeclResultIdMapper::createSpirvIntermediateOutputStageVar(
-    const NamedDecl *decl, const llvm::StringRef name, QualType type) {
-  const auto *semantic = hlsl::Semantic::GetByName(name);
-  SemanticInfo thisSemantic{name, semantic, name, 0, decl->getLocation()};
-
-  const auto *sigPoint =
-      deduceSigPoint(cast<DeclaratorDecl>(decl), /*asInput=*/false,
-                     spvContext.getCurrentShaderModelKind(), /*forPCF=*/false);
-
-  StageVar stageVar(sigPoint, thisSemantic, decl->getAttr<VKBuiltInAttr>(),
-                    type, /*locCount=*/1);
-  SpirvVariable *varInstr =
-      createSpirvStageVar(&stageVar, decl, name, thisSemantic.loc);
-
-  if (!varInstr)
-    return nullptr;
-
-  stageVar.setSpirvInstr(varInstr);
-  stageVar.setLocationAttr(decl->getAttr<VKLocationAttr>());
-  stageVar.setIndexAttr(decl->getAttr<VKIndexAttr>());
-  if (stageVar.getStorageClass() == spv::StorageClass::Input ||
-      stageVar.getStorageClass() == spv::StorageClass::Output) {
-    stageVar.setEntryPoint(entryFunction);
-  }
-  stageVars.push_back(stageVar);
-
-  // Emit OpDecorate* instructions to link this stage variable with the HLSL
-  // semantic it is created for.
-  spvBuilder.decorateHlslSemantic(varInstr, stageVar.getSemanticStr());
-
-  // We have semantics attached to this decl, which means it must be a
-  // function/parameter/variable. All are DeclaratorDecls.
-  stageVarInstructions[cast<DeclaratorDecl>(decl)] = varInstr;
-
-  return varInstr;
-}
-
 SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
     StageVar *stageVar, const NamedDecl *decl, const llvm::StringRef name,
     SourceLocation srcLoc) {
@@ -4008,21 +3971,6 @@ void DeclResultIdMapper::tryToCreateImplicitConstVar(const ValueDecl *decl) {
   astDecls[varDecl].instr = constVal;
 }
 
-SpirvInstruction *
-DeclResultIdMapper::createHullMainOutputPatch(const ParmVarDecl *param,
-                                              const QualType retType,
-                                              uint32_t numOutputControlPoints) {
-  const QualType hullMainRetType = astContext.getConstantArrayType(
-      retType, llvm::APInt(32, numOutputControlPoints),
-      clang::ArrayType::Normal, 0);
-  SpirvInstruction *hullMainOutputPatch = createSpirvIntermediateOutputStageVar(
-      param, "temp.var.hullMainRetVal", hullMainRetType);
-  assert(astDecls[param].instr == nullptr);
-  astDecls[param].instr = hullMainOutputPatch;
-  return hullMainOutputPatch;
-}
-
-
 template <typename Functor>
 void DeclResultIdMapper::decorateWithIntrinsicAttrs(const NamedDecl *decl,
                                                     SpirvVariable *varInst,
@@ -4046,6 +3994,54 @@ void DeclResultIdMapper::decorateWithIntrinsicAttrs(const NamedDecl *decl,
 void DeclResultIdMapper::decorateVariableWithIntrinsicAttrs(
     const NamedDecl *decl, SpirvVariable *varInst) {
   decorateWithIntrinsicAttrs(decl, varInst, [](VKDecorateExtAttr *) {});
+}
+
+void DeclResultIdMapper::copyHullOutStageVarsToOutputPatch(
+    SpirvInstruction *hullMainOutputPatch, const ParmVarDecl *outputPatchDecl,
+    QualType outputControlPointType, uint32_t numOutputControlPoints) {
+  for (uint32_t outputCtrlPoint = 0; outputCtrlPoint < numOutputControlPoints;
+       ++outputCtrlPoint) {
+    SpirvConstant *index = spvBuilder.getConstantInt(
+        astContext.UnsignedIntTy, llvm::APInt(32, outputCtrlPoint));
+    auto *tempLocation = spvBuilder.createAccessChain(
+        outputControlPointType, hullMainOutputPatch, {index}, /*loc=*/{});
+    storeOutStageVarsToStorage(cast<DeclaratorDecl>(outputPatchDecl), index,
+                               outputControlPointType, tempLocation);
+  }
+}
+
+void DeclResultIdMapper::storeOutStageVarsToStorage(
+    const DeclaratorDecl *outputPatchDecl, SpirvConstant *ctrlPointID,
+    QualType outputControlPointType, SpirvInstruction *ptr) {
+  if (!outputControlPointType->isStructureType()) {
+    const auto found = stageVarInstructions.find(outputPatchDecl);
+    if (found == stageVarInstructions.end()) {
+      emitError("Shader output variable '%0' was not created", {})
+          << outputPatchDecl->getName();
+    }
+    auto *ptrToOutputStageVar = spvBuilder.createAccessChain(
+        outputControlPointType, found->second, {ctrlPointID}, /*loc=*/{});
+    auto *load = spvBuilder.createLoad(outputControlPointType,
+                                       ptrToOutputStageVar, /*loc=*/{});
+    spvBuilder.createStore(ptr, load, /*loc=*/{});
+    return;
+  }
+
+  const auto *recordType = outputControlPointType->getAs<RecordType>();
+  assert(recordType != nullptr);
+  const auto *structDecl = recordType->getDecl();
+  assert(structDecl != nullptr);
+
+  uint32_t index = 0;
+  for (const auto *field : structDecl->fields()) {
+    SpirvConstant *indexInst = spvBuilder.getConstantInt(
+        astContext.UnsignedIntTy, llvm::APInt(32, index));
+    auto *tempLocation = spvBuilder.createAccessChain(field->getType(), ptr,
+                                                      {indexInst}, /*loc=*/{});
+    storeOutStageVarsToStorage(cast<DeclaratorDecl>(field), ctrlPointID,
+                               field->getType(), tempLocation);
+    ++index;
+  }
 }
 
 } // end namespace spirv
