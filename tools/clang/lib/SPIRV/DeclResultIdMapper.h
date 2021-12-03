@@ -447,11 +447,15 @@ public:
   /// VarDecls (such as some ray tracing enums).
   void tryToCreateImplicitConstVar(const ValueDecl *);
 
-  /// \brief Creates a variable for hull shader output patch with Output
-  /// storage class, and registers the SPIR-V variable for the given decl.
-  SpirvInstruction *createHullMainOutputPatch(const ParmVarDecl *param,
-                                              const QualType retType,
-                                              uint32_t numOutputControlPoints);
+  /// \brief Creates instructions to copy output stage variables defined by
+  /// outputPatchDecl to hullMainOutputPatch that is a variable for the
+  /// OutputPatch argument passing. outputControlPointType is the template
+  /// parameter type of OutputPatch and numOutputControlPoints is the number of
+  /// output control points.
+  void copyHullOutStageVarsToOutputPatch(SpirvInstruction *hullMainOutputPatch,
+                                         const ParmVarDecl *outputPatchDecl,
+                                         QualType outputControlPointType,
+                                         uint32_t numOutputControlPoints);
 
   /// \brief An enum class for representing what the DeclContext is used for
   enum class ContextUsageKind {
@@ -612,6 +616,17 @@ public:
   void decorateVariableWithIntrinsicAttrs(const NamedDecl *decl,
                                           SpirvVariable *varInst);
 
+  /// \brief Creates instructions to load the value of output stage variable
+  /// defined by outputPatchDecl and store it to ptr. Since the output stage
+  /// variable for OutputPatch is an array whose number of elements is the
+  /// number of output control points, we need ctrlPointID to indicate which
+  /// output control point is the target for copy. outputControlPointType is the
+  /// template parameter type of OutputPatch.
+  void storeOutStageVarsToStorage(const DeclaratorDecl *outputPatchDecl,
+                                  SpirvConstant *ctrlPointID,
+                                  QualType outputControlPointType,
+                                  SpirvInstruction *ptr);
+
 private:
   /// \brief Wrapper method to create a fatal error message and report it
   /// in the diagnostic engine associated with this consumer.
@@ -725,11 +740,6 @@ private:
   SpirvVariable *createSpirvStageVar(StageVar *, const NamedDecl *decl,
                                      const llvm::StringRef name,
                                      SourceLocation);
-
-  // Create intermediate output variable to communicate patch constant
-  // data in hull shader since workgroup memory is not allowed there.
-  SpirvVariable *createSpirvIntermediateOutputStageVar(
-      const NamedDecl *decl, const llvm::StringRef name, QualType asType);
 
   /// Returns true if all vk:: attributes usages are valid.
   bool validateVKAttributes(const NamedDecl *decl);
