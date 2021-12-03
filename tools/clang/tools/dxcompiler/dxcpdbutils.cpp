@@ -242,7 +242,7 @@ private:
 
   struct Source_File {
     std::wstring Name;
-    CComPtr<IDxcBlob> Content;
+    CComPtr<IDxcBlobEncoding> Content;
   };
 
   CComPtr<IDxcBlob> m_InputBlob;
@@ -365,11 +365,11 @@ private:
           Source_File file;
           file.Name = ToWstring(md_name->getString());
 
-          // File content
-          IFR(hlsl::DxcCreateBlobOnHeapCopy(
-            md_content->getString().data(),
-            md_content->getString().size(),
-            &file.Content));
+          IFR(hlsl::DxcCreateBlob(
+            md_content->getString().data(), md_content->getString().size(),
+            /*bPinned*/false, /*bCopy*/true,
+            /*encodingKnown*/true, CP_UTF8,
+            m_pMalloc, &file.Content));
 
           m_SourceFiles.push_back(std::move(file));
         }
@@ -499,10 +499,11 @@ private:
 
           Source_File source;
           source.Name = ToWstring(source_data.Name);
-          IFR(hlsl::DxcCreateBlobOnHeapCopy(
-            source_data.Content.data(),
-            source_data.Content.size(),
-            &source.Content));
+          IFR(hlsl::DxcCreateBlob(
+            source_data.Content.data(), source_data.Content.size(),
+            /*bPinned*/false, /*bCopy*/true,
+            /*encodingKnown*/true, CP_UTF8,
+            m_pMalloc, &source.Content));
 
           // First file is the main file
           if (i == 0) {

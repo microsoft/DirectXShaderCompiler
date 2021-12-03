@@ -195,6 +195,8 @@ namespace clang {
   struct DeductionFailureInfo;
   class TemplateSpecCandidateSet;
 
+  class CXXThisExpr; // HLSL Change
+
 namespace sema {
   class AccessedEntity;
   class BlockScopeInfo;
@@ -9077,6 +9079,11 @@ public:
       return NumArgs + 1 > NumParams; // If so, we view as an extra argument.
     return NumArgs > NumParams;
   }
+
+  // HLSL Change Begin - adjust this from T* to T&-like
+  CXXThisExpr *genereateHLSLThis(SourceLocation Loc, QualType ThisType,
+                                bool isImplicit);
+  // HLSL Change End - adjust this from T* to T&-like
 };
 
 /// \brief RAII object that enters a new expression evaluation context.

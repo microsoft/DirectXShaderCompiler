@@ -1138,12 +1138,16 @@ static void VerifyPdbUtil(dxc::DxcDllSupport &dllSupport,
       CComPtr<IDxcBlobEncoding> pFileContent;
       VERIFY_SUCCEEDED(pPdbUtils->GetSourceName(i, &pFileName));
       VERIFY_SUCCEEDED(pPdbUtils->GetSource(i, &pFileContent));
+
+      CComPtr<IDxcBlobUtf8> pFileContentUtf8;
+      VERIFY_SUCCEEDED(pFileContent.QueryInterface(&pFileContentUtf8));
+      llvm::StringRef FileContentRef(pFileContentUtf8->GetStringPointer(), pFileContentUtf8->GetStringLength());
+
       if (0 == wcscmp(pFileName, pMainFileName)) {
-        VERIFY_IS_TRUE(pFileContent->GetBufferSize() == MainSource.size());
-        VERIFY_IS_TRUE(0 == std::memcmp(pFileContent->GetBufferPointer(), MainSource.data(), MainSource.size()));
+        VERIFY_ARE_EQUAL(FileContentRef, MainSource);
       }
       else {
-        VERIFY_IS_TRUE(0 == std::memcmp(pFileContent->GetBufferPointer(), IncludedFile.data(), IncludedFile.size()));
+        VERIFY_ARE_EQUAL(FileContentRef, IncludedFile);
       }
     }
   }
