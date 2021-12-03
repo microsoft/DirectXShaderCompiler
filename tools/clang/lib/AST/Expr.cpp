@@ -1921,6 +1921,7 @@ InitListExpr::InitListExpr(const ASTContext &C, SourceLocation lbraceloc,
     LBraceLoc(lbraceloc), RBraceLoc(rbraceloc), AltForm(nullptr, true)
 {
   sawArrayRangeDesignator(false);
+  sawVectorInitWithCXXFunctionalCastExpr(false); // HLSL change.
   for (unsigned I = 0; I != initExprs.size(); ++I) {
     if (initExprs[I]->isTypeDependent())
       ExprBits.TypeDependent = true;

@@ -57,7 +57,7 @@ void main() {
   };
 
 // CHECK:                        OpFDiv %float {{%\d+}} %float_2
-// CHECK-NEXT:                   OpLine [[file]] 64 25
+// CHECK-NEXT:                   OpLine [[file]] 64 24
 // CHECK-NEXT:  [[first:%\d+]] = OpCompositeConstruct %v2float {{%\d+}} {{%\d+}}
 // CHECK-NEXT: [[second:%\d+]] = OpCompositeConstruct %v2float {{%\d+}} {{%\d+}}
 // CHECK-NEXT:        {{%\d+}} = OpCompositeConstruct %mat2v2float [[first]] [[second]]
@@ -104,7 +104,7 @@ void main() {
 // CHECK-NEXT: OpConvertFToS %int
   int4 e = {1, 2, bar};
 
-// CHECK:      OpLine [[file]] 111 16
+// CHECK:      OpLine [[file]] 111 15
 // CHECK-NEXT: OpCompositeConstruct %v2float %float_1 %float_2
 // CHECK-NEXT: OpLine [[file]] 111 22
 // CHECK-NEXT: OpCompositeExtract %int

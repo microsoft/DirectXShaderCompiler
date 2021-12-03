@@ -181,6 +181,7 @@ enum ArBasicKind {
 #ifdef ENABLE_SPIRV_CODEGEN
   AR_OBJECT_VK_SUBPASS_INPUT,
   AR_OBJECT_VK_SUBPASS_INPUT_MS,
+  AR_OBJECT_VK_SPV_INTRINSIC_TYPE,
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 
@@ -472,6 +473,7 @@ const UINT g_uBasicKindProps[] =
 #ifdef ENABLE_SPIRV_CODEGEN
   BPROP_OBJECT | BPROP_RBUFFER,   // AR_OBJECT_VK_SUBPASS_INPUT
   BPROP_OBJECT | BPROP_RBUFFER,   // AR_OBJECT_VK_SUBPASS_INPUT_MS
+  BPROP_OBJECT,                   // AR_OBJECT_VK_SPV_INTRINSIC_TYPE use recordType
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 
@@ -1395,6 +1397,7 @@ const ArBasicKind g_ArBasicKindsAsTypes[] =
 #ifdef ENABLE_SPIRV_CODEGEN
   AR_OBJECT_VK_SUBPASS_INPUT,
   AR_OBJECT_VK_SUBPASS_INPUT_MS,
+  AR_OBJECT_VK_SPV_INTRINSIC_TYPE,
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 
@@ -1486,7 +1489,8 @@ const uint8_t g_ArBasicKindsTemplateCount[] =
   // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
   1, // AR_OBJECT_VK_SUBPASS_INPUT
-  1, // AR_OBJECT_VK_SUBPASS_INPUT_MS
+  1, // AR_OBJECT_VK_SUBPASS_INPUT_MS,
+  1, // AR_OBJECT_VK_SPV_INTRINSIC_TYPE
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 
@@ -1587,6 +1591,7 @@ const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] =
 #ifdef ENABLE_SPIRV_CODEGEN
   { 0, MipsFalse, SampleFalse }, // AR_OBJECT_VK_SUBPASS_INPUT (SubpassInput)
   { 0, MipsFalse, SampleFalse }, // AR_OBJECT_VK_SUBPASS_INPUT_MS (SubpassInputMS)
+  { 0, MipsFalse, SampleFalse }, // AR_OBJECT_VK_SPV_INTRINSIC_TYPE
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 
@@ -1706,6 +1711,7 @@ const char* g_ArBasicTypeNames[] =
 #ifdef ENABLE_SPIRV_CODEGEN
   "SubpassInput",
   "SubpassInputMS",
+  "ext_type",
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 
@@ -3588,11 +3594,16 @@ private:
       else if (kind == AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY) {
         recordDecl = DeclareUIntTemplatedTypeWithHandle(*m_context, "FeedbackTexture2DArray", "kind");
       }
+#ifdef ENABLE_SPIRV_CODEGEN
+      else if (kind == AR_OBJECT_VK_SPV_INTRINSIC_TYPE && m_vkNSDecl) {
+        recordDecl = DeclareUIntTemplatedTypeWithHandleInDeclContext(
+            *m_context, m_vkNSDecl, typeName, "id");
+        recordDecl->setImplicit(true);
+      }
+#endif
       else if (templateArgCount == 0) {
         recordDecl = DeclareRecordTypeWithHandle(*m_context, typeName);
-      }
-      else
-      {
+      } else {
         DXASSERT(templateArgCount == 1 || templateArgCount == 2, "otherwise a new case has been added");
 
         TypeSourceInfo* typeDefault = TemplateHasDefaultType(kind) ? float4TypeSourceInfo : nullptr;
@@ -3712,12 +3723,6 @@ public:
     m_sema = &S;
     S.addExternalSource(this);
 
-    AddObjectTypes();
-    AddStdIsEqualImplementation(context, S);
-    for (auto && intrinsic : m_intrinsicTables) {
-      AddIntrinsicTableMethods(intrinsic);
-    }
-
 #ifdef ENABLE_SPIRV_CODEGEN
     if (m_sema->getLangOpts().SPIRV) {
       // Create the "vk" namespace which contains Vulkan-specific intrinsics.
@@ -3727,7 +3732,17 @@ public:
                                 SourceLocation(), &context.Idents.get("vk"),
                                 /*PrevDecl*/ nullptr);
       context.getTranslationUnitDecl()->addDecl(m_vkNSDecl);
+    }
+#endif // ENABLE_SPIRV_CODEGEN
 
+    AddObjectTypes();
+    AddStdIsEqualImplementation(context, S);
+    for (auto &&intrinsic : m_intrinsicTables) {
+      AddIntrinsicTableMethods(intrinsic);
+    }
+
+#ifdef ENABLE_SPIRV_CODEGEN
+    if (m_sema->getLangOpts().SPIRV) {
       // Add Vulkan-specific intrinsics.
       AddVkIntrinsicFunctions();
       AddVkIntrinsicConstants();
@@ -4829,6 +4844,17 @@ public:
                        diag::err_hlsl_typeintemplateargument_requires_struct)
               << argType;
           return true;
+        }
+        if (auto *TST = dyn_cast<TemplateSpecializationType>(argType)) {
+          // This is a bit of a special case we need to handle. Because the
+          // buffer types don't use their template parameter in a way that would
+          // force instantiation, we need to force specialization here.
+          GetOrCreateTemplateSpecialization(
+              *m_context, *m_sema,
+              cast<ClassTemplateDecl>(
+                  TST->getTemplateName().getAsTemplateDecl()),
+              llvm::ArrayRef<TemplateArgument>(TST->getArgs(),
+                                               TST->getNumArgs()));
         }
         if (const RecordType* recordType = argType->getAsStructureType()) {
           if (!recordType->getDecl()->isCompleteDefinition()) {
@@ -12095,6 +12121,12 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
         A.getRange(), S.Context, unsigned(ValidateAttributeIntArg(S, A)),
         A.getAttributeSpellingListIndex());
     break;
+  case AttributeList::AT_VKTypeDefExt:
+    declAttr = ::new (S.Context) VKTypeDefExtAttr(
+        A.getRange(), S.Context, unsigned(ValidateAttributeIntArg(S, A)),
+        unsigned(ValidateAttributeIntArg(S, A, 1)),
+        A.getAttributeSpellingListIndex());
+    break;
   default:
     Handled = false;
     return;
@@ -12393,12 +12425,11 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
   assert(getLangOpts().HLSL &&
          "otherwise this is called without checking language first");
 
-  // NOTE: some tests may declare templates.
-  if (DC->isDependentContext()) return true;
+  // If we have a template declaration but haven't enabled templates, error.
+  if (DC->isDependentContext() && !getLangOpts().EnableTemplates) return false;
 
   DeclSpec::SCS storage = D.getDeclSpec().getStorageClassSpec();
   assert(!DC->isClosure() && "otherwise parser accepted closure syntax instead of failing with a syntax error");
-  assert(!DC->isDependentContext() && "otherwise parser accepted a template instead of failing with a syntax error");
 
   bool result = true;
   bool isTypedef = storage == DeclSpec::SCS_typedef;
@@ -12877,7 +12908,8 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
   // Validate that Vulkan specific feature is only used when targeting SPIR-V
   if (!getLangOpts().SPIRV) {
     if (basicKind == ArBasicKind::AR_OBJECT_VK_SUBPASS_INPUT ||
-        basicKind == ArBasicKind::AR_OBJECT_VK_SUBPASS_INPUT_MS) {
+        basicKind == ArBasicKind::AR_OBJECT_VK_SUBPASS_INPUT_MS ||
+        basicKind == ArBasicKind::AR_OBJECT_VK_SPV_INTRINSIC_TYPE) {
       Diag(D.getLocStart(), diag::err_hlsl_vulkan_specific_feature)
           << g_ArBasicTypeNames[basicKind];
       result = false;

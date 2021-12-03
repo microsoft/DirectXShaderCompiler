@@ -1348,6 +1348,8 @@ TEST_F(FileTest, IntrinsicsSpirv) {
   runFileTest("spv.intrinsicDecorate.hlsl", Expect::Success, false);
   runFileTest("spv.intrinsicExecutionMode.hlsl", Expect::Success, false);
   runFileTest("spv.intrinsicStorageClass.hlsl", Expect::Success, false);
+  runFileTest("spv.intrinsicTypeInteger.hlsl");
+  runFileTest("spv.intrinsicTypeRayquery.hlsl", Expect::Success, false);
   runFileTest("spv.intrinsic.reference.error.hlsl", Expect::Failure);
 }
 TEST_F(FileTest, IntrinsicsVkReadClock) {
@@ -1672,6 +1674,10 @@ TEST_F(FileTest, SpirvUserSemanticVS) {
 
 TEST_F(FileTest, SpirvStageIO16bitTypes) {
   runFileTest("spirv.stage-io.16bit.hlsl");
+}
+
+TEST_F(FileTest, SpirvStageIORelaxedPrecisionTypes) {
+  runFileTest("spirv.stage-io.relaxed-precision.hlsl");
 }
 
 TEST_F(FileTest, SpirvInterpolationPS) {

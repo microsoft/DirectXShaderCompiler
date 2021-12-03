@@ -18,9 +18,10 @@
 #include "dxc/HlslIntrinsicOp.h"
 #include "spirv-tools/optimizer.hpp"
 #include "clang/SPIRV/AstTypeProbe.h"
+#include "clang/SPIRV/String.h"
 #include "clang/Sema/Sema.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/StringExtras.h"
-
 #include "InitListHandler.h"
 #include "dxc/DXIL/DxilConstants.h"
 
@@ -622,8 +623,8 @@ SpirvEmitter::getInterfacesForEntryPoint(SpirvFunction *entryPoint) {
   // declIdMapper keeps the mapping between variables with Input or Output
   // storage class and their storage class, we have to rely on
   // declIdMapper.collectStageVars() to collect them.
-  llvm::DenseSet<SpirvVariable *> interfaces;
-  interfaces.insert(stageVars.begin(), stageVars.end());
+  llvm::SetVector<SpirvVariable *> interfaces(stageVars.begin(),
+                                              stageVars.end());
   for (auto *moduleVar : spvBuilder.getModule()->getVariables()) {
     if (moduleVar->getStorageClass() != spv::StorageClass::Input &&
         moduleVar->getStorageClass() != spv::StorageClass::Output) {
@@ -1262,13 +1263,6 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
   // Create all parameters.
   for (uint32_t i = 0; i < decl->getNumParams(); ++i) {
     const ParmVarDecl *paramDecl = decl->getParamDecl(i);
-    if (spvContext.isHS() && decl == patchConstFunc &&
-        hlsl::IsHLSLOutputPatchType(paramDecl->getType())) {
-      // Since the output patch used in hull shaders is translated to
-      // a variable with Output storage class, there is no need
-      // to pass the variable as function parameter in SPIR-V.
-      continue;
-    }
     (void)declIdMapper.createFnParam(paramDecl, i + 1 + isNonStaticMemberFn);
   }
 
@@ -2337,8 +2331,11 @@ SpirvInstruction *SpirvEmitter::doCallExpr(const CallExpr *callExpr) {
     return doCXXMemberCallExpr(memberCall);
 
   auto funcDecl = callExpr->getDirectCallee();
-  if (funcDecl && funcDecl->hasAttr<VKInstructionExtAttr>()) {
-    return processSpvIntrinsicCallExpr(callExpr);
+  if (funcDecl) {
+    if (funcDecl->hasAttr<VKInstructionExtAttr>())
+      return processSpvIntrinsicCallExpr(callExpr);
+    else if(funcDecl->hasAttr<VKTypeDefExtAttr>())
+      return processSpvIntrinsicTypeDef(callExpr);
   }
   // Intrinsic functions such as 'dot' or 'mul'
   if (hlsl::IsIntrinsicOp(funcDecl)) {
@@ -11799,18 +11796,6 @@ bool SpirvEmitter::processHSEntryPointOutputAndPCF(
     return false;
   }
 
-  SpirvInstruction *hullMainOutputPatch = nullptr;
-  // If the patch constant function (PCF) takes the result of the Hull main
-  // entry point, create a temporary function-scope variable and write the
-  // results to it, so it can be passed to the PCF.
-  if (const auto *param = patchConstFuncTakesHullOutputPatch(patchConstFunc)) {
-    hullMainOutputPatch = declIdMapper.createHullMainOutputPatch(
-        param, retType, numOutputControlPoints);
-    auto *tempLocation = spvBuilder.createAccessChain(
-        retType, hullMainOutputPatch, {outputControlPointId}, locEnd);
-    spvBuilder.createStore(tempLocation, retVal, locEnd);
-  }
-
   // Now create a barrier before calling the Patch Constant Function (PCF).
   // Flags are:
   // Execution Barrier scope = Workgroup (2)
@@ -11819,6 +11804,21 @@ bool SpirvEmitter::processHSEntryPointOutputAndPCF(
   spvBuilder.createBarrier(spv::Scope::Invocation,
                            spv::MemorySemanticsMask::MaskNone,
                            spv::Scope::Workgroup, {});
+
+  SpirvInstruction *hullMainOutputPatch = nullptr;
+  // If the patch constant function (PCF) takes the result of the Hull main
+  // entry point, create a temporary function-scope variable and write the
+  // results to it, so it can be passed to the PCF.
+  if (const ParmVarDecl *outputPatchDecl =
+          patchConstFuncTakesHullOutputPatch(patchConstFunc)) {
+    const QualType hullMainRetType = astContext.getConstantArrayType(
+        retType, llvm::APInt(32, numOutputControlPoints),
+        clang::ArrayType::Normal, 0);
+    hullMainOutputPatch =
+        spvBuilder.addFnVar(hullMainRetType, locEnd, "temp.var.hullMainRetVal");
+    declIdMapper.copyHullOutStageVarsToOutputPatch(
+        hullMainOutputPatch, outputPatchDecl, retType, numOutputControlPoints);
+  }
 
   // The PCF should be called only once. Therefore, we check the invocationID,
   // and we only allow ID 0 to call the PCF.
@@ -11867,10 +11867,7 @@ bool SpirvEmitter::processHSEntryPointOutputAndPCF(
     if (hlsl::IsHLSLInputPatchType(param->getType())) {
       pcfParams.push_back(hullMainInputPatch);
     } else if (hlsl::IsHLSLOutputPatchType(param->getType())) {
-      // Since the output patch used in hull shaders is translated to
-      // a variable with Workgroup storage class, there is no need
-      // to pass the variable as function parameter in SPIR-V.
-      continue;
+      pcfParams.push_back(hullMainOutputPatch);
     } else if (hasSemantic(param, hlsl::DXIL::SemanticKind::PrimitiveID)) {
       if (!primitiveId) {
         primitiveId = createParmVarAndInitFromStageInputVar(param);
@@ -12530,7 +12527,7 @@ SpirvEmitter::processSpvIntrinsicCallExpr(const CallExpr *expr) {
       }
       spvArgs.push_back(argInst);
     } else if (param->hasAttr<VKLiteralExtAttr>()) {
-      auto constArg = dyn_cast<SpirvConstantInteger>(argInst);
+      auto constArg = dyn_cast<SpirvConstant>(argInst);
       assert(constArg != nullptr);
       constArg->setLiteral();
       spvArgs.push_back(argInst);
@@ -12599,6 +12596,58 @@ SpirvEmitter::processIntrinsicExecutionMode(const CallExpr *expr) {
   return spvBuilder.addExecutionMode(entryFunction,
                                      static_cast<spv::ExecutionMode>(exeMode),
                                      execModesParams, expr->getExprLoc());
+}
+
+SpirvInstruction *
+SpirvEmitter::processSpvIntrinsicTypeDef(const CallExpr *expr) {
+  auto funcDecl = expr->getDirectCallee();
+  auto typeDefAttr = funcDecl->getAttr<VKTypeDefExtAttr>();
+  llvm::SmallVector<uint32_t, 2> capbilities;
+  llvm::SmallVector<llvm::StringRef, 2> extensions;
+
+  for (auto &attr : funcDecl->getAttrs()) {
+    if (auto capAttr = dyn_cast<VKCapabilityExtAttr>(attr)) {
+      capbilities.push_back(capAttr->getCapability());
+    } else if (auto extAttr = dyn_cast<VKExtensionExtAttr>(attr)) {
+      extensions.push_back(extAttr->getName());
+    }
+  }
+
+  SmallVector<SpvIntrinsicTypeOperand, 3> operands;
+  const auto args = expr->getArgs();
+  for (uint32_t i = 0; i < expr->getNumArgs(); ++i) {
+    auto param = funcDecl->getParamDecl(i);
+    const Expr *arg = args[i]->IgnoreParenLValueCasts();
+    if (param->hasAttr<VKReferenceExtAttr>()) {
+      auto *recType = param->getType()->getAs<RecordType>();
+      if (recType && recType->getDecl()->getName() == "ext_type") {
+        auto typeId = hlsl::GetHLSLResourceTemplateUInt(arg->getType());
+        auto *typeArg = spvContext.getCreatedSpirvIntrinsicType(typeId);
+        operands.emplace_back(typeArg);
+      } else {
+        operands.emplace_back(doExpr(arg));
+      }
+    } else if (param->hasAttr<VKLiteralExtAttr>()) {
+      SpirvInstruction *argInst = doExpr(arg);
+      auto constArg = dyn_cast<SpirvConstant>(argInst);
+      assert(constArg != nullptr);
+      constArg->setLiteral();
+      operands.emplace_back(constArg);
+    } else {
+      operands.emplace_back(loadIfGLValue(arg));
+    }
+  }
+  spvContext.getSpirvIntrinsicType(typeDefAttr->getId(),
+                                   typeDefAttr->getOpcode(), operands);
+
+  // Emit dummy OpNop with no semantic meaning, with possible extension and
+  // capabilities
+  SpirvInstruction *retVal = spvBuilder.createSpirvIntrInstExt(
+      static_cast<unsigned>(spv::Op::OpNop), QualType(), {}, extensions, {},
+      capbilities, expr->getExprLoc());
+  retVal->setRValue();
+
+  return retVal;
 }
 
 bool SpirvEmitter::spirvToolsValidate(std::vector<uint32_t> *mod,
