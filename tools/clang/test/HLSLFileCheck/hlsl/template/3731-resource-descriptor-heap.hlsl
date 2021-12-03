@@ -23,7 +23,7 @@ void main() {
 // CHECK-NEXT: ImplicitCastExpr 0x{{[0-9a-fA-F]+}} <col:29> 'const .Resource' lvalue <NoOp>
 // CHECK-NEXT: DeclRefExpr 0x{{[0-9a-fA-F]+}} <col:29> '.Resource' lvalue Var 0x{{[0-9a-fA-F]+}} 'ResourceDescriptorHeap' '.Resource'
 // CHECK-NEXT: ImplicitCastExpr 0x{{[0-9a-fA-F]+}} <col:52> 'uint':'unsigned int' <LValueToRValue>
-// CHECK-NEXT: MemberExpr 0x{{[0-9a-fA-F]+}} <col:52> 'uint':'unsigned int' lvalue ->handle
+// CHECK-NEXT: MemberExpr 0x{{[0-9a-fA-F]+}} <col:52> 'uint':'unsigned int' lvalue .handle
 // CHECK-NEXT: CXXThisExpr 0x{{[0-9a-fA-F]+}} <col:52> 'SimpleBuffer
 
 // CHECK:      CXXOperatorCallExpr 0x{{[0-9a-fA-F]+}} <col:29, col:58> 'const .Resource'
@@ -32,5 +32,5 @@ void main() {
 // CHECK-NEXT: ImplicitCastExpr 0x{{[0-9a-fA-F]+}} <col:29> 'const .Resource' lvalue <NoOp>
 // CHECK-NEXT: DeclRefExpr 0x{{[0-9a-fA-F]+}} <col:29> '.Resource' lvalue Var 0x{{[0-9a-fA-F]+}} 'ResourceDescriptorHeap' '.Resource'
 // CHECK-NEXT: ImplicitCastExpr 0x{{[0-9a-fA-F]+}} <col:52> 'uint':'unsigned int' <LValueToRValue>
-// CHECK-NEXT: MemberExpr 0x{{[0-9a-fA-F]+}} <col:52> 'uint':'unsigned int' lvalue ->handle
+// CHECK-NEXT: MemberExpr 0x{{[0-9a-fA-F]+}} <col:52> 'uint':'unsigned int' lvalue .handle
 // CHECK-NEXT: CXXThisExpr 0x{{[0-9a-fA-F]+}} <col:52> 'SimpleBuffer
