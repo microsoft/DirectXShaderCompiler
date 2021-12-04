@@ -2986,8 +2986,12 @@ patch constant function. This would include information about each of the ``N``
 vertices that are input to the tessellation control shader.
 
 OutputPatch is an array containing ``N`` elements (where ``N`` is the number of
-output vertices). Each element of the array contains information about an
-output vertex. OutputPatch may also be passed to the patch constant function.
+output vertices). Each element of the array is the hull shader output for each
+output vertex. For example, each element of ``OutputPatch<HSOutput, 3>`` is each
+output value of the hull shader function for each ``SV_OutputControlPointID``.
+It is shared between threads i.e., in the patch constant function, threads for
+the same patch must see the same values for the elements of
+``OutputPatch<HSOutput, 3>``.
 
 The SPIR-V ``InvocationID`` (``SV_OutputControlPointID`` in HLSL) is used to index
 into the InputPatch and OutputPatch arrays to read/write information for the given
@@ -3009,7 +3013,11 @@ As mentioned above, the patch constant function is to be invoked only once per p
 As a result, in the SPIR-V module, the `entry function wrapper`_ will first invoke the
 main entry function, and then use an ``OpControlBarrier`` to wait for all vertex
 processing to finish. After the barrier, *only* the first thread (with InvocationID of 0)
-will invoke the patch constant function.
+will invoke the patch constant function. Since the first thread has to see the
+OutputPatch that contains output of the hull shader function for other threads,
+we have to use the output stage variable (with Output storage class) of the
+hull shader function for OutputPatch that can be an input to the patch constant
+function.
 
 The information resulting from the patch constant function will also be returned
 as stage output variables. The output struct of the patch constant function must include
