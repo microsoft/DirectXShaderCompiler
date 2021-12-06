@@ -490,7 +490,7 @@ def setprivate : JoinedOrSeparate<["-", "/"], "setprivate">, Flags<[DriverOption
 def getprivate : JoinedOrSeparate<["-", "/"], "getprivate">, Flags<[DriverOption]>, MetaVarName<"<file>">, Group<hlslutil_Group>,
   HelpText<"Save private data from shader blob">;
 
-def nologo : Flag<["-", "/"], "nologo">, Group<hlslcore_Group>, Flags<[DriverOption]>,
+def nologo : Flag<["-", "/"], "nologo">, Group<hlslcore_Group>, Flags<[DriverOption, HelpHidden]>,
   HelpText<"Suppress copyright message">;
 
 //////////////////////////////////////////////////////////////////////////////
