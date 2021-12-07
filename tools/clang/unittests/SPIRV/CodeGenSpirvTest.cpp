@@ -228,9 +228,6 @@ TEST_F(FileTest, VarVFACEInterface) {
   runFileTest("var.vface.interface.hlsl", Expect::Warning);
 }
 
-TEST_F(FileTest, OperatorOverloadingAssign) {
-  runFileTest("operator.overloading.assign.hlsl");
-}
 TEST_F(FileTest, OperatorOverloadingCall) {
   runFileTest("operator.overloading.call.hlsl");
 }

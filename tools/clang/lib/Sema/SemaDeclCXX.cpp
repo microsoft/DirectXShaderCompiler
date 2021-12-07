@@ -11,6 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "clang/Basic/OperatorKinds.h"
 #include "clang/Sema/SemaInternal.h"
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
@@ -11638,7 +11639,10 @@ bool Sema::CheckOverloadedOperatorDeclaration(FunctionDecl *FnDecl) {
   // HLSL Change Starts
   if (LangOpts.HLSL) {
     if (Op == OO_Delete || Op == OO_Array_Delete || Op == OO_New ||
-        Op == OO_Array_New) {
+        Op == OO_Array_New || Op == OO_Equal ||
+        (Op >= OO_PlusEqual && Op <= OO_GreaterGreaterEqual) ||
+        Op == OO_PlusPlus || Op == OO_MinusMinus || Op == OO_ArrowStar ||
+        Op == OO_Arrow) {
       return Diag(FnDecl->getLocation(),
                   diag::err_hlsl_overloading_new_delete_operator)
              << FnDecl->getDeclName();
