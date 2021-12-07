@@ -5,8 +5,8 @@
 struct S {
     float a;
 
-    void operator=(float x) {
-        a = x;
+    float operator-(float x) {
+        return a - x;
     }
 
     float operator+(float x) {
@@ -17,20 +17,18 @@ struct S {
 struct Number {
     int n;
 
-    void operator=(float x) {
-        n = x;
+    int operator+(float x) {
+        return n + x;
     }
 };
 
 int main(float4 pos: SV_Position) : SV_Target {
-    S s1;
-    S s2;
-    s1 = s2;
-    s1 = 0.2;
-    s1 = s1 + 0.1;
+    S s1 = {0.2};
+    S s2 = {0.2};
+    float f = s1 + 0.1;
 
     Number a = {pos.x};
     Number b = {pos.y};
-    a = pos.x;
-    return a.n;
+    a.n = b + pos.x;
+    return b + pos.y;
 }
