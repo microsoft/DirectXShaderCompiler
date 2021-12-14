@@ -17,7 +17,9 @@ if (${ENABLE_SPIRV_CODEGEN})
 
   if (NOT DEFINED SPIRV-Headers_SOURCE_DIR)
     if (IS_DIRECTORY ${DXC_SPIRV_HEADERS_DIR})
-      add_subdirectory(${DXC_SPIRV_HEADERS_DIR} EXCLUDE_FROM_ALL)
+      add_subdirectory(${DXC_SPIRV_HEADERS_DIR}
+          "${CMAKE_BINARY_DIR}/external/SPIRV-Headers"
+          EXCLUDE_FROM_ALL)
     endif()
   endif()
   if (NOT DEFINED SPIRV-Headers_SOURCE_DIR)
@@ -33,7 +35,9 @@ if (${ENABLE_SPIRV_CODEGEN})
       if (NOT HLSL_ENABLE_DEBUG_ITERATORS)
         set(SPIRV_TOOLS_EXTRA_DEFINITIONS /D_ITERATOR_DEBUG_LEVEL=0)
       endif()
-      add_subdirectory(${DXC_SPIRV_TOOLS_DIR} EXCLUDE_FROM_ALL)
+      add_subdirectory(${DXC_SPIRV_TOOLS_DIR}
+          "${CMAKE_BINARY_DIR}/external/SPIRV-Tools"
+          EXCLUDE_FROM_ALL)
     endif()
   endif()
   if (NOT TARGET SPIRV-Tools)
