@@ -10,6 +10,7 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "clang/Basic/Diagnostic.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/DenseMap.h"
 #include "clang/AST/ASTContext.h"
@@ -30,6 +31,7 @@
 #include "clang/Sema/Template.h"
 #include "clang/Sema/TemplateDeduction.h"
 #include "clang/Sema/SemaHLSL.h"
+#include "llvm/Support/raw_ostream.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/WinAdapter.h"
@@ -9466,7 +9468,20 @@ clang::QualType HLSLExternalSource::CheckVectorConditional(
   if (m_sema->getLangOpts().EnableShortCircuit) {
     // Only allow scalar.
     if (condObjectKind == AR_TOBJ_VECTOR || condObjectKind == AR_TOBJ_MATRIX) {
-      m_sema->Diag(QuestionLoc, diag::err_hlsl_ternary_scalar);
+      SmallVector<char, 256> Buff;
+      llvm::raw_svector_ostream OS(Buff);
+      PrintingPolicy PP(m_sema->getLangOpts());
+      OS << "select(";
+      Cond.get()->printPretty(OS, nullptr, PP);
+      OS << ", ";
+      LHS.get()->printPretty(OS, nullptr, PP);
+      OS << ", ";
+      RHS.get()->printPretty(OS, nullptr, PP);
+      OS << ")";
+      SourceRange FullRange =
+          SourceRange(Cond.get()->getLocStart(), RHS.get()->getLocEnd());
+      m_sema->Diag(QuestionLoc, diag::err_hlsl_ternary_scalar)
+          << FixItHint::CreateReplacement(FullRange, OS.str());
       return QualType();
     }
   }

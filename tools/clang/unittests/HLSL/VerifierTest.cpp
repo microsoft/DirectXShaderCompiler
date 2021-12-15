@@ -375,6 +375,10 @@ TEST_F(VerifierTest, RunVectorConditional) {
   CheckVerifiesHLSL(L"vector-conditional.hlsl");
 }
 
+TEST_F(VerifierTest, RunVectorSelect) {
+  CheckVerifiesHLSL(L"vector-select.hlsl");
+}
+
 TEST_F(VerifierTest, RunUint4Add3) {
   CheckVerifiesHLSL(L"uint4_add3.hlsl");
 }
