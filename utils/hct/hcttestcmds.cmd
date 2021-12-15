@@ -127,7 +127,7 @@ call :check_file log find dump_dependency.hlsl find dependency0.h find dependenc
 call :run dxc.exe /T ps_6_0 "%testfiles%\dump_dependency.hlsl" /MFdeps
 call :check_file deps find dump_dependency.hlsl find dependency0.h find dependency1.h find dependency2.h find dependency3.h find dependency4.h find dependency5.h del
 call :run dxc.exe /T ps_6_0 "%testfiles%\dump_dependency.hlsl" /MD
-call :check_file "%testfiles%\dump_dependency.d" find dump_dependency.hlsl find dependency0.h find dependency1.h find dependency2.h find dependency3.h find dependency4.h find dependency5.h del
+call :check_file -absolute_path "%testfiles%\dump_dependency.d" find dump_dependency.hlsl find dependency0.h find dependency1.h find dependency2.h find dependency3.h find dependency4.h find dependency5.h del
 if %Failed% neq 0 goto :failed
 
 set testname=ast-dump
@@ -486,6 +486,9 @@ rem Check that file exists and find text
 rem echo check_file %*
 if "%1"=="log" (
   set check_file_pattern=%OutputLog%
+) else if "%1"=="-absolute_path" (
+  shift /1
+  set check_file_pattern=%1
 ) else (
   set check_file_pattern=%CD%\%1
 )
