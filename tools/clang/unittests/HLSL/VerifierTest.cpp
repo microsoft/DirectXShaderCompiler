@@ -153,7 +153,7 @@ public:
       }
       VERIFY_IS_TRUE(result.ParseSucceeded());
     }
-    ASSERT_TRUE(FoundRun);
+    ASSERT_EQ(true, FoundRun);
   }
 
   void CheckVerifiesHLSL(LPCWSTR name) {
