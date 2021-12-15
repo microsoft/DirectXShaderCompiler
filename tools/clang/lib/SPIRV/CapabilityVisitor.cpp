@@ -214,21 +214,13 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
       addCapabilityForType(field.type, loc, sc);
   }
   // AccelerationStructureTypeNV type
+  // Note: Because AccelerationStructureType can be provided by both
+  // SPV_KHR_ray_query and SPV_{NV,KHR}_ray_tracing extensions, this logic will
+  // result in SPV_KHR_ray_query being unnecessarily required in some cases. If
+  // this is an issue in future (more devices are identified that support
+  // ray_tracing but not ray_query), then we should consider addressing this
+  // interaction with a spirv-opt pass instead.
   else if (isa<AccelerationStructureTypeNV>(type)) {
-    if (featureManager.isExtensionEnabled(Extension::NV_ray_tracing)) {
-      addCapability(spv::Capability::RayTracingNV);
-      addExtension(Extension::NV_ray_tracing, "SPV_NV_ray_tracing", {});
-    } else {
-      // KHR_ray_tracing extension requires Vulkan 1.1 with VK_KHR_spirv_1_4
-      // extention or Vulkan 1.2.
-      featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1_SPIRV_1_4,
-                                      "Raytracing", {});
-      addCapability(spv::Capability::RayTracingKHR);
-      addExtension(Extension::KHR_ray_tracing, "SPV_KHR_ray_tracing", {});
-    }
-  }
-  // RayQueryTypeKHR type
-  else if (isa<RayQueryTypeKHR>(type)) {
     addCapability(spv::Capability::RayQueryKHR);
     addExtension(Extension::KHR_ray_query, "SPV_KHR_ray_query", {});
   }
@@ -530,11 +522,28 @@ bool CapabilityVisitor::visitInstruction(SpirvInstruction *instr) {
   case spv::Op::OpRayQueryInitializeKHR: {
     auto rayQueryInst = dyn_cast<SpirvRayQueryOpKHR>(instr);
     if (rayQueryInst && rayQueryInst->hasCullFlags()) {
-      addCapability(
-          spv::Capability::RayTraversalPrimitiveCullingKHR);
+      addCapability(spv::Capability::RayTraversalPrimitiveCullingKHR);
     }
 
     break;
+  }
+
+  case spv::Op::OpReportIntersectionKHR:
+  case spv::Op::OpIgnoreIntersectionKHR:
+  case spv::Op::OpTerminateRayKHR:
+  case spv::Op::OpTraceRayKHR:
+  case spv::Op::OpExecuteCallableKHR: {
+    if (featureManager.isExtensionEnabled(Extension::NV_ray_tracing)) {
+      addCapability(spv::Capability::RayTracingNV);
+      addExtension(Extension::NV_ray_tracing, "SPV_NV_ray_tracing", {});
+    } else {
+      // KHR_ray_tracing extension requires Vulkan 1.1 with VK_KHR_spirv_1_4
+      // extention or Vulkan 1.2.
+      featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1_SPIRV_1_4,
+                                      "Raytracing", {});
+      addCapability(spv::Capability::RayTracingKHR);
+      addExtension(Extension::KHR_ray_tracing, "SPV_KHR_ray_tracing", {});
+    }
   }
 
   default:
