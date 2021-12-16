@@ -814,7 +814,7 @@ VariableRegisters::VariableRegisters(
     llvm::Module *M)
   : m_dbgLoc(DbgValue->getDebugLoc())
   , m_Variable(Variable)
-  , m_B(DbgValue)
+  , m_B(DbgValue->getParent()->getParent()->getEntryBlock().begin())
   , m_DbgDeclareFn(llvm::Intrinsic::getDeclaration(
       M, llvm::Intrinsic::dbg_declare))
 {
