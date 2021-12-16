@@ -1727,7 +1727,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   else {
     try {
       Opts.HLSLVersion = std::stoi(std::string(ver));
-      if (Opts.HLSLVersion < 2015 || Opts.HLSLVersion > 2018) {
+      if (Opts.HLSLVersion < 2015 || Opts.HLSLVersion > 2021) {
        Diags.Report(diag::err_drv_invalid_value)
         << Args.getLastArg(OPT_hlsl_version)->getAsString(Args)
         << ver;
@@ -1759,6 +1759,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
     Opts.EnableTemplates = true;
     // Determine overload matching based on UDT names, not just types
     Opts.StrictUDTCasting = true;
+    // Experimental option to enable short-circuiting operators
+    Opts.EnableShortCircuit = true;
     // Enable bitfield support
     Opts.EnableBitfields = true;
 
