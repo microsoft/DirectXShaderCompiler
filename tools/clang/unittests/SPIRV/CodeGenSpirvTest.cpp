@@ -2987,5 +2987,26 @@ TEST_F(FileTest, ShaderDebugInfoSourceContinued) {
 TEST_F(FileTest, ShaderDebugInfoLine) {
   runFileTest("shader.debug.line.hlsl");
 }
+TEST_F(FileTest, ShaderDebugInfoLineBranch) {
+  runFileTest("shader.debug.line.branch.hlsl");
+}
+TEST_F(FileTest, ShaderDebugInfoLineComposite) {
+  runFileTest("shader.debug.line.composite.hlsl");
+}
+TEST_F(FileTest, ShaderDebugInfoLineInclude) {
+  runFileTest("shader.debug.line.include.hlsl");
+}
+TEST_F(FileTest, ShaderDebugInfoLineIntrinsic) {
+  runFileTest("shader.debug.line.intrinsic.hlsl");
+}
+TEST_F(FileTest, ShaderDebugInfoLineOperators) {
+  runFileTest("shader.debug.line.operators.hlsl");
+}
+TEST_F(FileTest, ShaderDebugInfoLinePrecedence) {
+  runFileTest("shader.debug.line.precedence.hlsl");
+}
+TEST_F(FileTest, ShaderDebugInfoLineVariables) {
+  runFileTest("shader.debug.line.variables.hlsl");
+}
 
 } // namespace
