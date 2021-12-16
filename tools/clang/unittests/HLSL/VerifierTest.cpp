@@ -92,6 +92,7 @@ public:
   TEST_METHOD(RunWave)
   TEST_METHOD(RunBinopDims)
   TEST_METHOD(RunBitfields)
+  TEST_METHOD(RunVectorSelect)
 
   void CheckVerifies(const wchar_t* path) {
     WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
