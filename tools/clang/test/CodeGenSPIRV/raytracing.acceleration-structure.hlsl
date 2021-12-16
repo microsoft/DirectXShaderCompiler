@@ -1,6 +1,7 @@
 // RUN: %dxc -E main -T cs_6_4 -fspv-target-env=vulkan1.2
 
-// CHECK: OpCapability RayTracingKHR
+// CHECK: OpCapability RayQueryKHR
+// CHECK: OpExtension "SPV_KHR_ray_query"
 
 // CHECK: %accelerationStructureNV = OpTypeAccelerationStructureKHR
 
