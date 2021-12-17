@@ -27,7 +27,11 @@ macro(find_taef_libraries targetplatform)
   set(TAEF_COMMON_LIBRARY ${TAEF_LIB_Te.Common.lib})
 endmacro(find_taef_libraries)
 
-find_taef_libraries(${CMAKE_C_COMPILER_ARCHITECTURE_ID})
+if(CMAKE_C_COMPILER_ARCHITECTURE_ID STREQUAL "ARM64EC")
+  find_taef_libraries(arm64)
+else()
+  find_taef_libraries(${CMAKE_C_COMPILER_ARCHITECTURE_ID})
+endif()
 
 set(TAEF_INCLUDE_DIRS ${TAEF_INCLUDE_DIR})
 
