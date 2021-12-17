@@ -4,10 +4,9 @@
 // RUN: %dxc -E main -T ps_6_0 -HV 2021 -DERANGE2 %s | FileCheck %s -check-prefix=ERANGE2
 // RUN: %dxc -E main -T ps_6_0 -HV 2021 -DESCALAR %s | FileCheck %s -check-prefix=ESCALAR
 // RUN: %dxc -E main -T ps_6_0 -HV 2021 -DEPARTIAL %s | FileCheck %s -check-prefix=EPARTIAL
-// RUN: %dxc -E main -T ps_6_0 -HV 2021 -DWRAPCB=1 %s | FileCheck -check-prefixes=CHECK,BUFFER %s
 
+// RUN: %dxc -E main -T ps_6_0 -HV 2021 -DWRAPCB=1 %s | FileCheck -check-prefixes=CHECK,WRAPPER %s
 // RUN: %dxc -E main -T ps_6_0 -HV 2021 -DWRAPCB=2 %s | FileCheck -check-prefixes=CHECK,WRAPPER %s
-// RUN: %dxc -E main -T ps_6_0 -HV 2021 -DWRAPCB=3 %s | FileCheck -check-prefixes=CHECK,WRAPPER %s
 
 // BUFFER: %CB0 = type { %"struct.Wrapper<Foo>" }
 // BUFFER: %"struct.Wrapper<Foo>" = type { %struct.Foo }
@@ -32,8 +31,6 @@ struct Wrapper {
 template<typename T>
 struct WrappedCB {
 #if WRAPCB == 1
-  typedef ConstantBuffer< Wrapper<T> > Type;
-#elif WRAPCB == 2
   ConstantBuffer< Wrapper<T> > cb;
 #else
   ConstantBuffer< T > cb;
@@ -48,9 +45,7 @@ struct Foo {
 Wrapper<Foo> wrappedFoo;
 #endif
 
-#if WRAPCB == 1
-  WrappedCB<Foo>::Type CB0 : register(b0);
-#elif WRAPCB == 2 || WRAPCB == 3
+#ifdef WRAPCB
   WrappedCB<Foo> CB0 : register(b0);
 #else
   ConstantBuffer< Wrapper<Foo> > CB0 : register(b0);
@@ -88,10 +83,8 @@ float2 main(float4 a:A) : SV_Target {
   increment(Z);
 
 #if WRAPCB == 1
-  float f = CB0.value.f;
-#elif WRAPCB == 2
   float f = CB0.cb.value.f;
-#elif WRAPCB == 3
+#elif WRAPCB == 2
   float f = CB0.cb.f;
 #else
   float f = CB0.value.f;
