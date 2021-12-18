@@ -19,7 +19,7 @@ void main(uint3 dispatchid : SV_DispatchThreadID) {
   DataOut[dispatchid.x] = d;
 }
 
-// CHECK:  %[[Alloca:[0-9]]] = alloca float, !dx.precise !13
+// CHECK:  %[[Alloca:.*]] = alloca float, !dx.precise !13
 // CHECK: %[[Buffer:[0-9]]] = call %dx.types.ResRet.f32 @dx.op.bufferLoad.f32
 // CHECK: %[[Value:[0-9]]] = extractvalue %dx.types.ResRet.f32 %[[Buffer]], 0
 // CHECK: store float %[[Value]], float* %[[Alloca]], align 4, !noalias !14
