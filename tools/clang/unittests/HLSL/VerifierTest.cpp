@@ -94,6 +94,7 @@ public:
   TEST_METHOD(RunBitfields)
   TEST_METHOD(RunVectorSelect)
   TEST_METHOD(RunArrayConstAssign)
+  TEST_METHOD(RunInputPatchConst)
 
   void CheckVerifies(const wchar_t* path) {
     WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
@@ -403,4 +404,8 @@ TEST_F(VerifierTest, RunBitfields) {
 
 TEST_F(VerifierTest, RunArrayConstAssign) {
   CheckVerifiesHLSL(L"array-const-assign.hlsl");
+}
+
+TEST_F(VerifierTest, RunInputPatchConst) {
+  CheckVerifiesHLSL(L"InputPatch-const.hlsl");
 }
