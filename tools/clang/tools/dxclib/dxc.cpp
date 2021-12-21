@@ -264,6 +264,10 @@ static void WriteDxcExtraOuputs(IDxcResult *pResult) {
   }
 }
 
+std::string getDependencyOutputFileName(llvm::StringRef inputFileName) {
+  return inputFileName.substr(0, inputFileName.rfind('.')).str() + ".d";
+}
+
 // This function is called either after the compilation is done or /dumpbin option is provided
 // Performing options that are used to process dxil container.
 int DxcContext::ActOnBlob(IDxcBlob *pBlob) {
@@ -272,6 +276,23 @@ int DxcContext::ActOnBlob(IDxcBlob *pBlob) {
 
 int DxcContext::ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob, LPCWSTR pDebugBlobName) {
   int retVal = 0;
+  if (m_Opts.DumpDependencies) {
+    if (!m_Opts.OutputFileForDependencies.empty()) {
+      CComPtr<IDxcBlob> pResult;
+      UpdatePart(pBlob, &pResult);
+      WriteBlobToFile(pResult, m_Opts.OutputFileForDependencies,
+                      m_Opts.DefaultTextCodePage);
+    } else if (m_Opts.WriteDependencies) {
+      CComPtr<IDxcBlob> pResult;
+      UpdatePart(pBlob, &pResult);
+      WriteBlobToFile(pResult, getDependencyOutputFileName(m_Opts.InputFile),
+                      m_Opts.DefaultTextCodePage);
+    } else {
+      WriteBlobToConsole(pBlob);
+    }
+    return retVal;
+  }
+
   // Text output.
   if (m_Opts.AstDump || m_Opts.OptDump) {
     WriteBlobToConsole(pBlob);
@@ -814,7 +835,8 @@ int DxcContext::Compile() {
 
   HRESULT status;
   IFT(pCompileResult->GetStatus(&status));
-  if (SUCCEEDED(status) || m_Opts.AstDump || m_Opts.OptDump) {
+  if (SUCCEEDED(status) || m_Opts.AstDump || m_Opts.OptDump ||
+      m_Opts.DumpDependencies) {
     CComPtr<IDxcBlob> pProgram;
     IFT(pCompileResult->GetResult(&pProgram));
     if (pProgram.p != nullptr) {

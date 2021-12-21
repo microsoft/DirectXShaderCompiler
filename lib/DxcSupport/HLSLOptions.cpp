@@ -554,6 +554,13 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.UseHexLiterals = Args.hasFlag(OPT_Lx, OPT_INVALID, false);
   opts.Preprocess = Args.getLastArgValue(OPT_P);
   opts.AstDump = Args.hasFlag(OPT_ast_dump, OPT_INVALID, false);
+  opts.WriteDependencies =
+      Args.hasFlag(OPT_write_dependencies, OPT_INVALID, false);
+  opts.OutputFileForDependencies =
+      Args.getLastArgValue(OPT_write_dependencies_to);
+  opts.DumpDependencies =
+      Args.hasFlag(OPT_dump_dependencies, OPT_INVALID, false) ||
+      opts.WriteDependencies || !opts.OutputFileForDependencies.empty();
   opts.CodeGenHighLevel = Args.hasFlag(OPT_fcgl, OPT_INVALID, false);
   opts.AllowPreserveValues = Args.hasFlag(OPT_preserve_intermediate_values, OPT_INVALID, false);
   opts.DebugInfo = Args.hasFlag(OPT__SLASH_Zi, OPT_INVALID, false);
@@ -814,7 +821,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   }
 
   if (opts.DumpBin) {
-    if (opts.DisplayIncludeProcess || opts.AstDump) {
+    if (opts.DisplayIncludeProcess || opts.AstDump || opts.DumpDependencies) {
       errors << "Cannot perform actions related to sources from a binary file.";
       return 1;
     }
