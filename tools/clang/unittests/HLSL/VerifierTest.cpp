@@ -92,6 +92,7 @@ public:
   TEST_METHOD(RunWave)
   TEST_METHOD(RunBinopDims)
   TEST_METHOD(RunBitfields)
+  TEST_METHOD(RunVectorSelect)
 
   void CheckVerifies(const wchar_t* path) {
     WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
@@ -373,6 +374,10 @@ TEST_F(VerifierTest, RunEffectsSyntax) {
 
 TEST_F(VerifierTest, RunVectorConditional) {
   CheckVerifiesHLSL(L"vector-conditional.hlsl");
+}
+
+TEST_F(VerifierTest, RunVectorSelect) {
+  CheckVerifiesHLSL(L"vector-select.hlsl");
 }
 
 TEST_F(VerifierTest, RunUint4Add3) {
