@@ -7751,7 +7751,7 @@ def err_hlsl_out_indices_array_incorrect_access: Error<
 def err_hlsl_logical_binop_scalar : Error<
    "operands for short-circuiting logical binary operator must be scalar">;
 def err_hlsl_ternary_scalar : Error<
-   "condition for short-circuiting ternary operator must be scalar">;
+   "condition for short-circuiting ternary operator must be scalar, for non-scalar types use 'select'">;
 // HLSL Change Ends
 
 // SPIRV Change Starts
