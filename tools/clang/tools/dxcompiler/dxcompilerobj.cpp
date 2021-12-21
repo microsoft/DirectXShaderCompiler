@@ -704,7 +704,8 @@ public:
       // first for such case. Then we invoke the compilation process over the
       // preprocessed source code, so that line numbers are consistent with the
       // embedded source code.
-      if (!isPreprocessing && opts.GenSPIRV && opts.DebugInfo) {
+      if (!isPreprocessing && opts.GenSPIRV && opts.DebugInfo &&
+          !opts.SpirvOptions.debugInfoVulkan) {
         CComPtr<IDxcResult> pSrcCodeResult;
         std::vector<LPCWSTR> PreprocessArgs;
         PreprocessArgs.reserve(argCount + 1);
