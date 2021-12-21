@@ -121,6 +121,15 @@ call :check_file log find-not "i32 6, !\"g\""
 call :check_file smoke.hlsl.strip del
 if %Failed% neq 0 goto :failed
 
+set testname=Dump dependency files
+call :run dxc.exe /T ps_6_0 "%testfiles%\dump_dependency.hlsl" /M
+call :check_file log find dump_dependency.hlsl find dependency0.h find dependency1.h find dependency2.h find dependency3.h find dependency4.h find dependency5.h del
+call :run dxc.exe /T ps_6_0 "%testfiles%\dump_dependency.hlsl" /MFdeps
+call :check_file deps find dump_dependency.hlsl find dependency0.h find dependency1.h find dependency2.h find dependency3.h find dependency4.h find dependency5.h del
+call :run dxc.exe /T ps_6_0 "%testfiles%\dump_dependency.hlsl" /MD
+call :check_file "%testfiles%\dump_dependency.d" find dump_dependency.hlsl find dependency0.h find dependency1.h find dependency2.h find dependency3.h find dependency4.h find dependency5.h del
+if %Failed% neq 0 goto :failed
+
 set testname=ast-dump
 call :run dxc.exe /T ps_6_0 "%testfiles%\smoke.hlsl" /ast-dump
 call :check_file log find TranslationUnitDecl
@@ -479,6 +488,9 @@ if "%1"=="log" (
   set check_file_pattern=%OutputLog%
 ) else (
   set check_file_pattern=%CD%\%1
+  if not exist !check_file_pattern! (
+    set check_file_pattern=%1
+  )
 )
 if not exist %check_file_pattern% (
   if !Failed! equ 0 (
