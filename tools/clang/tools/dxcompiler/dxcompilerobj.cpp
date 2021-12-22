@@ -704,7 +704,8 @@ public:
       // first for such case. Then we invoke the compilation process over the
       // preprocessed source code, so that line numbers are consistent with the
       // embedded source code.
-      if (!isPreprocessing && opts.GenSPIRV && opts.DebugInfo) {
+      if (!isPreprocessing && opts.GenSPIRV && opts.DebugInfo &&
+          !opts.SpirvOptions.debugInfoVulkan) {
         CComPtr<IDxcResult> pSrcCodeResult;
         std::vector<LPCWSTR> PreprocessArgs;
         PreprocessArgs.reserve(argCount + 1);
@@ -737,7 +738,7 @@ public:
       IFT(pOutputStream.QueryInterface(&pOutputBlob));
 
       primaryOutput.kind = DXC_OUT_OBJECT;
-      if (opts.AstDump || opts.OptDump)
+      if (opts.AstDump || opts.OptDump || opts.DumpDependencies)
         primaryOutput.kind = DXC_OUT_TEXT;
       else if (isPreprocessing)
         primaryOutput.kind = DXC_OUT_HLSL;
@@ -896,7 +897,9 @@ public:
 
         // NOTE: this calls the validation component from dxil.dll; the built-in
         // validator can be used as a fallback.
-        produceFullContainer = !opts.CodeGenHighLevel && !opts.AstDump && !opts.OptDump && rootSigMajor == 0;
+        produceFullContainer = !opts.CodeGenHighLevel && !opts.AstDump &&
+                               !opts.OptDump && rootSigMajor == 0 &&
+                               !opts.DumpDependencies;
         needsValidation = produceFullContainer && !opts.DisableValidation;
 
         if (compiler.getCodeGenOpts().HLSLProfile == "lib_6_x") {
@@ -930,16 +933,38 @@ public:
         dumpAction.Execute();
         dumpAction.EndSourceFile();
         outStream.flush();
-      }
-      else if (opts.OptDump) {
+      } else if (opts.DumpDependencies) {
+        auto dependencyCollector = std::make_shared<DependencyCollector>();
+        compiler.addDependencyCollector(dependencyCollector);
+        compiler.createPreprocessor(clang::TranslationUnitKind::TU_Complete);
+
+        clang::PreprocessOnlyAction preprocessAction;
+        FrontendInputFile file(pUtf8SourceName, IK_HLSL);
+        preprocessAction.BeginSourceFile(compiler, file);
+        preprocessAction.Execute();
+        preprocessAction.EndSourceFile();
+
+        outStream << (opts.OutputObject.empty() ? opts.InputFile
+                                                : opts.OutputObject);
+        bool firstDependency = true;
+        for (auto &dependency : dependencyCollector->getDependencies()) {
+          if (firstDependency) {
+            outStream << ": " << dependency;
+            firstDependency = false;
+            continue;
+          }
+          outStream << " \\\n " << dependency;
+        }
+        outStream << "\n";
+        outStream.flush();
+      } else if (opts.OptDump) {
         EmitOptDumpAction action(&llvmContext);
         FrontendInputFile file(pUtf8SourceName, IK_HLSL);
         action.BeginSourceFile(compiler, file);
         action.Execute();
         action.EndSourceFile();
         outStream.flush();
-      }
-      else if (rootSigMajor) {
+      } else if (rootSigMajor) {
         HLSLRootSignatureAction action(
             compiler.getCodeGenOpts().HLSLEntryFunction, rootSigMajor,
             rootSigMinor);

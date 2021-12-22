@@ -3,7 +3,7 @@
 // CHECK:      [[ext:%\d+]] = OpExtInstImport "NonSemantic.Shader.DebugInfo.100"
 // CHECK:      [[src:%\d+]] = OpExtInst %void [[ext]] DebugSource {{%\d+}}
 
-// CHECK:      DebugLine [[src]] %uint_31 %uint_31 %uint_57 %uint_61
+// CHECK:      DebugLine [[src]] %uint_31 %uint_31 %uint_57 %uint_78
 // CHECK-NEXT: OpAccessChain %_ptr_Function_v2float %i %int_0
 
 // CHECK:      DebugLine [[src]] %uint_31 %uint_31 %uint_26 %uint_81

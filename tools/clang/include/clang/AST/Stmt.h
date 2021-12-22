@@ -923,6 +923,7 @@ class IfStmt : public Stmt {
 
   SourceLocation IfLoc;
   SourceLocation ElseLoc;
+  SourceLocation MergeLoc;
 
 public:
   IfStmt(const ASTContext &C, SourceLocation IL, VarDecl *var, Expr *cond,
@@ -964,6 +965,8 @@ public:
   void setIfLoc(SourceLocation L) { IfLoc = L; }
   SourceLocation getElseLoc() const { return ElseLoc; }
   void setElseLoc(SourceLocation L) { ElseLoc = L; }
+  SourceLocation getMergeLoc() const { return MergeLoc; }
+  void setMergeLoc(SourceLocation L) { MergeLoc = L; }
 
   SourceLocation getLocStart() const LLVM_READONLY { return IfLoc; }
   SourceLocation getLocEnd() const LLVM_READONLY {

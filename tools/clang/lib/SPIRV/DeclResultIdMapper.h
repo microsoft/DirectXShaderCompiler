@@ -468,9 +468,12 @@ public:
   };
 
   /// Raytracing specific functions
-  /// \brief Creates a ShaderRecordBufferEXT or ShaderRecordBufferNV block from the given decl.
-  SpirvVariable *createShaderRecordBuffer(const VarDecl *decl, ContextUsageKind kind);
-  SpirvVariable *createShaderRecordBuffer(const HLSLBufferDecl *decl, ContextUsageKind kind);
+  /// \brief Creates a ShaderRecordBufferEXT or ShaderRecordBufferNV block from
+  /// the given decl.
+  SpirvVariable *createShaderRecordBuffer(const VarDecl *decl,
+                                          ContextUsageKind kind);
+  SpirvVariable *createShaderRecordBuffer(const HLSLBufferDecl *decl,
+                                          ContextUsageKind kind);
 
 private:
   /// The struct containing SPIR-V information of a AST Decl.
@@ -508,7 +511,8 @@ public:
   /// \brief Returns the information for the given decl.
   ///
   /// This method will panic if the given decl is not registered.
-  SpirvInstruction *getDeclEvalInfo(const ValueDecl *decl, SourceLocation loc);
+  SpirvInstruction *getDeclEvalInfo(const ValueDecl *decl, SourceLocation loc,
+                                    SourceRange range = {});
 
   /// \brief Returns the instruction pointer for the given function if already
   /// registered; otherwise, treats the given function as a normal decl and
@@ -563,11 +567,12 @@ public:
   /// This method is specially for writing back per-vertex data at the time of
   /// OpEmitVertex in GS.
   bool writeBackOutputStream(const NamedDecl *decl, QualType type,
-                             SpirvInstruction *value);
+                             SpirvInstruction *value, SourceRange range = {});
 
   /// \brief Negates to get the additive inverse of SV_Position.y if requested.
   SpirvInstruction *invertYIfRequested(SpirvInstruction *position,
-                                       SourceLocation loc);
+                                       SourceLocation loc,
+                                       SourceRange range = {});
 
   /// \brief Reciprocates to get the multiplicative inverse of SV_Position.w
   /// if requested.
