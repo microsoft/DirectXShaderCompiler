@@ -652,8 +652,10 @@ bool CapabilityVisitor::visit(SpirvAtomic *instr) {
 bool CapabilityVisitor::visit(SpirvDemoteToHelperInvocation *inst) {
   addCapability(spv::Capability::DemoteToHelperInvocation,
                 inst->getSourceLocation());
-  addExtension(Extension::EXT_demote_to_helper_invocation, "discard",
-               inst->getSourceLocation());
+  if (!featureManager.isTargetEnvVulkan1p3OrAbove()) {
+    addExtension(Extension::EXT_demote_to_helper_invocation, "discard",
+                 inst->getSourceLocation());
+  }
   return true;
 }
 

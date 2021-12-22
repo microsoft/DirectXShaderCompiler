@@ -1709,7 +1709,8 @@ void SpirvEmitter::doDiscardStmt(const DiscardStmt *discardStmt) {
   }
 
   if (featureManager.isExtensionEnabled(
-          Extension::EXT_demote_to_helper_invocation)) {
+          Extension::EXT_demote_to_helper_invocation) ||
+      featureManager.isTargetEnvVulkan1p3OrAbove()) {
     // OpDemoteToHelperInvocation(EXT) provided by SPIR-V 1.6 or
     // SPV_EXT_demote_to_helper_invocation SPIR-V extension allow shaders to
     // "demote" a fragment shader invocation to behave like a helper invocation
