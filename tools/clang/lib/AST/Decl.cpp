@@ -44,6 +44,17 @@ bool Decl::isOutOfLine() const {
   return !getLexicalDeclContext()->Equals(getDeclContext());
 }
 
+// HLSL Change - Begin
+// We need to disable NRVO for anything with the precise attribute assigned.
+// NRVO prevents creating an alloca which breaks how precise is currently
+// implemented. This should have no performance impact.
+bool VarDecl::isNRVOVariable() const {
+  return (isa<ParmVarDecl>(this) || hasAttr<HLSLPreciseAttr>())
+             ? false
+             : NonParmVarDeclBits.NRVOVariable;
+}
+// HLSL Change - End
+
 TranslationUnitDecl::TranslationUnitDecl(ASTContext &ctx)
     : Decl(TranslationUnit, nullptr, SourceLocation()),
       DeclContext(TranslationUnit), Ctx(ctx), AnonymousNamespace(nullptr) {
