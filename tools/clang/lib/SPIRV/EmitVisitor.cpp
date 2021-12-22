@@ -1344,7 +1344,7 @@ bool EmitVisitor::visit(SpirvRayTracingOpNV *inst) {
   return true;
 }
 
-bool EmitVisitor::visit(SpirvDemoteToHelperInvocationEXT *inst) {
+bool EmitVisitor::visit(SpirvDemoteToHelperInvocation *inst) {
   initInstruction(inst);
   finalizeInstruction(&mainBinary);
   return true;

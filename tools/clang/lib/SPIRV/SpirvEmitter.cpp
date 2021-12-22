@@ -1710,14 +1710,14 @@ void SpirvEmitter::doDiscardStmt(const DiscardStmt *discardStmt) {
 
   if (featureManager.isExtensionEnabled(
           Extension::EXT_demote_to_helper_invocation)) {
-    // SPV_EXT_demote_to_helper_invocation SPIR-V extension provides a new
-    // instruction OpDemoteToHelperInvocationEXT allowing shaders to "demote" a
-    // fragment shader invocation to behave like a helper invocation for its
-    // duration. The demoted invocation will have no further side effects and
-    // will not output to the framebuffer, but remains active and can
-    // participate in computing derivatives and in subgroup operations. This is
-    // a better match for the "discard" instruction in HLSL.
-    spvBuilder.createDemoteToHelperInvocationEXT(discardStmt->getLoc());
+    // OpDemoteToHelperInvocation(EXT) provided by SPIR-V 1.6 or
+    // SPV_EXT_demote_to_helper_invocation SPIR-V extension allow shaders to
+    // "demote" a fragment shader invocation to behave like a helper invocation
+    // for its duration. The demoted invocation will have no further side
+    // effects and will not output to the framebuffer, but remains active and
+    // can participate in computing derivatives and in subgroup operations. This
+    // is a better match for the "discard" instruction in HLSL.
+    spvBuilder.createDemoteToHelperInvocation(discardStmt->getLoc());
   } else {
     // Note: if/when the demote behavior becomes part of the core Vulkan spec,
     // we should no longer generate OpKill for 'discard', and always generate
