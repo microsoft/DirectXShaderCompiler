@@ -766,6 +766,9 @@ int DxcContext::Compile() {
       const hlsl::ShaderModel *SM = hlsl::ShaderModel::GetByName(m_Opts.TargetProfile.str().c_str());
       if (SM->IsValid() && SM->GetMajor() < 6) {
         TargetProfile = hlsl::ShaderModel::Get(SM->GetKind(), 6, 0)->GetName();
+        std::string versionWarningString =
+            "warning: Promoting older shader model profile to 6.0 version.";
+        fprintf(stderr, "%s\n", versionWarningString.data());
         if (!SM->IsSM51Plus()) {
           // Add flag for backcompat with SM 5.0 resource reservation
           args.push_back(L"-flegacy-resource-reservation");
