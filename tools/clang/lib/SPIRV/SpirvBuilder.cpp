@@ -144,10 +144,11 @@ void SpirvBuilder::setContinueTarget(SpirvBasicBlock *continueLabel) {
 
 SpirvCompositeConstruct *SpirvBuilder::createCompositeConstruct(
     QualType resultType, llvm::ArrayRef<SpirvInstruction *> constituents,
-    SourceLocation loc) {
+    SourceLocation loc, SourceRange range) {
   assert(insertPoint && "null insert point");
   auto *instruction =
-      new (context) SpirvCompositeConstruct(resultType, loc, constituents);
+      new (context) SpirvCompositeConstruct(resultType, loc, constituents,
+                                            range);
   insertPoint->addInstruction(instruction);
   if (!constituents.empty()) {
     instruction->setLayoutRule(constituents[0]->getLayoutRule());
@@ -157,10 +158,12 @@ SpirvCompositeConstruct *SpirvBuilder::createCompositeConstruct(
 
 SpirvCompositeExtract *SpirvBuilder::createCompositeExtract(
     QualType resultType, SpirvInstruction *composite,
-    llvm::ArrayRef<uint32_t> indexes, SourceLocation loc) {
+    llvm::ArrayRef<uint32_t> indexes, SourceLocation loc,
+    SourceRange range) {
   assert(insertPoint && "null insert point");
   auto *instruction =
-      new (context) SpirvCompositeExtract(resultType, loc, composite, indexes);
+      new (context) SpirvCompositeExtract(resultType, loc, composite, indexes,
+                                          range);
   instruction->setRValue();
   insertPoint->addInstruction(instruction);
   return instruction;
@@ -169,20 +172,21 @@ SpirvCompositeExtract *SpirvBuilder::createCompositeExtract(
 SpirvCompositeInsert *SpirvBuilder::createCompositeInsert(
     QualType resultType, SpirvInstruction *composite,
     llvm::ArrayRef<uint32_t> indices, SpirvInstruction *object,
-    SourceLocation loc) {
+    SourceLocation loc, SourceRange range) {
   assert(insertPoint && "null insert point");
   auto *instruction = new (context)
-      SpirvCompositeInsert(resultType, loc, composite, object, indices);
+      SpirvCompositeInsert(resultType, loc, composite, object, indices, range);
   insertPoint->addInstruction(instruction);
   return instruction;
 }
 
 SpirvVectorShuffle *SpirvBuilder::createVectorShuffle(
     QualType resultType, SpirvInstruction *vector1, SpirvInstruction *vector2,
-    llvm::ArrayRef<uint32_t> selectors, SourceLocation loc) {
+    llvm::ArrayRef<uint32_t> selectors, SourceLocation loc,
+    SourceRange range) {
   assert(insertPoint && "null insert point");
   auto *instruction = new (context)
-      SpirvVectorShuffle(resultType, loc, vector1, vector2, selectors);
+      SpirvVectorShuffle(resultType, loc, vector1, vector2, selectors, range);
   instruction->setRValue();
   insertPoint->addInstruction(instruction);
   return instruction;
@@ -262,10 +266,10 @@ void SpirvBuilder::createStore(SpirvInstruction *address,
 SpirvFunctionCall *
 SpirvBuilder::createFunctionCall(QualType returnType, SpirvFunction *func,
                                  llvm::ArrayRef<SpirvInstruction *> params,
-                                 SourceLocation loc) {
+                                 SourceLocation loc, SourceRange range) {
   assert(insertPoint && "null insert point");
   auto *instruction =
-      new (context) SpirvFunctionCall(returnType, loc, func, params);
+      new (context) SpirvFunctionCall(returnType, loc, func, params, range);
   instruction->setRValue(func->isRValue());
   instruction->setContainsAliasComponent(func->constainsAliasComponent());
 
@@ -327,9 +331,11 @@ SpirvBuilder::createAccessChain(QualType resultType, SpirvInstruction *base,
 
 SpirvUnaryOp *SpirvBuilder::createUnaryOp(spv::Op op, QualType resultType,
                                           SpirvInstruction *operand,
-                                          SourceLocation loc) {
+                                          SourceLocation loc,
+                                          SourceRange range) {
   assert(insertPoint && "null insert point");
-  auto *instruction = new (context) SpirvUnaryOp(op, resultType, loc, operand);
+  auto *instruction =
+      new (context) SpirvUnaryOp(op, resultType, loc, operand, range);
   insertPoint->addInstruction(instruction);
   return instruction;
 }
@@ -399,11 +405,11 @@ SpirvNonUniformBinaryOp *SpirvBuilder::createGroupNonUniformBinaryOp(
 SpirvAtomic *SpirvBuilder::createAtomicOp(
     spv::Op opcode, QualType resultType, SpirvInstruction *originalValuePtr,
     spv::Scope scope, spv::MemorySemanticsMask memorySemantics,
-    SpirvInstruction *valueToOp, SourceLocation loc) {
+    SpirvInstruction *valueToOp, SourceLocation loc, SourceRange range) {
   assert(insertPoint && "null insert point");
   auto *instruction =
       new (context) SpirvAtomic(opcode, resultType, loc, originalValuePtr,
-                                scope, memorySemantics, valueToOp);
+                                scope, memorySemantics, valueToOp, range);
   insertPoint->addInstruction(instruction);
   return instruction;
 }
@@ -413,12 +419,12 @@ SpirvAtomic *SpirvBuilder::createAtomicCompareExchange(
     spv::MemorySemanticsMask equalMemorySemantics,
     spv::MemorySemanticsMask unequalMemorySemantics,
     SpirvInstruction *valueToOp, SpirvInstruction *comparator,
-    SourceLocation loc) {
+    SourceLocation loc, SourceRange range) {
   assert(insertPoint && "null insert point");
   auto *instruction = new (context)
       SpirvAtomic(spv::Op::OpAtomicCompareExchange, resultType, loc,
                   originalValuePtr, scope, equalMemorySemantics,
-                  unequalMemorySemantics, valueToOp, comparator);
+                  unequalMemorySemantics, valueToOp, comparator, range);
   insertPoint->addInstruction(instruction);
   return instruction;
 }
@@ -533,10 +539,11 @@ SpirvInstruction *SpirvBuilder::createImageSample(
   if (isSparse) {
     // Write the Residency Code
     const auto status = createCompositeExtract(astContext.UnsignedIntTy,
-                                               imageSampleInst, {0}, loc);
-    createStore(residencyCode, status, loc);
+                                               imageSampleInst, {0}, loc,
+		                                       range);
+    createStore(residencyCode, status, loc, range);
     // Extract the real result from the struct
-    return createCompositeExtract(texelType, imageSampleInst, {1}, loc);
+    return createCompositeExtract(texelType, imageSampleInst, {1}, loc, range);
   }
 
   return imageSampleInst;
@@ -548,7 +555,7 @@ SpirvInstruction *SpirvBuilder::createImageFetchOrRead(
     SpirvInstruction *lod, SpirvInstruction *constOffset,
     SpirvInstruction *varOffset, SpirvInstruction *constOffsets,
     SpirvInstruction *sample, SpirvInstruction *residencyCode,
-    SourceLocation loc) {
+    SourceLocation loc, SourceRange range) {
   assert(insertPoint && "null insert point");
 
   const auto mask = composeImageOperandsMask(
@@ -565,16 +572,17 @@ SpirvInstruction *SpirvBuilder::createImageFetchOrRead(
   auto *fetchOrReadInst = new (context) SpirvImageOp(
       op, texelType, loc, image, coordinate, mask,
       /*dref*/ nullptr, /*bias*/ nullptr, lod, /*gradDx*/ nullptr,
-      /*gradDy*/ nullptr, constOffset, varOffset, constOffsets, sample);
+      /*gradDy*/ nullptr, constOffset, varOffset, constOffsets, sample,
+      nullptr, nullptr, nullptr, range);
   insertPoint->addInstruction(fetchOrReadInst);
 
   if (isSparse) {
     // Write the Residency Code
-    const auto status = createCompositeExtract(astContext.UnsignedIntTy,
-                                               fetchOrReadInst, {0}, loc);
-    createStore(residencyCode, status, loc);
+    const auto status = createCompositeExtract(
+        astContext.UnsignedIntTy, fetchOrReadInst, {0}, loc, range);
+    createStore(residencyCode, status, loc, range);
     // Extract the real result from the struct
-    return createCompositeExtract(texelType, fetchOrReadInst, {1}, loc);
+    return createCompositeExtract(texelType, fetchOrReadInst, {1}, loc, range);
   }
 
   return fetchOrReadInst;
@@ -583,7 +591,7 @@ SpirvInstruction *SpirvBuilder::createImageFetchOrRead(
 void SpirvBuilder::createImageWrite(QualType imageType, SpirvInstruction *image,
                                     SpirvInstruction *coord,
                                     SpirvInstruction *texel,
-                                    SourceLocation loc) {
+                                    SourceLocation loc, SourceRange range) {
   assert(insertPoint && "null insert point");
   auto *writeInst = new (context) SpirvImageOp(
       spv::Op::OpImageWrite, imageType, loc, image, coord,
@@ -591,7 +599,7 @@ void SpirvBuilder::createImageWrite(QualType imageType, SpirvInstruction *image,
       /*dref*/ nullptr, /*bias*/ nullptr, /*lod*/ nullptr, /*gradDx*/ nullptr,
       /*gradDy*/ nullptr, /*constOffset*/ nullptr, /*varOffset*/ nullptr,
       /*constOffsets*/ nullptr, /*sample*/ nullptr, /*minLod*/ nullptr,
-      /*component*/ nullptr, texel);
+      /*component*/ nullptr, texel, range);
   insertPoint->addInstruction(writeInst);
 }
 
@@ -642,21 +650,20 @@ SpirvInstruction *SpirvBuilder::createImageGather(
   return imageInstruction;
 }
 
-SpirvImageSparseTexelsResident *
-SpirvBuilder::createImageSparseTexelsResident(SpirvInstruction *residentCode,
-                                              SourceLocation loc) {
+SpirvImageSparseTexelsResident *SpirvBuilder::createImageSparseTexelsResident(
+    SpirvInstruction *residentCode, SourceLocation loc, SourceRange range) {
   assert(insertPoint && "null insert point");
   auto *inst = new (context)
-      SpirvImageSparseTexelsResident(astContext.BoolTy, loc, residentCode);
+      SpirvImageSparseTexelsResident(astContext.BoolTy, loc, residentCode,
+		                             range);
   insertPoint->addInstruction(inst);
   return inst;
 }
 
-SpirvImageQuery *SpirvBuilder::createImageQuery(spv::Op opcode,
-                                                QualType resultType,
-                                                SourceLocation loc,
-                                                SpirvInstruction *image,
-                                                SpirvInstruction *lod) {
+SpirvImageQuery *
+SpirvBuilder::createImageQuery(spv::Op opcode, QualType resultType,
+                               SourceLocation loc, SpirvInstruction *image,
+                               SpirvInstruction *lod, SourceRange range) {
   assert(insertPoint && "null insert point");
   SpirvInstruction *lodParam = nullptr;
   SpirvInstruction *coordinateParam = nullptr;
@@ -666,7 +673,7 @@ SpirvImageQuery *SpirvBuilder::createImageQuery(spv::Op opcode,
     coordinateParam = lod;
 
   auto *inst = new (context) SpirvImageQuery(opcode, resultType, loc, image,
-                                             lodParam, coordinateParam);
+                                             lodParam, coordinateParam, range);
   insertPoint->addInstruction(inst);
   return inst;
 }
@@ -675,10 +682,10 @@ SpirvSelect *SpirvBuilder::createSelect(QualType resultType,
                                         SpirvInstruction *condition,
                                         SpirvInstruction *trueValue,
                                         SpirvInstruction *falseValue,
-                                        SourceLocation loc) {
+                                        SourceLocation loc, SourceRange range) {
   assert(insertPoint && "null insert point");
   auto *inst = new (context)
-      SpirvSelect(resultType, loc, condition, trueValue, falseValue);
+      SpirvSelect(resultType, loc, condition, trueValue, falseValue, range);
   insertPoint->addInstruction(inst);
   return inst;
 }
@@ -687,11 +694,11 @@ void SpirvBuilder::createSwitch(
     SpirvBasicBlock *mergeLabel, SpirvInstruction *selector,
     SpirvBasicBlock *defaultLabel,
     llvm::ArrayRef<std::pair<uint32_t, SpirvBasicBlock *>> target,
-    SourceLocation loc) {
+    SourceLocation loc, SourceRange range) {
   assert(insertPoint && "null insert point");
   // Create the OpSelectioMerege.
-  auto *selectionMerge = new (context)
-      SpirvSelectionMerge(loc, mergeLabel, spv::SelectionControlMask::MaskNone);
+  auto *selectionMerge = new (context) SpirvSelectionMerge(
+      loc, mergeLabel, spv::SelectionControlMask::MaskNone, range);
   insertPoint->addInstruction(selectionMerge);
 
   // Create the OpSwitch.
@@ -700,25 +707,26 @@ void SpirvBuilder::createSwitch(
   insertPoint->addInstruction(switchInst);
 }
 
-void SpirvBuilder::createKill(SourceLocation loc) {
+void SpirvBuilder::createKill(SourceLocation loc, SourceRange range) {
   assert(insertPoint && "null insert point");
-  auto *kill = new (context) SpirvKill(loc);
+  auto *kill = new (context) SpirvKill(loc, range);
   insertPoint->addInstruction(kill);
 }
 
 void SpirvBuilder::createBranch(SpirvBasicBlock *targetLabel,
                                 SourceLocation loc, SpirvBasicBlock *mergeBB,
                                 SpirvBasicBlock *continueBB,
-                                spv::LoopControlMask loopControl) {
+                                spv::LoopControlMask loopControl,
+                                SourceRange range) {
   assert(insertPoint && "null insert point");
 
   if (mergeBB && continueBB) {
     auto *loopMerge =
-        new (context) SpirvLoopMerge(loc, mergeBB, continueBB, loopControl);
+        new (context) SpirvLoopMerge(loc, mergeBB, continueBB, loopControl, range);
     insertPoint->addInstruction(loopMerge);
   }
 
-  auto *branch = new (context) SpirvBranch(loc, targetLabel);
+  auto *branch = new (context) SpirvBranch(loc, targetLabel, range);
   insertPoint->addInstruction(branch);
 }
 
@@ -727,17 +735,17 @@ void SpirvBuilder::createConditionalBranch(
     SpirvBasicBlock *falseLabel, SourceLocation loc,
     SpirvBasicBlock *mergeLabel, SpirvBasicBlock *continueLabel,
     spv::SelectionControlMask selectionControl,
-    spv::LoopControlMask loopControl) {
+    spv::LoopControlMask loopControl, SourceRange range) {
   assert(insertPoint && "null insert point");
 
   if (mergeLabel) {
     if (continueLabel) {
       auto *loopMerge = new (context)
-          SpirvLoopMerge(loc, mergeLabel, continueLabel, loopControl);
+          SpirvLoopMerge(loc, mergeLabel, continueLabel, loopControl, range);
       insertPoint->addInstruction(loopMerge);
     } else {
-      auto *selectionMerge =
-          new (context) SpirvSelectionMerge(loc, mergeLabel, selectionControl);
+      auto *selectionMerge = new (context)
+          SpirvSelectionMerge(loc, mergeLabel, selectionControl, range);
       insertPoint->addInstruction(selectionMerge);
     }
   }
@@ -763,10 +771,10 @@ void SpirvBuilder::createReturnValue(SpirvInstruction *value,
 SpirvInstruction *
 SpirvBuilder::createGLSLExtInst(QualType resultType, GLSLstd450 inst,
                                 llvm::ArrayRef<SpirvInstruction *> operands,
-                                SourceLocation loc) {
+                                SourceLocation loc, SourceRange range) {
   assert(insertPoint && "null insert point");
   auto *extInst = new (context) SpirvExtInst(
-      resultType, loc, getExtInstSet("GLSL.std.450"), inst, operands);
+      resultType, loc, getExtInstSet("GLSL.std.450"), inst, operands, range);
   insertPoint->addInstruction(extInst);
   return extInst;
 }
@@ -774,10 +782,11 @@ SpirvBuilder::createGLSLExtInst(QualType resultType, GLSLstd450 inst,
 SpirvInstruction *
 SpirvBuilder::createGLSLExtInst(const SpirvType *resultType, GLSLstd450 inst,
                                 llvm::ArrayRef<SpirvInstruction *> operands,
-                                SourceLocation loc) {
+                                SourceLocation loc, SourceRange range) {
   assert(insertPoint && "null insert point");
   auto *extInst = new (context) SpirvExtInst(
-      /*QualType*/ {}, loc, getExtInstSet("GLSL.std.450"), inst, operands);
+      /*QualType*/ {}, loc, getExtInstSet("GLSL.std.450"), inst, operands,
+	  range);
   extInst->setResultType(resultType);
   insertPoint->addInstruction(extInst);
   return extInst;
@@ -797,10 +806,10 @@ SpirvInstruction *SpirvBuilder::createNonSemanticDebugPrintfExtInst(
 void SpirvBuilder::createBarrier(spv::Scope memoryScope,
                                  spv::MemorySemanticsMask memorySemantics,
                                  llvm::Optional<spv::Scope> exec,
-                                 SourceLocation loc) {
+                                 SourceLocation loc, SourceRange range) {
   assert(insertPoint && "null insert point");
   SpirvBarrier *barrier =
-      new (context) SpirvBarrier(loc, memoryScope, memorySemantics, exec);
+      new (context) SpirvBarrier(loc, memoryScope, memorySemantics, exec, range);
   insertPoint->addInstruction(barrier);
 }
 
@@ -824,25 +833,27 @@ SpirvBitFieldExtract *SpirvBuilder::createBitFieldExtract(
   return inst;
 }
 
-void SpirvBuilder::createEmitVertex(SourceLocation loc) {
+void SpirvBuilder::createEmitVertex(SourceLocation loc, SourceRange range) {
   assert(insertPoint && "null insert point");
-  auto *inst = new (context) SpirvEmitVertex(loc);
+  auto *inst = new (context) SpirvEmitVertex(loc, range);
   insertPoint->addInstruction(inst);
 }
 
-void SpirvBuilder::createEndPrimitive(SourceLocation loc) {
+void SpirvBuilder::createEndPrimitive(SourceLocation loc, SourceRange range) {
   assert(insertPoint && "null insert point");
-  auto *inst = new (context) SpirvEndPrimitive(loc);
+  auto *inst = new (context) SpirvEndPrimitive(loc, range);
   insertPoint->addInstruction(inst);
 }
 
 SpirvArrayLength *SpirvBuilder::createArrayLength(QualType resultType,
                                                   SourceLocation loc,
                                                   SpirvInstruction *structure,
-                                                  uint32_t arrayMember) {
+                                                  uint32_t arrayMember,
+                                                  SourceRange range) {
   assert(insertPoint && "null insert point");
   auto *inst =
-      new (context) SpirvArrayLength(resultType, loc, structure, arrayMember);
+      new (context) SpirvArrayLength(resultType, loc, structure, arrayMember,
+                                     range);
   insertPoint->addInstruction(inst);
   return inst;
 }
@@ -974,10 +985,11 @@ SpirvBuilder::createDebugFunctionDef(SpirvDebugFunction *function,
 SpirvInstruction *
 SpirvBuilder::createRayQueryOpsKHR(spv::Op opcode, QualType resultType,
                                    ArrayRef<SpirvInstruction *> operands,
-                                   bool cullFlags, SourceLocation loc) {
+                                   bool cullFlags, SourceLocation loc,
+                                   SourceRange range) {
   assert(insertPoint && "null insert point");
   auto *inst = new (context)
-      SpirvRayQueryOpKHR(resultType, opcode, operands, cullFlags, loc);
+      SpirvRayQueryOpKHR(resultType, opcode, operands, cullFlags, loc, range);
   insertPoint->addInstruction(inst);
   return inst;
 }

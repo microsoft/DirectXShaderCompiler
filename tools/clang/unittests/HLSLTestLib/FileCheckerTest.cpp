@@ -567,7 +567,7 @@ FileRunCommandResult FileRunCommandPart::RunDxc(dxc::DxcDllSupport &DllSupport, 
   FileRunCommandResult result = {};
   if (SUCCEEDED(resultStatus)) {
     IFT(pResult->GetResult(&pCompiledBlob));
-    if (!opts.AstDump) {
+    if (!opts.AstDump && !opts.DumpDependencies) {
       IFT(pCompiler->Disassemble(pCompiledBlob, &pDisassembly));
       result.StdOut = BlobToUtf8(pDisassembly);
     } else {

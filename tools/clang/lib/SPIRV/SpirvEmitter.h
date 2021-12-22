@@ -83,12 +83,14 @@ public:
   /// not be wrapped in ImplicitCastExpr (LValueToRValue) when appearing in
   /// HLSLVectorElementExpr since the generated HLSLVectorElementExpr itself can
   /// be lvalue or rvalue.
-  SpirvInstruction *loadIfGLValue(const Expr *expr);
+  SpirvInstruction *loadIfGLValue(const Expr *expr,
+                                  SourceRange rangeOverride = {});
 
   /// Casts the given value from fromType to toType. fromType and toType should
   /// both be scalar or vector types of the same size.
   SpirvInstruction *castToType(SpirvInstruction *value, QualType fromType,
-                               QualType toType, SourceLocation);
+                               QualType toType, SourceLocation,
+                               SourceRange range = {});
 
 private:
   void doFunctionDecl(const FunctionDecl *decl);
@@ -111,17 +113,23 @@ private:
   void doDoStmt(const DoStmt *, llvm::ArrayRef<const Attr *> attrs = {});
   void doContinueStmt(const ContinueStmt *);
 
-  SpirvInstruction *doArraySubscriptExpr(const ArraySubscriptExpr *expr);
+  SpirvInstruction *doArraySubscriptExpr(const ArraySubscriptExpr *expr,
+                                         SourceRange rangeOverride = {});
   SpirvInstruction *doBinaryOperator(const BinaryOperator *expr);
-  SpirvInstruction *doCallExpr(const CallExpr *callExpr);
-  SpirvInstruction *doCastExpr(const CastExpr *expr);
+  SpirvInstruction *doCallExpr(const CallExpr *callExpr,
+                               SourceRange rangeOverride = {});
+  SpirvInstruction *doCastExpr(const CastExpr *expr,
+                               SourceRange rangeOverride = {});
   SpirvInstruction *doCompoundAssignOperator(const CompoundAssignOperator *);
   SpirvInstruction *doConditionalOperator(const ConditionalOperator *expr);
   SpirvInstruction *doCXXMemberCallExpr(const CXXMemberCallExpr *expr);
-  SpirvInstruction *doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr);
+  SpirvInstruction *doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr,
+                                          SourceRange rangeOverride = {});
   SpirvInstruction *doExtMatrixElementExpr(const ExtMatrixElementExpr *expr);
-  SpirvInstruction *doHLSLVectorElementExpr(const HLSLVectorElementExpr *expr);
-  SpirvInstruction *doInitListExpr(const InitListExpr *expr);
+  SpirvInstruction *doHLSLVectorElementExpr(const HLSLVectorElementExpr *expr,
+                                            SourceRange rangeOverride = {});
+  SpirvInstruction *doInitListExpr(const InitListExpr *expr,
+                                   SourceRange rangeOverride = {});
   SpirvInstruction *doMemberExpr(const MemberExpr *expr,
                                  SourceRange rangeOverride = {});
   SpirvInstruction *doUnaryOperator(const UnaryOperator *expr);
@@ -138,7 +146,8 @@ private:
   /// more explanation regarding this.
   ///
   /// Note: legalization specific code
-  SpirvInstruction *loadIfAliasVarRef(const Expr *expr);
+  SpirvInstruction *loadIfAliasVarRef(const Expr *expr,
+                                      SourceRange rangeOverride = {});
 
   /// Loads the pointer of the aliased-to-variable and ajusts aliasVarInfo
   /// accordingly if aliasVarExpr is referencing an alias variable. Returns true
@@ -146,7 +155,8 @@ private:
   ///
   /// Note: legalization specific code
   bool loadIfAliasVarRef(const Expr *aliasVarExpr,
-                         SpirvInstruction **aliasVarInstr);
+                         SpirvInstruction **aliasVarInstr,
+                         SourceRange rangeOverride = {});
 
 private:
   /// Translates the given frontend binary operator into its SPIR-V equivalent
@@ -177,7 +187,8 @@ private:
   /// Decomposes and reconstructs the given srcVal of the given valType to meet
   /// the requirements of the dstLR layout rule.
   SpirvInstruction *reconstructValue(SpirvInstruction *srcVal, QualType valType,
-                                     SpirvLayoutRule dstLR, SourceLocation loc);
+                                     SpirvLayoutRule dstLR, SourceLocation loc,
+                                     SourceRange range = {});
 
   /// Generates the necessary instructions for conducting the given binary
   /// operation on lhs and rhs.
@@ -240,7 +251,8 @@ private:
   /// the given scalarExpr. The generated vector will have the same element
   /// type as scalarExpr and of the given size. If resultIsConstant is not
   /// nullptr, writes true to it if the generated instruction is a constant.
-  SpirvInstruction *createVectorSplat(const Expr *scalarExpr, uint32_t size);
+  SpirvInstruction *createVectorSplat(const Expr *scalarExpr, uint32_t size,
+                                      SourceRange rangeOverride = {});
 
   /// Splits the given vector into the last element and the rest (as a new
   /// vector).
@@ -256,7 +268,8 @@ private:
   SpirvInstruction *convertVectorToStruct(QualType structType,
                                           QualType elemType,
                                           SpirvInstruction *vector,
-                                          SourceLocation loc);
+                                          SourceLocation loc,
+                                          SourceRange range = {});
 
   /// Translates a floatN * float multiplication into SPIR-V instructions and
   /// returns the <result-id>. Returns 0 if the given binary operation is not
@@ -272,18 +285,21 @@ private:
   /// accessing expression. Returns 0 if the trial fails and no instructions
   /// are generated.
   SpirvInstruction *tryToAssignToVectorElements(const Expr *lhs,
-                                                SpirvInstruction *rhs);
+                                                SpirvInstruction *rhs,
+	                                            SourceRange range = {});
 
   /// Tries to emit instructions for assigning to the given matrix element
   /// accessing expression. Returns 0 if the trial fails and no instructions
   /// are generated.
   SpirvInstruction *tryToAssignToMatrixElements(const Expr *lhs,
-                                                SpirvInstruction *rhs);
+                                                SpirvInstruction *rhs,
+	                                            SourceRange range = {});
 
   /// Tries to emit instructions for assigning to the given RWBuffer/RWTexture
   /// object. Returns 0 if the trial fails and no instructions are generated.
   SpirvInstruction *tryToAssignToRWBufferRWTexture(const Expr *lhs,
-                                                   SpirvInstruction *rhs);
+                                                   SpirvInstruction *rhs,
+                                                   SourceRange range = {});
 
   /// Tries to emit instructions for assigning to the given mesh out attribute
   /// or indices object. Returns 0 if the trial fails and no instructions are
@@ -312,7 +328,7 @@ private:
       llvm::function_ref<SpirvInstruction *(uint32_t, QualType,
                                             SpirvInstruction *)>
           actOnEachVector,
-      SourceLocation loc = {});
+      SourceLocation loc = {}, SourceRange range = {});
 
   /// Translates the given varDecl into a spec constant.
   void createSpecConstant(const VarDecl *varDecl);
@@ -363,22 +379,26 @@ private:
   /// float/integer type.
   SpirvInstruction *convertBitwidth(SpirvInstruction *value, SourceLocation loc,
                                     QualType fromType, QualType toType,
-                                    QualType *resultType = nullptr);
+                                    QualType *resultType = nullptr,
+                                    SourceRange range = {});
 
   /// Processes the given expr, casts the result into the given bool (vector)
   /// type and returns the <result-id> of the casted value.
   SpirvInstruction *castToBool(SpirvInstruction *value, QualType fromType,
-                               QualType toType, SourceLocation loc);
+                               QualType toType, SourceLocation loc,
+                               SourceRange range = {});
 
   /// Processes the given expr, casts the result into the given integer (vector)
   /// type and returns the <result-id> of the casted value.
   SpirvInstruction *castToInt(SpirvInstruction *value, QualType fromType,
-                              QualType toType, SourceLocation);
+                              QualType toType, SourceLocation,
+                              SourceRange srcRange = {});
 
   /// Processes the given expr, casts the result into the given float (vector)
   /// type and returns the <result-id> of the casted value.
   SpirvInstruction *castToFloat(SpirvInstruction *value, QualType fromType,
-                                QualType toType, SourceLocation);
+                                QualType toType, SourceLocation,
+                                SourceRange range = {});
 
 private:
   /// Processes HLSL instrinsic functions.
@@ -433,22 +453,23 @@ private:
   /// transpose.
   SpirvInstruction *processNonFpMatrixTranspose(QualType matType,
                                                 SpirvInstruction *matrix,
-                                                SourceLocation loc);
+                                                SourceLocation loc,
+                                                SourceRange range = {});
 
   /// Processes the dot product of two non-floating point vectors. The SPIR-V
   /// OpDot only accepts float vectors. Assumes that the two vectors are of the
   /// same size and have the same element type (elemType).
   SpirvInstruction *processNonFpDot(SpirvInstruction *vec1Id,
                                     SpirvInstruction *vec2Id, uint32_t vecSize,
-                                    QualType elemType, SourceLocation loc);
+                                    QualType elemType, SourceLocation loc,
+                                    SourceRange range = {});
 
   /// Processes the multiplication of a *non-floating point* matrix by a scalar.
   /// Assumes that the matrix element type and the scalar type are the same.
-  SpirvInstruction *processNonFpScalarTimesMatrix(QualType scalarType,
-                                                  SpirvInstruction *scalar,
-                                                  QualType matType,
-                                                  SpirvInstruction *matrix,
-                                                  SourceLocation loc);
+  SpirvInstruction *
+  processNonFpScalarTimesMatrix(QualType scalarType, SpirvInstruction *scalar,
+                                QualType matType, SpirvInstruction *matrix,
+                                SourceLocation loc, SourceRange range = {});
 
   /// Processes the multiplication of a *non-floating point* matrix by a vector.
   /// Assumes the matrix element type and the vector element type are the same.
@@ -457,28 +478,25 @@ private:
   /// matrix must be transposed in order to easily get each column. If
   /// 'matrixTranspose' is non-zero, it will be used as the transpose matrix
   /// result-id; otherwise the function will perform the transpose itself.
-  SpirvInstruction *
-  processNonFpVectorTimesMatrix(QualType vecType, SpirvInstruction *vector,
-                                QualType matType, SpirvInstruction *matrix,
-                                SourceLocation loc,
-                                SpirvInstruction *matrixTranspose = nullptr);
+  SpirvInstruction *processNonFpVectorTimesMatrix(
+      QualType vecType, SpirvInstruction *vector, QualType matType,
+      SpirvInstruction *matrix, SourceLocation loc,
+      SpirvInstruction *matrixTranspose = nullptr, SourceRange range = {});
 
   /// Processes the multiplication of a vector by a *non-floating point* matrix.
   /// Assumes the matrix element type and the vector element type are the same.
-  SpirvInstruction *processNonFpMatrixTimesVector(QualType matType,
-                                                  SpirvInstruction *matrix,
-                                                  QualType vecType,
-                                                  SpirvInstruction *vector,
-                                                  SourceLocation loc);
+  SpirvInstruction *
+  processNonFpMatrixTimesVector(QualType matType, SpirvInstruction *matrix,
+                                QualType vecType, SpirvInstruction *vector,
+                                SourceLocation loc, SourceRange range = {});
 
   /// Processes a non-floating point matrix multiplication. Assumes that the
   /// number of columns in lhs matrix is the same as number of rows in the rhs
   /// matrix. Also assumes that the two matrices have the same element type.
-  SpirvInstruction *processNonFpMatrixTimesMatrix(QualType lhsType,
-                                                  SpirvInstruction *lhs,
-                                                  QualType rhsType,
-                                                  SpirvInstruction *rhs,
-                                                  SourceLocation loc);
+  SpirvInstruction *
+  processNonFpMatrixTimesMatrix(QualType lhsType, SpirvInstruction *lhs,
+                                QualType rhsType, SpirvInstruction *rhs,
+                                SourceLocation loc, SourceRange range = {});
 
   /// Processes the 'dot' intrinsic function.
   SpirvInstruction *processIntrinsicDot(const CallExpr *);
@@ -525,7 +543,8 @@ private:
   SpirvInstruction *processIntrinsicUsingGLSLInst(const CallExpr *,
                                                   GLSLstd450 instr,
                                                   bool canOperateOnMatrix,
-                                                  SourceLocation);
+                                                  SourceLocation,
+                                                  SourceRange range = {});
 
   /// Processes the given intrinsic function call using the given SPIR-V
   /// instruction. If the given instruction cannot operate on matrices, it
@@ -641,7 +660,8 @@ private:
   SpirvInstruction *processFlatConversion(const QualType type,
                                           const QualType initType,
                                           SpirvInstruction *initId,
-                                          SourceLocation);
+                                          SourceLocation,
+                                          SourceRange range = {});
 
 private:
   /// Translates the given frontend APValue into its SPIR-V equivalent for the
@@ -871,7 +891,8 @@ private:
   processBufferTextureLoad(const Expr *object, SpirvInstruction *location,
                            SpirvInstruction *constOffset,
                            SpirvInstruction *varOffset, SpirvInstruction *lod,
-                           SpirvInstruction *residencyCode, SourceLocation loc);
+                           SpirvInstruction *residencyCode, SourceLocation loc,
+                           SourceRange range = {});
 
   /// \brief Processes .Sample() and .Gather() method calls for texture objects.
   SpirvInstruction *processTextureSampleGather(const CXXMemberCallExpr *expr,
@@ -999,16 +1020,17 @@ private:
   /// with 1, 2, 4, 8, or 16 samples. Returns float2(0) for other cases.
   SpirvInstruction *emitGetSamplePosition(SpirvInstruction *sampleCount,
                                           SpirvInstruction *sampleIndex,
-                                          SourceLocation loc);
+                                          SourceLocation loc,
+                                          SourceRange range = {});
 
   /// \brief Returns OpAccessChain to the struct/class object that defines
   /// memberFn when the struct/class is a base struct/class of objectType.
   /// If the struct/class that defines memberFn is not a base of objectType,
   /// returns nullptr.
   SpirvInstruction *getBaseOfMemberFunction(QualType objectType,
-                                            SpirvInstruction * objInstr,
-                                            const CXXMethodDecl* memberFn,
-                                       SourceLocation loc);
+                                            SpirvInstruction *objInstr,
+                                            const CXXMethodDecl *memberFn,
+                                            SourceLocation loc);
 
 private:
   /// \brief Takes a vector of size 4, and returns a vector of size 1 or 2 or 3
@@ -1019,7 +1041,8 @@ private:
   SpirvInstruction *extractVecFromVec4(SpirvInstruction *fromInstr,
                                        uint32_t targetVecSize,
                                        QualType targetElemType,
-                                       SourceLocation loc);
+                                       SourceLocation loc,
+                                       SourceRange range = {});
 
   /// \brief Creates SPIR-V instructions for sampling the given image.
   /// It utilizes the ModuleBuilder's createImageSample and it ensures that the
