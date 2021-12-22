@@ -93,6 +93,7 @@ public:
   TEST_METHOD(RunBinopDims)
   TEST_METHOD(RunBitfields)
   TEST_METHOD(RunVectorSelect)
+  TEST_METHOD(RunArrayConstAssign)
 
   void CheckVerifies(const wchar_t* path) {
     WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
@@ -398,4 +399,8 @@ TEST_F(VerifierTest, RunBinopDims) {
 
 TEST_F(VerifierTest, RunBitfields) {
   CheckVerifiesHLSL(L"bitfields.hlsl");
+}
+
+TEST_F(VerifierTest, RunArrayConstAssign) {
+  CheckVerifiesHLSL(L"array-const-assign.hlsl");
 }
