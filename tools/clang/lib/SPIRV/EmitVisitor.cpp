@@ -115,6 +115,8 @@ uint32_t getHeaderVersion(llvm::StringRef env) {
     return 0x00010300u;
   if (env == "vulkan1.2" || env == "universal1.5")
     return 0x00010500u;
+  if (env == "vulkan1.3")
+    return 0x00010600u;
   return 0x00010000u;
 }
 
