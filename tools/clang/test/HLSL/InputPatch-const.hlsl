@@ -1,9 +1,4 @@
-// RUN: %dxc -E main -T gs_6_0 %s | FileCheck %s
-
-// CHECK: InputPrimitive=patch2
-// CHECK: emitStream
-// CHECK: cutStream
-// CHECK: i32 24}
+// RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify %s
 
 struct GSOut {
   float2 uv : TEXCOORD0;
@@ -21,8 +16,8 @@ cbuffer b : register(b0) {
 [instance(24)]
 void main(InputPatch<GSOut, 2>points, inout PointStream<GSOut> stream) {
 
-  points[0].norm[0] = 1;
-  points[0].norm[1] = 2;
+  points[0].norm[0] = 1; // expected-error {{read-only variable is not assignable}}
+  points[0].norm[1] = 2; // expected-error {{read-only variable is not assignable}}
   stream.Append(points[0]);
 
   stream.RestartStrip();
