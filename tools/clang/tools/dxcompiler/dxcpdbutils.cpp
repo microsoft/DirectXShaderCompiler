@@ -10,6 +10,12 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#ifdef _WIN32
+#define DXC_API_IMPORT __declspec(dllexport)
+#else
+#define DXC_API_IMPORT __attribute__((visibility("default")))
+#endif
+
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
