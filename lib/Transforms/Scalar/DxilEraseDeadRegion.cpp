@@ -80,73 +80,118 @@ struct DxilEraseDeadRegion : public FunctionPass {
     initializeDxilEraseDeadRegionPass(*PassRegistry::getPassRegistry());
   }
 
+  std::unordered_map<BasicBlock *, bool> m_SafeBlocks;
   std::unordered_map<BasicBlock *, bool> m_HasSideEffect;
   MiniDCE m_DCE;
 
-  bool HasSideEffects(BasicBlock *BB) {
+ bool HasSideEffects(BasicBlock *BB) {
     auto FindIt = m_HasSideEffect.find(BB);
     if (FindIt != m_HasSideEffect.end()) {
       return FindIt->second;
     }
-
     for (Instruction &I : *BB)
       if (I.mayHaveSideEffects() && !hlsl::IsNop(&I)) {
         m_HasSideEffect[BB] = true;
         return true;
       }
-
     m_HasSideEffect[BB] = false;
     return false;
   }
-  bool IsEmptySelfLoop(BasicBlock *BB) {
-    // Make sure all inst not used outside BB.
+ bool IsEmptySelfLoop(BasicBlock *BB) {
+   // Make sure all inst not used outside BB.
+   for (Instruction &I : *BB) {
+     for (User *U : I.users()) {
+       if (Instruction *UI = dyn_cast<Instruction>(U)) {
+         if (UI->getParent() != BB)
+           return false;
+       }
+     }
+
+     if (!I.mayHaveSideEffects())
+       continue;
+
+     if (CallInst *CI = dyn_cast<CallInst>(&I)) {
+       if (hlsl::OP::IsDxilOpFuncCallInst(CI)) {
+         DXIL::OpCode opcode = hlsl::OP::GetDxilOpFuncCallInst(CI);
+         // Wave Ops are marked has side effect to avoid move cross control
+         // flow. But they're safe to remove if unused.
+         if (hlsl::OP::IsDxilOpWave(opcode))
+           continue;
+       }
+     }
+
+     return false;
+   }
+   return true;
+ }
+
+  // Wave Ops are marked as having side effects to avoid moving them across
+  // control flow. But they're safe to remove if unused.
+  bool IsWaveIntrinsic(Instruction *I) {
+    if (CallInst *CI = dyn_cast<CallInst>(I)) {
+      if (hlsl::OP::IsDxilOpFuncCallInst(CI)) {
+        DXIL::OpCode opcode = hlsl::OP::GetDxilOpFuncCallInst(CI);
+        if (hlsl::OP::IsDxilOpWave(opcode))
+          return true;
+      }
+    }
+    return false;
+  }
+
+  bool SafeToDeleteBlock(BasicBlock *BB, std::set<BasicBlock*> &Region) {
+    auto FindIt = m_SafeBlocks.find(BB);
+    if (FindIt != m_SafeBlocks.end()) {
+      return FindIt->second;
+    }
+
+    // Make sure all insts are safe to delete
+    // (no side effects, etc.)
+
     for (Instruction &I : *BB) {
       for (User *U : I.users()) {
         if (Instruction *UI = dyn_cast<Instruction>(U)) {
-          if (UI->getParent() != BB)
+          BasicBlock *UB = UI->getParent();
+          if (UB != BB || (Region.size() && Region.find(UB) != Region.end())) {
+            m_SafeBlocks[BB] = false;
             return false;
+          }
         }
       }
 
-      if (!I.mayHaveSideEffects())
+      // Wave intrinsics are technically read-only and safe to delete
+      if (IsWaveIntrinsic(&I))
         continue;
 
-      if (CallInst *CI = dyn_cast<CallInst>(&I)) {
-        if (hlsl::OP::IsDxilOpFuncCallInst(CI)) {
-          DXIL::OpCode opcode = hlsl::OP::GetDxilOpFuncCallInst(CI);
-          // Wave Ops are marked has side effect to avoid move cross control flow.
-          // But they're safe to remove if unused.
-          if (hlsl::OP::IsDxilOpWave(opcode))
-            continue;
-        }
+      if (I.mayHaveSideEffects() && !hlsl::IsNop(&I)) {
+        m_SafeBlocks[BB] = false;
+        return false;
       }
-
-      return false;
     }
+    m_SafeBlocks[BB] = true;
     return true;
   }
   bool FindDeadRegion(BasicBlock *Begin, BasicBlock *End, std::set<BasicBlock *> &Region) {
     std::vector<BasicBlock *> WorkList;
-    auto ProcessSuccessors = [this, &WorkList, Begin, End, &Region](BasicBlock *BB) {
-      for (BasicBlock *Succ : successors(BB)) {
-        if (Succ == End) continue;
-        if (Succ == Begin) return false; // If goes back to the beginning, there's a loop, give up.
-        if (Region.count(Succ)) continue;
-        if (this->HasSideEffects(Succ)) return false; // Give up if the block may have side effects
+    auto ProcessPredecessors = [this, &WorkList, Begin, End, &Region](BasicBlock *BB) {
+      for (BasicBlock *Pred : predecessors(BB)) {
+        if (Pred == End) continue;
+        if (Pred == Begin) return false; // If goes back to the beginning, there's a loop, give up.
+        if (Region.count(Pred)) continue;
+        if (!SafeToDeleteBlock(Pred, Region)) return false; // Give up if the block may have side effects
 
-        WorkList.push_back(Succ);
-        Region.insert(Succ);
+        WorkList.push_back(Pred);
+        Region.insert(Pred);
       }
       return true;
     };
 
-    if (!ProcessSuccessors(Begin))
+    if (!ProcessPredecessors(End))
       return false;
 
     while (WorkList.size()) {
       BasicBlock *BB = WorkList.back();
       WorkList.pop_back();
-      if (!ProcessSuccessors(BB))
+      if (!ProcessPredecessors(BB))
         return false;
     }
 
@@ -187,7 +232,9 @@ struct DxilEraseDeadRegion : public FunctionPass {
     // Give up if BB is a self loop
     for (BasicBlock *PredBB : Predecessors)
       if (PredBB == BB) {
-        if (!IsEmptySelfLoop(BB)) {
+        // Self-loops only have one block, so don't check for region
+        std::set<BasicBlock *> temp;
+        if (!SafeToDeleteBlock(BB, temp)) {
           return false;
         } else if (Predecessors.size() != 2) {
           return false;
@@ -245,16 +292,32 @@ struct DxilEraseDeadRegion : public FunctionPass {
     m_DCE.EraseAndProcessOperands(Common->getTerminator());
     BranchInst::Create(BB, Common);
 
-    // Delete the region
-    for (BasicBlock *BB : Region) {
+    // Delete the region by walking post-order (starting from the predecessors of BB)
+    std::vector<BasicBlock *> WorkList;
+    for (BasicBlock *Pred : predecessors(BB)) {
+      if (Pred != Common)
+        WorkList.push_back(Pred);
+    }
+    while (WorkList.size()) {
+      BasicBlock *BB = WorkList.back();
+      WorkList.pop_back();
+
+      assert(Region.find(BB) != Region.end());
       while (BB->begin() != BB->end()) {
         Instruction *I = &BB->back();
         if (!I->user_empty())
           I->replaceAllUsesWith(UndefValue::get(I->getType()));
         m_DCE.EraseAndProcessOperands(I);
       }
+
+      for (BasicBlock *Pred : predecessors(BB)) {
+        if (Pred != Common)
+          WorkList.push_back(Pred);
+      }
     }
+    // All blocks should be empty now, so walking the set is fine
     for (BasicBlock *BB : Region) {
+      assert((BB->size() == 0) && "Trying to delete a non-empty basic block!");
       BB->eraseFromParent();
     }
 
