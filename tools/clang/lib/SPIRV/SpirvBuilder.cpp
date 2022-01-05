@@ -25,11 +25,13 @@ namespace clang {
 namespace spirv {
 
 SpirvBuilder::SpirvBuilder(ASTContext &ac, SpirvContext &ctx,
-                           const SpirvCodeGenOptions &opt)
-    : astContext(ac), context(ctx), mod(llvm::make_unique<SpirvModule>()),
-      function(nullptr), moduleInit(nullptr), moduleInitInsertPoint(nullptr),
-      spirvOptions(opt), builtinVars(), debugNone(nullptr),
-      nullDebugExpr(nullptr), stringLiterals() {}
+                           const SpirvCodeGenOptions &opt,
+                           FeatureManager &featureMgr)
+    : astContext(ac), context(ctx), featureManager(featureMgr),
+      mod(llvm::make_unique<SpirvModule>()), function(nullptr),
+      moduleInit(nullptr), moduleInitInsertPoint(nullptr), spirvOptions(opt),
+      builtinVars(), debugNone(nullptr), nullDebugExpr(nullptr),
+      stringLiterals() {}
 
 SpirvFunction *SpirvBuilder::createSpirvFunction(QualType returnType,
                                                  SourceLocation loc,
@@ -1625,13 +1627,14 @@ std::vector<uint32_t> SpirvBuilder::takeModule() {
   // Run necessary visitor passes first
   LiteralTypeVisitor literalTypeVisitor(astContext, context, spirvOptions);
   LowerTypeVisitor lowerTypeVisitor(astContext, context, spirvOptions);
-  CapabilityVisitor capabilityVisitor(astContext, context, spirvOptions, *this);
+  CapabilityVisitor capabilityVisitor(astContext, context, spirvOptions, *this,
+                                      featureManager);
   RelaxedPrecisionVisitor relaxedPrecisionVisitor(context, spirvOptions);
   PreciseVisitor preciseVisitor(context, spirvOptions);
   NonUniformVisitor nonUniformVisitor(context, spirvOptions);
-  RemoveBufferBlockVisitor removeBufferBlockVisitor(astContext, context,
-                                                    spirvOptions);
-  EmitVisitor emitVisitor(astContext, context, spirvOptions);
+  RemoveBufferBlockVisitor removeBufferBlockVisitor(
+      astContext, context, spirvOptions, featureManager);
+  EmitVisitor emitVisitor(astContext, context, spirvOptions, featureManager);
 
   mod->invokeVisitor(&literalTypeVisitor, true);
 

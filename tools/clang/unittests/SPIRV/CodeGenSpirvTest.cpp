@@ -1556,6 +1556,9 @@ TEST_F(FileTest, SpirvEntryFunctionUnusedParameter) {
 TEST_F(FileTest, SpirvBuiltInHelperInvocation) {
   runFileTest("spirv.builtin.helper-invocation.hlsl");
 }
+TEST_F(FileTest, SpirvBuiltInHelperInvocationVk1p3) {
+  runFileTest("spirv.builtin.helper-invocation.vk1p3.hlsl");
+}
 TEST_F(FileTest, SpirvBuiltInHelperInvocationInvalidUsage) {
   runFileTest("spirv.builtin.helper-invocation.invalid.hlsl", Expect::Failure);
 }

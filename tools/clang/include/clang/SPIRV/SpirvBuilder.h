@@ -9,6 +9,7 @@
 #ifndef LLVM_CLANG_SPIRV_SPIRVBUILDER_H
 #define LLVM_CLANG_SPIRV_SPIRVBUILDER_H
 
+#include "clang/SPIRV/FeatureManager.h"
 #include "clang/SPIRV/SpirvBasicBlock.h"
 #include "clang/SPIRV/SpirvContext.h"
 #include "clang/SPIRV/SpirvFunction.h"
@@ -49,7 +50,8 @@ class SpirvBuilder {
   friend class CapabilityVisitor;
 
 public:
-  SpirvBuilder(ASTContext &ac, SpirvContext &c, const SpirvCodeGenOptions &);
+  SpirvBuilder(ASTContext &ac, SpirvContext &c, const SpirvCodeGenOptions &,
+               FeatureManager &featureMgr);
   ~SpirvBuilder() = default;
 
   // Forbid copy construction and assignment
@@ -787,6 +789,7 @@ private:
 private:
   ASTContext &astContext;
   SpirvContext &context; ///< From which we allocate various SPIR-V object
+  FeatureManager &featureManager;
 
   std::unique_ptr<SpirvModule> mod; ///< The current module being built
   SpirvFunction *function;          ///< The current function being built
