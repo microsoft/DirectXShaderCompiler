@@ -325,7 +325,6 @@ int __cdecl main(int argc, char **argv) {
   if (FAILED(CreateMSFileSystemForDisk(&msfPtr))) return 1;
   std::unique_ptr<llvm::sys::fs::MSFileSystem> msf(msfPtr);
   llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
-  //llvm::STDStreamCloser stdStreamCloser;
   // HLSL Change Ends
   
   //sys::PrintStackTraceOnErrorSignal();          // HLSL Change

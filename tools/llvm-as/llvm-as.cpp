@@ -102,7 +102,6 @@ int __cdecl main(int argc, char **argv) {
     return 1;
   std::unique_ptr<llvm::sys::fs::MSFileSystem> msf(msfPtr);
   llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
-  llvm::STDStreamCloser stdStreamCloser;
   // HLSL Change Ends
 
   LLVMContext &Context = getGlobalContext();

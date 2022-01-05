@@ -555,22 +555,28 @@ static int getFD(StringRef Filename, std::error_code &EC,
   return FD;
 }
 
+// HLSL Change Begin - Add opt-out for per-thread FS
 raw_fd_ostream::raw_fd_ostream(StringRef Filename, std::error_code &EC,
-                               sys::fs::OpenFlags Flags)
-    : raw_fd_ostream(getFD(Filename, EC, Flags), true) {}
+                               sys::fs::OpenFlags Flags, bool perThread)
+    : raw_fd_ostream(getFD(Filename, EC, Flags), true, false, perThread) {}
+
 
 /// FD is the file descriptor that this writes to.  If ShouldClose is true, this
 /// closes the file when the stream is destroyed.
-raw_fd_ostream::raw_fd_ostream(int fd, bool shouldClose, bool unbuffered)
+raw_fd_ostream::raw_fd_ostream(int fd, bool shouldClose, bool unbuffered, bool perThread)
     : raw_pwrite_stream(unbuffered), FD(fd), ShouldClose(shouldClose),
-      Error(false), UseAtomicWrites(false) {
+      Error(false), UseAtomicWrites(false), UsePerThreadFS(perThread) {
+  // HLSL Change End - Add opt-out for per-thread FS
   if (FD < 0 ) {
     ShouldClose = false;
     return;
   }
 
   // Get the starting position.
-  off_t loc = llvm::sys::fs::msf_lseek(FD, 0, SEEK_CUR);  // HLSL Change - msf_lseek
+  // HLSL Change Begin - Add opt-out for per-thread FS
+  off_t loc = UsePerThreadFS ? llvm::sys::fs::msf_lseek(FD, 0, SEEK_CUR)
+                             : ::lseek(FD, 0, SEEK_CUR);
+  // HLSL Change End - Add opt-out for per-thread FS
 #ifdef LLVM_ON_WIN32
   // MSVCRT's _lseek(SEEK_CUR) doesn't return -1 for pipes.
   sys::fs::file_status Status;
@@ -618,7 +624,10 @@ void raw_fd_ostream::write_impl(const char *Ptr, size_t Size) {
 
     // Check whether we should attempt to use atomic writes.
     if (LLVM_LIKELY(!UseAtomicWrites)) {
-      ret = llvm::sys::fs::msf_write(FD, Ptr, Size);
+      // HLSL Change Begin - Add opt-out for per-thread FS
+      ret = UsePerThreadFS ? llvm::sys::fs::msf_write(FD, Ptr, Size)
+                           : ::write(FD, Ptr, Size);
+      // HLSL Change End - Add opt-out for per-thread FS
     } else {
       // Use ::writev() where available.
 #if defined(HAVE_WRITEV)
@@ -626,7 +635,10 @@ void raw_fd_ostream::write_impl(const char *Ptr, size_t Size) {
       struct iovec IOV = {const_cast<void *>(Addr), Size };
       ret = ::writev(FD, &IOV, 1);
 #else
-      ret = llvm::sys::fs::msf_write(FD, Ptr, Size);
+      // HLSL Change Begin - Add opt-out for per-thread FS
+      ret = UsePerThreadFS ? llvm::sys::fs::msf_write(FD, Ptr, Size)
+                           : ::write(FD, Ptr, Size);
+      // HLSL Change End - Add opt-out for per-thread FS
 #endif
     }
 
@@ -670,7 +682,10 @@ void raw_fd_ostream::close() {
 
 uint64_t raw_fd_ostream::seek(uint64_t off) {
   flush();
-  pos = llvm::sys::fs::msf_lseek(FD, off, SEEK_SET);  // HLSL Change
+  // HLSL Change Begin - Add opt-out for per-thread FS
+  pos = UsePerThreadFS ? llvm::sys::fs::msf_lseek(FD, off, SEEK_SET)
+                       : ::lseek(FD, off, SEEK_SET);
+  // HLSL Change End - Add opt-out for per-thread FS
   if (pos == (uint64_t)-1)
     error_detected();
   return pos;
@@ -765,7 +780,7 @@ raw_ostream &llvm::outs() {
   // Delete the file descriptor when the program exits, forcing error
   // detection. If you don't want this behavior, don't use outs().
   std::error_code EC;
-  static raw_fd_ostream S("-", EC, sys::fs::F_None);
+  static raw_fd_ostream S("-", EC, sys::fs::F_None, false);
   assert(!EC);
   return S;
 }
@@ -774,7 +789,7 @@ raw_ostream &llvm::outs() {
 /// Use it like: errs() << "foo" << "bar";
 raw_ostream &llvm::errs() {
   // Set standard error to be unbuffered by default.
-  static raw_fd_ostream S(STDERR_FILENO, false, true);
+  static raw_fd_ostream S(STDERR_FILENO, false, true, false);
   return S;
 }
 

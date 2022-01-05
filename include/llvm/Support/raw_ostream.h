@@ -376,6 +376,8 @@ class raw_fd_ostream : public raw_pwrite_stream {
 
   bool SupportsSeeking;
 
+  bool UsePerThreadFS; // HLSL Change - Enable opting-out of per-thread FS
+
   /// See raw_ostream::write_impl.
   void write_impl(const char *Ptr, size_t Size) override;
 
@@ -403,11 +405,12 @@ public:
   /// file descriptor when it is done (this is necessary to detect
   /// output errors).
   raw_fd_ostream(StringRef Filename, std::error_code &EC,
-                 sys::fs::OpenFlags Flags);
+                 sys::fs::OpenFlags Flags, bool perThread=true); // HLSL Change
 
   /// FD is the file descriptor that this writes to.  If ShouldClose is true,
   /// this closes the file when the stream is destroyed.
-  raw_fd_ostream(int fd, bool shouldClose, bool unbuffered=false);
+  raw_fd_ostream(int fd, bool shouldClose, bool unbuffered=false,
+                 bool perThread=true); // HLSL Change - Opt-out for thread FS
 
   ~raw_fd_ostream() override;
 
@@ -473,31 +476,6 @@ raw_ostream &errs();
 
 /// This returns a reference to a raw_ostream which simply discards output.
 raw_ostream &nulls();
-
-// HLSL Change Starts
-
-// Flush and close STDOUT/STDERR streams before MSFileSystem goes down, 
-// otherwise static destructors will attempt to close after we no longer 
-// have a file system, which will raise an exception on static shutdown.  
-// This is a temporary work around until outs() and errs() is fixed to 
-// do the right thing.
-// The usage pattern is to create an instance in main() after a console-based
-// MSFileSystem has been installed.
-class STDStreamCloser
-{
-public:
-  ~STDStreamCloser()
-  {
-    llvm::raw_fd_ostream& fo = static_cast<llvm::raw_fd_ostream&>(llvm::outs());
-    llvm::raw_fd_ostream& fe = static_cast<llvm::raw_fd_ostream&>(llvm::errs());
-    fo.flush();
-    fe.flush();
-    fo.close();
-    // do not close fe (STDERR), since it was initialized with ShouldClose to false.
-    // (see errs() definition).
-  }
-};
-// HLSL Change Ends
 
 //===----------------------------------------------------------------------===//
 // Output Stream Adaptors

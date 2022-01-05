@@ -382,7 +382,6 @@ int __cdecl main(int argc_, const char **argv_) {
     return 1;
   std::unique_ptr<llvm::sys::fs::MSFileSystem> msf(msfPtr);
   llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
-  llvm::STDStreamCloser stdStreamCloser;
   // HLSL Change Ends
 
   llvm::sys::PrintStackTraceOnErrorSignal();

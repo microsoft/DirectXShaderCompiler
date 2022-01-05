@@ -1298,7 +1298,6 @@ int main(int argc, char **argv) {
     return 1;
   std::unique_ptr<llvm::sys::fs::MSFileSystem> msf(msfPtr);
   llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
-  STDStreamCloser stdStreamCloser;
   // HLSL Change Ends
   
   sys::PrintStackTraceOnErrorSignal();
