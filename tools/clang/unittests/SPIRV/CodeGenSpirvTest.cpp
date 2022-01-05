@@ -2768,6 +2768,11 @@ TEST_F(FileTest, CompatibilityWithVk1p1) {
   runFileTest("sm6.wave.builtin.no-dup.vulkan1.2.hlsl");
 }
 
+// Test the Vulkan1.3 target environment
+TEST_F(FileTest, Vk1p3DiscardToDemote) {
+  runFileTest("vk.1p3.discard.to-demote.hlsl");
+}
+
 // Tests for Rich Debug Information
 
 TEST_F(FileTest, RichDebugInfoDebugSource) {

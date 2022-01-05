@@ -870,9 +870,9 @@ SpirvBuilder::createRayTracingOpsNV(spv::Op opcode, QualType resultType,
 }
 
 SpirvInstruction *
-SpirvBuilder::createDemoteToHelperInvocationEXT(SourceLocation loc) {
+SpirvBuilder::createDemoteToHelperInvocation(SourceLocation loc) {
   assert(insertPoint && "null insert point");
-  auto *inst = new (context) SpirvDemoteToHelperInvocationEXT(loc);
+  auto *inst = new (context) SpirvDemoteToHelperInvocation(loc);
   insertPoint->addInstruction(inst);
   return inst;
 }
