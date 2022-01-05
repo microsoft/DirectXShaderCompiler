@@ -472,6 +472,10 @@ public:
   /// \brief Creates an OpDemoteToHelperInvocation instruction.
   SpirvInstruction *createDemoteToHelperInvocation(SourceLocation);
 
+  /// \brief Creates an OpIsHelperInvocationEXT instruction.
+  SpirvInstruction *createIsHelperInvocationEXT(QualType type,
+                                                SourceLocation loc);
+
   // === SPIR-V Rich Debug Info Creation ===
   SpirvDebugSource *createDebugSource(llvm::StringRef file,
                                       llvm::StringRef text = "");
@@ -549,6 +553,16 @@ public:
   ///   2. Copy it to the clone variable
   ///   3. Use the clone variable in all the places
   SpirvInstruction *initializeCloneVarForFxcCTBuffer(SpirvInstruction *instr);
+
+  /// \brief Adds a module variable with the Private storage class for a
+  /// stage variable with [[vk::builtin(HelperInvocation)]] attribute and
+  /// initializes it as the result of OpIsHelperInvocationEXT instruction.
+  ///
+  /// Note that we must not use it for Vulkan 1.3 or above. Vulkan 1.3 or
+  /// above allows us to use HelperInvocation Builtin decoration for stage
+  /// variables.
+  SpirvVariable *addVarForHelperInvocation(QualType type, bool isPrecise,
+                                           SourceLocation loc);
 
   // === SPIR-V Module Structure ===
   inline void setMemoryModel(spv::AddressingModel, spv::MemoryModel);

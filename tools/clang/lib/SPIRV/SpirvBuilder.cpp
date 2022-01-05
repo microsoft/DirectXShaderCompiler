@@ -877,6 +877,14 @@ SpirvBuilder::createDemoteToHelperInvocation(SourceLocation loc) {
   return inst;
 }
 
+SpirvInstruction *
+SpirvBuilder::createIsHelperInvocationEXT(QualType type, SourceLocation loc) {
+  assert(insertPoint && "null insert point");
+  auto *inst = new (context) SpirvIsHelperInvocationEXT(type, loc);
+  insertPoint->addInstruction(inst);
+  return inst;
+}
+
 SpirvDebugSource *SpirvBuilder::createDebugSource(llvm::StringRef file,
                                                   llvm::StringRef text) {
   auto *inst = new (context) SpirvDebugSource(file, text);
@@ -1244,6 +1252,22 @@ SpirvVariable *SpirvBuilder::addStageIOVar(QualType type,
   auto *var = new (context) SpirvVariable(type, loc, storageClass, isPrecise);
   var->setDebugName(name);
   mod->addVariable(var);
+  return var;
+}
+
+SpirvVariable *SpirvBuilder::addVarForHelperInvocation(QualType type,
+                                                       bool isPrecise,
+                                                       SourceLocation loc) {
+  SpirvVariable *var = addModuleVar(type, spv::StorageClass::Private, isPrecise,
+                                    "HelperInvocation", llvm::None, loc);
+
+  auto *oldInsertPoint = insertPoint;
+  switchInsertPointToModuleInit();
+
+  SpirvInstruction *isHelperInvocation = createIsHelperInvocationEXT(type, loc);
+  createStore(var, isHelperInvocation, loc, SourceRange());
+
+  insertPoint = oldInsertPoint;
   return var;
 }
 

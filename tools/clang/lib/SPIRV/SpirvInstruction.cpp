@@ -83,6 +83,7 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvVectorShuffle)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvArrayLength)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvRayTracingOpNV)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDemoteToHelperInvocation)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvIsHelperInvocationEXT)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugInfoNone)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugSource)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugCompilationUnit)
@@ -877,6 +878,11 @@ SpirvDemoteToHelperInvocation::SpirvDemoteToHelperInvocation(SourceLocation loc)
     : SpirvInstruction(IK_DemoteToHelperInvocation,
                        spv::Op::OpDemoteToHelperInvocation, /*QualType*/ {},
                        loc) {}
+
+SpirvIsHelperInvocationEXT::SpirvIsHelperInvocationEXT(QualType resultType,
+                                                       SourceLocation loc)
+    : SpirvInstruction(IK_IsHelperInvocationEXT,
+                       spv::Op::OpIsHelperInvocationEXT, resultType, loc) {}
 
 // Note: we are using a null result type in the constructor. All debug
 // instructions should later get OpTypeVoid as their result type.

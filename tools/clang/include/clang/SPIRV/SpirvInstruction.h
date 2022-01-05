@@ -100,6 +100,7 @@ public:
     IK_CompositeInsert,          // OpCompositeInsert
     IK_CopyObject,               // OpCopyObject
     IK_DemoteToHelperInvocation, // OpDemoteToHelperInvocation
+    IK_IsHelperInvocationEXT,    // OpIsHelperInvocationEXT
     IK_ExtInst,                  // OpExtInst
     IK_FunctionCall,             // OpFunctionCall
 
@@ -2036,6 +2037,25 @@ public:
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
     return inst->getKind() == IK_DemoteToHelperInvocation;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+};
+
+/// \brief OpIsHelperInvocationEXT instruction.
+/// Result is true if the invocation is currently a helper invocation, otherwise
+/// result is false. An invocation is currently a helper invocation if it was
+/// originally invoked as a helper invocation or if it has been demoted to a
+/// helper invocation by OpDemoteToHelperInvocationEXT.
+class SpirvIsHelperInvocationEXT : public SpirvInstruction {
+public:
+  SpirvIsHelperInvocationEXT(QualType, SourceLocation);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvIsHelperInvocationEXT)
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_IsHelperInvocationEXT;
   }
 
   bool invokeVisitor(Visitor *v) override;
