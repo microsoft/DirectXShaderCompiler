@@ -1821,18 +1821,17 @@ bool UpdateStructTypeForLegacyLayout(DxilResourceBase &Res,
       Function *NF = hlslOP->GetOpFunc(hlsl::OP::OpCode::CreateHandleForLib, UpdatedST);
 
       // Replace old GV.
-      for (auto UserIt = Symbol->user_begin(); UserIt != Symbol->user_end();) {
+      for (auto UserIt = Symbol->user_begin(), userEnd = Symbol->user_end(); UserIt != userEnd;) {
         Value *User = *(UserIt++);
 
         if (LoadInst *ldInst = dyn_cast<LoadInst>(User)) {
           if (!ldInst->user_empty()) {
             IRBuilder<> Builder = IRBuilder<>(ldInst);
             LoadInst *newLoad = Builder.CreateLoad(NewGV);
-            ArrayRef<Value *> args = {hlslOP->GetI32Const((unsigned)hlsl::OP::OpCode::CreateHandleForLib), newLoad};
+            Value *args[] = {hlslOP->GetI32Const((unsigned)hlsl::OP::OpCode::CreateHandleForLib), newLoad};
 
-            for (auto user = ldInst->user_begin(); user != ldInst->user_end();) {
+            for (auto user = ldInst->user_begin(), E = ldInst->user_end(); user != E;) {
               CallInst *CI = cast<CallInst>(*(user++));
-
               CallInst *newCI = CallInst::Create(NF, args, "", CI);
               CI->replaceAllUsesWith(newCI);
               CI->eraseFromParent();
@@ -1858,6 +1857,7 @@ bool UpdateStructTypeForLegacyLayout(DxilResourceBase &Res,
         }
       }
     }
+
     Symbol->removeDeadConstantUsers();
 
     if (GlobalVariable *GV = dyn_cast<GlobalVariable>(Symbol))
@@ -1945,7 +1945,7 @@ void ReplaceResourceUserWithHandle(
     DxilResource &res,
     LoadInst *load, Value *handle)
 {
-  for (auto resUser = load->user_begin(); resUser != load->user_end();) {
+  for (auto resUser = load->user_begin(), E = load->user_end(); resUser != E;) {
     Value *V = *(resUser++);
     CallInst *CI = dyn_cast<CallInst>(V);
     DxilInst_CreateHandleForLib createHandle(CI);
