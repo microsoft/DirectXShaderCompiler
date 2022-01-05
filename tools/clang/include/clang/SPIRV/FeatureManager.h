@@ -110,6 +110,10 @@ public:
   /// Returns false otherwise.
   bool isTargetEnvVulkan1p2OrAbove();
 
+  /// Returns true if the target environment is Vulkan 1.3 or above.
+  /// Returns false otherwise.
+  bool isTargetEnvVulkan1p3OrAbove();
+
 private:
   /// Returns whether codegen should allow usage of this extension by default.
   bool enabledByDefault(Extension);

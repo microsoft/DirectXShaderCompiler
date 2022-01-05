@@ -88,20 +88,20 @@ public:
     // Normal instruction kinds
     // In alphabetical order
 
-    IK_AccessChain,                 // OpAccessChain
-    IK_ArrayLength,                 // OpArrayLength
-    IK_Atomic,                      // OpAtomic*
-    IK_Barrier,                     // Op*Barrier
-    IK_BinaryOp,                    // Binary operations
-    IK_BitFieldExtract,             // OpBitFieldExtract
-    IK_BitFieldInsert,              // OpBitFieldInsert
-    IK_CompositeConstruct,          // OpCompositeConstruct
-    IK_CompositeExtract,            // OpCompositeExtract
-    IK_CompositeInsert,             // OpCompositeInsert
-    IK_CopyObject,                  // OpCopyObject
-    IK_DemoteToHelperInvocationEXT, // OpDemoteToHelperInvocationEXT
-    IK_ExtInst,                     // OpExtInst
-    IK_FunctionCall,                // OpFunctionCall
+    IK_AccessChain,              // OpAccessChain
+    IK_ArrayLength,              // OpArrayLength
+    IK_Atomic,                   // OpAtomic*
+    IK_Barrier,                  // Op*Barrier
+    IK_BinaryOp,                 // Binary operations
+    IK_BitFieldExtract,          // OpBitFieldExtract
+    IK_BitFieldInsert,           // OpBitFieldInsert
+    IK_CompositeConstruct,       // OpCompositeConstruct
+    IK_CompositeExtract,         // OpCompositeExtract
+    IK_CompositeInsert,          // OpCompositeInsert
+    IK_CopyObject,               // OpCopyObject
+    IK_DemoteToHelperInvocation, // OpDemoteToHelperInvocation
+    IK_ExtInst,                  // OpExtInst
+    IK_FunctionCall,             // OpFunctionCall
 
     IK_EndPrimitive, // OpEndPrimitive
     IK_EmitVertex,   // OpEmitVertex
@@ -2020,22 +2020,22 @@ public:
   bool invokeVisitor(Visitor *v) override;
 };
 
-/// \brief OpDemoteToHelperInvocationEXT instruction.
+/// \brief OpDemoteToHelperInvocation instruction.
 /// Demote fragment shader invocation to a helper invocation. Any stores to
 /// memory after this instruction are suppressed and the fragment does not write
 /// outputs to the framebuffer. Unlike the OpKill instruction, this does not
 /// necessarily terminate the invocation. It is not considered a flow control
 /// instruction (flow control does not become non-uniform) and does not
 /// terminate the block.
-class SpirvDemoteToHelperInvocationEXT : public SpirvInstruction {
+class SpirvDemoteToHelperInvocation : public SpirvInstruction {
 public:
-  SpirvDemoteToHelperInvocationEXT(SourceLocation);
+  SpirvDemoteToHelperInvocation(SourceLocation);
 
-  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvDemoteToHelperInvocationEXT)
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvDemoteToHelperInvocation)
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
-    return inst->getKind() == IK_DemoteToHelperInvocationEXT;
+    return inst->getKind() == IK_DemoteToHelperInvocation;
   }
 
   bool invokeVisitor(Visitor *v) override;

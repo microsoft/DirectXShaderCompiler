@@ -82,7 +82,7 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvUnaryOp)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvVectorShuffle)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvArrayLength)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvRayTracingOpNV)
-DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDemoteToHelperInvocationEXT)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDemoteToHelperInvocation)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugInfoNone)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugSource)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugCompilationUnit)
@@ -873,10 +873,9 @@ SpirvRayTracingOpNV::SpirvRayTracingOpNV(
     : SpirvInstruction(IK_RayTracingOpNV, opcode, resultType, loc),
       operands(vecOperands.begin(), vecOperands.end()) {}
 
-SpirvDemoteToHelperInvocationEXT::SpirvDemoteToHelperInvocationEXT(
-    SourceLocation loc)
-    : SpirvInstruction(IK_DemoteToHelperInvocationEXT,
-                       spv::Op::OpDemoteToHelperInvocationEXT, /*QualType*/ {},
+SpirvDemoteToHelperInvocation::SpirvDemoteToHelperInvocation(SourceLocation loc)
+    : SpirvInstruction(IK_DemoteToHelperInvocation,
+                       spv::Op::OpDemoteToHelperInvocation, /*QualType*/ {},
                        loc) {}
 
 // Note: we are using a null result type in the constructor. All debug
