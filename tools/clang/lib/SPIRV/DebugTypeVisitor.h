@@ -45,6 +45,8 @@ public:
   /// regardless of their polymorphism.
   bool visitInstruction(SpirvInstruction *);
 
+  using Visitor::visit;
+
 private:
   /// Emits error to the diagnostic engine associated with this visitor.
   template <unsigned N>
