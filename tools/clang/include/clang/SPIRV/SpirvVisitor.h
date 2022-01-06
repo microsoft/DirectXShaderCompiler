@@ -115,6 +115,7 @@ public:
   DEFINE_VISIT_METHOD(SpirvArrayLength)
   DEFINE_VISIT_METHOD(SpirvRayTracingOpNV)
   DEFINE_VISIT_METHOD(SpirvDemoteToHelperInvocation)
+  DEFINE_VISIT_METHOD(SpirvIsHelperInvocationEXT)
   DEFINE_VISIT_METHOD(SpirvDebugInfoNone)
   DEFINE_VISIT_METHOD(SpirvDebugSource)
   DEFINE_VISIT_METHOD(SpirvDebugCompilationUnit)

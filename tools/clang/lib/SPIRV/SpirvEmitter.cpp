@@ -507,7 +507,7 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
       spirvOptions(ci.getCodeGenOpts().SpirvOptions),
       entryFunctionName(ci.getCodeGenOpts().HLSLEntryFunction), spvContext(),
       featureManager(diags, spirvOptions),
-      spvBuilder(astContext, spvContext, spirvOptions),
+      spvBuilder(astContext, spvContext, spirvOptions, featureManager),
       declIdMapper(astContext, spvContext, spvBuilder, *this, featureManager,
                    spirvOptions),
       entryFunction(nullptr), curFunction(nullptr), curThis(nullptr),
