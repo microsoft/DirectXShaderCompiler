@@ -259,7 +259,13 @@ language. To support them, ``[[vk::builtin("<builtin>")]]`` is introduced.
 Right now the following ``<builtin>`` are supported:
 
 * ``PointSize``: The GLSL equivalent is ``gl_PointSize``.
-* ``HelperInvocation``: The GLSL equivalent is ``gl_HelperInvocation``.
+* ``HelperInvocation``: For Vulkan 1.3 or above, we use its GLSL equivalent
+  ``gl_HelperInvocation`` and decorate it with ``HelperInvocation`` builtin
+  since Vulkan 1.3 or above supports ``Volatile`` decoration for builtin
+  variables. For Vulkan 1.2 or earlier, we do not create a builtin variable for
+  ``HelperInvocation``. Instead, we create a variable with ``Private`` storage
+  class and set its value as the result of `OpIsHelperInvocationEXT <https://htmlpreview.github.io/?https://github.com/KhronosGroup/SPIRV-Registry/blob/master/extensions/EXT/SPV_EXT_demote_to_helper_invocation.html#OpIsHelperInvocationEXT>`_
+  instruction.
 * ``BaseVertex``: The GLSL equivalent is ``gl_BaseVertexARB``.
   Need ``SPV_KHR_shader_draw_parameters`` extension.
 * ``BaseInstance``: The GLSL equivalent is ``gl_BaseInstanceARB``.
