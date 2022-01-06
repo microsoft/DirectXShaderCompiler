@@ -164,6 +164,10 @@ lets you to specify the descriptor for the source at a certain register.
 ``-fvk-{b|s|t|u}-shift`` lets you to apply shifts to all register numbers
 of a certain register type. They cannot be used together, though.
 
+When the ``[[vk::combinedImageSampler]]`` attribute is applied, only the
+``-fvk-t-shift`` value will be used to apply shifts to combined texture and
+sampler resource bindings and any ``-fvk-s-shift`` value will be ignored.
+
 Without attribute and command-line option, ``:register(xX, spaceY)`` will be
 mapped to binding ``X`` in descriptor set ``Y``. Note that register type ``x``
 is ignored, so this may cause overlap.
@@ -324,6 +328,11 @@ The namespace ``vk`` will be used for all Vulkan attributes:
   location. Used for dual-source blending.
 - ``post_depth_coverage``: The input variable decorated with SampleMask will
   reflect the result of the EarlyFragmentTests. Only valid on pixel shader entry points.
+- ``combinedImageSampler``: For specifying a Texture (e.g., ``Texture2D``,
+  ``Texture1DArray``, ``TextureCube``) and ``SamplerState`` to use the combined image
+  sampler (or sampled image) type with the same descriptor set and binding numbers (see
+  `wiki page <https://github.com/microsoft/DirectXShaderCompiler/wiki/Vulkan-combined-image-sampler-type>`_
+  for more detail).
 
 Only ``vk::`` attributes in the above list are supported. Other attributes will
 result in warnings and be ignored by the compiler. All C++11 attributes will
