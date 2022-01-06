@@ -1,9 +1,6 @@
-// RUN: %dxc -T ps_6_0 -E main -fspv-extension=SPV_EXT_demote_to_helper_invocation
-
-// According to the HLS spec, discard can only be called from a pixel shader.
+// RUN: %dxc -T ps_6_0 -E main -fspv-target-env=vulkan1.3
 
 // CHECK: OpCapability DemoteToHelperInvocation
-// CHECK: OpExtension "SPV_EXT_demote_to_helper_invocation"
 
 void main() {
   int a, b;

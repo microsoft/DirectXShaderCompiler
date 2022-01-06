@@ -273,7 +273,7 @@ public:
   bool visit(SpirvVectorShuffle *) override;
   bool visit(SpirvArrayLength *) override;
   bool visit(SpirvRayTracingOpNV *) override;
-  bool visit(SpirvDemoteToHelperInvocationEXT *) override;
+  bool visit(SpirvDemoteToHelperInvocation *) override;
   bool visit(SpirvRayQueryOpKHR *) override;
   bool visit(SpirvReadClock *) override;
   bool visit(SpirvRayTracingTerminateOpKHR *) override;

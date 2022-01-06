@@ -350,7 +350,7 @@ def fspv_debug_EQ : Joined<["-"], "fspv-debug=">, Group<spirv_Group>, Flags<[Cor
 def fspv_extension_EQ : Joined<["-"], "fspv-extension=">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Specify SPIR-V extension permitted to use">;
 def fspv_target_env_EQ : Joined<["-"], "fspv-target-env=">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
-  HelpText<"Specify the target environment: vulkan1.0 (default) or vulkan1.1">;
+  HelpText<"Specify the target environment: vulkan1.0 (default), vulkan1.1, vulkan1.2, or vulkan1.3">;
 def fspv_flatten_resource_arrays: Flag<["-"], "fspv-flatten-resource-arrays">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Flatten arrays of resources so each array element takes one binding number">;
 def fspv_reduce_load_size: Flag<["-"], "fspv-reduce-load-size">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
