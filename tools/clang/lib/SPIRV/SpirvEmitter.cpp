@@ -12809,8 +12809,9 @@ SpirvInstruction *SpirvEmitter::processRawBufferLoad(const CallExpr *callExpr) {
 
   bufferReference->setStorageClass(spv::StorageClass::PhysicalStorageBuffer);
 
-  SpirvAccessChain *ac = spvBuilder.createAccessChain(astContext.UnsignedIntTy,
-                                                      bufferReference, {}, loc);
+  SpirvAccessChain *ac =
+      spvBuilder.createAccessChain(astContext.UnsignedIntTy, bufferReference,
+                                   llvm::ArrayRef<SpirvInstruction *>{}, loc);
 
   SpirvLoad *loadInst =
       spvBuilder.createLoad(astContext.UnsignedIntTy, ac, loc);

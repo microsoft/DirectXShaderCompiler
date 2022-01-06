@@ -355,6 +355,18 @@ SpirvAccessChain *SpirvBuilder::createAccessChain(
 
 SpirvAccessChain *
 SpirvBuilder::createAccessChain(QualType resultType, SpirvInstruction *base,
+                                llvm::ArrayRef<uint32_t> indexes,
+                                SourceLocation loc, SourceRange range) {
+  llvm::SmallVector<SpirvInstruction *, 2> indexInsts;
+  for (uint32_t index : indexes) {
+    indexInsts.push_back(
+        getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, index)));
+  }
+  return createAccessChain(resultType, base, indexInsts, loc, range);
+}
+
+SpirvAccessChain *
+SpirvBuilder::createAccessChain(QualType resultType, SpirvInstruction *base,
                                 llvm::ArrayRef<SpirvInstruction *> indexes,
                                 SourceLocation loc, SourceRange range) {
   assert(insertPoint && "null insert point");
@@ -1238,48 +1250,66 @@ SpirvVariable *SpirvBuilder::createCloneVarForFxcCTBuffer(
   return clone;
 }
 
-void SpirvBuilder::copyFromFlattenedStageVar(SpirvInstruction *var,
-                                             SpirvVariable *flattenedStageVar,
-                                             llvm::ArrayRef<uint32_t> indices) {
-  assert(var != nullptr && flattenedStageVar != nullptr &&
-         flattenedStageVar->getStorageClass() == spv::StorageClass::Input);
+void SpirvBuilder::copyFromFlattenedStageVar(QualType type, SpirvVariable *var,
+                                             SpirvVariable *flattenedVar,
+                                             llvm::ArrayRef<uint32_t> indices,
+                                             uint32_t extraArraySize) {
+  assert(var != nullptr && flattenedVar != nullptr &&
+         flattenedVar->getStorageClass() == spv::StorageClass::Input);
 
   auto *oldInsertPoint = insertPoint;
   switchInsertPointToModuleInit();
 
-  auto *value =
-      createLoad(flattenedStageVar->getAstResultType(), flattenedStageVar, {});
-  llvm::SmallVector<SpirvInstruction *, 2> indexInsts;
-  for (uint32_t index : indices) {
-    indexInsts.push_back(
-        getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, index)));
+  if (extraArraySize) {
+    llvm::SmallVector<uint32_t, 2> newIndices({0});
+    newIndices.insert(newIndices.end(), indices.begin(), indices.end());
+    for (uint32_t i = 0; i < extraArraySize; ++i) {
+      newIndices[0] = i;
+      SpirvInstruction *ptrToFlattenedVar =
+          createAccessChain(type, flattenedVar, {i}, /*SourceLocation=*/{});
+      auto *value = createLoad(type, ptrToFlattenedVar, /*SourceLocation=*/{});
+      auto *ptrToStageVar =
+          createAccessChain(type, var, newIndices, /*SourceLocation=*/{});
+      createStore(ptrToStageVar, value, /*SourceLocation=*/{});
+    }
+  } else {
+    auto *value = createLoad(type, flattenedVar, /*SourceLocation=*/{});
+    auto *ptrToStageVar =
+        createAccessChain(type, var, indices, /*SourceLocation=*/{});
+    createStore(ptrToStageVar, value, /*SourceLocation=*/{});
   }
-  auto *ptrToStageVar = createAccessChain(flattenedStageVar->getAstResultType(),
-                                          var, indexInsts, {});
-  createStore(ptrToStageVar, value, {});
 
   insertPoint = oldInsertPoint;
 }
 
-void SpirvBuilder::copyToFlattenedStageVar(SpirvInstruction *var,
-                                           SpirvVariable *flattenedStageVar,
-                                           llvm::ArrayRef<uint32_t> indices) {
-  assert(var != nullptr && flattenedStageVar != nullptr &&
-         flattenedStageVar->getStorageClass() == spv::StorageClass::Output);
+void SpirvBuilder::copyToFlattenedStageVar(QualType type, SpirvVariable *var,
+                                           SpirvVariable *flattenedVar,
+                                           llvm::ArrayRef<uint32_t> indices,
+                                           uint32_t extraArraySize) {
+  assert(var != nullptr && flattenedVar != nullptr &&
+         flattenedVar->getStorageClass() == spv::StorageClass::Output);
 
   auto *oldInsertPoint = insertPoint;
   switchInsertPointToModuleFinish();
 
-  llvm::SmallVector<SpirvInstruction *, 2> indexInsts;
-  for (uint32_t index : indices) {
-    indexInsts.push_back(
-        getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, index)));
+  if (extraArraySize) {
+    llvm::SmallVector<uint32_t, 2> newIndices({0});
+    newIndices.insert(newIndices.end(), indices.begin(), indices.end());
+    for (uint32_t i = 0; i < extraArraySize; ++i) {
+      newIndices[0] = i;
+      auto *ptrToStageVar =
+          createAccessChain(type, var, newIndices, /*SourceLocation=*/{});
+      auto *value = createLoad(type, ptrToStageVar, /*SourceLocation=*/{});
+      SpirvInstruction *ptrToFlattenedVar =
+          createAccessChain(type, flattenedVar, {i}, /*SourceLocation=*/{});
+      createStore(ptrToFlattenedVar, value, /*SourceLocation=*/{});
+    }
+  } else {
+    auto *ptrToStageVar =
+        createAccessChain(type, var, indices, /*SourceLocation=*/{});
+    auto *value = createLoad(type, ptrToStageVar, /*SourceLocation=*/{});
+    createStore(flattenedVar, value, /*SourceLocation=*/{});
   }
-  auto *ptrToStageVar = createAccessChain(flattenedStageVar->getAstResultType(),
-                                          var, indexInsts, {});
-  auto *value =
-      createLoad(flattenedStageVar->getAstResultType(), ptrToStageVar, {});
-  createStore(flattenedStageVar, value, {});
 
   insertPoint = oldInsertPoint;
 }

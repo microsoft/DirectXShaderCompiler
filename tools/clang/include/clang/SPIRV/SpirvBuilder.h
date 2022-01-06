@@ -217,6 +217,11 @@ public:
   createAccessChain(QualType resultType, SpirvInstruction *base,
                     llvm::ArrayRef<SpirvInstruction *> indexes,
                     SourceLocation loc, SourceRange range = {});
+  SpirvAccessChain *createAccessChain(QualType resultType,
+                                      SpirvInstruction *base,
+                                      llvm::ArrayRef<uint32_t> indexes,
+                                      SourceLocation loc,
+                                      SourceRange range = {});
   SpirvAccessChain *
   createAccessChain(const SpirvType *resultType, SpirvInstruction *base,
                     llvm::ArrayRef<SpirvInstruction *> indexes,
@@ -651,16 +656,24 @@ public:
                SourceLocation loc = {});
 
   /// \brief Creates instructions to copy the flattened stage variable to
-  /// indices th (recursive) component of var.
-  void copyFromFlattenedStageVar(SpirvInstruction *var,
-                                 SpirvVariable *flattenedStageVar,
-                                 llvm::ArrayRef<uint32_t> indices);
+  /// indices th (recursive) component of var. When extraArraySize is not
+  /// zero, the stage variable has the extra arrayness for hull/domain shader.
+  /// In that case, we handle the extra arrayness by assuming there is one
+  /// more outmost array for both var and flattenedVar.
+  void copyFromFlattenedStageVar(QualType type, SpirvVariable *var,
+                                 SpirvVariable *flattenedVar,
+                                 llvm::ArrayRef<uint32_t> indices,
+                                 uint32_t extraArraySize);
 
   /// \brief Creates instructions to copy the indices th (recursive) component
-  /// of var to flattenedStageVar.
-  void copyToFlattenedStageVar(SpirvInstruction *var,
-                               SpirvVariable *flattenedStageVar,
-                               llvm::ArrayRef<uint32_t> indices);
+  /// of var to flattenedVar. When extraArraySize is not
+  /// zero, the stage variable has the extra arrayness for hull/domain shader.
+  /// In that case, we handle the extra arrayness by assuming there is one
+  /// more outmost array for both var and flattenedVar.
+  void copyToFlattenedStageVar(QualType type, SpirvVariable *var,
+                               SpirvVariable *flattenedVar,
+                               llvm::ArrayRef<uint32_t> indices,
+                               uint32_t extraArraySize);
 
   /// \brief Decorates the given target with the given location.
   void decorateLocation(SpirvInstruction *target, uint32_t location);

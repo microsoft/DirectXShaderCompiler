@@ -1729,8 +1729,7 @@ public:
   bool assignLocAndComponent(const StageVar *var) {
     // Only scalar or vector or array of them can be decorated with
     // Component.
-    if (!var->hasExtraArrayness() &&
-        isScalarOrVecOrArrayOfScalarOrVec(var->getAstType()) &&
+    if (isScalarOrVecOrArrayOfScalarOrVec(var->getAstType()) &&
         tryReuseLocations(var)) {
       return true;
     }
@@ -1789,9 +1788,6 @@ private:
     spvBuilder.decorateLocation(var->getSpirvInstr(), loc);
 
     uint32_t componentCount = requiredLocsAndComponents.component;
-    if (var->hasExtraArrayness())
-      componentCount = 4;
-
     for (uint32_t i = 0; i < requiredLocsAndComponents.location; ++i) {
       assignedLocs.push_back(loc + i);
       nextUnusedComponent.push_back(componentCount);
@@ -1989,60 +1985,91 @@ bool DeclResultIdMapper::packSignatureInternal(
         continue;
       }
     }
-    if (!var->hasExtraArrayness()) {
-      auto locAndComponentCount = var->getLocationAndComponentCount();
-      auto flattenedVars =
-          flattenArrayOrMatrix(var->getAstType(), locAndComponentCount.location,
-                               locAndComponentCount.component,
-                               locAndComponentCount.componentAlignment,
-                               var->getSpirvInstr(), {}, forInput);
-      for (auto &flattenedVar : flattenedVars) {
-        if (!assignLocAndComponent(&flattenedVar))
-          return false;
-      }
-      if (!flattenedVars.empty()) {
-        var->getSpirvInstr()->setStorageClass(spv::StorageClass::Private);
-        llvm::SmallVector<SpirvVariable *, 4> newInterface;
-        for (auto &flattenedVar : flattenedVars) {
-          newInterface.push_back(flattenedVar.getSpirvInstr());
-        }
-        spvBuilder.replaceEntryPointInterface(var->getSpirvInstr(),
-                                              newInterface);
-        continue;
-      }
-    }
-    if (!assignLocAndComponent(var))
+
+    if (!assignLocationAndComponentToStageVar(var, assignLocAndComponent,
+                                              forInput)) {
       return false;
+    }
   }
   return true;
 }
 
-llvm::SmallVector<StageVar, 4> DeclResultIdMapper::flattenArrayOrMatrix(
-    QualType type, uint32_t locationCount, uint32_t componentCount,
-    bool componentAlignment, SpirvVariable *var,
-    llvm::ArrayRef<uint32_t> indexes, bool forInput) {
+bool DeclResultIdMapper::assignLocationAndComponentToStageVar(
+    const StageVar *stageVar,
+    llvm::function_ref<bool(const StageVar *)> assignLocAndComponent,
+    bool forInput) {
+  // Get the information of the extra arrayness.
+  QualType type = stageVar->getAstType();
+  uint32_t elemCount = 0;
+  if (stageVar->hasExtraArrayness()) {
+    QualType elemType;
+    if (isArrayType(type, &elemType, &elemCount)) {
+      type = elemType;
+    } else {
+      return false;
+    }
+  }
+
+  // Assign the locations and the components.
+  auto locAndComponentCount = stageVar->getLocationAndComponentCount();
+  auto flattenedVars = tryFlatteningArrayOrMatrixStageVar(
+      type, locAndComponentCount, stageVar->getSpirvInstr(), {}, forInput,
+      elemCount);
+
+  if (flattenedVars.empty())
+    return assignLocAndComponent(stageVar);
+
+  for (auto &flattenedVar : flattenedVars) {
+    if (!assignLocAndComponent(&flattenedVar))
+      return false;
+  }
+  return replaceStageVarWithFlattenedVars(stageVar, flattenedVars,
+                                          assignLocAndComponent);
+}
+
+bool DeclResultIdMapper::replaceStageVarWithFlattenedVars(
+    const StageVar *stageVar, llvm::SmallVector<StageVar, 4> flattenedVars,
+    llvm::function_ref<bool(const StageVar *)> assignLocAndComponent) {
+  SpirvVariable *var = stageVar->getSpirvInstr();
+  var->setStorageClass(spv::StorageClass::Private);
+  llvm::SmallVector<SpirvVariable *, 4> newInterface;
+  for (auto &flattenedVar : flattenedVars) {
+    newInterface.push_back(flattenedVar.getSpirvInstr());
+  }
+  spvBuilder.replaceEntryPointInterface(var, newInterface);
+  return true;
+}
+
+llvm::SmallVector<StageVar, 4>
+DeclResultIdMapper::tryFlatteningArrayOrMatrixStageVar(
+    QualType type, const LocationAndComponent &locAndcomponentCount,
+    SpirvVariable *var, llvm::ArrayRef<uint32_t> indexes, bool forInput,
+    uint32_t extraArraySize) {
   llvm::SmallVector<StageVar, 4> flattenedStageVars;
   QualType elemType;
   uint32_t elemCount;
-  bool mustBeFlattened = false;
+  bool needFlattening = false;
   if (isArrayType(type, &elemType, &elemCount)) {
-    mustBeFlattened = true;
+    needFlattening = true;
   }
 
   uint32_t vecElemCount;
   if (isMxNMatrix(type, &elemType, &elemCount, &vecElemCount)) {
     elemType = astContext.getExtVectorType(elemType, vecElemCount);
-    mustBeFlattened = true;
+    needFlattening = true;
   }
 
-  if (mustBeFlattened) {
+  // For array or matrix, try the flattening recursively.
+  if (needFlattening) {
     llvm::SmallVector<uint32_t, 2> newIndexes(indexes.begin(), indexes.end());
-    uint32_t newLocationCount = locationCount / elemCount;
+    LocationAndComponent newLocAndComponentCount = locAndcomponentCount;
+    newLocAndComponentCount.location =
+        locAndcomponentCount.location / elemCount;
     for (uint32_t i = 0; i < elemCount; ++i) {
       newIndexes.push_back(i);
-      auto flattenedVars =
-          flattenArrayOrMatrix(elemType, newLocationCount, componentCount,
-                               componentAlignment, var, newIndexes, forInput);
+      auto flattenedVars = tryFlatteningArrayOrMatrixStageVar(
+          elemType, newLocAndComponentCount, var, newIndexes, forInput,
+          extraArraySize);
       flattenedStageVars.insert(flattenedStageVars.end(), flattenedVars.begin(),
                                 flattenedVars.end());
       newIndexes.pop_back();
@@ -2053,25 +2080,44 @@ llvm::SmallVector<StageVar, 4> DeclResultIdMapper::flattenArrayOrMatrix(
   if (indexes.empty())
     return flattenedStageVars;
 
-  SpirvVariable *flattenedVar = nullptr;
-  if (forInput) {
-    flattenedVar = spvBuilder.addStageIOVar(
-        type, spv::StorageClass::Input, var->getDebugName(), var->isPrecise(),
-        /*SourceLocation=*/{});
-    spvBuilder.copyFromFlattenedStageVar(var, flattenedVar, indexes);
-  } else {
-    flattenedVar = spvBuilder.addStageIOVar(
-        type, spv::StorageClass::Output, var->getDebugName(), var->isPrecise(),
-        /*SourceLocation=*/{});
-    spvBuilder.copyToFlattenedStageVar(var, flattenedVar, indexes);
-  }
-  StageVar flattenedStageVar(
-      /*sig=*/nullptr, /*semaInfo=*/{},
-      /*builtin=*/nullptr, type,
-      {locationCount, componentCount, componentAlignment});
-  flattenedStageVar.setSpirvInstr(flattenedVar);
+  StageVar flattenedStageVar = createFlattenedStageVar(
+      type, locAndcomponentCount, var, indexes, forInput, extraArraySize);
   flattenedStageVars.push_back(std::move(flattenedStageVar));
   return flattenedStageVars;
+}
+
+StageVar DeclResultIdMapper::createFlattenedStageVar(
+    QualType type, const LocationAndComponent &locAndcomponentCount,
+    SpirvVariable *var, llvm::ArrayRef<uint32_t> indexes, bool forInput,
+    uint32_t extraArraySize) {
+  // Create a flattened variable
+  spv::StorageClass storageClass =
+      forInput ? spv::StorageClass::Input : spv::StorageClass::Output;
+  QualType evalType = type;
+  if (extraArraySize) {
+    evalType = astContext.getConstantArrayType(
+        type, llvm::APInt(32, extraArraySize), clang::ArrayType::Normal, 0);
+  }
+  SpirvVariable *flattenedVar = spvBuilder.addStageIOVar(
+      evalType, storageClass, var->getDebugName(), var->isPrecise(),
+      /*SourceLocation=*/{});
+
+  // Create instructions to copy the flattened variable to the stage variable
+  // in module initialization function (or the opposite if it is an output stage
+  // variable).
+  if (forInput) {
+    spvBuilder.copyFromFlattenedStageVar(type, var, flattenedVar, indexes,
+                                         extraArraySize);
+  } else {
+    spvBuilder.copyToFlattenedStageVar(type, var, flattenedVar, indexes,
+                                       extraArraySize);
+  }
+
+  StageVar flattenedStageVar(
+      /*sig=*/nullptr, /*semaInfo=*/{},
+      /*builtin=*/nullptr, type, locAndcomponentCount);
+  flattenedStageVar.setSpirvInstr(flattenedVar);
+  return flattenedStageVar;
 }
 
 bool DeclResultIdMapper::assignLocations(
@@ -3549,43 +3595,6 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
   // Store in map for re-use
   builtinToVarMap[spvBuiltinId] = var;
   return var;
-}
-
-SpirvVariable *DeclResultIdMapper::createSpirvIntermediateOutputStageVar(
-    const NamedDecl *decl, const llvm::StringRef name, QualType type) {
-  const auto *semantic = hlsl::Semantic::GetByName(name);
-  SemanticInfo thisSemantic{name, semantic, name, 0, decl->getLocation()};
-
-  const auto *sigPoint =
-      deduceSigPoint(cast<DeclaratorDecl>(decl), /*asInput=*/false,
-                     spvContext.getCurrentShaderModelKind(), /*forPCF=*/false);
-
-  StageVar stageVar(sigPoint, thisSemantic, decl->getAttr<VKBuiltInAttr>(),
-                    type, /*locAndComponentCount=*/{0, 0, false}, true);
-  SpirvVariable *varInstr =
-      createSpirvStageVar(&stageVar, decl, name, thisSemantic.loc);
-
-  if (!varInstr)
-    return nullptr;
-
-  stageVar.setSpirvInstr(varInstr);
-  stageVar.setLocationAttr(decl->getAttr<VKLocationAttr>());
-  stageVar.setIndexAttr(decl->getAttr<VKIndexAttr>());
-  if (stageVar.getStorageClass() == spv::StorageClass::Input ||
-      stageVar.getStorageClass() == spv::StorageClass::Output) {
-    stageVar.setEntryPoint(entryFunction);
-  }
-  stageVars.push_back(stageVar);
-
-  // Emit OpDecorate* instructions to link this stage variable with the HLSL
-  // semantic it is created for.
-  spvBuilder.decorateHlslSemantic(varInstr, stageVar.getSemanticStr());
-
-  // We have semantics attached to this decl, which means it must be a
-  // function/parameter/variable. All are DeclaratorDecls.
-  stageVarInstructions[cast<DeclaratorDecl>(decl)] = varInstr;
-
-  return varInstr;
 }
 
 SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
