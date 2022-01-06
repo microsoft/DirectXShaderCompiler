@@ -115,6 +115,8 @@ uint32_t getHeaderVersion(llvm::StringRef env) {
     return 0x00010300u;
   if (env == "vulkan1.2" || env == "universal1.5")
     return 0x00010500u;
+  if (env == "vulkan1.3")
+    return 0x00010600u;
   return 0x00010000u;
 }
 
@@ -1342,7 +1344,7 @@ bool EmitVisitor::visit(SpirvRayTracingOpNV *inst) {
   return true;
 }
 
-bool EmitVisitor::visit(SpirvDemoteToHelperInvocationEXT *inst) {
+bool EmitVisitor::visit(SpirvDemoteToHelperInvocation *inst) {
   initInstruction(inst);
   finalizeInstruction(&mainBinary);
   return true;
