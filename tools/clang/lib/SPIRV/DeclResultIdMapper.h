@@ -857,6 +857,7 @@ private:
 private:
   SpirvBuilder &spvBuilder;
   SpirvEmitter &theEmitter;
+  FeatureManager &featureManager;
   const SpirvCodeGenOptions &spirvOptions;
   ASTContext &astContext;
   SpirvContext &spvContext;
@@ -983,8 +984,8 @@ DeclResultIdMapper::DeclResultIdMapper(ASTContext &context,
                                        SpirvEmitter &emitter,
                                        FeatureManager &features,
                                        const SpirvCodeGenOptions &options)
-    : spvBuilder(spirvBuilder), theEmitter(emitter), spirvOptions(options),
-      astContext(context), spvContext(spirvContext),
+    : spvBuilder(spirvBuilder), theEmitter(emitter), featureManager(features),
+      spirvOptions(options), astContext(context), spvContext(spirvContext),
       diags(context.getDiagnostics()), entryFunction(nullptr),
       needsLegalization(false), needsFlatteningCompositeResources(false),
       glPerVertex(context, spirvContext, spirvBuilder) {}

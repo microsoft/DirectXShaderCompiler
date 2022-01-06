@@ -1350,6 +1350,14 @@ bool EmitVisitor::visit(SpirvDemoteToHelperInvocation *inst) {
   return true;
 }
 
+bool EmitVisitor::visit(SpirvIsHelperInvocationEXT *inst) {
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  finalizeInstruction(&mainBinary);
+  return true;
+}
+
 bool EmitVisitor::visit(SpirvDebugInfoNone *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
