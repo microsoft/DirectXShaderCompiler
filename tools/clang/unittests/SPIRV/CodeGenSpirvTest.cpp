@@ -1556,6 +1556,9 @@ TEST_F(FileTest, SpirvEntryFunctionUnusedParameter) {
 TEST_F(FileTest, SpirvBuiltInHelperInvocation) {
   runFileTest("spirv.builtin.helper-invocation.hlsl");
 }
+TEST_F(FileTest, SpirvBuiltInHelperInvocationVk1p3) {
+  runFileTest("spirv.builtin.helper-invocation.vk1p3.hlsl");
+}
 TEST_F(FileTest, SpirvBuiltInHelperInvocationInvalidUsage) {
   runFileTest("spirv.builtin.helper-invocation.invalid.hlsl", Expect::Failure);
 }
@@ -2114,6 +2117,9 @@ TEST_F(FileTest, VulkanPushConstantOnConstantBuffer) {
 
 TEST_F(FileTest, VulkanCombinedImageSampler) {
   runFileTest("vk.combined-image-sampler.hlsl");
+}
+TEST_F(FileTest, VulkanCombinedImageSamplerBindingShift) {
+  runFileTest("vk.combined-image-sampler.binding-shift.hlsl");
 }
 TEST_F(FileTest, VulkanCombinedImageSamplerTextureArray) {
   runFileTest("vk.combined-image-sampler.texture-array.hlsl");

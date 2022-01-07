@@ -7,12 +7,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/SPIRV/SpirvContext.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Type.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/TextDiagnosticPrinter.h"
+#include "clang/SPIRV/FeatureManager.h"
+#include "clang/SPIRV/SpirvContext.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
@@ -28,6 +29,16 @@ public:
     if (!initialized)
       initialize();
     return compilerInstance.getASTContext();
+  }
+
+  FeatureManager &getFeatureManager() {
+    if (!initialized)
+      initialize();
+    compilerInstance.getCodeGenOpts().SpirvOptions.targetEnv = "vulkan1.0";
+    static FeatureManager featureManager(
+        compilerInstance.getDiagnostics(),
+        compilerInstance.getCodeGenOpts().SpirvOptions);
+    return featureManager;
   }
 
 private:

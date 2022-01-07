@@ -164,6 +164,10 @@ lets you to specify the descriptor for the source at a certain register.
 ``-fvk-{b|s|t|u}-shift`` lets you to apply shifts to all register numbers
 of a certain register type. They cannot be used together, though.
 
+When the ``[[vk::combinedImageSampler]]`` attribute is applied, only the
+``-fvk-t-shift`` value will be used to apply shifts to combined texture and
+sampler resource bindings and any ``-fvk-s-shift`` value will be ignored.
+
 Without attribute and command-line option, ``:register(xX, spaceY)`` will be
 mapped to binding ``X`` in descriptor set ``Y``. Note that register type ``x``
 is ignored, so this may cause overlap.
@@ -259,7 +263,13 @@ language. To support them, ``[[vk::builtin("<builtin>")]]`` is introduced.
 Right now the following ``<builtin>`` are supported:
 
 * ``PointSize``: The GLSL equivalent is ``gl_PointSize``.
-* ``HelperInvocation``: The GLSL equivalent is ``gl_HelperInvocation``.
+* ``HelperInvocation``: For Vulkan 1.3 or above, we use its GLSL equivalent
+  ``gl_HelperInvocation`` and decorate it with ``HelperInvocation`` builtin
+  since Vulkan 1.3 or above supports ``Volatile`` decoration for builtin
+  variables. For Vulkan 1.2 or earlier, we do not create a builtin variable for
+  ``HelperInvocation``. Instead, we create a variable with ``Private`` storage
+  class and set its value as the result of `OpIsHelperInvocationEXT <https://htmlpreview.github.io/?https://github.com/KhronosGroup/SPIRV-Registry/blob/master/extensions/EXT/SPV_EXT_demote_to_helper_invocation.html#OpIsHelperInvocationEXT>`_
+  instruction.
 * ``BaseVertex``: The GLSL equivalent is ``gl_BaseVertexARB``.
   Need ``SPV_KHR_shader_draw_parameters`` extension.
 * ``BaseInstance``: The GLSL equivalent is ``gl_BaseInstanceARB``.
@@ -324,6 +334,11 @@ The namespace ``vk`` will be used for all Vulkan attributes:
   location. Used for dual-source blending.
 - ``post_depth_coverage``: The input variable decorated with SampleMask will
   reflect the result of the EarlyFragmentTests. Only valid on pixel shader entry points.
+- ``combinedImageSampler``: For specifying a Texture (e.g., ``Texture2D``,
+  ``Texture1DArray``, ``TextureCube``) and ``SamplerState`` to use the combined image
+  sampler (or sampled image) type with the same descriptor set and binding numbers (see
+  `wiki page <https://github.com/microsoft/DirectXShaderCompiler/wiki/Vulkan-combined-image-sampler-type>`_
+  for more detail).
 
 Only ``vk::`` attributes in the above list are supported. Other attributes will
 result in warnings and be ignored by the compiler. All C++11 attributes will

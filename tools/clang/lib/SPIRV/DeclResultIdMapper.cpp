@@ -1592,6 +1592,8 @@ DeclResultIdMapper::collectStageVars(SpirvFunction *entryPoint) const {
     if (var.getEntryPoint() && var.getEntryPoint() != entryPoint)
       continue;
     auto *instr = var.getSpirvInstr();
+    if (instr->getStorageClass() == spv::StorageClass::Private)
+      continue;
     if (seenVars.count(instr) == 0) {
       vars.push_back(instr);
       seenVars.insert(instr);
@@ -2159,6 +2161,14 @@ bool DeclResultIdMapper::decorateResourceBindings() {
           binding += tShiftMapper.getShiftForSet(set);
           break;
         case 's':
+          // For combined texture and sampler resources, always use the t shift
+          // value and ignore the s shift value.
+          if (const auto *decl = var.getDeclaration()) {
+            if (decl->getAttr<VKCombinedImageSamplerAttr>() != nullptr) {
+              binding += tShiftMapper.getShiftForSet(set);
+              break;
+            }
+          }
           binding += sShiftMapper.getShiftForSet(set);
           break;
         case 'u':
@@ -3137,8 +3147,12 @@ DeclResultIdMapper::invertWIfRequested(SpirvInstruction *position,
 void DeclResultIdMapper::decorateInterpolationMode(const NamedDecl *decl,
                                                    QualType type,
                                                    SpirvVariable *varInstr) {
-  const auto loc = decl->getLocation();
+  if (varInstr->getStorageClass() != spv::StorageClass::Input &&
+      varInstr->getStorageClass() != spv::StorageClass::Output) {
+    return;
+  }
 
+  const auto loc = decl->getLocation();
   if (isUintOrVecMatOfUintType(type) || isSintOrVecMatOfSintType(type) ||
       isBoolOrVecMatOfBoolType(type)) {
     // TODO: Probably we can call hlsl::ValidateSignatureElement() for the
@@ -3264,6 +3278,14 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
             .Default(BuiltIn::Max);
 
     assert(spvBuiltIn != BuiltIn::Max); // The frontend should guarantee this.
+    if (spvBuiltIn == BuiltIn::HelperInvocation &&
+        !featureManager.isTargetEnvVulkan1p3OrAbove()) {
+      // If [[vk::HelperInvocation]] is used for Vulkan 1.2 or less, we enable
+      // SPV_EXT_demote_to_helper_invocation extension to use
+      // OpIsHelperInvocationEXT instruction.
+      featureManager.allowExtension("SPV_EXT_demote_to_helper_invocation");
+      return spvBuilder.addVarForHelperInvocation(type, isPrecise, srcLoc);
+    }
     return spvBuilder.addStageBuiltinVar(type, sc, spvBuiltIn, isPrecise,
                                          srcLoc);
   }
