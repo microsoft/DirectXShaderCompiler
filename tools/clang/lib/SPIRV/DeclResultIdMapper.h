@@ -745,7 +745,7 @@ private:
   /// or matrix.
   llvm::SmallVector<StageVar, 4> tryFlatteningArrayOrMatrixStageVar(
       QualType type, const LocationAndComponent &locAndcomponentCount,
-      SpirvVariable *var, llvm::ArrayRef<uint32_t> indexes, bool forInput,
+      const StageVar *var, llvm::ArrayRef<uint32_t> indexes, bool forInput,
       uint32_t extraArraySize);
 
   /// \brief Creates a new stage variable that can be replaced with the
@@ -753,7 +753,7 @@ private:
   StageVar
   createFlattenedStageVar(QualType type,
                           const LocationAndComponent &locAndcomponentCount,
-                          SpirvVariable *var, llvm::ArrayRef<uint32_t> indexes,
+                          const StageVar *var, llvm::ArrayRef<uint32_t> indexes,
                           bool forInput, uint32_t extraArraySize);
 
   /// \brief Decorates vars with locations assigned by nextLocs.

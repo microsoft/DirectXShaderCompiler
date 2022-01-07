@@ -1783,8 +1783,6 @@ private:
   bool assignNewLocations(const StageVar *var) {
     auto requiredLocsAndComponents = var->getLocationAndComponentCount();
     uint32_t loc = assignLocs(requiredLocsAndComponents.location);
-    // if (!checkDuplicatedStageVarLocation(*var, loc))
-    //  return false;
     spvBuilder.decorateLocation(var->getSpirvInstr(), loc);
 
     uint32_t componentCount = requiredLocsAndComponents.component;
@@ -2013,8 +2011,7 @@ bool DeclResultIdMapper::assignLocationAndComponentToStageVar(
   // Assign the locations and the components.
   auto locAndComponentCount = stageVar->getLocationAndComponentCount();
   auto flattenedVars = tryFlatteningArrayOrMatrixStageVar(
-      type, locAndComponentCount, stageVar->getSpirvInstr(), {}, forInput,
-      elemCount);
+      type, locAndComponentCount, stageVar, {}, forInput, elemCount);
 
   if (flattenedVars.empty())
     return assignLocAndComponent(stageVar);
@@ -2043,7 +2040,7 @@ bool DeclResultIdMapper::replaceStageVarWithFlattenedVars(
 llvm::SmallVector<StageVar, 4>
 DeclResultIdMapper::tryFlatteningArrayOrMatrixStageVar(
     QualType type, const LocationAndComponent &locAndcomponentCount,
-    SpirvVariable *var, llvm::ArrayRef<uint32_t> indexes, bool forInput,
+    const StageVar *var, llvm::ArrayRef<uint32_t> indexes, bool forInput,
     uint32_t extraArraySize) {
   llvm::SmallVector<StageVar, 4> flattenedStageVars;
   QualType elemType;
@@ -2088,7 +2085,7 @@ DeclResultIdMapper::tryFlatteningArrayOrMatrixStageVar(
 
 StageVar DeclResultIdMapper::createFlattenedStageVar(
     QualType type, const LocationAndComponent &locAndcomponentCount,
-    SpirvVariable *var, llvm::ArrayRef<uint32_t> indexes, bool forInput,
+    const StageVar *stageVar, llvm::ArrayRef<uint32_t> indexes, bool forInput,
     uint32_t extraArraySize) {
   // Create a flattened variable
   spv::StorageClass storageClass =
@@ -2098,9 +2095,11 @@ StageVar DeclResultIdMapper::createFlattenedStageVar(
     evalType = astContext.getConstantArrayType(
         type, llvm::APInt(32, extraArraySize), clang::ArrayType::Normal, 0);
   }
+  SpirvVariable *var = stageVar->getSpirvInstr();
   SpirvVariable *flattenedVar = spvBuilder.addStageIOVar(
       evalType, storageClass, var->getDebugName(), var->isPrecise(),
       /*SourceLocation=*/{});
+  spvBuilder.decorateHlslSemantic(flattenedVar, stageVar->getSemanticStr());
 
   // Create instructions to copy the flattened variable to the stage variable
   // in module initialization function (or the opposite if it is an output stage

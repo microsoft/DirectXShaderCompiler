@@ -365,6 +365,21 @@ private:
   // Emits an OpName instruction into the debugBinary for the given target.
   void emitDebugNameForInstruction(uint32_t resultId, llvm::StringRef name);
 
+  // Gets the ended words of semantic string with adjusted index. We use the
+  // given semantic if its index is not overlapped with others. Otherwise,
+  // we increase the index until it is not overlapped with others.
+  std::vector<uint32_t>
+  adjustSemanticIndex(llvm::ArrayRef<uint32_t> semanticInWords,
+                      SourceLocation loc);
+
+  // Gets the adjusted index for the given user semantic. It increases the
+  // index until there is no overlapped index with the same semantic.
+  // However, if it is overlapped with another semantic whose initial
+  // given index is different, we emit an error "semantic indexes are
+  // duplicated".
+  uint32_t getAdjustedIndexForSemantic(llvm::StringRef semantic, uint32_t index,
+                                       SourceLocation loc);
+
   // TODO: Add a method for adding OpMemberName instructions for struct members
   // using the type information.
 
@@ -437,6 +452,10 @@ private:
   // Vector to contain SpirvInstruction objects created by this class. The
   // destructor of this class will release them.
   std::vector<SpirvInstruction *> spvInstructions;
+
+  // Map from semantic string to a map from its assigned index for the
+  // semantic to its initially given index.
+  llvm::StringMap<llvm::DenseMap<uint32_t, uint32_t>> semanticToUsedIndexMap;
 };
 
 } // namespace spirv

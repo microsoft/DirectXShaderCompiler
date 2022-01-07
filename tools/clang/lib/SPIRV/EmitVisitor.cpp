@@ -27,6 +27,7 @@ namespace {
 
 static const uint32_t kMaximumCharOpSource = 0xFFFA;
 static const uint32_t kMaximumCharOpSourceContinued = 0xFFFD;
+static const uint32_t kInvalidUserSemanticIndex = UINT32_MAX;
 
 // Since OpSource does not have a result id, this is used to mark it was emitted
 static const uint32_t kEmittedSourceForOpSource = 1; 
@@ -142,6 +143,17 @@ std::string ReadSourceCode(llvm::StringRef filePath) {
     // An exception has occured while reading the file
     return "";
   }
+}
+
+std::string::size_type getIndexOffsetInSemantic(const std::string &semantic) {
+  std::string::size_type pos = semantic.size() - 1;
+  while (pos != 0 && semantic[pos] >= '0' && semantic[pos] <= '9') {
+    --pos;
+  }
+  if (pos == 0 && semantic[pos] >= '0' && semantic[pos] <= '9') {
+    return 0;
+  }
+  return pos + 1;
 }
 
 constexpr uint32_t kGeneratorNumber = 14;
@@ -704,6 +716,13 @@ bool EmitVisitor::visit(SpirvModuleProcessed *inst) {
 
 bool EmitVisitor::visit(SpirvDecoration *inst) {
   SpirvInstruction *target = inst->getTarget();
+  spv::Decoration decoration = inst->getDecoration();
+  if (decoration == spv::Decoration::HlslSemanticGOOGLE &&
+      target->getStorageClass() != spv::StorageClass::Input &&
+      target->getStorageClass() != spv::StorageClass::Output) {
+    return true;
+  }
+
   initInstruction(inst);
   if (inst->isMemberDecoration()) {
     // OpMemberDecorate must have a 'Struct Type' operand instead of an
@@ -724,17 +743,75 @@ bool EmitVisitor::visit(SpirvDecoration *inst) {
         getOrAssignResultId<SpirvFunction>(inst->getTargetFunc()));
   }
 
-  curInst.push_back(static_cast<uint32_t>(inst->getDecoration()));
-  if (!inst->getParams().empty()) {
-    curInst.insert(curInst.end(), inst->getParams().begin(),
-                   inst->getParams().end());
-  }
-  if (!inst->getIdParams().empty()) {
-    for (auto *paramInstr : inst->getIdParams())
-      curInst.push_back(getOrAssignResultId<SpirvInstruction>(paramInstr));
+  curInst.push_back(static_cast<uint32_t>(decoration));
+  if (decoration == spv::Decoration::HlslSemanticGOOGLE) {
+    std::vector<uint32_t> semantic =
+        adjustSemanticIndex(inst->getParams(), inst->getSourceLocation());
+    if (semantic.empty())
+      return false;
+    curInst.insert(curInst.end(), semantic.begin(), semantic.end());
+  } else {
+    if (!inst->getParams().empty()) {
+      curInst.insert(curInst.end(), inst->getParams().begin(),
+                     inst->getParams().end());
+    }
+    if (!inst->getIdParams().empty()) {
+      for (auto *paramInstr : inst->getIdParams())
+        curInst.push_back(getOrAssignResultId<SpirvInstruction>(paramInstr));
+    }
   }
   finalizeInstruction(&annotationsBinary);
   return true;
+}
+
+std::vector<uint32_t>
+EmitVisitor::adjustSemanticIndex(llvm::ArrayRef<uint32_t> semanticInWords,
+                                 SourceLocation loc) {
+  std::string semantic = string::decodeSPIRVString(semanticInWords);
+  std::string::size_type indexOffset = getIndexOffsetInSemantic(semantic);
+  std::vector<uint32_t> semanticWithAdjustedIndex;
+  if (indexOffset == semantic.size()) {
+    semanticWithAdjustedIndex.insert(semanticWithAdjustedIndex.end(),
+                                     semanticInWords.begin(),
+                                     semanticInWords.end());
+    return semanticWithAdjustedIndex;
+  }
+
+  uint32_t index = std::stoi(semantic.substr(indexOffset));
+  std::string semanticStr = semantic.substr(0, indexOffset);
+  uint32_t adjustedIndex = getAdjustedIndexForSemantic(semanticStr, index, loc);
+  if (adjustedIndex == kInvalidUserSemanticIndex)
+    return semanticWithAdjustedIndex;
+  return string::encodeSPIRVString(semanticStr + std::to_string(adjustedIndex));
+}
+
+uint32_t EmitVisitor::getAdjustedIndexForSemantic(llvm::StringRef semantic,
+                                                  uint32_t index,
+                                                  SourceLocation loc) {
+  auto itr = semanticToUsedIndexMap.find(semantic);
+  if (itr == semanticToUsedIndexMap.end()) {
+    llvm::DenseMap<uint32_t, uint32_t> usedIndex;
+    usedIndex[index] = index;
+    semanticToUsedIndexMap[semantic] = std::move(usedIndex);
+    return index;
+  }
+
+  auto &usedIndex = itr->second;
+  uint32_t adjustedIndex = index;
+  while (true) {
+    auto usedIndexItr = usedIndex.find(adjustedIndex);
+    if (usedIndexItr == usedIndex.end()) {
+      usedIndex[adjustedIndex] = index;
+      return adjustedIndex;
+    }
+    if (usedIndexItr->second != index) {
+      emitError("UserSemantic %0 is overlapped", loc) << index;
+      return kInvalidUserSemanticIndex;
+    }
+    ++adjustedIndex;
+  }
+
+  llvm_unreachable("cannot assign an index for UserSemantic");
 }
 
 bool EmitVisitor::visit(SpirvVariable *inst) {
