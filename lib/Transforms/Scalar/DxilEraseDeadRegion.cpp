@@ -140,7 +140,7 @@ struct DxilEraseDeadRegion : public FunctionPass {
   }
   bool FindDeadRegion(BasicBlock *Begin, BasicBlock *End, std::set<BasicBlock *> &Region) {
     std::vector<BasicBlock *> WorkList;
-    auto ProcessSuccessors = [this, &WorkList, Begin, End,&Region](BasicBlock *BB) {
+    auto ProcessSuccessors = [this, &WorkList, Begin, End, &Region](BasicBlock *BB) {
       for (BasicBlock *Succ : successors(BB)) {
         if (Succ == End) continue;
         if (Succ == Begin) return false; // If goes back to the beginning, there's a loop, give up.
