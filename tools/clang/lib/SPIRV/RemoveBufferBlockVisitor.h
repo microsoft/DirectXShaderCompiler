@@ -22,8 +22,9 @@ class SpirvContext;
 class RemoveBufferBlockVisitor : public Visitor {
 public:
   RemoveBufferBlockVisitor(ASTContext &astCtx, SpirvContext &spvCtx,
-                           const SpirvCodeGenOptions &opts)
-      : Visitor(opts, spvCtx), featureManager(astCtx.getDiagnostics(), opts) {}
+                           const SpirvCodeGenOptions &opts,
+                           FeatureManager &featureMgr)
+      : Visitor(opts, spvCtx), featureManager(featureMgr) {}
 
   bool visit(SpirvModule *, Phase) override;
   bool visit(SpirvFunction *, Phase) override;

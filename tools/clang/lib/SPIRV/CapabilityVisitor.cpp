@@ -659,6 +659,14 @@ bool CapabilityVisitor::visit(SpirvDemoteToHelperInvocation *inst) {
   return true;
 }
 
+bool CapabilityVisitor::visit(SpirvIsHelperInvocationEXT *inst) {
+  addCapability(spv::Capability::DemoteToHelperInvocation,
+                inst->getSourceLocation());
+  addExtension(Extension::EXT_demote_to_helper_invocation,
+               "[[vk::HelperInvocation]]", inst->getSourceLocation());
+  return true;
+}
+
 bool CapabilityVisitor::visit(SpirvReadClock *inst) {
   auto loc = inst->getSourceLocation();
   addCapabilityForType(inst->getResultType(), loc, inst->getStorageClass());
