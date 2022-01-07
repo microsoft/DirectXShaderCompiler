@@ -1065,13 +1065,10 @@ void CounterIdAliasPair::assign(const CounterIdAliasPair &srcPair,
                       /* SourceLocation */ {});
 }
 
-DeclResultIdMapper::DeclResultIdMapper(ASTContext &context,
-                                       SpirvContext &spirvContext,
-                                       SpirvBuilder &spirvBuilder,
-                                       SpirvEmitter &emitter,
-                                       FeatureManager &features,
-                                       const SpirvCodeGenOptions &options,
-                                       uint32_t sigPackingStrategy)
+DeclResultIdMapper::DeclResultIdMapper(
+    ASTContext &context, SpirvContext &spirvContext, SpirvBuilder &spirvBuilder,
+    SpirvEmitter &emitter, FeatureManager &features,
+    const SpirvCodeGenOptions &options, uint32_t sigPackingStrategy)
     : spvBuilder(spirvBuilder), theEmitter(emitter), featureManager(features),
       spirvOptions(options), astContext(context), spvContext(spirvContext),
       diags(context.getDiagnostics()), entryFunction(nullptr),

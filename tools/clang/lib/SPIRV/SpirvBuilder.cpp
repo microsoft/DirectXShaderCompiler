@@ -40,9 +40,8 @@ SpirvBuilder::SpirvBuilder(SpirvContext &ctx, const SpirvCodeGenOptions &opt,
       mod(llvm::make_unique<SpirvModule>()), function(nullptr),
       moduleInit(nullptr), moduleInitInsertPoint(nullptr),
       moduleFinish(nullptr), moduleFinishInsertPoint(nullptr),
-      spirvOptions(opt),
-      builtinVars(), debugNone(nullptr), nullDebugExpr(nullptr),
-      stringLiterals() {}
+      spirvOptions(opt), builtinVars(), debugNone(nullptr),
+      nullDebugExpr(nullptr), stringLiterals() {}
 
 SpirvFunction *SpirvBuilder::createSpirvFunction(QualType returnType,
                                                  SourceLocation loc,
