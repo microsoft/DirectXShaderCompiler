@@ -24,6 +24,9 @@ typedef _Return_type_success_(return >= 0) long HRESULT;
 #endif // !_HRESULT_DEFINED
 #endif // _WIN32
 
+#ifdef __MINGW32__
+#include <objidl.h>
+#endif
 #include <stdarg.h>
 #include <system_error>
 #include "dxc/Support/exception.h"

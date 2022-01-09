@@ -7,11 +7,45 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef _WIN32
+#if !defined(_WIN32) || defined(__MINGW32__)
 
 #include "dxc/Support/WinAdapter.h"
 #include "dxc/Support/WinFunctions.h"
 
+//===---------------------- Char converstion ------------------------------===//
+
+const char *CPToLocale(uint32_t CodePage) {
+#ifdef __APPLE__
+  static const char *utf8 = "en_US.UTF-8";
+  static const char *iso88591 = "en_US.ISO8859-1";
+#else
+  static const char *utf8 = "en_US.utf8";
+  static const char *iso88591 = "en_US.iso88591";
+#endif
+  if (CodePage == CP_UTF8) {
+    return utf8;
+  } else if (CodePage == CP_ACP) {
+    // Experimentation suggests that ACP is expected to be ISO-8859-1
+    return iso88591;
+  }
+  return nullptr;
+}
+
+//===--------------------------- CHandle -------------------------------===//
+
+CHandle::CHandle(HANDLE h) { m_h = h; }
+CHandle::~CHandle() { CloseHandle(m_h); }
+CHandle::operator HANDLE() const throw() { return m_h; }
+
+//===--------------------------- CAllocator -------------------------------===//
+
+void *CAllocator::Reallocate(void *p, size_t nBytes) throw() {
+  return realloc(p, nBytes);
+}
+void *CAllocator::Allocate(size_t nBytes) throw() { return malloc(nBytes); }
+void CAllocator::Free(void *p) throw() { free(p); }
+
+#ifndef __MINGW32__
 //===--------------------------- IUnknown ---------------------------------===//
 
 ULONG IUnknown::AddRef() {
@@ -36,14 +70,6 @@ HRESULT IMalloc::QueryInterface(REFIID riid, void **ppvObject) {
   assert(false && "QueryInterface not implemented for IMalloc.");
   return E_NOINTERFACE;
 }
-
-//===--------------------------- CAllocator -------------------------------===//
-
-void *CAllocator::Reallocate(void *p, size_t nBytes) throw() {
-  return realloc(p, nBytes);
-}
-void *CAllocator::Allocate(size_t nBytes) throw() { return malloc(nBytes); }
-void CAllocator::Free(void *p) throw() { free(p); }
 
 //===--------------------------- BSTR Allocation --------------------------===//
 
@@ -75,29 +101,6 @@ BSTR SysAllocStringLen(const OLECHAR *strIn, UINT ui) {
   return strOut;
 }
 
-//===---------------------- Char converstion ------------------------------===//
+#endif // __MINGW32__
 
-const char *CPToLocale(uint32_t CodePage) {
-#ifdef __APPLE__
-  static const char *utf8 = "en_US.UTF-8";
-  static const char *iso88591 = "en_US.ISO8859-1";
-#else
-  static const char *utf8 = "en_US.utf8";
-  static const char *iso88591 = "en_US.iso88591";
-#endif
-  if (CodePage == CP_UTF8) {
-    return utf8;
-  } else if (CodePage == CP_ACP) {
-    // Experimentation suggests that ACP is expected to be ISO-8859-1
-    return iso88591;
-  }
-  return nullptr;
-}
-
-//===--------------------------- CHandle -------------------------------===//
-
-CHandle::CHandle(HANDLE h) { m_h = h; }
-CHandle::~CHandle() { CloseHandle(m_h); }
-CHandle::operator HANDLE() const throw() { return m_h; }
-
-#endif
+#endif // !defined(_WIN32) || defined(__MINGW32__)

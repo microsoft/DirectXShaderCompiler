@@ -10,7 +10,10 @@
 
 #pragma once
 
-#ifdef _MSC_VER
+// Always include WinAdapter, for MSC it will do nothing but for MinGW it will emulate ATL.
+#include "dxc/Support/WinAdapter.h"
+
+#if defined(_MSC_VER) || defined(__MINGW32__)
 
 // mingw-w64 tends to define it as 0x0502 in its headers.
 #undef _WIN32_WINNT
@@ -40,7 +43,9 @@
 
 #include <windows.h>
 #include <unknwn.h>
+#ifndef __MINGW32__
 #include <atlbase.h> // atlbase.h needs to come before strsafe.h
+#endif // __MINGW32__
 #include <strsafe.h>
 #include <intsafe.h>
 #include <ObjIdl.h>
@@ -57,10 +62,9 @@ template <class T> void swap(CComHeapPtr<T> &a, CComHeapPtr<T> &b) {
   b.m_pData = c;
 }
 
-#else // _MSC_VER
+#endif // defined(_MSC_VER) || defined(__MINGW32__)
 
-#include "dxc/Support/WinAdapter.h"
-
+#if !defined(_MSC_VER) && !defined(__MINGW32__)
 #ifdef __cplusplus
 // Define operator overloads to enable bit operations on enum values that are
 // used to define flags. Use DEFINE_ENUM_FLAG_OPERATORS(YOUR_TYPE) to enable these
@@ -109,4 +113,4 @@ inline ENUMTYPE &operator ^= (ENUMTYPE &a, ENUMTYPE b) { return (ENUMTYPE &)(((_
 #define DEFINE_ENUM_FLAG_OPERATORS(ENUMTYPE) // NOP, C allows these operators.
 #endif
 
-#endif // _MSC_VER
+#endif // !defined(_MSC_VER) && !defined(__MINGW32__)

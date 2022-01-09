@@ -16,6 +16,36 @@
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/WinFunctions.h"
 
+// For MinGW, export specializations for our public COM interface. See WinAdapter.h for more info.
+#ifdef __MINGW32__
+MINGW_UUIDOF(IDxcBlob, "8BA5FB08-5195-40e2-AC58-0D989C3A0102")
+MINGW_UUIDOF(IDxcBlobEncoding, "7241d424-2646-4191-97c0-98e96e42fc68")
+MINGW_UUIDOF(IDxcBlobUtf16, "A3F84EAB-0FAA-497E-A39C-EE6ED60B2D84")
+MINGW_UUIDOF(IDxcBlobUtf8, "3DA636C9-BA71-4024-A301-30CBF125305B")
+MINGW_UUIDOF(IDxcIncludeHandler, "7f61fc7d-950d-467f-b3e3-3c02fb49187c")
+MINGW_UUIDOF(IDxcCompilerArgs, "73EFFE2A-70DC-45F8-9690-EFF64C02429D")
+MINGW_UUIDOF(IDxcLibrary, "e5204dc7-d18c-4c3c-bdfb-851673980fe7")
+MINGW_UUIDOF(IDxcOperationResult, "CEDB484A-D4E9-445A-B991-CA21CA157DC2")
+MINGW_UUIDOF(IDxcCompiler, "8c210bf3-011f-4422-8d70-6f9acb8db617")
+MINGW_UUIDOF(IDxcCompiler2, "A005A9D9-B8BB-4594-B5C9-0E633BEC4D37")
+MINGW_UUIDOF(IDxcLinker, "F1B5BE2A-62DD-4327-A1C2-42AC1E1E78E6")
+MINGW_UUIDOF(IDxcUtils, "4605C4CB-2019-492A-ADA4-65F20BB7D67F")
+MINGW_UUIDOF(IDxcResult, "58346CDA-DDE7-4497-9461-6F87AF5E0659")
+MINGW_UUIDOF(IDxcExtraOutputs, "319b37a2-a5c2-494a-a5de-4801b2faf989")
+MINGW_UUIDOF(IDxcCompiler3, "228B4687-5A6A-4730-900C-9702B2203F54")
+MINGW_UUIDOF(IDxcValidator, "A6E82BD2-1FD7-4826-9811-2857E797F49A")
+MINGW_UUIDOF(IDxcValidator2, "458e1fd1-b1b2-4750-a6e1-9c10f03bed92")
+MINGW_UUIDOF(IDxcContainerBuilder, "334b1f50-2292-4b35-99a1-25588d8c17fe")
+MINGW_UUIDOF(IDxcAssembler, "091f7a26-1c1f-4948-904b-e6e3a8a771d5")
+MINGW_UUIDOF(IDxcContainerReflection, "d2c21b26-8350-4bdc-976a-331ce6f4c54c")
+MINGW_UUIDOF(IDxcOptimizerPass, "AE2CD79F-CC22-453F-9B6B-B124E7A5204C")
+MINGW_UUIDOF(IDxcOptimizer, "25740E2E-9CBA-401B-9119-4FB42F39F270")
+MINGW_UUIDOF(IDxcVersionInfo, "b04f5b50-2059-4f12-a8ff-a1e0cde1cc7e")
+MINGW_UUIDOF(IDxcVersionInfo2, "fb6904c4-42f0-4b62-9c46-983af7da7c83")
+MINGW_UUIDOF(IDxcVersionInfo3, "5e13e843-9d25-473c-9ad2-03b2d0b44b1e")
+MINGW_UUIDOF(IDxcPdbUtils, "E6C9647E-9D6A-4C3B-B94C-524B5A6C343D")
+#endif
+
 namespace dxc {
 
 #ifdef _WIN32
@@ -33,7 +63,7 @@ static std::string GetWin32ErrorMessage(DWORD err) {
   DWORD formattedMsgLen =
       FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
                     nullptr, err, 0, formattedMsg, _countof(formattedMsg), 0);
-  if (formattedMsg > 0 && formattedMsgLen < _countof(formattedMsg)) {
+  if (formattedMsgLen > 0 && formattedMsgLen < _countof(formattedMsg)) {
     TrimEOL(formattedMsg);
     return std::string(formattedMsg);
   }

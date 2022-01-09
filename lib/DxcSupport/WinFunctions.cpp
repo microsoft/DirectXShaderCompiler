@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef _WIN32
+#if !defined(_WIN32) || defined(__MINGW32__)
+
 #include <fcntl.h>
 #include <map>
 #include <string.h>
@@ -20,6 +21,17 @@
 #include <unistd.h>
 
 #include "dxc/Support/WinFunctions.h"
+
+HRESULT UInt32Mult(UINT a, UINT b, UINT *out) {
+  uint64_t result = (uint64_t)a * (uint64_t)b;
+  if (result > uint64_t(UINT_MAX))
+    return ERROR_ARITHMETIC_OVERFLOW;
+
+  *out = (uint32_t)result;
+  return S_OK;
+}
+
+#ifndef __MINGW32__
 
 HRESULT StringCchCopyEx(LPSTR pszDest, size_t cchDest, LPCSTR pszSrc,
                         LPSTR *ppszDestEnd, size_t *pcchRemaining, DWORD dwFlags) {
@@ -88,14 +100,6 @@ HRESULT SizeTToInt(size_t in, int *out) {
     hr = ERROR_ARITHMETIC_OVERFLOW;
   }
   return hr;
-}
-HRESULT UInt32Mult(UINT a, UINT b, UINT *out) {
-  uint64_t result = (uint64_t)a * (uint64_t)b;
-  if (result > uint64_t(UINT_MAX))
-    return ERROR_ARITHMETIC_OVERFLOW;
-
-  *out = (uint32_t)result;
-  return S_OK;
 }
 
 int strnicmp(const char *str1, const char *str2, size_t count) {
@@ -351,4 +355,6 @@ HANDLE GetProcessHeap() {
   return (HANDLE)&g_processHeap;
 }
 
-#endif // _WIN32
+#endif // __MINGW32__
+
+#endif // !defined(_WIN32) || defined(__MINGW32__)
