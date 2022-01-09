@@ -16,6 +16,17 @@
 
 #include "llvm/Support/DataTypes.h"
 
+#ifdef __MINGW32__
+#define __int64 long long
+#define NOMINMAX 1
+#include <windows.h>
+// HACK: Pretend we're CYGWIN when including intrin.h, otherwise the MinGW headers will not know
+// that strcat and other conflicting symbols are already defined.
+#define __CYGWIN__
+#include <intrin.h>
+#undef __CYGWIN__
+#endif // __MINGW32__
+
 namespace llvm {
   namespace sys {
     void MemoryFence();
