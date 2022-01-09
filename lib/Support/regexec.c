@@ -130,6 +130,9 @@
 #define	ISSETBACK(v, n)	((v)[here - (n)])
 /* function names */
 #define	LNAMES			/* flag */
+#ifndef __inexpressible_readableTo
+#define __inexpressible_readableTo(size)
+#endif
 #define _states_param_ __inexpressible_readableTo(stopmarker)
 
 #include "regengine.inc"
