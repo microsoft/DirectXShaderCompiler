@@ -1349,7 +1349,11 @@ static unsigned CalcTypeSize(Type *Ty, unsigned &alignment) {
 }
 
 static unsigned CalcResTypeSize(DxilModule &M, DxilResource &R) {
+  #ifndef __MINGW32__
+  // avoids:
+  //  error: object of type 'hlsl::DxilModule' cannot be assigned because its copy assignment operator is implicitly deleted
   UNREFERENCED_PARAMETER(M);
+  #endif
   Type *Ty = R.GetHLSLType()->getPointerElementType();
   if (R.IsStructuredBuffer()) {
     Ty = dxilutil::StripArrayTypes(Ty);
