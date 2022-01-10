@@ -35,16 +35,18 @@ struct HSPatchConstData {
 };
 
 struct HSCtrlPt {
-// CHECK: OpDecorate %out_var_H Location 5
+// CHECK: OpDecorate %out_var_H Location 4
+// CHECK: OpDecorate %out_var_H Component 2
   float h : H;
 
-// CHECK: OpDecorate %out_var_I Location 6
+// CHECK: OpDecorate %out_var_I Location 5
   float2 i : I;
 
-// CHECK: OpDecorate %out_var_J Location 7
+// CHECK: OpDecorate %out_var_J Location 4
+// CHECK: OpDecorate %out_var_J Component 3
   float j : J;
 
-// CHECK: OpDecorate %out_var_K Location 8
+// CHECK: OpDecorate %out_var_K Location 6
   float4 k : K;
 };
 
