@@ -1720,11 +1720,8 @@ class PackedLocationAndComponentSet {
 public:
   PackedLocationAndComponentSet(
       SpirvBuilder &spirvBuilder,
-      llvm::function_ref<uint32_t(uint32_t)> nextLocs,
-      llvm::function_ref<bool(const StageVar &, uint32_t)>
-          checkDuplicatedStageVarLocation_)
-      : spvBuilder(spirvBuilder), assignLocs(nextLocs),
-        checkDuplicatedStageVarLocation(checkDuplicatedStageVarLocation_) {}
+      llvm::function_ref<uint32_t(uint32_t)> nextLocs)
+      : spvBuilder(spirvBuilder), assignLocs(nextLocs) {}
 
   bool assignLocAndComponent(const StageVar *var) {
     // Only scalar or vector or array of them can be decorated with
@@ -1803,8 +1800,6 @@ private:
 private:
   SpirvBuilder &spvBuilder; ///< SPIR-V builder
   llvm::function_ref<uint32_t(uint32_t)> assignLocs;
-  llvm::function_ref<bool(const StageVar &, uint32_t)>
-      checkDuplicatedStageVarLocation;
   llvm::SmallVector<uint32_t, 8> assignedLocs;
   llvm::SmallVector<uint32_t, 8> nextUnusedComponent;
 };
@@ -1941,17 +1936,8 @@ bool DeclResultIdMapper::isDuplicatedStageVarLocation(
 bool DeclResultIdMapper::packSignature(
     const std::vector<const StageVar *> &vars,
     llvm::function_ref<uint32_t(uint32_t)> nextLocs,
-    llvm::DenseSet<StageVariableLocationInfo, StageVariableLocationInfo>
-        *stageVariableLocationInfo,
     bool forInput) {
-  auto checkDuplicatedStageVarLocation =
-      [this, stageVariableLocationInfo](const StageVar &var,
-                                        uint32_t location) {
-        return this->isDuplicatedStageVarLocation(stageVariableLocationInfo,
-                                                  var, location, 0);
-      };
-  PackedLocationAndComponentSet packedLocSet(spvBuilder, nextLocs,
-                                             checkDuplicatedStageVarLocation);
+  PackedLocationAndComponentSet packedLocSet(spvBuilder, nextLocs);
   auto assignLocationAndComponent = [&packedLocSet](const StageVar *var) {
     return packedLocSet.assignLocAndComponent(var);
   };
@@ -2265,7 +2251,7 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
   if (spvContext.isSignaturePackingEnabled() &&
       sigPointKind != hlsl::SigPoint::Kind::VSIn &&
       sigPointKind != hlsl::SigPoint::Kind::PSOut) {
-    return packSignature(vars, nextLocs, &stageVariableLocationInfo, forInput);
+    return packSignature(vars, nextLocs, forInput);
   }
 
   // Since HS includes 2 sets of outputs (patch-constant output and

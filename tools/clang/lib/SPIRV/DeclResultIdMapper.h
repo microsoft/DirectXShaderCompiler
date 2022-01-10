@@ -717,13 +717,9 @@ private:
   /// stage variables to the existing input stage variables before calling the
   /// entry function and copies the existing output stage variables to the
   /// unified stage variables after calling the entry function.
-  /// stageVariableLocationInfo will be used to check the duplication of stage
-  /// variable locations.
   bool packSignature(
       const std::vector<const StageVar *> &vars,
       llvm::function_ref<uint32_t(uint32_t)> nextLocs,
-      llvm::DenseSet<StageVariableLocationInfo, StageVariableLocationInfo>
-          *stageVariableLocationInfo,
       bool forInput);
   bool packSignatureInternal(
       const std::vector<const StageVar *> &vars,
