@@ -323,6 +323,15 @@ rem smoke.ll is used later to assemble, so don't delete it.
 call :check_file smoke.ll find "DICompileUnit"
 if %Failed% neq 0 goto :failed
 
+set testname=dxc.exe shader model version promtion warning
+rem shader model version promotion warning prints to stderr, so not captured in /Fe
+dxc.exe "%testfiles%\smoke.hlsl" /Emain /Tps_5_0 2>smoke.err
+call :check_file smoke.err find "warning: Promoting older shader model profile to 6.0 version."
+if %Failed% neq 0 goto :failed
+dxc.exe "%testfiles%\smoke.hlsl" /Emain /Tps_5_1 2>smoke.err
+call :check_file smoke.err find "warning: Promoting older shader model profile to 6.0 version."
+if %Failed% neq 0 goto :failed
+
 set testname=dxa command line program
 call :run dxa.exe smoke.cso -listfiles
 if %Failed% neq 0 goto :failed
