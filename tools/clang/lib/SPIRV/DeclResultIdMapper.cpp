@@ -2259,10 +2259,11 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
     return assignLocations(vars, nextLocs, &stageVariableLocationInfo);
   }
 
-  // Pack signature if signaturePacking is enabled. Vertext shader input and
-  // pixel shader output are special. We have to preserve the given signature.
+  // Pack signature if it is enabled. Vertext shader input and pixel
+  // shader output are special. We have to preserve the given signature.
   auto sigPointKind = vars[0]->getSigPoint()->GetKind();
-  if (signaturePacking && sigPointKind != hlsl::SigPoint::Kind::VSIn &&
+  if (spvContext.isSignaturePackingEnabled() &&
+      sigPointKind != hlsl::SigPoint::Kind::VSIn &&
       sigPointKind != hlsl::SigPoint::Kind::PSOut) {
     return packSignature(vars, nextLocs, &stageVariableLocationInfo, forInput);
   }

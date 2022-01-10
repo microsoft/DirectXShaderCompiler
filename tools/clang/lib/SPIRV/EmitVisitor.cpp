@@ -717,7 +717,8 @@ bool EmitVisitor::visit(SpirvModuleProcessed *inst) {
 bool EmitVisitor::visit(SpirvDecoration *inst) {
   SpirvInstruction *target = inst->getTarget();
   spv::Decoration decoration = inst->getDecoration();
-  if (decoration == spv::Decoration::HlslSemanticGOOGLE &&
+  if (context.isSignaturePackingEnabled() &&
+      decoration == spv::Decoration::HlslSemanticGOOGLE &&
       target->getStorageClass() != spv::StorageClass::Input &&
       target->getStorageClass() != spv::StorageClass::Output) {
     return true;
@@ -744,7 +745,8 @@ bool EmitVisitor::visit(SpirvDecoration *inst) {
   }
 
   curInst.push_back(static_cast<uint32_t>(decoration));
-  if (decoration == spv::Decoration::HlslSemanticGOOGLE) {
+  if (context.isSignaturePackingEnabled() &&
+      decoration == spv::Decoration::HlslSemanticGOOGLE) {
     std::vector<uint32_t> semantic =
         adjustSemanticIndex(inst->getParams(), inst->getSourceLocation());
     if (semantic.empty())

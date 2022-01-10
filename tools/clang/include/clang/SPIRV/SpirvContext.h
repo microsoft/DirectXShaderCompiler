@@ -424,6 +424,10 @@ public:
            instructionsWithLoweredType.end();
   }
 
+  /// Getter/setter of signaturePacking.
+  bool isSignaturePackingEnabled() const { return signaturePacking; }
+  void enableSignaturePacking() { signaturePacking = true; }
+
 private:
   /// \brief The allocator used to create SPIR-V entity objects.
   ///
@@ -482,6 +486,8 @@ private:
   // Major/Minor hlsl profile version.
   uint32_t majorVersion;
   uint32_t minorVersion;
+
+  bool signaturePacking; ///< Whether signature packing is enabled or not
 
   /// File name to rich debug info map. When the main source file
   /// includes header files, we create an element of debugInfo for

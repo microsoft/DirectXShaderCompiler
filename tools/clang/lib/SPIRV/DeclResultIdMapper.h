@@ -949,8 +949,6 @@ private:
   DiagnosticsEngine &diags;
   SpirvFunction *entryFunction;
 
-  bool signaturePacking; ///< Whether signature packing is enabled or not
-
   /// Mapping of all Clang AST decls to their instruction pointers.
   llvm::DenseMap<const ValueDecl *, DeclSpirvInfo> astDecls;
   llvm::DenseMap<const ValueDecl *, SpirvFunction *> astFunctionDecls;
@@ -1072,8 +1070,7 @@ DeclResultIdMapper::DeclResultIdMapper(
     : spvBuilder(spirvBuilder), theEmitter(emitter), featureManager(features),
       spirvOptions(options), astContext(context), spvContext(spirvContext),
       diags(context.getDiagnostics()), entryFunction(nullptr),
-      signaturePacking(sigPackingStrategy != 0), needsLegalization(false),
-      needsFlatteningCompositeResources(false),
+      needsLegalization(false), needsFlatteningCompositeResources(false),
       glPerVertex(context, spirvContext, spirvBuilder) {}
 
 bool DeclResultIdMapper::decorateStageIOLocations() {
