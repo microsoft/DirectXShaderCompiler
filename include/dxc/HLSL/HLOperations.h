@@ -363,6 +363,10 @@ const unsigned kAnnotateHandleHandleOpIdx = 1;
 const unsigned kAnnotateHandleResourcePropertiesOpIdx = 2;
 const unsigned kAnnotateHandleResourceTypeOpIdx = 3;
 
+// CreateHandleFromHeap.
+const unsigned kCreateHandleFromHeapIndexOpIdx = 1;
+const unsigned kCreateHandleFromHeapIsSamplerOpIdx = 2;
+
 // TraceRay.
 const unsigned kTraceRayRayDescOpIdx = 7;
 const unsigned kTraceRayPayLoadOpIdx = 8;

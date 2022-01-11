@@ -207,7 +207,12 @@ void PassManagerBuilder::populateFunctionPassManager(
 }
 
 // HLSL Change Starts
-static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, bool OnlyWarnOnUnrollFail, bool StructurizeLoopExitsForUnroll, bool EnableLifetimeMarkers, hlsl::HLSLExtensionsCodegenHelper *ExtHelper, legacy::PassManagerBase &MPM) {
+static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel,
+                          bool OnlyWarnOnUnrollFail,
+                          bool StructurizeLoopExitsForUnroll,
+                          bool EnableLifetimeMarkers,
+                          hlsl::HLSLExtensionsCodegenHelper *ExtHelper,
+                          legacy::PassManagerBase &MPM) {
 
   // Don't do any lowering if we're targeting high-level.
   if (HLSLHighLevel) {
@@ -286,6 +291,11 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, bool OnlyWarnOn
   // Verify no undef resource again after promotion
   MPM.add(createInvalidateUndefResourcesPass());
 
+  if (!NoOpt) {
+    // Run SROA to remove alloca for matrix array.
+    MPM.add(createSROAPass());
+    MPM.add(createRemoveRedundantUAVCopyPass());
+  }
   MPM.add(createDxilGenerationPass(NoOpt, ExtHelper));
 
   // Propagate precise attribute.
@@ -412,7 +422,11 @@ void PassManagerBuilder::populateModulePassManager(
     delete Inliner;
     Inliner = nullptr;
   }
-  addHLSLPasses(HLSLHighLevel, OptLevel, this->HLSLOnlyWarnOnUnrollFail, this->StructurizeLoopExitsForUnroll, this->HLSLEnableLifetimeMarkers, HLSLExtensionsCodeGen, MPM); // HLSL Change
+  addHLSLPasses(HLSLHighLevel, OptLevel, this->HLSLOnlyWarnOnUnrollFail,
+                this->StructurizeLoopExitsForUnroll,
+                this->HLSLEnableLifetimeMarkers,
+                HLSLExtensionsCodeGen,
+                MPM); // HLSL Change
   // HLSL Change Ends
 
   // Add LibraryInfo if we have some.

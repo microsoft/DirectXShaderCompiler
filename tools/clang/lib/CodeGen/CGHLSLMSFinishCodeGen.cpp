@@ -55,12 +55,43 @@ using namespace CGHLSLMSHelper;
 
 namespace {
 
+bool isGlobalRes(Value *Ptr) {
+  if (isa<Constant>(Ptr)) {
+    while (GEPOperator *GEP = dyn_cast<GEPOperator>(Ptr)) {
+      Ptr = GEP->getPointerOperand();
+    }
+    GlobalVariable *GV = dyn_cast<GlobalVariable>(Ptr);
+    if (!GV)
+      return false;
+    if (GV->getLinkage() == GlobalValue::LinkageTypes::InternalLinkage)
+
+      return false;
+    if (GV->getType()->getAddressSpace() != 0)
+
+      return false;
+    return true;
+  } else {
+    return false;
+  }
+}
+
 Value *CreateHandleFromResPtr(Value *ResPtr, HLModule &HLM,
                               llvm::Type *HandleTy, IRBuilder<> &Builder) {
   Module &M = *HLM.GetModule();
   // Load to make sure resource only have Ld/St use so mem2reg could remove
   // temp resource.
-  Value *ldObj = Builder.CreateLoad(ResPtr);
+  Value *ldObj = nullptr;
+  if (isGlobalRes(ResPtr)) {
+    // For global resource, create load to entry block so later optimization
+    // could remove redundant load easier.
+    IRBuilder<> B(Builder.GetInsertBlock()
+                      ->getParent()
+                      ->getEntryBlock()
+                      .getFirstInsertionPt());
+    ldObj = B.CreateLoad(ResPtr);
+  } else {
+    ldObj = Builder.CreateLoad(ResPtr);
+  }
   Value *args[] = {ldObj};
   CallInst *Handle = HLM.EmitHLOperationCall(
       Builder, HLOpcodeGroup::HLCreateHandle, 0, HandleTy, args, M);
