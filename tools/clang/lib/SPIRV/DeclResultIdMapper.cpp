@@ -1742,6 +1742,11 @@ private:
          startLoc++) {
       bool canAssign = true;
       for (uint32_t i = 0; i < requiredLocsAndComponents.location; ++i) {
+        if (locForVarWithExtraArrayness[startLoc + i] !=
+            var->hasExtraArrayness()) {
+          canAssign = false;
+          break;
+        }
         if (startLoc + i >= nextUnusedComponent.size() ||
             nextUnusedComponent[startLoc + i] +
                     requiredLocsAndComponents.component >
@@ -1786,6 +1791,7 @@ private:
     for (uint32_t i = 0; i < requiredLocsAndComponents.location; ++i) {
       assignedLocs.push_back(loc + i);
       nextUnusedComponent.push_back(componentCount);
+      locForVarWithExtraArrayness.push_back(var->hasExtraArrayness());
     }
     return true;
   }
@@ -1801,6 +1807,7 @@ private:
   SpirvBuilder &spvBuilder; ///< SPIR-V builder
   llvm::function_ref<uint32_t(uint32_t)> assignLocs;
   llvm::SmallVector<uint32_t, 8> assignedLocs;
+  llvm::SmallVector<bool, 8> locForVarWithExtraArrayness;
   llvm::SmallVector<uint32_t, 8> nextUnusedComponent;
 };
 
