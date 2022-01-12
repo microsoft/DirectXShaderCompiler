@@ -695,7 +695,7 @@ void PMTopLevelManager::schedulePass(Pass *P) {
   }
 
   // HLSL Change - begin
-  if (PI && !PI->isAnalysis() && this->HLSLPrintAfterAll) {
+  if (PI && !PI->isAnalysis() && (this->HLSLPrintAfterAll || this->HLSLPrintAfter == PI->getPassArgument())) {
     class direct_stderr_stream : public raw_ostream {
       uint64_t current_pos() const override { return 0; }
       /// See raw_ostream::write_impl.
@@ -1420,6 +1420,7 @@ FunctionPassManager::~FunctionPassManager() {
 void FunctionPassManager::add(Pass *P) {
   // HLSL Change Starts
   FPM->HLSLPrintAfterAll = this->HLSLPrintAfterAll;
+  FPM->HLSLPrintAfter = this->HLSLPrintAfter;
   std::unique_ptr<Pass> PPtr(P); // take ownership of P, even on failure paths
   if (TrackPassOS) {
     P->dumpConfig(*TrackPassOS);
@@ -1769,6 +1770,7 @@ PassManager::~PassManager() {
 void PassManager::add(Pass *P) {
   // HLSL Change Starts
   PM->HLSLPrintAfterAll = this->HLSLPrintAfterAll;
+  PM->HLSLPrintAfter = this->HLSLPrintAfter;
   std::unique_ptr<Pass> PPtr(P); // take ownership of P, even on failure paths
   if (TrackPassOS) {
     P->dumpConfig(*TrackPassOS);
