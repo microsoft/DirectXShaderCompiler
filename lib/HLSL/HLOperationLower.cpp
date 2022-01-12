@@ -38,6 +38,7 @@ using namespace llvm;
 using namespace hlsl;
 
 struct HLOperationLowerHelper {
+  HLModule &M;
   OP &hlslOP;
   Type *voidTy;
   Type *f32Ty;
@@ -53,7 +54,7 @@ struct HLOperationLowerHelper {
 };
 
 HLOperationLowerHelper::HLOperationLowerHelper(HLModule &HLM)
-    : hlslOP(*HLM.GetOP()), dxilTypeSys(HLM.GetTypeSystem()),
+    : M(HLM), hlslOP(*HLM.GetOP()), dxilTypeSys(HLM.GetTypeSystem()),
       dataLayout(DataLayout(HLM.GetHLOptions().bUseMinPrecision
                                   ? hlsl::DXIL::kLegacyLayoutString
                                   : hlsl::DXIL::kNewLayoutString)) {
@@ -1044,6 +1045,31 @@ Value *TranslateQuadReadLaneAt(CallInst *CI, IntrinsicOp IOP,
   return TrivialDxilOperation(DXIL::OpCode::QuadReadLaneAt, refArgs,
                               CI->getOperand(1)->getType(), CI, hlslOP);
 }
+
+// Quad intrinsics of the form fn(val,QuadOpKind)->val
+Value *TranslateQuadAnyAll(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
+                           HLOperationLowerHelper &helper,
+                           HLObjectOperationLowerHelper *pObjHelper,
+                           bool &Translated) {
+  hlsl::OP *hlslOP = &helper.hlslOP;
+  DXIL::QuadVoteOpKind opKind;
+  switch (IOP) {
+  case IntrinsicOp::IOP_QuadAll:
+    opKind = DXIL::QuadVoteOpKind::All;
+    break;
+  case IntrinsicOp::IOP_QuadAny:
+    opKind = DXIL::QuadVoteOpKind::Any;
+    break;
+  default:
+    llvm_unreachable(
+        "QuadAny/QuadAll translation called with wrong isntruction");
+  }
+  Constant *OpArg = hlslOP->GetI8Const((unsigned)opKind);
+  Value *refArgs[] = {nullptr, CI->getOperand(1), OpArg};
+  return TrivialDxilOperation(DXIL::OpCode::QuadVote, refArgs,
+                              CI->getOperand(1)->getType(), CI, hlslOP);
+}
+
 // Wave intrinsics of the form fn(val,QuadOpKind)->val
 Value *TranslateQuadReadAcross(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                                HLOperationLowerHelper &helper,  HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
@@ -5498,6 +5524,8 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_ProcessTriTessFactorsAvg, TranslateProcessTessFactors, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_ProcessTriTessFactorsMax, TranslateProcessTessFactors, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_ProcessTriTessFactorsMin, TranslateProcessTessFactors, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::IOP_QuadAll, TranslateQuadAnyAll, DXIL::OpCode::QuadVote},
+    {IntrinsicOp::IOP_QuadAny, TranslateQuadAnyAll, DXIL::OpCode::QuadVote},
     {IntrinsicOp::IOP_QuadReadAcrossDiagonal, TranslateQuadReadAcross, DXIL::OpCode::QuadOp},
     {IntrinsicOp::IOP_QuadReadAcrossX, TranslateQuadReadAcross, DXIL::OpCode::QuadOp},
     {IntrinsicOp::IOP_QuadReadAcrossY, TranslateQuadReadAcross, DXIL::OpCode::QuadOp},

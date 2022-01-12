@@ -876,7 +876,11 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   }
   // Instructions: QuadVote=222
   if (op == 222) {
-    major = 6;  minor = 7;
+    if (bWithTranslation) {
+      major = 6;  minor = 0;
+    } else {
+      major = 6;  minor = 7;
+    }
     mask = SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Pixel);
     return;
   }

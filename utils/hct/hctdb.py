@@ -456,6 +456,8 @@ class db_dxil(object):
             self.name_idx[i].shader_model = 6,6
         for i in "QuadVote,TextureGatherRaw,SampleCmpLevel,TextureStoreSample".split(","):
             self.name_idx[i].shader_model = 6,7
+        for i in "QuadVote".split(","):
+            self.name_idx[i].shader_model_translated = 6,0
 
     def populate_llvm_instructions(self):
         # Add instructions that map to LLVM instructions.
