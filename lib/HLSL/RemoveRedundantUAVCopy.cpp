@@ -89,6 +89,7 @@ struct ResMemLocation {
   Value *Ptr;
   // offset of the location.
   SmallVector<Value *, 4> offsets;
+  bool bReadOnly = true;
 };
 
 // A uav ptr include handle, subscript and gep.
@@ -326,21 +327,11 @@ bool handleNotAlias(Value *a, Value *b) {
 }
 
 bool notAlias(ResSubscript &a, ResSubscript &b) {
-  if (idxNotAlias(a.Idx, b.Idx))
-    return true;
-
-  if (handleNotAlias(a.Hdl, b.Hdl))
-    return true;
-
-  return false;
+  return idxNotAlias(a.Idx, b.Idx) || handleNotAlias(a.Hdl, b.Hdl);
 }
 
-bool notAlias(ResMemLocation &a, ResMemLocation &b) {
-  if (notAlias(a.Sub, b.Sub))
-    return true;
-  if (offsetsNotAlias(a.offsets, b.offsets))
-    return true;
-  return false;
+bool notAlias(ResMemLocation &a, ResMemLocation &b){
+    return notAlias(a.Sub, b.Sub) || offsetsNotAlias(a.offsets, b.offsets);
 }
 
 bool isSameOffset(SmallVector<Value *, 4> &offsetA,
@@ -423,15 +414,11 @@ bool isSameHandle(Value *a, Value *b) {
 }
 
 bool isSameResSubscript(ResSubscript &a, ResSubscript &b) {
-  if (a.Idx != b.Idx)
-    return false;
-  return isSameHandle(a.Hdl, b.Hdl);
+  return (a.Idx == b.Idx) && isSameHandle(a.Hdl, b.Hdl);
 }
 
 bool isSameMemLoc(ResMemLocation &a, ResMemLocation &b) {
-  if (!isSameResSubscript(a.Sub, b.Sub))
-    return false;
-  return isSameOffset(a.offsets, b.offsets);
+  return isSameResSubscript(a.Sub, b.Sub) && isSameOffset(a.offsets, b.offsets);
 }
 
 bool isLoadStorePair(Value *a, Value *b,
@@ -514,6 +501,28 @@ bool isLoadStorePair(Value *a, Value *b,
   return false;
 }
 
+bool isReadOnlyPtr(Value *P) {
+  for (User *U : P->users()) {
+    if (isa<StoreInst>(U))
+      return false;
+    if (isa<LoadInst>(U))
+      continue;
+    if (isa<BitCastOperator>(U)) {
+      if (!isReadOnlyPtr(U))
+        return false;
+      continue;
+    }
+    CallInst *CI = dyn_cast<CallInst>(U);
+    if (!CI)
+      return false;
+    Function *F = CI->getCalledFunction();
+    if (F->onlyReadsMemory())
+      continue;
+    return false;
+  }
+  return true;
+}
+
 } // namespace
 
 bool RemoveRedundantUAVCopy::runOnModule(Module &M) {
@@ -575,11 +584,15 @@ bool RemoveRedundantUAVCopy::runOnModule(Module &M) {
           auto &CurLoc = Locs[i];
           if (!isSameMemLoc(Loc, CurLoc))
             continue;
+          if (CurLoc.bReadOnly) {
+            CurLoc.bReadOnly &= isReadOnlyPtr(U);
+          }
           LocUsers[i].append(U->user_begin(), U->user_end());
           bIsDup = true;
           break;
         }
         if (!bIsDup) {
+          Loc.bReadOnly = isReadOnlyPtr(U);
           Locs.emplace_back(Loc);
           LocUsers.emplace_back();
           LocUsers.back().append(U->user_begin(), U->user_end());
@@ -610,7 +623,11 @@ bool RemoveRedundantUAVCopy::runOnModule(Module &M) {
       for (unsigned i = 0; i < Locs.size(); ++i) {
         if (i == idx)
           continue;
-        if (notAlias(Loc, Locs[i]))
+        auto &CurLoc = Locs[i];
+        if (CurLoc.bReadOnly)
+          continue;
+
+        if (notAlias(Loc, CurLoc))
           continue;
         bSafeToRemove = false;
         break;
