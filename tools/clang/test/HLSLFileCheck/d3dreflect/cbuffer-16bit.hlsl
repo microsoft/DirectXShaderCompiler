@@ -8,7 +8,7 @@
 // Otherwise the separate reflection blob would correctly contain the usage information,
 // since the metadata there is not gated on the shader target.
 
-tbuffer tb : register(t1)
+cbuffer cb : register(b1)
 {
   float b;
   double d;         // aligned at 8 (4-bytes padding)
@@ -45,18 +45,18 @@ float main(int i : A) : SV_TARGET
 // CHECK-NEXT:     BoundResources: 1
 // CHECK-NEXT:     InputParameters: 1
 // CHECK-NEXT:     OutputParameters: 1
-// CHECK-NEXT:     InstructionCount: {{58|59}}
+// CHECK-NEXT:     InstructionCount: {{34|35}}
 // CHECK-NEXT:     TempArrayCount: 0
 // CHECK-NEXT:     DynamicFlowControlCount: 0
 // CHECK-NEXT:     ArrayInstructionCount: 0
 // CHECK-NEXT:     TextureNormalInstructions: 0
-// CHECK-NEXT:     TextureLoadInstructions: 7
+// CHECK-NEXT:     TextureLoadInstructions: 0
 // CHECK-NEXT:     TextureCompInstructions: 0
 // CHECK-NEXT:     TextureBiasInstructions: 0
 // CHECK-NEXT:     TextureGradientInstructions: 0
 // CHECK-NEXT:     FloatInstructionCount: 14
-// CHECK-NEXT:     IntInstructionCount: 6
-// CHECK-NEXT:     UintInstructionCount: 11
+// CHECK-NEXT:     IntInstructionCount: 1
+// CHECK-NEXT:     UintInstructionCount: 0
 // CHECK-NEXT:     CutInstructionCount: 0
 // CHECK-NEXT:     EmitInstructionCount: 0
 // CHECK-NEXT:     cBarrierInstructions: 0
@@ -64,8 +64,8 @@ float main(int i : A) : SV_TARGET
 // CHECK-NEXT:     cTextureStoreInstructions: 0
 // CHECK:   Constant Buffers:
 // CHECK-NEXT:     ID3D12ShaderReflectionConstantBuffer:
-// CHECK-NEXT:       D3D12_SHADER_BUFFER_DESC: Name: tb
-// CHECK-NEXT:         Type: D3D_CT_TBUFFER
+// CHECK-NEXT:       D3D12_SHADER_BUFFER_DESC: Name: cb
+// CHECK-NEXT:         Type: D3D_CT_CBUFFER
 // CHECK-NEXT:         Size: 112
 // CHECK-NEXT:         uFlags: 0
 // CHECK-NEXT:         Num Variables: 16
@@ -85,7 +85,7 @@ float main(int i : A) : SV_TARGET
 // CHECK-NEXT:               Columns: 1
 // CHECK-NEXT:               Members: 0
 // CHECK-NEXT:               Offset: 0
-// CHECK-NEXT:           CBuffer: tb
+// CHECK-NEXT:           CBuffer: cb
 // CHECK-NEXT:         ID3D12ShaderReflectionVariable:
 // CHECK-NEXT:           D3D12_SHADER_VARIABLE_DESC: Name: d
 // CHECK-NEXT:             Size: 8
@@ -101,7 +101,7 @@ float main(int i : A) : SV_TARGET
 // CHECK-NEXT:               Columns: 1
 // CHECK-NEXT:               Members: 0
 // CHECK-NEXT:               Offset: 0
-// CHECK-NEXT:           CBuffer: tb
+// CHECK-NEXT:           CBuffer: cb
 // CHECK-NEXT:         ID3D12ShaderReflectionVariable:
 // CHECK-NEXT:           D3D12_SHADER_VARIABLE_DESC: Name: f
 // CHECK-NEXT:             Size: 4
@@ -117,7 +117,7 @@ float main(int i : A) : SV_TARGET
 // CHECK-NEXT:               Columns: 1
 // CHECK-NEXT:               Members: 0
 // CHECK-NEXT:               Offset: 0
-// CHECK-NEXT:           CBuffer: tb
+// CHECK-NEXT:           CBuffer: cb
 // CHECK-NEXT:         ID3D12ShaderReflectionVariable:
 // CHECK-NEXT:           D3D12_SHADER_VARIABLE_DESC: Name: h4
 // CHECK-NEXT:             Size: 8
@@ -133,7 +133,7 @@ float main(int i : A) : SV_TARGET
 // CHECK-NEXT:               Columns: 4
 // CHECK-NEXT:               Members: 0
 // CHECK-NEXT:               Offset: 0
-// CHECK-NEXT:           CBuffer: tb
+// CHECK-NEXT:           CBuffer: cb
 // CHECK-NEXT:         ID3D12ShaderReflectionVariable:
 // CHECK-NEXT:           D3D12_SHADER_VARIABLE_DESC: Name: f16_3
 // CHECK-NEXT:             Size: 6
@@ -149,7 +149,7 @@ float main(int i : A) : SV_TARGET
 // CHECK-NEXT:               Columns: 3
 // CHECK-NEXT:               Members: 0
 // CHECK-NEXT:               Offset: 0
-// CHECK-NEXT:           CBuffer: tb
+// CHECK-NEXT:           CBuffer: cb
 // CHECK-NEXT:         ID3D12ShaderReflectionVariable:
 // CHECK-NEXT:           D3D12_SHADER_VARIABLE_DESC: Name: mf1
 // CHECK-NEXT:             Size: 2
@@ -165,7 +165,7 @@ float main(int i : A) : SV_TARGET
 // CHECK-NEXT:               Columns: 1
 // CHECK-NEXT:               Members: 0
 // CHECK-NEXT:               Offset: 0
-// CHECK-NEXT:           CBuffer: tb
+// CHECK-NEXT:           CBuffer: cb
 // CHECK-NEXT:         ID3D12ShaderReflectionVariable:
 // CHECK-NEXT:           D3D12_SHADER_VARIABLE_DESC: Name: u16
 // CHECK-NEXT:             Size: 2
@@ -181,7 +181,7 @@ float main(int i : A) : SV_TARGET
 // CHECK-NEXT:               Columns: 1
 // CHECK-NEXT:               Members: 0
 // CHECK-NEXT:               Offset: 0
-// CHECK-NEXT:           CBuffer: tb
+// CHECK-NEXT:           CBuffer: cb
 // CHECK-NEXT:         ID3D12ShaderReflectionVariable:
 // CHECK-NEXT:           D3D12_SHADER_VARIABLE_DESC: Name: i16
 // CHECK-NEXT:             Size: 4
@@ -197,7 +197,7 @@ float main(int i : A) : SV_TARGET
 // CHECK-NEXT:               Columns: 2
 // CHECK-NEXT:               Members: 0
 // CHECK-NEXT:               Offset: 0
-// CHECK-NEXT:           CBuffer: tb
+// CHECK-NEXT:           CBuffer: cb
 // CHECK-NEXT:         ID3D12ShaderReflectionVariable:
 // CHECK-NEXT:           D3D12_SHADER_VARIABLE_DESC: Name: i
 // CHECK-NEXT:             Size: 4
@@ -213,7 +213,7 @@ float main(int i : A) : SV_TARGET
 // CHECK-NEXT:               Columns: 1
 // CHECK-NEXT:               Members: 0
 // CHECK-NEXT:               Offset: 0
-// CHECK-NEXT:           CBuffer: tb
+// CHECK-NEXT:           CBuffer: cb
 // CHECK-NEXT:         ID3D12ShaderReflectionVariable:
 // CHECK-NEXT:           D3D12_SHADER_VARIABLE_DESC: Name: u16_4
 // CHECK-NEXT:             Size: 8
@@ -229,7 +229,7 @@ float main(int i : A) : SV_TARGET
 // CHECK-NEXT:               Columns: 4
 // CHECK-NEXT:               Members: 0
 // CHECK-NEXT:               Offset: 0
-// CHECK-NEXT:           CBuffer: tb
+// CHECK-NEXT:           CBuffer: cb
 // CHECK-NEXT:         ID3D12ShaderReflectionVariable:
 // CHECK-NEXT:           D3D12_SHADER_VARIABLE_DESC: Name: h2
 // CHECK-NEXT:             Size: 4
@@ -245,7 +245,7 @@ float main(int i : A) : SV_TARGET
 // CHECK-NEXT:               Columns: 2
 // CHECK-NEXT:               Members: 0
 // CHECK-NEXT:               Offset: 0
-// CHECK-NEXT:           CBuffer: tb
+// CHECK-NEXT:           CBuffer: cb
 // CHECK-NEXT:         ID3D12ShaderReflectionVariable:
 // CHECK-NEXT:           D3D12_SHADER_VARIABLE_DESC: Name: f16
 // CHECK-NEXT:             Size: 2
@@ -261,7 +261,7 @@ float main(int i : A) : SV_TARGET
 // CHECK-NEXT:               Columns: 1
 // CHECK-NEXT:               Members: 0
 // CHECK-NEXT:               Offset: 0
-// CHECK-NEXT:           CBuffer: tb
+// CHECK-NEXT:           CBuffer: cb
 // CHECK-NEXT:         ID3D12ShaderReflectionVariable:
 // CHECK-NEXT:           D3D12_SHADER_VARIABLE_DESC: Name: i64
 // CHECK-NEXT:             Size: 8
@@ -277,7 +277,7 @@ float main(int i : A) : SV_TARGET
 // CHECK-NEXT:               Columns: 1
 // CHECK-NEXT:               Members: 0
 // CHECK-NEXT:               Offset: 0
-// CHECK-NEXT:           CBuffer: tb
+// CHECK-NEXT:           CBuffer: cb
 // CHECK-NEXT:         ID3D12ShaderReflectionVariable:
 // CHECK-NEXT:           D3D12_SHADER_VARIABLE_DESC: Name: f16b
 // CHECK-NEXT:             Size: 2
@@ -293,7 +293,7 @@ float main(int i : A) : SV_TARGET
 // CHECK-NEXT:               Columns: 1
 // CHECK-NEXT:               Members: 0
 // CHECK-NEXT:               Offset: 0
-// CHECK-NEXT:           CBuffer: tb
+// CHECK-NEXT:           CBuffer: cb
 // CHECK-NEXT:         ID3D12ShaderReflectionVariable:
 // CHECK-NEXT:           D3D12_SHADER_VARIABLE_DESC: Name: u64
 // CHECK-NEXT:             Size: 8
@@ -309,7 +309,7 @@ float main(int i : A) : SV_TARGET
 // CHECK-NEXT:               Columns: 1
 // CHECK-NEXT:               Members: 0
 // CHECK-NEXT:               Offset: 0
-// CHECK-NEXT:           CBuffer: tb
+// CHECK-NEXT:           CBuffer: cb
 // CHECK-NEXT:         ID3D12ShaderReflectionVariable:
 // CHECK-NEXT:           D3D12_SHADER_VARIABLE_DESC: Name: f16c
 // CHECK-NEXT:             Size: 2
@@ -325,11 +325,11 @@ float main(int i : A) : SV_TARGET
 // CHECK-NEXT:               Columns: 1
 // CHECK-NEXT:               Members: 0
 // CHECK-NEXT:               Offset: 0
-// CHECK-NEXT:           CBuffer: tb
+// CHECK-NEXT:           CBuffer: cb
 // CHECK-NEXT:       }
 // CHECK-NEXT:   Bound Resources:
-// CHECK-NEXT:     D3D12_SHADER_INPUT_BIND_DESC: Name: tb
-// CHECK-NEXT:       Type: D3D_SIT_TBUFFER
+// CHECK-NEXT:     D3D12_SHADER_INPUT_BIND_DESC: Name: cb
+// CHECK-NEXT:       Type: D3D_SIT_CBUFFER
 // CHECK-NEXT:       uID: 0
 // CHECK-NEXT:       BindCount: 1
 // CHECK-NEXT:       BindPoint: 1
