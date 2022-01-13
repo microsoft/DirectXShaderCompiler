@@ -220,7 +220,8 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
   // this is an issue in future (more devices are identified that support
   // ray_tracing but not ray_query), then we should consider addressing this
   // interaction with a spirv-opt pass instead.
-  else if (isa<AccelerationStructureTypeNV>(type)) {
+  else if (isa<AccelerationStructureTypeNV>(type) ||
+           isa<RayQueryTypeKHR>(type)) {
     addCapability(spv::Capability::RayQueryKHR);
     addExtension(Extension::KHR_ray_query, "SPV_KHR_ray_query", {});
   }

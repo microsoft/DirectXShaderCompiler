@@ -992,7 +992,8 @@ SpirvInstruction *SpirvEmitter::doExpr(const Expr *expr,
     assert(curThis);
     result = curThis;
   } else if (isa<CXXConstructExpr>(expr)) {
-    result = curThis;
+    if (!hlsl::IsHLSLRayQueryType(expr->getType()))
+      result = curThis;
   } else if (const auto *unaryExpr = dyn_cast<UnaryExprOrTypeTraitExpr>(expr)) {
     result = doUnaryExprOrTypeTraitExpr(unaryExpr);
   } else {
@@ -5789,10 +5790,6 @@ void SpirvEmitter::storeValue(SpirvInstruction *lhsPtr,
     // let SPIRV-Tools opt to do the legalization work.
     //
     // Note: legalization specific code
-    if (hlsl::IsHLSLRayQueryType(lhsValType)) {
-      emitError("store value of type %0 is unsupported", {}) << lhsValType;
-      return;
-    }
     spvBuilder.createStore(lhsPtr, rhsVal, loc, range);
     needsLegalization = true;
   } else if (isAKindOfStructuredOrByteBuffer(lhsValType)) {
