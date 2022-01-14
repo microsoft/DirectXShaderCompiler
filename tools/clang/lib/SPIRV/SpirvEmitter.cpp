@@ -992,6 +992,10 @@ SpirvInstruction *SpirvEmitter::doExpr(const Expr *expr,
     assert(curThis);
     result = curThis;
   } else if (isa<CXXConstructExpr>(expr)) {
+    // For RayQuery type, we should not explicitly initialize it using
+    // CXXConstructExpr e.g., RayQuery<0> r = RayQuery<0>() is the same as we do
+    // not have a variable initialization. Setting nullptr for the SPIR-V
+    // instruction used for expr will let us skip the variable initialization.
     if (!hlsl::IsHLSLRayQueryType(expr->getType()))
       result = curThis;
   } else if (const auto *unaryExpr = dyn_cast<UnaryExprOrTypeTraitExpr>(expr)) {

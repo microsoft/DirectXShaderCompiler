@@ -213,7 +213,7 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
     for (auto field : structType->getFields())
       addCapabilityForType(field.type, loc, sc);
   }
-  // AccelerationStructureTypeNV type
+  // AccelerationStructureTypeNV and RayQueryTypeKHR type
   // Note: Because AccelerationStructureType can be provided by both
   // SPV_KHR_ray_query and SPV_{NV,KHR}_ray_tracing extensions, this logic will
   // result in SPV_KHR_ray_query being unnecessarily required in some cases. If

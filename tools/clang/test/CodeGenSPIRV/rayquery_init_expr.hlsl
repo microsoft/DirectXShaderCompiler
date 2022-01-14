@@ -2,6 +2,9 @@
 
 // Ignore "init" Expr of RayQuery in the AST traversal.
 
+// CHECK: OpCapability RayQueryKHR
+// CHECK: OpExtension "SPV_KHR_ray_query"
+
 void Fun() {
   RayQuery<0> RayQ;
 }
