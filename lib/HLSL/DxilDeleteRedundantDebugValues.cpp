@@ -51,36 +51,17 @@ bool DxilDeleteRedundantDebugValues::runOnModule(Module &M) {
 
   bool Changed = false;
 
-  unsigned NumDbgInsts = 0;
-  unsigned NumNonDbgInsts = 0;
-  for (Function &F : M) {
-    for (BasicBlock &BB : F) {
-      for (Instruction &I : BB) {
-        if (isa<DbgInfoIntrinsic>(I))
-          NumDbgInsts++;
-        else
-          NumNonDbgInsts++;
-      }
-    }
-  }
-
-  // Here is an arbitrary threshold where we decide there's too many
-  // debug instructions.
-  // TODO: Issue a warning here about removing debug instructions.
-  bool TryReduceDbgInsts = NumDbgInsts >= 10*NumNonDbgInsts && NumDbgInsts >= 100000;
-
   std::unordered_set<DILocalScope *> SeenScopes;
   typedef std::pair<DILocalVariable *, DIExpression *> VarPair;
   SmallDenseMap<VarPair, DbgValueInst *> SeenVar;
-  SmallVector<DILocalScope *, 8> ScopeWorklist;
 
   for (Function &F : M) {
     SeenScopes.clear();
     SeenVar.clear();
 
-    // Collect a set of all scopes that non-debug instructions
-    // are attached to. There's no need to keep debug info for
-    // any variables for any scopes that
+    // Collect a set of all scopes that are attached to non-debug instructions
+    // There's no need to keep debug info for any variables in any scopes that
+    // don't have any real instructions anyway.
     for (BasicBlock &BB : F) {
       for (Instruction &I : BB) {
         if (isa<DbgInfoIntrinsic>(I))
@@ -88,25 +69,14 @@ bool DxilDeleteRedundantDebugValues::runOnModule(Module &M) {
         DebugLoc DL = I.getDebugLoc();
         if (!DL) continue;
 
-        ScopeWorklist.clear();
-        if (!TryReduceDbgInsts) {
-          if (DILocation *InlinedAt = DL.getInlinedAt()) {
-            if (DILocalScope *Scope = cast_or_null<DILocalScope>(InlinedAt->getScope()))
-              ScopeWorklist.push_back(Scope);
-          }
-        }
-        if (DILocalScope *Scope = cast_or_null<DILocalScope>(DL.getScope())) {
-          ScopeWorklist.push_back(Scope);
-        }
-
-        if (ScopeWorklist.empty())
+        DILocalScope *Scope = cast_or_null<DILocalScope>(DL.getScope());
+        if (!Scope)
           continue;
 
-        while (ScopeWorklist.size()) {
-          DILocalScope *Scope = ScopeWorklist.pop_back_val();
+        while (Scope) {
           SeenScopes.insert(Scope);
           if (DILexicalBlockBase *LB = dyn_cast<DILexicalBlockBase>(Scope)) {
-            ScopeWorklist.push_back(LB->getScope());
+            Scope = LB->getScope();
           }
         }
       }
