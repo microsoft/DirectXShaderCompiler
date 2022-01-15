@@ -36,7 +36,6 @@ class FunctionPassManagerImpl;
 class PassManagerBase {
 public:
   bool HLSLPrintAfterAll = false; // HLSL Change
-  std::string HLSLPrintAfter; // HLSL Change
 
   virtual ~PassManagerBase();
 

@@ -1469,7 +1469,6 @@ public:
     compiler.getCodeGenOpts().HLSLPreciseOutputs = Opts.PreciseOutputs;
     compiler.getCodeGenOpts().MainFileName = pMainFile;
     compiler.getCodeGenOpts().HLSLPrintAfterAll = Opts.PrintAfterAll;
-    compiler.getCodeGenOpts().HLSLPrintAfter = Opts.PrintAfter;
     compiler.getCodeGenOpts().HLSLForceZeroStoreLifetimes = Opts.ForceZeroStoreLifetimes;
     compiler.getCodeGenOpts().HLSLEnableLifetimeMarkers = Opts.EnableLifetimeMarkers;
     compiler.getCodeGenOpts().HLSLEnablePayloadAccessQualifiers = Opts.EnablePayloadQualifiers;

@@ -92,7 +92,6 @@ private:
     if (!PerModulePasses) {
       PerModulePasses = new legacy::PassManager();
       PerModulePasses->HLSLPrintAfterAll = this->CodeGenOpts.HLSLPrintAfterAll;
-      PerModulePasses->HLSLPrintAfter = this->CodeGenOpts.HLSLPrintAfter;
       PerModulePasses->TrackPassOS = &PerModulePassesConfigOS;
       PerModulePasses->add(
           createTargetTransformInfoWrapperPass(getTargetIRAnalysis()));
@@ -104,7 +103,6 @@ private:
     if (!PerFunctionPasses) {
       PerFunctionPasses = new legacy::FunctionPassManager(TheModule);
       PerFunctionPasses->HLSLPrintAfterAll = this->CodeGenOpts.HLSLPrintAfterAll;
-      PerFunctionPasses->HLSLPrintAfter = this->CodeGenOpts.HLSLPrintAfter;
       PerFunctionPasses->TrackPassOS = &PerFunctionPassesConfigOS;
       PerFunctionPasses->add(
           createTargetTransformInfoWrapperPass(getTargetIRAnalysis()));

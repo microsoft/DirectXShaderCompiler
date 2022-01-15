@@ -180,7 +180,6 @@ private:
 
 public:
   bool HLSLPrintAfterAll = false; // HLSL Change
-  std::string HLSLPrintAfter; // HLSL Change
 
   /// Schedule pass P for execution. Make sure that passes required by
   /// P are run before P is run. Update analysis info maintained by

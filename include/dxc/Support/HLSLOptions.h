@@ -221,7 +221,6 @@ public:
   std::map<std::string, std::string> OverrideSemDefs; // OPT_override_semdef
 
   bool PrintAfterAll; // OPT_print_after_all
-  std::string PrintAfter; // OPT_print_after
   bool EnablePayloadQualifiers = false; // OPT_enable_payload_qualifiers
   bool HandleExceptions = false; // OPT_disable_exception_handling
 
