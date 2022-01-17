@@ -924,11 +924,21 @@ void SpirvEmitter::doStmt(const Stmt *stmt,
     doForStmt(forStmt, attrs);
   } else if (dyn_cast<NullStmt>(stmt)) {
     // For the null statement ";". We don't need to do anything.
-  } else if (const auto *expr = dyn_cast<Expr>(stmt)) {
-    // All cases for expressions used as statements
-    doExpr(expr);
   } else if (const auto *attrStmt = dyn_cast<AttributedStmt>(stmt)) {
     doStmt(attrStmt->getSubStmt(), attrStmt->getAttrs());
+  } else if (const auto *expr = dyn_cast<Expr>(stmt)) {
+    // All cases for expressions used as statements
+    SpirvInstruction *result = doExpr(expr);
+
+    if (result && result->getKind() == SpirvInstruction::IK_ExecutionMode &&
+        !attrs.empty()) {
+      // Handle [[vk::ext_capability(..)]] and [[vk::ext_extension(..)]]
+      // attributes for vk::ext_execution_mode[_id](..).
+      createSpirvIntrInstExt(
+          attrs, QualType(), expr->getExprLoc(),
+          /*spvArgs*/ llvm::SmallVector<SpirvInstruction *, 1>{},
+          /*isInstr*/ false);
+    }
   } else {
     emitError("statement class '%0' unimplemented", stmt->getLocStart())
         << stmt->getStmtClassName() << stmt->getSourceRange();
@@ -12723,32 +12733,45 @@ SpirvEmitter::processRayQueryIntrinsics(const CXXMemberCallExpr *expr,
   return retVal;
 }
 
-SpirvInstruction *
-SpirvEmitter::processSpvIntrinsicCallExpr(const CallExpr *expr) {
-  auto funcDecl = expr->getDirectCallee();
-  auto &attrs = funcDecl->getAttrs();
-  QualType retType = funcDecl->getReturnType();
-
+SpirvInstruction *SpirvEmitter::createSpirvIntrInstExt(
+    llvm::ArrayRef<const Attr *> attrs, QualType retType, SourceLocation loc,
+    const llvm::SmallVectorImpl<SpirvInstruction *> &spvArgs, bool isInstr) {
   llvm::SmallVector<uint32_t, 2> capbilities;
   llvm::SmallVector<llvm::StringRef, 2> extensions;
   llvm::StringRef instSet = "";
-  uint32_t op = 0;
+  // For [[vk::ext_type_def]], we use dummy OpNop with no semantic meaning,
+  // with possible extension and capabilities.
+  uint32_t op = static_cast<unsigned>(spv::Op::OpNop);
   for (auto &attr : attrs) {
     if (auto capAttr = dyn_cast<VKCapabilityExtAttr>(attr)) {
       capbilities.push_back(capAttr->getCapability());
     } else if (auto extAttr = dyn_cast<VKExtensionExtAttr>(attr)) {
       extensions.push_back(extAttr->getName());
-    } else if (auto instAttr = dyn_cast<VKInstructionExtAttr>(attr)) {
+    }
+    if (!isInstr)
+      continue;
+    if (auto instAttr = dyn_cast<VKInstructionExtAttr>(attr)) {
       op = instAttr->getOpcode();
       instSet = instAttr->getInstruction_set();
     }
   }
 
-  llvm::SmallVector<SpirvInstruction *, 8> spvArgs;
+  SpirvInstruction *retVal = spvBuilder.createSpirvIntrInstExt(
+      op, retType, spvArgs, extensions, instSet, capbilities, loc);
 
+  // TODO: Revisit this r-value setting when handling vk::ext_result_id<T> ?
+  retVal->setRValue();
+
+  return retVal;
+}
+
+SpirvInstruction *
+SpirvEmitter::processSpvIntrinsicCallExpr(const CallExpr *expr) {
+  const auto *funcDecl = expr->getDirectCallee();
+  llvm::SmallVector<SpirvInstruction *, 8> spvArgs;
   const auto args = expr->getArgs();
   for (uint32_t i = 0; i < expr->getNumArgs(); ++i) {
-    auto param = funcDecl->getParamDecl(i);
+    const auto *param = funcDecl->getParamDecl(i);
     const Expr *arg = args[i]->IgnoreParenLValueCasts();
     SpirvInstruction *argInst = doExpr(arg);
     if (param->hasAttr<VKReferenceExtAttr>()) {
@@ -12769,14 +12792,9 @@ SpirvEmitter::processSpvIntrinsicCallExpr(const CallExpr *expr) {
     }
   }
 
-  const auto loc = expr->getExprLoc();
-
-  SpirvInstruction *retVal = spvBuilder.createSpirvIntrInstExt(
-      op, retType, spvArgs, extensions, instSet, capbilities, loc);
-
-  // TODO: Revisit this r-value setting when handling vk::ext_result_id<T> ?
-  retVal->setRValue();
-  return retVal;
+  return createSpirvIntrInstExt(funcDecl->getAttrs(), funcDecl->getReturnType(),
+                                expr->getExprLoc(), spvArgs,
+                                /*isInstr*/ true);
 }
 
 SpirvInstruction *SpirvEmitter::processRawBufferLoad(const CallExpr *callExpr) {
@@ -12838,18 +12856,6 @@ SpirvEmitter::processIntrinsicExecutionMode(const CallExpr *expr,
 SpirvInstruction *
 SpirvEmitter::processSpvIntrinsicTypeDef(const CallExpr *expr) {
   auto funcDecl = expr->getDirectCallee();
-  auto typeDefAttr = funcDecl->getAttr<VKTypeDefExtAttr>();
-  llvm::SmallVector<uint32_t, 2> capbilities;
-  llvm::SmallVector<llvm::StringRef, 2> extensions;
-
-  for (auto &attr : funcDecl->getAttrs()) {
-    if (auto capAttr = dyn_cast<VKCapabilityExtAttr>(attr)) {
-      capbilities.push_back(capAttr->getCapability());
-    } else if (auto extAttr = dyn_cast<VKExtensionExtAttr>(attr)) {
-      extensions.push_back(extAttr->getName());
-    }
-  }
-
   SmallVector<SpvIntrinsicTypeOperand, 3> operands;
   const auto args = expr->getArgs();
   for (uint32_t i = 0; i < expr->getNumArgs(); ++i) {
@@ -12874,17 +12880,15 @@ SpirvEmitter::processSpvIntrinsicTypeDef(const CallExpr *expr) {
       operands.emplace_back(loadIfGLValue(arg));
     }
   }
+
+  auto typeDefAttr = funcDecl->getAttr<VKTypeDefExtAttr>();
   spvContext.getSpirvIntrinsicType(typeDefAttr->getId(),
                                    typeDefAttr->getOpcode(), operands);
 
-  // Emit dummy OpNop with no semantic meaning, with possible extension and
-  // capabilities
-  SpirvInstruction *retVal = spvBuilder.createSpirvIntrInstExt(
-      static_cast<unsigned>(spv::Op::OpNop), QualType(), {}, extensions, {},
-      capbilities, expr->getExprLoc());
-  retVal->setRValue();
-
-  return retVal;
+  return createSpirvIntrInstExt(
+      funcDecl->getAttrs(), QualType(), expr->getExprLoc(),
+      /*spvArgs*/ llvm::SmallVector<SpirvInstruction *, 1>{},
+      /*isInstr*/ false);
 }
 
 bool SpirvEmitter::spirvToolsValidate(std::vector<uint32_t> *mod,

@@ -613,6 +613,12 @@ private:
   /// Process ray query intrinsics
   SpirvInstruction *processRayQueryIntrinsics(const CXXMemberCallExpr *expr,
                                               hlsl::IntrinsicOp opcode);
+
+  /// Create SpirvIntrinsicInstruction for arbitrary SPIR-V instructions
+  /// specified by [[vk::ext_instruction(..)]] or [[vk::ext_type_def(..)]]
+  SpirvInstruction *createSpirvIntrInstExt(
+      llvm::ArrayRef<const Attr *> attrs, QualType retType, SourceLocation loc,
+      const llvm::SmallVectorImpl<SpirvInstruction *> &spvArgs, bool isInstr);
   /// Process spirv intrinsic instruction
   SpirvInstruction *processSpvIntrinsicCallExpr(const CallExpr *expr);
   
