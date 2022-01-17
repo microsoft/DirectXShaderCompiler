@@ -324,6 +324,12 @@ bool isOrContainsNonFpColMajorMatrix(const ASTContext &,
                                      const SpirvCodeGenOptions &, QualType type,
                                      const Decl *decl);
 
+/// \bried Returns true if the given type is `vk::ext_result_id<T>`.
+bool isExtResultIdType(QualType type);
+
+/// \bried Returns true if the given type is defined in `vk` namespace.
+bool isTypeInVkNamespace(const RecordType *type);
+
 /// \bried Returns true if the given type is a String or StringLiteral type.
 bool isStringType(QualType);
 

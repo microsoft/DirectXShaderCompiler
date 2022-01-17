@@ -1054,6 +1054,21 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
   return varInstr;
 }
 
+SpirvInstruction *DeclResultIdMapper::createResultId(const VarDecl *var) {
+  assert(isExtResultIdType(var->getType()));
+
+  // Without initialization, we cannot generate the result id.
+  if (!var->hasInit()) {
+    emitError("Found uninitialized variable for result id.",
+              var->getLocation());
+    return nullptr;
+  }
+
+  SpirvInstruction *init = theEmitter.doExpr(var->getInit());
+  astDecls[var] = createDeclSpirvInfo(init);
+  return init;
+}
+
 SpirvInstruction *
 DeclResultIdMapper::createOrUpdateStringVar(const VarDecl *var) {
   assert(hlsl::IsStringType(var->getType()) ||
