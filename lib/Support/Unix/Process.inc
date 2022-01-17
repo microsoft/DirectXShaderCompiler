@@ -95,7 +95,10 @@ unsigned Process::getPageSize() {
 size_t Process::GetMallocUsage() {
 #if defined(HAVE_MALLINFO)
   struct mallinfo mi;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
   mi = ::mallinfo();
+#pragma clang diagnostic pop
   return mi.uordblks;
 #elif defined(HAVE_MALLOC_ZONE_STATISTICS) && defined(HAVE_MALLOC_MALLOC_H)
   malloc_statistics_t Stats;
