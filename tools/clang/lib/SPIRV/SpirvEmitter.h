@@ -622,7 +622,8 @@ private:
   /// Custom intrinsic to support basic buffer_reference use case
   SpirvInstruction *processRawBufferLoad(const CallExpr *callExpr);
   /// Process vk::ext_execution_mode intrinsic
-  SpirvInstruction *processIntrinsicExecutionMode(const CallExpr *expr);
+  SpirvInstruction *processIntrinsicExecutionMode(const CallExpr *expr,
+                                                  bool useIdParams);
 
 private:
   /// Returns the <result-id> for constant value 0 of the given type.

@@ -587,8 +587,16 @@ bool EmitVisitor::visit(SpirvExecutionMode *inst) {
   initInstruction(inst);
   curInst.push_back(getOrAssignResultId<SpirvFunction>(inst->getEntryPoint()));
   curInst.push_back(static_cast<uint32_t>(inst->getExecutionMode()));
-  curInst.insert(curInst.end(), inst->getParams().begin(),
-                 inst->getParams().end());
+  if (inst->getopcode() == spv::Op::OpExecutionMode) {
+    curInst.insert(curInst.end(), inst->getParams().begin(),
+                   inst->getParams().end());
+  } else {
+    for (uint32_t param : inst->getParams()) {
+      curInst.push_back(typeHandler.getOrCreateConstantInt(
+          llvm::APInt(32, param), context.getUIntType(32),
+          /*isSpecConst */ false));
+    }
+  }
   finalizeInstruction(&preambleBinary);
   return true;
 }

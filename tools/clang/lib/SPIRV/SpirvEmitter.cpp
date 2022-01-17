@@ -7776,7 +7776,10 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     retVal = processRawBufferLoad(callExpr);
     break;
   case hlsl::IntrinsicOp::IOP_Vkext_execution_mode:
-    retVal = processIntrinsicExecutionMode(callExpr);
+    retVal = processIntrinsicExecutionMode(callExpr, false);
+    break;
+  case hlsl::IntrinsicOp::IOP_Vkext_execution_mode_id:
+    retVal = processIntrinsicExecutionMode(callExpr, true);
     break;
   case hlsl::IntrinsicOp::IOP_saturate:
     retVal = processIntrinsicSaturate(callExpr);
@@ -12803,18 +12806,22 @@ SpirvInstruction *SpirvEmitter::processRawBufferLoad(const CallExpr *callExpr) {
 }
 
 SpirvInstruction *
-SpirvEmitter::processIntrinsicExecutionMode(const CallExpr *expr) {
+SpirvEmitter::processIntrinsicExecutionMode(const CallExpr *expr,
+                                            bool useIdParams) {
   llvm::SmallVector<uint32_t, 2> execModesParams;
   uint32_t exeMode = 0;
   const auto args = expr->getArgs();
   for (uint32_t i = 0; i < expr->getNumArgs(); ++i) {
-    SpirvConstantInteger *argInst =
-        dyn_cast<SpirvConstantInteger>(doExpr(args[i]));
-    if (argInst == nullptr) {
-      emitError("argument should be constant interger", expr->getExprLoc());
+    const auto *intLiteral =
+        dyn_cast<IntegerLiteral>(args[i]->IgnoreImplicit());
+    if (intLiteral == nullptr) {
+      emitError("argument should be constant integer", expr->getExprLoc());
       return nullptr;
     }
-    unsigned argInteger = argInst->getValue().getZExtValue();
+
+    uint32_t argInteger =
+        static_cast<uint32_t>(intLiteral->getValue().getZExtValue());
+
     if (i > 0)
       execModesParams.push_back(argInteger);
     else
@@ -12823,9 +12830,9 @@ SpirvEmitter::processIntrinsicExecutionMode(const CallExpr *expr) {
   assert(entryFunction != nullptr);
   assert(exeMode != 0);
 
-  return spvBuilder.addExecutionMode(entryFunction,
-                                     static_cast<spv::ExecutionMode>(exeMode),
-                                     execModesParams, expr->getExprLoc());
+  return spvBuilder.addExecutionMode(
+      entryFunction, static_cast<spv::ExecutionMode>(exeMode), execModesParams,
+      expr->getExprLoc(), useIdParams);
 }
 
 SpirvInstruction *

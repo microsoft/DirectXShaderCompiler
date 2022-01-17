@@ -1344,6 +1344,7 @@ TEST_F(FileTest, IntrinsicsSpirv) {
   runFileTest("spv.intrinsicLiteral.hlsl");
   runFileTest("spv.intrinsicDecorate.hlsl", Expect::Success, false);
   runFileTest("spv.intrinsicExecutionMode.hlsl", Expect::Success, false);
+  runFileTest("spv.intrinsicExecutionModeId.hlsl", Expect::Success, false);
   runFileTest("spv.intrinsicStorageClass.hlsl", Expect::Success, false);
   runFileTest("spv.intrinsicTypeInteger.hlsl");
   runFileTest("spv.intrinsicTypeRayquery.hlsl", Expect::Success, false);
