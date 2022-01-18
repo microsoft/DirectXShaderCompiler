@@ -935,9 +935,9 @@ void SpirvEmitter::doStmt(const Stmt *stmt,
       // Handle [[vk::ext_capability(..)]] and [[vk::ext_extension(..)]]
       // attributes for vk::ext_execution_mode[_id](..).
       createSpirvIntrInstExt(
-          attrs, QualType(), expr->getExprLoc(),
+          attrs, QualType(),
           /*spvArgs*/ llvm::SmallVector<SpirvInstruction *, 1>{},
-          /*isInstr*/ false);
+          /*isInstr*/ false, expr->getExprLoc());
     }
   } else {
     emitError("statement class '%0' unimplemented", stmt->getLocStart())
@@ -12734,8 +12734,9 @@ SpirvEmitter::processRayQueryIntrinsics(const CXXMemberCallExpr *expr,
 }
 
 SpirvInstruction *SpirvEmitter::createSpirvIntrInstExt(
-    llvm::ArrayRef<const Attr *> attrs, QualType retType, SourceLocation loc,
-    const llvm::SmallVectorImpl<SpirvInstruction *> &spvArgs, bool isInstr) {
+    llvm::ArrayRef<const Attr *> attrs, QualType retType,
+    const llvm::SmallVectorImpl<SpirvInstruction *> &spvArgs, bool isInstr,
+    SourceLocation loc) {
   llvm::SmallVector<uint32_t, 2> capbilities;
   llvm::SmallVector<llvm::StringRef, 2> extensions;
   llvm::StringRef instSet = "";
@@ -12793,8 +12794,8 @@ SpirvEmitter::processSpvIntrinsicCallExpr(const CallExpr *expr) {
   }
 
   return createSpirvIntrInstExt(funcDecl->getAttrs(), funcDecl->getReturnType(),
-                                expr->getExprLoc(), spvArgs,
-                                /*isInstr*/ true);
+                                spvArgs,
+                                /*isInstr*/ true, expr->getExprLoc());
 }
 
 SpirvInstruction *SpirvEmitter::processRawBufferLoad(const CallExpr *callExpr) {
@@ -12886,9 +12887,9 @@ SpirvEmitter::processSpvIntrinsicTypeDef(const CallExpr *expr) {
                                    typeDefAttr->getOpcode(), operands);
 
   return createSpirvIntrInstExt(
-      funcDecl->getAttrs(), QualType(), expr->getExprLoc(),
+      funcDecl->getAttrs(), QualType(),
       /*spvArgs*/ llvm::SmallVector<SpirvInstruction *, 1>{},
-      /*isInstr*/ false);
+      /*isInstr*/ false, expr->getExprLoc());
 }
 
 bool SpirvEmitter::spirvToolsValidate(std::vector<uint32_t> *mod,

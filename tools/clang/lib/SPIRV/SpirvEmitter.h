@@ -617,8 +617,9 @@ private:
   /// Create SpirvIntrinsicInstruction for arbitrary SPIR-V instructions
   /// specified by [[vk::ext_instruction(..)]] or [[vk::ext_type_def(..)]]
   SpirvInstruction *createSpirvIntrInstExt(
-      llvm::ArrayRef<const Attr *> attrs, QualType retType, SourceLocation loc,
-      const llvm::SmallVectorImpl<SpirvInstruction *> &spvArgs, bool isInstr);
+      llvm::ArrayRef<const Attr *> attrs, QualType retType,
+      const llvm::SmallVectorImpl<SpirvInstruction *> &spvArgs, bool isInstr,
+      SourceLocation loc);
   /// Process spirv intrinsic instruction
   SpirvInstruction *processSpvIntrinsicCallExpr(const CallExpr *expr);
   
