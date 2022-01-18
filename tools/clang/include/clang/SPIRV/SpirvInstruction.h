@@ -474,7 +474,8 @@ public:
 
   // OpDecorateString/OpMemberDecorateString
   SpirvDecoration(SourceLocation loc, SpirvInstruction *target,
-                  spv::Decoration decor, llvm::StringRef stringParam,
+                  spv::Decoration decor,
+                  llvm::ArrayRef<llvm::StringRef> stringParam,
                   llvm::Optional<uint32_t> index = llvm::None);
 
   // Used for creating OpDecorateId instructions

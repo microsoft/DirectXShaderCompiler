@@ -12110,27 +12110,33 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
         A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_VKDecorateExt: {
-    // Note that `llvm::SmallVector<unsigned, 3> args` will be destroyed at
-    // the end of this function. However, VKDecorateExtAttr() constructor
-    // allocate a new integer array internally for literal and passing
-    // `&args[1]` is used just once for the initialization. It does not
-    // create a dangling pointer.
-    llvm::SmallVector<unsigned, 3> args;
-    auto argNum = A.getNumArgs();
-    for (unsigned i = 0; i < argNum; ++i) {
+    unsigned decoration = unsigned(ValidateAttributeIntArg(S, A));
+    llvm::SmallVector<unsigned, 2> args;
+    for (unsigned i = 1; i < A.getNumArgs(); ++i) {
       args.push_back(unsigned(ValidateAttributeIntArg(S, A, i)));
     }
-    unsigned *literal = (argNum > 1) ? &args[1] : nullptr;
+    // Note that `llvm::SmallVector<unsigned, 2> args` will be destroyed at
+    // the end of this function. However, VKDecorateExtAttr() constructor
+    // allocate a new integer array internally for args. It does not create
+    // a dangling pointer.
     declAttr = ::new (S.Context)
-        VKDecorateExtAttr(A.getRange(), S.Context, args[0], literal, argNum - 1,
-                          A.getAttributeSpellingListIndex());
+        VKDecorateExtAttr(A.getRange(), S.Context, decoration, args.data(),
+                          args.size(), A.getAttributeSpellingListIndex());
   } break;
-  case AttributeList::AT_VKDecorateStringExt:
+  case AttributeList::AT_VKDecorateStringExt: {
+    unsigned decoration = unsigned(ValidateAttributeIntArg(S, A));
+    llvm::SmallVector<std::string, 2> args;
+    for (unsigned i = 1; i < A.getNumArgs(); ++i) {
+      args.push_back(ValidateAttributeStringArg(S, A, nullptr, i));
+    }
+    // Note that `llvm::SmallVector<std::string, 2> args` will be destroyed
+    // at the end of this function. However, VKDecorateExtAttr() constructor
+    // allocate a new integer array internally for args. It does not create
+    // a dangling pointer.
     declAttr = ::new (S.Context) VKDecorateStringExtAttr(
-        A.getRange(), S.Context, unsigned(ValidateAttributeIntArg(S, A)),
-        ValidateAttributeStringArg(S, A, nullptr, 1),
+        A.getRange(), S.Context, decoration, args.data(), args.size(),
         A.getAttributeSpellingListIndex());
-    break;
+  } break;
   case AttributeList::AT_VKStorageClassExt:
     declAttr = ::new (S.Context) VKStorageClassExtAttr(
         A.getRange(), S.Context, unsigned(ValidateAttributeIntArg(S, A)),

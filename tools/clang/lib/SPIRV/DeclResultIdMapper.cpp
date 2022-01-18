@@ -3994,21 +3994,28 @@ void DeclResultIdMapper::tryToCreateImplicitConstVar(const ValueDecl *decl) {
 }
 
 template <typename Functor>
-void DeclResultIdMapper::decorateWithIntrinsicAttrs(const NamedDecl *decl,
-                                                    SpirvVariable *varInst,
-                                                    Functor func) {
+void DeclResultIdMapper::decorateWithIntrinsicAttrs(
+    const NamedDecl *decl, SpirvVariable *varInst,
+    Functor extraFunctionForDecoAttr) {
   if (!decl->hasAttrs())
     return;
 
+  // TODO: Handle member field in a struct.
   for (auto &attr : decl->getAttrs()) {
     if (auto decoAttr = dyn_cast<VKDecorateExtAttr>(attr)) {
-      func(decoAttr);
-      spvBuilder.decorateLiterals(
-          varInst, decoAttr->getDecorate(), decoAttr->literal_begin(),
-          decoAttr->literal_size(), varInst->getSourceLocation());
-    } else if (auto decoAttr = dyn_cast<VKDecorateStringExtAttr>(attr)) {
-      spvBuilder.decorateString(varInst, decoAttr->getDecorate(),
-                                decoAttr->getLiterals());
+      spvBuilder.decorateWithLiterals(
+          varInst, decoAttr->getDecorate(),
+          {decoAttr->literals_begin(), decoAttr->literals_end()},
+          varInst->getSourceLocation());
+      extraFunctionForDecoAttr(decoAttr);
+      continue;
+    }
+    if (auto decoAttr = dyn_cast<VKDecorateStringExtAttr>(attr)) {
+      llvm::SmallVector<llvm::StringRef, 2> args(decoAttr->arguments_begin(),
+                                                 decoAttr->arguments_end());
+      spvBuilder.decorateWithStrings(varInst, decoAttr->getDecorate(), args,
+                                     varInst->getSourceLocation());
+      continue;
     }
   }
 }
