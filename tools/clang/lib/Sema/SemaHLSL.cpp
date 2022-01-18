@@ -11891,6 +11891,37 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     declAttr = ::new (S.Context) HLSLRayPayloadAttr(
         A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
+  // SPIRV Change Starts
+  case AttributeList::AT_VKDecorateIdExt: {
+    if (A.getNumArgs() == 0 || !A.getArg(0).is<clang::Expr *>()) {
+      Handled = false;
+      break;
+    }
+
+    unsigned decoration = 0;
+    if (IntegerLiteral *decorationAsLiteral =
+            dyn_cast<IntegerLiteral>(A.getArg(0).get<clang::Expr *>())) {
+      decoration = decorationAsLiteral->getValue().getZExtValue();
+    } else {
+      Handled = false;
+      break;
+    }
+
+    llvm::SmallVector<Expr *, 2> args;
+    for (unsigned i = 1; i < A.getNumArgs(); ++i) {
+      if (!A.getArg(i).is<clang::Expr *>()) {
+        Handled = false;
+        break;
+      }
+      args.push_back(A.getArg(i).get<clang::Expr *>());
+    }
+    if (!Handled)
+      break;
+    declAttr = ::new (S.Context)
+        VKDecorateIdExtAttr(A.getRange(), S.Context, decoration, args.data(),
+                            args.size(), A.getAttributeSpellingListIndex());
+  } break;
+  // SPIRV Change Ends
 
   default:
     Handled = false;

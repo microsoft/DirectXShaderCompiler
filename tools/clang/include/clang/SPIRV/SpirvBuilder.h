@@ -699,6 +699,11 @@ public:
   void decorateWithLiterals(SpirvInstruction *targetInst, unsigned decorate,
                             llvm::ArrayRef<unsigned> literals, SourceLocation);
 
+  /// \brief Decorates the given target with result ids of SPIR-V
+  /// instructions.
+  void decorateWithIds(SpirvInstruction *targetInst, unsigned decorate,
+                       llvm::ArrayRef<SpirvInstruction *> ids, SourceLocation);
+
   /// \brief Decorates the given target with the given strings.
   void decorateWithStrings(SpirvInstruction *target, unsigned decorate,
                            llvm::ArrayRef<llvm::StringRef> strLiteral,

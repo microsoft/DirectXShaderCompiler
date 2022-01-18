@@ -1513,6 +1513,16 @@ void SpirvBuilder::decorateWithLiterals(SpirvInstruction *targetInst,
   mod->addDecoration(decor);
 }
 
+void SpirvBuilder::decorateWithIds(SpirvInstruction *targetInst,
+                                   unsigned decorate,
+                                   llvm::ArrayRef<SpirvInstruction *> ids,
+                                   SourceLocation srcLoc) {
+  SpirvDecoration *decor = new (context) SpirvDecoration(
+      srcLoc, targetInst, static_cast<spv::Decoration>(decorate), ids);
+  assert(decor != nullptr);
+  mod->addDecoration(decor);
+}
+
 void SpirvBuilder::decorateWithStrings(
     SpirvInstruction *target, unsigned decorate,
     llvm::ArrayRef<llvm::StringRef> strLiteral, SourceLocation srcLoc) {

@@ -2474,23 +2474,7 @@ bool DeclResultIdMapper::createStageVars(
         stageVar.getStorageClass() == spv::StorageClass::Output) {
       stageVar.setEntryPoint(entryFunction);
     }
-
-    if (decl->hasAttr<VKDecorateExtAttr>()) {
-      auto checkBuiltInLocationDecoration =
-          [&stageVar](const VKDecorateExtAttr *decoAttr) {
-            auto decorate =
-                static_cast<spv::Decoration>(decoAttr->getDecorate());
-            if (decorate == spv::Decoration::BuiltIn ||
-                decorate == spv::Decoration::Location) {
-              // This information will be used to avoid
-              // assigning multiple location decorations
-              // in finalizeStageIOLocations()
-              stageVar.setIsLocOrBuiltinDecorateAttr();
-            }
-          };
-      decorateWithIntrinsicAttrs(decl, varInstr,
-                                 checkBuiltInLocationDecoration);
-    }
+    decorateStageVarWithIntrinsicAttrs(decl, &stageVar, varInstr);
     stageVars.push_back(stageVar);
 
     // Emit OpDecorate* instructions to link this stage variable with the HLSL
@@ -3993,14 +3977,13 @@ void DeclResultIdMapper::tryToCreateImplicitConstVar(const ValueDecl *decl) {
   astDecls[varDecl].instr = constVal;
 }
 
-template <typename Functor>
 void DeclResultIdMapper::decorateWithIntrinsicAttrs(
     const NamedDecl *decl, SpirvVariable *varInst,
-    Functor extraFunctionForDecoAttr) {
+    llvm::function_ref<void(VKDecorateExtAttr *)> extraFunctionForDecoAttr) {
   if (!decl->hasAttrs())
     return;
 
-  // TODO: Handle member field in a struct.
+  // TODO: Handle member field in a struct and function parameter.
   for (auto &attr : decl->getAttrs()) {
     if (auto decoAttr = dyn_cast<VKDecorateExtAttr>(attr)) {
       spvBuilder.decorateWithLiterals(
@@ -4008,6 +3991,15 @@ void DeclResultIdMapper::decorateWithIntrinsicAttrs(
           {decoAttr->literals_begin(), decoAttr->literals_end()},
           varInst->getSourceLocation());
       extraFunctionForDecoAttr(decoAttr);
+      continue;
+    }
+    if (auto decoAttr = dyn_cast<VKDecorateIdExtAttr>(attr)) {
+      llvm::SmallVector<SpirvInstruction *, 2> args;
+      for (Expr *arg : decoAttr->arguments()) {
+        args.push_back(theEmitter.doExpr(arg));
+      }
+      spvBuilder.decorateWithIds(varInst, decoAttr->getDecorate(), args,
+                                 varInst->getSourceLocation());
       continue;
     }
     if (auto decoAttr = dyn_cast<VKDecorateStringExtAttr>(attr)) {
@@ -4020,9 +4012,20 @@ void DeclResultIdMapper::decorateWithIntrinsicAttrs(
   }
 }
 
-void DeclResultIdMapper::decorateVariableWithIntrinsicAttrs(
-    const NamedDecl *decl, SpirvVariable *varInst) {
-  decorateWithIntrinsicAttrs(decl, varInst, [](VKDecorateExtAttr *) {});
+void DeclResultIdMapper::decorateStageVarWithIntrinsicAttrs(
+    const NamedDecl *decl, StageVar *stageVar, SpirvVariable *varInst) {
+  auto checkBuiltInLocationDecoration =
+      [stageVar](const VKDecorateExtAttr *decoAttr) {
+        auto decorate = static_cast<spv::Decoration>(decoAttr->getDecorate());
+        if (decorate == spv::Decoration::BuiltIn ||
+            decorate == spv::Decoration::Location) {
+          // This information will be used to avoid
+          // assigning multiple location decorations
+          // in finalizeStageIOLocations()
+          stageVar->setIsLocOrBuiltinDecorateAttr();
+        }
+      };
+  decorateWithIntrinsicAttrs(decl, varInst, checkBuiltInLocationDecoration);
 }
 
 void DeclResultIdMapper::copyHullOutStageVarsToOutputPatch(
