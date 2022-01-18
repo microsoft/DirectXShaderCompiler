@@ -171,6 +171,9 @@
 /* Define if mallinfo() is available on this platform. */
 #cmakedefine HAVE_MALLINFO ${HAVE_MALLINFO}
 
+/* Define if mallinfo2() is available on this platform. */
+#cmakedefine HAVE_MALLINFO2 ${HAVE_MALLINFO2}
+
 /* Define to 1 if you have the <malloc.h> header file. */
 #cmakedefine HAVE_MALLOC_H ${HAVE_MALLOC_H}
 

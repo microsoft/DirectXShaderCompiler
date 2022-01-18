@@ -93,9 +93,13 @@ unsigned Process::getPageSize() {
 }
 
 size_t Process::GetMallocUsage() {
-#if defined(HAVE_MALLINFO)
+#if defined(HAVE_MALLINFO2)
   struct mallinfo2 mi;
   mi = ::mallinfo2();
+  return mi.uordblks;
+#elif defined(HAVE_MALLINFO)
+  struct mallinfo mi;
+  mi = ::mallinfo();
   return mi.uordblks;
 #elif defined(HAVE_MALLOC_ZONE_STATISTICS) && defined(HAVE_MALLOC_MALLOC_H)
   malloc_statistics_t Stats;
