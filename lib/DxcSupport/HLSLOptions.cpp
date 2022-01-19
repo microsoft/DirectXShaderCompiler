@@ -794,6 +794,10 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   // ERR_TEMPLATE_VAR_CONFLICT
   // ERR_ATTRIBUTE_PARAM_SIDE_EFFECT
 
+  if (opts.StripPrivate && !opts.PrivateSource.empty()) {
+    errors << "Warning: specified /Qstrip_priv and /setprivate together, private data will be stripped.";
+  }
+
   if ((flagsToInclude & hlsl::options::DriverOption) && opts.InputFile.empty()) {
     // Input file is required in arguments only for drivers; APIs take this through an argument.
     errors << "Required input file argument is missing. use -help to get more information.";

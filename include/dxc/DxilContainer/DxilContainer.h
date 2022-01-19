@@ -581,6 +581,7 @@ enum class SerializeDxilFlags : uint32_t {
   StripReflectionFromDxilPart = 1 << 3, // Strip Reflection info from DXIL part.
   IncludeReflectionPart       = 1 << 4, // Include reflection in STAT part.
   StripRootSignature          = 1 << 5, // Strip Root Signature from main shader container.
+  SetRootSignature            = 1 << 6, // Set Root Signature in the container from provided source.
 };
 inline SerializeDxilFlags& operator |=(SerializeDxilFlags& l, const SerializeDxilFlags& r) {
   l = static_cast<SerializeDxilFlags>(static_cast<int>(l) | static_cast<int>(r));

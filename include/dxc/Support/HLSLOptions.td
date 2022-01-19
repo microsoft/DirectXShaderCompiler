@@ -444,7 +444,7 @@ def Qstrip_debug : Flag<["-", "/"], "Qstrip_debug">, Flags<[CoreOption, DriverOp
   HelpText<"Strip debug information from 4_0+ shader bytecode  (must be used with /Fo <file>)">;
 def Qembed_debug : Flag<["-", "/"], "Qembed_debug">, Flags<[CoreOption]>, Group<hlslutil_Group>,
   HelpText<"Embed PDB in shader container (must be used with /Zi)">;
-def Qstrip_priv : Flag<["-", "/"], "Qstrip_priv">, Flags<[DriverOption]>, Group<hlslutil_Group>,
+def Qstrip_priv : Flag<["-", "/"], "Qstrip_priv">, Flags<[CoreOption, DriverOption]>, Group<hlslutil_Group>,
   HelpText<"Strip private data from shader bytecode  (must be used with /Fo <file>)">;
 def Qsource_in_debug_module : Flag<["-", "/"], "Qsource_in_debug_module">, Flags<[CoreOption, HelpHidden]>, Group<hlslutil_Group>,
   HelpText<"Generate old PDB format.">;
@@ -491,7 +491,7 @@ def all_resources_bound : Flag<["-", "/"], "all-resources-bound">, Flags<[CoreOp
 def all_resources_bound_ : Flag<["-", "/"], "all_resources_bound">, Flags<[CoreOption, HelpHidden]>, Group<hlslcomp_Group>,
   HelpText<"Enables agressive flattening">;
 
-def setprivate : JoinedOrSeparate<["-", "/"], "setprivate">, Flags<[DriverOption]>, MetaVarName<"<file>">, Group<hlslutil_Group>,
+def setprivate : JoinedOrSeparate<["-", "/"], "setprivate">, Flags<[CoreOption, DriverOption]>, MetaVarName<"<file>">, Group<hlslutil_Group>,
   HelpText<"Private data to add to compiled shader blob">;
 def getprivate : JoinedOrSeparate<["-", "/"], "getprivate">, Flags<[DriverOption]>, MetaVarName<"<file>">, Group<hlslutil_Group>,
   HelpText<"Save private data from shader blob">;

@@ -1033,6 +1033,7 @@ public:
         outStream.flush();
 
         SerializeDxilFlags SerializeFlags = SerializeDxilFlags::None;
+        CComPtr<IDxcBlob> pRootSignatureBlob = nullptr;
         if (opts.EmbedPDBName()) {
           SerializeFlags |= SerializeDxilFlags::IncludeDebugNamePart;
         }
@@ -1059,6 +1060,25 @@ public:
         if (opts.StripRootSignature) {
           SerializeFlags |= SerializeDxilFlags::StripRootSignature;
         }
+        if (!opts.RootSignatureSource.empty()) {
+          hlsl::options::StringRefUtf16 wstrRef(opts.RootSignatureSource);
+          std::string error;
+          llvm::raw_string_ostream os(error);
+          if (!pIncludeHandler) {
+            os << Twine("Root Signature file '") + opts.RootSignatureSource +
+                      "' specified, but no include handler was given.";
+            os.flush();
+            return ErrorWithString(error, riid, ppResult);
+          } else if (SUCCEEDED(pIncludeHandler->LoadSource(
+                         wstrRef, &pRootSignatureBlob))) {
+            SerializeFlags |= SerializeDxilFlags::SetRootSignature;
+          } else {
+            os << Twine("Could not load root signature file '") +
+                      opts.RootSignatureSource + "'.";
+            os.flush();
+            return ErrorWithString(error, riid, ppResult);
+          }
+        }
 
         // Don't do work to put in a container if an error has occurred
         // Do not create a container when there is only a a high-level representation in the module.
@@ -1076,10 +1096,10 @@ public:
           }
 
           dxcutil::AssembleInputs inputs(
-                std::move(serializeModule), pOutputBlob, m_pMalloc, SerializeFlags,
-                pOutputStream,
-                opts.GetPDBName(), &compiler.getDiagnostics(),
-                &ShaderHashContent, pReflectionStream, pRootSigStream);
+              std::move(serializeModule), pOutputBlob, m_pMalloc,
+              SerializeFlags, pOutputStream, opts.GetPDBName(),
+              &compiler.getDiagnostics(), &ShaderHashContent, pReflectionStream,
+              pRootSigStream, pRootSignatureBlob);
 
           if (needsValidation) {
             valHR = dxcutil::ValidateAndAssembleToContainer(inputs);
@@ -1217,6 +1237,51 @@ public:
           pOutputBlob = pNewOutput;
         } // PDB in private
       } // Write PDB
+
+      bool updatePartRequired =
+          !opts.PrivateSource.empty() || opts.StripPrivate;
+
+      if (!hasErrorOccurred && updatePartRequired) {
+
+        CComPtr<IDxcContainerBuilder> pContainerBuilder;
+        DxcCreateInstance2(this->m_pMalloc, CLSID_DxcContainerBuilder,
+                           IID_PPV_ARGS(&pContainerBuilder));
+        IFT(pContainerBuilder->Load(pOutputBlob));
+
+        if (opts.StripPrivate) {
+          pContainerBuilder->RemovePart(hlsl::DFCC_PrivateData);
+        }
+
+        if (!opts.PrivateSource.empty() && !opts.StripPrivate) {
+          CComPtr<IDxcBlob> pPrivateBlob;
+          hlsl::options::StringRefUtf16 wstrRef(opts.PrivateSource);
+          std::string error;
+          llvm::raw_string_ostream os(error);
+          if (!pIncludeHandler) {
+            os << Twine("Private Data file '") + opts.PrivateSource +
+                      "' specified, but no include handler was given.";
+            os.flush();
+            return ErrorWithString(error, riid, ppResult);
+          } else if (SUCCEEDED(
+                         pIncludeHandler->LoadSource(wstrRef, &pPrivateBlob))) {
+            pContainerBuilder->RemovePart(hlsl::DFCC_PrivateData);
+            IFT(pContainerBuilder->AddPart(hlsl::DFCC_PrivateData,
+                                           pPrivateBlob));
+          } else {
+            os << Twine("Could not load Private Data file '") +
+                      opts.PrivateSource + "'.";
+            os.flush();
+            return ErrorWithString(error, riid, ppResult);
+          }
+        }
+
+        CComPtr<IDxcOperationResult> pReserializeResult;
+        IFT(pContainerBuilder->SerializeContainer(&pReserializeResult));
+
+        CComPtr<IDxcBlob> pNewOutput;
+        IFT(pReserializeResult->GetResult(&pNewOutput));
+        pOutputBlob = pNewOutput;
+      } // Add or strip private data
 
       IFT(primaryOutput.SetObject(pOutputBlob, opts.DefaultTextCodePage));
       IFT(pResult->SetOutput(primaryOutput));

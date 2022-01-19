@@ -478,9 +478,10 @@ void DxcContext::UpdatePart(IDxcBlob *pSource, IDxcBlob **ppResult) {
 }
 
 bool DxcContext::UpdatePartRequired() {
-  return m_Opts.StripDebug || m_Opts.StripPrivate ||
+  return (m_Opts.StripDebug || m_Opts.StripPrivate ||
     m_Opts.StripRootSignature || !m_Opts.PrivateSource.empty() ||
-    !m_Opts.RootSignatureSource.empty();
+    !m_Opts.RootSignatureSource.empty())
+      && (m_Opts.Link || m_Opts.DumpBin || !m_Opts.Preprocess.empty());
 }
 
 // This function reads the file from input file and constructs a blob with fourCC parts
