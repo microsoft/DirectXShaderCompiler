@@ -184,6 +184,7 @@ enum ArBasicKind {
   AR_OBJECT_VK_SUBPASS_INPUT,
   AR_OBJECT_VK_SUBPASS_INPUT_MS,
   AR_OBJECT_VK_SPV_INTRINSIC_TYPE,
+  AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID,
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 
@@ -476,6 +477,7 @@ const UINT g_uBasicKindProps[] =
   BPROP_OBJECT | BPROP_RBUFFER,   // AR_OBJECT_VK_SUBPASS_INPUT
   BPROP_OBJECT | BPROP_RBUFFER,   // AR_OBJECT_VK_SUBPASS_INPUT_MS
   BPROP_OBJECT,                   // AR_OBJECT_VK_SPV_INTRINSIC_TYPE use recordType
+  BPROP_OBJECT,                   // AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID use recordType
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 
@@ -1400,6 +1402,7 @@ const ArBasicKind g_ArBasicKindsAsTypes[] =
   AR_OBJECT_VK_SUBPASS_INPUT,
   AR_OBJECT_VK_SUBPASS_INPUT_MS,
   AR_OBJECT_VK_SPV_INTRINSIC_TYPE,
+  AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID,
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 
@@ -1493,6 +1496,7 @@ const uint8_t g_ArBasicKindsTemplateCount[] =
   1, // AR_OBJECT_VK_SUBPASS_INPUT
   1, // AR_OBJECT_VK_SUBPASS_INPUT_MS,
   1, // AR_OBJECT_VK_SPV_INTRINSIC_TYPE
+  1, // AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 
@@ -1594,6 +1598,7 @@ const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] =
   { 0, MipsFalse, SampleFalse }, // AR_OBJECT_VK_SUBPASS_INPUT (SubpassInput)
   { 0, MipsFalse, SampleFalse }, // AR_OBJECT_VK_SUBPASS_INPUT_MS (SubpassInputMS)
   { 0, MipsFalse, SampleFalse }, // AR_OBJECT_VK_SPV_INTRINSIC_TYPE
+  { 0, MipsFalse, SampleFalse }, // AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 
@@ -1714,6 +1719,7 @@ const char* g_ArBasicTypeNames[] =
   "SubpassInput",
   "SubpassInputMS",
   "ext_type",
+  "ext_result_id",
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 
@@ -3600,6 +3606,13 @@ private:
       else if (kind == AR_OBJECT_VK_SPV_INTRINSIC_TYPE && m_vkNSDecl) {
         recordDecl = DeclareUIntTemplatedTypeWithHandleInDeclContext(
             *m_context, m_vkNSDecl, typeName, "id");
+        recordDecl->setImplicit(true);
+      }
+      else if (kind == AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID && m_vkNSDecl) {
+        recordDecl = DeclareTemplateTypeWithHandleInDeclContext(*m_context,
+                                                                m_vkNSDecl,
+                                                                typeName, 1,
+                                                                nullptr);
         recordDecl->setImplicit(true);
       }
 #endif
@@ -12924,7 +12937,8 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
   if (!getLangOpts().SPIRV) {
     if (basicKind == ArBasicKind::AR_OBJECT_VK_SUBPASS_INPUT ||
         basicKind == ArBasicKind::AR_OBJECT_VK_SUBPASS_INPUT_MS ||
-        basicKind == ArBasicKind::AR_OBJECT_VK_SPV_INTRINSIC_TYPE) {
+        basicKind == ArBasicKind::AR_OBJECT_VK_SPV_INTRINSIC_TYPE ||
+        basicKind == ArBasicKind::AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID) {
       Diag(D.getLocStart(), diag::err_hlsl_vulkan_specific_feature)
           << g_ArBasicTypeNames[basicKind];
       result = false;
