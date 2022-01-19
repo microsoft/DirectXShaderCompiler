@@ -1341,6 +1341,7 @@ TEST_F(FileTest, IntrinsicsVkQueueFamilyScope) {
 }
 TEST_F(FileTest, IntrinsicsSpirv) {
   runFileTest("spv.intrinsicInstruction.hlsl");
+  runFileTest("spv.intrinsic.result_id.hlsl");
   runFileTest("spv.intrinsicLiteral.hlsl");
   runFileTest("spv.intrinsicDecorate.hlsl", Expect::Success, false);
   runFileTest("spv.intrinsicExecutionMode.hlsl", Expect::Success, false);

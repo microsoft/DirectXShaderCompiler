@@ -1530,6 +1530,11 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
   const auto loc = decl->getLocation();
   const auto range = decl->getSourceRange();
 
+  if (isExtResultIdType(decl->getType())) {
+    declIdMapper.createResultId(decl);
+    return;
+  }
+
   // HLSL has the 'string' type which can be used for rare purposes such as
   // printf (SPIR-V's DebugPrintf). SPIR-V does not have a 'char' or 'string'
   // type, and therefore any variable of such type should not be created.
