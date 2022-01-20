@@ -26,7 +26,10 @@ add_llvm_external_project(clang-tools-extra extra)
 add_subdirectory(dxcompiler)
 add_subdirectory(dxclib)
 add_subdirectory(dxc)
+
+if (ENABLE_DXIL2SPV)
 add_subdirectory(dxil2spv)
+endif(ENABLE_DXIL2SPV)
 
 # These targets can currently only be built on Windows.
 if (WIN32)
