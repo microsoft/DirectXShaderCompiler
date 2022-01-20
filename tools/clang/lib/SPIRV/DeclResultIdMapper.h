@@ -392,6 +392,14 @@ public:
   /// for it.
   SpirvInstruction *createOrUpdateStringVar(const VarDecl *);
 
+  /// \brief Returns an instruction that represents the given VarDecl.
+  /// VarDecl must be a variable of vk::ext_result_id<Type> type.
+  ///
+  /// This function inspects the VarDecl for an initialization expression. If
+  /// initialization expression is not found, it will emit an error because the
+  /// variable with result id requires an initialization.
+  SpirvInstruction *createResultId(const VarDecl *var);
+
   /// \brief Creates an Enum constant.
   void createEnumConstant(const EnumConstantDecl *decl);
 

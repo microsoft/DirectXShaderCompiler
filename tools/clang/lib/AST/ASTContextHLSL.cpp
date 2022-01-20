@@ -666,13 +666,27 @@ CXXRecordDecl* hlsl::DeclareTemplateTypeWithHandle(
   uint8_t templateArgCount, 
   _In_opt_ TypeSourceInfo* defaultTypeArgValue)
 {
+  return DeclareTemplateTypeWithHandleInDeclContext(context,
+                                                    context.getTranslationUnitDecl(),
+                                                    name,
+                                                    templateArgCount,
+                                                    defaultTypeArgValue);
+}
+
+CXXRecordDecl* hlsl::DeclareTemplateTypeWithHandleInDeclContext(
+  ASTContext& context,
+  DeclContext *declContext,
+  StringRef name,
+  uint8_t templateArgCount,
+  _In_opt_ TypeSourceInfo* defaultTypeArgValue)
+{
   DXASSERT(templateArgCount != 0, "otherwise caller should be creating a class or struct");
   DXASSERT(templateArgCount <= 2, "otherwise the function needs to be updated for a different template pattern");
 
   // Create an object template declaration in translation unit scope.
   // templateArgCount=1: template<typename element> typeName { ... }
   // templateArgCount=2: template<typename element, int count> typeName { ... }
-  BuiltinTypeDeclBuilder typeDeclBuilder(context.getTranslationUnitDecl(), name);
+  BuiltinTypeDeclBuilder typeDeclBuilder(declContext, name);
   TemplateTypeParmDecl* elementTemplateParamDecl = typeDeclBuilder.addTypeTemplateParam("element", defaultTypeArgValue);
   NonTypeTemplateParmDecl* countTemplateParamDecl = nullptr;
   if (templateArgCount > 1)

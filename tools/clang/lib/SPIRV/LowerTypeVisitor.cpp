@@ -521,6 +521,22 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
   return 0;
 }
 
+const SpirvType *
+LowerTypeVisitor::lowerVkTypeInVkNamespace(QualType type, llvm::StringRef name,
+                                           SpirvLayoutRule rule,
+                                           SourceLocation srcLoc) {
+  if (name == "ext_type") {
+    auto typeId = hlsl::GetHLSLResourceTemplateUInt(type);
+    return spvContext.getCreatedSpirvIntrinsicType(typeId);
+  }
+  if (name == "ext_result_id") {
+    QualType realType = hlsl::GetHLSLResourceTemplateParamType(type);
+    return lowerType(realType, rule, llvm::None, srcLoc);
+  }
+  emitError("unknown type %0 in vk namespace", srcLoc) << type;
+  return nullptr;
+}
+
 const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
                                                      SpirvLayoutRule rule,
                                                      SourceLocation srcLoc) {
@@ -534,6 +550,10 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
   const auto *recordType = type->getAs<RecordType>();
   assert(recordType);
   const llvm::StringRef name = recordType->getDecl()->getName();
+
+  if (isTypeInVkNamespace(recordType)) {
+    return lowerVkTypeInVkNamespace(type, name, rule, srcLoc);
+  }
 
   // TODO: avoid string comparison once hlsl::IsHLSLResouceType() does that.
 
@@ -592,11 +612,6 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
 
   if (name == "RayQuery")
     return spvContext.getRayQueryTypeKHR();
-
-  if (name == "ext_type") {
-    auto typeId = hlsl::GetHLSLResourceTemplateUInt(type);
-    return spvContext.getCreatedSpirvIntrinsicType(typeId);
-  }
 
   if (name == "StructuredBuffer" || name == "RWStructuredBuffer" ||
       name == "AppendStructuredBuffer" || name == "ConsumeStructuredBuffer") {
