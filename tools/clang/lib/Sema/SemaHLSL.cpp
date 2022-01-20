@@ -9195,7 +9195,23 @@ void HLSLExternalSource::CheckBinOpForHLSL(
         // Only allow scalar types for logical operators &&, ||
         if (leftObjectKind != ArTypeObjectKind::AR_TOBJ_BASIC ||
             rightObjectKind != ArTypeObjectKind::AR_TOBJ_BASIC) {
-          m_sema->Diag(OpLoc, diag::err_hlsl_logical_binop_scalar);
+          SmallVector<char, 256> Buff;
+          llvm::raw_svector_ostream OS(Buff);
+          PrintingPolicy PP(m_sema->getLangOpts());
+          if (Opc == BinaryOperatorKind::BO_LAnd) {
+            OS << "and(";
+          }
+          else if (Opc == BinaryOperatorKind::BO_LOr) {
+            OS << "or(";
+          }
+          LHS.get()->printPretty(OS, nullptr, PP);
+          OS << ", ";
+          RHS.get()->printPretty(OS, nullptr, PP);
+          OS << ")";
+          SourceRange FullRange =
+              SourceRange(LHS.get()->getLocStart(), RHS.get()->getLocEnd());
+          m_sema->Diag(OpLoc, diag::err_hlsl_logical_binop_scalar)
+              << FixItHint::CreateReplacement(FullRange, OS.str());
           return;
         }
       }
