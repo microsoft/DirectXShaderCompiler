@@ -1094,7 +1094,7 @@ private:
 
   void UpdateFunctionToShaderCompat(const llvm::Function* dxilFunc) {
 #define SFLAG(stage) ((unsigned)1 << (unsigned)DXIL::ShaderKind::stage)
-    for (const auto &user : dxilFunc->users()) {
+    for (const llvm::User *user : dxilFunc->users()) {
       if (const llvm::CallInst *CI = dyn_cast<const llvm::CallInst>(user)) {
         // Find calling function
         const llvm::Function *F = cast<const llvm::Function>(CI->getParent()->getParent());
@@ -1214,7 +1214,7 @@ private:
   }
 
   void UpdateFunctionDependency(llvm::Function *F) {
-    for (const auto &user : F->users()) {
+    for (const llvm::User *user : F->users()) {
       llvm::SmallVector<const llvm::Function*, 8> functions;
       FindUsingFunctions(user, functions);
       for (const llvm::Function *userFunction : functions) {

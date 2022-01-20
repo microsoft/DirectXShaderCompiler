@@ -446,7 +446,7 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
     // If this struct is derived from some other struct, place an implicit
     // field at the very beginning for the base struct.
     if (const auto *cxxDecl = dyn_cast<CXXRecordDecl>(decl)) {
-      for (const auto base : cxxDecl->bases()) {
+      for (const auto &base : cxxDecl->bases()) {
         fields.push_back(HybridStructType::FieldInfo(base.getType()));
       }
     }
