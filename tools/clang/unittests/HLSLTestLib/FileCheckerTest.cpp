@@ -42,12 +42,12 @@
 #include "dxc/Support/microcom.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 
-#ifdef _WIN32
+#ifdef _WIN32 // Reflection unsupported
 #include "dxc/Test/D3DReflectionDumper.h"
 
 #include "d3d12shader.h"
 using namespace refl_dump;
-#endif
+#endif // WIN32 - Reflection unsupported
 
 using namespace std;
 using namespace hlsl_test;
@@ -106,25 +106,25 @@ FileRunCommandResult FileRunCommandPart::Run(dxc::DxcDllSupport &DllSupport, con
     return RunOpt(DllSupport, Prior);
   }
   else if (0 == _stricmp(Command.c_str(), "%D3DReflect")) {
-#ifdef _WIN32
+#ifdef _WIN32 // Reflection unsupported
     return RunD3DReflect(DllSupport, Prior);
 #else
     FileRunCommandResult result = FileRunCommandResult::Success("Can't run D3DReflect on non-windows, so just assuming success");
     result.AbortPipeline = true;
     return result;
-#endif
+#endif // WIN32 - Reflection unsupported
   }
   else if (0 == _stricmp(Command.c_str(), "%dxr")) {
     return RunDxr(DllSupport, Prior);
   }
   else if (0 == _stricmp(Command.c_str(), "%dxl")) {
-#ifdef _WIN32
+#ifdef _WIN32 // Linking unsupported
     return RunLink(DllSupport, Prior);
 #else
     FileRunCommandResult result = FileRunCommandResult::Success("Can't run dxl on non-windows, so just assuming success");
     result.AbortPipeline = true;
     return result;
-#endif
+#endif // WIN32 - Linking unsupported
   }
   else if (pPluginToolsPaths != nullptr) {
     auto it = pPluginToolsPaths->find(Command.c_str());
@@ -655,7 +655,7 @@ FileRunCommandResult FileRunCommandPart::RunOpt(dxc::DxcDllSupport &DllSupport, 
   return FileRunCommandResult::Success(BlobToUtf8(pOutputText));
 }
 
-#ifdef _WIN32
+#ifdef _WIN32 // Reflection unsupported
 FileRunCommandResult FileRunCommandPart::RunD3DReflect(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior) {
   std::string args(strtrim(Arguments));
   if (args != "%s")
@@ -728,7 +728,7 @@ FileRunCommandResult FileRunCommandPart::RunD3DReflect(dxc::DxcDllSupport &DllSu
 
   return FileRunCommandResult::Success(ss.str());
 }
-#endif // _WIN32
+#endif // _WIN32 - Reflection unsupported
 
 FileRunCommandResult FileRunCommandPart::RunDxr(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior) {
   // Support piping stdin from prior if needed.

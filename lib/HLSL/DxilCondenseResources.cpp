@@ -1857,7 +1857,6 @@ bool UpdateStructTypeForLegacyLayout(DxilResourceBase &Res,
         }
       }
     }
-
     Symbol->removeDeadConstantUsers();
 
     if (GlobalVariable *GV = dyn_cast<GlobalVariable>(Symbol))
