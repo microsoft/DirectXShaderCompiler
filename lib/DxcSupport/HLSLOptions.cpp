@@ -762,6 +762,10 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.EnablePayloadQualifiers = Args.hasFlag(OPT_enable_payload_qualifiers, OPT_INVALID,
                                             DXIL::CompareVersions(Major, Minor, 6, 7) >= 0); 
 
+  for (const std::string &value : Args.getAllArgValues(OPT_print_after)) {
+    opts.PrintAfter.insert(value);
+  }
+
   if (DXIL::CompareVersions(Major, Minor, 6, 8) < 0) {
      opts.EnablePayloadQualifiers &= !Args.hasFlag(OPT_disable_payload_qualifiers, OPT_INVALID, false);
   }
