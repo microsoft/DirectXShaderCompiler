@@ -60,6 +60,22 @@
 using namespace std;
 using namespace hlsl_test;
 
+
+// Examines a virtual filename to determine if it looks like a dir
+// Based on whether the final path segment contains a dot
+// Not ironclad, but good enough for testing
+static bool LooksLikeDir(std::wstring fileName) {
+  for(int i = fileName.size() - 1; i > -1; i--) {
+    wchar_t ch = fileName[i];
+    if (ch == L'\\' || ch == L'/')
+      return true;
+    if (ch == L'.')
+      return false;
+  }
+  // No divider, no dot, assume file
+  return false;
+}
+
 class TestIncludeHandler : public IDxcIncludeHandler {
   DXC_MICROCOM_REF_FIELD(m_dwRef)
 public:
@@ -101,7 +117,15 @@ public:
     _In_ LPCWSTR pFilename,                   // Filename as written in #include statement
     _COM_Outptr_ IDxcBlob **ppIncludeSource   // Resultant source object for included file
     ) override {
-    CallInfos.push_back(LoadSourceCallInfo(pFilename));
+
+    LoadSourceCallInfo callInfo = LoadSourceCallInfo(pFilename);
+
+    // *nix will call stat() on dirs, which attempts to find it here
+    // This loader isn't meant for dirs, so return failure
+    if (LooksLikeDir(callInfo.Filename))
+      return m_defaultErrorCode;
+
+    CallInfos.push_back(callInfo);
 
     *ppIncludeSource = nullptr;
     if (callIndex >= CallResults.size()) {
