@@ -870,9 +870,20 @@ void VariableRegisters::PopulateAllocaMap(
     case llvm::dwarf::DW_TAG_class_type:
       PopulateAllocaMap_StructType(CompositeTy);
       return;
-    case llvm::dwarf::DW_TAG_enumeration_type:
-      // enum base type is int:
-      PopulateAllocaMap(CompositeTy->getBaseType().resolve(EmptyMap));
+    case llvm::dwarf::DW_TAG_enumeration_type: {
+      auto * baseType = CompositeTy->getBaseType().resolve(EmptyMap);
+      if (baseType != nullptr) {
+        PopulateAllocaMap(baseType);
+      } else {
+        m_Offsets.AlignToAndAddUnhandledType(CompositeTy);
+        //if (CompositeTy->getSizeInBits() == 32) {
+        //  PopulateAllocaMap_BasicType(Type::getInt32Ty(m_B.getContext()));
+        //} else if (CompositeTy->getSizeInBits() == 64) {
+        //  PopulateAllocaMap_BasicType(Type::getInt64Ty(m_B.getContext()));
+        //} else {
+        //}
+      }
+    }
       return;
     }
   }
