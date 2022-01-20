@@ -78,6 +78,9 @@ bool DxilDeleteRedundantDebugValues::runOnModule(Module &M) {
           if (DILexicalBlockBase *LB = dyn_cast<DILexicalBlockBase>(Scope)) {
             Scope = LB->getScope();
           }
+          else {
+            Scope = nullptr;
+          }
         }
       }
     }
