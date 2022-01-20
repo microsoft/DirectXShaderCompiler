@@ -25,7 +25,7 @@
 #include <atlfile.h>
 #endif
 
-#include "dxc/Test/HlslTestData.h"
+#include "dxc/Test/HLSLTestData.h"
 #include "dxc/Test/HlslTestUtils.h"
 #include "dxc/Test/DxcTestUtils.h"
 
@@ -41,13 +41,16 @@
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/microcom.h"
 #include "dxc/DxilContainer/DxilContainer.h"
+
+#ifdef _WIN32 // Reflection unsupported
 #include "dxc/Test/D3DReflectionDumper.h"
 
 #include "d3d12shader.h"
+using namespace refl_dump;
+#endif // WIN32 - Reflection unsupported
 
 using namespace std;
 using namespace hlsl_test;
-using namespace refl_dump;
 
 FileRunCommandPart::FileRunCommandPart(const std::string &command, const std::string &arguments, LPCWSTR commandFileName) :
   Command(command), Arguments(arguments), CommandFileName(commandFileName) { }
@@ -103,13 +106,25 @@ FileRunCommandResult FileRunCommandPart::Run(dxc::DxcDllSupport &DllSupport, con
     return RunOpt(DllSupport, Prior);
   }
   else if (0 == _stricmp(Command.c_str(), "%D3DReflect")) {
+#ifdef _WIN32 // Reflection unsupported
     return RunD3DReflect(DllSupport, Prior);
+#else
+    FileRunCommandResult result = FileRunCommandResult::Success("Can't run D3DReflect on non-windows, so just assuming success");
+    result.AbortPipeline = true;
+    return result;
+#endif // WIN32 - Reflection unsupported
   }
   else if (0 == _stricmp(Command.c_str(), "%dxr")) {
     return RunDxr(DllSupport, Prior);
   }
   else if (0 == _stricmp(Command.c_str(), "%dxl")) {
+#ifdef _WIN32 // Linking unsupported
     return RunLink(DllSupport, Prior);
+#else
+    FileRunCommandResult result = FileRunCommandResult::Success("Can't run dxl on non-windows, so just assuming success");
+    result.AbortPipeline = true;
+    return result;
+#endif // WIN32 - Linking unsupported
   }
   else if (pPluginToolsPaths != nullptr) {
     auto it = pPluginToolsPaths->find(Command.c_str());
@@ -206,52 +221,6 @@ FileRunCommandResult FileRunCommandPart::ReadOptsForDxc(
     return FileRunCommandResult::Error(RunResult, errorString);
 
   return FileRunCommandResult::Success("");
-}
-
-static HRESULT ReAssembleTo(dxc::DxcDllSupport &DllSupport, void *bitcode, UINT32 size, IDxcBlob **pBlob) {
-  CComPtr<IDxcAssembler> pAssembler;
-  CComPtr<IDxcLibrary> pLibrary;
-  IFT(DllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
-  IFT(DllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
-
-  CComPtr<IDxcBlobEncoding> pInBlob;
-
-  IFT(pLibrary->CreateBlobWithEncodingFromPinned(bitcode, size, 0, &pInBlob));
-  
-  CComPtr<IDxcOperationResult> pResult;
-  pAssembler->AssembleToContainer(pInBlob, &pResult);
-
-  HRESULT Result = 0;
-  IFT(pResult->GetStatus(&Result));
-  IFT(Result);
-
-  IFT(pResult->GetResult(pBlob));
-
-  return S_OK;
-}
-
-static HRESULT GetDxilBitcode(dxc::DxcDllSupport &DllSupport, IDxcBlob *pCompiledBlob, IDxcBlob **pBitcodeBlob) {
-  CComPtr<IDxcContainerReflection> pReflection;
-  CComPtr<IDxcLibrary> pLibrary;
-  IFT(DllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection));
-  IFT(DllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
-
-  IFT(pReflection->Load(pCompiledBlob));
-
-  UINT32 uIndex = 0;
-  IFT(pReflection->FindFirstPartKind(hlsl::DFCC_DXIL, &uIndex));
-  CComPtr<IDxcBlob> pPart;
-  IFT(pReflection->GetPartContent(uIndex, &pPart));
-
-  auto header = (hlsl::DxilProgramHeader*)pPart->GetBufferPointer();
-  void *bitcode = (char *)&header->BitcodeHeader + header->BitcodeHeader.BitcodeOffset;
-  UINT32 bitcode_size = header->BitcodeHeader.BitcodeSize;
-
-  CComPtr<IDxcBlobEncoding> pBlob;
-  IFT(pLibrary->CreateBlobWithEncodingFromPinned(bitcode, bitcode_size, 0, &pBlob));
-  *pBitcodeBlob = pBlob.Detach();
-
-  return S_OK;
 }
 
 // Simple virtual file system include handler for test, fall back to default include handler
@@ -686,6 +655,7 @@ FileRunCommandResult FileRunCommandPart::RunOpt(dxc::DxcDllSupport &DllSupport, 
   return FileRunCommandResult::Success(BlobToUtf8(pOutputText));
 }
 
+#ifdef _WIN32 // Reflection unsupported
 FileRunCommandResult FileRunCommandPart::RunD3DReflect(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior) {
   std::string args(strtrim(Arguments));
   if (args != "%s")
@@ -758,6 +728,7 @@ FileRunCommandResult FileRunCommandPart::RunD3DReflect(dxc::DxcDllSupport &DllSu
 
   return FileRunCommandResult::Success(ss.str());
 }
+#endif // _WIN32 - Reflection unsupported
 
 FileRunCommandResult FileRunCommandPart::RunDxr(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior) {
   // Support piping stdin from prior if needed.
@@ -930,7 +901,7 @@ FileRunCommandResult FileRunCommandPart::RunTee(const FileRunCommandResult *Prio
 
 void FileRunCommandPart::SubstituteFilenameVars(std::string &args) {
   size_t pos;
-  std::string baseFileName = CW2A(CommandFileName);
+  std::string baseFileName = LPSTR(CW2A(CommandFileName));
   if ((pos = baseFileName.find_last_of(".")) != std::string::npos) {
     baseFileName = baseFileName.substr(0, pos);
   }
@@ -1232,7 +1203,7 @@ FileRunTestResult FileRunTestResult::RunHashTestFromFileCommands(LPCWSTR fileNam
   IFT(dllSupport.Initialize());
   FileRunTestResultImpl result(dllSupport);
   result.RunHashTestFromFileCommands(fileName);
-  return result;
+  return std::move(result);
 }
 
 FileRunTestResult FileRunTestResult::RunFromFileCommands(LPCWSTR fileName, 
@@ -1242,7 +1213,7 @@ FileRunTestResult FileRunTestResult::RunFromFileCommands(LPCWSTR fileName,
   IFT(dllSupport.Initialize());
   FileRunTestResultImpl result(dllSupport, pPluginToolsPaths, dumpName);
   result.RunFileCheckFromFileCommands(fileName);
-  return result;
+  return std::move(result);
 }
 
 FileRunTestResult FileRunTestResult::RunFromFileCommands(LPCWSTR fileName, dxc::DxcDllSupport &dllSupport,
@@ -1250,7 +1221,7 @@ FileRunTestResult FileRunTestResult::RunFromFileCommands(LPCWSTR fileName, dxc::
                                                          LPCWSTR dumpName /*=nullptr*/) {
   FileRunTestResultImpl result(dllSupport, pPluginToolsPaths, dumpName);
   result.RunFileCheckFromFileCommands(fileName);
-  return result;
+  return std::move(result);
 }
 
 void ParseCommandParts(LPCSTR commands, LPCWSTR fileName,
