@@ -729,13 +729,18 @@ bool IsIncompleteHLSLResourceArrayType(clang::ASTContext &context,
   }
   return false;
 }
-QualType GetHLSLInputPatchElementType(QualType type) {
+
+QualType GetHLSLResourceTemplateParamType(QualType type) {
   type = type.getCanonicalType();
   const RecordType *RT = cast<RecordType>(type);
   const ClassTemplateSpecializationDecl *templateDecl =
       cast<ClassTemplateSpecializationDecl>(RT->getAsCXXRecordDecl());
   const TemplateArgumentList &argList = templateDecl->getTemplateArgs();
   return argList[0].getAsType();
+}
+
+QualType GetHLSLInputPatchElementType(QualType type) {
+  return GetHLSLResourceTemplateParamType(type);
 }
 unsigned GetHLSLInputPatchCount(QualType type) {
   type = type.getCanonicalType();
@@ -746,12 +751,7 @@ unsigned GetHLSLInputPatchCount(QualType type) {
   return argList[1].getAsIntegral().getLimitedValue();
 }
 clang::QualType GetHLSLOutputPatchElementType(QualType type) {
-  type = type.getCanonicalType();
-  const RecordType *RT = cast<RecordType>(type);
-  const ClassTemplateSpecializationDecl *templateDecl =
-      cast<ClassTemplateSpecializationDecl>(RT->getAsCXXRecordDecl());
-  const TemplateArgumentList &argList = templateDecl->getTemplateArgs();
-  return argList[0].getAsType();
+  return GetHLSLResourceTemplateParamType(type);
 }
 unsigned GetHLSLOutputPatchCount(QualType type) {
   type = type.getCanonicalType();
