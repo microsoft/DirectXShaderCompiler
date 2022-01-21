@@ -663,6 +663,10 @@ private:
                                           SourceLocation,
                                           SourceRange range = {});
 
+  /// \brief Updates the AST result type of initInstr as type. If it is a load
+  /// instruction update its pointer as well.
+  void updateInstructionType(SpirvInstruction *initInstr, QualType type);
+
 private:
   /// Translates the given frontend APValue into its SPIR-V equivalent for the
   /// given targetType.

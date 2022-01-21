@@ -3047,16 +3047,40 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr,
   }
 }
 
+void SpirvEmitter::updateInstructionType(SpirvInstruction *initInstr,
+                                         QualType type) {
+  if (initInstr == nullptr || type == initInstr->getAstResultType())
+    return;
+  initInstr->setAstResultType(type);
+  if (auto *load = dyn_cast<SpirvLoad>(initInstr)) {
+    updateInstructionType(load->getPointer(), type);
+  }
+}
+
 SpirvInstruction *SpirvEmitter::processFlatConversion(
     const QualType type, const QualType initType, SpirvInstruction *initInstr,
     SourceLocation srcLoc, SourceRange range) {
-  // When translating ConstantBuffer<T> or TextureBuffer<T> types, we consider
-  // the underlying type (T), and therefore we should bypass the FlatConversion
-  // node when accessing these types:
-  // `-MemberExpr
-  //   `-ImplicitCastExpr 'const T' lvalue <FlatConversion>
-  //     `-ArraySubscriptExpr 'ConstantBuffer<T>':'ConstantBuffer<T>' lvalue
   if (isConstantTextureBuffer(initType)) {
+    // When we access to a bindless array of ConstantBuffer<T> or
+    // TextureBuffer<T>, the AST result type of ArraySubscriptExpr will be
+    // ConstantBuffer<T> while the result type of FlatConversion must be T.
+    // We have to update the result of ArraySubscriptExpr to match the type:
+    // `-VarDecl 'const T' cinit
+    //   `-ImplicitCastExpr 'T' <FlatConversion>
+    //     `-ImplicitCastExpr 'ConstantBuffer<T>':'ConstantBuffer<T>'
+    //                        <LValueToRValue>
+    //       `-ArraySubscriptExpr 'ConstantBuffer<T>':'ConstantBuffer<T>' lvalue
+    if (initInstr != nullptr && initInstr->getAstResultType() != QualType() &&
+        type != initInstr->getAstResultType()) {
+      updateInstructionType(initInstr, type);
+      needsLegalization = true;
+    }
+    // Otherwise, when translating ConstantBuffer<T> or TextureBuffer<T> types,
+    // we consider the underlying type (T), and therefore we should bypass the
+    // FlatConversion node when accessing these types:
+    // `-MemberExpr
+    //   `-ImplicitCastExpr 'const T' lvalue <FlatConversion>
+    //     `-ArraySubscriptExpr 'ConstantBuffer<T>':'ConstantBuffer<T>' lvalue
     return initInstr;
   }
 
