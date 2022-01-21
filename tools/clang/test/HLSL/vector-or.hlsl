@@ -5,6 +5,6 @@ RWStructuredBuffer<int3> rw;
 [numthreads(1, 1, 1)]
 void main()
 {
-// expected-error@+1 {{operands for short-circuiting logical binary operator must be scalar, for non-scalar types use the logical intrinsic}}
+// expected-error@+1 {{operands for short-circuiting logical binary operator must be scalar, for non-scalar types use 'or'}}
     rw[0] = rw[0] || rw[0];
 }

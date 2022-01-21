@@ -9211,6 +9211,7 @@ void HLSLExternalSource::CheckBinOpForHLSL(
           SourceRange FullRange =
               SourceRange(LHS.get()->getLocStart(), RHS.get()->getLocEnd());
           m_sema->Diag(OpLoc, diag::err_hlsl_logical_binop_scalar)
+              << (Opc == BinaryOperatorKind::BO_LOr)
               << FixItHint::CreateReplacement(FullRange, OS.str());
           return;
         }
