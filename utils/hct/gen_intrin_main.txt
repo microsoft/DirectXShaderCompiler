@@ -379,7 +379,8 @@ namespace VkIntrinsics {
 
 u64 [[]] ReadClock(in uint scope);
 uint [[ro]] RawBufferLoad(in u64 addr);
-void [[]] ext_execution_mode(...);
+void [[]] ext_execution_mode(in uint mode, ...);
+void [[]] ext_execution_mode_id(in uint mode, ...);
 
 } namespace
 // SPIRV Change Ends

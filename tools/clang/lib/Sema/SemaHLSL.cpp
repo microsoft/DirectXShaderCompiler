@@ -12186,6 +12186,24 @@ Attr *hlsl::ProcessStmtAttributeForHLSL(Sema &S, Stmt *St, const AttributeList &
   Attr * result = nullptr;
   Handled = true;
 
+  // SPIRV Change Starts
+  if (A.hasScope() && A.getScopeName()->getName().equals("vk")) {
+    switch (A.getKind()) {
+    case AttributeList::AT_VKCapabilityExt:
+      return ::new (S.Context) VKCapabilityExtAttr(
+          A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
+          A.getAttributeSpellingListIndex());
+    case AttributeList::AT_VKExtensionExt:
+      return ::new (S.Context) VKExtensionExtAttr(
+          A.getRange(), S.Context, ValidateAttributeStringArg(S, A, nullptr),
+          A.getAttributeSpellingListIndex());
+    default:
+      Handled = false;
+      return nullptr;
+    }
+  }
+  // SPIRV Change Ends
+
   switch (A.getKind())
   {
   case AttributeList::AT_HLSLUnroll:

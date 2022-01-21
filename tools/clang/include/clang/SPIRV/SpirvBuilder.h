@@ -585,7 +585,8 @@ public:
   inline SpirvInstruction *addExecutionMode(SpirvFunction *entryPoint,
                                             spv::ExecutionMode em,
                                             llvm::ArrayRef<uint32_t> params,
-                                            SourceLocation);
+                                            SourceLocation,
+                                            bool useIdParams = false);
 
   /// \brief Adds an OpModuleProcessed instruction to the module under
   /// construction.
@@ -888,9 +889,9 @@ SpirvBuilder::setDebugSource(uint32_t major, uint32_t minor,
 SpirvInstruction *
 SpirvBuilder::addExecutionMode(SpirvFunction *entryPoint, spv::ExecutionMode em,
                                llvm::ArrayRef<uint32_t> params,
-                               SourceLocation loc) {
-  auto mode =
-      new (context) SpirvExecutionMode(loc, entryPoint, em, params, false);
+                               SourceLocation loc, bool useIdParams) {
+  auto mode = new (context)
+      SpirvExecutionMode(loc, entryPoint, em, params, useIdParams);
   mod->addExecutionMode(mode);
 
   return mode;
