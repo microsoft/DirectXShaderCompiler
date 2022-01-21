@@ -697,14 +697,18 @@ public:
                        SourceLocation);
 
   /// \brief Decorates the given target with information from VKDecorateExt
-  void decorateLiterals(SpirvInstruction *targetInst, unsigned decorate,
-                        unsigned *literal, unsigned literalSize,
-                        SourceLocation);
+  void decorateWithLiterals(SpirvInstruction *targetInst, unsigned decorate,
+                            llvm::ArrayRef<unsigned> literals, SourceLocation);
 
-  /// \brief Decorates the given target with the given string.
-  void decorateString(SpirvInstruction *target, unsigned decorate,
-                      llvm::StringRef strLiteral,
-                      llvm::Optional<uint32_t> memberIdx = llvm::None);
+  /// \brief Decorates the given target with result ids of SPIR-V
+  /// instructions.
+  void decorateWithIds(SpirvInstruction *targetInst, unsigned decorate,
+                       llvm::ArrayRef<SpirvInstruction *> ids, SourceLocation);
+
+  /// \brief Decorates the given target with the given strings.
+  void decorateWithStrings(SpirvInstruction *target, unsigned decorate,
+                           llvm::ArrayRef<llvm::StringRef> strLiteral,
+                           SourceLocation loc);
 
   /// --- Constants ---
   /// Each of these methods can acquire a unique constant from the SpirvContext,

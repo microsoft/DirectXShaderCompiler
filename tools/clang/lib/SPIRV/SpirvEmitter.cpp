@@ -1687,7 +1687,7 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
   }
 
   if (var != nullptr && decl->hasAttrs()) {
-    declIdMapper.decorateVariableWithIntrinsicAttrs(decl, var);
+    declIdMapper.decorateWithIntrinsicAttrs(decl, var);
     if (auto attr = decl->getAttr<VKStorageClassExtAttr>()) {
       var->setStorageClass(static_cast<spv::StorageClass>(attr->getStclass()));
     }
