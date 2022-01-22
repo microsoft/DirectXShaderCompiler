@@ -221,12 +221,8 @@ void DxilPrecisePropagatePass::PropagateOnPointerUsers(Value *Ptr) {
         if (!F->isIntrinsic())
           PropagateOnPointerUsedInCall(Ptr, CI);
       }
-    } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
-      PropagateOnPointerUsers(GEP);
-      continue;
-    } else if (BitCastInst *BC = dyn_cast<BitCastInst>(U)) {
-      PropagateOnPointerUsers(BC);
-      continue;
+    } else if (isa<GEPOperator>(U) || isa<BitCastOperator>(U)) {
+      PropagateOnPointerUsers(U);
     }
   }
 }
