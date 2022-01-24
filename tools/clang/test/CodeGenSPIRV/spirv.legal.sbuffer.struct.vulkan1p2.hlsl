@@ -7,6 +7,14 @@ struct Struct
   StructuredBuffer<uint> buffer;
 };
 
+// CHECK: %Struct2 = OpTypeStruct %v3float %_ptr_StorageBuffer_type_StructuredBuffer_uint %_ptr_StorageBuffer_type_StructuredBuffer_uint
+struct Struct2
+{
+  float3 foo;
+  StructuredBuffer<uint> buffer1;
+  StructuredBuffer<uint> buffer2;
+};
+
 // CHECK: %g_stuff_buffer = OpVariable %_ptr_StorageBuffer_type_StructuredBuffer_uint StorageBuffer
 StructuredBuffer<uint> g_stuff_buffer;
 
@@ -22,6 +30,10 @@ void main()
 // CHECK: [[p0:%\d+]] = OpAccessChain %_ptr_Function__ptr_StorageBuffer_type_StructuredBuffer_uint %s %int_1
 // CHECK:               OpStore [[p0]] %g_stuff_buffer
   s.buffer = g_stuff_buffer;
+
+  Struct2 s2;
+  s2.buffer1 = g_stuff_buffer;
+  s2.buffer2 = g_stuff_buffer;
 
 // CHECK: [[p1:%\d+]] = OpAccessChain %_ptr_Function__ptr_StorageBuffer_type_StructuredBuffer_uint %s %int_1
 // CHECK: [[p2:%\d+]] = OpLoad %_ptr_StorageBuffer_type_StructuredBuffer_uint [[p1]]

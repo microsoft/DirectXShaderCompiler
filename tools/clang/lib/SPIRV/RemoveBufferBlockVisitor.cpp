@@ -119,27 +119,27 @@ bool RemoveBufferBlockVisitor::updateStorageClass(
   // For pointer-to-struct cases, we may need to update the storage class for
   // the inner struct fields.
   if (const auto *innerStructType = dyn_cast<StructType>(innerType)) {
-    auto fields = innerStructType->getFields();
-    std::vector<StructType::FieldInfo> newFields(fields.begin(), fields.end());
-    for (size_t i = 0; i < fields.size(); i++) {
-      if (const auto *innerPtrType =
-              dyn_cast<SpirvPointerType>(fields[i].type)) {
-        if (hasStorageBufferInterfaceType(innerPtrType->getPointeeType()) &&
-            innerPtrType->getStorageClass() !=
-                spv::StorageClass::StorageBuffer) {
-          auto *newInnerType = context.getPointerType(
-              innerPtrType->getPointeeType(), spv::StorageClass::StorageBuffer);
-          newFields[i] = newInnerType;
-          *newType = context.getPointerType(
-              context.getStructType(
-                  llvm::ArrayRef<StructType::FieldInfo>(newFields),
-                  innerStructType->getStructName()),
-              ptrType->getStorageClass());
-          *newStorageClass = ptrType->getStorageClass();
-          return true;
-        }
+    bool transformed = false;
+    llvm::SmallVector<StructType::FieldInfo, 2> newFields;
+    for (auto field : innerStructType->getFields()) {
+      const auto *innerPtrType = dyn_cast<SpirvPointerType>(field.type);
+      if (innerPtrType &&
+          hasStorageBufferInterfaceType(innerPtrType->getPointeeType()) &&
+          innerPtrType->getStorageClass() != spv::StorageClass::StorageBuffer) {
+        auto *newInnerType = context.getPointerType(
+            innerPtrType->getPointeeType(), spv::StorageClass::StorageBuffer);
+        newFields.push_back(newInnerType);
+        transformed = true;
+      } else {
+        newFields.push_back(field);
       }
     }
+    *newType = context.getPointerType(
+        context.getStructType(llvm::ArrayRef<StructType::FieldInfo>(newFields),
+                              innerStructType->getStructName()),
+        ptrType->getStorageClass());
+    *newStorageClass = ptrType->getStorageClass();
+    return transformed;
   }
 
   return false;
