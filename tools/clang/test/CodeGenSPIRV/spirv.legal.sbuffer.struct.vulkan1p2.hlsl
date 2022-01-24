@@ -15,22 +15,26 @@ struct Struct2
   StructuredBuffer<uint> buffer2;
 };
 
+// CHECK: [[fn1:%\d+]] = OpTypeFunction %Struct
 // CHECK: %g_stuff_buffer = OpVariable %_ptr_StorageBuffer_type_StructuredBuffer_uint StorageBuffer
-StructuredBuffer<uint> g_stuff_buffer;
-
 // CHECK: %g_output = OpVariable %_ptr_StorageBuffer_type_RWStructuredBuffer_uint StorageBuffer
+StructuredBuffer<uint> g_stuff_buffer;
 RWStructuredBuffer<uint> g_output;
+
+Struct make_struct()
+{
+  Struct s;
+  s.buffer = g_stuff_buffer;
+  return s;
+}
 
 [numthreads(1, 1, 1)]
 void main()
 {
-// CHECK:          %s = OpVariable %_ptr_Function_Struct Function
-  Struct s;
+// CHECK: %s = OpVariable %_ptr_Function_Struct Function
+  Struct s = make_struct();
 
-// CHECK: [[p0:%\d+]] = OpAccessChain %_ptr_Function__ptr_StorageBuffer_type_StructuredBuffer_uint %s %int_1
-// CHECK:               OpStore [[p0]] %g_stuff_buffer
-  s.buffer = g_stuff_buffer;
-
+// CHECK: %s2 = OpVariable %_ptr_Function_Struct2 Function
   Struct2 s2;
   s2.buffer1 = g_stuff_buffer;
   s2.buffer2 = g_stuff_buffer;
@@ -43,3 +47,5 @@ void main()
 // CHECK:               OpStore [[p5]] [[p4]]
   g_output[0] = s.buffer[0];
 }
+
+// CHECK: %make_struct = OpFunction %Struct None [[fn1]]
