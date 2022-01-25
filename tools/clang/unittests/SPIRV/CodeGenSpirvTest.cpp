@@ -1731,6 +1731,10 @@ TEST_F(FileTest, SpirvLegalizationStructuredBufferInStruct) {
   setBeforeHLSLLegalization();
   runFileTest("spirv.legal.sbuffer.struct.hlsl");
 }
+TEST_F(FileTest, SpirvLegalizationStructuredBufferInStructVk1p2) {
+  setBeforeHLSLLegalization();
+  runFileTest("spirv.legal.sbuffer.struct.vulkan1p2.hlsl");
+}
 TEST_F(FileTest, SpirvLegalizationConstantBuffer) {
   runFileTest("spirv.legal.cbuffer.hlsl");
 }
