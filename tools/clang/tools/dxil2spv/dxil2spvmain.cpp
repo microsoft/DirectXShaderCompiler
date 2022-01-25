@@ -6,6 +6,28 @@
 //
 //  This file provides the entry point for the dxil2spv executable program.
 //
+// NOTE
+// ====
+// The dxil2spv translator is under active development and is not yet feature
+// complete.
+//
+// BUILD
+// =====
+// $ cd <dxc-build-dir>
+// $ cmake <dxc-src-dir> -GNinja -C ../cmake/caches/PredefinedParams.cmake
+//     -DENABLE_DXIL2SPV=ON
+// $ ninja
+//
+// RUN
+// ===
+// $ <dxc-build-dir>\bin\dxil2spv <input-file>
+//
+//   where <input-file> may be either a DXIL bitcode file or DXIL IR.
+//
+// OUTPUT
+// ======
+// TODO: The current implementation parses a DXIL file but does not yet produce
+// output.
 //===----------------------------------------------------------------------===//
 
 #include "dxc/DXIL/DxilUtil.h"
