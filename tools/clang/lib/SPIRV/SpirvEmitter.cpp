@@ -12966,6 +12966,9 @@ bool SpirvEmitter::spirvToolsOptimize(std::vector<uint32_t> *mod,
     // Add performance passes.
     optimizer.RegisterPerformancePasses();
 
+    // Add propagation of volatile semantics passes.
+    optimizer.RegisterPass(spvtools::CreateSpreadVolatileSemanticsPass());
+
     // Add compact ID pass.
     optimizer.RegisterPass(spvtools::CreateCompactIdsPass());
   } else {
@@ -12977,7 +12980,6 @@ bool SpirvEmitter::spirvToolsOptimize(std::vector<uint32_t> *mod,
     if (!optimizer.RegisterPassesFromFlags(stdFlags))
       return false;
   }
-  optimizer.RegisterPass(spvtools::CreateSpreadVolatileSemanticsPass());
 
   return optimizer.Run(mod->data(), mod->size(), mod, options);
 }
