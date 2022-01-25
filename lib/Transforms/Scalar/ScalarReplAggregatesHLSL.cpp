@@ -3943,6 +3943,8 @@ public:
   const char *getPassName() const override { return "SROA Parameter HLSL"; }
   static void RewriteBitcastWithIdenticalStructs(Function *F);
   static void RewriteBitcastWithIdenticalStructs(BitCastInst *BCI);
+  static bool DeleteSimpleStoreOnlyAlloca(AllocaInst *AI);
+  static bool IsSimpleStoreOnlyAlloca(AllocaInst *AI);
 
   bool runOnModule(Module &M) override {
     // Patch memcpy to cover case bitcast (gep ptr, 0,0) is transformed into
@@ -4043,12 +4045,21 @@ public:
     SROAGlobalAndAllocas(*m_pHLModule, m_HasDbgInfo);
 
     // Move up allocas that might have been pushed down by instruction inserts
+    SmallVector<AllocaInst *, 16> simpleStoreOnlyAllocas;
     for (Function &F : M) {
       if (F.isDeclaration())
         continue;
       Instruction *insertPt = nullptr;
+      simpleStoreOnlyAllocas.clear();
       // SROA only potentially "incorrectly" inserts non-allocas into the entry block.
       for (llvm::Instruction &I : F.getEntryBlock()) {
+        // In really pathologically huge shaders, there could be thousands of
+        // unused allocas (and hundreds of thousands of dbg.declares). Record
+        // and remove them now so they don't horrifically slow down the
+        // compilation.
+        if (isa<AllocaInst>(I) && IsSimpleStoreOnlyAlloca(cast<AllocaInst>(&I)))
+          simpleStoreOnlyAllocas.push_back(cast<AllocaInst>(&I));
+
         if (!insertPt) {
           // Find the first non-alloca to move the allocas above
           if (!isa<AllocaInst>(I) && !isa<DbgInfoIntrinsic>(I))
@@ -4057,6 +4068,9 @@ public:
           // Move any alloca to before the first non-alloca
           I.moveBefore(insertPt);
         }
+      }
+      for (AllocaInst *AI : simpleStoreOnlyAllocas) {
+        DeleteSimpleStoreOnlyAlloca(AI);
       }
     }
     return true;
@@ -4152,6 +4166,37 @@ void SROA_Parameter_HLSL::RewriteBitcastWithIdenticalStructs(Function *F) {
     worklist.pop_back();
     RewriteBitcastWithIdenticalStructs(BCI);
   }
+}
+
+bool SROA_Parameter_HLSL::IsSimpleStoreOnlyAlloca(AllocaInst *AI) {
+  if (!AI->getAllocatedType()->isSingleValueType())
+    return false;
+  for (User *U : AI->users()) {
+    if (!isa<StoreInst>(U))
+      return false;
+  }
+  return true;
+}
+
+bool SROA_Parameter_HLSL::DeleteSimpleStoreOnlyAlloca(AllocaInst *AI) {
+  assert(IsSimpleStoreOnlyAlloca(AI));
+  for (auto it = AI->user_begin(), end = AI->user_end(); it != end;) {
+    StoreInst *Store = cast<StoreInst>(*(it++));
+    Store->eraseFromParent();
+  }
+
+  // Delete dbg.declare's too
+  LLVMContext &Ctx = AI->getContext();
+  if (auto *L = LocalAsMetadata::getIfExists(AI))
+    if (auto *MDV = MetadataAsValue::getIfExists(Ctx, L))
+      for (auto it = MDV->user_begin(), end = MDV->user_end(); it != end;) {
+        User *U = *(it++);
+        if (DbgDeclareInst *DDI = dyn_cast<DbgDeclareInst>(U))
+          DDI->eraseFromParent();
+      }
+
+  AI->eraseFromParent();
+  return true;
 }
 
 void SROA_Parameter_HLSL::RewriteBitcastWithIdenticalStructs(BitCastInst *BCI) {
