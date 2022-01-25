@@ -37,7 +37,7 @@
 // Alias for CP_UTF16LE, which is the only one we actually handle.
 #define CP_UTF16 CP_UTF16LE
 
-struct HeapMalloc final : public IMalloc {
+struct HeapMalloc : public IMalloc {
 public:
   ULONG STDMETHODCALLTYPE AddRef() override { return 1; }
   ULONG STDMETHODCALLTYPE Release() override { return 1; }

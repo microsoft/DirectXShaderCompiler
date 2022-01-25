@@ -155,7 +155,7 @@ unsigned char _BitScanForward(unsigned long * Index, unsigned long Mask) {
   return 1;
 }
 
-struct CoMalloc final : public IMalloc {
+struct CoMalloc : public IMalloc {
   CoMalloc() : m_dwRef(0) {};
 
   DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)

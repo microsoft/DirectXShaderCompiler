@@ -51,7 +51,7 @@ HRESULT CreateDxcIntelliSense(_In_ REFIID riid, _Out_ LPVOID* ppv) throw()
 
 // This is exposed as a helper class, but the implementation works on
 // interfaces; we expect callers should be able to use their own.
-class DxcBasicUnsavedFile final : public IDxcUnsavedFile
+class DxcBasicUnsavedFile : public IDxcUnsavedFile
 {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
@@ -581,7 +581,9 @@ HRESULT DxcBasicUnsavedFile::Create(
   HRESULT hr = newValue->Initialize(fileName, contents, contentLength);
   if (FAILED(hr))
   {
-    delete newValue;
+    CComPtr<IMalloc> pTmp(newValue->m_pMalloc);
+    newValue->DxcBasicUnsavedFile::~DxcBasicUnsavedFile();
+    pTmp->Free(newValue);
     return hr;
   }
   newValue->AddRef();
