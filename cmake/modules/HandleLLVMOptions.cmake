@@ -56,10 +56,6 @@ int main() { return (float)x; }"
 endif()
 
 if( LLVM_ENABLE_ASSERTIONS )
-  # MSVC doesn't like _DEBUG on release builds. See PR 4379.
-  if( NOT MSVC )
-    add_definitions( -D_DEBUG )
-  endif()
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DDBG") # HLSL Change
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -UNDEBUG") # HLSL Change
   if (0) # HLSL Change Starts

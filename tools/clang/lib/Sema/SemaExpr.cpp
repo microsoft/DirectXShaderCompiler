@@ -10401,9 +10401,9 @@ ExprResult Sema::CreateBuiltinBinOp(SourceLocation OpLoc,
 
   // HLSL Change Starts
   // Handle HLSL binary operands differently
-  if (getLangOpts().HLSL &&
+  if ((getLangOpts().HLSL &&
           (!getLangOpts().EnableOperatorOverloading ||
-           !hlsl::IsUserDefinedRecordType(LHSExpr->getType())) ||
+           !hlsl::IsUserDefinedRecordType(LHSExpr->getType()))) ||
       !hlsl::DoesTypeDefineOverloadedOperator(
           LHSExpr->getType(), clang::BinaryOperator::getOverloadedOperator(Opc),
           RHSExpr->getType())) {

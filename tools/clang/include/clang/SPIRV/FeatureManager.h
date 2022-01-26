@@ -53,6 +53,7 @@ enum class Extension {
   KHR_ray_query,
   EXT_shader_image_int64,
   KHR_physical_storage_buffer,
+  KHR_vulkan_memory_model,
   Unknown,
 };
 

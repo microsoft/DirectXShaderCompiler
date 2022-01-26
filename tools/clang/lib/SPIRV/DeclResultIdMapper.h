@@ -625,9 +625,12 @@ public:
     return value;
   }
 
-  /// \brief Decorate variable with spirv intrinsic attributes
-  void decorateVariableWithIntrinsicAttrs(const NamedDecl *decl,
-                                          SpirvVariable *varInst);
+  /// Decorate with spirv intrinsic attributes with lamda function variable
+  /// check
+  void decorateWithIntrinsicAttrs(
+      const NamedDecl *decl, SpirvVariable *varInst,
+      llvm::function_ref<void(VKDecorateExtAttr *)> extraFunctionForDecoAttr =
+          [](VKDecorateExtAttr *) {});
 
   /// \brief Creates instructions to load the value of output stage variable
   /// defined by outputPatchDecl and store it to ptr. Since the output stage
@@ -856,11 +859,12 @@ private:
   bool getImplicitRegisterType(const ResourceVar &var,
                                char *registerTypeOut) const;
 
-  /// Decorate with spirv intrinsic attributes with lamda function variable
-  /// check
-  template <typename Functor>
-  void decorateWithIntrinsicAttrs(const NamedDecl *decl, SpirvVariable *varInst,
-                                  Functor func);
+  /// \brief Decorates stage variable with spirv intrinsic attributes. If
+  /// it is BuiltIn or Location decoration, sets locOrBuiltinDecorateAttr
+  /// of stageVar as true.
+  void decorateStageVarWithIntrinsicAttrs(const NamedDecl *decl,
+                                          StageVar *stageVar,
+                                          SpirvVariable *varInst);
 
 private:
   SpirvBuilder &spvBuilder;
