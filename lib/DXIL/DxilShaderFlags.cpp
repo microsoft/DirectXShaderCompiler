@@ -59,6 +59,9 @@ ShaderFlags::ShaderFlags():
 , m_bResourceDescriptorHeapIndexing(false)
 , m_bSamplerDescriptorHeapIndexing(false)
 , m_bAtomicInt64OnHeapResource(false)
+, m_bResMayNotAlias(false)
+, m_bAdvancedTextureOps(false)
+, m_bWriteableMSAATextures(false)
 , m_align1(0)
 {
   // Silence unused field warnings
@@ -115,6 +118,9 @@ uint64_t ShaderFlags::GetFeatureInfo() const {
   Flags |= m_bResourceDescriptorHeapIndexing ? hlsl::DXIL::ShaderFeatureInfo_ResourceDescriptorHeapIndexing : 0;
   Flags |= m_bSamplerDescriptorHeapIndexing ? hlsl::DXIL::ShaderFeatureInfo_SamplerDescriptorHeapIndexing : 0;
   Flags |= m_bAtomicInt64OnHeapResource ? hlsl::DXIL::ShaderFeatureInfo_AtomicInt64OnHeapResource : 0;
+
+  Flags |= m_bAdvancedTextureOps ? hlsl::DXIL::ShaderFeatureInfo_AdvancedTextureOps : 0;
+  Flags |= m_bWriteableMSAATextures ? hlsl::DXIL::ShaderFeatureInfo_WriteableMSAATextures : 0;
 
   return Flags;
 }
@@ -175,6 +181,9 @@ uint64_t ShaderFlags::GetShaderFlagsRawForCollection() {
   Flags.SetResourceDescriptorHeapIndexing(true);
   Flags.SetSamplerDescriptorHeapIndexing(true);
   Flags.SetAtomicInt64OnHeapResource(true);
+  Flags.SetResMayNotAlias(true);
+  Flags.SetAdvancedTextureOps(true);
+  Flags.SetWriteableMSAATextures(true);
   return Flags.GetShaderFlagsRaw();
 }
 
@@ -368,6 +377,13 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   bool hasSamplerDescriptorHeapIndexing = false;
   bool hasAtomicInt64OnHeapResource = false;
 
+  // Used to determine whether to set ResMayNotAlias flag.
+  bool hasUAVs = M->GetUAVs().size() > 0;
+
+  // TODO: Fill these in below!
+  bool hasAdvancedTextureOps = false;
+  bool hasWriteableMSAATextures = false;
+
   // Try to maintain compatibility with a v1.0 validator if that's what we have.
   uint32_t valMajor, valMinor;
   M->GetValidatorVersion(valMajor, valMinor);
@@ -522,10 +538,18 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
         case DXIL::OpCode::CreateHandleFromHeap: {
           ConstantInt *isSamplerVal = dyn_cast<ConstantInt>(
                         CI->getArgOperand(DXIL::OperandIndex::kCreateHandleFromHeapSamplerHeapOpIdx));
-          if (isSamplerVal->getLimitedValue())
+          if (isSamplerVal->getLimitedValue()) {
             hasSamplerDescriptorHeapIndexing = true;
-          else
+          } else {
             hasResourceDescriptorHeapIndexing = true;
+            if (!hasUAVs) {
+              // If not already marked, check if UAV.
+              DxilResourceProperties RP = GetResourcePropertyFromHandleCall(
+                  M, const_cast<CallInst *>(CI));
+              if (RP.isUAV())
+                hasUAVs = true;
+            }
+          }
         }
         default:
           // Normal opcodes.
@@ -640,6 +664,12 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   flag.SetResourceDescriptorHeapIndexing(hasResourceDescriptorHeapIndexing);
   flag.SetSamplerDescriptorHeapIndexing(hasSamplerDescriptorHeapIndexing);
   flag.SetAtomicInt64OnHeapResource(hasAtomicInt64OnHeapResource);
+  flag.SetAdvancedTextureOps(hasAdvancedTextureOps);
+  flag.SetWriteableMSAATextures(hasWriteableMSAATextures);
+
+  // Only bother setting the flag when there are UAVs.
+  flag.SetResMayNotAlias(DXIL::CompareVersions(valMajor, valMinor, 1, 7) >= 0 &&
+                         hasUAVs && !M->GetResMayAlias());
 
   return flag;
 }

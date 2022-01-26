@@ -132,6 +132,15 @@ namespace hlsl {
     void SetSamplerDescriptorHeapIndexing(bool flag) { m_bSamplerDescriptorHeapIndexing = flag; }
     bool GetSamplerDescriptorHeapIndexing() const { return m_bSamplerDescriptorHeapIndexing; }
 
+    void SetResMayNotAlias(bool flag) { m_bResMayNotAlias = flag; }
+    bool GetResMayNotAlias() const { return m_bResMayNotAlias; }
+
+    void SetAdvancedTextureOps(bool flag) { m_bAdvancedTextureOps = flag; }
+    bool GetAdvancedTextureOps() const { return m_bAdvancedTextureOps; }
+
+    void SetWriteableMSAATextures(bool flag) { m_bWriteableMSAATextures = flag; }
+    bool GetWriteableMSAATextures() const { return m_bWriteableMSAATextures; }
+
   private:
     unsigned m_bDisableOptimizations :1;   // D3D11_1_SB_GLOBAL_FLAG_SKIP_OPTIMIZATION
     unsigned m_bDisableMathRefactoring :1; //~D3D10_SB_GLOBAL_FLAG_REFACTORING_ALLOWED
@@ -180,7 +189,16 @@ namespace hlsl {
 
     unsigned m_bAtomicInt64OnHeapResource : 1; // SHADER_FEATURE_ATOMIC_INT64_ON_DESCRIPTOR_HEAP_RESOURCE
 
-    uint32_t m_align1 : 31;            // align to 64 bit.
+    // Global flag indicating that any UAV may not alias any other UAV.
+    // Set if UAVs are used, unless -res-may-alias was specified.
+    // For modules compiled against validator version < 1.7, this flag will be
+    // cleared, and it must be assumed that UAV resources may alias.
+    unsigned m_bResMayNotAlias : 1;
+
+    unsigned m_bAdvancedTextureOps : 1;     // SHADER_FEATURE_ADVANCED_TEXTURE_OPS
+    unsigned m_bWriteableMSAATextures : 1;  // SHADER_FEATURE_WRITEABLE_MSAA_TEXTURES
+
+    uint32_t m_align1 : 28;            // align to 64 bit.
   };
 
 

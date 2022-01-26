@@ -347,6 +347,8 @@ PCSTR g_pFeatureInfoNames[] = {
     "Sampler descriptor heap indexing",
     "<RESERVED>",
     "64-bit Atomics on Heap Resources",
+    "Advanced Texture Ops",
+    "Writeable MSAA Textures",
 };
 static_assert(_countof(g_pFeatureInfoNames) == ShaderFeatureInfoCount, "g_pFeatureInfoNames needs to be updated");
 

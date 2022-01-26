@@ -381,6 +381,7 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
   opts.bDisableOptimizations = CGM.getCodeGenOpts().DisableLLVMOpts;
   opts.bLegacyCBufferLoad = !CGM.getCodeGenOpts().HLSLNotUseLegacyCBufLoad;
   opts.bAllResourcesBound = CGM.getCodeGenOpts().HLSLAllResourcesBound;
+  opts.bResMayAlias = CGM.getCodeGenOpts().HLSLResMayAlias;
   opts.PackingStrategy = CGM.getCodeGenOpts().HLSLSignaturePackingStrategy;
   opts.bLegacyResourceReservation = CGM.getCodeGenOpts().HLSLLegacyResourceReservation;
   opts.bForceZeroStoreLifetimes = CGM.getCodeGenOpts().HLSLForceZeroStoreLifetimes;

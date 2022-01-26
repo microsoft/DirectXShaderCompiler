@@ -1475,7 +1475,11 @@ namespace DXIL {
 
   const uint64_t ShaderFeatureInfo_AtomicInt64OnHeapResource      = 0x10000000;
 
-  const unsigned ShaderFeatureInfoCount = 29;
+  // SM 6.7+
+  const uint64_t ShaderFeatureInfo_AdvancedTextureOps             = 0x20000000;
+  const uint64_t ShaderFeatureInfo_WriteableMSAATextures          = 0x40000000;
+
+  const unsigned ShaderFeatureInfoCount = 31;
 
   // DxilSubobjectType must match D3D12_STATE_SUBOBJECT_TYPE, with
   // certain values reserved, since they cannot be used from Dxil.
