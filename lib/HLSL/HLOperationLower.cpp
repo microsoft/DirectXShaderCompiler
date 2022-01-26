@@ -5691,6 +5691,7 @@ IntrinsicLower gLowerTable[] = {
     { IntrinsicOp::IOP_VkReadClock, UnsupportedVulkanIntrinsic, DXIL::OpCode::NumOpCodes },
     { IntrinsicOp::IOP_VkRawBufferLoad, UnsupportedVulkanIntrinsic, DXIL::OpCode::NumOpCodes },
     { IntrinsicOp::IOP_Vkext_execution_mode, UnsupportedVulkanIntrinsic, DXIL::OpCode::NumOpCodes },
+    { IntrinsicOp::IOP_Vkext_execution_mode_id, UnsupportedVulkanIntrinsic, DXIL::OpCode::NumOpCodes },
 #endif // ENABLE_SPIRV_CODEGEN
     {IntrinsicOp::MOP_Append, StreamOutputLower, DXIL::OpCode::EmitStream},
     {IntrinsicOp::MOP_RestartStrip, StreamOutputLower, DXIL::OpCode::CutStream},

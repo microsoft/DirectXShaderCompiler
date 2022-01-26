@@ -73,6 +73,17 @@ private:
   /// type.
   spv::Capability getNonUniformCapability(const SpirvType *);
 
+  /// Returns whether the shader model is one of the ray tracing execution
+  /// models.
+  bool IsShaderModelForRayTracing();
+
+  /// Adds VulkanMemoryModel capability if decoration needs Volatile semantics
+  /// for OpLoad instructions. For Vulkan 1.3 or above, we can simply add
+  /// Volatile decoration for the variable. Therefore, in that case, we do not
+  /// need VulkanMemoryModel capability.
+  void AddVulkanMemoryModelForVolatile(SpirvDecoration *decor,
+                                       SourceLocation loc);
+
 private:
   SpirvBuilder &spvBuilder;        ///< SPIR-V builder
   spv::ExecutionModel shaderModel; ///< Execution model

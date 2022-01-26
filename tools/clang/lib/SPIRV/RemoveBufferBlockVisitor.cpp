@@ -86,35 +86,52 @@ bool RemoveBufferBlockVisitor::visitInstruction(SpirvInstruction *inst) {
 bool RemoveBufferBlockVisitor::updateStorageClass(
     const SpirvType *type, const SpirvType **newType,
     spv::StorageClass *newStorageClass) {
-  auto *ptrType = dyn_cast<SpirvPointerType>(type);
-  if (ptrType == nullptr)
-    return false;
 
-  const auto *innerType = ptrType->getPointeeType();
+  // Update pointer types.
+  if (const auto *ptrType = dyn_cast<SpirvPointerType>(type)) {
+    const auto *innerType = ptrType->getPointeeType();
 
-  // For usual cases such as _ptr_Uniform_StructuredBuffer_float.
-  if (hasStorageBufferInterfaceType(innerType) &&
-      ptrType->getStorageClass() != spv::StorageClass::StorageBuffer) {
-    *newType =
-        context.getPointerType(innerType, spv::StorageClass::StorageBuffer);
-    *newStorageClass = spv::StorageClass::StorageBuffer;
-    return true;
-  }
+    // For pointees with storage buffer interface, update pointer storage class.
+    if (hasStorageBufferInterfaceType(innerType) &&
+        ptrType->getStorageClass() != spv::StorageClass::StorageBuffer) {
+      *newType =
+          context.getPointerType(innerType, spv::StorageClass::StorageBuffer);
+      *newStorageClass = spv::StorageClass::StorageBuffer;
+      return true;
+    }
 
-  // For pointer-to-pointer cases (which need legalization), we could have a
-  // type like: _ptr_Function__ptr_Uniform_type_StructuredBuffer_float.
-  // In such cases, we need to update the storage class for the inner pointer.
-  if (const auto *innerPtrType = dyn_cast<SpirvPointerType>(innerType)) {
-    if (hasStorageBufferInterfaceType(innerPtrType->getPointeeType()) &&
-        innerPtrType->getStorageClass() != spv::StorageClass::StorageBuffer) {
-      auto *newInnerType = context.getPointerType(
-          innerPtrType->getPointeeType(), spv::StorageClass::StorageBuffer);
+    // Update storage class of pointee, if applicable.
+    const auto *newInnerType = innerType;
+    spv::StorageClass newInnerSC = spv::StorageClass::Max;
+    if (updateStorageClass(innerType, &newInnerType, &newInnerSC)) {
       *newType =
           context.getPointerType(newInnerType, ptrType->getStorageClass());
       *newStorageClass = ptrType->getStorageClass();
       return true;
     }
   }
+
+  // Update struct types.
+  if (const auto *structType = dyn_cast<StructType>(type)) {
+    bool transformed = false;
+    llvm::SmallVector<StructType::FieldInfo, 2> newFields;
+
+    // Update storage class of each field, if applicable.
+    for (auto field : structType->getFields()) {
+      const auto *newFieldType = field.type;
+      spv::StorageClass newFieldSC = spv::StorageClass::Max;
+      transformed |= updateStorageClass(field.type, &newFieldType, &newFieldSC);
+      field.type = newFieldType;
+      newFields.push_back(field);
+    }
+    *newType =
+        context.getStructType(llvm::ArrayRef<StructType::FieldInfo>(newFields),
+                              structType->getStructName());
+    *newStorageClass = spv::StorageClass::StorageBuffer;
+    return transformed;
+  }
+
+  // TODO: Handle other composite types.
 
   return false;
 }

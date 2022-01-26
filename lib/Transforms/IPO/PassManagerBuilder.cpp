@@ -258,6 +258,7 @@ static void addHLSLPasses(bool HLSLHighLevel, unsigned OptLevel, bool OnlyWarnOn
   // mem2reg
   // Special Mem2Reg pass that skips precise marker.
   MPM.add(createDxilConditionalMem2RegPass(NoOpt));
+  MPM.add(createDxilDeleteRedundantDebugValuesPass());
 
   // Clean up inefficiencies that can cause unnecessary live values related to
   // lifetime marker cleanup blocks. This is the earliest possible location
@@ -391,6 +392,7 @@ void PassManagerBuilder::populateModulePassManager(
       MPM.add(createDxilFinalizeModulePass());
       MPM.add(createComputeViewIdStatePass());
       MPM.add(createDxilDeadFunctionEliminationPass());
+      MPM.add(createDxilDeleteRedundantDebugValuesPass());
       MPM.add(createNoPausePassesPass());
       MPM.add(createDxilEmitMetadataPass());
     }
@@ -695,6 +697,7 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createDxilFinalizeModulePass());
     MPM.add(createComputeViewIdStatePass());
     MPM.add(createDxilDeadFunctionEliminationPass());
+    MPM.add(createDxilDeleteRedundantDebugValuesPass());
     MPM.add(createNoPausePassesPass());
     MPM.add(createDxilValidateWaveSensitivityPass());
     MPM.add(createDxilEmitMetadataPass());

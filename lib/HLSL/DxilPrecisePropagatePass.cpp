@@ -216,7 +216,13 @@ void DxilPrecisePropagatePass::PropagateOnPointerUsers(Value *Ptr) {
       Value *val = stInst->getValueOperand();
       AddToWorkList(val);
     } else if (CallInst *CI = dyn_cast<CallInst>(U)) {
-      PropagateOnPointerUsedInCall(Ptr, CI);
+      if (Function *F = CI->getCalledFunction()) {
+        // Skip llvm intrinsics (debug/lifetime intrinsics)
+        if (!F->isIntrinsic())
+          PropagateOnPointerUsedInCall(Ptr, CI);
+      }
+    } else if (isa<GEPOperator>(U) || isa<BitCastOperator>(U)) {
+      PropagateOnPointerUsers(U);
     }
   }
 }
@@ -240,7 +246,15 @@ void DxilPrecisePropagatePass::PropagateThroughGEPs(
       auto idx = GEP->idx_begin();
       idx++;
       unsigned i = 0;
-      while (idx != GEP->idx_end()) {
+      // FIXME: When i points outside idxList, it's an indication that this GEP
+      // is deeper than the one we are matching. This can happen with vector
+      // components or aggregates when marking the aggregate precise, such as
+      // when propagating through call with aggregate argument. This solution
+      // only prevents OOB memory access, it does not fix the underlying
+      // problems that lead to it, which will likely require significant work -
+      // perhaps even a rewrite using alias analysis or some other more accurate
+      // mechanism.
+      while (idx != GEP->idx_end() && i < idxList.size()) {
         if (ConstantInt *C = dyn_cast<ConstantInt>(*idx)) {
           if (ConstantInt *CRef = dyn_cast<ConstantInt>(idxList[i])) {
             if (CRef->getLimitedValue() != C->getLimitedValue()) {

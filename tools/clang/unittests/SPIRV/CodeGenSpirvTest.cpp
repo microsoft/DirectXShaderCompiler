@@ -98,6 +98,10 @@ TEST_F(FileTest, TypeCBufferIncludingResource) {
 TEST_F(FileTest, ConstantBufferType) {
   runFileTest("type.constant-buffer.hlsl");
 }
+TEST_F(FileTest, BindlessConstantBufferArrayType) {
+  runFileTest("type.constant-buffer.bindless.array.hlsl", Expect::Success,
+              /*legalization*/ false);
+}
 TEST_F(FileTest, EnumType) { runFileTest("type.enum.hlsl"); }
 TEST_F(FileTest, TBufferType) { runFileTest("type.tbuffer.hlsl"); }
 TEST_F(FileTest, TextureBufferType) { runFileTest("type.texture-buffer.hlsl"); }
@@ -1345,6 +1349,7 @@ TEST_F(FileTest, IntrinsicsSpirv) {
   runFileTest("spv.intrinsicLiteral.hlsl");
   runFileTest("spv.intrinsicDecorate.hlsl", Expect::Success, false);
   runFileTest("spv.intrinsicExecutionMode.hlsl", Expect::Success, false);
+  runFileTest("spv.intrinsicExecutionModeId.hlsl", Expect::Success, false);
   runFileTest("spv.intrinsicStorageClass.hlsl", Expect::Success, false);
   runFileTest("spv.intrinsicTypeInteger.hlsl");
   runFileTest("spv.intrinsicTypeRayquery.hlsl", Expect::Success, false);
@@ -1725,6 +1730,10 @@ TEST_F(FileTest,
 TEST_F(FileTest, SpirvLegalizationStructuredBufferInStruct) {
   setBeforeHLSLLegalization();
   runFileTest("spirv.legal.sbuffer.struct.hlsl");
+}
+TEST_F(FileTest, SpirvLegalizationStructuredBufferInStructVk1p2) {
+  setBeforeHLSLLegalization();
+  runFileTest("spirv.legal.sbuffer.struct.vulkan1p2.hlsl");
 }
 TEST_F(FileTest, SpirvLegalizationConstantBuffer) {
   runFileTest("spirv.legal.cbuffer.hlsl");
@@ -3023,6 +3032,16 @@ TEST_F(FileTest, ShaderDebugInfoLineVariables) {
 TEST_F(FileTest, RayQueryInitExpr) { runFileTest("rayquery_init_expr.hlsl"); }
 TEST_F(FileTest, RayQueryInitExprError) {
   runFileTest("rayquery_init_expr_error.hlsl", Expect::Failure);
+}
+
+TEST_F(FileTest, VolatileInterfaceInRayGenVk1p1) {
+  runFileTest("volatile.interface.raygen.vk1p1.hlsl");
+}
+TEST_F(FileTest, VolatileInterfaceInRayGenVk1p2) {
+  runFileTest("volatile.interface.raygen.vk1p2.hlsl");
+}
+TEST_F(FileTest, VolatileInterfaceInRayGenVk1p3) {
+  runFileTest("volatile.interface.raygen.vk1p3.hlsl");
 }
 
 } // namespace

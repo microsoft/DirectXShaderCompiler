@@ -39,7 +39,7 @@
 namespace CGHLSLMSHelper
 {
 struct Scope;
-};
+}
 
 namespace llvm {
 class BasicBlock;
