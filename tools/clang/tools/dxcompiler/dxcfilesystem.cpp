@@ -319,7 +319,7 @@ private:
             << "]\n";
           s.flush();
           ULONG cbWritten;
-          IFT(m_pStdErrStream->Write(openFileStr.c_str(), openFileStr.size(),
+          IFT(m_pStdOutStream->Write(openFileStr.c_str(), openFileStr.size(),
                                  &cbWritten));
         }
         return ERROR_SUCCESS;
@@ -356,6 +356,10 @@ public:
     s.write((char*)m_pStdErrStream->GetPtr(), m_pStdErrStream->GetPtrSize());
     s.flush();
   }
+  void WriteStdOutToStream(raw_string_ostream &s) override {
+    s.write((char *)m_pStdOutStream->GetPtr(), m_pStdOutStream->GetPtrSize());
+    s.flush();
+  }
   HRESULT CreateStdStreams(_In_ IMalloc* pMalloc) override {
     DXASSERT(m_pStdOutStream == nullptr, "else already created");
     CreateMemoryStream(pMalloc, &m_pStdOutStream);
@@ -387,8 +391,12 @@ public:
     *ppResult = stream.Detach();
   }
 
-  void GetStdOutpuHandleStream(IStream **ppResultStream) override {
+  void GetStdOutputHandleStream(IStream **ppResultStream) override {
     return GetStreamForHandle(StdOutHandle.Handle, ppResultStream);
+  }
+
+  void GetStdErrorHandleStream(IStream **ppResultStream) override {
+    return GetStreamForHandle(StdErrHandle.Handle, ppResultStream);
   }
 
   void SetupForCompilerInstance(clang::CompilerInstance &compiler) override {

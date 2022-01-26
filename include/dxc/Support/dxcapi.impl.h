@@ -96,13 +96,14 @@ inline DxcOutputType DxcGetOutputType(DXC_OUT_KIND kind) {
   case DXC_OUT_DISASSEMBLY:
   case DXC_OUT_HLSL:
   case DXC_OUT_TEXT:
+  case DXC_OUT_REMARKS:
     return DxcOutputType_Text;
   }
   return DxcOutputType_None;
 }
 
 // Update when new results are allowed
-static const unsigned kNumDxcOutputTypes = DXC_OUT_EXTRA_OUTPUTS;
+static const unsigned kNumDxcOutputTypes = DXC_OUT_REMARKS;
 static const SIZE_T kAutoSize = (SIZE_T)-1;
 static const LPCWSTR DxcOutNoName = nullptr;
 

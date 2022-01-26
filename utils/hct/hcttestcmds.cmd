@@ -434,6 +434,15 @@ if %Failed% neq 0 goto :failed
 call :run dxc.exe -P include-main.hlsl.pp -I inc subfolder\include-main.hlsl
 if %Failed% neq 0 goto :failed
 
+set testname=Test display include process with /Vi
+mkdir inc       2>nul
+copy "%testfiles%\include-declarations.h" inc  >nul
+call :run dxc.exe -Tps_6_0 -Vi -I inc "%testfiles%\include-main.hlsl"
+if %Failed% neq 0 goto :failed
+call :check-file log find "; Opening file ["
+call :check-file log find "inc\include-declarations.h], stack top [0]"
+if %Failed% neq 0 goto :failed
+
 set testname=Byte Order Markers
 call :run dxc.exe /T ps_6_0 "%testfiles%\bom-main-ascii.hlsl"
 call :run dxc.exe /T ps_6_0 "%testfiles%\bom-main-utf8.hlsl"

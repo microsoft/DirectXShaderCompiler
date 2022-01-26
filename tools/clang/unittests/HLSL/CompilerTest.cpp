@@ -198,7 +198,6 @@ public:
   TEST_METHOD(CompileHlsl2022ThenFail)
 
   TEST_METHOD(CodeGenFloatingPointEnvironment)
-  TEST_METHOD(CodeGenInclude)
   TEST_METHOD(CodeGenLibCsEntry)
   TEST_METHOD(CodeGenLibCsEntry2)
   TEST_METHOD(CodeGenLibCsEntry3)
@@ -3326,10 +3325,6 @@ TEST_F(CompilerTest, CodeGenFloatingPointEnvironment) {
 }
 
 #endif  // _WIN32
-
-TEST_F(CompilerTest, CodeGenInclude) {
-  CodeGenTestCheck(L"Include.hlsl");
-}
 
 TEST_F(CompilerTest, CodeGenLibCsEntry) {
   CodeGenTestCheck(L"lib_cs_entry.hlsl");

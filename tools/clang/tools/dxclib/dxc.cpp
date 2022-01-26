@@ -45,6 +45,7 @@
 #include "dxc.h"
 #include <vector>
 #include <string>
+#include <sstream>
 
 #include "dxc/dxcapi.h"
 #include "dxc/dxcapi.internal.h"
@@ -261,6 +262,32 @@ static void WriteDxcExtraOuputs(IDxcResult *pResult) {
         WriteBlobToFile(pBlob, pFileName->GetStringPointer(), uCodePage);
       }
     }
+  }
+}
+
+static void WriteDxcRemarksToConsole(IDxcOperationResult *pCompileResult) {
+  CComPtr<IDxcResult> pResult;
+  if (SUCCEEDED(pCompileResult->QueryInterface(&pResult))) {
+    DXC_OUT_KIND kind = DXC_OUT_REMARKS;
+    if (!pResult->HasOutput(kind)) {
+      return;
+    }
+
+    CComPtr<IDxcBlob> pBlob;
+    IFT(pResult->GetOutput(kind, IID_PPV_ARGS(&pBlob), nullptr));
+    llvm::StringRef remarkRef((LPSTR)pBlob->GetBufferPointer(),
+                              pBlob->GetBufferSize());
+    std::istringstream remarkIStream(remarkRef);
+
+    // Printing remarks to console as comments
+    std::string remarkPrintStr;
+    llvm::raw_string_ostream remarkPrintStream(remarkPrintStr);
+    for (std::string line; std::getline(remarkIStream, line);) {
+      remarkPrintStream << "; " << line << "\r\n";
+    }
+    remarkPrintStream.flush();
+
+    WriteUtf8ToConsole(remarkPrintStr.data(), remarkPrintStr.size());
   }
 }
 
@@ -837,6 +864,7 @@ int DxcContext::Compile() {
   IFT(pCompileResult->GetStatus(&status));
   if (SUCCEEDED(status) || m_Opts.AstDump || m_Opts.OptDump ||
       m_Opts.DumpDependencies) {
+    WriteDxcRemarksToConsole(pCompileResult);
     CComPtr<IDxcBlob> pProgram;
     IFT(pCompileResult->GetResult(&pProgram));
     if (pProgram.p != nullptr) {
