@@ -579,6 +579,14 @@ bool DxilModule::GetAllResourcesBound() const {
   return m_bAllResourcesBound;
 }
 
+void DxilModule::SetResMayAlias(bool resMayAlias) {
+  m_bResMayAlias = resMayAlias;
+}
+
+bool DxilModule::GetResMayAlias() const {
+  return m_bResMayAlias;
+}
+
 void DxilModule::SetLegacyResourceReservation(bool legacyResourceReservation) {
   m_IntermediateFlags &= ~LegacyResourceReservation;
   if (legacyResourceReservation) m_IntermediateFlags |= LegacyResourceReservation;
@@ -1551,6 +1559,7 @@ void DxilModule::LoadDxilMetadata() {
     m_bUseMinPrecision = !m_ShaderFlags.GetUseNativeLowPrecision();
     m_bDisableOptimizations = m_ShaderFlags.GetDisableOptimizations();
     m_bAllResourcesBound = m_ShaderFlags.GetAllResourcesBound();
+    m_bResMayAlias = !m_ShaderFlags.GetResMayNotAlias();
   }
 
   // Now that we have the UseMinPrecision flag, set shader model:
