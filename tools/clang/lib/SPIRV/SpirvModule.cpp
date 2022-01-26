@@ -238,6 +238,8 @@ bool SpirvModule::addCapability(SpirvCapability *cap) {
 
 void SpirvModule::setMemoryModel(SpirvMemoryModel *model) {
   assert(model && "cannot set a null memory model");
+  if (memoryModel)
+    memoryModel->releaseMemory();
   memoryModel = model;
 }
 

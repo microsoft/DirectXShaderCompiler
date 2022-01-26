@@ -7841,6 +7841,7 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
         declIdMapper.getBuiltinVar(spv::BuiltIn::SubgroupSize, retType, srcLoc);
 
     retVal = spvBuilder.createLoad(retType, var, srcLoc, srcRange);
+    needsLegalization = true;
   } break;
   case hlsl::IntrinsicOp::IOP_WaveGetLaneIndex: {
     featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "WaveGetLaneIndex",
@@ -7849,6 +7850,7 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     auto *var = declIdMapper.getBuiltinVar(
         spv::BuiltIn::SubgroupLocalInvocationId, retType, srcLoc);
     retVal = spvBuilder.createLoad(retType, var, srcLoc, srcRange);
+    needsLegalization = true;
   } break;
   case hlsl::IntrinsicOp::IOP_WaveIsFirstLane:
     retVal = processWaveQuery(callExpr, spv::Op::OpGroupNonUniformElect);
@@ -10605,6 +10607,7 @@ SpirvInstruction *SpirvEmitter::processRayBuiltins(const CallExpr *callExpr,
     emitError("ray intrinsic function unimplemented", loc);
     return nullptr;
   }
+  needsLegalization = true;
 
   QualType builtinType = callExpr->getType();
   if (transposeMatrix) {
@@ -12963,6 +12966,9 @@ bool SpirvEmitter::spirvToolsOptimize(std::vector<uint32_t> *mod,
     // Add performance passes.
     optimizer.RegisterPerformancePasses();
 
+    // Add propagation of volatile semantics passes.
+    optimizer.RegisterPass(spvtools::CreateSpreadVolatileSemanticsPass());
+
     // Add compact ID pass.
     optimizer.RegisterPass(spvtools::CreateCompactIdsPass());
   } else {
@@ -13020,6 +13026,7 @@ bool SpirvEmitter::spirvToolsLegalize(std::vector<uint32_t> *mod,
   }
   optimizer.RegisterPass(spvtools::CreateReplaceInvalidOpcodePass());
   optimizer.RegisterPass(spvtools::CreateCompactIdsPass());
+  optimizer.RegisterPass(spvtools::CreateSpreadVolatileSemanticsPass());
 
   return optimizer.Run(mod->data(), mod->size(), mod, options);
 }

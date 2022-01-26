@@ -3034,4 +3034,14 @@ TEST_F(FileTest, RayQueryInitExprError) {
   runFileTest("rayquery_init_expr_error.hlsl", Expect::Failure);
 }
 
+TEST_F(FileTest, VolatileInterfaceInRayGenVk1p1) {
+  runFileTest("volatile.interface.raygen.vk1p1.hlsl");
+}
+TEST_F(FileTest, VolatileInterfaceInRayGenVk1p2) {
+  runFileTest("volatile.interface.raygen.vk1p2.hlsl");
+}
+TEST_F(FileTest, VolatileInterfaceInRayGenVk1p3) {
+  runFileTest("volatile.interface.raygen.vk1p3.hlsl");
+}
+
 } // namespace
