@@ -2442,7 +2442,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   }
 
   // Add target-dependent experimental function attributes
-  for (const auto &Attr : FD->specific_attrs<HLSLExperimentalAttr>()) {
+  for (const HLSLExperimentalAttr *Attr : FD->specific_attrs<HLSLExperimentalAttr>()) {
     F->addFnAttr(Twine("exp-", Attr->getName()).str(), Attr->getValue());
   }
 

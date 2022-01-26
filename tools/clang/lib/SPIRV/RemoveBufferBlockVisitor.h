@@ -51,17 +51,28 @@ private:
   ///
   /// 1- a pointer to a structure with StorageBuffer interface
   /// 2- a pointer to a pointer to a structure with StorageBuffer interface
+  /// 3- a pointer to a struct containing a structure with StorageBuffer
+  /// interface
   ///
   /// by updating the storage class of the pointer whose pointee is the struct.
   ///
   /// Example of case (1):
-  /// type:              _ptr_Uniform_SturcturedBuffer_float
-  /// new type:          _ptr_StorageBuffer_SturcturedBuffer_float
+  /// type:              _ptr_Uniform_StructuredBuffer_float
+  /// new type:          _ptr_StorageBuffer_StructuredBuffer_float
   /// new storage class: StorageBuffer
   ///
   /// Example of case (2):
-  /// type:              _ptr_Function__ptr_Uniform_SturcturedBuffer_float
-  /// new type:          _ptr_Function__ptr_StorageBuffer_SturcturedBuffer_float
+  /// type:              _ptr_Function__ptr_Uniform_StructuredBuffer_float
+  /// new type:          _ptr_Function__ptr_StorageBuffer_StructuredBuffer_float
+  /// new storage class: Function
+  ///
+  /// Example of case (3):
+  /// type:              _ptr_Function_Struct
+  ///                    where %Struct = OpTypeStruct
+  ///                        %_ptr_Uniform_type_StructuredBuffer_float
+  /// new type:          _ptr_Function_Struct
+  ///                    where %Struct = OpTypeStruct
+  ///                        %_ptr_StorageBuffer_type_StructuredBuffer_float
   /// new storage class: Function
   ///
   /// If |type| is transformed, the |newType| and |newStorageClass| are

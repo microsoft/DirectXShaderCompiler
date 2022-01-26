@@ -122,7 +122,7 @@ public:
                         UINT32 codePage, _Outptr_ IDxcBlobEncoding **ppBlob) {
     CComPtr<IDxcLibrary> library;
     IFT(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &library));
-    IFT(library->CreateBlobWithEncodingFromPinned((LPBYTE)data, size, codePage,
+    IFT(library->CreateBlobWithEncodingFromPinned(data, size, codePage,
                                                   ppBlob));
   }
 
@@ -351,9 +351,7 @@ public:
       VERIFY_ARE_EQUAL(testZ, baseZ);
     }
   }
-#endif // _WIN32 - Reflection unsupported
 
-#ifdef _WIN32  // - Reflection unsupported
   HRESULT CompileFromFile(LPCWSTR path, bool useDXBC,
                           UINT fxcFlags, IDxcBlob **ppBlob) {
     std::vector<FileRunCommandPart> parts;
@@ -793,6 +791,7 @@ TEST_F(DxilContainerTest, CompileWhenSigSquareThenIncludeSplit) {
 #endif
 }
 
+#ifdef _WIN32 // - Reflection unsupported
 TEST_F(DxilContainerTest, CompileAS_CheckPSV0) {
   if (m_ver.SkipDxilVersion(1, 5)) return;
   const char asSource[] =
@@ -1553,6 +1552,7 @@ TEST_F(DxilContainerTest, DxcUtils_CreateReflection) {
     }
   }
 }
+#endif // _WIN32 - Reflection unsupported
 
 TEST_F(DxilContainerTest, CompileWhenOKThenIncludesFeatureInfo) {
   CComPtr<IDxcCompiler> pCompiler;
