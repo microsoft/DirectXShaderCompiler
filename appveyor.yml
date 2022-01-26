@@ -40,7 +40,7 @@ before_build:
 build_script:
 - cmd: call utils\hct\hctbuild -%PLATFORM% -%CONFIGURATION% -show-cmake-log -spirvtest
 - sh: mkdir build && cd build
-- sh: cmake .. -GNinja -C ../cmake/caches/PredefinedParams.cmake -DSPIRV_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_CXX_FLAGS=-Werror
+- sh: cmake .. -GNinja -C ../cmake/caches/PredefinedParams.cmake -DSPIRV_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_CXX_FLAGS=-Werror -DENABLE_DXIL2SPV=ON
 - sh: ninja
 
 test_script:
@@ -52,6 +52,7 @@ test_script:
 - sh: ./bin/dxc -T ps_6_0 -Fo passthru-ps.spv ../tools/clang/test/CodeGenSPIRV/passthru-ps.hlsl2spv -spirv
 - sh: ./bin/clang-spirv-tests --spirv-test-root ../tools/clang/test/CodeGenSPIRV/
 - sh: ./bin/clang-hlsl-tests --HlslDataDir $PWD/../tools/clang/test/HLSL/
+- sh: ./bin/dxil2spv ../tools/clang/test/Dxil2Spv/passthru-ps.ll
 
 after_test:
 # Collect artifacts for Windows
@@ -72,4 +73,3 @@ notifications:
   on_build_success: true
   on_build_failure: true
   on_build_status_changed: true
-
