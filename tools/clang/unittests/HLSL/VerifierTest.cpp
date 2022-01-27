@@ -93,6 +93,8 @@ public:
   TEST_METHOD(RunBinopDims)
   TEST_METHOD(RunBitfields)
   TEST_METHOD(RunVectorSelect)
+  TEST_METHOD(RunVectorAnd)
+  TEST_METHOD(RunVectorOr)
   TEST_METHOD(RunArrayConstAssign)
   TEST_METHOD(RunInputPatchConst)
 
@@ -380,6 +382,14 @@ TEST_F(VerifierTest, RunVectorConditional) {
 
 TEST_F(VerifierTest, RunVectorSelect) {
   CheckVerifiesHLSL(L"vector-select.hlsl");
+}
+
+TEST_F(VerifierTest, RunVectorAnd) {
+  CheckVerifiesHLSL(L"vector-and.hlsl");
+}
+
+TEST_F(VerifierTest, RunVectorOr) {
+  CheckVerifiesHLSL(L"vector-or.hlsl");
 }
 
 TEST_F(VerifierTest, RunUint4Add3) {
