@@ -25,6 +25,7 @@
 #include "llvm/IR/PassManager.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Transforms/Utils/Local.h"
+
 #include <deque>
 
 #include "PixPassHelpers.h"
@@ -570,7 +571,7 @@ bool DxilShaderAccessTracking::EmitResourceAccess(DxilModule &DM,
   return false; // did not modify
 }
 
-DxilResourceAndClass 
+DxilResourceAndClass
 DxilShaderAccessTracking::GetResourceFromHandle(Value *resHandle,
                                                 DxilModule &DM) {
 
@@ -581,6 +582,11 @@ DxilShaderAccessTracking::GetResourceFromHandle(Value *resHandle,
       0,
       nullptr,
       nullptr};
+
+  Constant *C = dyn_cast<Constant>(resHandle);
+  if (C && C->isZeroValue()) {
+    return ret;
+  }
 
   CallInst *handle = cast<CallInst>(resHandle);
 
@@ -630,38 +636,39 @@ DxilShaderAccessTracking::GetResourceFromHandle(Value *resHandle,
       auto properties = hlsl::resource_helper::loadPropsFromAnnotateHandle(
           annotateHandle, *DM.GetShaderModel());
 
-      auto* handleCreation = cast<CallInst>(annotateHandle.get_res());
-
-      if (hlsl::OP::IsDxilOpFuncCallInst(handleCreation, hlsl::OP::OpCode::CreateHandleFromBinding)) {
-          DxilInst_CreateHandleFromBinding createHandleFromBinding(handleCreation);
-          Constant* B = cast<Constant>(createHandleFromBinding.get_bind());
-          auto binding = hlsl::resource_helper::loadBindingFromConstant(*B);
-          ret.accessStyle = AccessStyle::FromRootSig;
-          ret.index = createHandleFromBinding.get_index();
-          ret.registerType = RegisterTypeFromResourceClass(
-              static_cast<hlsl::DXIL::ResourceClass>(binding.resourceClass));
-          ret.RegisterSpace = binding.spaceID;
-      } else if (hlsl::OP::IsDxilOpFuncCallInst(handleCreation, hlsl::OP::OpCode::CreateHandleFromHeap)) {
-          DxilInst_CreateHandleFromHeap createHandleFromHeap(handleCreation);
-          ret.accessStyle = createHandleFromHeap.get_samplerHeap_val()
-              ? AccessStyle::SamplerFromDescriptorHeap : AccessStyle::ResourceFromDescriptorHeap;
-          ret.dynamicallyBoundIndex = createHandleFromHeap.get_index();
-
-          ret.registerType = RegisterTypeFromResourceClass(properties.getResourceClass());
-
-          DynamicResourceBinding drb{};
-          drb.HeapIsSampler = createHandleFromHeap.get_samplerHeap_val();
-          drb.HeapIndex = -1;
-          drb.Name = "ShaderNameTodo";
-          if (auto * constInt = dyn_cast<ConstantInt>(createHandleFromHeap.get_index()))
-          {
-              drb.HeapIndex = constInt->getLimitedValue();
-          }
-          m_dynamicResourceBindings.emplace_back(std::move(drb));
-
-          return ret;
-      } else {
-          DXASSERT_NOMSG(false);
+      auto* handleCreation = dyn_cast<CallInst>(annotateHandle.get_res());
+      if (handleCreation != nullptr) {
+        if (hlsl::OP::IsDxilOpFuncCallInst(handleCreation, hlsl::OP::OpCode::CreateHandleFromBinding)) {
+            DxilInst_CreateHandleFromBinding createHandleFromBinding(handleCreation);
+            Constant* B = cast<Constant>(createHandleFromBinding.get_bind());
+            auto binding = hlsl::resource_helper::loadBindingFromConstant(*B);
+            ret.accessStyle = AccessStyle::FromRootSig;
+            ret.index = createHandleFromBinding.get_index();
+            ret.registerType = RegisterTypeFromResourceClass(
+                static_cast<hlsl::DXIL::ResourceClass>(binding.resourceClass));
+            ret.RegisterSpace = binding.spaceID;
+        } else if (hlsl::OP::IsDxilOpFuncCallInst(handleCreation, hlsl::OP::OpCode::CreateHandleFromHeap)) {
+            DxilInst_CreateHandleFromHeap createHandleFromHeap(handleCreation);
+            ret.accessStyle = createHandleFromHeap.get_samplerHeap_val()
+                ? AccessStyle::SamplerFromDescriptorHeap : AccessStyle::ResourceFromDescriptorHeap;
+            ret.dynamicallyBoundIndex = createHandleFromHeap.get_index();
+  
+            ret.registerType = RegisterTypeFromResourceClass(properties.getResourceClass());
+  
+            DynamicResourceBinding drb{};
+            drb.HeapIsSampler = createHandleFromHeap.get_samplerHeap_val();
+            drb.HeapIndex = -1;
+            drb.Name = "ShaderNameTodo";
+            if (auto * constInt = dyn_cast<ConstantInt>(createHandleFromHeap.get_index()))
+            {
+                drb.HeapIndex = constInt->getLimitedValue();
+            }
+            m_dynamicResourceBindings.emplace_back(std::move(drb));
+  
+            return ret;
+        } else {
+            DXASSERT_NOMSG(false);
+        }
       }
   }
 
