@@ -3485,6 +3485,82 @@ private:
 
 
 #ifdef ENABLE_SPIRV_CODEGEN
+  SmallVector<NamedDecl *, 1> CreateTemplateTypeParmDeclsForVkIntrinsicFunction(
+      const HLSL_INTRINSIC *intrinsic) {
+    SmallVector<NamedDecl *, 1> templateTypeParmDecls;
+    auto &context = m_sema->getASTContext();
+    const HLSL_INTRINSIC_ARGUMENT *pArgs = intrinsic->pArgs;
+    UINT uNumArgs = intrinsic->uNumArgs;
+    for (UINT i = 0; i < uNumArgs; ++i) {
+      if (pArgs[i].uTemplateId == INTRIN_TEMPLATE_FROM_FUNCTION ||
+          pArgs[i].uLegalTemplates == LITEMPLATE_ANY) {
+        IdentifierInfo *id = &context.Idents.get(StringRef(pArgs[i].pName));
+        TemplateTypeParmDecl *templateTypeParmDecl =
+            TemplateTypeParmDecl::Create(context, m_vkNSDecl, NoLoc, NoLoc, 1,
+                                         1, id, TypenameTrue,
+                                         ParameterPackFalse);
+        templateTypeParmDecls.push_back(templateTypeParmDecl);
+        continue;
+      }
+    }
+    return templateTypeParmDecls;
+  }
+
+  QualType VkIntrinsicFunctionType(
+      const HLSL_INTRINSIC *intrinsic,
+      const SmallVectorImpl<NamedDecl *> &templateTypeParmDecls) {
+    auto &context = m_sema->getASTContext();
+    const HLSL_INTRINSIC_ARGUMENT *pArgs = intrinsic->pArgs;
+    UINT uNumArgs = intrinsic->uNumArgs;
+    SmallVector<QualType, 2> paramTypes;
+    auto templateParmItr = templateTypeParmDecls.begin();
+    for (UINT i = 0; i < uNumArgs; ++i) {
+      if (pArgs[i].uTemplateId == INTRIN_TEMPLATE_FROM_FUNCTION ||
+          pArgs[i].uLegalTemplates == LITEMPLATE_ANY) {
+        DXASSERT(templateParmItr != templateTypeParmDecls.end(),
+                 "Missing TemplateTypeParmDecl for a template type parameter");
+        TemplateTypeParmDecl *templateParmDecl =
+            dyn_cast<TemplateTypeParmDecl>(*templateParmItr);
+        DXASSERT(templateParmDecl != nullptr,
+                 "TemplateTypeParmDecl is nullptr");
+        paramTypes.push_back(context.getTemplateTypeParmType(
+            1, 0, ParameterPackFalse, templateParmDecl));
+        ++templateParmItr;
+        continue;
+      }
+      if (IsVariadicArgument(pArgs[i])) {
+        --uNumArgs;
+        continue;
+      }
+      switch (pArgs[i].uLegalComponentTypes) {
+      case LICOMPTYPE_UINT64:
+        paramTypes.push_back(context.UnsignedLongLongTy);
+        break;
+      case LICOMPTYPE_UINT:
+        paramTypes.push_back(context.UnsignedIntTy);
+        break;
+      case LICOMPTYPE_VOID:
+        paramTypes.push_back(context.VoidTy);
+        break;
+      default:
+        DXASSERT(false, "Argument type of vk:: intrinsic function is not "
+                        "supported");
+        break;
+      }
+    }
+
+    SmallVector<ParameterModifier, g_MaxIntrinsicParamCount> paramMods;
+    InitParamMods(intrinsic, paramMods);
+
+    ArrayRef<QualType> params({});
+    if (uNumArgs > 1) {
+      params = ArrayRef<QualType>(&paramTypes[1], uNumArgs - 1);
+    }
+
+    FunctionProtoType::ExtProtoInfo EmptyEPI;
+    return context.getFunctionType(paramTypes[0], params, EmptyEPI, paramMods);
+  }
+
   // Adds intrinsic function declarations to the "vk" namespace.
   // It does so only if SPIR-V code generation is being done.
   // Assumes the implicit "vk" namespace has already been created.
@@ -3501,11 +3577,26 @@ private:
       const IdentifierInfo &fnII = context.Idents.get(
           intrinsic->pArgs->pName, tok::TokenKind::identifier);
       DeclarationName functionName(&fnII);
+
+      SmallVector<NamedDecl *, 1> templateTypeParmDecls =
+          CreateTemplateTypeParmDeclsForVkIntrinsicFunction(intrinsic);
+
       FunctionDecl *functionDecl = FunctionDecl::Create(
           context, m_vkNSDecl, NoLoc, DeclarationNameInfo(functionName, NoLoc),
-          /*functionType*/ {}, nullptr, StorageClass::SC_Extern,
+          VkIntrinsicFunctionType(intrinsic, templateTypeParmDecls), nullptr,
+          StorageClass::SC_Extern,
+          // {}, nullptr, StorageClass::SC_Extern,
           InlineSpecifiedFalse, HasWrittenPrototypeTrue);
       m_vkNSDecl->addDecl(functionDecl);
+
+      if (!templateTypeParmDecls.empty()) {
+        TemplateParameterList *templateParmList = TemplateParameterList::Create(
+            context, NoLoc, NoLoc, templateTypeParmDecls.data(),
+            templateTypeParmDecls.size(), NoLoc);
+        functionDecl->setTemplateParameterListsInfo(context, 1,
+                                                    &templateParmList);
+      }
+
       functionDecl->setLexicalDeclContext(m_vkNSDecl);
       functionDecl->setDeclContext(m_vkNSDecl);
       functionDecl->setImplicit(true);
