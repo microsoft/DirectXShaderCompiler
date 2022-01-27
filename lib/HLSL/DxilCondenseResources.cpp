@@ -607,6 +607,8 @@ private:
   void FailOnPoisonResources();
   bool RemovePhiOnResource();
   void UpdateResourceSymbols();
+  void ReplaceResourceUserWithHandle(DxilResource &res, LoadInst *load,
+                                     Instruction *handle);
   void TranslateDxilResourceUses(DxilResourceBase &res);
   void GenerateDxilResourceHandles();
   bool UpdateStructTypeForLegacyLayout();
@@ -1940,8 +1942,41 @@ void DxilLowerCreateHandleForLib::UpdateResourceSymbols() {
 // Lower createHandleForLib
 namespace {
 
-void ReplaceResourceUserWithHandle(DxilResource &res, LoadInst *load,
-                                   Instruction *handle) {
+Value *flattenGepIdx(GEPOperator *GEP) {
+  Value *idx = nullptr;
+  if (GEP->getNumIndices() == 2) {
+    // one dim array of resource
+    idx = (GEP->idx_begin() + 1)->get();
+  } else {
+    gep_type_iterator GEPIt = gep_type_begin(GEP), E = gep_type_end(GEP);
+    // Must be instruction for multi dim array.
+    std::unique_ptr<IRBuilder<>> Builder;
+    if (GetElementPtrInst *GEPInst = dyn_cast<GetElementPtrInst>(GEP)) {
+      Builder = llvm::make_unique<IRBuilder<>>(GEPInst);
+    } else {
+      Builder = llvm::make_unique<IRBuilder<>>(GEP->getContext());
+    }
+    for (; GEPIt != E; ++GEPIt) {
+      if (GEPIt->isArrayTy()) {
+        unsigned arraySize = GEPIt->getArrayNumElements();
+        Value *tmpIdx = GEPIt.getOperand();
+        if (idx == nullptr)
+          idx = tmpIdx;
+        else {
+          idx = Builder->CreateMul(idx, Builder->getInt32(arraySize));
+          idx = Builder->CreateAdd(idx, tmpIdx);
+        }
+      }
+    }
+  }
+  return idx;
+}
+
+} // namespace
+
+
+void DxilLowerCreateHandleForLib::ReplaceResourceUserWithHandle(
+    DxilResource &res, LoadInst *load, Instruction *handle) {
   for (auto resUser = load->user_begin(), E = load->user_end(); resUser != E;) {
     Value *V = *(resUser++);
     CallInst *CI = dyn_cast<CallInst>(V);
@@ -1988,11 +2023,8 @@ void ReplaceResourceUserWithHandle(DxilResource &res, LoadInst *load,
       DxilResourceProperties RP =
           resource_helper::loadPropsFromResourceBase(&res);
       // Require ShaderModule to reconstruct resource property constant
-      const ShaderModel *pSM = load->getParent()
-                                   ->getParent()
-                                   ->getParent()
-                                   ->GetDxilModule()
-                                   .GetShaderModel();
+      const ShaderModel *pSM = m_DM->GetShaderModel();
+
       SmallVector<Instruction *, 4> annotHandles;
       for (User *U : handle->users()) {
         DxilInst_AnnotateHandle annotateHandle(cast<Instruction>(U));
@@ -2024,37 +2056,6 @@ void ReplaceResourceUserWithHandle(DxilResource &res, LoadInst *load,
   load->eraseFromParent();
 }
 
-Value *flattenGepIdx(GEPOperator *GEP) {
-  Value *idx = nullptr;
-  if (GEP->getNumIndices() == 2) {
-    // one dim array of resource
-    idx = (GEP->idx_begin() + 1)->get();
-  } else {
-    gep_type_iterator GEPIt = gep_type_begin(GEP), E = gep_type_end(GEP);
-    // Must be instruction for multi dim array.
-    std::unique_ptr<IRBuilder<>> Builder;
-    if (GetElementPtrInst *GEPInst = dyn_cast<GetElementPtrInst>(GEP)) {
-      Builder = llvm::make_unique<IRBuilder<>>(GEPInst);
-    } else {
-      Builder = llvm::make_unique<IRBuilder<>>(GEP->getContext());
-    }
-    for (; GEPIt != E; ++GEPIt) {
-      if (GEPIt->isArrayTy()) {
-        unsigned arraySize = GEPIt->getArrayNumElements();
-        Value *tmpIdx = GEPIt.getOperand();
-        if (idx == nullptr)
-          idx = tmpIdx;
-        else {
-          idx = Builder->CreateMul(idx, Builder->getInt32(arraySize));
-          idx = Builder->CreateAdd(idx, tmpIdx);
-        }
-      }
-    }
-  }
-  return idx;
-}
-
-} // namespace
 void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
     DxilResourceBase &res) {
   OP *hlslOP = m_DM->GetOP();
