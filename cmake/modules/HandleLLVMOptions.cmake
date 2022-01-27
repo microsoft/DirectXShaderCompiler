@@ -371,6 +371,9 @@ elseif( LLVM_COMPILER_IS_GCC_COMPATIBLE )
     # Disable unknown pragma warnings because the output is just too long with them.
     append("-Wno-unknown-pragmas" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
 
+    append("-Wno-unused-but-set-variable" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+    append("-Wno-deprecated-copy" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+
     # Colorize GCC output even with ninja's stdout redirection.
     if (CMAKE_COMPILER_IS_GNUCXX)
        append("-fdiagnostics-color" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
