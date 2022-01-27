@@ -84,6 +84,8 @@ const char *kDxBreakMDName = "dx.break.br";
 const char *kDxIsHelperGlobalName = "dx.ishelper";
 
 const char *kHostLayoutTypePrefix = "hostlayout.";
+
+const char* kWaveOpsIncludeHelperLanesString = "waveops-include-helper-lanes";
 }
 
 void SetDxilHook(Module &M);

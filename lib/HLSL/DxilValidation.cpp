@@ -2832,7 +2832,8 @@ static void ValidateFunctionAttribute(Function *F, ValidationContext &ValCtx) {
         continue;
       }
       StringRef kind = AttrIter->getKindAsString();
-      if (!kind.equals(DXIL::kFP32DenormKindString)) {
+      if (!kind.equals(DXIL::kFP32DenormKindString) &&
+          !kind.equals(DXIL::kWaveOpsIncludeHelperLanesString)) {
         ValCtx.EmitFnAttributeError(F, AttrIter->getKindAsString(),
                                     AttrIter->getValueAsString());
       }

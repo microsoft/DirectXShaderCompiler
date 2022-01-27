@@ -1574,6 +1574,8 @@ namespace DXIL {
 
   extern const char *kHostLayoutTypePrefix;
 
+  extern const char *kWaveOpsIncludeHelperLanesString;
+
 } // namespace DXIL
 
 } // namespace hlsl

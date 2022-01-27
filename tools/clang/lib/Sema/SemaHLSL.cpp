@@ -12074,6 +12074,9 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     declAttr = ::new (S.Context) HLSLWaveSizeAttr(A.getRange(), S.Context,
       ValidateAttributeIntArg(S, A), A.getAttributeSpellingListIndex());
     break;
+  case AttributeList::AT_HLSLWaveOpsIncludeHelperLanes:
+    declAttr = ::new (S.Context) HLSLWaveOpsIncludeHelperLanesAttr(A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
   default:
     Handled = false;
     break;  // SPIRV Change: was return;
