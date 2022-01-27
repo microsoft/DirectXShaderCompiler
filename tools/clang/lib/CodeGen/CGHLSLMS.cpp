@@ -1551,6 +1551,12 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   }
 
   const ShaderModel *SM = m_pHLModule->GetShaderModel();
+  if (auto *Attr = FD->getAttr<HLSLWaveOpsIncludeHelperLanesAttr>()) {
+    if (SM->IsSM67Plus() &&
+        (funcProps->shaderKind == DXIL::ShaderKind::Pixel ||
+         (isEntry && SM->GetKind() == DXIL::ShaderKind::Pixel)))
+      F->addFnAttr(DXIL::kWaveOpsIncludeHelperLanesString);
+  }
   if (isEntry) {
     funcProps->shaderKind = SM->GetKind();
     if (funcProps->shaderKind == DXIL::ShaderKind::Mesh) {

@@ -173,11 +173,14 @@ static void TransferEntryFunctionAttributes(Function *F, Function *NewFunc) {
     attrKind = attribute.getKindAsString();
     attrValue = attribute.getValueAsString();
   }
+  bool helperLane = attributeSet.hasAttribute(AttributeSet::FunctionIndex, DXIL::kWaveOpsIncludeHelperLanesString);
   if (F == NewFunc) {
     NewFunc->removeAttributes(AttributeSet::FunctionIndex, attributeSet);
   }
   if (!attrKind.empty() && !attrValue.empty())
     NewFunc->addFnAttr(attrKind, attrValue);
+  if (helperLane)
+    NewFunc->addFnAttr(DXIL::kWaveOpsIncludeHelperLanesString);
 }
 
 // If this returns non-null, the old function F has been stripped and can be deleted.
