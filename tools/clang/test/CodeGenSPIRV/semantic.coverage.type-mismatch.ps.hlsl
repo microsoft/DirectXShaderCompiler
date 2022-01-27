@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 // CHECK:                         OpDecorate %gl_SampleMask BuiltIn SampleMask
 // CHECK:                         OpDecorate %gl_SampleMask_0 BuiltIn SampleMask

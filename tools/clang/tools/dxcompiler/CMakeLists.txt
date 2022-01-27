@@ -1,5 +1,8 @@
 ﻿# Copyright (C) Microsoft Corporation. All rights reserved.
-# This file is distributed under the University of Illinois Open Source License. See LICENSE.TXT for details.
+# This file is distributed under the University of Illinois Open Source License.
+# See LICENSE.TXT for details.
+
+add_hlsl_hctgen(DxcDisassembler OUTPUT DxcDisassembler.inc BUILD_DIR)
 
 set(LLVM_LINK_COMPONENTS
   ${LLVM_TARGETS_TO_BUILD}
@@ -26,7 +29,7 @@ set(LLVM_LINK_COMPONENTS
 #  libdriver
 #  lineeditor
   linker
-  lto
+#  lto
 #  mirparser # no support for LLVM codegen
   mssupport
 #  object # no support for object files (coff, elf)

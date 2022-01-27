@@ -320,6 +320,14 @@ static bool handleVkShiftArgs(const InputArgList &args, OptSpecifier id,
   }
   return true;
 }
+
+namespace {
+
+/// Maximum size of OpString instruction minus two operands
+static const uint32_t kDefaultMaximumSourceLength = 0xFFFDu;
+static const uint32_t kTestingMaximumSourceLength = 13u;
+
+}
 #endif
 // SPIRV Change Ends
 
@@ -530,6 +538,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.AssemblyCode = Args.getLastArgValue(OPT_Fc);
   opts.DebugFile = Args.getLastArgValue(OPT_Fd);
   opts.ImportBindingTable = Args.getLastArgValue(OPT_import_binding_table);
+  opts.BindingTableDefine = Args.getLastArgValue(OPT_binding_table_define);
   opts.ExtractPrivateFile = Args.getLastArgValue(OPT_getprivate);
   opts.Enable16BitTypes = Args.hasFlag(OPT_enable_16bit_types, OPT_INVALID, false);
   opts.OutputObject = Args.getLastArgValue(OPT_Fo);
@@ -545,6 +554,13 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.UseHexLiterals = Args.hasFlag(OPT_Lx, OPT_INVALID, false);
   opts.Preprocess = Args.getLastArgValue(OPT_P);
   opts.AstDump = Args.hasFlag(OPT_ast_dump, OPT_INVALID, false);
+  opts.WriteDependencies =
+      Args.hasFlag(OPT_write_dependencies, OPT_INVALID, false);
+  opts.OutputFileForDependencies =
+      Args.getLastArgValue(OPT_write_dependencies_to);
+  opts.DumpDependencies =
+      Args.hasFlag(OPT_dump_dependencies, OPT_INVALID, false) ||
+      opts.WriteDependencies || !opts.OutputFileForDependencies.empty();
   opts.CodeGenHighLevel = Args.hasFlag(OPT_fcgl, OPT_INVALID, false);
   opts.AllowPreserveValues = Args.hasFlag(OPT_preserve_intermediate_values, OPT_INVALID, false);
   opts.DebugInfo = Args.hasFlag(OPT__SLASH_Zi, OPT_INVALID, false);
@@ -746,6 +762,10 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.EnablePayloadQualifiers = Args.hasFlag(OPT_enable_payload_qualifiers, OPT_INVALID,
                                             DXIL::CompareVersions(Major, Minor, 6, 7) >= 0); 
 
+  for (const std::string &value : Args.getAllArgValues(OPT_print_after)) {
+    opts.PrintAfter.insert(value);
+  }
+
   if (DXIL::CompareVersions(Major, Minor, 6, 8) < 0) {
      opts.EnablePayloadQualifiers &= !Args.hasFlag(OPT_disable_payload_qualifiers, OPT_INVALID, false);
   }
@@ -805,7 +825,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   }
 
   if (opts.DumpBin) {
-    if (opts.DisplayIncludeProcess || opts.AstDump) {
+    if (opts.DisplayIncludeProcess || opts.AstDump || opts.DumpDependencies) {
       errors << "Cannot perform actions related to sources from a binary file.";
       return 1;
     }
@@ -936,6 +956,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.SpirvOptions.debugInfoFile = opts.SpirvOptions.debugInfoSource = false;
   opts.SpirvOptions.debugInfoLine = opts.SpirvOptions.debugInfoTool = false;
   opts.SpirvOptions.debugInfoRich = false;
+  opts.SpirvOptions.debugInfoVulkan = false;
+  opts.SpirvOptions.debugSourceLen = kDefaultMaximumSourceLength;
   if (Args.hasArg(OPT_fspv_debug_EQ)) {
     opts.DebugInfo = true;
     for (const Arg *A : Args.filtered(OPT_fspv_debug_EQ)) {
@@ -961,6 +983,26 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
         opts.SpirvOptions.debugInfoSource = true;
         opts.SpirvOptions.debugInfoLine = true;
         opts.SpirvOptions.debugInfoRich = true;
+      } else if (v == "vulkan") {
+        opts.SpirvOptions.debugInfoFile = true;
+        opts.SpirvOptions.debugInfoSource = false;
+        opts.SpirvOptions.debugInfoLine = true;
+        opts.SpirvOptions.debugInfoRich = true;
+        opts.SpirvOptions.debugInfoVulkan = true;
+      } else if (v == "vulkan-with-source") {
+        opts.SpirvOptions.debugInfoFile = true;
+        opts.SpirvOptions.debugInfoSource = true;
+        opts.SpirvOptions.debugInfoLine = true;
+        opts.SpirvOptions.debugInfoRich = true;
+        opts.SpirvOptions.debugInfoVulkan = true;
+      } else if (v == "vulkan-with-source-test") {
+        // For test purposes only
+        opts.SpirvOptions.debugInfoFile = true;
+        opts.SpirvOptions.debugInfoSource = true;
+        opts.SpirvOptions.debugInfoLine = true;
+        opts.SpirvOptions.debugInfoRich = true;
+        opts.SpirvOptions.debugInfoVulkan = true;
+        opts.SpirvOptions.debugSourceLen = kTestingMaximumSourceLength;
       } else {
         errors << "unknown SPIR-V debug info control parameter: " << v;
         return 1;
@@ -1064,6 +1106,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     opts.RWOpt.RemoveUnusedGlobals = Args.hasFlag(OPT_rw_remove_unused_globals, OPT_INVALID, false);
     opts.RWOpt.RemoveUnusedFunctions = Args.hasFlag(OPT_rw_remove_unused_functions, OPT_INVALID, false);
     opts.RWOpt.WithLineDirective = Args.hasFlag(OPT_rw_line_directive, OPT_INVALID, false);
+    opts.RWOpt.DeclGlobalCB =
+        Args.hasFlag(OPT_rw_decl_global_cb, OPT_INVALID, false);
     if (opts.EntryPoint.empty() &&
         (opts.RWOpt.RemoveUnusedGlobals || opts.RWOpt.ExtractEntryUniforms ||
          opts.RWOpt.RemoveUnusedFunctions)) {

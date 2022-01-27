@@ -195,6 +195,8 @@ namespace clang {
   struct DeductionFailureInfo;
   class TemplateSpecCandidateSet;
 
+  class CXXThisExpr; // HLSL Change
+
 namespace sema {
   class AccessedEntity;
   class BlockScopeInfo;
@@ -1254,10 +1256,12 @@ public:
   /// \returns A suitable function type, if there are no errors. The
   /// unqualified type will always be a FunctionProtoType.
   /// Otherwise, returns a NULL type.
-  QualType BuildFunctionType(QualType T,
-                             MutableArrayRef<QualType> ParamTypes,
+  // HLSL Change - FIX - We should move param mods to parameter QualTypes
+  QualType BuildFunctionType(QualType T, MutableArrayRef<QualType> ParamTypes,
                              SourceLocation Loc, DeclarationName Entity,
-                             const FunctionProtoType::ExtProtoInfo &EPI);
+                             const FunctionProtoType::ExtProtoInfo &EPI,
+                             ArrayRef<hlsl::ParameterModifier> ParamMods);
+  // HLSL Change - End
 
   QualType BuildMemberPointerType(QualType T, QualType Class,
                                   SourceLocation Loc,
@@ -9075,6 +9079,11 @@ public:
       return NumArgs + 1 > NumParams; // If so, we view as an extra argument.
     return NumArgs > NumParams;
   }
+
+  // HLSL Change Begin - adjust this from T* to T&-like
+  CXXThisExpr *genereateHLSLThis(SourceLocation Loc, QualType ThisType,
+                                bool isImplicit);
+  // HLSL Change End - adjust this from T* to T&-like
 };
 
 /// \brief RAII object that enters a new expression evaluation context.

@@ -488,9 +488,13 @@ void DeclPrinter::VisitFunctionDecl(FunctionDecl *D) {
   // HLSL Change Begin
   DeclContext *Namespace = D->getEnclosingNamespaceContext();
   DeclContext *Enclosing = D->getLexicalParent();
-  if (!Enclosing->isNamespace() && Namespace->isNamespace()) {
+  if (!Enclosing->isNamespace() && Namespace->isNamespace() &&
+      !Policy.HLSLOnlyDecl) {
     NamespaceDecl* ns = (NamespaceDecl*)Namespace;
     Proto = ns->getName().str() + "::" + Proto;
+  }
+  if (Policy.HLSLNoinlineMethod) {
+    Proto = D->getQualifiedNameAsString();
   }
   // HLSL Change End
 
@@ -677,8 +681,15 @@ void DeclPrinter::VisitFunctionDecl(FunctionDecl *D) {
     } else
       Out << ' ';
 
-    if (D->getBody())
-      D->getBody()->printPretty(Out, nullptr, SubPolicy, Indentation);
+    if (D->getBody()) {
+      // HLSL Change Begin - only print decl.
+      if (Policy.HLSLOnlyDecl) {
+        Out << ";";
+      } else {
+        // HLSL Change end.
+        D->getBody()->printPretty(Out, nullptr, SubPolicy, Indentation);
+      }
+    }
     Out << '\n';
   }
 }

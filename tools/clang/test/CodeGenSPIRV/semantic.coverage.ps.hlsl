@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 // CHECK: OpEntryPoint Fragment %main "main" %gl_SampleMask %gl_SampleMask_0
 

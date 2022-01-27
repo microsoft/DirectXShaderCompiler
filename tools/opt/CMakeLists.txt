@@ -38,12 +38,14 @@ add_llvm_tool(opt
   opt.cpp
 )
 
-if(WIN32)
-target_link_libraries(opt
-   DxilConvPasses
+if(WIN32 AND HLSL_BUILD_DXILCONV)
+  set_source_files_properties(opt.cpp PROPERTIES
+                                      COMPILE_DEFINITIONS "HAS_DXILCONV")
+
+  target_link_libraries(opt DxilConvPasses
 )
 add_dependencies(opt DxilConvPasses)
-endif(WIN32)
+endif(WIN32 AND HLSL_BUILD_DXILCONV)
 
 export_executable_symbols(opt)
 

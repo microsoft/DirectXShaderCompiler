@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 
 // The 'out' argument in the function should be handled correctly when deducing
 // the literal type.

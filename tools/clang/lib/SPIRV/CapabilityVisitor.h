@@ -22,10 +22,10 @@ class SpirvBuilder;
 class CapabilityVisitor : public Visitor {
 public:
   CapabilityVisitor(ASTContext &astCtx, SpirvContext &spvCtx,
-                    const SpirvCodeGenOptions &opts, SpirvBuilder &builder)
+                    const SpirvCodeGenOptions &opts, SpirvBuilder &builder,
+                    FeatureManager &featureMgr)
       : Visitor(opts, spvCtx), spvBuilder(builder),
-        shaderModel(spv::ExecutionModel::Max),
-        featureManager(astCtx.getDiagnostics(), opts) {}
+        shaderModel(spv::ExecutionModel::Max), featureManager(featureMgr) {}
 
   bool visit(SpirvModule *, Phase) override;
 
@@ -38,7 +38,8 @@ public:
   bool visit(SpirvExtInstImport *) override;
   bool visit(SpirvExtInst *) override;
   bool visit(SpirvAtomic *) override;
-  bool visit(SpirvDemoteToHelperInvocationEXT *) override;
+  bool visit(SpirvDemoteToHelperInvocation *) override;
+  bool visit(SpirvIsHelperInvocationEXT *) override;
   bool visit(SpirvReadClock *) override;
 
   using Visitor::visit;

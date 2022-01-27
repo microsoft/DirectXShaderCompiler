@@ -793,9 +793,12 @@ public:
   ///
   /// By default, performs semantic analysis when building the function type.
   /// Subclasses may override this routine to provide different behavior.
-  QualType RebuildFunctionProtoType(QualType T,
-                                    MutableArrayRef<QualType> ParamTypes,
-                                    const FunctionProtoType::ExtProtoInfo &EPI);
+  // HLSL Change - FIX - We should move param mods to parameter QualTypes
+  QualType
+  RebuildFunctionProtoType(QualType T, MutableArrayRef<QualType> ParamTypes,
+                           ArrayRef<hlsl::ParameterModifier> ParamMods,
+                           const FunctionProtoType::ExtProtoInfo &EPI);
+  // HLSL Change - End
 
   /// \brief Build a new unprototyped function type.
   QualType RebuildFunctionNoProtoType(QualType ResultType);
@@ -2340,6 +2343,10 @@ public:
                                 QualType ThisType,
                                 bool isImplicit) {
     getSema().CheckCXXThisCapture(ThisLoc);
+    // HLSL Change Begin - adjust this from T* to T&-like
+    if (getSema().getLangOpts().HLSL && ThisType.getTypePtr()->isPointerType())
+      return getSema().genereateHLSLThis(ThisLoc, ThisType, isImplicit);
+    // HLSL Change End - adjust this from T* to T&-like
     return new (getSema().Context) CXXThisExpr(ThisLoc, ThisType, isImplicit);
   }
 
@@ -4745,7 +4752,10 @@ QualType TreeTransform<Derived>::TransformFunctionProtoType(
       T->getNumParams() != ParamTypes.size() ||
       !std::equal(T->param_type_begin(), T->param_type_end(),
                   ParamTypes.begin()) || EPIChanged) {
-    Result = getDerived().RebuildFunctionProtoType(ResultType, ParamTypes, EPI);
+    // HLSL Change - FIX - We should move param mods to parameter QualTypes
+    Result = getDerived().RebuildFunctionProtoType(ResultType, ParamTypes,
+                                                   T->getParamMods(), EPI);
+    // HLSL Change - End
     if (Result.isNull())
       return QualType();
   }
@@ -10631,9 +10641,11 @@ TreeTransform<Derived>::TransformBlockExpr(BlockExpr *E) {
   QualType exprResultType =
       getDerived().TransformType(exprFunctionType->getReturnType());
 
-  QualType functionType =
-    getDerived().RebuildFunctionProtoType(exprResultType, paramTypes,
-                                          exprFunctionType->getExtProtoInfo());
+  // HLSL Change - FIX - We should move param mods to parameter QualTypes
+  QualType functionType = getDerived().RebuildFunctionProtoType(
+      exprResultType, paramTypes, exprFunctionType->getParamMods(),
+      exprFunctionType->getExtProtoInfo());
+  // HLSL Change - End
   blockScope->FunctionType = functionType;
 
   // Set the parameters on the block decl.
@@ -10873,16 +10885,19 @@ TreeTransform<Derived>::RebuildDependentSizedExtVectorType(QualType ElementType,
   return SemaRef.BuildExtVectorType(ElementType, SizeExpr, AttributeLoc);
 }
 
+// HLSL Change - FIX - We should move param mods to parameter QualTypes
 template<typename Derived>
 QualType TreeTransform<Derived>::RebuildFunctionProtoType(
     QualType T,
     MutableArrayRef<QualType> ParamTypes,
+    ArrayRef<hlsl::ParameterModifier> ParamMods,
     const FunctionProtoType::ExtProtoInfo &EPI) {
   return SemaRef.BuildFunctionType(T, ParamTypes,
                                    getDerived().getBaseLocation(),
                                    getDerived().getBaseEntity(),
-                                   EPI);
+                                   EPI, ParamMods);
 }
+// HLSL Change - End
 
 template<typename Derived>
 QualType TreeTransform<Derived>::RebuildFunctionNoProtoType(QualType T) {

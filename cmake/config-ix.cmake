@@ -150,6 +150,7 @@ if( HAVE_SYS_UIO_H )
 endif()
 check_symbol_exists(mallctl malloc_np.h HAVE_MALLCTL)
 check_symbol_exists(mallinfo malloc.h HAVE_MALLINFO)
+check_symbol_exists(mallinfo2 malloc.h HAVE_MALLINFO2)
 check_symbol_exists(malloc_zone_statistics malloc/malloc.h
                     HAVE_MALLOC_ZONE_STATISTICS)
 check_symbol_exists(mkdtemp "stdlib.h;unistd.h" HAVE_MKDTEMP)

@@ -1,4 +1,4 @@
-// Run: %dxc -T vs_6_2 -E main -enable-16bit-types
+// RUN: %dxc -T vs_6_2 -E main -enable-16bit-types
 
 // CHECK: OpCapability StorageInputOutput16
 
@@ -15,6 +15,9 @@
 // CHECK: OpDecorate %out_var_C Location 6
 // CHECK: OpDecorate %out_var_D Location 7
 // CHECK: OpDecorate %out_var_E Location 8
+
+// CHECK: %half = OpTypeFloat 16
+// CHECK-NOT: %float = OpTypeFloat 32
 
 // CHECK:  %in_var_A = OpVariable %_ptr_Input__arr_v2half_uint_4 Input
 // CHECK:  %in_var_B = OpVariable %_ptr_Input__arr_v3ushort_uint_2 Input

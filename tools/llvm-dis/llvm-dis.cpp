@@ -133,8 +133,7 @@ static void diagnosticHandler(const DiagnosticInfo &DI, void *Context) {
 }
 
 // HLSL Change Starts
-#define NOMINMAX
-#include <windows.h>
+#include "dxc/Support/WinIncludes.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MSFileSystem.h"
 // HLSL Change Ends

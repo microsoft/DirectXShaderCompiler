@@ -10,6 +10,7 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "clang/Basic/Diagnostic.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/DenseMap.h"
 #include "clang/AST/ASTContext.h"
@@ -30,6 +31,7 @@
 #include "clang/Sema/Template.h"
 #include "clang/Sema/TemplateDeduction.h"
 #include "clang/Sema/SemaHLSL.h"
+#include "llvm/Support/raw_ostream.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/WinAdapter.h"
@@ -181,6 +183,8 @@ enum ArBasicKind {
 #ifdef ENABLE_SPIRV_CODEGEN
   AR_OBJECT_VK_SUBPASS_INPUT,
   AR_OBJECT_VK_SUBPASS_INPUT_MS,
+  AR_OBJECT_VK_SPV_INTRINSIC_TYPE,
+  AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID,
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 
@@ -472,6 +476,8 @@ const UINT g_uBasicKindProps[] =
 #ifdef ENABLE_SPIRV_CODEGEN
   BPROP_OBJECT | BPROP_RBUFFER,   // AR_OBJECT_VK_SUBPASS_INPUT
   BPROP_OBJECT | BPROP_RBUFFER,   // AR_OBJECT_VK_SUBPASS_INPUT_MS
+  BPROP_OBJECT,                   // AR_OBJECT_VK_SPV_INTRINSIC_TYPE use recordType
+  BPROP_OBJECT,                   // AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID use recordType
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 
@@ -1395,6 +1401,8 @@ const ArBasicKind g_ArBasicKindsAsTypes[] =
 #ifdef ENABLE_SPIRV_CODEGEN
   AR_OBJECT_VK_SUBPASS_INPUT,
   AR_OBJECT_VK_SUBPASS_INPUT_MS,
+  AR_OBJECT_VK_SPV_INTRINSIC_TYPE,
+  AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID,
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 
@@ -1486,7 +1494,9 @@ const uint8_t g_ArBasicKindsTemplateCount[] =
   // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
   1, // AR_OBJECT_VK_SUBPASS_INPUT
-  1, // AR_OBJECT_VK_SUBPASS_INPUT_MS
+  1, // AR_OBJECT_VK_SUBPASS_INPUT_MS,
+  1, // AR_OBJECT_VK_SPV_INTRINSIC_TYPE
+  1, // AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 
@@ -1587,6 +1597,8 @@ const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] =
 #ifdef ENABLE_SPIRV_CODEGEN
   { 0, MipsFalse, SampleFalse }, // AR_OBJECT_VK_SUBPASS_INPUT (SubpassInput)
   { 0, MipsFalse, SampleFalse }, // AR_OBJECT_VK_SUBPASS_INPUT_MS (SubpassInputMS)
+  { 0, MipsFalse, SampleFalse }, // AR_OBJECT_VK_SPV_INTRINSIC_TYPE
+  { 0, MipsFalse, SampleFalse }, // AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 
@@ -1706,6 +1718,8 @@ const char* g_ArBasicTypeNames[] =
 #ifdef ENABLE_SPIRV_CODEGEN
   "SubpassInput",
   "SubpassInputMS",
+  "ext_type",
+  "ext_result_id",
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 
@@ -3508,6 +3522,8 @@ private:
     TypeSourceInfo *float4TypeSourceInfo = m_context->getTrivialTypeSourceInfo(float4Type, NoLoc);
     m_objectTypeLazyInitMask = 0;
     unsigned effectKindIndex = 0;
+    const auto *SM =
+        hlsl::ShaderModel::GetByName(m_sema->getLangOpts().HLSLProfile.c_str());
     for (unsigned i = 0; i < _countof(g_ArBasicKindsAsTypes); i++)
     {
       ArBasicKind kind = g_ArBasicKindsAsTypes[i];
@@ -3566,14 +3582,18 @@ private:
         recordDecl = DeclareRayQueryType(*m_context);
       } else if (kind == AR_OBJECT_HEAP_RESOURCE) {
         recordDecl = DeclareResourceType(*m_context, /*bSampler*/false);
-        // create Resource ResourceDescriptorHeap;
-        DeclareBuiltinGlobal("ResourceDescriptorHeap",
-                             m_context->getRecordType(recordDecl), *m_context);
+        if (SM->IsSM66Plus()) {
+          // create Resource ResourceDescriptorHeap;
+          DeclareBuiltinGlobal("ResourceDescriptorHeap",
+                               m_context->getRecordType(recordDecl), *m_context);
+        }
       } else if (kind == AR_OBJECT_HEAP_SAMPLER) {
         recordDecl = DeclareResourceType(*m_context, /*bSampler*/true);
-        // create Resource SamplerDescriptorHeap;
-        DeclareBuiltinGlobal("SamplerDescriptorHeap",
-                             m_context->getRecordType(recordDecl), *m_context);
+        if (SM->IsSM66Plus()) {
+          // create Resource SamplerDescriptorHeap;
+          DeclareBuiltinGlobal("SamplerDescriptorHeap",
+                               m_context->getRecordType(recordDecl), *m_context);
+        }
 
       }
       else if (kind == AR_OBJECT_FEEDBACKTEXTURE2D) {
@@ -3582,11 +3602,23 @@ private:
       else if (kind == AR_OBJECT_FEEDBACKTEXTURE2D_ARRAY) {
         recordDecl = DeclareUIntTemplatedTypeWithHandle(*m_context, "FeedbackTexture2DArray", "kind");
       }
+#ifdef ENABLE_SPIRV_CODEGEN
+      else if (kind == AR_OBJECT_VK_SPV_INTRINSIC_TYPE && m_vkNSDecl) {
+        recordDecl = DeclareUIntTemplatedTypeWithHandleInDeclContext(
+            *m_context, m_vkNSDecl, typeName, "id");
+        recordDecl->setImplicit(true);
+      }
+      else if (kind == AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID && m_vkNSDecl) {
+        recordDecl = DeclareTemplateTypeWithHandleInDeclContext(*m_context,
+                                                                m_vkNSDecl,
+                                                                typeName, 1,
+                                                                nullptr);
+        recordDecl->setImplicit(true);
+      }
+#endif
       else if (templateArgCount == 0) {
         recordDecl = DeclareRecordTypeWithHandle(*m_context, typeName);
-      }
-      else
-      {
+      } else {
         DXASSERT(templateArgCount == 1 || templateArgCount == 2, "otherwise a new case has been added");
 
         TypeSourceInfo* typeDefault = TemplateHasDefaultType(kind) ? float4TypeSourceInfo : nullptr;
@@ -3706,12 +3738,6 @@ public:
     m_sema = &S;
     S.addExternalSource(this);
 
-    AddObjectTypes();
-    AddStdIsEqualImplementation(context, S);
-    for (auto && intrinsic : m_intrinsicTables) {
-      AddIntrinsicTableMethods(intrinsic);
-    }
-
 #ifdef ENABLE_SPIRV_CODEGEN
     if (m_sema->getLangOpts().SPIRV) {
       // Create the "vk" namespace which contains Vulkan-specific intrinsics.
@@ -3721,7 +3747,17 @@ public:
                                 SourceLocation(), &context.Idents.get("vk"),
                                 /*PrevDecl*/ nullptr);
       context.getTranslationUnitDecl()->addDecl(m_vkNSDecl);
+    }
+#endif // ENABLE_SPIRV_CODEGEN
 
+    AddObjectTypes();
+    AddStdIsEqualImplementation(context, S);
+    for (auto &&intrinsic : m_intrinsicTables) {
+      AddIntrinsicTableMethods(intrinsic);
+    }
+
+#ifdef ENABLE_SPIRV_CODEGEN
+    if (m_sema->getLangOpts().SPIRV) {
       // Add Vulkan-specific intrinsics.
       AddVkIntrinsicFunctions();
       AddVkIntrinsicConstants();
@@ -4823,6 +4859,17 @@ public:
                        diag::err_hlsl_typeintemplateargument_requires_struct)
               << argType;
           return true;
+        }
+        if (auto *TST = dyn_cast<TemplateSpecializationType>(argType)) {
+          // This is a bit of a special case we need to handle. Because the
+          // buffer types don't use their template parameter in a way that would
+          // force instantiation, we need to force specialization here.
+          GetOrCreateTemplateSpecialization(
+              *m_context, *m_sema,
+              cast<ClassTemplateDecl>(
+                  TST->getTemplateName().getAsTemplateDecl()),
+              llvm::ArrayRef<TemplateArgument>(TST->getArgs(),
+                                               TST->getNumArgs()));
         }
         if (const RecordType* recordType = argType->getAsStructureType()) {
           if (!recordType->getDecl()->isCompleteDefinition()) {
@@ -9434,7 +9481,20 @@ clang::QualType HLSLExternalSource::CheckVectorConditional(
   if (m_sema->getLangOpts().EnableShortCircuit) {
     // Only allow scalar.
     if (condObjectKind == AR_TOBJ_VECTOR || condObjectKind == AR_TOBJ_MATRIX) {
-      m_sema->Diag(QuestionLoc, diag::err_hlsl_ternary_scalar);
+      SmallVector<char, 256> Buff;
+      llvm::raw_svector_ostream OS(Buff);
+      PrintingPolicy PP(m_sema->getLangOpts());
+      OS << "select(";
+      Cond.get()->printPretty(OS, nullptr, PP);
+      OS << ", ";
+      LHS.get()->printPretty(OS, nullptr, PP);
+      OS << ", ";
+      RHS.get()->printPretty(OS, nullptr, PP);
+      OS << ")";
+      SourceRange FullRange =
+          SourceRange(Cond.get()->getLocStart(), RHS.get()->getLocEnd());
+      m_sema->Diag(QuestionLoc, diag::err_hlsl_ternary_scalar)
+          << FixItHint::CreateReplacement(FullRange, OS.str());
       return QualType();
     }
   }
@@ -11844,6 +11904,37 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     declAttr = ::new (S.Context) HLSLRayPayloadAttr(
         A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
+  // SPIRV Change Starts
+  case AttributeList::AT_VKDecorateIdExt: {
+    if (A.getNumArgs() == 0 || !A.getArg(0).is<clang::Expr *>()) {
+      Handled = false;
+      break;
+    }
+
+    unsigned decoration = 0;
+    if (IntegerLiteral *decorationAsLiteral =
+            dyn_cast<IntegerLiteral>(A.getArg(0).get<clang::Expr *>())) {
+      decoration = decorationAsLiteral->getValue().getZExtValue();
+    } else {
+      Handled = false;
+      break;
+    }
+
+    llvm::SmallVector<Expr *, 2> args;
+    for (unsigned i = 1; i < A.getNumArgs(); ++i) {
+      if (!A.getArg(i).is<clang::Expr *>()) {
+        Handled = false;
+        break;
+      }
+      args.push_back(A.getArg(i).get<clang::Expr *>());
+    }
+    if (!Handled)
+      break;
+    declAttr = ::new (S.Context)
+        VKDecorateIdExtAttr(A.getRange(), S.Context, decoration, args.data(),
+                            args.size(), A.getAttributeSpellingListIndex());
+  } break;
+  // SPIRV Change Ends
 
   default:
     Handled = false;
@@ -12062,6 +12153,45 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     declAttr = ::new (S.Context) VKReferenceExtAttr(
         A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
+  case AttributeList::AT_VKDecorateExt: {
+    unsigned decoration = unsigned(ValidateAttributeIntArg(S, A));
+    llvm::SmallVector<unsigned, 2> args;
+    for (unsigned i = 1; i < A.getNumArgs(); ++i) {
+      args.push_back(unsigned(ValidateAttributeIntArg(S, A, i)));
+    }
+    // Note that `llvm::SmallVector<unsigned, 2> args` will be destroyed at
+    // the end of this function. However, VKDecorateExtAttr() constructor
+    // allocate a new integer array internally for args. It does not create
+    // a dangling pointer.
+    declAttr = ::new (S.Context)
+        VKDecorateExtAttr(A.getRange(), S.Context, decoration, args.data(),
+                          args.size(), A.getAttributeSpellingListIndex());
+  } break;
+  case AttributeList::AT_VKDecorateStringExt: {
+    unsigned decoration = unsigned(ValidateAttributeIntArg(S, A));
+    llvm::SmallVector<std::string, 2> args;
+    for (unsigned i = 1; i < A.getNumArgs(); ++i) {
+      args.push_back(ValidateAttributeStringArg(S, A, nullptr, i));
+    }
+    // Note that `llvm::SmallVector<std::string, 2> args` will be destroyed
+    // at the end of this function. However, VKDecorateExtAttr() constructor
+    // allocate a new integer array internally for args. It does not create
+    // a dangling pointer.
+    declAttr = ::new (S.Context) VKDecorateStringExtAttr(
+        A.getRange(), S.Context, decoration, args.data(), args.size(),
+        A.getAttributeSpellingListIndex());
+  } break;
+  case AttributeList::AT_VKStorageClassExt:
+    declAttr = ::new (S.Context) VKStorageClassExtAttr(
+        A.getRange(), S.Context, unsigned(ValidateAttributeIntArg(S, A)),
+        A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_VKTypeDefExt:
+    declAttr = ::new (S.Context) VKTypeDefExtAttr(
+        A.getRange(), S.Context, unsigned(ValidateAttributeIntArg(S, A)),
+        unsigned(ValidateAttributeIntArg(S, A, 1)),
+        A.getAttributeSpellingListIndex());
+    break;
   default:
     Handled = false;
     return;
@@ -12092,6 +12222,24 @@ Attr *hlsl::ProcessStmtAttributeForHLSL(Sema &S, Stmt *St, const AttributeList &
 
   Attr * result = nullptr;
   Handled = true;
+
+  // SPIRV Change Starts
+  if (A.hasScope() && A.getScopeName()->getName().equals("vk")) {
+    switch (A.getKind()) {
+    case AttributeList::AT_VKCapabilityExt:
+      return ::new (S.Context) VKCapabilityExtAttr(
+          A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
+          A.getAttributeSpellingListIndex());
+    case AttributeList::AT_VKExtensionExt:
+      return ::new (S.Context) VKExtensionExtAttr(
+          A.getRange(), S.Context, ValidateAttributeStringArg(S, A, nullptr),
+          A.getAttributeSpellingListIndex());
+    default:
+      Handled = false;
+      return nullptr;
+    }
+  }
+  // SPIRV Change Ends
 
   switch (A.getKind())
   {
@@ -12360,12 +12508,11 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
   assert(getLangOpts().HLSL &&
          "otherwise this is called without checking language first");
 
-  // NOTE: some tests may declare templates.
-  if (DC->isDependentContext()) return true;
+  // If we have a template declaration but haven't enabled templates, error.
+  if (DC->isDependentContext() && !getLangOpts().EnableTemplates) return false;
 
   DeclSpec::SCS storage = D.getDeclSpec().getStorageClassSpec();
   assert(!DC->isClosure() && "otherwise parser accepted closure syntax instead of failing with a syntax error");
-  assert(!DC->isDependentContext() && "otherwise parser accepted a template instead of failing with a syntax error");
 
   bool result = true;
   bool isTypedef = storage == DeclSpec::SCS_typedef;
@@ -12844,7 +12991,9 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
   // Validate that Vulkan specific feature is only used when targeting SPIR-V
   if (!getLangOpts().SPIRV) {
     if (basicKind == ArBasicKind::AR_OBJECT_VK_SUBPASS_INPUT ||
-        basicKind == ArBasicKind::AR_OBJECT_VK_SUBPASS_INPUT_MS) {
+        basicKind == ArBasicKind::AR_OBJECT_VK_SUBPASS_INPUT_MS ||
+        basicKind == ArBasicKind::AR_OBJECT_VK_SPV_INTRINSIC_TYPE ||
+        basicKind == ArBasicKind::AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID) {
       Diag(D.getLocStart(), diag::err_hlsl_vulkan_specific_feature)
           << g_ArBasicTypeNames[basicKind];
       result = false;

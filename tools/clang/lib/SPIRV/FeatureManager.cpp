@@ -14,6 +14,19 @@
 
 namespace clang {
 namespace spirv {
+namespace {
+
+const char *spvEnvironmentAsString(spv_target_env spvEnv) {
+  if (spvEnv > SPV_ENV_VULKAN_1_2)
+    return "Vulkan 1.3";
+  if (spvEnv > SPV_ENV_VULKAN_1_1)
+    return "Vulkan 1.2";
+  if (spvEnv > SPV_ENV_VULKAN_1_0)
+    return "Vulkan 1.1";
+  return "Vulkan 1.0";
+}
+
+} // end namespace
 
 FeatureManager::FeatureManager(DiagnosticsEngine &de,
                                const SpirvCodeGenOptions &opts)
@@ -37,12 +50,14 @@ FeatureManager::FeatureManager(DiagnosticsEngine &de,
     targetEnv = SPV_ENV_VULKAN_1_1;
   else if (opts.targetEnv == "vulkan1.2")
     targetEnv = SPV_ENV_VULKAN_1_2;
+  else if (opts.targetEnv == "vulkan1.3")
+    targetEnv = SPV_ENV_UNIVERSAL_1_6;
   else if(opts.targetEnv == "universal1.5")
     targetEnv = SPV_ENV_UNIVERSAL_1_5;
   else {
     emitError("unknown SPIR-V target environment '%0'", {}) << opts.targetEnv;
     emitNote("allowed options are:\n vulkan1.0\n vulkan1.1\n vulkan1.2\n "
-             "universal1.5",
+             "vulkan1.3\n universal1.5",
              {});
   }
 }
@@ -97,8 +112,7 @@ bool FeatureManager::requestTargetEnv(spv_target_env requestedEnv,
                                       SourceLocation srcLoc) {
   if (targetEnv < requestedEnv) {
     emitError("%0 is required for %1 but not permitted to use", srcLoc)
-        << (requestedEnv > SPV_ENV_VULKAN_1_1 ? "Vulkan 1.2" : "Vulkan 1.1")
-        << target;
+        << spvEnvironmentAsString(requestedEnv) << target;
     emitNote("please specify your target environment via command line option "
              "-fspv-target-env=",
              {});
@@ -143,6 +157,8 @@ Extension FeatureManager::getExtensionSymbol(llvm::StringRef name) {
       .Case("SPV_KHR_fragment_shading_rate",
             Extension::KHR_fragment_shading_rate)
       .Case("SPV_EXT_shader_image_int64", Extension::EXT_shader_image_int64)
+      .Case("SPV_KHR_physical_storage_buffer",
+            Extension::KHR_physical_storage_buffer)
       .Default(Extension::Unknown);
 }
 
@@ -196,6 +212,8 @@ const char *FeatureManager::getExtensionName(Extension symbol) {
     return "SPV_KHR_fragment_shading_rate";
   case Extension::EXT_shader_image_int64:
     return "SPV_EXT_shader_image_int64";
+  case Extension::KHR_physical_storage_buffer:
+    return "SPV_KHR_physical_storage_buffer";
   default:
     break;
   }
@@ -274,15 +292,21 @@ bool FeatureManager::enabledByDefault(Extension ext) {
 }
 
 bool FeatureManager::isTargetEnvVulkan1p1OrAbove() {
-  std::string vulkanStr = "vulkan";
+  const std::string vulkanStr = "vulkan";
   return targetEnvStr.substr(0, vulkanStr.size()) == vulkanStr &&
          targetEnvStr.compare("vulkan1.1") >= 0;
 }
 
 bool FeatureManager::isTargetEnvVulkan1p2OrAbove() {
-  std::string vulkanStr = "vulkan";
+  const std::string vulkanStr = "vulkan";
   return targetEnvStr.substr(0, vulkanStr.size()) == vulkanStr &&
          targetEnvStr.compare("vulkan1.2") >= 0;
+}
+
+bool FeatureManager::isTargetEnvVulkan1p3OrAbove() {
+  const std::string vulkanStr = "vulkan";
+  return targetEnvStr.substr(0, vulkanStr.size()) == vulkanStr &&
+         targetEnvStr.compare("vulkan1.3") >= 0;
 }
 
 } // end namespace spirv

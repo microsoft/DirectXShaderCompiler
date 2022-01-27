@@ -164,6 +164,10 @@ lets you to specify the descriptor for the source at a certain register.
 ``-fvk-{b|s|t|u}-shift`` lets you to apply shifts to all register numbers
 of a certain register type. They cannot be used together, though.
 
+When the ``[[vk::combinedImageSampler]]`` attribute is applied, only the
+``-fvk-t-shift`` value will be used to apply shifts to combined texture and
+sampler resource bindings and any ``-fvk-s-shift`` value will be ignored.
+
 Without attribute and command-line option, ``:register(xX, spaceY)`` will be
 mapped to binding ``X`` in descriptor set ``Y``. Note that register type ``x``
 is ignored, so this may cause overlap.
@@ -259,7 +263,13 @@ language. To support them, ``[[vk::builtin("<builtin>")]]`` is introduced.
 Right now the following ``<builtin>`` are supported:
 
 * ``PointSize``: The GLSL equivalent is ``gl_PointSize``.
-* ``HelperInvocation``: The GLSL equivalent is ``gl_HelperInvocation``.
+* ``HelperInvocation``: For Vulkan 1.3 or above, we use its GLSL equivalent
+  ``gl_HelperInvocation`` and decorate it with ``HelperInvocation`` builtin
+  since Vulkan 1.3 or above supports ``Volatile`` decoration for builtin
+  variables. For Vulkan 1.2 or earlier, we do not create a builtin variable for
+  ``HelperInvocation``. Instead, we create a variable with ``Private`` storage
+  class and set its value as the result of `OpIsHelperInvocationEXT <https://htmlpreview.github.io/?https://github.com/KhronosGroup/SPIRV-Registry/blob/master/extensions/EXT/SPV_EXT_demote_to_helper_invocation.html#OpIsHelperInvocationEXT>`_
+  instruction.
 * ``BaseVertex``: The GLSL equivalent is ``gl_BaseVertexARB``.
   Need ``SPV_KHR_shader_draw_parameters`` extension.
 * ``BaseInstance``: The GLSL equivalent is ``gl_BaseInstanceARB``.
@@ -324,6 +334,11 @@ The namespace ``vk`` will be used for all Vulkan attributes:
   location. Used for dual-source blending.
 - ``post_depth_coverage``: The input variable decorated with SampleMask will
   reflect the result of the EarlyFragmentTests. Only valid on pixel shader entry points.
+- ``combinedImageSampler``: For specifying a Texture (e.g., ``Texture2D``,
+  ``Texture1DArray``, ``TextureCube``) and ``SamplerState`` to use the combined image
+  sampler (or sampled image) type with the same descriptor set and binding numbers (see
+  `wiki page <https://github.com/microsoft/DirectXShaderCompiler/wiki/Vulkan-combined-image-sampler-type>`_
+  for more detail).
 
 Only ``vk::`` attributes in the above list are supported. Other attributes will
 result in warnings and be ignored by the compiler. All C++11 attributes will
@@ -1643,6 +1658,53 @@ automatically be applied according to ``-fvk-*shift N M``.
       CBUFFER
       CONSTANTBUFFER
 
+Binding number assignment for resources in cbuffer
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Basically, we use the same binding assignment rule described above for a
+cbuffer, but when a cbuffer contains one or more resources, it is inevitable
+to use multiple binding numbers for a single cbuffer. For this type of
+cbuffers, we first assign the next available binding number to the resources.
+Based the order of the appearance in the cbuffer, a resource that appears early
+uses a smaller (earlier available) binding number than a resource that appears
+later. After assigning binding numbers to all resource members, if the cbuffer
+contains one or more members with non-resource types, it creates a struct for
+the remaining members and assign the next available binding number to the
+variable with the struct type.
+
+For example, the binding numbers for the following resources and cbuffers
+
+.. code:: hlsl
+  cbuffer buf0 : register(b0) {
+    float4 non_resource0;
+  };
+  cbuffer buf1 : register(b4) {
+    float4 non_resource1;
+  };
+  cbuffer buf2 {
+    float4 non_resource2;
+    Texture2D resource0;
+    SamplerState resource1;
+  };
+  cbuffer buf3 : register(b2) {
+    SamplerState resource2;
+  }
+
+will be
+
+- ``buf0``: 0 because of ``register(b0)``
+
+- ``buf1``: 4 because of ``register(b4)``
+
+- ``resource2``: 2 because of ``register(b2)``. Note that ``buf3`` is empty
+  without ``resource2``. We do not assign a binding number to an empty struct.
+
+- ``resource0``: 1 because it is the next available binding number.
+
+- ``resource1``: 3 because it is the next available binding number.
+
+- ``buf2`` including only ``non_resource2``: 5 because it is the next available
+  binding number.
 
 Summary
 ~~~~~~~
@@ -2939,8 +3001,12 @@ patch constant function. This would include information about each of the ``N``
 vertices that are input to the tessellation control shader.
 
 OutputPatch is an array containing ``N`` elements (where ``N`` is the number of
-output vertices). Each element of the array contains information about an
-output vertex. OutputPatch may also be passed to the patch constant function.
+output vertices). Each element of the array is the hull shader output for each
+output vertex. For example, each element of ``OutputPatch<HSOutput, 3>`` is each
+output value of the hull shader function for each ``SV_OutputControlPointID``.
+It is shared between threads i.e., in the patch constant function, threads for
+the same patch must see the same values for the elements of
+``OutputPatch<HSOutput, 3>``.
 
 The SPIR-V ``InvocationID`` (``SV_OutputControlPointID`` in HLSL) is used to index
 into the InputPatch and OutputPatch arrays to read/write information for the given
@@ -2962,7 +3028,11 @@ As mentioned above, the patch constant function is to be invoked only once per p
 As a result, in the SPIR-V module, the `entry function wrapper`_ will first invoke the
 main entry function, and then use an ``OpControlBarrier`` to wait for all vertex
 processing to finish. After the barrier, *only* the first thread (with InvocationID of 0)
-will invoke the patch constant function.
+will invoke the patch constant function. Since the first thread has to see the
+OutputPatch that contains output of the hull shader function for other threads,
+we have to use the output stage variable (with Output storage class) of the
+hull shader function for OutputPatch that can be an input to the patch constant
+function.
 
 The information resulting from the patch constant function will also be returned
 as stage output variables. The output struct of the patch constant function must include
@@ -3667,6 +3737,7 @@ implicit ``vk`` namepsace.
     const uint QueueFamilyScope = 5;
   
     uint64_t ReadClock(in uint scope);
+    uint     RawBufferLoad(in uint64_t deviceAddress);
   } // end namespace
 
 
@@ -3704,6 +3775,35 @@ For example:
 
   uint64_t clock = vk::ReadClock(vk::SubgroupScope);
 
+RawBufferLoad
+~~~~~~~~~~~~~
+This intrinsic funcion has the following signature:
+
+.. code:: hlsl
+
+  uint RawBufferLoad(in uint64_t deviceAddress);
+
+This exposes a subset of the `VK_KHR_buffer_device_address <https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VK_KHR_buffer_device_address.html>`_
+and `SPV_KHR_physical_storage_buffer <https://github.com/KhronosGroup/SPIRV-Registry/blob/main/extensions/KHR/SPV_KHR_physical_storage_buffer.asciidoc>`_ 
+functionality to HLSL. 
+
+It allows the shader program to load a single 32 bit value from a GPU
+accessible memory at given address, similar to ``ByteAddressBuffer.Load()``.
+Like ``ByteAddressBuffer``, this intrinsic requires a 4 byte aligned address.
+
+Using this intrinsic adds ``PhysicalStorageBufferAddresses`` capability and 
+``SPV_KHR_physical_storage_buffer`` extension requirements as well as changing 
+the addressing model to ``PhysicalStorageBuffer64``.
+
+Example:
+
+.. code:: hlsl
+
+  uint64_t Address;
+  float4 main() : SV_Target0 {
+    uint Value = vk::RawBufferLoad(Address);
+    return asfloat(Value);
+  }
 
 Supported Command-line Options
 ==============================

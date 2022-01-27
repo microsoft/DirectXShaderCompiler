@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main
 SamplerState      gSampler  : register(s5);
 Texture2D<float4> t         : register(t1);
 

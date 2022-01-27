@@ -21,8 +21,11 @@ namespace spirv {
 class SpirvFunction;
 class SpirvBasicBlock;
 
-/// The class responsible to sort OpenCL.DebugInfo.100 instructions in a
-/// valid order without any invalid forward reference.
+/// The class responsible to sort rich DebugInfo instructions in a valid order
+/// without any invalid forward references.
+///
+/// Since NonSemantic.Shader.DebugInfo.100 has no valid forward references, the
+/// result will have no forward references at all.
 class SortDebugInfoVisitor : public Visitor {
 public:
   SortDebugInfoVisitor(SpirvContext &spvCtx, const SpirvCodeGenOptions &opts)
@@ -44,6 +47,8 @@ public:
   /// So that you want override this visit function to handle all instructions,
   /// regardless of their polymorphism.
   bool visitInstruction(SpirvInstruction *) { return true; }
+
+  using Visitor::visit;
 
 private:
   // Invokes visitor for each operand of the debug instruction `di`. If

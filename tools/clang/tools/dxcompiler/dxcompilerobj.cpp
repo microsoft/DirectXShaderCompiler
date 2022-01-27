@@ -704,7 +704,8 @@ public:
       // first for such case. Then we invoke the compilation process over the
       // preprocessed source code, so that line numbers are consistent with the
       // embedded source code.
-      if (!isPreprocessing && opts.GenSPIRV && opts.DebugInfo) {
+      if (!isPreprocessing && opts.GenSPIRV && opts.DebugInfo &&
+          !opts.SpirvOptions.debugInfoVulkan) {
         CComPtr<IDxcResult> pSrcCodeResult;
         std::vector<LPCWSTR> PreprocessArgs;
         PreprocessArgs.reserve(argCount + 1);
@@ -722,11 +723,13 @@ public:
 #endif // ENABLE_SPIRV_CODEGEN
 
       // Convert source code encoding
-      IFC(hlsl::DxcGetBlobAsUtf8(pSourceEncoding, m_pMalloc, &utf8Source));
+      IFC(hlsl::DxcGetBlobAsUtf8(pSourceEncoding, m_pMalloc, &utf8Source,
+                                 opts.DefaultTextCodePage));
 
       CComPtr<IDxcBlob> pOutputBlob;
-      dxcutil::DxcArgsFileSystem *msfPtr =
-        dxcutil::CreateDxcArgsFileSystem(utf8Source, pUtf16SourceName.m_psz, pIncludeHandler);
+      dxcutil::DxcArgsFileSystem *msfPtr = dxcutil::CreateDxcArgsFileSystem(
+          utf8Source, pUtf16SourceName.m_psz, pIncludeHandler,
+          opts.DefaultTextCodePage);
       std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
 
       ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
@@ -735,7 +738,7 @@ public:
       IFT(pOutputStream.QueryInterface(&pOutputBlob));
 
       primaryOutput.kind = DXC_OUT_OBJECT;
-      if (opts.AstDump || opts.OptDump)
+      if (opts.AstDump || opts.OptDump || opts.DumpDependencies)
         primaryOutput.kind = DXC_OUT_TEXT;
       else if (isPreprocessing)
         primaryOutput.kind = DXC_OUT_HLSL;
@@ -816,7 +819,41 @@ public:
           compiler.getCodeGenOpts().HLSLProfile = opts.TargetProfile;
 
         // Parse and apply 
-        if (opts.ImportBindingTable.size()) {
+        if (opts.BindingTableDefine.size()) {
+          // Just pas the define for now because preprocessor is not available yet.
+          struct BindingTableParserImpl : public CodeGenOptions::BindingTableParserType {
+            CompilerInstance &compiler;
+            std::string define;
+            BindingTableParserImpl(CompilerInstance &compiler, StringRef define)
+              :compiler(compiler), define(define.str())
+            {}
+
+            bool Parse(llvm::raw_ostream &os, hlsl::DxcBindingTable *outBindingTable) override {
+              Preprocessor &pp = compiler.getPreprocessor();
+              MacroInfo *macro = MacroExpander::FindMacroInfo(pp, define);
+              if (!macro) {
+                os << Twine("Binding table define'") + define + "' not found.";
+                os.flush();
+                return false;
+              }
+
+              std::string bindingTableStr;
+              // Combine tokens into single string
+              MacroExpander expander(pp, MacroExpander::STRIP_QUOTES);
+              if (!expander.ExpandMacro(macro, &bindingTableStr)) {
+                os << Twine("Binding table define'") + define + "' failed to expand.";
+                os.flush();
+                return false;
+              }
+              return hlsl::ParseBindingTable(
+                define, StringRef(bindingTableStr),
+                os, outBindingTable);
+            }
+          };
+
+          compiler.getCodeGenOpts().BindingTableParser.reset(new BindingTableParserImpl(compiler, opts.BindingTableDefine));
+        }
+        else if (opts.ImportBindingTable.size()) {
           hlsl::options::StringRefUtf16 wstrRef(opts.ImportBindingTable);
           CComPtr<IDxcBlob> pBlob;
           std::string error;
@@ -860,7 +897,9 @@ public:
 
         // NOTE: this calls the validation component from dxil.dll; the built-in
         // validator can be used as a fallback.
-        produceFullContainer = !opts.CodeGenHighLevel && !opts.AstDump && !opts.OptDump && rootSigMajor == 0;
+        produceFullContainer = !opts.CodeGenHighLevel && !opts.AstDump &&
+                               !opts.OptDump && rootSigMajor == 0 &&
+                               !opts.DumpDependencies;
         needsValidation = produceFullContainer && !opts.DisableValidation;
 
         if (compiler.getCodeGenOpts().HLSLProfile == "lib_6_x") {
@@ -894,16 +933,38 @@ public:
         dumpAction.Execute();
         dumpAction.EndSourceFile();
         outStream.flush();
-      }
-      else if (opts.OptDump) {
+      } else if (opts.DumpDependencies) {
+        auto dependencyCollector = std::make_shared<DependencyCollector>();
+        compiler.addDependencyCollector(dependencyCollector);
+        compiler.createPreprocessor(clang::TranslationUnitKind::TU_Complete);
+
+        clang::PreprocessOnlyAction preprocessAction;
+        FrontendInputFile file(pUtf8SourceName, IK_HLSL);
+        preprocessAction.BeginSourceFile(compiler, file);
+        preprocessAction.Execute();
+        preprocessAction.EndSourceFile();
+
+        outStream << (opts.OutputObject.empty() ? opts.InputFile
+                                                : opts.OutputObject);
+        bool firstDependency = true;
+        for (auto &dependency : dependencyCollector->getDependencies()) {
+          if (firstDependency) {
+            outStream << ": " << dependency;
+            firstDependency = false;
+            continue;
+          }
+          outStream << " \\\n " << dependency;
+        }
+        outStream << "\n";
+        outStream.flush();
+      } else if (opts.OptDump) {
         EmitOptDumpAction action(&llvmContext);
         FrontendInputFile file(pUtf8SourceName, IK_HLSL);
         action.BeginSourceFile(compiler, file);
         action.Execute();
         action.EndSourceFile();
         outStream.flush();
-      }
-      else if (rootSigMajor) {
+      } else if (rootSigMajor) {
         HLSLRootSignatureAction action(
             compiler.getCodeGenOpts().HLSLEntryFunction, rootSigMajor,
             rootSigMinor);
@@ -1408,6 +1469,7 @@ public:
     compiler.getCodeGenOpts().HLSLPreciseOutputs = Opts.PreciseOutputs;
     compiler.getCodeGenOpts().MainFileName = pMainFile;
     compiler.getCodeGenOpts().HLSLPrintAfterAll = Opts.PrintAfterAll;
+    compiler.getCodeGenOpts().HLSLPrintAfter = Opts.PrintAfter;
     compiler.getCodeGenOpts().HLSLForceZeroStoreLifetimes = Opts.ForceZeroStoreLifetimes;
     compiler.getCodeGenOpts().HLSLEnableLifetimeMarkers = Opts.EnableLifetimeMarkers;
     compiler.getCodeGenOpts().HLSLEnablePayloadAccessQualifiers = Opts.EnablePayloadQualifiers;

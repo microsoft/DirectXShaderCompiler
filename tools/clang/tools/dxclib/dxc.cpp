@@ -264,6 +264,10 @@ static void WriteDxcExtraOuputs(IDxcResult *pResult) {
   }
 }
 
+std::string getDependencyOutputFileName(llvm::StringRef inputFileName) {
+  return inputFileName.substr(0, inputFileName.rfind('.')).str() + ".d";
+}
+
 // This function is called either after the compilation is done or /dumpbin option is provided
 // Performing options that are used to process dxil container.
 int DxcContext::ActOnBlob(IDxcBlob *pBlob) {
@@ -272,6 +276,23 @@ int DxcContext::ActOnBlob(IDxcBlob *pBlob) {
 
 int DxcContext::ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob, LPCWSTR pDebugBlobName) {
   int retVal = 0;
+  if (m_Opts.DumpDependencies) {
+    if (!m_Opts.OutputFileForDependencies.empty()) {
+      CComPtr<IDxcBlob> pResult;
+      UpdatePart(pBlob, &pResult);
+      WriteBlobToFile(pResult, m_Opts.OutputFileForDependencies,
+                      m_Opts.DefaultTextCodePage);
+    } else if (m_Opts.WriteDependencies) {
+      CComPtr<IDxcBlob> pResult;
+      UpdatePart(pBlob, &pResult);
+      WriteBlobToFile(pResult, getDependencyOutputFileName(m_Opts.InputFile),
+                      m_Opts.DefaultTextCodePage);
+    } else {
+      WriteBlobToConsole(pBlob);
+    }
+    return retVal;
+  }
+
   // Text output.
   if (m_Opts.AstDump || m_Opts.OptDump) {
     WriteBlobToConsole(pBlob);
@@ -766,6 +787,9 @@ int DxcContext::Compile() {
       const hlsl::ShaderModel *SM = hlsl::ShaderModel::GetByName(m_Opts.TargetProfile.str().c_str());
       if (SM->IsValid() && SM->GetMajor() < 6) {
         TargetProfile = hlsl::ShaderModel::Get(SM->GetKind(), 6, 0)->GetName();
+        std::string versionWarningString =
+            "warning: Promoting older shader model profile to 6.0 version.";
+        fprintf(stderr, "%s\n", versionWarningString.data());
         if (!SM->IsSM51Plus()) {
           // Add flag for backcompat with SM 5.0 resource reservation
           args.push_back(L"-flegacy-resource-reservation");
@@ -814,7 +838,8 @@ int DxcContext::Compile() {
 
   HRESULT status;
   IFT(pCompileResult->GetStatus(&status));
-  if (SUCCEEDED(status) || m_Opts.AstDump || m_Opts.OptDump) {
+  if (SUCCEEDED(status) || m_Opts.AstDump || m_Opts.OptDump ||
+      m_Opts.DumpDependencies) {
     CComPtr<IDxcBlob> pProgram;
     IFT(pCompileResult->GetResult(&pProgram));
     if (pProgram.p != nullptr) {

@@ -1,4 +1,4 @@
-// Run: %dxc -T hs_6_0 -E SubDToBezierHS
+// RUN: %dxc -T hs_6_0 -E SubDToBezierHS
 
 // Test handling of built-in size mismatch (writing out to the built-ins):
 // The HLSL SV_TessFactor is a float3, but the SPIR-V equivalent is a float4.

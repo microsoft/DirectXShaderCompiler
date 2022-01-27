@@ -38,7 +38,7 @@ public:
 
   /// \brief Runs a test with the given input HLSL file.
   ///
-  /// The first line of HLSL code must start with "// Run:" and following DXC
+  /// The first line of HLSL code must start with "// RUN:" and following DXC
   /// arguments to run the test. Next lines must be proper HLSL code for the
   /// test. It uses file check style output check e.g., "// CHECK: ...".
   void runFileTest(llvm::StringRef path, Expect expect = Expect::Success,
@@ -46,7 +46,7 @@ public:
 
   /// \brief Runs a test with the given HLSL code.
   ///
-  /// The first line of code must start with "// Run:" and following DXC
+  /// The first line of code must start with "// RUN:" and following DXC
   /// arguments to run the test. Next lines must be proper HLSL code for the
   /// test. It uses file check style output check e.g., "// CHECK: ...".
   void runCodeTest(llvm::StringRef code, Expect expect = Expect::Success,

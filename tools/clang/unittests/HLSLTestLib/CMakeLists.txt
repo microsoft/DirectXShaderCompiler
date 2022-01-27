@@ -12,14 +12,15 @@ add_clang_library(HLSLTestLib
 else(WIN32)
 set(HLSL_IGNORE_SOURCES
   D3DReflectionDumper.cpp
-  FileCheckerTest.cpp
 )
 add_clang_library(HLSLTestLib
   DxcTestUtils.cpp
+  FileCheckerTest.cpp
   FileCheckForTest.cpp
 )
-include_directories(${DXC_GTEST_DIR}/googletest/include)
-include_directories(${DXC_GTEST_DIR}/googlemock/include)
+include_directories(${LLVM_MAIN_SRC_DIR}/utils/unittest/googletest/include)
+include_directories(${LLVM_MAIN_SRC_DIR}/utils/unittest/googlemock/include)
+
 endif(WIN32)
 
 add_dependencies(HLSLTestLib TablegenHLSLOptions)

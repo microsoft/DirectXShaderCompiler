@@ -603,7 +603,7 @@ raw_fd_ostream::~raw_fd_ostream() {
   // to avoid report_fatal_error calls should check for errors with
   // has_error() and clear the error flag with clear_error() before
   // destructing raw_ostream objects which may have errors.
-  if (has_error())
+  if (has_error() && ShouldClose) // HLSL Change - ignore error on !ShouldClose
     report_fatal_error("IO failure on output stream.", /*GenCrashDiag=*/false);
 }
 

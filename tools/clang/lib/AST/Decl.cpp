@@ -44,6 +44,17 @@ bool Decl::isOutOfLine() const {
   return !getLexicalDeclContext()->Equals(getDeclContext());
 }
 
+// HLSL Change - Begin
+// We need to disable NRVO for anything with the precise attribute assigned.
+// NRVO prevents creating an alloca which breaks how precise is currently
+// implemented. This should have no performance impact.
+bool VarDecl::isNRVOVariable() const {
+  return (isa<ParmVarDecl>(this) || hasAttr<HLSLPreciseAttr>())
+             ? false
+             : NonParmVarDeclBits.NRVOVariable;
+}
+// HLSL Change - End
+
 TranslationUnitDecl::TranslationUnitDecl(ASTContext &ctx)
     : Decl(TranslationUnit, nullptr, SourceLocation()),
       DeclContext(TranslationUnit), Ctx(ctx), AnonymousNamespace(nullptr) {
@@ -1414,6 +1425,10 @@ void NamedDecl::printQualifiedName(raw_ostream &OS,
         OS << "(anonymous namespace)";
       else
         OS << *ND;
+    // HLSL Change Begin - not add cbuffer name to qualified name.
+    } else if (isa<HLSLBufferDecl>(*I)) {
+      continue;
+    // HLSL Change End.
     } else if (const RecordDecl *RD = dyn_cast<RecordDecl>(*I)) {
       if (!RD->getIdentifier())
         OS << "(anonymous " << RD->getKindName() << ')';

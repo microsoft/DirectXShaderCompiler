@@ -94,7 +94,7 @@ bool TempOverloadPool::contains(Function *Func) const {
 void TempOverloadPool::clear() {
   for (auto Entry : Funcs) {
     DXASSERT(Entry.second->use_empty(), "Temporary function still used during pool destruction.");
-    Entry.second->removeFromParent();
+    Entry.second->eraseFromParent();
   }
   Funcs.clear();
 }
@@ -1309,9 +1309,11 @@ static Value *convertScalarOrVector(Value *SrcVal, Type *DstTy, HLCastOpcode Opc
   // Conversions to bools are comparisons
   if (DstTy->getScalarSizeInBits() == 1) {
     // fcmp une is what regular clang uses in C++ for (bool)f;
-    return cast<Instruction>(SrcTy->isIntOrIntVectorTy()
-      ? Builder.CreateICmpNE(SrcVal, llvm::Constant::getNullValue(SrcTy), "tobool")
-      : Builder.CreateFCmpUNE(SrcVal, llvm::Constant::getNullValue(SrcTy), "tobool"));
+    return SrcTy->isIntOrIntVectorTy()
+               ? Builder.CreateICmpNE(
+                     SrcVal, llvm::Constant::getNullValue(SrcTy), "tobool")
+               : Builder.CreateFCmpUNE(
+                     SrcVal, llvm::Constant::getNullValue(SrcTy), "tobool");
   }
 
   // Cast necessary
@@ -1321,7 +1323,7 @@ static Value *convertScalarOrVector(Value *SrcVal, Type *DstTy, HLCastOpcode Opc
     Opcode == HLCastOpcode::UnsignedUnsignedCast;
   auto CastOp = static_cast<Instruction::CastOps>(HLModule::GetNumericCastOp(
     SrcTy, SrcIsUnsigned, DstTy, DstIsUnsigned));
-  return cast<Instruction>(Builder.CreateCast(CastOp, SrcVal, DstTy));
+  return Builder.CreateCast(CastOp, SrcVal, DstTy);
 }
 
 Value *HLMatrixLowerPass::lowerHLCast(CallInst *Call, Value *Src, Type *DstTy,

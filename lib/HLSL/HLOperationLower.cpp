@@ -557,6 +557,9 @@ Value *TranslateNonUniformResourceIndex(CallInst *CI, IntrinsicOp IOP, OP::OpCod
           // Only mark on GEP which point to resource.
           if (IsResourceGEP(I))
             DxilMDHelper::MarkNonUniform(I);
+        } else if (CallInst *CI = dyn_cast<CallInst>(castU)) {
+          if (CI->getType() == hdlTy)
+            DxilMDHelper::MarkNonUniform(CI);
         }
       }
     } else if (CallInst *CI = dyn_cast<CallInst>(U)) {
@@ -2147,7 +2150,7 @@ Value *TranslateReflect(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
   unsigned vecSize = VT->getNumElements();
   Value *dot = TranslateFDot(i, n, vecSize, hlslOP, Builder);
   // 2 * dot (i, n).
-  dot = Builder.CreateFMul(hlslOP->GetFloatConst(2), dot);
+  dot = Builder.CreateFMul(ConstantFP::get(dot->getType(), 2.0), dot);
   // 2 * n * dot(i, n).
   Value *vecDot = Builder.CreateVectorSplat(vecSize, dot);
   Value *nMulDot = Builder.CreateFMul(vecDot, n);
@@ -5658,6 +5661,9 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_unpack_u8u32, TranslateUnpack, DXIL::OpCode::Unpack4x8},
 #ifdef ENABLE_SPIRV_CODEGEN
     { IntrinsicOp::IOP_VkReadClock, UnsupportedVulkanIntrinsic, DXIL::OpCode::NumOpCodes },
+    { IntrinsicOp::IOP_VkRawBufferLoad, UnsupportedVulkanIntrinsic, DXIL::OpCode::NumOpCodes },
+    { IntrinsicOp::IOP_Vkext_execution_mode, UnsupportedVulkanIntrinsic, DXIL::OpCode::NumOpCodes },
+    { IntrinsicOp::IOP_Vkext_execution_mode_id, UnsupportedVulkanIntrinsic, DXIL::OpCode::NumOpCodes },
 #endif // ENABLE_SPIRV_CODEGEN
     {IntrinsicOp::MOP_Append, StreamOutputLower, DXIL::OpCode::EmitStream},
     {IntrinsicOp::MOP_RestartStrip, StreamOutputLower, DXIL::OpCode::CutStream},

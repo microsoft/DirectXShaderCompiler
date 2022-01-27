@@ -1164,6 +1164,9 @@ static const unsigned kHighestMinor = %d;"""%(highest_major, highest_minor)
 def get_dxil_version_minor():
     return "const unsigned kDxilMinor = %d;"%highest_minor
 
+def get_dxil_version_minor_int():
+    return highest_minor
+
 def get_is_shader_model_plus():
     result = ""
 
@@ -1197,7 +1200,7 @@ shader_profiles = [ shader_profile(0, "ps", "Kind::Pixel", "4_0", 32, 8),
 
 def getShaderProfiles():
     # order match DXIL::ShaderKind.
-    profiles = {"ps":"4_0", "vs":"4_0", "gs":"4_0", "hs":"5_0", "ds":"5_0", "cs":"4_0", "lib":"6_1", "ms":"6_5", "as":"6_5"}
+    profiles = (("ps", "4_0"), ("vs", "4_0"), ("gs", "4_0"), ("hs", "5_0"), ("ds", "5_0"), ("cs", "4_0"), ("lib", "6_1"), ("ms", "6_5"), ("as", "6_5"))
     return profiles;
 
 def get_shader_models():
@@ -1338,7 +1341,7 @@ def get_target_profiles():
     shader_models = getShaderModels()
 
     base_sm = "%d_0"%highest_major
-    for profile, min_sm in profiles.items():
+    for profile, min_sm in profiles:
         for shader_model in shader_models:
             if (base_sm > shader_model):
                 continue

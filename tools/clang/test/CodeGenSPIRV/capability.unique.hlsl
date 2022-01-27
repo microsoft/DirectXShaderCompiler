@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_2 -E main
+// RUN: %dxc -T ps_6_2 -E main
 
 // Make sure the same capability is not applied twice.
 //

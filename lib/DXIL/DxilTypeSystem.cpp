@@ -525,7 +525,7 @@ StructType *DxilTypeSystem::GetNormFloatType(CompType CT, unsigned NumComps) {
   raw_string_ostream NameStream(TypeName);
   if (NumComps > 1) {
     (NameStream << "dx.types." << NumComps << "x" << CT.GetName()).flush();
-    pFieldType = VectorType::get(pFieldType, NumComps);
+    pFieldType = FixedVectorType::get(pFieldType, NumComps);
   } else {
     (NameStream << "dx.types." << CT.GetName()).flush();
   }
@@ -702,8 +702,11 @@ DXIL::SigPointKind SigPointFromInputQual(DxilParamInputQual Q, DXIL::ShaderKind 
 void RemapSemantic(llvm::StringRef &oldSemName, llvm::StringRef &oldSemFullName, const char *newSemName,
   DxilParameterAnnotation &paramInfo, llvm::LLVMContext &Context) {
   // format deprecation warning
-  Context.emitWarning(Twine("DX9-style semantic \"") + oldSemName + Twine("\" mapped to DX10 system semantic \"") + newSemName +
-    Twine("\" due to -Gec flag. This functionality is deprecated in newer language versions."));
+  dxilutil::EmitWarningOnContext(
+      Context, Twine("DX9-style semantic \"") + oldSemName +
+                   Twine("\" mapped to DX10 system semantic \"") + newSemName +
+                   Twine("\" due to -Gec flag. This functionality is "
+                         "deprecated in newer language versions."));
 
   // create new semantic name with the same index
   std::string newSemNameStr(newSemName);

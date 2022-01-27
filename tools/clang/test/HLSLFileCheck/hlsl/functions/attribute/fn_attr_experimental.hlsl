@@ -6,7 +6,7 @@
 // CHECK: #0
 // CHECK: attributes #0
 // CHECK: "exp-foo"="bar"
-// CHECK: "exp-zzz" "
+// CHECK: "exp-zzz"
 
 [experimental("foo", "bar")]
 [experimental("zzz", "")]

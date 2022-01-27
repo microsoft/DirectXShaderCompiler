@@ -51,17 +51,40 @@ Summary of the changes (Less than 80 chars)
  - Detail 1
  - Detail 2
 
-Addresses #bugnumber (in this specific format)
+Fixes #bugnumber (in this specific format)
 ```
 
 Your pull request should:
 
 * Include a description of what your change intends to do
+  * The title of your PR should be a very brief description of the change, and
+    can use tags to allow for speedy categorization.
+    * Titles under 76 characters print nicely in unix terminals under `git log`.
+      This is not a hard requirement, but is good guidance.
+    * Title tags are generally one word or acronym enclosed in square brackets.
+      Limiting to one or two tags is ideal to keep titles short. Some examples
+      of common tags are:
+      * [NFC] - No Functional Change
+      * [RFC] - Request For Comments (often used for drafts to get feedback)
+      * [Doc] - Documentation change
+      * [SPIRV] - Changes related to SPIR-V
+      * [HLSL2021] - Changes related to HLSL 2021 features
+      * Other tags in use: [Linux], [mac], [Win], [PIX], etc...
+      * Tags aren't formalized or any specific limited set. If you're unsure of
+        a reasonable tag to use, just don't use any. If you want to invent a new
+        tag, go for it! These are to help categorize changes at a glance.
+  * The PR description should include a more detailed description of the change,
+    an explanation for the motivation of the change, and links to any relevant
+    Issues. This does not need to be a dissertation, but should leave
+    breadcrumbs for the next person debugging your code (who might be you).
+  * Using the words `Fixes`, `Fixed`, `Closes`, `Closed`, or `Close` followed by
+    `#<issuenumber>`, will auto close an issue after the PR is merged.
 * Be a child commit of a reasonably recent commit in the master branch
 * Pass all unit tests
-* Have a clear commit message
+* Ensure that the title and description are fully up to date before merging
+  * The title and description feed the final git commit message, and we want to
+    ensure high quality commit messages in the repository history.
 * Include adequate tests
   * At least one test should fail in the absence of your non-test code changes. If your PR does not match this criteria, please specify why
   * Tests should include reasonable permutations of the target fix/change
   * Include baseline changes with your change as needed
-

@@ -19,3 +19,5 @@ add_llvm_library(LLVMInstCombine
   )
 
 add_dependencies(LLVMInstCombine intrinsics_gen)
+
+target_link_libraries(LLVMInstCombine PUBLIC LLVMDXIL) # HLSL Change

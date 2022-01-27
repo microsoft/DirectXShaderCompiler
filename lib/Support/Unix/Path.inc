@@ -635,9 +635,11 @@ namespace sys  {
 namespace fs {
 
 thread_local MSFileSystem* threadFS = nullptr;
+std::atomic<bool> Initialized(false);
 
 std::error_code SetupPerThreadFileSystem() throw() {
   // This method is now a no-op since we are using thread_local.
+  Initialized = true;
   return std::error_code();
 }
 void CleanupPerThreadFileSystem() throw() {
@@ -645,6 +647,10 @@ void CleanupPerThreadFileSystem() throw() {
 }
 
 MSFileSystem* GetCurrentThreadFileSystem() throw() {
+#ifdef MS_IMPLICIT_DISK_FILESYSTEM
+  if (!Initialized)
+    getImplicitFilesystem();
+#endif
   return threadFS;
 }
 

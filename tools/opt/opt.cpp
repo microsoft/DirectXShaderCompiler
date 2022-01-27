@@ -119,9 +119,11 @@ static cl::opt<bool>
 DisableOptimizations("disable-opt",
                      cl::desc("Do not run any optimization passes"));
 
+#if 0  // HLSL Change Starts: Disable LTO for DXIL
 static cl::opt<bool>
 StandardLinkOpts("std-link-opts",
                  cl::desc("Include the standard link time optimizations"));
+#endif // HLSL Change Ends
 
 static cl::opt<bool>
 OptLevelO1("O1",
@@ -246,6 +248,7 @@ static void AddOptimizationPasses(legacy::PassManagerBase &MPM,
   Builder.populateModulePassManager(MPM);
 }
 
+#if 0  // HLSL Change Starts: Disable LTO for DXIL
 static void AddStandardLinkPasses(legacy::PassManagerBase &PM) {
   PassManagerBuilder Builder;
   Builder.VerifyInput = true;
@@ -256,6 +259,7 @@ static void AddStandardLinkPasses(legacy::PassManagerBase &PM) {
     Builder.Inliner = createFunctionInliningPass();
   Builder.populateLTOPassManager(PM);
 }
+#endif // HLSL Change Ends
 
 //===----------------------------------------------------------------------===//
 // CodeGen-related helper functions.
@@ -296,7 +300,9 @@ void initializePollyPasses(llvm::PassRegistry &Registry);
 #endif
 
 // HLSL Change Start
+#ifdef HAS_DXILCONV
 void __cdecl initializeDxilConvPasses(llvm::PassRegistry &);
+#endif
 // HLSL Change End
 
 //===----------------------------------------------------------------------===//
@@ -354,7 +360,7 @@ int __cdecl main(int argc, char **argv) {
   //initializeSjLjEHPreparePass(Registry);  // HLSL Change: remove EH passes
   // HLSL Change Starts
   initializeReducibilityAnalysisPass(Registry);
-#ifdef _WIN32
+#ifdef HAS_DXILCONV
   initializeDxilConvPasses(Registry);
 #endif
   // HLSL Change Ends
@@ -512,11 +518,13 @@ int __cdecl main(int argc, char **argv) {
 
   // Create a new optimization pass for each one specified on the command line
   for (unsigned i = 0; i < PassList.size(); ++i) {
+#if 0  // HLSL Change Starts: Disable LTO for DXIL
     if (StandardLinkOpts &&
         StandardLinkOpts.getPosition() < PassList.getPosition(i)) {
       AddStandardLinkPasses(Passes);
       StandardLinkOpts = false;
     }
+#endif // HLSL Change Ends
 
     if (OptLevelO1 && OptLevelO1.getPosition() < PassList.getPosition(i)) {
       AddOptimizationPasses(Passes, *FPasses, 1, 0);
@@ -585,10 +593,12 @@ int __cdecl main(int argc, char **argv) {
           createPrintModulePass(errs(), "", PreserveAssemblyUseListOrder));
   }
 
+#if 0  // HLSL Change Starts: Disable LTO for DXIL
   if (StandardLinkOpts) {
     AddStandardLinkPasses(Passes);
     StandardLinkOpts = false;
   }
+#endif // HLSL Change Ends
 
   if (OptLevelO1)
     AddOptimizationPasses(Passes, *FPasses, 1, 0);

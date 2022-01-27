@@ -41,11 +41,13 @@ public:
   virtual void EnableDisplayIncludeProcess() = 0;
   virtual HRESULT CreateStdStreams(_In_ IMalloc *pMalloc) = 0;
   virtual HRESULT RegisterOutputStream(LPCWSTR pName, IStream *pStream) = 0;
+  virtual HRESULT UnRegisterOutputStream() = 0;
 };
 
 DxcArgsFileSystem *
 CreateDxcArgsFileSystem(_In_ IDxcBlobUtf8 *pSource, _In_ LPCWSTR pSourceName,
-                        _In_opt_ IDxcIncludeHandler *pIncludeHandler);
+                        _In_opt_ IDxcIncludeHandler *pIncludeHandler,
+                        _In_opt_ UINT32 defaultCodePage = CP_ACP);
 
 void MakeAbsoluteOrCurDirRelativeW(LPCWSTR &Path, std::wstring &PathStorage);
 

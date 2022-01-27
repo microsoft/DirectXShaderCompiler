@@ -59,13 +59,12 @@ set(HLSL_IGNORE_SOURCES
   PixTest.cpp
   RewriterTest.cpp
   ShaderOpTest.cpp
-  DxilContainerTest.cpp
-  ValidationTest.cpp
-  CompilerTest.cpp
   )
 
 add_clang_unittest(clang-hlsl-tests
   AllocatorTest.cpp
+  CompilerTest.cpp
+  DxilContainerTest.cpp
   DxilModuleTest.cpp
   DxilResourceTests.cpp
   DXIsenseTest.cpp
@@ -77,6 +76,7 @@ add_clang_unittest(clang-hlsl-tests
   OptionsTest.cpp
   SystemValueTest.cpp
   TestMain.cpp
+  ValidationTest.cpp
   VerifierTest.cpp
   )
 
@@ -110,7 +110,7 @@ include_directories(${LLVM_MAIN_INCLUDE_DIR}/dxc/Test)
 endif(WIN32)
 
 # Add includes to directly reference intrinsic tables.
-include_directories(../../lib/Sema)
+include_directories(${CLANG_BINARY_DIR}/lib/Sema)
 
 add_dependencies(clang-hlsl-tests dxcompiler)
 

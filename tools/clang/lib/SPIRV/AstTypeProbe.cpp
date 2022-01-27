@@ -1142,6 +1142,14 @@ bool isRelaxedPrecisionType(QualType type, const SpirvCodeGenOptions &opts) {
     }
   }
 
+  // Reference types
+  if (const auto *refType = type->getAs<ReferenceType>())
+    return isRelaxedPrecisionType(refType->getPointeeType(), opts);
+
+  // Pointer types
+  if (const auto *ptrType = type->getAs<PointerType>())
+    return isRelaxedPrecisionType(ptrType->getPointeeType(), opts);
+
   return false;
 }
 
@@ -1243,6 +1251,25 @@ bool isOrContainsNonFpColMajorMatrix(const ASTContext &astContext,
     }
   }
 
+  return false;
+}
+
+bool isTypeInVkNamespace(const RecordType *type) {
+  if (const auto *nameSpaceDecl =
+          dyn_cast<NamespaceDecl>(type->getDecl()->getDeclContext())) {
+    return nameSpaceDecl->getName() == "vk";
+  }
+  return false;
+}
+
+bool isExtResultIdType(QualType type) {
+  if (const auto *elaboratedType = type->getAs<ElaboratedType>()) {
+    if (const auto *recordType = elaboratedType->getAs<RecordType>()) {
+      if (!isTypeInVkNamespace(recordType))
+        return false;
+      return recordType->getDecl()->getName() == "ext_result_id";
+    }
+  }
   return false;
 }
 

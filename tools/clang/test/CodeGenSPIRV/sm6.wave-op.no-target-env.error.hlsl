@@ -1,4 +1,4 @@
-// Run: %dxc -T cs_6_0 -E main
+// RUN: %dxc -T cs_6_0 -E main
 
 RWStructuredBuffer<uint> values;
 [numthreads(32, 1, 1)]

@@ -1,4 +1,4 @@
-// Run: %dxc -T ps_6_0 -E main -fvk-b-shift 1000 all -fvk-t-shift 2000 all -fvk-s-shift 3000 all -fvk-u-shift 4000 all
+// RUN: %dxc -T ps_6_0 -E main -fvk-b-shift 1000 all -fvk-t-shift 2000 all -fvk-s-shift 3000 all -fvk-u-shift 4000 all
 
 struct S {
     float4 f;

@@ -1,5 +1,11 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
-# This file is distributed under the University of Illinois Open Source License. See LICENSE.TXT for details.
+# This file is distributed under the University of Illinois Open Source License.
+# See LICENSE.TXT for details.
+
+add_hlsl_hctgen(DxilOperations OUTPUT DxilOperations.cpp CODE_TAG)
+add_hlsl_hctgen(DxilShaderModel OUTPUT DxilShaderModel.cpp CODE_TAG)
+add_hlsl_hctgen(DxilMetadata OUTPUT DxilMetadataHelper.cpp CODE_TAG)
+
 add_llvm_library(LLVMDXIL
   DxilCBuffer.cpp
   DxilCompType.cpp
@@ -7,6 +13,7 @@ add_llvm_library(LLVMDXIL
   DxilInterpolationMode.cpp
   DxilMetadataHelper.cpp
   DxilModule.cpp
+  DxilModuleHelper.cpp
   DxilOperations.cpp
   DxilResource.cpp
   DxilResourceBase.cpp
@@ -21,6 +28,7 @@ add_llvm_library(LLVMDXIL
   DxilSubobject.cpp
   DxilTypeSystem.cpp
   DxilUtil.cpp
+  DxilUtilDbgInfoAndMisc.cpp
   DxilPDB.cpp
 
   ADDITIONAL_HEADER_DIRS
