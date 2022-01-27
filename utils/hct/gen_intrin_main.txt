@@ -545,6 +545,9 @@ $match<0, -1> void<4> [[]] GatherCmpRed(in sampler_cmp s, in float<2> x, in floa
 $match<0, -1> void<4> [[]] GatherCmpGreen(in sampler_cmp s, in float<2> x, in float compareValue, in int<2> o1, in int<2> o2, in int<2> o3, in int<2> o4, out uint_only status) : tex2d_t_gather_comp_green_o4_s;
 $match<0, -1> void<4> [[]] GatherCmpBlue(in sampler_cmp s, in float<2> x, in float compareValue, in int<2> o1, in int<2> o2, in int<2> o3, in int<2> o4, out uint_only status) : tex2d_t_gather_comp_blue_o4_s;
 $match<0, -1> void<4> [[]] GatherCmpAlpha(in sampler_cmp s, in float<2> x, in float compareValue, in int<2> o1, in int<2> o2, in int<2> o3, in int<2> o4, out uint_only status) : tex2d_t_gather_comp_alpha_o4_s;
+$match<0, -1> void<4> [[ro]] GatherRaw(in sampler s, in float<2> x);
+$match<0, -1> void<4> [[ro]] GatherRaw(in sampler s, in float<2> x, in int<2> o);
+$match<0, -1> void<4> [[]] GatherRaw(in sampler s, in float<2> x, in int<2> o, out uint_only status);
 } namespace
 
 namespace Texture2DMSMethods {
@@ -637,6 +640,9 @@ $match<0, -1> void<4> [[]] GatherCmpRed(in sampler_cmp s, in float<3> x, in floa
 $match<0, -1> void<4> [[]] GatherCmpGreen(in sampler_cmp s, in float<3> x, in float compareValue, in int<2> o1, in int<2> o2, in int<2> o3, in int<2> o4, out uint_only status) : tex2d_t_gather_comp_green_array_o4_s;
 $match<0, -1> void<4> [[]] GatherCmpBlue(in sampler_cmp s, in float<3> x, in float compareValue, in int<2> o1, in int<2> o2, in int<2> o3, in int<2> o4, out uint_only status) : tex2d_t_gather_comp_blue_array_o4_s;
 $match<0, -1> void<4> [[]] GatherCmpAlpha(in sampler_cmp s, in float<3> x, in float compareValue, in int<2> o1, in int<2> o2, in int<2> o3, in int<2> o4, out uint_only status) : tex2d_t_gather_comp_alpha_array_o4_s;
+$match<0, -1> void<4> [[ro]] GatherRaw(in sampler s, in float<3> x);
+$match<0, -1> void<4> [[ro]] GatherRaw(in sampler s, in float<3> x, in int<2> o);
+$match<0, -1> void<4> [[]] GatherRaw(in sampler s, in float<3> x, in int<2> o, out uint_only status);
 } namespace
 
 namespace Texture2DArrayMSMethods {
