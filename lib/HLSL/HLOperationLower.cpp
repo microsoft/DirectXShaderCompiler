@@ -3234,6 +3234,16 @@ GatherHelper::GatherHelper(
     }
     SetStatus(CI, statusIdx);
   } break;
+  case OP::OpCode::TextureGatherRaw: {
+    unsigned statusIdx;
+    TranslateOffset(CI, HLOperandIndex::kGatherOffsetArgIndex, offsetSize);
+    // Gather all don't have sample offset version overload.
+    DXASSERT(ch == GatherChannel::GatherAll, "Raw gather must use all channels");
+    DXASSERT(!cube, "Raw gather can't be used with cube textures");
+    DXASSERT(!hasSampleOffsets, "Raw gather doesn't support individual offsets");
+    statusIdx = HLOperandIndex::kGatherStatusArgIndex;
+    SetStatus(CI, statusIdx);
+  } break;
   default:
     DXASSERT(0, "invalid opcode for Gather");
     break;
@@ -3294,6 +3304,7 @@ Value *TranslateGather(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   switch (IOP) {
   case IntrinsicOp::MOP_Gather:
   case IntrinsicOp::MOP_GatherCmp:
+  case IntrinsicOp::MOP_GatherRaw:
     ch = GatherHelper::GatherChannel::GatherAll;
     break;
   case IntrinsicOp::MOP_GatherRed:
@@ -3357,6 +3368,17 @@ Value *TranslateGather(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
         gatherHelper.special};
     GenerateDxilGather(CI, F, gatherArgs, gatherHelper, hlslOP);
   } break;
+  case OP::OpCode::TextureGatherRaw: {
+    Value *gatherArgs[] = {
+        opArg, gatherHelper.texHandle, gatherHelper.samplerHandle,
+        // Coord.
+        gatherHelper.coord[0], gatherHelper.coord[1], gatherHelper.coord[2],
+        gatherHelper.coord[3],
+        // Offset.
+        gatherHelper.offset[0], gatherHelper.offset[1]};
+    GenerateDxilGather(CI, F, gatherArgs, gatherHelper, hlslOP);
+    break;
+  }
   default:
     DXASSERT(0, "invalid opcode for Gather");
     break;
@@ -5714,6 +5736,7 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::MOP_GatherCmpGreen, TranslateGather, DXIL::OpCode::TextureGatherCmp},
     {IntrinsicOp::MOP_GatherCmpRed, TranslateGather, DXIL::OpCode::TextureGatherCmp},
     {IntrinsicOp::MOP_GatherGreen, TranslateGather, DXIL::OpCode::TextureGather},
+    {IntrinsicOp::MOP_GatherRaw, TranslateGather, DXIL::OpCode::TextureGatherRaw},
     {IntrinsicOp::MOP_GatherRed, TranslateGather, DXIL::OpCode::TextureGather},
     {IntrinsicOp::MOP_GetSamplePosition, TranslateGetSamplePosition, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::MOP_Load2, TranslateResourceLoad, DXIL::OpCode::NumOpCodes},

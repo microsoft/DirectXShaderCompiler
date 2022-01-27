@@ -5716,6 +5716,12 @@ HLSLExternalSource::IsValidateObjectElement(const HLSL_INTRINSIC *pIntrinsic,
     ArBasicKind kind = GetTypeElementKind(objectElement);
     UINT uBits = GET_BPROP_BITS(kind);
     return IS_BASIC_FLOAT(kind) && uBits != BPROP_BITS64;
+  }
+  case IntrinsicOp::MOP_GatherRaw: {
+    ArBasicKind kind = GetTypeElementKind(objectElement);
+    UINT uBits = GET_BPROP_BITS(kind);
+    UINT numEles = GetNumElements(objectElement);
+    return IS_BASIC_UINT(kind) && numEles == 1;
   } break;
   default:
     return true;
@@ -9833,8 +9839,11 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
       FunctionTemplate->getCanonicalDecl());
 
     if (IsBuiltinTable(tableName) && !IsValidateObjectElement(*cursor, objectElement)) {
+      UINT numEles = GetNumElements(objectElement);
+      std::string typeName(g_ArBasicTypeNames[GetTypeElementKind(objectElement)]);
+      if (numEles > 1) typeName += std::to_string(numEles);
       m_sema->Diag(Args[0]->getExprLoc(), diag::err_hlsl_invalid_resource_type_on_intrinsic) <<
-          nameIdentifier << g_ArBasicTypeNames[GetTypeElementKind(objectElement)];
+          nameIdentifier << typeName;
     }
     return Sema::TemplateDeductionResult::TDK_Success;
   }
