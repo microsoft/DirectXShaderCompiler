@@ -291,6 +291,11 @@ const unsigned kSampleLLevelArgIndex = 4;
 const unsigned kSampleLOffsetArgIndex = 5;
 const unsigned kSampleLStatusArgIndex = 6;
 
+// SampleCmpLevel
+// the rest are the same as SampleCmp
+const unsigned kSampleCmpLLevelArgIndex = 5;
+const unsigned kSampleCmpLOffsetArgIndex = 6;
+
 // SampleCmpLevelZero.
 const unsigned kSampleCmpLZCmpValArgIndex = 4;
 const unsigned kSampleCmpLZOffsetArgIndex = 5;

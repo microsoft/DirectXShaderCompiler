@@ -1627,6 +1627,16 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
         /*IsSampleC*/ true, ValCtx);
     ValidateDerivativeOp(CI, ValCtx);
   } break;
+  case DXIL::OpCode::SampleCmpLevel: {
+    // sampler must be comparison mode.
+    DxilInst_SampleCmpLevel sample(CI);
+    ValidateSampleInst(
+        CI, sample.get_srv(), sample.get_sampler(),
+        {sample.get_coord0(), sample.get_coord1(), sample.get_coord2(),
+         sample.get_coord3()},
+        {sample.get_offset0(), sample.get_offset1(), sample.get_offset2()},
+        /*IsSampleC*/ true, ValCtx);
+  } break;
   case DXIL::OpCode::SampleCmpLevelZero: {
     // sampler must be comparison mode.
     DxilInst_SampleCmpLevelZero sample(CI);
@@ -2034,6 +2044,7 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
   case DXIL::OpCode::TextureGatherCmp:
   case DXIL::OpCode::Sample:
   case DXIL::OpCode::SampleCmp:
+  case DXIL::OpCode::SampleCmpLevel:
   case DXIL::OpCode::SampleCmpLevelZero:
   case DXIL::OpCode::SampleBias:
   case DXIL::OpCode::SampleGrad:
