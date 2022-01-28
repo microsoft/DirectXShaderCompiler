@@ -263,6 +263,7 @@ uint32_t ValueTable::lookupOrAddCall(CallInst *C) {
       case DXIL::OpCode::Sample:
       case DXIL::OpCode::SampleBias:
       case DXIL::OpCode::SampleCmp:
+      case DXIL::OpCode::SampleCmpLevel:
       case DXIL::OpCode::SampleCmpLevelZero:
       case DXIL::OpCode::SampleGrad:
       case DXIL::OpCode::CheckAccessFullyMapped:

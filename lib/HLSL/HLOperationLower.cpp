@@ -2856,6 +2856,12 @@ SampleHelper::SampleHelper(
     SetClamp(CI, HLOperandIndex::kSampleCmpClampArgIndex - cube);
     SetStatus(CI, HLOperandIndex::kSampleCmpStatusArgIndex - cube);
     break;
+  case OP::OpCode::SampleCmpLevel:
+    SetCompareValue(CI, HLOperandIndex::kSampleCmpCmpValArgIndex);
+    TranslateOffset(CI, cube ? HLOperandIndex::kInvalidIdx : HLOperandIndex::kSampleCmpLOffsetArgIndex);
+    SetLOD(CI, HLOperandIndex::kSampleCmpLLevelArgIndex);
+    SetStatus(CI, HLOperandIndex::kSampleCmpStatusArgIndex - cube);
+    break;
   case OP::OpCode::SampleCmpLevelZero:
     SetCompareValue(CI, HLOperandIndex::kSampleCmpLZCmpValArgIndex);
     TranslateOffset(CI, cube ? HLOperandIndex::kInvalidIdx : HLOperandIndex::kSampleCmpLZOffsetArgIndex);
@@ -3035,6 +3041,20 @@ Value *TranslateSample(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
         sampleHelper.compareValue,
         // Clamp.
         sampleHelper.clamp};
+    GenerateDxilSample(CI, F, sampleArgs, sampleHelper.status, hlslOP);
+  } break;
+  case OP::OpCode::SampleCmpLevel: {
+    Value *sampleArgs[] = {
+        opArg, sampleHelper.texHandle, sampleHelper.samplerHandle,
+        // Coord.
+        sampleHelper.coord[0], sampleHelper.coord[1], sampleHelper.coord[2],
+        sampleHelper.coord[3],
+        // Offset.
+        sampleHelper.offset[0], sampleHelper.offset[1], sampleHelper.offset[2],
+        // CmpVal.
+        sampleHelper.compareValue,
+        // LOD.
+        sampleHelper.lod};
     GenerateDxilSample(CI, F, sampleArgs, sampleHelper.status, hlslOP);
   } break;
   case OP::OpCode::SampleCmpLevelZero:
@@ -5724,6 +5744,7 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::MOP_Sample, TranslateSample, DXIL::OpCode::Sample},
     {IntrinsicOp::MOP_SampleBias, TranslateSample, DXIL::OpCode::SampleBias},
     {IntrinsicOp::MOP_SampleCmp, TranslateSample, DXIL::OpCode::SampleCmp},
+    {IntrinsicOp::MOP_SampleCmpLevel, TranslateSample, DXIL::OpCode::SampleCmpLevel},
     {IntrinsicOp::MOP_SampleCmpLevelZero, TranslateSample, DXIL::OpCode::SampleCmpLevelZero},
     {IntrinsicOp::MOP_SampleGrad, TranslateSample, DXIL::OpCode::SampleGrad},
     {IntrinsicOp::MOP_SampleLevel, TranslateSample, DXIL::OpCode::SampleLevel},

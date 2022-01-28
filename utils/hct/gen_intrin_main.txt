@@ -411,6 +411,8 @@ $classT [[ro]] SampleBias(in sampler s, in float<1> x, in float bias) : tex1d_t_
 $classT [[ro]] SampleBias(in sampler s, in float<1> x, in float bias, in int<1> o) : tex1d_t_bias_o;
 float_like [[ro]] SampleCmp(in sampler_cmp s, in float<1> x, in float compareValue) : tex1d_t_comp;
 float_like [[ro]] SampleCmp(in sampler_cmp s, in float<1> x, in float compareValue, in int<1> o) : tex1d_t_comp_o;
+float_like [[ro]] SampleCmpLevel(in sampler_cmp s, in float<1> x, in float compareValue, in float lod);
+float_like [[ro]] SampleCmpLevel(in sampler_cmp s, in float<1> x, in float compareValue, in float lod, in int<1> o);
 float_like [[ro]] SampleCmpLevelZero(in sampler_cmp s, in float<1> x, in float compareValue) : tex1d_t_comp_lz;
 float_like [[ro]] SampleCmpLevelZero(in sampler_cmp s, in float<1> x, in float compareValue, in int<1> o) : tex1d_t_comp_lz_o;
 $classT [[ro]] SampleGrad(in sampler s, in float<1> x, in $type2 ddx, in $type2 ddy) : tex1d_t_dd;
@@ -421,6 +423,7 @@ $classT [[ro]] Sample(in sampler s, in float<1> x, in int<1> o, in float clamp) 
 $classT [[]] Sample(in sampler s, in float<1> x, in int<1> o, in float clamp, out uint_only status) : tex1d_t_o_cl_s;
 float_like [[ro]] SampleCmp(in sampler_cmp s, in float<1> x, in float compareValue, in int<1> o, in float clamp) : tex1d_t_comp_o_cl;
 float_like [[]] SampleCmp(in sampler_cmp s, in float<1> x, in float compareValue, in int<1> o, in float clamp, out uint_only status) : tex1d_t_comp_o_cl_s;
+float_like [[]] SampleCmpLevel(in sampler_cmp s, in float<1> x, in float compareValue, in float lod, in int<1> o, out uint_only status);
 float_like [[]] SampleCmpLevelZero(in sampler_cmp s, in float<1> x, in float compareValue, in int<1> o, out uint_only status) : tex1d_t_comp_o_s;
 $classT [[]] SampleLevel(in sampler s, in float<1> x, in float lod, in int<1> o, out uint_only status) : tex1d_t_lod_o_s;
 $classT [[ro]] SampleBias(in sampler s, in float<1> x, in float bias, in int<1> o, in float clamp) : tex1d_t_bias_o_cl;
@@ -446,6 +449,8 @@ $classT [[ro]] SampleBias(in sampler s, in float<2> x, in float bias) : tex1d_t_
 $classT [[ro]] SampleBias(in sampler s, in float<2> x, in float bias, in int<1> o) : tex1d_t_bias_array_o;
 float_like [[ro]] SampleCmp(in sampler_cmp s, in float<2> x, in float compareValue) : tex1d_t_comp_array;
 float_like [[ro]] SampleCmp(in sampler_cmp s, in float<2> x, in float compareValue, in int<1> o) : tex1d_t_comp_array_o;
+float_like [[ro]] SampleCmpLevel(in sampler_cmp s, in float<2> x, in float compareValue, in float lod);
+float_like [[ro]] SampleCmpLevel(in sampler_cmp s, in float<2> x, in float compareValue, in float lod, in int<1> o);
 float_like [[ro]] SampleCmpLevelZero(in sampler_cmp s, in float<2> x, in float compareValue) : tex1d_t_comp_lz_array;
 float_like [[ro]] SampleCmpLevelZero(in sampler_cmp s, in float<2> x, in float compareValue, in int<1> o) : tex1d_t_comp_lz_array_o;
 $classT [[ro]] SampleGrad(in sampler s, in float<2> x, in $match<2, 2> float<1> ddx, in $match<2, 2> float<1> ddy) : tex1d_t_dd_array;
@@ -456,6 +461,7 @@ $classT [[ro]] Sample(in sampler s, in float<2> x, in int<1> o, in float clamp) 
 $classT [[]] Sample(in sampler s, in float<2> x, in int<1> o, in float clamp, out uint_only status) : tex1d_t_array_o_cl_s;
 float_like [[ro]] SampleCmp(in sampler_cmp s, in float<2> x, in float compareValue, in int<1> o, in float clamp) : tex1d_t_comp_array_o_cl;
 float_like [[]] SampleCmp(in sampler_cmp s, in float<2> x, in float compareValue, in int<1> o, in float clamp, out uint_only status) : tex1d_t_comp_array_o_cl_s;
+float_like [[]] SampleCmpLevel(in sampler_cmp s, in float<2> x, in float compareValue, in float lod, in int<1> o, out uint_only status);
 float_like [[]] SampleCmpLevelZero(in sampler_cmp s, in float<2> x, in float compareValue, in int<1> o, out uint_only status) : tex1d_t_comp_array_o_s;
 $classT [[]] SampleLevel(in sampler s, in float<2> x, in float lod, in int<1> o, out uint_only status) : tex1d_t_lod_array_o_s;
 $classT [[ro]] SampleBias(in sampler s, in float<2> x, in float bias, in int<1> o, in float clamp) : tex1d_t_bias_array_o_cl;
@@ -509,6 +515,8 @@ $classT [[ro]] SampleBias(in sampler s, in float<2> x, in float bias) : tex2d_t_
 $classT [[ro]] SampleBias(in sampler s, in float<2> x, in float bias, in int<2> o) : tex2d_t_bias_o;
 float_like [[ro]] SampleCmp(in sampler_cmp s, in float<2> x, in float compareValue) : tex2d_t_comp;
 float_like [[ro]] SampleCmp(in sampler_cmp s, in float<2> x, in float compareValue, in int<2> o) : tex2d_t_comp_o;
+float_like [[ro]] SampleCmpLevel(in sampler_cmp s, in float<2> x, in float compareValue, in float lod);
+float_like [[ro]] SampleCmpLevel(in sampler_cmp s, in float<2> x, in float compareValue, in float lod, in int<2> o);
 float_like [[ro]] SampleCmpLevelZero(in sampler_cmp s, in float<2> x, in float compareValue) : tex2d_t_comp_lz;
 float_like [[ro]] SampleCmpLevelZero(in sampler_cmp s, in float<2> x, in float compareValue, in int<2> o) : tex2d_t_comp_lz_o;
 $classT [[ro]] SampleGrad(in sampler s, in float<2> x, in $type2 ddx, in $type2 ddy) : tex2d_t_dd;
@@ -519,6 +527,7 @@ $classT [[ro]] Sample(in sampler s, in float<2> x, in int<2> o, in float clamp) 
 $classT [[]] Sample(in sampler s, in float<2> x, in int<2> o, in float clamp, out uint_only status) : tex2d_t_o_cl_s;
 float_like [[ro]] SampleCmp(in sampler_cmp s, in float<2> x, in float compareValue, in int<2> o, in float clamp) : tex2d_t_comp_o_cl;
 float_like [[]] SampleCmp(in sampler_cmp s, in float<2> x, in float compareValue, in int<2> o, in float clamp, out uint_only status) : tex2d_t_comp_o_cl_s;
+float_like [[]] SampleCmpLevel(in sampler_cmp s, in float<2> x, in float compareValue, in float lod, in int<2> o, out uint_only status);
 float_like [[]] SampleCmpLevelZero(in sampler_cmp s, in float<2> x, in float compareValue, in int<2> o, out uint_only status) : tex2d_t_comp_o_s;
 $classT [[]] SampleLevel(in sampler s, in float<2> x, in float lod, in int<2> o, out uint_only status) : tex2d_t_lod_o_s;
 $classT [[ro]] SampleBias(in sampler s, in float<2> x, in float bias, in int<2> o, in float clamp) : tex2d_t_bias_o_cl;
@@ -606,6 +615,8 @@ $classT [[ro]] SampleBias(in sampler s, in float<3> x, in float bias) : tex2d_t_
 $classT [[ro]] SampleBias(in sampler s, in float<3> x, in float bias, in int<2> o) : tex2d_t_bias_array_o;
 float_like [[ro]] SampleCmp(in sampler_cmp s, in float<3> x, in float compareValue) : tex2d_t_comp_array;
 float_like [[ro]] SampleCmp(in sampler_cmp s, in float<3> x, in float compareValue, in int<2> o) : tex2d_t_comp_array_o;
+float_like [[ro]] SampleCmpLevel(in sampler_cmp s, in float<3> x, in float compareValue, in float lod);
+float_like [[ro]] SampleCmpLevel(in sampler_cmp s, in float<3> x, in float compareValue, in float lod, in int<2> o);
 float_like [[ro]] SampleCmpLevelZero(in sampler_cmp s, in float<3> x, in float compareValue) : tex2d_t_comp_lz_array;
 float_like [[ro]] SampleCmpLevelZero(in sampler_cmp s, in float<3> x, in float compareValue, in int<2> o) : tex2d_t_comp_lz_array_o;
 $classT [[ro]] SampleGrad(in sampler s, in float<3> x, in $match<2, 2> float<2> ddx, in $match<2, 2> float<2> ddy) : tex2d_t_dd_array;
@@ -616,6 +627,7 @@ $classT [[ro]] Sample(in sampler s, in float<3> x, in int<2> o, in float clamp) 
 $classT [[]] Sample(in sampler s, in float<3> x, in int<2> o, in float clamp, out uint_only status) : tex2d_t_array_o_cl_s;
 float_like [[ro]] SampleCmp(in sampler_cmp s, in float<3> x, in float compareValue, in int<2> o, in float clamp) : tex2d_t_comp_array_o_cl;
 float_like [[]] SampleCmp(in sampler_cmp s, in float<3> x, in float compareValue, in int<2> o, in float clamp, out uint_only status) : tex2d_t_comp_array_o_cl_s;
+float_like [[]] SampleCmpLevel(in sampler_cmp s, in float<3> x, in float compareValue, in float lod, in int<2> o, out uint_only status);
 float_like [[]] SampleCmpLevelZero(in sampler_cmp s, in float<3> x, in float compareValue, in int<2> o, out uint_only status) : tex2d_t_comp_array_o_s;
 $classT [[]] SampleLevel(in sampler s, in float<3> x, in float lod, in int<2> o, out uint_only status) : tex2d_t_lod_array_o_s;
 $classT [[ro]] SampleBias(in sampler s, in float<3> x, in float bias, in int<2> o, in float clamp) : tex2d_t_bias_array_o_cl;
@@ -705,6 +717,7 @@ void [[]] GetDimensions(out float_like width, out $type1 height) : resinfo_o;
 $classT [[ro]] Sample(in sampler s, in float<3> x) : texcube_t;
 $classT [[ro]] SampleBias(in sampler s, in float<3> x, in float bias) : texcube_t_bias;
 float_like [[ro]] SampleCmp(in sampler_cmp s, in float<3> x, in float c) : texcube_t_comp;
+float_like [[ro]] SampleCmpLevel(in sampler_cmp s, in float<3> x, in float c, in float lod);
 float_like [[ro]] SampleCmpLevelZero(in sampler_cmp s, in float<3> x, in float c) : texcube_t_comp_lz;
 $classT [[ro]] SampleGrad(in sampler s, in float<3> x, in $type2 ddx, in $type2 ddy) : texcube_t_dd;
 $classT [[ro]] SampleLevel(in sampler s, in float<3> x, in float lod) : texcube_t_lod;
@@ -712,6 +725,7 @@ $classT [[ro]] Sample(in sampler s, in float<3> x, in float clamp) : texcube_t_c
 $classT [[]] Sample(in sampler s, in float<3> x, in float clamp, out uint_only status) : texcube_t_cl_s;
 float_like [[ro]] SampleCmp(in sampler_cmp s, in float<3> x, in float compareValue, in float clamp) : texcube_t_comp_cl;
 float_like [[]] SampleCmp(in sampler_cmp s, in float<3> x, in float compareValue, in float clamp, out uint_only status) : texcube_t_comp_cl_s;
+float_like [[]] SampleCmpLevel(in sampler_cmp s, in float<3> x, in float compareValue, in float lod, out uint_only status);
 float_like [[]] SampleCmpLevelZero(in sampler_cmp s, in float<3> x, in float compareValue, out uint_only status) : texcube_t_comp_s;
 $classT [[]] SampleLevel(in sampler s, in float<3> x, in float lod, out uint_only status) : texcube_t_lod_s;
 $classT [[ro]] SampleBias(in sampler s, in float<3> x, in float bias, in float clamp) : texcube_t_bias_cl;
@@ -751,6 +765,7 @@ void [[]] GetDimensions(out float_like width, out $type1 height, out $type1 elem
 $classT [[ro]] Sample(in sampler s, in float<4> x) : texcube_t_array;
 $classT [[ro]] SampleBias(in sampler s, in float<4> x, in float bias) : texcube_t_bias_array;
 float_like [[ro]] SampleCmp(in sampler_cmp s, in float<4> x, in float c) : texcube_t_comp_array;
+float_like [[ro]] SampleCmpLevel(in sampler_cmp s, in float<4> x, in float c, in float lod);
 float_like [[ro]] SampleCmpLevelZero(in sampler_cmp s, in float<4> x, in float c) : texcube_t_comp_lz_array;
 $classT [[ro]] SampleGrad(in sampler s, in float<4> x, in $match<2, 2> float<3> ddx, in $match<2, 2> float<3> ddy) : texcube_t_dd_array;
 $classT [[ro]] SampleLevel(in sampler s, in float<4> x, in float lod) : texcube_t_lod_array;
@@ -758,6 +773,7 @@ $classT [[ro]] Sample(in sampler s, in float<4> x, in float clamp) : texcube_t_a
 $classT [[]] Sample(in sampler s, in float<4> x, in float clamp, out uint_only status) : texcube_t_array_cl_s;
 float_like [[ro]] SampleCmp(in sampler_cmp s, in float<4> x, in float compareValue, in float clamp) : texcube_t_comp_array_cl;
 float_like [[]] SampleCmp(in sampler_cmp s, in float<4> x, in float compareValue, in float clamp, out uint_only status) : texcube_t_comp_array_cl_s;
+float_like [[]] SampleCmpLevel(in sampler_cmp s, in float<4> x, in float compareValue, in float lod, out uint_only status);
 float_like [[]] SampleCmpLevelZero(in sampler_cmp s, in float<4> x, in float compareValue, out uint_only status) : texcube_t_comp_array_s;
 $classT [[]] SampleLevel(in sampler s, in float<4> x, in float lod, out uint_only status) : texcube_t_lod_array_s;
 $classT [[ro]] SampleBias(in sampler s, in float<4> x, in float bias, in float clamp) : texcube_t_bias_array_cl;

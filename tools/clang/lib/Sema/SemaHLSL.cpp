@@ -5710,6 +5710,7 @@ HLSLExternalSource::IsValidateObjectElement(const HLSL_INTRINSIC *pIntrinsic,
   case IntrinsicOp::MOP_Sample:
   case IntrinsicOp::MOP_SampleBias:
   case IntrinsicOp::MOP_SampleCmp:
+  case IntrinsicOp::MOP_SampleCmpLevel:
   case IntrinsicOp::MOP_SampleCmpLevelZero:
   case IntrinsicOp::MOP_SampleGrad:
   case IntrinsicOp::MOP_SampleLevel: {
