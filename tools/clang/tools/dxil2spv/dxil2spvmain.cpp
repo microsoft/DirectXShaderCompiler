@@ -26,10 +26,10 @@
 //
 // OUTPUT
 // ======
-// TODO: The current implementation parses a DXIL file but does not yet produce
-// output.
+// TODO: The current implementation produces incomplete SPIR-V output.
 //===----------------------------------------------------------------------===//
 
+#include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DxilContainer/DxilContainerReader.h"
@@ -42,9 +42,15 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IRReader/IRReader.h"
+#include "llvm/Support/MSFileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/raw_ostream.h"
+
+#include "spirv-tools/libspirv.hpp"
+#include "clang/Frontend/TextDiagnosticPrinter.h"
+#include "clang/SPIRV/SpirvBuilder.h"
+#include "clang/SPIRV/SpirvContext.h"
 
 static dxc::DxcDllSupport dxcSupport;
 
@@ -53,11 +59,23 @@ int __cdecl wmain(int argc, const wchar_t **argv_) {
 #else
 int main(int argc, const char **argv_) {
 #endif // _WIN32
+  // Configure filesystem for llvm stdout and stderr handling.
+  if (llvm::sys::fs::SetupPerThreadFileSystem())
+    return DXC_E_GENERAL_INTERNAL_ERROR;
+  llvm::sys::fs::AutoCleanupPerThreadFileSystem auto_cleanup_fs;
+  llvm::sys::fs::MSFileSystem *msfPtr;
+  HRESULT hr;
+  if (!SUCCEEDED(hr = CreateMSFileSystemForDisk(&msfPtr)))
+    return DXC_E_GENERAL_INTERNAL_ERROR;
+  std::unique_ptr<llvm::sys::fs::MSFileSystem> msf(msfPtr);
+  llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
+  llvm::STDStreamCloser stdStreamCloser;
+
+  // Check input arguments.
   if (argc < 2) {
-    fprintf(stderr, "Required input file argument is missing.\n");
+    llvm::errs() << "Required input file argument is missing\n";
     return DXC_E_GENERAL_INTERNAL_ERROR;
   }
-
   hlsl::options::StringRefUtf16 filename(argv_[1]);
 
   // Read input file.
@@ -73,7 +91,7 @@ int main(int argc, const char **argv_) {
   std::unique_ptr<llvm::MemoryBuffer> memoryBuffer;
   std::unique_ptr<llvm::Module> module;
 
-  // Parse DXIL from bitcode.
+  // Parse LLVM module from bitcode.
   hlsl::DxilContainerHeader *pBlobHeader =
       (hlsl::DxilContainerHeader *)blob->GetBufferPointer();
   if (hlsl::IsValidDxilContainer(pBlobHeader,
@@ -95,7 +113,7 @@ int main(int argc, const char **argv_) {
           llvm::StringRef(blobContext, blobSize), context, DiagStr);
     }
   }
-  // Parse DXIL from IR.
+  // Parse LLVM module from IR.
   else {
     llvm::StringRef bufStrRef(blobContext, blobSize);
     memoryBuffer = llvm::MemoryBuffer::getMemBufferCopy(bufStrRef);
@@ -103,9 +121,59 @@ int main(int argc, const char **argv_) {
   }
 
   if (module == nullptr) {
-    fprintf(stderr, "Could not parse DXIL module.\n");
+    llvm::errs() << "Could not parse DXIL module\n";
     return DXC_E_GENERAL_INTERNAL_ERROR;
   }
+
+  // Construct DXIL module.
+  hlsl::DxilModule &program = module->GetOrCreateDxilModule();
+
+  const hlsl::ShaderModel *shaderModel = program.GetShaderModel();
+  if (shaderModel->GetKind() == hlsl::ShaderModel::Kind::Invalid)
+    llvm::errs() << "Unknown shader model: " << shaderModel->GetName();
+
+  // Set shader model kind and HLSL major/minor version.
+  clang::spirv::SpirvContext spvContext;
+  spvContext.setCurrentShaderModelKind(shaderModel->GetKind());
+  spvContext.setMajorVersion(shaderModel->GetMajor());
+  spvContext.setMinorVersion(shaderModel->GetMinor());
+
+  clang::spirv::SpirvCodeGenOptions spvOpts{};
+  spvOpts.targetEnv =
+      "vulkan1.0"; // TODO: Allow configuration of targetEnv via options.
+
+  // Construct SPIR-V builder with diagnostics
+  clang::IntrusiveRefCntPtr<clang::DiagnosticOptions> diagnosticOpts =
+      new clang::DiagnosticOptions();
+  clang::TextDiagnosticPrinter diagnosticPrinter(llvm::errs(),
+                                                 &*diagnosticOpts);
+  clang::DiagnosticsEngine diagnosticEngine(
+      clang::IntrusiveRefCntPtr<clang::DiagnosticIDs>(
+          new clang::DiagnosticIDs()),
+      &*diagnosticOpts, &diagnosticPrinter, false);
+
+  clang::spirv::FeatureManager featureMgr(diagnosticEngine, spvOpts);
+  clang::spirv::SpirvBuilder spvBuilder(spvContext, spvOpts, featureMgr);
+
+  // Set default addressing and memory model for SPIR-V module.
+  spvBuilder.setMemoryModel(spv::AddressingModel::Logical,
+                            spv::MemoryModel::GLSL450);
+
+  // Contsruct the SPIR-V module.
+  std::vector<uint32_t> m = spvBuilder.takeModule();
+
+  // Disassemble SPIR-V for output.
+  std::string assembly;
+  spvtools::SpirvTools spirvTools(SPV_ENV_VULKAN_1_1);
+  uint32_t spirvDisOpts = (SPV_BINARY_TO_TEXT_OPTION_FRIENDLY_NAMES |
+                           SPV_BINARY_TO_TEXT_OPTION_INDENT);
+
+  if (!spirvTools.Disassemble(m, &assembly, spirvDisOpts)) {
+    llvm::errs() << "SPIR-V disassembly failed\n";
+    return DXC_E_GENERAL_INTERNAL_ERROR;
+  }
+
+  llvm::outs() << assembly;
 
   return 0;
 }

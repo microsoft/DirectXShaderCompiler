@@ -52,6 +52,8 @@ class SpirvBuilder {
 public:
   SpirvBuilder(ASTContext &ac, SpirvContext &c, const SpirvCodeGenOptions &,
                FeatureManager &featureMgr);
+  SpirvBuilder(SpirvContext &c, const SpirvCodeGenOptions &,
+               FeatureManager &featureMgr);
   ~SpirvBuilder() = default;
 
   // Forbid copy construction and assignment
@@ -792,7 +794,7 @@ private:
                                               SpirvInstruction *var);
 
 private:
-  ASTContext &astContext;
+  ASTContext *astContext;
   SpirvContext &context; ///< From which we allocate various SPIR-V object
   FeatureManager &featureManager;
 
