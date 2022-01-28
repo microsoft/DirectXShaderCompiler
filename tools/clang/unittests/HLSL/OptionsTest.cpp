@@ -60,6 +60,7 @@ public:
     TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
+      /*
   TEST_METHOD(ReadOptionsWhenDefinesThenInit)
   TEST_METHOD(ReadOptionsWhenExtensionsThenOK)
   TEST_METHOD(ReadOptionsWhenHelpThenShortcut)
@@ -79,6 +80,9 @@ public:
   //TEST_METHOD(CopyOptionsWhenMultipleThenOK)
 
   TEST_METHOD(ReadOptionsJoinedWithSpacesThenOK)
+  */
+  TEST_METHOD(ReadOptionsImplicitInput)
+
 
   std::unique_ptr<DxcOpts> ReadOptsTest(const MainArgs &mainArgs,
                                         unsigned flagsToInclude,
@@ -105,7 +109,7 @@ public:
     VERIFY_ARE_EQUAL_STR(expectErrorMsg, errorStream.str().c_str());
   }
 };
-
+/*
 TEST_F(OptionsTest, ReadOptionsWhenExtensionsThenOK) {
   const wchar_t *Args[] = {
       L"exe.exe",   L"/E",        L"main",    L"/T",           L"ps_6_0",
@@ -348,4 +352,11 @@ TEST_F(OptionsTest, ReadOptionsJoinedWithSpacesThenOK) {
     VERIFY_ARE_EQUAL_STR("CreateObj", o->ExternalFn.data());
     VERIFY_ARE_EQUAL_STR("foo.dll", o->ExternalLib.data());
   }
+}
+*/
+TEST_F(OptionsTest, ReadOptionsImplicitInput) {
+  const wchar_t *Args[] = {L"/Zpc", L"/Qstrip_debug", L"/Qstrip_priv", L"/O3"};
+  MainArgsArr ArgsArr(Args);
+  std::unique_ptr<DxcOpts> o = ReadOptsTest(ArgsArr, DxcFlags, true, true);
+  VERIFY_ARE_EQUAL_STR("hlsl.hlsl", o->InputFile.data());
 }

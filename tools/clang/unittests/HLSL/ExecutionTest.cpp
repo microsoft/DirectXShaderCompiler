@@ -8361,7 +8361,45 @@ TEST_F(ExecutionTest, DynamicResourcesTest) {
     return;
   }
 
-  RunResourceTest(pDevice, pShader, L"cs_6_6", /*isDynamic*/true);
+  RunResourceTest(pDevice, pShader, L"cs_6_6", /*isDynamic*/false);
+  // Now test dynamic indexing
+
+  static const char pShaderDynamic[] =
+      "cbuffer Settings : register(b0, space0)"
+      "{"
+      "    uint InputIndex;"
+      "};"
+      "SamplerState PointClamp : register(s0, space0);"
+      "struct VSOutput {"
+      "  float2 Texture : TEXCOORD0;"
+      "};"
+      "float4 PSMain(VSOutput IN) : SV_TARGET"
+      "{"
+      "    Texture2D Input = ResourceDescriptorHeap[InputIndex];" // Dynamic
+      "    float3 color = Input.Sample(PointClamp, IN.Texture).rgb;"
+      "    color = color+1;"
+      "    return float4(color, 1.0f);"
+      "}\n";
+
+  CComPtr<ID3D12Device> pDeviceDynamic;
+  if (!CreateDevice(&pDeviceDynamic, D3D_SHADER_MODEL_6_6))
+    return;
+
+  // ResourceDescriptorHeap/SamplerDescriptorHeap requires Resource Binding Tier
+  // 3
+  D3D12_FEATURE_DATA_D3D12_OPTIONS devOptionsDynamic;
+  VERIFY_SUCCEEDED(
+      pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS, &devOptionsDynamic,
+      sizeof(devOptionsDynamic)));
+  if (devOptionsDynamic.ResourceBindingTier < D3D12_RESOURCE_BINDING_TIER_3) {
+    WEX::Logging::Log::Comment(
+        L"Device does not support Resource Binding Tier 3");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
+  RunResourceTest(pDeviceDynamic, pShaderDynamic, L"cs_6_6", /*isDynamic*/ true);
+
 }
 
 
