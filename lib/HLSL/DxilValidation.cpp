@@ -883,10 +883,14 @@ static void ValidateCalcLODResourceDimensionCoord(CallInst *CI, DXIL::ResourceKi
 static void ValidateResourceOffset(CallInst *CI, DXIL::ResourceKind resKind,
                                    ArrayRef<Value *> offsets,
                                    ValidationContext &ValCtx) {
+  const ShaderModel *pSM = ValCtx.DxilMod.GetShaderModel();
+
   unsigned numOffsets = DxilResource::GetNumOffsets(resKind);
   bool hasOffset = !isa<UndefValue>(offsets[0]);
 
   auto validateOffset = [&](Value *offset) {
+    // 6.7 Advanced Textures allow programmable offsets
+    if (pSM->IsSM67Plus()) return;
     if (ConstantInt *cOffset = dyn_cast<ConstantInt>(offset)) {
       int offset = cOffset->getValue().getSExtValue();
       if (offset > 7 || offset < -8) {
