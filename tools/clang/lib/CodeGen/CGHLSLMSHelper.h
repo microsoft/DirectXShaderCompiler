@@ -16,6 +16,7 @@ namespace clang {
 class HLSLPatchConstantFuncAttr;
 namespace CodeGen {
 class CodeGenModule;
+class CodeGenFunction;
 }
 }
 
@@ -150,10 +151,16 @@ struct DxilObjectProperties {
   bool AddResource(llvm::Value *V, const hlsl::DxilResourceProperties &RP);
   bool IsResource(llvm::Value *V);
   hlsl::DxilResourceProperties GetResource(llvm::Value *V);
+  void updateGLC(llvm::Value *V);
 
   // MapVector for deterministic iteration order.
   llvm::MapVector<llvm::Value *, hlsl::DxilResourceProperties> resMap;
 };
+
+void CopyAndAnnotateResourceArgument(llvm::Value *Src, llvm::Value *Dest,
+                                     hlsl::DxilResourceProperties &RP,
+                                     hlsl::HLModule &HLM,
+                                     clang::CodeGen::CodeGenFunction &CGF);
 
 // Align cbuffer offset in legacy mode (16 bytes per row).
 unsigned AlignBufferOffsetInLegacy(unsigned offset, unsigned size,
