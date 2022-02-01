@@ -52,6 +52,8 @@ class SpirvBuilder {
 public:
   SpirvBuilder(ASTContext &ac, SpirvContext &c, const SpirvCodeGenOptions &,
                FeatureManager &featureMgr);
+  SpirvBuilder(SpirvContext &c, const SpirvCodeGenOptions &,
+               FeatureManager &featureMgr);
   ~SpirvBuilder() = default;
 
   // Forbid copy construction and assignment
@@ -732,6 +734,7 @@ public:
 
 public:
   std::vector<uint32_t> takeModule();
+  std::vector<uint32_t> takeModuleForDxilToSpv();
 
 protected:
   /// Only friend classes are allowed to add capability/extension to the module
@@ -792,7 +795,7 @@ private:
                                               SpirvInstruction *var);
 
 private:
-  ASTContext &astContext;
+  ASTContext *astContext;
   SpirvContext &context; ///< From which we allocate various SPIR-V object
   FeatureManager &featureManager;
 
