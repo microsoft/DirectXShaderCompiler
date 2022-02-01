@@ -347,7 +347,7 @@ void EmitAssemblyHelper::CreatePasses() {
                         CodeGenOpts.HLSLOptimizationToggles.find("debug-nops")->second;
 
   PMBuilder.HLSLEnableLifetimeMarkers =
-      CodeGenOpts.HLSLEnableLifetimeMarkers &
+      CodeGenOpts.HLSLEnableLifetimeMarkers &&
       (!CodeGenOpts.HLSLOptimizationToggles.count("lifetime-markers") ||
        CodeGenOpts.HLSLOptimizationToggles.find("lifetime-markers")->second);
   // HLSL Change - end
