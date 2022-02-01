@@ -139,8 +139,8 @@ int main(int argc, const char **argv_) {
   spvContext.setMinorVersion(shaderModel->GetMinor());
 
   clang::spirv::SpirvCodeGenOptions spvOpts{};
-  spvOpts.targetEnv =
-      "vulkan1.0"; // TODO: Allow configuration of targetEnv via options.
+  // TODO: Allow configuration of targetEnv via options.
+  spvOpts.targetEnv = "vulkan1.0";
 
   // Construct SPIR-V builder with diagnostics
   clang::IntrusiveRefCntPtr<clang::DiagnosticOptions> diagnosticOpts =
@@ -160,7 +160,7 @@ int main(int argc, const char **argv_) {
                             spv::MemoryModel::GLSL450);
 
   // Contsruct the SPIR-V module.
-  std::vector<uint32_t> m = spvBuilder.takeModule();
+  std::vector<uint32_t> m = spvBuilder.takeModuleForDxilToSpv();
 
   // Disassemble SPIR-V for output.
   std::string assembly;

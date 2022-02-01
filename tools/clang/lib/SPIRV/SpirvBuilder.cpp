@@ -1639,17 +1639,14 @@ std::vector<uint32_t> SpirvBuilder::takeModule() {
   addModuleInitCallToEntryPoints();
 
   // Run necessary visitor passes first
-  if (astContext) {
     LiteralTypeVisitor literalTypeVisitor(*astContext, context, spirvOptions);
     mod->invokeVisitor(&literalTypeVisitor, true);
-  }
 
   // Propagate NonUniform decorations
   NonUniformVisitor nonUniformVisitor(context, spirvOptions);
   mod->invokeVisitor(&nonUniformVisitor);
 
   // Lower types
-  if (astContext) {
     LowerTypeVisitor lowerTypeVisitor(*astContext, context, spirvOptions);
     mod->invokeVisitor(&lowerTypeVisitor);
 
@@ -1661,7 +1658,6 @@ std::vector<uint32_t> SpirvBuilder::takeModule() {
       mod->invokeVisitor(&debugTypeVisitor);
       mod->invokeVisitor(&sortDebugInfoVisitor);
     }
-  }
 
   // Add necessary capabilities and extensions
   CapabilityVisitor capabilityVisitor(*astContext, context, spirvOptions, *this,
@@ -1678,11 +1674,37 @@ std::vector<uint32_t> SpirvBuilder::takeModule() {
 
   // Remove BufferBlock decoration if necessary (this decoration is deprecated
   // after SPIR-V 1.3).
-  if (astContext) {
     RemoveBufferBlockVisitor removeBufferBlockVisitor(
         *astContext, context, spirvOptions, featureManager);
     mod->invokeVisitor(&removeBufferBlockVisitor);
-  }
+
+  // Emit SPIR-V
+  EmitVisitor emitVisitor(astContext, context, spirvOptions, featureManager);
+  mod->invokeVisitor(&emitVisitor);
+
+  return emitVisitor.takeBinary();
+}
+
+std::vector<uint32_t> SpirvBuilder::takeModuleForDxilToSpv() {
+  endModuleInitFunction();
+  addModuleInitCallToEntryPoints();
+
+  // Propagate NonUniform decorations
+  NonUniformVisitor nonUniformVisitor(context, spirvOptions);
+  mod->invokeVisitor(&nonUniformVisitor);
+
+  // Add necessary capabilities and extensions
+  CapabilityVisitor capabilityVisitor(*astContext, context, spirvOptions, *this,
+                                      featureManager);
+  mod->invokeVisitor(&capabilityVisitor);
+
+  // Propagate RelaxedPrecision decorations
+  RelaxedPrecisionVisitor relaxedPrecisionVisitor(context, spirvOptions);
+  mod->invokeVisitor(&relaxedPrecisionVisitor);
+
+  // Propagate NoContraction decorations
+  PreciseVisitor preciseVisitor(context, spirvOptions);
+  mod->invokeVisitor(&preciseVisitor, true);
 
   // Emit SPIR-V
   EmitVisitor emitVisitor(astContext, context, spirvOptions, featureManager);

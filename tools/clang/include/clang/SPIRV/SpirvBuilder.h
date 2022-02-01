@@ -734,6 +734,7 @@ public:
 
 public:
   std::vector<uint32_t> takeModule();
+  std::vector<uint32_t> takeModuleForDxilToSpv();
 
 protected:
   /// Only friend classes are allowed to add capability/extension to the module
