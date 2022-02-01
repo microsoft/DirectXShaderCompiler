@@ -1062,6 +1062,21 @@ public:
     CreateUAV(pDevice, heapStart, format, D3D12_UAV_DIMENSION_TEXTURE2D, numElements, 0, pResource);
   }
 
+  void Create_CBV(ID3D12Device *pDevice,
+                  CD3DX12_CPU_DESCRIPTOR_HANDLE &baseHandle,
+                  UINT numElements, D3D12_VERTEX_BUFFER_VIEW *cbv_buffer) {
+    UINT descriptorSize = pDevice->GetDescriptorHandleIncrementSize(
+        D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    // Create CBV
+    D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc;
+    
+    cbvDesc.BufferLocation = cbv_buffer->BufferLocation;
+    cbvDesc.SizeInBytes = sizeof(UINT32) * numElements;
+    
+    pDevice->CreateConstantBufferView(&cbvDesc, baseHandle);
+    baseHandle.Offset(descriptorSize);
+  }
+
   // Create Samplers for <pDevice> given the filter and border color information provided
   // using some reasonable defaults
   void CreateDefaultSamplers(ID3D12Device *pDevice, D3D12_CPU_DESCRIPTOR_HANDLE heapStart,
@@ -7421,7 +7436,7 @@ ExecutionTest::WaveIntrinsicsMultiPrefixOpTest(TableParameter *pParameterList,
           return (a->laneId < b->laneId);
         }
       } compare;
-	  // Need to sort based on the lane id
+    // Need to sort based on the lane id
       std::sort(waveData.begin(), waveData.end(), compare);
 
       LogCommentFmt(L"LaneId    Mask      Key       Value     Result    Expected");
@@ -8362,6 +8377,59 @@ TEST_F(ExecutionTest, DynamicResourcesTest) {
   }
 
   RunResourceTest(pDevice, pShader, L"cs_6_6", /*isDynamic*/true);
+
+  // Now test dynamic indexing
+  CD3DX12_CPU_DESCRIPTOR_HANDLE baseHandle;
+  CComPtr<ID3D12Resource> pVertexBuffer;
+  D3D12_VERTEX_BUFFER_VIEW vertexBufferView;
+
+  // Imagine these are vertices on a 1-dimensional line
+  struct Vertex {
+    UINT32 x;
+  };
+
+  Vertex Vertices[] = {{{0}}, {{1}}, {{2}}, {{3}}, {{4}}, {{5}}, {{6}}, {{7}}};
+  UINT numElements = 8;
+
+  CreateVertexBuffer(pDevice, Vertices, &pVertexBuffer, &vertexBufferView);
+
+  Create_CBV(pDevice, baseHandle, numElements, &vertexBufferView);
+  static const char pShaderDynamic[] =
+    "static ByteAddressBuffer         g_rawBuf      = ResourceDescriptorHeap[baseHandle[0]];\n"
+    "static StructuredBuffer<float>   g_structBuf   = ResourceDescriptorHeap[baseHandle[1]];\n"
+    "static Texture2D<float>          g_tex         = ResourceDescriptorHeap[baseHandle[2]];\n"
+    "static RWByteAddressBuffer       g_rwRawBuf    = ResourceDescriptorHeap[baseHandle[3]];\n"
+    "static RWStructuredBuffer<float> g_rwStructBuf = ResourceDescriptorHeap[baseHandle[4]];\n"
+    "static RWBuffer<float>           g_result      = ResourceDescriptorHeap[baseHandle[5]];\n"
+    "static RWTexture1D<float>        g_rwTex       = ResourceDescriptorHeap[baseHandle[6]];\n"
+    "static SamplerState              g_samp        = SamplerDescriptorHeap[baseHandle[0]];\n"
+    "static SamplerComparisonState    g_sampCmp     = SamplerDescriptorHeap[baseHandle[1]];\n"
+    "[NumThreads(1, 1, 1)]\n"
+    "void main(uint ix : SV_GroupIndex) {\n"
+    "  g_result[[baseHandle[0]]] = g_rawBuf.Load<float>(0);\n"
+    "  g_result[[baseHandle[1]]] = g_structBuf.Load(0);\n"
+    "  g_result[[baseHandle[2]]] = g_tex.Load(0);\n"
+    "  g_result[[baseHandle[3]]] = g_rwRawBuf.Load<float>(0);\n"
+    "  g_result[[baseHandle[4]]] = g_rwStructBuf.Load(0);\n"
+    "  g_result[[baseHandle[5]]] = g_rwTex.Load(0);\n"
+    "  g_result[[baseHandle[6]]] = g_tex.SampleLevel(g_samp, -0.5, 0);\n"
+    "  g_result[[baseHandle[7]]] = g_tex.SampleCmpLevelZero(g_sampCmp, -0.5, 31.0);\n"
+    "}\n";
+
+  // ResourceDescriptorHeap/SamplerDescriptorHeap requires Resource Binding Tier
+  // 3
+  VERIFY_SUCCEEDED(
+      pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS, &devOptions,
+      sizeof(devOptions)));
+  if (devOptions.ResourceBindingTier < D3D12_RESOURCE_BINDING_TIER_3) {
+    WEX::Logging::Log::Comment(
+        L"Device does not support Resource Binding Tier 3");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
+  RunResourceTest(pDevice, pShaderDynamic, L"cs_6_6", /*isDynamic*/ true);
+
 }
 
 
