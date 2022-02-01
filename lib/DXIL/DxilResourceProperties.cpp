@@ -209,51 +209,57 @@ DxilResourceProperties loadPropsFromResourceBase(const DxilResourceBase *Res) {
   return RP;
 }
 
-DxilResourceProperties tryMergeProps(DxilResourceProperties propsA,
-                                     DxilResourceProperties propsB) {
+// Merge 2 props on a chain of annotateHandle.
+DxilResourceProperties tryMergeProps(DxilResourceProperties curProps,
+                                     DxilResourceProperties prevProps) {
   DxilResourceProperties props;
-  if (propsA.Basic.ResourceKind != propsB.Basic.ResourceKind) {
+  if (curProps.Basic.ResourceKind != prevProps.Basic.ResourceKind) {
     return props;
   }
 
-  if (propsA.Basic.IsUAV != propsB.Basic.IsUAV)
+  if (curProps.Basic.IsUAV != prevProps.Basic.IsUAV)
     return props;
 
-  if (propsA.Basic.IsUAV) {
+  if (curProps.Basic.IsUAV) {
     // Or hasCounter.
-    if (propsA.Basic.SamplerCmpOrHasCounter !=
-        propsB.Basic.SamplerCmpOrHasCounter) {
-      propsA.Basic.SamplerCmpOrHasCounter = true;
-      propsB.Basic.SamplerCmpOrHasCounter = true;
+    if (curProps.Basic.SamplerCmpOrHasCounter !=
+        prevProps.Basic.SamplerCmpOrHasCounter) {
+      curProps.Basic.SamplerCmpOrHasCounter = true;
+      prevProps.Basic.SamplerCmpOrHasCounter = true;
+    }
+    // curProps follow prevProps.
+    if (curProps.Basic.IsGloballyCoherent !=
+        prevProps.Basic.IsGloballyCoherent) {
+      curProps.Basic.IsGloballyCoherent = prevProps.Basic.IsGloballyCoherent;
     }
   }
 
-  if (propsA.Basic.ResourceKind == (uint8_t)DXIL::ResourceKind::CBuffer) {
+  if (curProps.Basic.ResourceKind == (uint8_t)DXIL::ResourceKind::CBuffer) {
     // use max cbuffer size.
-    if (propsA.CBufferSizeInBytes != propsB.CBufferSizeInBytes) {
-      propsA.CBufferSizeInBytes =
-          std::max(propsA.CBufferSizeInBytes, propsB.CBufferSizeInBytes);
-      propsB.CBufferSizeInBytes = propsA.CBufferSizeInBytes;
+    if (curProps.CBufferSizeInBytes != prevProps.CBufferSizeInBytes) {
+      curProps.CBufferSizeInBytes =
+          std::max(curProps.CBufferSizeInBytes, prevProps.CBufferSizeInBytes);
+      prevProps.CBufferSizeInBytes = curProps.CBufferSizeInBytes;
     }
   }
 
   // If still not match after merge.
   // return null.
-  if (propsA.RawDword0 != propsB.RawDword0 ||
-      propsA.RawDword1 != propsB.RawDword1)
+  if (curProps.RawDword0 != prevProps.RawDword0 ||
+      curProps.RawDword1 != prevProps.RawDword1)
     return props;
-  return propsA;
+  return curProps;
 }
-
-Constant *tryMergeProps(const Constant *a, const Constant *b, Type *Ty,
+// Merge 2 props on a chain of annotateHandle.
+Constant *tryMergeProps(const Constant *curPropsConst, const Constant *prevPropsConst, Type *Ty,
                         const ShaderModel &SM) {
-  if (a == b)
-    return const_cast<Constant *>(a);
+  if (curPropsConst == prevPropsConst)
+    return const_cast<Constant *>(curPropsConst);
 
-  DxilResourceProperties propsA = loadPropsFromConstant(*a);
-  DxilResourceProperties propsB = loadPropsFromConstant(*b);
+  DxilResourceProperties curProps = loadPropsFromConstant(*curPropsConst);
+  DxilResourceProperties prevProps = loadPropsFromConstant(*prevPropsConst);
 
-  DxilResourceProperties props = tryMergeProps(propsA, propsB);
+  DxilResourceProperties props = tryMergeProps(curProps, prevProps);
 
   if (!props.isValid()) {
     return nullptr;
