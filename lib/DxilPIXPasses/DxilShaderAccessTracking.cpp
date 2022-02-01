@@ -64,10 +64,41 @@ enum class ShaderAccessFlags : uint32_t {
   // GetDimensions
   DescriptorRead = 1 << 0,
 };
-constexpr uint32_t InstructionOrdinalndicator = 0x8000'0000;
+
+// Bits in encoded dword:
+// 33222222222211111111110000000000
+// 10987654321098765432109876543210
+// kkkkisssrrrrrrrrrrrrrrrrrrrrrrrr
+//
+// k: four bits ShaderKind
+// i: one bit InstructionOrdinalndicator
+// r: 24 bits if i = 0 (resource index) else (instruction ordinal)
+
+constexpr uint32_t InstructionOrdinalndicator = 0x0800'0000;
 
 // (end shared types)
 //---------------------------------------------------------------------------------------------------------------------------------
+
+static uint32_t EncodeShaderModel(DXIL::ShaderKind kind) {
+  DXASSERT_NOMSG(static_cast<int>(DXIL::ShaderKind::Invalid) <= 16);
+  return static_cast<uint32_t>(kind) << 28;
+}
+
+enum class ResourceAccessStyle {
+  None,
+  Sampler,
+  UAVRead,
+  UAVWrite,
+  CBVRead,
+  SRVRead,
+  EndOfEnum
+};
+
+static uint32_t EncodeAccess(ResourceAccessStyle access) {
+  DXASSERT_NOMSG(static_cast<int>(ResourceAccessStyle::EndOfEnum) <= 8);
+  uint32_t encoded = static_cast<uint32_t>(access);
+  return encoded << 24;
+}
 
 constexpr uint32_t DWORDsPerResource = 3;
 constexpr uint32_t BytesPerDWORD = 4;
@@ -163,27 +194,6 @@ struct DxilResourceAndClass {
   Value *index;
   Value *dynamicallyBoundIndex;
 };
-
-enum class ResourceAccessStyle {
-  None,
-  Sampler,
-  UAVRead,
-  UAVWrite,
-  CBVRead,
-  SRVRead,
-  EndOfEnum
-};
-
-static uint32_t EncodeShaderModel(DXIL::ShaderKind kind) {
-  DXASSERT_NOMSG(static_cast<int>(DXIL::ShaderKind::Invalid) <= 16);
-  return static_cast<uint32_t>(kind) << 27;
-}
-
-static uint32_t EncodeAccess(ResourceAccessStyle access) {
-  uint32_t encoded = static_cast<uint32_t>(access);
-  DXASSERT_NOMSG(encoded < 8);
-  return encoded << 24;
-}
 
 //---------------------------------------------------------------------------------------------------------------------------------
 
