@@ -298,7 +298,7 @@ void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc,
   }
 
   auto fileId = debugMainFileId;
-  const auto &sm = astContext.getSourceManager();
+  const auto &sm = astContext->getSourceManager();
   const char *fileName = sm.getPresumedLoc(loc).getFilename();
   if (fileName)
     fileId = getOrCreateOpStringId(fileName);
