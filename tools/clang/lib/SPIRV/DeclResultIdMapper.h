@@ -392,6 +392,14 @@ public:
   /// for it.
   SpirvInstruction *createOrUpdateStringVar(const VarDecl *);
 
+  /// \brief Returns an instruction that represents the given VarDecl.
+  /// VarDecl must be a variable of vk::ext_result_id<Type> type.
+  ///
+  /// This function inspects the VarDecl for an initialization expression. If
+  /// initialization expression is not found, it will emit an error because the
+  /// variable with result id requires an initialization.
+  SpirvInstruction *createResultId(const VarDecl *var);
+
   /// \brief Creates an Enum constant.
   void createEnumConstant(const EnumConstantDecl *decl);
 
@@ -468,9 +476,12 @@ public:
   };
 
   /// Raytracing specific functions
-  /// \brief Creates a ShaderRecordBufferEXT or ShaderRecordBufferNV block from the given decl.
-  SpirvVariable *createShaderRecordBuffer(const VarDecl *decl, ContextUsageKind kind);
-  SpirvVariable *createShaderRecordBuffer(const HLSLBufferDecl *decl, ContextUsageKind kind);
+  /// \brief Creates a ShaderRecordBufferEXT or ShaderRecordBufferNV block from
+  /// the given decl.
+  SpirvVariable *createShaderRecordBuffer(const VarDecl *decl,
+                                          ContextUsageKind kind);
+  SpirvVariable *createShaderRecordBuffer(const HLSLBufferDecl *decl,
+                                          ContextUsageKind kind);
 
 private:
   /// The struct containing SPIR-V information of a AST Decl.
@@ -508,7 +519,8 @@ public:
   /// \brief Returns the information for the given decl.
   ///
   /// This method will panic if the given decl is not registered.
-  SpirvInstruction *getDeclEvalInfo(const ValueDecl *decl, SourceLocation loc);
+  SpirvInstruction *getDeclEvalInfo(const ValueDecl *decl, SourceLocation loc,
+                                    SourceRange range = {});
 
   /// \brief Returns the instruction pointer for the given function if already
   /// registered; otherwise, treats the given function as a normal decl and
@@ -563,11 +575,12 @@ public:
   /// This method is specially for writing back per-vertex data at the time of
   /// OpEmitVertex in GS.
   bool writeBackOutputStream(const NamedDecl *decl, QualType type,
-                             SpirvInstruction *value);
+                             SpirvInstruction *value, SourceRange range = {});
 
   /// \brief Negates to get the additive inverse of SV_Position.y if requested.
   SpirvInstruction *invertYIfRequested(SpirvInstruction *position,
-                                       SourceLocation loc);
+                                       SourceLocation loc,
+                                       SourceRange range = {});
 
   /// \brief Reciprocates to get the multiplicative inverse of SV_Position.w
   /// if requested.
@@ -612,9 +625,12 @@ public:
     return value;
   }
 
-  /// \brief Decorate variable with spirv intrinsic attributes
-  void decorateVariableWithIntrinsicAttrs(const NamedDecl *decl,
-                                          SpirvVariable *varInst);
+  /// Decorate with spirv intrinsic attributes with lamda function variable
+  /// check
+  void decorateWithIntrinsicAttrs(
+      const NamedDecl *decl, SpirvVariable *varInst,
+      llvm::function_ref<void(VKDecorateExtAttr *)> extraFunctionForDecoAttr =
+          [](VKDecorateExtAttr *) {});
 
   /// \brief Creates instructions to load the value of output stage variable
   /// defined by outputPatchDecl and store it to ptr. Since the output stage
@@ -843,15 +859,17 @@ private:
   bool getImplicitRegisterType(const ResourceVar &var,
                                char *registerTypeOut) const;
 
-  /// Decorate with spirv intrinsic attributes with lamda function variable
-  /// check
-  template <typename Functor>
-  void decorateWithIntrinsicAttrs(const NamedDecl *decl, SpirvVariable *varInst,
-                                  Functor func);
+  /// \brief Decorates stage variable with spirv intrinsic attributes. If
+  /// it is BuiltIn or Location decoration, sets locOrBuiltinDecorateAttr
+  /// of stageVar as true.
+  void decorateStageVarWithIntrinsicAttrs(const NamedDecl *decl,
+                                          StageVar *stageVar,
+                                          SpirvVariable *varInst);
 
 private:
   SpirvBuilder &spvBuilder;
   SpirvEmitter &theEmitter;
+  FeatureManager &featureManager;
   const SpirvCodeGenOptions &spirvOptions;
   ASTContext &astContext;
   SpirvContext &spvContext;
@@ -978,8 +996,8 @@ DeclResultIdMapper::DeclResultIdMapper(ASTContext &context,
                                        SpirvEmitter &emitter,
                                        FeatureManager &features,
                                        const SpirvCodeGenOptions &options)
-    : spvBuilder(spirvBuilder), theEmitter(emitter), spirvOptions(options),
-      astContext(context), spvContext(spirvContext),
+    : spvBuilder(spirvBuilder), theEmitter(emitter), featureManager(features),
+      spirvOptions(options), astContext(context), spvContext(spirvContext),
       diags(context.getDiagnostics()), entryFunction(nullptr),
       needsLegalization(false), needsFlatteningCompositeResources(false),
       glPerVertex(context, spirvContext, spirvBuilder) {}

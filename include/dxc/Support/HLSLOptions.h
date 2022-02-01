@@ -121,6 +121,7 @@ public:
   llvm::StringRef OutputReflectionFile; // OPT_Fre
   llvm::StringRef OutputRootSigFile; // OPT_Frs
   llvm::StringRef OutputShaderHashFile; // OPT_Fsh
+  llvm::StringRef OutputFileForDependencies; // OPT_write_dependencies_to
   llvm::StringRef Preprocess; // OPT_P
   llvm::StringRef TargetProfile; // OPT_target_profile
   llvm::StringRef VariableName; // OPT_Vn
@@ -146,6 +147,8 @@ public:
   bool DebugNameForBinary = false; // OPT_Zsb
   bool DebugNameForSource = false; // OPT_Zss
   bool DumpBin = false;        // OPT_dumpbin
+  bool DumpDependencies = false;  // OPT_dump_dependencies
+  bool WriteDependencies = false; // OPT_write_dependencies
   bool Link = false;        // OPT_link
   bool WarningAsError = false; // OPT__SLASH_WX
   bool IEEEStrict = false;     // OPT_Gis
@@ -218,6 +221,7 @@ public:
   std::map<std::string, std::string> OverrideSemDefs; // OPT_override_semdef
 
   bool PrintAfterAll; // OPT_print_after_all
+  std::set<std::string> PrintAfter; // OPT_print_after
   bool EnablePayloadQualifiers = false; // OPT_enable_payload_qualifiers
   bool HandleExceptions = false; // OPT_disable_exception_handling
 

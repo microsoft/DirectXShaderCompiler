@@ -46,7 +46,8 @@ public:
 
 DxcArgsFileSystem *
 CreateDxcArgsFileSystem(_In_ IDxcBlobUtf8 *pSource, _In_ LPCWSTR pSourceName,
-                        _In_opt_ IDxcIncludeHandler *pIncludeHandler);
+                        _In_opt_ IDxcIncludeHandler *pIncludeHandler,
+                        _In_opt_ UINT32 defaultCodePage = CP_ACP);
 
 void MakeAbsoluteOrCurDirRelativeW(LPCWSTR &Path, std::wstring &PathStorage);
 

@@ -217,7 +217,9 @@ static unsigned CharSizeFromCodePage(UINT32 codePage) {
 // We do not handle translation from these code page values.
 static bool IsUnsupportedUtfCodePage(UINT32 codePage) {
   switch (codePage) {
+#ifdef _WIN32
     case CP_UTF32LE:
+#endif
     case CP_UTF32BE:
     case CP_UTF16BE:
       return true;
@@ -473,8 +475,14 @@ static HRESULT CodePageBufferToUtf8(UINT32 codePage, LPCVOID bufferPointer,
   CDxcMallocHeapPtr<WCHAR> utf16NewCopy(pMalloc);
   UINT32 utf16CharCount = 0;
   const WCHAR *utf16Chars = nullptr;
+#if _WIN32
   if (codePage == CP_UTF16) {
-    DXASSERT(IsSizeWcharAligned(bufferSize), "otherwise, odd buffer size with UTF-16");
+#else
+  if (codePage == CP_UTF16 || codePage == CP_UTF32LE) {
+#endif
+    if (!IsSizeWcharAligned(bufferSize))
+      throw hlsl::Exception(DXC_E_STRING_ENCODING_FAILED,
+                            "Error in encoding argument specified");
     utf16Chars = (const WCHAR*)bufferPointer;
     utf16CharCount = bufferSize / sizeof(wchar_t);
   } else if (bufferSize) {
@@ -753,6 +761,10 @@ HRESULT DxcCreateBlobEncodingFromBlob(
       return S_OK;
     }
     if (encodingKnown) {
+      if (TryCreateBlobUtfFromBlob(pFromBlob, codePage, pMalloc,
+                                   ppBlobEncoding)) {
+        return S_OK;
+      }
       IFR(InternalDxcBlobEncoding::CreateFromBlob(
           pFromBlob, pMalloc, true, codePage, &internalEncoding));
       *ppBlobEncoding = internalEncoding;
@@ -921,7 +933,9 @@ DxcCreateBlobWithEncodingOnMallocCopy(IMalloc *pIMalloc, LPCVOID pText, UINT32 s
 }
 
 _Use_decl_annotations_
-HRESULT DxcGetBlobAsUtf8(IDxcBlob *pBlob, IMalloc *pMalloc, IDxcBlobUtf8 **pBlobEncoding) throw() {
+HRESULT
+DxcGetBlobAsUtf8(IDxcBlob *pBlob, IMalloc *pMalloc,
+                 IDxcBlobUtf8 **pBlobEncoding, UINT32 defaultCodePage) throw() {
   IFRBOOL(pBlob, E_POINTER);
   IFRBOOL(pBlobEncoding, E_POINTER);
   *pBlobEncoding = nullptr;
@@ -949,6 +963,10 @@ HRESULT DxcGetBlobAsUtf8(IDxcBlob *pBlob, IMalloc *pMalloc, IDxcBlobUtf8 **pBlob
     // BOM exists, adjust pointer and size to strip.
     bufferPointer += bomSize;
     blobLen -= bomSize;
+    // If no BOM, use encoding option if specified
+    if (codePage == CP_ACP && defaultCodePage != CP_ACP) {
+      codePage = defaultCodePage;
+    }
   }
 
   if (!pMalloc)
@@ -1057,8 +1075,8 @@ HRESULT DxcGetBlobAsUtf16(IDxcBlob *pBlob, IMalloc *pMalloc, IDxcBlobUtf16 **pBl
 
   // Reuse or copy the underlying blob depending on null-termination
   if (codePage == CP_UTF16) {
-    DXASSERT(IsSizeWcharAligned(blobLen),
-             "otherwise, UTF-16 blob size not evenly divisible by 2");
+    if (!IsSizeWcharAligned(blobLen))
+      return DXC_E_STRING_ENCODING_FAILED;
     utf16CharCount = blobLen / sizeof(wchar_t);
     if (IsBufferNullTerminated(bufferPointer, blobLen, CP_UTF16)) {
       // Already null-terminated, reference other blob's memory

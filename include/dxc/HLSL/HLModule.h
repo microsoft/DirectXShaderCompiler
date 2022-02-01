@@ -199,6 +199,9 @@ public:
   static void MergeGepUse(llvm::Value *V);
 
   // HL code gen.
+  static llvm::Function *GetHLOperationFunction(
+      HLOpcodeGroup group, unsigned opcode, llvm::Type *RetType,
+      llvm::ArrayRef<llvm::Value *> paramList, llvm::Module &M);
   template<class BuilderTy>
   static llvm::CallInst *EmitHLOperationCall(BuilderTy &Builder,
                                           HLOpcodeGroup group, unsigned opcode,

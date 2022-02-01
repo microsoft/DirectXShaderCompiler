@@ -48,6 +48,8 @@ public:
   /// regardless of their polymorphism.
   bool visitInstruction(SpirvInstruction *) { return true; }
 
+  using Visitor::visit;
+
 private:
   // Invokes visitor for each operand of the debug instruction `di`. If
   // `visitor` returns false, it stops and returns.

@@ -84,7 +84,8 @@ public:
 
   /// Processes the given InitListExpr and returns the <result-id> for the final
   /// SPIR-V value.
-  SpirvInstruction *processInit(const InitListExpr *expr);
+  SpirvInstruction *processInit(const InitListExpr *expr,
+                                SourceRange rangeOverride = {});
 
   /// Casts the given Expr to the given toType and returns the <result-id> for
   /// the final SPIR-V value.
@@ -102,7 +103,8 @@ private:
 
   /// Construct a SPIR-V instruction whose type is |type| using |initializers|
   /// and returns the <result-id> for the final SPIR-V value of the given type.
-  SpirvInstruction *doProcess(QualType type, SourceLocation srcLoc);
+  SpirvInstruction *doProcess(QualType type, SourceLocation srcLoc,
+                              SourceRange range = {});
 
   /// Flattens the given InitListExpr and generates SPIR-V instructions for
   /// all non-InitListExpr AST nodes. Puts those generated SPIR-V instructions
@@ -124,15 +126,19 @@ private:
   /// Emits the necessary SPIR-V instructions to create a SPIR-V value of the
   /// given type. The scalars and initializers queue will be used to fetch the
   /// next value.
-  SpirvInstruction *createInitForType(QualType type, SourceLocation);
+  SpirvInstruction *createInitForType(QualType type, SourceLocation,
+                                      SourceRange range = {});
   SpirvInstruction *createInitForBuiltinType(QualType type, SourceLocation);
   SpirvInstruction *createInitForVectorType(QualType elemType, uint32_t count,
-                                            SourceLocation);
-  SpirvInstruction *createInitForMatrixType(QualType matrixType,
-                                            SourceLocation);
-  SpirvInstruction *createInitForStructType(QualType type, SourceLocation);
+                                            SourceLocation,
+                                            SourceRange range = {});
+  SpirvInstruction *createInitForMatrixType(QualType matrixType, SourceLocation,
+                                            SourceRange range = {});
+  SpirvInstruction *createInitForStructType(QualType type, SourceLocation,
+                                            SourceRange range = {});
   SpirvInstruction *createInitForConstantArrayType(QualType type,
-                                                   SourceLocation);
+                                                   SourceLocation,
+                                                   SourceRange range = {});
   SpirvInstruction *createInitForBufferOrImageType(QualType type,
                                                    SourceLocation);
 

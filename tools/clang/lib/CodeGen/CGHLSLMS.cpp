@@ -219,6 +219,7 @@ private:
 
   std::unordered_map<Constant*, DxilFieldAnnotation> m_ConstVarAnnotationMap;
   StringSet<> m_PreciseOutputSet;
+  DenseSet<Value *> mismatchGLCArgSet;
 
   DenseMap<Function*, ScopeInfo> m_ScopeMap;
   ScopeInfo *GetScopeInfo(Function *F);
@@ -899,7 +900,8 @@ static unsigned AlignBaseOffset(unsigned baseOffset, unsigned size, QualType Ty,
   }
   if (BT) {
     if (BT->getKind() == clang::BuiltinType::Kind::Double ||
-        BT->getKind() == clang::BuiltinType::Kind::LongLong)
+        BT->getKind() == clang::BuiltinType::Kind::LongLong ||
+        BT->getKind() == clang::BuiltinType::Kind::ULongLong)
       scalarSizeInBytes = 8;
     else if (BT->getKind() == clang::BuiltinType::Kind::Half ||
              BT->getKind() == clang::BuiltinType::Kind::Short ||
@@ -2440,7 +2442,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   }
 
   // Add target-dependent experimental function attributes
-  for (const auto &Attr : FD->specific_attrs<HLSLExperimentalAttr>()) {
+  for (const HLSLExperimentalAttr *Attr : FD->specific_attrs<HLSLExperimentalAttr>()) {
     F->addFnAttr(Twine("exp-", Attr->getName()).str(), Attr->getValue());
   }
 
@@ -2582,6 +2584,23 @@ void CGMSHLSLRuntime::MarkPotentialResourceTemp(CodeGenFunction &CGF, llvm::Valu
   AddValToPropertyMap(V, QualTy);
 }
 
+static bool isGLCMismatch(QualType Ty0, QualType Ty1,
+                             const Expr *SrcExp,
+                             clang::SourceLocation Loc,
+                             DiagnosticsEngine &Diags) {
+  if (HasHLSLGloballyCoherent(Ty0) == HasHLSLGloballyCoherent(Ty1))
+    return false;
+  if (const CastExpr *Cast = dyn_cast<CastExpr>(SrcExp)) {
+    // Skip flat conversion which is for createHandleFromHeap.
+    if (Cast->getCastKind() == CastKind::CK_FlatConversion)
+      return false;
+  }
+  unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Warning,
+                                          "global coherent mismatch");
+  Diags.Report(Loc, DiagID);
+  return true;
+}
+
 void CGMSHLSLRuntime::FinishAutoVar(CodeGenFunction &CGF, const VarDecl &D,
                                     llvm::Value *V) {
   if (D.hasAttr<HLSLPreciseAttr>()) {
@@ -2594,6 +2613,13 @@ void CGMSHLSLRuntime::FinishAutoVar(CodeGenFunction &CGF, const VarDecl &D,
   AddTypeAnnotation(D.getType(), typeSys, arrayEltSize);
   // Save object properties for local variables.
   AddValToPropertyMap(V, D.getType());
+
+  if (D.hasInit()) {
+    if (isGLCMismatch(D.getType(), D.getInit()->getType(), D.getInit(),
+                      D.getLocation(), CGM.getDiags())) {
+      objectProperties.updateGLC(V);
+    }
+  }
 }
 
 hlsl::InterpolationMode CGMSHLSLRuntime::GetInterpMode(const Decl *decl,
@@ -2682,8 +2708,17 @@ void CGMSHLSLRuntime::addResource(Decl *D) {
       AddValToPropertyMap(GV, VD->getType());
     }
     // skip decl has init which is resource.
-    if (VD->hasInit() && resClass != DXIL::ResourceClass::Invalid)
+    if (VD->hasInit() && resClass != DXIL::ResourceClass::Invalid) {
+
+      if (resClass == DXIL::ResourceClass::UAV) {
+        if (isGLCMismatch(VD->getType(), VD->getInit()->getType(),
+                          VD->getInit(), D->getLocation(), CGM.getDiags())) {
+          GlobalVariable *GV = cast<GlobalVariable>(CGM.GetAddrOfGlobalVar(VD));
+          objectProperties.updateGLC(GV);
+        }
+      }
       return;
+    }
     // skip static global.
     if (!VD->hasExternalFormalLinkage()) {
       if (VD->hasInit() && VD->getType().isConstQualified()) {
@@ -5887,6 +5922,19 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
     const Expr *Arg = E->getArg(i+ArgsToSkip);
     QualType ParamTy = Param->getType().getNonReferenceType();
     bool isObject = dxilutil::IsHLSLObjectType(CGF.ConvertTypeForMem(ParamTy));
+    bool bAnnotResource = false;
+    if (isObject) {
+      if (isGLCMismatch(Param->getType(), Arg->getType(), Arg,
+                        Arg->getExprLoc(), CGM.getDiags())) {
+        // NOTE: if function is noinline, resource parameter is not allowed.
+        // Here assume function will be always inlined.
+        // This can only take care resource as parameter. When parameter is
+        // struct with resource member, glc cannot mismatch because the
+        // struct type will always match.
+        // Add annotate handle here.
+        bAnnotResource = true;
+      }
+    }
     bool isVector = hlsl::IsHLSLVecType(ParamTy);
     bool isArray = ParamTy->isArrayType();
     // Check for array of matrix
@@ -5936,7 +5984,8 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
         // Must be object
         DXASSERT(isObject, "otherwise, flow condition changed, breaking assumption");
         // in-only objects should be skipped to preserve previous behavior.
-        continue;
+        if (!bAnnotResource)
+          continue;
       }
     }
 
@@ -5974,7 +6023,7 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
       if (argLV.isSimple())
         argAddr = argLV.getAddress();
 
-      bool mustCopy = false;
+      bool mustCopy = bAnnotResource;
 
       // If matrix orientation changes, we must copy here
       // TODO: A high level intrinsic for matrix array copy with orientation
@@ -6111,6 +6160,11 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionInit(
                               idxList, ArgTy, ParamTy,
                               argAddr->getType());
       }
+    } else if (bAnnotResource) {
+      DxilResourceProperties RP = BuildResourceProperty(Arg->getType());
+      CopyAndAnnotateResourceArgument(argAddr, tmpArgAddr, RP, *m_pHLModule,
+                                      CGF);
+      mismatchGLCArgSet.insert(tmpArgAddr);
     }
   }
 }
@@ -6175,8 +6229,9 @@ void CGMSHLSLRuntime::EmitHLSLOutParamConversionCopyBack(
                               idxList, ParamTy, ArgTy,
                               argLV.getAddress()->getType());
       }
-    } else
+    } else if (mismatchGLCArgSet.find(tmpArgAddr) == mismatchGLCArgSet.end()) {
       tmpArgAddr->replaceAllUsesWith(argLV.getAddress());
+    }
   }
 
   for (LValue &tmpLV : lifetimeCleanupList) {

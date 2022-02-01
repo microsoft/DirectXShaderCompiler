@@ -25,12 +25,19 @@
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/dxcapi.h"
-#include "dxc/dxcpix.h"
 #ifdef _WIN32
+#include "dxc/dxcpix.h"
 #include <atlfile.h>
 #include <d3dcompiler.h>
 #include "dia2.h"
-#endif
+#else // _WIN32
+#ifndef __ANDROID__
+#include <execinfo.h>
+#define CaptureStackBackTrace(FramesToSkip, FramesToCapture, BackTrace,        \
+                              BackTraceHash)                                   \
+  backtrace(BackTrace, FramesToCapture)
+#endif // __ANDROID__
+#endif // _WIN32
 
 #include "dxc/Test/HLSLTestData.h"
 #include "dxc/Test/HlslTestUtils.h"
@@ -52,6 +59,22 @@
 
 using namespace std;
 using namespace hlsl_test;
+
+
+// Examines a virtual filename to determine if it looks like a dir
+// Based on whether the final path segment contains a dot
+// Not ironclad, but good enough for testing
+static bool LooksLikeDir(std::wstring fileName) {
+  for(int i = fileName.size() - 1; i > -1; i--) {
+    wchar_t ch = fileName[i];
+    if (ch == L'\\' || ch == L'/')
+      return true;
+    if (ch == L'.')
+      return false;
+  }
+  // No divider, no dot, assume file
+  return false;
+}
 
 class TestIncludeHandler : public IDxcIncludeHandler {
   DXC_MICROCOM_REF_FIELD(m_dwRef)
@@ -83,6 +106,9 @@ public:
     UINT32 codePage;
     LoadSourceCallResult() : hr(E_FAIL), codePage(0) { }
     LoadSourceCallResult(const char *pSource, UINT32 codePage = CP_UTF8) : hr(S_OK), source(pSource), codePage(codePage) { }
+    LoadSourceCallResult(const void *pSource, size_t size,
+                         UINT32 codePage = CP_ACP)
+        : hr(S_OK), source((const char *)pSource, size), codePage(codePage) {}
   };
   std::vector<LoadSourceCallResult> CallResults;
   size_t callIndex;
@@ -91,7 +117,15 @@ public:
     _In_ LPCWSTR pFilename,                   // Filename as written in #include statement
     _COM_Outptr_ IDxcBlob **ppIncludeSource   // Resultant source object for included file
     ) override {
-    CallInfos.push_back(LoadSourceCallInfo(pFilename));
+
+    LoadSourceCallInfo callInfo = LoadSourceCallInfo(pFilename);
+
+    // *nix will call stat() on dirs, which attempts to find it here
+    // This loader isn't meant for dirs, so return failure
+    if (LooksLikeDir(callInfo.Filename))
+      return m_defaultErrorCode;
+
+    CallInfos.push_back(callInfo);
 
     *ppIncludeSource = nullptr;
     if (callIndex >= CallResults.size()) {
@@ -157,6 +191,16 @@ public:
   TEST_METHOD(CompileWhenODumpThenPassConfig)
   TEST_METHOD(CompileWhenODumpThenOptimizerMatch)
   TEST_METHOD(CompileWhenVdThenProducesDxilContainer)
+
+  void TestEncodingImpl(
+      const void *sourceData,
+      size_t sourceSize,
+      UINT32 codePage,
+      const void *includedData,
+      size_t includedSize,
+      const WCHAR *encoding = nullptr
+  );
+  TEST_METHOD(CompileWithEncodeFlagTestSource)
 
 #if _ITERATOR_DEBUG_LEVEL==0 
   // CompileWhenNoMemThenOOM can properly detect leaks only when debug iterators are disabled
@@ -2593,6 +2637,79 @@ TEST_F(CompilerTest, CompileWhenVdThenProducesDxilContainer) {
   VERIFY_IS_TRUE(hlsl::IsValidDxilContainer(reinterpret_cast<hlsl::DxilContainerHeader *>(pResultBlob->GetBufferPointer()), pResultBlob->GetBufferSize()));
 }
 
+void CompilerTest::TestEncodingImpl(const void *sourceData, size_t sourceSize, UINT32 codePage, const void *includedData, size_t includedSize,
+                                    const WCHAR *encoding) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<TestIncludeHandler> pInclude;
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobPinned((const char *)sourceData, sourceSize, codePage,
+                   &pSource);
+  pInclude = new TestIncludeHandler(m_dllSupport);
+  pInclude->CallResults.emplace_back(includedData, includedSize, CP_ACP);
+
+  const WCHAR *pArgs[] = {L"-encoding",
+                          encoding};
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+                                      L"ps_6_0", pArgs, _countof(pArgs),
+                                      nullptr, 0, pInclude, &pResult));
+  HRESULT status;
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+}
+
+TEST_F(CompilerTest, CompileWithEncodeFlagTestSource) {
+
+  std::string sourceUtf8 = "#include \"include.hlsl\"\r\n"
+                           "float4 main() : SV_Target { return 0; }";
+  std::string includeUtf8 = "// Comment\n";
+  std::string utf8BOM = "\xEF"
+                        "\xBB"
+                        "\xBF"; // UTF-8 BOM
+  std::string includeUtf8BOM = utf8BOM + includeUtf8;
+
+  std::wstring sourceUtf16 = L"#include \"include.hlsl\"\r\n"
+                             L"float4 main() : SV_Target { return 0; }";
+  std::wstring includeUtf16 = L"// Comments\n";
+  std::wstring utf16BOM = L"\xFEFF"; // UTF-16 LE BOM
+  std::wstring includeUtf16BOM = utf16BOM + includeUtf16;
+
+  // Included files interpreted with encoding option if no BOM
+  TestEncodingImpl(sourceUtf8.data(), sourceUtf8.size(), DXC_CP_UTF8,
+                   includeUtf8.data(), includeUtf8.size(), L"utf8");
+
+  TestEncodingImpl(sourceUtf16.data(), sourceUtf16.size() * sizeof(L'A'),
+                   DXC_CP_UTF16, includeUtf16.data(),
+                   includeUtf16.size() * sizeof(L'A'), L"utf16");
+
+  // Encoding option ignored if BOM present
+  TestEncodingImpl(sourceUtf8.data(), sourceUtf8.size(), DXC_CP_UTF8,
+                   includeUtf8BOM.data(), includeUtf8BOM.size(), L"utf16");
+
+  TestEncodingImpl(sourceUtf16.data(), sourceUtf16.size() * sizeof(L'A'),
+                   DXC_CP_UTF16, includeUtf16BOM.data(),
+                   includeUtf16BOM.size() * sizeof(L'A'), L"utf8");
+
+  // Source file interpreted according to DxcBuffer encoding if not CP_ACP
+  // Included files interpreted with encoding option if no BOM
+  TestEncodingImpl(sourceUtf8.data(), sourceUtf8.size(), DXC_CP_UTF8,
+                   includeUtf16.data(), includeUtf16.size() * sizeof(L'A'),
+                   L"utf16");
+
+  TestEncodingImpl(sourceUtf16.data(), sourceUtf16.size() * sizeof(L'A'),
+                   DXC_CP_UTF16, includeUtf8.data(), includeUtf8.size(),
+                   L"utf8");
+
+  // Source file interpreted by encoding option if source DxcBuffer encoding = CP_ACP (default)
+  TestEncodingImpl(sourceUtf8.data(), sourceUtf8.size(), DXC_CP_ACP,
+                   includeUtf8.data(), includeUtf8.size(), L"utf8");
+
+  TestEncodingImpl(sourceUtf16.data(), sourceUtf16.size() * sizeof(L'A'),
+                   DXC_CP_ACP, includeUtf16.data(),
+                   includeUtf16.size() * sizeof(L'A'), L"utf16");
+}
+
 TEST_F(CompilerTest, CompileWhenODumpThenOptimizerMatch) {
   LPCWSTR OptLevels[] = { L"/Od", L"/O1", L"/O2" };
   CComPtr<IDxcCompiler> pCompiler;
@@ -2749,8 +2866,10 @@ public:
     // breakpoint for i failure on NN alloc - m_FailAlloc == 1+VAL && m_AllocCount == NN
     // breakpoint for happy path for NN alloc - m_AllocCount == NN
     P->AllocAtCount = m_AllocCount;
+#ifndef __ANDROID__
     if (CaptureStacks)
       P->AllocFrameCount = CaptureStackBackTrace(1, StackFrameCount, P->AllocFrames, nullptr);
+#endif // __ANDROID__
     P->Size = cb;
     P->Self = P;
     return P + 1;
@@ -2776,9 +2895,11 @@ public:
     m_Size -= P->Size;
     P->Entry.Flink->Blink = P->Entry.Blink;
     P->Entry.Blink->Flink = P->Entry.Flink;
+#ifndef __ANDROID__
     if (CaptureStacks)
       P->FreeFrameCount =
           CaptureStackBackTrace(1, StackFrameCount, P->FreeFrames, nullptr);
+#endif // __ANDROID__
   }
 
   virtual SIZE_T STDMETHODCALLTYPE GetSize(
@@ -2810,7 +2931,12 @@ public:
 
 #if _ITERATOR_DEBUG_LEVEL==0
 // CompileWhenNoMemThenOOM can properly detect leaks only when debug iterators are disabled
+#ifdef _WIN32
 TEST_F(CompilerTest, CompileWhenNoMemThenOOM) {
+#else
+// Disabled it is ignored above
+TEST_F(CompilerTest, DISABLED_CompileWhenNoMemThenOOM) {
+#endif
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
   CComPtr<IDxcBlobEncoding> pSource;
@@ -3305,6 +3431,7 @@ TEST_F(CompilerTest, CodeGenVectorAtan2) {
   CodeGenTestCheck(L"atan2_vector_argument.hlsl");
 }
 
+#ifdef _WIN32 // Reflection unsupported
 TEST_F(CompilerTest, LibGVStore) {
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcOperationResult> pResult;
@@ -3380,6 +3507,7 @@ TEST_F(CompilerTest, LibGVStore) {
   std::wstring Text = BlobToUtf16(pTextBlob);
   VERIFY_ARE_NOT_EQUAL(std::wstring::npos, Text.find(L"store"));
 }
+#endif // WIN32 - Reflection unsupported
 
 TEST_F(CompilerTest, PreprocessWhenValidThenOK) {
   CComPtr<IDxcCompiler> pCompiler;
@@ -3653,6 +3781,7 @@ TEST_F(CompilerTest, DISABLED_ManualFileCheckTest) {
 }
 
 
+#ifdef _WIN32 // Reflection unsupported
 TEST_F(CompilerTest, CodeGenHashStability) {
   CodeGenTestCheckBatchHash(L"");
 }
@@ -3660,6 +3789,7 @@ TEST_F(CompilerTest, CodeGenHashStability) {
 TEST_F(CompilerTest, BatchD3DReflect) {
   CodeGenTestCheckBatchDir(L"d3dreflect");
 }
+#endif // WIN32 - Reflection unsupported
 
 TEST_F(CompilerTest, BatchDxil) {
   CodeGenTestCheckBatchDir(L"dxil");
@@ -3686,7 +3816,7 @@ TEST_F(CompilerTest, BatchValidation) {
 }
 
 TEST_F(CompilerTest, BatchPIX) {
-  CodeGenTestCheckBatchDir(L"PIX");
+  CodeGenTestCheckBatchDir(L"pix");
 }
 
 TEST_F(CompilerTest, BatchSamples) {

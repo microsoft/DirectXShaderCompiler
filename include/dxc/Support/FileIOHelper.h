@@ -218,7 +218,8 @@ DxcCreateBlobWithEncodingOnMallocCopy(
   _COM_Outptr_ IDxcBlobEncoding **pBlobEncoding) throw();
 
 HRESULT DxcGetBlobAsUtf8(_In_ IDxcBlob *pBlob, _In_ IMalloc *pMalloc,
-                         _COM_Outptr_ IDxcBlobUtf8 **pBlobEncoding) throw();
+                         _COM_Outptr_ IDxcBlobUtf8 **pBlobEncoding,
+                         UINT32 defaultCodePage = CP_ACP) throw();
 HRESULT
 DxcGetBlobAsUtf16(_In_ IDxcBlob *pBlob, _In_ IMalloc *pMalloc,
                   _COM_Outptr_ IDxcBlobUtf16 **pBlobEncoding) throw();
