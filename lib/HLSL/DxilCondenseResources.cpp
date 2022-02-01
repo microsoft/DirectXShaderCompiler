@@ -607,6 +607,8 @@ private:
   void FailOnPoisonResources();
   bool RemovePhiOnResource();
   void UpdateResourceSymbols();
+  void ReplaceResourceUserWithHandle(DxilResource &res, LoadInst *load,
+                                     Instruction *handle);
   void TranslateDxilResourceUses(DxilResourceBase &res);
   void GenerateDxilResourceHandles();
   bool UpdateStructTypeForLegacyLayout();
@@ -1940,72 +1942,6 @@ void DxilLowerCreateHandleForLib::UpdateResourceSymbols() {
 // Lower createHandleForLib
 namespace {
 
-void ReplaceResourceUserWithHandle(
-    DxilResource &res,
-    LoadInst *load, Value *handle)
-{
-  for (auto resUser = load->user_begin(), E = load->user_end(); resUser != E;) {
-    Value *V = *(resUser++);
-    CallInst *CI = dyn_cast<CallInst>(V);
-    DxilInst_CreateHandleForLib createHandle(CI);
-    DXASSERT(createHandle, "must be createHandle");
-    CI->replaceAllUsesWith(handle);
-    CI->eraseFromParent();
-  }
-
-  if (res.GetClass() == DXIL::ResourceClass::UAV) {
-    // Before this pass, the global resources might not have been mapped with all the uses.
-    // Now we're 100% sure who uses what resources (otherwise the compilation would have failed),
-    // so we do a round on marking UAV's as having counter.
-    static auto IsDxilOp = [](Value *V, hlsl::OP::OpCode Op) -> bool {
-      Instruction *I = dyn_cast<Instruction>(V);
-      if (!I)
-        return false;
-      return hlsl::OP::IsDxilOpFuncCallInst(I, Op);
-    };
-
-    // Search all users for update counter
-    bool updateAnnotateHandle = false;
-    if (!res.HasCounter()) {
-      for (User *U : handle->users()) {
-        if (IsDxilOp(U, hlsl::OP::OpCode::BufferUpdateCounter)) {
-          res.SetHasCounter(true);
-          break;
-        }
-        else if (IsDxilOp(U, hlsl::OP::OpCode::AnnotateHandle)) {
-          for (User *UU : U->users()) {
-            if (IsDxilOp(UU, hlsl::OP::OpCode::BufferUpdateCounter)) {
-              res.SetHasCounter(true);
-              updateAnnotateHandle = true;
-              break;
-            }
-          }
-          if (updateAnnotateHandle)
-            break;
-        }
-      }
-      if (updateAnnotateHandle) {
-        // Update resource props with counter flag
-        DxilResourceProperties RP =
-          resource_helper::loadPropsFromResourceBase(&res);
-        // Require ShaderModule to reconstruct resource property constant
-        const ShaderModel *pSM = load->getParent()->getParent()->getParent()
-                                    ->GetDxilModule().GetShaderModel();
-        for (User *U : handle->users()) {
-          DxilInst_AnnotateHandle annotateHandle(cast<Instruction>(U));
-          if (annotateHandle) {
-            annotateHandle.set_props(
-              resource_helper::getAsConstant(
-                RP, annotateHandle.get_props()->getType(), *pSM));
-          }
-        }
-      }
-    }
-  }
-
-  load->eraseFromParent();
-}
-
 Value *flattenGepIdx(GEPOperator *GEP) {
   Value *idx = nullptr;
   if (GEP->getNumIndices() == 2) {
@@ -2037,6 +1973,89 @@ Value *flattenGepIdx(GEPOperator *GEP) {
 }
 
 } // namespace
+
+
+void DxilLowerCreateHandleForLib::ReplaceResourceUserWithHandle(
+    DxilResource &res, LoadInst *load, Instruction *handle) {
+  for (auto resUser = load->user_begin(), E = load->user_end(); resUser != E;) {
+    Value *V = *(resUser++);
+    CallInst *CI = dyn_cast<CallInst>(V);
+    DxilInst_CreateHandleForLib createHandle(CI);
+    DXASSERT(createHandle, "must be createHandle");
+    CI->replaceAllUsesWith(handle);
+    CI->eraseFromParent();
+  }
+
+  if (res.GetClass() == DXIL::ResourceClass::UAV) {
+    // Before this pass, the global resources might not have been mapped with
+    // all the uses. Now we're 100% sure who uses what resources (otherwise the
+    // compilation would have failed), so we do a round on marking UAV's as
+    // having counter.
+    static auto IsDxilOp = [](Value *V, hlsl::OP::OpCode Op) -> bool {
+      Instruction *I = dyn_cast<Instruction>(V);
+      if (!I)
+        return false;
+      return hlsl::OP::IsDxilOpFuncCallInst(I, Op);
+    };
+
+    // Search all users for update counter
+    bool updateAnnotateHandle = res.IsGloballyCoherent();
+    if (!res.HasCounter()) {
+      for (User *U : handle->users()) {
+        if (IsDxilOp(U, hlsl::OP::OpCode::BufferUpdateCounter)) {
+          res.SetHasCounter(true);
+          break;
+        } else if (IsDxilOp(U, hlsl::OP::OpCode::AnnotateHandle)) {
+          for (User *UU : U->users()) {
+            if (IsDxilOp(UU, hlsl::OP::OpCode::BufferUpdateCounter)) {
+              res.SetHasCounter(true);
+              updateAnnotateHandle = true;
+              break;
+            }
+          }
+          if (updateAnnotateHandle)
+            break;
+        }
+      }
+    }
+    if (updateAnnotateHandle) {
+      // Update resource props with counter flag
+      DxilResourceProperties RP =
+          resource_helper::loadPropsFromResourceBase(&res);
+      // Require ShaderModule to reconstruct resource property constant
+      const ShaderModel *pSM = m_DM->GetShaderModel();
+
+      SmallVector<Instruction *, 4> annotHandles;
+      for (User *U : handle->users()) {
+        DxilInst_AnnotateHandle annotateHandle(cast<Instruction>(U));
+        if (annotateHandle) {
+          annotHandles.emplace_back(cast<Instruction>(U));
+        }
+      }
+      if (!annotHandles.empty()) {
+        Instruction *firstAnnot = annotHandles.pop_back_val();
+        DxilInst_AnnotateHandle annotateHandle(firstAnnot);
+        // Update props.
+        Constant *propsConst = resource_helper::getAsConstant(
+            RP, annotateHandle.get_props()->getType(), *pSM);
+        annotateHandle.set_props(propsConst);
+        if (!annotHandles.empty()) {
+          // Move firstAnnot after handle.
+          firstAnnot->removeFromParent();
+          firstAnnot->insertAfter(handle);
+          // Remove redundant annotate handles.
+          for (auto *annotHdl : annotHandles) {
+            annotHdl->replaceAllUsesWith(firstAnnot);
+            annotHdl->eraseFromParent();
+          }
+        }
+      }
+    }
+  }
+
+  load->eraseFromParent();
+}
+
 void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
     DxilResourceBase &res) {
   OP *hlslOP = m_DM->GetOP();
@@ -2132,7 +2151,7 @@ void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
     if (LoadInst *ldInst = dyn_cast<LoadInst>(user)) {
       Function *userF = ldInst->getParent()->getParent();
       DXASSERT(handleMapOnFunction.count(userF), "must exist");
-      Value *handle = handleMapOnFunction[userF];
+      Instruction *handle = handleMapOnFunction[userF];
       ReplaceResourceUserWithHandle(static_cast<DxilResource &>(res), ldInst, handle);
     } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(user)) {
       Value *idx = flattenGepIdx(GEP);
@@ -2142,7 +2161,7 @@ void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
       Args[nonUniformOpIdx] =
           isUniformRes;
 
-      Value *handle = nullptr;
+      Instruction *handle = nullptr;
       if (GetElementPtrInst *GEPInst = dyn_cast<GetElementPtrInst>(GEP)) {
         IRBuilder<> Builder = IRBuilder<>(GEPInst);
         if (DxilMDHelper::IsMarkedNonUniform(GEPInst)) {
@@ -2165,7 +2184,7 @@ void DxilLowerCreateHandleForLib::TranslateDxilResourceUses(
         } else {
           IRBuilder<> Builder = IRBuilder<>(ldInst);
           Args[resIdxOpIdx] = Builder.CreateAdd(idx, resLowerBound);
-          Value *localHandle =
+          Instruction *localHandle =
               Builder.CreateCall(createHandle, Args, handleName);
           ReplaceResourceUserWithHandle(static_cast<DxilResource &>(res), ldInst, localHandle);
         }
