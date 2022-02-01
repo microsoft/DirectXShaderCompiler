@@ -113,6 +113,24 @@ if ( "$ENV{CI}" AND "$ENV{APPVEYOR}" )
 endif()
 # HLSL Change Ends
 
+if(WIN32)
+  file(TO_NATIVE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/utils/hct/hcteolcheck.cmd HCTEOLCHECK)
+  add_custom_target(git_eol_check
+    ALL
+    COMMENT Running hcteolcheck.cmd - fails if i/crlf or i/mixed in index
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND ${HCTEOLCHECK}
+    VERBATIM)
+else()
+  add_custom_target(git_eol_check
+    ALL
+    COMMENT Running EOL check - fails if i/crlf or i/mixed in index
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND ! git ls-files --eol | grep -e "i/crlf" -e "i/mixed"
+    USES_TERMINAL
+    VERBATIM)
+endif()
+
 # SPIRV change starts
 option(ENABLE_SPIRV_CODEGEN "Enables SPIR-V code generation." OFF)
 option(SPIRV_BUILD_TESTS "Build targets for the SPIR-V unit tests." OFF)
