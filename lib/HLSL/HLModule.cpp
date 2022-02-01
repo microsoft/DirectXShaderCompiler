@@ -1081,19 +1081,11 @@ void HLModule::MergeGepUse(Value *V) {
   }
 }
 
-template
-CallInst *HLModule::EmitHLOperationCall(IRBuilder<> &Builder,
-                                           HLOpcodeGroup group, unsigned opcode,
-                                           Type *RetType,
-                                           ArrayRef<Value *> paramList,
-                                           llvm::Module &M);
-
-template<typename BuilderTy>
-CallInst *HLModule::EmitHLOperationCall(BuilderTy &Builder,
-                                           HLOpcodeGroup group, unsigned opcode,
-                                           Type *RetType,
-                                           ArrayRef<Value *> paramList,
-                                           llvm::Module &M) {
+llvm::Function *HLModule::GetHLOperationFunction(
+    HLOpcodeGroup group, unsigned opcode,
+                                       llvm::Type *RetType,
+                                       llvm::ArrayRef<llvm::Value *> paramList,
+                                       llvm::Module &M) {
   SmallVector<llvm::Type *, 4> paramTyList;
   // Add the opcode param
   llvm::Type *opcodeTy = llvm::Type::getInt32Ty(M.getContext());
@@ -1106,6 +1098,26 @@ CallInst *HLModule::EmitHLOperationCall(BuilderTy &Builder,
       llvm::FunctionType::get(RetType, paramTyList, false);
 
   Function *opFunc = GetOrCreateHLFunction(M, funcTy, group, opcode);
+  return opFunc;
+}
+
+template CallInst *HLModule::EmitHLOperationCall(IRBuilder<> &Builder,
+                                                 HLOpcodeGroup group,
+                                                 unsigned opcode, Type *RetType,
+                                                 ArrayRef<Value *> paramList,
+                                                 llvm::Module &M);
+
+template<typename BuilderTy>
+CallInst *HLModule::EmitHLOperationCall(BuilderTy &Builder,
+                                           HLOpcodeGroup group, unsigned opcode,
+                                           Type *RetType,
+                                           ArrayRef<Value *> paramList,
+                                           llvm::Module &M) {
+  // Add the opcode param
+  llvm::Type *opcodeTy = llvm::Type::getInt32Ty(M.getContext());
+
+  Function *opFunc =
+      GetHLOperationFunction(group, opcode, RetType, paramList, M);
 
   SmallVector<Value *, 4> opcodeParamList;
   Value *opcodeConst = Constant::getIntegerValue(opcodeTy, APInt(32, opcode));
