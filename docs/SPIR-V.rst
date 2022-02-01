@@ -358,6 +358,21 @@ interface variables:
   main([[vk::location(N)]] float4 input: A) : B
   { ... }
 
+Macro for SPIR-V
+----------------
+
+If SPIR-V CodeGen is enabled and ``-spirv`` flag is used as one of the command
+line options (meaning that "generates SPIR-V code"), it defines an implicit
+macro ``__spirv``. For example, this macro definition can be used for SPIR-V
+specific part of the HLSL code:
+
+.. code:: hlsl
+
+  #ifdef __spirv
+  [[vk::binding(X, Y), vk::counter_binding(Z)]]
+  #endif
+  RWStructuredBuffer<S> mySBuffer;
+
 SPIR-V version and extension
 ----------------------------
 
