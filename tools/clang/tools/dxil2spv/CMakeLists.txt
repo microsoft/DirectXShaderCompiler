@@ -9,6 +9,8 @@ set( LLVM_LINK_COMPONENTS
   dxilcontainer
   )
 
+add_subdirectory(lib)
+
 add_clang_executable(dxil2spv
   dxil2spvmain.cpp
   )
@@ -18,6 +20,7 @@ target_link_libraries(dxil2spv
   dxclib
   clangSPIRV
   SPIRV-Tools
+  dxil2spvlib
   )
 
 llvm_map_components_to_libnames(llvm_libs support core irreader dxil)
