@@ -46,7 +46,7 @@ public:
   };
 
 public:
-  EmitTypeHandler(ASTContext &astCtx, SpirvContext &spvContext,
+  EmitTypeHandler(ASTContext *astCtx, SpirvContext &spvContext,
                   const SpirvCodeGenOptions &opts, FeatureManager &featureMgr,
                   std::vector<uint32_t> *debugVec,
                   std::vector<uint32_t> *decVec,
@@ -145,13 +145,13 @@ private:
   template <unsigned N>
   DiagnosticBuilder emitError(const char (&message)[N],
                               SourceLocation loc = {}) {
-    const auto diagId = astContext.getDiagnostics().getCustomDiagID(
+    const auto diagId = astContext->getDiagnostics().getCustomDiagID(
         clang::DiagnosticsEngine::Error, message);
-    return astContext.getDiagnostics().Report(loc, diagId);
+    return astContext->getDiagnostics().Report(loc, diagId);
   }
 
 private:
-  ASTContext &astContext;
+  ASTContext *astContext;
   SpirvContext &context;
   FeatureManager featureManager;
   std::vector<uint32_t> curTypeInst;
@@ -198,7 +198,7 @@ public:
   };
 
 public:
-  EmitVisitor(ASTContext &astCtx, SpirvContext &spvCtx,
+  EmitVisitor(ASTContext *astCtx, SpirvContext &spvCtx,
               const SpirvCodeGenOptions &opts, FeatureManager &featureMgr)
       : Visitor(opts, spvCtx), astContext(astCtx), id(0),
         typeHandler(astCtx, spvCtx, opts, featureMgr, &debugVariableBinary,
@@ -373,14 +373,14 @@ private:
   template <unsigned N>
   DiagnosticBuilder emitError(const char (&message)[N],
                               SourceLocation loc = {}) {
-    const auto diagId = astContext.getDiagnostics().getCustomDiagID(
+    const auto diagId = astContext->getDiagnostics().getCustomDiagID(
         clang::DiagnosticsEngine::Error, message);
-    return astContext.getDiagnostics().Report(loc, diagId);
+    return astContext->getDiagnostics().Report(loc, diagId);
   }
 
 private:
   // Object that holds Clang AST nodes.
-  ASTContext &astContext;
+  ASTContext *astContext;
   // The last result-id that's been used so far.
   uint32_t id;
   // Handler for emitting types and their related instructions.

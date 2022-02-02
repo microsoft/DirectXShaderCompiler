@@ -1,3 +1,4 @@
+; RUN: %dxil2spv
 ;
 ; Input signature:
 ;
@@ -100,3 +101,12 @@ attributes #1 = { nounwind }
 !12 = !{!13}
 !13 = !{i32 0, !"SV_Target", i8 9, i8 16, !9, i8 0, i32 1, i8 4, i32 0, i8 0, !11}
 
+; CHECK-WHOLE-SPIR-V:
+; ; SPIR-V
+; ; Version: 1.0
+; ; Generator: Google spiregg; 0
+; ; Bound: 1
+; ; Schema: 0
+;                OpCapability Shader
+;                OpCapability Linkage
+;                OpMemoryModel Logical GLSL450
