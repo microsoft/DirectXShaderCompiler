@@ -30,6 +30,11 @@
 #include "dxcversion.inc" // HLSL Change
 #include "dxc/DXIL/DxilConstants.h" // HLSL Change
 #include "dxc/DXIL/DxilShaderModel.h" // HLSL Change
+
+#ifdef ENABLE_SPIRV_CODEGEN
+#include "clang/SPIRV/Predefines.h" // SPIRV Change
+#endif // ENABLE_SPIRV_CODEGEN
+
 using namespace clang;
 
 static bool MacroBodyEndsInBackslash(StringRef MacroBody) {
@@ -1039,7 +1044,14 @@ void clang::InitializePreprocessor(
   // Instruct the preprocessor to skip the preamble.
   PP.setSkipMainFilePreamble(InitOpts.PrecompiledPreambleBytes.first,
                              InitOpts.PrecompiledPreambleBytes.second);
-                          
+
+#ifdef ENABLE_SPIRV_CODEGEN
+  if (LangOpts.SPIRV) {
+    spirv::BuildPredefinesForSPIRV(Predefines,
+                                   PP.getLangOpts().EnableTemplates);
+  }
+#endif // ENABLE_SPIRV_CODEGEN
+
   // Copy PredefinedBuffer into the Preprocessor.
   PP.setPredefines(Predefines.str());
 }
