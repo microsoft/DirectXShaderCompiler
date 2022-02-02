@@ -7817,7 +7817,11 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     retVal = processIntrinsicReadClock(callExpr);
     break;
   case hlsl::IntrinsicOp::IOP_VkRawBufferLoad:
-    retVal = processRawBufferLoad(callExpr);
+    retVal = processRawBufferLoad(callExpr->getArg(0), astContext.UnsignedIntTy,
+                                  callExpr->getExprLoc());
+    break;
+  case hlsl::IntrinsicOp::IOP_VkRawBufferLoadToParam:
+    retVal = processLoadRawBuffer(callExpr);
     break;
   case hlsl::IntrinsicOp::IOP_Vkext_execution_mode:
     retVal = processIntrinsicExecutionMode(callExpr, false);
@@ -12798,29 +12802,45 @@ SpirvEmitter::processSpvIntrinsicCallExpr(const CallExpr *expr) {
                                 /*isInstr*/ true, expr->getExprLoc());
 }
 
-SpirvInstruction *SpirvEmitter::processRawBufferLoad(const CallExpr *callExpr) {
-  clang::SourceLocation loc = callExpr->getExprLoc();
-  const clang::Expr *addressExpr = callExpr->getArg(0);
+SpirvInstruction *SpirvEmitter::processLoadRawBuffer(const CallExpr *callExpr) {
+  SpirvInstruction *load =
+      processRawBufferLoad(callExpr->getArg(1), callExpr->getArg(0)->getType(),
+                           callExpr->getExprLoc());
+  SpirvInstruction *output = doExpr(callExpr->getArg(0));
+  assert(!output->isRValue());
+  spvBuilder.createStore(output, load, callExpr->getExprLoc());
+  return load;
+}
+
+SpirvInstruction *SpirvEmitter::processRawBufferLoad(const Expr *addressExpr,
+                                                     QualType bufferType,
+                                                     SourceLocation loc) {
   SpirvInstruction *address = doExpr(addressExpr);
 
-  const SpirvPointerType *bufferType =
-      spvBuilder.getPhysicalStorageBufferType(spvContext.getUIntType(32));
+  QualType boolType;
+  bool isBooleanType = false;
+  if (bufferType->isBooleanType()) {
+    boolType = bufferType;
+    bufferType = astContext.UnsignedIntTy;
+    isBooleanType = true;
+  }
+  const HybridPointerType *bufferPtrType =
+      spvBuilder.getPhysicalStorageBufferType(bufferType);
 
   SpirvUnaryOp *bufferReference =
-      spvBuilder.createUnaryOp(spv::Op::OpBitcast, bufferType, address, loc);
-
+      spvBuilder.createUnaryOp(spv::Op::OpBitcast, bufferPtrType, address, loc);
   bufferReference->setStorageClass(spv::StorageClass::PhysicalStorageBuffer);
 
-  SpirvAccessChain *ac = spvBuilder.createAccessChain(astContext.UnsignedIntTy,
-                                                      bufferReference, {}, loc);
-
-  SpirvLoad *loadInst =
-      spvBuilder.createLoad(astContext.UnsignedIntTy, ac, loc);
+  SpirvAccessChain *ac =
+      spvBuilder.createAccessChain(bufferType, bufferReference, {}, loc);
+  SpirvLoad *loadInst = spvBuilder.createLoad(bufferType, ac, loc);
 
   // Raw buffer loads have the same alignment requirement as
-  // ByteAddressBuffer in HLSL
+  // ByteAddressBuffer in HLSL. The alignment must be 4 byte.
   loadInst->setAlignment(4);
 
+  if (isBooleanType)
+    return castToBool(loadInst, bufferType, boolType, loc);
   return loadInst;
 }
 

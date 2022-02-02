@@ -3506,7 +3506,7 @@ private:
     return templateTypeParmDecls;
   }
 
-  QualType VkIntrinsicFunctionType(
+  SmallVector<QualType, 2> VkIntrinsicFunctionParamTypes(
       const HLSL_INTRINSIC *intrinsic,
       const SmallVectorImpl<NamedDecl *> &templateTypeParmDecls) {
     auto &context = m_sema->getASTContext();
@@ -3529,7 +3529,6 @@ private:
         continue;
       }
       if (IsVariadicArgument(pArgs[i])) {
-        --uNumArgs;
         continue;
       }
       switch (pArgs[i].uLegalComponentTypes) {
@@ -3548,17 +3547,26 @@ private:
         break;
       }
     }
+    return paramTypes;
+  }
+
+  QualType VkIntrinsicFunctionType(
+      const HLSL_INTRINSIC *intrinsic,
+      const SmallVectorImpl<NamedDecl *> &templateTypeParmDecls) {
+    SmallVector<QualType, 2> paramTypes =
+        VkIntrinsicFunctionParamTypes(intrinsic, templateTypeParmDecls);
 
     SmallVector<ParameterModifier, g_MaxIntrinsicParamCount> paramMods;
     InitParamMods(intrinsic, paramMods);
 
     ArrayRef<QualType> params({});
-    if (uNumArgs > 1) {
-      params = ArrayRef<QualType>(&paramTypes[1], uNumArgs - 1);
+    if (intrinsic->uNumArgs > 1) {
+      params = ArrayRef<QualType>(&paramTypes[1], paramTypes.size() - 1);
     }
 
     FunctionProtoType::ExtProtoInfo EmptyEPI;
-    return context.getFunctionType(paramTypes[0], params, EmptyEPI, paramMods);
+    return m_sema->getASTContext().getFunctionType(paramTypes[0], params,
+                                                   EmptyEPI, paramMods);
   }
 
   // Adds intrinsic function declarations to the "vk" namespace.
@@ -3584,9 +3592,8 @@ private:
       FunctionDecl *functionDecl = FunctionDecl::Create(
           context, m_vkNSDecl, NoLoc, DeclarationNameInfo(functionName, NoLoc),
           VkIntrinsicFunctionType(intrinsic, templateTypeParmDecls), nullptr,
-          StorageClass::SC_Extern,
-          // {}, nullptr, StorageClass::SC_Extern,
-          InlineSpecifiedFalse, HasWrittenPrototypeTrue);
+          StorageClass::SC_Extern, InlineSpecifiedFalse,
+          HasWrittenPrototypeTrue);
       m_vkNSDecl->addDecl(functionDecl);
 
       if (!templateTypeParmDecls.empty()) {

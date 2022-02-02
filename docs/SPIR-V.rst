@@ -3783,6 +3783,10 @@ implicit ``vk`` namepsace.
   
     uint64_t ReadClock(in uint scope);
     uint     RawBufferLoad(in uint64_t deviceAddress);
+    void     RawBufferLoadToParam(out T output, in uint64_t deviceAddress);
+
+    // Defined when the template support is enabled.
+    T        LoadRawBuffer<T>(in uint64_t deviceAddress);
   } // end namespace
 
 
@@ -3820,23 +3824,30 @@ For example:
 
   uint64_t clock = vk::ReadClock(vk::SubgroupScope);
 
-RawBufferLoad
-~~~~~~~~~~~~~
-This intrinsic funcion has the following signature:
+Loading data from a raw buffer address
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Vulkan extension `VK_KHR_buffer_device_address <https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VK_KHR_buffer_device_address.html>`_
+supports getting the 64-bit address of a buffer and passing it to SPIR-V as a
+Uniform buffer. SPIR-V can use the address to load the data without descriptor.
+We add the following intrinsic funcions to support the feature in DXC:
 
 .. code:: hlsl
 
   uint RawBufferLoad(in uint64_t deviceAddress);
+  void RawBufferLoadToParam(out T output, in uint64_t deviceAddress);
 
-This exposes a subset of the `VK_KHR_buffer_device_address <https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VK_KHR_buffer_device_address.html>`_
+  // Defined when the template support is enabled.
+  T LoadRawBuffer<T>(in uint64_t deviceAddress);
+
+They expose a subset of the `VK_KHR_buffer_device_address <https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VK_KHR_buffer_device_address.html>`_
 and `SPV_KHR_physical_storage_buffer <https://github.com/KhronosGroup/SPIRV-Registry/blob/main/extensions/KHR/SPV_KHR_physical_storage_buffer.asciidoc>`_ 
 functionality to HLSL. 
 
 It allows the shader program to load a single 32 bit value from a GPU
 accessible memory at given address, similar to ``ByteAddressBuffer.Load()``.
-Like ``ByteAddressBuffer``, this intrinsic requires a 4 byte aligned address.
+Like ``ByteAddressBuffer``, the intrinsics require a 4 byte aligned address.
 
-Using this intrinsic adds ``PhysicalStorageBufferAddresses`` capability and 
+Using the intrinsics adds ``PhysicalStorageBufferAddresses`` capability and 
 ``SPV_KHR_physical_storage_buffer`` extension requirements as well as changing 
 the addressing model to ``PhysicalStorageBuffer64``.
 
@@ -3846,9 +3857,16 @@ Example:
 
   uint64_t Address;
   float4 main() : SV_Target0 {
-    uint Value = vk::RawBufferLoad(Address);
-    return asfloat(Value);
+    uint x = vk::RawBufferLoad(Address);
+    float y;
+    vk::RawBufferLoadToParam(bar, Address);
+    bool z = vk::LoadRawBuffer<bool>(Address);
+    ...
   }
+
+Note that ``void RawBufferLoadToParam(out T output, in uint64_t deviceAddress)``
+stores the loaded value to the first parameter similar to a function parameter
+with the `out` keyword.
 
 Inline SPIR-V (HLSL version of GL_EXT_spirv_intrinsics)
 =======================================================

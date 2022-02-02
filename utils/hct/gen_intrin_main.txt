@@ -380,7 +380,8 @@ $type2 [[rn]] select(in bool<> cond, in $match<1, 2> any<> t, in $type2 f);
 namespace VkIntrinsics {
 
 u64 [[]] ReadClock(in uint scope);
-void [[]] RawBufferLoad(out any<> result, in u64 addr);
+uint [[ro]] RawBufferLoad(in u64 addr);
+void [[]] RawBufferLoadToParam(out any<> result, in u64 addr);
 void [[]] ext_execution_mode(in uint mode, ...);
 void [[]] ext_execution_mode_id(in uint mode, ...);
 
