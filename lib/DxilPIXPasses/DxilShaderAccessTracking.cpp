@@ -18,6 +18,7 @@
 #include "dxc/DXIL/DxilResourceBinding.h"
 #include "dxc/DXIL/DxilResourceProperties.h"
 #include "dxc/DxilPIXPasses/DxilPIXPasses.h"
+#include "dxc/DxilPIXPasses/DxilPIXVirtualRegisters.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/HLSL/DxilSpanAllocator.h"
 
@@ -63,6 +64,41 @@ enum class ShaderAccessFlags : uint32_t {
   // GetDimensions
   DescriptorRead = 1 << 0,
 };
+
+// Bits in encoded dword:
+// 33222222222211111111110000000000
+// 10987654321098765432109876543210
+// kkkkisssrrrrrrrrrrrrrrrrrrrrrrrr
+//
+// k: four bits ShaderKind
+// i: one bit InstructionOrdinalndicator
+// r: 24 bits if i = 0 (resource index) else (instruction ordinal)
+
+constexpr uint32_t InstructionOrdinalndicator = 0x0800'0000;
+
+// (end shared types)
+//---------------------------------------------------------------------------------------------------------------------------------
+
+static uint32_t EncodeShaderModel(DXIL::ShaderKind kind) {
+  DXASSERT_NOMSG(static_cast<int>(DXIL::ShaderKind::Invalid) <= 16);
+  return static_cast<uint32_t>(kind) << 28;
+}
+
+enum class ResourceAccessStyle {
+  None,
+  Sampler,
+  UAVRead,
+  UAVWrite,
+  CBVRead,
+  SRVRead,
+  EndOfEnum
+};
+
+static uint32_t EncodeAccess(ResourceAccessStyle access) {
+  DXASSERT_NOMSG(static_cast<int>(ResourceAccessStyle::EndOfEnum) <= 8);
+  uint32_t encoded = static_cast<uint32_t>(access);
+  return encoded << 24;
+}
 
 constexpr uint32_t DWORDsPerResource = 3;
 constexpr uint32_t BytesPerDWORD = 4;
@@ -159,16 +195,6 @@ struct DxilResourceAndClass {
   Value *dynamicallyBoundIndex;
 };
 
-enum class ResourceAccessStyle {
-  None,
-  Sampler,
-  UAVRead,
-  UAVWrite,
-  CBVRead,
-  SRVRead,
-  EndOfEnum
-};
-
 //---------------------------------------------------------------------------------------------------------------------------------
 
 class DxilShaderAccessTracking : public ModulePass {
@@ -184,7 +210,7 @@ public:
 private:
   void EmitAccess(LLVMContext &Ctx, OP *HlslOP, IRBuilder<> &, Value *slot,
                   ShaderAccessFlags access);
-  bool EmitResourceAccess(DxilResourceAndClass &res, Instruction *instruction,
+  bool EmitResourceAccess(DxilModule & DM, DxilResourceAndClass &res, Instruction *instruction,
                           OP *HlslOP, LLVMContext &Ctx,
                           ShaderAccessFlags readWrite);
   DxilResourceAndClass GetResourceFromHandle(Value* resHandle, DxilModule& DM);
@@ -369,7 +395,8 @@ static ResourceAccessStyle AccessStyleFromAccessAndType(
     }
 }
 
-bool DxilShaderAccessTracking::EmitResourceAccess(DxilResourceAndClass &res,
+bool DxilShaderAccessTracking::EmitResourceAccess(DxilModule &DM, 
+                                                  DxilResourceAndClass &res,
                                                   Instruction *instruction,
                                                   OP *HlslOP, LLVMContext &Ctx,
                                                   ShaderAccessFlags readWrite) {
@@ -478,13 +505,13 @@ bool DxilShaderAccessTracking::EmitResourceAccess(DxilResourceAndClass &res,
           auto *LimitBoolean =
               Builder.CreateICmpULT(OffsetToWrite, BufferLimit);
           
-          auto * LimitIntegerValue = Builder.CreateCast(
+          auto * ZeroIfOutOfBounds = Builder.CreateCast(
               Instruction::CastOps::ZExt, LimitBoolean,
               Type::getInt32Ty(Ctx));
           
           // Limit the offset to the out-of-bounds record if the above generated 0,
           // or leave it as-is if the above generated 1:
-          auto *LimitedOffset = Builder.CreateMul(OffsetToWrite, LimitIntegerValue);
+          auto *LimitedOffset = Builder.CreateMul(OffsetToWrite, ZeroIfOutOfBounds);
           
           // Offset into the range of records for this type of access (resource or sampler)
           auto* Offset = Builder.CreateAdd(BaseOfRecordsForType, LimitedOffset);
@@ -498,6 +525,23 @@ bool DxilShaderAccessTracking::EmitResourceAccess(DxilResourceAndClass &res,
                                 .at(Builder.GetInsertBlock()->getParent())
                                 .at(accessStyle);
 
+          // Now: if we're out-of-bounds, we'll actually write the offending instruction number instead,
+          // again using the mul-by-one-or-zero trick
+          auto* OneIfOutOfBounds = Builder.CreateSub(HlslOP->GetU32Const(1), ZeroIfOutOfBounds);
+          auto* MultipliedEncodedFlags = Builder.CreateMul(ZeroIfOutOfBounds, EncodedFlags);
+          uint32_t InstructionNumber = 0;
+          (void)pix_dxil::PixDxilInstNum::FromInst(instruction, &InstructionNumber);
+          auto const *shaderModel = DM.GetShaderModel();
+          auto shaderKind = shaderModel->GetKind();
+          uint32_t EncodedInstructionNumber =
+            InstructionNumber | InstructionOrdinalndicator | EncodeShaderModel(shaderKind);
+          auto* MultipliedOutOfBoundsValue = Builder.CreateMul(OneIfOutOfBounds, HlslOP->GetU32Const(EncodedInstructionNumber));
+          auto* CombinedFlagOrInstructionValue = Builder.CreateAdd(MultipliedEncodedFlags, MultipliedOutOfBoundsValue);
+
+          // If we failed to find an instruction value, just return the access flags:
+          if (InstructionNumber == 0) {
+            CombinedFlagOrInstructionValue = EncodedFlags;
+          }
           Constant *ElementMask = HlslOP->GetI8Const(1);
           Function *StoreFunc =
               HlslOP->GetOpFunc(OP::OpCode::BufferStore, Type::getInt32Ty(Ctx));
@@ -513,7 +557,7 @@ bool DxilShaderAccessTracking::EmitResourceAccess(DxilResourceAndClass &res,
                           ->getParent()),       // %dx.types.Handle, ; resource handle
                   Offset,                // i32, ; coordinate c0: byte offset
                   UndefArg,                     // i32, ; coordinate c1 (unused)
-                  EncodedFlags,                 // i32, ; value v0
+                  CombinedFlagOrInstructionValue, // i32, ; value v0
                   UndefArg,                     // i32, ; value v1
                   UndefArg,                     // i32, ; value v2
                   UndefArg,                     // i32, ; value v3
@@ -624,18 +668,6 @@ DxilShaderAccessTracking::GetResourceFromHandle(Value *resHandle,
   return ret;
 }
 
-static uint32_t EncodeShaderModel(DXIL::ShaderKind kind)
-{
-    DXASSERT_NOMSG(static_cast<int>(DXIL::ShaderKind::Invalid) <= 16);
-    return static_cast<uint32_t>(kind) << 28;
-}
-
-static uint32_t EncodeAccess(ResourceAccessStyle access) {
-    uint32_t encoded = static_cast<uint32_t>(access);
-    DXASSERT_NOMSG(encoded < 8);
-    return encoded << 24;
-}
-
 bool DxilShaderAccessTracking::runOnModule(Module &M) {
   // This pass adds instrumentation for shader access to resources
 
@@ -709,7 +741,7 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
           auto const* shaderModel = DM.GetShaderModel();
           auto shaderKind = shaderModel->GetKind();
           OP *HlslOP = DM.GetOP();
-          for (int accessStyle = 1;
+          for (int accessStyle = static_cast<int>(ResourceAccessStyle::None);
               accessStyle < static_cast<int>(ResourceAccessStyle::EndOfEnum);
               ++accessStyle)
           {
@@ -771,6 +803,7 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
           // Read of AccelerationStructure; doesn't match function attribute
           auto res = GetResourceFromHandle(Call->getArgOperand(2), DM);
           if (EmitResourceAccess(
+            DM,
             res, 
             Call, 
             HlslOP, 
@@ -794,7 +827,7 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
           if (res.RegisterSpace  == -2) {
             break;
           }
-          if (EmitResourceAccess(res, Call, HlslOP, Ctx, readWrite)) {
+          if (EmitResourceAccess(DM, res, Call, HlslOP, Ctx, readWrite)) {
             Modified = true;
           }
           // Remaining resources are DescriptorRead.
