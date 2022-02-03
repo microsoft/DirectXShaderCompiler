@@ -3044,4 +3044,8 @@ TEST_F(FileTest, VolatileInterfaceInRayGenVk1p3) {
   runFileTest("volatile.interface.raygen.vk1p3.hlsl");
 }
 
+TEST_F(FileTest, DefineSpirvMacro) {
+  runFileTest("ifdef.spirv.hlsl", Expect::Failure);
+}
+
 } // namespace
