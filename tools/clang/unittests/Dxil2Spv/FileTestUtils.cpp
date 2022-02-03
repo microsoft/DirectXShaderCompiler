@@ -13,6 +13,7 @@
 
 #include "Dxil2SpvTestOptions.h"
 #include "dxil2spv/lib/dxil2spv.h"
+#include "clang/Frontend/TextDiagnosticPrinter.h"
 #include "llvm/Support/raw_ostream.h"
 #include "gtest/gtest.h"
 
@@ -56,7 +57,15 @@ bool translateFileWithDxil2Spv(const llvm::StringRef inputFilePath,
     CComPtr<IDxcBlobEncoding> blob;
     ReadFileIntoBlob(dxcSupport, filename, &blob);
 
-    dxil2spvlib::RunTranslator(blob, OS, ERR);
+    // Set up diagnostics.
+    CompilerInstance instance;
+    auto *diagnosticPrinter =
+        new clang::TextDiagnosticPrinter(ERR, new clang::DiagnosticOptions());
+    instance.createDiagnostics(diagnosticPrinter, false);
+    instance.setOutStream(&OS);
+
+    Translator translator(instance);
+    translator.Run(blob);
   } catch (...) {
     success = false;
   }

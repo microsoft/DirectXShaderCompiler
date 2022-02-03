@@ -16,21 +16,31 @@
 #include "dxc/DxilContainer/DxilContainerReader.h"
 #include "dxc/Support/ErrorCodes.h"
 #include "dxc/Support/Global.h"
-#include "dxc/dxcapi.h"
 
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IRReader/IRReader.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/raw_ostream.h"
 
 #include "spirv-tools/libspirv.hpp"
+#include "clang/Frontend/CodeGenOptions.h"
 #include "clang/Frontend/TextDiagnosticPrinter.h"
-#include "clang/SPIRV/SpirvBuilder.h"
-#include "clang/SPIRV/SpirvContext.h"
 
-int dxil2spvlib::RunTranslator(CComPtr<IDxcBlobEncoding> blob,
-                               llvm::raw_ostream &OS, llvm::raw_ostream &ERR) {
+namespace clang {
+namespace dxil2spv {
+
+Translator::Translator(CompilerInstance &instance)
+    : ci(instance), diagnosticsEngine(ci.getDiagnostics()),
+      spirvOptions(ci.getCodeGenOpts().SpirvOptions),
+      featureManager(diagnosticsEngine, spirvOptions),
+      spvBuilder(spvContext, spirvOptions, featureManager) {
+
+  // TODO: Allow configuration of targetEnv via options.
+  ci.getCodeGenOpts().SpirvOptions.targetEnv = "vulkan1.0";
+}
+
+int Translator::Run(CComPtr<IDxcBlobEncoding> blob) {
   const char *blobContext =
       reinterpret_cast<const char *>(blob->GetBufferPointer());
   unsigned blobSize = blob->GetBufferSize();
@@ -70,7 +80,7 @@ int dxil2spvlib::RunTranslator(CComPtr<IDxcBlobEncoding> blob,
   }
 
   if (module == nullptr) {
-    ERR << "Could not parse DXIL module\n";
+    emitError("Could not parse DXIL module");
     return DXC_E_GENERAL_INTERNAL_ERROR;
   }
 
@@ -79,29 +89,12 @@ int dxil2spvlib::RunTranslator(CComPtr<IDxcBlobEncoding> blob,
 
   const hlsl::ShaderModel *shaderModel = program.GetShaderModel();
   if (shaderModel->GetKind() == hlsl::ShaderModel::Kind::Invalid)
-    ERR << "Unknown shader model: " << shaderModel->GetName();
+    emitError("Unknown shader model: %0") << shaderModel->GetName();
 
   // Set shader model kind and HLSL major/minor version.
-  clang::spirv::SpirvContext spvContext;
   spvContext.setCurrentShaderModelKind(shaderModel->GetKind());
   spvContext.setMajorVersion(shaderModel->GetMajor());
   spvContext.setMinorVersion(shaderModel->GetMinor());
-
-  clang::spirv::SpirvCodeGenOptions spvOpts{};
-  // TODO: Allow configuration of targetEnv via options.
-  spvOpts.targetEnv = "vulkan1.0";
-
-  // Construct SPIR-V builder with diagnostics
-  clang::IntrusiveRefCntPtr<clang::DiagnosticOptions> diagnosticOpts =
-      new clang::DiagnosticOptions();
-  clang::TextDiagnosticPrinter diagnosticPrinter(ERR, &*diagnosticOpts);
-  clang::DiagnosticsEngine diagnosticEngine(
-      clang::IntrusiveRefCntPtr<clang::DiagnosticIDs>(
-          new clang::DiagnosticIDs()),
-      &*diagnosticOpts, &diagnosticPrinter, false);
-
-  clang::spirv::FeatureManager featureMgr(diagnosticEngine, spvOpts);
-  clang::spirv::SpirvBuilder spvBuilder(spvContext, spvOpts, featureMgr);
 
   // Set default addressing and memory model for SPIR-V module.
   spvBuilder.setMemoryModel(spv::AddressingModel::Logical,
@@ -117,11 +110,21 @@ int dxil2spvlib::RunTranslator(CComPtr<IDxcBlobEncoding> blob,
                            SPV_BINARY_TO_TEXT_OPTION_INDENT);
 
   if (!spirvTools.Disassemble(m, &assembly, spirvDisOpts)) {
-    ERR << "SPIR-V disassembly failed\n";
+    emitError("SPIR-V disassembly failed");
     return DXC_E_GENERAL_INTERNAL_ERROR;
   }
 
-  OS << assembly;
+  *ci.getOutStream() << assembly;
 
   return 0;
 }
+
+template <unsigned N>
+DiagnosticBuilder Translator::emitError(const char (&message)[N]) {
+  const auto diagId =
+      diagnosticsEngine.getCustomDiagID(DiagnosticsEngine::Error, message);
+  return diagnosticsEngine.Report({}, diagId);
+}
+
+} // namespace dxil2spv
+} // namespace clang
