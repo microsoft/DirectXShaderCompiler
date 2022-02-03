@@ -8380,21 +8380,25 @@ TEST_F(ExecutionTest, DynamicResourcesTest) {
 
   // Now test dynamic indexing
   CD3DX12_CPU_DESCRIPTOR_HANDLE baseHandle;
-  CComPtr<ID3D12Resource> pVertexBuffer;
-  D3D12_VERTEX_BUFFER_VIEW vertexBufferView;
+  CComPtr<ID3D12Resource> pIndexBuffer;
+  D3D12_VERTEX_BUFFER_VIEW IndexBufferView;
 
   // Imagine these are vertices on a 1-dimensional line
-  struct Vertex {
+  struct Index {
     UINT32 x;
   };
 
-  Vertex Vertices[] = {{{0}}, {{1}}, {{2}}, {{3}}, {{4}}, {{5}}, {{6}}, {{7}}};
+  Index Indices[] = {{{0}}, {{1}}, {{2}}, {{3}}, {{4}}, {{5}}, {{6}}, {{7}}};
   UINT numElements = 8;
 
-  CreateVertexBuffer(pDevice, Vertices, &pVertexBuffer, &vertexBufferView);
+  CreateVertexBuffer(pDevice, Indices, &pIndexBuffer, &IndexBufferView);
 
-  Create_CBV(pDevice, baseHandle, numElements, &vertexBufferView);
+  Create_CBV(pDevice, baseHandle, numElements, &IndexBufferView);
   static const char pShaderDynamic[] =
+    "cbuffer baseHandle : register(b0, space0)"
+    "{"
+    "    uint InputIndex;"
+    "};"
     "static ByteAddressBuffer         g_rawBuf      = ResourceDescriptorHeap[baseHandle[0]];\n"
     "static StructuredBuffer<float>   g_structBuf   = ResourceDescriptorHeap[baseHandle[1]];\n"
     "static Texture2D<float>          g_tex         = ResourceDescriptorHeap[baseHandle[2]];\n"
@@ -8406,14 +8410,14 @@ TEST_F(ExecutionTest, DynamicResourcesTest) {
     "static SamplerComparisonState    g_sampCmp     = SamplerDescriptorHeap[baseHandle[1]];\n"
     "[NumThreads(1, 1, 1)]\n"
     "void main(uint ix : SV_GroupIndex) {\n"
-    "  g_result[[baseHandle[0]]] = g_rawBuf.Load<float>(0);\n"
-    "  g_result[[baseHandle[1]]] = g_structBuf.Load(0);\n"
-    "  g_result[[baseHandle[2]]] = g_tex.Load(0);\n"
-    "  g_result[[baseHandle[3]]] = g_rwRawBuf.Load<float>(0);\n"
-    "  g_result[[baseHandle[4]]] = g_rwStructBuf.Load(0);\n"
-    "  g_result[[baseHandle[5]]] = g_rwTex.Load(0);\n"
-    "  g_result[[baseHandle[6]]] = g_tex.SampleLevel(g_samp, -0.5, 0);\n"
-    "  g_result[[baseHandle[7]]] = g_tex.SampleCmpLevelZero(g_sampCmp, -0.5, 31.0);\n"
+    "  g_result[0] = g_rawBuf.Load<float>(0);\n"
+    "  g_result[1] = g_structBuf.Load(0);\n"
+    "  g_result[2] = g_tex.Load(0);\n"
+    "  g_result[3] = g_rwRawBuf.Load<float>(0);\n"
+    "  g_result[4] = g_rwStructBuf.Load(0);\n"
+    "  g_result[5] = g_rwTex.Load(0);\n"
+    "  g_result[6] = g_tex.SampleLevel(g_samp, -0.5, 0);\n"
+    "  g_result[7] = g_tex.SampleCmpLevelZero(g_sampCmp, -0.5, 31.0);\n"
     "}\n";
 
   // ResourceDescriptorHeap/SamplerDescriptorHeap requires Resource Binding Tier
@@ -8421,12 +8425,6 @@ TEST_F(ExecutionTest, DynamicResourcesTest) {
   VERIFY_SUCCEEDED(
       pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS, &devOptions,
       sizeof(devOptions)));
-  if (devOptions.ResourceBindingTier < D3D12_RESOURCE_BINDING_TIER_3) {
-    WEX::Logging::Log::Comment(
-        L"Device does not support Resource Binding Tier 3");
-    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
-    return;
-  }
 
   RunResourceTest(pDevice, pShaderDynamic, L"cs_6_6", /*isDynamic*/ true);
 
