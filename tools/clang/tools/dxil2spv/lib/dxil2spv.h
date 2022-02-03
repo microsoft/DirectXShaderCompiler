@@ -12,15 +12,33 @@
 #ifndef __DXIL2SPV_DXIL2SPV__
 #define __DXIL2SPV_DXIL2SPV__
 
+#include "dxc/Support/SPIRVOptions.h"
 #include "dxc/dxcapi.h"
+#include "clang/Frontend/CompilerInstance.h"
+#include "clang/SPIRV/SpirvBuilder.h"
+#include "clang/SPIRV/SpirvContext.h"
+#include "llvm/Support/raw_ostream.h"
 
-namespace llvm {
-class raw_ostream;
-}
+namespace clang {
+namespace dxil2spv {
 
-namespace dxil2spvlib {
-int RunTranslator(CComPtr<IDxcBlobEncoding> blob, llvm::raw_ostream &OS,
-                  llvm::raw_ostream &ERR);
-}
+class Translator {
+public:
+  Translator(CompilerInstance &instance);
+  int Run(CComPtr<IDxcBlobEncoding> blob);
+
+private:
+  CompilerInstance &ci;
+  DiagnosticsEngine &diagnosticsEngine;
+  spirv::SpirvCodeGenOptions &spirvOptions;
+  spirv::SpirvContext spvContext;
+  spirv::FeatureManager featureManager;
+  spirv::SpirvBuilder spvBuilder;
+
+  template <unsigned N> DiagnosticBuilder emitError(const char (&message)[N]);
+};
+
+} // namespace dxil2spv
+} // namespace clang
 
 #endif // __DXIL2SPV_DXIL2SPV__

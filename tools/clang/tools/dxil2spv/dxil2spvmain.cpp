@@ -32,8 +32,13 @@
 #include "dxc/Support/ErrorCodes.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/HLSLOptions.h"
+#include "dxc/Support/WinAdapter.h"
 #include "dxc/Support/dxcapi.use.h"
+#include "dxc/dxcapi.h"
 #include "lib/dxil2spv.h"
+#include "clang/Frontend/CompilerInstance.h"
+#include "clang/Frontend/FrontendOptions.h"
+#include "clang/Frontend/TextDiagnosticPrinter.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MSFileSystem.h"
 #include "llvm/Support/raw_ostream.h"
@@ -68,5 +73,14 @@ int main(int argc, const char **argv_) {
   CComPtr<IDxcBlobEncoding> blob;
   ReadFileIntoBlob(dxcSupport, filename, &blob);
 
-  return dxil2spvlib::RunTranslator(blob, llvm::outs(), llvm::errs());
+  // Setup a compiler instance with diagnostics.
+  clang::CompilerInstance instance;
+  auto *diagnosticPrinter = new clang::TextDiagnosticPrinter(
+      llvm::errs(), new clang::DiagnosticOptions());
+  instance.createDiagnostics(diagnosticPrinter, false);
+  instance.setOutStream(&llvm::outs());
+
+  // Run translator.
+  clang::dxil2spv::Translator translator(instance);
+  return translator.Run(blob);
 }
