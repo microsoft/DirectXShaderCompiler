@@ -924,7 +924,14 @@ void DxcContext::Preprocess() {
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcOperationResult> pPreprocessResult;
   CComPtr<IDxcBlobEncoding> pSource;
+  
+  std::vector<std::wstring> argStrings;
+  CopyArgsToWStrings(m_Opts.Args, CoreOption, argStrings);
+
   std::vector<LPCWSTR> args;
+  args.reserve(argStrings.size());
+  for (const std::wstring &a : argStrings)
+    args.push_back(a.data());
 
   CComPtr<IDxcLibrary> pLibrary;
   CComPtr<IDxcIncludeHandler> pIncludeHandler;
