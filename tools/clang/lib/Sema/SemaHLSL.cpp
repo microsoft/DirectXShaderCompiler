@@ -216,12 +216,18 @@ enum ArBasicKind {
   // Heap Resource
   AR_OBJECT_HEAP_RESOURCE,
   AR_OBJECT_HEAP_SAMPLER,
+
+  AR_OBJECT_RWTEXTURE2DMS,
+  AR_OBJECT_RWTEXTURE2DMS_ARRAY,
+
   AR_BASIC_MAXIMUM_COUNT
 };
 
 #define AR_BASIC_TEXTURE_MS_CASES \
     case AR_OBJECT_TEXTURE2DMS: \
-    case AR_OBJECT_TEXTURE2DMS_ARRAY
+    case AR_OBJECT_TEXTURE2DMS_ARRAY: \
+    case AR_OBJECT_RWTEXTURE2DMS: \
+    case AR_OBJECT_RWTEXTURE2DMS_ARRAY
 
 #define AR_BASIC_NON_TEXTURE_MS_CASES \
     case AR_OBJECT_TEXTURE1D: \
@@ -506,6 +512,10 @@ const UINT g_uBasicKindProps[] =
   0,      //AR_OBJECT_RAY_QUERY,
   0,      //AR_OBJECT_HEAP_RESOURCE,
   0,      //AR_OBJECT_HEAP_SAMPLER,
+
+  BPROP_OBJECT | BPROP_RWBUFFER,  // AR_OBJECT_RWTEXTURE2DMS
+  BPROP_OBJECT | BPROP_RWBUFFER,  // AR_OBJECT_RWTEXTURE2DMS_ARRAY
+
   // AR_BASIC_MAXIMUM_COUNT
 };
 
@@ -1429,6 +1439,9 @@ const ArBasicKind g_ArBasicKindsAsTypes[] =
   AR_OBJECT_RAY_QUERY,
   AR_OBJECT_HEAP_RESOURCE,
   AR_OBJECT_HEAP_SAMPLER,
+
+  AR_OBJECT_RWTEXTURE2DMS,        // RWTexture2DMS
+  AR_OBJECT_RWTEXTURE2DMS_ARRAY,  // RWTexture2DMSArray
 };
 
 // Count of template arguments for basic kind of objects that look like templates (one or more type arguments).
@@ -1521,6 +1534,9 @@ const uint8_t g_ArBasicKindsTemplateCount[] =
   1, // AR_OBJECT_RAY_QUERY,
   0, // AR_OBJECT_HEAP_RESOURCE,
   0, // AR_OBJECT_HEAP_SAMPLER,
+
+  2, // AR_OBJECT_RWTEXTURE2DMS
+  2, // AR_OBJECT_RWTEXTURE2DMS_ARRAY
 };
 
 C_ASSERT(_countof(g_ArBasicKindsAsTypes) == _countof(g_ArBasicKindsTemplateCount));
@@ -1623,6 +1639,9 @@ const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] =
   { 0, MipsFalse, SampleFalse },  // AR_OBJECT_RAY_QUERY,
   { 0, MipsFalse, SampleFalse },  // AR_OBJECT_HEAP_RESOURCE,
   { 0, MipsFalse, SampleFalse },  // AR_OBJECT_HEAP_SAMPLER,
+
+  { 2, MipsFalse, SampleTrue  }, // AR_OBJECT_RWTEXTURE2DMS (RWTexture2DMS)
+  { 3, MipsFalse, SampleTrue  }, // AR_OBJECT_RWTEXTURE2DMS_ARRAY (RWTexture2DMSArray)
 };
 
 C_ASSERT(_countof(g_ArBasicKindsAsTypes) == _countof(g_ArBasicKindsSubscripts));
@@ -1748,6 +1767,9 @@ const char* g_ArBasicTypeNames[] =
   "RayQuery",
   "HEAP_Resource",
   "HEAP_Sampler",
+
+  "RWTexture2DMS",
+  "RWTexture2DMSArray",
 };
 
 C_ASSERT(_countof(g_ArBasicTypeNames) == AR_BASIC_MAXIMUM_COUNT);
@@ -2381,6 +2403,14 @@ void GetIntrinsicMethods(ArBasicKind kind, _Outptr_result_buffer_(*intrinsicCoun
   case AR_OBJECT_RAY_QUERY:
     *intrinsics = g_RayQueryMethods;
     *intrinsicCount = _countof(g_RayQueryMethods);
+    break;
+  case AR_OBJECT_RWTEXTURE2DMS:
+    *intrinsics = g_RWTexture2DMSMethods;
+    *intrinsicCount = _countof(g_RWTexture2DMSMethods);
+    break;
+  case AR_OBJECT_RWTEXTURE2DMS_ARRAY:
+    *intrinsics = g_RWTexture2DMSArrayMethods;
+    *intrinsicCount = _countof(g_RWTexture2DMSArrayMethods);
     break;
     // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
@@ -3388,8 +3418,8 @@ private:
              "of the position parameter");
 
     bool isReadWrite = GetBasicKindProps(kind) & BPROP_RWBUFFER;
-    DXASSERT(!isReadWrite || (op.HasMips == false && op.HasSample == false),
-             "read/write objects don't have .mips or .sample members");
+    DXASSERT(!isReadWrite || (op.HasMips == false),
+             "read/write objects don't have .mips members");
 
     // Return early if there is no work to be done.
     if (op.SubscriptCardinality == 0) {
@@ -4342,6 +4372,8 @@ public:
     case AR_OBJECT_ACCELERATION_STRUCT:
     case AR_OBJECT_RAY_DESC:
     case AR_OBJECT_TRIANGLE_INTERSECTION_ATTRIBUTES:
+    case AR_OBJECT_RWTEXTURE2DMS:
+    case AR_OBJECT_RWTEXTURE2DMS_ARRAY:
     {
         const ArBasicKind* match = std::find(g_ArBasicKindsAsTypes, &g_ArBasicKindsAsTypes[_countof(g_ArBasicKindsAsTypes)], kind);
         DXASSERT(match != &g_ArBasicKindsAsTypes[_countof(g_ArBasicKindsAsTypes)], "otherwise can't find constant in basic kinds");

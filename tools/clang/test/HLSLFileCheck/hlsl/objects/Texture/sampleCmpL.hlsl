@@ -17,6 +17,8 @@ RWBuffer<TYPE> buf1;
 
 float cmpVal;
 
+//CHECK: Advanced Texture Ops
+
 float doit(float4 a, float lod) {
   uint status;
   float r = 0;

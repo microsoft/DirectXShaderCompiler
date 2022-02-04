@@ -1783,6 +1783,8 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
     case DXIL::ResourceKind::Texture1DArray:
     case DXIL::ResourceKind::Texture2D:
     case DXIL::ResourceKind::Texture2DArray:
+    case DXIL::ResourceKind::Texture2DMS:
+    case DXIL::ResourceKind::Texture2DMSArray:
     case DXIL::ResourceKind::Texture3D:
       break;
     default:
@@ -1844,7 +1846,8 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
         ValCtx.EmitInstrError(CI, ValidationRule::InstrOffsetOnUAVLoad);
       }
       if (!isa<UndefValue>(mipLevel)) {
-        ValCtx.EmitInstrError(CI, ValidationRule::InstrMipOnUAVLoad);
+        if (resKind != DXIL::ResourceKind::Texture2DMS && resKind != DXIL::ResourceKind::Texture2DMSArray )
+          ValCtx.EmitInstrError(CI, ValidationRule::InstrMipOnUAVLoad);
       }
     } else {
       if (resClass != DXIL::ResourceClass::SRV) {
@@ -3895,8 +3898,6 @@ static void ValidateResources(ValidationContext &ValCtx) {
       }
     }
     switch (uav->GetKind()) {
-    case DXIL::ResourceKind::Texture2DMS:
-    case DXIL::ResourceKind::Texture2DMSArray:
     case DXIL::ResourceKind::TextureCube:
     case DXIL::ResourceKind::TextureCubeArray:
       ValCtx.EmitResourceError(uav.get(),
