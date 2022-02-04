@@ -42,6 +42,7 @@ class CallExpr;
 class InitListExpr;
 class Expr;
 class Stmt;
+class ReturnStmt;
 class Attr;
 class VarDecl;
 class HLSLRootSignatureAttr;
@@ -134,6 +135,10 @@ public:
 
   virtual void FinishAutoVar(CodeGenFunction &CGF, const VarDecl &D,
                              llvm::Value *V) = 0;
+  virtual const clang::Expr *CheckReturnStmtGLCMismatch(
+      CodeGenFunction &CGF, const clang::Expr *RV, const clang::ReturnStmt &S,
+      clang::QualType FnRetTy,
+      const std::function<void(const VarDecl *, llvm::Value *)> &TmpArgMap) = 0;
   virtual void MarkIfStmt(CodeGenFunction &CGF, llvm::BasicBlock *endIfBB) = 0;
   virtual void MarkSwitchStmt(CodeGenFunction &CGF,
                               llvm::SwitchInst *switchInst,
