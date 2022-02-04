@@ -1228,7 +1228,9 @@ public:
   /// return slot when returning from the function. Within the function body,
   /// each return that returns the NRVO object will have this variable as its
   /// NRVO candidate.
-  bool isNRVOVariable() const;  // HLSL Change - Moved to Decl.cpp
+  bool isNRVOVariable() const {
+    return isa<ParmVarDecl>(this) ? false : NonParmVarDeclBits.NRVOVariable;
+  }
 
   void setNRVOVariable(bool NRVO) {
     assert(!isa<ParmVarDecl>(this));
