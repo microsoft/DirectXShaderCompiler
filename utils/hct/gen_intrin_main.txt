@@ -832,6 +832,24 @@ $classT [[ro]] Load(in int<3> x) : rwtex2d_load_array;
 $classT [[]] Load(in int<3> x, out uint_only status) : rwtex2d_load_array_s;
 } namespace
 
+namespace RWTexture2DMSMethods {
+
+void [[]] GetDimensions(out uint_only width, out $type1 height, out $type2 samples);
+void [[]] GetDimensions(out float_like width, out $type1 height, out $type2 samples);
+float_like<2> [[ro]] GetSamplePosition(in int s);
+$classT [[ro]] Load(in int<2> x, in int s);
+$classT [[]] Load(in int<2> x, in int s, out uint_only status);
+} namespace
+
+namespace RWTexture2DMSArrayMethods {
+
+void [[]] GetDimensions(out uint_only width, out $type1 height, out $type1 elements, out $type1 samples);
+void [[]] GetDimensions(out float_like width, out $type1 height, out $type1 elements, out $type1 samples);
+float_like<2> [[ro]] GetSamplePosition(in int s);
+$classT [[ro]] Load(in int<3> x, in int s);
+$classT [[]] Load(in int<3> x, in int s, out uint_only status);
+} namespace
+
 namespace RWTexture3DMethods {
 
 void [[]] GetDimensions(out uint_only width, out $type1 height, out $type1 depth) : resinfo_uint_o;

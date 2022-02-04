@@ -5,9 +5,11 @@
 // RUN: %dxc -E VarOffset -T ps_6_0 -DOFFSETS=constOffsets %s | FileCheck %s -check-prefix=CHK_VAROFF
 // RUN: %dxc -E VarOffset -T ps_6_0 -DOFFSETS=validOffsets %s | FileCheck %s -check-prefix=CHK_VALID
 
-// RUN: %dxc -E VarOffset -T ps_6_7 -DOFFSETS=argOffsets %s | FileCheck %s -check-prefix=CHK_VALID
-// RUN: %dxc -E VarOffset -T ps_6_7 -DOFFSETS=cbufOffsets %s | FileCheck %s -check-prefix=CHK_VALID
-// RUN: %dxc -E VarOffset -T ps_6_7 -DOFFSETS=constOffsets %s | FileCheck %s -check-prefix=CHK_VALID
+// RUN: %dxc -E VarOffset -T ps_6_7 -DOFFSETS=argOffsets %s | FileCheck %s -check-prefixes=CHK_VALID,SM67CHCK
+// RUN: %dxc -E VarOffset -T ps_6_7 -DOFFSETS=cbufOffsets %s | FileCheck %s -check-prefixes=CHK_VALID,SM67CHCK
+// RUN: %dxc -E VarOffset -T ps_6_7 -DOFFSETS=constOffsets %s | FileCheck %s -check-prefixes=CHK_VALID,SM67CHCK
+
+//SM67CHK: Advanced Texture Ops
 
 // CHK_RANGE: error: Offsets to texture access operations must be between -8 and 7.
 // CHK_RANGE: error: Offsets to texture access operations must be between -8 and 7.

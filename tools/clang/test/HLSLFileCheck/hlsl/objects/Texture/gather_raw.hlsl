@@ -1,5 +1,7 @@
 // RUN: %dxc -T ps_6_7 -enable-16bit-types %s  | FileCheck %s
 
+//CHECK: Advanced Texture Ops
+
 
 // CHECK: call %dx.types.ResRet.i16 @dx.op.textureGatherRaw.i16
 // CHECK: call %dx.types.ResRet.i16 @dx.op.textureGatherRaw.i16

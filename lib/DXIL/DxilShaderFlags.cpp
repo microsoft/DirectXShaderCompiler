@@ -380,7 +380,6 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   // Used to determine whether to set ResMayNotAlias flag.
   bool hasUAVs = M->GetUAVs().size() > 0;
 
-  // TODO: Fill these in below!
   bool hasAdvancedTextureOps = false;
   bool hasWriteableMSAATextures = false;
 
@@ -401,6 +400,9 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
     ResourceKey key = {(uint8_t)res->GetClass(), res->GetSpaceID(),
                        res->GetLowerBound(), res->GetUpperBound()};
     resMap.insert({key, res.get()});
+    if (res->GetKind() == DXIL::ResourceKind::Texture2DMS ||
+        res->GetKind() == DXIL::ResourceKind::Texture2DMSArray)
+      hasWriteableMSAATextures = true;
   }
 
   for (const BasicBlock &BB : F->getBasicBlockList()) {
@@ -468,11 +470,16 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
         case DXIL::OpCode::Msad:
           hasMSAD = true;
           break;
-        case DXIL::OpCode::BufferLoad:
-        case DXIL::OpCode::TextureLoad: {
+        case DXIL::OpCode::TextureLoad:
+          if (!isa<Constant>(CI->getArgOperand(DXIL::OperandIndex::kTextureLoadOffset0OpIdx)) ||
+              !isa<Constant>(CI->getArgOperand(DXIL::OperandIndex::kTextureLoadOffset1OpIdx)) ||
+              !isa<Constant>(CI->getArgOperand(DXIL::OperandIndex::kTextureLoadOffset2OpIdx)))
+            hasAdvancedTextureOps = true;
+          __fallthrough;
+        case DXIL::OpCode::BufferLoad: {
           if (hasMulticomponentUAVLoads) continue;
           // This is the old-style computation (overestimating requirements).
-          Value *resHandle = CI->getArgOperand(DXIL::OperandIndex::kBufferStoreHandleOpIdx);
+          Value *resHandle = CI->getArgOperand(DXIL::OperandIndex::kBufferLoadHandleOpIdx);
           CallInst *handleCall = FindCallToCreateHandle(resHandle);
           // Check if this is a library handle or general create handle
           if (handleCall) {
@@ -523,14 +530,27 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
             }
           }
           break;
+        case DXIL::OpCode::SampleGrad:
+        case DXIL::OpCode::SampleLevel:
+        case DXIL::OpCode::SampleCmpLevelZero:
+          if (!isa<Constant>(CI->getArgOperand(DXIL::OperandIndex::kTextureSampleOffset0OpIdx)) ||
+              !isa<Constant>(CI->getArgOperand(DXIL::OperandIndex::kTextureSampleOffset1OpIdx)) ||
+              !isa<Constant>(CI->getArgOperand(DXIL::OperandIndex::kTextureSampleOffset2OpIdx)))
+            hasAdvancedTextureOps = true;
+          break;
+        case DXIL::OpCode::Sample:
+        case DXIL::OpCode::SampleBias:
+        case DXIL::OpCode::SampleCmp:
+          if (!isa<Constant>(CI->getArgOperand(DXIL::OperandIndex::kTextureSampleOffset0OpIdx)) ||
+              !isa<Constant>(CI->getArgOperand(DXIL::OperandIndex::kTextureSampleOffset1OpIdx)) ||
+              !isa<Constant>(CI->getArgOperand(DXIL::OperandIndex::kTextureSampleOffset2OpIdx)))
+            hasAdvancedTextureOps = true;
+          __fallthrough;
         case DXIL::OpCode::DerivFineX:
         case DXIL::OpCode::DerivFineY:
         case DXIL::OpCode::DerivCoarseX:
         case DXIL::OpCode::DerivCoarseY:
-        case DXIL::OpCode::CalculateLOD:
-        case DXIL::OpCode::Sample:
-        case DXIL::OpCode::SampleBias:
-        case DXIL::OpCode::SampleCmp: {
+        case DXIL::OpCode::CalculateLOD: {
           const ShaderModel *pSM = M->GetShaderModel();
           if (pSM->IsAS() || pSM->IsMS())
             hasDerivativesInMeshAndAmpShaders = true;
@@ -551,6 +571,13 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
             }
           }
         }
+        case DXIL::OpCode::TextureStoreSample:
+          hasWriteableMSAATextures = true;
+          __fallthrough;
+        case DXIL::OpCode::SampleCmpLevel:
+        case DXIL::OpCode::TextureGatherRaw:
+          hasAdvancedTextureOps = true;
+          break;
         default:
           // Normal opcodes.
           break;

@@ -2681,7 +2681,7 @@ class db_dxil(object):
         self.add_valrule("Sm.GSValidInputPrimitive", "GS input primitive unrecognized.")
         self.add_valrule("Sm.GSValidOutputPrimitiveTopology", "GS output primitive topology unrecognized.")
         self.add_valrule("Sm.AppendAndConsumeOnSameUAV", "BufferUpdateCounter inc and dec on a given UAV (%d) cannot both be in the same shader for shader model less than 5.1.")
-        self.add_valrule("Sm.InvalidTextureKindOnUAV", "Texture2DMS[Array] or TextureCube[Array] resources are not supported with UAVs.")
+        self.add_valrule("Sm.InvalidTextureKindOnUAV", "TextureCube[Array] resources are not supported with UAVs.")
         self.add_valrule("Sm.InvalidResourceKind", "Invalid resources kind.")
         self.add_valrule("Sm.InvalidResourceCompType","Invalid resource return type.")
         self.add_valrule("Sm.InvalidSamplerFeedbackType","Invalid sampler feedback type.")
