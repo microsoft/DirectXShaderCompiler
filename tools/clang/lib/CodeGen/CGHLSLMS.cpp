@@ -2665,8 +2665,6 @@ const clang::Expr *CGMSHLSLRuntime::CheckReturnStmtGLCMismatch(
   LValue argLV = CGF.EmitLValue(RV);
   Value *argAddr = argLV.getAddress();
 
-  LValue tmpLV = LValue::MakeAddr(tmpArgAddr, FnRetTy, argLV.getAlignment(),
-                                  CGF.getContext());
   // Annotate return value when mismatch with function return type.
   DxilResourceProperties RP = BuildResourceProperty(RV->getType());
   CopyAndAnnotateResourceArgument(argAddr, tmpArgAddr, RP, *m_pHLModule, CGF);
