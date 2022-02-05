@@ -374,7 +374,8 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
     Builder.defineMacro("__DXC_VERSION_RELEASE", STRINGIFY(RC_VERSION_FIELD_3));
     Builder.defineMacro("__DXC_VERSION_COMMITS", STRINGIFY(RC_VERSION_FIELD_4));
     // HLSL Version
-    Builder.defineMacro("__HLSL_VERSION", Twine(LangOpts.HLSLVersion));
+    Builder.defineMacro("__HLSL_VERSION",
+                        Twine((unsigned int)LangOpts.HLSLVersion));
     // Shader target information
     // "enums" for shader stages
     Builder.defineMacro("__SHADER_STAGE_VERTEX",  Twine((unsigned)hlsl::DXIL::ShaderKind::Vertex));

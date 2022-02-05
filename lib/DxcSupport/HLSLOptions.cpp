@@ -14,6 +14,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Path.h"
 #include "llvm/ADT/APInt.h"
+#include "llvm/ADT/StringSwitch.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/HLSLOptions.h"
@@ -332,6 +333,17 @@ static const uint32_t kTestingMaximumSourceLength = 13u;
 // SPIRV Change Ends
 
 namespace hlsl {
+
+LangStd parseHLSLVersion(llvm::StringRef Ver) {
+  return llvm::StringSwitch<hlsl::LangStd>(Ver)
+                           .Case("2015", hlsl::LangStd::v2015)
+                           .Case("2016", hlsl::LangStd::v2016)
+                           .Case("2017", hlsl::LangStd::v2017)
+                           .Case("2018", hlsl::LangStd::v2018)
+                           .Case("2021", hlsl::LangStd::v2021)
+                           .Case("202x", hlsl::LangStd::v202x)
+                           .Default(hlsl::LangStd::vError);
+}
 namespace options {
 
 /// Reads all options from the given argument strings, populates opts, and
@@ -448,45 +460,31 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   llvm::StringRef ver = Args.getLastArgValue(OPT_hlsl_version);
   if (ver.empty()) {
     if (opts.EnableDX9CompatMode)
-      opts.HLSLVersion = 2016; // Default to max supported version with /Gec flag
+      opts.HLSLVersion = hlsl::LangStd::v2016; // Default to max supported version with /Gec flag
     else
-      opts.HLSLVersion = 2018; // Default to latest version
+      opts.HLSLVersion = hlsl::LangStd::vLatest; // Default to latest version
   } else {
-    try {
-      opts.HLSLVersion = std::stoul(std::string(ver));
-      switch (opts.HLSLVersion) {
-      case 2015:
-      case 2016:
-      case 2017:
-      case 2018:
-      case 2021:
-        break;
-      default:
-        errors << "Unknown HLSL version: " << opts.HLSLVersion << ". Valid versions: 2016, 2017, 2018, 2021";
-        return 1;
-      }
-    }
-    catch (const std::invalid_argument &) {
-      errors << "Invalid HLSL Version";
-      return 1;
-    }
-    catch (const std::out_of_range &) {
-      errors << "Invalid HLSL Version";
+    opts.HLSLVersion = parseHLSLVersion(ver);
+    if (opts.HLSLVersion == hlsl::LangStd::vError) {
+      errors << "Unknown HLSL version: " << ver
+             << ". Valid versions: " << hlsl::ValidVersionsStr;
       return 1;
     }
   }
 
-  if (opts.HLSLVersion == 2015 && !(flagsToInclude & HlslFlags::ISenseOption)) {
+  if (opts.HLSLVersion == hlsl::LangStd::v2015 &&
+      !(flagsToInclude & HlslFlags::ISenseOption)) {
     errors << "HLSL Version 2015 is only supported for language services";
     return 1;
   }
 
-  if (opts.EnableDX9CompatMode && opts.HLSLVersion > 2016) {
-    errors << "/Gec is not supported with HLSLVersion " << opts.HLSLVersion;
+  if (opts.EnableDX9CompatMode && opts.HLSLVersion > hlsl::LangStd::v2016) {
+    errors << "/Gec is not supported with HLSLVersion "
+           << (unsigned long)opts.HLSLVersion;
     return 1;
   }
 
-  if (opts.HLSLVersion <= 2016) {
+  if (opts.HLSLVersion <= hlsl::LangStd::v2016) {
     opts.EnableFXCCompatMode = true;
   }
 
@@ -494,7 +492,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   // If the HLSL version is 2016 or 2018, allow them only
   // when the individual option is enabled.
   // If the HLSL version is 2015, dissallow these features
-  if (opts.HLSLVersion >= 2021) {
+  if (opts.HLSLVersion >= hlsl::LangStd::v2021) {
     // Enable operator overloading in structs
     opts.EnableOperatorOverloading = true;
     // Enable template support
@@ -513,21 +511,27 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     opts.EnableShortCircuit = Args.hasFlag(OPT_enable_short_circuit, OPT_INVALID, false);
     opts.EnableBitfields = Args.hasFlag(OPT_enable_bitfields, OPT_INVALID, false);
 
-    if (opts.HLSLVersion <= 2015) {
+    if (opts.HLSLVersion <= hlsl::LangStd::v2015) {
 
       if (opts.EnableOperatorOverloading)
-        errors << "/enable-operator-overloading is not supported with HLSL Version " << opts.HLSLVersion;
+        errors << "/enable-operator-overloading is not supported with HLSL "
+                  "Version "
+               << (unsigned long)opts.HLSLVersion;
       if (opts.EnableTemplates)
-        errors << "/enable-templates is not supported with HLSL Version " << opts.HLSLVersion;
+        errors << "/enable-templates is not supported with HLSL Version "
+               << (unsigned long)opts.HLSLVersion;
 
       if (opts.StrictUDTCasting)
-        errors << "/enable-udt-casting is not supported with HLSL Version " << opts.HLSLVersion;
+        errors << "/enable-udt-casting is not supported with HLSL Version "
+               << (unsigned long)opts.HLSLVersion;
 
       if (opts.EnableShortCircuit)
-        errors << "/enable-short-circuit is not supported with HLSL Version " << opts.HLSLVersion;
+        errors << "/enable-short-circuit is not supported with HLSL Version "
+               << (unsigned long)opts.HLSLVersion;
 
       if (opts.EnableBitfields)
-        errors << "/enable-bitfields is not supported with HLSL Version " << opts.HLSLVersion;
+        errors << "/enable-bitfields is not supported with HLSL Version "
+               << (unsigned long)opts.HLSLVersion;
 
       return 1;
     }
@@ -686,7 +690,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
 
   // /enable-16bit-types only allowed for HLSL 2018 and shader model 6.2
   if (opts.Enable16BitTypes) {
-    if (opts.TargetProfile.empty() || opts.HLSLVersion < 2018
+    if (opts.TargetProfile.empty() || opts.HLSLVersion < hlsl::LangStd::v2018
       || Major < 6 || (Major == 6 && Minor < 2)) {
       errors << "enable-16bit-types is only allowed for shader model >= 6.2 and HLSL Language >= 2018.";
       return 1;
