@@ -2506,24 +2506,15 @@ TEST_F(CompilerTest, CompileSetPrivateThenWithStripPrivate) {
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
                                       L"ps_6_0", args2, _countof(args2), nullptr,
                                       0, pInclude2, &pResult));
-  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
-
-  // Verify private data is stripped
-  hlsl::DxilContainerHeader *pContainerHeader2 = hlsl::IsDxilContainerLike(
-      pProgram->GetBufferPointer(), pProgram->GetBufferSize());
-  VERIFY_SUCCEEDED(
-      hlsl::IsValidDxilContainer(pContainerHeader2, pProgram->GetBufferSize()));
-  hlsl::DxilPartHeader *pPartHeaderEmpty = hlsl::GetDxilPartByType(
-      pContainerHeader2, hlsl::DxilFourCC::DFCC_PrivateData);
-  VERIFY_IS_NULL(pPartHeaderEmpty);
 
   // Check error message when using Qstrip_private and setprivate together
   HRESULT status;
   CComPtr<IDxcBlobEncoding> pErrors;
   VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_FAILED(status);
   VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&pErrors));
   LPCSTR pErrorMsg =
-      "Warning: specified /Qstrip_priv and /setprivate together, private data will be stripped.";
+      "Cannot specify /Qstrip_priv and /setprivate together.";
   CheckOperationResultMsgs(pResult, &pErrorMsg, 1, false, false);
 
 }

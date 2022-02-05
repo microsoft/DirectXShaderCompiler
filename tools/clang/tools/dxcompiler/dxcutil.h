@@ -49,7 +49,8 @@ struct AssembleInputs {
                  hlsl::DxilShaderHash *pShaderHashOut = nullptr,
                  hlsl::AbstractMemoryStream *pReflectionOut = nullptr,
                  hlsl::AbstractMemoryStream *pRootSigOut = nullptr,
-                 CComPtr<IDxcBlob> pRootSigBlob = nullptr);
+                 CComPtr<IDxcBlob> pRootSigBlob = nullptr,
+                 CComPtr<IDxcBlob> pPrivateBlob = nullptr);
   std::unique_ptr<llvm::Module> pM;
   CComPtr<IDxcBlob> &pOutputContainerBlob;
   IMalloc *pMalloc;
@@ -61,6 +62,7 @@ struct AssembleInputs {
   hlsl::AbstractMemoryStream *pReflectionOut = nullptr;
   hlsl::AbstractMemoryStream *pRootSigOut = nullptr;
   CComPtr<IDxcBlob> pRootSigBlob = nullptr;
+  CComPtr<IDxcBlob> pPrivateBlob = nullptr;
 };
 HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs);
 HRESULT ValidateRootSignatureInContainer(

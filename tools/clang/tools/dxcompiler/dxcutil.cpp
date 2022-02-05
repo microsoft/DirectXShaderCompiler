@@ -77,7 +77,8 @@ AssembleInputs::AssembleInputs(std::unique_ptr<llvm::Module> &&pM,
                 hlsl::DxilShaderHash *pShaderHashOut,
                 AbstractMemoryStream *pReflectionOut,
                 AbstractMemoryStream *pRootSigOut,
-                CComPtr<IDxcBlob> pRootSigBlob)
+                CComPtr<IDxcBlob> pRootSigBlob,
+                CComPtr<IDxcBlob> pPrivateBlob)
   : pM(std::move(pM)),
     pOutputContainerBlob(pOutputContainerBlob),
     pMalloc(pMalloc),
@@ -88,7 +89,8 @@ AssembleInputs::AssembleInputs(std::unique_ptr<llvm::Module> &&pM,
     pShaderHashOut(pShaderHashOut),
     pReflectionOut(pReflectionOut),
     pRootSigOut(pRootSigOut),
-    pRootSigBlob(pRootSigBlob)
+    pRootSigBlob(pRootSigBlob),
+    pPrivateBlob(pPrivateBlob)
 {}
 
 void GetValidatorVersion(unsigned *pMajor, unsigned *pMinor) {
@@ -111,12 +113,21 @@ void GetValidatorVersion(unsigned *pMajor, unsigned *pMinor) {
 void AssembleToContainer(AssembleInputs &inputs) {
   CComPtr<AbstractMemoryStream> pContainerStream;
   IFT(CreateMemoryStream(inputs.pMalloc, &pContainerStream));
-  if (inputs.SerializeFlags & SerializeDxilFlags::SetRootSignature) {
+  if (!(inputs.SerializeFlags & SerializeDxilFlags::StripRootSignature) && inputs.pRootSigBlob) {
     IFT(SetRootSignature(&inputs.pM->GetOrCreateDxilModule(), inputs.pRootSigBlob));
   } // Update the module root signature from file
-  SerializeDxilContainerForModule(&inputs.pM->GetOrCreateDxilModule(),
-                                  inputs.pModuleBitcode, pContainerStream, inputs.DebugName, inputs.SerializeFlags,
-                                  inputs.pShaderHashOut, inputs.pReflectionOut, inputs.pRootSigOut);
+  if (inputs.pPrivateBlob) {
+    SerializeDxilContainerForModule(
+        &inputs.pM->GetOrCreateDxilModule(), inputs.pModuleBitcode,
+        pContainerStream, inputs.DebugName, inputs.SerializeFlags,
+        inputs.pShaderHashOut, inputs.pReflectionOut, inputs.pRootSigOut,
+        inputs.pPrivateBlob->GetBufferPointer(), inputs.pPrivateBlob->GetBufferSize());
+  } else {
+    SerializeDxilContainerForModule(
+        &inputs.pM->GetOrCreateDxilModule(), inputs.pModuleBitcode,
+        pContainerStream, inputs.DebugName, inputs.SerializeFlags,
+        inputs.pShaderHashOut, inputs.pReflectionOut, inputs.pRootSigOut);
+  }
   inputs.pOutputContainerBlob.Release();
   IFT(pContainerStream.QueryInterface(&inputs.pOutputContainerBlob));
 }

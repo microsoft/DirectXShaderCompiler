@@ -1653,14 +1653,14 @@ void hlsl::StripAndCreateReflectionStream(Module *pReflectionM, uint32_t *pRefle
   *ppReflectionStreamOut = pReflectionBitcodeStream.Detach();
 }
 
-void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
-                                           AbstractMemoryStream *pModuleBitcode,
-                                           AbstractMemoryStream *pFinalStream,
-                                           llvm::StringRef DebugName,
-                                           SerializeDxilFlags Flags,
-                                           DxilShaderHash *pShaderHashOut,
-                                           AbstractMemoryStream *pReflectionStreamOut,
-                                           AbstractMemoryStream *pRootSigStreamOut) {
+void hlsl::SerializeDxilContainerForModule(
+    DxilModule *pModule, AbstractMemoryStream *pModuleBitcode,
+    AbstractMemoryStream *pFinalStream, llvm::StringRef DebugName,
+    SerializeDxilFlags Flags, DxilShaderHash *pShaderHashOut,
+    AbstractMemoryStream *pReflectionStreamOut,
+    AbstractMemoryStream *pRootSigStreamOut,
+    void *pPrivateData,
+    size_t PrivateDataSize) {
   // TODO: add a flag to update the module and remove information that is not part
   // of DXIL proper and is used only to assemble the container.
 
@@ -1768,6 +1768,16 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
       }
       bMetadataStripped |= pModule->StripRootSignatureFromMetadata();
     }
+  }
+
+  if (pPrivateData) {
+    CComPtr<AbstractMemoryStream> pPrivateStream;
+    writer.AddPart(
+        hlsl::DFCC_PrivateData, PrivateDataSize,
+        [&](AbstractMemoryStream *pStream) {
+          ULONG cbWritten;
+          IFT(pStream->Write(pPrivateData, PrivateDataSize, &cbWritten));
+        });
   }
 
   // If metadata was stripped, re-serialize the input module.

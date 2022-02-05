@@ -795,7 +795,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   // ERR_ATTRIBUTE_PARAM_SIDE_EFFECT
 
   if (opts.StripPrivate && !opts.PrivateSource.empty()) {
-    errors << "Warning: specified /Qstrip_priv and /setprivate together, private data will be stripped.";
+    errors << "Cannot specify /Qstrip_priv and /setprivate together.";
+    return 1;
   }
 
   if ((flagsToInclude & hlsl::options::DriverOption) && opts.InputFile.empty()) {
