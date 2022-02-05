@@ -296,7 +296,13 @@ public:
                           ArrayRef<const Attr *> Attrs) override;
   void MarkPotentialResourceTemp(CodeGenFunction &CGF, llvm::Value *V,
                                  clang::QualType QaulTy) override;
-  void FinishAutoVar(CodeGenFunction &CGF, const VarDecl &D, llvm::Value *V) override;
+  void FinishAutoVar(CodeGenFunction &CGF, const VarDecl &D,
+                     llvm::Value *V) override;
+  const clang::Expr *CheckReturnStmtGLCMismatch(
+      CodeGenFunction &CGF, const Expr *RV, const clang::ReturnStmt &S,
+      clang::QualType FnRetTy,
+      const std::function<void(const VarDecl *, llvm::Value *)> &TmpArgMap)
+      override;
   void MarkIfStmt(CodeGenFunction &CGF, BasicBlock *endIfBB) override;
   void MarkSwitchStmt(CodeGenFunction &CGF, SwitchInst *switchInst,
                       BasicBlock *endSwitch) override;
@@ -2582,8 +2588,9 @@ void CGMSHLSLRuntime::AddControlFlowHint(CodeGenFunction &CGF, const Stmt &S,
   }
 }
 
-void CGMSHLSLRuntime::MarkPotentialResourceTemp(CodeGenFunction &CGF, llvm::Value *V,
-                                           clang::QualType QualTy) {
+void CGMSHLSLRuntime::MarkPotentialResourceTemp(CodeGenFunction &CGF,
+                                                llvm::Value *V,
+                                                clang::QualType QualTy) {
   // Save object properties for temp that may be created for
   // call args, return value, or agg expr copy.
   if (objectProperties.GetResource(V).isValid())
@@ -2591,10 +2598,8 @@ void CGMSHLSLRuntime::MarkPotentialResourceTemp(CodeGenFunction &CGF, llvm::Valu
   AddValToPropertyMap(V, QualTy);
 }
 
-static bool isGLCMismatch(QualType Ty0, QualType Ty1,
-                             const Expr *SrcExp,
-                             clang::SourceLocation Loc,
-                             DiagnosticsEngine &Diags) {
+static bool isGLCMismatch(QualType Ty0, QualType Ty1, const Expr *SrcExp,
+                          clang::SourceLocation Loc, DiagnosticsEngine &Diags) {
   if (HasHLSLGloballyCoherent(Ty0) == HasHLSLGloballyCoherent(Ty1))
     return false;
   if (const CastExpr *Cast = dyn_cast<CastExpr>(SrcExp)) {
@@ -2627,6 +2632,50 @@ void CGMSHLSLRuntime::FinishAutoVar(CodeGenFunction &CGF, const VarDecl &D,
       objectProperties.updateGLC(V);
     }
   }
+}
+
+const clang::Expr *CGMSHLSLRuntime::CheckReturnStmtGLCMismatch(
+    CodeGenFunction &CGF, const Expr *RV, const clang::ReturnStmt &S,
+    clang::QualType FnRetTy,
+    const std::function<void(const VarDecl *, llvm::Value *)> &TmpArgMap) {
+  if (!isGLCMismatch(RV->getType(), FnRetTy, RV, S.getReturnLoc(),
+                     CGM.getDiags())) {
+    return RV;
+  }
+  const FunctionDecl *FD = cast<FunctionDecl>(CGF.CurFuncDecl);
+  // create temp Var
+  VarDecl *tmpArg =
+      VarDecl::Create(CGF.getContext(), const_cast<FunctionDecl *>(FD),
+                      SourceLocation(), SourceLocation(),
+                      /*IdentifierInfo*/ nullptr, FnRetTy,
+                      CGF.getContext().getTrivialTypeSourceInfo(FnRetTy),
+                      StorageClass::SC_Auto);
+
+  // Aggregate type will be indirect param convert to pointer type.
+  // So don't update to ReferenceType, use RValue for it.
+  const DeclRefExpr *tmpRef = DeclRefExpr::Create(
+      CGF.getContext(), NestedNameSpecifierLoc(), SourceLocation(), tmpArg,
+      /*enclosing*/ false, tmpArg->getLocation(), FnRetTy, VK_RValue);
+
+  // create alloc for the tmp arg
+  Value *tmpArgAddr = nullptr;
+  BasicBlock *InsertBlock = CGF.Builder.GetInsertBlock();
+  Function *F = InsertBlock->getParent();
+
+  // Make sure the alloca is in entry block to stop inline create stacksave.
+  IRBuilder<> AllocaBuilder(dxilutil::FindAllocaInsertionPt(F));
+  tmpArgAddr = AllocaBuilder.CreateAlloca(CGF.ConvertTypeForMem(FnRetTy));
+
+  // add it to local decl map
+  TmpArgMap(tmpArg, tmpArgAddr);
+
+  LValue argLV = CGF.EmitLValue(RV);
+  Value *argAddr = argLV.getAddress();
+
+  // Annotate return value when mismatch with function return type.
+  DxilResourceProperties RP = BuildResourceProperty(RV->getType());
+  CopyAndAnnotateResourceArgument(argAddr, tmpArgAddr, RP, *m_pHLModule, CGF);
+  return tmpRef;
 }
 
 hlsl::InterpolationMode CGMSHLSLRuntime::GetInterpMode(const Decl *decl,
