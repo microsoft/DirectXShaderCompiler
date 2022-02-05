@@ -126,8 +126,7 @@ else()
     ALL
     COMMENT Running EOL check - fails if i/crlf or i/mixed in index
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMAND ! git ls-files --eol | grep -e "i/crlf" -e "i/mixed"
-    USES_TERMINAL
+    COMMAND sh -c "! git ls-files --eol | grep -e i/crlf -e i/mixed"
     VERBATIM)
 endif()
 
