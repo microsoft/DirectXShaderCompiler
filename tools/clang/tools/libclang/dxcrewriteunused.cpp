@@ -312,6 +312,12 @@ bool MacroPairCompareIsLessThan(
   return left.first->getName().compare(right.first->getName()) < 0;
 }
 
+bool ParsedSemanticDefineCompareIsLessThan(
+    const ParsedSemanticDefine &left,
+    const ParsedSemanticDefine &right) {
+    return left.Name < right.Name;
+}
+
 ParsedSemanticDefineList
 CollectUserMacrosParsedByCompiler(CompilerInstance &compiler) {
   ParsedSemanticDefineList parsedDefines;
@@ -496,7 +502,6 @@ ParsedSemanticDefineList hlsl::CollectSemanticDefinesParsedByCompiler(
   }
 
   if (!macros.empty()) {
-    std::sort(macros.begin(), macros.end(), MacroPairCompareIsLessThan);
     MacroExpander expander(pp);
     for (std::pair<const IdentifierInfo *, MacroInfo *> m : macros) {
       std::string expandedValue;
@@ -507,6 +512,7 @@ ParsedSemanticDefineList hlsl::CollectSemanticDefinesParsedByCompiler(
     }
   }
 
+  std::stable_sort(parsedDefines.begin(), parsedDefines.end(), ParsedSemanticDefineCompareIsLessThan);
   return parsedDefines;
 }
 
