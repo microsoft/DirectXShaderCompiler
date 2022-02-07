@@ -51,7 +51,8 @@ DxilPartWriter *NewFeatureInfoWriter(const DxilModule &M);
 DxilPartWriter *NewPSVWriter(const DxilModule &M, uint32_t PSVVersion = UINT_MAX);
 DxilPartWriter *NewRDATWriter(const DxilModule &M);
 
-DxilContainerWriter *NewDxilContainerWriter();
+// Unaligned is for matching container for validator version < 1.7.
+DxilContainerWriter *NewDxilContainerWriter(bool bUnaligned = false);
 
 // Set validator version to 0,0 (not validated) then re-emit as much reflection metadata as possible.
 void ReEmitLatestReflectionData(llvm::Module *pReflectionM);
