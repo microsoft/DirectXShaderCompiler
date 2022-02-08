@@ -64,14 +64,14 @@ void WriteProgramPart(const hlsl::ShaderModel *pModel,
                       AbstractMemoryStream *pModuleBitcode,
                       IStream *pStream);
 
-void SerializeDxilContainerForModule(hlsl::DxilModule *pModule,
-                                     AbstractMemoryStream *pModuleBitcode,
-                                     AbstractMemoryStream *pStream,
-                                     llvm::StringRef DebugName,
-                                     SerializeDxilFlags Flags,
-                                     DxilShaderHash *pShaderHashOut = nullptr,
-                                     AbstractMemoryStream *pReflectionStreamOut = nullptr,
-                                     AbstractMemoryStream *pRootSigStreamOut = nullptr);
+void SerializeDxilContainerForModule(
+    hlsl::DxilModule *pModule, AbstractMemoryStream *pModuleBitcode,
+    AbstractMemoryStream *pStream, llvm::StringRef DebugName,
+    SerializeDxilFlags Flags, DxilShaderHash *pShaderHashOut = nullptr,
+    AbstractMemoryStream *pReflectionStreamOut = nullptr,
+    AbstractMemoryStream *pRootSigStreamOut = nullptr,
+    void *pPrivateData = nullptr,
+    size_t PrivateDataSize = 0);
 void SerializeDxilContainerForRootSignature(hlsl::RootSignatureHandle *pRootSigHandle,
                                      AbstractMemoryStream *pStream);
 

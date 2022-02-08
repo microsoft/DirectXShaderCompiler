@@ -798,6 +798,21 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   // ERR_TEMPLATE_VAR_CONFLICT
   // ERR_ATTRIBUTE_PARAM_SIDE_EFFECT
 
+  if (opts.StripPrivate && !opts.PrivateSource.empty()) {
+    errors << "Cannot specify /Qstrip_priv and /setprivate together.";
+    return 1;
+  }
+
+  if (opts.PdbInPrivate && !opts.PrivateSource.empty()) {
+    errors << "Cannot specify /Qpdb_in_private and /setprivate together.";
+    return 1;
+  }
+
+  if (opts.StripPrivate && opts.PdbInPrivate) {
+    errors << "Cannot specify /Qstrip_priv and /Qpdb_in_private together.";
+    return 1;
+  }
+
   if ((flagsToInclude & hlsl::options::DriverOption) && opts.InputFile.empty()) {
     // Input file is required in arguments only for drivers; APIs take this through an argument.
     errors << "Required input file argument is missing. use -help to get more information.";
