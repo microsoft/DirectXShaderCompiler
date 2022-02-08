@@ -116,19 +116,17 @@ struct DxilEraseDeadRegion : public FunctionPass {
 
     // Make sure all insts are safe to delete
     // (no side effects, etc.)
-    bool ReferencedOutsideOfBlock = false;
+    bool ValuesReferencedOutsideOfBlock = false;
+    bool ValuesReferencedOutsideOfRegion = false;
     for (Instruction &I : *BB) {
       for (User *U : I.users()) {
         if (Instruction *UI = dyn_cast<Instruction>(U)) {
           BasicBlock *UB = UI->getParent();
-          // If the user is not in the same region, this block is not safe to
-          // delete.  Do not cache this result either, because this won't be
-          // true for a different region.
-          if (Region.find(UB) == Region.end())
-            return false;
-
-          if (UB != BB)
-            ReferencedOutsideOfBlock = true;
+          if (UB != BB) {
+            ValuesReferencedOutsideOfBlock = true;
+            if (!Region.count(UB))
+              ValuesReferencedOutsideOfRegion = true;
+          }
         }
       }
 
@@ -142,23 +140,26 @@ struct DxilEraseDeadRegion : public FunctionPass {
       }
     }
 
+    if (ValuesReferencedOutsideOfRegion)
+      return false;
+
     // If the block's defs are entirely referenced within the block itself,
     // it'll remain safe to delete no matter the region.
-    if (!ReferencedOutsideOfBlock)
+    if (!ValuesReferencedOutsideOfBlock)
       m_SafeBlocks[BB] = true;
 
     return true;
   }
-  bool FindDeadRegion(BasicBlock *Begin, BasicBlock *End, std::set<BasicBlock *> &Region) {
+
+  bool FindDeadRegion(DominatorTree *DT, PostDominatorTree *PDT, BasicBlock *Begin, BasicBlock *End, std::set<BasicBlock *> &Region) {
     std::vector<BasicBlock *> WorkList;
-    auto ProcessSuccessors = [this, &WorkList, Begin, End, &Region](BasicBlock *BB) {
+    auto ProcessSuccessors = [this, DT, PDT, &WorkList, Begin, End, &Region](BasicBlock *BB) {
       for (BasicBlock *Succ : successors(BB)) {
         if (Succ == End) continue;
-        if (Succ == Begin) return false; // If goes back to the beginning, there's a loop, give up.
         if (Region.count(Succ)) continue;
-        // Give up if the block is unsafe (i.e., may have side effects)
-        if (!this->SafeToDeleteBlock(Succ, Region)) return false;
-
+        // Make sure it's safely inside the region.
+        if (!DT->properlyDominates(Begin, Succ) || !PDT->properlyDominates(End, Succ))
+          return false;
         WorkList.push_back(Succ);
         Region.insert(Succ);
       }
@@ -175,7 +176,15 @@ struct DxilEraseDeadRegion : public FunctionPass {
         return false;
     }
 
-    return Region.size() != 0;
+    if (Region.empty())
+      return false;
+
+    for (BasicBlock *BB : Region) {
+      if (!this->SafeToDeleteBlock(BB, Region))
+        return false;
+    }
+
+    return true;
   }
 
   static bool IsMetadataKind(LLVMContext &Ctx, unsigned TargetID, StringRef MDKind) {
@@ -217,7 +226,7 @@ struct DxilEraseDeadRegion : public FunctionPass {
       if (!Common) return false;
     }
 
-   // If there are any metadata on Common block's branch, give up.
+    // If there are any metadata on Common block's branch, give up.
     if (HasUnsafeMetadata(Common->getTerminator()))
       return false;
 
@@ -227,7 +236,7 @@ struct DxilEraseDeadRegion : public FunctionPass {
       return false;
 
     std::set<BasicBlock *> Region;
-    if (!this->FindDeadRegion(Common, BB, Region))
+    if (!this->FindDeadRegion(DT, PDT, Common, BB, Region))
       return false;
 
     // If BB branches INTO the region, forming a loop give up.
