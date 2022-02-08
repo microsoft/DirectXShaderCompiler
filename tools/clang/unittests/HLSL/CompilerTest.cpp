@@ -169,6 +169,9 @@ public:
   TEST_METHOD(CompileThenTestPdbUtilsEmptyEntry)
   TEST_METHOD(CompileThenTestPdbUtilsRelativePath)
   TEST_METHOD(CompileWithRootSignatureThenStripRootSignature)
+  TEST_METHOD(CompileThenSetRootSignatureThenValidate)
+  TEST_METHOD(CompileSetPrivateThenWithStripPrivate)
+  TEST_METHOD(CompileWithMultiplePrivateOptionsThenFail)
 
 
   void TestResourceBindingImpl(
@@ -2348,6 +2351,262 @@ TEST_F(CompilerTest, CompileWithRootSignatureThenStripRootSignature) {
   pPartHeader = hlsl::GetDxilPartByType(pContainerHeader,
                                         hlsl::DxilFourCC::DFCC_RootSignature);
   VERIFY_IS_NOT_NULL(pPartHeader);
+}
+
+TEST_F(CompilerTest, CompileThenSetRootSignatureThenValidate) {
+  CComPtr<IDxcCompiler> pCompiler;
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CComPtr<IDxcOperationResult> pResult;
+  HRESULT status;
+
+  // Compile with Root Signature in Shader source
+  CComPtr<IDxcBlobEncoding> pSourceBlobWithRS;
+  CComPtr<IDxcBlob> pProgramSourceRS;
+  CreateBlobFromText("[RootSignature(\"\")] \r\n"
+                     "float4 main(float a : A) : SV_Target {\r\n"
+                     "  return a;\r\n"
+                     "}",
+                     &pSourceBlobWithRS);
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSourceBlobWithRS, L"source.hlsl", L"main",
+                                      L"ps_6_0", nullptr, 0, nullptr, 0,
+                                      nullptr, &pResult));
+  VERIFY_IS_NOT_NULL(pResult);
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgramSourceRS));
+  VERIFY_IS_NOT_NULL(pProgramSourceRS);
+
+  // Verify RS
+  hlsl::DxilContainerHeader *pContainerHeader = hlsl::IsDxilContainerLike(
+      pProgramSourceRS->GetBufferPointer(), pProgramSourceRS->GetBufferSize());
+  VERIFY_SUCCEEDED(
+      hlsl::IsValidDxilContainer(pContainerHeader, pProgramSourceRS->GetBufferSize()));
+  hlsl::DxilPartHeader *pPartHeader = hlsl::GetDxilPartByType(
+      pContainerHeader, hlsl::DxilFourCC::DFCC_RootSignature);
+  VERIFY_IS_NOT_NULL(pPartHeader);
+
+  // Extract the serialized root signature
+  CComPtr<IDxcBlob> pRSBlob;
+  CComPtr<IDxcResult> pResultSourceRS;
+  pResult.QueryInterface(&pResultSourceRS);
+  VERIFY_SUCCEEDED(pResultSourceRS->GetOutput(DXC_OUT_ROOT_SIGNATURE,
+                                      IID_PPV_ARGS(&pRSBlob), nullptr));
+  VERIFY_IS_NOT_NULL(pRSBlob);
+
+  // Add Serialized Root Signature source to include handler
+  CComPtr<TestIncludeHandler> pInclude;
+  pInclude = new TestIncludeHandler(m_dllSupport);
+  pInclude->CallResults.emplace_back(pRSBlob->GetBufferPointer(),
+                                     pRSBlob->GetBufferSize());
+
+  // Compile with Set Root Signature
+  pResult.Release();
+  CComPtr<IDxcBlobEncoding> pSourceNoRS;
+  CComPtr<IDxcBlob> pProgramSetRS;
+  CreateBlobFromText("float4 main(float a : A) : SV_Target {\r\n"
+                     "  return a;\r\n"
+                     "}",
+                     &pSourceNoRS);
+  LPCWSTR args[] = {L"-setrootsignature", L"rootsignaturesource.hlsl"};
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSourceNoRS, L"source.hlsl",
+                                      L"main", L"ps_6_0", args, _countof(args), nullptr,
+                                      0, pInclude, &pResult));
+  VERIFY_IS_NOT_NULL(pResult);
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgramSetRS));
+  VERIFY_IS_NOT_NULL(pProgramSetRS);
+
+  // Verify RS in container
+  hlsl::DxilContainerHeader *pContainerHeaderSet = hlsl::IsDxilContainerLike(
+      pProgramSetRS->GetBufferPointer(), pProgramSetRS->GetBufferSize());
+  VERIFY_SUCCEEDED(hlsl::IsValidDxilContainer(pContainerHeaderSet,
+                                              pProgramSetRS->GetBufferSize()));
+  hlsl::DxilPartHeader *pPartHeaderSet = hlsl::GetDxilPartByType(
+      pContainerHeaderSet, hlsl::DxilFourCC::DFCC_RootSignature);
+  VERIFY_IS_NOT_NULL(pPartHeaderSet);
+
+  // Extract the serialized root signature
+  CComPtr<IDxcBlob> pRSBlobSet;
+  CComPtr<IDxcResult> pResultSetRS;
+  pResult.QueryInterface(&pResultSetRS);
+  VERIFY_SUCCEEDED(pResultSetRS->GetOutput(DXC_OUT_ROOT_SIGNATURE,
+                                         IID_PPV_ARGS(&pRSBlobSet), nullptr));
+  VERIFY_IS_NOT_NULL(pRSBlobSet);
+
+  // Verify RS equal from source and using setrootsignature option
+  VERIFY_ARE_EQUAL(pRSBlob->GetBufferSize(), pRSBlobSet->GetBufferSize());
+  VERIFY_ARE_EQUAL(0, memcmp(pRSBlob->GetBufferPointer(),
+                             pRSBlobSet->GetBufferPointer(),
+                             pRSBlob->GetBufferSize()));
+
+  // Change root signature and validate
+  pResult.Release();
+  CComPtr<IDxcBlobEncoding> pReplaceRS;
+  CComPtr<IDxcBlob> pProgramReplaceRS;
+  CreateBlobFromText(
+      "[RootSignature(\" CBV(b1) \")] \r\n"
+                     "float4 main(float a : A) : SV_Target {\r\n"
+                     "  return a;\r\n"
+                     "}",
+                     &pReplaceRS);
+  // Add Serialized Root Signature source to include handler
+  CComPtr<TestIncludeHandler> pInclude3;
+  pInclude3 = new TestIncludeHandler(m_dllSupport);
+  pInclude3->CallResults.emplace_back(pRSBlob->GetBufferPointer(),
+                                     pRSBlob->GetBufferSize());
+  VERIFY_SUCCEEDED(pCompiler->Compile(pReplaceRS, L"source.hlsl", L"main",
+                                       L"ps_6_0", args, _countof(args), nullptr,
+                                       0, pInclude3, &pResult));
+  VERIFY_IS_NOT_NULL(pResult);
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgramReplaceRS));
+  VERIFY_IS_NOT_NULL(pProgramReplaceRS);
+
+  // Verify RS
+  hlsl::DxilContainerHeader *pContainerHeaderReplace = hlsl::IsDxilContainerLike(pProgramReplaceRS->GetBufferPointer(),
+                                pProgramReplaceRS->GetBufferSize());
+  VERIFY_SUCCEEDED(hlsl::IsValidDxilContainer(
+      pContainerHeaderReplace, pProgramReplaceRS->GetBufferSize()));
+  hlsl::DxilPartHeader *pPartHeaderReplace = hlsl::GetDxilPartByType(
+      pContainerHeaderReplace, hlsl::DxilFourCC::DFCC_RootSignature);
+  VERIFY_IS_NOT_NULL(pPartHeaderReplace);
+
+  // Extract the serialized root signature
+  CComPtr<IDxcBlob> pRSBlobReplace;
+  CComPtr<IDxcResult> pResultReplace;
+  pResult.QueryInterface(&pResultReplace);
+  VERIFY_SUCCEEDED(pResultReplace->GetOutput(
+      DXC_OUT_ROOT_SIGNATURE, IID_PPV_ARGS(&pRSBlobReplace), nullptr));
+  VERIFY_IS_NOT_NULL(pRSBlobReplace);
+
+  // Verify RS equal from source and replacing existing RS using setrootsignature option
+  VERIFY_ARE_EQUAL(pRSBlob->GetBufferSize(), pRSBlobReplace->GetBufferSize());
+  VERIFY_ARE_EQUAL(0, memcmp(pRSBlob->GetBufferPointer(),
+                             pRSBlobReplace->GetBufferPointer(),
+                             pRSBlob->GetBufferSize()));
+}
+
+TEST_F(CompilerTest, CompileSetPrivateThenWithStripPrivate) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcBlob> pProgram;
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText("float4 main() : SV_Target {\r\n"
+                     "  return 0;\r\n"
+                     "}",
+                     &pSource);
+  std::string privateTxt("private data");
+  CComPtr<IDxcBlobEncoding> pPrivate;
+  CreateBlobFromText(privateTxt.c_str(), &pPrivate);
+
+  // Add private data source to include handler
+  CComPtr<TestIncludeHandler> pInclude;
+  pInclude = new TestIncludeHandler(m_dllSupport);
+  pInclude->CallResults.emplace_back(pPrivate->GetBufferPointer(),
+                                     pPrivate->GetBufferSize());
+
+  LPCWSTR args[] = {L"-setprivate", L"privatesource.hlsl"};
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+                                       L"ps_6_0", args, _countof(args), nullptr,
+                                      0, pInclude, &pResult));
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+
+  hlsl::DxilContainerHeader *pContainerHeader = hlsl::IsDxilContainerLike(
+      pProgram->GetBufferPointer(), pProgram->GetBufferSize());
+  VERIFY_SUCCEEDED(hlsl::IsValidDxilContainer(pContainerHeader, pProgram->GetBufferSize()));
+  hlsl::DxilPartHeader *pPartHeader = hlsl::GetDxilPartByType(
+      pContainerHeader, hlsl::DxilFourCC::DFCC_PrivateData);
+  VERIFY_IS_NOT_NULL(pPartHeader);
+  // Compare private data
+  std::string privatePart((const char *)(pPartHeader + 1), privateTxt.size());
+  VERIFY_IS_TRUE(strcmp(privatePart.c_str(), privateTxt.c_str()) == 0);
+
+  pResult.Release();
+  pProgram.Release();
+
+  // Add private data source to include handler
+  CComPtr<TestIncludeHandler> pInclude2;
+  pInclude2 = new TestIncludeHandler(m_dllSupport);
+  pInclude2->CallResults.emplace_back(pPrivate->GetBufferPointer(),
+                                     pPrivate->GetBufferSize());
+
+  LPCWSTR args2[] = {L"-setprivate", L"privatesource.hlsl", L"-Qstrip_priv"};
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"source.hlsl", L"main",
+                                      L"ps_6_0", args2, _countof(args2), nullptr,
+                                      0, pInclude2, &pResult));
+
+  // Check error message when using Qstrip_private and setprivate together
+  HRESULT status;
+  CComPtr<IDxcBlobEncoding> pErrors;
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_FAILED(status);
+  VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&pErrors));
+  LPCSTR pErrorMsg =
+      "Cannot specify /Qstrip_priv and /setprivate together.";
+  CheckOperationResultMsgs(pResult, &pErrorMsg, 1, false, false);
+}
+
+TEST_F(CompilerTest, CompileWithMultiplePrivateOptionsThenFail) {
+  CComPtr<IDxcCompiler> pCompiler;
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+
+  std::string main_source = R"x(
+      cbuffer MyCbuffer : register(b1) {
+        float4 my_cbuf_foo;
+      }
+
+      [RootSignature("CBV(b1)")]
+      float4 main() : SV_Target {
+        return my_cbuf_foo;
+      }
+  )x";
+
+  CComPtr<IDxcUtils> pUtils;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcUtils, &pUtils));
+
+  CComPtr<IDxcBlobEncoding> pSource;
+  VERIFY_SUCCEEDED(pUtils->CreateBlobFromPinned(
+      main_source.c_str(), main_source.size(), CP_UTF8, &pSource));
+
+  const WCHAR *args[] = {
+      L"/Zs",
+      L"/Qpdb_in_private",
+      L"/Qstrip_priv"
+  };
+
+  CComPtr<IDxcOperationResult> pResult;
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main", L"ps_6_0",
+                                      args, _countof(args), nullptr, 0, nullptr,
+                                      &pResult));
+
+  HRESULT status;
+  CComPtr<IDxcBlobEncoding> pErrors;
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_FAILED(status);
+  VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&pErrors));
+  LPCSTR pErrorMsg = "Cannot specify /Qstrip_priv and /Qpdb_in_private together.";
+  CheckOperationResultMsgs(pResult, &pErrorMsg, 1, false, false);
+
+  pResult.Release();
+
+  const WCHAR *args2[] = {L"/Zs", L"/Qpdb_in_private", L"/setprivate",
+                          L"privatesource.hlsl"};
+
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main", L"ps_6_0",
+                                      args2, _countof(args2), nullptr, 0, nullptr,
+                                      &pResult));
+
+  pErrors.Release();
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_FAILED(status);
+  VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&pErrors));
+  LPCSTR pErrorMsg2 =
+      "Cannot specify /Qpdb_in_private and /setprivate together.";
+  CheckOperationResultMsgs(pResult, &pErrorMsg2, 1, false, false);
 }
 #endif // Container builder unsupported
 

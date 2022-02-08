@@ -1031,6 +1031,8 @@ public:
         outStream.flush();
 
         SerializeDxilFlags SerializeFlags = SerializeDxilFlags::None;
+        CComPtr<IDxcBlob> pRootSignatureBlob = nullptr;
+        CComPtr<IDxcBlob> pPrivateBlob = nullptr;
         if (opts.EmbedPDBName()) {
           SerializeFlags |= SerializeDxilFlags::IncludeDebugNamePart;
         }
@@ -1057,6 +1059,42 @@ public:
         if (opts.StripRootSignature) {
           SerializeFlags |= SerializeDxilFlags::StripRootSignature;
         }
+        if (!opts.RootSignatureSource.empty()) {
+          hlsl::options::StringRefUtf16 wstrRef(opts.RootSignatureSource);
+          std::string error;
+          llvm::raw_string_ostream os(error);
+          if (!pIncludeHandler) {
+            os << Twine("Root Signature file '") + opts.RootSignatureSource +
+                      "' specified, but no include handler was given.";
+            os.flush();
+            return ErrorWithString(error, riid, ppResult);
+          } else if (SUCCEEDED(pIncludeHandler->LoadSource(
+                         wstrRef, &pRootSignatureBlob))) {
+          } else {
+            os << Twine("Could not load root signature file '") +
+                      opts.RootSignatureSource + "'.";
+            os.flush();
+            return ErrorWithString(error, riid, ppResult);
+          }
+        }
+        if (!opts.PrivateSource.empty()) {
+          hlsl::options::StringRefUtf16 wstrRef(opts.PrivateSource);
+          std::string error;
+          llvm::raw_string_ostream os(error);
+          if (!pIncludeHandler) {
+            os << Twine("Private file '") + opts.PrivateSource +
+                      "' specified, but no include handler was given.";
+            os.flush();
+            return ErrorWithString(error, riid, ppResult);
+          } else if (SUCCEEDED(pIncludeHandler->LoadSource(
+                         wstrRef, &pPrivateBlob))) {
+          } else {
+            os << Twine("Could not load root signature file '") +
+                      opts.PrivateSource + "'.";
+            os.flush();
+            return ErrorWithString(error, riid, ppResult);
+          }
+        }
 
         // Don't do work to put in a container if an error has occurred
         // Do not create a container when there is only a a high-level representation in the module.
@@ -1074,10 +1112,10 @@ public:
           }
 
           dxcutil::AssembleInputs inputs(
-                std::move(serializeModule), pOutputBlob, m_pMalloc, SerializeFlags,
-                pOutputStream,
-                opts.GetPDBName(), &compiler.getDiagnostics(),
-                &ShaderHashContent, pReflectionStream, pRootSigStream);
+              std::move(serializeModule), pOutputBlob, m_pMalloc,
+              SerializeFlags, pOutputStream, opts.GetPDBName(),
+              &compiler.getDiagnostics(), &ShaderHashContent, pReflectionStream,
+              pRootSigStream, pRootSignatureBlob, pPrivateBlob);
 
           if (needsValidation) {
             valHR = dxcutil::ValidateAndAssembleToContainer(inputs);
