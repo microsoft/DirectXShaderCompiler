@@ -658,6 +658,102 @@ TEST_F(DxilContainerTest, CompileWhenDebugSourceThenSourceMatters) {
   // Source hash and bin hash should be different
   VERIFY_IS_FALSE(0 == strcmp(binHash1Zss.c_str(), binHash1.c_str()));
 }
+
+TEST_F(DxilContainerTest, ContainerBuilder_AddPrivateForceLast) {
+  if (m_ver.SkipDxilVersion(1, 7)) return;
+
+  CComPtr<IDxcUtils> pUtils;
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<IDxcBlob> pProgram;
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pDebugPart;
+
+  CComPtr<IDxcBlobEncoding> pPrivateData;
+  std::string data("Here is some private data.");
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcUtils, &pUtils));
+  VERIFY_SUCCEEDED(pUtils->CreateBlob(data.data(), data.size(), DXC_CP_ACP, &pPrivateData));
+
+  const char *shader =
+      "SamplerState Sampler : register(s0); RWBuffer<float> Uav : "
+      "register(u0); Texture2D<float> ThreeTextures[3] : register(t0); "
+      "float function1();"
+      "[shader(\"raygeneration\")] void RayGenMain() { Uav[0] = "
+      "ThreeTextures[0].SampleLevel(Sampler, float2(0, 0), 0) + "
+      "ThreeTextures[2].SampleLevel(Sampler, float2(0, 0), 0) + function1(); }";
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText(shader, &pSource);
+  std::vector<LPCWSTR> arguments;
+  arguments.emplace_back(L"-Zi");
+  arguments.emplace_back(L"-Qembed_debug");
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"",
+    L"lib_6_3", arguments.data(), arguments.size(), nullptr, 0,
+    nullptr, &pResult));
+  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+
+  auto GetPart = [](IDxcBlob* pContainerBlob, uint32_t fourCC) -> hlsl::DxilPartIterator {
+    const hlsl::DxilContainerHeader *pHeader = (const hlsl::DxilContainerHeader *)pContainerBlob->GetBufferPointer();
+    hlsl::DxilPartIterator partIter = std::find_if(hlsl::begin(pHeader), hlsl::end(pHeader),
+                            hlsl::DxilPartIsType(fourCC));
+    VERIFY_ARE_NOT_EQUAL(hlsl::end(pHeader), partIter);
+    return partIter;
+  };
+
+  auto VerifyPrivateLast = [](IDxcBlob* pContainerBlob) {
+    const hlsl::DxilContainerHeader *pHeader = (const hlsl::DxilContainerHeader *)pContainerBlob->GetBufferPointer();
+    bool bFoundPrivate = false;
+    for (auto partIter = hlsl::begin(pHeader), end = hlsl::end(pHeader); partIter != end; partIter++) {
+      VERIFY_IS_FALSE(bFoundPrivate && "otherwise, private data is not last");
+      if ((*partIter)->PartFourCC == hlsl::DFCC_PrivateData) {
+        bFoundPrivate = true;
+      }
+    }
+    VERIFY_IS_TRUE(bFoundPrivate);
+  };
+
+  auto debugPart = *GetPart(pProgram, hlsl::DFCC_ShaderDebugInfoDXIL);
+  VERIFY_SUCCEEDED(pUtils->CreateBlob(debugPart + 1, debugPart->PartSize,
+                                      DXC_CP_ACP, &pDebugPart));
+
+  // release for re-use
+  pResult.Release();
+
+  CComPtr<IDxcContainerBuilder> pBuilder;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerBuilder, &pBuilder));
+  VERIFY_SUCCEEDED(pBuilder->Load(pProgram));
+
+  // remove debug info, add private, add debug back, and build container.
+  VERIFY_SUCCEEDED(pBuilder->RemovePart(hlsl::DFCC_ShaderDebugInfoDXIL));
+  VERIFY_SUCCEEDED(pBuilder->AddPart(hlsl::DFCC_PrivateData, pPrivateData));
+  VERIFY_SUCCEEDED(pBuilder->AddPart(hlsl::DFCC_ShaderDebugInfoDXIL, pDebugPart));
+  CComPtr<IDxcBlob> pNewContainer;
+  VERIFY_SUCCEEDED(pBuilder->SerializeContainer(&pResult));
+  VERIFY_SUCCEEDED(pResult->GetResult(&pNewContainer));
+
+  // GetPart verifies we have debug info, but don't need result.
+  GetPart(pNewContainer, hlsl::DFCC_ShaderDebugInfoDXIL);
+  VerifyPrivateLast(pNewContainer);
+
+  // release for re-use
+  pResult.Release();
+  pBuilder.Release();
+
+  // Now verify that we can remove and re-add private without error
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerBuilder, &pBuilder));
+  VERIFY_SUCCEEDED(pBuilder->Load(pNewContainer));
+  VERIFY_SUCCEEDED(pBuilder->RemovePart(hlsl::DFCC_ShaderDebugInfoDXIL));
+  VERIFY_SUCCEEDED(pBuilder->RemovePart(hlsl::DFCC_PrivateData));
+  VERIFY_SUCCEEDED(pBuilder->AddPart(hlsl::DFCC_PrivateData, pPrivateData));
+  VERIFY_SUCCEEDED(pBuilder->AddPart(hlsl::DFCC_ShaderDebugInfoDXIL, pDebugPart));
+  VERIFY_SUCCEEDED(pBuilder->SerializeContainer(&pResult));
+  pNewContainer.Release();
+  VERIFY_SUCCEEDED(pResult->GetResult(&pNewContainer));
+
+  // verify private data found after debug info again
+  GetPart(pNewContainer, hlsl::DFCC_ShaderDebugInfoDXIL);
+  VerifyPrivateLast(pNewContainer);
+}
 #endif // _WIN32
 
 TEST_F(DxilContainerTest, CompileWhenOKThenIncludesSignatures) {
@@ -1921,91 +2017,4 @@ TEST_F(DxilContainerTest, DxilContainerUnitTest) {
   VERIFY_IS_NULL(hlsl::GetDxilProgramHeader(&header, hlsl::DxilFourCC::DFCC_DXIL));
   VERIFY_IS_NULL(hlsl::GetDxilPartByType(&header, hlsl::DxilFourCC::DFCC_DXIL));
 
-}
-
-TEST_F(DxilContainerTest, ContainerBuilder_AddPrivateForceLast) {
-  if (m_ver.SkipDxilVersion(1, 7)) return;
-
-  CComPtr<IDxcUtils> pUtils;
-  CComPtr<IDxcCompiler> pCompiler;
-  CComPtr<IDxcBlobEncoding> pSource;
-  CComPtr<IDxcBlob> pProgram;
-  CComPtr<IDxcOperationResult> pResult;
-
-  CComPtr<IDxcBlobEncoding> pPrivateData;
-  std::string data("Here is some private data.");
-  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcUtils, &pUtils));
-  VERIFY_SUCCEEDED(pUtils->CreateBlob(data.data(), data.size(), DXC_CP_ACP, &pPrivateData));
-
-  const char *shader =
-      "SamplerState Sampler : register(s0); RWBuffer<float> Uav : "
-      "register(u0); Texture2D<float> ThreeTextures[3] : register(t0); "
-      "float function1();"
-      "[shader(\"raygeneration\")] void RayGenMain() { Uav[0] = "
-      "ThreeTextures[0].SampleLevel(Sampler, float2(0, 0), 0) + "
-      "ThreeTextures[2].SampleLevel(Sampler, float2(0, 0), 0) + function1(); }";
-
-  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
-  CreateBlobFromText(shader, &pSource);
-  std::vector<LPCWSTR> arguments;
-  arguments.emplace_back(L"-Zi");
-  arguments.emplace_back(L"-Qembed_debug");
-  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"",
-    L"lib_6_3", arguments.data(), arguments.size(), nullptr, 0,
-    nullptr, &pResult));
-  VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
-
-  UINT32 idxDebug, idxPrivate;
-  CComPtr<IDxcContainerReflection> pReflection;
-  CComPtr<IDxcBlob> pDebugPart;
-  m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection);
-  VERIFY_SUCCEEDED(pReflection->Load(pProgram));
-  VERIFY_SUCCEEDED(pReflection->FindFirstPartKind(hlsl::DFCC_ShaderDebugInfoDXIL, &idxDebug));
-  VERIFY_SUCCEEDED(pReflection->GetPartContent(idxDebug, &pDebugPart));
-
-  // release for re-use
-  pResult.Release();
-  pReflection.Release();
-
-  CComPtr<IDxcContainerBuilder> pBuilder;
-  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerBuilder, &pBuilder));
-  VERIFY_SUCCEEDED(pBuilder->Load(pProgram));
-
-  // remove debug info, add private, add debug back, and build container.
-  VERIFY_SUCCEEDED(pBuilder->RemovePart(hlsl::DFCC_ShaderDebugInfoDXIL));
-  VERIFY_SUCCEEDED(pBuilder->AddPart(hlsl::DFCC_PrivateData, pPrivateData));
-  VERIFY_SUCCEEDED(pBuilder->AddPart(hlsl::DFCC_ShaderDebugInfoDXIL, pDebugPart));
-  CComPtr<IDxcBlob> pNewContainer;
-  VERIFY_SUCCEEDED(pBuilder->SerializeContainer(&pResult));
-  VERIFY_SUCCEEDED(pResult->GetResult(&pNewContainer));
-
-  // verify private data is after debug info
-  m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection);
-  VERIFY_SUCCEEDED(pReflection->Load(pNewContainer));
-  VERIFY_SUCCEEDED(pReflection->FindFirstPartKind(hlsl::DFCC_ShaderDebugInfoDXIL, &idxDebug));
-  VERIFY_SUCCEEDED(pReflection->FindFirstPartKind(hlsl::DFCC_PrivateData, &idxPrivate));
-  VERIFY_IS_LESS_THAN(idxDebug, idxPrivate);
-
-  // release for re-use
-  pResult.Release();
-  pReflection.Release();
-  pBuilder.Release();
-
-  // Now verify that we can remove and re-add private without error
-  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerBuilder, &pBuilder));
-  VERIFY_SUCCEEDED(pBuilder->Load(pNewContainer));
-  VERIFY_SUCCEEDED(pBuilder->RemovePart(hlsl::DFCC_ShaderDebugInfoDXIL));
-  VERIFY_SUCCEEDED(pBuilder->RemovePart(hlsl::DFCC_PrivateData));
-  VERIFY_SUCCEEDED(pBuilder->AddPart(hlsl::DFCC_PrivateData, pPrivateData));
-  VERIFY_SUCCEEDED(pBuilder->AddPart(hlsl::DFCC_ShaderDebugInfoDXIL, pDebugPart));
-  VERIFY_SUCCEEDED(pBuilder->SerializeContainer(&pResult));
-  pNewContainer.Release();
-  VERIFY_SUCCEEDED(pResult->GetResult(&pNewContainer));
-
-  // verify private data found after debug info again
-  m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection);
-  VERIFY_SUCCEEDED(pReflection->Load(pNewContainer));
-  VERIFY_SUCCEEDED(pReflection->FindFirstPartKind(hlsl::DFCC_ShaderDebugInfoDXIL, &idxDebug));
-  VERIFY_SUCCEEDED(pReflection->FindFirstPartKind(hlsl::DFCC_PrivateData, &idxPrivate));
-  VERIFY_IS_LESS_THAN(idxDebug, idxPrivate);
 }
