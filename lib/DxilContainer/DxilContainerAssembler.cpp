@@ -1771,7 +1771,6 @@ void hlsl::SerializeDxilContainerForModule(
   }
 
   if (pPrivateData) {
-    CComPtr<AbstractMemoryStream> pPrivateStream;
     writer.AddPart(
         hlsl::DFCC_PrivateData, PrivateDataSize,
         [&](AbstractMemoryStream *pStream) {
