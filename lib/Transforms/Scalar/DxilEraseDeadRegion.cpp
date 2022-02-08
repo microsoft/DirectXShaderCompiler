@@ -20,6 +20,7 @@
 #include "llvm/Pass.h"
 #include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/PostDominators.h"
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/IR/Instructions.h"
@@ -106,7 +107,8 @@ struct DxilEraseDeadRegion : public FunctionPass {
     return false;
   }
 
-  bool SafeToDeleteBlock(BasicBlock *BB, std::set<BasicBlock*> &Region) {
+  bool SafeToDeleteBlock(BasicBlock *BB, const std::set<BasicBlock*> &Region) {
+    assert(Region.count(BB));
     auto FindIt = m_SafeBlocks.find(BB);
     if (FindIt != m_SafeBlocks.end()) {
       return FindIt->second;
@@ -114,15 +116,19 @@ struct DxilEraseDeadRegion : public FunctionPass {
 
     // Make sure all insts are safe to delete
     // (no side effects, etc.)
-
+    bool ReferencedOutsideOfBlock = false;
     for (Instruction &I : *BB) {
       for (User *U : I.users()) {
         if (Instruction *UI = dyn_cast<Instruction>(U)) {
           BasicBlock *UB = UI->getParent();
-          if (UB != BB || (Region.size() && Region.find(UB) != Region.end())) {
-            m_SafeBlocks[BB] = false;
+          // If the user is not in the same region, this block is not safe to
+          // delete.  Do not cache this result either, because this won't be
+          // true for a different region.
+          if (Region.find(UB) == Region.end())
             return false;
-          }
+
+          if (UB != BB)
+            ReferencedOutsideOfBlock = true;
         }
       }
 
@@ -135,7 +141,12 @@ struct DxilEraseDeadRegion : public FunctionPass {
         return false;
       }
     }
-    m_SafeBlocks[BB] = true;
+
+    // If the block's defs are entirely referenced within the block itself,
+    // it'll remain safe to delete no matter the region.
+    if (!ReferencedOutsideOfBlock)
+      m_SafeBlocks[BB] = true;
+
     return true;
   }
   bool FindDeadRegion(BasicBlock *Begin, BasicBlock *End, std::set<BasicBlock *> &Region) {
@@ -190,47 +201,13 @@ struct DxilEraseDeadRegion : public FunctionPass {
     return false;
   }
 
-  bool TrySimplify(DominatorTree *DT, PostDominatorTree *PDT, BasicBlock *BB) {
+  bool TrySimplify(DominatorTree *DT, PostDominatorTree *PDT, LoopInfo *LI, BasicBlock *BB) {
     // Give up if BB has any Phis
     if (BB->begin() != BB->end() && isa<PHINode>(BB->begin()))
       return false;
 
     std::vector<BasicBlock *> Predecessors(pred_begin(BB), pred_end(BB));
     if (Predecessors.size() < 2) return false;
-
-    // Give up if BB is a self loop
-    for (BasicBlock *PredBB : Predecessors)
-      if (PredBB == BB) {
-        // Self-loops only have one block, so don't check for region
-        std::set<BasicBlock *> temp;
-        if (!SafeToDeleteBlock(BB, temp)) {
-          return false;
-        } else if (Predecessors.size() != 2) {
-          return false;
-        } else {
-          BasicBlock *PredBB0 = Predecessors[0];
-          BasicBlock *PredBB1 = Predecessors[1];
-          BasicBlock *LoopBB = PredBB;
-          BasicBlock *LoopPrevBB = PredBB == PredBB0? PredBB1 : PredBB0;
-          // Remove LoopBB, LoopPrevBB branch to succ of LoopBB.
-          BranchInst *BI = cast<BranchInst>(LoopBB->getTerminator());
-
-          if (BI->getNumSuccessors() != 2)
-            return false;
-
-          BasicBlock *Succ0 = BI->getSuccessor(0);
-          BasicBlock *Succ1 = BI->getSuccessor(1);
-          BasicBlock *NextBB = Succ0 == PredBB ? Succ1 : Succ0;
-          // Make sure it is not a dead loop.
-          if (NextBB == LoopPrevBB || NextBB == BB)
-            return false;
-
-          UndefBasicBlock(LoopBB);
-          LoopPrevBB->getTerminator()->eraseFromParent();
-          BranchInst::Create(NextBB, LoopPrevBB);
-          return true;
-        }
-      }
 
     // Find the common ancestor of all the predecessors
     BasicBlock *Common = DT->findNearestCommonDominator(Predecessors[0], Predecessors[1]);
@@ -262,34 +239,111 @@ struct DxilEraseDeadRegion : public FunctionPass {
     m_DCE.EraseAndProcessOperands(Common->getTerminator());
     BranchInst::Create(BB, Common);
 
-    // Delete the region
+    DeleteRegion(Region, LI);
+
+    return true;
+  }
+
+  // Only call this after all the incoming branches have
+  // been removed.
+  void DeleteRegion(std::set<BasicBlock *> &Region, LoopInfo *LI) {
     for (BasicBlock *BB : Region) {
       UndefBasicBlock(BB);
+      // Don't leave any dangling pointers in the LoopInfo for subsequent iterations.
+      // But don't bother to delete the (possibly now empty) Loop objects, just leave them empty.
+      LI->removeBlock(BB);
     }
+
     // All blocks should be empty now, so walking the set is fine
     for (BasicBlock *BB : Region) {
       assert((BB->size() == 0) && "Trying to delete a non-empty basic block!");
       BB->eraseFromParent();
     }
-
-    return true;
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<PostDominatorTree>();
+    AU.addRequired<LoopInfoWrapperPass>();
+  }
+
+  // Go through list of all the loops and delete ones that definitely don't contribute any outputs.
+  // Delete the loop if there's no side effects in the loop, and the loop has no exit values at all.
+  bool TryRemoveSimpleDeadLoops(LoopInfo *LI) {
+    bool Changed = false;
+    SmallVector<Loop *, 4> LoopWorklist;
+    for (Loop *L : *LI) {
+      LoopWorklist.push_back(L);
+    }
+
+    std::set<BasicBlock *> LoopRegion;
+    while (LoopWorklist.size()) {
+      Loop *L = LoopWorklist.pop_back_val();
+
+      // Skip empty loops.
+      if (L->block_begin() == L->block_end())
+        continue;
+
+      // If there's not a single exit block, give up. Those cases can probably
+      // be handled by normal region deletion heuristic anyways.
+      BasicBlock *ExitBB = L->getExitBlock();
+      if (!ExitBB) {
+        for (Loop *ChildLoop : *L)
+          LoopWorklist.push_back(ChildLoop);
+        continue;
+      }
+
+      LoopRegion.clear();
+      for (BasicBlock *BB : L->getBlocks())
+        LoopRegion.insert(BB);
+
+      bool LoopSafeToDelete = true;
+      for (BasicBlock *BB : L->getBlocks()) {
+        if (!this->SafeToDeleteBlock(BB, LoopRegion)) {
+          LoopSafeToDelete = false;
+          break;
+        }
+      }
+
+      if (LoopSafeToDelete) {
+        // Re-branch anything that went to the loop's header to the loop's sole exit.
+        assert(!isa<PHINode>(ExitBB->front()) && "There must be no values escaping from the loop");
+        BasicBlock *HeaderBB = L->getHeader();
+        for (auto PredIt = llvm::pred_begin(HeaderBB), PredEnd = llvm::pred_end(HeaderBB);
+          PredIt != PredEnd;)
+        {
+          BasicBlock *PredBB = *PredIt;
+          PredIt++;
+
+          TerminatorInst *TI = PredBB->getTerminator();
+          TI->replaceUsesOfWith(HeaderBB, ExitBB);
+        }
+
+        DeleteRegion(LoopRegion, LI);
+        Changed = true;
+      }
+      else {
+        for (Loop *ChildLoop : *L)
+          LoopWorklist.push_back(ChildLoop);
+      }
+    }
+    return Changed;
   }
 
   bool runOnFunction(Function &F) override {
     auto *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
     auto *PDT = &getAnalysis<PostDominatorTree>();
+    auto *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 
     bool Changed = false;
     while (1) {
       bool LocalChanged = false;
+
+      LocalChanged |= this->TryRemoveSimpleDeadLoops(LI);
+
       for (Function::iterator It = F.begin(), E = F.end(); It != E; It++) {
         BasicBlock &BB = *It;
-        if (this->TrySimplify(DT, PDT, &BB)) {
+        if (this->TrySimplify(DT, PDT, LI, &BB)) {
           LocalChanged = true;
           break;
         }
@@ -314,5 +368,4 @@ INITIALIZE_PASS_BEGIN(DxilEraseDeadRegion, "dxil-erase-dead-region", "Dxil Erase
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
 INITIALIZE_PASS_END(DxilEraseDeadRegion, "dxil-erase-dead-region", "Dxil Erase Dead Region", false, false)
-
 
