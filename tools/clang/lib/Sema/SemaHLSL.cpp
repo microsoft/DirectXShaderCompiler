@@ -184,6 +184,7 @@ enum ArBasicKind {
   AR_OBJECT_VK_SUBPASS_INPUT,
   AR_OBJECT_VK_SUBPASS_INPUT_MS,
   AR_OBJECT_VK_SPV_INTRINSIC_TYPE,
+  AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID,
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 
@@ -476,6 +477,7 @@ const UINT g_uBasicKindProps[] =
   BPROP_OBJECT | BPROP_RBUFFER,   // AR_OBJECT_VK_SUBPASS_INPUT
   BPROP_OBJECT | BPROP_RBUFFER,   // AR_OBJECT_VK_SUBPASS_INPUT_MS
   BPROP_OBJECT,                   // AR_OBJECT_VK_SPV_INTRINSIC_TYPE use recordType
+  BPROP_OBJECT,                   // AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID use recordType
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 
@@ -1400,6 +1402,7 @@ const ArBasicKind g_ArBasicKindsAsTypes[] =
   AR_OBJECT_VK_SUBPASS_INPUT,
   AR_OBJECT_VK_SUBPASS_INPUT_MS,
   AR_OBJECT_VK_SPV_INTRINSIC_TYPE,
+  AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID,
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 
@@ -1493,6 +1496,7 @@ const uint8_t g_ArBasicKindsTemplateCount[] =
   1, // AR_OBJECT_VK_SUBPASS_INPUT
   1, // AR_OBJECT_VK_SUBPASS_INPUT_MS,
   1, // AR_OBJECT_VK_SPV_INTRINSIC_TYPE
+  1, // AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 
@@ -1594,6 +1598,7 @@ const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] =
   { 0, MipsFalse, SampleFalse }, // AR_OBJECT_VK_SUBPASS_INPUT (SubpassInput)
   { 0, MipsFalse, SampleFalse }, // AR_OBJECT_VK_SUBPASS_INPUT_MS (SubpassInputMS)
   { 0, MipsFalse, SampleFalse }, // AR_OBJECT_VK_SPV_INTRINSIC_TYPE
+  { 0, MipsFalse, SampleFalse }, // AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 
@@ -1714,6 +1719,7 @@ const char* g_ArBasicTypeNames[] =
   "SubpassInput",
   "SubpassInputMS",
   "ext_type",
+  "ext_result_id",
 #endif // ENABLE_SPIRV_CODEGEN
   // SPIRV change ends
 
@@ -3600,6 +3606,13 @@ private:
       else if (kind == AR_OBJECT_VK_SPV_INTRINSIC_TYPE && m_vkNSDecl) {
         recordDecl = DeclareUIntTemplatedTypeWithHandleInDeclContext(
             *m_context, m_vkNSDecl, typeName, "id");
+        recordDecl->setImplicit(true);
+      }
+      else if (kind == AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID && m_vkNSDecl) {
+        recordDecl = DeclareTemplateTypeWithHandleInDeclContext(*m_context,
+                                                                m_vkNSDecl,
+                                                                typeName, 1,
+                                                                nullptr);
         recordDecl->setImplicit(true);
       }
 #endif
@@ -9182,7 +9195,24 @@ void HLSLExternalSource::CheckBinOpForHLSL(
         // Only allow scalar types for logical operators &&, ||
         if (leftObjectKind != ArTypeObjectKind::AR_TOBJ_BASIC ||
             rightObjectKind != ArTypeObjectKind::AR_TOBJ_BASIC) {
-          m_sema->Diag(OpLoc, diag::err_hlsl_logical_binop_scalar);
+          SmallVector<char, 256> Buff;
+          llvm::raw_svector_ostream OS(Buff);
+          PrintingPolicy PP(m_sema->getLangOpts());
+          if (Opc == BinaryOperatorKind::BO_LAnd) {
+            OS << "and(";
+          }
+          else if (Opc == BinaryOperatorKind::BO_LOr) {
+            OS << "or(";
+          }
+          LHS.get()->printPretty(OS, nullptr, PP);
+          OS << ", ";
+          RHS.get()->printPretty(OS, nullptr, PP);
+          OS << ")";
+          SourceRange FullRange =
+              SourceRange(LHS.get()->getLocStart(), RHS.get()->getLocEnd());
+          m_sema->Diag(OpLoc, diag::err_hlsl_logical_binop_scalar)
+              << (Opc == BinaryOperatorKind::BO_LOr)
+              << FixItHint::CreateReplacement(FullRange, OS.str());
           return;
         }
       }
@@ -11891,6 +11921,37 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     declAttr = ::new (S.Context) HLSLRayPayloadAttr(
         A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
+  // SPIRV Change Starts
+  case AttributeList::AT_VKDecorateIdExt: {
+    if (A.getNumArgs() == 0 || !A.getArg(0).is<clang::Expr *>()) {
+      Handled = false;
+      break;
+    }
+
+    unsigned decoration = 0;
+    if (IntegerLiteral *decorationAsLiteral =
+            dyn_cast<IntegerLiteral>(A.getArg(0).get<clang::Expr *>())) {
+      decoration = decorationAsLiteral->getValue().getZExtValue();
+    } else {
+      Handled = false;
+      break;
+    }
+
+    llvm::SmallVector<Expr *, 2> args;
+    for (unsigned i = 1; i < A.getNumArgs(); ++i) {
+      if (!A.getArg(i).is<clang::Expr *>()) {
+        Handled = false;
+        break;
+      }
+      args.push_back(A.getArg(i).get<clang::Expr *>());
+    }
+    if (!Handled)
+      break;
+    declAttr = ::new (S.Context)
+        VKDecorateIdExtAttr(A.getRange(), S.Context, decoration, args.data(),
+                            args.size(), A.getAttributeSpellingListIndex());
+  } break;
+  // SPIRV Change Ends
 
   default:
     Handled = false;
@@ -12110,27 +12171,33 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
         A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_VKDecorateExt: {
-    // Note that `llvm::SmallVector<unsigned, 3> args` will be destroyed at
-    // the end of this function. However, VKDecorateExtAttr() constructor
-    // allocate a new integer array internally for literal and passing
-    // `&args[1]` is used just once for the initialization. It does not
-    // create a dangling pointer.
-    llvm::SmallVector<unsigned, 3> args;
-    auto argNum = A.getNumArgs();
-    for (unsigned i = 0; i < argNum; ++i) {
+    unsigned decoration = unsigned(ValidateAttributeIntArg(S, A));
+    llvm::SmallVector<unsigned, 2> args;
+    for (unsigned i = 1; i < A.getNumArgs(); ++i) {
       args.push_back(unsigned(ValidateAttributeIntArg(S, A, i)));
     }
-    unsigned *literal = (argNum > 1) ? &args[1] : nullptr;
+    // Note that `llvm::SmallVector<unsigned, 2> args` will be destroyed at
+    // the end of this function. However, VKDecorateExtAttr() constructor
+    // allocate a new integer array internally for args. It does not create
+    // a dangling pointer.
     declAttr = ::new (S.Context)
-        VKDecorateExtAttr(A.getRange(), S.Context, args[0], literal, argNum - 1,
-                          A.getAttributeSpellingListIndex());
+        VKDecorateExtAttr(A.getRange(), S.Context, decoration, args.data(),
+                          args.size(), A.getAttributeSpellingListIndex());
   } break;
-  case AttributeList::AT_VKDecorateStringExt:
+  case AttributeList::AT_VKDecorateStringExt: {
+    unsigned decoration = unsigned(ValidateAttributeIntArg(S, A));
+    llvm::SmallVector<std::string, 2> args;
+    for (unsigned i = 1; i < A.getNumArgs(); ++i) {
+      args.push_back(ValidateAttributeStringArg(S, A, nullptr, i));
+    }
+    // Note that `llvm::SmallVector<std::string, 2> args` will be destroyed
+    // at the end of this function. However, VKDecorateExtAttr() constructor
+    // allocate a new integer array internally for args. It does not create
+    // a dangling pointer.
     declAttr = ::new (S.Context) VKDecorateStringExtAttr(
-        A.getRange(), S.Context, unsigned(ValidateAttributeIntArg(S, A)),
-        ValidateAttributeStringArg(S, A, nullptr, 1),
+        A.getRange(), S.Context, decoration, args.data(), args.size(),
         A.getAttributeSpellingListIndex());
-    break;
+  } break;
   case AttributeList::AT_VKStorageClassExt:
     declAttr = ::new (S.Context) VKStorageClassExtAttr(
         A.getRange(), S.Context, unsigned(ValidateAttributeIntArg(S, A)),
@@ -12172,6 +12239,24 @@ Attr *hlsl::ProcessStmtAttributeForHLSL(Sema &S, Stmt *St, const AttributeList &
 
   Attr * result = nullptr;
   Handled = true;
+
+  // SPIRV Change Starts
+  if (A.hasScope() && A.getScopeName()->getName().equals("vk")) {
+    switch (A.getKind()) {
+    case AttributeList::AT_VKCapabilityExt:
+      return ::new (S.Context) VKCapabilityExtAttr(
+          A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
+          A.getAttributeSpellingListIndex());
+    case AttributeList::AT_VKExtensionExt:
+      return ::new (S.Context) VKExtensionExtAttr(
+          A.getRange(), S.Context, ValidateAttributeStringArg(S, A, nullptr),
+          A.getAttributeSpellingListIndex());
+    default:
+      Handled = false;
+      return nullptr;
+    }
+  }
+  // SPIRV Change Ends
 
   switch (A.getKind())
   {
@@ -12924,7 +13009,8 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
   if (!getLangOpts().SPIRV) {
     if (basicKind == ArBasicKind::AR_OBJECT_VK_SUBPASS_INPUT ||
         basicKind == ArBasicKind::AR_OBJECT_VK_SUBPASS_INPUT_MS ||
-        basicKind == ArBasicKind::AR_OBJECT_VK_SPV_INTRINSIC_TYPE) {
+        basicKind == ArBasicKind::AR_OBJECT_VK_SPV_INTRINSIC_TYPE ||
+        basicKind == ArBasicKind::AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID) {
       Diag(D.getLocStart(), diag::err_hlsl_vulkan_specific_feature)
           << g_ArBasicTypeNames[basicKind];
       result = false;

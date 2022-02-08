@@ -61,6 +61,14 @@
 
 #define VERIFY_IS_GREATER_THAN_OR_EQUAL(greater, less) EXPECT_GE(greater, less)
 
+#define VERIFY_IS_GREATER_THAN_2(greater, less) EXPECT_GT(greater, less)
+#define VERIFY_IS_GREATER_THAN_3(greater, less, msg) EXPECT_GT(greater, less) << msg
+#define VERIFY_IS_GREATER_THAN(...) MACRO_N(VERIFY_IS_GREATER_THAN_, __VA_ARGS__)
+
+#define VERIFY_IS_LESS_THAN_2(greater, less) EXPECT_LT(greater, less)
+#define VERIFY_IS_LESS_THAN_3(greater, less, msg) EXPECT_LT(greater, less) << msg
+#define VERIFY_IS_LESS_THAN(...) MACRO_N(VERIFY_IS_LESS_THAN_, __VA_ARGS__)
+
 #define VERIFY_WIN32_BOOL_SUCCEEDED_1(expr) EXPECT_TRUE(expr)
 #define VERIFY_WIN32_BOOL_SUCCEEDED_2(expr, msg) EXPECT_TRUE(expr) << msg
 #define VERIFY_WIN32_BOOL_SUCCEEDED(...) MACRO_N(VERIFY_WIN32_BOOL_SUCCEEDED_, __VA_ARGS__)

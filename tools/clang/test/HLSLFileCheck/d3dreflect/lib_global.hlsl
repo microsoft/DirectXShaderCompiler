@@ -63,13 +63,13 @@
 // CHECK-NEXT:       ID3D12ShaderReflectionConstantBuffer:
 // CHECK-NEXT:         D3D12_SHADER_BUFFER_DESC: Name: X
 // CHECK-NEXT:           Type: D3D_CT_RESOURCE_BIND_INFO
-// CHECK-NEXT:           Size: 56
+// CHECK-NEXT:           Size: 72
 // CHECK-NEXT:           uFlags: 0
 // CHECK-NEXT:           Num Variables: 1
 // CHECK-NEXT:         {
 // CHECK-NEXT:           ID3D12ShaderReflectionVariable:
 // CHECK-NEXT:             D3D12_SHADER_VARIABLE_DESC: Name: $Element
-// CHECK-NEXT:               Size: 56
+// CHECK-NEXT:               Size: 72
 // CHECK-NEXT:               StartOffset: 0
 // CHECK-NEXT:               uFlags: (D3D_SVF_USED)
 // CHECK-NEXT:               DefaultValue: <nullptr>
@@ -79,37 +79,10 @@
 // CHECK-NEXT:                 Type: D3D_SVT_VOID
 // CHECK-NEXT:                 Elements: 0
 // CHECK-NEXT:                 Rows: 1
-// CHECK-NEXT:                 Columns: 9
-// CHECK-NEXT:                 Members: 6
+// CHECK-NEXT:                 Columns: 11
+// CHECK-NEXT:                 Members: 8
 // CHECK-NEXT:                 Offset: 0
 // CHECK-NEXT:               {
-// CHECK-NEXT:                 ID3D12ShaderReflectionType:
-// CHECK-NEXT:                   D3D12_SHADER_TYPE_DESC: Name: uint64_t
-// CHECK-NEXT:                     Class: D3D_SVC_SCALAR
-// CHECK-NEXT:                     Type: D3D_SVT_UINT64
-// CHECK-NEXT:                     Elements: 0
-// CHECK-NEXT:                     Rows: 1
-// CHECK-NEXT:                     Columns: 1
-// CHECK-NEXT:                     Members: 0
-// CHECK-NEXT:                     Offset: 0
-// CHECK-NEXT:                 ID3D12ShaderReflectionType:
-// CHECK-NEXT:                   D3D12_SHADER_TYPE_DESC: Name: int64_t
-// CHECK-NEXT:                     Class: D3D_SVC_SCALAR
-// CHECK-NEXT:                     Type: D3D_SVT_INT64
-// CHECK-NEXT:                     Elements: 0
-// CHECK-NEXT:                     Rows: 1
-// CHECK-NEXT:                     Columns: 1
-// CHECK-NEXT:                     Members: 0
-// CHECK-NEXT:                     Offset: 8
-// CHECK-NEXT:                 ID3D12ShaderReflectionType:
-// CHECK-NEXT:                   D3D12_SHADER_TYPE_DESC: Name: float4
-// CHECK-NEXT:                     Class: D3D_SVC_VECTOR
-// CHECK-NEXT:                     Type: D3D_SVT_FLOAT
-// CHECK-NEXT:                     Elements: 0
-// CHECK-NEXT:                     Rows: 1
-// CHECK-NEXT:                     Columns: 4
-// CHECK-NEXT:                     Members: 0
-// CHECK-NEXT:                     Offset: 16
 // CHECK-NEXT:                 ID3D12ShaderReflectionType:
 // CHECK-NEXT:                   D3D12_SHADER_TYPE_DESC: Name: int16_t
 // CHECK-NEXT:                     Class: D3D_SVC_SCALAR
@@ -118,7 +91,52 @@
 // CHECK-NEXT:                     Rows: 1
 // CHECK-NEXT:                     Columns: 1
 // CHECK-NEXT:                     Members: 0
+// CHECK-NEXT:                     Offset: 0
+// CHECK-NEXT:                 ID3D12ShaderReflectionType:
+// CHECK-NEXT:                   D3D12_SHADER_TYPE_DESC: Name: uint64_t
+// CHECK-NEXT:                     Class: D3D_SVC_SCALAR
+// CHECK-NEXT:                     Type: D3D_SVT_UINT64
+// CHECK-NEXT:                     Elements: 0
+// CHECK-NEXT:                     Rows: 1
+// CHECK-NEXT:                     Columns: 1
+// CHECK-NEXT:                     Members: 0
+// CHECK-NEXT:                     Offset: 8
+// CHECK-NEXT:                 ID3D12ShaderReflectionType:
+// CHECK-NEXT:                   D3D12_SHADER_TYPE_DESC: Name: int16_t
+// CHECK-NEXT:                     Class: D3D_SVC_SCALAR
+// CHECK-NEXT:                     Type: D3D_SVT_INT16
+// CHECK-NEXT:                     Elements: 0
+// CHECK-NEXT:                     Rows: 1
+// CHECK-NEXT:                     Columns: 1
+// CHECK-NEXT:                     Members: 0
+// CHECK-NEXT:                     Offset: 16
+// CHECK-NEXT:                 ID3D12ShaderReflectionType:
+// CHECK-NEXT:                   D3D12_SHADER_TYPE_DESC: Name: int64_t
+// CHECK-NEXT:                     Class: D3D_SVC_SCALAR
+// CHECK-NEXT:                     Type: D3D_SVT_INT64
+// CHECK-NEXT:                     Elements: 0
+// CHECK-NEXT:                     Rows: 1
+// CHECK-NEXT:                     Columns: 1
+// CHECK-NEXT:                     Members: 0
+// CHECK-NEXT:                     Offset: 24
+// CHECK-NEXT:                 ID3D12ShaderReflectionType:
+// CHECK-NEXT:                   D3D12_SHADER_TYPE_DESC: Name: float4
+// CHECK-NEXT:                     Class: D3D_SVC_VECTOR
+// CHECK-NEXT:                     Type: D3D_SVT_FLOAT
+// CHECK-NEXT:                     Elements: 0
+// CHECK-NEXT:                     Rows: 1
+// CHECK-NEXT:                     Columns: 4
+// CHECK-NEXT:                     Members: 0
 // CHECK-NEXT:                     Offset: 32
+// CHECK-NEXT:                 ID3D12ShaderReflectionType:
+// CHECK-NEXT:                   D3D12_SHADER_TYPE_DESC: Name: int16_t
+// CHECK-NEXT:                     Class: D3D_SVC_SCALAR
+// CHECK-NEXT:                     Type: D3D_SVT_INT16
+// CHECK-NEXT:                     Elements: 0
+// CHECK-NEXT:                     Rows: 1
+// CHECK-NEXT:                     Columns: 1
+// CHECK-NEXT:                     Members: 0
+// CHECK-NEXT:                     Offset: 48
 // CHECK-NEXT:                 ID3D12ShaderReflectionType:
 // CHECK-NEXT:                   D3D12_SHADER_TYPE_DESC: Name: double
 // CHECK-NEXT:                     Class: D3D_SVC_SCALAR
@@ -127,7 +145,7 @@
 // CHECK-NEXT:                     Rows: 1
 // CHECK-NEXT:                     Columns: 1
 // CHECK-NEXT:                     Members: 0
-// CHECK-NEXT:                     Offset: 40
+// CHECK-NEXT:                     Offset: 56
 // CHECK-NEXT:                 ID3D12ShaderReflectionType:
 // CHECK-NEXT:                   D3D12_SHADER_TYPE_DESC: Name: uint16_t
 // CHECK-NEXT:                     Class: D3D_SVC_SCALAR
@@ -136,7 +154,7 @@
 // CHECK-NEXT:                     Rows: 1
 // CHECK-NEXT:                     Columns: 1
 // CHECK-NEXT:                     Members: 0
-// CHECK-NEXT:                     Offset: 48
+// CHECK-NEXT:                     Offset: 64
 // CHECK-NEXT:               }
 // CHECK-NEXT:             CBuffer: X
 // CHECK-NEXT:         }
@@ -159,7 +177,7 @@
 // CHECK-NEXT:         Space: 4294967295
 // CHECK-NEXT:         ReturnType: D3D_RETURN_TYPE_MIXED
 // CHECK-NEXT:         Dimension: D3D_SRV_DIMENSION_BUFFER
-// CHECK-NEXT:         NumSamples (or stride): 56
+// CHECK-NEXT:         NumSamples (or stride): 72
 // CHECK-NEXT:         uFlags: 0
 // CHECK-NEXT:   ID3D12FunctionReflection:
 // CHECK-NEXT:     D3D12_FUNCTION_DESC: Name: test
@@ -213,13 +231,13 @@
 // CHECK-NEXT:       ID3D12ShaderReflectionConstantBuffer:
 // CHECK-NEXT:         D3D12_SHADER_BUFFER_DESC: Name: X
 // CHECK-NEXT:           Type: D3D_CT_RESOURCE_BIND_INFO
-// CHECK-NEXT:           Size: 56
+// CHECK-NEXT:           Size: 72
 // CHECK-NEXT:           uFlags: 0
 // CHECK-NEXT:           Num Variables: 1
 // CHECK-NEXT:         {
 // CHECK-NEXT:           ID3D12ShaderReflectionVariable:
 // CHECK-NEXT:             D3D12_SHADER_VARIABLE_DESC: Name: $Element
-// CHECK-NEXT:               Size: 56
+// CHECK-NEXT:               Size: 72
 // CHECK-NEXT:               StartOffset: 0
 // CHECK-NEXT:               uFlags: (D3D_SVF_USED)
 // CHECK-NEXT:               DefaultValue: <nullptr>
@@ -229,37 +247,10 @@
 // CHECK-NEXT:                 Type: D3D_SVT_VOID
 // CHECK-NEXT:                 Elements: 0
 // CHECK-NEXT:                 Rows: 1
-// CHECK-NEXT:                 Columns: 9
-// CHECK-NEXT:                 Members: 6
+// CHECK-NEXT:                 Columns: 11
+// CHECK-NEXT:                 Members: 8
 // CHECK-NEXT:                 Offset: 0
 // CHECK-NEXT:               {
-// CHECK-NEXT:                 ID3D12ShaderReflectionType:
-// CHECK-NEXT:                   D3D12_SHADER_TYPE_DESC: Name: uint64_t
-// CHECK-NEXT:                     Class: D3D_SVC_SCALAR
-// CHECK-NEXT:                     Type: D3D_SVT_UINT64
-// CHECK-NEXT:                     Elements: 0
-// CHECK-NEXT:                     Rows: 1
-// CHECK-NEXT:                     Columns: 1
-// CHECK-NEXT:                     Members: 0
-// CHECK-NEXT:                     Offset: 0
-// CHECK-NEXT:                 ID3D12ShaderReflectionType:
-// CHECK-NEXT:                   D3D12_SHADER_TYPE_DESC: Name: int64_t
-// CHECK-NEXT:                     Class: D3D_SVC_SCALAR
-// CHECK-NEXT:                     Type: D3D_SVT_INT64
-// CHECK-NEXT:                     Elements: 0
-// CHECK-NEXT:                     Rows: 1
-// CHECK-NEXT:                     Columns: 1
-// CHECK-NEXT:                     Members: 0
-// CHECK-NEXT:                     Offset: 8
-// CHECK-NEXT:                 ID3D12ShaderReflectionType:
-// CHECK-NEXT:                   D3D12_SHADER_TYPE_DESC: Name: float4
-// CHECK-NEXT:                     Class: D3D_SVC_VECTOR
-// CHECK-NEXT:                     Type: D3D_SVT_FLOAT
-// CHECK-NEXT:                     Elements: 0
-// CHECK-NEXT:                     Rows: 1
-// CHECK-NEXT:                     Columns: 4
-// CHECK-NEXT:                     Members: 0
-// CHECK-NEXT:                     Offset: 16
 // CHECK-NEXT:                 ID3D12ShaderReflectionType:
 // CHECK-NEXT:                   D3D12_SHADER_TYPE_DESC: Name: int16_t
 // CHECK-NEXT:                     Class: D3D_SVC_SCALAR
@@ -268,7 +259,52 @@
 // CHECK-NEXT:                     Rows: 1
 // CHECK-NEXT:                     Columns: 1
 // CHECK-NEXT:                     Members: 0
+// CHECK-NEXT:                     Offset: 0
+// CHECK-NEXT:                 ID3D12ShaderReflectionType:
+// CHECK-NEXT:                   D3D12_SHADER_TYPE_DESC: Name: uint64_t
+// CHECK-NEXT:                     Class: D3D_SVC_SCALAR
+// CHECK-NEXT:                     Type: D3D_SVT_UINT64
+// CHECK-NEXT:                     Elements: 0
+// CHECK-NEXT:                     Rows: 1
+// CHECK-NEXT:                     Columns: 1
+// CHECK-NEXT:                     Members: 0
+// CHECK-NEXT:                     Offset: 8
+// CHECK-NEXT:                 ID3D12ShaderReflectionType:
+// CHECK-NEXT:                   D3D12_SHADER_TYPE_DESC: Name: int16_t
+// CHECK-NEXT:                     Class: D3D_SVC_SCALAR
+// CHECK-NEXT:                     Type: D3D_SVT_INT16
+// CHECK-NEXT:                     Elements: 0
+// CHECK-NEXT:                     Rows: 1
+// CHECK-NEXT:                     Columns: 1
+// CHECK-NEXT:                     Members: 0
+// CHECK-NEXT:                     Offset: 16
+// CHECK-NEXT:                 ID3D12ShaderReflectionType:
+// CHECK-NEXT:                   D3D12_SHADER_TYPE_DESC: Name: int64_t
+// CHECK-NEXT:                     Class: D3D_SVC_SCALAR
+// CHECK-NEXT:                     Type: D3D_SVT_INT64
+// CHECK-NEXT:                     Elements: 0
+// CHECK-NEXT:                     Rows: 1
+// CHECK-NEXT:                     Columns: 1
+// CHECK-NEXT:                     Members: 0
+// CHECK-NEXT:                     Offset: 24
+// CHECK-NEXT:                 ID3D12ShaderReflectionType:
+// CHECK-NEXT:                   D3D12_SHADER_TYPE_DESC: Name: float4
+// CHECK-NEXT:                     Class: D3D_SVC_VECTOR
+// CHECK-NEXT:                     Type: D3D_SVT_FLOAT
+// CHECK-NEXT:                     Elements: 0
+// CHECK-NEXT:                     Rows: 1
+// CHECK-NEXT:                     Columns: 4
+// CHECK-NEXT:                     Members: 0
 // CHECK-NEXT:                     Offset: 32
+// CHECK-NEXT:                 ID3D12ShaderReflectionType:
+// CHECK-NEXT:                   D3D12_SHADER_TYPE_DESC: Name: int16_t
+// CHECK-NEXT:                     Class: D3D_SVC_SCALAR
+// CHECK-NEXT:                     Type: D3D_SVT_INT16
+// CHECK-NEXT:                     Elements: 0
+// CHECK-NEXT:                     Rows: 1
+// CHECK-NEXT:                     Columns: 1
+// CHECK-NEXT:                     Members: 0
+// CHECK-NEXT:                     Offset: 48
 // CHECK-NEXT:                 ID3D12ShaderReflectionType:
 // CHECK-NEXT:                   D3D12_SHADER_TYPE_DESC: Name: double
 // CHECK-NEXT:                     Class: D3D_SVC_SCALAR
@@ -277,7 +313,7 @@
 // CHECK-NEXT:                     Rows: 1
 // CHECK-NEXT:                     Columns: 1
 // CHECK-NEXT:                     Members: 0
-// CHECK-NEXT:                     Offset: 40
+// CHECK-NEXT:                     Offset: 56
 // CHECK-NEXT:                 ID3D12ShaderReflectionType:
 // CHECK-NEXT:                   D3D12_SHADER_TYPE_DESC: Name: uint16_t
 // CHECK-NEXT:                     Class: D3D_SVC_SCALAR
@@ -286,21 +322,21 @@
 // CHECK-NEXT:                     Rows: 1
 // CHECK-NEXT:                     Columns: 1
 // CHECK-NEXT:                     Members: 0
-// CHECK-NEXT:                     Offset: 48
+// CHECK-NEXT:                     Offset: 64
 // CHECK-NEXT:               }
 // CHECK-NEXT:             CBuffer: X
 // CHECK-NEXT:         }
 // CHECK-NEXT:     Bound Resources:
 // CHECK-NEXT:       D3D12_SHADER_INPUT_BIND_DESC: Name: X
-// CHECK-NEXT:               Type: D3D_SIT_CBUFFER
-// CHECK-NEXT:               uID: 0
-// CHECK-NEXT:               BindCount: 1
-// CHECK-NEXT:               BindPoint: 4294967295
-// CHECK-NEXT:               Space: 4294967295
-// CHECK-NEXT:               ReturnType: <unknown: 0>
-// CHECK-NEXT:               Dimension: D3D_SRV_DIMENSION_UNKNOWN
-// CHECK-NEXT:               NumSamples (or stride): 0
-// CHECK-NEXT:               uFlags: (D3D_SIF_USERPACKED)
+// CHECK-NEXT:         Type: D3D_SIT_CBUFFER
+// CHECK-NEXT:         uID: 0
+// CHECK-NEXT:         BindCount: 1
+// CHECK-NEXT:         BindPoint: 4294967295
+// CHECK-NEXT:         Space: 4294967295
+// CHECK-NEXT:         ReturnType: <unknown: 0>
+// CHECK-NEXT:         Dimension: D3D_SRV_DIMENSION_UNKNOWN
+// CHECK-NEXT:         NumSamples (or stride): 0
+// CHECK-NEXT:         uFlags: (D3D_SIF_USERPACKED)
 // CHECK-NEXT:       D3D12_SHADER_INPUT_BIND_DESC: Name: g_samLinear
 // CHECK-NEXT:         Type: D3D_SIT_SAMPLER
 // CHECK-NEXT:         uID: 0
@@ -329,7 +365,7 @@
 // CHECK-NEXT:         Space: 4294967295
 // CHECK-NEXT:         ReturnType: D3D_RETURN_TYPE_MIXED
 // CHECK-NEXT:         Dimension: D3D_SRV_DIMENSION_BUFFER
-// CHECK-NEXT:         NumSamples (or stride): 56
+// CHECK-NEXT:         NumSamples (or stride): 72
 // CHECK-NEXT:         uFlags: 0
 #endif
 
@@ -337,7 +373,9 @@ Texture2D    g_txDiffuse;
 SamplerState    g_samLinear;
 
 struct SBStruct {
+  int16_t pad0; // ensure alignment of next to 8-bytes
   uint64_t u64;
+  int16_t pad1; // ensure alignment of next to 8-bytes
   int64_t i64;
   float4 f4;
   int16_t i16;

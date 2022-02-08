@@ -236,6 +236,8 @@ public:
   std::map<std::string, std::string> HLSLOptimizationSelects;
   /// Debug option to print IR after every pass
   bool HLSLPrintAfterAll = false;
+  /// Debug option to print IR after specific pass
+  std::set<std::string> HLSLPrintAfter;
   /// Force-replace lifetime intrinsics by zeroinitializer stores.
   bool HLSLForceZeroStoreLifetimes = false;
   /// Enable lifetime marker generation

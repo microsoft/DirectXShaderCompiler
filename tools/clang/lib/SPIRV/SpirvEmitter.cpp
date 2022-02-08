@@ -924,11 +924,21 @@ void SpirvEmitter::doStmt(const Stmt *stmt,
     doForStmt(forStmt, attrs);
   } else if (dyn_cast<NullStmt>(stmt)) {
     // For the null statement ";". We don't need to do anything.
-  } else if (const auto *expr = dyn_cast<Expr>(stmt)) {
-    // All cases for expressions used as statements
-    doExpr(expr);
   } else if (const auto *attrStmt = dyn_cast<AttributedStmt>(stmt)) {
     doStmt(attrStmt->getSubStmt(), attrStmt->getAttrs());
+  } else if (const auto *expr = dyn_cast<Expr>(stmt)) {
+    // All cases for expressions used as statements
+    SpirvInstruction *result = doExpr(expr);
+
+    if (result && result->getKind() == SpirvInstruction::IK_ExecutionMode &&
+        !attrs.empty()) {
+      // Handle [[vk::ext_capability(..)]] and [[vk::ext_extension(..)]]
+      // attributes for vk::ext_execution_mode[_id](..).
+      createSpirvIntrInstExt(
+          attrs, QualType(),
+          /*spvArgs*/ llvm::SmallVector<SpirvInstruction *, 1>{},
+          /*isInstr*/ false, expr->getExprLoc());
+    }
   } else {
     emitError("statement class '%0' unimplemented", stmt->getLocStart())
         << stmt->getStmtClassName() << stmt->getSourceRange();
@@ -992,7 +1002,12 @@ SpirvInstruction *SpirvEmitter::doExpr(const Expr *expr,
     assert(curThis);
     result = curThis;
   } else if (isa<CXXConstructExpr>(expr)) {
-    result = curThis;
+    // For RayQuery type, we should not explicitly initialize it using
+    // CXXConstructExpr e.g., RayQuery<0> r = RayQuery<0>() is the same as we do
+    // not have a variable initialization. Setting nullptr for the SPIR-V
+    // instruction used for expr will let us skip the variable initialization.
+    if (!hlsl::IsHLSLRayQueryType(expr->getType()))
+      result = curThis;
   } else if (const auto *unaryExpr = dyn_cast<UnaryExprOrTypeTraitExpr>(expr)) {
     result = doUnaryExprOrTypeTraitExpr(unaryExpr);
   } else {
@@ -1525,6 +1540,11 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
   const auto loc = decl->getLocation();
   const auto range = decl->getSourceRange();
 
+  if (isExtResultIdType(decl->getType())) {
+    declIdMapper.createResultId(decl);
+    return;
+  }
+
   // HLSL has the 'string' type which can be used for rare purposes such as
   // printf (SPIR-V's DebugPrintf). SPIR-V does not have a 'char' or 'string'
   // type, and therefore any variable of such type should not be created.
@@ -1667,7 +1687,7 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
   }
 
   if (var != nullptr && decl->hasAttrs()) {
-    declIdMapper.decorateVariableWithIntrinsicAttrs(decl, var);
+    declIdMapper.decorateWithIntrinsicAttrs(decl, var);
     if (auto attr = decl->getAttr<VKStorageClassExtAttr>()) {
       var->setStorageClass(static_cast<spv::StorageClass>(attr->getStclass()));
     }
@@ -3037,16 +3057,40 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr,
   }
 }
 
+void SpirvEmitter::updateInstructionType(SpirvInstruction *initInstr,
+                                         QualType type) {
+  if (initInstr == nullptr || type == initInstr->getAstResultType())
+    return;
+  initInstr->setAstResultType(type);
+  if (auto *load = dyn_cast<SpirvLoad>(initInstr)) {
+    updateInstructionType(load->getPointer(), type);
+  }
+}
+
 SpirvInstruction *SpirvEmitter::processFlatConversion(
     const QualType type, const QualType initType, SpirvInstruction *initInstr,
     SourceLocation srcLoc, SourceRange range) {
-  // When translating ConstantBuffer<T> or TextureBuffer<T> types, we consider
-  // the underlying type (T), and therefore we should bypass the FlatConversion
-  // node when accessing these types:
-  // `-MemberExpr
-  //   `-ImplicitCastExpr 'const T' lvalue <FlatConversion>
-  //     `-ArraySubscriptExpr 'ConstantBuffer<T>':'ConstantBuffer<T>' lvalue
   if (isConstantTextureBuffer(initType)) {
+    // When we access to a bindless array of ConstantBuffer<T> or
+    // TextureBuffer<T>, the AST result type of ArraySubscriptExpr will be
+    // ConstantBuffer<T> while the result type of FlatConversion must be T.
+    // We have to update the result of ArraySubscriptExpr to match the type:
+    // `-VarDecl 'const T' cinit
+    //   `-ImplicitCastExpr 'T' <FlatConversion>
+    //     `-ImplicitCastExpr 'ConstantBuffer<T>':'ConstantBuffer<T>'
+    //                        <LValueToRValue>
+    //       `-ArraySubscriptExpr 'ConstantBuffer<T>':'ConstantBuffer<T>' lvalue
+    if (initInstr != nullptr && initInstr->getAstResultType() != QualType() &&
+        type != initInstr->getAstResultType()) {
+      updateInstructionType(initInstr, type);
+      needsLegalization = true;
+    }
+    // Otherwise, when translating ConstantBuffer<T> or TextureBuffer<T> types,
+    // we consider the underlying type (T), and therefore we should bypass the
+    // FlatConversion node when accessing these types:
+    // `-MemberExpr
+    //   `-ImplicitCastExpr 'const T' lvalue <FlatConversion>
+    //     `-ArraySubscriptExpr 'ConstantBuffer<T>':'ConstantBuffer<T>' lvalue
     return initInstr;
   }
 
@@ -5789,10 +5833,6 @@ void SpirvEmitter::storeValue(SpirvInstruction *lhsPtr,
     // let SPIRV-Tools opt to do the legalization work.
     //
     // Note: legalization specific code
-    if (hlsl::IsHLSLRayQueryType(lhsValType)) {
-      emitError("store value of type %0 is unsupported", {}) << lhsValType;
-      return;
-    }
     spvBuilder.createStore(lhsPtr, rhsVal, loc, range);
     needsLegalization = true;
   } else if (isAKindOfStructuredOrByteBuffer(lhsValType)) {
@@ -7776,7 +7816,10 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     retVal = processRawBufferLoad(callExpr);
     break;
   case hlsl::IntrinsicOp::IOP_Vkext_execution_mode:
-    retVal = processIntrinsicExecutionMode(callExpr);
+    retVal = processIntrinsicExecutionMode(callExpr, false);
+    break;
+  case hlsl::IntrinsicOp::IOP_Vkext_execution_mode_id:
+    retVal = processIntrinsicExecutionMode(callExpr, true);
     break;
   case hlsl::IntrinsicOp::IOP_saturate:
     retVal = processIntrinsicSaturate(callExpr);
@@ -7798,6 +7841,7 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
         declIdMapper.getBuiltinVar(spv::BuiltIn::SubgroupSize, retType, srcLoc);
 
     retVal = spvBuilder.createLoad(retType, var, srcLoc, srcRange);
+    needsLegalization = true;
   } break;
   case hlsl::IntrinsicOp::IOP_WaveGetLaneIndex: {
     featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "WaveGetLaneIndex",
@@ -7806,6 +7850,7 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     auto *var = declIdMapper.getBuiltinVar(
         spv::BuiltIn::SubgroupLocalInvocationId, retType, srcLoc);
     retVal = spvBuilder.createLoad(retType, var, srcLoc, srcRange);
+    needsLegalization = true;
   } break;
   case hlsl::IntrinsicOp::IOP_WaveIsFirstLane:
     retVal = processWaveQuery(callExpr, spv::Op::OpGroupNonUniformElect);
@@ -10562,6 +10607,7 @@ SpirvInstruction *SpirvEmitter::processRayBuiltins(const CallExpr *callExpr,
     emitError("ray intrinsic function unimplemented", loc);
     return nullptr;
   }
+  needsLegalization = true;
 
   QualType builtinType = callExpr->getType();
   if (transposeMatrix) {
@@ -12720,32 +12766,46 @@ SpirvEmitter::processRayQueryIntrinsics(const CXXMemberCallExpr *expr,
   return retVal;
 }
 
-SpirvInstruction *
-SpirvEmitter::processSpvIntrinsicCallExpr(const CallExpr *expr) {
-  auto funcDecl = expr->getDirectCallee();
-  auto &attrs = funcDecl->getAttrs();
-  QualType retType = funcDecl->getReturnType();
-
+SpirvInstruction *SpirvEmitter::createSpirvIntrInstExt(
+    llvm::ArrayRef<const Attr *> attrs, QualType retType,
+    const llvm::SmallVectorImpl<SpirvInstruction *> &spvArgs, bool isInstr,
+    SourceLocation loc) {
   llvm::SmallVector<uint32_t, 2> capbilities;
   llvm::SmallVector<llvm::StringRef, 2> extensions;
   llvm::StringRef instSet = "";
-  uint32_t op = 0;
+  // For [[vk::ext_type_def]], we use dummy OpNop with no semantic meaning,
+  // with possible extension and capabilities.
+  uint32_t op = static_cast<unsigned>(spv::Op::OpNop);
   for (auto &attr : attrs) {
     if (auto capAttr = dyn_cast<VKCapabilityExtAttr>(attr)) {
       capbilities.push_back(capAttr->getCapability());
     } else if (auto extAttr = dyn_cast<VKExtensionExtAttr>(attr)) {
       extensions.push_back(extAttr->getName());
-    } else if (auto instAttr = dyn_cast<VKInstructionExtAttr>(attr)) {
+    }
+    if (!isInstr)
+      continue;
+    if (auto instAttr = dyn_cast<VKInstructionExtAttr>(attr)) {
       op = instAttr->getOpcode();
       instSet = instAttr->getInstruction_set();
     }
   }
 
-  llvm::SmallVector<SpirvInstruction *, 8> spvArgs;
+  SpirvInstruction *retVal = spvBuilder.createSpirvIntrInstExt(
+      op, retType, spvArgs, extensions, instSet, capbilities, loc);
 
+  // TODO: Revisit this r-value setting when handling vk::ext_result_id<T> ?
+  retVal->setRValue();
+
+  return retVal;
+}
+
+SpirvInstruction *
+SpirvEmitter::processSpvIntrinsicCallExpr(const CallExpr *expr) {
+  const auto *funcDecl = expr->getDirectCallee();
+  llvm::SmallVector<SpirvInstruction *, 8> spvArgs;
   const auto args = expr->getArgs();
   for (uint32_t i = 0; i < expr->getNumArgs(); ++i) {
-    auto param = funcDecl->getParamDecl(i);
+    const auto *param = funcDecl->getParamDecl(i);
     const Expr *arg = args[i]->IgnoreParenLValueCasts();
     SpirvInstruction *argInst = doExpr(arg);
     if (param->hasAttr<VKReferenceExtAttr>()) {
@@ -12766,14 +12826,9 @@ SpirvEmitter::processSpvIntrinsicCallExpr(const CallExpr *expr) {
     }
   }
 
-  const auto loc = expr->getExprLoc();
-
-  SpirvInstruction *retVal = spvBuilder.createSpirvIntrInstExt(
-      op, retType, spvArgs, extensions, instSet, capbilities, loc);
-
-  // TODO: Revisit this r-value setting when handling vk::ext_result_id<T> ?
-  retVal->setRValue();
-  return retVal;
+  return createSpirvIntrInstExt(funcDecl->getAttrs(), funcDecl->getReturnType(),
+                                spvArgs,
+                                /*isInstr*/ true, expr->getExprLoc());
 }
 
 SpirvInstruction *SpirvEmitter::processRawBufferLoad(const CallExpr *callExpr) {
@@ -12803,18 +12858,22 @@ SpirvInstruction *SpirvEmitter::processRawBufferLoad(const CallExpr *callExpr) {
 }
 
 SpirvInstruction *
-SpirvEmitter::processIntrinsicExecutionMode(const CallExpr *expr) {
+SpirvEmitter::processIntrinsicExecutionMode(const CallExpr *expr,
+                                            bool useIdParams) {
   llvm::SmallVector<uint32_t, 2> execModesParams;
   uint32_t exeMode = 0;
   const auto args = expr->getArgs();
   for (uint32_t i = 0; i < expr->getNumArgs(); ++i) {
-    SpirvConstantInteger *argInst =
-        dyn_cast<SpirvConstantInteger>(doExpr(args[i]));
-    if (argInst == nullptr) {
-      emitError("argument should be constant interger", expr->getExprLoc());
+    const auto *intLiteral =
+        dyn_cast<IntegerLiteral>(args[i]->IgnoreImplicit());
+    if (intLiteral == nullptr) {
+      emitError("argument should be constant integer", expr->getExprLoc());
       return nullptr;
     }
-    unsigned argInteger = argInst->getValue().getZExtValue();
+
+    uint32_t argInteger =
+        static_cast<uint32_t>(intLiteral->getValue().getZExtValue());
+
     if (i > 0)
       execModesParams.push_back(argInteger);
     else
@@ -12823,26 +12882,14 @@ SpirvEmitter::processIntrinsicExecutionMode(const CallExpr *expr) {
   assert(entryFunction != nullptr);
   assert(exeMode != 0);
 
-  return spvBuilder.addExecutionMode(entryFunction,
-                                     static_cast<spv::ExecutionMode>(exeMode),
-                                     execModesParams, expr->getExprLoc());
+  return spvBuilder.addExecutionMode(
+      entryFunction, static_cast<spv::ExecutionMode>(exeMode), execModesParams,
+      expr->getExprLoc(), useIdParams);
 }
 
 SpirvInstruction *
 SpirvEmitter::processSpvIntrinsicTypeDef(const CallExpr *expr) {
   auto funcDecl = expr->getDirectCallee();
-  auto typeDefAttr = funcDecl->getAttr<VKTypeDefExtAttr>();
-  llvm::SmallVector<uint32_t, 2> capbilities;
-  llvm::SmallVector<llvm::StringRef, 2> extensions;
-
-  for (auto &attr : funcDecl->getAttrs()) {
-    if (auto capAttr = dyn_cast<VKCapabilityExtAttr>(attr)) {
-      capbilities.push_back(capAttr->getCapability());
-    } else if (auto extAttr = dyn_cast<VKExtensionExtAttr>(attr)) {
-      extensions.push_back(extAttr->getName());
-    }
-  }
-
   SmallVector<SpvIntrinsicTypeOperand, 3> operands;
   const auto args = expr->getArgs();
   for (uint32_t i = 0; i < expr->getNumArgs(); ++i) {
@@ -12867,17 +12914,15 @@ SpirvEmitter::processSpvIntrinsicTypeDef(const CallExpr *expr) {
       operands.emplace_back(loadIfGLValue(arg));
     }
   }
+
+  auto typeDefAttr = funcDecl->getAttr<VKTypeDefExtAttr>();
   spvContext.getSpirvIntrinsicType(typeDefAttr->getId(),
                                    typeDefAttr->getOpcode(), operands);
 
-  // Emit dummy OpNop with no semantic meaning, with possible extension and
-  // capabilities
-  SpirvInstruction *retVal = spvBuilder.createSpirvIntrInstExt(
-      static_cast<unsigned>(spv::Op::OpNop), QualType(), {}, extensions, {},
-      capbilities, expr->getExprLoc());
-  retVal->setRValue();
-
-  return retVal;
+  return createSpirvIntrInstExt(
+      funcDecl->getAttrs(), QualType(),
+      /*spvArgs*/ llvm::SmallVector<SpirvInstruction *, 1>{},
+      /*isInstr*/ false, expr->getExprLoc());
 }
 
 bool SpirvEmitter::spirvToolsValidate(std::vector<uint32_t> *mod,
@@ -12920,6 +12965,9 @@ bool SpirvEmitter::spirvToolsOptimize(std::vector<uint32_t> *mod,
   if (spirvOptions.optConfig.empty()) {
     // Add performance passes.
     optimizer.RegisterPerformancePasses();
+
+    // Add propagation of volatile semantics passes.
+    optimizer.RegisterPass(spvtools::CreateSpreadVolatileSemanticsPass());
 
     // Add compact ID pass.
     optimizer.RegisterPass(spvtools::CreateCompactIdsPass());
@@ -12978,6 +13026,7 @@ bool SpirvEmitter::spirvToolsLegalize(std::vector<uint32_t> *mod,
   }
   optimizer.RegisterPass(spvtools::CreateReplaceInvalidOpcodePass());
   optimizer.RegisterPass(spvtools::CreateCompactIdsPass());
+  optimizer.RegisterPass(spvtools::CreateSpreadVolatileSemanticsPass());
 
   return optimizer.Run(mod->data(), mod->size(), mod, options);
 }

@@ -392,6 +392,13 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
     // Add target versions
     Builder.defineMacro("__SHADER_TARGET_MAJOR", Twine(SM->GetMajor()));
     Builder.defineMacro("__SHADER_TARGET_MINOR", Twine(SM->GetMinor()));
+    // SPIRV Change Starts
+#ifdef ENABLE_SPIRV_CODEGEN
+    if (LangOpts.SPIRV) {
+      Builder.defineMacro("__spirv");
+    }
+#endif // ENABLE_SPIRV_CODEGEN
+    // SPIRV Change Ends
   }
   return;
 #else

@@ -177,6 +177,7 @@ private:
   bool   m_isInput;
   bool   m_useMinPrecision;
   bool m_bCompat_1_4;
+  bool m_bUnaligned; // unaligned size for < 1.7
   size_t m_fixedSize;
   typedef std::pair<const char *, uint32_t> NameOffsetPair;
   typedef llvm::SmallMapVector<const char *, uint32_t, 8> NameOffsetMap;
@@ -281,15 +282,20 @@ public:
   DxilProgramSignatureWriter(const DxilSignature &signature,
                              DXIL::TessellatorDomain domain,
                              bool isInput, bool UseMinPrecision,
-                             bool bCompat_1_4)
+                             bool bCompat_1_4,
+                             bool bUnaligned)
       : m_signature(signature), m_domain(domain),
         m_isInput(isInput), m_useMinPrecision(UseMinPrecision),
-        m_bCompat_1_4(bCompat_1_4) {
+        m_bCompat_1_4(bCompat_1_4),
+        m_bUnaligned(bUnaligned) {
     calcSizes();
   }
 
   uint32_t size() const override {
-    return m_lastOffset;
+    if (m_bUnaligned)
+      return m_lastOffset;
+    else
+      return PSVALIGN4(m_lastOffset);
   }
 
   void write(AbstractMemoryStream *pStream) override {
@@ -327,9 +333,16 @@ public:
       IFT(pStream->Write(pName, strlen(pName) + 1, &cbWritten));
     }
 
-    // Verify we wrote the bytes we though we would.
-    UINT64 endPos = pStream->GetPosition();
-    DXASSERT_LOCALVAR(endPos - startPos, endPos - startPos == size(), "else size is incorrect");
+    // Align, and verify we wrote the same number of bytes we though we would.
+    UINT64 bytesWritten = pStream->GetPosition() - startPos;
+    if (!m_bUnaligned && (bytesWritten % 4 != 0)) {
+      unsigned paddingToAdd = 4 - (bytesWritten % 4);
+      char padding[4] = {0};
+      ULONG cbWritten = 0;
+      IFT(pStream->Write(padding, paddingToAdd, &cbWritten));
+      bytesWritten += cbWritten;
+    }
+    DXASSERT(bytesWritten == size(), "else size is incorrect");
   }
 };
 
@@ -340,23 +353,24 @@ DxilPartWriter *hlsl::NewProgramSignatureWriter(const DxilModule &M, DXIL::Signa
   unsigned ValMajor, ValMinor;
   M.GetValidatorVersion(ValMajor, ValMinor);
   bool bCompat_1_4 = DXIL::CompareVersions(ValMajor, ValMinor, 1, 5) < 0;
+  bool bUnaligned = DXIL::CompareVersions(ValMajor, ValMinor, 1, 7) < 0;
   switch (Kind) {
   case DXIL::SignatureKind::Input:
     return new DxilProgramSignatureWriter(
         M.GetInputSignature(), domain, true,
         M.GetUseMinPrecision(),
-        bCompat_1_4);
+        bCompat_1_4, bUnaligned);
   case DXIL::SignatureKind::Output:
     return new DxilProgramSignatureWriter(
         M.GetOutputSignature(), domain, false,
         M.GetUseMinPrecision(),
-        bCompat_1_4);
+        bCompat_1_4, bUnaligned);
   case DXIL::SignatureKind::PatchConstOrPrim:
     return new DxilProgramSignatureWriter(
         M.GetPatchConstOrPrimSignature(), domain,
         /*IsInput*/ M.GetShaderModel()->IsDS(),
         /*UseMinPrecision*/M.GetUseMinPrecision(),
-        bCompat_1_4);
+        bCompat_1_4, bUnaligned);
   case DXIL::SignatureKind::Invalid:
     return nullptr;
   }
@@ -1094,7 +1108,7 @@ private:
 
   void UpdateFunctionToShaderCompat(const llvm::Function* dxilFunc) {
 #define SFLAG(stage) ((unsigned)1 << (unsigned)DXIL::ShaderKind::stage)
-    for (const auto &user : dxilFunc->users()) {
+    for (const llvm::User *user : dxilFunc->users()) {
       if (const llvm::CallInst *CI = dyn_cast<const llvm::CallInst>(user)) {
         // Find calling function
         const llvm::Function *F = cast<const llvm::Function>(CI->getParent()->getParent());
@@ -1214,7 +1228,7 @@ private:
   }
 
   void UpdateFunctionDependency(llvm::Function *F) {
-    for (const auto &user : F->users()) {
+    for (const llvm::User *user : F->users()) {
       llvm::SmallVector<const llvm::Function*, 8> functions;
       FindUsingFunctions(user, functions);
       for (const llvm::Function *userFunction : functions) {
@@ -1502,9 +1516,20 @@ private:
   };
 
   llvm::SmallVector<DxilPart, 8> m_Parts;
+  bool m_bUnaligned;
+  bool m_bHasPrivateData;
 
 public:
+  DxilContainerWriter_impl(bool bUnaligned) : m_bUnaligned(bUnaligned), m_bHasPrivateData(false) {}
+
   void AddPart(uint32_t FourCC, uint32_t Size, WriteFn Write) override {
+    // Alignment required for all parts except private data, which must be last.
+    IFTBOOL(!m_bHasPrivateData && "private data must be last, and cannot be added twice.", DXC_E_CONTAINER_INVALID);
+    if (FourCC == DFCC_PrivateData) {
+      m_bHasPrivateData = true;
+    } else if (!m_bUnaligned) {
+      IFTBOOL((Size % sizeof(uint32_t)) == 0, DXC_E_CONTAINER_INVALID);
+    }
     m_Parts.emplace_back(FourCC, Size, Write);
   }
 
@@ -1538,8 +1563,8 @@ public:
   }
 };
 
-DxilContainerWriter *hlsl::NewDxilContainerWriter() {
-  return new DxilContainerWriter_impl();
+DxilContainerWriter *hlsl::NewDxilContainerWriter(bool bUnaligned) {
+  return new DxilContainerWriter_impl(bUnaligned);
 }
 
 static bool HasDebugInfoOrLineNumbers(const Module &M) {
@@ -1674,10 +1699,11 @@ void hlsl::SerializeDxilContainerForModule(
     Flags &= ~SerializeDxilFlags::IncludeDebugNamePart;
   bool bSupportsShaderHash = DXIL::CompareVersions(ValMajor, ValMinor, 1, 5) >= 0;
   bool bCompat_1_4 = DXIL::CompareVersions(ValMajor, ValMinor, 1, 5) < 0;
+  bool bUnaligned = DXIL::CompareVersions(ValMajor, ValMinor, 1, 7) < 0;
   bool bEmitReflection = Flags & SerializeDxilFlags::IncludeReflectionPart ||
                          pReflectionStreamOut;
 
-  DxilContainerWriter_impl writer;
+  DxilContainerWriter_impl writer(bUnaligned);
 
   // Write the feature part.
   DxilFeatureInfoWriter featureInfoWriter(*pModule);
@@ -1696,12 +1722,12 @@ void hlsl::SerializeDxilContainerForModule(
         pModule->GetInputSignature(), domain,
         /*IsInput*/ true,
         /*UseMinPrecision*/ pModule->GetUseMinPrecision(),
-        bCompat_1_4);
+        bCompat_1_4, bUnaligned);
     pOutputSigWriter = llvm::make_unique<DxilProgramSignatureWriter>(
         pModule->GetOutputSignature(), domain,
         /*IsInput*/ false,
         /*UseMinPrecision*/ pModule->GetUseMinPrecision(),
-        bCompat_1_4);
+        bCompat_1_4, bUnaligned);
     // Write the input and output signature parts.
     writer.AddPart(DFCC_InputSignature, pInputSigWriter->size(),
                    [&](AbstractMemoryStream *pStream) {
@@ -1716,7 +1742,7 @@ void hlsl::SerializeDxilContainerForModule(
         pModule->GetPatchConstOrPrimSignature(), domain,
         /*IsInput*/ pModule->GetShaderModel()->IsDS(),
         /*UseMinPrecision*/ pModule->GetUseMinPrecision(),
-        bCompat_1_4);
+        bCompat_1_4, bUnaligned);
     if (pModule->GetPatchConstOrPrimSignature().GetElements().size()) {
       writer.AddPart(DFCC_PatchConstantSignature,
                      pPatchConstOrPrimSigWriter->size(),
@@ -1754,7 +1780,8 @@ void hlsl::SerializeDxilContainerForModule(
     if (rootSigWriter.size()) {
       if (pRootSigStreamOut) {
         // Write root signature wrapped in container for separate output
-        DxilContainerWriter_impl rootSigContainerWriter;
+        // Root signature container should never be unaligned.
+        DxilContainerWriter_impl rootSigContainerWriter(false);
         rootSigContainerWriter.AddPart(
           DFCC_RootSignature, rootSigWriter.size(),
           [&](AbstractMemoryStream *pStream) { rootSigWriter.write(pStream); });
@@ -1939,7 +1966,8 @@ void hlsl::SerializeDxilContainerForRootSignature(hlsl::RootSignatureHandle *pRo
                                      AbstractMemoryStream *pFinalStream) {
   DXASSERT_NOMSG(pRootSigHandle != nullptr);
   DXASSERT_NOMSG(pFinalStream != nullptr);
-  DxilContainerWriter_impl writer;
+  // Root signature container should never be unaligned.
+  DxilContainerWriter_impl writer(false);
   // Write the root signature (RTS0) part.
   DxilProgramRootSignatureWriter rootSigWriter(*pRootSigHandle);
   if (!pRootSigHandle->IsEmpty()) {

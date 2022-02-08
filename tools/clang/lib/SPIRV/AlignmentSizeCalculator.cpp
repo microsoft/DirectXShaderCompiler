@@ -282,7 +282,7 @@ std::pair<uint32_t, uint32_t> AlignmentSizeCalculator::getAlignmentAndSize(
     // If this struct is derived from some other structs, place an implicit
     // field at the very beginning for the base struct.
     if (const auto *cxxDecl = dyn_cast<CXXRecordDecl>(structType->getDecl())) {
-      for (const auto base : cxxDecl->bases()) {
+      for (const auto &base : cxxDecl->bases()) {
         uint32_t memberAlignment = 0, memberSize = 0;
         std::tie(memberAlignment, memberSize) =
             getAlignmentAndSize(base.getType(), rule, isRowMajor, stride);

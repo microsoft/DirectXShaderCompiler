@@ -635,7 +635,9 @@ static unsigned ValidateSignatureRowCol(Instruction *I,
   if (ConstantInt *constRow = dyn_cast<ConstantInt>(rowVal)) {
     unsigned row = constRow->getLimitedValue();
     if (row >= SE.GetRows()) {
-      ValCtx.EmitInstrError(I, ValidationRule::InstrOperandRange);
+      std::string range = std::string("0~") + std::to_string(SE.GetRows());
+      ValCtx.EmitInstrFormatError(I, ValidationRule::InstrOperandRange,
+                            {"Row", range, std::to_string(row)});
     }
   }
 
@@ -649,7 +651,9 @@ static unsigned ValidateSignatureRowCol(Instruction *I,
   unsigned col = cast<ConstantInt>(colVal)->getLimitedValue();
 
   if (col > SE.GetCols()) {
-    ValCtx.EmitInstrError(I, ValidationRule::InstrOperandRange);
+    std::string range = std::string("0~") + std::to_string(SE.GetCols());
+    ValCtx.EmitInstrFormatError(I, ValidationRule::InstrOperandRange,
+                          {"Col", range, std::to_string(col)});
   } else {
     if (SE.IsOutput())
       Status.outputCols[SE.GetID()] |= 1 << col;

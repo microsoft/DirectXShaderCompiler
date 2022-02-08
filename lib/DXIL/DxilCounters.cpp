@@ -79,7 +79,7 @@ PointerInfo GetPointerInfo(Value* V, PointerInfoMap &ptrInfoMap) {
   //  }
   }
   return ptrInfoMap[V];
-};
+}
 
 struct ValueInfo {
   bool isCbuffer : 1;

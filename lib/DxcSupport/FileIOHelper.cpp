@@ -217,7 +217,9 @@ static unsigned CharSizeFromCodePage(UINT32 codePage) {
 // We do not handle translation from these code page values.
 static bool IsUnsupportedUtfCodePage(UINT32 codePage) {
   switch (codePage) {
+#ifdef _WIN32
     case CP_UTF32LE:
+#endif
     case CP_UTF32BE:
     case CP_UTF16BE:
       return true;
@@ -473,7 +475,11 @@ static HRESULT CodePageBufferToUtf8(UINT32 codePage, LPCVOID bufferPointer,
   CDxcMallocHeapPtr<WCHAR> utf16NewCopy(pMalloc);
   UINT32 utf16CharCount = 0;
   const WCHAR *utf16Chars = nullptr;
+#if _WIN32
   if (codePage == CP_UTF16) {
+#else
+  if (codePage == CP_UTF16 || codePage == CP_UTF32LE) {
+#endif
     if (!IsSizeWcharAligned(bufferSize))
       throw hlsl::Exception(DXC_E_STRING_ENCODING_FAILED,
                             "Error in encoding argument specified");

@@ -25,12 +25,19 @@
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/dxcapi.h"
-#include "dxc/dxcpix.h"
 #ifdef _WIN32
+#include "dxc/dxcpix.h"
 #include <atlfile.h>
 #include <d3dcompiler.h>
 #include "dia2.h"
-#endif
+#else // _WIN32
+#ifndef __ANDROID__
+#include <execinfo.h>
+#define CaptureStackBackTrace(FramesToSkip, FramesToCapture, BackTrace,        \
+                              BackTraceHash)                                   \
+  backtrace(BackTrace, FramesToCapture)
+#endif // __ANDROID__
+#endif // _WIN32
 
 #include "dxc/Test/HLSLTestData.h"
 #include "dxc/Test/HlslTestUtils.h"
@@ -52,6 +59,22 @@
 
 using namespace std;
 using namespace hlsl_test;
+
+
+// Examines a virtual filename to determine if it looks like a dir
+// Based on whether the final path segment contains a dot
+// Not ironclad, but good enough for testing
+static bool LooksLikeDir(std::wstring fileName) {
+  for(int i = fileName.size() - 1; i > -1; i--) {
+    wchar_t ch = fileName[i];
+    if (ch == L'\\' || ch == L'/')
+      return true;
+    if (ch == L'.')
+      return false;
+  }
+  // No divider, no dot, assume file
+  return false;
+}
 
 class TestIncludeHandler : public IDxcIncludeHandler {
   DXC_MICROCOM_REF_FIELD(m_dwRef)
@@ -94,7 +117,15 @@ public:
     _In_ LPCWSTR pFilename,                   // Filename as written in #include statement
     _COM_Outptr_ IDxcBlob **ppIncludeSource   // Resultant source object for included file
     ) override {
-    CallInfos.push_back(LoadSourceCallInfo(pFilename));
+
+    LoadSourceCallInfo callInfo = LoadSourceCallInfo(pFilename);
+
+    // *nix will call stat() on dirs, which attempts to find it here
+    // This loader isn't meant for dirs, so return failure
+    if (LooksLikeDir(callInfo.Filename))
+      return m_defaultErrorCode;
+
+    CallInfos.push_back(callInfo);
 
     *ppIncludeSource = nullptr;
     if (callIndex >= CallResults.size()) {
@@ -3094,8 +3125,10 @@ public:
     // breakpoint for i failure on NN alloc - m_FailAlloc == 1+VAL && m_AllocCount == NN
     // breakpoint for happy path for NN alloc - m_AllocCount == NN
     P->AllocAtCount = m_AllocCount;
+#ifndef __ANDROID__
     if (CaptureStacks)
       P->AllocFrameCount = CaptureStackBackTrace(1, StackFrameCount, P->AllocFrames, nullptr);
+#endif // __ANDROID__
     P->Size = cb;
     P->Self = P;
     return P + 1;
@@ -3121,9 +3154,11 @@ public:
     m_Size -= P->Size;
     P->Entry.Flink->Blink = P->Entry.Blink;
     P->Entry.Blink->Flink = P->Entry.Flink;
+#ifndef __ANDROID__
     if (CaptureStacks)
       P->FreeFrameCount =
           CaptureStackBackTrace(1, StackFrameCount, P->FreeFrames, nullptr);
+#endif // __ANDROID__
   }
 
   virtual SIZE_T STDMETHODCALLTYPE GetSize(
@@ -3155,7 +3190,12 @@ public:
 
 #if _ITERATOR_DEBUG_LEVEL==0
 // CompileWhenNoMemThenOOM can properly detect leaks only when debug iterators are disabled
+#ifdef _WIN32
 TEST_F(CompilerTest, CompileWhenNoMemThenOOM) {
+#else
+// Disabled it is ignored above
+TEST_F(CompilerTest, DISABLED_CompileWhenNoMemThenOOM) {
+#endif
   WEX::TestExecution::SetVerifyOutput verifySettings(WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
   CComPtr<IDxcBlobEncoding> pSource;
@@ -3650,6 +3690,7 @@ TEST_F(CompilerTest, CodeGenVectorAtan2) {
   CodeGenTestCheck(L"atan2_vector_argument.hlsl");
 }
 
+#ifdef _WIN32 // Reflection unsupported
 TEST_F(CompilerTest, LibGVStore) {
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcOperationResult> pResult;
@@ -3725,6 +3766,7 @@ TEST_F(CompilerTest, LibGVStore) {
   std::wstring Text = BlobToUtf16(pTextBlob);
   VERIFY_ARE_NOT_EQUAL(std::wstring::npos, Text.find(L"store"));
 }
+#endif // WIN32 - Reflection unsupported
 
 TEST_F(CompilerTest, PreprocessWhenValidThenOK) {
   CComPtr<IDxcCompiler> pCompiler;
@@ -3998,6 +4040,7 @@ TEST_F(CompilerTest, DISABLED_ManualFileCheckTest) {
 }
 
 
+#ifdef _WIN32 // Reflection unsupported
 TEST_F(CompilerTest, CodeGenHashStability) {
   CodeGenTestCheckBatchHash(L"");
 }
@@ -4005,6 +4048,7 @@ TEST_F(CompilerTest, CodeGenHashStability) {
 TEST_F(CompilerTest, BatchD3DReflect) {
   CodeGenTestCheckBatchDir(L"d3dreflect");
 }
+#endif // WIN32 - Reflection unsupported
 
 TEST_F(CompilerTest, BatchDxil) {
   CodeGenTestCheckBatchDir(L"dxil");
@@ -4031,7 +4075,7 @@ TEST_F(CompilerTest, BatchValidation) {
 }
 
 TEST_F(CompilerTest, BatchPIX) {
-  CodeGenTestCheckBatchDir(L"PIX");
+  CodeGenTestCheckBatchDir(L"pix");
 }
 
 TEST_F(CompilerTest, BatchSamples) {
