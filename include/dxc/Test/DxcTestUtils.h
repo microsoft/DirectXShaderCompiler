@@ -157,7 +157,7 @@ public:
 
 void AssembleToContainer(dxc::DxcDllSupport &dllSupport, IDxcBlob *pModule, IDxcBlob **pContainer);
 std::string BlobToUtf8(_In_ IDxcBlob *pBlob);
-std::wstring BlobToUtf16(_In_ IDxcBlob *pBlob);
+std::wstring BlobToWide(_In_ IDxcBlob *pBlob);
 void CheckOperationSucceeded(IDxcOperationResult *pResult, IDxcBlob **ppBlob);
 bool CheckOperationResultMsgs(IDxcOperationResult *pResult,
                               llvm::ArrayRef<LPCSTR> pErrorMsgs,
@@ -177,8 +177,8 @@ void MultiByteStringToBlob(dxc::DxcDllSupport &dllSupport, const std::string &va
 void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val, _Outptr_ IDxcBlob **ppBlob);
 void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val, _Outptr_ IDxcBlobEncoding **ppBlob);
 void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const char *pVal, _Outptr_ IDxcBlobEncoding **ppBlob);
-void Utf16ToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val, _Outptr_ IDxcBlob **ppBlob);
-void Utf16ToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val, _Outptr_ IDxcBlobEncoding **ppBlob);
+void WideToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val, _Outptr_ IDxcBlob **ppBlob);
+void WideToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val, _Outptr_ IDxcBlobEncoding **ppBlob);
 void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
                      LPWSTR pTargetProfile, LPCWSTR pArgs,
                      _Outptr_ IDxcBlob **ppResult);

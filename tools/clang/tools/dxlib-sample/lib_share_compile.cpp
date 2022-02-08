@@ -201,8 +201,8 @@ HRESULT CompileFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
       linker->RegisterLibrary(hashList.back(), pOutputBlob);
       pOutputBlob.Detach(); // Ownership is in libCache.
     }
-    std::wstring wEntry = Unicode::UTF8ToUTF16StringOrThrow(pEntrypoint);
-    std::wstring wTarget = Unicode::UTF8ToUTF16StringOrThrow(Target);
+    std::wstring wEntry = Unicode::UTF8ToWideStringOrThrow(pEntrypoint);
+    std::wstring wTarget = Unicode::UTF8ToWideStringOrThrow(Target);
 
     // Link
 #ifdef LIB_SHARE_DBG

@@ -679,17 +679,17 @@ public:
 
       // Formerly API values.
       const char *pUtf8SourceName = opts.InputFile.empty() ? "hlsl.hlsl" : opts.InputFile.data();
-      CA2W pUtf16SourceName(pUtf8SourceName, CP_UTF8);
+      CA2W pWideSourceName(pUtf8SourceName, CP_UTF8);
       const char *pUtf8EntryPoint = opts.EntryPoint.empty() ? "main" : opts.EntryPoint.data();
       const char *pUtf8OutputName = isPreprocessing
                                     ? opts.Preprocess.data()
                                     : opts.OutputObject.empty()
                                       ? "" : opts.OutputObject.data();
-      CA2W pUtf16OutputName(isPreprocessing ?
+      CA2W pWideOutputName(isPreprocessing ?
                               opts.Preprocess.data() : pUtf8OutputName,
                             CP_UTF8);
       LPCWSTR pObjectName = (!isPreprocessing && opts.OutputObject.empty()) ?
-                            nullptr : pUtf16OutputName.m_psz;
+                            nullptr : pWideOutputName.m_psz;
       IFT(primaryOutput.SetName(pObjectName));
 
       // Wrap source in blob
@@ -728,7 +728,7 @@ public:
 
       CComPtr<IDxcBlob> pOutputBlob;
       dxcutil::DxcArgsFileSystem *msfPtr = dxcutil::CreateDxcArgsFileSystem(
-          utf8Source, pUtf16SourceName.m_psz, pIncludeHandler,
+          utf8Source, pWideSourceName.m_psz, pIncludeHandler,
           opts.DefaultTextCodePage);
       std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
 
@@ -852,7 +852,7 @@ public:
           compiler.getCodeGenOpts().BindingTableParser.reset(new BindingTableParserImpl(compiler, opts.BindingTableDefine));
         }
         else if (opts.ImportBindingTable.size()) {
-          hlsl::options::StringRefUtf16 wstrRef(opts.ImportBindingTable);
+          hlsl::options::StringRefWide wstrRef(opts.ImportBindingTable);
           CComPtr<IDxcBlob> pBlob;
           std::string error;
           llvm::raw_string_ostream os(error);
@@ -1060,7 +1060,7 @@ public:
           SerializeFlags |= SerializeDxilFlags::StripRootSignature;
         }
         if (!opts.RootSignatureSource.empty()) {
-          hlsl::options::StringRefUtf16 wstrRef(opts.RootSignatureSource);
+          hlsl::options::StringRefWide wstrRef(opts.RootSignatureSource);
           std::string error;
           llvm::raw_string_ostream os(error);
           if (!pIncludeHandler) {
@@ -1078,7 +1078,7 @@ public:
           }
         }
         if (!opts.PrivateSource.empty()) {
-          hlsl::options::StringRefUtf16 wstrRef(opts.PrivateSource);
+          hlsl::options::StringRefWide wstrRef(opts.PrivateSource);
           std::string error;
           llvm::raw_string_ostream os(error);
           if (!pIncludeHandler) {
@@ -1829,7 +1829,7 @@ HRESULT DxcCompilerAdapter::WrapCompile(
     CComHeapPtr<wchar_t> pDebugNameOnComHeap;
     CComPtr<IDxcBlob> pDebugBlob;
     if (SUCCEEDED(hr)) {
-      CComPtr<IDxcBlobUtf16> pDebugName;
+      CComPtr<IDxcBlobWide> pDebugName;
       hr = pResult->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pDebugBlob), &pDebugName);
       if (SUCCEEDED(hr) && ppDebugBlobName && pDebugName) {
         if (!pDebugNameOnComHeap.AllocateBytes(pDebugName->GetBufferSize()))

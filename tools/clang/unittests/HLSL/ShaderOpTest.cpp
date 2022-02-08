@@ -24,7 +24,7 @@
 
 #include "dxc/dxcapi.h"             // IDxcCompiler
 #include "dxc/Support/Global.h"     // OutputDebugBytes
-#include "dxc/Support/Unicode.h"    // IsStarMatchUTF16
+#include "dxc/Support/Unicode.h"    // IsStarMatchWide
 #include "dxc/Support/dxcapi.use.h" // DxcDllSupport
 #include "dxc/DXIL/DxilConstants.h" // ComponentType
 #include "WexTestClass.h"           // TAEF
@@ -104,7 +104,7 @@ bool UseHardwareDevice(const DXGI_ADAPTER_DESC1 &desc, LPCWSTR AdapterName) {
 
   if (!AdapterName)
     return true;
-  return Unicode::IsStarMatchUTF16(AdapterName, wcslen(AdapterName),
+  return Unicode::IsStarMatchWide(AdapterName, wcslen(AdapterName),
                                    desc.Description, wcslen(desc.Description));
 }
 
@@ -798,9 +798,9 @@ void ShaderOpTest::CreateShaders() {
       CHECK_HR(pResult->GetResult(&pCode));
       CComPtr<IDxcBlobEncoding> pBlob;
       CHECK_HR(pCompiler->Disassemble((IDxcBlob *)pCode, (IDxcBlobEncoding **)&pBlob));
-      CComPtr<IDxcBlobEncoding> pUtf16Blob;
-      pLibrary->GetBlobAsUtf16(pBlob, &pUtf16Blob);
-      hlsl_test::LogCommentFmt(L"%*s", (int)pUtf16Blob->GetBufferSize() / 2, (LPCWSTR)pUtf16Blob->GetBufferPointer());
+      CComPtr<IDxcBlobEncoding> pWideBlob;
+      pLibrary->GetBlobAsWide(pBlob, &pWideBlob);
+      hlsl_test::LogCommentFmt(L"%*s", (int)pWideBlob->GetBufferSize() / 2, (LPCWSTR)pWideBlob->GetBufferPointer());
 #endif
     } else {
       CComPtr<ID3DBlob> pError;

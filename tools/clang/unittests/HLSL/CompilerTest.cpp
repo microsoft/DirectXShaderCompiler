@@ -350,9 +350,9 @@ public:
     IFT(ReadDxcOpts(hlsl::options::getHlslOptTable(), /*flagsToInclude*/ 0,
                     argStrings, opts, errorStream));
     std::wstring entry =
-        Unicode::UTF8ToUTF16StringOrThrow(opts.EntryPoint.str().c_str());
+        Unicode::UTF8ToWideStringOrThrow(opts.EntryPoint.str().c_str());
     std::wstring profile =
-        Unicode::UTF8ToUTF16StringOrThrow(opts.TargetProfile.str().c_str());
+        Unicode::UTF8ToWideStringOrThrow(opts.TargetProfile.str().c_str());
 
     std::vector<std::wstring> argLists;
     CopyArgsToWStrings(opts.Args, hlsl::options::CoreOption, argLists);
@@ -1951,7 +1951,7 @@ TEST_F(CompilerTest, CompileThenTestPdbUtilsRelativePath) {
   VERIFY_SUCCEEDED(pCompiler->Compile(&SourceBuf, args.data(), args.size(), pInclude, IID_PPV_ARGS(&pResult)));
 
   CComPtr<IDxcBlob> pPdb;
-  CComPtr<IDxcBlobUtf16> pPdbName;
+  CComPtr<IDxcBlobWide> pPdbName;
   VERIFY_SUCCEEDED(pResult->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pPdb), &pPdbName));
 
   CComPtr<IDxcPdbUtils> pPdbUtils;
@@ -1995,7 +1995,7 @@ TEST_F(CompilerTest, CompileThenTestPdbUtilsEmptyEntry) {
   VERIFY_SUCCEEDED(pCompiler->Compile(&SourceBuf, args.data(), args.size(), nullptr, IID_PPV_ARGS(&pResult)));
 
   CComPtr<IDxcBlob> pPdb;
-  CComPtr<IDxcBlobUtf16> pPdbName;
+  CComPtr<IDxcBlobWide> pPdbName;
   VERIFY_SUCCEEDED(pResult->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pPdb), &pPdbName));
 
   CComPtr<IDxcPdbUtils> pPdbUtils;
@@ -2096,7 +2096,7 @@ void CompilerTest::TestResourceBindingImpl(
     UINT32 uCodePage = 0;
     VERIFY_SUCCEEDED(pErrors->GetEncoding(&bEncodingKnown, &uCodePage));
 
-    std::wstring actualError = BlobToUtf16(pErrors);
+    std::wstring actualError = BlobToWide(pErrors);
     if (actualError.find(errors) == std::wstring::npos) {
       VERIFY_SUCCEEDED(E_FAIL);
     }
@@ -2874,7 +2874,7 @@ TEST_F(CompilerTest, CompileWhenODumpThenPassConfig) {
   VerifyOperationSucceeded(pResult);
   CComPtr<IDxcBlob> pResultBlob;
   VERIFY_SUCCEEDED(pResult->GetResult(&pResultBlob));
-  wstring passes = BlobToUtf16(pResultBlob);
+  wstring passes = BlobToWide(pResultBlob);
   VERIFY_ARE_NOT_EQUAL(wstring::npos, passes.find(L"inline"));
 }
 
@@ -2928,45 +2928,45 @@ TEST_F(CompilerTest, CompileWithEncodeFlagTestSource) {
                         "\xBF"; // UTF-8 BOM
   std::string includeUtf8BOM = utf8BOM + includeUtf8;
 
-  std::wstring sourceUtf16 = L"#include \"include.hlsl\"\r\n"
+  std::wstring sourceWide = L"#include \"include.hlsl\"\r\n"
                              L"float4 main() : SV_Target { return 0; }";
-  std::wstring includeUtf16 = L"// Comments\n";
+  std::wstring includeWide = L"// Comments\n";
   std::wstring utf16BOM = L"\xFEFF"; // UTF-16 LE BOM
-  std::wstring includeUtf16BOM = utf16BOM + includeUtf16;
+  std::wstring includeUtf16BOM = utf16BOM + includeWide;
 
   // Included files interpreted with encoding option if no BOM
   TestEncodingImpl(sourceUtf8.data(), sourceUtf8.size(), DXC_CP_UTF8,
                    includeUtf8.data(), includeUtf8.size(), L"utf8");
 
-  TestEncodingImpl(sourceUtf16.data(), sourceUtf16.size() * sizeof(L'A'),
-                   DXC_CP_UTF16, includeUtf16.data(),
-                   includeUtf16.size() * sizeof(L'A'), L"utf16");
+  TestEncodingImpl(sourceWide.data(), sourceWide.size() * sizeof(L'A'),
+                   DXC_CP_WIDE, includeWide.data(),
+                   includeWide.size() * sizeof(L'A'), L"wide");
 
   // Encoding option ignored if BOM present
   TestEncodingImpl(sourceUtf8.data(), sourceUtf8.size(), DXC_CP_UTF8,
-                   includeUtf8BOM.data(), includeUtf8BOM.size(), L"utf16");
+                   includeUtf8BOM.data(), includeUtf8BOM.size(), L"wide");
 
-  TestEncodingImpl(sourceUtf16.data(), sourceUtf16.size() * sizeof(L'A'),
-                   DXC_CP_UTF16, includeUtf16BOM.data(),
+  TestEncodingImpl(sourceWide.data(), sourceWide.size() * sizeof(L'A'),
+                   DXC_CP_WIDE, includeUtf16BOM.data(),
                    includeUtf16BOM.size() * sizeof(L'A'), L"utf8");
 
   // Source file interpreted according to DxcBuffer encoding if not CP_ACP
   // Included files interpreted with encoding option if no BOM
   TestEncodingImpl(sourceUtf8.data(), sourceUtf8.size(), DXC_CP_UTF8,
-                   includeUtf16.data(), includeUtf16.size() * sizeof(L'A'),
-                   L"utf16");
+                   includeWide.data(), includeWide.size() * sizeof(L'A'),
+                   L"wide");
 
-  TestEncodingImpl(sourceUtf16.data(), sourceUtf16.size() * sizeof(L'A'),
-                   DXC_CP_UTF16, includeUtf8.data(), includeUtf8.size(),
+  TestEncodingImpl(sourceWide.data(), sourceWide.size() * sizeof(L'A'),
+                   DXC_CP_WIDE, includeUtf8.data(), includeUtf8.size(),
                    L"utf8");
 
   // Source file interpreted by encoding option if source DxcBuffer encoding = CP_ACP (default)
   TestEncodingImpl(sourceUtf8.data(), sourceUtf8.size(), DXC_CP_ACP,
                    includeUtf8.data(), includeUtf8.size(), L"utf8");
 
-  TestEncodingImpl(sourceUtf16.data(), sourceUtf16.size() * sizeof(L'A'),
-                   DXC_CP_ACP, includeUtf16.data(),
-                   includeUtf16.size() * sizeof(L'A'), L"utf16");
+  TestEncodingImpl(sourceWide.data(), sourceWide.size() * sizeof(L'A'),
+                   DXC_CP_ACP, includeWide.data(),
+                   includeWide.size() * sizeof(L'A'), L"wide");
 }
 
 TEST_F(CompilerTest, CompileWhenODumpThenOptimizerMatch) {
@@ -3000,7 +3000,7 @@ TEST_F(CompilerTest, CompileWhenODumpThenOptimizerMatch) {
     VerifyOperationSucceeded(pResult);
     CComPtr<IDxcBlob> pResultBlob;
     VERIFY_SUCCEEDED(pResult->GetResult(&pResultBlob));
-    wstring passes = BlobToUtf16(pResultBlob);
+    wstring passes = BlobToWide(pResultBlob);
 
     // Get wchar_t version and prepend hlsl-hlensure, to do a split high-level/opt compilation pass.
     std::vector<LPCWSTR> Options;
@@ -3763,7 +3763,7 @@ TEST_F(CompilerTest, LibGVStore) {
   CComPtr<IDxcBlobEncoding> pTextBlob;
   VERIFY_SUCCEEDED(pCompiler->Disassemble(pReassembled, &pTextBlob));
 
-  std::wstring Text = BlobToUtf16(pTextBlob);
+  std::wstring Text = BlobToWide(pTextBlob);
   VERIFY_ARE_NOT_EQUAL(std::wstring::npos, Text.find(L"store"));
 }
 #endif // WIN32 - Reflection unsupported

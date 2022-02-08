@@ -289,8 +289,8 @@ inline bool GetTestParamBool(LPCWSTR name) {
   if (NameValue.IsEmpty()) {
     return false;
   }
-  return Unicode::IsStarMatchUTF16(ParamValue, ParamValue.GetLength(),
-                                   NameValue, NameValue.GetLength());
+  return Unicode::IsStarMatchWide(ParamValue, ParamValue.GetLength(),
+                                  NameValue, NameValue.GetLength());
 }
 
 inline bool GetTestParamUseWARP(bool defaultVal) {
