@@ -1770,15 +1770,6 @@ void hlsl::SerializeDxilContainerForModule(
     }
   }
 
-  if (pPrivateData) {
-    writer.AddPart(
-        hlsl::DFCC_PrivateData, PrivateDataSize,
-        [&](AbstractMemoryStream *pStream) {
-          ULONG cbWritten;
-          IFT(pStream->Write(pPrivateData, PrivateDataSize, &cbWritten));
-        });
-  }
-
   // If metadata was stripped, re-serialize the input module.
   CComPtr<AbstractMemoryStream> pInputProgramStream = pModuleBitcode;
   if (bMetadataStripped) {
@@ -1930,6 +1921,16 @@ void hlsl::SerializeDxilContainerForModule(
   writer.AddPart(DFCC_DXIL, programInUInt32 * sizeof(uint32_t) + sizeof(DxilProgramHeader), [&](AbstractMemoryStream *pStream) {
     WriteProgramPart(pModule->GetShaderModel(), pProgramStream, pStream);
   });
+
+  // Private data part should be added last when assembling the container becasue there is no garuntee of aligned size
+  if (pPrivateData) {
+    writer.AddPart(
+        hlsl::DFCC_PrivateData, PrivateDataSize,
+        [&](AbstractMemoryStream *pStream) {
+          ULONG cbWritten;
+          IFT(pStream->Write(pPrivateData, PrivateDataSize, &cbWritten));
+        });
+  }
 
   writer.write(pFinalStream);
 }
