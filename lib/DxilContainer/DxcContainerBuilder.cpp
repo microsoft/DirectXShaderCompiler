@@ -86,6 +86,9 @@ HRESULT STDMETHODCALLTYPE DxcContainerBuilder::RemovePart(_In_ UINT32 fourCC) {
         [&](DxilPart part) { return part.m_fourCC == fourCC; });
     IFTBOOL(it != m_parts.end(), DXC_E_MISSING_PART);
     m_parts.erase(it);
+    if (fourCC == DxilFourCC::DFCC_PrivateData) {
+      m_HasPrivateData = false;
+    }
     return S_OK;
   }
   CATCH_CPP_RETURN_HRESULT();
@@ -209,7 +212,7 @@ void DxcContainerBuilder::AddPart(DxilPart&& part) {
   IFTBOOL(it == m_parts.end(), DXC_E_DUPLICATE_PART);
   if (m_HasPrivateData) {
     // Keep PrivateData at end, since it may have unaligned size.
-    m_parts.insert(&m_parts.back(), std::move(part));
+    m_parts.insert(m_parts.end() - 1, std::move(part));
   } else {
     m_parts.emplace_back(std::move(part));
   }
