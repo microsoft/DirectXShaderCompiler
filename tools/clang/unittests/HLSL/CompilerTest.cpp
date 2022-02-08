@@ -140,6 +140,7 @@ public:
   TEST_METHOD(CompileWithRootSignatureThenStripRootSignature)
   TEST_METHOD(CompileThenSetRootSignatureThenValidate)
   TEST_METHOD(CompileSetPrivateThenWithStripPrivate)
+  TEST_METHOD(CompileWithMultiplePrivateOptionsThenFail)
 
 
   void TestResourceBindingImpl(
@@ -2516,7 +2517,65 @@ TEST_F(CompilerTest, CompileSetPrivateThenWithStripPrivate) {
   LPCSTR pErrorMsg =
       "Cannot specify /Qstrip_priv and /setprivate together.";
   CheckOperationResultMsgs(pResult, &pErrorMsg, 1, false, false);
+}
 
+TEST_F(CompilerTest, CompileWithMultiplePrivateOptionsThenFail) {
+  CComPtr<IDxcCompiler> pCompiler;
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+
+  std::string main_source = R"x(
+      cbuffer MyCbuffer : register(b1) {
+        float4 my_cbuf_foo;
+      }
+
+      [RootSignature("CBV(b1)")]
+      float4 main() : SV_Target {
+        return my_cbuf_foo;
+      }
+  )x";
+
+  CComPtr<IDxcUtils> pUtils;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcUtils, &pUtils));
+
+  CComPtr<IDxcBlobEncoding> pSource;
+  VERIFY_SUCCEEDED(pUtils->CreateBlobFromPinned(
+      main_source.c_str(), main_source.size(), CP_UTF8, &pSource));
+
+  const WCHAR *args[] = {
+      L"/Zs",
+      L"/Qpdb_in_private",
+      L"/Qstrip_priv"
+  };
+
+  CComPtr<IDxcOperationResult> pResult;
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main", L"ps_6_0",
+                                      args, _countof(args), nullptr, 0, nullptr,
+                                      &pResult));
+
+  HRESULT status;
+  CComPtr<IDxcBlobEncoding> pErrors;
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_FAILED(status);
+  VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&pErrors));
+  LPCSTR pErrorMsg = "Cannot specify /Qstrip_priv and /Qpdb_in_private together.";
+  CheckOperationResultMsgs(pResult, &pErrorMsg, 1, false, false);
+
+  pResult.Release();
+
+  const WCHAR *args2[] = {L"/Zs", L"/Qpdb_in_private", L"/setprivate",
+                          L"privatesource.hlsl"};
+
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main", L"ps_6_0",
+                                      args2, _countof(args2), nullptr, 0, nullptr,
+                                      &pResult));
+
+  pErrors.Release();
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_FAILED(status);
+  VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&pErrors));
+  LPCSTR pErrorMsg2 =
+      "Cannot specify /Qpdb_in_private and /setprivate together.";
+  CheckOperationResultMsgs(pResult, &pErrorMsg2, 1, false, false);
 }
 #endif // Container builder unsupported
 
