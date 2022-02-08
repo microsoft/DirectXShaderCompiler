@@ -42,11 +42,7 @@ HRESULT STDMETHODCALLTYPE DxcContainerBuilder::Load(_In_ IDxcBlob *pSource) {
       const DxilPartHeader *pPartHeader = *it;
       CComPtr<IDxcBlob> pBlob;
       IFT(DxcCreateBlobFromPinned((const void *)(pPartHeader + 1), pPartHeader->PartSize, &pBlob));
-      PartList::iterator itPartList = std::find_if(m_parts.begin(), m_parts.end(), [&](DxilPart part) {
-        return part.m_fourCC == pPartHeader->PartFourCC;
-      });
-      IFTBOOL(itPartList == m_parts.end(), DXC_E_DUPLICATE_PART);
-      m_parts.emplace_back(DxilPart(pPartHeader->PartFourCC, pBlob));
+      AddPart(DxilPart(pPartHeader->PartFourCC, pBlob));
     }
     return S_OK;
   }
@@ -67,11 +63,7 @@ HRESULT STDMETHODCALLTYPE DxcContainerBuilder::AddPart(_In_ UINT32 fourCC, _In_ 
         fourCC == DxilFourCC::DFCC_ShaderStatistics ||
         fourCC == DxilFourCC::DFCC_PrivateData,
         E_INVALIDARG);
-    PartList::iterator it = std::find_if(m_parts.begin(), m_parts.end(), [&](DxilPart part) {
-      return part.m_fourCC == fourCC;
-    });
-    IFTBOOL(it == m_parts.end(), DXC_E_DUPLICATE_PART);
-    m_parts.emplace_back(DxilPart(fourCC, pSource));
+    AddPart(DxilPart(fourCC, pSource));
     if (fourCC == DxilFourCC::DFCC_RootSignature) {
       m_RequireValidation = true;
     }
@@ -208,4 +200,20 @@ HRESULT DxcContainerBuilder::UpdateParts(AbstractMemoryStream *pStream) {
     if (cbWritten != pBlob->GetBufferSize()) { return E_FAIL; }
   }
   return S_OK;
+}
+
+void DxcContainerBuilder::AddPart(DxilPart&& part) {
+  PartList::iterator it = std::find_if(m_parts.begin(), m_parts.end(), [&](DxilPart checkPart) {
+    return checkPart.m_fourCC == part.m_fourCC;
+  });
+  IFTBOOL(it == m_parts.end(), DXC_E_DUPLICATE_PART);
+  if (m_HasPrivateData) {
+    // Keep PrivateData at end, since it may have unaligned size.
+    m_parts.insert(&m_parts.back(), std::move(part));
+  } else {
+    m_parts.emplace_back(std::move(part));
+  }
+  if (part.m_fourCC == DxilFourCC::DFCC_PrivateData) {
+    m_HasPrivateData = true;
+  }
 }

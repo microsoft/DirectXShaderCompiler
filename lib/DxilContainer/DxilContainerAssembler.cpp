@@ -1517,12 +1517,19 @@ private:
 
   llvm::SmallVector<DxilPart, 8> m_Parts;
   bool m_bUnaligned;
+  bool m_bHasPrivateData;
 
 public:
-  DxilContainerWriter_impl(bool bUnaligned) : m_bUnaligned(bUnaligned) {}
+  DxilContainerWriter_impl(bool bUnaligned) : m_bUnaligned(bUnaligned), m_bHasPrivateData(false) {}
 
   void AddPart(uint32_t FourCC, uint32_t Size, WriteFn Write) override {
-    IFTBOOL(m_bUnaligned || (Size % sizeof(uint32_t)) == 0, DXC_E_GENERAL_INTERNAL_ERROR);
+    // Alignment required for all parts except private data, which must be last.
+    IFTBOOL(!m_bHasPrivateData && "private data must be last, and cannot be added twice.", DXC_E_CONTAINER_INVALID);
+    if (FourCC == DFCC_PrivateData) {
+      m_bHasPrivateData = true;
+    } else if (!m_bUnaligned) {
+      IFTBOOL((Size % sizeof(uint32_t)) == 0, DXC_E_CONTAINER_INVALID);
+    }
     m_Parts.emplace_back(FourCC, Size, Write);
   }
 
