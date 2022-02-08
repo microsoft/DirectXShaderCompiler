@@ -561,7 +561,8 @@ public:
     const DxilContainerHeader *pHeader2 = IsDxilContainerLike(pProgram2->GetBufferPointer(), pProgram2->GetBufferSize());
     VERIFY_IS_NOT_NULL(pHeader2);
 
-    unique_ptr<DxilContainerWriter> pContainerWriter(NewDxilContainerWriter());
+    unique_ptr<DxilContainerWriter> pContainerWriter(NewDxilContainerWriter(
+        DXIL::CompareVersions(m_ver.m_ValMajor, m_ver.m_ValMinor, 1, 7) < 0));
 
     // Add desired parts from first container
     for (auto pPart : pHeader1) {

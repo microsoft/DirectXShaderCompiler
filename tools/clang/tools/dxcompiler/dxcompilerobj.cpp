@@ -815,8 +815,6 @@ public:
       } else {
         compiler.getLangOpts().HLSLEntryFunction =
           compiler.getCodeGenOpts().HLSLEntryFunction = pUtf8EntryPoint;
-        compiler.getLangOpts().HLSLProfile =
-          compiler.getCodeGenOpts().HLSLProfile = opts.TargetProfile;
 
         // Parse and apply 
         if (opts.BindingTableDefine.size()) {
@@ -1415,6 +1413,8 @@ public:
     compiler.getLangOpts().EnablePayloadAccessQualifiers = Opts.EnablePayloadQualifiers;
     compiler.getLangOpts().EnableShortCircuit = Opts.EnableShortCircuit;
     compiler.getLangOpts().EnableBitfields = Opts.EnableBitfields;
+    compiler.getLangOpts().HLSLProfile =
+          compiler.getCodeGenOpts().HLSLProfile = Opts.TargetProfile;
 
 // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
