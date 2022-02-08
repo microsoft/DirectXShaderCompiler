@@ -39,6 +39,7 @@ public:
   void Init(const char *warning = nullptr) {
     m_warning = warning;
     m_RequireValidation = false;
+    m_HasPrivateData = false;
   }
 
 protected:

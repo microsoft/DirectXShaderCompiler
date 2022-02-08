@@ -1955,8 +1955,9 @@ TEST_F(DxilContainerTest, ContainerBuilder_AddPrivateForceLast) {
   VERIFY_SUCCEEDED(pReflection->FindFirstPartKind(hlsl::DFCC_ShaderDebugInfoDXIL, &idxDebug));
   VERIFY_SUCCEEDED(pReflection->GetPartContent(idxDebug, &pDebugPart));
 
-  pResult.Release();  // release for re-use
-  pReflection.Release();  // release for re-use
+  // release for re-use
+  pResult.Release();
+  pReflection.Release();
 
   CComPtr<IDxcContainerBuilder> pBuilder;
   VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerBuilder, &pBuilder));
@@ -1969,7 +1970,6 @@ TEST_F(DxilContainerTest, ContainerBuilder_AddPrivateForceLast) {
   CComPtr<IDxcBlob> pNewContainer;
   VERIFY_SUCCEEDED(pBuilder->SerializeContainer(&pResult));
   VERIFY_SUCCEEDED(pResult->GetResult(&pNewContainer));
-  pBuilder.Release();
 
   // verify private data is after debug info
   m_dllSupport.CreateInstance(CLSID_DxcContainerReflection, &pReflection);
@@ -1978,18 +1978,19 @@ TEST_F(DxilContainerTest, ContainerBuilder_AddPrivateForceLast) {
   VERIFY_SUCCEEDED(pReflection->FindFirstPartKind(hlsl::DFCC_PrivateData, &idxPrivate));
   VERIFY_IS_LESS_THAN(idxDebug, idxPrivate);
 
-  pResult.Release();  // release for re-use
-  pReflection.Release();  // release for re-use
+  // release for re-use
+  pResult.Release();
+  pReflection.Release();
+  pBuilder.Release();
+  pNewContainer.Release();
 
   // Now verify that we can remove and re-add private without error
-  pBuilder.Release();
   VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerBuilder, &pBuilder));
   VERIFY_SUCCEEDED(pBuilder->Load(pNewContainer));
   VERIFY_SUCCEEDED(pBuilder->RemovePart(hlsl::DFCC_ShaderDebugInfoDXIL));
   VERIFY_SUCCEEDED(pBuilder->RemovePart(hlsl::DFCC_PrivateData));
   VERIFY_SUCCEEDED(pBuilder->AddPart(hlsl::DFCC_PrivateData, pPrivateData));
   VERIFY_SUCCEEDED(pBuilder->AddPart(hlsl::DFCC_ShaderDebugInfoDXIL, pDebugPart));
-  pNewContainer.Release();
   VERIFY_SUCCEEDED(pBuilder->SerializeContainer(&pResult));
   VERIFY_SUCCEEDED(pResult->GetResult(&pNewContainer));
 
