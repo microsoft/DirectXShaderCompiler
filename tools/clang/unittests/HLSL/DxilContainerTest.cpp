@@ -1990,7 +1990,6 @@ TEST_F(DxilContainerTest, ContainerBuilder_AddPrivateForceLast) {
   pResult.Release();
   pReflection.Release();
   pBuilder.Release();
-  pNewContainer.Release();
 
   // Now verify that we can remove and re-add private without error
   VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerBuilder, &pBuilder));
@@ -2000,6 +1999,7 @@ TEST_F(DxilContainerTest, ContainerBuilder_AddPrivateForceLast) {
   VERIFY_SUCCEEDED(pBuilder->AddPart(hlsl::DFCC_PrivateData, pPrivateData));
   VERIFY_SUCCEEDED(pBuilder->AddPart(hlsl::DFCC_ShaderDebugInfoDXIL, pDebugPart));
   VERIFY_SUCCEEDED(pBuilder->SerializeContainer(&pResult));
+  pNewContainer.Release();
   VERIFY_SUCCEEDED(pResult->GetResult(&pNewContainer));
 
   // verify private data found after debug info again
