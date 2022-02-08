@@ -1937,8 +1937,16 @@ TEST_F(DxilContainerTest, ContainerBuilder_AddPrivateForceLast) {
   VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcUtils, &pUtils));
   VERIFY_SUCCEEDED(pUtils->CreateBlob(data.data(), data.size(), DXC_CP_ACP, &pPrivateData));
 
+  const char *shader =
+      "SamplerState Sampler : register(s0); RWBuffer<float> Uav : "
+      "register(u0); Texture2D<float> ThreeTextures[3] : register(t0); "
+      "float function1();"
+      "[shader(\"raygeneration\")] void RayGenMain() { Uav[0] = "
+      "ThreeTextures[0].SampleLevel(Sampler, float2(0, 0), 0) + "
+      "ThreeTextures[2].SampleLevel(Sampler, float2(0, 0), 0) + function1(); }";
+
   VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
-  CreateBlobFromText(Ref1_Shader, &pSource);
+  CreateBlobFromText(shader, &pSource);
   std::vector<LPCWSTR> arguments;
   arguments.emplace_back(L"-Zi");
   arguments.emplace_back(L"-Qembed_debug");
