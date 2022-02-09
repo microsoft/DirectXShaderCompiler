@@ -208,6 +208,13 @@ private:
       unsigned PrimitiveId;
       unsigned InstanceId;
     } GeometryShader;
+    struct HullShaderParameters {
+      unsigned PrimitiveId;
+      unsigned ControlPointId;
+    } HullShader;
+    struct DomainShaderParameters {
+      unsigned PrimitiveId;
+    } DomainShader;
   };
 
   uint64_t m_UAVSize = 1024 * 1024;
@@ -295,8 +302,43 @@ uint32_t DxilDebugInstrumentation::UAVDumpingGroundOffset() {
   return static_cast<uint32_t>(m_UAVSize - DebugBufferDumpingGroundSize);
 }
 
-DxilDebugInstrumentation::SystemValueIndices DxilDebugInstrumentation::addRequiredSystemValues(BuilderContext &BC, DXIL::ShaderKind shaderKind) {
+static unsigned
+FindOrAddInputSignatureElement(hlsl::DxilSignature &InputSignature,
+    const char * name,
+    DXIL::SigPointKind sigPointKind,
+                               hlsl::DXIL::SemanticKind semanticKind) {
+
+  auto &InputElements = InputSignature.GetElements();
+
+  auto ExistingElement =
+      std::find_if(InputElements.begin(), InputElements.end(),
+                   [&](const std::unique_ptr<DxilSignatureElement> &Element) {
+                     return Element->GetSemantic()->GetKind() == semanticKind;
+                   });
+
+  if (ExistingElement == InputElements.end()) {
+    auto AddedElement =
+        llvm::make_unique<DxilSignatureElement>(sigPointKind);
+    AddedElement->Initialize(name, hlsl::CompType::getF32(),
+                                  hlsl::DXIL::InterpolationMode::Undefined, 1,
+                                  1);
+    AddedElement->AppendSemanticIndex(0);
+    AddedElement->SetSigPointKind(sigPointKind);
+    AddedElement->SetKind(semanticKind);
+
+    auto index = InputSignature.AppendElement(std::move(AddedElement));
+    return InputElements[index]->GetID();
+  } else {
+    return ExistingElement->get()->GetID();
+  }
+}
+
+DxilDebugInstrumentation::SystemValueIndices
+  DxilDebugInstrumentation::addRequiredSystemValues(
+      BuilderContext & BC, DXIL::ShaderKind shaderKind) {
   SystemValueIndices SVIndices{};
+
+  hlsl::DxilSignature &InputSignature = BC.DM.GetInputSignature();
 
   switch (shaderKind) {
   case DXIL::ShaderKind::Amplification:
@@ -310,59 +352,26 @@ DxilDebugInstrumentation::SystemValueIndices DxilDebugInstrumentation::addRequir
     // Dispatch* thread Id is not in the input signature
     break;
   case DXIL::ShaderKind::Vertex: {
-    hlsl::DxilSignature &InputSignature = BC.DM.GetInputSignature();
-    auto &InputElements = InputSignature.GetElements();
-    {
-      auto Existing_SV_VertexId = std::find_if(
-          InputElements.begin(), InputElements.end(),
-          [](const std::unique_ptr<DxilSignatureElement> &Element) {
-            return Element->GetSemantic()->GetKind() ==
-                   hlsl::DXIL::SemanticKind::VertexID;
-          });
-
-      if (Existing_SV_VertexId == InputElements.end()) {
-        auto Added_SV_VertexId =
-            llvm::make_unique<DxilSignatureElement>(DXIL::SigPointKind::VSIn);
-        Added_SV_VertexId->Initialize("VertexId", hlsl::CompType::getF32(),
-                                      hlsl::DXIL::InterpolationMode::Undefined,
-                                      1, 1);
-        Added_SV_VertexId->AppendSemanticIndex(0);
-        Added_SV_VertexId->SetSigPointKind(DXIL::SigPointKind::VSIn);
-        Added_SV_VertexId->SetKind(hlsl::DXIL::SemanticKind::VertexID);
-
-        auto index = InputSignature.AppendElement(std::move(Added_SV_VertexId));
-        SVIndices.VertexShader.VertexId = InputElements[index]->GetID();
-      } else {
-        SVIndices.VertexShader.VertexId = Existing_SV_VertexId->get()->GetID();
-      }
-    }
-    {
-      auto Existing_SV_InstanceId = std::find_if(
-          InputElements.begin(), InputElements.end(),
-          [](const std::unique_ptr<DxilSignatureElement> &Element) {
-            return Element->GetSemantic()->GetKind() ==
-                   hlsl::DXIL::SemanticKind::InstanceID;
-          });
-
-      if (Existing_SV_InstanceId == InputElements.end()) {
-        auto Added_SV_InstanceId =
-            llvm::make_unique<DxilSignatureElement>(DXIL::SigPointKind::VSIn);
-        Added_SV_InstanceId->Initialize(
-            "InstanceId", hlsl::CompType::getF32(),
-            hlsl::DXIL::InterpolationMode::Undefined, 1, 1);
-        Added_SV_InstanceId->AppendSemanticIndex(0);
-        Added_SV_InstanceId->SetSigPointKind(DXIL::SigPointKind::VSIn);
-        Added_SV_InstanceId->SetKind(hlsl::DXIL::SemanticKind::InstanceID);
-
-        auto index =
-            InputSignature.AppendElement(std::move(Added_SV_InstanceId));
-        SVIndices.VertexShader.InstanceId = InputElements[index]->GetID();
-      } else {
-        SVIndices.VertexShader.InstanceId =
-            Existing_SV_InstanceId->get()->GetID();
-      }
-    }
+    SVIndices.VertexShader.VertexId = FindOrAddInputSignatureElement(
+        InputSignature, "VertexId", DXIL::SigPointKind::VSIn,
+        hlsl::DXIL::SemanticKind::VertexID);
+    SVIndices.VertexShader.InstanceId = FindOrAddInputSignatureElement(
+        InputSignature, "InstanceId", DXIL::SigPointKind::VSIn,
+        hlsl::DXIL::SemanticKind::InstanceID);
   } break;
+  case DXIL::ShaderKind::Hull:
+    SVIndices.HullShader.ControlPointId = FindOrAddInputSignatureElement(
+        InputSignature, "PatchId", DXIL::SigPointKind::HSIn,
+        hlsl::DXIL::SemanticKind::OutputControlPointID);
+    SVIndices.HullShader.PrimitiveId = FindOrAddInputSignatureElement(
+        InputSignature, "PrimitiveId", DXIL::SigPointKind::HSIn,
+        hlsl::DXIL::SemanticKind::PrimitiveID);
+    break;
+  case DXIL::ShaderKind::Domain:
+    SVIndices.DomainShader.PrimitiveId = FindOrAddInputSignatureElement(
+        InputSignature, "PrimitiveId", DXIL::SigPointKind::DSIn,
+        hlsl::DXIL::SemanticKind::PrimitiveID);
+    break;
   case DXIL::ShaderKind::Geometry:
     // GS Instance Id and Primitive Id are not in the input signature
     break;
@@ -956,6 +965,8 @@ bool DxilDebugInstrumentation::RunOnFunction(
   case DXIL::ShaderKind::Pixel:
   case DXIL::ShaderKind::Compute:
   case DXIL::ShaderKind::RayGeneration:
+  case DXIL::ShaderKind::Hull:
+  case DXIL::ShaderKind::Domain:
     break;
     //todo:
   case DXIL::ShaderKind::Intersection:
