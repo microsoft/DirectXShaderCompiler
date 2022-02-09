@@ -1756,12 +1756,19 @@ private:
 
   llvm::SmallVector<DxilPart, 8> m_Parts;
   bool m_bUnaligned;
+  bool m_bHasPrivateData;
 
 public:
-  DxilContainerWriter_impl(bool bUnaligned) : m_bUnaligned(bUnaligned) {}
+  DxilContainerWriter_impl(bool bUnaligned) : m_bUnaligned(bUnaligned), m_bHasPrivateData(false) {}
 
   void AddPart(uint32_t FourCC, uint32_t Size, WriteFn Write) override {
-    IFTBOOL(m_bUnaligned || (Size % sizeof(uint32_t)) == 0, DXC_E_GENERAL_INTERNAL_ERROR);
+    // Alignment required for all parts except private data, which must be last.
+    IFTBOOL(!m_bHasPrivateData && "private data must be last, and cannot be added twice.", DXC_E_CONTAINER_INVALID);
+    if (FourCC == DFCC_PrivateData) {
+      m_bHasPrivateData = true;
+    } else if (!m_bUnaligned) {
+      IFTBOOL((Size % sizeof(uint32_t)) == 0, DXC_E_CONTAINER_INVALID);
+    }
     m_Parts.emplace_back(FourCC, Size, Write);
   }
 
@@ -1910,14 +1917,14 @@ void hlsl::StripAndCreateReflectionStream(Module *pReflectionM, uint32_t *pRefle
   *ppReflectionStreamOut = pReflectionBitcodeStream.Detach();
 }
 
-void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
-                                           AbstractMemoryStream *pModuleBitcode,
-                                           AbstractMemoryStream *pFinalStream,
-                                           llvm::StringRef DebugName,
-                                           SerializeDxilFlags Flags,
-                                           DxilShaderHash *pShaderHashOut,
-                                           AbstractMemoryStream *pReflectionStreamOut,
-                                           AbstractMemoryStream *pRootSigStreamOut) {
+void hlsl::SerializeDxilContainerForModule(
+    DxilModule *pModule, AbstractMemoryStream *pModuleBitcode,
+    AbstractMemoryStream *pFinalStream, llvm::StringRef DebugName,
+    SerializeDxilFlags Flags, DxilShaderHash *pShaderHashOut,
+    AbstractMemoryStream *pReflectionStreamOut,
+    AbstractMemoryStream *pRootSigStreamOut,
+    void *pPrivateData,
+    size_t PrivateDataSize) {
   // TODO: add a flag to update the module and remove information that is not part
   // of DXIL proper and is used only to assemble the container.
 
@@ -2180,6 +2187,16 @@ void hlsl::SerializeDxilContainerForModule(DxilModule *pModule,
   writer.AddPart(DFCC_DXIL, programInUInt32 * sizeof(uint32_t) + sizeof(DxilProgramHeader), [&](AbstractMemoryStream *pStream) {
     WriteProgramPart(pModule->GetShaderModel(), pProgramStream, pStream);
   });
+
+  // Private data part should be added last when assembling the container becasue there is no garuntee of aligned size
+  if (pPrivateData) {
+    writer.AddPart(
+        hlsl::DFCC_PrivateData, PrivateDataSize,
+        [&](AbstractMemoryStream *pStream) {
+          ULONG cbWritten;
+          IFT(pStream->Write(pPrivateData, PrivateDataSize, &cbWritten));
+        });
+  }
 
   writer.write(pFinalStream);
 }
