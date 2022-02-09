@@ -107,8 +107,14 @@ struct DxilEraseDeadRegion : public FunctionPass {
     return false;
   }
 
+  // This function takes in a basic block, and a *complete* region that this
+  // block is in, and checks whether it's safe to delete this block as part of
+  // this region (i.e. if any values defined in the block are used outside of
+  // the region) and whether it's safe to delete the block in general (side
+  // effects).
   bool SafeToDeleteBlock(BasicBlock *BB, const std::set<BasicBlock*> &Region) {
-    assert(Region.count(BB));
+    assert(Region.count(BB)); // Region must be a complete region that contains the block.
+
     auto FindIt = m_SafeBlocks.find(BB);
     if (FindIt != m_SafeBlocks.end()) {
       return FindIt->second;
@@ -151,9 +157,11 @@ struct DxilEraseDeadRegion : public FunctionPass {
     return true;
   }
 
+  // Find a region of blocks between `Begin` and `End` that are entirely self
+  // contained and produce no values that leave the region.
   bool FindDeadRegion(DominatorTree *DT, PostDominatorTree *PDT, BasicBlock *Begin, BasicBlock *End, std::set<BasicBlock *> &Region) {
     std::vector<BasicBlock *> WorkList;
-    auto ProcessSuccessors = [this, DT, PDT, &WorkList, Begin, End, &Region](BasicBlock *BB) {
+    auto ProcessSuccessors = [DT, PDT, &WorkList, Begin, End, &Region](BasicBlock *BB) {
       for (BasicBlock *Succ : successors(BB)) {
         if (Succ == End) continue;
         if (Region.count(Succ)) continue;
@@ -180,10 +188,17 @@ struct DxilEraseDeadRegion : public FunctionPass {
       return false;
 
     for (BasicBlock *BB : Region) {
+      // Give up if there are any edges coming from outside of the region
+      // anywhere other than `Begin`.
+      for (auto PredIt = llvm::pred_begin(BB); PredIt != llvm::pred_end(BB); PredIt++) {
+        BasicBlock *PredBB = *PredIt;
+        if (PredBB != Begin && !Region.count(PredBB))
+          return false;
+      }
+      // Check side effects etc.
       if (!this->SafeToDeleteBlock(BB, Region))
         return false;
     }
-
     return true;
   }
 
@@ -238,11 +253,6 @@ struct DxilEraseDeadRegion : public FunctionPass {
     std::set<BasicBlock *> Region;
     if (!this->FindDeadRegion(DT, PDT, Common, BB, Region))
       return false;
-
-    // If BB branches INTO the region, forming a loop give up.
-    for (BasicBlock *Succ : successors(BB))
-      if (Region.count(Succ))
-        return false;
 
     // Replace Common's branch with an unconditional branch to BB
     m_DCE.EraseAndProcessOperands(Common->getTerminator());
