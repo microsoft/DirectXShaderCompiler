@@ -3215,9 +3215,12 @@ bool SROA_Helper::DoScalarReplacement(GlobalVariable *GV,
 }
 
 static void ReplaceConstantWithInst(Constant *C, Value *V, IRBuilder<> &Builder) {
+  Function *F = Builder.GetInsertBlock()->getParent();
   for (auto it = C->user_begin(); it != C->user_end(); ) {
     User *U = *(it++);
     if (Instruction *I = dyn_cast<Instruction>(U)) {
+      if (I->getParent()->getParent() != F)
+        continue;
       I->replaceUsesOfWith(C, V);
     } else {
       // Skip unused ConstantExpr.
