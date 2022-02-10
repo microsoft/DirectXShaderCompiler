@@ -740,12 +740,30 @@ bool EmitVisitor::visit(SpirvVariable *inst) {
                           : &globalVarsBinary);
   emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
                               inst->getDebugName());
+
   if (spvOptions.enableReflect && inst->hasBinding() &&
       !inst->getHlslUserType().empty()) {
-    typeHandler.emitDecoration(
-        getOrAssignResultId<SpirvInstruction>(inst),
-        spv::Decoration::UserTypeGOOGLE,
-        string::encodeSPIRVString(inst->getHlslUserType().lower()));
+    std::pair<llvm::StringRef, llvm::StringRef> splitUserType =
+        inst->getHlslUserType().split('<');
+    std::string formattedUserType = splitUserType.first.lower();
+
+    // Format and append template arguments.
+    if (!splitUserType.second.empty()) {
+      llvm::SmallVector<llvm::StringRef, 4> templateParams;
+      splitUserType.second.split(templateParams, ", ");
+      if (templateParams.size() > 0) {
+        formattedUserType += ":<";
+        formattedUserType += templateParams[0];
+        for (int i = 1; i < templateParams.size(); i++) {
+          formattedUserType += ",";
+          formattedUserType += templateParams[i];
+        }
+      }
+    }
+
+    typeHandler.emitDecoration(getOrAssignResultId<SpirvInstruction>(inst),
+                               spv::Decoration::UserTypeGOOGLE,
+                               string::encodeSPIRVString(formattedUserType));
   }
   return true;
 }
