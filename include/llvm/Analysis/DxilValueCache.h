@@ -70,7 +70,7 @@ private:
 
 public:
 
-  const char *getPassName() const override;
+  StringRef getPassName() const override;
   DxilValueCache();
   void getAnalysisUsage(AnalysisUsage &) const override;
 

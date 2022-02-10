@@ -32,7 +32,7 @@ public:
     initializeDxilFixConstArrayInitializerPass(*PassRegistry::getPassRegistry());
   }
   bool runOnModule(Module &M) override;
-  const char *getPassName() const override { return "Dxil Fix Const Array Initializer"; }
+  StringRef getPassName() const override { return "Dxil Fix Const Array Initializer"; }
 };
 
 char DxilFixConstArrayInitializer::ID;

@@ -32,7 +32,7 @@ class Printer : public FunctionPass {
 public:
   explicit Printer(raw_ostream &OS) : FunctionPass(ID), OS(OS) {}
 
-  const char *getPassName() const override;
+  StringRef getPassName() const override;
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 
   bool runOnFunction(Function &F) override;

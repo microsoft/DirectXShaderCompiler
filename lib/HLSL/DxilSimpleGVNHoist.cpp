@@ -446,7 +446,7 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilSimpleGVNHoist() : FunctionPass(ID) {}
 
-  const char *getPassName() const override {
+  StringRef getPassName() const override {
     return "DXIL simple GVN hoist";
   }
 

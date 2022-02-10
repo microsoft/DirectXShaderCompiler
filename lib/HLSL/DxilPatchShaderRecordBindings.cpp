@@ -100,7 +100,7 @@ class DxilPatchShaderRecordBindings : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilPatchShaderRecordBindings() : ModulePass(ID) {}
-  const char *getPassName() const override { return "DXIL Patch Shader Record Binding"; }
+  StringRef getPassName() const override { return "DXIL Patch Shader Record Binding"; }
   void applyOptions(PassOptions O) override;
   bool runOnModule(Module &M) override;
 

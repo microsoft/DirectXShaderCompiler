@@ -174,7 +174,7 @@ public:
   }
 
   size_t size() const { return Passes.size(); }
-  const char *getPassNameAt(size_t index) const {
+  StringRef getPassNameAt(size_t index) const {
     return Passes[index]->getPassName();
   }
   llvm::AnalysisID getPassIDAt(size_t index) const {
@@ -216,7 +216,7 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::GetAvailablePass(
     return E_INVALIDARG;
   return DxcOptimizerPass::Create(
       m_pMalloc, m_passes[index]->getPassArgument(),
-      m_passes[index]->getPassName(),
+      m_passes[index]->getPassName().data(),
       GetPassArgNames(m_passes[index]->getPassArgument()),
       GetPassArgDescriptions(m_passes[index]->getPassArgument()), ppResult);
 }
