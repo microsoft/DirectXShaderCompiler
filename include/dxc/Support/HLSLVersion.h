@@ -5,7 +5,7 @@
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
 //                                                                           //
-// Support for command-line-style option parsing.                            //
+// HLSL version enumeration and parsing support                              //
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
