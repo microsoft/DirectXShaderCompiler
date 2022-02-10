@@ -11,7 +11,7 @@
 
 #include "dxc/Support/Global.h"
 #include "dxc/DXIL/DxilConstants.h"
-#include "dxc/test/D3DReflectionDumper.h"
+#include "dxc/Test/D3DReflectionDumper.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/dxcapi.h"
 #include <sstream>

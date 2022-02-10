@@ -757,7 +757,7 @@ FileRunCommandResult FileRunCommandPart::RunD3DReflect(dxc::DxcDllSupport &DllSu
   IFT(DllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
 
   IFT(pLibrary->CreateBlobWithEncodingFromPinned(
-      (LPBYTE)Prior->StdOut.c_str(), Prior->StdOut.size(), CP_UTF8,
+      (const LPBYTE)Prior->StdOut.c_str(), Prior->StdOut.size(), CP_UTF8,
       &pSource));
 
   IFT(pAssembler->AssembleToContainer(pSource, &pResult));

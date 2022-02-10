@@ -45,7 +45,6 @@ class DumpContext {
 private:
   std::ostream &m_out;
   unsigned m_indent = 0;
-  bool m_bCheckByName = false;
   std::unordered_set<size_t> m_visited;
 
   std::ostream &DoIndent() {

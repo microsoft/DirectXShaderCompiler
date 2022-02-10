@@ -419,7 +419,7 @@ public:
         UINT32 SizeRemaining = pData->Size - (sizeof(DxilPartHeader) + pPart->PartSize);
         if (SizeRemaining > sizeof(DxilPartHeader)) {
           // Looks like we also have an RDAT part
-          pPart = (DxilPartHeader*)(GetDxilPartData(pPart) + pPart->PartSize);
+          pPart = (const DxilPartHeader*)(GetDxilPartData(pPart) + pPart->PartSize);
           if (pPart->PartSize < /*sizeof(RuntimeDataHeader)*/8 ||
               pPart->PartSize + sizeof(DxilPartHeader) > SizeRemaining)
             return E_INVALIDARG;
