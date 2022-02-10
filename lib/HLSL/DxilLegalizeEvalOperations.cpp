@@ -35,7 +35,7 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilLegalizeEvalOperations() : ModulePass(ID) {}
 
-  const char *getPassName() const override {
+  StringRef getPassName() const override {
     return "DXIL Legalize EvalOperations";
   }
 

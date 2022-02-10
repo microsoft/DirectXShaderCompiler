@@ -3943,7 +3943,7 @@ class SROA_Parameter_HLSL : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit SROA_Parameter_HLSL() : ModulePass(ID) {}
-  const char *getPassName() const override { return "SROA Parameter HLSL"; }
+  StringRef getPassName() const override { return "SROA Parameter HLSL"; }
   static void RewriteBitcastWithIdenticalStructs(Function *F);
   static void RewriteBitcastWithIdenticalStructs(BitCastInst *BCI);
   static bool DeleteSimpleStoreOnlyAlloca(AllocaInst *AI);
@@ -6005,7 +6005,7 @@ class LowerStaticGlobalIntoAlloca : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit LowerStaticGlobalIntoAlloca() : ModulePass(ID) {}
-  const char *getPassName() const override { return "Lower static global into Alloca"; }
+  StringRef getPassName() const override { return "Lower static global into Alloca"; }
 
   bool runOnModule(Module &M) override {
     m_DbgFinder.processModule(M);

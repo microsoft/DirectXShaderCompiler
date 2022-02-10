@@ -94,7 +94,7 @@ public:
 
   void dump() { Reader->dump(); }
 
-  const char *getPassName() const override { return "Sample profile pass"; }
+  StringRef getPassName() const override { return "Sample profile pass"; }
 
   bool runOnFunction(Function &F) override;
 

@@ -55,7 +55,7 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilLegalizeSampleOffsetPass() : FunctionPass(ID) {}
 
-  const char *getPassName() const override {
+  StringRef getPassName() const override {
     return "DXIL legalize sample offset";
   }
 

@@ -303,7 +303,7 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilLoadMetadata () : ModulePass(ID) {}
 
-  const char *getPassName() const override { return "HLSL load DxilModule from metadata"; }
+  StringRef getPassName() const override { return "HLSL load DxilModule from metadata"; }
 
   bool runOnModule(Module &M) override {
     if (!M.HasDxilModule()) {

@@ -202,7 +202,7 @@ class DxilShaderAccessTracking : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilShaderAccessTracking() : ModulePass(ID) {}
-  const char *getPassName() const override {
+  StringRef getPassName() const override {
     return "DXIL shader access tracking";
   }
   bool runOnModule(Module &M) override;
