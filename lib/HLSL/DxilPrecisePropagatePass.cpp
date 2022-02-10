@@ -42,7 +42,7 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilPrecisePropagatePass() : ModulePass(ID) {}
 
-  const char *getPassName() const override { return "DXIL Precise Propagate"; }
+  StringRef getPassName() const override { return "DXIL Precise Propagate"; }
 
   bool runOnModule(Module &M) override {
     m_pDM = &(M.GetOrCreateDxilModule());

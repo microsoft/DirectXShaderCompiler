@@ -289,7 +289,7 @@ class MemorySanitizer : public FunctionPass {
       : FunctionPass(ID),
         TrackOrigins(std::max(TrackOrigins, (int)ClTrackOrigins)),
         WarningFn(nullptr) {}
-  const char *getPassName() const override { return "MemorySanitizer"; }
+  StringRef getPassName() const override { return "MemorySanitizer"; }
   bool runOnFunction(Function &F) override;
   bool doInitialization(Module &M) override;
   static char ID;  // Pass identification, replacement for typeid.

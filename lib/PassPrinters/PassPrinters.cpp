@@ -48,7 +48,7 @@ struct FunctionPassPrinter : public FunctionPass {
     return false;
   }
 
-  const char *getPassName() const override { return PassName.c_str(); }
+  StringRef getPassName() const override { return PassName.c_str(); }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequiredID(PassToPrint->getTypeInfo());
@@ -85,7 +85,7 @@ struct CallGraphSCCPassPrinter : public CallGraphSCCPass {
     return false;
   }
 
-  const char *getPassName() const override { return PassName.c_str(); }
+  StringRef getPassName() const override { return PassName.c_str(); }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequiredID(PassToPrint->getTypeInfo());
@@ -117,7 +117,7 @@ struct ModulePassPrinter : public ModulePass {
     return false;
   }
 
-  const char *getPassName() const override { return PassName.c_str(); }
+  StringRef getPassName() const override { return PassName.c_str(); }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequiredID(PassToPrint->getTypeInfo());
@@ -150,7 +150,7 @@ struct LoopPassPrinter : public LoopPass {
     return false;
   }
 
-  const char *getPassName() const override { return PassName.c_str(); }
+  StringRef getPassName() const override { return PassName.c_str(); }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequiredID(PassToPrint->getTypeInfo());
@@ -185,7 +185,7 @@ struct RegionPassPrinter : public RegionPass {
     return false;
   }
 
-  const char *getPassName() const override { return PassName.c_str(); }
+  StringRef getPassName() const override { return PassName.c_str(); }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequiredID(PassToPrint->getTypeInfo());
@@ -219,7 +219,7 @@ struct BasicBlockPassPrinter : public BasicBlockPass {
     return false;
   }
 
-  const char *getPassName() const override { return PassName.c_str(); }
+  StringRef getPassName() const override { return PassName.c_str(); }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequiredID(PassToPrint->getTypeInfo());

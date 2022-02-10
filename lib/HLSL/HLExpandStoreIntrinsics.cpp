@@ -35,7 +35,7 @@ public:
   static char ID;
   explicit HLExpandStoreIntrinsics() : FunctionPass(ID) {}
 
-  const char *getPassName() const override {
+  StringRef getPassName() const override {
     return "Expand HLSL store intrinsics";
   }
 

@@ -31,7 +31,7 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit HLPreprocess() : ModulePass(ID) {}
 
-  const char *getPassName() const override {
+  StringRef getPassName() const override {
     return "Preprocess HLModule after inline";
   }
 

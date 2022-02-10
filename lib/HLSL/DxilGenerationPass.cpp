@@ -189,7 +189,7 @@ public:
   explicit DxilGenerationPass(bool NoOpt = false)
       : ModulePass(ID), m_pHLModule(nullptr), m_extensionsCodegenHelper(nullptr), NotOptimized(NoOpt) {}
 
-  const char *getPassName() const override { return "DXIL Generator"; }
+  StringRef getPassName() const override { return "DXIL Generator"; }
 
   void SetExtensionsHelper(HLSLExtensionsCodegenHelper *helper) {
     m_extensionsCodegenHelper = helper;

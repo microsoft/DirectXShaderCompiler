@@ -291,7 +291,7 @@ public:
   /// the source file name, line number and column.
   void getLocation(StringRef *Filename, unsigned *Line, unsigned *Column) const;
 
-  const char *getPassName() const { return PassName; }
+  StringRef getPassName() const { return PassName; }
   const Function &getFunction() const { return Fn; }
   const DebugLoc &getDebugLoc() const { return DLoc; }
   const Twine &getMsg() const { return Msg; }

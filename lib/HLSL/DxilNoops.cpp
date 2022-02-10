@@ -448,7 +448,7 @@ struct DxilInsertPreserves : public ModulePass {
     return Changed;
   }
 
-  const char *getPassName() const override { return "Dxil Insert Preserves"; }
+  StringRef getPassName() const override { return "Dxil Insert Preserves"; }
 };
 
 char DxilInsertPreserves::ID;
@@ -501,7 +501,7 @@ public:
 
     return Changed;
   }
-  const char *getPassName() const override { return "Dxil Lower Preserves to Selects"; }
+  StringRef getPassName() const override { return "Dxil Lower Preserves to Selects"; }
 };
 
 char DxilPreserveToSelect::ID;
@@ -570,7 +570,7 @@ public:
 
     return Changed;
   }
-  const char *getPassName() const override { return "Dxil Rewrite Output Arg Debug Info"; }
+  StringRef getPassName() const override { return "Dxil Rewrite Output Arg Debug Info"; }
 };
 
 char DxilRewriteOutputArgDebugInfo::ID;
@@ -622,7 +622,7 @@ public:
   bool LowerPreserves(Module &M);
   bool LowerNoops(Module &M);
   bool runOnModule(Module &M) override;
-  const char *getPassName() const override { return "Dxil Finalize Preserves"; }
+  StringRef getPassName() const override { return "Dxil Finalize Preserves"; }
 };
 
 char DxilFinalizePreserves::ID;
