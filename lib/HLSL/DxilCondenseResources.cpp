@@ -1952,9 +1952,9 @@ Value *flattenGepIdx(GEPOperator *GEP) {
     // Must be instruction for multi dim array.
     std::unique_ptr<IRBuilder<>> Builder;
     if (GetElementPtrInst *GEPInst = dyn_cast<GetElementPtrInst>(GEP)) {
-      Builder = llvm::make_unique<IRBuilder<>>(GEPInst);
+      Builder = std::make_unique<IRBuilder<>>(GEPInst);
     } else {
-      Builder = llvm::make_unique<IRBuilder<>>(GEP->getContext());
+      Builder = std::make_unique<IRBuilder<>>(GEP->getContext());
     }
     for (; GEPIt != E; ++GEPIt) {
       if (GEPIt->isArrayTy()) {

@@ -114,7 +114,7 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
 
   // Resources
   for (auto && C : H.GetCBuffers()) {
-    auto b = llvm::make_unique<DxilCBuffer>();
+    auto b = std::make_unique<DxilCBuffer>();
     InitResourceBase(C.get(), b.get());
     b->SetSize(C->GetSize());
     if (GlobalVariable *GV = dyn_cast<GlobalVariable>(b->GetGlobalSymbol()))
@@ -122,21 +122,21 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
     M.AddCBuffer(std::move(b));
   }
   for (auto && C : H.GetUAVs()) {
-    auto b = llvm::make_unique<DxilResource>();
+    auto b = std::make_unique<DxilResource>();
     InitResource(C.get(), b.get());
     if (GlobalVariable *GV = dyn_cast<GlobalVariable>(b->GetGlobalSymbol()))
       LLVMUsed.emplace_back(GV);
     M.AddUAV(std::move(b));
   }
   for (auto && C : H.GetSRVs()) {
-    auto b = llvm::make_unique<DxilResource>();
+    auto b = std::make_unique<DxilResource>();
     InitResource(C.get(), b.get());
     if (GlobalVariable *GV = dyn_cast<GlobalVariable>(b->GetGlobalSymbol()))
       LLVMUsed.emplace_back(GV);
     M.AddSRV(std::move(b));
   }
   for (auto && C : H.GetSamplers()) {
-    auto b = llvm::make_unique<DxilSampler>();
+    auto b = std::make_unique<DxilSampler>();
     InitResourceBase(C.get(), b.get());
     b->SetSamplerKind(C->GetSamplerKind());
     if (GlobalVariable *GV = dyn_cast<GlobalVariable>(b->GetGlobalSymbol()))
@@ -214,7 +214,7 @@ public:
       }
       DxilFunctionProps &props = m_pHLModule->GetDxilFunctionProps(EntryFn);
       std::unique_ptr<DxilEntryProps> pProps =
-          llvm::make_unique<DxilEntryProps>(
+          std::make_unique<DxilEntryProps>(
               props, m_pHLModule->GetHLOptions().bUseMinPrecision);
       HLSignatureLower sigLower(m_pHLModule->GetEntryFunction(), *m_pHLModule,
                                 pProps->sig);
@@ -227,7 +227,7 @@ public:
         if (m_pHLModule->HasDxilFunctionProps(&F)) {
           DxilFunctionProps &props = m_pHLModule->GetDxilFunctionProps(&F);
           std::unique_ptr<DxilEntryProps> pProps =
-              llvm::make_unique<DxilEntryProps>(
+              std::make_unique<DxilEntryProps>(
                   props, m_pHLModule->GetHLOptions().bUseMinPrecision);
           if (m_pHLModule->IsGraphicsShader(&F) ||
               m_pHLModule->IsComputeShader(&F)) {

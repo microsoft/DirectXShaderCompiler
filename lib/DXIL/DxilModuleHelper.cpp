@@ -35,12 +35,7 @@
 #include "llvm/ADT/SetVector.h"
 #include <unordered_set>
 
-#ifndef _WIN32
-using llvm::make_unique;
-#else
 using std::make_unique;
-#endif
-
 
 using namespace llvm;
 using std::string;

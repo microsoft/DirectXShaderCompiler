@@ -81,7 +81,7 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M) {
   // If not present, we add it.
   if (SV_Position == InputElements.end()) {
     auto SVPosition =
-        llvm::make_unique<DxilSignatureElement>(DXIL::SigPointKind::PSIn);
+        std::make_unique<DxilSignatureElement>(DXIL::SigPointKind::PSIn);
     SVPosition->Initialize("Position", hlsl::CompType::getF32(),
                            hlsl::DXIL::InterpolationMode::Linear, 1, 4,
                            SVPositionIndex == -1 ? 0 : SVPositionIndex, 0);

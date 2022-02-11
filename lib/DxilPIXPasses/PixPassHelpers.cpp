@@ -148,7 +148,7 @@ llvm::CallInst *CreateUAV(DxilModule &DM, IRBuilder<> &Builder,
   llvm::StructType *UAVStructTy =
       llvm::StructType::create(Elements, "class.RWStructuredBuffer");
 
-  std::unique_ptr<DxilResource> pUAV = llvm::make_unique<DxilResource>();
+  std::unique_ptr<DxilResource> pUAV = std::make_unique<DxilResource>();
 
   auto const *shaderModel = DM.GetShaderModel();
   if (shaderModel->IsLib()) {

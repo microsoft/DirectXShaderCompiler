@@ -2067,7 +2067,7 @@ LPCSTR DxilShaderReflection::CreateUpperCase(LPCSTR pValue) {
   if (*pCursor == '\0')
     return pValue;
 
-  std::unique_ptr<char[]> pUpperStr = llvm::make_unique<char[]>(strlen(pValue) + 1);
+  std::unique_ptr<char[]> pUpperStr = std::make_unique<char[]>(strlen(pValue) + 1);
   char *pWrite = pUpperStr.get();
   pCursor = pValue;
   for (;;) {

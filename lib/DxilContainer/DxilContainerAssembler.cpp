@@ -1414,7 +1414,7 @@ private:
 
   void CreateParts() {
 #define ADD_PART(type) \
-    m_Parts.emplace_back(llvm::make_unique<type>()); \
+    m_Parts.emplace_back(std::make_unique<type>()); \
     m_p##type = reinterpret_cast<type*>(m_Parts.back().get());
     ADD_PART(StringBufferPart);
     ADD_PART(ResourceTable);
@@ -1718,12 +1718,12 @@ void hlsl::SerializeDxilContainerForModule(
     DXIL::TessellatorDomain domain = DXIL::TessellatorDomain::Undefined;
     if (pModule->GetShaderModel()->IsHS() || pModule->GetShaderModel()->IsDS())
       domain = pModule->GetTessellatorDomain();
-    pInputSigWriter = llvm::make_unique<DxilProgramSignatureWriter>(
+    pInputSigWriter = std::make_unique<DxilProgramSignatureWriter>(
         pModule->GetInputSignature(), domain,
         /*IsInput*/ true,
         /*UseMinPrecision*/ pModule->GetUseMinPrecision(),
         bCompat_1_4, bUnaligned);
-    pOutputSigWriter = llvm::make_unique<DxilProgramSignatureWriter>(
+    pOutputSigWriter = std::make_unique<DxilProgramSignatureWriter>(
         pModule->GetOutputSignature(), domain,
         /*IsInput*/ false,
         /*UseMinPrecision*/ pModule->GetUseMinPrecision(),
@@ -1738,7 +1738,7 @@ void hlsl::SerializeDxilContainerForModule(
                      pOutputSigWriter->write(pStream);
                    });
 
-    pPatchConstOrPrimSigWriter = llvm::make_unique<DxilProgramSignatureWriter>(
+    pPatchConstOrPrimSigWriter = std::make_unique<DxilProgramSignatureWriter>(
         pModule->GetPatchConstOrPrimSignature(), domain,
         /*IsInput*/ pModule->GetShaderModel()->IsDS(),
         /*UseMinPrecision*/ pModule->GetUseMinPrecision(),
@@ -1763,7 +1763,7 @@ void hlsl::SerializeDxilContainerForModule(
     DXASSERT(pModule->GetSerializedRootSignature().empty(),
              "otherwise, library has root signature outside subobject definitions");
     // Write the DxilRuntimeData (RDAT) part.
-    pRDATWriter = llvm::make_unique<DxilRDATWriter>(*pModule);
+    pRDATWriter = std::make_unique<DxilRDATWriter>(*pModule);
     writer.AddPart(
         DFCC_RuntimeData, pRDATWriter->size(),
         [&](AbstractMemoryStream *pStream) { pRDATWriter->write(pStream); });
@@ -1771,7 +1771,7 @@ void hlsl::SerializeDxilContainerForModule(
     pModule->ResetSubobjects(nullptr);
   } else {
     // Write the DxilPipelineStateValidation (PSV0) part.
-    pPSVWriter = llvm::make_unique<DxilPSVWriter>(*pModule);
+    pPSVWriter = std::make_unique<DxilPSVWriter>(*pModule);
     writer.AddPart(
         DFCC_PipelineStateValidation, pPSVWriter->size(),
         [&](AbstractMemoryStream *pStream) { pPSVWriter->write(pStream); });

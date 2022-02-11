@@ -256,25 +256,25 @@ unsigned int DxilPatchShaderRecordBindings::AddHandle(Module &M, unsigned int ba
   switch (resClass) {
   case DXIL::ResourceClass::SRV:
     resourceHandle = static_cast<unsigned int>(DM.GetSRVs().size());
-    pHandle = llvm::make_unique<DxilResource>();
+    pHandle = std::make_unique<DxilResource>();
     pHandle->SetRW(false);
     pBaseHandle = pHandle.get();
     break;
   case DXIL::ResourceClass::UAV:
     resourceHandle = static_cast<unsigned int>(DM.GetUAVs().size());
-    pHandle = llvm::make_unique<DxilResource>();
+    pHandle = std::make_unique<DxilResource>();
     pHandle->SetRW(true);
     pBaseHandle = pHandle.get();
     break;
   case DXIL::ResourceClass::CBuffer:
     resourceHandle = static_cast<unsigned int>(DM.GetCBuffers().size());
-    pCBuf = llvm::make_unique<DxilCBuffer>();
+    pCBuf = std::make_unique<DxilCBuffer>();
     pCBuf->SetSize(constantBufferSize);
     pBaseHandle = pCBuf.get();
     break;
   case DXIL::ResourceClass::Sampler:
     resourceHandle = static_cast<unsigned int>(DM.GetSamplers().size());
-    pSampler = llvm::make_unique<DxilSampler>();
+    pSampler = std::make_unique<DxilSampler>();
     // TODO: Is this okay? What if one of the samplers in the table is a comparison sampler?
     pSampler->SetSamplerKind(DxilSampler::SamplerKind::Default);
     pBaseHandle = pSampler.get();

@@ -61,8 +61,8 @@ HLModule::HLModule(Module *pModule)
     , m_pModule(pModule)
     , m_pEntryFunc(nullptr)
     , m_EntryName("")
-    , m_pMDHelper(llvm::make_unique<DxilMDHelper>(
-          pModule, llvm::make_unique<HLExtraPropertyHelper>(pModule)))
+    , m_pMDHelper(std::make_unique<DxilMDHelper>(
+          pModule, std::make_unique<HLExtraPropertyHelper>(pModule)))
     , m_pDebugInfoFinder(nullptr)
     , m_pSM(nullptr)
     , m_DxilMajor(DXIL::kDxilMajor)
@@ -70,10 +70,10 @@ HLModule::HLModule(Module *pModule)
     , m_ValMajor(0)
     , m_ValMinor(0)
     , m_Float32DenormMode(DXIL::Float32DenormMode::Any)
-    , m_pOP(llvm::make_unique<OP>(pModule->getContext(), pModule))
+    , m_pOP(std::make_unique<OP>(pModule->getContext(), pModule))
     , m_AutoBindingSpace(UINT_MAX)
     , m_DefaultLinkage(DXIL::DefaultLinkage::Default)
-    , m_pTypeSystem(llvm::make_unique<DxilTypeSystem>(pModule)) {
+    , m_pTypeSystem(std::make_unique<DxilTypeSystem>(pModule)) {
   DXASSERT_NOMSG(m_pModule != nullptr);
   m_pModule->pfnRemoveGlobal = &HLModule_RemoveGlobal;
   m_pModule->pfnResetHLModule = &HLModule_ResetModule;
@@ -513,7 +513,7 @@ void HLModule::LoadHLMetadata() {
       MDTuple *pProps = dyn_cast<MDTuple>(fnProps->getOperand(propIdx++));
 
       std::unique_ptr<hlsl::DxilFunctionProps> props =
-          llvm::make_unique<hlsl::DxilFunctionProps>();
+          std::make_unique<hlsl::DxilFunctionProps>();
 
       const Function *F = m_pMDHelper->LoadDxilFunctionProps(pProps, props.get());
 
@@ -640,7 +640,7 @@ void HLModule::LoadHLResources(const llvm::MDOperand &MDO) {
   // Load CBuffer records.
   if (pCBuffers != nullptr) {
     for (unsigned i = 0; i < pCBuffers->getNumOperands(); i++) {
-      unique_ptr<DxilCBuffer> pCB = llvm::make_unique<DxilCBuffer>();
+      unique_ptr<DxilCBuffer> pCB = std::make_unique<DxilCBuffer>();
       m_pMDHelper->LoadDxilCBuffer(pCBuffers->getOperand(i), *pCB);
       AddCBuffer(std::move(pCB));
     }
@@ -715,7 +715,7 @@ HLModule::AddResourceWithGlobalVariableAndProps(llvm::Constant *GV,
   DxilResourceBase *R = nullptr;
   switch (RC) {
   case DxilResource::Class::Sampler: {
-    std::unique_ptr<DxilSampler> S = llvm::make_unique<DxilSampler>();
+    std::unique_ptr<DxilSampler> S = std::make_unique<DxilSampler>();
     if (RP.Basic.SamplerCmpOrHasCounter)
       S->SetSamplerKind(DxilSampler::SamplerKind::Comparison);
     else
@@ -728,7 +728,7 @@ HLModule::AddResourceWithGlobalVariableAndProps(llvm::Constant *GV,
     AddSampler(std::move(S));
   } break;
   case DxilResource::Class::SRV: {
-    std::unique_ptr<HLResource> Res = llvm::make_unique<HLResource>();
+    std::unique_ptr<HLResource> Res = std::make_unique<HLResource>();
     if (DXIL::IsTyped(RP.getResourceKind())) {
       Res->SetCompType(RP.Typed.CompType);
     } else if (DXIL::IsStructuredBuffer(RK)) {
@@ -743,7 +743,7 @@ HLModule::AddResourceWithGlobalVariableAndProps(llvm::Constant *GV,
     AddSRV(std::move(Res));
   } break;
   case DxilResource::Class::UAV: {
-    std::unique_ptr<HLResource> Res = llvm::make_unique<HLResource>();
+    std::unique_ptr<HLResource> Res = std::make_unique<HLResource>();
     if (DXIL::IsTyped(RK)) {
       Res->SetCompType(RP.Typed.CompType);
     } else if (DXIL::IsStructuredBuffer(RK)) {
@@ -1354,7 +1354,7 @@ void HLModule::UpdateGlobalVariableDebugInfo(
 
 DebugInfoFinder &HLModule::GetOrCreateDebugInfoFinder() {
   if (m_pDebugInfoFinder == nullptr) {
-    m_pDebugInfoFinder = llvm::make_unique<llvm::DebugInfoFinder>();
+    m_pDebugInfoFinder = std::make_unique<llvm::DebugInfoFinder>();
     m_pDebugInfoFinder->processModule(*m_pModule);
   }
   return *m_pDebugInfoFinder;
@@ -1402,7 +1402,7 @@ namespace llvm {
 hlsl::HLModule &Module::GetOrCreateHLModule(bool skipInit) {
   std::unique_ptr<hlsl::HLModule> M;
   if (!HasHLModule()) {
-    M = llvm::make_unique<hlsl::HLModule>(this);
+    M = std::make_unique<hlsl::HLModule>(this);
     if (!skipInit) {
       M->LoadHLMetadata();
     }
