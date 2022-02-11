@@ -8469,7 +8469,7 @@ void Sema::CheckArrayAccess(const Expr *BaseExpr, const Expr *IndexExpr,
     }
 
     // HLSL Change Starts
-    if (getLangOpts().HLSL && getLangOpts().HLSLVersion > 2016) {
+    if (getLangOpts().HLSL && getLangOpts().HLSLVersion > hlsl::LangStd::v2016) {
       DiagRuntimeBehavior(BaseExpr->getLocStart(), BaseExpr,
         PDiag(diag::err_hlsl_array_element_index_out_of_bounds) << index.toString(10, true));
     }
@@ -8488,7 +8488,7 @@ void Sema::CheckArrayAccess(const Expr *BaseExpr, const Expr *IndexExpr,
     } // HLSL Change
   } else {
     // HLSL Change Starts
-    if (getLangOpts().HLSL && getLangOpts().HLSLVersion > 2016) {
+    if (getLangOpts().HLSL && getLangOpts().HLSLVersion > hlsl::LangStd::v2016) {
       DiagRuntimeBehavior(BaseExpr->getLocStart(), BaseExpr,
         PDiag(diag::err_hlsl_array_element_index_out_of_bounds) << index.toString(10, true));
     }

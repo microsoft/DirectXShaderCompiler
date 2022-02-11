@@ -2891,20 +2891,21 @@ void Parser::ParseCXXMemberSpecification(SourceLocation RecordLoc,
         NonNestedClass = false;
 
         // HLSL Change Starts
-        if (getLangOpts().HLSL && getLangOpts().HLSLVersion < 2016 &&
+        if (getLangOpts().HLSL &&
+            getLangOpts().HLSLVersion < hlsl::LangStd::v2016 &&
             cast<NamedDecl>(TagDecl)->getDeclName()) {
           Diag(RecordLoc, diag::err_hlsl_unsupported_nested_struct);
           break;
         } else {
-        // HLSL Change Ends - succeeding block is now conditional
-        // The Microsoft extension __interface does not permit nested classes.
-        if (getCurrentClass().IsInterface) {
-          Diag(RecordLoc, diag::err_invalid_member_in_interface)
-            << /*ErrorType=*/6
-            << (isa<NamedDecl>(TagDecl)
-                  ? cast<NamedDecl>(TagDecl)->getQualifiedNameAsString()
-                  : "(anonymous)");
-        }
+          // HLSL Change Ends - succeeding block is now conditional
+          // The Microsoft extension __interface does not permit nested classes.
+          if (getCurrentClass().IsInterface) {
+            Diag(RecordLoc, diag::err_invalid_member_in_interface)
+                << /*ErrorType=*/6
+                << (isa<NamedDecl>(TagDecl)
+                        ? cast<NamedDecl>(TagDecl)->getQualifiedNameAsString()
+                        : "(anonymous)");
+          }
         } // HLSL Change - close conditional
         break;
       }
