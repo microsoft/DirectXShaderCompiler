@@ -493,7 +493,7 @@ public:
     AU.addRequired<DxilValueCache>();
   }
 
-  const char *getPassName() const override {
+  StringRef getPassName() const override {
     return "DXIL Lower createHandleForLib";
   }
 
@@ -580,7 +580,7 @@ public:
 
     // Load up debug information, to cross-reference values and the instructions
     // used to load them.
-    m_HasDbgInfo = hasDebugInfo(M);
+    m_HasDbgInfo = llvm::getDebugMetadataVersionFromModule(M) != 0;
 
     GenerateDxilResourceHandles();
 
@@ -1610,7 +1610,7 @@ public:
   explicit DxilLegalizeResources()
     : ModulePass(ID) {}
 
-  const char *getPassName() const override {
+  StringRef getPassName() const override {
     return "DXIL Legalize Resource Use";
   }
 
@@ -2771,7 +2771,7 @@ public:
   void applyOptions(PassOptions O) override {
     GetPassOptionUInt32(O, "auto-binding-space", &m_AutoBindingSpace, UINT_MAX);
   }
-  const char *getPassName() const override { return "DXIL Allocate Resources For Library"; }
+  StringRef getPassName() const override { return "DXIL Allocate Resources For Library"; }
 
   bool runOnModule(Module &M) override {
     DxilModule &DM = M.GetOrCreateDxilModule();
@@ -3194,7 +3194,7 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilCleanupDynamicResourceHandle() : ModulePass(ID) {}
 
-  const char *getPassName() const override { return "DXIL Cleanup dynamic resource handle calls"; }
+  StringRef getPassName() const override { return "DXIL Cleanup dynamic resource handle calls"; }
 
   bool runOnModule(Module &M) override {
     DxilModule &DM = M.GetOrCreateDxilModule();

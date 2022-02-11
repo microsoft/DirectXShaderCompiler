@@ -437,7 +437,7 @@ DxilValueCache::DxilValueCache() : ImmutablePass(ID) {
   initializeDxilValueCachePass(*PassRegistry::getPassRegistry());
 }
 
-const char *DxilValueCache::getPassName() const {
+StringRef DxilValueCache::getPassName() const {
   return "Dxil Value Cache";
 }
 

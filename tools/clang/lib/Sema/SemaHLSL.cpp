@@ -3902,7 +3902,7 @@ public:
   }
 
   bool DiagnoseHLSLScalarType(HLSLScalarType type, SourceLocation Loc) {
-    if (getSema()->getLangOpts().HLSLVersion < 2018) {
+    if (getSema()->getLangOpts().HLSLVersion < hlsl::LangStd::v2018) {
       switch (type) {
       case HLSLScalarType_float16:
       case HLSLScalarType_float32:
@@ -8077,12 +8077,12 @@ ExprResult HLSLExternalSource::LookupArrayMemberExprForHLSL(
   if (member->getLength() == 6 && 0 == strcmp(memberText, "Length")) {
     if (const ConstantArrayType *CAT = dyn_cast<ConstantArrayType>(BaseType)) {
       // check version support
-      unsigned hlslVer = getSema()->getLangOpts().HLSLVersion;
-      if (hlslVer > 2016) {
+      hlsl::LangStd hlslVer = getSema()->getLangOpts().HLSLVersion;
+      if (hlslVer > hlsl::LangStd::v2016) {
         m_sema->Diag(MemberLoc, diag::err_hlsl_unsupported_for_version_lower) << "Length" << "2016";
         return ExprError();
       }
-      if (hlslVer == 2016) {
+      if (hlslVer == hlsl::LangStd::v2016) {
         m_sema->Diag(MemberLoc, diag::warn_deprecated) << "Length";
       }
 
@@ -9823,7 +9823,7 @@ Sema::TemplateDeductionResult HLSLExternalSource::DeduceTemplateArgumentsForHLSL
     // Check Explicit template arguments
     UINT intrinsicOp = (*cursor)->Op;
     LPCSTR intrinsicName = (*cursor)->pArgs[0].pName;
-    bool Is2018 = getSema()->getLangOpts().HLSLVersion >= 2018;
+    bool Is2018 = getSema()->getLangOpts().HLSLVersion >= hlsl::LangStd::v2018;
     bool IsBAB =
         objectName == g_ArBasicTypeNames[AR_OBJECT_BYTEADDRESS_BUFFER] ||
         objectName == g_ArBasicTypeNames[AR_OBJECT_RWBYTEADDRESS_BUFFER];

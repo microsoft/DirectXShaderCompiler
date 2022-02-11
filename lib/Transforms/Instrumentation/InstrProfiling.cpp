@@ -36,7 +36,7 @@ public:
   InstrProfiling(const InstrProfOptions &Options)
       : ModulePass(ID), Options(Options) {}
 
-  const char *getPassName() const override {
+  StringRef getPassName() const override {
     return "Frontend instrumentation-based coverage lowering";
   }
 

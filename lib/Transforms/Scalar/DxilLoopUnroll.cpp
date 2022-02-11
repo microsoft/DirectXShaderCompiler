@@ -121,7 +121,7 @@ public:
   {
     initializeDxilLoopUnrollPass(*PassRegistry::getPassRegistry());
   }
-  const char *getPassName() const override { return "Dxil Loop Unroll"; }
+  StringRef getPassName() const override { return "Dxil Loop Unroll"; }
   bool runOnLoop(Loop *L, LPPassManager &LPM) override;
   bool doFinalization() override;
   bool IsLoopSafeToClone(Loop *L);

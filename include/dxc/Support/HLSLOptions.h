@@ -18,6 +18,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Option/ArgList.h"
 #include "dxc/dxcapi.h"
+#include "dxc/Support/HLSLVersion.h"
 #include "dxc/Support/SPIRVOptions.h"
 #include <map>
 #include <set>
@@ -163,7 +164,7 @@ public:
   bool EnableStrictMode = false;     // OPT_Ges
   bool EnableDX9CompatMode = false;     // OPT_Gec
   bool EnableFXCCompatMode = false;     // internal flag
-  unsigned long HLSLVersion = 0; // OPT_hlsl_version (2015-2018)
+  LangStd HLSLVersion = LangStd::vUnset; // OPT_hlsl_version (2015-2021)
   bool Enable16BitTypes = false; // OPT_enable_16bit_types
   bool OptDump = false; // OPT_ODump - dump optimizer commands
   bool OutputWarnings = true; // OPT_no_warnings

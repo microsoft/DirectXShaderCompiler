@@ -81,7 +81,7 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit MatrixBitcastLowerPass() : FunctionPass(ID) {}
 
-  const char *getPassName() const override { return "Matrix Bitcast lower"; }
+  StringRef getPassName() const override { return "Matrix Bitcast lower"; }
   bool runOnFunction(Function &F) override {
     bool bUpdated = false;
     std::unordered_set<BitCastInst*> matCastSet;

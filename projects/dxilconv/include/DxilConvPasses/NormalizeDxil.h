@@ -47,7 +47,7 @@ namespace llvm {
     // Normalize incoming dxil ir.
     bool runOnFunction(Function &F) override;
 
-    virtual const char *getPassName() const override { return "Normalize Dxil"; }
+    virtual StringRef getPassName() const override { return "Normalize Dxil"; }
 
     void getAnalysisUsage(AnalysisUsage &AU) const override;
   };

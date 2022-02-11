@@ -150,7 +150,7 @@ namespace {
       spillImpossible = ~0u
     };
   public:
-    const char *getPassName() const override {
+    StringRef getPassName() const override {
       return "Fast Register Allocator";
     }
 

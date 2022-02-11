@@ -228,7 +228,8 @@ void StructurizeMultiRet(llvm::Module &M,
                          bool bWaveEnabledStage,
                          llvm::SmallVector<llvm::BranchInst *, 16> &DxBreaks);
 
-llvm::Value *TryEvalIntrinsic(llvm::CallInst *CI, hlsl::IntrinsicOp intriOp, unsigned hlslVersion);
+llvm::Value *TryEvalIntrinsic(llvm::CallInst *CI, hlsl::IntrinsicOp intriOp,
+                              hlsl::LangStd hlslVersion);
 void SimpleTransformForHLDXIR(llvm::Module *pM);
 void ExtensionCodeGen(hlsl::HLModule &HLM, clang::CodeGen::CodeGenModule &CGM);
 } // namespace CGHLSLMSHelper

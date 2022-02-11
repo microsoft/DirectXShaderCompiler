@@ -193,7 +193,7 @@ static HLSLScalarType FindScalarTypeByName(const char *typeName, const size_t ty
   }
   // fixed width types (int16_t, uint16_t, int32_t, uint32_t, float16_t, float32_t, float64_t)
   // are only supported in HLSL 2018
-  if (langOptions.HLSLVersion >= 2018) {
+  if (langOptions.HLSLVersion >= hlsl::LangStd::v2018) {
     switch (typeLen) {
     case 7: // int16_t, int32_t
       if (typeName[0] == 'i' && typeName[1] == 'n') {

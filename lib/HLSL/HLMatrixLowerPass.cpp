@@ -126,7 +126,7 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit HLMatrixLowerPass() : ModulePass(ID) {}
 
-  const char *getPassName() const override { return "HL matrix lower"; }
+  StringRef getPassName() const override { return "HL matrix lower"; }
   bool runOnModule(Module &M) override;
 
 private:

@@ -73,7 +73,7 @@ public:
            << P->getPassArgument() << ") attempted to be registered!\n";
       llvm_unreachable(nullptr);
     }
-    addLiteralOption(P->getPassArgument(), P, P->getPassName());
+    addLiteralOption(P->getPassArgument(), P, P->getPassName().data());
   }
   void passEnumerate(const PassInfo *P) override { passRegistered(P); }
 
