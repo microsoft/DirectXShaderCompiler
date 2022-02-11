@@ -16,6 +16,7 @@
 #include "clang/SPIRV/SpirvContext.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include <memory>
 
 using namespace clang::spirv;
 
