@@ -53,7 +53,7 @@ public:
     initializeScalarizerPass(*PassRegistry::getPassRegistry());
   }
 
-  const char *getPassName() const override { return "Invalidate undef resources"; }
+  StringRef getPassName() const override { return "Invalidate undef resources"; }
 
   bool runOnModule(Module &M) override;
 };
@@ -128,7 +128,7 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilDeadFunctionElimination () : ModulePass(ID) {}
 
-  const char *getPassName() const override { return "Remove all unused function except entry from DxilModule"; }
+  StringRef getPassName() const override { return "Remove all unused function except entry from DxilModule"; }
 
   bool runOnModule(Module &M) override {
     if (M.HasDxilModule()) {
@@ -340,7 +340,7 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilFinalizeModule() : ModulePass(ID) {}
 
-  const char *getPassName() const override { return "HLSL DXIL Finalize Module"; }
+  StringRef getPassName() const override { return "HLSL DXIL Finalize Module"; }
 
   void patchValidation_1_1(Module &M) {
     for (iplist<Function>::iterator F : M.getFunctionList()) {
@@ -1359,7 +1359,7 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilCleanupAddrSpaceCast() : ModulePass(ID) {}
 
-  const char *getPassName() const override { return "HLSL DXIL Cleanup Address Space Cast"; }
+  StringRef getPassName() const override { return "HLSL DXIL Cleanup Address Space Cast"; }
 
   bool runOnModule(Module &M) override {
     return CleanupSharedMemoryAddrSpaceCast(M);
@@ -1383,7 +1383,7 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilEmitMetadata() : ModulePass(ID) {}
 
-  const char *getPassName() const override { return "HLSL DXIL Metadata Emit"; }
+  StringRef getPassName() const override { return "HLSL DXIL Metadata Emit"; }
 
   bool runOnModule(Module &M) override {
     if (M.HasDxilModule()) {
@@ -1454,7 +1454,7 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilValidateWaveSensitivity() : ModulePass(ID) {}
 
-  const char *getPassName() const override {
+  StringRef getPassName() const override {
     return "HLSL DXIL wave sensitiveity validation";
   }
 
@@ -1623,7 +1623,7 @@ class CleanupDxBreak : public FunctionPass {
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit CleanupDxBreak() : FunctionPass(ID) {}
-  const char *getPassName() const override { return "HLSL Remove unnecessary dx.break conditions"; }
+  StringRef getPassName() const override { return "HLSL Remove unnecessary dx.break conditions"; }
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<LoopInfoWrapperPass>();
   }

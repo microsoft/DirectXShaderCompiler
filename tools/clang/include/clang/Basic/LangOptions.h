@@ -20,6 +20,7 @@
 #include "clang/Basic/ObjCRuntime.h"
 #include "clang/Basic/Sanitizers.h"
 #include "clang/Basic/Visibility.h"
+#include "dxc/Support/HLSLVersion.h"
 #include <string>
 #include <vector>
 
@@ -149,7 +150,7 @@ public:
 #endif
 
   // HLSL Change Starts
-  unsigned HLSLVersion = 2018;
+  hlsl::LangStd HLSLVersion = hlsl::LangStd::vLatest;
   std::string HLSLEntryFunction;
   std::string HLSLProfile;
   unsigned RootSigMajor = 1;

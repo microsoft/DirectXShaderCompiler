@@ -1582,7 +1582,7 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc) {
     ScopeFlags = Scope::DeclScope | Scope::ControlScope;
 
   // HLSL Change Starts - leak declarations in for control parts into outer scope
-  if (getLangOpts().HLSLVersion < 2021) {
+  if (getLangOpts().HLSLVersion < hlsl::LangStd::v2021) {
     ScopeFlags = Scope::ForDeclScope;
   }
   // HLSL Change Ends

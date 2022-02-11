@@ -25,6 +25,7 @@ StructuredBuffer<float4> InputEdgeFactor : register(t1);
 StructuredBuffer<uint2> InputScanned : register(t2);
 
 RWByteAddressBuffer TessedIndicesOut : register(u0);
+RWStructuredBuffer<int4> DebugOutput : register(u1); // HLSL Change
 
 cbuffer cbCS : register(b1)
 {
@@ -633,6 +634,7 @@ void main( uint3 DTid : SV_DispatchThreadID, uint3 Gid : SV_GroupID, uint GI : S
             tessed_indices = pt;
         }
 
+        DebugOutput[DTid.x] = processedTessFactors.outsideInsideSplitPointOnFloorHalfTessFactor; // HLSL Change: Use that output so the loop that defines it doens't get deleted.
         TessedIndicesOut.Store(id*4, tessed_indices);
     }       
 }

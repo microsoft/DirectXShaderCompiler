@@ -64,7 +64,7 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit NoPausePasses() : ModulePass(ID) {}
 
-  const char *getPassName() const override { return "NoPausePasses"; }
+  StringRef getPassName() const override { return "NoPausePasses"; }
 
   bool runOnModule(Module &M) override {
     return ClearPauseResumePasses(M);
@@ -76,7 +76,7 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit PausePasses() : ModulePass(ID) {}
 
-  const char *getPassName() const override { return "PausePasses"; }
+  StringRef getPassName() const override { return "PausePasses"; }
 
   bool runOnModule(Module &M) override {
     StringRef pause, resume;
@@ -96,7 +96,7 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit ResumePasses() : ModulePass(ID) {}
 
-  const char *getPassName() const override { return "ResumePasses"; }
+  StringRef getPassName() const override { return "ResumePasses"; }
 
   bool runOnModule(Module &M) override {
     StringRef pause, resume;

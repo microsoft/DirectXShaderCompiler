@@ -187,7 +187,7 @@ public:
   PMDataManager *getAsPMDataManager() override { return this; }
   Pass *getAsPass() override { return this; }
 
-  const char *getPassName() const override {
+  StringRef getPassName() const override {
     return "BasicBlock Pass Manager";
   }
 
@@ -342,7 +342,7 @@ public:
   /// its runOnFunction() for function F.
   Pass* getOnTheFlyPass(Pass *MP, AnalysisID PI, Function &F) override;
 
-  const char *getPassName() const override {
+  StringRef getPassName() const override {
     return "Module Pass Manager";
   }
 
@@ -679,8 +679,8 @@ void PMTopLevelManager::schedulePass(Pass *P) {
   }
 
   if (PI && !PI->isAnalysis() && ShouldPrintBeforePass(PI)) {
-    Pass *PP = P->createPrinterPass(
-      dbgs(), std::string("*** IR Dump Before ") + P->getPassName() + " ***");
+    Pass *PP = P->createPrinterPass(dbgs(), std::string("*** IR Dump Before ") +
+                                         P->getPassName().str() + " ***");
     PP->assignPassManager(activeStack, getTopLevelPassManagerType());
   }
 
@@ -689,8 +689,8 @@ void PMTopLevelManager::schedulePass(Pass *P) {
   P->assignPassManager(activeStack, getTopLevelPassManagerType());
 
   if (PI && !PI->isAnalysis() && ShouldPrintAfterPass(PI)) {
-    Pass *PP = P->createPrinterPass(
-      dbgs(), std::string("*** IR Dump After ") + P->getPassName() + " ***");
+    Pass *PP = P->createPrinterPass(dbgs(), std::string("*** IR Dump After ") +
+                                         P->getPassName().str() + " ***");
     PP->assignPassManager(activeStack, getTopLevelPassManagerType());
   }
 
@@ -707,7 +707,7 @@ void PMTopLevelManager::schedulePass(Pass *P) {
     static direct_stderr_stream stderr_stream;
 
     Pass *PP = P->createPrinterPass(
-      stderr_stream, std::string("*** IR Dump After ") + P->getPassName() + " (" + PI->getPassArgument() + ") ***");
+      stderr_stream, std::string("*** IR Dump After ") + P->getPassName().str() + " (" + PI->getPassArgument() + ") ***");
     PP->assignPassManager(activeStack, getTopLevelPassManagerType());
   }
   // HLSL Change - end

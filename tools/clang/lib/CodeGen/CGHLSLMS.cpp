@@ -1008,7 +1008,8 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(DxilStructAnnotation *annota
     if (Field->isBitField()) {
       // TODO(?): Consider refactoring, as this branch duplicates much
       // of the logic of CGRecordLowering::accumulateBitFields().
-      DXASSERT(CGM.getLangOpts().HLSLVersion > 2015, "We should have already ensured we have no bitfields.");
+      DXASSERT(CGM.getLangOpts().HLSLVersion > hlsl::LangStd::v2015,
+               "We should have already ensured we have no bitfields.");
       CodeGenTypes &Types = CGM.getTypes();
       ASTContext &Context = Types.getContext();
       const ASTRecordLayout &Layout = Context.getASTRecordLayout(RD);
@@ -3827,7 +3828,8 @@ RValue CGMSHLSLRuntime::EmitHLSLBuiltinCallExpr(CodeGenFunction &CGF,
           StringRef intrinsicGroup;
           hlsl::GetIntrinsicOp(FD, intrinsicOpcode, intrinsicGroup);
           IntrinsicOp opcode = static_cast<IntrinsicOp>(intrinsicOpcode);
-          if (Value *Result = TryEvalIntrinsic(CI, opcode, CGM.getLangOpts().HLSLVersion)) {
+          if (Value *Result =
+                  TryEvalIntrinsic(CI, opcode, CGM.getLangOpts().HLSLVersion)) {
             RV = RValue::get(Result);
           }
         }
