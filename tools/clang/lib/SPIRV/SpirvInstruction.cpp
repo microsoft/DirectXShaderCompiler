@@ -234,14 +234,16 @@ SpirvDecoration::SpirvDecoration(SourceLocation loc,
 SpirvDecoration::SpirvDecoration(SourceLocation loc,
                                  SpirvInstruction *targetInst,
                                  spv::Decoration decor,
-                                 llvm::StringRef strParam,
+                                 llvm::ArrayRef<llvm::StringRef> strParams,
                                  llvm::Optional<uint32_t> idx)
     : SpirvInstruction(IK_Decoration, getDecorateStringOpcode(idx.hasValue()),
                        /*type*/ {}, loc),
       target(targetInst), targetFunction(nullptr), decoration(decor),
       index(idx), params(), idParams() {
-  const auto &stringWords = string::encodeSPIRVString(strParam);
-  params.insert(params.end(), stringWords.begin(), stringWords.end());
+  for (llvm::StringRef str : strParams) {
+    const auto &stringWords = string::encodeSPIRVString(str);
+    params.insert(params.end(), stringWords.begin(), stringWords.end());
+  }
 }
 
 SpirvDecoration::SpirvDecoration(SourceLocation loc,

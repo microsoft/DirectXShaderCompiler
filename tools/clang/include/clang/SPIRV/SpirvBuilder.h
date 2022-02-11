@@ -52,6 +52,8 @@ class SpirvBuilder {
 public:
   SpirvBuilder(ASTContext &ac, SpirvContext &c, const SpirvCodeGenOptions &,
                FeatureManager &featureMgr);
+  SpirvBuilder(SpirvContext &c, const SpirvCodeGenOptions &,
+               FeatureManager &featureMgr);
   ~SpirvBuilder() = default;
 
   // Forbid copy construction and assignment
@@ -585,7 +587,8 @@ public:
   inline SpirvInstruction *addExecutionMode(SpirvFunction *entryPoint,
                                             spv::ExecutionMode em,
                                             llvm::ArrayRef<uint32_t> params,
-                                            SourceLocation);
+                                            SourceLocation,
+                                            bool useIdParams = false);
 
   /// \brief Adds an OpModuleProcessed instruction to the module under
   /// construction.
@@ -696,14 +699,18 @@ public:
                        SourceLocation);
 
   /// \brief Decorates the given target with information from VKDecorateExt
-  void decorateLiterals(SpirvInstruction *targetInst, unsigned decorate,
-                        unsigned *literal, unsigned literalSize,
-                        SourceLocation);
+  void decorateWithLiterals(SpirvInstruction *targetInst, unsigned decorate,
+                            llvm::ArrayRef<unsigned> literals, SourceLocation);
 
-  /// \brief Decorates the given target with the given string.
-  void decorateString(SpirvInstruction *target, unsigned decorate,
-                      llvm::StringRef strLiteral,
-                      llvm::Optional<uint32_t> memberIdx = llvm::None);
+  /// \brief Decorates the given target with result ids of SPIR-V
+  /// instructions.
+  void decorateWithIds(SpirvInstruction *targetInst, unsigned decorate,
+                       llvm::ArrayRef<SpirvInstruction *> ids, SourceLocation);
+
+  /// \brief Decorates the given target with the given strings.
+  void decorateWithStrings(SpirvInstruction *target, unsigned decorate,
+                           llvm::ArrayRef<llvm::StringRef> strLiteral,
+                           SourceLocation loc);
 
   /// --- Constants ---
   /// Each of these methods can acquire a unique constant from the SpirvContext,
@@ -727,6 +734,7 @@ public:
 
 public:
   std::vector<uint32_t> takeModule();
+  std::vector<uint32_t> takeModuleForDxilToSpv();
 
 protected:
   /// Only friend classes are allowed to add capability/extension to the module
@@ -787,7 +795,7 @@ private:
                                               SpirvInstruction *var);
 
 private:
-  ASTContext &astContext;
+  ASTContext *astContext;
   SpirvContext &context; ///< From which we allocate various SPIR-V object
   FeatureManager &featureManager;
 
@@ -888,9 +896,9 @@ SpirvBuilder::setDebugSource(uint32_t major, uint32_t minor,
 SpirvInstruction *
 SpirvBuilder::addExecutionMode(SpirvFunction *entryPoint, spv::ExecutionMode em,
                                llvm::ArrayRef<uint32_t> params,
-                               SourceLocation loc) {
-  auto mode =
-      new (context) SpirvExecutionMode(loc, entryPoint, em, params, false);
+                               SourceLocation loc, bool useIdParams) {
+  auto mode = new (context)
+      SpirvExecutionMode(loc, entryPoint, em, params, useIdParams);
   mod->addExecutionMode(mode);
 
   return mode;

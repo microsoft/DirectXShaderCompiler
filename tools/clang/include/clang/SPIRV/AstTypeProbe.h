@@ -324,10 +324,16 @@ bool isOrContainsNonFpColMajorMatrix(const ASTContext &,
                                      const SpirvCodeGenOptions &, QualType type,
                                      const Decl *decl);
 
-/// \bried Returns true if the given type is a String or StringLiteral type.
+/// \brief Returns true if the given type is `vk::ext_result_id<T>`.
+bool isExtResultIdType(QualType type);
+
+/// \brief Returns true if the given type is defined in `vk` namespace.
+bool isTypeInVkNamespace(const RecordType *type);
+
+/// \brief Returns true if the given type is a String or StringLiteral type.
 bool isStringType(QualType);
 
-/// \bried Returns true if the given type is a bindless array of an opaque type.
+/// \brief Returns true if the given type is a bindless array of an opaque type.
 bool isBindlessOpaqueArray(QualType type);
 
 /// \brief Generates the corresponding SPIR-V vector type for the given Clang

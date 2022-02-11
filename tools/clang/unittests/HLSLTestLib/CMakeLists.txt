@@ -12,10 +12,10 @@ add_clang_library(HLSLTestLib
 else(WIN32)
 set(HLSL_IGNORE_SOURCES
   D3DReflectionDumper.cpp
-  FileCheckerTest.cpp
 )
 add_clang_library(HLSLTestLib
   DxcTestUtils.cpp
+  FileCheckerTest.cpp
   FileCheckForTest.cpp
 )
 include_directories(${LLVM_MAIN_SRC_DIR}/utils/unittest/googletest/include)
